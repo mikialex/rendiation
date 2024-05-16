@@ -9,11 +9,6 @@ pub use terminal::*;
 mod rendering;
 pub use rendering::*;
 
-pub struct Viewer3dSceneCtx {
-  pub main_camera: AllocIdx<SceneCameraEntity>,
-  pub scene: AllocIdx<SceneEntity>,
-}
-
 pub struct Viewer {
   on_demand_rendering: bool,
   on_demand_draw: NotifyScope,
@@ -61,12 +56,22 @@ impl Viewer {
   pub fn new(gpu: Arc<GPU>, content_logic: impl Widget + 'static) -> Self {
     let mut terminal = Terminal::default();
     register_default_commands(&mut terminal);
+
+    let scene = global_entity_of::<SceneEntity>()
+      .entity_writer()
+      .new_entity();
+    let main_camera = global_entity_of::<SceneCameraEntity>()
+      .entity_writer()
+      .new_entity();
+
+    let scene = Viewer3dSceneCtx { main_camera, scene };
+
     Self {
       // todo, we current disable the on demand draw
       // because we not cache the rendering result yet
       on_demand_rendering: false,
       content: Box::new(content_logic),
-      scene: todo!(),
+      scene,
       terminal,
       rendering: Viewer3dRenderingCtx::new(gpu),
       on_demand_draw: Default::default(),
@@ -106,5 +111,30 @@ impl Viewer {
         ui.separator();
         self.terminal.egui(ui, cx);
       });
+  }
+}
+
+pub struct Viewer3dSceneCtx {
+  pub main_camera: EntityHandle<SceneCameraEntity>,
+  pub scene: EntityHandle<SceneEntity>,
+}
+
+pub struct Viewer3dSceneCtxWriterWidget<V>(V);
+
+impl<V: Widget> Widget for Viewer3dSceneCtxWriterWidget<V> {
+  fn update_state(&mut self, cx: &mut StateCx) {
+    self.0.update_state(cx)
+  }
+
+  fn update_view(&mut self, cx: &mut StateCx) {
+    state_access!(cx, viewer_scene, Viewer3dSceneCtx);
+    let mut writer = Scene3dWriter::from_global(viewer_scene.scene);
+    cx.state_scope(&mut writer, |cx| {
+      self.0.update_view(cx);
+    })
+  }
+
+  fn clean_up(&mut self, cx: &mut StateCx) {
+    self.0.clean_up(cx)
   }
 }

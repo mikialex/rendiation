@@ -38,7 +38,7 @@ impl Widget for Box<dyn Widget> {
   }
 }
 
-pub trait ViewExt: Widget + Sized {
+pub trait WidgetExt: Widget + Sized {
   fn with_view_update(self, f: impl FnMut(&mut Self, &mut StateCx)) -> impl Widget {
     ViewUpdate { inner: self, f }
   }
@@ -71,7 +71,7 @@ pub trait ViewExt: Widget + Sized {
   }
 }
 
-impl<T: Widget> ViewExt for T {}
+impl<T: Widget> WidgetExt for T {}
 
 pub struct ViewUpdate<T, F> {
   inner: T,

@@ -1,7 +1,7 @@
 use crate::*;
 
 pub fn rotation_gizmo_view(
-  parent: AllocIdx<SceneNodeEntity>,
+  parent: EntityHandle<SceneNodeEntity>,
   v: &mut Scene3dWriter,
 ) -> impl Widget {
   let mut rotate_state = Option::<RotateState>::default();
@@ -36,7 +36,7 @@ pub fn rotation_gizmo_view(
 pub fn build_rotator(
   v: &mut Scene3dWriter,
   axis: AxisType,
-  parent: AllocIdx<SceneNodeEntity>,
+  parent: EntityHandle<SceneNodeEntity>,
 ) -> impl Widget {
   let mesh = build_attributes_mesh(|builder| {
     builder.triangulate_parametric(

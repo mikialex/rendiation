@@ -1,4 +1,4 @@
-use reactive::AllocIdx;
+use database::*;
 use rendiation_algebra::*;
 use rendiation_geometry::*;
 use rendiation_mesh_core::*;
@@ -25,7 +25,7 @@ pub struct InteractionState3d {
 pub trait Picker3d {
   fn pick_model_nearest(
     &self,
-    model: AllocIdx<SceneModelEntity>,
+    model: EntityHandle<SceneModelEntity>,
     world_ray: Ray3,
   ) -> Option<Vec3<f32>>;
 }

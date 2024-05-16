@@ -1,24 +1,24 @@
 use crate::*;
 
 pub struct UINode {
-  node: AllocIdx<SceneNodeEntity>,
+  node: EntityHandle<SceneNodeEntity>,
   children: WidgetGroup,
 }
 
 impl UINode {
   pub fn new(v: &mut Scene3dWriter) -> Self {
     Self {
-      node: v.node_writer.new_entity().alloc_idx(),
+      node: v.node_writer.new_entity(),
       children: Default::default(),
     }
   }
-  pub fn node(&self) -> AllocIdx<SceneNodeEntity> {
+  pub fn node(&self) -> EntityHandle<SceneNodeEntity> {
     self.node
   }
   pub fn with_child<V: Widget + 'static>(
     mut self,
     v: &mut Scene3dWriter,
-    child: impl FnOnce(AllocIdx<SceneNodeEntity>, &mut Scene3dWriter) -> V,
+    child: impl FnOnce(EntityHandle<SceneNodeEntity>, &mut Scene3dWriter) -> V,
   ) -> Self {
     self.children = self.children.with_child(child(self.node, v));
     self
@@ -36,6 +36,6 @@ impl Widget for UINode {
 
   fn clean_up(&mut self, cx: &mut StateCx) {
     state_mut_access!(cx, scene_cx, Scene3dWriter);
-    // scene_cx.node_writer.delete_entity(self.node);
+    scene_cx.node_writer.delete_entity(self.node);
   }
 }

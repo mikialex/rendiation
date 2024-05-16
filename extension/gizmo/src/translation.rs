@@ -1,7 +1,7 @@
 use crate::*;
 
 pub fn translation_gizmo_view(
-  parent: AllocIdx<SceneNodeEntity>,
+  parent: EntityHandle<SceneNodeEntity>,
   v: &mut Scene3dWriter,
 ) -> impl Widget {
   WidgetGroup::default()
@@ -35,7 +35,11 @@ pub fn translation_gizmo_view(
     .with_local_state_inject(AxisActiveState::default())
 }
 
-fn arrow(v: &mut Scene3dWriter, axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl Widget {
+fn arrow(
+  v: &mut Scene3dWriter,
+  axis: AxisType,
+  parent: EntityHandle<SceneNodeEntity>,
+) -> impl Widget {
   UIWidgetModel::new(v, ArrowShape::default().build())
     .with_parent(v, parent)
     .with_matrix(v, axis.mat())
@@ -46,7 +50,11 @@ fn arrow(v: &mut Scene3dWriter, axis: AxisType, parent: AllocIdx<SceneNodeEntity
     .with_state_pick(axis_lens(axis))
 }
 
-fn plane(v: &mut Scene3dWriter, axis: AxisType, parent: AllocIdx<SceneNodeEntity>) -> impl Widget {
+fn plane(
+  v: &mut Scene3dWriter,
+  axis: AxisType,
+  parent: EntityHandle<SceneNodeEntity>,
+) -> impl Widget {
   let mesh = build_attributes_mesh(|builder| {
     builder.triangulate_parametric(
       &ParametricPlane.transform_by(Mat4::translate((-0.5, -0.5, 0.))),

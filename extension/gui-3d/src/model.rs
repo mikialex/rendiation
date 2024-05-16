@@ -13,12 +13,11 @@ pub struct UIWidgetModel {
   on_mouse_out: Option<Box<dyn FnMut(&mut StateCx, Vec3<f32>)>>,
   on_mouse_down: Option<Box<dyn FnMut(&mut StateCx, Vec3<f32>)>>,
 
-  parent: Option<AllocIdx<SceneNodeEntity>>,
-  std_model: AllocIdx<StandardModelEntity>,
-  model: AllocIdx<SceneModelEntity>,
-  node: AllocIdx<SceneNodeEntity>,
-  material: AllocIdx<FlatMaterialEntity>,
-  mesh: AllocIdx<AttributeMeshEntity>,
+  std_model: EntityHandle<StandardModelEntity>,
+  model: EntityHandle<SceneModelEntity>,
+  node: EntityHandle<SceneNodeEntity>,
+  material: EntityHandle<FlatMaterialEntity>,
+  mesh: EntityHandle<AttributeMeshEntity>,
 }
 
 impl Widget for UIWidgetModel {
@@ -35,7 +34,12 @@ impl Widget for UIWidgetModel {
     }
   }
   fn clean_up(&mut self, cx: &mut StateCx) {
-    todo!();
+    state_mut_access!(cx, scene_cx, Scene3dWriter);
+    scene_cx.std_model_writer.delete_entity(self.std_model);
+    scene_cx.model_writer.delete_entity(self.model);
+    scene_cx.node_writer.delete_entity(self.node);
+    scene_cx.flat_mat_writer.delete_entity(self.material)
+    // todo mesh
   }
 }
 
@@ -65,12 +69,11 @@ impl UIWidgetModel {
       on_mouse_in: None,
       on_mouse_out: None,
       on_mouse_down: None,
-      parent: None,
-      std_model: model.alloc_idx(),
-      model: scene_model.alloc_idx(),
-      node: node.alloc_idx(),
-      material: material.alloc_idx(),
-      mesh: mesh.alloc_idx(),
+      std_model: model,
+      model: scene_model,
+      node,
+      material,
+      mesh,
     }
   }
 
@@ -117,7 +120,7 @@ impl UIWidgetModel {
     cx3d
       .flat_mat_writer
       .write_component_data::<FlatMaterialDisplayColorComponent>(
-        self.material,
+        self.material.alloc_idx(),
         color.expand_with_one(),
       );
     self
@@ -125,14 +128,14 @@ impl UIWidgetModel {
   pub fn set_visible(&mut self, cx3d: &mut Scene3dWriter, v: bool) -> &mut Self {
     cx3d
       .node_writer
-      .write_component_data::<SceneNodeVisibleComponent>(self.node, v);
+      .write_component_data::<SceneNodeVisibleComponent>(self.node.alloc_idx(), v);
     self
   }
 
   pub fn set_matrix(&mut self, cx3d: &mut Scene3dWriter, mat: Mat4<f32>) -> &mut Self {
     cx3d
       .node_writer
-      .write_component_data::<SceneNodeLocalMatrixComponent>(self.node, mat);
+      .write_component_data::<SceneNodeLocalMatrixComponent>(self.node.alloc_idx(), mat);
     self
   }
   /// find a macro to do this!
@@ -142,14 +145,19 @@ impl UIWidgetModel {
   }
 
   pub fn with_shape(mut self, cx3d: &mut Scene3dWriter, shape: AttributesMeshData) -> Self {
-    self.mesh = cx3d.write_attribute_mesh(shape.build()).alloc_idx();
+    self.mesh = cx3d.write_attribute_mesh(shape.build());
     self
   }
 
-  pub fn with_parent(self, cx3d: &mut Scene3dWriter, parent: AllocIdx<SceneNodeEntity>) -> Self {
-    cx3d
-      .node_writer
-      .write_component_data::<SceneNodeParentIdx>(self.node, Some(parent.index));
+  pub fn with_parent(
+    self,
+    cx3d: &mut Scene3dWriter,
+    parent: EntityHandle<SceneNodeEntity>,
+  ) -> Self {
+    cx3d.node_writer.write_component_data::<SceneNodeParentIdx>(
+      self.node.alloc_idx(),
+      Some(parent.alloc_idx().index),
+    );
     self
   }
 }
