@@ -134,6 +134,11 @@ impl<T: ComponentSemantic> ComponentWriteView<T> {
     }
   }
 
+  pub fn read(&self, idx: u32) -> T::Data {
+    // self.write_impl(idx, new, false);
+    todo!()
+  }
+
   pub fn write(&mut self, idx: u32, new: T::Data) {
     self.write_impl(idx, new, false);
   }

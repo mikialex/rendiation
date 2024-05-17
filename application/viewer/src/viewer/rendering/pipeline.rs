@@ -1,5 +1,3 @@
-use std::task::Context;
-
 use rendiation_algebra::*;
 use rendiation_texture_gpu_process::*;
 use rendiation_webgpu::*;
@@ -44,20 +42,20 @@ impl ViewerPipeline {
 //   pub fn render(
 //     &mut self,
 //     ctx: &mut FrameCtx,
-//     content: &Viewer3dContent,
+//     renderer: &dyn SceneRenderer,
+//     content: &Viewer3dSceneCtx,
 //     final_target: &RenderTargetView,
-//     scene: &SceneRenderResourceGroup,
 //   ) {
-//     let mut mip_gen = scene.resources.bindable_ctx.gpu.mipmap_gen.borrow_mut();
-//     mip_gen.flush_mipmap_gen_request(ctx);
-//     let mut single_proj_sys = scene
-//       .scene_resources
-//       .shadows
-//       .single_proj_sys
-//       .write()
-//       .unwrap();
-//     single_proj_sys.update_depth_maps(ctx, scene);
-//     drop(single_proj_sys);
+//     // let mut mip_gen = scene.resources.bindable_ctx.gpu.mipmap_gen.borrow_mut();
+//     // mip_gen.flush_mipmap_gen_request(ctx);
+//     // let mut single_proj_sys = scene
+//     //   .scene_resources
+//     //   .shadows
+//     //   .single_proj_sys
+//     //   .write()
+//     //   .unwrap();
+//     // single_proj_sys.update_depth_maps(ctx, scene);
+//     // drop(single_proj_sys);
 
 //     let mut msaa_color = attachment().sample_count(4).request(ctx);
 //     let mut msaa_depth = depth_attachment().sample_count(4).request(ctx);
@@ -77,8 +75,7 @@ impl ViewerPipeline {
 
 //     let taa_content = SceneCameraTAAContent {
 //       gpu: ctx.gpu,
-//       camera: scene.scene.get_active_camera(),
-//       scene,
+//       scene: content,
 //       f: |ctx: &mut FrameCtx| {
 //         let mut scene_result = attachment().request(ctx);
 //         let mut scene_depth = depth_attachment().request(ctx);
@@ -164,6 +161,22 @@ impl ViewerPipeline {
 //   }
 // }
 
+// pub trait PassContentWithSceneRendererAndCamera {
+//   fn render(
+//     &mut self,
+//     pass: &mut FrameRenderPass,
+//     renderer: &dyn SceneRenderer,
+//     camera: AllocIdx<SceneCameraEntity>,
+//   ) {
+//     if let Some(objects) = self.objects.take() {
+//       let mut list = RenderList::default();
+//       list.collect_from_scene_objects(scene, objects, camera, false);
+//       let list = MaybeBindlessMeshRenderList::from_list(list, scene);
+//       list.setup_pass(pass, &HighLightMaskDispatcher, camera, scene)
+//     }
+//   }
+// }
+
 // impl<T> PassContentWithSceneAndCamera for HighLightDrawMaskTask<T>
 // where
 //   T: Iterator<Item = SceneModel>,
@@ -185,8 +198,7 @@ impl ViewerPipeline {
 
 // struct SceneCameraTAAContent<'a, F> {
 //   gpu: &'a GPU,
-//   camera: &'a SceneCamera,
-//   scene: &'a SceneRenderResourceGroup<'a>,
+//   scene: &'a Viewer3dSceneCtx,
 //   f: F,
 // }
 

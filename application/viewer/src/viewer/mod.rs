@@ -119,7 +119,7 @@ pub struct Viewer3dSceneCtx {
   pub scene: EntityHandle<SceneEntity>,
 }
 
-pub struct Viewer3dSceneCtxWriterWidget<V>(V);
+pub struct Viewer3dSceneCtxWriterWidget<V>(pub V);
 
 impl<V: Widget> Widget for Viewer3dSceneCtxWriterWidget<V> {
   fn update_state(&mut self, cx: &mut StateCx) {

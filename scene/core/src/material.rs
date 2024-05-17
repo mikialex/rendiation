@@ -2,6 +2,7 @@ pub use flat_material::*;
 
 use crate::*;
 
+#[derive(Clone, Copy)]
 pub enum SceneMaterialDataView {
   FlatMaterial(EntityHandle<FlatMaterialEntity>),
   PbrSGMaterial(EntityHandle<PbrSGMaterialEntity>),

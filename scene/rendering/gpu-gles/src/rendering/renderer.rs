@@ -4,7 +4,7 @@ use crate::*;
 
 pub struct GLESRenderSystem {
   pub model_lookup: UpdateResultToken,
-  pub scene_model_impl: Vec<Box<dyn RenderImplProvider<Box<dyn GLESSceneModelRenderImpl>>>>,
+  pub scene_model_impl: Vec<Box<dyn RenderImplProvider<Box<dyn SceneModelRenderer>>>>,
 }
 
 pub fn build_default_gles_render_system(cx: &GPU) -> GLESRenderSystem {
@@ -49,24 +49,51 @@ impl RenderImplProvider<Box<dyn SceneRenderer>> for GLESRenderSystem {
 }
 
 struct GLESSceneRenderer {
-  scene_model_renderer: Vec<Box<dyn GLESSceneModelRenderImpl>>,
+  scene_model_renderer: Vec<Box<dyn SceneModelRenderer>>,
   model_lookup: Box<dyn VirtualMultiCollection<AllocIdx<SceneEntity>, AllocIdx<SceneModelEntity>>>,
 }
 
+impl SceneModelRenderer for GLESSceneRenderer {
+  fn make_component<'a>(
+    &'a self,
+    idx: AllocIdx<SceneModelEntity>,
+    camera: AllocIdx<SceneCameraEntity>,
+    pass: &'a (dyn RenderComponent + 'a),
+  ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
+    self.scene_model_renderer.make_component(idx, camera, pass)
+  }
+}
+
 impl SceneRenderer for GLESSceneRenderer {
-  fn render(
-    &self,
+  fn render<'a>(
+    &'a self,
     scene: AllocIdx<SceneEntity>,
     camera: AllocIdx<SceneCameraEntity>,
-    pass: &dyn RenderComponent,
-    ctx: &mut FrameCtx,
-    target: RenderPassDescriptorOwned,
-  ) {
-    let mut ctx = ctx.encoder.begin_render_pass_with_info(target, ctx.gpu);
-    for idx in self.model_lookup.access_multi_value(&scene) {
-      if let Some((com, command)) = self.scene_model_renderer.make_component(idx, camera, pass) {
-        com.render(&mut ctx.ctx, command)
-      }
-    }
+    pass: &'a dyn RenderComponent,
+    _: &mut FrameCtx,
+  ) -> Box<dyn PassContent + 'a> {
+    Box::new(GLESScenePassContent {
+      renderer: self,
+      scene,
+      pass,
+      camera,
+    })
+  }
+}
+
+struct GLESScenePassContent<'a> {
+  renderer: &'a GLESSceneRenderer,
+  scene: AllocIdx<SceneEntity>,
+  pass: &'a dyn RenderComponent,
+  camera: AllocIdx<SceneCameraEntity>,
+}
+
+impl<'a> PassContent for GLESScenePassContent<'a> {
+  fn render(&mut self, pass: &mut FrameRenderPass) {
+    let mut models = self.renderer.model_lookup.access_multi_value(&self.scene);
+
+    self
+      .renderer
+      .render_reorderable_models(&mut models, self.camera, &self.pass, &mut pass.ctx)
   }
 }

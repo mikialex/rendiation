@@ -14,6 +14,30 @@ pub struct Scene3dWriter {
 }
 
 impl Scene3dWriter {
+  pub fn create_root_child(&mut self) -> EntityHandle<SceneNodeEntity> {
+    self.node_writer.new_entity()
+  }
+  pub fn create_child(
+    &mut self,
+    parent: EntityHandle<SceneNodeEntity>,
+  ) -> EntityHandle<SceneNodeEntity> {
+    let child = self.create_root_child();
+    child
+  }
+
+  pub fn create_scene_model(
+    &mut self,
+    material: SceneMaterialDataView,
+    mesh: EntityHandle<AttributeMeshEntity>,
+    node: EntityHandle<SceneNodeEntity>,
+  ) -> EntityHandle<SceneModelEntity> {
+    todo!()
+  }
+
+  pub fn set_local_matrix(&mut self, node: EntityHandle<SceneNodeEntity>, mat: Mat4<f32>) {
+    //
+  }
+
   pub fn from_global(scene: EntityHandle<SceneEntity>) -> Self {
     Self {
       scene,

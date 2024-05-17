@@ -15,7 +15,7 @@ pub fn core_viewer_features<V: Widget>(
   move |cx| {
     Box::new(
       WidgetGroup::default()
-        .with_child(gizmo(todo!()))
+        .with_child(Viewer3dSceneCtxWriterWidget(gizmo(todo!())))
         .with_child(content_logic(cx)),
     )
   }

@@ -2,7 +2,8 @@ use rendiation_algebra::*;
 use rendiation_mesh_core::CommonVertex;
 use rendiation_mesh_core::*;
 use rendiation_mesh_generator::{
-  CubeMeshParameter, IndexedMeshBuilder, IntoTransformed3D, SphereMeshParameter, TessellationConfig,
+  build_attributes_mesh, CubeMeshParameter, IndexedMeshBuilder, IntoTransformed3D,
+  SphereMeshParameter, TessellationConfig,
 };
 use rendiation_scene_core::AttributeMeshEntity;
 use rendiation_texture_core::{
@@ -215,82 +216,38 @@ use crate::*;
 //   // stress_test2(scene);
 // }
 
-// pub fn stress_test(scene: &Scene) {
-//   let material = PhysicalSpecularGlossinessMaterial {
-//     albedo: Vec3::splat(1.),
-//     albedo_texture: None,
-//     ..Default::default()
-//   };
-//   let material = MaterialEnum::PhysicalSpecularGlossiness(material.into());
-//   for i in 0..10 {
-//     let i_parent = scene.create_root_child();
-//     i_parent.set_local_matrix(Mat4::translate((i as f32, 0., 0.)));
-//     for j in 0..10 {
-//       let j_parent = i_parent.create_child();
-//       j_parent.set_local_matrix(Mat4::translate((0., 0., j as f32)));
-//       for k in 0..1 {
-//         let node = j_parent.create_child();
-//         node.set_local_matrix(Mat4::translate((0., k as f32, 0.)));
+pub fn load_stress_test(scene: &mut Scene3dWriter) {
+  let material = PhysicalSpecularGlossinessMaterialDataView {
+    albedo: Vec3::splat(1.),
+    albedo_texture: None,
+    ..Default::default()
+  }
+  .write(&mut scene.pbr_sg_mat_writer);
+  let material = SceneMaterialDataView::PbrSGMaterial(material);
+  for i in 0..10 {
+    let i_parent = scene.create_root_child();
+    scene.set_local_matrix(i_parent, Mat4::translate((i as f32, 0., 0.)));
+    for j in 0..10 {
+      let j_parent = scene.create_child(i_parent);
+      scene.set_local_matrix(j_parent, Mat4::translate((0., 0., j as f32)));
+      for k in 0..1 {
+        let node = scene.create_child(j_parent);
+        scene.set_local_matrix(node, Mat4::translate((0., k as f32, 0.)));
 
-//         let cube = CubeMeshParameter {
-//           width: 0.2,
-//           height: 0.2,
-//           depth: 0.2,
-//         };
-//         let mesh = build_scene_mesh(|builder| {
-//           for face in cube.make_faces() {
-//             builder.triangulate_parametric(&face, TessellationConfig { u: 2, v: 3 }, true);
-//           }
-//         });
+        let cube = CubeMeshParameter {
+          width: 0.2,
+          height: 0.2,
+          depth: 0.2,
+        };
+        let mesh = build_attributes_mesh(|builder| {
+          for face in cube.make_faces() {
+            builder.triangulate_parametric(&face, TessellationConfig { u: 2, v: 3 }, true);
+          }
+        });
+        let mesh = scene.write_attribute_mesh(mesh.build());
 
-//         let child = scene.create_root_child();
-//         child.set_local_matrix(Mat4::translate((2., 0., 3.)));
-
-//         let model = StandardModel::new(material.clone(), mesh);
-//         let model = ModelEnum::Standard(model.into());
-//         let model = SceneModelImpl::new(model, node);
-//         let _ = scene.insert_model(model.into());
-//       }
-//     }
-//   }
-// }
-
-// pub fn stress_test2(scene: &Scene) {
-//   let material = PhysicalSpecularGlossinessMaterial {
-//     albedo: Vec3::splat(1.),
-//     albedo_texture: None,
-//     ..Default::default()
-//   };
-//   let material = MaterialEnum::PhysicalSpecularGlossiness(material.into());
-//   for i in 0..100 {
-//     let i_parent = scene.create_root_child();
-//     for j in 0..100 {
-//       let j_parent = i_parent.create_child();
-//       for k in 0..1 {
-//         let node = j_parent.create_child();
-//         let cube = CubeMeshParameter {
-//           width: 0.2,
-//           height: 0.2,
-//           depth: 0.2,
-//         };
-//         let mesh = build_scene_mesh(|builder| {
-//           for face in cube.make_faces() {
-//             builder.triangulate_parametric(
-//               &face.transform_by(Mat4::translate((i as f32, k as f32, j as f32))),
-//               TessellationConfig { u: 2, v: 3 },
-//               true,
-//             );
-//           }
-//         });
-
-//         let child = scene.create_root_child();
-//         child.set_local_matrix(Mat4::translate((2., 0., 3.)));
-
-//         let model = StandardModel::new(material.clone(), mesh);
-//         let model = ModelEnum::Standard(model.into());
-//         let model = SceneModelImpl::new(model, node);
-//         let _ = scene.insert_model(model.into());
-//       }
-//     }
-//   }
-// }
+        scene.create_scene_model(material, mesh, node);
+      }
+    }
+  }
+}

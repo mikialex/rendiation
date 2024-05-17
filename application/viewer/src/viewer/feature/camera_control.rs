@@ -1,4 +1,6 @@
-use rendiation_controller::{ControllerWinitAdapter, InputBound, OrbitController};
+use rendiation_controller::{
+  ControllerWinitAdapter, InputBound, OrbitController, Transformed3DControllee,
+};
 
 use crate::*;
 
@@ -19,23 +21,35 @@ impl Widget for SceneOrbitCameraControl {
       self.controller.event(e, bound)
     }
 
-    // todo update camera state
+    state_access!(cx, scene_cx, Viewer3dSceneCtx);
+
+    let control_node = global_entity_component_of::<SceneCameraNode>()
+      .read()
+      .get(scene_cx.main_camera.alloc_idx())
+      .unwrap();
+    let node_local_mat = global_entity_component_of::<SceneNodeLocalMatrixComponent>().write();
+
+    self.controller.update(&mut ControlleeWrapper {
+      controllee: todo!(),
+      writer: node_local_mat,
+    });
   }
 
   fn update_view(&mut self, _: &mut StateCx) {}
   fn clean_up(&mut self, _: &mut StateCx) {}
 }
 
-// struct ControlleeWrapper<'a> {
-//   controllee: &'a SceneNode,
-// }
+struct ControlleeWrapper {
+  controllee: EntityHandle<SceneNodeLocalMatrixComponent>,
+  writer: ComponentWriteView<SceneNodeLocalMatrixComponent>,
+}
 
-// impl<'a> Transformed3DControllee for ControlleeWrapper<'a> {
-//   fn get_matrix(&self) -> Mat4<f32> {
-//     self.controllee.get_local_matrix()
-//   }
+impl Transformed3DControllee for ControlleeWrapper {
+  fn get_matrix(&self) -> Mat4<f32> {
+    self.writer.read(self.controllee.alloc_idx().index)
+  }
 
-//   fn set_matrix(&mut self, m: Mat4<f32>) {
-//     self.controllee.set_local_matrix(m)
-//   }
-// }
+  fn set_matrix(&mut self, m: Mat4<f32>) {
+    self.writer.write(self.controllee.alloc_idx().index, m)
+  }
+}

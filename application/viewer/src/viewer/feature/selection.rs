@@ -20,5 +20,5 @@ impl<T> Widget for SelectionProvider<T> {
 }
 
 pub struct ViewerSelection {
-  model: Option<AllocIdx<SceneModelEntity>>,
+  model: Option<EntityHandle<SceneModelEntity>>,
 }

@@ -1,41 +1,12 @@
 use crate::*;
 
-/// in gles rendering, for each scene model, we need to create a render component and a draw
-/// command;
-pub trait GLESSceneModelRenderImpl {
-  fn make_component<'a>(
-    &'a self,
-    idx: AllocIdx<SceneModelEntity>,
-    camera: AllocIdx<SceneCameraEntity>,
-    pass: &'a (dyn RenderComponent + 'a),
-  ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)>;
-}
-
-impl GLESSceneModelRenderImpl for Vec<Box<dyn GLESSceneModelRenderImpl>> {
-  fn make_component<'a>(
-    &'a self,
-    idx: AllocIdx<SceneModelEntity>,
-    camera: AllocIdx<SceneCameraEntity>,
-    pass: &'a (dyn RenderComponent + 'a),
-  ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
-    for provider in self {
-      if let Some(com) = provider.make_component(idx, camera, pass) {
-        return Some(com);
-      }
-    }
-    None
-  }
-}
-
 pub struct GLESPreferredComOrderRendererProvider {
   pub node: Box<dyn RenderImplProvider<Box<dyn GLESNodeRenderImpl>>>,
   pub camera: Box<dyn RenderImplProvider<Box<dyn GLESCameraRenderImpl>>>,
   pub model_impl: Vec<Box<dyn RenderImplProvider<Box<dyn GLESModelRenderImpl>>>>,
 }
 
-impl RenderImplProvider<Box<dyn GLESSceneModelRenderImpl>>
-  for GLESPreferredComOrderRendererProvider
-{
+impl RenderImplProvider<Box<dyn SceneModelRenderer>> for GLESPreferredComOrderRendererProvider {
   fn register_resource(&mut self, source: &mut ReactiveStateJoinUpdater, cx: &GPUResourceCtx) {
     self.node.register_resource(source, cx);
     self.camera.register_resource(source, cx);
@@ -45,10 +16,7 @@ impl RenderImplProvider<Box<dyn GLESSceneModelRenderImpl>>
       .for_each(|i| i.register_resource(source, cx));
   }
 
-  fn create_impl(
-    &self,
-    res: &mut ConcurrentStreamUpdateResult,
-  ) -> Box<dyn GLESSceneModelRenderImpl> {
+  fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> Box<dyn SceneModelRenderer> {
     Box::new(GLESPreferredComOrderRenderer {
       model_impl: self.model_impl.iter().map(|i| i.create_impl(res)).collect(),
       node: global_entity_component_of::<SceneModelRefNode>().read(),
@@ -65,7 +33,7 @@ pub struct GLESPreferredComOrderRenderer {
   camera_gpu: Box<dyn GLESCameraRenderImpl>,
 }
 
-impl GLESSceneModelRenderImpl for GLESPreferredComOrderRenderer {
+impl SceneModelRenderer for GLESPreferredComOrderRenderer {
   fn make_component<'a>(
     &'a self,
     idx: AllocIdx<SceneModelEntity>,

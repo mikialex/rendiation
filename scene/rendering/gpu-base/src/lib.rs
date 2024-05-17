@@ -30,29 +30,64 @@ pub trait RenderImplProvider<T> {
   fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> T;
 }
 
-pub trait SceneRenderer {
-  fn render(
-    &self,
+/// abstract over direct or indirect rendering
+pub trait SceneRenderer: SceneModelRenderer {
+  fn render<'a>(
+    &'a self,
     scene: AllocIdx<SceneEntity>,
+    camera: AllocIdx<SceneCameraEntity>,
+    pass: &'a dyn RenderComponent,
+    ctx: &mut FrameCtx,
+  ) -> Box<dyn PassContent + 'a>;
+}
+
+/// ability to do scene model level rendering
+pub trait SceneModelRenderer {
+  fn make_component<'a>(
+    &'a self,
+    idx: AllocIdx<SceneModelEntity>,
+    camera: AllocIdx<SceneCameraEntity>,
+    pass: &'a (dyn RenderComponent + 'a),
+  ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)>;
+
+  fn render_scene_model(
+    &self,
+    idx: AllocIdx<SceneModelEntity>,
     camera: AllocIdx<SceneCameraEntity>,
     pass: &dyn RenderComponent,
-    ctx: &mut FrameCtx,
-    target: RenderPassDescriptorOwned,
-  );
-}
+    cx: &mut GPURenderPassCtx,
+  ) {
+    if let Some((com, command)) = self.make_component(idx, camera, pass) {
+      com.render(cx, command)
+    }
+  }
 
-pub trait SceneRasterRenderingAdaptor {
-  type DrawTask;
-
-  /// should contains frustum culling and lod select
-  fn create_task(
+  /// maybe implementation could provide better performance for example host side multi draw
+  fn render_reorderable_models(
+    &self,
+    models: &mut dyn Iterator<Item = AllocIdx<SceneModelEntity>>,
     camera: AllocIdx<SceneCameraEntity>,
-    scene: AllocIdx<SceneEntity>,
-  ) -> Self::DrawTask;
-
-  fn render_task_on_frame(&self, ctx: &mut FrameCtx, task: Self::DrawTask, target: &Attachment);
+    pass: &dyn RenderComponent,
+    cx: &mut GPURenderPassCtx,
+  ) {
+    for m in models {
+      self.render_scene_model(m, camera, pass, cx);
+    }
+  }
 }
 
-pub trait PassContentWithCamera {
-  fn render(&mut self, pass: &mut FrameRenderPass, camera: AllocIdx<SceneCameraEntity>);
+impl SceneModelRenderer for Vec<Box<dyn SceneModelRenderer>> {
+  fn make_component<'a>(
+    &'a self,
+    idx: AllocIdx<SceneModelEntity>,
+    camera: AllocIdx<SceneCameraEntity>,
+    pass: &'a (dyn RenderComponent + 'a),
+  ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
+    for provider in self {
+      if let Some(com) = provider.make_component(idx, camera, pass) {
+        return Some(com);
+      }
+    }
+    None
+  }
 }
