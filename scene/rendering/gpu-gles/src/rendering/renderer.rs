@@ -65,7 +65,7 @@ impl SceneModelRenderer for GLESSceneRenderer {
 }
 
 impl SceneRenderer for GLESSceneRenderer {
-  fn render<'a>(
+  fn make_pass_content<'a>(
     &'a self,
     scene: AllocIdx<SceneEntity>,
     camera: AllocIdx<SceneCameraEntity>,
@@ -78,6 +78,12 @@ impl SceneRenderer for GLESSceneRenderer {
       pass,
       camera,
     })
+  }
+  fn init_clear(
+    &self,
+    _scene: AllocIdx<SceneEntity>, // todo background
+  ) -> (Operations<rendiation_webgpu::Color>, Operations<f32>) {
+    (clear(rendiation_webgpu::Color::WHITE), clear(1.))
   }
 }
 

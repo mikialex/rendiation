@@ -64,7 +64,11 @@ impl Viewer {
       .entity_writer()
       .new_entity();
 
-    let scene = Viewer3dSceneCtx { main_camera, scene };
+    let scene = Viewer3dSceneCtx {
+      main_camera,
+      scene,
+      selected_target: None,
+    };
 
     Self {
       // todo, we current disable the on demand draw
@@ -117,6 +121,7 @@ impl Viewer {
 pub struct Viewer3dSceneCtx {
   pub main_camera: EntityHandle<SceneCameraEntity>,
   pub scene: EntityHandle<SceneEntity>,
+  pub selected_target: Option<EntityHandle<SceneModelEntity>>,
 }
 
 pub struct Viewer3dSceneCtxWriterWidget<V>(pub V);

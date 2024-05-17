@@ -126,6 +126,11 @@ impl<'a> PassDescriptor<'a> {
 pub trait PassContent {
   fn render(&mut self, pass: &mut FrameRenderPass);
 }
+impl<'a> PassContent for &'a mut dyn PassContent {
+  fn render(&mut self, pass: &mut FrameRenderPass) {
+    (**self).render(pass);
+  }
+}
 
 impl<T: PassContent> PassContent for Option<T> {
   fn render(&mut self, pass: &mut FrameRenderPass) {

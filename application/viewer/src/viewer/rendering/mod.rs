@@ -67,14 +67,11 @@ impl Viewer3dRenderingCtx {
     let renderer = self.renderer_impl.create_impl(&mut resource);
 
     let mut ctx = FrameCtx::new(&self.gpu, target.size(), &self.pool);
-    // let scene_res = SceneRenderResourceGroup {
-    //   scene: &scene.core.read(),
-    //   resources: &resource,
-    //   scene_resources: scene_resource,
-    //   node_derives: &content.scene_derived,
-    // };
 
-    // self.pipeline.render(&mut ctx, content, &target, &scene_res);
+    self
+      .pipeline
+      .render(&mut ctx, renderer.as_ref(), content, &target);
+
     ctx.final_submit();
 
     self.on_encoding_finished.emit(&ViewRenderedState {

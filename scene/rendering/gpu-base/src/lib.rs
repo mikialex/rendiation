@@ -32,13 +32,18 @@ pub trait RenderImplProvider<T> {
 
 /// abstract over direct or indirect rendering
 pub trait SceneRenderer: SceneModelRenderer {
-  fn render<'a>(
+  fn make_pass_content<'a>(
     &'a self,
     scene: AllocIdx<SceneEntity>,
     camera: AllocIdx<SceneCameraEntity>,
     pass: &'a dyn RenderComponent,
     ctx: &mut FrameCtx,
   ) -> Box<dyn PassContent + 'a>;
+
+  fn init_clear(
+    &self,
+    scene: AllocIdx<SceneEntity>,
+  ) -> (Operations<rendiation_webgpu::Color>, Operations<f32>);
 }
 
 /// ability to do scene model level rendering
