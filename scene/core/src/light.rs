@@ -1,5 +1,19 @@
 use crate::*;
 
+#[derive(Clone, Copy)]
+pub enum SceneLightDataView {
+  FlatMaterial(EntityHandle<FlatMaterialEntity>),
+  PbrSGMaterial(EntityHandle<PbrSGMaterialEntity>),
+  PbrMRMaterial(EntityHandle<PbrMRMaterialEntity>),
+}
+
+pub struct PointLightDataView {
+  pub intensity: Vec3<f32>,
+  pub cutoff_distance: f32,
+  pub node: EntityHandle<SceneNodeEntity>,
+  pub scene: EntityHandle<SceneEntity>,
+}
+
 declare_entity!(PointLightEntity);
 declare_foreign_key!(PointLightRefScene, PointLightEntity, SceneEntity);
 declare_foreign_key!(PointLightRefNode, PointLightEntity, SceneNodeEntity);
@@ -18,6 +32,15 @@ pub fn register_point_light_data_model() {
     .declare_component::<PointLightIntensity>()
     .declare_foreign_key::<PointLightRefScene>()
     .declare_foreign_key::<PointLightRefNode>();
+}
+
+pub struct SpotLightDataView {
+  pub intensity: Vec3<f32>,
+  pub cutoff_distance: f32,
+  pub half_cone_angle: f32,
+  pub penumbra_angle: f32,
+  pub node: EntityHandle<SceneNodeEntity>,
+  pub scene: EntityHandle<SceneEntity>,
 }
 
 declare_entity!(SpotLightEntity);
@@ -42,6 +65,12 @@ pub fn register_spot_light_data_model() {
     .declare_component::<SplitLightIntensity>()
     .declare_foreign_key::<SpotLightRefScene>()
     .declare_foreign_key::<SpotLightRefNode>();
+}
+
+pub struct DirectionalLightDataView {
+  pub illuminance: Vec3<f32>,
+  pub node: EntityHandle<SceneNodeEntity>,
+  pub scene: EntityHandle<SceneEntity>,
 }
 
 declare_entity!(DirectionalLightEntity);

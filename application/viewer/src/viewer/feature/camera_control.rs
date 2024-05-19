@@ -4,6 +4,7 @@ use rendiation_controller::{
 
 use crate::*;
 
+#[derive(Default)]
 pub struct SceneOrbitCameraControl {
   pub controller: ControllerWinitAdapter<OrbitController>,
 }

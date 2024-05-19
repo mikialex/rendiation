@@ -57,6 +57,12 @@ pub struct ControllerWinitAdapter<T: ControllerWinitEventSupport> {
   last_sync: Option<Mat4<f32>>,
 }
 
+impl<T: ControllerWinitEventSupport + Default> Default for ControllerWinitAdapter<T> {
+  fn default() -> Self {
+    Self::new(T::default())
+  }
+}
+
 impl<T: ControllerWinitEventSupport> ControllerWinitAdapter<T> {
   pub fn new(controller: T) -> Self {
     Self {
