@@ -76,6 +76,15 @@ impl<T: ?Sized + Std430MaybeUnsized> CacheAbleBindingSource
   }
 }
 
+/// the binding array length is inject into shader, so we have to impl shader hash for it.
+impl<T: 'static> ShaderHashProvider for BindingResourceArray<T> {
+  shader_hash_type_id! {}
+
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.bindings.len().hash(hasher)
+  }
+}
+
 impl<T> ShaderBindingProvider for BindingResourceArray<T>
 where
   T: ShaderBindingProvider,

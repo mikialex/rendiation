@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::{
   marker::PhantomData,
   task::{Context, Poll},
@@ -13,5 +14,7 @@ mod uniform_group;
 pub use uniform_group::*;
 mod uniform_array;
 pub use uniform_array::*;
+mod binding_array;
+pub use binding_array::*;
 mod cube_map;
 pub use cube_map::*;
