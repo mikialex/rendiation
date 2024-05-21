@@ -14,9 +14,6 @@ use allocator::*;
 mod draw;
 pub use draw::*;
 
-// todo, support runtime dynamic size by query client limitation
-pub const MAX_STORAGE_BINDING_ARRAY_LENGTH: usize = 8192;
-
 pub type MeshSystemMeshHandle = u32;
 
 #[repr(C)]

@@ -1,15 +1,13 @@
-use std::{num::NonZeroU32, sync::Arc};
+use rendiation_texture_core::SizeWithDepth;
 
-use fast_hash_collection::FastHashMap;
-use parking_lot::RwLock;
-use rendiation_texture_packer::{
-  growable::PackResultRelocation, pack_2d_to_3d::PackResult2dWithDepth, PackId,
+use self::{
+  growable::{GrowablePacker, PackResultRelocation},
+  pack_impl::etagere_wrap::EtagerePacker,
 };
-
-use crate::*;
+use super::*;
 
 pub fn reactive_pack_2d_to_3d(
-  mut config: ShadowSizeConfig,
+  mut config: MultiLayerTexturePackerConfig,
   size: Box<dyn ReactiveCollection<u32, Size>>,
 ) -> (
   impl ReactiveCollection<u32, PackResult2dWithDepth>,
@@ -43,7 +41,7 @@ struct Packer {
   size_source: Box<dyn ReactiveCollection<u32, Size>>,
 
   packer: Arc<RwLock<PackerImpl>>,
-  // i think this is not necessary if the packer lib not generate id
+  // todo, i think this is not necessary if the packer lib not generate id
   mapping: Arc<RwLock<FastHashMap<PackId, u32>>>,
   rev_mapping: Arc<RwLock<FastHashMap<u32, PackId>>>,
 

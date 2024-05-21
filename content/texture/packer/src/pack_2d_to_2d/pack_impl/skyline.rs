@@ -1,7 +1,5 @@
 // https://github.com/PistonDevelopers/texture_packer/blob/master/src/packer/skyline_packer.rs
 
-use rendiation_texture_core::Size;
-
 use super::super::*;
 
 /// Defines a rectangle in pixels with the origin at the top-left of the texture atlas.

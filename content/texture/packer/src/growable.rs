@@ -1,5 +1,3 @@
-use fast_hash_collection::FastHashMap;
-
 use crate::*;
 
 pub struct GrowablePacker<P: RePackablePacker + TexturePackerInit> {

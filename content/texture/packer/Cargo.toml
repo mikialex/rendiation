@@ -9,6 +9,8 @@ fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 rendiation-texture-core = { path = "../core" }
 linked-hash-map = "0.5.4"
 etagere = "0.2.6"
+parking_lot = { version = "0.12.1", features = ["send_guard"] }
+reactive = { path = "../../../utility/reactive" }
 
 [lints]
 workspace = true

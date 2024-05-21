@@ -1,10 +1,12 @@
 use std::iter;
 
-use fast_hash_collection::FastHashMap;
 use rendiation_texture_core::{Size, SizeWithDepth};
 
 use crate::pack_2d_to_2d::*;
 use crate::*;
+
+mod reactive;
+pub use reactive::*;
 
 pub struct MultiLayerTexturePacker<P> {
   packers: Vec<P>,
@@ -88,4 +90,12 @@ pub struct PackResult2dWithDepth {
 pub struct MultiLayerTexturePackerConfig {
   pub max_size: SizeWithDepth,
   pub init_size: SizeWithDepth,
+}
+
+impl MultiLayerTexturePackerConfig {
+  pub fn make_sure_valid(&mut self) {
+    self.max_size.depth = self.max_size.depth.max(self.init_size.depth);
+    self.max_size.size.width = self.max_size.size.width.max(self.init_size.size.width);
+    self.max_size.size.height = self.max_size.size.height.max(self.init_size.size.height);
+  }
 }

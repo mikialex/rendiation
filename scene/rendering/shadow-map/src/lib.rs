@@ -4,16 +4,11 @@ use reactive::*;
 use rendiation_algebra::*;
 use rendiation_shader_api::*;
 use rendiation_texture_core::*;
-use rendiation_texture_packer::{
-  growable::GrowablePacker,
-  pack_2d_to_2d::pack_impl::etagere_wrap::EtagerePacker,
-  pack_2d_to_3d::{MultiLayerTexturePacker, PackResult2dWithDepth},
+use rendiation_texture_packer::pack_2d_to_3d::{
+  reactive_pack_2d_to_3d, MultiLayerTexturePackerConfig, PackResult2dWithDepth,
 };
 use rendiation_webgpu::*;
 use rendiation_webgpu_reactive_utils::*;
-
-mod packer;
-use packer::*;
 
 pub struct BasicShadowMapSystemInputs {
   ///  alloc_id => shadow camera vp
@@ -28,7 +23,7 @@ pub struct BasicShadowMapSystemInputs {
 
 pub fn basic_shadow_map_uniform(
   inputs: BasicShadowMapSystemInputs,
-  config: ShadowSizeConfig,
+  config: MultiLayerTexturePackerConfig,
   gpu_ctx: &GPUResourceCtx,
 ) -> (
   BasicShadowMapSystem,
@@ -72,24 +67,10 @@ pub struct BasicShadowMapSystem {
   source_view_proj: Box<dyn ReactiveCollection<u32, Mat4<f32>>>,
 }
 
-#[derive(Clone, Copy)]
-pub struct ShadowSizeConfig {
-  pub init_size: SizeWithDepth,
-  pub max_size: SizeWithDepth,
-}
-
-impl ShadowSizeConfig {
-  pub fn make_sure_valid(&mut self) {
-    self.max_size.depth = self.max_size.depth.max(self.init_size.depth);
-    self.max_size.size.width = self.max_size.size.width.max(self.init_size.size.width);
-    self.max_size.size.height = self.max_size.size.height.max(self.init_size.size.height);
-  }
-}
-
 impl BasicShadowMapSystem {
   pub fn new(
     gpu: &GPUResourceCtx,
-    config: ShadowSizeConfig,
+    config: MultiLayerTexturePackerConfig,
     source_view_proj: Box<dyn ReactiveCollection<u32, Mat4<f32>>>,
     size: Box<dyn ReactiveCollection<u32, Size>>,
   ) -> (Self, Box<dyn ReactiveCollection<u32, ShadowMapAddressInfo>>) {
@@ -126,6 +107,7 @@ impl BasicShadowMapSystem {
     // scene: impl PassContent,
   ) {
     let _ = self.packing.poll_changes(cx); // incremental detail is useless here
+                                           // todo, poll last value
     if let Poll::Ready(Some(_new_size)) = self.atlas_resize.poll_next_unpin(cx) {
       // do resize, if we do shadow cache, we should also do map copy
     }
