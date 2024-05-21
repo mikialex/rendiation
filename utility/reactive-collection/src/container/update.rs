@@ -137,7 +137,7 @@ impl<T> SharedMultiUpdateContainer<T> {
 impl<T: 'static> ReactiveState for SharedMultiUpdateContainer<T> {
   type State = Box<dyn Any>;
 
-  fn poll_current(&self, cx: &mut Context) -> Self::State {
+  fn poll_current(&mut self, cx: &mut Context) -> Self::State {
     self.inner.write().poll_update(cx);
     Box::new(self.inner.make_read_holder())
   }

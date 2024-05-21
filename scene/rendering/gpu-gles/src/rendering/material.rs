@@ -1,21 +1,21 @@
-use rendiation_texture_gpu_system::GPUTextureBindingSystem;
-
 use crate::*;
 
 pub trait GLESModelMaterialRenderImpl {
-  fn make_component(
-    &self,
+  fn make_component<'a>(
+    &'a self,
     idx: AllocIdx<StandardModelEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>>;
+    cx: &'a GPUTextureBindingSystem,
+  ) -> Option<Box<dyn RenderComponent + 'a>>;
 }
 
 impl GLESModelMaterialRenderImpl for Vec<Box<dyn GLESModelMaterialRenderImpl>> {
-  fn make_component(
-    &self,
+  fn make_component<'a>(
+    &'a self,
     idx: AllocIdx<StandardModelEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>> {
+    cx: &'a GPUTextureBindingSystem,
+  ) -> Option<Box<dyn RenderComponent + 'a>> {
     for provider in self {
-      if let Some(com) = provider.make_component(idx) {
+      if let Some(com) = provider.make_component(idx, cx) {
         return Some(com);
       }
     }
@@ -52,10 +52,11 @@ struct FlatMaterialDefaultRenderImpl {
 }
 
 impl GLESModelMaterialRenderImpl for FlatMaterialDefaultRenderImpl {
-  fn make_component(
-    &self,
+  fn make_component<'a>(
+    &'a self,
     idx: AllocIdx<StandardModelEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>> {
+    _cx: &'a GPUTextureBindingSystem,
+  ) -> Option<Box<dyn RenderComponent + 'a>> {
     let idx = self.material_access.get(idx)?;
     let idx = (*idx)?.index();
     Some(Box::new(FlatMaterialGPU {
@@ -64,21 +65,12 @@ impl GLESModelMaterialRenderImpl for FlatMaterialDefaultRenderImpl {
   }
 }
 
+#[derive(Default)]
 pub struct PbrMRMaterialDefaultRenderImplProvider {
   uniforms: UpdateResultToken,
   tex_uniforms: UpdateResultToken,
-  binding_sys: GPUTextureBindingSystem,
 }
 
-impl PbrMRMaterialDefaultRenderImplProvider {
-  pub fn new(binding_sys: GPUTextureBindingSystem) -> Self {
-    Self {
-      uniforms: UpdateResultToken::default(),
-      tex_uniforms: UpdateResultToken::default(),
-      binding_sys,
-    }
-  }
-}
 impl RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>
   for PbrMRMaterialDefaultRenderImplProvider
 {
@@ -100,7 +92,6 @@ impl RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>
       mr_tex_sampler: TextureSamplerIdView::read_from_global(),
       emissive_tex_sampler: TextureSamplerIdView::read_from_global(),
       normal_tex_sampler: TextureSamplerIdView::read_from_global(),
-      binding_sys: self.binding_sys.clone(),
     })
   }
 }
@@ -114,7 +105,6 @@ struct PbrMRMaterialDefaultRenderImpl {
   mr_tex_sampler: TextureSamplerIdView<PbrMRMaterialMetallicRoughnessTex>,
   emissive_tex_sampler: TextureSamplerIdView<PbrMRMaterialEmissiveTex>,
   normal_tex_sampler: TextureSamplerIdView<NormalTexSamplerOf<PbrMRMaterialNormalInfo>>,
-  binding_sys: GPUTextureBindingSystem,
 }
 
 pub struct TextureSamplerIdView<T: TextureWithSamplingForeignKeys> {
@@ -140,10 +130,11 @@ impl<T: TextureWithSamplingForeignKeys> TextureSamplerIdView<T> {
 }
 
 impl GLESModelMaterialRenderImpl for PbrMRMaterialDefaultRenderImpl {
-  fn make_component(
-    &self,
+  fn make_component<'a>(
+    &'a self,
     idx: AllocIdx<StandardModelEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>> {
+    cx: &'a GPUTextureBindingSystem,
+  ) -> Option<Box<dyn RenderComponent + 'a>> {
     let idx = self.material_access.get(idx)?;
     let idx = (*idx)?.index();
     let r = PhysicalMetallicRoughnessMaterialGPU {
@@ -154,7 +145,7 @@ impl GLESModelMaterialRenderImpl for PbrMRMaterialDefaultRenderImpl {
       emissive_tex_sampler: self.emissive_tex_sampler.get_pair(idx)?,
       normal_tex_sampler: self.normal_tex_sampler.get_pair(idx)?,
       texture_uniforms: self.tex_uniforms.get(&idx.into())?,
-      binding_sys: &self.binding_sys,
+      binding_sys: cx,
     };
     let r = Box::new(r) as Box<dyn RenderComponent + '_>;
     Some(r)

@@ -179,6 +179,7 @@ where
         self.camera,
         &HighLightMaskDispatcher,
         &mut pass.ctx,
+        self.renderer.get_scene_model_cx(),
       );
     }
   }

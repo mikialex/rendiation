@@ -5,15 +5,12 @@ use crate::*;
 
 pub fn gpu_texture_2ds(
   cx: &GPUResourceCtx,
-) -> impl ReactiveCollection<AllocIdx<SceneTexture2dEntity>, GPU2DTextureView> {
+  default: GPU2DTextureView,
+) -> impl ReactiveCollection<u32, GPU2DTextureView> {
   let cx = cx.clone();
-  let default: GPU2DTextureView = create_fallback_empty_texture(&cx.device)
-    .create_default_view()
-    .try_into()
-    .unwrap();
 
   global_watch()
-    .watch_typed_key::<SceneTexture2dEntityDirectContent>()
+    .watch::<SceneTexture2dEntityDirectContent>()
     // todo, we should consider using the simple map here
     .collective_execute_map_by(move || {
       let cx = cx.clone();
@@ -37,7 +34,7 @@ pub fn create_gpu_texture2d(cx: &GPUResourceCtx, texture: &GPUBufferImage) -> GP
   gpu_texture.create_default_view().try_into().unwrap()
 }
 
-fn create_fallback_empty_texture(device: &GPUDevice) -> GPU2DTexture {
+pub fn create_fallback_empty_texture(device: &GPUDevice) -> GPU2DTexture {
   GPUTexture::create(
     TextureDescriptor {
       label: "unimplemented default texture".into(),

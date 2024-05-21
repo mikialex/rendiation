@@ -54,11 +54,11 @@ impl ReactiveStateJoinUpdater {
     self.register(c)
   }
 
-  pub fn poll_update_all(&self, cx: &mut Context) -> ConcurrentStreamUpdateResult {
+  pub fn poll_update_all(&mut self, cx: &mut Context) -> ConcurrentStreamUpdateResult {
     ConcurrentStreamUpdateResult {
       inner: self
         .update_logic
-        .iter()
+        .iter_mut()
         .map(|(k, v)| (*k, v.poll_current(cx)))
         .collect(),
     }

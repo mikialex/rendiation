@@ -5,12 +5,10 @@ use crate::*;
 
 /// not need to hash the sampler to reduce the gpu sampler count, in device we have deduplicated
 /// already, and we also not need to do materialize, in device we have cached all sample created
-pub fn sampler_gpus(
-  cx: &GPUResourceCtx,
-) -> impl ReactiveCollection<AllocIdx<SceneSamplerEntity>, GPUSamplerView> {
+pub fn sampler_gpus(cx: &GPUResourceCtx) -> impl ReactiveCollection<u32, GPUSamplerView> {
   let cx = cx.clone();
   global_watch()
-    .watch_typed_key::<SceneSamplerInfo>()
+    .watch::<SceneSamplerInfo>()
     // todo, we should consider using the simple map here
     .collective_execute_map_by(move || {
       let cx = cx.clone();

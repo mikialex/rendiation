@@ -7,6 +7,7 @@ use reactive::*;
 use rendiation_scene_core::*;
 pub use rendiation_scene_rendering_gpu_base::*;
 use rendiation_shader_api::*;
+use rendiation_texture_gpu_system::*;
 use rendiation_webgpu::*;
 use rendiation_webgpu_reactive_utils::*;
 

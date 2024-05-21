@@ -25,9 +25,10 @@ impl Viewer3dRenderingCtx {
     let resource_cx = GPUResourceCtx {
       device: gpu.device.clone(),
       queue: gpu.queue.clone(),
+      info: gpu.info().clone(),
     };
 
-    let mut renderer_impl = build_default_gles_render_system(&gpu);
+    let mut renderer_impl = build_default_gles_render_system();
     let mut rendering_resource = ReactiveStateJoinUpdater::default();
     renderer_impl.register_resource(&mut rendering_resource, &resource_cx);
     Self {

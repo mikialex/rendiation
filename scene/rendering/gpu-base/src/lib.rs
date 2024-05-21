@@ -22,6 +22,7 @@
 
 use reactive::*;
 use rendiation_scene_core::*;
+use rendiation_texture_gpu_system::*;
 use rendiation_webgpu::*;
 
 pub trait RenderImplProvider<T> {
@@ -44,6 +45,8 @@ pub trait SceneRenderer: SceneModelRenderer {
     &self,
     scene: AllocIdx<SceneEntity>,
   ) -> (Operations<rendiation_webgpu::Color>, Operations<f32>);
+
+  fn get_scene_model_cx(&self) -> &GPUTextureBindingSystem;
 }
 
 /// ability to do scene model level rendering
@@ -53,6 +56,7 @@ pub trait SceneModelRenderer {
     idx: AllocIdx<SceneModelEntity>,
     camera: AllocIdx<SceneCameraEntity>,
     pass: &'a (dyn RenderComponent + 'a),
+    tex: &'a GPUTextureBindingSystem,
   ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)>;
 
   fn render_scene_model(
@@ -61,8 +65,9 @@ pub trait SceneModelRenderer {
     camera: AllocIdx<SceneCameraEntity>,
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,
+    tex: &GPUTextureBindingSystem,
   ) {
-    if let Some((com, command)) = self.make_component(idx, camera, pass) {
+    if let Some((com, command)) = self.make_component(idx, camera, pass, tex) {
       com.render(cx, command)
     }
   }
@@ -74,9 +79,10 @@ pub trait SceneModelRenderer {
     camera: AllocIdx<SceneCameraEntity>,
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,
+    tex: &GPUTextureBindingSystem,
   ) {
     for m in models {
-      self.render_scene_model(m, camera, pass, cx);
+      self.render_scene_model(m, camera, pass, cx, tex);
     }
   }
 }
@@ -87,9 +93,10 @@ impl SceneModelRenderer for Vec<Box<dyn SceneModelRenderer>> {
     idx: AllocIdx<SceneModelEntity>,
     camera: AllocIdx<SceneCameraEntity>,
     pass: &'a (dyn RenderComponent + 'a),
+    tex: &'a GPUTextureBindingSystem,
   ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
     for provider in self {
-      if let Some(com) = provider.make_component(idx, camera, pass) {
+      if let Some(com) = provider.make_component(idx, camera, pass, tex) {
         return Some(com);
       }
     }

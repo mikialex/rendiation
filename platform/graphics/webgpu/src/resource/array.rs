@@ -7,6 +7,15 @@ pub struct BindingResourceArray<T> {
   resource_id: usize,
 }
 
+impl<T> Clone for BindingResourceArray<T> {
+  fn clone(&self) -> Self {
+    Self {
+      bindings: self.bindings.clone(),
+      resource_id: self.resource_id,
+    }
+  }
+}
+
 impl<T> Default for BindingResourceArray<T> {
   fn default() -> Self {
     Self::new(Default::default())

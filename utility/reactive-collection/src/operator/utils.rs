@@ -132,7 +132,7 @@ where
 
 pub trait ReactiveState {
   type State;
-  fn poll_current(&self, cx: &mut Context) -> Self::State;
+  fn poll_current(&mut self, cx: &mut Context) -> Self::State;
 }
 
 // another design direction:
@@ -164,7 +164,7 @@ where
 {
   type State = Box<dyn std::any::Any>;
 
-  fn poll_current(&self, cx: &mut Context) -> Self::State {
+  fn poll_current(&mut self, cx: &mut Context) -> Self::State {
     let _ = self.inner.poll_changes(cx);
     Box::new(self.inner.access())
   }
@@ -183,7 +183,7 @@ where
 {
   type State = Box<dyn std::any::Any>;
 
-  fn poll_current(&self, cx: &mut Context) -> Self::State {
+  fn poll_current(&mut self, cx: &mut Context) -> Self::State {
     let _ = self.inner.poll_changes(cx);
     Box::new(self.inner.access_ref_collection())
   }
@@ -202,8 +202,22 @@ where
 {
   type State = Box<dyn std::any::Any>;
 
-  fn poll_current(&self, cx: &mut Context) -> Self::State {
+  fn poll_current(&mut self, cx: &mut Context) -> Self::State {
     let _ = self.inner.poll_changes(cx);
     Box::new(self.inner.multi_access())
+  }
+}
+
+pub struct ReactiveStateBoxAnyResult<T>(pub T);
+
+impl<T> ReactiveState for ReactiveStateBoxAnyResult<T>
+where
+  T::State: 'static,
+  T: ReactiveState,
+{
+  type State = Box<dyn std::any::Any>;
+
+  fn poll_current(&mut self, cx: &mut Context) -> Self::State {
+    Box::new(self.0.poll_current(cx))
   }
 }

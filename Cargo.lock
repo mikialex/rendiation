@@ -3339,6 +3339,7 @@ dependencies = [
  "fast-hash-collection",
  "reactive",
  "rendiation-scene-core",
+ "rendiation-texture-gpu-system",
  "rendiation-webgpu",
 ]
 
@@ -3486,10 +3487,10 @@ dependencies = [
 name = "rendiation-texture-gpu-system"
 version = "0.1.0"
 dependencies = [
- "futures",
+ "reactive",
  "rendiation-shader-api",
  "rendiation-webgpu",
- "slab",
+ "rendiation-webgpu-reactive-utils",
 ]
 
 [[package]]

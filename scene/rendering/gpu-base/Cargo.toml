@@ -10,6 +10,7 @@ fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 rendiation-scene-core = { path = "../../core" }
 reactive = { path = "../../../utility/reactive" }
 rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
+rendiation-texture-gpu-system = { path = "../../../content/texture/gpu-system" }
 
 
 [lints]

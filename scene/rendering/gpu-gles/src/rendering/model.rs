@@ -5,10 +5,11 @@ pub trait GLESModelRenderImpl {
     &self,
     idx: AllocIdx<SceneModelEntity>,
   ) -> Option<(Box<dyn RenderComponent + '_>, DrawCommand)>;
-  fn material_renderable(
-    &self,
+  fn material_renderable<'a>(
+    &'a self,
     idx: AllocIdx<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>>;
+    cx: &'a GPUTextureBindingSystem,
+  ) -> Option<Box<dyn RenderComponent + 'a>>;
 }
 
 impl GLESModelRenderImpl for Vec<Box<dyn GLESModelRenderImpl>> {
@@ -24,12 +25,13 @@ impl GLESModelRenderImpl for Vec<Box<dyn GLESModelRenderImpl>> {
     None
   }
 
-  fn material_renderable(
-    &self,
+  fn material_renderable<'a>(
+    &'a self,
     idx: AllocIdx<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>> {
+    cx: &'a GPUTextureBindingSystem,
+  ) -> Option<Box<dyn RenderComponent + 'a>> {
     for provider in self {
-      if let Some(v) = provider.material_renderable(idx) {
+      if let Some(v) = provider.material_renderable(idx, cx) {
         return Some(v);
       }
     }
@@ -77,12 +79,13 @@ impl GLESModelRenderImpl for SceneStdModelRenderer {
     self.shapes.make_component(idx.into())
   }
 
-  fn material_renderable(
-    &self,
+  fn material_renderable<'a>(
+    &'a self,
     idx: AllocIdx<SceneModelEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>> {
+    cx: &'a GPUTextureBindingSystem,
+  ) -> Option<Box<dyn RenderComponent + 'a>> {
     let model = self.model.get(idx)?;
     let idx = (*model)?.index();
-    self.materials.make_component(idx.into())
+    self.materials.make_component(idx.into(), cx)
   }
 }

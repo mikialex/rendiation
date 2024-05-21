@@ -89,6 +89,7 @@ impl<'a> Default for GPUCreateConfig<'a> {
   }
 }
 
+#[derive(Clone)]
 pub struct GPUInfo {
   pub requested_backend_type: Backends,
   pub power_preference: PowerPreference,

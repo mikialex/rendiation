@@ -1,22 +1,23 @@
-use rendiation_texture_gpu_system::GPUTextureBindingSystem;
+use rendiation_texture_core::TextureSampler;
 
 use crate::*;
 
 pub struct GLESRenderSystem {
   pub model_lookup: UpdateResultToken,
+  pub texture_system: UpdateResultToken,
   pub scene_model_impl: Vec<Box<dyn RenderImplProvider<Box<dyn SceneModelRenderer>>>>,
 }
 
-pub fn build_default_gles_render_system(cx: &GPU) -> GLESRenderSystem {
-  let texture_system = GPUTextureBindingSystem::new(cx, true, 8192);
+pub fn build_default_gles_render_system() -> GLESRenderSystem {
   GLESRenderSystem {
     model_lookup: Default::default(),
+    texture_system: Default::default(),
     scene_model_impl: vec![Box::new(GLESPreferredComOrderRendererProvider {
       node: Box::new(DefaultGLESNodeRenderImplProvider::default()),
       camera: Box::new(DefaultGLESCameraRenderImplProvider::default()),
       model_impl: vec![Box::new(DefaultSceneStdModelRendererProvider {
         materials: vec![
-          Box::new(PbrMRMaterialDefaultRenderImplProvider::new(texture_system)),
+          Box::new(PbrMRMaterialDefaultRenderImplProvider::default()),
           Box::new(FlatMaterialDefaultRenderImplProvider::default()),
         ],
         shapes: vec![Box::new(AttributeMeshDefaultRenderImplProvider::default())],
@@ -27,6 +28,27 @@ pub fn build_default_gles_render_system(cx: &GPU) -> GLESRenderSystem {
 
 impl RenderImplProvider<Box<dyn SceneRenderer>> for GLESRenderSystem {
   fn register_resource(&mut self, source: &mut ReactiveStateJoinUpdater, cx: &GPUResourceCtx) {
+    let default_2d: GPU2DTextureView = create_fallback_empty_texture(&cx.device)
+      .create_default_view()
+      .try_into()
+      .unwrap();
+
+    let default_sampler = create_gpu_sampler(cx, &TextureSampler::default());
+
+    let texture_system = GPUTextureBindingSystemSource::new(
+      &cx.info,
+      gpu_texture_2ds(cx, default_2d.clone())
+        .into_boxed()
+        .into_forker(),
+      default_2d,
+      sampler_gpus(cx).into_boxed().into_forker(),
+      default_sampler,
+      true,
+      8192,
+    );
+
+    self.texture_system = source.register(Box::new(ReactiveStateBoxAnyResult(texture_system)));
+
     let model_lookup = global_rev_ref().watch_inv_ref_typed::<SceneModelBelongsToScene>();
     self.model_lookup = source.register_reactive_multi_collection(model_lookup);
     for imp in &mut self.scene_model_impl {
@@ -44,11 +66,17 @@ impl RenderImplProvider<Box<dyn SceneRenderer>> for GLESRenderSystem {
       model_lookup: res
         .take_multi_reactive_collection_updated(self.model_lookup)
         .unwrap(),
+      texture_system: *res
+        .take_result(self.texture_system)
+        .unwrap()
+        .downcast::<GPUTextureBindingSystem>()
+        .unwrap(),
     })
   }
 }
 
 struct GLESSceneRenderer {
+  texture_system: GPUTextureBindingSystem,
   scene_model_renderer: Vec<Box<dyn SceneModelRenderer>>,
   model_lookup: Box<dyn VirtualMultiCollection<AllocIdx<SceneEntity>, AllocIdx<SceneModelEntity>>>,
 }
@@ -59,8 +87,11 @@ impl SceneModelRenderer for GLESSceneRenderer {
     idx: AllocIdx<SceneModelEntity>,
     camera: AllocIdx<SceneCameraEntity>,
     pass: &'a (dyn RenderComponent + 'a),
+    tex: &'a GPUTextureBindingSystem,
   ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
-    self.scene_model_renderer.make_component(idx, camera, pass)
+    self
+      .scene_model_renderer
+      .make_component(idx, camera, pass, tex)
   }
 }
 
@@ -85,6 +116,10 @@ impl SceneRenderer for GLESSceneRenderer {
   ) -> (Operations<rendiation_webgpu::Color>, Operations<f32>) {
     (clear(rendiation_webgpu::Color::WHITE), clear(1.))
   }
+
+  fn get_scene_model_cx(&self) -> &GPUTextureBindingSystem {
+    &self.texture_system
+  }
 }
 
 struct GLESScenePassContent<'a> {
@@ -98,8 +133,12 @@ impl<'a> PassContent for GLESScenePassContent<'a> {
   fn render(&mut self, pass: &mut FrameRenderPass) {
     let mut models = self.renderer.model_lookup.access_multi_value(&self.scene);
 
-    self
-      .renderer
-      .render_reorderable_models(&mut models, self.camera, &self.pass, &mut pass.ctx)
+    self.renderer.render_reorderable_models(
+      &mut models,
+      self.camera,
+      &self.pass,
+      &mut pass.ctx,
+      &self.renderer.texture_system,
+    );
   }
 }

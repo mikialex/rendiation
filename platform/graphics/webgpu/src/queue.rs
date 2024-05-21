@@ -26,4 +26,5 @@ impl Deref for GPUQueue {
 pub struct GPUResourceCtx {
   pub device: GPUDevice,
   pub queue: GPUQueue,
+  pub info: GPUInfo,
 }

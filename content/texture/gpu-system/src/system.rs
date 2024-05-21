@@ -1,71 +1,56 @@
-use core::{
-  hash::Hash,
-  pin::Pin,
-  task::{Context, Poll},
-};
-use std::sync::{Arc, RwLock};
-
-use futures::{stream::FusedStream, Stream};
-use rendiation_webgpu::*;
-
 use crate::*;
 
-#[derive(Clone)]
-pub struct GPUTextureBindingSystem {
-  bindless_enabled: bool,
-  inner: Arc<RwLock<BindlessTextureSystem>>,
+pub struct GPUTextureBindingSystemSource {
+  base: TraditionalPerDrawBindingSystemSource,
+  bindless: Option<BindlessTextureSystemSource>,
 }
 
-impl GPUTextureBindingSystem {
-  pub fn new(
-    gpu: &GPU,
-    prefer_enable_bindless: bool,
-    bindless_minimal_effective_count: usize,
-  ) -> Self {
-    let info = gpu.info();
-    let mut bindless_effectively_supported = info
-      .supported_features
-      .contains(Features::TEXTURE_BINDING_ARRAY)
-      && info
-        .supported_features
-        .contains(Features::PARTIALLY_BOUND_BINDING_ARRAY)
-      && info
-        .supported_features
-        .contains(Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING);
+pub struct GPUTextureBindingSystem {
+  base: TraditionalPerDrawBindingSystem,
+  bindless: Option<BindlessTextureSystem>,
+}
 
-    // we estimate that the texture used except under the binding system will not exceed 128 per
-    // shader stage
-    if info.supported_limits.max_sampled_textures_per_shader_stage
-      <= bindless_minimal_effective_count as u32 + 128
-      || info.supported_limits.max_samplers_per_shader_stage
-        <= bindless_minimal_effective_count as u32 + 128
-    {
-      bindless_effectively_supported = false;
-    }
+impl GPUTextureBindingSystemSource {
+  pub fn new(
+    info: &GPUInfo,
+    texture_2d: RxCForker<Texture2DHandle, GPU2DTextureView>,
+    default_2d: GPU2DTextureView,
+    sampler: RxCForker<SamplerHandle, GPUSamplerView>,
+    default_sampler: GPUSamplerView,
+    prefer_enable_bindless: bool,
+    bindless_minimal_effective_count: u32,
+  ) -> Self {
+    let base = TraditionalPerDrawBindingSystemSource {
+      textures: Box::new(texture_2d.clone()),
+      samplers: Box::new(sampler.clone()),
+    };
+    let bindless_effectively_supported =
+      is_bindless_supported_on_this_gpu(info, bindless_minimal_effective_count);
 
     let bindless_enabled = prefer_enable_bindless && bindless_effectively_supported;
 
-    Self {
-      bindless_enabled,
-      inner: Arc::new(RwLock::new(BindlessTextureSystem::new(bindless_enabled))),
+    let bindless = bindless_enabled.then(|| {
+      BindlessTextureSystemSource::new(
+        texture_2d,
+        default_2d,
+        sampler,
+        default_sampler,
+        bindless_minimal_effective_count,
+      )
+    });
+
+    Self { base, bindless }
+  }
+}
+
+impl ReactiveState for GPUTextureBindingSystemSource {
+  type State = GPUTextureBindingSystem;
+
+  fn poll_current(&mut self, cx: &mut Context) -> Self::State {
+    GPUTextureBindingSystem {
+      base: self.base.poll_current(cx),
+      bindless: self.bindless.as_mut().map(|sys| sys.poll_current(cx)),
     }
-  }
-}
-
-impl Stream for GPUTextureBindingSystem {
-  type Item = ();
-
-  fn poll_next(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Option<Self::Item>> {
-    // todo, slab reorder compact?
-    let mut inner = self.inner.write().unwrap();
-    inner.maintain();
-
-    Poll::Pending
-  }
-}
-impl FusedStream for GPUTextureBindingSystem {
-  fn is_terminated(&self) -> bool {
-    false
   }
 }
 
@@ -76,7 +61,7 @@ impl ShaderPassBuilder for GPUTextureBindingSystem {
 }
 impl ShaderHashProvider for GPUTextureBindingSystem {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.bindless_enabled.hash(hasher)
+    self.bindless.is_some().hash(hasher)
   }
   shader_hash_type_id! {}
 }
@@ -88,48 +73,24 @@ impl GraphicsShaderProvider for GPUTextureBindingSystem {
 }
 
 impl GPUTextureBindingSystem {
-  pub fn register_texture(&self, t: GPU2DTextureView) -> Texture2DHandle {
-    let mut inner = self.inner.write().unwrap();
-    inner.register_texture(t)
-  }
-  pub fn deregister_texture(&self, t: Texture2DHandle) {
-    let mut inner = self.inner.write().unwrap();
-    inner.deregister_texture(t)
-  }
-  pub fn register_sampler(&self, t: GPUSamplerView) -> SamplerHandle {
-    let mut inner = self.inner.write().unwrap();
-    inner.register_sampler(t)
-  }
-  pub fn deregister_sampler(&self, t: SamplerHandle) {
-    let mut inner = self.inner.write().unwrap();
-    inner.deregister_sampler(t)
-  }
-
   pub fn bind_texture(&self, binding: &mut BindingBuilder, handle: Texture2DHandle) {
-    if self.bindless_enabled {
+    if self.bindless.is_some() {
       return;
     }
-    // indeed, we lost performance in none bindless path by this lock access. This definitely has
-    // improvement space
-    let mut inner = self.inner.write().unwrap();
-    inner.bind_texture2d(binding, handle)
+    self.base.bind_texture2d(binding, handle)
   }
 
   pub fn bind_sampler(&self, binding: &mut BindingBuilder, handle: SamplerHandle) {
-    if self.bindless_enabled {
+    if self.bindless.is_some() {
       return;
     }
-    // ditto
-    let mut inner = self.inner.write().unwrap();
-    inner.bind_sampler(binding, handle)
+    self.base.bind_sampler(binding, handle)
   }
 
   pub fn bind_system(&self, binding: &mut BindingBuilder) {
-    if !self.bindless_enabled {
-      return;
+    if let Some(bindless) = &self.bindless {
+      bindless.bind_system_self(binding);
     }
-    let mut inner = self.inner.write().unwrap();
-    inner.bind_system_self(binding)
   }
 
   pub fn shader_bind_sampler(
@@ -137,8 +98,7 @@ impl GPUTextureBindingSystem {
     builder: &mut ShaderBindGroupDirectBuilder,
     handle: SamplerHandle,
   ) -> HandleNode<ShaderSampler> {
-    let inner = self.inner.read().unwrap();
-    inner.register_shader_sampler(builder, handle)
+    self.base.register_shader_sampler(builder, handle)
   }
 
   pub fn shader_bind_texture(
@@ -146,16 +106,13 @@ impl GPUTextureBindingSystem {
     builder: &mut ShaderBindGroupDirectBuilder,
     handle: Texture2DHandle,
   ) -> HandleNode<ShaderTexture2D> {
-    let inner = self.inner.read().unwrap();
-    inner.register_shader_texture2d(builder, handle)
+    self.base.register_shader_texture2d(builder, handle)
   }
 
   pub fn shader_system(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    if !self.bindless_enabled {
-      return;
+    if let Some(bindless) = &self.bindless {
+      bindless.register_system_self(builder);
     }
-    let inner = self.inner.read().unwrap();
-    inner.register_system_self(builder)
   }
 
   // note, when we unify the bind and bindless case, one bad point is the traditional bind
@@ -175,7 +132,7 @@ impl GPUTextureBindingSystem {
     device_handles: (Node<Texture2DHandle>, Node<SamplerHandle>),
     uv: Node<Vec2<f32>>,
   ) -> Node<Vec4<f32>> {
-    if self.bindless_enabled {
+    if self.bindless.is_some() {
       let textures = reg
         .query_typed_both_stage::<BindlessTexturesInShader>()
         .unwrap();

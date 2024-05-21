@@ -39,6 +39,7 @@ impl SceneModelRenderer for GLESPreferredComOrderRenderer {
     idx: AllocIdx<SceneModelEntity>,
     camera: AllocIdx<SceneCameraEntity>,
     pass: &'a (dyn RenderComponent + 'a),
+    tex: &'a GPUTextureBindingSystem,
   ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
     let node = self.node.get(idx)?;
     let node = (*node)?.index();
@@ -47,7 +48,7 @@ impl SceneModelRenderer for GLESPreferredComOrderRenderer {
     let camera = self.camera_gpu.make_component(camera)?;
 
     let (shape, draw) = self.model_impl.shape_renderable(idx)?;
-    let material = self.model_impl.material_renderable(idx)?;
+    let material = self.model_impl.material_renderable(idx, tex)?;
 
     let pass = Box::new(pass) as Box<dyn RenderComponent + 'a>;
 
