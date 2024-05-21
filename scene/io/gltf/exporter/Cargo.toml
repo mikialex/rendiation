@@ -1,0 +1,15 @@
+[package]
+edition = "2021"
+name = "rendiation-scene-gltf-exporter"
+version = "0.0.1"
+
+[dependencies]
+gltf = "1.2.0"
+gltf-json = "1.2.0"
+rendiation-mesh-core = { path = "../../../../content/mesh/core" }
+rendiation-scene-core = { path = "../../../core" }
+rendiation-texture-core = { path = "../../../../content/texture/core" }
+fast-hash-collection = { path = "../../../../utility/fast-hash-collection" }
+
+[lints]
+workspace = true

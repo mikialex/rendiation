@@ -72,13 +72,13 @@ pub fn register_scene_model_data_model() {
     .declare_foreign_key::<SceneModelStdModelRenderPayload>();
 }
 
-pub struct SceneModelDataModel {
+pub struct SceneModelDataView {
   pub model: EntityHandle<StandardModelEntity>,
   pub scene: EntityHandle<SceneEntity>,
   pub node: EntityHandle<SceneNodeEntity>,
 }
 
-impl SceneModelDataModel {
+impl SceneModelDataView {
   pub fn write(
     &self,
     writer: &mut EntityWriter<SceneModelEntity>,

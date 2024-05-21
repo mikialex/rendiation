@@ -50,6 +50,8 @@ members = [
   "scene/rendering/gpu-gles",
   "scene/rendering/shadow-map",
   "scene/io/obj/loader",
+  "scene/io/gltf/loader",
+  "scene/io/gltf/exporter",
   "scene/geometry-query",
   "platform/event-input",
   "platform/graphics/webgpu",

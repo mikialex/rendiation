@@ -25,7 +25,7 @@ pub fn load_obj(
   for model in models {
     let std_model = model.write(&mut writer.std_model_writer);
 
-    let sm = SceneModelDataModel {
+    let sm = SceneModelDataView {
       model: std_model,
       scene,
       node,

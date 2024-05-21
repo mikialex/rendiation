@@ -53,7 +53,7 @@ impl UIWidgetModel {
     }
     .write(&mut v.std_model_writer);
     let node = v.node_writer.new_entity();
-    let scene_model = SceneModelDataModel {
+    let scene_model = SceneModelDataView {
       model,
       scene: v.scene,
       node,

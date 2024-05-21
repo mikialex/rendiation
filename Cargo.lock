@@ -370,6 +370,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
+name = "base64"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
+
+[[package]]
 name = "bit-set"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1579,6 +1585,45 @@ dependencies = [
 ]
 
 [[package]]
+name = "gltf"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3ce1918195723ce6ac74e80542c5a96a40c2b26162c1957a5cd70799b8cacf7"
+dependencies = [
+ "base64",
+ "byteorder",
+ "gltf-json",
+ "image 0.25.1",
+ "lazy_static",
+ "serde_json",
+ "urlencoding",
+]
+
+[[package]]
+name = "gltf-derive"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14070e711538afba5d6c807edb74bcb84e5dbb9211a3bf5dea0dfab5b24f4c51"
+dependencies = [
+ "inflections",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.52",
+]
+
+[[package]]
+name = "gltf-json"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e6176f9d60a7eab0a877e8e96548605dedbde9190a7ae1e80bbcc1c9af03ab14"
+dependencies = [
+ "gltf-derive",
+ "serde",
+ "serde_derive",
+ "serde_json",
+]
+
+[[package]]
 name = "glutin_wgl_sys"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1814,6 +1859,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "image"
+version = "0.25.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fd54d660e773627692c524beaad361aca785a4f9f5730ce91f42aabe5bce3d11"
+dependencies = [
+ "bytemuck",
+ "byteorder",
+ "num-traits",
+ "png",
+ "zune-core",
+ "zune-jpeg",
+]
+
+[[package]]
 name = "indexmap"
 version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1832,6 +1891,12 @@ dependencies = [
  "equivalent",
  "hashbrown 0.14.3",
 ]
+
+[[package]]
+name = "inflections"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a257582fdcde896fd96463bf2d40eefea0580021c0712a0e2b028b60b47a837a"
 
 [[package]]
 name = "interning"
@@ -2350,7 +2415,7 @@ version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "681030a937600a36906c185595136d26abfebb4aa9c65701cefcaf8578bb982b"
 dependencies = [
- "proc-macro-crate 1.1.0",
+ "proc-macro-crate",
  "proc-macro2",
  "quote",
  "syn 2.0.52",
@@ -2648,16 +2713,6 @@ name = "presser"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e8cf8e6a8aa66ce33f63993ffc4ea4271eb5b0530a9002db8455ea6050c77bfa"
-
-[[package]]
-name = "proc-macro-crate"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ebace6889caf889b4d3f76becee12e90353f2b8c7d875534a71e5742f8f6f83"
-dependencies = [
- "thiserror",
- "toml",
-]
 
 [[package]]
 name = "proc-macro-crate"
@@ -3096,7 +3151,7 @@ dependencies = [
 name = "rendiation-lighting-ltc"
 version = "0.1.0"
 dependencies = [
- "image",
+ "image 0.24.6",
  "rendiation-algebra",
  "rendiation-shader-api",
  "rendiation-texture-core",
@@ -3233,11 +3288,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-scene-gltf-exporter"
+version = "0.0.1"
+dependencies = [
+ "fast-hash-collection",
+ "gltf",
+ "gltf-json",
+ "rendiation-mesh-core",
+ "rendiation-scene-core",
+ "rendiation-texture-core",
+]
+
+[[package]]
+name = "rendiation-scene-gltf-loader"
+version = "0.0.1"
+dependencies = [
+ "bytemuck",
+ "database",
+ "fast-hash-collection",
+ "gltf",
+ "half 2.2.1",
+ "rendiation-algebra",
+ "rendiation-geometry",
+ "rendiation-mesh-core",
+ "rendiation-scene-core",
+ "rendiation-shader-api",
+ "rendiation-texture-core",
+]
+
+[[package]]
 name = "rendiation-scene-obj-loader"
 version = "0.1.0"
 dependencies = [
  "database",
- "image",
+ "image 0.24.6",
  "reactive",
  "rendiation-algebra",
  "rendiation-mesh-core",
@@ -3412,7 +3496,7 @@ dependencies = [
 name = "rendiation-texture-loader"
 version = "0.1.0"
 dependencies = [
- "image",
+ "image 0.24.6",
  "rendiation-algebra",
  "rendiation-texture-core",
  "thiserror",
@@ -3924,15 +4008,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "toml"
-version = "0.5.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a31142970826733df8241ef35dc040ef98c679ab14d7c3e54d827099b3acecaa"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "toml_datetime"
 version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4116,7 +4191,7 @@ dependencies = [
  "fast-hash-collection",
  "futures",
  "heap-tools",
- "image",
+ "image 0.24.6",
  "log",
  "pin-project",
  "png",
@@ -4946,7 +5021,7 @@ version = "4.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4e0e3852c93dcdb49c9462afe67a2a468f7bd464150d866e861eaf06208633e0"
 dependencies = [
- "proc-macro-crate 3.1.0",
+ "proc-macro-crate",
  "proc-macro2",
  "quote",
  "regex",
@@ -4986,12 +5061,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "zune-core"
+version = "0.4.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f423a2c17029964870cfaabb1f13dfab7d092a62a29a89264f4d36990ca414a"
+
+[[package]]
 name = "zune-inflate"
 version = "0.2.54"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73ab332fe2f6680068f3582b16a24f90ad7096d5d39b974d1c0aff0125116f02"
 dependencies = [
  "simd-adler32",
+]
+
+[[package]]
+name = "zune-jpeg"
+version = "0.4.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec866b44a2a1fd6133d363f073ca1b179f438f99e7e5bfb1e33f7181facfe448"
+dependencies = [
+ "zune-core",
 ]
 
 [[package]]
@@ -5014,7 +5104,7 @@ version = "4.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b7a4b236063316163b69039f77ce3117accb41a09567fd24c168e43491e521bc"
 dependencies = [
- "proc-macro-crate 3.1.0",
+ "proc-macro-crate",
  "proc-macro2",
  "quote",
  "syn 1.0.109",
