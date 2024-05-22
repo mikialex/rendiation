@@ -91,9 +91,9 @@ unsafe impl Send for InterleavedDataContainerInner {}
 unsafe impl Sync for InterleavedDataContainerInner {}
 
 impl<T: CValue> ComponentStorage<T> for InterleavedDataContainer {
-  fn create_read_view(&self) -> Arc<dyn ComponentStorageReadView<T>> {
+  fn create_read_view(&self) -> Box<dyn ComponentStorageReadView<T>> {
     let inner = self.inner.read();
-    Arc::new(InterleavedDataContainerReadView {
+    Box::new(InterleavedDataContainerReadView {
       phantom: PhantomData,
       offset: inner.offsets[self.idx],
       stride: inner.stride,
@@ -112,14 +112,9 @@ impl<T: CValue> ComponentStorage<T> for InterleavedDataContainer {
       _guard: inner.locks[self.idx].make_write_holder(),
     })
   }
-  fn as_any(&self) -> &dyn Any {
-    self
-  }
-  fn as_any_mut(&mut self) -> &mut dyn Any {
-    self
-  }
 }
 
+#[derive(Clone)]
 pub struct InterleavedDataContainerReadView<T> {
   phantom: PhantomData<T>,
   offset: usize,
@@ -139,6 +134,10 @@ impl<T: CValue> ComponentStorageReadView<T> for InterleavedDataContainerReadView
       let address = (*vec).ptr as usize + self.stride * idx + self.offset;
       Some(&*(address as *const T))
     }
+  }
+
+  fn clone_read_view(&self) -> Box<dyn ComponentStorageReadView<T>> {
+    Box::new(self.clone())
   }
 }
 
@@ -162,25 +161,22 @@ impl<T: CValue> ComponentStorageReadWriteView<T> for InterleavedDataContainerRea
     }
   }
 
+  fn get(&self, idx: usize) -> Option<&T> {
+    unsafe {
+      let vec = (*self.data.data_ptr()).data.get();
+      if idx >= (*vec).len {
+        return None;
+      }
+      let address = (*vec).ptr as usize + self.stride * idx + self.offset;
+      Some(&*(address as *mut T))
+    }
+  }
+
   unsafe fn grow_at_least(&mut self, max: usize) {
     let vec = (*self.data.data_ptr()).data.get();
 
     if (*vec).len <= max * self.stride {
       (*vec).resize((max + 1) * self.stride);
-    }
-  }
-}
-
-impl<T: CValue> ComponentStorageReadView<T> for InterleavedDataContainerReadWriteView<T> {
-  fn get(&self, idx: usize) -> Option<&T> {
-    unsafe {
-      let vec = (*self.data.data_ptr()).data.get();
-
-      if idx >= (*vec).len {
-        return None;
-      }
-      let address = (*vec).ptr as usize + self.stride * idx + self.offset;
-      Some(&*(address as *const T))
     }
   }
 }

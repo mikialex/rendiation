@@ -53,27 +53,27 @@ impl<C: ComponentSemantic> Default for ComponentCollection<C> {
 }
 
 pub struct ComponentReadView<T: ComponentSemantic> {
-  data: Arc<dyn ComponentStorageReadView<T::Data>>,
+  data: Box<dyn ComponentStorageReadView<T::Data>>,
 }
 
 impl<T: ComponentSemantic> Clone for ComponentReadView<T> {
   fn clone(&self) -> Self {
     Self {
-      data: self.data.clone(),
+      data: self.data.clone_read_view(),
     }
   }
 }
 
 pub struct IterableComponentReadView<T> {
   pub ecg: EntityComponentGroup,
-  pub read_view: Arc<dyn ComponentStorageReadView<T>>,
+  pub read_view: Box<dyn ComponentStorageReadView<T>>,
 }
 
 impl<T> Clone for IterableComponentReadView<T> {
   fn clone(&self) -> Self {
     Self {
       ecg: self.ecg.clone(),
-      read_view: self.read_view.clone(),
+      read_view: self.read_view.clone_read_view(),
     }
   }
 }
@@ -175,12 +175,12 @@ impl<T: ComponentSemantic> ComponentWriteView<T> {
 
 pub trait DynamicComponent: Any + Send + Sync {
   fn create_dyn_writer_default(&self) -> Box<dyn EntityComponentWriter>;
+  // todo, this breaks previous get_data returned storage
   fn setup_new_storage(&mut self, storage: Box<dyn Any>);
   fn get_data(&self) -> Box<dyn Any>;
   fn create_read_holder(&self) -> Box<dyn Any>;
   fn create_write_holder(&self) -> Box<dyn Any>;
   fn get_event_source(&self) -> Box<dyn Any>;
-  fn as_any(&self) -> &dyn Any;
 }
 
 impl<T: ComponentSemantic> DynamicComponent for ComponentCollection<T> {
@@ -203,9 +203,5 @@ impl<T: ComponentSemantic> DynamicComponent for ComponentCollection<T> {
   }
   fn get_event_source(&self) -> Box<dyn Any> {
     Box::new(self.group_watchers.clone())
-  }
-
-  fn as_any(&self) -> &dyn Any {
-    self
   }
 }
