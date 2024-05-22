@@ -32,6 +32,13 @@ impl<C: ComponentSemantic> ComponentCollection<C> {
       data: self.data.create_read_view(),
     }
   }
+  pub fn read_foreign_key(&self) -> ForeignKeyReadView<C>
+  where
+    C: ForeignKeySemantic,
+  {
+    todo!()
+  }
+
   pub fn write(&self) -> ComponentWriteView<C> {
     self.group_watchers.emit(&ScopedMessage::Start);
     ComponentWriteView {
@@ -54,6 +61,19 @@ impl<C: ComponentSemantic> Default for ComponentCollection<C> {
 
 pub struct ComponentReadView<T: ComponentSemantic> {
   data: Box<dyn ComponentStorageReadView<T::Data>>,
+}
+
+impl<T: ComponentSemantic> ComponentReadView<T> {
+  pub fn get(&self, idx: EntityHandle<T::Entity>) -> Option<&T::Data> {
+    self.data.get(idx.into())
+  }
+  pub fn get_without_generation_check(&self, idx: u32) -> Option<&T::Data> {
+    // self.data.get(idx.into())
+    todo!()
+  }
+  pub fn get_value(&self, idx: EntityHandle<T::Entity>) -> Option<T::Data> {
+    self.data.get(idx.into()).cloned()
+  }
 }
 
 impl<T: ComponentSemantic> Clone for ComponentReadView<T> {
@@ -84,21 +104,27 @@ impl<T: CValue> VirtualCollection<u32, T> for IterableComponentReadView<T> {
       self
         .ecg
         .iter_entity_idx()
-        .map(|id| (id, self.read_view.get(id as usize).cloned().unwrap())),
+        .map(|id| (id.alloc_index(), self.read_view.get(id).cloned().unwrap())),
     )
   }
 
   fn access(&self, key: &u32) -> Option<T> {
-    self.read_view.get(*key as usize).cloned()
+    self.read_view.get_without_generation_check(*key).cloned()
   }
 }
 
-impl<T: ComponentSemantic> ComponentReadView<T> {
-  pub fn get(&self, idx: AllocIdx<T::Entity>) -> Option<&T::Data> {
-    self.data.get(idx.alloc_index() as usize)
+impl<T: CValue> VirtualCollection<RawEntityHandle, T> for IterableComponentReadView<T> {
+  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (RawEntityHandle, T)> + '_> {
+    Box::new(
+      self
+        .ecg
+        .iter_entity_idx()
+        .map(|id| (id, self.read_view.get(id).cloned().unwrap())),
+    )
   }
-  pub fn get_value(&self, idx: AllocIdx<T::Entity>) -> Option<T::Data> {
-    self.data.get(idx.alloc_index() as usize).cloned()
+
+  fn access(&self, key: &RawEntityHandle) -> Option<T> {
+    self.read_view.get(*key).cloned()
   }
 }
 
@@ -134,17 +160,18 @@ impl<T: ComponentSemantic> ComponentWriteView<T> {
     }
   }
 
-  pub fn read(&self, idx: u32) -> T::Data {
+  pub fn read(&self, idx: EntityHandle<T::Entity>) -> T::Data {
     // self.write_impl(idx, new, false);
     todo!()
   }
 
-  pub fn write(&mut self, idx: u32, new: T::Data) {
+  pub fn write(&mut self, idx: EntityHandle<T::Entity>, new: T::Data) {
     self.write_impl(idx, new, false);
   }
 
-  pub(crate) fn write_impl(&mut self, idx: u32, new: T::Data, is_create: bool) {
-    let com = self.data.get_mut(idx as usize).unwrap();
+  pub(crate) fn write_impl(&mut self, idx: EntityHandle<T::Entity>, new: T::Data, is_create: bool) {
+    let idx = idx.handle;
+    let com = self.data.get_mut(idx).unwrap();
     let previous = std::mem::replace(com, new.clone());
 
     if is_create {
@@ -163,13 +190,24 @@ impl<T: ComponentSemantic> ComponentWriteView<T> {
     self.events.emit(&ScopedMessage::Message(change));
   }
 
-  pub(crate) fn delete(&mut self, idx: u32) {
-    let com = self.data.get_mut(idx as usize).unwrap();
+  pub(crate) fn delete(&mut self, idx: EntityHandle<T::Entity>) {
+    let idx = idx.handle;
+    let com = self.data.get_mut(idx).unwrap();
     let previous = std::mem::take(com);
 
     let change = ValueChange::Remove(previous);
     let change = IndexValueChange { idx, change };
     self.events.emit(&ScopedMessage::Message(change));
+  }
+}
+
+pub struct ForeignKeyReadView<T: ForeignKeySemantic> {
+  data: Box<dyn ComponentStorageReadView<T::Data>>,
+}
+
+impl<T: ForeignKeySemantic> ForeignKeyReadView<T> {
+  pub fn get(&self, idx: EntityHandle<T::Entity>) -> Option<EntityHandle<T::ForeignEntity>> {
+    todo!()
   }
 }
 

@@ -3540,6 +3540,7 @@ dependencies = [
 name = "rendiation-scene-geometry-query"
 version = "0.1.0"
 dependencies = [
+ "database",
  "reactive",
  "rendiation-algebra",
  "rendiation-geometry",
@@ -3597,6 +3598,7 @@ dependencies = [
 name = "rendiation-scene-rendering-gpu-base"
 version = "0.1.0"
 dependencies = [
+ "database",
  "fast-hash-collection",
  "reactive",
  "rendiation-scene-core",

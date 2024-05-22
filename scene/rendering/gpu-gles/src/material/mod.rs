@@ -14,11 +14,6 @@ pub struct TextureSamplerHandlePair {
   pub sampler_handle: u32,
 }
 
-pub struct TextureSamplerIndirectProvider {
-  pub texture2ds: Box<dyn ReactiveCollection<AllocIdx<SceneTexture2dEntity>, u32>>,
-  pub samplers: Box<dyn ReactiveCollection<AllocIdx<SceneSamplerEntity>, u32>>,
-}
-
 pub(super) fn setup_tex(
   ctx: &mut GPURenderPassCtx,
   binding_sys: &GPUTextureBindingSystem,

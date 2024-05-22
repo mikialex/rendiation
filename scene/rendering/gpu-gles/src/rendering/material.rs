@@ -3,7 +3,7 @@ use crate::*;
 pub trait GLESModelMaterialRenderImpl {
   fn make_component<'a>(
     &'a self,
-    idx: AllocIdx<StandardModelEntity>,
+    idx: EntityHandle<StandardModelEntity>,
     cx: &'a GPUTextureBindingSystem,
   ) -> Option<Box<dyn RenderComponent + 'a>>;
 }
@@ -11,7 +11,7 @@ pub trait GLESModelMaterialRenderImpl {
 impl GLESModelMaterialRenderImpl for Vec<Box<dyn GLESModelMaterialRenderImpl>> {
   fn make_component<'a>(
     &'a self,
-    idx: AllocIdx<StandardModelEntity>,
+    idx: EntityHandle<StandardModelEntity>,
     cx: &'a GPUTextureBindingSystem,
   ) -> Option<Box<dyn RenderComponent + 'a>> {
     for provider in self {
@@ -40,27 +40,27 @@ impl RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>
     res: &mut ConcurrentStreamUpdateResult,
   ) -> Box<dyn GLESModelMaterialRenderImpl> {
     Box::new(FlatMaterialDefaultRenderImpl {
-      material_access: global_entity_component_of::<StandardModelRefFlatMaterial>().read(),
+      material_access: global_entity_component_of::<StandardModelRefFlatMaterial>()
+        .read_foreign_key(),
       uniforms: res.take_multi_updater_updated(self.uniforms).unwrap(),
     })
   }
 }
 
 struct FlatMaterialDefaultRenderImpl {
-  material_access: ComponentReadView<StandardModelRefFlatMaterial>,
+  material_access: ForeignKeyReadView<StandardModelRefFlatMaterial>,
   uniforms: LockReadGuardHolder<FlatMaterialUniforms>,
 }
 
 impl GLESModelMaterialRenderImpl for FlatMaterialDefaultRenderImpl {
   fn make_component<'a>(
     &'a self,
-    idx: AllocIdx<StandardModelEntity>,
+    idx: EntityHandle<StandardModelEntity>,
     _cx: &'a GPUTextureBindingSystem,
   ) -> Option<Box<dyn RenderComponent + 'a>> {
     let idx = self.material_access.get(idx)?;
-    let idx = (*idx)?.index();
     Some(Box::new(FlatMaterialGPU {
-      uniform: self.uniforms.get(&idx.into())?,
+      uniform: self.uniforms.get(&idx)?,
     }))
   }
 }
@@ -84,7 +84,8 @@ impl RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>
     res: &mut ConcurrentStreamUpdateResult,
   ) -> Box<dyn GLESModelMaterialRenderImpl> {
     Box::new(PbrMRMaterialDefaultRenderImpl {
-      material_access: global_entity_component_of::<StandardModelRefPbrMRMaterial>().read(),
+      material_access: global_entity_component_of::<StandardModelRefPbrMRMaterial>()
+        .read_foreign_key(),
       uniforms: res.take_multi_updater_updated(self.uniforms).unwrap(),
       tex_uniforms: res.take_multi_updater_updated(self.tex_uniforms).unwrap(),
       alpha_mode: global_entity_component_of().read(),
@@ -97,7 +98,7 @@ impl RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>
 }
 
 struct PbrMRMaterialDefaultRenderImpl {
-  material_access: ComponentReadView<StandardModelRefPbrMRMaterial>,
+  material_access: ForeignKeyReadView<StandardModelRefPbrMRMaterial>,
   uniforms: LockReadGuardHolder<PbrMRMaterialUniforms>,
   tex_uniforms: LockReadGuardHolder<PbrMRMaterialTexUniforms>,
   alpha_mode: ComponentReadView<PbrMRMaterialAlphaModeComponent>,
@@ -108,23 +109,23 @@ struct PbrMRMaterialDefaultRenderImpl {
 }
 
 pub struct TextureSamplerIdView<T: TextureWithSamplingForeignKeys> {
-  pub texture: ComponentReadView<SceneTexture2dRefOf<T>>,
-  pub sampler: ComponentReadView<SceneSamplerRefOf<T>>,
+  pub texture: ForeignKeyReadView<SceneTexture2dRefOf<T>>,
+  pub sampler: ForeignKeyReadView<SceneSamplerRefOf<T>>,
 }
 
 impl<T: TextureWithSamplingForeignKeys> TextureSamplerIdView<T> {
   pub fn read_from_global() -> Self {
     Self {
-      texture: global_entity_component_of().read(),
-      sampler: global_entity_component_of().read(),
+      texture: global_entity_component_of().read_foreign_key(),
+      sampler: global_entity_component_of().read_foreign_key(),
     }
   }
 
-  pub fn get_pair(&self, id: u32) -> Option<(u32, u32)> {
-    let tex = self.texture.get(id.into())?;
-    let tex = (*tex)?.index();
-    let sampler = self.sampler.get(id.into())?;
-    let sampler = (*sampler)?.index();
+  pub fn get_pair(&self, id: EntityHandle<T::Entity>) -> Option<(u32, u32)> {
+    let tex = self.texture.get(id)?;
+    let tex = tex.alloc_index();
+    let sampler = self.sampler.get(id)?;
+    let sampler = sampler.alloc_index();
     Some((tex, sampler))
   }
 }
@@ -132,19 +133,18 @@ impl<T: TextureWithSamplingForeignKeys> TextureSamplerIdView<T> {
 impl GLESModelMaterialRenderImpl for PbrMRMaterialDefaultRenderImpl {
   fn make_component<'a>(
     &'a self,
-    idx: AllocIdx<StandardModelEntity>,
+    idx: EntityHandle<StandardModelEntity>,
     cx: &'a GPUTextureBindingSystem,
   ) -> Option<Box<dyn RenderComponent + 'a>> {
     let idx = self.material_access.get(idx)?;
-    let idx = (*idx)?.index();
     let r = PhysicalMetallicRoughnessMaterialGPU {
-      uniform: self.uniforms.get(&idx.into())?,
-      alpha_mode: self.alpha_mode.get_value(idx.into())?,
+      uniform: self.uniforms.get(&idx)?,
+      alpha_mode: self.alpha_mode.get_value(idx)?,
       base_color_tex_sampler: self.base_color_tex_sampler.get_pair(idx)?,
       mr_tex_sampler: self.mr_tex_sampler.get_pair(idx)?,
       emissive_tex_sampler: self.emissive_tex_sampler.get_pair(idx)?,
       normal_tex_sampler: self.normal_tex_sampler.get_pair(idx)?,
-      texture_uniforms: self.tex_uniforms.get(&idx.into())?,
+      texture_uniforms: self.tex_uniforms.get(&idx)?,
       binding_sys: cx,
     };
     let r = Box::new(r) as Box<dyn RenderComponent + '_>;

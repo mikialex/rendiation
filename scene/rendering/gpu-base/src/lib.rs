@@ -20,6 +20,7 @@
 //! }
 //! ```
 
+use database::*;
 use reactive::*;
 use rendiation_scene_core::*;
 use rendiation_texture_gpu_system::*;
@@ -35,15 +36,15 @@ pub trait RenderImplProvider<T> {
 pub trait SceneRenderer: SceneModelRenderer {
   fn make_pass_content<'a>(
     &'a self,
-    scene: AllocIdx<SceneEntity>,
-    camera: AllocIdx<SceneCameraEntity>,
+    scene: EntityHandle<SceneEntity>,
+    camera: EntityHandle<SceneCameraEntity>,
     pass: &'a dyn RenderComponent,
     ctx: &mut FrameCtx,
   ) -> Box<dyn PassContent + 'a>;
 
   fn init_clear(
     &self,
-    scene: AllocIdx<SceneEntity>,
+    scene: EntityHandle<SceneEntity>,
   ) -> (Operations<rendiation_webgpu::Color>, Operations<f32>);
 
   fn get_scene_model_cx(&self) -> &GPUTextureBindingSystem;
@@ -53,16 +54,16 @@ pub trait SceneRenderer: SceneModelRenderer {
 pub trait SceneModelRenderer {
   fn make_component<'a>(
     &'a self,
-    idx: AllocIdx<SceneModelEntity>,
-    camera: AllocIdx<SceneCameraEntity>,
+    idx: EntityHandle<SceneModelEntity>,
+    camera: EntityHandle<SceneCameraEntity>,
     pass: &'a (dyn RenderComponent + 'a),
     tex: &'a GPUTextureBindingSystem,
   ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)>;
 
   fn render_scene_model(
     &self,
-    idx: AllocIdx<SceneModelEntity>,
-    camera: AllocIdx<SceneCameraEntity>,
+    idx: EntityHandle<SceneModelEntity>,
+    camera: EntityHandle<SceneCameraEntity>,
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
@@ -75,8 +76,8 @@ pub trait SceneModelRenderer {
   /// maybe implementation could provide better performance for example host side multi draw
   fn render_reorderable_models(
     &self,
-    models: &mut dyn Iterator<Item = AllocIdx<SceneModelEntity>>,
-    camera: AllocIdx<SceneCameraEntity>,
+    models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
+    camera: EntityHandle<SceneCameraEntity>,
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
@@ -90,8 +91,8 @@ pub trait SceneModelRenderer {
 impl SceneModelRenderer for Vec<Box<dyn SceneModelRenderer>> {
   fn make_component<'a>(
     &'a self,
-    idx: AllocIdx<SceneModelEntity>,
-    camera: AllocIdx<SceneCameraEntity>,
+    idx: EntityHandle<SceneModelEntity>,
+    camera: EntityHandle<SceneCameraEntity>,
     pass: &'a (dyn RenderComponent + 'a),
     tex: &'a GPUTextureBindingSystem,
   ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {

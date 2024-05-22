@@ -6,8 +6,7 @@ use rendiation_texture_gpu_base::GPUBufferImageForeignImpl;
 
 use crate::*;
 
-pub type CubeMapUpdateContainer<K> =
-  MultiUpdateContainer<FastHashMap<AllocIdx<K>, GPUCubeTextureView>>;
+pub type CubeMapUpdateContainer<K> = MultiUpdateContainer<FastHashMap<K, GPUCubeTextureView>>;
 
 pub struct CubeMapCollectionUpdate<T, K, V> {
   face: CubeTextureFace,

@@ -3,11 +3,11 @@ use crate::*;
 pub trait GLESModelRenderImpl {
   fn shape_renderable(
     &self,
-    idx: AllocIdx<SceneModelEntity>,
+    idx: EntityHandle<SceneModelEntity>,
   ) -> Option<(Box<dyn RenderComponent + '_>, DrawCommand)>;
   fn material_renderable<'a>(
     &'a self,
-    idx: AllocIdx<SceneModelEntity>,
+    idx: EntityHandle<SceneModelEntity>,
     cx: &'a GPUTextureBindingSystem,
   ) -> Option<Box<dyn RenderComponent + 'a>>;
 }
@@ -15,7 +15,7 @@ pub trait GLESModelRenderImpl {
 impl GLESModelRenderImpl for Vec<Box<dyn GLESModelRenderImpl>> {
   fn shape_renderable(
     &self,
-    idx: AllocIdx<SceneModelEntity>,
+    idx: EntityHandle<SceneModelEntity>,
   ) -> Option<(Box<dyn RenderComponent + '_>, DrawCommand)> {
     for provider in self {
       if let Some(v) = provider.shape_renderable(idx) {
@@ -27,7 +27,7 @@ impl GLESModelRenderImpl for Vec<Box<dyn GLESModelRenderImpl>> {
 
   fn material_renderable<'a>(
     &'a self,
-    idx: AllocIdx<SceneModelEntity>,
+    idx: EntityHandle<SceneModelEntity>,
     cx: &'a GPUTextureBindingSystem,
   ) -> Option<Box<dyn RenderComponent + 'a>> {
     for provider in self {
@@ -57,14 +57,14 @@ impl RenderImplProvider<Box<dyn GLESModelRenderImpl>> for DefaultSceneStdModelRe
 
   fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> Box<dyn GLESModelRenderImpl> {
     Box::new(SceneStdModelRenderer {
-      model: global_entity_component_of::<SceneModelStdModelRenderPayload>().read(),
+      model: global_entity_component_of::<SceneModelStdModelRenderPayload>().read_foreign_key(),
       materials: self.materials.iter().map(|v| v.create_impl(res)).collect(),
       shapes: self.shapes.iter().map(|v| v.create_impl(res)).collect(),
     })
   }
 }
 struct SceneStdModelRenderer {
-  model: ComponentReadView<SceneModelStdModelRenderPayload>,
+  model: ForeignKeyReadView<SceneModelStdModelRenderPayload>,
   materials: Vec<Box<dyn GLESModelMaterialRenderImpl>>,
   shapes: Vec<Box<dyn GLESModelShapeRenderImpl>>,
 }
@@ -72,20 +72,18 @@ struct SceneStdModelRenderer {
 impl GLESModelRenderImpl for SceneStdModelRenderer {
   fn shape_renderable(
     &self,
-    idx: AllocIdx<SceneModelEntity>,
+    idx: EntityHandle<SceneModelEntity>,
   ) -> Option<(Box<dyn RenderComponent + '_>, DrawCommand)> {
     let model = self.model.get(idx)?;
-    let idx = (*model)?.index();
-    self.shapes.make_component(idx.into())
+    self.shapes.make_component(model)
   }
 
   fn material_renderable<'a>(
     &'a self,
-    idx: AllocIdx<SceneModelEntity>,
+    idx: EntityHandle<SceneModelEntity>,
     cx: &'a GPUTextureBindingSystem,
   ) -> Option<Box<dyn RenderComponent + 'a>> {
     let model = self.model.get(idx)?;
-    let idx = (*model)?.index();
-    self.materials.make_component(idx.into(), cx)
+    self.materials.make_component(model, cx)
   }
 }

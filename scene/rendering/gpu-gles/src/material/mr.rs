@@ -24,30 +24,30 @@ pub struct PhysicalMetallicRoughnessMaterialUniform {
 }
 type Uniform = PhysicalMetallicRoughnessMaterialUniform;
 
-pub type PbrMRMaterialUniforms = UniformUpdateContainer<PbrMRMaterialEntity, Uniform>;
+pub type PbrMRMaterialUniforms = UniformUpdateContainer<EntityHandle<PbrMRMaterialEntity>, Uniform>;
 pub fn pbr_mr_material_uniforms(cx: &GPUResourceCtx) -> PbrMRMaterialUniforms {
   let base_color = global_watch()
-    .watch_typed_key::<PbrMRMaterialBaseColorComponent>()
+    .watch::<PbrMRMaterialBaseColorComponent>()
     .into_uniform_collection_update(offset_of!(Uniform, base_color), cx);
 
   let emissive = global_watch()
-    .watch_typed_key::<PbrMRMaterialEmissiveComponent>()
+    .watch::<PbrMRMaterialEmissiveComponent>()
     .into_uniform_collection_update(offset_of!(Uniform, emissive), cx);
 
   let normal_mapping_scale = global_watch()
-    .watch_typed_key::<NormalScaleOf<PbrMRMaterialNormalInfo>>()
+    .watch::<NormalScaleOf<PbrMRMaterialNormalInfo>>()
     .into_uniform_collection_update(offset_of!(Uniform, normal_mapping_scale), cx);
 
   let roughness = global_watch()
-    .watch_typed_key::<PbrMRMaterialRoughnessComponent>()
+    .watch::<PbrMRMaterialRoughnessComponent>()
     .into_uniform_collection_update(offset_of!(Uniform, roughness), cx);
 
   let metallic = global_watch()
-    .watch_typed_key::<PbrMRMaterialMetallicComponent>()
+    .watch::<PbrMRMaterialMetallicComponent>()
     .into_uniform_collection_update(offset_of!(Uniform, metallic), cx);
 
   let alpha = global_watch()
-    .watch_typed_key::<PbrMRMaterialAlphaComponent>()
+    .watch::<PbrMRMaterialAlphaComponent>()
     .into_uniform_collection_update(offset_of!(Uniform, alpha), cx);
 
   PbrMRMaterialUniforms::default()
@@ -70,18 +70,19 @@ pub struct PhysicalMetallicRoughnessMaterialTextureHandlesUniform {
 }
 type TexUniform = PhysicalMetallicRoughnessMaterialTextureHandlesUniform;
 
-pub type PbrMRMaterialTexUniforms = UniformUpdateContainer<PbrMRMaterialEntity, TexUniform>;
+pub type PbrMRMaterialTexUniforms =
+  UniformUpdateContainer<EntityHandle<PbrMRMaterialEntity>, TexUniform>;
 pub fn pbr_mr_material_tex_uniforms(cx: &GPUResourceCtx) -> PbrMRMaterialTexUniforms {
   let tex_offset = offset_of!(TextureSamplerHandlePair, texture_handle);
   let sam_offset = offset_of!(TextureSamplerHandlePair, sampler_handle);
 
   let base_color_texture = global_watch()
-    .watch_typed_key::<SceneTexture2dRefOf<PbrMRMaterialBaseColorTex>>()
+    .watch::<SceneTexture2dRefOf<PbrMRMaterialBaseColorTex>>()
     .collective_map(|id| id.map(|v| v.index()).unwrap_or(0))
     .into_uniform_collection_update(offset_of!(TexUniform, base_color_texture) + tex_offset, cx);
 
   let base_color_sampler = global_watch()
-    .watch_typed_key::<SceneSamplerRefOf<PbrMRMaterialBaseColorTex>>()
+    .watch::<SceneSamplerRefOf<PbrMRMaterialBaseColorTex>>()
     .collective_map(|id| id.map(|v| v.index()).unwrap_or(0))
     .into_uniform_collection_update(offset_of!(TexUniform, base_color_texture) + sam_offset, cx);
 
@@ -91,8 +92,8 @@ pub fn pbr_mr_material_tex_uniforms(cx: &GPUResourceCtx) -> PbrMRMaterialTexUnif
 }
 
 pub fn pbr_mr_material_pipeline_hash(
-) -> impl ReactiveCollection<AllocIdx<PbrMRMaterialEntity>, AlphaMode> {
-  global_watch().watch_typed_key::<PbrMRMaterialAlphaModeComponent>()
+) -> impl ReactiveCollection<EntityHandle<PbrMRMaterialEntity>, AlphaMode> {
+  global_watch().watch::<PbrMRMaterialAlphaModeComponent>()
 }
 
 pub struct PhysicalMetallicRoughnessMaterialGPU<'a> {

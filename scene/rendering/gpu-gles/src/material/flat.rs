@@ -1,10 +1,11 @@
 use crate::*;
 
-pub type FlatMaterialUniforms = UniformUpdateContainer<FlatMaterialEntity, FlatMaterialUniform>;
+pub type FlatMaterialUniforms =
+  UniformUpdateContainer<EntityHandle<FlatMaterialEntity>, FlatMaterialUniform>;
 
 pub fn flat_material_uniforms(cx: &GPUResourceCtx) -> FlatMaterialUniforms {
   let color = global_watch()
-    .watch_typed_key::<FlatMaterialDisplayColorComponent>()
+    .watch::<FlatMaterialDisplayColorComponent>()
     .into_uniform_collection_update(offset_of!(FlatMaterialUniform, color), cx);
 
   FlatMaterialUniforms::default().with_source(color)
@@ -48,7 +49,7 @@ pub struct FlatMaterialGPUResource {
 }
 
 impl FlatMaterialGPUResource {
-  pub fn prepare_render(&self, flat: AllocIdx<FlatMaterialEntity>) -> FlatMaterialGPU {
+  pub fn prepare_render(&self, flat: EntityHandle<FlatMaterialEntity>) -> FlatMaterialGPU {
     FlatMaterialGPU {
       uniform: self.uniforms.get(&flat).unwrap(),
     }

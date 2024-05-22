@@ -1,3 +1,4 @@
+use database::*;
 use reactive::*;
 use rendiation_algebra::*;
 use rendiation_geometry::*;
@@ -11,7 +12,7 @@ pub struct SceneRayQuery {
   pub node_world: Box<dyn VirtualCollection<u32, Mat4<f32>>>,
   pub node_visible: Box<dyn VirtualCollection<u32, bool>>,
   pub model_lookup:
-    Box<dyn VirtualMultiCollection<AllocIdx<SceneEntity>, AllocIdx<SceneModelEntity>>>,
+    Box<dyn VirtualMultiCollection<EntityHandle<SceneEntity>, EntityHandle<SceneModelEntity>>>,
   pub camera_view_size: Size,
 
   pub scene_model_picker: Vec<Box<dyn SceneModelPicker>>,
@@ -20,7 +21,7 @@ pub struct SceneRayQuery {
 pub trait SceneModelPicker {
   fn query(
     &self,
-    idx: AllocIdx<SceneModelEntity>,
+    idx: EntityHandle<SceneModelEntity>,
     ctx: &SceneRayQuery,
   ) -> Option<MeshBufferHitPoint>;
 }
@@ -28,7 +29,7 @@ pub trait SceneModelPicker {
 impl SceneModelPicker for Vec<Box<dyn SceneModelPicker>> {
   fn query(
     &self,
-    idx: AllocIdx<SceneModelEntity>,
+    idx: EntityHandle<SceneModelEntity>,
     ctx: &SceneRayQuery,
   ) -> Option<MeshBufferHitPoint> {
     for provider in self {
@@ -41,7 +42,7 @@ impl SceneModelPicker for Vec<Box<dyn SceneModelPicker>> {
 }
 
 impl SceneRayQuery {
-  pub fn query(&self, scene: AllocIdx<SceneEntity>) -> OptionalNearest<MeshBufferHitPoint> {
+  pub fn query(&self, scene: EntityHandle<SceneEntity>) -> OptionalNearest<MeshBufferHitPoint> {
     let mut nearest = OptionalNearest::none();
     for idx in self.model_lookup.access_multi_value(&scene) {
       if let Some(hit) = self.scene_model_picker.query(idx, self) {

@@ -124,7 +124,22 @@ pub struct InterleavedDataContainerReadView<T> {
 }
 
 impl<T: CValue> ComponentStorageReadView<T> for InterleavedDataContainerReadView<T> {
-  fn get(&self, idx: usize) -> Option<&T> {
+  fn get(&self, idx: RawEntityHandle) -> Option<&T> {
+    let idx = idx.index() as usize;
+    // todo generation check
+    unsafe {
+      let vec = (*self.data.data_ptr()).data.get();
+
+      if idx >= (*vec).len {
+        return None;
+      }
+      let address = (*vec).ptr as usize + self.stride * idx + self.offset;
+      Some(&*(address as *const T))
+    }
+  }
+  fn get_without_generation_check(&self, idx: u32) -> Option<&T> {
+    let idx = idx as usize;
+    // todo generation check
     unsafe {
       let vec = (*self.data.data_ptr()).data.get();
 
@@ -150,7 +165,9 @@ pub struct InterleavedDataContainerReadWriteView<T> {
 }
 
 impl<T: CValue> ComponentStorageReadWriteView<T> for InterleavedDataContainerReadWriteView<T> {
-  fn get_mut(&mut self, idx: usize) -> Option<&mut T> {
+  fn get_mut(&mut self, idx: RawEntityHandle) -> Option<&mut T> {
+    let idx = idx.index() as usize;
+    // todo generation check
     unsafe {
       let vec = (*self.data.data_ptr()).data.get();
       if idx >= (*vec).len {
@@ -161,7 +178,9 @@ impl<T: CValue> ComponentStorageReadWriteView<T> for InterleavedDataContainerRea
     }
   }
 
-  fn get(&self, idx: usize) -> Option<&T> {
+  fn get(&self, idx: RawEntityHandle) -> Option<&T> {
+    let idx = idx.index() as usize;
+    // todo generation check
     unsafe {
       let vec = (*self.data.data_ptr()).data.get();
       if idx >= (*vec).len {

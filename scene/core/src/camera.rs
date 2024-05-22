@@ -26,13 +26,14 @@ pub fn register_camera_data_model() {
 }
 
 #[global_registered_collection]
-pub fn camera_project_matrix() -> impl ReactiveCollection<AllocIdx<SceneCameraEntity>, Mat4<f32>> {
+pub fn camera_project_matrix() -> impl ReactiveCollection<EntityHandle<SceneCameraEntity>, Mat4<f32>>
+{
   let perspective = global_watch()
-    .watch_typed_key::<SceneCameraPerspective>()
+    .watch::<SceneCameraPerspective>()
     .collective_filter_map(|proj| proj.map(|proj| proj.compute_projection_mat::<WebGPU>()));
 
   let orth = global_watch()
-    .watch_typed_key::<SceneCameraOrthographic>()
+    .watch::<SceneCameraOrthographic>()
     .collective_filter_map(|proj| proj.map(|proj| proj.compute_projection_mat::<WebGPU>()));
 
   perspective.collective_select(orth)

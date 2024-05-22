@@ -14,28 +14,30 @@ impl DatabaseEntityReverseReference {
     }
   }
 
-  pub fn watch_inv_ref_typed<S: ForeignKeySemantic>(
+  pub fn watch_inv_ref<S: ForeignKeySemantic>(
     &self,
-  ) -> Box<dyn ReactiveOneToManyRelationship<AllocIdx<S::ForeignEntity>, AllocIdx<S::Entity>>> {
+  ) -> Box<dyn ReactiveOneToManyRelationship<EntityHandle<S::ForeignEntity>, EntityHandle<S::Entity>>>
+  {
     // self.watch_inv_ref_dyn(S::component_id(), S::Entity::entity_id())
     todo!()
   }
 
-  pub fn watch_inv_ref<S: ForeignKeySemantic>(
+  pub fn watch_inv_ref_untyped<S: ForeignKeySemantic>(
     &self,
   ) -> Box<dyn ReactiveOneToManyRelationship<u32, u32>> {
-    self.watch_inv_ref_dyn(S::component_id(), S::Entity::entity_id())
+    // self.watch_inv_ref_dyn(S::component_id(), S::Entity::entity_id())
+    todo!()
   }
 
   pub fn watch_inv_ref_dyn(
     &self,
     semantic_id: ComponentId,
     entity_id: EntityId,
-  ) -> Box<dyn ReactiveOneToManyRelationship<u32, u32>> {
+  ) -> Box<dyn ReactiveOneToManyRelationship<RawEntityHandle, RawEntityHandle>> {
     if let Some(refs) = self.entity_rev_refs.read().get(&semantic_id) {
       return Box::new(
         refs
-          .downcast_ref::<OneManyRelationForker<u32, u32>>()
+          .downcast_ref::<OneManyRelationForker<RawEntityHandle, RawEntityHandle>>()
           .unwrap()
           .clone(),
       );
@@ -44,9 +46,9 @@ impl DatabaseEntityReverseReference {
     let watcher = self
       .mutation_watcher
       .watch_dyn_foreign_key(semantic_id, entity_id)
-      .collective_filter_map(|v| v.map(|v| v.index()))
+      .collective_filter_map(|v| v)
       .into_boxed()
-      .into_one_to_many_by_idx_expose_type()
+      .into_one_to_many_by_hash()
       .into_static_forker();
 
     self

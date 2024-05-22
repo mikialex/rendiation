@@ -16,7 +16,7 @@ pub fn reactive_pack_2d_to_3d(
   config.make_sure_valid();
 
   let (size_sender, size_rev) = single_value_channel();
-  let (sender, rev) = collective_channel::<PackResult2dWithDepth>();
+  let (sender, rev) = collective_channel::<u32, PackResult2dWithDepth>();
 
   let packer: PackerImpl = GrowablePacker::new(config.init_size);
 
@@ -45,8 +45,8 @@ struct Packer {
   mapping: Arc<RwLock<FastHashMap<PackId, u32>>>,
   rev_mapping: Arc<RwLock<FastHashMap<u32, PackId>>>,
 
-  sender: CollectiveMutationSender<PackResult2dWithDepth>,
-  accumulated_mutations: CollectiveMutationReceiver<PackResult2dWithDepth>,
+  sender: CollectiveMutationSender<u32, PackResult2dWithDepth>,
+  accumulated_mutations: CollectiveMutationReceiver<u32, PackResult2dWithDepth>,
   all_size_sender: SingleSender<SizeWithDepth>,
 }
 

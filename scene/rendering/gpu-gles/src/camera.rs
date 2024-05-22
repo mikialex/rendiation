@@ -1,14 +1,15 @@
 use crate::*;
 
-pub type CameraUniforms = UniformUpdateContainer<SceneCameraEntity, CameraGPUTransform>;
+pub type CameraUniforms =
+  UniformUpdateContainer<EntityHandle<SceneCameraEntity>, CameraGPUTransform>;
 
 pub fn camera_gpus(
-  projections: impl ReactiveCollection<AllocIdx<SceneCameraEntity>, Mat4<f32>>,
-  node_mats: impl ReactiveCollection<AllocIdx<SceneNodeEntity>, Mat4<f32>>,
+  projections: impl ReactiveCollection<EntityHandle<SceneCameraEntity>, Mat4<f32>>,
+  node_mats: impl ReactiveCollection<EntityHandle<SceneNodeEntity>, Mat4<f32>>,
   cx: &GPUResourceCtx,
 ) -> CameraUniforms {
   let camera_world_mat =
-    node_mats.one_to_many_fanout(global_rev_ref().watch_inv_ref_typed::<SceneCameraNode>());
+    node_mats.one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneCameraNode>());
 
   let source = camera_world_mat
     .collective_zip(projections)

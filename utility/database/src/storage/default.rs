@@ -11,8 +11,12 @@ impl<T: CValue + Default> ComponentStorage<T> for Arc<RwLock<Vec<T>>> {
 }
 
 impl<T: CValue> ComponentStorageReadView<T> for LockReadGuardHolder<Vec<T>> {
-  fn get(&self, idx: usize) -> Option<&T> {
-    self.deref().get(idx)
+  fn get(&self, idx: RawEntityHandle) -> Option<&T> {
+    // todo generation check
+    self.deref().get(idx.index() as usize)
+  }
+  fn get_without_generation_check(&self, idx: u32) -> Option<&T> {
+    self.deref().get(idx as usize)
   }
 
   fn clone_read_view(&self) -> Box<dyn ComponentStorageReadView<T>> {
@@ -21,13 +25,15 @@ impl<T: CValue> ComponentStorageReadView<T> for LockReadGuardHolder<Vec<T>> {
 }
 
 impl<T: CValue + Default> ComponentStorageReadWriteView<T> for LockWriteGuardHolder<Vec<T>> {
-  fn get_mut(&mut self, idx: usize) -> Option<&mut T> {
+  fn get_mut(&mut self, idx: RawEntityHandle) -> Option<&mut T> {
+    // todo generation check
     let data: &mut Vec<T> = self;
-    data.get_mut(idx)
+    data.get_mut(idx.index() as usize)
   }
-  fn get(&self, idx: usize) -> Option<&T> {
+  fn get(&self, idx: RawEntityHandle) -> Option<&T> {
+    // todo generation check
     let data: &Vec<T> = self;
-    data.get(idx)
+    data.get(idx.index() as usize)
   }
 
   unsafe fn grow_at_least(&mut self, max: usize) {

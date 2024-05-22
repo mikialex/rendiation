@@ -4,7 +4,7 @@ use rendiation_shader_api::Std140;
 use crate::*;
 
 pub type UniformUpdateContainer<K, V> =
-  MultiUpdateContainer<FastHashMap<AllocIdx<K>, UniformBufferDataView<V>>>;
+  MultiUpdateContainer<FastHashMap<K, UniformBufferDataView<V>>>;
 
 /// group of(Rxc<id, T fieldChange>) =maintain=> group of(uniform buffer <T>)
 pub struct UniformCollectionUpdate<T, K, V> {

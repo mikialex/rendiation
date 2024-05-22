@@ -10,7 +10,7 @@ pub fn gpu_texture_2ds(
   let cx = cx.clone();
 
   global_watch()
-    .watch::<SceneTexture2dEntityDirectContent>()
+    .watch_untyped_key::<SceneTexture2dEntityDirectContent>()
     // todo, we should consider using the simple map here
     .collective_execute_map_by(move || {
       let cx = cx.clone();

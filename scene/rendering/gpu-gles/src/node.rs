@@ -1,6 +1,7 @@
 use crate::*;
 
-pub type SceneNodeUniforms = UniformUpdateContainer<SceneNodeEntity, TransformGPUData>;
+pub type SceneNodeUniforms =
+  UniformUpdateContainer<EntityHandle<SceneNodeEntity>, TransformGPUData>;
 
 pub fn node_gpus(cx: &GPUResourceCtx) -> SceneNodeUniforms {
   let source = scene_node_derive_world_mat()

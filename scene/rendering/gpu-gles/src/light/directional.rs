@@ -15,10 +15,10 @@ pub fn directional_uniform_array(
   let buffer = UniformBufferDataView::create_default(&gpu.device);
 
   let illuminance = global_watch()
-    .watch_typed_key::<DirectionalLightIlluminance>()
+    .watch::<DirectionalLightIlluminance>()
     .into_uniform_array_collection_update(offset_of!(DirectionalLightUniform, illuminance), gpu);
 
-  let direction = raw_scene_node_derive_world_mat()
+  let direction = scene_node_derive_world_mat()
     .one_to_many_fanout(global_rev_ref().watch_inv_ref::<DirectionalRefNode>())
     .collective_map(|mat| mat.forward().reverse().normalize())
     .into_uniform_array_collection_update(offset_of!(DirectionalLightUniform, direction), gpu);

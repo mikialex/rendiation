@@ -26,7 +26,7 @@ impl Widget for SceneOrbitCameraControl {
 
     let control_node = global_entity_component_of::<SceneCameraNode>()
       .read()
-      .get(scene_cx.main_camera.alloc_idx())
+      .get(scene_cx.main_camera)
       .unwrap();
     let node_local_mat = global_entity_component_of::<SceneNodeLocalMatrixComponent>().write();
 
@@ -41,16 +41,16 @@ impl Widget for SceneOrbitCameraControl {
 }
 
 struct ControlleeWrapper {
-  controllee: EntityHandle<SceneNodeLocalMatrixComponent>,
+  controllee: EntityHandle<SceneNodeEntity>,
   writer: ComponentWriteView<SceneNodeLocalMatrixComponent>,
 }
 
 impl Transformed3DControllee for ControlleeWrapper {
   fn get_matrix(&self) -> Mat4<f32> {
-    self.writer.read(self.controllee.alloc_idx().index)
+    self.writer.read(self.controllee)
   }
 
   fn set_matrix(&mut self, m: Mat4<f32>) {
-    self.writer.write(self.controllee.alloc_idx().index, m)
+    self.writer.write(self.controllee, m)
   }
 }

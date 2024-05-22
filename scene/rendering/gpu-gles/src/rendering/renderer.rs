@@ -49,7 +49,7 @@ impl RenderImplProvider<Box<dyn SceneRenderer>> for GLESRenderSystem {
 
     self.texture_system = source.register(Box::new(ReactiveStateBoxAnyResult(texture_system)));
 
-    let model_lookup = global_rev_ref().watch_inv_ref_typed::<SceneModelBelongsToScene>();
+    let model_lookup = global_rev_ref().watch_inv_ref::<SceneModelBelongsToScene>();
     self.model_lookup = source.register_reactive_multi_collection(model_lookup);
     for imp in &mut self.scene_model_impl {
       imp.register_resource(source, cx);
@@ -78,14 +78,15 @@ impl RenderImplProvider<Box<dyn SceneRenderer>> for GLESRenderSystem {
 struct GLESSceneRenderer {
   texture_system: GPUTextureBindingSystem,
   scene_model_renderer: Vec<Box<dyn SceneModelRenderer>>,
-  model_lookup: Box<dyn VirtualMultiCollection<AllocIdx<SceneEntity>, AllocIdx<SceneModelEntity>>>,
+  model_lookup:
+    Box<dyn VirtualMultiCollection<EntityHandle<SceneEntity>, EntityHandle<SceneModelEntity>>>,
 }
 
 impl SceneModelRenderer for GLESSceneRenderer {
   fn make_component<'a>(
     &'a self,
-    idx: AllocIdx<SceneModelEntity>,
-    camera: AllocIdx<SceneCameraEntity>,
+    idx: EntityHandle<SceneModelEntity>,
+    camera: EntityHandle<SceneCameraEntity>,
     pass: &'a (dyn RenderComponent + 'a),
     tex: &'a GPUTextureBindingSystem,
   ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
@@ -98,8 +99,8 @@ impl SceneModelRenderer for GLESSceneRenderer {
 impl SceneRenderer for GLESSceneRenderer {
   fn make_pass_content<'a>(
     &'a self,
-    scene: AllocIdx<SceneEntity>,
-    camera: AllocIdx<SceneCameraEntity>,
+    scene: EntityHandle<SceneEntity>,
+    camera: EntityHandle<SceneCameraEntity>,
     pass: &'a dyn RenderComponent,
     _: &mut FrameCtx,
   ) -> Box<dyn PassContent + 'a> {
@@ -112,7 +113,7 @@ impl SceneRenderer for GLESSceneRenderer {
   }
   fn init_clear(
     &self,
-    _scene: AllocIdx<SceneEntity>, // todo background
+    _scene: EntityHandle<SceneEntity>, // todo background
   ) -> (Operations<rendiation_webgpu::Color>, Operations<f32>) {
     (clear(rendiation_webgpu::Color::WHITE), clear(1.))
   }
@@ -124,9 +125,9 @@ impl SceneRenderer for GLESSceneRenderer {
 
 struct GLESScenePassContent<'a> {
   renderer: &'a GLESSceneRenderer,
-  scene: AllocIdx<SceneEntity>,
+  scene: EntityHandle<SceneEntity>,
   pass: &'a dyn RenderComponent,
-  camera: AllocIdx<SceneCameraEntity>,
+  camera: EntityHandle<SceneCameraEntity>,
 }
 
 impl<'a> PassContent for GLESScenePassContent<'a> {

@@ -19,7 +19,7 @@ impl RenderImplProvider<Box<dyn SceneModelRenderer>> for GLESPreferredComOrderRe
   fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> Box<dyn SceneModelRenderer> {
     Box::new(GLESPreferredComOrderRenderer {
       model_impl: self.model_impl.iter().map(|i| i.create_impl(res)).collect(),
-      node: global_entity_component_of::<SceneModelRefNode>().read(),
+      node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
       node_render: self.node.create_impl(res),
       camera_gpu: self.camera.create_impl(res),
     })
@@ -29,21 +29,20 @@ impl RenderImplProvider<Box<dyn SceneModelRenderer>> for GLESPreferredComOrderRe
 pub struct GLESPreferredComOrderRenderer {
   model_impl: Vec<Box<dyn GLESModelRenderImpl>>,
   node_render: Box<dyn GLESNodeRenderImpl>,
-  node: ComponentReadView<SceneModelRefNode>,
+  node: ForeignKeyReadView<SceneModelRefNode>,
   camera_gpu: Box<dyn GLESCameraRenderImpl>,
 }
 
 impl SceneModelRenderer for GLESPreferredComOrderRenderer {
   fn make_component<'a>(
     &'a self,
-    idx: AllocIdx<SceneModelEntity>,
-    camera: AllocIdx<SceneCameraEntity>,
+    idx: EntityHandle<SceneModelEntity>,
+    camera: EntityHandle<SceneCameraEntity>,
     pass: &'a (dyn RenderComponent + 'a),
     tex: &'a GPUTextureBindingSystem,
   ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
     let node = self.node.get(idx)?;
-    let node = (*node)?.index();
-    let node = self.node_render.make_component(node.into())?;
+    let node = self.node_render.make_component(node)?;
 
     let camera = self.camera_gpu.make_component(camera)?;
 

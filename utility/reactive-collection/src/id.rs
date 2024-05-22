@@ -35,48 +35,6 @@ pub trait LinearIdentification: LinearIdentified + Copy {
   fn from_alloc_index(idx: u32) -> Self;
 }
 
-pub struct AllocIdx<T> {
-  pub index: u32,
-  phantom: PhantomData<T>,
-}
-
-unsafe impl<T> Send for AllocIdx<T> {}
-unsafe impl<T> Sync for AllocIdx<T> {}
-
-impl<T> std::fmt::Debug for AllocIdx<T> {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    f.debug_tuple("AllocIdx").field(&self.index).finish()
-  }
-}
-
-impl<T> Clone for AllocIdx<T> {
-  fn clone(&self) -> Self {
-    *self
-  }
-}
-impl<T> Copy for AllocIdx<T> {}
-impl<T> PartialEq for AllocIdx<T> {
-  fn eq(&self, other: &Self) -> bool {
-    self.index == other.index
-  }
-}
-impl<T> Eq for AllocIdx<T> {}
-impl<T> std::hash::Hash for AllocIdx<T> {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    self.index.hash(state);
-  }
-}
-
-impl<T> LinearIdentified for AllocIdx<T> {
-  fn alloc_index(&self) -> u32 {
-    self.index
-  }
-}
-impl<T> LinearIdentification for AllocIdx<T> {
-  fn from_alloc_index(idx: u32) -> Self {
-    Self::from(idx)
-  }
-}
 impl LinearIdentified for u32 {
   fn alloc_index(&self) -> u32 {
     *self
@@ -85,14 +43,5 @@ impl LinearIdentified for u32 {
 impl LinearIdentification for u32 {
   fn from_alloc_index(idx: u32) -> Self {
     idx
-  }
-}
-
-impl<T> From<u32> for AllocIdx<T> {
-  fn from(value: u32) -> Self {
-    Self {
-      index: value,
-      phantom: PhantomData,
-    }
   }
 }

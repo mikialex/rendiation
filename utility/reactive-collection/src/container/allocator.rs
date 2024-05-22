@@ -11,7 +11,7 @@ pub fn reactive_linear_allocation(
 ) -> (impl ReactiveCollection<u32, u32>, impl Stream<Item = u32>) {
   assert!(init_count <= max_count);
 
-  let (sender, rev) = collective_channel::<u32>();
+  let (sender, rev) = collective_channel::<u32, u32>();
   let (size_sender, size_rev) = single_value_channel();
 
   let allocator = xalloc::SysTlsf::new(init_count);
@@ -39,8 +39,8 @@ struct ReactiveAllocator<T> {
   source: T,
   allocator: Arc<RwLock<Allocator>>,
   all_size_sender: SingleSender<u32>,
-  sender: CollectiveMutationSender<u32>,
-  accumulated_mutations: CollectiveMutationReceiver<u32>,
+  sender: CollectiveMutationSender<u32, u32>,
+  accumulated_mutations: CollectiveMutationReceiver<u32, u32>,
 }
 
 struct Allocator {

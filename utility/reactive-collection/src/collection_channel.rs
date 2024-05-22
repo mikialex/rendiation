@@ -8,10 +8,13 @@ use parking_lot::RwLock;
 
 use crate::*;
 
-type MutationData<T> = FastHashMap<u32, ValueChange<T>>;
+type MutationData<K, T> = FastHashMap<K, ValueChange<T>>;
 
-pub fn collective_channel<T>() -> (CollectiveMutationSender<T>, CollectiveMutationReceiver<T>) {
-  let inner: Arc<(RwLock<MutationData<T>>, AtomicWaker)> = Default::default();
+pub fn collective_channel<K, T>() -> (
+  CollectiveMutationSender<K, T>,
+  CollectiveMutationReceiver<K, T>,
+) {
+  let inner: Arc<(RwLock<MutationData<K, T>>, AtomicWaker)> = Default::default();
   let sender = CollectiveMutationSender {
     inner: inner.clone(),
   };
@@ -20,11 +23,11 @@ pub fn collective_channel<T>() -> (CollectiveMutationSender<T>, CollectiveMutati
   (sender, receiver)
 }
 
-pub struct CollectiveMutationSender<T> {
-  inner: Arc<(RwLock<MutationData<T>>, AtomicWaker)>,
+pub struct CollectiveMutationSender<K, T> {
+  inner: Arc<(RwLock<MutationData<K, T>>, AtomicWaker)>,
 }
 
-impl<T> Clone for CollectiveMutationSender<T> {
+impl<K, T> Clone for CollectiveMutationSender<K, T> {
   fn clone(&self) -> Self {
     Self {
       inner: self.inner.clone(),
@@ -32,7 +35,7 @@ impl<T> Clone for CollectiveMutationSender<T> {
   }
 }
 
-impl<T: CValue> CollectiveMutationSender<T> {
+impl<K: CKey, T: CValue> CollectiveMutationSender<K, T> {
   /// # Safety
   ///
   /// this should be called before send
@@ -49,7 +52,7 @@ impl<T: CValue> CollectiveMutationSender<T> {
   /// # Safety
   ///
   /// this should be called when locked
-  pub unsafe fn send(&self, idx: u32, change: ValueChange<T>) {
+  pub unsafe fn send(&self, idx: K, change: ValueChange<T>) {
     let mutations = &mut *self.inner.0.data_ptr();
     if let Some(old_change) = mutations.get_mut(&idx) {
       if !old_change.merge(&change) {
@@ -67,24 +70,24 @@ impl<T: CValue> CollectiveMutationSender<T> {
 }
 
 /// this is not likely to be triggered because component type is not get removed in any time
-impl<T> Drop for CollectiveMutationSender<T> {
+impl<K, T> Drop for CollectiveMutationSender<K, T> {
   fn drop(&mut self) {
     self.inner.1.wake()
   }
 }
 
-pub struct CollectiveMutationReceiver<T> {
-  inner: Arc<(RwLock<MutationData<T>>, AtomicWaker)>,
+pub struct CollectiveMutationReceiver<K, T> {
+  inner: Arc<(RwLock<MutationData<K, T>>, AtomicWaker)>,
 }
 
-impl<T: CValue> CollectiveMutationReceiver<T> {
+impl<K: CKey, T: CValue> CollectiveMutationReceiver<K, T> {
   pub fn poll_impl(
     &self,
     cx: &mut Context,
-  ) -> Poll<Option<Box<dyn VirtualCollection<u32, ValueChange<T>>>>> {
+  ) -> Poll<Option<Box<dyn VirtualCollection<K, ValueChange<T>>>>> {
     self.inner.1.register(cx.waker());
     let mut changes = self.inner.0.write();
-    let changes: &mut MutationData<T> = &mut changes;
+    let changes: &mut MutationData<K, T> = &mut changes;
 
     let changes = std::mem::take(changes);
     if !changes.is_empty() {
@@ -98,8 +101,8 @@ impl<T: CValue> CollectiveMutationReceiver<T> {
   }
 }
 
-impl<T: CValue> Stream for CollectiveMutationReceiver<T> {
-  type Item = Box<dyn VirtualCollection<u32, ValueChange<T>>>;
+impl<K: CKey, T: CValue> Stream for CollectiveMutationReceiver<K, T> {
+  type Item = Box<dyn VirtualCollection<K, ValueChange<T>>>;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     self.poll_impl(cx)
@@ -119,19 +122,21 @@ impl<K: CKey, V: CValue, T: VirtualCollection<K, V> + 'static> VirtualCollection
   }
 }
 
-pub struct ReactiveCollectionFromCollectiveMutation<T> {
-  pub full: Box<dyn VirtualCollectionAccess<u32, T>>,
-  pub mutation: RwLock<CollectiveMutationReceiver<T>>,
+pub struct ReactiveCollectionFromCollectiveMutation<K, T> {
+  pub full: Box<dyn VirtualCollectionAccess<K, T>>,
+  pub mutation: RwLock<CollectiveMutationReceiver<K, T>>,
 }
-impl<T: CValue> ReactiveCollection<u32, T> for ReactiveCollectionFromCollectiveMutation<T> {
-  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<u32, T> {
+impl<K: CKey, T: CValue> ReactiveCollection<K, T>
+  for ReactiveCollectionFromCollectiveMutation<K, T>
+{
+  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, T> {
     match self.mutation.write().poll_next_unpin(cx) {
       Poll::Ready(Some(r)) => Poll::Ready(r),
       _ => Poll::Pending,
     }
   }
 
-  fn access(&self) -> PollCollectionCurrent<u32, T> {
+  fn access(&self) -> PollCollectionCurrent<K, T> {
     self.full.access()
   }
 

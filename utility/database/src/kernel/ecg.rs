@@ -5,15 +5,30 @@ pub struct EntityHandle<T> {
   pub(crate) handle: RawEntityHandle,
 }
 
-impl<T> EntityHandle<T> {
-  pub fn some_handle(&self) -> Option<RawEntityHandle> {
-    Some(self.handle)
+impl<T> LinearIdentified for EntityHandle<T> {
+  fn alloc_index(&self) -> u32 {
+    self.handle.alloc_index()
   }
 }
 
-impl<T> From<EntityHandle<T>> for AllocIdx<T> {
-  fn from(val: EntityHandle<T>) -> Self {
-    val.handle.index().into()
+impl<T> EntityHandle<T> {
+  pub unsafe fn from_raw(handle: RawEntityHandle) -> Self {
+    Self {
+      ty: PhantomData,
+      handle,
+    }
+  }
+  pub(crate) fn from_raw_internal_usage(handle: RawEntityHandle) -> Self {
+    Self {
+      ty: PhantomData,
+      handle,
+    }
+  }
+  pub fn into_raw(self) -> RawEntityHandle {
+    self.handle
+  }
+  pub fn some_handle(&self) -> Option<RawEntityHandle> {
+    Some(self.handle)
   }
 }
 
@@ -45,14 +60,14 @@ impl<T> std::fmt::Debug for EntityHandle<T> {
   }
 }
 
-impl<T> EntityHandle<T> {
-  pub fn alloc_idx(&self) -> AllocIdx<T> {
-    (self.handle.index()).into()
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct RawEntityHandle(pub(crate) Handle<()>);
+
+impl LinearIdentified for RawEntityHandle {
+  fn alloc_index(&self) -> u32 {
+    self.0.index() as u32
   }
 }
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct RawEntityHandle(pub Handle<()>);
 
 impl RawEntityHandle {
   pub fn index(&self) -> u32 {
@@ -193,7 +208,7 @@ impl EntityComponentGroup {
     assert!(previous.is_none())
   }
 
-  pub fn iter_entity_idx(&self) -> impl Iterator<Item = u32> {
+  pub fn iter_entity_idx(&self) -> impl Iterator<Item = RawEntityHandle> {
     let inner = self.inner.allocator.make_read_holder();
     struct Iter {
       iter: arena::Iter<'static, ()>,
@@ -201,10 +216,10 @@ impl EntityComponentGroup {
     }
 
     impl Iterator for Iter {
-      type Item = u32;
+      type Item = RawEntityHandle;
 
       fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|(idx, _)| idx.index() as u32)
+        self.iter.next().map(|(idx, _)| RawEntityHandle(idx))
       }
     }
 

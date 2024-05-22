@@ -5,51 +5,56 @@ use crate::*;
 
 pub fn attribute_mesh_index_buffers(
   cx: &GPUResourceCtx,
-) -> impl ReactiveCollectionSelfContained<AllocIdx<AttributeMeshEntity>, GPUBufferResourceView> {
+) -> impl ReactiveCollectionSelfContained<EntityHandle<AttributeMeshEntity>, GPUBufferResourceView>
+{
   let cx = cx.clone();
   let attribute_mesh_index_buffers = global_watch()
-    .watch_typed_key::<SceneBufferViewBufferId<AttributeIndexRef>>()
+    .watch::<SceneBufferViewBufferId<AttributeIndexRef>>()
     .collective_execute_map_by(move || {
       let cx = cx.clone();
       let read_view = global_entity_component_of::<BufferEntityData>().read();
       move |_, buffer_idx| {
-        let buffer = read_view.get(buffer_idx.unwrap().index().into()).unwrap();
+        let buffer = read_view
+          .get_without_generation_check(buffer_idx.unwrap().index().into())
+          .unwrap();
         create_gpu_buffer(buffer.as_slice(), BufferUsages::INDEX, &cx.device)
       }
     });
 
   attribute_mesh_index_buffers
     .collective_zip(
-      global_watch().watch_typed_key::<SceneBufferViewBufferRange<AttributeIndexRef>>(),
+      global_watch().watch::<SceneBufferViewBufferRange<AttributeIndexRef>>(),
     )
     .collective_map(|(buffer, range)| buffer.create_view(map_view(range.unwrap())))
-    .materialize_linear()
+    .materialize_unordered()
 }
 
 pub fn attribute_mesh_vertex_buffer_views(
   cx: &GPUResourceCtx,
 ) -> impl ReactiveCollectionSelfContained<
-  AllocIdx<AttributeMeshVertexBufferRelation>,
+  EntityHandle<AttributeMeshVertexBufferRelation>,
   GPUBufferResourceView,
 > {
   let cx = cx.clone();
   let attribute_mesh_vertex_buffers = global_watch()
-    .watch_typed_key::<SceneBufferViewBufferId<AttributeVertexRef>>()
+    .watch::<SceneBufferViewBufferId<AttributeVertexRef>>()
     .collective_execute_map_by(move || {
       let cx = cx.clone();
       let read_view = global_entity_component_of::<BufferEntityData>().read();
       move |_, buffer_idx| {
-        let buffer = read_view.get(buffer_idx.unwrap().index().into()).unwrap();
+        let buffer = read_view
+          .get_without_generation_check(buffer_idx.unwrap().index().into())
+          .unwrap();
         create_gpu_buffer(buffer.as_slice(), BufferUsages::VERTEX, &cx.device)
       }
     });
 
   attribute_mesh_vertex_buffers
     .collective_zip(
-      global_watch().watch_typed_key::<SceneBufferViewBufferRange<AttributeVertexRef>>(),
+      global_watch().watch::<SceneBufferViewBufferRange<AttributeVertexRef>>(),
     )
     .collective_map(|(buffer, range)| buffer.create_view(map_view(range.unwrap())))
-    .materialize_linear()
+    .materialize_unordered()
 }
 
 fn map_view(view: rendiation_mesh_core::BufferViewRange) -> GPUBufferViewRange {
@@ -64,13 +69,13 @@ pub struct AttributeMeshVertexAccessView {
   pub count: ComponentReadView<SceneBufferViewBufferItemCount<AttributeVertexRef>>,
   pub multi_access: Box<
     dyn VirtualMultiCollection<
-      AllocIdx<AttributeMeshEntity>,
-      AllocIdx<AttributeMeshVertexBufferRelation>,
+      EntityHandle<AttributeMeshEntity>,
+      EntityHandle<AttributeMeshVertexBufferRelation>,
     >,
   >,
   pub vertex: Box<
     dyn VirtualCollectionSelfContained<
-      AllocIdx<AttributeMeshVertexBufferRelation>,
+      EntityHandle<AttributeMeshVertexBufferRelation>,
       GPUBufferResourceView,
     >,
   >,
@@ -81,7 +86,7 @@ pub struct AttributesMeshGPU<'a> {
   // fmt, count
   pub index: Option<(AttributeIndexFormat, u32)>,
   pub index_buffer: &'a GPUBufferResourceView,
-  pub mesh_id: AllocIdx<AttributeMeshEntity>,
+  pub mesh_id: EntityHandle<AttributeMeshEntity>,
   pub vertex: &'a AttributeMeshVertexAccessView,
 }
 

@@ -8,7 +8,7 @@ use crate::*;
 pub fn sampler_gpus(cx: &GPUResourceCtx) -> impl ReactiveCollection<u32, GPUSamplerView> {
   let cx = cx.clone();
   global_watch()
-    .watch::<SceneSamplerInfo>()
+    .watch_untyped_key::<SceneSamplerInfo>()
     // todo, we should consider using the simple map here
     .collective_execute_map_by(move || {
       let cx = cx.clone();

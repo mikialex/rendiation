@@ -150,7 +150,7 @@ impl StandardModelDataView {
 }
 
 declare_entity!(SceneNodeEntity);
-declare_component!(SceneNodeParentIdx, SceneNodeEntity, Option<u32>); // should we add generation?
+declare_component!(SceneNodeParentIdx, SceneNodeEntity, Option<RawEntityHandle>);
 declare_component!(SceneNodeLocalMatrixComponent, SceneNodeEntity, Mat4<f32>);
 declare_component!(SceneNodeVisibleComponent, SceneNodeEntity, bool, true);
 pub fn register_scene_node_data_model() {
@@ -164,7 +164,7 @@ pub fn register_scene_node_data_model() {
 pub struct SceneNodeDataView {
   pub visible: bool,
   pub local_matrix: Mat4<f32>,
-  pub parent: Option<u32>,
+  pub parent: Option<RawEntityHandle>,
 }
 
 impl SceneNodeDataView {
@@ -177,15 +177,16 @@ impl SceneNodeDataView {
   }
 }
 
-#[global_registered_collection_and_many_one_idx_relation]
-pub fn scene_node_connectivity() -> impl ReactiveCollection<u32, u32> {
+#[global_registered_collection_and_many_one_hash_relation]
+pub fn scene_node_connectivity(
+) -> impl ReactiveCollection<EntityHandle<SceneNodeEntity>, EntityHandle<SceneNodeEntity>> {
   global_watch()
     .watch::<SceneNodeParentIdx>()
-    .collective_filter_map(|v| v)
+    .collective_filter_map(|v| v.map(|v| unsafe { EntityHandle::from_raw(v) }))
 }
 
 #[global_registered_collection]
-pub fn raw_scene_node_derive_visible() -> impl ReactiveCollection<u32, bool> {
+pub fn scene_node_derive_visible() -> impl ReactiveCollection<EntityHandle<SceneNodeEntity>, bool> {
   tree_payload_derive_by_parent_decide_children(
     Box::new(scene_node_connectivity_many_one_relation()),
     global_watch()
@@ -196,12 +197,8 @@ pub fn raw_scene_node_derive_visible() -> impl ReactiveCollection<u32, bool> {
 }
 
 #[global_registered_collection]
-pub fn scene_node_derive_visible() -> impl ReactiveCollection<AllocIdx<SceneNodeEntity>, bool> {
-  raw_scene_node_derive_visible().collective_key_convert(AllocIdx::from, AllocIdx::into_alloc_index)
-}
-
-#[global_registered_collection]
-pub fn raw_scene_node_derive_world_mat() -> impl ReactiveCollection<u32, Mat4<f32>> {
+pub fn scene_node_derive_world_mat(
+) -> impl ReactiveCollection<EntityHandle<SceneNodeEntity>, Mat4<f32>> {
   tree_payload_derive_by_parent_decide_children(
     Box::new(scene_node_connectivity_many_one_relation()),
     global_watch()
@@ -209,11 +206,4 @@ pub fn raw_scene_node_derive_world_mat() -> impl ReactiveCollection<u32, Mat4<f3
       .into_boxed(),
     |this, parent| parent.map(|p| *p * *this).unwrap_or(*this),
   )
-}
-
-#[global_registered_collection]
-pub fn scene_node_derive_world_mat() -> impl ReactiveCollection<AllocIdx<SceneNodeEntity>, Mat4<f32>>
-{
-  raw_scene_node_derive_world_mat()
-    .collective_key_convert(AllocIdx::from, AllocIdx::into_alloc_index)
 }

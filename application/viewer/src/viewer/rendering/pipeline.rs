@@ -69,8 +69,8 @@ impl ViewerPipeline {
 
     let highlight_compose = (content.selected_target.is_some()).then(|| {
       let masked_content = highlight(
-        content.selected_target.iter().map(|v| v.alloc_idx()),
-        content.main_camera.alloc_idx(),
+        content.selected_target.iter().cloned(),
+        content.main_camera,
         renderer,
       );
       self.highlight.draw(ctx, masked_content)
@@ -106,14 +106,10 @@ impl ViewerPipeline {
         });
 
         // these pass will get correct gpu camera?
-        let (color_ops, depth_ops) = renderer.init_clear(content.scene.alloc_idx());
+        let (color_ops, depth_ops) = renderer.init_clear(content.scene);
         // todo light dispatcher
-        let main_scene_content = renderer.make_pass_content(
-          content.scene.alloc_idx(),
-          content.main_camera.alloc_idx(),
-          &(),
-          ctx,
-        );
+        let main_scene_content =
+          renderer.make_pass_content(content.scene, content.main_camera, &(), ctx);
         pass("scene")
           .with_color(scene_result.write(), color_ops)
           .with_depth(scene_depth.write(), depth_ops)
@@ -153,12 +149,12 @@ impl ViewerPipeline {
 pub struct HighLightDrawMaskTask<'a, T> {
   objects: Option<T>,
   renderer: &'a dyn SceneRenderer,
-  camera: AllocIdx<SceneCameraEntity>,
+  camera: EntityHandle<SceneCameraEntity>,
 }
 
 pub fn highlight<T>(
   objects: T,
-  camera: AllocIdx<SceneCameraEntity>,
+  camera: EntityHandle<SceneCameraEntity>,
   renderer: &dyn SceneRenderer,
 ) -> HighLightDrawMaskTask<T> {
   HighLightDrawMaskTask {
@@ -170,7 +166,7 @@ pub fn highlight<T>(
 
 impl<'a, T> PassContent for HighLightDrawMaskTask<'a, T>
 where
-  T: Iterator<Item = AllocIdx<SceneModelEntity>>,
+  T: Iterator<Item = EntityHandle<SceneModelEntity>>,
 {
   fn render(&mut self, pass: &mut FrameRenderPass) {
     if let Some(mut objects) = self.objects.take() {

@@ -6,18 +6,20 @@ use crate::*;
 fn cube_face_update<FK>(
   face: CubeTextureFace,
   cx: &GPUResourceCtx,
-) -> impl CollectionUpdate<FastHashMap<AllocIdx<SceneTextureCubeEntity>, GPUCubeTextureView>>
+) -> impl CollectionUpdate<FastHashMap<EntityHandle<SceneTextureCubeEntity>, GPUCubeTextureView>>
 where
   FK: ForeignKeySemantic<Entity = SceneTextureCubeEntity, ForeignEntity = SceneTexture2dEntity>,
 {
   global_watch()
-    .watch_typed_key::<SceneTexture2dEntityDirectContent>()
+    .watch::<SceneTexture2dEntityDirectContent>()
     .collective_filter_map(|v| v)
-    .one_to_many_fanout(global_rev_ref().watch_inv_ref_typed::<FK>())
+    .one_to_many_fanout(global_rev_ref().watch_inv_ref::<FK>())
     .into_cube_face_collection_update(face, cx)
 }
 
-pub fn gpu_texture_cubes(cx: &GPUResourceCtx) -> CubeMapUpdateContainer<SceneTextureCubeEntity> {
+pub fn gpu_texture_cubes(
+  cx: &GPUResourceCtx,
+) -> CubeMapUpdateContainer<EntityHandle<SceneTextureCubeEntity>> {
   let px = cube_face_update::<SceneTextureCubeXPositiveFace>(CubeTextureFace::PositiveX, cx);
   let py = cube_face_update::<SceneTextureCubeXPositiveFace>(CubeTextureFace::PositiveY, cx);
   let pz = cube_face_update::<SceneTextureCubeXPositiveFace>(CubeTextureFace::PositiveZ, cx);

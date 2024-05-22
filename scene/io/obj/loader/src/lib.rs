@@ -70,11 +70,6 @@ pub fn load_obj_content(
   Ok(models)
 }
 
-// pub fn obj_loader_recommended_default_mat() -> AllocIdx<FlatMaterialEntity> {
-//   let mat = PhysicalSpecularGlossinessMaterial::default();
-//   MaterialEnum::PhysicalSpecularGlossiness(mat.into_ptr())
-// }
-
 /// convert obj material into scene material, only part of material parameters are supported
 fn into_rff_material(
   m: &tobj::Material,
