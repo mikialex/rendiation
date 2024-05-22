@@ -26,16 +26,16 @@ impl UINode {
 }
 
 impl Widget for UINode {
-  fn update_view(&mut self, cx: &mut StateCx) {
+  fn update_view(&mut self, cx: &mut DynCx) {
     self.children.update_view(cx)
   }
 
-  fn update_state(&mut self, cx: &mut StateCx) {
+  fn update_state(&mut self, cx: &mut DynCx) {
     self.children.update_state(cx)
   }
 
-  fn clean_up(&mut self, cx: &mut StateCx) {
-    state_mut_access!(cx, scene_cx, Scene3dWriter);
+  fn clean_up(&mut self, cx: &mut DynCx) {
+    access_cx_mut!(cx, scene_cx, Scene3dWriter);
     scene_cx.node_writer.delete_entity(self.node);
   }
 }

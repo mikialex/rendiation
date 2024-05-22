@@ -41,7 +41,7 @@ use viewer::*;
 static GLOBAL_ALLOCATOR: PreciseAllocationStatistics<System> =
   PreciseAllocationStatistics::new(System);
 
-pub fn run_viewer_app<V>(content_logic: impl Fn(&mut StateCx) -> V + 'static)
+pub fn run_viewer_app<V>(content_logic: impl Fn(&mut DynCx) -> V + 'static)
 where
   V: Widget + 'static,
 {
@@ -53,7 +53,7 @@ where
   let content_logic = core_viewer_features(content_logic);
 
   let viewer = StateCxCreateOnce::new(|cx| {
-    state_access!(cx, gpu, Arc<GPU>);
+    access_cx!(cx, gpu, Arc<GPU>);
     Viewer::new(gpu.clone(), content_logic(cx))
   });
   let egui_view = EguiContext::new(viewer);

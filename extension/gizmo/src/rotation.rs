@@ -11,9 +11,9 @@ pub fn rotation_gizmo_view(
     .with_child(build_rotator(v, AxisType::Z, parent))
     .with_state_post_update(move |cx| {
       if let Some(drag_action) = cx.message.take::<DragTargetAction>() {
-        state_access!(cx, target, Option::<GizmoControlTargetState>);
-        state_access!(cx, rotate_view, AxisActiveState);
-        state_access!(cx, start_states, Option::<DragStartState>);
+        access_cx!(cx, target, Option::<GizmoControlTargetState>);
+        access_cx!(cx, rotate_view, AxisActiveState);
+        access_cx!(cx, start_states, Option::<DragStartState>);
         let start_states = start_states.as_ref().unwrap();
 
         if let Some(target) = target {

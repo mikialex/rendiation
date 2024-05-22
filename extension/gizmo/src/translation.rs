@@ -12,16 +12,16 @@ pub fn translation_gizmo_view(
     .with_child(plane(v, AxisType::Y, parent))
     .with_child(plane(v, AxisType::Z, parent))
     .with_state_post_update(|cx| {
-      state_access!(cx, interaction_cx, InteractionState3d);
+      access_cx!(cx, interaction_cx, InteractionState3d);
       if interaction_cx.is_mouse_left_releasing {
-        state_mut_access!(cx, start_states, Option::<DragStartState>);
+        access_cx_mut!(cx, start_states, Option::<DragStartState>);
         *start_states = None;
       }
 
       if let Some(drag_action) = cx.message.take::<DragTargetAction>() {
-        state_access!(cx, target, Option::<GizmoControlTargetState>);
-        state_access!(cx, axis, AxisActiveState);
-        state_access!(cx, start_states, Option::<DragStartState>);
+        access_cx!(cx, target, Option::<GizmoControlTargetState>);
+        access_cx!(cx, axis, AxisActiveState);
+        access_cx!(cx, start_states, Option::<DragStartState>);
 
         if let Some(start_states) = start_states {
           if let Some(target) = target {
@@ -63,12 +63,12 @@ fn plane(
     );
   });
 
-  fn plane_update(axis: AxisType) -> impl FnMut(&mut UIWidgetModel, &mut StateCx) + 'static {
+  fn plane_update(axis: AxisType) -> impl FnMut(&mut UIWidgetModel, &mut DynCx) + 'static {
     move |plane, cx| {
-      state_access!(cx, style, GlobalUIStyle);
+      access_cx!(cx, style, GlobalUIStyle);
       let color = style.get_axis_primary_color(axis);
 
-      state_access!(cx, gizmo, AxisActiveState);
+      access_cx!(cx, gizmo, AxisActiveState);
       let (a, b) = gizmo.get_rest_axis(axis);
       let axis_state = ItemState {
         hovering: a.hovering && b.hovering,
@@ -77,7 +77,7 @@ fn plane(
       let self_active = axis_state.active;
       let visible = !gizmo.has_any_active() || self_active;
       let color = map_color(color, axis_state);
-      state_mut_access!(cx, cx3d, Scene3dWriter);
+      access_cx_mut!(cx, cx3d, Scene3dWriter);
       plane.set_visible(cx3d, visible);
       plane.set_color(cx3d, color);
     }

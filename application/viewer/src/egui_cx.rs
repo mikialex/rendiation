@@ -12,9 +12,9 @@ pub struct EguiContext<T> {
 }
 
 impl<T: Widget> Widget for EguiContext<T> {
-  fn update_state(&mut self, cx: &mut StateCx) {
-    state_access!(cx, window, Window);
-    state_access!(cx, platform_event, PlatformEventInput);
+  fn update_state(&mut self, cx: &mut DynCx) {
+    access_cx!(cx, window, Window);
+    access_cx!(cx, platform_event, PlatformEventInput);
 
     let state = self.state.get_or_insert_with(|| {
       let id = self.context.viewport_id();
@@ -30,20 +30,20 @@ impl<T: Widget> Widget for EguiContext<T> {
     self.inner.update_state(cx);
   }
 
-  fn update_view(&mut self, cx: &mut StateCx) {
-    state_access!(cx, window, Window);
+  fn update_view(&mut self, cx: &mut DynCx) {
+    access_cx!(cx, window, Window);
     self.begin_frame(window);
 
     // todo, cx register egui
     self.inner.update_view(cx);
 
-    state_access!(cx, window, Window);
-    state_access!(cx, gpu, Arc<GPU>);
-    state_access!(cx, canvas, RenderTargetView);
+    access_cx!(cx, window, Window);
+    access_cx!(cx, gpu, Arc<GPU>);
+    access_cx!(cx, canvas, RenderTargetView);
     self.end_frame_and_draw(gpu, window, canvas);
   }
 
-  fn clean_up(&mut self, cx: &mut StateCx) {
+  fn clean_up(&mut self, cx: &mut DynCx) {
     self.inner.clean_up(cx)
   }
 }

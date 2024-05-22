@@ -30,10 +30,10 @@ impl Default for Terminal {
 }
 
 type TerminalCommandCb =
-  Box<dyn Fn(&mut StateCx, &Vec<String>) -> Box<dyn Future<Output = ()> + Send + Unpin>>;
+  Box<dyn Fn(&mut DynCx, &Vec<String>) -> Box<dyn Future<Output = ()> + Send + Unpin>>;
 
 impl Terminal {
-  pub fn egui(&mut self, ui: &mut egui::Ui, cx: &mut StateCx) {
+  pub fn egui(&mut self, ui: &mut egui::Ui, cx: &mut DynCx) {
     ui.label("terminal");
     let re = ui.text_edit_singleline(&mut self.current_input);
     if re.lost_focus() && re.ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
@@ -45,7 +45,7 @@ impl Terminal {
   pub fn register_command<F, FR>(&mut self, name: impl AsRef<str>, f: F) -> &mut Self
   where
     FR: Future<Output = ()> + Send + Unpin + 'static,
-    F: Fn(&mut StateCx, &Vec<String>) -> FR + 'static,
+    F: Fn(&mut DynCx, &Vec<String>) -> FR + 'static,
   {
     self.command_registry.insert(
       name.as_ref().to_owned(),
@@ -54,7 +54,7 @@ impl Terminal {
     self
   }
 
-  pub fn execute_current(&mut self, ctx: &mut StateCx) {
+  pub fn execute_current(&mut self, ctx: &mut DynCx) {
     let command = self.current_input.take();
     let parameters: Vec<String> = command
       .split_ascii_whitespace()
@@ -78,7 +78,7 @@ impl Terminal {
 pub fn register_default_commands(terminal: &mut Terminal) {
   // this mainly to do test
   terminal.register_command("clear-gpu-resource-cache", |ctx, _parameters| {
-    state_access!(ctx, gpu, Arc<GPU>);
+    access_cx!(ctx, gpu, Arc<GPU>);
 
     println!(
       "current gpu resource cache details: {:?}",
@@ -135,7 +135,7 @@ pub fn register_default_commands(terminal: &mut Terminal) {
   // });
 
   terminal.register_command("screenshot", |ctx, _parameters| {
-    state_access!(ctx, r, Viewer3dRenderingCtx);
+    access_cx!(ctx, r, Viewer3dRenderingCtx);
     let result = r.read_next_render_result();
 
     Box::pin(async {

@@ -44,11 +44,11 @@ impl TypeIndexRegistry {
   }
 }
 
-pub struct StateGuard<'a, T> {
+pub struct CxGuard<'a, T> {
   pub ptr: &'a T,
 }
 
-impl<'a, T> Deref for StateGuard<'a, T> {
+impl<'a, T> Deref for CxGuard<'a, T> {
   type Target = T;
 
   fn deref(&self) -> &Self::Target {
@@ -57,70 +57,70 @@ impl<'a, T> Deref for StateGuard<'a, T> {
 }
 
 #[macro_export]
-macro_rules! state_access {
+macro_rules! access_cx {
   ($store: expr, $name: tt, $type: ty) => {
-    let $name = unsafe { $store.get_state_ref::<$type>() };
+    let $name = unsafe { $store.get_cx_ref::<$type>() };
     #[allow(unused_variables)]
-    let $name = StateGuard { ptr: $name };
+    let $name = CxGuard { ptr: $name };
     let $name: &$type = &$name;
   };
 }
 
-pub struct StateMutGuard<'a, T> {
+pub struct CxMutGuard<'a, T> {
   pub ptr: &'a mut T,
 }
 
-impl<'a, T> Deref for StateMutGuard<'a, T> {
+impl<'a, T> Deref for CxMutGuard<'a, T> {
   type Target = T;
 
   fn deref(&self) -> &Self::Target {
     self.ptr
   }
 }
-impl<'a, T> DerefMut for StateMutGuard<'a, T> {
+impl<'a, T> DerefMut for CxMutGuard<'a, T> {
   fn deref_mut(&mut self) -> &mut Self::Target {
     self.ptr
   }
 }
 
 #[macro_export]
-macro_rules! state_mut_access {
+macro_rules! access_cx_mut {
   ($store: expr, $name: tt, $type: ty) => {
-    let $name = unsafe { $store.get_state_mut::<$type>() };
+    let $name = unsafe { $store.get_cx_mut::<$type>() };
     #[allow(unused_variables)]
-    let mut $name = StateMutGuard { ptr: $name };
+    let mut $name = CxMutGuard { ptr: $name };
     let $name: &mut $type = &mut $name;
   };
 }
 
 #[derive(Default)]
-pub struct StateCx {
+pub struct DynCx {
   pub message: MessageStore,
-  states: smallvec::SmallVec<[Option<StatePtrStack>; 8]>,
+  cx_stack: smallvec::SmallVec<[Option<StatePtrStack>; 8]>,
   type_idx: TypeIndexRegistry,
 }
 
 type StatePtrStack = smallvec::SmallVec<[*mut (); 2]>;
 
-impl StateCx {
-  pub fn split_state<T: 'static>(&mut self, f: impl FnOnce(&mut T, &mut Self)) {
+impl DynCx {
+  pub fn split_cx<T: 'static>(&mut self, f: impl FnOnce(&mut T, &mut Self)) {
     unsafe {
-      let ptr = self.unregister_state::<T>();
+      let ptr = self.unregister_cx::<T>();
       f(&mut *ptr, self);
-      self.register_state(ptr);
+      self.register_cx(ptr);
     }
   }
 
-  pub unsafe fn get_state_ref<T: 'static>(&self) -> &T {
-    &*self.get_state_ptr::<T>().unwrap()
+  pub unsafe fn get_cx_ref<T: 'static>(&self) -> &T {
+    &*self.get_cx_ptr::<T>().unwrap()
   }
-  pub unsafe fn get_state_mut<T: 'static>(&mut self) -> &mut T {
-    &mut *self.get_state_ptr::<T>().unwrap()
+  pub unsafe fn get_cx_mut<T: 'static>(&mut self) -> &mut T {
+    &mut *self.get_cx_ptr::<T>().unwrap()
   }
 
-  pub fn get_state_ptr<T: 'static>(&self) -> Option<*mut T> {
+  pub fn get_cx_ptr<T: 'static>(&self) -> Option<*mut T> {
     let idx = self.type_idx.get_ty::<T>()?;
-    let ptr_stack = self.states.get(idx)?.as_ref()?;
+    let ptr_stack = self.cx_stack.get(idx)?.as_ref()?;
     let last_ptr = ptr_stack.last().cloned()?;
 
     Some(last_ptr as *mut T)
@@ -129,12 +129,12 @@ impl StateCx {
   unsafe fn get_ptr_stack<T: 'static>(&mut self) -> &mut StatePtrStack {
     let idx = self.type_idx.get_or_register_ty::<T>();
 
-    while self.states.len() <= idx {
-      self.states.push(None)
+    while self.cx_stack.len() <= idx {
+      self.cx_stack.push(None)
     }
 
     let ptr_stack = self
-      .states
+      .cx_stack
       .get_mut(idx)
       .unwrap_unchecked()
       .get_or_insert_with(smallvec::SmallVec::new);
@@ -142,19 +142,19 @@ impl StateCx {
     ptr_stack
   }
 
-  pub unsafe fn register_state<T: 'static>(&mut self, v: *mut T) {
+  pub unsafe fn register_cx<T: 'static>(&mut self, v: *mut T) {
     self.get_ptr_stack::<T>().push(v as *mut ())
   }
 
-  pub unsafe fn unregister_state<T: 'static>(&mut self) -> *mut T {
+  pub unsafe fn unregister_cx<T: 'static>(&mut self) -> *mut T {
     self.get_ptr_stack::<T>().pop().unwrap_unchecked() as *mut T
   }
 
-  pub fn state_scope<T: 'static>(&mut self, state: &mut T, f: impl FnOnce(&mut StateCx)) {
+  pub fn scoped_cx<T: 'static>(&mut self, state: &mut T, f: impl FnOnce(&mut DynCx)) {
     unsafe {
-      self.register_state(state);
+      self.register_cx(state);
       f(self);
-      self.unregister_state::<T>();
+      self.unregister_cx::<T>();
     }
   }
 }
@@ -165,18 +165,18 @@ pub struct StateCtxInject<T, V> {
 }
 
 impl<T: 'static, V: Widget> Widget for StateCtxInject<T, V> {
-  fn update_view(&mut self, cx: &mut StateCx) {
-    cx.state_scope(&mut self.state, |cx| {
+  fn update_view(&mut self, cx: &mut DynCx) {
+    cx.scoped_cx(&mut self.state, |cx| {
       self.view.update_view(cx);
     })
   }
 
-  fn update_state(&mut self, cx: &mut StateCx) {
-    cx.state_scope(&mut self.state, |cx| {
+  fn update_state(&mut self, cx: &mut DynCx) {
+    cx.scoped_cx(&mut self.state, |cx| {
       self.view.update_state(cx);
     })
   }
-  fn clean_up(&mut self, cx: &mut StateCx) {
+  fn clean_up(&mut self, cx: &mut DynCx) {
     self.view.clean_up(cx)
   }
 }
@@ -190,54 +190,54 @@ pub struct StateCtxPick<V, F, T1, T2> {
 impl<T1: 'static, T2: 'static, F: Fn(&mut T1) -> &mut T2, V: Widget> Widget
   for StateCtxPick<V, F, T1, T2>
 {
-  fn update_view(&mut self, cx: &mut StateCx) {
+  fn update_view(&mut self, cx: &mut DynCx) {
     unsafe {
-      let s = cx.get_state_ptr::<T1>().unwrap();
+      let s = cx.get_cx_ptr::<T1>().unwrap();
       let picked = (self.pick)(&mut *s);
 
-      cx.state_scope(picked, |cx| {
+      cx.scoped_cx(picked, |cx| {
         self.view.update_view(cx);
       });
     }
   }
 
-  fn update_state(&mut self, cx: &mut StateCx) {
+  fn update_state(&mut self, cx: &mut DynCx) {
     unsafe {
-      let s = cx.get_state_ptr::<T1>().unwrap();
+      let s = cx.get_cx_ptr::<T1>().unwrap();
       let picked = (self.pick)(&mut *s);
 
-      cx.state_scope(picked, |cx| {
+      cx.scoped_cx(picked, |cx| {
         self.view.update_state(cx);
       });
     }
   }
-  fn clean_up(&mut self, cx: &mut StateCx) {
+  fn clean_up(&mut self, cx: &mut DynCx) {
     self.view.clean_up(cx)
   }
 }
 
 #[test]
 fn test_state_cx() {
-  let mut cx = StateCx::default();
+  let mut cx = DynCx::default();
 
   let mut a: usize = 1;
   let mut b: usize = 2;
 
   unsafe {
-    cx.register_state(&mut a);
-    assert_eq!(*cx.get_state_ref::<usize>(), 1);
+    cx.register_cx(&mut a);
+    assert_eq!(*cx.get_cx_ref::<usize>(), 1);
 
-    cx.register_state(&mut b);
-    assert_eq!(*cx.get_state_ref::<usize>(), 2);
+    cx.register_cx(&mut b);
+    assert_eq!(*cx.get_cx_ref::<usize>(), 2);
 
-    *cx.get_state_mut::<usize>() = 3;
-    assert_eq!(*cx.get_state_ref::<usize>(), 3);
+    *cx.get_cx_mut::<usize>() = 3;
+    assert_eq!(*cx.get_cx_ref::<usize>(), 3);
 
-    cx.unregister_state::<usize>();
-    assert_eq!(*cx.get_state_ref::<usize>(), 1);
+    cx.unregister_cx::<usize>();
+    assert_eq!(*cx.get_cx_ref::<usize>(), 1);
 
-    cx.unregister_state::<usize>();
-    assert!(cx.get_state_ptr::<usize>().is_none());
+    cx.unregister_cx::<usize>();
+    assert!(cx.get_cx_ptr::<usize>().is_none());
 
     cx.message.put(a);
     assert_eq!(cx.message.take::<usize>(), Some(1));

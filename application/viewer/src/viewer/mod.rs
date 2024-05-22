@@ -19,35 +19,35 @@ pub struct Viewer {
 }
 
 impl Widget for Viewer {
-  fn update_state(&mut self, cx: &mut StateCx) {
+  fn update_state(&mut self, cx: &mut DynCx) {
     // todo, update camera view size
-    state_access!(cx, platform, PlatformEventInput);
+    access_cx!(cx, platform, PlatformEventInput);
     if platform.state_delta.size_change {
       self.rendering.resize_view()
     }
 
-    cx.state_scope(&mut self.scene, |cx| {
-      cx.state_scope(&mut self.rendering, |cx| {
+    cx.scoped_cx(&mut self.scene, |cx| {
+      cx.scoped_cx(&mut self.rendering, |cx| {
         self.content.update_state(cx);
       });
     });
   }
-  fn update_view(&mut self, cx: &mut StateCx) {
-    state_access!(cx, draw_target_canvas, RenderTargetView);
-    self.draw_canvas(draw_target_canvas);
-
-    cx.state_scope(&mut self.scene, |cx| {
-      cx.state_scope(&mut self.rendering, |cx| {
+  fn update_view(&mut self, cx: &mut DynCx) {
+    cx.scoped_cx(&mut self.scene, |cx| {
+      cx.scoped_cx(&mut self.rendering, |cx| {
         self.content.update_view(cx);
       });
     });
 
-    cx.split_state::<egui::Context>(|egui_cx, cx| {
+    cx.split_cx::<egui::Context>(|egui_cx, cx| {
       self.egui(egui_cx, cx);
     });
+
+    access_cx!(cx, draw_target_canvas, RenderTargetView);
+    self.draw_canvas(draw_target_canvas);
   }
 
-  fn clean_up(&mut self, cx: &mut StateCx) {
+  fn clean_up(&mut self, cx: &mut DynCx) {
     self.content.clean_up(cx)
   }
 }
@@ -93,7 +93,7 @@ impl Viewer {
     });
   }
 
-  pub fn egui(&mut self, ui: &egui::Context, cx: &mut StateCx) {
+  pub fn egui(&mut self, ui: &egui::Context, cx: &mut DynCx) {
     egui::Window::new("Viewer")
       .vscroll(true)
       .default_open(true)
@@ -127,19 +127,19 @@ pub struct Viewer3dSceneCtx {
 pub struct Viewer3dSceneCtxWriterWidget<V>(pub V);
 
 impl<V: Widget> Widget for Viewer3dSceneCtxWriterWidget<V> {
-  fn update_state(&mut self, cx: &mut StateCx) {
+  fn update_state(&mut self, cx: &mut DynCx) {
     self.0.update_state(cx)
   }
 
-  fn update_view(&mut self, cx: &mut StateCx) {
-    state_access!(cx, viewer_scene, Viewer3dSceneCtx);
+  fn update_view(&mut self, cx: &mut DynCx) {
+    access_cx!(cx, viewer_scene, Viewer3dSceneCtx);
     let mut writer = Scene3dWriter::from_global(viewer_scene.scene);
-    cx.state_scope(&mut writer, |cx| {
+    cx.scoped_cx(&mut writer, |cx| {
       self.0.update_view(cx);
     })
   }
 
-  fn clean_up(&mut self, cx: &mut StateCx) {
+  fn clean_up(&mut self, cx: &mut DynCx) {
     self.0.clean_up(cx)
   }
 }

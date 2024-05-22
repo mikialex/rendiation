@@ -11,45 +11,45 @@ pub use group::*;
 /// view lives in self(self present) or cx(outside view provider passed in)
 pub trait Widget {
   /// foreach frame, view react to event and change state, event info is input from cx
-  fn update_state(&mut self, cx: &mut StateCx);
+  fn update_state(&mut self, cx: &mut DynCx);
   /// foreach frame, after update_state, state sync change to view and present to user
-  fn update_view(&mut self, cx: &mut StateCx);
+  fn update_view(&mut self, cx: &mut DynCx);
   /// should be called before self drop, do resource cleanup within the same cx in update cycle
-  fn clean_up(&mut self, cx: &mut StateCx);
+  fn clean_up(&mut self, cx: &mut DynCx);
 }
 
 impl Widget for () {
-  fn update_state(&mut self, _: &mut StateCx) {}
-  fn update_view(&mut self, _: &mut StateCx) {}
-  fn clean_up(&mut self, _: &mut StateCx) {}
+  fn update_state(&mut self, _: &mut DynCx) {}
+  fn update_view(&mut self, _: &mut DynCx) {}
+  fn clean_up(&mut self, _: &mut DynCx) {}
 }
 
 impl Widget for Box<dyn Widget> {
-  fn update_state(&mut self, cx: &mut StateCx) {
+  fn update_state(&mut self, cx: &mut DynCx) {
     (**self).update_state(cx)
   }
 
-  fn update_view(&mut self, cx: &mut StateCx) {
+  fn update_view(&mut self, cx: &mut DynCx) {
     (**self).update_view(cx)
   }
 
-  fn clean_up(&mut self, cx: &mut StateCx) {
+  fn clean_up(&mut self, cx: &mut DynCx) {
     (**self).clean_up(cx)
   }
 }
 
 pub trait WidgetExt: Widget + Sized {
-  fn with_view_update(self, f: impl FnMut(&mut Self, &mut StateCx)) -> impl Widget {
+  fn with_view_update(self, f: impl FnMut(&mut Self, &mut DynCx)) -> impl Widget {
     ViewUpdate { inner: self, f }
   }
-  fn with_state_update(self, f: impl FnMut(&mut StateCx)) -> impl Widget {
+  fn with_state_update(self, f: impl FnMut(&mut DynCx)) -> impl Widget {
     StateUpdate {
       inner: self,
       f,
       post_update: false,
     }
   }
-  fn with_state_post_update(self, f: impl FnMut(&mut StateCx)) -> impl Widget {
+  fn with_state_post_update(self, f: impl FnMut(&mut DynCx)) -> impl Widget {
     StateUpdate {
       inner: self,
       f,
@@ -78,15 +78,15 @@ pub struct ViewUpdate<T, F> {
   f: F,
 }
 
-impl<T: Widget, F: FnMut(&mut T, &mut StateCx)> Widget for ViewUpdate<T, F> {
-  fn update_view(&mut self, cx: &mut StateCx) {
+impl<T: Widget, F: FnMut(&mut T, &mut DynCx)> Widget for ViewUpdate<T, F> {
+  fn update_view(&mut self, cx: &mut DynCx) {
     (self.f)(&mut self.inner, cx);
     self.inner.update_view(cx)
   }
-  fn update_state(&mut self, cx: &mut StateCx) {
+  fn update_state(&mut self, cx: &mut DynCx) {
     self.inner.update_state(cx)
   }
-  fn clean_up(&mut self, cx: &mut StateCx) {
+  fn clean_up(&mut self, cx: &mut DynCx) {
     self.inner.clean_up(cx)
   }
 }
@@ -97,11 +97,11 @@ pub struct StateUpdate<T, F> {
   post_update: bool,
 }
 
-impl<T: Widget, F: FnMut(&mut StateCx)> Widget for StateUpdate<T, F> {
-  fn update_view(&mut self, cx: &mut StateCx) {
+impl<T: Widget, F: FnMut(&mut DynCx)> Widget for StateUpdate<T, F> {
+  fn update_view(&mut self, cx: &mut DynCx) {
     self.inner.update_view(cx)
   }
-  fn update_state(&mut self, cx: &mut StateCx) {
+  fn update_state(&mut self, cx: &mut DynCx) {
     if self.post_update {
       self.inner.update_state(cx);
       (self.f)(cx);
@@ -110,7 +110,7 @@ impl<T: Widget, F: FnMut(&mut StateCx)> Widget for StateUpdate<T, F> {
       self.inner.update_state(cx);
     }
   }
-  fn clean_up(&mut self, cx: &mut StateCx) {
+  fn clean_up(&mut self, cx: &mut DynCx) {
     self.inner.clean_up(cx)
   }
 }
@@ -120,22 +120,22 @@ pub struct StateCxCreateOnce<T, F> {
   f: F,
 }
 
-impl<T, F: Fn(&mut StateCx) -> T> StateCxCreateOnce<T, F> {
+impl<T, F: Fn(&mut DynCx) -> T> StateCxCreateOnce<T, F> {
   pub fn new(f: F) -> Self {
     Self { inner: None, f }
   }
 }
 
-impl<T: Widget, F: Fn(&mut StateCx) -> T> Widget for StateCxCreateOnce<T, F> {
-  fn update_state(&mut self, cx: &mut StateCx) {
+impl<T: Widget, F: Fn(&mut DynCx) -> T> Widget for StateCxCreateOnce<T, F> {
+  fn update_state(&mut self, cx: &mut DynCx) {
     let inner = self.inner.get_or_insert_with(|| (self.f)(cx));
     inner.update_state(cx)
   }
-  fn update_view(&mut self, cx: &mut StateCx) {
+  fn update_view(&mut self, cx: &mut DynCx) {
     let inner = self.inner.get_or_insert_with(|| (self.f)(cx));
     inner.update_view(cx)
   }
-  fn clean_up(&mut self, cx: &mut StateCx) {
+  fn clean_up(&mut self, cx: &mut DynCx) {
     if let Some(inner) = &mut self.inner {
       inner.clean_up(cx)
     }

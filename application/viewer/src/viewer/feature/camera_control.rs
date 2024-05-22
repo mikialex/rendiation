@@ -10,8 +10,8 @@ pub struct SceneOrbitCameraControl {
 }
 
 impl Widget for SceneOrbitCameraControl {
-  fn update_state(&mut self, cx: &mut StateCx) {
-    state_access!(cx, event, PlatformEventInput);
+  fn update_state(&mut self, cx: &mut DynCx) {
+    access_cx!(cx, event, PlatformEventInput);
 
     let bound = InputBound {
       origin: Vec2::zero(),
@@ -22,7 +22,7 @@ impl Widget for SceneOrbitCameraControl {
       self.controller.event(e, bound)
     }
 
-    state_access!(cx, scene_cx, Viewer3dSceneCtx);
+    access_cx!(cx, scene_cx, Viewer3dSceneCtx);
 
     let control_node = global_entity_component_of::<SceneCameraNode>()
       .read()
@@ -36,8 +36,8 @@ impl Widget for SceneOrbitCameraControl {
     });
   }
 
-  fn update_view(&mut self, _: &mut StateCx) {}
-  fn clean_up(&mut self, _: &mut StateCx) {}
+  fn update_view(&mut self, _: &mut DynCx) {}
+  fn clean_up(&mut self, _: &mut DynCx) {}
 }
 
 struct ControlleeWrapper {

@@ -42,21 +42,21 @@ pub async fn run_application<T: Widget>(mut app: T) {
         WindowEvent::RedrawRequested => {
           let (output, mut canvas) = surface.get_current_frame_with_render_target_view().unwrap();
 
-          let mut cx = StateCx::default();
+          let mut cx = DynCx::default();
 
           event_state.begin_frame();
-          cx.state_scope(&mut event_state, |cx| {
-            cx.state_scope(&mut gpu, |cx| {
-              cx.state_scope(&mut canvas, |cx| {
+          cx.scoped_cx(&mut event_state, |cx| {
+            cx.scoped_cx(&mut gpu, |cx| {
+              cx.scoped_cx(&mut canvas, |cx| {
                 app.update_state(cx);
               });
             });
           });
 
           event_state.end_frame();
-          cx.state_scope(&mut event_state, |cx| {
-            cx.state_scope(&mut gpu, |cx| {
-              cx.state_scope(&mut canvas, |cx| {
+          cx.scoped_cx(&mut event_state, |cx| {
+            cx.scoped_cx(&mut gpu, |cx| {
+              cx.scoped_cx(&mut canvas, |cx| {
                 app.update_view(cx);
               });
             });

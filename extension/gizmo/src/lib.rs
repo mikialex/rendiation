@@ -56,18 +56,18 @@ impl AxisActiveState {
 
 pub fn update_per_axis_model(
   axis: AxisType,
-) -> impl FnMut(&mut UIWidgetModel, &mut StateCx) + 'static {
+) -> impl FnMut(&mut UIWidgetModel, &mut DynCx) + 'static {
   move |view, cx| {
-    state_access!(cx, style, GlobalUIStyle);
+    access_cx!(cx, style, GlobalUIStyle);
     let color = style.get_axis_primary_color(axis);
 
-    state_access!(cx, gizmo, AxisActiveState);
+    access_cx!(cx, gizmo, AxisActiveState);
     let axis_state = *gizmo.get_axis(axis);
     let self_active = axis_state.active;
     let visible = !gizmo.has_any_active() || self_active;
     let color = map_color(color, axis_state);
 
-    state_mut_access!(cx, cx3d, Scene3dWriter);
+    access_cx_mut!(cx, cx3d, Scene3dWriter);
     view.set_visible(cx3d, visible);
     view.set_color(cx3d, color);
   }
@@ -113,25 +113,25 @@ fn map_color(color: Vec3<f32>, state: ItemState) -> Vec3<f32> {
   }
 }
 
-fn start_drag(cx: &mut StateCx, pick_position: Vec3<f32>) {
-  state_mut_access!(cx, state, ItemState);
+fn start_drag(cx: &mut DynCx, pick_position: Vec3<f32>) {
+  access_cx_mut!(cx, state, ItemState);
   state.active = true;
 
-  state_access!(cx, target, Option::<GizmoControlTargetState>);
+  access_cx!(cx, target, Option::<GizmoControlTargetState>);
   if let Some(target) = target {
     let drag_start_info = target.start_drag(pick_position);
-    state_mut_access!(cx, drag_start, Option::<DragStartState>);
+    access_cx_mut!(cx, drag_start, Option::<DragStartState>);
     *drag_start = Some(drag_start_info)
   }
 }
 
-fn hovering(cx: &mut StateCx, _: Vec3<f32>) {
-  state_mut_access!(cx, state, ItemState);
+fn hovering(cx: &mut DynCx, _: Vec3<f32>) {
+  access_cx_mut!(cx, state, ItemState);
   state.hovering = true;
 }
 
-fn stop_hovering(cx: &mut StateCx, _: Vec3<f32>) {
-  state_mut_access!(cx, state, ItemState);
+fn stop_hovering(cx: &mut DynCx, _: Vec3<f32>) {
+  access_cx_mut!(cx, state, ItemState);
   state.hovering = false;
 }
 

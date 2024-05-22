@@ -13,17 +13,17 @@ impl WidgetGroup {
 }
 
 impl Widget for WidgetGroup {
-  fn update_view(&mut self, cx: &mut StateCx) {
+  fn update_view(&mut self, cx: &mut DynCx) {
     for c in &mut self.children {
       c.update_view(cx)
     }
   }
-  fn update_state(&mut self, cx: &mut StateCx) {
+  fn update_state(&mut self, cx: &mut DynCx) {
     for c in &mut self.children {
       c.update_state(cx)
     }
   }
-  fn clean_up(&mut self, cx: &mut StateCx) {
+  fn clean_up(&mut self, cx: &mut DynCx) {
     for child in &mut self.children {
       child.clean_up(cx)
     }

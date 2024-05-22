@@ -7,11 +7,11 @@ pub struct UIWidgetModel {
   is_mouse_in: bool,
   is_mouse_in_and_down: bool,
 
-  on_mouse_click: Option<Box<dyn FnMut(&mut StateCx, Vec3<f32>)>>,
-  on_mouse_hovering: Option<Box<dyn FnMut(&mut StateCx, Vec3<f32>)>>,
-  on_mouse_in: Option<Box<dyn FnMut(&mut StateCx, Vec3<f32>)>>,
-  on_mouse_out: Option<Box<dyn FnMut(&mut StateCx, Vec3<f32>)>>,
-  on_mouse_down: Option<Box<dyn FnMut(&mut StateCx, Vec3<f32>)>>,
+  on_mouse_click: Option<Box<dyn FnMut(&mut DynCx, Vec3<f32>)>>,
+  on_mouse_hovering: Option<Box<dyn FnMut(&mut DynCx, Vec3<f32>)>>,
+  on_mouse_in: Option<Box<dyn FnMut(&mut DynCx, Vec3<f32>)>>,
+  on_mouse_out: Option<Box<dyn FnMut(&mut DynCx, Vec3<f32>)>>,
+  on_mouse_down: Option<Box<dyn FnMut(&mut DynCx, Vec3<f32>)>>,
 
   std_model: EntityHandle<StandardModelEntity>,
   model: EntityHandle<SceneModelEntity>,
@@ -21,9 +21,9 @@ pub struct UIWidgetModel {
 }
 
 impl Widget for UIWidgetModel {
-  fn update_view(&mut self, _: &mut StateCx) {}
-  fn update_state(&mut self, cx: &mut StateCx) {
-    state_access!(cx, interaction_cx, InteractionState3d);
+  fn update_view(&mut self, _: &mut DynCx) {}
+  fn update_state(&mut self, cx: &mut DynCx) {
+    access_cx!(cx, interaction_cx, InteractionState3d);
     if self.mouse_interactive && self.has_any_mouse_event() {
       if let Some(hit) = interaction_cx
         .picker
@@ -33,8 +33,8 @@ impl Widget for UIWidgetModel {
       }
     }
   }
-  fn clean_up(&mut self, cx: &mut StateCx) {
-    state_mut_access!(cx, scene_cx, Scene3dWriter);
+  fn clean_up(&mut self, cx: &mut DynCx) {
+    access_cx_mut!(cx, scene_cx, Scene3dWriter);
     scene_cx.std_model_writer.delete_entity(self.std_model);
     scene_cx.model_writer.delete_entity(self.model);
     scene_cx.node_writer.delete_entity(self.node);
@@ -92,26 +92,26 @@ impl UIWidgetModel {
     self
   }
 
-  pub fn with_on_mouse_click(mut self, f: impl FnMut(&mut StateCx, Vec3<f32>) + 'static) -> Self {
+  pub fn with_on_mouse_click(mut self, f: impl FnMut(&mut DynCx, Vec3<f32>) + 'static) -> Self {
     self.on_mouse_click = Some(Box::new(f));
     self
   }
-  pub fn with_on_mouse_in(mut self, f: impl FnMut(&mut StateCx, Vec3<f32>) + 'static) -> Self {
+  pub fn with_on_mouse_in(mut self, f: impl FnMut(&mut DynCx, Vec3<f32>) + 'static) -> Self {
     self.on_mouse_in = Some(Box::new(f));
     self
   }
-  pub fn with_on_mouse_out(mut self, f: impl FnMut(&mut StateCx, Vec3<f32>) + 'static) -> Self {
+  pub fn with_on_mouse_out(mut self, f: impl FnMut(&mut DynCx, Vec3<f32>) + 'static) -> Self {
     self.on_mouse_out = Some(Box::new(f));
     self
   }
   pub fn with_on_mouse_hovering(
     mut self,
-    f: impl FnMut(&mut StateCx, Vec3<f32>) + 'static,
+    f: impl FnMut(&mut DynCx, Vec3<f32>) + 'static,
   ) -> Self {
     self.on_mouse_hovering = Some(Box::new(f));
     self
   }
-  pub fn with_on_mouse_down(mut self, f: impl FnMut(&mut StateCx, Vec3<f32>) + 'static) -> Self {
+  pub fn with_on_mouse_down(mut self, f: impl FnMut(&mut DynCx, Vec3<f32>) + 'static) -> Self {
     self.on_mouse_down = Some(Box::new(f));
     self
   }
