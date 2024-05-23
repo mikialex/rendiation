@@ -47,7 +47,7 @@ struct ControlleeWrapper {
 
 impl Transformed3DControllee for ControlleeWrapper {
   fn get_matrix(&self) -> Mat4<f32> {
-    self.writer.read(self.controllee)
+    self.writer.read(self.controllee).unwrap()
   }
 
   fn set_matrix(&mut self, m: Mat4<f32>) {

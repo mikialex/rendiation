@@ -12,13 +12,10 @@ impl<T> LinearIdentified for EntityHandle<T> {
 }
 
 impl<T> EntityHandle<T> {
+  /// # Safety
+  ///
+  /// handle must be semantically correct as the T entity handle
   pub unsafe fn from_raw(handle: RawEntityHandle) -> Self {
-    Self {
-      ty: PhantomData,
-      handle,
-    }
-  }
-  pub(crate) fn from_raw_internal_usage(handle: RawEntityHandle) -> Self {
     Self {
       ty: PhantomData,
       handle,

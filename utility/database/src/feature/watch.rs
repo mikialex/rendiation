@@ -21,7 +21,9 @@ impl DatabaseMutationWatch {
     e_id: EntityId,
   ) -> impl ReactiveCollection<RawEntityHandle, ()> {
     // if let Some(watcher) = self.entity_set_changes.read().get(&e_id) {
-    //   let watcher = watcher.downcast_ref::<RxCForker<u32, ()>>().unwrap();
+    //   let watcher = watcher
+    //     .downcast_ref::<RxCForker<RawEntityHandle, ()>>()
+    //     .unwrap();
     //   return watcher.clone();
     // }
 
@@ -49,17 +51,20 @@ impl DatabaseMutationWatch {
   pub fn watch<C: ComponentSemantic>(
     &self,
   ) -> impl ReactiveCollection<EntityHandle<C::Entity>, C::Data> {
-    todo!()
-    // self.watch_dyn::<C::Data>(C::component_id(), C::Entity::entity_id())
+    self
+      .watch_dyn(C::component_id(), C::Entity::entity_id())
+      .collective_key_convert(
+        |k| unsafe { EntityHandle::<C::Entity>::from_raw(k) },
+        |k| k.handle,
+      )
   }
 
   pub fn watch_typed_foreign_key<C: ForeignKeySemantic>(
     &self,
   ) -> impl ReactiveCollection<EntityHandle<C::Entity>, Option<EntityHandle<C::ForeignEntity>>> {
-    todo!();
-    // self
-    //   .watch::<C>()
-    //   .collective_key_convert(|k| EntityHandle::from(k), |k| k.index)
+    self
+      .watch::<C>()
+      .collective_map(|v| v.map(|v| unsafe { EntityHandle::<C::ForeignEntity>::from_raw(v) }))
   }
 
   pub fn watch_dyn_foreign_key(

@@ -15,16 +15,14 @@ pub fn attribute_mesh_index_buffers(
       let read_view = global_entity_component_of::<BufferEntityData>().read();
       move |_, buffer_idx| {
         let buffer = read_view
-          .get_without_generation_check(buffer_idx.unwrap().index().into())
+          .get_without_generation_check(buffer_idx.unwrap().index())
           .unwrap();
         create_gpu_buffer(buffer.as_slice(), BufferUsages::INDEX, &cx.device)
       }
     });
 
   attribute_mesh_index_buffers
-    .collective_zip(
-      global_watch().watch::<SceneBufferViewBufferRange<AttributeIndexRef>>(),
-    )
+    .collective_zip(global_watch().watch::<SceneBufferViewBufferRange<AttributeIndexRef>>())
     .collective_map(|(buffer, range)| buffer.create_view(map_view(range.unwrap())))
     .materialize_unordered()
 }
@@ -43,16 +41,14 @@ pub fn attribute_mesh_vertex_buffer_views(
       let read_view = global_entity_component_of::<BufferEntityData>().read();
       move |_, buffer_idx| {
         let buffer = read_view
-          .get_without_generation_check(buffer_idx.unwrap().index().into())
+          .get_without_generation_check(buffer_idx.unwrap().index())
           .unwrap();
         create_gpu_buffer(buffer.as_slice(), BufferUsages::VERTEX, &cx.device)
       }
     });
 
   attribute_mesh_vertex_buffers
-    .collective_zip(
-      global_watch().watch::<SceneBufferViewBufferRange<AttributeVertexRef>>(),
-    )
+    .collective_zip(global_watch().watch::<SceneBufferViewBufferRange<AttributeVertexRef>>())
     .collective_map(|(buffer, range)| buffer.create_view(map_view(range.unwrap())))
     .materialize_unordered()
 }

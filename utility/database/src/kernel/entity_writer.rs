@@ -237,7 +237,7 @@ impl<T: ComponentSemantic, F: FnMut() -> T::Data> EntityComponentWriter
       let src = EntityHandle::from_raw(src);
       let dst = EntityHandle::from_raw(dst);
 
-      let src_com = com.read(src).clone();
+      let src_com = com.get(src).unwrap().clone();
       com.write_impl(dst, src_com, true)
     }
   }

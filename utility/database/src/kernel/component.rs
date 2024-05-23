@@ -68,8 +68,7 @@ impl<T: ComponentSemantic> ComponentReadView<T> {
     self.data.get(idx.into())
   }
   pub fn get_without_generation_check(&self, idx: u32) -> Option<&T::Data> {
-    // self.data.get(idx.into())
-    todo!()
+    self.data.get_without_generation_check(idx)
   }
   pub fn get_value(&self, idx: EntityHandle<T::Entity>) -> Option<T::Data> {
     self.data.get(idx.into()).cloned()
@@ -160,9 +159,12 @@ impl<T: ComponentSemantic> ComponentWriteView<T> {
     }
   }
 
-  pub fn read(&self, idx: EntityHandle<T::Entity>) -> T::Data {
-    // self.write_impl(idx, new, false);
-    todo!()
+  pub fn get(&self, idx: EntityHandle<T::Entity>) -> Option<&T::Data> {
+    self.data.get(idx.into())
+  }
+
+  pub fn read(&self, idx: EntityHandle<T::Entity>) -> Option<T::Data> {
+    self.get(idx).cloned()
   }
 
   pub fn write(&mut self, idx: EntityHandle<T::Entity>, new: T::Data) {
@@ -207,7 +209,10 @@ pub struct ForeignKeyReadView<T: ForeignKeySemantic> {
 
 impl<T: ForeignKeySemantic> ForeignKeyReadView<T> {
   pub fn get(&self, idx: EntityHandle<T::Entity>) -> Option<EntityHandle<T::ForeignEntity>> {
-    todo!()
+    self
+      .data
+      .get(idx.into())?
+      .map(|v| unsafe { EntityHandle::<T::ForeignEntity>::from_raw(v) })
   }
 }
 
