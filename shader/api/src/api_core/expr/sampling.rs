@@ -185,7 +185,7 @@ impl<T: ShaderTextureType> TextureSamplingAction<T> {
   where
     T: ArraySampleTarget,
   {
-    self.info.index = Some(index.handle());
+    self.info.array_index = Some(index.handle());
     self
   }
 
@@ -219,6 +219,36 @@ impl<T: ShaderTextureType> HandleNode<T> {
       .sample()
   }
 
+  pub fn load_texel(&self, position: Node<Vec2<u32>>, level: Node<u32>) -> Node<Vec4<f32>> {
+    ShaderNodeExpr::TextureLoad(ShaderTextureLoad {
+      texture: self.handle(),
+      position: position.handle(),
+      array_index: None,
+      sample_index: None,
+      level: level.handle().into(),
+    })
+    .insert_api()
+  }
+
+  pub fn load_texel_layer(
+    &self,
+    position: Node<Vec2<u32>>,
+    layer: Node<u32>,
+    level: Node<u32>,
+  ) -> Node<Vec4<f32>>
+  where
+    T: ArraySampleTarget,
+  {
+    ShaderNodeExpr::TextureLoad(ShaderTextureLoad {
+      texture: self.handle(),
+      position: position.handle(),
+      array_index: layer.handle().into(),
+      sample_index: None,
+      level: level.handle().into(),
+    })
+    .insert_api()
+  }
+
   pub fn build_sample_call(
     &self,
     sampler: HandleNode<ShaderSampler>,
@@ -230,7 +260,7 @@ impl<T: ShaderTextureType> HandleNode<T> {
         texture: self.handle(),
         sampler: sampler.handle(),
         position: position.into().handle(),
-        index: None,
+        array_index: None,
         level: SampleLevel::Auto,
         reference: None,
         offset: None,
@@ -249,7 +279,7 @@ impl<T> DepthTextureSamplingAction<T> {
   where
     T: ArraySampleTarget,
   {
-    self.info.index = Some(index.handle());
+    self.info.array_index = Some(index.handle());
     self
   }
   pub fn with_offset(mut self, offset: Vec2<i32>) -> Self {
@@ -278,7 +308,7 @@ impl<T: ShaderTextureType + DepthSampleTarget> HandleNode<T> {
         texture: self.handle(),
         sampler: sampler.handle(),
         position: position.into().handle(),
-        index: None,
+        array_index: None,
         level: SampleLevel::Auto,
         reference: reference.handle().into(),
         offset: None,

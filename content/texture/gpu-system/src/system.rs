@@ -132,19 +132,8 @@ impl GPUTextureBindingSystem {
     device_handles: (Node<Texture2DHandle>, Node<SamplerHandle>),
     uv: Node<Vec2<f32>>,
   ) -> Node<Vec4<f32>> {
-    if self.bindless.is_some() {
-      let textures = reg
-        .query_typed_both_stage::<BindlessTexturesInShader>()
-        .unwrap();
-
-      let samplers = reg
-        .query_typed_both_stage::<BindlessSamplersInShader>()
-        .unwrap();
-
-      let texture = textures.index(device_handles.0);
-      let sampler = samplers.index(device_handles.1);
-      // todo currently mipmap is not supported
-      texture.sample_zero_level(sampler, uv)
+    if let Some(bindless) = &self.bindless {
+      bindless.sample_texture2d_indirect(reg, device_handles.0, device_handles.1, uv)
     } else {
       let texture = self.shader_bind_texture(binding, host_handles.0);
       let sampler = self.shader_bind_sampler(binding, host_handles.1);

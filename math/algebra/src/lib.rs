@@ -32,6 +32,7 @@ pub use self::quat::*;
 mod macros;
 
 pub trait Scalar = Float
+  + AsPrimitive<i64>
   + FloatConst
   + ScalarConstEval
   + Copy

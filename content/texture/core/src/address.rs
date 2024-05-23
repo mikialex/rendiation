@@ -82,13 +82,19 @@ fn repeat() {
 pub struct MirrorRepeat;
 impl TextureAddressMode for MirrorRepeat {
   const ENUM: AddressMode = AddressMode::MirrorRepeat;
-  fn correct<T: Scalar>(_uv: T) -> T {
-    todo!()
+  fn correct<T: Scalar>(uv: T) -> T {
+    let range = uv.floor().as_();
+    if range % 2 == 0 {
+      Repeat::correct(uv)
+    } else {
+      Repeat::correct(-uv)
+    }
   }
 }
 
-// #[test]
-// fn mirror_repeat() {
-//   assert_eq!(MirrorRepeat::correct(-0.25), 0.25);
-//   assert_eq!(MirrorRepeat::correct(1.25), 0.75);
-// }
+#[test]
+fn mirror_repeat() {
+  assert_eq!(MirrorRepeat::correct(-0.25), 0.25);
+  assert_eq!(MirrorRepeat::correct(1.25), 0.75);
+  assert_eq!(MirrorRepeat::correct(-1.25), 0.75);
+}

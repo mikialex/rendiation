@@ -3752,6 +3752,8 @@ version = "0.1.0"
 dependencies = [
  "reactive",
  "rendiation-shader-api",
+ "rendiation-texture-core",
+ "rendiation-texture-packer",
  "rendiation-webgpu",
  "rendiation-webgpu-reactive-utils",
 ]

@@ -10,6 +10,8 @@ mod bindless;
 pub use bindless::*;
 mod gles;
 pub use gles::*;
+mod pool;
+pub use pool::*;
 mod system;
 use core::hash::Hash;
 

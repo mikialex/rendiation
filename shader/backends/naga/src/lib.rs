@@ -717,7 +717,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
           texture,
           sampler,
           position,
-          index,
+          array_index,
           level,
           reference,
           offset,
@@ -726,7 +726,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
           sampler: self.get_expression(sampler),
           gather: None,
           coordinate: self.get_expression(position),
-          array_index: index.map(|index| self.get_expression(index)),
+          array_index: array_index.map(|index| self.get_expression(index)),
           offset: offset.map(|offset| {
             let ty = self.register_ty_impl(
               ShaderValueType::Single(ShaderValueSingleType::Sized(
@@ -755,6 +755,19 @@ impl ShaderAPI for ShaderAPINagaImpl {
             },
           },
           depth_ref: reference.map(|r| self.get_expression(r)),
+        },
+        ShaderNodeExpr::TextureLoad(ShaderTextureLoad {
+          texture,
+          position,
+          array_index,
+          level,
+          sample_index,
+        }) => naga::Expression::ImageLoad {
+          image: self.get_expression(texture),
+          coordinate: self.get_expression(position),
+          array_index: array_index.map(|index| self.get_expression(index)),
+          level: level.map(|level| self.get_expression(level)),
+          sample: sample_index.map(|sample_index| self.get_expression(sample_index)),
         },
         ShaderNodeExpr::Swizzle { ty, source } => {
           let source = self.get_expression(source);
