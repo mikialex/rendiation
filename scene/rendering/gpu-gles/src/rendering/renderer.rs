@@ -32,22 +32,30 @@ impl RenderImplProvider<Box<dyn SceneRenderer>> for GLESRenderSystem {
       .create_default_view()
       .try_into()
       .unwrap();
+    let texture_2d = gpu_texture_2ds(cx, default_2d.clone());
 
     let default_sampler = create_gpu_sampler(cx, &TextureSampler::default());
+    let samplers = sampler_gpus(cx);
 
-    let texture_system = GPUTextureBindingSystemSource::new(
-      &cx.info,
-      gpu_texture_2ds(cx, default_2d.clone())
-        .into_boxed()
-        .into_forker(),
-      default_2d,
-      sampler_gpus(cx).into_boxed().into_forker(),
-      default_sampler,
-      true,
-      8192,
-    );
+    let bindless_minimal_effective_count = 8192;
+    self.texture_system =
+      if is_bindless_supported_on_this_gpu(&cx.info, bindless_minimal_effective_count) {
+        let texture_system = BindlessTextureSystemSource::new(
+          texture_2d,
+          default_2d,
+          samplers,
+          default_sampler,
+          bindless_minimal_effective_count,
+        );
 
-    self.texture_system = source.register(Box::new(ReactiveStateBoxAnyResult(texture_system)));
+        source.register(Box::new(ReactiveStateBoxAnyResult(texture_system)))
+      } else {
+        let texture_system = TraditionalPerDrawBindingSystemSource {
+          textures: Box::new(texture_2d),
+          samplers: Box::new(samplers),
+        };
+        source.register(Box::new(ReactiveStateBoxAnyResult(texture_system)))
+      };
 
     let model_lookup = global_rev_ref().watch_inv_ref::<SceneModelBelongsToScene>();
     self.model_lookup = source.register_reactive_multi_collection(model_lookup);
@@ -90,6 +98,7 @@ impl SceneModelRenderer for GLESSceneRenderer {
     pass: &'a (dyn RenderComponent + 'a),
     tex: &'a GPUTextureBindingSystem,
   ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
+    // todo register texture system
     self
       .scene_model_renderer
       .make_component(idx, camera, pass, tex)

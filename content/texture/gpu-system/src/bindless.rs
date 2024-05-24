@@ -59,13 +59,13 @@ both!(
 );
 
 impl ReactiveState for BindlessTextureSystemSource {
-  type State = BindlessTextureSystem;
+  type State = Box<dyn DynAbstractGPUTextureSystem>;
 
   fn poll_current(&mut self, cx: &mut Context) -> Self::State {
-    BindlessTextureSystem {
+    Box::new(BindlessTextureSystem {
       texture_binding_array: self.texture2d.poll_update(cx),
       sampler_binding_array: self.sampler.poll_update(cx),
-    }
+    })
   }
 }
 

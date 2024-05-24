@@ -5,7 +5,6 @@ use rendiation_lighting_transport::{
   PhysicalShading, RoughnessChannel, ShadingSelection,
 };
 use rendiation_shader_library::normal_mapping::apply_normal_mapping_conditional;
-use rendiation_texture_gpu_system::GPUTextureBindingSystem;
 
 use crate::*;
 

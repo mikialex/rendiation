@@ -33,7 +33,7 @@ impl<T: Std430> ReactiveStorageBufferContainer<T> {
     }
   }
 
-  pub fn poll_update(&mut self, cx: &mut Context) {
+  pub fn poll_update(&mut self, cx: &mut Context) -> StorageBufferReadOnlyDataView<[T]> {
     if let Poll::Ready(Some(max_idx)) = self.resizer.poll_next_unpin(cx) {
       // resize target
       // todo shrink check?
@@ -58,13 +58,14 @@ impl<T: Std430> ReactiveStorageBufferContainer<T> {
       }
     }
     self.inner.poll_update(cx);
+    self.inner.target.clone()
   }
 
-  pub fn add_source<K: CKey + LinearIdentification, V: CValue + Pod>(
-    &mut self,
+  pub fn with_source<K: CKey + LinearIdentification, V: CValue + Pod>(
+    mut self,
     source: impl ReactiveCollection<K, V>,
     field_offset: usize,
-  ) {
+  ) -> Self {
     let updater = CollectionToStorageBufferUpdater {
       field_offset: field_offset as u32,
       stride: std::mem::size_of::<T>() as u32,
@@ -74,6 +75,7 @@ impl<T: Std430> ReactiveStorageBufferContainer<T> {
     };
 
     self.inner.add_source(updater);
+    self
   }
 }
 

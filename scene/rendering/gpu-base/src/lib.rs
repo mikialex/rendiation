@@ -32,6 +32,8 @@ pub trait RenderImplProvider<T> {
   fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> T;
 }
 
+pub type GPUTextureBindingSystem = Box<dyn DynAbstractGPUTextureSystem>;
+
 /// abstract over direct or indirect rendering
 pub trait SceneRenderer: SceneModelRenderer {
   fn make_pass_content<'a>(

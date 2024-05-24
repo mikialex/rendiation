@@ -1,12 +1,13 @@
 use rendiation_texture_core::*;
 use rendiation_texture_packer::pack_2d_to_3d::*;
+use rendiation_webgpu_reactive_utils::ReactiveStorageBufferContainer;
 
 use crate::*;
 
 #[repr(C)]
 #[std430_layout]
 #[derive(Clone, Copy, Default, ShaderStruct, Debug, PartialEq)]
-struct TextureAddressInfo {
+pub struct TexturePoolAddressInfo {
   pub layer_index: u32,
   pub size: Vec2<f32>,
   pub offset: Vec2<f32>,
@@ -15,7 +16,7 @@ struct TextureAddressInfo {
 #[repr(C)]
 #[std430_layout]
 #[derive(Clone, Copy, Default, ShaderStruct, Debug, PartialEq)]
-struct TextureSamplerShaderInfo {
+pub struct TextureSamplerShaderInfo {
   pub address_mode_u: u32,
   pub address_mode_v: u32,
   pub address_mode_w: u32,
@@ -50,79 +51,161 @@ impl From<TextureSampler> for TextureSamplerShaderInfo {
   }
 }
 
+#[derive(Clone, Debug)]
+pub struct TexturePool2dSource {
+  pub inner: Arc<GPUBufferImage>,
+}
+
+impl PartialEq for TexturePool2dSource {
+  fn eq(&self, other: &Self) -> bool {
+    Arc::ptr_eq(&self.inner, &other.inner)
+  }
+}
+
 pub struct TexturePoolSource {
-  texture: GPUTexture,
-  address: StorageBufferReadOnlyDataView<[TextureAddressInfo]>,
-  samplers: StorageBufferReadOnlyDataView<[TextureSamplerShaderInfo]>,
-  tex_input: Box<dyn ReactiveCollection<Texture2DHandle, GPU2DTextureView>>,
-  sampler_input: Box<dyn ReactiveCollection<SamplerHandle, TextureSampler>>,
+  texture: Option<GPUTexture>,
+  address: ReactiveStorageBufferContainer<TexturePoolAddressInfo>,
+  samplers: ReactiveStorageBufferContainer<TextureSamplerShaderInfo>,
+  tex_input: RxCForker<Texture2DHandle, TexturePool2dSource>,
   packing: Box<dyn ReactiveCollection<Texture2DHandle, PackResult2dWithDepth>>,
   atlas_resize: Box<dyn Stream<Item = SizeWithDepth> + Unpin>,
+  format: TextureFormat,
+  gpu: GPUResourceCtx,
 }
 
 impl TexturePoolSource {
   pub fn new(
     gpu: &GPUResourceCtx,
     config: MultiLayerTexturePackerConfig,
-    tex_input: Box<dyn ReactiveCollection<Texture2DHandle, GPU2DTextureView>>,
+    tex_input: RxCForker<Texture2DHandle, TexturePool2dSource>,
+    max_tex_count: impl Stream<Item = u32> + Unpin + 'static,
     sampler_input: Box<dyn ReactiveCollection<SamplerHandle, TextureSampler>>,
+    max_sampler_count: impl Stream<Item = u32> + Unpin + 'static,
     format: TextureFormat,
-  ) -> (
-    Self,
-    Box<dyn ReactiveCollection<Texture2DHandle, PackResult2dWithDepth>>,
-  ) {
-    let (packing, atlas_resize) = reactive_pack_2d_to_3d(config, todo!());
+  ) -> Self {
+    let size = tex_input.clone().collective_map(|tex| tex.inner.size);
+
+    let (packing, atlas_resize) = reactive_pack_2d_to_3d(config, Box::new(size));
     let packing = packing.into_forker();
+    let p = packing.clone().collective_map(|v| TexturePoolAddressInfo {
+      layer_index: v.depth,
+      size: v.result.range.size.into_f32().into(),
+      offset: Vec2::new(
+        v.result.range.origin.x as f32,
+        v.result.range.origin.y as f32,
+      ),
+      ..Default::default()
+    });
 
-    let texture = GPUTexture::create(
-      TextureDescriptor {
-        label: "texture-pool".into(),
-        size: config.init_size.into_gpu_size(),
-        mip_level_count: 1,
-        sample_count: 1,
-        dimension: TextureDimension::D2,
-        format,
-        view_formats: &[],
-        usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
-      },
-      &gpu.device,
-    );
+    let address = ReactiveStorageBufferContainer::new(gpu.clone(), max_tex_count).with_source(p, 0);
+    let samplers = sampler_input.collective_map(TextureSamplerShaderInfo::from);
+    let samplers =
+      ReactiveStorageBufferContainer::new(gpu.clone(), max_sampler_count).with_source(samplers, 0);
 
-    let sys = Self {
+    Self {
       tex_input,
-      sampler_input,
       packing: packing.clone().into_boxed(),
       atlas_resize: Box::new(atlas_resize),
-      address: todo!(),
-      samplers: todo!(),
-      texture,
-    };
-    (sys, packing.into_boxed())
+      address,
+      samplers,
+      texture: None,
+      format,
+      gpu: gpu.clone(),
+    }
   }
 }
 
 impl ReactiveState for TexturePoolSource {
-  type State = TexturePool;
+  type State = Box<dyn DynAbstractGPUTextureSystem>;
 
   fn poll_current(&mut self, cx: &mut Context) -> Self::State {
-    TexturePool {
-      texture: todo!(),
-      address: todo!(),
-      samplers: todo!(),
+    if let Poll::Ready(Some(size)) = self.atlas_resize.poll_next_unpin(cx) {
+      let size = size.into_gpu_size();
+      self.texture = Some(GPUTexture::create(
+        TextureDescriptor {
+          label: "texture-pool".into(),
+          size,
+          mip_level_count: 1,
+          sample_count: 1,
+          dimension: TextureDimension::D2,
+          format: self.format,
+          view_formats: &[],
+          usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
+        },
+        &self.gpu.device,
+      ));
     }
+    let target = self.texture.as_ref().unwrap();
+
+    let mut encoder = self.gpu.device.create_encoder();
+
+    let packing_change = self.packing.poll_changes(cx);
+    let current_pack = self.packing.access();
+
+    let tex_input_change = self.tex_input.poll_changes(cx);
+    if let Poll::Ready(tex_source_change) = &tex_input_change {
+      for (id, change) in tex_source_change.iter_key_value() {
+        match change {
+          ValueChange::Delta(new_tex, _) => {
+            let current_pack = current_pack.access(&id).unwrap();
+            // todo, create tex, and write at current pack
+            // let tex =
+            // encoder.copy_texture_to_texture(source, destination, copy_size
+          }
+          ValueChange::Remove(_) => {}
+        }
+      }
+    }
+
+    let tex_input_current = self.tex_input.access();
+    if let Poll::Ready(packing_change) = packing_change {
+      for (id, change) in packing_change.iter_key_value() {
+        match change {
+          ValueChange::Delta(new_position, _) => {
+            let mut tex_has_recreated = false;
+            if let Poll::Ready(tex_changes) = &tex_input_change {
+              if let Some(tex_change) = tex_changes.access(&id) {
+                if !tex_change.is_removed() {
+                  tex_has_recreated = true;
+                }
+              }
+            }
+            if !tex_has_recreated {
+              let tex = tex_input_current.access(&id).unwrap();
+              // let tex =
+              // encoder.copy_texture_to_texture(source, destination, copy_size);
+            }
+          }
+          ValueChange::Remove(_) => {}
+        }
+      }
+    }
+
+    self.gpu.queue.submit(Some(encoder.finish()));
+
+    let texture = target.create_default_view().try_into().unwrap();
+
+    let address = self.address.poll_update(cx);
+    let samplers = self.samplers.poll_update(cx);
+
+    Box::new(TexturePool {
+      texture,
+      address,
+      samplers,
+    })
   }
 }
 
 pub struct TexturePool {
   texture: GPU2DArrayTextureView,
-  address: StorageBufferReadOnlyDataView<[TextureAddressInfo]>,
+  address: StorageBufferReadOnlyDataView<[TexturePoolAddressInfo]>,
   samplers: StorageBufferReadOnlyDataView<[TextureSamplerShaderInfo]>,
 }
 
 both!(TexturePoolInShader, ShaderHandlePtr<ShaderTexture2DArray>);
 both!(
   TexturePoolAddressInfoInShader,
-  ShaderReadOnlyStoragePtr<[TextureAddressInfo]>
+  ShaderReadOnlyStoragePtr<[TexturePoolAddressInfo]>
 );
 both!(
   SamplerPoolInShader,
