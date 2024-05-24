@@ -6,7 +6,7 @@ mod test;
 use std::iter::FromIterator;
 
 pub use node::*;
-use rendiation_abstract_tree::NextTraverseVisit;
+pub use rendiation_abstract_tree::NextTraverseVisit;
 use rendiation_geometry::SolidEntity;
 pub use strategy::*;
 pub use test::*;
@@ -93,21 +93,31 @@ impl<B: BVHBounding> FlattenBVH<B> {
     &self.sorted_primitive_index
   }
 
-  pub fn traverse(
+  /// branch_enter_visitor: return if should continue visit children
+  /// leaf_visitor: return if should continue visit tree(back to parent)
+  pub fn traverse_branch_leaf_visitor(
     &self,
     mut branch_enter_visitor: impl FnMut(&FlattenBVHNode<B>) -> bool,
     mut leaf_visitor: impl FnMut(&FlattenBVHNode<B>) -> bool,
   ) {
     let root = self.create_node_ref(0);
-    root.traverse_by_branch_leaf(
-      |n| {
-        if branch_enter_visitor(n.node) {
-          NextTraverseVisit::VisitChildren
-        } else {
+    root.traverse_by_branch_leaf(|n, is_leaf| {
+      if is_leaf {
+        if leaf_visitor(n.node) {
           NextTraverseVisit::SkipChildren
+        } else {
+          NextTraverseVisit::Exit
         }
-      },
-      |n| leaf_visitor(n.node),
-    )
+      } else if branch_enter_visitor(n.node) {
+        NextTraverseVisit::VisitChildren
+      } else {
+        NextTraverseVisit::SkipChildren
+      }
+    })
+  }
+
+  pub fn traverse(&self, mut visitor: impl FnMut(&FlattenBVHNode<B>, bool) -> NextTraverseVisit) {
+    let root = self.create_node_ref(0);
+    root.traverse_by_branch_leaf(|n, is_leaf| visitor(n.node, is_leaf))
   }
 }

@@ -66,7 +66,7 @@ where
     conf: &MeshBufferIntersectConfig,
   ) -> MeshBufferHitList {
     let mut result = MeshBufferHitList::new();
-    bvh.traverse(
+    bvh.traverse_branch_leaf_visitor(
       |branch| branch.bounding.intersect(&ray, &()),
       |leaf| {
         leaf
@@ -94,7 +94,7 @@ where
     conf: &MeshBufferIntersectConfig,
   ) -> OptionalNearest<MeshBufferHitPoint> {
     let mut nearest = OptionalNearest::none();
-    bvh.traverse(
+    bvh.traverse_branch_leaf_visitor(
       |branch| branch.bounding.intersect(&ray, &()),
       |leaf| {
         leaf
@@ -119,7 +119,7 @@ where
   ) -> PrimitiveIntersectionStatistic {
     let mut bound = 0;
     let mut primitive = 0;
-    bvh.traverse(
+    bvh.traverse_branch_leaf_visitor(
       |branch| {
         bound += 1;
         branch.bounding.intersect(&ray, &())

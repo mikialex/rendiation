@@ -1,4 +1,4 @@
-use space_algorithm::bvh::{FlattenBVH, SAH};
+use space_algorithm::bvh::{FlattenBVH, NextTraverseVisit, SAH};
 
 use crate::*;
 
@@ -43,15 +43,9 @@ where
     vertices: &[V],
   ) -> u32 {
     let mut result = !0;
-    let minimal = std::cell::Cell::new(f32::MAX); // todo improve
-    self.bvh.traverse(
-      |node| {
-        if node.bounding.contains(&position) {
-          return true;
-        }
-        node.bounding.nearest_point(position).distance2(position) > minimal.get()
-      },
-      |node| {
+    let mut minimal = f32::MAX;
+    self.bvh.traverse(|node, is_leaf| {
+      if is_leaf {
         for tri in node.primitive_range.clone() {
           if should_skip(tri as u32) {
             continue;
@@ -59,14 +53,20 @@ where
           // we only check first vertex;
           let v = vertices[indices[tri * 3] as usize].position();
           let distance = v.distance2(position);
-          if distance < minimal.get() {
-            minimal.set(distance);
+          if distance < minimal {
+            minimal = distance;
             result = tri;
           }
         }
-        true
-      },
-    );
+        NextTraverseVisit::SkipChildren
+      } else if node.bounding.contains(&position)
+        || node.bounding.nearest_point(position).distance2(position) > minimal
+      {
+        NextTraverseVisit::VisitChildren
+      } else {
+        NextTraverseVisit::SkipChildren
+      }
+    });
     result as u32
   }
 }

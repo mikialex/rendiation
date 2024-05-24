@@ -30,26 +30,18 @@ pub trait AbstractTreeNode {
     self.visit_children(|child| child.traverse(visitor))
   }
 
-  /// leaf_visitor: when meet leaf, return if should continue visit tree
-  fn traverse_by_branch_leaf(
-    &self,
-    mut branch_enter_visitor: impl FnMut(&Self) -> NextTraverseVisit,
-    mut leaf_visitor: impl FnMut(&Self) -> bool,
-  ) where
+  fn traverse_by_branch_leaf(&self, mut visitor: impl FnMut(&Self, bool) -> NextTraverseVisit)
+  where
     Self: Clone,
   {
     let mut stack = Vec::new(); // todo estimate depth for allocation
     stack.push(self.clone());
 
     while let Some(node) = stack.pop() {
-      match branch_enter_visitor(&node) {
+      match visitor(&node, node.is_leaf()) {
         NextTraverseVisit::Exit => return,
         NextTraverseVisit::VisitChildren => {
-          if node.is_leaf() {
-            if !leaf_visitor(&node) {
-              return;
-            }
-          } else {
+          if !node.is_leaf() {
             node.visit_children(|child| stack.push(child.clone()));
           }
         }
