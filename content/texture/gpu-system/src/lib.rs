@@ -2,6 +2,7 @@
 // strategy
 
 use rendiation_shader_api::*;
+use rendiation_texture_gpu_base::*;
 use rendiation_webgpu::*;
 pub type Texture2DHandle = u32;
 pub type SamplerHandle = u32;

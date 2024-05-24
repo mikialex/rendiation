@@ -1,26 +1,8 @@
-use rendiation_texture_core::GPUBufferImage;
-use rendiation_texture_gpu_base::GPUBufferImageForeignImpl;
-
 use crate::*;
 
-pub fn gpu_texture_2ds(
-  cx: &GPUResourceCtx,
-  default: GPU2DTextureView,
-) -> impl ReactiveCollection<u32, GPU2DTextureView> {
-  let cx = cx.clone();
-
-  global_watch()
-    .watch_untyped_key::<SceneTexture2dEntityDirectContent>()
-    // todo, we should consider using the simple map here
-    .collective_execute_map_by(move || {
-      let cx = cx.clone();
-      let default = default.clone();
-      move |_, tex| {
-        tex
-          .map(|tex| create_gpu_texture2d(&cx, &tex))
-          .unwrap_or_else(|| default.clone())
-      }
-    })
+pub fn create_gpu_sampler(cx: &GPUResourceCtx, s: &TextureSampler) -> GPUSamplerView {
+  let gpu_sampler = GPUSampler::create(s.into_gpu(), &cx.device);
+  gpu_sampler.create_default_view()
 }
 
 pub fn create_gpu_texture2d(cx: &GPUResourceCtx, texture: &GPUBufferImage) -> GPU2DTextureView {

@@ -148,9 +148,8 @@ impl ReactiveState for TexturePoolSource {
         match change {
           ValueChange::Delta(new_tex, _) => {
             let current_pack = current_pack.access(&id).unwrap();
-            // todo, create tex, and write at current pack
-            // let tex =
-            // encoder.copy_texture_to_texture(source, destination, copy_size
+            let tex = create_gpu_texture2d(&self.gpu, &new_tex.inner);
+            copy_tex(&mut encoder, tex, target, &current_pack);
           }
           ValueChange::Remove(_) => {}
         }
@@ -161,7 +160,7 @@ impl ReactiveState for TexturePoolSource {
     if let Poll::Ready(packing_change) = packing_change {
       for (id, change) in packing_change.iter_key_value() {
         match change {
-          ValueChange::Delta(new_position, _) => {
+          ValueChange::Delta(new_pack, _) => {
             let mut tex_has_recreated = false;
             if let Poll::Ready(tex_changes) = &tex_input_change {
               if let Some(tex_change) = tex_changes.access(&id) {
@@ -172,8 +171,8 @@ impl ReactiveState for TexturePoolSource {
             }
             if !tex_has_recreated {
               let tex = tex_input_current.access(&id).unwrap();
-              // let tex =
-              // encoder.copy_texture_to_texture(source, destination, copy_size);
+              let tex = create_gpu_texture2d(&self.gpu, &tex.inner);
+              copy_tex(&mut encoder, tex, target, &new_pack);
             }
           }
           ValueChange::Remove(_) => {}
@@ -194,6 +193,32 @@ impl ReactiveState for TexturePoolSource {
       samplers,
     })
   }
+}
+
+fn copy_tex(
+  encoder: &mut CommandEncoder,
+  src: GPU2DTextureView,
+  target: &GPUTexture,
+  pack: &PackResult2dWithDepth,
+) {
+  let source = ImageCopyTexture {
+    texture: &src.resource.resource,
+    mip_level: 0,
+    origin: Origin3d::ZERO,
+    aspect: TextureAspect::All,
+  };
+
+  let dst = ImageCopyTexture {
+    texture: &target.resource,
+    mip_level: 0,
+    origin: Origin3d {
+      x: pack.result.range.origin.x as u32,
+      y: pack.result.range.origin.y as u32,
+      z: pack.depth,
+    },
+    aspect: TextureAspect::All,
+  };
+  encoder.copy_texture_to_texture(source, dst, src.resource.desc.size);
 }
 
 pub struct TexturePool {

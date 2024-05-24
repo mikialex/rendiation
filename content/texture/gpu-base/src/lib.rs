@@ -3,6 +3,9 @@ use rendiation_shader_api::*;
 use rendiation_texture_core::*;
 use rendiation_webgpu::*;
 
+mod content;
+pub use content::*;
+
 mod mipmap_gen_2d;
 pub use mipmap_gen_2d::*;
 
