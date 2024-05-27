@@ -286,7 +286,25 @@ impl<T: ShaderTextureType> TextureSamplingAction<T> {
     self.info.level = SampleLevel::Exact(level.handle());
     self
   }
+  pub fn with_level_bias(mut self, level: Node<f32>) -> Self {
+    self.info.level = SampleLevel::Bias(level.handle());
+    self
+  }
+  pub fn with_level_grad(mut self, x: Node<T::Input>, y: Node<T::Input>) -> Self {
+    self.info.level = SampleLevel::Gradient {
+      x: x.handle(),
+      y: y.handle(),
+    };
+    self
+  }
   pub fn sample(self) -> Node<T::Output> {
+    ShaderNodeExpr::TextureSampling(self.info).insert_api()
+  }
+  pub fn gather(mut self, channel: GatherChannel) -> Node<Vec4<f32>>
+  where
+    T: D2LikeTextureType,
+  {
+    self.info.gather_channel = Some(channel);
     ShaderNodeExpr::TextureSampling(self.info).insert_api()
   }
 }
@@ -374,7 +392,10 @@ impl<T: ShaderTextureType> HandleNode<T> {
     &self,
     sampler: HandleNode<ShaderSampler>,
     position: impl Into<Node<T::Input>>,
-  ) -> TextureSamplingAction<T> {
+  ) -> TextureSamplingAction<T>
+  where
+    T: SingleSampleTarget,
+  {
     TextureSamplingAction {
       tex: PhantomData,
       info: ShaderTextureSampling {
@@ -385,6 +406,7 @@ impl<T: ShaderTextureType> HandleNode<T> {
         level: SampleLevel::Auto,
         reference: None,
         offset: None,
+        gather_channel: None,
       },
     }
   }
@@ -433,6 +455,7 @@ impl<T: ShaderTextureType + DepthSampleTarget> HandleNode<T> {
         level: SampleLevel::Auto,
         reference: reference.handle().into(),
         offset: None,
+        gather_channel: None,
       },
     }
   }

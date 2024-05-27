@@ -733,10 +733,16 @@ impl ShaderAPI for ShaderAPINagaImpl {
           level,
           reference,
           offset,
+          gather_channel,
         }) => naga::Expression::ImageSample {
           image: self.get_expression(texture),
           sampler: self.get_expression(sampler),
-          gather: None,
+          gather: gather_channel.map(|v| match v {
+            GatherChannel::X => naga::SwizzleComponent::X,
+            GatherChannel::Y => naga::SwizzleComponent::Y,
+            GatherChannel::Z => naga::SwizzleComponent::Z,
+            GatherChannel::W => naga::SwizzleComponent::W,
+          }),
           coordinate: self.get_expression(position),
           array_index: array_index.map(|index| self.get_expression(index)),
           offset: offset.map(|offset| {

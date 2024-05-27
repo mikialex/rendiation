@@ -73,6 +73,14 @@ pub enum TextureQuery {
   NumSamples,
 }
 
+#[derive(Clone, Copy)]
+pub enum GatherChannel {
+  X,
+  Y,
+  Z,
+  W,
+}
+
 pub struct ShaderTextureSampling {
   pub texture: ShaderNodeRawHandle,
   pub sampler: ShaderNodeRawHandle,
@@ -81,6 +89,7 @@ pub struct ShaderTextureSampling {
   pub level: SampleLevel,
   pub reference: Option<ShaderNodeRawHandle>,
   pub offset: Option<Vec2<i32>>,
+  pub gather_channel: Option<GatherChannel>,
 }
 
 pub struct ShaderTextureLoad {
