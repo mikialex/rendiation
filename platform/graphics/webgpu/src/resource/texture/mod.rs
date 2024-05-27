@@ -128,6 +128,11 @@ pub struct GPUCubeDepthTextureView(pub GPUTextureView);
 #[derive(Clone, Debug, PartialEq)]
 pub struct GPUCubeArrayDepthTextureView(pub GPUTextureView);
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct GPUMultiSample2DTextureView(pub GPUTextureView);
+#[derive(Clone, Debug, PartialEq)]
+pub struct GPUMultiSample2DDepthTextureView(pub GPUTextureView);
+
 macro_rules! texture_view_inner {
   ($ty: ty) => {
     impl CacheAbleBindingSource for $ty {

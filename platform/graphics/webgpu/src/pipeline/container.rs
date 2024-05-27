@@ -64,3 +64,9 @@ map_shader_ty!(GPUCubeArrayDepthTextureView, ShaderDepthTextureCubeArray);
 
 map_shader_ty!(GPUSamplerView, ShaderSampler);
 map_shader_ty!(GPUComparisonSamplerView, ShaderCompareSampler);
+
+map_shader_ty!(GPUMultiSample2DTextureView, ShaderMultiSampleTexture2D);
+map_shader_ty!(
+  GPUMultiSample2DDepthTextureView,
+  ShaderMultiSampleDepthTexture2D
+);

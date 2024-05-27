@@ -75,7 +75,6 @@ pub fn map_shader_value_ty_to_binding_layout_type(
           gpu::BufferBindingType::Uniform
         },
         has_dynamic_offset: false,
-        // min_binding_size: gpu::BufferSize::new(std::mem::size_of::<T>() as u64), // todo
         min_binding_size: None,
       },
       Unsized(_) => gpu::BindingType::Buffer {
@@ -83,15 +82,15 @@ pub fn map_shader_value_ty_to_binding_layout_type(
           read_only: !v.writeable_if_storage,
         },
         has_dynamic_offset: false,
-        // min_binding_size: gpu::BufferSize::new(std::mem::size_of::<T>() as u64), // todo
         min_binding_size: None,
       },
       Sampler(ty) => gpu::BindingType::Sampler(ty),
       Texture {
         dimension,
         sample_type,
+        multi_sampled,
       } => gpu::BindingType::Texture {
-        multisampled: false,
+        multisampled: multi_sampled,
         sample_type,
         view_dimension: dimension,
       },

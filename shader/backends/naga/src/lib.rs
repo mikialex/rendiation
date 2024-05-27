@@ -173,6 +173,7 @@ impl ShaderAPINagaImpl {
         ShaderValueSingleType::Texture {
           dimension,
           sample_type,
+          multi_sampled,
         } => {
           let (dim, arrayed) = match dimension {
             TextureViewDimension::D1 => (naga::ImageDimension::D1, false),
@@ -185,16 +186,16 @@ impl ShaderAPINagaImpl {
           let class = match sample_type {
             TextureSampleType::Float { .. } => naga::ImageClass::Sampled {
               kind: naga::ScalarKind::Float,
-              multi: false,
+              multi: multi_sampled,
             },
             TextureSampleType::Depth => naga::ImageClass::Depth { multi: false },
             TextureSampleType::Sint => naga::ImageClass::Sampled {
               kind: naga::ScalarKind::Sint,
-              multi: false,
+              multi: multi_sampled,
             },
             TextureSampleType::Uint => naga::ImageClass::Sampled {
               kind: naga::ScalarKind::Uint,
-              multi: false,
+              multi: multi_sampled,
             },
           };
           naga::TypeInner::Image {

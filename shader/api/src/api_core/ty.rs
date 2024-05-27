@@ -145,6 +145,7 @@ pub enum ShaderValueSingleType {
   Texture {
     dimension: TextureViewDimension,
     sample_type: TextureSampleType,
+    multi_sampled: bool,
   },
 }
 

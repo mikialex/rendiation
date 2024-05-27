@@ -22,6 +22,11 @@ pub struct ShaderDepthTexture2DArray;
 pub struct ShaderDepthTextureCubeArray;
 
 #[derive(Clone, Copy)]
+pub struct ShaderMultiSampleTexture2D;
+#[derive(Clone, Copy)]
+pub struct ShaderMultiSampleDepthTexture2D;
+
+#[derive(Clone, Copy)]
 pub struct ShaderSampler;
 #[derive(Clone, Copy)]
 pub struct ShaderCompareSampler;
@@ -40,6 +45,7 @@ sg_node_impl!(
   ShaderValueSingleType::Texture {
     dimension: TextureViewDimension::D2,
     sample_type: TextureSampleType::Float { filterable: true },
+    multi_sampled: false,
   }
 );
 sg_node_impl!(
@@ -47,6 +53,7 @@ sg_node_impl!(
   ShaderValueSingleType::Texture {
     dimension: TextureViewDimension::Cube,
     sample_type: TextureSampleType::Float { filterable: true },
+    multi_sampled: false,
   }
 );
 sg_node_impl!(
@@ -54,6 +61,7 @@ sg_node_impl!(
   ShaderValueSingleType::Texture {
     dimension: TextureViewDimension::D1,
     sample_type: TextureSampleType::Float { filterable: true },
+    multi_sampled: false,
   }
 );
 sg_node_impl!(
@@ -61,6 +69,7 @@ sg_node_impl!(
   ShaderValueSingleType::Texture {
     dimension: TextureViewDimension::D3,
     sample_type: TextureSampleType::Float { filterable: true },
+    multi_sampled: false,
   }
 );
 sg_node_impl!(
@@ -68,6 +77,7 @@ sg_node_impl!(
   ShaderValueSingleType::Texture {
     dimension: TextureViewDimension::D2Array,
     sample_type: TextureSampleType::Float { filterable: true },
+    multi_sampled: false,
   }
 );
 sg_node_impl!(
@@ -75,6 +85,7 @@ sg_node_impl!(
   ShaderValueSingleType::Texture {
     dimension: TextureViewDimension::CubeArray,
     sample_type: TextureSampleType::Float { filterable: true },
+    multi_sampled: false,
   }
 );
 sg_node_impl!(
@@ -82,6 +93,7 @@ sg_node_impl!(
   ShaderValueSingleType::Texture {
     dimension: TextureViewDimension::D2,
     sample_type: TextureSampleType::Depth,
+    multi_sampled: false,
   }
 );
 sg_node_impl!(
@@ -89,6 +101,7 @@ sg_node_impl!(
   ShaderValueSingleType::Texture {
     dimension: TextureViewDimension::D2Array,
     sample_type: TextureSampleType::Depth,
+    multi_sampled: false,
   }
 );
 sg_node_impl!(
@@ -96,6 +109,7 @@ sg_node_impl!(
   ShaderValueSingleType::Texture {
     dimension: TextureViewDimension::Cube,
     sample_type: TextureSampleType::Depth,
+    multi_sampled: false,
   }
 );
 sg_node_impl!(
@@ -103,6 +117,24 @@ sg_node_impl!(
   ShaderValueSingleType::Texture {
     dimension: TextureViewDimension::CubeArray,
     sample_type: TextureSampleType::Depth,
+    multi_sampled: false,
+  }
+);
+sg_node_impl!(
+  ShaderMultiSampleTexture2D,
+  ShaderValueSingleType::Texture {
+    dimension: TextureViewDimension::D2,
+    sample_type: TextureSampleType::Float { filterable: true },
+    multi_sampled: true,
+  }
+);
+
+sg_node_impl!(
+  ShaderMultiSampleDepthTexture2D,
+  ShaderValueSingleType::Texture {
+    dimension: TextureViewDimension::D2,
+    sample_type: TextureSampleType::Depth,
+    multi_sampled: true,
   }
 );
 
@@ -159,11 +191,44 @@ impl ShaderTextureType for ShaderDepthTextureCubeArray {
   type Output = f32;
 }
 
-pub trait ArraySampleTarget {}
-impl ArraySampleTarget for ShaderTexture2DArray {}
-impl ArraySampleTarget for ShaderTextureCubeArray {}
-impl ArraySampleTarget for ShaderDepthTexture2DArray {}
-impl ArraySampleTarget for ShaderDepthTextureCubeArray {}
+impl ShaderTextureType for ShaderMultiSampleTexture2D {
+  type Input = Vec2<f32>;
+  type Output = Vec4<f32>;
+}
+impl ShaderTextureType for ShaderMultiSampleDepthTexture2D {
+  type Input = Vec2<f32>;
+  type Output = f32;
+}
+
+pub trait ArrayLayerTarget {}
+impl ArrayLayerTarget for ShaderTexture2DArray {}
+impl ArrayLayerTarget for ShaderTextureCubeArray {}
+impl ArrayLayerTarget for ShaderDepthTexture2DArray {}
+impl ArrayLayerTarget for ShaderDepthTextureCubeArray {}
+
+pub trait SingleLayerTarget {}
+impl SingleLayerTarget for ShaderTexture1D {}
+impl SingleLayerTarget for ShaderTexture2D {}
+impl SingleLayerTarget for ShaderTexture3D {}
+impl SingleLayerTarget for ShaderTextureCube {}
+impl SingleLayerTarget for ShaderDepthTexture2D {}
+impl SingleLayerTarget for ShaderDepthTextureCube {}
+
+pub trait SingleSampleTarget {}
+impl SingleSampleTarget for ShaderTexture1D {}
+impl SingleSampleTarget for ShaderTexture2D {}
+impl SingleSampleTarget for ShaderTexture3D {}
+impl SingleSampleTarget for ShaderTextureCube {}
+impl SingleSampleTarget for ShaderTexture2DArray {}
+impl SingleSampleTarget for ShaderTextureCubeArray {}
+impl SingleSampleTarget for ShaderDepthTexture2D {}
+impl SingleSampleTarget for ShaderDepthTextureCube {}
+impl SingleSampleTarget for ShaderDepthTexture2DArray {}
+impl SingleSampleTarget for ShaderDepthTextureCubeArray {}
+
+pub trait MultiSampleTarget {}
+impl ArrayLayerTarget for ShaderMultiSampleTexture2D {}
+impl ArrayLayerTarget for ShaderMultiSampleDepthTexture2D {}
 
 pub trait ShaderArrayTextureSampleIndexType: ShaderNodeType {}
 impl ShaderArrayTextureSampleIndexType for u32 {}
@@ -183,7 +248,7 @@ pub struct TextureSamplingAction<T> {
 impl<T: ShaderTextureType> TextureSamplingAction<T> {
   pub fn with_array_index(mut self, index: Node<impl ShaderArrayTextureSampleIndexType>) -> Self
   where
-    T: ArraySampleTarget,
+    T: ArrayLayerTarget,
   {
     self.info.array_index = Some(index.handle());
     self
@@ -204,7 +269,10 @@ impl<T: ShaderTextureType> HandleNode<T> {
     &self,
     sampler: HandleNode<ShaderSampler>,
     position: impl Into<Node<T::Input>>,
-  ) -> Node<T::Output> {
+  ) -> Node<T::Output>
+  where
+    T: SingleSampleTarget,
+  {
     self.build_sample_call(sampler, position).sample()
   }
   /// just for shortcut
@@ -212,14 +280,20 @@ impl<T: ShaderTextureType> HandleNode<T> {
     &self,
     sampler: HandleNode<ShaderSampler>,
     position: impl Into<Node<T::Input>>,
-  ) -> Node<T::Output> {
+  ) -> Node<T::Output>
+  where
+    T: SingleSampleTarget,
+  {
     self
       .build_sample_call(sampler, position)
       .with_level(val(0.))
       .sample()
   }
 
-  pub fn load_texel(&self, position: Node<Vec2<u32>>, level: Node<u32>) -> Node<Vec4<f32>> {
+  pub fn load_texel(&self, position: Node<Vec2<u32>>, level: Node<u32>) -> Node<Vec4<f32>>
+  where
+    T: SingleSampleTarget + SingleLayerTarget,
+  {
     ShaderNodeExpr::TextureLoad(ShaderTextureLoad {
       texture: self.handle(),
       position: position.handle(),
@@ -237,7 +311,7 @@ impl<T: ShaderTextureType> HandleNode<T> {
     level: Node<u32>,
   ) -> Node<Vec4<f32>>
   where
-    T: ArraySampleTarget,
+    T: SingleSampleTarget + ArrayLayerTarget,
   {
     ShaderNodeExpr::TextureLoad(ShaderTextureLoad {
       texture: self.handle(),
@@ -245,6 +319,25 @@ impl<T: ShaderTextureType> HandleNode<T> {
       array_index: layer.handle().into(),
       sample_index: None,
       level: level.handle().into(),
+    })
+    .insert_api()
+  }
+
+  /// note, level can not be dynamically decided
+  pub fn load_texel_multi_sample_index(
+    &self,
+    position: Node<Vec2<u32>>,
+    sample_index: Node<u32>,
+  ) -> Node<Vec4<f32>>
+  where
+    T: MultiSampleTarget,
+  {
+    ShaderNodeExpr::TextureLoad(ShaderTextureLoad {
+      texture: self.handle(),
+      position: position.handle(),
+      array_index: None,
+      sample_index: sample_index.handle().into(),
+      level: None,
     })
     .insert_api()
   }
@@ -277,7 +370,7 @@ pub struct DepthTextureSamplingAction<T> {
 impl<T> DepthTextureSamplingAction<T> {
   pub fn with_array_index(mut self, index: Node<impl ShaderArrayTextureSampleIndexType>) -> Self
   where
-    T: ArraySampleTarget,
+    T: ArrayLayerTarget,
   {
     self.info.array_index = Some(index.handle());
     self
