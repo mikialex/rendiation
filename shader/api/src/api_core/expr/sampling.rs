@@ -144,24 +144,40 @@ pub trait ShaderTextureType {
   type Output: PrimitiveShaderNodeType;
 }
 
+pub trait ShaderDirectLoad: ShaderTextureType {
+  type LoadInput;
+}
+
 impl ShaderTextureType for ShaderTexture1D {
   type Input = f32;
   type Output = Vec4<f32>;
+}
+impl ShaderDirectLoad for ShaderTexture1D {
+  type LoadInput = u32;
 }
 
 impl ShaderTextureType for ShaderTexture2D {
   type Input = Vec2<f32>;
   type Output = Vec4<f32>;
 }
+impl ShaderDirectLoad for ShaderTexture2D {
+  type LoadInput = Vec2<u32>;
+}
 
 impl ShaderTextureType for ShaderDepthTexture2D {
   type Input = Vec2<f32>;
   type Output = f32;
 }
+impl ShaderDirectLoad for ShaderDepthTexture2D {
+  type LoadInput = Vec2<u32>;
+}
 
 impl ShaderTextureType for ShaderTexture3D {
   type Input = Vec3<f32>;
   type Output = Vec4<f32>;
+}
+impl ShaderDirectLoad for ShaderTexture3D {
+  type LoadInput = Vec3<u32>;
 }
 
 impl ShaderTextureType for ShaderTextureCube {
@@ -178,6 +194,9 @@ impl ShaderTextureType for ShaderTexture2DArray {
   type Input = Vec2<f32>;
   type Output = Vec4<f32>;
 }
+impl ShaderDirectLoad for ShaderTexture2DArray {
+  type LoadInput = Vec2<u32>;
+}
 impl ShaderTextureType for ShaderTextureCubeArray {
   type Input = Vec3<f32>;
   type Output = Vec4<f32>;
@@ -185,6 +204,9 @@ impl ShaderTextureType for ShaderTextureCubeArray {
 impl ShaderTextureType for ShaderDepthTexture2DArray {
   type Input = Vec2<f32>;
   type Output = f32;
+}
+impl ShaderDirectLoad for ShaderDepthTexture2DArray {
+  type LoadInput = Vec2<u32>;
 }
 impl ShaderTextureType for ShaderDepthTextureCubeArray {
   type Input = Vec3<f32>;
@@ -195,9 +217,15 @@ impl ShaderTextureType for ShaderMultiSampleTexture2D {
   type Input = Vec2<f32>;
   type Output = Vec4<f32>;
 }
+impl ShaderDirectLoad for ShaderMultiSampleTexture2D {
+  type LoadInput = Vec2<u32>;
+}
 impl ShaderTextureType for ShaderMultiSampleDepthTexture2D {
   type Input = Vec2<f32>;
   type Output = f32;
+}
+impl ShaderDirectLoad for ShaderMultiSampleDepthTexture2D {
+  type LoadInput = Vec2<u32>;
 }
 
 pub trait ArrayLayerTarget {}
@@ -290,9 +318,9 @@ impl<T: ShaderTextureType> HandleNode<T> {
       .sample()
   }
 
-  pub fn load_texel(&self, position: Node<Vec2<u32>>, level: Node<u32>) -> Node<Vec4<f32>>
+  pub fn load_texel(&self, position: Node<T::LoadInput>, level: Node<u32>) -> Node<T::Output>
   where
-    T: SingleSampleTarget + SingleLayerTarget,
+    T: SingleSampleTarget + SingleLayerTarget + ShaderDirectLoad,
   {
     ShaderNodeExpr::TextureLoad(ShaderTextureLoad {
       texture: self.handle(),
@@ -306,12 +334,12 @@ impl<T: ShaderTextureType> HandleNode<T> {
 
   pub fn load_texel_layer(
     &self,
-    position: Node<Vec2<u32>>,
+    position: Node<T::LoadInput>,
     layer: Node<u32>,
     level: Node<u32>,
-  ) -> Node<Vec4<f32>>
+  ) -> Node<T::Output>
   where
-    T: SingleSampleTarget + ArrayLayerTarget,
+    T: SingleSampleTarget + ArrayLayerTarget + ShaderDirectLoad,
   {
     ShaderNodeExpr::TextureLoad(ShaderTextureLoad {
       texture: self.handle(),
@@ -326,11 +354,11 @@ impl<T: ShaderTextureType> HandleNode<T> {
   /// note, level can not be dynamically decided
   pub fn load_texel_multi_sample_index(
     &self,
-    position: Node<Vec2<u32>>,
+    position: Node<T::LoadInput>,
     sample_index: Node<u32>,
-  ) -> Node<Vec4<f32>>
+  ) -> Node<T::Output>
   where
-    T: MultiSampleTarget,
+    T: MultiSampleTarget + ShaderDirectLoad,
   {
     ShaderNodeExpr::TextureLoad(ShaderTextureLoad {
       texture: self.handle(),
@@ -407,5 +435,74 @@ impl<T: ShaderTextureType + DepthSampleTarget> HandleNode<T> {
         offset: None,
       },
     }
+  }
+}
+
+impl<T: ShaderTextureType> HandleNode<T> {
+  pub fn texture_number_samples(&self) -> Node<u32>
+  where
+    T: MultiSampleTarget,
+  {
+    ShaderNodeExpr::TextureQuery(self.handle(), TextureQuery::NumSamples).insert_api()
+  }
+  pub fn texture_number_layers(&self) -> Node<u32>
+  where
+    T: ArrayLayerTarget + SingleSampleTarget,
+  {
+    ShaderNodeExpr::TextureQuery(self.handle(), TextureQuery::NumLayers).insert_api()
+  }
+  pub fn texture_number_levels(&self) -> Node<u32>
+  where
+    T: SingleSampleTarget,
+  {
+    ShaderNodeExpr::TextureQuery(self.handle(), TextureQuery::NumLayers).insert_api()
+  }
+}
+
+pub trait D1TextureType {}
+impl D1TextureType for ShaderTexture1D {}
+pub trait D2LikeTextureType {}
+impl D2LikeTextureType for ShaderTexture2D {}
+impl D2LikeTextureType for ShaderTextureCube {}
+impl D2LikeTextureType for ShaderTexture2DArray {}
+impl D2LikeTextureType for ShaderTextureCubeArray {}
+impl D2LikeTextureType for ShaderDepthTexture2D {}
+impl D2LikeTextureType for ShaderDepthTextureCube {}
+impl D2LikeTextureType for ShaderDepthTexture2DArray {}
+impl D2LikeTextureType for ShaderDepthTextureCubeArray {}
+impl D2LikeTextureType for ShaderMultiSampleTexture2D {}
+impl D2LikeTextureType for ShaderMultiSampleDepthTexture2D {}
+pub trait D3TextureType {}
+impl D3TextureType for ShaderTexture3D {}
+
+impl<T: ShaderTextureType> HandleNode<T> {
+  fn texture_dimension(&self, level: Node<u32>) -> ShaderNodeExpr {
+    ShaderNodeExpr::TextureQuery(
+      self.handle(),
+      TextureQuery::Size {
+        level: Some(level.handle()),
+      },
+    )
+  }
+
+  pub fn texture_dimension_1d(&self, level: Node<u32>) -> Node<u32>
+  where
+    T: D1TextureType,
+  {
+    self.texture_dimension(level).insert_api()
+  }
+
+  pub fn texture_dimension_2d(&self, level: Node<u32>) -> Node<Vec2<u32>>
+  where
+    T: D2LikeTextureType,
+  {
+    self.texture_dimension(level).insert_api()
+  }
+
+  pub fn texture_dimension_3d(&self, level: Node<u32>) -> Node<Vec3<u32>>
+  where
+    T: D3TextureType,
+  {
+    self.texture_dimension(level).insert_api()
   }
 }

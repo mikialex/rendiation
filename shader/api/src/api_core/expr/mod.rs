@@ -58,6 +58,21 @@ pub enum SampleLevel {
   },
 }
 
+#[derive(Clone, Copy)]
+pub enum TextureQuery {
+  /// Get the size at the specified level.
+  Size {
+    /// If `None`, the base level is considered.
+    level: Option<ShaderNodeRawHandle>,
+  },
+  /// Get the number of mipmap levels.
+  NumLevels,
+  /// Get the number of array layers.
+  NumLayers,
+  /// Get the number of samples.
+  NumSamples,
+}
+
 pub struct ShaderTextureSampling {
   pub texture: ShaderNodeRawHandle,
   pub sampler: ShaderNodeRawHandle,
@@ -97,6 +112,7 @@ pub enum ShaderNodeExpr {
   },
   TextureSampling(ShaderTextureSampling),
   TextureLoad(ShaderTextureLoad),
+  TextureQuery(ShaderNodeRawHandle, TextureQuery),
   Swizzle {
     ty: &'static str,
     source: ShaderNodeRawHandle,

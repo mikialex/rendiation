@@ -714,6 +714,17 @@ impl ShaderAPI for ShaderAPINagaImpl {
             }
           }
         }
+        ShaderNodeExpr::TextureQuery(texture, info) => naga::Expression::ImageQuery {
+          image: self.get_expression(texture),
+          query: match info {
+            TextureQuery::Size { level } => naga::ImageQuery::Size {
+              level: level.map(|v| self.get_expression(v)),
+            },
+            TextureQuery::NumLevels => naga::ImageQuery::NumLevels,
+            TextureQuery::NumLayers => naga::ImageQuery::NumLayers,
+            TextureQuery::NumSamples => naga::ImageQuery::NumSamples,
+          },
+        },
         ShaderNodeExpr::TextureSampling(ShaderTextureSampling {
           texture,
           sampler,
