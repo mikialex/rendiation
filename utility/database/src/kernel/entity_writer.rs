@@ -1,3 +1,5 @@
+use std::mem::ManuallyDrop;
+
 use crate::*;
 
 pub trait EntityCustomWrite<E: EntitySemantic> {
@@ -111,8 +113,34 @@ impl<E: EntitySemantic> EntityWriter<E> {
   where
     C: ComponentSemantic<Entity = E>,
   {
-    todo!();
+    for (id, view) in &mut self.inner.components {
+      if *id == C::component_id() {
+        unsafe {
+          let data = ManuallyDrop::new(data.clone());
+          view.write_component(
+            idx.handle,
+            &data as *const ManuallyDrop<C::Data> as *const (),
+          );
+        }
+      }
+    }
     self
+  }
+
+  pub fn read_component_data<C>(&self, idx: EntityHandle<C::Entity>) -> Option<C::Data>
+  where
+    C: ComponentSemantic<Entity = E>,
+  {
+    let mut target = None;
+    for (id, view) in &self.inner.components {
+      if *id == C::component_id() {
+        unsafe {
+          let target = &mut target as *mut Option<C::Data> as *mut ();
+          view.read_component(idx.handle, target);
+        }
+      }
+    }
+    target
   }
 
   pub fn new_entity(&mut self) -> EntityHandle<E> {
@@ -206,6 +234,10 @@ impl EntityWriterUntyped {
 }
 
 pub trait EntityComponentWriter {
+  #[allow(clippy::missing_safety_doc)]
+  unsafe fn write_component(&mut self, idx: RawEntityHandle, src: *const ());
+  #[allow(clippy::missing_safety_doc)]
+  unsafe fn read_component(&self, idx: RawEntityHandle, target: *mut ());
   fn write_init_component_value(&mut self, idx: RawEntityHandle);
   fn clone_component_value(&mut self, src: RawEntityHandle, dst: RawEntityHandle);
   fn delete_component(&mut self, idx: RawEntityHandle);
@@ -220,6 +252,20 @@ pub struct EntityComponentWriterImpl<T: ComponentSemantic, F> {
 impl<T: ComponentSemantic, F: FnMut() -> T::Data> EntityComponentWriter
   for EntityComponentWriterImpl<T, F>
 {
+  unsafe fn write_component(&mut self, idx: RawEntityHandle, src: *const ()) {
+    let src = &*(src as *const T::Data);
+    let src = std::ptr::read(src);
+    let idx = EntityHandle::from_raw(idx);
+    self.component.as_mut().unwrap().write(idx, src);
+  }
+  unsafe fn read_component(&self, idx: RawEntityHandle, target: *mut ()) {
+    let target = &mut *(target as *mut Option<T::Data>);
+    let idx = EntityHandle::from_raw(idx);
+    if let Some(data) = self.component.as_ref().unwrap().read(idx) {
+      *target = Some(data);
+    }
+  }
+
   fn write_init_component_value(&mut self, idx: RawEntityHandle) {
     let com = self.component.as_mut().unwrap();
 

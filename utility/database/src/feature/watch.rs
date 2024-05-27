@@ -44,8 +44,35 @@ impl DatabaseMutationWatch {
   }
 
   pub fn watch_untyped_key<C: ComponentSemantic>(&self) -> impl ReactiveCollection<u32, C::Data> {
-    todo!()
-    // self.watch_dyn::<C::Data>(C::component_id(), C::Entity::entity_id())
+    struct View<T, C> {
+      inner: T,
+      phantom: PhantomData<C>,
+      allocator: Arc<RwLock<Arena<()>>>,
+    }
+
+    impl<C: ComponentSemantic, T: ReactiveCollection<EntityHandle<C::Entity>, C::Data>>
+      ReactiveCollection<u32, C::Data> for View<T, C>
+    {
+      fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<u32, C::Data> {
+        todo!()
+      }
+
+      fn access(&self) -> PollCollectionCurrent<u32, C::Data> {
+        // let handle = self.allocator.get_handle(index)
+        todo!()
+      }
+
+      fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
+        self.inner.extra_request(request)
+      }
+    }
+    View {
+      inner: self.watch::<C>(),
+      phantom: PhantomData::<C>,
+      allocator: self
+        .db
+        .access_ecg::<C::Entity, _>(|e| e.inner.inner.allocator.clone()),
+    }
   }
 
   pub fn watch<C: ComponentSemantic>(
