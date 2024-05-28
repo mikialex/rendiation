@@ -12,6 +12,7 @@ mod read;
 mod rendering;
 mod resource;
 mod surface;
+mod time_query;
 mod types;
 
 use core::fmt::Debug;
@@ -53,6 +54,7 @@ use rendiation_shader_api::*;
 use rendiation_texture_types::*;
 pub use resource::*;
 pub use surface::*;
+pub use time_query::*;
 use typed_arena::Arena;
 pub use types::*;
 use wgpu as gpu;
