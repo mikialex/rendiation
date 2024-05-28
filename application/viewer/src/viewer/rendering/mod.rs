@@ -117,7 +117,7 @@ impl ViewRenderedState {
               offset_y: 0,
             },
           );
-          self.queue.submit(Some(encoder.finish()));
+          self.queue.submit_encoder(encoder);
           buffer
         };
 

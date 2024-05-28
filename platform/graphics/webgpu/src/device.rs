@@ -11,7 +11,7 @@ impl AsRef<Self> for GPUDevice {
 }
 
 impl GPUDevice {
-  pub fn new(device: gpu::Device) -> Self {
+  pub(crate) fn new(device: gpu::Device) -> Self {
     let placeholder_bg = device.create_bind_group(&gpu::BindGroupDescriptor {
       layout: &device.create_bind_group_layout(&gpu::BindGroupLayoutDescriptor {
         label: "PlaceholderBindgroup".into(),
@@ -28,6 +28,7 @@ impl GPUDevice {
       bindgroup_layout_cache: Default::default(),
       pipeline_cache: Default::default(),
       placeholder_bg: Arc::new(placeholder_bg),
+      deferred_explicit_destroy: Default::default(),
     };
 
     Self {
@@ -124,6 +125,7 @@ pub(crate) struct GPUDeviceImpl {
   bindgroup_cache: BindGroupCache,
   bindgroup_layout_cache: BindGroupLayoutCache,
   pipeline_cache: RenderPipelineCache,
+  pub(crate) deferred_explicit_destroy: DeferExplicitDestroy,
   pub(crate) placeholder_bg: Arc<gpu::BindGroup>,
 }
 

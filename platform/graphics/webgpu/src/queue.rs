@@ -11,6 +11,10 @@ impl GPUQueue {
       inner: Arc::new(queue),
     }
   }
+
+  pub fn submit_encoder(&self, encoder: GPUCommandEncoder) {
+    self.inner.submit(std::iter::once(encoder.finish().inner));
+  }
 }
 
 impl Deref for GPUQueue {

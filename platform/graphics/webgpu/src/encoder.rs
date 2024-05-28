@@ -7,7 +7,13 @@ pub struct GPUCommandEncoder {
   holder: GPURenderPassDataHolder,
   active_pass_target_holder: Option<RenderPassDescriptorOwned>,
   placeholder_bg: Arc<gpu::BindGroup>,
+  deferred_explicit_destroy: CommandBufferDeferExplicitDestroyFlusher,
   pub(crate) on_submit: EventSource<()>,
+}
+
+pub struct GPUCommandBuffer {
+  pub(crate) inner: gpu::CommandBuffer,
+  _deferred_explicit_destroy: CommandBufferDeferExplicitDestroyFlusher,
 }
 
 impl Deref for GPUCommandEncoder {
@@ -32,13 +38,17 @@ impl GPUCommandEncoder {
       placeholder_bg: device.inner.placeholder_bg.clone(),
       active_pass_target_holder: Default::default(),
       on_submit: Default::default(),
+      deferred_explicit_destroy: device.inner.deferred_explicit_destroy.new_command_buffer(),
     }
   }
 
-  pub fn finish(self) -> gpu::CommandBuffer {
+  pub fn finish(self) -> GPUCommandBuffer {
     let gpu = self.encoder.finish();
     self.on_submit.emit(&());
-    gpu
+    GPUCommandBuffer {
+      inner: gpu,
+      _deferred_explicit_destroy: self.deferred_explicit_destroy,
+    }
   }
 
   pub fn with_compute_pass_scoped(mut self, f: impl Fn(GPUComputePass)) -> Self {

@@ -28,7 +28,7 @@ impl<T: Std140> UniformBufferDataView<T> {
     };
 
     let gpu = GPUBuffer::create(device, init, usage);
-    let gpu = GPUBufferResource::create_with_raw(gpu, desc).create_default_view();
+    let gpu = GPUBufferResource::create_with_raw(gpu, desc, device).create_default_view();
 
     Self {
       gpu,

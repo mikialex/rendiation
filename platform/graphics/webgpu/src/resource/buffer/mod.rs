@@ -137,6 +137,7 @@ pub fn create_gpu_buffer(
       usage,
       size: NonZeroU64::new(data.len() as u64).unwrap(),
     },
+    device,
   )
 }
 
@@ -156,5 +157,6 @@ pub fn create_gpu_buffer_zeroed(
       usage,
       size: NonZeroU64::new(byte_size).unwrap(),
     },
+    device,
   )
 }

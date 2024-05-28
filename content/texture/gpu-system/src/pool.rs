@@ -180,7 +180,7 @@ impl ReactiveState for TexturePoolSource {
       }
     }
 
-    self.gpu.queue.submit(Some(encoder.finish()));
+    self.gpu.queue.submit_encoder(encoder);
 
     let texture = target.create_default_view().try_into().unwrap();
 
@@ -202,14 +202,14 @@ fn copy_tex(
   pack: &PackResult2dWithDepth,
 ) {
   let source = ImageCopyTexture {
-    texture: &src.resource.resource,
+    texture: src.resource.gpu_resource(),
     mip_level: 0,
     origin: Origin3d::ZERO,
     aspect: TextureAspect::All,
   };
 
   let dst = ImageCopyTexture {
-    texture: &target.resource,
+    texture: target.gpu_resource(),
     mip_level: 0,
     origin: Origin3d {
       x: pack.result.range.origin.x as u32,

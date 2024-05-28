@@ -46,7 +46,7 @@ impl<T: Std430> ReactiveStorageBufferContainer<T> {
         let old_buffer = std::mem::replace(&mut self.inner.target, new_buffer);
         let new_buffer = &self.inner.target;
 
-        let mut encoder = device.create_command_encoder(&Default::default());
+        let mut encoder = device.create_encoder();
         encoder.copy_buffer_to_buffer(
           old_buffer.buffer.gpu(),
           0,
@@ -54,7 +54,7 @@ impl<T: Std430> ReactiveStorageBufferContainer<T> {
           0,
           (previous_size as usize * std::mem::size_of::<T>()) as u64,
         );
-        self.gpu_ctx.queue.submit(Some(encoder.finish()));
+        self.gpu_ctx.queue.submit_encoder(encoder);
       }
     }
     self.inner.poll_update(cx);

@@ -67,7 +67,7 @@ impl<T: Std430MaybeUnsized + ?Sized> StorageBufferReadOnlyDataView<T> {
     };
     let gpu = GPUBuffer::create(device, init, usage);
 
-    let gpu = GPUBufferResource::create_with_raw(gpu, desc).create_default_view();
+    let gpu = GPUBufferResource::create_with_raw(gpu, desc, device).create_default_view();
 
     Self {
       gpu,
@@ -215,7 +215,7 @@ impl<T: Std430MaybeUnsized + ?Sized> StorageBufferDataView<T> {
     };
 
     let gpu = GPUBuffer::create(device, init, usage);
-    let gpu = GPUBufferResource::create_with_raw(gpu, desc).create_default_view();
+    let gpu = GPUBufferResource::create_with_raw(gpu, desc, device).create_default_view();
 
     Self {
       gpu,

@@ -10,6 +10,9 @@ pub use array::*;
 mod sampler;
 pub use sampler::*;
 
+mod defer_explicit_destroy;
+pub use defer_explicit_destroy::*;
+
 use crate::*;
 
 pub struct ResourceViewContainer<T: Resource> {
@@ -32,7 +35,7 @@ impl<T: Resource> std::ops::Deref for ResourceViewContainer<T> {
 /// and some dropping callbacks
 pub struct ResourceContainer<T: Resource> {
   pub guid: usize,
-  pub resource: T,
+  pub resource: ResourceExplicitDestroy<T>,
   pub desc: T::Descriptor,
   pub(crate) bindgroup_holder: BindGroupResourceHolder,
 }
@@ -51,12 +54,16 @@ pub fn get_new_resource_guid() -> usize {
 }
 
 impl<T: Resource> ResourceContainer<T> {
+  pub fn gpu_resource(&self) -> &T {
+    &self.resource
+  }
+
   pub fn create(desc: T::Descriptor, device: &GPUDevice) -> Self
   where
     T: InitResourceByAllocation,
   {
     let resource = T::create_resource(&desc, device);
-    Self::create_with_raw(resource, desc)
+    Self::create_with_raw(resource, desc, device)
   }
 
   pub fn create_with_source(source: T::Source, device: &GPUDevice) -> Self
@@ -64,20 +71,23 @@ impl<T: Resource> ResourceContainer<T> {
     T: InitResourceBySource,
   {
     let (resource, desc) = T::create_resource_with_source(&source, device);
-    Self::create_with_raw(resource, desc)
+    Self::create_with_raw(resource, desc, device)
   }
 
-  pub fn create_with_raw(resource: T, desc: T::Descriptor) -> Self {
+  pub fn create_with_raw(resource: T, desc: T::Descriptor, device: &GPUDevice) -> Self {
     Self {
       guid: get_new_resource_guid(),
-      resource,
+      resource: device
+        .inner
+        .deferred_explicit_destroy
+        .new_resource(resource),
       desc,
       bindgroup_holder: Default::default(),
     }
   }
 }
 
-pub trait Resource: 'static + Sized {
+pub trait Resource: 'static + Sized + ExplicitGPUResourceDestroy + Send + Sync {
   type Descriptor;
   type View;
   type ViewDescriptor;
@@ -177,6 +187,10 @@ pub fn get_resource_view_guid() -> usize {
 }
 
 impl<T: Resource> ResourceRc<T> {
+  pub fn gpu_resource(&self) -> &T {
+    &self.resource
+  }
+
   #[must_use]
   pub fn create(desc: T::Descriptor, device: &GPUDevice) -> Self
   where
@@ -187,9 +201,9 @@ impl<T: Resource> ResourceRc<T> {
     }
   }
 
-  pub fn create_with_raw(resource: T, desc: T::Descriptor) -> Self {
+  pub fn create_with_raw(resource: T, desc: T::Descriptor, device: &GPUDevice) -> Self {
     Self {
-      inner: Arc::new(ResourceContainer::create_with_raw(resource, desc)),
+      inner: Arc::new(ResourceContainer::create_with_raw(resource, desc, device)),
     }
   }
 

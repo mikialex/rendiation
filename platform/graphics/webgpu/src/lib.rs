@@ -239,8 +239,7 @@ impl GPU {
   }
 
   pub fn submit_encoder(&self, encoder: GPUCommandEncoder) {
-    let cmb = encoder.finish();
-    self.queue.submit(Some(cmb));
+    self.queue.submit_encoder(encoder);
   }
 }
 

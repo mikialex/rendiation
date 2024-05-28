@@ -75,7 +75,7 @@ impl GPUSubAllocateBufferImpl {
         }
       });
 
-    queue.submit(Some(encoder.finish()));
+    queue.submit_encoder(encoder);
 
     self.buffer = new_buffer;
     self.allocator = new_allocator;
