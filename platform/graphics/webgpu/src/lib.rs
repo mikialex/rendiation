@@ -7,16 +7,17 @@ mod encoder;
 mod frame;
 mod pass;
 mod pipeline;
+mod query;
 mod queue;
 mod read;
 mod rendering;
 mod resource;
 mod surface;
-mod time_query;
 mod types;
 
 use core::fmt::Debug;
 use core::num::NonZeroUsize;
+use std::num::NonZeroU64;
 use std::{
   any::*,
   borrow::Cow,
@@ -33,6 +34,7 @@ use dyn_downcast::*;
 pub use encoder::*;
 use fast_hash_collection::*;
 pub use frame::*;
+use futures::{Future, FutureExt};
 pub use gpu::Features;
 // note: we can not just use * because it cause core conflict
 pub use gpu::{
@@ -47,6 +49,7 @@ pub use gpu::{
 };
 pub use pass::*;
 pub use pipeline::*;
+pub use query::*;
 pub use queue::*;
 pub use read::*;
 pub use rendering::*;
@@ -54,7 +57,6 @@ use rendiation_shader_api::*;
 use rendiation_texture_types::*;
 pub use resource::*;
 pub use surface::*;
-pub use time_query::*;
 use typed_arena::Arena;
 pub use types::*;
 use wgpu as gpu;
