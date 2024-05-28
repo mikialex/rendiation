@@ -141,7 +141,7 @@ impl<T: PassContent> PassContent for Option<T> {
 }
 
 pub struct ActiveRenderPass<'p> {
-  pass: FrameRenderPass<'p, 'p>,
+  pub pass: FrameRenderPass<'p, 'p>,
   pub desc: RenderPassDescriptorOwned,
 }
 

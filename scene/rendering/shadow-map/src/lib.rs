@@ -30,12 +30,8 @@ pub fn basic_shadow_map_uniform(
   UniformArrayUpdateContainer<BasicShadowMapInfo>,
 ) {
   let source_view_proj = inputs.source_view_proj.into_forker();
-  let (sys, address) = BasicShadowMapSystem::new(
-    gpu_ctx,
-    config,
-    source_view_proj.clone().into_boxed(),
-    inputs.size,
-  );
+  let (sys, address) =
+    BasicShadowMapSystem::new(config, source_view_proj.clone().into_boxed(), inputs.size);
 
   let map_info = address.into_uniform_array_collection_update(
     std::mem::offset_of!(BasicShadowMapInfo, map_info),
@@ -61,15 +57,15 @@ pub fn basic_shadow_map_uniform(
 }
 
 pub struct BasicShadowMapSystem {
-  shadow_map_gpu: GPUTexture,
+  shadow_map_atlas: Option<GPUTexture>,
   packing: Box<dyn ReactiveCollection<u32, ShadowMapAddressInfo>>,
   atlas_resize: Box<dyn Stream<Item = SizeWithDepth> + Unpin>,
+  current_size: Option<SizeWithDepth>,
   source_view_proj: Box<dyn ReactiveCollection<u32, Mat4<f32>>>,
 }
 
 impl BasicShadowMapSystem {
   pub fn new(
-    gpu: &GPUResourceCtx,
     config: MultiLayerTexturePackerConfig,
     source_view_proj: Box<dyn ReactiveCollection<u32, Mat4<f32>>>,
     size: Box<dyn ReactiveCollection<u32, Size>>,
@@ -77,22 +73,9 @@ impl BasicShadowMapSystem {
     let (packing, atlas_resize) = reactive_pack_2d_to_3d(config, size);
     let packing = packing.collective_map(convert_pack_result).into_forker();
 
-    let shadow_map_gpu = GPUTexture::create(
-      TextureDescriptor {
-        label: "shadow-maps".into(),
-        size: config.init_size.into_gpu_size(),
-        mip_level_count: 1,
-        sample_count: 1,
-        dimension: TextureDimension::D2,
-        format: TextureFormat::Depth32Float,
-        view_formats: &[],
-        usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
-      },
-      &gpu.device,
-    );
-
     let sys = Self {
-      shadow_map_gpu,
+      shadow_map_atlas: None,
+      current_size: None,
       packing: packing.clone().into_boxed(),
       atlas_resize: Box::new(atlas_resize),
       source_view_proj,
@@ -103,14 +86,31 @@ impl BasicShadowMapSystem {
   pub fn update_shadow_maps(
     &mut self,
     cx: &mut Context,
-    // frame_ctx: FrameCtx,
-    // scene: impl PassContent,
+    frame_ctx: &mut FrameCtx,
+    scene_content: impl PassContent + Clone,
   ) {
     let _ = self.packing.poll_changes(cx); // incremental detail is useless here
-                                           // todo, poll last value
-    if let Poll::Ready(Some(_new_size)) = self.atlas_resize.poll_next_unpin(cx) {
-      // do resize, if we do shadow cache, we should also do map copy
+    while let Poll::Ready(Some(new_size)) = self.atlas_resize.poll_next_unpin(cx) {
+      // if we do shadow cache, we should also do content copy
+      self.current_size = Some(new_size);
+      self.shadow_map_atlas = None;
     }
+
+    let shadow_map_atlas = self.shadow_map_atlas.get_or_insert_with(|| {
+      GPUTexture::create(
+        TextureDescriptor {
+          label: "shadow-map-atlas".into(),
+          size: self.current_size.unwrap().into_gpu_size(),
+          mip_level_count: 1,
+          sample_count: 1,
+          dimension: TextureDimension::D2,
+          format: TextureFormat::Depth32Float,
+          view_formats: &[],
+          usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
+        },
+        &frame_ctx.gpu.device,
+      )
+    });
 
     let current_layouts = self.packing.access();
     let view_proj_mats = self.source_view_proj.access();
@@ -119,8 +119,7 @@ impl BasicShadowMapSystem {
     for (idx, shadow_view) in current_layouts.iter_key_value() {
       let _view_proj = view_proj_mats.access(&idx).unwrap();
 
-      let _write_view: GPU2DTextureView = self
-        .shadow_map_gpu
+      let write_view: GPU2DTextureView = shadow_map_atlas
         .create_view(TextureViewDescriptor {
           label: Some("shadowmap-write-view"),
           dimension: Some(TextureViewDimension::D2),
@@ -130,7 +129,20 @@ impl BasicShadowMapSystem {
         })
         .try_into()
         .unwrap();
-      // let viewport = todo
+
+      // custom dispatcher is not required because we only have depth output.
+      let mut pass = pass("shadow-map")
+        .with_depth(write_view, clear(1.))
+        .render_ctx(frame_ctx);
+
+      let raw_pass = &mut pass.pass.ctx.pass;
+      let x = shadow_view.offset.x;
+      let y = shadow_view.offset.y;
+      let w = shadow_view.size.x;
+      let h = shadow_view.size.y;
+      raw_pass.set_viewport(x, y, w, h, 0., 1.);
+
+      pass.by(scene_content.clone());
     }
   }
 }

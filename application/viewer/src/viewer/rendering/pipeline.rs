@@ -42,6 +42,7 @@ impl ViewerPipeline {
   pub fn render(
     &mut self,
     ctx: &mut FrameCtx,
+    _cx: &mut Context,
     renderer: &dyn SceneRenderer,
     content: &Viewer3dSceneCtx,
     final_target: &RenderTargetView,

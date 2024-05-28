@@ -71,7 +71,7 @@ impl Viewer3dRenderingCtx {
 
     self
       .pipeline
-      .render(&mut ctx, renderer.as_ref(), content, &target);
+      .render(&mut ctx, cx, renderer.as_ref(), content, &target);
 
     ctx.final_submit();
 
