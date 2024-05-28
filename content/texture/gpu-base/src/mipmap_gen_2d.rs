@@ -43,7 +43,7 @@ pub trait Mipmap2dReducerImpl: Mipmap2dReducer + Sized {
         .try_into()
         .unwrap();
 
-      let task = Mipmap2DGeneratorTask {
+      let mut task = Mipmap2DGeneratorTask {
         view: read_view,
         reducer: self,
       }
@@ -52,7 +52,7 @@ pub trait Mipmap2dReducerImpl: Mipmap2dReducer + Sized {
       pass("mip-gen-2d")
         .with_color(write_view, load())
         .render_ctx(ctx)
-        .by(task);
+        .by(&mut task);
     }
   }
 
@@ -84,7 +84,7 @@ pub trait Mipmap2dReducerImpl: Mipmap2dReducer + Sized {
           .try_into()
           .unwrap();
 
-        let task = Mipmap2DGeneratorTask {
+        let mut task = Mipmap2DGeneratorTask {
           view: read_view,
           reducer: self,
         }
@@ -93,7 +93,7 @@ pub trait Mipmap2dReducerImpl: Mipmap2dReducer + Sized {
         pass("mip-gen-cube-face")
           .with_color(write_view, load())
           .render_ctx(ctx)
-          .by(task);
+          .by(&mut task);
       }
     }
   }

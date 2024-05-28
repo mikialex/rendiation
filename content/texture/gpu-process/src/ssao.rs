@@ -174,7 +174,7 @@ impl SSAO {
       .with_color(ao_result.write(), load())
       .render_ctx(ctx)
       .by(
-        AOComputer {
+        &mut AOComputer {
           reproject,
           depth: depth.read(),
           parameter: self,

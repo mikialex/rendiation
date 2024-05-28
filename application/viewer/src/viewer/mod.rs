@@ -124,6 +124,17 @@ pub struct Viewer3dSceneCtx {
   pub selected_target: Option<EntityHandle<SceneModelEntity>>,
 }
 
+pub struct Viewer3dSceneDeriveSource {
+  pub world_mat: Box<dyn ReactiveCollection<EntityHandle<SceneNodeEntity>, Mat4<f32>>>,
+  pub camera_proj: Box<dyn ReactiveCollection<EntityHandle<SceneCameraEntity>, Mat4<f32>>>,
+}
+
+/// used in render & scene update
+pub struct Viewer3dSceneDerive {
+  pub world_mat: Box<dyn VirtualCollection<EntityHandle<SceneNodeEntity>, Mat4<f32>>>,
+  pub camera_proj: Box<dyn VirtualCollection<EntityHandle<SceneCameraEntity>, Mat4<f32>>>,
+}
+
 pub struct Viewer3dSceneCtxWriterWidget<V>(pub V);
 
 impl<V: Widget> Widget for Viewer3dSceneCtxWriterWidget<V> {

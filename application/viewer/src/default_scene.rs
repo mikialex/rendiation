@@ -2,15 +2,21 @@ use rendiation_algebra::*;
 use rendiation_mesh_core::CommonVertex;
 use rendiation_mesh_core::*;
 use rendiation_mesh_generator::{
-  build_attributes_mesh, CubeMeshParameter, IndexedMeshBuilder, IntoTransformed3D,
-  SphereMeshParameter, TessellationConfig,
+  build_attributes_mesh, CubeMeshParameter, SphereMeshParameter, TessellationConfig,
 };
-use rendiation_scene_core::AttributeMeshEntity;
 use rendiation_texture_core::{
   create_padding_buffer, GPUBufferImage, Texture2D, TextureFormat, TextureSampler,
 };
 
 use crate::*;
+
+pub fn textured_ball(scene: &mut Scene3dWriter) {
+  let path = if cfg!(windows) {
+    "C:/Users/mk/Desktop/rrf-resource/planets/earth_atmos_2048.jpg"
+  } else {
+    "/Users/mikialex/Desktop/test.png"
+  };
+}
 
 // pub fn load_img_cube() -> SceneTextureCube {
 //   let path = if cfg!(windows) {

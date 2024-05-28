@@ -87,7 +87,7 @@ impl BasicShadowMapSystem {
     &mut self,
     cx: &mut Context,
     frame_ctx: &mut FrameCtx,
-    scene_content: impl PassContent + Clone,
+    scene_content: &mut impl PassContent,
   ) {
     let _ = self.packing.poll_changes(cx); // incremental detail is useless here
     while let Poll::Ready(Some(new_size)) = self.atlas_resize.poll_next_unpin(cx) {
@@ -142,7 +142,7 @@ impl BasicShadowMapSystem {
       let h = shadow_view.size.y;
       raw_pass.set_viewport(x, y, w, h, 0., 1.);
 
-      pass.by(scene_content.clone());
+      pass.by(scene_content);
     }
   }
 }

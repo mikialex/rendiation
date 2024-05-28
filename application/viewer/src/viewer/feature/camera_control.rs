@@ -25,13 +25,13 @@ impl Widget for SceneOrbitCameraControl {
     access_cx!(cx, scene_cx, Viewer3dSceneCtx);
 
     let control_node = global_entity_component_of::<SceneCameraNode>()
-      .read()
+      .read_foreign_key()
       .get(scene_cx.main_camera)
       .unwrap();
     let node_local_mat = global_entity_component_of::<SceneNodeLocalMatrixComponent>().write();
 
     self.controller.update(&mut ControlleeWrapper {
-      controllee: todo!(),
+      controllee: control_node,
       writer: node_local_mat,
     });
   }

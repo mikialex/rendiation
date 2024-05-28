@@ -22,6 +22,9 @@ impl Scene3dWriter {
     parent: EntityHandle<SceneNodeEntity>,
   ) -> EntityHandle<SceneNodeEntity> {
     let child = self.create_root_child();
+    self
+      .node_writer
+      .write_component_data::<SceneNodeParentIdx>(child, Some(parent.into_raw()));
     child
   }
 
@@ -31,11 +34,21 @@ impl Scene3dWriter {
     mesh: EntityHandle<AttributeMeshEntity>,
     node: EntityHandle<SceneNodeEntity>,
   ) -> EntityHandle<SceneModelEntity> {
-    todo!()
+    let std_model = StandardModelDataView { material, mesh };
+    let std_model = std_model.write(&mut self.std_model_writer);
+    let sm = SceneModelDataView {
+      model: std_model,
+      scene: self.scene,
+      node,
+    };
+
+    sm.write(&mut self.model_writer)
   }
 
   pub fn set_local_matrix(&mut self, node: EntityHandle<SceneNodeEntity>, mat: Mat4<f32>) {
-    //
+    self
+      .node_writer
+      .write_component_data::<SceneNodeLocalMatrixComponent>(node, mat);
   }
 
   pub fn from_global(scene: EntityHandle<SceneEntity>) -> Self {

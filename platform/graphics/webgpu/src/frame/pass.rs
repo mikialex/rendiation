@@ -126,7 +126,7 @@ impl<'a> PassDescriptor<'a> {
 pub trait PassContent {
   fn render(&mut self, pass: &mut FrameRenderPass);
 }
-impl<'a> PassContent for &'a mut dyn PassContent {
+impl<'a> PassContent for Box<dyn PassContent + 'a> {
   fn render(&mut self, pass: &mut FrameRenderPass) {
     (**self).render(pass);
   }
@@ -146,7 +146,7 @@ pub struct ActiveRenderPass<'p> {
 }
 
 impl<'p> ActiveRenderPass<'p> {
-  pub fn by(mut self, mut renderable: impl PassContent) -> Self {
+  pub fn by(mut self, renderable: &mut impl PassContent) -> Self {
     renderable.render(&mut self.pass);
     self
   }

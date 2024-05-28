@@ -32,6 +32,17 @@ impl ViewerPipeline {
     }
   }
 
+  pub fn update(
+    &mut self,
+    frame_ctx: &mut FrameCtx,
+    current_camera_view_projection_inv: Mat4<f32>,
+  ) {
+    self
+      .reproject
+      .update(frame_ctx, current_camera_view_projection_inv);
+    //  todo jitter
+  }
+
   pub fn egui(&mut self, ui: &mut egui::Ui) {
     ui.checkbox(&mut self.enable_ssao, "enable ssao");
     ui.checkbox(&mut self.enable_channel_debugger, "enable channel debug");
@@ -68,7 +79,7 @@ impl ViewerPipeline {
       .resolve_to(widgets_result.write())
       .render_ctx(ctx);
 
-    let highlight_compose = (content.selected_target.is_some()).then(|| {
+    let mut highlight_compose = (content.selected_target.is_some()).then(|| {
       let masked_content = highlight(
         content.selected_target.iter().cloned(),
         content.main_camera,
@@ -84,13 +95,7 @@ impl ViewerPipeline {
         let mut scene_result = attachment().request(ctx);
         let mut scene_depth = depth_attachment().request(ctx);
 
-        let current_camera_view_projection_inv = todo!();
-
-        self
-          .reproject
-          .update(ctx, current_camera_view_projection_inv);
-
-        let ao = self.enable_ssao.then(|| {
+        let mut ao = self.enable_ssao.then(|| {
           let ao = self.ssao.draw(ctx, &scene_depth, &self.reproject.reproject);
           copy_frame(
             ao.read_into(),
@@ -109,16 +114,17 @@ impl ViewerPipeline {
         // these pass will get correct gpu camera?
         let (color_ops, depth_ops) = renderer.init_clear(content.scene);
         // todo light dispatcher
-        let main_scene_content =
+        let mut main_scene_content =
           renderer.make_pass_content(content.scene, content.main_camera, &(), ctx);
+
         pass("scene")
           .with_color(scene_result.write(), color_ops)
           .with_depth(scene_depth.write(), depth_ops)
           .render_ctx(ctx)
-          .by(main_scene_content.as_mut())
+          .by(&mut main_scene_content)
           // .by(scene.by_main_camera_and_self(&mut s.ground)) // transparent, should go after
           // opaque
-          .by(ao);
+          .by(&mut ao);
 
         NewTAAFrameSample {
           new_color: scene_result,
@@ -131,9 +137,9 @@ impl ViewerPipeline {
       .taa
       .render_aa_content(taa_content, ctx, &self.reproject);
 
-    let main_scene_content = copy_frame(taa_result.read(), None);
+    let mut main_scene_content = copy_frame(taa_result.read(), None);
 
-    let scene_msaa_widgets = copy_frame(
+    let mut scene_msaa_widgets = copy_frame(
       widgets_result.read_into(),
       BlendState::PREMULTIPLIED_ALPHA_BLENDING.into(),
     );
@@ -141,9 +147,9 @@ impl ViewerPipeline {
     pass("compose-all")
       .with_color(final_target.clone(), load())
       .render_ctx(ctx)
-      .by(main_scene_content)
-      .by(highlight_compose)
-      .by(scene_msaa_widgets);
+      .by(&mut main_scene_content)
+      .by(&mut highlight_compose)
+      .by(&mut scene_msaa_widgets);
   }
 }
 

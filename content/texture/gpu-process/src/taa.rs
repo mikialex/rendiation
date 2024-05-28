@@ -76,7 +76,7 @@ impl TAA {
       .with_color(resolve_target.write(), load())
       .render_ctx(ctx)
       .by(
-        TAAResolver {
+        &mut TAAResolver {
           history: history.read(),
           new_color: new_color.read(),
           new_depth: new_depth.read(),

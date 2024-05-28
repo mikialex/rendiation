@@ -41,7 +41,7 @@ impl HighLighter {
   }
 
   /// scene should masked by `HighLightMaskDispatcher`
-  pub fn draw(&self, ctx: &mut FrameCtx, content: impl PassContent) -> impl PassContent + '_ {
+  pub fn draw(&self, ctx: &mut FrameCtx, mut content: impl PassContent) -> impl PassContent + '_ {
     let mut selected_mask = attachment()
       .format(HIGH_LIGHT_MASK_TARGET_FORMAT)
       .request(ctx);
@@ -49,7 +49,7 @@ impl HighLighter {
     pass("highlight-selected-mask")
       .with_color(selected_mask.write(), clear(color_same(0.)))
       .render_ctx(ctx)
-      .by(content);
+      .by(&mut content);
 
     self.draw_result(selected_mask.read_into())
   }
