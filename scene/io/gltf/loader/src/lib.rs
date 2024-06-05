@@ -7,6 +7,7 @@
 // use fast_hash_collection::*;
 // use gltf::{Node, Result as GltfResult};
 // use rendiation_algebra::*;
+// use rendiation_mesh_core::AttributeIndexFormat;
 // use rendiation_scene_core::*;
 // mod convert_utils;
 // use convert_utils::*;

@@ -3470,6 +3470,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-mesh-lod-graph"
+version = "0.1.0"
+dependencies = [
+ "rendiation-algebra",
+ "rendiation-geometry",
+ "rendiation-mesh-core",
+ "rendiation-mesh-segmentation",
+ "rendiation-mesh-simplification",
+]
+
+[[package]]
 name = "rendiation-mesh-segmentation"
 version = "0.1.0"
 dependencies = [

@@ -24,6 +24,7 @@ members = [
   "content/mesh/simplification",
   "content/mesh/gpu-system",
   "content/mesh/segmentation",
+  "content/mesh/lod-graph",
   "content/texture/core",
   "content/texture/types",
   "content/texture/packer",
