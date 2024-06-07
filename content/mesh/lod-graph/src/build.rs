@@ -3,29 +3,21 @@ use fast_hash_collection::FastHashSet;
 use crate::*;
 
 impl MeshLODGraph {
-  pub fn build_from_mesh(
-    builder: &dyn MeshLodGraphBuilder,
-    mesh: MeshBufferSource,
-    config: MeshLodGraphBuildConfig,
-  ) -> Self {
-    let mut last_level = MeshLODGraphLevel::build_base_from_mesh(builder, mesh, &config);
+  pub fn build_from_mesh(builder: &dyn MeshLodGraphBuilder, mesh: MeshBufferSource) -> Self {
+    let mut last_level = MeshLODGraphLevel::build_base_from_mesh(builder, mesh);
     let mut levels = Vec::new();
 
     // if the last level is single group single meshlet, we will have nothing to do
     // and finish build
     while last_level.meshlets.len() == 1 {
-      let new_last_level =
-        MeshLODGraphLevel::build_from_finer_level(builder, &mut last_level, &config);
+      let new_last_level = MeshLODGraphLevel::build_from_finer_level(builder, &mut last_level);
       let last_last_level = std::mem::replace(&mut last_level, new_last_level);
       levels.push(last_last_level);
     }
 
     levels.push(last_level);
 
-    Self {
-      build_config: config,
-      levels,
-    }
+    Self { levels }
   }
 }
 
@@ -33,15 +25,16 @@ impl MeshLODGraphLevel {
   fn build_from_finer_level(
     builder: &dyn MeshLodGraphBuilder,
     previous_level: &mut MeshLODGraphLevel,
-    config: &MeshLodGraphBuildConfig,
   ) -> Self {
     let mut all_simplified_indices: Vec<u32> =
       Vec::with_capacity(previous_level.mesh.indices.len());
     let mut all_simplified_vertices: Vec<CommonVertex> =
       Vec::with_capacity(previous_level.mesh.vertices.len());
     let mut all_meshlets: Vec<Meshlet> = Vec::with_capacity(previous_level.meshlets.len());
-    let mut ranges: Vec<OffsetSize> = Vec::with_capacity(previous_level.meshlets.len());
     let mut simplification_error: Vec<f32> = Vec::with_capacity(previous_level.meshlets.len());
+
+    let mut offset = 0;
+    let mut ranges: Vec<OffsetSize> = Vec::with_capacity(previous_level.meshlets.len());
 
     let edges =
       compute_all_meshlet_boundary_edges(&previous_level.meshlets, &previous_level.mesh.indices);
@@ -77,11 +70,7 @@ impl MeshLODGraphLevel {
           &previous_level.mesh.vertices,
           &index_range,
           &locked_edges,
-          MeshLODGraphSimplificationConfig {
-            target_tri_num: todo!(),
-            tri_num_limit: todo!(),
-            target_error: todo!(),
-          },
+          index_range.len() as u32 / 2, // remove half of face
         );
 
         let (meshlets, simplified_mesh) = build_meshlets_from_triangles(builder, simplified.mesh);
@@ -89,7 +78,13 @@ impl MeshLODGraphLevel {
         all_simplified_vertices.extend(simplified_mesh.vertices);
         simplification_error.push(simplified.error);
 
-        all_meshlets.extend(meshlets);
+        all_meshlets.extend(&meshlets);
+        let meshlets_len = meshlets.len() as u32;
+        ranges.push(OffsetSize {
+          offset,
+          size: meshlets_len,
+        });
+        offset += meshlets_len;
       });
 
     let mesh = MeshBufferSource {
@@ -144,11 +139,7 @@ impl MeshLODGraphLevel {
     }
   }
 
-  fn build_base_from_mesh(
-    builder: &dyn MeshLodGraphBuilder,
-    mesh: MeshBufferSource,
-    config: &MeshLodGraphBuildConfig,
-  ) -> Self {
+  fn build_base_from_mesh(builder: &dyn MeshLodGraphBuilder, mesh: MeshBufferSource) -> Self {
     let (meshlets, mesh) = build_meshlets_from_triangles(builder, mesh);
 
     let edges = compute_all_meshlet_boundary_edges(&meshlets, &mesh.indices);

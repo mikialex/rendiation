@@ -67,7 +67,19 @@ impl MeshletAdjacencyInfo {
   }
 
   pub fn update_by_remove_a_meshlet(&mut self, target_meshlet_idx: u32, remove_meshlet_idx: u32) {
-    todo!()
+    let range = &mut self.adjacent_meshlets[target_meshlet_idx as usize];
+    let last = self.adjacent_meshlets_idx[(range.offset + range.size) as usize];
+    for i in self
+      .adjacent_meshlets_idx
+      .get_mut(range.into_range())
+      .unwrap()
+    {
+      if *i == remove_meshlet_idx {
+        *i = last;
+        range.size -= 1;
+        break;
+      }
+    }
   }
 }
 

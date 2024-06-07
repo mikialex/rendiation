@@ -4,14 +4,11 @@ use std::ops::Range;
 
 use fast_hash_collection::FastHashSet;
 use rendiation_algebra::*;
-use rendiation_geometry::{Box3, Triangle};
 use rendiation_mesh_core::CommonVertex;
-use rendiation_mesh_segmentation::{SegmentResult, SegmentationSource};
+use rendiation_mesh_segmentation::SegmentResult;
 
 mod build;
-pub use build::*;
 mod meshlet_adjacency;
-pub use build::*;
 use meshlet_adjacency::*;
 mod util;
 pub use util::*;
@@ -38,13 +35,7 @@ pub struct Meshlet {
   // pub bounding_box_self: Box3,
 }
 
-#[derive(Clone, Copy)]
-pub struct MeshLodGraphBuildConfig {
-  pub meshlet_size: u32,
-}
-
 pub struct MeshLODGraph {
-  pub build_config: MeshLodGraphBuildConfig,
   pub levels: Vec<MeshLODGraphLevel>,
 }
 
