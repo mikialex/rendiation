@@ -10,6 +10,7 @@ rendiation-geometry = { path = "../../../math/geometry" }
 rendiation-mesh-core = { path = "../core" }
 rendiation-mesh-segmentation = { path = "../segmentation" }
 rendiation-mesh-simplification = { path = "../simplification" }
+fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 
 [lints]
 workspace = true

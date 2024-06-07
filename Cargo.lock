@@ -3473,6 +3473,7 @@ dependencies = [
 name = "rendiation-mesh-lod-graph"
 version = "0.1.0"
 dependencies = [
+ "fast-hash-collection",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-mesh-core",

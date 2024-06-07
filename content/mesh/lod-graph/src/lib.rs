@@ -1,5 +1,8 @@
+#![feature(array_chunks)]
+
 use std::ops::Range;
 
+use fast_hash_collection::FastHashSet;
 use rendiation_algebra::*;
 use rendiation_geometry::{Box3, Triangle};
 use rendiation_mesh_core::CommonVertex;
@@ -7,6 +10,9 @@ use rendiation_mesh_segmentation::{SegmentResult, SegmentationSource};
 
 mod build;
 pub use build::*;
+mod meshlet_adjacency;
+pub use build::*;
+use meshlet_adjacency::*;
 mod util;
 pub use util::*;
 mod impl_dependency;

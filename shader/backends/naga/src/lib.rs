@@ -635,12 +635,6 @@ impl ShaderAPI for ShaderAPINagaImpl {
                     argument: self.get_expression(parameters[0]),
                   }
                 }
-                ShaderBuiltInFunction::IsFinite => {
-                  break naga::Expression::Relational {
-                    fun: naga::RelationalFunction::IsInf,
-                    argument: self.get_expression(parameters[0]),
-                  }
-                }
                 ShaderBuiltInFunction::ArrayLength => {
                   break naga::Expression::ArrayLength(self.get_expression(parameters[0]))
                 }

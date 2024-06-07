@@ -5,7 +5,7 @@ pub trait MeshLodGraphBuilder {
     &self,
     vertices: &[CommonVertex],
     indices: &[u32],
-    locked_edges: &[u32],
+    locked_edges: &EdgeFinder,
     config: MeshLODGraphSimplificationConfig,
   ) -> MeshLODGraphSimplificationResult;
 

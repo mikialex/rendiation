@@ -10,7 +10,6 @@ pub enum ShaderBuiltInFunction {
   Any,
   IsNan,
   IsInf,
-  IsFinite,
   // comparison
   Abs,
   Min,

@@ -1,3 +1,5 @@
+use fast_hash_collection::FastHashSet;
+
 use crate::*;
 
 impl MeshLODGraph {
@@ -9,7 +11,8 @@ impl MeshLODGraph {
     let mut last_level = MeshLODGraphLevel::build_base_from_mesh(builder, mesh, &config);
     let mut levels = Vec::new();
 
-    // if the last level is single group single meshlet, we will have nothing to do and finish build
+    // if the last level is single group single meshlet, we will have nothing to do
+    // and finish build
     while last_level.meshlets.len() == 1 {
       let new_last_level =
         MeshLODGraphLevel::build_from_finer_level(builder, &mut last_level, &config);
@@ -40,18 +43,54 @@ impl MeshLODGraphLevel {
     let mut ranges: Vec<OffsetSize> = Vec::with_capacity(previous_level.meshlets.len());
     let mut simplification_error: Vec<f32> = Vec::with_capacity(previous_level.meshlets.len());
 
-    previous_level.groups.iter().for_each(|group| {
-      // let simplification_source = group.meshlets.into_range()
+    let edges = previous_level.compute_all_meshlet_boundary_edges();
+    let meshlet_adjacency = MeshletAdjacencyInfo::build(&edges);
 
-      let simplified: MeshLODGraphSimplificationResult = todo!();
+    previous_level
+      .groups
+      .clone() // this could be removed
+      .iter()
+      .enumerate()
+      .for_each(|(group_idx, group)| {
+        // collect all indices in this group, deduplicate adjacent indices between
+        // meshlets
+        let mut index_range = FastHashSet::default();
+        for meshlet in previous_level
+          .meshlets
+          .get_mut(group.meshlets.into_range())
+          .unwrap()
+        {
+          for idx in previous_level
+            .mesh
+            .indices
+            .get(meshlet.index_range.into_range())
+            .unwrap()
+          {
+            index_range.insert(*idx);
+          }
+        }
+        let index_range: Vec<_> = index_range.drain().collect();
 
-      let (meshlets, simplified_mesh) = build_meshlets_from_triangles(builder, simplified.mesh);
-      all_simplified_indices.extend(simplified_mesh.indices);
-      all_simplified_vertices.extend(simplified_mesh.vertices);
-      simplification_error.push(simplified.error);
+        let locked_edges = previous_level.compute_locking_edge(group_idx as u32, &edges);
 
-      all_meshlets.extend(meshlets);
-    });
+        let simplified = builder.simplify(
+          &previous_level.mesh.vertices,
+          &index_range,
+          &locked_edges,
+          MeshLODGraphSimplificationConfig {
+            target_tri_num: todo!(),
+            tri_num_limit: todo!(),
+            target_error: todo!(),
+          },
+        );
+
+        let (meshlets, simplified_mesh) = build_meshlets_from_triangles(builder, simplified.mesh);
+        all_simplified_indices.extend(simplified_mesh.indices);
+        all_simplified_vertices.extend(simplified_mesh.vertices);
+        simplification_error.push(simplified.error);
+
+        all_meshlets.extend(meshlets);
+      });
 
     let mesh = MeshBufferSource {
       indices: all_simplified_indices,
@@ -60,6 +99,7 @@ impl MeshLODGraphLevel {
 
     let (groups, meshlets, reorder) = build_groups_from_meshlets(builder, all_meshlets.clone());
 
+    // build pervious level's meshlet parents
     let mut parent_meshlets_idx = Vec::with_capacity(meshlets.len());
     for (simplified_meshlet_range, previous_level_group) in
       ranges.iter().zip(previous_level.groups.iter())
@@ -102,6 +142,7 @@ impl MeshLODGraphLevel {
       parent_meshlets_idx,
     }
   }
+
   fn build_base_from_mesh(
     builder: &dyn MeshLodGraphBuilder,
     mesh: MeshBufferSource,
@@ -119,22 +160,6 @@ impl MeshLODGraphLevel {
       parent_meshlets_idx: Vec::new(), // set when coarser level build
     }
   }
-}
-
-/// reorder indices by given triangle order
-fn reorder_indices(indices: &[u32], triangle_idx: &[u32]) -> Vec<u32> {
-  triangle_idx
-    .iter()
-    .flat_map(|tri| {
-      let idx = *tri as usize * 3;
-      [indices[idx], indices[idx + 1], indices[idx + 2]]
-    })
-    .collect()
-}
-
-/// reorder indices by given triangle order
-fn reorder_meshlet(indices: &[Meshlet], reorder: &[u32]) -> Vec<Meshlet> {
-  reorder.iter().map(|idx| indices[*idx as usize]).collect()
 }
 
 fn build_meshlets_from_triangles(
@@ -166,6 +191,17 @@ fn build_meshlets_from_triangles(
   )
 }
 
+/// reorder indices by given triangle order
+fn reorder_indices(indices: &[u32], triangle_idx: &[u32]) -> Vec<u32> {
+  triangle_idx
+    .iter()
+    .flat_map(|tri| {
+      let idx = *tri as usize * 3;
+      [indices[idx], indices[idx + 1], indices[idx + 2]]
+    })
+    .collect()
+}
+
 fn build_groups_from_meshlets(
   builder: &dyn MeshLodGraphBuilder,
   meshlets: Vec<Meshlet>,
@@ -189,4 +225,9 @@ fn build_groups_from_meshlets(
   });
 
   (groups, meshlets, meshlet_segmentation.reordered_idx)
+}
+
+/// reorder indices by given triangle order
+fn reorder_meshlet(indices: &[Meshlet], reorder: &[u32]) -> Vec<Meshlet> {
+  reorder.iter().map(|idx| indices[*idx as usize]).collect()
 }
