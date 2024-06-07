@@ -50,7 +50,7 @@ impl MeshletAdjacencyInfo {
     Self {
       adjacent_meshlets: offsets
         .into_iter()
-        .zip(counts.into_iter())
+        .zip(counts)
         .map(|(offset, size)| OffsetSize { offset, size })
         .collect(),
       adjacent_meshlets_idx,
@@ -62,7 +62,7 @@ impl MeshletAdjacencyInfo {
       .adjacent_meshlets_idx
       .get(self.adjacent_meshlets[meshlet as usize].into_range())
       .unwrap()
-      .into_iter()
+      .iter()
       .cloned()
   }
 
@@ -71,6 +71,7 @@ impl MeshletAdjacencyInfo {
   }
 }
 
+/// un-direct edge
 #[derive(Debug, Clone, Copy, Eq)]
 pub struct Edge(u32, u32);
 impl PartialEq for Edge {
@@ -90,47 +91,56 @@ impl Hash for Edge {
   }
 }
 
-impl MeshLODGraphLevel {
-  pub fn compute_locking_edge(
-    &self,
-    group_id: u32,
-    precompute_meshlet_edges: &[EdgeFinder],
-  ) -> EdgeFinder {
-    let group = &self.groups[group_id as usize];
-    let meshlets = precompute_meshlet_edges
-      .get(group.meshlets.into_range())
-      .unwrap();
+pub fn compute_locking_edge(
+  groups: &[MeshletGroup],
+  group_id: u32,
+  precompute_meshlet_edges: &[EdgeFinder],
+) -> EdgeFinder {
+  let group = &groups[group_id as usize];
+  let meshlets = precompute_meshlet_edges
+    .get(group.meshlets.into_range())
+    .unwrap();
 
-    todo!()
+  let mut base = meshlets[0].clone();
+  for rest in meshlets.get(1..).unwrap() {
+    base.merge_from(rest);
   }
-
-  pub fn compute_all_meshlet_boundary_edges(&self) -> Vec<EdgeFinder> {
-    let meshlet_boundary_edges: Vec<_> = (0..self.meshlets.len())
-      .map(|meshlet| self.compute_meshlet_boundary_edges(meshlet as u32))
-      .collect();
-    //
-
-    meshlet_boundary_edges
-  }
-  pub fn compute_meshlet_boundary_edges(&self, meshlet: u32) -> EdgeFinder {
-    let meshlet = self.meshlets[meshlet as usize];
-
-    let mut boundary_edges = EdgeFinder::default();
-
-    let indices = meshlet.index_range.into_range();
-    let indices = self.mesh.indices.get(indices).unwrap();
-
-    for [a, b, c] in indices.array_chunks::<3>() {
-      boundary_edges.add_edge(*a, *b);
-      boundary_edges.add_edge(*b, *c);
-      boundary_edges.add_edge(*c, *a);
-    }
-
-    boundary_edges
-  }
+  base
 }
 
-#[derive(Default)]
+pub fn compute_all_meshlet_boundary_edges(
+  meshlets: &[Meshlet],
+  indices: &[u32],
+) -> Vec<EdgeFinder> {
+  let meshlet_boundary_edges: Vec<_> = (0..meshlets.len())
+    .map(|meshlet| compute_meshlet_boundary_edges(meshlets, indices, meshlet as u32))
+    .collect();
+  //
+
+  meshlet_boundary_edges
+}
+pub fn compute_meshlet_boundary_edges(
+  meshlets: &[Meshlet],
+  indices: &[u32],
+  meshlet: u32,
+) -> EdgeFinder {
+  let meshlet = meshlets[meshlet as usize];
+
+  let mut boundary_edges = EdgeFinder::default();
+
+  let indices_range = meshlet.index_range.into_range();
+  let indices = indices.get(indices_range).unwrap();
+
+  for [a, b, c] in indices.array_chunks::<3>() {
+    boundary_edges.add_edge(*a, *b);
+    boundary_edges.add_edge(*b, *c);
+    boundary_edges.add_edge(*c, *a);
+  }
+
+  boundary_edges
+}
+
+#[derive(Default, Clone)]
 pub struct EdgeFinder(FastHashSet<Edge>);
 
 impl EdgeFinder {
@@ -146,5 +156,11 @@ impl EdgeFinder {
       }
     }
     false
+  }
+
+  fn merge_from(&mut self, other: &Self) {
+    for edge in &other.0 {
+      self.add_edge(edge.0, edge.1)
+    }
   }
 }

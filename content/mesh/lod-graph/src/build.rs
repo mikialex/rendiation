@@ -43,12 +43,12 @@ impl MeshLODGraphLevel {
     let mut ranges: Vec<OffsetSize> = Vec::with_capacity(previous_level.meshlets.len());
     let mut simplification_error: Vec<f32> = Vec::with_capacity(previous_level.meshlets.len());
 
-    let edges = previous_level.compute_all_meshlet_boundary_edges();
+    let edges =
+      compute_all_meshlet_boundary_edges(&previous_level.meshlets, &previous_level.mesh.indices);
     let meshlet_adjacency = MeshletAdjacencyInfo::build(&edges);
 
     previous_level
       .groups
-      .clone() // this could be removed
       .iter()
       .enumerate()
       .for_each(|(group_idx, group)| {
@@ -71,7 +71,7 @@ impl MeshLODGraphLevel {
         }
         let index_range: Vec<_> = index_range.drain().collect();
 
-        let locked_edges = previous_level.compute_locking_edge(group_idx as u32, &edges);
+        let locked_edges = compute_locking_edge(&previous_level.groups, group_idx as u32, &edges);
 
         let simplified = builder.simplify(
           &previous_level.mesh.vertices,
@@ -97,7 +97,8 @@ impl MeshLODGraphLevel {
       vertices: all_simplified_vertices,
     };
 
-    let (groups, meshlets, reorder) = build_groups_from_meshlets(builder, all_meshlets.clone());
+    let (groups, meshlets, reorder) =
+      build_groups_from_meshlets(builder, all_meshlets.clone(), meshlet_adjacency);
 
     // build pervious level's meshlet parents
     let mut parent_meshlets_idx = Vec::with_capacity(meshlets.len());
@@ -150,7 +151,9 @@ impl MeshLODGraphLevel {
   ) -> Self {
     let (meshlets, mesh) = build_meshlets_from_triangles(builder, mesh);
 
-    let (groups, meshlets, _) = build_groups_from_meshlets(builder, meshlets);
+    let edges = compute_all_meshlet_boundary_edges(&meshlets, &mesh.indices);
+    let meshlet_adjacency = MeshletAdjacencyInfo::build(&edges);
+    let (groups, meshlets, _) = build_groups_from_meshlets(builder, meshlets, meshlet_adjacency);
 
     Self {
       groups,
@@ -205,8 +208,9 @@ fn reorder_indices(indices: &[u32], triangle_idx: &[u32]) -> Vec<u32> {
 fn build_groups_from_meshlets(
   builder: &dyn MeshLodGraphBuilder,
   meshlets: Vec<Meshlet>,
+  adj: MeshletAdjacencyInfo,
 ) -> (Vec<MeshletGroup>, Vec<Meshlet>, Vec<u32>) {
-  let meshlet_segmentation = builder.segment_meshlets(&meshlets);
+  let meshlet_segmentation = builder.segment_meshlets(&meshlets, &adj);
 
   let groups: Vec<_> = meshlet_segmentation
     .ranges

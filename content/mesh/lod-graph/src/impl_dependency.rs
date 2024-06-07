@@ -10,7 +10,7 @@ pub trait MeshLodGraphBuilder {
   ) -> MeshLODGraphSimplificationResult;
 
   fn segment_triangles(&self, input: &MeshBufferSource) -> SegmentResult;
-  fn segment_meshlets(&self, input: &[Meshlet]) -> SegmentResult;
+  fn segment_meshlets(&self, input: &[Meshlet], adj: &MeshletAdjacencyInfo) -> SegmentResult;
 }
 
 pub struct MeshLODGraphSimplificationConfig {
