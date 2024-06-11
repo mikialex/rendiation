@@ -18,21 +18,15 @@ pub use impl_dependency::*;
 #[derive(Clone, Copy)]
 pub struct MeshletGroup {
   pub meshlets: OffsetSize,
+  pub lod_error_simplify_to_next_level: Option<f32>,
+  pub max_meshlet_simplification_error: f32,
 }
 
 #[derive(Clone, Copy)]
 pub struct Meshlet {
   pub group_index: u32,
   pub index_range: OffsetSize,
-  pub parent_index_range: Option<OffsetSize>,
-
-  pub lod_error: f32,
-  /// maximum of all parent(coarser) meshlets' lod error.
-  /// this is to make sure each meshlet lod decision will have same result if the have same parent
-  /// meshlets(if one decide use finer level, the others should use finer level too)
-  pub parent_max_lod_error: f32,
-  // /// the bounding box of this meshlet, used to do culling
-  // pub bounding_box_self: Box3,
+  pub group_index_in_previous_level: Option<u32>,
 }
 
 pub struct MeshLODGraph {
@@ -42,10 +36,7 @@ pub struct MeshLODGraph {
 pub struct MeshLODGraphLevel {
   pub groups: Vec<MeshletGroup>,
   pub meshlets: Vec<Meshlet>,
-  pub parent_meshlets_idx: Vec<u32>,
   pub mesh: MeshBufferSource,
-  /// for each group, map the previous level meshlet range and simplification error.
-  pub finer_level_meshlet_mapping: Option<Vec<FinerLevelMapping>>,
 }
 
 pub struct FinerLevelMapping {

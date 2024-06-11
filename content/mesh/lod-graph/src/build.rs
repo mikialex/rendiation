@@ -7,7 +7,7 @@ impl MeshLODGraph {
     let mut last_level = MeshLODGraphLevel::build_base_from_mesh(builder, mesh);
     let mut levels = Vec::new();
 
-    // if the last level is single group single meshlet, we will have nothing to do
+    // if the last level is  single meshlet, we will have nothing to do
     // and finish build
     while last_level.meshlets.len() == 1 {
       let new_last_level = MeshLODGraphLevel::build_from_finer_level(builder, &mut last_level);
@@ -82,60 +82,49 @@ impl MeshLODGraphLevel {
         let meshlets_len = meshlets.len() as u32;
         ranges.push(OffsetSize {
           offset,
-          size: meshlets_len,
+          size: meshlets_len - offset,
         });
         offset += meshlets_len;
       });
+
+    previous_level
+      .groups
+      .iter_mut()
+      .zip(simplification_error.iter())
+      .for_each(|(g, err)| g.lod_error_simplify_to_next_level = Some(*err));
 
     let mesh = MeshBufferSource {
       indices: all_simplified_indices,
       vertices: all_simplified_vertices,
     };
 
-    let (groups, meshlets, reorder) =
+    let (mut groups, mut meshlets, reorder) =
       build_groups_from_meshlets(builder, all_meshlets.clone(), meshlet_adjacency);
 
-    // build pervious level's meshlet parents
-    let mut parent_meshlets_idx = Vec::with_capacity(meshlets.len());
-    for (simplified_meshlet_range, previous_level_group) in
-      ranges.iter().zip(previous_level.groups.iter())
-    {
-      for previous_level_meshlet in previous_level
-        .meshlets
-        .get_mut(previous_level_group.meshlets.into_range())
-        .unwrap()
-      {
-        let offset = parent_meshlets_idx.len();
-        let mut parent_count = 0;
-        for simplified_meshlet in simplified_meshlet_range.into_range() {
-          let parent_meshlet_idx = reorder[simplified_meshlet];
-          parent_meshlets_idx.push(parent_meshlet_idx);
-          parent_count += 1;
-        }
-        previous_level_meshlet.parent_index_range = OffsetSize {
-          offset: offset as u32,
-          size: parent_count,
-        }
-        .into();
+    for (group_id, simplified_meshlet_range) in ranges.iter().enumerate() {
+      for simplified_meshlet_idx in simplified_meshlet_range.into_range() {
+        let simplified_meshlet_idx = reorder[simplified_meshlet_idx];
+        let simplified_meshlet = &mut meshlets[simplified_meshlet_idx as usize];
+        simplified_meshlet.group_index_in_previous_level = Some(group_id as u32);
       }
     }
 
-    let fine_level_meshlet_mapping = previous_level
-      .groups
-      .iter()
-      .zip(simplification_error.iter())
-      .map(|(group, &simplification_error)| FinerLevelMapping {
-        meshlets: group.meshlets,
-        simplification_error,
-      })
-      .collect();
+    for g in &mut groups {
+      let meshlets = meshlets.get(g.meshlets.into_range()).unwrap();
+      let mut max_error = 0.;
+      for meshlet in meshlets {
+        let source_group =
+          &previous_level.groups[meshlet.group_index_in_previous_level.unwrap() as usize];
+        let error = source_group.max_meshlet_simplification_error;
+        max_error = max_error.max(error);
+      }
+      g.max_meshlet_simplification_error = max_error + g.lod_error_simplify_to_next_level.unwrap();
+    }
 
     Self {
       groups,
       meshlets,
       mesh,
-      finer_level_meshlet_mapping: Some(fine_level_meshlet_mapping),
-      parent_meshlets_idx,
     }
   }
 
@@ -150,8 +139,6 @@ impl MeshLODGraphLevel {
       groups,
       meshlets,
       mesh,
-      finer_level_meshlet_mapping: None,
-      parent_meshlets_idx: Vec::new(), // set when coarser level build
     }
   }
 }
@@ -168,9 +155,7 @@ fn build_meshlets_from_triangles(
     .map(|v| Meshlet {
       group_index: u32::MAX, // write later
       index_range: v.into(),
-      parent_index_range: None, // write later when building coarser level
-      lod_error: 0.,            // write later
-      parent_max_lod_error: 0., // write later
+      group_index_in_previous_level: None, // write later
     })
     .collect();
 
@@ -206,7 +191,11 @@ fn build_groups_from_meshlets(
   let groups: Vec<_> = meshlet_segmentation
     .ranges
     .into_iter()
-    .map(|v| MeshletGroup { meshlets: v.into() })
+    .map(|v| MeshletGroup {
+      meshlets: v.into(),
+      lod_error_simplify_to_next_level: None, // write when do simplification to nex level
+      max_meshlet_simplification_error: 0.,   // no error in source mesh
+    })
     .collect();
 
   let mut meshlets = reorder_meshlet(&meshlets, &meshlet_segmentation.reordered_idx);
