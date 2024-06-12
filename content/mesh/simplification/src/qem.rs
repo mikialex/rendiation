@@ -8,6 +8,7 @@ use crate::*;
 /// [   ,    , a22, b2]
 /// [   ,    ,    , c ]
 /// ```
+// a00*x^2 + a11*y^2 + a22*z^2 + 2*(a10*xy + a20*xz + a21*yz) + b0*x + b1*y + b2*z + c
 #[derive(Clone, Copy, Default)]
 pub struct Quadric {
   a00: f32,

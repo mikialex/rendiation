@@ -2,23 +2,42 @@ use fast_hash_collection::FastHashSet;
 
 use crate::*;
 
-impl MeshLODGraph {
-  pub fn build_from_mesh(builder: &dyn MeshLodGraphBuilder, mesh: MeshBufferSource) -> Self {
-    let mut last_level = MeshLODGraphLevel::build_base_from_mesh(builder, mesh);
+pub trait MeshLodGraphBuilder {
+  fn simplify(
+    &self,
+    vertices: &[CommonVertex],
+    indices: &[u32],
+    locked_edges: &EdgeFinder,
+    target_tri_num: u32,
+  ) -> MeshLODGraphSimplificationResult;
+
+  fn segment_triangles(&self, input: &MeshBufferSource) -> SegmentResult;
+  fn segment_meshlets(&self, input: &[Meshlet], adj: &MeshletAdjacencyInfo) -> SegmentResult;
+
+  fn build_from_mesh(&self, mesh: MeshBufferSource) -> MeshLODGraph
+  where
+    Self: Sized,
+  {
+    let mut last_level = MeshLODGraphLevel::build_base_from_mesh(self, mesh);
     let mut levels = Vec::new();
 
     // if the last level is  single meshlet, we will have nothing to do
     // and finish build
     while last_level.meshlets.len() == 1 {
-      let new_last_level = MeshLODGraphLevel::build_from_finer_level(builder, &mut last_level);
+      let new_last_level = MeshLODGraphLevel::build_from_finer_level(self, &mut last_level);
       let last_last_level = std::mem::replace(&mut last_level, new_last_level);
       levels.push(last_last_level);
     }
 
     levels.push(last_level);
 
-    Self { levels }
+    MeshLODGraph { levels }
   }
+}
+
+pub struct MeshLODGraphSimplificationResult {
+  pub mesh: MeshBufferSource,
+  pub error: f32,
 }
 
 impl MeshLODGraphLevel {

@@ -85,7 +85,7 @@ impl MeshletAdjacencyInfo {
 
 /// un-direct edge
 #[derive(Debug, Clone, Copy, Eq)]
-pub struct Edge(u32, u32);
+pub struct Edge(pub u32, pub u32);
 impl PartialEq for Edge {
   fn eq(&self, other: &Self) -> bool {
     (self.0 == other.0 && self.1 == other.1) || (self.0 == other.1 && self.1 == other.0)
@@ -153,7 +153,7 @@ pub fn compute_meshlet_boundary_edges(
 }
 
 #[derive(Default, Clone)]
-pub struct EdgeFinder(FastHashSet<Edge>);
+pub struct EdgeFinder(pub FastHashSet<Edge>);
 
 impl EdgeFinder {
   pub fn add_edge(&mut self, a: u32, b: u32) {

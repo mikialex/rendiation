@@ -1,4 +1,5 @@
 #![feature(array_chunks)]
+#![feature(let_chains)]
 #![allow(clippy::disallowed_types)] // we have already used custom hasher
 
 use std::collections::{hash_map::Entry, HashMap};

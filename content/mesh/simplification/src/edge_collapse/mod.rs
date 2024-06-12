@@ -10,7 +10,7 @@ pub struct EdgeCollapseConfig {
   pub target_index_count: usize,
   /// the max error rate allowed in simplify.
   pub target_error: f32,
-  /// if the border allow to be simplify.
+  /// if the border allow to be simplify. User provide vertex lock will still worked as supplement
   pub lock_border: bool,
 }
 
@@ -39,6 +39,7 @@ pub fn simplify_by_edge_collapse<V>(
   destination: &mut [u32],
   indices: &[u32],
   vertices: &[V],
+  vertex_lock: Option<&[bool]>,
   EdgeCollapseConfig {
     target_index_count,
     target_error,
@@ -61,7 +62,14 @@ where
   let PositionalRemapping { remap, wedge } = build_position_remap(vertices);
 
   // classify vertices; vertex kind determines collapse rules, see `CAN_COLLAPSE`
-  let vertex_kind = classify_vertices(&adjacency, &border_loop, &remap, &wedge, lock_border);
+  let vertex_kind = classify_vertices(
+    &adjacency,
+    &border_loop,
+    &remap,
+    &wedge,
+    vertex_lock,
+    lock_border,
+  );
 
   let vertex_positions = rescale_positions(vertices);
 

@@ -17,6 +17,7 @@ pub fn classify_vertices(
   BorderLoops { openout, openinc }: &BorderLoops,
   remap: &[u32],
   wedge: &VertexWedgeLoops,
+  vertex_lock: Option<&[bool]>,
   lock_border: bool,
 ) -> Vec<VertexKind> {
   let vertex_count = adjacency.vertex_count();
@@ -24,7 +25,11 @@ pub fn classify_vertices(
 
   for i in 0..vertex_count {
     if remap[i] == i as u32 {
-      if !wedge.vertex_is_on_seam(i) {
+      if let Some(vertex_lock) = vertex_lock
+        && vertex_lock[i]
+      {
+        result[i] = VertexKind::Locked;
+      } else if !wedge.vertex_is_on_seam(i) {
         // no attribute seam, need to check if it's manifold
         let openi = openinc[i];
         let openo = openout[i];

@@ -8,12 +8,13 @@ use rendiation_mesh_core::CommonVertex;
 use rendiation_mesh_segmentation::SegmentResult;
 
 mod build;
+pub use build::*;
 mod meshlet_adjacency;
 use meshlet_adjacency::*;
 mod util;
 pub use util::*;
-mod impl_dependency;
-pub use impl_dependency::*;
+mod builder_impl;
+pub use builder_impl::*;
 
 #[derive(Clone, Copy)]
 pub struct MeshletGroup {

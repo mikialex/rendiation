@@ -18,6 +18,7 @@ fn main() {
     &mut dest_idx,
     &mesh.indices,
     &mesh.vertices,
+    None,
     EdgeCollapseConfig {
       target_index_count: 500,
       target_error: 100.,
