@@ -113,24 +113,24 @@ fn map_color(color: Vec3<f32>, state: ItemState) -> Vec3<f32> {
   }
 }
 
-fn start_drag(cx: &mut DynCx, pick_position: Vec3<f32>) {
+fn start_drag(cx: &mut DynCx, pick_position: HitPoint3D) {
   access_cx_mut!(cx, state, ItemState);
   state.active = true;
 
   access_cx!(cx, target, Option::<GizmoControlTargetState>);
   if let Some(target) = target {
-    let drag_start_info = target.start_drag(pick_position);
+    let drag_start_info = target.start_drag(pick_position.position);
     access_cx_mut!(cx, drag_start, Option::<DragStartState>);
     *drag_start = Some(drag_start_info)
   }
 }
 
-fn hovering(cx: &mut DynCx, _: Vec3<f32>) {
+fn hovering(cx: &mut DynCx, _: HitPoint3D) {
   access_cx_mut!(cx, state, ItemState);
   state.hovering = true;
 }
 
-fn stop_hovering(cx: &mut DynCx, _: Vec3<f32>) {
+fn stop_hovering(cx: &mut DynCx) {
   access_cx_mut!(cx, state, ItemState);
   state.hovering = false;
 }

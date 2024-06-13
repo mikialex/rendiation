@@ -1,4 +1,5 @@
 use database::*;
+use fast_hash_collection::FastHashSet;
 use rendiation_algebra::*;
 use rendiation_geometry::*;
 use rendiation_mesh_core::*;
@@ -14,18 +15,5 @@ mod model;
 pub use model::*;
 mod shape_helper;
 pub use shape_helper::*;
-
-pub struct InteractionState3d {
-  pub picker: Box<dyn Picker3d>,
-  pub mouse_world_ray: Ray3,
-  pub is_mouse_left_pressing: bool,
-  pub is_mouse_left_releasing: bool,
-}
-
-pub trait Picker3d {
-  fn pick_model_nearest(
-    &self,
-    model: EntityHandle<SceneModelEntity>,
-    world_ray: Ray3,
-  ) -> Option<Vec3<f32>>;
-}
+mod interaction;
+pub use interaction::*;
