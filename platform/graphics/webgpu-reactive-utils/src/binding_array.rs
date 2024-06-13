@@ -40,7 +40,7 @@ where
       for (k, v) in full_view.iter_key_value() {
         new_source[k.alloc_index() as usize] = v.clone();
       }
-      self.array = BindingResourceArray::<V>::new(Arc::new(new_source)).into();
+      self.array = BindingResourceArray::<V>::new(Arc::new(new_source), self.max_length).into();
     }
     self.array.clone().unwrap()
   }

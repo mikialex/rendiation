@@ -4,6 +4,7 @@ use crate::*;
 
 pub struct BindingResourceArray<T> {
   bindings: Arc<Vec<T>>,
+  max_binding_length: u32,
   resource_id: usize,
 }
 
@@ -11,21 +12,18 @@ impl<T> Clone for BindingResourceArray<T> {
   fn clone(&self) -> Self {
     Self {
       bindings: self.bindings.clone(),
+      max_binding_length: self.max_binding_length,
       resource_id: self.resource_id,
     }
   }
 }
 
-impl<T> Default for BindingResourceArray<T> {
-  fn default() -> Self {
-    Self::new(Default::default())
-  }
-}
-
 impl<T> BindingResourceArray<T> {
-  pub fn new(bindings: Arc<Vec<T>>) -> Self {
+  pub fn new(bindings: Arc<Vec<T>>, max_binding_length: u32) -> Self {
+    assert!(max_binding_length >= bindings.len() as u32);
     Self {
       bindings,
+      max_binding_length,
       resource_id: get_new_resource_guid(),
     }
   }
