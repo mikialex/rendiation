@@ -4,7 +4,7 @@ use connectivity::*;
 mod bounding;
 use bounding::*;
 mod space_search;
-use space_search::*;
+pub use space_search::*;
 
 use crate::*;
 

@@ -11,7 +11,7 @@ pub trait MeshLodGraphBuilder {
     target_tri_num: u32,
   ) -> MeshLODGraphSimplificationResult;
 
-  fn segment_triangles(&self, input: &MeshBufferSource) -> SegmentResult;
+  fn segment_triangles(&self, input: MeshBufferSource) -> (Vec<Meshlet>, MeshBufferSource);
   fn segment_meshlets(&self, input: &[Meshlet], adj: &MeshletAdjacencyInfo) -> SegmentResult;
 
   fn build_from_mesh(&self, mesh: MeshBufferSource) -> MeshLODGraph
@@ -21,7 +21,7 @@ pub trait MeshLodGraphBuilder {
     let mut last_level = MeshLODGraphLevel::build_base_from_mesh(self, mesh);
     let mut levels = Vec::new();
 
-    // if the last level is  single meshlet, we will have nothing to do
+    // if the last level is single meshlet, we will have nothing to do
     // and finish build
     while last_level.meshlets.len() == 1 {
       let new_last_level = MeshLODGraphLevel::build_from_finer_level(self, &mut last_level);
@@ -92,7 +92,7 @@ impl MeshLODGraphLevel {
           index_range.len() as u32 / 2, // remove half of face
         );
 
-        let (meshlets, simplified_mesh) = build_meshlets_from_triangles(builder, simplified.mesh);
+        let (meshlets, simplified_mesh) = builder.segment_triangles(simplified.mesh);
         all_simplified_indices.extend(simplified_mesh.indices);
         all_simplified_vertices.extend(simplified_mesh.vertices);
         simplification_error.push(simplified.error);
@@ -148,7 +148,7 @@ impl MeshLODGraphLevel {
   }
 
   fn build_base_from_mesh(builder: &dyn MeshLodGraphBuilder, mesh: MeshBufferSource) -> Self {
-    let (meshlets, mesh) = build_meshlets_from_triangles(builder, mesh);
+    let (meshlets, mesh) = builder.segment_triangles(mesh);
 
     let edges = compute_all_meshlet_boundary_edges(&meshlets, &mesh.indices);
     let meshlet_adjacency = MeshletAdjacencyInfo::build(&edges);
@@ -160,44 +160,6 @@ impl MeshLODGraphLevel {
       mesh,
     }
   }
-}
-
-fn build_meshlets_from_triangles(
-  builder: &dyn MeshLodGraphBuilder,
-  triangles: MeshBufferSource,
-) -> (Vec<Meshlet>, MeshBufferSource) {
-  let triangle_segmentation = builder.segment_triangles(&triangles);
-
-  let meshlets: Vec<_> = triangle_segmentation
-    .ranges
-    .into_iter()
-    .map(|v| Meshlet {
-      group_index: u32::MAX, // write later
-      index_range: v.into(),
-      group_index_in_previous_level: None, // write later
-    })
-    .collect();
-
-  let indices = reorder_indices(&triangles.indices, &triangle_segmentation.reordered_idx);
-
-  (
-    meshlets,
-    MeshBufferSource {
-      indices,
-      vertices: triangles.vertices,
-    },
-  )
-}
-
-/// reorder indices by given triangle order
-fn reorder_indices(indices: &[u32], triangle_idx: &[u32]) -> Vec<u32> {
-  triangle_idx
-    .iter()
-    .flat_map(|tri| {
-      let idx = *tri as usize * 3;
-      [indices[idx], indices[idx + 1], indices[idx + 2]]
-    })
-    .collect()
 }
 
 fn build_groups_from_meshlets(

@@ -13,7 +13,7 @@ pub trait SpaceSearchAcceleration<V: Positioned<Position = Vec3<f32>>> {
   ) -> u32;
 }
 
-struct BVHSpaceSearchAcceleration {
+pub struct BVHSpaceSearchAcceleration {
   bvh: FlattenBVH<Box3<f32>>,
 }
 

@@ -2335,6 +2335,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "metis"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9de02dc659bf9cd266597bc31b34a95d6389a1bb24240c049a5703e6ef8045f"
+dependencies = [
+ "metis-sys",
+]
+
+[[package]]
+name = "metis-sys"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b76e1890414e90804de703836dc62b133807aab68ce6816de5936e50d3aa7581"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "minimal-lexical"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3474,6 +3492,7 @@ name = "rendiation-mesh-lod-graph"
 version = "0.1.0"
 dependencies = [
  "fast-hash-collection",
+ "metis",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-mesh-core",
