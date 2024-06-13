@@ -6,7 +6,7 @@ use rendiation_mesh_core::CommonVertex;
 use rendiation_mesh_simplification::*;
 
 fn main() {
-  let mesh = Mesh::load("/Users/mikialex/dev/resources/testdata/bunny.obj").unwrap();
+  let mesh = Mesh::load("/Users/mikialex/dev/resources/obj/bunny.obj").unwrap();
   let mut dest_idx = mesh.indices.clone();
 
   let start = Instant::now();

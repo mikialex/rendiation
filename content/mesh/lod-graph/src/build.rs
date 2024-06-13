@@ -174,7 +174,7 @@ fn build_groups_from_meshlets(
     .into_iter()
     .map(|v| MeshletGroup {
       meshlets: v.into(),
-      lod_error_simplify_to_next_level: None, // write when do simplification to nex level
+      lod_error_simplify_to_next_level: None, // write when do simplification to next level
       max_meshlet_simplification_error: 0.,   // no error in source mesh
     })
     .collect();

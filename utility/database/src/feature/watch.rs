@@ -7,6 +7,23 @@ pub struct DatabaseMutationWatch {
   db: Database,
 }
 
+impl<V: CValue> VirtualCollection<RawEntityHandle, V> for Arena<V> {
+  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (RawEntityHandle, V)> + '_> {
+    Box::new(self.iter().map(|(h, v)| {
+      let raw = h.into_raw_parts();
+      (
+        RawEntityHandle(Handle::from_raw_parts(raw.0, raw.1)),
+        v.clone(),
+      )
+    }))
+  }
+
+  fn access(&self, key: &RawEntityHandle) -> Option<V> {
+    let handle = self.get_handle(key.index() as usize).unwrap();
+    self.get(handle).cloned()
+  }
+}
+
 impl DatabaseMutationWatch {
   pub fn new(db: &Database) -> Self {
     Self {
@@ -20,27 +37,27 @@ impl DatabaseMutationWatch {
     &self,
     e_id: EntityId,
   ) -> impl ReactiveCollection<RawEntityHandle, ()> {
-    // if let Some(watcher) = self.entity_set_changes.read().get(&e_id) {
-    //   let watcher = watcher
-    //     .downcast_ref::<RxCForker<RawEntityHandle, ()>>()
-    //     .unwrap();
-    //   return watcher.clone();
-    // }
+    if let Some(watcher) = self.entity_set_changes.read().get(&e_id) {
+      let watcher = watcher
+        .downcast_ref::<RxCForker<RawEntityHandle, ()>>()
+        .unwrap();
+      return watcher.clone();
+    }
 
-    // let (rev, full) = self.db.access_ecg_dyn(e_id, move |e| {
-    //   let rev = add_listen(&e.inner.entity_watchers);
-    //   let full = e.inner.allocator.clone();
-    //   (rev, full)
-    // });
+    let (rev, full) = self.db.access_ecg_dyn(e_id, move |e| {
+      let rev = add_listen(&e.inner.entity_watchers);
+      let full = e.inner.allocator.clone();
+      (rev, full)
+    });
 
-    // let rxc = ReactiveCollectionFromCollectiveMutation {
-    //   full: Box::new(full),
-    //   mutation: RwLock::new(rev),
-    // };
+    let rxc = ReactiveCollectionFromCollectiveMutation::<RawEntityHandle, ()> {
+      full: Box::new(full),
+      mutation: RwLock::new(rev),
+    };
 
-    // self.entity_set_changes.write().insert(e_id, Box::new(rxc));
+    self.entity_set_changes.write().insert(e_id, Box::new(rxc));
 
-    // self.watch_entity_set_dyn(e_id)
+    self.watch_entity_set_dyn(e_id)
   }
 
   pub fn watch_untyped_key<C: ComponentSemantic>(&self) -> impl ReactiveCollection<u32, C::Data> {
@@ -54,6 +71,7 @@ impl DatabaseMutationWatch {
       ReactiveCollection<u32, C::Data> for View<T, C>
     {
       fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<u32, C::Data> {
+        // self.inner.poll_changes(cx).map(f)
         todo!()
       }
 
