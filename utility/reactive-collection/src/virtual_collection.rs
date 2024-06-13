@@ -31,6 +31,16 @@ impl<'a, K, V> Clone for Box<dyn VirtualCollection<K, V> + 'a> {
   }
 }
 
+impl<'a, K: CKey, V: CValue> VirtualCollection<K, V> for Box<dyn VirtualCollection<K, V> + 'a> {
+  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, V)> + '_> {
+    (**self).iter_key_value()
+  }
+
+  fn access(&self, key: &K) -> Option<V> {
+    (**self).access(key)
+  }
+}
+
 impl<'a, K: CKey, V: CValue> VirtualCollection<K, V> for &'a dyn VirtualCollection<K, V> {
   fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, V)> + '_> {
     (*self).iter_key_value()

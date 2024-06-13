@@ -1,4 +1,3 @@
-mod rc;
 mod rev_ref;
 mod watch;
 

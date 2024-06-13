@@ -67,17 +67,46 @@ impl DatabaseMutationWatch {
       allocator: Arc<RwLock<Arena<()>>>,
     }
 
-    impl<C: ComponentSemantic, T: ReactiveCollection<EntityHandle<C::Entity>, C::Data>>
-      ReactiveCollection<u32, C::Data> for View<T, C>
+    #[derive(Clone)]
+    struct ViewAccess<T, C> {
+      inner: T,
+      phantom: PhantomData<C>,
+      allocator: LockReadGuardHolder<Arena<()>>,
+    }
+
+    impl<C: CValue, T: VirtualCollection<RawEntityHandle, C> + Clone> VirtualCollection<u32, C>
+      for ViewAccess<T, C>
     {
-      fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<u32, C::Data> {
-        // self.inner.poll_changes(cx).map(f)
-        todo!()
+      fn iter_key_value(&self) -> Box<dyn Iterator<Item = (u32, C)> + '_> {
+        Box::new(self.inner.iter_key_value().map(|(h, v)| (h.index(), v)))
       }
 
-      fn access(&self) -> PollCollectionCurrent<u32, C::Data> {
-        // let handle = self.allocator.get_handle(index)
-        todo!()
+      fn access(&self, key: &u32) -> Option<C> {
+        let handle = self.allocator.get_handle(*key as usize)?;
+        self.inner.access(&RawEntityHandle(handle))
+      }
+    }
+
+    impl<C: CValue, T: ReactiveCollection<RawEntityHandle, C>> ReactiveCollection<u32, C>
+      for View<T, C>
+    {
+      fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<u32, C> {
+        self.inner.poll_changes(cx).map(|inner| {
+          Box::new(ViewAccess {
+            inner,
+            phantom: PhantomData,
+            allocator: self.allocator.make_read_holder(),
+          }) as CollectionChanges<u32, C>
+        })
+      }
+
+      fn access(&self) -> PollCollectionCurrent<u32, C> {
+        let inner: CollectionView<RawEntityHandle, C> = self.inner.access();
+        Box::new(ViewAccess {
+          inner,
+          phantom: PhantomData,
+          allocator: self.allocator.make_read_holder(),
+        }) as CollectionView<u32, C>
       }
 
       fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -85,8 +114,8 @@ impl DatabaseMutationWatch {
       }
     }
     View {
-      inner: self.watch::<C>(),
-      phantom: PhantomData::<C>,
+      inner: self.watch_dyn::<C::Data>(C::component_id(), C::Entity::entity_id()),
+      phantom: PhantomData::<C::Data>,
       allocator: self
         .db
         .access_ecg::<C::Entity, _>(|e| e.inner.inner.allocator.clone()),
