@@ -29,16 +29,38 @@ impl PlatformEventInput {
 pub struct WindowState {
   pub size: (f32, f32),
   pub mouse_position: (f32, f32),
-  pub is_left_mouse_down: bool,
-  pub is_right_mouse_down: bool,
+  pub left_mouse_state: ElementState,
+  pub right_mouse_state: ElementState,
 }
 
 impl WindowState {
   pub fn compare(&self, old: &WindowState) -> WindowStateChange {
+    fn compare_button_state(old: ElementState, new: ElementState) -> Option<ElementState> {
+      if old == new {
+        None
+      } else {
+        Some(new)
+      }
+    }
+
     WindowStateChange {
       size_change: self.size != old.size,
       mouse_position_change: self.mouse_position != old.mouse_position,
+      left_mouse_action: compare_button_state(old.left_mouse_state, self.left_mouse_state),
+      right_mouse_action: compare_button_state(old.right_mouse_state, self.right_mouse_state),
     }
+  }
+  pub fn is_left_mouse_pressed(&self) -> bool {
+    matches!(self.left_mouse_state, ElementState::Pressed)
+  }
+  pub fn is_left_mouse_released(&self) -> bool {
+    matches!(self.left_mouse_state, ElementState::Released)
+  }
+  pub fn is_right_mouse_pressed(&self) -> bool {
+    matches!(self.right_mouse_state, ElementState::Pressed)
+  }
+  pub fn is_right_mouse_released(&self) -> bool {
+    matches!(self.right_mouse_state, ElementState::Released)
   }
 }
 
@@ -46,6 +68,23 @@ impl WindowState {
 pub struct WindowStateChange {
   pub size_change: bool,
   pub mouse_position_change: bool,
+  pub left_mouse_action: Option<ElementState>,
+  pub right_mouse_action: Option<ElementState>,
+}
+
+impl WindowStateChange {
+  pub fn is_left_mouse_pressing(&self) -> bool {
+    matches!(self.left_mouse_action, Some(ElementState::Pressed))
+  }
+  pub fn is_left_mouse_releasing(&self) -> bool {
+    matches!(self.left_mouse_action, Some(ElementState::Released))
+  }
+  pub fn is_right_mouse_pressing(&self) -> bool {
+    matches!(self.right_mouse_action, Some(ElementState::Pressed))
+  }
+  pub fn is_right_mouse_releasing(&self) -> bool {
+    matches!(self.right_mouse_action, Some(ElementState::Released))
+  }
 }
 
 impl WindowState {
@@ -58,14 +97,8 @@ impl WindowState {
           self.size.1 = size.height as f32;
         }
         WindowEvent::MouseInput { button, state, .. } => match button {
-          MouseButton::Left => match state {
-            ElementState::Pressed => self.is_left_mouse_down = true,
-            ElementState::Released => self.is_left_mouse_down = false,
-          },
-          MouseButton::Right => match state {
-            ElementState::Pressed => self.is_right_mouse_down = true,
-            ElementState::Released => self.is_right_mouse_down = false,
-          },
+          MouseButton::Left => self.left_mouse_state = *state,
+          MouseButton::Right => self.right_mouse_state = *state,
           _ => {}
         },
         WindowEvent::CursorMoved { position, .. } => {
@@ -84,8 +117,8 @@ impl Default for WindowState {
     Self {
       size: (0.0, 0.0),
       mouse_position: (0.0, 0.0),
-      is_left_mouse_down: false,
-      is_right_mouse_down: false,
+      left_mouse_state: ElementState::Released,
+      right_mouse_state: ElementState::Released,
     }
   }
 }

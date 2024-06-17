@@ -33,11 +33,12 @@ impl Widget for UIWidgetModel {
     }
   }
   fn update_state(&mut self, cx: &mut DynCx) {
+    access_cx!(cx, platform_event, PlatformEventInput);
     access_cx!(cx, interaction_cx, InteractionState3d);
 
     if self.mouse_interactive && self.has_any_mouse_event_handler() {
-      let is_pressing = interaction_cx.is_mouse_left_pressing;
-      let is_releasing = interaction_cx.is_mouse_left_releasing;
+      let is_pressing = platform_event.state_delta.is_left_mouse_pressing();
+      let is_releasing = platform_event.state_delta.is_right_mouse_pressing();
 
       if is_releasing {
         self.is_mouse_down_in_history = false;

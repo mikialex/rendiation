@@ -1,6 +1,7 @@
 use crate::*;
 
 mod feature;
+mod pick;
 pub use feature::*;
 
 mod terminal;
@@ -14,6 +15,7 @@ pub struct Viewer {
   on_demand_draw: NotifyScope,
   scene: Viewer3dSceneCtx,
   rendering: Viewer3dRenderingCtx,
+  derives: Viewer3dSceneDeriveSource,
   content: Box<dyn Widget>,
   terminal: Terminal,
 }
@@ -25,10 +27,15 @@ impl Widget for Viewer {
     if platform.state_delta.size_change {
       self.rendering.resize_view()
     }
+    let waker = futures::task::noop_waker_ref();
+    let mut ctx = Context::from_waker(waker);
+    let mut derived = self.derives.poll_update(&mut ctx);
 
-    cx.scoped_cx(&mut self.scene, |cx| {
-      cx.scoped_cx(&mut self.rendering, |cx| {
-        self.content.update_state(cx);
+    cx.scoped_cx(&mut derived, |cx| {
+      cx.scoped_cx(&mut self.scene, |cx| {
+        cx.scoped_cx(&mut self.rendering, |cx| {
+          self.content.update_state(cx);
+        });
       });
     });
   }
@@ -70,6 +77,11 @@ impl Viewer {
       selected_target: None,
     };
 
+    let derives = Viewer3dSceneDeriveSource {
+      world_mat: Box::new(scene_node_derive_world_mat()),
+      camera_proj: Box::new(camera_project_matrix()),
+    };
+
     Self {
       // todo, we current disable the on demand draw
       // because we not cache the rendering result yet
@@ -78,6 +90,7 @@ impl Viewer {
       scene,
       terminal,
       rendering: Viewer3dRenderingCtx::new(gpu),
+      derives,
       on_demand_draw: Default::default(),
     }
   }
@@ -127,6 +140,17 @@ pub struct Viewer3dSceneCtx {
 pub struct Viewer3dSceneDeriveSource {
   pub world_mat: Box<dyn ReactiveCollection<EntityHandle<SceneNodeEntity>, Mat4<f32>>>,
   pub camera_proj: Box<dyn ReactiveCollection<EntityHandle<SceneCameraEntity>, Mat4<f32>>>,
+}
+
+impl Viewer3dSceneDeriveSource {
+  fn poll_update(&self, cx: &mut Context) -> Viewer3dSceneDerive {
+    let _ = self.world_mat.poll_changes(cx);
+    let _ = self.camera_proj.poll_changes(cx);
+    Viewer3dSceneDerive {
+      world_mat: self.world_mat.access(),
+      camera_proj: self.camera_proj.access(),
+    }
+  }
 }
 
 /// used in render & scene update

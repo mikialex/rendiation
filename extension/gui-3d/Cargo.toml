@@ -16,6 +16,7 @@ database = { path = "../../utility/database" }
 reactive = { path = "../../utility/reactive" }
 rendiation-state-override = { path = "../state-override" }
 fast-hash-collection = { path = "../../utility/fast-hash-collection" }
+rendiation-platform-event-input = { path = "../../platform/event-input" }
 
 [lints]
 workspace = true

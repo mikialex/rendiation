@@ -3375,6 +3375,7 @@ dependencies = [
  "rendiation-geometry",
  "rendiation-mesh-core",
  "rendiation-mesh-generator",
+ "rendiation-platform-event-input",
  "rendiation-scene-core",
  "rendiation-shader-api",
  "rendiation-state-override",

@@ -12,8 +12,8 @@ pub fn translation_gizmo_view(
     .with_child(plane(v, AxisType::Y, parent))
     .with_child(plane(v, AxisType::Z, parent))
     .with_state_post_update(|cx| {
-      access_cx!(cx, interaction_cx, InteractionState3d);
-      if interaction_cx.is_mouse_left_releasing {
+      access_cx!(cx, platform_event, PlatformEventInput);
+      if platform_event.state_delta.is_left_mouse_pressing() {
         access_cx_mut!(cx, start_states, Option::<DragStartState>);
         *start_states = None;
       }

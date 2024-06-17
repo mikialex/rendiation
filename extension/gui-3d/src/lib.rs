@@ -17,3 +17,5 @@ mod shape_helper;
 pub use shape_helper::*;
 mod interaction;
 pub use interaction::*;
+/// reexport
+pub use rendiation_platform_event_input::*;
