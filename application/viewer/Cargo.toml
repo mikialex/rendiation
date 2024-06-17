@@ -36,6 +36,7 @@ database = { path = "../../utility/database" }
 rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
 
 egui = "0.26"
+egui_extras = "0.26"
 egui-wgpu = "0.26.0"
 egui-winit = "0.26.0"
 winit = { workspace = true }

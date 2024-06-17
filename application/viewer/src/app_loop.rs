@@ -2,7 +2,7 @@ use crate::*;
 
 pub async fn run_application<T: Widget>(mut app: T) {
   let event_loop = EventLoop::new().unwrap();
-  let window = WindowBuilder::new().build(&event_loop).unwrap();
+  let mut window = WindowBuilder::new().build(&event_loop).unwrap();
   window.set_title("viewer");
 
   let minimal_required_features = rendiation_webgpu::Features::all_webgpu_mask();
@@ -45,19 +45,23 @@ pub async fn run_application<T: Widget>(mut app: T) {
           let mut cx = DynCx::default();
 
           event_state.begin_frame();
-          cx.scoped_cx(&mut event_state, |cx| {
-            cx.scoped_cx(&mut gpu, |cx| {
-              cx.scoped_cx(&mut canvas, |cx| {
-                app.update_state(cx);
+          cx.scoped_cx(&mut window, |cx| {
+            cx.scoped_cx(&mut event_state, |cx| {
+              cx.scoped_cx(&mut gpu, |cx| {
+                cx.scoped_cx(&mut canvas, |cx| {
+                  app.update_state(cx);
+                });
               });
             });
           });
 
           event_state.end_frame();
-          cx.scoped_cx(&mut event_state, |cx| {
-            cx.scoped_cx(&mut gpu, |cx| {
-              cx.scoped_cx(&mut canvas, |cx| {
-                app.update_view(cx);
+          cx.scoped_cx(&mut window, |cx| {
+            cx.scoped_cx(&mut event_state, |cx| {
+              cx.scoped_cx(&mut gpu, |cx| {
+                cx.scoped_cx(&mut canvas, |cx| {
+                  app.update_view(cx);
+                });
               });
             });
           });

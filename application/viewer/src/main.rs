@@ -25,6 +25,7 @@ use winit::{
 mod app_loop;
 mod default_scene;
 mod egui_cx;
+mod egui_db;
 mod viewer;
 //  use default_scene::*;
 
@@ -47,6 +48,13 @@ where
   env_logger::builder().init();
 
   setup_global_database(Default::default());
+  setup_active_collection_registry(Default::default());
+
+  let watch = DatabaseMutationWatch::new(&global_database());
+  let rev_watch = DatabaseEntityReverseReference::new(watch.clone());
+  register_global_database_feature(watch);
+  register_global_database_feature(rev_watch);
+
   register_scene_core_data_model();
 
   let content_logic = core_viewer_features(content_logic);

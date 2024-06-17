@@ -186,8 +186,10 @@ impl DatabaseMutationWatch {
         original,
       }),
       mutation: RwLock::new(receiver),
-    }
-    .into_static_forker();
+    };
+
+    let rxc: Box<dyn ReactiveCollection<RawEntityHandle, T>> = Box::new(rxc);
+    let rxc: RxCForker<RawEntityHandle, T> = rxc.into_static_forker();
 
     self
       .component_changes

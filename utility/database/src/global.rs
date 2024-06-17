@@ -18,6 +18,15 @@ pub fn global_database() -> Database {
   GLOBAL_DATABASE.read().as_ref().unwrap().database.clone()
 }
 
+pub fn register_global_database_feature(feature: impl DataBaseFeatureBox) {
+  GLOBAL_DATABASE
+    .write()
+    .as_mut()
+    .unwrap()
+    .features
+    .register_feature(feature);
+}
+
 pub fn global_entity_of<E: EntitySemantic>() -> EntityComponentGroupTyped<E> {
   global_database().access_ecg(|ecg| ecg.clone())
 }
