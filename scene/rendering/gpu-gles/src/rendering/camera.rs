@@ -1,12 +1,5 @@
 use crate::*;
 
-pub trait GLESCameraRenderImpl {
-  fn make_component(
-    &self,
-    idx: EntityHandle<SceneCameraEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>>;
-}
-
 #[derive(Default)]
 pub struct DefaultGLESCameraRenderImplProvider {
   uniforms: UpdateResultToken,
@@ -40,5 +33,19 @@ impl GLESCameraRenderImpl for DefaultGLESCameraRenderImpl {
       ubo: self.uniforms.get(&idx)?,
     };
     Some(Box::new(node))
+  }
+
+  fn setup_camera_jitter(
+    &self,
+    camera: EntityHandle<SceneCameraEntity>,
+    jitter: Vec2<f32>,
+    queue: &GPUQueue,
+  ) {
+    let uniform = self.uniforms.get(&camera).unwrap();
+    uniform.write_at(
+      &queue,
+      &jitter,
+      offset_of!(CameraGPUTransform, jitter_normalized) as u64,
+    );
   }
 }

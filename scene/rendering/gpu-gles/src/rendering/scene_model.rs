@@ -2,14 +2,12 @@ use crate::*;
 
 pub struct GLESPreferredComOrderRendererProvider {
   pub node: Box<dyn RenderImplProvider<Box<dyn GLESNodeRenderImpl>>>,
-  pub camera: Box<dyn RenderImplProvider<Box<dyn GLESCameraRenderImpl>>>,
   pub model_impl: Vec<Box<dyn RenderImplProvider<Box<dyn GLESModelRenderImpl>>>>,
 }
 
 impl RenderImplProvider<Box<dyn SceneModelRenderer>> for GLESPreferredComOrderRendererProvider {
   fn register_resource(&mut self, source: &mut ReactiveStateJoinUpdater, cx: &GPUResourceCtx) {
     self.node.register_resource(source, cx);
-    self.camera.register_resource(source, cx);
     self
       .model_impl
       .iter_mut()
@@ -21,7 +19,6 @@ impl RenderImplProvider<Box<dyn SceneModelRenderer>> for GLESPreferredComOrderRe
       model_impl: self.model_impl.iter().map(|i| i.create_impl(res)).collect(),
       node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
       node_render: self.node.create_impl(res),
-      camera_gpu: self.camera.create_impl(res),
     })
   }
 }
@@ -30,7 +27,6 @@ pub struct GLESPreferredComOrderRenderer {
   model_impl: Vec<Box<dyn GLESModelRenderImpl>>,
   node_render: Box<dyn GLESNodeRenderImpl>,
   node: ForeignKeyReadView<SceneModelRefNode>,
-  camera_gpu: Box<dyn GLESCameraRenderImpl>,
 }
 
 impl SceneModelRenderer for GLESPreferredComOrderRenderer {
@@ -38,13 +34,14 @@ impl SceneModelRenderer for GLESPreferredComOrderRenderer {
     &'a self,
     idx: EntityHandle<SceneModelEntity>,
     camera: EntityHandle<SceneCameraEntity>,
+    camera_gpu: &'a (dyn GLESCameraRenderImpl + 'a),
     pass: &'a (dyn RenderComponent + 'a),
     tex: &'a GPUTextureBindingSystem,
   ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
     let node = self.node.get(idx)?;
     let node = self.node_render.make_component(node)?;
 
-    let camera = self.camera_gpu.make_component(camera)?;
+    let camera = camera_gpu.make_component(camera)?;
 
     let (shape, draw) = self.model_impl.shape_renderable(idx)?;
     let material = self.model_impl.material_renderable(idx, tex)?;

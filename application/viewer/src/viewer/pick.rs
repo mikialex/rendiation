@@ -1,5 +1,4 @@
-use rendiation_gui_3d::InteractionState3d;
-use rendiation_platform_event_input::PlatformEventInput;
+use rendiation_gui_3d::*;
 
 use crate::Viewer3dSceneDerive;
 
@@ -10,7 +9,11 @@ impl InteractionState3dProvider {
     dep: &Viewer3dSceneDerive,
     input: PlatformEventInput,
   ) -> InteractionState3d {
-    let current_state = &input.window_state;
+    let mouse_position = &input.window_state.mouse_position;
+    let window_size = &input.window_state.size;
+
+    let normalized_position =
+      compute_normalized_position_in_canvas_coordinate(*mouse_position, *window_size);
 
     InteractionState3d {
       picker: todo!(),
@@ -19,4 +22,11 @@ impl InteractionState3dProvider {
       world_ray_intersected_nearest: todo!(),
     }
   }
+}
+
+pub fn compute_normalized_position_in_canvas_coordinate(
+  offset: (f32, f32),
+  size: (f32, f32),
+) -> (f32, f32) {
+  (offset.0 / size.0 * 2. - 1., -(offset.1 / size.1 * 2. - 1.))
 }

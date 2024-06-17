@@ -33,7 +33,6 @@ rendiation-lighting-transport = { path = "../../content/lighting/transport" }
 rendiation-gui-3d = { path = "../../extension/gui-3d" }
 rendiation-gizmo = { path = "../../extension/gizmo" }
 database = { path = "../../utility/database" }
-rendiation-platform-event-input = { path = "../../platform/event-input" }
 rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
 
 egui = "0.26"

@@ -22,6 +22,7 @@
 
 use database::*;
 use reactive::*;
+use rendiation_algebra::*;
 use rendiation_scene_core::*;
 use rendiation_texture_gpu_system::*;
 use rendiation_webgpu::*;
@@ -50,6 +51,36 @@ pub trait SceneRenderer: SceneModelRenderer {
   ) -> (Operations<rendiation_webgpu::Color>, Operations<f32>);
 
   fn get_scene_model_cx(&self) -> &GPUTextureBindingSystem;
+
+  fn render_reorderable_models(
+    &self,
+    models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
+    camera: EntityHandle<SceneCameraEntity>,
+    pass: &dyn RenderComponent,
+    cx: &mut GPURenderPassCtx,
+    tex: &GPUTextureBindingSystem,
+  );
+
+  fn setup_camera_jitter(
+    &self,
+    camera: EntityHandle<SceneCameraEntity>,
+    jitter: Vec2<f32>,
+    queue: &GPUQueue,
+  );
+}
+
+pub trait GLESCameraRenderImpl {
+  fn make_component(
+    &self,
+    idx: EntityHandle<SceneCameraEntity>,
+  ) -> Option<Box<dyn RenderComponent + '_>>;
+
+  fn setup_camera_jitter(
+    &self,
+    camera: EntityHandle<SceneCameraEntity>,
+    jitter: Vec2<f32>,
+    queue: &GPUQueue,
+  );
 }
 
 /// ability to do scene model level rendering
@@ -58,6 +89,7 @@ pub trait SceneModelRenderer {
     &'a self,
     idx: EntityHandle<SceneModelEntity>,
     camera: EntityHandle<SceneCameraEntity>,
+    camera_gpu: &'a (dyn GLESCameraRenderImpl + 'a),
     pass: &'a (dyn RenderComponent + 'a),
     tex: &'a GPUTextureBindingSystem,
   ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)>;
@@ -66,26 +98,28 @@ pub trait SceneModelRenderer {
     &self,
     idx: EntityHandle<SceneModelEntity>,
     camera: EntityHandle<SceneCameraEntity>,
+    camera_gpu: &dyn GLESCameraRenderImpl,
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
   ) {
-    if let Some((com, command)) = self.make_component(idx, camera, pass, tex) {
+    if let Some((com, command)) = self.make_component(idx, camera, camera_gpu, pass, tex) {
       com.render(cx, command)
     }
   }
 
   /// maybe implementation could provide better performance for example host side multi draw
-  fn render_reorderable_models(
+  fn render_reorderable_models_impl(
     &self,
     models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
     camera: EntityHandle<SceneCameraEntity>,
+    camera_gpu: &dyn GLESCameraRenderImpl,
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
   ) {
     for m in models {
-      self.render_scene_model(m, camera, pass, cx, tex);
+      self.render_scene_model(m, camera, camera_gpu, pass, cx, tex);
     }
   }
 }
@@ -95,11 +129,12 @@ impl SceneModelRenderer for Vec<Box<dyn SceneModelRenderer>> {
     &'a self,
     idx: EntityHandle<SceneModelEntity>,
     camera: EntityHandle<SceneCameraEntity>,
+    camera_gpu: &'a (dyn GLESCameraRenderImpl + 'a),
     pass: &'a (dyn RenderComponent + 'a),
     tex: &'a GPUTextureBindingSystem,
   ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
     for provider in self {
-      if let Some(com) = provider.make_component(idx, camera, pass, tex) {
+      if let Some(com) = provider.make_component(idx, camera, camera_gpu, pass, tex) {
         return Some(com);
       }
     }

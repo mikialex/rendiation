@@ -6,6 +6,7 @@ use crate::*;
 pub struct GLESRenderSystem {
   pub model_lookup: UpdateResultToken,
   pub texture_system: UpdateResultToken,
+  pub camera: Box<dyn RenderImplProvider<Box<dyn GLESCameraRenderImpl>>>,
   pub scene_model_impl: Vec<Box<dyn RenderImplProvider<Box<dyn SceneModelRenderer>>>>,
 }
 
@@ -13,9 +14,9 @@ pub fn build_default_gles_render_system() -> GLESRenderSystem {
   GLESRenderSystem {
     model_lookup: Default::default(),
     texture_system: Default::default(),
+    camera: Box::new(DefaultGLESCameraRenderImplProvider::default()),
     scene_model_impl: vec![Box::new(GLESPreferredComOrderRendererProvider {
       node: Box::new(DefaultGLESNodeRenderImplProvider::default()),
-      camera: Box::new(DefaultGLESCameraRenderImplProvider::default()),
       model_impl: vec![Box::new(DefaultSceneStdModelRendererProvider {
         materials: vec![
           Box::new(PbrMRMaterialDefaultRenderImplProvider::default()),
@@ -60,6 +61,7 @@ impl RenderImplProvider<Box<dyn SceneRenderer>> for GLESRenderSystem {
 
     let model_lookup = global_rev_ref().watch_inv_ref::<SceneModelBelongsToScene>();
     self.model_lookup = source.register_reactive_multi_collection(model_lookup);
+    self.camera.register_resource(source, cx);
     for imp in &mut self.scene_model_impl {
       imp.register_resource(source, cx);
     }
@@ -80,12 +82,14 @@ impl RenderImplProvider<Box<dyn SceneRenderer>> for GLESRenderSystem {
         .unwrap()
         .downcast::<GPUTextureBindingSystem>()
         .unwrap(),
+      camera: self.camera.create_impl(res),
     })
   }
 }
 
 struct GLESSceneRenderer {
   texture_system: GPUTextureBindingSystem,
+  camera: Box<dyn GLESCameraRenderImpl>,
   scene_model_renderer: Vec<Box<dyn SceneModelRenderer>>,
   model_lookup:
     Box<dyn VirtualMultiCollection<EntityHandle<SceneEntity>, EntityHandle<SceneModelEntity>>>,
@@ -96,13 +100,13 @@ impl SceneModelRenderer for GLESSceneRenderer {
     &'a self,
     idx: EntityHandle<SceneModelEntity>,
     camera: EntityHandle<SceneCameraEntity>,
+    camera_gpu: &'a (dyn GLESCameraRenderImpl + 'a),
     pass: &'a (dyn RenderComponent + 'a),
     tex: &'a GPUTextureBindingSystem,
   ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
-    // todo register texture system
     self
       .scene_model_renderer
-      .make_component(idx, camera, pass, tex)
+      .make_component(idx, camera, camera_gpu, pass, tex)
   }
 }
 
@@ -130,6 +134,26 @@ impl SceneRenderer for GLESSceneRenderer {
 
   fn get_scene_model_cx(&self) -> &GPUTextureBindingSystem {
     &self.texture_system
+  }
+
+  fn setup_camera_jitter(
+    &self,
+    camera: EntityHandle<SceneCameraEntity>,
+    jitter: Vec2<f32>,
+    queue: &GPUQueue,
+  ) {
+    self.camera.setup_camera_jitter(camera, jitter, queue)
+  }
+
+  fn render_reorderable_models(
+    &self,
+    models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
+    camera: EntityHandle<SceneCameraEntity>,
+    pass: &dyn RenderComponent,
+    cx: &mut GPURenderPassCtx,
+    tex: &GPUTextureBindingSystem,
+  ) {
+    self.render_reorderable_models_impl(models, camera, self.camera.as_ref(), pass, cx, tex)
   }
 }
 

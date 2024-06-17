@@ -89,8 +89,9 @@ impl ViewerPipeline {
     });
 
     let taa_content = SceneCameraTAAContent {
-      gpu: ctx.gpu,
-      scene: content,
+      queue: &ctx.gpu.queue,
+      camera: content.main_camera,
+      renderer,
       f: |ctx: &mut FrameCtx| {
         let mut scene_result = attachment().request(ctx);
         let mut scene_depth = depth_attachment().request(ctx);
@@ -189,8 +190,9 @@ where
 }
 
 struct SceneCameraTAAContent<'a, F> {
-  gpu: &'a GPU,
-  scene: &'a Viewer3dSceneCtx,
+  renderer: &'a dyn SceneRenderer,
+  camera: EntityHandle<SceneCameraEntity>,
+  queue: &'a GPUQueue,
   f: F,
 }
 
@@ -199,14 +201,9 @@ where
   F: FnOnce(&mut FrameCtx) -> NewTAAFrameSample,
 {
   fn set_jitter(&mut self, next_jitter: Vec2<f32>) {
-    todo!()
-    // let mut cameras = self.scene.scene_resources.cameras.write().unwrap();
-    // let camera_gpu = cameras.get_camera_gpu_mut(self.camera).unwrap();
-
-    // camera_gpu
-    //   .ubo
-    //   .mutate(|uniform| uniform.jitter_normalized = next_jitter)
-    //   .upload(&self.gpu.queue);
+    self
+      .renderer
+      .setup_camera_jitter(self.camera, next_jitter, self.queue);
   }
 
   fn render(self, ctx: &mut FrameCtx) -> NewTAAFrameSample {
