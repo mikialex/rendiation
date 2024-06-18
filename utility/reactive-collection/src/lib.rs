@@ -42,3 +42,6 @@ pub use collection_channel::*;
 
 mod registry;
 pub use registry::*;
+
+mod lock_holder;
+pub use lock_holder::*;

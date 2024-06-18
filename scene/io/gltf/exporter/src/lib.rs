@@ -394,7 +394,7 @@
 //           gltf_json::Material {
 //             alpha_cutoff: gltf_json::material::AlphaCutoff(material.alpha_cutoff).into(),
 //             alpha_mode:
-// gltf_json::validation::Checked::Valid(map_alpha_mode(material.alpha_mode)),             
+// gltf_json::validation::Checked::Valid(map_alpha_mode(material.alpha_mode)),
 // double_sided: false,             pbr_metallic_roughness:
 // gltf_json::material::PbrMetallicRoughness {               base_color_factor:
 // gltf_json::material::PbrBaseColorFactor([                 material.base_color.x,

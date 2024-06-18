@@ -4,7 +4,7 @@ use crate::*;
 pub struct DatabaseMutationWatch {
   component_changes: Arc<RwLock<FastHashMap<ComponentId, Box<dyn Any + Send + Sync>>>>,
   entity_set_changes: Arc<RwLock<FastHashMap<EntityId, Box<dyn Any + Send + Sync>>>>,
-  db: Database,
+  pub(crate) db: Database,
 }
 
 impl<V: CValue> VirtualCollection<RawEntityHandle, V> for Arena<V> {
@@ -61,59 +61,7 @@ impl DatabaseMutationWatch {
   }
 
   pub fn watch_untyped_key<C: ComponentSemantic>(&self) -> impl ReactiveCollection<u32, C::Data> {
-    struct View<T, C> {
-      inner: T,
-      phantom: PhantomData<C>,
-      allocator: Arc<RwLock<Arena<()>>>,
-    }
-
-    #[derive(Clone)]
-    struct ViewAccess<T, C> {
-      inner: T,
-      phantom: PhantomData<C>,
-      allocator: LockReadGuardHolder<Arena<()>>,
-    }
-
-    impl<C: CValue, T: VirtualCollection<RawEntityHandle, C> + Clone> VirtualCollection<u32, C>
-      for ViewAccess<T, C>
-    {
-      fn iter_key_value(&self) -> Box<dyn Iterator<Item = (u32, C)> + '_> {
-        Box::new(self.inner.iter_key_value().map(|(h, v)| (h.index(), v)))
-      }
-
-      fn access(&self, key: &u32) -> Option<C> {
-        let handle = self.allocator.get_handle(*key as usize)?;
-        self.inner.access(&RawEntityHandle(handle))
-      }
-    }
-
-    impl<C: CValue, T: ReactiveCollection<RawEntityHandle, C>> ReactiveCollection<u32, C>
-      for View<T, C>
-    {
-      fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<u32, C> {
-        self.inner.poll_changes(cx).map(|inner| {
-          Box::new(ViewAccess {
-            inner,
-            phantom: PhantomData,
-            allocator: self.allocator.make_read_holder(),
-          }) as CollectionChanges<u32, C>
-        })
-      }
-
-      fn access(&self) -> PollCollectionCurrent<u32, C> {
-        let inner: CollectionView<RawEntityHandle, C> = self.inner.access();
-        Box::new(ViewAccess {
-          inner,
-          phantom: PhantomData,
-          allocator: self.allocator.make_read_holder(),
-        }) as CollectionView<u32, C>
-      }
-
-      fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
-        self.inner.extra_request(request)
-      }
-    }
-    View {
+    GenerationHelperView {
       inner: self.watch_dyn::<C::Data>(C::component_id(), C::Entity::entity_id()),
       phantom: PhantomData::<C::Data>,
       allocator: self
@@ -243,5 +191,58 @@ impl<T: CValue> VirtualCollectionAccess<RawEntityHandle, T> for ComponentAccess<
       ecg: self.ecg.clone(),
       read_view: self.original.create_read_view(),
     }) as PollCollectionCurrent<RawEntityHandle, T>
+  }
+}
+
+pub(crate) struct GenerationHelperView<T, C> {
+  inner: T,
+  phantom: PhantomData<C>,
+  allocator: Arc<RwLock<Arena<()>>>,
+}
+
+#[derive(Clone)]
+struct GenerationHelperViewAccess<T, C> {
+  inner: T,
+  phantom: PhantomData<C>,
+  allocator: LockReadGuardHolder<Arena<()>>,
+}
+
+impl<C: CValue, T: VirtualCollection<RawEntityHandle, C> + Clone> VirtualCollection<u32, C>
+  for GenerationHelperViewAccess<T, C>
+{
+  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (u32, C)> + '_> {
+    Box::new(self.inner.iter_key_value().map(|(h, v)| (h.index(), v)))
+  }
+
+  fn access(&self, key: &u32) -> Option<C> {
+    let handle = self.allocator.get_handle(*key as usize)?;
+    self.inner.access(&RawEntityHandle(handle))
+  }
+}
+
+impl<C: CValue, T: ReactiveCollection<RawEntityHandle, C>> ReactiveCollection<u32, C>
+  for GenerationHelperView<T, C>
+{
+  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<u32, C> {
+    self.inner.poll_changes(cx).map(|inner| {
+      Box::new(GenerationHelperViewAccess {
+        inner,
+        phantom: PhantomData,
+        allocator: self.allocator.make_read_holder(),
+      }) as CollectionChanges<u32, C>
+    })
+  }
+
+  fn access(&self) -> PollCollectionCurrent<u32, C> {
+    let inner: CollectionView<RawEntityHandle, C> = self.inner.access();
+    Box::new(GenerationHelperViewAccess {
+      inner,
+      phantom: PhantomData,
+      allocator: self.allocator.make_read_holder(),
+    }) as CollectionView<u32, C>
+  }
+
+  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
+    self.inner.extra_request(request)
   }
 }

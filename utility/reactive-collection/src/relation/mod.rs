@@ -1,15 +1,24 @@
 mod bookkeeping;
 pub use bookkeeping::*;
 
+mod map;
 mod projection;
+
 use std::ops::DerefMut;
 
+pub use map::*;
 pub use projection::*;
 
 use crate::*;
 
 pub trait ReactiveOneToManyRelationship<O: CKey, M: CKey>: ReactiveCollection<M, O> {
   fn multi_access(&self) -> Box<dyn VirtualMultiCollection<O, M>>;
+}
+
+impl<O: CKey, M: CKey> ReactiveOneToManyRelationship<O, M> for () {
+  fn multi_access(&self) -> Box<dyn VirtualMultiCollection<O, M>> {
+    Box::new(())
+  }
 }
 
 pub trait ReactiveOneToManyRelationshipExt<O: CKey, M: CKey>:
@@ -28,6 +37,23 @@ pub trait ReactiveOneToManyRelationshipExt<O: CKey, M: CKey>:
   fn make_multi_accessor(&self) -> impl Fn(&O, &mut dyn FnMut(M)) + Send + Sync + '_ {
     let view = self.multi_access();
     move |k, visitor| view.access_multi_visitor(k, visitor)
+  }
+
+  fn map_value<M2: CKey>(self, f: impl Fn(&M) -> M2) -> impl ReactiveOneToManyRelationship<O, M2>
+  where
+    Self: Sized,
+  {
+    todo!()
+  }
+  fn dual_map_key<O2: CKey>(
+    self,
+    f: impl Fn(&O) -> O2,
+    f_v: impl Fn(&O2) -> O,
+  ) -> impl ReactiveOneToManyRelationship<O2, M>
+  where
+    Self: Sized,
+  {
+    todo!()
   }
 }
 impl<O: CKey, M: CKey, T: ReactiveOneToManyRelationship<O, M>>
