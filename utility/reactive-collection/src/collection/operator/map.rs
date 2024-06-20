@@ -16,19 +16,15 @@ where
 {
   #[tracing::instrument(skip_all, name = "ReactiveKVMap")]
   fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, V2> {
-    self.inner.poll_changes(cx).map(|delta| {
-      Box::new(MappedValueChange {
-        base: delta,
-        mapper: self.map,
-      }) as Box<dyn VirtualCollection<K, ValueChange<V2>>>
-    })
+    let map = self.map;
+    self
+      .inner
+      .poll_changes(cx)
+      .map(move |delta| delta.map(move |k, v| v.map(|v| map(k, v))).into_boxed())
   }
 
   fn access(&self) -> PollCollectionCurrent<K, V2> {
-    Box::new(MappedCollection {
-      base: self.inner.access(),
-      mapper: self.map,
-    }) as Box<dyn VirtualCollection<K, V2>>
+    self.inner.access().map(self.map).into_boxed()
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -36,56 +32,39 @@ where
   }
 }
 
-#[derive(Clone)]
-struct MappedCollection<'a, K, V, F> {
-  base: Box<dyn VirtualCollection<K, V> + 'a>,
-  mapper: F,
+pub struct ReactiveKeyDualMap<F1, F2, T, K, V> {
+  pub f1: F1,
+  pub f2: F2,
+  pub inner: T,
+  pub phantom: PhantomData<(K, V)>,
 }
 
-impl<'a, K, V, V2, F> VirtualCollection<K, V2> for MappedCollection<'a, K, V, F>
+impl<F1, F2, T, K, K2, V> ReactiveCollection<K2, V> for ReactiveKeyDualMap<F1, F2, T, K, V>
 where
   K: CKey,
+  K2: CKey,
   V: CValue,
-  V2: CValue,
-  F: Fn(&K, V) -> V2 + Copy + Send + Sync + 'static,
+  F1: Fn(K) -> K2 + Copy + Send + Sync + 'static,
+  F2: Fn(K2) -> K + Copy + Send + Sync + 'static,
+  T: ReactiveCollection<K, V>,
 {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, V2)> + '_> {
-    Box::new(self.base.iter_key_value().map(|(k, v)| {
-      let v = (self.mapper)(&k, v);
-      (k, v)
-    }))
-  }
-
-  fn access(&self, key: &K) -> Option<V2> {
-    self.base.access(key).map(|v| (self.mapper)(key, v))
-  }
-}
-
-#[derive(Clone)]
-struct MappedValueChange<'a, K, V, F> {
-  base: Box<dyn VirtualCollection<K, ValueChange<V>> + 'a>,
-  mapper: F,
-}
-
-impl<'a, K, V, V2, F> VirtualCollection<K, ValueChange<V2>> for MappedValueChange<'a, K, V, F>
-where
-  K: CKey,
-  V: CValue,
-  V2: CValue,
-  F: Fn(&K, V) -> V2 + Copy + Send + Sync + 'static,
-{
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, ValueChange<V2>)> + '_> {
-    Box::new(self.base.iter_key_value().map(|(k, delta)| {
-      let delta = delta.map(|v| (self.mapper)(&k, v));
-      (k, delta)
-    }))
-  }
-
-  fn access(&self, key: &K) -> Option<ValueChange<V2>> {
+  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K2, V> {
     self
-      .base
-      .access(key)
-      .map(|delta| delta.map(|v| (self.mapper)(key, v)))
+      .inner
+      .poll_changes(cx)
+      .map(|delta| delta.key_dual_map(self.f1, self.f2).into_boxed())
+  }
+
+  fn access(&self) -> PollCollectionCurrent<K2, V> {
+    self
+      .inner
+      .access()
+      .key_dual_map(self.f1, self.f2)
+      .into_boxed()
+  }
+
+  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
+    self.inner.extra_request(request)
   }
 }
 

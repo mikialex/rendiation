@@ -1,7 +1,3 @@
-use std::ops::DerefMut;
-
-use futures::task::AtomicWaker;
-
 use crate::*;
 
 #[derive(Clone)]

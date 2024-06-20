@@ -3223,6 +3223,7 @@ dependencies = [
  "smallvec",
  "storage",
  "tracing",
+ "virtual-collection",
  "xalloc",
 ]
 
@@ -4694,6 +4695,18 @@ dependencies = [
  "rfd",
  "wasm-bindgen-futures",
  "winit",
+]
+
+[[package]]
+name = "virtual-collection"
+version = "0.0.1"
+dependencies = [
+ "dashmap",
+ "dyn-clone",
+ "dyn-downcast",
+ "fast-hash-collection",
+ "parking_lot",
+ "storage",
 ]
 
 [[package]]

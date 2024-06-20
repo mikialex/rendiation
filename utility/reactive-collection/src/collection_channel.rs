@@ -1,11 +1,3 @@
-use std::sync::Arc;
-
-use fast_hash_collection::FastHashMap;
-use futures::task::AtomicWaker;
-use futures::{Stream, StreamExt};
-use parking_lot::lock_api::RawRwLock;
-use parking_lot::RwLock;
-
 use crate::*;
 
 type MutationData<K, T> = FastHashMap<K, ValueChange<T>>;
@@ -110,11 +102,11 @@ impl<K: CKey, T: CValue> Stream for CollectiveMutationReceiver<K, T> {
 }
 
 // this trait could be lift into upper stream
-pub trait VirtualCollectionAccess<K, V>: Send + Sync {
+pub trait VirtualCollectionProvider<K, V>: Send + Sync {
   fn access(&self) -> CollectionView<K, V>;
 }
 
-impl<K: CKey, V: CValue, T: VirtualCollection<K, V> + 'static> VirtualCollectionAccess<K, V>
+impl<K: CKey, V: CValue, T: VirtualCollection<K, V> + 'static> VirtualCollectionProvider<K, V>
   for Arc<RwLock<T>>
 {
   fn access(&self) -> CollectionView<K, V> {
@@ -123,7 +115,7 @@ impl<K: CKey, V: CValue, T: VirtualCollection<K, V> + 'static> VirtualCollection
 }
 
 pub struct ReactiveCollectionFromCollectiveMutation<K, T> {
-  pub full: Box<dyn VirtualCollectionAccess<K, T>>,
+  pub full: Box<dyn VirtualCollectionProvider<K, T>>,
   pub mutation: RwLock<CollectiveMutationReceiver<K, T>>,
 }
 impl<K: CKey, T: CValue> ReactiveCollection<K, T>

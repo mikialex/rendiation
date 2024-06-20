@@ -13,9 +13,6 @@ pub use map::*;
 mod filter;
 pub use filter::*;
 
-mod key_convert;
-pub use key_convert::*;
-
 mod join;
 pub use join::*;
 
@@ -88,12 +85,12 @@ where
     self.collective_kv_map(|k, _| k.clone())
   }
 
-  fn collective_key_convert<K2: CKey>(
+  fn collective_key_dual_map<K2: CKey>(
     self,
     f: impl Fn(K) -> K2 + Copy + 'static + Send + Sync,
     f2: impl Fn(K2) -> K + Copy + 'static + Send + Sync,
   ) -> impl ReactiveCollection<K2, V> {
-    ReactiveKeyConvert {
+    ReactiveKeyDualMap {
       f1: f,
       f2,
       inner: self,
@@ -298,7 +295,7 @@ where
   fn diff_change(self) -> impl ReactiveCollection<K, V>
   where
     K: CKey,
-    V: CValue + PartialEq,
+    V: CValue,
   {
     ReactiveCollectionDiff {
       inner: self,
@@ -309,8 +306,8 @@ where
 
   fn debug(self, label: &'static str) -> impl ReactiveCollection<K, V>
   where
-    K: std::fmt::Debug + CKey,
-    V: std::fmt::Debug + CValue + PartialEq,
+    K: CKey,
+    V: CValue,
   {
     ReactiveCollectionDebug {
       inner: self,

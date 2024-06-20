@@ -1,6 +1,10 @@
-use std::ops::DerefMut;
-
 use crate::*;
+
+mod self_contain;
+pub use self_contain::*;
+
+mod operator;
+pub use operator::*;
 
 pub enum ExtraCollectionOperation {
   MemoryShrinkToFit,

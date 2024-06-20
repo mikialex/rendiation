@@ -75,7 +75,7 @@ impl DatabaseMutationWatch {
   ) -> impl ReactiveCollection<EntityHandle<C::Entity>, C::Data> {
     self
       .watch_dyn(C::component_id(), C::Entity::entity_id())
-      .collective_key_convert(
+      .collective_key_dual_map(
         |k| unsafe { EntityHandle::<C::Entity>::from_raw(k) },
         |k| k.handle,
       )
@@ -176,7 +176,7 @@ struct ComponentAccess<T> {
   original: Arc<dyn ComponentStorage<T>>,
 }
 
-impl<T: CValue> VirtualCollectionAccess<u32, T> for ComponentAccess<T> {
+impl<T: CValue> VirtualCollectionProvider<u32, T> for ComponentAccess<T> {
   fn access(&self) -> CollectionView<u32, T> {
     Box::new(IterableComponentReadView::<T> {
       ecg: self.ecg.clone(),
@@ -185,7 +185,7 @@ impl<T: CValue> VirtualCollectionAccess<u32, T> for ComponentAccess<T> {
   }
 }
 
-impl<T: CValue> VirtualCollectionAccess<RawEntityHandle, T> for ComponentAccess<T> {
+impl<T: CValue> VirtualCollectionProvider<RawEntityHandle, T> for ComponentAccess<T> {
   fn access(&self) -> CollectionView<RawEntityHandle, T> {
     Box::new(IterableComponentReadView::<T> {
       ecg: self.ecg.clone(),

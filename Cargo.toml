@@ -7,6 +7,7 @@ members = [
   "utility/reactive-derive",
   "utility/reactive-stream",
   "utility/reactive-collection",
+  "utility/virtual-collection",
   "utility/arena",
   "utility/dyn-downcast",
   "utility/storage",

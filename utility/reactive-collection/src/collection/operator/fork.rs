@@ -1,11 +1,4 @@
-use std::ops::DerefMut;
-use std::{marker::PhantomData, sync::Arc};
-
-use fast_hash_collection::FastHashMap;
 use futures::channel::mpsc::*;
-use futures::task::AtomicWaker;
-use futures::StreamExt;
-use parking_lot::RwLockReadGuard;
 
 use crate::*;
 
@@ -194,13 +187,7 @@ where
   }
 
   fn access(&self) -> PollCollectionCurrent<K, V> {
-    let upstream = self.upstream.read();
-    let view = upstream.access();
-    let view = ForkedAccessView::<Map, K, V> {
-      view: unsafe { std::mem::transmute(view) },
-      lock: Arc::new(unsafe { std::mem::transmute(upstream) }),
-    };
-    Box::new(view) as Box<dyn VirtualCollection<K, V>>
+    self.upstream.read().access()
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -222,30 +209,6 @@ impl<K: CKey, V: CValue> futures::task::ArcWake for BroadCast<K, V> {
   }
 }
 
-struct ForkedAccessView<T: 'static, K, V> {
-  lock: Arc<RwLockReadGuard<'static, T>>,
-  view: CollectionView<K, V>,
-}
-
-impl<T: 'static, K, V> Clone for ForkedAccessView<T, K, V> {
-  fn clone(&self) -> Self {
-    Self {
-      lock: self.lock.clone(),
-      view: self.view.clone(),
-    }
-  }
-}
-
-impl<K: CKey, V: CValue, T: Send + Sync> VirtualCollection<K, V> for ForkedAccessView<T, K, V> {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, V)> + '_> {
-    self.view.iter_key_value()
-  }
-
-  fn access(&self, key: &K) -> Option<V> {
-    self.view.access(key)
-  }
-}
-
 impl<Map, K, V> ReactiveOneToManyRelationship<V, K> for ReactiveKVMapFork<Map, K, V>
 where
   Map: ReactiveOneToManyRelationship<V, K>,
@@ -254,29 +217,6 @@ where
   V: CKey,
 {
   fn multi_access(&self) -> Box<dyn VirtualMultiCollection<V, K>> {
-    let upstream = self.upstream.read();
-    let view = upstream.multi_access();
-    let view = ForkedMultiAccessView::<Map, V, K> {
-      view: unsafe { std::mem::transmute(view) },
-      _lock: Arc::new(unsafe { std::mem::transmute(upstream) }),
-    };
-    Box::new(view) as Box<dyn VirtualMultiCollection<V, K>>
-  }
-}
-
-struct ForkedMultiAccessView<T: 'static, K, V> {
-  _lock: Arc<RwLockReadGuard<'static, T>>,
-  view: Box<dyn VirtualMultiCollection<K, V>>,
-}
-
-impl<K: CKey, V: CValue, T: Send + Sync> VirtualMultiCollection<K, V>
-  for ForkedMultiAccessView<T, K, V>
-{
-  fn iter_key_in_multi_collection(&self) -> Box<dyn Iterator<Item = K> + '_> {
-    self.view.iter_key_in_multi_collection()
-  }
-
-  fn access_multi(&self, key: &K) -> Option<Box<dyn Iterator<Item = V> + '_>> {
-    self.view.access_multi(key)
+    self.upstream.read().multi_access()
   }
 }

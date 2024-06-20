@@ -29,14 +29,10 @@ impl DatabaseEntityReverseReference {
   ) -> Box<dyn ReactiveOneToManyRelationship<u32, u32>> {
     let inner = self.watch_inv_ref_dyn(S::component_id(), S::Entity::entity_id());
 
-    let allocator = self
-      .mutation_watcher
-      .db
-      .access_ecg::<S::Entity, _>(|e| e.inner.inner.allocator.clone());
-    let foreign_allocator = self
-      .mutation_watcher
-      .db
-      .access_ecg::<S::ForeignEntity, _>(|e| e.inner.inner.allocator.clone());
+    let db = &self.mutation_watcher.db;
+    let allocator = db.access_ecg::<S::Entity, _>(|e| e.inner.inner.allocator.clone());
+    let foreign_allocator =
+      db.access_ecg::<S::ForeignEntity, _>(|e| e.inner.inner.allocator.clone());
 
     Box::new(GenerationHelperMultiView {
       inner,
@@ -81,74 +77,6 @@ pub(crate) struct GenerationHelperMultiView<T> {
   allocator: Arc<RwLock<Arena<()>>>,
   foreign_allocator: Arc<RwLock<Arena<()>>>,
 }
-#[derive(Clone)]
-struct GenerationHelperMultiViewAccess<T> {
-  inner: T,
-  allocator: LockReadGuardHolder<Arena<()>>,
-}
-
-impl<T> VirtualCollection<u32, u32> for GenerationHelperMultiViewAccess<T>
-where
-  T: VirtualCollection<RawEntityHandle, RawEntityHandle> + Clone,
-{
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (u32, u32)> + '_> {
-    Box::new(
-      self
-        .inner
-        .iter_key_value()
-        .map(|(k, v)| (k.index(), v.index())),
-    )
-  }
-
-  fn access(&self, key: &u32) -> Option<u32> {
-    let handle = self.allocator.get_handle(*key as usize)?;
-    let handle = RawEntityHandle(handle);
-    self.inner.access(&handle).map(|v| v.index())
-  }
-}
-
-impl<T> VirtualCollection<u32, ValueChange<u32>> for GenerationHelperMultiViewAccess<T>
-where
-  T: VirtualCollection<RawEntityHandle, ValueChange<RawEntityHandle>> + Clone,
-{
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (u32, ValueChange<u32>)> + '_> {
-    Box::new(
-      self
-        .inner
-        .iter_key_value()
-        .map(|(k, v)| (k.index(), v.map(|v| v.index()))),
-    )
-  }
-
-  fn access(&self, key: &u32) -> Option<ValueChange<u32>> {
-    let handle = self.allocator.get_handle(*key as usize)?;
-    let handle = RawEntityHandle(handle);
-    self.inner.access(&handle).map(|v| v.map(|v| v.index()))
-  }
-}
-
-#[derive(Clone)]
-struct GenerationHelperMultiViewMultiAccess<T> {
-  inner: T,
-  allocator: LockReadGuardHolder<Arena<()>>,
-}
-
-impl<T: VirtualMultiCollection<RawEntityHandle, RawEntityHandle>> VirtualMultiCollection<u32, u32>
-  for GenerationHelperMultiViewMultiAccess<T>
-{
-  fn iter_key_in_multi_collection(&self) -> Box<dyn Iterator<Item = u32> + '_> {
-    Box::new(self.inner.iter_key_in_multi_collection().map(|v| v.index()))
-  }
-
-  fn access_multi(&self, key: &u32) -> Option<Box<dyn Iterator<Item = u32> + '_>> {
-    let handle = self.allocator.get_handle(*key as usize)?;
-    let handle = RawEntityHandle(handle);
-    self
-      .inner
-      .access_multi(&handle)
-      .map(|iter| Box::new(iter.map(|v| v.index())) as Box<_>)
-  }
-}
 
 impl<T: ReactiveOneToManyRelationship<RawEntityHandle, RawEntityHandle>>
   ReactiveOneToManyRelationship<u32, u32> for GenerationHelperMultiView<T>
@@ -156,12 +84,17 @@ where
   Self: ReactiveCollection<u32, u32>,
 {
   fn multi_access(&self) -> Box<dyn VirtualMultiCollection<u32, u32>> {
-    let inner: Box<dyn VirtualMultiCollection<RawEntityHandle, RawEntityHandle>> =
-      self.inner.multi_access();
-    Box::new(GenerationHelperMultiViewMultiAccess {
-      inner,
-      allocator: self.allocator.make_read_holder(),
-    })
+    let allocator = self.allocator.make_read_holder();
+
+    self
+      .inner
+      .multi_access()
+      .map(|v| v.index())
+      .key_dual_map_partial(
+        |k| k.index(),
+        move |k| RawEntityHandle(allocator.get_handle(k as usize)?).into(),
+      )
+      .into_boxed()
   }
 }
 
@@ -171,19 +104,28 @@ where
 {
   fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<u32, u32> {
     self.inner.poll_changes(cx).map(|inner| {
-      Box::new(GenerationHelperMultiViewAccess {
-        inner,
-        allocator: self.foreign_allocator.make_read_holder(),
-      }) as CollectionChanges<u32, u32>
+      let allocator = self.foreign_allocator.make_read_holder();
+      inner
+        .key_dual_map_partial(
+          |k| k.index(),
+          move |k| RawEntityHandle(allocator.get_handle(k as usize)?).into(),
+        )
+        .map(|_, v| v.map(|v| v.index()))
+        .into_boxed()
     })
   }
 
   fn access(&self) -> PollCollectionCurrent<u32, u32> {
-    let inner: CollectionView<RawEntityHandle, RawEntityHandle> = self.inner.access();
-    Box::new(GenerationHelperMultiViewAccess {
-      inner,
-      allocator: self.foreign_allocator.make_read_holder(),
-    }) as CollectionView<u32, u32>
+    let allocator = self.foreign_allocator.make_read_holder();
+    self
+      .inner
+      .access()
+      .key_dual_map_partial(
+        |k| k.index(),
+        move |k| RawEntityHandle(allocator.get_handle(k as usize)?).into(),
+      )
+      .map(|_, v| v.index())
+      .into_boxed()
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {

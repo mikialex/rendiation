@@ -1,11 +1,3 @@
-use std::{
-  any::{Any, TypeId},
-  sync::Arc,
-};
-
-use fast_hash_collection::FastHashMap;
-use parking_lot::RwLock;
-
 use crate::*;
 
 pub(crate) trait ShrinkableAny: Any + Send + Sync {

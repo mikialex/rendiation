@@ -1,7 +1,3 @@
-use std::ops::DerefMut;
-
-use parking_lot::{RwLockReadGuard, RwLockWriteGuard};
-
 use crate::*;
 
 pub(crate) trait MakeLockResultHolder<K, V>: Sized {
@@ -15,6 +11,26 @@ where
 {
   fn make_lock_holder_collection(&self) -> Box<dyn VirtualCollection<K, V>> {
     Box::new(self.make_read_holder())
+  }
+}
+
+impl<K: CKey, V: CValue, T: VirtualCollection<K, V>> VirtualCollection<K, V>
+  for LockReadGuardHolder<T>
+{
+  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, V)> + '_> {
+    (**self).iter_key_value()
+  }
+
+  fn access(&self, key: &K) -> Option<V> {
+    (**self).access(key)
+  }
+}
+
+impl<K: CKey, V: CValue, T: VirtualCollectionSelfContained<K, V>>
+  VirtualCollectionSelfContained<K, V> for LockReadGuardHolder<T>
+{
+  fn access_ref(&self, key: &K) -> Option<&V> {
+    self.deref().access_ref(key)
   }
 }
 

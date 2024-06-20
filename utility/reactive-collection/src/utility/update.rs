@@ -1,8 +1,3 @@
-use std::{any::Any, ops::DerefMut};
-
-use futures::task::AtomicWaker;
-use parking_lot::RwLock;
-
 use crate::*;
 
 struct CollectionUpdater<T, V, F> {
@@ -15,7 +10,7 @@ pub trait CollectionUpdaterExt<K, V> {
   fn into_collective_updater<TV: Default + CValue>(
     self,
     update_logic: impl FnOnce(V, &mut TV) + Copy,
-  ) -> impl CollectionUpdate<Box<dyn MutableCollection<K, TV>>>;
+  ) -> impl CollectionUpdate<Box<dyn MutateTargetCollection<K, TV>>>;
 }
 
 impl<T, K, V> CollectionUpdaterExt<K, V> for T
@@ -27,7 +22,7 @@ where
   fn into_collective_updater<TV: Default + CValue>(
     self,
     update_logic: impl FnOnce(V, &mut TV) + Copy,
-  ) -> impl CollectionUpdate<Box<dyn MutableCollection<K, TV>>> {
+  ) -> impl CollectionUpdate<Box<dyn MutateTargetCollection<K, TV>>> {
     CollectionUpdater {
       phantom: PhantomData,
       collection: self,
@@ -36,7 +31,7 @@ where
   }
 }
 
-impl<T, K, V, TV, F> CollectionUpdate<Box<dyn MutableCollection<K, TV>>>
+impl<T, K, V, TV, F> CollectionUpdate<Box<dyn MutateTargetCollection<K, TV>>>
   for CollectionUpdater<T, V, F>
 where
   F: FnOnce(V, &mut TV) + Copy,
@@ -45,7 +40,11 @@ where
   V: CValue,
   TV: Default + CValue,
 {
-  fn update_target(&mut self, target: &mut Box<dyn MutableCollection<K, TV>>, cx: &mut Context) {
+  fn update_target(
+    &mut self,
+    target: &mut Box<dyn MutateTargetCollection<K, TV>>,
+    cx: &mut Context,
+  ) {
     if let Poll::Ready(changes) = self.collection.poll_changes(cx) {
       for (k, v) in changes.iter_key_value() {
         match v {
@@ -91,7 +90,8 @@ impl<T> DerefMut for MultiUpdateContainer<T> {
 }
 
 /// for example if we want merge different collection changes into one
-pub type MultiUpdateMergeMutation<K, V> = MultiUpdateContainer<Box<dyn MutableCollection<K, V>>>;
+pub type MultiUpdateMergeMutation<K, V> =
+  MultiUpdateContainer<Box<dyn MutateTargetCollection<K, V>>>;
 
 impl<T> MultiUpdateContainer<T> {
   pub fn new(target: T) -> Self {

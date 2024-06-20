@@ -5,6 +5,7 @@ version = "0.0.1"
 
 [dependencies]
 dyn-downcast = { path = "../dyn-downcast" }
+virtual-collection = { path = "../virtual-collection" }
 fast-hash-collection = { path = "../fast-hash-collection" }
 futures = { workspace = true }
 pin-project = { workspace = true }

@@ -151,7 +151,7 @@ impl<K: CKey, T: CValue> CollectionMutationCollectorPtr<K, T> {
   pub fn get_derive(&self, key: K) -> Option<&T> {
     unsafe { (*self.target).get(&key) }
   }
-  pub fn as_mutable(&self) -> impl MutableCollection<K, T> {
+  pub fn as_mutable(&self) -> impl MutateTargetCollection<K, T> {
     unsafe {
       CollectionMutationCollector {
         delta: (&mut *self.delta),

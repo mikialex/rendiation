@@ -1,5 +1,3 @@
-use storage::IndexKeptVec;
-
 use crate::*;
 
 pub struct UnorderedMaterializedReactiveCollection<Map, K, V> {
@@ -102,27 +100,5 @@ where
 
   fn access(&self) -> PollCollectionCurrent<K, V> {
     self.cache.make_lock_holder_collection()
-  }
-}
-
-impl<K: CKey + LinearIdentification, V: CValue> VirtualCollectionSelfContained<K, V>
-  for IndexKeptVec<V>
-{
-  fn access_ref(&self, key: &K) -> Option<&V> {
-    self.try_get(key.alloc_index())
-  }
-}
-
-impl<K: CKey + LinearIdentification, V: CValue> VirtualCollection<K, V> for IndexKeptVec<V> {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, V)> + '_> {
-    Box::new(
-      self
-        .iter()
-        .map(|(k, v)| (K::from_alloc_index(k), v.clone())),
-    )
-  }
-
-  fn access(&self, key: &K) -> Option<V> {
-    self.try_get(key.alloc_index()).cloned()
   }
 }
