@@ -1,3 +1,4 @@
+#![feature(impl_trait_in_assoc_type)]
 use core::{
   pin::Pin,
   task::{Context, Poll},
@@ -21,8 +22,8 @@ pub use virtual_collection::*;
 mod delta;
 pub use delta::*;
 
-mod state;
-pub use state::*;
+mod query;
+pub use query::*;
 
 mod collection;
 pub use collection::*;

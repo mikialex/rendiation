@@ -5,7 +5,7 @@ use crate::*;
 pub struct OneToManyFanout<O, M, X, Upstream, Relation>
 where
   Upstream: ReactiveCollection<O, X>,
-  Relation: ReactiveOneToManyRelationship<O, M>,
+  Relation: ReactiveOneToManyRelation<O, M>,
   M: CKey,
   O: CKey,
   X: CValue,
@@ -22,7 +22,7 @@ where
   X: CValue,
   O: CKey,
   Upstream: ReactiveCollection<O, X>,
-  Relation: ReactiveOneToManyRelationship<O, M> + 'static,
+  Relation: ReactiveOneToManyRelation<O, M> + 'static,
 {
   #[tracing::instrument(skip_all, name = "OneToManyFanout")]
   #[allow(clippy::collapsible_else_if)]

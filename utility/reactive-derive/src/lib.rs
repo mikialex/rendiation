@@ -78,7 +78,7 @@ pub fn global_registered_collection_and_many_one_idx_relation(
       reactive::global_collection_registry().fork_or_insert_with(#new_name)
     }
 
-    pub fn #relation_fn_name() -> impl ReactiveOneToManyRelationship<#args_v, #args_k> + Clone {
+    pub fn #relation_fn_name() -> impl ReactiveOneToManyRelation<#args_v, #args_k> + Clone {
       reactive::global_collection_registry().get_or_create_relation_by_idx(#new_name)
     }
 
@@ -110,7 +110,7 @@ pub fn global_registered_collection_and_many_one_hash_relation(
       reactive::global_collection_registry().fork_or_insert_with(#new_name)
     }
 
-    pub fn #relation_fn_name() -> impl ReactiveOneToManyRelationship<#args_v, #args_k> + Clone {
+    pub fn #relation_fn_name() -> impl ReactiveOneToManyRelation<#args_v, #args_k> + Clone {
       reactive::global_collection_registry().get_or_create_relation_by_hash(#new_name)
     }
 

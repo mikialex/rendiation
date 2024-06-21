@@ -1,15 +1,15 @@
 use crate::*;
 
-pub type BoxedAnyReactiveState = Box<dyn ReactiveState<State = Box<dyn Any>>>;
+pub type BoxedAnyReactiveQuery = Box<dyn ReactiveQuery<Output = Box<dyn Any>>>;
 
 #[derive(Default)]
-pub struct ReactiveStateJoinUpdater {
-  update_logic: FastHashMap<u32, BoxedAnyReactiveState>,
+pub struct ReactiveQueryJoinUpdater {
+  update_logic: FastHashMap<u32, BoxedAnyReactiveQuery>,
   next: u32,
 }
 
-impl ReactiveStateJoinUpdater {
-  pub fn register(&mut self, update: BoxedAnyReactiveState) -> UpdateResultToken {
+impl ReactiveQueryJoinUpdater {
+  pub fn register(&mut self, update: BoxedAnyReactiveQuery) -> UpdateResultToken {
     self.update_logic.insert(self.next, update);
     let token = self.next;
     self.next += 1;
@@ -20,7 +20,7 @@ impl ReactiveStateJoinUpdater {
     &mut self,
     updater: MultiUpdateContainer<T>,
   ) -> UpdateResultToken {
-    let updater = Box::new(SharedMultiUpdateContainer::new(updater)) as BoxedAnyReactiveState;
+    let updater = Box::new(SharedMultiUpdateContainer::new(updater)) as BoxedAnyReactiveQuery;
     self.register(updater)
   }
 
@@ -30,7 +30,7 @@ impl ReactiveStateJoinUpdater {
     V: CValue,
     C: ReactiveCollection<K, V> + Unpin,
   {
-    let c = Box::new(c.into_reactive_state()) as BoxedAnyReactiveState;
+    let c = Box::new(c.into_reactive_state()) as BoxedAnyReactiveQuery;
     self.register(c)
   }
 
@@ -40,17 +40,17 @@ impl ReactiveStateJoinUpdater {
     V: CValue,
     C: ReactiveCollectionSelfContained<K, V>,
   {
-    let c = Box::new(c.into_reactive_state_self_contained()) as BoxedAnyReactiveState;
+    let c = Box::new(c.into_reactive_state_self_contained()) as BoxedAnyReactiveQuery;
     self.register(c)
   }
 
   pub fn register_reactive_multi_collection<C, K, V>(&mut self, c: C) -> UpdateResultToken
   where
-    C: ReactiveOneToManyRelationship<K, V>,
+    C: ReactiveOneToManyRelation<K, V>,
     K: CKey,
     V: CKey,
   {
-    let c = Box::new(c.into_reactive_state_many_one()) as BoxedAnyReactiveState;
+    let c = Box::new(c.into_reactive_state_many_one()) as BoxedAnyReactiveQuery;
     self.register(c)
   }
 
@@ -59,7 +59,7 @@ impl ReactiveStateJoinUpdater {
       inner: self
         .update_logic
         .iter_mut()
-        .map(|(k, v)| (*k, v.poll_current(cx)))
+        .map(|(k, v)| (*k, v.poll_query(cx)))
         .collect(),
     }
   }

@@ -58,10 +58,10 @@ both!(
   ShaderHandlePtr<BindingArray<ShaderHandlePtr<ShaderSampler>>>
 );
 
-impl ReactiveState for BindlessTextureSystemSource {
-  type State = Box<dyn DynAbstractGPUTextureSystem>;
+impl ReactiveQuery for BindlessTextureSystemSource {
+  type Output = Box<dyn DynAbstractGPUTextureSystem>;
 
-  fn poll_current(&mut self, cx: &mut Context) -> Self::State {
+  fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
     Box::new(BindlessTextureSystem {
       texture_binding_array: self.texture2d.poll_update(cx),
       sampler_binding_array: self.sampler.poll_update(cx),

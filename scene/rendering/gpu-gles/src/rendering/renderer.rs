@@ -29,7 +29,7 @@ pub fn build_default_gles_render_system() -> GLESRenderSystem {
 }
 
 impl RenderImplProvider<Box<dyn SceneRenderer>> for GLESRenderSystem {
-  fn register_resource(&mut self, source: &mut ReactiveStateJoinUpdater, cx: &GPUResourceCtx) {
+  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPUResourceCtx) {
     let default_2d: GPU2DTextureView = create_fallback_empty_texture(&cx.device)
       .create_default_view()
       .try_into()
@@ -50,13 +50,13 @@ impl RenderImplProvider<Box<dyn SceneRenderer>> for GLESRenderSystem {
           bindless_minimal_effective_count,
         );
 
-        source.register(Box::new(ReactiveStateBoxAnyResult(texture_system)))
+        source.register(Box::new(ReactiveQueryBoxAnyResult(texture_system)))
       } else {
         let texture_system = TraditionalPerDrawBindingSystemSource {
           textures: Box::new(texture_2d),
           samplers: Box::new(samplers),
         };
-        source.register(Box::new(ReactiveStateBoxAnyResult(texture_system)))
+        source.register(Box::new(ReactiveQueryBoxAnyResult(texture_system)))
       };
 
     let model_lookup = global_rev_ref().watch_inv_ref::<SceneModelBelongsToScene>();

@@ -209,9 +209,9 @@ impl<K: CKey, V: CValue> futures::task::ArcWake for BroadCast<K, V> {
   }
 }
 
-impl<Map, K, V> ReactiveOneToManyRelationship<V, K> for ReactiveKVMapFork<Map, K, V>
+impl<Map, K, V> ReactiveOneToManyRelation<V, K> for ReactiveKVMapFork<Map, K, V>
 where
-  Map: ReactiveOneToManyRelationship<V, K>,
+  Map: ReactiveOneToManyRelation<V, K>,
   Map: ReactiveCollection<K, V>,
   K: CKey,
   V: CKey,

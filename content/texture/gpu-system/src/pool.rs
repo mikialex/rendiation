@@ -115,10 +115,10 @@ impl TexturePoolSource {
   }
 }
 
-impl ReactiveState for TexturePoolSource {
-  type State = Box<dyn DynAbstractGPUTextureSystem>;
+impl ReactiveQuery for TexturePoolSource {
+  type Output = Box<dyn DynAbstractGPUTextureSystem>;
 
-  fn poll_current(&mut self, cx: &mut Context) -> Self::State {
+  fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
     if let Poll::Ready(Some(size)) = self.atlas_resize.poll_next_unpin(cx) {
       let size = size.into_gpu_size();
       self.texture = Some(GPUTexture::create(

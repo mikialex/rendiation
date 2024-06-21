@@ -6,10 +6,10 @@ pub struct TraditionalPerDrawBindingSystemSource {
   pub samplers: Box<dyn ReactiveCollection<SamplerHandle, GPUSamplerView>>,
 }
 
-impl ReactiveState for TraditionalPerDrawBindingSystemSource {
-  type State = Box<dyn DynAbstractGPUTextureSystem>;
+impl ReactiveQuery for TraditionalPerDrawBindingSystemSource {
+  type Output = Box<dyn DynAbstractGPUTextureSystem>;
 
-  fn poll_current(&mut self, cx: &mut Context) -> Self::State {
+  fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
     let _ = self.textures.poll_changes(cx);
     let _ = self.samplers.poll_changes(cx);
     Box::new(TraditionalPerDrawBindingSystem {

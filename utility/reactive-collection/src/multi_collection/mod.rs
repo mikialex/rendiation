@@ -11,24 +11,22 @@ pub use projection::*;
 
 use crate::*;
 
-pub trait ReactiveOneToManyRelationship<O: CKey, M: CKey>: ReactiveCollection<M, O> {
+pub trait ReactiveOneToManyRelation<O: CKey, M: CKey>: ReactiveCollection<M, O> {
   fn multi_access(&self) -> Box<dyn VirtualMultiCollection<O, M>>;
 }
 
-impl<O: CKey, M: CKey> ReactiveOneToManyRelationship<O, M> for () {
+impl<O: CKey, M: CKey> ReactiveOneToManyRelation<O, M> for () {
   fn multi_access(&self) -> Box<dyn VirtualMultiCollection<O, M>> {
     Box::new(())
   }
 }
 
-pub trait ReactiveOneToManyRelationshipExt<O: CKey, M: CKey>:
-  ReactiveOneToManyRelationship<O, M>
-{
-  fn into_reactive_state_many_one(self) -> impl ReactiveState<State = Box<dyn std::any::Any>>
+pub trait ReactiveOneToManyRelationExt<O: CKey, M: CKey>: ReactiveOneToManyRelation<O, M> {
+  fn into_reactive_state_many_one(self) -> impl ReactiveQuery<Output = Box<dyn std::any::Any>>
   where
     Self: Sized,
   {
-    ReactiveManyOneRelationAsReactiveState {
+    ReactiveManyOneRelationAsReactiveQuery {
       inner: self,
       phantom: PhantomData,
     }
@@ -39,7 +37,7 @@ pub trait ReactiveOneToManyRelationshipExt<O: CKey, M: CKey>:
     move |k, visitor| view.access_multi_visitor(k, visitor)
   }
 
-  fn map_value<M2: CKey>(self, f: impl Fn(&M) -> M2) -> impl ReactiveOneToManyRelationship<O, M2>
+  fn map_value<M2: CKey>(self, f: impl Fn(&M) -> M2) -> impl ReactiveOneToManyRelation<O, M2>
   where
     Self: Sized,
   {
@@ -49,19 +47,19 @@ pub trait ReactiveOneToManyRelationshipExt<O: CKey, M: CKey>:
     self,
     f: impl Fn(&O) -> O2,
     f_v: impl Fn(&O2) -> O,
-  ) -> impl ReactiveOneToManyRelationship<O2, M>
+  ) -> impl ReactiveOneToManyRelation<O2, M>
   where
     Self: Sized,
   {
     todo!()
   }
 }
-impl<O: CKey, M: CKey, T: ReactiveOneToManyRelationship<O, M>>
-  ReactiveOneToManyRelationshipExt<O, M> for T
+impl<O: CKey, M: CKey, T: ReactiveOneToManyRelation<O, M>> ReactiveOneToManyRelationExt<O, M>
+  for T
 {
 }
 
-impl<O, M> ReactiveCollection<M, O> for Box<dyn ReactiveOneToManyRelationship<O, M>>
+impl<O, M> ReactiveCollection<M, O> for Box<dyn ReactiveOneToManyRelation<O, M>>
 where
   O: CKey,
   M: CKey,
@@ -77,7 +75,7 @@ where
   }
 }
 
-impl<O, M> ReactiveOneToManyRelationship<O, M> for Box<dyn ReactiveOneToManyRelationship<O, M>>
+impl<O, M> ReactiveOneToManyRelation<O, M> for Box<dyn ReactiveOneToManyRelation<O, M>>
 where
   O: CKey,
   M: CKey,
@@ -90,7 +88,7 @@ where
 pub trait ReactiveCollectionRelationExt<K: CKey, V: CKey>:
   Sized + ReactiveCollection<K, V>
 {
-  fn into_one_to_many_by_hash(self) -> impl ReactiveOneToManyRelationship<V, K>
+  fn into_one_to_many_by_hash(self) -> impl ReactiveOneToManyRelation<V, K>
   where
     K: CKey,
     V: CKey,
@@ -112,7 +110,7 @@ pub trait ReactiveCollectionRelationExt<K: CKey, V: CKey>:
     }
   }
 
-  fn into_one_to_many_by_idx(self) -> impl ReactiveOneToManyRelationship<V, K>
+  fn into_one_to_many_by_idx(self) -> impl ReactiveOneToManyRelation<V, K>
   where
     K: CKey + LinearIdentification,
     V: CKey + LinearIdentification,

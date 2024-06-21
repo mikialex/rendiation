@@ -2,7 +2,7 @@ use rendiation_abstract_tree::*;
 
 use crate::*;
 
-pub type ReactiveTreeConnectivity<K> = Box<dyn ReactiveOneToManyRelationship<K, K>>;
+pub type ReactiveTreeConnectivity<K> = Box<dyn ReactiveOneToManyRelation<K, K>>;
 pub type ReactiveTreePayload<K, T> = Box<dyn ReactiveCollection<K, T>>;
 
 pub fn tree_payload_derive_by_parent_decide_children<K, T>(

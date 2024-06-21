@@ -3,11 +3,11 @@ use crate::*;
 pub trait ReactiveCollectionSelfContained<K: CKey, V: CValue>: ReactiveCollection<K, V> {
   fn access_ref_collection(&self) -> Box<dyn VirtualCollectionSelfContained<K, V>>;
 
-  fn into_reactive_state_self_contained(self) -> impl ReactiveState<State = Box<dyn std::any::Any>>
+  fn into_reactive_state_self_contained(self) -> impl ReactiveQuery<Output = Box<dyn std::any::Any>>
   where
     Self: Sized + 'static,
   {
-    ReactiveCollectionSelfContainedAsReactiveState {
+    ReactiveCollectionSelfContainedAsReactiveQuery {
       inner: self,
       phantom: PhantomData,
     }

@@ -16,7 +16,7 @@ impl DatabaseEntityReverseReference {
 
   pub fn watch_inv_ref<S: ForeignKeySemantic>(
     &self,
-  ) -> impl ReactiveOneToManyRelationship<EntityHandle<S::ForeignEntity>, EntityHandle<S::Entity>>
+  ) -> impl ReactiveOneToManyRelation<EntityHandle<S::ForeignEntity>, EntityHandle<S::Entity>>
   {
     self
       .watch_inv_ref_dyn(S::component_id(), S::Entity::entity_id())
@@ -26,7 +26,7 @@ impl DatabaseEntityReverseReference {
 
   pub fn watch_inv_ref_untyped<S: ForeignKeySemantic>(
     &self,
-  ) -> Box<dyn ReactiveOneToManyRelationship<u32, u32>> {
+  ) -> Box<dyn ReactiveOneToManyRelation<u32, u32>> {
     let inner = self.watch_inv_ref_dyn(S::component_id(), S::Entity::entity_id());
 
     let db = &self.mutation_watcher.db;
@@ -45,7 +45,7 @@ impl DatabaseEntityReverseReference {
     &self,
     semantic_id: ComponentId,
     entity_id: EntityId,
-  ) -> Box<dyn ReactiveOneToManyRelationship<RawEntityHandle, RawEntityHandle>> {
+  ) -> Box<dyn ReactiveOneToManyRelation<RawEntityHandle, RawEntityHandle>> {
     if let Some(refs) = self.entity_rev_refs.read().get(&semantic_id) {
       return Box::new(
         refs
@@ -78,8 +78,8 @@ pub(crate) struct GenerationHelperMultiView<T> {
   foreign_allocator: Arc<RwLock<Arena<()>>>,
 }
 
-impl<T: ReactiveOneToManyRelationship<RawEntityHandle, RawEntityHandle>>
-  ReactiveOneToManyRelationship<u32, u32> for GenerationHelperMultiView<T>
+impl<T: ReactiveOneToManyRelation<RawEntityHandle, RawEntityHandle>>
+  ReactiveOneToManyRelation<u32, u32> for GenerationHelperMultiView<T>
 where
   Self: ReactiveCollection<u32, u32>,
 {
@@ -100,7 +100,7 @@ where
 
 impl<T> ReactiveCollection<u32, u32> for GenerationHelperMultiView<T>
 where
-  T: ReactiveOneToManyRelationship<RawEntityHandle, RawEntityHandle>,
+  T: ReactiveOneToManyRelation<RawEntityHandle, RawEntityHandle>,
 {
   fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<u32, u32> {
     self.inner.poll_changes(cx).map(|inner| {

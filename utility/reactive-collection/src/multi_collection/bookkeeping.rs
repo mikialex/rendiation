@@ -46,7 +46,7 @@ where
   }
 }
 
-impl<O, M, T> ReactiveOneToManyRelationship<O, M> for OneToManyRefHashBookKeeping<O, M, T>
+impl<O, M, T> ReactiveOneToManyRelation<O, M> for OneToManyRefHashBookKeeping<O, M, T>
 where
   T: ReactiveCollection<M, O>,
   M: CKey,
@@ -177,7 +177,7 @@ where
   }
 }
 
-impl<O, M, T> ReactiveOneToManyRelationship<O, M> for OneToManyRefDenseBookKeeping<O, M, T>
+impl<O, M, T> ReactiveOneToManyRelation<O, M> for OneToManyRefDenseBookKeeping<O, M, T>
 where
   T: ReactiveCollection<M, O>,
   M: LinearIdentification + CKey,

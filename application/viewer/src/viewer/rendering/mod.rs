@@ -13,7 +13,7 @@ use rendiation_webgpu::*;
 
 pub struct Viewer3dRenderingCtx {
   pub(crate) pipeline: ViewerPipeline,
-  rendering_resource: ReactiveStateJoinUpdater,
+  rendering_resource: ReactiveQueryJoinUpdater,
   renderer_impl: GLESRenderSystem,
   pool: AttachmentPool,
   gpu: Arc<GPU>,
@@ -29,7 +29,7 @@ impl Viewer3dRenderingCtx {
     };
 
     let mut renderer_impl = build_default_gles_render_system();
-    let mut rendering_resource = ReactiveStateJoinUpdater::default();
+    let mut rendering_resource = ReactiveQueryJoinUpdater::default();
     renderer_impl.register_resource(&mut rendering_resource, &resource_cx);
     Self {
       rendering_resource,

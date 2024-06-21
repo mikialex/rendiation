@@ -52,8 +52,8 @@ where
     Box::new(self)
   }
 
-  fn into_reactive_state(self) -> impl ReactiveState<State = Box<dyn std::any::Any>> {
-    ReactiveCollectionAsReactiveState {
+  fn into_reactive_state(self) -> impl ReactiveQuery<Output = Box<dyn std::any::Any>> {
+    ReactiveCollectionAsReactiveQuery {
       inner: self,
       phantom: PhantomData,
     }
@@ -263,7 +263,7 @@ where
   fn one_to_many_fanout<MK, Relation>(self, relations: Relation) -> impl ReactiveCollection<MK, V>
   where
     MK: CKey,
-    Relation: ReactiveOneToManyRelationship<K, MK> + 'static,
+    Relation: ReactiveOneToManyRelation<K, MK> + 'static,
   {
     OneToManyFanout {
       upstream: self,

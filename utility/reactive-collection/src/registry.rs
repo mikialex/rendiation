@@ -8,7 +8,7 @@ pub(crate) trait ShrinkableAny: Any + Send + Sync {
 pub type RxCForker<K, V> = ReactiveKVMapFork<Box<dyn ReactiveCollection<K, V>>, K, V>;
 
 pub type OneManyRelationForker<O, M> =
-  ReactiveKVMapFork<Box<dyn ReactiveOneToManyRelationship<O, M>>, M, O>;
+  ReactiveKVMapFork<Box<dyn ReactiveOneToManyRelation<O, M>>, M, O>;
 
 impl<K, V> ShrinkableAny for RxCForker<K, V>
 where
@@ -123,7 +123,7 @@ impl CollectionRegistry {
   pub fn get_or_create_relation_by_idx<O, M, R>(
     &self,
     inserter: impl FnOnce() -> R + Any,
-  ) -> impl ReactiveOneToManyRelationship<O, M> + Clone
+  ) -> impl ReactiveOneToManyRelation<O, M> + Clone
   where
     O: LinearIdentification + CKey,
     M: LinearIdentification + CKey,
@@ -143,7 +143,7 @@ impl CollectionRegistry {
       drop(relations);
       let upstream = self.fork_or_insert_with_inner(typeid, inserter);
       let relation = upstream.into_one_to_many_by_idx_expose_type();
-      let relation = Box::new(relation) as Box<dyn ReactiveOneToManyRelationship<O, M>>;
+      let relation = Box::new(relation) as Box<dyn ReactiveOneToManyRelation<O, M>>;
       let relation = ReactiveKVMapFork::new(relation, true);
 
       let boxed = Box::new(relation) as Box<dyn ShrinkableAny>;
@@ -163,7 +163,7 @@ impl CollectionRegistry {
   pub fn get_or_create_relation_by_hash<O, M, R>(
     &self,
     inserter: impl FnOnce() -> R + Any,
-  ) -> impl ReactiveOneToManyRelationship<O, M> + Clone
+  ) -> impl ReactiveOneToManyRelation<O, M> + Clone
   where
     O: CKey,
     M: CKey,
@@ -183,7 +183,7 @@ impl CollectionRegistry {
       drop(relations);
       let upstream = self.fork_or_insert_with_inner(typeid, inserter);
       let relation = upstream.into_one_to_many_by_hash_expose_type();
-      let relation = Box::new(relation) as Box<dyn ReactiveOneToManyRelationship<O, M>>;
+      let relation = Box::new(relation) as Box<dyn ReactiveOneToManyRelation<O, M>>;
       let relation = ReactiveKVMapFork::new(relation, true);
 
       let boxed = Box::new(relation) as Box<dyn ShrinkableAny>;

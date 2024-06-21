@@ -33,7 +33,7 @@ pub struct AttributeMeshDefaultRenderImplProvider {
 impl RenderImplProvider<Box<dyn GLESModelShapeRenderImpl>>
   for AttributeMeshDefaultRenderImplProvider
 {
-  fn register_resource(&mut self, source: &mut ReactiveStateJoinUpdater, cx: &GPUResourceCtx) {
+  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPUResourceCtx) {
     let multi_access =
       global_rev_ref().watch_inv_ref::<AttributeMeshVertexBufferRelationRefAttributeMesh>();
     self.multi_access = source.register_reactive_multi_collection(multi_access);

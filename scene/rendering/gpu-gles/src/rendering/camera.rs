@@ -9,7 +9,7 @@ pub struct DefaultGLESCameraRenderImpl {
 }
 
 impl RenderImplProvider<Box<dyn GLESCameraRenderImpl>> for DefaultGLESCameraRenderImplProvider {
-  fn register_resource(&mut self, source: &mut ReactiveStateJoinUpdater, cx: &GPUResourceCtx) {
+  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPUResourceCtx) {
     let projection = camera_project_matrix();
     let node_mats = scene_node_derive_world_mat();
 
