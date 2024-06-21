@@ -76,7 +76,7 @@ impl<K: CKey, T: CValue> CollectiveMutationReceiver<K, T> {
   pub fn poll_impl(
     &self,
     cx: &mut Context,
-  ) -> Poll<Option<Box<dyn VirtualCollection<K, ValueChange<T>>>>> {
+  ) -> Poll<Option<Box<dyn DynVirtualCollection<K, ValueChange<T>>>>> {
     self.inner.1.register(cx.waker());
     let mut changes = self.inner.0.write();
     let changes: &mut MutationData<K, T> = &mut changes;
@@ -94,7 +94,7 @@ impl<K: CKey, T: CValue> CollectiveMutationReceiver<K, T> {
 }
 
 impl<K: CKey, T: CValue> Stream for CollectiveMutationReceiver<K, T> {
-  type Item = Box<dyn VirtualCollection<K, ValueChange<T>>>;
+  type Item = Box<dyn DynVirtualCollection<K, ValueChange<T>>>;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     self.poll_impl(cx)

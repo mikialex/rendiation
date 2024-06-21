@@ -57,8 +57,8 @@ struct Allocator {
 }
 
 impl VirtualCollection<u32, u32> for LockReadGuardHolder<Allocator> {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (u32, u32)> + '_> {
-    Box::new(self.allocated.iter().map(|(k, v)| (*k, v.1)))
+  fn iter_key_value(&self) -> impl Iterator<Item = (u32, u32)> + '_ {
+    self.allocated.iter().map(|(k, v)| (*k, v.1))
   }
 
   fn access(&self, key: &u32) -> Option<u32> {

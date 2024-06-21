@@ -179,9 +179,9 @@ struct TreeMutNode<'a, K, T, F> {
 
 struct Ctx<'a, K, T, F> {
   derive: CollectionMutationCollectorPtr<K, T>,
-  source: &'a dyn VirtualCollection<K, T>,
+  source: &'a dyn DynVirtualCollection<K, T>,
   connectivity: &'a dyn VirtualMultiCollection<K, K>,
-  parent_connectivity: &'a dyn VirtualCollection<K, K>,
+  parent_connectivity: &'a dyn DynVirtualCollection<K, K>,
   derive_logic: F,
 }
 
@@ -210,7 +210,7 @@ where
   /// return has actually changed
   pub fn update(&mut self, parent: Option<&Self>) -> bool {
     let parent_derive = parent.map(|parent| parent.get_derive());
-    let self_source = self.ctx.source.access(&self.idx).unwrap();
+    let self_source = self.ctx.source.access_dyn(&self.idx).unwrap();
     self.set_derive((self.ctx.derive_logic)(&self_source, parent_derive))
   }
 }
@@ -232,7 +232,7 @@ impl<'a, K: CKey, T, F> AbstractParentAddressableMutTreeNode for TreeMutNode<'a,
     self
       .ctx
       .parent_connectivity
-      .access(&self.idx)
+      .access_dyn(&self.idx)
       .map(|idx| TreeMutNode {
         phantom: PhantomData,
         idx,

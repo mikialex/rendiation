@@ -9,7 +9,7 @@ pub struct OneToManyRefHashBookKeeping<O, M, T> {
 
 #[derive(Clone)]
 pub struct OneToManyRefHashBookKeepingCurrentView<'a, M: CKey, O: CKey> {
-  upstream: Box<dyn VirtualCollection<M, O> + 'a>,
+  upstream: Box<dyn DynVirtualCollection<M, O> + 'a>,
   mapping: LockReadGuardHolder<FastHashMap<O, FastHashSet<M>>>,
 }
 
@@ -22,7 +22,7 @@ where
     self.upstream.access(m)
   }
 
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (M, O)> + '_> {
+  fn iter_key_value(&self) -> impl Iterator<Item = (M, O)> + '_ {
     self.upstream.iter_key_value()
   }
 }
@@ -125,7 +125,7 @@ pub struct Mapping {
 
 #[derive(Clone)]
 pub struct OneToManyRefDenseBookKeepingCurrentView<'a, M: CKey, O: CKey> {
-  upstream: Box<dyn VirtualCollection<M, O> + 'a>,
+  upstream: Box<dyn DynVirtualCollection<M, O> + 'a>,
   mapping: LockReadGuardHolder<Mapping>,
 }
 
@@ -138,7 +138,7 @@ where
     self.upstream.access(m)
   }
 
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (M, O)> + '_> {
+  fn iter_key_value(&self) -> impl Iterator<Item = (M, O)> + '_ {
     self.upstream.iter_key_value()
   }
 }

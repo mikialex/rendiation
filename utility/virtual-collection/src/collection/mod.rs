@@ -1,13 +1,16 @@
 use crate::*;
 
+mod dyn_impl;
+pub use dyn_impl::*;
+
 mod operator;
 pub use operator::*;
 
 mod self_contain;
 pub use self_contain::*;
 
-pub trait VirtualCollection<K: CKey, V: CValue>: Send + Sync + DynClone {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, V)> + '_>;
+pub trait VirtualCollection<K: CKey, V: CValue>: Send + Sync + Clone {
+  fn iter_key_value(&self) -> impl Iterator<Item = (K, V)> + '_;
   fn access(&self, key: &K) -> Option<V>;
   fn contains(&self, key: &K) -> bool {
     self.access(key).is_some()
@@ -20,36 +23,11 @@ pub trait VirtualCollection<K: CKey, V: CValue>: Send + Sync + DynClone {
     Arc::try_unwrap(self.materialize()).unwrap_or_else(|m| m.deref().clone())
   }
 }
-impl<'a, K, V> Clone for Box<dyn VirtualCollection<K, V> + 'a> {
-  fn clone(&self) -> Self {
-    dyn_clone::clone_box(&**self)
-  }
-}
-
-impl<'a, K: CKey, V: CValue> VirtualCollection<K, V> for Box<dyn VirtualCollection<K, V> + 'a> {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, V)> + '_> {
-    (**self).iter_key_value()
-  }
-
-  fn access(&self, key: &K) -> Option<V> {
-    (**self).access(key)
-  }
-}
-
-impl<'a, K: CKey, V: CValue> VirtualCollection<K, V> for &'a dyn VirtualCollection<K, V> {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, V)> + '_> {
-    (*self).iter_key_value()
-  }
-
-  fn access(&self, key: &K) -> Option<V> {
-    (*self).access(key)
-  }
-}
 
 /// it's useful to use () as the empty collection
 impl<K: CKey, V: CValue> VirtualCollection<K, V> for () {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, V)> + '_> {
-    Box::new([].into_iter())
+  fn iter_key_value(&self) -> impl Iterator<Item = (K, V)> + '_ {
+    std::iter::empty()
   }
 
   fn access(&self, _: &K) -> Option<V> {
@@ -58,8 +36,8 @@ impl<K: CKey, V: CValue> VirtualCollection<K, V> for () {
 }
 
 impl<K: CKey, V: CValue> VirtualCollection<K, V> for Arc<FastHashMap<K, V>> {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, V)> + '_> {
-    Box::new(self.iter().map(|(k, v)| (k.clone(), v.clone())))
+  fn iter_key_value(&self) -> impl Iterator<Item = (K, V)> + '_ {
+    self.iter().map(|(k, v)| (k.clone(), v.clone()))
   }
 
   fn access(&self, key: &K) -> Option<V> {
@@ -71,8 +49,8 @@ impl<K: CKey, V: CValue> VirtualCollection<K, V> for Arc<FastHashMap<K, V>> {
 }
 
 impl<K: CKey, V: CValue> VirtualCollection<K, V> for FastHashMap<K, V> {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, V)> + '_> {
-    Box::new(self.iter().map(|(k, v)| (k.clone(), v.clone())))
+  fn iter_key_value(&self) -> impl Iterator<Item = (K, V)> + '_ {
+    self.iter().map(|(k, v)| (k.clone(), v.clone()))
   }
 
   fn access(&self, key: &K) -> Option<V> {
@@ -81,8 +59,8 @@ impl<K: CKey, V: CValue> VirtualCollection<K, V> for FastHashMap<K, V> {
 }
 
 impl<K: CKey, V: CValue> VirtualCollection<K, V> for dashmap::DashMap<K, V, FastHasherBuilder> {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, V)> + '_> {
-    Box::new(self.iter().map(|v| (v.key().clone(), v.value().clone())))
+  fn iter_key_value(&self) -> impl Iterator<Item = (K, V)> + '_ {
+    self.iter().map(|v| (v.key().clone(), v.value().clone()))
   }
 
   fn access(&self, key: &K) -> Option<V> {
@@ -91,8 +69,8 @@ impl<K: CKey, V: CValue> VirtualCollection<K, V> for dashmap::DashMap<K, V, Fast
 }
 
 impl<V: CValue> VirtualCollection<u32, V> for Arena<V> {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (u32, V)> + '_> {
-    Box::new(self.iter().map(|(h, v)| (h.index() as u32, v.clone())))
+  fn iter_key_value(&self) -> impl Iterator<Item = (u32, V)> + '_ {
+    self.iter().map(|(h, v)| (h.index() as u32, v.clone()))
   }
 
   fn access(&self, key: &u32) -> Option<V> {
@@ -102,8 +80,8 @@ impl<V: CValue> VirtualCollection<u32, V> for Arena<V> {
 }
 
 impl<V: CValue> VirtualCollection<u32, V> for IndexReusedVec<V> {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (u32, V)> + '_> {
-    Box::new(self.iter().map(|(k, v)| (k, v.clone())))
+  fn iter_key_value(&self) -> impl Iterator<Item = (u32, V)> + '_ {
+    self.iter().map(|(k, v)| (k, v.clone()))
   }
 
   fn access(&self, key: &u32) -> Option<V> {
@@ -112,12 +90,10 @@ impl<V: CValue> VirtualCollection<u32, V> for IndexReusedVec<V> {
 }
 
 impl<K: CKey + LinearIdentification, V: CValue> VirtualCollection<K, V> for IndexKeptVec<V> {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, V)> + '_> {
-    Box::new(
-      self
-        .iter()
-        .map(|(k, v)| (K::from_alloc_index(k), v.clone())),
-    )
+  fn iter_key_value(&self) -> impl Iterator<Item = (K, V)> + '_ {
+    self
+      .iter()
+      .map(|(k, v)| (K::from_alloc_index(k), v.clone()))
   }
 
   fn access(&self, key: &K) -> Option<V> {

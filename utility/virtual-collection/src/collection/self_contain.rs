@@ -1,18 +1,18 @@
 use crate::*;
 
-pub trait VirtualCollectionSelfContained<K: CKey, V: CValue>: VirtualCollection<K, V> {
+pub trait VirtualCollectionSelfContained<K: CKey, V: CValue>: DynVirtualCollection<K, V> {
   fn access_ref(&self, key: &K) -> Option<&V>;
 }
 
 impl<'a, K: CKey, V: CValue> VirtualCollection<K, V>
   for &'a dyn VirtualCollectionSelfContained<K, V>
 {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, V)> + '_> {
-    (**self).iter_key_value()
+  fn iter_key_value(&self) -> impl Iterator<Item = (K, V)> + '_ {
+    (**self).iter_key_value_dyn()
   }
 
   fn access(&self, key: &K) -> Option<V> {
-    (**self).access(key)
+    (**self).access_dyn(key)
   }
 }
 

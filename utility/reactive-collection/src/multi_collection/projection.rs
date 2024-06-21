@@ -121,8 +121,8 @@ where
 
 #[derive(Clone)]
 struct OneToManyFanoutCurrentView<'a, O, M, X> {
-  upstream: Box<dyn VirtualCollection<O, X> + 'a>,
-  relation: Box<dyn VirtualCollection<M, O> + 'a>,
+  upstream: Box<dyn DynVirtualCollection<O, X> + 'a>,
+  relation: Box<dyn DynVirtualCollection<M, O> + 'a>,
 }
 
 impl<'a, O, M, X> VirtualCollection<M, X> for OneToManyFanoutCurrentView<'a, O, M, X>
@@ -131,14 +131,12 @@ where
   M: CKey,
   X: CValue,
 {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (M, X)> + '_> {
+  fn iter_key_value(&self) -> impl Iterator<Item = (M, X)> + '_ {
     // this is pretty costly
-    Box::new(
-      self
-        .relation
-        .iter_key_value()
-        .filter_map(|(k, _v)| self.access(&k).map(|v| (k, v))),
-    )
+    self
+      .relation
+      .iter_key_value()
+      .filter_map(|(k, _v)| self.access(&k).map(|v| (k, v)))
   }
 
   fn access(&self, key: &M) -> Option<X> {
@@ -290,8 +288,8 @@ struct ManyToOneReduceCurrentView<O: CKey> {
 }
 
 impl<O: CKey> VirtualCollection<O, ()> for ManyToOneReduceCurrentView<O> {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (O, ())> + '_> {
-    Box::new(self.ref_count.iter().map(|(k, _)| (k.clone(), ())))
+  fn iter_key_value(&self) -> impl Iterator<Item = (O, ())> + '_ {
+    self.ref_count.iter().map(|(k, _)| (k.clone(), ()))
   }
 
   fn access(&self, key: &O) -> Option<()> {

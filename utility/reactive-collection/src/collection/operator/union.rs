@@ -59,8 +59,8 @@ where
 
 #[derive(Clone)]
 struct UnionCollection<'a, K, V1, V2, F> {
-  a: Box<dyn VirtualCollection<K, V1> + 'a>,
-  b: Box<dyn VirtualCollection<K, V2> + 'a>,
+  a: Box<dyn DynVirtualCollection<K, V1> + 'a>,
+  b: Box<dyn DynVirtualCollection<K, V2> + 'a>,
   f: F,
 }
 
@@ -72,7 +72,7 @@ where
   V1: CValue,
   V2: CValue,
 {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, O)> + '_> {
+  fn iter_key_value(&self) -> impl Iterator<Item = (K, O)> + '_ {
     let a_side = self
       .a
       .iter_key_value()
@@ -84,7 +84,7 @@ where
       .filter(|(k, _)| self.a.access(k).is_none()) // remove the a_side part
       .filter_map(|(k, v2)| (self.f)((self.a.access(&k), Some(v2))).map(|v| (k, v)));
 
-    Box::new(a_side.chain(b_side))
+    a_side.chain(b_side)
   }
 
   fn access(&self, key: &K) -> Option<O> {
@@ -94,10 +94,10 @@ where
 
 #[derive(Clone)]
 struct UnionValueChange<'a, K, V1, V2, F> {
-  a: Box<dyn VirtualCollection<K, ValueChange<V1>> + 'a>,
-  b: Box<dyn VirtualCollection<K, ValueChange<V2>> + 'a>,
-  a_current: Box<dyn VirtualCollection<K, V1> + 'a>,
-  b_current: Box<dyn VirtualCollection<K, V2> + 'a>,
+  a: Box<dyn DynVirtualCollection<K, ValueChange<V1>> + 'a>,
+  b: Box<dyn DynVirtualCollection<K, ValueChange<V2>> + 'a>,
+  a_current: Box<dyn DynVirtualCollection<K, V1> + 'a>,
+  b_current: Box<dyn DynVirtualCollection<K, V2> + 'a>,
   f: F,
 }
 
@@ -110,7 +110,7 @@ where
   V1: CValue,
   V2: CValue,
 {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, ValueChange<O>)> + '_> {
+  fn iter_key_value(&self) -> impl Iterator<Item = (K, ValueChange<O>)> + '_ {
     let checker = make_checker(self.f);
 
     let a_side = self.a.iter_key_value().filter_map(move |(k, v1)| {
@@ -141,7 +141,7 @@ where
         .map(|v| (k, v))
       });
 
-    Box::new(a_side.chain(b_side))
+    a_side.chain(b_side)
   }
 
   fn access(&self, key: &K) -> Option<ValueChange<O>> {

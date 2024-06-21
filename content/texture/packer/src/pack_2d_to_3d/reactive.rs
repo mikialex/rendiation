@@ -57,15 +57,13 @@ struct PackerCurrentView {
 }
 
 impl VirtualCollection<u32, PackResult2dWithDepth> for PackerCurrentView {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (u32, PackResult2dWithDepth)> + '_> {
-    Box::new(
-      self
-        .packer
-        .current_states()
-        .1
-        .iter()
-        .map(|(k, v)| (k.0, v.1)),
-    )
+  fn iter_key_value(&self) -> impl Iterator<Item = (u32, PackResult2dWithDepth)> + '_ {
+    self
+      .packer
+      .current_states()
+      .1
+      .iter()
+      .map(|(k, v)| (k.0, v.1))
   }
 
   fn access(&self, key: &u32) -> Option<PackResult2dWithDepth> {

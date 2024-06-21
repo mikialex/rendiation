@@ -65,13 +65,11 @@ where
   K: CKey,
   V: CValue,
 {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, ValueChange<V>)> + '_> {
-    Box::new(
-      self
-        .inner
-        .iter_key_value()
-        .filter(|(_, v)| !v.is_redundant()),
-    )
+  fn iter_key_value(&self) -> impl Iterator<Item = (K, ValueChange<V>)> + '_ {
+    self
+      .inner
+      .iter_key_value()
+      .filter(|(_, v)| !v.is_redundant())
   }
 
   fn access(&self, key: &K) -> Option<ValueChange<V>> {

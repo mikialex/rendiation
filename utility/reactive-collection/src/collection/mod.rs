@@ -10,9 +10,9 @@ pub enum ExtraCollectionOperation {
   MemoryShrinkToFit,
 }
 
-pub type CollectionChanges<K, V> = Box<dyn VirtualCollection<K, ValueChange<V>>>;
+pub type CollectionChanges<K, V> = Box<dyn DynVirtualCollection<K, ValueChange<V>>>;
 pub type PollCollectionChanges<K, V> = Poll<CollectionChanges<K, V>>;
-pub type CollectionView<K, V> = Box<dyn VirtualCollection<K, V>>;
+pub type CollectionView<K, V> = Box<dyn DynVirtualCollection<K, V>>;
 pub type PollCollectionCurrent<K, V> = CollectionView<K, V>;
 
 pub trait ReactiveCollection<K: CKey, V: CValue>: Sync + Send + 'static {
@@ -25,7 +25,7 @@ pub trait ReactiveCollection<K: CKey, V: CValue>: Sync + Send + 'static {
   fn spin_poll_until_pending(
     &mut self,
     cx: &mut Context,
-    consumer: &mut dyn FnMut(&dyn VirtualCollection<K, ValueChange<V>>),
+    consumer: &mut dyn FnMut(&dyn DynVirtualCollection<K, ValueChange<V>>),
   ) {
     loop {
       let r = self.poll_changes(cx);
@@ -40,12 +40,12 @@ pub trait ReactiveCollection<K: CKey, V: CValue>: Sync + Send + 'static {
 
 #[derive(Clone)]
 pub struct CollectionPreviousView<'a, K, V> {
-  current: &'a dyn VirtualCollection<K, V>,
-  delta: Option<&'a dyn VirtualCollection<K, ValueChange<V>>>,
+  current: &'a dyn DynVirtualCollection<K, V>,
+  delta: Option<&'a dyn DynVirtualCollection<K, ValueChange<V>>>,
 }
 pub fn make_previous<'a, K, V>(
-  current: &'a dyn VirtualCollection<K, V>,
-  delta: &'a Poll<Box<dyn VirtualCollection<K, ValueChange<V>> + 'a>>,
+  current: &'a dyn DynVirtualCollection<K, V>,
+  delta: &'a Poll<Box<dyn DynVirtualCollection<K, ValueChange<V>> + 'a>>,
 ) -> CollectionPreviousView<'a, K, V> {
   let delta = match delta {
     Poll::Ready(v) => Some(v.as_ref()),
@@ -56,7 +56,7 @@ pub fn make_previous<'a, K, V>(
 
 /// the impl access the previous V
 impl<'a, K: CKey, V: CValue> VirtualCollection<K, V> for CollectionPreviousView<'a, K, V> {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, V)> + '_> {
+  fn iter_key_value(&self) -> impl Iterator<Item = (K, V)> + '_ {
     let current_not_changed = self.current.iter_key_value().filter(|(k, _)| {
       if let Some(delta) = &self.delta {
         !delta.contains(k)
@@ -69,7 +69,7 @@ impl<'a, K: CKey, V: CValue> VirtualCollection<K, V> for CollectionPreviousView<
       let current_changed = delta
         .iter_key_value()
         .filter_map(|(k, v)| v.old_value().map(|v| (k, v.clone())));
-      Box::new(current_not_changed.chain(current_changed))
+      Box::new(current_not_changed.chain(current_changed)) as Box<dyn Iterator<Item = _>>
     } else {
       Box::new(current_not_changed)
     }
@@ -80,10 +80,10 @@ impl<'a, K: CKey, V: CValue> VirtualCollection<K, V> for CollectionPreviousView<
       if let Some(change) = delta.access(key) {
         change.old_value().cloned()
       } else {
-        self.current.access(key)
+        self.current.access_dyn(key)
       }
     } else {
-      self.current.access(key)
+      self.current.access_dyn(key)
     }
   }
 }

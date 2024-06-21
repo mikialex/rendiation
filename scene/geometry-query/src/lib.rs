@@ -9,8 +9,8 @@ use rendiation_texture_core::Size;
 pub struct SceneRayQuery {
   pub world_ray: Ray3,
   pub conf: MeshBufferIntersectConfig,
-  pub node_world: Box<dyn VirtualCollection<u32, Mat4<f32>>>,
-  pub node_visible: Box<dyn VirtualCollection<u32, bool>>,
+  pub node_world: Box<dyn DynVirtualCollection<u32, Mat4<f32>>>,
+  pub node_visible: Box<dyn DynVirtualCollection<u32, bool>>,
   pub model_lookup:
     Box<dyn VirtualMultiCollection<EntityHandle<SceneEntity>, EntityHandle<SceneModelEntity>>>,
   pub camera_view_size: Size,

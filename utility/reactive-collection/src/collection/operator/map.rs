@@ -106,7 +106,7 @@ where
         })
         .collect();
 
-      Box::new(Arc::new(materialized)) as Box<dyn VirtualCollection<K, ValueChange<V2>>>
+      Box::new(Arc::new(materialized)) as Box<dyn DynVirtualCollection<K, ValueChange<V2>>>
     })
   }
 

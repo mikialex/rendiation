@@ -56,10 +56,10 @@ where
 
 #[derive(Clone)]
 struct CrossJoinValueChange<'a, K1, K2, V1, V2> {
-  a: Box<dyn VirtualCollection<K1, ValueChange<V1>> + 'a>,
-  b: Box<dyn VirtualCollection<K2, ValueChange<V2>> + 'a>,
-  a_current: Box<dyn VirtualCollection<K1, V1> + 'a>,
-  b_current: Box<dyn VirtualCollection<K2, V2> + 'a>,
+  a: Box<dyn DynVirtualCollection<K1, ValueChange<V1>> + 'a>,
+  b: Box<dyn DynVirtualCollection<K2, ValueChange<V2>> + 'a>,
+  a_current: Box<dyn DynVirtualCollection<K1, V1> + 'a>,
+  b_current: Box<dyn DynVirtualCollection<K2, V2> + 'a>,
 }
 
 impl<'a, K1, K2, V1, V2> VirtualCollection<(K1, K2), ValueChange<(V1, V2)>>
@@ -70,7 +70,7 @@ where
   V1: CValue,
   V2: CValue,
 {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = ((K1, K2), ValueChange<(V1, V2)>)> + '_> {
+  fn iter_key_value(&self) -> impl Iterator<Item = ((K1, K2), ValueChange<(V1, V2)>)> + '_ {
     let cross_section = self.a.iter_key_value().flat_map(move |(k1, v1_change)| {
       self.b.iter_key_value().map(move |(k2, v2_change)| {
         join_change(
@@ -124,11 +124,9 @@ where
         })
     });
 
-    Box::new(
-      cross_section
-        .chain(a_side_change_with_b)
-        .chain(b_side_change_with_a),
-    )
+    cross_section
+      .chain(a_side_change_with_b)
+      .chain(b_side_change_with_a)
   }
 
   fn access(&self, (k1, k2): &(K1, K2)) -> Option<ValueChange<(V1, V2)>> {
@@ -158,8 +156,8 @@ fn exist_both<V1, V2>(
 
 #[derive(Clone)]
 struct CrossJoinCollection<'a, K1, K2, V1, V2> {
-  a: Box<dyn VirtualCollection<K1, V1> + 'a>,
-  b: Box<dyn VirtualCollection<K2, V2> + 'a>,
+  a: Box<dyn DynVirtualCollection<K1, V1> + 'a>,
+  b: Box<dyn DynVirtualCollection<K2, V2> + 'a>,
 }
 
 impl<'a, K1, K2, V1, V2> VirtualCollection<(K1, K2), (V1, V2)>
@@ -170,13 +168,13 @@ where
   V1: CValue,
   V2: CValue,
 {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = ((K1, K2), (V1, V2))> + '_> {
-    Box::new(self.a.iter_key_value().flat_map(move |(k1, v1)| {
+  fn iter_key_value(&self) -> impl Iterator<Item = ((K1, K2), (V1, V2))> + '_ {
+    self.a.iter_key_value().flat_map(move |(k1, v1)| {
       self
         .b
         .iter_key_value()
         .map(move |(k2, v2)| ((k1.clone(), k2), (v1.clone(), v2)))
-    }))
+    })
   }
 
   fn access(&self, key: &(K1, K2)) -> Option<(V1, V2)> {

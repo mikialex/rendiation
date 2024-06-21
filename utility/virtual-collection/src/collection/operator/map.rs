@@ -1,23 +1,25 @@
 use crate::*;
 
 #[derive(Clone)]
-pub struct MappedCollection<'a, K, V, F> {
-  pub base: Box<dyn VirtualCollection<K, V> + 'a>,
+pub struct MappedCollection<K, V, F, T> {
+  pub base: T,
   pub mapper: F,
+  pub phantom: PhantomData<(K, V)>,
 }
 
-impl<'a, K, V, V2, F> VirtualCollection<K, V2> for MappedCollection<'a, K, V, F>
+impl<K, V, V2, F, T> VirtualCollection<K, V2> for MappedCollection<K, V, F, T>
 where
   K: CKey,
   V: CValue,
   V2: CValue,
   F: Fn(&K, V) -> V2 + Clone + Send + Sync + 'static,
+  T: VirtualCollection<K, V>,
 {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, V2)> + '_> {
-    Box::new(self.base.iter_key_value().map(|(k, v)| {
+  fn iter_key_value(&self) -> impl Iterator<Item = (K, V2)> + '_ {
+    self.base.iter_key_value().map(|(k, v)| {
       let v = (self.mapper)(&k, v);
       (k, v)
-    }))
+    })
   }
 
   fn access(&self, key: &K) -> Option<V2> {
@@ -26,25 +28,27 @@ where
 }
 
 #[derive(Clone)]
-pub struct KeyDualMapCollection<'a, K, V, F1, F2> {
-  pub base: Box<dyn VirtualCollection<K, V> + 'a>,
+pub struct KeyDualMapCollection<K, V, F1, F2, T> {
+  pub base: T,
   pub f1: F1,
   pub f2: F2,
+  pub phantom: PhantomData<(K, V)>,
 }
 
-impl<'a, K, K2, V, F1, F2> VirtualCollection<K2, V> for KeyDualMapCollection<'a, K, V, F1, F2>
+impl<K, K2, V, F1, F2, T> VirtualCollection<K2, V> for KeyDualMapCollection<K, V, F1, F2, T>
 where
   K: CKey,
   K2: CKey,
   V: CValue,
   F1: Fn(K) -> K2 + Clone + Send + Sync + 'static,
   F2: Fn(K2) -> Option<K> + Clone + Send + Sync + 'static,
+  T: VirtualCollection<K, V>,
 {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K2, V)> + '_> {
-    Box::new(self.base.iter_key_value().map(|(k, v)| {
+  fn iter_key_value(&self) -> impl Iterator<Item = (K2, V)> + '_ {
+    self.base.iter_key_value().map(|(k, v)| {
       let k = (self.f1)(k);
       (k, v)
-    }))
+    })
   }
 
   fn access(&self, key: &K2) -> Option<V> {

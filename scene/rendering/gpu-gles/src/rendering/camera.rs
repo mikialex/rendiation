@@ -43,7 +43,7 @@ impl GLESCameraRenderImpl for DefaultGLESCameraRenderImpl {
   ) {
     let uniform = self.uniforms.get(&camera).unwrap();
     uniform.write_at(
-      &queue,
+      queue,
       &jitter,
       offset_of!(CameraGPUTransform, jitter_normalized) as u64,
     );

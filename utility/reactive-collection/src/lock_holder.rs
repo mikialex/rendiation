@@ -2,14 +2,14 @@ use crate::*;
 
 pub(crate) trait MakeLockResultHolder<K, V>: Sized {
   /// note, this method should be considered as the unsafe
-  fn make_lock_holder_collection(&self) -> Box<dyn VirtualCollection<K, V>>;
+  fn make_lock_holder_collection(&self) -> Box<dyn DynVirtualCollection<K, V>>;
 }
 
 impl<T, K: CKey, V: CValue> MakeLockResultHolder<K, V> for Arc<RwLock<T>>
 where
   T: VirtualCollection<K, V> + 'static,
 {
-  fn make_lock_holder_collection(&self) -> Box<dyn VirtualCollection<K, V>> {
+  fn make_lock_holder_collection(&self) -> Box<dyn DynVirtualCollection<K, V>> {
     Box::new(self.make_read_holder())
   }
 }
@@ -17,7 +17,7 @@ where
 impl<K: CKey, V: CValue, T: VirtualCollection<K, V>> VirtualCollection<K, V>
   for LockReadGuardHolder<T>
 {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (K, V)> + '_> {
+  fn iter_key_value(&self) -> impl Iterator<Item = (K, V)> + '_ {
     (**self).iter_key_value()
   }
 
@@ -26,8 +26,11 @@ impl<K: CKey, V: CValue, T: VirtualCollection<K, V>> VirtualCollection<K, V>
   }
 }
 
-impl<K: CKey, V: CValue, T: VirtualCollectionSelfContained<K, V>>
-  VirtualCollectionSelfContained<K, V> for LockReadGuardHolder<T>
+impl<K, V, T> VirtualCollectionSelfContained<K, V> for LockReadGuardHolder<T>
+where
+  K: CKey,
+  V: CValue,
+  T: VirtualCollection<K, V> + VirtualCollectionSelfContained<K, V>,
 {
   fn access_ref(&self, key: &K) -> Option<&V> {
     self.deref().access_ref(key)

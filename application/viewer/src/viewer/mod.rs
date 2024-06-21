@@ -155,8 +155,8 @@ impl Viewer3dSceneDeriveSource {
 
 /// used in render & scene update
 pub struct Viewer3dSceneDerive {
-  pub world_mat: Box<dyn VirtualCollection<EntityHandle<SceneNodeEntity>, Mat4<f32>>>,
-  pub camera_proj: Box<dyn VirtualCollection<EntityHandle<SceneCameraEntity>, Mat4<f32>>>,
+  pub world_mat: Box<dyn DynVirtualCollection<EntityHandle<SceneNodeEntity>, Mat4<f32>>>,
+  pub camera_proj: Box<dyn DynVirtualCollection<EntityHandle<SceneCameraEntity>, Mat4<f32>>>,
 }
 
 pub struct Viewer3dSceneCtxWriterWidget<V>(pub V);

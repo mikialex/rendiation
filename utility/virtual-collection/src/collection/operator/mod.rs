@@ -8,7 +8,7 @@ pub use filter::*;
 pub trait VirtualCollectionExt<K: CKey, V: CValue>:
   VirtualCollection<K, V> + Sized + 'static
 {
-  fn into_boxed(self) -> Box<dyn VirtualCollection<K, V>> {
+  fn into_boxed(self) -> Box<dyn DynVirtualCollection<K, V>> {
     Box::new(self)
   }
 
@@ -17,8 +17,9 @@ pub trait VirtualCollectionExt<K: CKey, V: CValue>:
     mapper: impl Fn(&K, V) -> V2 + Clone + Send + Sync + 'static,
   ) -> impl VirtualCollection<K, V2> {
     MappedCollection {
-      base: self.into_boxed(),
+      base: self,
       mapper,
+      phantom: PhantomData,
     }
   }
 
@@ -27,8 +28,9 @@ pub trait VirtualCollectionExt<K: CKey, V: CValue>:
     mapper: impl Fn(V) -> Option<V2> + Clone + Send + Sync + 'static,
   ) -> impl VirtualCollection<K, V2> {
     CollectionFilter {
-      base: self.into_boxed(),
+      base: self,
       mapper,
+      phantom: PhantomData,
     }
   }
 
@@ -38,9 +40,10 @@ pub trait VirtualCollectionExt<K: CKey, V: CValue>:
     f2: impl Fn(K2) -> Option<K> + Clone + Send + Sync + 'static,
   ) -> impl VirtualCollection<K2, V> {
     KeyDualMapCollection {
-      base: self.into_boxed(),
+      base: self,
       f1,
       f2,
+      phantom: PhantomData,
     }
   }
 
