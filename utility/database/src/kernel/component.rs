@@ -98,13 +98,11 @@ impl<T> Clone for IterableComponentReadView<T> {
 }
 
 impl<T: CValue> VirtualCollection<u32, T> for IterableComponentReadView<T> {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (u32, T)> + '_> {
-    Box::new(
-      self
-        .ecg
-        .iter_entity_idx()
-        .map(|id| (id.alloc_index(), self.read_view.get(id).cloned().unwrap())),
-    )
+  fn iter_key_value(&self) -> impl Iterator<Item = (u32, T)> + '_ {
+    self
+      .ecg
+      .iter_entity_idx()
+      .map(|id| (id.alloc_index(), self.read_view.get(id).cloned().unwrap()))
   }
 
   fn access(&self, key: &u32) -> Option<T> {
@@ -113,13 +111,11 @@ impl<T: CValue> VirtualCollection<u32, T> for IterableComponentReadView<T> {
 }
 
 impl<T: CValue> VirtualCollection<RawEntityHandle, T> for IterableComponentReadView<T> {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (RawEntityHandle, T)> + '_> {
-    Box::new(
-      self
-        .ecg
-        .iter_entity_idx()
-        .map(|id| (id, self.read_view.get(id).cloned().unwrap())),
-    )
+  fn iter_key_value(&self) -> impl Iterator<Item = (RawEntityHandle, T)> + '_ {
+    self
+      .ecg
+      .iter_entity_idx()
+      .map(|id| (id, self.read_view.get(id).cloned().unwrap()))
   }
 
   fn access(&self, key: &RawEntityHandle) -> Option<T> {

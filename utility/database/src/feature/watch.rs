@@ -8,14 +8,14 @@ pub struct DatabaseMutationWatch {
 }
 
 impl<V: CValue> VirtualCollection<RawEntityHandle, V> for Arena<V> {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (RawEntityHandle, V)> + '_> {
-    Box::new(self.iter().map(|(h, v)| {
+  fn iter_key_value(&self) -> impl Iterator<Item = (RawEntityHandle, V)> + '_ {
+    self.iter().map(|(h, v)| {
       let raw = h.into_raw_parts();
       (
         RawEntityHandle(Handle::from_raw_parts(raw.0, raw.1)),
         v.clone(),
       )
-    }))
+    })
   }
 
   fn access(&self, key: &RawEntityHandle) -> Option<V> {
@@ -210,8 +210,8 @@ struct GenerationHelperViewAccess<T, C> {
 impl<C: CValue, T: VirtualCollection<RawEntityHandle, C> + Clone> VirtualCollection<u32, C>
   for GenerationHelperViewAccess<T, C>
 {
-  fn iter_key_value(&self) -> Box<dyn Iterator<Item = (u32, C)> + '_> {
-    Box::new(self.inner.iter_key_value().map(|(h, v)| (h.index(), v)))
+  fn iter_key_value(&self) -> impl Iterator<Item = (u32, C)> + '_ {
+    self.inner.iter_key_value().map(|(h, v)| (h.index(), v))
   }
 
   fn access(&self, key: &u32) -> Option<C> {

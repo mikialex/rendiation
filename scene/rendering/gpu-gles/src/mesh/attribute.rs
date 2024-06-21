@@ -64,7 +64,7 @@ pub struct AttributeMeshVertexAccessView {
   pub semantics: ComponentReadView<AttributeMeshVertexBufferSemantic>,
   pub count: ComponentReadView<SceneBufferViewBufferItemCount<AttributeVertexRef>>,
   pub multi_access: Box<
-    dyn VirtualMultiCollection<
+    dyn DynVirtualMultiCollection<
       EntityHandle<AttributeMeshEntity>,
       EntityHandle<AttributeMeshVertexBufferRelation>,
     >,

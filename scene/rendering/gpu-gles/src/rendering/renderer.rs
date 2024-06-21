@@ -92,7 +92,7 @@ struct GLESSceneRenderer {
   camera: Box<dyn GLESCameraRenderImpl>,
   scene_model_renderer: Vec<Box<dyn SceneModelRenderer>>,
   model_lookup:
-    Box<dyn VirtualMultiCollection<EntityHandle<SceneEntity>, EntityHandle<SceneModelEntity>>>,
+    Box<dyn DynVirtualMultiCollection<EntityHandle<SceneEntity>, EntityHandle<SceneModelEntity>>>,
 }
 
 impl SceneModelRenderer for GLESSceneRenderer {

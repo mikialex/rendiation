@@ -3,7 +3,7 @@ use crate::*;
 pub trait VirtualMultiCollectionExt<K: CKey, V: CValue>:
   VirtualMultiCollection<K, V> + Sized + 'static
 {
-  fn into_boxed(self) -> Box<dyn VirtualMultiCollection<K, V>> {
+  fn into_boxed(self) -> Box<dyn DynVirtualMultiCollection<K, V>> {
     Box::new(self)
   }
 
@@ -12,8 +12,9 @@ pub trait VirtualMultiCollectionExt<K: CKey, V: CValue>:
     mapper: impl Fn(V) -> V2 + Clone + Send + Sync + 'static,
   ) -> impl VirtualMultiCollection<K, V2> {
     MappedMultiCollection {
-      base: self.into_boxed(),
+      base: self,
       mapper,
+      phantom: PhantomData,
     }
   }
 
@@ -23,9 +24,10 @@ pub trait VirtualMultiCollectionExt<K: CKey, V: CValue>:
     f2: impl Fn(K2) -> Option<K> + Clone + Send + Sync + 'static,
   ) -> impl VirtualMultiCollection<K2, V> {
     KeyDualMapMultiCollection {
-      base: self.into_boxed(),
+      base: self,
       f1,
       f2,
+      phantom: PhantomData,
     }
   }
 }
@@ -35,23 +37,25 @@ impl<T: ?Sized, K: CKey, V: CValue> VirtualMultiCollectionExt<K, V> for T where
 }
 
 #[derive(Clone)]
-pub struct MappedMultiCollection<'a, K, V, F> {
-  pub base: Box<dyn VirtualMultiCollection<K, V> + 'a>,
+pub struct MappedMultiCollection<K, V, F, T> {
+  pub base: T,
   pub mapper: F,
+  pub phantom: PhantomData<(K, V)>,
 }
 
-impl<'a, K, V, V2, F> VirtualMultiCollection<K, V2> for MappedMultiCollection<'a, K, V, F>
+impl<K, V, V2, F, T> VirtualMultiCollection<K, V2> for MappedMultiCollection<K, V, F, T>
 where
   K: CKey,
   V: CValue,
   V2: CValue,
   F: Fn(V) -> V2 + Clone + Send + Sync + 'static,
+  T: VirtualMultiCollection<K, V>,
 {
-  fn iter_key_in_multi_collection(&self) -> Box<dyn Iterator<Item = K> + '_> {
+  fn iter_key_in_multi_collection(&self) -> impl Iterator<Item = K> + '_ {
     self.base.iter_key_in_multi_collection()
   }
 
-  fn access_multi(&self, key: &K) -> Option<Box<dyn Iterator<Item = V2> + '_>> {
+  fn access_multi(&self, key: &K) -> Option<impl Iterator<Item = V2> + '_> {
     Some(Box::new(
       self.base.access_multi(key)?.map(|v| (self.mapper)(v)),
     ))
@@ -59,22 +63,24 @@ where
 }
 
 #[derive(Clone)]
-pub struct KeyDualMapMultiCollection<'a, K, V, F1, F2> {
-  pub base: Box<dyn VirtualMultiCollection<K, V> + 'a>,
+pub struct KeyDualMapMultiCollection<K, V, F1, F2, T> {
+  pub base: T,
   pub f1: F1,
   pub f2: F2,
+  pub phantom: PhantomData<(K, V)>,
 }
 
-impl<'a, K, K2, V, F1, F2> VirtualMultiCollection<K2, V>
-  for KeyDualMapMultiCollection<'a, K, V, F1, F2>
+impl<K, K2, V, F1, F2, T> VirtualMultiCollection<K2, V>
+  for KeyDualMapMultiCollection<K, V, F1, F2, T>
 where
   K: CKey,
   K2: CKey,
   V: CValue,
   F1: Fn(K) -> K2 + Clone + Send + Sync + 'static,
   F2: Fn(K2) -> Option<K> + Clone + Send + Sync + 'static,
+  T: VirtualMultiCollection<K, V>,
 {
-  fn iter_key_in_multi_collection(&self) -> Box<dyn Iterator<Item = K2> + '_> {
+  fn iter_key_in_multi_collection(&self) -> impl Iterator<Item = K2> + '_ {
     Box::new(
       self
         .base
@@ -83,8 +89,10 @@ where
     )
   }
 
-  fn access_multi(&self, key: &K2) -> Option<Box<dyn Iterator<Item = V> + '_>> {
+  fn access_multi(&self, key: &K2) -> Option<impl Iterator<Item = V> + '_> {
     let k = (self.f2)(key.clone())?;
-    self.base.access_multi(&k)
+    // I believe this is a compiler bug
+    let k: &'static K = unsafe { std::mem::transmute(&k) };
+    self.base.access_multi(k)
   }
 }

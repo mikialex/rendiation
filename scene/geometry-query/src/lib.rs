@@ -12,7 +12,7 @@ pub struct SceneRayQuery {
   pub node_world: Box<dyn DynVirtualCollection<u32, Mat4<f32>>>,
   pub node_visible: Box<dyn DynVirtualCollection<u32, bool>>,
   pub model_lookup:
-    Box<dyn VirtualMultiCollection<EntityHandle<SceneEntity>, EntityHandle<SceneModelEntity>>>,
+    Box<dyn DynVirtualMultiCollection<EntityHandle<SceneEntity>, EntityHandle<SceneModelEntity>>>,
   pub camera_view_size: Size,
 
   pub scene_model_picker: Vec<Box<dyn SceneModelPicker>>,

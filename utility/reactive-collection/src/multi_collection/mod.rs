@@ -12,11 +12,11 @@ pub use projection::*;
 use crate::*;
 
 pub trait ReactiveOneToManyRelation<O: CKey, M: CKey>: ReactiveCollection<M, O> {
-  fn multi_access(&self) -> Box<dyn VirtualMultiCollection<O, M>>;
+  fn multi_access(&self) -> Box<dyn DynVirtualMultiCollection<O, M>>;
 }
 
 impl<O: CKey, M: CKey> ReactiveOneToManyRelation<O, M> for () {
-  fn multi_access(&self) -> Box<dyn VirtualMultiCollection<O, M>> {
+  fn multi_access(&self) -> Box<dyn DynVirtualMultiCollection<O, M>> {
     Box::new(())
   }
 }
@@ -80,7 +80,7 @@ where
   O: CKey,
   M: CKey,
 {
-  fn multi_access(&self) -> Box<dyn VirtualMultiCollection<O, M>> {
+  fn multi_access(&self) -> Box<dyn DynVirtualMultiCollection<O, M>> {
     self.deref().multi_access()
   }
 }

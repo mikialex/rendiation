@@ -216,7 +216,7 @@ where
   K: CKey,
   V: CKey,
 {
-  fn multi_access(&self) -> Box<dyn VirtualMultiCollection<V, K>> {
+  fn multi_access(&self) -> Box<dyn DynVirtualMultiCollection<V, K>> {
     self.upstream.read().multi_access()
   }
 }

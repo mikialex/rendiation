@@ -16,8 +16,7 @@ impl DatabaseEntityReverseReference {
 
   pub fn watch_inv_ref<S: ForeignKeySemantic>(
     &self,
-  ) -> impl ReactiveOneToManyRelation<EntityHandle<S::ForeignEntity>, EntityHandle<S::Entity>>
-  {
+  ) -> impl ReactiveOneToManyRelation<EntityHandle<S::ForeignEntity>, EntityHandle<S::Entity>> {
     self
       .watch_inv_ref_dyn(S::component_id(), S::Entity::entity_id())
       .map_value(|v| unsafe { EntityHandle::from_raw(*v) })
@@ -83,7 +82,7 @@ impl<T: ReactiveOneToManyRelation<RawEntityHandle, RawEntityHandle>>
 where
   Self: ReactiveCollection<u32, u32>,
 {
-  fn multi_access(&self) -> Box<dyn VirtualMultiCollection<u32, u32>> {
+  fn multi_access(&self) -> Box<dyn DynVirtualMultiCollection<u32, u32>> {
     let allocator = self.allocator.make_read_holder();
 
     self

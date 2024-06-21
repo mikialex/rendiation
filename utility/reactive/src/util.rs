@@ -97,10 +97,10 @@ impl ConcurrentStreamUpdateResult {
   pub fn take_multi_reactive_collection_updated<K: CKey, V: CKey>(
     &mut self,
     token: UpdateResultToken,
-  ) -> Option<Box<dyn VirtualMultiCollection<K, V>>> {
+  ) -> Option<Box<dyn DynVirtualMultiCollection<K, V>>> {
     self
       .take_result(token)?
-      .downcast::<Box<dyn VirtualMultiCollection<K, V>>>()
+      .downcast::<Box<dyn DynVirtualMultiCollection<K, V>>>()
       .ok()
       .map(|v| *v)
   }

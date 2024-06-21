@@ -32,17 +32,13 @@ where
   M: CKey,
   O: CKey,
 {
-  fn iter_key_in_multi_collection(&self) -> Box<dyn Iterator<Item = O> + '_> {
+  fn iter_key_in_multi_collection(&self) -> impl Iterator<Item = O> + '_ {
     // todo, avoid clone
-    Box::new(self.mapping.keys().cloned().collect::<Vec<_>>().into_iter())
+    self.mapping.keys().cloned().collect::<Vec<_>>().into_iter()
   }
 
-  fn access_multi(&self, o: &O) -> Option<Box<dyn Iterator<Item = M> + '_>> {
-    if let Some(set) = self.mapping.get(o) {
-      Some(Box::new(set.iter().cloned()))
-    } else {
-      None
-    }
+  fn access_multi(&self, o: &O) -> Option<impl Iterator<Item = M> + '_> {
+    self.mapping.get(o).map(|set| set.iter().cloned())
   }
 }
 
@@ -52,7 +48,7 @@ where
   M: CKey,
   O: CKey,
 {
-  fn multi_access(&self) -> Box<dyn VirtualMultiCollection<O, M>> {
+  fn multi_access(&self) -> Box<dyn DynVirtualMultiCollection<O, M>> {
     Box::new(OneToManyRefHashBookKeepingCurrentView {
       upstream: self.upstream.access(),
       mapping: self.mapping.make_read_holder(),
@@ -148,32 +144,31 @@ where
   M: CKey + LinearIdentification,
   O: CKey + LinearIdentification,
 {
-  fn iter_key_in_multi_collection(&self) -> Box<dyn Iterator<Item = O> + '_> {
+  fn iter_key_in_multi_collection(&self) -> impl Iterator<Item = O> + '_ {
     // todo, avoid clone
-    Box::new(
-      self
-        .mapping
-        .mapping
-        .iter()
-        .enumerate()
-        .filter_map(|(i, list)| (!list.is_empty()).then_some(O::from_alloc_index(i as u32)))
-        .collect::<Vec<_>>()
-        .into_iter(),
-    )
+
+    self
+      .mapping
+      .mapping
+      .iter()
+      .enumerate()
+      .filter_map(|(i, list)| (!list.is_empty()).then_some(O::from_alloc_index(i as u32)))
+      .collect::<Vec<_>>()
+      .into_iter()
   }
 
-  fn access_multi(&self, o: &O) -> Option<Box<dyn Iterator<Item = M> + '_>> {
-    if let Some(list) = self.mapping.mapping.get(o.alloc_index() as usize) {
-      Some(Box::new(
+  fn access_multi(&self, o: &O) -> Option<impl Iterator<Item = M> + '_> {
+    self
+      .mapping
+      .mapping
+      .get(o.alloc_index() as usize)
+      .map(|list| {
         self
           .mapping
           .mapping_buffer
           .iter_list(list)
-          .map(|(v, _)| M::from_alloc_index(*v)),
-      ))
-    } else {
-      None
-    }
+          .map(|(v, _)| M::from_alloc_index(*v))
+      })
   }
 }
 
@@ -183,7 +178,7 @@ where
   M: LinearIdentification + CKey,
   O: LinearIdentification + CKey,
 {
-  fn multi_access(&self) -> Box<dyn VirtualMultiCollection<O, M>> {
+  fn multi_access(&self) -> Box<dyn DynVirtualMultiCollection<O, M>> {
     Box::new(OneToManyRefDenseBookKeepingCurrentView {
       upstream: self.upstream.access(),
       mapping: self.mapping.make_read_holder(),

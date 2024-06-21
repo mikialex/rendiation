@@ -180,7 +180,7 @@ struct TreeMutNode<'a, K, T, F> {
 struct Ctx<'a, K, T, F> {
   derive: CollectionMutationCollectorPtr<K, T>,
   source: &'a dyn DynVirtualCollection<K, T>,
-  connectivity: &'a dyn VirtualMultiCollection<K, K>,
+  connectivity: &'a dyn DynVirtualMultiCollection<K, K>,
   parent_connectivity: &'a dyn DynVirtualCollection<K, K>,
   derive_logic: F,
 }
