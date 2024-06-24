@@ -1,6 +1,5 @@
 use crate::*;
 
-// todo, auto impl for T
 pub trait ReactiveCollectionSelfContained<K: CKey, V: CValue>:
   ReactiveCollection<K, V, View: VirtualCollectionSelfContained<K, V>>
 {
@@ -20,6 +19,14 @@ pub trait ReactiveCollectionSelfContained<K: CKey, V: CValue>:
   {
     Box::new(self)
   }
+}
+impl<K, V, T> ReactiveCollectionSelfContained<K, V> for T
+where
+  K: CKey,
+  V: CValue,
+  T: ReactiveCollection<K, V>,
+  T::View: VirtualCollectionSelfContained<K, V>,
+{
 }
 
 pub trait DynReactiveCollectionSelfContained<K: CKey, V: CValue> {
@@ -55,5 +62,3 @@ where
     self.extra_request(request)
   }
 }
-
-impl<K: CKey, V: CValue> ReactiveCollectionSelfContained<K, V> for () {}

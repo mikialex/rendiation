@@ -5,15 +5,6 @@ pub struct UnorderedMaterializedReactiveCollection<Map, K, V> {
   pub cache: Arc<RwLock<FastHashMap<K, V>>>,
 }
 
-impl<Map, K, V> ReactiveCollectionSelfContained<K, V>
-  for UnorderedMaterializedReactiveCollection<Map, K, V>
-where
-  Map: ReactiveCollection<K, V>,
-  K: CKey,
-  V: CValue,
-{
-}
-
 impl<Map, K, V> ReactiveCollection<K, V> for UnorderedMaterializedReactiveCollection<Map, K, V>
 where
   Map: ReactiveCollection<K, V>,
@@ -54,15 +45,6 @@ where
 pub struct LinearMaterializedReactiveCollection<Map, V> {
   pub inner: Map,
   pub cache: Arc<RwLock<IndexKeptVec<V>>>,
-}
-
-impl<Map, K, V> ReactiveCollectionSelfContained<K, V>
-  for LinearMaterializedReactiveCollection<Map, V>
-where
-  Map: ReactiveCollection<K, V>,
-  K: LinearIdentification + CKey,
-  V: CValue,
-{
 }
 
 impl<Map, K, V> ReactiveCollection<K, V> for LinearMaterializedReactiveCollection<Map, V>
