@@ -62,21 +62,37 @@ where
   V: CValue,
 {
   fn clone(&self) -> Self {
-    // when fork the collection, we should pass the current table as the init change
-    let upstream = self.upstream.read_recursive();
+    // get updated current view and delta; this is necessary, because we require
+    // current view as init delta for new forked downstream
+    //
+    // update should use downstream registered waker
+    let waker = Arc::new(BroadCast {
+      inner: self.downstream.clone(),
+    });
+    let waker = futures::task::waker_ref(&waker);
+    let mut cx = Context::from_waker(&waker);
+    let (d, v) = self.upstream.read().poll_changes(&mut cx);
 
-    let u: &Map = &upstream;
-    let current = u
-      .access()
-      .iter_key_value()
-      .map(|(k, v)| (k, ValueChange::Delta(v, None)))
-      .collect::<FastHashMap<_, _>>();
-    let current = Arc::new(current);
+    // delta should also dispatch to downstream to keep message integrity
+    let downstream = self.downstream.read_recursive();
+    let d = d.materialize();
+    for (_, info) in downstream.iter() {
+      if info.should_send {
+        info.sender.unbounded_send(d.clone()).ok();
+      }
+    }
 
+    // now we create new downstream
     let mut downstream = self.downstream.write();
     let id = alloc_global_res_id();
     let (sender, rev) = unbounded();
 
+    // pass the current table as the init change
+    let current = v
+      .iter_key_value()
+      .map(|(k, v)| (k, ValueChange::Delta(v, None)))
+      .collect::<FastHashMap<_, _>>();
+    let current = Arc::new(current);
     if !current.is_empty() {
       sender.unbounded_send(current).ok();
     }
@@ -104,17 +120,17 @@ where
 
 fn finalize_buffered_changes<K: CKey, V: CValue>(
   mut changes: Vec<ForkMessage<K, V>>,
-) -> PollCollectionChanges<K, V> {
+) -> Box<dyn DynVirtualCollection<K, ValueChange<V>>> {
   if changes.is_empty() {
-    return Poll::Pending;
+    return Box::new(());
   }
 
   if changes.len() == 1 {
     let first = changes.pop().unwrap();
     if first.is_empty() {
-      return Poll::Pending;
+      return Box::new(());
     } else {
-      return Poll::Ready(Box::new(first));
+      return Box::new(first);
     }
   }
 
@@ -125,9 +141,9 @@ fn finalize_buffered_changes<K: CKey, V: CValue>(
   }
 
   if target.is_empty() {
-    Poll::Pending
+    Box::new(())
   } else {
-    Poll::Ready(Box::new(target))
+    Box::new(target)
   }
 }
 
@@ -137,13 +153,10 @@ where
   K: CKey,
   V: CValue,
 {
-  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, V> {
-    if self.waker.take().is_some() {
-      self.waker.register(cx.waker());
-      // the previous installed waker not waked, nothing changes, directly return
-      return Poll::Pending;
-    }
-    // install new waker
+  type Changes = impl VirtualCollection<K, ValueChange<V>>;
+  type View = Map::View;
+  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
+    // install new waker, this waker is shared by arc within the downstream info
     self.waker.register(cx.waker());
 
     // read and merge all possible forked buffered messages from channel
@@ -154,40 +167,36 @@ where
     }
 
     // we have to also check the upstream no matter if we have message in channel or not
+    // todo, exponential check cost if we have share rich structure in graph
     let upstream = self.upstream.write();
     let waker = Arc::new(BroadCast {
       inner: self.downstream.clone(),
     });
     let waker = futures::task::waker_ref(&waker);
     let mut cx_2 = Context::from_waker(&waker);
-    let r = upstream.poll_changes(&mut cx_2);
+    let (d, v) = upstream.poll_changes(&mut cx_2);
 
-    match r {
-      Poll::Ready(v) => {
-        let downstream = self.downstream.write();
-        let c = v.materialize();
-        if !c.is_empty() {
-          // broad cast to others
-          // we are not required to call broadcast waker because it will be waked by others
-          // receivers
-          for (id, downstream) in downstream.iter() {
-            if *id != self.id && downstream.should_send {
-              downstream.sender.unbounded_send(c.clone()).ok();
-            }
+    let d = {
+      let downstream = self.downstream.write();
+      let d = d.materialize();
+      if !d.is_empty() {
+        // broad cast to others
+        // we are not required to call broadcast waker because it will be waked by others
+        // receivers
+        for (id, downstream) in downstream.iter() {
+          if *id != self.id && downstream.should_send {
+            downstream.sender.unbounded_send(d.clone()).ok();
           }
-
-          buffered.push(c);
         }
-        drop(downstream);
 
-        finalize_buffered_changes(buffered)
+        buffered.push(d);
       }
-      Poll::Pending => finalize_buffered_changes(buffered),
-    }
-  }
+      drop(downstream);
 
-  fn access(&self) -> PollCollectionCurrent<K, V> {
-    self.upstream.read().access()
+      finalize_buffered_changes(buffered)
+    };
+
+    (d, v)
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -206,17 +215,5 @@ impl<K: CKey, V: CValue> futures::task::ArcWake for BroadCast<K, V> {
     for v in all.values() {
       v.waker.wake();
     }
-  }
-}
-
-impl<Map, K, V> ReactiveOneToManyRelation<V, K> for ReactiveKVMapFork<Map, K, V>
-where
-  Map: ReactiveOneToManyRelation<V, K>,
-  Map: ReactiveCollection<K, V>,
-  K: CKey,
-  V: CKey,
-{
-  fn multi_access(&self) -> Box<dyn DynVirtualMultiCollection<V, K>> {
-    self.upstream.read().multi_access()
   }
 }

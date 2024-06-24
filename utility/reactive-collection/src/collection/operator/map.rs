@@ -14,17 +14,18 @@ where
   F: Fn(&K, V) -> V2 + Copy + Send + Sync + 'static,
   T: ReactiveCollection<K, V>,
 {
-  #[tracing::instrument(skip_all, name = "ReactiveKVMap")]
-  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, V2> {
-    let map = self.map;
-    self
-      .inner
-      .poll_changes(cx)
-      .map(move |delta| delta.map(move |k, v| v.map(|v| map(k, v))).into_boxed())
-  }
+  type Changes = impl VirtualCollection<K, ValueChange<V2>>;
+  type View = impl VirtualCollection<K, V2>;
 
-  fn access(&self) -> PollCollectionCurrent<K, V2> {
-    self.inner.access().map(self.map).into_boxed()
+  #[tracing::instrument(skip_all, name = "ReactiveKVMap")]
+  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
+    let (d, v) = self.inner.poll_changes(cx);
+    let map = self.map;
+    let d = d.map(move |k, v| v.map(|v| map(k, v)));
+
+    let v = v.map(self.map);
+
+    (d, v)
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -48,19 +49,14 @@ where
   F2: Fn(K2) -> K + Copy + Send + Sync + 'static,
   T: ReactiveCollection<K, V>,
 {
-  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K2, V> {
-    self
-      .inner
-      .poll_changes(cx)
-      .map(|delta| delta.key_dual_map(self.f1, self.f2).into_boxed())
-  }
+  type Changes = impl VirtualCollection<K2, ValueChange<V>>;
+  type View = impl VirtualCollection<K2, V>;
 
-  fn access(&self) -> PollCollectionCurrent<K2, V> {
-    self
-      .inner
-      .access()
-      .key_dual_map(self.f1, self.f2)
-      .into_boxed()
+  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
+    let (d, v) = self.inner.poll_changes(cx);
+    let d = d.key_dual_map(self.f1, self.f2);
+    let v = v.key_dual_map(self.f1, self.f2);
+    (d, v)
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -85,29 +81,34 @@ where
   V2: CValue,
   T: ReactiveCollection<K, V>,
 {
-  #[tracing::instrument(skip_all, name = "ReactiveKVExecuteMap")]
-  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, V2> {
-    self.inner.poll_changes(cx).map(move |deltas| {
-      let mapper = (self.map_creator)();
-      let materialized = deltas.iter_key_value().collect::<Vec<_>>();
-      let mut cache = self.cache.write();
-      let materialized: FastHashMap<K, ValueChange<V2>> = materialized
-        .into_iter()
-        .map(|(k, delta)| match delta {
-          ValueChange::Delta(d, _p) => {
-            let new_value = mapper(&k, d);
-            let p = cache.insert(k.clone(), new_value.clone());
-            (k, ValueChange::Delta(new_value, p))
-          }
-          ValueChange::Remove(_p) => {
-            let p = cache.remove(&k).unwrap();
-            (k, ValueChange::Remove(p))
-          }
-        })
-        .collect();
+  type Changes = impl VirtualCollection<K, ValueChange<V2>>;
+  type View = impl VirtualCollection<K, V2>;
 
-      Box::new(Arc::new(materialized)) as Box<dyn DynVirtualCollection<K, ValueChange<V2>>>
-    })
+  #[tracing::instrument(skip_all, name = "ReactiveKVExecuteMap")]
+  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
+    let (d, _) = self.inner.poll_changes(cx);
+
+    let mapper = (self.map_creator)();
+    let materialized = d.iter_key_value().collect::<Vec<_>>();
+    let mut cache = self.cache.write();
+    let materialized: FastHashMap<K, ValueChange<V2>> = materialized
+      .into_iter()
+      .map(|(k, delta)| match delta {
+        ValueChange::Delta(d, _p) => {
+          let new_value = mapper(&k, d);
+          let p = cache.insert(k.clone(), new_value.clone());
+          (k, ValueChange::Delta(new_value, p))
+        }
+        ValueChange::Remove(_p) => {
+          let p = cache.remove(&k).unwrap();
+          (k, ValueChange::Remove(p))
+        }
+      })
+      .collect();
+    let d = Arc::new(materialized);
+
+    let v = self.cache.make_read_holder();
+    (d, v)
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -115,9 +116,5 @@ where
       ExtraCollectionOperation::MemoryShrinkToFit => self.cache.write().shrink_to_fit(),
     }
     self.inner.extra_request(request)
-  }
-
-  fn access(&self) -> PollCollectionCurrent<K, V2> {
-    Box::new(self.cache.make_read_holder())
   }
 }

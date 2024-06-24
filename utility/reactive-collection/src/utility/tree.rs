@@ -2,8 +2,8 @@ use rendiation_abstract_tree::*;
 
 use crate::*;
 
-pub type ReactiveTreeConnectivity<K> = Box<dyn ReactiveOneToManyRelation<K, K>>;
-pub type ReactiveTreePayload<K, T> = Box<dyn ReactiveCollection<K, T>>;
+pub type ReactiveTreeConnectivity<K> = Box<dyn DynReactiveOneToManyRelation<K, K>>;
+pub type ReactiveTreePayload<K, T> = Box<dyn DynReactiveCollection<K, T>>;
 
 pub fn tree_payload_derive_by_parent_decide_children<K, T>(
   connectivity: ReactiveTreeConnectivity<K>,
@@ -36,22 +36,13 @@ where
   T: CValue,
   F: Fn(&T, Option<&T>) -> T + Send + Sync + 'static + Copy,
 {
-  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, T> {
-    let payload_change = self.payload_source.poll_changes(cx);
-    let connectivity_change = self.connectivity_source.poll_changes(cx);
+  type Changes = impl VirtualCollection<K, ValueChange<T>>;
+  type View = impl VirtualCollection<K, T>;
 
-    if payload_change.is_pending() && connectivity_change.is_pending() {
-      return Poll::Pending;
-    }
-
-    let payload_change = match payload_change {
-      Poll::Ready(v) => v,
-      Poll::Pending => Box::new(()),
-    };
-    let connectivity_change = match connectivity_change {
-      Poll::Ready(v) => v,
-      Poll::Pending => Box::new(()),
-    };
+  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
+    let (payload_change, current_source) = self.payload_source.poll_changes(cx);
+    let (connectivity_change, current_connectivity, current_inv_connectivity) =
+      self.connectivity_source.poll_changes_with_inv_dyn(cx);
 
     // step1: find the update root
     // we have a change set as input. change set is the composition of the connectivity change
@@ -66,8 +57,6 @@ where
       .iter_key_value()
       .map(|(k, _)| k)
       .filter(|k| payload_change.access(k).is_none()); // remove the payload_change_range part
-
-    let current_connectivity = self.connectivity_source.access();
 
     let is_in_change_set = |k| payload_change.contains(&k) || connectivity_change.contains(&k);
 
@@ -100,8 +89,6 @@ where
       target: (&mut derive_tree as &mut FastHashMap<K, T>) as *mut _,
     };
 
-    let current_source = self.payload_source.access();
-    let current_inv_connectivity = self.connectivity_source.multi_access();
     let ctx = Ctx {
       derive: collector,
       source: current_source.as_ref(),
@@ -124,15 +111,9 @@ where
       })
     }
 
-    if derive_changes.is_empty() {
-      Poll::Pending
-    } else {
-      Poll::Ready(Box::new(derive_changes))
-    }
-  }
-
-  fn access(&self) -> PollCollectionCurrent<K, T> {
-    Box::new(self.data.make_read_holder())
+    let d = Arc::new(derive_changes);
+    let v = self.data.make_read_holder();
+    (d, v)
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {

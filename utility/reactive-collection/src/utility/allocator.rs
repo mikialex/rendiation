@@ -121,55 +121,57 @@ impl Allocator {
 }
 
 impl<T: ReactiveCollection<u32, u32>> ReactiveCollection<u32, u32> for ReactiveAllocator<T> {
-  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<u32, u32> {
+  type Changes = impl VirtualCollection<u32, ValueChange<u32>>;
+  type View = impl VirtualCollection<u32, u32>;
+  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let mut allocator = self.allocator.write();
 
-    if let Poll::Ready(changes) = self.source.poll_changes(cx) {
-      unsafe {
-        self.sender.lock();
+    let (d, _) = self.source.poll_changes(cx);
 
-        for (idx, size_change) in changes.iter_key_value() {
-          match size_change {
-            ValueChange::Delta(new_size, previous_size) => {
-              let previous_offset = previous_size.map(|_| allocator.dealloc(idx));
+    unsafe {
+      self.sender.lock();
 
-              if let Some(new_alloc) = allocator.alloc_and_check_grow(
-                idx,
-                new_size,
-                |new_size| {
-                  self.all_size_sender.update(new_size).ok();
-                },
-                |relocation| {
-                  let delta = ValueChange::Delta(relocation.new, relocation.previous.into());
-                  self.sender.send(relocation.idx, delta);
-                },
-              ) {
-                let delta = ValueChange::Delta(new_alloc, previous_offset);
-                self.sender.send(idx, delta);
-              } else if let Some(previous_offset) = previous_offset {
-                self.sender.send(idx, ValueChange::Remove(previous_offset));
-              }
-            }
-            ValueChange::Remove(_) => {
-              let offset = allocator.dealloc(idx);
-              self.sender.send(idx, ValueChange::Remove(offset));
+      for (idx, size_change) in d.iter_key_value() {
+        match size_change {
+          ValueChange::Delta(new_size, previous_size) => {
+            let previous_offset = previous_size.map(|_| allocator.dealloc(idx));
+
+            if let Some(new_alloc) = allocator.alloc_and_check_grow(
+              idx,
+              new_size,
+              |new_size| {
+                self.all_size_sender.update(new_size).ok();
+              },
+              |relocation| {
+                let delta = ValueChange::Delta(relocation.new, relocation.previous.into());
+                self.sender.send(relocation.idx, delta);
+              },
+            ) {
+              let delta = ValueChange::Delta(new_alloc, previous_offset);
+              self.sender.send(idx, delta);
+            } else if let Some(previous_offset) = previous_offset {
+              self.sender.send(idx, ValueChange::Remove(previous_offset));
             }
           }
+          ValueChange::Remove(_) => {
+            let offset = allocator.dealloc(idx);
+            self.sender.send(idx, ValueChange::Remove(offset));
+          }
         }
-
-        self.sender.unlock();
       }
+
+      self.sender.unlock();
     }
 
-    if let Poll::Ready(Some(r)) = self.accumulated_mutations.poll_impl(cx) {
-      Poll::Ready(r)
+    let d = if let Poll::Ready(Some(r)) = self.accumulated_mutations.poll_impl(cx) {
+      r
     } else {
-      Poll::Pending
-    }
-  }
+      VirtualCollectionExt::into_boxed(())
+    };
 
-  fn access(&self) -> PollCollectionCurrent<u32, u32> {
-    Box::new(self.allocator.make_read_holder())
+    let v = self.allocator.make_read_holder();
+
+    (d, v)
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {

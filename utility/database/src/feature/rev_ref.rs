@@ -25,7 +25,7 @@ impl DatabaseEntityReverseReference {
 
   pub fn watch_inv_ref_untyped<S: ForeignKeySemantic>(
     &self,
-  ) -> Box<dyn ReactiveOneToManyRelation<u32, u32>> {
+  ) -> Box<dyn DynReactiveOneToManyRelation<u32, u32>> {
     let inner = self.watch_inv_ref_dyn(S::component_id(), S::Entity::entity_id());
 
     let db = &self.mutation_watcher.db;
@@ -44,7 +44,7 @@ impl DatabaseEntityReverseReference {
     &self,
     semantic_id: ComponentId,
     entity_id: EntityId,
-  ) -> Box<dyn ReactiveOneToManyRelation<RawEntityHandle, RawEntityHandle>> {
+  ) -> Box<dyn DynReactiveOneToManyRelation<RawEntityHandle, RawEntityHandle>> {
     if let Some(refs) = self.entity_rev_refs.read().get(&semantic_id) {
       return Box::new(
         refs
@@ -77,54 +77,51 @@ pub(crate) struct GenerationHelperMultiView<T> {
   foreign_allocator: Arc<RwLock<Arena<()>>>,
 }
 
-impl<T: ReactiveOneToManyRelation<RawEntityHandle, RawEntityHandle>>
-  ReactiveOneToManyRelation<u32, u32> for GenerationHelperMultiView<T>
-where
-  Self: ReactiveCollection<u32, u32>,
-{
-  fn multi_access(&self) -> Box<dyn DynVirtualMultiCollection<u32, u32>> {
-    let allocator = self.allocator.make_read_holder();
-
-    self
-      .inner
-      .multi_access()
-      .map(|v| v.index())
-      .key_dual_map_partial(
-        |k| k.index(),
-        move |k| RawEntityHandle(allocator.get_handle(k as usize)?).into(),
-      )
-      .into_boxed()
-  }
-}
-
 impl<T> ReactiveCollection<u32, u32> for GenerationHelperMultiView<T>
 where
   T: ReactiveOneToManyRelation<RawEntityHandle, RawEntityHandle>,
 {
-  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<u32, u32> {
-    self.inner.poll_changes(cx).map(|inner| {
-      let allocator = self.foreign_allocator.make_read_holder();
-      inner
-        .key_dual_map_partial(
-          |k| k.index(),
-          move |k| RawEntityHandle(allocator.get_handle(k as usize)?).into(),
-        )
-        .map(|_, v| v.map(|v| v.index()))
-        .into_boxed()
-    })
-  }
+  type Changes = impl VirtualCollection<u32, ValueChange<u32>>;
+  type View = impl VirtualCollection<u32, u32> + VirtualMultiCollection<u32, u32>;
+  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
+    let (d, v) = self.inner.poll_changes(cx);
 
-  fn access(&self) -> PollCollectionCurrent<u32, u32> {
     let allocator = self.foreign_allocator.make_read_holder();
-    self
-      .inner
-      .access()
+    let d = d
       .key_dual_map_partial(
         |k| k.index(),
         move |k| RawEntityHandle(allocator.get_handle(k as usize)?).into(),
       )
-      .map(|_, v| v.index())
-      .into_boxed()
+      .map(|_, v| v.map(|v| v.index()))
+      .into_boxed();
+
+    let allocator = self.foreign_allocator.make_read_holder();
+
+    // todo, improve trait builder method
+    let f_v = KeyDualMapCollection {
+      phantom: PhantomData,
+      base: v.clone(),
+      f1: |k: RawEntityHandle| k.index(),
+      f2: move |k| RawEntityHandle(allocator.get_handle(k as usize)?).into(),
+    };
+
+    let f_v = VirtualCollectionExt::map(f_v, |_: &u32, v: RawEntityHandle| v.index());
+
+    let allocator = self.allocator.make_read_holder();
+    let inv = KeyDualMapCollection {
+      phantom: PhantomData,
+      base: v,
+      f1: |k: RawEntityHandle| k.index(),
+      f2: move |k| RawEntityHandle(allocator.get_handle(k as usize)?).into(),
+    };
+    let inv = VirtualMultiCollectionExt::map(inv, |_: &u32, v: RawEntityHandle| v.index());
+
+    let v = OneManyRelationDualAccess {
+      many_access_one: Box::new(f_v),
+      one_access_many: Box::new(inv),
+    };
+
+    (d, v)
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {

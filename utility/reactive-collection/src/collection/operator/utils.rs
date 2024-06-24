@@ -12,41 +12,37 @@ where
   K: CKey,
   V: CValue,
 {
-  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, V> {
-    let r = self.inner.poll_changes(cx);
+  type Changes = T::Changes;
+  type View = T::View;
+  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
+    let (d, v) = self.inner.poll_changes(cx);
 
     // validation
-    if let Poll::Ready(changes) = &r {
-      let changes = changes.materialize();
-      let mut state = self.state.write();
-      for (k, change) in changes.iter() {
-        match change {
-          ValueChange::Delta(n, p) => {
-            if let Some(removed) = state.remove(k) {
-              let p = p.as_ref().expect("previous value should exist");
-              assert_eq!(&removed, p);
-            } else {
-              assert!(p.is_none());
-            }
-            state.insert(k.clone(), n.clone());
-          }
-          ValueChange::Remove(p) => {
-            let removed = state.remove(k).expect("remove none exist value");
+    let changes = d.materialize();
+    let mut state = self.state.write();
+    for (k, change) in changes.iter() {
+      match change {
+        ValueChange::Delta(n, p) => {
+          if let Some(removed) = state.remove(k) {
+            let p = p.as_ref().expect("previous value should exist");
             assert_eq!(&removed, p);
+          } else {
+            assert!(p.is_none());
           }
+          state.insert(k.clone(), n.clone());
+        }
+        ValueChange::Remove(p) => {
+          let removed = state.remove(k).expect("remove none exist value");
+          assert_eq!(&removed, p);
         }
       }
     }
 
-    r
+    (d, v)
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
     self.inner.extra_request(request)
-  }
-
-  fn access(&self) -> PollCollectionCurrent<K, V> {
-    self.inner.access()
   }
 }
 
@@ -57,7 +53,7 @@ pub struct ReactiveCollectionDiff<T, K, V> {
 
 #[derive(Clone)]
 pub struct DiffChangedView<K, V> {
-  inner: CollectionChanges<K, V>,
+  inner: Box<dyn DynVirtualCollection<K, ValueChange<V>>>,
 }
 
 impl<K, V> VirtualCollection<K, ValueChange<V>> for DiffChangedView<K, V>
@@ -88,19 +84,20 @@ where
   K: CKey,
   V: CValue + PartialEq,
 {
-  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, V> {
-    self
-      .inner
-      .poll_changes(cx)
-      .map(|v| Box::new(DiffChangedView { inner: v }) as CollectionChanges<K, V>)
+  type Changes = impl VirtualCollection<K, ValueChange<V>>;
+  type View = impl VirtualCollection<K, V>;
+
+  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
+    let (d, v) = self.inner.poll_changes(cx);
+
+    let d = DiffChangedView {
+      inner: d.into_boxed(),
+    };
+    (d, v)
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
     self.inner.extra_request(request);
-  }
-
-  fn access(&self) -> PollCollectionCurrent<K, V> {
-    self.inner.access()
   }
 }
 
@@ -121,9 +118,12 @@ where
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
-    this
-      .inner
-      .poll_changes(cx)
-      .map(|delta| Some(delta.materialize()))
+    let r = this.inner.poll_changes(cx).0.materialize();
+
+    if r.is_empty() {
+      Poll::Pending
+    } else {
+      Poll::Ready(Some(r))
+    }
   }
 }

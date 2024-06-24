@@ -17,43 +17,34 @@ where
   V1: CValue,
   V2: CValue,
 {
-  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, O> {
-    let t1 = self.a.poll_changes(cx);
-    let t2 = self.b.poll_changes(cx);
+  type Changes = impl VirtualCollection<K, ValueChange<O>>;
+  type View = impl VirtualCollection<K, O>;
+  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
+    let (t1, a_access) = self.a.poll_changes(cx);
+    let (t2, b_access) = self.b.poll_changes(cx);
+    let a_access = a_access.into_boxed();
+    let b_access = b_access.into_boxed();
 
-    let a_access = self.a.access();
-    let b_access = self.b.access();
-
-    if t1.is_pending() && t2.is_pending() {
-      return Poll::Pending;
-    }
-
-    Poll::Ready(Box::new(UnionValueChange {
-      a: match t1 {
-        Poll::Ready(delta) => delta,
-        Poll::Pending => Box::new(()),
-      },
-      b: match t2 {
-        Poll::Ready(delta) => delta,
-        Poll::Pending => Box::new(()),
-      },
+    let d = UnionValueChange {
+      a: t1.into_boxed(),
+      b: t2.into_boxed(),
       f: self.f,
-      a_current: a_access,
-      b_current: b_access,
-    }))
+      a_current: a_access.clone(),
+      b_current: b_access.clone(),
+    };
+
+    let v = UnionCollection {
+      a: a_access,
+      b: b_access,
+      f: self.f,
+    };
+
+    (d, v)
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
     self.a.extra_request(request);
     self.b.extra_request(request);
-  }
-
-  fn access(&self) -> PollCollectionCurrent<K, O> {
-    Box::new(UnionCollection {
-      a: self.a.access(),
-      b: self.b.access(),
-      f: self.f,
-    })
   }
 }
 

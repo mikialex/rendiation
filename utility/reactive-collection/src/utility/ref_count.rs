@@ -2,7 +2,7 @@ use crate::*;
 
 #[derive(Clone)]
 pub struct CollectionSetsRefcount<T, K> {
-  source_sets: Arc<RwLock<Vec<Box<dyn ReactiveCollection<T, K>>>>>,
+  source_sets: Arc<RwLock<Vec<Box<dyn DynReactiveCollection<T, K>>>>>,
   wake_for_new_source: Arc<AtomicWaker>,
   ref_count: Arc<RwLock<FastHashMap<K, u32>>>,
 }
@@ -18,14 +18,17 @@ impl<T, K> Default for CollectionSetsRefcount<T, K> {
 }
 
 impl<T, K> CollectionSetsRefcount<T, K> {
-  pub fn add_source(&self, source: Box<dyn ReactiveCollection<T, K>>) {
+  pub fn add_source(&self, source: Box<dyn DynReactiveCollection<T, K>>) {
     self.source_sets.write().push(source);
     self.wake_for_new_source.wake();
   }
 }
 
 impl<T: CKey, K: CKey> ReactiveCollection<K, u32> for CollectionSetsRefcount<T, K> {
-  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, u32> {
+  type Changes = impl VirtualCollection<K, ValueChange<u32>>;
+  type View = impl VirtualCollection<K, u32>;
+
+  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     self.wake_for_new_source.register(cx.waker());
 
     let mut ref_count = self.ref_count.write();
@@ -38,38 +41,31 @@ impl<T: CKey, K: CKey> ReactiveCollection<K, u32> for CollectionSetsRefcount<T, 
     };
 
     for source in sources.iter() {
-      if let Poll::Ready(deltas) = source.poll_changes(cx) {
-        for (_, delta) in deltas.iter_key_value() {
-          match delta {
-            ValueChange::Delta(k, pk) => {
-              if pk.is_none() {
-                if let Some(pre_rc) = mutator.remove(k.clone()) {
-                  mutator.set_value(k.clone(), pre_rc + 1);
-                } else {
-                  mutator.set_value(k.clone(), 1);
-                }
+      let (d, _) = source.poll_changes(cx);
+      for (_, delta) in d.iter_key_value() {
+        match delta {
+          ValueChange::Delta(k, pk) => {
+            if pk.is_none() {
+              if let Some(pre_rc) = mutator.remove(k.clone()) {
+                mutator.set_value(k.clone(), pre_rc + 1);
+              } else {
+                mutator.set_value(k.clone(), 1);
               }
             }
-            ValueChange::Remove(k) => {
-              let pre_rc = mutator.remove(k.clone()).unwrap();
-              if pre_rc - 1 > 0 {
-                mutator.set_value(k.clone(), pre_rc - 1);
-              }
+          }
+          ValueChange::Remove(k) => {
+            let pre_rc = mutator.remove(k.clone()).unwrap();
+            if pre_rc - 1 > 0 {
+              mutator.set_value(k.clone(), pre_rc - 1);
             }
           }
         }
       }
     }
 
-    if mutations.is_empty() {
-      Poll::Pending
-    } else {
-      Poll::Ready(Box::new(mutations))
-    }
-  }
-
-  fn access(&self) -> PollCollectionCurrent<K, u32> {
-    Box::new(self.ref_count.make_read_holder())
+    let d = Arc::new(mutations);
+    let v = self.ref_count.make_read_holder();
+    (d, v)
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {

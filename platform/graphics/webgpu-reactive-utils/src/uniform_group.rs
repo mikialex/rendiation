@@ -54,22 +54,21 @@ where
     target: &mut FastHashMap<K, UniformBufferDataView<T>>,
     cx: &mut Context,
   ) {
-    if let Poll::Ready(changes) = self.upstream.poll_changes(cx) {
-      for (k, v) in changes.iter_key_value() {
-        let index = k;
+    let (changes, _) = self.upstream.poll_changes(cx);
+    for (k, v) in changes.iter_key_value() {
+      let index = k;
 
-        match v {
-          ValueChange::Delta(v, _) => {
-            let buffer = target
-              .entry(index)
-              .or_insert_with(|| UniformBufferDataView::create_default(&self.gpu_ctx.device));
+      match v {
+        ValueChange::Delta(v, _) => {
+          let buffer = target
+            .entry(index)
+            .or_insert_with(|| UniformBufferDataView::create_default(&self.gpu_ctx.device));
 
-            // here we should do sophisticated optimization to merge the adjacent writes.
-            buffer.write_at(&self.gpu_ctx.queue, &v, self.field_offset as u64);
-          }
-          ValueChange::Remove(_) => {
-            target.remove(&index);
-          }
+          // here we should do sophisticated optimization to merge the adjacent writes.
+          buffer.write_at(&self.gpu_ctx.queue, &v, self.field_offset as u64);
+        }
+        ValueChange::Remove(_) => {
+          target.remove(&index);
         }
       }
     }

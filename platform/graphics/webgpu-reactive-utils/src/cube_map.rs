@@ -50,36 +50,36 @@ where
   C: ReactiveCollection<K, V>,
 {
   fn update_target(&mut self, target: &mut FastHashMap<K, GPUCubeTextureView>, cx: &mut Context) {
-    if let Poll::Ready(changes) = self.upstream.poll_changes(cx) {
-      for (k, v) in changes.iter_key_value() {
-        let index = k;
+    let (changes, _) = self.upstream.poll_changes(cx);
 
-        match v {
-          ValueChange::Delta(v, _) => {
-            let source: &GPUBufferImage = v.deref();
+    for (k, v) in changes.iter_key_value() {
+      let index = k;
 
-            let source = GPUBufferImageForeignImpl { inner: source };
-            let desc = source.create_cube_desc(MipLevelCount::EmptyMipMap); // todo impl mipmap
+      match v {
+        ValueChange::Delta(v, _) => {
+          let source: &GPUBufferImage = v.deref();
 
-            // todo, check desc is matched and recreated texture!
-            let gpu_texture = target.entry(index).or_insert_with(|| {
-              let gpu_texture = GPUTexture::create(desc, &self.gpu_ctx.device);
-              let gpu_texture: GPUCubeTexture = gpu_texture.try_into().unwrap();
-              gpu_texture
-                .create_view(TextureViewDescriptor {
-                  dimension: Some(TextureViewDimension::Cube),
-                  ..Default::default()
-                })
-                .try_into()
-                .unwrap()
-            });
+          let source = GPUBufferImageForeignImpl { inner: source };
+          let desc = source.create_cube_desc(MipLevelCount::EmptyMipMap); // todo impl mipmap
 
-            let gpu_texture: GPUCubeTexture = gpu_texture.resource.clone().try_into().unwrap();
-            let _ = gpu_texture.upload(&self.gpu_ctx.queue, &source, self.face, 0);
-          }
-          ValueChange::Remove(_) => {
-            target.remove(&index);
-          }
+          // todo, check desc is matched and recreated texture!
+          let gpu_texture = target.entry(index).or_insert_with(|| {
+            let gpu_texture = GPUTexture::create(desc, &self.gpu_ctx.device);
+            let gpu_texture: GPUCubeTexture = gpu_texture.try_into().unwrap();
+            gpu_texture
+              .create_view(TextureViewDescriptor {
+                dimension: Some(TextureViewDimension::Cube),
+                ..Default::default()
+              })
+              .try_into()
+              .unwrap()
+          });
+
+          let gpu_texture: GPUCubeTexture = gpu_texture.resource.clone().try_into().unwrap();
+          let _ = gpu_texture.upload(&self.gpu_ctx.queue, &source, self.face, 0);
+        }
+        ValueChange::Remove(_) => {
+          target.remove(&index);
         }
       }
     }

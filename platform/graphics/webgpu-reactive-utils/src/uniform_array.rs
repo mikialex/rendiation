@@ -46,20 +46,19 @@ where
   C: ReactiveCollection<K, V>,
 {
   fn update_target(&mut self, target: &mut UniformArray<T, 8>, cx: &mut Context) {
-    if let Poll::Ready(changes) = self.upstream.poll_changes(cx) {
-      for (k, v) in changes.iter_key_value() {
-        let index = k.alloc_index();
+    let (changes, _) = self.upstream.poll_changes(cx);
+    for (k, v) in changes.iter_key_value() {
+      let index = k.alloc_index();
 
-        match v {
-          ValueChange::Delta(v, _) => {
-            let offset = index as usize * std::mem::size_of::<T>() + self.field_offset as usize;
+      match v {
+        ValueChange::Delta(v, _) => {
+          let offset = index as usize * std::mem::size_of::<T>() + self.field_offset as usize;
 
-            // here we should do sophisticated optimization to merge the adjacent writes.
-            target.write_at(&self.gpu_ctx.queue, &v, offset as u64);
-          }
-          ValueChange::Remove(_) => {
-            // we could do clear in debug mode
-          }
+          // here we should do sophisticated optimization to merge the adjacent writes.
+          target.write_at(&self.gpu_ctx.queue, &v, offset as u64);
+        }
+        ValueChange::Remove(_) => {
+          // we could do clear in debug mode
         }
       }
     }

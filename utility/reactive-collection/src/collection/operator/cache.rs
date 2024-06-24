@@ -12,9 +12,6 @@ where
   K: CKey,
   V: CValue,
 {
-  fn access_ref_collection(&self) -> Box<dyn VirtualCollectionSelfContained<K, V>> {
-    Box::new(self.cache.make_read_holder())
-  }
 }
 
 impl<Map, K, V> ReactiveCollection<K, V> for UnorderedMaterializedReactiveCollection<Map, K, V>
@@ -23,10 +20,13 @@ where
   K: CKey,
   V: CValue,
 {
-  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, V> {
-    self.inner.poll_changes(cx).map(|changes| {
+  type Changes = impl VirtualCollection<K, ValueChange<V>>;
+  type View = LockReadGuardHolder<FastHashMap<K, V>>;
+  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
+    let (d, _) = self.inner.poll_changes(cx);
+    {
       let mut cache = self.cache.write();
-      for (k, change) in changes.iter_key_value() {
+      for (k, change) in d.iter_key_value() {
         match change.clone() {
           ValueChange::Delta(v, _) => {
             cache.insert(k, v);
@@ -36,11 +36,11 @@ where
           }
         }
       }
-      changes
-    })
-  }
-  fn access(&self) -> PollCollectionCurrent<K, V> {
-    self.cache.make_lock_holder_collection()
+    }
+
+    let v = self.cache.make_read_holder();
+
+    (d, v)
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -63,9 +63,6 @@ where
   K: LinearIdentification + CKey,
   V: CValue,
 {
-  fn access_ref_collection(&self) -> Box<dyn VirtualCollectionSelfContained<K, V>> {
-    Box::new(self.cache.make_read_holder())
-  }
 }
 
 impl<Map, K, V> ReactiveCollection<K, V> for LinearMaterializedReactiveCollection<Map, V>
@@ -74,10 +71,13 @@ where
   K: LinearIdentification + CKey,
   V: CValue,
 {
-  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, V> {
-    self.inner.poll_changes(cx).map(|changes| {
+  type Changes = impl VirtualCollection<K, ValueChange<V>>;
+  type View = LockReadGuardHolder<IndexKeptVec<V>>;
+  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
+    let (d, _) = self.inner.poll_changes(cx);
+    {
       let mut cache = self.cache.write();
-      for (k, change) in changes.iter_key_value() {
+      for (k, change) in d.iter_key_value() {
         match change {
           ValueChange::Delta(v, _) => {
             cache.insert(v, k.alloc_index());
@@ -87,8 +87,11 @@ where
           }
         }
       }
-      changes
-    })
+    }
+
+    let v = self.cache.make_read_holder();
+
+    (d, v)
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -96,9 +99,5 @@ where
     match request {
       ExtraCollectionOperation::MemoryShrinkToFit => self.cache.write().shrink_to_fit(),
     }
-  }
-
-  fn access(&self) -> PollCollectionCurrent<K, V> {
-    self.cache.make_lock_holder_collection()
   }
 }

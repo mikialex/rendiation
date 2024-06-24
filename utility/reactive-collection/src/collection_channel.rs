@@ -103,13 +103,13 @@ impl<K: CKey, T: CValue> Stream for CollectiveMutationReceiver<K, T> {
 
 // this trait could be lift into upper stream
 pub trait VirtualCollectionProvider<K, V>: Send + Sync {
-  fn access(&self) -> CollectionView<K, V>;
+  fn access(&self) -> Box<dyn DynVirtualCollection<K, V>>;
 }
 
 impl<K: CKey, V: CValue, T: VirtualCollection<K, V> + 'static> VirtualCollectionProvider<K, V>
   for Arc<RwLock<T>>
 {
-  fn access(&self) -> CollectionView<K, V> {
+  fn access(&self) -> Box<dyn DynVirtualCollection<K, V>> {
     Box::new(self.make_read_holder())
   }
 }
@@ -121,15 +121,15 @@ pub struct ReactiveCollectionFromCollectiveMutation<K, T> {
 impl<K: CKey, T: CValue> ReactiveCollection<K, T>
   for ReactiveCollectionFromCollectiveMutation<K, T>
 {
-  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, T> {
-    match self.mutation.write().poll_next_unpin(cx) {
-      Poll::Ready(Some(r)) => Poll::Ready(r),
-      _ => Poll::Pending,
-    }
-  }
-
-  fn access(&self) -> PollCollectionCurrent<K, T> {
-    self.full.access()
+  type Changes = impl VirtualCollection<K, ValueChange<T>>;
+  type View = impl VirtualCollection<K, T>;
+  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
+    let d = match self.mutation.write().poll_next_unpin(cx) {
+      Poll::Ready(Some(r)) => r,
+      _ => Box::new(()),
+    };
+    let v = self.full.access();
+    (d, v)
   }
 
   fn extra_request(&mut self, _request: &mut ExtraCollectionOperation) {

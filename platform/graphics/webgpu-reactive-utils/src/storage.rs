@@ -96,18 +96,17 @@ where
   C: ReactiveCollection<K, V>,
 {
   fn update_target(&mut self, target: &mut StorageBufferReadOnlyDataView<[T]>, cx: &mut Context) {
-    if let Poll::Ready(changes) = self.upstream.poll_changes(cx) {
-      for (k, v) in changes.iter_key_value() {
-        let index = k.alloc_index();
-        let offset = index * self.stride + self.field_offset;
+    let (changes, _) = self.upstream.poll_changes(cx);
+    for (k, v) in changes.iter_key_value() {
+      let index = k.alloc_index();
+      let offset = index * self.stride + self.field_offset;
 
-        match v {
-          ValueChange::Delta(v, _) => {
-            target.write_at(offset as u64, bytes_of(&v), &self.gpu_ctx.queue);
-          }
-          ValueChange::Remove(_) => {
-            // we could do clear in debug mode
-          }
+      match v {
+        ValueChange::Delta(v, _) => {
+          target.write_at(offset as u64, bytes_of(&v), &self.gpu_ctx.queue);
+        }
+        ValueChange::Remove(_) => {
+          // we could do clear in debug mode
         }
       }
     }

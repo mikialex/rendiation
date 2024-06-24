@@ -5,10 +5,10 @@ pub(crate) trait ShrinkableAny: Any + Send + Sync {
   fn shrink_to_fit(&mut self);
 }
 
-pub type RxCForker<K, V> = ReactiveKVMapFork<Box<dyn ReactiveCollection<K, V>>, K, V>;
+pub type RxCForker<K, V> = ReactiveKVMapFork<Box<dyn DynReactiveCollection<K, V>>, K, V>;
 
 pub type OneManyRelationForker<O, M> =
-  ReactiveKVMapFork<Box<dyn ReactiveOneToManyRelation<O, M>>, M, O>;
+  ReactiveKVMapFork<Box<dyn DynReactiveOneToManyRelation<O, M>>, M, O>;
 
 impl<K, V> ShrinkableAny for RxCForker<K, V>
 where
@@ -103,7 +103,7 @@ impl CollectionRegistry {
     } else {
       drop(registry);
       let collection = inserter();
-      let boxed: Box<dyn ReactiveCollection<K, V>> = Box::new(collection);
+      let boxed: Box<dyn DynReactiveCollection<K, V>> = Box::new(collection);
       let forker = boxed.into_forker();
 
       let boxed = Box::new(forker) as Box<dyn ShrinkableAny>;
@@ -143,7 +143,7 @@ impl CollectionRegistry {
       drop(relations);
       let upstream = self.fork_or_insert_with_inner(typeid, inserter);
       let relation = upstream.into_one_to_many_by_idx_expose_type();
-      let relation = Box::new(relation) as Box<dyn ReactiveOneToManyRelation<O, M>>;
+      let relation = Box::new(relation) as Box<dyn DynReactiveOneToManyRelation<O, M>>;
       let relation = ReactiveKVMapFork::new(relation, true);
 
       let boxed = Box::new(relation) as Box<dyn ShrinkableAny>;
@@ -183,7 +183,7 @@ impl CollectionRegistry {
       drop(relations);
       let upstream = self.fork_or_insert_with_inner(typeid, inserter);
       let relation = upstream.into_one_to_many_by_hash_expose_type();
-      let relation = Box::new(relation) as Box<dyn ReactiveOneToManyRelation<O, M>>;
+      let relation = Box::new(relation) as Box<dyn DynReactiveOneToManyRelation<O, M>>;
       let relation = ReactiveKVMapFork::new(relation, true);
 
       let boxed = Box::new(relation) as Box<dyn ShrinkableAny>;

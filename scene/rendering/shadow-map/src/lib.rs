@@ -12,13 +12,13 @@ use rendiation_webgpu_reactive_utils::*;
 
 pub struct BasicShadowMapSystemInputs {
   ///  alloc_id => shadow camera vp
-  pub source_view_proj: Box<dyn ReactiveCollection<u32, Mat4<f32>>>,
+  pub source_view_proj: Box<dyn DynReactiveCollection<u32, Mat4<f32>>>,
   /// alloc_id => shadow map resolution
-  pub size: Box<dyn ReactiveCollection<u32, Size>>,
+  pub size: Box<dyn DynReactiveCollection<u32, Size>>,
   /// alloc_id => shadow map bias
-  pub bias: Box<dyn ReactiveCollection<u32, ShadowBias>>,
+  pub bias: Box<dyn DynReactiveCollection<u32, ShadowBias>>,
   /// alloc_id => enabled
-  pub enabled: Box<dyn ReactiveCollection<u32, bool>>,
+  pub enabled: Box<dyn DynReactiveCollection<u32, bool>>,
 }
 
 pub fn basic_shadow_map_uniform(
@@ -58,18 +58,21 @@ pub fn basic_shadow_map_uniform(
 
 pub struct BasicShadowMapSystem {
   shadow_map_atlas: Option<GPUTexture>,
-  packing: Box<dyn ReactiveCollection<u32, ShadowMapAddressInfo>>,
+  packing: Box<dyn DynReactiveCollection<u32, ShadowMapAddressInfo>>,
   atlas_resize: Box<dyn Stream<Item = SizeWithDepth> + Unpin>,
   current_size: Option<SizeWithDepth>,
-  source_view_proj: Box<dyn ReactiveCollection<u32, Mat4<f32>>>,
+  source_view_proj: Box<dyn DynReactiveCollection<u32, Mat4<f32>>>,
 }
 
 impl BasicShadowMapSystem {
   pub fn new(
     config: MultiLayerTexturePackerConfig,
-    source_view_proj: Box<dyn ReactiveCollection<u32, Mat4<f32>>>,
-    size: Box<dyn ReactiveCollection<u32, Size>>,
-  ) -> (Self, Box<dyn ReactiveCollection<u32, ShadowMapAddressInfo>>) {
+    source_view_proj: Box<dyn DynReactiveCollection<u32, Mat4<f32>>>,
+    size: Box<dyn DynReactiveCollection<u32, Size>>,
+  ) -> (
+    Self,
+    Box<dyn DynReactiveCollection<u32, ShadowMapAddressInfo>>,
+  ) {
     let (packing, atlas_resize) = reactive_pack_2d_to_3d(config, size);
     let packing = packing.collective_map(convert_pack_result).into_forker();
 
@@ -89,7 +92,7 @@ impl BasicShadowMapSystem {
     frame_ctx: &mut FrameCtx,
     scene_content: &mut impl PassContent,
   ) {
-    let _ = self.packing.poll_changes(cx); // incremental detail is useless here
+    let (_, current_layouts) = self.packing.poll_changes(cx); // incremental detail is useless here
     while let Poll::Ready(Some(new_size)) = self.atlas_resize.poll_next_unpin(cx) {
       // if we do shadow cache, we should also do content copy
       self.current_size = Some(new_size);
@@ -112,8 +115,7 @@ impl BasicShadowMapSystem {
       )
     });
 
-    let current_layouts = self.packing.access();
-    let view_proj_mats = self.source_view_proj.access();
+    let (_, view_proj_mats) = self.source_view_proj.poll_changes(cx);
 
     // do shadowmap updates
     for (idx, shadow_view) in current_layouts.iter_key_value() {

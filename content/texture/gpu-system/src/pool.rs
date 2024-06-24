@@ -67,7 +67,7 @@ pub struct TexturePoolSource {
   address: ReactiveStorageBufferContainer<TexturePoolAddressInfo>,
   samplers: ReactiveStorageBufferContainer<TextureSamplerShaderInfo>,
   tex_input: RxCForker<Texture2DHandle, TexturePool2dSource>,
-  packing: Box<dyn ReactiveCollection<Texture2DHandle, PackResult2dWithDepth>>,
+  packing: Box<dyn DynReactiveCollection<Texture2DHandle, PackResult2dWithDepth>>,
   atlas_resize: Box<dyn Stream<Item = SizeWithDepth> + Unpin>,
   format: TextureFormat,
   gpu: GPUResourceCtx,
@@ -79,7 +79,7 @@ impl TexturePoolSource {
     config: MultiLayerTexturePackerConfig,
     tex_input: RxCForker<Texture2DHandle, TexturePool2dSource>,
     max_tex_count: impl Stream<Item = u32> + Unpin + 'static,
-    sampler_input: Box<dyn ReactiveCollection<SamplerHandle, TextureSampler>>,
+    sampler_input: Box<dyn DynReactiveCollection<SamplerHandle, TextureSampler>>,
     max_sampler_count: impl Stream<Item = u32> + Unpin + 'static,
     format: TextureFormat,
   ) -> Self {
@@ -139,44 +139,37 @@ impl ReactiveQuery for TexturePoolSource {
 
     let mut encoder = self.gpu.device.create_encoder();
 
-    let packing_change = self.packing.poll_changes(cx);
-    let current_pack = self.packing.access();
+    let (packing_change, current_pack) = self.packing.poll_changes(cx);
 
-    let tex_input_change = self.tex_input.poll_changes(cx);
-    if let Poll::Ready(tex_source_change) = &tex_input_change {
-      for (id, change) in tex_source_change.iter_key_value() {
-        match change {
-          ValueChange::Delta(new_tex, _) => {
-            let current_pack = current_pack.access(&id).unwrap();
-            let tex = create_gpu_texture2d(&self.gpu, &new_tex.inner);
-            copy_tex(&mut encoder, tex, target, &current_pack);
-          }
-          ValueChange::Remove(_) => {}
+    let (tex_source_change, tex_input_current) = self.tex_input.poll_changes(cx);
+    for (id, change) in tex_source_change.iter_key_value() {
+      match change {
+        ValueChange::Delta(new_tex, _) => {
+          let current_pack = current_pack.access(&id).unwrap();
+          let tex = create_gpu_texture2d(&self.gpu, &new_tex.inner);
+          copy_tex(&mut encoder, tex, target, &current_pack);
         }
+        ValueChange::Remove(_) => {}
       }
     }
 
-    let tex_input_current = self.tex_input.access();
-    if let Poll::Ready(packing_change) = packing_change {
-      for (id, change) in packing_change.iter_key_value() {
-        match change {
-          ValueChange::Delta(new_pack, _) => {
-            let mut tex_has_recreated = false;
-            if let Poll::Ready(tex_changes) = &tex_input_change {
-              if let Some(tex_change) = tex_changes.access(&id) {
-                if !tex_change.is_removed() {
-                  tex_has_recreated = true;
-                }
-              }
-            }
-            if !tex_has_recreated {
-              let tex = tex_input_current.access(&id).unwrap();
-              let tex = create_gpu_texture2d(&self.gpu, &tex.inner);
-              copy_tex(&mut encoder, tex, target, &new_pack);
+    for (id, change) in packing_change.iter_key_value() {
+      match change {
+        ValueChange::Delta(new_pack, _) => {
+          let mut tex_has_recreated = false;
+          if let Some(tex_change) = tex_source_change.access(&id) {
+            if !tex_change.is_removed() {
+              tex_has_recreated = true;
             }
           }
-          ValueChange::Remove(_) => {}
+
+          if !tex_has_recreated {
+            let tex = tex_input_current.access(&id).unwrap();
+            let tex = create_gpu_texture2d(&self.gpu, &tex.inner);
+            copy_tex(&mut encoder, tex, target, &new_pack);
+          }
         }
+        ValueChange::Remove(_) => {}
       }
     }
 

@@ -1,5 +1,3 @@
-use parking_lot::RwLockReadGuard;
-
 use crate::*;
 
 pub struct OneToManyFanout<O, M, X, Upstream, Relation>
@@ -24,21 +22,20 @@ where
   Upstream: ReactiveCollection<O, X>,
   Relation: ReactiveOneToManyRelation<O, M> + 'static,
 {
+  type Changes = impl VirtualCollection<M, ValueChange<X>>;
+  type View = impl VirtualCollection<M, X>;
+
   #[tracing::instrument(skip_all, name = "OneToManyFanout")]
   #[allow(clippy::collapsible_else_if)]
-  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<M, X> {
-    let relational_changes = self.relations.poll_changes(cx);
-    let upstream_changes = self.upstream.poll_changes(cx);
+  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
+    let (relational_changes, relation_access) = self.relations.poll_changes(cx);
+    let (upstream_changes, getter) = self.upstream.poll_changes(cx);
 
-    let getter = self.upstream.access();
-    let inv_querier = self.relations.multi_access();
-    let one_acc = self.relations.access();
-
-    let getter_previous = make_previous(getter.deref(), &upstream_changes);
-    let one_acc_previous = make_previous(one_acc.deref(), &relational_changes);
+    let getter_previous = make_previous(&getter, &upstream_changes);
+    let one_acc_previous = make_previous(&relation_access, &relational_changes);
 
     let mut output = FastHashMap::default();
-    if let Poll::Ready(relational_changes) = &relational_changes {
+    {
       let relational_changes = relational_changes.materialize();
       relational_changes
         .iter()
@@ -59,13 +56,13 @@ where
           }
         });
     }
-    if let Poll::Ready(upstream_changes) = &upstream_changes {
+    {
       let upstream_changes = upstream_changes.materialize();
       for (one, delta) in upstream_changes.iter() {
         // the inv_query is the current relation, the previous one's delta is emitted
         // by the above relation change code
         match delta {
-          ValueChange::Remove(_p) => inv_querier.access_multi_visitor(one, &mut |many| {
+          ValueChange::Remove(_p) => relation_access.access_multi_visitor(one, &mut |many| {
             if let Some(pre_one) = one_acc_previous.access(&many) {
               if let Some(pre_x) = getter_previous.access(&pre_one) {
                 if let Some(ValueChange::Delta(_, _)) = output.get(&many) {
@@ -77,40 +74,37 @@ where
               }
             }
           }),
-          ValueChange::Delta(change, _p) => inv_querier.access_multi_visitor(one, &mut |many| {
-            if let Some(pre_one) = one_acc_previous.access(&many) {
-              let pre_x = getter_previous.access(&pre_one);
-              if let Some(ValueChange::Remove(_)) = output.get(&many) {
-                // cancel out
-                output.remove(&many);
+          ValueChange::Delta(change, _p) => {
+            relation_access.access_multi_visitor(one, &mut |many| {
+              if let Some(pre_one) = one_acc_previous.access(&many) {
+                let pre_x = getter_previous.access(&pre_one);
+                if let Some(ValueChange::Remove(_)) = output.get(&many) {
+                  // cancel out
+                  output.remove(&many);
+                } else {
+                  output.insert(many.clone(), ValueChange::Delta(change.clone(), pre_x));
+                }
               } else {
-                output.insert(many.clone(), ValueChange::Delta(change.clone(), pre_x));
+                if let Some(ValueChange::Remove(_)) = output.get(&many) {
+                  // cancel out
+                  output.remove(&many);
+                } else {
+                  output.insert(many.clone(), ValueChange::Delta(change.clone(), None));
+                }
               }
-            } else {
-              if let Some(ValueChange::Remove(_)) = output.get(&many) {
-                // cancel out
-                output.remove(&many);
-              } else {
-                output.insert(many.clone(), ValueChange::Delta(change.clone(), None));
-              }
-            }
-          }),
+            })
+          }
         }
       }
     }
 
-    if output.is_empty() {
-      Poll::Pending
-    } else {
-      Poll::Ready(Box::new(Arc::new(output)))
-    }
-  }
+    let d = Arc::new(output);
+    let v = OneToManyFanoutCurrentView {
+      upstream: getter.into_boxed(),
+      relation: VirtualCollectionExt::into_boxed(relation_access),
+    };
 
-  fn access(&self) -> PollCollectionCurrent<M, X> {
-    let upstream = self.upstream.access();
-    let relation = self.relations.access();
-
-    Box::new(OneToManyFanoutCurrentView { upstream, relation })
+    (d, v)
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -155,7 +149,7 @@ where
   pub upstream: Upstream,
   pub relations: Relation,
   pub phantom: PhantomData<(O, M)>,
-  pub ref_count: RwLock<FastHashMap<O, u32>>,
+  pub ref_count: Arc<RwLock<FastHashMap<O, u32>>>,
 }
 
 impl<O, M, Upstream, Relation> ReactiveCollection<O, ()>
@@ -166,20 +160,20 @@ where
   Upstream: ReactiveCollection<M, ()>,
   Relation: ReactiveCollection<M, O>,
 {
+  type Changes = impl VirtualCollection<O, ValueChange<()>>;
+  type View = impl VirtualCollection<O, ()>;
+
   #[tracing::instrument(skip_all, name = "ManyToOneReduce")]
-  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<O, ()> {
-    let relational_changes = self.relations.poll_changes(cx);
-    let upstream_changes = self.upstream.poll_changes(cx);
+  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
+    let (relational_changes, one_acc) = self.relations.poll_changes(cx);
+    let (upstream_changes, getter) = self.upstream.poll_changes(cx);
 
-    let getter = self.upstream.access();
-    let one_acc = self.relations.access();
-
-    let getter_previous = make_previous(getter.deref(), &upstream_changes);
+    let getter_previous = make_previous(&getter, &upstream_changes);
 
     let mut output = FastHashMap::default();
     let mut ref_counts = self.ref_count.write();
 
-    if let Poll::Ready(relational_changes) = &relational_changes {
+    {
       let relational_changes = relational_changes.materialize();
       for (key, change) in relational_changes.iter_key_value() {
         let old_value = change.old_value();
@@ -213,7 +207,7 @@ where
       }
     }
 
-    if let Poll::Ready(upstream_changes) = &upstream_changes {
+    {
       let upstream_changes = upstream_changes.materialize();
       for (many, delta) in upstream_changes.iter_key_value() {
         match delta {
@@ -257,18 +251,12 @@ where
       }
     }
 
-    if output.is_empty() {
-      Poll::Pending
-    } else {
-      Poll::Ready(Box::new(Arc::new(output)))
-    }
-  }
+    let d = Arc::new(output);
+    let v = ManyToOneReduceCurrentView {
+      ref_count: self.ref_count.make_read_holder(),
+    };
 
-  fn access(&self) -> PollCollectionCurrent<O, ()> {
-    let guard = unsafe { std::mem::transmute(self.ref_count.read()) };
-    Box::new(ManyToOneReduceCurrentView {
-      ref_count: Arc::new(guard),
-    })
+    (d, v)
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -284,7 +272,7 @@ where
 
 #[derive(Clone)]
 struct ManyToOneReduceCurrentView<O: CKey> {
-  ref_count: Arc<RwLockReadGuard<'static, FastHashMap<O, u32>>>,
+  ref_count: LockReadGuardHolder<FastHashMap<O, u32>>,
 }
 
 impl<O: CKey> VirtualCollection<O, ()> for ManyToOneReduceCurrentView<O> {

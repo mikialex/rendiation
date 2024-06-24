@@ -21,31 +21,13 @@ pub use utils::*;
 
 use crate::*;
 
-pub trait ReactiveCollectionExtForAcc<K, V>: ReactiveCollection<K, V>
-where
-  V: CValue,
-  K: CKey,
-{
-  fn make_accessor(&self) -> impl Fn(&K) -> Option<V> + '_ {
-    let view = self.access();
-    move |k| view.access(k)
-  }
-}
-impl<T, K, V> ReactiveCollectionExtForAcc<K, V> for T
-where
-  T: ReactiveCollection<K, V> + ?Sized,
-  V: CValue,
-  K: CKey,
-{
-}
-
 pub trait ReactiveCollectionExt<K, V>: ReactiveCollection<K, V>
 where
   V: CValue,
   K: CKey,
   Self: Sized + 'static,
 {
-  fn into_boxed(self) -> Box<dyn ReactiveCollection<K, V>>
+  fn into_boxed(self) -> Box<dyn DynReactiveCollection<K, V>>
   where
     Self: Sized + 'static,
   {

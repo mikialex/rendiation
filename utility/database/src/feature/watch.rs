@@ -136,7 +136,7 @@ impl DatabaseMutationWatch {
       mutation: RwLock::new(receiver),
     };
 
-    let rxc: Box<dyn ReactiveCollection<RawEntityHandle, T>> = Box::new(rxc);
+    let rxc: Box<dyn DynReactiveCollection<RawEntityHandle, T>> = Box::new(rxc);
     let rxc: RxCForker<RawEntityHandle, T> = rxc.into_static_forker();
 
     self
@@ -177,20 +177,22 @@ struct ComponentAccess<T> {
 }
 
 impl<T: CValue> VirtualCollectionProvider<u32, T> for ComponentAccess<T> {
-  fn access(&self) -> CollectionView<u32, T> {
-    Box::new(IterableComponentReadView::<T> {
+  fn access(&self) -> Box<dyn DynVirtualCollection<u32, T>> {
+    IterableComponentReadView::<T> {
       ecg: self.ecg.clone(),
       read_view: self.original.create_read_view(),
-    }) as PollCollectionCurrent<u32, T>
+    }
+    .into_boxed()
   }
 }
 
 impl<T: CValue> VirtualCollectionProvider<RawEntityHandle, T> for ComponentAccess<T> {
-  fn access(&self) -> CollectionView<RawEntityHandle, T> {
-    Box::new(IterableComponentReadView::<T> {
+  fn access(&self) -> Box<dyn DynVirtualCollection<RawEntityHandle, T>> {
+    IterableComponentReadView::<T> {
       ecg: self.ecg.clone(),
       read_view: self.original.create_read_view(),
-    }) as PollCollectionCurrent<RawEntityHandle, T>
+    }
+    .into_boxed()
   }
 }
 
@@ -223,23 +225,24 @@ impl<C: CValue, T: VirtualCollection<RawEntityHandle, C> + Clone> VirtualCollect
 impl<C: CValue, T: ReactiveCollection<RawEntityHandle, C>> ReactiveCollection<u32, C>
   for GenerationHelperView<T, C>
 {
-  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<u32, C> {
-    self.inner.poll_changes(cx).map(|inner| {
-      Box::new(GenerationHelperViewAccess {
-        inner,
-        phantom: PhantomData,
-        allocator: self.allocator.make_read_holder(),
-      }) as CollectionChanges<u32, C>
-    })
-  }
+  type Changes = impl VirtualCollection<u32, ValueChange<C>>;
+  type View = impl VirtualCollection<u32, C>;
+  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
+    let (inner, inner_access) = self.inner.poll_changes(cx);
 
-  fn access(&self) -> PollCollectionCurrent<u32, C> {
-    let inner: CollectionView<RawEntityHandle, C> = self.inner.access();
-    Box::new(GenerationHelperViewAccess {
+    let delta = GenerationHelperViewAccess {
       inner,
       phantom: PhantomData,
       allocator: self.allocator.make_read_holder(),
-    }) as CollectionView<u32, C>
+    };
+
+    let access = GenerationHelperViewAccess {
+      inner: inner_access,
+      phantom: PhantomData,
+      allocator: self.allocator.make_read_holder(),
+    };
+
+    (delta, access)
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {

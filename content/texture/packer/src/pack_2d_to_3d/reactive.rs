@@ -8,7 +8,7 @@ use super::*;
 
 pub fn reactive_pack_2d_to_3d(
   mut config: MultiLayerTexturePackerConfig,
-  size: Box<dyn ReactiveCollection<u32, Size>>,
+  size: Box<dyn DynReactiveCollection<u32, Size>>,
 ) -> (
   impl ReactiveCollection<u32, PackResult2dWithDepth>,
   impl Stream<Item = SizeWithDepth> + Unpin,
@@ -38,7 +38,7 @@ type PackerImpl = GrowablePacker<MultiLayerTexturePacker<EtagerePacker>>;
 
 struct Packer {
   max_size: SizeWithDepth,
-  size_source: Box<dyn ReactiveCollection<u32, Size>>,
+  size_source: Box<dyn DynReactiveCollection<u32, Size>>,
 
   packer: Arc<RwLock<PackerImpl>>,
   // todo, i think this is not necessary if the packer lib not generate id
@@ -74,8 +74,12 @@ impl VirtualCollection<u32, PackResult2dWithDepth> for PackerCurrentView {
 }
 
 impl ReactiveCollection<u32, PackResult2dWithDepth> for Packer {
-  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<u32, PackResult2dWithDepth> {
-    if let Poll::Ready(size_changes) = self.size_source.poll_changes(cx) {
+  type Changes = Box<dyn DynVirtualCollection<u32, ValueChange<PackResult2dWithDepth>>>;
+  type View = PackerCurrentView;
+  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
+    let (d, _) = self.size_source.poll_changes(cx);
+
+    {
       unsafe {
         self.sender.lock();
         let mut mapping = self.mapping.write();
@@ -112,7 +116,7 @@ impl ReactiveCollection<u32, PackResult2dWithDepth> for Packer {
           Some(target_config)
         };
 
-        for (id, size) in size_changes.iter_key_value() {
+        for (id, size) in d.iter_key_value() {
           match size {
             ValueChange::Delta(new_size, _) => {
               if let Some(pack_id) = rev_mapping.remove(&id) {
@@ -158,18 +162,18 @@ impl ReactiveCollection<u32, PackResult2dWithDepth> for Packer {
       }
     }
 
-    if let Poll::Ready(Some(r)) = self.accumulated_mutations.poll_impl(cx) {
-      Poll::Ready(r)
-    } else {
-      Poll::Pending
-    }
-  }
-
-  fn access(&self) -> PollCollectionCurrent<u32, PackResult2dWithDepth> {
-    Box::new(PackerCurrentView {
+    let v = PackerCurrentView {
       rev_mapping: self.rev_mapping.make_read_holder(),
       packer: self.packer.make_read_holder(),
-    })
+    };
+
+    let d = if let Poll::Ready(Some(r)) = self.accumulated_mutations.poll_impl(cx) {
+      r
+    } else {
+      Box::new(())
+    };
+
+    (d, v)
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {

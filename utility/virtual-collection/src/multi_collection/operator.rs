@@ -9,9 +9,9 @@ pub trait VirtualMultiCollectionExt<K: CKey, V: CValue>:
 
   fn map<V2: CValue>(
     self,
-    mapper: impl Fn(V) -> V2 + Clone + Send + Sync + 'static,
+    mapper: impl Fn(&K, V) -> V2 + Clone + Send + Sync + 'static,
   ) -> impl VirtualMultiCollection<K, V2> {
-    MappedMultiCollection {
+    MappedCollection {
       base: self,
       mapper,
       phantom: PhantomData,
@@ -23,7 +23,7 @@ pub trait VirtualMultiCollectionExt<K: CKey, V: CValue>:
     f1: impl Fn(K) -> K2 + Clone + Send + Sync + 'static,
     f2: impl Fn(K2) -> Option<K> + Clone + Send + Sync + 'static,
   ) -> impl VirtualMultiCollection<K2, V> {
-    KeyDualMapMultiCollection {
+    KeyDualMapCollection {
       base: self,
       f1,
       f2,
@@ -36,19 +36,12 @@ impl<T: ?Sized, K: CKey, V: CValue> VirtualMultiCollectionExt<K, V> for T where
 {
 }
 
-#[derive(Clone)]
-pub struct MappedMultiCollection<K, V, F, T> {
-  pub base: T,
-  pub mapper: F,
-  pub phantom: PhantomData<(K, V)>,
-}
-
-impl<K, V, V2, F, T> VirtualMultiCollection<K, V2> for MappedMultiCollection<K, V, F, T>
+impl<K, V, V2, F, T> VirtualMultiCollection<K, V2> for MappedCollection<K, V, F, T>
 where
   K: CKey,
   V: CValue,
   V2: CValue,
-  F: Fn(V) -> V2 + Clone + Send + Sync + 'static,
+  F: Fn(&K, V) -> V2 + Clone + Send + Sync + 'static,
   T: VirtualMultiCollection<K, V>,
 {
   fn iter_key_in_multi_collection(&self) -> impl Iterator<Item = K> + '_ {
@@ -56,22 +49,17 @@ where
   }
 
   fn access_multi(&self, key: &K) -> Option<impl Iterator<Item = V2> + '_> {
+    let k = key.clone();
     Some(Box::new(
-      self.base.access_multi(key)?.map(|v| (self.mapper)(v)),
+      self
+        .base
+        .access_multi(key)?
+        .map(move |v| (self.mapper)(&k, v)),
     ))
   }
 }
 
-#[derive(Clone)]
-pub struct KeyDualMapMultiCollection<K, V, F1, F2, T> {
-  pub base: T,
-  pub f1: F1,
-  pub f2: F2,
-  pub phantom: PhantomData<(K, V)>,
-}
-
-impl<K, K2, V, F1, F2, T> VirtualMultiCollection<K2, V>
-  for KeyDualMapMultiCollection<K, V, F1, F2, T>
+impl<K, K2, V, F1, F2, T> VirtualMultiCollection<K2, V> for KeyDualMapCollection<K, V, F1, F2, T>
 where
   K: CKey,
   K2: CKey,

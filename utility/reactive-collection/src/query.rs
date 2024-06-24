@@ -78,8 +78,8 @@ where
   type Output = Box<dyn std::any::Any>;
 
   fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
-    let _ = self.inner.poll_changes(cx);
-    Box::new(self.inner.access())
+    let (_, v) = self.inner.poll_changes_dyn(cx);
+    Box::new(v)
   }
 }
 
@@ -97,8 +97,8 @@ where
   type Output = Box<dyn std::any::Any>;
 
   fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
-    let _ = self.inner.poll_changes(cx);
-    Box::new(self.inner.access_ref_collection())
+    let (_, v) = self.inner.poll_changes_dyn(cx);
+    Box::new(v)
   }
 }
 
@@ -116,8 +116,8 @@ where
   type Output = Box<dyn std::any::Any>;
 
   fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
-    let _ = self.inner.poll_changes(cx);
-    Box::new(self.inner.multi_access())
+    let (_, m) = self.inner.poll_changes_dyn(cx);
+    Box::new(m)
   }
 }
 

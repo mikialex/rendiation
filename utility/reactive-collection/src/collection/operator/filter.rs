@@ -42,16 +42,18 @@ where
   V: CValue,
   V2: CValue,
 {
-  #[tracing::instrument(skip_all, name = "ReactiveKVFilter")]
-  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<K, V2> {
-    self.inner.poll_changes(cx).map(|delta| {
-      let checker = make_checker(self.checker);
-      delta.filter_map(checker).into_boxed()
-    })
-  }
+  type Changes = impl VirtualCollection<K, ValueChange<V2>>;
+  type View = impl VirtualCollection<K, V2>;
 
-  fn access(&self) -> PollCollectionCurrent<K, V2> {
-    self.inner.access().filter_map(self.checker).into_boxed()
+  #[tracing::instrument(skip_all, name = "ReactiveKVFilter")]
+  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
+    let (d, v) = self.inner.poll_changes(cx);
+
+    let checker = make_checker(self.checker);
+    let d = d.filter_map(checker);
+    let v = v.filter_map(self.checker);
+
+    (d, v)
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {

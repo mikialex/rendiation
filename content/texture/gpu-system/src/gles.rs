@@ -2,20 +2,17 @@ use crate::*;
 
 // todo, improve performance using self contained collection
 pub struct TraditionalPerDrawBindingSystemSource {
-  pub textures: Box<dyn ReactiveCollection<Texture2DHandle, GPU2DTextureView>>,
-  pub samplers: Box<dyn ReactiveCollection<SamplerHandle, GPUSamplerView>>,
+  pub textures: Box<dyn DynReactiveCollection<Texture2DHandle, GPU2DTextureView>>,
+  pub samplers: Box<dyn DynReactiveCollection<SamplerHandle, GPUSamplerView>>,
 }
 
 impl ReactiveQuery for TraditionalPerDrawBindingSystemSource {
   type Output = Box<dyn DynAbstractGPUTextureSystem>;
 
   fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
-    let _ = self.textures.poll_changes(cx);
-    let _ = self.samplers.poll_changes(cx);
-    Box::new(TraditionalPerDrawBindingSystem {
-      textures: self.textures.access(),
-      samplers: self.samplers.access(),
-    })
+    let (_, textures) = self.textures.poll_changes(cx);
+    let (_, samplers) = self.samplers.poll_changes(cx);
+    Box::new(TraditionalPerDrawBindingSystem { textures, samplers })
   }
 }
 

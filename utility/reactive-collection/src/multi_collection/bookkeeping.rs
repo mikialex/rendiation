@@ -42,34 +42,23 @@ where
   }
 }
 
-impl<O, M, T> ReactiveOneToManyRelation<O, M> for OneToManyRefHashBookKeeping<O, M, T>
-where
-  T: ReactiveCollection<M, O>,
-  M: CKey,
-  O: CKey,
-{
-  fn multi_access(&self) -> Box<dyn DynVirtualMultiCollection<O, M>> {
-    Box::new(OneToManyRefHashBookKeepingCurrentView {
-      upstream: self.upstream.access(),
-      mapping: self.mapping.make_read_holder(),
-    })
-  }
-}
-
 impl<O, M, T> ReactiveCollection<M, O> for OneToManyRefHashBookKeeping<O, M, T>
 where
   T: ReactiveCollection<M, O>,
   M: CKey,
   O: CKey,
 {
-  //   #[tracing::instrument(skip_all, name = "OneToManyRefHashBookKeeping")]
-  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<M, O> {
-    let r = self.upstream.poll_changes(cx);
+  type Changes = impl VirtualCollection<M, ValueChange<O>>;
+  type View = impl VirtualMultiCollection<O, M> + VirtualCollection<M, O>;
 
-    if let Poll::Ready(changes) = r.clone() {
+  #[tracing::instrument(skip_all, name = "OneToManyRefHashBookKeeping")]
+  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
+    let (r, r_view) = self.upstream.poll_changes(cx);
+
+    {
       let mut mapping = self.mapping.write();
 
-      for (many, change) in changes.iter_key_value() {
+      for (many, change) in r.iter_key_value() {
         let new_one = change.new_value();
 
         let old_refed_one = change.old_value();
@@ -90,13 +79,12 @@ where
       }
     }
 
-    r
-  }
-  fn access(&self) -> PollCollectionCurrent<M, O> {
-    Box::new(OneToManyRefHashBookKeepingCurrentView {
-      upstream: self.upstream.access(),
+    let v = OneToManyRefHashBookKeepingCurrentView {
+      upstream: r_view.into_boxed(),
       mapping: self.mapping.make_read_holder(),
-    })
+    };
+
+    (r, v)
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -172,34 +160,23 @@ where
   }
 }
 
-impl<O, M, T> ReactiveOneToManyRelation<O, M> for OneToManyRefDenseBookKeeping<O, M, T>
-where
-  T: ReactiveCollection<M, O>,
-  M: LinearIdentification + CKey,
-  O: LinearIdentification + CKey,
-{
-  fn multi_access(&self) -> Box<dyn DynVirtualMultiCollection<O, M>> {
-    Box::new(OneToManyRefDenseBookKeepingCurrentView {
-      upstream: self.upstream.access(),
-      mapping: self.mapping.make_read_holder(),
-    })
-  }
-}
-
 impl<O, M, T> ReactiveCollection<M, O> for OneToManyRefDenseBookKeeping<O, M, T>
 where
   T: ReactiveCollection<M, O>,
   M: LinearIdentification + CKey,
   O: LinearIdentification + CKey,
 {
-  #[tracing::instrument(skip_all, name = "OneToManyRefDenseBookKeeping")]
-  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<M, O> {
-    let r = self.upstream.poll_changes(cx);
+  type Changes = impl VirtualCollection<M, ValueChange<O>>;
+  type View = impl VirtualMultiCollection<O, M> + VirtualCollection<M, O>;
 
-    if let Poll::Ready(changes) = r.clone() {
-      for (many, change) in changes.iter_key_value() {
-        let mut mapping = self.mapping.write();
-        let mapping: &mut Mapping = &mut mapping;
+  #[tracing::instrument(skip_all, name = "OneToManyRefDenseBookKeeping")]
+  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
+    let (r, r_view) = self.upstream.poll_changes(cx);
+
+    {
+      let mut mapping = self.mapping.write();
+      let mapping: &mut Mapping = &mut mapping;
+      for (many, change) in r.iter_key_value() {
         let new_one = change.new_value();
 
         let old_refed_one = change.old_value();
@@ -236,14 +213,12 @@ where
       }
     }
 
-    r
-  }
-
-  fn access(&self) -> PollCollectionCurrent<M, O> {
-    Box::new(OneToManyRefDenseBookKeepingCurrentView {
-      upstream: self.upstream.access(),
+    let v = OneToManyRefDenseBookKeepingCurrentView {
+      upstream: r_view.into_boxed(),
       mapping: self.mapping.make_read_holder(),
-    })
+    };
+
+    (r, v)
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {

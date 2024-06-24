@@ -45,18 +45,17 @@ where
     target: &mut Box<dyn MutateTargetCollection<K, TV>>,
     cx: &mut Context,
   ) {
-    if let Poll::Ready(changes) = self.collection.poll_changes(cx) {
-      for (k, v) in changes.iter_key_value() {
-        match v {
-          ValueChange::Delta(v, _) => {
-            if target.get_current(k.clone()).is_none() {
-              target.set_value(k.clone(), Default::default());
-            }
-            target.mutate(k, &|t| (self.update_logic)(v.clone(), t));
+    let (d, _) = self.collection.poll_changes(cx);
+    for (k, v) in d.iter_key_value() {
+      match v {
+        ValueChange::Delta(v, _) => {
+          if target.get_current(k.clone()).is_none() {
+            target.set_value(k.clone(), Default::default());
           }
-          ValueChange::Remove(_) => {
-            target.remove(k);
-          }
+          target.mutate(k, &|t| (self.update_logic)(v.clone(), t));
+        }
+        ValueChange::Remove(_) => {
+          target.remove(k);
         }
       }
     }

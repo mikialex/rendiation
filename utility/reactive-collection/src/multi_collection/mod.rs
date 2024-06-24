@@ -4,21 +4,21 @@ pub use bookkeeping::*;
 mod map;
 mod projection;
 
-use std::ops::DerefMut;
-
+mod dyn_impl;
+pub use dyn_impl::*;
 pub use map::*;
 pub use projection::*;
 
 use crate::*;
 
-pub trait ReactiveOneToManyRelation<O: CKey, M: CKey>: ReactiveCollection<M, O> {
-  fn multi_access(&self) -> Box<dyn DynVirtualMultiCollection<O, M>>;
+pub trait ReactiveOneToManyRelation<O: CKey, M: CKey>:
+  ReactiveCollection<M, O, View: VirtualMultiCollection<O, M>>
+{
 }
 
-impl<O: CKey, M: CKey> ReactiveOneToManyRelation<O, M> for () {
-  fn multi_access(&self) -> Box<dyn DynVirtualMultiCollection<O, M>> {
-    Box::new(())
-  }
+impl<O: CKey, M: CKey, T> ReactiveOneToManyRelation<O, M> for T where
+  T: ReactiveCollection<M, O, View: VirtualMultiCollection<O, M>>
+{
 }
 
 pub trait ReactiveOneToManyRelationExt<O: CKey, M: CKey>: ReactiveOneToManyRelation<O, M> {
@@ -30,11 +30,6 @@ pub trait ReactiveOneToManyRelationExt<O: CKey, M: CKey>: ReactiveOneToManyRelat
       inner: self,
       phantom: PhantomData,
     }
-  }
-
-  fn make_multi_accessor(&self) -> impl Fn(&O, &mut dyn FnMut(M)) + Send + Sync + '_ {
-    let view = self.multi_access();
-    move |k, visitor| view.access_multi_visitor(k, visitor)
   }
 
   fn map_value<M2: CKey>(self, f: impl Fn(&M) -> M2) -> impl ReactiveOneToManyRelation<O, M2>
@@ -57,32 +52,6 @@ pub trait ReactiveOneToManyRelationExt<O: CKey, M: CKey>: ReactiveOneToManyRelat
 impl<O: CKey, M: CKey, T: ReactiveOneToManyRelation<O, M>> ReactiveOneToManyRelationExt<O, M>
   for T
 {
-}
-
-impl<O, M> ReactiveCollection<M, O> for Box<dyn ReactiveOneToManyRelation<O, M>>
-where
-  O: CKey,
-  M: CKey,
-{
-  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<M, O> {
-    self.deref().poll_changes(cx)
-  }
-  fn access(&self) -> PollCollectionCurrent<M, O> {
-    self.deref().access()
-  }
-  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
-    self.deref_mut().extra_request(request)
-  }
-}
-
-impl<O, M> ReactiveOneToManyRelation<O, M> for Box<dyn ReactiveOneToManyRelation<O, M>>
-where
-  O: CKey,
-  M: CKey,
-{
-  fn multi_access(&self) -> Box<dyn DynVirtualMultiCollection<O, M>> {
-    self.deref().multi_access()
-  }
 }
 
 pub trait ReactiveCollectionRelationExt<K: CKey, V: CKey>:

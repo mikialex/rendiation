@@ -138,17 +138,17 @@ pub struct Viewer3dSceneCtx {
 }
 
 pub struct Viewer3dSceneDeriveSource {
-  pub world_mat: Box<dyn ReactiveCollection<EntityHandle<SceneNodeEntity>, Mat4<f32>>>,
-  pub camera_proj: Box<dyn ReactiveCollection<EntityHandle<SceneCameraEntity>, Mat4<f32>>>,
+  pub world_mat: Box<dyn DynReactiveCollection<EntityHandle<SceneNodeEntity>, Mat4<f32>>>,
+  pub camera_proj: Box<dyn DynReactiveCollection<EntityHandle<SceneCameraEntity>, Mat4<f32>>>,
 }
 
 impl Viewer3dSceneDeriveSource {
   fn poll_update(&self, cx: &mut Context) -> Viewer3dSceneDerive {
-    let _ = self.world_mat.poll_changes(cx);
-    let _ = self.camera_proj.poll_changes(cx);
+    let (_, world_mat) = self.world_mat.poll_changes(cx);
+    let (_, camera_proj) = self.camera_proj.poll_changes(cx);
     Viewer3dSceneDerive {
-      world_mat: self.world_mat.access(),
-      camera_proj: self.camera_proj.access(),
+      world_mat,
+      camera_proj,
     }
   }
 }

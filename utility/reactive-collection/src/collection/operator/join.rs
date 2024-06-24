@@ -16,36 +16,28 @@ where
   A: ReactiveCollection<K1, V1>,
   B: ReactiveCollection<K2, V2>,
 {
-  fn poll_changes(&self, cx: &mut Context) -> PollCollectionChanges<(K1, K2), (V1, V2)> {
-    let t1 = self.a.poll_changes(cx);
-    let t2 = self.b.poll_changes(cx);
+  type Changes = impl VirtualCollection<(K1, K2), ValueChange<(V1, V2)>>;
+  type View = impl VirtualCollection<(K1, K2), (V1, V2)>;
+  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
+    let (t1, a_access) = self.a.poll_changes(cx);
+    let (t2, b_access) = self.b.poll_changes(cx);
 
-    let a_access = self.a.access();
-    let b_access = self.b.access();
+    let a_access = a_access.into_boxed();
+    let b_access = b_access.into_boxed();
 
-    if t1.is_pending() && t2.is_pending() {
-      return Poll::Pending;
-    }
+    let d = CrossJoinValueChange {
+      a: t1.into_boxed(),
+      b: t2.into_boxed(),
+      a_current: a_access.clone(),
+      b_current: b_access.clone(),
+    };
 
-    Poll::Ready(Box::new(CrossJoinValueChange {
-      a: match t1 {
-        Poll::Ready(delta) => delta,
-        Poll::Pending => Box::new(()),
-      },
-      b: match t2 {
-        Poll::Ready(delta) => delta,
-        Poll::Pending => Box::new(()),
-      },
-      a_current: a_access,
-      b_current: b_access,
-    }))
-  }
+    let v = CrossJoinCollection {
+      a: a_access,
+      b: b_access,
+    };
 
-  fn access(&self) -> PollCollectionCurrent<(K1, K2), (V1, V2)> {
-    Box::new(CrossJoinCollection {
-      a: self.a.access(),
-      b: self.b.access(),
-    })
+    (d, v)
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
