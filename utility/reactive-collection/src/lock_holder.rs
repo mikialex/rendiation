@@ -1,19 +1,5 @@
 use crate::*;
 
-pub(crate) trait MakeLockResultHolder<K, V>: Sized {
-  /// note, this method should be considered as the unsafe
-  fn make_lock_holder_collection(&self) -> Box<dyn DynVirtualCollection<K, V>>;
-}
-
-impl<T, K: CKey, V: CValue> MakeLockResultHolder<K, V> for Arc<RwLock<T>>
-where
-  T: VirtualCollection<K, V> + 'static,
-{
-  fn make_lock_holder_collection(&self) -> Box<dyn DynVirtualCollection<K, V>> {
-    Box::new(self.make_read_holder())
-  }
-}
-
 impl<K: CKey, V: CValue, T: VirtualCollection<K, V>> VirtualCollection<K, V>
   for LockReadGuardHolder<T>
 {

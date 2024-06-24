@@ -22,12 +22,12 @@ where
     let (t1, a_access) = self.a.poll_changes(cx);
     let (t2, b_access) = self.b.poll_changes(cx);
 
-    let a_access = a_access.into_boxed();
-    let b_access = b_access.into_boxed();
+    let a_access = a_access;
+    let b_access = b_access;
 
     let d = CrossJoinValueChange {
-      a: t1.into_boxed(),
-      b: t2.into_boxed(),
+      a: t1,
+      b: t2,
       a_current: a_access.clone(),
       b_current: b_access.clone(),
     };
@@ -47,20 +47,24 @@ where
 }
 
 #[derive(Clone)]
-struct CrossJoinValueChange<'a, K1, K2, V1, V2> {
-  a: Box<dyn DynVirtualCollection<K1, ValueChange<V1>> + 'a>,
-  b: Box<dyn DynVirtualCollection<K2, ValueChange<V2>> + 'a>,
-  a_current: Box<dyn DynVirtualCollection<K1, V1> + 'a>,
-  b_current: Box<dyn DynVirtualCollection<K2, V2> + 'a>,
+struct CrossJoinValueChange<A, B, DA, DB> {
+  a: DA,
+  b: DB,
+  a_current: A,
+  b_current: B,
 }
 
-impl<'a, K1, K2, V1, V2> VirtualCollection<(K1, K2), ValueChange<(V1, V2)>>
-  for CrossJoinValueChange<'a, K1, K2, V1, V2>
+impl<A, B, DA, DB, K1, K2, V1, V2> VirtualCollection<(K1, K2), ValueChange<(V1, V2)>>
+  for CrossJoinValueChange<A, B, DA, DB>
 where
   K1: CKey,
   K2: CKey,
   V1: CValue,
   V2: CValue,
+  DA: VirtualCollection<K1, ValueChange<V1>>,
+  DB: VirtualCollection<K2, ValueChange<V2>>,
+  A: VirtualCollection<K1, V1>,
+  B: VirtualCollection<K2, V2>,
 {
   fn iter_key_value(&self) -> impl Iterator<Item = ((K1, K2), ValueChange<(V1, V2)>)> + '_ {
     let cross_section = self.a.iter_key_value().flat_map(move |(k1, v1_change)| {
@@ -147,18 +151,19 @@ fn exist_both<V1, V2>(
 }
 
 #[derive(Clone)]
-struct CrossJoinCollection<'a, K1, K2, V1, V2> {
-  a: Box<dyn DynVirtualCollection<K1, V1> + 'a>,
-  b: Box<dyn DynVirtualCollection<K2, V2> + 'a>,
+struct CrossJoinCollection<A, B> {
+  a: A,
+  b: B,
 }
 
-impl<'a, K1, K2, V1, V2> VirtualCollection<(K1, K2), (V1, V2)>
-  for CrossJoinCollection<'a, K1, K2, V1, V2>
+impl<A, B, K1, K2, V1, V2> VirtualCollection<(K1, K2), (V1, V2)> for CrossJoinCollection<A, B>
 where
   K1: CKey,
   K2: CKey,
   V1: CValue,
   V2: CValue,
+  A: VirtualCollection<K1, V1>,
+  B: VirtualCollection<K2, V2>,
 {
   fn iter_key_value(&self) -> impl Iterator<Item = ((K1, K2), (V1, V2))> + '_ {
     self.a.iter_key_value().flat_map(move |(k1, v1)| {

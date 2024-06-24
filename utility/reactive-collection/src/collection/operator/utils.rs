@@ -52,12 +52,13 @@ pub struct ReactiveCollectionDiff<T, K, V> {
 }
 
 #[derive(Clone)]
-pub struct DiffChangedView<K, V> {
-  inner: Box<dyn DynVirtualCollection<K, ValueChange<V>>>,
+pub struct DiffChangedView<T> {
+  inner: T,
 }
 
-impl<K, V> VirtualCollection<K, ValueChange<V>> for DiffChangedView<K, V>
+impl<T, K, V> VirtualCollection<K, ValueChange<V>> for DiffChangedView<T>
 where
+  T: VirtualCollection<K, ValueChange<V>>,
   K: CKey,
   V: CValue,
 {
@@ -90,9 +91,7 @@ where
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let (d, v) = self.inner.poll_changes(cx);
 
-    let d = DiffChangedView {
-      inner: d.into_boxed(),
-    };
+    let d = DiffChangedView { inner: d };
     (d, v)
   }
 

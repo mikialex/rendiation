@@ -22,21 +22,23 @@ where
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let (t1, a_access) = self.a.poll_changes(cx);
     let (t2, b_access) = self.b.poll_changes(cx);
-    let a_access = a_access.into_boxed();
-    let b_access = b_access.into_boxed();
+    let a_access = a_access;
+    let b_access = b_access;
 
     let d = UnionValueChange {
-      a: t1.into_boxed(),
-      b: t2.into_boxed(),
+      a: t1,
+      b: t2,
       f: self.f,
       a_current: a_access.clone(),
       b_current: b_access.clone(),
+      phantom: PhantomData,
     };
 
     let v = UnionCollection {
       a: a_access,
       b: b_access,
       f: self.f,
+      phantom: PhantomData,
     };
 
     (d, v)
@@ -49,14 +51,17 @@ where
 }
 
 #[derive(Clone)]
-struct UnionCollection<'a, K, V1, V2, F> {
-  a: Box<dyn DynVirtualCollection<K, V1> + 'a>,
-  b: Box<dyn DynVirtualCollection<K, V2> + 'a>,
+struct UnionCollection<A, B, K, V1, V2, F> {
+  a: A,
+  b: B,
+  phantom: PhantomData<(K, V1, V2)>,
   f: F,
 }
 
-impl<'a, K, V1, V2, F, O> VirtualCollection<K, O> for UnionCollection<'a, K, V1, V2, F>
+impl<A, B, K, V1, V2, F, O> VirtualCollection<K, O> for UnionCollection<A, B, K, V1, V2, F>
 where
+  A: VirtualCollection<K, V1>,
+  B: VirtualCollection<K, V2>,
   F: Fn((Option<V1>, Option<V2>)) -> Option<O> + Send + Sync + Copy + 'static,
   K: CKey,
   O: CValue,
@@ -84,17 +89,22 @@ where
 }
 
 #[derive(Clone)]
-struct UnionValueChange<'a, K, V1, V2, F> {
-  a: Box<dyn DynVirtualCollection<K, ValueChange<V1>> + 'a>,
-  b: Box<dyn DynVirtualCollection<K, ValueChange<V2>> + 'a>,
-  a_current: Box<dyn DynVirtualCollection<K, V1> + 'a>,
-  b_current: Box<dyn DynVirtualCollection<K, V2> + 'a>,
+struct UnionValueChange<A, B, AD, BD, K, V1, V2, F> {
+  a: AD,
+  b: BD,
+  a_current: A,
+  b_current: B,
   f: F,
+  phantom: PhantomData<(K, V1, V2)>,
 }
 
-impl<'a, K, V1, V2, F, O> VirtualCollection<K, ValueChange<O>>
-  for UnionValueChange<'a, K, V1, V2, F>
+impl<A, B, AD, BD, K, V1, V2, F, O> VirtualCollection<K, ValueChange<O>>
+  for UnionValueChange<A, B, AD, BD, K, V1, V2, F>
 where
+  A: VirtualCollection<K, V1>,
+  B: VirtualCollection<K, V2>,
+  AD: VirtualCollection<K, ValueChange<V1>>,
+  BD: VirtualCollection<K, ValueChange<V2>>,
   F: Fn((Option<V1>, Option<V2>)) -> Option<O> + Send + Sync + Copy + 'static,
   K: CKey,
   O: CValue,

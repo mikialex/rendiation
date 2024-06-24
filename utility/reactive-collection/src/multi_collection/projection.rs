@@ -100,8 +100,9 @@ where
 
     let d = Arc::new(output);
     let v = OneToManyFanoutCurrentView {
-      upstream: getter.into_boxed(),
-      relation: VirtualCollectionExt::into_boxed(relation_access),
+      upstream: getter,
+      relation: relation_access,
+      phantom: PhantomData,
     };
 
     (d, v)
@@ -114,16 +115,19 @@ where
 }
 
 #[derive(Clone)]
-struct OneToManyFanoutCurrentView<'a, O, M, X> {
-  upstream: Box<dyn DynVirtualCollection<O, X> + 'a>,
-  relation: Box<dyn DynVirtualCollection<M, O> + 'a>,
+struct OneToManyFanoutCurrentView<U, R, O> {
+  upstream: U,
+  relation: R,
+  phantom: PhantomData<O>,
 }
 
-impl<'a, O, M, X> VirtualCollection<M, X> for OneToManyFanoutCurrentView<'a, O, M, X>
+impl<U, R, O, M, X> VirtualCollection<M, X> for OneToManyFanoutCurrentView<U, R, O>
 where
   O: CKey,
   M: CKey,
   X: CValue,
+  U: VirtualCollection<O, X>,
+  R: VirtualCollection<M, O>,
 {
   fn iter_key_value(&self) -> impl Iterator<Item = (M, X)> + '_ {
     // this is pretty costly

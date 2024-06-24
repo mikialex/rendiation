@@ -8,13 +8,14 @@ pub struct OneToManyRefHashBookKeeping<O, M, T> {
 }
 
 #[derive(Clone)]
-pub struct OneToManyRefHashBookKeepingCurrentView<'a, M: CKey, O: CKey> {
-  upstream: Box<dyn DynVirtualCollection<M, O> + 'a>,
+pub struct OneToManyRefHashBookKeepingCurrentView<T, M: CKey, O: CKey> {
+  upstream: T,
   mapping: LockReadGuardHolder<FastHashMap<O, FastHashSet<M>>>,
 }
 
-impl<'a, O, M> VirtualCollection<M, O> for OneToManyRefHashBookKeepingCurrentView<'a, M, O>
+impl<T, O, M> VirtualCollection<M, O> for OneToManyRefHashBookKeepingCurrentView<T, M, O>
 where
+  T: VirtualCollection<M, O>,
   M: CKey,
   O: CKey,
 {
@@ -27,14 +28,14 @@ where
   }
 }
 
-impl<'a, O, M> VirtualMultiCollection<O, M> for OneToManyRefHashBookKeepingCurrentView<'a, M, O>
+impl<T, O, M> VirtualMultiCollection<O, M> for OneToManyRefHashBookKeepingCurrentView<T, M, O>
 where
+  T: VirtualCollection<M, O>,
   M: CKey,
   O: CKey,
 {
   fn iter_key_in_multi_collection(&self) -> impl Iterator<Item = O> + '_ {
-    // todo, avoid clone
-    self.mapping.keys().cloned().collect::<Vec<_>>().into_iter()
+    self.mapping.keys().cloned()
   }
 
   fn access_multi(&self, o: &O) -> Option<impl Iterator<Item = M> + '_> {
@@ -80,7 +81,7 @@ where
     }
 
     let v = OneToManyRefHashBookKeepingCurrentView {
-      upstream: r_view.into_boxed(),
+      upstream: r_view,
       mapping: self.mapping.make_read_holder(),
     };
 
@@ -108,13 +109,14 @@ pub struct Mapping {
 }
 
 #[derive(Clone)]
-pub struct OneToManyRefDenseBookKeepingCurrentView<'a, M: CKey, O: CKey> {
-  upstream: Box<dyn DynVirtualCollection<M, O> + 'a>,
+pub struct OneToManyRefDenseBookKeepingCurrentView<T> {
+  upstream: T,
   mapping: LockReadGuardHolder<Mapping>,
 }
 
-impl<'a, O, M> VirtualCollection<M, O> for OneToManyRefDenseBookKeepingCurrentView<'a, M, O>
+impl<T, O, M> VirtualCollection<M, O> for OneToManyRefDenseBookKeepingCurrentView<T>
 where
+  T: VirtualCollection<M, O>,
   M: CKey,
   O: CKey,
 {
@@ -127,22 +129,19 @@ where
   }
 }
 
-impl<'a, O, M> VirtualMultiCollection<O, M> for OneToManyRefDenseBookKeepingCurrentView<'a, M, O>
+impl<T, O, M> VirtualMultiCollection<O, M> for OneToManyRefDenseBookKeepingCurrentView<T>
 where
+  T: VirtualCollection<M, O>,
   M: CKey + LinearIdentification,
   O: CKey + LinearIdentification,
 {
   fn iter_key_in_multi_collection(&self) -> impl Iterator<Item = O> + '_ {
-    // todo, avoid clone
-
     self
       .mapping
       .mapping
       .iter()
       .enumerate()
       .filter_map(|(i, list)| (!list.is_empty()).then_some(O::from_alloc_index(i as u32)))
-      .collect::<Vec<_>>()
-      .into_iter()
   }
 
   fn access_multi(&self, o: &O) -> Option<impl Iterator<Item = M> + '_> {
@@ -214,7 +213,7 @@ where
     }
 
     let v = OneToManyRefDenseBookKeepingCurrentView {
-      upstream: r_view.into_boxed(),
+      upstream: r_view,
       mapping: self.mapping.make_read_holder(),
     };
 
