@@ -7,7 +7,7 @@ pub trait VirtualMultiCollectionExt<K: CKey, V: CValue>:
     Box::new(self)
   }
 
-  fn map<V2: CValue>(
+  fn multi_map<V2: CValue>(
     self,
     mapper: impl Fn(&K, V) -> V2 + Clone + Send + Sync + 'static,
   ) -> impl VirtualMultiCollection<K, V2> {
@@ -18,7 +18,15 @@ pub trait VirtualMultiCollectionExt<K: CKey, V: CValue>:
     }
   }
 
-  fn key_dual_map_partial<K2: CKey>(
+  fn multi_key_dual_map<K2: CKey>(
+    self,
+    f1: impl Fn(K) -> K2 + Clone + Send + Sync + 'static,
+    f2: impl Fn(K2) -> K + Clone + Send + Sync + 'static,
+  ) -> impl VirtualMultiCollection<K2, V> {
+    self.multi_key_dual_map_partial(f1, move |k| Some(f2(k)))
+  }
+
+  fn multi_key_dual_map_partial<K2: CKey>(
     self,
     f1: impl Fn(K) -> K2 + Clone + Send + Sync + 'static,
     f2: impl Fn(K2) -> Option<K> + Clone + Send + Sync + 'static,

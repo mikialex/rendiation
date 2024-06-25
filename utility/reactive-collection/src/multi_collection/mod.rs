@@ -32,21 +32,42 @@ pub trait ReactiveOneToManyRelationExt<O: CKey, M: CKey>: ReactiveOneToManyRelat
     }
   }
 
-  fn map_value<M2: CKey>(self, f: impl Fn(&M) -> M2) -> impl ReactiveOneToManyRelation<O, M2>
-  where
-    Self: Sized,
-  {
-    todo!()
-  }
-  fn dual_map_key<O2: CKey>(
+  /// todo, merge api with collective_map?
+  fn collective_map_key_one_many<O2, F, F2>(
     self,
-    f: impl Fn(&O) -> O2,
-    f_v: impl Fn(&O2) -> O,
+    f: F,
+    f2: F2,
   ) -> impl ReactiveOneToManyRelation<O2, M>
   where
+    F: Fn(O) -> O2 + Copy + Send + Sync + 'static,
+    F2: Fn(O2) -> O + Copy + Send + Sync + 'static,
+    O: CKey,
+    O2: CKey,
     Self: Sized,
   {
-    todo!()
+    ReactiveKVMapRelation {
+      inner: self,
+      map: move |_: &_, v| f(v),
+      f1: f,
+      f2,
+      phantom: PhantomData,
+    }
+  }
+
+  fn collective_dual_map_one_many<M2: CKey>(
+    self,
+    f: impl Fn(M) -> M2 + Copy + 'static + Send + Sync,
+    f_v: impl Fn(M2) -> M + Copy + 'static + Send + Sync,
+  ) -> impl ReactiveOneToManyRelation<O, M2>
+  where
+    Self: Sized,
+  {
+    ReactiveKeyDualMapRelation {
+      inner: self,
+      f1: f,
+      f2: f_v,
+      phantom: PhantomData,
+    }
   }
 }
 impl<O: CKey, M: CKey, T: ReactiveOneToManyRelation<O, M>> ReactiveOneToManyRelationExt<O, M>
