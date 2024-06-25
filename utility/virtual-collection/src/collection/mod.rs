@@ -24,6 +24,16 @@ pub trait VirtualCollection<K: CKey, V: CValue>: Send + Sync + Clone {
   }
 }
 
+impl<'a, K: CKey, V: CValue, T: VirtualCollection<K, V>> VirtualCollection<K, V> for &'a T {
+  fn iter_key_value(&self) -> impl Iterator<Item = (K, V)> + '_ {
+    (*self).iter_key_value()
+  }
+
+  fn access(&self, k: &K) -> Option<V> {
+    (*self).access(k)
+  }
+}
+
 /// it's useful to use () as the empty collection
 impl<K: CKey, V: CValue> VirtualCollection<K, V> for () {
   fn iter_key_value(&self) -> impl Iterator<Item = (K, V)> + '_ {

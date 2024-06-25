@@ -1,6 +1,5 @@
 use crate::*;
 
-/// todo use ReactiveKVMap
 pub struct ReactiveKVMapRelation<T, F, F1, F2, K, V> {
   pub inner: T,
   pub map: F,
@@ -31,8 +30,8 @@ where
     let v_inv = v.clone().multi_key_dual_map(self.f1, self.f2);
     let v = v.map(self.map);
     let v = OneManyRelationDualAccess {
-      many_access_one: Box::new(v),
-      one_access_many: Box::new(v_inv),
+      many_access_one: v,
+      one_access_many: v_inv,
     };
 
     (d, v)
@@ -43,7 +42,6 @@ where
   }
 }
 
-/// todo use ReactiveKeyDualMap
 pub struct ReactiveKeyDualMapRelation<F1, F2, T, K, V> {
   pub f1: F1,
   pub f2: F2,
@@ -70,8 +68,8 @@ where
     let v_inv = v.clone().multi_map(move |_, v| f1_(v));
     let v = v.key_dual_map(self.f1, self.f2);
     let v = OneManyRelationDualAccess {
-      many_access_one: Box::new(v),
-      one_access_many: Box::new(v_inv),
+      many_access_one: v,
+      one_access_many: v_inv,
     };
     (d, v)
   }

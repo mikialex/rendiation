@@ -22,19 +22,22 @@ pub trait ReactiveCollection<K: CKey, V: CValue>: Sync + Send + 'static {
 }
 
 #[derive(Clone)]
-pub struct CollectionPreviousView<'a, K, V> {
-  current: &'a dyn DynVirtualCollection<K, V>,
-  delta: &'a dyn DynVirtualCollection<K, ValueChange<V>>,
+pub struct CollectionPreviousView<C, D> {
+  current: C,
+  delta: D,
 }
-pub fn make_previous<'a, K, V>(
-  current: &'a dyn DynVirtualCollection<K, V>,
-  delta: &'a dyn DynVirtualCollection<K, ValueChange<V>>,
-) -> CollectionPreviousView<'a, K, V> {
+pub fn make_previous<C, D>(current: C, delta: D) -> CollectionPreviousView<C, D> {
   CollectionPreviousView { current, delta }
 }
 
 /// the impl access the previous V
-impl<'a, K: CKey, V: CValue> VirtualCollection<K, V> for CollectionPreviousView<'a, K, V> {
+impl<C, D, K, V> VirtualCollection<K, V> for CollectionPreviousView<C, D>
+where
+  C: VirtualCollection<K, V>,
+  D: VirtualCollection<K, ValueChange<V>>,
+  K: CKey,
+  V: CValue,
+{
   fn iter_key_value(&self) -> impl Iterator<Item = (K, V)> + '_ {
     let current_not_changed = self
       .current

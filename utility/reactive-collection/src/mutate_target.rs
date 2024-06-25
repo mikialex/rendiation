@@ -1,7 +1,6 @@
 use crate::*;
 
-// should we add virtual collection as parent trait?
-pub trait MutateTargetCollection<K, V: CValue> {
+pub trait CollectionLikeMutateTarget<K, V: CValue> {
   fn get_current(&self, k: K) -> Option<&V>;
   /// this method is useful if you want to modify part of V,
   /// we use the CPS style here to make sure callee could do sth after caller mutation.
@@ -12,7 +11,7 @@ pub trait MutateTargetCollection<K, V: CValue> {
   fn set_value(&mut self, k: K, v: V) -> Option<V>;
 }
 
-impl<'a, K: CKey, V: CValue, T: MutateTargetCollection<K, V>> MutateTargetCollection<K, V>
+impl<'a, K: CKey, V: CValue, T: CollectionLikeMutateTarget<K, V>> CollectionLikeMutateTarget<K, V>
   for &'a mut T
 {
   fn get_current(&self, k: K) -> Option<&V> {
@@ -29,7 +28,7 @@ impl<'a, K: CKey, V: CValue, T: MutateTargetCollection<K, V>> MutateTargetCollec
   }
 }
 
-impl<K: CKey, V: CValue> MutateTargetCollection<K, V> for FastHashMap<K, V> {
+impl<K: CKey, V: CValue> CollectionLikeMutateTarget<K, V> for FastHashMap<K, V> {
   fn set_value(&mut self, k: K, v: V) -> Option<V> {
     self.insert(k, v)
   }
@@ -48,7 +47,7 @@ impl<K: CKey, V: CValue> MutateTargetCollection<K, V> for FastHashMap<K, V> {
     }
   }
 }
-impl<T: CValue> MutateTargetCollection<u32, T> for IndexKeptVec<T> {
+impl<T: CValue> CollectionLikeMutateTarget<u32, T> for IndexKeptVec<T> {
   fn set_value(&mut self, k: u32, v: T) -> Option<T> {
     let previous = self.try_get(k).cloned();
     self.insert(v, k);
@@ -75,10 +74,10 @@ pub struct CollectionMutationCollector<D, T> {
   pub target: T,
 }
 
-impl<K, V, D, T> MutateTargetCollection<K, V> for CollectionMutationCollector<D, T>
+impl<K, V, D, T> CollectionLikeMutateTarget<K, V> for CollectionMutationCollector<D, T>
 where
-  D: MutateTargetCollection<K, ValueChange<V>>,
-  T: MutateTargetCollection<K, V>,
+  D: CollectionLikeMutateTarget<K, ValueChange<V>>,
+  T: CollectionLikeMutateTarget<K, V>,
   K: CKey,
   V: CValue,
 {

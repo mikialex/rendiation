@@ -1,6 +1,8 @@
 use crate::*;
 
 pub trait DynReactiveOneToManyRelation<O: CKey, M: CKey>: Send + Sync {
+  /// we could return a single trait object that cover both access and inverse access
+  /// but for simplicity we just return two trait objects as these two trait both impl clone.
   fn poll_changes_with_inv_dyn(
     &self,
     cx: &mut Context,
@@ -57,12 +59,18 @@ where
 }
 
 #[derive(Clone)]
-pub struct OneManyRelationDualAccess<O: CKey, M: CKey> {
-  pub many_access_one: Box<dyn DynVirtualCollection<M, O>>,
-  pub one_access_many: Box<dyn DynVirtualMultiCollection<O, M>>,
+pub struct OneManyRelationDualAccess<T, IT> {
+  pub many_access_one: T,
+  pub one_access_many: IT,
 }
 
-impl<O: CKey, M: CKey> VirtualCollection<M, O> for OneManyRelationDualAccess<O, M> {
+impl<O, M, T, IT> VirtualCollection<M, O> for OneManyRelationDualAccess<T, IT>
+where
+  O: CKey,
+  M: CKey,
+  T: VirtualCollection<M, O>,
+  IT: VirtualMultiCollection<O, M>,
+{
   fn iter_key_value(&self) -> impl Iterator<Item = (M, O)> + '_ {
     self.many_access_one.iter_key_value()
   }
@@ -72,7 +80,13 @@ impl<O: CKey, M: CKey> VirtualCollection<M, O> for OneManyRelationDualAccess<O, 
   }
 }
 
-impl<O: CKey, M: CKey> VirtualMultiCollection<O, M> for OneManyRelationDualAccess<O, M> {
+impl<O, M, T, IT> VirtualMultiCollection<O, M> for OneManyRelationDualAccess<T, IT>
+where
+  O: CKey,
+  M: CKey,
+  T: VirtualCollection<M, O>,
+  IT: VirtualMultiCollection<O, M>,
+{
   fn iter_key_in_multi_collection(&self) -> impl Iterator<Item = O> + '_ {
     self.one_access_many.iter_key_in_multi_collection()
   }

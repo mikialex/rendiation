@@ -117,8 +117,8 @@ where
     let inv = VirtualMultiCollectionExt::multi_map(inv, |_: &u32, v: RawEntityHandle| v.index());
 
     let v = OneManyRelationDualAccess {
-      many_access_one: Box::new(f_v),
-      one_access_many: Box::new(inv),
+      many_access_one: f_v,
+      one_access_many: inv,
     };
 
     (d, v)

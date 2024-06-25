@@ -32,7 +32,6 @@ pub trait ReactiveOneToManyRelationExt<O: CKey, M: CKey>: ReactiveOneToManyRelat
     }
   }
 
-  /// todo, merge api with collective_map?
   fn collective_map_key_one_many<O2, F, F2>(
     self,
     f: F,

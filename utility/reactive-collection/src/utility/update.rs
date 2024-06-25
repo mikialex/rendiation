@@ -10,7 +10,7 @@ pub trait CollectionUpdaterExt<K, V> {
   fn into_collective_updater<TV: Default + CValue>(
     self,
     update_logic: impl FnOnce(V, &mut TV) + Copy,
-  ) -> impl CollectionUpdate<Box<dyn MutateTargetCollection<K, TV>>>;
+  ) -> impl CollectionUpdate<Box<dyn CollectionLikeMutateTarget<K, TV>>>;
 }
 
 impl<T, K, V> CollectionUpdaterExt<K, V> for T
@@ -22,7 +22,7 @@ where
   fn into_collective_updater<TV: Default + CValue>(
     self,
     update_logic: impl FnOnce(V, &mut TV) + Copy,
-  ) -> impl CollectionUpdate<Box<dyn MutateTargetCollection<K, TV>>> {
+  ) -> impl CollectionUpdate<Box<dyn CollectionLikeMutateTarget<K, TV>>> {
     CollectionUpdater {
       phantom: PhantomData,
       collection: self,
@@ -31,7 +31,7 @@ where
   }
 }
 
-impl<T, K, V, TV, F> CollectionUpdate<Box<dyn MutateTargetCollection<K, TV>>>
+impl<T, K, V, TV, F> CollectionUpdate<Box<dyn CollectionLikeMutateTarget<K, TV>>>
   for CollectionUpdater<T, V, F>
 where
   F: FnOnce(V, &mut TV) + Copy,
@@ -42,7 +42,7 @@ where
 {
   fn update_target(
     &mut self,
-    target: &mut Box<dyn MutateTargetCollection<K, TV>>,
+    target: &mut Box<dyn CollectionLikeMutateTarget<K, TV>>,
     cx: &mut Context,
   ) {
     let (d, _) = self.collection.poll_changes(cx);
@@ -90,7 +90,7 @@ impl<T> DerefMut for MultiUpdateContainer<T> {
 
 /// for example if we want merge different collection changes into one
 pub type MultiUpdateMergeMutation<K, V> =
-  MultiUpdateContainer<Box<dyn MutateTargetCollection<K, V>>>;
+  MultiUpdateContainer<Box<dyn CollectionLikeMutateTarget<K, V>>>;
 
 impl<T> MultiUpdateContainer<T> {
   pub fn new(target: T) -> Self {

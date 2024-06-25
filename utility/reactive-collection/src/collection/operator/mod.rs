@@ -51,18 +51,6 @@ where
     }
   }
 
-  #[inline(always)]
-  fn workaround_box(self) -> impl ReactiveCollection<K, V> {
-    let r = self;
-    // this is a workaround that the compiler maybe generate huge outputs(or pdb file)  which lead
-    // to link error in debug build
-    // see https://doc.rust-lang.org/reference/conditional-compilation.html#debug_assertions
-    #[cfg(debug_assertions)]
-    let r = r.into_boxed();
-
-    r
-  }
-
   fn key_as_value(self) -> impl ReactiveCollection<K, K> {
     self.collective_kv_map(|k, _| k.clone())
   }
@@ -104,7 +92,6 @@ where
       map: move |_: &_, v| f(v),
       phantom: PhantomData,
     }
-    .workaround_box()
   }
 
   /// map map<k, v> to map<k, v2>
@@ -120,7 +107,6 @@ where
       cache: Default::default(),
       phantom: PhantomData,
     }
-    .workaround_box()
   }
 
   /// filter map<k, v> by v
@@ -147,7 +133,6 @@ where
       checker: f,
       k: PhantomData,
     }
-    .workaround_box()
   }
 
   fn collective_cross_join<K2, V2>(
@@ -163,7 +148,6 @@ where
       b: other,
       phantom: PhantomData,
     }
-    .workaround_box()
   }
 
   fn collective_union<V2, Other, F, O>(self, other: Other, f: F) -> impl ReactiveCollection<K, O>
@@ -179,7 +163,6 @@ where
       phantom: PhantomData,
       f,
     }
-    .workaround_box()
   }
 
   /// K should not overlap
@@ -252,7 +235,6 @@ where
       relations,
       phantom: PhantomData,
     }
-    .workaround_box()
   }
 
   fn materialize_unordered(self) -> UnorderedMaterializedReactiveCollection<Self, K, V>
@@ -283,7 +265,6 @@ where
       inner: self,
       phantom: Default::default(),
     }
-    .workaround_box()
   }
 
   fn debug(self, label: &'static str) -> impl ReactiveCollection<K, V>
@@ -296,7 +277,6 @@ where
       state: Default::default(),
       label,
     }
-    .workaround_box()
   }
 }
 impl<T, K, V> ReactiveCollectionExt<K, V> for T
