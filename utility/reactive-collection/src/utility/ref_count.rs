@@ -28,7 +28,7 @@ impl<T: CKey, K: CKey> ReactiveCollection<K, u32> for CollectionSetsRefcount<T, 
   type Changes = impl VirtualCollection<K, ValueChange<u32>>;
   type View = impl VirtualCollection<K, u32>;
 
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
+  fn poll_changes(&self, cx: &mut Context) -> Self::Task {
     self.wake_for_new_source.register(cx.waker());
 
     let mut ref_count = self.ref_count.write();

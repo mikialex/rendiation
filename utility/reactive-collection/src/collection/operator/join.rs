@@ -18,26 +18,34 @@ where
 {
   type Changes = impl VirtualCollection<(K1, K2), ValueChange<(V1, V2)>>;
   type View = impl VirtualCollection<(K1, K2), (V1, V2)>;
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (t1, a_access) = self.a.poll_changes(cx);
-    let (t2, b_access) = self.b.poll_changes(cx);
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
 
-    let a_access = a_access;
-    let b_access = b_access;
+  fn poll_changes(&self, cx: &mut Context) -> Self::Task {
+    let a = self.a.poll_changes(cx);
+    let b = self.b.poll_changes(cx);
 
-    let d = CrossJoinValueChange {
-      a: t1,
-      b: t2,
-      a_current: a_access.clone(),
-      b_current: b_access.clone(),
-    };
+    async {
+      let (a, b) = futures::future::join(a, b).await;
+      let (t1, a_access) = a;
+      let (t2, b_access) = b;
 
-    let v = CrossJoinCollection {
-      a: a_access,
-      b: b_access,
-    };
+      let a_access = a_access;
+      let b_access = b_access;
 
-    (d, v)
+      let d = CrossJoinValueChange {
+        a: t1,
+        b: t2,
+        a_current: a_access.clone(),
+        b_current: b_access.clone(),
+      };
+
+      let v = CrossJoinCollection {
+        a: a_access,
+        b: b_access,
+      };
+
+      (d, v)
+    }
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {

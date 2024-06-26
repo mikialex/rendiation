@@ -20,21 +20,27 @@ where
 {
   type Changes = impl VirtualCollection<K, ValueChange<V2>>;
   type View = impl VirtualCollection<K, V2> + VirtualMultiCollection<V2, K>;
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
 
   #[tracing::instrument(skip_all, name = "ReactiveKVMap")]
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (d, v) = self.inner.poll_changes(cx);
+  fn poll_changes(&self, cx: &mut Context) -> Self::Task {
+    let f = self.inner.poll_changes(cx);
     let map = self.map;
-    let d = d.map(move |k, v| v.map(|v| map(k, v)));
+    let f1 = self.f1;
+    let f2 = self.f2;
+    async {
+      let (d, v) = f.await;
+      let d = d.map(move |k, v| v.map(|v| map(k, v)));
 
-    let v_inv = v.clone().multi_key_dual_map(self.f1, self.f2);
-    let v = v.map(self.map);
-    let v = OneManyRelationDualAccess {
-      many_access_one: v,
-      one_access_many: v_inv,
-    };
+      let v_inv = v.clone().multi_key_dual_map(f1, f2);
+      let v = v.map(map);
+      let v = OneManyRelationDualAccess {
+        many_access_one: v,
+        one_access_many: v_inv,
+      };
 
-    (d, v)
+      (d, v)
+    }
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -60,18 +66,25 @@ where
 {
   type Changes = impl VirtualCollection<K2, ValueChange<V>>;
   type View = impl VirtualCollection<K2, V> + VirtualMultiCollection<V, K2>;
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
 
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (d, v) = self.inner.poll_changes(cx);
-    let d = d.key_dual_map(self.f1, self.f2);
-    let f1_ = self.f1;
-    let v_inv = v.clone().multi_map(move |_, v| f1_(v));
-    let v = v.key_dual_map(self.f1, self.f2);
-    let v = OneManyRelationDualAccess {
-      many_access_one: v,
-      one_access_many: v_inv,
-    };
-    (d, v)
+  fn poll_changes(&self, cx: &mut Context) -> Self::Task {
+    let f1 = self.f1;
+    let f2 = self.f2;
+    let f = self.inner.poll_changes(cx);
+
+    async move {
+      let (d, v) = f.await;
+      let d = d.key_dual_map(f1, f2);
+      let f1_ = f1;
+      let v_inv = v.clone().multi_map(move |_, v| f1_(v));
+      let v = v.key_dual_map(f1, f2);
+      let v = OneManyRelationDualAccess {
+        many_access_one: v,
+        one_access_many: v_inv,
+      };
+      (d, v)
+    }
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {

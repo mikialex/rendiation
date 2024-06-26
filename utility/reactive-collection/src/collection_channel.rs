@@ -68,6 +68,7 @@ impl<K, T> Drop for CollectiveMutationSender<K, T> {
   }
 }
 
+#[derive(Clone)]
 pub struct CollectiveMutationReceiver<K, T> {
   inner: Arc<(RwLock<MutationData<K, T>>, AtomicWaker)>,
 }
@@ -123,7 +124,7 @@ impl<K: CKey, T: CValue> ReactiveCollection<K, T>
 {
   type Changes = impl VirtualCollection<K, ValueChange<T>>;
   type View = impl VirtualCollection<K, T>;
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
+  fn poll_changes(&self, cx: &mut Context) -> Self::Task {
     let d = match self.mutation.write().poll_next_unpin(cx) {
       Poll::Ready(Some(r)) => r,
       _ => Box::new(()),

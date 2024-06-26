@@ -51,41 +51,47 @@ where
 {
   type Changes = impl VirtualCollection<M, ValueChange<O>>;
   type View = impl VirtualMultiCollection<O, M> + VirtualCollection<M, O>;
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
 
   #[tracing::instrument(skip_all, name = "OneToManyRefHashBookKeeping")]
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (r, r_view) = self.upstream.poll_changes(cx);
+  fn poll_changes(&self, cx: &mut Context) -> Self::Task {
+    let f = self.upstream.poll_changes(cx);
+    let m = self.mapping.clone();
 
-    {
-      let mut mapping = self.mapping.write();
+    async {
+      let (r, r_view) = f.await;
 
-      for (many, change) in r.iter_key_value() {
-        let new_one = change.new_value();
+      {
+        let mut mapping = m.write();
 
-        let old_refed_one = change.old_value();
-        // remove possible old relations
-        if let Some(old_refed_one) = old_refed_one {
-          let previous_one_refed_many = mapping.get_mut(old_refed_one).unwrap();
-          previous_one_refed_many.remove(&many);
-          if previous_one_refed_many.is_empty() {
-            mapping.remove(old_refed_one);
+        for (many, change) in r.iter_key_value() {
+          let new_one = change.new_value();
+
+          let old_refed_one = change.old_value();
+          // remove possible old relations
+          if let Some(old_refed_one) = old_refed_one {
+            let previous_one_refed_many = mapping.get_mut(old_refed_one).unwrap();
+            previous_one_refed_many.remove(&many);
+            if previous_one_refed_many.is_empty() {
+              mapping.remove(old_refed_one);
+            }
+          }
+
+          // setup new relations
+          if let Some(new_one) = new_one {
+            let new_one_refed_many = mapping.entry(new_one.clone()).or_default();
+            new_one_refed_many.insert(many.clone());
           }
         }
-
-        // setup new relations
-        if let Some(new_one) = new_one {
-          let new_one_refed_many = mapping.entry(new_one.clone()).or_default();
-          new_one_refed_many.insert(many.clone());
-        }
       }
+
+      let v = OneToManyRefHashBookKeepingCurrentView {
+        upstream: r_view,
+        mapping: m.make_read_holder(),
+      };
+
+      (r, v)
     }
-
-    let v = OneToManyRefHashBookKeepingCurrentView {
-      upstream: r_view,
-      mapping: self.mapping.make_read_holder(),
-    };
-
-    (r, v)
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -167,57 +173,63 @@ where
 {
   type Changes = impl VirtualCollection<M, ValueChange<O>>;
   type View = impl VirtualMultiCollection<O, M> + VirtualCollection<M, O>;
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
 
   #[tracing::instrument(skip_all, name = "OneToManyRefDenseBookKeeping")]
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (r, r_view) = self.upstream.poll_changes(cx);
+  fn poll_changes(&self, cx: &mut Context) -> Self::Task {
+    let f = self.upstream.poll_changes(cx);
+    let m = self.mapping.clone();
 
-    {
-      let mut mapping = self.mapping.write();
-      let mapping: &mut Mapping = &mut mapping;
-      for (many, change) in r.iter_key_value() {
-        let new_one = change.new_value();
+    async {
+      let (r, r_view) = f.await;
 
-        let old_refed_one = change.old_value();
-        // remove possible old relations
-        if let Some(old_refed_one) = old_refed_one {
-          let previous_one_refed_many = mapping
-            .mapping
-            .get_mut(old_refed_one.alloc_index() as usize)
-            .unwrap();
+      {
+        let mut mapping = m.write();
+        let mapping: &mut Mapping = &mut mapping;
+        for (many, change) in r.iter_key_value() {
+          let new_one = change.new_value();
 
-          //  this is O(n), should we care about it?
-          mapping
-            .mapping_buffer
-            .visit_and_remove(previous_one_refed_many, |value, _| {
-              let should_remove = *value == many.alloc_index();
-              (should_remove, !should_remove)
-            });
-        }
-
-        // setup new relations
-        if let Some(new_one) = &new_one {
-          let alloc_index = new_one.alloc_index() as usize;
-          if alloc_index >= mapping.mapping.len() {
-            mapping
+          let old_refed_one = change.old_value();
+          // remove possible old relations
+          if let Some(old_refed_one) = old_refed_one {
+            let previous_one_refed_many = mapping
               .mapping
-              .resize(alloc_index + 1, ListHandle::default());
+              .get_mut(old_refed_one.alloc_index() as usize)
+              .unwrap();
+
+            //  this is O(n), should we care about it?
+            mapping
+              .mapping_buffer
+              .visit_and_remove(previous_one_refed_many, |value, _| {
+                let should_remove = *value == many.alloc_index();
+                (should_remove, !should_remove)
+              });
           }
 
-          mapping.mapping_buffer.insert(
-            &mut mapping.mapping[new_one.alloc_index() as usize],
-            many.alloc_index(),
-          );
+          // setup new relations
+          if let Some(new_one) = &new_one {
+            let alloc_index = new_one.alloc_index() as usize;
+            if alloc_index >= mapping.mapping.len() {
+              mapping
+                .mapping
+                .resize(alloc_index + 1, ListHandle::default());
+            }
+
+            mapping.mapping_buffer.insert(
+              &mut mapping.mapping[new_one.alloc_index() as usize],
+              many.alloc_index(),
+            );
+          }
         }
       }
+
+      let v = OneToManyRefDenseBookKeepingCurrentView {
+        upstream: r_view,
+        mapping: m.make_read_holder(),
+      };
+
+      (r, v)
     }
-
-    let v = OneToManyRefDenseBookKeepingCurrentView {
-      upstream: r_view,
-      mapping: self.mapping.make_read_holder(),
-    };
-
-    (r, v)
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {

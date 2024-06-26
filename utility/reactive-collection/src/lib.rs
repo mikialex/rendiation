@@ -6,6 +6,7 @@ use core::{
 };
 use std::any::Any;
 use std::any::TypeId;
+use std::future::Future;
 use std::ops::DerefMut;
 use std::sync::Arc;
 use std::{marker::PhantomData, ops::Deref};

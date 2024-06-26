@@ -2,7 +2,7 @@ use crate::*;
 
 pub struct ReactiveCollectionDebug<T, K, V> {
   pub inner: T,
-  pub state: RwLock<FastHashMap<K, V>>,
+  pub state: Arc<RwLock<FastHashMap<K, V>>>,
   pub label: &'static str,
 }
 
@@ -14,31 +14,38 @@ where
 {
   type Changes = T::Changes;
   type View = T::View;
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (d, v) = self.inner.poll_changes(cx);
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
 
-    // validation
-    let changes = d.materialize();
-    let mut state = self.state.write();
-    for (k, change) in changes.iter() {
-      match change {
-        ValueChange::Delta(n, p) => {
-          if let Some(removed) = state.remove(k) {
-            let p = p.as_ref().expect("previous value should exist");
-            assert_eq!(&removed, p);
-          } else {
-            assert!(p.is_none());
+  fn poll_changes(&self, cx: &mut Context) -> Self::Task {
+    let f = self.inner.poll_changes(cx);
+    let s = self.state.clone();
+
+    async move {
+      let (d, v) = f.await;
+
+      // validation
+      let changes = d.materialize();
+      let mut state = s.write();
+      for (k, change) in changes.iter() {
+        match change {
+          ValueChange::Delta(n, p) => {
+            if let Some(removed) = state.remove(k) {
+              let p = p.as_ref().expect("previous value should exist");
+              assert_eq!(&removed, p);
+            } else {
+              assert!(p.is_none());
+            }
+            state.insert(k.clone(), n.clone());
           }
-          state.insert(k.clone(), n.clone());
-        }
-        ValueChange::Remove(p) => {
-          let removed = state.remove(k).expect("remove none exist value");
-          assert_eq!(&removed, p);
+          ValueChange::Remove(p) => {
+            let removed = state.remove(k).expect("remove none exist value");
+            assert_eq!(&removed, p);
+          }
         }
       }
-    }
 
-    (d, v)
+      (d, v)
+    }
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -87,12 +94,15 @@ where
 {
   type Changes = impl VirtualCollection<K, ValueChange<V>>;
   type View = impl VirtualCollection<K, V>;
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
 
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (d, v) = self.inner.poll_changes(cx);
-
-    let d = DiffChangedView { inner: d };
-    (d, v)
+  fn poll_changes(&self, cx: &mut Context) -> Self::Task {
+    let f = self.inner.poll_changes(cx);
+    async {
+      let (d, v) = f.await;
+      let d = DiffChangedView { inner: d };
+      (d, v)
+    }
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {

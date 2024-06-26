@@ -19,29 +19,38 @@ where
 {
   type Changes = impl VirtualCollection<K, ValueChange<O>>;
   type View = impl VirtualCollection<K, O>;
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (t1, a_access) = self.a.poll_changes(cx);
-    let (t2, b_access) = self.b.poll_changes(cx);
-    let a_access = a_access;
-    let b_access = b_access;
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
 
-    let d = UnionValueChange {
-      a: t1,
-      b: t2,
-      f: self.f,
-      a_current: a_access.clone(),
-      b_current: b_access.clone(),
-      phantom: PhantomData,
-    };
+  fn poll_changes(&self, cx: &mut Context) -> Self::Task {
+    let a = self.a.poll_changes(cx);
+    let b = self.b.poll_changes(cx);
+    let f = self.f;
 
-    let v = UnionCollection {
-      a: a_access,
-      b: b_access,
-      f: self.f,
-      phantom: PhantomData,
-    };
+    async move {
+      let (a, b) = futures::future::join(a, b).await;
+      let (t1, a_access) = a;
+      let (t2, b_access) = b;
+      let a_access = a_access;
+      let b_access = b_access;
 
-    (d, v)
+      let d = UnionValueChange {
+        a: t1,
+        b: t2,
+        f,
+        a_current: a_access.clone(),
+        b_current: b_access.clone(),
+        phantom: PhantomData,
+      };
+
+      let v = UnionCollection {
+        a: a_access,
+        b: b_access,
+        f,
+        phantom: PhantomData,
+      };
+
+      (d, v)
+    }
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {

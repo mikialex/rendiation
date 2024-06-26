@@ -24,88 +24,94 @@ where
 {
   type Changes = impl VirtualCollection<M, ValueChange<X>>;
   type View = impl VirtualCollection<M, X>;
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
 
   #[tracing::instrument(skip_all, name = "OneToManyFanout")]
   #[allow(clippy::collapsible_else_if)]
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (relational_changes, relation_access) = self.relations.poll_changes(cx);
-    let (upstream_changes, getter) = self.upstream.poll_changes(cx);
+  fn poll_changes(&self, cx: &mut Context) -> Self::Task {
+    let relation = self.relations.poll_changes(cx);
+    let upstream = self.upstream.poll_changes(cx);
 
-    let getter_previous = make_previous(&getter, &upstream_changes);
-    let one_acc_previous = make_previous(&relation_access, &relational_changes);
+    async {
+      let (relational_changes, relation_access) = relation.await;
+      let (upstream_changes, getter) = upstream.await;
 
-    let mut output = FastHashMap::default();
-    {
-      let relational_changes = relational_changes.materialize();
-      relational_changes
-        .iter()
-        .for_each(|(k, change)| match change {
-          ValueChange::Delta(v, p) => {
-            // to get the real previous X, we need the previous o->x mapping
-            let p = p.clone().and_then(|p| getter_previous.access(&p));
-            if let Some(v) = getter.access(v) {
-              output.insert(k.clone(), ValueChange::Delta(v, p));
-            } else if let Some(p) = p {
-              output.insert(k.clone(), ValueChange::Remove(p));
-            }
-          }
-          ValueChange::Remove(p) => {
-            if let Some(p) = getter_previous.access(p) {
-              output.insert(k.clone(), ValueChange::Remove(p));
-            }
-          }
-        });
-    }
-    {
-      let upstream_changes = upstream_changes.materialize();
-      for (one, delta) in upstream_changes.iter() {
-        // the inv_query is the current relation, the previous one's delta is emitted
-        // by the above relation change code
-        match delta {
-          ValueChange::Remove(_p) => relation_access.access_multi_visitor(one, &mut |many| {
-            if let Some(pre_one) = one_acc_previous.access(&many) {
-              if let Some(pre_x) = getter_previous.access(&pre_one) {
-                if let Some(ValueChange::Delta(_, _)) = output.get(&many) {
-                  // cancel out
-                  output.remove(&many);
-                } else {
-                  output.insert(many.clone(), ValueChange::Remove(pre_x));
-                }
+      let getter_previous = make_previous(&getter, &upstream_changes);
+      let one_acc_previous = make_previous(&relation_access, &relational_changes);
+
+      let mut output = FastHashMap::default();
+      {
+        let relational_changes = relational_changes.materialize();
+        relational_changes
+          .iter()
+          .for_each(|(k, change)| match change {
+            ValueChange::Delta(v, p) => {
+              // to get the real previous X, we need the previous o->x mapping
+              let p = p.clone().and_then(|p| getter_previous.access(&p));
+              if let Some(v) = getter.access(v) {
+                output.insert(k.clone(), ValueChange::Delta(v, p));
+              } else if let Some(p) = p {
+                output.insert(k.clone(), ValueChange::Remove(p));
               }
             }
-          }),
-          ValueChange::Delta(change, _p) => {
-            relation_access.access_multi_visitor(one, &mut |many| {
+            ValueChange::Remove(p) => {
+              if let Some(p) = getter_previous.access(p) {
+                output.insert(k.clone(), ValueChange::Remove(p));
+              }
+            }
+          });
+      }
+      {
+        let upstream_changes = upstream_changes.materialize();
+        for (one, delta) in upstream_changes.iter() {
+          // the inv_query is the current relation, the previous one's delta is emitted
+          // by the above relation change code
+          match delta {
+            ValueChange::Remove(_p) => relation_access.access_multi_visitor(one, &mut |many| {
               if let Some(pre_one) = one_acc_previous.access(&many) {
-                let pre_x = getter_previous.access(&pre_one);
-                if let Some(ValueChange::Remove(_)) = output.get(&many) {
-                  // cancel out
-                  output.remove(&many);
-                } else {
-                  output.insert(many.clone(), ValueChange::Delta(change.clone(), pre_x));
-                }
-              } else {
-                if let Some(ValueChange::Remove(_)) = output.get(&many) {
-                  // cancel out
-                  output.remove(&many);
-                } else {
-                  output.insert(many.clone(), ValueChange::Delta(change.clone(), None));
+                if let Some(pre_x) = getter_previous.access(&pre_one) {
+                  if let Some(ValueChange::Delta(_, _)) = output.get(&many) {
+                    // cancel out
+                    output.remove(&many);
+                  } else {
+                    output.insert(many.clone(), ValueChange::Remove(pre_x));
+                  }
                 }
               }
-            })
+            }),
+            ValueChange::Delta(change, _p) => {
+              relation_access.access_multi_visitor(one, &mut |many| {
+                if let Some(pre_one) = one_acc_previous.access(&many) {
+                  let pre_x = getter_previous.access(&pre_one);
+                  if let Some(ValueChange::Remove(_)) = output.get(&many) {
+                    // cancel out
+                    output.remove(&many);
+                  } else {
+                    output.insert(many.clone(), ValueChange::Delta(change.clone(), pre_x));
+                  }
+                } else {
+                  if let Some(ValueChange::Remove(_)) = output.get(&many) {
+                    // cancel out
+                    output.remove(&many);
+                  } else {
+                    output.insert(many.clone(), ValueChange::Delta(change.clone(), None));
+                  }
+                }
+              })
+            }
           }
         }
       }
+
+      let d = Arc::new(output);
+      let v = OneToManyFanoutCurrentView {
+        upstream: getter,
+        relation: relation_access,
+        phantom: PhantomData,
+      };
+
+      (d, v)
     }
-
-    let d = Arc::new(output);
-    let v = OneToManyFanoutCurrentView {
-      upstream: getter,
-      relation: relation_access,
-      phantom: PhantomData,
-    };
-
-    (d, v)
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
@@ -166,101 +172,108 @@ where
 {
   type Changes = impl VirtualCollection<O, ValueChange<()>>;
   type View = impl VirtualCollection<O, ()>;
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
 
   #[tracing::instrument(skip_all, name = "ManyToOneReduce")]
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (relational_changes, one_acc) = self.relations.poll_changes(cx);
-    let (upstream_changes, getter) = self.upstream.poll_changes(cx);
+  fn poll_changes(&self, cx: &mut Context) -> Self::Task {
+    let relation = self.relations.poll_changes(cx);
+    let upstream = self.upstream.poll_changes(cx);
+    let rc = self.ref_count.clone();
 
-    let getter_previous = make_previous(&getter, &upstream_changes);
+    async {
+      let (relational_changes, one_acc) = relation.await;
+      let (upstream_changes, getter) = upstream.await;
 
-    let mut output = FastHashMap::default();
-    let mut ref_counts = self.ref_count.write();
+      let getter_previous = make_previous(&getter, &upstream_changes);
 
-    {
-      let relational_changes = relational_changes.materialize();
-      for (key, change) in relational_changes.iter_key_value() {
-        let old_value = change.old_value();
-        let new_value = change.new_value();
+      let mut output = FastHashMap::default();
+      let mut ref_counts = rc.write();
 
-        if let Some(ov) = old_value {
-          if getter_previous.access(&key).is_some() {
-            let ref_count = ref_counts.get_mut(ov).unwrap();
-            *ref_count -= 1;
-            if *ref_count == 0 {
-              ref_counts.remove(ov);
-              output.insert(ov.clone(), ValueChange::Remove(()));
+      {
+        let relational_changes = relational_changes.materialize();
+        for (key, change) in relational_changes.iter_key_value() {
+          let old_value = change.old_value();
+          let new_value = change.new_value();
+
+          if let Some(ov) = old_value {
+            if getter_previous.access(&key).is_some() {
+              let ref_count = ref_counts.get_mut(ov).unwrap();
+              *ref_count -= 1;
+              if *ref_count == 0 {
+                ref_counts.remove(ov);
+                output.insert(ov.clone(), ValueChange::Remove(()));
+              }
+            }
+          }
+
+          if let Some(nv) = new_value {
+            if getter_previous.access(&key).is_some() {
+              let ref_count = ref_counts.entry(nv.clone()).or_insert_with(|| {
+                if let Some(ValueChange::Remove(_)) = output.get(nv) {
+                  // cancel out
+                  output.remove(nv);
+                } else {
+                  output.insert(nv.clone(), ValueChange::Delta((), None));
+                }
+                0
+              });
+              *ref_count += 1;
             }
           }
         }
-
-        if let Some(nv) = new_value {
-          if getter_previous.access(&key).is_some() {
-            let ref_count = ref_counts.entry(nv.clone()).or_insert_with(|| {
-              if let Some(ValueChange::Remove(_)) = output.get(nv) {
-                // cancel out
-                output.remove(nv);
-              } else {
-                output.insert(nv.clone(), ValueChange::Delta((), None));
-              }
-              0
-            });
-            *ref_count += 1;
-          }
-        }
       }
-    }
 
-    {
-      let upstream_changes = upstream_changes.materialize();
-      for (many, delta) in upstream_changes.iter_key_value() {
-        match delta {
-          ValueChange::Remove(_) => {
-            // we should remove from the new old relation
-            if let Some(one) = one_acc.access(&many) {
-              if let Some(ref_count) = ref_counts.get_mut(&one) {
-                *ref_count -= 1;
-                if *ref_count == 0 {
-                  ref_counts.remove(&one);
+      {
+        let upstream_changes = upstream_changes.materialize();
+        for (many, delta) in upstream_changes.iter_key_value() {
+          match delta {
+            ValueChange::Remove(_) => {
+              // we should remove from the new old relation
+              if let Some(one) = one_acc.access(&many) {
+                if let Some(ref_count) = ref_counts.get_mut(&one) {
+                  *ref_count -= 1;
+                  if *ref_count == 0 {
+                    ref_counts.remove(&one);
 
-                  if let Some(ValueChange::Delta(_, _)) = output.get(&one) {
-                    // cancel out
-                    output.remove(&one);
-                  } else {
-                    output.insert(one.clone(), ValueChange::Remove(()));
+                    if let Some(ValueChange::Delta(_, _)) = output.get(&one) {
+                      // cancel out
+                      output.remove(&one);
+                    } else {
+                      output.insert(one.clone(), ValueChange::Remove(()));
+                    }
                   }
                 }
               }
             }
-          }
-          ValueChange::Delta(_, p) => {
-            if p.is_none() {
-              // should check if it is insert
-              // we should insert into the new directed relation
-              if let Some(one) = one_acc.access(&many) {
-                let ref_count = ref_counts.entry(one.clone()).or_insert_with(|| {
-                  if let Some(ValueChange::Remove(_)) = output.get(&one) {
-                    // cancel out
-                    output.remove(&one);
-                  } else {
-                    output.insert(one.clone(), ValueChange::Delta((), None));
-                  }
-                  0
-                });
-                *ref_count += 1;
+            ValueChange::Delta(_, p) => {
+              if p.is_none() {
+                // should check if it is insert
+                // we should insert into the new directed relation
+                if let Some(one) = one_acc.access(&many) {
+                  let ref_count = ref_counts.entry(one.clone()).or_insert_with(|| {
+                    if let Some(ValueChange::Remove(_)) = output.get(&one) {
+                      // cancel out
+                      output.remove(&one);
+                    } else {
+                      output.insert(one.clone(), ValueChange::Delta((), None));
+                    }
+                    0
+                  });
+                  *ref_count += 1;
+                }
               }
             }
           }
         }
       }
+
+      let d = Arc::new(output);
+      let v = ManyToOneReduceCurrentView {
+        ref_count: rc.make_read_holder(),
+      };
+
+      (d, v)
     }
-
-    let d = Arc::new(output);
-    let v = ManyToOneReduceCurrentView {
-      ref_count: self.ref_count.make_read_holder(),
-    };
-
-    (d, v)
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {

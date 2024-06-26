@@ -16,7 +16,9 @@ pub enum ExtraCollectionOperation {
 pub trait ReactiveCollection<K: CKey, V: CValue>: Sync + Send + 'static {
   type Changes: VirtualCollection<K, ValueChange<V>>;
   type View: VirtualCollection<K, V>;
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View);
+  type Task: Future<Output = (Self::Changes, Self::View)>;
+
+  fn poll_changes(&self, cx: &mut Context) -> Self::Task;
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation);
 }
@@ -63,8 +65,10 @@ where
 impl<K: CKey, V: CValue> ReactiveCollection<K, V> for () {
   type Changes = ();
   type View = ();
-  fn poll_changes(&self, _: &mut Context) -> (Self::Changes, Self::View) {
-    ((), ())
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
+
+  fn poll_changes(&self, _: &mut Context) -> Self::Task {
+    async { ((), ()) }
   }
   fn extra_request(&mut self, _: &mut ExtraCollectionOperation) {}
 }

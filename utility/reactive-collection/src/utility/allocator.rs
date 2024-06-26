@@ -123,55 +123,64 @@ impl Allocator {
 impl<T: ReactiveCollection<u32, u32>> ReactiveCollection<u32, u32> for ReactiveAllocator<T> {
   type Changes = impl VirtualCollection<u32, ValueChange<u32>>;
   type View = impl VirtualCollection<u32, u32>;
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let mut allocator = self.allocator.write();
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
 
-    let (d, _) = self.source.poll_changes(cx);
+  fn poll_changes(&self, cx: &mut Context) -> Self::Task {
+    let a = self.allocator.clone();
+    let f = self.source.poll_changes(cx);
+    let sender = self.sender.clone();
+    let all_size_sender = self.all_size_sender.clone();
+    let accumulated_mutations = self.accumulated_mutations.clone();
 
-    unsafe {
-      self.sender.lock();
+    async move {
+      let (d, _) = f.await;
 
-      for (idx, size_change) in d.iter_key_value() {
-        match size_change {
-          ValueChange::Delta(new_size, previous_size) => {
-            let previous_offset = previous_size.map(|_| allocator.dealloc(idx));
+      let mut allocator = a.write();
+      unsafe {
+        sender.lock();
 
-            if let Some(new_alloc) = allocator.alloc_and_check_grow(
-              idx,
-              new_size,
-              |new_size| {
-                self.all_size_sender.update(new_size).ok();
-              },
-              |relocation| {
-                let delta = ValueChange::Delta(relocation.new, relocation.previous.into());
-                self.sender.send(relocation.idx, delta);
-              },
-            ) {
-              let delta = ValueChange::Delta(new_alloc, previous_offset);
-              self.sender.send(idx, delta);
-            } else if let Some(previous_offset) = previous_offset {
-              self.sender.send(idx, ValueChange::Remove(previous_offset));
+        for (idx, size_change) in d.iter_key_value() {
+          match size_change {
+            ValueChange::Delta(new_size, previous_size) => {
+              let previous_offset = previous_size.map(|_| allocator.dealloc(idx));
+
+              if let Some(new_alloc) = allocator.alloc_and_check_grow(
+                idx,
+                new_size,
+                |new_size| {
+                  all_size_sender.update(new_size).ok();
+                },
+                |relocation| {
+                  let delta = ValueChange::Delta(relocation.new, relocation.previous.into());
+                  sender.send(relocation.idx, delta);
+                },
+              ) {
+                let delta = ValueChange::Delta(new_alloc, previous_offset);
+                sender.send(idx, delta);
+              } else if let Some(previous_offset) = previous_offset {
+                sender.send(idx, ValueChange::Remove(previous_offset));
+              }
+            }
+            ValueChange::Remove(_) => {
+              let offset = allocator.dealloc(idx);
+              sender.send(idx, ValueChange::Remove(offset));
             }
           }
-          ValueChange::Remove(_) => {
-            let offset = allocator.dealloc(idx);
-            self.sender.send(idx, ValueChange::Remove(offset));
-          }
         }
+
+        sender.unlock();
       }
 
-      self.sender.unlock();
+      let d = if let Poll::Ready(Some(r)) = accumulated_mutations.poll_impl(cx) {
+        r
+      } else {
+        VirtualCollectionExt::into_boxed(())
+      };
+
+      let v = a.make_read_holder();
+
+      (d, v)
     }
-
-    let d = if let Poll::Ready(Some(r)) = self.accumulated_mutations.poll_impl(cx) {
-      r
-    } else {
-      VirtualCollectionExt::into_boxed(())
-    };
-
-    let v = self.allocator.make_read_holder();
-
-    (d, v)
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
