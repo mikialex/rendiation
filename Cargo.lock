@@ -3650,6 +3650,7 @@ dependencies = [
 name = "rendiation-scene-geometry-query"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
  "database",
  "reactive",
  "rendiation-algebra",

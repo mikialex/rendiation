@@ -23,7 +23,6 @@ pub struct BufferViewRange {
 pub struct UnTypedBufferView {
   pub buffer: Arc<Vec<u8>>,
   pub range: BufferViewRange,
-  // pub byte_stride: Option<usize>, todo
 }
 
 #[derive(Clone)]

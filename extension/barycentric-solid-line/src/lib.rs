@@ -63,6 +63,7 @@ pub fn generate_barycentric_buffer_and_expanded_mesh(mesh: AttributesMesh) -> At
   mesh
     .read()
     .read_full()
+    .as_abstract_mesh_read_view()
     .primitive_iter()
     .filter_map(|p| match p {
       AttributeDynPrimitive::Triangle(t) => Some(t),

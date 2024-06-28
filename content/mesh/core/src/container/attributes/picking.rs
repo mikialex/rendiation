@@ -73,6 +73,40 @@ pub struct AttributeMeshCustomReadView<'a, F> {
   pub reader: F,
 }
 
+pub struct DynIndexView<'a> {
+  fmt: AttributeIndexFormat,
+  buffer: AttributeAccessorReadView<'a>,
+}
+
+impl<'a> IndexGet for DynIndexView<'a> {
+  type Output = usize;
+
+  fn index_get(&self, key: usize) -> Option<Self::Output> {
+    match self.fmt {
+      AttributeIndexFormat::Uint16 => self.buffer.visit_slice::<u16>()?.index_get(key)? as usize,
+      AttributeIndexFormat::Uint32 => self.buffer.visit_slice::<u32>()?.index_get(key)? as usize,
+    }
+    .into()
+  }
+}
+
+impl<'a, F: Clone> AttributeMeshCustomReadView<'a, F> {
+  pub fn as_abstract_mesh_read_view(
+    &self,
+  ) -> AttributeMeshAbstractMeshReadView<F, DynIndexView<'a>> {
+    AttributeMeshAbstractMeshReadView {
+      mode: self.inner.mode,
+      vertices: self.reader.clone(),
+      indices: self.indices.as_ref().map(|index| DynIndexView {
+        fmt: index.0,
+        buffer: index.1,
+      }),
+      count: self.inner.primitive_count(),
+      draw_count: self.inner.draw_count(),
+    }
+  }
+}
+
 impl<'a, F> Deref for AttributeMeshCustomReadView<'a, F> {
   type Target = AttributeMeshReadView<'a>;
   fn deref(&self) -> &Self::Target {
@@ -86,60 +120,54 @@ impl<'a, F> GPUConsumableMeshBuffer for AttributeMeshCustomReadView<'a, F> {
   }
 }
 
+pub struct AttributeMeshAbstractMeshReadView<T, I> {
+  pub mode: PrimitiveTopology,
+  pub vertices: T,
+  pub indices: Option<I>,
+  pub count: usize,
+  pub draw_count: usize,
+}
+
+impl<T, I> GPUConsumableMeshBuffer for AttributeMeshAbstractMeshReadView<T, I> {
+  fn draw_count(&self) -> usize {
+    self.draw_count
+  }
+}
+
 /// we can not impl AbstractMesh for AttributeMesh because it contains interior mutability.
 ///
 /// this is slow, but not bloat the binary size.
-impl<'a, F, V> AbstractMesh for AttributeMeshCustomReadView<'a, F>
+impl<V, T, I> AbstractMesh for AttributeMeshAbstractMeshReadView<T, I>
 where
-  F: IndexGet<Output = V>,
+  T: IndexGet<Output = V>,
+  I: IndexGet<Output = usize>,
   V: Copy,
 {
   type Primitive = AttributeDynPrimitive<V>;
 
   fn primitive_count(&self) -> usize {
-    let count = if let Some((_, index)) = &self.indices {
-      index.count
-    } else {
-      self.get_position().len()
-    };
-
-    (count + self.mode.step() - self.mode.stride()) / self.mode.step()
+    self.count
   }
 
   fn primitive_at(&self, primitive_index: usize) -> Option<Self::Primitive> {
     let read_index = self.mode.step() * primitive_index;
 
     #[rustfmt::skip]
-     if let Some((fmt, index)) = &self.indices {
-      match fmt {
-        AttributeIndexFormat::Uint16 => {
-          let index = index.visit_slice::<u16>()?;
-          match self.mode{
-            PrimitiveTopology::PointList => AttributeDynPrimitive::Points(Point::from_data(&index, read_index)?.f_filter_map(|id|self.reader.index_get(id as usize))?),
-            PrimitiveTopology::LineList => AttributeDynPrimitive::LineSegment(LineSegment::from_data(&index, read_index)?.f_filter_map(|id|self.reader.index_get(id as usize))?),
-            PrimitiveTopology::LineStrip => AttributeDynPrimitive::LineSegment(LineSegment::from_data(&index, read_index)?.f_filter_map(|id|self.reader.index_get(id as usize))?),
-            PrimitiveTopology::TriangleList => AttributeDynPrimitive::Triangle(Triangle::from_data(&index, read_index)?.f_filter_map(|id|self.reader.index_get(id as usize))?),
-            PrimitiveTopology::TriangleStrip => AttributeDynPrimitive::Triangle(Triangle::from_data(&index, read_index)?.f_filter_map(|id|self.reader.index_get(id as usize))?),
-          }.into()
-        },
-        AttributeIndexFormat::Uint32 => {
-          let index = index.visit_slice::<u32>()?;
-          match self.mode{
-            PrimitiveTopology::PointList => AttributeDynPrimitive::Points(Point::from_data(&index, read_index)?.f_filter_map(|id|self.reader.index_get(id as usize))?),
-            PrimitiveTopology::LineList => AttributeDynPrimitive::LineSegment(LineSegment::from_data(&index, read_index)?.f_filter_map(|id|self.reader.index_get(id as usize))?),
-            PrimitiveTopology::LineStrip => AttributeDynPrimitive::LineSegment(LineSegment::from_data(&index, read_index)?.f_filter_map(|id|self.reader.index_get(id as usize))?),
-            PrimitiveTopology::TriangleList => AttributeDynPrimitive::Triangle(Triangle::from_data(&index, read_index)?.f_filter_map(|id|self.reader.index_get(id as usize))?),
-            PrimitiveTopology::TriangleStrip => AttributeDynPrimitive::Triangle(Triangle::from_data(&index, read_index)?.f_filter_map(|id|self.reader.index_get(id as usize))?),
-          }.into()
-        },
-      }
+     if let Some(index) = &self.indices {
+      match self.mode {
+        PrimitiveTopology::PointList => AttributeDynPrimitive::Points(Point::from_data(index, read_index)?.f_filter_map(|id|self.vertices.index_get(id))?),
+        PrimitiveTopology::LineList => AttributeDynPrimitive::LineSegment(LineSegment::from_data(index, read_index)?.f_filter_map(|id|self.vertices.index_get(id))?),
+        PrimitiveTopology::LineStrip => AttributeDynPrimitive::LineSegment(LineSegment::from_data(index, read_index)?.f_filter_map(|id|self.vertices.index_get(id))?),
+        PrimitiveTopology::TriangleList => AttributeDynPrimitive::Triangle(Triangle::from_data(index, read_index)?.f_filter_map(|id|self.vertices.index_get(id))?),
+        PrimitiveTopology::TriangleStrip => AttributeDynPrimitive::Triangle(Triangle::from_data(index, read_index)?.f_filter_map(|id|self.vertices.index_get(id))?),
+      }.into()
     } else {
-      match self.mode{
-        PrimitiveTopology::PointList => AttributeDynPrimitive::Points(Point::from_data(&self.reader, read_index)?),
-        PrimitiveTopology::LineList => AttributeDynPrimitive::LineSegment(LineSegment::from_data(&self.reader, read_index)?),
-        PrimitiveTopology::LineStrip => AttributeDynPrimitive::LineSegment(LineSegment::from_data(&self.reader, read_index)?),
-        PrimitiveTopology::TriangleList => AttributeDynPrimitive::Triangle(Triangle::from_data(&self.reader, read_index)?),
-        PrimitiveTopology::TriangleStrip => AttributeDynPrimitive::Triangle(Triangle::from_data(&self.reader, read_index)?),
+      match self.mode {
+        PrimitiveTopology::PointList => AttributeDynPrimitive::Points(Point::from_data(&self.vertices, read_index)?),
+        PrimitiveTopology::LineList => AttributeDynPrimitive::LineSegment(LineSegment::from_data(&self.vertices, read_index)?),
+        PrimitiveTopology::LineStrip => AttributeDynPrimitive::LineSegment(LineSegment::from_data(&self.vertices, read_index)?),
+        PrimitiveTopology::TriangleList => AttributeDynPrimitive::Triangle(Triangle::from_data(&self.vertices, read_index)?),
+        PrimitiveTopology::TriangleStrip => AttributeDynPrimitive::Triangle(Triangle::from_data(&self.vertices, read_index)?),
       }.into()
     }
   }
@@ -154,7 +182,9 @@ impl<'a> IntersectAbleGroupedMesh for AttributeMeshShapeReadView<'a> {
     group: MeshDrawGroup,
   ) {
     let group = self.groups.get_group(group, self);
-    self.intersect_list(ray, conf, group, result);
+    self
+      .as_abstract_mesh_read_view()
+      .intersect_list(ray, conf, group, result);
   }
 
   fn intersect_nearest_by_group(
@@ -164,6 +194,8 @@ impl<'a> IntersectAbleGroupedMesh for AttributeMeshShapeReadView<'a> {
     group: MeshDrawGroup,
   ) -> OptionalNearest<MeshBufferHitPoint> {
     let group = self.groups.get_group(group, self);
-    self.intersect_nearest(ray, conf, group)
+    self
+      .as_abstract_mesh_read_view()
+      .intersect_nearest(ray, conf, group)
   }
 }

@@ -9,6 +9,7 @@ impl UnTypedBufferView {
   }
 }
 
+#[derive(Clone, Copy)]
 pub struct UnTypedBufferViewReadView<'a> {
   buffer: &'a Vec<u8>,
   view: &'a UnTypedBufferView,
@@ -58,6 +59,7 @@ impl<'a> UnTypedBufferViewReadView<'a> {
   }
 }
 
+#[derive(Clone, Copy)]
 pub struct AttributeAccessorReadView<'a> {
   view: UnTypedBufferViewReadView<'a>,
   acc: &'a AttributeAccessor,
@@ -93,6 +95,7 @@ impl AttributeAccessor {
   }
 }
 
+#[derive(Clone)]
 pub struct AttributeMeshReadView<'a> {
   pub attributes:
     SmallVec<[(&'a AttributeSemantic, AttributeAccessorReadView<'a>); MOST_COMMON_ATTRIBUTE_COUNT]>,
@@ -109,6 +112,16 @@ impl<'a> std::ops::Deref for AttributeMeshReadView<'a> {
 }
 
 impl<'a> AttributeMeshReadView<'a> {
+  pub fn primitive_count(&self) -> usize {
+    let count = if let Some((_, index)) = &self.indices {
+      index.count
+    } else {
+      self.get_position().len()
+    };
+
+    (count + self.mode.step() - self.mode.stride()) / self.mode.step()
+  }
+
   pub fn get_attribute(&self, s: &AttributeSemantic) -> Option<&AttributeAccessorReadView> {
     self.attributes.iter().find(|(k, _)| *k == s).map(|r| &r.1)
   }
@@ -132,6 +145,7 @@ impl<'a> AttributeMeshReadView<'a> {
   }
 }
 
+#[derive(Clone, Copy)]
 pub struct PositionReader<'a> {
   position: &'a [Vec3<f32>],
 }
@@ -144,6 +158,7 @@ impl<'a> IndexGet for PositionReader<'a> {
 }
 pub type AttributeMeshShapeReadView<'a> = AttributeMeshCustomReadView<'a, PositionReader<'a>>;
 
+#[derive(Clone)]
 pub struct FullReaderBase<'a> {
   pub keys: Vec<AttributeSemantic>,
   pub bytes: Vec<&'a [u8]>,
