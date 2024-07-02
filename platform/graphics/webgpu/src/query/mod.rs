@@ -11,8 +11,7 @@ pub(crate) fn read_back_query<T: Pod>(
   device: &GPUDevice,
   encoder: &mut GPUCommandEncoder,
 ) -> impl Future<Output = Option<T>> + Unpin {
-  let size =
-    std::mem::size_of::<DeviceDrawStatistics>().max(QUERY_RESOLVE_BUFFER_ALIGNMENT as usize);
+  let size = std::mem::size_of::<T>().max(QUERY_RESOLVE_BUFFER_ALIGNMENT as usize);
   let size = NonZeroU64::new(size as u64).unwrap();
 
   let init = BufferInit::Zeroed(size);
@@ -31,7 +30,7 @@ pub(crate) fn read_back_query<T: Pod>(
     .read_buffer(device, &result.create_default_view())
     .map(|r| {
       r.ok().map(|r| {
-        let view = &r.read_raw()[0..std::mem::size_of::<DeviceDrawStatistics>()];
+        let view = &r.read_raw()[0..std::mem::size_of::<T>()];
         *bytemuck::from_bytes(view)
       })
     })
