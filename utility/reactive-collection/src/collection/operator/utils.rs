@@ -1,3 +1,5 @@
+use futures::FutureExt;
+
 use crate::*;
 
 pub struct ReactiveCollectionDebug<T, K, V> {
@@ -123,16 +125,16 @@ where
   K: CKey,
   V: CValue,
 {
-  type Item = Arc<FastHashMap<K, ValueChange<V>>>;
+  type Item = Box<dyn Future<Output = FastHashMap<K, ValueChange<V>>>>;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
-    let r = this.inner.poll_changes(cx).0.materialize();
+    let fut = this
+      .inner
+      .poll_changes(cx)
+      .map(|v| v.0.materialize_hashmap_maybe_cloned());
+    let fut = Box::new(fut);
 
-    if r.is_empty() {
-      Poll::Pending
-    } else {
-      Poll::Ready(Some(r))
-    }
+    Poll::Ready(Some(fut))
   }
 }

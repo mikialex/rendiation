@@ -41,7 +41,9 @@ where
     }
   }
 
-  fn into_change_stream(self) -> impl futures::Stream<Item = Arc<FastHashMap<K, ValueChange<V>>>>
+  fn into_change_stream(
+    self,
+  ) -> impl futures::Stream<Item = Box<dyn Future<Output = FastHashMap<K, ValueChange<V>>>>>
   where
     Self: Unpin,
   {

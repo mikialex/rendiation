@@ -38,6 +38,7 @@ where
 {
   type Changes = impl VirtualCollection<K, ValueChange<T>>;
   type View = impl VirtualCollection<K, T>;
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
 
   fn poll_changes(&self, cx: &mut Context) -> Self::Task {
     let (payload_change, current_source) = self.payload_source.poll_changes(cx);

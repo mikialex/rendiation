@@ -1,4 +1,4 @@
-use futures::Stream;
+use futures::{FutureExt, Stream};
 use reactive_stream::{single_value_channel, SingleSender};
 
 use crate::*;
@@ -130,7 +130,7 @@ impl<T: ReactiveCollection<u32, u32>> ReactiveCollection<u32, u32> for ReactiveA
     let f = self.source.poll_changes(cx);
     let sender = self.sender.clone();
     let all_size_sender = self.all_size_sender.clone();
-    let accumulated_mutations = self.accumulated_mutations.clone();
+    let mut accumulated_mutations = self.accumulated_mutations.clone();
 
     async move {
       let (d, _) = f.await;
@@ -171,11 +171,10 @@ impl<T: ReactiveCollection<u32, u32>> ReactiveCollection<u32, u32> for ReactiveA
         sender.unlock();
       }
 
-      let d = if let Poll::Ready(Some(r)) = accumulated_mutations.poll_impl(cx) {
-        r
-      } else {
-        VirtualCollectionExt::into_boxed(())
-      };
+      let d = accumulated_mutations
+        .next()
+        .map(|r| r.unwrap_or_else(|| VirtualCollectionExt::into_boxed(())))
+        .await;
 
       let v = a.make_read_holder();
 
