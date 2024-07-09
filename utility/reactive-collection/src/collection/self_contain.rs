@@ -1,3 +1,5 @@
+use futures::FutureExt;
+
 use crate::*;
 
 pub trait ReactiveCollectionSelfContained<K: CKey, V: CValue>:
@@ -29,14 +31,22 @@ where
 {
 }
 
+type DynReactiveCollectionSelfContainedPollResult<K, V> = Pin<
+  Box<
+    dyn Future<
+      Output = (
+        Box<dyn DynVirtualCollection<K, ValueChange<V>>>,
+        Box<dyn VirtualCollectionSelfContained<K, V>>,
+      ),
+    >,
+  >,
+>;
+
 pub trait DynReactiveCollectionSelfContained<K: CKey, V: CValue> {
   fn poll_changes_self_contained_dyn(
     &self,
     cx: &mut Context,
-  ) -> (
-    Box<dyn DynVirtualCollection<K, ValueChange<V>>>,
-    Box<dyn VirtualCollectionSelfContained<K, V>>,
-  );
+  ) -> DynReactiveCollectionSelfContainedPollResult<K, V>;
 
   fn extra_request_dyn(&mut self, request: &mut ExtraCollectionOperation);
 }
@@ -50,12 +60,16 @@ where
   fn poll_changes_self_contained_dyn(
     &self,
     cx: &mut Context,
-  ) -> (
-    Box<dyn DynVirtualCollection<K, ValueChange<V>>>,
-    Box<dyn VirtualCollectionSelfContained<K, V>>,
-  ) {
-    let (d, v) = self.poll_changes(cx);
-    (Box::new(d), Box::new(v))
+  ) -> DynReactiveCollectionSelfContainedPollResult<K, V> {
+    let task = self.poll_changes(cx);
+    task
+      .map(|(d, v)| {
+        (
+          Box::new(d) as Box<dyn DynVirtualCollection<K, ValueChange<V>>>,
+          Box::new(v) as Box<dyn VirtualCollectionSelfContained<K, V>>,
+        )
+      })
+      .boxed()
   }
 
   fn extra_request_dyn(&mut self, request: &mut ExtraCollectionOperation) {

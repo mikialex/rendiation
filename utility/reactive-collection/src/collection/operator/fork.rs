@@ -155,6 +155,7 @@ where
 {
   type Changes = impl VirtualCollection<K, ValueChange<V>>;
   type View = Map::View;
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
   fn poll_changes(&self, cx: &mut Context) -> Self::Task {
     // install new waker, this waker is shared by arc within the downstream info
     self.waker.register(cx.waker());

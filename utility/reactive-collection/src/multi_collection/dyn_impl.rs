@@ -1,19 +1,27 @@
+use futures::FutureExt;
+
 use crate::*;
 
 pub trait DynReactiveOneToManyRelation<O: CKey, M: CKey>: Send + Sync {
   /// we could return a single trait object that cover both access and inverse access
   /// but for simplicity we just return two trait objects as these two trait both impl clone.
-  fn poll_changes_with_inv_dyn(
-    &self,
-    cx: &mut Context,
-  ) -> (
-    Box<dyn DynVirtualCollection<M, ValueChange<O>>>,
-    Box<dyn DynVirtualCollection<M, O>>,
-    Box<dyn DynVirtualMultiCollection<O, M>>,
-  );
+  fn poll_changes_with_inv_dyn(&self, cx: &mut Context)
+    -> DynReactiveOneToManyRelationResult<M, O>;
 
   fn extra_request_dyn(&mut self, request: &mut ExtraCollectionOperation);
 }
+
+type DynReactiveOneToManyRelationResult<M, O> = Pin<
+  Box<
+    dyn Future<
+      Output = (
+        Box<dyn DynVirtualCollection<M, ValueChange<O>>>,
+        Box<dyn DynVirtualCollection<M, O>>,
+        Box<dyn DynVirtualMultiCollection<O, M>>,
+      ),
+    >,
+  >,
+>;
 
 impl<O, M, T> DynReactiveOneToManyRelation<O, M> for T
 where
@@ -24,13 +32,17 @@ where
   fn poll_changes_with_inv_dyn(
     &self,
     cx: &mut Context,
-  ) -> (
-    Box<dyn DynVirtualCollection<M, ValueChange<O>>>,
-    Box<dyn DynVirtualCollection<M, O>>,
-    Box<dyn DynVirtualMultiCollection<O, M>>,
-  ) {
-    let (d, v) = self.poll_changes(cx);
-    (Box::new(d), Box::new(v.clone()), Box::new(v))
+  ) -> DynReactiveOneToManyRelationResult<M, O> {
+    self
+      .poll_changes(cx)
+      .map(|(d, v)| {
+        (
+          Box::new(d) as Box<dyn DynVirtualCollection<M, ValueChange<O>>>,
+          Box::new(v.clone()) as Box<dyn DynVirtualCollection<M, O>>,
+          Box::new(v) as Box<dyn DynVirtualMultiCollection<O, M>>,
+        )
+      })
+      .boxed()
   }
 
   fn extra_request_dyn(&mut self, request: &mut ExtraCollectionOperation) {
@@ -45,13 +57,15 @@ where
 {
   type Changes = impl VirtualCollection<M, ValueChange<O>>;
   type View = impl VirtualCollection<M, O> + VirtualMultiCollection<O, M>;
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
   fn poll_changes(&self, cx: &mut Context) -> Self::Task {
-    let (d, v, v2) = self.poll_changes_with_inv_dyn(cx);
-    let v = OneManyRelationDualAccess {
-      many_access_one: v,
-      one_access_many: v2,
-    };
-    (d, v)
+    self.poll_changes_with_inv_dyn(cx).map(|(d, v, v2)| {
+      let v = OneManyRelationDualAccess {
+        many_access_one: v,
+        one_access_many: v2,
+      };
+      (d, v)
+    })
   }
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
     self.deref_mut().extra_request_dyn(request)

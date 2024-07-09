@@ -124,13 +124,14 @@ impl<K: CKey, T: CValue> ReactiveCollection<K, T>
 {
   type Changes = impl VirtualCollection<K, ValueChange<T>>;
   type View = impl VirtualCollection<K, T>;
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
   fn poll_changes(&self, cx: &mut Context) -> Self::Task {
     let d = match self.mutation.write().poll_next_unpin(cx) {
       Poll::Ready(Some(r)) => r,
       _ => Box::new(()),
     };
     let v = self.full.access();
-    (d, v)
+    futures::future::ready((d, v))
   }
 
   fn extra_request(&mut self, _request: &mut ExtraCollectionOperation) {
