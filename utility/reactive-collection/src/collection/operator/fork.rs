@@ -1,3 +1,5 @@
+use std::future::ready;
+
 use futures::channel::mpsc::*;
 
 use crate::*;
@@ -62,59 +64,60 @@ where
   V: CValue,
 {
   fn clone(&self) -> Self {
-    // get updated current view and delta; this is necessary, because we require
-    // current view as init delta for new forked downstream
-    //
-    // update should use downstream registered waker
-    let waker = Arc::new(BroadCast {
-      inner: self.downstream.clone(),
-    });
-    let waker = futures::task::waker_ref(&waker);
-    let mut cx = Context::from_waker(&waker);
-    let (d, v) = self.upstream.read().poll_changes(&mut cx);
+    todo!()
+    // // get updated current view and delta; this is necessary, because we require
+    // // current view as init delta for new forked downstream
+    // //
+    // // update should use downstream registered waker
+    // let waker = Arc::new(BroadCast {
+    //   inner: self.downstream.clone(),
+    // });
+    // let waker = futures::task::waker_ref(&waker);
+    // let mut cx = Context::from_waker(&waker);
+    // let (d, v) = self.upstream.read().poll_changes(&mut cx);
 
-    // delta should also dispatch to downstream to keep message integrity
-    let downstream = self.downstream.read_recursive();
-    let d = d.materialize();
-    for (_, info) in downstream.iter() {
-      if info.should_send {
-        info.sender.unbounded_send(d.clone()).ok();
-      }
-    }
+    // // delta should also dispatch to downstream to keep message integrity
+    // let downstream = self.downstream.read_recursive();
+    // let d = d.materialize();
+    // for (_, info) in downstream.iter() {
+    //   if info.should_send {
+    //     info.sender.unbounded_send(d.clone()).ok();
+    //   }
+    // }
 
-    // now we create new downstream
-    let mut downstream = self.downstream.write();
-    let id = alloc_global_res_id();
-    let (sender, rev) = unbounded();
+    // // now we create new downstream
+    // let mut downstream = self.downstream.write();
+    // let id = alloc_global_res_id();
+    // let (sender, rev) = unbounded();
 
-    // pass the current table as the init change
-    let current = v
-      .iter_key_value()
-      .map(|(k, v)| (k, ValueChange::Delta(v, None)))
-      .collect::<FastHashMap<_, _>>();
-    let current = Arc::new(current);
-    if !current.is_empty() {
-      sender.unbounded_send(current).ok();
-    }
+    // // pass the current table as the init change
+    // let current = v
+    //   .iter_key_value()
+    //   .map(|(k, v)| (k, ValueChange::Delta(v, None)))
+    //   .collect::<FastHashMap<_, _>>();
+    // let current = Arc::new(current);
+    // if !current.is_empty() {
+    //   sender.unbounded_send(current).ok();
+    // }
 
-    let waker: Arc<AtomicWaker> = Default::default();
-    let info = DownStreamInfo {
-      waker: waker.clone(),
-      sender,
-      should_send: true,
-    };
+    // let waker: Arc<AtomicWaker> = Default::default();
+    // let info = DownStreamInfo {
+    //   waker: waker.clone(),
+    //   sender,
+    //   should_send: true,
+    // };
 
-    downstream.insert(id, info);
+    // downstream.insert(id, info);
 
-    Self {
-      upstream: self.upstream.clone(),
-      downstream: self.downstream.clone(),
-      id,
-      rev: RwLock::new(rev),
-      waker,
-      phantom: PhantomData,
-      buffered: Default::default(),
-    }
+    // Self {
+    //   upstream: self.upstream.clone(),
+    //   downstream: self.downstream.clone(),
+    //   id,
+    //   rev: RwLock::new(rev),
+    //   waker,
+    //   phantom: PhantomData,
+    //   buffered: Default::default(),
+    // }
   }
 }
 
@@ -157,47 +160,49 @@ where
   type View = Map::View;
   type Task = impl Future<Output = (Self::Changes, Self::View)>;
   fn poll_changes(&self, cx: &mut Context) -> Self::Task {
-    // install new waker, this waker is shared by arc within the downstream info
-    self.waker.register(cx.waker());
+    // // install new waker, this waker is shared by arc within the downstream info
+    // self.waker.register(cx.waker());
 
-    // read and merge all possible forked buffered messages from channel
-    let mut buffered = std::mem::take(self.buffered.write().deref_mut());
+    // // read and merge all possible forked buffered messages from channel
+    // let mut buffered = std::mem::take(self.buffered.write().deref_mut());
 
-    while let Poll::Ready(Some(changes)) = self.rev.write().poll_next_unpin(cx) {
-      buffered.push(changes);
-    }
+    // while let Poll::Ready(Some(changes)) = self.rev.write().poll_next_unpin(cx) {
+    //   buffered.push(changes);
+    // }
 
-    // we have to also check the upstream no matter if we have message in channel or not
-    // todo, exponential check cost if we have share rich structure in graph
-    let upstream = self.upstream.write();
-    let waker = Arc::new(BroadCast {
-      inner: self.downstream.clone(),
-    });
-    let waker = futures::task::waker_ref(&waker);
-    let mut cx_2 = Context::from_waker(&waker);
-    let (d, v) = upstream.poll_changes(&mut cx_2);
+    // // we have to also check the upstream no matter if we have message in channel or not
+    // // todo, exponential check cost if we have share rich structure in graph
+    // let upstream = self.upstream.write();
+    // let waker = Arc::new(BroadCast {
+    //   inner: self.downstream.clone(),
+    // });
+    // let waker = futures::task::waker_ref(&waker);
+    // let mut cx_2 = Context::from_waker(&waker);
+    // let (d, v) = upstream.poll_changes(&mut cx_2);
 
-    let d = {
-      let downstream = self.downstream.write();
-      let d = d.materialize();
-      if !d.is_empty() {
-        // broad cast to others
-        // we are not required to call broadcast waker because it will be waked by others
-        // receivers
-        for (id, downstream) in downstream.iter() {
-          if *id != self.id && downstream.should_send {
-            downstream.sender.unbounded_send(d.clone()).ok();
-          }
-        }
+    // let d = {
+    //   let downstream = self.downstream.write();
+    //   let d = d.materialize();
+    //   if !d.is_empty() {
+    //     // broad cast to others
+    //     // we are not required to call broadcast waker because it will be waked by others
+    //     // receivers
+    //     for (id, downstream) in downstream.iter() {
+    //       if *id != self.id && downstream.should_send {
+    //         downstream.sender.unbounded_send(d.clone()).ok();
+    //       }
+    //     }
 
-        buffered.push(d);
-      }
-      drop(downstream);
+    //     buffered.push(d);
+    //   }
+    //   drop(downstream);
 
-      finalize_buffered_changes(buffered)
-    };
+    //   finalize_buffered_changes(buffered)
+    // };
 
-    (d, v)
+    // (d, v)
+
+    self.upstream.read().poll_changes(cx).map(|(d, v)| (d, v))
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {

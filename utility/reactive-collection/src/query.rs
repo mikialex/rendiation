@@ -1,10 +1,9 @@
-// use futures::{future::join, Future};
-
 use crate::*;
 
 pub trait ReactiveQuery {
   type Output;
-  fn poll_query(&mut self, cx: &mut Context) -> Self::Output;
+  type Task: Future<Output = Self::Output>;
+  fn poll_query(&mut self, cx: &mut Context) -> Self::Task;
 }
 
 pub struct ReactiveCollectionAsReactiveQuery<K, V, T> {
@@ -18,11 +17,14 @@ where
   V: CValue,
   T: ReactiveCollection<K, V>,
 {
-  type Output = Box<dyn std::any::Any>;
+  type Output = Box<dyn Any>;
+  type Task = impl Future<Output = Self::Output>;
 
-  fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
-    let (_, v) = self.inner.poll_changes_dyn(cx);
-    Box::new(v)
+  fn poll_query(&mut self, cx: &mut Context) -> Self::Task {
+    self
+      .inner
+      .poll_changes_dyn(cx)
+      .map(|(_, v)| Box::new(v) as Box<dyn Any>)
   }
 }
 
@@ -37,11 +39,14 @@ where
   V: CValue,
   T: ReactiveCollectionSelfContained<K, V>,
 {
-  type Output = Box<dyn std::any::Any>;
+  type Output = Box<dyn Any>;
+  type Task = impl Future<Output = Self::Output>;
 
-  fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
-    let (_, v) = self.inner.poll_changes_dyn(cx);
-    Box::new(v)
+  fn poll_query(&mut self, cx: &mut Context) -> Self::Task {
+    self
+      .inner
+      .poll_changes_dyn(cx)
+      .map(|(_, v)| Box::new(v) as Box<dyn Any>)
   }
 }
 
@@ -56,11 +61,14 @@ where
   V: CKey,
   T: ReactiveOneToManyRelation<K, V>,
 {
-  type Output = Box<dyn std::any::Any>;
+  type Output = Box<dyn Any>;
+  type Task = impl Future<Output = Self::Output>;
 
-  fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
-    let (_, m) = self.inner.poll_changes_dyn(cx);
-    Box::new(m)
+  fn poll_query(&mut self, cx: &mut Context) -> Self::Task {
+    self
+      .inner
+      .poll_changes_dyn(cx)
+      .map(|(_, v)| Box::new(v) as Box<dyn Any>)
   }
 }
 
@@ -71,9 +79,10 @@ where
   T::Output: 'static,
   T: ReactiveQuery,
 {
-  type Output = Box<dyn std::any::Any>;
+  type Output = Box<dyn Any>;
+  type Task = impl Future<Output = Self::Output>;
 
-  fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
-    Box::new(self.0.poll_query(cx))
+  fn poll_query(&mut self, cx: &mut Context) -> Self::Task {
+    self.0.poll_query(cx).map(|v| Box::new(v) as Box<dyn Any>)
   }
 }

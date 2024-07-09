@@ -1,5 +1,3 @@
-use futures::FutureExt;
-
 use crate::*;
 
 pub trait DynReactiveOneToManyRelation<O: CKey, M: CKey>: Send + Sync {

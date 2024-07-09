@@ -1,5 +1,3 @@
-use futures::FutureExt;
-
 use crate::*;
 
 pub type DynReactiveCollectionTask<K, V> = Box<

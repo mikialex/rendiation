@@ -1,5 +1,3 @@
-use futures::FutureExt;
-
 use crate::*;
 
 pub trait ReactiveCollectionSelfContained<K: CKey, V: CValue>:
