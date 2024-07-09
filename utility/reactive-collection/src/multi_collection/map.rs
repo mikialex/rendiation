@@ -22,13 +22,12 @@ where
   type View = impl VirtualCollection<K, V2> + VirtualMultiCollection<V2, K>;
   type Task = impl Future<Output = (Self::Changes, Self::View)>;
 
-  #[tracing::instrument(skip_all, name = "ReactiveKVMap")]
   fn poll_changes(&self, cx: &mut Context) -> Self::Task {
     let f = self.inner.poll_changes(cx);
     let map = self.map;
     let f1 = self.f1;
     let f2 = self.f2;
-    async {
+    async move {
       let (d, v) = f.await;
       let d = d.map(move |k, v| v.map(|v| map(k, v)));
 

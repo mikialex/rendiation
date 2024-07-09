@@ -53,12 +53,11 @@ where
   type View = impl VirtualMultiCollection<O, M> + VirtualCollection<M, O>;
   type Task = impl Future<Output = (Self::Changes, Self::View)>;
 
-  #[tracing::instrument(skip_all, name = "OneToManyRefHashBookKeeping")]
   fn poll_changes(&self, cx: &mut Context) -> Self::Task {
     let f = self.upstream.poll_changes(cx);
     let m = self.mapping.clone();
 
-    async {
+    async move {
       let (r, r_view) = f.await;
 
       {
@@ -175,12 +174,11 @@ where
   type View = impl VirtualMultiCollection<O, M> + VirtualCollection<M, O>;
   type Task = impl Future<Output = (Self::Changes, Self::View)>;
 
-  #[tracing::instrument(skip_all, name = "OneToManyRefDenseBookKeeping")]
   fn poll_changes(&self, cx: &mut Context) -> Self::Task {
     let f = self.upstream.poll_changes(cx);
     let m = self.mapping.clone();
 
-    async {
+    async move {
       let (r, r_view) = f.await;
 
       {

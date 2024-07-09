@@ -46,12 +46,11 @@ where
   type View = impl VirtualCollection<K, V2>;
   type Task = impl Future<Output = (Self::Changes, Self::View)>;
 
-  #[tracing::instrument(skip_all, name = "ReactiveKVFilter")]
   fn poll_changes(&self, cx: &mut Context) -> Self::Task {
     let f = self.inner.poll_changes(cx);
     let c = self.checker;
 
-    async {
+    async move {
       let (d, v) = f.await;
 
       let checker = make_checker(c);

@@ -18,11 +18,10 @@ where
   type View = impl VirtualCollection<K, V2>;
   type Task = impl Future<Output = (Self::Changes, Self::View)>;
 
-  #[tracing::instrument(skip_all, name = "ReactiveKVMap")]
   fn poll_changes(&self, cx: &mut Context) -> Self::Task {
     let f = self.inner.poll_changes(cx);
     let map = self.map;
-    async {
+    async move {
       let (d, v) = f.await;
       let d = d.map(move |k, v| v.map(|v| map(k, v)));
       let v = v.map(map);
@@ -73,14 +72,14 @@ where
 }
 
 /// compare to ReactiveKVMap, this execute immediately and not impose too many bounds on mapper
-pub struct ReactiveKVExecuteMap<T, F, K, V, V2> {
+pub struct ReactiveKVExecuteMap<T, F, K, V, V2, FF> {
   pub inner: T,
   pub map_creator: F,
   pub cache: Arc<RwLock<FastHashMap<K, V2>>>,
-  pub phantom: PhantomData<(K, V, V2)>,
+  pub phantom: PhantomData<(K, V, V2, FF)>,
 }
 
-impl<T, F, K, V, V2, FF> ReactiveCollection<K, V2> for ReactiveKVExecuteMap<T, F, K, V, V2>
+impl<T, F, K, V, V2, FF> ReactiveCollection<K, V2> for ReactiveKVExecuteMap<T, F, K, V, V2, FF>
 where
   V: CValue,
   K: CKey,
@@ -93,7 +92,6 @@ where
   type View = impl VirtualCollection<K, V2>;
   type Task = impl Future<Output = (Self::Changes, Self::View)>;
 
-  // #[tracing::instrument(skip_all, name = "ReactiveKVExecuteMap")]
   fn poll_changes(&self, cx: &mut Context) -> Self::Task {
     let f = self.inner.poll_changes(cx);
     let c = self.cache.clone();

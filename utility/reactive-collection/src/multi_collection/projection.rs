@@ -26,7 +26,6 @@ where
   type View = impl VirtualCollection<M, X>;
   type Task = impl Future<Output = (Self::Changes, Self::View)>;
 
-  #[tracing::instrument(skip_all, name = "OneToManyFanout")]
   #[allow(clippy::collapsible_else_if)]
   fn poll_changes(&self, cx: &mut Context) -> Self::Task {
     let relation = self.relations.poll_changes(cx);
@@ -174,13 +173,12 @@ where
   type View = impl VirtualCollection<O, ()>;
   type Task = impl Future<Output = (Self::Changes, Self::View)>;
 
-  #[tracing::instrument(skip_all, name = "ManyToOneReduce")]
   fn poll_changes(&self, cx: &mut Context) -> Self::Task {
     let relation = self.relations.poll_changes(cx);
     let upstream = self.upstream.poll_changes(cx);
     let rc = self.ref_count.clone();
 
-    async {
+    async move {
       let (relational_changes, one_acc) = relation.await;
       let (upstream_changes, getter) = upstream.await;
 
