@@ -113,7 +113,7 @@ impl<T> MultiUpdateContainer<T> {
 }
 
 impl<T> MultiUpdateContainer<T> {
-  pub fn poll_update(&mut self, cx: &mut Context) {
+  pub fn poll_update(&mut self, cx: &mut Context) -> impl Future<Output = ()> {
     self.waker.register(cx.waker());
     for source in &mut self.source {
       source.update_target(&mut self.target, cx)
@@ -135,9 +135,13 @@ impl<T> SharedMultiUpdateContainer<T> {
 
 impl<T: 'static> ReactiveQuery for SharedMultiUpdateContainer<T> {
   type Output = Box<dyn Any>;
+  type Task = impl Future<Output = Self::Output>;
 
   fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
-    self.inner.write().poll_update(cx);
-    Box::new(self.inner.make_read_holder())
+    self
+      .inner
+      .write()
+      .poll_update(cx)
+      .map(|_| Box::new(self.inner.make_read_holder()) as Box<dyn Any>)
   }
 }
