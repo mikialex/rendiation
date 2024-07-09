@@ -41,80 +41,87 @@ where
   type Task = impl Future<Output = (Self::Changes, Self::View)>;
 
   fn poll_changes(&self, cx: &mut Context) -> Self::Task {
-    let (payload_change, current_source) = self.payload_source.poll_changes(cx);
-    let (connectivity_change, current_connectivity, current_inv_connectivity) =
-      self.connectivity_source.poll_changes_with_inv_dyn(cx);
+    let payload_source_task = self.payload_source.poll_changes(cx);
+    let connectivity_source_task = self.connectivity_source.poll_changes_with_inv_dyn(cx);
+    let data = self.data.clone();
+    let derive_logic = self.derive_logic;
 
-    // step1: find the update root
-    // we have a change set as input. change set is the composition of the connectivity change
-    // and the payload change. for each item in change set, we recursively check it parent if any
-    // of the parent exist in the change set, if not, we have a update root
+    async move {
+      let (payload_change, current_source) = payload_source_task.await;
+      let (connectivity_change, current_connectivity, current_inv_connectivity) =
+        connectivity_source_task.await;
 
-    let mut update_roots = FastHashSet::default();
+      // step1: find the update root
+      // we have a change set as input. change set is the composition of the connectivity change
+      // and the payload change. for each item in change set, we recursively check it parent if any
+      // of the parent exist in the change set, if not, we have a update root
 
-    let payload_change_range = payload_change.iter_key_value().map(|(k, _)| k);
+      let mut update_roots = FastHashSet::default();
 
-    let connectivity_change_range = connectivity_change
-      .iter_key_value()
-      .map(|(k, _)| k)
-      .filter(|k| payload_change.access(k).is_none()); // remove the payload_change_range part
+      let payload_change_range = payload_change.iter_key_value().map(|(k, _)| k);
 
-    let is_in_change_set = |k| payload_change.contains(&k) || connectivity_change.contains(&k);
+      let connectivity_change_range = connectivity_change
+        .iter_key_value()
+        .map(|(k, _)| k)
+        .filter(|k| payload_change.access(k).is_none()); // remove the payload_change_range part
 
-    // if we have a very branchy tree, and only root and leaves contains change, it's hard to
-    // find the update root is the tree root because early return is not effective. To solve this
-    // issue, we may continuously populate the change set by traversing the changeset item's sub
-    // tree into change set but it's not a good solution, because it's hard to parallelize  and
-    // the most important is that we can assume our tree is not that deep
-    for change in payload_change_range.chain(connectivity_change_range) {
-      let mut current_check = change.clone();
-      loop {
-        if let Some(parent) = current_connectivity.access(&current_check) {
-          if is_in_change_set(parent.clone()) {
+      let is_in_change_set = |k| payload_change.contains(&k) || connectivity_change.contains(&k);
+
+      // if we have a very branchy tree, and only root and leaves contains change, it's hard to
+      // find the update root is the tree root because early return is not effective. To solve this
+      // issue, we may continuously populate the change set by traversing the changeset item's sub
+      // tree into change set but it's not a good solution, because it's hard to parallelize  and
+      // the most important is that we can assume our tree is not that deep
+      for change in payload_change_range.chain(connectivity_change_range) {
+        let mut current_check = change.clone();
+        loop {
+          if let Some(parent) = current_connectivity.access(&current_check) {
+            if is_in_change_set(parent.clone()) {
+              break;
+            }
+            current_check = parent.clone();
+          } else {
+            update_roots.insert(change.clone());
             break;
           }
-          current_check = parent.clone();
-        } else {
-          update_roots.insert(change.clone());
-          break;
         }
       }
-    }
 
-    // step2: do derive update from all update roots
-    // maybe could using some forms of dynamic parallelism
-    let mut derive_tree = self.data.write();
-    let mut derive_changes = FastHashMap::default();
-    let collector = CollectionMutationCollectorPtr {
-      delta: &mut derive_changes as *mut _,
-      target: (&mut derive_tree as &mut FastHashMap<K, T>) as *mut _,
-    };
-
-    let ctx = Ctx {
-      derive: collector,
-      source: current_source.as_ref(),
-      connectivity: current_inv_connectivity.as_ref(),
-      parent_connectivity: current_connectivity.as_ref(),
-      derive_logic: self.derive_logic,
-    };
-    for root in update_roots {
-      let mut root = TreeMutNode {
-        phantom: PhantomData,
-        idx: root,
-        ctx: &ctx,
+      // step2: do derive update from all update roots
+      // maybe could using some forms of dynamic parallelism
+      let mut derive_tree = data.write();
+      let mut derive_changes = FastHashMap::default();
+      let collector = CollectionMutationCollectorPtr {
+        delta: &mut derive_changes as *mut _,
+        target: (&mut derive_tree as &mut FastHashMap<K, T>) as *mut _,
       };
-      root.traverse_pair_subtree_mut(&mut |node, parent| {
-        if node.update(parent.as_deref()) {
-          NextTraverseVisit::VisitChildren
-        } else {
-          NextTraverseVisit::SkipChildren
-        }
-      })
-    }
 
-    let d = Arc::new(derive_changes);
-    let v = self.data.make_read_holder();
-    (d, v)
+      let ctx = Ctx {
+        derive: collector,
+        source: current_source.as_ref(),
+        connectivity: current_inv_connectivity.as_ref(),
+        parent_connectivity: current_connectivity.as_ref(),
+        derive_logic,
+      };
+      for root in update_roots {
+        let mut root = TreeMutNode {
+          phantom: PhantomData,
+          idx: root,
+          ctx: &ctx,
+        };
+        root.traverse_pair_subtree_mut(&mut |node, parent| {
+          if node.update(parent.as_deref()) {
+            NextTraverseVisit::VisitChildren
+          } else {
+            NextTraverseVisit::SkipChildren
+          }
+        })
+      }
+
+      let d = Arc::new(derive_changes);
+      let v = data.make_read_holder();
+      (d, v)
+    }
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {

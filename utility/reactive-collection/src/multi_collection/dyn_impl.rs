@@ -11,16 +11,15 @@ pub trait DynReactiveOneToManyRelation<O: CKey, M: CKey>: Send + Sync {
   fn extra_request_dyn(&mut self, request: &mut ExtraCollectionOperation);
 }
 
-type DynReactiveOneToManyRelationResult<M, O> = Pin<
-  Box<
-    dyn Future<
+type DynReactiveOneToManyRelationResult<M, O> = Box<
+  dyn Future<
       Output = (
         Box<dyn DynVirtualCollection<M, ValueChange<O>>>,
         Box<dyn DynVirtualCollection<M, O>>,
         Box<dyn DynVirtualMultiCollection<O, M>>,
       ),
-    >,
-  >,
+    > + Unpin
+    + Send,
 >;
 
 impl<O, M, T> DynReactiveOneToManyRelation<O, M> for T
@@ -33,16 +32,18 @@ where
     &self,
     cx: &mut Context,
   ) -> DynReactiveOneToManyRelationResult<M, O> {
-    self
-      .poll_changes(cx)
-      .map(|(d, v)| {
-        (
-          Box::new(d) as Box<dyn DynVirtualCollection<M, ValueChange<O>>>,
-          Box::new(v.clone()) as Box<dyn DynVirtualCollection<M, O>>,
-          Box::new(v) as Box<dyn DynVirtualMultiCollection<O, M>>,
-        )
-      })
-      .boxed()
+    Box::new(
+      self
+        .poll_changes(cx)
+        .map(|(d, v)| {
+          (
+            Box::new(d) as Box<dyn DynVirtualCollection<M, ValueChange<O>>>,
+            Box::new(v.clone()) as Box<dyn DynVirtualCollection<M, O>>,
+            Box::new(v) as Box<dyn DynVirtualMultiCollection<O, M>>,
+          )
+        })
+        .boxed(),
+    )
   }
 
   fn extra_request_dyn(&mut self, request: &mut ExtraCollectionOperation) {
