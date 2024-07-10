@@ -135,10 +135,10 @@ impl<T: ReactiveCollection<u32, u32>> ReactiveCollection<u32, u32> for ReactiveA
     async move {
       let (d, _) = f.await;
 
-      let mut allocator = a.write();
       unsafe {
         sender.lock();
 
+        let mut allocator = a.write();
         for (idx, size_change) in d.iter_key_value() {
           match size_change {
             ValueChange::Delta(new_size, previous_size) => {

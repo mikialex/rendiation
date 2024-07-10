@@ -1,3 +1,5 @@
+use futures::{executor::block_on, future::join_all, FutureExt};
+
 use crate::*;
 
 pub type BoxedAnyReactiveQuery = Box<dyn ReactiveQuery<Output = Box<dyn Any>>>;
@@ -55,13 +57,17 @@ impl ReactiveQueryJoinUpdater {
   }
 
   pub fn poll_update_all(&mut self, cx: &mut Context) -> ConcurrentStreamUpdateResult {
-    ConcurrentStreamUpdateResult {
-      inner: self
+    let f = join_all(
+      self
         .update_logic
         .iter_mut()
-        .map(|(k, v)| (*k, v.poll_query(cx)))
-        .collect(),
-    }
+        .map(|(k, v)| v.poll_query(cx).map(|v| (*k, v))),
+    );
+
+    let r = block_on(f);
+
+    let inner = r.into_iter().collect();
+    ConcurrentStreamUpdateResult { inner }
   }
 }
 
