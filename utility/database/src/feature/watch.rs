@@ -227,22 +227,28 @@ impl<C: CValue, T: ReactiveCollection<RawEntityHandle, C>> ReactiveCollection<u3
 {
   type Changes = impl VirtualCollection<u32, ValueChange<C>>;
   type View = impl VirtualCollection<u32, C>;
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (inner, inner_access) = self.inner.poll_changes(cx);
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
+  fn poll_changes(&self, cx: &mut Context) -> Self::Task {
+    let task = self.inner.poll_changes(cx);
+    let allocator = self.allocator.clone();
 
-    let delta = GenerationHelperViewAccess {
-      inner,
-      phantom: PhantomData,
-      allocator: self.allocator.make_read_holder(),
-    };
+    async move {
+      let (inner, inner_access) = task.await;
 
-    let access = GenerationHelperViewAccess {
-      inner: inner_access,
-      phantom: PhantomData,
-      allocator: self.allocator.make_read_holder(),
-    };
+      let delta = GenerationHelperViewAccess {
+        inner,
+        phantom: PhantomData,
+        allocator: allocator.make_read_holder(),
+      };
 
-    (delta, access)
+      let access = GenerationHelperViewAccess {
+        inner: inner_access,
+        phantom: PhantomData,
+        allocator: allocator.make_read_holder(),
+      };
+
+      (delta, access)
+    }
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {

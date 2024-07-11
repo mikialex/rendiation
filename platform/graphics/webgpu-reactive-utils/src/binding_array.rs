@@ -30,11 +30,11 @@ where
   K: CKey + LinearIdentified,
   V: CValue,
 {
-  pub fn poll_update(&mut self, cx: &mut Context) -> BindingResourceArray<V> {
+  pub async fn poll_update(&mut self, cx: &mut Context<'_>) -> BindingResourceArray<V> {
     // detail change info is useless here because the binding array update can not be preformed
     // incrementally. but we still keep the form of full reactive collection to do optimization in
     // future if the wgpu provide the binding array incremental update method.
-    let (_, full_view) = self.upstream.poll_changes(cx);
+    let (_, full_view) = self.upstream.poll_changes(cx).await;
 
     let mut new_source = vec![self.default_instance.clone(); self.max_length as usize];
     for (k, v) in full_view.iter_key_value() {

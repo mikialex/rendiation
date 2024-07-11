@@ -11,6 +11,14 @@ pub struct UniformArrayCollectionUpdate<T, K, V> {
   gpu_ctx: GPUResourceCtx,
 }
 
+impl<T, K, V> Stream for UniformArrayCollectionUpdate<T, K, V> {
+  type Item;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    todo!()
+  }
+}
+
 pub trait UniformArrayCollectionUpdateExt<K, V>: Sized {
   fn into_uniform_array_collection_update(
     self,

@@ -83,45 +83,52 @@ where
 {
   type Changes = impl VirtualCollection<u32, ValueChange<u32>>;
   type View = impl VirtualCollection<u32, u32> + VirtualMultiCollection<u32, u32>;
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (d, v) = self.inner.poll_changes(cx);
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
+  fn poll_changes(&self, cx: &mut Context) -> Self::Task {
+    let task = self.inner.poll_changes(cx);
+    let foreign_allocator = self.foreign_allocator.clone();
+    let s_allocator = self.allocator.clone();
 
-    let allocator = self.foreign_allocator.make_read_holder();
-    let d = d
-      .key_dual_map_partial(
-        |k| k.index(),
-        move |k| RawEntityHandle(allocator.get_handle(k as usize)?).into(),
-      )
-      .map(|_, v| v.map(|v| v.index()))
-      .into_boxed();
+    async move {
+      let (d, v) = task.await;
 
-    let allocator = self.foreign_allocator.make_read_holder();
+      let allocator = foreign_allocator.make_read_holder();
+      let d = d
+        .key_dual_map_partial(
+          |k| k.index(),
+          move |k| RawEntityHandle(allocator.get_handle(k as usize)?).into(),
+        )
+        .map(|_, v| v.map(|v| v.index()))
+        .into_boxed();
 
-    // todo, improve trait builder method
-    let f_v = KeyDualMapCollection {
-      phantom: PhantomData,
-      base: v.clone(),
-      f1: |k: RawEntityHandle| k.index(),
-      f2: move |k| RawEntityHandle(allocator.get_handle(k as usize)?).into(),
-    };
+      let allocator = foreign_allocator.make_read_holder();
 
-    let f_v = VirtualCollectionExt::map(f_v, |_: &u32, v: RawEntityHandle| v.index());
+      // todo, improve trait builder method
+      let f_v = KeyDualMapCollection {
+        phantom: PhantomData,
+        base: v.clone(),
+        f1: |k: RawEntityHandle| k.index(),
+        f2: move |k| RawEntityHandle(allocator.get_handle(k as usize)?).into(),
+      };
 
-    let allocator = self.allocator.make_read_holder();
-    let inv = KeyDualMapCollection {
-      phantom: PhantomData,
-      base: v,
-      f1: |k: RawEntityHandle| k.index(),
-      f2: move |k| RawEntityHandle(allocator.get_handle(k as usize)?).into(),
-    };
-    let inv = VirtualMultiCollectionExt::multi_map(inv, |_: &u32, v: RawEntityHandle| v.index());
+      let f_v = VirtualCollectionExt::map(f_v, |_: &u32, v: RawEntityHandle| v.index());
 
-    let v = OneManyRelationDualAccess {
-      many_access_one: f_v,
-      one_access_many: inv,
-    };
+      let allocator = s_allocator.make_read_holder();
+      let inv = KeyDualMapCollection {
+        phantom: PhantomData,
+        base: v,
+        f1: |k: RawEntityHandle| k.index(),
+        f2: move |k| RawEntityHandle(allocator.get_handle(k as usize)?).into(),
+      };
+      let inv = VirtualMultiCollectionExt::multi_map(inv, |_: &u32, v: RawEntityHandle| v.index());
 
-    (d, v)
+      let v = OneManyRelationDualAccess {
+        many_access_one: f_v,
+        one_access_many: inv,
+      };
+
+      (d, v)
+    }
   }
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
