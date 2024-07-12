@@ -81,6 +81,7 @@ where
         info.sender.unbounded_send(d.clone()).ok();
       }
     }
+    drop(downstream);
 
     // now we create new downstream
     let mut downstream = self.downstream.write();

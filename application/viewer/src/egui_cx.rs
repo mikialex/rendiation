@@ -34,8 +34,9 @@ impl<T: Widget> Widget for EguiContext<T> {
     access_cx!(cx, window, Window);
     self.begin_frame(window);
 
-    // todo, cx register egui
-    self.inner.update_view(cx);
+    cx.scoped_cx(&mut self.context, |cx| {
+      self.inner.update_view(cx);
+    });
 
     access_cx!(cx, window, Window);
     access_cx!(cx, gpu, Arc<GPU>);

@@ -1,10 +1,17 @@
 use crate::*;
 
 pub struct ComponentCollectionUntyped {
+  pub name: String,
   pub inner: Box<dyn DynamicComponent>, // should be some type of ComponentCollection<T>
   pub data_typeid: TypeId,
   pub entity_type_id: EntityId,
   pub component_type_id: ComponentId,
+}
+
+impl ComponentCollectionUntyped {
+  pub fn debug_value(&self, idx: usize) -> Option<String> {
+    self.inner.debug_value(idx)
+  }
 }
 
 pub struct ComponentCollection<C: ComponentSemantic> {
@@ -213,6 +220,7 @@ impl<T: ForeignKeySemantic> ForeignKeyReadView<T> {
 }
 
 pub trait DynamicComponent: Any + Send + Sync {
+  fn debug_value(&self, idx: usize) -> Option<String>;
   fn create_dyn_writer_default(&self) -> Box<dyn EntityComponentWriter>;
   // todo, this breaks previous get_data returned storage
   fn setup_new_storage(&mut self, storage: Box<dyn Any>);
@@ -242,5 +250,12 @@ impl<T: ComponentSemantic> DynamicComponent for ComponentCollection<T> {
   }
   fn get_event_source(&self) -> Box<dyn Any> {
     Box::new(self.group_watchers.clone())
+  }
+
+  fn debug_value(&self, idx: usize) -> Option<String> {
+    self
+      .read()
+      .get_without_generation_check(idx as u32)
+      .map(|v| format!("{:?}", v))
   }
 }

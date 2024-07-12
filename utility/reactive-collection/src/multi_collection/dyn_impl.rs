@@ -46,7 +46,7 @@ where
   type Changes = impl VirtualCollection<M, ValueChange<O>>;
   type View = impl VirtualCollection<M, O> + VirtualMultiCollection<O, M>;
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (d, v, v2) = self.poll_changes_with_inv_dyn(cx);
+    let (d, v, v2) = (**self).poll_changes_with_inv_dyn(cx);
     let v = OneManyRelationDualAccess {
       many_access_one: v,
       one_access_many: v2,

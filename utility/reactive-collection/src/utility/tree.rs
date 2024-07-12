@@ -111,6 +111,7 @@ where
       })
     }
 
+    drop(derive_tree);
     let d = Arc::new(derive_changes);
     let v = self.data.make_read_holder();
     (d, v)

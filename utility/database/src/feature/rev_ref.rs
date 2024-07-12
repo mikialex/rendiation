@@ -59,7 +59,10 @@ impl DatabaseEntityReverseReference {
       .watch_dyn_foreign_key(semantic_id, entity_id)
       .collective_filter_map(|v| v)
       .into_boxed()
-      .into_one_to_many_by_hash()
+      .into_one_to_many_by_hash();
+
+    let watcher: OneManyRelationForker<RawEntityHandle, RawEntityHandle> = (Box::new(watcher)
+      as Box<dyn DynReactiveOneToManyRelation<RawEntityHandle, RawEntityHandle>>)
       .into_static_forker();
 
     self

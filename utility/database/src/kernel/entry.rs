@@ -3,20 +3,20 @@ use crate::*;
 #[derive(Default, Clone)]
 pub struct Database {
   /// ecg forms a DAG
-  pub(crate) ecg_tables: Arc<RwLock<FastHashMap<EntityId, EntityComponentGroup>>>,
+  pub ecg_tables: Arc<RwLock<FastHashMap<EntityId, EntityComponentGroup>>>,
   pub(crate) entity_meta_watcher: EventSource<EntityComponentGroup>,
 }
 
 impl Database {
   pub fn declare_entity<E: EntitySemantic>(&self) -> EntityComponentGroupTyped<E> {
     self
-      .declare_entity_dyn(E::entity_id())
+      .declare_entity_dyn(E::entity_id(), std::any::type_name::<E>().to_string())
       .into_typed()
       .unwrap()
   }
-  pub fn declare_entity_dyn(&self, e_id: EntityId) -> EntityComponentGroup {
+  pub fn declare_entity_dyn(&self, e_id: EntityId, name: String) -> EntityComponentGroup {
     let mut tables = self.ecg_tables.write();
-    let ecg = EntityComponentGroup::new(e_id);
+    let ecg = EntityComponentGroup::new(e_id, name);
     self.entity_meta_watcher.emit(&ecg);
     let previous = tables.insert(e_id, ecg.clone());
     assert!(previous.is_none());

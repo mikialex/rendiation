@@ -17,6 +17,7 @@ pub struct Viewer {
   rendering: Viewer3dRenderingCtx,
   derives: Viewer3dSceneDeriveSource,
   content: Box<dyn Widget>,
+  egui_db_inspector: egui_db::DBInspector,
   terminal: Terminal,
 }
 
@@ -31,27 +32,28 @@ impl Widget for Viewer {
     let mut ctx = Context::from_waker(waker);
     let mut derived = self.derives.poll_update(&mut ctx);
 
-    cx.scoped_cx(&mut derived, |cx| {
-      cx.scoped_cx(&mut self.scene, |cx| {
-        cx.scoped_cx(&mut self.rendering, |cx| {
-          self.content.update_state(cx);
-        });
-      });
-    });
+    // cx.scoped_cx(&mut derived, |cx| {
+    //   cx.scoped_cx(&mut self.scene, |cx| {
+    //     cx.scoped_cx(&mut self.rendering, |cx| {
+    //       self.content.update_state(cx);
+    //     });
+    //   });
+    // });
   }
   fn update_view(&mut self, cx: &mut DynCx) {
-    cx.scoped_cx(&mut self.scene, |cx| {
-      cx.scoped_cx(&mut self.rendering, |cx| {
-        self.content.update_view(cx);
-      });
-    });
+    // cx.scoped_cx(&mut self.scene, |cx| {
+    //   cx.scoped_cx(&mut self.rendering, |cx| {
+    //     self.content.update_view(cx);
+    //   });
+    // });
 
     cx.split_cx::<egui::Context>(|egui_cx, cx| {
-      self.egui(egui_cx, cx);
+      // self.egui(egui_cx, cx);
+      crate::egui_db::egui_db_gui(egui_cx, &mut self.egui_db_inspector);
     });
 
-    access_cx!(cx, draw_target_canvas, RenderTargetView);
-    self.draw_canvas(draw_target_canvas);
+    // access_cx!(cx, draw_target_canvas, RenderTargetView);
+    // self.draw_canvas(draw_target_canvas);
   }
 
   fn clean_up(&mut self, cx: &mut DynCx) {
@@ -92,6 +94,7 @@ impl Viewer {
       rendering: Viewer3dRenderingCtx::new(gpu),
       derives,
       on_demand_draw: Default::default(),
+      egui_db_inspector: Default::default(),
     }
   }
 

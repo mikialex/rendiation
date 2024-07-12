@@ -98,6 +98,29 @@ pub struct EntityComponentGroup {
 }
 
 impl EntityComponentGroup {
+  pub fn name(&self) -> &str {
+    &self.inner.name
+  }
+
+  pub fn entity_count(&self) -> usize {
+    self.inner.allocator.read().len()
+  }
+
+  pub fn entity_allocation_count(&self) -> usize {
+    self.inner.allocator.read().capacity()
+  }
+
+  pub fn component_count(&self) -> usize {
+    self.inner.components.read().len()
+  }
+
+  pub fn access_components(
+    &self,
+    f: impl FnOnce(&FastHashMap<ComponentId, ComponentCollectionUntyped>),
+  ) {
+    f(&self.inner.components.read());
+  }
+
   pub fn into_typed<E: EntitySemantic>(self) -> Option<EntityComponentGroupTyped<E>> {
     if self.inner.type_id != E::entity_id() {
       return None;
@@ -111,6 +134,7 @@ impl EntityComponentGroup {
 }
 
 pub(crate) struct EntityComponentGroupImpl {
+  pub(crate) name: String,
   pub(crate) type_id: EntityId,
   pub(crate) allocator: Arc<RwLock<Arena<()>>>,
   /// the components of entity
@@ -129,8 +153,9 @@ pub(crate) struct EntityComponentGroupImpl {
 }
 
 impl EntityComponentGroupImpl {
-  pub fn new(type_id: EntityId) -> Self {
+  pub fn new(type_id: EntityId, name: String) -> Self {
     Self {
+      name,
       type_id,
       allocator: Default::default(),
       components: Default::default(),
@@ -143,10 +168,10 @@ impl EntityComponentGroupImpl {
 }
 
 impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
-  pub fn new(type_id: EntityId) -> Self {
+  pub fn new(type_id: EntityId, name: String) -> Self {
     Self {
       _phantom: Default::default(),
-      inner: EntityComponentGroup::new(type_id),
+      inner: EntityComponentGroup::new(type_id, name),
     }
   }
   pub fn into_untyped(self) -> EntityComponentGroup {
@@ -156,6 +181,7 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
   pub fn declare_component<S: ComponentSemantic<Entity = E>>(self) -> Self {
     let com = ComponentCollection::<S>::default();
     let com = ComponentCollectionUntyped {
+      name: std::any::type_name::<S>().to_string(),
       inner: Box::new(com),
       data_typeid: TypeId::of::<S::Data>(),
       entity_type_id: S::Entity::entity_id(),
@@ -182,9 +208,9 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
 }
 
 impl EntityComponentGroup {
-  pub fn new(type_id: EntityId) -> Self {
+  pub fn new(type_id: EntityId, name: String) -> Self {
     Self {
-      inner: Arc::new(EntityComponentGroupImpl::new(type_id)),
+      inner: Arc::new(EntityComponentGroupImpl::new(type_id, name)),
     }
   }
 
