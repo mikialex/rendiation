@@ -58,7 +58,7 @@ where
   type View = impl VirtualCollection<M, O> + VirtualMultiCollection<O, M>;
   type Task = impl Future<Output = (Self::Changes, Self::View)>;
   fn poll_changes(&self, cx: &mut Context) -> Self::Task {
-    self.poll_changes_with_inv_dyn(cx).map(|(d, v, v2)| {
+    (**self).poll_changes_with_inv_dyn(cx).map(|(d, v, v2)| {
       let v = OneManyRelationDualAccess {
         many_access_one: v,
         one_access_many: v2,

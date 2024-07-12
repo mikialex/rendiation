@@ -52,7 +52,7 @@ where
     Box::new(
       self
         .inner
-        .poll_changes_dyn(cx)
+        .poll_changes_self_contained_dyn(cx)
         .map(|(_, v)| Box::new(v) as Box<dyn Any>),
     )
   }
@@ -78,7 +78,7 @@ where
     Box::new(
       self
         .inner
-        .poll_changes_dyn(cx)
+        .poll_changes_with_inv_dyn(cx)
         .map(|(_, v)| Box::new(v) as Box<dyn Any>),
     )
   }

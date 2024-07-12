@@ -117,6 +117,7 @@ where
           }
         })
         .collect();
+      drop(cache);
       let d = Arc::new(materialized);
 
       let v = c.make_read_holder();

@@ -226,7 +226,8 @@ mod mr_material {
       .declare_component::<PbrMRMaterialRoughnessComponent>()
       .declare_component::<PbrMRMaterialMetallicComponent>()
       .declare_component::<PbrMRMaterialEmissiveComponent>()
-      .declare_component::<PbrMRMaterialAlphaComponent>();
+      .declare_component::<PbrMRMaterialAlphaComponent>()
+      .declare_component::<PbrMRMaterialAlphaModeComponent>();
 
     let ecg = register_texture_with_sampling::<PbrMRMaterialBaseColorTex>(ecg);
     let ecg = register_texture_with_sampling::<PbrMRMaterialMetallicRoughnessTex>(ecg);

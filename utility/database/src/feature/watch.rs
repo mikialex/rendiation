@@ -7,6 +7,12 @@ pub struct DatabaseMutationWatch {
   pub(crate) db: Database,
 }
 
+impl DataBaseFeature for DatabaseMutationWatch {
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
+}
+
 impl<V: CValue> VirtualCollection<RawEntityHandle, V> for Arena<V> {
   fn iter_key_value(&self) -> impl Iterator<Item = (RawEntityHandle, V)> + '_ {
     self.iter().map(|(h, v)| {
@@ -126,6 +132,7 @@ impl DatabaseMutationWatch {
 
         (original, rev)
       })
+      .unwrap()
     });
 
     let rxc = ReactiveCollectionFromCollectiveMutation {

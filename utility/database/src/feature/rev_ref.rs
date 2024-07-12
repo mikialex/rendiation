@@ -6,6 +6,12 @@ pub struct DatabaseEntityReverseReference {
   entity_rev_refs: Arc<RwLock<StreamMap<ComponentId, Box<dyn Any + Send + Sync>>>>,
 }
 
+impl DataBaseFeature for DatabaseEntityReverseReference {
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
+}
+
 impl DatabaseEntityReverseReference {
   pub fn new(mutation_watcher: DatabaseMutationWatch) -> Self {
     Self {
@@ -59,7 +65,10 @@ impl DatabaseEntityReverseReference {
       .watch_dyn_foreign_key(semantic_id, entity_id)
       .collective_filter_map(|v| v)
       .into_boxed()
-      .into_one_to_many_by_hash()
+      .into_one_to_many_by_hash();
+
+    let watcher: OneManyRelationForker<RawEntityHandle, RawEntityHandle> = (Box::new(watcher)
+      as Box<dyn DynReactiveOneToManyRelation<RawEntityHandle, RawEntityHandle>>)
       .into_static_forker();
 
     self

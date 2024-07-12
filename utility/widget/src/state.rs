@@ -104,8 +104,8 @@ type StatePtrStack = smallvec::SmallVec<[*mut (); 2]>;
 
 impl DynCx {
   pub fn split_cx<T: 'static>(&mut self, f: impl FnOnce(&mut T, &mut Self)) {
+    let ptr = self.try_pop_cx::<T>().unwrap();
     unsafe {
-      let ptr = self.unregister_cx::<T>();
       f(&mut *ptr, self);
       self.register_cx(ptr);
     }
@@ -126,7 +126,7 @@ impl DynCx {
     Some(last_ptr as *mut T)
   }
 
-  unsafe fn get_ptr_stack<T: 'static>(&mut self) -> &mut StatePtrStack {
+  fn get_ptr_stack<T: 'static>(&mut self) -> Option<&mut StatePtrStack> {
     let idx = self.type_idx.get_or_register_ty::<T>();
 
     while self.cx_stack.len() <= idx {
@@ -135,19 +135,22 @@ impl DynCx {
 
     let ptr_stack = self
       .cx_stack
-      .get_mut(idx)
-      .unwrap_unchecked()
+      .get_mut(idx)?
       .get_or_insert_with(smallvec::SmallVec::new);
 
-    ptr_stack
+    Some(ptr_stack)
   }
 
   pub unsafe fn register_cx<T: 'static>(&mut self, v: *mut T) {
-    self.get_ptr_stack::<T>().push(v as *mut ())
+    self.get_ptr_stack::<T>().unwrap().push(v as *mut ())
   }
 
   pub unsafe fn unregister_cx<T: 'static>(&mut self) -> *mut T {
-    self.get_ptr_stack::<T>().pop().unwrap_unchecked() as *mut T
+    self.get_ptr_stack::<T>().unwrap().pop().unwrap_unchecked() as *mut T
+  }
+
+  pub fn try_pop_cx<T: 'static>(&mut self) -> Option<*mut T> {
+    Some(self.get_ptr_stack::<T>()?.pop()? as *mut T)
   }
 
   pub fn scoped_cx<T: 'static>(&mut self, state: &mut T, f: impl FnOnce(&mut DynCx)) {

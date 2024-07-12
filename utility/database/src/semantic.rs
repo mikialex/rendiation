@@ -4,12 +4,18 @@ pub trait EntitySemantic: Any + Send + Sync {
   fn entity_id() -> EntityId {
     EntityId(TypeId::of::<Self>())
   }
+  fn display_name() -> &'static str {
+    std::any::type_name::<Self>()
+  }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct EntityId(pub TypeId);
 
 pub trait EntityAssociateSemantic: Any + Send + Sync {
   type Entity: EntitySemantic;
+  fn display_name() -> &'static str {
+    std::any::type_name::<Self>()
+  }
 }
 
 /// Statically associate entity semantic, component semantic and component type
@@ -35,7 +41,11 @@ pub trait ForeignKeySemantic: ComponentSemantic<Data = ForeignKeyComponentData> 
 macro_rules! declare_entity {
   ($Type: tt) => {
     pub struct $Type;
-    impl EntitySemantic for $Type {}
+    impl EntitySemantic for $Type {
+      fn display_name() -> &'static str {
+        stringify!($Type)
+      }
+    }
   };
 }
 
@@ -45,6 +55,9 @@ macro_rules! declare_entity_associated {
     pub struct $Type;
     impl EntityAssociateSemantic for $Type {
       type Entity = $EntityTy;
+      fn display_name() -> &'static str {
+        stringify!($Type)
+      }
     }
   };
 }
@@ -55,6 +68,9 @@ macro_rules! declare_component {
     pub struct $Type;
     impl EntityAssociateSemantic for $Type {
       type Entity = $EntityTy;
+      fn display_name() -> &'static str {
+        stringify!($Type)
+      }
     }
     impl ComponentSemantic for $Type {
       type Data = $DataTy;
@@ -65,6 +81,9 @@ macro_rules! declare_component {
     pub struct $Type;
     impl EntityAssociateSemantic for $Type {
       type Entity = $EntityTy;
+      fn display_name() -> &'static str {
+        stringify!($Type)
+      }
     }
     impl ComponentSemantic for $Type {
       type Data = $DataTy;
@@ -81,6 +100,9 @@ macro_rules! declare_foreign_key {
     pub struct $Type;
     impl EntityAssociateSemantic for $Type {
       type Entity = $EntityTy;
+      fn display_name() -> &'static str {
+        stringify!($Type)
+      }
     }
     impl ComponentSemantic for $Type {
       type Data = ForeignKeyComponentData;
