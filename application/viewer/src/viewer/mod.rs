@@ -32,28 +32,36 @@ impl Widget for Viewer {
     let mut ctx = Context::from_waker(waker);
     let mut derived = self.derives.poll_update(&mut ctx);
 
-    // cx.scoped_cx(&mut derived, |cx| {
-    //   cx.scoped_cx(&mut self.scene, |cx| {
-    //     cx.scoped_cx(&mut self.rendering, |cx| {
-    //       self.content.update_state(cx);
-    //     });
-    //   });
-    // });
+    cx.scoped_cx(&mut derived, |cx| {
+      cx.scoped_cx(&mut self.scene, |cx| {
+        access_cx!(cx, viewer_scene, Viewer3dSceneCtx);
+        let mut writer = Scene3dWriter::from_global(viewer_scene.scene);
+        cx.scoped_cx(&mut writer, |cx| {
+          cx.scoped_cx(&mut self.rendering, |cx| {
+            self.content.update_state(cx);
+          });
+        });
+      });
+    });
   }
   fn update_view(&mut self, cx: &mut DynCx) {
-    // cx.scoped_cx(&mut self.scene, |cx| {
-    //   cx.scoped_cx(&mut self.rendering, |cx| {
-    //     self.content.update_view(cx);
-    //   });
-    // });
+    cx.scoped_cx(&mut self.scene, |cx| {
+      access_cx!(cx, viewer_scene, Viewer3dSceneCtx);
+      let mut writer = Scene3dWriter::from_global(viewer_scene.scene);
+      cx.scoped_cx(&mut writer, |cx| {
+        cx.scoped_cx(&mut self.rendering, |cx| {
+          self.content.update_view(cx);
+        });
+      });
+    });
 
     cx.split_cx::<egui::Context>(|egui_cx, cx| {
-      // self.egui(egui_cx, cx);
+      self.egui(egui_cx, cx);
       crate::egui_db::egui_db_gui(egui_cx, &mut self.egui_db_inspector);
     });
 
-    // access_cx!(cx, draw_target_canvas, RenderTargetView);
-    // self.draw_canvas(draw_target_canvas);
+    access_cx!(cx, draw_target_canvas, RenderTargetView);
+    self.draw_canvas(draw_target_canvas);
   }
 
   fn clean_up(&mut self, cx: &mut DynCx) {
@@ -115,10 +123,10 @@ impl Viewer {
       .default_open(true)
       .max_width(1000.0)
       .max_height(800.0)
-      .default_width(800.0)
+      .default_width(400.0)
+      .default_height(300.0)
       .resizable(true)
       .movable(true)
-      .anchor(egui::Align2::LEFT_TOP, [3.0, 3.0])
       .show(ui, |ui| {
         if ui.add(egui::Button::new("Click me")).clicked() {
           println!("PRESSED")
@@ -160,24 +168,4 @@ impl Viewer3dSceneDeriveSource {
 pub struct Viewer3dSceneDerive {
   pub world_mat: Box<dyn DynVirtualCollection<EntityHandle<SceneNodeEntity>, Mat4<f32>>>,
   pub camera_proj: Box<dyn DynVirtualCollection<EntityHandle<SceneCameraEntity>, Mat4<f32>>>,
-}
-
-pub struct Viewer3dSceneCtxWriterWidget<V>(pub V);
-
-impl<V: Widget> Widget for Viewer3dSceneCtxWriterWidget<V> {
-  fn update_state(&mut self, cx: &mut DynCx) {
-    self.0.update_state(cx)
-  }
-
-  fn update_view(&mut self, cx: &mut DynCx) {
-    access_cx!(cx, viewer_scene, Viewer3dSceneCtx);
-    let mut writer = Scene3dWriter::from_global(viewer_scene.scene);
-    cx.scoped_cx(&mut writer, |cx| {
-      self.0.update_view(cx);
-    })
-  }
-
-  fn clean_up(&mut self, cx: &mut DynCx) {
-    self.0.clean_up(cx)
-  }
 }

@@ -18,7 +18,7 @@ pub fn global_database() -> Database {
   GLOBAL_DATABASE.read().as_ref().unwrap().database.clone()
 }
 
-pub fn register_global_database_feature(feature: impl DataBaseFeatureBox) {
+pub fn register_global_database_feature(feature: impl DataBaseFeature) {
   GLOBAL_DATABASE
     .write()
     .as_mut()

@@ -10,7 +10,7 @@ pub struct Database {
 impl Database {
   pub fn declare_entity<E: EntitySemantic>(&self) -> EntityComponentGroupTyped<E> {
     self
-      .declare_entity_dyn(E::entity_id(), std::any::type_name::<E>().to_string())
+      .declare_entity_dyn(E::entity_id(), E::display_name().to_string())
       .into_typed()
       .unwrap()
   }
@@ -68,12 +68,12 @@ fn demo_how_to_use_database_generally() {
     .declare_component::<TestEntityFieldB>()
     .declare_component::<TestEntityFieldC>();
 
-  global_database().interleave_component_storages(|builder| {
-    builder
-      .with_type::<TestEntityFieldA>()
-      .with_type::<TestEntityFieldB>()
-      .with_type::<TestEntityFieldC>()
-  });
+  // global_database().interleave_component_storages(|builder| {
+  //   builder
+  //     .with_type::<TestEntityFieldA>()
+  //     .with_type::<TestEntityFieldB>()
+  //     .with_type::<TestEntityFieldC>()
+  // });
 
   declare_entity!(MyTestEntity2);
   declare_component!(TestEntity2FieldA, MyTestEntity2, u32);

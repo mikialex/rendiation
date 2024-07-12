@@ -14,10 +14,9 @@ pub fn core_viewer_features<V: Widget + 'static>(
       gizmo(scene_cx)
     });
     Box::new(
-      WidgetGroup::default()
-        .with_child(Viewer3dSceneCtxWriterWidget(gizmo))
-        .with_child(SceneOrbitCameraControl::default())
-        .with_child(content_logic(cx)),
+      WidgetGroup::default(), /* .with_child(gizmo)
+                               * .with_child(SceneOrbitCameraControl::default())
+                               * .with_child(content_logic(cx)), */
     )
   }
 }

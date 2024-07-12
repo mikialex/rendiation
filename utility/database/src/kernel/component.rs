@@ -2,6 +2,7 @@ use crate::*;
 
 pub struct ComponentCollectionUntyped {
   pub name: String,
+  pub as_foreign_key: Option<EntityId>,
   pub inner: Box<dyn DynamicComponent>, // should be some type of ComponentCollection<T>
   pub data_typeid: TypeId,
   pub entity_type_id: EntityId,
@@ -43,7 +44,9 @@ impl<C: ComponentSemantic> ComponentCollection<C> {
   where
     C: ForeignKeySemantic,
   {
-    todo!()
+    ForeignKeyReadView {
+      data: self.data.create_read_view(),
+    }
   }
 
   pub fn write(&self) -> ComponentWriteView<C> {
@@ -228,6 +231,7 @@ pub trait DynamicComponent: Any + Send + Sync {
   fn create_read_holder(&self) -> Box<dyn Any>;
   fn create_write_holder(&self) -> Box<dyn Any>;
   fn get_event_source(&self) -> Box<dyn Any>;
+  fn as_any(&self) -> &dyn Any;
 }
 
 impl<T: ComponentSemantic> DynamicComponent for ComponentCollection<T> {
@@ -257,5 +261,8 @@ impl<T: ComponentSemantic> DynamicComponent for ComponentCollection<T> {
       .read()
       .get_without_generation_check(idx as u32)
       .map(|v| format!("{:?}", v))
+  }
+  fn as_any(&self) -> &dyn Any {
+    self
   }
 }

@@ -179,10 +179,17 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
   }
 
   pub fn declare_component<S: ComponentSemantic<Entity = E>>(self) -> Self {
+    self.declare_component_impl::<S>(None)
+  }
+  pub fn declare_component_impl<S: ComponentSemantic<Entity = E>>(
+    self,
+    as_foreign_key: Option<EntityId>,
+  ) -> Self {
     let com = ComponentCollection::<S>::default();
     let com = ComponentCollectionUntyped {
-      name: std::any::type_name::<S>().to_string(),
+      name: S::display_name().to_string(),
       inner: Box::new(com),
+      as_foreign_key,
       data_typeid: TypeId::of::<S::Data>(),
       entity_type_id: S::Entity::entity_id(),
       component_type_id: S::component_id(),
@@ -191,7 +198,7 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
     self
   }
   pub fn declare_foreign_key<S: ForeignKeySemantic<Entity = E>>(mut self) -> Self {
-    self = self.declare_component::<S>();
+    self = self.declare_component_impl::<S>(S::ForeignEntity::entity_id().into());
     self
       .inner
       .declare_foreign_key_dyn(S::component_id(), S::ForeignEntity::entity_id());
@@ -201,9 +208,16 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
     &self,
     f: impl FnOnce(&ComponentCollection<S>) -> R,
   ) -> R {
-    self.inner.access_component(S::component_id(), |c| {
+    if let Some(r) = self.inner.access_component(S::component_id(), |c| {
       f(c.inner.as_any().downcast_ref().unwrap())
-    })
+    }) {
+      r
+    } else {
+      panic!(
+        "access not exist component {}, make sure declared before use",
+        std::any::type_name::<S>()
+      );
+    }
   }
 }
 
@@ -256,8 +270,8 @@ impl EntityComponentGroup {
     &self,
     c_id: ComponentId,
     f: impl FnOnce(&ComponentCollectionUntyped) -> R,
-  ) -> R {
+  ) -> Option<R> {
     let components = self.inner.components.read_recursive();
-    f(components.get(&c_id).unwrap())
+    Some(f(components.get(&c_id)?))
   }
 }

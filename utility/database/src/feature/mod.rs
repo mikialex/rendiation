@@ -8,20 +8,15 @@ use crate::*;
 
 #[derive(Default)]
 pub struct DataBaseFeatureGroup {
-  features: FastHashMap<TypeId, Box<dyn DataBaseFeatureBox>>,
+  features: FastHashMap<TypeId, Box<dyn DataBaseFeature>>,
 }
 
-pub trait DataBaseFeatureBox: Any + Send + Sync {
+pub trait DataBaseFeature: Any + Send + Sync {
   fn as_any(&self) -> &dyn Any;
-}
-impl<T: Any + Send + Sync> DataBaseFeatureBox for T {
-  fn as_any(&self) -> &dyn Any {
-    self
-  }
 }
 
 impl DataBaseFeatureGroup {
-  pub fn register_feature(&mut self, feature: impl DataBaseFeatureBox) {
+  pub fn register_feature(&mut self, feature: impl DataBaseFeature) {
     self.features.insert(feature.type_id(), Box::new(feature));
   }
 

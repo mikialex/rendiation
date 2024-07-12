@@ -6,6 +6,12 @@ pub struct DatabaseEntityReverseReference {
   entity_rev_refs: Arc<RwLock<StreamMap<ComponentId, Box<dyn Any + Send + Sync>>>>,
 }
 
+impl DataBaseFeature for DatabaseEntityReverseReference {
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
+}
+
 impl DatabaseEntityReverseReference {
   pub fn new(mutation_watcher: DatabaseMutationWatch) -> Self {
     Self {

@@ -2,17 +2,63 @@ use egui_extras::{Column, TableBuilder};
 
 use crate::*;
 
-#[derive(Default)]
 pub struct DBInspector {
-  visiting_entity: Option<EntityId>,
+  visit_history: Vec<Option<EntityId>>,
+  current: usize,
+}
+
+impl Default for DBInspector {
+  fn default() -> Self {
+    Self {
+      visit_history: vec![None],
+      current: 0,
+    }
+  }
+}
+
+impl DBInspector {
+  pub fn current(&self) -> Option<EntityId> {
+    self.visit_history[self.current]
+  }
+  pub fn goto(&mut self, target: Option<EntityId>) {
+    self.visit_history.truncate(self.current + 1); // drop history after current
+    self.visit_history.push(target);
+    self.current += 1;
+  }
+
+  pub fn can_go_back(&self) -> bool {
+    self.current > 0
+  }
+  pub fn can_go_forward(&self) -> bool {
+    self.current < self.visit_history.len() - 1
+  }
+
+  pub fn has_history(&self) -> bool {
+    self.can_go_back() || self.can_go_forward()
+  }
+
+  pub fn clear_history(&mut self) {
+    self.current = 0;
+    self.visit_history = vec![None];
+  }
+
+  pub fn go_back(&mut self) {
+    self.current = self.current.saturating_sub(1);
+  }
+  pub fn go_forward(&mut self) {
+    self.current += 1;
+  }
 }
 
 pub fn egui_db_gui(ui: &mut egui::Context, state: &mut DBInspector) {
   egui::Window::new("Database Inspector")
+    .default_pos([450., 20.])
+    .default_open(false)
     .vscroll(true)
-    .default_open(true)
+    .default_width(500.)
     .min_width(500.0)
-    .max_width(1000.0)
+    .max_width(700.0)
+    .default_height(400.)
     .min_height(400.0)
     .max_height(1000.0)
     .default_width(800.0)
@@ -20,17 +66,34 @@ pub fn egui_db_gui(ui: &mut egui::Context, state: &mut DBInspector) {
     .movable(true)
     .scroll2([true, true])
     .show(ui, |ui| {
-      if let Some(visiting_entity) = &state.visiting_entity {
-        let back_to_all_table_view = ui.button("View all tables in DB").clicked();
-        ui.separator();
+      let mut back_to_all_table_view = false;
+      ui.horizontal_wrapped(|ui| {
+        // ui.with_layout(Layout::left_to_right().with_main_justify( true), |ui|{
 
-        selected_table(ui, state, *visiting_entity);
-
-        if back_to_all_table_view {
-          state.visiting_entity = None;
+        // });
+        if state.current().is_some() {
+          back_to_all_table_view = ui.button("View all tables in DB").clicked();
         }
+        if state.can_go_back() && ui.button("Back").clicked() {
+          state.go_back();
+        }
+        if state.can_go_forward() && ui.button("Previous").clicked() {
+          state.go_forward();
+        }
+        if state.has_history() && ui.button("Clear history").clicked() {
+          state.clear_history();
+        }
+      });
+      ui.separator();
+
+      if let Some(visiting_entity) = &state.current() {
+        selected_table(ui, state, *visiting_entity);
       } else {
         all_tables(ui, state);
+      }
+
+      if back_to_all_table_view {
+        state.goto(None);
       }
     });
 }
@@ -44,7 +107,7 @@ fn selected_table(ui: &mut egui::Ui, state: &mut DBInspector, e_id: EntityId) {
       .striped(true)
       .column(Column::auto())
       .columns(
-        Column::auto().at_most(200.).clip(true).resizable(true),
+        Column::auto().resizable(true).at_most(500.).clip(true),
         ecg.component_count(),
       )
       .max_scroll_height(900.)
@@ -59,6 +122,13 @@ fn selected_table(ui: &mut egui::Ui, state: &mut DBInspector, e_id: EntityId) {
           coms.values().for_each(|com| {
             header.col(|ui| {
               ui.strong(com.name.clone());
+
+              if let Some(f) = com.as_foreign_key {
+                let name = db.access_ecg_dyn(f, |ecg| ecg.name().to_string());
+                if ui.link(name).clicked() {
+                  state.goto(Some(f));
+                }
+              }
             });
           })
         })
@@ -111,7 +181,7 @@ fn all_tables(ui: &mut egui::Ui, state: &mut DBInspector) {
         body.row(20.0, |mut row| {
           row.col(|ui| {
             if ui.link(db_table.name()).clicked() {
-              state.visiting_entity = Some(*id);
+              state.goto(Some(*id));
             }
           });
           row.col(|ui| {
