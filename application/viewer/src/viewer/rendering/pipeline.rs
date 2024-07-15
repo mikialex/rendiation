@@ -17,7 +17,7 @@ pub struct ViewerPipeline {
   channel_debugger: ScreenChannelDebugger,
   tonemap: ToneMap,
   ground: UniformBufferDataView<ShaderPlane>,
-  grid: UniformBufferDataView<GridGroundConfig>,
+  grid: UniformBufferDataView<GridEffect>,
 }
 
 impl ViewerPipeline {

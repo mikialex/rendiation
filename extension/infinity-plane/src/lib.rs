@@ -3,7 +3,7 @@ use rendiation_state_override::MaterialStates;
 use rendiation_webgpu::*;
 
 pub struct GridGround<'a> {
-  pub shading: &'a UniformBufferDataView<GridGroundConfig>,
+  pub shading: &'a UniformBufferDataView<GridEffect>,
   pub plane: &'a UniformBufferDataView<ShaderPlane>,
   pub camera: &'a dyn RenderDependencyComponent,
 }
@@ -31,12 +31,12 @@ impl<'a> PassContent for GridGround<'a> {
 #[repr(C)]
 #[std140_layout]
 #[derive(Copy, Clone, ShaderStruct)]
-pub struct GridGroundConfig {
+pub struct GridEffect {
   pub scale: Vec2<f32>,
   pub color: Vec4<f32>,
 }
 
-impl Default for GridGroundConfig {
+impl Default for GridEffect {
   fn default() -> Self {
     Self {
       scale: Vec2::one(),
@@ -47,7 +47,7 @@ impl Default for GridGroundConfig {
 }
 
 pub struct GridGroundShading<'a> {
-  pub shading: &'a UniformBufferDataView<GridGroundConfig>,
+  pub shading: &'a UniformBufferDataView<GridEffect>,
 }
 impl<'a> ShaderHashProvider for GridGroundShading<'a> {
   shader_hash_type_id! {GridGroundShading<'static>}
@@ -72,8 +72,8 @@ impl<'a> GraphicsShaderProvider for GridGroundShading<'a> {
 }
 
 #[shader_fn]
-fn grid(position: Node<Vec3<f32>>, config: Node<GridGroundConfig>) -> Node<Vec4<f32>> {
-  let coord = position.xz() * GridGroundConfig::scale(config);
+fn grid(position: Node<Vec3<f32>>, config: Node<GridEffect>) -> Node<Vec4<f32>> {
+  let coord = position.xz() * GridEffect::scale(config);
   let grid =
     ((coord - val(Vec2::splat(0.5))).fract() - val(Vec2::splat(0.5))).abs() / coord.fwidth();
   let lined = grid.x().min(grid.y());

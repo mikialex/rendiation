@@ -2,6 +2,7 @@ use crate::*;
 
 mod feature;
 mod pick;
+use default_scene::load_default_scene;
 pub use feature::*;
 
 mod terminal;
@@ -82,19 +83,34 @@ impl Viewer {
       .entity_writer()
       .new_entity();
 
+    let camera_node = global_entity_of::<SceneNodeEntity>()
+      .entity_writer()
+      .with_component_value_writer::<SceneNodeLocalMatrixComponent>(Mat4::lookat(
+        Vec3::new(10., 10., 10.),
+        Vec3::new(0., 0., 0.),
+        Vec3::new(0., 1., 0.),
+      ))
+      .new_entity();
+
     let main_camera = global_entity_of::<SceneCameraEntity>()
       .entity_writer()
       .with_component_value_writer::<SceneCameraPerspective>(Some(PerspectiveProjection::default()))
       .with_component_value_writer::<SceneCameraBelongsToScene>(Some(scene.into_raw()))
-      .with_component_value_writer::<SceneCameraNode>(Some(root.into_raw()))
+      .with_component_value_writer::<SceneCameraNode>(Some(camera_node.into_raw()))
       .new_entity();
 
     let scene = Viewer3dSceneCtx {
       main_camera,
+      camera_node,
       scene,
       root,
       selected_target: None,
     };
+
+    {
+      let mut writer = Scene3dWriter::from_global(scene.scene);
+      load_default_scene(&mut writer, &scene);
+    }
 
     let derives = Viewer3dSceneDeriveSource {
       world_mat: Box::new(scene_node_derive_world_mat()),
@@ -153,8 +169,9 @@ impl Viewer {
 
 pub struct Viewer3dSceneCtx {
   pub main_camera: EntityHandle<SceneCameraEntity>,
-  pub scene: EntityHandle<SceneEntity>,
+  pub camera_node: EntityHandle<SceneNodeEntity>,
   pub root: EntityHandle<SceneNodeEntity>,
+  pub scene: EntityHandle<SceneEntity>,
   pub selected_target: Option<EntityHandle<SceneModelEntity>>,
 }
 
