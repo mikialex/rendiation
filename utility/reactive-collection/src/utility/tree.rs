@@ -184,7 +184,7 @@ where
       .as_mutable()
       .set_value(self.idx.clone(), d.clone());
     if let Some(p) = p {
-      p == d
+      p != d
     } else {
       true
     }

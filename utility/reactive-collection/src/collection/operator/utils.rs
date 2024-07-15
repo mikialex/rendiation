@@ -4,6 +4,7 @@ pub struct ReactiveCollectionDebug<T, K, V> {
   pub inner: T,
   pub state: RwLock<FastHashMap<K, V>>,
   pub label: &'static str,
+  pub log_change: bool,
 }
 
 impl<T, K, V> ReactiveCollection<K, V> for ReactiveCollectionDebug<T, K, V>
@@ -20,7 +21,14 @@ where
     // validation
     let changes = d.materialize();
     let mut state = self.state.write();
+
+    if !changes.is_empty() && self.log_change {
+      println!("change details for <{}>:", self.label);
+    }
     for (k, change) in changes.iter() {
+      if self.log_change {
+        println!("{:?}: {:?}", k, change);
+      }
       match change {
         ValueChange::Delta(n, p) => {
           if let Some(removed) = state.remove(k) {

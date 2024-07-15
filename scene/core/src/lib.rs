@@ -151,7 +151,12 @@ impl StandardModelDataView {
 
 declare_entity!(SceneNodeEntity);
 declare_component!(SceneNodeParentIdx, SceneNodeEntity, Option<RawEntityHandle>);
-declare_component!(SceneNodeLocalMatrixComponent, SceneNodeEntity, Mat4<f32>);
+declare_component!(
+  SceneNodeLocalMatrixComponent,
+  SceneNodeEntity,
+  Mat4<f32>,
+  Mat4::identity()
+);
 declare_component!(SceneNodeVisibleComponent, SceneNodeEntity, bool, true);
 pub fn register_scene_node_data_model() {
   global_database()

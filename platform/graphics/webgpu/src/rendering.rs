@@ -147,7 +147,7 @@ impl<const N: usize, T: RenderComponent> ShaderPassBuilder for RenderArray<N, T>
     self.as_slice().setup_pass(ctx)
   }
   fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    self.as_slice().setup_pass(ctx)
+    self.as_slice().post_setup_pass(ctx)
   }
 }
 

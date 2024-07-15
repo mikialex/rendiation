@@ -267,7 +267,7 @@ where
     }
   }
 
-  fn debug(self, label: &'static str) -> impl ReactiveCollection<K, V>
+  fn debug(self, label: &'static str, log_change: bool) -> impl ReactiveCollection<K, V>
   where
     K: CKey,
     V: CValue,
@@ -276,6 +276,7 @@ where
       inner: self,
       state: Default::default(),
       label,
+      log_change,
     }
   }
 }

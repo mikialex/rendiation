@@ -89,25 +89,29 @@ where
     let previous = self.target.get_current(k.clone()).unwrap().clone();
     self.target.mutate(k.clone(), mutator);
     let after = self.target.get_current(k.clone()).unwrap().clone();
+    let new_delta = ValueChange::Delta(after, Some(previous));
 
     let mut previous_delta = self.delta.remove(k.clone());
-    let new_delta = ValueChange::Delta(after, Some(previous));
     if let Some(previous_delta) = &mut previous_delta {
       if previous_delta.merge(&new_delta) {
         self.delta.set_value(k, previous_delta.clone());
       }
+    } else {
+      self.delta.set_value(k, new_delta);
     }
   }
 
   fn set_value(&mut self, k: K, v: V) -> Option<V> {
     let previous = self.target.set_value(k.clone(), v.clone());
+    let new_delta = ValueChange::Delta(v, previous.clone());
 
     let mut previous_delta = self.delta.remove(k.clone());
-    let new_delta = ValueChange::Delta(v, previous.clone());
     if let Some(previous_delta) = &mut previous_delta {
       if previous_delta.merge(&new_delta) {
         self.delta.set_value(k, previous_delta.clone());
       }
+    } else {
+      self.delta.set_value(k, new_delta);
     }
 
     previous
@@ -117,8 +121,8 @@ where
     let previous = self.target.remove(k.clone());
 
     if let Some(previous) = previous.clone() {
-      let mut previous_delta = self.delta.remove(k.clone());
       let new_delta = ValueChange::Remove(previous);
+      let mut previous_delta = self.delta.remove(k.clone());
 
       if let Some(previous_delta) = &mut previous_delta {
         if previous_delta.merge(&new_delta) {
