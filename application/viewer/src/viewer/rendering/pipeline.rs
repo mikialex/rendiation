@@ -1,4 +1,5 @@
 use rendiation_algebra::*;
+use rendiation_infinity_plane::*;
 use rendiation_texture_gpu_process::*;
 use rendiation_webgpu::*;
 
@@ -15,6 +16,8 @@ pub struct ViewerPipeline {
   pub enable_channel_debugger: bool,
   channel_debugger: ScreenChannelDebugger,
   tonemap: ToneMap,
+  ground: UniformBufferDataView<ShaderPlane>,
+  grid: UniformBufferDataView<GridGroundConfig>,
 }
 
 impl ViewerPipeline {
@@ -29,6 +32,8 @@ impl ViewerPipeline {
       enable_channel_debugger: false,
       channel_debugger: ScreenChannelDebugger::default_useful(),
       tonemap: ToneMap::new(gpu),
+      ground: UniformBufferDataView::create(&gpu.device, ShaderPlane::ground_like()),
+      grid: UniformBufferDataView::create_default(&gpu.device),
     }
   }
 
@@ -73,11 +78,21 @@ impl ViewerPipeline {
     let mut msaa_depth = depth_attachment().sample_count(4).request(ctx);
     let mut widgets_result = attachment().request(ctx);
 
+    let main_camera_gpu = renderer
+      .get_camera_gpu()
+      .make_dep_component(content.main_camera)
+      .unwrap();
+
     let _ = pass("scene-widgets")
       .with_color(msaa_color.write(), clear(all_zero()))
       .with_depth(msaa_depth.write(), clear(1.))
       .resolve_to(widgets_result.write())
-      .render_ctx(ctx);
+      .render_ctx(ctx)
+      .by(&mut GridGround {
+        plane: &self.ground,
+        shading: &self.grid,
+        camera: main_camera_gpu.as_ref(),
+      });
 
     let mut highlight_compose = (content.selected_target.is_some()).then(|| {
       let masked_content = highlight(
@@ -201,9 +216,8 @@ where
   F: FnOnce(&mut FrameCtx) -> NewTAAFrameSample,
 {
   fn set_jitter(&mut self, next_jitter: Vec2<f32>) {
-    self
-      .renderer
-      .setup_camera_jitter(self.camera, next_jitter, self.queue);
+    let cameras = self.renderer.get_camera_gpu();
+    cameras.setup_camera_jitter(self.camera, next_jitter, self.queue);
   }
 
   fn render(self, ctx: &mut FrameCtx) -> NewTAAFrameSample {

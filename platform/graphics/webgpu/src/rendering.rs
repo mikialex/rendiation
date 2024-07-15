@@ -90,33 +90,21 @@ impl<'a> GraphicsShaderProvider for Box<dyn RenderComponent + 'a> {
   }
 }
 
-pub struct RenderSlice<'a, T> {
-  contents: &'a [T],
-}
-
-impl<'a, T> RenderSlice<'a, T> {
-  pub fn new(contents: &'a [T]) -> Self {
-    Self { contents }
-  }
-}
+pub struct RenderSlice<'a, T>(pub &'a [T]);
 
 impl<'a, T: RenderComponent> ShaderPassBuilder for RenderSlice<'a, T> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    self.contents.iter().for_each(|c| c.setup_pass(ctx));
+    self.0.iter().for_each(|c| c.setup_pass(ctx));
   }
   fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    self
-      .contents
-      .iter()
-      .rev()
-      .for_each(|c| c.post_setup_pass(ctx));
+    self.0.iter().rev().for_each(|c| c.post_setup_pass(ctx));
   }
 }
 
 impl<'a, T: RenderComponent> ShaderHashProvider for RenderSlice<'a, T> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self
-      .contents
+      .0
       .iter()
       .for_each(|com| com.hash_pipeline_with_type_info(hasher))
   }
@@ -124,7 +112,7 @@ impl<'a, T: RenderComponent> ShaderHashProvider for RenderSlice<'a, T> {
   fn hash_type_info(&self, hasher: &mut PipelineHasher) {
     TypeId::of::<RenderSlice<'static, ()>>().hash(hasher);
     // is it ok??
-    if let Some(com) = self.contents.last() {
+    if let Some(com) = self.0.last() {
       com.hash_type_info(hasher);
     }
   }
@@ -132,29 +120,25 @@ impl<'a, T: RenderComponent> ShaderHashProvider for RenderSlice<'a, T> {
 
 impl<'a, T: RenderComponent> GraphicsShaderProvider for RenderSlice<'a, T> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
-    for c in self.contents {
+    for c in self.0 {
       c.build(builder)?;
     }
     Ok(())
   }
 
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
-    for c in self.contents.iter().rev() {
+    for c in self.0.iter().rev() {
       c.post_build(builder)?;
     }
     Ok(())
   }
 }
 
-pub struct RenderArray<const N: usize, T> {
-  pub contents: [T; N],
-}
+pub struct RenderArray<const N: usize, T>(pub [T; N]);
 
 impl<const N: usize, T: RenderComponent> RenderArray<N, T> {
   pub fn as_slice(&self) -> impl RenderComponent + '_ {
-    RenderSlice {
-      contents: self.contents.as_slice(),
-    }
+    RenderSlice(self.0.as_slice())
   }
 }
 
@@ -243,4 +227,14 @@ impl<T: GraphicsShaderProvider> GraphicsShaderProvider for BindingController<T> 
     builder.set_binding_slot(before);
     r
   }
+}
+
+/// weaker version of RenderComponent, only inject shader dependencies
+pub trait RenderDependencyComponent:
+  ShaderHashProvider + GraphicsShaderDependencyProvider + ShaderPassBuilder
+{
+}
+impl<T> RenderDependencyComponent for T where
+  T: ShaderHashProvider + GraphicsShaderDependencyProvider + ShaderPassBuilder
+{
 }

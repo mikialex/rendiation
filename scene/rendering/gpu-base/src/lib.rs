@@ -61,12 +61,7 @@ pub trait SceneRenderer: SceneModelRenderer {
     tex: &GPUTextureBindingSystem,
   );
 
-  fn setup_camera_jitter(
-    &self,
-    camera: EntityHandle<SceneCameraEntity>,
-    jitter: Vec2<f32>,
-    queue: &GPUQueue,
-  );
+  fn get_camera_gpu(&self) -> &dyn GLESCameraRenderImpl;
 }
 
 pub trait GLESCameraRenderImpl {
@@ -74,6 +69,11 @@ pub trait GLESCameraRenderImpl {
     &self,
     idx: EntityHandle<SceneCameraEntity>,
   ) -> Option<Box<dyn RenderComponent + '_>>;
+
+  fn make_dep_component(
+    &self,
+    idx: EntityHandle<SceneCameraEntity>,
+  ) -> Option<Box<dyn RenderDependencyComponent + '_>>;
 
   fn setup_camera_jitter(
     &self,

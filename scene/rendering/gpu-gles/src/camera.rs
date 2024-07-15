@@ -69,6 +69,12 @@ impl<'a> ShaderPassBuilder for CameraGPU<'a> {
   }
 }
 
+impl<'a> GraphicsShaderDependencyProvider for CameraGPU<'a> {
+  fn inject_shader_dependencies(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    self.inject_uniforms(builder);
+  }
+}
+
 impl<'a> GraphicsShaderProvider for CameraGPU<'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     let camera = self.inject_uniforms(builder);

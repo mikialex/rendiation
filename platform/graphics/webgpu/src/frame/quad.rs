@@ -124,7 +124,6 @@ where
     let mut base = default_dispatcher(pass);
     base.auto_write = false;
     let components: [&dyn RenderComponent; 3] = [&base, &self.quad, &self.content];
-
-    RenderSlice::new(components.as_slice()).render(&mut pass.ctx, QUAD_DRAW_CMD);
+    RenderArray(components).render(&mut pass.ctx, QUAD_DRAW_CMD);
   }
 }

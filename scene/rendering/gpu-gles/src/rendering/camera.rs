@@ -35,6 +35,16 @@ impl GLESCameraRenderImpl for DefaultGLESCameraRenderImpl {
     Some(Box::new(node))
   }
 
+  fn make_dep_component(
+    &self,
+    idx: EntityHandle<SceneCameraEntity>,
+  ) -> Option<Box<dyn RenderDependencyComponent + '_>> {
+    let node = CameraGPU {
+      ubo: self.uniforms.get(&idx)?,
+    };
+    Some(Box::new(node))
+  }
+
   fn setup_camera_jitter(
     &self,
     camera: EntityHandle<SceneCameraEntity>,

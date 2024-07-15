@@ -56,6 +56,12 @@ impl<'a> ShaderHashProvider for NodeGPU<'a> {
   shader_hash_type_id! {NodeGPU<'static>}
 }
 
+impl<'a> GraphicsShaderDependencyProvider for NodeGPU<'a> {
+  fn inject_shader_dependencies(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    self.inject_uniforms(builder);
+  }
+}
+
 impl<'a> GraphicsShaderProvider for NodeGPU<'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.vertex(|builder, binding| {

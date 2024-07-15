@@ -19,6 +19,7 @@ log = { workspace = true }
 pin-project = { workspace = true }
 rayon = { workspace = true }
 reactive = { path = "../../utility/reactive" }
+rendiation-infinity-plane = { path = "../../extension/infinity-plane" }
 rendiation-algebra = { path = "../../math/algebra" }
 rendiation-scene-rendering-gpu-gles = { path = "../../scene/rendering/gpu-gles" }
 rendiation-texture-gpu-process = { path = "../../content/texture/gpu-process" }

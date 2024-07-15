@@ -56,7 +56,7 @@ impl SceneModelRenderer for GLESPreferredComOrderRenderer {
       material.into_assign_binding_index(2),
     ];
 
-    let render = Box::new(RenderArray { contents }) as Box<dyn RenderComponent>;
+    let render = Box::new(RenderArray(contents)) as Box<dyn RenderComponent>;
     Some((render, draw))
   }
 }

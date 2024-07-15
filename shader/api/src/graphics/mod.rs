@@ -127,6 +127,11 @@ impl ShaderRenderPipelineBuilder {
   }
 }
 
+/// weaker version of GraphicsShaderProvider, only inject shader dependencies
+pub trait GraphicsShaderDependencyProvider {
+  fn inject_shader_dependencies(&self, builder: &mut ShaderRenderPipelineBuilder);
+}
+
 /// The reason why we use two function is that the build process
 /// require to generate two separate root scope: two entry main function;
 pub trait GraphicsShaderProvider {

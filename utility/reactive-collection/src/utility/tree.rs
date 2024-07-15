@@ -199,12 +199,14 @@ where
 
 impl<'a, K: CKey, T, F> AbstractTreeMutNode for TreeMutNode<'a, K, T, F> {
   fn visit_children_mut(&mut self, mut visitor: impl FnMut(&mut Self)) {
-    for idx in self.ctx.connectivity.access_multi(&self.idx).unwrap() {
-      visitor(&mut TreeMutNode {
-        phantom: PhantomData,
-        idx,
-        ctx: self.ctx,
-      });
+    if let Some(children) = self.ctx.connectivity.access_multi(&self.idx) {
+      for idx in children {
+        visitor(&mut TreeMutNode {
+          phantom: PhantomData,
+          idx,
+          ctx: self.ctx,
+        });
+      }
     }
   }
 }

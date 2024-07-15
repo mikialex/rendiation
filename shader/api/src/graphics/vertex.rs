@@ -173,7 +173,7 @@ impl ShaderVertexBuilder {
         let ty = T::ValueType::PRIMITIVE_TYPE;
         let interpolation_override = ty
           .vertex_out_could_interpolated()
-          .then_some(ShaderInterpolation::Flat);
+          .then_some(ShaderInterpolation::Perspective);
         let node = call_shader_api(|api| api.define_next_vertex_output(ty, interpolation_override));
 
         VertexIOInfo { node, ty, location }

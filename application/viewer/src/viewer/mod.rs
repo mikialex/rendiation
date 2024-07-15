@@ -77,13 +77,22 @@ impl Viewer {
     let scene = global_entity_of::<SceneEntity>()
       .entity_writer()
       .new_entity();
+
+    let root = global_entity_of::<SceneNodeEntity>()
+      .entity_writer()
+      .new_entity();
+
     let main_camera = global_entity_of::<SceneCameraEntity>()
       .entity_writer()
+      .with_component_value_writer::<SceneCameraPerspective>(Some(PerspectiveProjection::default()))
+      .with_component_value_writer::<SceneCameraBelongsToScene>(Some(scene.into_raw()))
+      .with_component_value_writer::<SceneCameraNode>(Some(root.into_raw()))
       .new_entity();
 
     let scene = Viewer3dSceneCtx {
       main_camera,
       scene,
+      root,
       selected_target: None,
     };
 
@@ -145,6 +154,7 @@ impl Viewer {
 pub struct Viewer3dSceneCtx {
   pub main_camera: EntityHandle<SceneCameraEntity>,
   pub scene: EntityHandle<SceneEntity>,
+  pub root: EntityHandle<SceneNodeEntity>,
   pub selected_target: Option<EntityHandle<SceneModelEntity>>,
 }
 

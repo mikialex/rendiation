@@ -136,15 +136,6 @@ impl SceneRenderer for GLESSceneRenderer {
     &self.texture_system
   }
 
-  fn setup_camera_jitter(
-    &self,
-    camera: EntityHandle<SceneCameraEntity>,
-    jitter: Vec2<f32>,
-    queue: &GPUQueue,
-  ) {
-    self.camera.setup_camera_jitter(camera, jitter, queue)
-  }
-
   fn render_reorderable_models(
     &self,
     models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
@@ -154,6 +145,10 @@ impl SceneRenderer for GLESSceneRenderer {
     tex: &GPUTextureBindingSystem,
   ) {
     self.render_reorderable_models_impl(models, camera, self.camera.as_ref(), pass, cx, tex)
+  }
+
+  fn get_camera_gpu(&self) -> &dyn GLESCameraRenderImpl {
+    self.camera.as_ref()
   }
 }
 

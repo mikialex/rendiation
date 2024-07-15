@@ -1,7 +1,32 @@
-use rendiation_scene_rendering_gpu_gles::CameraGPU;
 use rendiation_shader_api::*;
 use rendiation_state_override::MaterialStates;
 use rendiation_webgpu::*;
+
+pub struct GridGround<'a> {
+  pub shading: &'a UniformBufferDataView<GridGroundConfig>,
+  pub plane: &'a UniformBufferDataView<ShaderPlane>,
+  pub camera: &'a dyn RenderDependencyComponent,
+}
+
+impl<'a> PassContent for GridGround<'a> {
+  fn render(&mut self, pass: &mut FrameRenderPass) {
+    let base = default_dispatcher(pass);
+
+    let effect = InfinityShaderPlaneEffect {
+      plane: self.plane,
+      camera: self.camera,
+    };
+
+    let grid = GridGroundShading {
+      shading: self.shading,
+    };
+
+    let com: [&dyn RenderComponent; 3] = [&base, &effect, &grid];
+    let com = RenderArray(com);
+
+    com.render(&mut pass.ctx, QUAD_DRAW_CMD)
+  }
+}
 
 #[repr(C)]
 #[std140_layout]
@@ -22,7 +47,7 @@ impl Default for GridGroundConfig {
 }
 
 pub struct GridGroundShading<'a> {
-  shading: &'a UniformBufferDataView<GridGroundConfig>,
+  pub shading: &'a UniformBufferDataView<GridGroundConfig>,
 }
 impl<'a> ShaderHashProvider for GridGroundShading<'a> {
   shader_hash_type_id! {GridGroundShading<'static>}
@@ -74,12 +99,16 @@ impl ShaderPlane {
 }
 
 pub struct InfinityShaderPlaneEffect<'a> {
-  plane: &'a UniformBufferDataView<ShaderPlane>,
-  camera: &'a CameraGPU<'a>,
+  pub plane: &'a UniformBufferDataView<ShaderPlane>,
+  pub camera: &'a dyn RenderDependencyComponent,
 }
 
 impl<'a> ShaderHashProvider for InfinityShaderPlaneEffect<'a> {
   shader_hash_type_id! {InfinityShaderPlaneEffect<'static>}
+
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.camera.hash_pipeline(hasher);
+  }
 }
 impl<'a> ShaderPassBuilder for InfinityShaderPlaneEffect<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
@@ -90,7 +119,7 @@ impl<'a> ShaderPassBuilder for InfinityShaderPlaneEffect<'a> {
 
 impl<'a> GraphicsShaderProvider for InfinityShaderPlaneEffect<'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
-    self.camera.inject_uniforms(builder);
+    self.camera.inject_shader_dependencies(builder);
 
     builder.vertex(|builder, _| {
       let out = generate_quad(builder.query::<VertexIndex>()?, 0.).expand();
