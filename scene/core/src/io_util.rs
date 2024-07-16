@@ -51,6 +51,12 @@ impl Scene3dWriter {
       .write_component_data::<SceneNodeLocalMatrixComponent>(node, mat);
   }
 
+  pub fn get_local_mat(&self, node: EntityHandle<SceneNodeEntity>) -> Option<Mat4<f32>> {
+    self
+      .node_writer
+      .read_component_data::<SceneNodeLocalMatrixComponent>(node)
+  }
+
   pub fn from_global(scene: EntityHandle<SceneEntity>) -> Self {
     Self {
       scene,

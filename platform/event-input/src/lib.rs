@@ -16,6 +16,9 @@ impl PlatformEventInput {
     self.accumulate_events.push(event);
   }
   pub fn begin_frame(&mut self) {
+    for e in &self.accumulate_events {
+      self.window_state.event(e);
+    }
     self.state_delta = self.window_state.compare(&self.previous_frame_window_state);
   }
 
