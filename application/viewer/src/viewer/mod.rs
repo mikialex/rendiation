@@ -71,7 +71,7 @@ impl Widget for Viewer {
 }
 
 impl Viewer {
-  pub fn new(gpu: Arc<GPU>, content_logic: impl Widget + 'static) -> Self {
+  pub fn new(gpu: GPU, content_logic: impl Widget + 'static) -> Self {
     let mut terminal = Terminal::default();
     register_default_commands(&mut terminal);
 

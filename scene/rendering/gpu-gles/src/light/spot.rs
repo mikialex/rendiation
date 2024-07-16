@@ -12,7 +12,7 @@ pub struct SpotLightUniform {
   pub half_penumbra_cos: f32,
 }
 
-pub fn spot_uniform_array(gpu: &GPUResourceCtx) -> UniformArrayUpdateContainer<SpotLightUniform> {
+pub fn spot_uniform_array(gpu: &GPU) -> UniformArrayUpdateContainer<SpotLightUniform> {
   let buffer = UniformBufferDataView::create_default(&gpu.device);
 
   let luminance_intensity = global_watch()

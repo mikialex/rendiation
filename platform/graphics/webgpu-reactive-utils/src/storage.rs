@@ -8,7 +8,7 @@ pub struct ReactiveStorageBufferContainer<T: Std430> {
   current_size: u32,
   // resize is fully decided by user, and it's user's responsibility to avoid frequently resizing
   resizer: Box<dyn Stream<Item = u32> + Unpin>,
-  gpu_ctx: GPUResourceCtx,
+  gpu_ctx: GPU,
 }
 
 fn make_init_size<T: Std430>(size: usize) -> StorageBufferInit<'static, [T]> {
@@ -18,7 +18,7 @@ fn make_init_size<T: Std430>(size: usize) -> StorageBufferInit<'static, [T]> {
 }
 
 impl<T: Std430> ReactiveStorageBufferContainer<T> {
-  pub fn new(gpu_ctx: GPUResourceCtx, max: impl Stream<Item = u32> + Unpin + 'static) -> Self {
+  pub fn new(gpu_ctx: GPU, max: impl Stream<Item = u32> + Unpin + 'static) -> Self {
     let init_capacity = 128;
     let data =
       StorageBufferReadOnlyDataView::create_by(&gpu_ctx.device, make_init_size(init_capacity));
@@ -84,7 +84,7 @@ struct CollectionToStorageBufferUpdater<T, K, V> {
   stride: u32,
   upstream: T,
   phantom: PhantomData<(K, V)>,
-  gpu_ctx: GPUResourceCtx,
+  gpu_ctx: GPU,
 }
 
 impl<T, C, K, V> CollectionUpdate<StorageBufferReadOnlyDataView<[T]>>

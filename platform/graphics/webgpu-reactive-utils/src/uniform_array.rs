@@ -8,14 +8,14 @@ pub struct UniformArrayCollectionUpdate<T, K, V> {
   field_offset: u32,
   upstream: T,
   phantom: PhantomData<(K, V)>,
-  gpu_ctx: GPUResourceCtx,
+  gpu_ctx: GPU,
 }
 
 pub trait UniformArrayCollectionUpdateExt<K, V>: Sized {
   fn into_uniform_array_collection_update(
     self,
     field_offset: usize,
-    gpu_ctx: &GPUResourceCtx,
+    gpu_ctx: &GPU,
   ) -> UniformArrayCollectionUpdate<Self, K, V>;
 }
 impl<K, V, T> UniformArrayCollectionUpdateExt<K, V> for T
@@ -27,7 +27,7 @@ where
   fn into_uniform_array_collection_update(
     self,
     field_offset: usize,
-    gpu_ctx: &GPUResourceCtx,
+    gpu_ctx: &GPU,
   ) -> UniformArrayCollectionUpdate<Self, K, V> {
     UniformArrayCollectionUpdate {
       field_offset: field_offset as u32,

@@ -60,7 +60,7 @@ where
   let content_logic = core_viewer_features(content_logic);
 
   let viewer = StateCxCreateOnce::new(|cx| {
-    access_cx!(cx, gpu, Arc<GPU>);
+    access_cx!(cx, gpu, GPU);
     Viewer::new(gpu.clone(), content_logic(cx))
   });
   let egui_view = EguiContext::new(viewer);

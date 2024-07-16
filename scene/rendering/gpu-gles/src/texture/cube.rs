@@ -5,7 +5,7 @@ use crate::*;
 
 fn cube_face_update<FK>(
   face: CubeTextureFace,
-  cx: &GPUResourceCtx,
+  cx: &GPU,
 ) -> impl CollectionUpdate<FastHashMap<EntityHandle<SceneTextureCubeEntity>, GPUCubeTextureView>>
 where
   FK: ForeignKeySemantic<Entity = SceneTextureCubeEntity, ForeignEntity = SceneTexture2dEntity>,
@@ -17,9 +17,7 @@ where
     .into_cube_face_collection_update(face, cx)
 }
 
-pub fn gpu_texture_cubes(
-  cx: &GPUResourceCtx,
-) -> CubeMapUpdateContainer<EntityHandle<SceneTextureCubeEntity>> {
+pub fn gpu_texture_cubes(cx: &GPU) -> CubeMapUpdateContainer<EntityHandle<SceneTextureCubeEntity>> {
   let px = cube_face_update::<SceneTextureCubeXPositiveFace>(CubeTextureFace::PositiveX, cx);
   let py = cube_face_update::<SceneTextureCubeXPositiveFace>(CubeTextureFace::PositiveY, cx);
   let pz = cube_face_update::<SceneTextureCubeXPositiveFace>(CubeTextureFace::PositiveZ, cx);

@@ -3,7 +3,7 @@ use crate::*;
 pub type FlatMaterialUniforms =
   UniformUpdateContainer<EntityHandle<FlatMaterialEntity>, FlatMaterialUniform>;
 
-pub fn flat_material_uniforms(cx: &GPUResourceCtx) -> FlatMaterialUniforms {
+pub fn flat_material_uniforms(cx: &GPU) -> FlatMaterialUniforms {
   let color = global_watch()
     .watch::<FlatMaterialDisplayColorComponent>()
     .into_uniform_collection_update(offset_of!(FlatMaterialUniform, color), cx);

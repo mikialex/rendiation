@@ -24,7 +24,7 @@ pub struct BasicShadowMapSystemInputs {
 pub fn basic_shadow_map_uniform(
   inputs: BasicShadowMapSystemInputs,
   config: MultiLayerTexturePackerConfig,
-  gpu_ctx: &GPUResourceCtx,
+  gpu_ctx: &GPU,
 ) -> (
   BasicShadowMapSystem,
   UniformArrayUpdateContainer<BasicShadowMapInfo>,

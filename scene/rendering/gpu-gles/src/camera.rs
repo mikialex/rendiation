@@ -3,7 +3,7 @@ use crate::*;
 pub type CameraUniforms =
   UniformUpdateContainer<EntityHandle<SceneCameraEntity>, CameraGPUTransform>;
 
-pub fn camera_gpus(cx: &GPUResourceCtx) -> CameraUniforms {
+pub fn camera_gpus(cx: &GPU) -> CameraUniforms {
   let source = camera_transforms()
     // todo, fix jitter override
     .collective_map(|t| CameraGPUTransform {

@@ -24,7 +24,7 @@ pub struct PhysicalMetallicRoughnessMaterialUniform {
 type Uniform = PhysicalMetallicRoughnessMaterialUniform;
 
 pub type PbrMRMaterialUniforms = UniformUpdateContainer<EntityHandle<PbrMRMaterialEntity>, Uniform>;
-pub fn pbr_mr_material_uniforms(cx: &GPUResourceCtx) -> PbrMRMaterialUniforms {
+pub fn pbr_mr_material_uniforms(cx: &GPU) -> PbrMRMaterialUniforms {
   let base_color = global_watch()
     .watch::<PbrMRMaterialBaseColorComponent>()
     .into_uniform_collection_update(offset_of!(Uniform, base_color), cx);
@@ -71,7 +71,7 @@ type TexUniform = PhysicalMetallicRoughnessMaterialTextureHandlesUniform;
 
 pub type PbrMRMaterialTexUniforms =
   UniformUpdateContainer<EntityHandle<PbrMRMaterialEntity>, TexUniform>;
-pub fn pbr_mr_material_tex_uniforms(cx: &GPUResourceCtx) -> PbrMRMaterialTexUniforms {
+pub fn pbr_mr_material_tex_uniforms(cx: &GPU) -> PbrMRMaterialTexUniforms {
   let tex_offset = offset_of!(TextureSamplerHandlePair, texture_handle);
   let sam_offset = offset_of!(TextureSamplerHandlePair, sampler_handle);
 

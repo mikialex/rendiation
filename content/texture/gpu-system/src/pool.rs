@@ -70,12 +70,12 @@ pub struct TexturePoolSource {
   packing: Box<dyn DynReactiveCollection<Texture2DHandle, PackResult2dWithDepth>>,
   atlas_resize: Box<dyn Stream<Item = SizeWithDepth> + Unpin>,
   format: TextureFormat,
-  gpu: GPUResourceCtx,
+  gpu: GPU,
 }
 
 impl TexturePoolSource {
   pub fn new(
-    gpu: &GPUResourceCtx,
+    gpu: &GPU,
     config: MultiLayerTexturePackerConfig,
     tex_input: RxCForker<Texture2DHandle, TexturePool2dSource>,
     max_tex_count: impl Stream<Item = u32> + Unpin + 'static,

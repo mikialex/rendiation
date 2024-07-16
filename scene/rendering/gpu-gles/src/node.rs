@@ -3,7 +3,7 @@ use crate::*;
 pub type SceneNodeUniforms =
   UniformUpdateContainer<EntityHandle<SceneNodeEntity>, TransformGPUData>;
 
-pub fn node_gpus(cx: &GPUResourceCtx) -> SceneNodeUniforms {
+pub fn node_gpus(cx: &GPU) -> SceneNodeUniforms {
   let source = scene_node_derive_world_mat()
     .collective_map(|mat| TransformGPUData {
       world_matrix: mat,

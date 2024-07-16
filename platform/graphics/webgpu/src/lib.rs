@@ -62,10 +62,11 @@ pub use types::*;
 use wgpu as gpu;
 pub use wgpu_types::*;
 
+#[derive(Clone)]
 pub struct GPU {
-  _instance: gpu::Instance,
-  _adaptor: gpu::Adapter,
-  info: GPUInfo,
+  _instance: Arc<gpu::Instance>,
+  _adaptor: Arc<gpu::Adapter>,
+  pub info: GPUInfo,
   pub device: GPUDevice,
   pub queue: GPUQueue,
 }
@@ -196,8 +197,8 @@ impl GPU {
     });
 
     let gpu = Self {
-      _instance,
-      _adaptor,
+      _instance: Arc::new(_instance),
+      _adaptor: Arc::new(_adaptor),
       info,
       device,
       queue,
@@ -232,10 +233,6 @@ impl GPU {
       surface,
       init_resolution,
     ))
-  }
-
-  pub fn info(&self) -> &GPUInfo {
-    &self.info
   }
 
   pub fn create_encoder(&self) -> GPUCommandEncoder {

@@ -78,7 +78,7 @@ impl Terminal {
 pub fn register_default_commands(terminal: &mut Terminal) {
   // this mainly to do test
   terminal.register_command("clear-gpu-resource-cache", |ctx, _parameters| {
-    access_cx!(ctx, gpu, Arc<GPU>);
+    access_cx!(ctx, gpu, GPU);
 
     println!(
       "current gpu resource cache details: {:?}",

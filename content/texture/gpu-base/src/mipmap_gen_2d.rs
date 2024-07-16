@@ -20,7 +20,7 @@ pub trait Mipmap2dReducer: Send + Sync {
 
 impl<T: Mipmap2dReducer> Mipmap2dReducerImpl for T {}
 pub trait Mipmap2dReducerImpl: Mipmap2dReducer + Sized {
-  fn generate(&self, ctx: &mut FrameCtx, texture: &GPU2DTexture) {
+  fn generate(&self, ctx: &GPU, encoder: &mut GPUCommandEncoder, texture: &GPU2DTexture) {
     for write_level in 1..texture.desc.mip_level_count {
       let write_view: GPU2DTextureView = texture
         .create_view(TextureViewDescriptor {
@@ -51,14 +51,19 @@ pub trait Mipmap2dReducerImpl: Mipmap2dReducer + Sized {
 
       pass("mip-gen-2d")
         .with_color(write_view, load())
-        .render_ctx(ctx)
+        .render(encoder, ctx)
         .by(&mut task);
     }
   }
 
   /// It's useful to generate cube faces use same method like 2d.
   /// even it's not correct from perspective of spherical filtering.
-  fn generate_cube_faces(&self, ctx: &mut FrameCtx, texture: &GPUCubeTexture) {
+  fn generate_cube_faces(
+    &self,
+    ctx: &GPU,
+    encoder: &mut GPUCommandEncoder,
+    texture: &GPUCubeTexture,
+  ) {
     for write_level in 1..texture.desc.mip_level_count {
       for face in 0..texture.desc.size.depth_or_array_layers {
         let write_view: GPU2DTextureView = texture
@@ -92,7 +97,7 @@ pub trait Mipmap2dReducerImpl: Mipmap2dReducer + Sized {
 
         pass("mip-gen-cube-face")
           .with_color(write_view, load())
-          .render_ctx(ctx)
+          .render(encoder, ctx)
           .by(&mut task);
       }
     }
