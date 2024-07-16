@@ -80,13 +80,13 @@ pub fn load_default_scene(writer: &mut Scene3dWriter, viewer_scene: &Viewer3dSce
   .build();
   let attribute_mesh = writer.write_attribute_mesh(attribute_mesh);
 
-  let material = PhysicalSpecularGlossinessMaterialDataView {
-    albedo: Vec3::splat(1.),
-    albedo_texture: Some(texture),
+  let material = PhysicalMetallicRoughnessMaterialDataView {
+    base_color: Vec3::splat(1.),
+    base_color_texture: Some(texture),
     ..Default::default()
   }
-  .write(&mut writer.pbr_sg_mat_writer);
-  let material = SceneMaterialDataView::PbrSGMaterial(material);
+  .write(&mut writer.pbr_mr_mat_writer);
+  let material = SceneMaterialDataView::PbrMRMaterial(material);
   writer.create_scene_model(material, attribute_mesh, viewer_scene.root);
 
   //     let child = scene.create_root_child();

@@ -163,10 +163,13 @@ impl<'a> PassContent for GLESScenePassContent<'a> {
   fn render(&mut self, pass: &mut FrameRenderPass) {
     let mut models = self.renderer.model_lookup.access_multi_value(&self.scene);
 
+    let base = default_dispatcher(pass);
+    let p = RenderArray([&base, self.pass] as [&dyn rendiation_webgpu::RenderComponent; 2]);
+
     self.renderer.render_reorderable_models(
       &mut models,
       self.camera,
-      &self.pass,
+      &p,
       &mut pass.ctx,
       &self.renderer.texture_system,
     );

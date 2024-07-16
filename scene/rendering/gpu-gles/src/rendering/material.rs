@@ -140,10 +140,10 @@ impl GLESModelMaterialRenderImpl for PbrMRMaterialDefaultRenderImpl {
     let r = PhysicalMetallicRoughnessMaterialGPU {
       uniform: self.uniforms.get(&idx)?,
       alpha_mode: self.alpha_mode.get_value(idx)?,
-      base_color_tex_sampler: self.base_color_tex_sampler.get_pair(idx)?,
-      mr_tex_sampler: self.mr_tex_sampler.get_pair(idx)?,
-      emissive_tex_sampler: self.emissive_tex_sampler.get_pair(idx)?,
-      normal_tex_sampler: self.normal_tex_sampler.get_pair(idx)?,
+      base_color_tex_sampler: self.base_color_tex_sampler.get_pair(idx).unwrap_or((0, 0)),
+      mr_tex_sampler: self.mr_tex_sampler.get_pair(idx).unwrap_or((0, 0)),
+      emissive_tex_sampler: self.emissive_tex_sampler.get_pair(idx).unwrap_or((0, 0)),
+      normal_tex_sampler: self.normal_tex_sampler.get_pair(idx).unwrap_or((0, 0)),
       texture_uniforms: self.tex_uniforms.get(&idx)?,
       binding_sys: cx,
     };

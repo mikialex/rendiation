@@ -23,7 +23,7 @@ pub fn attribute_mesh_index_buffers(
 
   attribute_mesh_index_buffers
     .collective_zip(global_watch().watch::<SceneBufferViewBufferRange<AttributeIndexRef>>())
-    .collective_map(|(buffer, range)| buffer.create_view(map_view(range.unwrap())))
+    .collective_map(|(buffer, range)| buffer.create_view(map_view(range)))
     .materialize_unordered()
 }
 
@@ -49,15 +49,17 @@ pub fn attribute_mesh_vertex_buffer_views(
 
   attribute_mesh_vertex_buffers
     .collective_zip(global_watch().watch::<SceneBufferViewBufferRange<AttributeVertexRef>>())
-    .collective_map(|(buffer, range)| buffer.create_view(map_view(range.unwrap())))
+    .collective_map(|(buffer, range)| buffer.create_view(map_view(range)))
     .materialize_unordered()
 }
 
-fn map_view(view: rendiation_mesh_core::BufferViewRange) -> GPUBufferViewRange {
-  GPUBufferViewRange {
-    offset: view.offset,
-    size: view.size,
-  }
+fn map_view(view: Option<rendiation_mesh_core::BufferViewRange>) -> GPUBufferViewRange {
+  view
+    .map(|view| GPUBufferViewRange {
+      offset: view.offset,
+      size: view.size,
+    })
+    .unwrap_or_default()
 }
 
 pub struct AttributeMeshVertexAccessView {
