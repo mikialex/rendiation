@@ -1,3 +1,5 @@
+use std::sync::Weak;
+
 use futures::channel::mpsc::*;
 
 use crate::*;
@@ -18,6 +20,7 @@ struct DownStreamInfo<K, V> {
 pub struct ReactiveKVMapFork<Map, K, V> {
   upstream: Arc<RwLock<Map>>,
   downstream: Arc<RwLock<FastHashMap<u64, DownStreamInfo<K, V>>>>,
+  resolved: Arc<RwLock<Option<Weak<dyn Any + Send + Sync>>>>,
   buffered: RwLock<Vec<ForkMessage<K, V>>>,
   rev: RwLock<Receiver<K, V>>,
   id: u64,
@@ -40,6 +43,7 @@ impl<Map, K, V> ReactiveKVMapFork<Map, K, V> {
     ReactiveKVMapFork {
       upstream: Arc::new(RwLock::new(upstream)),
       downstream: Arc::new(RwLock::new(init)),
+      resolved: Default::default(),
       rev: RwLock::new(rev),
       id,
       waker,
@@ -112,6 +116,7 @@ where
       downstream: self.downstream.clone(),
       id,
       rev: RwLock::new(rev),
+      resolved: self.resolved.clone(),
       waker,
       phantom: PhantomData,
       buffered: Default::default(),
@@ -148,6 +153,32 @@ fn finalize_buffered_changes<K: CKey, V: CValue>(
   }
 }
 
+#[derive(Clone)]
+pub struct ForkedView<T> {
+  inner: Arc<T>,
+}
+
+impl<K: CKey, V: CValue, T: VirtualCollection<K, V>> VirtualCollection<K, V> for ForkedView<T> {
+  fn iter_key_value(&self) -> impl Iterator<Item = (K, V)> + '_ {
+    self.inner.iter_key_value()
+  }
+
+  fn access(&self, key: &K) -> Option<V> {
+    self.inner.access(key)
+  }
+}
+impl<K: CKey, V: CKey, T: VirtualMultiCollection<K, V>> VirtualMultiCollection<K, V>
+  for ForkedView<T>
+{
+  fn iter_key_in_multi_collection(&self) -> impl Iterator<Item = K> + '_ {
+    self.inner.iter_key_in_multi_collection()
+  }
+
+  fn access_multi(&self, key: &K) -> Option<impl Iterator<Item = V> + '_> {
+    self.inner.access_multi(key)
+  }
+}
+
 impl<Map, K, V> ReactiveCollection<K, V> for ReactiveKVMapFork<Map, K, V>
 where
   Map: ReactiveCollection<K, V>,
@@ -155,7 +186,7 @@ where
   V: CValue,
 {
   type Changes = impl VirtualCollection<K, ValueChange<V>>;
-  type View = Map::View;
+  type View = ForkedView<Map::View>;
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     // install new waker, this waker is shared by arc within the downstream info
     self.waker.register(cx.waker());
@@ -167,8 +198,21 @@ where
       buffered.push(changes);
     }
 
-    // we have to also check the upstream no matter if we have message in channel or not
-    // todo, exponential check cost if we have share rich structure in graph
+    // if we have any upstream polled but not dropped, we directly return the cached resolved view
+    {
+      let resolved = self.resolved.read();
+      let resolved: &Option<Weak<dyn Any + Send + Sync>> = &resolved;
+      if let Some(view) = resolved {
+        if let Some(view) = view.upgrade() {
+          let v = ForkedView {
+            inner: view.downcast::<Map::View>().unwrap(),
+          };
+          return (finalize_buffered_changes(buffered), v);
+        }
+      }
+    }
+
+    // poll upstream
     let upstream = self.upstream.write();
     let waker = Arc::new(BroadCast {
       inner: self.downstream.clone(),
@@ -195,6 +239,14 @@ where
       drop(downstream);
 
       finalize_buffered_changes(buffered)
+    };
+
+    let v = Arc::new(v) as Arc<dyn Any + Send + Sync>;
+    let view = v.clone();
+    *self.resolved.write() = Some(Arc::downgrade(&v));
+
+    let v = ForkedView {
+      inner: view.downcast::<Map::View>().unwrap(),
     };
 
     (d, v)
