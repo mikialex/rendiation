@@ -38,3 +38,44 @@ pub fn camera_project_matrix() -> impl ReactiveCollection<EntityHandle<SceneCame
 
   perspective.collective_select(orth)
 }
+
+#[derive(Clone, Copy, Default, Debug, PartialEq)]
+pub struct CameraTransform {
+  pub projection: Mat4<f32>,
+  pub projection_inv: Mat4<f32>,
+
+  pub rotation: Mat4<f32>,
+
+  pub view: Mat4<f32>,
+  pub world: Mat4<f32>,
+
+  pub view_projection: Mat4<f32>,
+  pub view_projection_inv: Mat4<f32>,
+}
+
+#[global_registered_collection]
+pub fn camera_transforms(
+) -> impl ReactiveCollection<EntityHandle<SceneCameraEntity>, CameraTransform> {
+  let projections = camera_project_matrix();
+  let node_mats = scene_node_derive_world_mat();
+
+  let camera_world_mat =
+    node_mats.one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneCameraNode>());
+
+  camera_world_mat
+    .collective_zip(projections)
+    .collective_map(|(world, proj)| {
+      let view = world.inverse_or_identity();
+      let view_projection = proj * view;
+      CameraTransform {
+        world,
+        view,
+        rotation: world.extract_rotation_mat(),
+
+        projection: proj,
+        projection_inv: proj.inverse_or_identity(),
+        view_projection,
+        view_projection_inv: view_projection.inverse_or_identity(),
+      }
+    })
+}

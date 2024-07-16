@@ -3,31 +3,20 @@ use crate::*;
 pub type CameraUniforms =
   UniformUpdateContainer<EntityHandle<SceneCameraEntity>, CameraGPUTransform>;
 
-pub fn camera_gpus(
-  projections: impl ReactiveCollection<EntityHandle<SceneCameraEntity>, Mat4<f32>>,
-  node_mats: impl ReactiveCollection<EntityHandle<SceneNodeEntity>, Mat4<f32>>,
-  cx: &GPUResourceCtx,
-) -> CameraUniforms {
-  let camera_world_mat =
-    node_mats.one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneCameraNode>());
+pub fn camera_gpus(cx: &GPUResourceCtx) -> CameraUniforms {
+  let source = camera_transforms()
+    // todo, fix jitter override
+    .collective_map(|t| CameraGPUTransform {
+      world: t.world,
+      view: t.view,
+      rotation: t.rotation,
 
-  let source = camera_world_mat
-    .collective_zip(projections)
-    .collective_map(|(world, proj)| {
-      let view = world.inverse_or_identity();
-      let view_projection = proj * view;
-      CameraGPUTransform {
-        world,
-        view,
-        rotation: world.extract_rotation_mat(),
+      projection: t.projection,
+      projection_inv: t.projection_inv,
+      view_projection: t.view_projection,
+      view_projection_inv: t.view_projection_inv,
 
-        projection: proj,
-        projection_inv: proj.inverse_or_identity(),
-        view_projection,
-        view_projection_inv: view_projection.inverse_or_identity(),
-
-        ..Zeroable::zeroed()
-      }
+      ..Zeroable::zeroed()
     })
     .into_uniform_collection_update(0, cx);
 

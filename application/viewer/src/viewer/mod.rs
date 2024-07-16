@@ -114,7 +114,7 @@ impl Viewer {
 
     let derives = Viewer3dSceneDeriveSource {
       world_mat: Box::new(scene_node_derive_world_mat()),
-      camera_proj: Box::new(camera_project_matrix()),
+      camera_transforms: Box::new(camera_transforms()),
     };
 
     Self {
@@ -180,16 +180,17 @@ pub struct Viewer3dSceneCtx {
 
 pub struct Viewer3dSceneDeriveSource {
   pub world_mat: Box<dyn DynReactiveCollection<EntityHandle<SceneNodeEntity>, Mat4<f32>>>,
-  pub camera_proj: Box<dyn DynReactiveCollection<EntityHandle<SceneCameraEntity>, Mat4<f32>>>,
+  pub camera_transforms:
+    Box<dyn DynReactiveCollection<EntityHandle<SceneCameraEntity>, CameraTransform>>,
 }
 
 impl Viewer3dSceneDeriveSource {
   fn poll_update(&self, cx: &mut Context) -> Viewer3dSceneDerive {
     let (_, world_mat) = self.world_mat.poll_changes(cx);
-    let (_, camera_proj) = self.camera_proj.poll_changes(cx);
+    let (_, camera_transforms) = self.camera_transforms.poll_changes(cx);
     Viewer3dSceneDerive {
       world_mat,
-      camera_proj,
+      camera_transforms,
     }
   }
 }
@@ -197,5 +198,6 @@ impl Viewer3dSceneDeriveSource {
 /// used in render & scene update
 pub struct Viewer3dSceneDerive {
   pub world_mat: Box<dyn DynVirtualCollection<EntityHandle<SceneNodeEntity>, Mat4<f32>>>,
-  pub camera_proj: Box<dyn DynVirtualCollection<EntityHandle<SceneCameraEntity>, Mat4<f32>>>,
+  pub camera_transforms:
+    Box<dyn DynVirtualCollection<EntityHandle<SceneCameraEntity>, CameraTransform>>,
 }

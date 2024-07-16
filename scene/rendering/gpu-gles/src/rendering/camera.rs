@@ -10,10 +10,7 @@ pub struct DefaultGLESCameraRenderImpl {
 
 impl RenderImplProvider<Box<dyn GLESCameraRenderImpl>> for DefaultGLESCameraRenderImplProvider {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPUResourceCtx) {
-    let projection = camera_project_matrix();
-    let node_mats = scene_node_derive_world_mat();
-
-    let uniforms = camera_gpus(projection, node_mats, cx);
+    let uniforms = camera_gpus(cx);
     self.uniforms = source.register_multi_updater(uniforms);
   }
 
