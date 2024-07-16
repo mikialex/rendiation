@@ -46,6 +46,11 @@ impl Widget for Viewer {
     });
   }
   fn update_view(&mut self, cx: &mut DynCx) {
+    cx.split_cx::<egui::Context>(|egui_cx, cx| {
+      self.egui(egui_cx, cx);
+      crate::egui_db::egui_db_gui(egui_cx, &mut self.egui_db_inspector);
+    });
+
     cx.scoped_cx(&mut self.scene, |cx| {
       access_cx!(cx, viewer_scene, Viewer3dSceneCtx);
       let mut writer = Scene3dWriter::from_global(viewer_scene.scene);
@@ -54,11 +59,6 @@ impl Widget for Viewer {
           self.content.update_view(cx);
         });
       });
-    });
-
-    cx.split_cx::<egui::Context>(|egui_cx, cx| {
-      self.egui(egui_cx, cx);
-      crate::egui_db::egui_db_gui(egui_cx, &mut self.egui_db_inspector);
     });
 
     access_cx!(cx, draw_target_canvas, RenderTargetView);
@@ -155,6 +155,9 @@ impl Viewer {
       .show(ui, |ui| {
         if ui.add(egui::Button::new("Click me")).clicked() {
           println!("PRESSED")
+        }
+        if ui.button("Organize windows").clicked() {
+          ui.ctx().memory_mut(|mem| mem.reset_areas());
         }
 
         ui.separator();
