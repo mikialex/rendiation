@@ -52,7 +52,6 @@ impl DBInspector {
 
 pub fn egui_db_gui(ui: &mut egui::Context, state: &mut DBInspector) {
   egui::Window::new("Database Inspector")
-    .default_pos([450., 20.])
     .default_open(false)
     .vscroll(true)
     .default_width(500.)

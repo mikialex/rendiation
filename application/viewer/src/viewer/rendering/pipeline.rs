@@ -52,9 +52,7 @@ impl ViewerPipeline {
     ui.checkbox(&mut self.enable_ssao, "enable ssao");
     ui.checkbox(&mut self.enable_channel_debugger, "enable channel debug");
   }
-}
 
-impl ViewerPipeline {
   pub fn render(
     &mut self,
     ctx: &mut FrameCtx,
