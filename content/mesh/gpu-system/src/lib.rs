@@ -166,11 +166,12 @@ pub struct GPUBindlessMeshSystemImpl {
 
 impl GPUBindlessMeshSystem {
   pub fn new(gpu: &GPU) -> Option<Self> {
-    let info = gpu.info();
-    let bindless_effectively_supported = info
+    let bindless_effectively_supported = gpu
+      .info
       .supported_features
       .contains(Features::MULTI_DRAW_INDIRECT)
-      && info
+      && gpu
+        .info
         .supported_features
         .contains(Features::INDIRECT_FIRST_INSTANCE);
 

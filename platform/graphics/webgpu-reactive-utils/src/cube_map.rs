@@ -12,14 +12,14 @@ pub struct CubeMapCollectionUpdate<T, K, V> {
   face: CubeTextureFace,
   upstream: T,
   phantom: PhantomData<(K, V)>,
-  gpu_ctx: GPUResourceCtx,
+  gpu_ctx: GPU,
 }
 
 pub trait CubeMapCollectionUpdateExt<K, V>: Sized {
   fn into_cube_face_collection_update(
     self,
     face: CubeTextureFace,
-    gpu_ctx: &GPUResourceCtx,
+    gpu_ctx: &GPU,
   ) -> CubeMapCollectionUpdate<Self, K, V>;
 }
 impl<K, V, T> CubeMapCollectionUpdateExt<K, V> for T
@@ -31,7 +31,7 @@ where
   fn into_cube_face_collection_update(
     self,
     face: CubeTextureFace,
-    gpu_ctx: &GPUResourceCtx,
+    gpu_ctx: &GPU,
   ) -> CubeMapCollectionUpdate<Self, K, V> {
     CubeMapCollectionUpdate {
       face,

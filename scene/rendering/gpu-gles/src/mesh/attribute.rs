@@ -4,7 +4,7 @@ use rendiation_mesh_core::*;
 use crate::*;
 
 pub fn attribute_mesh_index_buffers(
-  cx: &GPUResourceCtx,
+  cx: &GPU,
 ) -> impl ReactiveCollectionSelfContained<EntityHandle<AttributeMeshEntity>, GPUBufferResourceView>
 {
   let cx = cx.clone();
@@ -28,7 +28,7 @@ pub fn attribute_mesh_index_buffers(
 }
 
 pub fn attribute_mesh_vertex_buffer_views(
-  cx: &GPUResourceCtx,
+  cx: &GPU,
 ) -> impl ReactiveCollectionSelfContained<
   EntityHandle<AttributeMeshVertexBufferRelation>,
   GPUBufferResourceView,

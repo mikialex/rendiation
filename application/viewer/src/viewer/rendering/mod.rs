@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::*;
 
 mod debug_channels;
@@ -16,25 +14,19 @@ pub struct Viewer3dRenderingCtx {
   rendering_resource: ReactiveQueryJoinUpdater,
   renderer_impl: GLESRenderSystem,
   pool: AttachmentPool,
-  gpu: Arc<GPU>,
+  gpu: GPU,
   on_encoding_finished: EventSource<ViewRenderedState>,
 }
 
 impl Viewer3dRenderingCtx {
-  pub fn new(gpu: Arc<GPU>) -> Self {
-    let resource_cx = GPUResourceCtx {
-      device: gpu.device.clone(),
-      queue: gpu.queue.clone(),
-      info: gpu.info().clone(),
-    };
-
+  pub fn new(gpu: GPU) -> Self {
     let mut renderer_impl = build_default_gles_render_system();
     let mut rendering_resource = ReactiveQueryJoinUpdater::default();
-    renderer_impl.register_resource(&mut rendering_resource, &resource_cx);
+    renderer_impl.register_resource(&mut rendering_resource, &gpu);
     Self {
       rendering_resource,
       renderer_impl,
-      pipeline: ViewerPipeline::new(gpu.as_ref()),
+      pipeline: ViewerPipeline::new(&gpu),
       gpu,
       pool: Default::default(),
       on_encoding_finished: Default::default(),

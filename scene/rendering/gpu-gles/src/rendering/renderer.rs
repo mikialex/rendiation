@@ -29,7 +29,7 @@ pub fn build_default_gles_render_system() -> GLESRenderSystem {
 }
 
 impl RenderImplProvider<Box<dyn SceneRenderer>> for GLESRenderSystem {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPUResourceCtx) {
+  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
     let default_2d: GPU2DTextureView = create_fallback_empty_texture(&cx.device)
       .create_default_view()
       .try_into()

@@ -16,8 +16,7 @@ pub async fn run_application<T: Widget>(mut app: T) {
     ..Default::default()
   };
 
-  let (gpu, surface) = GPU::new(config).await.unwrap();
-  let mut gpu = Arc::new(gpu);
+  let (mut gpu, surface) = GPU::new(config).await.unwrap();
 
   let mut surface: GPUSurface<'static> = unsafe { std::mem::transmute(surface.unwrap()) };
 

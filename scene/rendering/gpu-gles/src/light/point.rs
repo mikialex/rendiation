@@ -9,7 +9,7 @@ pub struct PointLightUniform {
   pub cutoff_distance: f32,
 }
 
-pub fn point_uniform_array(gpu: &GPUResourceCtx) -> UniformArrayUpdateContainer<PointLightUniform> {
+pub fn point_uniform_array(gpu: &GPU) -> UniformArrayUpdateContainer<PointLightUniform> {
   let buffer = UniformBufferDataView::create_default(&gpu.device);
 
   let luminance_intensity = global_watch()

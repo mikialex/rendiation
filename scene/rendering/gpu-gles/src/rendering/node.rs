@@ -16,7 +16,7 @@ pub struct DefaultGLESNodeRenderImpl {
 }
 
 impl RenderImplProvider<Box<dyn GLESNodeRenderImpl>> for DefaultGLESNodeRenderImplProvider {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPUResourceCtx) {
+  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
     let uniforms = node_gpus(cx);
     self.uniforms = source.register_multi_updater(uniforms);
   }

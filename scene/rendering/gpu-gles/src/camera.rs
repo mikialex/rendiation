@@ -6,7 +6,7 @@ pub type CameraUniforms =
 pub fn camera_gpus(
   projections: impl ReactiveCollection<EntityHandle<SceneCameraEntity>, Mat4<f32>>,
   node_mats: impl ReactiveCollection<EntityHandle<SceneNodeEntity>, Mat4<f32>>,
-  cx: &GPUResourceCtx,
+  cx: &GPU,
 ) -> CameraUniforms {
   let camera_world_mat =
     node_mats.one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneCameraNode>());

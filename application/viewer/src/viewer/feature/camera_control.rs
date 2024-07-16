@@ -11,14 +11,21 @@ pub struct SceneOrbitCameraControl {
 
 impl Widget for SceneOrbitCameraControl {
   fn update_state(&mut self, cx: &mut DynCx) {
-    access_cx!(cx, event, PlatformEventInput);
+    access_cx!(cx, p, PlatformEventInput);
 
     let bound = InputBound {
       origin: Vec2::zero(),
-      size: event.window_state.size.into(),
+      size: p.window_state.size.into(),
     };
 
-    for e in &event.accumulate_events {
+    for e in &p.accumulate_events {
+      if let Event::WindowEvent { event, .. } = e {
+        if let WindowEvent::MouseInput { .. } = event {
+          if p.window_state.mouse_position_in_ui {
+            continue;
+          }
+        }
+      }
       self.controller.event(e, bound)
     }
   }

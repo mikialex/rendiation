@@ -6,7 +6,7 @@ pub struct GLESPreferredComOrderRendererProvider {
 }
 
 impl RenderImplProvider<Box<dyn SceneModelRenderer>> for GLESPreferredComOrderRendererProvider {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPUResourceCtx) {
+  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
     self.node.register_resource(source, cx);
     self
       .model_impl

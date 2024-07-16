@@ -6,7 +6,7 @@ use rendiation_webgpu::*;
 use crate::*;
 
 pub struct WebGPUCanvasRenderer {
-  gpu: Arc<GPU>,
+  gpu: GPU,
   pool: AttachmentPool,
 }
 

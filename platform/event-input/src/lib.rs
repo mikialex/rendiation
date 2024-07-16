@@ -32,6 +32,7 @@ impl PlatformEventInput {
 pub struct WindowState {
   pub size: (f32, f32),
   pub mouse_position: (f32, f32),
+  pub mouse_position_in_ui: bool,
   pub left_mouse_state: ElementState,
   pub right_mouse_state: ElementState,
 }
@@ -120,6 +121,7 @@ impl Default for WindowState {
     Self {
       size: (0.0, 0.0),
       mouse_position: (0.0, 0.0),
+      mouse_position_in_ui: false,
       left_mouse_state: ElementState::Released,
       right_mouse_state: ElementState::Released,
     }

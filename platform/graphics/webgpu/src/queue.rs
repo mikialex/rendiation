@@ -24,11 +24,3 @@ impl Deref for GPUQueue {
     &self.inner
   }
 }
-
-/// group device and queue for general resource maintain requirements
-#[derive(Clone)]
-pub struct GPUResourceCtx {
-  pub device: GPUDevice,
-  pub queue: GPUQueue,
-  pub info: GPUInfo,
-}
