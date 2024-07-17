@@ -30,7 +30,16 @@ impl Widget for Viewer {
 
     cx.scoped_cx(&mut derived, |cx| {
       cx.scoped_cx(&mut self.scene, |cx| {
-        // access_cx!(cx, viewer_scene, Viewer3dSceneCtx);
+        access_cx!(cx, derived, Viewer3dSceneDerive);
+        access_cx!(cx, viewer_scene, Viewer3dSceneCtx);
+        self.rendering.update_next_render_camera_info(
+          derived
+            .camera_transforms
+            .access(&viewer_scene.main_camera)
+            .unwrap()
+            .view_projection_inv,
+        );
+
         // todo, scene3d reader
         // let mut writer = Scene3dWriter::from_global(viewer_scene.scene);
         // cx.scoped_cx(&mut writer, |cx| {
@@ -62,7 +71,9 @@ impl Widget for Viewer {
         writer
           .camera_writer
           .mutate_component_data::<SceneCameraPerspective>(viewer_scene.main_camera, |p| {
-            p.as_mut().map(|p| p.resize(size));
+            if let Some(p) = p.as_mut() {
+              p.resize(size)
+            }
           });
       }
 

@@ -37,17 +37,6 @@ impl ViewerPipeline {
     }
   }
 
-  pub fn update(
-    &mut self,
-    frame_ctx: &mut FrameCtx,
-    current_camera_view_projection_inv: Mat4<f32>,
-  ) {
-    self
-      .reproject
-      .update(frame_ctx, current_camera_view_projection_inv);
-    //  todo jitter
-  }
-
   pub fn egui(&mut self, ui: &mut egui::Ui) {
     ui.checkbox(&mut self.enable_ssao, "enable ssao");
     ui.checkbox(&mut self.enable_channel_debugger, "enable channel debug");
@@ -56,11 +45,15 @@ impl ViewerPipeline {
   pub fn render(
     &mut self,
     ctx: &mut FrameCtx,
-    _cx: &mut Context,
     renderer: &dyn SceneRenderer,
     content: &Viewer3dSceneCtx,
     final_target: &RenderTargetView,
+    current_camera_view_projection_inv: Mat4<f32>,
   ) {
+    self
+      .reproject
+      .update(ctx, current_camera_view_projection_inv);
+
     // let mut mip_gen = scene.resources.bindable_ctx.gpu.mipmap_gen.borrow_mut();
     // mip_gen.flush_mipmap_gen_request(ctx);
     // let mut single_proj_sys = scene

@@ -16,6 +16,7 @@ pub struct Viewer3dRenderingCtx {
   pool: AttachmentPool,
   gpu: GPU,
   on_encoding_finished: EventSource<ViewRenderedState>,
+  current_camera_view_projection_inv: Mat4<f32>,
 }
 
 impl Viewer3dRenderingCtx {
@@ -30,6 +31,7 @@ impl Viewer3dRenderingCtx {
       gpu,
       pool: Default::default(),
       on_encoding_finished: Default::default(),
+      current_camera_view_projection_inv: Default::default(),
     }
   }
 
@@ -50,20 +52,23 @@ impl Viewer3dRenderingCtx {
     self.pool.clear();
   }
 
-  pub fn render(
-    &mut self,
-    target: RenderTargetView,
-    content: &Viewer3dSceneCtx,
-    cx: &mut std::task::Context,
-  ) {
+  pub fn update_next_render_camera_info(&mut self, camera_view_projection_inv: Mat4<f32>) {
+    self.current_camera_view_projection_inv = camera_view_projection_inv;
+  }
+
+  pub fn render(&mut self, target: RenderTargetView, content: &Viewer3dSceneCtx, cx: &mut Context) {
     let mut resource = self.rendering_resource.poll_update_all(cx);
     let renderer = self.renderer_impl.create_impl(&mut resource);
 
     let mut ctx = FrameCtx::new(&self.gpu, target.size(), &self.pool);
 
-    self
-      .pipeline
-      .render(&mut ctx, cx, renderer.as_ref(), content, &target);
+    self.pipeline.render(
+      &mut ctx,
+      renderer.as_ref(),
+      content,
+      &target,
+      self.current_camera_view_projection_inv,
+    );
 
     ctx.final_submit();
 
