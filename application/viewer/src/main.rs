@@ -4,9 +4,9 @@
 #![feature(hash_raw_entry)]
 #![allow(clippy::collapsible_match)]
 
+use std::alloc::System;
 use std::any::Any;
 use std::hash::Hash;
-use std::{alloc::System, sync::Arc};
 
 use database::*;
 use reactive::*;

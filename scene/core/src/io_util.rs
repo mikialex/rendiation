@@ -2,6 +2,7 @@ use crate::*;
 
 pub struct Scene3dWriter {
   pub scene: EntityHandle<SceneEntity>,
+  pub camera_writer: EntityWriter<SceneCameraEntity>,
   pub mesh_writer: AttributeMeshEntityFromAttributeMeshDataWriter,
   pub tex_writer: EntityWriter<SceneTexture2dEntity>,
   pub sampler_writer: EntityWriter<SceneSamplerEntity>,
@@ -60,6 +61,7 @@ impl Scene3dWriter {
   pub fn from_global(scene: EntityHandle<SceneEntity>) -> Self {
     Self {
       scene,
+      camera_writer: global_entity_of().entity_writer(),
       mesh_writer: AttributesMesh::create_writer(),
       tex_writer: global_entity_of().entity_writer(),
       sampler_writer: global_entity_of().entity_writer(),

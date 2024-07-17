@@ -105,6 +105,21 @@ impl<E: EntitySemantic> EntityWriter<E> {
     self
   }
 
+  pub fn mutate_component_data<C>(
+    &mut self,
+    idx: EntityHandle<C::Entity>,
+    writer: impl FnOnce(&mut C::Data),
+  ) -> &mut Self
+  where
+    C: ComponentSemantic<Entity = E>,
+  {
+    if let Some(mut data) = self.read_component_data::<C>(idx) {
+      writer(&mut data);
+      self.write_component_data::<C>(idx, data);
+    }
+    self
+  }
+
   pub fn write_component_data<C>(
     &mut self,
     idx: EntityHandle<C::Entity>,

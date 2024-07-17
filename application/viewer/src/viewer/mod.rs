@@ -24,24 +24,20 @@ pub struct Viewer {
 
 impl Widget for Viewer {
   fn update_state(&mut self, cx: &mut DynCx) {
-    // todo, update camera view size
-    access_cx!(cx, platform, PlatformEventInput);
-    if platform.state_delta.size_change {
-      self.rendering.resize_view()
-    }
     let waker = futures::task::noop_waker_ref();
     let mut ctx = Context::from_waker(waker);
     let mut derived = self.derives.poll_update(&mut ctx);
 
     cx.scoped_cx(&mut derived, |cx| {
       cx.scoped_cx(&mut self.scene, |cx| {
-        access_cx!(cx, viewer_scene, Viewer3dSceneCtx);
-        let mut writer = Scene3dWriter::from_global(viewer_scene.scene);
-        cx.scoped_cx(&mut writer, |cx| {
-          cx.scoped_cx(&mut self.rendering, |cx| {
-            self.content.update_state(cx);
-          });
+        // access_cx!(cx, viewer_scene, Viewer3dSceneCtx);
+        // todo, scene3d reader
+        // let mut writer = Scene3dWriter::from_global(viewer_scene.scene);
+        // cx.scoped_cx(&mut writer, |cx| {
+        cx.scoped_cx(&mut self.rendering, |cx| {
+          self.content.update_state(cx);
         });
+        // });
       });
     });
   }
@@ -51,9 +47,25 @@ impl Widget for Viewer {
       crate::egui_db::egui_db_gui(egui_cx, &mut self.egui_db_inspector);
     });
 
+    access_cx!(cx, platform, PlatformEventInput);
+    let size = platform.window_state.size;
+    let size_changed = platform.state_delta.size_change;
+    if size_changed {
+      self.rendering.resize_view()
+    }
+
     cx.scoped_cx(&mut self.scene, |cx| {
       access_cx!(cx, viewer_scene, Viewer3dSceneCtx);
       let mut writer = Scene3dWriter::from_global(viewer_scene.scene);
+
+      if size_changed {
+        writer
+          .camera_writer
+          .mutate_component_data::<SceneCameraPerspective>(viewer_scene.main_camera, |p| {
+            p.as_mut().map(|p| p.resize(size));
+          });
+      }
+
       cx.scoped_cx(&mut writer, |cx| {
         cx.scoped_cx(&mut self.rendering, |cx| {
           self.content.update_view(cx);
@@ -86,7 +98,7 @@ impl Viewer {
     let camera_node = global_entity_of::<SceneNodeEntity>()
       .entity_writer()
       .with_component_value_writer::<SceneNodeLocalMatrixComponent>(Mat4::lookat(
-        Vec3::new(10., 10., 10.),
+        Vec3::new(3., 3., 3.),
         Vec3::new(0., 0., 0.),
         Vec3::new(0., 1., 0.),
       ))
