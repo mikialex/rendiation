@@ -2,6 +2,7 @@ use crate::*;
 
 pub struct Scene3dWriter {
   pub scene: EntityHandle<SceneEntity>,
+  pub scene_writer: EntityWriter<SceneEntity>,
   pub camera_writer: EntityWriter<SceneCameraEntity>,
   pub mesh_writer: AttributeMeshEntityFromAttributeMeshDataWriter,
   pub tex_writer: EntityWriter<SceneTexture2dEntity>,
@@ -15,6 +16,12 @@ pub struct Scene3dWriter {
 }
 
 impl Scene3dWriter {
+  pub fn set_solid_background(&mut self, solid: Vec3<f32>) {
+    self
+      .scene_writer
+      .write_component_data::<SceneSolidBackground>(self.scene, Some(solid));
+  }
+
   pub fn create_root_child(&mut self) -> EntityHandle<SceneNodeEntity> {
     self.node_writer.new_entity()
   }
@@ -61,6 +68,7 @@ impl Scene3dWriter {
   pub fn from_global(scene: EntityHandle<SceneEntity>) -> Self {
     Self {
       scene,
+      scene_writer: global_entity_of().entity_writer(),
       camera_writer: global_entity_of().entity_writer(),
       mesh_writer: AttributesMesh::create_writer(),
       tex_writer: global_entity_of().entity_writer(),

@@ -74,6 +74,7 @@ impl RenderImplProvider<Box<dyn SceneRenderer>> for GLESRenderSystem {
         .iter()
         .map(|imp| imp.create_impl(res))
         .collect(),
+      background: global_entity_component_of::<SceneSolidBackground>().read(),
       model_lookup: res
         .take_multi_reactive_collection_updated(self.model_lookup)
         .unwrap(),
@@ -91,6 +92,7 @@ struct GLESSceneRenderer {
   texture_system: GPUTextureBindingSystem,
   camera: Box<dyn GLESCameraRenderImpl>,
   scene_model_renderer: Vec<Box<dyn SceneModelRenderer>>,
+  background: ComponentReadView<SceneSolidBackground>,
   model_lookup:
     Box<dyn DynVirtualMultiCollection<EntityHandle<SceneEntity>, EntityHandle<SceneModelEntity>>>,
 }
@@ -127,9 +129,17 @@ impl SceneRenderer for GLESSceneRenderer {
   }
   fn init_clear(
     &self,
-    _scene: EntityHandle<SceneEntity>, // todo background
+    scene: EntityHandle<SceneEntity>,
   ) -> (Operations<rendiation_webgpu::Color>, Operations<f32>) {
-    (clear(rendiation_webgpu::Color::WHITE), clear(1.))
+    let color = self.background.get_value(scene).unwrap();
+    let color = color.unwrap_or(Vec3::splat(0.9));
+    let color = rendiation_webgpu::Color {
+      r: color.x as f64,
+      g: color.y as f64,
+      b: color.z as f64,
+      a: 1.,
+    };
+    (clear(color), clear(1.))
   }
 
   fn get_scene_model_cx(&self) -> &GPUTextureBindingSystem {

@@ -57,14 +57,7 @@ pub fn load_default_scene(writer: &mut Scene3dWriter, viewer_scene: &Viewer3dSce
     .texture_sample_pair_writer()
     .write_tex_with_default_sampler(texture);
 
-  //   let texture = TextureWithSamplingData {
-  //     texture: load_tex(path).into_ptr(),
-  //     sampler: TextureSampler::tri_linear_repeat().into_ptr(),
-  //   };
-
-  //   scene.set_background(Some(SceneBackGround::Solid(SolidBackground {
-  //     intensity: Vec3::new(0.1, 0.1, 0.1),
-  //   })));
+  writer.set_solid_background(Vec3::new(0.1, 0.1, 0.1));
   //   // scene.set_background(Some(SceneBackGround::Env(EnvMapBackground {
   //   //   texture: load_img_cube(),
   //   // })));
