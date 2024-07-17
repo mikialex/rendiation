@@ -95,8 +95,8 @@ impl GLESModelShapeRenderImpl for AttributeMeshDefaultRenderImpl {
     let index_info = count.map(|count| {
       let stride = u64::from(index_buffer.view_byte_size()) / count as u64;
       let fmt = match stride {
-        8 => AttributeIndexFormat::Uint32,
-        4 => AttributeIndexFormat::Uint16,
+        4 => AttributeIndexFormat::Uint32,
+        2 => AttributeIndexFormat::Uint16,
         _ => unreachable!("invalid index format"),
       };
       (fmt, count)
