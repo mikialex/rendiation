@@ -9,13 +9,7 @@ use rendiation_texture_core::Size;
 pub struct SceneRayQuery {
   pub world_ray: Ray3,
   pub conf: MeshBufferIntersectConfig,
-  pub node_world: Box<dyn DynVirtualCollection<u32, Mat4<f32>>>,
-  pub node_visible: Box<dyn DynVirtualCollection<u32, bool>>,
-  pub model_lookup:
-    Box<dyn DynVirtualMultiCollection<EntityHandle<SceneEntity>, EntityHandle<SceneModelEntity>>>,
   pub camera_view_size: Size,
-
-  pub scene_model_picker: Vec<Box<dyn SceneModelPicker>>,
 }
 
 pub trait SceneModelPicker {
@@ -43,18 +37,22 @@ impl SceneModelPicker for Vec<Box<dyn SceneModelPicker>> {
 
 pub struct SceneModelPickerImpl {
   pub scene_model_node: ForeignKeyReadView<SceneModelRefNode>,
-  pub model_access_std_model: Box<
-    dyn DynVirtualCollection<EntityHandle<SceneModelEntity>, EntityHandle<StandardModelEntity>>,
+  pub model_access_std_model: ForeignKeyReadView<SceneModelStdModelRenderPayload>,
+  pub std_model_access_mesh: ForeignKeyReadView<StandardModelRefAttributeMesh>,
+  pub mesh_vertex_refs: Box<
+    dyn DynVirtualMultiCollection<
+      EntityHandle<AttributeMeshEntity>,
+      EntityHandle<AttributeMeshVertexBufferRelation>,
+    >,
   >,
-  pub std_model_access_mesh: Box<
-    dyn DynVirtualCollection<EntityHandle<StandardModelEntity>, EntityHandle<AttributeMeshEntity>>,
-  >,
-  pub mesh_position_attribute:
-    Box<dyn DynVirtualCollection<EntityHandle<AttributeMeshEntity>, EntityHandle<BufferEntity>>>,
-  pub mesh_index_attribute:
-    Box<dyn DynVirtualCollection<EntityHandle<AttributeMeshEntity>, EntityHandle<BufferEntity>>>,
+  pub vertex_buffer_ref: ForeignKeyReadView<SceneBufferViewBufferId<AttributeVertexRef>>,
+  pub semantic: ComponentReadView<AttributeMeshVertexBufferSemantic>,
+  pub mesh_index_attribute: ForeignKeyReadView<SceneBufferViewBufferId<AttributeIndexRef>>,
   pub mesh_topology: ComponentReadView<AttributeMeshTopology>,
   pub buffer: ComponentReadView<BufferEntityData>,
+
+  pub node_world: Box<dyn DynVirtualCollection<EntityHandle<SceneNodeEntity>, Mat4<f32>>>,
+  pub node_net_visible: Box<dyn DynVirtualCollection<EntityHandle<SceneNodeEntity>, bool>>,
 }
 
 impl SceneModelPicker for SceneModelPickerImpl {
@@ -63,6 +61,11 @@ impl SceneModelPicker for SceneModelPickerImpl {
     idx: EntityHandle<SceneModelEntity>,
     ctx: &SceneRayQuery,
   ) -> Option<MeshBufferHitPoint> {
+    let node = self.scene_model_node.get(idx)?;
+    if !self.node_net_visible.access(&node)? {
+      return None;
+    }
+
     struct PositionBuffer<'a> {
       buffer: &'a [Vec3<f32>],
     }
@@ -87,29 +90,34 @@ impl SceneModelPicker for SceneModelPickerImpl {
       }
     }
 
-    let model = self.model_access_std_model.access(&idx)?;
-    let mesh = self.std_model_access_mesh.access(&model)?;
+    let model = self.model_access_std_model.get(idx)?;
+    let mesh = self.std_model_access_mesh.get(model)?;
 
     let mode = self.mesh_topology.get_value(mesh)?;
 
-    let position = self.mesh_position_attribute.access(&mesh)?;
-    let position = self.buffer.get(position)?;
+    let mut position: Option<&ExternalRefPtr<Vec<u8>>> = None;
+    for att in self.mesh_vertex_refs.access_multi(&mesh)? {
+      if let AttributeSemantic::Positions = self.semantic.get_value(att).unwrap() {
+        let p = self.vertex_buffer_ref.get(att).unwrap();
+        position = Some(self.buffer.get(p).unwrap());
+      }
+    }
+    let position = position.unwrap();
     let position = PositionBuffer {
       buffer: bytemuck::cast_slice(position.as_slice()),
     };
     let mut count = position.buffer.len();
 
-    let index = self.mesh_position_attribute.access(&mesh).and_then(|v| {
+    let index = self.mesh_index_attribute.get(mesh).and_then(|v| {
       let buffer = self.buffer.get(v)?;
-      count = buffer.len() / 4;
+      count = buffer.len() / 4; // todo u16 index support
       IndexBuffer {
         buffer: bytemuck::cast_slice(buffer.as_slice()),
       }
       .into()
     });
 
-    let node = self.scene_model_node.get(idx)?;
-    let mat = ctx.node_world.access(&node.alloc_index())?;
+    let mat = self.node_world.access(&node)?;
     let local_ray = ctx.world_ray.apply_matrix_into(mat.inverse_or_identity());
 
     AttributeMeshAbstractMeshReadView {
@@ -121,18 +129,5 @@ impl SceneModelPicker for SceneModelPickerImpl {
     }
     .intersect_nearest(local_ray, &ctx.conf, MeshGroup { start: 0, count })
     .0
-  }
-}
-
-impl SceneRayQuery {
-  pub fn query(&self, scene: EntityHandle<SceneEntity>) -> OptionalNearest<MeshBufferHitPoint> {
-    let mut nearest = OptionalNearest::none();
-    for idx in self.model_lookup.access_multi_value(&scene) {
-      if let Some(hit) = self.scene_model_picker.query(idx, self) {
-        nearest.refresh(hit);
-      }
-    }
-
-    nearest
   }
 }

@@ -23,7 +23,7 @@ pub struct UIWidgetModel {
 
 impl Widget for UIWidgetModel {
   fn update_view(&mut self, cx: &mut DynCx) {
-    access_cx_mut!(cx, interaction_cx, InteractionState3d);
+    access_cx_mut!(cx, interaction_cx, Interaction3dCtx);
     if let Some(mouse_interactive_previous) = self.mouse_interactive_previous.take() {
       if mouse_interactive_previous {
         interaction_cx.intersection_group.remove(&self.model);
@@ -34,7 +34,7 @@ impl Widget for UIWidgetModel {
   }
   fn update_state(&mut self, cx: &mut DynCx) {
     access_cx!(cx, platform_event, PlatformEventInput);
-    access_cx!(cx, interaction_cx, InteractionState3d);
+    access_cx!(cx, interaction_cx, Interaction3dCtx);
 
     if self.mouse_interactive && self.has_any_mouse_event_handler() {
       let is_pressing = platform_event.state_delta.is_left_mouse_pressing();

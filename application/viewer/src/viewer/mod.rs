@@ -137,7 +137,11 @@ impl Viewer {
 
     let derives = Viewer3dSceneDeriveSource {
       world_mat: Box::new(scene_node_derive_world_mat()),
+      node_net_visible: Box::new(scene_node_derive_visible()),
       camera_transforms: Box::new(camera_transforms()),
+      mesh_vertex_ref: Box::new(
+        global_rev_ref().watch_inv_ref::<AttributeMeshVertexBufferRelationRefAttributeMesh>(),
+      ),
     };
 
     Self {
@@ -203,17 +207,28 @@ pub struct Viewer3dSceneCtx {
 
 pub struct Viewer3dSceneDeriveSource {
   pub world_mat: Box<dyn DynReactiveCollection<EntityHandle<SceneNodeEntity>, Mat4<f32>>>,
+  pub node_net_visible: Box<dyn DynReactiveCollection<EntityHandle<SceneNodeEntity>, bool>>,
   pub camera_transforms:
     Box<dyn DynReactiveCollection<EntityHandle<SceneCameraEntity>, CameraTransform>>,
+  pub mesh_vertex_ref: Box<
+    dyn DynReactiveOneToManyRelation<
+      EntityHandle<AttributeMeshEntity>,
+      EntityHandle<AttributeMeshVertexBufferRelation>,
+    >,
+  >,
 }
 
 impl Viewer3dSceneDeriveSource {
   fn poll_update(&self, cx: &mut Context) -> Viewer3dSceneDerive {
     let (_, world_mat) = self.world_mat.poll_changes(cx);
+    let (_, node_net_visible) = self.node_net_visible.poll_changes(cx);
     let (_, camera_transforms) = self.camera_transforms.poll_changes(cx);
+    let (_, _, mesh_vertex_ref) = self.mesh_vertex_ref.poll_changes_with_inv_dyn(cx);
     Viewer3dSceneDerive {
       world_mat,
       camera_transforms,
+      mesh_vertex_ref,
+      node_net_visible,
     }
   }
 }
@@ -221,6 +236,13 @@ impl Viewer3dSceneDeriveSource {
 /// used in render & scene update
 pub struct Viewer3dSceneDerive {
   pub world_mat: Box<dyn DynVirtualCollection<EntityHandle<SceneNodeEntity>, Mat4<f32>>>,
+  pub node_net_visible: Box<dyn DynVirtualCollection<EntityHandle<SceneNodeEntity>, bool>>,
   pub camera_transforms:
     Box<dyn DynVirtualCollection<EntityHandle<SceneCameraEntity>, CameraTransform>>,
+  pub mesh_vertex_ref: Box<
+    dyn DynVirtualMultiCollection<
+      EntityHandle<AttributeMeshEntity>,
+      EntityHandle<AttributeMeshVertexBufferRelation>,
+    >,
+  >,
 }

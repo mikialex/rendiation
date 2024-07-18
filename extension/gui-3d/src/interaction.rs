@@ -1,6 +1,6 @@
 use crate::*;
 
-pub struct InteractionState3d {
+pub struct Interaction3dCtx {
   pub picker: Box<dyn Picker3d>,
   pub mouse_world_ray: Ray3,
   pub intersection_group: FastHashSet<EntityHandle<SceneModelEntity>>,
