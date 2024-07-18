@@ -1,15 +1,19 @@
 use database::global_entity_component_of;
 use rendiation_gui_3d::*;
+use rendiation_mesh_core::MeshBufferIntersectConfig;
 use rendiation_scene_geometry_query::*;
 
 use crate::*;
 
 pub struct ViewerPicker {
+  current_mouse_ray_in_world: Ray3,
+  conf: MeshBufferIntersectConfig,
+  camera_view_size: Size,
   scene_model_picker: SceneModelPickerImpl,
 }
 
 impl ViewerPicker {
-  pub fn new(dep: &Viewer3dSceneDerive) -> Self {
+  pub fn new(dep: &Viewer3dSceneDerive, input: &PlatformEventInput) -> Self {
     let scene_model_picker = SceneModelPickerImpl {
       scene_model_node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
       model_access_std_model: global_entity_component_of::<SceneModelStdModelRenderPayload>()
@@ -29,7 +33,19 @@ impl ViewerPicker {
       node_world: dep.world_mat.clone(),
       node_net_visible: dep.node_net_visible.clone(),
     };
-    ViewerPicker { scene_model_picker }
+
+    let mouse_position = &input.window_state.mouse_position;
+    let window_size = &input.window_state.size;
+
+    let normalized_position =
+      compute_normalized_position_in_canvas_coordinate(*mouse_position, *window_size);
+
+    ViewerPicker {
+      scene_model_picker,
+      current_mouse_ray_in_world: todo!(),
+      conf: Default::default(),
+      camera_view_size: Size::from_f32_pair_min_one(input.window_state.size),
+    }
   }
 }
 
@@ -39,37 +55,32 @@ impl Picker3d for ViewerPicker {
     model: EntityHandle<SceneModelEntity>,
     world_ray: Ray3,
   ) -> Option<Vec3<f32>> {
-    self.scene_model_picker.query(
-      model,
-      &SceneRayQuery {
-        world_ray,
-        conf: todo!(),
-        camera_view_size: todo!(),
-      },
-    );
-    todo!()
+    self
+      .scene_model_picker
+      .query(
+        model,
+        &SceneRayQuery {
+          world_ray,
+          conf: self.conf.clone(),
+          camera_view_size: self.camera_view_size,
+        },
+      )
+      .map(|v| v.hit.position)
   }
 }
 
-struct Interaction3dCtxProvider {}
+pub fn compute_picking_state(picker: &ViewerPicker, input: PlatformEventInput) -> Interaction3dCtx {
+  let mouse_position = &input.window_state.mouse_position;
+  let window_size = &input.window_state.size;
 
-impl Interaction3dCtxProvider {
-  pub fn compute_picking_state(
-    picker: &ViewerPicker,
-    input: PlatformEventInput,
-  ) -> Interaction3dCtx {
-    let mouse_position = &input.window_state.mouse_position;
-    let window_size = &input.window_state.size;
+  let normalized_position =
+    compute_normalized_position_in_canvas_coordinate(*mouse_position, *window_size);
 
-    let normalized_position =
-      compute_normalized_position_in_canvas_coordinate(*mouse_position, *window_size);
-
-    Interaction3dCtx {
-      picker: todo!(),
-      mouse_world_ray: todo!(),
-      intersection_group: todo!(),
-      world_ray_intersected_nearest: todo!(),
-    }
+  Interaction3dCtx {
+    picker: todo!(),
+    mouse_world_ray: todo!(),
+    intersection_group: todo!(),
+    world_ray_intersected_nearest: todo!(),
   }
 }
 

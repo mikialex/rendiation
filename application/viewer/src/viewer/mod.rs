@@ -31,6 +31,7 @@ impl Widget for Viewer {
 
     cx.scoped_cx(&mut derived, |cx| {
       cx.scoped_cx(&mut self.scene, |cx| {
+        access_cx!(cx, input, PlatformEventInput);
         access_cx!(cx, derived, Viewer3dSceneDerive);
         access_cx!(cx, viewer_scene, Viewer3dSceneCtx);
         self.rendering.update_next_render_camera_info(
@@ -41,7 +42,7 @@ impl Widget for Viewer {
             .view_projection_inv,
         );
 
-        let picker = ViewerPicker::new(derived);
+        let picker = ViewerPicker::new(derived, input);
 
         // todo, scene3d reader
         // let mut writer = Scene3dWriter::from_global(viewer_scene.scene);

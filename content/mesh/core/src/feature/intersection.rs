@@ -137,6 +137,7 @@ pub enum ToleranceType {
   ScreenSpace,
 }
 
+#[derive(Copy, Clone)]
 pub struct IntersectTolerance {
   pub value: f32,
   pub ty: ToleranceType,
@@ -147,6 +148,7 @@ impl IntersectTolerance {
   }
 }
 
+#[derive(Clone)]
 pub struct MeshBufferIntersectConfig {
   pub line_tolerance: IntersectTolerance,
   pub point_tolerance: IntersectTolerance,

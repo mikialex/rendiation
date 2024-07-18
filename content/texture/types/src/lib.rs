@@ -46,6 +46,11 @@ impl Size {
     let height = NonZeroUsize::new(size.1 as usize).unwrap_or(NonZeroUsize::new(1).unwrap());
     Size { width, height }
   }
+  #[allow(clippy::or_fun_call)]
+  pub fn from_f32_pair_min_one(size: (f32, f32)) -> Self {
+    let size = (size.0 as u32, size.1 as u32);
+    Self::from_u32_pair_min_one(size)
+  }
 
   #[allow(clippy::or_fun_call)]
   pub fn from_usize_pair_min_one(size: (usize, usize)) -> Self {
