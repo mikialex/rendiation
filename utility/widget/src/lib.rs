@@ -117,23 +117,38 @@ impl<T: Widget, F: FnMut(&mut DynCx)> Widget for StateUpdate<T, F> {
 
 pub struct StateCxCreateOnce<T, F> {
   inner: Option<T>,
+  create_at_state: bool,
+  create_at_view: bool,
   f: F,
 }
 
 impl<T, F: Fn(&mut DynCx) -> T> StateCxCreateOnce<T, F> {
   pub fn new(f: F) -> Self {
-    Self { inner: None, f }
+    Self {
+      inner: None,
+      f,
+      create_at_state: false,
+      create_at_view: true,
+    }
   }
 }
 
 impl<T: Widget, F: Fn(&mut DynCx) -> T> Widget for StateCxCreateOnce<T, F> {
   fn update_state(&mut self, cx: &mut DynCx) {
-    let inner = self.inner.get_or_insert_with(|| (self.f)(cx));
-    inner.update_state(cx)
+    if self.create_at_state {
+      self.inner.get_or_insert_with(|| (self.f)(cx));
+    }
+    if let Some(inner) = &mut self.inner {
+      inner.update_state(cx)
+    }
   }
   fn update_view(&mut self, cx: &mut DynCx) {
-    let inner = self.inner.get_or_insert_with(|| (self.f)(cx));
-    inner.update_view(cx)
+    if self.create_at_view {
+      self.inner.get_or_insert_with(|| (self.f)(cx));
+    }
+    if let Some(inner) = &mut self.inner {
+      inner.update_view(cx)
+    }
   }
   fn clean_up(&mut self, cx: &mut DynCx) {
     if let Some(inner) = &mut self.inner {

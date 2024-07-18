@@ -8,6 +8,31 @@ pub struct ViewerPicker {
   scene_model_picker: SceneModelPickerImpl,
 }
 
+impl ViewerPicker {
+  pub fn new(dep: &Viewer3dSceneDerive) -> Self {
+    let scene_model_picker = SceneModelPickerImpl {
+      scene_model_node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
+      model_access_std_model: global_entity_component_of::<SceneModelStdModelRenderPayload>()
+        .read_foreign_key(),
+      std_model_access_mesh: global_entity_component_of::<StandardModelRefAttributeMesh>()
+        .read_foreign_key(),
+      mesh_vertex_refs: dep.mesh_vertex_ref.clone(),
+      semantic: global_entity_component_of::<AttributeMeshVertexBufferSemantic>().read(),
+      mesh_index_attribute:
+        global_entity_component_of::<SceneBufferViewBufferId<AttributeIndexRef>>()
+          .read_foreign_key(),
+      mesh_topology: global_entity_component_of::<AttributeMeshTopology>().read(),
+      buffer: global_entity_component_of::<BufferEntityData>().read(),
+      vertex_buffer_ref: global_entity_component_of::<SceneBufferViewBufferId<AttributeVertexRef>>(
+      )
+      .read_foreign_key(),
+      node_world: dep.world_mat.clone(),
+      node_net_visible: dep.node_net_visible.clone(),
+    };
+    ViewerPicker { scene_model_picker }
+  }
+}
+
 impl Picker3d for ViewerPicker {
   fn pick_model_nearest(
     &self,
@@ -26,33 +51,11 @@ impl Picker3d for ViewerPicker {
   }
 }
 
-pub fn create_scene_model_picker(dep: &Viewer3dSceneDerive) -> ViewerPicker {
-  let scene_model_picker = SceneModelPickerImpl {
-    scene_model_node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
-    model_access_std_model: global_entity_component_of::<SceneModelStdModelRenderPayload>()
-      .read_foreign_key(),
-    std_model_access_mesh: global_entity_component_of::<StandardModelRefAttributeMesh>()
-      .read_foreign_key(),
-    mesh_vertex_refs: dep.mesh_vertex_ref.clone(),
-    semantic: global_entity_component_of::<AttributeMeshVertexBufferSemantic>().read(),
-    mesh_index_attribute: global_entity_component_of::<SceneBufferViewBufferId<AttributeIndexRef>>(
-    )
-    .read_foreign_key(),
-    mesh_topology: global_entity_component_of::<AttributeMeshTopology>().read(),
-    buffer: global_entity_component_of::<BufferEntityData>().read(),
-    vertex_buffer_ref: global_entity_component_of::<SceneBufferViewBufferId<AttributeVertexRef>>()
-      .read_foreign_key(),
-    node_world: dep.world_mat.clone(),
-    node_net_visible: dep.node_net_visible.clone(),
-  };
-  ViewerPicker { scene_model_picker }
-}
-
 struct Interaction3dCtxProvider {}
 
 impl Interaction3dCtxProvider {
   pub fn compute_picking_state(
-    picker: &SceneModelPickerImpl,
+    picker: &ViewerPicker,
     input: PlatformEventInput,
   ) -> Interaction3dCtx {
     let mouse_position = &input.window_state.mouse_position;

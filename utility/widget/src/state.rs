@@ -112,10 +112,24 @@ impl DynCx {
   }
 
   pub unsafe fn get_cx_ref<T: 'static>(&self) -> &T {
-    &*self.get_cx_ptr::<T>().unwrap()
+    if let Some(ptr) = self.get_cx_ptr::<T>() {
+      &*ptr
+    } else {
+      panic!(
+        "dyn cx access failed, {} typed cx not exist",
+        std::any::type_name::<T>()
+      )
+    }
   }
   pub unsafe fn get_cx_mut<T: 'static>(&mut self) -> &mut T {
-    &mut *self.get_cx_ptr::<T>().unwrap()
+    if let Some(ptr) = self.get_cx_ptr::<T>() {
+      &mut *ptr
+    } else {
+      panic!(
+        "dyn cx access failed, {} typed cx not exist",
+        std::any::type_name::<T>()
+      )
+    }
   }
 
   pub fn get_cx_ptr<T: 'static>(&self) -> Option<*mut T> {

@@ -6,6 +6,7 @@ use default_scene::load_default_scene;
 pub use feature::*;
 
 mod terminal;
+use pick::*;
 pub use terminal::*;
 
 mod rendering;
@@ -39,6 +40,8 @@ impl Widget for Viewer {
             .unwrap()
             .view_projection_inv,
         );
+
+        let picker = ViewerPicker::new(derived);
 
         // todo, scene3d reader
         // let mut writer = Scene3dWriter::from_global(viewer_scene.scene);
