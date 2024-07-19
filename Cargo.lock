@@ -3607,6 +3607,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-ray-tracing"
+version = "0.1.0"
+dependencies = [
+ "derivative",
+ "dyn-clone",
+ "fast-hash-collection",
+ "futures",
+ "parking_lot",
+ "pollster",
+ "rendiation-algebra",
+ "rendiation-shader-api",
+ "rendiation-shader-derives",
+ "rendiation-webgpu",
+]
+
+[[package]]
 name = "rendiation-scene-core"
 version = "0.1.0"
 dependencies = [

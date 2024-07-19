@@ -138,8 +138,13 @@ pub struct MeshWorldObjectTransform {
   pub world_to_object: Node<Mat4<f32>>,
 }
 
+pub trait RayDispatchShaderStageCtx {
+  fn launch_id(&self) -> Node<Vec3<u32>>;
+  fn launch_size(&self) -> Node<Vec3<u32>>;
+}
+
 /// mainly used in missing stage
-pub trait RayBaseShaderStageCtx {
+pub trait RayBaseShaderStageCtx: RayDispatchShaderStageCtx {
   fn world_ray(&self) -> ShaderRay;
   // in world semantic
   fn ray_range(&self) -> ShaderRayRange;
