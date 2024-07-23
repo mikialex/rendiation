@@ -5,6 +5,20 @@ pub use ctx::*;
 
 use crate::*;
 
+pub trait ShaderAbstractLoadStore<T> {
+  fn abstract_load(&self) -> T;
+  fn abstract_store(&self, payload: T);
+}
+
+impl<T> ShaderAbstractLoadStore<Node<T>> for LocalVarNode<T> {
+  fn abstract_load(&self) -> Node<T> {
+    self.load()
+  }
+  fn abstract_store(&self, payload: Node<T>) {
+    self.store(payload)
+  }
+}
+
 #[derive(Clone, Copy)]
 pub struct DevicePoll<T> {
   pub is_ready: Node<bool>,
@@ -60,29 +74,32 @@ pub trait ShaderFuture {
 
 /// impl native rtx support, the main difference between the future based impl
 /// is the direct support of recursion call in shader
-pub trait RayTracingShaderBuilderWithNativeRayTracingSupport {
+pub trait NativeRayTracingShaderBuilder {
   type Ctx;
   fn build(&self, ctx: &mut Self::Ctx);
 }
 
 pub trait ShaderRayGenLogic:
   ShaderFuture<Ctx = RayGenShaderCtx, Output = ()>
-  + RayTracingShaderBuilderWithNativeRayTracingSupport<Ctx = RayGenShaderCtx>
+  + NativeRayTracingShaderBuilder<Ctx = RayGenShaderCtx>
 {
 }
+
+pub trait BoxShaderRayGenLogic {}
 
 pub trait ShaderRayClosestHitLogic:
   ShaderFuture<Ctx = RayClosestHitCtx, Output = ()>
-  + RayTracingShaderBuilderWithNativeRayTracingSupport<Ctx = RayClosestHitCtx>
+  + NativeRayTracingShaderBuilder<Ctx = RayClosestHitCtx>
 {
 }
+pub trait BoxShaderRayClosestHitLogic {}
 
 pub struct GPURaytracingPipelineBuilder {
   pub geometry_provider: Box<dyn GPUAccelerationStructureProvider>,
-  // ray_gen_shader: Box<dyn ShaderRayGenLogic>,
+  ray_gen_shader: Box<dyn BoxShaderRayGenLogic>,
   // miss_shader
   // intersection_shaders
-  // closest_hit_shaders
+  closest_hit_shaders: Vec<Box<dyn BoxShaderRayClosestHitLogic>>,
   // any_hit_shaders
 }
 pub struct GPURaytracingPipeline {

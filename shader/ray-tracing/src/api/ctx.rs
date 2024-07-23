@@ -6,7 +6,7 @@ pub struct RayGenShaderCtx {
 }
 
 impl RayGenShaderCtx {
-  pub fn call_trace_ray(&mut self) {
+  pub fn call_trace_ray(&mut self, trace: ShaderRayTraceCall) {
     //
   }
 }

@@ -55,7 +55,15 @@ pub struct ShaderRayTraceCall {
   pub payload: Node<i32>,
 }
 
-pub struct ShaderRecord;
+pub struct ShaderRecord {
+  shader: u32,
+}
+
+pub struct HitGroupShaderRecord {
+  closet_hit: u32,
+  any_hit: Option<u32>,
+  intersection: Option<u32>,
+}
 
 pub struct ShaderBindingTable {
   pub ray_generation: Vec<ShaderRecord>,

@@ -2,10 +2,9 @@ use crate::*;
 
 pub struct RaytracingFutureFromDeclaredPayloadInput<T>(T);
 
-impl<T> RayTracingShaderBuilderWithNativeRayTracingSupport
-  for RaytracingFutureFromDeclaredPayloadInput<T>
+impl<T> NativeRayTracingShaderBuilder for RaytracingFutureFromDeclaredPayloadInput<T>
 where
-  T: RayTracingShaderBuilderWithNativeRayTracingSupport,
+  T: NativeRayTracingShaderBuilder,
 {
   type Ctx = T::Ctx;
 
@@ -64,9 +63,9 @@ where
   }
 }
 
-impl<F, T> RayTracingShaderBuilderWithNativeRayTracingSupport for RaytracingFutureTraceRay<F, T>
+impl<F, T> NativeRayTracingShaderBuilder for RaytracingFutureTraceRay<F, T>
 where
-  T: RayTracingShaderBuilderWithNativeRayTracingSupport,
+  T: NativeRayTracingShaderBuilder,
   F: FnOnce() -> (Node<bool>, ShaderRayTraceCall) + Copy,
 {
   type Ctx = T::Ctx;
@@ -86,9 +85,9 @@ pub struct ShaderFutureThen<F, T> {
   then: T,
 }
 
-impl<F, T> RayTracingShaderBuilderWithNativeRayTracingSupport for ShaderFutureThen<F, T>
+impl<F, T> NativeRayTracingShaderBuilder for ShaderFutureThen<F, T>
 where
-  F: RayTracingShaderBuilderWithNativeRayTracingSupport,
+  F: NativeRayTracingShaderBuilder,
   T: Fn(&F::Ctx) + Copy,
 {
   type Ctx = F::Ctx;
