@@ -14,7 +14,15 @@ impl GPURaytracingPipelineProvider for RayTracingMegaKernelRuntime {
         // let ray = state. init_ray;
         loop_by(|_| {
           // if has ray
-          let r = desc.geometry_provider.traverse(&|| {}, &|_| {});
+          let r = desc.geometry_provider.traverse(
+            &|| {
+              //
+            },
+            &|_| {
+              //
+              todo!()
+            },
+          );
           //
 
           if_by(r.is_some, || {
@@ -57,7 +65,7 @@ impl<T> ShaderFuture for StackedStateMachine<T> {
     todo!()
   }
 
-  fn poll(&self, state: &Self::State, ctx: &mut Self::Ctx) -> DeviceOption<Self::Output> {
+  fn poll(&self, state: &Self::State, ctx: &mut Self::Ctx) -> DevicePoll<Self::Output> {
     // ctx.get_payload_input::<T>();
     todo!()
   }

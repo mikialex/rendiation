@@ -9,7 +9,7 @@ where
 {
   type Ctx = T::Ctx;
 
-  fn build(&self, ctx: &mut Self::Ctx) -> Self {
+  fn build(&self, ctx: &mut Self::Ctx) {
     self.0.build(ctx);
     todo!()
   }
@@ -23,7 +23,7 @@ impl<T: ShaderFuture> ShaderFuture for RaytracingFutureFromDeclaredPayloadInput<
     self.0.reconstruct_state(ctx)
   }
 
-  fn poll(&self, state: &Self::State, ctx: &mut Self::Ctx) -> DeviceOption<Self::Output> {
+  fn poll(&self, state: &Self::State, ctx: &mut Self::Ctx) -> DevicePoll<Self::Output> {
     // ctx.get_payload_input::<T>();
     todo!()
   }
@@ -39,19 +39,28 @@ where
   T: ShaderRayGenLogic,
   F: FnOnce() -> (Node<bool>, ShaderRayTraceCall) + Copy,
 {
-  type State = T::State;
+  type State = (T::State, LocalVarNode<bool>);
   type Output = ShaderRayTraceCall;
   type Ctx = RayGenShaderCtx;
-  fn poll(&self, state: &Self::State, ctx: &mut Self::Ctx) -> DeviceOption<Self::Output> {
-    let r = self.future.poll(state, ctx);
-    // let ray = r.select_branched(|| (self.call)(), || todo!());
+  fn poll(&self, state: &Self::State, ctx: &mut Self::Ctx) -> DevicePoll<Self::Output> {
+    let (parent_state, self_state) = state;
+    let r = self.future.poll(parent_state, ctx);
+
+    // if_by(r.is_ready.and(self_state.load()), || {
+    //   (self.then)(ctx);
+    //   self_state.store(val(true));
+    // });
+    // r
 
     // (r, ray)
     todo!()
   }
 
   fn reconstruct_state(&self, ctx: &mut Self::Ctx) -> Self::State {
-    self.future.reconstruct_state(ctx)
+    (
+      self.future.reconstruct_state(ctx),
+      val(false).make_local_var(),
+    )
   }
 }
 
@@ -62,14 +71,13 @@ where
 {
   type Ctx = T::Ctx;
 
-  fn build(&self, ctx: &mut Self::Ctx) -> Self {
+  fn build(&self, ctx: &mut Self::Ctx) {
     self.future.build(ctx);
 
     let (r, c) = (self.call)();
     if_by(r, || {
       // call native trace ray
     });
-    todo!()
   }
 }
 
@@ -78,25 +86,44 @@ pub struct ShaderFutureThen<F, T> {
   then: T,
 }
 
-impl<F, T, U> ShaderFuture for ShaderFutureThen<F, T>
+impl<F, T> RayTracingShaderBuilderWithNativeRayTracingSupport for ShaderFutureThen<F, T>
 where
-  F: ShaderFuture,
-  T: Fn(F::Output) -> Node<U>,
-  U: ShaderSizedValueNodeType,
-  F::Output: Copy,
+  F: RayTracingShaderBuilderWithNativeRayTracingSupport,
+  T: Fn(&F::Ctx) + Copy,
 {
-  type State = F::State;
-  type Output = Node<U>;
   type Ctx = F::Ctx;
 
-  fn poll(&self, state: &Self::State, ctx: &mut Self::Ctx) -> DeviceOption<Self::Output> {
-    let r = self.future.poll(state, ctx);
+  fn build(&self, ctx: &mut Self::Ctx) {
+    self.future.build(ctx);
+    (self.then)(ctx);
+  }
+}
 
-    // todo flag
-    r.map(|v| (self.then)(v))
+impl<F, T> ShaderFuture for ShaderFutureThen<F, T>
+where
+  F: ShaderFuture,
+  T: Fn(&F::Ctx) + Copy,
+  F::Output: Copy,
+{
+  type State = (F::State, LocalVarNode<bool>);
+  type Output = F::Output;
+  type Ctx = F::Ctx;
+
+  fn poll(&self, state: &Self::State, ctx: &mut Self::Ctx) -> DevicePoll<Self::Output> {
+    let (parent_state, self_state) = state;
+    let r = self.future.poll(parent_state, ctx);
+
+    if_by(r.is_ready.and(self_state.load()), || {
+      (self.then)(ctx);
+      self_state.store(val(true));
+    });
+    r
   }
 
   fn reconstruct_state(&self, ctx: &mut Self::Ctx) -> Self::State {
-    self.future.reconstruct_state(ctx)
+    (
+      self.future.reconstruct_state(ctx),
+      val(false).make_local_var(),
+    )
   }
 }

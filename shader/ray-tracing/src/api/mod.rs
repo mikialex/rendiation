@@ -6,58 +6,73 @@ pub use ctx::*;
 use crate::*;
 
 #[derive(Clone, Copy)]
+pub struct DevicePoll<T> {
+  pub is_ready: Node<bool>,
+  pub payload: T,
+}
+
+#[derive(Clone, Copy)]
 pub struct DeviceOption<T> {
   pub is_some: Node<bool>,
   pub payload: T,
 }
 
-impl<T> From<(Node<bool>, T)> for DeviceOption<T> {
-  fn from((is_some, payload): (Node<bool>, T)) -> Self {
-    Self { is_some, payload }
-  }
-}
+// impl<T> From<(Node<bool>, T)> for DeviceOption<T> {
+//   fn from((is_some, payload): (Node<bool>, T)) -> Self {
+//     Self { is_some, payload }
+//   }
+// }
 
-impl<T: Copy> DeviceOption<T> {
-  pub fn some(payload: T) -> Self {
-    Self {
-      is_some: val(true),
-      payload,
-    }
-  }
+// impl<T: Copy> DeviceOption<T> {
+//   pub fn some(payload: T) -> Self {
+//     Self {
+//       is_some: val(true),
+//       payload,
+//     }
+//   }
 
-  pub fn map<U: ShaderSizedValueNodeType>(
-    self,
-    f: impl FnOnce(T) -> Node<U> + Copy,
-  ) -> DeviceOption<Node<U>> {
-    let u = zeroed_val().make_local_var();
-    if_by(self.is_some, || u.store(f(self.payload)));
-    (self.is_some, u.load()).into()
-  }
-}
+//   pub fn map<U: ShaderSizedValueNodeType>(
+//     self,
+//     f: impl FnOnce(T) -> Node<U> + Copy,
+//   ) -> DeviceOption<Node<U>> {
+//     let u = zeroed_val().make_local_var();
+//     if_by(self.is_some, || u.store(f(self.payload)));
+//     (self.is_some, u.load()).into()
+//   }
+//   pub fn map_none<U: ShaderSizedValueNodeType>(
+//     self,
+//     f: impl FnOnce(T) -> Node<U> + Copy,
+//   ) -> DeviceOption<Node<U>> {
+//     let u = zeroed_val().make_local_var();
+//     if_by(self.is_some.not(), || u.store(f(self.payload)));
+//     (self.is_some, u.load()).into()
+//   }
+// }
 
 pub trait ShaderFuture {
   type State;
   type Output;
   type Ctx;
   fn reconstruct_state(&self, ctx: &mut Self::Ctx) -> Self::State;
-  fn poll(&self, state: &Self::State, ctx: &mut Self::Ctx) -> DeviceOption<Self::Output>;
+  /// do compute while polling, return None if nothing to do(should be terminated)
+  fn poll(&self, state: &Self::State, ctx: &mut Self::Ctx) -> DevicePoll<Self::Output>;
 }
 
 /// impl native rtx support, the main difference between the future based impl
 /// is the direct support of recursion call in shader
 pub trait RayTracingShaderBuilderWithNativeRayTracingSupport {
   type Ctx;
-  fn build(&self, ctx: &mut Self::Ctx) -> Self;
+  fn build(&self, ctx: &mut Self::Ctx);
 }
 
 pub trait ShaderRayGenLogic:
-  ShaderFuture<Ctx = RayGenShaderCtx, Output = ShaderRayTraceCall>
+  ShaderFuture<Ctx = RayGenShaderCtx, Output = ()>
   + RayTracingShaderBuilderWithNativeRayTracingSupport<Ctx = RayGenShaderCtx>
 {
 }
 
 pub trait ShaderRayClosestHitLogic:
-  ShaderFuture<Ctx = RayClosestHitCtx, Output = ShaderRayTraceCall>
+  ShaderFuture<Ctx = RayClosestHitCtx, Output = ()>
   + RayTracingShaderBuilderWithNativeRayTracingSupport<Ctx = RayClosestHitCtx>
 {
 }
@@ -74,11 +89,20 @@ pub struct GPURaytracingPipeline {
   pub internal: Box<dyn GPURaytracingPipelineProvider>,
 }
 
+pub enum RayAnyHitBehavior {
+  IgnoreThisIntersect,
+  TerminateTraverse,
+}
+
 impl GPURaytracingPipelineBuilder {
   pub fn with_ray_gen(self, ray_logic: impl ShaderRayGenLogic) -> Self {
     self
   }
-  pub fn with_ray_intersection(self, range: usize, builder: impl FnOnce(&mut usize)) -> Self {
+  pub fn with_ray_intersection(
+    self,
+    range: usize,
+    builder: impl FnOnce(&mut RayIntersectCtx),
+  ) -> Self {
     self
   }
 
@@ -90,11 +114,15 @@ impl GPURaytracingPipelineBuilder {
     self
   }
 
-  pub fn with_ray_any_hit(self, range: usize, builder: impl FnOnce(&mut usize)) -> Self {
+  pub fn with_ray_any_hit(
+    self,
+    range: usize,
+    builder: impl FnOnce(&mut RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
+  ) -> Self {
     self
   }
 
-  pub fn with_ray_miss(self, builder: impl FnOnce(&mut usize)) -> Self {
+  pub fn with_ray_miss(self, builder: impl FnOnce(&mut RayMissCtx)) -> Self {
     self
   }
 }

@@ -6,10 +6,11 @@ mod native;
 use crate::*;
 
 pub trait GPUAccelerationStructureProvider {
+  /// return optional closest hit
   fn traverse(
     &self,
     intersect: &dyn Fn(),
-    any_hit: &dyn Fn(Node<WorldHitInfo>),
+    any_hit: &dyn Fn(Node<WorldHitInfo>) -> Node<RayAnyHitBehavior>,
   ) -> DeviceOption<Node<WorldHitInfo>>;
 }
 
