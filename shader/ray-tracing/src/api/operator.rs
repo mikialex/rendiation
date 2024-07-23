@@ -1,30 +1,19 @@
 use crate::*;
 
-pub struct StackedStateMachine<T> {
-  ctx_marker: PhantomData<T>,
-  possible_states: Vec<Box<dyn Any>>,
-}
-
-pub struct StackedStateMachineInstance {
-  trace_stack_state: WorkGroupSharedNode<[u8]>,
-  trace_stack_info: WorkGroupSharedNode<[u32; 8]>,
-}
-
-impl<T> ShaderFuture for StackedStateMachine<T> {
-  type State = StackedStateMachineInstance;
-  type Output = ();
-  type Ctx = T;
-  fn reconstruct_state(&self, ctx: &mut Self::Ctx) -> Self::State {
-    todo!()
-  }
-
-  fn device_poll(&self, state: &Self::State, ctx: &mut Self::Ctx) -> (Node<bool>, Self::Output) {
-    // ctx.get_payload_input::<T>();
-    todo!()
-  }
-}
-
 pub struct RaytracingFutureFromDeclaredPayloadInput<T>(T);
+
+impl<T> RayTracingShaderBuilderWithNativeRayTracingSupport
+  for RaytracingFutureFromDeclaredPayloadInput<T>
+where
+  T: RayTracingShaderBuilderWithNativeRayTracingSupport,
+{
+  type Ctx = T::Ctx;
+
+  fn build(&self, ctx: &mut Self::Ctx) -> Self {
+    self.0.build(ctx);
+    todo!()
+  }
+}
 
 impl<T: ShaderFuture> ShaderFuture for RaytracingFutureFromDeclaredPayloadInput<T> {
   type State = T::State;
@@ -34,32 +23,53 @@ impl<T: ShaderFuture> ShaderFuture for RaytracingFutureFromDeclaredPayloadInput<
     self.0.reconstruct_state(ctx)
   }
 
-  fn device_poll(&self, state: &Self::State, ctx: &mut Self::Ctx) -> (Node<bool>, Self::Output) {
+  fn poll(&self, state: &Self::State, ctx: &mut Self::Ctx) -> DeviceOption<Self::Output> {
     // ctx.get_payload_input::<T>();
     todo!()
   }
 }
 
 pub struct RaytracingFutureTraceRay<F, T> {
-  future: F,
-  payload_pass_in: Node<T>,
+  future: T,
+  call: F,
 }
 
-impl<F: ShaderRayGenLogic, T> ShaderFuture for RaytracingFutureTraceRay<F, T> {
-  type State = F::State;
+impl<F, T> ShaderFuture for RaytracingFutureTraceRay<F, T>
+where
+  T: ShaderRayGenLogic,
+  F: FnOnce() -> (Node<bool>, ShaderRayTraceCall) + Copy,
+{
+  type State = T::State;
   type Output = ShaderRayTraceCall;
   type Ctx = RayGenShaderCtx;
-  fn device_poll(&self, state: &Self::State, ctx: &mut Self::Ctx) -> (Node<bool>, Self::Output) {
-    self.future.device_poll(state, ctx);
-    // if_by return
+  fn poll(&self, state: &Self::State, ctx: &mut Self::Ctx) -> DeviceOption<Self::Output> {
+    let r = self.future.poll(state, ctx);
+    // let ray = r.select_branched(|| (self.call)(), || todo!());
 
-    // ctx.trace_ray::<T>();
-
+    // (r, ray)
     todo!()
   }
 
   fn reconstruct_state(&self, ctx: &mut Self::Ctx) -> Self::State {
     self.future.reconstruct_state(ctx)
+  }
+}
+
+impl<F, T> RayTracingShaderBuilderWithNativeRayTracingSupport for RaytracingFutureTraceRay<F, T>
+where
+  T: RayTracingShaderBuilderWithNativeRayTracingSupport,
+  F: FnOnce() -> (Node<bool>, ShaderRayTraceCall) + Copy,
+{
+  type Ctx = T::Ctx;
+
+  fn build(&self, ctx: &mut Self::Ctx) -> Self {
+    self.future.build(ctx);
+
+    let (r, c) = (self.call)();
+    if_by(r, || {
+      // call native trace ray
+    });
+    todo!()
   }
 }
 
@@ -71,20 +81,19 @@ pub struct ShaderFutureThen<F, T> {
 impl<F, T, U> ShaderFuture for ShaderFutureThen<F, T>
 where
   F: ShaderFuture,
-  T: Fn(F::Output) -> U,
+  T: Fn(F::Output) -> Node<U>,
+  U: ShaderSizedValueNodeType,
+  F::Output: Copy,
 {
   type State = F::State;
-  type Output = U;
+  type Output = Node<U>;
   type Ctx = F::Ctx;
 
-  fn device_poll(&self, state: &Self::State, ctx: &mut Self::Ctx) -> (Node<bool>, Self::Output) {
-    let (r, p) = self.future.device_poll(state, ctx);
-    // r.select_branched(||{
-    //   (val(true), (self.then)(p))
-    // }, ||{
-    //   (val(false), todo!())
-    // })
-    todo!()
+  fn poll(&self, state: &Self::State, ctx: &mut Self::Ctx) -> DeviceOption<Self::Output> {
+    let r = self.future.poll(state, ctx);
+
+    // todo flag
+    r.map(|v| (self.then)(v))
   }
 
   fn reconstruct_state(&self, ctx: &mut Self::Ctx) -> Self::State {

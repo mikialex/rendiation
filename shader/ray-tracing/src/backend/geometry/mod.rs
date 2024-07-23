@@ -10,9 +10,7 @@ pub trait GPUAccelerationStructureProvider {
     &self,
     intersect: &dyn Fn(),
     any_hit: &dyn Fn(Node<WorldHitInfo>),
-    nearest_hit: &dyn Fn(Node<WorldHitInfo>),
-    missing: &dyn Fn(),
-  );
+  ) -> DeviceOption<Node<WorldHitInfo>>;
 }
 
 pub trait GPURayTracingAccelerationStructureDeviceProvider {
