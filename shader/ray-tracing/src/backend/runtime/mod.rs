@@ -1,9 +1,7 @@
-mod mega_kernel;
 mod native;
-mod wavefront_kernel;
-// pub use mega_kernel::*;
+mod wavefront_compute;
 // pub use native::*;
-// pub use wavefront_kernel::*;
+// pub use wavefront_compute::*;
 
 use crate::*;
 

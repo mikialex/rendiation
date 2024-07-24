@@ -9,6 +9,7 @@ pub trait ShaderAbstractLoadStore<T> {
   fn abstract_load(&self) -> T;
   fn abstract_store(&self, payload: T);
 }
+pub type BoxedShaderLoadStore<T> = Box<dyn ShaderAbstractLoadStore<T>>;
 
 impl<T> ShaderAbstractLoadStore<Node<T>> for LocalVarNode<T> {
   fn abstract_load(&self) -> Node<T> {

@@ -1,7 +1,8 @@
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 
-pub async fn test_prefix_sum() {
+#[pollster::main]
+pub async fn main() {
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();
 
   let workgroup_size: u32 = 64;
@@ -54,8 +55,4 @@ pub async fn test_prefix_sum() {
   let result = result.await.unwrap();
   let result = <[u32]>::from_bytes_into_boxed(&result.read_raw()).into_vec();
   println!("{:?}", result);
-}
-
-fn main() {
-  futures::executor::block_on(test_prefix_sum())
 }

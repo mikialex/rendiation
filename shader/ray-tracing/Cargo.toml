@@ -1,7 +1,7 @@
 [package]
 authors = ["mikialex <18516340862@163.com>"]
 edition = "2021"
-name = "rendiation-ray-tracing"
+name = "rendiation-device-ray-tracing"
 version = "0.1.0"
 
 [dependencies]
@@ -14,7 +14,8 @@ parking_lot = { version = "0.12.1", features = ["send_guard"] }
 dyn-clone = { workspace = true }
 derivative = { workspace = true }
 futures = { workspace = true }
-pollster = { workspace = true }
+
+pollster = { workspace = true } # used in examples
 
 [lints]
 workspace = true

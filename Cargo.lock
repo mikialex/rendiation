@@ -3417,6 +3417,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-device-ray-tracing"
+version = "0.1.0"
+dependencies = [
+ "derivative",
+ "dyn-clone",
+ "fast-hash-collection",
+ "futures",
+ "parking_lot",
+ "pollster",
+ "rendiation-algebra",
+ "rendiation-shader-api",
+ "rendiation-shader-derives",
+ "rendiation-webgpu",
+]
+
+[[package]]
 name = "rendiation-geometry"
 version = "0.1.0"
 dependencies = [
@@ -3604,22 +3620,6 @@ name = "rendiation-platform-event-input"
 version = "0.1.0"
 dependencies = [
  "winit",
-]
-
-[[package]]
-name = "rendiation-ray-tracing"
-version = "0.1.0"
-dependencies = [
- "derivative",
- "dyn-clone",
- "fast-hash-collection",
- "futures",
- "parking_lot",
- "pollster",
- "rendiation-algebra",
- "rendiation-shader-api",
- "rendiation-shader-derives",
- "rendiation-webgpu",
 ]
 
 [[package]]
@@ -3932,6 +3932,7 @@ dependencies = [
  "fast-hash-collection",
  "futures",
  "naga",
+ "pollster",
  "reactive",
  "rendiation-algebra",
  "rendiation-shader-api",
