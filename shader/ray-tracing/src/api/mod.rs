@@ -67,10 +67,14 @@ pub struct DeviceOption<T> {
 pub trait ShaderFuture {
   type State;
   type Output;
-  type Ctx;
+  type Ctx: DeviceStateProvider;
   fn reconstruct_state(&self, ctx: &mut Self::Ctx) -> Self::State;
   /// do compute while polling, return None if nothing to do(should be terminated)
   fn poll(&self, state: &Self::State, ctx: &mut Self::Ctx) -> DevicePoll<Self::Output>;
+}
+
+pub trait DeviceStateProvider {
+  fn provide_state<T>(&mut self) -> BoxedShaderLoadStore<T>;
 }
 
 /// impl native rtx support, the main difference between the future based impl
@@ -96,12 +100,25 @@ pub trait ShaderRayClosestHitLogic:
 pub trait BoxShaderRayClosestHitLogic {}
 
 pub struct GPURaytracingPipelineBuilder {
+  pub max_recursion_depth: u32,
   pub geometry_provider: Box<dyn GPUAccelerationStructureProvider>,
   ray_gen_shader: Box<dyn BoxShaderRayGenLogic>,
-  // miss_shader
+  // // miss_shader
+  // miss_hit_shaders: Vec<Box<dyn BoxShaderRayClosestHitLogic>>,
   // intersection_shaders
   closest_hit_shaders: Vec<Box<dyn BoxShaderRayClosestHitLogic>>,
   // any_hit_shaders
+}
+
+impl Default for GPURaytracingPipelineBuilder {
+  fn default() -> Self {
+    Self {
+      max_recursion_depth: 8,
+      geometry_provider: todo!(),
+      ray_gen_shader: todo!(),
+      closest_hit_shaders: Default::default(),
+    }
+  }
 }
 pub struct GPURaytracingPipeline {
   pub internal: Box<dyn GPURaytracingPipelineProvider>,
@@ -113,6 +130,11 @@ pub enum RayAnyHitBehavior {
 }
 
 impl GPURaytracingPipelineBuilder {
+  pub fn with_max_recursion_depth(mut self, max_recursion_depth: u32) -> Self {
+    self.max_recursion_depth = max_recursion_depth;
+    self
+  }
+
   pub fn with_ray_gen(self, ray_logic: impl ShaderRayGenLogic) -> Self {
     self
   }

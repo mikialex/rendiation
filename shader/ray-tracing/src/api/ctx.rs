@@ -5,9 +5,22 @@ pub struct RayGenShaderCtx {
   launch_size: Node<Vec3<u32>>,
 }
 
+impl DeviceStateProvider for RayGenShaderCtx {
+  fn provide_state<T>(&mut self) -> BoxedShaderLoadStore<T> {
+    todo!()
+  }
+}
+
+struct AdhocStateBuilder {
+  states: Vec<ShaderSizedValueType>,
+}
+
 impl RayGenShaderCtx {
   pub fn call_trace_ray(&mut self, trace: ShaderRayTraceCall) {
     //
+  }
+  pub fn allocate_state<T>(&mut self) -> BoxedShaderLoadStore<T> {
+    todo!()
   }
 }
 
