@@ -11,11 +11,13 @@ pub enum RayTracingShaderStage {
 /// placeholder for future impl
 pub struct ShaderTLAS;
 
+#[derive(Clone, Copy)]
 pub struct ShaderRay {
   pub origin: Node<Vec3<f32>>,
   pub direction: Node<Vec3<f32>>,
 }
 
+#[derive(Clone, Copy)]
 pub struct ShaderRayRange {
   /// minimal distance for a ray hit
   ///
@@ -30,6 +32,7 @@ pub struct ShaderRayRange {
   pub max: Node<f32>,
 }
 
+#[derive(Clone, Copy)]
 pub struct ShaderRayTraceCall {
   pub tlas: Node<ShaderTLAS>,
 
@@ -79,6 +82,7 @@ pub fn compute_sbt_hit_group(mesh: MeshSBTConfig, ray: RaySBTConfig) -> Node<u32
   ray.offset + ray.stride * mesh.tlas_idx + mesh.sbt_offset
 }
 
+#[derive(Clone, Copy)]
 pub struct MeshSBTConfig {
   /// the index of self in building TLAS
   pub tlas_idx: Node<u32>,
@@ -86,6 +90,7 @@ pub struct MeshSBTConfig {
   pub sbt_offset: Node<u32>,
 }
 
+#[derive(Clone, Copy)]
 pub struct RaySBTConfig {
   /// When tracing a ray on the device we can specify an additional SBT offset for the ray, often
   /// referred to as the ray “type”,

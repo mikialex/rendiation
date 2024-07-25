@@ -6,11 +6,59 @@ pub struct WavefrontExecutor {
   current_prepared_execution_size: (u32, u32, u32),
 }
 
-pub struct WavefrontExecutorBuildCtx;
+pub struct WavefrontExecutorBuildCtx {
+  state_builder: DynamicStateBuilder,
+}
+
+pub struct DynamicStateBuilder {
+  state: Vec<(PrimitiveShaderValueType, PrimitiveShaderValue)>,
+  node_to_resolve: Arc<RwLock<Option<NodeUntyped>>>,
+}
+
+impl DeviceStateProvider for DynamicStateBuilder {
+  fn create_or_reconstruct_inline_state<T: PrimitiveShaderNodeType>(
+    &mut self,
+    default: T,
+  ) -> BoxedShaderLoadStore<Node<T>> {
+    let field_index = self.state.len();
+    self.state.push((T::PRIMITIVE_TYPE, default.to_primitive()));
+
+    let node = DeferResolvedStorageStructFieldNode {
+      node: Arc::downgrade(&self.node_to_resolve),
+      field_index: field_index as u32,
+      resolved_node: Default::default(),
+    };
+
+    Box::new(node)
+  }
+}
+
+struct DeferResolvedStorageStructFieldNode {
+  node: Weak<RwLock<Option<NodeUntyped>>>,
+  field_index: u32,
+  resolved_node: RwLock<Option<NodeUntyped>>,
+}
+impl<T: PrimitiveShaderNodeType> ShaderAbstractLoadStore<Node<T>>
+  for DeferResolvedStorageStructFieldNode
+{
+  fn abstract_load(&self) -> Node<T> {
+    //  self.resolved_node.
+    todo!()
+  }
+
+  fn abstract_store(&self, payload: Node<T>) {
+    todo!()
+  }
+}
 
 impl DeviceStateProvider for WavefrontExecutorBuildCtx {
-  fn provide_state<T>(&mut self) -> BoxedShaderLoadStore<T> {
-    todo!()
+  fn create_or_reconstruct_inline_state<T: PrimitiveShaderNodeType>(
+    &mut self,
+    default: T,
+  ) -> BoxedShaderLoadStore<Node<T>> {
+    self
+      .state_builder
+      .create_or_reconstruct_inline_state(default)
   }
 }
 
@@ -29,7 +77,7 @@ impl WavefrontExecutor {
     cx_provider: impl FnOnce(&mut WavefrontExecutorBuildCtx) -> F::Ctx,
   ) -> u32
   where
-    F: ShaderFuture,
+    F: DeviceFuture,
   {
     todo!()
   }
@@ -85,7 +133,7 @@ struct WavefrontStageExecutor {
   index: usize,
   depend_on: Vec<usize>,
   depend_by: Vec<usize>,
-  tasks: GPUBufferView,
+  task: GPUBufferView, // (task_state, payload)
   batch_info: GPUBufferView,
   pipeline: GPUComputePipeline,
 }

@@ -64,17 +64,30 @@ pub struct DeviceOption<T> {
 //   }
 // }
 
-pub trait ShaderFuture {
+pub trait DeviceFuture {
   type State;
   type Output;
-  type Ctx: DeviceStateProvider;
-  fn reconstruct_state(&self, ctx: &mut Self::Ctx) -> Self::State;
-  /// do compute while polling, return None if nothing to do(should be terminated)
+  type Ctx;
+  fn create_or_reconstruct_state(&self, ctx: &mut Self::Ctx) -> Self::State;
   fn poll(&self, state: &Self::State, ctx: &mut Self::Ctx) -> DevicePoll<Self::Output>;
 }
 
 pub trait DeviceStateProvider {
-  fn provide_state<T>(&mut self) -> BoxedShaderLoadStore<T>;
+  // todo, support PrimitiveShaderValueNodeType
+  fn create_or_reconstruct_inline_state<T: PrimitiveShaderNodeType>(
+    &mut self,
+    default: T,
+  ) -> BoxedShaderLoadStore<Node<T>>;
+}
+
+pub trait DeviceTaskSystem {
+  fn allocate_argument<T>(&self) -> Node<u32>;
+  fn read_write_argument<T>(&self, idx: Node<u32>) -> StorageNode<T>;
+  fn deallocate_argument<T>(&self, idx: Node<u32>);
+
+  /// argument must be valid for given task id to consume
+  fn spawn_task(&self, task_type: usize, argument_idx: Node<u32>) -> Node<u32>;
+  fn poll_task(&self, task_id: Node<u32>) -> Node<bool>;
 }
 
 /// impl native rtx support, the main difference between the future based impl
@@ -83,9 +96,12 @@ pub trait NativeRayTracingShaderBuilder {
   type Ctx;
   fn build(&self, ctx: &mut Self::Ctx);
 }
+pub trait NativeRayTracingShaderCtx {
+  fn native_trace_ray(&self, ray: ShaderRayTraceCall);
+}
 
 pub trait ShaderRayGenLogic:
-  ShaderFuture<Ctx = RayGenShaderCtx, Output = ()>
+  DeviceFuture<Ctx = RayGenShaderCtx, Output = ()>
   + NativeRayTracingShaderBuilder<Ctx = RayGenShaderCtx>
 {
 }
@@ -93,7 +109,7 @@ pub trait ShaderRayGenLogic:
 pub trait BoxShaderRayGenLogic {}
 
 pub trait ShaderRayClosestHitLogic:
-  ShaderFuture<Ctx = RayClosestHitCtx, Output = ()>
+  DeviceFuture<Ctx = RayClosestHitCtx, Output = ()>
   + NativeRayTracingShaderBuilder<Ctx = RayClosestHitCtx>
 {
 }

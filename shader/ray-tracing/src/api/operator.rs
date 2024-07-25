@@ -14,12 +14,12 @@ where
   }
 }
 
-impl<T: ShaderFuture> ShaderFuture for RaytracingFutureFromDeclaredPayloadInput<T> {
+impl<T: DeviceFuture> DeviceFuture for RaytracingFutureFromDeclaredPayloadInput<T> {
   type State = T::State;
   type Output = T::Output;
   type Ctx = T::Ctx;
-  fn reconstruct_state(&self, ctx: &mut Self::Ctx) -> Self::State {
-    self.0.reconstruct_state(ctx)
+  fn create_or_reconstruct_state(&self, ctx: &mut Self::Ctx) -> Self::State {
+    self.0.create_or_reconstruct_state(ctx)
   }
 
   fn poll(&self, state: &Self::State, ctx: &mut Self::Ctx) -> DevicePoll<Self::Output> {
@@ -33,7 +33,7 @@ pub struct RaytracingFutureTraceRay<F, T> {
   call: F,
 }
 
-impl<F, T> ShaderFuture for RaytracingFutureTraceRay<F, T>
+impl<F, T> DeviceFuture for RaytracingFutureTraceRay<F, T>
 where
   T: ShaderRayGenLogic,
   F: FnOnce() -> (Node<bool>, ShaderRayTraceCall) + Copy,
@@ -55,9 +55,9 @@ where
     todo!()
   }
 
-  fn reconstruct_state(&self, ctx: &mut Self::Ctx) -> Self::State {
+  fn create_or_reconstruct_state(&self, ctx: &mut Self::Ctx) -> Self::State {
     (
-      self.future.reconstruct_state(ctx),
+      self.future.create_or_reconstruct_state(ctx),
       ctx.allocate_state::<bool>(),
     )
   }
@@ -66,6 +66,7 @@ where
 impl<F, T> NativeRayTracingShaderBuilder for RaytracingFutureTraceRay<F, T>
 where
   T: NativeRayTracingShaderBuilder,
+  T::Ctx: NativeRayTracingShaderCtx,
   F: FnOnce() -> (Node<bool>, ShaderRayTraceCall) + Copy,
 {
   type Ctx = T::Ctx;
@@ -75,7 +76,7 @@ where
 
     let (r, c) = (self.call)();
     if_by(r, || {
-      // call native trace ray
+      ctx.native_trace_ray(c);
     });
   }
 }
@@ -98,9 +99,9 @@ where
   }
 }
 
-impl<F, T> ShaderFuture for ShaderFutureThen<F, T>
+impl<F, T> DeviceFuture for ShaderFutureThen<F, T>
 where
-  F: ShaderFuture,
+  F: DeviceFuture,
   T: Fn(&F::Ctx) + Copy,
   F::Output: Copy,
 {
@@ -119,9 +120,9 @@ where
     r
   }
 
-  fn reconstruct_state(&self, ctx: &mut Self::Ctx) -> Self::State {
+  fn create_or_reconstruct_state(&self, ctx: &mut Self::Ctx) -> Self::State {
     (
-      self.future.reconstruct_state(ctx),
+      self.future.create_or_reconstruct_state(ctx),
       val(false).make_local_var(),
     )
   }

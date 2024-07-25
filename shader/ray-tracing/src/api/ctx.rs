@@ -6,7 +6,7 @@ pub struct RayGenShaderCtx {
 }
 
 impl DeviceStateProvider for RayGenShaderCtx {
-  fn provide_state<T>(&mut self) -> BoxedShaderLoadStore<T> {
+  fn create_or_reconstruct_inline_state<T>(&mut self, default: T) -> BoxedShaderLoadStore<Node<T>> {
     todo!()
   }
 }
