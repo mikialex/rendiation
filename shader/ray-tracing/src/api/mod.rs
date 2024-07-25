@@ -81,13 +81,14 @@ pub trait DeviceStateProvider {
 }
 
 pub trait DeviceTaskSystem {
-  fn allocate_argument<T>(&self) -> Node<u32>;
-  fn read_write_argument<T>(&self, idx: Node<u32>) -> StorageNode<T>;
-  fn deallocate_argument<T>(&self, idx: Node<u32>);
-
   /// argument must be valid for given task id to consume
-  fn spawn_task(&self, task_type: usize, argument_idx: Node<u32>) -> Node<u32>;
-  fn poll_task(&self, task_id: Node<u32>) -> Node<bool>;
+  fn spawn_task<T>(&mut self, task_type: usize, argument: Node<T>) -> Node<u32>;
+  fn poll_task<T>(
+    &mut self,
+    task_type: usize,
+    task_id: Node<u32>,
+    argument_read_back: impl FnOnce(Node<T>) + Copy,
+  ) -> Node<bool>;
 }
 
 /// impl native rtx support, the main difference between the future based impl

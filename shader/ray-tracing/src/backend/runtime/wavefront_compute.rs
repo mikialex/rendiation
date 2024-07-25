@@ -1,3 +1,5 @@
+use fast_hash_collection::FastHashSet;
+
 use crate::*;
 
 pub struct WavefrontExecutor {
@@ -8,11 +10,47 @@ pub struct WavefrontExecutor {
 
 pub struct WavefrontExecutorBuildCtx {
   state_builder: DynamicStateBuilder,
+  task_groups: Vec<TaskGroupDeviceInstance>,
+  depend_by: FastHashSet<usize>,
+}
+
+impl DeviceTaskSystem for WavefrontExecutorBuildCtx {
+  fn spawn_task<T>(&mut self, task_type: usize, argument: Node<T>) -> Node<u32> {
+    self.depend_by.insert(task_type);
+    let task_group = &self.task_groups[task_type];
+    task_group.spawn_new_task(argument)
+  }
+
+  fn poll_task<T>(
+    &mut self,
+    task_type: usize,
+    task_id: Node<u32>,
+    argument_read_back: impl FnOnce(Node<T>) + Copy,
+  ) -> Node<bool> {
+    self.depend_by.insert(task_type);
+    let task_group = &self.task_groups[task_type];
+    let finished = task_group.poll_task_is_finished(task_id);
+    if_by(finished, || {
+      argument_read_back(task_group.read_back_payload(task_id));
+      task_group.cleanup_finished_task_state_and_payload(task_id)
+    });
+    finished
+  }
 }
 
 pub struct DynamicStateBuilder {
   state: Vec<(PrimitiveShaderValueType, PrimitiveShaderValue)>,
   node_to_resolve: Arc<RwLock<Option<NodeUntyped>>>,
+}
+
+impl DynamicStateBuilder {
+  fn bake(self) -> DynamicStateBaked {
+    todo!()
+  }
+}
+
+pub struct DynamicStateBaked {
+  fields: Vec<(PrimitiveShaderValueType, PrimitiveShaderValue)>,
 }
 
 impl DeviceStateProvider for DynamicStateBuilder {
@@ -71,7 +109,7 @@ impl WavefrontExecutor {
     }
   }
 
-  fn define_state<F>(
+  fn define_task<F>(
     &self,
     future: F,
     cx_provider: impl FnOnce(&mut WavefrontExecutorBuildCtx) -> F::Ctx,
@@ -98,7 +136,9 @@ impl WavefrontExecutor {
       return;
     }
     self.current_prepared_execution_size = dispatch_size;
-    todo!()
+    for s in &mut self.stages {
+      s.resize(gpu, dispatch_size, self.max_recursion_depth)
+    }
   }
 
   fn make_sure_execution_size_is_enough(&mut self, gpu: &GPU, dispatch_size: (u32, u32, u32)) {
@@ -118,10 +158,10 @@ impl WavefrontExecutor {
 
     let mut encoder = gpu.create_encoder();
 
-    encoder.compute_pass_scoped(|pass| {
+    encoder.compute_pass_scoped(|mut pass| {
       for _ in 0..self.max_recursion_depth {
         for stage in &self.stages {
-          // pass.dispatch_workgroups_indirect(indirect_buffer, indirect_offset)
+          stage.execute(&mut pass);
         }
       }
     });
@@ -134,6 +174,45 @@ struct WavefrontStageExecutor {
   depend_on: Vec<usize>,
   depend_by: Vec<usize>,
   task: GPUBufferView, // (task_state, payload)
-  batch_info: GPUBufferView,
+  device_size: GPUBufferView,
   pipeline: GPUComputePipeline,
+}
+
+impl WavefrontStageExecutor {
+  pub fn resize(&mut self, gpu: &GPU, size: (u32, u32, u32), max_recursion_depth: u32) {
+    todo!()
+  }
+
+  pub fn execute(&self, pass: &mut GPUComputePass) {
+    //
+  }
+
+  pub fn build_shader(
+    &self,
+    compute_cx: &mut ShaderComputePipelineBuilder,
+  ) -> TaskGroupDeviceInstance {
+    todo!()
+  }
+}
+
+pub struct TaskGroupDeviceInstance {
+  state_desc: DynamicStateBaked,
+}
+
+impl TaskGroupDeviceInstance {
+  pub fn spawn_new_task<T>(&self, payload: Node<T>) -> Node<u32> {
+    todo!()
+  }
+
+  pub fn read_back_payload<T>(&self, task: Node<u32>) -> Node<T> {
+    todo!()
+  }
+
+  pub fn cleanup_finished_task_state_and_payload(&self, task: Node<u32>) {
+    todo!()
+  }
+
+  pub fn poll_task_is_finished(&self, task_id: Node<u32>) -> Node<bool> {
+    todo!()
+  }
 }
