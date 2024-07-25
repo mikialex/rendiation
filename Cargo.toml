@@ -47,6 +47,7 @@ members = [
   "shader/backends/naga",
   "shader/library",
   "shader/parallel-compute",
+  "shader/task-graph",
   "shader/ray-tracing",
   "scene/core",
   "scene/rendering/gpu-base",

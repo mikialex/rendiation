@@ -5,8 +5,25 @@ pub struct RayGenShaderCtx {
   launch_size: Node<Vec3<u32>>,
 }
 
-impl DeviceStateProvider for RayGenShaderCtx {
+impl DeviceTaskSystemContextProvider for RayGenShaderCtx {
   fn create_or_reconstruct_inline_state<T>(&mut self, default: T) -> BoxedShaderLoadStore<Node<T>> {
+    todo!()
+  }
+
+  fn read_write_task_payload<T>(&self) -> StorageNode<T> {
+    todo!()
+  }
+
+  fn spawn_task<T>(&mut self, task_type: usize, argument: Node<T>) -> Node<u32> {
+    todo!()
+  }
+
+  fn poll_task<T>(
+    &mut self,
+    task_type: usize,
+    task_id: Node<u32>,
+    argument_read_back: impl FnOnce(Node<T>) + Copy,
+  ) -> Node<bool> {
     todo!()
   }
 }
