@@ -13,13 +13,17 @@ pub use runtime::*;
 mod future;
 pub use future::*;
 
-pub trait ShaderAbstractLoadStore<T> {
-  fn abstract_load(&self) -> T;
-  fn abstract_store(&self, payload: T);
+/// abstract left value in shader
+pub trait ShaderAbstractLoadStore {
+  /// Value must a right value in shader
+  type Value;
+  fn abstract_load(&self) -> Self::Value;
+  fn abstract_store(&self, payload: Self::Value);
 }
-pub type BoxedShaderLoadStore<T> = Box<dyn ShaderAbstractLoadStore<T>>;
+pub type BoxedShaderLoadStore<T> = Box<dyn ShaderAbstractLoadStore<Value = T>>;
 
-impl<T> ShaderAbstractLoadStore<Node<T>> for LocalVarNode<T> {
+impl<T> ShaderAbstractLoadStore for LocalVarNode<T> {
+  type Value = Node<T>;
   fn abstract_load(&self) -> Node<T> {
     self.load()
   }

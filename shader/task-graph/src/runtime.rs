@@ -93,14 +93,15 @@ impl DynamicStateBuilder {
   }
 }
 
-struct DeferResolvedStorageStructFieldNode {
+struct DeferResolvedStorageStructFieldNode<T> {
   node: Weak<RwLock<Option<NodeUntyped>>>,
   field_index: u32,
-  resolved_node: RwLock<Option<NodeUntyped>>,
+  resolved_node: RwLock<Option<StorageNode<T>>>,
 }
-impl<T: PrimitiveShaderNodeType> ShaderAbstractLoadStore<Node<T>>
-  for DeferResolvedStorageStructFieldNode
+impl<T: PrimitiveShaderNodeType> ShaderAbstractLoadStore
+  for DeferResolvedStorageStructFieldNode<T>
 {
+  type Value = Node<T>;
   fn abstract_load(&self) -> Node<T> {
     //  self.resolved_node.
     todo!()

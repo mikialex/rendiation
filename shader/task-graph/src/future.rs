@@ -90,7 +90,7 @@ impl<T, Output: Default, Cx: DeviceTaskSystemContextProvider> DeviceFuture
 }
 
 pub struct ShaderFutureMap<F, T> {
-  pub future: F,
+  pub upstream: F,
   pub map: T,
 }
 
@@ -100,25 +100,95 @@ where
   T: Fn(&F::Ctx) + Copy,
   F::Output: Copy,
 {
-  type State = (F::State, LocalVarNode<bool>);
+  type State = (F::State, BoxedShaderLoadStore<Node<bool>>);
   type Output = F::Output;
   type Ctx = F::Ctx;
 
   fn poll(&self, state: &Self::State, ctx: &mut Self::Ctx) -> DevicePoll<Self::Output> {
-    let (parent_state, self_state) = state;
-    let r = self.future.poll(parent_state, ctx);
+    let (parent_state, upstream_resolved) = state;
 
-    if_by(r.is_ready.and(self_state.load()), || {
-      (self.map)(ctx);
-      self_state.store(val(true));
-    });
-    r
+    // let output = todo!();
+    // if_by(upstream_resolved.abstract_load().not(), || {
+    //   let r = self.upstream.poll(parent_state, ctx);
+    //   if_by(r.is_ready, || {
+    //     (self.map)(ctx);
+    //     output.store(r.payload);
+    //   })
+    // });
+
+    // (upstream_resolved.abstract_load(), output);
+    todo!()
   }
 
   fn create_or_reconstruct_state(&self, ctx: &mut Self::Ctx) -> Self::State {
     (
-      self.future.create_or_reconstruct_state(ctx),
-      val(false).make_local_var(),
+      self.upstream.create_or_reconstruct_state(ctx),
+      ctx.create_or_reconstruct_inline_state(false),
     )
+  }
+}
+
+pub struct ShaderFutureThen<U, F, T> {
+  pub upstream: U,
+  pub then: F,
+  pub then_instance: T,
+}
+
+pub struct ShaderFutureThenInstance<U, T> {
+  upstream_state: U,
+  upstream_resolved: BoxedShaderLoadStore<Node<bool>>,
+  then_state: T,
+  then_resolved: BoxedShaderLoadStore<Node<bool>>,
+}
+
+impl<U, F, T> DeviceFuture for ShaderFutureThen<U, F, T>
+where
+  U: DeviceFuture,
+  F: Fn(&U::Ctx, U::Output) -> <T::State as ShaderAbstractLoadStore>::Value + Copy,
+  T: DeviceFuture<Ctx = U::Ctx>,
+  T::State: ShaderAbstractLoadStore,
+  T::Output: Default,
+{
+  type State = ShaderFutureThenInstance<U::State, T::State>;
+  type Output = T::Output;
+  type Ctx = T::Ctx;
+
+  fn poll(&self, state: &Self::State, ctx: &mut Self::Ctx) -> DevicePoll<Self::Output> {
+    let ShaderFutureThenInstance {
+      upstream_state,
+      upstream_resolved,
+      then_state,
+      then_resolved,
+    } = state;
+
+    // if_by(upstream_resolved.abstract_load().not(), || {
+    //   let r = self.upstream.poll(upstream_state, ctx);
+    //   upstream_resolved.abstract_store(val(true));
+    //   if_by(r.is_ready, || {
+    //     let next = (self.then)(ctx, r.payload);
+    //     then_state.abstract_store((self.then)(ctx, r.payload));
+    //   });
+    // });
+
+    // let output = todo!();
+    // if_by(upstream_resolved.abstract_load(), || {
+    //   let r = self.then_instance.poll(then_state, ctx);
+    //   if_by(r.is_ready, || {
+    //     output.store(r.payload);
+    //     then_resolved.abstract_store(val(true));
+    //   });
+    // });
+
+    // (then_resolved.abstract_load(), output)
+    todo!()
+  }
+
+  fn create_or_reconstruct_state(&self, ctx: &mut Self::Ctx) -> Self::State {
+    ShaderFutureThenInstance {
+      upstream_state: self.upstream.create_or_reconstruct_state(ctx),
+      upstream_resolved: ctx.create_or_reconstruct_inline_state(false),
+      then_state: self.then_instance.create_or_reconstruct_state(ctx),
+      then_resolved: ctx.create_or_reconstruct_inline_state(false),
+    }
   }
 }

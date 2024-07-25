@@ -70,7 +70,7 @@ where
   type Ctx = F::Ctx;
 
   fn build(&self, ctx: &mut Self::Ctx) {
-    self.future.build(ctx);
+    self.upstream.build(ctx);
     (self.map)(ctx);
   }
 }
