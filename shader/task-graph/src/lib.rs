@@ -14,16 +14,21 @@ mod future;
 pub use future::*;
 
 /// abstract left value in shader
-pub trait ShaderAbstractLoadStore {
+pub trait ShaderAbstractLeftValue {
   /// Value must a right value in shader
-  type Value;
-  fn abstract_load(&self) -> Self::Value;
-  fn abstract_store(&self, payload: Self::Value);
+  type RightValue;
+  fn abstract_load(&self) -> Self::RightValue;
+  fn abstract_store(&self, payload: Self::RightValue);
 }
-pub type BoxedShaderLoadStore<T> = Box<dyn ShaderAbstractLoadStore<Value = T>>;
+pub type BoxedShaderLoadStore<T> = Box<dyn ShaderAbstractLeftValue<RightValue = T>>;
 
-impl<T> ShaderAbstractLoadStore for LocalVarNode<T> {
-  type Value = Node<T>;
+pub trait ShaderAbstractRightValue {
+  type LocalLeftValue: ShaderAbstractLeftValue<RightValue = Self>;
+  fn into_local_left_value(self) -> Self::LocalLeftValue;
+}
+
+impl<T> ShaderAbstractLeftValue for LocalVarNode<T> {
+  type RightValue = Node<T>;
   fn abstract_load(&self) -> Node<T> {
     self.load()
   }

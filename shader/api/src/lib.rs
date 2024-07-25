@@ -5,7 +5,6 @@ mod binding;
 mod compute;
 mod graphics;
 mod layout;
-mod ray_tracing;
 mod re_export;
 mod type_workaround;
 
@@ -24,7 +23,6 @@ pub use compute::*;
 use fast_hash_collection::*;
 pub use graphics::*;
 pub use layout::*;
-pub use ray_tracing::*;
 pub use re_export::*;
 pub use rendiation_algebra::*;
 pub use rendiation_shader_derives::*;

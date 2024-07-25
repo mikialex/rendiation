@@ -98,10 +98,10 @@ struct DeferResolvedStorageStructFieldNode<T> {
   field_index: u32,
   resolved_node: RwLock<Option<StorageNode<T>>>,
 }
-impl<T: PrimitiveShaderNodeType> ShaderAbstractLoadStore
+impl<T: PrimitiveShaderNodeType> ShaderAbstractLeftValue
   for DeferResolvedStorageStructFieldNode<T>
 {
-  type Value = Node<T>;
+  type RightValue = Node<T>;
   fn abstract_load(&self) -> Node<T> {
     //  self.resolved_node.
     todo!()

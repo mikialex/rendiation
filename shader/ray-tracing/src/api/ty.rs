@@ -58,6 +58,34 @@ pub struct ShaderRayTraceCall {
   pub payload: Node<i32>,
 }
 
+pub struct ShaderRayTraceCallLocalVar {}
+
+impl ShaderAbstractLeftValue for ShaderRayTraceCallLocalVar {
+  type RightValue = ShaderRayTraceCall;
+
+  fn abstract_load(&self) -> Self::RightValue {
+    todo!()
+  }
+
+  fn abstract_store(&self, payload: Self::RightValue) {
+    todo!()
+  }
+}
+
+impl ShaderAbstractRightValue for ShaderRayTraceCall {
+  type LocalLeftValue = ShaderRayTraceCallLocalVar;
+
+  fn into_local_left_value(self) -> Self::LocalLeftValue {
+    todo!()
+  }
+}
+
+impl Default for ShaderRayTraceCall {
+  fn default() -> Self {
+    todo!()
+  }
+}
+
 pub struct ShaderRecord {
   shader: u32,
 }

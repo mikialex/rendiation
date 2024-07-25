@@ -22,7 +22,7 @@ where
   type State = (T::State, BoxedShaderLoadStore<bool>);
   type Output = ShaderRayTraceCall;
   type Ctx = RayGenShaderCtx;
-  fn poll(&self, state: &Self::State, ctx: &mut Self::Ctx) -> DevicePoll<Self::Output> {
+  fn poll(&self, state: &Self::State, ctx: &Self::Ctx) -> DevicePoll<Self::Output> {
     let (parent_state, self_state) = state;
     let r = self.upstream.poll(parent_state, ctx);
 
