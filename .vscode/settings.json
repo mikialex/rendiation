@@ -42,6 +42,7 @@
         "Controllee",
         "dashmap",
         "dealloc",
+        "deallocator",
         "Deque",
         "diffable",
         "downcasted",

@@ -10,10 +10,6 @@ impl DeviceTaskSystemContextProvider for RayGenShaderCtx {
     todo!()
   }
 
-  fn read_write_task_payload<T>(&self) -> StorageNode<T> {
-    todo!()
-  }
-
   fn spawn_task<T>(&self, task_type: usize, argument: Node<T>) -> Node<u32> {
     todo!()
   }

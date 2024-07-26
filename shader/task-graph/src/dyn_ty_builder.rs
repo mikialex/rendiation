@@ -1,5 +1,6 @@
 use crate::*;
 
+#[derive(Default)]
 pub struct DynamicTypeBuilder {
   state: Vec<(PrimitiveShaderValueType, PrimitiveShaderValue)>,
   node_to_resolve: Arc<RwLock<Option<NodeUntyped>>>,

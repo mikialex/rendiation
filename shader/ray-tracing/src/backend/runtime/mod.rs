@@ -1,7 +1,7 @@
 mod native;
 mod wavefront_compute;
-// pub use native::*;
-// pub use wavefront_compute::*;
+pub use native::*;
+pub use wavefront_compute::*;
 
 use crate::*;
 
