@@ -62,7 +62,7 @@ where
   }
 }
 
-impl<F, T> NativeRayTracingShaderBuilder for ShaderFutureMap<F, T>
+impl<F, T, O> NativeRayTracingShaderBuilder for ShaderFutureMap<F, T, O>
 where
   F: NativeRayTracingShaderBuilder,
   T: Fn(&F::Ctx) + Copy,

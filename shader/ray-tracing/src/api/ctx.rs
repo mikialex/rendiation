@@ -14,12 +14,12 @@ impl DeviceTaskSystemContextProvider for RayGenShaderCtx {
     todo!()
   }
 
-  fn spawn_task<T>(&mut self, task_type: usize, argument: Node<T>) -> Node<u32> {
+  fn spawn_task<T>(&self, task_type: usize, argument: Node<T>) -> Node<u32> {
     todo!()
   }
 
   fn poll_task<T>(
-    &mut self,
+    &self,
     task_type: usize,
     task_id: Node<u32>,
     argument_read_back: impl FnOnce(Node<T>) + Copy,

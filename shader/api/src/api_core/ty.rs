@@ -42,7 +42,7 @@ impl AddressSpace {
 
 #[repr(transparent)]
 #[derive(Clone, Copy, Zeroable, Pod)]
-pub struct DeviceAtomic<T>(T);
+pub struct DeviceAtomic<T>(pub T);
 unsafe impl<T: Std430> Std430 for DeviceAtomic<T> {
   const ALIGNMENT: usize = T::ALIGNMENT;
 }

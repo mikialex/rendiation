@@ -8,16 +8,16 @@ pub struct DeviceTaskGraphExecutor {
 
 pub struct DeviceTaskSystemBuildCtx {
   compute_cx: ShaderComputePipelineBuilder,
-  state_builder: DynamicStateBuilder,
+  state_builder: DynamicTypeBuilder,
   task_group_sources: Vec<TaskGroupExecutor>,
-  depend_by: FastHashMap<usize, TaskGroupDeviceInstance>,
+  depend_by: FastHashMap<usize, TaskGroupDeviceInvocationInstance>,
 }
 
 impl DeviceTaskSystemBuildCtx {
   fn get_or_create_task_group_instance(
     &mut self,
     task_type: usize,
-  ) -> &mut TaskGroupDeviceInstance {
+  ) -> &mut TaskGroupDeviceInvocationInstance {
     self.depend_by.entry(task_type).or_insert_with(|| {
       let source = &self.task_group_sources[task_type];
       source.build_shader(&mut self.compute_cx)
@@ -39,75 +39,25 @@ impl DeviceTaskSystemContextProvider for DeviceTaskSystemBuildCtx {
     todo!()
   }
 
-  fn spawn_task<T>(&mut self, task_type: usize, argument: Node<T>) -> Node<u32> {
-    let task_group = self.get_or_create_task_group_instance(task_type);
-    task_group.spawn_new_task(argument)
+  fn spawn_task<T>(&self, task_type: usize, argument: Node<T>) -> Node<u32> {
+    // let task_group = self.get_or_create_task_group_instance(task_type);
+    // task_group.spawn_new_task(argument)
+    todo!()
   }
 
   fn poll_task<T>(
-    &mut self,
+    &self,
     task_type: usize,
     task_id: Node<u32>,
     argument_read_back: impl FnOnce(Node<T>) + Copy,
   ) -> Node<bool> {
-    let task_group = self.get_or_create_task_group_instance(task_type);
-    let finished = task_group.poll_task_is_finished(task_id);
-    if_by(finished, || {
-      argument_read_back(task_group.read_back_payload(task_id));
-      task_group.cleanup_finished_task_state_and_payload(task_id)
-    });
-    finished
-  }
-}
-
-pub struct DynamicStateBuilder {
-  state: Vec<(PrimitiveShaderValueType, PrimitiveShaderValue)>,
-  node_to_resolve: Arc<RwLock<Option<NodeUntyped>>>,
-}
-
-impl DynamicStateBuilder {
-  fn bake(self) -> DynamicStateBaked {
-    todo!()
-  }
-}
-
-pub struct DynamicStateBaked {
-  fields: Vec<(PrimitiveShaderValueType, PrimitiveShaderValue)>,
-}
-
-impl DynamicStateBuilder {
-  fn create_or_reconstruct_inline_state<T: PrimitiveShaderNodeType>(
-    &mut self,
-    default: T,
-  ) -> BoxedShaderLoadStore<Node<T>> {
-    let field_index = self.state.len();
-    self.state.push((T::PRIMITIVE_TYPE, default.to_primitive()));
-
-    let node = DeferResolvedStorageStructFieldNode {
-      node: Arc::downgrade(&self.node_to_resolve),
-      field_index: field_index as u32,
-      resolved_node: Default::default(),
-    };
-
-    Box::new(node)
-  }
-}
-
-struct DeferResolvedStorageStructFieldNode<T> {
-  node: Weak<RwLock<Option<NodeUntyped>>>,
-  field_index: u32,
-  resolved_node: RwLock<Option<StorageNode<T>>>,
-}
-impl<T: PrimitiveShaderNodeType> ShaderAbstractLeftValue
-  for DeferResolvedStorageStructFieldNode<T>
-{
-  type RightValue = Node<T>;
-  fn abstract_load(&self) -> Node<T> {
-    //  self.resolved_node.
-    todo!()
-  }
-
-  fn abstract_store(&self, payload: Node<T>) {
+    // let task_group = self.get_or_create_task_group_instance(task_type);
+    // let finished = task_group.poll_task_is_finished(task_id);
+    // if_by(finished, || {
+    //   argument_read_back(task_group.read_back_payload(task_id));
+    //   task_group.cleanup_finished_task_state_and_payload(task_id)
+    // });
+    // finished
     todo!()
   }
 }
@@ -181,7 +131,12 @@ struct TaskGroupExecutor {
   index: usize,
   depend_on: Vec<usize>,
   depend_by: Vec<usize>,
-  task: GPUBufferView, // (task_state, payload)
+
+  alive_task_idx: DeviceBumpAllocationInstance<u32>,
+  new_removed_task_idx: DeviceBumpAllocationInstance<u32>,
+  empty_index_pool: DeviceBumpAllocationInstance<u32>,
+  task_pool: DeviceUntypedBumpAllocationInstance, // (task_state, payload)
+
   device_size: GPUBufferView,
   pipeline: GPUComputePipeline,
 }
@@ -198,17 +153,22 @@ impl TaskGroupExecutor {
   pub fn build_shader(
     &self,
     compute_cx: &mut ShaderComputePipelineBuilder,
-  ) -> TaskGroupDeviceInstance {
+  ) -> TaskGroupDeviceInvocationInstance {
     todo!()
   }
 }
 
-pub struct TaskGroupDeviceInstance {
+pub struct TaskGroupDeviceInvocationInstance {
   index: usize,
-  state_desc: DynamicStateBaked,
+  /// point to task pool
+  alive_task_idx: DeviceBumpAllocationInvocationInstance<u32>,
+  new_removed_task_idx: DeviceBumpAllocationInvocationInstance<u32>,
+  empty_index_pool: DeviceBumpAllocationInvocationInstance<u32>,
+  task_pool: DeviceUntypedBumpAllocationInvocationInstance,
+  state_desc: DynamicTypeBaked,
 }
 
-impl TaskGroupDeviceInstance {
+impl TaskGroupDeviceInvocationInstance {
   pub fn spawn_new_task<T>(&self, payload: Node<T>) -> Node<u32> {
     todo!()
   }
