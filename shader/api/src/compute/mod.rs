@@ -87,12 +87,8 @@ impl<'a> ComputeCx<'a> {
   }
 
   pub fn bind_by<T: ShaderBindingProvider>(&mut self, instance: &T) -> Node<T::Node> {
-    self.0.bindgroups.bind_by(instance).using()
+    self.0.bindgroups.bind_by_and_prepare(instance).using()
   }
-
-  // pub fn binding<T: ShaderBindingProvider>(&mut self) -> Node<T::Node> {
-  //   self.0.bindgroups.binding::<T>().using()
-  // }
 }
 
 impl ShaderComputePipelineBuilder {

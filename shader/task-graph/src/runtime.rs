@@ -225,23 +225,23 @@ impl TaskGroupExecutor {
     &self,
     compute_cx: &mut ShaderComputePipelineBuilder,
   ) -> TaskGroupDeviceInvocationInstance {
-    let alive_task_idx = compute_cx.entry_by(|cx| cx.bind_by(&self.alive_task_idx.storage));
     TaskGroupDeviceInvocationInstance {
-      alive_task_idx,
       new_removed_task_idx: self.new_removed_task_idx.build_allocator_shader(compute_cx),
       empty_index_pool: self
         .new_removed_task_idx
         .build_deallocator_shader(compute_cx),
-      task_pool: todo!(),
+      task_pool: compute_cx.entry_by(|cx| {
+        // cx.bind_by(instance);
+        todo!()
+      }),
     }
   }
 }
 
 // struct Task {
+//   is_finished_ bool,
 //   payload: P,
 //   state: S,
-//   parent_task: Option<(Node<u32>, Node<u32>)>,
-//   child_wake_counter: Node<DeviceAtomic<u32>>
 // }
 
 #[repr(C)]
@@ -254,8 +254,6 @@ pub struct DispatchIndirectArgs {
 }
 
 pub struct TaskGroupDeviceInvocationInstance {
-  /// point to task pool
-  alive_task_idx: StorageNode<[u32]>,
   new_removed_task_idx: DeviceBumpAllocationInvocationInstance<u32>,
   empty_index_pool: DeviceBumpDeAllocationInvocationInstance<u32>,
   task_pool: TaskPoolInvocationInstance,
@@ -274,7 +272,7 @@ impl TaskGroupDeviceInvocationInstance {
   }
 
   pub fn read_back_payload<T: ShaderSizedValueNodeType>(&self, task: Node<u32>) -> Node<T> {
-    self.task_pool.read_back_payload(task)
+    self.task_pool.read_payload(task).load()
   }
 
   pub fn cleanup_finished_task_state_and_payload(&self, task: Node<u32>) {
@@ -300,24 +298,34 @@ impl TaskPoolInvocationInstance {
   }
 
   pub fn poll_task_is_finished(&self, task_id: Node<u32>) -> Node<bool> {
-    let item_ptr = self.access_item_ptr(task_id);
-    let field: StorageNode<bool> = unsafe { expand_single(item_ptr.handle(), 0) };
-    field.load()
+    self.read_is_finished(task_id).load()
   }
   pub fn spawn_new_task<T: ShaderSizedValueNodeType>(&self, at: Node<u32>, payload: Node<T>) {
-    let item_ptr = self.access_item_ptr(at);
+    self.read_is_finished(at).store(false);
 
-    let is_finished_ptr: StorageNode<bool> = unsafe { expand_single(item_ptr.handle(), 0) };
-    is_finished_ptr.store(val(false));
+    self.read_payload(at).store(payload);
 
-    let payload_ptr: StorageNode<T> = unsafe { expand_single(item_ptr.handle(), 1) };
-    payload_ptr.store(payload);
-
-    todo!() // todo states
+    // write states with given init value
+    let state_ptr = self.read_states(at);
+    for (i, (_, v)) in self.state_desc.fields.iter().enumerate() {
+      unsafe {
+        let state_field: StorageNode<AnyType> = expand_single(state_ptr.handle(), i);
+        state_field.store(v.into_raw_node().into_node());
+      };
+    }
   }
 
-  pub fn read_back_payload<T: ShaderNodeType>(&self, task: Node<u32>) -> Node<T> {
-    let payload_ptr: StorageNode<T> = unsafe { expand_single(task.handle(), 1) };
-    payload_ptr.load()
+  pub fn read_payload<T: ShaderNodeType>(&self, task: Node<u32>) -> StorageNode<T> {
+    let item_ptr = self.access_item_ptr(task);
+    unsafe { expand_single(item_ptr.handle(), 1) }
+  }
+  pub fn read_states(&self, task: Node<u32>) -> StorageNode<AnyType> {
+    let item_ptr = self.access_item_ptr(task);
+    unsafe { expand_single(item_ptr.handle(), 2) }
+  }
+
+  pub fn read_is_finished(&self, task: Node<u32>) -> StorageNode<bool> {
+    let item_ptr = self.access_item_ptr(task);
+    unsafe { expand_single(item_ptr.handle(), 0) }
   }
 }

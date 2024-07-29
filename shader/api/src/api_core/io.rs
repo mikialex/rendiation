@@ -24,6 +24,9 @@ impl ShaderInputNode {
   pub fn insert_api<T: ShaderNodeType + ?Sized>(self) -> Node<T> {
     call_shader_api(|g| unsafe { g.define_module_input(self).into_node() })
   }
+  pub fn insert_api_raw(self) -> ShaderNodeRawHandle {
+    call_shader_api(|g| g.define_module_input(self))
+  }
 }
 
 /// https://www.w3.org/TR/WGSL/#builtin-inputs-outputs

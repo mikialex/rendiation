@@ -25,7 +25,7 @@ impl<'a> NodeGPU<'a> {
     builder: &mut ShaderRenderPipelineBuilder,
   ) -> BindingPreparer<ShaderUniformPtr<TransformGPUData>> {
     builder
-      .bind_by(&self.ubo)
+      .bind_by_and_prepare(&self.ubo)
       .using_graphics_pair(builder, |r, node| {
         let node = node.load().expand();
         r.register_typed_both_stage::<WorldMatrix>(node.world_matrix);

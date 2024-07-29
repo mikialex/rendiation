@@ -65,11 +65,11 @@ impl ShaderRenderPipelineBuilder {
     &mut self,
     logic: impl FnOnce(
       &mut ShaderVertexBuilder,
-      &mut ShaderBindGroupDirectBuilder,
+      &mut ShaderBindGroupBuilder,
     ) -> Result<T, ShaderBuildError>,
   ) -> Result<T, ShaderBuildError> {
     set_current_building(ShaderStages::Vertex.into());
-    let result = logic(&mut self.vertex, &mut self.bindgroups.wrap())?;
+    let result = logic(&mut self.vertex, &mut self.bindgroups)?;
     set_current_building(None);
     Ok(result)
   }
@@ -77,7 +77,7 @@ impl ShaderRenderPipelineBuilder {
     &mut self,
     logic: impl FnOnce(
       &mut ShaderFragmentBuilderView,
-      &mut ShaderBindGroupDirectBuilder,
+      &mut ShaderBindGroupBuilder,
     ) -> Result<T, ShaderBuildError>,
   ) -> Result<T, ShaderBuildError> {
     self.vertex.sync_fragment_out(&mut self.fragment);
@@ -86,7 +86,7 @@ impl ShaderRenderPipelineBuilder {
       base: &mut self.fragment,
       vertex: &mut self.vertex,
     };
-    let result = logic(&mut builder, &mut self.bindgroups.wrap())?;
+    let result = logic(&mut builder, &mut self.bindgroups)?;
     set_current_building(None);
     Ok(result)
   }

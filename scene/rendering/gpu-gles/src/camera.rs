@@ -33,7 +33,7 @@ impl<'a> CameraGPU<'a> {
     builder: &mut ShaderRenderPipelineBuilder,
   ) -> BindingPreparer<ShaderUniformPtr<CameraGPUTransform>> {
     builder
-      .bind_by(&self.ubo)
+      .bind_by_and_prepare(&self.ubo)
       .using_graphics_pair(builder, |r, camera| {
         let camera = camera.load().expand();
         r.register_typed_both_stage::<CameraViewMatrix>(camera.view);

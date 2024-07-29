@@ -13,7 +13,7 @@ impl DynamicTypeBuilder {
 }
 
 pub struct DynamicTypeBaked {
-  fields: Vec<(PrimitiveShaderValueType, PrimitiveShaderValue)>,
+  pub fields: Vec<(PrimitiveShaderValueType, PrimitiveShaderValue)>,
 }
 
 impl DynamicTypeBuilder {

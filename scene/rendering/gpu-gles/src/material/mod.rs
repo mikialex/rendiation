@@ -24,7 +24,7 @@ pub(super) fn setup_tex(
 
 pub(super) fn bind_and_sample(
   binding: &GPUTextureBindingSystem,
-  builder: &mut ShaderBindGroupDirectBuilder,
+  builder: &mut ShaderBindGroupBuilder,
   reg: &SemanticRegistry,
   host_pair: (u32, u32),
   handles: Node<TextureSamplerHandlePair>,
@@ -37,7 +37,7 @@ pub(super) fn bind_and_sample(
 
 pub(super) fn bind_and_sample_enabled(
   binding: &GPUTextureBindingSystem,
-  builder: &mut ShaderBindGroupDirectBuilder,
+  builder: &mut ShaderBindGroupBuilder,
   reg: &SemanticRegistry,
   host_pair: (u32, u32),
   handles: Node<TextureSamplerHandlePair>,

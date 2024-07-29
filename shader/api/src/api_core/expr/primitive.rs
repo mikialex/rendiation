@@ -58,6 +58,29 @@ pub enum PrimitiveShaderValue {
   Mat4Float32(Mat4<f32>),
 }
 
+impl PrimitiveShaderValue {
+  pub fn into_raw_node(self) -> ShaderNodeRawHandle {
+    match self {
+      PrimitiveShaderValue::Bool(v) => val(v).handle(),
+      PrimitiveShaderValue::Uint32(v) => val(v).handle(),
+      PrimitiveShaderValue::Int32(v) => val(v).handle(),
+      PrimitiveShaderValue::Float32(v) => val(v).handle(),
+      PrimitiveShaderValue::Vec2Float32(v) => val(v).handle(),
+      PrimitiveShaderValue::Vec3Float32(v) => val(v).handle(),
+      PrimitiveShaderValue::Vec4Float32(v) => val(v).handle(),
+      PrimitiveShaderValue::Vec2Uint32(v) => val(v).handle(),
+      PrimitiveShaderValue::Vec3Uint32(v) => val(v).handle(),
+      PrimitiveShaderValue::Vec4Uint32(v) => val(v).handle(),
+      PrimitiveShaderValue::Vec2Int32(v) => val(v).handle(),
+      PrimitiveShaderValue::Vec3Int32(v) => val(v).handle(),
+      PrimitiveShaderValue::Vec4Int32(v) => val(v).handle(),
+      PrimitiveShaderValue::Mat2Float32(v) => val(v).handle(),
+      PrimitiveShaderValue::Mat3Float32(v) => val(v).handle(),
+      PrimitiveShaderValue::Mat4Float32(v) => val(v).handle(),
+    }
+  }
+}
+
 impl From<PrimitiveShaderValue> for PrimitiveShaderValueType {
   fn from(v: PrimitiveShaderValue) -> Self {
     match v {

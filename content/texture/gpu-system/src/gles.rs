@@ -37,7 +37,7 @@ impl AbstractGPUTextureSystem for TraditionalPerDrawBindingSystem {
 
   fn register_shader_texture2d(
     &self,
-    builder: &mut ShaderBindGroupDirectBuilder,
+    builder: &mut ShaderBindGroupBuilder,
     handle: Texture2DHandle,
     _: Node<Texture2DHandle>,
   ) -> HandleNode<ShaderTexture2D> {
@@ -47,7 +47,7 @@ impl AbstractGPUTextureSystem for TraditionalPerDrawBindingSystem {
 
   fn register_shader_sampler(
     &self,
-    builder: &mut ShaderBindGroupDirectBuilder,
+    builder: &mut ShaderBindGroupBuilder,
     handle: SamplerHandle,
     _: Node<Texture2DHandle>,
   ) -> HandleNode<ShaderSampler> {

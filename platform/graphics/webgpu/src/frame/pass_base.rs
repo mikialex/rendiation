@@ -29,7 +29,7 @@ impl ShaderPassBuilder for DefaultPassDispatcher {
 
 impl GraphicsShaderProvider for DefaultPassDispatcher {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
-    let pass = builder.bind_by(&self.pass_info);
+    let pass = builder.bind_by_and_prepare(&self.pass_info);
 
     builder.vertex(|builder, _| {
       let pass = pass.using().load().expand();

@@ -239,17 +239,17 @@ impl AbstractIndirectGPUTextureSystem for TexturePool {
 
   fn register_system_self(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder
-      .bind_by(&self.texture)
+      .bind_by_and_prepare(&self.texture)
       .using_graphics_pair(builder, |r, textures| {
         r.register_typed_both_stage::<TexturePoolInShader>(textures);
       });
     builder
-      .bind_by(&self.address)
+      .bind_by_and_prepare(&self.address)
       .using_graphics_pair(builder, |r, address| {
         r.register_typed_both_stage::<TexturePoolAddressInfoInShader>(address);
       });
     builder
-      .bind_by(&self.samplers)
+      .bind_by_and_prepare(&self.samplers)
       .using_graphics_pair(builder, |r, samplers| {
         r.register_typed_both_stage::<SamplerPoolInShader>(samplers);
       });
