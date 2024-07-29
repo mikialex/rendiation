@@ -52,6 +52,8 @@ pub trait DeviceTaskSystemContextProvider {
     default: T,
   ) -> BoxedShaderLoadStore<Node<T>>;
 
+  fn resolve_state_provider(&mut self, node: NodeUntyped);
+
   /// argument must be valid for given task id to consume
   fn spawn_task<T: ShaderSizedValueNodeType>(
     &self,

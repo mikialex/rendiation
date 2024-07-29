@@ -3,7 +3,7 @@ use crate::*;
 pub struct DeviceBumpAllocationInstance<T: Std430 + ShaderSizedValueNodeType> {
   pub storage: StorageBufferDataView<[T]>,
   bump_size: StorageBufferDataView<DeviceAtomic<u32>>,
-  current_size: StorageBufferDataView<u32>,
+  current_size: StorageBufferDataView<u32>, // todo
 }
 
 impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
@@ -38,7 +38,6 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
   }
 }
 
-// todo, out of bound reset
 pub struct DeviceBumpAllocationInvocationInstance<T: Std430> {
   storage: StorageNode<[T]>,
   bump_size: StorageNode<DeviceAtomic<u32>>,
@@ -54,10 +53,6 @@ impl<T: Std430 + ShaderNodeType> DeviceBumpAllocationInvocationInstance<T> {
     });
     (write_idx, out_of_bound)
   }
-
-  pub fn commit_size(&self) {
-    todo!()
-  }
 }
 
 pub struct DeviceBumpDeAllocationInvocationInstance<T: Std430> {
@@ -68,9 +63,6 @@ pub struct DeviceBumpDeAllocationInvocationInstance<T: Std430> {
 impl<T: Std430 + ShaderNodeType> DeviceBumpDeAllocationInvocationInstance<T> {
   /// can not use with bump_allocate in the same dispatch
   pub fn bump_deallocate(&self) -> (Node<T>, Node<bool>) {
-    todo!()
-  }
-  pub fn commit_size(&self) {
     todo!()
   }
 }

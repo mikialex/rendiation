@@ -152,13 +152,17 @@ impl ShaderStructMetaInfoOwned {
     }
   }
 
-  #[must_use]
-  pub fn add_field<T: ShaderSizedValueNodeType>(mut self, name: &str) -> Self {
+  pub fn push_field_dyn(&mut self, name: &str, ty: ShaderSizedValueType) {
     self.fields.push(ShaderStructFieldMetaInfoOwned {
       name: name.to_owned(),
-      ty: T::MEMBER_TYPE,
+      ty,
       ty_deco: None,
     });
+  }
+
+  #[must_use]
+  pub fn add_field<T: ShaderSizedValueNodeType>(mut self, name: &str) -> Self {
+    self.push_field_dyn(name, T::MEMBER_TYPE);
     self
   }
 }

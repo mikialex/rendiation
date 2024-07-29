@@ -22,6 +22,10 @@ impl DeviceTaskSystemContextProvider for RayGenShaderCtx {
   ) -> Node<bool> {
     todo!()
   }
+
+  fn resolve_state_provider(&mut self, node: NodeUntyped) {
+    todo!()
+  }
 }
 
 struct AdhocStateBuilder {

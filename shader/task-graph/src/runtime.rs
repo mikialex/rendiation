@@ -80,6 +80,10 @@ impl<'a> DeviceTaskSystemContextProvider for DeviceTaskSystemBuildCtx<'a> {
       .create_or_reconstruct_inline_state(default)
   }
 
+  fn resolve_state_provider(&mut self, node: NodeUntyped) {
+    self.inner.write().state_builder.resolve(node);
+  }
+
   fn spawn_task<T: ShaderSizedValueNodeType>(
     &self,
     task_type: usize,
@@ -136,7 +140,7 @@ impl DeviceTaskGraphExecutor {
 
     let ctx = DeviceTaskSystemBuildCtxImpl {
       compute_cx: &mut compute_cx,
-      state_builder: Default::default(),
+      state_builder: DynamicTypeBuilder::new_named(&format!("Task_states_{}", task_type)),
       task_group_sources,
       tasks: Default::default(),
       current_task_idx: todo!(),
@@ -149,11 +153,13 @@ impl DeviceTaskGraphExecutor {
 
     let state = future.create_or_reconstruct_state(&mut ctx);
 
+    ctx.resolve_state_provider(todo!());
+
     let task_poll_pipeline = compute_cx
       .entry(|cx| {
         let poll_result = future.poll(&state, &ctx);
         if_by(poll_result.is_ready, || {
-          //
+          // ctx.
         });
       })
       .create_compute_pipeline(device)
@@ -331,7 +337,7 @@ impl TaskPoolInvocationInstance {
 
     // write states with given init value
     let state_ptr = self.read_states(at);
-    for (i, (_, v)) in self.state_desc.fields.iter().enumerate() {
+    for (i, v) in self.state_desc.fields_init.iter().enumerate() {
       unsafe {
         let state_field: StorageNode<AnyType> = expand_single(state_ptr.handle(), i);
         state_field.store(v.into_raw_node().into_node());
