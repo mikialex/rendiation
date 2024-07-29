@@ -53,8 +53,12 @@ pub trait DeviceTaskSystemContextProvider {
   ) -> BoxedShaderLoadStore<Node<T>>;
 
   /// argument must be valid for given task id to consume
-  fn spawn_task<T>(&self, task_type: usize, argument: Node<T>) -> Node<u32>;
-  fn poll_task<T>(
+  fn spawn_task<T: ShaderSizedValueNodeType>(
+    &self,
+    task_type: usize,
+    argument: Node<T>,
+  ) -> Node<u32>;
+  fn poll_task<T: ShaderSizedValueNodeType>(
     &self,
     task_type: usize,
     task_id: Node<u32>,
