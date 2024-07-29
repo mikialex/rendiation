@@ -86,8 +86,12 @@ impl<'a> ComputeCx<'a> {
     ShaderInputNode::Private { ty: T::MEMBER_TYPE }.insert_api()
   }
 
+  pub fn bindgroups(&mut self) -> &mut ShaderBindGroupBuilder {
+    &mut self.0.bindgroups
+  }
+
   pub fn bind_by<T: ShaderBindingProvider>(&mut self, instance: &T) -> Node<T::Node> {
-    self.0.bindgroups.bind_by_and_prepare(instance).using()
+    self.bindgroups().bind_by_and_prepare(instance).using()
   }
 }
 

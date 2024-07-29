@@ -3,12 +3,14 @@ use crate::*;
 pub struct DeviceBumpAllocationInstance<T: Std430 + ShaderSizedValueNodeType> {
   pub storage: StorageBufferDataView<[T]>,
   bump_size: StorageBufferDataView<DeviceAtomic<u32>>,
+  current_size: StorageBufferDataView<u32>,
 }
 
 impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
   pub fn new(size: usize, device: &GPUDevice) -> Self {
     Self {
       storage: create_gpu_read_write_storage(size * std::mem::size_of::<T>(), device),
+      current_size: create_gpu_read_write_storage(StorageBufferInit::WithInit(&0), device),
       bump_size: create_gpu_read_write_storage::<DeviceAtomic<u32>>(
         StorageBufferInit::WithInit(&DeviceAtomic(0)),
         device,
@@ -52,6 +54,10 @@ impl<T: Std430 + ShaderNodeType> DeviceBumpAllocationInvocationInstance<T> {
     });
     (write_idx, out_of_bound)
   }
+
+  pub fn commit_size(&self) {
+    todo!()
+  }
 }
 
 pub struct DeviceBumpDeAllocationInvocationInstance<T: Std430> {
@@ -64,21 +70,7 @@ impl<T: Std430 + ShaderNodeType> DeviceBumpDeAllocationInvocationInstance<T> {
   pub fn bump_deallocate(&self) -> (Node<T>, Node<bool>) {
     todo!()
   }
-}
-
-pub struct DeviceUntypedBumpAllocationInstance {
-  storage: GPUBufferResourceView,
-  ty_desc: ShaderSizedValueType,
-  bump_size: StorageBufferDataView<DeviceAtomic<u32>>,
-}
-
-pub struct DeviceUntypedBumpAllocationInvocationInstance {
-  storage: NodeUntyped,
-  bump_size: StorageNode<DeviceAtomic<u32>>,
-}
-
-impl DeviceUntypedBumpAllocationInvocationInstance {
-  pub fn allocate(&self, item: NodeUntyped) -> (Node<u32>, Node<bool>) {
+  pub fn commit_size(&self) {
     todo!()
   }
 }
