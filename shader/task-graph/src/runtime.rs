@@ -148,7 +148,6 @@ impl DeviceTaskGraphExecutor {
       .unwrap();
 
     let task_executor = TaskGroupExecutor {
-      index: task_type,
       task_poll_pipeline,
       resource,
       task_state_desc: state_desc,
@@ -203,7 +202,6 @@ impl DeviceTaskGraphExecutor {
 }
 
 struct TaskGroupExecutor {
-  index: usize,
   task_state_desc: DynamicTypeMetaInfo,
   task_poll_pipeline: GPUComputePipeline,
   resource: TaskGroupExecutorResource,
@@ -251,19 +249,37 @@ impl TaskPool {
     state_desc: DynamicTypeMetaInfo,
     device: &GPUDevice,
   ) -> Self {
-    todo!()
+    let usage = BufferUsages::STORAGE;
+
+    let stride = state_desc.ty.size_of_self(StructLayoutTarget::Std430);
+
+    let init = BufferInit::Zeroed(NonZeroU64::new((size * stride) as u64).unwrap());
+    let desc = GPUBufferDescriptor {
+      size: init.size(),
+      usage,
+    };
+
+    let gpu = GPUBuffer::create(device, init, usage);
+    let gpu = GPUBufferResource::create_with_raw(gpu, desc, device).create_default_view();
+
+    Self {
+      tasks: gpu,
+      state_desc,
+    }
   }
 
   pub fn build_shader(&self, cx: &mut ComputeCx) -> TaskPoolInvocationInstance {
-    // cx.bindgroups().binding_dyn(ShaderBindingDescriptor {
+    let desc = todo!();
+    // ShaderBindingDescriptor {
     //   should_as_storage_buffer_if_is_buffer_like: true,
     //   ty: ShaderValueType::Single(ShaderValueSingleType::Sized(ShaderSizedValueType::Struct(
     //     todo!(),
     //   ))),
     //   writeable_if_storage: true,
-    // });
+    // }
+    let node = cx.bindgroups().binding_dyn(desc).compute_node;
     TaskPoolInvocationInstance {
-      pool: todo!(),
+      pool: unsafe { node.into_node() },
       state_desc: self.state_desc.clone(),
     }
   }
@@ -296,9 +312,7 @@ impl TaskGroupExecutorResource {
   ) -> TaskGroupDeviceInvocationInstance {
     TaskGroupDeviceInvocationInstance {
       new_removed_task_idx: self.new_removed_task_idx.build_allocator_shader(compute_cx),
-      empty_index_pool: self
-        .new_removed_task_idx
-        .build_deallocator_shader(compute_cx),
+      empty_index_pool: self.empty_index_pool.build_deallocator_shader(compute_cx),
       task_pool: compute_cx.entry_by(|cx| self.task_pool.build_shader(cx)),
     }
   }
