@@ -16,7 +16,7 @@ pub trait DeviceFuture {
   type State;
   type Output: Copy + ShaderAbstractRightValue;
   type Ctx: DeviceTaskSystemContextProvider;
-  fn create_or_reconstruct_state(&self, ctx: &mut Self::Ctx) -> Self::State;
+  fn create_or_reconstruct_state(&self, ctx: &mut DynamicTypeBuilder) -> Self::State;
   fn poll(&self, state: &Self::State, ctx: &Self::Ctx) -> DevicePoll<Self::Output>;
 }
 
@@ -46,14 +46,6 @@ pub trait DeviceFutureExt: Sized + DeviceFuture {
 impl<T: DeviceFuture + Sized> DeviceFutureExt for T {}
 
 pub trait DeviceTaskSystemContextProvider {
-  // todo, support PrimitiveShaderValueNodeType
-  fn create_or_reconstruct_inline_state<T: PrimitiveShaderNodeType>(
-    &mut self,
-    default: T,
-  ) -> BoxedShaderLoadStore<Node<T>>;
-
-  fn resolve_state_provider(&mut self, node: NodeUntyped);
-
   /// argument must be valid for given task id to consume
   fn spawn_task<T: ShaderSizedValueNodeType>(
     &self,
@@ -84,7 +76,7 @@ where
   type State = ();
   type Output = Output;
   type Ctx = Cx;
-  fn create_or_reconstruct_state(&self, _: &mut Self::Ctx) -> Self::State {}
+  fn create_or_reconstruct_state(&self, _: &mut DynamicTypeBuilder) -> Self::State {}
 
   fn poll(&self, _: &Self::State, _: &Self::Ctx) -> DevicePoll<Self::Output> {
     (val(true), Default::default()).into()
@@ -123,7 +115,7 @@ where
     (upstream_resolved.abstract_load(), output.abstract_load()).into()
   }
 
-  fn create_or_reconstruct_state(&self, ctx: &mut Self::Ctx) -> Self::State {
+  fn create_or_reconstruct_state(&self, ctx: &mut DynamicTypeBuilder) -> Self::State {
     (
       self.upstream.create_or_reconstruct_state(ctx),
       ctx.create_or_reconstruct_inline_state(false),
@@ -185,7 +177,7 @@ where
     (then_resolved.abstract_load(), output.abstract_load()).into()
   }
 
-  fn create_or_reconstruct_state(&self, ctx: &mut Self::Ctx) -> Self::State {
+  fn create_or_reconstruct_state(&self, ctx: &mut DynamicTypeBuilder) -> Self::State {
     ShaderFutureThenInstance {
       upstream_state: self.upstream.create_or_reconstruct_state(ctx),
       upstream_resolved: ctx.create_or_reconstruct_inline_state(false),
@@ -206,7 +198,7 @@ where
   type Output = Node<T>;
   type Ctx = C;
 
-  fn create_or_reconstruct_state(&self, ctx: &mut Self::Ctx) -> Self::State {
+  fn create_or_reconstruct_state(&self, ctx: &mut DynamicTypeBuilder) -> Self::State {
     ctx.create_or_reconstruct_inline_state(u32::MAX)
   }
 

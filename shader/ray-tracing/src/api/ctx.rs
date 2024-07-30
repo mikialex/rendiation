@@ -6,10 +6,6 @@ pub struct RayGenShaderCtx {
 }
 
 impl DeviceTaskSystemContextProvider for RayGenShaderCtx {
-  fn create_or_reconstruct_inline_state<T>(&mut self, default: T) -> BoxedShaderLoadStore<Node<T>> {
-    todo!()
-  }
-
   fn spawn_task<T>(&self, task_type: usize, argument: Node<T>) -> Node<u32> {
     todo!()
   }
@@ -20,10 +16,6 @@ impl DeviceTaskSystemContextProvider for RayGenShaderCtx {
     task_id: Node<u32>,
     argument_read_back: impl FnOnce(Node<T>) + Copy,
   ) -> Node<bool> {
-    todo!()
-  }
-
-  fn resolve_state_provider(&mut self, node: NodeUntyped) {
     todo!()
   }
 }

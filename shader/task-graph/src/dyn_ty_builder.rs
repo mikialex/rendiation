@@ -1,14 +1,14 @@
 use crate::*;
 
 pub struct DynamicTypeBuilder {
-  meta: DynamicTypeBaked,
+  meta: DynamicTypeMetaInfo,
   node_to_resolve: Arc<RwLock<Option<NodeUntyped>>>,
 }
 
 impl DynamicTypeBuilder {
   pub fn new_named(name: &str) -> Self {
     let mut v = Self {
-      meta: DynamicTypeBaked {
+      meta: DynamicTypeMetaInfo {
         ty: ShaderStructMetaInfoOwned::new(name),
         fields_init: Default::default(),
       },
@@ -20,20 +20,22 @@ impl DynamicTypeBuilder {
     v.create_or_reconstruct_inline_state::<u32>(0);
     v
   }
-  pub fn bake(self) -> DynamicTypeBaked {
-    self.meta
+  pub fn meta_info(&self) -> DynamicTypeMetaInfo {
+    self.meta.clone()
   }
   pub fn resolve(&mut self, node: NodeUntyped) {
     self.node_to_resolve.write().replace(node);
   }
 }
 
-pub struct DynamicTypeBaked {
+#[derive(Clone)]
+pub struct DynamicTypeMetaInfo {
   pub ty: ShaderStructMetaInfoOwned,
   pub fields_init: Vec<PrimitiveShaderValue>,
 }
 
 impl DynamicTypeBuilder {
+  // todo, support PrimitiveShaderValueNodeType
   pub fn create_or_reconstruct_inline_state<T: PrimitiveShaderNodeType>(
     &mut self,
     default: T,

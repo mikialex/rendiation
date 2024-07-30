@@ -19,7 +19,7 @@ where
   T: ShaderRayGenLogic,
   F: FnOnce() -> (Node<bool>, ShaderRayTraceCall) + Copy,
 {
-  type State = (T::State, BoxedShaderLoadStore<bool>);
+  type State = (T::State, BoxedShaderLoadStore<Node<bool>>);
   type Output = ShaderRayTraceCall;
   type Ctx = RayGenShaderCtx;
   fn poll(&self, state: &Self::State, ctx: &Self::Ctx) -> DevicePoll<Self::Output> {
@@ -36,10 +36,10 @@ where
     todo!()
   }
 
-  fn create_or_reconstruct_state(&self, ctx: &mut Self::Ctx) -> Self::State {
+  fn create_or_reconstruct_state(&self, ctx: &mut DynamicTypeBuilder) -> Self::State {
     (
       self.upstream.create_or_reconstruct_state(ctx),
-      ctx.allocate_state::<bool>(),
+      ctx.create_or_reconstruct_inline_state(false),
     )
   }
 }

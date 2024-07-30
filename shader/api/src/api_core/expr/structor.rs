@@ -139,6 +139,7 @@ pub struct ShaderStructFieldMetaInfoOwned {
   pub ty_deco: Option<ShaderFieldDecorator>,
 }
 
+#[derive(Clone)]
 pub struct ShaderStructMetaInfoOwned {
   pub name: String,
   pub fields: Vec<ShaderStructFieldMetaInfoOwned>,
