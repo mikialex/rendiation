@@ -24,7 +24,6 @@ pub trait BoxShaderRayClosestHitLogic {}
 
 pub struct GPURaytracingPipelineBuilder {
   pub max_recursion_depth: u32,
-  pub geometry_provider: Box<dyn GPUAccelerationStructureProvider>,
   ray_gen_shader: Box<dyn BoxShaderRayGenLogic>,
   // // miss_shader
   // miss_hit_shaders: Vec<Box<dyn BoxShaderRayClosestHitLogic>>,
@@ -37,7 +36,6 @@ impl Default for GPURaytracingPipelineBuilder {
   fn default() -> Self {
     Self {
       max_recursion_depth: 8,
-      geometry_provider: todo!(),
       ray_gen_shader: todo!(),
       closest_hit_shaders: Default::default(),
     }

@@ -1,4 +1,4 @@
-use space_algorithm::bvh::{FlattenBVH, NextTraverseVisit, SAH};
+use rendiation_space_algorithm::bvh::{FlattenBVH, NextTraverseVisit, SAH};
 
 use crate::*;
 

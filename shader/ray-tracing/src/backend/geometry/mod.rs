@@ -5,7 +5,7 @@ mod native;
 
 use crate::*;
 
-pub trait GPUAccelerationStructureProvider {
+pub trait GPUAccelerationStructureInvocationTraversable {
   /// return optional closest hit
   fn traverse(
     &self,
@@ -14,22 +14,33 @@ pub trait GPUAccelerationStructureProvider {
   ) -> DeviceOption<Node<WorldHitInfo>>;
 }
 
-pub trait GPURayTracingAccelerationStructureDeviceProvider {
+pub trait GPUAccelerationStructureInstance {
+  fn build_shader(
+    &self,
+    compute_cx: &mut ShaderComputePipelineBuilder,
+  ) -> Box<dyn GPUAccelerationStructureInvocationTraversable>;
+  fn bind_pass(&self, pass: &mut GPUComputePass);
+
+  fn handle(&self) -> u32;
+}
+
+pub trait GPUAccelerationStructureInstanceBuilder {
   fn create_top_level_acceleration_structure(
     &self,
     source: &[TopLevelAccelerationStructureSourceInstance],
-  ) -> Box<dyn GPUAccelerationStructureProvider>;
+  ) -> Box<dyn GPUAccelerationStructureInstance>;
+
+  fn delete_top_level_acceleration_structure(&self, id: Box<dyn GPUAccelerationStructureInstance>);
 
   fn create_bottom_level_acceleration_structure_by_triangles(
     &self,
     positions: &[Vec3<f32>],
     indices: &[u32],
-  ) -> Box<dyn GPUAccelerationStructureProvider>;
+  ) -> u32;
 
-  fn create_bottom_level_acceleration_structure_by_aabbs(
-    &self,
-    aabbs: &[[f32; 6]],
-  ) -> Box<dyn GPUAccelerationStructureProvider>;
+  fn create_bottom_level_acceleration_structure_by_aabbs(&self, aabbs: &[[f32; 6]]) -> u32;
+
+  fn delete_bottom_level_acceleration_structure(&self, id: u32);
 }
 
 pub struct TopLevelAccelerationStructureSourceInstance {

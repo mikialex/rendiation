@@ -175,7 +175,7 @@ impl DeviceTaskGraphExecutor {
     }
   }
 
-  fn make_sure_execution_size_is_enough(&mut self, gpu: &GPU, dispatch_size: usize) {
+  pub fn make_sure_execution_size_is_enough(&mut self, gpu: &GPU, dispatch_size: usize) {
     let is_contained = self.current_prepared_execution_size <= dispatch_size;
 
     if !is_contained {
@@ -185,9 +185,17 @@ impl DeviceTaskGraphExecutor {
 }
 
 impl DeviceTaskGraphExecutor {
-  pub fn execute(&mut self, gpu: &GPU, dispatch_size: usize) {
-    self.make_sure_execution_size_is_enough(gpu, dispatch_size);
+  pub fn dispatch_init_task<T>(
+    &mut self,
+    gpu: &GPU,
+    dispatch_size: usize,
+    task_id: u32,
+    task_spawner: impl FnOnce(Node<u32>) -> Node<T>,
+  ) {
+    //
+  }
 
+  pub fn execute(&mut self, gpu: &GPU) {
     let mut encoder = gpu.create_encoder();
 
     encoder.compute_pass_scoped(|mut pass| {
@@ -286,7 +294,14 @@ impl TaskPool {
 
 impl TaskGroupExecutor {
   pub fn execute(&self, pass: &mut GPUComputePass) {
+    let mut bb = BindingBuilder::new_as_compute();
+
+    // bb.bind(&input)
+    //   .bind(&output)
+    //   .setup_compute_pass(&mut pass, &gpu.device, &pipeline);
+
     pass.set_pipeline_owned(&self.task_poll_pipeline);
+
     // pass.set_bind_group(index, bind_group, offsets)
     // todo, prepare size args
     // pass.dispatch_workgroups_indirect(&self.main_dispatch_size.buffer.gpu(), 0);

@@ -3430,6 +3430,7 @@ dependencies = [
  "rendiation-device-task-graph",
  "rendiation-shader-api",
  "rendiation-shader-derives",
+ "rendiation-space-algorithm",
  "rendiation-webgpu",
 ]
 
@@ -3570,8 +3571,8 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-shader-api",
+ "rendiation-space-algorithm",
  "smallvec",
- "space-algorithm",
 ]
 
 [[package]]
@@ -3617,7 +3618,7 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-mesh-core",
- "space-algorithm",
+ "rendiation-space-algorithm",
  "tobj",
 ]
 
@@ -3831,6 +3832,18 @@ version = "0.1.0"
 dependencies = [
  "rendiation-algebra",
  "rendiation-shader-api",
+]
+
+[[package]]
+name = "rendiation-space-algorithm"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "log",
+ "rand",
+ "rendiation-abstract-tree",
+ "rendiation-algebra",
+ "rendiation-geometry",
 ]
 
 [[package]]
@@ -4250,18 +4263,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6845563ada680337a52d43bb0b29f396f2d911616f6573012645b9e3d048a49"
 dependencies = [
  "serde",
-]
-
-[[package]]
-name = "space-algorithm"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "log",
- "rand",
- "rendiation-abstract-tree",
- "rendiation-algebra",
- "rendiation-geometry",
 ]
 
 [[package]]
