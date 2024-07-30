@@ -140,7 +140,7 @@ impl ShaderAPINagaImpl {
             },
           }),
           ShaderSizedValueType::Primitive(p) => map_primitive_type(*p),
-          ShaderSizedValueType::StructOwned(st) => {
+          ShaderSizedValueType::Struct(st) => {
             name = st.name.to_owned().into();
             gen_struct_define(self, st.clone(), layout)
           }
@@ -907,9 +907,9 @@ impl ShaderAPI for ShaderAPINagaImpl {
         ShaderNodeExpr::StructConstruct { meta, fields } => {
           let mut components: Vec<_> = fields.iter().map(|f| self.get_expression(*f)).collect();
           let ty = self.register_ty_impl(
-            ShaderValueType::Single(ShaderValueSingleType::Sized(
-              ShaderSizedValueType::StructOwned(meta.clone()),
-            )),
+            ShaderValueType::Single(ShaderValueSingleType::Sized(ShaderSizedValueType::Struct(
+              meta.clone(),
+            ))),
             None,
           );
 

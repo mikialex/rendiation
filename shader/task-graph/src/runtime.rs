@@ -269,14 +269,13 @@ impl TaskPool {
   }
 
   pub fn build_shader(&self, cx: &mut ComputeCx) -> TaskPoolInvocationInstance {
-    let desc = todo!();
-    // ShaderBindingDescriptor {
-    //   should_as_storage_buffer_if_is_buffer_like: true,
-    //   ty: ShaderValueType::Single(ShaderValueSingleType::Sized(ShaderSizedValueType::Struct(
-    //     todo!(),
-    //   ))),
-    //   writeable_if_storage: true,
-    // }
+    let desc = ShaderBindingDescriptor {
+      should_as_storage_buffer_if_is_buffer_like: true,
+      ty: ShaderValueType::Single(ShaderValueSingleType::Sized(ShaderSizedValueType::Struct(
+        self.state_desc.ty.clone(),
+      ))),
+      writeable_if_storage: true,
+    };
     let node = cx.bindgroups().binding_dyn(desc).compute_node;
     TaskPoolInvocationInstance {
       pool: unsafe { node.into_node() },

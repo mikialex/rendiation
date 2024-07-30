@@ -76,7 +76,7 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
 
     impl rendiation_shader_api::ShaderSizedValueNodeType for #struct_name {
       fn sized_ty() -> rendiation_shader_api::ShaderSizedValueType {
-        rendiation_shader_api::ShaderSizedValueType::StructOwned(Self::meta_info())
+        rendiation_shader_api::ShaderSizedValueType::Struct(Self::meta_info())
       }
     }
 

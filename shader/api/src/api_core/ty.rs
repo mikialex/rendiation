@@ -171,7 +171,7 @@ pub enum ShaderValueSingleType {
 pub enum ShaderSizedValueType {
   Atomic(ShaderAtomicValueType),
   Primitive(PrimitiveShaderValueType),
-  StructOwned(ShaderStructMetaInfo),
+  Struct(ShaderStructMetaInfo),
   FixedSizeArray((Box<ShaderSizedValueType>, usize)),
 }
 
