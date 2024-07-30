@@ -25,34 +25,6 @@ where
   .insert_api()
 }
 
-/// use for compile time ubo field reflection by procedure macro;
-#[derive(Debug)]
-pub struct ShaderStructMetaInfo {
-  pub name: &'static str,
-  pub fields: &'static [ShaderStructFieldMetaInfo],
-}
-
-impl ShaderStructMetaInfo {
-  pub fn to_owned(&self) -> ShaderStructMetaInfoOwned {
-    ShaderStructMetaInfoOwned {
-      name: self.name.to_owned(),
-      fields: self.fields.iter().map(|f| f.to_owned()).collect(),
-    }
-  }
-}
-
-impl PartialEq for ShaderStructMetaInfo {
-  fn eq(&self, other: &Self) -> bool {
-    self.name == other.name
-  }
-}
-impl Eq for ShaderStructMetaInfo {}
-impl Hash for ShaderStructMetaInfo {
-  fn hash<H: Hasher>(&self, state: &mut H) {
-    self.name.hash(state);
-  }
-}
-
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum ShaderInterpolation {
   Perspective,
@@ -115,37 +87,20 @@ impl<T: ShaderSizedValueNodeType, const U: usize> ShaderFieldTypeMapper for Shad
   type ShaderType = [T; U];
 }
 
-#[derive(Debug)]
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub struct ShaderStructFieldMetaInfo {
-  pub name: &'static str,
-  pub ty: ShaderSizedValueType,
-  pub ty_deco: Option<ShaderFieldDecorator>,
-}
-
-impl ShaderStructFieldMetaInfo {
-  pub fn to_owned(&self) -> ShaderStructFieldMetaInfoOwned {
-    ShaderStructFieldMetaInfoOwned {
-      name: self.name.to_owned(),
-      ty: self.ty.clone(),
-      ty_deco: self.ty_deco,
-    }
-  }
-}
-
-#[derive(Clone, PartialEq, Eq, Debug, Hash)]
-pub struct ShaderStructFieldMetaInfoOwned {
   pub name: String,
   pub ty: ShaderSizedValueType,
   pub ty_deco: Option<ShaderFieldDecorator>,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
-pub struct ShaderStructMetaInfoOwned {
+pub struct ShaderStructMetaInfo {
   pub name: String,
-  pub fields: Vec<ShaderStructFieldMetaInfoOwned>,
+  pub fields: Vec<ShaderStructFieldMetaInfo>,
 }
 
-impl ShaderStructMetaInfoOwned {
+impl ShaderStructMetaInfo {
   pub fn new(name: &str) -> Self {
     Self {
       name: name.to_owned(),
@@ -154,7 +109,7 @@ impl ShaderStructMetaInfoOwned {
   }
 
   pub fn push_field_dyn(&mut self, name: &str, ty: ShaderSizedValueType) {
-    self.fields.push(ShaderStructFieldMetaInfoOwned {
+    self.fields.push(ShaderStructFieldMetaInfo {
       name: name.to_owned(),
       ty,
       ty_deco: None,
@@ -170,12 +125,12 @@ impl ShaderStructMetaInfoOwned {
 
 #[derive(Debug)]
 pub struct ShaderUnSizedStructMetaInfo {
-  pub name: &'static str,
-  pub sized_fields: &'static [ShaderStructFieldMetaInfo],
+  pub name: String,
+  pub sized_fields: Vec<ShaderStructFieldMetaInfo>,
   /// according to spec, only unsized array is supported, unsized struct is not
   ///
   /// https://www.w3.org/TR/WGSL/#struct-types
-  pub last_dynamic_array_field: (&'static str, &'static ShaderSizedValueType),
+  pub last_dynamic_array_field: (String, Box<ShaderSizedValueType>),
 }
 
 impl PartialEq for ShaderUnSizedStructMetaInfo {

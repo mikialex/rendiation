@@ -141,7 +141,7 @@ pub enum ShaderNodeExpr {
     struct_node: ShaderNodeRawHandle,
   },
   StructConstruct {
-    meta: ShaderStructMetaInfoOwned,
+    meta: ShaderStructMetaInfo,
     fields: Vec<ShaderNodeRawHandle>,
   },
   Const {

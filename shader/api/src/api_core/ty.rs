@@ -171,8 +171,7 @@ pub enum ShaderValueSingleType {
 pub enum ShaderSizedValueType {
   Atomic(ShaderAtomicValueType),
   Primitive(PrimitiveShaderValueType),
-  Struct(&'static ShaderStructMetaInfo),
-  StructOwned(ShaderStructMetaInfoOwned),
+  StructOwned(ShaderStructMetaInfo),
   FixedSizeArray((Box<ShaderSizedValueType>, usize)),
 }
 
@@ -230,7 +229,7 @@ impl AtomicityShaderNodeType for i32 {
 
 pub trait ShaderStructuralNodeType: ShaderNodeType + Sized {
   type Instance;
-  fn meta_info() -> ShaderStructMetaInfoOwned;
+  fn meta_info() -> ShaderStructMetaInfo;
   fn expand(node: Node<Self>) -> Self::Instance;
   fn construct(instance: Self::Instance) -> Node<Self>;
 }

@@ -9,7 +9,7 @@ impl DynamicTypeBuilder {
   pub fn new_named(name: &str) -> Self {
     let mut v = Self {
       meta: DynamicTypeMetaInfo {
-        ty: ShaderStructMetaInfoOwned::new(name),
+        ty: ShaderStructMetaInfo::new(name),
         fields_init: Default::default(),
       },
       node_to_resolve: Default::default(),
@@ -30,7 +30,7 @@ impl DynamicTypeBuilder {
 
 #[derive(Clone)]
 pub struct DynamicTypeMetaInfo {
-  pub ty: ShaderStructMetaInfoOwned,
+  pub ty: ShaderStructMetaInfo,
   pub fields_init: Vec<PrimitiveShaderValue>,
 }
 

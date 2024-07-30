@@ -82,8 +82,8 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
 
     impl rendiation_shader_api::ShaderStructuralNodeType for #struct_name {
       type Instance = #shader_api_instance_name;
-      fn meta_info() -> rendiation_shader_api::ShaderStructMetaInfoOwned{
-        ShaderStructMetaInfoOwned::new(#struct_name_str)
+      fn meta_info() -> rendiation_shader_api::ShaderStructMetaInfo{
+        ShaderStructMetaInfo::new(#struct_name_str)
         #(#meta_info_fields)*
       }
       fn expand(node: rendiation_shader_api::Node<Self>) -> Self::Instance{

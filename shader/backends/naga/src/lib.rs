@@ -13,7 +13,7 @@ pub struct ShaderAPINagaImpl {
   fn_mapping: FastHashMap<String, (naga::Handle<naga::Function>, ShaderUserDefinedFunction)>,
   ty_mapping: FastHashMap<ShaderValueType, naga::Handle<naga::Type>>,
   expression_mapping: FastHashMap<ShaderNodeRawHandle, naga::Handle<naga::Expression>>,
-  outputs_define: Vec<ShaderStructFieldMetaInfoOwned>,
+  outputs_define: Vec<ShaderStructFieldMetaInfo>,
   outputs: Vec<naga::Handle<naga::Expression>>,
   struct_extra_padding_count: FastHashMap<String, usize>,
 }
@@ -140,10 +140,6 @@ impl ShaderAPINagaImpl {
             },
           }),
           ShaderSizedValueType::Primitive(p) => map_primitive_type(*p),
-          ShaderSizedValueType::Struct(st) => {
-            name = st.name.to_owned().into();
-            gen_struct_define(self, (**st).to_owned(), layout)
-          }
           ShaderSizedValueType::StructOwned(st) => {
             name = st.name.to_owned().into();
             gen_struct_define(self, st.clone(), layout)
@@ -245,7 +241,7 @@ impl ShaderAPINagaImpl {
     assert!(self.building_fn.len() == 1);
 
     let ty = ShaderSizedValueType::Primitive(ty);
-    self.outputs_define.push(ShaderStructFieldMetaInfoOwned {
+    self.outputs_define.push(ShaderStructFieldMetaInfo {
       name,
       ty: ty.clone(),
       ty_deco: Some(ty_deco),
@@ -467,7 +463,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
     assert!(self.building_fn.len() == 1);
 
     let ty = ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Vec4Float32);
-    self.outputs_define.push(ShaderStructFieldMetaInfoOwned {
+    self.outputs_define.push(ShaderStructFieldMetaInfo {
       name: format!("frag_out_{}", self.outputs_define.len()),
       ty: ty.clone(),
       ty_deco: ShaderFieldDecorator::Location(self.outputs.len(), None).into(),
@@ -1047,7 +1043,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
     if let BlockBuildingState::Function = ty {
       // empty output is possible, for example depth only render target
       if self.building_fn.len() == 1 && !self.outputs_define.is_empty() {
-        let ty = ShaderStructMetaInfoOwned {
+        let ty = ShaderStructMetaInfo {
           name: String::from("ModuleOutput"),
           fields: self.outputs_define.clone(),
         };
@@ -1325,7 +1321,7 @@ fn map_primitive_type(t: PrimitiveShaderValueType) -> naga::TypeInner {
 
 fn gen_struct_define(
   api: &mut ShaderAPINagaImpl,
-  meta: ShaderStructMetaInfoOwned,
+  meta: ShaderStructMetaInfo,
   l: Option<StructLayoutTarget>,
 ) -> naga::TypeInner {
   let layout = l.unwrap_or(StructLayoutTarget::Std430); // is this ok??
@@ -1350,16 +1346,16 @@ fn gen_unsized_struct_define(
   let layout = StructLayoutTarget::Std430;
 
   let fields: Vec<_> = meta.sized_fields.iter().map(|f| f.to_owned()).collect();
-  let mut members = struct_member(meta.name, api, &fields, Some(layout));
+  let mut members = struct_member(&meta.name, api, &fields, Some(layout));
 
   let field_size = size_of_struct_sized_fields(&fields, layout);
-  let (name, array_ty) = meta.last_dynamic_array_field;
+  let (name, array_ty) = &meta.last_dynamic_array_field;
 
   members.push(naga::StructMember {
     name: name.to_string().into(),
     ty: api.register_ty_impl(
       ShaderValueType::Single(ShaderValueSingleType::Unsized(
-        ShaderUnSizedValueType::UnsizedArray(Box::new(array_ty.clone())),
+        ShaderUnSizedValueType::UnsizedArray(Box::new(*array_ty.clone())),
       )),
       Some(layout),
     ),
@@ -1376,7 +1372,7 @@ fn gen_unsized_struct_define(
 fn struct_member(
   name: &str,
   api: &mut ShaderAPINagaImpl,
-  fields: &[ShaderStructFieldMetaInfoOwned],
+  fields: &[ShaderStructFieldMetaInfo],
   l: Option<StructLayoutTarget>,
 ) -> Vec<naga::StructMember> {
   let layout = l.unwrap_or(StructLayoutTarget::Std430); // is this ok??
@@ -1384,7 +1380,7 @@ fn struct_member(
   let mut extra_explicit_padding_count = 0;
   let mut current_byte_used = 0;
   let mut members = Vec::new();
-  for (index, ShaderStructFieldMetaInfoOwned { name, ty, ty_deco }) in fields.iter().enumerate() {
+  for (index, ShaderStructFieldMetaInfo { name, ty, ty_deco }) in fields.iter().enumerate() {
     let next_align_requirement = if index + 1 == fields.len() {
       align_of_struct_sized_fields(fields, layout)
     } else {
