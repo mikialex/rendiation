@@ -53,14 +53,14 @@ impl Hash for ShaderStructMetaInfo {
   }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum ShaderInterpolation {
   Perspective,
   Linear,
   Flat,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum ShaderFieldDecorator {
   BuiltIn(ShaderBuiltInDecorator),
   Location(usize, Option<ShaderInterpolation>),
@@ -126,20 +126,20 @@ impl ShaderStructFieldMetaInfo {
   pub fn to_owned(&self) -> ShaderStructFieldMetaInfoOwned {
     ShaderStructFieldMetaInfoOwned {
       name: self.name.to_owned(),
-      ty: self.ty,
+      ty: self.ty.clone(),
       ty_deco: self.ty_deco,
     }
   }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub struct ShaderStructFieldMetaInfoOwned {
   pub name: String,
   pub ty: ShaderSizedValueType,
   pub ty_deco: Option<ShaderFieldDecorator>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub struct ShaderStructMetaInfoOwned {
   pub name: String,
   pub fields: Vec<ShaderStructFieldMetaInfoOwned>,
@@ -163,7 +163,7 @@ impl ShaderStructMetaInfoOwned {
 
   #[must_use]
   pub fn add_field<T: ShaderSizedValueNodeType>(mut self, name: &str) -> Self {
-    self.push_field_dyn(name, T::MEMBER_TYPE);
+    self.push_field_dyn(name, T::sized_ty());
     self
   }
 }

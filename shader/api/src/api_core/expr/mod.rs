@@ -141,7 +141,7 @@ pub enum ShaderNodeExpr {
     struct_node: ShaderNodeRawHandle,
   },
   StructConstruct {
-    meta: &'static ShaderStructMetaInfo,
+    meta: ShaderStructMetaInfoOwned,
     fields: Vec<ShaderNodeRawHandle>,
   },
   Const {
@@ -193,7 +193,7 @@ where
   T: ShaderSizedValueNodeType,
 {
   ShaderNodeExpr::Zeroed {
-    target: T::MEMBER_TYPE,
+    target: T::sized_ty(),
   }
   .insert_api()
 }

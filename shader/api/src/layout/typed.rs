@@ -74,6 +74,7 @@ impl ShaderSizedValueType {
       ShaderSizedValueType::Atomic(t) => t.align_of_self(),
       ShaderSizedValueType::Primitive(t) => t.align_of_self(),
       ShaderSizedValueType::Struct(t) => (*t).to_owned().align_of_self(target),
+      ShaderSizedValueType::StructOwned(t) => t.align_of_self(target),
       ShaderSizedValueType::FixedSizeArray((t, _)) => {
         let align = t.align_of_self(target);
         match target {
@@ -89,6 +90,7 @@ impl ShaderSizedValueType {
       ShaderSizedValueType::Atomic(t) => t.size_of_self(),
       ShaderSizedValueType::Primitive(t) => t.size_of_self(),
       ShaderSizedValueType::Struct(t) => (*t).to_owned().size_of_self(target),
+      ShaderSizedValueType::StructOwned(t) => t.size_of_self(target),
       ShaderSizedValueType::FixedSizeArray((ty, size)) => {
         size * round_up(self.align_of_self(target), ty.size_of_self(target))
       }

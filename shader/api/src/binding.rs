@@ -65,7 +65,7 @@ impl ShaderBindGroupBuilder {
     let entry_index = bindgroup.bindings.len();
 
     let node = ShaderInputNode::Binding {
-      desc,
+      desc: desc.clone(),
       bindgroup_index,
       entry_index,
     };
@@ -90,7 +90,7 @@ impl ShaderBindGroupBuilder {
       compute_node,
     };
 
-    bindgroup.bindings.push(entry);
+    bindgroup.bindings.push(entry.clone());
 
     entry
   }

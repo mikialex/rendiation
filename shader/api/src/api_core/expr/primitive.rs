@@ -127,8 +127,9 @@ macro_rules! primitive_ty {
     );
 
     impl ShaderSizedValueNodeType for $ty {
-      const MEMBER_TYPE: ShaderSizedValueType =
-        ShaderSizedValueType::Primitive($primitive_ty_value);
+      fn sized_ty() -> ShaderSizedValueType {
+        ShaderSizedValueType::Primitive($primitive_ty_value)
+      }
     }
 
     impl PrimitiveShaderNodeType for $ty {

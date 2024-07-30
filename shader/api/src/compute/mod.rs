@@ -73,17 +73,17 @@ impl<'a> ComputeCx<'a> {
   }
 
   pub fn define_workgroup_shared_var<T: ShaderSizedValueNodeType>(&self) -> WorkGroupSharedNode<T> {
-    ShaderInputNode::WorkGroupShared { ty: T::MEMBER_TYPE }.insert_api()
+    ShaderInputNode::WorkGroupShared { ty: T::sized_ty() }.insert_api()
   }
   pub fn define_workgroup_shared_var_host_size_array<T: ShaderSizedValueNodeType>(
     &self,
     len: u32,
   ) -> WorkGroupSharedNode<HostDynSizeArray<T>> {
-    let ty = ShaderSizedValueType::FixedSizeArray((&T::MEMBER_TYPE, len as usize));
+    let ty = ShaderSizedValueType::FixedSizeArray((Box::new(T::sized_ty()), len as usize));
     ShaderInputNode::WorkGroupShared { ty }.insert_api()
   }
   pub fn define_invocation_private_var<T: ShaderSizedValueNodeType>(&self) -> GlobalVarNode<T> {
-    ShaderInputNode::Private { ty: T::MEMBER_TYPE }.insert_api()
+    ShaderInputNode::Private { ty: T::sized_ty() }.insert_api()
   }
 
   pub fn bindgroups(&mut self) -> &mut ShaderBindGroupBuilder {

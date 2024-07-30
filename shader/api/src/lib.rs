@@ -6,7 +6,6 @@ mod compute;
 mod graphics;
 mod layout;
 mod re_export;
-mod type_workaround;
 
 use std::{
   any::{Any, TypeId},
@@ -26,7 +25,6 @@ pub use layout::*;
 pub use re_export::*;
 pub use rendiation_algebra::*;
 pub use rendiation_shader_derives::*;
-pub use type_workaround::*;
 
 pub type DynamicShaderAPI = Box<dyn ShaderAPI<Output = Box<dyn Any>>>;
 
