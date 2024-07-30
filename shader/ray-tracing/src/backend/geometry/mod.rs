@@ -43,6 +43,7 @@ pub trait GPUAccelerationStructureInstanceBuilder {
   fn delete_bottom_level_acceleration_structure(&self, id: u32);
 }
 
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct TopLevelAccelerationStructureSourceInstance {
   pub transform: Mat4<f32>,
   pub instance_custom_index: u32,

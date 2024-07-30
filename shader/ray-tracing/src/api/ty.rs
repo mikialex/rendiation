@@ -86,34 +86,17 @@ impl Default for ShaderRayTraceCall {
   }
 }
 
-pub struct ShaderRecord {
-  shader: u32,
-}
-
-pub struct HitGroupShaderRecord {
-  closet_hit: u32,
-  any_hit: Option<u32>,
-  intersection: Option<u32>,
-}
-
-pub struct ShaderBindingTable {
-  pub ray_generation: Vec<ShaderRecord>,
-  pub ray_miss: Vec<ShaderRecord>,
-  pub ray_hit: Vec<ShaderRecord>,
-  pub callable: Vec<ShaderRecord>,
-}
-
 /// The shader record to call is determined by parameters set on the instance, trace ray call, and
 /// the order of geometries in the bottom-level acceleration structure. These parameters are set on
 /// both the host and device during different parts of the scene and pipeline setup and execution
 pub fn compute_sbt_hit_group(mesh: MeshSBTConfig, ray: RaySBTConfig) -> Node<u32> {
-  ray.offset + ray.stride * mesh.tlas_idx + mesh.sbt_offset
+  ray.offset + ray.stride * mesh.mesh_idx_in_tlas + mesh.sbt_offset
 }
 
 #[derive(Clone, Copy)]
 pub struct MeshSBTConfig {
   /// the index of self in building TLAS
-  pub tlas_idx: Node<u32>,
+  pub mesh_idx_in_tlas: Node<u32>,
   /// starting offset within the SBT where its sub-table of hit group records start.
   pub sbt_offset: Node<u32>,
 }
