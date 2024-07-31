@@ -74,3 +74,31 @@ where
     (self.map)(ctx);
   }
 }
+
+pub struct BoxState<T>(pub T);
+
+impl<T: NativeRayTracingShaderBuilder> NativeRayTracingShaderBuilder for BoxState<T> {
+  type Ctx = T::Ctx;
+
+  fn build(&self, ctx: &mut Self::Ctx) {
+    self.0.build(ctx)
+  }
+}
+
+impl<T> DeviceFuture for BoxState<T>
+where
+  T: DeviceFuture,
+{
+  type State = Box<dyn Any>;
+  type Output = T::Output;
+  type Ctx = T::Ctx;
+
+  fn create_or_reconstruct_state(&self, ctx: &mut DynamicTypeBuilder) -> Self::State {
+    Box::new(self.0.create_or_reconstruct_state(ctx))
+  }
+
+  fn poll(&self, state: &Self::State, ctx: &Self::Ctx) -> DevicePoll<Self::Output> {
+    let state = state.downcast_ref::<T::State>().unwrap();
+    self.0.poll(state, ctx)
+  }
+}

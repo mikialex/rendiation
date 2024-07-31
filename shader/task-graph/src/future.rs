@@ -13,7 +13,7 @@ impl<T> From<(Node<bool>, T)> for DevicePoll<T> {
 }
 
 pub trait DeviceFuture {
-  type State;
+  type State: 'static;
   type Output: Copy + ShaderAbstractRightValue;
   type Ctx: DeviceTaskSystemContextProvider;
   fn create_or_reconstruct_state(&self, ctx: &mut DynamicTypeBuilder) -> Self::State;

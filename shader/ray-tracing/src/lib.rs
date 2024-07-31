@@ -6,9 +6,11 @@ use rendiation_webgpu::*;
 mod backend;
 pub use backend::*;
 mod api;
+use std::any::Any;
+
 pub use api::*;
 
 pub struct GPURaytracingDevice {
-  pub pipeline: Box<dyn GPURayTracingPipelineDeviceProvider>,
+  pub pipeline: Box<dyn GPURayTracingDeviceProvider>,
   pub acceleration_structure: Box<dyn GPUAccelerationStructureInstanceBuilder>,
 }

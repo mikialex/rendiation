@@ -28,9 +28,6 @@ impl RayGenShaderCtx {
   pub fn call_trace_ray(&mut self, trace: ShaderRayTraceCall) {
     //
   }
-  pub fn allocate_state<T>(&mut self) -> BoxedShaderLoadStore<T> {
-    todo!()
-  }
 }
 
 impl RayDispatchShaderStageCtx for RayGenShaderCtx {
