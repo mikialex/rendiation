@@ -24,11 +24,20 @@ impl GPURaytracingPipelineBuilder {
   }
 }
 
-trait AnyPayload: DynClone + Any {}
+trait AnyPayload: DynClone + Any {
+  fn into_any(&self) -> Box<dyn Any>;
+}
 dyn_clone::clone_trait_object!(AnyPayload);
 
 trait TaskSpawnTarget {
   fn spawn(&self, payload: Box<dyn AnyPayload>) -> Node<u32>;
+}
+
+impl TaskSpawnTarget for TaskGroupDeviceInvocationInstance {
+  fn spawn(&self, payload: Box<dyn AnyPayload>) -> Node<u32> {
+    // self.spawn_new_task(payload.into_any().downcast().unwrap())
+    todo!()
+  }
 }
 
 struct GPURayTraceTaskInvocationInstance {

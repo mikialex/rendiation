@@ -324,7 +324,7 @@ macro_rules! swizzle_mat {
 
 swizzle_mat!(f32);
 
-macro_rules! num_cast {
+macro_rules! num_convert {
   ($src: ty, $dst: ty) => {
     paste::item! {
       impl Node<$src> {
@@ -342,13 +342,55 @@ macro_rules! num_cast {
   };
 }
 
-num_cast!(u32, f32);
-num_cast!(f32, u32);
-num_cast!(f32, i32);
-num_cast!(i32, f32);
-num_cast!(u32, i32);
-num_cast!(i32, u32);
-num_cast!(u32, bool);
+num_convert!(u32, f32);
+num_convert!(f32, u32);
+num_convert!(f32, i32);
+num_convert!(i32, f32);
+num_convert!(u32, i32);
+num_convert!(i32, u32);
+num_convert!(u32, bool);
+
+pub trait DeviceRawBitCast {
+  type Value: ValueType;
+}
+impl DeviceRawBitCast for f32 {
+  type Value = Self;
+}
+impl DeviceRawBitCast for u32 {
+  type Value = Self;
+}
+impl DeviceRawBitCast for i32 {
+  type Value = Self;
+}
+impl<T: ValueType> DeviceRawBitCast for Vec2<T> {
+  type Value = T;
+}
+impl<T: ValueType> DeviceRawBitCast for Vec3<T> {
+  type Value = T;
+}
+impl<T: ValueType> DeviceRawBitCast for Vec4<T> {
+  type Value = T;
+}
+
+struct If<const B: bool>;
+trait True {}
+impl True for If<true> {}
+
+impl<T: DeviceRawBitCast + PrimitiveShaderNodeType> Node<T> {
+  #[allow(private_bounds)]
+  pub fn bitcast<V>(self) -> Node<V>
+  where
+    V: DeviceRawBitCast + ValueType + PrimitiveShaderNodeType,
+    If<{ std::mem::size_of::<T>() == std::mem::size_of::<V>() }>: True,
+  {
+    ShaderNodeExpr::Convert {
+      source: self.handle(),
+      convert_to: V::KIND,
+      convert: None,
+    }
+    .insert_api()
+  }
+}
 
 macro_rules! impl_from {
   ( { $($field: tt: $constraint: ty),+ }, $type_merged:ty) => {
