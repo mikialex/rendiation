@@ -46,11 +46,11 @@ impl<T> ShaderRayClosestHitLogicBoxed for T where
 
 pub struct GPURaytracingPipelineBuilder {
   pub max_recursion_depth: u32,
-  ray_gen_shaders: Vec<Box<dyn ShaderRayGenLogicBoxed>>,
-  miss_hit_shaders: Vec<Box<dyn FnOnce(&mut RayMissCtx)>>,
-  closest_hit_shaders: Vec<Box<dyn ShaderRayClosestHitLogicBoxed>>,
-  intersection_shaders: Vec<Box<dyn FnOnce(&mut RayIntersectCtx)>>,
-  any_hit_shaders: Vec<Box<dyn FnOnce(&mut RayAnyHitCtx) -> Node<RayAnyHitBehavior>>>,
+  pub ray_gen_shaders: Vec<Box<dyn ShaderRayGenLogicBoxed>>,
+  pub miss_hit_shaders: Vec<Box<dyn FnOnce(&mut RayMissCtx)>>,
+  pub closest_hit_shaders: Vec<Box<dyn ShaderRayClosestHitLogicBoxed>>,
+  pub intersection_shaders: Vec<Box<dyn FnOnce(&mut RayIntersectCtx)>>,
+  pub any_hit_shaders: Vec<Box<dyn FnOnce(&mut RayAnyHitCtx) -> Node<RayAnyHitBehavior>>>,
 }
 
 impl Default for GPURaytracingPipelineBuilder {

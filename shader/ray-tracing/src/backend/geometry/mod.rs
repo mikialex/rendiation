@@ -1,8 +1,8 @@
 mod compute;
 mod native;
-// pub use compute::*;
-// pub use native::*;
+pub use compute::*;
 
+// pub use native::*;
 use crate::*;
 
 pub trait GPUAccelerationStructureInvocationTraversable {
