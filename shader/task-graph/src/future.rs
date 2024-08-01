@@ -14,10 +14,16 @@ impl<T> From<(Node<bool>, T)> for DevicePoll<T> {
 
 pub trait DeviceFuture {
   type State: 'static;
-  type Output: Copy + ShaderAbstractRightValue;
-  type Ctx: DeviceTaskSystemContextProvider;
+  type Output: Copy;
+  type Ctx;
   fn create_or_reconstruct_state(&self, ctx: &mut DynamicTypeBuilder) -> Self::State;
-  fn poll(&self, state: &Self::State, ctx: &Self::Ctx) -> DevicePoll<Self::Output>;
+  fn poll(
+    &self,
+    state: &Self::State,
+    compute_cx: &mut ComputeCx,
+    ctx: &mut DeviceTaskSystemBuildCtx,
+    f_ctx: &mut Self::Ctx,
+  ) -> DevicePoll<Self::Output>;
 }
 
 pub trait DeviceFutureExt: Sized + DeviceFuture {
@@ -45,40 +51,30 @@ pub trait DeviceFutureExt: Sized + DeviceFuture {
 }
 impl<T: DeviceFuture + Sized> DeviceFutureExt for T {}
 
-pub trait DeviceTaskSystemContextProvider {
-  /// argument must be valid for given task id to consume
-  fn spawn_task<T: ShaderSizedValueNodeType>(
-    &self,
-    task_type: usize,
-    argument: Node<T>,
-  ) -> Node<u32>;
-  fn poll_task<T: ShaderSizedValueNodeType>(
-    &self,
-    task_type: usize,
-    task_id: Node<u32>,
-    argument_read_back: impl FnOnce(Node<T>) + Copy,
-  ) -> Node<bool>;
-}
+pub struct BaseDeviceFuture<Output, Cx>(PhantomData<(Output, Cx)>);
 
-pub struct BaseDeviceFuture<T, Output, Cx>(PhantomData<(T, Output, Cx)>);
-
-impl<T, Output, Cx> Default for BaseDeviceFuture<T, Output, Cx> {
+impl<Output, Cx> Default for BaseDeviceFuture<Output, Cx> {
   fn default() -> Self {
     Self(Default::default())
   }
 }
 
-impl<T, Output, Cx> DeviceFuture for BaseDeviceFuture<T, Output, Cx>
+impl<Output, Cx> DeviceFuture for BaseDeviceFuture<Output, Cx>
 where
-  Output: Default + Copy + ShaderAbstractRightValue,
-  Cx: DeviceTaskSystemContextProvider,
+  Output: Default + Copy,
 {
   type State = ();
   type Output = Output;
   type Ctx = Cx;
   fn create_or_reconstruct_state(&self, _: &mut DynamicTypeBuilder) -> Self::State {}
 
-  fn poll(&self, _: &Self::State, _: &Self::Ctx) -> DevicePoll<Self::Output> {
+  fn poll(
+    &self,
+    _: &Self::State,
+    _: &mut ComputeCx,
+    _: &mut DeviceTaskSystemBuildCtx,
+    _: &mut Self::Ctx,
+  ) -> DevicePoll<Self::Output> {
     (val(true), Default::default()).into()
   }
 }
@@ -100,14 +96,20 @@ where
   type Output = O;
   type Ctx = F::Ctx;
 
-  fn poll(&self, state: &Self::State, ctx: &Self::Ctx) -> DevicePoll<Self::Output> {
+  fn poll(
+    &self,
+    state: &Self::State,
+    ccx: &mut ComputeCx,
+    ctx: &mut DeviceTaskSystemBuildCtx,
+    f_ctx: &mut Self::Ctx,
+  ) -> DevicePoll<Self::Output> {
     let (parent_state, upstream_resolved) = state;
 
     let output = O::default().into_local_left_value();
     if_by(upstream_resolved.abstract_load().not(), || {
-      let r = self.upstream.poll(parent_state, ctx);
+      let r = self.upstream.poll(parent_state, ccx, ctx, f_ctx);
       if_by(r.is_ready, || {
-        let o = (self.map)(ctx);
+        let o = (self.map)(f_ctx);
         output.abstract_store(o);
       });
     });
@@ -143,12 +145,19 @@ where
   T: DeviceFuture<Ctx = U::Ctx>,
   T::State: ShaderAbstractLeftValue,
   T::Output: Default,
+  T::Output: ShaderAbstractRightValue,
 {
   type State = ShaderFutureThenInstance<U::State, T::State>;
   type Output = T::Output;
   type Ctx = T::Ctx;
 
-  fn poll(&self, state: &Self::State, ctx: &Self::Ctx) -> DevicePoll<Self::Output> {
+  fn poll(
+    &self,
+    state: &Self::State,
+    ccx: &mut ComputeCx,
+    ctx: &mut DeviceTaskSystemBuildCtx,
+    f_ctx: &mut Self::Ctx,
+  ) -> DevicePoll<Self::Output> {
     let ShaderFutureThenInstance {
       upstream_state,
       upstream_resolved,
@@ -157,17 +166,17 @@ where
     } = state;
 
     if_by(upstream_resolved.abstract_load().not(), || {
-      let r = self.upstream.poll(upstream_state, ctx);
+      let r = self.upstream.poll(upstream_state, ccx, ctx, f_ctx);
       if_by(r.is_ready, || {
         upstream_resolved.abstract_store(val(true));
-        let next = (self.create_then)(ctx, r.payload);
+        let next = (self.create_then)(f_ctx, r.payload);
         then_state.abstract_store(next);
       });
     });
 
     let output = T::Output::default().into_local_left_value();
     if_by(then_resolved.abstract_load(), || {
-      let r = self.then_instance.poll(then_state, ctx);
+      let r = self.then_instance.poll(then_state, ccx, ctx, f_ctx);
       if_by(r.is_ready, || {
         output.abstract_store(r.payload);
         then_resolved.abstract_store(val(true));
@@ -192,7 +201,6 @@ pub struct TaskFuture<T, C>((usize, PhantomData<(T, C)>));
 impl<T, C> DeviceFuture for TaskFuture<T, C>
 where
   T: ShaderSizedValueNodeType + Default + Copy,
-  C: DeviceTaskSystemContextProvider,
 {
   type State = BoxedShaderLoadStore<Node<u32>>;
   type Output = Node<T>;
@@ -202,13 +210,24 @@ where
     ctx.create_or_reconstruct_inline_state(u32::MAX)
   }
 
-  fn poll(&self, state: &Self::State, ctx: &Self::Ctx) -> DevicePoll<Self::Output> {
+  fn poll(
+    &self,
+    state: &Self::State,
+    ccx: &mut ComputeCx,
+    ctx: &mut DeviceTaskSystemBuildCtx,
+    _: &mut Self::Ctx,
+  ) -> DevicePoll<Self::Output> {
     let output = zeroed_val().into_local_left_value();
 
-    ctx.poll_task::<T>(self.0 .0, state.abstract_load(), |r| {
-      output.abstract_store(r);
-      state.abstract_store(val(u32::MAX));
-    });
+    ctx.poll_task::<T>(
+      self.0 .0,
+      state.abstract_load(),
+      |r| {
+        output.abstract_store(r);
+        state.abstract_store(val(u32::MAX));
+      },
+      ccx,
+    );
 
     (
       state.abstract_load().equals(u32::MAX),

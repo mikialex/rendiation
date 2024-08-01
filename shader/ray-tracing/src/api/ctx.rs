@@ -5,21 +5,6 @@ pub struct RayGenShaderCtx {
   launch_size: Node<Vec3<u32>>,
 }
 
-impl DeviceTaskSystemContextProvider for RayGenShaderCtx {
-  fn spawn_task<T>(&self, task_type: usize, argument: Node<T>) -> Node<u32> {
-    todo!()
-  }
-
-  fn poll_task<T>(
-    &self,
-    task_type: usize,
-    task_id: Node<u32>,
-    argument_read_back: impl FnOnce(Node<T>) + Copy,
-  ) -> Node<bool> {
-    todo!()
-  }
-}
-
 struct AdhocStateBuilder {
   states: Vec<ShaderSizedValueType>,
 }

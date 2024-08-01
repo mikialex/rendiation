@@ -7,25 +7,21 @@ pub struct DeviceTaskGraphExecutor {
 }
 
 pub struct DeviceTaskSystemBuildCtx<'a> {
-  inner: RwLock<DeviceTaskSystemBuildCtxImpl<'a>>,
-}
-
-pub struct DeviceTaskSystemBuildCtxImpl<'a> {
-  compute_cx: &'a mut ShaderComputePipelineBuilder,
   task_group_sources: Vec<&'a TaskGroupExecutorResource>,
   current_task_idx: Node<u32>,
   self_task: TaskPoolInvocationInstance,
   tasks: FastHashMap<usize, TaskGroupDeviceInvocationInstance>,
 }
 
-impl<'a> DeviceTaskSystemBuildCtxImpl<'a> {
+impl<'a> DeviceTaskSystemBuildCtx<'a> {
   fn get_or_create_task_group_instance(
     &mut self,
     task_type: usize,
+    ccx: &mut ComputeCx,
   ) -> &mut TaskGroupDeviceInvocationInstance {
     self.tasks.entry(task_type).or_insert_with(|| {
       let source = &self.task_group_sources[task_type];
-      source.build_shader(self.compute_cx)
+      source.build_shader(ccx)
     })
   }
 
@@ -34,50 +30,30 @@ impl<'a> DeviceTaskSystemBuildCtxImpl<'a> {
     self.self_task.read_payload(current)
   }
 
-  fn spawn_task<T: ShaderSizedValueNodeType>(
+  pub fn spawn_task<T: ShaderSizedValueNodeType>(
     &mut self,
     task_type: usize,
     argument: Node<T>,
+    cx: &mut ComputeCx,
   ) -> Node<u32> {
-    let task_group = self.get_or_create_task_group_instance(task_type);
+    let task_group = self.get_or_create_task_group_instance(task_type, cx);
     task_group.spawn_new_task(argument)
   }
 
-  fn poll_task<T: ShaderSizedValueNodeType>(
+  pub fn poll_task<T: ShaderSizedValueNodeType>(
     &mut self,
     task_type: usize,
     task_id: Node<u32>,
     argument_read_back: impl FnOnce(Node<T>) + Copy,
+    cx: &mut ComputeCx,
   ) -> Node<bool> {
-    let task_group = self.get_or_create_task_group_instance(task_type);
+    let task_group = self.get_or_create_task_group_instance(task_type, cx);
     let finished = task_group.poll_task_is_finished(task_id);
     if_by(finished, || {
       argument_read_back(task_group.task_pool.read_payload(task_id).load());
       task_group.cleanup_finished_task_state_and_payload(task_id)
     });
     finished
-  }
-}
-
-impl<'a> DeviceTaskSystemContextProvider for DeviceTaskSystemBuildCtx<'a> {
-  fn spawn_task<T: ShaderSizedValueNodeType>(
-    &self,
-    task_type: usize,
-    argument: Node<T>,
-  ) -> Node<u32> {
-    self.inner.write().spawn_task(task_type, argument)
-  }
-
-  fn poll_task<T: ShaderSizedValueNodeType>(
-    &self,
-    task_type: usize,
-    task_id: Node<u32>,
-    argument_read_back: impl FnOnce(Node<T>) + Copy,
-  ) -> Node<bool> {
-    self
-      .inner
-      .write()
-      .poll_task(task_type, task_id, argument_read_back)
   }
 }
 
@@ -93,7 +69,7 @@ impl DeviceTaskGraphExecutor {
   pub fn define_task<F>(
     &mut self,
     future: F,
-    cx_provider: impl FnOnce(&mut DeviceTaskSystemBuildCtx) -> F::Ctx,
+    f_ctx: impl FnOnce() -> F::Ctx,
     device: &GPUDevice,
     init_size: usize,
   ) -> u32
@@ -125,27 +101,22 @@ impl DeviceTaskGraphExecutor {
       pool
     });
 
-    let ctx = DeviceTaskSystemBuildCtxImpl {
-      compute_cx: &mut compute_cx,
+    let mut ctx = DeviceTaskSystemBuildCtx {
       task_group_sources,
       tasks: Default::default(),
       current_task_idx: task_index,
       self_task: task_pool.clone(),
     };
-    let mut ctx = DeviceTaskSystemBuildCtx {
-      inner: RwLock::new(ctx),
-    };
-    let ctx = cx_provider(&mut ctx);
+    let mut f_ctx = f_ctx();
 
-    let task_poll_pipeline = compute_cx
-      .entry(|_| {
-        let poll_result = future.poll(&state, &ctx);
-        if_by(poll_result.is_ready, || {
-          task_pool.read_is_finished(task_index).store(true);
-        });
-      })
-      .create_compute_pipeline(device)
-      .unwrap();
+    compute_cx.entry_by(|ccx| {
+      let poll_result = future.poll(&state, ccx, &mut ctx, &mut f_ctx);
+      if_by(poll_result.is_ready, || {
+        task_pool.read_is_finished(task_index).store(true);
+      });
+    });
+
+    let task_poll_pipeline = compute_cx.create_compute_pipeline(device).unwrap();
 
     let task_executor = TaskGroupExecutor {
       task_poll_pipeline,
@@ -320,14 +291,11 @@ impl TaskGroupExecutorResource {
       *self = Self::create_with_size(size, state_desc, &gpu.device);
     }
   }
-  pub fn build_shader(
-    &self,
-    compute_cx: &mut ShaderComputePipelineBuilder,
-  ) -> TaskGroupDeviceInvocationInstance {
+  pub fn build_shader(&self, cx: &mut ComputeCx) -> TaskGroupDeviceInvocationInstance {
     TaskGroupDeviceInvocationInstance {
-      new_removed_task_idx: self.new_removed_task_idx.build_allocator_shader(compute_cx),
-      empty_index_pool: self.empty_index_pool.build_deallocator_shader(compute_cx),
-      task_pool: compute_cx.entry_by(|cx| self.task_pool.build_shader(cx)),
+      new_removed_task_idx: self.new_removed_task_idx.build_allocator_shader(cx),
+      empty_index_pool: self.empty_index_pool.build_deallocator_shader(cx),
+      task_pool: self.task_pool.build_shader(cx),
     }
   }
 }

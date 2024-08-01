@@ -20,20 +20,20 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
 
   pub fn build_allocator_shader(
     &self,
-    builder: &mut ShaderComputePipelineBuilder,
+    cx: &mut ComputeCx,
   ) -> DeviceBumpAllocationInvocationInstance<T> {
     DeviceBumpAllocationInvocationInstance {
-      storage: builder.entry_by(|cx| cx.bind_by(&self.storage)),
-      bump_size: builder.entry_by(|cx| cx.bind_by(&self.bump_size)),
+      storage: cx.bind_by(&self.storage),
+      bump_size: cx.bind_by(&self.bump_size),
     }
   }
   pub fn build_deallocator_shader(
     &self,
-    builder: &mut ShaderComputePipelineBuilder,
+    cx: &mut ComputeCx,
   ) -> DeviceBumpDeAllocationInvocationInstance<T> {
     DeviceBumpDeAllocationInvocationInstance {
-      storage: builder.entry_by(|cx| cx.bind_by(&self.storage)),
-      bump_size: builder.entry_by(|cx| cx.bind_by(&self.bump_size)),
+      storage: cx.bind_by(&self.storage),
+      bump_size: cx.bind_by(&self.bump_size),
     }
   }
 }

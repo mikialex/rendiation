@@ -1,10 +1,7 @@
 use crate::*;
 
-impl<T, Output, Cx> NativeRayTracingShaderBuilder for BaseDeviceFuture<T, Output, Cx>
-where
-  T: NativeRayTracingShaderBuilder,
-{
-  type Ctx = T::Ctx;
+impl<Output, Cx> NativeRayTracingShaderBuilder for BaseDeviceFuture<Output, Cx> {
+  type Ctx = Cx;
 
   fn build(&self, _: &mut Self::Ctx) {}
 }
@@ -22,9 +19,15 @@ where
   type State = (T::State, BoxedShaderLoadStore<Node<bool>>);
   type Output = ShaderRayTraceCall;
   type Ctx = RayGenShaderCtx;
-  fn poll(&self, state: &Self::State, ctx: &Self::Ctx) -> DevicePoll<Self::Output> {
+  fn poll(
+    &self,
+    state: &Self::State,
+    ccx: &mut ComputeCx,
+    ctx: &mut DeviceTaskSystemBuildCtx,
+    f_ctx: &mut Self::Ctx,
+  ) -> DevicePoll<Self::Output> {
     let (parent_state, self_state) = state;
-    let r = self.upstream.poll(parent_state, ctx);
+    let r = self.upstream.poll(parent_state, ccx, ctx, f_ctx);
 
     // if_by(r.is_ready.and(self_state.load()), || {
     //   (self.then)(ctx);
@@ -97,8 +100,14 @@ where
     Box::new(self.0.create_or_reconstruct_state(ctx))
   }
 
-  fn poll(&self, state: &Self::State, ctx: &Self::Ctx) -> DevicePoll<Self::Output> {
+  fn poll(
+    &self,
+    state: &Self::State,
+    ccx: &mut ComputeCx,
+    ctx: &mut DeviceTaskSystemBuildCtx,
+    f_ctx: &mut Self::Ctx,
+  ) -> DevicePoll<Self::Output> {
     let state = state.downcast_ref::<T::State>().unwrap();
-    self.0.poll(state, ctx)
+    self.0.poll(state, ccx, ctx, f_ctx)
   }
 }
