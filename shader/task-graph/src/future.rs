@@ -17,6 +17,7 @@ pub trait DeviceFuture {
   type Output: Copy;
   type Ctx;
   fn create_or_reconstruct_state(&self, ctx: &mut DynamicTypeBuilder) -> Self::State;
+  fn required_poll_count(&self) -> usize;
   fn poll(
     &self,
     state: &Self::State,
@@ -44,8 +45,8 @@ pub trait DeviceFutureExt: Sized + DeviceFuture {
   {
     ShaderFutureThen {
       upstream: self,
-      create_then: then,
-      then_instance,
+      create_then_state_instance: then,
+      then: then_instance,
     }
   }
 }
@@ -67,6 +68,10 @@ where
   type Output = Output;
   type Ctx = Cx;
   fn create_or_reconstruct_state(&self, _: &mut DynamicTypeBuilder) -> Self::State {}
+
+  fn required_poll_count(&self) -> usize {
+    1
+  }
 
   fn poll(
     &self,
@@ -95,6 +100,10 @@ where
   type State = (F::State, BoxedShaderLoadStore<Node<bool>>);
   type Output = O;
   type Ctx = F::Ctx;
+
+  fn required_poll_count(&self) -> usize {
+    self.upstream.required_poll_count()
+  }
 
   fn poll(
     &self,
@@ -127,8 +136,8 @@ where
 
 pub struct ShaderFutureThen<U, F, T> {
   pub upstream: U,
-  pub create_then: F,
-  pub then_instance: T,
+  pub create_then_state_instance: F,
+  pub then: T,
 }
 
 pub struct ShaderFutureThenInstance<U, T> {
@@ -151,6 +160,10 @@ where
   type Output = T::Output;
   type Ctx = T::Ctx;
 
+  fn required_poll_count(&self) -> usize {
+    self.upstream.required_poll_count() + self.then.required_poll_count()
+  }
+
   fn poll(
     &self,
     state: &Self::State,
@@ -169,14 +182,14 @@ where
       let r = self.upstream.poll(upstream_state, ccx, ctx, f_ctx);
       if_by(r.is_ready, || {
         upstream_resolved.abstract_store(val(true));
-        let next = (self.create_then)(f_ctx, r.payload);
+        let next = (self.create_then_state_instance)(f_ctx, r.payload);
         then_state.abstract_store(next);
       });
     });
 
     let output = T::Output::default().into_local_left_value();
     if_by(then_resolved.abstract_load(), || {
-      let r = self.then_instance.poll(then_state, ccx, ctx, f_ctx);
+      let r = self.then.poll(then_state, ccx, ctx, f_ctx);
       if_by(r.is_ready, || {
         output.abstract_store(r.payload);
         then_resolved.abstract_store(val(true));
@@ -190,7 +203,7 @@ where
     ShaderFutureThenInstance {
       upstream_state: self.upstream.create_or_reconstruct_state(ctx),
       upstream_resolved: ctx.create_or_reconstruct_inline_state(false),
-      then_state: self.then_instance.create_or_reconstruct_state(ctx),
+      then_state: self.then.create_or_reconstruct_state(ctx),
       then_resolved: ctx.create_or_reconstruct_inline_state(false),
     }
   }
@@ -205,6 +218,10 @@ where
   type State = BoxedShaderLoadStore<Node<u32>>;
   type Output = Node<T>;
   type Ctx = C;
+
+  fn required_poll_count(&self) -> usize {
+    1
+  }
 
   fn create_or_reconstruct_state(&self, ctx: &mut DynamicTypeBuilder) -> Self::State {
     ctx.create_or_reconstruct_inline_state(u32::MAX)

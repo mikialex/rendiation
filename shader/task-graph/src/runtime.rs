@@ -122,6 +122,7 @@ impl DeviceTaskGraphExecutor {
       task_poll_pipeline,
       resource,
       task_state_desc: state_desc,
+      required_poll_count: future.required_poll_count(),
     };
     self.task_groups.push(task_executor);
 
@@ -169,8 +170,17 @@ impl DeviceTaskGraphExecutor {
   pub fn execute(&mut self, gpu: &GPU) {
     let mut encoder = gpu.create_encoder();
 
+    let max_required_poll_count = self
+      .task_groups
+      .iter()
+      .map(|v| v.required_poll_count)
+      .max()
+      .unwrap_or(1);
+    let required_round = self.max_recursion_depth * max_required_poll_count + 1;
+
     encoder.compute_pass_scoped(|mut pass| {
-      for _ in 0..self.max_recursion_depth {
+      // todo, impl more conservative upper execute bound
+      for _ in 0..required_round {
         for stage in &self.task_groups {
           stage.execute(&mut pass);
         }
@@ -184,6 +194,7 @@ struct TaskGroupExecutor {
   task_state_desc: DynamicTypeMetaInfo,
   task_poll_pipeline: GPUComputePipeline,
   resource: TaskGroupExecutorResource,
+  required_poll_count: usize,
 }
 
 struct TaskGroupExecutorResource {

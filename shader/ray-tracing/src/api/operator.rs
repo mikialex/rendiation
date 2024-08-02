@@ -39,6 +39,10 @@ where
     todo!()
   }
 
+  fn required_poll_count(&self) -> usize {
+    self.upstream.required_poll_count() + 1
+  }
+
   fn create_or_reconstruct_state(&self, ctx: &mut DynamicTypeBuilder) -> Self::State {
     (
       self.upstream.create_or_reconstruct_state(ctx),
@@ -98,6 +102,10 @@ where
 
   fn create_or_reconstruct_state(&self, ctx: &mut DynamicTypeBuilder) -> Self::State {
     Box::new(self.0.create_or_reconstruct_state(ctx))
+  }
+
+  fn required_poll_count(&self) -> usize {
+    self.0.required_poll_count()
   }
 
   fn poll(
