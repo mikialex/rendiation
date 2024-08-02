@@ -182,7 +182,7 @@ impl DeviceTaskGraphExecutor {
       // todo, impl more conservative upper execute bound
       for _ in 0..required_round {
         for stage in &self.task_groups {
-          stage.execute(&mut pass);
+          stage.execute(&mut pass, &gpu.device);
         }
       }
     });
@@ -275,18 +275,32 @@ impl TaskPool {
 }
 
 impl TaskGroupExecutor {
-  pub fn execute(&self, pass: &mut GPUComputePass) {
-    let mut bb = BindingBuilder::new_as_compute();
+  pub fn execute(&self, pass: &mut GPUComputePass, device: &GPUDevice) {
+    // step 0: mark active task which one is to be removed
 
-    // bb.bind(&input)
-    //   .bind(&output)
-    //   .setup_compute_pass(&mut pass, &gpu.device, &pipeline);
+    // step 1: compact active task buffer
 
-    pass.set_pipeline_owned(&self.task_poll_pipeline);
+    // step 2: drain empty to empty pool
+    self
+      .resource
+      .new_removed_task_idx
+      .drain_self_into_the_other(&self.resource.empty_index_pool, pass, device);
 
-    // pass.set_bind_group(index, bind_group, offsets)
-    // todo, prepare size args
-    // pass.dispatch_workgroups_indirect(&self.main_dispatch_size.buffer.gpu(), 0);
+    // step3: dispatch tasks
+
+    // step4: commit bump allocator sizes
+
+    // let mut bb = BindingBuilder::new_as_compute();
+
+    // // bb.bind(&input)
+    // //   .bind(&output)
+    // //   .setup_compute_pass(&mut pass, &gpu.device, &pipeline);
+
+    // pass.set_pipeline_owned(&self.task_poll_pipeline);
+
+    // // pass.set_bind_group(index, bind_group, offsets)
+    // // todo, prepare size args
+    // // pass.dispatch_workgroups_indirect(&self.main_dispatch_size.buffer.gpu(), 0);
   }
 }
 
