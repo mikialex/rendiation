@@ -174,10 +174,10 @@ where
 {
   pub fn splat<V>(&self) -> Node<V>
   where
-    V: Vector<T> + ShaderNodeType + PrimitiveShaderNodeType,
+    V: Vector<T> + ShaderSizedValueNodeType + PrimitiveShaderNodeType,
   {
     ShaderNodeExpr::Compose {
-      target: V::PRIMITIVE_TYPE,
+      target: V::sized_ty(),
       parameters: vec![self.handle(); V::channel_count()],
     }
     .insert_api()
@@ -400,7 +400,7 @@ macro_rules! impl_from {
       fn from(($($field),+): ($(Node<$constraint>),+)) -> Self {
         $(let $field = $field.handle();)+
         ShaderNodeExpr::Compose {
-          target: <$type_merged>::PRIMITIVE_TYPE,
+          target: <$type_merged>::sized_ty(),
           parameters: vec![$($field),+],
         }
         .insert_api()

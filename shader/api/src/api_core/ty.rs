@@ -172,7 +172,7 @@ pub enum ShaderSizedValueType {
   Atomic(ShaderAtomicValueType),
   Primitive(PrimitiveShaderValueType),
   Struct(ShaderStructMetaInfo),
-  FixedSizeArray((Box<ShaderSizedValueType>, usize)),
+  FixedSizeArray(Box<ShaderSizedValueType>, usize),
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
@@ -264,10 +264,10 @@ impl ShaderNodeType for AnyType {
 
 impl<T: ShaderSizedValueNodeType, const N: usize> ShaderNodeSingleType for [T; N] {
   fn single_ty() -> ShaderValueSingleType {
-    ShaderValueSingleType::Sized(ShaderSizedValueType::FixedSizeArray((
+    ShaderValueSingleType::Sized(ShaderSizedValueType::FixedSizeArray(
       Box::new(T::sized_ty()),
       N,
-    )))
+    ))
   }
 }
 impl<T: ShaderSizedValueNodeType, const N: usize> ShaderNodeType for [T; N] {
@@ -278,10 +278,10 @@ impl<T: ShaderSizedValueNodeType, const N: usize> ShaderNodeType for [T; N] {
 
 impl<T: ShaderSizedValueNodeType, const N: usize> ShaderNodeSingleType for Shader140Array<T, N> {
   fn single_ty() -> ShaderValueSingleType {
-    ShaderValueSingleType::Sized(ShaderSizedValueType::FixedSizeArray((
+    ShaderValueSingleType::Sized(ShaderSizedValueType::FixedSizeArray(
       Box::new(T::sized_ty()),
       N,
-    )))
+    ))
   }
 }
 impl<T: ShaderSizedValueNodeType, const N: usize> ShaderNodeType for Shader140Array<T, N> {
@@ -292,7 +292,7 @@ impl<T: ShaderSizedValueNodeType, const N: usize> ShaderNodeType for Shader140Ar
 
 impl<T: ShaderSizedValueNodeType, const N: usize> ShaderSizedValueNodeType for [T; N] {
   fn sized_ty() -> ShaderSizedValueType {
-    ShaderSizedValueType::FixedSizeArray((Box::new(T::sized_ty()), N))
+    ShaderSizedValueType::FixedSizeArray(Box::new(T::sized_ty()), N)
   }
 }
 
@@ -300,7 +300,7 @@ impl<T: ShaderSizedValueNodeType, const N: usize> ShaderSizedValueNodeType
   for Shader140Array<T, N>
 {
   fn sized_ty() -> ShaderSizedValueType {
-    ShaderSizedValueType::FixedSizeArray((Box::new(T::sized_ty()), N))
+    ShaderSizedValueType::FixedSizeArray(Box::new(T::sized_ty()), N)
   }
 }
 
@@ -364,9 +364,9 @@ impl<T: ShaderSizedValueNodeType> ShaderNodeType for HostDynSizeArray<T> {
 
 impl<T: ShaderSizedValueNodeType> ShaderNodeSingleType for HostDynSizeArray<T> {
   fn single_ty() -> ShaderValueSingleType {
-    ShaderValueSingleType::Sized(ShaderSizedValueType::FixedSizeArray((
+    ShaderValueSingleType::Sized(ShaderSizedValueType::FixedSizeArray(
       Box::new(T::sized_ty()),
       0,
-    )))
+    ))
   }
 }

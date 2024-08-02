@@ -362,7 +362,7 @@ impl TaskPoolInvocationInstance {
     let state_ptr = self.read_states(at);
     for (i, v) in self.state_desc.fields_init.iter().enumerate() {
       unsafe {
-        let state_field: StorageNode<AnyType> = expand_single(state_ptr.handle(), i);
+        let state_field: StorageNode<AnyType> = index_access_field(state_ptr.handle(), i);
         state_field.store(v.into_raw_node().into_node());
       };
     }
@@ -370,15 +370,15 @@ impl TaskPoolInvocationInstance {
 
   pub fn read_payload<T: ShaderNodeType>(&self, task: Node<u32>) -> StorageNode<T> {
     let item_ptr = self.access_item_ptr(task);
-    unsafe { expand_single(item_ptr.handle(), 1) }
+    unsafe { index_access_field(item_ptr.handle(), 1) }
   }
   pub fn read_states(&self, task: Node<u32>) -> StorageNode<AnyType> {
     let item_ptr = self.access_item_ptr(task);
-    unsafe { expand_single(item_ptr.handle(), 2) }
+    unsafe { index_access_field(item_ptr.handle(), 2) }
   }
 
   pub fn read_is_finished(&self, task: Node<u32>) -> StorageNode<bool> {
     let item_ptr = self.access_item_ptr(task);
-    unsafe { expand_single(item_ptr.handle(), 0) }
+    unsafe { index_access_field(item_ptr.handle(), 0) }
   }
 }

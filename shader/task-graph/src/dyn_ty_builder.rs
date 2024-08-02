@@ -77,7 +77,7 @@ impl<T: PrimitiveShaderNodeType> DeferResolvedStorageStructFieldNode<T> {
         .expect("dyn type builder not resolved yet")
     });
 
-    unsafe { expand_single(storage.handle(), self.field_index) }
+    unsafe { index_access_field(storage.handle(), self.field_index) }
   }
 }
 impl<T: PrimitiveShaderNodeType> ShaderAbstractLeftValue

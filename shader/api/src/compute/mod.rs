@@ -79,7 +79,7 @@ impl<'a> ComputeCx<'a> {
     &self,
     len: u32,
   ) -> WorkGroupSharedNode<HostDynSizeArray<T>> {
-    let ty = ShaderSizedValueType::FixedSizeArray((Box::new(T::sized_ty()), len as usize));
+    let ty = ShaderSizedValueType::FixedSizeArray(Box::new(T::sized_ty()), len as usize);
     ShaderInputNode::WorkGroupShared { ty }.insert_api()
   }
   pub fn define_invocation_private_var<T: ShaderSizedValueNodeType>(&self) -> GlobalVarNode<T> {

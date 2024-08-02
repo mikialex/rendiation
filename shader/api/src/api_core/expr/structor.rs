@@ -9,22 +9,6 @@ where
   }
 }
 
-/// # Safety
-///
-/// the field index should be bounded and with correct type
-///
-/// .
-pub unsafe fn expand_single<T>(struct_node: ShaderNodeRawHandle, field_index: usize) -> Node<T>
-where
-  T: ShaderNodeType,
-{
-  ShaderNodeExpr::FieldGet {
-    field_index,
-    struct_node,
-  }
-  .insert_api()
-}
-
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum ShaderInterpolation {
   Perspective,

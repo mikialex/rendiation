@@ -132,17 +132,13 @@ pub enum ShaderNodeExpr {
     source: ShaderNodeRawHandle,
   },
   Compose {
-    target: PrimitiveShaderValueType,
+    target: ShaderSizedValueType,
     parameters: Vec<ShaderNodeRawHandle>,
   },
   Operator(OperatorNode),
-  FieldGet {
+  IndexStatic {
     field_index: usize,
-    struct_node: ShaderNodeRawHandle,
-  },
-  StructConstruct {
-    meta: ShaderStructMetaInfo,
-    fields: Vec<ShaderNodeRawHandle>,
+    target: ShaderNodeRawHandle,
   },
   Const {
     data: PrimitiveShaderValue,

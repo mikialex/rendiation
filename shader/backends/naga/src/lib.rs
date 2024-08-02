@@ -144,7 +144,7 @@ impl ShaderAPINagaImpl {
             name = st.name.to_owned().into();
             gen_struct_define(self, st.clone(), layout)
           }
-          ShaderSizedValueType::FixedSizeArray((ty, size)) => naga::TypeInner::Array {
+          ShaderSizedValueType::FixedSizeArray(ty, size) => naga::TypeInner::Array {
             base: self.register_ty_impl(
               ShaderValueType::Single(ShaderValueSingleType::Sized(*ty.clone())),
               layout,
@@ -841,13 +841,21 @@ impl ShaderAPI for ShaderAPINagaImpl {
           convert,
         },
         ShaderNodeExpr::Compose { target, parameters } => {
+          let mut components: Vec<_> = parameters.iter().map(|f| self.get_expression(*f)).collect();
+
+          if let ShaderSizedValueType::Struct(meta) = &target {
+            let extra = self.struct_extra_padding_count.get(&meta.name).unwrap();
+            for _ in 0..*extra {
+              components.push(
+                self.make_expression_inner_raw(naga::Expression::Literal(naga::Literal::U32(0))),
+              );
+            }
+          }
           let ty = self.register_ty_impl(
-            ShaderValueType::Single(ShaderValueSingleType::Sized(
-              ShaderSizedValueType::Primitive(target),
-            )),
+            ShaderValueType::Single(ShaderValueSingleType::Sized(target)),
             None,
           );
-          let components = parameters.iter().map(|f| self.get_expression(*f)).collect();
+
           naga::Expression::Compose { ty, components }
         }
         ShaderNodeExpr::Derivative { axis, ctrl, source } => {
@@ -892,35 +900,14 @@ impl ShaderAPI for ShaderAPINagaImpl {
             base: self.get_expression(array),
             index: self.get_expression(entry),
           },
-          OperatorNode::IndexStatic { array, entry } => naga::Expression::AccessIndex {
-            base: self.get_expression(array),
-            index: entry,
-          },
         },
-        ShaderNodeExpr::FieldGet {
+        ShaderNodeExpr::IndexStatic {
           field_index,
-          struct_node,
+          target: struct_node,
         } => naga::Expression::AccessIndex {
           base: self.get_expression(struct_node),
           index: field_index as u32,
         },
-        ShaderNodeExpr::StructConstruct { meta, fields } => {
-          let mut components: Vec<_> = fields.iter().map(|f| self.get_expression(*f)).collect();
-          let ty = self.register_ty_impl(
-            ShaderValueType::Single(ShaderValueSingleType::Sized(ShaderSizedValueType::Struct(
-              meta.clone(),
-            ))),
-            None,
-          );
-
-          let extra = self.struct_extra_padding_count.get(&meta.name).unwrap();
-          for _ in 0..*extra {
-            components.push(
-              self.make_expression_inner_raw(naga::Expression::Literal(naga::Literal::U32(0))),
-            );
-          }
-          naga::Expression::Compose { ty, components }
-        }
         ShaderNodeExpr::Const { data } => {
           // too funky..
           macro_rules! impl_p {

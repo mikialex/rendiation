@@ -74,7 +74,7 @@ impl ShaderSizedValueType {
       ShaderSizedValueType::Atomic(t) => t.align_of_self(),
       ShaderSizedValueType::Primitive(t) => t.align_of_self(),
       ShaderSizedValueType::Struct(t) => t.align_of_self(target),
-      ShaderSizedValueType::FixedSizeArray((t, _)) => {
+      ShaderSizedValueType::FixedSizeArray(t, _) => {
         let align = t.align_of_self(target);
         match target {
           StructLayoutTarget::Std140 => round_up(16, align),
@@ -89,7 +89,7 @@ impl ShaderSizedValueType {
       ShaderSizedValueType::Atomic(t) => t.size_of_self(),
       ShaderSizedValueType::Primitive(t) => t.size_of_self(),
       ShaderSizedValueType::Struct(t) => t.size_of_self(target),
-      ShaderSizedValueType::FixedSizeArray((ty, size)) => {
+      ShaderSizedValueType::FixedSizeArray(ty, size) => {
         size * round_up(self.align_of_self(target), ty.size_of_self(target))
       }
     }

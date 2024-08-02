@@ -30,7 +30,7 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
     quote! {
       pub fn #field_name(node: rendiation_shader_api::Node<Self>) -> rendiation_shader_api::Node<<#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType> {
         unsafe {
-          rendiation_shader_api::expand_single::<<#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType>(node.handle(), #idx)
+          rendiation_shader_api::index_access_field::<<#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType>(node.handle(), #idx)
         }
       }
     }
@@ -92,9 +92,9 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
         }
       }
       fn construct(instance: Self::Instance) -> rendiation_shader_api::Node<Self>{
-          rendiation_shader_api::ShaderNodeExpr::StructConstruct {
-            meta: Self::meta_info(),
-            fields: vec![
+          rendiation_shader_api::ShaderNodeExpr::Compose {
+            target: ShaderSizedValueType::Struct(Self::meta_info()),
+            parameters: vec![
               #(#construct_nodes)*
             ],
           }.insert_api()
