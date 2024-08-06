@@ -58,8 +58,8 @@ where
     self.materialize_storage_buffer(cx).execute_and_expose(cx)
   }
 
-  fn work_size(&self) -> u32 {
-    self.upstream.inner.work_size()
+  fn max_work_size(&self) -> u32 {
+    self.upstream.inner.max_work_size()
   }
 }
 

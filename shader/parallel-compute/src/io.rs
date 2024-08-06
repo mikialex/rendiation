@@ -26,7 +26,7 @@ where
     Box::new(StorageBufferReadOnlyDataViewReadIntoShader(self.clone()))
   }
 
-  fn work_size(&self) -> u32 {
+  fn max_work_size(&self) -> u32 {
     let size: u64 = self.view_byte_size().into();
     let count = size / std::mem::size_of::<T>() as u64;
     count as u32
@@ -60,7 +60,7 @@ where
     Box::new(StorageBufferReadOnlyDataViewReadIntoShader(gpu_buffer))
   }
 
-  fn work_size(&self) -> u32 {
+  fn max_work_size(&self) -> u32 {
     self.len() as u32
   }
 }
@@ -178,7 +178,7 @@ pub fn custom_write_into_storage_buffer<T: Std430 + ShaderSizedValueNodeType>(
     output,
   };
 
-  write.dispatch_compute(source.work_size(), cx);
+  write.dispatch_compute(source.max_work_size(), cx);
 
   write.output.into_readonly_view()
 }
@@ -207,8 +207,8 @@ impl<T: ShaderSizedValueNodeType + Std430> DeviceParallelCompute<Node<T>>
     Box::new(StorageBufferReadOnlyDataViewReadIntoShader(temp_result))
   }
 
-  fn work_size(&self) -> u32 {
-    self.inner.work_size()
+  fn max_work_size(&self) -> u32 {
+    self.inner.max_work_size()
   }
 }
 
@@ -246,8 +246,8 @@ impl<T: ShaderSizedValueNodeType + Std430 + Debug> DeviceParallelCompute<Node<T>
     Box::new(StorageBufferReadOnlyDataViewReadIntoShader(device_result))
   }
 
-  fn work_size(&self) -> u32 {
-    self.inner.work_size()
+  fn max_work_size(&self) -> u32 {
+    self.inner.max_work_size()
   }
 }
 

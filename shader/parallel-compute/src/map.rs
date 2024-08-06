@@ -64,8 +64,8 @@ impl<I: 'static, O: Copy + 'static> DeviceParallelCompute<O> for DeviceMap<I, O>
     })
   }
 
-  fn work_size(&self) -> u32 {
-    self.upstream.work_size()
+  fn max_work_size(&self) -> u32 {
+    self.upstream.max_work_size()
   }
 }
 impl<I: 'static, O: Copy + 'static> DeviceParallelComputeIO<O> for DeviceMap<I, Node<O>> {}

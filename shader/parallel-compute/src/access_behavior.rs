@@ -170,8 +170,8 @@ where
     })
   }
 
-  fn work_size(&self) -> u32 {
-    self.behavior.resize_work_size(self.source.work_size())
+  fn max_work_size(&self) -> u32 {
+    self.behavior.resize_work_size(self.source.max_work_size())
   }
 }
 impl<T, F> DeviceParallelComputeIO<T> for DeviceParallelComputeCustomInvocationBehavior<T, F>

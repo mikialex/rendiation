@@ -121,8 +121,8 @@ where
     })
   }
 
-  fn work_size(&self) -> u32 {
-    self.upstream.work_size()
+  fn max_work_size(&self) -> u32 {
+    self.upstream.max_work_size()
   }
 }
 impl<T, S> DeviceParallelComputeIO<T> for WorkGroupPrefixScanKoggeStone<T, S>

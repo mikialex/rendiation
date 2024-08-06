@@ -96,8 +96,8 @@ where
     })
   }
 
-  fn work_size(&self) -> u32 {
-    self.upstream.work_size()
+  fn max_work_size(&self) -> u32 {
+    self.upstream.max_work_size()
   }
 }
 
@@ -107,7 +107,7 @@ where
   S: DeviceMonoidLogic<Data = T> + 'static,
 {
   fn result_size(&self) -> u32 {
-    self.work_size()
+    self.max_work_size()
   }
 
   fn materialize_storage_buffer(

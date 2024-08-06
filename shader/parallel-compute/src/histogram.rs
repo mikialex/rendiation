@@ -104,8 +104,8 @@ where
     Box::new(self.compute_result_typed(cx))
   }
 
-  fn work_size(&self) -> u32 {
-    self.upstream.work_size()
+  fn max_work_size(&self) -> u32 {
+    self.upstream.max_work_size()
   }
 }
 impl<T, S> DeviceParallelComputeIO<u32> for WorkGroupHistogram<T, S>
@@ -114,7 +114,7 @@ where
   S: DeviceHistogramMappingLogic<Data = T> + 'static,
 {
   fn result_size(&self) -> u32 {
-    self.work_size() / self.workgroup_size * S::MAX
+    self.max_work_size() / self.workgroup_size * S::MAX
   }
 
   fn materialize_storage_buffer(
@@ -221,8 +221,8 @@ where
     Box::new(self.create_compute_instance_impl(cx))
   }
 
-  fn work_size(&self) -> u32 {
-    self.workgroup_level.work_size()
+  fn max_work_size(&self) -> u32 {
+    self.workgroup_level.max_work_size()
   }
 }
 impl<T, S> DeviceParallelComputeIO<u32> for DeviceHistogram<T, S>
@@ -242,7 +242,7 @@ where
     u32: Std430 + ShaderSizedValueNodeType,
   {
     let compute_instance = self.create_compute_instance_impl(cx);
-    compute_instance.dispatch_compute(self.work_size(), cx);
+    compute_instance.dispatch_compute(self.max_work_size(), cx);
     compute_instance
       .result
       .into_host_nonatomic_array()

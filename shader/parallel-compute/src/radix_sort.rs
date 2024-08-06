@@ -85,8 +85,8 @@ impl DeviceParallelCompute<Node<u32>> for RadixShuffleMove {
     })
   }
 
-  fn work_size(&self) -> u32 {
-    self.is_one.work_size()
+  fn max_work_size(&self) -> u32 {
+    self.is_one.max_work_size()
   }
 }
 impl DeviceParallelComputeIO<u32> for RadixShuffleMove {}

@@ -148,8 +148,12 @@ pub trait DeviceParallelCompute<T>: DynClone {
     cx: &mut DeviceParallelComputeCtx,
   ) -> Box<dyn DeviceInvocationComponent<T>>;
 
-  // the total invocation count in this work
-  fn work_size(&self) -> u32;
+  // the static max invocation count in this work
+  fn max_work_size(&self) -> u32;
+
+  // // type of DispatchIndirectArgs
+  // fn compute_work_size(&self) -> GPUBufferResourceView;
+  // fn is_work_size_always_equals_max_work_size(&self) -> bool;
 }
 
 /// This trait is to avoid all possible redundant storage buffer materialize but not requires
@@ -159,7 +163,7 @@ pub trait DeviceParallelComputeIO<T>: DeviceParallelCompute<Node<T>> {
   /// if the material output size is different from work size(for example reduction), custom impl
   /// and multi dispatch is required
   fn result_size(&self) -> u32 {
-    self.work_size()
+    self.max_work_size()
   }
 
   /// if the implementation already has materialized storage buffer, should provide it directly to
@@ -183,8 +187,8 @@ impl<T> DeviceParallelCompute<T> for Box<dyn DeviceParallelCompute<T>> {
     (**self).execute_and_expose(cx)
   }
 
-  fn work_size(&self) -> u32 {
-    (**self).work_size()
+  fn max_work_size(&self) -> u32 {
+    (**self).max_work_size()
   }
 }
 impl<T> Clone for Box<dyn DeviceParallelCompute<T>> {
@@ -200,8 +204,8 @@ impl<T> DeviceParallelCompute<Node<T>> for Box<dyn DeviceParallelComputeIO<T>> {
     (**self).execute_and_expose(cx)
   }
 
-  fn work_size(&self) -> u32 {
-    (**self).work_size()
+  fn max_work_size(&self) -> u32 {
+    (**self).max_work_size()
   }
 }
 impl<T> Clone for Box<dyn DeviceParallelComputeIO<T>> {
@@ -211,7 +215,7 @@ impl<T> Clone for Box<dyn DeviceParallelComputeIO<T>> {
 }
 impl<T> DeviceParallelComputeIO<T> for Box<dyn DeviceParallelComputeIO<T>> {
   fn result_size(&self) -> u32 {
-    (**self).work_size()
+    (**self).max_work_size()
   }
 
   fn materialize_storage_buffer(
@@ -275,11 +279,11 @@ where
     self,
     other: impl DeviceParallelCompute<B> + 'static,
   ) -> DeviceParallelComputeZip<T, B> {
-    let work_size_cache = self.work_size().min(other.work_size());
+    let work_size_cache = self.max_work_size().min(other.max_work_size());
     DeviceParallelComputeZip {
       source_a: Box::new(self),
       source_b: Box::new(other),
-      work_size_cache,
+      max_work_size_cache: work_size_cache,
     }
   }
 }
@@ -383,7 +387,7 @@ where
   where
     S: DeviceMonoidLogic<Data = T> + 'static,
   {
-    assert!(self.work_size() <= first_stage_workgroup_size * second_stage_workgroup_size);
+    assert!(self.max_work_size() <= first_stage_workgroup_size * second_stage_workgroup_size);
 
     self
       .workgroup_scope_reduction::<S>(first_stage_workgroup_size)
@@ -492,7 +496,7 @@ where
   where
     S: DeviceMonoidLogic<Data = T> + 'static,
   {
-    assert!(self.work_size() <= first_stage_workgroup_size * second_stage_workgroup_size);
+    assert!(self.max_work_size() <= first_stage_workgroup_size * second_stage_workgroup_size);
 
     let per_workgroup_scanned = self
       .workgroup_scope_prefix_scan_kogge_stone::<S>(first_stage_workgroup_size)

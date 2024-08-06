@@ -302,7 +302,7 @@ impl DeviceParallelCompute<Node<bool>> for ActiveTaskCompact {
     Box::new(self.clone())
   }
 
-  fn work_size(&self) -> u32 {
+  fn max_work_size(&self) -> u32 {
     0 // todo fix
   }
 }

@@ -17,8 +17,8 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceParallelCompute<Node<T>>
     Box::new(StorageBufferReadOnlyDataViewReadIntoShader(temp_result))
   }
 
-  fn work_size(&self) -> u32 {
-    self.source.work_size()
+  fn max_work_size(&self) -> u32 {
+    self.source.max_work_size()
   }
 }
 impl<T: Std430 + ShaderSizedValueNodeType> DeviceParallelComputeIO<T> for DataShuffleMovement<T> {
@@ -30,11 +30,11 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceParallelComputeIO<T> for DataSh
     T: Std430 + ShaderSizedValueNodeType,
   {
     let input = self.source.execute_and_expose(cx);
-    let output = create_gpu_read_write_storage::<[T]>(self.work_size() as usize, &cx.gpu);
+    let output = create_gpu_read_write_storage::<[T]>(self.max_work_size() as usize, &cx.gpu);
 
     let write = ShuffleWrite { input, output };
 
-    write.dispatch_compute(self.work_size(), cx);
+    write.dispatch_compute(self.max_work_size(), cx);
 
     write.output.into_readonly_view()
   }
