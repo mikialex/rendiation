@@ -9,6 +9,7 @@ rendiation-shader-derives = { path = "../derive" }
 rendiation-shader-api = { path = "../api" }
 rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
 fast-hash-collection = { path = "../../utility/fast-hash-collection" }
+rendiation-device-parallel-compute = { path = "../parallel-compute" }
 parking_lot = { version = "0.12.1", features = ["send_guard"] }
 dyn-clone = { workspace = true }
 derivative = { workspace = true }

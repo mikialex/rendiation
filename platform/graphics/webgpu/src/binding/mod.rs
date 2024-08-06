@@ -147,17 +147,10 @@ impl<T> BindGroupBuilder<T> {
 }
 
 impl BindGroupBuilder<CacheAbleBindingBuildSource> {
-  pub fn bind<T>(&mut self, item: &T)
-  where
-    T: CacheAbleBindingSource + ShaderBindingProvider,
-  {
+  pub fn bind(&mut self, source: CacheAbleBindingBuildSource, desc: &ShaderBindingDescriptor) {
     self.bind_raw(
-      item.get_binding_build_source(),
-      map_shader_value_ty_to_binding_layout_type(
-        &item.binding_desc(),
-        self.items.len(),
-        self.is_compute,
-      ),
+      source,
+      map_shader_value_ty_to_binding_layout_type(desc, self.items.len(), self.is_compute),
     )
   }
   fn hash_binding_ids(&self, hasher: &mut impl Hasher) {
@@ -200,7 +193,15 @@ impl BindingBuilder {
   where
     T: CacheAbleBindingSource + ShaderBindingProvider,
   {
-    self.groups[self.current_index].bind(item);
+    self.bind_dyn(item.get_binding_build_source(), &item.binding_desc())
+  }
+
+  pub fn bind_dyn(
+    &mut self,
+    source: CacheAbleBindingBuildSource,
+    desc: &ShaderBindingDescriptor,
+  ) -> &mut Self {
+    self.groups[self.current_index].bind(source, desc);
     self
   }
 

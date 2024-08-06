@@ -5,6 +5,7 @@ use std::sync::Weak;
 
 use fast_hash_collection::*;
 use parking_lot::RwLock;
+use rendiation_device_parallel_compute::*;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 
@@ -44,11 +45,11 @@ pub trait ShaderAbstractRightValue {
   fn into_local_left_value(self) -> Self::LocalLeftValue;
 }
 
-impl<T> ShaderAbstractRightValue for Node<T> {
+impl<T: ShaderNodeType> ShaderAbstractRightValue for Node<T> {
   type LocalLeftValue = LocalVarNode<T>;
 
   fn into_local_left_value(self) -> Self::LocalLeftValue {
-    todo!()
+    self.make_local_var()
   }
 }
 

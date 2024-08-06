@@ -3444,6 +3444,7 @@ dependencies = [
  "futures",
  "parking_lot",
  "pollster",
+ "rendiation-device-parallel-compute",
  "rendiation-shader-api",
  "rendiation-shader-derives",
  "rendiation-webgpu",

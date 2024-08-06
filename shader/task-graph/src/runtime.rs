@@ -181,7 +181,7 @@ impl DeviceTaskGraphExecutor {
     encoder.compute_pass_scoped(|mut pass| {
       // todo, impl more conservative upper execute bound
       for _ in 0..required_round {
-        for stage in &self.task_groups {
+        for stage in &mut self.task_groups {
           stage.execute(&mut pass, &gpu.device);
         }
       }
@@ -223,6 +223,7 @@ impl TaskGroupExecutorResource {
   }
 }
 
+#[derive(Clone)]
 struct TaskPool {
   /// struct Task {
   ///   is_finished_ bool,
@@ -272,35 +273,118 @@ impl TaskPool {
       state_desc: self.state_desc.clone(),
     }
   }
+
+  pub fn bind(&self, cx: &mut BindingBuilder) {
+    cx.bind_dyn(
+      self.tasks.get_binding_build_source(),
+      &ShaderBindingDescriptor {
+        should_as_storage_buffer_if_is_buffer_like: true,
+        ty: ShaderValueType::Single(ShaderValueSingleType::Sized(ShaderSizedValueType::Struct(
+          self.state_desc.ty.clone(),
+        ))),
+        writeable_if_storage: true,
+      },
+    );
+  }
+}
+
+#[derive(Clone)]
+struct ActiveTaskCompact {
+  active_tasks: StorageBufferReadOnlyDataView<[u32]>,
+  task_pool: TaskPool,
+}
+
+impl DeviceParallelCompute<Node<bool>> for ActiveTaskCompact {
+  fn execute_and_expose(
+    &self,
+    _: &mut DeviceParallelComputeCtx,
+  ) -> Box<dyn DeviceInvocationComponent<Node<bool>>> {
+    Box::new(self.clone())
+  }
+
+  fn work_size(&self) -> u32 {
+    0 // todo fix
+  }
+}
+impl DeviceParallelComputeIO<bool> for ActiveTaskCompact {}
+
+impl ShaderHashProvider for ActiveTaskCompact {
+  shader_hash_type_id! {}
+}
+
+impl DeviceInvocationComponent<Node<bool>> for ActiveTaskCompact {
+  fn build_shader(
+    &self,
+    builder: &mut ShaderComputePipelineBuilder,
+  ) -> Box<dyn DeviceInvocation<Node<bool>>> {
+    Box::new(ActiveTaskCompactInvocationInstance {
+      active_tasks: Box::new(
+        StorageBufferReadOnlyDataViewReadIntoShader(self.active_tasks.clone())
+          .build_shader(builder),
+      ),
+      task_pool: builder.entry_by(|cx| self.task_pool.build_shader(cx)),
+    })
+  }
+
+  fn bind_input(&self, builder: &mut BindingBuilder) {
+    builder.bind(&self.active_tasks);
+    self.task_pool.bind(builder);
+  }
+
+  fn requested_workgroup_size(&self) -> Option<u32> {
+    None
+  }
+}
+
+struct ActiveTaskCompactInvocationInstance {
+  active_tasks: Box<dyn DeviceInvocation<Node<u32>>>,
+  task_pool: TaskPoolInvocationInstance,
+}
+
+impl DeviceInvocation<Node<bool>> for ActiveTaskCompactInvocationInstance {
+  fn invocation_logic(&self, logic_global_id: Node<Vec3<u32>>) -> (Node<bool>, Node<bool>) {
+    let (r, s) = self.active_tasks.invocation_logic(logic_global_id);
+
+    // todo check s
+    (s, self.task_pool.read_is_finished(r).load())
+  }
+
+  fn invocation_size(&self) -> Node<Vec3<u32>> {
+    self.active_tasks.invocation_size()
+  }
 }
 
 impl TaskGroupExecutor {
-  pub fn execute(&self, pass: &mut GPUComputePass, device: &GPUDevice) {
-    // step 0: mark active task which one is to be removed
+  pub fn execute(&mut self, pass: &mut GPUComputePass, device: &GPUDevice) {
+    let imp = &mut self.resource;
 
     // step 1: compact active task buffer
+
+    let alive_tasks = imp.alive_task_idx.storage.clone().into_readonly_view();
+
+    imp.alive_task_idx.storage = alive_tasks
+      .clone()
+      .stream_compaction(ActiveTaskCompact {
+        active_tasks: alive_tasks.clone(),
+        task_pool: imp.task_pool.clone(),
+      })
+      .materialize_storage_buffer(todo!())
+      .into_rw_view();
 
     // step 2: drain empty to empty pool
     self
       .resource
       .new_removed_task_idx
-      .drain_self_into_the_other(&self.resource.empty_index_pool, pass, device);
+      .drain_self_into_the_other(&imp.empty_index_pool, pass, device);
 
     // step3: dispatch tasks
+    let mut bb = BindingBuilder::new_as_compute();
+    imp.bind(&mut bb);
+    bb.setup_compute_pass(pass, device, &self.task_poll_pipeline);
+    // todo, prepare size args
+    // pass.dispatch_workgroups_indirect(&self.main_dispatch_size.buffer.gpu(), 0);
 
     // step4: commit bump allocator sizes
-
-    // let mut bb = BindingBuilder::new_as_compute();
-
-    // // bb.bind(&input)
-    // //   .bind(&output)
-    // //   .setup_compute_pass(&mut pass, &gpu.device, &pipeline);
-
-    // pass.set_pipeline_owned(&self.task_poll_pipeline);
-
-    // // pass.set_bind_group(index, bind_group, offsets)
-    // // todo, prepare size args
-    // // pass.dispatch_workgroups_indirect(&self.main_dispatch_size.buffer.gpu(), 0);
   }
 }
 
@@ -322,6 +406,12 @@ impl TaskGroupExecutorResource {
       empty_index_pool: self.empty_index_pool.build_deallocator_shader(cx),
       task_pool: self.task_pool.build_shader(cx),
     }
+  }
+
+  pub fn bind(&self, cx: &mut BindingBuilder) {
+    self.new_removed_task_idx.bind_allocator(cx);
+    self.empty_index_pool.bind_allocator(cx);
+    self.task_pool.bind(cx);
   }
 }
 

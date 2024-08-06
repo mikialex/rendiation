@@ -64,6 +64,11 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
       current_size: cx.bind_by(&self.current_size),
     }
   }
+  pub fn bind_allocator(&self, cx: &mut BindingBuilder) {
+    cx.bind(&self.storage);
+    cx.bind(&self.bump_size);
+    cx.bind(&self.current_size);
+  }
 
   pub fn build_deallocator_shader(
     &self,

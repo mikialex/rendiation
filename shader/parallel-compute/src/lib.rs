@@ -12,7 +12,7 @@ use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 
 mod io;
-use io::*;
+pub use io::*;
 mod fork;
 pub use fork::*;
 
