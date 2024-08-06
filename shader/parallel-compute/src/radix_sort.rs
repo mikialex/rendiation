@@ -85,8 +85,8 @@ impl DeviceParallelCompute<Node<u32>> for RadixShuffleMove {
     })
   }
 
-  fn max_work_size(&self) -> u32 {
-    self.is_one.max_work_size()
+  fn result_size(&self) -> u32 {
+    self.is_one.result_size()
   }
 }
 impl DeviceParallelComputeIO<u32> for RadixShuffleMove {}
@@ -138,6 +138,10 @@ impl DeviceInvocationComponent<Node<u32>> for RadixShuffleMoveCompute {
   fn bind_input(&self, builder: &mut BindingBuilder) {
     self.is_one.bind_input(builder);
     builder.bind(&self.ones_before);
+  }
+
+  fn work_size(&self) -> Option<u32> {
+    self.is_one.work_size()
   }
 }
 

@@ -52,6 +52,14 @@ impl<A: 'static, B: 'static> DeviceInvocationComponent<(A, B)> for Builder<A, B>
     );
     self.source_a.requested_workgroup_size()
   }
+
+  fn work_size(&self) -> Option<u32> {
+    self
+      .source_a
+      .work_size()
+      .zip(self.source_b.work_size())
+      .map(|(a, b)| a.min(b))
+  }
 }
 
 #[derive(Derivative)]
@@ -60,7 +68,7 @@ pub struct DeviceParallelComputeZip<A, B> {
   pub source_a: Box<dyn DeviceParallelCompute<A>>,
   pub source_b: Box<dyn DeviceParallelCompute<B>>,
   /// if we not add cache here, maybe work_size() will have exponential cost!
-  pub max_work_size_cache: u32,
+  pub result_size_cache: u32,
 }
 
 impl<A: 'static, B: 'static> DeviceParallelCompute<(A, B)> for DeviceParallelComputeZip<A, B> {
@@ -74,8 +82,8 @@ impl<A: 'static, B: 'static> DeviceParallelCompute<(A, B)> for DeviceParallelCom
     })
   }
 
-  fn max_work_size(&self) -> u32 {
-    self.max_work_size_cache
+  fn result_size(&self) -> u32 {
+    self.result_size_cache
   }
 }
 

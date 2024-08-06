@@ -57,9 +57,8 @@ where
   ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
     self.materialize_storage_buffer(cx).execute_and_expose(cx)
   }
-
-  fn max_work_size(&self) -> u32 {
-    self.upstream.inner.max_work_size()
+  fn result_size(&self) -> u32 {
+    self.upstream.inner.result_size()
   }
 }
 

@@ -94,7 +94,21 @@ impl<T: Copy> DeviceInvocation<T> for AdhocInvocationResult<T> {
   }
 }
 
+#[repr(C)]
+#[std430_layout]
+#[derive(Copy, Clone, Debug, Default, ShaderStruct)]
+pub struct DispatchIndirectArgsStorage {
+  /// The number of work groups in X dimension.
+  pub x: u32,
+  /// The number of work groups in Y dimension.
+  pub y: u32,
+  /// The number of work groups in Z dimension.
+  pub z: u32,
+}
+
 pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
+  fn work_size(&self) -> Option<u32>;
+
   fn build_shader(
     &self,
     builder: &mut ShaderComputePipelineBuilder,
@@ -104,7 +118,7 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
 
   fn requested_workgroup_size(&self) -> Option<u32>;
 
-  fn dispatch_compute(&self, work_size: u32, cx: &mut DeviceParallelComputeCtx) {
+  fn dispatch_compute(&self, cx: &mut DeviceParallelComputeCtx) {
     let workgroup_size = self.requested_workgroup_size().unwrap_or(256);
     let pipeline = cx.get_or_create_compute_pipeline(self, |cx| {
       cx.config_work_group_size(workgroup_size);
@@ -114,11 +128,60 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
       let _ = invocation_source.invocation_logic(invocation_id);
     });
 
+    if let Some(work_size) = self.work_size() {
+      cx.encoder.compute_pass_scoped(|mut pass| {
+        let mut bb = BindingBuilder::new_as_compute();
+        self.bind_input(&mut bb);
+        bb.setup_compute_pass(&mut pass, &cx.gpu.device, &pipeline);
+        pass.dispatch_workgroups((work_size + workgroup_size - 1) / workgroup_size, 1, 1);
+      });
+    } else {
+      self.compute_work_size(cx);
+      cx.encoder.compute_pass_scoped(|mut pass| {
+        let mut bb = BindingBuilder::new_as_compute();
+        self.bind_input(&mut bb);
+        bb.setup_compute_pass(&mut pass, &cx.gpu.device, &pipeline);
+
+        pass.dispatch_workgroups_indirect_owned(&cx.size_scratch);
+      });
+    }
+  }
+
+  fn compute_work_size(&self, cx: &mut DeviceParallelComputeCtx) {
+    struct SizeWriter<'a, T: ?Sized>(&'a T);
+    impl<'a, T: ShaderHashProvider + ?Sized> ShaderHashProvider for SizeWriter<'a, T> {
+      fn hash_type_info(&self, hasher: &mut PipelineHasher) {
+        self.0.hash_type_info(hasher)
+      }
+
+      fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+        0.hash(hasher);
+        self.0.hash_pipeline(hasher)
+      }
+    }
+
+    let size_output = cx.size_scratch.clone();
+
+    let pipeline = cx.get_or_create_compute_pipeline(&SizeWriter(self), |cx| {
+      cx.config_work_group_size(1);
+      let size = self.build_shader(cx.0).invocation_size();
+
+      let size = ENode::<DispatchIndirectArgsStorage> {
+        x: size.x(),
+        y: size.y(),
+        z: size.z(),
+      }
+      .construct();
+
+      cx.bind_by(&size_output).store(size);
+    });
+
     cx.encoder.compute_pass_scoped(|mut pass| {
       let mut bb = BindingBuilder::new_as_compute();
       self.bind_input(&mut bb);
+      bb.bind(&size_output);
       bb.setup_compute_pass(&mut pass, &cx.gpu.device, &pipeline);
-      pass.dispatch_workgroups((work_size + workgroup_size - 1) / workgroup_size, 1, 1);
+      pass.dispatch_workgroups(1, 1, 1);
     });
   }
 }
@@ -148,24 +211,15 @@ pub trait DeviceParallelCompute<T>: DynClone {
     cx: &mut DeviceParallelComputeCtx,
   ) -> Box<dyn DeviceInvocationComponent<T>>;
 
-  // the static max invocation count in this work
-  fn max_work_size(&self) -> u32;
-
-  // // type of DispatchIndirectArgs
-  // fn compute_work_size(&self) -> GPUBufferResourceView;
-  // fn is_work_size_always_equals_max_work_size(&self) -> bool;
+  /// if the material output size is different from execute_and_expose's work size(for example reduction),
+  /// custom impl or multi dispatch is required
+  fn result_size(&self) -> u32;
 }
 
 /// This trait is to avoid all possible redundant storage buffer materialize but not requires
 /// specialization. if the type impls DeviceParallelCompute<Node<T>>, it should impl this trait as
 /// well.
 pub trait DeviceParallelComputeIO<T>: DeviceParallelCompute<Node<T>> {
-  /// if the material output size is different from work size(for example reduction), custom impl
-  /// and multi dispatch is required
-  fn result_size(&self) -> u32 {
-    self.max_work_size()
-  }
-
   /// if the implementation already has materialized storage buffer, should provide it directly to
   /// avoid re-materialize cost
   fn materialize_storage_buffer(
@@ -187,8 +241,8 @@ impl<T> DeviceParallelCompute<T> for Box<dyn DeviceParallelCompute<T>> {
     (**self).execute_and_expose(cx)
   }
 
-  fn max_work_size(&self) -> u32 {
-    (**self).max_work_size()
+  fn result_size(&self) -> u32 {
+    (**self).result_size()
   }
 }
 impl<T> Clone for Box<dyn DeviceParallelCompute<T>> {
@@ -203,9 +257,8 @@ impl<T> DeviceParallelCompute<Node<T>> for Box<dyn DeviceParallelComputeIO<T>> {
   ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
     (**self).execute_and_expose(cx)
   }
-
-  fn max_work_size(&self) -> u32 {
-    (**self).max_work_size()
+  fn result_size(&self) -> u32 {
+    (**self).result_size()
   }
 }
 impl<T> Clone for Box<dyn DeviceParallelComputeIO<T>> {
@@ -214,10 +267,6 @@ impl<T> Clone for Box<dyn DeviceParallelComputeIO<T>> {
   }
 }
 impl<T> DeviceParallelComputeIO<T> for Box<dyn DeviceParallelComputeIO<T>> {
-  fn result_size(&self) -> u32 {
-    (**self).max_work_size()
-  }
-
   fn materialize_storage_buffer(
     &self,
     cx: &mut DeviceParallelComputeCtx,
@@ -279,11 +328,11 @@ where
     self,
     other: impl DeviceParallelCompute<B> + 'static,
   ) -> DeviceParallelComputeZip<T, B> {
-    let work_size_cache = self.max_work_size().min(other.max_work_size());
+    let cache = self.result_size().min(other.result_size());
     DeviceParallelComputeZip {
       source_a: Box::new(self),
       source_b: Box::new(other),
-      max_work_size_cache: work_size_cache,
+      result_size_cache: cache,
     }
   }
 }
@@ -387,7 +436,7 @@ where
   where
     S: DeviceMonoidLogic<Data = T> + 'static,
   {
-    assert!(self.max_work_size() <= first_stage_workgroup_size * second_stage_workgroup_size);
+    // assert!(self.max_work_size() <= first_stage_workgroup_size * second_stage_workgroup_size);
 
     self
       .workgroup_scope_reduction::<S>(first_stage_workgroup_size)
@@ -496,7 +545,8 @@ where
   where
     S: DeviceMonoidLogic<Data = T> + 'static,
   {
-    assert!(self.max_work_size() <= first_stage_workgroup_size * second_stage_workgroup_size);
+    // todo, impl another way to check if it's ok to run compute
+    // assert!(self.max_work_size() <= first_stage_workgroup_size * second_stage_workgroup_size);
 
     let per_workgroup_scanned = self
       .workgroup_scope_prefix_scan_kogge_stone::<S>(first_stage_workgroup_size)
@@ -555,6 +605,7 @@ pub struct DeviceParallelComputeCtx<'a> {
   pub gpu: &'a GPU,
   pub encoder: GPUCommandEncoder,
   pub compute_pipeline_cache: FastHashMap<u64, GPUComputePipeline>,
+  pub size_scratch: StorageBufferDataView<DispatchIndirectArgsStorage>,
 }
 
 impl<'a> DeviceParallelComputeCtx<'a> {
@@ -564,6 +615,10 @@ impl<'a> DeviceParallelComputeCtx<'a> {
       gpu,
       encoder,
       compute_pipeline_cache: Default::default(),
+      size_scratch: create_gpu_read_write_storage(
+        StorageBufferInit::WithInit(&Default::default()),
+        &gpu.device,
+      ),
     }
   }
 

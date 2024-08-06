@@ -16,9 +16,8 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceParallelCompute<Node<T>>
     let temp_result = self.materialize_storage_buffer(cx);
     Box::new(StorageBufferReadOnlyDataViewReadIntoShader(temp_result))
   }
-
-  fn max_work_size(&self) -> u32 {
-    self.source.max_work_size()
+  fn result_size(&self) -> u32 {
+    self.source.result_size()
   }
 }
 impl<T: Std430 + ShaderSizedValueNodeType> DeviceParallelComputeIO<T> for DataShuffleMovement<T> {
@@ -30,11 +29,11 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceParallelComputeIO<T> for DataSh
     T: Std430 + ShaderSizedValueNodeType,
   {
     let input = self.source.execute_and_expose(cx);
-    let output = create_gpu_read_write_storage::<[T]>(self.max_work_size() as usize, &cx.gpu);
+    let output = create_gpu_read_write_storage::<[T]>(self.result_size() as usize, &cx.gpu);
 
     let write = ShuffleWrite { input, output };
 
-    write.dispatch_compute(self.max_work_size(), cx);
+    write.dispatch_compute(cx);
 
     write.output.into_readonly_view()
   }
@@ -86,6 +85,10 @@ where
     self.input.bind_input(builder);
     builder.bind(&self.output);
   }
+
+  fn work_size(&self) -> Option<u32> {
+    self.input.work_size()
+  }
 }
 
 pub struct ShuffleAccess<T: Std430> {
@@ -131,6 +134,10 @@ where
   fn bind_input(&self, builder: &mut BindingBuilder) {
     self.shuffle_idx.bind_input(builder);
     builder.bind(&self.source);
+  }
+
+  fn work_size(&self) -> Option<u32> {
+    todo!()
   }
 }
 

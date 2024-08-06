@@ -302,7 +302,7 @@ impl DeviceParallelCompute<Node<bool>> for ActiveTaskCompact {
     Box::new(self.clone())
   }
 
-  fn max_work_size(&self) -> u32 {
+  fn result_size(&self) -> u32 {
     0 // todo fix
   }
 }
@@ -332,6 +332,10 @@ impl DeviceInvocationComponent<Node<bool>> for ActiveTaskCompact {
   }
 
   fn requested_workgroup_size(&self) -> Option<u32> {
+    None
+  }
+
+  fn work_size(&self) -> Option<u32> {
     None
   }
 }
