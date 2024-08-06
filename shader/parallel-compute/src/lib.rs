@@ -328,11 +328,9 @@ where
     self,
     other: impl DeviceParallelCompute<B> + 'static,
   ) -> DeviceParallelComputeZip<T, B> {
-    let cache = self.result_size().min(other.result_size());
     DeviceParallelComputeZip {
       source_a: Box::new(self),
       source_b: Box::new(other),
-      result_size_cache: cache,
     }
   }
 }

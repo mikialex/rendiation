@@ -2,6 +2,8 @@ use crate::*;
 
 pub struct ComputeResultForker<T: Std430> {
   pub inner: Box<dyn DeviceParallelComputeIO<T>>,
+  /// if we not add cache here, the cost may be exponential!
+  pub size_cache: u32,
   pub children: RwLock<Vec<ComputeResultForkerInstance<T>>>,
 }
 
@@ -14,6 +16,7 @@ pub struct ComputeResultForkerInstance<T: Std430> {
 impl<T: Std430> ComputeResultForkerInstance<T> {
   pub fn from_upstream(upstream: Box<dyn DeviceParallelComputeIO<T>>) -> Self {
     let forker = ComputeResultForker {
+      size_cache: upstream.result_size(),
       inner: upstream,
       children: Default::default(),
     };
@@ -58,7 +61,7 @@ where
     self.materialize_storage_buffer(cx).execute_and_expose(cx)
   }
   fn result_size(&self) -> u32 {
-    self.upstream.inner.result_size()
+    self.upstream.size_cache
   }
 }
 
