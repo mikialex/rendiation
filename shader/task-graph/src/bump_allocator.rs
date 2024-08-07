@@ -1,5 +1,6 @@
 use crate::*;
 
+#[derive(Clone)]
 pub struct DeviceBumpAllocationInstance<T: Std430 + ShaderSizedValueNodeType> {
   pub storage: StorageBufferDataView<[T]>,
   bump_size: StorageBufferDataView<DeviceAtomic<u32>>,
@@ -26,10 +27,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
     device: &GPUDevice,
     previous_is_allocate: bool,
   ) {
-    struct SizeCommitter;
-    let hasher = PipelineHasher::default()
-      .with_hash(TypeId::of::<SizeCommitter>())
-      .with_hash(previous_is_allocate);
+    let hasher = shader_hasher_from_marker_ty!(SizeCommitter).with_hash(previous_is_allocate);
 
     let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |device| {
       compute_shader_builder()
@@ -63,8 +61,35 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
     pass: &mut GPUComputePass,
     device: &GPUDevice,
   ) {
-    struct Drainer;
-    let hasher = PipelineHasher::default().with_hash(TypeId::of::<Drainer>());
+    let size = device.make_indirect_dispatch_size_buffer();
+    let hasher = shader_hasher_from_marker_ty!(SizeCompute);
+
+    let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |device| {
+      compute_shader_builder()
+        .entry(|cx| {
+          let input_current_size = cx.bind_by(&self.current_size);
+          let output = cx.bind_by(&size);
+
+          let size = ENode::<DispatchIndirectArgsStorage> {
+            x: input_current_size.load(),
+            y: val(1),
+            z: val(1),
+          }
+          .construct();
+
+          output.store(size);
+        })
+        .create_compute_pipeline(device)
+        .unwrap()
+    });
+
+    BindingBuilder::new_as_compute()
+      .with_bind(&self.storage)
+      .with_bind(&self.current_size)
+      .setup_compute_pass(pass, device, &pipeline);
+    pass.dispatch_workgroups(1, 1, 1);
+
+    let hasher = shader_hasher_from_marker_ty!(Drainer);
 
     let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |device| {
       compute_shader_builder()
@@ -97,7 +122,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
       .with_bind(&the_other.current_size)
       .setup_compute_pass(pass, device, &pipeline);
 
-    pass.dispatch_workgroups_indirect_owned(todo!());
+    pass.dispatch_workgroups_indirect_owned(&size);
   }
 
   pub fn build_allocator_shader(

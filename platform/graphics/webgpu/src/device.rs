@@ -124,6 +124,24 @@ impl GPUDevice {
   pub(crate) fn get_binding_cache(&self) -> &BindGroupCache {
     &self.inner.bindgroup_cache
   }
+
+  pub fn make_indirect_dispatch_size_buffer(
+    &self,
+  ) -> StorageBufferDataView<DispatchIndirectArgsStorage> {
+    todo!()
+  }
+}
+
+#[repr(C)]
+#[std430_layout]
+#[derive(Copy, Clone, Debug, Default, ShaderStruct)]
+pub struct DispatchIndirectArgsStorage {
+  /// The number of work groups in X dimension.
+  pub x: u32,
+  /// The number of work groups in Y dimension.
+  pub y: u32,
+  /// The number of work groups in Z dimension.
+  pub z: u32,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -298,4 +316,12 @@ impl std::hash::Hasher for PipelineHasher {
   fn write(&mut self, bytes: &[u8]) {
     self.hasher.write(bytes)
   }
+}
+
+#[macro_export]
+macro_rules! shader_hasher_from_marker_ty {
+  ($ty: tt) => {{
+    struct $ty;
+    PipelineHasher::default().with_hash(std::any::TypeId::of::<$ty>())
+  }};
 }
