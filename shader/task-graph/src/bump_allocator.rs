@@ -19,6 +19,42 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
     }
   }
 
+  pub fn prepare_dispatch_size(
+    &self,
+    pass: &mut GPUComputePass,
+    device: &GPUDevice,
+  ) -> StorageBufferDataView<DispatchIndirectArgsStorage> {
+    let size = device.make_indirect_dispatch_size_buffer();
+    let hasher = shader_hasher_from_marker_ty!(SizeCompute);
+
+    let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |device| {
+      compute_shader_builder()
+        .entry(|cx| {
+          let input_current_size = cx.bind_by(&self.current_size);
+          let output = cx.bind_by(&size);
+
+          let size = ENode::<DispatchIndirectArgsStorage> {
+            x: input_current_size.load(),
+            y: val(1),
+            z: val(1),
+          }
+          .construct();
+
+          output.store(size);
+        })
+        .create_compute_pipeline(device)
+        .unwrap()
+    });
+
+    BindingBuilder::new_as_compute()
+      .with_bind(&self.storage)
+      .with_bind(&self.current_size)
+      .setup_compute_pass(pass, device, &pipeline);
+    pass.dispatch_workgroups(1, 1, 1);
+
+    size
+  }
+
   /// because bump allocation or deallocation may overflow or underflow,
   /// so the size commit pass is required for any allocation or deallocation
   pub fn commit_size(
@@ -61,33 +97,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
     pass: &mut GPUComputePass,
     device: &GPUDevice,
   ) {
-    let size = device.make_indirect_dispatch_size_buffer();
-    let hasher = shader_hasher_from_marker_ty!(SizeCompute);
-
-    let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |device| {
-      compute_shader_builder()
-        .entry(|cx| {
-          let input_current_size = cx.bind_by(&self.current_size);
-          let output = cx.bind_by(&size);
-
-          let size = ENode::<DispatchIndirectArgsStorage> {
-            x: input_current_size.load(),
-            y: val(1),
-            z: val(1),
-          }
-          .construct();
-
-          output.store(size);
-        })
-        .create_compute_pipeline(device)
-        .unwrap()
-    });
-
-    BindingBuilder::new_as_compute()
-      .with_bind(&self.storage)
-      .with_bind(&self.current_size)
-      .setup_compute_pass(pass, device, &pipeline);
-    pass.dispatch_workgroups(1, 1, 1);
+    let size = self.prepare_dispatch_size(pass, device);
 
     let hasher = shader_hasher_from_marker_ty!(Drainer);
 

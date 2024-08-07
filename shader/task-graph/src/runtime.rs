@@ -162,19 +162,36 @@ impl DeviceTaskGraphExecutor {
   /// T must match given task_id's payload type
   ///
   /// From perspective of performance, this method can be implemented as a special task
-  /// polling but for consistency and simplicity, we implemented as a standalone task allocation procedure.
-  pub fn dispatch_allocate_init_task<T>(
+  /// polling, but for consistency and simplicity, we implemented as a standalone task allocation procedure.
+  pub fn dispatch_allocate_init_task<T: ShaderSizedValueNodeType>(
     &mut self,
-    gpu: &GPU,
+    device: &GPUDevice,
+    pass: &mut GPUComputePass,
     dispatch_size: usize,
     task_id: u32,
-    task_spawner: impl FnOnce(Node<u32>) -> Node<T>,
+    task_spawner: impl FnOnce(Node<u32>) -> Node<T> + 'static,
   ) {
-    let mut compute_cx = compute_shader_builder();
+    let task_group = &self.task_groups[task_id as usize];
 
-    // compute_cx.entry(|cx| {
-    //   // cx.
-    // })
+    let hasher = PipelineHasher::default().with_hash(task_spawner.type_id());
+    let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |device| {
+      compute_shader_builder()
+        .entry(|cx| {
+          let instance = task_group.resource.build_shader(cx);
+          let id = cx.global_invocation_id().x();
+          let payload = task_spawner(id);
+
+          instance.spawn_new_task(payload);
+        })
+        .create_compute_pipeline(device)
+        .unwrap()
+    });
+
+    let mut bb = BindingBuilder::new_as_compute();
+    task_group.resource.bind(&mut bb);
+    bb.setup_compute_pass(pass, device, &pipeline);
+
+    pass.dispatch_workgroups(todo!(), 1, 1);
   }
 
   pub fn execute(&mut self, gpu: &GPU) {
@@ -222,6 +239,7 @@ impl TaskGroupExecutorResource {
     state_desc: DynamicTypeMetaInfo,
     device: &GPUDevice,
   ) -> Self {
+    todo!(); // spawn empty_index_pool;
     Self {
       alive_task_idx: DeviceBumpAllocationInstance::new(size, device),
       // main_dispatch_size: (),
@@ -309,11 +327,12 @@ impl DeviceParallelCompute<Node<bool>> for ActiveTaskCompact {
     &self,
     _: &mut DeviceParallelComputeCtx,
   ) -> Box<dyn DeviceInvocationComponent<Node<bool>>> {
+    todo!();
     Box::new(self.clone())
   }
 
   fn result_size(&self) -> u32 {
-    0 // todo fix
+    self.active_tasks.item_count()
   }
 }
 impl DeviceParallelComputeIO<bool> for ActiveTaskCompact {}
@@ -372,10 +391,12 @@ impl TaskGroupExecutor {
   pub fn execute(&mut self, pass: &mut GPUComputePass, device: &GPUDevice) {
     let imp = &mut self.resource;
 
-    // step 1: compact active task buffer
+    // commit bump allocator sizes
+    imp.empty_index_pool.commit_size(pass, device, false);
+    imp.new_removed_task_idx.commit_size(pass, device, true);
 
+    // compact active task buffer
     let alive_tasks = imp.alive_task_idx.storage.clone().into_readonly_view();
-
     imp.alive_task_idx.storage = alive_tasks
       .clone()
       .stream_compaction(ActiveTaskCompact {
@@ -385,20 +406,18 @@ impl TaskGroupExecutor {
       .materialize_storage_buffer(todo!())
       .into_rw_view();
 
-    // step 2: drain empty to empty pool
+    // drain empty to empty pool
     self
       .resource
       .new_removed_task_idx
       .drain_self_into_the_other(&imp.empty_index_pool, pass, device);
 
-    // step3: dispatch tasks
+    // dispatch tasks
     let mut bb = BindingBuilder::new_as_compute();
     imp.bind(&mut bb);
     bb.setup_compute_pass(pass, device, &self.task_poll_pipeline);
-    // todo, prepare size args
-    // pass.dispatch_workgroups_indirect(&self.main_dispatch_size.buffer.gpu(), 0);
-
-    // step4: commit bump allocator sizes
+    let size = imp.alive_task_idx.prepare_dispatch_size(pass, device);
+    pass.dispatch_workgroups_indirect_owned(&size);
   }
 }
 
@@ -414,7 +433,7 @@ impl TaskGroupExecutorResource {
       *self = Self::create_with_size(size, state_desc, &gpu.device);
     }
   }
-  pub fn build_shader(&self, cx: &mut ComputeCx) -> TaskGroupDeviceInvocationInstance {
+  fn build_shader(&self, cx: &mut ComputeCx) -> TaskGroupDeviceInvocationInstance {
     TaskGroupDeviceInvocationInstance {
       new_removed_task_idx: self.new_removed_task_idx.build_allocator_shader(cx),
       empty_index_pool: self.empty_index_pool.build_deallocator_shader(cx),
@@ -422,7 +441,7 @@ impl TaskGroupExecutorResource {
     }
   }
 
-  pub fn bind(&self, cx: &mut BindingBuilder) {
+  fn bind(&self, cx: &mut BindingBuilder) {
     self.new_removed_task_idx.bind_allocator(cx);
     self.empty_index_pool.bind_allocator(cx);
     self.task_pool.bind(cx);
