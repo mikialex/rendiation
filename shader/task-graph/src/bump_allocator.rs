@@ -1,9 +1,11 @@
+use std::{any::TypeId, hash::Hash};
+
 use crate::*;
 
 pub struct DeviceBumpAllocationInstance<T: Std430 + ShaderSizedValueNodeType> {
   pub storage: StorageBufferDataView<[T]>,
   bump_size: StorageBufferDataView<DeviceAtomic<u32>>,
-  current_size: StorageBufferDataView<u32>, // todo
+  current_size: StorageBufferDataView<u32>, // todo, merge with bump size
 }
 
 impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
@@ -18,7 +20,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
     }
   }
 
-  /// because bump allocation or deallocation can overflow or underflow,
+  /// because bump allocation or deallocation may overflow or underflow,
   /// so the size commit pass is required for any allocation or deallocation
   pub fn commit_size(
     &self,
@@ -26,7 +28,35 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
     device: &GPUDevice,
     previous_is_allocate: bool,
   ) {
-    //
+    struct SizeCommitter;
+    let mut hasher = PipelineHasher::default();
+    TypeId::of::<SizeCommitter>().hash(&mut hasher);
+    previous_is_allocate.hash(&mut hasher);
+
+    let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |device| {
+      compute_shader_builder()
+        .config_work_group_size(1)
+        .entry(|cx| {
+          let bump_size = cx.bind_by(&self.bump_size);
+          let current_size = cx.bind_by(&self.current_size);
+          let delta = bump_size.atomic_load();
+          if previous_is_allocate {
+            current_size.store(current_size.load() + delta);
+          } else {
+            current_size.store(current_size.load() - delta);
+          }
+          bump_size.atomic_store(val(0));
+        })
+        .create_compute_pipeline(device)
+        .unwrap()
+    });
+
+    let mut bb = BindingBuilder::default();
+    bb.bind(&self.bump_size);
+    bb.bind(&self.current_size);
+
+    bb.setup_compute_pass(pass, device, &pipeline);
+    pass.dispatch_workgroups(1, 1, 1);
   }
 
   pub fn drain_self_into_the_other(

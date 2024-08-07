@@ -3,11 +3,11 @@
 
 mod api_core;
 mod binding;
-mod buffer_bitcast;
 mod compute;
 mod graphics;
 mod layout;
 mod re_export;
+mod serialization;
 
 use std::{
   any::{Any, TypeId},
@@ -19,7 +19,6 @@ use std::{
 
 pub use api_core::*;
 pub use binding::*;
-pub use buffer_bitcast::*;
 pub use bytemuck::*;
 pub use compute::*;
 use fast_hash_collection::*;
@@ -28,6 +27,7 @@ pub use layout::*;
 pub use re_export::*;
 pub use rendiation_algebra::*;
 pub use rendiation_shader_derives::*;
+pub use serialization::*;
 
 pub type DynamicShaderAPI = Box<dyn ShaderAPI<Output = Box<dyn Any>>>;
 

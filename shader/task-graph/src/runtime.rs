@@ -157,14 +157,24 @@ impl DeviceTaskGraphExecutor {
 }
 
 impl DeviceTaskGraphExecutor {
-  pub fn dispatch_init_task<T>(
+  /// Allocate task directly in the task pool by dispatching compute shader.
+  ///
+  /// T must match given task_id's payload type
+  ///
+  /// From perspective of performance, this method can be implemented as a special task
+  /// polling but for consistency and simplicity, we implemented as a standalone task allocation procedure.
+  pub fn dispatch_allocate_init_task<T>(
     &mut self,
     gpu: &GPU,
     dispatch_size: usize,
     task_id: u32,
     task_spawner: impl FnOnce(Node<u32>) -> Node<T>,
   ) {
-    //
+    let mut compute_cx = compute_shader_builder();
+
+    // compute_cx.entry(|cx| {
+    //   // cx.
+    // })
   }
 
   pub fn execute(&mut self, gpu: &GPU) {

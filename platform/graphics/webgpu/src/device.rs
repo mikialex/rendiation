@@ -26,7 +26,8 @@ impl GPUDevice {
       sampler_cache: Default::default(),
       bindgroup_cache: BindGroupCache::new(),
       bindgroup_layout_cache: Default::default(),
-      pipeline_cache: Default::default(),
+      render_pipeline_cache: Default::default(),
+      compute_pipeline_cache: Default::default(),
       placeholder_bg: Arc::new(placeholder_bg),
       deferred_explicit_destroy: Default::default(),
     };
@@ -47,7 +48,7 @@ impl GPUDevice {
         .unwrap()
         .len(),
       sampler_count: self.inner.sampler_cache.cache.read().unwrap().len(),
-      pipeline_count: self.inner.pipeline_cache.cache.read().unwrap().len(),
+      pipeline_count: self.inner.render_pipeline_cache.read().unwrap().len(),
     }
   }
 
@@ -55,7 +56,10 @@ impl GPUDevice {
     self.inner.bindgroup_cache.clear();
     self.inner.bindgroup_layout_cache.clear();
     self.inner.sampler_cache.clear();
-    self.inner.pipeline_cache.clear();
+    let mut cache = self.inner.render_pipeline_cache.write().unwrap();
+    *cache = Default::default();
+    let mut cache = self.inner.compute_pipeline_cache.write().unwrap();
+    *cache = Default::default();
   }
 
   pub fn create_encoder(&self) -> GPUCommandEncoder {
@@ -72,10 +76,21 @@ impl GPUDevice {
     hasher: PipelineHasher,
     creator: impl FnOnce(&Self) -> GPURenderPipeline,
   ) -> GPURenderPipeline {
-    self
-      .inner
-      .pipeline_cache
-      .get_or_insert_with(hasher, || creator(self))
+    let mut cache = self.inner.render_pipeline_cache.write().unwrap();
+
+    let key = hasher.finish();
+    cache.entry(key).or_insert_with(|| creator(self)).clone()
+  }
+
+  pub fn get_or_cache_create_compute_pipeline(
+    &self,
+    hasher: PipelineHasher,
+    creator: impl FnOnce(&Self) -> GPUComputePipeline,
+  ) -> GPUComputePipeline {
+    let mut cache = self.inner.compute_pipeline_cache.write().unwrap();
+
+    let key = hasher.finish();
+    cache.entry(key).or_insert_with(|| creator(self)).clone()
   }
 
   pub fn create_and_cache_bindgroup_layout(
@@ -124,7 +139,8 @@ pub(crate) struct GPUDeviceImpl {
   sampler_cache: SamplerCache,
   bindgroup_cache: BindGroupCache,
   bindgroup_layout_cache: BindGroupLayoutCache,
-  pipeline_cache: RenderPipelineCache,
+  render_pipeline_cache: RwLock<FastHashMap<u64, GPURenderPipeline>>,
+  compute_pipeline_cache: RwLock<FastHashMap<u64, GPUComputePipeline>>,
   pub(crate) deferred_explicit_destroy: DeferExplicitDestroy,
   pub(crate) placeholder_bg: Arc<gpu::BindGroup>,
 }
@@ -165,11 +181,6 @@ impl SamplerCache {
   pub(crate) fn clear(&self) {
     self.cache.write().unwrap().clear();
   }
-}
-
-#[derive(Default)]
-pub struct RenderPipelineCache {
-  pub cache: RwLock<FastHashMap<u64, GPURenderPipeline>>,
 }
 
 /// Note, here we not merge this trait into the graphics pipeline build trait because the hashing is
@@ -278,25 +289,5 @@ impl std::hash::Hasher for PipelineHasher {
 
   fn write(&mut self, bytes: &[u8]) {
     self.hasher.write(bytes)
-  }
-}
-
-impl RenderPipelineCache {
-  pub fn get_or_insert_with(
-    &self,
-    hasher: PipelineHasher,
-    creator: impl FnOnce() -> GPURenderPipeline,
-  ) -> GPURenderPipeline {
-    let key = hasher.finish();
-    self
-      .cache
-      .write()
-      .unwrap()
-      .entry(key)
-      .or_insert_with(creator)
-      .clone()
-  }
-  pub(crate) fn clear(&self) {
-    self.cache.write().unwrap().clear();
   }
 }

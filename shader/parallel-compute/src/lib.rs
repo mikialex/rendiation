@@ -6,7 +6,6 @@ use std::sync::Arc;
 
 use derivative::Derivative;
 use dyn_clone::DynClone;
-use fast_hash_collection::*;
 use parking_lot::RwLock;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
@@ -602,7 +601,6 @@ where
 pub struct DeviceParallelComputeCtx<'a> {
   pub gpu: &'a GPU,
   pub encoder: GPUCommandEncoder,
-  pub compute_pipeline_cache: FastHashMap<u64, GPUComputePipeline>,
   pub size_scratch: StorageBufferDataView<DispatchIndirectArgsStorage>,
 }
 
@@ -612,7 +610,6 @@ impl<'a> DeviceParallelComputeCtx<'a> {
     Self {
       gpu,
       encoder,
-      compute_pipeline_cache: Default::default(),
       size_scratch: create_gpu_read_write_storage(
         StorageBufferInit::WithInit(&Default::default()),
         &gpu.device,
@@ -633,20 +630,18 @@ impl<'a> DeviceParallelComputeCtx<'a> {
   ) -> GPUComputePipeline {
     let mut hasher = PipelineHasher::default();
     source.hash_pipeline_with_type_info(&mut hasher);
-    let hash = hasher.finish();
 
     self
-      .compute_pipeline_cache
-      .entry(hash)
-      .or_insert_with(|| {
+      .gpu
+      .device
+      .get_or_cache_create_compute_pipeline(hasher, |device| {
         compute_shader_builder()
           .entry(|cx| {
             creator(cx);
           })
-          .create_compute_pipeline(self.gpu)
+          .create_compute_pipeline(device)
           .unwrap()
       })
-      .clone()
   }
 }
 

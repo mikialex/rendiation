@@ -9,7 +9,6 @@ rendiation-algebra = { path = "../../math/algebra" }
 rendiation-shader-derives = { path = "../derive" }
 rendiation-shader-api = { path = "../api" }
 rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
-fast-hash-collection = { path = "../../utility/fast-hash-collection" }
 parking_lot = { version = "0.12.1", features = ["send_guard"] }
 num-traits = "0.2"
 dyn-clone = { workspace = true }
