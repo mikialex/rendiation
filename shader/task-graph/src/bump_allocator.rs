@@ -1,5 +1,3 @@
-use std::{any::TypeId, hash::Hash};
-
 use crate::*;
 
 pub struct DeviceBumpAllocationInstance<T: Std430 + ShaderSizedValueNodeType> {
@@ -29,9 +27,9 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
     previous_is_allocate: bool,
   ) {
     struct SizeCommitter;
-    let mut hasher = PipelineHasher::default();
-    TypeId::of::<SizeCommitter>().hash(&mut hasher);
-    previous_is_allocate.hash(&mut hasher);
+    let hasher = PipelineHasher::default()
+      .with_hash(TypeId::of::<SizeCommitter>())
+      .with_hash(previous_is_allocate);
 
     let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |device| {
       compute_shader_builder()
@@ -51,11 +49,11 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
         .unwrap()
     });
 
-    let mut bb = BindingBuilder::default();
-    bb.bind(&self.bump_size);
-    bb.bind(&self.current_size);
+    BindingBuilder::new_as_compute()
+      .with_bind(&self.bump_size)
+      .with_bind(&self.current_size)
+      .setup_compute_pass(pass, device, &pipeline);
 
-    bb.setup_compute_pass(pass, device, &pipeline);
     pass.dispatch_workgroups(1, 1, 1);
   }
 
@@ -65,23 +63,41 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
     pass: &mut GPUComputePass,
     device: &GPUDevice,
   ) {
-    // let pipeline = compute_shader_builder()
-    //   .config_work_group_size(256)
-    //   .entry(|cx| {
-    //     let input = cx.bind_by(&self.storage);
-    //     let output = cx.bind_by(&the_other.storage);
+    struct Drainer;
+    let hasher = PipelineHasher::default().with_hash(TypeId::of::<Drainer>());
 
-    //     let global_id = cx.global_invocation_id().x();
-    //     let local_id = cx.local_invocation_id().x();
+    let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |device| {
+      compute_shader_builder()
+        .entry(|cx| {
+          let input = cx.bind_by(&self.storage);
+          let input_current_size = cx.bind_by(&self.current_size);
+          let output = cx.bind_by(&the_other.storage);
+          let output_current_size = cx.bind_by(&the_other.current_size);
+          let output_offset = output_current_size.load();
 
-    //     let value = input.index(global_id).load().make_local_var();
+          let id = cx.global_invocation_id().x();
+          if_by(id.equals(0), || {
+            let new_size = output_offset + input_current_size.load();
+            output_current_size.store(new_size);
+            input_current_size.store(0);
+          });
 
-    //     shared.index(local_id).store(value.load());
+          output
+            .index(id + output_offset)
+            .store(input.index(id).load());
+        })
+        .create_compute_pipeline(device)
+        .unwrap()
+    });
 
-    //     output.index(global_id).store(value.load())
-    //   })
-    //   .create_compute_pipeline(&gpu)
-    //   .unwrap();
+    BindingBuilder::new_as_compute()
+      .with_bind(&self.storage)
+      .with_bind(&self.current_size)
+      .with_bind(&the_other.storage)
+      .with_bind(&the_other.current_size)
+      .setup_compute_pass(pass, device, &pipeline);
+
+    pass.dispatch_workgroups_indirect_owned(todo!());
   }
 
   pub fn build_allocator_shader(

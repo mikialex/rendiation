@@ -189,6 +189,14 @@ impl BindingBuilder {
     self.groups.iter_mut().for_each(|item| item.reset());
   }
 
+  pub fn with_bind<T>(mut self, item: &T) -> Self
+  where
+    T: CacheAbleBindingSource + ShaderBindingProvider,
+  {
+    self.bind(item);
+    self
+  }
+
   pub fn bind<T>(&mut self, item: &T) -> &mut Self
   where
     T: CacheAbleBindingSource + ShaderBindingProvider,
@@ -253,7 +261,7 @@ impl BindingBuilder {
 
   // todo, code reuse
   pub fn setup_compute_pass(
-    &mut self,
+    mut self,
     pass: &mut GPUComputePass,
     device: &GPUDevice,
     pipeline: &GPUComputePipeline,

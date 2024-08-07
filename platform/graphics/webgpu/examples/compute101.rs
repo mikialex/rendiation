@@ -43,9 +43,9 @@ pub async fn main() {
     .unwrap();
 
   let mut encoder = gpu.create_encoder().with_compute_pass_scoped(|mut pass| {
-    let mut bb = BindingBuilder::new_as_compute();
-    bb.bind(&input)
-      .bind(&output)
+    BindingBuilder::new_as_compute()
+      .with_bind(&input)
+      .with_bind(&output)
       .setup_compute_pass(&mut pass, &gpu.device, &pipeline);
     pass.dispatch_workgroups(1, 1, 1);
   });

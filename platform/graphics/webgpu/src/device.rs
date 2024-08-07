@@ -280,6 +280,14 @@ impl<T> PipelineHasher<T> {
       hash_history: Default::default(),
     }
   }
+
+  pub fn with_hash(mut self, h: impl Hash) -> Self
+  where
+    Self: Hasher,
+  {
+    h.hash(&mut self);
+    self
+  }
 }
 
 impl std::hash::Hasher for PipelineHasher {
