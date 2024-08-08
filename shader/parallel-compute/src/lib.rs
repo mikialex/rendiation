@@ -93,6 +93,10 @@ impl<T: Copy> DeviceInvocation<T> for AdhocInvocationResult<T> {
   }
 }
 
+pub fn compute_dispatch_size(work_size: u32, workgroup_size: u32) -> u32 {
+  (work_size + workgroup_size - 1) / workgroup_size
+}
+
 pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
   fn work_size(&self) -> Option<u32>;
 
@@ -116,20 +120,21 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
     });
 
     if let Some(work_size) = self.work_size() {
-      cx.encoder.compute_pass_scoped(|mut pass| {
+      cx.record_pass(|pass, _| {
         let mut bb = BindingBuilder::new_as_compute();
         self.bind_input(&mut bb);
-        bb.setup_compute_pass(&mut pass, &cx.gpu.device, &pipeline);
-        pass.dispatch_workgroups((work_size + workgroup_size - 1) / workgroup_size, 1, 1);
+        bb.setup_compute_pass(pass, &cx.gpu.device, &pipeline);
+        pass.dispatch_workgroups(compute_dispatch_size(work_size, workgroup_size), 1, 1);
       });
     } else {
+      let size = cx.size_scratch.clone();
       self.compute_work_size(cx);
-      cx.encoder.compute_pass_scoped(|mut pass| {
+      cx.record_pass(|pass, _| {
         let mut bb = BindingBuilder::new_as_compute();
         self.bind_input(&mut bb);
-        bb.setup_compute_pass(&mut pass, &cx.gpu.device, &pipeline);
+        bb.setup_compute_pass(pass, &cx.gpu.device, &pipeline);
 
-        pass.dispatch_workgroups_indirect_owned(&cx.size_scratch);
+        pass.dispatch_workgroups_indirect_owned(&size);
       });
     }
   }
@@ -153,6 +158,7 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
       cx.config_work_group_size(1);
       let size = self.build_shader(cx.0).invocation_size();
 
+      // todo, fix divide workgroup size
       let size = ENode::<DispatchIndirectArgsStorage> {
         x: size.x(),
         y: size.y(),
@@ -163,11 +169,11 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
       cx.bind_by(&size_output).store(size);
     });
 
-    cx.encoder.compute_pass_scoped(|mut pass| {
+    cx.record_pass(|pass, _| {
       let mut bb = BindingBuilder::new_as_compute();
       self.bind_input(&mut bb);
       bb.bind(&size_output);
-      bb.setup_compute_pass(&mut pass, &cx.gpu.device, &pipeline);
+      bb.setup_compute_pass(pass, &cx.gpu.device, &pipeline);
       pass.dispatch_workgroups(1, 1, 1);
     });
   }
@@ -355,6 +361,7 @@ where
     cx: &mut DeviceParallelComputeCtx<'_>,
   ) -> Result<(StorageBufferReadOnlyDataView<[T]>, Vec<T>), BufferAsyncError> {
     let output = self.materialize_storage_buffer(cx);
+    cx.flush_pass();
     let result = cx.encoder.read_buffer(&cx.gpu.device, &output);
     cx.submit_recorded_work_and_continue();
     let result = result.await;
@@ -588,7 +595,8 @@ where
 
 pub struct DeviceParallelComputeCtx<'a> {
   pub gpu: &'a GPU,
-  pub encoder: GPUCommandEncoder,
+  encoder: GPUCommandEncoder,
+  pass: Option<GPUComputePass<'static>>,
   pub size_scratch: StorageBufferDataView<DispatchIndirectArgsStorage>,
 }
 
@@ -598,6 +606,7 @@ impl<'a> DeviceParallelComputeCtx<'a> {
     Self {
       gpu,
       encoder,
+      pass: None,
       size_scratch: create_gpu_read_write_storage(
         StorageBufferInit::WithInit(&Default::default()),
         &gpu.device,
@@ -605,9 +614,23 @@ impl<'a> DeviceParallelComputeCtx<'a> {
     }
   }
 
+  pub fn record_pass(&mut self, f: impl FnOnce(&mut GPUComputePass, &GPUDevice)) {
+    let pass = self.pass.get_or_insert_with(|| {
+      let pass = self.encoder.begin_compute_pass();
+      unsafe { std::mem::transmute(pass) }
+    });
+    f(pass, &self.gpu.device);
+  }
+
+  pub fn flush_pass(&mut self) {
+    self.pass = None;
+  }
+
   pub fn submit_recorded_work_and_continue(&mut self) {
+    self.flush_pass();
     let new_encoder = self.gpu.create_encoder();
     let current_encoder = std::mem::replace(&mut self.encoder, new_encoder);
+
     self.gpu.submit_encoder(current_encoder);
   }
 

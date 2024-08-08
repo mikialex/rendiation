@@ -128,7 +128,9 @@ impl GPUDevice {
   pub fn make_indirect_dispatch_size_buffer(
     &self,
   ) -> StorageBufferDataView<DispatchIndirectArgsStorage> {
-    todo!()
+    let init = DispatchIndirectArgsStorage::default();
+    let init = StorageBufferInit::WithInit(&init);
+    create_gpu_read_write_storage(init, self)
   }
 }
 

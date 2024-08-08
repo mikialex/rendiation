@@ -72,6 +72,7 @@ impl DeviceTaskGraphExecutor {
     f_ctx: impl FnOnce() -> F::Ctx,
     device: &GPUDevice,
     init_size: usize,
+    pass: &mut GPUComputePass,
   ) -> u32
   where
     F: DeviceFuture<Output = ()>,
@@ -87,7 +88,7 @@ impl DeviceTaskGraphExecutor {
     let state_desc = state_builder.meta_info();
 
     let resource =
-      TaskGroupExecutorResource::create_with_size(init_size, state_desc.clone(), device);
+      TaskGroupExecutorResource::create_with_size(init_size, state_desc.clone(), device, pass);
 
     let task_index = compute_cx.entry_by(|cx| {
       let indices = cx.bind_by(&resource.alive_task_idx.storage);
@@ -131,7 +132,7 @@ impl DeviceTaskGraphExecutor {
 }
 
 impl DeviceTaskGraphExecutor {
-  pub fn set_execution_size(&mut self, gpu: &GPU, dispatch_size: usize) {
+  pub fn set_execution_size(&mut self, gpu: &GPU, pass: &mut GPUComputePass, dispatch_size: usize) {
     let dispatch_size = dispatch_size.min(1);
     if self.current_prepared_execution_size == dispatch_size {
       return;
@@ -143,15 +144,21 @@ impl DeviceTaskGraphExecutor {
         dispatch_size,
         self.max_recursion_depth,
         s.task_state_desc.clone(),
+        pass,
       )
     }
   }
 
-  pub fn make_sure_execution_size_is_enough(&mut self, gpu: &GPU, dispatch_size: usize) {
+  pub fn make_sure_execution_size_is_enough(
+    &mut self,
+    gpu: &GPU,
+    pass: &mut GPUComputePass,
+    dispatch_size: usize,
+  ) {
     let is_contained = self.current_prepared_execution_size <= dispatch_size;
 
     if !is_contained {
-      self.set_execution_size(gpu, dispatch_size)
+      self.set_execution_size(gpu, pass, dispatch_size)
     }
   }
 }
@@ -167,36 +174,42 @@ impl DeviceTaskGraphExecutor {
     &mut self,
     device: &GPUDevice,
     pass: &mut GPUComputePass,
-    dispatch_size: usize,
+    dispatch_size: u32,
     task_id: u32,
     task_spawner: impl FnOnce(Node<u32>) -> Node<T> + 'static,
   ) {
     let task_group = &self.task_groups[task_id as usize];
 
+    let size_range = create_gpu_readonly_storage(&dispatch_size, device);
+
     let hasher = PipelineHasher::default().with_hash(task_spawner.type_id());
+    let workgroup_size = 256;
     let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |device| {
       compute_shader_builder()
+        .config_work_group_size(workgroup_size)
         .entry(|cx| {
+          let size_range = cx.bind_by(&size_range);
           let instance = task_group.resource.build_shader(cx);
           let id = cx.global_invocation_id().x();
           let payload = task_spawner(id);
 
-          instance.spawn_new_task(payload);
+          if_by(id.less_than(size_range.load()), || {
+            instance.spawn_new_task(payload);
+          });
         })
         .create_compute_pipeline(device)
         .unwrap()
     });
 
-    let mut bb = BindingBuilder::new_as_compute();
+    let mut bb = BindingBuilder::new_as_compute().with_bind(&size_range);
     task_group.resource.bind(&mut bb);
     bb.setup_compute_pass(pass, device, &pipeline);
 
-    pass.dispatch_workgroups(todo!(), 1, 1);
+    let size = compute_dispatch_size(dispatch_size, workgroup_size);
+    pass.dispatch_workgroups(size, 1, 1);
   }
 
-  pub fn execute(&mut self, gpu: &GPU) {
-    let mut encoder = gpu.create_encoder();
-
+  pub fn execute(&mut self, cx: &mut DeviceParallelComputeCtx) {
     let max_required_poll_count = self
       .task_groups
       .iter()
@@ -205,14 +218,12 @@ impl DeviceTaskGraphExecutor {
       .unwrap_or(1);
     let required_round = self.max_recursion_depth * max_required_poll_count + 1;
 
-    encoder.compute_pass_scoped(|mut pass| {
-      // todo, impl more conservative upper execute bound
-      for _ in 0..required_round {
-        for stage in &mut self.task_groups {
-          stage.execute(&mut pass, &gpu.device);
-        }
+    // todo, impl more conservative upper execute bound
+    for _ in 0..required_round {
+      for stage in &mut self.task_groups {
+        stage.execute(cx);
       }
-    });
+    }
     // todo check state states to make sure no task remains
   }
 }
@@ -238,16 +249,45 @@ impl TaskGroupExecutorResource {
     size: usize,
     state_desc: DynamicTypeMetaInfo,
     device: &GPUDevice,
+    pass: &mut GPUComputePass,
   ) -> Self {
-    todo!(); // spawn empty_index_pool;
-    Self {
+    let res = Self {
       alive_task_idx: DeviceBumpAllocationInstance::new(size, device),
-      // main_dispatch_size: (),
       new_removed_task_idx: DeviceBumpAllocationInstance::new(size, device),
-      empty_index_pool: DeviceBumpAllocationInstance::new(size, device),
-      task_pool: TaskPool::create_with_size(size, state_desc, device),
+      empty_index_pool: DeviceBumpAllocationInstance::new(size * 2, device),
+      task_pool: TaskPool::create_with_size(size * 2, state_desc, device),
       size,
-    }
+    };
+
+    let hasher = shader_hasher_from_marker_ty!(PrepareEmptyIndices);
+
+    let workgroup_size = 256;
+    let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |device| {
+      compute_shader_builder()
+        .config_work_group_size(workgroup_size)
+        .entry(|cx| {
+          let empty_pool = cx.bind_by(&res.empty_index_pool.storage);
+          let empty_pool_size = cx.bind_by(&res.empty_index_pool.current_size);
+          let id = cx.global_invocation_id().x();
+
+          if_by(id.equals(0), || {
+            empty_pool_size.store(empty_pool.array_length());
+          });
+
+          empty_pool.index(id).store(id);
+        })
+        .create_compute_pipeline(device)
+        .unwrap()
+    });
+
+    BindingBuilder::new_as_compute()
+      .with_bind(&res.empty_index_pool.storage)
+      .with_bind(&res.empty_index_pool.current_size)
+      .setup_compute_pass(pass, device, &pipeline);
+
+    pass.dispatch_workgroups(compute_dispatch_size(size as u32 * 2, workgroup_size), 1, 1);
+
+    res
   }
 }
 
@@ -388,36 +428,42 @@ impl DeviceInvocation<Node<bool>> for ActiveTaskCompactInvocationInstance {
 }
 
 impl TaskGroupExecutor {
-  pub fn execute(&mut self, pass: &mut GPUComputePass, device: &GPUDevice) {
-    let imp = &mut self.resource;
+  pub fn execute(&mut self, cx: &mut DeviceParallelComputeCtx) {
+    cx.record_pass(|pass, device| {
+      let imp = &mut self.resource;
+      // commit bump allocator sizes
+      imp.empty_index_pool.commit_size(pass, device, false);
+      imp.new_removed_task_idx.commit_size(pass, device, true);
+    });
 
-    // commit bump allocator sizes
-    imp.empty_index_pool.commit_size(pass, device, false);
-    imp.new_removed_task_idx.commit_size(pass, device, true);
+    {
+      let imp = &mut self.resource;
+      // compact active task buffer
+      let alive_tasks = imp.alive_task_idx.storage.clone().into_readonly_view();
+      imp.alive_task_idx.storage = alive_tasks
+        .clone()
+        .stream_compaction(ActiveTaskCompact {
+          active_tasks: alive_tasks.clone(),
+          task_pool: imp.task_pool.clone(),
+        })
+        .materialize_storage_buffer(cx)
+        .into_rw_view();
+    }
 
-    // compact active task buffer
-    let alive_tasks = imp.alive_task_idx.storage.clone().into_readonly_view();
-    imp.alive_task_idx.storage = alive_tasks
-      .clone()
-      .stream_compaction(ActiveTaskCompact {
-        active_tasks: alive_tasks.clone(),
-        task_pool: imp.task_pool.clone(),
-      })
-      .materialize_storage_buffer(todo!())
-      .into_rw_view();
+    cx.record_pass(|pass, device| {
+      let imp = &mut self.resource;
+      // drain empty to empty pool
+      imp
+        .new_removed_task_idx
+        .drain_self_into_the_other(&imp.empty_index_pool, pass, device);
 
-    // drain empty to empty pool
-    self
-      .resource
-      .new_removed_task_idx
-      .drain_self_into_the_other(&imp.empty_index_pool, pass, device);
-
-    // dispatch tasks
-    let mut bb = BindingBuilder::new_as_compute();
-    imp.bind(&mut bb);
-    bb.setup_compute_pass(pass, device, &self.task_poll_pipeline);
-    let size = imp.alive_task_idx.prepare_dispatch_size(pass, device);
-    pass.dispatch_workgroups_indirect_owned(&size);
+      // dispatch tasks
+      let mut bb = BindingBuilder::new_as_compute();
+      imp.bind(&mut bb);
+      bb.setup_compute_pass(pass, device, &self.task_poll_pipeline);
+      let size = imp.alive_task_idx.prepare_dispatch_size(pass, device);
+      pass.dispatch_workgroups_indirect_owned(&size);
+    });
   }
 }
 
@@ -428,9 +474,10 @@ impl TaskGroupExecutorResource {
     size: usize,
     max_recursion_depth: usize,
     state_desc: DynamicTypeMetaInfo,
+    pass: &mut GPUComputePass,
   ) {
     if self.size != size * max_recursion_depth {
-      *self = Self::create_with_size(size, state_desc, &gpu.device);
+      *self = Self::create_with_size(size, state_desc, &gpu.device, pass);
     }
   }
   fn build_shader(&self, cx: &mut ComputeCx) -> TaskGroupDeviceInvocationInstance {

@@ -3,8 +3,8 @@ use crate::*;
 #[derive(Clone)]
 pub struct DeviceBumpAllocationInstance<T: Std430 + ShaderSizedValueNodeType> {
   pub storage: StorageBufferDataView<[T]>,
-  bump_size: StorageBufferDataView<DeviceAtomic<u32>>,
-  current_size: StorageBufferDataView<u32>, // todo, merge with bump size
+  pub bump_size: StorageBufferDataView<DeviceAtomic<u32>>,
+  pub current_size: StorageBufferDataView<u32>, // todo, merge with bump size
 }
 
 impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
@@ -34,7 +34,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
           let output = cx.bind_by(&size);
 
           let size = ENode::<DispatchIndirectArgsStorage> {
-            x: input_current_size.load(),
+            x: input_current_size.load(), // todo, divide by workgroup size
             y: val(1),
             z: val(1),
           }
