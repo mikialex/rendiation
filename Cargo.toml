@@ -48,7 +48,6 @@ members = [
   "shader/library",
   "shader/parallel-compute",
   "shader/task-graph",
-  "shader/ray-tracing",
   "scene/core",
   "scene/rendering/gpu-base",
   "scene/rendering/gpu-gles",

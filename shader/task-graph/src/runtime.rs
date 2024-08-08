@@ -367,7 +367,6 @@ impl DeviceParallelCompute<Node<bool>> for ActiveTaskCompact {
     &self,
     _: &mut DeviceParallelComputeCtx,
   ) -> Box<dyn DeviceInvocationComponent<Node<bool>>> {
-    todo!();
     Box::new(self.clone())
   }
 
@@ -418,7 +417,7 @@ impl DeviceInvocation<Node<bool>> for ActiveTaskCompactInvocationInstance {
   fn invocation_logic(&self, logic_global_id: Node<Vec3<u32>>) -> (Node<bool>, Node<bool>) {
     let (r, s) = self.active_tasks.invocation_logic(logic_global_id);
 
-    // todo check s
+    // todo check r is valid?
     (s, self.task_pool.read_is_finished(r).load())
   }
 
