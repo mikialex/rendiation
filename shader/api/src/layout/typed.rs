@@ -7,7 +7,7 @@ pub enum StructLayoutTarget {
 }
 
 pub fn align_of_struct_sized_fields(
-  fields: &[ShaderStructFieldMetaInfoOwned],
+  fields: &[ShaderStructFieldMetaInfo],
   target: StructLayoutTarget,
 ) -> usize {
   let align = fields
@@ -23,7 +23,7 @@ pub fn align_of_struct_sized_fields(
 }
 
 pub fn size_of_struct_sized_fields(
-  fields: &[ShaderStructFieldMetaInfoOwned],
+  fields: &[ShaderStructFieldMetaInfo],
   target: StructLayoutTarget,
 ) -> usize {
   let mut offset = 0;
@@ -47,7 +47,7 @@ pub fn size_of_struct_sized_fields(
   }
 }
 
-impl ShaderStructMetaInfoOwned {
+impl ShaderStructMetaInfo {
   pub fn align_of_self(&self, target: StructLayoutTarget) -> usize {
     align_of_struct_sized_fields(&self.fields, target)
   }
@@ -73,8 +73,8 @@ impl ShaderSizedValueType {
     match self {
       ShaderSizedValueType::Atomic(t) => t.align_of_self(),
       ShaderSizedValueType::Primitive(t) => t.align_of_self(),
-      ShaderSizedValueType::Struct(t) => (*t).to_owned().align_of_self(target),
-      ShaderSizedValueType::FixedSizeArray((t, _)) => {
+      ShaderSizedValueType::Struct(t) => t.align_of_self(target),
+      ShaderSizedValueType::FixedSizeArray(t, _) => {
         let align = t.align_of_self(target);
         match target {
           StructLayoutTarget::Std140 => round_up(16, align),
@@ -88,8 +88,8 @@ impl ShaderSizedValueType {
     match self {
       ShaderSizedValueType::Atomic(t) => t.size_of_self(),
       ShaderSizedValueType::Primitive(t) => t.size_of_self(),
-      ShaderSizedValueType::Struct(t) => (*t).to_owned().size_of_self(target),
-      ShaderSizedValueType::FixedSizeArray((ty, size)) => {
+      ShaderSizedValueType::Struct(t) => t.size_of_self(target),
+      ShaderSizedValueType::FixedSizeArray(ty, size) => {
         size * round_up(self.align_of_self(target), ty.size_of_self(target))
       }
     }

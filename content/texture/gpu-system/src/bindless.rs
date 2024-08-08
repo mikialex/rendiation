@@ -82,12 +82,12 @@ impl AbstractIndirectGPUTextureSystem for BindlessTextureSystem {
 
   fn register_system_self(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder
-      .bind_by(&self.texture_binding_array)
+      .bind_by_and_prepare(&self.texture_binding_array)
       .using_graphics_pair(builder, |r, textures| {
         r.register_typed_both_stage::<BindlessTexturesInShader>(textures);
       });
     builder
-      .bind_by(&self.sampler_binding_array)
+      .bind_by_and_prepare(&self.sampler_binding_array)
       .using_graphics_pair(builder, |r, samplers| {
         r.register_typed_both_stage::<BindlessSamplersInShader>(samplers);
       });

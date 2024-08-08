@@ -339,4 +339,12 @@ impl<'a> GPUComputePass<'a> {
     let bind_group = self.holder.bindgroups.alloc(bind_group.clone());
     self.set_bind_group(index, bind_group, offsets)
   }
+
+  pub fn dispatch_workgroups_indirect_owned(&mut self, indirect_buffer: &GPUBufferResourceView) {
+    let indirect_buffer = self
+      .holder
+      .buffers
+      .alloc(indirect_buffer.resource.gpu.clone());
+    self.dispatch_workgroups_indirect(indirect_buffer, 0)
+  }
 }

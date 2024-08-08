@@ -87,7 +87,7 @@ pub fn get_shader_fn<T: ShaderNodeType>(name: String) -> ShaderFnTryDefineResult
 
 impl<T: ShaderNodeType> FunctionBuildCtx<T> {
   pub fn begin(name: String) -> Self {
-    let ty = T::TYPE;
+    let ty = T::ty();
     let ty = match ty {
       ShaderValueType::Never => None,
       _ => Some(ty),
@@ -97,14 +97,14 @@ impl<T: ShaderNodeType> FunctionBuildCtx<T> {
   }
 
   pub fn push_fn_parameter<P: ShaderNodeType>(&self) -> Node<P> {
-    unsafe { call_shader_api(|g| g.push_fn_parameter(P::TYPE)).into_node() }
+    unsafe { call_shader_api(|g| g.push_fn_parameter(P::ty())).into_node() }
   }
   pub fn push_fn_parameter_by<P: ShaderNodeType>(&self, _node: Node<P>) -> Node<P> {
-    unsafe { call_shader_api(|g| g.push_fn_parameter(P::TYPE)).into_node() }
+    unsafe { call_shader_api(|g| g.push_fn_parameter(P::ty())).into_node() }
   }
 
   pub fn do_return(&self, r: impl Into<Node<T>>) {
-    let handle = match T::TYPE {
+    let handle = match T::ty() {
       ShaderValueType::Never => None,
       _ => Some(r.into().handle()),
     };

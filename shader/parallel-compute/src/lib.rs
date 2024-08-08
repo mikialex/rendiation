@@ -6,13 +6,12 @@ use std::sync::Arc;
 
 use derivative::Derivative;
 use dyn_clone::DynClone;
-use fast_hash_collection::*;
 use parking_lot::RwLock;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 
 mod io;
-use io::*;
+pub use io::*;
 mod fork;
 pub use fork::*;
 
@@ -94,7 +93,16 @@ impl<T: Copy> DeviceInvocation<T> for AdhocInvocationResult<T> {
   }
 }
 
+pub fn compute_dispatch_size(work_size: u32, workgroup_size: u32) -> u32 {
+  (work_size + workgroup_size - 1) / workgroup_size
+}
+pub fn device_compute_dispatch_size(work_size: Node<u32>, workgroup_size: Node<u32>) -> Node<u32> {
+  (work_size + workgroup_size - val(1)) / workgroup_size
+}
+
 pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
+  fn work_size(&self) -> Option<u32>;
+
   fn build_shader(
     &self,
     builder: &mut ShaderComputePipelineBuilder,
@@ -104,7 +112,7 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
 
   fn requested_workgroup_size(&self) -> Option<u32>;
 
-  fn dispatch_compute(&self, work_size: u32, cx: &mut DeviceParallelComputeCtx) {
+  fn dispatch_compute(&self, cx: &mut DeviceParallelComputeCtx) {
     let workgroup_size = self.requested_workgroup_size().unwrap_or(256);
     let pipeline = cx.get_or_create_compute_pipeline(self, |cx| {
       cx.config_work_group_size(workgroup_size);
@@ -114,11 +122,66 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
       let _ = invocation_source.invocation_logic(invocation_id);
     });
 
-    cx.encoder.compute_pass_scoped(|mut pass| {
+    if let Some(work_size) = self.work_size() {
+      cx.record_pass(|pass, _| {
+        let mut bb = BindingBuilder::new_as_compute();
+        self.bind_input(&mut bb);
+        bb.setup_compute_pass(pass, &cx.gpu.device, &pipeline);
+        pass.dispatch_workgroups(compute_dispatch_size(work_size, workgroup_size), 1, 1);
+      });
+    } else {
+      let size = cx.size_scratch.clone();
+      self.compute_work_size(cx);
+      cx.record_pass(|pass, _| {
+        let mut bb = BindingBuilder::new_as_compute();
+        self.bind_input(&mut bb);
+        bb.setup_compute_pass(pass, &cx.gpu.device, &pipeline);
+
+        pass.dispatch_workgroups_indirect_owned(&size);
+      });
+    }
+  }
+
+  fn compute_work_size(&self, cx: &mut DeviceParallelComputeCtx) {
+    struct SizeWriter<'a, T: ?Sized>(&'a T);
+    impl<'a, T: ShaderHashProvider + ?Sized> ShaderHashProvider for SizeWriter<'a, T> {
+      fn hash_type_info(&self, hasher: &mut PipelineHasher) {
+        self.0.hash_type_info(hasher)
+      }
+
+      fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+        0.hash(hasher);
+        self.0.hash_pipeline(hasher)
+      }
+    }
+
+    let size_output = cx.size_scratch.clone();
+
+    let workgroup_size = self.requested_workgroup_size().unwrap_or(256);
+    let workgroup_size = create_gpu_readonly_storage(&workgroup_size, &cx.gpu.device);
+
+    let pipeline = cx.get_or_create_compute_pipeline(&SizeWriter(self), |cx| {
+      cx.config_work_group_size(1);
+      let size = self.build_shader(cx.0).invocation_size();
+      let workgroup_size = cx.bind_by(&workgroup_size);
+
+      let size = ENode::<DispatchIndirectArgsStorage> {
+        x: device_compute_dispatch_size(size.x(), workgroup_size.load()),
+        y: size.y(),
+        z: size.z(),
+      }
+      .construct();
+
+      cx.bind_by(&size_output).store(size);
+    });
+
+    cx.record_pass(|pass, _| {
       let mut bb = BindingBuilder::new_as_compute();
       self.bind_input(&mut bb);
-      bb.setup_compute_pass(&mut pass, &cx.gpu.device, &pipeline);
-      pass.dispatch_workgroups((work_size + workgroup_size - 1) / workgroup_size, 1, 1);
+      bb.with_bind(&size_output)
+        .with_bind(&workgroup_size)
+        .setup_compute_pass(pass, &cx.gpu.device, &pipeline);
+      pass.dispatch_workgroups(1, 1, 1);
     });
   }
 }
@@ -148,20 +211,15 @@ pub trait DeviceParallelCompute<T>: DynClone {
     cx: &mut DeviceParallelComputeCtx,
   ) -> Box<dyn DeviceInvocationComponent<T>>;
 
-  // the total invocation count in this work
-  fn work_size(&self) -> u32;
+  /// if the material output size is different from execute_and_expose's work size(for example reduction),
+  /// custom impl or multi dispatch is required
+  fn result_size(&self) -> u32;
 }
 
 /// This trait is to avoid all possible redundant storage buffer materialize but not requires
 /// specialization. if the type impls DeviceParallelCompute<Node<T>>, it should impl this trait as
 /// well.
 pub trait DeviceParallelComputeIO<T>: DeviceParallelCompute<Node<T>> {
-  /// if the material output size is different from work size(for example reduction), custom impl
-  /// and multi dispatch is required
-  fn result_size(&self) -> u32 {
-    self.work_size()
-  }
-
   /// if the implementation already has materialized storage buffer, should provide it directly to
   /// avoid re-materialize cost
   fn materialize_storage_buffer(
@@ -183,8 +241,8 @@ impl<T> DeviceParallelCompute<T> for Box<dyn DeviceParallelCompute<T>> {
     (**self).execute_and_expose(cx)
   }
 
-  fn work_size(&self) -> u32 {
-    (**self).work_size()
+  fn result_size(&self) -> u32 {
+    (**self).result_size()
   }
 }
 impl<T> Clone for Box<dyn DeviceParallelCompute<T>> {
@@ -199,9 +257,8 @@ impl<T> DeviceParallelCompute<Node<T>> for Box<dyn DeviceParallelComputeIO<T>> {
   ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
     (**self).execute_and_expose(cx)
   }
-
-  fn work_size(&self) -> u32 {
-    (**self).work_size()
+  fn result_size(&self) -> u32 {
+    (**self).result_size()
   }
 }
 impl<T> Clone for Box<dyn DeviceParallelComputeIO<T>> {
@@ -210,10 +267,6 @@ impl<T> Clone for Box<dyn DeviceParallelComputeIO<T>> {
   }
 }
 impl<T> DeviceParallelComputeIO<T> for Box<dyn DeviceParallelComputeIO<T>> {
-  fn result_size(&self) -> u32 {
-    (**self).work_size()
-  }
-
   fn materialize_storage_buffer(
     &self,
     cx: &mut DeviceParallelComputeCtx,
@@ -275,11 +328,9 @@ where
     self,
     other: impl DeviceParallelCompute<B> + 'static,
   ) -> DeviceParallelComputeZip<T, B> {
-    let work_size_cache = self.work_size().min(other.work_size());
     DeviceParallelComputeZip {
       source_a: Box::new(self),
       source_b: Box::new(other),
-      work_size_cache,
     }
   }
 }
@@ -317,6 +368,7 @@ where
     cx: &mut DeviceParallelComputeCtx<'_>,
   ) -> Result<(StorageBufferReadOnlyDataView<[T]>, Vec<T>), BufferAsyncError> {
     let output = self.materialize_storage_buffer(cx);
+    cx.flush_pass();
     let result = cx.encoder.read_buffer(&cx.gpu.device, &output);
     cx.submit_recorded_work_and_continue();
     let result = result.await;
@@ -383,7 +435,7 @@ where
   where
     S: DeviceMonoidLogic<Data = T> + 'static,
   {
-    assert!(self.work_size() <= first_stage_workgroup_size * second_stage_workgroup_size);
+    // assert!(self.max_work_size() <= first_stage_workgroup_size * second_stage_workgroup_size);
 
     self
       .workgroup_scope_reduction::<S>(first_stage_workgroup_size)
@@ -492,7 +544,8 @@ where
   where
     S: DeviceMonoidLogic<Data = T> + 'static,
   {
-    assert!(self.work_size() <= first_stage_workgroup_size * second_stage_workgroup_size);
+    // todo, impl another way to check if it's ok to run compute
+    // assert!(self.max_work_size() <= first_stage_workgroup_size * second_stage_workgroup_size);
 
     let per_workgroup_scanned = self
       .workgroup_scope_prefix_scan_kogge_stone::<S>(first_stage_workgroup_size)
@@ -549,8 +602,9 @@ where
 
 pub struct DeviceParallelComputeCtx<'a> {
   pub gpu: &'a GPU,
-  pub encoder: GPUCommandEncoder,
-  pub compute_pipeline_cache: FastHashMap<u64, GPUComputePipeline>,
+  encoder: GPUCommandEncoder,
+  pass: Option<GPUComputePass<'static>>,
+  pub size_scratch: StorageBufferDataView<DispatchIndirectArgsStorage>,
 }
 
 impl<'a> DeviceParallelComputeCtx<'a> {
@@ -559,13 +613,31 @@ impl<'a> DeviceParallelComputeCtx<'a> {
     Self {
       gpu,
       encoder,
-      compute_pipeline_cache: Default::default(),
+      pass: None,
+      size_scratch: create_gpu_read_write_storage(
+        StorageBufferInit::WithInit(&Default::default()),
+        &gpu.device,
+      ),
     }
   }
 
+  pub fn record_pass(&mut self, f: impl FnOnce(&mut GPUComputePass, &GPUDevice)) {
+    let pass = self.pass.get_or_insert_with(|| {
+      let pass = self.encoder.begin_compute_pass();
+      unsafe { std::mem::transmute(pass) }
+    });
+    f(pass, &self.gpu.device);
+  }
+
+  pub fn flush_pass(&mut self) {
+    self.pass = None;
+  }
+
   pub fn submit_recorded_work_and_continue(&mut self) {
+    self.flush_pass();
     let new_encoder = self.gpu.create_encoder();
     let current_encoder = std::mem::replace(&mut self.encoder, new_encoder);
+
     self.gpu.submit_encoder(current_encoder);
   }
 
@@ -576,20 +648,18 @@ impl<'a> DeviceParallelComputeCtx<'a> {
   ) -> GPUComputePipeline {
     let mut hasher = PipelineHasher::default();
     source.hash_pipeline_with_type_info(&mut hasher);
-    let hash = hasher.finish();
 
     self
-      .compute_pipeline_cache
-      .entry(hash)
-      .or_insert_with(|| {
+      .gpu
+      .device
+      .get_or_cache_create_compute_pipeline(hasher, |device| {
         compute_shader_builder()
           .entry(|cx| {
             creator(cx);
           })
-          .create_compute_pipeline(self.gpu)
+          .create_compute_pipeline(device)
           .unwrap()
       })
-      .clone()
   }
 }
 

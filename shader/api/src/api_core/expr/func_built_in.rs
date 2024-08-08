@@ -234,11 +234,7 @@ impl Node<Mat4<f32>> {
     self.nth_colum(3).xyz()
   }
   pub fn nth_colum(self, n: u32) -> Node<Vec4<f32>> {
-    ShaderNodeExpr::Operator(OperatorNode::IndexStatic {
-      array: self.handle(),
-      entry: n,
-    })
-    .insert_api()
+    unsafe { index_access_field(self.handle(), n as usize) }
   }
 }
 

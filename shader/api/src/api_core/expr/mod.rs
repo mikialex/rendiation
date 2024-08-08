@@ -132,17 +132,13 @@ pub enum ShaderNodeExpr {
     source: ShaderNodeRawHandle,
   },
   Compose {
-    target: PrimitiveShaderValueType,
+    target: ShaderSizedValueType,
     parameters: Vec<ShaderNodeRawHandle>,
   },
   Operator(OperatorNode),
-  FieldGet {
+  IndexStatic {
     field_index: usize,
-    struct_node: ShaderNodeRawHandle,
-  },
-  StructConstruct {
-    meta: &'static ShaderStructMetaInfo,
-    fields: Vec<ShaderNodeRawHandle>,
+    target: ShaderNodeRawHandle,
   },
   Const {
     data: PrimitiveShaderValue,
@@ -193,7 +189,7 @@ where
   T: ShaderSizedValueNodeType,
 {
   ShaderNodeExpr::Zeroed {
-    target: T::MEMBER_TYPE,
+    target: T::sized_ty(),
   }
   .insert_api()
 }

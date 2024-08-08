@@ -58,7 +58,7 @@ impl<T> Deref for GPUPipelineImpl<T> {
 }
 
 pub fn map_shader_value_ty_to_binding_layout_type(
-  v: ShaderBindingDescriptor,
+  v: &ShaderBindingDescriptor,
   id: usize,
   is_compute: bool,
 ) -> gpu::BindGroupLayoutEntry {
@@ -121,7 +121,7 @@ pub fn create_bindgroup_layout_by_node_ty<'a>(
 ) -> GPUBindGroupLayout {
   let entries: Vec<_> = iter
     .enumerate()
-    .map(|(i, ty)| map_shader_value_ty_to_binding_layout_type(*ty, i, is_compute))
+    .map(|(i, ty)| map_shader_value_ty_to_binding_layout_type(ty, i, is_compute))
     .collect();
 
   device.create_and_cache_bindgroup_layout(entries.as_ref())

@@ -49,6 +49,16 @@ impl<T: 'static> DeviceInvocationComponent<T> for Builder<T> {
   fn requested_workgroup_size(&self) -> Option<u32> {
     self.source.requested_workgroup_size()
   }
+
+  fn work_size(&self) -> Option<u32> {
+    let work_size = self.source.work_size()?;
+    if self.reduce {
+      (work_size + self.stride - 1) / self.stride
+    } else {
+      work_size * self.stride
+    }
+    .into()
+  }
 }
 
 #[derive(Derivative)]
@@ -71,11 +81,11 @@ impl<T: 'static> DeviceParallelCompute<T> for DeviceParallelComputeStrideRead<T>
     })
   }
 
-  fn work_size(&self) -> u32 {
+  fn result_size(&self) -> u32 {
     if self.reduce {
-      (self.source.work_size() + self.stride - 1) / self.stride
+      (self.source.result_size() + self.stride - 1) / self.stride
     } else {
-      self.source.work_size() * self.stride
+      self.source.result_size() * self.stride
     }
   }
 }

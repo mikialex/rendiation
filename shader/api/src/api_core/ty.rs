@@ -42,19 +42,23 @@ impl AddressSpace {
 
 #[repr(transparent)]
 #[derive(Clone, Copy, Zeroable, Pod)]
-pub struct DeviceAtomic<T>(T);
+pub struct DeviceAtomic<T>(pub T);
 unsafe impl<T: Std430> Std430 for DeviceAtomic<T> {
   const ALIGNMENT: usize = T::ALIGNMENT;
 }
 
 impl<T: AtomicityShaderNodeType> ShaderNodeType for DeviceAtomic<T> {
-  const TYPE: ShaderValueType = ShaderValueType::Single(ShaderValueSingleType::Sized(
-    ShaderSizedValueType::Atomic(T::ATOM),
-  ));
+  fn ty() -> ShaderValueType {
+    ShaderValueType::Single(ShaderValueSingleType::Sized(ShaderSizedValueType::Atomic(
+      T::ATOM,
+    )))
+  }
 }
 
 impl<T: AtomicityShaderNodeType> ShaderSizedValueNodeType for DeviceAtomic<T> {
-  const MEMBER_TYPE: ShaderSizedValueType = ShaderSizedValueType::Atomic(T::ATOM);
+  fn sized_ty() -> ShaderSizedValueType {
+    ShaderSizedValueType::Atomic(T::ATOM)
+  }
 }
 
 pub struct ShaderLocalPtr<T: ?Sized>(PhantomData<T>);
@@ -66,25 +70,39 @@ pub struct ShaderStoragePtr<T: ?Sized>(PhantomData<T>);
 pub struct ShaderWorkGroupPtr<T: ?Sized>(PhantomData<T>);
 
 impl<T: ShaderNodeType> ShaderNodeType for ShaderLocalPtr<T> {
-  const TYPE: ShaderValueType = T::TYPE;
+  fn ty() -> ShaderValueType {
+    T::ty()
+  }
 }
 impl<T: ShaderNodeType> ShaderNodeType for ShaderPrivatePtr<T> {
-  const TYPE: ShaderValueType = T::TYPE;
+  fn ty() -> ShaderValueType {
+    T::ty()
+  }
 }
 impl<T: ShaderNodeType> ShaderNodeType for ShaderHandlePtr<T> {
-  const TYPE: ShaderValueType = T::TYPE;
+  fn ty() -> ShaderValueType {
+    T::ty()
+  }
 }
 impl<T: ShaderNodeType> ShaderNodeType for ShaderUniformPtr<T> {
-  const TYPE: ShaderValueType = T::TYPE;
+  fn ty() -> ShaderValueType {
+    T::ty()
+  }
 }
 impl<T: ShaderNodeType + ?Sized> ShaderNodeType for ShaderReadOnlyStoragePtr<T> {
-  const TYPE: ShaderValueType = T::TYPE;
+  fn ty() -> ShaderValueType {
+    T::ty()
+  }
 }
 impl<T: ShaderNodeType + ?Sized> ShaderNodeType for ShaderStoragePtr<T> {
-  const TYPE: ShaderValueType = T::TYPE;
+  fn ty() -> ShaderValueType {
+    T::ty()
+  }
 }
 impl<T: ShaderNodeType> ShaderNodeType for ShaderWorkGroupPtr<T> {
-  const TYPE: ShaderValueType = T::TYPE;
+  fn ty() -> ShaderValueType {
+    T::ty()
+  }
 }
 
 pub type GlobalVarNode<T> = Node<ShaderPrivatePtr<T>>;
@@ -108,7 +126,7 @@ pub enum ShaderAtomicValueType {
   U32,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum ShaderValueType {
   Single(ShaderValueSingleType),
   BindingArray {
@@ -137,7 +155,7 @@ impl ShaderValueType {
   }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum ShaderValueSingleType {
   Sized(ShaderSizedValueType),
   Unsized(ShaderUnSizedValueType),
@@ -149,34 +167,34 @@ pub enum ShaderValueSingleType {
   },
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub enum ShaderSizedValueType {
   Atomic(ShaderAtomicValueType),
   Primitive(PrimitiveShaderValueType),
-  Struct(&'static ShaderStructMetaInfo),
-  FixedSizeArray((&'static ShaderSizedValueType, usize)),
+  Struct(ShaderStructMetaInfo),
+  FixedSizeArray(Box<ShaderSizedValueType>, usize),
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub enum ShaderUnSizedValueType {
-  UnsizedArray(&'static ShaderSizedValueType),
+  UnsizedArray(Box<ShaderSizedValueType>),
   UnsizedStruct(&'static ShaderUnSizedStructMetaInfo),
 }
 
 pub trait ShaderNodeType: 'static {
-  const TYPE: ShaderValueType;
+  fn ty() -> ShaderValueType;
 }
 
 pub trait ShaderNodeSingleType: 'static {
-  const SINGLE_TYPE: ShaderValueSingleType;
+  fn single_ty() -> ShaderValueSingleType;
 }
 
 pub trait ShaderSizedValueNodeType: ShaderNodeType {
-  const MEMBER_TYPE: ShaderSizedValueType;
+  fn sized_ty() -> ShaderSizedValueType;
 }
 
 pub trait ShaderUnsizedValueNodeType: ShaderNodeType {
-  const UNSIZED_TYPE: ShaderUnSizedValueType;
+  fn unsized_ty() -> ShaderUnSizedValueType;
 }
 
 pub enum MaybeUnsizedValueType {
@@ -185,11 +203,13 @@ pub enum MaybeUnsizedValueType {
 }
 
 impl<T: ShaderSizedValueNodeType> ShaderMaybeUnsizedValueNodeType for T {
-  const MAYBE_UNSIZED_TYPE: MaybeUnsizedValueType = MaybeUnsizedValueType::Sized(Self::MEMBER_TYPE);
+  fn maybe_unsized_ty() -> MaybeUnsizedValueType {
+    MaybeUnsizedValueType::Sized(Self::sized_ty())
+  }
 }
 
 pub trait ShaderMaybeUnsizedValueNodeType: ShaderNodeType {
-  const MAYBE_UNSIZED_TYPE: MaybeUnsizedValueType;
+  fn maybe_unsized_ty() -> MaybeUnsizedValueType;
 }
 
 pub trait PrimitiveShaderNodeType: ShaderNodeType + Default {
@@ -209,7 +229,7 @@ impl AtomicityShaderNodeType for i32 {
 
 pub trait ShaderStructuralNodeType: ShaderNodeType + Sized {
   type Instance;
-  fn meta_info() -> &'static ShaderStructMetaInfo;
+  fn meta_info() -> ShaderStructMetaInfo;
   fn expand(node: Node<Self>) -> Self::Instance;
   fn construct(instance: Self::Instance) -> Node<Self>;
 }
@@ -224,90 +244,129 @@ pub trait ShaderUnsizedStructuralNodeType: ShaderNodeType {
 macro_rules! sg_node_impl {
   ($ty: ty, $ty_value: expr) => {
     impl ShaderNodeSingleType for $ty {
-      const SINGLE_TYPE: ShaderValueSingleType = $ty_value;
+      fn single_ty() -> ShaderValueSingleType {
+        $ty_value
+      }
     }
     impl ShaderNodeType for $ty {
-      const TYPE: ShaderValueType = ShaderValueType::Single(Self::SINGLE_TYPE);
+      fn ty() -> ShaderValueType {
+        ShaderValueType::Single(Self::single_ty())
+      }
     }
   };
 }
 
 impl ShaderNodeType for AnyType {
-  const TYPE: ShaderValueType = ShaderValueType::Never;
+  fn ty() -> ShaderValueType {
+    ShaderValueType::Never
+  }
 }
 
 impl<T: ShaderSizedValueNodeType, const N: usize> ShaderNodeSingleType for [T; N] {
-  const SINGLE_TYPE: ShaderValueSingleType =
-    ShaderValueSingleType::Sized(ShaderSizedValueType::FixedSizeArray((&T::MEMBER_TYPE, N)));
+  fn single_ty() -> ShaderValueSingleType {
+    ShaderValueSingleType::Sized(ShaderSizedValueType::FixedSizeArray(
+      Box::new(T::sized_ty()),
+      N,
+    ))
+  }
 }
 impl<T: ShaderSizedValueNodeType, const N: usize> ShaderNodeType for [T; N] {
-  const TYPE: ShaderValueType = ShaderValueType::Single(Self::SINGLE_TYPE);
+  fn ty() -> ShaderValueType {
+    ShaderValueType::Single(Self::single_ty())
+  }
 }
 
 impl<T: ShaderSizedValueNodeType, const N: usize> ShaderNodeSingleType for Shader140Array<T, N> {
-  const SINGLE_TYPE: ShaderValueSingleType =
-    ShaderValueSingleType::Sized(ShaderSizedValueType::FixedSizeArray((&T::MEMBER_TYPE, N)));
+  fn single_ty() -> ShaderValueSingleType {
+    ShaderValueSingleType::Sized(ShaderSizedValueType::FixedSizeArray(
+      Box::new(T::sized_ty()),
+      N,
+    ))
+  }
 }
 impl<T: ShaderSizedValueNodeType, const N: usize> ShaderNodeType for Shader140Array<T, N> {
-  const TYPE: ShaderValueType = ShaderValueType::Single(Self::SINGLE_TYPE);
+  fn ty() -> ShaderValueType {
+    ShaderValueType::Single(Self::single_ty())
+  }
 }
 
 impl<T: ShaderSizedValueNodeType, const N: usize> ShaderSizedValueNodeType for [T; N] {
-  const MEMBER_TYPE: ShaderSizedValueType =
-    ShaderSizedValueType::FixedSizeArray((&T::MEMBER_TYPE, N));
+  fn sized_ty() -> ShaderSizedValueType {
+    ShaderSizedValueType::FixedSizeArray(Box::new(T::sized_ty()), N)
+  }
 }
 
 impl<T: ShaderSizedValueNodeType, const N: usize> ShaderSizedValueNodeType
   for Shader140Array<T, N>
 {
-  const MEMBER_TYPE: ShaderSizedValueType =
-    ShaderSizedValueType::FixedSizeArray((&T::MEMBER_TYPE, N));
+  fn sized_ty() -> ShaderSizedValueType {
+    ShaderSizedValueType::FixedSizeArray(Box::new(T::sized_ty()), N)
+  }
 }
 
 impl<T: ShaderNodeSingleType + ?Sized> ShaderNodeType for BindingArray<ShaderHandlePtr<T>> {
-  const TYPE: ShaderValueType = ShaderValueType::BindingArray {
-    ty: T::SINGLE_TYPE,
-    count: 0,
-  };
+  fn ty() -> ShaderValueType {
+    ShaderValueType::BindingArray {
+      ty: T::single_ty(),
+      count: 0,
+    }
+  }
 }
 impl<T: ShaderNodeSingleType + ?Sized> ShaderNodeType for BindingArray<ShaderStoragePtr<T>> {
-  const TYPE: ShaderValueType = ShaderValueType::BindingArray {
-    ty: T::SINGLE_TYPE,
-    count: 0,
-  };
+  fn ty() -> ShaderValueType {
+    ShaderValueType::BindingArray {
+      ty: T::single_ty(),
+      count: 0,
+    }
+  }
 }
 impl<T: ShaderNodeSingleType + ?Sized> ShaderNodeType
   for BindingArray<ShaderReadOnlyStoragePtr<T>>
 {
-  const TYPE: ShaderValueType = ShaderValueType::BindingArray {
-    ty: T::SINGLE_TYPE,
-    count: 0,
-  };
+  fn ty() -> ShaderValueType {
+    ShaderValueType::BindingArray {
+      ty: T::single_ty(),
+      count: 0,
+    }
+  }
 }
 
 impl<T: ShaderSizedValueNodeType> ShaderNodeType for [T] {
-  const TYPE: ShaderValueType = ShaderValueType::Single(Self::SINGLE_TYPE);
+  fn ty() -> ShaderValueType {
+    ShaderValueType::Single(Self::single_ty())
+  }
 }
 
 impl<T: ShaderSizedValueNodeType> ShaderNodeSingleType for [T] {
-  const SINGLE_TYPE: ShaderValueSingleType =
-    ShaderValueSingleType::Unsized(ShaderUnSizedValueType::UnsizedArray(&T::MEMBER_TYPE));
+  fn single_ty() -> ShaderValueSingleType {
+    ShaderValueSingleType::Unsized(ShaderUnSizedValueType::UnsizedArray(
+      Box::new(T::sized_ty()),
+    ))
+  }
 }
 
 impl<T: ShaderSizedValueNodeType> ShaderUnsizedValueNodeType for [T] {
-  const UNSIZED_TYPE: ShaderUnSizedValueType =
-    ShaderUnSizedValueType::UnsizedArray(&T::MEMBER_TYPE);
+  fn unsized_ty() -> ShaderUnSizedValueType {
+    ShaderUnSizedValueType::UnsizedArray(Box::new(T::sized_ty()))
+  }
 }
 impl<T: ShaderSizedValueNodeType> ShaderMaybeUnsizedValueNodeType for [T] {
-  const MAYBE_UNSIZED_TYPE: MaybeUnsizedValueType =
-    MaybeUnsizedValueType::Unsized(Self::UNSIZED_TYPE);
+  fn maybe_unsized_ty() -> MaybeUnsizedValueType {
+    MaybeUnsizedValueType::Unsized(Self::unsized_ty())
+  }
 }
 
 impl<T: ShaderSizedValueNodeType> ShaderNodeType for HostDynSizeArray<T> {
-  const TYPE: ShaderValueType = ShaderValueType::Single(Self::SINGLE_TYPE);
+  fn ty() -> ShaderValueType {
+    ShaderValueType::Single(Self::single_ty())
+  }
 }
 
 impl<T: ShaderSizedValueNodeType> ShaderNodeSingleType for HostDynSizeArray<T> {
-  const SINGLE_TYPE: ShaderValueSingleType =
-    ShaderValueSingleType::Sized(ShaderSizedValueType::FixedSizeArray((&T::MEMBER_TYPE, 0)));
+  fn single_ty() -> ShaderValueSingleType {
+    ShaderValueSingleType::Sized(ShaderSizedValueType::FixedSizeArray(
+      Box::new(T::sized_ty()),
+      0,
+    ))
+  }
 }

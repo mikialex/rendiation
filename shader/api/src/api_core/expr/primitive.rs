@@ -58,6 +58,29 @@ pub enum PrimitiveShaderValue {
   Mat4Float32(Mat4<f32>),
 }
 
+impl PrimitiveShaderValue {
+  pub fn into_raw_node(self) -> ShaderNodeRawHandle {
+    match self {
+      PrimitiveShaderValue::Bool(v) => val(v).handle(),
+      PrimitiveShaderValue::Uint32(v) => val(v).handle(),
+      PrimitiveShaderValue::Int32(v) => val(v).handle(),
+      PrimitiveShaderValue::Float32(v) => val(v).handle(),
+      PrimitiveShaderValue::Vec2Float32(v) => val(v).handle(),
+      PrimitiveShaderValue::Vec3Float32(v) => val(v).handle(),
+      PrimitiveShaderValue::Vec4Float32(v) => val(v).handle(),
+      PrimitiveShaderValue::Vec2Uint32(v) => val(v).handle(),
+      PrimitiveShaderValue::Vec3Uint32(v) => val(v).handle(),
+      PrimitiveShaderValue::Vec4Uint32(v) => val(v).handle(),
+      PrimitiveShaderValue::Vec2Int32(v) => val(v).handle(),
+      PrimitiveShaderValue::Vec3Int32(v) => val(v).handle(),
+      PrimitiveShaderValue::Vec4Int32(v) => val(v).handle(),
+      PrimitiveShaderValue::Mat2Float32(v) => val(v).handle(),
+      PrimitiveShaderValue::Mat3Float32(v) => val(v).handle(),
+      PrimitiveShaderValue::Mat4Float32(v) => val(v).handle(),
+    }
+  }
+}
+
 impl From<PrimitiveShaderValue> for PrimitiveShaderValueType {
   fn from(v: PrimitiveShaderValue) -> Self {
     match v {
@@ -104,8 +127,9 @@ macro_rules! primitive_ty {
     );
 
     impl ShaderSizedValueNodeType for $ty {
-      const MEMBER_TYPE: ShaderSizedValueType =
-        ShaderSizedValueType::Primitive($primitive_ty_value);
+      fn sized_ty() -> ShaderSizedValueType {
+        ShaderSizedValueType::Primitive($primitive_ty_value)
+      }
     }
 
     impl PrimitiveShaderNodeType for $ty {
@@ -150,10 +174,10 @@ where
 {
   pub fn splat<V>(&self) -> Node<V>
   where
-    V: Vector<T> + ShaderNodeType + PrimitiveShaderNodeType,
+    V: Vector<T> + ShaderSizedValueNodeType + PrimitiveShaderNodeType,
   {
     ShaderNodeExpr::Compose {
-      target: V::PRIMITIVE_TYPE,
+      target: V::sized_ty(),
       parameters: vec![self.handle(); V::channel_count()],
     }
     .insert_api()
@@ -300,7 +324,7 @@ macro_rules! swizzle_mat {
 
 swizzle_mat!(f32);
 
-macro_rules! num_cast {
+macro_rules! num_convert {
   ($src: ty, $dst: ty) => {
     paste::item! {
       impl Node<$src> {
@@ -318,13 +342,55 @@ macro_rules! num_cast {
   };
 }
 
-num_cast!(u32, f32);
-num_cast!(f32, u32);
-num_cast!(f32, i32);
-num_cast!(i32, f32);
-num_cast!(u32, i32);
-num_cast!(i32, u32);
-num_cast!(u32, bool);
+num_convert!(u32, f32);
+num_convert!(f32, u32);
+num_convert!(f32, i32);
+num_convert!(i32, f32);
+num_convert!(u32, i32);
+num_convert!(i32, u32);
+num_convert!(u32, bool);
+
+pub trait DeviceRawBitCast {
+  type Value: ValueType;
+}
+impl DeviceRawBitCast for f32 {
+  type Value = Self;
+}
+impl DeviceRawBitCast for u32 {
+  type Value = Self;
+}
+impl DeviceRawBitCast for i32 {
+  type Value = Self;
+}
+impl<T: ValueType> DeviceRawBitCast for Vec2<T> {
+  type Value = T;
+}
+impl<T: ValueType> DeviceRawBitCast for Vec3<T> {
+  type Value = T;
+}
+impl<T: ValueType> DeviceRawBitCast for Vec4<T> {
+  type Value = T;
+}
+
+struct If<const B: bool>;
+trait True {}
+impl True for If<true> {}
+
+impl<T: DeviceRawBitCast + PrimitiveShaderNodeType> Node<T> {
+  #[allow(private_bounds)]
+  pub fn bitcast<V>(self) -> Node<V>
+  where
+    V: DeviceRawBitCast + ValueType + PrimitiveShaderNodeType,
+    If<{ std::mem::size_of::<T>() == std::mem::size_of::<V>() }>: True,
+  {
+    ShaderNodeExpr::Convert {
+      source: self.handle(),
+      convert_to: V::KIND,
+      convert: None,
+    }
+    .insert_api()
+  }
+}
 
 macro_rules! impl_from {
   ( { $($field: tt: $constraint: ty),+ }, $type_merged:ty) => {
@@ -334,7 +400,7 @@ macro_rules! impl_from {
       fn from(($($field),+): ($(Node<$constraint>),+)) -> Self {
         $(let $field = $field.handle();)+
         ShaderNodeExpr::Compose {
-          target: <$type_merged>::PRIMITIVE_TYPE,
+          target: <$type_merged>::sized_ty(),
           parameters: vec![$($field),+],
         }
         .insert_api()

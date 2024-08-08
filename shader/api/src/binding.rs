@@ -58,18 +58,14 @@ impl ShaderBindGroupBuilder {
     std::mem::replace(&mut self.current_index, new)
   }
 
-  pub(crate) fn binding_ty_inner<T: ShaderBindingProvider>(
-    &mut self,
-    binding_provider: &T,
-  ) -> BindingPreparer<T::Node> {
+  pub fn binding_dyn(&mut self, desc: ShaderBindingDescriptor) -> ShaderBindEntry {
     let bindgroup_index = self.current_index;
     let bindgroup = &mut self.bindings[bindgroup_index];
 
     let entry_index = bindgroup.bindings.len();
-    let desc = binding_provider.binding_desc();
 
     let node = ShaderInputNode::Binding {
-      desc,
+      desc: desc.clone(),
       bindgroup_index,
       entry_index,
     };
@@ -77,13 +73,13 @@ impl ShaderBindGroupBuilder {
     let current_stage = get_current_stage();
 
     set_current_building(ShaderStages::Vertex.into());
-    let vertex_node = node.clone().insert_api::<T::Node>().handle();
+    let vertex_node = node.clone().insert_api_raw();
 
     set_current_building(ShaderStages::Fragment.into());
-    let fragment_node = node.clone().insert_api::<T::Node>().handle();
+    let fragment_node = node.clone().insert_api_raw();
 
     set_current_building(ShaderStages::Compute.into());
-    let compute_node = node.insert_api::<T::Node>().handle();
+    let compute_node = node.insert_api_raw();
 
     set_current_building(current_stage);
 
@@ -94,7 +90,16 @@ impl ShaderBindGroupBuilder {
       compute_node,
     };
 
-    bindgroup.bindings.push(entry);
+    bindgroup.bindings.push(entry.clone());
+
+    entry
+  }
+
+  pub fn bind_by_and_prepare<T: ShaderBindingProvider>(
+    &mut self,
+    instance: &T,
+  ) -> BindingPreparer<T::Node> {
+    let entry = self.binding_dyn(instance.binding_desc());
 
     BindingPreparer {
       phantom: Default::default(),
@@ -102,21 +107,8 @@ impl ShaderBindGroupBuilder {
     }
   }
 
-  pub fn bind_by<T: ShaderBindingProvider>(&mut self, instance: &T) -> BindingPreparer<T::Node> {
-    self.binding_ty_inner(instance)
-  }
-
-  pub(crate) fn wrap(&mut self) -> ShaderBindGroupDirectBuilder {
-    ShaderBindGroupDirectBuilder { builder: self }
-  }
-}
-
-pub struct ShaderBindGroupDirectBuilder<'a> {
-  builder: &'a mut ShaderBindGroupBuilder,
-}
-
-impl<'a> ShaderBindGroupDirectBuilder<'a> {
+  /// use in current stage directly
   pub fn bind_by<T: ShaderBindingProvider>(&mut self, instance: &T) -> Node<T::Node> {
-    self.builder.binding_ty_inner(instance).using()
+    self.bind_by_and_prepare(instance).using()
   }
 }

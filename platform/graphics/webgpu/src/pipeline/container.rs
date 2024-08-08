@@ -20,7 +20,7 @@ where
     ShaderBindingDescriptor {
       should_as_storage_buffer_if_is_buffer_like: true,
       writeable_if_storage: false,
-      ty: Self::Node::TYPE,
+      ty: Self::Node::ty(),
     }
   }
 }
@@ -35,7 +35,7 @@ where
     ShaderBindingDescriptor {
       should_as_storage_buffer_if_is_buffer_like: true,
       writeable_if_storage: true,
-      ty: Self::Node::TYPE,
+      ty: Self::Node::ty(),
     }
   }
 }

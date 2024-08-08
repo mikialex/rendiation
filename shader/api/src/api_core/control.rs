@@ -2,7 +2,7 @@ use crate::*;
 
 pub struct LoopCtx;
 
-pub fn loop_by(f: impl Fn(LoopCtx)) {
+pub fn loop_by(f: impl FnOnce(LoopCtx)) {
   loop_by_ok(|cx| {
     f(cx);
     Ok(())
@@ -11,7 +11,7 @@ pub fn loop_by(f: impl Fn(LoopCtx)) {
 }
 
 pub fn loop_by_ok(
-  f: impl Fn(LoopCtx) -> Result<(), ShaderBuildError>,
+  f: impl FnOnce(LoopCtx) -> Result<(), ShaderBuildError>,
 ) -> Result<(), ShaderBuildError> {
   call_shader_api(|g| g.push_loop_scope());
   f(LoopCtx)?;
@@ -31,7 +31,7 @@ impl LoopCtx {
 pub struct ElseEmitter(usize);
 
 impl ElseEmitter {
-  pub fn else_if(mut self, condition: impl Into<Node<bool>>, logic: impl Fn()) -> ElseEmitter {
+  pub fn else_if(mut self, condition: impl Into<Node<bool>>, logic: impl FnOnce()) -> ElseEmitter {
     let condition = condition.into().handle();
     call_shader_api(|builder| {
       builder.push_else_scope();
@@ -50,7 +50,7 @@ impl ElseEmitter {
     }
   }
 
-  pub fn else_by(self, logic: impl Fn()) {
+  pub fn else_by(self, logic: impl FnOnce()) {
     call_shader_api(|builder| {
       builder.push_else_scope();
     });
@@ -67,7 +67,7 @@ impl ElseEmitter {
 }
 
 #[inline(never)]
-pub fn if_by(condition: impl Into<Node<bool>>, logic: impl Fn()) -> ElseEmitter {
+pub fn if_by(condition: impl Into<Node<bool>>, logic: impl FnOnce()) -> ElseEmitter {
   if_by_ok(condition, || {
     logic();
     Ok(())
@@ -78,7 +78,7 @@ pub fn if_by(condition: impl Into<Node<bool>>, logic: impl Fn()) -> ElseEmitter 
 #[inline(never)]
 pub fn if_by_ok(
   condition: impl Into<Node<bool>>,
-  logic: impl Fn() -> Result<(), ShaderBuildError>,
+  logic: impl FnOnce() -> Result<(), ShaderBuildError>,
 ) -> Result<ElseEmitter, ShaderBuildError> {
   let condition = condition.into().handle();
   call_shader_api(|builder| {
@@ -95,8 +95,8 @@ pub fn if_by_ok(
 impl Node<bool> {
   pub fn select_branched<T: ShaderSizedValueNodeType>(
     self,
-    tr: impl Fn() -> Node<T>,
-    fal: impl Fn() -> Node<T>,
+    tr: impl FnOnce() -> Node<T>,
+    fal: impl FnOnce() -> Node<T>,
   ) -> Node<T> {
     let re = zeroed_val().make_local_var();
     if_by(self, || {

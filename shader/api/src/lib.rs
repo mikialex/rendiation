@@ -1,13 +1,13 @@
 #![feature(const_type_name)]
+#![feature(generic_const_exprs)]
 
 mod api_core;
 mod binding;
 mod compute;
 mod graphics;
 mod layout;
-mod ray_tracing;
 mod re_export;
-mod type_workaround;
+mod serialization;
 
 use std::{
   any::{Any, TypeId},
@@ -24,11 +24,10 @@ pub use compute::*;
 use fast_hash_collection::*;
 pub use graphics::*;
 pub use layout::*;
-pub use ray_tracing::*;
 pub use re_export::*;
 pub use rendiation_algebra::*;
 pub use rendiation_shader_derives::*;
-pub use type_workaround::*;
+pub use serialization::*;
 
 pub type DynamicShaderAPI = Box<dyn ShaderAPI<Output = Box<dyn Any>>>;
 

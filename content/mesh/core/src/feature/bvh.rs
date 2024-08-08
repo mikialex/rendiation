@@ -1,4 +1,4 @@
-use space_algorithm::{bvh::*, utils::TreeBuildOption};
+use rendiation_space_algorithm::{bvh::*, utils::TreeBuildOption};
 
 use crate::*;
 

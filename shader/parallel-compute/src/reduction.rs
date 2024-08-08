@@ -70,6 +70,10 @@ where
   fn bind_input(&self, builder: &mut BindingBuilder) {
     self.upstream.bind_input(builder)
   }
+
+  fn work_size(&self) -> Option<u32> {
+    self.upstream.work_size()
+  }
 }
 
 #[derive(Derivative)]
@@ -96,8 +100,8 @@ where
     })
   }
 
-  fn work_size(&self) -> u32 {
-    self.upstream.work_size()
+  fn result_size(&self) -> u32 {
+    self.upstream.result_size()
   }
 }
 
@@ -106,10 +110,6 @@ where
   T: ShaderSizedValueNodeType,
   S: DeviceMonoidLogic<Data = T> + 'static,
 {
-  fn result_size(&self) -> u32 {
-    self.work_size()
-  }
-
   fn materialize_storage_buffer(
     &self,
     cx: &mut DeviceParallelComputeCtx,

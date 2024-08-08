@@ -134,7 +134,7 @@ atomic_impls!(StorageNode);
 // todo restrict type
 pub fn make_local_var<T: ShaderNodeType>() -> LocalVarNode<T> {
   call_shader_api(|g| unsafe {
-    let v = g.make_local_var(T::TYPE);
+    let v = g.make_local_var(T::ty());
     v.into_node()
   })
 }
@@ -143,7 +143,7 @@ pub fn make_local_var<T: ShaderNodeType>() -> LocalVarNode<T> {
 impl<T: ShaderNodeType> Node<T> {
   pub fn make_local_var(&self) -> LocalVarNode<T> {
     call_shader_api(|g| unsafe {
-      let v = g.make_local_var(T::TYPE);
+      let v = g.make_local_var(T::ty());
       g.store(self.handle(), v);
       v.into_node()
     })

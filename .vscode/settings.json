@@ -2,6 +2,7 @@
     "editor.formatOnSave": true,
     "cSpell.words": [
         "AABB",
+        "aabbs",
         "abst",
         "Animatable",
         "antialiasing",
@@ -41,6 +42,7 @@
         "Controllee",
         "dashmap",
         "dealloc",
+        "deallocator",
         "Deque",
         "diffable",
         "downcasted",

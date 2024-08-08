@@ -42,6 +42,10 @@ impl<I: 'static, O: 'static + Copy> DeviceInvocationComponent<O> for DeviceMapCo
   fn requested_workgroup_size(&self) -> Option<u32> {
     self.upstream.requested_workgroup_size()
   }
+
+  fn work_size(&self) -> Option<u32> {
+    self.upstream.work_size()
+  }
 }
 
 #[derive(Derivative)]
@@ -64,8 +68,8 @@ impl<I: 'static, O: Copy + 'static> DeviceParallelCompute<O> for DeviceMap<I, O>
     })
   }
 
-  fn work_size(&self) -> u32 {
-    self.upstream.work_size()
+  fn result_size(&self) -> u32 {
+    self.upstream.result_size()
   }
 }
 impl<I: 'static, O: Copy + 'static> DeviceParallelComputeIO<O> for DeviceMap<I, Node<O>> {}

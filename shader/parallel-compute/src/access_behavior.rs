@@ -146,6 +146,13 @@ where
   fn requested_workgroup_size(&self) -> Option<u32> {
     self.source.requested_workgroup_size()
   }
+
+  fn work_size(&self) -> Option<u32> {
+    self
+      .behavior
+      .resize_work_size(self.source.work_size()?)
+      .into()
+  }
 }
 
 #[derive(Derivative)]
@@ -169,9 +176,8 @@ where
       behavior: self.behavior.clone(),
     })
   }
-
-  fn work_size(&self) -> u32 {
-    self.behavior.resize_work_size(self.source.work_size())
+  fn result_size(&self) -> u32 {
+    self.behavior.resize_work_size(self.source.result_size())
   }
 }
 impl<T, F> DeviceParallelComputeIO<T> for DeviceParallelComputeCustomInvocationBehavior<T, F>

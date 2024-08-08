@@ -24,10 +24,13 @@ impl ShaderInputNode {
   pub fn insert_api<T: ShaderNodeType + ?Sized>(self) -> Node<T> {
     call_shader_api(|g| unsafe { g.define_module_input(self).into_node() })
   }
+  pub fn insert_api_raw(self) -> ShaderNodeRawHandle {
+    call_shader_api(|g| g.define_module_input(self))
+  }
 }
 
 /// https://www.w3.org/TR/WGSL/#builtin-inputs-outputs
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum ShaderBuiltInDecorator {
   VertexIndex,
   VertexInstanceIndex,
@@ -49,7 +52,7 @@ pub struct ShaderBindGroup {
   pub bindings: Vec<ShaderBindEntry>,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct ShaderBindEntry {
   pub desc: ShaderBindingDescriptor,
   pub vertex_node: ShaderNodeRawHandle,
@@ -64,12 +67,12 @@ pub trait ShaderBindingProvider {
     ShaderBindingDescriptor {
       should_as_storage_buffer_if_is_buffer_like: false,
       writeable_if_storage: false,
-      ty: Self::Node::TYPE,
+      ty: Self::Node::ty(),
     }
   }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct ShaderBindingDescriptor {
   pub should_as_storage_buffer_if_is_buffer_like: bool,
   pub ty: ShaderValueType,
@@ -78,7 +81,7 @@ pub struct ShaderBindingDescriptor {
 
 impl ShaderBindingDescriptor {
   pub fn get_buffer_layout(&self) -> Option<StructLayoutTarget> {
-    match self.ty {
+    match &self.ty {
       ShaderValueType::Single(ty) => match ty {
         ShaderValueSingleType::Sized(_) => if self.should_as_storage_buffer_if_is_buffer_like {
           StructLayoutTarget::Std430
@@ -92,7 +95,7 @@ impl ShaderBindingDescriptor {
       ShaderValueType::BindingArray { ty, .. } => ShaderBindingDescriptor {
         should_as_storage_buffer_if_is_buffer_like: self.should_as_storage_buffer_if_is_buffer_like,
         writeable_if_storage: false,
-        ty: ShaderValueType::Single(ty),
+        ty: ShaderValueType::Single(ty.clone()),
       }
       .get_buffer_layout(),
       ShaderValueType::Never => None,

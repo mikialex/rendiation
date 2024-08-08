@@ -95,6 +95,10 @@ where
   fn bind_input(&self, builder: &mut BindingBuilder) {
     self.upstream.bind_input(builder)
   }
+
+  fn work_size(&self) -> Option<u32> {
+    self.upstream.work_size()
+  }
 }
 
 #[derive(Derivative)]
@@ -121,8 +125,8 @@ where
     })
   }
 
-  fn work_size(&self) -> u32 {
-    self.upstream.work_size()
+  fn result_size(&self) -> u32 {
+    self.upstream.result_size()
   }
 }
 impl<T, S> DeviceParallelComputeIO<T> for WorkGroupPrefixScanKoggeStone<T, S>

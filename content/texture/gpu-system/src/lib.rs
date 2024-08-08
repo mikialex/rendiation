@@ -42,13 +42,13 @@ pub trait AbstractGPUTextureSystem {
   fn register_system_self(&self, builder: &mut ShaderRenderPipelineBuilder);
   fn register_shader_texture2d(
     &self,
-    builder: &mut ShaderBindGroupDirectBuilder,
+    builder: &mut ShaderBindGroupBuilder,
     handle_host: Texture2DHandle,
     handle_device: Node<Texture2DHandle>,
   ) -> Self::RegisteredShaderTexture;
   fn register_shader_sampler(
     &self,
-    builder: &mut ShaderBindGroupDirectBuilder,
+    builder: &mut ShaderBindGroupBuilder,
     handle_host: SamplerHandle,
     handle_device: Node<SamplerHandle>,
   ) -> Self::RegisteredShaderSampler;
@@ -63,7 +63,7 @@ pub trait AbstractGPUTextureSystem {
 
   fn sample_texture2d_with_shader_bind(
     &self,
-    binding: &mut ShaderBindGroupDirectBuilder,
+    binding: &mut ShaderBindGroupBuilder,
     reg: &SemanticRegistry,
     host_handles: (Texture2DHandle, SamplerHandle),
     device_handles: (Node<Texture2DHandle>, Node<SamplerHandle>),
@@ -95,7 +95,7 @@ impl<T: AbstractIndirectGPUTextureSystem> AbstractGPUTextureSystem for T {
 
   fn register_shader_texture2d(
     &self,
-    _: &mut ShaderBindGroupDirectBuilder,
+    _: &mut ShaderBindGroupBuilder,
     _: Texture2DHandle,
     handle_device: Node<Texture2DHandle>,
   ) -> Self::RegisteredShaderTexture {
@@ -104,7 +104,7 @@ impl<T: AbstractIndirectGPUTextureSystem> AbstractGPUTextureSystem for T {
 
   fn register_shader_sampler(
     &self,
-    _: &mut ShaderBindGroupDirectBuilder,
+    _: &mut ShaderBindGroupBuilder,
     _: SamplerHandle,
     handle_device: Node<SamplerHandle>,
   ) -> Self::RegisteredShaderSampler {
@@ -134,13 +134,13 @@ pub trait DynAbstractGPUTextureSystem: Any {
   fn register_system_self(&self, builder: &mut ShaderRenderPipelineBuilder);
   fn register_shader_texture2d(
     &self,
-    builder: &mut ShaderBindGroupDirectBuilder,
+    builder: &mut ShaderBindGroupBuilder,
     handle_host: Texture2DHandle,
     handle_device: Node<Texture2DHandle>,
   ) -> Box<dyn Any>;
   fn register_shader_sampler(
     &self,
-    builder: &mut ShaderBindGroupDirectBuilder,
+    builder: &mut ShaderBindGroupBuilder,
     handle_host: SamplerHandle,
     handle_device: Node<SamplerHandle>,
   ) -> Box<dyn Any>;
@@ -155,7 +155,7 @@ pub trait DynAbstractGPUTextureSystem: Any {
 
   fn sample_texture2d_with_shader_bind(
     &self,
-    binding: &mut ShaderBindGroupDirectBuilder,
+    binding: &mut ShaderBindGroupBuilder,
     reg: &SemanticRegistry,
     host_handles: (Texture2DHandle, SamplerHandle),
     device_handles: (Node<Texture2DHandle>, Node<SamplerHandle>),
@@ -183,7 +183,7 @@ impl<T: AbstractGPUTextureSystem + Any> DynAbstractGPUTextureSystem for T {
 
   fn register_shader_texture2d(
     &self,
-    builder: &mut ShaderBindGroupDirectBuilder,
+    builder: &mut ShaderBindGroupBuilder,
     handle_host: Texture2DHandle,
     handle_device: Node<Texture2DHandle>,
   ) -> Box<dyn Any> {
@@ -192,7 +192,7 @@ impl<T: AbstractGPUTextureSystem + Any> DynAbstractGPUTextureSystem for T {
 
   fn register_shader_sampler(
     &self,
-    builder: &mut ShaderBindGroupDirectBuilder,
+    builder: &mut ShaderBindGroupBuilder,
     handle_host: SamplerHandle,
     handle_device: Node<SamplerHandle>,
   ) -> Box<dyn Any> {

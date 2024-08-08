@@ -18,6 +18,14 @@ impl<T: Std430MaybeUnsized + ?Sized> StorageBufferReadOnlyDataView<T> {
   }
 }
 
+impl<T: Std430> StorageBufferReadOnlyDataView<[T]> {
+  pub fn item_count(&self) -> u32 {
+    let size: u64 = self.view_byte_size().into();
+    let count = size / std::mem::size_of::<T>() as u64;
+    count as u32
+  }
+}
+
 impl<T: Std430MaybeUnsized + ?Sized> Clone for StorageBufferReadOnlyDataView<T> {
   fn clone(&self) -> Self {
     Self {
@@ -109,6 +117,14 @@ impl<T: Std430MaybeUnsized + ?Sized> StorageBufferDataView<T> {
       gpu: self.gpu.clone(),
       phantom: PhantomData,
     }
+  }
+}
+
+impl<T: Std430> StorageBufferDataView<[T]> {
+  pub fn item_count(&self) -> u32 {
+    let size: u64 = self.view_byte_size().into();
+    let count = size / std::mem::size_of::<T>() as u64;
+    count as u32
   }
 }
 

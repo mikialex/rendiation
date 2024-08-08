@@ -21,6 +21,8 @@ wgpu = { version = "0.19", features = ["naga-ir"] }
 wgpu-types = "0.19"
 winit = { workspace = true }
 
+pollster = { workspace = true } # used in examples
+
 [features]
 webgl = ["wgpu/webgl"]
 

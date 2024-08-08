@@ -39,10 +39,22 @@ pub enum OperatorNode {
     array: ShaderNodeRawHandle,
     entry: ShaderNodeRawHandle,
   },
-  IndexStatic {
-    array: ShaderNodeRawHandle,
-    entry: u32,
-  },
+}
+
+/// # Safety
+///
+/// the field index should be bounded and with correct type
+///
+/// .
+pub unsafe fn index_access_field<T>(struct_node: ShaderNodeRawHandle, field_index: usize) -> Node<T>
+where
+  T: ShaderNodeType,
+{
+  ShaderNodeExpr::IndexStatic {
+    field_index,
+    target: struct_node,
+  }
+  .insert_api()
 }
 
 impl OperatorNode {

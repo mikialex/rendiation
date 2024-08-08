@@ -13,7 +13,7 @@ pub struct ShaderAPINagaImpl {
   fn_mapping: FastHashMap<String, (naga::Handle<naga::Function>, ShaderUserDefinedFunction)>,
   ty_mapping: FastHashMap<ShaderValueType, naga::Handle<naga::Type>>,
   expression_mapping: FastHashMap<ShaderNodeRawHandle, naga::Handle<naga::Expression>>,
-  outputs_define: Vec<ShaderStructFieldMetaInfoOwned>,
+  outputs_define: Vec<ShaderStructFieldMetaInfo>,
   outputs: Vec<naga::Handle<naga::Expression>>,
   struct_extra_padding_count: FastHashMap<String, usize>,
 }
@@ -126,7 +126,7 @@ impl ShaderAPINagaImpl {
 
     let mut name = None;
 
-    let naga_ty = match ty {
+    let naga_ty = match &ty {
       ShaderValueType::Single(v) => match v {
         ShaderValueSingleType::Sized(f) => match f {
           ShaderSizedValueType::Atomic(t) => naga::TypeInner::Atomic(naga::Scalar {
@@ -139,24 +139,24 @@ impl ShaderAPINagaImpl {
               ShaderAtomicValueType::U32 => 4,
             },
           }),
-          ShaderSizedValueType::Primitive(p) => map_primitive_type(p),
+          ShaderSizedValueType::Primitive(p) => map_primitive_type(*p),
           ShaderSizedValueType::Struct(st) => {
             name = st.name.to_owned().into();
-            gen_struct_define(self, st.to_owned(), layout)
+            gen_struct_define(self, st.clone(), layout)
           }
-          ShaderSizedValueType::FixedSizeArray((ty, size)) => naga::TypeInner::Array {
+          ShaderSizedValueType::FixedSizeArray(ty, size) => naga::TypeInner::Array {
             base: self.register_ty_impl(
-              ShaderValueType::Single(ShaderValueSingleType::Sized(*ty)),
+              ShaderValueType::Single(ShaderValueSingleType::Sized(*ty.clone())),
               layout,
             ),
-            size: naga::ArraySize::Constant(NonZeroU32::new(size as u32).unwrap()),
+            size: naga::ArraySize::Constant(NonZeroU32::new(*size as u32).unwrap()),
             stride: ty.size_of_self(layout.unwrap_or(StructLayoutTarget::Std430)) as u32,
           },
         },
         ShaderValueSingleType::Unsized(ty) => match ty {
           ShaderUnSizedValueType::UnsizedArray(ty) => naga::TypeInner::Array {
             base: self.register_ty_impl(
-              ShaderValueType::Single(ShaderValueSingleType::Sized(*ty)),
+              ShaderValueType::Single(ShaderValueSingleType::Sized(*ty.clone())),
               layout,
             ),
             size: naga::ArraySize::Dynamic,
@@ -186,16 +186,16 @@ impl ShaderAPINagaImpl {
           let class = match sample_type {
             TextureSampleType::Float { .. } => naga::ImageClass::Sampled {
               kind: naga::ScalarKind::Float,
-              multi: multi_sampled,
+              multi: *multi_sampled,
             },
             TextureSampleType::Depth => naga::ImageClass::Depth { multi: false },
             TextureSampleType::Sint => naga::ImageClass::Sampled {
               kind: naga::ScalarKind::Sint,
-              multi: multi_sampled,
+              multi: *multi_sampled,
             },
             TextureSampleType::Uint => naga::ImageClass::Sampled {
               kind: naga::ScalarKind::Uint,
-              multi: multi_sampled,
+              multi: *multi_sampled,
             },
           };
           naga::TypeInner::Image {
@@ -206,8 +206,8 @@ impl ShaderAPINagaImpl {
         }
       },
       ShaderValueType::BindingArray { count, ty } => naga::TypeInner::BindingArray {
-        base: self.register_ty_impl(ShaderValueType::Single(ty), layout),
-        size: naga::ArraySize::Constant(NonZeroU32::new(count as u32).unwrap()),
+        base: self.register_ty_impl(ShaderValueType::Single(ty.clone()), layout),
+        size: naga::ArraySize::Constant(NonZeroU32::new(*count as u32).unwrap()),
       },
       ShaderValueType::Never => unreachable!(),
     };
@@ -241,9 +241,9 @@ impl ShaderAPINagaImpl {
     assert!(self.building_fn.len() == 1);
 
     let ty = ShaderSizedValueType::Primitive(ty);
-    self.outputs_define.push(ShaderStructFieldMetaInfoOwned {
+    self.outputs_define.push(ShaderStructFieldMetaInfo {
       name,
-      ty,
+      ty: ty.clone(),
       ty_deco: Some(ty_deco),
     });
 
@@ -367,8 +367,9 @@ impl ShaderAPI for ShaderAPINagaImpl {
         bindgroup_index,
         entry_index,
       } => {
-        let ty = self.register_ty_impl(desc.ty, desc.get_buffer_layout());
-        let space = match desc.get_buffer_layout() {
+        let layout = desc.get_buffer_layout();
+        let ty = self.register_ty_impl(desc.ty, layout);
+        let space = match layout {
           Some(StructLayoutTarget::Std140) => naga::AddressSpace::Uniform,
           Some(StructLayoutTarget::Std430) => naga::AddressSpace::Storage {
             access: if desc.writeable_if_storage {
@@ -462,9 +463,9 @@ impl ShaderAPI for ShaderAPINagaImpl {
     assert!(self.building_fn.len() == 1);
 
     let ty = ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Vec4Float32);
-    self.outputs_define.push(ShaderStructFieldMetaInfoOwned {
+    self.outputs_define.push(ShaderStructFieldMetaInfo {
       name: format!("frag_out_{}", self.outputs_define.len()),
-      ty,
+      ty: ty.clone(),
       ty_deco: ShaderFieldDecorator::Location(self.outputs.len(), None).into(),
     });
 
@@ -840,13 +841,21 @@ impl ShaderAPI for ShaderAPINagaImpl {
           convert,
         },
         ShaderNodeExpr::Compose { target, parameters } => {
+          let mut components: Vec<_> = parameters.iter().map(|f| self.get_expression(*f)).collect();
+
+          if let ShaderSizedValueType::Struct(meta) = &target {
+            let extra = self.struct_extra_padding_count.get(&meta.name).unwrap();
+            for _ in 0..*extra {
+              components.push(
+                self.make_expression_inner_raw(naga::Expression::Literal(naga::Literal::U32(0))),
+              );
+            }
+          }
           let ty = self.register_ty_impl(
-            ShaderValueType::Single(ShaderValueSingleType::Sized(
-              ShaderSizedValueType::Primitive(target),
-            )),
+            ShaderValueType::Single(ShaderValueSingleType::Sized(target)),
             None,
           );
-          let components = parameters.iter().map(|f| self.get_expression(*f)).collect();
+
           naga::Expression::Compose { ty, components }
         }
         ShaderNodeExpr::Derivative { axis, ctrl, source } => {
@@ -891,35 +900,14 @@ impl ShaderAPI for ShaderAPINagaImpl {
             base: self.get_expression(array),
             index: self.get_expression(entry),
           },
-          OperatorNode::IndexStatic { array, entry } => naga::Expression::AccessIndex {
-            base: self.get_expression(array),
-            index: entry,
-          },
         },
-        ShaderNodeExpr::FieldGet {
+        ShaderNodeExpr::IndexStatic {
           field_index,
-          struct_node,
+          target: struct_node,
         } => naga::Expression::AccessIndex {
           base: self.get_expression(struct_node),
           index: field_index as u32,
         },
-        ShaderNodeExpr::StructConstruct { meta, fields } => {
-          let mut components: Vec<_> = fields.iter().map(|f| self.get_expression(*f)).collect();
-          let ty = self.register_ty_impl(
-            ShaderValueType::Single(ShaderValueSingleType::Sized(ShaderSizedValueType::Struct(
-              meta,
-            ))),
-            None,
-          );
-
-          let extra = self.struct_extra_padding_count.get(meta.name).unwrap();
-          for _ in 0..*extra {
-            components.push(
-              self.make_expression_inner_raw(naga::Expression::Literal(naga::Literal::U32(0))),
-            );
-          }
-          naga::Expression::Compose { ty, components }
-        }
         ShaderNodeExpr::Const { data } => {
           // too funky..
           macro_rules! impl_p {
@@ -1042,7 +1030,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
     if let BlockBuildingState::Function = ty {
       // empty output is possible, for example depth only render target
       if self.building_fn.len() == 1 && !self.outputs_define.is_empty() {
-        let ty = ShaderStructMetaInfoOwned {
+        let ty = ShaderStructMetaInfo {
           name: String::from("ModuleOutput"),
           fields: self.outputs_define.clone(),
         };
@@ -1320,7 +1308,7 @@ fn map_primitive_type(t: PrimitiveShaderValueType) -> naga::TypeInner {
 
 fn gen_struct_define(
   api: &mut ShaderAPINagaImpl,
-  meta: ShaderStructMetaInfoOwned,
+  meta: ShaderStructMetaInfo,
   l: Option<StructLayoutTarget>,
 ) -> naga::TypeInner {
   let layout = l.unwrap_or(StructLayoutTarget::Std430); // is this ok??
@@ -1345,16 +1333,16 @@ fn gen_unsized_struct_define(
   let layout = StructLayoutTarget::Std430;
 
   let fields: Vec<_> = meta.sized_fields.iter().map(|f| f.to_owned()).collect();
-  let mut members = struct_member(meta.name, api, &fields, Some(layout));
+  let mut members = struct_member(&meta.name, api, &fields, Some(layout));
 
   let field_size = size_of_struct_sized_fields(&fields, layout);
-  let (name, array_ty) = meta.last_dynamic_array_field;
+  let (name, array_ty) = &meta.last_dynamic_array_field;
 
   members.push(naga::StructMember {
     name: name.to_string().into(),
     ty: api.register_ty_impl(
       ShaderValueType::Single(ShaderValueSingleType::Unsized(
-        ShaderUnSizedValueType::UnsizedArray(array_ty),
+        ShaderUnSizedValueType::UnsizedArray(Box::new(*array_ty.clone())),
       )),
       Some(layout),
     ),
@@ -1371,7 +1359,7 @@ fn gen_unsized_struct_define(
 fn struct_member(
   name: &str,
   api: &mut ShaderAPINagaImpl,
-  fields: &[ShaderStructFieldMetaInfoOwned],
+  fields: &[ShaderStructFieldMetaInfo],
   l: Option<StructLayoutTarget>,
 ) -> Vec<naga::StructMember> {
   let layout = l.unwrap_or(StructLayoutTarget::Std430); // is this ok??
@@ -1379,7 +1367,7 @@ fn struct_member(
   let mut extra_explicit_padding_count = 0;
   let mut current_byte_used = 0;
   let mut members = Vec::new();
-  for (index, ShaderStructFieldMetaInfoOwned { name, ty, ty_deco }) in fields.iter().enumerate() {
+  for (index, ShaderStructFieldMetaInfo { name, ty, ty_deco }) in fields.iter().enumerate() {
     let next_align_requirement = if index + 1 == fields.len() {
       align_of_struct_sized_fields(fields, layout)
     } else {
@@ -1393,7 +1381,7 @@ fn struct_member(
     let padding_size = align_offset(current_byte_used, next_align_requirement);
     current_byte_used += padding_size;
 
-    let ty = ShaderValueType::Single(ShaderValueSingleType::Sized(*ty));
+    let ty = ShaderValueType::Single(ShaderValueSingleType::Sized(ty.clone()));
     let ty = api.register_ty_impl(ty, l);
 
     let binding = ty_deco.map(|deco| match deco {

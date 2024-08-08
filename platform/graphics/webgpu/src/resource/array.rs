@@ -100,7 +100,7 @@ where
   type Node = ShaderHandlePtr<BindingArray<T::Node>>;
 
   fn binding_desc(&self) -> ShaderBindingDescriptor {
-    let mut ty = Self::Node::TYPE;
+    let mut ty = Self::Node::ty();
 
     if let ShaderValueType::BindingArray { count, .. } = &mut ty {
       *count = self.bindings.len();
