@@ -23,18 +23,21 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
     &self,
     pass: &mut GPUComputePass,
     device: &GPUDevice,
+    workgroup_size: u32,
   ) -> StorageBufferDataView<DispatchIndirectArgsStorage> {
     let size = device.make_indirect_dispatch_size_buffer();
     let hasher = shader_hasher_from_marker_ty!(SizeCompute);
+    let workgroup_size = create_gpu_readonly_storage(&workgroup_size, device);
 
     let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |device| {
       compute_shader_builder()
         .entry(|cx| {
           let input_current_size = cx.bind_by(&self.current_size);
           let output = cx.bind_by(&size);
+          let workgroup_size = cx.bind_by(&workgroup_size);
 
           let size = ENode::<DispatchIndirectArgsStorage> {
-            x: input_current_size.load(), // todo, divide by workgroup size
+            x: device_compute_dispatch_size(input_current_size.load(), workgroup_size.load()),
             y: val(1),
             z: val(1),
           }
@@ -49,6 +52,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
     BindingBuilder::new_as_compute()
       .with_bind(&self.storage)
       .with_bind(&self.current_size)
+      .with_bind(&workgroup_size)
       .setup_compute_pass(pass, device, &pipeline);
     pass.dispatch_workgroups(1, 1, 1);
 
@@ -97,7 +101,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
     pass: &mut GPUComputePass,
     device: &GPUDevice,
   ) {
-    let size = self.prepare_dispatch_size(pass, device);
+    let size = self.prepare_dispatch_size(pass, device, 256);
 
     let hasher = shader_hasher_from_marker_ty!(Drainer);
 

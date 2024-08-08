@@ -96,6 +96,9 @@ impl<T: Copy> DeviceInvocation<T> for AdhocInvocationResult<T> {
 pub fn compute_dispatch_size(work_size: u32, workgroup_size: u32) -> u32 {
   (work_size + workgroup_size - 1) / workgroup_size
 }
+pub fn device_compute_dispatch_size(work_size: Node<u32>, workgroup_size: Node<u32>) -> Node<u32> {
+  (work_size + workgroup_size - val(1)) / workgroup_size
+}
 
 pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
   fn work_size(&self) -> Option<u32>;
@@ -154,13 +157,16 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
 
     let size_output = cx.size_scratch.clone();
 
+    let workgroup_size = self.requested_workgroup_size().unwrap_or(256);
+    let workgroup_size = create_gpu_readonly_storage(&workgroup_size, &cx.gpu.device);
+
     let pipeline = cx.get_or_create_compute_pipeline(&SizeWriter(self), |cx| {
       cx.config_work_group_size(1);
       let size = self.build_shader(cx.0).invocation_size();
+      let workgroup_size = cx.bind_by(&workgroup_size);
 
-      // todo, fix divide workgroup size
       let size = ENode::<DispatchIndirectArgsStorage> {
-        x: size.x(),
+        x: device_compute_dispatch_size(size.x(), workgroup_size.load()),
         y: size.y(),
         z: size.z(),
       }
@@ -172,8 +178,9 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
     cx.record_pass(|pass, _| {
       let mut bb = BindingBuilder::new_as_compute();
       self.bind_input(&mut bb);
-      bb.bind(&size_output);
-      bb.setup_compute_pass(pass, &cx.gpu.device, &pipeline);
+      bb.with_bind(&size_output)
+        .with_bind(&workgroup_size)
+        .setup_compute_pass(pass, &cx.gpu.device, &pipeline);
       pass.dispatch_workgroups(1, 1, 1);
     });
   }

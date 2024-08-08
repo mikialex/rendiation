@@ -461,7 +461,7 @@ impl TaskGroupExecutor {
       let mut bb = BindingBuilder::new_as_compute();
       imp.bind(&mut bb);
       bb.setup_compute_pass(pass, device, &self.task_poll_pipeline);
-      let size = imp.alive_task_idx.prepare_dispatch_size(pass, device);
+      let size = imp.alive_task_idx.prepare_dispatch_size(pass, device, 64);
       pass.dispatch_workgroups_indirect_owned(&size);
     });
   }
