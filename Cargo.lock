@@ -3416,6 +3416,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-device-ray-tracing"
+version = "0.1.0"
+dependencies = [
+ "derivative",
+ "dyn-clone",
+ "fast-hash-collection",
+ "futures",
+ "parking_lot",
+ "pollster",
+ "rendiation-algebra",
+ "rendiation-device-task-graph",
+ "rendiation-shader-api",
+ "rendiation-shader-derives",
+ "rendiation-space-algorithm",
+ "rendiation-webgpu",
+]
+
+[[package]]
 name = "rendiation-device-task-graph"
 version = "0.1.0"
 dependencies = [
