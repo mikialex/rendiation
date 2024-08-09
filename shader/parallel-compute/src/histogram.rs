@@ -63,7 +63,7 @@ where
       (result, output_valid)
     });
 
-    source.get_size_into_adhoc(r).into_boxed()
+    source.adhoc_invoke_with_self_size(r).into_boxed()
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {
@@ -173,7 +173,9 @@ where
       workgroup_level_histogram
     });
 
-    computed_workgroup_level.get_size_into_adhoc(r).into_boxed()
+    computed_workgroup_level
+      .adhoc_invoke_with_self_size(r)
+      .into_boxed()
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {

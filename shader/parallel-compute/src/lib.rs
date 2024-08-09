@@ -73,7 +73,7 @@ pub trait DeviceInvocationExt<T>: DeviceInvocation<T> + 'static + Sized {
   fn zip<U>(self, other: impl DeviceInvocation<U> + 'static) -> impl DeviceInvocation<(T, U)> {
     DeviceInvocationZip(self.into_boxed(), other.into_boxed())
   }
-  fn get_size_into_adhoc<R>(self, r: (R, Node<bool>)) -> impl DeviceInvocation<R>
+  fn adhoc_invoke_with_self_size<R>(self, r: (R, Node<bool>)) -> impl DeviceInvocation<R>
   where
     R: Copy,
   {

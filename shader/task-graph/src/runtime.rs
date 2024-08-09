@@ -1,16 +1,10 @@
 use crate::*;
 
-pub struct DeviceTaskGraphExecutor {
-  task_groups: Vec<TaskGroupExecutor>,
-  max_recursion_depth: usize,
-  current_prepared_execution_size: usize,
-}
-
 pub struct DeviceTaskSystemBuildCtx<'a> {
-  task_group_sources: Vec<&'a TaskGroupExecutorResource>,
-  current_task_idx: Node<u32>,
+  all_task_group_sources: Vec<&'a TaskGroupExecutorResource>,
+  self_task_idx: Node<u32>,
   self_task: TaskPoolInvocationInstance,
-  tasks: FastHashMap<usize, TaskGroupDeviceInvocationInstance>,
+  tasks_depend_on_self: FastHashMap<usize, TaskGroupDeviceInvocationInstance>,
 }
 
 impl<'a> DeviceTaskSystemBuildCtx<'a> {
@@ -19,14 +13,17 @@ impl<'a> DeviceTaskSystemBuildCtx<'a> {
     task_type: usize,
     ccx: &mut ComputeCx,
   ) -> &mut TaskGroupDeviceInvocationInstance {
-    self.tasks.entry(task_type).or_insert_with(|| {
-      let source = &self.task_group_sources[task_type];
-      source.build_shader(ccx)
-    })
+    self
+      .tasks_depend_on_self
+      .entry(task_type)
+      .or_insert_with(|| {
+        let source = &self.all_task_group_sources[task_type];
+        source.build_shader(ccx)
+      })
   }
 
   pub fn access_self_payload<T: ShaderSizedValueNodeType>(&mut self) -> StorageNode<T> {
-    let current = self.current_task_idx;
+    let current = self.self_task_idx;
     self.self_task.read_payload(current)
   }
 
@@ -55,6 +52,12 @@ impl<'a> DeviceTaskSystemBuildCtx<'a> {
     });
     finished
   }
+}
+
+pub struct DeviceTaskGraphExecutor {
+  task_groups: Vec<TaskGroupExecutor>,
+  max_recursion_depth: usize,
+  current_prepared_execution_size: usize,
 }
 
 impl DeviceTaskGraphExecutor {
@@ -103,9 +106,9 @@ impl DeviceTaskGraphExecutor {
     });
 
     let mut ctx = DeviceTaskSystemBuildCtx {
-      task_group_sources,
-      tasks: Default::default(),
-      current_task_idx: task_index,
+      all_task_group_sources: task_group_sources,
+      tasks_depend_on_self: Default::default(),
+      self_task_idx: task_index,
       self_task: task_pool.clone(),
     };
     let mut f_ctx = f_ctx();
@@ -120,18 +123,17 @@ impl DeviceTaskGraphExecutor {
     let task_poll_pipeline = compute_cx.create_compute_pipeline(device).unwrap();
 
     let task_executor = TaskGroupExecutor {
-      task_poll_pipeline,
+      polling_pipeline: task_poll_pipeline,
       resource,
-      task_state_desc: state_desc,
+      state_desc,
       required_poll_count: future.required_poll_count(),
     };
     self.task_groups.push(task_executor);
 
     task_type as u32
   }
-}
 
-impl DeviceTaskGraphExecutor {
+  /// set exact execution dispatch size for this executor, this will resize all resources
   pub fn set_execution_size(&mut self, gpu: &GPU, pass: &mut GPUComputePass, dispatch_size: usize) {
     let dispatch_size = dispatch_size.min(1);
     if self.current_prepared_execution_size == dispatch_size {
@@ -143,7 +145,7 @@ impl DeviceTaskGraphExecutor {
         gpu,
         dispatch_size,
         self.max_recursion_depth,
-        s.task_state_desc.clone(),
+        s.state_desc.clone(),
         pass,
       )
     }
@@ -161,9 +163,7 @@ impl DeviceTaskGraphExecutor {
       self.set_execution_size(gpu, pass, dispatch_size)
     }
   }
-}
 
-impl DeviceTaskGraphExecutor {
   /// Allocate task directly in the task pool by dispatching compute shader.
   ///
   /// T must match given task_id's payload type
@@ -229,10 +229,79 @@ impl DeviceTaskGraphExecutor {
 }
 
 struct TaskGroupExecutor {
-  task_state_desc: DynamicTypeMetaInfo,
-  task_poll_pipeline: GPUComputePipeline,
+  state_desc: DynamicTypeMetaInfo,
+  polling_pipeline: GPUComputePipeline,
   resource: TaskGroupExecutorResource,
   required_poll_count: usize,
+}
+
+impl TaskGroupExecutor {
+  pub fn execute(&mut self, cx: &mut DeviceParallelComputeCtx) {
+    cx.record_pass(|pass, device| {
+      self.resource.alive_task_idx.commit_size(pass, device, true);
+    });
+
+    {
+      let imp = &mut self.resource;
+      // compact active task buffer
+      let alive_tasks = imp.alive_task_idx.storage.clone().into_readonly_view();
+      let size = imp.alive_task_idx.current_size.clone();
+      imp.alive_task_idx.storage = alive_tasks
+        .clone()
+        .stream_compaction(ActiveTaskCompact {
+          alive_size: size,
+          active_tasks: alive_tasks.clone(),
+          task_pool: imp.task_pool.clone(),
+        })
+        .materialize_storage_buffer(cx)
+        .into_rw_view();
+
+      cx.record_pass(|pass, device| {
+        let imp = &mut self.resource;
+        // update alive task count
+        {
+          let hasher = shader_hasher_from_marker_ty!(SizeUpdate);
+          let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |device| {
+            compute_shader_builder()
+              .config_work_group_size(1)
+              .entry(|cx| {
+                let bump_size = cx.bind_by(&imp.new_removed_task_idx.bump_size);
+                let current_size = cx.bind_by(&imp.alive_task_idx.current_size);
+                let delta = bump_size.atomic_load();
+                current_size.store(current_size.load() - delta);
+              })
+              .create_compute_pipeline(device)
+              .unwrap()
+          });
+
+          BindingBuilder::new_as_compute()
+            .with_bind(&imp.new_removed_task_idx.bump_size)
+            .with_bind(&imp.alive_task_idx.current_size)
+            .setup_compute_pass(pass, device, &pipeline);
+
+          pass.dispatch_workgroups(1, 1, 1);
+        }
+        // commit other bumper size
+        imp.empty_index_pool.commit_size(pass, device, false);
+        imp.new_removed_task_idx.commit_size(pass, device, true);
+      });
+    }
+
+    cx.record_pass(|pass, device| {
+      let imp = &mut self.resource;
+      // drain empty to empty pool
+      imp
+        .new_removed_task_idx
+        .drain_self_into_the_other(&imp.empty_index_pool, pass, device);
+
+      // dispatch tasks
+      let mut bb = BindingBuilder::new_as_compute();
+      imp.bind(&mut bb);
+      bb.setup_compute_pass(pass, device, &self.polling_pipeline);
+      let size = imp.alive_task_idx.prepare_dispatch_size(pass, device, 64);
+      pass.dispatch_workgroups_indirect_owned(&size);
+    });
+  }
 }
 
 struct TaskGroupExecutorResource {
@@ -252,7 +321,7 @@ impl TaskGroupExecutorResource {
     pass: &mut GPUComputePass,
   ) -> Self {
     let res = Self {
-      alive_task_idx: DeviceBumpAllocationInstance::new(size, device),
+      alive_task_idx: DeviceBumpAllocationInstance::new(size * 2, device),
       new_removed_task_idx: DeviceBumpAllocationInstance::new(size, device),
       empty_index_pool: DeviceBumpAllocationInstance::new(size * 2, device),
       task_pool: TaskPool::create_with_size(size * 2, state_desc, device),
@@ -288,6 +357,34 @@ impl TaskGroupExecutorResource {
     pass.dispatch_workgroups(compute_dispatch_size(size as u32 * 2, workgroup_size), 1, 1);
 
     res
+  }
+
+  fn resize(
+    &mut self,
+    gpu: &GPU,
+    size: usize,
+    max_recursion_depth: usize,
+    state_desc: DynamicTypeMetaInfo,
+    pass: &mut GPUComputePass,
+  ) {
+    if self.size != size * max_recursion_depth {
+      *self = Self::create_with_size(size, state_desc, &gpu.device, pass);
+    }
+  }
+
+  fn build_shader(&self, cx: &mut ComputeCx) -> TaskGroupDeviceInvocationInstance {
+    TaskGroupDeviceInvocationInstance {
+      new_removed_task_idx: self.new_removed_task_idx.build_allocator_shader(cx),
+      empty_index_pool: self.empty_index_pool.build_deallocator_shader(cx),
+      task_pool: self.task_pool.build_shader(cx),
+      alive_task_idx: self.alive_task_idx.build_allocator_shader(cx),
+    }
+  }
+
+  fn bind(&self, cx: &mut BindingBuilder) {
+    self.new_removed_task_idx.bind_allocator(cx);
+    self.empty_index_pool.bind_allocator(cx);
+    self.task_pool.bind(cx);
   }
 }
 
@@ -358,6 +455,7 @@ impl TaskPool {
 
 #[derive(Clone)]
 struct ActiveTaskCompact {
+  alive_size: StorageBufferDataView<u32>,
   active_tasks: StorageBufferReadOnlyDataView<[u32]>,
   task_pool: TaskPool,
 }
@@ -385,17 +483,25 @@ impl DeviceInvocationComponent<Node<bool>> for ActiveTaskCompact {
     &self,
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<Node<bool>>> {
-    Box::new(ActiveTaskCompactInvocationInstance {
-      active_tasks: Box::new(
-        StorageBufferReadOnlyDataViewReadIntoShader(self.active_tasks.clone())
-          .build_shader(builder),
-      ),
-      task_pool: builder.entry_by(|cx| self.task_pool.build_shader(cx)),
-    })
+    let r: AdhocInvocationResult<Node<bool>> = builder.entry_by(|cx| {
+      let active_tasks = cx.bind_by(&self.active_tasks);
+      let size = cx.bind_by(&self.alive_size);
+      let size = (size.load(), val(0), val(0)).into();
+      let task_pool = self.task_pool.build_shader(cx);
+
+      let (r, is_valid) = active_tasks.invocation_logic(cx.global_invocation_id());
+
+      //  check task_pool access is valid?
+      let r = task_pool.read_is_finished(r).load();
+      AdhocInvocationResult(size, r, is_valid)
+    });
+
+    Box::new(r)
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {
     builder.bind(&self.active_tasks);
+    builder.bind(&self.alive_size);
     self.task_pool.bind(builder);
   }
 
@@ -408,104 +514,10 @@ impl DeviceInvocationComponent<Node<bool>> for ActiveTaskCompact {
   }
 }
 
-struct ActiveTaskCompactInvocationInstance {
-  active_tasks: Box<dyn DeviceInvocation<Node<u32>>>,
-  task_pool: TaskPoolInvocationInstance,
-}
-
-impl DeviceInvocation<Node<bool>> for ActiveTaskCompactInvocationInstance {
-  fn invocation_logic(&self, logic_global_id: Node<Vec3<u32>>) -> (Node<bool>, Node<bool>) {
-    let (r, s) = self.active_tasks.invocation_logic(logic_global_id);
-
-    // todo check r is valid?
-    (s, self.task_pool.read_is_finished(r).load())
-  }
-
-  fn invocation_size(&self) -> Node<Vec3<u32>> {
-    self.active_tasks.invocation_size()
-  }
-}
-
-impl TaskGroupExecutor {
-  pub fn execute(&mut self, cx: &mut DeviceParallelComputeCtx) {
-    cx.record_pass(|pass, device| {
-      let imp = &mut self.resource;
-      // commit bump allocator sizes
-      imp.empty_index_pool.commit_size(pass, device, false);
-      imp.new_removed_task_idx.commit_size(pass, device, true);
-    });
-
-    {
-      let imp = &mut self.resource;
-      // compact active task buffer
-      let alive_tasks = imp.alive_task_idx.storage.clone().into_readonly_view();
-      imp.alive_task_idx.storage = alive_tasks
-        .clone()
-        .stream_compaction(ActiveTaskCompact {
-          active_tasks: alive_tasks.clone(),
-          task_pool: imp.task_pool.clone(),
-        })
-        .materialize_storage_buffer(cx)
-        .into_rw_view();
-    }
-
-    cx.record_pass(|pass, device| {
-      let imp = &mut self.resource;
-      // drain empty to empty pool
-      imp
-        .new_removed_task_idx
-        .drain_self_into_the_other(&imp.empty_index_pool, pass, device);
-
-      // dispatch tasks
-      let mut bb = BindingBuilder::new_as_compute();
-      imp.bind(&mut bb);
-      bb.setup_compute_pass(pass, device, &self.task_poll_pipeline);
-      let size = imp.alive_task_idx.prepare_dispatch_size(pass, device, 64);
-      pass.dispatch_workgroups_indirect_owned(&size);
-    });
-  }
-}
-
-impl TaskGroupExecutorResource {
-  pub fn resize(
-    &mut self,
-    gpu: &GPU,
-    size: usize,
-    max_recursion_depth: usize,
-    state_desc: DynamicTypeMetaInfo,
-    pass: &mut GPUComputePass,
-  ) {
-    if self.size != size * max_recursion_depth {
-      *self = Self::create_with_size(size, state_desc, &gpu.device, pass);
-    }
-  }
-  fn build_shader(&self, cx: &mut ComputeCx) -> TaskGroupDeviceInvocationInstance {
-    TaskGroupDeviceInvocationInstance {
-      new_removed_task_idx: self.new_removed_task_idx.build_allocator_shader(cx),
-      empty_index_pool: self.empty_index_pool.build_deallocator_shader(cx),
-      task_pool: self.task_pool.build_shader(cx),
-    }
-  }
-
-  fn bind(&self, cx: &mut BindingBuilder) {
-    self.new_removed_task_idx.bind_allocator(cx);
-    self.empty_index_pool.bind_allocator(cx);
-    self.task_pool.bind(cx);
-  }
-}
-
-#[repr(C)]
-#[std430_layout]
-#[derive(Clone, Copy, ShaderStruct, Debug)]
-pub struct DispatchIndirectArgs {
-  pub x: u32,
-  pub y: u32,
-  pub z: u32,
-}
-
 pub struct TaskGroupDeviceInvocationInstance {
   new_removed_task_idx: DeviceBumpAllocationInvocationInstance<u32>,
   empty_index_pool: DeviceBumpDeAllocationInvocationInstance<u32>,
+  alive_task_idx: DeviceBumpAllocationInvocationInstance<u32>,
   task_pool: TaskPoolInvocationInstance,
 }
 
@@ -514,6 +526,7 @@ impl TaskGroupDeviceInvocationInstance {
     let (idx, success) = self.empty_index_pool.bump_deallocate();
     if_by(success, || {
       self.task_pool.spawn_new_task(idx, payload);
+      self.alive_task_idx.bump_allocate(idx);
     })
     .else_by(|| {
       // error report, theoretically unreachable

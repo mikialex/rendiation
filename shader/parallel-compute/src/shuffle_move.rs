@@ -78,7 +78,7 @@ where
       (data, valid)
     });
 
-    input.get_size_into_adhoc(r).into_boxed()
+    input.adhoc_invoke_with_self_size(r).into_boxed()
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {
@@ -128,7 +128,7 @@ where
       (r, valid)
     });
 
-    shuffle_idx.get_size_into_adhoc(r).into_boxed()
+    shuffle_idx.adhoc_invoke_with_self_size(r).into_boxed()
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {

@@ -32,7 +32,7 @@ impl<I: 'static, O: 'static + Copy> DeviceInvocationComponent<O> for DeviceMapCo
       (output, valid)
     });
 
-    source.get_size_into_adhoc(r).into_boxed()
+    source.adhoc_invoke_with_self_size(r).into_boxed()
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {

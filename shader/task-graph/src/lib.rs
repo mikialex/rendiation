@@ -53,9 +53,3 @@ impl<T: ShaderNodeType> ShaderAbstractRightValue for Node<T> {
     self.make_local_var()
   }
 }
-
-#[derive(Clone, Copy)]
-pub struct DeviceOption<T> {
-  pub is_some: Node<bool>,
-  pub payload: T,
-}
