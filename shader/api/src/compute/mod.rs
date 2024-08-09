@@ -102,7 +102,7 @@ impl ShaderComputePipelineBuilder {
     set_current_building(ShaderStages::Compute.into());
 
     use ShaderBuiltInDecorator::*;
-    Self {
+    let r = Self {
       bindgroups: Default::default(),
       global_invocation_id: ShaderInputNode::BuiltIn(CompGlobalInvocationId).insert_api(),
       local_invocation_id: ShaderInputNode::BuiltIn(CompLocalInvocationId).insert_api(),
@@ -110,7 +110,10 @@ impl ShaderComputePipelineBuilder {
       workgroup_id: ShaderInputNode::BuiltIn(CompWorkgroupId).insert_api(),
       workgroup_count: ShaderInputNode::BuiltIn(CompNumWorkgroup).insert_api(),
       log_result: false,
-    }
+    };
+
+    // if user not setting any workgroup size in building process, we use this as default config
+    r.config_work_group_size(256)
   }
 
   pub fn entry(mut self, f: impl FnOnce(&mut ComputeCx)) -> Self {

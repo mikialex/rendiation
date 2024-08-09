@@ -22,6 +22,8 @@ pub use dyn_ty_builder::*;
 mod bump_allocator;
 pub use bump_allocator::*;
 
+mod test;
+
 /// abstract left value in shader
 pub trait ShaderAbstractLeftValue {
   /// Value must a pure right value in shader (nested pointer is not allowed)

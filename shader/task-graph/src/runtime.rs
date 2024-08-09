@@ -61,11 +61,11 @@ pub struct DeviceTaskGraphExecutor {
 }
 
 impl DeviceTaskGraphExecutor {
-  pub fn empty() -> Self {
+  pub fn new(current_prepared_execution_size: usize) -> Self {
     Self {
       task_groups: Default::default(),
       max_recursion_depth: 6,
-      current_prepared_execution_size: 128,
+      current_prepared_execution_size,
     }
   }
 
@@ -74,13 +74,11 @@ impl DeviceTaskGraphExecutor {
     future: F,
     f_ctx: impl FnOnce() -> F::Ctx,
     device: &GPUDevice,
-    init_size: usize,
     pass: &mut GPUComputePass,
   ) -> u32
   where
     F: DeviceFuture<Output = ()>,
   {
-    let mut compute_cx = compute_shader_builder();
     let task_type = self.task_groups.len();
 
     let task_group_sources: Vec<_> = self.task_groups.iter().map(|x| &x.resource).collect();
@@ -90,9 +88,14 @@ impl DeviceTaskGraphExecutor {
 
     let state_desc = state_builder.meta_info();
 
-    let resource =
-      TaskGroupExecutorResource::create_with_size(init_size, state_desc.clone(), device, pass);
+    let resource = TaskGroupExecutorResource::create_with_size(
+      self.current_prepared_execution_size,
+      state_desc.clone(),
+      device,
+      pass,
+    );
 
+    let mut compute_cx = compute_shader_builder();
     let task_index = compute_cx.entry_by(|cx| {
       let indices = cx.bind_by(&resource.alive_task_idx.storage);
       indices.index(cx.global_invocation_id().x()).load()
@@ -415,9 +418,11 @@ impl TaskPool {
   pub fn build_shader(&self, cx: &mut ComputeCx) -> TaskPoolInvocationInstance {
     let desc = ShaderBindingDescriptor {
       should_as_storage_buffer_if_is_buffer_like: true,
-      ty: ShaderValueType::Single(ShaderValueSingleType::Sized(ShaderSizedValueType::Struct(
-        self.state_desc.ty.clone(),
-      ))),
+      ty: ShaderValueType::Single(ShaderValueSingleType::Unsized(
+        ShaderUnSizedValueType::UnsizedArray(Box::new(ShaderSizedValueType::Struct(
+          self.state_desc.ty.clone(),
+        ))),
+      )),
       writeable_if_storage: true,
     };
     let node = cx.bindgroups().binding_dyn(desc).compute_node;
@@ -563,6 +568,10 @@ impl TaskPoolInvocationInstance {
     }
   }
 
+  pub fn read_is_finished(&self, task: Node<u32>) -> StorageNode<bool> {
+    let item_ptr = self.access_item_ptr(task);
+    unsafe { index_access_field(item_ptr.handle(), 0) }
+  }
   pub fn read_payload<T: ShaderNodeType>(&self, task: Node<u32>) -> StorageNode<T> {
     let item_ptr = self.access_item_ptr(task);
     unsafe { index_access_field(item_ptr.handle(), 1) }
@@ -570,10 +579,5 @@ impl TaskPoolInvocationInstance {
   pub fn read_states(&self, task: Node<u32>) -> StorageNode<AnyType> {
     let item_ptr = self.access_item_ptr(task);
     unsafe { index_access_field(item_ptr.handle(), 2) }
-  }
-
-  pub fn read_is_finished(&self, task: Node<u32>) -> StorageNode<bool> {
-    let item_ptr = self.access_item_ptr(task);
-    unsafe { index_access_field(item_ptr.handle(), 0) }
   }
 }
