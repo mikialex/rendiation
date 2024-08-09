@@ -69,7 +69,7 @@ impl DeviceTaskGraphExecutor {
     }
   }
 
-  pub fn define_task<F>(
+  pub fn define_task<P, F>(
     &mut self,
     future: F,
     f_ctx: impl FnOnce() -> F::Ctx,
@@ -78,6 +78,7 @@ impl DeviceTaskGraphExecutor {
   ) -> u32
   where
     F: DeviceFuture<Output = ()>,
+    P: ShaderSizedValueNodeType,
   {
     let task_type = self.task_groups.len();
 
@@ -88,9 +89,18 @@ impl DeviceTaskGraphExecutor {
 
     let state_desc = state_builder.meta_info();
 
+    let mut task_type_desc = ShaderStructMetaInfo::new("TaskType");
+    task_type_desc.push_field_dyn(
+      "is_finished",
+      ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Uint32),
+    );
+    task_type_desc.push_field_dyn("payload", P::sized_ty());
+    task_type_desc.push_field_dyn("state", ShaderSizedValueType::Struct(state_desc.ty.clone()));
+
     let resource = TaskGroupExecutorResource::create_with_size(
       self.current_prepared_execution_size,
       state_desc.clone(),
+      task_type_desc.clone(),
       device,
       pass,
     );
@@ -119,7 +129,7 @@ impl DeviceTaskGraphExecutor {
     compute_cx.entry_by(|ccx| {
       let poll_result = future.poll(&state, ccx, &mut ctx, &mut f_ctx);
       if_by(poll_result.is_ready, || {
-        task_pool.read_is_finished(task_index).store(true);
+        task_pool.read_is_finished(task_index).store(0);
       });
     });
 
@@ -129,6 +139,7 @@ impl DeviceTaskGraphExecutor {
       polling_pipeline: task_poll_pipeline,
       resource,
       state_desc,
+      task_type_desc,
       required_poll_count: future.required_poll_count(),
     };
     self.task_groups.push(task_executor);
@@ -149,6 +160,7 @@ impl DeviceTaskGraphExecutor {
         dispatch_size,
         self.max_recursion_depth,
         s.state_desc.clone(),
+        s.task_type_desc.clone(),
         pass,
       )
     }
@@ -229,6 +241,7 @@ impl DeviceTaskGraphExecutor {
 
 struct TaskGroupExecutor {
   state_desc: DynamicTypeMetaInfo,
+  task_type_desc: ShaderStructMetaInfo,
   polling_pipeline: GPUComputePipeline,
   resource: TaskGroupExecutorResource,
   required_poll_count: usize,
@@ -312,6 +325,7 @@ impl TaskGroupExecutorResource {
   pub fn create_with_size(
     size: usize,
     state_desc: DynamicTypeMetaInfo,
+    task_ty_desc: ShaderStructMetaInfo,
     device: &GPUDevice,
     pass: &mut GPUComputePass,
   ) -> Self {
@@ -319,7 +333,7 @@ impl TaskGroupExecutorResource {
       alive_task_idx: DeviceBumpAllocationInstance::new(size * 2, device),
       new_removed_task_idx: DeviceBumpAllocationInstance::new(size, device),
       empty_index_pool: DeviceBumpAllocationInstance::new(size * 2, device),
-      task_pool: TaskPool::create_with_size(size * 2, state_desc, device),
+      task_pool: TaskPool::create_with_size(size * 2, state_desc, task_ty_desc, device),
       size,
     };
 
@@ -356,10 +370,11 @@ impl TaskGroupExecutorResource {
     size: usize,
     max_recursion_depth: usize,
     state_desc: DynamicTypeMetaInfo,
+    task_ty_desc: ShaderStructMetaInfo,
     pass: &mut GPUComputePass,
   ) {
     if self.size != size * max_recursion_depth {
-      *self = Self::create_with_size(size, state_desc, &gpu.device, pass);
+      *self = Self::create_with_size(size, state_desc, task_ty_desc, &gpu.device, pass);
     }
   }
 
@@ -394,11 +409,12 @@ impl TaskPool {
   pub fn create_with_size(
     size: usize,
     state_desc: DynamicTypeMetaInfo,
+    task_ty_desc: ShaderStructMetaInfo,
     device: &GPUDevice,
   ) -> Self {
     let usage = BufferUsages::STORAGE;
 
-    let stride = state_desc.ty.size_of_self(StructLayoutTarget::Std430);
+    let stride = task_ty_desc.size_of_self(StructLayoutTarget::Std430);
 
     let init = BufferInit::Zeroed(NonZeroU64::new((size * stride) as u64).unwrap());
     let desc = GPUBufferDescriptor {
@@ -485,7 +501,7 @@ impl DeviceInvocationComponent<Node<bool>> for ActiveTaskCompact {
       let (r, is_valid) = active_tasks.invocation_logic(cx.global_invocation_id());
 
       //  check task_pool access is valid?
-      let r = task_pool.read_is_finished(r).load();
+      let r = task_pool.poll_task_is_finished(r);
       AdhocInvocationResult(size, r, is_valid)
     });
 
@@ -551,10 +567,10 @@ impl TaskPoolInvocationInstance {
   }
 
   pub fn poll_task_is_finished(&self, task_id: Node<u32>) -> Node<bool> {
-    self.read_is_finished(task_id).load()
+    self.read_is_finished(task_id).load().not_equals(0)
   }
   pub fn spawn_new_task<T: ShaderSizedValueNodeType>(&self, at: Node<u32>, payload: Node<T>) {
-    self.read_is_finished(at).store(false);
+    self.read_is_finished(at).store(1);
 
     self.read_payload(at).store(payload);
 
@@ -571,7 +587,7 @@ impl TaskPoolInvocationInstance {
     }
   }
 
-  pub fn read_is_finished(&self, task: Node<u32>) -> StorageNode<bool> {
+  pub fn read_is_finished(&self, task: Node<u32>) -> StorageNode<u32> {
     let item_ptr = self.access_item_ptr(task);
     unsafe { index_access_field(item_ptr.handle(), 0) }
   }
