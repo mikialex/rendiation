@@ -48,6 +48,10 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
     quote! { instance.#field_name.handle(), }
   });
 
+  let to_values = s.map_visible_fields(|(field_name, _ty)| {
+    quote! { self.#field_name.into_shader_ty().to_value(), }
+  });
+
   quote! {
     #[derive(Copy, Clone)]
     pub struct #shader_api_instance_name {
@@ -72,11 +76,19 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
 
     impl rendiation_shader_api::ShaderFieldTypeMapper for #struct_name {
       type ShaderType = #struct_name;
+      fn into_shader_ty(self) -> Self::ShaderType {
+        self
+      }
     }
 
     impl rendiation_shader_api::ShaderSizedValueNodeType for #struct_name {
       fn sized_ty() -> rendiation_shader_api::ShaderSizedValueType {
         rendiation_shader_api::ShaderSizedValueType::Struct(Self::meta_info())
+      }
+      fn to_value(&self) -> ShaderStructFieldInitValue {
+        ShaderStructFieldInitValue::Struct(vec![
+          #(#to_values)*
+        ])
       }
     }
 

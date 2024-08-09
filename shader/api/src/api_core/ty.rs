@@ -55,9 +55,15 @@ impl<T: AtomicityShaderNodeType> ShaderNodeType for DeviceAtomic<T> {
   }
 }
 
-impl<T: AtomicityShaderNodeType> ShaderSizedValueNodeType for DeviceAtomic<T> {
+impl<T> ShaderSizedValueNodeType for DeviceAtomic<T>
+where
+  T: AtomicityShaderNodeType + PrimitiveShaderNodeType,
+{
   fn sized_ty() -> ShaderSizedValueType {
     ShaderSizedValueType::Atomic(T::ATOM)
+  }
+  fn to_value(&self) -> ShaderStructFieldInitValue {
+    ShaderStructFieldInitValue::Primitive(self.0.to_primitive())
   }
 }
 
@@ -191,6 +197,57 @@ pub trait ShaderNodeSingleType: 'static {
 
 pub trait ShaderSizedValueNodeType: ShaderNodeType {
   fn sized_ty() -> ShaderSizedValueType;
+  fn to_value(&self) -> ShaderStructFieldInitValue;
+  fn to_shader_node_by_value(&self) -> Node<Self> {
+    unsafe {
+      self
+        .to_value()
+        .to_shader_node_by_value(&Self::sized_ty())
+        .into_node()
+    }
+  }
+}
+
+#[derive(Clone)]
+pub enum ShaderStructFieldInitValue {
+  Primitive(PrimitiveShaderValue),
+  Struct(Vec<ShaderStructFieldInitValue>),
+  Array(Vec<ShaderStructFieldInitValue>),
+}
+
+impl ShaderStructFieldInitValue {
+  pub fn to_shader_node_by_value(&self, ty: &ShaderSizedValueType) -> ShaderNodeRawHandle {
+    match (self, ty) {
+      (ShaderStructFieldInitValue::Primitive(v), ShaderSizedValueType::Primitive(_)) => {
+        v.into_raw_node()
+      }
+      (ShaderStructFieldInitValue::Struct(parameters), ShaderSizedValueType::Struct(ty)) => {
+        ShaderNodeExpr::Compose {
+          target: ShaderSizedValueType::Struct(ty.clone()),
+          parameters: parameters
+            .iter()
+            .zip(ty.fields.iter())
+            .map(|(v, ty)| v.to_shader_node_by_value(&ty.ty))
+            .collect(),
+        }
+        .insert_api::<AnyType>()
+        .handle()
+      }
+      (
+        ShaderStructFieldInitValue::Array(parameters),
+        ShaderSizedValueType::FixedSizeArray(sty, _),
+      ) => ShaderNodeExpr::Compose {
+        target: ty.clone(),
+        parameters: parameters
+          .iter()
+          .map(|v| v.to_shader_node_by_value(sty))
+          .collect(),
+      }
+      .insert_api::<AnyType>()
+      .handle(),
+      _ => panic!("unexpected type miss match"),
+    }
+  }
 }
 
 pub trait ShaderUnsizedValueNodeType: ShaderNodeType {
@@ -294,6 +351,10 @@ impl<T: ShaderSizedValueNodeType, const N: usize> ShaderSizedValueNodeType for [
   fn sized_ty() -> ShaderSizedValueType {
     ShaderSizedValueType::FixedSizeArray(Box::new(T::sized_ty()), N)
   }
+
+  fn to_value(&self) -> ShaderStructFieldInitValue {
+    ShaderStructFieldInitValue::Array(self.iter().map(|x| x.to_value()).collect())
+  }
 }
 
 impl<T: ShaderSizedValueNodeType, const N: usize> ShaderSizedValueNodeType
@@ -301,6 +362,9 @@ impl<T: ShaderSizedValueNodeType, const N: usize> ShaderSizedValueNodeType
 {
   fn sized_ty() -> ShaderSizedValueType {
     ShaderSizedValueType::FixedSizeArray(Box::new(T::sized_ty()), N)
+  }
+  fn to_value(&self) -> ShaderStructFieldInitValue {
+    ShaderStructFieldInitValue::Array(self.inner.iter().map(|x| x.inner.to_value()).collect())
   }
 }
 

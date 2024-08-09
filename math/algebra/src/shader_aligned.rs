@@ -7,7 +7,7 @@ use crate::*;
 /// Boolean values in GLSL are 32 bits, in contrast with Rust's 8 bit bools.
 #[derive(Clone, Copy, Eq, PartialEq, Zeroable, Pod, Default, Hash)]
 #[repr(transparent)]
-pub struct Bool(u32);
+pub struct Bool(pub u32);
 
 impl From<bool> for Bool {
   fn from(v: bool) -> Self {

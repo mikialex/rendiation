@@ -563,7 +563,10 @@ impl TaskPoolInvocationInstance {
     for (i, v) in self.state_desc.fields_init.iter().enumerate() {
       unsafe {
         let state_field: StorageNode<AnyType> = index_access_field(state_ptr.handle(), i);
-        state_field.store(v.into_raw_node().into_node());
+        state_field.store(
+          v.to_shader_node_by_value(&self.state_desc.ty.fields[i].ty)
+            .into_node(),
+        );
       };
     }
   }
