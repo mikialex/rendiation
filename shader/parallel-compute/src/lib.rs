@@ -652,13 +652,10 @@ impl<'a> DeviceParallelComputeCtx<'a> {
     self
       .gpu
       .device
-      .get_or_cache_create_compute_pipeline(hasher, |device| {
-        compute_shader_builder()
-          .entry(|cx| {
-            creator(cx);
-          })
-          .create_compute_pipeline(device)
-          .unwrap()
+      .get_or_cache_create_compute_pipeline(hasher, |builder| {
+        builder.entry(|cx| {
+          creator(cx);
+        })
       })
   }
 }

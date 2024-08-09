@@ -82,7 +82,7 @@ impl GPUDevice {
     cache.entry(key).or_insert_with(|| creator(self)).clone()
   }
 
-  pub fn get_or_cache_create_compute_pipeline(
+  pub fn get_or_cache_create_compute_pipeline_by(
     &self,
     hasher: PipelineHasher,
     creator: impl FnOnce(&Self) -> GPUComputePipeline,
@@ -91,6 +91,18 @@ impl GPUDevice {
 
     let key = hasher.finish();
     cache.entry(key).or_insert_with(|| creator(self)).clone()
+  }
+
+  pub fn get_or_cache_create_compute_pipeline(
+    &self,
+    hasher: PipelineHasher,
+    creator: impl FnOnce(ShaderComputePipelineBuilder) -> ShaderComputePipelineBuilder,
+  ) -> GPUComputePipeline {
+    self.get_or_cache_create_compute_pipeline_by(hasher, |device| {
+      let builder = compute_shader_builder();
+      let builder = creator(builder);
+      builder.create_compute_pipeline(device).unwrap()
+    })
   }
 
   pub fn create_and_cache_bindgroup_layout(

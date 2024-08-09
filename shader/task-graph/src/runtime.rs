@@ -184,21 +184,17 @@ impl DeviceTaskGraphExecutor {
 
     let hasher = PipelineHasher::default().with_hash(task_spawner.type_id());
     let workgroup_size = 256;
-    let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |device| {
-      compute_shader_builder()
-        .config_work_group_size(workgroup_size)
-        .entry(|cx| {
-          let size_range = cx.bind_by(&size_range);
-          let instance = task_group.resource.build_shader(cx);
-          let id = cx.global_invocation_id().x();
-          let payload = task_spawner(id);
+    let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |builder| {
+      builder.config_work_group_size(workgroup_size).entry(|cx| {
+        let size_range = cx.bind_by(&size_range);
+        let instance = task_group.resource.build_shader(cx);
+        let id = cx.global_invocation_id().x();
+        let payload = task_spawner(id);
 
-          if_by(id.less_than(size_range.load()), || {
-            instance.spawn_new_task(payload);
-          });
-        })
-        .create_compute_pipeline(device)
-        .unwrap()
+        if_by(id.less_than(size_range.load()), || {
+          instance.spawn_new_task(payload);
+        });
+      })
     });
 
     let mut bb = BindingBuilder::new_as_compute().with_bind(&size_range);
@@ -261,17 +257,13 @@ impl TaskGroupExecutor {
         // update alive task count
         {
           let hasher = shader_hasher_from_marker_ty!(SizeUpdate);
-          let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |device| {
-            compute_shader_builder()
-              .config_work_group_size(1)
-              .entry(|cx| {
-                let bump_size = cx.bind_by(&imp.new_removed_task_idx.bump_size);
-                let current_size = cx.bind_by(&imp.alive_task_idx.current_size);
-                let delta = bump_size.atomic_load();
-                current_size.store(current_size.load() - delta);
-              })
-              .create_compute_pipeline(device)
-              .unwrap()
+          let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |builder| {
+            builder.config_work_group_size(1).entry(|cx| {
+              let bump_size = cx.bind_by(&imp.new_removed_task_idx.bump_size);
+              let current_size = cx.bind_by(&imp.alive_task_idx.current_size);
+              let delta = bump_size.atomic_load();
+              current_size.store(current_size.load() - delta);
+            })
           });
 
           BindingBuilder::new_as_compute()
@@ -331,22 +323,18 @@ impl TaskGroupExecutorResource {
     let hasher = shader_hasher_from_marker_ty!(PrepareEmptyIndices);
 
     let workgroup_size = 256;
-    let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |device| {
-      compute_shader_builder()
-        .config_work_group_size(workgroup_size)
-        .entry(|cx| {
-          let empty_pool = cx.bind_by(&res.empty_index_pool.storage);
-          let empty_pool_size = cx.bind_by(&res.empty_index_pool.current_size);
-          let id = cx.global_invocation_id().x();
+    let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |builder| {
+      builder.config_work_group_size(workgroup_size).entry(|cx| {
+        let empty_pool = cx.bind_by(&res.empty_index_pool.storage);
+        let empty_pool_size = cx.bind_by(&res.empty_index_pool.current_size);
+        let id = cx.global_invocation_id().x();
 
-          if_by(id.equals(0), || {
-            empty_pool_size.store(empty_pool.array_length());
-          });
+        if_by(id.equals(0), || {
+          empty_pool_size.store(empty_pool.array_length());
+        });
 
-          empty_pool.index(id).store(id);
-        })
-        .create_compute_pipeline(device)
-        .unwrap()
+        empty_pool.index(id).store(id);
+      })
     });
 
     BindingBuilder::new_as_compute()
