@@ -53,6 +53,17 @@ pub struct CameraTransform {
   pub view_projection_inv: Mat4<f32>,
 }
 
+/// normalized_position: -1 to 1
+pub fn cast_world_ray(view_projection_inv: Mat4<f32>, normalized_position: Vec2<f32>) -> Ray3<f32> {
+  let start = Vec3::new(normalized_position.x, normalized_position.y, -0.5);
+  let end = Vec3::new(normalized_position.x, normalized_position.y, 0.5);
+
+  let world_start = view_projection_inv * start;
+  let world_end = view_projection_inv * end;
+
+  Ray3::from_origin_to_target(world_start, world_end)
+}
+
 #[global_registered_collection]
 pub fn camera_transforms(
 ) -> impl ReactiveCollection<EntityHandle<SceneCameraEntity>, CameraTransform> {

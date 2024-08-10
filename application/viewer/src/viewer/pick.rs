@@ -13,7 +13,11 @@ pub struct ViewerPicker {
 }
 
 impl ViewerPicker {
-  pub fn new(dep: &Viewer3dSceneDerive, input: &PlatformEventInput) -> Self {
+  pub fn new(
+    dep: &Viewer3dSceneDerive,
+    input: &PlatformEventInput,
+    camera_id: EntityHandle<SceneCameraEntity>,
+  ) -> Self {
     let scene_model_picker = SceneModelPickerImpl {
       scene_model_node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
       model_access_std_model: global_entity_component_of::<SceneModelStdModelRenderPayload>()
@@ -40,9 +44,17 @@ impl ViewerPicker {
     let normalized_position =
       compute_normalized_position_in_canvas_coordinate(*mouse_position, *window_size);
 
+    let projection_inv = dep
+      .camera_transforms
+      .access(&camera_id)
+      .unwrap()
+      .projection_inv;
+
+    let current_mouse_ray_in_world = cast_world_ray(projection_inv, normalized_position.into());
+
     ViewerPicker {
       scene_model_picker,
-      current_mouse_ray_in_world: todo!(),
+      current_mouse_ray_in_world,
       conf: Default::default(),
       camera_view_size: Size::from_f32_pair_min_one(input.window_state.size),
     }

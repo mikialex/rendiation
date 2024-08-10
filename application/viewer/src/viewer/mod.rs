@@ -34,15 +34,18 @@ impl Widget for Viewer {
         access_cx!(cx, input, PlatformEventInput);
         access_cx!(cx, derived, Viewer3dSceneDerive);
         access_cx!(cx, viewer_scene, Viewer3dSceneCtx);
+
+        let main_camera_handle = viewer_scene.main_camera;
+
         self.rendering.update_next_render_camera_info(
           derived
             .camera_transforms
-            .access(&viewer_scene.main_camera)
+            .access(&main_camera_handle)
             .unwrap()
             .view_projection_inv,
         );
 
-        let picker = ViewerPicker::new(derived, input);
+        let picker = ViewerPicker::new(derived, input, main_camera_handle);
 
         // todo, scene3d reader
         // let mut writer = Scene3dWriter::from_global(viewer_scene.scene);
