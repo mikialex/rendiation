@@ -391,6 +391,7 @@ impl TaskGroupExecutorResource {
     self.new_removed_task_idx.bind_allocator(cx);
     self.empty_index_pool.bind_allocator(cx);
     self.task_pool.bind(cx);
+    self.alive_task_idx.bind_allocator(cx);
   }
 }
 
@@ -403,6 +404,7 @@ struct TaskPool {
   /// }
   tasks: GPUBufferResourceView,
   state_desc: DynamicTypeMetaInfo,
+  task_ty_desc: ShaderStructMetaInfo,
 }
 
 impl TaskPool {
@@ -428,6 +430,7 @@ impl TaskPool {
     Self {
       tasks: gpu,
       state_desc,
+      task_ty_desc,
     }
   }
 
@@ -436,7 +439,7 @@ impl TaskPool {
       should_as_storage_buffer_if_is_buffer_like: true,
       ty: ShaderValueType::Single(ShaderValueSingleType::Unsized(
         ShaderUnSizedValueType::UnsizedArray(Box::new(ShaderSizedValueType::Struct(
-          self.state_desc.ty.clone(),
+          self.task_ty_desc.clone(),
         ))),
       )),
       writeable_if_storage: true,
@@ -445,6 +448,7 @@ impl TaskPool {
     TaskPoolInvocationInstance {
       pool: unsafe { node.into_node() },
       state_desc: self.state_desc.clone(),
+      payload_ty: self.task_ty_desc.fields[1].ty.clone(),
     }
   }
 
@@ -559,6 +563,7 @@ impl TaskGroupDeviceInvocationInstance {
 struct TaskPoolInvocationInstance {
   pool: StorageNode<[AnyType]>,
   state_desc: DynamicTypeMetaInfo,
+  payload_ty: ShaderSizedValueType,
 }
 
 impl TaskPoolInvocationInstance {
@@ -573,6 +578,8 @@ impl TaskPoolInvocationInstance {
     self.read_is_finished(at).store(1);
 
     self.read_payload(at).store(payload);
+
+    assert_eq!(self.payload_ty, T::sized_ty());
 
     // write states with given init value
     let state_ptr = self.read_states(at);
