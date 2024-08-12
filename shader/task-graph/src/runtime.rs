@@ -266,6 +266,7 @@ impl TaskGroupExecutor {
           task_pool: imp.task_pool.clone(),
         })
         .materialize_storage_buffer(cx)
+        .buffer
         .into_rw_view();
 
       cx.record_pass(|pass, device| {

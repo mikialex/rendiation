@@ -15,6 +15,21 @@ impl<T: ShaderSizedValueNodeType> DeviceInvocation<Node<T>>
   }
 }
 
+impl<T: ShaderSizedValueNodeType> DeviceInvocation<Node<T>>
+  for (Node<ShaderReadOnlyStoragePtr<[T]>>, Node<Vec3<u32>>)
+{
+  fn invocation_logic(&self, logic_global_id: Node<Vec3<u32>>) -> (Node<T>, Node<bool>) {
+    let idx = logic_global_id.x();
+    let r = idx.less_than(self.1.x());
+    let result = r.select_branched(|| self.0.index(idx).load(), || zeroed_val());
+    (result, r)
+  }
+
+  fn invocation_size(&self) -> Node<Vec3<u32>> {
+    self.1
+  }
+}
+
 impl<T> DeviceParallelCompute<Node<T>> for StorageBufferReadOnlyDataView<[T]>
 where
   T: Std430 + ShaderSizedValueNodeType,
@@ -23,7 +38,7 @@ where
     &self,
     _cx: &mut DeviceParallelComputeCtx,
   ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
-    Box::new(StorageBufferReadOnlyDataViewReadIntoShader {
+    Box::new(DeviceMaterializeResult {
       buffer: self.clone(),
       size: None,
     })
@@ -45,7 +60,7 @@ where
     Self: Sized,
     T: Std430 + ShaderSizedValueNodeType,
   {
-    (self.clone(), None)
+    DeviceMaterializeResult::full_buffer(self.clone())
   }
 }
 
@@ -57,11 +72,7 @@ where
     &self,
     cx: &mut DeviceParallelComputeCtx,
   ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
-    let gpu_buffer = self.materialize_storage_buffer(cx);
-    Box::new(StorageBufferReadOnlyDataViewReadIntoShader {
-      buffer: gpu_buffer.0,
-      size: gpu_buffer.1,
-    })
+    self.materialize_storage_buffer(cx).into_boxed()
   }
 
   fn result_size(&self) -> u32 {
@@ -80,7 +91,7 @@ where
     Self: Sized,
     T: Std430 + ShaderSizedValueNodeType,
   {
-    (create_gpu_readonly_storage(self.as_slice(), cx.gpu), None)
+    DeviceMaterializeResult::full_buffer(create_gpu_readonly_storage(self.as_slice(), cx.gpu))
   }
 }
 
@@ -125,13 +136,18 @@ where
   ) -> Box<dyn DeviceInvocation<Node<T>>> {
     let view = builder.entry_by(|cx| cx.bind_by(&self.buffer));
     if let Some(size) = &self.size {
-      todo!()
+      let size = builder.entry_by(|cx| cx.bind_by(size)).load();
+      Box::new((view, size)) as Box<dyn DeviceInvocation<Node<T>>>
+    } else {
+      Box::new(view) as Box<dyn DeviceInvocation<Node<T>>>
     }
-    Box::new(view) as Box<dyn DeviceInvocation<Node<T>>>
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {
-    builder.bind(&self.0);
+    builder.bind(&self.buffer);
+    if let Some(size) = &self.size {
+      builder.bind(size);
+    }
   }
 }
 impl<T: Std430> ShaderHashProvider for DeviceMaterializeResult<T> {
@@ -238,15 +254,18 @@ pub fn custom_write_into_storage_buffer<T: Std430 + ShaderSizedValueNodeType>(
     output,
   };
 
-  write.dispatch_compute(cx);
+  let size = write.dispatch_compute(cx);
 
-  write.output.into_readonly_view()
+  DeviceMaterializeResult {
+    buffer: write.output.into_readonly_view(),
+    size,
+  }
 }
 
 pub fn do_write_into_storage_buffer<T: Std430 + ShaderSizedValueNodeType>(
   source: &(impl DeviceParallelComputeIO<T> + ?Sized),
   cx: &mut DeviceParallelComputeCtx,
-) -> StorageBufferReadOnlyDataView<[T]> {
+) -> DeviceMaterializeResult<T> {
   custom_write_into_storage_buffer(source, cx, |x| x)
 }
 
@@ -263,11 +282,7 @@ impl<T: ShaderSizedValueNodeType + Std430> DeviceParallelCompute<Node<T>>
     &self,
     cx: &mut DeviceParallelComputeCtx,
   ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
-    let temp_result = self.materialize_storage_buffer(cx);
-    Box::new(StorageBufferReadOnlyDataViewReadIntoShader {
-      buffer: temp_result.0,
-      size: temp_result.1,
-    })
+    self.materialize_storage_buffer(cx).into_boxed()
   }
 
   fn result_size(&self) -> u32 {
@@ -282,7 +297,7 @@ impl<T: ShaderSizedValueNodeType + Std430> DeviceParallelComputeIO<T>
     &self,
     cx: &mut DeviceParallelComputeCtx,
   ) -> DeviceMaterializeResult<T> {
-    (do_write_into_storage_buffer(&self.inner, cx), todo!())
+    do_write_into_storage_buffer(&self.inner, cx)
   }
 }
 
@@ -306,10 +321,7 @@ impl<T: ShaderSizedValueNodeType + Std430 + Debug> DeviceParallelCompute<Node<T>
 
     // todo, log should not has any side effect, but we can not return the inner execute_and_expose
     // because forker expect the execute_and_expose is consumed once
-    Box::new(StorageBufferReadOnlyDataViewReadIntoShader {
-      buffer: device_result,
-      size: todo!(),
-    })
+    device_result.into_boxed()
   }
 
   fn result_size(&self) -> u32 {
