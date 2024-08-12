@@ -142,7 +142,25 @@ impl GPUDevice {
   ) -> StorageBufferDataView<DispatchIndirectArgsStorage> {
     let init = DispatchIndirectArgsStorage::default();
     let init = StorageBufferInit::WithInit(&init);
-    create_gpu_read_write_storage(init, self)
+
+    let usage = gpu::BufferUsages::INDIRECT
+      | gpu::BufferUsages::STORAGE
+      | gpu::BufferUsages::COPY_DST
+      | gpu::BufferUsages::COPY_SRC;
+
+    let init = init.into_buffer_init();
+    let desc = GPUBufferDescriptor {
+      size: init.size(),
+      usage,
+    };
+    let gpu = GPUBuffer::create(self, init, usage);
+
+    let gpu = GPUBufferResource::create_with_raw(gpu, desc, self).create_default_view();
+
+    StorageBufferDataView {
+      gpu,
+      phantom: PhantomData,
+    }
   }
 }
 

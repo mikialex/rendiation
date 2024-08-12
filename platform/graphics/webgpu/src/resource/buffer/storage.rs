@@ -1,7 +1,3 @@
-use core::{marker::PhantomData, num::NonZeroU64};
-
-use rendiation_shader_api::{Std430, Std430MaybeUnsized};
-
 use crate::*;
 
 pub struct StorageBufferReadOnlyDataView<T: Std430MaybeUnsized + ?Sized> {
@@ -99,7 +95,7 @@ pub fn create_gpu_readonly_storage<T: Std430MaybeUnsized + ?Sized>(
 
 pub struct StorageBufferDataView<T: Std430MaybeUnsized + ?Sized> {
   pub(crate) gpu: GPUBufferResourceView,
-  phantom: PhantomData<T>,
+  pub(crate) phantom: PhantomData<T>,
 }
 
 impl<T: Std430MaybeUnsized + ?Sized> Clone for StorageBufferDataView<T> {
@@ -207,7 +203,7 @@ pub enum StorageBufferInit<'a, T: Std430MaybeUnsized + ?Sized> {
 }
 
 impl<'a, T: Std430MaybeUnsized + ?Sized> StorageBufferInit<'a, T> {
-  fn into_buffer_init(self) -> BufferInit<'a> {
+  pub fn into_buffer_init(self) -> BufferInit<'a> {
     match self {
       StorageBufferInit::WithInit(data) => BufferInit::WithInit(data.bytes()),
       StorageBufferInit::Zeroed(size) => BufferInit::Zeroed(size),

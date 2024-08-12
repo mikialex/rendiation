@@ -96,14 +96,16 @@ async fn test_reduce() {
   let input: Vec<_> = (0..6).flat_map(|_| (0..6)).collect();
   let expect = vec![0; 6];
 
-  input.stride_reduce_result(6).single_run_test(&expect).await
+  input.stride_reduce_result(6).run_test(&expect).await
 }
 
 #[pollster::test]
 async fn test_expand() {
   use std::iter;
   let input: Vec<_> = (0..6).collect();
-  let expect = (0..6).flat_map(|v| iter::repeat(v).take(6)).collect();
+  let expect = (0..6)
+    .flat_map(|v| iter::repeat(v).take(6))
+    .collect::<Vec<_>>();
 
-  input.stride_expand_result(6).single_run_test(&expect).await
+  input.stride_expand_result(6).run_test(&expect).await
 }

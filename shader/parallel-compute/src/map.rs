@@ -78,7 +78,7 @@ impl<I: 'static, O: Copy + 'static> DeviceParallelComputeIO<O> for DeviceMap<I, 
 async fn test() {
   let input = vec![1_u32; 70];
 
-  let expect = input.iter().map(|v| v + 1).collect();
+  let expect = input.iter().map(|v| v + 1).collect::<Vec<_>>();
 
-  input.map(|v| v + val(1)).single_run_test(&expect).await
+  input.map(|v| v + val(1)).run_test(&expect).await
 }

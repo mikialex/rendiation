@@ -83,7 +83,7 @@ async fn test_storage_buffer() {
   let input = vec![1_u32; 70];
   let expect = input.clone();
 
-  input.single_run_test(&expect).await
+  input.run_test(&expect).await
 }
 
 pub struct StorageBufferReadOnlyDataViewReadIntoShader<T: Std430>(

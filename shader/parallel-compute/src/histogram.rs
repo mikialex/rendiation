@@ -268,8 +268,5 @@ async fn test() {
   let input = [0, 0, 1, 2, 3, 4, 5].to_vec();
   let expect = [2, 1, 1, 1, 1, 1].to_vec();
 
-  input
-    .histogram::<TestRangedU32>(32)
-    .single_run_test(&expect)
-    .await
+  input.histogram::<TestRangedU32>(32).run_test(&expect).await
 }

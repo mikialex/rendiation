@@ -160,7 +160,7 @@ async fn test_workgroup_prefix_sum_kogge_stone() {
 
   input
     .workgroup_scope_prefix_scan_kogge_stone::<AdditionMonoid<_>>(workgroup_size)
-    .single_run_test(&expect)
+    .run_test(&expect)
     .await
 }
 
@@ -180,6 +180,6 @@ async fn test_prefix_sum_kogge_stone() {
 
   input
     .segmented_prefix_scan_kogge_stone::<AdditionMonoid<_>>(workgroup_size, workgroup_size)
-    .single_run_test(&expect)
+    .run_test(&expect)
     .await
 }

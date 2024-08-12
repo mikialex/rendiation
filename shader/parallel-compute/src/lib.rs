@@ -1,3 +1,5 @@
+#![feature(let_chains)]
+
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::hash::Hasher;
@@ -122,7 +124,9 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
       let _ = invocation_source.invocation_logic(invocation_id);
     });
 
-    if let Some(work_size) = self.work_size() {
+    if !cx.force_indirect_dispatch
+      && let Some(work_size) = self.work_size()
+    {
       cx.record_pass(|pass, _| {
         let mut bb = BindingBuilder::new_as_compute();
         self.bind_input(&mut bb);
@@ -157,13 +161,17 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
 
     let size_output = cx.size_scratch.clone();
 
+    // requested_workgroup_size should always be respected
     let workgroup_size = self.requested_workgroup_size().unwrap_or(256);
-    let workgroup_size = create_gpu_readonly_storage(&workgroup_size, &cx.gpu.device);
+    let workgroup_size_buffer = create_gpu_readonly_storage(&workgroup_size, &cx.gpu.device);
 
     let pipeline = cx.get_or_create_compute_pipeline(&SizeWriter(self), |cx| {
-      cx.config_work_group_size(1);
+      cx.config_work_group_size(workgroup_size);
+
+      let size_output = cx.bind_by(&size_output);
+      let workgroup_size = cx.bind_by(&workgroup_size_buffer);
+
       let size = self.build_shader(cx.0).invocation_size();
-      let workgroup_size = cx.bind_by(&workgroup_size);
 
       let size = ENode::<DispatchIndirectArgsStorage> {
         x: device_compute_dispatch_size(size.x(), workgroup_size.load()),
@@ -172,15 +180,16 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
       }
       .construct();
 
-      cx.bind_by(&size_output).store(size);
+      size_output.store(size);
     });
 
     cx.record_pass(|pass, _| {
-      let mut bb = BindingBuilder::new_as_compute();
+      let mut bb = BindingBuilder::new_as_compute()
+        .with_bind(&size_output)
+        .with_bind(&workgroup_size_buffer);
       self.bind_input(&mut bb);
-      bb.with_bind(&size_output)
-        .with_bind(&workgroup_size)
-        .setup_compute_pass(pass, &cx.gpu.device, &pipeline);
+
+      bb.setup_compute_pass(pass, &cx.gpu.device, &pipeline);
       pass.dispatch_workgroups(1, 1, 1);
     });
   }
@@ -345,22 +354,32 @@ where
 #[allow(async_fn_in_trait)]
 pub trait DeviceParallelComputeIOExt<T>: Sized + DeviceParallelComputeIO<T>
 where
-  T: ShaderSizedValueNodeType + Std430 + std::fmt::Debug,
+  T: ShaderSizedValueNodeType + Std430 + Debug,
   Self: 'static,
 {
-  async fn single_run_test(&self, expect: &Vec<T>)
+  async fn run_test(&self, expect: &[T])
   where
-    T: std::fmt::Debug + PartialEq,
+    T: Debug + PartialEq,
   {
     let (gpu, _) = GPU::new(Default::default()).await.unwrap();
     let mut cx = DeviceParallelComputeCtx::new(&gpu);
-    let (_, result) = self.read_back_host(&mut cx).await.unwrap();
-    if expect != &result {
-      panic!(
-        "wrong result:  {:?} \n != \nexpect result: {:?}",
-        result, expect
-      )
+
+    fn check<T: PartialEq + Debug>(expect: &[T], result: &[T]) {
+      if expect != result {
+        panic!(
+          "wrong result:  {:?} \n != \nexpect result: {:?}",
+          result, expect
+        )
+      }
     }
+
+    cx.force_indirect_dispatch = false;
+    let (_, result) = self.read_back_host(&mut cx).await.unwrap();
+    check(expect, &result);
+
+    // cx.force_indirect_dispatch = true;
+    // let (_, result) = self.read_back_host(&mut cx).await.unwrap();
+    // check(expect, &result);
   }
 
   async fn read_back_host(
@@ -605,6 +624,7 @@ pub struct DeviceParallelComputeCtx<'a> {
   encoder: GPUCommandEncoder,
   pass: Option<GPUComputePass<'static>>,
   pub size_scratch: StorageBufferDataView<DispatchIndirectArgsStorage>,
+  pub force_indirect_dispatch: bool,
 }
 
 impl<'a> Drop for DeviceParallelComputeCtx<'a> {
@@ -621,10 +641,8 @@ impl<'a> DeviceParallelComputeCtx<'a> {
       gpu,
       encoder,
       pass: None,
-      size_scratch: create_gpu_read_write_storage(
-        StorageBufferInit::WithInit(&Default::default()),
-        &gpu.device,
-      ),
+      size_scratch: gpu.device.make_indirect_dispatch_size_buffer(),
+      force_indirect_dispatch: false,
     }
   }
 

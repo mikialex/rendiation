@@ -132,7 +132,7 @@ async fn test1() {
 
   input
     .workgroup_scope_reduction::<AdditionMonoid<_>>(workgroup_size)
-    .single_run_test(&expect)
+    .run_test(&expect)
     .await
 }
 
@@ -146,6 +146,6 @@ async fn test2() {
 
   input
     .segmented_reduction::<AdditionMonoid<_>>(workgroup_size, workgroup_size)
-    .single_run_test(&expect)
+    .run_test(&expect)
     .await
 }

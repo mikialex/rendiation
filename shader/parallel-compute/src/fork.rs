@@ -103,8 +103,8 @@ async fn test_not_full_consume() {
   let input = input.into_forker();
   let input2 = input.clone();
 
-  input.single_run_test(&expect).await;
-  input2.single_run_test(&expect).await;
+  input.run_test(&expect).await;
+  input2.run_test(&expect).await;
 }
 
 #[pollster::test]
@@ -119,6 +119,6 @@ async fn test() {
   input
     .zip(input2)
     .map(|(a, b)| a + b)
-    .single_run_test(&expect)
+    .run_test(&expect)
     .await
 }

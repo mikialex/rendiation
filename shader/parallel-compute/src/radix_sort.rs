@@ -163,6 +163,6 @@ async fn test() {
 
   input
     .device_radix_sort_naive::<U32RadixSort>(64, 64)
-    .single_run_test(&expect)
+    .run_test(&expect)
     .await
 }

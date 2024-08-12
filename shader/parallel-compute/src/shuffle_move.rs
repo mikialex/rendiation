@@ -149,6 +149,6 @@ async fn test() {
 
   input
     .shuffle_move(move_target.map(|v| (v, val(true))))
-    .single_run_test(&expect)
+    .run_test(&expect)
     .await
 }
