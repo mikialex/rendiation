@@ -497,20 +497,26 @@ impl DeviceInvocationComponent<Node<bool>> for ActiveTaskCompact {
     &self,
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<Node<bool>>> {
-    let r: AdhocInvocationResult<Node<bool>> = builder.entry_by(|cx| {
+    let inner = builder.entry_by(|cx| {
       let active_tasks = cx.bind_by(&self.active_tasks);
       let size = cx.bind_by(&self.alive_size);
-      let size = (size.load(), val(0), val(0)).into();
       let task_pool = self.task_pool.build_shader(cx);
-
-      let (r, is_valid) = active_tasks.invocation_logic(cx.global_invocation_id());
-
-      //  check task_pool access is valid?
-      let r = task_pool.poll_task_is_finished(r);
-      AdhocInvocationResult(size, r, is_valid)
+      (active_tasks, size, task_pool)
     });
 
-    Box::new(r)
+    RealAdhocInvocationResult {
+      inner,
+      compute: Box::new(|inner, id| {
+        let (r, is_valid) = inner.0.invocation_logic(id);
+
+        //  check task_pool access is valid?
+        let r = inner.2.poll_task_is_finished(r);
+
+        (r, is_valid)
+      }),
+      size: Box::new(|inner| (inner.1.load(), val(0), val(0)).into()),
+    }
+    .into_boxed()
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {

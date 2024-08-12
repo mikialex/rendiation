@@ -88,6 +88,22 @@ pub trait DeviceInvocationExt<T>: DeviceInvocation<T> + 'static + Sized {
 }
 impl<T, X> DeviceInvocationExt<T> for X where X: DeviceInvocation<T> + 'static + Sized {}
 
+pub struct RealAdhocInvocationResult<S, R> {
+  pub inner: S,
+  pub compute: Box<dyn Fn(&S, Node<Vec3<u32>>) -> (R, Node<bool>)>,
+  pub size: Box<dyn Fn(&S) -> Node<Vec3<u32>>>,
+}
+
+impl<S, R> DeviceInvocation<R> for RealAdhocInvocationResult<S, R> {
+  fn invocation_logic(&self, id: Node<Vec3<u32>>) -> (R, Node<bool>) {
+    (self.compute)(&self.inner, id)
+  }
+  fn invocation_size(&self) -> Node<Vec3<u32>> {
+    (self.size)(&self.inner)
+  }
+}
+
+/// i think this is a mistake
 pub struct AdhocInvocationResult<S, T, R> {
   upstream: S,
   phantom: PhantomData<T>,
