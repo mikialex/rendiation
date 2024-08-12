@@ -68,31 +68,33 @@ pub trait DeviceInvocationExt<T>: DeviceInvocation<T> + 'static + Sized {
     Box::new(self)
   }
 
-  fn zip<U>(self, other: impl DeviceInvocation<U> + 'static) -> impl DeviceInvocation<(T, U)> {
+  fn zip<U>(self, other: impl DeviceInvocation<U> + 'static) -> DeviceInvocationZip<T, U> {
     DeviceInvocationZip(self.into_boxed(), other.into_boxed())
   }
 
   fn adhoc_invoke_with_self_size<R>(
     self,
-    r: impl Fn(&dyn DeviceInvocation<T>, Node<Vec3<u32>>) -> (R, Node<bool>) + 'static,
+    r: impl Fn(&Self, Node<Vec3<u32>>) -> (R, Node<bool>) + 'static,
   ) -> impl DeviceInvocation<R>
   where
     R: Copy,
   {
     AdhocInvocationResult {
-      upstream: self.into_boxed(),
+      upstream: self,
+      phantom: PhantomData,
       compute: Box::new(r),
     }
   }
 }
 impl<T, X> DeviceInvocationExt<T> for X where X: DeviceInvocation<T> + 'static + Sized {}
 
-pub struct AdhocInvocationResult<T, R> {
-  upstream: Box<dyn DeviceInvocation<T>>,
-  compute: Box<dyn Fn(&dyn DeviceInvocation<T>, Node<Vec3<u32>>) -> (R, Node<bool>)>,
+pub struct AdhocInvocationResult<S, T, R> {
+  upstream: S,
+  phantom: PhantomData<T>,
+  compute: Box<dyn Fn(&S, Node<Vec3<u32>>) -> (R, Node<bool>)>,
 }
 
-impl<T, R> DeviceInvocation<R> for AdhocInvocationResult<T, R> {
+impl<S: DeviceInvocation<T>, T, R> DeviceInvocation<R> for AdhocInvocationResult<S, T, R> {
   fn invocation_logic(&self, id: Node<Vec3<u32>>) -> (R, Node<bool>) {
     (self.compute)(&self.upstream, id)
   }
@@ -120,7 +122,10 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
 
   fn requested_workgroup_size(&self) -> Option<u32>;
 
-  fn dispatch_compute(&self, cx: &mut DeviceParallelComputeCtx) {
+  fn dispatch_compute(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> Option<StorageBufferReadOnlyDataView<Vec3<u32>>> {
     let workgroup_size = self.requested_workgroup_size().unwrap_or(256);
     let pipeline = cx.get_or_create_compute_pipeline(self, |cx| {
       cx.config_work_group_size(workgroup_size);
@@ -130,18 +135,41 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
       let _ = invocation_source.invocation_logic(invocation_id);
     });
 
-    if !cx.force_indirect_dispatch
-      && let Some(work_size) = self.work_size()
-    {
+    if let Some(indirect_size) = self.compute_work_size_option(cx) {
       cx.record_pass(|pass, _| {
         let mut bb = BindingBuilder::new_as_compute();
         self.bind_input(&mut bb);
         bb.setup_compute_pass(pass, &cx.gpu.device, &pipeline);
-        pass.dispatch_workgroups(compute_dispatch_size(work_size, workgroup_size), 1, 1);
+
+        pass.dispatch_workgroups_indirect_owned(&indirect_size);
       });
+      // Some(indirect_size.into_readonly_view())
+      todo!()
     } else {
-      let size = cx.size_scratch.clone();
-      self.compute_work_size(cx);
+      cx.record_pass(|pass, _| {
+        let mut bb = BindingBuilder::new_as_compute();
+        self.bind_input(&mut bb);
+        bb.setup_compute_pass(pass, &cx.gpu.device, &pipeline);
+        pass.dispatch_workgroups(
+          compute_dispatch_size(self.work_size().unwrap(), workgroup_size),
+          1,
+          1,
+        );
+      });
+      None
+    }
+  }
+
+  fn compute_work_size_option(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> Option<StorageBufferDataView<DispatchIndirectArgsStorage>> {
+    if !cx.force_indirect_dispatch
+      && let Some(work_size) = self.work_size()
+    {
+      None
+    } else {
+      let size = self.compute_work_size(cx);
       cx.record_pass(|pass, _| {
         let mut bb = BindingBuilder::new_as_compute();
         self.bind_input(&mut bb);
@@ -149,10 +177,14 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
 
         pass.dispatch_workgroups_indirect_owned(&size);
       });
+      Some(size)
     }
   }
 
-  fn compute_work_size(&self, cx: &mut DeviceParallelComputeCtx) {
+  fn compute_work_size(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> StorageBufferDataView<DispatchIndirectArgsStorage> {
     struct SizeWriter<'a, T: ?Sized>(&'a T);
     impl<'a, T: ShaderHashProvider + ?Sized> ShaderHashProvider for SizeWriter<'a, T> {
       fn hash_type_info(&self, hasher: &mut PipelineHasher) {
@@ -165,7 +197,7 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
       }
     }
 
-    let size_output = cx.size_scratch.clone();
+    let size_output = cx.gpu.device.make_indirect_dispatch_size_buffer();
 
     // requested_workgroup_size should always be respected
     let workgroup_size = self.requested_workgroup_size().unwrap_or(256);
@@ -198,6 +230,8 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
       bb.setup_compute_pass(pass, &cx.gpu.device, &pipeline);
       pass.dispatch_workgroups(1, 1, 1);
     });
+
+    size_output
   }
 }
 
@@ -630,7 +664,6 @@ pub struct DeviceParallelComputeCtx<'a> {
   pub gpu: &'a GPU,
   encoder: GPUCommandEncoder,
   pass: Option<GPUComputePass<'static>>,
-  pub size_scratch: StorageBufferDataView<DispatchIndirectArgsStorage>,
   pub force_indirect_dispatch: bool,
 }
 

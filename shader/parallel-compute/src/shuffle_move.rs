@@ -30,11 +30,16 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceParallelComputeIO<T> for DataSh
     let input = self.source.execute_and_expose(cx);
     let output = create_gpu_read_write_storage::<[T]>(self.result_size() as usize, &cx.gpu);
 
-    let write = ShuffleWrite { input, output };
+    let write = ShuffleWrite {
+      input,
+      output: output.clone(),
+    };
 
-    write.dispatch_compute(cx);
-
-    write.output.into_readonly_view()
+    let size = write.dispatch_compute(cx);
+    DeviceMaterializeResult {
+      buffer: output.into_readonly_view(),
+      size,
+    }
   }
 }
 
@@ -111,20 +116,19 @@ where
     &self,
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<Node<T>>> {
-    let shuffle_idx = self.shuffle_idx.build_shader(builder);
+    let input = builder.entry_by(|cx| cx.bind_by(&self.source));
 
-    let r = builder.entry_by(|cx| {
-      let invocation_id = cx.local_invocation_id();
-      let input = cx.bind_by(&self.source);
+    self
+      .shuffle_idx
+      .build_shader(builder)
+      .adhoc_invoke_with_self_size(move |shuffle_idx, id| {
+        let (read_idx, valid) = shuffle_idx.invocation_logic(id);
 
-      let (read_idx, valid) = shuffle_idx.invocation_logic(invocation_id);
+        let r = valid.select(input.index(read_idx).load(), zeroed_val());
 
-      let r = valid.select(input.index(read_idx).load(), zeroed_val());
-
-      (r, valid)
-    });
-
-    shuffle_idx.adhoc_invoke_with_self_size(r).into_boxed()
+        (r, valid)
+      })
+      .into_boxed()
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {
@@ -133,7 +137,7 @@ where
   }
 
   fn work_size(&self) -> Option<u32> {
-    todo!()
+    self.shuffle_idx.work_size()
   }
 }
 
