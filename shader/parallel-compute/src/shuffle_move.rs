@@ -13,8 +13,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceParallelCompute<Node<T>>
     &self,
     cx: &mut DeviceParallelComputeCtx,
   ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
-    let temp_result = self.materialize_storage_buffer(cx);
-    Box::new(StorageBufferReadOnlyDataViewReadIntoShader(temp_result))
+    self.materialize_storage_buffer(cx).into_boxed()
   }
   fn result_size(&self) -> u32 {
     self.source.result_size()
@@ -24,7 +23,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceParallelComputeIO<T> for DataSh
   fn materialize_storage_buffer(
     &self,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> StorageBufferReadOnlyDataView<[T]>
+  ) -> DeviceMaterializeResult<T>
   where
     T: Std430 + ShaderSizedValueNodeType,
   {
@@ -63,22 +62,19 @@ where
     &self,
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<Node<T>>> {
-    let input = self.input.build_shader(builder);
+    let output = builder.entry_by(|cx| cx.bind_by(&self.output));
+    self
+      .input
+      .build_shader(builder)
+      .adhoc_invoke_with_self_size(move |input, id| {
+        let ((data, write_idx, should_write), valid) = input.invocation_logic(id);
+        if_by(valid.and(should_write), || {
+          output.index(write_idx).store(data);
+        });
 
-    let r = builder.entry_by(|cx| {
-      let invocation_id = cx.local_invocation_id();
-      let output = cx.bind_by(&self.output);
-
-      let ((data, write_idx, should_write), valid) = input.invocation_logic(invocation_id);
-
-      if_by(valid.and(should_write), || {
-        output.index(write_idx).store(data);
-      });
-
-      (data, valid)
-    });
-
-    input.adhoc_invoke_with_self_size(r).into_boxed()
+        (data, valid)
+      })
+      .into_boxed()
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {

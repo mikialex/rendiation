@@ -38,17 +38,17 @@ impl IntoWorkgroupSize for (u32, u32, u32) {
 
 pub struct ComputeCx<'a>(pub &'a mut ShaderComputePipelineBuilder);
 
+pub fn storage_barrier() {
+  call_shader_api(|api| api.barrier(BarrierScope::Storage))
+}
+
+pub fn workgroup_barrier() {
+  call_shader_api(|api| api.barrier(BarrierScope::WorkGroup))
+}
+
 impl<'a> ComputeCx<'a> {
   pub fn config_work_group_size(&self, size: impl IntoWorkgroupSize) {
     call_shader_api(|api| api.set_workgroup_size(size.into_size()));
-  }
-
-  pub fn storage_barrier(&self) {
-    call_shader_api(|api| api.barrier(BarrierScope::Storage))
-  }
-
-  pub fn workgroup_barrier(&self) {
-    call_shader_api(|api| api.barrier(BarrierScope::WorkGroup))
   }
 
   pub fn global_invocation_id(&self) -> Node<Vec3<u32>> {

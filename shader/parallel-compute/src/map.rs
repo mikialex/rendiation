@@ -22,17 +22,18 @@ impl<I: 'static, O: 'static + Copy> DeviceInvocationComponent<O> for DeviceMapCo
     &self,
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<O>> {
-    let source = self.upstream.build_shader(builder);
+    let mapper = self.mapper.clone();
+    self
+      .upstream
+      .build_shader(builder)
+      .adhoc_invoke_with_self_size(move |upstream, id| {
+        let (input, valid) = upstream.invocation_logic(id);
 
-    let r = builder.entry_by(|cx| {
-      let (input, valid) = source.invocation_logic(cx.global_invocation_id());
+        let output = mapper(input);
 
-      let output = (self.mapper)(input);
-
-      (output, valid)
-    });
-
-    source.adhoc_invoke_with_self_size(r).into_boxed()
+        (output, valid)
+      })
+      .into_boxed()
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {

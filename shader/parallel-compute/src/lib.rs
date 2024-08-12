@@ -36,13 +36,8 @@ pub use histogram::*;
 mod stride_read;
 pub use stride_read::*;
 
-/// pure shader structures
-pub trait DeviceCollection<K, T> {
-  /// should not contain any side effects
-  fn device_access(&self, key: Node<K>) -> (T, Node<bool>);
-}
-
-/// degenerated DeviceCollection, K is the global invocation id in compute ctx
+/// abstract device invocation. the invocation cost should only exist if user has called
+///  `invocation_logic`, as well as invocation_size.
 pub trait DeviceInvocation<T> {
   // todo, we should separate check and access in different fn to avoid unnecessary check;
   fn invocation_logic(&self, logic_global_id: Node<Vec3<u32>>) -> (T, Node<bool>);
@@ -72,26 +67,37 @@ pub trait DeviceInvocationExt<T>: DeviceInvocation<T> + 'static + Sized {
   fn into_boxed(self) -> Box<dyn DeviceInvocation<T>> {
     Box::new(self)
   }
+
   fn zip<U>(self, other: impl DeviceInvocation<U> + 'static) -> impl DeviceInvocation<(T, U)> {
     DeviceInvocationZip(self.into_boxed(), other.into_boxed())
   }
-  fn adhoc_invoke_with_self_size<R>(self, r: (R, Node<bool>)) -> impl DeviceInvocation<R>
+
+  fn adhoc_invoke_with_self_size<R>(
+    self,
+    r: impl Fn(&dyn DeviceInvocation<T>, Node<Vec3<u32>>) -> (R, Node<bool>) + 'static,
+  ) -> impl DeviceInvocation<R>
   where
     R: Copy,
   {
-    AdhocInvocationResult(self.invocation_size(), r.0, r.1)
+    AdhocInvocationResult {
+      upstream: self.into_boxed(),
+      compute: Box::new(r),
+    }
   }
 }
 impl<T, X> DeviceInvocationExt<T> for X where X: DeviceInvocation<T> + 'static + Sized {}
 
-pub struct AdhocInvocationResult<T>(pub Node<Vec3<u32>>, pub T, pub Node<bool>);
+pub struct AdhocInvocationResult<T, R> {
+  upstream: Box<dyn DeviceInvocation<T>>,
+  compute: Box<dyn Fn(&dyn DeviceInvocation<T>, Node<Vec3<u32>>) -> (R, Node<bool>)>,
+}
 
-impl<T: Copy> DeviceInvocation<T> for AdhocInvocationResult<T> {
-  fn invocation_logic(&self, _: Node<Vec3<u32>>) -> (T, Node<bool>) {
-    (self.1, self.2)
+impl<T, R> DeviceInvocation<R> for AdhocInvocationResult<T, R> {
+  fn invocation_logic(&self, id: Node<Vec3<u32>>) -> (R, Node<bool>) {
+    (self.compute)(&self.upstream, id)
   }
   fn invocation_size(&self) -> Node<Vec3<u32>> {
-    self.0
+    self.upstream.invocation_size()
   }
 }
 
@@ -230,15 +236,15 @@ pub trait DeviceParallelCompute<T>: DynClone {
 /// well.
 pub trait DeviceParallelComputeIO<T>: DeviceParallelCompute<Node<T>> {
   /// if the implementation already has materialized storage buffer, should provide it directly to
-  /// avoid re-materialize cost
+  /// avoid re-materialize cost, the user should not mutate the materialized result
   fn materialize_storage_buffer(
     &self,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> StorageBufferReadOnlyDataView<[T]>
+  ) -> DeviceMaterializeResult<T>
   where
     T: Std430 + ShaderSizedValueNodeType,
   {
-    do_write_into_storage_buffer(self, cx)
+    (do_write_into_storage_buffer(self, cx), todo!())
   }
 }
 
@@ -279,7 +285,7 @@ impl<T> DeviceParallelComputeIO<T> for Box<dyn DeviceParallelComputeIO<T>> {
   fn materialize_storage_buffer(
     &self,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> StorageBufferReadOnlyDataView<[T]>
+  ) -> DeviceMaterializeResult<T>
   where
     T: Std430 + ShaderSizedValueNodeType,
   {
@@ -382,11 +388,12 @@ where
     // check(expect, &result);
   }
 
+  // todo, read back real size on device
   async fn read_back_host(
     &self,
     cx: &mut DeviceParallelComputeCtx<'_>,
   ) -> Result<(StorageBufferReadOnlyDataView<[T]>, Vec<T>), BufferAsyncError> {
-    let output = self.materialize_storage_buffer(cx);
+    let (output, _) = self.materialize_storage_buffer(cx);
     cx.flush_pass();
     let result = cx.encoder.read_buffer(&cx.gpu.device, &output);
     cx.submit_recorded_work_and_continue();

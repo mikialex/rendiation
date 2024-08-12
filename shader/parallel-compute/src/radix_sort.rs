@@ -80,7 +80,7 @@ impl DeviceParallelCompute<Node<u32>> for RadixShuffleMove {
     cx: &mut DeviceParallelComputeCtx,
   ) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
     Box::new(RadixShuffleMoveCompute {
-      ones_before: self.ones_before.materialize_storage_buffer(cx),
+      ones_before: self.ones_before.materialize_storage_buffer(cx).into_boxed(),
       is_one: self.is_one.execute_and_expose(cx),
     })
   }
@@ -92,7 +92,7 @@ impl DeviceParallelCompute<Node<u32>> for RadixShuffleMove {
 impl DeviceParallelComputeIO<u32> for RadixShuffleMove {}
 
 struct RadixShuffleMoveCompute {
-  ones_before: StorageBufferReadOnlyDataView<[u32]>,
+  ones_before: Box<dyn DeviceInvocationComponent<Node<u32>>>,
   is_one: Box<dyn DeviceInvocationComponent<Node<bool>>>,
 }
 
@@ -111,6 +111,10 @@ impl DeviceInvocationComponent<Node<u32>> for RadixShuffleMoveCompute {
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<Node<u32>>> {
     let is_one = self.is_one.build_shader(builder);
+    let ones_before = self.ones_before.build_shader(builder);
+
+    // is_one.zip(ones_before).ad
+
     let invocation_size = is_one.invocation_size();
     let r = builder.entry_by(|cx| {
       let ones_before_arr = cx.bind_by(&self.ones_before);

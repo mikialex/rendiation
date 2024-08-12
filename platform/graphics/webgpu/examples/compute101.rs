@@ -27,13 +27,13 @@ pub async fn main() {
       shared.index(local_id).store(value.load());
 
       workgroup_size.ilog2().into_shader_iter().for_each(|i, _| {
-        cx.workgroup_barrier();
+        workgroup_barrier();
 
         if_by(local_id.greater_equal_than(val(1) << i), || {
           value.store(value.load() + shared.index(local_id - (val(1) << i)).load())
         });
 
-        cx.workgroup_barrier();
+        workgroup_barrier();
         shared.index(local_id).store(value.load())
       });
 

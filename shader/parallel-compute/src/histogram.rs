@@ -42,28 +42,32 @@ where
     &self,
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<Node<u32>>> {
-    let source = self.upstream.build_shader(builder);
-
-    let r = builder.entry_by(|cx| {
-      let (input, valid) = source.invocation_logic(cx.global_invocation_id());
-
+    let (local_id, shared) = builder.entry_by(|cx| {
+      let local_id = cx.local_invocation_id().x();
       let shared =
         cx.define_workgroup_shared_var_host_size_array::<DeviceAtomic<u32>>(self.workgroup_size);
-
-      if_by(valid, || {
-        let target = S::map(input);
-        shared.index(target).atomic_add(val(1));
-      });
-
-      cx.workgroup_barrier();
-
-      let local_x = cx.local_invocation_id().x();
-      let output_valid = local_x.less_than(S::MAX);
-      let result = output_valid.select_branched(|| shared.index(local_x).atomic_load(), || val(0));
-      (result, output_valid)
+      (local_id, shared)
     });
 
-    source.adhoc_invoke_with_self_size(r).into_boxed()
+    self
+      .upstream
+      .build_shader(builder)
+      .adhoc_invoke_with_self_size(move |upstream, id| {
+        let (input, valid) = upstream.invocation_logic(id);
+
+        if_by(valid, || {
+          let target = S::map(input);
+          shared.index(target).atomic_add(val(1));
+        });
+
+        workgroup_barrier();
+
+        let output_valid = local_id.less_than(S::MAX);
+        let result =
+          output_valid.select_branched(|| shared.index(local_id).atomic_load(), || val(0));
+        (result, output_valid)
+      })
+      .into_boxed()
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {
@@ -120,7 +124,7 @@ where
   fn materialize_storage_buffer(
     &self,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> StorageBufferReadOnlyDataView<[u32]>
+  ) -> DeviceMaterializeResult<u32>
   where
     u32: Std430 + ShaderSizedValueNodeType,
   {
@@ -158,23 +162,25 @@ where
     &self,
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<Node<u32>>> {
-    let computed_workgroup_level = self.workgroup_level.build_shader(builder);
-
-    let r = builder.entry_by(|cx| {
+    let (local_id, result) = builder.entry_by(|cx| {
+      let local_id = cx.local_invocation_id().x();
       let result = cx.bind_by(&self.result);
-      let workgroup_level_histogram =
-        computed_workgroup_level.invocation_logic(cx.global_invocation_id());
-      let histogram_idx = cx.local_invocation_id().x();
-
-      result
-        .index(histogram_idx)
-        .atomic_store(workgroup_level_histogram.0);
-
-      workgroup_level_histogram
+      (local_id, result)
     });
 
-    computed_workgroup_level
-      .adhoc_invoke_with_self_size(r)
+    self
+      .workgroup_level
+      .build_shader(builder)
+      .adhoc_invoke_with_self_size(move |workgroup_level, id| {
+        let workgroup_level_histogram = workgroup_level.invocation_logic(id);
+        let histogram_idx = local_id;
+
+        result
+          .index(histogram_idx)
+          .atomic_store(workgroup_level_histogram.0);
+
+        workgroup_level_histogram
+      })
       .into_boxed()
   }
 
@@ -239,16 +245,18 @@ where
   fn materialize_storage_buffer(
     &self,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> StorageBufferReadOnlyDataView<[u32]>
+  ) -> DeviceMaterializeResult<u32>
   where
     u32: Std430 + ShaderSizedValueNodeType,
   {
     let compute_instance = self.create_compute_instance_impl(cx);
     compute_instance.dispatch_compute(cx);
-    compute_instance
-      .result
-      .into_host_nonatomic_array()
-      .into_readonly_view()
+    DeviceMaterializeResult::full_buffer(
+      compute_instance
+        .result
+        .into_host_nonatomic_array()
+        .into_readonly_view(),
+    )
   }
 }
 

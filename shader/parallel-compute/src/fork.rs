@@ -10,7 +10,7 @@ pub struct ComputeResultForker<T: Std430> {
 // todo mem leak
 pub struct ComputeResultForkerInstance<T: Std430> {
   pub upstream: Arc<ComputeResultForker<T>>,
-  pub result: Arc<RwLock<Option<StorageBufferReadOnlyDataView<[T]>>>>,
+  pub result: Arc<RwLock<Option<DeviceMaterializeResult<T>>>>,
 }
 
 impl<T: Std430> ComputeResultForkerInstance<T> {
@@ -58,7 +58,7 @@ where
     &self,
     cx: &mut DeviceParallelComputeCtx,
   ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
-    self.materialize_storage_buffer(cx).execute_and_expose(cx)
+    self.materialize_storage_buffer(cx).into_boxed()
   }
   fn result_size(&self) -> u32 {
     self.upstream.size_cache
@@ -72,7 +72,7 @@ where
   fn materialize_storage_buffer(
     &self,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> StorageBufferReadOnlyDataView<[T]>
+  ) -> DeviceMaterializeResult<T>
   where
     Self: Sized,
     T: Std430 + ShaderSizedValueNodeType,
