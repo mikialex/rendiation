@@ -15,4 +15,7 @@ async fn test_task_graph() {
   }
 
   gpu.submit_encoder(encoder);
+
+  let mut cx = DeviceParallelComputeCtx::new(&gpu);
+  graph.execute(&mut cx);
 }

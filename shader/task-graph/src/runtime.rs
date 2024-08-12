@@ -18,7 +18,7 @@ impl<'a> DeviceTaskSystemBuildCtx<'a> {
       .entry(task_type)
       .or_insert_with(|| {
         let source = &self.all_task_group_sources[task_type];
-        source.build_shader(ccx)
+        source.build_shader_for_spawner(ccx)
       })
   }
 
@@ -133,10 +133,10 @@ impl DeviceTaskGraphExecutor {
       });
     });
 
-    let task_poll_pipeline = compute_cx.create_compute_pipeline(device).unwrap();
+    let polling_pipeline = compute_cx.create_compute_pipeline(device).unwrap();
 
     let task_executor = TaskGroupExecutor {
-      polling_pipeline: task_poll_pipeline,
+      polling_pipeline,
       resource,
       state_desc,
       task_type_desc,
@@ -202,7 +202,7 @@ impl DeviceTaskGraphExecutor {
     let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |builder| {
       builder.config_work_group_size(workgroup_size).entry(|cx| {
         let size_range = cx.bind_by(&size_range);
-        let instance = task_group.resource.build_shader(cx);
+        let instance = task_group.resource.build_shader_for_spawner(cx);
         let id = cx.global_invocation_id().x();
         let payload = task_spawner(id);
 
@@ -213,7 +213,7 @@ impl DeviceTaskGraphExecutor {
     });
 
     let mut bb = BindingBuilder::new_as_compute().with_bind(&size_range);
-    task_group.resource.bind(&mut bb);
+    task_group.resource.bind_for_spawner(&mut bb);
     bb.setup_compute_pass(pass, device, &pipeline);
 
     let size = compute_dispatch_size(dispatch_size, workgroup_size);
@@ -231,8 +231,8 @@ impl DeviceTaskGraphExecutor {
 
     // todo, impl more conservative upper execute bound
     for _ in 0..required_round {
-      for stage in &mut self.task_groups {
-        stage.execute(cx);
+      for task in &mut self.task_groups {
+        task.execute(cx);
       }
     }
     // todo check state states to make sure no task remains
@@ -303,8 +303,8 @@ impl TaskGroupExecutor {
         .drain_self_into_the_other(&imp.empty_index_pool, pass, device);
 
       // dispatch tasks
-      let mut bb = BindingBuilder::new_as_compute();
-      imp.bind(&mut bb);
+      let mut bb = BindingBuilder::new_as_compute().with_bind(&imp.alive_task_idx.storage);
+      imp.task_pool.bind(&mut bb);
       bb.setup_compute_pass(pass, device, &self.polling_pipeline);
       let size = imp.alive_task_idx.prepare_dispatch_size(pass, device, 64);
       pass.dispatch_workgroups_indirect_owned(&size);
@@ -378,7 +378,7 @@ impl TaskGroupExecutorResource {
     }
   }
 
-  fn build_shader(&self, cx: &mut ComputeCx) -> TaskGroupDeviceInvocationInstance {
+  fn build_shader_for_spawner(&self, cx: &mut ComputeCx) -> TaskGroupDeviceInvocationInstance {
     TaskGroupDeviceInvocationInstance {
       new_removed_task_idx: self.new_removed_task_idx.build_allocator_shader(cx),
       empty_index_pool: self.empty_index_pool.build_deallocator_shader(cx),
@@ -387,7 +387,7 @@ impl TaskGroupExecutorResource {
     }
   }
 
-  fn bind(&self, cx: &mut BindingBuilder) {
+  fn bind_for_spawner(&self, cx: &mut BindingBuilder) {
     self.new_removed_task_idx.bind_allocator(cx);
     self.empty_index_pool.bind_allocator(cx);
     self.task_pool.bind(cx);

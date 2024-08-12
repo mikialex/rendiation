@@ -607,6 +607,13 @@ pub struct DeviceParallelComputeCtx<'a> {
   pub size_scratch: StorageBufferDataView<DispatchIndirectArgsStorage>,
 }
 
+impl<'a> Drop for DeviceParallelComputeCtx<'a> {
+  fn drop(&mut self) {
+    // make sure pass is dropped before encoder.
+    self.flush_pass();
+  }
+}
+
 impl<'a> DeviceParallelComputeCtx<'a> {
   pub fn new(gpu: &'a GPU) -> Self {
     let encoder = gpu.create_encoder();
