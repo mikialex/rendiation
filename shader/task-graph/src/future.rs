@@ -18,13 +18,13 @@ pub trait DeviceFuture {
   type Ctx;
   fn create_or_reconstruct_state(&self, ctx: &mut DynamicTypeBuilder) -> Self::State;
   fn required_poll_count(&self) -> usize;
-  fn poll(
+  fn build_poll(
     &self,
     state: &Self::State,
-    compute_cx: &mut ShaderComputePipelineBuilder,
     ctx: &mut DeviceTaskSystemBuildCtx,
     f_ctx: &mut Self::Ctx,
   ) -> DevicePoll<Self::Output>;
+  fn bind_input(&self, builder: &mut BindingBuilder);
 }
 
 pub trait DeviceFutureExt: Sized + DeviceFuture {
@@ -73,15 +73,16 @@ where
     1
   }
 
-  fn poll(
+  fn build_poll(
     &self,
     _: &Self::State,
-    _: &mut ShaderComputePipelineBuilder,
     _: &mut DeviceTaskSystemBuildCtx,
     _: &mut Self::Ctx,
   ) -> DevicePoll<Self::Output> {
     (val(true), Default::default()).into()
   }
+
+  fn bind_input(&self, _: &mut BindingBuilder) {}
 }
 
 pub struct ShaderFutureMap<F, T, O> {
@@ -105,10 +106,9 @@ where
     self.upstream.required_poll_count()
   }
 
-  fn poll(
+  fn build_poll(
     &self,
     state: &Self::State,
-    ccx: &mut ShaderComputePipelineBuilder,
     ctx: &mut DeviceTaskSystemBuildCtx,
     f_ctx: &mut Self::Ctx,
   ) -> DevicePoll<Self::Output> {
@@ -116,7 +116,7 @@ where
 
     let output = O::default().into_local_left_value();
     if_by(upstream_resolved.abstract_load().not(), || {
-      let r = self.upstream.poll(parent_state, ccx, ctx, f_ctx);
+      let r = self.upstream.build_poll(parent_state, ctx, f_ctx);
       if_by(r.is_ready, || {
         let o = (self.map)(f_ctx);
         output.abstract_store(o);
@@ -124,6 +124,10 @@ where
     });
 
     (upstream_resolved.abstract_load(), output.abstract_load()).into()
+  }
+
+  fn bind_input(&self, builder: &mut BindingBuilder) {
+    self.upstream.bind_input(builder)
   }
 
   fn create_or_reconstruct_state(&self, ctx: &mut DynamicTypeBuilder) -> Self::State {
@@ -164,10 +168,9 @@ where
     self.upstream.required_poll_count() + self.then.required_poll_count()
   }
 
-  fn poll(
+  fn build_poll(
     &self,
     state: &Self::State,
-    ccx: &mut ShaderComputePipelineBuilder,
     ctx: &mut DeviceTaskSystemBuildCtx,
     f_ctx: &mut Self::Ctx,
   ) -> DevicePoll<Self::Output> {
@@ -179,7 +182,7 @@ where
     } = state;
 
     if_by(upstream_resolved.abstract_load().not(), || {
-      let r = self.upstream.poll(upstream_state, ccx, ctx, f_ctx);
+      let r = self.upstream.build_poll(upstream_state, ctx, f_ctx);
       if_by(r.is_ready, || {
         upstream_resolved.abstract_store(val(true));
         let next = (self.create_then_state_instance)(f_ctx, r.payload);
@@ -189,7 +192,7 @@ where
 
     let output = T::Output::default().into_local_left_value();
     if_by(then_resolved.abstract_load(), || {
-      let r = self.then.poll(then_state, ccx, ctx, f_ctx);
+      let r = self.then.build_poll(then_state, ctx, f_ctx);
       if_by(r.is_ready, || {
         output.abstract_store(r.payload);
         then_resolved.abstract_store(val(true));
@@ -197,6 +200,10 @@ where
     });
 
     (then_resolved.abstract_load(), output.abstract_load()).into()
+  }
+
+  fn bind_input(&self, builder: &mut BindingBuilder) {
+    self.upstream.bind_input(builder)
   }
 
   fn create_or_reconstruct_state(&self, ctx: &mut DynamicTypeBuilder) -> Self::State {
@@ -227,24 +234,18 @@ where
     ctx.create_or_reconstruct_inline_state(u32::MAX)
   }
 
-  fn poll(
+  fn build_poll(
     &self,
     state: &Self::State,
-    ccx: &mut ShaderComputePipelineBuilder,
     ctx: &mut DeviceTaskSystemBuildCtx,
     _: &mut Self::Ctx,
   ) -> DevicePoll<Self::Output> {
     let output = zeroed_val().into_local_left_value();
 
-    ctx.poll_task::<T>(
-      self.0 .0,
-      state.abstract_load(),
-      |r| {
-        output.abstract_store(r);
-        state.abstract_store(val(u32::MAX));
-      },
-      ccx,
-    );
+    ctx.poll_task::<T>(self.0 .0, state.abstract_load(), |r| {
+      output.abstract_store(r);
+      state.abstract_store(val(u32::MAX));
+    });
 
     (
       state.abstract_load().equals(u32::MAX),
@@ -252,4 +253,6 @@ where
     )
       .into()
   }
+
+  fn bind_input(&self, _: &mut BindingBuilder) {}
 }

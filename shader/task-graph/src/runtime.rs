@@ -1,24 +1,28 @@
 use crate::*;
 
 pub struct DeviceTaskSystemBuildCtx<'a> {
+  compute_cx: &'a mut ShaderComputePipelineBuilder,
   all_task_group_sources: Vec<&'a TaskGroupExecutorResource>,
   self_task_idx: Node<u32>,
   self_task: TaskPoolInvocationInstance,
   tasks_depend_on_self: FastHashMap<usize, TaskGroupDeviceInvocationInstance>,
+  // the rust hashmap is not ordered
+  tasks_depend_on_self_bind_order: Vec<usize>,
 }
 
 impl<'a> DeviceTaskSystemBuildCtx<'a> {
+  // todo, handle self task spawner
   fn get_or_create_task_group_instance(
     &mut self,
     task_type: usize,
-    ccx: &mut ShaderComputePipelineBuilder,
   ) -> &mut TaskGroupDeviceInvocationInstance {
     self
       .tasks_depend_on_self
       .entry(task_type)
       .or_insert_with(|| {
         let source = &self.all_task_group_sources[task_type];
-        source.build_shader_for_spawner(ccx)
+        self.tasks_depend_on_self_bind_order.push(task_type);
+        source.build_shader_for_spawner(self.compute_cx)
       })
   }
 
@@ -31,9 +35,8 @@ impl<'a> DeviceTaskSystemBuildCtx<'a> {
     &mut self,
     task_type: usize,
     argument: Node<T>,
-    cx: &mut ShaderComputePipelineBuilder,
   ) -> Node<u32> {
-    let task_group = self.get_or_create_task_group_instance(task_type, cx);
+    let task_group = self.get_or_create_task_group_instance(task_type);
     task_group.spawn_new_task(argument)
   }
 
@@ -42,9 +45,8 @@ impl<'a> DeviceTaskSystemBuildCtx<'a> {
     task_type: usize,
     task_id: Node<u32>,
     argument_read_back: impl FnOnce(Node<T>) + Copy,
-    cx: &mut ShaderComputePipelineBuilder,
   ) -> Node<bool> {
-    let task_group = self.get_or_create_task_group_instance(task_type, cx);
+    let task_group = self.get_or_create_task_group_instance(task_type);
     let finished = task_group.poll_task_is_finished(task_id);
     if_by(finished, || {
       argument_read_back(task_group.task_pool.rw_payload(task_id).load());
@@ -116,16 +118,19 @@ impl DeviceTaskGraphExecutor {
     let mut ctx = DeviceTaskSystemBuildCtx {
       all_task_group_sources: task_group_sources,
       tasks_depend_on_self: Default::default(),
+      tasks_depend_on_self_bind_order: Default::default(),
       self_task_idx: task_index,
       self_task: pool.clone(),
+      compute_cx: &mut cx,
     };
     let mut f_ctx = f_ctx();
 
-    let poll_result = future.poll(&state, &mut cx, &mut ctx, &mut f_ctx);
+    let poll_result = future.build_poll(&state, &mut ctx, &mut f_ctx);
     if_by(poll_result.is_ready, || {
       pool.rw_is_finished(task_index).store(0);
     });
 
+    let tasks_depend_on_self = ctx.tasks_depend_on_self_bind_order;
     let polling_pipeline = cx.create_compute_pipeline(device).unwrap();
 
     let task_executor = TaskGroupExecutor {
@@ -133,6 +138,7 @@ impl DeviceTaskGraphExecutor {
       resource,
       state_desc,
       task_type_desc,
+      tasks_depend_on_self,
       required_poll_count: future.required_poll_count(),
     };
     self.task_groups.push(task_executor);
@@ -225,9 +231,15 @@ impl DeviceTaskGraphExecutor {
     let required_round = self.max_recursion_depth * max_required_poll_count + 1;
 
     // todo, impl more conservative upper execute bound
+
+    // it's safe because the reference is not overlapped
+    let self_task_groups: &[TaskGroupExecutor] = &self.task_groups;
+    let self_task_groups: &'static [TaskGroupExecutor] =
+      unsafe { std::mem::transmute(self_task_groups) };
+
     for _ in 0..required_round {
       for task in &mut self.task_groups {
-        task.execute(cx);
+        task.execute(cx, self_task_groups);
       }
     }
     // todo check state states to make sure no task remains
@@ -237,13 +249,15 @@ impl DeviceTaskGraphExecutor {
 struct TaskGroupExecutor {
   state_desc: DynamicTypeMetaInfo,
   task_type_desc: ShaderStructMetaInfo,
+  // task_define: Box<dyn DeviceFuture<Output = (), State = Box<dyn Any>, Ctx = Box<dyn Any>>>,
   polling_pipeline: GPUComputePipeline,
+  tasks_depend_on_self: Vec<usize>,
   resource: TaskGroupExecutorResource,
   required_poll_count: usize,
 }
 
 impl TaskGroupExecutor {
-  pub fn execute(&mut self, cx: &mut DeviceParallelComputeCtx) {
+  pub fn execute(&mut self, cx: &mut DeviceParallelComputeCtx, all_tasks: &[Self]) {
     cx.record_pass(|pass, device| {
       self.resource.alive_task_idx.commit_size(pass, device, true);
     });
@@ -302,6 +316,12 @@ impl TaskGroupExecutor {
       // dispatch tasks
       let mut bb = BindingBuilder::new_as_compute().with_bind(&imp.alive_task_idx.storage);
       imp.task_pool.bind(&mut bb);
+
+      for task in &self.tasks_depend_on_self {
+        let task = &all_tasks[*task];
+        task.resource.bind_for_spawner(&mut bb);
+      }
+
       bb.setup_compute_pass(pass, device, &self.polling_pipeline);
       pass.dispatch_workgroups_indirect_owned(&size);
     });
