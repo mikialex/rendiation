@@ -121,7 +121,7 @@ impl DeviceInvocationComponent<Node<u32>> for RadixShuffleMoveCompute {
         let input_size = zip.1.invocation_size().x();
 
         let r = is_one.select(
-          input_size - ones_in_total + ones_before,
+          input_size - val(1) - ones_in_total + ones_before,
           id.x() - ones_before,
         );
         (r, valid)

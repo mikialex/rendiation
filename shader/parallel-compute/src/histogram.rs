@@ -185,8 +185,8 @@ where
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {
-    self.workgroup_level.bind_input(builder);
     builder.bind(&self.result);
+    self.workgroup_level.bind_input(builder);
   }
 
   fn work_size(&self) -> Option<u32> {

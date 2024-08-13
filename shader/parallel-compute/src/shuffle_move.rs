@@ -83,8 +83,8 @@ where
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {
-    self.input.bind_input(builder);
     builder.bind(&self.output);
+    self.input.bind_input(builder);
   }
 
   fn work_size(&self) -> Option<u32> {

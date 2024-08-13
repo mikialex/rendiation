@@ -167,7 +167,7 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
       cx.config_work_group_size(workgroup_size);
       let invocation_source = self.build_shader(cx.0);
 
-      let invocation_id = cx.local_invocation_id();
+      let invocation_id = cx.global_invocation_id();
       let _ = invocation_source.invocation_logic(invocation_id);
     });
     cx.record_pass(|pass, _| {
@@ -427,7 +427,6 @@ where
     // check(expect, &result);
   }
 
-  // todo, read back real size on device
   async fn read_back_host(
     &self,
     cx: &mut DeviceParallelComputeCtx<'_>,
@@ -721,7 +720,8 @@ impl<'a> DeviceParallelComputeCtx<'a> {
     self
       .gpu
       .device
-      .get_or_cache_create_compute_pipeline(hasher, |builder| {
+      .get_or_cache_create_compute_pipeline(hasher, |mut builder| {
+        // builder.enable_log_shader();
         builder.entry(|cx| {
           creator(cx);
         })
