@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use derivative::Derivative;
 use dyn_clone::DynClone;
+use fast_hash_collection::FastHashMap;
 use parking_lot::RwLock;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
@@ -187,6 +188,8 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
     struct SizeWriter<'a, T: ?Sized>(&'a T);
     impl<'a, T: ShaderHashProvider + ?Sized> ShaderHashProvider for SizeWriter<'a, T> {
       fn hash_type_info(&self, hasher: &mut PipelineHasher) {
+        struct Marker;
+        std::any::TypeId::of::<Marker>().hash(hasher);
         self.0.hash_type_info(hasher)
       }
 
@@ -217,8 +220,8 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
 
       let size = ENode::<DispatchIndirectArgsStorage> {
         x: device_compute_dispatch_size(size.x(), workgroup_size.load()),
-        y: size.y(),
-        z: size.z(),
+        y: size.y().max(1),
+        z: size.z().max(1),
       }
       .construct();
 
@@ -422,9 +425,11 @@ where
     let (_, result) = self.read_back_host(&mut cx).await.unwrap();
     check(expect, &result);
 
-    // cx.force_indirect_dispatch = true;
-    // let (_, result) = self.read_back_host(&mut cx).await.unwrap();
-    // check(expect, &result);
+    cx.gpu.device.clear_resource_cache(); // todo , fixme
+
+    cx.force_indirect_dispatch = true;
+    let (_, result) = self.read_back_host(&mut cx).await.unwrap();
+    check(expect, &result);
   }
 
   async fn read_back_host(
@@ -720,8 +725,7 @@ impl<'a> DeviceParallelComputeCtx<'a> {
     self
       .gpu
       .device
-      .get_or_cache_create_compute_pipeline(hasher, |mut builder| {
-        // builder.enable_log_shader();
+      .get_or_cache_create_compute_pipeline(hasher, |builder| {
         builder.entry(|cx| {
           creator(cx);
         })

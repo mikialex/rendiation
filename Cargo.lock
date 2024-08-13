@@ -3405,6 +3405,7 @@ version = "0.1.0"
 dependencies = [
  "derivative",
  "dyn-clone",
+ "fast-hash-collection",
  "futures",
  "num-traits",
  "parking_lot",
