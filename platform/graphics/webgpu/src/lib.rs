@@ -17,7 +17,7 @@ mod types;
 
 use core::fmt::Debug;
 use core::num::NonZeroUsize;
-use std::num::NonZeroU64;
+use core::{marker::PhantomData, num::NonZeroU64};
 use std::{
   any::*,
   borrow::Cow,
@@ -54,6 +54,7 @@ pub use queue::*;
 pub use read::*;
 pub use rendering::*;
 use rendiation_shader_api::*;
+use rendiation_shader_api::{Std430, Std430MaybeUnsized};
 use rendiation_texture_types::*;
 pub use resource::*;
 pub use surface::*;

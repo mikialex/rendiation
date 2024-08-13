@@ -92,7 +92,7 @@ impl DeviceParallelCompute<Node<u32>> for RadixShuffleMove {
 impl DeviceParallelComputeIO<u32> for RadixShuffleMove {}
 
 struct RadixShuffleMoveCompute {
-  ones_before: StorageBufferReadOnlyDataView<[u32]>,
+  ones_before: DeviceMaterializeResult<u32>,
   is_one: Box<dyn DeviceInvocationComponent<Node<bool>>>,
 }
 
@@ -111,33 +111,27 @@ impl DeviceInvocationComponent<Node<u32>> for RadixShuffleMoveCompute {
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<Node<u32>>> {
     let is_one = self.is_one.build_shader(builder);
-    let invocation_size = is_one.invocation_size();
-    let r = builder.entry_by(|cx| {
-      let ones_before_arr = cx.bind_by(&self.ones_before);
+    let ones_before = self.ones_before.build_shader(builder);
 
-      let zip = ones_before_arr.zip(is_one);
+    is_one
+      .zip(ones_before)
+      .adhoc_invoke_with_self_size(|zip, id| {
+        let ((is_one, ones_before), valid) = zip.invocation_logic(id);
+        let ones_in_total = zip.1.end_point();
+        let input_size = zip.1.invocation_size().x();
 
-      let ((ones_before, is_one), valid) = zip.invocation_logic(cx.global_invocation_id());
-
-      let r = is_one.select_branched(
-        || {
-          let input_size = ones_before_arr.array_length() - val(1);
-          let last_ones_before_arr = input_size;
-          let ones_in_total = ones_before_arr.index(last_ones_before_arr).load();
-          input_size - ones_in_total + ones_before
-        },
-        || cx.global_invocation_id().x() - ones_before,
-      );
-
-      (r, valid)
-    });
-
-    AdhocInvocationResult(invocation_size, r.0, r.1).into_boxed()
+        let r = is_one.select(
+          input_size - val(1) - ones_in_total + ones_before,
+          id.x() - ones_before,
+        );
+        (r, valid)
+      })
+      .into_boxed()
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {
     self.is_one.bind_input(builder);
-    builder.bind(&self.ones_before);
+    self.ones_before.bind_input(builder);
   }
 
   fn work_size(&self) -> Option<u32> {
@@ -163,6 +157,6 @@ async fn test() {
 
   input
     .device_radix_sort_naive::<U32RadixSort>(64, 64)
-    .single_run_test(&expect)
+    .run_test(&expect)
     .await
 }

@@ -13,8 +13,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceParallelCompute<Node<T>>
     &self,
     cx: &mut DeviceParallelComputeCtx,
   ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
-    let temp_result = self.materialize_storage_buffer(cx);
-    Box::new(StorageBufferReadOnlyDataViewReadIntoShader(temp_result))
+    self.materialize_storage_buffer(cx).into_boxed()
   }
   fn result_size(&self) -> u32 {
     self.source.result_size()
@@ -24,18 +23,23 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceParallelComputeIO<T> for DataSh
   fn materialize_storage_buffer(
     &self,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> StorageBufferReadOnlyDataView<[T]>
+  ) -> DeviceMaterializeResult<T>
   where
     T: Std430 + ShaderSizedValueNodeType,
   {
     let input = self.source.execute_and_expose(cx);
     let output = create_gpu_read_write_storage::<[T]>(self.result_size() as usize, &cx.gpu);
 
-    let write = ShuffleWrite { input, output };
+    let write = ShuffleWrite {
+      input,
+      output: output.clone(),
+    };
 
-    write.dispatch_compute(cx);
-
-    write.output.into_readonly_view()
+    let size = write.dispatch_compute(cx);
+    DeviceMaterializeResult {
+      buffer: output.into_readonly_view(),
+      size,
+    }
   }
 }
 
@@ -63,27 +67,24 @@ where
     &self,
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<Node<T>>> {
-    let input = self.input.build_shader(builder);
+    let output = builder.entry_by(|cx| cx.bind_by(&self.output));
+    self
+      .input
+      .build_shader(builder)
+      .adhoc_invoke_with_self_size(move |input, id| {
+        let ((data, write_idx, should_write), valid) = input.invocation_logic(id);
+        if_by(valid.and(should_write), || {
+          output.index(write_idx).store(data);
+        });
 
-    let r = builder.entry_by(|cx| {
-      let invocation_id = cx.local_invocation_id();
-      let output = cx.bind_by(&self.output);
-
-      let ((data, write_idx, should_write), valid) = input.invocation_logic(invocation_id);
-
-      if_by(valid.and(should_write), || {
-        output.index(write_idx).store(data);
-      });
-
-      (data, valid)
-    });
-
-    input.adhoc_invoke_with_self_size(r).into_boxed()
+        (data, valid)
+      })
+      .into_boxed()
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {
-    self.input.bind_input(builder);
     builder.bind(&self.output);
+    self.input.bind_input(builder);
   }
 
   fn work_size(&self) -> Option<u32> {
@@ -115,20 +116,19 @@ where
     &self,
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<Node<T>>> {
-    let shuffle_idx = self.shuffle_idx.build_shader(builder);
+    let input = builder.entry_by(|cx| cx.bind_by(&self.source));
 
-    let r = builder.entry_by(|cx| {
-      let invocation_id = cx.local_invocation_id();
-      let input = cx.bind_by(&self.source);
+    self
+      .shuffle_idx
+      .build_shader(builder)
+      .adhoc_invoke_with_self_size(move |shuffle_idx, id| {
+        let (read_idx, valid) = shuffle_idx.invocation_logic(id);
 
-      let (read_idx, valid) = shuffle_idx.invocation_logic(invocation_id);
+        let r = valid.select(input.index(read_idx).load(), zeroed_val());
 
-      let r = valid.select(input.index(read_idx).load(), zeroed_val());
-
-      (r, valid)
-    });
-
-    shuffle_idx.adhoc_invoke_with_self_size(r).into_boxed()
+        (r, valid)
+      })
+      .into_boxed()
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {
@@ -137,7 +137,7 @@ where
   }
 
   fn work_size(&self) -> Option<u32> {
-    todo!()
+    self.shuffle_idx.work_size()
   }
 }
 
@@ -149,6 +149,6 @@ async fn test() {
 
   input
     .shuffle_move(move_target.map(|v| (v, val(true))))
-    .single_run_test(&expect)
+    .run_test(&expect)
     .await
 }

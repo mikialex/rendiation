@@ -18,7 +18,7 @@ impl<'a> DeviceTaskSystemBuildCtx<'a> {
       .entry(task_type)
       .or_insert_with(|| {
         let source = &self.all_task_group_sources[task_type];
-        source.build_shader(ccx)
+        source.build_shader_for_spawner(ccx)
       })
   }
 
@@ -133,10 +133,10 @@ impl DeviceTaskGraphExecutor {
       });
     });
 
-    let task_poll_pipeline = compute_cx.create_compute_pipeline(device).unwrap();
+    let polling_pipeline = compute_cx.create_compute_pipeline(device).unwrap();
 
     let task_executor = TaskGroupExecutor {
-      polling_pipeline: task_poll_pipeline,
+      polling_pipeline,
       resource,
       state_desc,
       task_type_desc,
@@ -202,7 +202,7 @@ impl DeviceTaskGraphExecutor {
     let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |builder| {
       builder.config_work_group_size(workgroup_size).entry(|cx| {
         let size_range = cx.bind_by(&size_range);
-        let instance = task_group.resource.build_shader(cx);
+        let instance = task_group.resource.build_shader_for_spawner(cx);
         let id = cx.global_invocation_id().x();
         let payload = task_spawner(id);
 
@@ -213,7 +213,7 @@ impl DeviceTaskGraphExecutor {
     });
 
     let mut bb = BindingBuilder::new_as_compute().with_bind(&size_range);
-    task_group.resource.bind(&mut bb);
+    task_group.resource.bind_for_spawner(&mut bb);
     bb.setup_compute_pass(pass, device, &pipeline);
 
     let size = compute_dispatch_size(dispatch_size, workgroup_size);
@@ -231,8 +231,8 @@ impl DeviceTaskGraphExecutor {
 
     // todo, impl more conservative upper execute bound
     for _ in 0..required_round {
-      for stage in &mut self.task_groups {
-        stage.execute(cx);
+      for task in &mut self.task_groups {
+        task.execute(cx);
       }
     }
     // todo check state states to make sure no task remains
@@ -266,6 +266,7 @@ impl TaskGroupExecutor {
           task_pool: imp.task_pool.clone(),
         })
         .materialize_storage_buffer(cx)
+        .buffer
         .into_rw_view();
 
       cx.record_pass(|pass, device| {
@@ -303,8 +304,8 @@ impl TaskGroupExecutor {
         .drain_self_into_the_other(&imp.empty_index_pool, pass, device);
 
       // dispatch tasks
-      let mut bb = BindingBuilder::new_as_compute();
-      imp.bind(&mut bb);
+      let mut bb = BindingBuilder::new_as_compute().with_bind(&imp.alive_task_idx.storage);
+      imp.task_pool.bind(&mut bb);
       bb.setup_compute_pass(pass, device, &self.polling_pipeline);
       let size = imp.alive_task_idx.prepare_dispatch_size(pass, device, 64);
       pass.dispatch_workgroups_indirect_owned(&size);
@@ -378,7 +379,7 @@ impl TaskGroupExecutorResource {
     }
   }
 
-  fn build_shader(&self, cx: &mut ComputeCx) -> TaskGroupDeviceInvocationInstance {
+  fn build_shader_for_spawner(&self, cx: &mut ComputeCx) -> TaskGroupDeviceInvocationInstance {
     TaskGroupDeviceInvocationInstance {
       new_removed_task_idx: self.new_removed_task_idx.build_allocator_shader(cx),
       empty_index_pool: self.empty_index_pool.build_deallocator_shader(cx),
@@ -387,10 +388,11 @@ impl TaskGroupExecutorResource {
     }
   }
 
-  fn bind(&self, cx: &mut BindingBuilder) {
+  fn bind_for_spawner(&self, cx: &mut BindingBuilder) {
     self.new_removed_task_idx.bind_allocator(cx);
     self.empty_index_pool.bind_allocator(cx);
     self.task_pool.bind(cx);
+    self.alive_task_idx.bind_allocator(cx);
   }
 }
 
@@ -403,6 +405,7 @@ struct TaskPool {
   /// }
   tasks: GPUBufferResourceView,
   state_desc: DynamicTypeMetaInfo,
+  task_ty_desc: ShaderStructMetaInfo,
 }
 
 impl TaskPool {
@@ -428,6 +431,7 @@ impl TaskPool {
     Self {
       tasks: gpu,
       state_desc,
+      task_ty_desc,
     }
   }
 
@@ -436,7 +440,7 @@ impl TaskPool {
       should_as_storage_buffer_if_is_buffer_like: true,
       ty: ShaderValueType::Single(ShaderValueSingleType::Unsized(
         ShaderUnSizedValueType::UnsizedArray(Box::new(ShaderSizedValueType::Struct(
-          self.state_desc.ty.clone(),
+          self.task_ty_desc.clone(),
         ))),
       )),
       writeable_if_storage: true,
@@ -445,6 +449,7 @@ impl TaskPool {
     TaskPoolInvocationInstance {
       pool: unsafe { node.into_node() },
       state_desc: self.state_desc.clone(),
+      payload_ty: self.task_ty_desc.fields[1].ty.clone(),
     }
   }
 
@@ -492,20 +497,26 @@ impl DeviceInvocationComponent<Node<bool>> for ActiveTaskCompact {
     &self,
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<Node<bool>>> {
-    let r: AdhocInvocationResult<Node<bool>> = builder.entry_by(|cx| {
+    let inner = builder.entry_by(|cx| {
       let active_tasks = cx.bind_by(&self.active_tasks);
       let size = cx.bind_by(&self.alive_size);
-      let size = (size.load(), val(0), val(0)).into();
       let task_pool = self.task_pool.build_shader(cx);
-
-      let (r, is_valid) = active_tasks.invocation_logic(cx.global_invocation_id());
-
-      //  check task_pool access is valid?
-      let r = task_pool.poll_task_is_finished(r);
-      AdhocInvocationResult(size, r, is_valid)
+      (active_tasks, size, task_pool)
     });
 
-    Box::new(r)
+    RealAdhocInvocationResult {
+      inner,
+      compute: Box::new(|inner, id| {
+        let (r, is_valid) = inner.0.invocation_logic(id);
+
+        //  check task_pool access is valid?
+        let r = inner.2.poll_task_is_finished(r);
+
+        (r, is_valid)
+      }),
+      size: Box::new(|inner| (inner.1.load(), val(0), val(0)).into()),
+    }
+    .into_boxed()
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {
@@ -559,6 +570,7 @@ impl TaskGroupDeviceInvocationInstance {
 struct TaskPoolInvocationInstance {
   pool: StorageNode<[AnyType]>,
   state_desc: DynamicTypeMetaInfo,
+  payload_ty: ShaderSizedValueType,
 }
 
 impl TaskPoolInvocationInstance {
@@ -573,6 +585,8 @@ impl TaskPoolInvocationInstance {
     self.read_is_finished(at).store(1);
 
     self.read_payload(at).store(payload);
+
+    assert_eq!(self.payload_ty, T::sized_ty());
 
     // write states with given init value
     let state_ptr = self.read_states(at);
