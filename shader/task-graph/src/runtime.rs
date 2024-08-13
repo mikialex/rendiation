@@ -24,7 +24,7 @@ impl<'a> DeviceTaskSystemBuildCtx<'a> {
 
   pub fn access_self_payload<T: ShaderSizedValueNodeType>(&mut self) -> StorageNode<T> {
     let current = self.self_task_idx;
-    self.self_task.read_payload(current)
+    self.self_task.rw_payload(current)
   }
 
   pub fn spawn_task<T: ShaderSizedValueNodeType>(
@@ -47,7 +47,7 @@ impl<'a> DeviceTaskSystemBuildCtx<'a> {
     let task_group = self.get_or_create_task_group_instance(task_type, cx);
     let finished = task_group.poll_task_is_finished(task_id);
     if_by(finished, || {
-      argument_read_back(task_group.task_pool.read_payload(task_id).load());
+      argument_read_back(task_group.task_pool.rw_payload(task_id).load());
       task_group.cleanup_finished_task_state_and_payload(task_id)
     });
     finished
@@ -129,7 +129,7 @@ impl DeviceTaskGraphExecutor {
     compute_cx.entry_by(|ccx| {
       let poll_result = future.poll(&state, ccx, &mut ctx, &mut f_ctx);
       if_by(poll_result.is_ready, || {
-        task_pool.read_is_finished(task_index).store(0);
+        task_pool.rw_is_finished(task_index).store(0);
       });
     });
 
@@ -228,6 +228,7 @@ impl DeviceTaskGraphExecutor {
       .max()
       .unwrap_or(1);
     let required_round = self.max_recursion_depth * max_required_poll_count + 1;
+    let required_round = 1;
 
     // todo, impl more conservative upper execute bound
     for _ in 0..required_round {
@@ -299,15 +300,15 @@ impl TaskGroupExecutor {
     cx.record_pass(|pass, device| {
       let imp = &mut self.resource;
       // drain empty to empty pool
-      imp
-        .new_removed_task_idx
-        .drain_self_into_the_other(&imp.empty_index_pool, pass, device);
+      let size =
+        imp
+          .new_removed_task_idx
+          .drain_self_into_the_other(&imp.empty_index_pool, pass, device);
 
       // dispatch tasks
       let mut bb = BindingBuilder::new_as_compute().with_bind(&imp.alive_task_idx.storage);
       imp.task_pool.bind(&mut bb);
       bb.setup_compute_pass(pass, device, &self.polling_pipeline);
-      let size = imp.alive_task_idx.prepare_dispatch_size(pass, device, 64);
       pass.dispatch_workgroups_indirect_owned(&size);
     });
   }
@@ -579,17 +580,17 @@ impl TaskPoolInvocationInstance {
   }
 
   pub fn poll_task_is_finished(&self, task_id: Node<u32>) -> Node<bool> {
-    self.read_is_finished(task_id).load().not_equals(0)
+    self.rw_is_finished(task_id).load().not_equals(0)
   }
   pub fn spawn_new_task<T: ShaderSizedValueNodeType>(&self, at: Node<u32>, payload: Node<T>) {
-    self.read_is_finished(at).store(1);
+    self.rw_is_finished(at).store(1);
 
-    self.read_payload(at).store(payload);
+    self.rw_payload(at).store(payload);
 
     assert_eq!(self.payload_ty, T::sized_ty());
 
     // write states with given init value
-    let state_ptr = self.read_states(at);
+    let state_ptr = self.rw_states(at);
     for (i, v) in self.state_desc.fields_init.iter().enumerate() {
       unsafe {
         let state_field: StorageNode<AnyType> = index_access_field(state_ptr.handle(), i);
@@ -601,15 +602,15 @@ impl TaskPoolInvocationInstance {
     }
   }
 
-  pub fn read_is_finished(&self, task: Node<u32>) -> StorageNode<u32> {
+  pub fn rw_is_finished(&self, task: Node<u32>) -> StorageNode<u32> {
     let item_ptr = self.access_item_ptr(task);
     unsafe { index_access_field(item_ptr.handle(), 0) }
   }
-  pub fn read_payload<T: ShaderNodeType>(&self, task: Node<u32>) -> StorageNode<T> {
+  pub fn rw_payload<T: ShaderNodeType>(&self, task: Node<u32>) -> StorageNode<T> {
     let item_ptr = self.access_item_ptr(task);
     unsafe { index_access_field(item_ptr.handle(), 1) }
   }
-  pub fn read_states(&self, task: Node<u32>) -> StorageNode<AnyType> {
+  pub fn rw_states(&self, task: Node<u32>) -> StorageNode<AnyType> {
     let item_ptr = self.access_item_ptr(task);
     unsafe { index_access_field(item_ptr.handle(), 2) }
   }

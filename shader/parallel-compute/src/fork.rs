@@ -31,11 +31,11 @@ impl<T: Std430> ComputeResultForkerInstance<T> {
       id: 0,
     };
 
-    r.upstream.children.write().insert(0, r.link_clone());
+    r.upstream.children.write().insert(0, r.plain_clone());
     r
   }
 
-  fn link_clone(&self) -> Self {
+  fn plain_clone(&self) -> Self {
     Self {
       upstream: self.upstream.clone(),
       result: self.result.clone(),
@@ -57,7 +57,7 @@ impl<T: Std430> Clone for ComputeResultForkerInstance<T> {
       id,
     };
 
-    self.upstream.children.write().insert(id, r.link_clone());
+    self.upstream.children.write().insert(id, r.plain_clone());
 
     r
   }

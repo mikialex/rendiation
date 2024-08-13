@@ -11,7 +11,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
   pub fn new(size: usize, device: &GPUDevice) -> Self {
     Self {
       storage: create_gpu_read_write_storage(size * std::mem::size_of::<T>(), device),
-      current_size: create_gpu_read_write_storage(StorageBufferInit::WithInit(&0), device),
+      current_size: create_gpu_read_write_storage(StorageBufferInit::WithInit(&0_u32), device),
       bump_size: create_gpu_read_write_storage::<DeviceAtomic<u32>>(
         StorageBufferInit::WithInit(&DeviceAtomic(0)),
         device,
@@ -24,7 +24,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
     pass: &mut GPUComputePass,
     device: &GPUDevice,
     workgroup_size: u32,
-  ) -> StorageBufferDataView<DispatchIndirectArgsStorage> {
+  ) -> StorageBufferReadOnlyDataView<DispatchIndirectArgsStorage> {
     let size = device.make_indirect_dispatch_size_buffer();
     let hasher = shader_hasher_from_marker_ty!(SizeCompute);
     let workgroup_size = create_gpu_readonly_storage(&workgroup_size, device);
@@ -47,13 +47,13 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
     });
 
     BindingBuilder::new_as_compute()
-      .with_bind(&self.storage)
       .with_bind(&self.current_size)
+      .with_bind(&size)
       .with_bind(&workgroup_size)
       .setup_compute_pass(pass, device, &pipeline);
     pass.dispatch_workgroups(1, 1, 1);
 
-    size
+    size.into_readonly_view()
   }
 
   /// because bump allocation or deallocation may overflow or underflow,
@@ -93,7 +93,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
     the_other: &Self,
     pass: &mut GPUComputePass,
     device: &GPUDevice,
-  ) {
+  ) -> StorageBufferReadOnlyDataView<DispatchIndirectArgsStorage> {
     let size = self.prepare_dispatch_size(pass, device, 256);
 
     let hasher = shader_hasher_from_marker_ty!(Drainer);
@@ -127,6 +127,8 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
       .setup_compute_pass(pass, device, &pipeline);
 
     pass.dispatch_workgroups_indirect_owned(&size);
+
+    size
   }
 
   pub fn build_allocator_shader(
