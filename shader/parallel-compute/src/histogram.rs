@@ -42,12 +42,9 @@ where
     &self,
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<Node<u32>>> {
-    let (local_id, shared) = builder.entry_by(|cx| {
-      let local_id = cx.local_invocation_id().x();
-      let shared =
-        cx.define_workgroup_shared_var_host_size_array::<DeviceAtomic<u32>>(self.workgroup_size);
-      (local_id, shared)
-    });
+    let local_id = builder.local_invocation_id().x();
+    let shared =
+      builder.define_workgroup_shared_var_host_size_array::<DeviceAtomic<u32>>(self.workgroup_size);
 
     self
       .upstream
@@ -162,11 +159,8 @@ where
     &self,
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<Node<u32>>> {
-    let (local_id, result) = builder.entry_by(|cx| {
-      let local_id = cx.local_invocation_id().x();
-      let result = cx.bind_by(&self.result);
-      (local_id, result)
-    });
+    let local_id = builder.local_invocation_id().x();
+    let result = builder.bind_by(&self.result);
 
     self
       .workgroup_level

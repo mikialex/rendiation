@@ -53,11 +53,8 @@ where
     &self,
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<Node<T>>> {
-    let (local_id, shared) = builder.entry_by(|cx| {
-      let local_id = cx.local_invocation_id().x();
-      let shared = cx.define_workgroup_shared_var_host_size_array::<T>(self.workgroup_size);
-      (local_id, shared)
-    });
+    let local_id = builder.local_invocation_id().x();
+    let shared = builder.define_workgroup_shared_var_host_size_array::<T>(self.workgroup_size);
 
     let iter = self.workgroup_size.ilog2();
 

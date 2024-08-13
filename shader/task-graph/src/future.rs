@@ -21,7 +21,7 @@ pub trait DeviceFuture {
   fn poll(
     &self,
     state: &Self::State,
-    compute_cx: &mut ComputeCx,
+    compute_cx: &mut ShaderComputePipelineBuilder,
     ctx: &mut DeviceTaskSystemBuildCtx,
     f_ctx: &mut Self::Ctx,
   ) -> DevicePoll<Self::Output>;
@@ -76,7 +76,7 @@ where
   fn poll(
     &self,
     _: &Self::State,
-    _: &mut ComputeCx,
+    _: &mut ShaderComputePipelineBuilder,
     _: &mut DeviceTaskSystemBuildCtx,
     _: &mut Self::Ctx,
   ) -> DevicePoll<Self::Output> {
@@ -108,7 +108,7 @@ where
   fn poll(
     &self,
     state: &Self::State,
-    ccx: &mut ComputeCx,
+    ccx: &mut ShaderComputePipelineBuilder,
     ctx: &mut DeviceTaskSystemBuildCtx,
     f_ctx: &mut Self::Ctx,
   ) -> DevicePoll<Self::Output> {
@@ -167,7 +167,7 @@ where
   fn poll(
     &self,
     state: &Self::State,
-    ccx: &mut ComputeCx,
+    ccx: &mut ShaderComputePipelineBuilder,
     ctx: &mut DeviceTaskSystemBuildCtx,
     f_ctx: &mut Self::Ctx,
   ) -> DevicePoll<Self::Output> {
@@ -230,7 +230,7 @@ where
   fn poll(
     &self,
     state: &Self::State,
-    ccx: &mut ComputeCx,
+    ccx: &mut ShaderComputePipelineBuilder,
     ctx: &mut DeviceTaskSystemBuildCtx,
     _: &mut Self::Ctx,
   ) -> DevicePoll<Self::Output> {

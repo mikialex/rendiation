@@ -18,7 +18,10 @@ impl BindlessDrawCreator {
     binding.bind(&self.metadata);
   }
 
-  pub fn register_shader_resource(&self, cx: &mut ComputeCx) -> BindlessDrawCreatorInDevice {
+  pub fn register_shader_resource(
+    &self,
+    cx: &mut ShaderComputePipelineBuilder,
+  ) -> BindlessDrawCreatorInDevice {
     let node = cx.bind_by(&self.metadata);
     BindlessDrawCreatorInDevice { node }
   }

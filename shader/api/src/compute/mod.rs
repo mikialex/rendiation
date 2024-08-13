@@ -36,63 +36,12 @@ impl IntoWorkgroupSize for (u32, u32, u32) {
   }
 }
 
-pub struct ComputeCx<'a>(pub &'a mut ShaderComputePipelineBuilder);
-
 pub fn storage_barrier() {
   call_shader_api(|api| api.barrier(BarrierScope::Storage))
 }
 
 pub fn workgroup_barrier() {
   call_shader_api(|api| api.barrier(BarrierScope::WorkGroup))
-}
-
-impl<'a> ComputeCx<'a> {
-  pub fn config_work_group_size(&self, size: impl IntoWorkgroupSize) {
-    call_shader_api(|api| api.set_workgroup_size(size.into_size()));
-  }
-
-  pub fn global_invocation_id(&self) -> Node<Vec3<u32>> {
-    self.0.global_invocation_id
-  }
-
-  pub fn local_invocation_id(&self) -> Node<Vec3<u32>> {
-    self.0.local_invocation_id
-  }
-
-  /// https://www.w3.org/TR/WGSL/#local-invocation-index
-  pub fn local_invocation_index(&self) -> Node<u32> {
-    self.0.local_invocation_index
-  }
-
-  pub fn workgroup_id(&self) -> Node<Vec3<u32>> {
-    self.0.workgroup_id
-  }
-
-  pub fn workgroup_count(&self) -> Node<Vec3<u32>> {
-    self.0.workgroup_count
-  }
-
-  pub fn define_workgroup_shared_var<T: ShaderSizedValueNodeType>(&self) -> WorkGroupSharedNode<T> {
-    ShaderInputNode::WorkGroupShared { ty: T::sized_ty() }.insert_api()
-  }
-  pub fn define_workgroup_shared_var_host_size_array<T: ShaderSizedValueNodeType>(
-    &self,
-    len: u32,
-  ) -> WorkGroupSharedNode<HostDynSizeArray<T>> {
-    let ty = ShaderSizedValueType::FixedSizeArray(Box::new(T::sized_ty()), len as usize);
-    ShaderInputNode::WorkGroupShared { ty }.insert_api()
-  }
-  pub fn define_invocation_private_var<T: ShaderSizedValueNodeType>(&self) -> GlobalVarNode<T> {
-    ShaderInputNode::Private { ty: T::sized_ty() }.insert_api()
-  }
-
-  pub fn bindgroups(&mut self) -> &mut ShaderBindGroupBuilder {
-    &mut self.0.bindgroups
-  }
-
-  pub fn bind_by<T: ShaderBindingProvider>(&mut self, instance: &T) -> Node<T::Node> {
-    self.bindgroups().bind_by_and_prepare(instance).using()
-  }
 }
 
 impl ShaderComputePipelineBuilder {
@@ -113,21 +62,60 @@ impl ShaderComputePipelineBuilder {
     };
 
     // if user not setting any workgroup size in building process, we use this as default config
-    r.config_work_group_size(256)
+    r.with_config_work_group_size(256)
   }
 
-  pub fn entry(mut self, f: impl FnOnce(&mut ComputeCx)) -> Self {
-    f(&mut ComputeCx(&mut self));
-    self
-  }
-
-  pub fn entry_by<R>(&mut self, f: impl FnOnce(&mut ComputeCx) -> R) -> R {
-    f(&mut ComputeCx(self))
-  }
-
-  pub fn config_work_group_size(self, size: impl IntoWorkgroupSize) -> Self {
+  pub fn with_config_work_group_size(self, size: impl IntoWorkgroupSize) -> Self {
     call_shader_api(|api| api.set_workgroup_size(size.into_size()));
     self
+  }
+
+  pub fn config_work_group_size(&self, size: impl IntoWorkgroupSize) -> &Self {
+    call_shader_api(|api| api.set_workgroup_size(size.into_size()));
+    self
+  }
+
+  pub fn global_invocation_id(&self) -> Node<Vec3<u32>> {
+    self.global_invocation_id
+  }
+
+  pub fn local_invocation_id(&self) -> Node<Vec3<u32>> {
+    self.local_invocation_id
+  }
+
+  /// https://www.w3.org/TR/WGSL/#local-invocation-index
+  pub fn local_invocation_index(&self) -> Node<u32> {
+    self.local_invocation_index
+  }
+
+  pub fn workgroup_id(&self) -> Node<Vec3<u32>> {
+    self.workgroup_id
+  }
+
+  pub fn workgroup_count(&self) -> Node<Vec3<u32>> {
+    self.workgroup_count
+  }
+
+  pub fn define_workgroup_shared_var<T: ShaderSizedValueNodeType>(&self) -> WorkGroupSharedNode<T> {
+    ShaderInputNode::WorkGroupShared { ty: T::sized_ty() }.insert_api()
+  }
+  pub fn define_workgroup_shared_var_host_size_array<T: ShaderSizedValueNodeType>(
+    &self,
+    len: u32,
+  ) -> WorkGroupSharedNode<HostDynSizeArray<T>> {
+    let ty = ShaderSizedValueType::FixedSizeArray(Box::new(T::sized_ty()), len as usize);
+    ShaderInputNode::WorkGroupShared { ty }.insert_api()
+  }
+  pub fn define_invocation_private_var<T: ShaderSizedValueNodeType>(&self) -> GlobalVarNode<T> {
+    ShaderInputNode::Private { ty: T::sized_ty() }.insert_api()
+  }
+
+  pub fn bindgroups(&mut self) -> &mut ShaderBindGroupBuilder {
+    &mut self.bindgroups
+  }
+
+  pub fn bind_by<T: ShaderBindingProvider>(&mut self, instance: &T) -> Node<T::Node> {
+    self.bindgroups().bind_by_and_prepare(instance).using()
   }
 
   pub fn with_log_shader(mut self) -> Self {

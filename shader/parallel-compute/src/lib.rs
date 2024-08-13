@@ -166,7 +166,7 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
     let workgroup_size = self.requested_workgroup_size().unwrap_or(256);
     let main_pipeline = cx.get_or_create_compute_pipeline(self, |cx| {
       cx.config_work_group_size(workgroup_size);
-      let invocation_source = self.build_shader(cx.0);
+      let invocation_source = self.build_shader(cx);
 
       let invocation_id = cx.global_invocation_id();
       let _ = invocation_source.invocation_logic(invocation_id);
@@ -214,7 +214,7 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
       let work_size_output = cx.bind_by(&work_size_output);
       let workgroup_size = cx.bind_by(&workgroup_size_buffer);
 
-      let size = self.build_shader(cx.0).invocation_size();
+      let size = self.build_shader(cx).invocation_size();
 
       work_size_output.store(size);
 
@@ -717,7 +717,7 @@ impl<'a> DeviceParallelComputeCtx<'a> {
   pub fn get_or_create_compute_pipeline(
     &mut self,
     source: &(impl ShaderHashProvider + ?Sized),
-    creator: impl FnOnce(&mut ComputeCx),
+    creator: impl FnOnce(&mut ShaderComputePipelineBuilder),
   ) -> GPUComputePipeline {
     let mut hasher = PipelineHasher::default();
     source.hash_pipeline_with_type_info(&mut hasher);
@@ -725,10 +725,9 @@ impl<'a> DeviceParallelComputeCtx<'a> {
     self
       .gpu
       .device
-      .get_or_cache_create_compute_pipeline(hasher, |builder| {
-        builder.entry(|cx| {
-          creator(cx);
-        })
+      .get_or_cache_create_compute_pipeline(hasher, |mut builder| {
+        creator(&mut builder);
+        builder
       })
   }
 }

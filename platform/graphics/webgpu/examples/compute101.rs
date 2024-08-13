@@ -11,36 +11,36 @@ pub async fn main() {
   let input = create_gpu_readonly_storage(input_data.as_slice(), &gpu);
   let output = create_gpu_read_write_storage::<[u32]>(input_data.len(), &gpu);
 
-  let pipeline = compute_shader_builder()
-    .config_work_group_size(workgroup_size)
-    // .with_log_shader()
-    .entry(|cx| {
-      let shared = cx.define_workgroup_shared_var_host_size_array::<u32>(workgroup_size);
-      let input = cx.bind_by(&input);
-      let output = cx.bind_by(&output);
+  let pipeline = {
+    let mut cx = compute_shader_builder().with_config_work_group_size(workgroup_size);
+    // .with_log_shader();
 
-      let global_id = cx.global_invocation_id().x();
-      let local_id = cx.local_invocation_id().x();
+    let shared = cx.define_workgroup_shared_var_host_size_array::<u32>(workgroup_size);
+    let input = cx.bind_by(&input);
+    let output = cx.bind_by(&output);
 
-      let value = input.index(global_id).load().make_local_var();
+    let global_id = cx.global_invocation_id().x();
+    let local_id = cx.local_invocation_id().x();
 
-      shared.index(local_id).store(value.load());
+    let value = input.index(global_id).load().make_local_var();
 
-      workgroup_size.ilog2().into_shader_iter().for_each(|i, _| {
-        workgroup_barrier();
+    shared.index(local_id).store(value.load());
 
-        if_by(local_id.greater_equal_than(val(1) << i), || {
-          value.store(value.load() + shared.index(local_id - (val(1) << i)).load())
-        });
+    workgroup_size.ilog2().into_shader_iter().for_each(|i, _| {
+      workgroup_barrier();
 
-        workgroup_barrier();
-        shared.index(local_id).store(value.load())
+      if_by(local_id.greater_equal_than(val(1) << i), || {
+        value.store(value.load() + shared.index(local_id - (val(1) << i)).load())
       });
 
-      output.index(global_id).store(value.load())
-    })
-    .create_compute_pipeline(&gpu)
-    .unwrap();
+      workgroup_barrier();
+      shared.index(local_id).store(value.load())
+    });
+
+    output.index(global_id).store(value.load());
+
+    cx.create_compute_pipeline(&gpu).unwrap()
+  };
 
   let mut encoder = gpu.create_encoder().with_compute_pass_scoped(|mut pass| {
     BindingBuilder::new_as_compute()

@@ -67,7 +67,7 @@ where
     &self,
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<Node<T>>> {
-    let output = builder.entry_by(|cx| cx.bind_by(&self.output));
+    let output = builder.bind_by(&self.output);
     self
       .input
       .build_shader(builder)
@@ -116,7 +116,7 @@ where
     &self,
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<Node<T>>> {
-    let input = builder.entry_by(|cx| cx.bind_by(&self.source));
+    let input = builder.bind_by(&self.source);
 
     self
       .shuffle_idx

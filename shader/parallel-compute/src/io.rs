@@ -134,9 +134,9 @@ where
     &self,
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<Node<T>>> {
-    let view = builder.entry_by(|cx| cx.bind_by(&self.buffer));
+    let view = builder.bind_by(&self.buffer);
     if let Some(size) = &self.size {
-      let size = builder.entry_by(|cx| cx.bind_by(size)).load();
+      let size = builder.bind_by(size).load();
       Box::new((view, size)) as Box<dyn DeviceInvocation<Node<T>>>
     } else {
       Box::new(view) as Box<dyn DeviceInvocation<Node<T>>>
@@ -211,7 +211,7 @@ where
     &self,
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<Node<T>>> {
-    let output = builder.entry_by(|cx| cx.bind_by(&self.output));
+    let output = builder.bind_by(&self.output);
     let result_write_idx_mapper = self.result_write_idx.clone();
 
     self

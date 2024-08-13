@@ -11,7 +11,7 @@ impl<'a> DeviceTaskSystemBuildCtx<'a> {
   fn get_or_create_task_group_instance(
     &mut self,
     task_type: usize,
-    ccx: &mut ComputeCx,
+    ccx: &mut ShaderComputePipelineBuilder,
   ) -> &mut TaskGroupDeviceInvocationInstance {
     self
       .tasks_depend_on_self
@@ -31,7 +31,7 @@ impl<'a> DeviceTaskSystemBuildCtx<'a> {
     &mut self,
     task_type: usize,
     argument: Node<T>,
-    cx: &mut ComputeCx,
+    cx: &mut ShaderComputePipelineBuilder,
   ) -> Node<u32> {
     let task_group = self.get_or_create_task_group_instance(task_type, cx);
     task_group.spawn_new_task(argument)
@@ -42,7 +42,7 @@ impl<'a> DeviceTaskSystemBuildCtx<'a> {
     task_type: usize,
     task_id: Node<u32>,
     argument_read_back: impl FnOnce(Node<T>) + Copy,
-    cx: &mut ComputeCx,
+    cx: &mut ShaderComputePipelineBuilder,
   ) -> Node<bool> {
     let task_group = self.get_or_create_task_group_instance(task_type, cx);
     let finished = task_group.poll_task_is_finished(task_id);
@@ -105,35 +105,28 @@ impl DeviceTaskGraphExecutor {
       pass,
     );
 
-    let mut compute_cx = compute_shader_builder();
-    let task_index = compute_cx.entry_by(|cx| {
-      let indices = cx.bind_by(&resource.alive_task_idx.storage);
-      indices.index(cx.global_invocation_id().x()).load()
-    });
+    let mut cx = compute_shader_builder();
+    let indices = cx.bind_by(&resource.alive_task_idx.storage);
+    let task_index = indices.index(cx.global_invocation_id().x()).load();
 
-    let task_pool = compute_cx.entry_by(|cx| {
-      let pool = resource.task_pool.build_shader(cx);
-      let item = pool.access_item_ptr(task_index);
-      state_builder.resolve(item.cast_untyped_node());
-      pool
-    });
+    let pool = resource.task_pool.build_shader(&mut cx);
+    let item = pool.access_item_ptr(task_index);
+    state_builder.resolve(item.cast_untyped_node());
 
     let mut ctx = DeviceTaskSystemBuildCtx {
       all_task_group_sources: task_group_sources,
       tasks_depend_on_self: Default::default(),
       self_task_idx: task_index,
-      self_task: task_pool.clone(),
+      self_task: pool.clone(),
     };
     let mut f_ctx = f_ctx();
 
-    compute_cx.entry_by(|ccx| {
-      let poll_result = future.poll(&state, ccx, &mut ctx, &mut f_ctx);
-      if_by(poll_result.is_ready, || {
-        task_pool.rw_is_finished(task_index).store(0);
-      });
+    let poll_result = future.poll(&state, &mut cx, &mut ctx, &mut f_ctx);
+    if_by(poll_result.is_ready, || {
+      pool.rw_is_finished(task_index).store(0);
     });
 
-    let polling_pipeline = compute_cx.create_compute_pipeline(device).unwrap();
+    let polling_pipeline = cx.create_compute_pipeline(device).unwrap();
 
     let task_executor = TaskGroupExecutor {
       polling_pipeline,
@@ -199,17 +192,19 @@ impl DeviceTaskGraphExecutor {
 
     let hasher = PipelineHasher::default().with_hash(task_spawner.type_id());
     let workgroup_size = 256;
-    let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |builder| {
-      builder.config_work_group_size(workgroup_size).entry(|cx| {
-        let size_range = cx.bind_by(&size_range);
-        let instance = task_group.resource.build_shader_for_spawner(cx);
-        let id = cx.global_invocation_id().x();
-        let payload = task_spawner(id);
+    let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
+      builder.config_work_group_size(workgroup_size);
 
-        if_by(id.less_than(size_range.load()), || {
-          instance.spawn_new_task(payload);
-        });
-      })
+      let size_range = builder.bind_by(&size_range);
+      let instance = task_group.resource.build_shader_for_spawner(&mut builder);
+      let id = builder.global_invocation_id().x();
+      let payload = task_spawner(id);
+
+      if_by(id.less_than(size_range.load()), || {
+        instance.spawn_new_task(payload);
+      });
+
+      builder
     });
 
     let mut bb = BindingBuilder::new_as_compute().with_bind(&size_range);
@@ -228,7 +223,6 @@ impl DeviceTaskGraphExecutor {
       .max()
       .unwrap_or(1);
     let required_round = self.max_recursion_depth * max_required_poll_count + 1;
-    let required_round = 1;
 
     // todo, impl more conservative upper execute bound
     for _ in 0..required_round {
@@ -275,13 +269,13 @@ impl TaskGroupExecutor {
         // update alive task count
         {
           let hasher = shader_hasher_from_marker_ty!(SizeUpdate);
-          let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |builder| {
-            builder.config_work_group_size(1).entry(|cx| {
-              let bump_size = cx.bind_by(&imp.new_removed_task_idx.bump_size);
-              let current_size = cx.bind_by(&imp.alive_task_idx.current_size);
-              let delta = bump_size.atomic_load();
-              current_size.store(current_size.load() - delta);
-            })
+          let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
+            builder.config_work_group_size(1);
+            let bump_size = builder.bind_by(&imp.new_removed_task_idx.bump_size);
+            let current_size = builder.bind_by(&imp.alive_task_idx.current_size);
+            let delta = bump_size.atomic_load();
+            current_size.store(current_size.load() - delta);
+            builder
           });
 
           BindingBuilder::new_as_compute()
@@ -342,18 +336,19 @@ impl TaskGroupExecutorResource {
     let hasher = shader_hasher_from_marker_ty!(PrepareEmptyIndices);
 
     let workgroup_size = 256;
-    let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |builder| {
-      builder.config_work_group_size(workgroup_size).entry(|cx| {
-        let empty_pool = cx.bind_by(&res.empty_index_pool.storage);
-        let empty_pool_size = cx.bind_by(&res.empty_index_pool.current_size);
-        let id = cx.global_invocation_id().x();
+    let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
+      builder.config_work_group_size(workgroup_size);
 
-        if_by(id.equals(0), || {
-          empty_pool_size.store(empty_pool.array_length());
-        });
+      let empty_pool = builder.bind_by(&res.empty_index_pool.storage);
+      let empty_pool_size = builder.bind_by(&res.empty_index_pool.current_size);
+      let id = builder.global_invocation_id().x();
 
-        empty_pool.index(id).store(id);
-      })
+      if_by(id.equals(0), || {
+        empty_pool_size.store(empty_pool.array_length());
+      });
+
+      empty_pool.index(id).store(id);
+      builder
     });
 
     BindingBuilder::new_as_compute()
@@ -380,7 +375,10 @@ impl TaskGroupExecutorResource {
     }
   }
 
-  fn build_shader_for_spawner(&self, cx: &mut ComputeCx) -> TaskGroupDeviceInvocationInstance {
+  fn build_shader_for_spawner(
+    &self,
+    cx: &mut ShaderComputePipelineBuilder,
+  ) -> TaskGroupDeviceInvocationInstance {
     TaskGroupDeviceInvocationInstance {
       new_removed_task_idx: self.new_removed_task_idx.build_allocator_shader(cx),
       empty_index_pool: self.empty_index_pool.build_deallocator_shader(cx),
@@ -436,7 +434,7 @@ impl TaskPool {
     }
   }
 
-  pub fn build_shader(&self, cx: &mut ComputeCx) -> TaskPoolInvocationInstance {
+  pub fn build_shader(&self, cx: &mut ShaderComputePipelineBuilder) -> TaskPoolInvocationInstance {
     let desc = ShaderBindingDescriptor {
       should_as_storage_buffer_if_is_buffer_like: true,
       ty: ShaderValueType::Single(ShaderValueSingleType::Unsized(
@@ -498,12 +496,10 @@ impl DeviceInvocationComponent<Node<bool>> for ActiveTaskCompact {
     &self,
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<Node<bool>>> {
-    let inner = builder.entry_by(|cx| {
-      let active_tasks = cx.bind_by(&self.active_tasks);
-      let size = cx.bind_by(&self.alive_size);
-      let task_pool = self.task_pool.build_shader(cx);
-      (active_tasks, size, task_pool)
-    });
+    let active_tasks = builder.bind_by(&self.active_tasks);
+    let size = builder.bind_by(&self.alive_size);
+    let task_pool = self.task_pool.build_shader(builder);
+    let inner = (active_tasks, size, task_pool);
 
     RealAdhocInvocationResult {
       inner,
