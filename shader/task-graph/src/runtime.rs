@@ -40,9 +40,12 @@ impl<'a> DeviceTaskSystemPollCtx<'a> {
     &mut self,
     task_type: usize,
     argument: Node<T>,
-  ) -> Node<u32> {
+  ) -> TaskFutureInvocationRightValue {
     let task_group = self.get_or_create_task_group_instance(task_type);
-    task_group.spawn_new_task(argument)
+    TaskFutureInvocationRightValue {
+      task_ty: task_type,
+      task_handle: task_group.spawn_new_task(argument),
+    }
   }
 
   pub fn poll_task<T: ShaderSizedValueNodeType>(
@@ -125,6 +128,7 @@ impl DeviceTaskGraphExecutor {
     task_type_desc.push_field_dyn("state", ShaderSizedValueType::Struct(state_desc.ty.clone()));
     let mut state_builder = build_ctx.state_builder;
 
+    let outer_builder = take_build_api(); // workaround, should be improved?
     let resource = TaskGroupExecutorResource::create_with_size(
       self.current_prepared_execution_size,
       state_desc.clone(),
@@ -132,6 +136,7 @@ impl DeviceTaskGraphExecutor {
       device,
       pass,
     );
+    set_build_api(outer_builder);
 
     let indices = cx.bind_by(&resource.alive_task_idx.storage);
     let task_index = indices.index(cx.global_invocation_id().x()).load();

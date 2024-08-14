@@ -35,7 +35,7 @@ pub struct ShaderRenderPipelineBuilder {
 
 impl ShaderRenderPipelineBuilder {
   fn new(api: &dyn Fn(ShaderStages) -> DynamicShaderAPI) -> Self {
-    set_build_api(api);
+    set_build_api_by(api);
     Self {
       bindgroups: Default::default(),
       vertex: ShaderVertexBuilder::new(),

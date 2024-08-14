@@ -80,7 +80,7 @@ pub trait ShaderAPI {
   fn build(&mut self) -> (String, Self::Output);
 }
 
-pub(crate) struct ShaderBuildingCtx {
+pub struct ShaderBuildingCtx {
   vertex: DynamicShaderAPI,
   fragment: DynamicShaderAPI,
   compute: DynamicShaderAPI,
@@ -118,17 +118,19 @@ pub(crate) fn get_current_stage() -> Option<ShaderStages> {
   IN_BUILDING_SHADER_API.with_borrow_mut(|api| api.as_mut().unwrap().current)
 }
 
-pub(crate) fn set_build_api(api_builder: &dyn Fn(ShaderStages) -> DynamicShaderAPI) {
-  IN_BUILDING_SHADER_API.with_borrow_mut(|api| {
-    api.replace(ShaderBuildingCtx {
-      vertex: api_builder(ShaderStages::Vertex),
-      fragment: api_builder(ShaderStages::Fragment),
-      compute: api_builder(ShaderStages::Compute),
-      current: None,
-    });
-  })
+pub fn set_build_api_by(api_builder: &dyn Fn(ShaderStages) -> DynamicShaderAPI) {
+  set_build_api(ShaderBuildingCtx {
+    vertex: api_builder(ShaderStages::Vertex),
+    fragment: api_builder(ShaderStages::Fragment),
+    compute: api_builder(ShaderStages::Compute),
+    current: None,
+  });
 }
 
-pub(crate) fn take_build_api() -> ShaderBuildingCtx {
+pub fn set_build_api(a: ShaderBuildingCtx) -> Option<ShaderBuildingCtx> {
+  IN_BUILDING_SHADER_API.with_borrow_mut(|api| api.replace(a))
+}
+
+pub fn take_build_api() -> ShaderBuildingCtx {
   IN_BUILDING_SHADER_API.with_borrow_mut(|api| api.take().unwrap())
 }

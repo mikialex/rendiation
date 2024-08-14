@@ -61,6 +61,13 @@ pub trait DeviceFutureExt: Sized + DeviceFuture {
       then,
     }
   }
+  fn then_spawn_task<F, T>(self, then_f: F) -> ShaderFutureThen<Self, F, TaskFuture<T>> {
+    ShaderFutureThen {
+      upstream: self,
+      create_then_invocation_instance: then_f,
+      then: TaskFuture(PhantomData),
+    }
+  }
 }
 impl<T: DeviceFuture + Sized> DeviceFutureExt for T {}
 
@@ -279,42 +286,71 @@ impl<T: DeviceFutureInvocation> DeviceFutureInvocation for OpaqueTaskInvocationW
   }
 }
 
-// pub struct TaskFuture<T, C>((usize, PhantomData<(T, C)>));
+pub struct TaskFuture<T>(PhantomData<T>);
 
-// impl<T, C> DeviceFuture for TaskFuture<T, C>
-// where
-//   T: ShaderSizedValueNodeType + Default + Copy,
-// {
-//   type State = BoxedShaderLoadStore<Node<u32>>;
-//   type Output = Node<T>;
+impl<T> DeviceFuture for TaskFuture<T>
+where
+  T: ShaderSizedValueNodeType + Default + Copy,
+{
+  type Output = Node<T>;
+  type Invocation = TaskFutureInvocation<T>;
 
-//   fn required_poll_count(&self) -> usize {
-//     1
-//   }
+  fn required_poll_count(&self) -> usize {
+    1
+  }
 
-//   fn create_or_reconstruct_state(&self, ctx: &mut DynamicTypeBuilder) -> Self::State {
-//     ctx.create_or_reconstruct_inline_state(u32::MAX)
-//   }
+  fn build_poll(&self, _: &mut DeviceTaskSystemBuildCtx) -> Self::Invocation {
+    panic!("TaskFutureInvocation should build by user in device runtime")
+  }
 
-//   fn build_poll(
-//     &self,
-//     state: &Self::State,
-//     ctx: &mut DeviceTaskSystemPollCtx,
-//   ) -> DevicePoll<Self::Output> {
-//     let output = zeroed_val().into_local_left_value();
+  fn bind_input(&self, _: &mut BindingBuilder) {}
+  fn reset(&self, _: &mut DeviceParallelComputeCtx, _: u32) {}
+}
 
-//     ctx.poll_task::<T>(self.0 .0, state.abstract_load(), |r| {
-//       output.abstract_store(r);
-//       state.abstract_store(val(u32::MAX));
-//     });
+pub struct TaskFutureInvocation<T> {
+  task_ty: usize,
+  task_handle: BoxedShaderLoadStore<Node<u32>>,
+  phantom: PhantomData<T>,
+}
 
-//     (
-//       state.abstract_load().equals(u32::MAX),
-//       output.abstract_load(),
-//     )
-//       .into()
-//   }
+impl<T> DeviceFutureInvocation for TaskFutureInvocation<T>
+where
+  T: ShaderSizedValueNodeType + Default + Copy,
+{
+  type Output = Node<T>;
 
-//   fn bind_input(&self, _: &mut BindingBuilder) {}
-//   fn reset(&self, _: &mut DeviceParallelComputeCtx, _: u32) {}
-// }
+  fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> DevicePoll<Self::Output> {
+    let output = zeroed_val().into_local_left_value();
+
+    ctx.poll_task::<T>(self.task_ty, self.task_handle.abstract_load(), |r| {
+      output.abstract_store(r);
+      self.task_handle.abstract_store(val(u32::MAX));
+    });
+
+    (
+      self.task_handle.abstract_load().equals(u32::MAX),
+      output.abstract_load(),
+    )
+      .into()
+  }
+}
+
+pub struct TaskFutureInvocationRightValue {
+  pub task_ty: usize,
+  pub task_handle: Node<u32>,
+}
+
+impl<T> ShaderAbstractLeftValue for TaskFutureInvocation<TaskFutureInvocation<T>> {
+  type RightValue = TaskFutureInvocationRightValue;
+
+  fn abstract_load(&self) -> Self::RightValue {
+    TaskFutureInvocationRightValue {
+      task_ty: self.task_ty,
+      task_handle: self.task_handle.abstract_load(),
+    }
+  }
+
+  fn abstract_store(&self, payload: Self::RightValue) {
+    self.task_handle.abstract_store(payload.task_handle);
+  }
+}

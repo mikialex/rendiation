@@ -46,7 +46,7 @@ pub fn workgroup_barrier() {
 
 impl ShaderComputePipelineBuilder {
   pub fn new(api: &dyn Fn(ShaderStages) -> DynamicShaderAPI) -> Self {
-    set_build_api(api);
+    set_build_api_by(api);
 
     set_current_building(ShaderStages::Compute.into());
 
