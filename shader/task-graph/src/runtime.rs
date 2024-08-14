@@ -74,7 +74,6 @@ impl DeviceTaskGraphExecutor {
   pub fn define_task<P, F>(
     &mut self,
     future: F,
-    f_ctx: impl FnOnce() -> F::Ctx,
     device: &GPUDevice,
     pass: &mut GPUComputePass,
   ) -> u32
@@ -123,9 +122,8 @@ impl DeviceTaskGraphExecutor {
       self_task: pool.clone(),
       compute_cx: &mut cx,
     };
-    let mut f_ctx = f_ctx();
 
-    let poll_result = future.build_poll(&state, &mut ctx, &mut f_ctx);
+    let poll_result = future.build_poll(&state, &mut ctx);
     if_by(poll_result.is_ready, || {
       pool.rw_is_finished(task_index).store(0);
     });
