@@ -28,5 +28,6 @@ async fn test_task_graph() {
   graph.execute(&mut cx, round);
 
   let info = graph.read_back_execution_states(&mut cx).await;
-  dbg!(info);
+  assert_eq!(info.remain_task_counts[test_task as usize], 0);
+  assert_eq!(info.remain_task_counts[test_task2 as usize], 0);
 }

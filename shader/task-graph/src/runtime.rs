@@ -690,7 +690,7 @@ impl TaskPoolInvocationInstance {
   }
 
   pub fn poll_task_is_finished(&self, task_id: Node<u32>) -> Node<bool> {
-    self.rw_is_finished(task_id).load().not_equals(0)
+    self.rw_is_finished(task_id).load().equals(0)
   }
   pub fn spawn_new_task<T: ShaderSizedValueNodeType>(&self, at: Node<u32>, payload: Node<T>) {
     self.rw_is_finished(at).store(1);
