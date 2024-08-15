@@ -75,10 +75,10 @@ pub struct DeviceTaskGraphExecutor {
 }
 
 impl DeviceTaskGraphExecutor {
-  pub fn new(current_prepared_execution_size: usize) -> Self {
+  pub fn new(current_prepared_execution_size: usize, max_recursion_depth: usize) -> Self {
     Self {
       task_groups: Default::default(),
-      max_recursion_depth: 6,
+      max_recursion_depth,
       current_prepared_execution_size,
     }
   }
@@ -236,26 +236,26 @@ impl DeviceTaskGraphExecutor {
   ) {
     let task_group = &self.task_groups[task_id as usize];
 
-    let size_range = create_gpu_readonly_storage(&dispatch_size, device);
+    let dispatch_size_buffer = create_gpu_readonly_storage(&dispatch_size, device);
 
     let hasher = PipelineHasher::default().with_hash(task_spawner.type_id());
     let workgroup_size = 256;
     let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
       builder.config_work_group_size(workgroup_size);
 
-      let size_range = builder.bind_by(&size_range);
+      let dispatch_size = builder.bind_by(&dispatch_size_buffer);
       let instance = task_group.resource.build_shader_for_spawner(&mut builder);
       let id = builder.global_invocation_id().x();
-      let payload = task_spawner(id);
 
-      if_by(id.less_than(size_range.load()), || {
+      if_by(id.less_than(dispatch_size.load()), || {
+        let payload = task_spawner(id);
         instance.spawn_new_task(payload);
       });
 
       builder
     });
 
-    let mut bb = BindingBuilder::new_as_compute().with_bind(&size_range);
+    let mut bb = BindingBuilder::new_as_compute().with_bind(&dispatch_size_buffer);
     task_group.resource.bind_for_spawner(&mut bb);
     bb.setup_compute_pass(pass, device, &pipeline);
 
@@ -460,7 +460,9 @@ impl TaskGroupExecutorResource {
         empty_pool_size.store(empty_pool.array_length());
       });
 
-      empty_pool.index(id).store(id);
+      if_by(id.less_than(empty_pool.array_length()), || {
+        empty_pool.index(id).store(id);
+      });
       builder
     });
 
@@ -483,8 +485,9 @@ impl TaskGroupExecutorResource {
     task_ty_desc: ShaderStructMetaInfo,
     pass: &mut GPUComputePass,
   ) {
-    if self.size != size * max_recursion_depth {
-      *self = Self::create_with_size(size, state_desc, task_ty_desc, &gpu.device, pass);
+    let required_size = size * max_recursion_depth;
+    if self.size != required_size {
+      *self = Self::create_with_size(required_size, state_desc, task_ty_desc, &gpu.device, pass);
     }
   }
 

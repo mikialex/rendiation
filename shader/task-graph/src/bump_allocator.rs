@@ -10,7 +10,7 @@ pub struct DeviceBumpAllocationInstance<T: Std430 + ShaderSizedValueNodeType> {
 impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
   pub fn new(size: usize, device: &GPUDevice) -> Self {
     Self {
-      storage: create_gpu_read_write_storage(size * std::mem::size_of::<T>(), device),
+      storage: create_gpu_read_write_storage(size, device),
       current_size: create_gpu_read_write_storage(StorageBufferInit::WithInit(&0_u32), device),
       bump_size: create_gpu_read_write_storage::<DeviceAtomic<u32>>(
         StorageBufferInit::WithInit(&DeviceAtomic(0)),
@@ -166,13 +166,12 @@ pub struct DeviceBumpAllocationInvocationInstance<T: Std430> {
 impl<T: Std430 + ShaderNodeType> DeviceBumpAllocationInvocationInstance<T> {
   /// can not use with bump_deallocate in the same dispatch
   pub fn bump_allocate(&self, item: Node<T>) -> (Node<u32>, Node<bool>) {
-    let write_idx = self.bump_size.atomic_add(val(1));
-    let out_of_bound =
-      write_idx.greater_equal_than(self.storage.array_length() - self.current_size.load());
-    if_by(out_of_bound.not(), || {
-      self.storage.index(write_idx).store(item)
-    });
-    (write_idx, out_of_bound)
+    let bumped = self.bump_size.atomic_add(val(1));
+    let current_size = self.current_size.load();
+    let in_bound = bumped.less_than(self.storage.array_length() - current_size);
+    let write_idx = bumped + current_size;
+    if_by(in_bound, || self.storage.index(write_idx).store(item));
+    (write_idx, in_bound)
   }
 }
 
@@ -184,13 +183,18 @@ pub struct DeviceBumpDeAllocationInvocationInstance<T: Std430> {
 
 impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpDeAllocationInvocationInstance<T> {
   /// can not use with bump_allocate in the same dispatch
+  ///
+  /// return if success
   pub fn bump_deallocate(&self) -> (Node<T>, Node<bool>) {
-    let write_idx = self.bump_size.atomic_add(val(1));
-    let out_of_bound = write_idx.greater_equal_than(self.current_size.load());
+    let bumped = self.bump_size.atomic_add(val(1));
+    let current_size = self.current_size.load();
+    let in_bound = bumped.less_than(current_size);
+    let read_idx = current_size - bumped;
+
     let output = zeroed_val().make_local_var();
-    if_by(out_of_bound.not(), || {
-      output.store(self.storage.index(write_idx).load())
+    if_by(in_bound, || {
+      output.store(self.storage.index(read_idx).load())
     });
-    (output.load(), out_of_bound)
+    (output.load(), in_bound)
   }
 }
