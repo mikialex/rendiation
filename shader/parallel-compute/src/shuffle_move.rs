@@ -35,6 +35,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceParallelComputeIO<T> for DataSh
       output: output.clone(),
     };
 
+    // should size be the atomic max of the shuffle destination?
     let size = write.dispatch_compute(cx);
     DeviceMaterializeResult {
       buffer: output.into_readonly_view(),

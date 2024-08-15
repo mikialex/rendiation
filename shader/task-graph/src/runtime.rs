@@ -351,8 +351,12 @@ struct TaskGroupExecutor {
 
 impl TaskGroupExecutor {
   pub fn execute(&mut self, cx: &mut DeviceParallelComputeCtx, all_tasks: &[Self]) {
+    // update bumpers' size
     cx.record_pass(|pass, device| {
-      self.resource.alive_task_idx.commit_size(pass, device, true);
+      let imp = &mut self.resource;
+      imp.alive_task_idx.commit_size(pass, device, true);
+      imp.empty_index_pool.commit_size(pass, device, false);
+      imp.new_removed_task_idx.commit_size(pass, device, true);
     });
 
     {
@@ -360,41 +364,35 @@ impl TaskGroupExecutor {
       // compact active task buffer
       let alive_tasks = imp.alive_task_idx.storage.clone().into_readonly_view();
       let size = imp.alive_task_idx.current_size.clone();
-      imp.alive_task_idx.storage = alive_tasks
+      let re = alive_tasks
         .clone()
         .stream_compaction(ActiveTaskCompact {
           alive_size: size,
           active_tasks: alive_tasks.clone(),
           task_pool: imp.task_pool.clone(),
         })
-        .materialize_storage_buffer(cx)
-        .buffer
-        .into_rw_view();
+        .materialize_storage_buffer(cx);
+      imp.alive_task_idx.storage = re.buffer.into_rw_view();
+      let new_size = re.size.unwrap();
 
+      // this is not good, but it's ok for now
       cx.record_pass(|pass, device| {
         let imp = &mut self.resource;
-        // update alive task count
-        {
-          let hasher = shader_hasher_from_marker_ty!(SizeUpdate);
-          let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
-            builder.config_work_group_size(1);
-            let bump_size = builder.bind_by(&imp.new_removed_task_idx.bump_size);
-            let current_size = builder.bind_by(&imp.alive_task_idx.current_size);
-            let delta = bump_size.atomic_load();
-            current_size.store(current_size.load() - delta);
-            builder
-          });
+        let hasher = shader_hasher_from_marker_ty!(SizeUpdate);
+        let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
+          builder.config_work_group_size(1);
+          let new_size = builder.bind_by(&new_size);
+          let current_size = builder.bind_by(&imp.alive_task_idx.current_size);
+          current_size.store(new_size.load().x());
+          builder
+        });
 
-          BindingBuilder::new_as_compute()
-            .with_bind(&imp.new_removed_task_idx.bump_size)
-            .with_bind(&imp.alive_task_idx.current_size)
-            .setup_compute_pass(pass, device, &pipeline);
+        BindingBuilder::new_as_compute()
+          .with_bind(&new_size)
+          .with_bind(&imp.alive_task_idx.current_size)
+          .setup_compute_pass(pass, device, &pipeline);
 
-          pass.dispatch_workgroups(1, 1, 1);
-        }
-        // commit other bumper size
-        imp.empty_index_pool.commit_size(pass, device, false);
-        imp.new_removed_task_idx.commit_size(pass, device, true);
+        pass.dispatch_workgroups(1, 1, 1);
       });
     }
 

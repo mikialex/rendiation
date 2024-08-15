@@ -20,6 +20,8 @@ pub use fork::*;
 
 mod radix_sort;
 pub use radix_sort::*;
+mod stream_compaction;
+pub use stream_compaction::*;
 mod shuffle_move;
 pub use shuffle_move::*;
 mod map;
@@ -579,13 +581,10 @@ where
     self,
     filter: impl DeviceParallelComputeIO<bool> + 'static,
   ) -> impl DeviceParallelComputeIO<T> {
-    let filter: Box<dyn DeviceParallelComputeIO<bool>> = Box::new(filter);
-    let write_target_positions = filter
-      .clone()
-      .map(|v| v.select(1_u32, 0))
-      .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(64, 64);
-
-    self.shuffle_move(write_target_positions.zip(filter))
+    StreamCompaction {
+      source: Box::new(self),
+      filter: Box::new(filter),
+    }
   }
 
   fn workgroup_scope_prefix_scan_kogge_stone<S>(
