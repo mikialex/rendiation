@@ -671,8 +671,8 @@ where
 
 pub struct DeviceParallelComputeCtx<'a> {
   pub gpu: &'a GPU,
-  encoder: GPUCommandEncoder,
-  pass: Option<GPUComputePass<'static>>,
+  pub encoder: GPUCommandEncoder,
+  pub pass: Option<GPUComputePass<'static>>,
   pub force_indirect_dispatch: bool,
 }
 

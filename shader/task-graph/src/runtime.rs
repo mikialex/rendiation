@@ -43,7 +43,6 @@ impl<'a> DeviceTaskSystemPollCtx<'a> {
   ) -> TaskFutureInvocationRightValue {
     let task_group = self.get_or_create_task_group_instance(task_type);
     TaskFutureInvocationRightValue {
-      task_ty: task_type,
       task_handle: task_group.spawn_new_task(argument),
     }
   }
@@ -62,6 +61,11 @@ impl<'a> DeviceTaskSystemPollCtx<'a> {
     });
     finished
   }
+}
+
+#[derive(Debug)]
+pub struct TaskGraphExecutionStates {
+  pub remain_task_counts: Vec<u32>,
 }
 
 pub struct DeviceTaskGraphExecutor {
@@ -257,30 +261,73 @@ impl DeviceTaskGraphExecutor {
 
     let size = compute_dispatch_size(dispatch_size, workgroup_size);
     pass.dispatch_workgroups(size, 1, 1);
+
+    task_group
+      .resource
+      .alive_task_idx
+      .commit_size(pass, device, true);
+    task_group
+      .resource
+      .empty_index_pool
+      .commit_size(pass, device, false);
   }
 
-  pub fn execute(&mut self, cx: &mut DeviceParallelComputeCtx) {
+  pub async fn read_back_execution_states<'a>(
+    &mut self,
+    cx: &mut DeviceParallelComputeCtx<'a>,
+  ) -> TaskGraphExecutionStates {
+    cx.flush_pass();
+
+    let result_size = self.task_groups.len() * 4;
+    let result_size = NonZeroU64::new(result_size as u64).unwrap();
+    let result_buffer =
+      create_gpu_read_write_storage::<u32>(StorageBufferInit::Zeroed(result_size), &cx.gpu.device);
+
+    for (i, task) in self.task_groups.iter().enumerate() {
+      cx.encoder.copy_buffer_to_buffer(
+        task.resource.alive_task_idx.current_size.buffer.gpu(),
+        0,
+        result_buffer.buffer.gpu(),
+        i as u64 * 4,
+        4,
+      );
+    }
+
+    let result = cx.encoder.read_buffer(&cx.gpu.device, &result_buffer);
+
+    cx.submit_recorded_work_and_continue();
+
+    let buffer = result.await.unwrap();
+
+    let results = <[u32]>::from_bytes_into_boxed(&buffer.read_raw()).into_vec();
+
+    TaskGraphExecutionStates {
+      remain_task_counts: results,
+    }
+  }
+
+  // todo, impl more conservative upper execute bound
+  pub fn compute_conservative_dispatch_round_count(&self) -> usize {
     let max_required_poll_count = self
       .task_groups
       .iter()
       .map(|v| v.required_poll_count)
       .max()
       .unwrap_or(1);
-    let required_round = self.max_recursion_depth * max_required_poll_count + 1;
+    self.max_recursion_depth * max_required_poll_count + 1
+  }
 
-    // todo, impl more conservative upper execute bound
-
+  pub fn execute(&mut self, cx: &mut DeviceParallelComputeCtx, dispatch_round_count: usize) {
     // it's safe because the reference is not overlapped
     let self_task_groups: &[TaskGroupExecutor] = &self.task_groups;
     let self_task_groups: &'static [TaskGroupExecutor] =
       unsafe { std::mem::transmute(self_task_groups) };
 
-    for _ in 0..required_round {
+    for _ in 0..dispatch_round_count {
       for task in &mut self.task_groups {
         task.execute(cx, self_task_groups);
       }
     }
-    // todo check state states to make sure no task remains
   }
 }
 

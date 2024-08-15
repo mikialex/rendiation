@@ -46,11 +46,10 @@ pub trait DeviceFuture {
 }
 
 pub trait DeviceFutureExt: Sized + DeviceFuture {
-  fn map<F, O>(self, map: F) -> ShaderFutureMap<F, Self, O> {
+  fn map<F>(self, map: F) -> ShaderFutureMap<F, Self> {
     ShaderFutureMap {
       upstream: self,
       map,
-      phantom: PhantomData,
     }
   }
 
@@ -61,11 +60,15 @@ pub trait DeviceFutureExt: Sized + DeviceFuture {
       then,
     }
   }
-  fn then_spawn_task<F, T>(self, then_f: F) -> ShaderFutureThen<Self, F, TaskFuture<T>> {
+  fn then_spawn_task<F, T>(
+    self,
+    then_f: F,
+    task_ty: usize,
+  ) -> ShaderFutureThen<Self, F, TaskFuture<T>> {
     ShaderFutureThen {
       upstream: self,
       create_then_invocation_instance: then_f,
-      then: TaskFuture(PhantomData),
+      then: TaskFuture(task_ty, PhantomData),
     }
   }
 }
@@ -98,13 +101,12 @@ where
   fn reset(&self, _: &mut DeviceParallelComputeCtx, _: u32) {}
 }
 
-pub struct ShaderFutureMap<F, T, O> {
+pub struct ShaderFutureMap<F, T> {
   pub upstream: T,
   pub map: F,
-  pub phantom: PhantomData<O>,
 }
 
-impl<F, T, O> DeviceFuture for ShaderFutureMap<F, T, O>
+impl<F, T, O> DeviceFuture for ShaderFutureMap<F, T>
 where
   T: DeviceFuture,
   F: Fn(T::Output) -> O + Copy + 'static,
@@ -112,7 +114,7 @@ where
   O: ShaderAbstractRightValue + Default + Copy + 'static,
 {
   type Output = O;
-  type Invocation = ShaderFutureMapState<T::Invocation, O, F>;
+  type Invocation = ShaderFutureMapState<T::Invocation, F>;
 
   fn required_poll_count(&self) -> usize {
     self.upstream.required_poll_count()
@@ -122,7 +124,6 @@ where
     ShaderFutureMapState {
       upstream: self.upstream.build_poll(ctx),
       map: self.map,
-      phantom: PhantomData,
     }
   }
 
@@ -135,13 +136,12 @@ where
   }
 }
 
-pub struct ShaderFutureMapState<T, O, F> {
+pub struct ShaderFutureMapState<T, F> {
   upstream: T,
   map: F,
-  phantom: PhantomData<O>,
 }
 
-impl<T, F, O> DeviceFutureInvocation for ShaderFutureMapState<T, O, F>
+impl<T, F, O> DeviceFutureInvocation for ShaderFutureMapState<T, F>
 where
   T: DeviceFutureInvocation,
   F: Fn(T::Output) -> O,
@@ -286,7 +286,7 @@ impl<T: DeviceFutureInvocation> DeviceFutureInvocation for OpaqueTaskInvocationW
   }
 }
 
-pub struct TaskFuture<T>(PhantomData<T>);
+pub struct TaskFuture<T>(usize, PhantomData<T>);
 
 impl<T> DeviceFuture for TaskFuture<T>
 where
@@ -299,8 +299,14 @@ where
     1
   }
 
-  fn build_poll(&self, _: &mut DeviceTaskSystemBuildCtx) -> Self::Invocation {
-    panic!("TaskFutureInvocation should build by user in device runtime")
+  fn build_poll(&self, ctx: &mut DeviceTaskSystemBuildCtx) -> Self::Invocation {
+    TaskFutureInvocation {
+      task_ty: self.0,
+      task_handle: ctx
+        .state_builder
+        .create_or_reconstruct_inline_state(u32::MAX),
+      phantom: PhantomData,
+    }
   }
 
   fn bind_input(&self, _: &mut BindingBuilder) {}
@@ -336,7 +342,6 @@ where
 }
 
 pub struct TaskFutureInvocationRightValue {
-  pub task_ty: usize,
   pub task_handle: Node<u32>,
 }
 
@@ -345,7 +350,6 @@ impl<T> ShaderAbstractLeftValue for TaskFutureInvocation<TaskFutureInvocation<T>
 
   fn abstract_load(&self) -> Self::RightValue {
     TaskFutureInvocationRightValue {
-      task_ty: self.task_ty,
       task_handle: self.task_handle.abstract_load(),
     }
   }
