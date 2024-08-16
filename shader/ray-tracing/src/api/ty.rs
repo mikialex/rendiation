@@ -58,34 +58,6 @@ pub struct ShaderRayTraceCall {
   pub payload: Node<i32>,
 }
 
-pub struct ShaderRayTraceCallLocalVar {}
-
-impl ShaderAbstractLeftValue for ShaderRayTraceCallLocalVar {
-  type RightValue = ShaderRayTraceCall;
-
-  fn abstract_load(&self) -> Self::RightValue {
-    todo!()
-  }
-
-  fn abstract_store(&self, payload: Self::RightValue) {
-    todo!()
-  }
-}
-
-impl ShaderAbstractRightValue for ShaderRayTraceCall {
-  type LocalLeftValue = ShaderRayTraceCallLocalVar;
-
-  fn into_local_left_value(self) -> Self::LocalLeftValue {
-    todo!()
-  }
-}
-
-impl Default for ShaderRayTraceCall {
-  fn default() -> Self {
-    todo!()
-  }
-}
-
 /// The shader record to call is determined by parameters set on the instance, trace ray call, and
 /// the order of geometries in the bottom-level acceleration structure. These parameters are set on
 /// both the host and device during different parts of the scene and pipeline setup and execution
@@ -152,40 +124,7 @@ pub enum RayFlagTriangleCullBehavior {
   CullBack,
 }
 
-pub struct WorldHitInfo {
-  pub primitive_id: Node<u32>,
-  pub instance_id: Node<u32>,
-}
-
-pub struct MeshWorldObjectTransform {
-  pub object_to_world: Node<Mat4<f32>>,
-  pub world_to_object: Node<Mat4<f32>>,
-}
-
-pub trait RayDispatchShaderStageCtx {
-  fn launch_id(&self) -> Node<Vec3<u32>>;
-  fn launch_size(&self) -> Node<Vec3<u32>>;
-}
-
-/// mainly used in missing stage
-pub trait RayBaseShaderStageCtx: RayDispatchShaderStageCtx {
-  fn world_ray(&self) -> ShaderRay;
-  // in world semantic
-  fn ray_range(&self) -> ShaderRayRange;
-
-  fn ray_flags(&self) -> Node<u32>;
-}
-
-pub trait RayIntersectionShaderStageCtx: RayBaseShaderStageCtx {
-  fn local_ray(&self) -> ShaderRay;
-
-  fn world_hit_info(&self) -> WorldHitInfo;
-  fn local_world_transform(&self) -> MeshWorldObjectTransform;
-}
-
-/// used as closest or any hit
-pub trait RayHitShaderStageCtx: RayIntersectionShaderStageCtx {
-  fn ray_hit_distance(&self) -> Node<f32>;
-  /// https://github.com/KhronosGroup/GLSL/blob/main/extensions/ext/GLSL_EXT_ray_tracing.txt#L796
-  fn hit_kind(&self) -> Node<u32>;
+pub enum RayAnyHitBehavior {
+  IgnoreThisIntersect,
+  TerminateTraverse,
 }

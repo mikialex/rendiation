@@ -1,27 +1,20 @@
 use crate::*;
 
-pub type NoneOutputDynDeviceFuture =
-  Box<dyn DeviceFuture<Output = (), Invocation = Box<dyn DeviceFutureInvocation<Output = ()>>>>;
-
-pub trait DeviceFutureProvider {
-  fn build_device_future(&self) -> NoneOutputDynDeviceFuture;
-}
-
 pub trait ShaderRayGenLogic:
-  DeviceFutureProvider + NativeRayTracingShaderBuilder<RayGenShaderCtx>
+  DeviceFutureProvider<()> + NativeRayTracingShaderBuilder<RayGenShaderCtx, ()>
 {
 }
 impl<T> ShaderRayGenLogic for T where
-  T: DeviceFutureProvider + NativeRayTracingShaderBuilder<RayGenShaderCtx>
+  T: DeviceFutureProvider<()> + NativeRayTracingShaderBuilder<RayGenShaderCtx, ()>
 {
 }
 
 pub trait ShaderRayClosestHitLogic:
-  DeviceFutureProvider + NativeRayTracingShaderBuilder<RayClosestHitCtx>
+  DeviceFutureProvider<()> + NativeRayTracingShaderBuilder<RayClosestHitCtx, ()>
 {
 }
 impl<T> ShaderRayClosestHitLogic for T where
-  T: DeviceFutureProvider + NativeRayTracingShaderBuilder<RayClosestHitCtx>
+  T: DeviceFutureProvider<()> + NativeRayTracingShaderBuilder<RayClosestHitCtx, ()>
 {
 }
 
@@ -45,18 +38,6 @@ impl Default for GPURaytracingPipelineBuilder {
       intersection_shaders: Default::default(),
     }
   }
-}
-pub struct GPURaytracingPipeline {
-  pub internal: u32,
-}
-
-pub struct GPUShaderBindingTable {
-  pub internal: u32,
-}
-
-pub enum RayAnyHitBehavior {
-  IgnoreThisIntersect,
-  TerminateTraverse,
 }
 
 pub struct ShaderHandle(pub usize, pub RayTracingShaderStage);

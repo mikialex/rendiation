@@ -1,26 +1,18 @@
 use crate::*;
 
-impl<Output, Cx> NativeRayTracingShaderBuilder<Cx> for BaseDeviceFuture<Output> {
-  fn build(&self, _: &mut Cx) {}
+pub type DynDeviceFuture<T> =
+  Box<dyn DeviceFuture<Output = T, Invocation = Box<dyn DeviceFutureInvocation<Output = T>>>>;
+
+pub trait DeviceFutureProvider<T> {
+  fn build_device_future(&self) -> DynDeviceFuture<T>;
 }
 
-pub struct TraceNextRay<F, T> {
-  upstream: T,
-  next_trace_logic: F,
+/// impl native rtx support, the main difference between the future based impl
+/// is the direct support of recursion call in shader
+pub trait NativeRayTracingShaderBuilder<Cx, O> {
+  fn build(&self, ctx: &mut Cx) -> O;
 }
 
-impl<F, T, Cx> NativeRayTracingShaderBuilder<Cx> for TraceNextRay<F, T>
-where
-  T: NativeRayTracingShaderBuilder<Cx>,
-  Cx: NativeRayTracingShaderCtx,
-  F: FnOnce() -> (Node<bool>, ShaderRayTraceCall) + Copy,
-{
-  fn build(&self, ctx: &mut Cx) {
-    self.upstream.build(ctx);
-
-    let (r, c) = (self.next_trace_logic)();
-    if_by(r, || {
-      ctx.native_trace_ray(c);
-    });
-  }
+pub trait NativeRayTracingShaderCtx {
+  fn native_trace_ray(&self, ray: ShaderRayTraceCall);
 }
