@@ -8,37 +8,37 @@ impl GPURaytracingPipelineBuilder {
     device: &GPUDevice,
     init_size: usize,
   ) -> DeviceTaskGraphExecutor {
-    let mut executor = DeviceTaskGraphExecutor::empty();
+    let mut executor = DeviceTaskGraphExecutor::new(1, 1);
 
     let init_pass = todo!();
 
-    executor.define_task(
-      BaseDeviceFuture::default(),
-      || (),
-      device,
-      init_size,
-      init_pass,
-    );
+    // executor.define_task(
+    //   BaseDeviceFuture::default(),
+    //   || (),
+    //   device,
+    //   init_size,
+    //   init_pass,
+    // );
 
-    for closet in &self.closest_hit_shaders {
-      executor.define_task(
-        BaseDeviceFuture::default(),
-        || (),
-        device,
-        init_size,
-        init_pass,
-      );
-    }
+    // for closet in &self.closest_hit_shaders {
+    //   executor.define_task(
+    //     BaseDeviceFuture::default(),
+    //     || (),
+    //     device,
+    //     init_size,
+    //     init_pass,
+    //   );
+    // }
 
-    for ray_gen in &self.ray_gen_shaders {
-      executor.define_task(
-        BaseDeviceFuture::default(),
-        || (),
-        device,
-        init_size,
-        init_pass,
-      );
-    }
+    // for ray_gen in &self.ray_gen_shaders {
+    //   executor.define_task(
+    //     BaseDeviceFuture::default(),
+    //     || (),
+    //     device,
+    //     init_size,
+    //     init_pass,
+    //   );
+    // }
 
     executor
   }
@@ -53,12 +53,12 @@ trait TaskSpawnTarget {
   fn spawn(&self, payload: Box<dyn AnyPayload>) -> Node<u32>;
 }
 
-impl TaskSpawnTarget for TaskGroupDeviceInvocationInstance {
-  fn spawn(&self, payload: Box<dyn AnyPayload>) -> Node<u32> {
-    // self.spawn_new_task(payload.into_any().downcast().unwrap())
-    todo!()
-  }
-}
+// impl TaskSpawnTarget for TaskGroupDeviceInvocationInstance {
+//   fn spawn(&self, payload: Box<dyn AnyPayload>) -> Node<u32> {
+//     // self.spawn_new_task(payload.into_any().downcast().unwrap())
+//     todo!()
+//   }
+// }
 
 struct GPURayTraceTaskInvocationInstance {
   all_closest_hit_tasks: Vec<Box<dyn TaskSpawnTarget>>,

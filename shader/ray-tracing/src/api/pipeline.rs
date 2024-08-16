@@ -1,54 +1,35 @@
 use crate::*;
 
+pub type NoneOutputDynDeviceFuture =
+  Box<dyn DeviceFuture<Output = (), Invocation = Box<dyn DeviceFutureInvocation<Output = ()>>>>;
+
+pub trait DeviceFutureProvider {
+  fn build_device_future(&self) -> NoneOutputDynDeviceFuture;
+}
+
 pub trait ShaderRayGenLogic:
-  DeviceFuture<Ctx = RayGenShaderCtx, Output = ()>
-  + NativeRayTracingShaderBuilder<Ctx = RayGenShaderCtx>
+  DeviceFutureProvider + NativeRayTracingShaderBuilder<RayGenShaderCtx>
 {
 }
 impl<T> ShaderRayGenLogic for T where
-  T: DeviceFuture<Ctx = RayGenShaderCtx, Output = ()>
-    + NativeRayTracingShaderBuilder<Ctx = RayGenShaderCtx>
-{
-}
-
-pub trait ShaderRayGenLogicBoxed:
-  DeviceFuture<Ctx = RayGenShaderCtx, Output = (), State = Box<dyn Any>>
-  + NativeRayTracingShaderBuilder<Ctx = RayGenShaderCtx>
-{
-}
-impl<T> ShaderRayGenLogicBoxed for T where
-  T: DeviceFuture<Ctx = RayGenShaderCtx, Output = (), State = Box<dyn Any>>
-    + NativeRayTracingShaderBuilder<Ctx = RayGenShaderCtx>
+  T: DeviceFutureProvider + NativeRayTracingShaderBuilder<RayGenShaderCtx>
 {
 }
 
 pub trait ShaderRayClosestHitLogic:
-  DeviceFuture<Ctx = RayClosestHitCtx, Output = ()>
-  + NativeRayTracingShaderBuilder<Ctx = RayClosestHitCtx>
+  DeviceFutureProvider + NativeRayTracingShaderBuilder<RayClosestHitCtx>
 {
 }
 impl<T> ShaderRayClosestHitLogic for T where
-  T: DeviceFuture<Ctx = RayClosestHitCtx, Output = ()>
-    + NativeRayTracingShaderBuilder<Ctx = RayClosestHitCtx>
-{
-}
-
-pub trait ShaderRayClosestHitLogicBoxed:
-  DeviceFuture<Ctx = RayClosestHitCtx, Output = (), State = Box<dyn Any>>
-  + NativeRayTracingShaderBuilder<Ctx = RayClosestHitCtx>
-{
-}
-impl<T> ShaderRayClosestHitLogicBoxed for T where
-  T: DeviceFuture<Ctx = RayClosestHitCtx, Output = (), State = Box<dyn Any>>
-    + NativeRayTracingShaderBuilder<Ctx = RayClosestHitCtx>
+  T: DeviceFutureProvider + NativeRayTracingShaderBuilder<RayClosestHitCtx>
 {
 }
 
 pub struct GPURaytracingPipelineBuilder {
   pub max_recursion_depth: u32,
-  pub ray_gen_shaders: Vec<Box<dyn ShaderRayGenLogicBoxed>>,
+  pub ray_gen_shaders: Vec<Box<dyn ShaderRayGenLogic>>,
   pub miss_hit_shaders: Vec<Box<dyn FnOnce(&mut RayMissCtx)>>,
-  pub closest_hit_shaders: Vec<Box<dyn ShaderRayClosestHitLogicBoxed>>,
+  pub closest_hit_shaders: Vec<Box<dyn ShaderRayClosestHitLogic>>,
   pub intersection_shaders: Vec<Box<dyn FnOnce(&mut RayIntersectCtx)>>,
   pub any_hit_shaders: Vec<Box<dyn FnOnce(&mut RayAnyHitCtx) -> Node<RayAnyHitBehavior>>>,
 }
@@ -88,7 +69,7 @@ impl GPURaytracingPipelineBuilder {
 
   pub fn register_ray_gen(mut self, ray_logic: impl ShaderRayGenLogic + 'static) -> ShaderHandle {
     let idx = self.ray_gen_shaders.len();
-    self.ray_gen_shaders.push(Box::new(BoxState(ray_logic)));
+    self.ray_gen_shaders.push(Box::new(ray_logic));
     ShaderHandle(idx, RayTracingShaderStage::RayGeneration)
   }
   pub fn register_ray_miss(
@@ -114,7 +95,7 @@ impl GPURaytracingPipelineBuilder {
     ray_logic: impl ShaderRayClosestHitLogic + 'static,
   ) -> ShaderHandle {
     let idx = self.closest_hit_shaders.len();
-    self.closest_hit_shaders.push(Box::new(BoxState(ray_logic)));
+    self.closest_hit_shaders.push(Box::new(ray_logic));
     ShaderHandle(idx, RayTracingShaderStage::ClosestHit)
   }
 
