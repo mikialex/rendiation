@@ -10,6 +10,7 @@ pub type OpaqueTask = Box<
 pub struct TaskGroupExecutor {
   pub state_desc: DynamicTypeMetaInfo,
   pub task_type_desc: ShaderStructMetaInfo,
+  pub payload_type_id: TypeId,
   pub task: OpaqueTask,
 
   pub polling_pipeline: GPUComputePipeline,
@@ -104,6 +105,7 @@ impl TaskGroupExecutor {
         required_size,
         self.state_desc.clone(),
         self.task_type_desc.clone(),
+        self.payload_type_id,
         &gpu.device,
         pass,
       );
@@ -118,6 +120,7 @@ pub struct TaskGroupExecutorResource {
   pub empty_index_pool: DeviceBumpAllocationInstance<u32>,
   pub task_pool: TaskPool,
   pub size: usize,
+  pub payload_type_id: TypeId,
 }
 
 impl TaskGroupExecutorResource {
@@ -125,6 +128,7 @@ impl TaskGroupExecutorResource {
     size: usize,
     state_desc: DynamicTypeMetaInfo,
     task_ty_desc: ShaderStructMetaInfo,
+    payload_type_id: TypeId,
     device: &GPUDevice,
     pass: &mut GPUComputePass,
   ) -> Self {
@@ -134,6 +138,7 @@ impl TaskGroupExecutorResource {
       empty_index_pool: DeviceBumpAllocationInstance::new(size * 2, device),
       task_pool: TaskPool::create_with_size(size * 2, state_desc, task_ty_desc, device),
       size,
+      payload_type_id,
     };
 
     let hasher = shader_hasher_from_marker_ty!(PrepareEmptyIndices);
@@ -175,6 +180,7 @@ impl TaskGroupExecutorResource {
       empty_index_pool: self.empty_index_pool.build_deallocator_shader(cx),
       task_pool: self.task_pool.build_shader(cx),
       alive_task_idx: self.alive_task_idx.build_allocator_shader(cx),
+      payload_type_id: self.payload_type_id,
     }
   }
 
@@ -191,10 +197,15 @@ pub struct TaskGroupDeviceInvocationInstance {
   empty_index_pool: DeviceBumpDeAllocationInvocationInstance<u32>,
   alive_task_idx: DeviceBumpAllocationInvocationInstance<u32>,
   task_pool: TaskPoolInvocationInstance,
+  payload_type_id: TypeId,
 }
 
 impl TaskGroupDeviceInvocationInstance {
-  pub fn spawn_new_task<T: ShaderSizedValueNodeType>(&self, payload: Node<T>) -> Node<u32> {
+  #[must_use]
+  pub fn spawn_new_task<T: ShaderSizedValueNodeType>(&self, payload: Node<T>) -> Option<Node<u32>> {
+    if self.payload_type_id != TypeId::of::<T>() {
+      return None;
+    }
     let (idx, success) = self.empty_index_pool.bump_deallocate();
     if_by(success, || {
       self.task_pool.spawn_new_task(idx, payload);
@@ -203,7 +214,7 @@ impl TaskGroupDeviceInvocationInstance {
     .else_by(|| {
       // error report, theoretically unreachable
     });
-    idx
+    Some(idx)
   }
 
   pub fn cleanup_finished_task_state_and_payload(&self, task: Node<u32>) {

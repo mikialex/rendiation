@@ -45,15 +45,18 @@ impl DeviceTaskGraphExecutor {
     self.define_task_inner(
       Box::new(OpaqueTaskWrapper(future)) as OpaqueTask,
       P::sized_ty(),
+      TypeId::of::<P>(),
       device,
       pass,
     )
   }
 
-  pub fn define_task_inner(
+  #[inline(never)]
+  fn define_task_inner(
     &mut self,
     task: OpaqueTask,
     payload_ty: ShaderSizedValueType,
+    payload_type_id: TypeId,
     device: &GPUDevice,
     pass: &mut GPUComputePass,
   ) -> u32 {
@@ -86,6 +89,7 @@ impl DeviceTaskGraphExecutor {
       self.current_prepared_execution_size,
       state_desc.clone(),
       task_type_desc.clone(),
+      payload_type_id,
       device,
       pass,
     );
@@ -120,6 +124,7 @@ impl DeviceTaskGraphExecutor {
       resource,
       state_desc,
       task_type_desc,
+      payload_type_id,
       tasks_depend_on_self,
       required_poll_count: task.required_poll_count(),
       task,
@@ -189,7 +194,9 @@ impl DeviceTaskGraphExecutor {
 
       if_by(id.less_than(dispatch_size.load()), || {
         let payload = task_spawner(id);
-        instance.spawn_new_task(payload);
+        instance
+          .spawn_new_task(payload)
+          .expect("payload miss match");
       });
 
       builder

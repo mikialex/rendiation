@@ -40,6 +40,7 @@ impl<'a> GraphicsShaderProvider for WideLineMaterialGPU<'a> {
       let color_with_alpha = builder.query::<GeometryColorWithAlpha>()?;
       let material = binding.bind_by(&self.uniform).load().expand();
 
+      // todo move to shape post build
       let vertex_position = wide_line_vertex(
         builder.query::<CameraProjectionMatrix>()?,
         builder.query::<CameraViewMatrix>()?,
