@@ -31,21 +31,20 @@ impl DynamicTypeBuilder {
 #[derive(Clone)]
 pub struct DynamicTypeMetaInfo {
   pub ty: ShaderStructMetaInfo,
-  pub fields_init: Vec<PrimitiveShaderValue>,
+  pub fields_init: Vec<ShaderStructFieldInitValue>,
 }
 
 impl DynamicTypeBuilder {
-  // todo, support PrimitiveShaderValueNodeType
-  pub fn create_or_reconstruct_inline_state<T: PrimitiveShaderNodeType>(
+  pub fn create_or_reconstruct_inline_state<T: ShaderSizedValueNodeType>(
     &mut self,
     default: T,
   ) -> BoxedShaderLoadStore<Node<T>> {
     let field_index = self.meta.fields_init.len();
-    self.meta.fields_init.push(default.to_primitive());
-    self.meta.ty.push_field_dyn(
-      &format!("field_{}", field_index),
-      ShaderSizedValueType::Primitive(T::PRIMITIVE_TYPE),
-    );
+    self.meta.fields_init.push(default.to_value());
+    self
+      .meta
+      .ty
+      .push_field_dyn(&format!("field_{}", field_index), T::sized_ty());
 
     let node = DeferResolvedStorageStructFieldNode {
       node: Arc::downgrade(&self.node_to_resolve),
@@ -65,7 +64,7 @@ struct DeferResolvedStorageStructFieldNode<T> {
   ty: PhantomData<T>,
 }
 
-impl<T: PrimitiveShaderNodeType> DeferResolvedStorageStructFieldNode<T> {
+impl<T: ShaderSizedValueNodeType> DeferResolvedStorageStructFieldNode<T> {
   fn expect_resolved(&self) -> StorageNode<T> {
     let mut resolve = self.resolved_node.write();
     let storage = resolve.get_or_insert_with(|| {
@@ -80,7 +79,7 @@ impl<T: PrimitiveShaderNodeType> DeferResolvedStorageStructFieldNode<T> {
     unsafe { index_access_field(storage.handle(), self.field_index) }
   }
 }
-impl<T: PrimitiveShaderNodeType> ShaderAbstractLeftValue
+impl<T: ShaderSizedValueNodeType> ShaderAbstractLeftValue
   for DeferResolvedStorageStructFieldNode<T>
 {
   type RightValue = Node<T>;

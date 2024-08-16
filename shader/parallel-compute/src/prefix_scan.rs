@@ -53,27 +53,24 @@ where
     &self,
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<Node<T>>> {
-    let source = self.upstream.build_shader(builder);
+    let local_id = builder.local_invocation_id().x();
+    let shared = builder.define_workgroup_shared_var_host_size_array::<T>(self.workgroup_size);
 
-    let r = builder.entry_by(|cx| {
-      let global_id = cx.global_invocation_id();
-      let local_id = cx.local_invocation_id().x();
+    let iter = self.workgroup_size.ilog2();
 
-      let (input, valid) = source.invocation_logic(global_id);
-      let (input, valid) = (valid.select(input, S::identity()), valid);
+    self
+      .upstream
+      .build_shader(builder)
+      .adhoc_invoke_with_self_size(move |upstream, id| {
+        let (input, valid) = upstream.invocation_logic(id);
+        let (input, valid) = (valid.select(input, S::identity()), valid);
 
-      let shared = cx.define_workgroup_shared_var_host_size_array::<T>(self.workgroup_size);
+        let value = input.make_local_var();
 
-      let value = input.make_local_var();
+        shared.index(local_id).store(value.load());
 
-      shared.index(local_id).store(value.load());
-
-      self
-        .workgroup_size
-        .ilog2()
-        .into_shader_iter()
-        .for_each(|i, _| {
-          cx.workgroup_barrier();
+        iter.into_shader_iter().for_each(|i, _| {
+          workgroup_barrier();
 
           if_by(local_id.greater_equal_than(val(1) << i), || {
             let a = value.load();
@@ -82,14 +79,13 @@ where
             value.store(combined)
           });
 
-          cx.workgroup_barrier();
+          workgroup_barrier();
           shared.index(local_id).store(value.load())
         });
 
-      (value.load(), valid)
-    });
-
-    source.get_size_into_adhoc(r).into_boxed()
+        (value.load(), valid)
+      })
+      .into_boxed()
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {
@@ -160,7 +156,7 @@ async fn test_workgroup_prefix_sum_kogge_stone() {
 
   input
     .workgroup_scope_prefix_scan_kogge_stone::<AdditionMonoid<_>>(workgroup_size)
-    .single_run_test(&expect)
+    .run_test(&expect)
     .await
 }
 
@@ -180,6 +176,6 @@ async fn test_prefix_sum_kogge_stone() {
 
   input
     .segmented_prefix_scan_kogge_stone::<AdditionMonoid<_>>(workgroup_size, workgroup_size)
-    .single_run_test(&expect)
+    .run_test(&expect)
     .await
 }

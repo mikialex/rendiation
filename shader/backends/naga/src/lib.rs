@@ -843,6 +843,10 @@ impl ShaderAPI for ShaderAPINagaImpl {
         ShaderNodeExpr::Compose { target, parameters } => {
           let mut components: Vec<_> = parameters.iter().map(|f| self.get_expression(*f)).collect();
 
+          let ty = self.register_ty_impl(
+            ShaderValueType::Single(ShaderValueSingleType::Sized(target.clone())),
+            None,
+          );
           if let ShaderSizedValueType::Struct(meta) = &target {
             let extra = self.struct_extra_padding_count.get(&meta.name).unwrap();
             for _ in 0..*extra {
@@ -851,10 +855,6 @@ impl ShaderAPI for ShaderAPINagaImpl {
               );
             }
           }
-          let ty = self.register_ty_impl(
-            ShaderValueType::Single(ShaderValueSingleType::Sized(target)),
-            None,
-          );
 
           naga::Expression::Compose { ty, components }
         }

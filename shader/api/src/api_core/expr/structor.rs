@@ -26,6 +26,7 @@ pub enum ShaderFieldDecorator {
 /// These types may be different because the std140 type substitution
 pub trait ShaderFieldTypeMapper {
   type ShaderType: ShaderSizedValueNodeType;
+  fn into_shader_ty(self) -> Self::ShaderType;
 }
 
 // Impl notes:
@@ -41,34 +42,57 @@ pub trait ShaderFieldTypeMapper {
 //  So we have to impl for all the types we know
 
 macro_rules! shader_field_ty_mapper {
-  ($src:ty, $dst:ty) => {
+  ($src:ty) => {
     impl ShaderFieldTypeMapper for $src {
-      type ShaderType = $dst;
+      type ShaderType = Self;
+      fn into_shader_ty(self) -> Self::ShaderType {
+        self
+      }
     }
   };
 }
 
 // standard
-shader_field_ty_mapper!(f32, Self);
-shader_field_ty_mapper!(u32, Self);
-shader_field_ty_mapper!(i32, Self);
-shader_field_ty_mapper!(Vec2<f32>, Self);
-shader_field_ty_mapper!(Vec3<f32>, Self);
-shader_field_ty_mapper!(Vec4<f32>, Self);
-shader_field_ty_mapper!(Vec2<u32>, Self);
-shader_field_ty_mapper!(Vec3<u32>, Self);
-shader_field_ty_mapper!(Vec4<u32>, Self);
-shader_field_ty_mapper!(Mat2<f32>, Self);
-shader_field_ty_mapper!(Mat3<f32>, Self);
-shader_field_ty_mapper!(Mat4<f32>, Self);
+shader_field_ty_mapper!(f32);
+shader_field_ty_mapper!(u32);
+shader_field_ty_mapper!(i32);
+shader_field_ty_mapper!(Vec2<f32>);
+shader_field_ty_mapper!(Vec3<f32>);
+shader_field_ty_mapper!(Vec4<f32>);
+shader_field_ty_mapper!(Vec2<u32>);
+shader_field_ty_mapper!(Vec3<u32>);
+shader_field_ty_mapper!(Vec4<u32>);
+shader_field_ty_mapper!(Mat2<f32>);
+shader_field_ty_mapper!(Mat3<f32>);
+shader_field_ty_mapper!(Mat4<f32>);
 
 // std140
-shader_field_ty_mapper!(Shader16PaddedMat2, Mat2<f32>);
-shader_field_ty_mapper!(Shader16PaddedMat3, Mat3<f32>);
-shader_field_ty_mapper!(Bool, bool);
+impl ShaderFieldTypeMapper for Shader16PaddedMat2 {
+  type ShaderType = Mat2<f32>;
+  fn into_shader_ty(self) -> Self::ShaderType {
+    self.into()
+  }
+}
+
+impl ShaderFieldTypeMapper for Shader16PaddedMat3 {
+  type ShaderType = Mat3<f32>;
+  fn into_shader_ty(self) -> Self::ShaderType {
+    self.into()
+  }
+}
+
+impl ShaderFieldTypeMapper for Bool {
+  type ShaderType = bool;
+  fn into_shader_ty(self) -> Self::ShaderType {
+    self.0 != 0
+  }
+}
 
 impl<T: ShaderSizedValueNodeType, const U: usize> ShaderFieldTypeMapper for Shader140Array<T, U> {
   type ShaderType = [T; U];
+  fn into_shader_ty(self) -> Self::ShaderType {
+    self.inner.map(|v| v.inner)
+  }
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]

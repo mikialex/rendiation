@@ -95,6 +95,6 @@ async fn test() {
   input
     .zip(input2)
     .map(|(a, b)| a + b)
-    .single_run_test(&expect)
+    .run_test(&expect)
     .await
 }

@@ -130,6 +130,9 @@ macro_rules! primitive_ty {
       fn sized_ty() -> ShaderSizedValueType {
         ShaderSizedValueType::Primitive($primitive_ty_value)
       }
+      fn to_value(&self) -> ShaderStructFieldInitValue {
+        ShaderStructFieldInitValue::Primitive(self.to_primitive())
+      }
     }
 
     impl PrimitiveShaderNodeType for $ty {

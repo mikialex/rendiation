@@ -7,13 +7,18 @@ use crate::*;
 
 pub struct ViewerPicker {
   current_mouse_ray_in_world: Ray3,
+  normalized_position: Vec2<f32>,
   conf: MeshBufferIntersectConfig,
   camera_view_size: Size,
   scene_model_picker: SceneModelPickerImpl,
 }
 
 impl ViewerPicker {
-  pub fn new(dep: &Viewer3dSceneDerive, input: &PlatformEventInput) -> Self {
+  pub fn new(
+    dep: &Viewer3dSceneDerive,
+    input: &PlatformEventInput,
+    camera_id: EntityHandle<SceneCameraEntity>,
+  ) -> Self {
     let scene_model_picker = SceneModelPickerImpl {
       scene_model_node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
       model_access_std_model: global_entity_component_of::<SceneModelStdModelRenderPayload>()
@@ -40,9 +45,18 @@ impl ViewerPicker {
     let normalized_position =
       compute_normalized_position_in_canvas_coordinate(*mouse_position, *window_size);
 
+    let projection_inv = dep
+      .camera_transforms
+      .access(&camera_id)
+      .unwrap()
+      .projection_inv;
+
+    let current_mouse_ray_in_world = cast_world_ray(projection_inv, normalized_position.into());
+
     ViewerPicker {
       scene_model_picker,
-      current_mouse_ray_in_world: todo!(),
+      current_mouse_ray_in_world,
+      normalized_position: normalized_position.into(),
       conf: Default::default(),
       camera_view_size: Size::from_f32_pair_min_one(input.window_state.size),
     }
@@ -69,16 +83,13 @@ impl Picker3d for ViewerPicker {
   }
 }
 
-pub fn compute_picking_state(picker: &ViewerPicker, input: PlatformEventInput) -> Interaction3dCtx {
+pub fn prepare_picking_state(picker: ViewerPicker, input: PlatformEventInput) -> Interaction3dCtx {
   let mouse_position = &input.window_state.mouse_position;
   let window_size = &input.window_state.size;
 
-  let normalized_position =
-    compute_normalized_position_in_canvas_coordinate(*mouse_position, *window_size);
-
   Interaction3dCtx {
-    picker: todo!(),
-    mouse_world_ray: todo!(),
+    mouse_world_ray: picker.current_mouse_ray_in_world,
+    picker: Box::new(picker),
     intersection_group: todo!(),
     world_ray_intersected_nearest: todo!(),
   }

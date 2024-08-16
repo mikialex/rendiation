@@ -27,44 +27,43 @@ where
     &self,
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<Node<T>>> {
-    let source = self.upstream.build_shader(builder);
+    let local_id = builder.local_invocation_id().x();
+    let shared = builder.define_workgroup_shared_var_host_size_array::<T>(self.workgroup_size);
 
-    let r = builder.entry_by(|cx| {
-      let (input, valid) = source.invocation_logic(cx.global_invocation_id());
+    let iter = self.workgroup_size.ilog2();
 
-      let input = valid.select(input, S::identity());
+    self
+      .upstream
+      .build_shader(builder)
+      .adhoc_invoke_with_self_size(move |upstream, id| {
+        let (input, valid) = upstream.invocation_logic(id);
 
-      let shared = cx.define_workgroup_shared_var_host_size_array::<T>(self.workgroup_size);
+        let input = valid.select(input, S::identity());
 
-      let local_id = cx.local_invocation_id().x();
+        shared.index(local_id).store(input);
 
-      shared.index(local_id).store(input);
+        iter.into_shader_iter().for_each(|i, _| {
+          workgroup_barrier();
 
-      let iter = self.workgroup_size.ilog2();
+          let stride = val(1) << (val(iter) - i - val(1));
 
-      iter.into_shader_iter().for_each(|i, _| {
-        cx.workgroup_barrier();
+          if_by(local_id.less_than(stride), || {
+            let a = shared.index(local_id).load();
+            let b = shared.index(local_id + stride).load();
+            let combined = S::combine(a, b);
+            shared.index(local_id).store(combined);
+          });
 
-        let stride = val(1) << (val(iter) - i - val(1));
-
-        if_by(local_id.less_than(stride), || {
-          let a = shared.index(local_id).load();
-          let b = shared.index(local_id + stride).load();
-          let combined = S::combine(a, b);
-          shared.index(local_id).store(combined);
+          workgroup_barrier();
         });
 
-        cx.workgroup_barrier();
-      });
+        let result = local_id
+          .equals(0)
+          .select_branched(|| shared.index(0).load(), || S::identity());
 
-      let result = local_id
-        .equals(0)
-        .select_branched(|| shared.index(0).load(), || S::identity());
-
-      (result, local_id.equals(0))
-    });
-
-    source.get_size_into_adhoc(r).into_boxed()
+        (result, local_id.equals(0))
+      })
+      .into_boxed()
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {
@@ -101,6 +100,7 @@ where
   }
 
   fn result_size(&self) -> u32 {
+    // todo, fix
     self.upstream.result_size()
   }
 }
@@ -113,7 +113,7 @@ where
   fn materialize_storage_buffer(
     &self,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> StorageBufferReadOnlyDataView<[T]>
+  ) -> DeviceMaterializeResult<T>
   where
     T: Std430 + ShaderSizedValueNodeType,
   {
@@ -132,7 +132,7 @@ async fn test1() {
 
   input
     .workgroup_scope_reduction::<AdditionMonoid<_>>(workgroup_size)
-    .single_run_test(&expect)
+    .run_test(&expect)
     .await
 }
 
@@ -146,6 +146,6 @@ async fn test2() {
 
   input
     .segmented_reduction::<AdditionMonoid<_>>(workgroup_size, workgroup_size)
-    .single_run_test(&expect)
+    .run_test(&expect)
     .await
 }

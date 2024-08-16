@@ -14,7 +14,7 @@ impl<T: Scalar> SpaceEntity<T, 3> for Ray3<T> {
 }
 
 impl<T: Scalar> Ray3<T> {
-  pub fn from_point_to_point(origin: Vec3<T>, target: Vec3<T>) -> Self {
+  pub fn from_origin_to_target(origin: Vec3<T>, target: Vec3<T>) -> Self {
     Ray3::new(origin, (target - origin).into_normalized())
   }
 
@@ -145,37 +145,5 @@ impl<T: Scalar> Ray3<T> {
       self.direction * s0 + self.origin,
       seg_dir * s1 + seg_center,
     )
-  }
-}
-
-pub trait RayCaster3<T: Scalar> = HyperRayCaster<T, Vec3<T>, Vec2<T>>;
-
-impl HyperRayCaster<f32, Vec3<f32>, Vec2<f32>> for OrthographicProjection<f32> {
-  fn cast_ray(&self, normalized_position: Vec2<f32>) -> HyperRay<f32, Vec3<f32>> {
-    let z = (self.near + self.far) / (self.near - self.far); // i don't know why need this?
-    let ndc = Vec3::new(normalized_position.x, normalized_position.y, z);
-    let origin = self.un_project::<OpenGL>(ndc); // yes, the input ndc should be opengl, should we make this generic?
-    HyperRay {
-      origin,
-      direction: Vec3::new(0., 0., -1.).into_normalized(), // check if it is -1
-    }
-  }
-}
-
-impl HyperRayCaster<f32, Vec3<f32>, Vec2<f32>> for ViewFrustumOrthographicProjection<f32> {
-  fn cast_ray(&self, normalized_position: Vec2<f32>) -> HyperRay<f32, Vec3<f32>> {
-    self.get_orth().cast_ray(normalized_position)
-  }
-}
-
-impl HyperRayCaster<f32, Vec3<f32>, Vec2<f32>> for PerspectiveProjection<f32> {
-  fn cast_ray(&self, normalized_position: Vec2<f32>) -> HyperRay<f32, Vec3<f32>> {
-    let ndc = Vec3::new(normalized_position.x, normalized_position.y, -0.5);
-    let direction = self.un_project::<OpenGL>(ndc); // ditto
-
-    HyperRay {
-      origin: Vec3::splat(0.),
-      direction: direction.into_normalized(),
-    }
   }
 }

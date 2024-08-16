@@ -22,17 +22,18 @@ impl<I: 'static, O: 'static + Copy> DeviceInvocationComponent<O> for DeviceMapCo
     &self,
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<O>> {
-    let source = self.upstream.build_shader(builder);
+    let mapper = self.mapper.clone();
+    self
+      .upstream
+      .build_shader(builder)
+      .adhoc_invoke_with_self_size(move |upstream, id| {
+        let (input, valid) = upstream.invocation_logic(id);
 
-    let r = builder.entry_by(|cx| {
-      let (input, valid) = source.invocation_logic(cx.global_invocation_id());
+        let output = mapper(input);
 
-      let output = (self.mapper)(input);
-
-      (output, valid)
-    });
-
-    source.get_size_into_adhoc(r).into_boxed()
+        (output, valid)
+      })
+      .into_boxed()
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {
@@ -78,7 +79,7 @@ impl<I: 'static, O: Copy + 'static> DeviceParallelComputeIO<O> for DeviceMap<I, 
 async fn test() {
   let input = vec![1_u32; 70];
 
-  let expect = input.iter().map(|v| v + 1).collect();
+  let expect = input.iter().map(|v| v + 1).collect::<Vec<_>>();
 
-  input.map(|v| v + val(1)).single_run_test(&expect).await
+  input.map(|v| v + val(1)).run_test(&expect).await
 }

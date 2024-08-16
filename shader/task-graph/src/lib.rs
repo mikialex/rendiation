@@ -1,4 +1,5 @@
 use std::any::Any;
+use std::any::TypeId;
 use std::marker::PhantomData;
 use std::num::NonZeroU64;
 use std::sync::Arc;
@@ -21,6 +22,8 @@ pub use dyn_ty_builder::*;
 
 mod bump_allocator;
 pub use bump_allocator::*;
+
+mod test;
 
 /// abstract left value in shader
 pub trait ShaderAbstractLeftValue {
@@ -52,10 +55,4 @@ impl<T: ShaderNodeType> ShaderAbstractRightValue for Node<T> {
   fn into_local_left_value(self) -> Self::LocalLeftValue {
     self.make_local_var()
   }
-}
-
-#[derive(Clone, Copy)]
-pub struct DeviceOption<T> {
-  pub is_some: Node<bool>,
-  pub payload: T,
 }

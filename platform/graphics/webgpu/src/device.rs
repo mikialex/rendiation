@@ -82,7 +82,7 @@ impl GPUDevice {
     cache.entry(key).or_insert_with(|| creator(self)).clone()
   }
 
-  pub fn get_or_cache_create_compute_pipeline(
+  pub fn get_or_cache_create_compute_pipeline_by(
     &self,
     hasher: PipelineHasher,
     creator: impl FnOnce(&Self) -> GPUComputePipeline,
@@ -91,6 +91,18 @@ impl GPUDevice {
 
     let key = hasher.finish();
     cache.entry(key).or_insert_with(|| creator(self)).clone()
+  }
+
+  pub fn get_or_cache_create_compute_pipeline(
+    &self,
+    hasher: PipelineHasher,
+    creator: impl FnOnce(ShaderComputePipelineBuilder) -> ShaderComputePipelineBuilder,
+  ) -> GPUComputePipeline {
+    self.get_or_cache_create_compute_pipeline_by(hasher, |device| {
+      let builder = compute_shader_builder();
+      let builder = creator(builder);
+      builder.create_compute_pipeline(device).unwrap()
+    })
   }
 
   pub fn create_and_cache_bindgroup_layout(
@@ -130,7 +142,25 @@ impl GPUDevice {
   ) -> StorageBufferDataView<DispatchIndirectArgsStorage> {
     let init = DispatchIndirectArgsStorage::default();
     let init = StorageBufferInit::WithInit(&init);
-    create_gpu_read_write_storage(init, self)
+
+    let usage = gpu::BufferUsages::INDIRECT
+      | gpu::BufferUsages::STORAGE
+      | gpu::BufferUsages::COPY_DST
+      | gpu::BufferUsages::COPY_SRC;
+
+    let init = init.into_buffer_init();
+    let desc = GPUBufferDescriptor {
+      size: init.size(),
+      usage,
+    };
+    let gpu = GPUBuffer::create(self, init, usage);
+
+    let gpu = GPUBufferResource::create_with_raw(gpu, desc, self).create_default_view();
+
+    StorageBufferDataView {
+      gpu,
+      phantom: PhantomData,
+    }
   }
 }
 

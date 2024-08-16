@@ -36,40 +36,64 @@ impl IntoWorkgroupSize for (u32, u32, u32) {
   }
 }
 
-pub struct ComputeCx<'a>(pub &'a mut ShaderComputePipelineBuilder);
+pub fn storage_barrier() {
+  call_shader_api(|api| api.barrier(BarrierScope::Storage))
+}
 
-impl<'a> ComputeCx<'a> {
-  pub fn config_work_group_size(&self, size: impl IntoWorkgroupSize) {
+pub fn workgroup_barrier() {
+  call_shader_api(|api| api.barrier(BarrierScope::WorkGroup))
+}
+
+impl ShaderComputePipelineBuilder {
+  pub fn new(api: &dyn Fn(ShaderStages) -> DynamicShaderAPI) -> Self {
+    set_build_api_by(api);
+
+    set_current_building(ShaderStages::Compute.into());
+
+    use ShaderBuiltInDecorator::*;
+    let r = Self {
+      bindgroups: Default::default(),
+      global_invocation_id: ShaderInputNode::BuiltIn(CompGlobalInvocationId).insert_api(),
+      local_invocation_id: ShaderInputNode::BuiltIn(CompLocalInvocationId).insert_api(),
+      local_invocation_index: ShaderInputNode::BuiltIn(CompLocalInvocationIndex).insert_api(),
+      workgroup_id: ShaderInputNode::BuiltIn(CompWorkgroupId).insert_api(),
+      workgroup_count: ShaderInputNode::BuiltIn(CompNumWorkgroup).insert_api(),
+      log_result: false,
+    };
+
+    // if user not setting any workgroup size in building process, we use this as default config
+    r.with_config_work_group_size(256)
+  }
+
+  pub fn with_config_work_group_size(self, size: impl IntoWorkgroupSize) -> Self {
     call_shader_api(|api| api.set_workgroup_size(size.into_size()));
+    self
   }
 
-  pub fn storage_barrier(&self) {
-    call_shader_api(|api| api.barrier(BarrierScope::Storage))
-  }
-
-  pub fn workgroup_barrier(&self) {
-    call_shader_api(|api| api.barrier(BarrierScope::WorkGroup))
+  pub fn config_work_group_size(&self, size: impl IntoWorkgroupSize) -> &Self {
+    call_shader_api(|api| api.set_workgroup_size(size.into_size()));
+    self
   }
 
   pub fn global_invocation_id(&self) -> Node<Vec3<u32>> {
-    self.0.global_invocation_id
+    self.global_invocation_id
   }
 
   pub fn local_invocation_id(&self) -> Node<Vec3<u32>> {
-    self.0.local_invocation_id
+    self.local_invocation_id
   }
 
   /// https://www.w3.org/TR/WGSL/#local-invocation-index
   pub fn local_invocation_index(&self) -> Node<u32> {
-    self.0.local_invocation_index
+    self.local_invocation_index
   }
 
   pub fn workgroup_id(&self) -> Node<Vec3<u32>> {
-    self.0.workgroup_id
+    self.workgroup_id
   }
 
   pub fn workgroup_count(&self) -> Node<Vec3<u32>> {
-    self.0.workgroup_count
+    self.workgroup_count
   }
 
   pub fn define_workgroup_shared_var<T: ShaderSizedValueNodeType>(&self) -> WorkGroupSharedNode<T> {
@@ -87,44 +111,11 @@ impl<'a> ComputeCx<'a> {
   }
 
   pub fn bindgroups(&mut self) -> &mut ShaderBindGroupBuilder {
-    &mut self.0.bindgroups
+    &mut self.bindgroups
   }
 
   pub fn bind_by<T: ShaderBindingProvider>(&mut self, instance: &T) -> Node<T::Node> {
     self.bindgroups().bind_by_and_prepare(instance).using()
-  }
-}
-
-impl ShaderComputePipelineBuilder {
-  pub fn new(api: &dyn Fn(ShaderStages) -> DynamicShaderAPI) -> Self {
-    set_build_api(api);
-
-    set_current_building(ShaderStages::Compute.into());
-
-    use ShaderBuiltInDecorator::*;
-    Self {
-      bindgroups: Default::default(),
-      global_invocation_id: ShaderInputNode::BuiltIn(CompGlobalInvocationId).insert_api(),
-      local_invocation_id: ShaderInputNode::BuiltIn(CompLocalInvocationId).insert_api(),
-      local_invocation_index: ShaderInputNode::BuiltIn(CompLocalInvocationIndex).insert_api(),
-      workgroup_id: ShaderInputNode::BuiltIn(CompWorkgroupId).insert_api(),
-      workgroup_count: ShaderInputNode::BuiltIn(CompNumWorkgroup).insert_api(),
-      log_result: false,
-    }
-  }
-
-  pub fn entry(mut self, f: impl FnOnce(&mut ComputeCx)) -> Self {
-    f(&mut ComputeCx(&mut self));
-    self
-  }
-
-  pub fn entry_by<R>(&mut self, f: impl FnOnce(&mut ComputeCx) -> R) -> R {
-    f(&mut ComputeCx(self))
-  }
-
-  pub fn config_work_group_size(self, size: impl IntoWorkgroupSize) -> Self {
-    call_shader_api(|api| api.set_workgroup_size(size.into_size()));
-    self
   }
 
   pub fn with_log_shader(mut self) -> Self {

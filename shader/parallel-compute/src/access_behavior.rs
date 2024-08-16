@@ -194,7 +194,7 @@ async fn test1() {
 
   input
     .offset_access(3, OutBoundsBehavior::ClampBorder, 0)
-    .single_run_test(&expect)
+    .run_test(&expect)
     .await
 }
 
@@ -205,7 +205,7 @@ async fn test2() {
 
   input
     .offset_access(-2, OutBoundsBehavior::ClampBorder, 1)
-    .single_run_test(&expect)
+    .run_test(&expect)
     .await
 }
 
@@ -216,6 +216,6 @@ async fn test3() {
 
   input
     .offset_access(-2, OutBoundsBehavior::from_const(|| val(6)), 0)
-    .single_run_test(&expect)
+    .run_test(&expect)
     .await
 }
