@@ -180,6 +180,7 @@ impl Viewer {
     egui::Window::new("Viewer")
       .vscroll(true)
       .default_open(true)
+      .default_pos([10., 60.])
       .max_width(1000.0)
       .max_height(800.0)
       .default_width(400.0)

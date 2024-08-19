@@ -53,15 +53,15 @@ impl DBInspector {
 pub fn egui_db_gui(ui: &mut egui::Context, state: &mut DBInspector) {
   egui::Window::new("Database Inspector")
     .default_open(false)
-    .default_width(500.)
     .min_width(500.0)
     .max_width(700.0)
-    .default_height(400.)
     .min_height(400.0)
     .max_height(1000.0)
     .default_width(800.0)
+    .default_height(400.)
     .resizable(true)
     .movable(true)
+    .default_pos([10., 10.])
     .scroll([true, true])
     .show(ui, |ui| {
       let mut back_to_all_table_view = false;
