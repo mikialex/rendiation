@@ -16,6 +16,7 @@ rfd = "0.14.0"
 fast-hash-collection = { path = "../../utility/fast-hash-collection" }
 heap-tools = { path = "../../utility/heap-tools" }
 log = { workspace = true }
+pollster = { workspace = true }
 pin-project = { workspace = true }
 rayon = { workspace = true }
 reactive = { path = "../../utility/reactive" }
@@ -38,10 +39,10 @@ rendiation-gizmo = { path = "../../extension/gizmo" }
 database = { path = "../../utility/database" }
 rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
 
-egui = "0.26"
-egui_extras = "0.26"
-egui-wgpu = "0.26.0"
-egui-winit = "0.26.0"
+egui = { git = "https://github.com/emilk/egui.git", rev = "9a1e358a144b5d2af9d03a80257c34883f57cf0b" }
+egui_extras = { git = "https://github.com/emilk/egui.git", rev = "9a1e358a144b5d2af9d03a80257c34883f57cf0b" }
+egui-wgpu = { git = "https://github.com/emilk/egui.git", rev = "9a1e358a144b5d2af9d03a80257c34883f57cf0b" }
+egui-winit = { git = "https://github.com/emilk/egui.git", rev = "9a1e358a144b5d2af9d03a80257c34883f57cf0b" }
 winit = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

@@ -19,7 +19,7 @@ use rendiation_shader_api::*;
 use winit::{
   event::{Event, WindowEvent},
   event_loop::EventLoop,
-  window::WindowBuilder,
+  window::Window,
 };
 
 mod app_loop;

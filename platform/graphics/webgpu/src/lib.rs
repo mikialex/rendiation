@@ -122,7 +122,7 @@ pub enum GPUCreateFailure {
 }
 
 impl GPU {
-  /// in some backend the surface is used to create the instance for example webgl, we have to
+  /// in some backend for example WebGL, the surface is required to create the instance, we have to
   /// return the init surface with the gpu itself
   pub async fn new(
     config: GPUCreateConfig<'_>,
@@ -173,6 +173,7 @@ impl GPU {
           label: None,
           required_features: supported_features,
           required_limits: supported_limits.clone(),
+          memory_hints: MemoryHints::Performance,
         },
         None,
       )

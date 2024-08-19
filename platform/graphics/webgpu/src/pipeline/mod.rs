@@ -193,6 +193,7 @@ impl GPUDevice {
         module: &vertex,
         entry_point: &vertex_entry,
         buffers: vertex_buffers.as_slice(),
+        compilation_options: Default::default(),
       },
       fragment: Some(gpu::FragmentState {
         module: &fragment,
@@ -202,11 +203,13 @@ impl GPUDevice {
           .map(|s| Some(s.clone()))
           .collect::<Vec<_>>()
           .as_slice(),
+        compilation_options: Default::default(),
       }),
       primitive: primitive_state,
       depth_stencil,
       multisample,
       multiview: None,
+      cache: None,
     });
 
     Ok(GPUPipeline::new(pipeline, layouts))
@@ -309,6 +312,8 @@ impl ComputeIntoPipelineExt for ShaderComputePipelineBuilder {
       layout: Some(&pipeline_layout),
       module: &module,
       entry_point: &entry,
+      compilation_options: Default::default(),
+      cache: None,
     });
 
     Ok(GPUPipeline::new(pipeline, layouts))

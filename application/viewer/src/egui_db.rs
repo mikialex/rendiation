@@ -53,7 +53,6 @@ impl DBInspector {
 pub fn egui_db_gui(ui: &mut egui::Context, state: &mut DBInspector) {
   egui::Window::new("Database Inspector")
     .default_open(false)
-    .vscroll(true)
     .default_width(500.)
     .min_width(500.0)
     .max_width(700.0)
@@ -63,7 +62,7 @@ pub fn egui_db_gui(ui: &mut egui::Context, state: &mut DBInspector) {
     .default_width(800.0)
     .resizable(true)
     .movable(true)
-    .scroll2([true, true])
+    .scroll([true, true])
     .show(ui, |ui| {
       let mut back_to_all_table_view = false;
       ui.horizontal_wrapped(|ui| {
@@ -148,7 +147,7 @@ fn selected_table(ui: &mut egui::Ui, state: &mut DBInspector, e_id: EntityId) {
             })
             //
           })
-        })
+        });
     });
   })
 }

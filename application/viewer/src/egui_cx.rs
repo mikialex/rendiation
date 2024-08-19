@@ -24,7 +24,8 @@ impl<T: Widget> Widget for EguiContext<T> {
           y: position.1,
         };
 
-        platform_event.window_state.mouse_position_in_ui = areas.layer_id_at(position, 0.).is_some()
+        platform_event.window_state.mouse_position_in_ui =
+          areas.layer_id_at(position, &Default::default()).is_some()
       });
     }
     access_cx!(cx, window, Window);
@@ -32,7 +33,7 @@ impl<T: Widget> Widget for EguiContext<T> {
 
     let state = self.state.get_or_insert_with(|| {
       let id = self.context.viewport_id();
-      egui_winit::State::new(self.context.clone(), id, &window, None, None)
+      egui_winit::State::new(self.context.clone(), id, &window, None, None, None)
     });
 
     for event in &platform_event.accumulate_events {
@@ -112,6 +113,7 @@ impl<T> EguiContext<T> {
         output_color_format,
         output_depth_format,
         msaa_samples,
+        false,
       )
     });
 
