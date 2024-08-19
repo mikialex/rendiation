@@ -19,7 +19,7 @@ pub struct Viewer {
   rendering: Viewer3dRenderingCtx,
   derives: Viewer3dSceneDeriveSource,
   content: Box<dyn Widget>,
-  egui_db_inspector: egui_db::DBInspector,
+  egui_db_inspector: db_egui_view::DBInspector,
   terminal: Terminal,
 }
 
@@ -60,7 +60,7 @@ impl Widget for Viewer {
   fn update_view(&mut self, cx: &mut DynCx) {
     cx.split_cx::<egui::Context>(|egui_cx, cx| {
       self.egui(egui_cx, cx);
-      crate::egui_db::egui_db_gui(egui_cx, &mut self.egui_db_inspector);
+      crate::db_egui_view::egui_db_gui(egui_cx, &mut self.egui_db_inspector);
     });
 
     access_cx!(cx, platform, PlatformEventInput);

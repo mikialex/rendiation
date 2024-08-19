@@ -15,18 +15,8 @@ impl<T: Widget> Widget for EguiContext<T> {
   fn update_state(&mut self, cx: &mut DynCx) {
     {
       access_cx_mut!(cx, platform_event, PlatformEventInput);
-      self.context.memory(|mem| {
-        let areas = mem.areas();
 
-        let position = platform_event.window_state.mouse_position;
-        let position = egui::Pos2 {
-          x: position.0,
-          y: position.1,
-        };
-
-        platform_event.window_state.mouse_position_in_ui =
-          areas.layer_id_at(position, &Default::default()).is_some()
-      });
+      platform_event.window_state.mouse_position_in_ui = self.context.is_pointer_over_area();
     }
     access_cx!(cx, window, Window);
     access_cx!(cx, platform_event, PlatformEventInput);

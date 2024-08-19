@@ -23,9 +23,9 @@ use winit::{
 };
 
 mod app_loop;
+mod db_egui_view;
 mod default_scene;
 mod egui_cx;
-mod egui_db;
 mod viewer;
 //  use default_scene::*;
 
