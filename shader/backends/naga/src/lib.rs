@@ -527,7 +527,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
             AtomicFunction::InclusiveOr => naga::AtomicFunction::InclusiveOr,
             AtomicFunction::Min => naga::AtomicFunction::Min,
             AtomicFunction::Max => naga::AtomicFunction::Max,
-            AtomicFunction::Exchange { compare } => naga::AtomicFunction::Exchange {
+            AtomicFunction::Exchange { compare, .. } => naga::AtomicFunction::Exchange {
               compare: compare.map(|c| {
                 comparison = true;
                 self.get_expression(c)
@@ -540,12 +540,22 @@ impl ShaderAPI for ShaderAPINagaImpl {
             ShaderAtomicValueType::U32 => PrimitiveShaderValueType::Uint32,
           };
 
-          let ty = self.register_ty_impl(
-            ShaderValueType::Single(ShaderValueSingleType::Sized(
-              ShaderSizedValueType::Primitive(primitive),
-            )),
-            None,
-          );
+          let ty = if let AtomicFunction::Exchange { weak: true, .. } = function {
+            let scalar_ty = match ty {
+              ShaderAtomicValueType::I32 => naga::Scalar::I32,
+              ShaderAtomicValueType::U32 => naga::Scalar::U32,
+            };
+            self.module.generate_predeclared_type(
+              naga::PredeclaredType::AtomicCompareExchangeWeakResult(scalar_ty),
+            )
+          } else {
+            self.register_ty_impl(
+              ShaderValueType::Single(ShaderValueSingleType::Sized(
+                ShaderSizedValueType::Primitive(primitive),
+              )),
+              None,
+            )
+          };
 
           // we have to control here not to emit the call exp.
           let r = self.building_fn.last_mut().unwrap().expressions.append(
@@ -591,7 +601,10 @@ impl ShaderAPI for ShaderAPINagaImpl {
 
               return r_handle;
             }
-            ShaderFunctionType::BuiltIn(f) => {
+            ShaderFunctionType::BuiltIn {
+              ty: f,
+              ty_help_info,
+            } => {
               let fun = match f {
                 ShaderBuiltInFunction::Transpose => naga::MathFunction::Transpose,
                 ShaderBuiltInFunction::Normalize => naga::MathFunction::Normalize,
@@ -659,8 +672,30 @@ impl ShaderAPI for ShaderAPINagaImpl {
                 ShaderBuiltInFunction::Round => naga::MathFunction::Round,
                 ShaderBuiltInFunction::Fract => naga::MathFunction::Fract,
                 ShaderBuiltInFunction::Trunc => naga::MathFunction::Trunc,
-                ShaderBuiltInFunction::Modf => naga::MathFunction::Modf,
-                ShaderBuiltInFunction::Frexp => naga::MathFunction::Frexp,
+                ShaderBuiltInFunction::Modf => {
+                  let ty_help_info = ty_help_info.unwrap();
+                  let size = map_primitive_vec_size(ty_help_info);
+                  self
+                    .module
+                    .generate_predeclared_type(naga::PredeclaredType::ModfResult {
+                      size,
+                      width: ty_help_info.size_of_self() as u8,
+                    });
+
+                  naga::MathFunction::Modf
+                }
+                ShaderBuiltInFunction::Frexp => {
+                  let ty_help_info = ty_help_info.unwrap();
+                  let size = map_primitive_vec_size(ty_help_info);
+                  self
+                    .module
+                    .generate_predeclared_type(naga::PredeclaredType::FrexpResult {
+                      size,
+                      width: ty_help_info.size_of_self() as u8,
+                    });
+
+                  naga::MathFunction::Frexp
+                }
                 ShaderBuiltInFunction::Ldexp => naga::MathFunction::Ldexp,
                 ShaderBuiltInFunction::Exp => naga::MathFunction::Exp,
                 ShaderBuiltInFunction::Exp2 => naga::MathFunction::Exp2,
@@ -1279,30 +1314,39 @@ fn map_binary_op(o: BinaryOperator) -> naga::BinaryOperator {
   }
 }
 
+fn map_primitive_vec_size(t: PrimitiveShaderValueType) -> Option<naga::VectorSize> {
+  match t {
+    PrimitiveShaderValueType::Float32 => None,
+    PrimitiveShaderValueType::Vec2Float32 => Some(naga::VectorSize::Bi),
+    PrimitiveShaderValueType::Vec3Float32 => Some(naga::VectorSize::Tri),
+    PrimitiveShaderValueType::Vec4Float32 => Some(naga::VectorSize::Quad),
+    _ => unreachable!(),
+  }
+}
+
 #[rustfmt::skip]
 fn map_primitive_type(t: PrimitiveShaderValueType) -> naga::TypeInner {
   use PrimitiveShaderValueType::*;
   use naga::TypeInner::*;
-  use naga::ScalarKind::*;
   use naga::VectorSize::*;
 
   match t {
     PrimitiveShaderValueType::Bool => Scalar(naga::Scalar { kind: naga::ScalarKind::Bool, width: naga::BOOL_WIDTH }),
-    Int32 => Scalar(naga::Scalar { kind: Sint, width: 4 }),
-    Uint32 => Scalar(naga::Scalar { kind: Uint, width: 4 }),
-    Float32 => Scalar(naga::Scalar { kind: Float, width: 4 }),
-    Vec2Float32 => Vector { size: Bi, scalar: naga::Scalar{kind:  Float, width: 4 }},
-    Vec3Float32 => Vector { size: Tri, scalar: naga::Scalar{kind:  Float, width: 4 }},
-    Vec4Float32 => Vector { size: Quad, scalar: naga::Scalar{kind:  Float, width: 4 }},
-    Vec2Uint32 => Vector { size: Bi, scalar: naga::Scalar{kind:  Uint, width: 4 }},
-    Vec3Uint32 => Vector { size: Tri, scalar: naga::Scalar{kind:  Uint, width: 4 }},
-    Vec4Uint32 => Vector { size: Quad, scalar: naga::Scalar{kind:  Uint, width: 4 }},
-    Vec2Int32 => Vector { size: Bi, scalar: naga::Scalar{kind:  Sint, width: 4 }},
-    Vec3Int32 => Vector { size: Tri, scalar: naga::Scalar{kind:  Sint, width: 4 }},
-    Vec4Int32 => Vector { size: Quad, scalar: naga::Scalar{kind:  Sint, width: 4 }},
-    Mat2Float32 => Matrix { columns: Bi, rows: Bi, scalar: naga::Scalar{kind:  Float, width: 4 } },
-    Mat3Float32 => Matrix { columns: Tri, rows: Tri, scalar: naga::Scalar{kind:  Float, width: 4 } },
-    Mat4Float32 => Matrix { columns: Quad, rows: Quad, scalar: naga::Scalar{kind:  Float, width: 4 } },
+    Int32 => Scalar(naga::Scalar::I32),
+    Uint32 => Scalar(naga::Scalar::U32),
+    Float32 => Scalar(naga::Scalar::F32),
+    Vec2Float32 => Vector { size: Bi, scalar: naga::Scalar::F32 },
+    Vec3Float32 => Vector { size: Tri, scalar: naga::Scalar::F32 },
+    Vec4Float32 => Vector { size: Quad, scalar: naga::Scalar::F32 },
+    Vec2Uint32 => Vector { size: Bi, scalar: naga::Scalar::U32 },
+    Vec3Uint32 => Vector { size: Tri, scalar: naga::Scalar::U32 },
+    Vec4Uint32 => Vector { size: Quad, scalar: naga::Scalar::U32 },
+    Vec2Int32 => Vector { size: Bi, scalar: naga::Scalar::I32 },
+    Vec3Int32 => Vector { size: Tri, scalar: naga::Scalar::I32 },
+    Vec4Int32 => Vector { size: Quad, scalar: naga::Scalar::I32} ,
+    Mat2Float32 => Matrix { columns: Bi, rows: Bi, scalar: naga::Scalar::F32 },
+    Mat3Float32 => Matrix { columns: Tri, rows: Tri, scalar: naga::Scalar::F32 },
+    Mat4Float32 => Matrix { columns: Quad, rows: Quad, scalar: naga::Scalar::F32 },
   }
 }
 

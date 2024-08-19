@@ -172,6 +172,7 @@ pub enum AtomicFunction {
   Max,
   Exchange {
     compare: Option<ShaderNodeRawHandle>,
+    weak: bool,
   },
 }
 

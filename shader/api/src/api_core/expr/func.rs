@@ -2,7 +2,11 @@ use crate::*;
 
 pub enum ShaderFunctionType {
   Custom(ShaderUserDefinedFunction),
-  BuiltIn(ShaderBuiltInFunction),
+  BuiltIn {
+    ty: ShaderBuiltInFunction,
+    /// this is a workaround for avoid introducing type infer for our current naga backend
+    ty_help_info: Option<PrimitiveShaderValueType>,
+  },
 }
 
 #[derive(Clone)]

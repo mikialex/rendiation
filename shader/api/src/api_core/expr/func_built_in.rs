@@ -98,7 +98,25 @@ pub fn make_builtin_call<T: ShaderNodeType>(
   params: impl IntoIterator<Item = ShaderNodeRawHandle>,
 ) -> Node<T> {
   ShaderNodeExpr::FunctionCall {
-    meta: ShaderFunctionType::BuiltIn(ty),
+    meta: ShaderFunctionType::BuiltIn {
+      ty,
+      ty_help_info: None,
+    },
+    parameters: params.into_iter().collect(),
+  }
+  .insert_api()
+}
+
+pub fn make_builtin_call_with_ty_helper<T: ShaderNodeType>(
+  ty: ShaderBuiltInFunction,
+  ty_help_info: PrimitiveShaderValueType,
+  params: impl IntoIterator<Item = ShaderNodeRawHandle>,
+) -> Node<T> {
+  ShaderNodeExpr::FunctionCall {
+    meta: ShaderFunctionType::BuiltIn {
+      ty,
+      ty_help_info: Some(ty_help_info),
+    },
     parameters: params.into_iter().collect(),
   }
   .insert_api()
@@ -353,6 +371,43 @@ impl<T: ShaderNodeType> Node<T> {
   }
   pub fn trunc(self) -> Node<T> {
     make_builtin_call(ShaderBuiltInFunction::Trunc, [self.handle()])
+  }
+}
+
+pub trait ExpDecomposableShaderNodeType: PrimitiveShaderNodeType {
+  type Fract: PrimitiveShaderNodeType;
+  type Exp: PrimitiveShaderNodeType;
+}
+impl ExpDecomposableShaderNodeType for f32 {
+  type Fract = f32;
+  type Exp = i32;
+}
+macro_rules! impl_exp_decompose {
+  ($t: tt) => {
+    impl ExpDecomposableShaderNodeType for $t<f32> {
+      type Fract = $t<f32>;
+      type Exp = $t<i32>;
+    }
+  };
+}
+impl_exp_decompose!(Vec2);
+impl_exp_decompose!(Vec3);
+impl_exp_decompose!(Vec4);
+
+impl<T: ExpDecomposableShaderNodeType> Node<T> {
+  pub fn frexp(self) -> (Node<T::Fract>, Node<T::Exp>) {
+    let raw = make_builtin_call_with_ty_helper::<AnyType>(
+      ShaderBuiltInFunction::Frexp,
+      T::PRIMITIVE_TYPE,
+      vec![self.handle()],
+    )
+    .handle();
+
+    unsafe {
+      let fr = index_access_field(raw, 0);
+      let exp = index_access_field(raw, 1);
+      (fr, exp)
+    }
   }
 }
 

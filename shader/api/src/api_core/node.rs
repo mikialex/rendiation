@@ -114,15 +114,36 @@ macro_rules! atomic_impls {
         }
         .insert_api()
       }
-      // todo, compare exchange weak
       pub fn atomic_exchange(&self, v: Node<T>) -> Node<T> {
         ShaderNodeExpr::AtomicCall {
           ty: T::ATOM,
           pointer: self.handle(),
-          function: AtomicFunction::Exchange { compare: None },
+          function: AtomicFunction::Exchange {
+            compare: None,
+            weak: false,
+          },
           value: v.handle(),
         }
         .insert_api()
+      }
+      pub fn atomic_exchange_weak(&self, v: Node<T>) -> (Node<T>, Node<bool>) {
+        let raw = ShaderNodeExpr::AtomicCall {
+          ty: T::ATOM,
+          pointer: self.handle(),
+          function: AtomicFunction::Exchange {
+            compare: None,
+            weak: false,
+          },
+          value: v.handle(),
+        }
+        .insert_api::<AnyType>()
+        .handle();
+
+        unsafe {
+          let old = index_access_field(raw, 0);
+          let exchanged = index_access_field(raw, 1);
+          (old, exchanged)
+        }
       }
     }
   };
