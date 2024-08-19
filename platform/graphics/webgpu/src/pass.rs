@@ -170,14 +170,6 @@ impl DerefMut for GPURenderPass {
   }
 }
 
-#[derive(Default)]
-pub struct GPURenderPassDataHolder {
-  buffers: Arena<Arc<gpu::Buffer>>,
-  bindgroups: Arena<Arc<gpu::BindGroup>>,
-  graphics_pipelines: Arena<GPURenderPipeline>,
-  compute_pipelines: Arena<GPUComputePipeline>,
-}
-
 impl GPURenderPass {
   pub fn size(&self) -> Size {
     self.size

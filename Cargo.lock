@@ -4109,7 +4109,6 @@ dependencies = [
  "rendiation-shader-backend-naga",
  "rendiation-texture-types",
  "thiserror",
- "typed-arena",
  "wgpu",
  "wgpu-types",
  "winit",
@@ -4709,12 +4708,6 @@ checksum = "deb68604048ff8fa93347f02441e4487594adc20bb8a084f9e564d2b827a0a9f"
 dependencies = [
  "rustc-hash",
 ]
-
-[[package]]
-name = "typed-arena"
-version = "2.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0685c84d5d54d1c26f7d3eb96cd41550adb97baed141a761cf335d3d33bcd0ae"
 
 [[package]]
 name = "typenum"

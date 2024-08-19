@@ -58,7 +58,6 @@ use rendiation_shader_api::{Std430, Std430MaybeUnsized};
 use rendiation_texture_types::*;
 pub use resource::*;
 pub use surface::*;
-use typed_arena::Arena;
 pub use types::*;
 use wgpu as gpu;
 pub use wgpu_types::*;

@@ -98,7 +98,7 @@ where
   fn collective_execute_map_by<V2, F, FF>(self, f: F) -> impl ReactiveCollection<K, V2>
   where
     F: Fn() -> FF + Send + Sync + 'static,
-    FF: Fn(&K, V) -> V2 + Send + Sync + 'static,
+    FF: FnMut(&K, V) -> V2 + Send + Sync + 'static,
     V2: CValue,
   {
     ReactiveKVExecuteMap {

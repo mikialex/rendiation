@@ -77,7 +77,7 @@ where
   V: CValue,
   K: CKey,
   F: Fn() -> FF + Send + Sync + 'static,
-  FF: Fn(&K, V) -> V2 + Send + Sync + 'static,
+  FF: FnMut(&K, V) -> V2 + Send + Sync + 'static,
   V2: CValue,
   T: ReactiveCollection<K, V>,
 {
@@ -88,7 +88,7 @@ where
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let (d, _) = self.inner.poll_changes(cx);
 
-    let mapper = (self.map_creator)();
+    let mut mapper = (self.map_creator)();
     let materialized = d.iter_key_value().collect::<Vec<_>>();
     let mut cache = self.cache.write();
     let materialized: FastHashMap<K, ValueChange<V2>> = materialized

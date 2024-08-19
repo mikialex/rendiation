@@ -25,14 +25,31 @@ pub fn gpu_texture_2ds(
 
   global_watch()
     .watch_untyped_key::<SceneTexture2dEntityDirectContent>()
-    // todo, we should consider using the simple map here
     .collective_execute_map_by(move || {
       let cx = cx.clone();
       let default = default.clone();
+      let mut cx = MipmapCtx {
+        gpu: cx.clone(),
+        encoder: cx.create_encoder().into(),
+      };
       move |_, tex| {
+        let cx = &mut cx;
         tex
-          .map(|tex| create_gpu_texture2d(&cx, &tex))
+          .map(move |tex| {
+            create_gpu_texture2d_with_mipmap(&cx.gpu, cx.encoder.as_mut().unwrap(), &tex)
+          })
           .unwrap_or_else(|| default.clone())
       }
     })
+}
+
+struct MipmapCtx {
+  gpu: GPU,
+  encoder: Option<GPUCommandEncoder>,
+}
+
+impl Drop for MipmapCtx {
+  fn drop(&mut self) {
+    self.gpu.submit_encoder(self.encoder.take().unwrap());
+  }
 }
