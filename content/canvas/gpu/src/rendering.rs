@@ -50,8 +50,8 @@ impl ShaderPassBuilder for UIPrimitivesGPU {
     ctx.binding.bind(&self.metadata_buffer);
     ctx
       .pass
-      .set_index_buffer_owned(&self.index_buffer, IndexFormat::Uint32);
-    ctx.set_vertex_buffer_owned_next(&self.vertex_buffer);
+      .set_index_buffer_by_buffer_resource_view(&self.index_buffer, IndexFormat::Uint32);
+    ctx.set_vertex_buffer_by_buffer_resource_view_next(&self.vertex_buffer);
   }
 }
 

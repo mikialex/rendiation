@@ -91,7 +91,7 @@ where
     Self: Sized,
     T: Std430 + ShaderSizedValueNodeType,
   {
-    DeviceMaterializeResult::full_buffer(create_gpu_readonly_storage(self.as_slice(), cx.gpu))
+    DeviceMaterializeResult::full_buffer(create_gpu_readonly_storage(self.as_slice(), &cx.gpu))
   }
 }
 

@@ -93,15 +93,15 @@ impl RenderTargetView {
 }
 
 /// Stored extra binding states info for up level usage
-pub struct GPURenderPassCtx<'encoder, 'gpu> {
-  pub pass: GPURenderPass<'encoder>,
-  pub gpu: &'gpu GPU,
+pub struct GPURenderPassCtx {
+  pub pass: GPURenderPass,
+  pub gpu: GPU,
   pub binding: BindingBuilder,
   incremental_vertex_binding_index: u32,
 }
 
-impl<'encoder, 'gpu> GPURenderPassCtx<'encoder, 'gpu> {
-  pub fn new(pass: GPURenderPass<'encoder>, gpu: &'gpu GPU) -> Self {
+impl GPURenderPassCtx {
+  pub fn new(pass: GPURenderPass, gpu: GPU) -> Self {
     Self {
       pass,
       gpu,
@@ -114,10 +114,10 @@ impl<'encoder, 'gpu> GPURenderPassCtx<'encoder, 'gpu> {
     self.incremental_vertex_binding_index = 0;
   }
 
-  pub fn set_vertex_buffer_owned_next(&mut self, buffer: &GPUBufferResourceView) {
+  pub fn set_vertex_buffer_by_buffer_resource_view_next(&mut self, buffer: &GPUBufferResourceView) {
     self
       .pass
-      .set_vertex_buffer_owned(self.incremental_vertex_binding_index, buffer);
+      .set_vertex_buffer_by_buffer_resource_view(self.incremental_vertex_binding_index, buffer);
     self.incremental_vertex_binding_index += 1;
   }
 }
@@ -149,23 +149,22 @@ pub struct RenderTargetFormatsInfo {
   pub sample_count: u32,
 }
 
-pub struct GPURenderPass<'a> {
-  pub(crate) pass: gpu::RenderPass<'a>,
-  pub(crate) holder: &'a GPURenderPassDataHolder,
+pub struct GPURenderPass {
+  pub(crate) pass: gpu::RenderPass<'static>,
   pub(crate) placeholder_bg: Arc<gpu::BindGroup>,
   pub(crate) size: Size,
   pub(crate) formats: RenderTargetFormatsInfo,
 }
 
-impl<'a> Deref for GPURenderPass<'a> {
-  type Target = gpu::RenderPass<'a>;
+impl Deref for GPURenderPass {
+  type Target = gpu::RenderPass<'static>;
 
   fn deref(&self) -> &Self::Target {
     &self.pass
   }
 }
 
-impl<'a> DerefMut for GPURenderPass<'a> {
+impl DerefMut for GPURenderPass {
   fn deref_mut(&mut self) -> &mut Self::Target {
     &mut self.pass
   }
@@ -179,7 +178,7 @@ pub struct GPURenderPassDataHolder {
   compute_pipelines: Arena<GPUComputePipeline>,
 }
 
-impl<'a> GPURenderPass<'a> {
+impl GPURenderPass {
   pub fn size(&self) -> Size {
     self.size
   }
@@ -188,31 +187,20 @@ impl<'a> GPURenderPass<'a> {
     &self.formats
   }
 
-  pub fn set_pipeline_owned(&mut self, pipeline: &GPURenderPipeline) {
-    let pipeline = self.holder.graphics_pipelines.alloc(pipeline.clone());
+  pub fn set_gpu_pipeline(&mut self, pipeline: &GPURenderPipeline) {
     self.pass.set_pipeline(&pipeline.inner.as_ref().pipeline)
   }
 
   pub fn set_bind_group_placeholder(&mut self, index: u32) {
-    self.set_bind_group_owned(index, &self.placeholder_bg.clone(), &[]);
+    self.pass.set_bind_group(index, &self.placeholder_bg, &[]);
   }
 
-  pub fn set_bind_group_owned(
+  pub fn set_vertex_buffer_by_buffer_resource_view(
     &mut self,
-    index: u32,
-    bind_group: &Arc<gpu::BindGroup>,
-    offsets: &[gpu::DynamicOffset],
+    slot: u32,
+    view: &GPUBufferResourceView,
   ) {
-    let bind_group = self.holder.bindgroups.alloc(bind_group.clone());
-    self.set_bind_group(index, bind_group, offsets)
-  }
-
-  pub fn set_vertex_buffer_owned(&mut self, slot: u32, view: &GPUBufferResourceView) {
-    let buffer = self
-      .holder
-      .buffers
-      .alloc(view.resource.resource.gpu.clone());
-
+    let buffer = &view.resource.gpu;
     // why this so stupid
     if let Some(size) = view.desc.size {
       self.pass.set_vertex_buffer(
@@ -226,15 +214,12 @@ impl<'a> GPURenderPass<'a> {
     }
   }
 
-  pub fn set_index_buffer_owned(
+  pub fn set_index_buffer_by_buffer_resource_view(
     &mut self,
     view: &GPUBufferResourceView,
     index_format: gpu::IndexFormat,
   ) {
-    let buffer = self
-      .holder
-      .buffers
-      .alloc(view.resource.resource.gpu.clone());
+    let buffer = &view.resource.gpu;
     // why this so stupid
     if let Some(size) = view.desc.size {
       self.pass.set_index_buffer(
@@ -266,10 +251,7 @@ impl<'a> GPURenderPass<'a> {
         indirect_offset,
         count,
       } => {
-        let buffer = self
-          .holder
-          .buffers
-          .alloc(indirect_buffer.resource.gpu.clone());
+        let buffer = &indirect_buffer.resource.gpu;
         if indexed {
           self.multi_draw_indexed_indirect(buffer, indirect_offset, count)
         } else {
@@ -300,51 +282,38 @@ pub enum DrawCommand {
   Skip,
 }
 
-pub struct GPUComputePass<'a> {
-  pub(crate) pass: gpu::ComputePass<'a>,
-  pub(crate) holder: &'a GPURenderPassDataHolder,
+pub struct GPUComputePass {
+  pub(crate) pass: gpu::ComputePass<'static>,
   pub(crate) placeholder_bg: Arc<gpu::BindGroup>,
 }
 
-impl<'a> Deref for GPUComputePass<'a> {
-  type Target = gpu::ComputePass<'a>;
+impl Deref for GPUComputePass {
+  type Target = gpu::ComputePass<'static>;
 
   fn deref(&self) -> &Self::Target {
     &self.pass
   }
 }
 
-impl<'a> DerefMut for GPUComputePass<'a> {
+impl DerefMut for GPUComputePass {
   fn deref_mut(&mut self) -> &mut Self::Target {
     &mut self.pass
   }
 }
 
-impl<'a> GPUComputePass<'a> {
-  pub fn set_pipeline_owned(&mut self, pipeline: &GPUComputePipeline) {
-    let pipeline = self.holder.compute_pipelines.alloc(pipeline.clone());
+impl GPUComputePass {
+  pub fn set_gpu_pipeline(&mut self, pipeline: &GPUComputePipeline) {
     self.pass.set_pipeline(&pipeline.inner.as_ref().pipeline)
   }
 
   pub fn set_bind_group_placeholder(&mut self, index: u32) {
-    self.set_bind_group_owned(index, &self.placeholder_bg.clone(), &[]);
+    self.pass.set_bind_group(index, &self.placeholder_bg, &[]);
   }
 
-  pub fn set_bind_group_owned(
+  pub fn dispatch_workgroups_indirect_by_buffer_resource_view(
     &mut self,
-    index: u32,
-    bind_group: &Arc<gpu::BindGroup>,
-    offsets: &[gpu::DynamicOffset],
+    indirect_buffer: &GPUBufferResourceView,
   ) {
-    let bind_group = self.holder.bindgroups.alloc(bind_group.clone());
-    self.set_bind_group(index, bind_group, offsets)
-  }
-
-  pub fn dispatch_workgroups_indirect_owned(&mut self, indirect_buffer: &GPUBufferResourceView) {
-    let indirect_buffer = self
-      .holder
-      .buffers
-      .alloc(indirect_buffer.resource.gpu.clone());
-    self.dispatch_workgroups_indirect(indirect_buffer, 0)
+    self.dispatch_workgroups_indirect(&indirect_buffer.resource.gpu, 0)
   }
 }

@@ -254,9 +254,9 @@ impl BindingBuilder {
         Arc::new(bindgroup)
       });
 
-      pass.set_bind_group_owned(group_index as u32, bindgroup, &[]);
+      pass.set_bind_group(group_index as u32, bindgroup, &[]);
     }
-    pass.set_pipeline_owned(pipeline);
+    pass.set_gpu_pipeline(pipeline);
   }
 
   // todo, code reuse
@@ -301,8 +301,8 @@ impl BindingBuilder {
         Arc::new(bindgroup)
       });
 
-      pass.set_bind_group_owned(group_index as u32, bindgroup, &[]);
+      pass.set_bind_group(group_index as u32, bindgroup, &[]);
     }
-    pass.set_pipeline_owned(pipeline);
+    pass.set_gpu_pipeline(pipeline);
   }
 }

@@ -66,7 +66,9 @@ impl ShaderPassBuilder for BindlessMeshDispatcher {
 
     let sys = self.system.inner.read().unwrap();
     let index = sys.index_buffer.get_buffer();
-    ctx.pass.set_index_buffer_owned(&index, IndexFormat::Uint32);
+    ctx
+      .pass
+      .set_index_buffer_by_buffer_resource_view(&index, IndexFormat::Uint32);
 
     ctx.binding.bind(&sys.position);
     ctx.binding.bind(&sys.normal);

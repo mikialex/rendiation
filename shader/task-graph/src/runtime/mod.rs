@@ -219,9 +219,9 @@ impl DeviceTaskGraphExecutor {
       .commit_size(pass, device, false);
   }
 
-  pub async fn read_back_execution_states<'a>(
+  pub async fn read_back_execution_states(
     &mut self,
-    cx: &mut DeviceParallelComputeCtx<'a>,
+    cx: &mut DeviceParallelComputeCtx,
   ) -> TaskGraphExecutionStates {
     cx.flush_pass();
 

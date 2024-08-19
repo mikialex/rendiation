@@ -88,7 +88,7 @@ impl TaskGroupExecutor {
       imp.task_pool.bind(&mut bb);
 
       bb.setup_compute_pass(pass, device, &self.polling_pipeline);
-      pass.dispatch_workgroups_indirect_owned(&size);
+      pass.dispatch_workgroups_indirect_by_buffer_resource_view(&size);
     });
   }
 

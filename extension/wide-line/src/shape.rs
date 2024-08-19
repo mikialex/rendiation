@@ -64,8 +64,8 @@ impl ShaderHashProvider for WideLineMeshGPU {
 
 impl ShaderPassBuilder for WideLineMeshGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    // self.instance.setup_pass(ctx);
-    ctx.set_vertex_buffer_owned_next(&self.vertex);
+    // todo, self.instance.setup_pass(ctx);
+    ctx.set_vertex_buffer_by_buffer_resource_view_next(&self.vertex);
   }
 }
 

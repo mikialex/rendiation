@@ -158,7 +158,7 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
       let (indirect_dispatch_size, indirect_work_size) = self.compute_work_size(cx);
       self.prepare_main_pass(cx);
       cx.record_pass(|pass, _| {
-        pass.dispatch_workgroups_indirect_owned(&indirect_dispatch_size);
+        pass.dispatch_workgroups_indirect_by_buffer_resource_view(&indirect_dispatch_size);
       });
       Some(indirect_work_size.into_readonly_view())
     }
@@ -173,10 +173,10 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
       let invocation_id = cx.global_invocation_id();
       let _ = invocation_source.invocation_logic(invocation_id);
     });
-    cx.record_pass(|pass, _| {
+    cx.record_pass(|pass, device| {
       let mut bb = BindingBuilder::new_as_compute();
       self.bind_input(&mut bb);
-      bb.setup_compute_pass(pass, &cx.gpu.device, &main_pipeline);
+      bb.setup_compute_pass(pass, device, &main_pipeline);
     });
   }
 
@@ -230,14 +230,14 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
       size_output.store(size);
     });
 
-    cx.record_pass(|pass, _| {
+    cx.record_pass(|pass, device| {
       let mut bb = BindingBuilder::new_as_compute()
         .with_bind(&size_output)
         .with_bind(&work_size_output)
         .with_bind(&workgroup_size_buffer);
       self.bind_input(&mut bb);
 
-      bb.setup_compute_pass(pass, &cx.gpu.device, &pipeline);
+      bb.setup_compute_pass(pass, device, &pipeline);
       pass.dispatch_workgroups(1, 1, 1);
     });
 
@@ -436,7 +436,7 @@ where
 
   async fn read_back_host(
     &self,
-    cx: &mut DeviceParallelComputeCtx<'_>,
+    cx: &mut DeviceParallelComputeCtx,
   ) -> Result<(DeviceMaterializeResult<T>, Vec<T>), BufferAsyncError> {
     let output = self.materialize_storage_buffer(cx);
     cx.flush_pass();
@@ -668,25 +668,25 @@ where
 {
 }
 
-pub struct DeviceParallelComputeCtx<'a> {
-  pub gpu: &'a GPU,
+pub struct DeviceParallelComputeCtx {
+  pub gpu: GPU,
   pub encoder: GPUCommandEncoder,
-  pub pass: Option<GPUComputePass<'static>>,
+  pub pass: Option<GPUComputePass>,
   pub force_indirect_dispatch: bool,
 }
 
-impl<'a> Drop for DeviceParallelComputeCtx<'a> {
+impl Drop for DeviceParallelComputeCtx {
   fn drop(&mut self) {
     // make sure pass is dropped before encoder.
     self.flush_pass();
   }
 }
 
-impl<'a> DeviceParallelComputeCtx<'a> {
-  pub fn new(gpu: &'a GPU) -> Self {
+impl DeviceParallelComputeCtx {
+  pub fn new(gpu: &GPU) -> Self {
     let encoder = gpu.create_encoder();
     Self {
-      gpu,
+      gpu: gpu.clone(),
       encoder,
       pass: None,
       force_indirect_dispatch: false,

@@ -92,12 +92,12 @@ impl<'a> ShaderPassBuilder for AttributesMeshGPU<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     for vertex_info_id in self.vertex.multi_access.access_multi_value(&self.mesh_id) {
       let gpu_buffer = self.vertex.vertex.access_ref(&vertex_info_id).unwrap();
-      ctx.set_vertex_buffer_owned_next(gpu_buffer);
+      ctx.set_vertex_buffer_by_buffer_resource_view_next(gpu_buffer);
     }
     if let Some((index_format, _)) = &self.index {
       ctx
         .pass
-        .set_index_buffer_owned(self.index_buffer, map_index(*index_format))
+        .set_index_buffer_by_buffer_resource_view(self.index_buffer, map_index(*index_format))
     }
   }
 }

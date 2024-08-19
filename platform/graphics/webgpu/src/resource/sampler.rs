@@ -36,7 +36,7 @@ impl InitResourceByAllocation for RawSampler {
   }
 }
 
-impl<'encoder, 'gpu> GPURenderPassCtx<'encoder, 'gpu> {
+impl GPURenderPassCtx {
   pub fn bind_immediate_sampler(
     &mut self,
     sampler: &(impl Into<gpu::SamplerDescriptor<'static>> + Clone),

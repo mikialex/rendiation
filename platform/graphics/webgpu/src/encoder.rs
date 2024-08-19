@@ -4,7 +4,6 @@ use crate::*;
 
 pub struct GPUCommandEncoder {
   pub(crate) encoder: gpu::CommandEncoder,
-  holder: GPURenderPassDataHolder,
   active_pass_target_holder: Option<RenderPassDescriptorOwned>,
   placeholder_bg: Arc<gpu::BindGroup>,
   deferred_explicit_destroy: CommandBufferDeferExplicitDestroyFlusher,
@@ -34,7 +33,6 @@ impl GPUCommandEncoder {
   pub(crate) fn new(encoder: gpu::CommandEncoder, device: &GPUDevice) -> Self {
     Self {
       encoder,
-      holder: Default::default(),
       placeholder_bg: device.inner.placeholder_bg.clone(),
       active_pass_target_holder: Default::default(),
       on_submit: Default::default(),
@@ -63,8 +61,10 @@ impl GPUCommandEncoder {
 
   pub fn begin_compute_pass(&mut self) -> GPUComputePass {
     GPUComputePass {
-      pass: self.encoder.begin_compute_pass(&Default::default()),
-      holder: &mut self.holder,
+      pass: self
+        .encoder
+        .begin_compute_pass(&Default::default())
+        .forget_lifetime(),
       placeholder_bg: self.placeholder_bg.clone(),
     }
   }
@@ -79,16 +79,16 @@ impl GPUCommandEncoder {
     self.begin_render_pass(des);
   }
 
-  pub fn begin_render_pass_with_info<'a, 'b>(
-    &'a mut self,
+  pub fn begin_render_pass_with_info(
+    &mut self,
     des: RenderPassDescriptorOwned,
-    gpu: &'b GPU,
-  ) -> FrameRenderPass<'a, 'b> {
+    gpu: GPU,
+  ) -> FrameRenderPass {
     let buffer_size = des.buffer_size();
     let ctx = self.begin_render_pass(des);
 
     let pass_info = RenderPassGPUInfoData::new(buffer_size.map(|v| 1.0 / v), buffer_size);
-    let pass_info = create_uniform_with_cache(pass_info, gpu);
+    let pass_info = create_uniform_with_cache(pass_info, &gpu);
 
     let c = GPURenderPassCtx::new(ctx, gpu);
 
@@ -147,10 +147,9 @@ impl GPUCommandEncoder {
         .unwrap_or(1),
     };
 
-    let pass = self.encoder.begin_render_pass(&desc);
+    let pass = self.encoder.begin_render_pass(&desc).forget_lifetime();
     GPURenderPass {
       pass,
-      holder: &mut self.holder,
       placeholder_bg: self.placeholder_bg.clone(),
       size,
       formats,

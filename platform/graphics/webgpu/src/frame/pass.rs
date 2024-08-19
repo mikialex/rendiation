@@ -5,20 +5,20 @@ use rendiation_shader_api::{std140_layout, ShaderStruct};
 
 use crate::*;
 
-pub struct FrameRenderPass<'encoder, 'b> {
-  pub ctx: GPURenderPassCtx<'encoder, 'b>,
+pub struct FrameRenderPass {
+  pub ctx: GPURenderPassCtx,
   pub pass_info: UniformBufferCachedDataView<RenderPassGPUInfoData>,
 }
 
-impl<'a, 'b> std::ops::Deref for FrameRenderPass<'a, 'b> {
-  type Target = GPURenderPass<'a>;
+impl std::ops::Deref for FrameRenderPass {
+  type Target = GPURenderPass;
 
   fn deref(&self) -> &Self::Target {
     &self.ctx.pass
   }
 }
 
-impl<'a, 'b> std::ops::DerefMut for FrameRenderPass<'a, 'b> {
+impl std::ops::DerefMut for FrameRenderPass {
   fn deref_mut(&mut self) -> &mut Self::Target {
     &mut self.ctx.pass
   }
@@ -104,17 +104,13 @@ impl<'a> PassDescriptor<'a> {
   }
 
   #[must_use]
-  pub fn render_ctx<'x>(self, ctx: &'x mut FrameCtx) -> ActiveRenderPass<'x> {
+  pub fn render_ctx(self, ctx: &mut FrameCtx) -> ActiveRenderPass {
     self.render(&mut ctx.encoder, ctx.gpu)
   }
 
   #[must_use]
-  pub fn render<'x>(
-    self,
-    encoder: &'x mut GPUCommandEncoder,
-    gpu: &'x GPU,
-  ) -> ActiveRenderPass<'x> {
-    let pass = encoder.begin_render_pass_with_info(self.desc.clone(), gpu);
+  pub fn render(self, encoder: &mut GPUCommandEncoder, gpu: &GPU) -> ActiveRenderPass {
+    let pass = encoder.begin_render_pass_with_info(self.desc.clone(), gpu.clone());
 
     ActiveRenderPass {
       desc: self.desc,
@@ -140,12 +136,12 @@ impl<T: PassContent> PassContent for Option<T> {
   }
 }
 
-pub struct ActiveRenderPass<'p> {
-  pub pass: FrameRenderPass<'p, 'p>,
+pub struct ActiveRenderPass {
+  pub pass: FrameRenderPass,
   pub desc: RenderPassDescriptorOwned,
 }
 
-impl<'p> ActiveRenderPass<'p> {
+impl ActiveRenderPass {
   pub fn by(mut self, renderable: &mut impl PassContent) -> Self {
     renderable.render(&mut self.pass);
     self

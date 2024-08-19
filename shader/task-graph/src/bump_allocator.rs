@@ -124,7 +124,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
       .with_bind(&the_other.current_size)
       .setup_compute_pass(pass, device, &pipeline);
 
-    pass.dispatch_workgroups_indirect_owned(&size);
+    pass.dispatch_workgroups_indirect_by_buffer_resource_view(&size);
 
     size
   }
