@@ -31,7 +31,7 @@ impl DynamicTypeBuilder {
 #[derive(Clone)]
 pub struct DynamicTypeMetaInfo {
   pub ty: ShaderStructMetaInfo,
-  pub fields_init: Vec<ShaderStructFieldInitValue>,
+  pub fields_init: Vec<Option<ShaderStructFieldInitValue>>,
 }
 
 impl DynamicTypeBuilder {
@@ -40,7 +40,7 @@ impl DynamicTypeBuilder {
     default: T,
   ) -> BoxedShaderLoadStore<Node<T>> {
     let field_index = self.meta.fields_init.len();
-    self.meta.fields_init.push(default.to_value());
+    self.meta.fields_init.push(Some(default.to_value()));
     self
       .meta
       .ty

@@ -45,7 +45,39 @@ pub trait DeviceFuture {
   fn reset(&self, ctx: &mut DeviceParallelComputeCtx, work_size: u32);
 }
 
-pub trait DeviceFutureExt: Sized + DeviceFuture {
+pub type DynDeviceFuture<T> =
+  Box<dyn DeviceFuture<Output = T, Invocation = Box<dyn DeviceFutureInvocation<Output = T>>>>;
+
+impl<O, I> DeviceFuture for Box<dyn DeviceFuture<Output = O, Invocation = I>>
+where
+  O: 'static,
+  I: DeviceFutureInvocation<Output = O> + 'static,
+{
+  type Output = O;
+  type Invocation = I;
+
+  fn required_poll_count(&self) -> usize {
+    (**self).required_poll_count()
+  }
+
+  fn build_poll(&self, ctx: &mut DeviceTaskSystemBuildCtx) -> Self::Invocation {
+    (**self).build_poll(ctx)
+  }
+
+  fn bind_input(&self, builder: &mut BindingBuilder) {
+    (**self).bind_input(builder)
+  }
+
+  fn reset(&self, ctx: &mut DeviceParallelComputeCtx, work_size: u32) {
+    (**self).reset(ctx, work_size)
+  }
+}
+
+pub trait DeviceFutureExt: Sized + DeviceFuture + 'static {
+  fn into_dyn(self) -> DynDeviceFuture<Self::Output> {
+    Box::new(WrapDynDeviceFuture(self))
+  }
+
   fn map<F>(self, map: F) -> ShaderFutureMap<F, Self> {
     ShaderFutureMap {
       upstream: self,
@@ -53,7 +85,18 @@ pub trait DeviceFutureExt: Sized + DeviceFuture {
     }
   }
 
-  fn then<F, T>(self, then_f: F, then: T) -> ShaderFutureThen<Self, F, T> {
+  fn then<F, T>(self, then_f: F, then: T) -> ShaderFutureThen<Self, F, T>
+  where
+    F: Fn(
+        Self::Output,
+        &mut DeviceTaskSystemPollCtx,
+      ) -> <T::Invocation as ShaderAbstractLeftValue>::RightValue
+      + Copy
+      + 'static,
+    T: DeviceFuture,
+    T::Invocation: ShaderAbstractLeftValue,
+    T::Output: Default + ShaderAbstractRightValue,
+  {
     ShaderFutureThen {
       upstream: self,
       create_then_invocation_instance: then_f,
@@ -72,7 +115,7 @@ pub trait DeviceFutureExt: Sized + DeviceFuture {
     }
   }
 }
-impl<T: DeviceFuture + Sized> DeviceFutureExt for T {}
+impl<T: DeviceFuture + Sized + 'static> DeviceFutureExt for T {}
 
 pub struct BaseDeviceFuture<Output>(PhantomData<Output>);
 
@@ -166,10 +209,10 @@ pub struct ShaderFutureThen<U, F, T> {
   pub then: T,
 }
 
-impl<U, F, T> DeviceFuture for ShaderFutureThen<U, F, T>
+impl<U, F, T, UN> DeviceFuture for ShaderFutureThen<U, F, T>
 where
-  U: DeviceFuture,
-  T::Invocation: ShaderAbstractLeftValue,
+  UN: ShaderSizedValueNodeType + Default + 'static,
+  U: DeviceFuture<Output = Node<UN>>,
   F: Fn(
       U::Output,
       &mut DeviceTaskSystemPollCtx,
@@ -177,9 +220,10 @@ where
     + Copy
     + 'static,
   T: DeviceFuture,
+  T::Invocation: ShaderAbstractLeftValue,
   T::Output: Default + ShaderAbstractRightValue,
 {
-  type Output = T::Output;
+  type Output = (U::Output, T::Output);
   type Invocation = ShaderFutureThenInstance<U::Invocation, F, T::Invocation>;
 
   fn required_poll_count(&self) -> usize {
@@ -190,6 +234,9 @@ where
     ShaderFutureThenInstance {
       upstream: self.upstream.build_poll(ctx),
       upstream_resolved: ctx.state_builder.create_or_reconstruct_inline_state(false),
+      upstream_output: ctx
+        .state_builder
+        .create_or_reconstruct_inline_state(UN::default()),
       then: self.then.build_poll(ctx),
       create_then_invocation_instance: self.create_then_invocation_instance,
     }
@@ -206,8 +253,9 @@ where
   }
 }
 
-pub struct ShaderFutureThenInstance<U, F, T> {
+pub struct ShaderFutureThenInstance<U: DeviceFutureInvocation, F, T> {
   upstream: U,
+  upstream_output: BoxedShaderLoadStore<U::Output>,
   upstream_resolved: BoxedShaderLoadStore<Node<bool>>,
   create_then_invocation_instance: F,
   then: T,
@@ -221,11 +269,12 @@ where
   T: ShaderAbstractLeftValue,
   F: Fn(U::Output, &mut DeviceTaskSystemPollCtx) -> T::RightValue,
 {
-  type Output = T::Output;
-  fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> DevicePoll<T::Output> {
+  type Output = (U::Output, T::Output);
+  fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> DevicePoll<Self::Output> {
     let ShaderFutureThenInstance {
       upstream,
       upstream_resolved,
+      upstream_output,
       create_then_invocation_instance,
       then,
     } = self;
@@ -247,7 +296,11 @@ where
       output.abstract_store(r.payload);
     });
 
-    (resolved.abstract_load(), output.abstract_load()).into()
+    (
+      resolved.abstract_load(),
+      (upstream_output.abstract_load(), output.abstract_load()),
+    )
+      .into()
   }
 }
 
@@ -287,6 +340,12 @@ impl<T: DeviceFutureInvocation> DeviceFutureInvocation for OpaqueTaskInvocationW
 }
 
 pub struct TaskFuture<T>(usize, PhantomData<T>);
+
+impl<T> TaskFuture<T> {
+  pub fn new(id: usize) -> Self {
+    Self(id, PhantomData)
+  }
+}
 
 impl<T> DeviceFuture for TaskFuture<T>
 where
@@ -345,7 +404,7 @@ pub struct TaskFutureInvocationRightValue {
   pub task_handle: Node<u32>,
 }
 
-impl<T> ShaderAbstractLeftValue for TaskFutureInvocation<TaskFutureInvocation<T>> {
+impl<T> ShaderAbstractLeftValue for TaskFutureInvocation<T> {
   type RightValue = TaskFutureInvocationRightValue;
 
   fn abstract_load(&self) -> Self::RightValue {
@@ -356,5 +415,27 @@ impl<T> ShaderAbstractLeftValue for TaskFutureInvocation<TaskFutureInvocation<T>
 
   fn abstract_store(&self, payload: Self::RightValue) {
     self.task_handle.abstract_store(payload.task_handle);
+  }
+}
+
+struct WrapDynDeviceFuture<T>(T);
+impl<T: DeviceFuture> DeviceFuture for WrapDynDeviceFuture<T> {
+  type Output = T::Output;
+  type Invocation = Box<dyn DeviceFutureInvocation<Output = T::Output>>;
+
+  fn required_poll_count(&self) -> usize {
+    self.0.required_poll_count()
+  }
+
+  fn build_poll(&self, ctx: &mut DeviceTaskSystemBuildCtx) -> Self::Invocation {
+    Box::new(self.0.build_poll(ctx))
+  }
+
+  fn bind_input(&self, builder: &mut BindingBuilder) {
+    self.0.bind_input(builder)
+  }
+
+  fn reset(&self, ctx: &mut DeviceParallelComputeCtx, work_size: u32) {
+    self.0.reset(ctx, work_size)
   }
 }

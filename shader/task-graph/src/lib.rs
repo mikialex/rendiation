@@ -49,7 +49,7 @@ pub trait ShaderAbstractRightValue {
   fn into_local_left_value(self) -> Self::LocalLeftValue;
 }
 
-impl<T: ShaderNodeType> ShaderAbstractRightValue for Node<T> {
+impl<T: ShaderSizedValueNodeType> ShaderAbstractRightValue for Node<T> {
   type LocalLeftValue = LocalVarNode<T>;
 
   fn into_local_left_value(self) -> Self::LocalLeftValue {

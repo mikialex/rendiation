@@ -694,10 +694,9 @@ impl DeviceParallelComputeCtx {
   }
 
   pub fn record_pass(&mut self, f: impl FnOnce(&mut GPUComputePass, &GPUDevice)) {
-    let pass = self.pass.get_or_insert_with(|| {
-      let pass = self.encoder.begin_compute_pass();
-      unsafe { std::mem::transmute(pass) }
-    });
+    let pass = self
+      .pass
+      .get_or_insert_with(|| self.encoder.begin_compute_pass());
     f(pass, &self.gpu.device);
   }
 

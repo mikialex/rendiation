@@ -1,8 +1,5 @@
 use crate::*;
 
-pub type DynDeviceFuture<T> =
-  Box<dyn DeviceFuture<Output = T, Invocation = Box<dyn DeviceFutureInvocation<Output = T>>>>;
-
 pub trait DeviceFutureProvider<T> {
   fn build_device_future(&self) -> DynDeviceFuture<T>;
 }
@@ -14,5 +11,5 @@ pub trait NativeRayTracingShaderBuilder<Cx, O> {
 }
 
 pub trait NativeRayTracingShaderCtx {
-  fn native_trace_ray(&self, ray: ShaderRayTraceCall);
+  fn native_trace_ray(&self, ray: ShaderRayTraceCall, payload: Box<dyn Any>);
 }

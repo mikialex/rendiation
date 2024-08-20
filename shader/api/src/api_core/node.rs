@@ -219,6 +219,12 @@ impl<T> Node<T> {
 
 pub type NodeUntyped = Node<AnyType>;
 
+impl<T: ShaderSizedValueNodeType> Default for Node<T> {
+  fn default() -> Self {
+    zeroed_val()
+  }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ShaderNodeRawHandle {
   pub handle: usize,
