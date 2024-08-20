@@ -1,6 +1,7 @@
 #![feature(const_type_name)]
 #![feature(generic_const_exprs)]
 
+mod abstract_load_store;
 mod api_core;
 mod binding;
 mod compute;
@@ -17,6 +18,7 @@ use std::{
   ops::*,
 };
 
+pub use abstract_load_store::*;
 pub use api_core::*;
 pub use binding::*;
 pub use bytemuck::*;
