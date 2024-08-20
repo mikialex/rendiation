@@ -193,7 +193,7 @@ where
   type Output = O;
   fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> DevicePoll<O> {
     let r = self.upstream.device_poll(ctx);
-    let output = O::default().into_local_left_value();
+    let output = LocalLeftValueBuilder.create_left_value(O::default());
     if_by(r.is_ready, || {
       let o = (self.map)(r.payload);
       output.abstract_store(o);
@@ -288,11 +288,11 @@ where
       });
     });
 
-    let resolved = val(false).into_local_left_value();
-    let output = T::Output::default().into_local_left_value();
+    let resolved = LocalLeftValueBuilder.create_left_value(val(false));
+    let output = LocalLeftValueBuilder.create_left_value(T::Output::default());
     if_by(upstream_resolved.abstract_load(), || {
       let r = self.then.device_poll(ctx);
-      resolved.store(r.is_ready);
+      resolved.abstract_store(r.is_ready);
       output.abstract_store(r.payload);
     });
 
@@ -385,7 +385,7 @@ where
   type Output = Node<T>;
 
   fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> DevicePoll<Self::Output> {
-    let output = zeroed_val().into_local_left_value();
+    let output = LocalLeftValueBuilder.create_left_value(zeroed_val());
 
     ctx.poll_task::<T>(self.task_ty, self.task_handle.abstract_load(), |r| {
       output.abstract_store(r);
