@@ -154,7 +154,7 @@ where
   T: DeviceFuture,
   F: Fn(T::Output) -> O + Copy + 'static,
   T::Output: Copy,
-  O: ShaderAbstractRightValue + Default + Copy + 'static,
+  O: ShaderAbstractRightValue + Default,
 {
   type Output = O;
   type Invocation = ShaderFutureMapState<T::Invocation, F>;
@@ -188,7 +188,7 @@ impl<T, F, O> DeviceFutureInvocation for ShaderFutureMapState<T, F>
 where
   T: DeviceFutureInvocation,
   F: Fn(T::Output) -> O,
-  O: Default + ShaderAbstractRightValue + 'static,
+  O: Default + ShaderAbstractRightValue,
 {
   type Output = O;
   fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> DevicePoll<O> {

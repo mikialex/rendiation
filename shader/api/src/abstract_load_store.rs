@@ -37,7 +37,7 @@ impl<T: ShaderSizedValueNodeType> ShaderAbstractLeftValue for LocalVarNode<T> {
   }
 }
 
-pub trait ShaderAbstractRightValue {
+pub trait ShaderAbstractRightValue: Copy + 'static {
   type AbstractLeftValue: ShaderAbstractLeftValue<RightValue = Self>;
   fn create_left_value_from_builder<B: LeftValueBuilder>(
     &self,
