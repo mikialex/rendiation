@@ -17,7 +17,7 @@ impl DynamicTypeBuilder {
 
     // make sure struct is not empty
     // todo, support empty
-    v.create_or_reconstruct_inline_state::<u32>(0);
+    v.create_or_reconstruct_inline_state_with_default::<u32>(0);
     v
   }
   pub fn meta_info(&self) -> DynamicTypeMetaInfo {
@@ -35,12 +35,19 @@ pub struct DynamicTypeMetaInfo {
 }
 
 impl DynamicTypeBuilder {
-  pub fn create_or_reconstruct_inline_state<T: ShaderSizedValueNodeType>(
+  pub fn create_or_reconstruct_inline_state_with_default<T: ShaderSizedValueNodeType>(
     &mut self,
     default: T,
   ) -> BoxedShaderLoadStore<Node<T>> {
+    self.create_or_reconstruct_inline_state(Some(default))
+  }
+
+  pub fn create_or_reconstruct_inline_state<T: ShaderSizedValueNodeType>(
+    &mut self,
+    default: Option<T>,
+  ) -> BoxedShaderLoadStore<Node<T>> {
     let field_index = self.meta.fields_init.len();
-    self.meta.fields_init.push(Some(default.to_value()));
+    self.meta.fields_init.push(default.map(|v| v.to_value()));
     self
       .meta
       .ty
@@ -54,6 +61,20 @@ impl DynamicTypeBuilder {
     };
 
     Box::new(node)
+  }
+
+  pub fn create_or_reconstruct_any_left_value_by_right<T: ShaderAbstractRightValue>(
+    &mut self,
+  ) -> T::AbstractLeftValue {
+    T::create_left_value_from_builder(self)
+  }
+}
+
+impl LeftValueBuilder for DynamicTypeBuilder {
+  fn create_single_left_value<T: ShaderSizedValueNodeType>(
+    &mut self,
+  ) -> BoxedShaderLoadStore<Node<T>> {
+    self.create_or_reconstruct_inline_state(None)
   }
 }
 

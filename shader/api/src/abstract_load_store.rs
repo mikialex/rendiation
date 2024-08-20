@@ -39,8 +39,9 @@ impl<T: ShaderSizedValueNodeType> ShaderAbstractLeftValue for LocalVarNode<T> {
 
 pub trait ShaderAbstractRightValue: Copy + 'static {
   type AbstractLeftValue: ShaderAbstractLeftValue<RightValue = Self>;
+  /// the value stored in left value can not be assumed uninit or zeroed, and
+  /// it should be related to the context of usage
   fn create_left_value_from_builder<B: LeftValueBuilder>(
-    &self,
     builder: &mut B,
   ) -> Self::AbstractLeftValue;
 }
@@ -48,27 +49,31 @@ pub trait ShaderAbstractRightValue: Copy + 'static {
 impl<T: ShaderSizedValueNodeType> ShaderAbstractRightValue for Node<T> {
   type AbstractLeftValue = BoxedShaderLoadStore<Node<T>>;
   fn create_left_value_from_builder<B: LeftValueBuilder>(
-    &self,
     builder: &mut B,
   ) -> Self::AbstractLeftValue {
-    builder.create_single_left_value(*self)
+    builder.create_single_left_value_zeroed()
   }
 }
 
 pub trait LeftValueBuilder: Sized {
+  /// the value stored in left value can not be assumed uninit or zeroed, and
+  /// it should be related to the context of usage
   fn create_single_left_value<T: ShaderSizedValueNodeType>(
     &mut self,
-    init: Node<T>,
   ) -> BoxedShaderLoadStore<Node<T>>;
 
   fn create_single_left_value_zeroed<T: ShaderSizedValueNodeType>(
     &mut self,
   ) -> BoxedShaderLoadStore<Node<T>> {
-    self.create_single_left_value(zeroed_val())
+    let v = self.create_single_left_value();
+    v.abstract_store(zeroed_val());
+    v
   }
 
   fn create_left_value<V: ShaderAbstractRightValue>(&mut self, right: V) -> V::AbstractLeftValue {
-    right.create_left_value_from_builder(self)
+    let v = V::create_left_value_from_builder(self);
+    v.abstract_store(right);
+    v
   }
 }
 
@@ -77,8 +82,7 @@ pub struct LocalLeftValueBuilder;
 impl LeftValueBuilder for LocalLeftValueBuilder {
   fn create_single_left_value<T: ShaderSizedValueNodeType>(
     &mut self,
-    init: Node<T>,
   ) -> BoxedShaderLoadStore<Node<T>> {
-    Box::new(init.make_local_var())
+    Box::new(zeroed_val().make_local_var())
   }
 }
