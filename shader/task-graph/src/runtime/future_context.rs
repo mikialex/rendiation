@@ -13,6 +13,7 @@ pub struct DeviceTaskSystemPollCtx<'a> {
   pub(super) tasks_depend_on_self: FastHashMap<usize, TaskGroupDeviceInvocationInstance>,
   // the rust hashmap is not ordered
   pub(super) tasks_depend_on_self_bind_order: Vec<usize>,
+  pub registry: &'a mut FastHashMap<TypeId, Box<dyn Any>>,
 }
 
 impl<'a> DeviceTaskSystemPollCtx<'a> {

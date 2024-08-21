@@ -8,6 +8,7 @@ pub trait DeviceFutureProvider<T> {
 /// is the direct support of recursion call in shader
 pub trait NativeRayTracingShaderBuilder<Cx, O> {
   fn build(&self, ctx: &mut Cx) -> O;
+  fn bind(&self, builder: &mut BindingBuilder);
 }
 
 pub trait NativeRayTracingShaderCtx {

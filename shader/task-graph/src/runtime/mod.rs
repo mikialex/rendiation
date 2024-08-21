@@ -18,6 +18,7 @@ pub struct TaskGraphExecutionStates {
 }
 
 pub struct DeviceTaskGraphExecutor {
+  pub registry: FastHashMap<TypeId, Box<dyn Any>>,
   task_groups: Vec<TaskGroupExecutor>,
   max_recursion_depth: usize,
   current_prepared_execution_size: usize,
@@ -26,6 +27,7 @@ pub struct DeviceTaskGraphExecutor {
 impl DeviceTaskGraphExecutor {
   pub fn new(current_prepared_execution_size: usize, max_recursion_depth: usize) -> Self {
     Self {
+      registry: Default::default(),
       task_groups: Default::default(),
       max_recursion_depth,
       current_prepared_execution_size,
@@ -109,6 +111,7 @@ impl DeviceTaskGraphExecutor {
       self_task_idx: task_index,
       self_task: pool.clone(),
       compute_cx: &mut cx,
+      registry: &mut self.registry,
     };
 
     let poll_result = state.device_poll(&mut ctx);
