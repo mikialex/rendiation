@@ -80,28 +80,6 @@ pub trait GPUAccelerationStructureInstanceProvider {
   fn access_impl(&self) -> &dyn Any;
 }
 
-// the below are specific for compute shader based impl.
-// todo, move the code into compute shader based impl.
-
-pub trait GPUAccelerationStructureInstance {
-  fn build_shader(
-    &self,
-    compute_cx: &mut ShaderComputePipelineBuilder,
-  ) -> Box<dyn GPUAccelerationStructureInvocationTraversable>;
-  fn bind_pass(&self, pass: &mut GPUComputePass);
-
-  fn handle(&self) -> u32;
-}
-
-pub trait GPUAccelerationStructureInvocationTraversable {
-  /// return optional closest hit
-  fn traverse(
-    &self,
-    intersect: &dyn Fn(&RayIntersectCtx, &dyn IntersectionReporter),
-    any_hit: &dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
-  ) -> DeviceOption<HitInfo>;
-}
-
 pub trait IntersectionReporter {
   /// Invokes the current hit shader once an intersection shader has determined
   /// that a ray intersection has occurred. If the intersection occurred within
@@ -115,10 +93,4 @@ pub trait IntersectionReporter {
   ///
   /// https://github.com/KhronosGroup/GLSL/blob/main/extensions/ext/GLSL_EXT_ray_tracing.txt#L954
   fn report_intersection(&self, hit_t: Node<f32>, hit_kind: Node<u32>) -> Node<bool>;
-}
-
-#[derive(Clone, Copy)]
-pub struct DeviceOption<T> {
-  pub is_some: Node<bool>,
-  pub payload: T,
 }
