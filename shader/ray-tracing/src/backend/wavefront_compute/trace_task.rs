@@ -2,6 +2,23 @@ use dyn_clone::DynClone;
 
 use crate::*;
 
+pub struct TraceTaskImpl {
+  payload_bumper: DeviceBumpAllocationInstance<u32>,
+  tlas: Box<dyn GPUAccelerationStructureCompImplInstance>,
+}
+
+impl TracingTaskSpawner for TraceTaskImpl {
+  fn spawn_new_tracing_task(
+    &mut self,
+    should_trace: Node<bool>,
+    trace_call: ShaderRayTraceCall,
+    payload: ShaderNodeRawHandle,
+    payload_ty: ShaderSizedValueType,
+  ) -> TaskFutureInvocationRightValue {
+    todo!()
+  }
+}
+
 trait AnyPayload: DynClone + Any {
   fn into_any(&self) -> Box<dyn Any>;
 }
@@ -21,7 +38,7 @@ trait TaskSpawnTarget {
 struct GPURayTraceTaskInvocationInstance {
   all_closest_hit_tasks: Vec<Box<dyn TaskSpawnTarget>>,
   all_missing_tasks: Vec<Box<dyn TaskSpawnTarget>>,
-  //   acceleration_structure: NaiveSahBVHInvocationInstance,
+  acceleration_structure: Box<dyn GPUAccelerationStructureCompImplInvocationTraversable>,
 }
 
 fn spawn_dynamic(

@@ -86,12 +86,18 @@ impl TaskPoolInvocationInstance {
   pub fn poll_task_is_finished(&self, task_id: Node<u32>) -> Node<bool> {
     self.rw_is_finished(task_id).load().equals(0)
   }
-  pub fn spawn_new_task<T: ShaderSizedValueNodeType>(&self, at: Node<u32>, payload: Node<T>) {
+
+  pub fn spawn_new_task_dyn(
+    &self,
+    at: Node<u32>,
+    payload: Node<AnyType>,
+    ty: ShaderSizedValueType,
+  ) {
     self.rw_is_finished(at).store(1);
 
-    self.rw_payload(at).store(payload);
+    self.rw_payload_dyn(at).store(payload);
 
-    assert_eq!(self.payload_ty, T::sized_ty());
+    assert_eq!(self.payload_ty, ty);
 
     // write states with given init value
     let state_ptr = self.rw_states(at);
@@ -112,7 +118,12 @@ impl TaskPoolInvocationInstance {
     let item_ptr = self.access_item_ptr(task);
     unsafe { index_access_field(item_ptr.handle(), 0) }
   }
-  pub fn rw_payload<T: ShaderNodeType>(&self, task: Node<u32>) -> StorageNode<T> {
+  pub fn rw_payload<T: ShaderSizedValueNodeType>(&self, task: Node<u32>) -> StorageNode<T> {
+    assert_eq!(self.payload_ty, T::sized_ty());
+    let item_ptr = self.access_item_ptr(task);
+    unsafe { index_access_field(item_ptr.handle(), 1) }
+  }
+  pub fn rw_payload_dyn(&self, task: Node<u32>) -> StorageNode<AnyType> {
     let item_ptr = self.access_item_ptr(task);
     unsafe { index_access_field(item_ptr.handle(), 1) }
   }

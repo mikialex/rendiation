@@ -47,7 +47,6 @@ impl DeviceTaskGraphExecutor {
     self.define_task_inner(
       Box::new(OpaqueTaskWrapper(future)) as OpaqueTask,
       P::sized_ty(),
-      TypeId::of::<P>(),
       device,
       pass,
     )
@@ -58,7 +57,6 @@ impl DeviceTaskGraphExecutor {
     &mut self,
     task: OpaqueTask,
     payload_ty: ShaderSizedValueType,
-    payload_type_id: TypeId,
     device: &GPUDevice,
     pass: &mut GPUComputePass,
   ) -> u32 {
@@ -91,7 +89,6 @@ impl DeviceTaskGraphExecutor {
       self.current_prepared_execution_size,
       state_desc.clone(),
       task_type_desc.clone(),
-      payload_type_id,
       device,
       pass,
     );
@@ -127,7 +124,6 @@ impl DeviceTaskGraphExecutor {
       resource,
       state_desc,
       task_type_desc,
-      payload_type_id,
       tasks_depend_on_self,
       required_poll_count: task.required_poll_count(),
       task,
@@ -267,6 +263,7 @@ impl DeviceTaskGraphExecutor {
     self.max_recursion_depth * max_required_poll_count + 1
   }
 
+  // todo, dispatch should in reverse order
   pub fn execute(&mut self, cx: &mut DeviceParallelComputeCtx, dispatch_round_count: usize) {
     // it's safe because the reference is not overlapped
     let self_task_groups: &[TaskGroupExecutor] = &self.task_groups;
