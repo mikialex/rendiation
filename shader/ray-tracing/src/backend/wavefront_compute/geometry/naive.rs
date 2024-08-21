@@ -22,7 +22,7 @@ struct DeviceBVHNode {
   pub aabb_max: Vec3<f32>,
 }
 
-struct NaiveSahBVHHostBuilder {
+struct NaiveSahBVHSystem {
   tlas_meta_info: StorageBufferReadOnlyDataView<[u32]>,
   tlas_bvh_forest: StorageBufferReadOnlyDataView<[DeviceBVHNode]>,
   tlas_data_indices: StorageBufferReadOnlyDataView<[u32]>,
@@ -41,10 +41,7 @@ struct GPUNaiveSahBVHInstance {
   handle: u32,
 }
 
-impl GPUAccelerationStructureCompImplInstance for GPUNaiveSahBVHInstance {
-  fn handle(&self) -> u32 {
-    self.handle
-  }
+impl GPUAccelerationStructureCompImplInstance for NaiveSahBVHSystem {
   fn build_shader(
     &self,
     compute_cx: &mut ShaderComputePipelineBuilder,
@@ -52,7 +49,7 @@ impl GPUAccelerationStructureCompImplInstance for GPUNaiveSahBVHInstance {
     todo!()
   }
 
-  fn bind_pass(&self, pass: &mut GPUComputePass) {
+  fn bind_pass(&self, builder: &mut BindingBuilder) {
     todo!()
   }
 }
@@ -73,6 +70,7 @@ pub struct NaiveSahBVHInvocationInstance {
 impl GPUAccelerationStructureCompImplInvocationTraversable for NaiveSahBVHInvocationInstance {
   fn traverse(
     &self,
+    tlas_id: Node<u32>,
     intersect: &dyn Fn(&RayIntersectCtx, &dyn IntersectionReporter),
     any_hit: &dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
   ) -> DeviceOption<HitInfo> {
@@ -85,7 +83,7 @@ impl GPUAccelerationStructureCompImplInvocationTraversable for NaiveSahBVHInvoca
   }
 }
 
-impl GPUAccelerationStructureInstanceBuilder for NaiveSahBVHHostBuilder {
+impl GPUAccelerationStructureInstanceBuilder for NaiveSahBVHSystem {
   fn create_top_level_acceleration_structure(
     &self,
     source: &[TopLevelAccelerationStructureSourceInstance],

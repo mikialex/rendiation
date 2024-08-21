@@ -7,15 +7,14 @@ pub trait GPUAccelerationStructureCompImplInstance {
     &self,
     compute_cx: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn GPUAccelerationStructureCompImplInvocationTraversable>;
-  fn bind_pass(&self, pass: &mut GPUComputePass);
-
-  fn handle(&self) -> u32;
+  fn bind_pass(&self, builder: &mut BindingBuilder);
 }
 
 pub trait GPUAccelerationStructureCompImplInvocationTraversable {
   /// return optional closest hit
   fn traverse(
     &self,
+    tlas_id: Node<u32>,
     intersect: &dyn Fn(&RayIntersectCtx, &dyn IntersectionReporter),
     any_hit: &dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
   ) -> DeviceOption<HitInfo>;

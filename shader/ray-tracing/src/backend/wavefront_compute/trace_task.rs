@@ -1,10 +1,8 @@
-use dyn_clone::DynClone;
-
 use crate::*;
 
 pub struct TraceTaskImpl {
   payload_bumper: DeviceBumpAllocationInstance<u32>,
-  tlas: Box<dyn GPUAccelerationStructureCompImplInstance>,
+  tlas_sys: Box<dyn GPUAccelerationStructureCompImplInstance>,
   closest_tasks: Vec<u32>,
   missing_tasks: Vec<u32>,
 }
@@ -15,19 +13,20 @@ impl DeviceFuture for TraceTaskImpl {
   type Invocation = GPURayTraceTaskInvocationInstance;
 
   fn required_poll_count(&self) -> usize {
-    todo!()
+    2
   }
 
   fn build_poll(&self, ctx: &mut DeviceTaskSystemBuildCtx) -> Self::Invocation {
     GPURayTraceTaskInvocationInstance {
-      acceleration_structure: todo!(),
+      tlas_sys: self.tlas_sys.build_shader(ctx.compute_cx),
+      untyped_payloads: ctx.compute_cx.bind_by(&self.payload_bumper.storage),
       closest_tasks: self.closest_tasks.clone(),
       missing_tasks: self.missing_tasks.clone(),
     }
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {
-    todo!()
+    self.tlas_sys.bind_pass(builder)
   }
 
   fn reset(&self, ctx: &mut DeviceParallelComputeCtx, work_size: u32) {
@@ -35,20 +34,9 @@ impl DeviceFuture for TraceTaskImpl {
   }
 }
 
-impl TracingTaskSpawner for TraceTaskImpl {
-  fn spawn_new_tracing_task(
-    &mut self,
-    should_trace: Node<bool>,
-    trace_call: ShaderRayTraceCall,
-    payload: ShaderNodeRawHandle,
-    payload_ty: ShaderSizedValueType,
-  ) -> TaskFutureInvocationRightValue {
-    todo!()
-  }
-}
-
 pub struct GPURayTraceTaskInvocationInstance {
-  acceleration_structure: Box<dyn GPUAccelerationStructureCompImplInvocationTraversable>,
+  tlas_sys: Box<dyn GPUAccelerationStructureCompImplInvocationTraversable>,
+  untyped_payloads: StorageNode<[u32]>,
   closest_tasks: Vec<u32>, // todo, ref
   missing_tasks: Vec<u32>,
 }
@@ -84,23 +72,18 @@ fn spawn_dynamic<'a>(
   allocated_id.load()
 }
 
-impl GPURayTraceTaskInvocationInstance {
-  pub fn spawn_closest(
-    &self,
-    cx: &mut DeviceTaskSystemPollCtx,
-    task_ty: Node<u32>,
-    payload: Node<AnyType>,
-    ty: &ShaderSizedValueType,
-  ) -> Node<u32> {
-    spawn_dynamic(&self.closest_tasks, cx, task_ty, payload, ty)
-  }
-  pub fn spawn_missing(
-    &self,
-    cx: &mut DeviceTaskSystemPollCtx,
-    task_ty: Node<u32>,
-    payload: Node<AnyType>,
-    ty: &ShaderSizedValueType,
-  ) -> Node<u32> {
-    spawn_dynamic(&self.missing_tasks, cx, task_ty, payload, ty)
+struct TracingTaskSpawnerImpl {
+  payload_bumper: DeviceBumpAllocationInstance<u32>,
+}
+
+impl TracingTaskSpawner for TracingTaskSpawnerImpl {
+  fn spawn_new_tracing_task(
+    &mut self,
+    should_trace: Node<bool>,
+    trace_call: ShaderRayTraceCall,
+    payload: ShaderNodeRawHandle,
+    payload_ty: ShaderSizedValueType,
+  ) -> TaskFutureInvocationRightValue {
+    todo!()
   }
 }
