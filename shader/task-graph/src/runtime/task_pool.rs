@@ -91,13 +91,13 @@ impl TaskPoolInvocationInstance {
     &self,
     at: Node<u32>,
     payload: Node<AnyType>,
-    ty: ShaderSizedValueType,
+    ty: &ShaderSizedValueType,
   ) {
     self.rw_is_finished(at).store(1);
 
     self.rw_payload_dyn(at).store(payload);
 
-    assert_eq!(self.payload_ty, ty);
+    assert_eq!(&self.payload_ty, ty);
 
     // write states with given init value
     let state_ptr = self.rw_states(at);

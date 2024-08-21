@@ -42,9 +42,18 @@ impl<'a> DeviceTaskSystemPollCtx<'a> {
     task_type: usize,
     argument: Node<T>,
   ) -> Option<TaskFutureInvocationRightValue> {
+    self.spawn_task_dyn(task_type, argument.cast_untyped_node(), &T::sized_ty())
+  }
+
+  pub fn spawn_task_dyn(
+    &mut self,
+    task_type: usize,
+    argument: Node<AnyType>,
+    ty: &ShaderSizedValueType,
+  ) -> Option<TaskFutureInvocationRightValue> {
     let task_group = self.get_or_create_task_group_instance(task_type);
     TaskFutureInvocationRightValue {
-      task_handle: task_group.spawn_new_task(argument)?,
+      task_handle: task_group.spawn_new_task_dyn(argument, ty)?,
     }
     .into()
   }

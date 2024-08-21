@@ -3567,6 +3567,7 @@ dependencies = [
  "parking_lot",
  "pollster",
  "rendiation-algebra",
+ "rendiation-device-parallel-compute",
  "rendiation-device-task-graph",
  "rendiation-shader-api",
  "rendiation-shader-derives",

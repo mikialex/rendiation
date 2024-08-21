@@ -196,14 +196,14 @@ pub struct TaskGroupDeviceInvocationInstance {
 impl TaskGroupDeviceInvocationInstance {
   #[must_use]
   pub fn spawn_new_task<T: ShaderSizedValueNodeType>(&self, payload: Node<T>) -> Option<Node<u32>> {
-    self.spawn_new_task_dyn(payload.cast_untyped_node(), T::sized_ty())
+    self.spawn_new_task_dyn(payload.cast_untyped_node(), &T::sized_ty())
   }
 
   #[must_use]
   pub fn spawn_new_task_dyn(
     &self,
     payload: Node<AnyType>,
-    ty: ShaderSizedValueType,
+    ty: &ShaderSizedValueType,
   ) -> Option<Node<u32>> {
     let (idx, success) = self.empty_index_pool.bump_deallocate();
     if_by(success, || {
