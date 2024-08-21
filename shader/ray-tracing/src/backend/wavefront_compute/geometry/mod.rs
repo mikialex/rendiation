@@ -10,11 +10,16 @@ pub trait GPUAccelerationStructureCompImplInstance {
   fn bind_pass(&self, builder: &mut BindingBuilder);
 }
 
+#[derive(ShaderStruct)]
+pub struct TracePayload {
+  pub tlas_id: u32,
+}
+
 pub trait GPUAccelerationStructureCompImplInvocationTraversable {
   /// return optional closest hit
   fn traverse(
     &self,
-    tlas_id: Node<u32>,
+    trace_payload: ENode<TracePayload>,
     intersect: &dyn Fn(&RayIntersectCtx, &dyn IntersectionReporter),
     any_hit: &dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
   ) -> DeviceOption<HitInfo>;

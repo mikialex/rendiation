@@ -22,6 +22,8 @@ impl DeviceFuture for TraceTaskImpl {
       untyped_payloads: ctx.compute_cx.bind_by(&self.payload_bumper.storage),
       closest_tasks: self.closest_tasks.clone(),
       missing_tasks: self.missing_tasks.clone(),
+      intersection_shaders: todo!(),
+      any_hit_shaders: todo!(),
     }
   }
 
@@ -36,6 +38,8 @@ impl DeviceFuture for TraceTaskImpl {
 
 pub struct GPURayTraceTaskInvocationInstance {
   tlas_sys: Box<dyn GPUAccelerationStructureCompImplInvocationTraversable>,
+  intersection_shaders: Vec<Box<dyn Fn(&RayIntersectCtx, &dyn IntersectionReporter)>>,
+  any_hit_shaders: Vec<Box<dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>>>,
   untyped_payloads: StorageNode<[u32]>,
   closest_tasks: Vec<u32>, // todo, ref
   missing_tasks: Vec<u32>,
@@ -45,6 +49,28 @@ impl DeviceFutureInvocation for GPURayTraceTaskInvocationInstance {
   type Output = ();
 
   fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> DevicePoll<Self::Output> {
+    let trace_payload = ctx.access_self_payload::<TracePayload>().load().expand();
+
+    let closest_hit = self.tlas_sys.traverse(
+      trace_payload,
+      &|info, reporter| {
+        //
+      },
+      &|info| {
+        //
+        todo!()
+      },
+    );
+
+    if_by(closest_hit.is_some, || {
+      // dispatch closest task
+      // spawn_dynamic
+    })
+    .else_by(|| {
+      // dispatch missing task
+      // spawn_dynamic
+    });
+
     todo!()
   }
 }

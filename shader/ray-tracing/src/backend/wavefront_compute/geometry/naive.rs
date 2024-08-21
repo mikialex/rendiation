@@ -70,7 +70,7 @@ pub struct NaiveSahBVHInvocationInstance {
 impl GPUAccelerationStructureCompImplInvocationTraversable for NaiveSahBVHInvocationInstance {
   fn traverse(
     &self,
-    tlas_id: Node<u32>,
+    trace_payload: ENode<TracePayload>,
     intersect: &dyn Fn(&RayIntersectCtx, &dyn IntersectionReporter),
     any_hit: &dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
   ) -> DeviceOption<HitInfo> {
