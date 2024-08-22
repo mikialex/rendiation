@@ -40,6 +40,16 @@ pub trait ShaderBindingTableProvider {
   fn access_impl(&mut self) -> &mut dyn Any;
 }
 
+pub enum BottomLevelAccelerationStructureBuildSource {
+  Triangles {
+    positions: Vec<Vec3<f32>>,
+    indices: Vec<u32>,
+  },
+  AABBs {
+    aabbs: Vec<[f32; 6]>,
+  },
+}
+
 pub trait GPUAccelerationStructureInstanceBuilder {
   fn create_top_level_acceleration_structure(
     &self,
@@ -51,15 +61,9 @@ pub trait GPUAccelerationStructureInstanceBuilder {
     id: Box<dyn GPUAccelerationStructureInstanceProvider>,
   );
 
-  fn create_bottom_level_acceleration_structure_by_triangles(
+  fn create_bottom_level_acceleration_structure(
     &self,
-    positions: &[Vec3<f32>],
-    indices: &[u32],
-  ) -> BottomLevelAccelerationStructureHandle;
-
-  fn create_bottom_level_acceleration_structure_by_aabbs(
-    &self,
-    aabbs: &[[f32; 6]],
+    source: &[BottomLevelAccelerationStructureBuildSource],
   ) -> BottomLevelAccelerationStructureHandle;
 
   fn delete_bottom_level_acceleration_structure(&self, id: BottomLevelAccelerationStructureHandle);

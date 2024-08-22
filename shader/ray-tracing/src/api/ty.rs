@@ -107,7 +107,7 @@ pub enum RayFlagTriangleCullBehavior {
   CullBack,
 }
 
-pub enum RayAnyHitBehavior {
-  IgnoreThisIntersect,
-  TerminateTraverse,
-}
+pub type RayAnyHitBehavior = u32;
+
+pub const IGNORE_THIS_INTERSECTION: RayAnyHitBehavior = 0;
+pub const TERMINATE_TRAVERSE: RayAnyHitBehavior = 1;

@@ -98,17 +98,9 @@ impl GPUAccelerationStructureInstanceBuilder for NaiveSahBVHSystem {
     todo!()
   }
 
-  fn create_bottom_level_acceleration_structure_by_triangles(
+  fn create_bottom_level_acceleration_structure(
     &self,
-    positions: &[Vec3<f32>],
-    indices: &[u32],
-  ) -> BottomLevelAccelerationStructureHandle {
-    todo!()
-  }
-
-  fn create_bottom_level_acceleration_structure_by_aabbs(
-    &self,
-    aabbs: &[[f32; 6]],
+    source: &[BottomLevelAccelerationStructureBuildSource],
   ) -> BottomLevelAccelerationStructureHandle {
     todo!()
   }
