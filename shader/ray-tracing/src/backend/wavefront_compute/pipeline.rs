@@ -1,11 +1,15 @@
 use crate::*;
 
-impl GPURaytracingPipelineBuilder {
-  pub fn compile_task_executor(
-    &self,
+pub struct GPUWaveFrontComputeRaytracingBakedPipeline {
+  graph: DeviceTaskGraphExecutor,
+}
+
+impl GPUWaveFrontComputeRaytracingBakedPipeline {
+  pub fn compile(
+    desc: &GPURaytracingPipelineDescriptor,
     device: &GPUDevice,
     init_size: usize,
-  ) -> DeviceTaskGraphExecutor {
+  ) -> Self {
     let mut executor = DeviceTaskGraphExecutor::new(1, 1);
 
     // executor.registry.
@@ -28,6 +32,12 @@ impl GPURaytracingPipelineBuilder {
     //   executor.define_task::<_, _>(closet.build_device_future(), device, init_pass);
     // }
 
-    executor
+    todo!();
+  }
+}
+
+impl GPURaytracingPipelineProvider for GPUWaveFrontComputeRaytracingBakedPipeline {
+  fn access_impl(&mut self) -> &mut dyn Any {
+    self
   }
 }

@@ -83,7 +83,7 @@ impl GPUAccelerationStructureCompImplInvocationTraversable for NaiveSahBVHInvoca
   }
 }
 
-impl GPUAccelerationStructureInstanceBuilder for NaiveSahBVHSystem {
+impl GPUAccelerationStructureSystemProvider for NaiveSahBVHSystem {
   fn create_top_level_acceleration_structure(
     &self,
     source: &[TopLevelAccelerationStructureSourceInstance],

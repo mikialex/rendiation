@@ -18,7 +18,7 @@ impl<T> ShaderRayClosestHitLogic for T where
 {
 }
 
-pub struct GPURaytracingPipelineBuilder {
+pub struct GPURaytracingPipelineDescriptor {
   pub max_recursion_depth: u32,
   pub ray_gen_shaders: Vec<Box<dyn ShaderRayGenLogic>>,
   pub miss_hit_shaders: Vec<Box<dyn FnOnce(&mut RayMissCtx)>>,
@@ -27,7 +27,7 @@ pub struct GPURaytracingPipelineBuilder {
   pub any_hit_shaders: Vec<Box<dyn FnOnce(&mut RayAnyHitCtx) -> Node<RayAnyHitBehavior>>>,
 }
 
-impl Default for GPURaytracingPipelineBuilder {
+impl Default for GPURaytracingPipelineDescriptor {
   fn default() -> Self {
     Self {
       max_recursion_depth: 4,
@@ -42,7 +42,7 @@ impl Default for GPURaytracingPipelineBuilder {
 
 pub struct ShaderHandle(pub usize, pub RayTracingShaderStage);
 
-impl GPURaytracingPipelineBuilder {
+impl GPURaytracingPipelineDescriptor {
   pub fn set_max_recursion_depth(&mut self, max_recursion_depth: u32) -> &mut Self {
     self.max_recursion_depth = max_recursion_depth;
     self

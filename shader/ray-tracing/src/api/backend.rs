@@ -3,9 +3,8 @@ use crate::*;
 pub trait GPURaytracingSystem {
   fn create_raytracing_device(&self) -> Box<dyn GPURayTracingDeviceProvider>;
   fn create_raytracing_encoder(&self) -> Box<dyn RayTracingPassEncoderProvider>;
-  fn create_acceleration_structure_builder(
-    &self,
-  ) -> Box<dyn GPUAccelerationStructureInstanceBuilder>;
+  fn create_acceleration_structure_system(&self)
+    -> Box<dyn GPUAccelerationStructureSystemProvider>;
 }
 
 pub trait RayTracingPassEncoderProvider {
@@ -21,7 +20,7 @@ pub trait GPURaytracingPipelineProvider {
 pub trait GPURayTracingDeviceProvider {
   fn create_raytracing_pipeline(
     &self,
-    desc: &GPURaytracingPipelineBuilder,
+    desc: &GPURaytracingPipelineDescriptor,
   ) -> Box<dyn GPURaytracingPipelineProvider>;
   fn create_sbt(&self) -> Box<dyn ShaderBindingTableProvider>;
 }
@@ -50,7 +49,7 @@ pub enum BottomLevelAccelerationStructureBuildSource {
   },
 }
 
-pub trait GPUAccelerationStructureInstanceBuilder {
+pub trait GPUAccelerationStructureSystemProvider {
   fn create_top_level_acceleration_structure(
     &self,
     source: &[TopLevelAccelerationStructureSourceInstance],
