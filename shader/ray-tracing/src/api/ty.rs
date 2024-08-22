@@ -8,9 +8,6 @@ pub enum RayTracingShaderStage {
   Intersection,
 }
 
-/// placeholder for future impl
-pub struct ShaderTLAS;
-
 #[derive(Clone, Copy)]
 pub struct ShaderRay {
   pub origin: Node<Vec3<f32>>,
@@ -34,7 +31,8 @@ pub struct ShaderRayRange {
 
 #[derive(Clone, Copy)]
 pub struct ShaderRayTraceCall {
-  pub tlas: Node<ShaderTLAS>,
+  // todo, use Vec2<u32>, see https://github.com/KhronosGroup/GLSL/blob/main/extensions/ext/GLSL_EXT_ray_tracing.txt#L567
+  pub tlas_idx: Node<u32>,
 
   /// https://github.com/KhronosGroup/GLSL/blob/main/extensions/ext/GLSL_EXT_ray_tracing.txt#L908
   pub ray_flags: Node<u32>,
@@ -49,28 +47,13 @@ pub struct ShaderRayTraceCall {
   /// instances are visible.
   pub cull_mask: Node<u32>,
 
-  pub sbt_hit_group_config: RaySBTConfig,
+  pub sbt_ray_config: RaySBTConfig,
   pub miss_index: Node<u32>,
 
   pub ray: ShaderRay,
   pub range: ShaderRayRange,
 
   pub payload: Node<i32>,
-}
-
-/// The shader record to call is determined by parameters set on the instance, trace ray call, and
-/// the order of geometries in the bottom-level acceleration structure. These parameters are set on
-/// both the host and device during different parts of the scene and pipeline setup and execution
-pub fn compute_sbt_hit_group(mesh: MeshSBTConfig, ray: RaySBTConfig) -> Node<u32> {
-  ray.offset + ray.stride * mesh.mesh_idx_in_tlas + mesh.sbt_offset
-}
-
-#[derive(Clone, Copy)]
-pub struct MeshSBTConfig {
-  /// the index of self in building TLAS
-  pub mesh_idx_in_tlas: Node<u32>,
-  /// starting offset within the SBT where its sub-table of hit group records start.
-  pub sbt_offset: Node<u32>,
 }
 
 #[derive(Clone, Copy)]

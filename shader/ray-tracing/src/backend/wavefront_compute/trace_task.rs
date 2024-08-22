@@ -49,24 +49,44 @@ impl DeviceFutureInvocation for GPURayTraceTaskInvocationInstance {
   type Output = ();
 
   fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> DevicePoll<Self::Output> {
-    let trace_payload = ctx.access_self_payload::<TracePayload>().load().expand();
+    let trace_payload = ctx
+      .access_self_payload::<ShaderRayTraceCallStoragePayload>()
+      .load()
+      .expand();
+
+    let ray_sbt_config = RaySBTConfig {
+      offset: trace_payload.sbt_ray_config_offset,
+      stride: trace_payload.sbt_ray_config_stride,
+    };
 
     let closest_hit = self.tlas_sys.traverse(
       trace_payload,
       &|info, reporter| {
+        let hit_group = info.hit_ctx.compute_sbt_hit_group(ray_sbt_config);
+        let intersection_shader_index = todo!();
         //
       },
       &|info| {
+        let hit_group = info.hit_ctx.compute_sbt_hit_group(ray_sbt_config);
+        let any_shader_index = todo!();
         //
         todo!()
       },
     );
 
     if_by(closest_hit.is_some, || {
+      let hit_group = closest_hit
+        .payload
+        .hit_ctx
+        .compute_sbt_hit_group(ray_sbt_config);
+      let closest_sbt_index = todo!();
+      let closest_task_index = todo!();
       // dispatch closest task
       // spawn_dynamic
     })
     .else_by(|| {
+      let miss_sbt_index = trace_payload.miss_index;
+      let miss_task_index = todo!();
       // dispatch missing task
       // spawn_dynamic
     });

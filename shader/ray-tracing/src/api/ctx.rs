@@ -11,10 +11,18 @@ pub struct HitCtxInfo {
   /// gl_PrimitiveID
   pub primitive_id: Node<u32>,
   /// gl_InstanceID
+  ///
+  /// index in tlas instance list
   pub instance_id: Node<u32>,
+  /// tlas instance sbt offset is not exposed in shader, so we should not exposed in our api.
+  pub(crate) instance_sbt_offset: Node<u32>,
   /// gl_InstanceCustomIndexEXT
+  ///
+  /// provided by user: TopLevelAccelerationStructureSourceInstance.instance_custom_index
   pub instance_custom_id: Node<u32>,
   /// gl_GeometryIndexEXT
+  ///
+  /// is index in blas geometry list
   pub geometry_id: Node<u32>,
   /// gl_ObjectToWorldEXT
   pub object_to_world: Node<Mat4<f32>>,
@@ -22,6 +30,15 @@ pub struct HitCtxInfo {
   pub world_to_object: Node<Mat4<f32>>,
   /// gl_ObjectRayOriginEXT and gl_ObjectRayDirectionEXT
   pub object_space_ray: ShaderRay,
+}
+
+impl HitCtxInfo {
+  /// The shader record to call is determined by parameters set on the instance, trace ray call, and
+  /// the order of geometries in the bottom-level acceleration structure. These parameters are set on
+  /// both the host and device during different parts of the scene and pipeline setup and execution
+  pub fn compute_sbt_hit_group(&self, ray: RaySBTConfig) -> Node<u32> {
+    ray.offset + ray.stride * self.geometry_id + self.instance_sbt_offset
+  }
 }
 
 pub struct RayLaunchInfo {
