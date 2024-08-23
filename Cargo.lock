@@ -3837,6 +3837,7 @@ dependencies = [
 name = "rendiation-scene-gltf-exporter"
 version = "0.0.1"
 dependencies = [
+ "database",
  "fast-hash-collection",
  "gltf",
  "gltf-json",
