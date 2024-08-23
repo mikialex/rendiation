@@ -106,12 +106,20 @@ impl DeviceFutureInvocation for GPURayTraceTaskInvocationInstance {
         closest_task_index,
         todo!(),
         todo!(),
+        todo!(),
       );
     })
     .else_by(|| {
       let miss_sbt_index = self.sbt.get_missing_handle(trace_payload.miss_index);
       let miss_task_index = miss_sbt_index; // todo, make sure the shader index is task_index
-      spawn_dynamic(&self.missing_tasks, ctx, miss_task_index, todo!(), todo!());
+      spawn_dynamic(
+        &self.missing_tasks,
+        ctx,
+        miss_task_index,
+        todo!(),
+        todo!(),
+        todo!(),
+      );
     });
 
     todo!()
@@ -123,8 +131,9 @@ fn spawn_dynamic<'a>(
   task_range: impl IntoIterator<Item = &'a u32>,
   cx: &mut DeviceTaskSystemPollCtx,
   task_ty: Node<u32>,
-  payload: Node<AnyType>,
-  task_payload_ty_desc: &ShaderSizedValueType,
+  ray_payload: Node<ShaderRayTraceCallStoragePayload>,
+  untyped_payload_arr: StorageNode<u32>,
+  untyped_task_payload_ty_desc: &ShaderSizedValueType,
 ) -> Node<u32> {
   let mut switcher = switch_by(task_ty);
   let allocated_id = val(u32::MAX).make_local_var(); // todo error handling
@@ -132,9 +141,7 @@ fn spawn_dynamic<'a>(
   for &id in task_range {
     switcher = switcher.case(id, || {
       // todo, copy untyped payload to typed specific tasks, update payload index
-      let re = cx
-        .spawn_task_dyn(id as usize, payload, task_payload_ty_desc)
-        .unwrap();
+      let re = cx.spawn_task_dyn(id as usize, todo!(), todo!()).unwrap();
       allocated_id.store(re.task_handle);
     });
   }

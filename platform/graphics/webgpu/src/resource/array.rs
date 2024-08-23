@@ -88,7 +88,7 @@ impl<T: 'static> ShaderHashProvider for BindingResourceArray<T> {
   shader_hash_type_id! {}
 
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.bindings.len().hash(hasher)
+    self.max_binding_length.hash(hasher)
   }
 }
 
@@ -103,7 +103,7 @@ where
     let mut ty = Self::Node::ty();
 
     if let ShaderValueType::BindingArray { count, .. } = &mut ty {
-      *count = self.bindings.len();
+      *count = self.max_binding_length as usize;
     }
 
     ShaderBindingDescriptor {
