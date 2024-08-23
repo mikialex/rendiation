@@ -42,7 +42,7 @@ impl PrimitiveShaderValueType {
 }
 
 impl ShaderSizedValueType {
-  fn u32_size_count(&self) -> u32 {
+  pub fn u32_size_count(&self) -> u32 {
     match self {
       ShaderSizedValueType::Atomic(_) => 1,
       ShaderSizedValueType::Primitive(p) => p.size_of_self() as u32 / 4,
@@ -57,7 +57,7 @@ impl ShaderSizedValueType {
     }
   }
 
-  fn load_from_u32_buffer(&self, target: StorageNode<[u32]>, offset: Node<u32>) -> NodeUntyped {
+  pub fn load_from_u32_buffer(&self, target: StorageNode<[u32]>, offset: Node<u32>) -> NodeUntyped {
     match self {
       ShaderSizedValueType::Atomic(_) => unreachable!("atomic is not able to load from buffer"),
       ShaderSizedValueType::Primitive(p) => {
@@ -126,7 +126,7 @@ impl ShaderSizedValueType {
     }
   }
 
-  fn store_into_u32_buffer(
+  pub fn store_into_u32_buffer(
     &self,
     source: NodeUntyped,
     target: StorageNode<[u32]>,

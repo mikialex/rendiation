@@ -7,7 +7,7 @@ mod dispatch_compact;
 use dispatch_compact::*;
 
 mod task_group;
-use task_group::*;
+pub use task_group::*;
 
 mod future_context;
 pub use future_context::*;

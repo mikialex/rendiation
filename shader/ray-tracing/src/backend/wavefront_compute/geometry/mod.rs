@@ -23,7 +23,7 @@ pub struct ShaderRayTraceCallStoragePayload {
   pub ray_origin: Vec3<f32>,
   pub ray_direction: Vec3<f32>,
   pub range: Vec2<f32>,
-  pub payload: i32,
+  pub payload_ref: u32,
 }
 
 pub trait GPUAccelerationStructureCompImplInvocationTraversable {

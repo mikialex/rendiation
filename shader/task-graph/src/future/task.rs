@@ -1,5 +1,4 @@
 use crate::*;
-
 pub struct TaskFuture<T>(usize, PhantomData<T>);
 
 impl<T> TaskFuture<T> {

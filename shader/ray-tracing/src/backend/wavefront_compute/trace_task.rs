@@ -144,7 +144,8 @@ fn spawn_dynamic<'a>(
 }
 
 struct TracingTaskSpawnerImpl {
-  payload_bumper: DeviceBumpAllocationInstance<u32>,
+  payload_bumper: DeviceBumpAllocationInvocationInstance<u32>,
+  trace_task_spawner: TaskGroupDeviceInvocationInstance,
 }
 
 impl TracingTaskSpawner for TracingTaskSpawnerImpl {
@@ -155,6 +156,44 @@ impl TracingTaskSpawner for TracingTaskSpawnerImpl {
     payload: ShaderNodeRawHandle,
     payload_ty: ShaderSizedValueType,
   ) -> TaskFutureInvocationRightValue {
-    todo!()
+    let task_handle = val(u32::MAX).make_local_var();
+
+    if_by(should_trace, || {
+      let payload_size = payload_ty.u32_size_count();
+
+      let (write_idx, success) =
+        self
+          .payload_bumper
+          .bump_allocate_by(val(payload_size), |storage, write_idx| {
+            payload_ty.store_into_u32_buffer(payload.into_node_untyped(), storage, write_idx);
+          });
+
+      if_by(success.not(), || {
+        // todo, error handling
+      });
+
+      let payload = ENode::<ShaderRayTraceCallStoragePayload> {
+        tlas_idx: trace_call.tlas_idx,
+        ray_flags: trace_call.ray_flags,
+        cull_mask: trace_call.cull_mask,
+        sbt_ray_config_offset: trace_call.sbt_ray_config.offset,
+        sbt_ray_config_stride: trace_call.sbt_ray_config.stride,
+        miss_index: trace_call.miss_index,
+        ray_origin: trace_call.ray.origin,
+        ray_direction: trace_call.ray.direction,
+        range: (trace_call.range.min, trace_call.range.max).into(),
+        payload_ref: write_idx,
+      };
+      let task = self
+        .trace_task_spawner
+        .spawn_new_task(payload.construct())
+        .unwrap();
+
+      task_handle.store(task);
+    });
+
+    TaskFutureInvocationRightValue {
+      task_handle: task_handle.load(),
+    }
   }
 }
