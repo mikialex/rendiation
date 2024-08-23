@@ -113,12 +113,16 @@ impl ShaderAtomicValueType {
 }
 
 impl PrimitiveShaderValueType {
+  /// for type that not host-shareable (e.g. bool related), assume u32 equivalent is used.
   pub fn align_of_self(&self) -> usize {
     match self {
       PrimitiveShaderValueType::Bool => 4,
       PrimitiveShaderValueType::Int32 => 4,
       PrimitiveShaderValueType::Uint32 => 4,
       PrimitiveShaderValueType::Float32 => 4,
+      PrimitiveShaderValueType::Vec2Bool => 8,
+      PrimitiveShaderValueType::Vec3Bool => 16,
+      PrimitiveShaderValueType::Vec4Bool => 16,
       PrimitiveShaderValueType::Vec2Float32 => 8,
       PrimitiveShaderValueType::Vec3Float32 => 16,
       PrimitiveShaderValueType::Vec4Float32 => 16,
@@ -140,18 +144,21 @@ impl PrimitiveShaderValueType {
       PrimitiveShaderValueType::Int32 => 4,
       PrimitiveShaderValueType::Uint32 => 4,
       PrimitiveShaderValueType::Float32 => 4,
+      PrimitiveShaderValueType::Vec2Bool => 8,
+      PrimitiveShaderValueType::Vec3Bool => 12,
+      PrimitiveShaderValueType::Vec4Bool => 16,
       PrimitiveShaderValueType::Vec2Float32 => 8,
       PrimitiveShaderValueType::Vec3Float32 => 12,
       PrimitiveShaderValueType::Vec4Float32 => 16,
-      PrimitiveShaderValueType::Mat2Float32 => 16,
-      PrimitiveShaderValueType::Mat3Float32 => 48,
-      PrimitiveShaderValueType::Mat4Float32 => 64,
       PrimitiveShaderValueType::Vec2Uint32 => 8,
       PrimitiveShaderValueType::Vec3Uint32 => 12,
       PrimitiveShaderValueType::Vec4Uint32 => 16,
       PrimitiveShaderValueType::Vec2Int32 => 8,
       PrimitiveShaderValueType::Vec3Int32 => 12,
       PrimitiveShaderValueType::Vec4Int32 => 16,
+      PrimitiveShaderValueType::Mat2Float32 => 16,
+      PrimitiveShaderValueType::Mat3Float32 => 48,
+      PrimitiveShaderValueType::Mat4Float32 => 64,
     }
   }
 }

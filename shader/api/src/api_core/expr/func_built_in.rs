@@ -257,6 +257,7 @@ impl Node<Mat4<f32>> {
 }
 
 impl Node<bool> {
+  // todo, support component wise select
   pub fn select<T: ShaderNodeType>(
     &self,
     true_case: impl Into<Node<T>>,
@@ -273,8 +274,12 @@ impl Node<bool> {
   }
 }
 
-// todo restrict
-impl<T: ShaderNodeType> Node<T> {
+pub trait BoolLikeShaderNodeType {}
+impl BoolLikeShaderNodeType for bool {}
+impl BoolLikeShaderNodeType for Vec2<bool> {}
+impl BoolLikeShaderNodeType for Vec3<bool> {}
+impl BoolLikeShaderNodeType for Vec4<bool> {}
+impl<T: BoolLikeShaderNodeType> Node<T> {
   pub fn all(self) -> Node<bool> {
     make_builtin_call(ShaderBuiltInFunction::All, [self.handle()])
   }

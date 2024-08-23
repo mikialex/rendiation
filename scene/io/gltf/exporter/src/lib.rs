@@ -6,13 +6,18 @@
 // use std::ops::Deref;
 // use std::path::Path;
 
+// use database::*;
 // use fast_hash_collection::*;
 // use gltf_json::Root;
+// use rendiation_mesh_core::*;
 // use rendiation_scene_core::*;
 // use rendiation_texture_core::TextureSampler;
 
 // mod convert_utils;
 // use convert_utils::*;
+
+// mod reader;
+// use reader::*;
 
 // #[derive(Debug)]
 // pub enum GltfExportErr {
@@ -21,7 +26,7 @@
 // }
 
 // pub fn build_scene_to_gltf(
-//   scene: &Scene,
+//   root: EntityHandle<SceneNodeEntity>,
 //   folder_path: &Path,
 //   file_name: &str,
 // ) -> Result<(), GltfExportErr> {
@@ -154,19 +159,21 @@
 
 // #[derive(Default)]
 // struct Ctx {
-//   nodes: Resource<u64, gltf_json::Node>,
-//   models: Resource<u64, gltf_json::Mesh>,
-//   cameras: Resource<u64, gltf_json::Camera>,
+//   nodes: Resource<EntityHandle<SceneNodeEntity>, gltf_json::Node>,
+//   models: Resource<EntityHandle<SceneModelEntity>, gltf_json::Mesh>,
+//   cameras: Resource<EntityHandle<SceneCameraEntity>, gltf_json::Camera>,
 
-//   materials: Resource<u64, gltf_json::Material>,
-//   images: Resource<u64, gltf_json::Image>,
+//   materials: Resource<EntityHandle<PbrMRMaterialEntity>, gltf_json::Material>,
+//   images: Resource<Arc<Texture>, gltf_json::Image>,
 //   samplers: Resource<TextureSampler, gltf_json::texture::Sampler>,
-//   textures: Resource<(u64, TextureSampler), gltf_json::Texture>,
+//   textures: Resource<(EntityHandle<PbrMRMaterialEntity>, TextureSampler), gltf_json::Texture>,
 
 //   binary_data: std::cell::RefCell<Option<InlineBinary>>,
 //   buffers: Resource<u64, gltf_json::Buffer>,
 //   buffer_views: Resource<ViewKey, gltf_json::buffer::View>,
 //   accessors: Resource<AttributeAccessorKey, gltf_json::Accessor>,
+
+//   reader: SceneReaderForGltf,
 // }
 
 // #[derive(PartialEq, Eq, Hash)]
@@ -258,8 +265,8 @@
 //           self.collect_inline_buffer(&acc.view.buffer.read().buffer);
 //         gltf_json::buffer::View {
 //           buffer,
-//           byte_length,
-//           byte_offset: byte_offset.into(),
+//           byte_length: gltf_json::validation::USize64::from(byte_length as u64),
+//           byte_offset: gltf_json::validation::USize64::from(byte_offset as u64).into(),
 //           byte_stride: Default::default(),
 //           name: Default::default(),
 //           target: Default::default(),
@@ -298,8 +305,12 @@
 //     })
 //   }
 
-//   pub fn build_node(&self, node: &SceneNodeDataImpl, id: u64) ->
-// gltf_json::Index<gltf_json::Node> {     self
+//   pub fn build_node(
+//     &self,
+//     node: &SceneNodeDataView,
+//     id: EntityHandle<SceneNodeEntity>,
+//   ) -> gltf_json::Index<gltf_json::Node> {
+//     self
 //       .nodes
 //       .get_or_insert_with(id, || {
 //         gltf_json::Node {
@@ -321,83 +332,76 @@
 //       .unwrap()
 //   }
 
-//   pub fn build_model(&self, model: &ModelEnum) -> Option<gltf_json::Index<gltf_json::Mesh>> {
-//     match model {
-//       ModelEnum::Standard(model) => {
-//         let model = model.read();
-//         match &model.mesh {
-//           MeshEnum::AttributesMesh(mesh) => {
-//             let mesh = mesh.read();
-//             self.models.get_or_insert_with(model.guid(), || {
-//               #[allow(clippy::disallowed_types)]
-//               let mut attributes = std::collections::BTreeMap::default();
-//               for (key, att) in &mesh.attributes {
-//                 let (key, cty, ty) = map_semantic_att(key)?;
-//                 let key = gltf_json::validation::Checked::Valid(key);
-//                 attributes.insert(key, self.build_inline_accessor(att, cty, ty, false)?);
-//               }
+//   pub fn build_model(
+//     &self,
+//     id: EntityHandle<SceneModelEntity>,
+//   ) -> Option<gltf_json::Index<gltf_json::Mesh>> {
+//     self.models.get_or_insert_with(id, || {
+//       let model: SceneModelDataView = todo!();
+//       let std_model: StandardModelDataView = todo!();
+//       let mesh: AttributesMesh = todo!();
 
-//               let primitive = gltf_json::mesh::Primitive {
-//                 attributes,
-//                 indices: match &mesh.indices {
-//                   Some((fmt, acc)) => match fmt {
-//                     AttributeIndexFormat::Uint16 => self.build_inline_accessor(
-//                       acc,
-//                       gltf_json::accessor::ComponentType::U16,
-//                       gltf_json::accessor::Type::Scalar,
-//                       false,
-//                     )?,
-//                     AttributeIndexFormat::Uint32 => self.build_inline_accessor(
-//                       acc,
-//                       gltf_json::accessor::ComponentType::U32,
-//                       gltf_json::accessor::Type::Scalar,
-//                       false,
-//                     )?,
-//                   }
-//                   .into(),
-//                   None => None,
-//                 },
-//                 material: self.build_material(&model.material),
-//                 mode: gltf_json::validation::Checked::Valid(map_draw_mode(mesh.mode)),
-//                 targets: Default::default(),
-//                 extensions: Default::default(),
-//                 extras: Default::default(),
-//               };
-
-//               gltf_json::Mesh {
-//                 extensions: Default::default(),
-//                 extras: Default::default(),
-//                 name: Default::default(),
-//                 primitives: vec![primitive],
-//                 weights: Default::default(),
-//               }
-//               .into()
-//             })
-//           }
-//           MeshEnum::TransformInstanced(_) => None,
-//           MeshEnum::Foreign(_) => None,
-//         }
+//       #[allow(clippy::disallowed_types)]
+//       let mut attributes = std::collections::BTreeMap::default();
+//       for (key, att) in &mesh.attributes {
+//         let (key, cty, ty) = map_semantic_att(key)?;
+//         let key = gltf_json::validation::Checked::Valid(key);
+//         attributes.insert(key, self.build_inline_accessor(att, cty, ty, false)?);
 //       }
-//       _ => None,
-//     }
+
+//       let primitive = gltf_json::mesh::Primitive {
+//         attributes,
+//         indices: match &mesh.indices {
+//           Some((fmt, acc)) => match fmt {
+//             AttributeIndexFormat::Uint16 => self.build_inline_accessor(
+//               acc,
+//               gltf_json::accessor::ComponentType::U16,
+//               gltf_json::accessor::Type::Scalar,
+//               false,
+//             )?,
+//             AttributeIndexFormat::Uint32 => self.build_inline_accessor(
+//               acc,
+//               gltf_json::accessor::ComponentType::U32,
+//               gltf_json::accessor::Type::Scalar,
+//               false,
+//             )?,
+//           }
+//           .into(),
+//           None => None,
+//         },
+//         material: self.build_material(&std_model.material),
+//         mode: gltf_json::validation::Checked::Valid(map_draw_mode(mesh.mode)),
+//         targets: Default::default(),
+//         extensions: Default::default(),
+//         extras: Default::default(),
+//       };
+
+//       gltf_json::Mesh {
+//         extensions: Default::default(),
+//         extras: Default::default(),
+//         name: Default::default(),
+//         primitives: vec![primitive],
+//         weights: Default::default(),
+//       }
+//       .into()
+//     })
 //   }
 
 //   pub fn build_material(
 //     &self,
-//     material: &MaterialEnum,
+//     material: &SceneMaterialDataView,
 //   ) -> Option<gltf_json::Index<gltf_json::Material>> {
 //     match material {
-//       MaterialEnum::PhysicalSpecularGlossiness(_) => None,
-//       MaterialEnum::PhysicalMetallicRoughness(material) => {
-//         self.materials.get_or_insert_with(material.guid(), || {
-//           let material = material.read();
+//       SceneMaterialDataView::PbrMRMaterial(material) => {
+//         self.materials.get_or_insert_with(*material, || {
+//           let material = self.reader.read_pbr_mr_material(*material);
 //           gltf_json::Material {
 //             alpha_cutoff: gltf_json::material::AlphaCutoff(material.alpha_cutoff).into(),
-//             alpha_mode:
-// gltf_json::validation::Checked::Valid(map_alpha_mode(material.alpha_mode)),
-// double_sided: false,             pbr_metallic_roughness:
-// gltf_json::material::PbrMetallicRoughness {               base_color_factor:
-// gltf_json::material::PbrBaseColorFactor([                 material.base_color.x,
+//             alpha_mode: gltf_json::validation::Checked::Valid(map_alpha_mode(material.alpha_mode)),
+//             double_sided: false,
+//             pbr_metallic_roughness: gltf_json::material::PbrMetallicRoughness {
+//               base_color_factor: gltf_json::material::PbrBaseColorFactor([
+//                 material.base_color.x,
 //                 material.base_color.y,
 //                 material.base_color.z,
 //                 1.,
@@ -435,14 +439,13 @@
 //           .into()
 //         })
 //       }
-//       MaterialEnum::Flat(_) => None,
-//       MaterialEnum::Foreign(_) => None,
+//       _ => None,
 //     }
 //   }
 
 //   pub fn build_texture2d_info(
 //     &self,
-//     ts: &Texture2DWithSamplingData,
+//     ts: &Texture2DWithSamplingDataView,
 //     tex_coord: usize,
 //   ) -> Option<gltf_json::texture::Info> {
 //     gltf_json::texture::Info {
@@ -455,22 +458,18 @@
 //   }
 //   pub fn build_texture2d(
 //     &self,
-//     ts: &Texture2DWithSamplingData,
-//   ) -> Option<gltf_json::Index<gltf_json::Texture>> {
-//     let source = self.images.get_or_insert_with(ts.texture.guid(), || {
-//       let texture = ts.texture.read();
-//       let texture: &SceneTexture2DType = &texture;
-//       match texture {
-//         SceneTexture2DType::GPUBufferImage(image) => gltf_json::Image {
-//           buffer_view: self.collect_inline_packed_view_buffer(&image.data).into(),// todo set
-// mime type and encode png           mime_type: Default::default(),
+//     ts: &Texture2DWithSamplingDataView,
+//   ) -> gltf_json::Index<gltf_json::Texture> {
+//     let source = self.images.get_or_insert_with(ts.texture, || {
+//       let texture: GPUBufferImage = todo!();
+//       gltf_json::Image {
+//           buffer_view: self.collect_inline_packed_view_buffer(&image.data).into(),// todo set mime type and encode png
+//            mime_type: Default::default(),
 //           name: Default::default(),
 //           uri: Default::default(),
 //           extensions: Default::default(),
 //           extras: Default::default(),
-//         }.into(),
-//         SceneTexture2DType::Foreign(_) => None,
-//       }
+//         }.into()
 //     })?;
 
 //     let sampler_content = *ts.sampler.read();

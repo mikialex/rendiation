@@ -35,6 +35,7 @@ impl EntityCustomWrite<BufferEntity> for AttributeAccessor {
 
 pub trait SceneBufferView: EntityAssociateSemantic {}
 
+#[derive(Clone)]
 pub struct SceneBufferViewDataView {
   pub data: Option<EntityHandle<BufferEntity>>,
   pub range: Option<BufferViewRange>,

@@ -966,6 +966,15 @@ impl ShaderAPI for ShaderAPINagaImpl {
             PrimitiveShaderValue::Uint32(v) => naga::Expression::Literal(naga::Literal::U32(v)),
             PrimitiveShaderValue::Int32(v) => naga::Expression::Literal(naga::Literal::I32(v)),
             PrimitiveShaderValue::Float32(v) => naga::Expression::Literal(naga::Literal::F32(v)),
+            PrimitiveShaderValue::Vec2Bool(v) => {
+              impl_p!(v, bool, 2, Bool);
+            }
+            PrimitiveShaderValue::Vec3Bool(v) => {
+              impl_p!(v, bool, 3, Bool);
+            }
+            PrimitiveShaderValue::Vec4Bool(v) => {
+              impl_p!(v, bool, 4, Bool);
+            }
             PrimitiveShaderValue::Vec2Float32(v) => {
               impl_p!(v, f32, 2, F32);
             }
@@ -1323,12 +1332,16 @@ fn map_primitive_type(t: PrimitiveShaderValueType) -> naga::TypeInner {
   use PrimitiveShaderValueType::*;
   use naga::TypeInner::*;
   use naga::VectorSize::*;
+  
 
   match t {
-    PrimitiveShaderValueType::Bool => Scalar(naga::Scalar { kind: naga::ScalarKind::Bool, width: naga::BOOL_WIDTH }),
+    PrimitiveShaderValueType::Bool => Scalar(naga::Scalar::BOOL),
     Int32 => Scalar(naga::Scalar::I32),
     Uint32 => Scalar(naga::Scalar::U32),
     Float32 => Scalar(naga::Scalar::F32),
+    Vec2Bool => Vector { size: Bi, scalar: naga::Scalar::BOOL },
+    Vec3Bool => Vector { size: Tri, scalar: naga::Scalar::BOOL },
+    Vec4Bool => Vector { size: Quad, scalar: naga::Scalar::BOOL },
     Vec2Float32 => Vector { size: Bi, scalar: naga::Scalar::F32 },
     Vec3Float32 => Vector { size: Tri, scalar: naga::Scalar::F32 },
     Vec4Float32 => Vector { size: Quad, scalar: naga::Scalar::F32 },

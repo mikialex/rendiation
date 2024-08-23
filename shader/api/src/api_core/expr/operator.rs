@@ -266,8 +266,12 @@ impl<T: ShaderNodeType> Neg for Node<T> {
   }
 }
 
-impl<T: PartialEq> Node<T> {
-  pub fn equals(&self, other: impl Into<Self>) -> Node<bool> {
+impl<T> Node<T>
+where
+  T::Shape<bool>: ShaderNodeType,
+  T: PrimitiveShaderNodeType,
+{
+  pub fn equals(&self, other: impl Into<Self>) -> Node<T::Shape<bool>> {
     OperatorNode::Binary {
       left: self.handle(),
       right: other.into().handle(),
@@ -276,7 +280,7 @@ impl<T: PartialEq> Node<T> {
     .insert_api()
   }
 
-  pub fn not_equals(&self, other: impl Into<Self>) -> Node<bool> {
+  pub fn not_equals(&self, other: impl Into<Self>) -> Node<T::Shape<bool>> {
     OperatorNode::Binary {
       left: self.handle(),
       right: other.into().handle(),
@@ -286,8 +290,12 @@ impl<T: PartialEq> Node<T> {
   }
 }
 
-impl<T: PartialOrd> Node<T> {
-  pub fn less_than(&self, other: impl Into<Self>) -> Node<bool> {
+impl<T> Node<T>
+where
+  T::Shape<bool>: ShaderNodeType,
+  T: PrimitiveShaderNodeType,
+{
+  pub fn less_than(&self, other: impl Into<Self>) -> Node<T::Shape<bool>> {
     OperatorNode::Binary {
       left: self.handle(),
       right: other.into().handle(),
@@ -295,7 +303,7 @@ impl<T: PartialOrd> Node<T> {
     }
     .insert_api()
   }
-  pub fn less_equal_than(&self, other: impl Into<Self>) -> Node<bool> {
+  pub fn less_equal_than(&self, other: impl Into<Self>) -> Node<T::Shape<bool>> {
     OperatorNode::Binary {
       left: self.handle(),
       right: other.into().handle(),
@@ -303,7 +311,7 @@ impl<T: PartialOrd> Node<T> {
     }
     .insert_api()
   }
-  pub fn greater_than(&self, other: impl Into<Self>) -> Node<bool> {
+  pub fn greater_than(&self, other: impl Into<Self>) -> Node<T::Shape<bool>> {
     OperatorNode::Binary {
       left: self.handle(),
       right: other.into().handle(),
@@ -311,7 +319,7 @@ impl<T: PartialOrd> Node<T> {
     }
     .insert_api()
   }
-  pub fn greater_equal_than(&self, other: impl Into<Self>) -> Node<bool> {
+  pub fn greater_equal_than(&self, other: impl Into<Self>) -> Node<T::Shape<bool>> {
     OperatorNode::Binary {
       left: self.handle(),
       right: other.into().handle(),
