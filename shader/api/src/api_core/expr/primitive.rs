@@ -6,6 +6,9 @@ pub enum PrimitiveShaderValueType {
   Int32,
   Uint32,
   Float32,
+  Vec2Bool,
+  Vec3Bool,
+  Vec4Bool,
   Vec2Float32,
   Vec3Float32,
   Vec4Float32,
@@ -32,18 +35,15 @@ impl PrimitiveShaderValueType {
   }
 }
 
-pub enum PrimitiveScalarShaderType {
-  Int32,
-  Uint32,
-  Float32,
-}
-
 #[derive(Clone, Copy)]
 pub enum PrimitiveShaderValue {
   Bool(bool),
   Uint32(u32),
   Int32(i32),
   Float32(f32),
+  Vec2Bool(Vec2<bool>),
+  Vec3Bool(Vec3<bool>),
+  Vec4Bool(Vec4<bool>),
   Vec2Float32(Vec2<f32>),
   Vec3Float32(Vec3<f32>),
   Vec4Float32(Vec4<f32>),
@@ -65,6 +65,9 @@ impl PrimitiveShaderValue {
       PrimitiveShaderValue::Uint32(v) => val(v).handle(),
       PrimitiveShaderValue::Int32(v) => val(v).handle(),
       PrimitiveShaderValue::Float32(v) => val(v).handle(),
+      PrimitiveShaderValue::Vec2Bool(v) => val(v).handle(),
+      PrimitiveShaderValue::Vec3Bool(v) => val(v).handle(),
+      PrimitiveShaderValue::Vec4Bool(v) => val(v).handle(),
       PrimitiveShaderValue::Vec2Float32(v) => val(v).handle(),
       PrimitiveShaderValue::Vec3Float32(v) => val(v).handle(),
       PrimitiveShaderValue::Vec4Float32(v) => val(v).handle(),
@@ -84,16 +87,19 @@ impl PrimitiveShaderValue {
 impl From<PrimitiveShaderValue> for PrimitiveShaderValueType {
   fn from(v: PrimitiveShaderValue) -> Self {
     match v {
+      PrimitiveShaderValue::Bool(_) => PrimitiveShaderValueType::Bool,
       PrimitiveShaderValue::Int32(_) => PrimitiveShaderValueType::Int32,
       PrimitiveShaderValue::Uint32(_) => PrimitiveShaderValueType::Uint32,
       PrimitiveShaderValue::Float32(_) => PrimitiveShaderValueType::Float32,
+      PrimitiveShaderValue::Vec2Bool(_) => PrimitiveShaderValueType::Vec2Bool,
+      PrimitiveShaderValue::Vec3Bool(_) => PrimitiveShaderValueType::Vec3Bool,
+      PrimitiveShaderValue::Vec4Bool(_) => PrimitiveShaderValueType::Vec4Bool,
       PrimitiveShaderValue::Vec2Float32(_) => PrimitiveShaderValueType::Vec2Float32,
       PrimitiveShaderValue::Vec3Float32(_) => PrimitiveShaderValueType::Vec3Float32,
       PrimitiveShaderValue::Vec4Float32(_) => PrimitiveShaderValueType::Vec4Float32,
       PrimitiveShaderValue::Mat2Float32(_) => PrimitiveShaderValueType::Mat2Float32,
       PrimitiveShaderValue::Mat3Float32(_) => PrimitiveShaderValueType::Mat3Float32,
       PrimitiveShaderValue::Mat4Float32(_) => PrimitiveShaderValueType::Mat4Float32,
-      PrimitiveShaderValue::Bool(_) => PrimitiveShaderValueType::Bool,
       PrimitiveShaderValue::Vec2Uint32(_) => PrimitiveShaderValueType::Vec2Uint32,
       PrimitiveShaderValue::Vec3Uint32(_) => PrimitiveShaderValueType::Vec3Uint32,
       PrimitiveShaderValue::Vec4Uint32(_) => PrimitiveShaderValueType::Vec4Uint32,
@@ -137,6 +143,30 @@ macro_rules! primitive_ty {
 
     impl PrimitiveShaderNodeType for $ty {
       const PRIMITIVE_TYPE: PrimitiveShaderValueType = $primitive_ty_value;
+      type Shape<T> = T;
+      fn to_primitive(&self) -> PrimitiveShaderValue {
+        $to_primitive(*self)
+      }
+    }
+  };
+  ($ty: ty, $primitive_ty_value: expr, $to_primitive: expr, $shape: tt) => {
+    sg_node_impl!(
+      $ty,
+      ShaderValueSingleType::Sized(ShaderSizedValueType::Primitive($primitive_ty_value))
+    );
+
+    impl ShaderSizedValueNodeType for $ty {
+      fn sized_ty() -> ShaderSizedValueType {
+        ShaderSizedValueType::Primitive($primitive_ty_value)
+      }
+      fn to_value(&self) -> ShaderStructFieldInitValue {
+        ShaderStructFieldInitValue::Primitive(self.to_primitive())
+      }
+    }
+
+    impl PrimitiveShaderNodeType for $ty {
+      const PRIMITIVE_TYPE: PrimitiveShaderValueType = $primitive_ty_value;
+      type Shape<T> = $shape<T>;
       fn to_primitive(&self) -> PrimitiveShaderValue {
         $to_primitive(*self)
       }
@@ -152,18 +182,21 @@ mod impls {
   primitive_ty!(u32, PrimitiveShaderValueType::Uint32,  PrimitiveShaderValue::Uint32);
   primitive_ty!(i32, PrimitiveShaderValueType::Int32,  PrimitiveShaderValue::Int32);
   primitive_ty!(f32, PrimitiveShaderValueType::Float32,  PrimitiveShaderValue::Float32);
-  primitive_ty!(Vec2<f32>, PrimitiveShaderValueType::Vec2Float32,  PrimitiveShaderValue::Vec2Float32);
-  primitive_ty!(Vec3<f32>, PrimitiveShaderValueType::Vec3Float32,  PrimitiveShaderValue::Vec3Float32);
-  primitive_ty!(Vec4<f32>, PrimitiveShaderValueType::Vec4Float32,  PrimitiveShaderValue::Vec4Float32);
-  primitive_ty!(Vec2<u32>, PrimitiveShaderValueType::Vec2Uint32,  PrimitiveShaderValue::Vec2Uint32);
-  primitive_ty!(Vec3<u32>, PrimitiveShaderValueType::Vec3Uint32,  PrimitiveShaderValue::Vec3Uint32);
-  primitive_ty!(Vec4<u32>, PrimitiveShaderValueType::Vec4Uint32,  PrimitiveShaderValue::Vec4Uint32);
-  primitive_ty!(Vec2<i32>, PrimitiveShaderValueType::Vec2Int32,  PrimitiveShaderValue::Vec2Int32);
-  primitive_ty!(Vec3<i32>, PrimitiveShaderValueType::Vec3Int32,  PrimitiveShaderValue::Vec3Int32);
-  primitive_ty!(Vec4<i32>, PrimitiveShaderValueType::Vec4Int32,  PrimitiveShaderValue::Vec4Int32);
-  primitive_ty!(Mat2<f32>, PrimitiveShaderValueType::Mat2Float32,  PrimitiveShaderValue::Mat2Float32);
-  primitive_ty!(Mat3<f32>, PrimitiveShaderValueType::Mat3Float32,  PrimitiveShaderValue::Mat3Float32);
-  primitive_ty!(Mat4<f32>, PrimitiveShaderValueType::Mat4Float32,  PrimitiveShaderValue::Mat4Float32);
+  primitive_ty!(Vec2<bool>, PrimitiveShaderValueType::Vec2Bool,  PrimitiveShaderValue::Vec2Bool, Vec2);
+  primitive_ty!(Vec3<bool>, PrimitiveShaderValueType::Vec3Bool,  PrimitiveShaderValue::Vec3Bool, Vec3);
+  primitive_ty!(Vec4<bool>, PrimitiveShaderValueType::Vec4Bool,  PrimitiveShaderValue::Vec4Bool, Vec4);
+  primitive_ty!(Vec2<f32>, PrimitiveShaderValueType::Vec2Float32,  PrimitiveShaderValue::Vec2Float32, Vec2);
+  primitive_ty!(Vec3<f32>, PrimitiveShaderValueType::Vec3Float32,  PrimitiveShaderValue::Vec3Float32, Vec3);
+  primitive_ty!(Vec4<f32>, PrimitiveShaderValueType::Vec4Float32,  PrimitiveShaderValue::Vec4Float32, Vec4);
+  primitive_ty!(Vec2<u32>, PrimitiveShaderValueType::Vec2Uint32,  PrimitiveShaderValue::Vec2Uint32, Vec2);
+  primitive_ty!(Vec3<u32>, PrimitiveShaderValueType::Vec3Uint32,  PrimitiveShaderValue::Vec3Uint32, Vec3);
+  primitive_ty!(Vec4<u32>, PrimitiveShaderValueType::Vec4Uint32,  PrimitiveShaderValue::Vec4Uint32, Vec4);
+  primitive_ty!(Vec2<i32>, PrimitiveShaderValueType::Vec2Int32,  PrimitiveShaderValue::Vec2Int32, Vec2);
+  primitive_ty!(Vec3<i32>, PrimitiveShaderValueType::Vec3Int32,  PrimitiveShaderValue::Vec3Int32, Vec3);
+  primitive_ty!(Vec4<i32>, PrimitiveShaderValueType::Vec4Int32,  PrimitiveShaderValue::Vec4Int32, Vec4);
+  primitive_ty!(Mat2<f32>, PrimitiveShaderValueType::Mat2Float32,  PrimitiveShaderValue::Mat2Float32, Mat2);
+  primitive_ty!(Mat3<f32>, PrimitiveShaderValueType::Mat3Float32,  PrimitiveShaderValue::Mat3Float32, Mat3);
+  primitive_ty!(Mat4<f32>, PrimitiveShaderValueType::Mat4Float32,  PrimitiveShaderValue::Mat4Float32, Mat4);
 }
 
 fn swizzle_node<I: ShaderNodeType, T: ShaderNodeType>(n: &Node<I>, ty: &'static str) -> Node<T> {
