@@ -4,8 +4,16 @@ pub struct TraceTaskImpl {
   tlas_sys: Box<dyn GPUAccelerationStructureCompImplInstance>,
   sbt: ShaderBindingTableDeviceInfo,
   payload_bumper: DeviceBumpAllocationInstance<u32>,
+  ray_info_bumper: DeviceBumpAllocationInstance<ShaderRayTraceCallStoragePayload>,
+  info: Arc<TraceTaskMetaInfo>,
+}
+
+pub struct TraceTaskMetaInfo {
   closest_tasks: Vec<u32>,
   missing_tasks: Vec<u32>,
+  intersection_shaders: Vec<Box<dyn Fn(&RayIntersectCtx, &dyn IntersectionReporter)>>,
+  any_hit_shaders: Vec<Box<dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>>>,
+  payload_max_u32_count: u32,
 }
 
 impl DeviceFuture for TraceTaskImpl {
@@ -22,10 +30,7 @@ impl DeviceFuture for TraceTaskImpl {
       tlas_sys: self.tlas_sys.build_shader(ctx.compute_cx),
       sbt: self.sbt.build(ctx.compute_cx),
       untyped_payloads: ctx.compute_cx.bind_by(&self.payload_bumper.storage),
-      closest_tasks: self.closest_tasks.clone(),
-      missing_tasks: self.missing_tasks.clone(),
-      intersection_shaders: todo!(),
-      any_hit_shaders: todo!(),
+      info: self.info.clone(),
     }
   }
 
@@ -35,19 +40,20 @@ impl DeviceFuture for TraceTaskImpl {
     self.payload_bumper.bind_allocator(builder);
   }
 
-  fn reset(&self, ctx: &mut DeviceParallelComputeCtx, work_size: u32) {
-    todo!()
+  fn reset(&mut self, ctx: &mut DeviceParallelComputeCtx, work_size: u32) {
+    self.payload_bumper = DeviceBumpAllocationInstance::new(
+      (work_size * self.info.payload_max_u32_count) as usize,
+      &ctx.gpu.device,
+    );
+    self.ray_info_bumper = DeviceBumpAllocationInstance::new(work_size as usize, &ctx.gpu.device);
   }
 }
 
 pub struct GPURayTraceTaskInvocationInstance {
   tlas_sys: Box<dyn GPUAccelerationStructureCompImplInvocationTraversable>,
   sbt: ShaderBindingTableDeviceInfoInvocation,
-  intersection_shaders: Vec<Box<dyn Fn(&RayIntersectCtx, &dyn IntersectionReporter)>>,
-  any_hit_shaders: Vec<Box<dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>>>,
+  info: Arc<TraceTaskMetaInfo>,
   untyped_payloads: StorageNode<[u32]>,
-  closest_tasks: Vec<u32>, // todo, ref
-  missing_tasks: Vec<u32>,
 }
 
 impl DeviceFutureInvocation for GPURayTraceTaskInvocationInstance {
@@ -70,7 +76,7 @@ impl DeviceFutureInvocation for GPURayTraceTaskInvocationInstance {
         let hit_group = info.hit_ctx.compute_sbt_hit_group(ray_sbt_config);
         let intersection_shader_index = self.sbt.get_intersection_handle(hit_group);
         let mut switcher = switch_by(intersection_shader_index);
-        for (i, intersection_shader) in self.intersection_shaders.iter().enumerate() {
+        for (i, intersection_shader) in self.info.intersection_shaders.iter().enumerate() {
           switcher = switcher.case(i as u32, || {
             intersection_shader(info, reporter);
           });
@@ -83,7 +89,7 @@ impl DeviceFutureInvocation for GPURayTraceTaskInvocationInstance {
         let r = val(IGNORE_THIS_INTERSECTION).make_local_var();
 
         let mut switcher = switch_by(any_shader_index);
-        for (i, any_hit_shader) in self.any_hit_shaders.iter().enumerate() {
+        for (i, any_hit_shader) in self.info.any_hit_shaders.iter().enumerate() {
           switcher = switcher.case(i as u32, || {
             r.store(any_hit_shader(info));
           });
@@ -101,10 +107,12 @@ impl DeviceFutureInvocation for GPURayTraceTaskInvocationInstance {
       let closest_shader_index = self.sbt.get_closest_handle(hit_group);
       let closest_task_index = closest_shader_index; // todo, make sure the shader index is task_index
       spawn_dynamic(
-        &self.closest_tasks,
+        &self.info.closest_tasks,
         ctx,
         closest_task_index,
         todo!(),
+        &RayClosestHitCtxPayload::sized_ty(),
+        self.untyped_payloads,
         todo!(),
         todo!(),
       );
@@ -113,10 +121,12 @@ impl DeviceFutureInvocation for GPURayTraceTaskInvocationInstance {
       let miss_sbt_index = self.sbt.get_missing_handle(trace_payload.miss_index);
       let miss_task_index = miss_sbt_index; // todo, make sure the shader index is task_index
       spawn_dynamic(
-        &self.missing_tasks,
+        &self.info.missing_tasks,
         ctx,
         miss_task_index,
         todo!(),
+        &RayMissHitCtxPayload::sized_ty(),
+        self.untyped_payloads,
         todo!(),
         todo!(),
       );
@@ -126,13 +136,45 @@ impl DeviceFutureInvocation for GPURayTraceTaskInvocationInstance {
   }
 }
 
+#[repr(C)]
+#[std430_layout]
+#[derive(ShaderStruct, Clone, Copy)]
+pub struct ShaderRayTraceCallStoragePayload {
+  pub tlas_idx: u32,
+  pub ray_flags: u32,
+  pub cull_mask: u32,
+  pub sbt_ray_config_offset: u32,
+  pub sbt_ray_config_stride: u32,
+  pub miss_index: u32,
+  pub ray_origin: Vec3<f32>,
+  pub ray_direction: Vec3<f32>,
+  pub range: Vec2<f32>,
+  pub payload_ref: u32,
+}
+
+#[repr(C)]
+#[std430_layout]
+#[derive(ShaderStruct, Clone, Copy)]
+pub struct RayClosestHitCtxPayload {
+  pub hit_ctx: ShaderRayTraceCallStoragePayload,
+}
+
+#[repr(C)]
+#[std430_layout]
+#[derive(ShaderStruct, Clone, Copy)]
+pub struct RayMissHitCtxPayload {
+  pub hit_ctx: ShaderRayTraceCallStoragePayload,
+}
+
 #[must_use]
 fn spawn_dynamic<'a>(
   task_range: impl IntoIterator<Item = &'a u32>,
   cx: &mut DeviceTaskSystemPollCtx,
   task_ty: Node<u32>,
-  ray_payload: Node<ShaderRayTraceCallStoragePayload>,
-  untyped_payload_arr: StorageNode<u32>,
+  ray_payload: Node<AnyType>,
+  ray_payload_desc: &ShaderSizedValueType,
+  untyped_payload_arr: StorageNode<[u32]>,
+  untyped_payload_idx: Node<u32>,
   untyped_task_payload_ty_desc: &ShaderSizedValueType,
 ) -> Node<u32> {
   let mut switcher = switch_by(task_ty);
@@ -140,8 +182,24 @@ fn spawn_dynamic<'a>(
 
   for &id in task_range {
     switcher = switcher.case(id, || {
-      // todo, copy untyped payload to typed specific tasks, update payload index
-      let re = cx.spawn_task_dyn(id as usize, todo!(), todo!()).unwrap();
+      // copy untyped payload to typed specific tasks, update payload index
+      let payload =
+        untyped_task_payload_ty_desc.load_from_u32_buffer(untyped_payload_arr, untyped_payload_idx);
+
+      let mut combined_struct_desc =
+        ShaderStructMetaInfo::new(&format!("task{}_payload_with_ray", id));
+      combined_struct_desc.push_field_dyn("ray", ray_payload_desc.clone());
+      combined_struct_desc.push_field_dyn("payload", untyped_task_payload_ty_desc.clone());
+      let desc = ShaderSizedValueType::Struct(combined_struct_desc);
+
+      let combined = ShaderNodeExpr::Compose {
+        target: desc.clone(),
+        parameters: vec![ray_payload.handle(), payload.handle()],
+      }
+      .insert_api();
+
+      let re = cx.spawn_task_dyn(id as usize, combined, &desc).unwrap();
+
       allocated_id.store(re.task_handle);
     });
   }

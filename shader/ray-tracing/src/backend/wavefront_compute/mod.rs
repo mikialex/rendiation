@@ -47,6 +47,10 @@ impl GPURayTracingDeviceProvider for GPUWaveFrontComputeRaytracingDevice {
   fn create_sbt(&self) -> Box<dyn ShaderBindingTableProvider> {
     Box::new(ShaderBindingTableInfo::new(todo!(), todo!()))
   }
+
+  fn trace_op_base_builder(&self) -> RayCtxBaseBuilder {
+    todo!()
+  }
 }
 
 pub struct GPUWaveFrontComputeRaytracingEncoder {
@@ -66,3 +70,27 @@ impl RayTracingPassEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
     todo!()
   }
 }
+
+// pub struct TraceBase<T>(PhantomData<T>);
+
+// impl<T> Default for TraceBase<T> {
+//   fn default() -> Self {
+//     Self(Default::default())
+//   }
+// }
+
+// impl<T: Default + Copy + 'static> DeviceFutureProvider<T> for TraceBase<T> {
+//   fn build_device_future(&self) -> DynDeviceFuture<T> {
+//     BaseDeviceFuture::<T>::default().into_dyn()
+//   }
+// }
+// impl<T, Cx> NativeRayTracingShaderBuilder<Cx, T> for TraceBase<T>
+// where
+//   T: Default,
+//   Cx: NativeRayTracingShaderCtx,
+// {
+//   fn build(&self, _: &mut Cx) -> T {
+//     T::default()
+//   }
+//   fn bind(&self, _: &mut BindingBuilder) {}
+// }

@@ -29,7 +29,7 @@ where
   }
 
   fn bind_input(&self, _: &mut BindingBuilder) {}
-  fn reset(&self, _: &mut DeviceParallelComputeCtx, _: u32) {}
+  fn reset(&mut self, _: &mut DeviceParallelComputeCtx, _: u32) {}
 }
 
 pub struct TaskFutureInvocation<T> {

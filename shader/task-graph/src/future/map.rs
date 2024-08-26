@@ -8,8 +8,7 @@ pub struct ShaderFutureMap<F, T> {
 impl<F, T, O> DeviceFuture for ShaderFutureMap<F, T>
 where
   T: DeviceFuture,
-  F: Fn(T::Output) -> O + Copy + 'static,
-  T::Output: Copy,
+  F: FnOnce(T::Output) -> O + Copy + 'static,
   O: ShaderAbstractRightValue + Default,
 {
   type Output = O;
@@ -30,7 +29,7 @@ where
     self.upstream.bind_input(builder)
   }
 
-  fn reset(&self, ctx: &mut DeviceParallelComputeCtx, work_size: u32) {
+  fn reset(&mut self, ctx: &mut DeviceParallelComputeCtx, work_size: u32) {
     self.upstream.reset(ctx, work_size)
   }
 }
@@ -43,7 +42,7 @@ pub struct ShaderFutureMapState<T, F> {
 impl<T, F, O> DeviceFutureInvocation for ShaderFutureMapState<T, F>
 where
   T: DeviceFutureInvocation,
-  F: Fn(T::Output) -> O,
+  F: FnOnce(T::Output) -> O + 'static + Copy,
   O: Default + ShaderAbstractRightValue,
 {
   type Output = O;

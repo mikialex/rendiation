@@ -86,3 +86,30 @@ impl LeftValueBuilder for LocalLeftValueBuilder {
     Box::new(zeroed_val().make_local_var())
   }
 }
+
+// should impl for other tuple!
+impl<A: ShaderAbstractLeftValue, B: ShaderAbstractLeftValue> ShaderAbstractLeftValue for (A, B) {
+  type RightValue = (A::RightValue, B::RightValue);
+
+  fn abstract_load(&self) -> Self::RightValue {
+    (self.0.abstract_load(), self.1.abstract_load())
+  }
+
+  fn abstract_store(&self, payload: Self::RightValue) {
+    self.0.abstract_store(payload.0);
+    self.1.abstract_store(payload.1);
+  }
+}
+
+impl<A: ShaderAbstractRightValue, B: ShaderAbstractRightValue> ShaderAbstractRightValue for (A, B) {
+  type AbstractLeftValue = (A::AbstractLeftValue, B::AbstractLeftValue);
+
+  fn create_left_value_from_builder<Builder: LeftValueBuilder>(
+    builder: &mut Builder,
+  ) -> Self::AbstractLeftValue {
+    (
+      A::create_left_value_from_builder(builder),
+      B::create_left_value_from_builder(builder),
+    )
+  }
+}

@@ -1,5 +1,6 @@
 use crate::*;
 
+#[derive(Clone, Copy)]
 pub struct HitInfo {
   /// gl_HitKindEXT
   pub hit_kind: Node<u32>,
@@ -7,6 +8,7 @@ pub struct HitInfo {
   pub hit_distance: Node<f32>,
 }
 
+#[derive(Clone, Copy)]
 pub struct HitCtxInfo {
   /// gl_PrimitiveID
   pub primitive_id: Node<u32>,
@@ -41,6 +43,7 @@ impl HitCtxInfo {
   }
 }
 
+#[derive(Clone, Copy)]
 pub struct RayLaunchInfo {
   /// gl_LaunchIDEXT
   pub launch_id: Node<Vec3<u32>>,
@@ -48,6 +51,7 @@ pub struct RayLaunchInfo {
   pub launch_size: Node<Vec3<u32>>,
 }
 
+#[derive(Clone, Copy)]
 pub struct WorldRayInfo {
   /// gl_WorldRayOriginEXT and gl_WorldRayDirectionEXT
   pub world_ray: ShaderRay,
@@ -61,11 +65,80 @@ pub struct RayGenShaderCtx {
   pub launch_info: RayLaunchInfo,
 }
 
+#[derive(Clone, Copy)]
 pub struct RayClosestHitCtx {
   pub launch_info: RayLaunchInfo,
   pub world_ray: WorldRayInfo,
   pub hit_ctx: HitCtxInfo,
   pub hit: HitInfo,
+}
+
+impl Default for RayClosestHitCtx {
+  fn default() -> Self {
+    todo!()
+  }
+}
+
+#[derive(Clone, Copy)]
+pub struct RayClosestHitCtxStore {}
+
+impl ShaderAbstractLeftValue for RayClosestHitCtxStore {
+  type RightValue = RayClosestHitCtx;
+
+  fn abstract_load(&self) -> Self::RightValue {
+    todo!()
+  }
+
+  fn abstract_store(&self, payload: Self::RightValue) {
+    todo!()
+  }
+}
+
+impl ShaderAbstractRightValue for RayClosestHitCtx {
+  type AbstractLeftValue = RayClosestHitCtxStore;
+
+  fn create_left_value_from_builder<B: LeftValueBuilder>(
+    builder: &mut B,
+  ) -> Self::AbstractLeftValue {
+    todo!()
+  }
+}
+
+#[derive(Clone, Copy)]
+pub struct RayMissCtx {
+  pub launch_info: RayLaunchInfo,
+  pub world_ray: WorldRayInfo,
+}
+
+impl Default for RayMissCtx {
+  fn default() -> Self {
+    todo!()
+  }
+}
+
+#[derive(Clone, Copy)]
+pub struct RayMissCtxStore {}
+
+impl ShaderAbstractLeftValue for RayMissCtxStore {
+  type RightValue = RayMissCtx;
+
+  fn abstract_load(&self) -> Self::RightValue {
+    todo!()
+  }
+
+  fn abstract_store(&self, payload: Self::RightValue) {
+    todo!()
+  }
+}
+
+impl ShaderAbstractRightValue for RayMissCtx {
+  type AbstractLeftValue = RayMissCtxStore;
+
+  fn create_left_value_from_builder<B: LeftValueBuilder>(
+    builder: &mut B,
+  ) -> Self::AbstractLeftValue {
+    todo!()
+  }
 }
 
 pub struct RayAnyHitCtx {
@@ -79,9 +152,4 @@ pub struct RayIntersectCtx {
   pub launch_info: RayLaunchInfo,
   pub world_ray: WorldRayInfo,
   pub hit_ctx: HitCtxInfo,
-}
-
-pub struct RayMissCtx {
-  pub launch_info: RayLaunchInfo,
-  pub world_ray: WorldRayInfo,
 }

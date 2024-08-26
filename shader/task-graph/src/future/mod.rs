@@ -49,7 +49,7 @@ pub trait DeviceFuture {
 
   fn bind_input(&self, builder: &mut BindingBuilder);
 
-  fn reset(&self, ctx: &mut DeviceParallelComputeCtx, work_size: u32);
+  fn reset(&mut self, ctx: &mut DeviceParallelComputeCtx, work_size: u32);
 }
 
 pub type DynDeviceFuture<T> =
@@ -75,7 +75,7 @@ where
     (**self).bind_input(builder)
   }
 
-  fn reset(&self, ctx: &mut DeviceParallelComputeCtx, work_size: u32) {
+  fn reset(&mut self, ctx: &mut DeviceParallelComputeCtx, work_size: u32) {
     (**self).reset(ctx, work_size)
   }
 }
@@ -87,7 +87,7 @@ pub trait DeviceFutureExt: Sized + DeviceFuture + 'static {
 
   fn map<F, O>(self, map: F) -> ShaderFutureMap<F, Self>
   where
-    F: Fn(Self::Output) -> O,
+    F: FnOnce(Self::Output) -> O + Copy + 'static,
     O: Default + ShaderAbstractRightValue,
   {
     ShaderFutureMap {
@@ -153,7 +153,7 @@ where
   }
 
   fn bind_input(&self, _: &mut BindingBuilder) {}
-  fn reset(&self, _: &mut DeviceParallelComputeCtx, _: u32) {}
+  fn reset(&mut self, _: &mut DeviceParallelComputeCtx, _: u32) {}
 }
 
 pub struct OpaqueTaskWrapper<T>(pub T);
@@ -176,7 +176,7 @@ impl<T: DeviceFuture> DeviceFuture for OpaqueTaskWrapper<T> {
     self.0.bind_input(builder)
   }
 
-  fn reset(&self, ctx: &mut DeviceParallelComputeCtx, work_size: u32) {
+  fn reset(&mut self, ctx: &mut DeviceParallelComputeCtx, work_size: u32) {
     self.0.reset(ctx, work_size)
   }
 }
@@ -208,7 +208,7 @@ impl<T: DeviceFuture> DeviceFuture for WrapDynDeviceFuture<T> {
     self.0.bind_input(builder)
   }
 
-  fn reset(&self, ctx: &mut DeviceParallelComputeCtx, work_size: u32) {
+  fn reset(&mut self, ctx: &mut DeviceParallelComputeCtx, work_size: u32) {
     self.0.reset(ctx, work_size)
   }
 }

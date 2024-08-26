@@ -1,29 +1,64 @@
-use std::marker::PhantomData;
-
 use crate::*;
 
-pub struct TraceBase<T>(PhantomData<T>);
+pub trait TraceOperatorExt<T>: TraceOperator<T> + Sized {
+  fn map<F, T2>(self, map: F) -> impl TraceOperator<T2>
+  where
+    F: FnOnce(T) -> T2 + 'static + Copy,
+    T2: Default + ShaderAbstractRightValue,
+    T: 'static,
+  {
+    TraceOutputMap {
+      upstream_o: PhantomData,
+      upstream: self,
+      map,
+    }
+  }
 
-impl<T> Default for TraceBase<T> {
-  fn default() -> Self {
-    Self(Default::default())
+  fn then_trace<F, P>(self, then: F) -> impl TraceOperator<(T, Node<P>)>
+  where
+    F: FnOnce(&T) -> (Node<bool>, ShaderRayTraceCall, Node<P>) + Copy + 'static,
+    T: ShaderAbstractRightValue,
+    P: ShaderSizedValueNodeType + Default + Copy,
+  {
+    TraceNextRay {
+      upstream: self,
+      next_trace_logic: then,
+    }
   }
 }
+impl<T, X: TraceOperator<T>> TraceOperatorExt<T> for X {}
 
-impl<T: Default + Copy + 'static> DeviceFutureProvider<T> for TraceBase<T> {
-  fn build_device_future(&self) -> DynDeviceFuture<T> {
-    BaseDeviceFuture::<T>::default().into_dyn()
-  }
+pub struct TraceOutputMap<F, T, O> {
+  upstream_o: PhantomData<O>,
+  upstream: T,
+  map: F,
 }
-impl<T, Cx> NativeRayTracingShaderBuilder<Cx, T> for TraceBase<T>
+
+impl<O, O2, F, T> DeviceFutureProvider<O2> for TraceOutputMap<F, T, O>
 where
-  T: Default,
-  Cx: NativeRayTracingShaderCtx,
+  T: DeviceFutureProvider<O>,
+  F: FnOnce(O) -> O2 + 'static + Copy,
+  O2: Default + ShaderAbstractRightValue,
+  O: 'static,
 {
-  fn build(&self, _: &mut Cx) -> T {
-    T::default()
+  fn build_device_future(&self) -> DynDeviceFuture<O2> {
+    self.upstream.build_device_future().map(self.map).into_dyn()
   }
-  fn bind(&self, _: &mut BindingBuilder) {}
+}
+
+impl<F, T, O, O2> NativeRayTracingShaderBuilder<O2> for TraceOutputMap<F, T, O>
+where
+  T: NativeRayTracingShaderBuilder<O>,
+  F: FnOnce(O) -> O2 + 'static + Copy,
+{
+  fn build(&self, ctx: &mut dyn NativeRayTracingShaderCtx) -> O2 {
+    let o = self.upstream.build(ctx);
+    (self.map)(o)
+  }
+
+  fn bind(&self, builder: &mut BindingBuilder) {
+    self.upstream.bind(builder);
+  }
 }
 
 pub struct TraceNextRay<F, T> {
@@ -47,7 +82,7 @@ pub trait TracingTaskSpawner {
 impl<F, T, O, P> DeviceFutureProvider<(O, Node<P>)> for TraceNextRay<F, T>
 where
   T: DeviceFutureProvider<O>,
-  F: FnOnce(O) -> (Node<bool>, ShaderRayTraceCall, Node<P>) + Copy + 'static,
+  F: FnOnce(&O) -> (Node<bool>, ShaderRayTraceCall, Node<P>) + Copy + 'static,
   P: ShaderSizedValueNodeType + Default + Copy,
   O: ShaderAbstractRightValue,
 {
@@ -58,7 +93,7 @@ where
       .build_device_future()
       .then(
         move |o, cx| {
-          let (should_trace, trace, payload) = next_trace_logic(o);
+          let (should_trace, trace, payload) = next_trace_logic(&o);
           cx.registry
             .get_mut(&TypeId::of::<TracingTaskMarker>())
             .unwrap()
@@ -72,14 +107,13 @@ where
   }
 }
 
-impl<F, T, Cx, O, P> NativeRayTracingShaderBuilder<Cx, O> for TraceNextRay<F, T>
+impl<F, T, O, P> NativeRayTracingShaderBuilder<(O, Node<P>)> for TraceNextRay<F, T>
 where
-  T: NativeRayTracingShaderBuilder<Cx, O>,
-  Cx: NativeRayTracingShaderCtx,
-  F: FnOnce(&O) -> (Node<bool>, ShaderRayTraceCall, P) + Copy,
+  T: NativeRayTracingShaderBuilder<O>,
+  F: FnOnce(&O) -> (Node<bool>, ShaderRayTraceCall, Node<P>) + Copy,
   P: 'static,
 {
-  fn build(&self, ctx: &mut Cx) -> O {
+  fn build(&self, ctx: &mut dyn NativeRayTracingShaderCtx) -> (O, Node<P>) {
     let o = self.upstream.build(ctx);
 
     let (r, c, p) = (self.next_trace_logic)(&o);
@@ -87,7 +121,7 @@ where
       ctx.native_trace_ray(c, Box::new(p));
     });
 
-    o
+    (o, p)
   }
   fn bind(&self, builder: &mut BindingBuilder) {
     self.upstream.bind(builder);

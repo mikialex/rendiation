@@ -46,7 +46,7 @@ where
     self.then.bind_input(builder);
   }
 
-  fn reset(&self, ctx: &mut DeviceParallelComputeCtx, work_size: u32) {
+  fn reset(&mut self, ctx: &mut DeviceParallelComputeCtx, work_size: u32) {
     self.upstream.reset(ctx, work_size);
     self.then.reset(ctx, work_size)
   }

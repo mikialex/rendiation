@@ -49,11 +49,11 @@ impl<'a> DeviceTaskSystemPollCtx<'a> {
     &mut self,
     task_type: usize,
     argument: Node<AnyType>,
-    ty: &ShaderSizedValueType,
+    argument_ty: &ShaderSizedValueType,
   ) -> Option<TaskFutureInvocationRightValue> {
     let task_group = self.get_or_create_task_group_instance(task_type);
     TaskFutureInvocationRightValue {
-      task_handle: task_group.spawn_new_task_dyn(argument, ty)?,
+      task_handle: task_group.spawn_new_task_dyn(argument, argument_ty)?,
     }
     .into()
   }
