@@ -1,33 +1,5 @@
 use crate::*;
 
-pub trait RayCtxBaseProvider {
-  fn miss_shader_base(
-    &self,
-    payload_desc: ShaderSizedValueType,
-  ) -> Box<dyn TraceOperator<Node<AnyType>>>;
-  fn closest_shader_base(
-    &self,
-    payload_desc: ShaderSizedValueType,
-  ) -> Box<dyn TraceOperator<(Node<AnyType>, RayClosestHitCtx)>>;
-}
-
-pub struct RayCtxBaseBuilder {
-  pub inner: Box<dyn RayCtxBaseProvider>,
-}
-
-impl RayCtxBaseBuilder {
-  pub fn miss_shader_base<T: ShaderSizedValueNodeType>(
-    &self,
-  ) -> impl TraceOperator<(Node<T>, RayMissCtx)> {
-    self.inner.miss_shader_base(T::sized_ty()).map(|o| todo!())
-  }
-  pub fn closest_shader_base<T: ShaderSizedValueNodeType>(
-    &self,
-  ) -> impl TraceOperator<(Node<T>, RayClosestHitCtx)> {
-    self.inner.miss_shader_base(T::sized_ty()).map(|o| todo!())
-  }
-}
-
 pub trait DeviceFutureProvider<T> {
   fn build_device_future(&self) -> DynDeviceFuture<T>;
 }
@@ -41,6 +13,7 @@ pub trait NativeRayTracingShaderBuilder<O> {
 
 pub trait NativeRayTracingShaderCtx {
   fn native_trace_ray(&self, ray: ShaderRayTraceCall, payload: Box<dyn Any>);
+  fn tracing_ctx(&mut self) -> &mut TracingCtx;
 }
 
 pub trait TraceOperator<T>: DeviceFutureProvider<T> + NativeRayTracingShaderBuilder<T> {}
@@ -60,5 +33,37 @@ impl<O> NativeRayTracingShaderBuilder<O> for Box<dyn TraceOperator<O>> {
 impl<O> DeviceFutureProvider<O> for Box<dyn TraceOperator<O>> {
   fn build_device_future(&self) -> DynDeviceFuture<O> {
     (**self).build_device_future()
+  }
+}
+
+pub trait RayCtxBaseProvider {
+  /// the implementor should register proper ctx for miss-hit shader stage
+  fn miss_shader_base(
+    &self,
+    payload_desc: ShaderSizedValueType,
+  ) -> Box<dyn TraceOperator<Node<AnyType>>>;
+  /// the implementor should register proper ctx for closest-hit shader stage
+  fn closest_shader_base(
+    &self,
+    payload_desc: ShaderSizedValueType,
+  ) -> Box<dyn TraceOperator<Node<AnyType>>>;
+}
+
+pub struct RayCtxBaseBuilder {
+  pub inner: Box<dyn RayCtxBaseProvider>,
+}
+
+impl RayCtxBaseBuilder {
+  pub fn miss_shader_base<T: ShaderSizedValueNodeType>(&self) -> impl TraceOperator<Node<T>> {
+    self
+      .inner
+      .miss_shader_base(T::sized_ty())
+      .map(|o, _| unsafe { o.cast_type() })
+  }
+  pub fn closest_shader_base<T: ShaderSizedValueNodeType>(&self) -> impl TraceOperator<Node<T>> {
+    self
+      .inner
+      .miss_shader_base(T::sized_ty())
+      .map(|o, _| unsafe { o.cast_type() })
   }
 }

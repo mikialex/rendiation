@@ -73,72 +73,10 @@ pub struct RayClosestHitCtx {
   pub hit: HitInfo,
 }
 
-impl Default for RayClosestHitCtx {
-  fn default() -> Self {
-    todo!()
-  }
-}
-
-#[derive(Clone, Copy)]
-pub struct RayClosestHitCtxStore {}
-
-impl ShaderAbstractLeftValue for RayClosestHitCtxStore {
-  type RightValue = RayClosestHitCtx;
-
-  fn abstract_load(&self) -> Self::RightValue {
-    todo!()
-  }
-
-  fn abstract_store(&self, payload: Self::RightValue) {
-    todo!()
-  }
-}
-
-impl ShaderAbstractRightValue for RayClosestHitCtx {
-  type AbstractLeftValue = RayClosestHitCtxStore;
-
-  fn create_left_value_from_builder<B: LeftValueBuilder>(
-    builder: &mut B,
-  ) -> Self::AbstractLeftValue {
-    todo!()
-  }
-}
-
 #[derive(Clone, Copy)]
 pub struct RayMissCtx {
   pub launch_info: RayLaunchInfo,
   pub world_ray: WorldRayInfo,
-}
-
-impl Default for RayMissCtx {
-  fn default() -> Self {
-    todo!()
-  }
-}
-
-#[derive(Clone, Copy)]
-pub struct RayMissCtxStore {}
-
-impl ShaderAbstractLeftValue for RayMissCtxStore {
-  type RightValue = RayMissCtx;
-
-  fn abstract_load(&self) -> Self::RightValue {
-    todo!()
-  }
-
-  fn abstract_store(&self, payload: Self::RightValue) {
-    todo!()
-  }
-}
-
-impl ShaderAbstractRightValue for RayMissCtx {
-  type AbstractLeftValue = RayMissCtxStore;
-
-  fn create_left_value_from_builder<B: LeftValueBuilder>(
-    builder: &mut B,
-  ) -> Self::AbstractLeftValue {
-    todo!()
-  }
 }
 
 pub struct RayAnyHitCtx {
@@ -152,4 +90,62 @@ pub struct RayIntersectCtx {
   pub launch_info: RayLaunchInfo,
   pub world_ray: WorldRayInfo,
   pub hit_ctx: HitCtxInfo,
+}
+
+pub struct TracingCtx {
+  missing: Option<Box<dyn MissingHitCtxProvider>>,
+  closest: Option<Box<dyn ClosestHitCtxProvider>>,
+}
+
+pub trait WorldRayInfoProvider {
+  /// gl_WorldRayOriginEXT and gl_WorldRayDirectionEXT
+  fn world_ray(&self) -> ShaderRay;
+  /// gl_RayTminEXT and gl_RayTmaxEXT (always in world space)
+  fn ray_range(&self) -> ShaderRayRange;
+  /// gl_IncomingRayFlagsEXT
+  fn ray_flags(&self) -> Node<u32>;
+}
+pub trait RayLaunchInfoProvider {
+  /// gl_LaunchIDEXT
+  fn launch_id(&self) -> Node<Vec3<u32>>;
+  /// gl_LaunchSizeEXT
+  fn launch_size(&self) -> Node<Vec3<u32>>;
+}
+
+pub trait MissingHitCtxProvider: WorldRayInfoProvider + RayLaunchInfoProvider {}
+pub trait ClosestHitCtxProvider: WorldRayInfoProvider + RayLaunchInfoProvider {
+  /// gl_PrimitiveID
+  fn primitive_id(&self) -> Node<u32>;
+  /// gl_InstanceID
+  ///
+  /// index in tlas instance list
+  fn instance_id(&self) -> Node<u32>;
+  /// gl_InstanceCustomIndexEXT
+  ///
+  /// provided by user: TopLevelAccelerationStructureSourceInstance.instance_custom_index
+  fn instance_custom_id(&self) -> Node<u32>;
+  /// gl_GeometryIndexEXT
+  ///
+  /// is index in blas geometry list
+  fn geometry_id(&self) -> Node<u32>;
+  /// gl_ObjectToWorldEXT
+  fn object_to_world(&self) -> Node<Mat4<f32>>;
+  /// gl_WorldToObjectEXT
+  fn world_to_object(&self) -> Node<Mat4<f32>>;
+  /// gl_ObjectRayOriginEXT and gl_ObjectRayDirectionEXT
+  fn object_space_ray(&self) -> ShaderRay;
+
+  /// gl_HitKindEXT
+  fn hit_kind(&self) -> Node<u32>;
+  /// gl_HitTEXT (in world space)
+  fn hit_distance(&self) -> Node<f32>;
+}
+
+impl TracingCtx {
+  pub fn miss_hit_ctx(&self) -> Option<&dyn MissingHitCtxProvider> {
+    self.missing.as_deref()
+  }
+  pub fn closest_hit_ctx(&self) -> Option<&dyn ClosestHitCtxProvider> {
+    self.closest.as_deref()
+  }
 }

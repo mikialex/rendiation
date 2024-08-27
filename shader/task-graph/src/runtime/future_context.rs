@@ -13,7 +13,24 @@ pub struct DeviceTaskSystemPollCtx<'a> {
   pub(super) tasks_depend_on_self: FastHashMap<usize, TaskGroupDeviceInvocationInstance>,
   // the rust hashmap is not ordered
   pub(super) tasks_depend_on_self_bind_order: Vec<usize>,
-  pub registry: &'a mut FastHashMap<TypeId, Box<dyn Any>>,
+  pub registry: &'a mut AnyMap,
+}
+
+#[derive(Default)]
+pub struct AnyMap {
+  map: FastHashMap<TypeId, Box<dyn Any>>,
+}
+
+impl AnyMap {
+  pub fn register<T: Any>(&mut self, value: T) {
+    self.map.insert(TypeId::of::<T>(), Box::new(value));
+  }
+  pub fn get_mut<T: Any>(&mut self) -> Option<&mut T> {
+    self
+      .map
+      .get_mut(&TypeId::of::<T>())
+      .and_then(|x| x.downcast_mut())
+  }
 }
 
 impl<'a> DeviceTaskSystemPollCtx<'a> {

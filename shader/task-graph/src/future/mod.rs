@@ -87,7 +87,7 @@ pub trait DeviceFutureExt: Sized + DeviceFuture + 'static {
 
   fn map<F, O>(self, map: F) -> ShaderFutureMap<F, Self>
   where
-    F: FnOnce(Self::Output) -> O + Copy + 'static,
+    F: FnOnce(Self::Output, &mut DeviceTaskSystemPollCtx) -> O + Copy + 'static,
     O: Default + ShaderAbstractRightValue,
   {
     ShaderFutureMap {

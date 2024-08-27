@@ -3,7 +3,7 @@ use crate::*;
 pub trait TraceOperatorExt<T>: TraceOperator<T> + Sized {
   fn map<F, T2>(self, map: F) -> impl TraceOperator<T2>
   where
-    F: FnOnce(T) -> T2 + 'static + Copy,
+    F: FnOnce(T, &mut TracingCtx) -> T2 + 'static + Copy,
     T2: Default + ShaderAbstractRightValue,
     T: 'static,
   {
@@ -16,7 +16,7 @@ pub trait TraceOperatorExt<T>: TraceOperator<T> + Sized {
 
   fn then_trace<F, P>(self, then: F) -> impl TraceOperator<(T, Node<P>)>
   where
-    F: FnOnce(&T) -> (Node<bool>, ShaderRayTraceCall, Node<P>) + Copy + 'static,
+    F: FnOnce(&T, &mut TracingCtx) -> (Node<bool>, ShaderRayTraceCall, Node<P>) + Copy + 'static,
     T: ShaderAbstractRightValue,
     P: ShaderSizedValueNodeType + Default + Copy,
   {
@@ -37,23 +37,31 @@ pub struct TraceOutputMap<F, T, O> {
 impl<O, O2, F, T> DeviceFutureProvider<O2> for TraceOutputMap<F, T, O>
 where
   T: DeviceFutureProvider<O>,
-  F: FnOnce(O) -> O2 + 'static + Copy,
+  F: FnOnce(O, &mut TracingCtx) -> O2 + 'static + Copy,
   O2: Default + ShaderAbstractRightValue,
   O: 'static,
 {
   fn build_device_future(&self) -> DynDeviceFuture<O2> {
-    self.upstream.build_device_future().map(self.map).into_dyn()
+    let map = self.map;
+    self
+      .upstream
+      .build_device_future()
+      .map(move |o, cx| {
+        let ctx = cx.registry.get_mut::<TracingCtx>().unwrap();
+        map(o, ctx)
+      })
+      .into_dyn()
   }
 }
 
 impl<F, T, O, O2> NativeRayTracingShaderBuilder<O2> for TraceOutputMap<F, T, O>
 where
   T: NativeRayTracingShaderBuilder<O>,
-  F: FnOnce(O) -> O2 + 'static + Copy,
+  F: FnOnce(O, &mut TracingCtx) -> O2 + 'static + Copy,
 {
   fn build(&self, ctx: &mut dyn NativeRayTracingShaderCtx) -> O2 {
     let o = self.upstream.build(ctx);
-    (self.map)(o)
+    (self.map)(o, ctx.tracing_ctx())
   }
 
   fn bind(&self, builder: &mut BindingBuilder) {
@@ -67,7 +75,6 @@ pub struct TraceNextRay<F, T> {
 }
 
 pub const TRACING_TASK_INDEX: usize = 0;
-pub struct TracingTaskMarker;
 
 pub trait TracingTaskSpawner {
   fn spawn_new_tracing_task(
@@ -82,7 +89,7 @@ pub trait TracingTaskSpawner {
 impl<F, T, O, P> DeviceFutureProvider<(O, Node<P>)> for TraceNextRay<F, T>
 where
   T: DeviceFutureProvider<O>,
-  F: FnOnce(&O) -> (Node<bool>, ShaderRayTraceCall, Node<P>) + Copy + 'static,
+  F: FnOnce(&O, &mut TracingCtx) -> (Node<bool>, ShaderRayTraceCall, Node<P>) + Copy + 'static,
   P: ShaderSizedValueNodeType + Default + Copy,
   O: ShaderAbstractRightValue,
 {
@@ -93,11 +100,11 @@ where
       .build_device_future()
       .then(
         move |o, cx| {
-          let (should_trace, trace, payload) = next_trace_logic(&o);
+          let ctx = cx.registry.get_mut::<TracingCtx>().unwrap();
+          let (should_trace, trace, payload) = next_trace_logic(&o, ctx);
+
           cx.registry
-            .get_mut(&TypeId::of::<TracingTaskMarker>())
-            .unwrap()
-            .downcast_mut::<Box<dyn TracingTaskSpawner>>()
+            .get_mut::<Box<dyn TracingTaskSpawner>>()
             .unwrap()
             .spawn_new_tracing_task(should_trace, trace, payload.handle(), P::sized_ty())
         },
@@ -110,13 +117,13 @@ where
 impl<F, T, O, P> NativeRayTracingShaderBuilder<(O, Node<P>)> for TraceNextRay<F, T>
 where
   T: NativeRayTracingShaderBuilder<O>,
-  F: FnOnce(&O) -> (Node<bool>, ShaderRayTraceCall, Node<P>) + Copy,
+  F: FnOnce(&O, &mut TracingCtx) -> (Node<bool>, ShaderRayTraceCall, Node<P>) + Copy,
   P: 'static,
 {
   fn build(&self, ctx: &mut dyn NativeRayTracingShaderCtx) -> (O, Node<P>) {
     let o = self.upstream.build(ctx);
 
-    let (r, c, p) = (self.next_trace_logic)(&o);
+    let (r, c, p) = (self.next_trace_logic)(&o, ctx.tracing_ctx());
     if_by(r, || {
       ctx.native_trace_ray(c, Box::new(p));
     });

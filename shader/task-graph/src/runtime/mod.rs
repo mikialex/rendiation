@@ -18,7 +18,7 @@ pub struct TaskGraphExecutionStates {
 }
 
 pub struct DeviceTaskGraphExecutor {
-  pub registry: FastHashMap<TypeId, Box<dyn Any>>,
+  pub registry: AnyMap,
   task_groups: Vec<TaskGroupExecutor>,
   max_recursion_depth: usize,
   current_prepared_execution_size: usize,
