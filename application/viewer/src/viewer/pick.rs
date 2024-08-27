@@ -23,14 +23,14 @@ impl ViewerPicker {
       scene_model_node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
       model_access_std_model: global_entity_component_of::<SceneModelStdModelRenderPayload>()
         .read_foreign_key(),
-      std_model_access_mesh: global_entity_component_of::<StandardModelRefAttributeMesh>()
+      std_model_access_mesh: global_entity_component_of::<StandardModelRefAttributesMeshEntity>()
         .read_foreign_key(),
       mesh_vertex_refs: dep.mesh_vertex_ref.clone(),
-      semantic: global_entity_component_of::<AttributeMeshVertexBufferSemantic>().read(),
+      semantic: global_entity_component_of::<AttributesMeshEntityVertexBufferSemantic>().read(),
       mesh_index_attribute:
         global_entity_component_of::<SceneBufferViewBufferId<AttributeIndexRef>>()
           .read_foreign_key(),
-      mesh_topology: global_entity_component_of::<AttributeMeshTopology>().read(),
+      mesh_topology: global_entity_component_of::<AttributesMeshEntityTopology>().read(),
       buffer: global_entity_component_of::<BufferEntityData>().read(),
       vertex_buffer_ref: global_entity_component_of::<SceneBufferViewBufferId<AttributeVertexRef>>(
       )

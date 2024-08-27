@@ -2,7 +2,7 @@ use crate::*;
 
 pub fn rotation_gizmo_view(
   parent: EntityHandle<SceneNodeEntity>,
-  v: &mut Scene3dWriter,
+  v: &mut SceneWriter,
 ) -> impl Widget {
   let mut rotate_state = Option::<RotateState>::default();
   WidgetGroup::default()
@@ -34,7 +34,7 @@ pub fn rotation_gizmo_view(
 }
 
 pub fn build_rotator(
-  v: &mut Scene3dWriter,
+  v: &mut SceneWriter,
   axis: AxisType,
   parent: EntityHandle<SceneNodeEntity>,
 ) -> impl Widget {

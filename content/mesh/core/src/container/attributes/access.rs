@@ -96,14 +96,14 @@ impl AttributeAccessor {
 }
 
 #[derive(Clone)]
-pub struct AttributeMeshReadView<'a> {
+pub struct AttributesMeshEntityReadView<'a> {
   pub attributes:
     SmallVec<[(&'a AttributeSemantic, AttributeAccessorReadView<'a>); MOST_COMMON_ATTRIBUTE_COUNT]>,
   pub indices: Option<(AttributeIndexFormat, AttributeAccessorReadView<'a>)>,
   pub mesh: &'a AttributesMesh,
 }
 
-impl<'a> std::ops::Deref for AttributeMeshReadView<'a> {
+impl<'a> std::ops::Deref for AttributesMeshEntityReadView<'a> {
   type Target = AttributesMesh;
 
   fn deref(&self) -> &Self::Target {
@@ -111,7 +111,7 @@ impl<'a> std::ops::Deref for AttributeMeshReadView<'a> {
   }
 }
 
-impl<'a> AttributeMeshReadView<'a> {
+impl<'a> AttributesMeshEntityReadView<'a> {
   pub fn primitive_count(&self) -> usize {
     let count = if let Some((_, index)) = &self.indices {
       index.count
@@ -156,7 +156,7 @@ impl<'a> IndexGet for PositionReader<'a> {
     self.position.get(key).copied()
   }
 }
-pub type AttributeMeshShapeReadView<'a> = AttributeMeshCustomReadView<'a, PositionReader<'a>>;
+pub type AttributesMeshEntityShapeReadView<'a> = AttributesMeshEntityCustomReadView<'a, PositionReader<'a>>;
 
 #[derive(Clone)]
 pub struct FullReaderBase<'a> {
@@ -164,7 +164,7 @@ pub struct FullReaderBase<'a> {
   pub bytes: Vec<&'a [u8]>,
 }
 
-pub type AttributeMeshFullReadView<'a> = AttributeMeshCustomReadView<'a, FullReaderBase<'a>>;
+pub type AttributesMeshEntityFullReadView<'a> = AttributesMeshEntityCustomReadView<'a, FullReaderBase<'a>>;
 
 #[derive(Clone, Copy)]
 pub struct FullReaderRead<'a> {
@@ -222,32 +222,32 @@ impl<'a> IndexGet for FullReaderBase<'a> {
 }
 
 impl AttributesMesh {
-  pub fn read(&self) -> AttributeMeshReadView {
+  pub fn read(&self) -> AttributesMeshEntityReadView {
     let attributes = self.attributes.iter().map(|(k, a)| (k, a.read())).collect();
     let indices = self.indices.as_ref().map(|(f, a)| (*f, a.read()));
 
-    AttributeMeshReadView {
+    AttributesMeshEntityReadView {
       attributes,
       indices,
       mesh: self,
     }
   }
 
-  pub fn read_full(&self) -> AttributeMeshFullReadView {
+  pub fn read_full(&self) -> AttributesMeshEntityFullReadView {
     let inner = self.read();
     let reader = inner.create_full_read_view_base();
     // safety: the returned reference is origin from the buffer itself, no cyclic reference exists
     // the allocate temp buffer is immutable and has stable heap location.
     let reader = unsafe { std::mem::transmute(reader) };
-    AttributeMeshFullReadView { inner, reader }
+    AttributesMeshEntityFullReadView { inner, reader }
   }
 
-  pub fn read_shape(&self) -> AttributeMeshShapeReadView {
+  pub fn read_shape(&self) -> AttributesMeshEntityShapeReadView {
     let inner = self.read();
     let position = inner.get_position();
     // safety: the returned reference is origin from the buffer itself, no cyclic reference exists
     let position = unsafe { std::mem::transmute(position) };
-    AttributeMeshCustomReadView {
+    AttributesMeshEntityCustomReadView {
       inner,
       reader: PositionReader { position },
     }

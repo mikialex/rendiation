@@ -1,10 +1,10 @@
 use crate::*;
 
-pub struct Scene3dWriter {
+pub struct SceneWriter {
   pub scene: EntityHandle<SceneEntity>,
   pub scene_writer: EntityWriter<SceneEntity>,
   pub camera_writer: EntityWriter<SceneCameraEntity>,
-  pub mesh_writer: AttributeMeshEntityFromAttributeMeshDataWriter,
+  pub mesh_writer: AttributesMeshEntityFromAttributesMeshWriter,
   pub tex_writer: EntityWriter<SceneTexture2dEntity>,
   pub sampler_writer: EntityWriter<SceneSamplerEntity>,
   pub node_writer: EntityWriter<SceneNodeEntity>,
@@ -15,7 +15,7 @@ pub struct Scene3dWriter {
   pub pbr_mr_mat_writer: EntityWriter<PbrMRMaterialEntity>,
 }
 
-impl Scene3dWriter {
+impl SceneWriter {
   pub fn set_solid_background(&mut self, solid: Vec3<f32>) {
     self
       .scene_writer
@@ -39,7 +39,7 @@ impl Scene3dWriter {
   pub fn create_scene_model(
     &mut self,
     material: SceneMaterialDataView,
-    mesh: EntityHandle<AttributeMeshEntity>,
+    mesh: EntityHandle<AttributesMeshEntity>,
     node: EntityHandle<SceneNodeEntity>,
   ) -> EntityHandle<SceneModelEntity> {
     let std_model = StandardModelDataView { material, mesh };
@@ -84,7 +84,7 @@ impl Scene3dWriter {
   pub fn write_attribute_mesh(
     &mut self,
     mesh: AttributesMesh,
-  ) -> EntityHandle<mesh::AttributeMeshEntity> {
+  ) -> EntityHandle<mesh::AttributesMeshEntity> {
     mesh.write(&mut self.mesh_writer)
   }
 

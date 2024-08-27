@@ -87,18 +87,18 @@ impl<'a, T, F: FnMut(&T) -> bool> Iterator for LookAheadSplit<'a, T, F> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AttributeMeshMergeKey {
+pub struct AttributesMeshEntityMergeKey {
   pub attributes: SmallVec<[AttributeSemantic; 3]>,
   pub indices: Option<AttributeIndexFormat>,
   pub mode: PrimitiveTopology,
 }
 
-pub fn compute_merge_key(att: &&AttributesMesh) -> AttributeMeshMergeKey {
+pub fn compute_merge_key(att: &&AttributesMesh) -> AttributesMeshEntityMergeKey {
   let mut attributes: SmallVec<[AttributeSemantic; 3]> =
     att.attributes.iter().map(|(k, _)| k.clone()).collect();
   attributes.sort();
 
-  AttributeMeshMergeKey {
+  AttributesMeshEntityMergeKey {
     attributes,
     indices: att.indices.as_ref().map(|(f, _)| *f),
     mode: att.mode,

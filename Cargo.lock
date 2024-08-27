@@ -3845,6 +3845,7 @@ dependencies = [
  "rendiation-mesh-core",
  "rendiation-scene-core",
  "rendiation-texture-core",
+ "virtual-collection",
 ]
 
 [[package]]

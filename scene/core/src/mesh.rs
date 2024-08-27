@@ -1,48 +1,48 @@
 use crate::*;
 
-declare_entity!(AttributeMeshEntity);
+declare_entity!(AttributesMeshEntity);
 declare_component!(
-  AttributeMeshTopology,
-  AttributeMeshEntity,
+  AttributesMeshEntityTopology,
+  AttributesMeshEntity,
   PrimitiveTopology
 );
-declare_entity_associated!(AttributeIndexRef, AttributeMeshEntity);
+declare_entity_associated!(AttributeIndexRef, AttributesMeshEntity);
 impl SceneBufferView for AttributeIndexRef {}
 
-declare_entity!(AttributeMeshVertexBufferRelation);
-declare_entity_associated!(AttributeVertexRef, AttributeMeshVertexBufferRelation);
+declare_entity!(AttributesMeshEntityVertexBufferRelation);
+declare_entity_associated!(AttributeVertexRef, AttributesMeshEntityVertexBufferRelation);
 impl SceneBufferView for AttributeVertexRef {}
 
 declare_component!(
-  AttributeMeshVertexBufferSemantic,
-  AttributeMeshVertexBufferRelation,
+  AttributesMeshEntityVertexBufferSemantic,
+  AttributesMeshEntityVertexBufferRelation,
   AttributeSemantic
 );
 
 declare_foreign_key!(
-  AttributeMeshVertexBufferRelationRefAttributeMesh,
-  AttributeMeshVertexBufferRelation,
-  AttributeMeshEntity
+  AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity,
+  AttributesMeshEntityVertexBufferRelation,
+  AttributesMeshEntity
 );
 
-pub struct AttributeMeshEntityFromAttributeMeshDataWriter {
+pub struct AttributesMeshEntityFromAttributesMeshWriter {
   buffer: EntityWriter<BufferEntity>,
-  relation: EntityWriter<AttributeMeshVertexBufferRelation>,
-  mesh: EntityWriter<AttributeMeshEntity>,
+  relation: EntityWriter<AttributesMeshEntityVertexBufferRelation>,
+  mesh: EntityWriter<AttributesMeshEntity>,
 }
 
-impl EntityCustomWrite<AttributeMeshEntity> for AttributesMesh {
-  type Writer = AttributeMeshEntityFromAttributeMeshDataWriter;
+impl EntityCustomWrite<AttributesMeshEntity> for AttributesMesh {
+  type Writer = AttributesMeshEntityFromAttributesMeshWriter;
 
   fn create_writer() -> Self::Writer {
-    AttributeMeshEntityFromAttributeMeshDataWriter {
+    AttributesMeshEntityFromAttributesMeshWriter {
       buffer: global_entity_of::<BufferEntity>().entity_writer(),
-      relation: global_entity_of::<AttributeMeshVertexBufferRelation>().entity_writer(),
-      mesh: global_entity_of::<AttributeMeshEntity>().entity_writer(),
+      relation: global_entity_of::<AttributesMeshEntityVertexBufferRelation>().entity_writer(),
+      mesh: global_entity_of::<AttributesMeshEntity>().entity_writer(),
     }
   }
 
-  fn write(self, writer: &mut Self::Writer) -> EntityHandle<AttributeMeshEntity> {
+  fn write(self, writer: &mut Self::Writer) -> EntityHandle<AttributesMeshEntity> {
     let count = self.indices.as_ref().map(|(_, data)| data.count as u32);
     let index = self.indices.map(|(_, data)| data.write(&mut writer.buffer));
 
@@ -54,7 +54,7 @@ impl EntityCustomWrite<AttributeMeshEntity> for AttributesMesh {
 
     let mesh_writer = &mut writer.mesh;
     index.write::<AttributeIndexRef, _>(mesh_writer);
-    mesh_writer.component_value_writer::<AttributeMeshTopology>(self.mode);
+    mesh_writer.component_value_writer::<AttributesMeshEntityTopology>(self.mode);
     let mesh = mesh_writer.new_entity();
 
     for (semantic, vertex) in self.attributes {
@@ -70,10 +70,10 @@ impl EntityCustomWrite<AttributeMeshEntity> for AttributesMesh {
       let relation_writer = &mut writer.relation;
       vertex.write::<AttributeVertexRef, _>(relation_writer);
       relation_writer
-        .component_value_writer::<AttributeMeshVertexBufferRelationRefAttributeMesh>(
+        .component_value_writer::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>(
           mesh.some_handle(),
         )
-        .component_value_writer::<AttributeMeshVertexBufferSemantic>(semantic)
+        .component_value_writer::<AttributesMeshEntityVertexBufferSemantic>(semantic)
         .new_entity();
     }
 
@@ -83,8 +83,8 @@ impl EntityCustomWrite<AttributeMeshEntity> for AttributesMesh {
 
 pub fn register_attribute_mesh_data_model() {
   let ecg = global_database()
-    .declare_entity::<AttributeMeshEntity>()
-    .declare_component::<AttributeMeshTopology>();
+    .declare_entity::<AttributesMeshEntity>()
+    .declare_component::<AttributesMeshEntityTopology>();
 
   register_scene_buffer_view::<AttributeIndexRef>(ecg);
 
@@ -93,9 +93,9 @@ pub fn register_attribute_mesh_data_model() {
     .declare_component::<BufferEntityData>();
 
   let ecg = global_database()
-    .declare_entity::<AttributeMeshVertexBufferRelation>()
-    .declare_component::<AttributeMeshVertexBufferSemantic>()
-    .declare_foreign_key::<AttributeMeshVertexBufferRelationRefAttributeMesh>();
+    .declare_entity::<AttributesMeshEntityVertexBufferRelation>()
+    .declare_component::<AttributesMeshEntityVertexBufferSemantic>()
+    .declare_foreign_key::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>();
 
   register_scene_buffer_view::<AttributeVertexRef>(ecg);
 }
@@ -107,14 +107,14 @@ declare_component!(
   Mat4<f32>
 );
 declare_foreign_key!(
-  InstanceMeshInstanceEntityRefAttributeMesh,
+  InstanceMeshInstanceEntityRefAttributesMeshEntity,
   InstanceMeshInstanceEntity,
-  AttributeMeshEntity
+  AttributesMeshEntity
 );
 
 pub fn register_instance_mesh_data_model() {
   global_database()
     .declare_entity::<InstanceMeshInstanceEntity>()
     .declare_component::<InstanceMeshWorldMatrix>()
-    .declare_foreign_key::<InstanceMeshInstanceEntityRefAttributeMesh>();
+    .declare_foreign_key::<InstanceMeshInstanceEntityRefAttributesMeshEntity>();
 }

@@ -18,7 +18,7 @@ pub fn load_obj(
   node: EntityHandle<SceneNodeEntity>,
   scene: EntityHandle<SceneEntity>,
   default_mat: EntityHandle<PbrSGMaterialEntity>,
-  writer: &mut Scene3dWriter,
+  writer: &mut SceneWriter,
 ) -> Result<(), ObjLoadError> {
   let models = load_obj_content(path, default_mat, writer)?;
 
@@ -39,7 +39,7 @@ pub fn load_obj(
 pub fn load_obj_content(
   path: impl AsRef<Path> + std::fmt::Debug,
   default_mat: EntityHandle<PbrSGMaterialEntity>,
-  writer: &mut Scene3dWriter,
+  writer: &mut SceneWriter,
 ) -> Result<Vec<StandardModelDataView>, ObjLoadError> {
   let (models, materials) = tobj::load_obj(path, &tobj::GPU_LOAD_OPTIONS)?;
 
@@ -73,7 +73,7 @@ pub fn load_obj_content(
 /// convert obj material into scene material, only part of material parameters are supported
 fn into_rff_material(
   m: &tobj::Material,
-  writer: &mut Scene3dWriter,
+  writer: &mut SceneWriter,
 ) -> PhysicalSpecularGlossinessMaterialDataView {
   let mut mat = PhysicalSpecularGlossinessMaterialDataView::default();
   if let Some(diffuse) = m.diffuse {

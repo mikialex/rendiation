@@ -10,7 +10,7 @@ use rendiation_texture_core::{
 
 use crate::*;
 
-pub fn textured_ball(scene: &mut Scene3dWriter) {
+pub fn textured_ball(scene: &mut SceneWriter) {
   let path = if cfg!(windows) {
     "C:/Users/mk/Desktop/rrf-resource/planets/earth_atmos_2048.jpg"
   } else {
@@ -45,7 +45,7 @@ pub fn textured_ball(scene: &mut Scene3dWriter) {
 //   .into()
 // }
 
-pub fn load_default_scene(writer: &mut Scene3dWriter, viewer_scene: &Viewer3dSceneCtx) {
+pub fn load_default_scene(writer: &mut SceneWriter, viewer_scene: &Viewer3dSceneCtx) {
   let path = if cfg!(windows) {
     "C:/Users/mk/Desktop/rrf-resource/planets/earth_atmos_2048.jpg"
   } else {
@@ -224,7 +224,7 @@ pub fn load_default_scene(writer: &mut Scene3dWriter, viewer_scene: &Viewer3dSce
   //   // stress_test2(scene);
 }
 
-pub fn load_stress_test(scene: &mut Scene3dWriter) {
+pub fn load_stress_test(scene: &mut SceneWriter) {
   let material = PhysicalSpecularGlossinessMaterialDataView {
     albedo: Vec3::splat(1.),
     albedo_texture: None,

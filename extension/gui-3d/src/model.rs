@@ -18,7 +18,7 @@ pub struct UIWidgetModel {
   model: EntityHandle<SceneModelEntity>,
   node: EntityHandle<SceneNodeEntity>,
   material: EntityHandle<FlatMaterialEntity>,
-  mesh: EntityHandle<AttributeMeshEntity>,
+  mesh: EntityHandle<AttributesMeshEntity>,
 }
 
 impl Widget for UIWidgetModel {
@@ -76,7 +76,7 @@ impl Widget for UIWidgetModel {
     }
   }
   fn clean_up(&mut self, cx: &mut DynCx) {
-    access_cx_mut!(cx, scene_cx, Scene3dWriter);
+    access_cx_mut!(cx, scene_cx, SceneWriter);
     scene_cx.std_model_writer.delete_entity(self.std_model);
     scene_cx.model_writer.delete_entity(self.model);
     scene_cx.node_writer.delete_entity(self.node);
@@ -86,7 +86,7 @@ impl Widget for UIWidgetModel {
 }
 
 impl UIWidgetModel {
-  pub fn new(v: &mut Scene3dWriter, shape: AttributesMeshData) -> Self {
+  pub fn new(v: &mut SceneWriter, shape: AttributesMeshData) -> Self {
     let material = v.flat_mat_writer.new_entity();
     let mesh = v.write_attribute_mesh(shape.build());
     let model = StandardModelDataView {
@@ -157,7 +157,7 @@ impl UIWidgetModel {
     self
   }
 
-  pub fn set_color(&mut self, cx3d: &mut Scene3dWriter, color: Vec3<f32>) -> &mut Self {
+  pub fn set_color(&mut self, cx3d: &mut SceneWriter, color: Vec3<f32>) -> &mut Self {
     cx3d
       .flat_mat_writer
       .write_component_data::<FlatMaterialDisplayColorComponent>(
@@ -166,33 +166,33 @@ impl UIWidgetModel {
       );
     self
   }
-  pub fn set_visible(&mut self, cx3d: &mut Scene3dWriter, v: bool) -> &mut Self {
+  pub fn set_visible(&mut self, cx3d: &mut SceneWriter, v: bool) -> &mut Self {
     cx3d
       .node_writer
       .write_component_data::<SceneNodeVisibleComponent>(self.node, v);
     self
   }
 
-  pub fn set_matrix(&mut self, cx3d: &mut Scene3dWriter, mat: Mat4<f32>) -> &mut Self {
+  pub fn set_matrix(&mut self, cx3d: &mut SceneWriter, mat: Mat4<f32>) -> &mut Self {
     cx3d
       .node_writer
       .write_component_data::<SceneNodeLocalMatrixComponent>(self.node, mat);
     self
   }
   /// find a macro to do this!
-  pub fn with_matrix(mut self, cx3d: &mut Scene3dWriter, mat: Mat4<f32>) -> Self {
+  pub fn with_matrix(mut self, cx3d: &mut SceneWriter, mat: Mat4<f32>) -> Self {
     self.set_matrix(cx3d, mat);
     self
   }
 
-  pub fn with_shape(mut self, cx3d: &mut Scene3dWriter, shape: AttributesMeshData) -> Self {
+  pub fn with_shape(mut self, cx3d: &mut SceneWriter, shape: AttributesMeshData) -> Self {
     self.mesh = cx3d.write_attribute_mesh(shape.build());
     self
   }
 
   pub fn with_parent(
     self,
-    cx3d: &mut Scene3dWriter,
+    cx3d: &mut SceneWriter,
     parent: EntityHandle<SceneNodeEntity>,
   ) -> Self {
     cx3d

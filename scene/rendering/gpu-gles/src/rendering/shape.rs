@@ -24,18 +24,18 @@ impl GLESModelShapeRenderImpl for Vec<Box<dyn GLESModelShapeRenderImpl>> {
 }
 
 #[derive(Default)]
-pub struct AttributeMeshDefaultRenderImplProvider {
+pub struct AttributesMeshEntityDefaultRenderImplProvider {
   multi_access: UpdateResultToken,
   vertex: UpdateResultToken,
   index: UpdateResultToken,
 }
 
 impl RenderImplProvider<Box<dyn GLESModelShapeRenderImpl>>
-  for AttributeMeshDefaultRenderImplProvider
+  for AttributesMeshEntityDefaultRenderImplProvider
 {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
     let multi_access =
-      global_rev_ref().watch_inv_ref::<AttributeMeshVertexBufferRelationRefAttributeMesh>();
+      global_rev_ref().watch_inv_ref::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>();
     self.multi_access = source.register_reactive_multi_collection(multi_access);
 
     let index = attribute_mesh_index_buffers(cx);
@@ -49,14 +49,14 @@ impl RenderImplProvider<Box<dyn GLESModelShapeRenderImpl>>
     &self,
     res: &mut ConcurrentStreamUpdateResult,
   ) -> Box<dyn GLESModelShapeRenderImpl> {
-    Box::new(AttributeMeshDefaultRenderImpl {
-      mesh_access: global_entity_component_of::<StandardModelRefAttributeMesh>().read_foreign_key(),
-      mode: global_entity_component_of::<AttributeMeshTopology>().read(),
+    Box::new(AttributesMeshEntityDefaultRenderImpl {
+      mesh_access: global_entity_component_of::<StandardModelRefAttributesMeshEntity>().read_foreign_key(),
+      mode: global_entity_component_of::<AttributesMeshEntityTopology>().read(),
       index: res
         .take_self_contained_reactive_collection_updated(self.index)
         .unwrap(),
-      vertex: AttributeMeshVertexAccessView {
-        semantics: global_entity_component_of::<AttributeMeshVertexBufferSemantic>().read(),
+      vertex: AttributesMeshEntityVertexAccessView {
+        semantics: global_entity_component_of::<AttributesMeshEntityVertexBufferSemantic>().read(),
         count: global_entity_component_of::<SceneBufferViewBufferItemCount<AttributeVertexRef>>()
           .read(),
         multi_access: res
@@ -72,17 +72,17 @@ impl RenderImplProvider<Box<dyn GLESModelShapeRenderImpl>>
   }
 }
 
-pub struct AttributeMeshDefaultRenderImpl {
-  mesh_access: ForeignKeyReadView<StandardModelRefAttributeMesh>,
-  mode: ComponentReadView<AttributeMeshTopology>,
+pub struct AttributesMeshEntityDefaultRenderImpl {
+  mesh_access: ForeignKeyReadView<StandardModelRefAttributesMeshEntity>,
+  mode: ComponentReadView<AttributesMeshEntityTopology>,
   count: ComponentReadView<SceneBufferViewBufferItemCount<AttributeIndexRef>>,
   index: Box<
-    dyn VirtualCollectionSelfContained<EntityHandle<AttributeMeshEntity>, GPUBufferResourceView>,
+    dyn VirtualCollectionSelfContained<EntityHandle<AttributesMeshEntity>, GPUBufferResourceView>,
   >,
-  vertex: AttributeMeshVertexAccessView,
+  vertex: AttributesMeshEntityVertexAccessView,
 }
 
-impl GLESModelShapeRenderImpl for AttributeMeshDefaultRenderImpl {
+impl GLESModelShapeRenderImpl for AttributesMeshEntityDefaultRenderImpl {
   fn make_component(
     &self,
     idx: EntityHandle<StandardModelEntity>,

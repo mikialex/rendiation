@@ -51,7 +51,7 @@ impl SpaceBounding<f32, Box3, 3> for AttributeDynPrimitive {
   }
 }
 
-impl<'a> GPUConsumableMeshBuffer for AttributeMeshReadView<'a> {
+impl<'a> GPUConsumableMeshBuffer for AttributesMeshEntityReadView<'a> {
   fn draw_count(&self) -> usize {
     self.mesh.draw_count()
   }
@@ -68,8 +68,8 @@ impl GPUConsumableMeshBuffer for AttributesMesh {
   }
 }
 
-pub struct AttributeMeshCustomReadView<'a, F> {
-  pub inner: AttributeMeshReadView<'a>,
+pub struct AttributesMeshEntityCustomReadView<'a, F> {
+  pub inner: AttributesMeshEntityReadView<'a>,
   pub reader: F,
 }
 
@@ -90,11 +90,11 @@ impl<'a> IndexGet for DynIndexView<'a> {
   }
 }
 
-impl<'a, F: Clone> AttributeMeshCustomReadView<'a, F> {
+impl<'a, F: Clone> AttributesMeshEntityCustomReadView<'a, F> {
   pub fn as_abstract_mesh_read_view(
     &self,
-  ) -> AttributeMeshAbstractMeshReadView<F, DynIndexView<'a>> {
-    AttributeMeshAbstractMeshReadView {
+  ) -> AttributesMeshEntityAbstractMeshReadView<F, DynIndexView<'a>> {
+    AttributesMeshEntityAbstractMeshReadView {
       mode: self.inner.mode,
       vertices: self.reader.clone(),
       indices: self.indices.as_ref().map(|index| DynIndexView {
@@ -107,20 +107,20 @@ impl<'a, F: Clone> AttributeMeshCustomReadView<'a, F> {
   }
 }
 
-impl<'a, F> Deref for AttributeMeshCustomReadView<'a, F> {
-  type Target = AttributeMeshReadView<'a>;
+impl<'a, F> Deref for AttributesMeshEntityCustomReadView<'a, F> {
+  type Target = AttributesMeshEntityReadView<'a>;
   fn deref(&self) -> &Self::Target {
     &self.inner
   }
 }
 
-impl<'a, F> GPUConsumableMeshBuffer for AttributeMeshCustomReadView<'a, F> {
+impl<'a, F> GPUConsumableMeshBuffer for AttributesMeshEntityCustomReadView<'a, F> {
   fn draw_count(&self) -> usize {
     self.mesh.draw_count()
   }
 }
 
-pub struct AttributeMeshAbstractMeshReadView<T, I> {
+pub struct AttributesMeshEntityAbstractMeshReadView<T, I> {
   pub mode: PrimitiveTopology,
   pub vertices: T,
   pub indices: Option<I>,
@@ -128,16 +128,16 @@ pub struct AttributeMeshAbstractMeshReadView<T, I> {
   pub draw_count: usize,
 }
 
-impl<T, I> GPUConsumableMeshBuffer for AttributeMeshAbstractMeshReadView<T, I> {
+impl<T, I> GPUConsumableMeshBuffer for AttributesMeshEntityAbstractMeshReadView<T, I> {
   fn draw_count(&self) -> usize {
     self.draw_count
   }
 }
 
-/// we can not impl AbstractMesh for AttributeMesh because it contains interior mutability.
+/// we can not impl AbstractMesh for AttributesMeshEntity because it contains interior mutability.
 ///
 /// this is slow, but not bloat the binary size.
-impl<V, T, I> AbstractMesh for AttributeMeshAbstractMeshReadView<T, I>
+impl<V, T, I> AbstractMesh for AttributesMeshEntityAbstractMeshReadView<T, I>
 where
   T: IndexGet<Output = V>,
   I: IndexGet<Output = usize>,
@@ -173,7 +173,7 @@ where
   }
 }
 
-impl<'a> IntersectAbleGroupedMesh for AttributeMeshShapeReadView<'a> {
+impl<'a> IntersectAbleGroupedMesh for AttributesMeshEntityShapeReadView<'a> {
   fn intersect_list_by_group(
     &self,
     ray: Ray3,

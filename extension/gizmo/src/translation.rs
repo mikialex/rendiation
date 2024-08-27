@@ -2,7 +2,7 @@ use crate::*;
 
 pub fn translation_gizmo_view(
   parent: EntityHandle<SceneNodeEntity>,
-  v: &mut Scene3dWriter,
+  v: &mut SceneWriter,
 ) -> impl Widget {
   WidgetGroup::default()
     .with_child(arrow(v, AxisType::X, parent))
@@ -36,7 +36,7 @@ pub fn translation_gizmo_view(
 }
 
 fn arrow(
-  v: &mut Scene3dWriter,
+  v: &mut SceneWriter,
   axis: AxisType,
   parent: EntityHandle<SceneNodeEntity>,
 ) -> impl Widget {
@@ -51,7 +51,7 @@ fn arrow(
 }
 
 fn plane(
-  v: &mut Scene3dWriter,
+  v: &mut SceneWriter,
   axis: AxisType,
   parent: EntityHandle<SceneNodeEntity>,
 ) -> impl Widget {
@@ -77,7 +77,7 @@ fn plane(
       let self_active = axis_state.active;
       let visible = !gizmo.has_any_active() || self_active;
       let color = map_color(color, axis_state);
-      access_cx_mut!(cx, cx3d, Scene3dWriter);
+      access_cx_mut!(cx, cx3d, SceneWriter);
       plane.set_visible(cx3d, visible);
       plane.set_color(cx3d, color);
     }

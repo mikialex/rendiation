@@ -13,7 +13,7 @@ pub use translation::*;
 /// the user should provide Option::<GizmoControlTargetState> for target selecting,
 /// and should apply change GizmoUpdateTargetLocal to source object, the applied change should sync
 /// back to GizmoControlTargetState
-pub fn gizmo(v: &mut Scene3dWriter) -> impl Widget {
+pub fn gizmo(v: &mut SceneWriter) -> impl Widget {
   UINode::new(v)
     .with_child(v, translation_gizmo_view)
     .with_child(v, rotation_gizmo_view)
@@ -67,7 +67,7 @@ pub fn update_per_axis_model(
     let visible = !gizmo.has_any_active() || self_active;
     let color = map_color(color, axis_state);
 
-    access_cx_mut!(cx, cx3d, Scene3dWriter);
+    access_cx_mut!(cx, cx3d, SceneWriter);
     view.set_visible(cx3d, visible);
     view.set_color(cx3d, color);
   }
