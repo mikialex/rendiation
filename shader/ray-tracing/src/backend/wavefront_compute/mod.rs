@@ -38,6 +38,8 @@ impl GPURayTracingDeviceProvider for GPUWaveFrontComputeRaytracingDevice {
     desc: &GPURaytracingPipelineDescriptor,
   ) -> Box<dyn GPURaytracingPipelineProvider> {
     Box::new(GPUWaveFrontComputeRaytracingBakedPipeline::compile(
+      todo!(),
+      todo!(),
       desc,
       &self.gpu.device,
       todo!(),

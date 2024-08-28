@@ -30,23 +30,27 @@ impl ShaderBindingTableProvider for ShaderBindingTableInfo {
 #[repr(C)]
 #[std430_layout]
 #[derive(Clone, Copy, ShaderStruct)]
+pub struct DeviceSBTTableMeta {
+  pub hit_group_start: u32,
+  pub miss_start: u32,
+  pub gen_start: u32,
+}
+
+#[repr(C)]
+#[std430_layout]
+#[derive(Clone, Copy, ShaderStruct)]
 pub struct DeviceHistGroupShaderRecord {
   pub closet_hit: u32,
   pub any_hit: u32,
   pub intersection: u32,
 }
 
-#[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, ShaderStruct)]
-pub struct DeviceRayGenAndMissShaderRecord {
-  pub ray_gen: u32,
-  pub ray_miss: Shader140Array<u32, 8>,
-}
-
+#[derive(Clone)]
 pub struct ShaderBindingTableDeviceInfo {
+  meta: StorageBufferReadOnlyDataView<[DeviceSBTTableMeta]>,
   ray_hit: StorageBufferReadOnlyDataView<[DeviceHistGroupShaderRecord]>,
-  ray_miss_and_gen: UniformBufferDataView<DeviceRayGenAndMissShaderRecord>,
+  ray_miss: StorageBufferReadOnlyDataView<[u32]>,
+  ray_gen: StorageBufferReadOnlyDataView<[u32]>,
 }
 
 impl ShaderBindingTableDeviceInfo {
@@ -55,13 +59,17 @@ impl ShaderBindingTableDeviceInfo {
     cx: &mut ShaderComputePipelineBuilder,
   ) -> ShaderBindingTableDeviceInfoInvocation {
     ShaderBindingTableDeviceInfoInvocation {
+      meta: cx.bind_by(&self.meta),
       ray_hit: cx.bind_by(&self.ray_hit),
-      ray_miss_and_gen: cx.bind_by(&self.ray_miss_and_gen),
+      ray_miss: cx.bind_by(&self.ray_miss),
+      ray_gen: cx.bind_by(&self.ray_gen),
     }
   }
   pub fn bind(&self, cx: &mut BindingBuilder) {
+    cx.bind(&self.meta);
     cx.bind(&self.ray_hit);
-    cx.bind(&self.ray_miss_and_gen);
+    cx.bind(&self.ray_miss);
+    cx.bind(&self.ray_gen);
   }
 }
 
@@ -76,38 +84,41 @@ impl ShaderBindingTableInfo {
 }
 
 pub struct ShaderBindingTableDeviceInfoInvocation {
+  meta: ReadOnlyStorageNode<[DeviceSBTTableMeta]>,
   ray_hit: ReadOnlyStorageNode<[DeviceHistGroupShaderRecord]>,
-  ray_miss_and_gen: UniformNode<DeviceRayGenAndMissShaderRecord>,
+  ray_miss: ReadOnlyStorageNode<[u32]>,
+  ray_gen: ReadOnlyStorageNode<[u32]>,
 }
 
 // todo improve code by pointer struct field access macro
 impl ShaderBindingTableDeviceInfoInvocation {
-  pub fn get_closest_handle(&self, hit_idx: Node<u32>) -> Node<u32> {
-    let hit_group = self.ray_hit.index(hit_idx).handle();
-    let handle: UniformNode<u32> = unsafe { index_access_field(hit_group, 0) };
+  pub fn get_closest_handle(&self, sbt_id: Node<u32>, hit_idx: Node<u32>) -> Node<u32> {
+    let hit_start = self.meta.index(sbt_id).load().expand().hit_group_start; // todo fix over expand
+    let hit_group = self.ray_hit.index(hit_idx + hit_start).handle();
+    let handle: StorageNode<u32> = unsafe { index_access_field(hit_group, 0) };
     handle.load()
   }
 
-  pub fn get_any_handle(&self, hit_idx: Node<u32>) -> Node<u32> {
-    let hit_group = self.ray_hit.index(hit_idx).handle();
-    let handle: UniformNode<u32> = unsafe { index_access_field(hit_group, 1) };
+  pub fn get_any_handle(&self, sbt_id: Node<u32>, hit_idx: Node<u32>) -> Node<u32> {
+    let hit_start = self.meta.index(sbt_id).load().expand().hit_group_start; // todo fix over expand
+    let hit_group = self.ray_hit.index(hit_idx + hit_start).handle();
+    let handle: StorageNode<u32> = unsafe { index_access_field(hit_group, 1) };
     handle.load()
   }
 
-  pub fn get_intersection_handle(&self, hit_idx: Node<u32>) -> Node<u32> {
-    let hit_group = self.ray_hit.index(hit_idx).handle();
-    let handle: UniformNode<u32> = unsafe { index_access_field(hit_group, 1) };
+  pub fn get_intersection_handle(&self, sbt_id: Node<u32>, hit_idx: Node<u32>) -> Node<u32> {
+    let hit_start = self.meta.index(sbt_id).load().expand().hit_group_start; // todo fix over expand
+    let hit_group = self.ray_hit.index(hit_idx + hit_start).handle();
+    let handle: StorageNode<u32> = unsafe { index_access_field(hit_group, 1) };
     handle.load()
   }
 
-  pub fn get_missing_handle(&self, idx: Node<u32>) -> Node<u32> {
-    let miss_handles: UniformNode<Shader140Array<u32, 8>> =
-      unsafe { index_access_field(self.ray_miss_and_gen.handle(), 1) };
-    miss_handles.index(idx).load()
+  pub fn get_missing_handle(&self, sbt_id: Node<u32>, idx: Node<u32>) -> Node<u32> {
+    let miss_start = self.meta.index(sbt_id).load().expand().miss_start; // todo fix over expand
+    self.ray_miss.index(miss_start + idx).load()
   }
-  pub fn get_ray_gen_handle(&self) -> Node<u32> {
-    let gen_handle: UniformNode<u32> =
-      unsafe { index_access_field(self.ray_miss_and_gen.handle(), 0) };
-    gen_handle.load()
+  pub fn get_ray_gen_handle(&self, sbt_id: Node<u32>) -> Node<u32> {
+    let ray_gen = self.meta.index(sbt_id).load().expand().gen_start; // todo fix over expand
+    self.ray_gen.index(ray_gen).load()
   }
 }

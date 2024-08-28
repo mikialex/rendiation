@@ -1,12 +1,13 @@
 use crate::*;
 
 pub struct TraceTaskImpl {
-  tlas_sys: Box<dyn GPUAccelerationStructureCompImplInstance>,
-  sbt: ShaderBindingTableDeviceInfo,
-  payload_bumper: DeviceBumpAllocationInstance<u32>,
-  payload_read_back_bumper: DeviceBumpAllocationInstance<u32>,
-  ray_info_bumper: DeviceBumpAllocationInstance<ShaderRayTraceCallStoragePayload>,
-  info: Arc<TraceTaskMetaInfo>,
+  pub tlas_sys: Box<dyn GPUAccelerationStructureSystemCompImplInstance>,
+  pub sbt_sys: ShaderBindingTableDeviceInfo,
+  pub payload_bumper: DeviceBumpAllocationInstance<u32>,
+  pub payload_read_back_bumper: DeviceBumpAllocationInstance<u32>,
+  pub ray_info_bumper: DeviceBumpAllocationInstance<ShaderRayTraceCallStoragePayload>,
+  pub info: Arc<TraceTaskMetaInfo>,
+  pub current_sbt: StorageBufferReadOnlyDataView<u32>,
 }
 
 pub struct TraceTaskMetaInfo {
@@ -31,18 +32,19 @@ impl DeviceFuture for TraceTaskImpl {
   fn build_poll(&self, ctx: &mut DeviceTaskSystemBuildCtx) -> Self::Invocation {
     GPURayTraceTaskInvocationInstance {
       tlas_sys: self.tlas_sys.build_shader(ctx.compute_cx),
-      sbt: self.sbt.build(ctx.compute_cx),
+      sbt: self.sbt_sys.build(ctx.compute_cx),
       untyped_payloads: ctx.compute_cx.bind_by(&self.payload_bumper.storage),
       info: self.info.clone(),
       payload_read_back_bumper: self
         .payload_read_back_bumper
         .build_allocator_shader(ctx.compute_cx),
+      current_sbt: ctx.compute_cx.bind_by(&self.current_sbt),
     }
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {
     self.tlas_sys.bind_pass(builder);
-    self.sbt.bind(builder);
+    self.sbt_sys.bind(builder);
     builder.bind(&self.payload_bumper.storage);
     self.payload_read_back_bumper.bind_allocator(builder);
   }
@@ -57,8 +59,9 @@ impl DeviceFuture for TraceTaskImpl {
 }
 
 pub struct GPURayTraceTaskInvocationInstance {
-  tlas_sys: Box<dyn GPUAccelerationStructureCompImplInvocationTraversable>,
+  tlas_sys: Box<dyn GPUAccelerationStructureSystemCompImplInvocationTraversable>,
   sbt: ShaderBindingTableDeviceInfoInvocation,
+  current_sbt: ReadOnlyStorageNode<u32>,
   info: Arc<TraceTaskMetaInfo>,
   untyped_payloads: StorageNode<[u32]>,
   payload_read_back_bumper: DeviceBumpAllocationInvocationInstance<u32>,
@@ -81,6 +84,7 @@ impl DeviceFutureInvocation for GPURayTraceTaskInvocationInstance {
         .equals(TASK_NOT_SPAWNED),
       || {
         let trace_payload = trace_payload_all_expand.trace_call.expand();
+        let current_sbt = self.current_sbt.load();
 
         let ray_sbt_config = RaySBTConfig {
           offset: trace_payload.sbt_ray_config_offset,
@@ -91,7 +95,8 @@ impl DeviceFutureInvocation for GPURayTraceTaskInvocationInstance {
           trace_payload,
           &|info, reporter| {
             let hit_group = info.hit_ctx.compute_sbt_hit_group(ray_sbt_config);
-            let intersection_shader_index = self.sbt.get_intersection_handle(hit_group);
+            let intersection_shader_index =
+              self.sbt.get_intersection_handle(current_sbt, hit_group);
             let mut switcher = switch_by(intersection_shader_index);
             for (i, intersection_shader) in self.info.intersection_shaders.iter().enumerate() {
               switcher = switcher.case(i as u32, || {
@@ -102,7 +107,7 @@ impl DeviceFutureInvocation for GPURayTraceTaskInvocationInstance {
           },
           &|info| {
             let hit_group = info.hit_ctx.compute_sbt_hit_group(ray_sbt_config);
-            let any_shader_index = self.sbt.get_any_handle(hit_group);
+            let any_shader_index = self.sbt.get_any_handle(current_sbt, hit_group);
             let r = val(IGNORE_THIS_INTERSECTION).make_local_var();
 
             let mut switcher = switch_by(any_shader_index);
@@ -124,7 +129,7 @@ impl DeviceFutureInvocation for GPURayTraceTaskInvocationInstance {
 
           let closest_payload = ENode::<RayClosestHitCtxPayload> { hit_ctx: todo!() }.construct();
 
-          let closest_shader_index = self.sbt.get_closest_handle(hit_group);
+          let closest_shader_index = self.sbt.get_closest_handle(current_sbt, hit_group);
           let closest_task_index = closest_shader_index; // todo, make sure the shader index is task_index
           let sub_task_id = spawn_dynamic(
             &self.info.closest_tasks,
@@ -144,7 +149,9 @@ impl DeviceFutureInvocation for GPURayTraceTaskInvocationInstance {
         .else_by(|| {
           let missing_payload = ENode::<RayMissHitCtxPayload> { hit_ctx: todo!() }.construct();
 
-          let miss_sbt_index = self.sbt.get_missing_handle(trace_payload.miss_index);
+          let miss_sbt_index = self
+            .sbt
+            .get_missing_handle(current_sbt, trace_payload.miss_index);
           let miss_task_index = miss_sbt_index; // todo, make sure the shader index is task_index
           let sub_task_id = spawn_dynamic(
             &self.info.missing_tasks,

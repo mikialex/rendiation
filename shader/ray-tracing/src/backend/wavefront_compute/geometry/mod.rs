@@ -2,15 +2,15 @@ use crate::*;
 
 pub mod naive;
 
-pub trait GPUAccelerationStructureCompImplInstance {
+pub trait GPUAccelerationStructureSystemCompImplInstance {
   fn build_shader(
     &self,
     compute_cx: &mut ShaderComputePipelineBuilder,
-  ) -> Box<dyn GPUAccelerationStructureCompImplInvocationTraversable>;
+  ) -> Box<dyn GPUAccelerationStructureSystemCompImplInvocationTraversable>;
   fn bind_pass(&self, builder: &mut BindingBuilder);
 }
 
-pub trait GPUAccelerationStructureCompImplInvocationTraversable {
+pub trait GPUAccelerationStructureSystemCompImplInvocationTraversable {
   /// return optional closest hit
   fn traverse(
     &self,

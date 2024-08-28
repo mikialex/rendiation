@@ -41,11 +41,11 @@ struct GPUNaiveSahBVHInstance {
   handle: u32,
 }
 
-impl GPUAccelerationStructureCompImplInstance for NaiveSahBVHSystem {
+impl GPUAccelerationStructureSystemCompImplInstance for NaiveSahBVHSystem {
   fn build_shader(
     &self,
     compute_cx: &mut ShaderComputePipelineBuilder,
-  ) -> Box<dyn GPUAccelerationStructureCompImplInvocationTraversable> {
+  ) -> Box<dyn GPUAccelerationStructureSystemCompImplInvocationTraversable> {
     todo!()
   }
 
@@ -67,7 +67,7 @@ pub struct NaiveSahBVHInvocationInstance {
   boxes: StorageNode<[u32]>,
 }
 
-impl GPUAccelerationStructureCompImplInvocationTraversable for NaiveSahBVHInvocationInstance {
+impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVHInvocationInstance {
   fn traverse(
     &self,
     trace_payload: ENode<ShaderRayTraceCallStoragePayload>,
