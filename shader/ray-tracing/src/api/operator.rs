@@ -48,22 +48,3 @@ pub trait RayCtxBaseProvider {
     payload_desc: ShaderSizedValueType,
   ) -> Box<dyn TraceOperator<Node<AnyType>>>;
 }
-
-pub struct RayCtxBaseBuilder {
-  pub inner: Box<dyn RayCtxBaseProvider>,
-}
-
-impl RayCtxBaseBuilder {
-  pub fn miss_shader_base<T: ShaderSizedValueNodeType>(&self) -> impl TraceOperator<Node<T>> {
-    self
-      .inner
-      .miss_shader_base(T::sized_ty())
-      .map(|o, _| unsafe { o.cast_type() })
-  }
-  pub fn closest_shader_base<T: ShaderSizedValueNodeType>(&self) -> impl TraceOperator<Node<T>> {
-    self
-      .inner
-      .miss_shader_base(T::sized_ty())
-      .map(|o, _| unsafe { o.cast_type() })
-  }
-}

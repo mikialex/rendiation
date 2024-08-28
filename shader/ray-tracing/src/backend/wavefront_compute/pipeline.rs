@@ -1,7 +1,8 @@
 use crate::*;
 
 pub struct GPUWaveFrontComputeRaytracingBakedPipeline {
-  graph: DeviceTaskGraphExecutor,
+  pub(crate) graph: DeviceTaskGraphExecutor,
+  pub(crate) target_sbt_buffer: StorageBufferReadOnlyDataView<u32>,
 }
 
 impl GPUWaveFrontComputeRaytracingBakedPipeline {
@@ -11,11 +12,11 @@ impl GPUWaveFrontComputeRaytracingBakedPipeline {
     desc: &GPURaytracingPipelineDescriptor,
     device: &GPUDevice,
     init_size: usize,
+    init_pass: &mut GPUComputePass,
   ) -> Self {
     let mut executor = DeviceTaskGraphExecutor::new(1, 1);
 
-    let init_pass = todo!();
-
+    // todo
     // executor.registry.register();
 
     let mut payload_max_u32_count = 0;
@@ -50,6 +51,8 @@ impl GPUWaveFrontComputeRaytracingBakedPipeline {
       payload_max_u32_count,
     };
 
+    let target_sbt_buffer = StorageBufferReadOnlyDataView::create(device, &0);
+
     let payload_u32_len = init_size * 2 * (payload_max_u32_count as usize);
     let tracer_task = TraceTaskImpl {
       tlas_sys,
@@ -58,19 +61,20 @@ impl GPUWaveFrontComputeRaytracingBakedPipeline {
       payload_read_back_bumper: DeviceBumpAllocationInstance::new(payload_u32_len, device),
       ray_info_bumper: DeviceBumpAllocationInstance::new(init_size * 2, device),
       info: Arc::new(info),
-      current_sbt: todo!(),
+      current_sbt: target_sbt_buffer.clone(),
     };
 
     // create core tracer task as almost every other task depend on this one
     executor.define_task_dyn(
       Box::new(OpaqueTaskWrapper(tracer_task)) as OpaqueTask,
-      todo!(),
+      TraceTaskSelfPayload::sized_ty(),
       device,
       init_pass,
     );
 
     for (stage, ty) in &desc.ray_gen_shaders {
       executor.define_task_dyn(
+        // todo use given wrapper
         Box::new(OpaqueTaskWrapper(stage.build_device_future())) as OpaqueTask,
         ty.clone(),
         device,
@@ -80,6 +84,7 @@ impl GPUWaveFrontComputeRaytracingBakedPipeline {
 
     for (stage, ty) in &desc.closest_hit_shaders {
       executor.define_task_dyn(
+        // todo use given wrapper
         Box::new(OpaqueTaskWrapper(stage.build_device_future())) as OpaqueTask,
         ty.clone(),
         device,
@@ -89,6 +94,7 @@ impl GPUWaveFrontComputeRaytracingBakedPipeline {
 
     for (stage, ty) in &desc.miss_hit_shaders {
       executor.define_task_dyn(
+        // todo use given wrapper
         Box::new(OpaqueTaskWrapper(stage.build_device_future())) as OpaqueTask,
         ty.clone(),
         device,
@@ -96,7 +102,10 @@ impl GPUWaveFrontComputeRaytracingBakedPipeline {
       );
     }
 
-    GPUWaveFrontComputeRaytracingBakedPipeline { graph: executor }
+    GPUWaveFrontComputeRaytracingBakedPipeline {
+      graph: executor,
+      target_sbt_buffer,
+    }
   }
 }
 

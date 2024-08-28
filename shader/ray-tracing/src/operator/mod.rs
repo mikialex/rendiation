@@ -1,5 +1,28 @@
 use crate::*;
 
+pub struct TraceBase<T>(PhantomData<T>);
+
+impl<T> Default for TraceBase<T> {
+  fn default() -> Self {
+    Self(Default::default())
+  }
+}
+
+impl<T: Default + Copy + 'static> DeviceFutureProvider<T> for TraceBase<T> {
+  fn build_device_future(&self) -> DynDeviceFuture<T> {
+    BaseDeviceFuture::<T>::default().into_dyn()
+  }
+}
+impl<T> NativeRayTracingShaderBuilder<T> for TraceBase<T>
+where
+  T: Default,
+{
+  fn build(&self, _: &mut dyn NativeRayTracingShaderCtx) -> T {
+    T::default()
+  }
+  fn bind(&self, _: &mut BindingBuilder) {}
+}
+
 pub trait TraceOperatorExt<T>: TraceOperator<T> + Sized {
   fn map<F, T2>(self, map: F) -> impl TraceOperator<T2>
   where

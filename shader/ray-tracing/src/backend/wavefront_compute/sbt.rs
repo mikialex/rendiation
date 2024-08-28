@@ -4,6 +4,7 @@ pub struct ShaderBindingTableInfo {
   pub ray_generation: ShaderHandle,
   pub ray_miss: Vec<ShaderHandle>,        // ray_type_count size
   pub ray_hit: Vec<HitGroupShaderRecord>, // mesh_count size
+  pub sys: ShaderBindingTableDeviceInfo,
 }
 
 impl ShaderBindingTableProvider for ShaderBindingTableInfo {
@@ -70,16 +71,6 @@ impl ShaderBindingTableDeviceInfo {
     cx.bind(&self.ray_hit);
     cx.bind(&self.ray_miss);
     cx.bind(&self.ray_gen);
-  }
-}
-
-impl ShaderBindingTableInfo {
-  pub fn new(mesh_count: u32, ray_type_count: u32) -> Self {
-    ShaderBindingTableInfo {
-      ray_generation: todo!(),
-      ray_miss: todo!(),
-      ray_hit: todo!(),
-    }
   }
 }
 

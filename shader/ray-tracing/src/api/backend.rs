@@ -18,7 +18,6 @@ pub trait GPURaytracingPipelineProvider {
 }
 
 pub trait GPURayTracingDeviceProvider {
-  fn trace_op_base_builder(&self) -> RayCtxBaseBuilder;
   fn create_raytracing_pipeline(
     &self,
     desc: &GPURaytracingPipelineDescriptor,
