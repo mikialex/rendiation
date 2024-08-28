@@ -44,7 +44,7 @@ impl DeviceTaskGraphExecutor {
     F: DeviceFuture<Output = ()> + 'static,
     P: ShaderSizedValueNodeType,
   {
-    self.define_task_inner(
+    self.define_task_dyn(
       Box::new(OpaqueTaskWrapper(future)) as OpaqueTask,
       P::sized_ty(),
       device,
@@ -53,7 +53,7 @@ impl DeviceTaskGraphExecutor {
   }
 
   #[inline(never)]
-  fn define_task_inner(
+  pub fn define_task_dyn(
     &mut self,
     task: OpaqueTask,
     payload_ty: ShaderSizedValueType,

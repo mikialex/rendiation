@@ -11,12 +11,12 @@ pub struct TraceTaskImpl {
 
 pub struct TraceTaskMetaInfo {
   /// (task idx, payload ty desc)
-  closest_tasks: Vec<(u32, ShaderSizedValueType)>,
+  pub closest_tasks: Vec<(u32, ShaderSizedValueType)>,
   /// (task idx, payload ty desc)
-  missing_tasks: Vec<(u32, ShaderSizedValueType)>,
-  intersection_shaders: Vec<Box<dyn Fn(&RayIntersectCtx, &dyn IntersectionReporter)>>,
-  any_hit_shaders: Vec<Box<dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>>>,
-  payload_max_u32_count: u32,
+  pub missing_tasks: Vec<(u32, ShaderSizedValueType)>,
+  pub intersection_shaders: Vec<Arc<dyn Fn(&RayIntersectCtx, &dyn IntersectionReporter)>>,
+  pub any_hit_shaders: Vec<Arc<dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>>>,
+  pub payload_max_u32_count: u32,
 }
 
 impl DeviceFuture for TraceTaskImpl {
