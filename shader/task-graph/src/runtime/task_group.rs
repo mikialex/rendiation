@@ -208,7 +208,7 @@ impl TaskGroupDeviceInvocationInstance {
     let (idx, success) = self.empty_index_pool.bump_deallocate();
     if_by(success, || {
       self.task_pool.spawn_new_task_dyn(idx, payload, ty);
-      self.alive_task_idx.bump_allocate(idx);
+      let _ = self.alive_task_idx.bump_allocate(idx); // todo, error report
     })
     .else_by(|| {
       // error report, theoretically unreachable
@@ -229,5 +229,8 @@ impl TaskGroupDeviceInvocationInstance {
 
   pub fn read_back_payload<T: ShaderSizedValueNodeType>(&self, task_id: Node<u32>) -> Node<T> {
     self.task_pool.rw_payload(task_id).load()
+  }
+  pub fn rw_payload_dyn(&self, task_id: Node<u32>) -> StorageNode<AnyType> {
+    self.task_pool.rw_payload_dyn(task_id)
   }
 }

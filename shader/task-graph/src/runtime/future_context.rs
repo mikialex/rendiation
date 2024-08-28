@@ -81,10 +81,21 @@ impl<'a> DeviceTaskSystemPollCtx<'a> {
     task_id: Node<u32>,
     argument_read_back: impl FnOnce(Node<T>) + Copy,
   ) -> Node<bool> {
+    self.poll_task_dyn(task_type, task_id, |x| unsafe {
+      argument_read_back(x.cast_type::<ShaderStoragePtr<T>>().load())
+    })
+  }
+
+  pub fn poll_task_dyn(
+    &mut self,
+    task_type: usize,
+    task_id: Node<u32>,
+    argument_read_back: impl FnOnce(StorageNode<AnyType>) + Copy,
+  ) -> Node<bool> {
     let task_group = self.get_or_create_task_group_instance(task_type);
     let finished = task_group.poll_task_is_finished(task_id);
     if_by(finished, || {
-      argument_read_back(task_group.read_back_payload(task_id));
+      argument_read_back(task_group.rw_payload_dyn(task_id));
       task_group.cleanup_finished_task_state_and_payload(task_id)
     });
     finished

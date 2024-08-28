@@ -10,8 +10,10 @@ pub struct TraceTaskImpl {
 }
 
 pub struct TraceTaskMetaInfo {
-  closest_tasks: Vec<u32>,
-  missing_tasks: Vec<u32>,
+  /// (task idx, payload ty desc)
+  closest_tasks: Vec<(u32, ShaderSizedValueType)>,
+  /// (task idx, payload ty desc)
+  missing_tasks: Vec<(u32, ShaderSizedValueType)>,
   intersection_shaders: Vec<Box<dyn Fn(&RayIntersectCtx, &dyn IntersectionReporter)>>,
   any_hit_shaders: Vec<Box<dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>>>,
   payload_max_u32_count: u32,
@@ -132,7 +134,6 @@ impl DeviceFutureInvocation for GPURayTraceTaskInvocationInstance {
             &RayClosestHitCtxPayload::sized_ty(),
             self.untyped_payloads,
             trace_payload.payload_ref,
-            todo!(),
           );
 
           let ty: StorageNode<u32> = unsafe { index_access_field(trace_payload_all.handle(), 0) };
@@ -153,7 +154,6 @@ impl DeviceFutureInvocation for GPURayTraceTaskInvocationInstance {
             &RayMissHitCtxPayload::sized_ty(),
             self.untyped_payloads,
             trace_payload.payload_ref,
-            todo!(),
           );
 
           let ty: StorageNode<u32> = unsafe { index_access_field(trace_payload_all.handle(), 0) };
@@ -171,9 +171,43 @@ impl DeviceFutureInvocation for GPURayTraceTaskInvocationInstance {
       .sub_task_id
       .equals(TASK_SPAWNED_FAILED);
 
-    let task_resolved: Node<bool> = todo!();
+    let trace_payload: StorageNode<ShaderRayTraceCallStoragePayload> =
+      unsafe { index_access_field(trace_payload_all.handle(), 2) };
 
-    (task_spawn_failed.or(task_resolved), ()).into()
+    let trace_payload_idx: StorageNode<u32> =
+      unsafe { index_access_field(trace_payload.handle(), 0) };
+
+    let (missing_task_resolved, payload_idx) = poll_dynamic(
+      &self.info.missing_tasks,
+      ctx,
+      tid,
+      id,
+      &self.payload_read_back_bumper,
+    );
+
+    if_by(missing_task_resolved, || {
+      trace_payload_idx.store(payload_idx);
+    });
+
+    let (closest_resolved, payload_idx) = poll_dynamic(
+      &self.info.closest_tasks,
+      ctx,
+      tid,
+      id,
+      &self.payload_read_back_bumper,
+    );
+
+    if_by(closest_resolved, || {
+      trace_payload_idx.store(payload_idx);
+    });
+
+    (
+      task_spawn_failed
+        .or(missing_task_resolved)
+        .or(closest_resolved),
+      (),
+    )
+      .into()
   }
 }
 
@@ -190,6 +224,7 @@ pub struct TraceTaskSelfPayload {
 #[std430_layout]
 #[derive(ShaderStruct, Clone, Copy)]
 pub struct ShaderRayTraceCallStoragePayload {
+  pub payload_ref: u32,
   pub tlas_idx: u32,
   pub ray_flags: u32,
   pub cull_mask: u32,
@@ -199,7 +234,6 @@ pub struct ShaderRayTraceCallStoragePayload {
   pub ray_origin: Vec3<f32>,
   pub ray_direction: Vec3<f32>,
   pub range: Vec2<f32>,
-  pub payload_ref: u32,
 }
 
 #[repr(C)]
@@ -218,30 +252,28 @@ pub struct RayMissHitCtxPayload {
 
 #[must_use]
 fn spawn_dynamic<'a>(
-  task_range: impl IntoIterator<Item = &'a u32>,
+  task_range: impl IntoIterator<Item = &'a (u32, ShaderSizedValueType)>,
   cx: &mut DeviceTaskSystemPollCtx,
   task_ty: Node<u32>,
   ray_payload: Node<AnyType>,
   ray_payload_desc: &ShaderSizedValueType,
   untyped_payload_arr: StorageNode<[u32]>,
   untyped_payload_idx: Node<u32>,
-  untyped_task_payload_ty_desc: &ShaderSizedValueType,
 ) -> Node<u32> {
   let mut switcher = switch_by(task_ty);
   // if allocation failed, then task is directly resolved.
   // todo, should consider report this situation.
   let allocated_id = val(TASK_SPAWNED_FAILED).make_local_var();
 
-  for &id in task_range {
-    switcher = switcher.case(id, || {
+  for (id, payload_ty_desc) in task_range {
+    switcher = switcher.case(*id, || {
       // copy untyped payload to typed specific tasks
-      let payload =
-        untyped_task_payload_ty_desc.load_from_u32_buffer(untyped_payload_arr, untyped_payload_idx);
+      let payload = payload_ty_desc.load_from_u32_buffer(untyped_payload_arr, untyped_payload_idx);
 
       let mut combined_struct_desc =
         ShaderStructMetaInfo::new(&format!("task{}_payload_with_ray", id));
       combined_struct_desc.push_field_dyn("ray", ray_payload_desc.clone());
-      combined_struct_desc.push_field_dyn("payload", untyped_task_payload_ty_desc.clone());
+      combined_struct_desc.push_field_dyn("payload", payload_ty_desc.clone());
       let desc = ShaderSizedValueType::Struct(combined_struct_desc);
 
       let combined = ShaderNodeExpr::Compose {
@@ -250,7 +282,7 @@ fn spawn_dynamic<'a>(
       }
       .insert_api();
 
-      let re = cx.spawn_task_dyn(id as usize, combined, &desc).unwrap();
+      let re = cx.spawn_task_dyn(*id as usize, combined, &desc).unwrap();
 
       allocated_id.store(re.task_handle);
     });
@@ -260,50 +292,39 @@ fn spawn_dynamic<'a>(
   allocated_id.load()
 }
 
-// #[must_use]
+#[must_use]
 fn poll_dynamic<'a>(
-  task_range: impl IntoIterator<Item = &'a u32>,
+  task_range: impl IntoIterator<Item = &'a (u32, ShaderSizedValueType)>,
   cx: &mut DeviceTaskSystemPollCtx,
   task_ty: Node<u32>,
   task_id: Node<u32>,
-  ray_payload: Node<AnyType>,
-  ray_payload_desc: &ShaderSizedValueType,
-  bumper_read_back: DeviceBumpAllocationInvocationInstance<u32>,
-  untyped_task_payload_ty_desc: &ShaderSizedValueType,
-) -> Node<u32> {
-  // let mut switcher = switch_by(task_ty);
-  // // if allocation failed, then task is directly resolved.
-  // // todo, should consider report this situation.
-  // let allocated_id = val(TASK_SPAWNED_FAILED).make_local_var();
+  bumper_read_back: &DeviceBumpAllocationInvocationInstance<u32>,
+) -> (Node<bool>, Node<u32>) {
+  let mut switcher = switch_by(task_ty);
 
-  // for &id in task_range {
-  //   switcher = switcher.case(id, || {
-  //     // copy untyped payload to typed specific tasks
-  //     let payload =
-  //       untyped_task_payload_ty_desc.load_from_u32_buffer(untyped_payload_arr, untyped_payload_idx);
+  let resolved = val(false).make_local_var();
+  let bump_read_position = val(u32::MAX).make_local_var();
 
-  //     let mut combined_struct_desc =
-  //       ShaderStructMetaInfo::new(&format!("task{}_payload_with_ray", id));
-  //     combined_struct_desc.push_field_dyn("ray", ray_payload_desc.clone());
-  //     combined_struct_desc.push_field_dyn("payload", untyped_task_payload_ty_desc.clone());
-  //     let desc = ShaderSizedValueType::Struct(combined_struct_desc);
+  for (id, payload_ty_desc) in task_range {
+    switcher = switcher.case(*id, || {
+      let if_resolved = cx.poll_task_dyn(*id as usize, task_id, |node| {
+        let (idx, _success) =
+          bumper_read_back // todo, handle bump failed
+            .bump_allocate_by(val(payload_ty_desc.u32_size_count()), |target, offset| {
+              let payload: StorageNode<AnyType> = unsafe { index_access_field(node.handle(), 1) };
 
-  //     let combined = ShaderNodeExpr::Compose {
-  //       target: desc.clone(),
-  //       parameters: vec![ray_payload.handle(), payload.handle()],
-  //     }
-  //     .insert_api();
+              payload_ty_desc.store_into_u32_buffer(payload.load(), target, offset)
+            });
+        bump_read_position.store(idx);
+      });
 
-  //     let re = cx.spawn_task_dyn(id as usize, combined, &desc).unwrap();
+      resolved.store(if_resolved);
+    });
+  }
 
-  //     allocated_id.store(re.task_handle);
-  //   });
-  // }
+  switcher.end_with_default(|| {});
 
-  // switcher.end_with_default(|| {});
-  // allocated_id.load()
-
-  todo!()
+  (resolved.load(), bump_read_position.load())
 }
 
 struct TracingTaskSpawnerImpl {

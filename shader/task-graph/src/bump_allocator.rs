@@ -167,6 +167,7 @@ impl<T: Std430 + ShaderNodeType> DeviceBumpAllocationInvocationInstance<T> {
   /// can not use with bump_allocate in the same dispatch
   ///
   /// return if success
+  #[must_use]
   pub fn bump_deallocate_counts(&self, count: Node<u32>) -> (Node<u32>, Node<bool>) {
     let bumped = self.bump_size.atomic_add(count);
     let current_size = self.current_size.load();
@@ -178,6 +179,7 @@ impl<T: Std430 + ShaderNodeType> DeviceBumpAllocationInvocationInstance<T> {
   /// can not use with bump_deallocate in the same dispatch
   ///
   /// return if success
+  #[must_use]
   pub fn bump_allocate_by(
     &self,
     count: Node<u32>,
@@ -193,6 +195,7 @@ impl<T: Std430 + ShaderNodeType> DeviceBumpAllocationInvocationInstance<T> {
   /// can not use with bump_deallocate in the same dispatch
   ///
   /// return if success
+  #[must_use]
   pub fn bump_allocate(&self, item: Node<T>) -> (Node<u32>, Node<bool>) {
     self.bump_allocate_by(val(1), |storage, write_idx| {
       storage.index(write_idx).store(item)
@@ -210,6 +213,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpDeAllocationInvocationInsta
   /// can not use with bump_allocate in the same dispatch
   ///
   /// return if success
+  #[must_use]
   pub fn bump_deallocate_counts(&self, count: Node<u32>) -> (Node<u32>, Node<bool>) {
     let bumped = self.bump_size.atomic_add(count);
     let current_size = self.current_size.load();
@@ -221,6 +225,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpDeAllocationInvocationInsta
   /// can not use with bump_allocate in the same dispatch
   ///
   /// return if success
+  #[must_use]
   pub fn bump_deallocate(&self) -> (Node<T>, Node<bool>) {
     let (read_idx, in_bound) = self.bump_deallocate_counts(val(1));
 
