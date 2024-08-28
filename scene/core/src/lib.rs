@@ -111,15 +111,15 @@ declare_foreign_key!(
   PbrMRMaterialEntity
 );
 declare_foreign_key!(
-  StandardModelRefAttributeMesh,
+  StandardModelRefAttributesMeshEntity,
   StandardModelEntity,
-  AttributeMeshEntity
+  AttributesMeshEntity
 );
 
 pub fn register_std_model_data_model() {
   global_database()
     .declare_entity::<StandardModelEntity>()
-    .declare_foreign_key::<StandardModelRefAttributeMesh>()
+    .declare_foreign_key::<StandardModelRefAttributesMeshEntity>()
     .declare_foreign_key::<StandardModelRefFlatMaterial>()
     .declare_foreign_key::<StandardModelRefPbrSGMaterial>()
     .declare_foreign_key::<StandardModelRefPbrMRMaterial>();
@@ -127,7 +127,7 @@ pub fn register_std_model_data_model() {
 
 pub struct StandardModelDataView {
   pub material: SceneMaterialDataView,
-  pub mesh: EntityHandle<AttributeMeshEntity>,
+  pub mesh: EntityHandle<AttributesMeshEntity>,
 }
 
 impl StandardModelDataView {
@@ -146,7 +146,7 @@ impl StandardModelDataView {
         writer.component_value_writer::<StandardModelRefPbrMRMaterial>(m.some_handle());
       }
     }
-    writer.component_value_writer::<StandardModelRefAttributeMesh>(self.mesh.some_handle());
+    writer.component_value_writer::<StandardModelRefAttributesMeshEntity>(self.mesh.some_handle());
 
     writer.new_entity()
   }

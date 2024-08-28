@@ -22,7 +22,7 @@ pub fn build_default_gles_render_system() -> GLESRenderSystem {
           Box::new(PbrMRMaterialDefaultRenderImplProvider::default()),
           Box::new(FlatMaterialDefaultRenderImplProvider::default()),
         ],
-        shapes: vec![Box::new(AttributeMeshDefaultRenderImplProvider::default())],
+        shapes: vec![Box::new(AttributesMeshEntityDefaultRenderImplProvider::default())],
       })],
     })],
   }

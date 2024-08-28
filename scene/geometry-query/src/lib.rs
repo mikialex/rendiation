@@ -38,17 +38,17 @@ impl SceneModelPicker for Vec<Box<dyn SceneModelPicker>> {
 pub struct SceneModelPickerImpl {
   pub scene_model_node: ForeignKeyReadView<SceneModelRefNode>,
   pub model_access_std_model: ForeignKeyReadView<SceneModelStdModelRenderPayload>,
-  pub std_model_access_mesh: ForeignKeyReadView<StandardModelRefAttributeMesh>,
+  pub std_model_access_mesh: ForeignKeyReadView<StandardModelRefAttributesMeshEntity>,
   pub mesh_vertex_refs: Box<
     dyn DynVirtualMultiCollection<
-      EntityHandle<AttributeMeshEntity>,
-      EntityHandle<AttributeMeshVertexBufferRelation>,
+      EntityHandle<AttributesMeshEntity>,
+      EntityHandle<AttributesMeshEntityVertexBufferRelation>,
     >,
   >,
   pub vertex_buffer_ref: ForeignKeyReadView<SceneBufferViewBufferId<AttributeVertexRef>>,
-  pub semantic: ComponentReadView<AttributeMeshVertexBufferSemantic>,
+  pub semantic: ComponentReadView<AttributesMeshEntityVertexBufferSemantic>,
   pub mesh_index_attribute: ForeignKeyReadView<SceneBufferViewBufferId<AttributeIndexRef>>,
-  pub mesh_topology: ComponentReadView<AttributeMeshTopology>,
+  pub mesh_topology: ComponentReadView<AttributesMeshEntityTopology>,
   pub buffer: ComponentReadView<BufferEntityData>,
 
   pub node_world: Box<dyn DynVirtualCollection<EntityHandle<SceneNodeEntity>, Mat4<f32>>>,
@@ -120,7 +120,7 @@ impl SceneModelPicker for SceneModelPickerImpl {
     let mat = self.node_world.access(&node)?;
     let local_ray = ctx.world_ray.apply_matrix_into(mat.inverse_or_identity());
 
-    AttributeMeshAbstractMeshReadView {
+    AttributesMeshEntityAbstractMeshReadView {
       mode,
       vertices: position,
       indices: index,

@@ -17,7 +17,7 @@ use rendiation_texture_core::*;
 pub fn load_gltf(
   path: impl AsRef<Path>,
   target: EntityHandle<SceneNodeEntity>,
-  writer: &mut Scene3dWriter,
+  writer: &mut SceneWriter,
 ) -> GltfResult<GltfLoadResult> {
   let (document, mut buffers, images) = gltf::import(path)?;
 
@@ -56,7 +56,7 @@ pub fn load_gltf(
 }
 
 struct Context<'a> {
-  io: &'a mut Scene3dWriter,
+  io: &'a mut SceneWriter,
   images: Vec<gltf::image::Data>,
   /// map (image id, srgbness) => created texture
   build_images: FastHashMap<(usize, bool), EntityHandle<SceneTexture2dEntity>>,
@@ -341,7 +341,7 @@ const F16_BYTES: [u8; 2] = half::f16::from_f32_const(1.0).to_le_bytes();
 const F32_BYTES: [u8; 4] = 1.0_f32.to_le_bytes();
 
 fn build_image(
-  io: &mut Scene3dWriter,
+  io: &mut SceneWriter,
   data_input: gltf::image::Data,
   require_srgb: bool,
 ) -> EntityHandle<SceneTexture2dEntity> {

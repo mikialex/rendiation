@@ -72,7 +72,7 @@ impl Widget for Viewer {
 
     cx.scoped_cx(&mut self.scene, |cx| {
       access_cx!(cx, viewer_scene, Viewer3dSceneCtx);
-      let mut writer = Scene3dWriter::from_global(viewer_scene.scene);
+      let mut writer = SceneWriter::from_global(viewer_scene.scene);
 
       if size_changed {
         writer
@@ -138,7 +138,7 @@ impl Viewer {
     };
 
     {
-      let mut writer = Scene3dWriter::from_global(scene.scene);
+      let mut writer = SceneWriter::from_global(scene.scene);
       load_default_scene(&mut writer, &scene);
     }
 
@@ -147,7 +147,8 @@ impl Viewer {
       node_net_visible: Box::new(scene_node_derive_visible()),
       camera_transforms: Box::new(camera_transforms()),
       mesh_vertex_ref: Box::new(
-        global_rev_ref().watch_inv_ref::<AttributeMeshVertexBufferRelationRefAttributeMesh>(),
+        global_rev_ref()
+          .watch_inv_ref::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>(),
       ),
     };
 
@@ -220,8 +221,8 @@ pub struct Viewer3dSceneDeriveSource {
     Box<dyn DynReactiveCollection<EntityHandle<SceneCameraEntity>, CameraTransform>>,
   pub mesh_vertex_ref: Box<
     dyn DynReactiveOneToManyRelation<
-      EntityHandle<AttributeMeshEntity>,
-      EntityHandle<AttributeMeshVertexBufferRelation>,
+      EntityHandle<AttributesMeshEntity>,
+      EntityHandle<AttributesMeshEntityVertexBufferRelation>,
     >,
   >,
 }
@@ -249,8 +250,8 @@ pub struct Viewer3dSceneDerive {
     Box<dyn DynVirtualCollection<EntityHandle<SceneCameraEntity>, CameraTransform>>,
   pub mesh_vertex_ref: Box<
     dyn DynVirtualMultiCollection<
-      EntityHandle<AttributeMeshEntity>,
-      EntityHandle<AttributeMeshVertexBufferRelation>,
+      EntityHandle<AttributesMeshEntity>,
+      EntityHandle<AttributesMeshEntityVertexBufferRelation>,
     >,
   >,
 }

@@ -33,7 +33,7 @@ impl Widget for SceneOrbitCameraControl {
   fn update_view(&mut self, cx: &mut DynCx) {
     access_cx!(cx, scene_cx, Viewer3dSceneCtx);
     let controllee = scene_cx.camera_node;
-    access_cx_mut!(cx, writer, Scene3dWriter);
+    access_cx_mut!(cx, writer, SceneWriter);
 
     self
       .controller
@@ -44,7 +44,7 @@ impl Widget for SceneOrbitCameraControl {
 
 struct ControlleeWrapper<'a> {
   controllee: EntityHandle<SceneNodeEntity>,
-  writer: &'a mut Scene3dWriter,
+  writer: &'a mut SceneWriter,
 }
 
 impl<'a> Transformed3DControllee for ControlleeWrapper<'a> {

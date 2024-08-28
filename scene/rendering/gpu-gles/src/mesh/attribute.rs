@@ -5,7 +5,7 @@ use crate::*;
 
 pub fn attribute_mesh_index_buffers(
   cx: &GPU,
-) -> impl ReactiveCollectionSelfContained<EntityHandle<AttributeMeshEntity>, GPUBufferResourceView>
+) -> impl ReactiveCollectionSelfContained<EntityHandle<AttributesMeshEntity>, GPUBufferResourceView>
 {
   let cx = cx.clone();
   let attribute_mesh_index_buffers = global_watch()
@@ -30,7 +30,7 @@ pub fn attribute_mesh_index_buffers(
 pub fn attribute_mesh_vertex_buffer_views(
   cx: &GPU,
 ) -> impl ReactiveCollectionSelfContained<
-  EntityHandle<AttributeMeshVertexBufferRelation>,
+  EntityHandle<AttributesMeshEntityVertexBufferRelation>,
   GPUBufferResourceView,
 > {
   let cx = cx.clone();
@@ -62,18 +62,18 @@ fn map_view(view: Option<rendiation_mesh_core::BufferViewRange>) -> GPUBufferVie
     .unwrap_or_default()
 }
 
-pub struct AttributeMeshVertexAccessView {
-  pub semantics: ComponentReadView<AttributeMeshVertexBufferSemantic>,
+pub struct AttributesMeshEntityVertexAccessView {
+  pub semantics: ComponentReadView<AttributesMeshEntityVertexBufferSemantic>,
   pub count: ComponentReadView<SceneBufferViewBufferItemCount<AttributeVertexRef>>,
   pub multi_access: Box<
     dyn DynVirtualMultiCollection<
-      EntityHandle<AttributeMeshEntity>,
-      EntityHandle<AttributeMeshVertexBufferRelation>,
+      EntityHandle<AttributesMeshEntity>,
+      EntityHandle<AttributesMeshEntityVertexBufferRelation>,
     >,
   >,
   pub vertex: Box<
     dyn VirtualCollectionSelfContained<
-      EntityHandle<AttributeMeshVertexBufferRelation>,
+      EntityHandle<AttributesMeshEntityVertexBufferRelation>,
       GPUBufferResourceView,
     >,
   >,
@@ -84,8 +84,8 @@ pub struct AttributesMeshGPU<'a> {
   // fmt, count
   pub index: Option<(AttributeIndexFormat, u32)>,
   pub index_buffer: &'a GPUBufferResourceView,
-  pub mesh_id: EntityHandle<AttributeMeshEntity>,
-  pub vertex: &'a AttributeMeshVertexAccessView,
+  pub mesh_id: EntityHandle<AttributesMeshEntity>,
+  pub vertex: &'a AttributesMeshEntityVertexAccessView,
 }
 
 impl<'a> ShaderPassBuilder for AttributesMeshGPU<'a> {
