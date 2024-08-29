@@ -1,3 +1,5 @@
+use parking_lot::RwLock;
+
 use crate::*;
 
 pub struct TraceTaskImpl {
@@ -334,12 +336,32 @@ fn poll_dynamic<'a>(
   (resolved.load(), bump_read_position.load())
 }
 
-struct TracingTaskSpawnerImpl {
-  payload_bumper: DeviceBumpAllocationInvocationInstance<u32>,
-  trace_task_spawner: TaskGroupDeviceInvocationInstance,
+pub(crate) struct TracingTaskSpawnerImplSource {
+  pub(crate) payload_bumper: Arc<RwLock<DeviceBumpAllocationInvocationInstance<u32>>>,
 }
 
-impl TracingTaskSpawner for TracingTaskSpawnerImpl {
+impl TracingTaskSpawner for TracingTaskSpawnerImplSource {
+  fn create_invocation(
+    &mut self,
+    cx: &mut DeviceTaskSystemPollCtx,
+  ) -> Box<dyn TracingTaskInvocationSpawner> {
+    Box::new(TracingTaskSpawnerInvocationImpl {
+      payload_bumper: todo!(),
+      trace_task_spawner: cx.get_or_create_task_group_instance(todo!()).clone(),
+    })
+  }
+
+  fn bind(&self, builder: &mut BindingBuilder) {
+    todo!()
+  }
+}
+
+pub(crate) struct TracingTaskSpawnerInvocationImpl {
+  pub(crate) payload_bumper: DeviceBumpAllocationInvocationInstance<u32>,
+  pub(crate) trace_task_spawner: TaskGroupDeviceInvocationInstance,
+}
+
+impl TracingTaskInvocationSpawner for TracingTaskSpawnerInvocationImpl {
   fn spawn_new_tracing_task(
     &mut self,
     should_trace: Node<bool>,

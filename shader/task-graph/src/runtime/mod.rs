@@ -109,6 +109,7 @@ impl DeviceTaskGraphExecutor {
       self_task: pool.clone(),
       compute_cx: &mut cx,
       registry: &mut self.registry,
+      invocation_registry: Default::default(),
     };
 
     let poll_result = state.device_poll(&mut ctx);

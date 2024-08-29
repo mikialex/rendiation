@@ -186,6 +186,7 @@ impl TaskGroupExecutorResource {
   }
 }
 
+#[derive(Clone)]
 pub struct TaskGroupDeviceInvocationInstance {
   new_removed_task_idx: DeviceBumpAllocationInvocationInstance<u32>,
   empty_index_pool: DeviceBumpDeAllocationInvocationInstance<u32>,

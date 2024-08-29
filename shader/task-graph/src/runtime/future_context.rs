@@ -14,6 +14,7 @@ pub struct DeviceTaskSystemPollCtx<'a> {
   // the rust hashmap is not ordered
   pub(super) tasks_depend_on_self_bind_order: Vec<usize>,
   pub registry: &'a mut AnyMap,
+  pub invocation_registry: AnyMap,
 }
 
 #[derive(Default)]
@@ -35,7 +36,7 @@ impl AnyMap {
 
 impl<'a> DeviceTaskSystemPollCtx<'a> {
   // todo, handle self task spawner
-  fn get_or_create_task_group_instance(
+  pub fn get_or_create_task_group_instance(
     &mut self,
     task_type: usize,
   ) -> &mut TaskGroupDeviceInvocationInstance {

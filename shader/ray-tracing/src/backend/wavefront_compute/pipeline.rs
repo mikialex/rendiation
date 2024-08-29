@@ -17,7 +17,9 @@ impl GPUWaveFrontComputeRaytracingBakedPipeline {
     let mut executor = DeviceTaskGraphExecutor::new(1, 1);
 
     // todo
-    // executor.registry.register();
+    executor.registry.register(TracingTaskSpawnerImplSource {
+      payload_bumper: todo!(),
+    });
 
     let mut payload_max_u32_count = 0;
 

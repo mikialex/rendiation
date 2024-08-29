@@ -70,7 +70,7 @@ where
       .upstream
       .build_device_future()
       .map(move |o, cx| {
-        let ctx = cx.registry.get_mut::<TracingCtx>().unwrap();
+        let ctx = cx.invocation_registry.get_mut::<TracingCtx>().unwrap();
         map(o, ctx)
       })
       .into_dyn()
@@ -100,6 +100,14 @@ pub struct TraceNextRay<F, T> {
 pub const TRACING_TASK_INDEX: usize = 0;
 
 pub trait TracingTaskSpawner {
+  fn create_invocation(
+    &mut self,
+    poll_ctx: &mut DeviceTaskSystemPollCtx,
+  ) -> Box<dyn TracingTaskInvocationSpawner>;
+  fn bind(&self, builder: &mut BindingBuilder);
+}
+
+pub trait TracingTaskInvocationSpawner {
   fn spawn_new_tracing_task(
     &mut self,
     should_trace: Node<bool>,
@@ -123,11 +131,11 @@ where
       .build_device_future()
       .then(
         move |o, cx| {
-          let ctx = cx.registry.get_mut::<TracingCtx>().unwrap();
+          let ctx = cx.invocation_registry.get_mut::<TracingCtx>().unwrap();
           let (should_trace, trace, payload) = next_trace_logic(&o, ctx);
 
-          cx.registry
-            .get_mut::<Box<dyn TracingTaskSpawner>>()
+          cx.invocation_registry
+            .get_mut::<Box<dyn TracingTaskInvocationSpawner>>()
             .unwrap()
             .spawn_new_tracing_task(should_trace, trace, payload.handle(), P::sized_ty())
         },

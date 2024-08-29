@@ -157,6 +157,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
   }
 }
 
+#[derive(Clone)]
 pub struct DeviceBumpAllocationInvocationInstance<T: Std430> {
   pub storage: StorageNode<[T]>,
   pub bump_size: StorageNode<DeviceAtomic<u32>>,
@@ -203,6 +204,7 @@ impl<T: Std430 + ShaderNodeType> DeviceBumpAllocationInvocationInstance<T> {
   }
 }
 
+#[derive(Clone)]
 pub struct DeviceBumpDeAllocationInvocationInstance<T: Std430> {
   pub storage: StorageNode<[T]>,
   pub bump_size: StorageNode<DeviceAtomic<u32>>,
