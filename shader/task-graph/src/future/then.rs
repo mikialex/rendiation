@@ -42,7 +42,7 @@ where
     }
   }
 
-  fn bind_input(&self, builder: &mut BindingBuilder) {
+  fn bind_input(&self, builder: &mut DeviceTaskSystemBindCtx) {
     self.upstream.bind_input(builder);
     self.then.bind_input(builder);
   }

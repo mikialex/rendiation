@@ -1,3 +1,5 @@
+#![feature(hash_set_entry)]
+
 use std::any::Any;
 use std::any::TypeId;
 use std::marker::PhantomData;

@@ -45,7 +45,7 @@ impl DeviceFuture for TraceTaskImpl {
     }
   }
 
-  fn bind_input(&self, builder: &mut BindingBuilder) {
+  fn bind_input(&self, builder: &mut DeviceTaskSystemBindCtx) {
     self.tlas_sys.bind_pass(builder);
     self.sbt_sys.bind(builder);
     builder.bind(&self.payload_bumper.storage);
@@ -383,7 +383,6 @@ impl TracingTaskSpawner for TracingTaskSpawnerImplSource {
   ) -> Box<dyn TracingTaskInvocationSpawner> {
     Box::new(TracingTaskSpawnerInvocationImpl {
       payload_bumper: todo!(),
-      trace_task_spawner: todo!(),
     })
   }
 
@@ -394,12 +393,12 @@ impl TracingTaskSpawner for TracingTaskSpawnerImplSource {
 
 pub(crate) struct TracingTaskSpawnerInvocationImpl {
   pub(crate) payload_bumper: DeviceBumpAllocationInvocationInstance<u32>,
-  pub(crate) trace_task_spawner: TaskGroupDeviceInvocationInstance,
 }
 
 impl TracingTaskInvocationSpawner for TracingTaskSpawnerInvocationImpl {
   fn spawn_new_tracing_task(
     &mut self,
+    task_group: &TaskGroupDeviceInvocationInstance,
     should_trace: Node<bool>,
     trace_call: ShaderRayTraceCall,
     payload: ShaderNodeRawHandle,
@@ -442,7 +441,7 @@ impl TracingTaskInvocationSpawner for TracingTaskSpawnerInvocationImpl {
       }
       .construct();
 
-      let task = self.trace_task_spawner.spawn_new_task(payload).unwrap();
+      let task = task_group.spawn_new_task(payload).unwrap();
 
       task_handle.store(task.task_handle);
     });

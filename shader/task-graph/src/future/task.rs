@@ -28,12 +28,14 @@ where
     }
   }
 
-  fn bind_input(&self, _: &mut BindingBuilder) {}
+  fn bind_input(&self, binder: &mut DeviceTaskSystemBindCtx) {
+    binder.bind_task_group_instance(self.0)
+  }
   fn reset(&mut self, _: &mut DeviceParallelComputeCtx, _: u32) {}
 }
 
 pub struct TaskFutureInvocation<T> {
-  spawner: TaskGroupDeviceInvocationInstance,
+  pub spawner: TaskGroupDeviceInvocationInstance,
   task_handle: BoxedShaderLoadStore<Node<u32>>,
   phantom: PhantomData<T>,
 }

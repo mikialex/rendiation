@@ -18,7 +18,7 @@ pub struct TaskGraphExecutionStates {
 }
 
 pub struct DeviceTaskGraphExecutor {
-  pub registry: AnyMap,
+  pub registry: AnyMap, // todo
   task_groups: Vec<TaskGroupExecutor>,
   max_recursion_depth: usize,
   current_prepared_execution_size: usize,
@@ -71,13 +71,12 @@ impl DeviceTaskGraphExecutor {
       state_builder: DynamicTypeBuilder::new_named(&format!("Task_states_{}", task_type)),
       all_task_group_sources: task_group_sources,
       tasks_depend_on_self: Default::default(),
-      tasks_depend_on_self_bind_order: Default::default(),
     };
 
     let state = task.build_poll(&mut build_ctx);
 
     let state_desc = build_ctx.state_builder.meta_info();
-    let tasks_depend_on_self = build_ctx.tasks_depend_on_self_bind_order;
+    let tasks_depend_on_self = build_ctx.tasks_depend_on_self.keys().cloned().collect();
 
     let mut task_type_desc = ShaderStructMetaInfo::new("TaskType");
     task_type_desc.push_field_dyn(
@@ -109,7 +108,6 @@ impl DeviceTaskGraphExecutor {
       self_task_idx: task_index,
       self_task: pool.clone(),
       compute_cx: &mut cx,
-      registry: &mut self.registry,
       invocation_registry: Default::default(),
     };
 

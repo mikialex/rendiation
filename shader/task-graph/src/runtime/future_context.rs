@@ -1,3 +1,5 @@
+use std::ops::DerefMut;
+
 use super::*;
 
 pub struct DeviceTaskSystemBuildCtx<'a> {
@@ -5,8 +7,6 @@ pub struct DeviceTaskSystemBuildCtx<'a> {
 
   pub(super) all_task_group_sources: Vec<&'a TaskGroupExecutorResource>,
   pub(super) tasks_depend_on_self: FastHashMap<usize, TaskGroupDeviceInvocationInstance>,
-  // the rust hashmap is not ordered
-  pub(super) tasks_depend_on_self_bind_order: Vec<usize>,
 
   pub state_builder: DynamicTypeBuilder,
 }
@@ -22,10 +22,41 @@ impl<'a> DeviceTaskSystemBuildCtx<'a> {
       .entry(task_type)
       .or_insert_with(|| {
         let source = &self.all_task_group_sources[task_type];
-        self.tasks_depend_on_self_bind_order.push(task_type);
         source.build_shader_for_spawner(self.compute_cx)
       })
       .clone()
+  }
+}
+
+pub struct DeviceTaskSystemBindCtx<'a> {
+  pub binder: &'a mut BindingBuilder,
+
+  pub(super) all_task_group_sources: Vec<&'a TaskGroupExecutorResource>,
+  pub bound_task_group_instance: FastHashSet<usize>,
+}
+
+impl<'a> DerefMut for DeviceTaskSystemBindCtx<'a> {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    self.binder
+  }
+}
+
+impl<'a> std::ops::Deref for DeviceTaskSystemBindCtx<'a> {
+  type Target = BindingBuilder;
+
+  fn deref(&self) -> &Self::Target {
+    self.binder
+  }
+}
+
+impl<'a> DeviceTaskSystemBindCtx<'a> {
+  pub fn bind_task_group_instance(&mut self, task_type: usize) {
+    self
+      .bound_task_group_instance
+      .get_or_insert_with(&task_type, |_| {
+        self.all_task_group_sources[task_type].bind_for_spawner(self.binder);
+        task_type
+      });
   }
 }
 
@@ -33,7 +64,6 @@ pub struct DeviceTaskSystemPollCtx<'a> {
   pub compute_cx: &'a mut ShaderComputePipelineBuilder,
   pub(super) self_task_idx: Node<u32>,
   pub(super) self_task: TaskPoolInvocationInstance,
-  pub registry: &'a mut AnyMap,
   pub invocation_registry: AnyMap,
 }
 

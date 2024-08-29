@@ -80,11 +80,15 @@ impl TaskGroupExecutor {
       // dispatch tasks
       let mut bb = BindingBuilder::new_as_compute().with_bind(&imp.alive_task_idx.storage);
 
-      for task in &self.tasks_depend_on_self {
-        let task = &all_tasks[*task];
-        task.resource.bind_for_spawner(&mut bb);
-      }
-      imp.task_pool.bind(&mut bb);
+      let all_task_group_sources: Vec<_> = all_tasks.iter().map(|t| &t.resource).collect();
+
+      let mut ctx = DeviceTaskSystemBindCtx {
+        binder: &mut bb,
+        all_task_group_sources,
+        bound_task_group_instance: Default::default(),
+      };
+
+      self.task.bind_input(&mut ctx);
 
       bb.setup_compute_pass(pass, device, &self.polling_pipeline);
       pass.dispatch_workgroups_indirect_by_buffer_resource_view(&size);

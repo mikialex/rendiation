@@ -110,6 +110,7 @@ pub trait TracingTaskSpawner {
 pub trait TracingTaskInvocationSpawner {
   fn spawn_new_tracing_task(
     &mut self,
+    task_group: &TaskGroupDeviceInvocationInstance,
     should_trace: Node<bool>,
     trace_call: ShaderRayTraceCall,
     payload: ShaderNodeRawHandle,
@@ -137,7 +138,13 @@ where
           cx.invocation_registry
             .get_mut::<Box<dyn TracingTaskInvocationSpawner>>()
             .unwrap()
-            .spawn_new_tracing_task(should_trace, trace, payload.handle(), P::sized_ty())
+            .spawn_new_tracing_task(
+              &then_invocation.spawner,
+              should_trace,
+              trace,
+              payload.handle(),
+              P::sized_ty(),
+            )
         },
         TaskFuture::<P>::new(TRACING_TASK_INDEX),
       )
