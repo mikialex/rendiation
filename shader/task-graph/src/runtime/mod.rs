@@ -69,11 +69,15 @@ impl DeviceTaskGraphExecutor {
     let mut build_ctx = DeviceTaskSystemBuildCtx {
       compute_cx: &mut cx,
       state_builder: DynamicTypeBuilder::new_named(&format!("Task_states_{}", task_type)),
+      all_task_group_sources: task_group_sources,
+      tasks_depend_on_self: Default::default(),
+      tasks_depend_on_self_bind_order: Default::default(),
     };
 
     let state = task.build_poll(&mut build_ctx);
 
     let state_desc = build_ctx.state_builder.meta_info();
+    let tasks_depend_on_self = build_ctx.tasks_depend_on_self_bind_order;
 
     let mut task_type_desc = ShaderStructMetaInfo::new("TaskType");
     task_type_desc.push_field_dyn(
@@ -101,10 +105,7 @@ impl DeviceTaskGraphExecutor {
     let item = pool.access_item_ptr(task_index);
     state_builder.resolve(item.cast_untyped_node());
 
-    let mut ctx = DeviceTaskSystemPollCtx {
-      all_task_group_sources: task_group_sources,
-      tasks_depend_on_self: Default::default(),
-      tasks_depend_on_self_bind_order: Default::default(),
+    let mut poll_ctx = DeviceTaskSystemPollCtx {
       self_task_idx: task_index,
       self_task: pool.clone(),
       compute_cx: &mut cx,
@@ -112,12 +113,11 @@ impl DeviceTaskGraphExecutor {
       invocation_registry: Default::default(),
     };
 
-    let poll_result = state.device_poll(&mut ctx);
+    let poll_result = state.device_poll(&mut poll_ctx);
     if_by(poll_result.is_ready, || {
       pool.rw_is_finished(task_index).store(0);
     });
 
-    let tasks_depend_on_self = ctx.tasks_depend_on_self_bind_order;
     let polling_pipeline = cx.create_compute_pipeline(device).unwrap();
 
     let task_executor = TaskGroupExecutor {

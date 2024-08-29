@@ -2,6 +2,7 @@ use std::any::Any;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
+use fast_hash_collection::*;
 use rendiation_algebra::*;
 use rendiation_device_parallel_compute::*;
 use rendiation_device_task_graph::*;

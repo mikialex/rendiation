@@ -100,6 +100,7 @@ pub trait DeviceFutureExt: Sized + DeviceFuture + 'static {
   where
     F: Fn(
         Self::Output,
+        &T::Invocation,
         &mut DeviceTaskSystemPollCtx,
       ) -> <T::Invocation as ShaderAbstractLeftValue>::RightValue
       + Copy

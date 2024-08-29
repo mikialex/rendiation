@@ -196,7 +196,10 @@ pub struct TaskGroupDeviceInvocationInstance {
 
 impl TaskGroupDeviceInvocationInstance {
   #[must_use]
-  pub fn spawn_new_task<T: ShaderSizedValueNodeType>(&self, payload: Node<T>) -> Option<Node<u32>> {
+  pub fn spawn_new_task<T: ShaderSizedValueNodeType>(
+    &self,
+    payload: Node<T>,
+  ) -> Option<TaskFutureInvocationRightValue> {
     self.spawn_new_task_dyn(payload.cast_untyped_node(), &T::sized_ty())
   }
 
@@ -205,7 +208,7 @@ impl TaskGroupDeviceInvocationInstance {
     &self,
     payload: Node<AnyType>,
     ty: &ShaderSizedValueType,
-  ) -> Option<Node<u32>> {
+  ) -> Option<TaskFutureInvocationRightValue> {
     let (idx, success) = self.empty_index_pool.bump_deallocate();
     if_by(success, || {
       self.task_pool.spawn_new_task_dyn(idx, payload, ty);
@@ -214,24 +217,49 @@ impl TaskGroupDeviceInvocationInstance {
     .else_by(|| {
       // error report, theoretically unreachable
     });
-    Some(idx)
+    Some(TaskFutureInvocationRightValue { task_handle: idx })
   }
 
-  pub fn cleanup_finished_task_state_and_payload(&self, task: Node<u32>) {
+  #[must_use]
+  pub fn poll_task<T: ShaderSizedValueNodeType>(
+    &self,
+    task_id: Node<u32>,
+    argument_read_back: impl FnOnce(Node<T>) + Copy,
+  ) -> Node<bool> {
+    self.poll_task_dyn(task_id, |x| unsafe {
+      argument_read_back(x.cast_type::<ShaderStoragePtr<T>>().load())
+    })
+  }
+
+  #[must_use]
+  pub fn poll_task_dyn(
+    &self,
+    task_id: Node<u32>,
+    argument_read_back: impl FnOnce(StorageNode<AnyType>) + Copy,
+  ) -> Node<bool> {
+    let finished = self.poll_task_is_finished(task_id);
+    if_by(finished, || {
+      argument_read_back(self.rw_payload_dyn(task_id));
+      self.cleanup_finished_task_state_and_payload(task_id)
+    });
+    finished
+  }
+
+  fn cleanup_finished_task_state_and_payload(&self, task: Node<u32>) {
     let (_, success) = self.new_removed_task_idx.bump_allocate(task);
     if_by(success.not(), || {
       // error report, theoretically unreachable
     });
   }
 
-  pub fn poll_task_is_finished(&self, task_id: Node<u32>) -> Node<bool> {
+  fn poll_task_is_finished(&self, task_id: Node<u32>) -> Node<bool> {
     self.task_pool.poll_task_is_finished(task_id)
   }
 
   pub fn read_back_payload<T: ShaderSizedValueNodeType>(&self, task_id: Node<u32>) -> Node<T> {
     self.task_pool.rw_payload(task_id).load()
   }
-  pub fn rw_payload_dyn(&self, task_id: Node<u32>) -> StorageNode<AnyType> {
+  fn rw_payload_dyn(&self, task_id: Node<u32>) -> StorageNode<AnyType> {
     self.task_pool.rw_payload_dyn(task_id)
   }
 }

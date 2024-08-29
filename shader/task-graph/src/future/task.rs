@@ -20,10 +20,10 @@ where
 
   fn build_poll(&self, ctx: &mut DeviceTaskSystemBuildCtx) -> Self::Invocation {
     TaskFutureInvocation {
-      task_ty: self.0,
       task_handle: ctx
         .state_builder
         .create_or_reconstruct_inline_state_with_default(u32::MAX),
+      spawner: ctx.get_or_create_task_group_instance(self.0),
       phantom: PhantomData,
     }
   }
@@ -33,7 +33,7 @@ where
 }
 
 pub struct TaskFutureInvocation<T> {
-  task_ty: usize,
+  spawner: TaskGroupDeviceInvocationInstance,
   task_handle: BoxedShaderLoadStore<Node<u32>>,
   phantom: PhantomData<T>,
 }
@@ -44,13 +44,15 @@ where
 {
   type Output = Node<T>;
 
-  fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> DevicePoll<Self::Output> {
+  fn device_poll(&self, _ctx: &mut DeviceTaskSystemPollCtx) -> DevicePoll<Self::Output> {
     let output = LocalLeftValueBuilder.create_left_value(zeroed_val());
 
-    ctx.poll_task::<T>(self.task_ty, self.task_handle.abstract_load(), |r| {
-      output.abstract_store(r);
-      self.task_handle.abstract_store(val(u32::MAX));
-    });
+    let _ = self
+      .spawner
+      .poll_task::<T>(self.task_handle.abstract_load(), |r| {
+        output.abstract_store(r);
+        self.task_handle.abstract_store(val(u32::MAX));
+      });
 
     (
       self.task_handle.abstract_load().equals(u32::MAX),

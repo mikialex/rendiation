@@ -130,7 +130,7 @@ where
       .upstream
       .build_device_future()
       .then(
-        move |o, cx| {
+        move |o, then_invocation, cx| {
           let ctx = cx.invocation_registry.get_mut::<TracingCtx>().unwrap();
           let (should_trace, trace, payload) = next_trace_logic(&o, ctx);
 

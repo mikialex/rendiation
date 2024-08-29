@@ -41,6 +41,7 @@ impl DeviceFuture for TraceTaskImpl {
         .payload_read_back_bumper
         .build_allocator_shader(ctx.compute_cx),
       current_sbt: ctx.compute_cx.bind_by(&self.current_sbt),
+      downstream: todo!(),
     }
   }
 
@@ -67,6 +68,7 @@ pub struct GPURayTraceTaskInvocationInstance {
   info: Arc<TraceTaskMetaInfo>,
   untyped_payloads: StorageNode<[u32]>,
   payload_read_back_bumper: DeviceBumpAllocationInvocationInstance<u32>,
+  downstream: AllDownStreamTasks,
 }
 
 const TASK_NOT_SPAWNED: u32 = u32::MAX;
@@ -135,7 +137,7 @@ impl DeviceFutureInvocation for GPURayTraceTaskInvocationInstance {
           let closest_task_index = closest_shader_index; // todo, make sure the shader index is task_index
           let sub_task_id = spawn_dynamic(
             &self.info.closest_tasks,
-            ctx,
+            &self.downstream,
             closest_task_index,
             closest_payload.cast_untyped_node(),
             &RayClosestHitCtxPayload::sized_ty(),
@@ -157,7 +159,7 @@ impl DeviceFutureInvocation for GPURayTraceTaskInvocationInstance {
           let miss_task_index = miss_sbt_index; // todo, make sure the shader index is task_index
           let sub_task_id = spawn_dynamic(
             &self.info.missing_tasks,
-            ctx,
+            &self.downstream,
             miss_task_index,
             missing_payload.cast_untyped_node(),
             &RayMissHitCtxPayload::sized_ty(),
@@ -188,7 +190,7 @@ impl DeviceFutureInvocation for GPURayTraceTaskInvocationInstance {
 
     let (missing_task_resolved, payload_idx) = poll_dynamic(
       &self.info.missing_tasks,
-      ctx,
+      &self.downstream,
       tid,
       id,
       &self.payload_read_back_bumper,
@@ -200,7 +202,7 @@ impl DeviceFutureInvocation for GPURayTraceTaskInvocationInstance {
 
     let (closest_resolved, payload_idx) = poll_dynamic(
       &self.info.closest_tasks,
-      ctx,
+      &self.downstream,
       tid,
       id,
       &self.payload_read_back_bumper,
@@ -262,7 +264,7 @@ pub struct RayMissHitCtxPayload {
 #[must_use]
 fn spawn_dynamic<'a>(
   task_range: impl IntoIterator<Item = &'a (u32, ShaderSizedValueType)>,
-  cx: &mut DeviceTaskSystemPollCtx,
+  cx: &AllDownStreamTasks,
   task_ty: Node<u32>,
   ray_payload: Node<AnyType>,
   ray_payload_desc: &ShaderSizedValueType,
@@ -291,9 +293,9 @@ fn spawn_dynamic<'a>(
       }
       .insert_api();
 
-      let re = cx.spawn_task_dyn(*id as usize, combined, &desc).unwrap();
+      let re = cx.spawn_task_dyn(*id as usize, combined, &desc);
 
-      allocated_id.store(re.task_handle);
+      allocated_id.store(re);
     });
   }
 
@@ -301,10 +303,44 @@ fn spawn_dynamic<'a>(
   allocated_id.load()
 }
 
+struct AllDownStreamTasks {
+  tasks: FastHashMap<usize, TaskGroupDeviceInvocationInstance>,
+}
+
+impl AllDownStreamTasks {
+  pub fn poll_task_dyn(
+    &self,
+    task_tid: usize,
+    task_id_node: Node<u32>,
+    argument_read_back: impl FnOnce(StorageNode<AnyType>) + Copy,
+  ) -> Node<bool> {
+    self
+      .tasks
+      .get(&task_tid)
+      .unwrap()
+      .poll_task_dyn(task_id_node, argument_read_back)
+  }
+
+  pub fn spawn_task_dyn(
+    &self,
+    task_tid: usize,
+    payload: Node<AnyType>,
+    ty: &ShaderSizedValueType,
+  ) -> Node<u32> {
+    self
+      .tasks
+      .get(&task_tid)
+      .unwrap()
+      .spawn_new_task_dyn(payload, ty)
+      .unwrap()
+      .task_handle
+  }
+}
+
 #[must_use]
 fn poll_dynamic<'a>(
   task_range: impl IntoIterator<Item = &'a (u32, ShaderSizedValueType)>,
-  cx: &mut DeviceTaskSystemPollCtx,
+  cx: &AllDownStreamTasks,
   task_ty: Node<u32>,
   task_id: Node<u32>,
   bumper_read_back: &DeviceBumpAllocationInvocationInstance<u32>,
@@ -347,7 +383,7 @@ impl TracingTaskSpawner for TracingTaskSpawnerImplSource {
   ) -> Box<dyn TracingTaskInvocationSpawner> {
     Box::new(TracingTaskSpawnerInvocationImpl {
       payload_bumper: todo!(),
-      trace_task_spawner: cx.get_or_create_task_group_instance(todo!()).clone(),
+      trace_task_spawner: todo!(),
     })
   }
 
@@ -408,7 +444,7 @@ impl TracingTaskInvocationSpawner for TracingTaskSpawnerInvocationImpl {
 
       let task = self.trace_task_spawner.spawn_new_task(payload).unwrap();
 
-      task_handle.store(task);
+      task_handle.store(task.task_handle);
     });
 
     TaskFutureInvocationRightValue {

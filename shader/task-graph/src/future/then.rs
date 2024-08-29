@@ -12,6 +12,7 @@ where
   U::Output: ShaderAbstractRightValue,
   F: Fn(
       U::Output,
+      &T::Invocation,
       &mut DeviceTaskSystemPollCtx,
     ) -> <T::Invocation as ShaderAbstractLeftValue>::RightValue
     + Copy
@@ -70,7 +71,7 @@ where
   T: DeviceFutureInvocation,
   T::Output: Default + ShaderAbstractRightValue,
   T: ShaderAbstractLeftValue,
-  F: Fn(U::Output, &mut DeviceTaskSystemPollCtx) -> T::RightValue,
+  F: Fn(U::Output, &T, &mut DeviceTaskSystemPollCtx) -> T::RightValue,
 {
   type Output = (U::Output, T::Output);
   fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> DevicePoll<Self::Output> {
@@ -86,7 +87,7 @@ where
       let r = upstream.device_poll(ctx);
       if_by(r.is_ready, || {
         upstream_resolved.abstract_store(val(true));
-        let next = create_then_invocation_instance(r.payload, ctx);
+        let next = create_then_invocation_instance(r.payload, &self.then, ctx);
         then.abstract_store(next);
       });
     });
