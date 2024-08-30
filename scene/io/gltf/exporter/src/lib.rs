@@ -25,13 +25,27 @@ pub enum GltfExportErr {
 }
 
 pub fn build_scene_to_gltf(
+  reader: SceneReader,
   root: EntityHandle<SceneNodeEntity>,
   folder_path: &Path,
   file_name: &str,
 ) -> Result<(), GltfExportErr> {
   fs::create_dir_all(folder_path).map_err(GltfExportErr::IO)?;
 
-  let ctx = Ctx::default();
+  let ctx = Ctx {
+    nodes: Default::default(),
+    models: Default::default(),
+    cameras: Default::default(),
+    materials: Default::default(),
+    images: Default::default(),
+    samplers: Default::default(),
+    textures: Default::default(),
+    binary_data: Default::default(),
+    buffers: Default::default(),
+    buffer_views: Default::default(),
+    accessors: Default::default(),
+    reader,
+  };
 
   let mut scene_node_ids = Vec::default();
   let mut scene_index_map = FastHashMap::default();
@@ -145,7 +159,6 @@ pub fn build_scene_to_gltf(
     .map_err(|e| GltfExportErr::Serialize(Box::new(e)))
 }
 
-#[derive(Default)]
 struct Ctx {
   nodes: Resource<EntityHandle<SceneNodeEntity>, gltf_json::Node>,
   models: Resource<EntityHandle<SceneModelEntity>, gltf_json::Mesh>,

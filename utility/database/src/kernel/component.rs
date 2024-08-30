@@ -1,9 +1,12 @@
 use crate::*;
 
 pub struct ComponentCollectionUntyped {
+  /// the name of this component, only for display purpose
   pub name: String,
+  /// mark if this component is a foreign key
   pub as_foreign_key: Option<EntityId>,
-  pub inner: Box<dyn DynamicComponent>, // should be some type of ComponentCollection<T>
+  /// the inner component implementation,  should be some type of ComponentCollection<T>
+  pub inner: Box<dyn UntypedComponentCollectionLike>,
   pub data_typeid: TypeId,
   pub entity_type_id: EntityId,
   pub component_type_id: ComponentId,
@@ -71,6 +74,15 @@ impl<C: ComponentSemantic> Default for ComponentCollection<C> {
 
 pub struct ComponentReadView<T: ComponentSemantic> {
   data: Box<dyn ComponentStorageReadView<T::Data>>,
+}
+
+impl<T: ComponentSemantic> EntityComponentReader for ComponentReadView<T> {
+  unsafe fn read_component(&self, idx: RawEntityHandle, target: *mut ()) {
+    let target = &mut *(target as *mut Option<T::Data>);
+    if let Some(data) = self.data.get(idx).cloned() {
+      *target = Some(data);
+    }
+  }
 }
 
 impl<T: ComponentSemantic> ComponentReadView<T> {
@@ -222,21 +234,34 @@ impl<T: ForeignKeySemantic> ForeignKeyReadView<T> {
   }
 }
 
-pub trait DynamicComponent: Any + Send + Sync {
+pub trait UntypedComponentCollectionLike: Any + Send + Sync {
+  /// return the debug display for the stored value.
   fn debug_value(&self, idx: usize) -> Option<String>;
+
   fn create_dyn_writer_default(&self) -> Box<dyn EntityComponentWriter>;
+  fn create_dyn_reader(&self) -> Box<dyn EntityComponentReader>;
+
   // todo, this breaks previous get_data returned storage
   fn setup_new_storage(&mut self, storage: Box<dyn Any>);
   fn get_data(&self) -> Box<dyn Any>;
-  fn create_read_holder(&self) -> Box<dyn Any>;
-  fn create_write_holder(&self) -> Box<dyn Any>;
+  /// could be downcast to EventSource<ScopedValueChange<T>>
   fn get_event_source(&self) -> Box<dyn Any>;
+  /// could be downcast to ComponentCollection<T>
   fn as_any(&self) -> &dyn Any;
 }
 
-impl<T: ComponentSemantic> DynamicComponent for ComponentCollection<T> {
+impl<T: ComponentSemantic> UntypedComponentCollectionLike for ComponentCollection<T> {
+  fn debug_value(&self, idx: usize) -> Option<String> {
+    self
+      .read()
+      .get_without_generation_check(idx as u32)
+      .map(|v| format!("{:?}", v))
+  }
   fn create_dyn_writer_default(&self) -> Box<dyn EntityComponentWriter> {
     Box::new(self.write().with_writer(T::default_override))
+  }
+  fn create_dyn_reader(&self) -> Box<dyn EntityComponentReader> {
+    Box::new(self.read())
   }
   fn setup_new_storage(&mut self, storage: Box<dyn Any>) {
     self.data = *storage
@@ -246,21 +271,8 @@ impl<T: ComponentSemantic> DynamicComponent for ComponentCollection<T> {
   fn get_data(&self) -> Box<dyn Any> {
     Box::new(self.data.clone())
   }
-  fn create_read_holder(&self) -> Box<dyn Any> {
-    Box::new(self.read())
-  }
-  fn create_write_holder(&self) -> Box<dyn Any> {
-    Box::new(self.write())
-  }
   fn get_event_source(&self) -> Box<dyn Any> {
     Box::new(self.group_watchers.clone())
-  }
-
-  fn debug_value(&self, idx: usize) -> Option<String> {
-    self
-      .read()
-      .get_without_generation_check(idx as u32)
-      .map(|v| format!("{:?}", v))
   }
   fn as_any(&self) -> &dyn Any {
     self

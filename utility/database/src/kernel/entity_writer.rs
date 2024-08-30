@@ -248,11 +248,11 @@ impl EntityWriterUntyped {
   }
 }
 
-pub trait EntityComponentWriter {
-  #[allow(clippy::missing_safety_doc)]
+pub trait EntityComponentWriter: EntityComponentReader {
+  /// # Safety
+  /// src's type is T, the implementation should cast the target and
+  /// write the value.
   unsafe fn write_component(&mut self, idx: RawEntityHandle, src: *const ());
-  #[allow(clippy::missing_safety_doc)]
-  unsafe fn read_component(&self, idx: RawEntityHandle, target: *mut ());
   fn write_init_component_value(&mut self, idx: RawEntityHandle);
   fn clone_component_value(&mut self, src: RawEntityHandle, dst: RawEntityHandle);
   fn delete_component(&mut self, idx: RawEntityHandle);
@@ -264,21 +264,29 @@ pub struct EntityComponentWriterImpl<T: ComponentSemantic, F> {
   pub(crate) default_value: F,
 }
 
-impl<T: ComponentSemantic, F: FnMut() -> T::Data> EntityComponentWriter
-  for EntityComponentWriterImpl<T, F>
+impl<T, F> EntityComponentReader for EntityComponentWriterImpl<T, F>
+where
+  T: ComponentSemantic,
 {
-  unsafe fn write_component(&mut self, idx: RawEntityHandle, src: *const ()) {
-    let src = &*(src as *const T::Data);
-    let src = std::ptr::read(src);
-    let idx = EntityHandle::from_raw(idx);
-    self.component.as_mut().unwrap().write(idx, src);
-  }
   unsafe fn read_component(&self, idx: RawEntityHandle, target: *mut ()) {
     let target = &mut *(target as *mut Option<T::Data>);
     let idx = EntityHandle::from_raw(idx);
     if let Some(data) = self.component.as_ref().unwrap().read(idx) {
       *target = Some(data);
     }
+  }
+}
+
+impl<T, F> EntityComponentWriter for EntityComponentWriterImpl<T, F>
+where
+  T: ComponentSemantic,
+  F: FnMut() -> T::Data,
+{
+  unsafe fn write_component(&mut self, idx: RawEntityHandle, src: *const ()) {
+    let src = &*(src as *const T::Data);
+    let src = std::ptr::read(src);
+    let idx = EntityHandle::from_raw(idx);
+    self.component.as_mut().unwrap().write(idx, src);
   }
 
   fn write_init_component_value(&mut self, idx: RawEntityHandle) {

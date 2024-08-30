@@ -4,22 +4,38 @@ use virtual_collection::VirtualMultiCollection;
 use crate::*;
 
 pub struct SceneReader {
-  mesh: AttributesMeshReader,
-}
+  pub scene_id: EntityHandle<SceneEntity>,
+  pub scene_ref_models: Box<
+    dyn virtual_collection::DynVirtualMultiCollection<
+      EntityHandle<SceneEntity>,
+      EntityHandle<SceneModelEntity>,
+    >,
+  >,
+  pub mesh: AttributesMeshReader,
 
-impl Default for SceneReader {
-  fn default() -> Self {
-    Self { mesh: todo!() }
-  }
+  pub node_reader: EntityReader<SceneNodeEntity>,
 }
 
 impl SceneReader {
-  pub fn models(&self) -> impl Iterator<Item = EntityHandle<SceneModelEntity>> {
-    [].into_iter()
+  pub fn models(&self) -> impl Iterator<Item = EntityHandle<SceneModelEntity>> + '_ {
+    self.scene_ref_models.access_multi(&self.scene_id).unwrap()
   }
 
   pub fn read_node(&self, id: EntityHandle<SceneNodeEntity>) -> SceneNodeDataView {
-    todo!()
+    SceneNodeDataView {
+      visible: self
+        .node_reader
+        .read_component_data::<SceneNodeVisibleComponent>(id)
+        .unwrap(),
+      local_matrix: self
+        .node_reader
+        .read_component_data::<SceneNodeLocalMatrixComponent>(id)
+        .unwrap(),
+      parent: self
+        .node_reader
+        .read_component_data::<SceneNodeParentIdx>(id)
+        .unwrap(),
+    }
   }
 
   pub fn read_scene_model(&self, id: EntityHandle<SceneModelEntity>) -> SceneModelDataView {
@@ -60,13 +76,13 @@ impl SceneReader {
 pub struct AttributesMeshReader {
   topology: ComponentReadView<AttributesMeshEntityTopology>,
   buffer: ComponentReadView<BufferEntityData>,
+  semantic: ComponentReadView<AttributesMeshEntityVertexBufferSemantic>,
   mesh_ref_vertex: Box<
     dyn virtual_collection::DynVirtualMultiCollection<
       EntityHandle<AttributesMeshEntity>,
       EntityHandle<AttributesMeshEntityVertexBufferRelation>,
     >,
   >,
-  semantic: ComponentReadView<AttributesMeshEntityVertexBufferSemantic>,
 
   index: SceneBufferViewReadView<AttributeIndexRef>,
   vertex: SceneBufferViewReadView<AttributeVertexRef>,

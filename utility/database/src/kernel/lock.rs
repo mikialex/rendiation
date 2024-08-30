@@ -1,29 +1,21 @@
 use crate::*;
 
 pub struct EntityComponentGroupExclusiveLock {
-  _locks: Vec<Box<dyn Any>>,
+  _locks: EntityWriterUntyped,
 }
 pub struct EntityComponentGroupShareLock {
-  _locks: Vec<Box<dyn Any>>,
+  _locks: EntityReaderUntyped,
 }
 
 impl EntityComponentGroup {
   pub fn lock_exclusive(&self) -> EntityComponentGroupExclusiveLock {
-    let components = self.inner.components.read_recursive();
     EntityComponentGroupExclusiveLock {
-      _locks: components
-        .values()
-        .map(|c| c.inner.create_write_holder())
-        .collect(),
+      _locks: self.entity_writer_dyn(),
     }
   }
   pub fn lock_shared(&self) -> EntityComponentGroupShareLock {
-    let components = self.inner.components.read_recursive();
     EntityComponentGroupShareLock {
-      _locks: components
-        .values()
-        .map(|c| c.inner.create_read_holder())
-        .collect(),
+      _locks: self.entity_reader_dyn(),
     }
   }
 }
