@@ -113,18 +113,14 @@ impl<E: EntitySemantic> EntityWriter<E> {
   where
     C: ComponentSemantic<Entity = E>,
   {
-    if let Some(mut data) = self.read_component_data::<C>(idx) {
+    if let Some(mut data) = self.try_read::<C>(idx) {
       writer(&mut data);
-      self.write_component_data::<C>(idx, data);
+      self.write::<C>(idx, data);
     }
     self
   }
 
-  pub fn write_component_data<C>(
-    &mut self,
-    idx: EntityHandle<C::Entity>,
-    data: C::Data,
-  ) -> &mut Self
+  pub fn write<C>(&mut self, idx: EntityHandle<C::Entity>, data: C::Data) -> &mut Self
   where
     C: ComponentSemantic<Entity = E>,
   {
@@ -142,7 +138,7 @@ impl<E: EntitySemantic> EntityWriter<E> {
     self
   }
 
-  pub fn read_component_data<C>(&self, idx: EntityHandle<C::Entity>) -> Option<C::Data>
+  pub fn try_read<C>(&self, idx: EntityHandle<C::Entity>) -> Option<C::Data>
   where
     C: ComponentSemantic<Entity = E>,
   {

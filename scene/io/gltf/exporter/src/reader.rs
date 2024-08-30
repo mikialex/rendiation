@@ -14,6 +14,11 @@ pub struct SceneReader {
   pub mesh: AttributesMeshReader,
 
   pub node_reader: EntityReader<SceneNodeEntity>,
+  pub scene_model: EntityReader<SceneModelEntity>,
+  pub std_model: EntityReader<StandardModelEntity>,
+  pub sampler: EntityReader<SceneSamplerEntity>,
+
+  pub pbr_mr: EntityReader<PbrMRMaterialEntity>,
 }
 
 impl SceneReader {
@@ -22,28 +27,32 @@ impl SceneReader {
   }
 
   pub fn read_node(&self, id: EntityHandle<SceneNodeEntity>) -> SceneNodeDataView {
+    let node = &self.node_reader;
     SceneNodeDataView {
-      visible: self
-        .node_reader
-        .read_component_data::<SceneNodeVisibleComponent>(id)
-        .unwrap(),
-      local_matrix: self
-        .node_reader
-        .read_component_data::<SceneNodeLocalMatrixComponent>(id)
-        .unwrap(),
-      parent: self
-        .node_reader
-        .read_component_data::<SceneNodeParentIdx>(id)
-        .unwrap(),
+      visible: node.read::<SceneNodeVisibleComponent>(id),
+      local_matrix: node.read::<SceneNodeLocalMatrixComponent>(id),
+      parent: node.read::<SceneNodeParentIdx>(id),
     }
   }
 
   pub fn read_scene_model(&self, id: EntityHandle<SceneModelEntity>) -> SceneModelDataView {
-    todo!()
+    let sm = &self.scene_model;
+    SceneModelDataView {
+      model: sm.read_expected_foreign_key::<SceneModelStdModelRenderPayload>(id),
+      scene: sm.read_expected_foreign_key::<SceneModelBelongsToScene>(id),
+      node: sm.read_expected_foreign_key::<SceneModelRefNode>(id),
+    }
   }
 
   pub fn read_std_model(&self, id: EntityHandle<StandardModelEntity>) -> StandardModelDataView {
-    todo!()
+    let m = &self.std_model;
+
+    let pbr_mr = m.read_expected_foreign_key::<StandardModelRefPbrMRMaterial>(id);
+
+    StandardModelDataView {
+      material: SceneMaterialDataView::PbrMRMaterial(pbr_mr),
+      mesh: m.read_expected_foreign_key::<StandardModelRefAttributesMeshEntity>(id),
+    }
   }
 
   pub fn read_attribute_mesh(&self, id: EntityHandle<AttributesMeshEntity>) -> AttributesMesh {
@@ -51,7 +60,7 @@ impl SceneReader {
   }
 
   pub fn read_sampler(&self, id: EntityHandle<SceneSamplerEntity>) -> TextureSampler {
-    todo!()
+    self.sampler.read::<SceneSamplerInfo>(id)
   }
   pub fn read_texture(&self, id: EntityHandle<SceneTexture2dEntity>) -> GPUBufferImage {
     todo!()
@@ -61,7 +70,21 @@ impl SceneReader {
     &self,
     id: EntityHandle<PbrMRMaterialEntity>,
   ) -> PhysicalMetallicRoughnessMaterialDataView {
-    todo!()
+    let m = &self.pbr_mr;
+    PhysicalMetallicRoughnessMaterialDataView {
+      base_color: m.read::<PbrMRMaterialBaseColorComponent>(id),
+      roughness: m.read::<PbrMRMaterialRoughnessComponent>(id),
+      metallic: m.read::<PbrMRMaterialMetallicComponent>(id),
+      reflectance: todo!(),
+      emissive: m.read::<PbrMRMaterialEmissiveComponent>(id),
+      alpha: m.read::<PbrMRMaterialAlphaComponent>(id),
+      alpha_cutoff: todo!(),
+      alpha_mode: m.read::<PbrMRMaterialAlphaModeComponent>(id),
+      base_color_texture: todo!(),
+      metallic_roughness_texture: todo!(),
+      emissive_texture: todo!(),
+      normal_texture: todo!(),
+    }
   }
 
   pub fn traverse_children_tree(

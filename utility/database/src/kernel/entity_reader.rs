@@ -7,7 +7,14 @@ pub struct EntityReader<E: EntitySemantic> {
 }
 
 impl<E: EntitySemantic> EntityReader<E> {
-  pub fn read_component_data<C>(&self, idx: EntityHandle<C::Entity>) -> Option<C::Data>
+  pub fn read<C>(&self, idx: EntityHandle<C::Entity>) -> C::Data
+  where
+    C: ComponentSemantic<Entity = E>,
+  {
+    self.try_read::<C>(idx).unwrap()
+  }
+
+  pub fn try_read<C>(&self, idx: EntityHandle<C::Entity>) -> Option<C::Data>
   where
     C: ComponentSemantic<Entity = E>,
   {
@@ -21,6 +28,44 @@ impl<E: EntitySemantic> EntityReader<E> {
       }
     }
     target
+  }
+
+  pub fn try_read_foreign_key<C>(
+    &self,
+    idx: EntityHandle<C::Entity>,
+  ) -> Option<Option<EntityHandle<C::ForeignEntity>>>
+  where
+    C: ForeignKeySemantic<Entity = E>,
+  {
+    let mut target: Option<ForeignKeyComponentData> = None;
+    for (id, view) in &self.inner.components {
+      if *id == C::component_id() {
+        unsafe {
+          let target = &mut target as *mut Option<ForeignKeyComponentData> as *mut ();
+          view.read_component(idx.handle, target);
+        }
+      }
+    }
+    target.map(|v| v.map(|v| unsafe { EntityHandle::from_raw(v) }))
+  }
+
+  pub fn read_foreign_key<C>(
+    &self,
+    idx: EntityHandle<C::Entity>,
+  ) -> Option<EntityHandle<C::ForeignEntity>>
+  where
+    C: ForeignKeySemantic<Entity = E>,
+  {
+    self.try_read_foreign_key::<C>(idx).unwrap()
+  }
+  pub fn read_expected_foreign_key<C>(
+    &self,
+    idx: EntityHandle<C::Entity>,
+  ) -> EntityHandle<C::ForeignEntity>
+  where
+    C: ForeignKeySemantic<Entity = E>,
+  {
+    self.try_read_foreign_key::<C>(idx).unwrap().unwrap()
   }
 }
 
