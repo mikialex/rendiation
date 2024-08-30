@@ -6,6 +6,8 @@ mod trace_task;
 pub use trace_task::*;
 mod pipeline;
 pub use pipeline::*;
+mod ctx;
+pub use ctx::*;
 
 use crate::*;
 

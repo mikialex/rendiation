@@ -7,6 +7,11 @@ pub trait GPURaytracingSystem {
     -> Box<dyn GPUAccelerationStructureSystemProvider>;
 }
 
+pub trait TraceFutureBaseProvider {
+  fn missing_shader_base<P: ShaderSizedValueNodeType>() -> impl TraceOperator<()>;
+  fn closest_shader_base<P: ShaderSizedValueNodeType>() -> impl TraceOperator<()>;
+}
+
 pub trait RayTracingPassEncoderProvider {
   fn set_pipeline(&self, pipeline: &dyn GPURaytracingPipelineProvider);
   fn set_bindgroup(&self, index: u32, bindgroup: &rendiation_webgpu::BindGroup);

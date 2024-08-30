@@ -89,4 +89,9 @@ impl<'a> DeviceTaskSystemPollCtx<'a> {
     let current = self.self_task_idx;
     self.self_task.rw_payload(current)
   }
+
+  pub fn access_self_payload_untyped(&mut self) -> StorageNode<AnyType> {
+    let current = self.self_task_idx;
+    self.self_task.rw_payload_dyn(current)
+  }
 }
