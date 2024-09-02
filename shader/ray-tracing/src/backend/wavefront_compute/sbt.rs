@@ -4,7 +4,8 @@ pub struct ShaderBindingTableInfo {
   pub ray_generation: ShaderHandle,
   pub ray_miss: Vec<ShaderHandle>,        // ray_type_count size
   pub ray_hit: Vec<HitGroupShaderRecord>, // mesh_count size
-  pub sys: ShaderBindingTableDeviceInfo,
+  pub(crate) sys: ShaderBindingTableDeviceInfo,
+  pub(crate) self_idx: u32,
 }
 
 impl ShaderBindingTableProvider for ShaderBindingTableInfo {
@@ -23,7 +24,7 @@ impl ShaderBindingTableProvider for ShaderBindingTableInfo {
   fn config_missing(&mut self, ray_ty_idx: u32, s: ShaderHandle) {
     todo!()
   }
-  fn access_impl(&mut self) -> &mut dyn Any {
+  fn access_impl(&self) -> &dyn Any {
     self
   }
 }

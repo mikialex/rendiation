@@ -1,11 +1,16 @@
 use crate::*;
 
+#[derive(Clone)]
 pub struct GPUWaveFrontComputeRaytracingBakedPipeline {
+  pub(crate) inner: Arc<RwLock<GPUWaveFrontComputeRaytracingBakedPipelineInner>>,
+}
+
+pub struct GPUWaveFrontComputeRaytracingBakedPipelineInner {
   pub(crate) graph: DeviceTaskGraphExecutor,
   pub(crate) target_sbt_buffer: StorageBufferReadOnlyDataView<u32>,
 }
 
-impl GPUWaveFrontComputeRaytracingBakedPipeline {
+impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
   pub fn compile(
     tlas_sys: Box<dyn GPUAccelerationStructureSystemCompImplInstance>,
     sbt_sys: ShaderBindingTableDeviceInfo,
@@ -104,15 +109,15 @@ impl GPUWaveFrontComputeRaytracingBakedPipeline {
       );
     }
 
-    GPUWaveFrontComputeRaytracingBakedPipeline {
+    GPUWaveFrontComputeRaytracingBakedPipelineInner {
       graph: executor,
       target_sbt_buffer,
     }
   }
 }
 
-impl GPURaytracingPipelineProvider for GPUWaveFrontComputeRaytracingBakedPipeline {
-  fn access_impl(&mut self) -> &mut dyn Any {
+impl GPURaytracingPipelineProvider for GPUWaveFrontComputeRaytracingBakedPipelineInner {
+  fn access_impl(&self) -> &dyn Any {
     self
   }
 }

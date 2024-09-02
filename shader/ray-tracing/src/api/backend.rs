@@ -13,13 +13,12 @@ pub trait TraceFutureBaseProvider {
 }
 
 pub trait RayTracingPassEncoderProvider {
-  fn set_pipeline(&self, pipeline: &dyn GPURaytracingPipelineProvider);
-  fn set_bindgroup(&self, index: u32, bindgroup: &rendiation_webgpu::BindGroup);
-  fn trace_ray(&self, size: (u32, u32, u32), sbt: &dyn ShaderBindingTableProvider);
+  fn set_pipeline(&mut self, pipeline: &dyn GPURaytracingPipelineProvider);
+  fn trace_ray(&mut self, size: (u32, u32, u32), sbt: &dyn ShaderBindingTableProvider);
 }
 
 pub trait GPURaytracingPipelineProvider {
-  fn access_impl(&mut self) -> &mut dyn Any;
+  fn access_impl(&self) -> &dyn Any;
 }
 
 pub trait GPURayTracingDeviceProvider {
@@ -41,7 +40,7 @@ pub trait ShaderBindingTableProvider {
   fn config_ray_generation(&mut self, s: ShaderHandle);
   fn config_hit_group(&mut self, mesh_idx: u32, hit_group: HitGroupShaderRecord);
   fn config_missing(&mut self, ray_ty_idx: u32, s: ShaderHandle);
-  fn access_impl(&mut self) -> &mut dyn Any;
+  fn access_impl(&self) -> &dyn Any;
 }
 
 pub enum BottomLevelAccelerationStructureBuildSource {

@@ -44,7 +44,7 @@ impl GPURayTracingDeviceProvider for GPUWaveFrontComputeRaytracingDevice {
   ) -> Box<dyn GPURaytracingPipelineProvider> {
     let mut encoder = self.gpu.create_encoder();
     let mut pass = encoder.begin_compute_pass();
-    let r = Box::new(GPUWaveFrontComputeRaytracingBakedPipeline::compile(
+    let r = Box::new(GPUWaveFrontComputeRaytracingBakedPipelineInner::compile(
       todo!(),
       self.sbt_sys.clone(),
       desc,
@@ -64,32 +64,49 @@ impl GPURayTracingDeviceProvider for GPUWaveFrontComputeRaytracingDevice {
       ray_miss: todo!(),
       ray_hit: todo!(),
       sys: self.sbt_sys.clone(),
+      self_idx: todo!(),
     })
   }
 }
 
 pub struct GPUWaveFrontComputeRaytracingEncoder {
   gpu: GPU,
-  encoder: GPUCommandEncoder,
   current_pipeline: Option<GPUWaveFrontComputeRaytracingBakedPipeline>,
 }
 
 impl RayTracingPassEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
-  fn set_pipeline(&self, pipeline: &dyn GPURaytracingPipelineProvider) {
-    todo!()
+  fn set_pipeline(&mut self, pipeline: &dyn GPURaytracingPipelineProvider) {
+    self.current_pipeline = pipeline
+      .access_impl()
+      .downcast_ref::<GPUWaveFrontComputeRaytracingBakedPipeline>()
+      .unwrap()
+      .clone()
+      .into();
   }
 
-  fn set_bindgroup(&self, index: u32, bindgroup: &rendiation_webgpu::BindGroup) {
+  fn trace_ray(&mut self, size: (u32, u32, u32), sbt: &dyn ShaderBindingTableProvider) {
     let current_pipeline = self.current_pipeline.as_ref().expect("no pipeline bound");
-    // copy buffer to buffer
-    todo!()
-  }
+    let mut current_pipeline = current_pipeline.inner.write();
 
-  fn trace_ray(&self, size: (u32, u32, u32), sbt: &dyn ShaderBindingTableProvider) {
-    let current_pipeline = self.current_pipeline.as_ref().expect("no pipeline bound");
+    let sbt = sbt
+      .access_impl()
+      .downcast_ref::<ShaderBindingTableInfo>()
+      .unwrap();
 
     let mut cx = DeviceParallelComputeCtx::new(&self.gpu);
-    // current_pipeline.graph.execute(&mut cx, todo!());
-    todo!()
+
+    // setup sbt:
+    current_pipeline.target_sbt_buffer.write_at(
+      0,
+      Std430::as_bytes(&sbt.self_idx),
+      &self.gpu.queue,
+    );
+
+    current_pipeline.graph.set_execution_size(
+      &self.gpu,
+      &mut cx,
+      (size.0 * size.1 * size.2) as usize,
+    );
+    current_pipeline.graph.execute(&mut cx, todo!());
   }
 }
