@@ -53,7 +53,7 @@ pub enum BottomLevelAccelerationStructureBuildSource {
   },
 }
 
-pub trait GPUAccelerationStructureSystemProvider {
+pub trait GPUAccelerationStructureSystemProvider: DynClone {
   fn create_top_level_acceleration_structure(
     &self,
     source: &[TopLevelAccelerationStructureSourceInstance],
@@ -71,6 +71,12 @@ pub trait GPUAccelerationStructureSystemProvider {
 
   fn delete_bottom_level_acceleration_structure(&self, id: BottomLevelAccelerationStructureHandle);
 }
+impl Clone for Box<dyn GPUAccelerationStructureSystemProvider> {
+  fn clone(&self) -> Self {
+    dyn_clone::clone_box(&**self)
+  }
+}
+
 pub struct BottomLevelAccelerationStructureHandle(pub u32);
 
 #[derive(Clone, Copy, PartialEq, Debug)]

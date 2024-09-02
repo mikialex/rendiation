@@ -22,6 +22,7 @@ struct DeviceBVHNode {
   pub aabb_max: Vec3<f32>,
 }
 
+#[derive(Clone)]
 struct NaiveSahBVHSystem {
   tlas_meta_info: StorageBufferReadOnlyDataView<[u32]>,
   tlas_bvh_forest: StorageBufferReadOnlyDataView<[DeviceBVHNode]>,

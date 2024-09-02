@@ -11,22 +11,32 @@ pub use ctx::*;
 
 use crate::*;
 
-pub struct GPUWaveFrontComputeRaytracingSystem;
+pub struct GPUWaveFrontComputeRaytracingSystem {
+  gpu: GPU,
+  tlas_sys: Box<dyn GPUAccelerationStructureSystemProvider>,
+}
 
 impl GPURaytracingSystem for GPUWaveFrontComputeRaytracingSystem {
   fn create_raytracing_device(&self) -> Box<dyn GPURayTracingDeviceProvider> {
-    todo!()
+    Box::new(GPUWaveFrontComputeRaytracingDevice {
+      gpu: self.gpu.clone(),
+      default_init_size: todo!(),
+      sbt_sys: todo!(),
+      tlas_sys: self.tlas_sys.clone(),
+    })
   }
 
   fn create_raytracing_encoder(&self) -> Box<dyn RayTracingPassEncoderProvider> {
-    todo!()
+    Box::new(GPUWaveFrontComputeRaytracingEncoder {
+      gpu: self.gpu.clone(),
+      current_pipeline: None,
+    })
   }
 
   fn create_acceleration_structure_system(
     &self,
   ) -> Box<dyn GPUAccelerationStructureSystemProvider> {
-    // NaiveSahBVHSystem
-    todo!()
+    self.tlas_sys.clone()
   }
 }
 
@@ -34,7 +44,7 @@ pub struct GPUWaveFrontComputeRaytracingDevice {
   gpu: GPU,
   default_init_size: usize,
   sbt_sys: ShaderBindingTableDeviceInfo,
-  tlas_sys: Box<dyn GPUAccelerationStructureSystemCompImplInstance>,
+  tlas_sys: Box<dyn GPUAccelerationStructureSystemProvider>,
 }
 
 impl GPURayTracingDeviceProvider for GPUWaveFrontComputeRaytracingDevice {
