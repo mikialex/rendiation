@@ -160,7 +160,7 @@ impl UIWidgetModel {
   pub fn set_color(&mut self, cx3d: &mut SceneWriter, color: Vec3<f32>) -> &mut Self {
     cx3d
       .flat_mat_writer
-      .write_component_data::<FlatMaterialDisplayColorComponent>(
+      .write::<FlatMaterialDisplayColorComponent>(
         self.material,
         color.expand_with_one(),
       );
@@ -169,14 +169,14 @@ impl UIWidgetModel {
   pub fn set_visible(&mut self, cx3d: &mut SceneWriter, v: bool) -> &mut Self {
     cx3d
       .node_writer
-      .write_component_data::<SceneNodeVisibleComponent>(self.node, v);
+      .write::<SceneNodeVisibleComponent>(self.node, v);
     self
   }
 
   pub fn set_matrix(&mut self, cx3d: &mut SceneWriter, mat: Mat4<f32>) -> &mut Self {
     cx3d
       .node_writer
-      .write_component_data::<SceneNodeLocalMatrixComponent>(self.node, mat);
+      .write::<SceneNodeLocalMatrixComponent>(self.node, mat);
     self
   }
   /// find a macro to do this!
@@ -197,7 +197,7 @@ impl UIWidgetModel {
   ) -> Self {
     cx3d
       .node_writer
-      .write_component_data::<SceneNodeParentIdx>(self.node, Some(parent.into_raw()));
+      .write::<SceneNodeParentIdx>(self.node, Some(parent.into_raw()));
     self
   }
 }

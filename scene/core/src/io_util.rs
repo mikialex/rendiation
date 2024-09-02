@@ -19,7 +19,7 @@ impl SceneWriter {
   pub fn set_solid_background(&mut self, solid: Vec3<f32>) {
     self
       .scene_writer
-      .write_component_data::<SceneSolidBackground>(self.scene, Some(solid));
+      .write::<SceneSolidBackground>(self.scene, Some(solid));
   }
 
   pub fn create_root_child(&mut self) -> EntityHandle<SceneNodeEntity> {
@@ -32,7 +32,7 @@ impl SceneWriter {
     let child = self.create_root_child();
     self
       .node_writer
-      .write_component_data::<SceneNodeParentIdx>(child, Some(parent.into_raw()));
+      .write::<SceneNodeParentIdx>(child, Some(parent.into_raw()));
     child
   }
 
@@ -56,13 +56,13 @@ impl SceneWriter {
   pub fn set_local_matrix(&mut self, node: EntityHandle<SceneNodeEntity>, mat: Mat4<f32>) {
     self
       .node_writer
-      .write_component_data::<SceneNodeLocalMatrixComponent>(node, mat);
+      .write::<SceneNodeLocalMatrixComponent>(node, mat);
   }
 
   pub fn get_local_mat(&self, node: EntityHandle<SceneNodeEntity>) -> Option<Mat4<f32>> {
     self
       .node_writer
-      .read_component_data::<SceneNodeLocalMatrixComponent>(node)
+      .try_read::<SceneNodeLocalMatrixComponent>(node)
   }
 
   pub fn from_global(scene: EntityHandle<SceneEntity>) -> Self {

@@ -22,7 +22,9 @@ pub fn build_default_gles_render_system() -> GLESRenderSystem {
           Box::new(PbrMRMaterialDefaultRenderImplProvider::default()),
           Box::new(FlatMaterialDefaultRenderImplProvider::default()),
         ],
-        shapes: vec![Box::new(AttributesMeshEntityDefaultRenderImplProvider::default())],
+        shapes: vec![Box::new(
+          AttributesMeshEntityDefaultRenderImplProvider::default(),
+        )],
       })],
     })],
   }
@@ -93,8 +95,7 @@ struct GLESSceneRenderer {
   camera: Box<dyn GLESCameraRenderImpl>,
   scene_model_renderer: Vec<Box<dyn SceneModelRenderer>>,
   background: ComponentReadView<SceneSolidBackground>,
-  model_lookup:
-    Box<dyn DynVirtualMultiCollection<EntityHandle<SceneEntity>, EntityHandle<SceneModelEntity>>>,
+  model_lookup: RevRefOfForeignKey<SceneModelBelongsToScene>,
 }
 
 impl SceneModelRenderer for GLESSceneRenderer {

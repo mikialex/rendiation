@@ -311,14 +311,14 @@ fn build_pbr_material(
   });
 
   let alpha_mode = map_alpha(material.alpha_mode());
-  let alpha_cut = material.alpha_cutoff().unwrap_or(1.);
+  // let alpha_cut = material.alpha_cutoff().unwrap_or(1.);
 
   let color_and_alpha = Vec4::from(pbr.base_color_factor());
 
   let result = PhysicalMetallicRoughnessMaterialDataView {
     base_color: color_and_alpha.rgb(),
     alpha: color_and_alpha.a(),
-    alpha_cutoff: alpha_cut,
+    // alpha_cutoff: alpha_cut,
     alpha_mode,
     roughness: pbr.roughness_factor(),
     metallic: pbr.metallic_factor(),
@@ -327,7 +327,7 @@ fn build_pbr_material(
     metallic_roughness_texture,
     emissive_texture,
     normal_texture,
-    reflectance: 0.5, // todo from gltf ior extension
+    // reflectance: 0.5, // todo from gltf ior extension
   };
 
   if material.double_sided() {

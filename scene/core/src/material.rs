@@ -243,10 +243,10 @@ mod mr_material {
     pub base_color: Vec3<f32>,
     pub roughness: f32,
     pub metallic: f32,
-    pub reflectance: f32,
+    // pub reflectance: f32,
     pub emissive: Vec3<f32>,
     pub alpha: f32,
-    pub alpha_cutoff: f32,
+    // pub alpha_cutoff: f32,
     pub alpha_mode: AlphaMode,
     pub base_color_texture: Option<Texture2DWithSamplingDataView>,
     pub metallic_roughness_texture: Option<Texture2DWithSamplingDataView>,
@@ -261,13 +261,13 @@ mod mr_material {
         roughness: 0.5,
         metallic: 0.0,
         alpha: 1.0,
-        alpha_cutoff: 1.0,
+        // alpha_cutoff: 1.0,
         alpha_mode: Default::default(),
         emissive: Vec3::zero(),
         base_color_texture: None,
         metallic_roughness_texture: None,
         emissive_texture: None,
-        reflectance: 0.5,
+        // reflectance: 0.5,
         normal_texture: None,
       }
     }
@@ -355,4 +355,19 @@ pub fn register_normal<T: NormalInfoSemantic>(
 pub struct NormalMappingDataView {
   pub content: Texture2DWithSamplingDataView,
   pub scale: f32,
+}
+
+impl NormalMappingDataView {
+  pub fn read<T, E>(reader: &EntityReader<E>, id: EntityHandle<E>) -> Option<Self>
+  where
+    T: NormalInfoSemantic<Entity = E>,
+    E: EntitySemantic,
+  {
+    Texture2DWithSamplingDataView::read::<NormalTexSamplerOf<T>, _>(reader, id).map(|t| {
+      NormalMappingDataView {
+        content: t,
+        scale: reader.read::<NormalScaleOf<T>>(id),
+      }
+    })
+  }
 }
