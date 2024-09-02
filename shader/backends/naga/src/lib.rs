@@ -101,8 +101,11 @@ impl ShaderAPINagaImpl {
     handle
   }
 
-  fn make_const_lit(&mut self, lit: naga::Literal) -> naga::Handle<naga::Expression> {
-    self.make_expression_inner_raw(naga::Expression::Literal(lit))
+  fn make_global_expression_inner_raw(
+    &mut self,
+    expr: naga::Expression,
+  ) -> naga::Handle<naga::Expression> {
+    self.module.global_expressions.append(expr, Span::UNDEFINED)
   }
 
   fn make_expression_inner(&mut self, expr: naga::Expression) -> ShaderNodeRawHandle {
@@ -779,9 +782,13 @@ impl ShaderAPI for ShaderAPINagaImpl {
               )),
               None,
             );
-            let a = self.make_const_lit(naga::Literal::I32(offset.x));
-            let b = self.make_const_lit(naga::Literal::I32(offset.y));
-            self.make_expression_inner_raw(naga::Expression::Compose {
+            let a = self.make_global_expression_inner_raw(naga::Expression::Literal(
+              naga::Literal::I32(offset.x),
+            ));
+            let b = self.make_global_expression_inner_raw(naga::Expression::Literal(
+              naga::Literal::I32(offset.y),
+            ));
+            self.make_global_expression_inner_raw(naga::Expression::Compose {
               ty,
               components: vec![a, b],
             })
