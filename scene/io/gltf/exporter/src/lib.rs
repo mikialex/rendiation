@@ -50,19 +50,21 @@ pub fn build_scene_to_gltf(
   let mut scene_node_ids = Vec::default();
   let mut scene_index_map = FastHashMap::default();
 
-  ctx.reader.traverse_children_tree(root, |node, parent| {
-    let idx = ctx.build_node(node);
-    scene_node_ids.push(idx);
-    scene_index_map.insert(node, idx);
-    if let Some(parent) = parent {
-      let node_idx = scene_index_map.get(&node).unwrap();
-      let parent_idx = scene_index_map.get(&parent).unwrap();
-      ctx.nodes.collected.borrow_mut()[parent_idx.value()]
-        .children
-        .get_or_insert_default()
-        .push(*node_idx);
-    }
-  });
+  ctx
+    .reader
+    .traverse_children_tree(root, &mut |node, parent| {
+      let idx = ctx.build_node(node);
+      scene_node_ids.push(idx);
+      scene_index_map.insert(node, idx);
+      if let Some(parent) = parent {
+        let node_idx = scene_index_map.get(&node).unwrap();
+        let parent_idx = scene_index_map.get(&parent).unwrap();
+        ctx.nodes.collected.borrow_mut()[parent_idx.value()]
+          .children
+          .get_or_insert_default()
+          .push(*node_idx);
+      }
+    });
 
   for model in ctx.reader.models() {
     let model_info = ctx.reader.read_scene_model(model);
@@ -401,7 +403,8 @@ impl Ctx {
         self.materials.get_or_insert_with(*material, || {
           let material = self.reader.read_pbr_mr_material(*material);
           gltf_json::Material {
-            alpha_cutoff: gltf_json::material::AlphaCutoff(material.alpha_cutoff).into(),
+            alpha_cutoff: None,
+            // alpha_cutoff: gltf_json::material::AlphaCutoff(material.alpha_cutoff).into(),
             alpha_mode: gltf_json::validation::Checked::Valid(map_alpha_mode(material.alpha_mode)),
             double_sided: false,
             pbr_metallic_roughness: gltf_json::material::PbrMetallicRoughness {

@@ -102,6 +102,22 @@ pub struct Texture2DWithSamplingDataView {
 }
 
 impl Texture2DWithSamplingDataView {
+  pub fn read<T, E>(reader: &EntityReader<E>, id: EntityHandle<E>) -> Option<Self>
+  where
+    T: TextureWithSamplingForeignKeys<Entity = E>,
+    E: EntitySemantic,
+  {
+    reader
+      .read_foreign_key::<SceneTexture2dRefOf<T>>(id)
+      .zip(reader.read_foreign_key::<SceneSamplerRefOf<T>>(id))
+      .map(|(t, s)| Texture2DWithSamplingDataView {
+        texture: t,
+        sampler: s,
+      })
+  }
+}
+
+impl Texture2DWithSamplingDataView {
   pub fn write<C, E>(self, writer: &mut EntityWriter<E>)
   where
     E: EntitySemantic,

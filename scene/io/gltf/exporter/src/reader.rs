@@ -1,5 +1,5 @@
 use rendiation_texture_core::GPUBufferImage;
-use virtual_collection::VirtualMultiCollection;
+use virtual_collection::{DynVirtualMultiCollection, VirtualMultiCollection};
 
 use crate::*;
 
@@ -10,9 +10,11 @@ pub struct SceneReader {
   pub mesh: AttributesMeshReader,
 
   pub node_reader: EntityReader<SceneNodeEntity>,
+  pub node_children: Box<dyn DynVirtualMultiCollection<RawEntityHandle, RawEntityHandle>>,
   pub scene_model: EntityReader<SceneModelEntity>,
   pub std_model: EntityReader<StandardModelEntity>,
   pub sampler: EntityReader<SceneSamplerEntity>,
+  pub texture: EntityReader<SceneTexture2dEntity>,
 
   pub pbr_mr: EntityReader<PbrMRMaterialEntity>,
 }
@@ -59,7 +61,13 @@ impl SceneReader {
     self.sampler.read::<SceneSamplerInfo>(id)
   }
   pub fn read_texture(&self, id: EntityHandle<SceneTexture2dEntity>) -> GPUBufferImage {
-    todo!()
+    self
+      .texture
+      .read::<SceneTexture2dEntityDirectContent>(id)
+      .unwrap()
+      .ptr
+      .as_ref()
+      .clone()
   }
 
   pub fn read_pbr_mr_material(
@@ -71,24 +79,42 @@ impl SceneReader {
       base_color: m.read::<PbrMRMaterialBaseColorComponent>(id),
       roughness: m.read::<PbrMRMaterialRoughnessComponent>(id),
       metallic: m.read::<PbrMRMaterialMetallicComponent>(id),
-      reflectance: todo!(),
       emissive: m.read::<PbrMRMaterialEmissiveComponent>(id),
       alpha: m.read::<PbrMRMaterialAlphaComponent>(id),
-      alpha_cutoff: todo!(),
       alpha_mode: m.read::<PbrMRMaterialAlphaModeComponent>(id),
-      base_color_texture: todo!(),
-      metallic_roughness_texture: todo!(),
-      emissive_texture: todo!(),
-      normal_texture: todo!(),
+      base_color_texture: Texture2DWithSamplingDataView::read::<PbrMRMaterialBaseColorTex, _>(
+        m, id,
+      ),
+      metallic_roughness_texture: Texture2DWithSamplingDataView::read::<
+        PbrMRMaterialMetallicRoughnessTex,
+        _,
+      >(m, id),
+      emissive_texture: Texture2DWithSamplingDataView::read::<PbrMRMaterialEmissiveTex, _>(m, id),
+      normal_texture: NormalMappingDataView::read::<PbrMRMaterialNormalInfo, _>(m, id),
     }
   }
 
   pub fn traverse_children_tree(
     &self,
     root: EntityHandle<SceneNodeEntity>,
-    f: impl FnMut(EntityHandle<SceneNodeEntity>, Option<EntityHandle<SceneNodeEntity>>),
+    f: &mut impl FnMut(EntityHandle<SceneNodeEntity>, Option<EntityHandle<SceneNodeEntity>>),
   ) {
-    todo!()
+    f(root, None);
+    self.traverse_children_tree_impl(root, f)
+  }
+
+  fn traverse_children_tree_impl(
+    &self,
+    root: EntityHandle<SceneNodeEntity>,
+    f: &mut impl FnMut(EntityHandle<SceneNodeEntity>, Option<EntityHandle<SceneNodeEntity>>),
+  ) {
+    if let Some(children) = self.node_children.access_multi(&root.into_raw()) {
+      for child in children {
+        let child = unsafe { EntityHandle::from_raw(child) };
+        f(child, Some(root));
+        self.traverse_children_tree_impl(child, f);
+      }
+    }
   }
 }
 
@@ -96,12 +122,8 @@ pub struct AttributesMeshReader {
   topology: ComponentReadView<AttributesMeshEntityTopology>,
   buffer: ComponentReadView<BufferEntityData>,
   semantic: ComponentReadView<AttributesMeshEntityVertexBufferSemantic>,
-  mesh_ref_vertex: Box<
-    dyn virtual_collection::DynVirtualMultiCollection<
-      EntityHandle<AttributesMeshEntity>,
-      EntityHandle<AttributesMeshEntityVertexBufferRelation>,
-    >,
-  >,
+  mesh_ref_vertex:
+    RevRefOfForeignKey<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>,
 
   index: SceneBufferViewReadView<AttributeIndexRef>,
   vertex: SceneBufferViewReadView<AttributeVertexRef>,
