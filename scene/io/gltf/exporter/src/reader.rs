@@ -5,12 +5,8 @@ use crate::*;
 
 pub struct SceneReader {
   pub scene_id: EntityHandle<SceneEntity>,
-  pub scene_ref_models: Box<
-    dyn virtual_collection::DynVirtualMultiCollection<
-      EntityHandle<SceneEntity>,
-      EntityHandle<SceneModelEntity>,
-    >,
-  >,
+  pub scene_ref_models: RevRefOfForeignKey<SceneModelBelongsToScene>,
+
   pub mesh: AttributesMeshReader,
 
   pub node_reader: EntityReader<SceneNodeEntity>,

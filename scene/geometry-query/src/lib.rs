@@ -39,12 +39,8 @@ pub struct SceneModelPickerImpl {
   pub scene_model_node: ForeignKeyReadView<SceneModelRefNode>,
   pub model_access_std_model: ForeignKeyReadView<SceneModelStdModelRenderPayload>,
   pub std_model_access_mesh: ForeignKeyReadView<StandardModelRefAttributesMeshEntity>,
-  pub mesh_vertex_refs: Box<
-    dyn DynVirtualMultiCollection<
-      EntityHandle<AttributesMeshEntity>,
-      EntityHandle<AttributesMeshEntityVertexBufferRelation>,
-    >,
-  >,
+  pub mesh_vertex_refs:
+    RevRefOfForeignKey<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>,
   pub vertex_buffer_ref: ForeignKeyReadView<SceneBufferViewBufferId<AttributeVertexRef>>,
   pub semantic: ComponentReadView<AttributesMeshEntityVertexBufferSemantic>,
   pub mesh_index_attribute: ForeignKeyReadView<SceneBufferViewBufferId<AttributeIndexRef>>,

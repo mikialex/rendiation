@@ -65,12 +65,8 @@ fn map_view(view: Option<rendiation_mesh_core::BufferViewRange>) -> GPUBufferVie
 pub struct AttributesMeshEntityVertexAccessView {
   pub semantics: ComponentReadView<AttributesMeshEntityVertexBufferSemantic>,
   pub count: ComponentReadView<SceneBufferViewBufferItemCount<AttributeVertexRef>>,
-  pub multi_access: Box<
-    dyn DynVirtualMultiCollection<
-      EntityHandle<AttributesMeshEntity>,
-      EntityHandle<AttributesMeshEntityVertexBufferRelation>,
-    >,
-  >,
+  pub multi_access:
+    RevRefOfForeignKey<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>,
   pub vertex: Box<
     dyn VirtualCollectionSelfContained<
       EntityHandle<AttributesMeshEntityVertexBufferRelation>,

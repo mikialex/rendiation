@@ -12,6 +12,20 @@ impl DataBaseFeature for DatabaseEntityReverseReference {
   }
 }
 
+pub type RevRefOfForeignKeyWatch<S> = Box<
+  dyn DynReactiveOneToManyRelation<
+    EntityHandle<<S as ForeignKeySemantic>::ForeignEntity>,
+    EntityHandle<<S as EntityAssociateSemantic>::Entity>,
+  >,
+>;
+
+pub type RevRefOfForeignKey<S> = Box<
+  dyn DynVirtualMultiCollection<
+    EntityHandle<<S as ForeignKeySemantic>::ForeignEntity>,
+    EntityHandle<<S as EntityAssociateSemantic>::Entity>,
+  >,
+>;
+
 impl DatabaseEntityReverseReference {
   pub fn new(mutation_watcher: DatabaseMutationWatch) -> Self {
     Self {

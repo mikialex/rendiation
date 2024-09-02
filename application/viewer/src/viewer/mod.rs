@@ -219,12 +219,8 @@ pub struct Viewer3dSceneDeriveSource {
   pub node_net_visible: Box<dyn DynReactiveCollection<EntityHandle<SceneNodeEntity>, bool>>,
   pub camera_transforms:
     Box<dyn DynReactiveCollection<EntityHandle<SceneCameraEntity>, CameraTransform>>,
-  pub mesh_vertex_ref: Box<
-    dyn DynReactiveOneToManyRelation<
-      EntityHandle<AttributesMeshEntity>,
-      EntityHandle<AttributesMeshEntityVertexBufferRelation>,
-    >,
-  >,
+  pub mesh_vertex_ref:
+    RevRefOfForeignKeyWatch<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>,
 }
 
 impl Viewer3dSceneDeriveSource {
@@ -248,10 +244,6 @@ pub struct Viewer3dSceneDerive {
   pub node_net_visible: Box<dyn DynVirtualCollection<EntityHandle<SceneNodeEntity>, bool>>,
   pub camera_transforms:
     Box<dyn DynVirtualCollection<EntityHandle<SceneCameraEntity>, CameraTransform>>,
-  pub mesh_vertex_ref: Box<
-    dyn DynVirtualMultiCollection<
-      EntityHandle<AttributesMeshEntity>,
-      EntityHandle<AttributesMeshEntityVertexBufferRelation>,
-    >,
-  >,
+  pub mesh_vertex_ref:
+    RevRefOfForeignKey<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>,
 }
