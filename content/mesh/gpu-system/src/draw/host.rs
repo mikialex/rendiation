@@ -63,7 +63,7 @@ impl<'a> ShaderPassBuilder for BindlessMeshDispatcher<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.vertex_address_buffer);
 
-    let index = self.system.index_buffer.buffer.buffer();
+    let index = self.system.index_buffer.buffer();
     ctx
       .pass
       .set_index_buffer_by_buffer_resource_view(index, IndexFormat::Uint32);

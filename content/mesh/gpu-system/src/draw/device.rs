@@ -8,6 +8,19 @@ impl GPUBindlessMeshSystem {
   }
 }
 
+// this is not good, maybe we should impl slab by ourself?
+fn slab_to_vec<T: Clone>(s: &Slab<T>) -> Vec<T> {
+  let mut r = Vec::with_capacity(s.capacity());
+  let default = s.get(0).unwrap();
+  s.iter().for_each(|(idx, v)| {
+    while idx >= r.len() {
+      r.push(default.clone())
+    }
+    r[idx] = v.clone();
+  });
+  r
+}
+
 pub struct BindlessDrawCreator {
   metadata: StorageBufferReadOnlyDataView<[DrawMetaData]>,
 }
