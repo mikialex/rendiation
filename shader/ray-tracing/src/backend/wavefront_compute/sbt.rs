@@ -8,11 +8,8 @@ pub struct ShaderBindingTableInfo {
   pub(crate) self_idx: u32,
 }
 
+// todo support resize
 impl ShaderBindingTableProvider for ShaderBindingTableInfo {
-  fn resize(&mut self, mesh_count: u32, ray_type_count: u32) {
-    todo!()
-  }
-
   fn config_ray_generation(&mut self, s: ShaderHandle) {
     todo!()
   }
@@ -49,18 +46,74 @@ pub struct DeviceHistGroupShaderRecord {
 
 #[derive(Clone)]
 pub struct ShaderBindingTableDeviceInfo {
-  meta: StorageBufferReadOnlyDataView<[DeviceSBTTableMeta]>,
-  ray_hit: StorageBufferReadOnlyDataView<[DeviceHistGroupShaderRecord]>,
-  ray_miss: StorageBufferReadOnlyDataView<[u32]>,
-  ray_gen: StorageBufferReadOnlyDataView<[u32]>,
+  gpu: GPU,
+  inner: Arc<RwLock<ShaderBindingTableDeviceInfoImpl>>,
 }
+
+pub struct ShaderBindingTableDeviceInfoImpl {
+  meta: StorageBufferPool<DeviceSBTTableMeta>,
+  ray_hit: StorageBufferRangeAllocatePool<DeviceHistGroupShaderRecord>,
+  ray_miss: StorageBufferRangeAllocatePool<u32>,
+  ray_gen: StorageBufferRangeAllocatePool<u32>,
+}
+
+// just random number
+const SCENE_MESH_INIT_SIZE: usize = 512;
+const SCENE_RAY_TYPE_INIT_SIZE: usize = 4;
+const SCENE_MAX_GROW_RATIO: usize = 128;
 
 impl ShaderBindingTableDeviceInfo {
   pub fn new(gpu: &GPU) -> Self {
-    todo!()
+    let inner = ShaderBindingTableDeviceInfoImpl {
+      meta: StorageBufferPool::new(&gpu.device, 32, 32 * SCENE_MAX_GROW_RATIO),
+      ray_hit: StorageBufferRangeAllocatePool::new(
+        &gpu.device,
+        SCENE_MESH_INIT_SIZE * SCENE_RAY_TYPE_INIT_SIZE,
+        SCENE_MESH_INIT_SIZE * SCENE_RAY_TYPE_INIT_SIZE * SCENE_MAX_GROW_RATIO,
+      ),
+      ray_miss: StorageBufferRangeAllocatePool::new(
+        &gpu.device,
+        SCENE_RAY_TYPE_INIT_SIZE,
+        SCENE_RAY_TYPE_INIT_SIZE * SCENE_MAX_GROW_RATIO,
+      ),
+      ray_gen: StorageBufferRangeAllocatePool::new(
+        &gpu.device,
+        SCENE_RAY_TYPE_INIT_SIZE,
+        SCENE_RAY_TYPE_INIT_SIZE * SCENE_MAX_GROW_RATIO,
+      ),
+    };
+    Self {
+      gpu: gpu.clone(),
+      inner: Arc::new(RwLock::new(inner)),
+    }
   }
 
-  pub fn allocate(&self) -> u32 {
+  pub fn allocate(&self, mesh_count: u32, ray_type_count: u32) -> u32 {
+    let mut inner = self.inner.write();
+    inner.ray_hit.allocate(
+      todo!(),
+      todo!(),
+      // content: &[u8],
+      &self.gpu.device,
+      &self.gpu.queue,
+      &mut |_| {
+        //
+      },
+    );
+    // inner.ray_miss.allocate(
+    //   allocation_handle,
+    //   content,
+    //   device,
+    //   queue,
+    //   relocation_handler,
+    // );
+    // inner.ray_gen.allocate(
+    //   allocation_handle,
+    //   content,
+    //   device,
+    //   queue,
+    //   relocation_handler,
+    // );
     todo!()
   }
 
@@ -74,18 +127,20 @@ impl ShaderBindingTableDeviceInfo {
     &self,
     cx: &mut ShaderComputePipelineBuilder,
   ) -> ShaderBindingTableDeviceInfoInvocation {
+    let inner = self.inner.read();
     ShaderBindingTableDeviceInfoInvocation {
-      meta: cx.bind_by(&self.meta),
-      ray_hit: cx.bind_by(&self.ray_hit),
-      ray_miss: cx.bind_by(&self.ray_miss),
-      ray_gen: cx.bind_by(&self.ray_gen),
+      meta: cx.bind_by(&inner.meta),
+      ray_hit: cx.bind_by(&inner.ray_hit),
+      ray_miss: cx.bind_by(&inner.ray_miss),
+      ray_gen: cx.bind_by(&inner.ray_gen),
     }
   }
   pub fn bind(&self, cx: &mut BindingBuilder) {
-    cx.bind(&self.meta);
-    cx.bind(&self.ray_hit);
-    cx.bind(&self.ray_miss);
-    cx.bind(&self.ray_gen);
+    let inner = self.inner.read();
+    cx.bind(&inner.meta);
+    cx.bind(&inner.ray_hit);
+    cx.bind(&inner.ray_miss);
+    cx.bind(&inner.ray_gen);
   }
 }
 

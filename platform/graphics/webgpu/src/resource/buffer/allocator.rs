@@ -2,7 +2,7 @@ use crate::*;
 
 type AllocationHandel = xalloc::tlsf::TlsfRegion<xalloc::arena::sys::Ptr>;
 
-pub struct GPUSubAllocateBuffer {
+pub struct GPURangeAllocateBuffer {
   ranges: FastHashMap<u32, (Range<u32>, AllocationHandel)>,
   // todo, try other allocator that support relocate and shrink??
   //
@@ -23,7 +23,7 @@ pub struct RelocationMessage {
   pub new_offset: u32,
 }
 
-impl GPUSubAllocateBuffer {
+impl GPURangeAllocateBuffer {
   pub fn buffer(&self) -> &GPUBufferResourceView {
     &self.buffer
   }
@@ -46,7 +46,7 @@ impl GPUSubAllocateBuffer {
     let buffer = create_gpu_buffer_zeroed((init_size * item_byte_size) as u64, usage, device);
     let buffer = buffer.create_view(Default::default());
 
-    GPUSubAllocateBuffer {
+    GPURangeAllocateBuffer {
       ranges: Default::default(),
       allocator: inner,
       buffer,
@@ -164,4 +164,47 @@ impl GPUSubAllocateBuffer {
     self.buffer = new_buffer;
     self.allocator = new_allocator;
   }
+}
+
+pub struct StorageBufferRangeAllocatePool<T> {
+  pool: GPURangeAllocateBuffer,
+  ty: PhantomData<T>,
+}
+
+impl<T> Deref for StorageBufferRangeAllocatePool<T> {
+  type Target = GPURangeAllocateBuffer;
+
+  fn deref(&self) -> &Self::Target {
+    &self.pool
+  }
+}
+impl<T> DerefMut for StorageBufferRangeAllocatePool<T> {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    &mut self.pool
+  }
+}
+
+impl<T> StorageBufferRangeAllocatePool<T> {
+  pub fn new(device: &GPUDevice, init_size: usize, max_size: usize) -> Self {
+    Self {
+      pool: GPURangeAllocateBuffer::init_with_initial_item_count(
+        device,
+        init_size,
+        max_size,
+        std::mem::size_of::<T>(),
+        BufferUsages::STORAGE,
+      ),
+      ty: Default::default(),
+    }
+  }
+}
+
+impl<T> CacheAbleBindingSource for StorageBufferRangeAllocatePool<T> {
+  fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
+    self.pool.buffer().get_binding_build_source()
+  }
+}
+
+impl<T: ShaderSizedValueNodeType> ShaderBindingProvider for StorageBufferRangeAllocatePool<T> {
+  type Node = ShaderReadOnlyStoragePtr<[T]>;
 }

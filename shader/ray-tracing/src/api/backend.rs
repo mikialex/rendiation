@@ -26,7 +26,8 @@ pub trait GPURayTracingDeviceProvider {
     &self,
     desc: &GPURaytracingPipelineDescriptor,
   ) -> Box<dyn GPURaytracingPipelineProvider>;
-  fn create_sbt(&self) -> Box<dyn ShaderBindingTableProvider>;
+  fn create_sbt(&self, mesh_count: u32, ray_type_count: u32)
+    -> Box<dyn ShaderBindingTableProvider>;
 }
 
 pub struct HitGroupShaderRecord {
@@ -36,7 +37,6 @@ pub struct HitGroupShaderRecord {
 }
 
 pub trait ShaderBindingTableProvider {
-  fn resize(&mut self, mesh_count: u32, ray_type_count: u32);
   fn config_ray_generation(&mut self, s: ShaderHandle);
   fn config_hit_group(&mut self, mesh_idx: u32, hit_group: HitGroupShaderRecord);
   fn config_missing(&mut self, ray_ty_idx: u32, s: ShaderHandle);

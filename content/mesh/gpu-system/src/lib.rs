@@ -1,8 +1,3 @@
-use core::{
-  marker::PhantomData,
-  ops::{Deref, DerefMut},
-};
-
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 use slab::Slab;
@@ -53,51 +48,14 @@ pub struct BindlessMeshSource<'a> {
   pub uv: &'a [Vec2<f32>],
 }
 
-pub struct VertexBufferPool<T> {
-  pool: GPUSubAllocateBuffer,
-  ty: PhantomData<T>,
-}
-
-impl<T> Deref for VertexBufferPool<T> {
-  type Target = GPUSubAllocateBuffer;
-
-  fn deref(&self) -> &Self::Target {
-    &self.pool
-  }
-}
-impl<T> DerefMut for VertexBufferPool<T> {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut self.pool
-  }
-}
-
-impl<T> VertexBufferPool<T> {
-  pub fn new(pool: GPUSubAllocateBuffer) -> Self {
-    Self {
-      pool,
-      ty: Default::default(),
-    }
-  }
-}
-
-impl<T> CacheAbleBindingSource for VertexBufferPool<T> {
-  fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
-    self.pool.buffer().get_binding_build_source()
-  }
-}
-
-impl<T: ShaderSizedValueNodeType> ShaderBindingProvider for VertexBufferPool<T> {
-  type Node = ShaderReadOnlyStoragePtr<[T]>;
-}
-
 pub struct GPUBindlessMeshSystem {
   metadata: Slab<DrawMetaData>,
 
-  index_buffer: GPUSubAllocateBuffer,
+  index_buffer: GPURangeAllocateBuffer,
 
-  position: VertexBufferPool<Vec4<f32>>,
-  normal: VertexBufferPool<Vec4<f32>>,
-  uv: VertexBufferPool<Vec4<f32>>,
+  position: StorageBufferRangeAllocatePool<Vec4<f32>>,
+  normal: StorageBufferRangeAllocatePool<Vec4<f32>>,
+  uv: StorageBufferRangeAllocatePool<Vec4<f32>>,
 }
 
 impl GPUBindlessMeshSystem {
@@ -115,40 +73,22 @@ impl GPUBindlessMeshSystem {
       return None;
     }
 
-    let index_buffer = GPUSubAllocateBuffer::init_with_initial_item_count(
+    let index_buffer = GPURangeAllocateBuffer::init_with_initial_item_count(
       &gpu.device,
       10_0000,
       1000_0000,
-      4,
+      std::mem::size_of::<u32>(),
       BufferUsages::INDEX,
     );
 
-    let position = GPUSubAllocateBuffer::init_with_initial_item_count(
-      &gpu.device,
-      10_0000,
-      1000_0000,
-      4 * 4,
-      BufferUsages::STORAGE,
-    );
-    let position = VertexBufferPool::new(position);
+    let vertex_init_count = 10_0000;
+    let vertex_max_count = 1000_0000;
 
-    let normal = GPUSubAllocateBuffer::init_with_initial_item_count(
-      &gpu.device,
-      10_0000,
-      1000_0000,
-      4 * 4,
-      BufferUsages::STORAGE,
-    );
-    let normal = VertexBufferPool::new(normal);
-
-    let uv = GPUSubAllocateBuffer::init_with_initial_item_count(
-      &gpu.device,
-      10_0000,
-      1000_0000,
-      4 * 4,
-      BufferUsages::STORAGE,
-    );
-    let uv = VertexBufferPool::new(uv);
+    let position =
+      StorageBufferRangeAllocatePool::new(&gpu.device, vertex_init_count, vertex_max_count);
+    let normal =
+      StorageBufferRangeAllocatePool::new(&gpu.device, vertex_init_count, vertex_max_count);
+    let uv = StorageBufferRangeAllocatePool::new(&gpu.device, vertex_init_count, vertex_max_count);
 
     GPUBindlessMeshSystem {
       metadata: Default::default(),
