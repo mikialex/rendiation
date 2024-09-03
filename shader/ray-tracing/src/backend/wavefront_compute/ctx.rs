@@ -28,15 +28,46 @@ pub struct ShaderRayTraceCallStoragePayload {
 #[repr(C)]
 #[std430_layout]
 #[derive(ShaderStruct, Clone, Copy)]
+pub struct HitCtxStorage {
+  pub primitive_id: u32,
+  pub instance_id: u32,
+  pub instance_sbt_offset: u32,
+  pub instance_custom_id: u32,
+  pub geometry_id: u32,
+  pub object_to_world: Mat4<f32>,
+  pub world_to_object: Mat4<f32>,
+  pub object_space_ray_origin: Vec3<f32>,
+  pub object_space_ray_direction: Vec3<f32>,
+}
+
+pub fn hit_ctx_storage_from_hit_ctx(hit_ctx: &HitCtxInfo) -> Node<HitCtxStorage> {
+  ENode::<HitCtxStorage> {
+    primitive_id: hit_ctx.primitive_id,
+    instance_id: hit_ctx.instance_id,
+    instance_sbt_offset: hit_ctx.instance_sbt_offset,
+    instance_custom_id: hit_ctx.instance_custom_id,
+    geometry_id: hit_ctx.geometry_id,
+    object_to_world: hit_ctx.object_to_world,
+    world_to_object: hit_ctx.world_to_object,
+    object_space_ray_origin: hit_ctx.object_space_ray.origin,
+    object_space_ray_direction: hit_ctx.object_space_ray.direction,
+  }
+  .construct()
+}
+
+#[repr(C)]
+#[std430_layout]
+#[derive(ShaderStruct, Clone, Copy)]
 pub struct RayClosestHitCtxPayload {
-  pub hit_ctx: ShaderRayTraceCallStoragePayload,
+  pub ray_info: ShaderRayTraceCallStoragePayload,
+  pub hit_ctx: HitCtxStorage,
 }
 
 #[repr(C)]
 #[std430_layout]
 #[derive(ShaderStruct, Clone, Copy)]
 pub struct RayMissHitCtxPayload {
-  pub hit_ctx: ShaderRayTraceCallStoragePayload,
+  pub ray_info: ShaderRayTraceCallStoragePayload,
 }
 
 pub struct WaveFrontTracingBaseProvider;
@@ -75,7 +106,8 @@ impl<T> NativeRayTracingShaderBuilder<T> for CtxProviderTracer
 where
   T: Default,
 {
-  fn build(&self, ctx: &mut dyn NativeRayTracingShaderCtx) -> T {
+  fn build(&self, _: &mut dyn NativeRayTracingShaderCtx) -> T {
+    // todo, register ctx
     T::default()
   }
   fn bind(&self, _: &mut BindingBuilder) {}
@@ -133,9 +165,8 @@ impl DeviceFutureInvocation for CtxProviderFutureInvocation {
       closest,
       payload: Some((payload, self.payload_ty.clone())),
     });
-    // (val(true), self.0)
-    // .into()
-    todo!()
+
+    (val(true), ()).into()
   }
 }
 

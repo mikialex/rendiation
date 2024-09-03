@@ -30,7 +30,7 @@ pub trait GPURayTracingDeviceProvider {
 }
 
 pub struct HitGroupShaderRecord {
-  pub closet_hit: ShaderHandle,
+  pub closet_hit: Option<ShaderHandle>,
   pub any_hit: Option<ShaderHandle>,
   pub intersection: Option<ShaderHandle>,
 }
@@ -54,6 +54,7 @@ pub enum BottomLevelAccelerationStructureBuildSource {
 }
 
 pub trait GPUAccelerationStructureSystemProvider: DynClone {
+  fn create_comp_instance(&self) -> Box<dyn GPUAccelerationStructureSystemCompImplInstance>;
   fn create_top_level_acceleration_structure(
     &self,
     source: &[TopLevelAccelerationStructureSourceInstance],

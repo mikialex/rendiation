@@ -85,6 +85,9 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
 }
 
 impl GPUAccelerationStructureSystemProvider for NaiveSahBVHSystem {
+  fn create_comp_instance(&self) -> Box<dyn GPUAccelerationStructureSystemCompImplInstance> {
+    todo!()
+  }
   fn create_top_level_acceleration_structure(
     &self,
     source: &[TopLevelAccelerationStructureSourceInstance],

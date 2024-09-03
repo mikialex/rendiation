@@ -81,7 +81,6 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
 
     for (stage, ty) in &desc.ray_gen_shaders {
       executor.define_task_dyn(
-        // todo use given wrapper
         Box::new(OpaqueTaskWrapper(stage.build_device_future())) as OpaqueTask,
         ty.clone(),
         device,
@@ -91,7 +90,6 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
 
     for (stage, ty) in &desc.closest_hit_shaders {
       executor.define_task_dyn(
-        // todo use given wrapper
         Box::new(OpaqueTaskWrapper(stage.build_device_future())) as OpaqueTask,
         ty.clone(),
         device,
@@ -101,7 +99,6 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
 
     for (stage, ty) in &desc.miss_hit_shaders {
       executor.define_task_dyn(
-        // todo use given wrapper
         Box::new(OpaqueTaskWrapper(stage.build_device_future())) as OpaqueTask,
         ty.clone(),
         device,

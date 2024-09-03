@@ -32,6 +32,16 @@ impl DeviceFuture for TraceTaskImpl {
   }
 
   fn build_poll(&self, ctx: &mut DeviceTaskSystemBuildCtx) -> Self::Invocation {
+    let tasks = self
+      .info
+      .closest_tasks
+      .iter()
+      .map(|v| v.0)
+      .chain(self.info.missing_tasks.iter().map(|v| v.0))
+      .map(|id| id as usize)
+      .map(|task_id| (task_id, ctx.get_or_create_task_group_instance(task_id)))
+      .collect();
+
     GPURayTraceTaskInvocationInstance {
       tlas_sys: self.tlas_sys.build_shader(ctx.compute_cx),
       sbt: self.sbt_sys.build(ctx.compute_cx),
@@ -41,7 +51,7 @@ impl DeviceFuture for TraceTaskImpl {
         .payload_read_back_bumper
         .build_allocator_shader(ctx.compute_cx),
       current_sbt: ctx.compute_cx.bind_by(&self.current_sbt),
-      downstream: AllDownStreamTasks { tasks: todo!() },
+      downstream: AllDownStreamTasks { tasks },
     }
   }
 
@@ -131,7 +141,11 @@ impl DeviceFutureInvocation for GPURayTraceTaskInvocationInstance {
             .hit_ctx
             .compute_sbt_hit_group(ray_sbt_config);
 
-          let closest_payload = ENode::<RayClosestHitCtxPayload> { hit_ctx: todo!() }.construct();
+          let closest_payload = ENode::<RayClosestHitCtxPayload> {
+            ray_info: trace_payload_all_expand.trace_call,
+            hit_ctx: hit_ctx_storage_from_hit_ctx(&closest_hit.payload.hit_ctx),
+          }
+          .construct();
 
           let closest_shader_index = self.sbt.get_closest_handle(current_sbt, hit_group);
           let closest_task_index = closest_shader_index; // todo, make sure the shader index is task_index
@@ -151,7 +165,10 @@ impl DeviceFutureInvocation for GPURayTraceTaskInvocationInstance {
           id.store(sub_task_id);
         })
         .else_by(|| {
-          let missing_payload = ENode::<RayMissHitCtxPayload> { hit_ctx: todo!() }.construct();
+          let missing_payload = ENode::<RayMissHitCtxPayload> {
+            ray_info: trace_payload_all_expand.trace_call,
+          }
+          .construct();
 
           let miss_sbt_index = self
             .sbt

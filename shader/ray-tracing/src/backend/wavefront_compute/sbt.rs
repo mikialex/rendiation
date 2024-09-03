@@ -1,9 +1,9 @@
 use crate::*;
 
 pub struct ShaderBindingTableInfo {
-  pub ray_generation: ShaderHandle,
-  pub ray_miss: Vec<ShaderHandle>,        // ray_type_count size
-  pub ray_hit: Vec<HitGroupShaderRecord>, // mesh_count size
+  pub ray_generation: Option<ShaderHandle>,
+  pub ray_miss: Vec<Option<ShaderHandle>>, // ray_type_count size
+  pub ray_hit: Vec<HitGroupShaderRecord>,  // mesh_count size
   pub(crate) sys: ShaderBindingTableDeviceInfo,
   pub(crate) self_idx: u32,
 }
@@ -53,6 +53,20 @@ pub struct ShaderBindingTableDeviceInfo {
   ray_hit: StorageBufferReadOnlyDataView<[DeviceHistGroupShaderRecord]>,
   ray_miss: StorageBufferReadOnlyDataView<[u32]>,
   ray_gen: StorageBufferReadOnlyDataView<[u32]>,
+}
+
+impl ShaderBindingTableDeviceInfo {
+  pub fn new(gpu: &GPU) -> Self {
+    todo!()
+  }
+
+  pub fn allocate(&self) -> u32 {
+    todo!()
+  }
+
+  pub fn deallocate(&self, id: u32) {
+    todo!()
+  }
 }
 
 impl ShaderBindingTableDeviceInfo {
