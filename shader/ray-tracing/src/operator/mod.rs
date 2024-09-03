@@ -9,7 +9,7 @@ impl<T> Default for TraceBase<T> {
 }
 
 impl<T: Default + Copy + 'static> DeviceFutureProvider<T> for TraceBase<T> {
-  fn build_device_future(&self) -> DynDeviceFuture<T> {
+  fn build_device_future(&self, _: &mut AnyMap) -> DynDeviceFuture<T> {
     BaseDeviceFuture::<T>::default().into_dyn()
   }
 }
@@ -64,11 +64,11 @@ where
   O2: Default + ShaderAbstractRightValue,
   O: 'static,
 {
-  fn build_device_future(&self) -> DynDeviceFuture<O2> {
+  fn build_device_future(&self, ctx: &mut AnyMap) -> DynDeviceFuture<O2> {
     let map = self.map;
     self
       .upstream
-      .build_device_future()
+      .build_device_future(ctx)
       .map(move |o, cx| {
         let ctx = cx.invocation_registry.get_mut::<TracingCtx>().unwrap();
         map(o, ctx)
@@ -99,15 +99,7 @@ pub struct TraceNextRay<F, T> {
 
 pub const TRACING_TASK_INDEX: usize = 0;
 
-pub trait TracingTaskSpawner {
-  fn create_invocation(
-    &mut self,
-    poll_ctx: &mut DeviceTaskSystemPollCtx,
-  ) -> Box<dyn TracingTaskInvocationSpawner>;
-  fn bind(&self, builder: &mut BindingBuilder);
-}
-
-pub trait TracingTaskInvocationSpawner {
+pub trait TracingTaskInvocationSpawner: DynClone {
   fn spawn_new_tracing_task(
     &mut self,
     task_group: &TaskGroupDeviceInvocationInstance,
@@ -117,6 +109,11 @@ pub trait TracingTaskInvocationSpawner {
     payload_ty: ShaderSizedValueType,
   ) -> TaskFutureInvocationRightValue;
 }
+impl Clone for Box<dyn TracingTaskInvocationSpawner> {
+  fn clone(&self) -> Self {
+    dyn_clone::clone_box(&**self)
+  }
+}
 
 impl<F, T, O, P> DeviceFutureProvider<(O, Node<P>)> for TraceNextRay<F, T>
 where
@@ -125,11 +122,11 @@ where
   P: ShaderSizedValueNodeType + Default + Copy,
   O: ShaderAbstractRightValue,
 {
-  fn build_device_future(&self) -> DynDeviceFuture<(O, Node<P>)> {
+  fn build_device_future(&self, ctx: &mut AnyMap) -> DynDeviceFuture<(O, Node<P>)> {
     let next_trace_logic = self.next_trace_logic;
     self
       .upstream
-      .build_device_future()
+      .build_device_future(ctx)
       .then(
         move |o, then_invocation, cx| {
           let ctx = cx.invocation_registry.get_mut::<TracingCtx>().unwrap();

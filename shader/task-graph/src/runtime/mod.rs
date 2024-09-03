@@ -18,7 +18,6 @@ pub struct TaskGraphExecutionStates {
 }
 
 pub struct DeviceTaskGraphExecutor {
-  pub registry: AnyMap, // todo
   task_groups: Vec<TaskGroupExecutor>,
   max_recursion_depth: usize,
   current_prepared_execution_size: usize,
@@ -27,7 +26,6 @@ pub struct DeviceTaskGraphExecutor {
 impl DeviceTaskGraphExecutor {
   pub fn new(current_prepared_execution_size: usize, max_recursion_depth: usize) -> Self {
     Self {
-      registry: Default::default(),
       task_groups: Default::default(),
       max_recursion_depth,
       current_prepared_execution_size,

@@ -5,7 +5,7 @@ use crate::*;
 pub struct TraceTaskImpl {
   pub tlas_sys: Box<dyn GPUAccelerationStructureSystemCompImplInstance>,
   pub sbt_sys: ShaderBindingTableDeviceInfo,
-  pub payload_bumper: DeviceBumpAllocationInstance<u32>,
+  pub payload_bumper: Arc<RwLock<DeviceBumpAllocationInstance<u32>>>,
   pub payload_read_back_bumper: DeviceBumpAllocationInstance<u32>,
   pub ray_info_bumper: DeviceBumpAllocationInstance<ShaderRayTraceCallStoragePayload>,
   pub info: Arc<TraceTaskMetaInfo>,
@@ -45,7 +45,7 @@ impl DeviceFuture for TraceTaskImpl {
     GPURayTraceTaskInvocationInstance {
       tlas_sys: self.tlas_sys.build_shader(ctx.compute_cx),
       sbt: self.sbt_sys.build(ctx.compute_cx),
-      untyped_payloads: ctx.compute_cx.bind_by(&self.payload_bumper.storage),
+      untyped_payloads: ctx.compute_cx.bind_by(&self.payload_bumper.read().storage),
       info: self.info.clone(),
       payload_read_back_bumper: self
         .payload_read_back_bumper
@@ -58,12 +58,12 @@ impl DeviceFuture for TraceTaskImpl {
   fn bind_input(&self, builder: &mut DeviceTaskSystemBindCtx) {
     self.tlas_sys.bind_pass(builder);
     self.sbt_sys.bind(builder);
-    builder.bind(&self.payload_bumper.storage);
+    builder.bind(&self.payload_bumper.read().storage);
     self.payload_read_back_bumper.bind_allocator(builder);
   }
 
   fn reset(&mut self, ctx: &mut DeviceParallelComputeCtx, work_size: u32) {
-    self.payload_bumper = DeviceBumpAllocationInstance::new(
+    *self.payload_bumper.write() = DeviceBumpAllocationInstance::new(
       (work_size * self.info.payload_max_u32_count) as usize,
       &ctx.gpu.device,
     );
@@ -350,25 +350,30 @@ fn poll_dynamic<'a>(
   (resolved.load(), bump_read_position.load())
 }
 
+#[derive(Clone)]
 pub(crate) struct TracingTaskSpawnerImplSource {
-  pub(crate) payload_bumper: Arc<RwLock<DeviceBumpAllocationInvocationInstance<u32>>>,
+  pub(crate) payload_bumper: Arc<RwLock<DeviceBumpAllocationInstance<u32>>>,
 }
 
-impl TracingTaskSpawner for TracingTaskSpawnerImplSource {
-  fn create_invocation(
-    &mut self,
-    cx: &mut DeviceTaskSystemPollCtx,
+impl TracingTaskSpawnerImplSource {
+  pub fn create_invocation(
+    &self,
+    cx: &mut DeviceTaskSystemBuildCtx,
   ) -> Box<dyn TracingTaskInvocationSpawner> {
     Box::new(TracingTaskSpawnerInvocationImpl {
-      payload_bumper: todo!(),
+      payload_bumper: self
+        .payload_bumper
+        .read()
+        .build_allocator_shader(cx.compute_cx),
     })
   }
 
-  fn bind(&self, builder: &mut BindingBuilder) {
-    todo!()
+  pub fn bind(&self, builder: &mut BindingBuilder) {
+    self.payload_bumper.read().bind_allocator(builder)
   }
 }
 
+#[derive(Clone)]
 pub(crate) struct TracingTaskSpawnerInvocationImpl {
   pub(crate) payload_bumper: DeviceBumpAllocationInvocationInstance<u32>,
 }

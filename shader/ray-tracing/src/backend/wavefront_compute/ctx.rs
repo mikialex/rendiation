@@ -94,10 +94,14 @@ struct CtxProviderTracer {
 }
 
 impl DeviceFutureProvider<()> for CtxProviderTracer {
-  fn build_device_future(&self) -> DynDeviceFuture<()> {
+  fn build_device_future(&self, ctx: &mut AnyMap) -> DynDeviceFuture<()> {
     CtxProviderFuture {
       is_missing_shader: self.is_missing_shader,
       payload_ty: self.payload_ty.clone(),
+      ray_spawner: ctx
+        .get_mut::<TracingTaskSpawnerImplSource>()
+        .unwrap()
+        .clone(),
     }
     .into_dyn()
   }
@@ -116,6 +120,7 @@ where
 pub struct CtxProviderFuture {
   is_missing_shader: bool,
   payload_ty: ShaderSizedValueType,
+  ray_spawner: TracingTaskSpawnerImplSource,
 }
 
 impl DeviceFuture for CtxProviderFuture {
@@ -127,21 +132,27 @@ impl DeviceFuture for CtxProviderFuture {
     1
   }
 
-  fn build_poll(&self, _: &mut DeviceTaskSystemBuildCtx) -> Self::Invocation {
+  fn build_poll(&self, cx: &mut DeviceTaskSystemBuildCtx) -> Self::Invocation {
     CtxProviderFutureInvocation {
       is_missing_shader: self.is_missing_shader,
       payload_ty: self.payload_ty.clone(),
+      ray_spawner: self.ray_spawner.create_invocation(cx),
     }
   }
 
-  fn bind_input(&self, _: &mut DeviceTaskSystemBindCtx) {}
+  fn bind_input(&self, builder: &mut DeviceTaskSystemBindCtx) {
+    self.ray_spawner.bind(builder)
+  }
 
-  fn reset(&mut self, _: &mut DeviceParallelComputeCtx, _: u32) {}
+  fn reset(&mut self, _: &mut DeviceParallelComputeCtx, _: u32) {
+    // ray_spawner should be reset by trace task, but not ours
+  }
 }
 
 pub struct CtxProviderFutureInvocation {
   is_missing_shader: bool,
   payload_ty: ShaderSizedValueType,
+  ray_spawner: Box<dyn TracingTaskInvocationSpawner>,
 }
 impl DeviceFutureInvocation for CtxProviderFutureInvocation {
   type Output = ();
@@ -165,6 +176,8 @@ impl DeviceFutureInvocation for CtxProviderFutureInvocation {
       closest,
       payload: Some((payload, self.payload_ty.clone())),
     });
+
+    ctx.invocation_registry.register(self.ray_spawner.clone());
 
     (val(true), ()).into()
   }

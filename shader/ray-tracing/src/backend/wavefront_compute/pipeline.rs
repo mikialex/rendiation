@@ -21,11 +21,6 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
   ) -> Self {
     let mut executor = DeviceTaskGraphExecutor::new(1, 1);
 
-    // todo
-    executor.registry.register(TracingTaskSpawnerImplSource {
-      payload_bumper: todo!(),
-    });
-
     let mut payload_max_u32_count = 0;
 
     let closest_task_range_base = desc.ray_gen_shaders.len();
@@ -64,12 +59,20 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
     let tracer_task = TraceTaskImpl {
       tlas_sys,
       sbt_sys,
-      payload_bumper: DeviceBumpAllocationInstance::new(payload_u32_len, device),
+      payload_bumper: Arc::new(RwLock::new(DeviceBumpAllocationInstance::new(
+        payload_u32_len,
+        device,
+      ))),
       payload_read_back_bumper: DeviceBumpAllocationInstance::new(payload_u32_len, device),
       ray_info_bumper: DeviceBumpAllocationInstance::new(init_size * 2, device),
       info: Arc::new(info),
       current_sbt: target_sbt_buffer.clone(),
     };
+
+    let mut ctx = AnyMap::default();
+    ctx.register(TracingTaskSpawnerImplSource {
+      payload_bumper: tracer_task.payload_bumper.clone(),
+    });
 
     // create core tracer task as almost every other task depend on this one
     executor.define_task_dyn(
@@ -81,7 +84,7 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
 
     for (stage, ty) in &desc.ray_gen_shaders {
       executor.define_task_dyn(
-        Box::new(OpaqueTaskWrapper(stage.build_device_future())) as OpaqueTask,
+        Box::new(OpaqueTaskWrapper(stage.build_device_future(&mut ctx))) as OpaqueTask,
         ty.clone(),
         device,
         init_pass,
@@ -90,7 +93,7 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
 
     for (stage, ty) in &desc.closest_hit_shaders {
       executor.define_task_dyn(
-        Box::new(OpaqueTaskWrapper(stage.build_device_future())) as OpaqueTask,
+        Box::new(OpaqueTaskWrapper(stage.build_device_future(&mut ctx))) as OpaqueTask,
         ty.clone(),
         device,
         init_pass,
@@ -99,7 +102,7 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
 
     for (stage, ty) in &desc.miss_hit_shaders {
       executor.define_task_dyn(
-        Box::new(OpaqueTaskWrapper(stage.build_device_future())) as OpaqueTask,
+        Box::new(OpaqueTaskWrapper(stage.build_device_future(&mut ctx))) as OpaqueTask,
         ty.clone(),
         device,
         init_pass,
