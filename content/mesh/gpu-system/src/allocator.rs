@@ -1,18 +1,11 @@
 use core::ops::Range;
-use std::sync::Arc;
-use std::sync::RwLock;
-use std::sync::Weak;
 
 use fast_hash_collection::*;
 use rendiation_webgpu::*;
 
-pub struct GPUSubAllocateBuffer {
-  inner: Arc<RwLock<GPUSubAllocateBufferImpl>>,
-}
-
 type AllocationHandel = xalloc::tlsf::TlsfRegion<xalloc::arena::sys::Ptr>;
 
-struct GPUSubAllocateBufferImpl {
+pub struct GPUSubAllocateBuffer {
   ranges: FastHashMap<u32, (Range<u32>, AllocationHandel)>,
   // todo should we try other allocator that support relocate and shrink??
   //
@@ -26,7 +19,6 @@ struct GPUSubAllocateBufferImpl {
   max_size: usize,
   /// the reason we allocate by item instead of bytes is that allocation have to be aligned to type
   item_byte_size: usize,
-  relocate_callback: Option<Box<dyn Fn(RelocationMessage)>>,
 }
 
 pub struct RelocationMessage {
@@ -34,8 +26,14 @@ pub struct RelocationMessage {
   pub new_offset: u32,
 }
 
-impl GPUSubAllocateBufferImpl {
-  fn grow(&mut self, grow_size: u32, device: &GPUDevice, queue: &GPUQueue) {
+impl GPUSubAllocateBuffer {
+  fn grow(
+    &mut self,
+    grow_size: u32,
+    device: &GPUDevice,
+    queue: &GPUQueue,
+    relocation_handler: &mut impl FnMut(RelocationMessage),
+  ) {
     let current_size: u64 = self.buffer.resource.desc.size.into();
     let current_size = current_size / self.item_byte_size as u64;
     let new_size = current_size + grow_size as u64;
@@ -67,12 +65,10 @@ impl GPUSubAllocateBufferImpl {
 
         *token = new_token;
         *current = new_offset..new_offset + size;
-        if let Some(cb) = &self.relocate_callback {
-          cb(RelocationMessage {
-            allocation_handle: *allocation_handle,
-            new_offset,
-          })
-        }
+        relocation_handler(RelocationMessage {
+          allocation_handle: *allocation_handle,
+          new_offset,
+        })
       });
 
     queue.submit_encoder(encoder);
@@ -82,25 +78,14 @@ impl GPUSubAllocateBufferImpl {
   }
 }
 
-pub struct GPUSubAllocateBufferToken {
-  token: u32,
-  alloc: Weak<RwLock<GPUSubAllocateBufferImpl>>,
-}
-
-impl Drop for GPUSubAllocateBufferToken {
-  fn drop(&mut self) {
-    if let Some(alloc) = self.alloc.upgrade() {
-      let mut inner = alloc.write().unwrap();
-
-      let (_, token) = inner.ranges.remove(&self.token).unwrap();
-      inner.allocator.dealloc(token).unwrap();
-    }
-  }
+pub struct GPUSubAllocateResult {
+  pub token: u32,
+  pub allocate_offset: u32,
 }
 
 impl GPUSubAllocateBuffer {
-  pub fn get_buffer(&self) -> GPUBufferResourceView {
-    self.inner.read().unwrap().buffer.clone()
+  pub fn buffer(&self) -> &GPUBufferResourceView {
+    &self.buffer
   }
 
   pub fn init_with_initial_item_count(
@@ -120,48 +105,39 @@ impl GPUSubAllocateBuffer {
     let buffer = create_gpu_buffer_zeroed((init_size * item_byte_size) as u64, usage, device);
     let buffer = buffer.create_view(Default::default());
 
-    let inner = GPUSubAllocateBufferImpl {
+    GPUSubAllocateBuffer {
       ranges: Default::default(),
       allocator: inner,
       buffer,
       max_size,
       item_byte_size,
       usage,
-      relocate_callback: None,
-    };
-
-    Self {
-      inner: Arc::new(RwLock::new(inner)),
     }
-  }
-
-  pub fn set_relocate_callback(&self, relocate_callback: impl Fn(RelocationMessage) + 'static) {
-    self.inner.write().unwrap().relocate_callback = Some(Box::new(relocate_callback))
   }
 
   /// deallocate handled by drop, return None means oom
   pub fn allocate(
-    &self,
+    &mut self,
     allocation_handle: u32,
     content: &[u8],
     device: &GPUDevice,
     queue: &GPUQueue,
-  ) -> Option<(GPUSubAllocateBufferToken, u32)> {
-    let mut alloc = self.inner.write().unwrap();
-    let current_size: u64 = alloc.buffer.resource.desc.size.into();
-    let current_size = current_size / alloc.item_byte_size as u64;
+    relocation_handler: &mut impl FnMut(RelocationMessage),
+  ) -> Option<GPUSubAllocateResult> {
+    let current_size: u64 = self.buffer.resource.desc.size.into();
+    let current_size = current_size / self.item_byte_size as u64;
     assert!(!content.is_empty());
-    assert!(content.len() % alloc.item_byte_size == 0);
-    let required_size = (content.len() / alloc.item_byte_size) as u32;
+    assert!(content.len() % self.item_byte_size == 0);
+    let required_size = (content.len() / self.item_byte_size) as u32;
     loop {
-      if let Some((token, offset)) = alloc.allocator.alloc(required_size) {
+      if let Some((token, offset)) = self.allocator.alloc(required_size) {
         queue.write_buffer(
-          alloc.buffer.resource.gpu(),
-          (offset as usize * alloc.item_byte_size) as u64,
+          self.buffer.resource.gpu(),
+          (offset as usize * self.item_byte_size) as u64,
           bytemuck::cast_slice(content),
         );
 
-        let previous = alloc
+        let previous = self
           .ranges
           .insert(allocation_handle, (offset..offset + required_size, token));
         assert!(
@@ -169,21 +145,30 @@ impl GPUSubAllocateBuffer {
           "duplicate active allocation handle used"
         );
 
-        let token = GPUSubAllocateBufferToken {
+        break GPUSubAllocateResult {
           token: allocation_handle,
-          alloc: Arc::downgrade(&self.inner),
-        };
-
-        break (token, offset).into();
-      } else if alloc.max_size as u64 <= current_size {
+          allocate_offset: offset,
+        }
+        .into();
+      } else if self.max_size as u64 <= current_size {
         break None;
       } else {
         let grow_planed = ((current_size as f32) * 1.5) as u32;
         let real_grow_size = grow_planed
           .max(required_size + current_size as u32)
-          .min(alloc.max_size as u32);
-        alloc.grow(real_grow_size - current_size as u32, device, queue)
+          .min(self.max_size as u32);
+        self.grow(
+          real_grow_size - current_size as u32,
+          device,
+          queue,
+          relocation_handler,
+        )
       }
     }
+  }
+
+  pub fn deallocate(&mut self, token: u32) {
+    let (_, token) = self.ranges.remove(&token).unwrap();
+    self.allocator.dealloc(token).unwrap();
   }
 }

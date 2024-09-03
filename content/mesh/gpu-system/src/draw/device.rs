@@ -2,8 +2,7 @@ use crate::*;
 
 impl GPUBindlessMeshSystem {
   pub fn create_device_draw_dispatcher(&self, device: &GPUDevice) -> BindlessDrawCreator {
-    let inner = self.inner.read().unwrap();
-    let metadata = slab_to_vec(&inner.metadata);
+    let metadata = slab_to_vec(&self.metadata);
     let metadata = StorageBufferReadOnlyDataView::create(device, metadata.as_slice());
     BindlessDrawCreator { metadata }
   }

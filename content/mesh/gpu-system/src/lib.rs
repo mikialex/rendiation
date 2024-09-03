@@ -2,7 +2,6 @@ use core::{
   marker::PhantomData,
   ops::{Deref, DerefMut},
 };
-use std::sync::{Arc, RwLock, Weak};
 
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
@@ -50,11 +49,6 @@ pub struct DrawIndexedIndirect {
   pub base_instance: u32,
 }
 
-#[derive(Clone)]
-pub struct GPUBindlessMeshSystem {
-  inner: Arc<RwLock<GPUBindlessMeshSystemImpl>>,
-}
-
 pub struct BindlessMeshSource<'a> {
   pub index: &'a [u32],
   pub position: &'a [Vec4<f32>],
@@ -64,21 +58,8 @@ pub struct BindlessMeshSource<'a> {
 
 pub struct BufferPool {
   buffer: GPUSubAllocateBuffer,
-  // we could use a channel, so what?
-  relocations: Arc<RwLock<Vec<RelocationMessage>>>,
-}
-
-impl Deref for BufferPool {
-  type Target = GPUSubAllocateBuffer;
-
-  fn deref(&self) -> &Self::Target {
-    &self.buffer
-  }
-}
-impl DerefMut for BufferPool {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut self.buffer
-  }
+  // we could instead use a channel here
+  relocations: Vec<RelocationMessage>,
 }
 
 impl BufferPool {
@@ -97,22 +78,35 @@ impl BufferPool {
       usage,
     );
 
-    let relocations: Arc<RwLock<Vec<RelocationMessage>>> = Default::default();
-
-    let r = relocations.clone();
-    buffer.set_relocate_callback(move |m| r.write().unwrap().push(m));
-
     Self {
       buffer,
-      relocations,
+      relocations: Default::default(),
     }
   }
 
-  pub fn flush_relocation(&self, cb: impl FnMut(&RelocationMessage)) {
-    let mut relocations = self.relocations.write().unwrap();
-    let relocations: &mut Vec<RelocationMessage> = &mut relocations;
-    relocations.iter().for_each(cb);
-    *relocations = Vec::new(); // free any space
+  pub fn allocate(
+    &mut self,
+    allocation_handle: u32,
+    content: &[u8],
+    device: &GPUDevice,
+    queue: &GPUQueue,
+  ) -> Option<GPUSubAllocateResult> {
+    self.buffer.allocate(
+      allocation_handle,
+      content,
+      device,
+      queue,
+      &mut |relocation| self.relocations.push(relocation),
+    )
+  }
+
+  pub fn deallocate(&mut self, token: u32) {
+    self.buffer.deallocate(token)
+  }
+
+  pub fn flush_relocation(&mut self, cb: impl FnMut(&RelocationMessage)) {
+    self.relocations.iter().for_each(cb);
+    self.relocations = Vec::new(); // free any space
   }
 }
 
@@ -145,7 +139,7 @@ impl<T> VertexBufferPool<T> {
 
 impl<T> CacheAbleBindingSource for VertexBufferPool<T> {
   fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
-    self.pool.buffer.get_buffer().get_binding_build_source()
+    self.pool.buffer.buffer().get_binding_build_source()
   }
 }
 
@@ -153,7 +147,7 @@ impl<T: ShaderSizedValueNodeType> ShaderBindingProvider for VertexBufferPool<T> 
   type Node = ShaderReadOnlyStoragePtr<[T]>;
 }
 
-pub struct GPUBindlessMeshSystemImpl {
+pub struct GPUBindlessMeshSystem {
   any_changed: bool,
   metadata: Slab<DrawMetaData>,
 
@@ -208,56 +202,50 @@ impl GPUBindlessMeshSystem {
     );
     let uv = VertexBufferPool::new(uv);
 
-    let inner = GPUBindlessMeshSystemImpl {
+    GPUBindlessMeshSystem {
       any_changed: true,
       metadata: Default::default(),
       index_buffer,
       position,
       normal,
       uv,
-    };
-
-    Self {
-      inner: Arc::new(RwLock::new(inner)),
     }
     .into()
   }
 
   pub fn maintain(&mut self) {
-    let mut inner = self.inner.write().unwrap();
-    let inner: &mut GPUBindlessMeshSystemImpl = &mut inner;
-    if !inner.any_changed {
+    if !self.any_changed {
       return;
     }
 
-    let metadata = &mut inner.metadata;
+    let metadata = &mut self.metadata;
 
-    inner.index_buffer.flush_relocation(|m| {
+    self.index_buffer.flush_relocation(|m| {
       let meta = metadata.get_mut(m.allocation_handle as usize).unwrap();
       meta.start = m.new_offset;
     });
 
-    inner.position.pool.flush_relocation(|m| {
+    self.position.pool.flush_relocation(|m| {
       let meta = metadata.get_mut(m.allocation_handle as usize).unwrap();
       meta.vertex_info.position_buffer_offset = m.new_offset;
     });
 
-    inner.normal.pool.flush_relocation(|m| {
+    self.normal.pool.flush_relocation(|m| {
       let meta = metadata.get_mut(m.allocation_handle as usize).unwrap();
       meta.vertex_info.normal_buffer_offset = m.new_offset;
     });
 
-    inner.uv.pool.flush_relocation(|m| {
+    self.uv.pool.flush_relocation(|m| {
       let meta = metadata.get_mut(m.allocation_handle as usize).unwrap();
       meta.vertex_info.uv_buffer_offset = m.new_offset;
     });
 
-    inner.any_changed = false;
+    self.any_changed = false;
   }
 
   /// maybe unable to allocate more!
   pub fn create_mesh_instance(
-    &self,
+    &mut self,
     source: BindlessMeshSource,
     device: &GPUDevice,
     queue: &GPUQueue,
@@ -272,8 +260,7 @@ impl GPUBindlessMeshSystem {
     assert_eq!(position.len(), normal.len());
     assert_eq!(position.len(), uv.len());
 
-    let mut inner = self.inner.write().unwrap();
-    inner.any_changed = true;
+    self.any_changed = true;
 
     // will write later..
     let metadata = DrawMetaData {
@@ -284,10 +271,10 @@ impl GPUBindlessMeshSystem {
       },
       ..Zeroable::zeroed()
     };
-    let handle = inner.metadata.insert(metadata) as u32;
+    let handle = self.metadata.insert(metadata) as u32;
 
     let index = bytemuck::cast_slice(index);
-    let (allocation, start) = inner.index_buffer.allocate(handle, index, device, queue)?;
+    let index_alloc = self.index_buffer.allocate(handle, index, device, queue)?;
 
     let position: Vec<Vec4<f32>> = position
       .iter()
@@ -303,51 +290,48 @@ impl GPUBindlessMeshSystem {
     let normal = bytemuck::cast_slice(&normal);
     let uv = bytemuck::cast_slice(&uv);
 
-    let (_position_holder, position) = inner.position.allocate(handle, position, device, queue)?;
-    let (_normal_holder, normal) = inner.normal.allocate(handle, normal, device, queue)?;
-    let (_uv_holder, uv) = inner.uv.allocate(handle, uv, device, queue)?;
+    let position_alloc = self.position.allocate(handle, position, device, queue)?;
+    let normal_alloc = self.normal.allocate(handle, normal, device, queue)?;
+    let uv_alloc = self.uv.allocate(handle, uv, device, queue)?;
 
-    let metadata = inner.metadata.get_mut(handle as usize).unwrap();
-    metadata.start = start;
-    metadata.vertex_info.position_buffer_offset = position;
-    metadata.vertex_info.normal_buffer_offset = normal;
-    metadata.vertex_info.uv_buffer_offset = uv;
+    let metadata = self.metadata.get_mut(handle as usize).unwrap();
+    metadata.start = index_alloc.allocate_offset;
+    metadata.vertex_info.position_buffer_offset = position_alloc.allocate_offset;
+    metadata.vertex_info.normal_buffer_offset = normal_alloc.allocate_offset;
+    metadata.vertex_info.uv_buffer_offset = uv_alloc.allocate_offset;
 
     MeshSystemMeshInstance {
       handle,
-      _index_holder: Arc::new(allocation),
-      _uv_holder: Arc::new(_uv_holder),
-      _position_holder: Arc::new(_position_holder),
-      _normal_holder: Arc::new(_normal_holder),
-      system: Arc::downgrade(&self.inner),
+      index_token: index_alloc.token,
+      position_token: position_alloc.token,
+      normal_token: normal_alloc.token,
+      uv_token: uv_alloc.token,
     }
     .into()
+  }
+
+  pub fn remove_mesh_instance(&mut self, instance: MeshSystemMeshInstance) {
+    self.any_changed = true;
+
+    self.metadata.remove(instance.handle as usize);
+    self.index_buffer.deallocate(instance.index_token);
+    self.position.deallocate(instance.position_token);
+    self.normal.deallocate(instance.normal_token);
+    self.uv.deallocate(instance.uv_token);
   }
 }
 
 pub struct MeshSystemMeshInstance {
   handle: MeshSystemMeshHandle,
-  _index_holder: Arc<GPUSubAllocateBufferToken>,
-  _position_holder: Arc<GPUSubAllocateBufferToken>,
-  _uv_holder: Arc<GPUSubAllocateBufferToken>,
-  _normal_holder: Arc<GPUSubAllocateBufferToken>,
-  system: Weak<RwLock<GPUBindlessMeshSystemImpl>>,
+  index_token: u32,
+  position_token: u32,
+  normal_token: u32,
+  uv_token: u32,
 }
 
 impl MeshSystemMeshInstance {
   pub fn mesh_handle(&self) -> MeshSystemMeshHandle {
     self.handle
-  }
-}
-
-impl Drop for MeshSystemMeshInstance {
-  fn drop(&mut self) {
-    if let Some(system) = self.system.upgrade() {
-      let mut system = system.write().unwrap();
-      system.any_changed = true;
-
-      system.metadata.remove(self.handle as usize);
-    }
   }
 }
 
