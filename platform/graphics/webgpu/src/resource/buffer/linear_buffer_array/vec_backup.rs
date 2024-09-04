@@ -7,19 +7,20 @@ pub struct VecWithStorageBuffer<T: LinearStorageBase> {
   pub none_default: T::Item,
 }
 
-impl<T: ResizeableLinearStorage> ResizeableLinearStorage for VecWithStorageBuffer<T>
+impl<T: ResizableLinearStorage> ResizableLinearStorage for VecWithStorageBuffer<T>
 where
   T::Item: Zeroable,
 {
-  fn resize(&mut self, new_size: u32) {
+  fn resize(&mut self, new_size: u32) -> bool {
     self.inner.resize(new_size);
     self.vec.resize(new_size as usize, self.none_default);
+    true
   }
 }
 
-impl<T> LinearStorage for VecWithStorageBuffer<T>
+impl<T> LinearStorageDirectAccess for VecWithStorageBuffer<T>
 where
-  T: LinearStorage,
+  T: LinearStorageDirectAccess,
   T::Item: PartialEq,
 {
   fn remove(&mut self, idx: u32) {

@@ -5,7 +5,7 @@ pub struct GPUStorageDirectQueueUpdate<T> {
   pub inner: T,
 }
 
-impl<T> LinearStorage for GPUStorageDirectQueueUpdate<T>
+impl<T> LinearStorageDirectAccess for GPUStorageDirectQueueUpdate<T>
 where
   T: GPULinearStorage + LinearStorageBase,
   T::Item: Pod,
@@ -53,8 +53,8 @@ impl<T: GPULinearStorage> GPULinearStorage for GPUStorageDirectQueueUpdate<T> {
   }
 }
 
-impl<T: ResizeableLinearStorage> ResizeableLinearStorage for GPUStorageDirectQueueUpdate<T> {
-  fn resize(&mut self, new_size: u32) {
+impl<T: ResizableLinearStorage> ResizableLinearStorage for GPUStorageDirectQueueUpdate<T> {
+  fn resize(&mut self, new_size: u32) -> bool {
     self.inner.resize(new_size)
   }
 }

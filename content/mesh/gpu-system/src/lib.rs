@@ -84,11 +84,9 @@ impl GPUBindlessMeshSystem {
     let vertex_init_count = 10_0000;
     let vertex_max_count = 1000_0000;
 
-    let position =
-      StorageBufferRangeAllocatePool::new(&gpu.device, vertex_init_count, vertex_max_count);
-    let normal =
-      StorageBufferRangeAllocatePool::new(&gpu.device, vertex_init_count, vertex_max_count);
-    let uv = StorageBufferRangeAllocatePool::new(&gpu.device, vertex_init_count, vertex_max_count);
+    let position = create_storage_buffer_allocate_pool(&gpu, vertex_init_count, vertex_max_count);
+    let normal = create_storage_buffer_allocate_pool(&gpu, vertex_init_count, vertex_max_count);
+    let uv = create_storage_buffer_allocate_pool(&gpu, vertex_init_count, vertex_max_count);
 
     GPUBindlessMeshSystem {
       metadata: Default::default(),

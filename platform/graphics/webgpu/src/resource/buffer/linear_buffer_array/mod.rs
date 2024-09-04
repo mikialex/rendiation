@@ -1,6 +1,7 @@
 use crate::*;
 
 mod gpu_raw;
+pub use gpu_raw::*;
 mod grow_behavior;
 pub use grow_behavior::*;
 mod vec_backup;
@@ -34,7 +35,7 @@ pub trait LinearStorageBase: Sized {
 //   fn largest_in_use_idx(&self) -> u32;
 // }
 
-pub trait LinearStorage: LinearStorageBase {
+pub trait LinearStorageDirectAccess: LinearStorageBase {
   fn remove(&mut self, idx: u32);
   fn removes(&mut self, offset: u32, len: usize) {
     for i in offset..(offset + len as u32) {
@@ -66,8 +67,9 @@ pub trait LinearStorage: LinearStorageBase {
   }
 }
 
-pub trait ResizeableLinearStorage: LinearStorageBase {
-  fn resize(&mut self, new_size: u32);
+pub trait ResizableLinearStorage: LinearStorageBase {
+  /// return if resize success
+  fn resize(&mut self, new_size: u32) -> bool;
 
   fn with_grow_behavior(
     self,

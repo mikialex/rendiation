@@ -7,8 +7,8 @@ trait GPULinearStorageImpl {
 }
 
 pub struct ResizableGPUBuffer<T> {
-  gpu: T,
-  ctx: GPU,
+  pub gpu: T,
+  pub ctx: GPU,
 }
 
 impl<T: LinearStorageBase> LinearStorageBase for ResizableGPUBuffer<T> {
@@ -19,15 +19,14 @@ impl<T: LinearStorageBase> LinearStorageBase for ResizableGPUBuffer<T> {
   }
 }
 
-impl<T: GPULinearStorageImpl + LinearStorageBase> ResizeableLinearStorage
-  for ResizableGPUBuffer<T>
-{
-  fn resize(&mut self, new_size: u32) {
+impl<T: GPULinearStorageImpl + LinearStorageBase> ResizableLinearStorage for ResizableGPUBuffer<T> {
+  fn resize(&mut self, new_size: u32) -> bool {
     let mut encoder = self.ctx.create_encoder();
     self
       .gpu
       .resize_gpu(&mut encoder, &self.ctx.device, new_size);
     self.ctx.queue.submit_encoder(encoder);
+    todo!()
   }
 }
 

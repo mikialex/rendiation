@@ -143,7 +143,6 @@
         "reorderable",
         "repr",
         "reproject",
-        "Resizeable",
         "resizer",
         "rgba",
         "rustfmt",

@@ -5,14 +5,23 @@ pub struct ResizeInput {
   pub required_size: u32,
 }
 
+/// control the grow behavior
+///
+/// try auto grow when unbound mutation occurred
 pub struct CustomGrowBehaviorMaintainer<T> {
   pub inner: T,
   pub size_adjust: Box<dyn Fn(ResizeInput) -> Option<u32>>,
 }
 
+impl<T: ResizableLinearStorage> ResizableLinearStorage for CustomGrowBehaviorMaintainer<T> {
+  fn resize(&mut self, new_size: u32) -> bool {
+    self.check_resize(new_size).is_some()
+  }
+}
+
 impl<T> CustomGrowBehaviorMaintainer<T>
 where
-  T: LinearStorage + ResizeableLinearStorage,
+  T: LinearStorageBase + ResizableLinearStorage,
 {
   fn check_resize(&mut self, required: u32) -> Option<()> {
     if self.max_size() < required {
@@ -20,15 +29,15 @@ where
         current_size: self.max_size(),
         required_size: required,
       })?;
-      self.inner.resize(new_size)
+      return self.inner.resize(new_size).then_some(());
     }
     Some(())
   }
 }
 
-impl<T> LinearStorage for CustomGrowBehaviorMaintainer<T>
+impl<T> LinearStorageDirectAccess for CustomGrowBehaviorMaintainer<T>
 where
-  T: LinearStorage + ResizeableLinearStorage,
+  T: LinearStorageDirectAccess + ResizableLinearStorage,
 {
   fn remove(&mut self, idx: u32) {
     self.inner.remove(idx);

@@ -5,9 +5,9 @@ pub struct DeferMutationToGPUUpdate<T: LinearStorageBase> {
   pub updates: FastHashMap<u32, Option<T::Item>>,
 }
 
-impl<T> LinearStorage for DeferMutationToGPUUpdate<T>
+impl<T> LinearStorageDirectAccess for DeferMutationToGPUUpdate<T>
 where
-  T: LinearStorage,
+  T: LinearStorageDirectAccess,
 {
   fn remove(&mut self, idx: u32) {
     self.updates.insert(idx, None);
@@ -25,8 +25,8 @@ impl<T: LinearStorageViewAccess> LinearStorageViewAccess for DeferMutationToGPUU
   }
 }
 
-impl<T: ResizeableLinearStorage> ResizeableLinearStorage for DeferMutationToGPUUpdate<T> {
-  fn resize(&mut self, new_size: u32) {
+impl<T: ResizableLinearStorage> ResizableLinearStorage for DeferMutationToGPUUpdate<T> {
+  fn resize(&mut self, new_size: u32) -> bool {
     self.inner.resize(new_size)
   }
 }
@@ -39,7 +39,9 @@ impl<T: LinearStorageBase> LinearStorageBase for DeferMutationToGPUUpdate<T> {
   }
 }
 
-impl<T: GPULinearStorage + LinearStorage> GPULinearStorage for DeferMutationToGPUUpdate<T> {
+impl<T: GPULinearStorage + LinearStorageDirectAccess> GPULinearStorage
+  for DeferMutationToGPUUpdate<T>
+{
   type GPUType = T::GPUType;
 
   fn update_gpu(&mut self, encoder: &mut GPUCommandEncoder) {
