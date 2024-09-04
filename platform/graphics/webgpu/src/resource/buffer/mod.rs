@@ -7,6 +7,9 @@ pub use storage::*;
 mod allocator;
 pub use allocator::*;
 
+mod maintainer;
+pub use maintainer::*;
+
 use crate::*;
 
 pub type GPUBufferResource = ResourceRc<GPUBuffer>;

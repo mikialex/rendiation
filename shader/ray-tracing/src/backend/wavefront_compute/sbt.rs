@@ -11,6 +11,9 @@ pub struct ShaderBindingTableInfo {
 // todo support resize
 impl ShaderBindingTableProvider for ShaderBindingTableInfo {
   fn config_ray_generation(&mut self, s: ShaderHandle) {
+    let sys = self.sys.inner.read();
+    // let ray_gen_start = sys.meta
+    // sys.ray_gen
     todo!()
   }
 
@@ -51,7 +54,7 @@ pub struct ShaderBindingTableDeviceInfo {
 }
 
 pub struct ShaderBindingTableDeviceInfoImpl {
-  meta: StorageBufferPool<DeviceSBTTableMeta>,
+  meta: VecWithStorageBuffer<DeviceSBTTableMeta>,
   ray_hit: StorageBufferRangeAllocatePool<DeviceHistGroupShaderRecord>,
   ray_miss: StorageBufferRangeAllocatePool<u32>,
   ray_gen: StorageBufferRangeAllocatePool<u32>,
@@ -65,7 +68,7 @@ const SCENE_MAX_GROW_RATIO: usize = 128;
 impl ShaderBindingTableDeviceInfo {
   pub fn new(gpu: &GPU) -> Self {
     let inner = ShaderBindingTableDeviceInfoImpl {
-      meta: StorageBufferPool::new(&gpu.device, 32, 32 * SCENE_MAX_GROW_RATIO),
+      meta: VecWithStorageBuffer::new(&gpu.device, 32, 32 * SCENE_MAX_GROW_RATIO),
       ray_hit: StorageBufferRangeAllocatePool::new(
         &gpu.device,
         SCENE_MESH_INIT_SIZE * SCENE_RAY_TYPE_INIT_SIZE,

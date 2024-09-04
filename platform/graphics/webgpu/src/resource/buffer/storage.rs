@@ -235,25 +235,3 @@ impl<T: Std430MaybeUnsized + ?Sized> StorageBufferDataView<T> {
     }
   }
 }
-
-pub struct StorageBufferPool<T: Std430> {
-  buffer: StorageBufferReadOnlyDataView<[T]>,
-  data_cache: slab::Slab<()>,
-}
-
-impl<T: Std430> StorageBufferPool<T> {
-  pub fn new(device: &GPUDevice, init_size: usize, max_size: usize) -> Self {
-    todo!()
-  }
-  // pub fn write_at()
-}
-
-impl<T: Std430> CacheAbleBindingSource for StorageBufferPool<T> {
-  fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
-    self.buffer.get_binding_build_source()
-  }
-}
-
-impl<T: ShaderSizedValueNodeType + Std430> ShaderBindingProvider for StorageBufferPool<T> {
-  type Node = ShaderReadOnlyStoragePtr<[T]>;
-}
