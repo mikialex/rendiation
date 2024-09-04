@@ -66,24 +66,6 @@ pub trait LinearStorage: LinearStorageBase {
   }
 }
 
-pub trait LinearAllocatorStorage: LinearStorageBase {
-  fn remove(&mut self, idx: u32, relocation_handler: &mut dyn FnMut((u32, u32)));
-  fn set_value(
-    &mut self,
-    v: Self::Item,
-    relocation_handler: &mut dyn FnMut((u32, u32)),
-  ) -> Option<usize>;
-}
-
-pub trait RangeAllocatorStorage: LinearStorageBase {
-  fn remove(&mut self, idx: u32, relocation_handler: &mut dyn FnMut((u32, u32)));
-  fn set_values(
-    &mut self,
-    v: &[Self::Item],
-    relocation_handler: &mut dyn FnMut((u32, u32)),
-  ) -> Option<usize>;
-}
-
 pub trait ResizeableLinearStorage: LinearStorageBase {
   fn resize(&mut self, new_size: u32);
 

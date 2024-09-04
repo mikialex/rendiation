@@ -7,8 +7,8 @@ pub use storage::*;
 mod allocator;
 pub use allocator::*;
 
-mod maintainer;
-pub use maintainer::*;
+mod linear_buffer_array;
+pub use linear_buffer_array::*;
 
 use crate::*;
 
