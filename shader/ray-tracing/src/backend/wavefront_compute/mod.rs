@@ -73,7 +73,7 @@ impl GPURayTracingDeviceProvider for GPUWaveFrontComputeRaytracingDevice {
     mesh_count: u32,
     ray_type_count: u32,
   ) -> Box<dyn ShaderBindingTableProvider> {
-    let self_idx = self.sbt_sys.allocate(mesh_count, ray_type_count);
+    let self_idx = self.sbt_sys.allocate(mesh_count, ray_type_count).unwrap();
     Box::new(ShaderBindingTableInfo {
       ray_generation: Default::default(),
       ray_miss: Default::default(),

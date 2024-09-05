@@ -33,7 +33,7 @@ pub fn reactive_linear_allocation(
   (allocator, size_rev)
 }
 
-type AllocationHandel = xalloc::tlsf::TlsfRegion<xalloc::arena::sys::Ptr>;
+type AllocationHandle = xalloc::tlsf::TlsfRegion<xalloc::arena::sys::Ptr>;
 
 struct ReactiveAllocator<T> {
   source: T,
@@ -53,7 +53,7 @@ struct Allocator {
   allocator: xalloc::SysTlsf<u32>,
   max_count: u32,
   current_count: u32,
-  allocated: FastHashMap<u32, (AllocationHandel, u32, u32)>,
+  allocated: FastHashMap<u32, (AllocationHandle, u32, u32)>,
 }
 
 impl VirtualCollection<u32, u32> for LockReadGuardHolder<Allocator> {

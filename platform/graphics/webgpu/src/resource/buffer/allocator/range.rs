@@ -1,11 +1,12 @@
 use crate::*;
 
-type AllocationHandel = xalloc::tlsf::TlsfRegion<xalloc::arena::sys::Ptr>;
+type AllocationHandle = xalloc::tlsf::TlsfRegion<xalloc::arena::sys::Ptr>;
 
-pub struct GPURangeAllocateBuffer<T> {
+pub struct GPURangeAllocateMaintainer<T> {
   used_count: u32,
   // todo, remove this if we can get offset from handle in allocator
-  ranges: FastHashMap<u32, (u32, AllocationHandel)>,
+  // offset => (size, handle)
+  ranges: FastHashMap<u32, (u32, AllocationHandle)>,
   // todo, try other allocator that support relocate and shrink??
   //
   // In the rust ecosystem, there are many allocator implementations but it's rare to find one for
@@ -17,7 +18,7 @@ pub struct GPURangeAllocateBuffer<T> {
   gpu: GPU,
 }
 
-impl<T> GPURangeAllocateBuffer<T>
+impl<T> GPURangeAllocateMaintainer<T>
 where
   T: ResizableLinearStorage + GPULinearStorage + LinearStorageDirectAccess,
 {
@@ -81,16 +82,52 @@ where
 
     true
   }
+
+  fn allocate_range_impl(
+    &mut self,
+    count: u32,
+    relocation_handler: &mut dyn FnMut(RelocationMessage),
+  ) -> Option<u32>
+  where
+    Self: LinearStorageDirectAccess,
+  {
+    assert!(count > 0);
+    loop {
+      if let Some((token, offset)) = self.allocator.alloc(count) {
+        self.ranges.insert(offset, (count, token));
+        self.used_count += count;
+
+        break Some(offset);
+      } else if !self.relocate(self.buffer.max_size() + count, relocation_handler) {
+        return None;
+      }
+    }
+  }
 }
 
-impl<T: LinearStorageBase> LinearStorageBase for GPURangeAllocateBuffer<T> {
+impl<T: LinearStorageBase> LinearStorageBase for GPURangeAllocateMaintainer<T> {
   type Item = T::Item;
   fn max_size(&self) -> u32 {
     self.buffer.max_size()
   }
 }
 
-impl<T: GPULinearStorage> GPULinearStorage for GPURangeAllocateBuffer<T> {
+impl<T: LinearStorageDirectAccess> LinearStorageDirectAccess for GPURangeAllocateMaintainer<T> {
+  fn remove(&mut self, idx: u32) {
+    self.buffer.remove(idx);
+  }
+  fn removes(&mut self, offset: u32, len: usize) {
+    self.buffer.removes(offset, len)
+  }
+  fn set_value(&mut self, idx: u32, v: Self::Item) -> Option<()> {
+    self.buffer.set_value(idx, v)
+  }
+  fn set_values(&mut self, offset: u32, v: &[Self::Item]) -> Option<()> {
+    self.buffer.set_values(offset, v)
+  }
+}
+
+impl<T: GPULinearStorage> GPULinearStorage for GPURangeAllocateMaintainer<T> {
   type GPUType = T::GPUType;
 
   fn update_gpu(&mut self, encoder: &mut GPUCommandEncoder) {
@@ -104,27 +141,20 @@ impl<T: GPULinearStorage> GPULinearStorage for GPURangeAllocateBuffer<T> {
   }
 }
 
-impl<T: LinearStorageBase> AllocatorStorageBase for GPURangeAllocateBuffer<T> {
+impl<T: LinearStorageBase> AllocatorStorageBase for GPURangeAllocateMaintainer<T> {
   fn current_used(&self) -> u32 {
     self.used_count
   }
-
-  fn try_compact(&mut self, _: &mut dyn FnMut(RelocationMessage)) {
-    // not supported yet, but it's ok
-  }
-
-  fn try_reserve_used(&mut self, _: u32, _: &mut dyn FnMut(RelocationMessage)) {
-    // not supported yet, but it's ok
-  }
 }
 
-impl<T> RangeAllocatorStorage for GPURangeAllocateBuffer<T>
+impl<T> RangeAllocatorStorage for GPURangeAllocateMaintainer<T>
 where
   T: ResizableLinearStorage + LinearStorageDirectAccess + GPULinearStorage,
 {
   fn deallocate(&mut self, idx: u32) {
-    let (_, token) = self.ranges.remove(&idx).unwrap();
+    let (size, token) = self.ranges.remove(&idx).unwrap();
     self.allocator.dealloc(token).unwrap();
+    self.used_count -= size;
   }
 
   fn allocate_values(
@@ -132,51 +162,31 @@ where
     v: &[Self::Item],
     relocation_handler: &mut dyn FnMut(RelocationMessage),
   ) -> Option<u32> {
-    assert!(!v.is_empty());
-    let required_size = v.len() as u32;
-    loop {
-      if let Some((token, offset)) = self.allocator.alloc(required_size) {
-        self.buffer.set_values(offset, v);
-        self.ranges.insert(offset, (required_size, token));
+    let offset = self.allocate_range_impl(v.len() as u32, relocation_handler);
 
-        break Some(offset);
-      } else if !self.relocate(self.buffer.max_size() + required_size, relocation_handler) {
-        return None;
-      }
+    if let Some(offset) = offset {
+      self.buffer.set_values(offset, v);
     }
+
+    offset
+  }
+
+  fn allocate_range(
+    &mut self,
+    count: u32,
+    relocation_handler: &mut dyn FnMut(RelocationMessage),
+  ) -> Option<u32>
+  where
+    Self: LinearStorageDirectAccess,
+  {
+    self.allocate_range_impl(count, relocation_handler)
   }
 }
 
 pub type StorageBufferRangeAllocatePool<T> = RangeAllocatePool<StorageBufferReadOnlyDataView<[T]>>;
-pub type RangeAllocatePool<T> = GPURangeAllocateBuffer<GrowableDirectQueueUpdateBuffer<T>>;
-pub type GrowableDirectQueueUpdateBuffer<T> =
-  CustomGrowBehaviorMaintainer<GPUStorageDirectQueueUpdate<ResizableGPUBuffer<T>>>;
+pub type RangeAllocatePool<T> = GPURangeAllocateMaintainer<GrowableDirectQueueUpdateBuffer<T>>;
 
-pub fn create_growable_buffer<T: GPULinearStorageImpl>(
-  gpu: &GPU,
-  buffer: T,
-  max_size: u32,
-) -> GrowableDirectQueueUpdateBuffer<T> {
-  ResizableGPUBuffer {
-    gpu: buffer,
-    ctx: gpu.clone(),
-  }
-  .with_queue_direct_update(&gpu.queue)
-  .with_grow_behavior(
-    move |ResizeInput {
-            current_size,
-            required_size,
-          }| {
-      if required_size > max_size {
-        None
-      } else {
-        Some((current_size * 2).min(max_size))
-      }
-    },
-  )
-}
-
-pub fn create_storage_buffer_allocate_pool<T: Std430>(
+pub fn create_storage_buffer_range_allocate_pool<T: Std430>(
   gpu: &GPU,
   init_size: u32,
   max_size: u32,
@@ -187,5 +197,5 @@ pub fn create_storage_buffer_allocate_pool<T: Std430>(
   );
 
   let buffer = create_growable_buffer(gpu, buffer, max_size);
-  GPURangeAllocateBuffer::new(gpu, buffer)
+  GPURangeAllocateMaintainer::new(gpu, buffer)
 }

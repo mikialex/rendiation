@@ -88,3 +88,30 @@ pub trait LinearStorageViewAccess: LinearStorageBase {
     self.view().get(idx as usize)
   }
 }
+
+pub type GrowableDirectQueueUpdateBuffer<T> =
+  CustomGrowBehaviorMaintainer<GPUStorageDirectQueueUpdate<ResizableGPUBuffer<T>>>;
+
+pub fn create_growable_buffer<T: GPULinearStorageImpl>(
+  gpu: &GPU,
+  buffer: T,
+  max_size: u32,
+) -> GrowableDirectQueueUpdateBuffer<T> {
+  ResizableGPUBuffer {
+    gpu: buffer,
+    ctx: gpu.clone(),
+  }
+  .with_queue_direct_update(&gpu.queue)
+  .with_grow_behavior(
+    move |ResizeInput {
+            current_size,
+            required_size,
+          }| {
+      if required_size > max_size {
+        None
+      } else {
+        Some((current_size * 2).min(max_size))
+      }
+    },
+  )
+}

@@ -85,14 +85,16 @@ impl GPUBindlessMeshSystem {
     );
 
     let index_buffer = create_growable_buffer(gpu, index_buffer, 1000_0000);
-    let index_buffer = GPURangeAllocateBuffer::new(gpu, index_buffer);
+    let index_buffer = GPURangeAllocateMaintainer::new(gpu, index_buffer);
 
     let vertex_init_count = 10_0000;
     let vertex_max_count = 1000_0000;
 
-    let position = create_storage_buffer_allocate_pool(gpu, vertex_init_count, vertex_max_count);
-    let normal = create_storage_buffer_allocate_pool(gpu, vertex_init_count, vertex_max_count);
-    let uv = create_storage_buffer_allocate_pool(gpu, vertex_init_count, vertex_max_count);
+    let position =
+      create_storage_buffer_range_allocate_pool(gpu, vertex_init_count, vertex_max_count);
+    let normal =
+      create_storage_buffer_range_allocate_pool(gpu, vertex_init_count, vertex_max_count);
+    let uv = create_storage_buffer_range_allocate_pool(gpu, vertex_init_count, vertex_max_count);
 
     GPUBindlessMeshSystem {
       metadata: Default::default(),

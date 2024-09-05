@@ -54,7 +54,7 @@ pub struct ShaderBindingTableDeviceInfo {
 }
 
 pub struct ShaderBindingTableDeviceInfoImpl {
-  meta: StorageBufferReadOnlyDataView<[DeviceSBTTableMeta]>,
+  meta: StorageBufferSlabAllocatePool<DeviceSBTTableMeta>,
   ray_hit: StorageBufferRangeAllocatePool<DeviceHistGroupShaderRecord>,
   ray_miss: StorageBufferRangeAllocatePool<u32>,
   ray_gen: StorageBufferRangeAllocatePool<u32>,
@@ -70,17 +70,17 @@ impl ShaderBindingTableDeviceInfo {
     let inner = ShaderBindingTableDeviceInfoImpl {
       // meta: VecWithStorageBuffer::new(&gpu.device, 32, 32 * SCENE_MAX_GROW_RATIO),
       meta: todo!(),
-      ray_hit: create_storage_buffer_allocate_pool(
+      ray_hit: create_storage_buffer_range_allocate_pool(
         gpu,
         SCENE_MESH_INIT_SIZE * SCENE_RAY_TYPE_INIT_SIZE,
         SCENE_MESH_INIT_SIZE * SCENE_RAY_TYPE_INIT_SIZE * SCENE_MAX_GROW_RATIO,
       ),
-      ray_miss: create_storage_buffer_allocate_pool(
+      ray_miss: create_storage_buffer_range_allocate_pool(
         gpu,
         SCENE_RAY_TYPE_INIT_SIZE,
         SCENE_RAY_TYPE_INIT_SIZE * SCENE_MAX_GROW_RATIO,
       ),
-      ray_gen: create_storage_buffer_allocate_pool(
+      ray_gen: create_storage_buffer_range_allocate_pool(
         gpu,
         SCENE_RAY_TYPE_INIT_SIZE,
         SCENE_RAY_TYPE_INIT_SIZE * SCENE_MAX_GROW_RATIO,
@@ -92,37 +92,32 @@ impl ShaderBindingTableDeviceInfo {
     }
   }
 
-  pub fn allocate(&self, mesh_count: u32, ray_type_count: u32) -> u32 {
+  pub fn allocate(&self, mesh_count: u32, ray_type_count: u32) -> Option<u32> {
     let mut inner = self.inner.write();
-    // inner.ray_hit.allocate(
-    //   todo!(),
-    //   todo!(),
-    //   // content: &[u8],
-    //   &self.gpu.device,
-    //   &self.gpu.queue,
-    //   &mut |_| {
-    //     //
-    //   },
-    // );
-    // inner.ray_miss.allocate(
-    //   allocation_handle,
-    //   content,
-    //   device,
-    //   queue,
-    //   relocation_handler,
-    // );
-    // inner.ray_gen.allocate(
-    //   allocation_handle,
-    //   content,
-    //   device,
-    //   queue,
-    //   relocation_handler,
-    // );
-    todo!()
+    let hit_group_start = inner
+      .ray_hit
+      .allocate_range(mesh_count * ray_type_count, &mut |_| {
+        //
+      })?;
+    let miss_start = inner.ray_miss.allocate_range(ray_type_count, &mut |_| {
+      //
+    })?;
+    let gen_start = inner.ray_gen.allocate_range(ray_type_count, &mut |_| {
+      //
+    })?;
+
+    let meta = DeviceSBTTableMeta {
+      hit_group_start,
+      miss_start,
+      gen_start,
+      ..Zeroable::zeroed()
+    };
+    inner.meta.allocate_value(meta)
   }
 
   pub fn deallocate(&self, id: u32) {
-    todo!()
+    let mut inner = self.inner.write();
+    let v = inner.meta.deallocate(id);
   }
 }
 
@@ -133,7 +128,7 @@ impl ShaderBindingTableDeviceInfo {
   ) -> ShaderBindingTableDeviceInfoInvocation {
     let inner = self.inner.read();
     ShaderBindingTableDeviceInfoInvocation {
-      meta: cx.bind_by(&inner.meta),
+      meta: cx.bind_by(&inner.meta.gpu()),
       ray_hit: cx.bind_by(&inner.ray_hit.gpu()),
       ray_miss: cx.bind_by(&inner.ray_miss.gpu()),
       ray_gen: cx.bind_by(&inner.ray_gen.gpu()),
@@ -141,7 +136,7 @@ impl ShaderBindingTableDeviceInfo {
   }
   pub fn bind(&self, cx: &mut BindingBuilder) {
     let inner = self.inner.read();
-    cx.bind(&inner.meta);
+    cx.bind(inner.meta.gpu());
     cx.bind(inner.ray_hit.gpu());
     cx.bind(inner.ray_miss.gpu());
     cx.bind(inner.ray_gen.gpu());
