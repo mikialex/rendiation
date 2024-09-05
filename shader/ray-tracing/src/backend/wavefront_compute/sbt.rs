@@ -68,8 +68,7 @@ const SCENE_MAX_GROW_RATIO: u32 = 128;
 impl ShaderBindingTableDeviceInfo {
   pub fn new(gpu: &GPU) -> Self {
     let inner = ShaderBindingTableDeviceInfoImpl {
-      // meta: VecWithStorageBuffer::new(&gpu.device, 32, 32 * SCENE_MAX_GROW_RATIO),
-      meta: todo!(),
+      meta: create_storage_buffer_slab_allocate_pool(gpu, 32, 32 * SCENE_MAX_GROW_RATIO),
       ray_hit: create_storage_buffer_range_allocate_pool(
         gpu,
         SCENE_MESH_INIT_SIZE * SCENE_RAY_TYPE_INIT_SIZE,
@@ -117,7 +116,7 @@ impl ShaderBindingTableDeviceInfo {
 
   pub fn deallocate(&self, id: u32) {
     let mut inner = self.inner.write();
-    let v = inner.meta.deallocate(id);
+    // let v = inner.meta.deallocate_back(id);
   }
 }
 

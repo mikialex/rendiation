@@ -27,9 +27,9 @@ where
     self.inner.remove(idx);
     self.set_value(idx, self.none_default);
   }
-  fn removes(&mut self, offset: u32, len: usize) {
+  fn removes(&mut self, offset: u32, len: u32) {
     self.inner.removes(offset, len);
-    for i in offset..(offset + len as u32) {
+    for i in offset..(offset + len) {
       self.set_value(i, self.none_default);
     }
   }

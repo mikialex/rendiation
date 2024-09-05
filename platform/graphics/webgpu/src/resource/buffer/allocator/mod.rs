@@ -33,6 +33,10 @@ pub trait AllocatorStorageBase: LinearStorageBase {
 pub trait LinearAllocatorStorage: AllocatorStorageBase {
   fn deallocate(&mut self, idx: u32);
   fn allocate_value(&mut self, v: Self::Item) -> Option<u32>;
+
+  fn deallocate_back(&mut self, idx: u32) -> Option<Self::Item>
+  where
+    Self: LinearStorageViewAccess;
 }
 
 pub trait RangeAllocatorStorage: AllocatorStorageBase {

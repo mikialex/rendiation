@@ -37,8 +37,8 @@ pub trait LinearStorageBase: Sized {
 
 pub trait LinearStorageDirectAccess: LinearStorageBase {
   fn remove(&mut self, idx: u32);
-  fn removes(&mut self, offset: u32, len: usize) {
-    for i in offset..(offset + len as u32) {
+  fn removes(&mut self, offset: u32, len: u32) {
+    for i in offset..(offset + len) {
       self.remove(i);
     }
   }

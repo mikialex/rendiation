@@ -116,7 +116,7 @@ impl<T: LinearStorageDirectAccess> LinearStorageDirectAccess for GPURangeAllocat
   fn remove(&mut self, idx: u32) {
     self.buffer.remove(idx);
   }
-  fn removes(&mut self, offset: u32, len: usize) {
+  fn removes(&mut self, offset: u32, len: u32) {
     self.buffer.removes(offset, len)
   }
   fn set_value(&mut self, idx: u32, v: Self::Item) -> Option<()> {
@@ -154,6 +154,7 @@ where
   fn deallocate(&mut self, idx: u32) {
     let (size, token) = self.ranges.remove(&idx).unwrap();
     self.allocator.dealloc(token).unwrap();
+    self.buffer.removes(idx, size);
     self.used_count -= size;
   }
 
