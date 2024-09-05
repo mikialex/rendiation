@@ -1,7 +1,5 @@
 use crate::*;
 
-pub mod naive;
-
 pub trait GPUAccelerationStructureSystemCompImplInstance {
   fn build_shader(
     &self,

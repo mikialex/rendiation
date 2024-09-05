@@ -59,6 +59,24 @@ impl<T: LinearStorageViewAccess> LinearStorageViewAccess for GPUSlatAllocateMain
   }
 }
 
+impl<T: LinearStorageDirectAccess> LinearStorageDirectAccess for GPUSlatAllocateMaintainer<T> {
+  fn remove(&mut self, idx: u32) -> Option<()> {
+    self.buffer.remove(idx)
+  }
+  fn removes(&mut self, offset: u32, len: u32) -> Option<()> {
+    self.buffer.removes(offset, len)
+  }
+  fn set_value(&mut self, idx: u32, v: Self::Item) -> Option<()> {
+    self.buffer.set_value(idx, v)
+  }
+  fn set_values(&mut self, offset: u32, v: &[Self::Item]) -> Option<()> {
+    self.buffer.set_values(offset, v)
+  }
+  unsafe fn set_value_sub_bytes(&mut self, idx: u32, field_offset: usize, v: &[u8]) -> Option<()> {
+    self.buffer.set_value_sub_bytes(idx, field_offset, v)
+  }
+}
+
 impl<T: GPULinearStorage> GPULinearStorage for GPUSlatAllocateMaintainer<T> {
   type GPUType = T::GPUType;
 

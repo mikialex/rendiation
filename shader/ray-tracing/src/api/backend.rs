@@ -38,7 +38,7 @@ pub struct HitGroupShaderRecord {
 
 pub trait ShaderBindingTableProvider {
   fn config_ray_generation(&mut self, s: ShaderHandle);
-  fn config_hit_group(&mut self, mesh_idx: u32, hit_group: HitGroupShaderRecord);
+  fn config_hit_group(&mut self, mesh_idx: u32, ray_ty_idx: u32, hit_group: HitGroupShaderRecord);
   fn config_missing(&mut self, ray_ty_idx: u32, s: ShaderHandle);
   fn access_impl(&self) -> &dyn Any;
 }

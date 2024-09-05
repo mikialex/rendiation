@@ -22,7 +22,7 @@ impl Default for GPURaytracingPipelineDescriptor {
   }
 }
 
-pub struct ShaderHandle(pub usize, pub RayTracingShaderStage);
+pub struct ShaderHandle(pub u32, pub RayTracingShaderStage);
 
 impl GPURaytracingPipelineDescriptor {
   pub fn set_max_recursion_depth(&mut self, max_recursion_depth: u32) -> &mut Self {
@@ -34,7 +34,7 @@ impl GPURaytracingPipelineDescriptor {
     mut self,
     ray_logic: impl TraceOperator<()> + 'static,
   ) -> ShaderHandle {
-    let idx = self.ray_gen_shaders.len();
+    let idx = self.ray_gen_shaders.len() as u32;
     self
       .ray_gen_shaders
       .push((Box::new(ray_logic), P::sized_ty()));
@@ -44,7 +44,7 @@ impl GPURaytracingPipelineDescriptor {
     mut self,
     ray_logic: impl TraceOperator<()> + 'static,
   ) -> ShaderHandle {
-    let idx = self.miss_hit_shaders.len();
+    let idx = self.miss_hit_shaders.len() as u32;
     self
       .miss_hit_shaders
       .push((Box::new(ray_logic), P::sized_ty()));
@@ -55,7 +55,7 @@ impl GPURaytracingPipelineDescriptor {
     &mut self,
     ray_logic: impl TraceOperator<()> + 'static,
   ) -> ShaderHandle {
-    let idx = self.closest_hit_shaders.len();
+    let idx = self.closest_hit_shaders.len() as u32;
     self
       .closest_hit_shaders
       .push((Box::new(ray_logic), P::sized_ty()));
@@ -66,7 +66,7 @@ impl GPURaytracingPipelineDescriptor {
     mut self,
     builder: impl Fn(&RayIntersectCtx, &dyn IntersectionReporter) + 'static,
   ) -> ShaderHandle {
-    let idx = self.intersection_shaders.len();
+    let idx = self.intersection_shaders.len() as u32;
     self.intersection_shaders.push(Arc::new(builder));
     ShaderHandle(idx, RayTracingShaderStage::Intersection)
   }
@@ -75,7 +75,7 @@ impl GPURaytracingPipelineDescriptor {
     &mut self,
     builder: impl Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior> + 'static,
   ) -> ShaderHandle {
-    let idx = self.any_hit_shaders.len();
+    let idx = self.any_hit_shaders.len() as u32;
     self.any_hit_shaders.push(Arc::new(builder));
     ShaderHandle(idx, RayTracingShaderStage::AnyHit)
   }

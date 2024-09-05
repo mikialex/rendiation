@@ -6,34 +6,38 @@ pub struct ShaderBindingTableInfo {
 }
 
 // todo support resize
+// todo, fix correctly mapping to task index
 impl ShaderBindingTableProvider for ShaderBindingTableInfo {
   fn config_ray_generation(&mut self, s: ShaderHandle) {
-    let sys = self.sys.inner.read();
+    let mut sys = self.sys.inner.write();
     let ray_gen_start = sys.meta.get(self.self_idx).unwrap().gen_start;
-    // let ray_gen_start = sys.meta
-    // sys.ray_gen
-    todo!()
+    sys.ray_gen.set_value(ray_gen_start, s.0).unwrap();
   }
 
-  fn config_hit_group(&mut self, mesh_idx: u32, hit_group: HitGroupShaderRecord) {
+  fn config_hit_group(&mut self, mesh_idx: u32, ray_ty_idx: u32, hit_group: HitGroupShaderRecord) {
     let mut sys = self.sys.inner.write();
     let hit_group_start = sys.meta.get(self.self_idx).unwrap().hit_group_start;
-    sys.ray_hit.set_value(
-      todo!(),
-      DeviceHitGroupShaderRecord {
-        closet_hit: todo!(),
-        any_hit: todo!(),
-        intersection: todo!(),
-        ..Zeroable::zeroed()
-      },
-    );
-    todo!()
+    sys
+      .ray_hit
+      .set_value(
+        hit_group_start + mesh_idx * ray_ty_idx,
+        DeviceHitGroupShaderRecord {
+          closet_hit: hit_group.closet_hit.map(|v| v.0).unwrap_or(u32::MAX),
+          any_hit: hit_group.any_hit.map(|v| v.0).unwrap_or(u32::MAX),
+          intersection: hit_group.intersection.map(|v| v.0).unwrap_or(u32::MAX),
+          ..Zeroable::zeroed()
+        },
+      )
+      .unwrap();
   }
 
   fn config_missing(&mut self, ray_ty_idx: u32, s: ShaderHandle) {
     let mut sys = self.sys.inner.write();
     let miss_start = sys.meta.get(self.self_idx).unwrap().miss_start;
-    todo!()
+    sys
+      .ray_miss
+      .set_value(miss_start + ray_ty_idx, s.0)
+      .unwrap();
   }
   fn access_impl(&self) -> &dyn Any {
     self
@@ -60,15 +64,17 @@ pub struct DeviceHitGroupShaderRecord {
 
 #[derive(Clone)]
 pub struct ShaderBindingTableDeviceInfo {
-  gpu: GPU,
   inner: Arc<RwLock<ShaderBindingTableDeviceInfoImpl>>,
 }
 
 pub struct ShaderBindingTableDeviceInfoImpl {
   meta: StorageBufferSlabAllocatePoolWithHost<DeviceSBTTableMeta>,
   ray_hit: StorageBufferRangeAllocatePool<DeviceHitGroupShaderRecord>,
+  hit_offset_map: FastHashMap<u32, u32>,
   ray_miss: StorageBufferRangeAllocatePool<u32>,
+  miss_offset_map: FastHashMap<u32, u32>,
   ray_gen: StorageBufferRangeAllocatePool<u32>,
+  gen_offset_map: FastHashMap<u32, u32>,
 }
 
 // just random number
@@ -95,26 +101,61 @@ impl ShaderBindingTableDeviceInfo {
         SCENE_RAY_TYPE_INIT_SIZE,
         SCENE_RAY_TYPE_INIT_SIZE * SCENE_MAX_GROW_RATIO,
       ),
+      hit_offset_map: Default::default(),
+      miss_offset_map: Default::default(),
+      gen_offset_map: Default::default(),
     };
     Self {
-      gpu: gpu.clone(),
       inner: Arc::new(RwLock::new(inner)),
     }
   }
 
   pub fn allocate(&self, mesh_count: u32, ray_type_count: u32) -> Option<u32> {
     let mut inner = self.inner.write();
-    let hit_group_start = inner
-      .ray_hit
-      .allocate_range(mesh_count * ray_type_count, &mut |_| {
-        //
+    let inner: &mut ShaderBindingTableDeviceInfoImpl = &mut inner;
+    let hit_group_start =
+      inner
+        .ray_hit
+        .allocate_range(mesh_count * ray_type_count, &mut |r| unsafe {
+          let meta = inner.hit_offset_map.remove(&r.previous_offset).unwrap();
+          inner.hit_offset_map.insert(r.new_offset, meta).unwrap();
+          inner
+            .meta
+            .set_value_sub_bytes(
+              meta,
+              std::mem::offset_of!(DeviceSBTTableMeta, hit_group_start),
+              bytes_of(&r.new_offset),
+            )
+            .unwrap();
+        })?;
+    let miss_start = inner
+      .ray_miss
+      .allocate_range(ray_type_count, &mut |r| unsafe {
+        let meta = inner.miss_offset_map.remove(&r.previous_offset).unwrap();
+        inner.miss_offset_map.insert(r.new_offset, meta).unwrap();
+        inner
+          .meta
+          .set_value_sub_bytes(
+            meta,
+            std::mem::offset_of!(DeviceSBTTableMeta, miss_start),
+            bytes_of(&r.new_offset),
+          )
+          .unwrap();
       })?;
-    let miss_start = inner.ray_miss.allocate_range(ray_type_count, &mut |_| {
-      //
-    })?;
-    let gen_start = inner.ray_gen.allocate_range(ray_type_count, &mut |_| {
-      //
-    })?;
+    let gen_start = inner
+      .ray_gen
+      .allocate_range(ray_type_count, &mut |r| unsafe {
+        let meta = inner.gen_offset_map.remove(&r.previous_offset).unwrap();
+        inner.gen_offset_map.insert(r.new_offset, meta).unwrap();
+        inner
+          .meta
+          .set_value_sub_bytes(
+            meta,
+            std::mem::offset_of!(DeviceSBTTableMeta, gen_start),
+            bytes_of(&r.new_offset),
+          )
+          .unwrap();
+      })?;
 
     let meta = DeviceSBTTableMeta {
       hit_group_start,
@@ -122,12 +163,25 @@ impl ShaderBindingTableDeviceInfo {
       gen_start,
       ..Zeroable::zeroed()
     };
-    inner.meta.allocate_value(meta)
+    let idx = inner.meta.allocate_value(meta)?;
+
+    inner.miss_offset_map.insert(idx, meta.miss_start);
+    inner.hit_offset_map.insert(idx, meta.hit_group_start);
+    inner.gen_offset_map.insert(idx, meta.gen_start);
+
+    Some(idx)
   }
 
   pub fn deallocate(&self, id: u32) {
     let mut inner = self.inner.write();
-    // let v = inner.meta.deallocate_back(id);
+    let meta = inner.meta.deallocate_back(id).unwrap();
+    inner.ray_gen.deallocate(meta.gen_start);
+    inner.ray_hit.deallocate(meta.hit_group_start);
+    inner.ray_miss.deallocate(meta.miss_start);
+
+    inner.miss_offset_map.remove(&meta.miss_start);
+    inner.hit_offset_map.remove(&meta.hit_group_start);
+    inner.gen_offset_map.remove(&meta.gen_start);
   }
 }
 
