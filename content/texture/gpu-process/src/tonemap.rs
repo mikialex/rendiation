@@ -81,7 +81,7 @@ fn optimized_cineon_tone_mapping(color: Node<Vec3<f32>>, exposure: Node<f32>) ->
   let color = (color - val_v3s(0.004)).max(Vec3::zero());
   let color = (color * (val(6.2) * color + val_v3s(0.5)))
     / (color * (val(6.2) * color + val_v3s(1.7)) + val_v3s(0.06));
-  color.pow(2.2)
+  color.pow(Vec3::splat(2.2))
 }
 
 // source: https://github.com/selfshadow/ltc_code/blob/master/webgl/shaders/ltc/ltc_blit.fs

@@ -75,6 +75,11 @@ impl<T: LinearStorageBase> LinearStorageBase for CustomGrowBehaviorMaintainer<T>
     self.inner.max_size()
   }
 }
+impl<T: LinearStorageViewAccess> LinearStorageViewAccess for CustomGrowBehaviorMaintainer<T> {
+  fn view(&self) -> &[Self::Item] {
+    self.inner.view()
+  }
+}
 
 impl<T: GPULinearStorage> GPULinearStorage for CustomGrowBehaviorMaintainer<T> {
   type GPUType = T::GPUType;

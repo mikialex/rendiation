@@ -129,3 +129,33 @@ pub fn create_growable_buffer<T: GPULinearStorageImpl>(
     },
   )
 }
+
+pub type GrowableHostedDirectQueueUpdateBuffer<T> = CustomGrowBehaviorMaintainer<
+  VecWithStorageBuffer<GPUStorageDirectQueueUpdate<ResizableGPUBuffer<T>>>,
+>;
+
+pub fn create_growable_buffer_with_host_back<T: GPULinearStorageImpl>(
+  gpu: &GPU,
+  buffer: T,
+  max_size: u32,
+  diff_update: bool,
+) -> GrowableHostedDirectQueueUpdateBuffer<T> {
+  ResizableGPUBuffer {
+    gpu: buffer,
+    ctx: gpu.clone(),
+  }
+  .with_queue_direct_update(&gpu.queue)
+  .with_vec_backup(T::Item::zeroed(), diff_update)
+  .with_grow_behavior(
+    move |ResizeInput {
+            current_size,
+            required_size,
+          }| {
+      if required_size > max_size {
+        None
+      } else {
+        Some((current_size * 2).min(max_size))
+      }
+    },
+  )
+}

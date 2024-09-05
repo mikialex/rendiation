@@ -1,9 +1,6 @@
 use crate::*;
 
 pub struct ShaderBindingTableInfo {
-  pub ray_generation: Option<ShaderHandle>,
-  pub ray_miss: Vec<Option<ShaderHandle>>, // ray_type_count size
-  pub ray_hit: Vec<HitGroupShaderRecord>,  // mesh_count size
   pub(crate) sys: ShaderBindingTableDeviceInfo,
   pub(crate) self_idx: u32,
 }
@@ -12,16 +9,30 @@ pub struct ShaderBindingTableInfo {
 impl ShaderBindingTableProvider for ShaderBindingTableInfo {
   fn config_ray_generation(&mut self, s: ShaderHandle) {
     let sys = self.sys.inner.read();
+    let ray_gen_start = sys.meta.get(self.self_idx).unwrap().gen_start;
     // let ray_gen_start = sys.meta
     // sys.ray_gen
     todo!()
   }
 
   fn config_hit_group(&mut self, mesh_idx: u32, hit_group: HitGroupShaderRecord) {
+    let mut sys = self.sys.inner.write();
+    let hit_group_start = sys.meta.get(self.self_idx).unwrap().hit_group_start;
+    sys.ray_hit.set_value(
+      todo!(),
+      DeviceHitGroupShaderRecord {
+        closet_hit: todo!(),
+        any_hit: todo!(),
+        intersection: todo!(),
+        ..Zeroable::zeroed()
+      },
+    );
     todo!()
   }
 
   fn config_missing(&mut self, ray_ty_idx: u32, s: ShaderHandle) {
+    let mut sys = self.sys.inner.write();
+    let miss_start = sys.meta.get(self.self_idx).unwrap().miss_start;
     todo!()
   }
   fn access_impl(&self) -> &dyn Any {
@@ -31,7 +42,7 @@ impl ShaderBindingTableProvider for ShaderBindingTableInfo {
 
 #[repr(C)]
 #[std430_layout]
-#[derive(Clone, Copy, ShaderStruct)]
+#[derive(Clone, Copy, ShaderStruct, PartialEq)]
 pub struct DeviceSBTTableMeta {
   pub hit_group_start: u32,
   pub miss_start: u32,
@@ -41,7 +52,7 @@ pub struct DeviceSBTTableMeta {
 #[repr(C)]
 #[std430_layout]
 #[derive(Clone, Copy, ShaderStruct)]
-pub struct DeviceHistGroupShaderRecord {
+pub struct DeviceHitGroupShaderRecord {
   pub closet_hit: u32,
   pub any_hit: u32,
   pub intersection: u32,
@@ -54,8 +65,8 @@ pub struct ShaderBindingTableDeviceInfo {
 }
 
 pub struct ShaderBindingTableDeviceInfoImpl {
-  meta: StorageBufferSlabAllocatePool<DeviceSBTTableMeta>,
-  ray_hit: StorageBufferRangeAllocatePool<DeviceHistGroupShaderRecord>,
+  meta: StorageBufferSlabAllocatePoolWithHost<DeviceSBTTableMeta>,
+  ray_hit: StorageBufferRangeAllocatePool<DeviceHitGroupShaderRecord>,
   ray_miss: StorageBufferRangeAllocatePool<u32>,
   ray_gen: StorageBufferRangeAllocatePool<u32>,
 }
@@ -68,7 +79,7 @@ const SCENE_MAX_GROW_RATIO: u32 = 128;
 impl ShaderBindingTableDeviceInfo {
   pub fn new(gpu: &GPU) -> Self {
     let inner = ShaderBindingTableDeviceInfoImpl {
-      meta: create_storage_buffer_slab_allocate_pool(gpu, 32, 32 * SCENE_MAX_GROW_RATIO),
+      meta: create_storage_buffer_slab_allocate_pool_with_host(gpu, 32, 32 * SCENE_MAX_GROW_RATIO),
       ray_hit: create_storage_buffer_range_allocate_pool(
         gpu,
         SCENE_MESH_INIT_SIZE * SCENE_RAY_TYPE_INIT_SIZE,
@@ -144,7 +155,7 @@ impl ShaderBindingTableDeviceInfo {
 
 pub struct ShaderBindingTableDeviceInfoInvocation {
   meta: ReadOnlyStorageNode<[DeviceSBTTableMeta]>,
-  ray_hit: ReadOnlyStorageNode<[DeviceHistGroupShaderRecord]>,
+  ray_hit: ReadOnlyStorageNode<[DeviceHitGroupShaderRecord]>,
   ray_miss: ReadOnlyStorageNode<[u32]>,
   ray_gen: ReadOnlyStorageNode<[u32]>,
 }
@@ -180,4 +191,23 @@ impl ShaderBindingTableDeviceInfoInvocation {
     let ray_gen = self.meta.index(sbt_id).load().expand().gen_start; // todo fix over expand
     self.ray_gen.index(ray_gen).load()
   }
+}
+
+pub type StorageBufferSlabAllocatePoolWithHost<T> =
+  SlabAllocatePoolWithHost<StorageBufferReadOnlyDataView<[T]>>;
+pub type SlabAllocatePoolWithHost<T> =
+  GPUSlatAllocateMaintainer<GrowableHostedDirectQueueUpdateBuffer<T>>;
+
+pub fn create_storage_buffer_slab_allocate_pool_with_host<T: Std430>(
+  gpu: &GPU,
+  init_size: u32,
+  max_size: u32,
+) -> StorageBufferSlabAllocatePoolWithHost<T> {
+  let buffer = StorageBufferReadOnlyDataView::<[T]>::create_by(
+    &gpu.device,
+    StorageBufferInit::Zeroed(std::num::NonZeroU64::new(init_size as u64).unwrap()),
+  );
+
+  let buffer = create_growable_buffer_with_host_back(gpu, buffer, max_size, true);
+  GPUSlatAllocateMaintainer::new(buffer)
 }
