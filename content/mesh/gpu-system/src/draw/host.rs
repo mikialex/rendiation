@@ -63,14 +63,14 @@ impl<'a> ShaderPassBuilder for BindlessMeshDispatcher<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.vertex_address_buffer);
 
-    let index = self.system.index_buffer.buffer();
+    let index = &self.system.index_buffer.gpu().gpu;
     ctx
       .pass
       .set_index_buffer_by_buffer_resource_view(index, IndexFormat::Uint32);
 
-    ctx.binding.bind(&self.system.position);
-    ctx.binding.bind(&self.system.normal);
-    ctx.binding.bind(&self.system.uv);
+    ctx.binding.bind(self.system.position.gpu());
+    ctx.binding.bind(self.system.normal.gpu());
+    ctx.binding.bind(self.system.uv.gpu());
   }
 }
 
@@ -84,17 +84,17 @@ impl<'a> GraphicsShaderProvider for BindlessMeshDispatcher<'a> {
       let vertex_addresses = binding.bind_by(&self.vertex_address_buffer);
       let vertex_address = vertex_addresses.index(draw_id).load().expand();
 
-      let position = binding.bind_by(&self.system.position);
+      let position = binding.bind_by(&self.system.position.gpu());
       let position = position
         .index(vertex_address.position_buffer_offset + vertex_id)
         .load();
 
-      let normal = binding.bind_by(&self.system.normal);
+      let normal = binding.bind_by(&self.system.normal.gpu());
       let normal = normal
         .index(vertex_address.normal_buffer_offset + vertex_id)
         .load();
 
-      let uv = binding.bind_by(&self.system.uv);
+      let uv = binding.bind_by(&self.system.uv.gpu());
       let uv = uv.index(vertex_address.uv_buffer_offset + vertex_id).load();
 
       vertex.register::<GeometryPosition>(position.xyz());

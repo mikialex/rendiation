@@ -80,6 +80,7 @@ impl Clone for Box<dyn GPUAccelerationStructureSystemProvider> {
 
 pub struct BottomLevelAccelerationStructureHandle(pub u32);
 
+/// https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ns-d3d12-d3d12_raytracing_instance_desc
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct TopLevelAccelerationStructureSourceInstance {
   pub transform: Mat4<f32>,

@@ -122,12 +122,12 @@ impl<T> RangeAllocatorStorage for GPURangeAllocateBuffer<T>
 where
   T: ResizableLinearStorage + LinearStorageDirectAccess + GPULinearStorage,
 {
-  fn remove(&mut self, idx: u32) {
+  fn deallocate(&mut self, idx: u32) {
     let (_, token) = self.ranges.remove(&idx).unwrap();
     self.allocator.dealloc(token).unwrap();
   }
 
-  fn set_values(
+  fn allocate_values(
     &mut self,
     v: &[Self::Item],
     relocation_handler: &mut dyn FnMut(RelocationMessage),
@@ -147,32 +147,45 @@ where
   }
 }
 
-// I want use tait but hit this: https://github.com/rust-lang/rust/issues/129954
-pub type StorageBufferRangeAllocatePool<T> = GPURangeAllocateBuffer<
-  CustomGrowBehaviorMaintainer<
-    GPUStorageDirectQueueUpdate<ResizableGPUBuffer<StorageBufferDataView<[T]>>>,
-  >,
->;
+pub type StorageBufferRangeAllocatePool<T> = RangeAllocatePool<StorageBufferReadOnlyDataView<[T]>>;
+pub type RangeAllocatePool<T> = GPURangeAllocateBuffer<GrowableDirectQueueUpdateBuffer<T>>;
+pub type GrowableDirectQueueUpdateBuffer<T> =
+  CustomGrowBehaviorMaintainer<GPUStorageDirectQueueUpdate<ResizableGPUBuffer<T>>>;
+
+pub fn create_growable_buffer<T: GPULinearStorageImpl>(
+  gpu: &GPU,
+  buffer: T,
+  max_size: u32,
+) -> GrowableDirectQueueUpdateBuffer<T> {
+  ResizableGPUBuffer {
+    gpu: buffer,
+    ctx: gpu.clone(),
+  }
+  .with_queue_direct_update(&gpu.queue)
+  .with_grow_behavior(
+    move |ResizeInput {
+            current_size,
+            required_size,
+          }| {
+      if required_size > max_size {
+        None
+      } else {
+        Some((current_size * 2).min(max_size))
+      }
+    },
+  )
+}
 
 pub fn create_storage_buffer_allocate_pool<T: Std430>(
   gpu: &GPU,
   init_size: u32,
   max_size: u32,
 ) -> StorageBufferRangeAllocatePool<T> {
-  let buffer = StorageBufferDataView::<[T]>::create_by(
+  let buffer = StorageBufferReadOnlyDataView::<[T]>::create_by(
     &gpu.device,
     StorageBufferInit::Zeroed(NonZeroU64::new(init_size as u64).unwrap()),
   );
 
-  let buffer = ResizableGPUBuffer {
-    gpu: buffer,
-    ctx: gpu.clone(),
-  }
-  .with_queue_direct_update(&gpu.queue)
-  .with_grow_behavior(|size| {
-    //
-    None
-  });
-
+  let buffer = create_growable_buffer(gpu, buffer, max_size);
   GPURangeAllocateBuffer::new(gpu, buffer)
 }

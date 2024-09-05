@@ -20,13 +20,13 @@ pub trait AllocatorStorageBase: LinearStorageBase {
 }
 
 pub trait LinearAllocatorStorage: AllocatorStorageBase {
-  fn remove(&mut self, idx: u32);
-  fn set_value(&mut self, v: Self::Item) -> Option<usize>;
+  fn deallocate(&mut self, idx: u32);
+  fn allocate_value(&mut self, v: Self::Item) -> Option<usize>;
 }
 
 pub trait RangeAllocatorStorage: AllocatorStorageBase {
-  fn remove(&mut self, idx: u32);
-  fn set_values(
+  fn deallocate(&mut self, idx: u32);
+  fn allocate_values(
     &mut self,
     v: &[Self::Item],
     relocation_handler: &mut dyn FnMut(RelocationMessage),
