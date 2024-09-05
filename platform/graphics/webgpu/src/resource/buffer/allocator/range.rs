@@ -113,10 +113,10 @@ impl<T: LinearStorageBase> LinearStorageBase for GPURangeAllocateMaintainer<T> {
 }
 
 impl<T: LinearStorageDirectAccess> LinearStorageDirectAccess for GPURangeAllocateMaintainer<T> {
-  fn remove(&mut self, idx: u32) {
-    self.buffer.remove(idx);
+  fn remove(&mut self, idx: u32) -> Option<()> {
+    self.buffer.remove(idx)
   }
-  fn removes(&mut self, offset: u32, len: u32) {
+  fn removes(&mut self, offset: u32, len: u32) -> Option<()> {
     self.buffer.removes(offset, len)
   }
   fn set_value(&mut self, idx: u32, v: Self::Item) -> Option<()> {
@@ -124,6 +124,9 @@ impl<T: LinearStorageDirectAccess> LinearStorageDirectAccess for GPURangeAllocat
   }
   fn set_values(&mut self, offset: u32, v: &[Self::Item]) -> Option<()> {
     self.buffer.set_values(offset, v)
+  }
+  unsafe fn set_value_sub_bytes(&mut self, idx: u32, field_offset: usize, v: &[u8]) -> Option<()> {
+    self.buffer.set_value_sub_bytes(idx, field_offset, v)
   }
 }
 
@@ -166,7 +169,7 @@ where
     let offset = self.allocate_range_impl(v.len() as u32, relocation_handler);
 
     if let Some(offset) = offset {
-      self.buffer.set_values(offset, v);
+      self.buffer.set_values(offset, v)?;
     }
 
     offset

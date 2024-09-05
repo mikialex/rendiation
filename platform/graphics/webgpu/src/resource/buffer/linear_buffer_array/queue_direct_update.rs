@@ -10,20 +10,26 @@ where
   T: GPULinearStorage + LinearStorageBase,
   T::Item: Pod,
 {
-  fn remove(&mut self, _: u32) {
+  fn remove(&mut self, _: u32) -> Option<()> {
     // do nothing, zeroable when removing behavior can be controlled by upper layer
+    Some(())
   }
 
   fn set_value(&mut self, idx: u32, v: Self::Item) -> Option<()> {
-    let buffer = self.inner.raw_gpu().resource.gpu();
-    let offset = idx * std::mem::size_of::<T::Item>() as u32;
-    self.queue.write_buffer(buffer, offset as u64, bytes_of(&v));
-    Some(())
+    unsafe { self.set_value_sub_bytes(idx, 0, bytes_of(&v)) }
   }
   fn set_values(&mut self, offset: u32, v: &[Self::Item]) -> Option<()> {
-    let buffer = self.inner.raw_gpu().resource.gpu();
-    let offset = offset * std::mem::size_of::<T::Item>() as u32;
     let v = bytemuck::cast_slice(v);
+    unsafe { self.set_value_sub_bytes(offset, 0, v) }
+  }
+  unsafe fn set_value_sub_bytes(
+    &mut self,
+    idx: u32,
+    field_byte_offset: usize,
+    v: &[u8],
+  ) -> Option<()> {
+    let buffer = self.inner.raw_gpu().resource.gpu();
+    let offset = idx as usize * std::mem::size_of::<T::Item>() + field_byte_offset;
     self.queue.write_buffer(buffer, offset as u64, v);
     Some(())
   }

@@ -18,20 +18,22 @@ where
   }
 }
 
+// todo, not panic when out bound
 impl<T> LinearStorageDirectAccess for VecWithStorageBuffer<T>
 where
   T: LinearStorageDirectAccess,
   T::Item: PartialEq,
 {
-  fn remove(&mut self, idx: u32) {
-    self.inner.remove(idx);
-    self.set_value(idx, self.none_default);
+  fn remove(&mut self, idx: u32) -> Option<()> {
+    self.inner.remove(idx)?;
+    self.set_value(idx, self.none_default)
   }
-  fn removes(&mut self, offset: u32, len: u32) {
+  fn removes(&mut self, offset: u32, len: u32) -> Option<()> {
     self.inner.removes(offset, len);
     for i in offset..(offset + len) {
-      self.set_value(i, self.none_default);
+      self.set_value(i, self.none_default)?;
     }
+    Some(())
   }
 
   fn set_value(&mut self, idx: u32, v: Self::Item) -> Option<()> {
@@ -40,6 +42,22 @@ where
     }
     self.vec[idx as usize] = v;
     self.inner.set_value(idx, v)
+  }
+
+  unsafe fn set_value_sub_bytes(
+    &mut self,
+    idx: u32,
+    field_byte_offset: usize,
+    v: &[u8],
+  ) -> Option<()> {
+    let view = self.vec.get_mut(idx as usize)?;
+    let view = bytes_of_mut(view);
+    let view = view.get_mut(field_byte_offset..(field_byte_offset + v.len()))?;
+    if self.diff && view == v {
+      return Some(());
+    }
+    view.copy_from_slice(v);
+    self.inner.set_value_sub_bytes(idx, field_byte_offset, v)
   }
 
   fn set_values(&mut self, offset: u32, v: &[Self::Item]) -> Option<()> {

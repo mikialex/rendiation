@@ -39,13 +39,26 @@ impl<T> LinearStorageDirectAccess for CustomGrowBehaviorMaintainer<T>
 where
   T: LinearStorageDirectAccess + ResizableLinearStorage,
 {
-  fn remove(&mut self, idx: u32) {
-    self.inner.remove(idx);
+  fn remove(&mut self, idx: u32) -> Option<()> {
+    self.inner.remove(idx)
+  }
+  fn removes(&mut self, offset: u32, len: u32) -> Option<()> {
+    self.inner.removes(offset, len)
   }
   fn set_value(&mut self, idx: u32, v: Self::Item) -> Option<()> {
     let required = idx + 1;
     self.check_resize(required)?;
     self.inner.set_value(idx, v)
+  }
+
+  unsafe fn set_value_sub_bytes(
+    &mut self,
+    idx: u32,
+    field_byte_offset: usize,
+    v: &[u8],
+  ) -> Option<()> {
+    self.check_resize(idx + 1)?;
+    self.inner.set_value_sub_bytes(idx, field_byte_offset, v)
   }
 
   fn set_values(&mut self, offset: u32, v: &[Self::Item]) -> Option<()> {

@@ -26,7 +26,7 @@ pub trait GPULinearStorage: Sized {
 }
 
 pub trait LinearStorageBase: Sized {
-  type Item: Copy;
+  type Item: Pod;
   fn max_size(&self) -> u32;
 }
 
@@ -36,24 +36,38 @@ pub trait LinearStorageBase: Sized {
 // }
 
 pub trait LinearStorageDirectAccess: LinearStorageBase {
-  fn remove(&mut self, idx: u32);
-  fn removes(&mut self, offset: u32, len: u32) {
+  fn remove(&mut self, idx: u32) -> Option<()>;
+  fn removes(&mut self, offset: u32, len: u32) -> Option<()> {
     for i in offset..(offset + len) {
-      self.remove(i);
+      self.remove(i)?;
     }
+    Some(())
   }
+  #[must_use]
   fn set_value(&mut self, idx: u32, v: Self::Item) -> Option<()>;
+  #[must_use]
   fn set_values(&mut self, offset: u32, v: &[Self::Item]) -> Option<()> {
     for i in offset..(offset + v.len() as u32) {
       self.set_value(i, v[i as usize - offset as usize])?;
     }
     Some(())
   }
+  /// # Safety
+  ///
+  /// this is a special way to support partial item updates. v must be inbound
+  #[must_use]
+  unsafe fn set_value_sub_bytes(
+    &mut self,
+    idx: u32,
+    field_byte_offset: usize,
+    v: &[u8],
+  ) -> Option<()>;
 
   fn with_defer_update(self) -> DeferMutationToGPUUpdate<Self> {
     DeferMutationToGPUUpdate {
       inner: self,
       updates: Default::default(),
+      bump_bytes: Default::default(),
     }
   }
 
