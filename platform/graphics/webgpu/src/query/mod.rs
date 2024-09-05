@@ -11,27 +11,16 @@ pub(crate) fn read_back_query<T: Pod>(
   device: &GPUDevice,
   encoder: &mut GPUCommandEncoder,
 ) -> impl Future<Output = Option<T>> + Unpin {
-  let size = std::mem::size_of::<T>().max(QUERY_RESOLVE_BUFFER_ALIGNMENT as usize);
-  let size = NonZeroU64::new(size as u64).unwrap();
-
-  let init = BufferInit::Zeroed(size);
+  let size = std::mem::size_of::<T>().max(QUERY_RESOLVE_BUFFER_ALIGNMENT as usize) as u64;
   let usage = BufferUsages::COPY_SRC | BufferUsages::QUERY_RESOLVE;
-  let desc = GPUBufferDescriptor {
-    size: init.size(),
-    usage,
-  };
+  let result = create_gpu_buffer_zeroed(size, usage, device).create_default_view();
 
-  let buffer = GPUBuffer::create(device, init, usage);
-  let result = GPUBufferResource::create_with_raw(buffer, desc, device);
+  encoder.resolve_query_set(query_set, query_range, result.resource.gpu(), 0);
 
-  encoder.resolve_query_set(query_set, query_range, result.gpu(), 0);
-
-  encoder
-    .read_buffer(device, &result.create_default_view())
-    .map(|r| {
-      r.ok().map(|r| {
-        let view = &r.read_raw()[0..std::mem::size_of::<T>()];
-        *bytemuck::from_bytes(view)
-      })
+  encoder.read_buffer(device, &result).map(|r| {
+    r.ok().map(|r| {
+      let view = &r.read_raw()[0..std::mem::size_of::<T>()];
+      *bytemuck::from_bytes(view)
     })
+  })
 }

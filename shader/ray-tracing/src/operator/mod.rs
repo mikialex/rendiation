@@ -1,5 +1,28 @@
 use crate::*;
 
+pub struct TraceBase<T>(PhantomData<T>);
+
+impl<T> Default for TraceBase<T> {
+  fn default() -> Self {
+    Self(Default::default())
+  }
+}
+
+impl<T: Default + Copy + 'static> DeviceFutureProvider<T> for TraceBase<T> {
+  fn build_device_future(&self, _: &mut AnyMap) -> DynDeviceFuture<T> {
+    BaseDeviceFuture::<T>::default().into_dyn()
+  }
+}
+impl<T> NativeRayTracingShaderBuilder<T> for TraceBase<T>
+where
+  T: Default,
+{
+  fn build(&self, _: &mut dyn NativeRayTracingShaderCtx) -> T {
+    T::default()
+  }
+  fn bind(&self, _: &mut BindingBuilder) {}
+}
+
 pub trait TraceOperatorExt<T>: TraceOperator<T> + Sized {
   fn map<F, T2>(self, map: F) -> impl TraceOperator<T2>
   where
@@ -41,13 +64,13 @@ where
   O2: Default + ShaderAbstractRightValue,
   O: 'static,
 {
-  fn build_device_future(&self) -> DynDeviceFuture<O2> {
+  fn build_device_future(&self, ctx: &mut AnyMap) -> DynDeviceFuture<O2> {
     let map = self.map;
     self
       .upstream
-      .build_device_future()
+      .build_device_future(ctx)
       .map(move |o, cx| {
-        let ctx = cx.registry.get_mut::<TracingCtx>().unwrap();
+        let ctx = cx.invocation_registry.get_mut::<TracingCtx>().unwrap();
         map(o, ctx)
       })
       .into_dyn()
@@ -76,14 +99,20 @@ pub struct TraceNextRay<F, T> {
 
 pub const TRACING_TASK_INDEX: usize = 0;
 
-pub trait TracingTaskSpawner {
+pub trait TracingTaskInvocationSpawner: DynClone {
   fn spawn_new_tracing_task(
     &mut self,
+    task_group: &TaskGroupDeviceInvocationInstance,
     should_trace: Node<bool>,
     trace_call: ShaderRayTraceCall,
     payload: ShaderNodeRawHandle,
     payload_ty: ShaderSizedValueType,
   ) -> TaskFutureInvocationRightValue;
+}
+impl Clone for Box<dyn TracingTaskInvocationSpawner> {
+  fn clone(&self) -> Self {
+    dyn_clone::clone_box(&**self)
+  }
 }
 
 impl<F, T, O, P> DeviceFutureProvider<(O, Node<P>)> for TraceNextRay<F, T>
@@ -93,20 +122,26 @@ where
   P: ShaderSizedValueNodeType + Default + Copy,
   O: ShaderAbstractRightValue,
 {
-  fn build_device_future(&self) -> DynDeviceFuture<(O, Node<P>)> {
+  fn build_device_future(&self, ctx: &mut AnyMap) -> DynDeviceFuture<(O, Node<P>)> {
     let next_trace_logic = self.next_trace_logic;
     self
       .upstream
-      .build_device_future()
+      .build_device_future(ctx)
       .then(
-        move |o, cx| {
-          let ctx = cx.registry.get_mut::<TracingCtx>().unwrap();
+        move |o, then_invocation, cx| {
+          let ctx = cx.invocation_registry.get_mut::<TracingCtx>().unwrap();
           let (should_trace, trace, payload) = next_trace_logic(&o, ctx);
 
-          cx.registry
-            .get_mut::<Box<dyn TracingTaskSpawner>>()
+          cx.invocation_registry
+            .get_mut::<Box<dyn TracingTaskInvocationSpawner>>()
             .unwrap()
-            .spawn_new_tracing_task(should_trace, trace, payload.handle(), P::sized_ty())
+            .spawn_new_tracing_task(
+              &then_invocation.spawner,
+              should_trace,
+              trace,
+              payload.handle(),
+              P::sized_ty(),
+            )
         },
         TaskFuture::<P>::new(TRACING_TASK_INDEX),
       )

@@ -15,7 +15,7 @@ impl GPUBindlessMeshSystem {
     BindlessMeshDispatcher {
       draw_indirect_buffer,
       vertex_address_buffer,
-      system: self.clone(),
+      system: self,
     }
   }
 
@@ -24,8 +24,7 @@ impl GPUBindlessMeshSystem {
     iter: impl Iterator<Item = MeshSystemMeshHandle> + 'a,
   ) -> impl Iterator<Item = (DrawIndexedIndirect, DrawVertexIndirectInfo)> + 'a {
     iter.enumerate().map(|(i, handle)| {
-      let sys = self.inner.read().unwrap();
-        let DrawMetaData { start,  count, vertex_info, .. } = sys.metadata.get(handle as usize).unwrap();
+        let DrawMetaData { start,  count, vertex_info, .. } = self.metadata.get(handle as usize).unwrap();
         let draw_indirect = DrawIndexedIndirect {
           vertex_count: *count,
           instance_count: 1,
@@ -38,13 +37,13 @@ impl GPUBindlessMeshSystem {
   }
 }
 
-pub struct BindlessMeshDispatcher {
+pub struct BindlessMeshDispatcher<'a> {
   draw_indirect_buffer: GPUBufferResourceView,
   vertex_address_buffer: StorageBufferReadOnlyDataView<[DrawVertexIndirectInfo]>,
-  system: GPUBindlessMeshSystem,
+  system: &'a GPUBindlessMeshSystem,
 }
 
-impl BindlessMeshDispatcher {
+impl<'a> BindlessMeshDispatcher<'a> {
   pub fn draw_command(&self) -> DrawCommand {
     let size: u64 = self.draw_indirect_buffer.view_byte_size().into();
     DrawCommand::MultiIndirect {
@@ -56,27 +55,26 @@ impl BindlessMeshDispatcher {
   }
 }
 
-impl ShaderHashProvider for BindlessMeshDispatcher {
-  shader_hash_type_id! {}
+impl<'a> ShaderHashProvider for BindlessMeshDispatcher<'a> {
+  shader_hash_type_id! { BindlessMeshDispatcher<'static> }
 }
 
-impl ShaderPassBuilder for BindlessMeshDispatcher {
+impl<'a> ShaderPassBuilder for BindlessMeshDispatcher<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.vertex_address_buffer);
 
-    let sys = self.system.inner.read().unwrap();
-    let index = sys.index_buffer.get_buffer();
+    let index = &self.system.index_buffer.gpu().gpu;
     ctx
       .pass
-      .set_index_buffer_by_buffer_resource_view(&index, IndexFormat::Uint32);
+      .set_index_buffer_by_buffer_resource_view(index, IndexFormat::Uint32);
 
-    ctx.binding.bind(&sys.position);
-    ctx.binding.bind(&sys.normal);
-    ctx.binding.bind(&sys.uv);
+    ctx.binding.bind(self.system.position.gpu());
+    ctx.binding.bind(self.system.normal.gpu());
+    ctx.binding.bind(self.system.uv.gpu());
   }
 }
 
-impl GraphicsShaderProvider for BindlessMeshDispatcher {
+impl<'a> GraphicsShaderProvider for BindlessMeshDispatcher<'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.log_result = true;
     builder.vertex(|vertex, binding| {
@@ -86,19 +84,17 @@ impl GraphicsShaderProvider for BindlessMeshDispatcher {
       let vertex_addresses = binding.bind_by(&self.vertex_address_buffer);
       let vertex_address = vertex_addresses.index(draw_id).load().expand();
 
-      let sys = self.system.inner.read().unwrap();
-
-      let position = binding.bind_by(&sys.position);
+      let position = binding.bind_by(&self.system.position.gpu());
       let position = position
         .index(vertex_address.position_buffer_offset + vertex_id)
         .load();
 
-      let normal = binding.bind_by(&sys.normal);
+      let normal = binding.bind_by(&self.system.normal.gpu());
       let normal = normal
         .index(vertex_address.normal_buffer_offset + vertex_id)
         .load();
 
-      let uv = binding.bind_by(&sys.uv);
+      let uv = binding.bind_by(&self.system.uv.gpu());
       let uv = uv.index(vertex_address.uv_buffer_offset + vertex_id).load();
 
       vertex.register::<GeometryPosition>(position.xyz());

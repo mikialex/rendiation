@@ -1,19 +1,70 @@
+use std::ops::DerefMut;
+
 use super::*;
 
 pub struct DeviceTaskSystemBuildCtx<'a> {
   pub compute_cx: &'a mut ShaderComputePipelineBuilder,
+
+  pub(super) all_task_group_sources: Vec<&'a TaskGroupExecutorResource>,
+  pub(super) tasks_depend_on_self: FastHashMap<usize, TaskGroupDeviceInvocationInstance>,
+
   pub state_builder: DynamicTypeBuilder,
 }
 
-pub struct DeviceTaskSystemPollCtx<'a> {
-  pub(super) compute_cx: &'a mut ShaderComputePipelineBuilder,
+impl<'a> DeviceTaskSystemBuildCtx<'a> {
+  // todo, handle self task spawner
+  pub fn get_or_create_task_group_instance(
+    &mut self,
+    task_type: usize,
+  ) -> TaskGroupDeviceInvocationInstance {
+    self
+      .tasks_depend_on_self
+      .entry(task_type)
+      .or_insert_with(|| {
+        let source = &self.all_task_group_sources[task_type];
+        source.build_shader_for_spawner(self.compute_cx)
+      })
+      .clone()
+  }
+}
+
+pub struct DeviceTaskSystemBindCtx<'a> {
+  pub binder: &'a mut BindingBuilder,
+
   pub(super) all_task_group_sources: Vec<&'a TaskGroupExecutorResource>,
+  pub bound_task_group_instance: FastHashSet<usize>,
+}
+
+impl<'a> DerefMut for DeviceTaskSystemBindCtx<'a> {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    self.binder
+  }
+}
+
+impl<'a> std::ops::Deref for DeviceTaskSystemBindCtx<'a> {
+  type Target = BindingBuilder;
+
+  fn deref(&self) -> &Self::Target {
+    self.binder
+  }
+}
+
+impl<'a> DeviceTaskSystemBindCtx<'a> {
+  pub fn bind_task_group_instance(&mut self, task_type: usize) {
+    self
+      .bound_task_group_instance
+      .get_or_insert_with(&task_type, |_| {
+        self.all_task_group_sources[task_type].bind_for_spawner(self.binder);
+        task_type
+      });
+  }
+}
+
+pub struct DeviceTaskSystemPollCtx<'a> {
+  pub compute_cx: &'a mut ShaderComputePipelineBuilder,
   pub(super) self_task_idx: Node<u32>,
   pub(super) self_task: TaskPoolInvocationInstance,
-  pub(super) tasks_depend_on_self: FastHashMap<usize, TaskGroupDeviceInvocationInstance>,
-  // the rust hashmap is not ordered
-  pub(super) tasks_depend_on_self_bind_order: Vec<usize>,
-  pub registry: &'a mut AnyMap,
+  pub invocation_registry: AnyMap,
 }
 
 #[derive(Default)]
@@ -34,59 +85,13 @@ impl AnyMap {
 }
 
 impl<'a> DeviceTaskSystemPollCtx<'a> {
-  // todo, handle self task spawner
-  fn get_or_create_task_group_instance(
-    &mut self,
-    task_type: usize,
-  ) -> &mut TaskGroupDeviceInvocationInstance {
-    self
-      .tasks_depend_on_self
-      .entry(task_type)
-      .or_insert_with(|| {
-        let source = &self.all_task_group_sources[task_type];
-        self.tasks_depend_on_self_bind_order.push(task_type);
-        source.build_shader_for_spawner(self.compute_cx)
-      })
-  }
-
   pub fn access_self_payload<T: ShaderSizedValueNodeType>(&mut self) -> StorageNode<T> {
     let current = self.self_task_idx;
     self.self_task.rw_payload(current)
   }
 
-  pub fn spawn_task<T: ShaderSizedValueNodeType>(
-    &mut self,
-    task_type: usize,
-    argument: Node<T>,
-  ) -> Option<TaskFutureInvocationRightValue> {
-    self.spawn_task_dyn(task_type, argument.cast_untyped_node(), &T::sized_ty())
-  }
-
-  pub fn spawn_task_dyn(
-    &mut self,
-    task_type: usize,
-    argument: Node<AnyType>,
-    argument_ty: &ShaderSizedValueType,
-  ) -> Option<TaskFutureInvocationRightValue> {
-    let task_group = self.get_or_create_task_group_instance(task_type);
-    TaskFutureInvocationRightValue {
-      task_handle: task_group.spawn_new_task_dyn(argument, argument_ty)?,
-    }
-    .into()
-  }
-
-  pub fn poll_task<T: ShaderSizedValueNodeType>(
-    &mut self,
-    task_type: usize,
-    task_id: Node<u32>,
-    argument_read_back: impl FnOnce(Node<T>) + Copy,
-  ) -> Node<bool> {
-    let task_group = self.get_or_create_task_group_instance(task_type);
-    let finished = task_group.poll_task_is_finished(task_id);
-    if_by(finished, || {
-      argument_read_back(task_group.read_back_payload(task_id));
-      task_group.cleanup_finished_task_state_and_payload(task_id)
-    });
-    finished
+  pub fn access_self_payload_untyped(&mut self) -> StorageNode<AnyType> {
+    let current = self.self_task_idx;
+    self.self_task.rw_payload_dyn(current)
   }
 }

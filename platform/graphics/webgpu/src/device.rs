@@ -141,21 +141,13 @@ impl GPUDevice {
     &self,
   ) -> StorageBufferDataView<DispatchIndirectArgsStorage> {
     let init = DispatchIndirectArgsStorage::default();
-    let init = StorageBufferInit::WithInit(&init);
 
     let usage = gpu::BufferUsages::INDIRECT
       | gpu::BufferUsages::STORAGE
       | gpu::BufferUsages::COPY_DST
       | gpu::BufferUsages::COPY_SRC;
 
-    let init = init.into_buffer_init();
-    let desc = GPUBufferDescriptor {
-      size: init.size(),
-      usage,
-    };
-    let gpu = GPUBuffer::create(self, init, usage);
-
-    let gpu = GPUBufferResource::create_with_raw(gpu, desc, self).create_default_view();
+    let gpu = create_gpu_buffer(bytes_of(&init), usage, self).create_default_view();
 
     StorageBufferDataView {
       gpu,

@@ -1,7 +1,7 @@
 use crate::*;
 
 pub trait DeviceFutureProvider<T> {
-  fn build_device_future(&self) -> DynDeviceFuture<T>;
+  fn build_device_future(&self, ctx: &mut AnyMap) -> DynDeviceFuture<T>;
 }
 
 /// impl native rtx support, the main difference between the future based impl
@@ -31,8 +31,8 @@ impl<O> NativeRayTracingShaderBuilder<O> for Box<dyn TraceOperator<O>> {
 }
 
 impl<O> DeviceFutureProvider<O> for Box<dyn TraceOperator<O>> {
-  fn build_device_future(&self) -> DynDeviceFuture<O> {
-    (**self).build_device_future()
+  fn build_device_future(&self, ctx: &mut AnyMap) -> DynDeviceFuture<O> {
+    (**self).build_device_future(ctx)
   }
 }
 
@@ -47,23 +47,4 @@ pub trait RayCtxBaseProvider {
     &self,
     payload_desc: ShaderSizedValueType,
   ) -> Box<dyn TraceOperator<Node<AnyType>>>;
-}
-
-pub struct RayCtxBaseBuilder {
-  pub inner: Box<dyn RayCtxBaseProvider>,
-}
-
-impl RayCtxBaseBuilder {
-  pub fn miss_shader_base<T: ShaderSizedValueNodeType>(&self) -> impl TraceOperator<Node<T>> {
-    self
-      .inner
-      .miss_shader_base(T::sized_ty())
-      .map(|o, _| unsafe { o.cast_type() })
-  }
-  pub fn closest_shader_base<T: ShaderSizedValueNodeType>(&self) -> impl TraceOperator<Node<T>> {
-    self
-      .inner
-      .miss_shader_base(T::sized_ty())
-      .map(|o, _| unsafe { o.cast_type() })
-  }
 }

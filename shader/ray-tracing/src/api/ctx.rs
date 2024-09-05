@@ -93,8 +93,24 @@ pub struct RayIntersectCtx {
 }
 
 pub struct TracingCtx {
-  missing: Option<Box<dyn MissingHitCtxProvider>>,
-  closest: Option<Box<dyn ClosestHitCtxProvider>>,
+  pub(crate) missing: Option<Box<dyn MissingHitCtxProvider>>,
+  pub(crate) closest: Option<Box<dyn ClosestHitCtxProvider>>,
+  pub(crate) payload: Option<(StorageNode<AnyType>, ShaderSizedValueType)>,
+}
+
+impl TracingCtx {
+  pub fn miss_hit_ctx(&self) -> Option<&dyn MissingHitCtxProvider> {
+    self.missing.as_deref()
+  }
+  pub fn closest_hit_ctx(&self) -> Option<&dyn ClosestHitCtxProvider> {
+    self.closest.as_deref()
+  }
+
+  pub fn payload<T: ShaderSizedValueNodeType>(&self) -> StorageNode<T> {
+    let payload = self.payload.as_ref().unwrap();
+    assert_eq!(&T::sized_ty(), &payload.1);
+    unsafe { payload.0.cast_type() }
+  }
 }
 
 pub trait WorldRayInfoProvider {
@@ -139,13 +155,4 @@ pub trait ClosestHitCtxProvider: WorldRayInfoProvider + RayLaunchInfoProvider {
   fn hit_kind(&self) -> Node<u32>;
   /// gl_HitTEXT (in world space)
   fn hit_distance(&self) -> Node<f32>;
-}
-
-impl TracingCtx {
-  pub fn miss_hit_ctx(&self) -> Option<&dyn MissingHitCtxProvider> {
-    self.missing.as_deref()
-  }
-  pub fn closest_hit_ctx(&self) -> Option<&dyn ClosestHitCtxProvider> {
-    self.closest.as_deref()
-  }
 }

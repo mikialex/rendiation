@@ -2,11 +2,11 @@ use crate::*;
 
 pub struct GPURaytracingPipelineDescriptor {
   pub max_recursion_depth: u32,
-  pub ray_gen_shaders: Vec<Box<dyn TraceOperator<()>>>,
-  pub miss_hit_shaders: Vec<Box<dyn FnOnce(&mut RayMissCtx)>>,
-  pub closest_hit_shaders: Vec<Box<dyn TraceOperator<()>>>,
-  pub intersection_shaders: Vec<Box<dyn FnOnce(&mut RayIntersectCtx)>>,
-  pub any_hit_shaders: Vec<Box<dyn FnOnce(&mut RayAnyHitCtx) -> Node<RayAnyHitBehavior>>>,
+  pub ray_gen_shaders: Vec<(Box<dyn TraceOperator<()>>, ShaderSizedValueType)>,
+  pub miss_hit_shaders: Vec<(Box<dyn TraceOperator<()>>, ShaderSizedValueType)>,
+  pub closest_hit_shaders: Vec<(Box<dyn TraceOperator<()>>, ShaderSizedValueType)>,
+  pub intersection_shaders: Vec<Arc<dyn Fn(&RayIntersectCtx, &dyn IntersectionReporter)>>,
+  pub any_hit_shaders: Vec<Arc<dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>>>,
 }
 
 impl Default for GPURaytracingPipelineDescriptor {
@@ -22,7 +22,7 @@ impl Default for GPURaytracingPipelineDescriptor {
   }
 }
 
-pub struct ShaderHandle(pub usize, pub RayTracingShaderStage);
+pub struct ShaderHandle(pub u32, pub RayTracingShaderStage);
 
 impl GPURaytracingPipelineDescriptor {
   pub fn set_max_recursion_depth(&mut self, max_recursion_depth: u32) -> &mut Self {
@@ -30,44 +30,53 @@ impl GPURaytracingPipelineDescriptor {
     self
   }
 
-  pub fn register_ray_gen(mut self, ray_logic: impl TraceOperator<()> + 'static) -> ShaderHandle {
-    let idx = self.ray_gen_shaders.len();
-    self.ray_gen_shaders.push(Box::new(ray_logic));
+  pub fn register_ray_gen<P: ShaderSizedValueNodeType>(
+    mut self,
+    ray_logic: impl TraceOperator<()> + 'static,
+  ) -> ShaderHandle {
+    let idx = self.ray_gen_shaders.len() as u32;
+    self
+      .ray_gen_shaders
+      .push((Box::new(ray_logic), P::sized_ty()));
     ShaderHandle(idx, RayTracingShaderStage::RayGeneration)
   }
-  pub fn register_ray_miss(
+  pub fn register_ray_miss<P: ShaderSizedValueNodeType>(
     mut self,
-    builder: impl FnOnce(&mut RayMissCtx) + 'static,
+    ray_logic: impl TraceOperator<()> + 'static,
   ) -> ShaderHandle {
-    let idx = self.miss_hit_shaders.len();
-    self.miss_hit_shaders.push(Box::new(builder));
+    let idx = self.miss_hit_shaders.len() as u32;
+    self
+      .miss_hit_shaders
+      .push((Box::new(ray_logic), P::sized_ty()));
     ShaderHandle(idx, RayTracingShaderStage::Miss)
+  }
+
+  pub fn register_ray_closest_hit<P: ShaderSizedValueNodeType>(
+    &mut self,
+    ray_logic: impl TraceOperator<()> + 'static,
+  ) -> ShaderHandle {
+    let idx = self.closest_hit_shaders.len() as u32;
+    self
+      .closest_hit_shaders
+      .push((Box::new(ray_logic), P::sized_ty()));
+    ShaderHandle(idx, RayTracingShaderStage::ClosestHit)
   }
 
   pub fn register_ray_intersection(
     mut self,
-    builder: impl FnOnce(&mut RayIntersectCtx) + 'static,
+    builder: impl Fn(&RayIntersectCtx, &dyn IntersectionReporter) + 'static,
   ) -> ShaderHandle {
-    let idx = self.intersection_shaders.len();
-    self.intersection_shaders.push(Box::new(builder));
+    let idx = self.intersection_shaders.len() as u32;
+    self.intersection_shaders.push(Arc::new(builder));
     ShaderHandle(idx, RayTracingShaderStage::Intersection)
-  }
-
-  pub fn register_ray_closest_hit(
-    &mut self,
-    ray_logic: impl TraceOperator<()> + 'static,
-  ) -> ShaderHandle {
-    let idx = self.closest_hit_shaders.len();
-    self.closest_hit_shaders.push(Box::new(ray_logic));
-    ShaderHandle(idx, RayTracingShaderStage::ClosestHit)
   }
 
   pub fn register_ray_any_hit(
     &mut self,
-    builder: impl FnOnce(&mut RayAnyHitCtx) -> Node<RayAnyHitBehavior> + 'static,
+    builder: impl Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior> + 'static,
   ) -> ShaderHandle {
-    let idx = self.any_hit_shaders.len();
-    self.any_hit_shaders.push(Box::new(builder));
+    let idx = self.any_hit_shaders.len() as u32;
+    self.any_hit_shaders.push(Arc::new(builder));
     ShaderHandle(idx, RayTracingShaderStage::AnyHit)
   }
 }

@@ -3737,7 +3737,6 @@ dependencies = [
  "rendiation-shader-api",
  "rendiation-webgpu",
  "slab",
- "xalloc",
 ]
 
 [[package]]
@@ -4111,10 +4110,12 @@ dependencies = [
  "rendiation-shader-api",
  "rendiation-shader-backend-naga",
  "rendiation-texture-types",
+ "slab",
  "thiserror",
  "wgpu",
  "wgpu-types",
  "winit",
+ "xalloc",
 ]
 
 [[package]]

@@ -184,11 +184,8 @@ where
   }
 
   /// e^self
-  pub fn exp(self, e: impl Into<Node<f32>>) -> Self {
-    make_builtin_call(
-      ShaderBuiltInFunction::Exp,
-      [self.handle(), e.into().handle()],
-    )
+  pub fn exp(self) -> Self {
+    make_builtin_call(ShaderBuiltInFunction::Exp, [self.handle()])
   }
   /// 2^self
   pub fn exp2(self) -> Self {
@@ -203,7 +200,7 @@ where
     make_builtin_call(ShaderBuiltInFunction::Log2, [self.handle()])
   }
   /// self^e
-  pub fn pow(self, e: impl Into<Node<f32>>) -> Self {
+  pub fn pow(self, e: impl Into<Self>) -> Self {
     make_builtin_call(
       ShaderBuiltInFunction::Pow,
       [self.handle(), e.into().handle()],
@@ -220,10 +217,10 @@ impl<T> Node<T>
 where
   T: PrimitiveShaderNodeType,
 {
-  pub fn smoothstep<V: PrimitiveShaderNodeType>(self, low: Node<V>, high: Node<V>) -> Node<V> {
+  pub fn smoothstep(self, low: impl Into<Self>, high: impl Into<Self>) -> Self {
     make_builtin_call(
       ShaderBuiltInFunction::SmoothStep,
-      [low.handle(), high.handle(), self.handle()],
+      [low.into().handle(), high.into().handle(), self.handle()],
     )
   }
 }
@@ -331,7 +328,7 @@ impl<T: ShaderNodeType> Node<T> {
 // todo restrict
 impl<T: ShaderNodeType> Node<T> {
   pub fn sqrt(self) -> Node<T> {
-    make_builtin_call(ShaderBuiltInFunction::Length, [self.handle()])
+    make_builtin_call(ShaderBuiltInFunction::Sqrt, [self.handle()])
   }
   pub fn inverse_sqrt(self) -> Node<T> {
     make_builtin_call(ShaderBuiltInFunction::InverseSqrt, [self.handle()])

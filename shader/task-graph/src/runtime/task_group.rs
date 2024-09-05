@@ -80,11 +80,15 @@ impl TaskGroupExecutor {
       // dispatch tasks
       let mut bb = BindingBuilder::new_as_compute().with_bind(&imp.alive_task_idx.storage);
 
-      for task in &self.tasks_depend_on_self {
-        let task = &all_tasks[*task];
-        task.resource.bind_for_spawner(&mut bb);
-      }
-      imp.task_pool.bind(&mut bb);
+      let all_task_group_sources: Vec<_> = all_tasks.iter().map(|t| &t.resource).collect();
+
+      let mut ctx = DeviceTaskSystemBindCtx {
+        binder: &mut bb,
+        all_task_group_sources,
+        bound_task_group_instance: Default::default(),
+      };
+
+      self.task.bind_input(&mut ctx);
 
       bb.setup_compute_pass(pass, device, &self.polling_pipeline);
       pass.dispatch_workgroups_indirect_by_buffer_resource_view(&size);
@@ -186,6 +190,7 @@ impl TaskGroupExecutorResource {
   }
 }
 
+#[derive(Clone)]
 pub struct TaskGroupDeviceInvocationInstance {
   new_removed_task_idx: DeviceBumpAllocationInvocationInstance<u32>,
   empty_index_pool: DeviceBumpDeAllocationInvocationInstance<u32>,
@@ -195,7 +200,10 @@ pub struct TaskGroupDeviceInvocationInstance {
 
 impl TaskGroupDeviceInvocationInstance {
   #[must_use]
-  pub fn spawn_new_task<T: ShaderSizedValueNodeType>(&self, payload: Node<T>) -> Option<Node<u32>> {
+  pub fn spawn_new_task<T: ShaderSizedValueNodeType>(
+    &self,
+    payload: Node<T>,
+  ) -> Option<TaskFutureInvocationRightValue> {
     self.spawn_new_task_dyn(payload.cast_untyped_node(), &T::sized_ty())
   }
 
@@ -204,30 +212,58 @@ impl TaskGroupDeviceInvocationInstance {
     &self,
     payload: Node<AnyType>,
     ty: &ShaderSizedValueType,
-  ) -> Option<Node<u32>> {
+  ) -> Option<TaskFutureInvocationRightValue> {
     let (idx, success) = self.empty_index_pool.bump_deallocate();
     if_by(success, || {
       self.task_pool.spawn_new_task_dyn(idx, payload, ty);
-      self.alive_task_idx.bump_allocate(idx);
+      let _ = self.alive_task_idx.bump_allocate(idx); // todo, error report
     })
     .else_by(|| {
       // error report, theoretically unreachable
     });
-    Some(idx)
+    Some(TaskFutureInvocationRightValue { task_handle: idx })
   }
 
-  pub fn cleanup_finished_task_state_and_payload(&self, task: Node<u32>) {
+  #[must_use]
+  pub fn poll_task<T: ShaderSizedValueNodeType>(
+    &self,
+    task_id: Node<u32>,
+    argument_read_back: impl FnOnce(Node<T>) + Copy,
+  ) -> Node<bool> {
+    self.poll_task_dyn(task_id, |x| unsafe {
+      argument_read_back(x.cast_type::<ShaderStoragePtr<T>>().load())
+    })
+  }
+
+  #[must_use]
+  pub fn poll_task_dyn(
+    &self,
+    task_id: Node<u32>,
+    argument_read_back: impl FnOnce(StorageNode<AnyType>) + Copy,
+  ) -> Node<bool> {
+    let finished = self.poll_task_is_finished(task_id);
+    if_by(finished, || {
+      argument_read_back(self.rw_payload_dyn(task_id));
+      self.cleanup_finished_task_state_and_payload(task_id)
+    });
+    finished
+  }
+
+  fn cleanup_finished_task_state_and_payload(&self, task: Node<u32>) {
     let (_, success) = self.new_removed_task_idx.bump_allocate(task);
     if_by(success.not(), || {
       // error report, theoretically unreachable
     });
   }
 
-  pub fn poll_task_is_finished(&self, task_id: Node<u32>) -> Node<bool> {
+  fn poll_task_is_finished(&self, task_id: Node<u32>) -> Node<bool> {
     self.task_pool.poll_task_is_finished(task_id)
   }
 
   pub fn read_back_payload<T: ShaderSizedValueNodeType>(&self, task_id: Node<u32>) -> Node<T> {
     self.task_pool.rw_payload(task_id).load()
+  }
+  fn rw_payload_dyn(&self, task_id: Node<u32>) -> StorageNode<AnyType> {
+    self.task_pool.rw_payload_dyn(task_id)
   }
 }

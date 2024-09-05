@@ -7,37 +7,40 @@ pub trait GPURaytracingSystem {
     -> Box<dyn GPUAccelerationStructureSystemProvider>;
 }
 
+pub trait TraceFutureBaseProvider {
+  fn missing_shader_base<P: ShaderSizedValueNodeType>() -> impl TraceOperator<()>;
+  fn closest_shader_base<P: ShaderSizedValueNodeType>() -> impl TraceOperator<()>;
+}
+
 pub trait RayTracingPassEncoderProvider {
-  fn set_pipeline(&self, pipeline: &dyn GPURaytracingPipelineProvider);
-  fn set_bindgroup(&self, index: u32, bindgroup: &rendiation_webgpu::BindGroup);
-  fn trace_ray(&self, size: (u32, u32, u32), sbt: &dyn ShaderBindingTableProvider);
+  fn set_pipeline(&mut self, pipeline: &dyn GPURaytracingPipelineProvider);
+  fn trace_ray(&mut self, size: (u32, u32, u32), sbt: &dyn ShaderBindingTableProvider);
 }
 
 pub trait GPURaytracingPipelineProvider {
-  fn access_impl(&mut self) -> &mut dyn Any;
+  fn access_impl(&self) -> &dyn Any;
 }
 
 pub trait GPURayTracingDeviceProvider {
-  fn trace_op_base_builder(&self) -> RayCtxBaseBuilder;
   fn create_raytracing_pipeline(
     &self,
     desc: &GPURaytracingPipelineDescriptor,
   ) -> Box<dyn GPURaytracingPipelineProvider>;
-  fn create_sbt(&self) -> Box<dyn ShaderBindingTableProvider>;
+  fn create_sbt(&self, mesh_count: u32, ray_type_count: u32)
+    -> Box<dyn ShaderBindingTableProvider>;
 }
 
 pub struct HitGroupShaderRecord {
-  pub closet_hit: ShaderHandle,
+  pub closet_hit: Option<ShaderHandle>,
   pub any_hit: Option<ShaderHandle>,
   pub intersection: Option<ShaderHandle>,
 }
 
 pub trait ShaderBindingTableProvider {
-  fn resize(&mut self, mesh_count: u32, ray_type_count: u32);
   fn config_ray_generation(&mut self, s: ShaderHandle);
-  fn config_hit_group(&mut self, mesh_idx: u32, hit_group: HitGroupShaderRecord);
+  fn config_hit_group(&mut self, mesh_idx: u32, ray_ty_idx: u32, hit_group: HitGroupShaderRecord);
   fn config_missing(&mut self, ray_ty_idx: u32, s: ShaderHandle);
-  fn access_impl(&mut self) -> &mut dyn Any;
+  fn access_impl(&self) -> &dyn Any;
 }
 
 pub enum BottomLevelAccelerationStructureBuildSource {
@@ -50,7 +53,8 @@ pub enum BottomLevelAccelerationStructureBuildSource {
   },
 }
 
-pub trait GPUAccelerationStructureSystemProvider {
+pub trait GPUAccelerationStructureSystemProvider: DynClone {
+  fn create_comp_instance(&self) -> Box<dyn GPUAccelerationStructureSystemCompImplInstance>;
   fn create_top_level_acceleration_structure(
     &self,
     source: &[TopLevelAccelerationStructureSourceInstance],
@@ -68,8 +72,15 @@ pub trait GPUAccelerationStructureSystemProvider {
 
   fn delete_bottom_level_acceleration_structure(&self, id: BottomLevelAccelerationStructureHandle);
 }
+impl Clone for Box<dyn GPUAccelerationStructureSystemProvider> {
+  fn clone(&self) -> Self {
+    dyn_clone::clone_box(&**self)
+  }
+}
+
 pub struct BottomLevelAccelerationStructureHandle(pub u32);
 
+/// https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ns-d3d12-d3d12_raytracing_instance_desc
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct TopLevelAccelerationStructureSourceInstance {
   pub transform: Mat4<f32>,

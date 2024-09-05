@@ -47,7 +47,7 @@ pub trait DeviceFuture {
 
   fn build_poll(&self, ctx: &mut DeviceTaskSystemBuildCtx) -> Self::Invocation;
 
-  fn bind_input(&self, builder: &mut BindingBuilder);
+  fn bind_input(&self, builder: &mut DeviceTaskSystemBindCtx);
 
   fn reset(&mut self, ctx: &mut DeviceParallelComputeCtx, work_size: u32);
 }
@@ -71,7 +71,7 @@ where
     (**self).build_poll(ctx)
   }
 
-  fn bind_input(&self, builder: &mut BindingBuilder) {
+  fn bind_input(&self, builder: &mut DeviceTaskSystemBindCtx) {
     (**self).bind_input(builder)
   }
 
@@ -100,6 +100,7 @@ pub trait DeviceFutureExt: Sized + DeviceFuture + 'static {
   where
     F: Fn(
         Self::Output,
+        &T::Invocation,
         &mut DeviceTaskSystemPollCtx,
       ) -> <T::Invocation as ShaderAbstractLeftValue>::RightValue
       + Copy
@@ -152,7 +153,7 @@ where
     DeviceReady(Output::default())
   }
 
-  fn bind_input(&self, _: &mut BindingBuilder) {}
+  fn bind_input(&self, _: &mut DeviceTaskSystemBindCtx) {}
   fn reset(&mut self, _: &mut DeviceParallelComputeCtx, _: u32) {}
 }
 
@@ -172,7 +173,7 @@ impl<T: DeviceFuture> DeviceFuture for OpaqueTaskWrapper<T> {
       as Box<dyn DeviceFutureInvocation<Output = Box<dyn Any>>>
   }
 
-  fn bind_input(&self, builder: &mut BindingBuilder) {
+  fn bind_input(&self, builder: &mut DeviceTaskSystemBindCtx) {
     self.0.bind_input(builder)
   }
 
@@ -204,7 +205,7 @@ impl<T: DeviceFuture> DeviceFuture for WrapDynDeviceFuture<T> {
     Box::new(self.0.build_poll(ctx))
   }
 
-  fn bind_input(&self, builder: &mut BindingBuilder) {
+  fn bind_input(&self, builder: &mut DeviceTaskSystemBindCtx) {
     self.0.bind_input(builder)
   }
 

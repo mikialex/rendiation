@@ -19,6 +19,9 @@ thiserror = "1.0.43"
 wgpu = { version = "22", features = ["naga-ir"] }
 wgpu-types = "22"
 winit = { workspace = true }
+xalloc = "0.2.7"
+slab = "0.4.8"
+
 
 pollster = { workspace = true } # used in examples
 

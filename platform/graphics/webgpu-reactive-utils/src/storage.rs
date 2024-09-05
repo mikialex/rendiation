@@ -2,13 +2,14 @@ use rendiation_shader_api::{bytes_of, Pod};
 
 use crate::*;
 
+type StorageBufferImpl<T> = GrowableDirectQueueUpdateBuffer<StorageBufferReadOnlyDataView<[T]>>;
+
 /// group of(Rxc<id, T fieldChange>) =maintain=> storage buffer <T>
 pub struct ReactiveStorageBufferContainer<T: Std430> {
-  inner: MultiUpdateContainer<StorageBufferReadOnlyDataView<[T]>>,
+  inner: MultiUpdateContainer<StorageBufferImpl<T>>,
   current_size: u32,
   // resize is fully decided by user, and it's user's responsibility to avoid frequently resizing
   resizer: Box<dyn Stream<Item = u32> + Unpin>,
-  gpu_ctx: GPU,
 }
 
 fn make_init_size<T: Std430>(size: usize) -> StorageBufferInit<'static, [T]> {
@@ -22,6 +23,7 @@ impl<T: Std430> ReactiveStorageBufferContainer<T> {
     let init_capacity = 128;
     let data =
       StorageBufferReadOnlyDataView::create_by(&gpu_ctx.device, make_init_size(init_capacity));
+    let data = create_growable_buffer(&gpu_ctx, data, u32::MAX);
 
     let inner = MultiUpdateContainer::new(data);
 
@@ -29,7 +31,6 @@ impl<T: Std430> ReactiveStorageBufferContainer<T> {
       inner,
       current_size: init_capacity as u32,
       resizer: Box::new(max),
-      gpu_ctx,
     }
   }
 
@@ -38,27 +39,12 @@ impl<T: Std430> ReactiveStorageBufferContainer<T> {
       // resize target
       // todo shrink check?
       if max_idx > self.current_size {
-        let previous_size = self.current_size;
         self.current_size = max_idx;
-        let device = &self.gpu_ctx.device;
-        let init = make_init_size::<T>(max_idx as usize);
-        let new_buffer = StorageBufferReadOnlyDataView::create_by(device, init);
-        let old_buffer = std::mem::replace(&mut self.inner.target, new_buffer);
-        let new_buffer = &self.inner.target;
-
-        let mut encoder = device.create_encoder();
-        encoder.copy_buffer_to_buffer(
-          old_buffer.buffer.gpu(),
-          0,
-          new_buffer.buffer.gpu(),
-          0,
-          (previous_size as usize * std::mem::size_of::<T>()) as u64,
-        );
-        self.gpu_ctx.queue.submit_encoder(encoder);
+        self.inner.resize(max_idx);
       }
     }
     self.inner.poll_update(cx);
-    self.inner.target.clone()
+    self.inner.target.gpu().clone()
   }
 
   pub fn with_source<K: CKey + LinearIdentification, V: CValue + Pod>(
@@ -68,10 +54,8 @@ impl<T: Std430> ReactiveStorageBufferContainer<T> {
   ) -> Self {
     let updater = CollectionToStorageBufferUpdater {
       field_offset: field_offset as u32,
-      stride: std::mem::size_of::<T>() as u32,
       upstream: source,
       phantom: PhantomData,
-      gpu_ctx: self.gpu_ctx.clone(),
     };
 
     self.inner.add_source(updater);
@@ -81,13 +65,11 @@ impl<T: Std430> ReactiveStorageBufferContainer<T> {
 
 struct CollectionToStorageBufferUpdater<T, K, V> {
   field_offset: u32,
-  stride: u32,
   upstream: T,
   phantom: PhantomData<(K, V)>,
-  gpu_ctx: GPU,
 }
 
-impl<T, C, K, V> CollectionUpdate<StorageBufferReadOnlyDataView<[T]>>
+impl<T, C, K, V> CollectionUpdate<StorageBufferImpl<T>>
   for CollectionToStorageBufferUpdater<C, K, V>
 where
   T: Std430,
@@ -95,16 +77,17 @@ where
   K: CKey + LinearIdentification,
   C: ReactiveCollection<K, V>,
 {
-  fn update_target(&mut self, target: &mut StorageBufferReadOnlyDataView<[T]>, cx: &mut Context) {
+  fn update_target(&mut self, target: &mut StorageBufferImpl<T>, cx: &mut Context) {
     let (changes, _) = self.upstream.poll_changes(cx);
     for (k, v) in changes.iter_key_value() {
       let index = k.alloc_index();
-      let offset = index * self.stride + self.field_offset;
 
       match v {
-        ValueChange::Delta(v, _) => {
-          target.write_at(offset as u64, bytes_of(&v), &self.gpu_ctx.queue);
-        }
+        ValueChange::Delta(v, _) => unsafe {
+          target
+            .set_value_sub_bytes(index, self.field_offset as usize, bytes_of(&v))
+            .unwrap();
+        },
         ValueChange::Remove(_) => {
           // we could do clear in debug mode
         }
@@ -115,16 +98,16 @@ where
 
 impl<T: Std430> BindableResourceProvider for ReactiveStorageBufferContainer<T> {
   fn get_bindable(&self) -> BindingResourceOwned {
-    self.inner.get_bindable()
+    self.inner.gpu().get_bindable()
   }
 }
 impl<T: Std430> CacheAbleBindingSource for ReactiveStorageBufferContainer<T> {
   fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
-    self.inner.get_binding_build_source()
+    self.inner.gpu().get_binding_build_source()
   }
 }
 impl<T: Std430> BindableResourceView for ReactiveStorageBufferContainer<T> {
   fn as_bindable(&self) -> rendiation_webgpu::BindingResource {
-    self.inner.as_bindable()
+    self.inner.gpu().as_bindable()
   }
 }

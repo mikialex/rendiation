@@ -12,7 +12,6 @@ pin-project = { workspace = true }
 rendiation-shader-api = { path = "../../../shader/api" }
 rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
 slab = "0.4.8"
-xalloc = "0.2.7"
 
 [lints]
 workspace = true

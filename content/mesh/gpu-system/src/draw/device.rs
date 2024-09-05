@@ -2,11 +2,23 @@ use crate::*;
 
 impl GPUBindlessMeshSystem {
   pub fn create_device_draw_dispatcher(&self, device: &GPUDevice) -> BindlessDrawCreator {
-    let inner = self.inner.read().unwrap();
-    let metadata = slab_to_vec(&inner.metadata);
+    let metadata = slab_to_vec(&self.metadata);
     let metadata = StorageBufferReadOnlyDataView::create(device, metadata.as_slice());
     BindlessDrawCreator { metadata }
   }
+}
+
+// this is not good, maybe we should impl slab by ourself?
+fn slab_to_vec<T: Clone>(s: &Slab<T>) -> Vec<T> {
+  let mut r = Vec::with_capacity(s.capacity());
+  let default = s.get(0).unwrap();
+  s.iter().for_each(|(idx, v)| {
+    while idx >= r.len() {
+      r.push(default.clone())
+    }
+    r[idx] = v.clone();
+  });
+  r
 }
 
 pub struct BindlessDrawCreator {
