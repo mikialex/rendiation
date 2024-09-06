@@ -4,6 +4,7 @@ use crate::*;
 #[std140_layout]
 #[derive(Copy, Clone, ShaderStruct, Default)]
 pub struct PointLightUniform {
+  /// in cd
   pub luminance_intensity: Vec3<f32>,
   pub position: Vec3<f32>,
   pub cutoff_distance: f32,

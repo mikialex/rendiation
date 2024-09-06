@@ -3691,6 +3691,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-lighting-punctual"
+version = "0.1.0"
+dependencies = [
+ "rendiation-algebra",
+ "rendiation-lighting-transport",
+ "rendiation-shader-api",
+]
+
+[[package]]
 name = "rendiation-lighting-transport"
 version = "0.1.0"
 dependencies = [
@@ -3929,7 +3938,6 @@ dependencies = [
  "parking_lot",
  "reactive",
  "rendiation-algebra",
- "rendiation-scene-core",
  "rendiation-shader-api",
  "rendiation-shader-library",
  "rendiation-texture-core",
