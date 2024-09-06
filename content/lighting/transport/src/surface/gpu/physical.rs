@@ -64,7 +64,7 @@ impl LightableSurfaceShadingProvider for PhysicalShading {
 }
 
 impl LightableSurfaceShading for ENode<ShaderPhysicalShading> {
-  fn compute_lighting_by_incident_dyn(
+  fn compute_lighting_by_incident(
     &self,
     direct_light: &ENode<ShaderIncidentLight>,
     ctx: &ENode<ShaderLightingGeometricCtx>,

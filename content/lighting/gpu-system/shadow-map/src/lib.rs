@@ -191,6 +191,14 @@ pub struct ShadowMapAddressInfo {
   pub offset: Vec2<f32>,
 }
 
+pub trait ShadowOcclusionQuery {
+  fn query_shadow_occlusion(
+    &self,
+    world_position: Node<Vec3<f32>>,
+    world_normal: Node<Vec3<f32>>,
+  ) -> Node<f32>;
+}
+
 pub struct BasicShadowMapInvocation {
   shadow_map_atlas: HandleNode<ShaderDepthTexture2DArray>,
   sampler: HandleNode<ShaderCompareSampler>,

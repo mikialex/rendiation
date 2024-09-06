@@ -3622,6 +3622,8 @@ name = "rendiation-gpu-lighting-system"
 version = "0.1.0"
 dependencies = [
  "rendiation-algebra",
+ "rendiation-lighting-punctual",
+ "rendiation-lighting-shadow-map",
  "rendiation-lighting-transport",
  "rendiation-shader-api",
  "rendiation-webgpu",
@@ -3707,6 +3709,23 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-lighting-transport",
  "rendiation-shader-api",
+]
+
+[[package]]
+name = "rendiation-lighting-shadow-map"
+version = "0.1.0"
+dependencies = [
+ "database",
+ "fast-hash-collection",
+ "parking_lot",
+ "reactive",
+ "rendiation-algebra",
+ "rendiation-shader-api",
+ "rendiation-shader-library",
+ "rendiation-texture-core",
+ "rendiation-texture-packer",
+ "rendiation-webgpu",
+ "rendiation-webgpu-reactive-utils",
 ]
 
 [[package]]
@@ -3935,23 +3954,6 @@ dependencies = [
  "rendiation-texture-gpu-base",
  "rendiation-texture-gpu-process",
  "rendiation-texture-gpu-system",
- "rendiation-webgpu",
- "rendiation-webgpu-reactive-utils",
-]
-
-[[package]]
-name = "rendiation-scene-shadow-map"
-version = "0.1.0"
-dependencies = [
- "database",
- "fast-hash-collection",
- "parking_lot",
- "reactive",
- "rendiation-algebra",
- "rendiation-shader-api",
- "rendiation-shader-library",
- "rendiation-texture-core",
- "rendiation-texture-packer",
  "rendiation-webgpu",
  "rendiation-webgpu-reactive-utils",
 ]
