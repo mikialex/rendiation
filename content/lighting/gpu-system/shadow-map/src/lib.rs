@@ -190,3 +190,68 @@ pub struct ShadowMapAddressInfo {
   pub size: Vec2<f32>,
   pub offset: Vec2<f32>,
 }
+
+pub struct BasicShadowMapInvocation {
+  shadow_map_atlas: HandleNode<ShaderDepthTexture2DArray>,
+  sampler: HandleNode<ShaderCompareSampler>,
+  info: UniformNode<Shader140Array<BasicShadowMapInfo, 8>>,
+}
+
+impl BasicShadowMapInvocation {
+  pub fn query_if_point_occluded_in_shadow(
+    &self,
+    world_position: Node<Vec3<f32>>,
+    world_normal: Node<Vec3<f32>>,
+    shadow_idx: Node<u32>,
+  ) -> Node<f32> {
+    let shadow_info = self.info.index(shadow_idx).load().expand();
+
+    let bias = shadow_info.bias.expand();
+
+    // apply normal bias
+    let world_position = world_position + bias.normal_bias * world_normal;
+
+    let shadow_position = shadow_info.shadow_camera_view_proj * (world_position, val(1.)).into();
+
+    let shadow_position = shadow_position.xyz() / shadow_position.w().splat();
+
+    // convert to uv space and apply offset bias
+    let shadow_position = shadow_position * val(Vec3::new(0.5, -0.5, 1.))
+      + val(Vec3::new(0.5, 0.5, 0.))
+      + (val(0.), val(0.), bias.bias).into();
+
+    sample_shadow_pcf_x36_by_offset(
+      self.shadow_map_atlas,
+      shadow_position,
+      self.sampler,
+      shadow_info.map_info.expand(),
+    )
+  }
+}
+
+fn sample_shadow_pcf_x36_by_offset(
+  map: HandleNode<ShaderDepthTexture2DArray>,
+  shadow_position: Node<Vec3<f32>>,
+  d_sampler: HandleNode<ShaderCompareSampler>,
+  info: ENode<ShadowMapAddressInfo>,
+) -> Node<f32> {
+  let uv = shadow_position.xy();
+  let depth = shadow_position.z();
+  let layer = info.layer_index;
+  let mut ratio = val(0.0);
+
+  let s = 2_i32; // we should write a for here?
+
+  for i in -1..=1 {
+    for j in -1..=1 {
+      let result = map
+        .build_compare_sample_call(d_sampler, uv, depth)
+        .with_offset((s * i, s * j).into())
+        .with_array_index(layer)
+        .sample();
+      ratio += result;
+    }
+  }
+
+  ratio / val(9.)
+}

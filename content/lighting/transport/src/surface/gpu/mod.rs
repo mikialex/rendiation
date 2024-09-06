@@ -16,9 +16,7 @@ pub struct ShaderLightingResult {
   pub specular: Vec3<f32>,
 }
 
-// note, we have to use the real name but not the ENode<ShaderAPIInstance> or we can not pass the
-// rust orphan rules
-impl core::ops::Add for ShaderLightingResultShaderAPIInstance {
+impl core::ops::Add for ENode<ShaderLightingResult> {
   type Output = Self;
 
   fn add(self, rhs: Self) -> Self::Output {
@@ -37,43 +35,17 @@ pub struct ShaderLightingGeometricCtx {
   pub view_dir: Vec3<f32>,
 }
 
-pub trait LightableSurfaceShading: std::any::Any {
-  type ShaderStruct: ShaderStructuralNodeType;
-  /// define how we construct a shader material instance from shader build ctx
-  fn construct_shading(builder: &mut ShaderFragmentBuilder) -> ENode<Self::ShaderStruct>;
-
-  /// define how we compute result lighting from a give pixel of surface and lighting
-  fn compute_lighting_by_incident(
-    self_node: &ENode<Self::ShaderStruct>,
-    incident: &ENode<ShaderIncidentLight>,
-    ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> ENode<ShaderLightingResult>;
+pub trait LightableSurfaceShadingProvider {
+  fn construct_shading(
+    &self,
+    builder: &mut ShaderFragmentBuilder,
+  ) -> Box<dyn LightableSurfaceShading>;
 }
 
-pub trait LightableSurfaceShadingDyn: Any {
-  fn construct_shading_dyn(&self, builder: &mut ShaderFragmentBuilder) -> Box<dyn Any>;
-
+pub trait LightableSurfaceShading {
   fn compute_lighting_by_incident_dyn(
     &self,
-    self_node: &dyn Any,
     direct_light: &ENode<ShaderIncidentLight>,
     ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> ENode<ShaderLightingResult>;
-}
-impl<T: LightableSurfaceShading> LightableSurfaceShadingDyn for T {
-  fn construct_shading_dyn(&self, builder: &mut ShaderFragmentBuilder) -> Box<dyn Any> {
-    Box::new(Self::construct_shading(builder))
-  }
-
-  fn compute_lighting_by_incident_dyn(
-    &self,
-    self_node: &dyn Any,
-    direct_light: &ENode<ShaderIncidentLight>,
-    ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> ENode<ShaderLightingResult> {
-    let self_node = self_node
-      .downcast_ref::<ENode<<Self as LightableSurfaceShading>::ShaderStruct>>()
-      .unwrap();
-    Self::compute_lighting_by_incident(self_node, direct_light, ctx)
-  }
 }

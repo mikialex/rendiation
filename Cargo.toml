@@ -40,6 +40,7 @@ members = [
   "content/lighting/transport",
   "content/lighting/punctual",
   "content/lighting/gpu-system/shadow-map",
+  "content/lighting/gpu-system/lighting-system",
   "content/space",
   "content/fontext",
   "content/canvas/core",

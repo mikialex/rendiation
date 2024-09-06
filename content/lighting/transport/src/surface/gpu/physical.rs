@@ -20,9 +20,11 @@ pub fn compute_dielectric_f0(reflectance: Node<f32>) -> Node<f32> {
   val(0.16) * reflectance * reflectance
 }
 
-impl LightableSurfaceShading for PhysicalShading {
-  type ShaderStruct = ShaderPhysicalShading;
-  fn construct_shading(builder: &mut ShaderFragmentBuilder) -> ENode<Self::ShaderStruct> {
+impl LightableSurfaceShadingProvider for PhysicalShading {
+  fn construct_shading(
+    &self,
+    builder: &mut ShaderFragmentBuilder,
+  ) -> Box<dyn LightableSurfaceShading> {
     let perceptual_roughness = builder
       .query::<RoughnessChannel>()
       .or_else(|_| Ok(val(1.) - builder.query::<GlossinessChannel>()?))
@@ -53,24 +55,21 @@ impl LightableSurfaceShading for PhysicalShading {
       (base_color * (val(1.) - metallic), f0)
     };
 
-    ENode::<Self::ShaderStruct> {
+    Box::new(ENode::<ShaderPhysicalShading> {
       diffuse,
       f0,
       perceptual_roughness,
-    }
+    })
   }
+}
 
-  fn compute_lighting_by_incident(
-    self_node: &ENode<Self::ShaderStruct>,
+impl LightableSurfaceShading for ENode<ShaderPhysicalShading> {
+  fn compute_lighting_by_incident_dyn(
+    &self,
     direct_light: &ENode<ShaderIncidentLight>,
     ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> ENode<ShaderLightingResult> {
-    physical_shading_fn(
-      direct_light.construct(),
-      ctx.construct(),
-      self_node.construct(),
-    )
-    .expand()
+    physical_shading_fn(direct_light.construct(), ctx.construct(), self.construct()).expand()
   }
 }
 

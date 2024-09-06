@@ -6,6 +6,4 @@ mod surface;
 pub use surface::*;
 
 mod volumetric;
-use std::any::Any;
-
 pub use volumetric::*;
