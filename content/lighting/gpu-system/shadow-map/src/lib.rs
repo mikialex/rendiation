@@ -199,6 +199,7 @@ pub trait ShadowOcclusionQuery {
   ) -> Node<f32>;
 }
 
+#[derive(Clone, Copy)]
 pub struct BasicShadowMapInvocation {
   shadow_map_atlas: HandleNode<ShaderDepthTexture2DArray>,
   sampler: HandleNode<ShaderCompareSampler>,
@@ -206,7 +207,7 @@ pub struct BasicShadowMapInvocation {
 }
 
 impl BasicShadowMapInvocation {
-  pub fn query_if_point_occluded_in_shadow(
+  pub fn query_shadow_occlusion_by_idx(
     &self,
     world_position: Node<Vec3<f32>>,
     world_normal: Node<Vec3<f32>>,
@@ -234,6 +235,23 @@ impl BasicShadowMapInvocation {
       self.sampler,
       shadow_info.map_info.expand(),
     )
+  }
+}
+
+pub struct BasicShadowMapSingleInvocation {
+  sys: BasicShadowMapInvocation,
+  index: Node<u32>,
+}
+
+impl ShadowOcclusionQuery for BasicShadowMapSingleInvocation {
+  fn query_shadow_occlusion(
+    &self,
+    world_position: Node<Vec3<f32>>,
+    world_normal: Node<Vec3<f32>>,
+  ) -> Node<f32> {
+    self
+      .sys
+      .query_shadow_occlusion_by_idx(world_position, world_normal, self.index)
   }
 }
 

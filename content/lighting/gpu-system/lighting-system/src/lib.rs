@@ -54,3 +54,28 @@ impl LightingComputeInvocation for (Box<dyn PunctualShaderLight>, Box<dyn Shadow
     shading.compute_lighting_by_incident(&incident, geom_ctx)
   }
 }
+
+pub struct IterAsLightInvocation<T>(pub T);
+impl<T> LightingComputeInvocation for IterAsLightInvocation<T>
+where
+  T::Item: LightingComputeInvocation,
+  T: Iterator + Clone,
+{
+  fn compute_lights(
+    &self,
+    shading: &dyn LightableSurfaceShading,
+    geom_ctx: &ENode<ShaderLightingGeometricCtx>,
+  ) -> ENode<ShaderLightingResult> {
+    let light_specular_result = val(Vec3::zero()).make_local_var();
+    let light_diffuse_result = val(Vec3::zero()).make_local_var();
+
+    self.0.clone().for_each(|light| {
+      light.compute_lights(shading, geom_ctx);
+    });
+
+    ENode::<ShaderLightingResult> {
+      diffuse: light_diffuse_result.load(),
+      specular: light_specular_result.load(),
+    }
+  }
+}
