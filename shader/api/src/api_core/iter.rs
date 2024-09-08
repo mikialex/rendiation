@@ -7,6 +7,14 @@ pub trait ShaderIterator {
   fn shader_next(&self) -> (Node<bool>, Self::Item);
 }
 
+impl<T> ShaderIterator for Box<dyn ShaderIterator<Item = T>> {
+  type Item = T;
+
+  fn shader_next(&self) -> (Node<bool>, Self::Item) {
+    (**self).shader_next()
+  }
+}
+
 pub trait IntoShaderIterator {
   type ShaderIter: ShaderIterator;
   fn into_shader_iter(self) -> Self::ShaderIter;
@@ -40,6 +48,13 @@ pub trait ShaderIteratorExt: ShaderIterator + Sized {
 
   fn filter<F: Fn(&I) -> Node<bool>, I>(self, f: F) -> ShaderFilterIter<Self, F> {
     ShaderFilterIter { iter: self, f }
+  }
+
+  fn zip<T>(self, other: T) -> ShaderZipIter<Self, T> {
+    ShaderZipIter {
+      iter1: self,
+      iter2: other,
+    }
   }
 
   fn enumerate(self) -> ShaderEnumeratorIter<Self> {
@@ -86,6 +101,7 @@ impl ShaderIterator for StepTo {
   }
 }
 
+#[derive(Clone)]
 pub struct UniformArrayIter<T, const U: usize> {
   cursor: LocalVarNode<u32>,
   array: UniformNode<Shader140Array<T, U>>,
@@ -133,6 +149,7 @@ impl<T: ShaderNodeType, const U: usize> IntoShaderIterator for UniformNode<Shade
   }
 }
 
+#[derive(Clone)]
 pub struct ShaderFilterIter<T, F> {
   iter: T,
   f: F,
@@ -140,29 +157,30 @@ pub struct ShaderFilterIter<T, F> {
 
 impl<T, F, TT> ShaderIterator for ShaderFilterIter<T, F>
 where
-  T: ShaderIterator<Item = Node<TT>>,
-  TT: ShaderSizedValueNodeType,
-  F: Fn(&T::Item) -> Node<bool>,
+  T: ShaderIterator<Item = TT>,
+  TT: ShaderAbstractRightValue + Default,
+  F: Fn(TT) -> Node<bool>,
 {
   type Item = T::Item;
 
   fn shader_next(&self) -> (Node<bool>, Self::Item) {
     let has_next = val(false).make_local_var();
-    let item = zeroed_val().make_local_var();
+    let item = LocalLeftValueBuilder.create_left_value(TT::default());
     loop_by(|cx| {
       let (inner_has_next, inner) = self.iter.shader_next();
       if_by(inner_has_next.not(), || {
         cx.do_break();
       });
-      if_by((self.f)(&inner), || {
+      if_by((self.f)(inner), || {
         has_next.store(val(true));
-        item.store(inner);
+        item.abstract_store(inner);
       });
     });
-    (has_next.load(), item.load())
+    (has_next.load(), item.abstract_load())
   }
 }
 
+#[derive(Clone)]
 pub struct ShaderMapIter<T, F> {
   iter: T,
   f: F,
@@ -172,18 +190,42 @@ impl<T, F, TT> ShaderIterator for ShaderMapIter<T, F>
 where
   T: ShaderIterator,
   T::Item: Copy,
-  TT: ShaderSizedValueNodeType,
-  F: Fn(T::Item) -> Node<TT>,
+  TT: ShaderAbstractRightValue + Default,
+  F: Fn(T::Item) -> TT,
 {
-  type Item = Node<TT>;
+  type Item = TT;
 
   fn shader_next(&self) -> (Node<bool>, Self::Item) {
     let (inner_has_next, inner) = self.iter.shader_next();
-    let item = zeroed_val().make_local_var();
+    let item = LocalLeftValueBuilder.create_left_value(TT::default());
     if_by(inner_has_next, || {
-      item.store((self.f)(inner));
+      item.abstract_store((self.f)(inner));
     });
-    (inner_has_next, item.load())
+    (inner_has_next, item.abstract_load())
+  }
+}
+
+#[derive(Clone)]
+pub struct ShaderZipIter<T1, T2> {
+  iter1: T1,
+  iter2: T2,
+}
+
+impl<T1, T2> ShaderIterator for ShaderZipIter<T1, T2>
+where
+  T1: ShaderIterator,
+  T2: ShaderIterator,
+{
+  type Item = (T1::Item, T2::Item);
+
+  fn shader_next(&self) -> (Node<bool>, Self::Item) {
+    let (inner1_has_next, inner1) = self.iter1.shader_next();
+    let (inner2_has_next, inner2) = self.iter2.shader_next();
+
+    let has_next = inner1_has_next.and(inner2_has_next);
+    let next = (inner1, inner2);
+
+    (has_next, next)
   }
 }
 

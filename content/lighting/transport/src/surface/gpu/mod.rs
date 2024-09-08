@@ -31,7 +31,7 @@ impl core::ops::Add for ENode<ShaderLightingResult> {
 pub struct ShaderLightingGeometricCtx {
   pub position: Vec3<f32>,
   pub normal: Vec3<f32>,
-  /// from surface to the camera
+  /// origin from surface to the camera
   pub view_dir: Vec3<f32>,
 }
 
@@ -43,7 +43,7 @@ pub trait LightableSurfaceShadingProvider {
 }
 
 pub trait LightableSurfaceShading {
-  fn compute_lighting_by_incident_dyn(
+  fn compute_lighting_by_incident(
     &self,
     direct_light: &ENode<ShaderIncidentLight>,
     ctx: &ENode<ShaderLightingGeometricCtx>,
