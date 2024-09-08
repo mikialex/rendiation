@@ -7,6 +7,14 @@ pub trait ShaderIterator {
   fn shader_next(&self) -> (Node<bool>, Self::Item);
 }
 
+impl<T> ShaderIterator for Box<dyn ShaderIterator<Item = T>> {
+  type Item = T;
+
+  fn shader_next(&self) -> (Node<bool>, Self::Item) {
+    (**self).shader_next()
+  }
+}
+
 pub trait IntoShaderIterator {
   type ShaderIter: ShaderIterator;
   fn into_shader_iter(self) -> Self::ShaderIter;
@@ -86,6 +94,7 @@ impl ShaderIterator for StepTo {
   }
 }
 
+#[derive(Clone)]
 pub struct UniformArrayIter<T, const U: usize> {
   cursor: LocalVarNode<u32>,
   array: UniformNode<Shader140Array<T, U>>,
@@ -133,6 +142,7 @@ impl<T: ShaderNodeType, const U: usize> IntoShaderIterator for UniformNode<Shade
   }
 }
 
+#[derive(Clone)]
 pub struct ShaderFilterIter<T, F> {
   iter: T,
   f: F,
@@ -140,29 +150,30 @@ pub struct ShaderFilterIter<T, F> {
 
 impl<T, F, TT> ShaderIterator for ShaderFilterIter<T, F>
 where
-  T: ShaderIterator<Item = Node<TT>>,
-  TT: ShaderSizedValueNodeType,
-  F: Fn(&T::Item) -> Node<bool>,
+  T: ShaderIterator<Item = TT>,
+  TT: ShaderAbstractRightValue + Default,
+  F: Fn(TT) -> Node<bool>,
 {
   type Item = T::Item;
 
   fn shader_next(&self) -> (Node<bool>, Self::Item) {
     let has_next = val(false).make_local_var();
-    let item = zeroed_val().make_local_var();
+    let item = LocalLeftValueBuilder.create_left_value(TT::default());
     loop_by(|cx| {
       let (inner_has_next, inner) = self.iter.shader_next();
       if_by(inner_has_next.not(), || {
         cx.do_break();
       });
-      if_by((self.f)(&inner), || {
+      if_by((self.f)(inner), || {
         has_next.store(val(true));
-        item.store(inner);
+        item.abstract_store(inner);
       });
     });
-    (has_next.load(), item.load())
+    (has_next.load(), item.abstract_load())
   }
 }
 
+#[derive(Clone)]
 pub struct ShaderMapIter<T, F> {
   iter: T,
   f: F,
@@ -172,18 +183,18 @@ impl<T, F, TT> ShaderIterator for ShaderMapIter<T, F>
 where
   T: ShaderIterator,
   T::Item: Copy,
-  TT: ShaderSizedValueNodeType,
-  F: Fn(T::Item) -> Node<TT>,
+  TT: ShaderAbstractRightValue + Default,
+  F: Fn(T::Item) -> TT,
 {
-  type Item = Node<TT>;
+  type Item = TT;
 
   fn shader_next(&self) -> (Node<bool>, Self::Item) {
     let (inner_has_next, inner) = self.iter.shader_next();
-    let item = zeroed_val().make_local_var();
+    let item = LocalLeftValueBuilder.create_left_value(TT::default());
     if_by(inner_has_next, || {
-      item.store((self.f)(inner));
+      item.abstract_store((self.f)(inner));
     });
-    (inner_has_next, item.load())
+    (inner_has_next, item.abstract_load())
   }
 }
 

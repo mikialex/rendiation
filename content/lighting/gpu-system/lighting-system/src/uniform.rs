@@ -1,10 +1,13 @@
 use crate::*;
 
-struct UniformArrayLights<T: Std140, const N: usize>(
+pub struct UniformArrayLights<T: Std140, const N: usize, U>(
   pub UniformBufferDataView<Shader140Array<T, N>>,
+  pub PhantomData<U>,
+  pub Arc<dyn Fn(Node<T>) -> U>,
 );
 
-impl<T, const N: usize> ShaderPassBuilder for UniformArrayLights<T, N>
+/// should we consider impl such trait for containers in upstream?
+impl<T, const N: usize, U> ShaderPassBuilder for UniformArrayLights<T, N, U>
 where
   T: Std140 + ShaderSizedValueNodeType,
 {
@@ -12,37 +15,26 @@ where
     ctx.binding.bind(&self.0);
   }
 }
-impl<T, const N: usize> ShaderHashProvider for UniformArrayLights<T, N>
+impl<T, const N: usize, U: 'static> ShaderHashProvider for UniformArrayLights<T, N, U>
 where
   T: Std140 + ShaderSizedValueNodeType,
 {
-  fn hash_type_info(&self, hasher: &mut PipelineHasher) {
-    todo!()
-  }
+  shader_hash_type_id! {}
 }
 
-impl<T, const N: usize> LightingComputeComponent for UniformArrayLights<T, N>
+impl<T, const N: usize, U> LightingComputeComponent for UniformArrayLights<T, N, U>
 where
   T: Std140 + ShaderSizedValueNodeType,
+  U: LightingComputeInvocation + ShaderAbstractRightValue + Default,
 {
   fn build_light_compute_invocation(
     &self,
     binding: &mut ShaderBindGroupBuilder,
   ) -> Box<dyn LightingComputeInvocation> {
-    todo!()
-  }
-}
-
-struct UniformArrayLightsInvocation<T: Std140, const N: usize>(
-  pub UniformNode<Shader140Array<T, N>>,
-);
-
-impl<T: Std140, const N: usize> LightingComputeInvocation for UniformArrayLightsInvocation<T, N> {
-  fn compute_lights(
-    &self,
-    shading: &dyn LightableSurfaceShading,
-    geom_ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> ENode<ShaderLightingResult> {
-    todo!()
+    let node = binding.bind_by(&self.0);
+    let f = self.2.clone();
+    Box::new(IterAsLightInvocation(node.into_shader_iter().map(
+      move |(_, light): (Node<u32>, UniformNode<T>)| f(light.load()),
+    )))
   }
 }

@@ -1,3 +1,6 @@
+use std::marker::PhantomData;
+use std::sync::Arc;
+
 use rendiation_lighting_punctual::*;
 use rendiation_lighting_shadow_map::*;
 use rendiation_lighting_transport::*;
@@ -25,7 +28,10 @@ pub trait LightingComputeInvocation {
   ) -> ENode<ShaderLightingResult>;
 }
 
-impl LightingComputeInvocation for Box<dyn PunctualShaderLight> {
+impl<T> LightingComputeInvocation for Node<T>
+where
+  Node<T>: PunctualShaderLight,
+{
   fn compute_lights(
     &self,
     shading: &dyn LightableSurfaceShading,
@@ -36,7 +42,11 @@ impl LightingComputeInvocation for Box<dyn PunctualShaderLight> {
   }
 }
 
-impl LightingComputeInvocation for (Box<dyn PunctualShaderLight>, Box<dyn ShadowOcclusionQuery>) {
+impl<L, S> LightingComputeInvocation for (Node<L>, Node<S>)
+where
+  Node<L>: PunctualShaderLight,
+  Node<S>: ShadowOcclusionQuery,
+{
   fn compute_lights(
     &self,
     shading: &dyn LightableSurfaceShading,
@@ -59,7 +69,7 @@ pub struct IterAsLightInvocation<T>(pub T);
 impl<T> LightingComputeInvocation for IterAsLightInvocation<T>
 where
   T::Item: LightingComputeInvocation,
-  T: Iterator + Clone,
+  T: ShaderIterator + Clone,
 {
   fn compute_lights(
     &self,
@@ -69,7 +79,7 @@ where
     let light_specular_result = val(Vec3::zero()).make_local_var();
     let light_diffuse_result = val(Vec3::zero()).make_local_var();
 
-    self.0.clone().for_each(|light| {
+    self.0.clone().for_each(|light, _| {
       light.compute_lights(shading, geom_ctx);
     });
 
