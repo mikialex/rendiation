@@ -13,6 +13,7 @@ reactive = { path = "../../../utility/reactive" }
 database = { path = "../../../utility/database" }
 rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
 rendiation-texture-gpu-system = { path = "../../../content/texture/gpu-system" }
+rendiation-lighting-gpu-system = { path = "../../../content/lighting/gpu-system/lighting-system" }
 
 
 [lints]

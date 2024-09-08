@@ -2,7 +2,7 @@ use crate::*;
 
 #[derive(Default)]
 pub struct LightingComputeComponentGroup {
-  comps: Vec<Box<dyn LightingComputeComponent>>,
+  pub comps: Vec<Box<dyn LightingComputeComponent>>,
 }
 
 impl LightingComputeComponentGroup {

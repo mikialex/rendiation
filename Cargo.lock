@@ -3618,18 +3618,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rendiation-gpu-lighting-system"
-version = "0.1.0"
-dependencies = [
- "rendiation-algebra",
- "rendiation-lighting-punctual",
- "rendiation-lighting-shadow-map",
- "rendiation-lighting-transport",
- "rendiation-shader-api",
- "rendiation-webgpu",
-]
-
-[[package]]
 name = "rendiation-gui-3d"
 version = "0.1.0"
 dependencies = [
@@ -3666,6 +3654,18 @@ version = "0.1.0"
 dependencies = [
  "rendiation-algebra",
  "rendiation-geometry",
+]
+
+[[package]]
+name = "rendiation-lighting-gpu-system"
+version = "0.1.0"
+dependencies = [
+ "rendiation-algebra",
+ "rendiation-lighting-punctual",
+ "rendiation-lighting-shadow-map",
+ "rendiation-lighting-transport",
+ "rendiation-shader-api",
+ "rendiation-webgpu",
 ]
 
 [[package]]
@@ -3926,6 +3926,7 @@ dependencies = [
  "fast-hash-collection",
  "reactive",
  "rendiation-algebra",
+ "rendiation-lighting-gpu-system",
  "rendiation-scene-core",
  "rendiation-texture-gpu-system",
  "rendiation-webgpu",

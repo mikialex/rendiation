@@ -6,7 +6,7 @@ use crate::*;
 pub struct GLESRenderSystem {
   pub model_lookup: UpdateResultToken,
   pub texture_system: UpdateResultToken,
-  pub camera: Box<dyn RenderImplProvider<Box<dyn GLESCameraRenderImpl>>>,
+  pub camera: Box<dyn RenderImplProvider<Box<dyn CameraRenderImpl>>>,
   pub scene_model_impl: Vec<Box<dyn RenderImplProvider<Box<dyn SceneModelRenderer>>>>,
 }
 
@@ -92,7 +92,7 @@ impl RenderImplProvider<Box<dyn SceneRenderer>> for GLESRenderSystem {
 
 struct GLESSceneRenderer {
   texture_system: GPUTextureBindingSystem,
-  camera: Box<dyn GLESCameraRenderImpl>,
+  camera: Box<dyn CameraRenderImpl>,
   scene_model_renderer: Vec<Box<dyn SceneModelRenderer>>,
   background: ComponentReadView<SceneSolidBackground>,
   model_lookup: RevRefOfForeignKey<SceneModelBelongsToScene>,
@@ -103,7 +103,7 @@ impl SceneModelRenderer for GLESSceneRenderer {
     &'a self,
     idx: EntityHandle<SceneModelEntity>,
     camera: EntityHandle<SceneCameraEntity>,
-    camera_gpu: &'a (dyn GLESCameraRenderImpl + 'a),
+    camera_gpu: &'a (dyn CameraRenderImpl + 'a),
     pass: &'a (dyn RenderComponent + 'a),
     tex: &'a GPUTextureBindingSystem,
   ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
@@ -158,7 +158,7 @@ impl SceneRenderer for GLESSceneRenderer {
     self.render_reorderable_models_impl(models, camera, self.camera.as_ref(), pass, cx, tex)
   }
 
-  fn get_camera_gpu(&self) -> &dyn GLESCameraRenderImpl {
+  fn get_camera_gpu(&self) -> &dyn CameraRenderImpl {
     self.camera.as_ref()
   }
 }

@@ -34,7 +34,7 @@ impl SceneModelRenderer for GLESPreferredComOrderRenderer {
     &'a self,
     idx: EntityHandle<SceneModelEntity>,
     camera: EntityHandle<SceneCameraEntity>,
-    camera_gpu: &'a (dyn GLESCameraRenderImpl + 'a),
+    camera_gpu: &'a (dyn CameraRenderImpl + 'a),
     pass: &'a (dyn RenderComponent + 'a),
     tex: &'a GPUTextureBindingSystem,
   ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {

@@ -1,3 +1,5 @@
+//! The whole idea of extensible rendering architecture works like this:
+//!
 //! ```rust
 //! fn demo_render() {
 //!   let resource = create_reactive_gpu_resource_when_application_init();
@@ -5,16 +7,10 @@
 //!     // business_logic
 //!     user_modify_scene_at_will();
 //!
-//!     resource.maintain_on_demand();
-//!     let render_impl = resource.create_render_impl();
+//!     let render_impl = resource.maintain_and_create_render_impl();
+//!
 //!     for pass in effects {
-//!       for scene_pass_content in scene_pass_content_split {
-//!         pass.setup(scene_pass_content)
-//!         // for example if the gles scene_pass_content then:
-//!         // for single_dispatch in scene {
-//!         //   render_impl.render(model, pass)
-//!         // }
-//!       }
+//!       render_impl.render(frame, pass)
 //!     }
 //!   }
 //! }
@@ -27,6 +23,9 @@ use rendiation_scene_core::*;
 use rendiation_texture_gpu_system::*;
 use rendiation_webgpu::*;
 
+mod light;
+pub use light::*;
+
 pub trait RenderImplProvider<T> {
   /// this will be called once when application init
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU);
@@ -37,6 +36,14 @@ pub type GPUTextureBindingSystem = Box<dyn DynAbstractGPUTextureSystem>;
 
 /// abstract over direct or indirect rendering
 pub trait SceneRenderer: SceneModelRenderer {
+  /// render all content in given scene.
+  ///
+  /// The rendering content is specified by implementation.
+  /// The rendering content is refer to which models to draw, and in which order, or if draw background.
+  /// The rendering may initialize multiple render pass and any encoder operation.
+  ///
+  /// the implementation may call `render_reorderable_models` internally. And the `pass` ctx should be
+  /// passed to the internal call
   fn make_pass_content<'a>(
     &'a self,
     scene: EntityHandle<SceneEntity>,
@@ -45,6 +52,8 @@ pub trait SceneRenderer: SceneModelRenderer {
     ctx: &mut FrameCtx,
   ) -> Box<dyn PassContent + 'a>;
 
+  /// return if requires clear. this supposed to be true when background is drawn, or directly as a way to impl
+  /// solid background.
   fn init_clear(
     &self,
     scene: EntityHandle<SceneEntity>,
@@ -52,6 +61,7 @@ pub trait SceneRenderer: SceneModelRenderer {
 
   fn get_scene_model_cx(&self) -> &GPUTextureBindingSystem;
 
+  /// batch rendering passed models, the implementation is free to reorder the models in any ways.
   fn render_reorderable_models(
     &self,
     models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
@@ -61,10 +71,13 @@ pub trait SceneRenderer: SceneModelRenderer {
     tex: &GPUTextureBindingSystem,
   );
 
-  fn get_camera_gpu(&self) -> &dyn GLESCameraRenderImpl;
+  /// expose the underlayer camera system impl to enable user access the
+  /// direct camera gpu manipulation, this is useful when some effect pipeline
+  /// requires camera manipulation such as TAA.
+  fn get_camera_gpu(&self) -> &dyn CameraRenderImpl;
 }
 
-pub trait GLESCameraRenderImpl {
+pub trait CameraRenderImpl {
   fn make_component(
     &self,
     idx: EntityHandle<SceneCameraEntity>,
@@ -83,13 +96,21 @@ pub trait GLESCameraRenderImpl {
   );
 }
 
+pub trait LightsRenderImpl {
+  /// todo, in current impl, the lighting is truly global. todo: support filter by scene
+  ///
+  /// impl scene filter is complex to impl because the multi access indirect data required to be
+  /// incrementally maintained in device
+  fn make_component(&self) -> Option<Box<dyn RenderComponent + '_>>;
+}
+
 /// ability to do scene model level rendering
 pub trait SceneModelRenderer {
   fn make_component<'a>(
     &'a self,
     idx: EntityHandle<SceneModelEntity>,
     camera: EntityHandle<SceneCameraEntity>,
-    camera_gpu: &'a (dyn GLESCameraRenderImpl + 'a),
+    camera_gpu: &'a (dyn CameraRenderImpl + 'a),
     pass: &'a (dyn RenderComponent + 'a),
     tex: &'a GPUTextureBindingSystem,
   ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)>;
@@ -98,7 +119,7 @@ pub trait SceneModelRenderer {
     &self,
     idx: EntityHandle<SceneModelEntity>,
     camera: EntityHandle<SceneCameraEntity>,
-    camera_gpu: &dyn GLESCameraRenderImpl,
+    camera_gpu: &dyn CameraRenderImpl,
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
@@ -113,7 +134,7 @@ pub trait SceneModelRenderer {
     &self,
     models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
     camera: EntityHandle<SceneCameraEntity>,
-    camera_gpu: &dyn GLESCameraRenderImpl,
+    camera_gpu: &dyn CameraRenderImpl,
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
@@ -129,7 +150,7 @@ impl SceneModelRenderer for Vec<Box<dyn SceneModelRenderer>> {
     &'a self,
     idx: EntityHandle<SceneModelEntity>,
     camera: EntityHandle<SceneCameraEntity>,
-    camera_gpu: &'a (dyn GLESCameraRenderImpl + 'a),
+    camera_gpu: &'a (dyn CameraRenderImpl + 'a),
     pass: &'a (dyn RenderComponent + 'a),
     tex: &'a GPUTextureBindingSystem,
   ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {

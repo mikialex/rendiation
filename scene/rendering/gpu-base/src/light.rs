@@ -1,0 +1,36 @@
+use rendiation_lighting_gpu_system::*;
+
+use crate::*;
+
+#[derive(Default)]
+pub struct LightArrayRenderImplProvider {
+  lights: Vec<Box<dyn RenderImplProvider<Box<dyn LightingComputeComponent>>>>,
+}
+
+impl LightArrayRenderImplProvider {
+  pub fn with_light(
+    mut self,
+    impls: impl RenderImplProvider<Box<dyn LightingComputeComponent>> + 'static,
+  ) -> Self {
+    self.lights.push(Box::new(impls));
+    self
+  }
+}
+
+impl RenderImplProvider<Box<dyn LightingComputeComponent>> for LightArrayRenderImplProvider {
+  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
+    self
+      .lights
+      .iter_mut()
+      .for_each(|l| l.register_resource(source, cx));
+  }
+
+  fn create_impl(
+    &self,
+    res: &mut ConcurrentStreamUpdateResult,
+  ) -> Box<dyn LightingComputeComponent> {
+    Box::new(LightingComputeComponentGroup {
+      comps: self.lights.iter().map(|i| i.create_impl(res)).collect(),
+    })
+  }
+}

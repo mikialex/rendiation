@@ -8,20 +8,20 @@ pub struct DefaultGLESCameraRenderImpl {
   uniforms: LockReadGuardHolder<CameraUniforms>,
 }
 
-impl RenderImplProvider<Box<dyn GLESCameraRenderImpl>> for DefaultGLESCameraRenderImplProvider {
+impl RenderImplProvider<Box<dyn CameraRenderImpl>> for DefaultGLESCameraRenderImplProvider {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
     let uniforms = camera_gpus(cx);
     self.uniforms = source.register_multi_updater(uniforms);
   }
 
-  fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> Box<dyn GLESCameraRenderImpl> {
+  fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> Box<dyn CameraRenderImpl> {
     Box::new(DefaultGLESCameraRenderImpl {
       uniforms: res.take_multi_updater_updated(self.uniforms).unwrap(),
     })
   }
 }
 
-impl GLESCameraRenderImpl for DefaultGLESCameraRenderImpl {
+impl CameraRenderImpl for DefaultGLESCameraRenderImpl {
   fn make_component(
     &self,
     idx: EntityHandle<SceneCameraEntity>,
