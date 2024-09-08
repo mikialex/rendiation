@@ -4,8 +4,8 @@ use rendiation_lighting_transport::*;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 
-mod combine;
-pub use combine::*;
+mod group;
+pub use group::*;
 
 mod array;
 pub use array::*;
