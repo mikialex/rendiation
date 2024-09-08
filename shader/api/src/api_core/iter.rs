@@ -50,6 +50,13 @@ pub trait ShaderIteratorExt: ShaderIterator + Sized {
     ShaderFilterIter { iter: self, f }
   }
 
+  fn zip<T>(self, other: T) -> ShaderZipIter<Self, T> {
+    ShaderZipIter {
+      iter1: self,
+      iter2: other,
+    }
+  }
+
   fn enumerate(self) -> ShaderEnumeratorIter<Self> {
     ShaderEnumeratorIter {
       iter: self,
@@ -195,6 +202,30 @@ where
       item.abstract_store((self.f)(inner));
     });
     (inner_has_next, item.abstract_load())
+  }
+}
+
+#[derive(Clone)]
+pub struct ShaderZipIter<T1, T2> {
+  iter1: T1,
+  iter2: T2,
+}
+
+impl<T1, T2> ShaderIterator for ShaderZipIter<T1, T2>
+where
+  T1: ShaderIterator,
+  T2: ShaderIterator,
+{
+  type Item = (T1::Item, T2::Item);
+
+  fn shader_next(&self) -> (Node<bool>, Self::Item) {
+    let (inner1_has_next, inner1) = self.iter1.shader_next();
+    let (inner2_has_next, inner2) = self.iter2.shader_next();
+
+    let has_next = inner1_has_next.and(inner2_has_next);
+    let next = (inner1, inner2);
+
+    (has_next, next)
   }
 }
 

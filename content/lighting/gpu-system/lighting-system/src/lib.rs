@@ -1,6 +1,3 @@
-use std::marker::PhantomData;
-use std::sync::Arc;
-
 use rendiation_lighting_punctual::*;
 use rendiation_lighting_shadow_map::*;
 use rendiation_lighting_transport::*;
@@ -10,8 +7,8 @@ use rendiation_webgpu::*;
 mod combine;
 pub use combine::*;
 
-mod uniform;
-pub use uniform::*;
+mod array;
+pub use array::*;
 
 pub trait LightingComputeComponent: ShaderHashProvider + ShaderPassBuilder {
   fn build_light_compute_invocation(

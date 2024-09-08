@@ -62,7 +62,7 @@ pub struct ShaderBindEntry {
 
 /// should impl by user's container ty
 pub trait ShaderBindingProvider {
-  type Node: ShaderNodeType + ?Sized;
+  type Node: ShaderNodeType;
   fn binding_desc(&self) -> ShaderBindingDescriptor {
     ShaderBindingDescriptor {
       should_as_storage_buffer_if_is_buffer_like: false,
