@@ -10,6 +10,12 @@ pub trait ShaderAbstractLeftValue {
   fn abstract_store(&self, payload: Self::RightValue);
 }
 
+impl ShaderAbstractLeftValue for () {
+  type RightValue = ();
+  fn abstract_load(&self) -> Self::RightValue {}
+  fn abstract_store(&self, _: Self::RightValue) {}
+}
+
 pub type BoxedShaderLoadStore<T> = Box<dyn ShaderAbstractLeftValue<RightValue = T>>;
 
 impl<T> ShaderAbstractLeftValue for BoxedShaderLoadStore<T>
@@ -44,6 +50,12 @@ pub trait ShaderAbstractRightValue: Copy + 'static {
   fn create_left_value_from_builder<B: LeftValueBuilder>(
     builder: &mut B,
   ) -> Self::AbstractLeftValue;
+}
+
+impl ShaderAbstractRightValue for () {
+  type AbstractLeftValue = ();
+
+  fn create_left_value_from_builder<B: LeftValueBuilder>(_: &mut B) -> Self::AbstractLeftValue {}
 }
 
 impl<T: ShaderSizedValueNodeType> ShaderAbstractRightValue for Node<T> {
