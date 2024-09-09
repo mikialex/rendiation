@@ -14,6 +14,7 @@ pub struct TaskGroupExecutor {
 
   pub polling_pipeline: GPUComputePipeline,
   pub tasks_depend_on_self: Vec<usize>,
+  pub self_task_idx: usize,
   pub resource: TaskGroupExecutorResource,
   pub required_poll_count: usize,
 }
@@ -81,6 +82,9 @@ impl TaskGroupExecutor {
       let mut bb = BindingBuilder::new_as_compute().with_bind(&imp.alive_task_idx.storage);
 
       let all_task_group_sources: Vec<_> = all_tasks.iter().map(|t| &t.resource).collect();
+      all_task_group_sources[self.self_task_idx]
+        .task_pool
+        .bind(&mut bb);
 
       let mut ctx = DeviceTaskSystemBindCtx {
         binder: &mut bb,

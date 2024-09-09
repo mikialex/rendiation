@@ -124,6 +124,7 @@ impl DeviceTaskGraphExecutor {
       tasks_depend_on_self,
       required_poll_count: task.required_poll_count(),
       task,
+      self_task_idx: task_type,
     };
     self.task_groups.push(task_executor);
 
