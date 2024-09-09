@@ -24,14 +24,17 @@ impl TaskGroupExecutor {
     self.task.reset(ctx, dispatch_size as u32);
   }
 
-  pub fn execute(&mut self, cx: &mut DeviceParallelComputeCtx, all_tasks: &[Self]) {
-    // update bumpers' size
-    cx.record_pass(|pass, device| {
+  pub fn update_bummers_size(&mut self, ctx: &mut DeviceParallelComputeCtx) {
+    ctx.record_pass(|pass, device| {
       let imp = &mut self.resource;
       imp.alive_task_idx.commit_size(pass, device, true);
       imp.empty_index_pool.commit_size(pass, device, false);
       imp.new_removed_task_idx.commit_size(pass, device, true);
     });
+  }
+
+  pub fn execute(&mut self, cx: &mut DeviceParallelComputeCtx, all_tasks: &[Self]) {
+    self.update_bummers_size(cx);
 
     {
       let imp = &mut self.resource;

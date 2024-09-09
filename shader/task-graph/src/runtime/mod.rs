@@ -220,6 +220,9 @@ impl DeviceTaskGraphExecutor {
     &mut self,
     cx: &mut DeviceParallelComputeCtx,
   ) -> TaskGraphExecutionStates {
+    self.task_groups.iter_mut().for_each(|task| {
+      task.update_bummers_size(cx);
+    });
     cx.flush_pass();
 
     let result_size = self.task_groups.len() * 4;
