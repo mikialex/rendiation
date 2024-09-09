@@ -18,6 +18,15 @@ pub struct DirectionalShaderInfo {
   pub direction: Vec3<f32>,
 }
 
+impl PunctualShaderLight for Node<DirectionalShaderInfo> {
+  fn compute_incident_light(
+    &self,
+    ctx: &ENode<ShaderLightingGeometricCtx>,
+  ) -> ENode<ShaderIncidentLight> {
+    self.expand().compute_incident_light(ctx)
+  }
+}
+
 impl PunctualShaderLight for ENode<DirectionalShaderInfo> {
   fn compute_incident_light(
     &self,
@@ -36,6 +45,15 @@ pub struct PointLightShaderInfo {
   pub luminance_intensity: Vec3<f32>,
   pub position: Vec3<f32>,
   pub cutoff_distance: f32,
+}
+
+impl PunctualShaderLight for Node<PointLightShaderInfo> {
+  fn compute_incident_light(
+    &self,
+    ctx: &ENode<ShaderLightingGeometricCtx>,
+  ) -> ENode<ShaderIncidentLight> {
+    self.expand().compute_incident_light(ctx)
+  }
 }
 
 impl PunctualShaderLight for ENode<PointLightShaderInfo> {
@@ -62,6 +80,15 @@ pub struct SpotLightShaderInfo {
   pub cutoff_distance: f32,
   pub half_cone_cos: f32,
   pub half_penumbra_cos: f32,
+}
+
+impl PunctualShaderLight for Node<SpotLightShaderInfo> {
+  fn compute_incident_light(
+    &self,
+    ctx: &ENode<ShaderLightingGeometricCtx>,
+  ) -> ENode<ShaderIncidentLight> {
+    self.expand().compute_incident_light(ctx)
+  }
 }
 
 impl PunctualShaderLight for ENode<SpotLightShaderInfo> {

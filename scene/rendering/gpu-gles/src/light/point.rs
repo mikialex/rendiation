@@ -31,3 +31,36 @@ pub fn point_uniform_array(gpu: &GPU) -> UniformArrayUpdateContainer<PointLightU
     .with_source(cutoff_distance)
     .with_source(position)
 }
+
+pub struct PointLightUniformLightList {
+  token: UpdateResultToken,
+}
+
+impl RenderImplProvider<Box<dyn LightingComputeComponent>> for PointLightUniformLightList {
+  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
+    let uniform = directional_uniform_array(cx);
+    self.token = source.register_multi_updater(uniform);
+  }
+
+  fn create_impl(
+    &self,
+    res: &mut ConcurrentStreamUpdateResult,
+  ) -> Box<dyn LightingComputeComponent> {
+    let uniform = res
+      .take_multi_updater_updated::<UniformArray<PointLightUniform, 8>>(self.token)
+      .unwrap();
+    let com = ArrayLights(
+      MultiUpdateContainerImplAbstractBindingSource(uniform),
+      |(_, light_uniform): (Node<u32>, UniformNode<PointLightUniform>)| {
+        let light_uniform = light_uniform.load().expand();
+        ENode::<PointLightShaderInfo> {
+          luminance_intensity: light_uniform.luminance_intensity,
+          position: light_uniform.position,
+          cutoff_distance: light_uniform.cutoff_distance,
+        }
+        .construct()
+      },
+    );
+    Box::new(com)
+  }
+}
