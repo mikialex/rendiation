@@ -199,6 +199,39 @@ mod impls {
   primitive_ty!(Mat4<f32>, PrimitiveShaderValueType::Mat4Float32,  PrimitiveShaderValue::Mat4Float32, Mat4);
 }
 
+sg_node_impl!(
+  Bool,
+  ShaderValueSingleType::Sized(ShaderSizedValueType::Primitive(
+    PrimitiveShaderValueType::Uint32
+  ))
+);
+impl ShaderSizedValueNodeType for Bool {
+  fn sized_ty() -> ShaderSizedValueType {
+    ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Uint32)
+  }
+  fn to_value(&self) -> ShaderStructFieldInitValue {
+    ShaderStructFieldInitValue::Primitive(self.to_primitive())
+  }
+}
+
+impl PrimitiveShaderNodeType for Bool {
+  const PRIMITIVE_TYPE: PrimitiveShaderValueType = PrimitiveShaderValueType::Uint32;
+  type Shape<T> = Bool;
+  fn to_primitive(&self) -> PrimitiveShaderValue {
+    PrimitiveShaderValue::Uint32(self.0)
+  }
+}
+impl Node<Bool> {
+  pub fn into_bool(&self) -> Node<bool> {
+    OperatorNode::Binary {
+      left: self.handle(),
+      right: val(0).handle(),
+      operator: BinaryOperator::NotEq,
+    }
+    .insert_api()
+  }
+}
+
 fn swizzle_node<I: ShaderNodeType, T: ShaderNodeType>(n: &Node<I>, ty: &'static str) -> Node<T> {
   let source = n.handle();
   ShaderNodeExpr::Swizzle { ty, source }.insert_api()

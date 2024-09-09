@@ -56,7 +56,7 @@ impl DynamicTypeBuilder {
     let node = DeferResolvedStorageStructFieldNode {
       node: Arc::downgrade(&self.node_to_resolve),
       field_index,
-      resolved_node: Default::default(),
+      resolved_storage_node: Default::default(),
       ty: PhantomData,
     };
 
@@ -81,13 +81,13 @@ impl LeftValueBuilder for DynamicTypeBuilder {
 struct DeferResolvedStorageStructFieldNode<T> {
   node: Weak<RwLock<Option<NodeUntyped>>>,
   field_index: usize,
-  resolved_node: RwLock<Option<NodeUntyped>>,
+  resolved_storage_node: RwLock<Option<NodeUntyped>>,
   ty: PhantomData<T>,
 }
 
 impl<T: ShaderSizedValueNodeType> DeferResolvedStorageStructFieldNode<T> {
   fn expect_resolved(&self) -> StorageNode<T> {
-    let mut resolve = self.resolved_node.write();
+    let mut resolve = self.resolved_storage_node.write();
     let storage = resolve.get_or_insert_with(|| {
       self
         .node

@@ -33,7 +33,7 @@ where
       upstream: self.upstream.build_poll(ctx),
       upstream_resolved: ctx
         .state_builder
-        .create_or_reconstruct_inline_state_with_default(false),
+        .create_or_reconstruct_inline_state_with_default(Bool::from(false)),
       upstream_output: ctx
         .state_builder
         .create_or_reconstruct_any_left_value_by_right::<U::Output>(),
@@ -59,7 +59,7 @@ where
 {
   upstream: U,
   upstream_output: <U::Output as ShaderAbstractRightValue>::AbstractLeftValue,
-  upstream_resolved: BoxedShaderLoadStore<Node<bool>>,
+  upstream_resolved: BoxedShaderLoadStore<Node<Bool>>,
   create_then_invocation_instance: F,
   then: T,
 }
@@ -83,10 +83,10 @@ where
       then,
     } = self;
 
-    if_by(upstream_resolved.abstract_load().not(), || {
+    if_by(upstream_resolved.abstract_load().into_bool().not(), || {
       let r = upstream.device_poll(ctx);
       if_by(r.is_ready, || {
-        upstream_resolved.abstract_store(val(true));
+        upstream_resolved.abstract_store(val(Bool::from(true)));
         let next = create_then_invocation_instance(r.payload, &self.then, ctx);
         then.abstract_store(next);
       });
@@ -94,7 +94,7 @@ where
 
     let resolved = LocalLeftValueBuilder.create_left_value(val(false));
     let output = LocalLeftValueBuilder.create_left_value(T::Output::default());
-    if_by(upstream_resolved.abstract_load(), || {
+    if_by(upstream_resolved.abstract_load().into_bool(), || {
       let r = self.then.device_poll(ctx);
       resolved.abstract_store(r.is_ready);
       output.abstract_store(r.payload);
