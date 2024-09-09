@@ -79,12 +79,9 @@ impl TaskGroupExecutor {
           .drain_self_into_the_other(&imp.empty_index_pool, pass, device);
 
       // dispatch tasks
-      let mut bb = BindingBuilder::new_as_compute().with_bind(&imp.alive_task_idx.storage);
+      let mut bb = BindingBuilder::new_as_compute();
 
       let all_task_group_sources: Vec<_> = all_tasks.iter().map(|t| &t.resource).collect();
-      all_task_group_sources[self.self_task_idx]
-        .task_pool
-        .bind(&mut bb);
 
       let mut ctx = DeviceTaskSystemBindCtx {
         binder: &mut bb,
@@ -93,6 +90,11 @@ impl TaskGroupExecutor {
       };
 
       self.task.bind_input(&mut ctx);
+
+      ctx.binder.bind(&imp.alive_task_idx.storage);
+      ctx.all_task_group_sources[self.self_task_idx]
+        .task_pool
+        .bind(ctx.binder);
 
       bb.setup_compute_pass(pass, device, &self.polling_pipeline);
       pass.dispatch_workgroups_indirect_by_buffer_resource_view(&size);
@@ -121,7 +123,6 @@ impl TaskGroupExecutor {
 
 pub struct TaskGroupExecutorResource {
   pub alive_task_idx: DeviceBumpAllocationInstance<u32>,
-  // main_dispatch_size: StorageBufferDataView<DispatchIndirectArgs>,
   pub new_removed_task_idx: DeviceBumpAllocationInstance<u32>,
   pub empty_index_pool: DeviceBumpAllocationInstance<u32>,
   pub task_pool: TaskPool,

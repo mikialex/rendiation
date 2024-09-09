@@ -693,11 +693,11 @@ impl DeviceParallelComputeCtx {
     }
   }
 
-  pub fn record_pass(&mut self, f: impl FnOnce(&mut GPUComputePass, &GPUDevice)) {
+  pub fn record_pass<R>(&mut self, f: impl FnOnce(&mut GPUComputePass, &GPUDevice) -> R) -> R {
     let pass = self
       .pass
       .get_or_insert_with(|| self.encoder.begin_compute_pass());
-    f(pass, &self.gpu.device);
+    f(pass, &self.gpu.device)
   }
 
   pub fn flush_pass(&mut self) {

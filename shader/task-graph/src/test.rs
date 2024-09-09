@@ -28,7 +28,7 @@ async fn test_task_graph() {
   gpu.submit_encoder(encoder);
 
   // let round = graph.compute_conservative_dispatch_round_count();
-  // assert_eq!(round, 2);
+  // assert!(round >= 3);
 
   let mut cx = DeviceParallelComputeCtx::new(&gpu);
   let info = graph.read_back_execution_states(&mut cx).await;
