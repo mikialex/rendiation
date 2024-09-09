@@ -99,7 +99,7 @@ impl DeviceTaskGraphExecutor {
     let task_index = indices.index(cx.global_invocation_id().x()).load();
 
     let pool = resource.task_pool.build_shader(&mut cx);
-    let item = pool.access_item_ptr(task_index);
+    let item = pool.rw_states(task_index);
     state_builder.resolve(item.cast_untyped_node());
 
     let mut poll_ctx = DeviceTaskSystemPollCtx {

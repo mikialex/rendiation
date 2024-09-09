@@ -225,7 +225,7 @@ impl Node<Bool> {
   pub fn into_bool(&self) -> Node<bool> {
     OperatorNode::Binary {
       left: self.handle(),
-      right: val(0).handle(),
+      right: val(0_u32).handle(),
       operator: BinaryOperator::NotEq,
     }
     .insert_api()
