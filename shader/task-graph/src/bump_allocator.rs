@@ -171,10 +171,10 @@ impl<T: Std430 + ShaderNodeType> DeviceBumpAllocationInvocationInstance<T> {
   /// return if success
   #[must_use]
   pub fn bump_allocate_counts(&self, count: Node<u32>) -> (Node<u32>, Node<bool>) {
-    let bumped = self.bump_size.atomic_add(count) - count;
+    let bumped = self.bump_size.atomic_add(count);
     let current_size = self.current_size.load();
-    let in_bound = bumped.less_than(self.storage.array_length() - current_size);
-    let write_idx = bumped + current_size;
+    let in_bound = bumped.less_equal_than(self.storage.array_length() - current_size);
+    let write_idx = bumped + current_size - count;
     (write_idx, in_bound)
   }
 
@@ -218,9 +218,9 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpDeAllocationInvocationInsta
   /// return if success
   #[must_use]
   pub fn bump_deallocate_counts(&self, count: Node<u32>) -> (Node<u32>, Node<bool>) {
-    let bumped = self.bump_size.atomic_add(count) - count;
+    let bumped = self.bump_size.atomic_add(count);
     let current_size = self.current_size.load();
-    let in_bound = bumped.less_than(current_size);
+    let in_bound = bumped.less_equal_than(current_size);
     let read_idx = current_size - bumped;
     (read_idx, in_bound)
   }
