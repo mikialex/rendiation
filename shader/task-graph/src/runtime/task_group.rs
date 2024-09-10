@@ -96,6 +96,7 @@ impl TaskGroupExecutor {
       self.task.bind_input(&mut ctx);
 
       ctx.binder.bind(&imp.alive_task_idx.storage);
+      ctx.binder.bind(&imp.alive_task_idx.current_size);
       ctx.all_task_group_sources[self.self_task_idx]
         .task_pool
         .bind(ctx.binder);

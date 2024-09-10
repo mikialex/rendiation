@@ -98,22 +98,29 @@ impl DeviceTaskGraphExecutor {
     set_build_api(outer_builder);
 
     let indices = cx.bind_by(&resource.alive_task_idx.storage);
-    let task_index = indices.index(cx.global_invocation_id().x()).load();
-
+    let active_task_count = cx.bind_by(&resource.alive_task_idx.current_size);
     let pool = resource.task_pool.build_shader(&mut cx);
-    let item = pool.rw_states(task_index);
-    state_builder.resolve(item.cast_untyped_node());
 
-    let mut poll_ctx = DeviceTaskSystemPollCtx {
-      self_task_idx: task_index,
-      self_task: pool.clone(),
-      compute_cx: &mut cx,
-      invocation_registry: Default::default(),
-    };
+    let active_idx = cx.global_invocation_id().x();
+    if_by(active_idx.less_than(active_task_count.load()), || {
+      let task_index = indices.index(active_idx).load();
 
-    let poll_result = state.device_poll(&mut poll_ctx);
-    if_by(poll_result.is_ready, || {
-      pool.rw_is_finished(task_index).store(0);
+      let item = pool.rw_states(task_index);
+      state_builder.resolve(item.cast_untyped_node());
+
+      let mut poll_ctx = DeviceTaskSystemPollCtx {
+        self_task_idx: task_index,
+        self_task: pool.clone(),
+        compute_cx: &mut cx,
+        invocation_registry: Default::default(),
+      };
+
+      let poll_result = state.device_poll(&mut poll_ctx);
+      if_by(poll_result.is_ready, || {
+        pool
+          .rw_is_finished(task_index)
+          .store(TASK_STATUE_FLAG_FINISHED);
+      });
     });
 
     cx.config_work_group_size(TASK_EXECUTION_WORKGROUP_SIZE);

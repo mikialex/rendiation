@@ -78,13 +78,19 @@ pub struct TaskPoolInvocationInstance {
   payload_ty: ShaderSizedValueType,
 }
 
+pub const TASK_STATUE_FLAG_NOT_FINISHED: u32 = 1;
+pub const TASK_STATUE_FLAG_FINISHED: u32 = 2;
+
 impl TaskPoolInvocationInstance {
   pub fn access_item_ptr(&self, idx: Node<u32>) -> StorageNode<AnyType> {
     self.pool.index(idx)
   }
 
   pub fn poll_task_is_finished(&self, task_id: Node<u32>) -> Node<bool> {
-    self.rw_is_finished(task_id).load().equals(0)
+    self
+      .rw_is_finished(task_id)
+      .load()
+      .equals(TASK_STATUE_FLAG_FINISHED)
   }
 
   pub fn spawn_new_task_dyn(
@@ -93,7 +99,7 @@ impl TaskPoolInvocationInstance {
     payload: Node<AnyType>,
     ty: &ShaderSizedValueType,
   ) {
-    self.rw_is_finished(at).store(1);
+    self.rw_is_finished(at).store(TASK_STATUE_FLAG_NOT_FINISHED);
 
     self.rw_payload_dyn(at).store(payload);
 

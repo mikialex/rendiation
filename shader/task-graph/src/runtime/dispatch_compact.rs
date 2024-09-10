@@ -41,7 +41,7 @@ impl DeviceInvocationComponent<Node<bool>> for ActiveTaskCompact {
         let (r, is_valid) = inner.0.invocation_logic(id);
 
         //  check task_pool access is valid?
-        let r = inner.2.poll_task_is_finished(r);
+        let r = inner.2.poll_task_is_finished(r).not();
 
         (r, is_valid)
       }),

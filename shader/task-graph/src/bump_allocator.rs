@@ -69,11 +69,22 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
       builder.config_work_group_size(1);
       let bump_size = builder.bind_by(&self.bump_size);
       let current_size = builder.bind_by(&self.current_size);
+      let array = builder.bind_by(&self.storage);
+
       let delta = bump_size.atomic_load();
+      let current_size_load = current_size.load();
+
       if previous_is_allocate {
-        current_size.store(current_size.load() + delta);
+        if_by(
+          delta.greater_than(array.array_length() - current_size_load),
+          || current_size.store(array.array_length()),
+        )
+        .else_by(|| current_size.store(current_size_load + delta))
       } else {
-        current_size.store(current_size.load() - delta);
+        if_by(delta.greater_than(current_size_load), || {
+          current_size.store(0)
+        })
+        .else_by(|| current_size.store(current_size_load - delta));
       }
       bump_size.atomic_store(val(0));
       builder
@@ -82,6 +93,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
     BindingBuilder::new_as_compute()
       .with_bind(&self.bump_size)
       .with_bind(&self.current_size)
+      .with_bind(&self.storage)
       .setup_compute_pass(pass, device, &pipeline);
 
     pass.dispatch_workgroups(1, 1, 1);

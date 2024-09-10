@@ -3,7 +3,7 @@ async fn test_task_graph() {
   use crate::*;
 
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();
-  let mut graph = DeviceTaskGraphExecutor::new(128, 1);
+  let mut graph = DeviceTaskGraphExecutor::new(512, 1);
 
   let mut encoder = gpu.create_encoder();
 
