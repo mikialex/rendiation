@@ -315,9 +315,13 @@ impl<T: ShaderSizedValueNodeType + Std430 + Debug> DeviceParallelCompute<Node<T>
     &self,
     cx: &mut DeviceParallelComputeCtx,
   ) -> Box<dyn DeviceInvocationComponent<Node<T>>> {
-    let (device_result, host_result) = pollster::block_on(self.inner.read_back_host(cx)).unwrap();
+    let (device_result, size, host_result) =
+      pollster::block_on(self.inner.read_back_host(cx)).unwrap();
 
-    println!("{}: {:?}", self.label, host_result);
+    println!("{} content is: {:?}", self.label, host_result);
+    if let Some(size) = size {
+      println!("{} has device size: {}", self.label, size);
+    }
 
     // todo, log should not has any side effect, but we can not return the inner execute_and_expose
     // because forker expect the execute_and_expose is consumed once

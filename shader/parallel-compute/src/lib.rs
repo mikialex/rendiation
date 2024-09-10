@@ -411,6 +411,13 @@ where
   where
     T: Debug + PartialEq,
   {
+    self.run_test_with_size_test(expect, None).await
+  }
+
+  async fn run_test_with_size_test(&self, expect: &[T], expect_size: Option<Vec3<u32>>)
+  where
+    T: Debug + PartialEq,
+  {
     let (gpu, _) = GPU::new(Default::default()).await.unwrap();
     let mut cx = DeviceParallelComputeCtx::new(&gpu);
 
@@ -424,29 +431,47 @@ where
     }
 
     cx.force_indirect_dispatch = false;
-    let (_, result) = self.read_back_host(&mut cx).await.unwrap();
+    let (_, size, result) = self.read_back_host(&mut cx).await.unwrap();
     check(expect, &result);
+    if let (Some(size), Some(expect_size)) = (size, expect_size) {
+      assert_eq!(size, expect_size);
+    }
 
     cx.gpu.device.clear_resource_cache(); // todo , fixme
 
     cx.force_indirect_dispatch = true;
-    let (_, result) = self.read_back_host(&mut cx).await.unwrap();
+    let (_, size, result) = self.read_back_host(&mut cx).await.unwrap();
     check(expect, &result);
+    if let (Some(size), Some(expect_size)) = (size, expect_size) {
+      assert_eq!(size, expect_size);
+    }
   }
 
   async fn read_back_host(
     &self,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> Result<(DeviceMaterializeResult<T>, Vec<T>), BufferAsyncError> {
+  ) -> Result<(DeviceMaterializeResult<T>, Option<Vec3<u32>>, Vec<T>), BufferAsyncError> {
     let output = self.materialize_storage_buffer(cx);
     cx.flush_pass();
     let result = cx.encoder.read_buffer(&cx.gpu.device, &output.buffer);
+    let size_result = output
+      .size
+      .as_ref()
+      .map(|size| cx.encoder.read_buffer(&cx.gpu.device, size));
     cx.submit_recorded_work_and_continue();
     let result = result.await;
+    let size_result = if let Some(size_result) = size_result {
+      let size = size_result.await?;
+      let size = *from_bytes::<Vec3<u32>>(&size.read_raw());
+      Some(size)
+    } else {
+      None
+    };
 
     result.map(|r| {
       (
         output,
+        size_result,
         <[T]>::from_bytes_into_boxed(&r.read_raw()).into_vec(),
       )
     })

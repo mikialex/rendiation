@@ -111,5 +111,8 @@ async fn test_stream_compaction() {
 
   let mask = input.clone().map(|v| v.equals(1));
 
-  input.stream_compaction(mask).run_test(&expect).await
+  input
+    .stream_compaction(mask)
+    .run_test_with_size_test(&expect, Some(Vec3::new(4, 0, 0)))
+    .await
 }
