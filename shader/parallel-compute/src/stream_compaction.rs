@@ -48,7 +48,11 @@ where
     let shuffle_moved = self
       .source
       .clone()
-      .shuffle_move(write_target_positions.zip(self.filter.clone()))
+      .shuffle_move(
+        write_target_positions
+          .make_global_scan_exclusive::<AdditionMonoid<u32>>()
+          .zip(self.filter.clone()),
+      )
       .materialize_storage_buffer(cx);
 
     DeviceMaterializeResult {
@@ -97,4 +101,15 @@ impl DeviceInvocation<Node<u32>> for DeviceInvocationTailAsSize {
   fn invocation_size(&self) -> Node<Vec3<u32>> {
     (self.0.end_point(), val(0), val(0)).into()
   }
+}
+
+#[pollster::test]
+async fn test_stream_compaction() {
+  let input = vec![1, 0, 1, 0, 1, 1, 0];
+
+  let expect = vec![1, 1, 1, 1, 0, 0, 0];
+
+  let mask = input.clone().map(|v| v.equals(1));
+
+  input.stream_compaction(mask).run_test(&expect).await
 }

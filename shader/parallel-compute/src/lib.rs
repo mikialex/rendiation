@@ -602,8 +602,9 @@ where
     .internal_materialize_storage_buffer()
   }
 
-  /// todo, support exclusive
-  /// the total_work_size should not exceed first_stage_workgroup_size * second_stage_workgroup_size
+  /// the scan is inclusive, using make_global_scan_exclusive to convert it to exclusive
+  ///
+  /// the total_work_size must not exceed first_stage_workgroup_size * second_stage_workgroup_size
   fn segmented_prefix_scan_kogge_stone<S>(
     self,
     first_stage_workgroup_size: u32,
