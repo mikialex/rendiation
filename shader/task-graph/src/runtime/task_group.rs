@@ -36,50 +36,51 @@ impl TaskGroupExecutor {
   pub fn execute(&mut self, cx: &mut DeviceParallelComputeCtx, all_tasks: &[Self]) {
     self.update_bummers_size(cx);
 
-    {
+    let imp = &mut self.resource;
+    // compact active task buffer
+    let alive_tasks = imp.alive_task_idx.storage.clone().into_readonly_view();
+    let re = alive_tasks
+      .clone()
+      .stream_compaction(ActiveTaskCompact {
+        alive_size: imp.alive_task_idx.current_size.clone(),
+        active_tasks: alive_tasks.clone(),
+        task_pool: imp.task_pool.clone(),
+      })
+      .materialize_storage_buffer(cx);
+    imp.alive_task_idx.storage = re.buffer.into_rw_view();
+    let new_alive_task_size = re.size.unwrap();
+
+    // manually update the alive task bumper's current size
+    cx.record_pass(|pass, device| {
       let imp = &mut self.resource;
-      // compact active task buffer
-      let alive_tasks = imp.alive_task_idx.storage.clone().into_readonly_view();
-      let size = imp.alive_task_idx.current_size.clone();
-      let re = alive_tasks
-        .clone()
-        .stream_compaction(ActiveTaskCompact {
-          alive_size: size,
-          active_tasks: alive_tasks.clone(),
-          task_pool: imp.task_pool.clone(),
-        })
-        .materialize_storage_buffer(cx);
-      imp.alive_task_idx.storage = re.buffer.into_rw_view();
-      let new_size = re.size.unwrap();
-
-      // this is not good, but it's ok for now
-      cx.record_pass(|pass, device| {
-        let imp = &mut self.resource;
-        let hasher = shader_hasher_from_marker_ty!(SizeUpdate);
-        let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
-          builder.config_work_group_size(1);
-          let new_size = builder.bind_by(&new_size);
-          let current_size = builder.bind_by(&imp.alive_task_idx.current_size);
-          current_size.store(new_size.load().x());
-          builder
-        });
-
-        BindingBuilder::new_as_compute()
-          .with_bind(&new_size)
-          .with_bind(&imp.alive_task_idx.current_size)
-          .setup_compute_pass(pass, device, &pipeline);
-
-        pass.dispatch_workgroups(1, 1, 1);
+      let hasher = shader_hasher_from_marker_ty!(SizeUpdate);
+      let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
+        builder.config_work_group_size(1);
+        let new_size = builder.bind_by(&new_alive_task_size);
+        let current_size = builder.bind_by(&imp.alive_task_idx.current_size);
+        current_size.store(new_size.load().x());
+        builder
       });
-    }
+
+      BindingBuilder::new_as_compute()
+        .with_bind(&new_alive_task_size)
+        .with_bind(&imp.alive_task_idx.current_size)
+        .setup_compute_pass(pass, device, &pipeline);
+
+      pass.dispatch_workgroups(1, 1, 1);
+    });
 
     cx.record_pass(|pass, device| {
       let imp = &mut self.resource;
       // drain empty to empty pool
-      let size =
+      imp
+        .new_removed_task_idx
+        .drain_self_into_the_other(&imp.empty_index_pool, pass, device);
+
+      let alive_execution_size =
         imp
-          .new_removed_task_idx
-          .drain_self_into_the_other(&imp.empty_index_pool, pass, device);
+          .alive_task_idx
+          .prepare_dispatch_size(pass, device, TASK_EXECUTION_WORKGROUP_SIZE);
 
       // dispatch tasks
       let mut bb = BindingBuilder::new_as_compute();
@@ -100,7 +101,7 @@ impl TaskGroupExecutor {
         .bind(ctx.binder);
 
       bb.setup_compute_pass(pass, device, &self.polling_pipeline);
-      pass.dispatch_workgroups_indirect_by_buffer_resource_view(&size);
+      pass.dispatch_workgroups_indirect_by_buffer_resource_view(&alive_execution_size);
     });
   }
 

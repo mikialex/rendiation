@@ -12,6 +12,8 @@ pub use task_group::*;
 mod future_context;
 pub use future_context::*;
 
+pub const TASK_EXECUTION_WORKGROUP_SIZE: u32 = 128;
+
 #[derive(Debug)]
 pub struct TaskGraphExecutionStates {
   pub remain_task_counts: Vec<u32>,
@@ -113,6 +115,8 @@ impl DeviceTaskGraphExecutor {
     if_by(poll_result.is_ready, || {
       pool.rw_is_finished(task_index).store(0);
     });
+
+    cx.config_work_group_size(TASK_EXECUTION_WORKGROUP_SIZE);
 
     let polling_pipeline = cx.create_compute_pipeline(device).unwrap();
 
