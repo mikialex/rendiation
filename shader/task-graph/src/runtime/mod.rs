@@ -57,12 +57,7 @@ impl DeviceTaskGraphExecutor {
     }
   }
 
-  pub fn define_task<P, F>(
-    &mut self,
-    future: F,
-    device: &GPUDevice,
-    pass: &mut GPUComputePass,
-  ) -> u32
+  pub fn define_task<P, F>(&mut self, future: F, cx: &mut DeviceParallelComputeCtx) -> u32
   where
     F: DeviceFuture<Output = ()> + 'static,
     P: ShaderSizedValueNodeType,
@@ -70,8 +65,7 @@ impl DeviceTaskGraphExecutor {
     self.define_task_dyn(
       Box::new(OpaqueTaskWrapper(future)) as OpaqueTask,
       P::sized_ty(),
-      device,
-      pass,
+      cx,
     )
   }
 
@@ -80,8 +74,7 @@ impl DeviceTaskGraphExecutor {
     &mut self,
     task: OpaqueTask,
     payload_ty: ShaderSizedValueType,
-    device: &GPUDevice,
-    pass: &mut GPUComputePass,
+    pcx: &mut DeviceParallelComputeCtx,
   ) -> u32 {
     let task_type = self.task_groups.len();
 
@@ -115,8 +108,7 @@ impl DeviceTaskGraphExecutor {
       self.current_prepared_execution_size,
       state_desc.clone(),
       task_type_desc.clone(),
-      device,
-      pass,
+      pcx,
     );
     set_build_api(outer_builder);
 
@@ -148,7 +140,7 @@ impl DeviceTaskGraphExecutor {
 
     cx.config_work_group_size(TASK_EXECUTION_WORKGROUP_SIZE);
 
-    let polling_pipeline = cx.create_compute_pipeline(device).unwrap();
+    let polling_pipeline = cx.create_compute_pipeline(&pcx.gpu.device).unwrap();
 
     let task_executor = TaskGroupExecutor {
       polling_pipeline,
@@ -166,12 +158,7 @@ impl DeviceTaskGraphExecutor {
   }
 
   /// set exact execution dispatch size for this executor, this will resize all resources
-  pub fn set_execution_size(
-    &mut self,
-    gpu: &GPU,
-    ctx: &mut DeviceParallelComputeCtx,
-    dispatch_size: usize,
-  ) {
+  pub fn set_execution_size(&mut self, ctx: &mut DeviceParallelComputeCtx, dispatch_size: usize) {
     let dispatch_size = dispatch_size.min(1);
     if self.current_prepared_execution_size == dispatch_size {
       return;
@@ -179,20 +166,19 @@ impl DeviceTaskGraphExecutor {
     self.current_prepared_execution_size = dispatch_size;
     for s in &mut self.task_groups {
       s.reset(ctx, dispatch_size);
-      ctx.record_pass(|pass, _| s.resize(gpu, dispatch_size, self.max_recursion_depth, pass))
+      s.resize(dispatch_size, self.max_recursion_depth, ctx);
     }
   }
 
   pub fn make_sure_execution_size_is_enough(
     &mut self,
-    gpu: &GPU,
     ctx: &mut DeviceParallelComputeCtx,
     dispatch_size: usize,
   ) {
     let is_contained = self.current_prepared_execution_size <= dispatch_size;
 
     if !is_contained {
-      self.set_execution_size(gpu, ctx, dispatch_size)
+      self.set_execution_size(ctx, dispatch_size)
     }
   }
 
@@ -204,12 +190,12 @@ impl DeviceTaskGraphExecutor {
   /// polling, but for consistency and simplicity, we implemented as a standalone task allocation procedure.
   pub fn dispatch_allocate_init_task<T: ShaderSizedValueNodeType>(
     &mut self,
-    device: &GPUDevice,
-    pass: &mut GPUComputePass,
+    cx: &mut DeviceParallelComputeCtx,
     dispatch_size: u32,
     task_id: u32,
     task_spawner: impl FnOnce(Node<u32>) -> Node<T> + 'static,
   ) {
+    let device = &cx.gpu.device;
     let task_group = &self.task_groups[task_id as usize];
 
     let dispatch_size_buffer = create_gpu_readonly_storage(&dispatch_size, device);
@@ -233,21 +219,23 @@ impl DeviceTaskGraphExecutor {
       builder
     });
 
-    let mut bb = BindingBuilder::new_as_compute().with_bind(&dispatch_size_buffer);
-    task_group.resource.bind_for_spawner(&mut bb);
-    bb.setup_compute_pass(pass, device, &pipeline);
+    cx.record_pass(|pass, device| {
+      let mut bb = BindingBuilder::new_as_compute().with_bind(&dispatch_size_buffer);
+      task_group.resource.bind_for_spawner(&mut bb);
+      bb.setup_compute_pass(pass, device, &pipeline);
 
-    let size = compute_dispatch_size(dispatch_size, workgroup_size);
-    pass.dispatch_workgroups(size, 1, 1);
+      let size = compute_dispatch_size(dispatch_size, workgroup_size);
+      pass.dispatch_workgroups(size, 1, 1);
 
-    task_group
-      .resource
-      .alive_task_idx
-      .commit_size(pass, device, true);
-    task_group
-      .resource
-      .empty_index_pool
-      .commit_size(pass, device, false);
+      task_group
+        .resource
+        .alive_task_idx
+        .commit_size(pass, device, true);
+      task_group
+        .resource
+        .empty_index_pool
+        .commit_size(pass, device, false);
+    })
   }
 
   pub async fn read_back_execution_states(

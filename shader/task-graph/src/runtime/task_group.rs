@@ -110,10 +110,9 @@ impl TaskGroupExecutor {
 
   pub fn resize(
     &mut self,
-    gpu: &GPU,
     size: usize,
     max_recursion_depth: usize,
-    pass: &mut GPUComputePass,
+    cx: &mut DeviceParallelComputeCtx,
   ) {
     let required_size = size * max_recursion_depth;
     if self.resource.size != required_size {
@@ -121,8 +120,7 @@ impl TaskGroupExecutor {
         required_size,
         self.state_desc.clone(),
         self.task_type_desc.clone(),
-        &gpu.device,
-        pass,
+        cx,
       );
     }
   }
@@ -141,9 +139,9 @@ impl TaskGroupExecutorResource {
     size: usize,
     state_desc: DynamicTypeMetaInfo,
     task_ty_desc: ShaderStructMetaInfo,
-    device: &GPUDevice,
-    pass: &mut GPUComputePass,
+    cx: &mut DeviceParallelComputeCtx,
   ) -> Self {
+    let device = &cx.gpu.device;
     // the real task size should be size * n because self spawning requires.
     // todo, fix n may larger than 2
     let res = Self {
@@ -154,32 +152,34 @@ impl TaskGroupExecutorResource {
       size,
     };
 
-    let hasher = shader_hasher_from_marker_ty!(PrepareEmptyIndices);
+    cx.record_pass(|pass, device| {
+      let hasher = shader_hasher_from_marker_ty!(PrepareEmptyIndices);
 
-    let workgroup_size = 256;
-    let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
-      builder.config_work_group_size(workgroup_size);
+      let workgroup_size = 256;
+      let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
+        builder.config_work_group_size(workgroup_size);
 
-      let empty_pool = builder.bind_by(&res.empty_index_pool.storage);
-      let empty_pool_size = builder.bind_by(&res.empty_index_pool.current_size);
-      let id = builder.global_invocation_id().x();
+        let empty_pool = builder.bind_by(&res.empty_index_pool.storage);
+        let empty_pool_size = builder.bind_by(&res.empty_index_pool.current_size);
+        let id = builder.global_invocation_id().x();
 
-      if_by(id.equals(0), || {
-        empty_pool_size.store(empty_pool.array_length());
+        if_by(id.equals(0), || {
+          empty_pool_size.store(empty_pool.array_length());
+        });
+
+        if_by(id.less_than(empty_pool.array_length()), || {
+          empty_pool.index(id).store(id);
+        });
+        builder
       });
 
-      if_by(id.less_than(empty_pool.array_length()), || {
-        empty_pool.index(id).store(id);
-      });
-      builder
+      BindingBuilder::new_as_compute()
+        .with_bind(&res.empty_index_pool.storage)
+        .with_bind(&res.empty_index_pool.current_size)
+        .setup_compute_pass(pass, device, &pipeline);
+
+      pass.dispatch_workgroups(compute_dispatch_size(size as u32 * 2, workgroup_size), 1, 1);
     });
-
-    BindingBuilder::new_as_compute()
-      .with_bind(&res.empty_index_pool.storage)
-      .with_bind(&res.empty_index_pool.current_size)
-      .setup_compute_pass(pass, device, &pipeline);
-
-    pass.dispatch_workgroups(compute_dispatch_size(size as u32 * 2, workgroup_size), 1, 1);
 
     res
   }
