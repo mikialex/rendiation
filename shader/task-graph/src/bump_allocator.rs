@@ -100,6 +100,8 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
   }
 
   /// return drained size
+  ///
+  /// self and the other must be committed size
   pub fn drain_self_into_the_other(
     &self,
     the_other: &Self,

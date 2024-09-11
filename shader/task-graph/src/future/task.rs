@@ -7,6 +7,9 @@ impl<T> TaskFuture<T> {
   }
 }
 
+pub const UN_INIT_TASK_HANDLE: u32 = u32::MAX - 1;
+pub const RESOLVED_TASK_HANDLE: u32 = u32::MAX;
+
 impl<T> DeviceFuture for TaskFuture<T>
 where
   T: ShaderSizedValueNodeType + Default + Copy,
@@ -22,7 +25,7 @@ where
     TaskFutureInvocation {
       task_handle: ctx
         .state_builder
-        .create_or_reconstruct_inline_state_with_default(u32::MAX),
+        .create_or_reconstruct_inline_state_with_default(UN_INIT_TASK_HANDLE),
       spawner: ctx.get_or_create_task_group_instance(self.0),
       phantom: PhantomData,
     }
@@ -49,18 +52,29 @@ where
   fn device_poll(&self, _ctx: &mut DeviceTaskSystemPollCtx) -> DevicePoll<Self::Output> {
     let output = LocalLeftValueBuilder.create_left_value(zeroed_val());
 
-    let _ = self
-      .spawner
-      .poll_task::<T>(self.task_handle.abstract_load(), |r| {
-        output.abstract_store(r);
-        self.task_handle.abstract_store(val(u32::MAX));
-      });
+    let task_handle = self.task_handle.abstract_load();
 
-    (
-      self.task_handle.abstract_load().equals(u32::MAX),
-      output.abstract_load(),
-    )
-      .into()
+    // this check maybe not needed
+    let task_has_already_resolved = task_handle.equals(RESOLVED_TASK_HANDLE);
+    let task_not_allocated = task_handle.equals(UN_INIT_TASK_HANDLE);
+
+    // once task resolved, it can not be polled again because the states is deallocated.
+    // or simply task not allocated at all.
+    let result = task_has_already_resolved.make_local_var();
+
+    let should_poll = task_has_already_resolved
+      .not()
+      .and(task_not_allocated.not());
+
+    if_by(should_poll, || {
+      let resolved = self.spawner.poll_task::<T>(task_handle, |r| {
+        output.abstract_store(r);
+        self.task_handle.abstract_store(val(RESOLVED_TASK_HANDLE));
+      });
+      result.store(resolved);
+    });
+
+    (result.load(), output.abstract_load()).into()
   }
 }
 

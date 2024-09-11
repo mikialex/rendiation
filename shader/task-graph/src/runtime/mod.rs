@@ -232,7 +232,7 @@ impl DeviceTaskGraphExecutor {
     cx: &mut DeviceParallelComputeCtx,
   ) -> TaskGraphExecutionStates {
     self.task_groups.iter_mut().for_each(|task| {
-      task.update_bummers_size(cx);
+      task.prepare_execution(cx);
     });
     cx.flush_pass();
 

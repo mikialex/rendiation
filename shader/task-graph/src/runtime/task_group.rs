@@ -24,17 +24,14 @@ impl TaskGroupExecutor {
     self.task.reset(ctx, dispatch_size as u32);
   }
 
-  pub fn update_bummers_size(&mut self, ctx: &mut DeviceParallelComputeCtx) {
+  pub fn prepare_execution(&mut self, ctx: &mut DeviceParallelComputeCtx) {
+    // commit bumpers
     ctx.record_pass(|pass, device| {
       let imp = &mut self.resource;
       imp.alive_task_idx.commit_size(pass, device, true);
       imp.empty_index_pool.commit_size(pass, device, false);
       imp.new_removed_task_idx.commit_size(pass, device, true);
     });
-  }
-
-  pub fn execute(&mut self, cx: &mut DeviceParallelComputeCtx, all_tasks: &[Self]) {
-    self.update_bummers_size(cx);
 
     let imp = &mut self.resource;
     // compact active task buffer
@@ -46,12 +43,12 @@ impl TaskGroupExecutor {
         active_tasks: alive_tasks.clone(),
         task_pool: imp.task_pool.clone(),
       })
-      .materialize_storage_buffer(cx);
+      .materialize_storage_buffer(ctx);
     imp.alive_task_idx.storage = re.buffer.into_rw_view();
     let new_alive_task_size = re.size.unwrap();
 
-    // manually update the alive task bumper's current size
-    cx.record_pass(|pass, device| {
+    ctx.record_pass(|pass, device| {
+      // manually update the alive task bumper's current size
       let imp = &mut self.resource;
       let hasher = shader_hasher_from_marker_ty!(SizeUpdate);
       let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
@@ -68,14 +65,19 @@ impl TaskGroupExecutor {
         .setup_compute_pass(pass, device, &pipeline);
 
       pass.dispatch_workgroups(1, 1, 1);
-    });
 
-    cx.record_pass(|pass, device| {
-      let imp = &mut self.resource;
       // drain empty to empty pool
       imp
         .new_removed_task_idx
         .drain_self_into_the_other(&imp.empty_index_pool, pass, device);
+    });
+  }
+
+  pub fn execute(&mut self, cx: &mut DeviceParallelComputeCtx, all_tasks: &[Self]) {
+    self.prepare_execution(cx);
+
+    cx.record_pass(|pass, device| {
+      let imp = &mut self.resource;
 
       let alive_execution_size =
         imp
@@ -142,6 +144,8 @@ impl TaskGroupExecutorResource {
     device: &GPUDevice,
     pass: &mut GPUComputePass,
   ) -> Self {
+    // the real task size should be size * n because self spawning requires.
+    // todo, fix n may larger than 2
     let res = Self {
       alive_task_idx: DeviceBumpAllocationInstance::new(size * 2, device),
       new_removed_task_idx: DeviceBumpAllocationInstance::new(size, device),
@@ -229,6 +233,7 @@ impl TaskGroupDeviceInvocationInstance {
       let _ = self.alive_task_idx.bump_allocate(idx); // todo, error report
     })
     .else_by(|| {
+      loop_by(|_| {})
       // error report, theoretically unreachable
     });
     Some(TaskFutureInvocationRightValue { task_handle: idx })
@@ -261,7 +266,9 @@ impl TaskGroupDeviceInvocationInstance {
 
   fn cleanup_finished_task_state_and_payload(&self, task: Node<u32>) {
     let (_, success) = self.new_removed_task_idx.bump_allocate(task);
+    // todo consider zeroing the state
     if_by(success.not(), || {
+      loop_by(|_| {})
       // error report, theoretically unreachable
     });
   }
