@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use crate::*;
 
 mod task_pool;
@@ -14,9 +16,30 @@ pub use future_context::*;
 
 pub const TASK_EXECUTION_WORKGROUP_SIZE: u32 = 128;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TaskGraphExecutionStates {
   pub remain_task_counts: Vec<u32>,
+}
+
+#[derive(Clone, Debug)]
+pub struct TaskGraphExecutionDebugInfo {
+  pub info: Vec<TaskExecutionDebugInfo>,
+}
+
+#[derive(Clone)]
+pub struct TaskExecutionDebugInfo {
+  pub alive_idx: Vec<u32>,
+  pub empty_idx: Vec<u32>,
+  pub task_states: Vec<u8>,
+}
+
+impl Debug for TaskExecutionDebugInfo {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_struct("TaskExecutionDebugInfo")
+      .field("alive_idx", &self.alive_idx)
+      .field("empty_idx", &self.empty_idx)
+      .finish() // skip task_states
+  }
 }
 
 pub struct DeviceTaskGraphExecutor {
@@ -238,8 +261,10 @@ impl DeviceTaskGraphExecutor {
 
     let result_size = self.task_groups.len() * 4;
     let result_size = NonZeroU64::new(result_size as u64).unwrap();
-    let result_buffer =
-      create_gpu_read_write_storage::<u32>(StorageBufferInit::Zeroed(result_size), &cx.gpu.device);
+    let result_buffer = create_gpu_read_write_storage::<[u32]>(
+      StorageBufferInit::Zeroed(result_size),
+      &cx.gpu.device,
+    );
 
     for (i, task) in self.task_groups.iter().enumerate() {
       cx.encoder.copy_buffer_to_buffer(
@@ -251,17 +276,45 @@ impl DeviceTaskGraphExecutor {
       );
     }
 
-    let result = cx.encoder.read_buffer(&cx.gpu.device, &result_buffer);
+    let result = cx.read_storage_array(&result_buffer);
 
     cx.submit_recorded_work_and_continue();
 
-    let buffer = result.await.unwrap();
-
-    let results = <[u32]>::from_bytes_into_boxed(&buffer.read_raw()).into_vec();
+    let results = result.await.unwrap();
 
     TaskGraphExecutionStates {
       remain_task_counts: results,
     }
+  }
+
+  pub async fn debug_execution(
+    &mut self,
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> TaskGraphExecutionDebugInfo {
+    self.task_groups.iter_mut().for_each(|task| {
+      task.prepare_execution(cx);
+    });
+    cx.flush_pass();
+
+    let mut info = Vec::new();
+
+    for task in &self.task_groups {
+      let alive_idx = task.resource.alive_task_idx.debug_execution(cx).await;
+      let empty_idx = task.resource.empty_index_pool.debug_execution(cx).await;
+
+      let task_states = cx.read_buffer_bytes(&task.resource.task_pool.tasks);
+
+      cx.submit_recorded_work_and_continue();
+      let task_states = task_states.await.unwrap();
+
+      info.push(TaskExecutionDebugInfo {
+        alive_idx,
+        empty_idx,
+        task_states,
+      })
+    }
+
+    TaskGraphExecutionDebugInfo { info }
   }
 
   // todo, impl more conservative upper execute bound

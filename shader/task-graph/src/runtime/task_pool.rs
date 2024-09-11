@@ -7,7 +7,7 @@ pub struct TaskPool {
   ///   payload: P,
   ///   state: S,
   /// }
-  tasks: GPUBufferResourceView,
+  pub(crate) tasks: GPUBufferResourceView,
   state_desc: DynamicTypeMetaInfo,
   task_ty_desc: ShaderStructMetaInfo,
 }
@@ -19,7 +19,7 @@ impl TaskPool {
     task_ty_desc: ShaderStructMetaInfo,
     device: &GPUDevice,
   ) -> Self {
-    let usage = BufferUsages::STORAGE;
+    let usage = BufferUsages::STORAGE | BufferUsages::COPY_SRC;
 
     let stride = task_ty_desc.size_of_self(StructLayoutTarget::Std430);
 

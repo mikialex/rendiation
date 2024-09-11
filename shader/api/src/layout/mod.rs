@@ -297,9 +297,13 @@ unsafe impl<T: Std430> Std430MaybeUnsized for [T] {
     bytemuck::cast_slice(self)
   }
   fn from_bytes_into_boxed(bytes: &[u8]) -> Box<Self> {
-    let slice: &[T] = bytemuck::cast_slice(bytes);
-    // we should try unsafe here, todo
-    // https://www.reddit.com/r/rust/comments/jzwwqb/about_creating_a_boxed_slice/
-    Vec::from_iter(slice.iter().copied()).into_boxed_slice()
+    from_bytes_into_boxed_slice(bytes)
   }
+}
+
+pub fn from_bytes_into_boxed_slice<T: Pod>(bytes: &[u8]) -> Box<[T]> {
+  let slice: &[T] = bytemuck::cast_slice(bytes);
+  // we should try unsafe here, todo
+  // https://www.reddit.com/r/rust/comments/jzwwqb/about_creating_a_boxed_slice/
+  Vec::from_iter(slice.iter().copied()).into_boxed_slice()
 }

@@ -138,6 +138,36 @@ impl GPUCommandEncoder {
     })
   }
 
+  pub fn read_buffer_bytes(
+    &mut self,
+    device: &GPUDevice,
+    buffer: &GPUBufferResourceView,
+  ) -> impl Future<Output = Result<Vec<u8>, gpu::BufferAsyncError>> {
+    self
+      .read_buffer(device, buffer)
+      .map(|buffer| buffer.map(|buffer| from_bytes_into_boxed_slice(&buffer.read_raw()).into_vec()))
+  }
+
+  pub fn read_storage_array<T: Std430>(
+    &mut self,
+    device: &GPUDevice,
+    buffer: &StorageBufferDataView<[T]>,
+  ) -> impl Future<Output = Result<Vec<T>, gpu::BufferAsyncError>> {
+    self.read_buffer(device, buffer).map(|buffer| {
+      buffer.map(|buffer| <[T]>::from_bytes_into_boxed(&buffer.read_raw()).into_vec())
+    })
+  }
+
+  pub fn read_sized_storage_buffer<T: Std430>(
+    &mut self,
+    device: &GPUDevice,
+    buffer: &StorageBufferDataView<T>,
+  ) -> impl Future<Output = Result<T, gpu::BufferAsyncError>> {
+    self
+      .read_buffer(device, buffer)
+      .map(|buffer| buffer.map(|buffer| T::from_bytes(&buffer.read_raw())))
+  }
+
   pub fn read_texture_2d(
     &mut self,
     device: &GPUDevice,

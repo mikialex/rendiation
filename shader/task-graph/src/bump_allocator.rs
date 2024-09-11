@@ -19,6 +19,19 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
     }
   }
 
+  pub async fn debug_execution(&self, cx: &mut DeviceParallelComputeCtx) -> Vec<T> {
+    let size = cx.read_sized_storage_array(&self.current_size);
+    let storage = cx.read_storage_array(&self.storage);
+
+    cx.submit_recorded_work_and_continue();
+
+    let mut storage = storage.await.unwrap();
+    let size = size.await.unwrap();
+
+    storage.truncate(size as usize);
+    storage
+  }
+
   pub fn prepare_dispatch_size(
     &self,
     pass: &mut GPUComputePass,

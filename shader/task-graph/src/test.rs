@@ -3,7 +3,7 @@ async fn test_task_graph() {
   use crate::*;
 
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();
-  let mut graph = DeviceTaskGraphExecutor::new(512, 1);
+  let mut graph = DeviceTaskGraphExecutor::new(12, 1);
 
   let mut encoder = gpu.create_encoder();
 
@@ -22,7 +22,11 @@ async fn test_task_graph() {
     &mut pass,
   );
 
-  graph.dispatch_allocate_init_task(&gpu.device, &mut pass, 64, test_task2, |_| val(0_u32));
+  let work_size = 6;
+
+  graph.dispatch_allocate_init_task(&gpu.device, &mut pass, work_size, test_task2, |_| {
+    val(0_u32)
+  });
   drop(pass);
 
   gpu.submit_encoder(encoder);
@@ -31,19 +35,25 @@ async fn test_task_graph() {
   // assert!(round >= 3);
 
   let mut cx = DeviceParallelComputeCtx::new(&gpu);
+
+  println!("{:?}", graph.debug_execution(&mut cx).await);
+
   let info = graph.read_back_execution_states(&mut cx).await;
   assert_eq!(info.remain_task_counts[test_task as usize], 0);
-  assert_eq!(info.remain_task_counts[test_task2 as usize], 64);
+  assert_eq!(info.remain_task_counts[test_task2 as usize], work_size);
 
   graph.execute(&mut cx, 1);
 
   let info = graph.read_back_execution_states(&mut cx).await;
-  assert_eq!(info.remain_task_counts[test_task as usize], 64);
-  assert_eq!(info.remain_task_counts[test_task2 as usize], 64);
+  assert_eq!(info.remain_task_counts[test_task as usize], work_size);
+  assert_eq!(info.remain_task_counts[test_task2 as usize], work_size);
 
   graph.execute(&mut cx, 1);
 
   let info = graph.read_back_execution_states(&mut cx).await;
+
+  println!("{:?}", graph.debug_execution(&mut cx).await);
+
   assert_eq!(info.remain_task_counts[test_task as usize], 0);
   assert_eq!(info.remain_task_counts[test_task2 as usize], 0); // 62?
 }

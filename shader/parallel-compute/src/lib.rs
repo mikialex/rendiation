@@ -1,6 +1,7 @@
 #![feature(let_chains)]
 
 use std::fmt::Debug;
+use std::future::Future;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::marker::PhantomData;
@@ -717,6 +718,34 @@ impl DeviceParallelComputeCtx {
       pass: None,
       force_indirect_dispatch: false,
     }
+  }
+
+  pub fn read_buffer(&mut self, buffer: &GPUBufferResourceView) -> ReadBufferFromStagingBuffer {
+    self.encoder.read_buffer(&self.gpu.device, buffer)
+  }
+
+  pub fn read_buffer_bytes(
+    &mut self,
+    buffer: &GPUBufferResourceView,
+  ) -> impl Future<Output = Result<Vec<u8>, rendiation_webgpu::BufferAsyncError>> {
+    self.encoder.read_buffer_bytes(&self.gpu.device, buffer)
+  }
+
+  pub fn read_storage_array<T: Std430>(
+    &mut self,
+    buffer: &StorageBufferDataView<[T]>,
+  ) -> impl Future<Output = Result<Vec<T>, rendiation_webgpu::BufferAsyncError>> {
+    self
+      .encoder
+      .read_storage_array::<T>(&self.gpu.device, buffer)
+  }
+  pub fn read_sized_storage_array<T: Std430>(
+    &mut self,
+    buffer: &StorageBufferDataView<T>,
+  ) -> impl Future<Output = Result<T, rendiation_webgpu::BufferAsyncError>> {
+    self
+      .encoder
+      .read_sized_storage_buffer::<T>(&self.gpu.device, buffer)
   }
 
   pub fn record_pass<R>(&mut self, f: impl FnOnce(&mut GPUComputePass, &GPUDevice) -> R) -> R {
