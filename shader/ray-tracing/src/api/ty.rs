@@ -89,6 +89,10 @@ pub enum RayFlagConfigRaw {
   RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES = 0x200,
 }
 
+pub type RayHitKind = u32;
+pub const HIT_KIND_FRONT_FACING_TRIANGLE: RayHitKind = 0xFE;
+pub const HIT_KIND_BACK_FACING_TRIANGLE: RayHitKind = 0xFF;
+
 pub enum RayFlagOpaqueBehavior {
   ForceOpaque,
   ForceTransparent,

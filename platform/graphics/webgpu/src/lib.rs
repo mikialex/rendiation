@@ -83,6 +83,8 @@ impl<'a> Default for GPUCreateConfig<'a> {
   fn default() -> Self {
     let mut minimal_required_features = Features::all_webgpu_mask();
     minimal_required_features.remove(Features::TIMESTAMP_QUERY); // note: on macos we currently do not have this
+    minimal_required_features.remove(Features::TEXTURE_COMPRESSION_ASTC); // NVIDIA/AMD cards don't have this
+    minimal_required_features.remove(Features::TEXTURE_COMPRESSION_ETC2); // NVIDIA/AMD cards don't have this
 
     Self {
       backends: Backends::all(),

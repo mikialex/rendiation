@@ -43,6 +43,7 @@ pub trait ShaderBindingTableProvider {
   fn access_impl(&self) -> &dyn Any;
 }
 
+#[derive(Clone)]
 pub enum BottomLevelAccelerationStructureBuildSource {
   Triangles {
     positions: Vec<Vec3<f32>>,
