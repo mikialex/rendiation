@@ -12,12 +12,11 @@ pub struct GPUWaveFrontComputeRaytracingBakedPipelineInner {
 
 impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
   pub fn compile(
+    cx: &mut DeviceParallelComputeCtx,
     tlas_sys: Box<dyn GPUAccelerationStructureSystemCompImplInstance>,
     sbt_sys: ShaderBindingTableDeviceInfo,
     desc: &GPURaytracingPipelineDescriptor,
-    device: &GPUDevice,
     init_size: usize,
-    init_pass: &mut GPUComputePass,
   ) -> Self {
     let mut executor = DeviceTaskGraphExecutor::new(1, 1);
 
@@ -53,6 +52,7 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
       payload_max_u32_count,
     };
 
+    let device = &cx.gpu.device;
     let target_sbt_buffer = StorageBufferReadOnlyDataView::create(device, &0);
 
     let payload_u32_len = init_size * 2 * (payload_max_u32_count as usize);
@@ -78,16 +78,14 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
     executor.define_task_dyn(
       Box::new(OpaqueTaskWrapper(tracer_task)) as OpaqueTask,
       TraceTaskSelfPayload::sized_ty(),
-      device,
-      init_pass,
+      cx,
     );
 
     for (stage, ty) in &desc.ray_gen_shaders {
       executor.define_task_dyn(
         Box::new(OpaqueTaskWrapper(stage.build_device_future(&mut ctx))) as OpaqueTask,
         ty.clone(),
-        device,
-        init_pass,
+        cx,
       );
     }
 
@@ -95,8 +93,7 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
       executor.define_task_dyn(
         Box::new(OpaqueTaskWrapper(stage.build_device_future(&mut ctx))) as OpaqueTask,
         ty.clone(),
-        device,
-        init_pass,
+        cx,
       );
     }
 
@@ -104,8 +101,7 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
       executor.define_task_dyn(
         Box::new(OpaqueTaskWrapper(stage.build_device_future(&mut ctx))) as OpaqueTask,
         ty.clone(),
-        device,
-        init_pass,
+        cx,
       );
     }
 

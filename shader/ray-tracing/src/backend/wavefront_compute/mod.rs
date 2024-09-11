@@ -52,20 +52,14 @@ impl GPURayTracingDeviceProvider for GPUWaveFrontComputeRaytracingDevice {
     &self,
     desc: &GPURaytracingPipelineDescriptor,
   ) -> Box<dyn GPURaytracingPipelineProvider> {
-    let mut encoder = self.gpu.create_encoder();
-    let mut pass = encoder.begin_compute_pass();
-    let r = Box::new(GPUWaveFrontComputeRaytracingBakedPipelineInner::compile(
+    let mut cx = DeviceParallelComputeCtx::new(&self.gpu);
+    Box::new(GPUWaveFrontComputeRaytracingBakedPipelineInner::compile(
+      &mut cx,
       self.tlas_sys.create_comp_instance(),
       self.sbt_sys.clone(),
       desc,
-      &self.gpu.device,
       self.default_init_size,
-      &mut pass,
-    ));
-
-    self.gpu.submit_encoder(encoder);
-
-    r
+    ))
   }
 
   fn create_sbt(
@@ -116,7 +110,7 @@ impl RayTracingPassEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
 
     let size = (size.0 * size.1 * size.2) as usize;
     let executor = &mut current_pipeline.graph;
-    executor.set_execution_size(&self.gpu, &mut cx, size);
+    executor.set_execution_size(&mut cx, size);
     executor.execute(&mut cx, size);
   }
 }

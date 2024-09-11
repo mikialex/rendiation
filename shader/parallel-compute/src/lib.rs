@@ -706,7 +706,7 @@ pub struct DeviceParallelComputeCtx {
 impl Drop for DeviceParallelComputeCtx {
   fn drop(&mut self) {
     // make sure pass is dropped before encoder.
-    self.flush_pass();
+    self.submit_recorded_work_and_continue();
   }
 }
 
