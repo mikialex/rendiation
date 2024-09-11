@@ -145,7 +145,7 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
   fn dispatch_compute(
     &self,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> Option<StorageBufferReadOnlyDataView<Vec3<u32>>> {
+  ) -> Option<StorageBufferReadOnlyDataView<Vec4<u32>>> {
     if !cx.force_indirect_dispatch
       && let Some(work_size) = self.work_size()
     {
@@ -186,7 +186,7 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
     cx: &mut DeviceParallelComputeCtx,
   ) -> (
     StorageBufferDataView<DispatchIndirectArgsStorage>,
-    StorageBufferDataView<Vec3<u32>>,
+    StorageBufferDataView<Vec4<u32>>,
   ) {
     struct SizeWriter<'a, T: ?Sized>(&'a T);
     impl<'a, T: ShaderHashProvider + ?Sized> ShaderHashProvider for SizeWriter<'a, T> {
@@ -204,7 +204,7 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
 
     let size_output = cx.gpu.device.make_indirect_dispatch_size_buffer();
     let work_size_output =
-      create_gpu_readonly_storage(&Vec3::<u32>::zero(), &cx.gpu.device).into_rw_view();
+      create_gpu_readonly_storage(&Vec4::<u32>::zero(), &cx.gpu.device).into_rw_view();
 
     // requested_workgroup_size should always be respected
     let workgroup_size = self.requested_workgroup_size().unwrap_or(256);
@@ -218,6 +218,7 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
       let workgroup_size = cx.bind_by(&workgroup_size_buffer);
 
       let size = self.build_shader(cx).invocation_size();
+      let size: Node<Vec4<u32>> = (size, val(0)).into();
 
       work_size_output.store(size);
 
@@ -463,8 +464,8 @@ where
     let result = result.await;
     let size_result = if let Some(size_result) = size_result {
       let size = size_result.await?;
-      let size = *from_bytes::<Vec3<u32>>(&size.read_raw());
-      Some(size)
+      let size = *from_bytes::<Vec4<u32>>(&size.read_raw());
+      Some(size.xyz())
     } else {
       None
     };

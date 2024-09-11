@@ -16,7 +16,7 @@ impl<T: ShaderSizedValueNodeType> DeviceInvocation<Node<T>>
 }
 
 impl<T: ShaderSizedValueNodeType> DeviceInvocation<Node<T>>
-  for (Node<ShaderReadOnlyStoragePtr<[T]>>, Node<Vec3<u32>>)
+  for (Node<ShaderReadOnlyStoragePtr<[T]>>, Node<Vec4<u32>>)
 {
   fn invocation_logic(&self, logic_global_id: Node<Vec3<u32>>) -> (Node<T>, Node<bool>) {
     let idx = logic_global_id.x();
@@ -26,7 +26,7 @@ impl<T: ShaderSizedValueNodeType> DeviceInvocation<Node<T>>
   }
 
   fn invocation_size(&self) -> Node<Vec3<u32>> {
-    self.1
+    self.1.xyz()
   }
 }
 
@@ -106,7 +106,7 @@ async fn test_storage_buffer() {
 #[derive(Clone)]
 pub struct DeviceMaterializeResult<T: Std430> {
   pub buffer: StorageBufferReadOnlyDataView<[T]>,
-  pub size: Option<StorageBufferReadOnlyDataView<Vec3<u32>>>,
+  pub size: Option<StorageBufferReadOnlyDataView<Vec4<u32>>>,
 }
 
 impl<T: Std430> DeviceMaterializeResult<T> {

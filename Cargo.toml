@@ -115,8 +115,12 @@ panic = "abort"
 debug = true
 inherits = "release"
 
-# [patch.crates-io]
-# naga = { path = "../references/naga" }
+[patch.crates-io]
+# wgpu = { path = "../references/wgpu/wgpu" }
+# wgpu-types = { path = "../references/wgpu/wgpu-types" }
+# wgpu-core = { path = "../references/wgpu/wgpu-core" }
+# wgpu-hal = { path = "../references/wgpu/wgpu-hal" }
+# naga = { path = "../references/wgpu/naga" }
 
 # https://github.com/rust-lang/rfcs/blob/master/text/3389-manifest-lint.md
 [workspace.lints.clippy]

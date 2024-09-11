@@ -3,6 +3,9 @@ async fn test_task_graph() {
   use crate::*;
 
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+
+  gpu.device.start_capture();
+
   let mut graph = DeviceTaskGraphExecutor::new(12, 1);
 
   let mut encoder = gpu.create_encoder();
@@ -36,6 +39,7 @@ async fn test_task_graph() {
 
   let mut cx = DeviceParallelComputeCtx::new(&gpu);
 
+  gpu.device.stop_capture();
   println!("{:?}", graph.debug_execution(&mut cx).await);
 
   let info = graph.read_back_execution_states(&mut cx).await;
