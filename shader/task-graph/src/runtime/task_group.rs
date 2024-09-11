@@ -230,7 +230,8 @@ impl TaskGroupDeviceInvocationInstance {
     let (idx, success) = self.empty_index_pool.bump_deallocate();
     if_by(success, || {
       self.task_pool.spawn_new_task_dyn(idx, payload, ty);
-      let _ = self.alive_task_idx.bump_allocate(idx); // todo, error report
+      let (_, success) = self.alive_task_idx.bump_allocate(idx); // todo, error report
+      if_by(success.not(), || loop_by(|_| {}));
     })
     .else_by(|| {
       loop_by(|_| {})

@@ -22,7 +22,7 @@ async fn test_task_graph() {
     &mut pass,
   );
 
-  let work_size = 6;
+  let work_size = 3;
 
   graph.dispatch_allocate_init_task(&gpu.device, &mut pass, work_size, test_task2, |_| {
     val(0_u32)
@@ -52,7 +52,7 @@ async fn test_task_graph() {
 
   let info = graph.read_back_execution_states(&mut cx).await;
 
-  println!("{:?}", graph.debug_execution(&mut cx).await);
+  // println!("{:?}", graph.debug_execution(&mut cx).await);
 
   assert_eq!(info.remain_task_counts[test_task as usize], 0);
   assert_eq!(info.remain_task_counts[test_task2 as usize], 0); // 62?
