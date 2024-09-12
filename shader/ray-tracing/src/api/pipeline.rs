@@ -31,7 +31,7 @@ impl GPURaytracingPipelineDescriptor {
   }
 
   pub fn register_ray_gen<P: ShaderSizedValueNodeType>(
-    mut self,
+    &mut self,
     ray_logic: impl TraceOperator<()> + 'static,
   ) -> ShaderHandle {
     let idx = self.ray_gen_shaders.len() as u32;
@@ -41,7 +41,7 @@ impl GPURaytracingPipelineDescriptor {
     ShaderHandle(idx, RayTracingShaderStage::RayGeneration)
   }
   pub fn register_ray_miss<P: ShaderSizedValueNodeType>(
-    mut self,
+    &mut self,
     ray_logic: impl TraceOperator<()> + 'static,
   ) -> ShaderHandle {
     let idx = self.miss_hit_shaders.len() as u32;
@@ -63,7 +63,7 @@ impl GPURaytracingPipelineDescriptor {
   }
 
   pub fn register_ray_intersection(
-    mut self,
+    &mut self,
     builder: impl Fn(&RayIntersectCtx, &dyn IntersectionReporter) + 'static,
   ) -> ShaderHandle {
     let idx = self.intersection_shaders.len() as u32;

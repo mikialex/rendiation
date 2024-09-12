@@ -16,6 +16,16 @@ pub struct GPUWaveFrontComputeRaytracingSystem {
   tlas_sys: Box<dyn GPUAccelerationStructureSystemProvider>,
 }
 
+impl GPUWaveFrontComputeRaytracingSystem {
+  pub fn new(gpu: &GPU) -> Self {
+    #[allow(unreachable_code)]
+    Self {
+      gpu: gpu.clone(),
+      tlas_sys: todo!(),
+    }
+  }
+}
+
 impl GPURaytracingSystem for GPUWaveFrontComputeRaytracingSystem {
   fn create_raytracing_device(&self) -> Box<dyn GPURayTracingDeviceProvider> {
     Box::new(GPUWaveFrontComputeRaytracingDevice {
