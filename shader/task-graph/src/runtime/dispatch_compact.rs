@@ -22,6 +22,9 @@ impl DeviceParallelCompute<Node<bool>> for ActiveTaskCompact {
 impl DeviceParallelComputeIO<bool> for ActiveTaskCompact {}
 
 impl ShaderHashProvider for ActiveTaskCompact {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.task_pool.hash_pipeline(hasher)
+  }
   shader_hash_type_id! {}
 }
 
@@ -39,11 +42,11 @@ impl DeviceInvocationComponent<Node<bool>> for ActiveTaskCompact {
       inner,
       compute: Box::new(|inner, id| {
         let (r, is_valid) = inner.0.invocation_logic(id);
+        let is_valid = is_valid.and(id.x().less_than(inner.1.load()));
 
-        //  check task_pool access is valid?
-        let r = inner.2.poll_task_is_finished(r).not();
-
-        (r, is_valid)
+        let rr = val(false).make_local_var();
+        if_by(is_valid, || rr.store(inner.2.is_task_unfinished(r)));
+        (rr.load(), is_valid)
       }),
       size: Box::new(|inner| (inner.1.load(), val(0), val(0)).into()),
     }

@@ -257,7 +257,7 @@ impl TaskGroupDeviceInvocationInstance {
     task_id: Node<u32>,
     argument_read_back: impl FnOnce(StorageNode<AnyType>) + Copy,
   ) -> Node<bool> {
-    let finished = self.poll_task_is_finished(task_id);
+    let finished = self.is_task_finished(task_id);
     if_by(finished, || {
       argument_read_back(self.rw_payload_dyn(task_id));
       self.cleanup_finished_task_state_and_payload(task_id)
@@ -267,15 +267,19 @@ impl TaskGroupDeviceInvocationInstance {
 
   fn cleanup_finished_task_state_and_payload(&self, task: Node<u32>) {
     let (_, success) = self.new_removed_task_idx.bump_allocate(task);
-    // todo consider zeroing the state
+    self
+      .task_pool
+      .rw_is_finished(task)
+      .store(TASK_STATUE_FLAG_TASK_NOT_EXIST);
+    // todo consider zeroing the state and payload
     if_by(success.not(), || {
       loop_by(|_| {})
       // error report, theoretically unreachable
     });
   }
 
-  fn poll_task_is_finished(&self, task_id: Node<u32>) -> Node<bool> {
-    self.task_pool.poll_task_is_finished(task_id)
+  fn is_task_finished(&self, task_id: Node<u32>) -> Node<bool> {
+    self.task_pool.is_task_finished(task_id)
   }
 
   pub fn read_back_payload<T: ShaderSizedValueNodeType>(&self, task_id: Node<u32>) -> Node<T> {

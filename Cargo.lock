@@ -3579,6 +3579,7 @@ dependencies = [
 name = "rendiation-device-task-graph"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
  "derivative",
  "dyn-clone",
  "fast-hash-collection",

@@ -83,10 +83,13 @@ where
       then,
     } = self;
 
-    if_by(upstream_resolved.abstract_load().into_bool().not(), || {
+    let upstream_resolved_read = upstream_resolved.abstract_load().into_bool();
+    let upstream_resolved_local = upstream_resolved_read.make_local_var(); // we could use barrier to read back
+    if_by(upstream_resolved_read.not(), || {
       let r = upstream.device_poll(ctx);
       if_by(r.is_ready, || {
         upstream_resolved.abstract_store(val(Bool::from(true)));
+        upstream_resolved_local.abstract_store(val(true));
         let next = create_then_invocation_instance(r.payload, &self.then, ctx);
         then.abstract_store(next);
       });
@@ -94,7 +97,7 @@ where
 
     let resolved = LocalLeftValueBuilder.create_left_value(val(false));
     let output = LocalLeftValueBuilder.create_left_value(T::Output::default());
-    if_by(upstream_resolved.abstract_load().into_bool(), || {
+    if_by(upstream_resolved_local.load(), || {
       let r = self.then.device_poll(ctx);
       resolved.abstract_store(r.is_ready);
       output.abstract_store(r.payload);

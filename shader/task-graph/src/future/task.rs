@@ -58,10 +58,10 @@ where
     let task_has_already_resolved = task_handle.equals(RESOLVED_TASK_HANDLE);
     let task_not_allocated = task_handle.equals(UN_INIT_TASK_HANDLE);
 
-    // once task resolved, it can not be polled again because the states is deallocated.
-    // or simply task not allocated at all.
     let result = task_has_already_resolved.make_local_var();
 
+    // once task resolved, it can not be polled again because the states is deallocated.
+    // also, should skip simply because task not allocated at all.
     let should_poll = task_has_already_resolved
       .not()
       .and(task_not_allocated.not());

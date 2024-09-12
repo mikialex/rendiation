@@ -12,6 +12,14 @@ pub struct TaskPool {
   task_ty_desc: ShaderStructMetaInfo,
 }
 
+impl ShaderHashProvider for TaskPool {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.task_ty_desc.hash(hasher);
+  }
+
+  shader_hash_type_id! {}
+}
+
 impl TaskPool {
   pub fn create_with_size(
     size: usize,
@@ -78,6 +86,7 @@ pub struct TaskPoolInvocationInstance {
   payload_ty: ShaderSizedValueType,
 }
 
+pub const TASK_STATUE_FLAG_TASK_NOT_EXIST: u32 = 0;
 pub const TASK_STATUE_FLAG_NOT_FINISHED: u32 = 1;
 pub const TASK_STATUE_FLAG_FINISHED: u32 = 2;
 
@@ -86,11 +95,18 @@ impl TaskPoolInvocationInstance {
     self.pool.index(idx)
   }
 
-  pub fn poll_task_is_finished(&self, task_id: Node<u32>) -> Node<bool> {
+  pub fn is_task_finished(&self, task_id: Node<u32>) -> Node<bool> {
     self
       .rw_is_finished(task_id)
       .load()
       .equals(TASK_STATUE_FLAG_FINISHED)
+  }
+
+  pub fn is_task_unfinished(&self, task_id: Node<u32>) -> Node<bool> {
+    self
+      .rw_is_finished(task_id)
+      .load()
+      .equals(TASK_STATUE_FLAG_NOT_FINISHED)
   }
 
   pub fn spawn_new_task_dyn(
@@ -118,6 +134,9 @@ impl TaskPoolInvocationInstance {
         }
       };
     }
+
+    // this is required if task spawn itself and using then operator
+    storage_barrier();
   }
 
   pub fn rw_is_finished(&self, task: Node<u32>) -> StorageNode<u32> {
