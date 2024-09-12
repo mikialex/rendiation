@@ -5,9 +5,9 @@ pub struct ShaderFutureMap<F, T> {
   pub map: F,
 }
 
-impl<F, T, O> DeviceFuture for ShaderFutureMap<F, T>
+impl<F, T, O> ShaderFuture for ShaderFutureMap<F, T>
 where
-  T: DeviceFuture,
+  T: ShaderFuture,
   F: FnOnce(T::Output, &mut DeviceTaskSystemPollCtx) -> O + Copy + 'static,
   O: ShaderAbstractRightValue + Default,
 {
@@ -39,14 +39,14 @@ pub struct ShaderFutureMapState<T, F> {
   map: F,
 }
 
-impl<T, F, O> DeviceFutureInvocation for ShaderFutureMapState<T, F>
+impl<T, F, O> ShaderFutureInvocation for ShaderFutureMapState<T, F>
 where
-  T: DeviceFutureInvocation,
+  T: ShaderFutureInvocation,
   F: FnOnce(T::Output, &mut DeviceTaskSystemPollCtx) -> O + 'static + Copy,
   O: Default + ShaderAbstractRightValue,
 {
   type Output = O;
-  fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> DevicePoll<O> {
+  fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<O> {
     let r = self.upstream.device_poll(ctx);
     let output = LocalLeftValueBuilder.create_left_value(O::default());
     if_by(r.is_ready, || {

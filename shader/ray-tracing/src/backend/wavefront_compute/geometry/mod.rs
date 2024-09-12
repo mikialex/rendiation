@@ -15,11 +15,11 @@ pub trait GPUAccelerationStructureSystemCompImplInvocationTraversable {
     trace_payload: ENode<ShaderRayTraceCallStoragePayload>,
     intersect: &dyn Fn(&RayIntersectCtx, &dyn IntersectionReporter),
     any_hit: &dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
-  ) -> DeviceOption<RayClosestHitCtx>;
+  ) -> ShaderOption<RayClosestHitCtx>;
 }
 
 #[derive(Clone, Copy)]
-pub struct DeviceOption<T> {
+pub struct ShaderOption<T> {
   pub is_some: Node<bool>,
   pub payload: T,
 }

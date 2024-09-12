@@ -8,40 +8,40 @@ mod task;
 pub use task::*;
 
 #[derive(Clone, Copy)]
-pub struct DevicePoll<T> {
+pub struct ShaderPoll<T> {
   pub is_ready: Node<bool>,
   pub payload: T,
 }
 
-impl<T> From<(Node<bool>, T)> for DevicePoll<T> {
+impl<T> From<(Node<bool>, T)> for ShaderPoll<T> {
   fn from((is_ready, payload): (Node<bool>, T)) -> Self {
     Self { is_ready, payload }
   }
 }
 
-pub trait DeviceFutureInvocation {
+pub trait ShaderFutureInvocation {
   type Output: 'static;
-  fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> DevicePoll<Self::Output>;
+  fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<Self::Output>;
 }
 
-impl<T: 'static> DeviceFutureInvocation for Box<dyn DeviceFutureInvocation<Output = T>> {
+impl<T: 'static> ShaderFutureInvocation for Box<dyn ShaderFutureInvocation<Output = T>> {
   type Output = T;
-  fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> DevicePoll<T> {
+  fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<T> {
     (**self).device_poll(ctx)
   }
 }
 
 pub struct DeviceReady<T>(pub T);
-impl<T: Copy + 'static> DeviceFutureInvocation for DeviceReady<T> {
+impl<T: Copy + 'static> ShaderFutureInvocation for DeviceReady<T> {
   type Output = T;
-  fn device_poll(&self, _: &mut DeviceTaskSystemPollCtx) -> DevicePoll<T> {
+  fn device_poll(&self, _: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<T> {
     (val(true), self.0).into()
   }
 }
 
-pub trait DeviceFuture {
+pub trait ShaderFuture {
   type Output: 'static;
-  type Invocation: DeviceFutureInvocation<Output = Self::Output> + 'static;
+  type Invocation: ShaderFutureInvocation<Output = Self::Output> + 'static;
 
   fn required_poll_count(&self) -> usize;
 
@@ -52,13 +52,13 @@ pub trait DeviceFuture {
   fn reset(&mut self, ctx: &mut DeviceParallelComputeCtx, work_size: u32);
 }
 
-pub type DynDeviceFuture<T> =
-  Box<dyn DeviceFuture<Output = T, Invocation = Box<dyn DeviceFutureInvocation<Output = T>>>>;
+pub type DynShaderFuture<T> =
+  Box<dyn ShaderFuture<Output = T, Invocation = Box<dyn ShaderFutureInvocation<Output = T>>>>;
 
-impl<O, I> DeviceFuture for Box<dyn DeviceFuture<Output = O, Invocation = I>>
+impl<O, I> ShaderFuture for Box<dyn ShaderFuture<Output = O, Invocation = I>>
 where
   O: 'static,
-  I: DeviceFutureInvocation<Output = O> + 'static,
+  I: ShaderFutureInvocation<Output = O> + 'static,
 {
   type Output = O;
   type Invocation = I;
@@ -80,9 +80,9 @@ where
   }
 }
 
-pub trait DeviceFutureExt: Sized + DeviceFuture + 'static {
-  fn into_dyn(self) -> DynDeviceFuture<Self::Output> {
-    Box::new(WrapDynDeviceFuture(self))
+pub trait ShaderFutureExt: Sized + ShaderFuture + 'static {
+  fn into_dyn(self) -> DynShaderFuture<Self::Output> {
+    Box::new(WrapDynShaderFuture(self))
   }
 
   fn map<F, O>(self, map: F) -> ShaderFutureMap<F, Self>
@@ -106,7 +106,7 @@ pub trait DeviceFutureExt: Sized + DeviceFuture + 'static {
       + Copy
       + 'static,
     Self::Output: ShaderAbstractRightValue,
-    T: DeviceFuture,
+    T: ShaderFuture,
     T::Invocation: ShaderAbstractLeftValue,
     T::Output: Default + ShaderAbstractRightValue,
   {
@@ -128,17 +128,17 @@ pub trait DeviceFutureExt: Sized + DeviceFuture + 'static {
     }
   }
 }
-impl<T: DeviceFuture + Sized + 'static> DeviceFutureExt for T {}
+impl<T: ShaderFuture + Sized + 'static> ShaderFutureExt for T {}
 
-pub struct BaseDeviceFuture<Output>(PhantomData<Output>);
+pub struct BaseShaderFuture<Output>(PhantomData<Output>);
 
-impl<Output> Default for BaseDeviceFuture<Output> {
+impl<Output> Default for BaseShaderFuture<Output> {
   fn default() -> Self {
     Self(Default::default())
   }
 }
 
-impl<Output> DeviceFuture for BaseDeviceFuture<Output>
+impl<Output> ShaderFuture for BaseShaderFuture<Output>
 where
   Output: Default + Copy + 'static,
 {
@@ -159,10 +159,10 @@ where
 
 pub struct OpaqueTaskWrapper<T>(pub T);
 
-impl<T: DeviceFuture> DeviceFuture for OpaqueTaskWrapper<T> {
+impl<T: ShaderFuture> ShaderFuture for OpaqueTaskWrapper<T> {
   type Output = Box<dyn Any>;
 
-  type Invocation = Box<dyn DeviceFutureInvocation<Output = Box<dyn Any>>>;
+  type Invocation = Box<dyn ShaderFutureInvocation<Output = Box<dyn Any>>>;
 
   fn required_poll_count(&self) -> usize {
     self.0.required_poll_count()
@@ -170,7 +170,7 @@ impl<T: DeviceFuture> DeviceFuture for OpaqueTaskWrapper<T> {
 
   fn build_poll(&self, ctx: &mut DeviceTaskSystemBuildCtx) -> Self::Invocation {
     Box::new(OpaqueTaskInvocationWrapper(self.0.build_poll(ctx)))
-      as Box<dyn DeviceFutureInvocation<Output = Box<dyn Any>>>
+      as Box<dyn ShaderFutureInvocation<Output = Box<dyn Any>>>
   }
 
   fn bind_input(&self, builder: &mut DeviceTaskSystemBindCtx) {
@@ -183,19 +183,19 @@ impl<T: DeviceFuture> DeviceFuture for OpaqueTaskWrapper<T> {
 }
 
 pub struct OpaqueTaskInvocationWrapper<T>(pub T);
-impl<T: DeviceFutureInvocation> DeviceFutureInvocation for OpaqueTaskInvocationWrapper<T> {
+impl<T: ShaderFutureInvocation> ShaderFutureInvocation for OpaqueTaskInvocationWrapper<T> {
   type Output = Box<dyn Any>;
 
-  fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> DevicePoll<Self::Output> {
+  fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<Self::Output> {
     let p = self.0.device_poll(ctx);
     (p.is_ready, Box::new(p.payload) as Box<dyn Any>).into()
   }
 }
 
-struct WrapDynDeviceFuture<T>(T);
-impl<T: DeviceFuture> DeviceFuture for WrapDynDeviceFuture<T> {
+struct WrapDynShaderFuture<T>(T);
+impl<T: ShaderFuture> ShaderFuture for WrapDynShaderFuture<T> {
   type Output = T::Output;
-  type Invocation = Box<dyn DeviceFutureInvocation<Output = T::Output>>;
+  type Invocation = Box<dyn ShaderFutureInvocation<Output = T::Output>>;
 
   fn required_poll_count(&self) -> usize {
     self.0.required_poll_count()

@@ -8,9 +8,9 @@ impl<T> Default for TraceBase<T> {
   }
 }
 
-impl<T: Default + Copy + 'static> DeviceFutureProvider<T> for TraceBase<T> {
-  fn build_device_future(&self, _: &mut AnyMap) -> DynDeviceFuture<T> {
-    BaseDeviceFuture::<T>::default().into_dyn()
+impl<T: Default + Copy + 'static> ShaderFutureProvider<T> for TraceBase<T> {
+  fn build_device_future(&self, _: &mut AnyMap) -> DynShaderFuture<T> {
+    BaseShaderFuture::<T>::default().into_dyn()
   }
 }
 impl<T> NativeRayTracingShaderBuilder<T> for TraceBase<T>
@@ -57,14 +57,14 @@ pub struct TraceOutputMap<F, T, O> {
   map: F,
 }
 
-impl<O, O2, F, T> DeviceFutureProvider<O2> for TraceOutputMap<F, T, O>
+impl<O, O2, F, T> ShaderFutureProvider<O2> for TraceOutputMap<F, T, O>
 where
-  T: DeviceFutureProvider<O>,
+  T: ShaderFutureProvider<O>,
   F: FnOnce(O, &mut TracingCtx) -> O2 + 'static + Copy,
   O2: Default + ShaderAbstractRightValue,
   O: 'static,
 {
-  fn build_device_future(&self, ctx: &mut AnyMap) -> DynDeviceFuture<O2> {
+  fn build_device_future(&self, ctx: &mut AnyMap) -> DynShaderFuture<O2> {
     let map = self.map;
     self
       .upstream
@@ -115,14 +115,14 @@ impl Clone for Box<dyn TracingTaskInvocationSpawner> {
   }
 }
 
-impl<F, T, O, P> DeviceFutureProvider<(O, Node<P>)> for TraceNextRay<F, T>
+impl<F, T, O, P> ShaderFutureProvider<(O, Node<P>)> for TraceNextRay<F, T>
 where
-  T: DeviceFutureProvider<O>,
+  T: ShaderFutureProvider<O>,
   F: FnOnce(&O, &mut TracingCtx) -> (Node<bool>, ShaderRayTraceCall, Node<P>) + Copy + 'static,
   P: ShaderSizedValueNodeType + Default + Copy,
   O: ShaderAbstractRightValue,
 {
-  fn build_device_future(&self, ctx: &mut AnyMap) -> DynDeviceFuture<(O, Node<P>)> {
+  fn build_device_future(&self, ctx: &mut AnyMap) -> DynShaderFuture<(O, Node<P>)> {
     let next_trace_logic = self.next_trace_logic;
     self
       .upstream

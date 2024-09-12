@@ -93,8 +93,8 @@ struct CtxProviderTracer {
   payload_ty: ShaderSizedValueType,
 }
 
-impl DeviceFutureProvider<()> for CtxProviderTracer {
-  fn build_device_future(&self, ctx: &mut AnyMap) -> DynDeviceFuture<()> {
+impl ShaderFutureProvider<()> for CtxProviderTracer {
+  fn build_device_future(&self, ctx: &mut AnyMap) -> DynShaderFuture<()> {
     CtxProviderFuture {
       is_missing_shader: self.is_missing_shader,
       payload_ty: self.payload_ty.clone(),
@@ -123,7 +123,7 @@ pub struct CtxProviderFuture {
   ray_spawner: TracingTaskSpawnerImplSource,
 }
 
-impl DeviceFuture for CtxProviderFuture {
+impl ShaderFuture for CtxProviderFuture {
   type Output = ();
 
   type Invocation = CtxProviderFutureInvocation;
@@ -154,9 +154,9 @@ pub struct CtxProviderFutureInvocation {
   payload_ty: ShaderSizedValueType,
   ray_spawner: Box<dyn TracingTaskInvocationSpawner>,
 }
-impl DeviceFutureInvocation for CtxProviderFutureInvocation {
+impl ShaderFutureInvocation for CtxProviderFutureInvocation {
   type Output = ();
-  fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> DevicePoll<()> {
+  fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<()> {
     let combined_payload = ctx.access_self_payload_untyped();
     let payload: StorageNode<AnyType> = unsafe { index_access_field(combined_payload.handle(), 1) };
 

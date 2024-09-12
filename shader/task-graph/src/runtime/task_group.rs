@@ -1,9 +1,9 @@
 use super::*;
 
 pub type OpaqueTask = Box<
-  dyn DeviceFuture<
+  dyn ShaderFuture<
     Output = Box<dyn Any>,
-    Invocation = Box<dyn DeviceFutureInvocation<Output = Box<dyn Any>>>,
+    Invocation = Box<dyn ShaderFutureInvocation<Output = Box<dyn Any>>>,
   >,
 >;
 

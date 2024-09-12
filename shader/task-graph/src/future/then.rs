@@ -6,9 +6,9 @@ pub struct ShaderFutureThen<U, F, T> {
   pub then: T,
 }
 
-impl<U, F, T> DeviceFuture for ShaderFutureThen<U, F, T>
+impl<U, F, T> ShaderFuture for ShaderFutureThen<U, F, T>
 where
-  U: DeviceFuture,
+  U: ShaderFuture,
   U::Output: ShaderAbstractRightValue,
   F: Fn(
       U::Output,
@@ -17,7 +17,7 @@ where
     ) -> <T::Invocation as ShaderAbstractLeftValue>::RightValue
     + Copy
     + 'static,
-  T: DeviceFuture,
+  T: ShaderFuture,
   T::Invocation: ShaderAbstractLeftValue,
   T::Output: Default + ShaderAbstractRightValue,
 {
@@ -53,7 +53,7 @@ where
   }
 }
 
-pub struct ShaderFutureThenInstance<U: DeviceFutureInvocation, F, T>
+pub struct ShaderFutureThenInstance<U: ShaderFutureInvocation, F, T>
 where
   U::Output: ShaderAbstractRightValue,
 {
@@ -64,17 +64,17 @@ where
   then: T,
 }
 
-impl<U, F, T> DeviceFutureInvocation for ShaderFutureThenInstance<U, F, T>
+impl<U, F, T> ShaderFutureInvocation for ShaderFutureThenInstance<U, F, T>
 where
-  U: DeviceFutureInvocation,
+  U: ShaderFutureInvocation,
   U::Output: ShaderAbstractRightValue,
-  T: DeviceFutureInvocation,
+  T: ShaderFutureInvocation,
   T::Output: Default + ShaderAbstractRightValue,
   T: ShaderAbstractLeftValue,
   F: Fn(U::Output, &T, &mut DeviceTaskSystemPollCtx) -> T::RightValue,
 {
   type Output = (U::Output, T::Output);
-  fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> DevicePoll<Self::Output> {
+  fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<Self::Output> {
     let ShaderFutureThenInstance {
       upstream,
       upstream_resolved,

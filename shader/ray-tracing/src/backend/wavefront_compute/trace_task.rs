@@ -22,7 +22,7 @@ pub struct TraceTaskMetaInfo {
   pub payload_max_u32_count: u32,
 }
 
-impl DeviceFuture for TraceTaskImpl {
+impl ShaderFuture for TraceTaskImpl {
   type Output = ();
 
   type Invocation = GPURayTraceTaskInvocationInstance;
@@ -84,10 +84,10 @@ pub struct GPURayTraceTaskInvocationInstance {
 const TASK_NOT_SPAWNED: u32 = u32::MAX;
 const TASK_SPAWNED_FAILED: u32 = u32::MAX - 1;
 
-impl DeviceFutureInvocation for GPURayTraceTaskInvocationInstance {
+impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
   type Output = ();
 
-  fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> DevicePoll<Self::Output> {
+  fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<Self::Output> {
     let trace_payload_all = ctx.access_self_payload::<TraceTaskSelfPayload>().load();
 
     let trace_payload_all_expand = trace_payload_all.expand();

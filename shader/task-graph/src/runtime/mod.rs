@@ -57,7 +57,7 @@ impl DeviceTaskGraphExecutor {
 
   pub fn define_task<P, F>(&mut self, future: F, cx: &mut DeviceParallelComputeCtx) -> u32
   where
-    F: DeviceFuture<Output = ()> + 'static,
+    F: ShaderFuture<Output = ()> + 'static,
     P: ShaderSizedValueNodeType,
   {
     self.define_task_dyn(

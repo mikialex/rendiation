@@ -10,7 +10,7 @@ impl<T> TaskFuture<T> {
 pub const UN_INIT_TASK_HANDLE: u32 = u32::MAX - 1;
 pub const RESOLVED_TASK_HANDLE: u32 = u32::MAX;
 
-impl<T> DeviceFuture for TaskFuture<T>
+impl<T> ShaderFuture for TaskFuture<T>
 where
   T: ShaderSizedValueNodeType + Default + Copy,
 {
@@ -43,13 +43,13 @@ pub struct TaskFutureInvocation<T> {
   phantom: PhantomData<T>,
 }
 
-impl<T> DeviceFutureInvocation for TaskFutureInvocation<T>
+impl<T> ShaderFutureInvocation for TaskFutureInvocation<T>
 where
   T: ShaderSizedValueNodeType + Default + Copy,
 {
   type Output = Node<T>;
 
-  fn device_poll(&self, _ctx: &mut DeviceTaskSystemPollCtx) -> DevicePoll<Self::Output> {
+  fn device_poll(&self, _ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<Self::Output> {
     let output = LocalLeftValueBuilder.create_left_value(zeroed_val());
 
     let task_handle = self.task_handle.abstract_load();

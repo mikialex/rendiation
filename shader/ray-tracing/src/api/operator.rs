@@ -1,7 +1,7 @@
 use crate::*;
 
-pub trait DeviceFutureProvider<T> {
-  fn build_device_future(&self, ctx: &mut AnyMap) -> DynDeviceFuture<T>;
+pub trait ShaderFutureProvider<T> {
+  fn build_device_future(&self, ctx: &mut AnyMap) -> DynShaderFuture<T>;
 }
 
 /// impl native rtx support, the main difference between the future based impl
@@ -16,8 +16,8 @@ pub trait NativeRayTracingShaderCtx {
   fn tracing_ctx(&mut self) -> &mut TracingCtx;
 }
 
-pub trait TraceOperator<T>: DeviceFutureProvider<T> + NativeRayTracingShaderBuilder<T> {}
-impl<O, T> TraceOperator<O> for T where T: DeviceFutureProvider<O> + NativeRayTracingShaderBuilder<O>
+pub trait TraceOperator<T>: ShaderFutureProvider<T> + NativeRayTracingShaderBuilder<T> {}
+impl<O, T> TraceOperator<O> for T where T: ShaderFutureProvider<O> + NativeRayTracingShaderBuilder<O>
 {}
 
 impl<O> NativeRayTracingShaderBuilder<O> for Box<dyn TraceOperator<O>> {
@@ -30,8 +30,8 @@ impl<O> NativeRayTracingShaderBuilder<O> for Box<dyn TraceOperator<O>> {
   }
 }
 
-impl<O> DeviceFutureProvider<O> for Box<dyn TraceOperator<O>> {
-  fn build_device_future(&self, ctx: &mut AnyMap) -> DynDeviceFuture<O> {
+impl<O> ShaderFutureProvider<O> for Box<dyn TraceOperator<O>> {
+  fn build_device_future(&self, ctx: &mut AnyMap) -> DynShaderFuture<O> {
     (**self).build_device_future(ctx)
   }
 }
