@@ -11,7 +11,7 @@ pub struct TraceTaskSelfPayload {
 
 #[repr(C)]
 #[std430_layout]
-#[derive(ShaderStruct, Clone, Copy)]
+#[derive(ShaderStruct, Clone, Copy, StorageNodePtrAccess)]
 pub struct ShaderRayTraceCallStoragePayload {
   pub payload_ref: u32,
   pub tlas_idx: u32,
@@ -27,7 +27,7 @@ pub struct ShaderRayTraceCallStoragePayload {
 
 #[repr(C)]
 #[std430_layout]
-#[derive(ShaderStruct, Clone, Copy)]
+#[derive(ShaderStruct, Clone, Copy, StorageNodePtrAccess)]
 pub struct HitCtxStorage {
   pub primitive_id: u32,
   pub instance_id: u32,
@@ -57,7 +57,7 @@ pub fn hit_ctx_storage_from_hit_ctx(hit_ctx: &HitCtxInfo) -> Node<HitCtxStorage>
 
 #[repr(C)]
 #[std430_layout]
-#[derive(ShaderStruct, Clone, Copy)]
+#[derive(ShaderStruct, Clone, Copy, StorageNodePtrAccess)]
 pub struct RayClosestHitCtxPayload {
   pub ray_info: ShaderRayTraceCallStoragePayload,
   pub hit_ctx: HitCtxStorage,
@@ -65,7 +65,7 @@ pub struct RayClosestHitCtxPayload {
 
 #[repr(C)]
 #[std430_layout]
-#[derive(ShaderStruct, Clone, Copy)]
+#[derive(ShaderStruct, Clone, Copy, StorageNodePtrAccess)]
 pub struct RayMissHitCtxPayload {
   pub ray_info: ShaderRayTraceCallStoragePayload,
 }
@@ -193,47 +193,77 @@ impl RayLaunchInfoProvider for StorageNode<RayClosestHitCtxPayload> {
   }
 }
 
-impl WorldRayInfoProvider for StorageNode<RayClosestHitCtxPayload> {
+impl WorldRayInfoProvider for StorageNode<ShaderRayTraceCallStoragePayload> {
   fn world_ray(&self) -> ShaderRay {
-    todo!()
+    let origin = ShaderRayTraceCallStoragePayload::storage_node_ray_origin_field_ptr(*self).load();
+    let direction =
+      ShaderRayTraceCallStoragePayload::storage_node_ray_direction_field_ptr(*self).load();
+    ShaderRay { origin, direction }
   }
 
   fn ray_range(&self) -> ShaderRayRange {
-    todo!()
+    let range = ShaderRayTraceCallStoragePayload::storage_node_range_field_ptr(*self).load();
+    ShaderRayRange {
+      min: range.x(),
+      max: range.y(),
+    }
   }
 
   fn ray_flags(&self) -> Node<u32> {
-    todo!()
+    ShaderRayTraceCallStoragePayload::storage_node_ray_flags_field_ptr(*self).load()
+  }
+}
+
+impl WorldRayInfoProvider for StorageNode<RayClosestHitCtxPayload> {
+  fn world_ray(&self) -> ShaderRay {
+    RayClosestHitCtxPayload::storage_node_ray_info_field_ptr(*self).world_ray()
+  }
+
+  fn ray_range(&self) -> ShaderRayRange {
+    RayClosestHitCtxPayload::storage_node_ray_info_field_ptr(*self).ray_range()
+  }
+
+  fn ray_flags(&self) -> Node<u32> {
+    RayClosestHitCtxPayload::storage_node_ray_info_field_ptr(*self).ray_flags()
   }
 }
 
 impl ClosestHitCtxProvider for StorageNode<RayClosestHitCtxPayload> {
   fn primitive_id(&self) -> Node<u32> {
-    todo!()
+    let ctx = RayClosestHitCtxPayload::storage_node_hit_ctx_field_ptr(*self);
+    HitCtxStorage::storage_node_primitive_id_field_ptr(ctx).load()
   }
 
   fn instance_id(&self) -> Node<u32> {
-    todo!()
+    let ctx = RayClosestHitCtxPayload::storage_node_hit_ctx_field_ptr(*self);
+    HitCtxStorage::storage_node_instance_id_field_ptr(ctx).load()
   }
 
   fn instance_custom_id(&self) -> Node<u32> {
-    todo!()
+    let ctx = RayClosestHitCtxPayload::storage_node_hit_ctx_field_ptr(*self);
+    HitCtxStorage::storage_node_instance_custom_id_field_ptr(ctx).load()
   }
 
   fn geometry_id(&self) -> Node<u32> {
-    todo!()
+    let ctx = RayClosestHitCtxPayload::storage_node_hit_ctx_field_ptr(*self);
+    HitCtxStorage::storage_node_geometry_id_field_ptr(ctx).load()
   }
 
   fn object_to_world(&self) -> Node<Mat4<f32>> {
-    todo!()
+    let ctx = RayClosestHitCtxPayload::storage_node_hit_ctx_field_ptr(*self);
+    HitCtxStorage::storage_node_object_to_world_field_ptr(ctx).load()
   }
 
   fn world_to_object(&self) -> Node<Mat4<f32>> {
-    todo!()
+    let ctx = RayClosestHitCtxPayload::storage_node_hit_ctx_field_ptr(*self);
+    HitCtxStorage::storage_node_world_to_object_field_ptr(ctx).load()
   }
 
   fn object_space_ray(&self) -> ShaderRay {
-    todo!()
+    let ctx = RayClosestHitCtxPayload::storage_node_hit_ctx_field_ptr(*self);
+    let direction = HitCtxStorage::storage_node_object_space_ray_direction_field_ptr(ctx).load();
+    let origin = HitCtxStorage::storage_node_object_space_ray_origin_field_ptr(ctx).load();
+    ShaderRay { origin, direction }
   }
 
   fn hit_kind(&self) -> Node<u32> {
@@ -256,15 +286,15 @@ impl RayLaunchInfoProvider for StorageNode<RayMissHitCtxPayload> {
 }
 impl WorldRayInfoProvider for StorageNode<RayMissHitCtxPayload> {
   fn world_ray(&self) -> ShaderRay {
-    todo!()
+    RayMissHitCtxPayload::storage_node_ray_info_field_ptr(*self).world_ray()
   }
 
   fn ray_range(&self) -> ShaderRayRange {
-    todo!()
+    RayMissHitCtxPayload::storage_node_ray_info_field_ptr(*self).ray_range()
   }
 
   fn ray_flags(&self) -> Node<u32> {
-    todo!()
+    RayMissHitCtxPayload::storage_node_ray_info_field_ptr(*self).ray_flags()
   }
 }
 impl MissingHitCtxProvider for StorageNode<RayMissHitCtxPayload> {}
