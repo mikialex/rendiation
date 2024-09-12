@@ -129,10 +129,18 @@ impl ShaderFragmentBuilder {
     T: SemanticFragmentShaderValue,
     T::ValueType: PrimitiveShaderNodeType,
   {
+    self.query_or_insert_by::<T>(Default::default)
+  }
+
+  pub fn query_or_insert_by<T>(&mut self, by: impl FnOnce() -> T::ValueType) -> Node<T::ValueType>
+  where
+    T: SemanticFragmentShaderValue,
+    T::ValueType: PrimitiveShaderNodeType,
+  {
     if let Ok(n) = self.registry.query(TypeId::of::<T>(), T::NAME) {
       unsafe { n.cast_type() }
     } else {
-      let default: T::ValueType = Default::default();
+      let default: T::ValueType = by();
       self.register::<T>(default)
     }
   }

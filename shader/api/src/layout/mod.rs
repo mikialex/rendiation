@@ -142,6 +142,14 @@ pub struct Shader140Array<T, const U: usize> {
   pub inner: [Shader140ArrayWrapper<T>; U],
 }
 
+impl<T: Clone + Default, const U: usize> Shader140Array<T, U> {
+  pub fn from_slice_clamp_or_default(slice: &[T]) -> Self {
+    Self {
+      inner: std::array::from_fn(|i| slice.get(i).cloned().unwrap_or_default().into()),
+    }
+  }
+}
+
 impl<T, const U: usize> From<[T; U]> for Shader140Array<T, U> {
   fn from(value: [T; U]) -> Self {
     Self {
