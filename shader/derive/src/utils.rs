@@ -29,39 +29,24 @@ impl StructInfo {
     }
   }
 
-  pub fn _map_fields(
-    &self,
-    f: impl FnMut(&(Ident, Type)) -> proc_macro2::TokenStream,
-  ) -> Vec<proc_macro2::TokenStream> {
-    self.fields_info.iter().map(f).collect()
+  pub fn iter_visible_fields(&self) -> impl Iterator<Item = (Ident, Type)> + '_ {
+    self.fields_raw.iter().filter_map(|f| {
+      if matches!(f.vis, Visibility::Inherited) {
+        None
+      } else {
+        let field_name = f.ident.as_ref().unwrap().clone();
+        let ty = f.ty.clone();
+        (field_name, ty).into()
+      }
+    })
   }
 
-  pub fn map_visible_fields(
+  pub fn map_collect_visible_fields(
     &self,
     f: impl FnMut((Ident, Type)) -> proc_macro2::TokenStream,
   ) -> Vec<proc_macro2::TokenStream> {
-    self
-      .fields_raw
-      .iter()
-      .filter_map(|f| {
-        if matches!(f.vis, Visibility::Inherited) {
-          None
-        } else {
-          let field_name = f.ident.as_ref().unwrap().clone();
-          let ty = f.ty.clone();
-          (field_name, ty).into()
-        }
-      })
-      .map(f)
-      .collect()
+    self.iter_visible_fields().map(f).collect()
   }
-
-  // pub fn map_fields_with_index(
-  //   &self,
-  //   f: impl FnMut((usize, &(Ident, Type))) -> proc_macro2::TokenStream,
-  // ) -> Vec<proc_macro2::TokenStream> {
-  //   self.fields_info.iter().enumerate().map(f).collect()
-  // }
 }
 
 pub fn only_accept_struct(input: &syn::DeriveInput) -> Result<&syn::DeriveInput, syn::Error> {

@@ -46,7 +46,7 @@ impl ShaderBindingTableProvider for ShaderBindingTableInfo {
 
 #[repr(C)]
 #[std430_layout]
-#[derive(Clone, Copy, ShaderStruct, PartialEq)]
+#[derive(Clone, Copy, ShaderStruct, PartialEq, StorageNodePtrAccess)]
 pub struct DeviceSBTTableMeta {
   pub hit_group_start: u32,
   pub miss_start: u32,
@@ -55,7 +55,7 @@ pub struct DeviceSBTTableMeta {
 
 #[repr(C)]
 #[std430_layout]
-#[derive(Clone, Copy, ShaderStruct)]
+#[derive(Clone, Copy, ShaderStruct, StorageNodePtrAccess)]
 pub struct DeviceHitGroupShaderRecord {
   pub closet_hit: u32,
   pub any_hit: u32,
@@ -214,36 +214,42 @@ pub struct ShaderBindingTableDeviceInfoInvocation {
   ray_gen: ReadOnlyStorageNode<[u32]>,
 }
 
-// todo improve code by pointer struct field access macro
 impl ShaderBindingTableDeviceInfoInvocation {
+  fn get_hit_group(
+    &self,
+    sbt_id: Node<u32>,
+    hit_idx: Node<u32>,
+  ) -> ReadOnlyStorageNode<DeviceHitGroupShaderRecord> {
+    let meta = self.meta.index(sbt_id);
+    let hit_start =
+      DeviceSBTTableMeta::readonly_storage_node_hit_group_start_field_ptr(meta).load();
+    self.ray_hit.index(hit_idx + hit_start)
+  }
+
   pub fn get_closest_handle(&self, sbt_id: Node<u32>, hit_idx: Node<u32>) -> Node<u32> {
-    let hit_start = self.meta.index(sbt_id).load().expand().hit_group_start; // todo fix over expand
-    let hit_group = self.ray_hit.index(hit_idx + hit_start).handle();
-    let handle: StorageNode<u32> = unsafe { index_access_field(hit_group, 0) };
-    handle.load()
+    let hit_group = self.get_hit_group(sbt_id, hit_idx);
+    DeviceHitGroupShaderRecord::readonly_storage_node_closet_hit_field_ptr(hit_group).load()
   }
 
   pub fn get_any_handle(&self, sbt_id: Node<u32>, hit_idx: Node<u32>) -> Node<u32> {
-    let hit_start = self.meta.index(sbt_id).load().expand().hit_group_start; // todo fix over expand
-    let hit_group = self.ray_hit.index(hit_idx + hit_start).handle();
-    let handle: StorageNode<u32> = unsafe { index_access_field(hit_group, 1) };
-    handle.load()
+    let hit_group = self.get_hit_group(sbt_id, hit_idx);
+    DeviceHitGroupShaderRecord::readonly_storage_node_any_hit_field_ptr(hit_group).load()
   }
 
   pub fn get_intersection_handle(&self, sbt_id: Node<u32>, hit_idx: Node<u32>) -> Node<u32> {
-    let hit_start = self.meta.index(sbt_id).load().expand().hit_group_start; // todo fix over expand
-    let hit_group = self.ray_hit.index(hit_idx + hit_start).handle();
-    let handle: StorageNode<u32> = unsafe { index_access_field(hit_group, 1) };
-    handle.load()
+    let hit_group = self.get_hit_group(sbt_id, hit_idx);
+    DeviceHitGroupShaderRecord::readonly_storage_node_intersection_field_ptr(hit_group).load()
   }
 
   pub fn get_missing_handle(&self, sbt_id: Node<u32>, idx: Node<u32>) -> Node<u32> {
-    let miss_start = self.meta.index(sbt_id).load().expand().miss_start; // todo fix over expand
-    self.ray_miss.index(miss_start + idx).load()
+    let meta = self.meta.index(sbt_id);
+    let miss_start = DeviceSBTTableMeta::readonly_storage_node_miss_start_field_ptr(meta);
+    self.ray_miss.index(miss_start.load() + idx).load()
   }
   pub fn get_ray_gen_handle(&self, sbt_id: Node<u32>) -> Node<u32> {
-    let ray_gen = self.meta.index(sbt_id).load().expand().gen_start; // todo fix over expand
-    self.ray_gen.index(ray_gen).load()
+    let meta = self.meta.index(sbt_id);
+    let ray_gen_start = DeviceSBTTableMeta::readonly_storage_node_gen_start_field_ptr(meta);
+    self.ray_gen.index(ray_gen_start.load()).load()
   }
 }
 
