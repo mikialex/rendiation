@@ -1,22 +1,22 @@
-pub struct GenerationalShrinkableVec<T> {
+pub struct TokenedItemPackage<T> {
   inner: Vec<(u32, T)>,
-  next_id: u32,
+  next_token: u32,
 }
 
-impl<T> Default for GenerationalShrinkableVec<T> {
+impl<T> Default for TokenedItemPackage<T> {
   fn default() -> Self {
     Self {
       inner: Default::default(),
-      next_id: 0,
+      next_token: 0,
     }
   }
 }
 
-impl<T> GenerationalShrinkableVec<T> {
+impl<T> TokenedItemPackage<T> {
   pub fn insert(&mut self, item: T) -> u32 {
-    self.next_id += 1;
-    self.inner.push((self.next_id, item));
-    self.next_id
+    self.next_token += 1;
+    self.inner.push((self.next_token, item));
+    self.next_token
   }
 
   pub fn remove(&mut self, handle: u32) {

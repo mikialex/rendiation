@@ -9,7 +9,7 @@ pub type EventListener<T> = Box<dyn FnMut(&T) -> bool + Send + Sync>;
 
 pub struct Source<T> {
   // return if should remove
-  storage: GenerationalShrinkableVec<EventListener<T>>,
+  storage: TokenedItemPackage<EventListener<T>>,
 }
 
 pub struct RemoveToken<T> {

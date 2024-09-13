@@ -12,7 +12,8 @@ impl<T> Default for DeduplicateVec<T> {
   }
 }
 
-impl<T: PartialEq + Copy> StorageBehavior<T> for DeduplicateVec<T> {
+impl<T: PartialEq + Copy> StorageBehavior for DeduplicateVec<T> {
+  type Item = T;
   type Handle = usize;
 
   fn insert(&mut self, v: T) -> Self::Handle {
@@ -24,13 +25,16 @@ impl<T: PartialEq + Copy> StorageBehavior<T> for DeduplicateVec<T> {
     })
   }
 
+  fn size(&self) -> usize {
+    self.inner.len()
+  }
+}
+
+impl<T: PartialEq + Copy> AccessibleStorage for DeduplicateVec<T> {
   fn get(&self, handle: Self::Handle) -> Option<&T> {
     self.inner.get(handle)
   }
   fn get_mut(&mut self, handle: Self::Handle) -> Option<&mut T> {
     self.inner.get_mut(handle)
-  }
-  fn size(&self) -> usize {
-    self.inner.len()
   }
 }

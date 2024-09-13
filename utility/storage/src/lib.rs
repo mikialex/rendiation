@@ -1,43 +1,50 @@
 mod deduplication;
 mod generational;
-mod generational_shrinkable;
 mod index_kept;
 mod index_reuse;
+mod item_package;
 mod linklist_pool;
 mod multi_hash;
 
 pub use deduplication::*;
 use fast_hash_collection::*;
 pub use generational::*;
-pub use generational_shrinkable::*;
 pub use index_kept::*;
 pub use index_reuse::*;
+pub use item_package::*;
 pub use linklist_pool::*;
 pub use multi_hash::*;
-pub type Handle<T, S> = <S as StorageBehavior<T>>::Handle;
+pub type Handle<T> = <T as StorageBehavior>::Handle;
 
-pub trait StorageBehavior<T>: Sized + Default {
+pub trait StorageBehavior: Sized + Default {
+  type Item;
   type Handle: Copy;
 
-  fn insert(&mut self, v: T) -> Self::Handle;
-  fn get(&self, handle: Self::Handle) -> Option<&T>;
-  fn get_mut(&mut self, handle: Self::Handle) -> Option<&mut T>;
+  fn insert(&mut self, v: Self::Item) -> Self::Handle;
   fn size(&self) -> usize;
   fn is_empty(&self) -> bool {
     self.size() == 0
   }
 }
 
-pub trait RemoveAbleStorage<T>: StorageBehavior<T> {
-  fn remove(&mut self, handle: Self::Handle) -> Option<T>;
+pub trait AccessibleStorage: StorageBehavior {
+  fn get(&self, handle: Self::Handle) -> Option<&Self::Item>;
+  fn get_mut(&mut self, handle: Self::Handle) -> Option<&mut Self::Item>;
 }
 
-pub trait NoneOverlappingStorage<T>: StorageBehavior<T> {
-  fn get_mut_pair(&mut self, handle: (Self::Handle, Self::Handle)) -> Option<(&mut T, &mut T)>;
+pub trait RemoveAbleStorage: StorageBehavior {
+  fn remove(&mut self, handle: Self::Handle) -> Option<Self::Item>;
 }
 
-pub trait HandlePredictableStorage<T>: StorageBehavior<T> {
-  fn insert_with(&mut self, creator: impl FnOnce(Self::Handle) -> T) -> Self::Handle;
+pub trait NoneOverlappingStorage: AccessibleStorage {
+  fn get_mut_pair(
+    &mut self,
+    handle: (Self::Handle, Self::Handle),
+  ) -> Option<(&mut Self::Item, &mut Self::Item)>;
+}
+
+pub trait HandlePredictableStorage: StorageBehavior {
+  fn insert_with(&mut self, creator: impl FnOnce(Self::Handle) -> Self::Item) -> Self::Handle;
 }
 
 /// this is use for saving memory. u32max-1 should be enough for any container's max size, and
