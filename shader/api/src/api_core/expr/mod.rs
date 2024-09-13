@@ -102,6 +102,14 @@ pub struct ShaderTextureLoad {
   pub level: Option<ShaderNodeRawHandle>,
 }
 
+#[derive(Clone, Copy)]
+pub struct ShaderTextureStore {
+  pub image: ShaderNodeRawHandle,
+  pub position: ShaderNodeRawHandle,
+  pub array_index: Option<ShaderNodeRawHandle>,
+  pub value: ShaderNodeRawHandle,
+}
+
 pub enum ShaderNodeExpr {
   Zeroed {
     target: ShaderSizedValueType,

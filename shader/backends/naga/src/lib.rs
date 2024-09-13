@@ -1056,6 +1056,16 @@ impl ShaderAPI for ShaderAPINagaImpl {
     self.push_top_statement(st);
   }
 
+  fn texture_store(&mut self, store: ShaderTextureStore) {
+    let st = naga::Statement::ImageStore {
+      image: self.get_expression(store.image),
+      coordinate: self.get_expression(store.position),
+      array_index: store.array_index.map(|v| self.get_expression(v)),
+      value: self.get_expression(store.value),
+    };
+    self.push_top_statement(st);
+  }
+
   fn load(&mut self, source: ShaderNodeRawHandle) -> ShaderNodeRawHandle {
     let ex = naga::Expression::Load {
       pointer: self.get_expression(source),

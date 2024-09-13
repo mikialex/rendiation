@@ -59,6 +59,7 @@ pub trait ShaderAPI {
   fn make_zero_val(&mut self, ty: ShaderValueType) -> ShaderNodeRawHandle;
   fn store(&mut self, source: ShaderNodeRawHandle, target: ShaderNodeRawHandle);
   fn load(&mut self, source: ShaderNodeRawHandle) -> ShaderNodeRawHandle;
+  fn texture_store(&mut self, store: ShaderTextureStore);
 
   fn push_scope(&mut self);
   fn pop_scope(&mut self);

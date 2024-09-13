@@ -531,3 +531,177 @@ impl<T: ShaderTextureType> HandleNode<T> {
     self.texture_dimension(level).insert_api()
   }
 }
+
+pub struct ShaderStorageTextureR1D;
+pub struct ShaderStorageTextureRW1D;
+pub struct ShaderStorageTextureW1D;
+
+pub struct ShaderStorageTextureR2D;
+pub struct ShaderStorageTextureRW2D;
+pub struct ShaderStorageTextureW2D;
+
+pub struct ShaderStorageTextureR3D;
+pub struct ShaderStorageTextureRW3D;
+pub struct ShaderStorageTextureW3D;
+
+pub struct ShaderStorageTextureR2DArray;
+pub struct ShaderStorageTextureRW2DArray;
+pub struct ShaderStorageTextureW2DArray;
+
+impl ShaderTextureType for ShaderStorageTextureR1D {
+  type Input = f32;
+  type Output = Vec4<f32>;
+}
+impl ShaderTextureType for ShaderStorageTextureRW1D {
+  type Input = f32;
+  type Output = Vec4<f32>;
+}
+impl ShaderTextureType for ShaderStorageTextureW1D {
+  type Input = f32;
+  type Output = Vec4<f32>;
+}
+
+impl ShaderDirectLoad for ShaderStorageTextureR1D {
+  type LoadInput = Node<u32>;
+}
+impl ShaderDirectLoad for ShaderStorageTextureRW1D {
+  type LoadInput = Node<u32>;
+}
+impl ShaderDirectLoad for ShaderStorageTextureW1D {
+  type LoadInput = Node<u32>;
+}
+
+impl ShaderTextureType for ShaderStorageTextureR2D {
+  type Input = Vec2<f32>;
+  type Output = Vec4<f32>;
+}
+impl ShaderTextureType for ShaderStorageTextureRW2D {
+  type Input = Vec2<f32>;
+  type Output = Vec4<f32>;
+}
+impl ShaderTextureType for ShaderStorageTextureW2D {
+  type Input = Vec2<f32>;
+  type Output = Vec4<f32>;
+}
+
+impl ShaderDirectLoad for ShaderStorageTextureR2D {
+  type LoadInput = Node<Vec2<u32>>;
+}
+impl ShaderDirectLoad for ShaderStorageTextureRW2D {
+  type LoadInput = Node<Vec2<u32>>;
+}
+impl ShaderDirectLoad for ShaderStorageTextureW2D {
+  type LoadInput = Node<Vec2<u32>>;
+}
+
+impl ShaderTextureType for ShaderStorageTextureR3D {
+  type Input = Vec3<f32>;
+  type Output = Vec4<f32>;
+}
+impl ShaderTextureType for ShaderStorageTextureRW3D {
+  type Input = Vec3<f32>;
+  type Output = Vec4<f32>;
+}
+impl ShaderTextureType for ShaderStorageTextureW3D {
+  type Input = Vec3<f32>;
+  type Output = Vec4<f32>;
+}
+
+impl ShaderDirectLoad for ShaderStorageTextureR3D {
+  type LoadInput = Node<Vec3<u32>>;
+}
+impl ShaderDirectLoad for ShaderStorageTextureRW3D {
+  type LoadInput = Node<Vec3<u32>>;
+}
+impl ShaderDirectLoad for ShaderStorageTextureW3D {
+  type LoadInput = Node<Vec3<u32>>;
+}
+
+impl ShaderTextureType for ShaderStorageTextureR2DArray {
+  type Input = Vec2<f32>;
+  type Output = Vec4<f32>;
+}
+impl ShaderTextureType for ShaderStorageTextureRW2DArray {
+  type Input = Vec2<f32>;
+  type Output = Vec4<f32>;
+}
+impl ShaderTextureType for ShaderStorageTextureW2DArray {
+  type Input = Vec2<f32>;
+  type Output = Vec4<f32>;
+}
+
+impl ShaderDirectLoad for ShaderStorageTextureR2DArray {
+  type LoadInput = Node<Vec2<u32>>;
+}
+impl ShaderDirectLoad for ShaderStorageTextureRW2DArray {
+  type LoadInput = Node<Vec2<u32>>;
+}
+impl ShaderDirectLoad for ShaderStorageTextureW2DArray {
+  type LoadInput = Node<Vec2<u32>>;
+}
+
+pub trait ShaderStorageTextureLike {}
+
+impl ShaderStorageTextureLike for ShaderStorageTextureR1D {}
+impl ShaderStorageTextureLike for ShaderStorageTextureRW1D {}
+impl ShaderStorageTextureLike for ShaderStorageTextureW1D {}
+
+impl ShaderStorageTextureLike for ShaderStorageTextureR2D {}
+impl ShaderStorageTextureLike for ShaderStorageTextureRW2D {}
+impl ShaderStorageTextureLike for ShaderStorageTextureW2D {}
+
+impl ShaderStorageTextureLike for ShaderStorageTextureR3D {}
+impl ShaderStorageTextureLike for ShaderStorageTextureRW3D {}
+impl ShaderStorageTextureLike for ShaderStorageTextureW3D {}
+
+impl ShaderStorageTextureLike for ShaderStorageTextureR2DArray {}
+impl ShaderStorageTextureLike for ShaderStorageTextureRW2DArray {}
+impl ShaderStorageTextureLike for ShaderStorageTextureW2DArray {}
+
+impl SingleLayerTarget for ShaderStorageTextureR1D {}
+impl SingleLayerTarget for ShaderStorageTextureRW1D {}
+impl SingleLayerTarget for ShaderStorageTextureW1D {}
+
+impl SingleLayerTarget for ShaderStorageTextureR2D {}
+impl SingleLayerTarget for ShaderStorageTextureRW2D {}
+impl SingleLayerTarget for ShaderStorageTextureW2D {}
+
+impl SingleLayerTarget for ShaderStorageTextureR3D {}
+impl SingleLayerTarget for ShaderStorageTextureRW3D {}
+impl SingleLayerTarget for ShaderStorageTextureW3D {}
+
+impl ArrayLayerTarget for ShaderStorageTextureR2DArray {}
+impl ArrayLayerTarget for ShaderStorageTextureRW2DArray {}
+impl ArrayLayerTarget for ShaderStorageTextureW2DArray {}
+
+impl<T> HandleNode<T>
+where
+  T: ShaderTextureType + ShaderStorageTextureLike + ShaderDirectLoad + SingleLayerTarget,
+{
+  pub fn write_texel(&self, at: Node<T::LoadInput>, tex: Node<T::Output>) {
+    call_shader_api(|api| {
+      api.texture_store(ShaderTextureStore {
+        image: self.handle(),
+        position: at.handle(),
+        array_index: None,
+        value: tex.handle(),
+      })
+    })
+  }
+}
+
+impl<T> HandleNode<T>
+where
+  T: ShaderTextureType + ShaderStorageTextureLike + ShaderDirectLoad + ArrayLayerTarget,
+{
+  pub fn write_texel_index(&self, at: Node<T::LoadInput>, index: Node<u32>, tex: Node<T::Output>) {
+    call_shader_api(|api| {
+      api.texture_store(ShaderTextureStore {
+        image: self.handle(),
+        position: at.handle(),
+        array_index: Some(index.handle()),
+        value: tex.handle(),
+      })
+    })
+  }
+}
