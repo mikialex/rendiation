@@ -78,78 +78,14 @@ impl DeviceTaskGraphExecutor {
 
     let task_group_sources: Vec<_> = self.task_groups.iter().map(|x| &x.resource).collect();
 
-    let mut cx = compute_shader_builder();
-
-    let mut build_ctx = DeviceTaskSystemBuildCtx {
-      compute_cx: &mut cx,
-      state_builder: DynamicTypeBuilder::new_named(&format!("Task_states_{}", task_type)),
-      all_task_group_sources: task_group_sources,
-      tasks_depend_on_self: Default::default(),
-    };
-
-    let state = task.build_poll(&mut build_ctx);
-
-    let state_desc = build_ctx.state_builder.meta_info();
-    let tasks_depend_on_self = build_ctx.tasks_depend_on_self.keys().cloned().collect();
-
-    let mut task_type_desc = ShaderStructMetaInfo::new("TaskType");
-    task_type_desc.push_field_dyn(
-      "is_finished",
-      ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Uint32),
-    );
-    task_type_desc.push_field_dyn("payload", payload_ty);
-    task_type_desc.push_field_dyn("state", ShaderSizedValueType::Struct(state_desc.ty.clone()));
-    let mut state_builder = build_ctx.state_builder;
-
-    let outer_builder = take_build_api(); // workaround, should be improved?
-    let resource = TaskGroupExecutorResource::create_with_size(
-      self.current_prepared_execution_size,
-      state_desc.clone(),
-      task_type_desc.clone(),
-      pcx,
-    );
-    set_build_api(outer_builder);
-
-    let indices = cx.bind_by(&resource.alive_task_idx.storage);
-    let active_task_count = cx.bind_by(&resource.alive_task_idx.current_size);
-    let pool = resource.task_pool.build_shader(&mut cx);
-
-    let active_idx = cx.global_invocation_id().x();
-    if_by(active_idx.less_than(active_task_count.load()), || {
-      let task_index = indices.index(active_idx).load();
-
-      let item = pool.rw_states(task_index);
-      state_builder.resolve(item.cast_untyped_node());
-
-      let mut poll_ctx = DeviceTaskSystemPollCtx {
-        self_task_idx: task_index,
-        self_task: pool.clone(),
-        compute_cx: &mut cx,
-        invocation_registry: Default::default(),
-      };
-
-      let poll_result = state.device_poll(&mut poll_ctx);
-      if_by(poll_result.is_ready, || {
-        pool
-          .rw_is_finished(task_index)
-          .store(TASK_STATUE_FLAG_FINISHED);
-      });
-    });
-
-    cx.config_work_group_size(TASK_EXECUTION_WORKGROUP_SIZE);
-
-    let polling_pipeline = cx.create_compute_pipeline(&pcx.gpu.device).unwrap();
-
-    let task_executor = TaskGroupExecutor {
-      polling_pipeline,
-      resource,
-      state_desc,
-      task_type_desc,
-      tasks_depend_on_self,
-      required_poll_count: task.required_poll_count(),
+    let task_executor = TaskGroupExecutor::new(
       task,
-      self_task_idx: task_type,
-    };
+      payload_ty,
+      pcx,
+      task_group_sources,
+      self.current_prepared_execution_size,
+    );
+
     self.task_groups.push(task_executor);
 
     task_type as u32
@@ -163,7 +99,7 @@ impl DeviceTaskGraphExecutor {
     }
     self.current_prepared_execution_size = dispatch_size;
     for s in &mut self.task_groups {
-      s.reset(ctx, dispatch_size);
+      s.reset_task_instance(ctx, dispatch_size);
       s.resize(dispatch_size, self.max_recursion_depth, ctx);
     }
   }

@@ -49,6 +49,8 @@ pub trait ShaderFuture {
 
   fn bind_input(&self, builder: &mut DeviceTaskSystemBindCtx);
 
+  /// reset will be called if overall work_size changed.
+  /// the implementation may do resource recreation in this method.
   fn reset(&mut self, ctx: &mut DeviceParallelComputeCtx, work_size: u32);
 }
 
