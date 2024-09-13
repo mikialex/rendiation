@@ -95,6 +95,13 @@ impl<T: ShaderSizedValueNodeType, const U: usize> ShaderFieldTypeMapper for Shad
   }
 }
 
+impl<T: ShaderSizedValueNodeType + Clone, const U: usize> ShaderFieldTypeMapper for [T; U] {
+  type ShaderType = [T; U];
+  fn into_shader_ty(self) -> Self::ShaderType {
+    self.clone()
+  }
+}
+
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub struct ShaderStructFieldMetaInfo {
   pub name: String,

@@ -255,8 +255,8 @@ impl SingleSampleTarget for ShaderDepthTexture2DArray {}
 impl SingleSampleTarget for ShaderDepthTextureCubeArray {}
 
 pub trait MultiSampleTarget {}
-impl ArrayLayerTarget for ShaderMultiSampleTexture2D {}
-impl ArrayLayerTarget for ShaderMultiSampleDepthTexture2D {}
+impl MultiSampleTarget for ShaderMultiSampleTexture2D {}
+impl MultiSampleTarget for ShaderMultiSampleDepthTexture2D {}
 
 pub trait ShaderArrayTextureSampleIndexType: ShaderNodeType {}
 impl ShaderArrayTextureSampleIndexType for u32 {}
