@@ -614,6 +614,18 @@ where
     }
   }
 
+  /// this is not very useful but sometimes feel handy so I will keep it here
+  fn stream_compaction_self_filter(
+    self,
+    filter: impl Fn(Node<T>) -> Node<bool> + 'static,
+  ) -> impl DeviceParallelComputeIO<T>
+  where
+    Self: Clone,
+  {
+    let mask = self.clone().map(filter);
+    self.stream_compaction(mask)
+  }
+
   fn workgroup_scope_prefix_scan_kogge_stone<S>(
     self,
     workgroup_size: u32,

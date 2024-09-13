@@ -81,6 +81,7 @@ pub enum GatherChannel {
   W,
 }
 
+#[derive(Clone, Copy)]
 pub struct ShaderTextureSampling {
   pub texture: ShaderNodeRawHandle,
   pub sampler: ShaderNodeRawHandle,
@@ -92,6 +93,7 @@ pub struct ShaderTextureSampling {
   pub gather_channel: Option<GatherChannel>,
 }
 
+#[derive(Clone, Copy)]
 pub struct ShaderTextureLoad {
   pub texture: ShaderNodeRawHandle,
   pub position: ShaderNodeRawHandle,

@@ -106,13 +106,23 @@ impl DeviceInvocation<Node<u32>> for DeviceInvocationTailAsSize {
 #[pollster::test]
 async fn test_stream_compaction() {
   let input = vec![1, 0, 1, 0, 1, 1, 0];
-
   let expect = vec![1, 1, 1, 1, 0, 0, 0];
 
   let mask = input.clone().map(|v| v.equals(1));
 
   input
     .stream_compaction(mask)
+    .run_test_with_size_test(&expect, Some(Vec3::new(4, 0, 0)))
+    .await
+}
+
+#[pollster::test]
+async fn test_stream_compaction2() {
+  let input = vec![1, 0, 1, 0, 1, 1, 0];
+  let expect = vec![1, 1, 1, 1, 0, 0, 0];
+
+  input
+    .stream_compaction_self_filter(|v| v.equals(1))
     .run_test_with_size_test(&expect, Some(Vec3::new(4, 0, 0)))
     .await
 }

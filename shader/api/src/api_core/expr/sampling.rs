@@ -268,6 +268,7 @@ impl DepthSampleTarget for ShaderDepthTextureCube {}
 impl DepthSampleTarget for ShaderDepthTexture2DArray {}
 impl DepthSampleTarget for ShaderDepthTextureCubeArray {}
 
+#[derive(Clone, Copy)]
 pub struct TextureSamplingAction<T> {
   tex: PhantomData<T>,
   info: ShaderTextureSampling,
@@ -412,6 +413,7 @@ impl<T: ShaderTextureType> HandleNode<T> {
   }
 }
 
+#[derive(Clone, Copy)]
 pub struct DepthTextureSamplingAction<T> {
   tex: PhantomData<T>,
   info: ShaderTextureSampling,
