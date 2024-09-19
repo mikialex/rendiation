@@ -1,7 +1,7 @@
 use core::num::NonZeroU32;
 
 use fast_hash_collection::*;
-use naga::{Span, StorageAccess};
+use naga::Span;
 use rendiation_shader_api::*;
 
 pub struct ShaderAPINagaImpl {

@@ -505,3 +505,55 @@ pub enum StorageFormat {
   Rgba16Unorm,
   Rgba16Snorm,
 }
+
+impl TryFrom<TextureFormat> for StorageFormat {
+  type Error = ();
+
+  fn try_from(value: TextureFormat) -> Result<Self, Self::Error> {
+    Ok(match value {
+      TextureFormat::R8Unorm => StorageFormat::R8Unorm,
+      TextureFormat::R8Snorm => StorageFormat::R8Snorm,
+      TextureFormat::R8Uint => StorageFormat::R8Uint,
+      TextureFormat::R8Sint => StorageFormat::R8Sint,
+      TextureFormat::R16Uint => StorageFormat::R16Uint,
+      TextureFormat::R16Sint => StorageFormat::R16Sint,
+      TextureFormat::R16Unorm => StorageFormat::R16Unorm,
+      TextureFormat::R16Snorm => StorageFormat::R16Snorm,
+      TextureFormat::R16Float => StorageFormat::R16Float,
+      TextureFormat::Rg8Unorm => StorageFormat::Rg8Unorm,
+      TextureFormat::Rg8Snorm => StorageFormat::Rg8Snorm,
+      TextureFormat::Rg8Uint => StorageFormat::Rg8Uint,
+      TextureFormat::Rg8Sint => StorageFormat::Rg8Sint,
+      TextureFormat::R32Uint => StorageFormat::R32Uint,
+      TextureFormat::R32Sint => StorageFormat::R32Sint,
+      TextureFormat::R32Float => StorageFormat::R32Float,
+      TextureFormat::Rg16Uint => StorageFormat::Rg16Uint,
+      TextureFormat::Rg16Sint => StorageFormat::Rg16Sint,
+      TextureFormat::Rg16Unorm => StorageFormat::Rg16Unorm,
+      TextureFormat::Rg16Snorm => StorageFormat::Rg16Snorm,
+      TextureFormat::Rg16Float => StorageFormat::Rg16Float,
+      TextureFormat::Rgba8Unorm => StorageFormat::Rgba8Unorm,
+      TextureFormat::Rgba8UnormSrgb => StorageFormat::Rgba8Unorm,
+      TextureFormat::Rgba8Snorm => StorageFormat::Rgba8Snorm,
+      TextureFormat::Rgba8Uint => StorageFormat::Rgba8Uint,
+      TextureFormat::Rgba8Sint => StorageFormat::Rgba8Sint,
+      TextureFormat::Bgra8Unorm => StorageFormat::Rgba8Unorm,
+      TextureFormat::Bgra8UnormSrgb => StorageFormat::Rgba8Unorm,
+      TextureFormat::Rgb10a2Uint => StorageFormat::Rgb10a2Uint,
+      TextureFormat::Rgb10a2Unorm => StorageFormat::Rgb10a2Unorm,
+      TextureFormat::Rg11b10Float => StorageFormat::Rg11b10Float,
+      TextureFormat::Rg32Uint => StorageFormat::Rg32Uint,
+      TextureFormat::Rg32Sint => StorageFormat::Rg32Sint,
+      TextureFormat::Rg32Float => StorageFormat::Rg32Float,
+      TextureFormat::Rgba16Uint => StorageFormat::Rgba16Uint,
+      TextureFormat::Rgba16Sint => StorageFormat::Rgba16Sint,
+      TextureFormat::Rgba16Unorm => StorageFormat::Rgba16Unorm,
+      TextureFormat::Rgba16Snorm => StorageFormat::Rgba16Snorm,
+      TextureFormat::Rgba16Float => StorageFormat::Rgba16Float,
+      TextureFormat::Rgba32Uint => StorageFormat::Rgba32Uint,
+      TextureFormat::Rgba32Sint => StorageFormat::Rgba32Sint,
+      TextureFormat::Rgba32Float => StorageFormat::Rgba32Float,
+      _ => return Err(()),
+    })
+  }
+}

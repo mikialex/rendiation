@@ -130,6 +130,7 @@
         "Raycastable",
         "Raycaster",
         "raytracing",
+        "readwrite",
         "Rebuilder",
         "refcell",
         "Reinhard",
@@ -204,6 +205,7 @@
         "wireframe",
         "workgroups",
         "Worley",
+        "writeonly",
         "ycocg",
         "Zeroable",
         "zerocopy"

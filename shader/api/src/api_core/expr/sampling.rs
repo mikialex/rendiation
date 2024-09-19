@@ -548,6 +548,36 @@ pub struct ShaderStorageTextureR2DArray;
 pub struct ShaderStorageTextureRW2DArray;
 pub struct ShaderStorageTextureW2DArray;
 
+#[macro_export]
+macro_rules! storage_tex_impl {
+  ($ty: ty, $ty_value: expr) => {
+    sg_node_impl!(
+      $ty,
+      ShaderValueSingleType::StorageTexture {
+        dimension: $ty_value,
+        format: StorageFormat::R8Unorm,
+        access: StorageTextureAccess::Load,
+      }
+    );
+  };
+}
+
+storage_tex_impl!(ShaderStorageTextureR1D, TextureViewDimension::D1);
+storage_tex_impl!(ShaderStorageTextureRW1D, TextureViewDimension::D1);
+storage_tex_impl!(ShaderStorageTextureW1D, TextureViewDimension::D1);
+
+storage_tex_impl!(ShaderStorageTextureR2D, TextureViewDimension::D2);
+storage_tex_impl!(ShaderStorageTextureRW2D, TextureViewDimension::D2);
+storage_tex_impl!(ShaderStorageTextureW2D, TextureViewDimension::D2);
+
+storage_tex_impl!(ShaderStorageTextureR3D, TextureViewDimension::D3);
+storage_tex_impl!(ShaderStorageTextureRW3D, TextureViewDimension::D3);
+storage_tex_impl!(ShaderStorageTextureW3D, TextureViewDimension::D3);
+
+storage_tex_impl!(ShaderStorageTextureR2DArray, TextureViewDimension::D2Array);
+storage_tex_impl!(ShaderStorageTextureRW2DArray, TextureViewDimension::D2Array);
+storage_tex_impl!(ShaderStorageTextureW2DArray, TextureViewDimension::D2Array);
+
 impl ShaderTextureType for ShaderStorageTextureR1D {
   type Input = f32;
   type Output = Vec4<f32>;

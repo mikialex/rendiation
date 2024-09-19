@@ -1,6 +1,8 @@
 mod d2;
 pub use d2::*;
 mod cube;
+mod storage;
+pub use storage::*;
 
 use crate::*;
 
