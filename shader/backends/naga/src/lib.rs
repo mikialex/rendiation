@@ -204,6 +204,76 @@ impl ShaderAPINagaImpl {
             class,
           }
         }
+        ShaderValueSingleType::StorageTexture {
+          dimension,
+          format,
+          access,
+        } => {
+          let (dim, arrayed) = match dimension {
+            TextureViewDimension::D1 => (naga::ImageDimension::D1, false),
+            TextureViewDimension::D2 => (naga::ImageDimension::D2, false),
+            TextureViewDimension::D2Array => (naga::ImageDimension::D2, true),
+            TextureViewDimension::D3 => (naga::ImageDimension::D3, false),
+            _ => panic!("Unsupported storage texture dimension"),
+          };
+
+          let format = match format {
+            StorageFormat::R8Unorm => naga::StorageFormat::R8Unorm,
+            StorageFormat::R8Snorm => naga::StorageFormat::R8Snorm,
+            StorageFormat::R8Uint => naga::StorageFormat::R8Uint,
+            StorageFormat::R8Sint => naga::StorageFormat::R8Sint,
+            StorageFormat::R16Uint => naga::StorageFormat::R16Uint,
+            StorageFormat::R16Sint => naga::StorageFormat::R16Sint,
+            StorageFormat::R16Float => naga::StorageFormat::R16Float,
+            StorageFormat::Rg8Unorm => naga::StorageFormat::Rg8Unorm,
+            StorageFormat::Rg8Snorm => naga::StorageFormat::Rg8Snorm,
+            StorageFormat::Rg8Uint => naga::StorageFormat::Rg8Uint,
+            StorageFormat::Rg8Sint => naga::StorageFormat::Rg8Sint,
+            StorageFormat::R32Uint => naga::StorageFormat::R32Uint,
+            StorageFormat::R32Sint => naga::StorageFormat::R32Sint,
+            StorageFormat::R32Float => naga::StorageFormat::R32Float,
+            StorageFormat::Rg16Uint => naga::StorageFormat::Rg16Uint,
+            StorageFormat::Rg16Sint => naga::StorageFormat::Rg16Sint,
+            StorageFormat::Rg16Float => naga::StorageFormat::Rg16Float,
+            StorageFormat::Rgba8Unorm => naga::StorageFormat::Rgba8Unorm,
+            StorageFormat::Rgba8Snorm => naga::StorageFormat::Rgba8Snorm,
+            StorageFormat::Rgba8Uint => naga::StorageFormat::Rgba8Uint,
+            StorageFormat::Rgba8Sint => naga::StorageFormat::Rgba8Sint,
+            StorageFormat::Bgra8Unorm => naga::StorageFormat::Bgra8Unorm,
+            StorageFormat::Rgb10a2Uint => naga::StorageFormat::Rgb10a2Uint,
+            StorageFormat::Rgb10a2Unorm => naga::StorageFormat::Rgb10a2Unorm,
+            StorageFormat::Rg11b10Float => naga::StorageFormat::Rg11b10Float,
+            StorageFormat::Rg32Uint => naga::StorageFormat::Rg32Uint,
+            StorageFormat::Rg32Sint => naga::StorageFormat::Rg32Sint,
+            StorageFormat::Rg32Float => naga::StorageFormat::Rg32Float,
+            StorageFormat::Rgba16Uint => naga::StorageFormat::Rgba16Uint,
+            StorageFormat::Rgba16Sint => naga::StorageFormat::Rgba16Sint,
+            StorageFormat::Rgba16Float => naga::StorageFormat::Rgba16Float,
+            StorageFormat::Rgba32Uint => naga::StorageFormat::Rgba32Uint,
+            StorageFormat::Rgba32Sint => naga::StorageFormat::Rgba32Sint,
+            StorageFormat::Rgba32Float => naga::StorageFormat::Rgba32Float,
+            StorageFormat::R16Unorm => naga::StorageFormat::R16Unorm,
+            StorageFormat::R16Snorm => naga::StorageFormat::R16Snorm,
+            StorageFormat::Rg16Unorm => naga::StorageFormat::Rg16Unorm,
+            StorageFormat::Rg16Snorm => naga::StorageFormat::Rg16Snorm,
+            StorageFormat::Rgba16Unorm => naga::StorageFormat::Rgba16Unorm,
+            StorageFormat::Rgba16Snorm => naga::StorageFormat::Rgba16Snorm,
+          };
+
+          let access = match access {
+            StorageTextureAccess::Load => naga::StorageAccess::LOAD,
+            StorageTextureAccess::Store => naga::StorageAccess::STORE,
+            StorageTextureAccess::LoadStore => naga::StorageAccess::all(),
+          };
+
+          let class = naga::ImageClass::Storage { format, access };
+
+          naga::TypeInner::Image {
+            dim,
+            arrayed,
+            class,
+          }
+        }
       },
       ShaderValueType::BindingArray { count, ty } => naga::TypeInner::BindingArray {
         base: self.register_ty_impl(ShaderValueType::Single(ty.clone()), layout),
@@ -368,18 +438,24 @@ impl ShaderAPI for ShaderAPINagaImpl {
         entry_index,
       } => {
         let layout = desc.get_buffer_layout();
-        let ty = self.register_ty_impl(desc.ty, layout);
-        let space = match layout {
-          Some(StructLayoutTarget::Std140) => naga::AddressSpace::Uniform,
-          Some(StructLayoutTarget::Std430) => naga::AddressSpace::Storage {
-            access: if desc.writeable_if_storage {
-              StorageAccess::all()
+
+        let space = desc.get_address_space().unwrap();
+        let space = match space {
+          AddressSpace::Function => naga::AddressSpace::Function,
+          AddressSpace::Private => naga::AddressSpace::Private,
+          AddressSpace::WorkGroup => naga::AddressSpace::WorkGroup,
+          AddressSpace::Uniform => naga::AddressSpace::Uniform,
+          AddressSpace::Storage { writeable } => naga::AddressSpace::Storage {
+            access: if writeable {
+              naga::StorageAccess::all()
             } else {
-              StorageAccess::LOAD
+              naga::StorageAccess::LOAD
             },
           },
-          None => naga::AddressSpace::Handle,
+          AddressSpace::Handle => naga::AddressSpace::Handle,
         };
+
+        let ty = self.register_ty_impl(desc.ty, layout);
         let g = naga::GlobalVariable {
           name: None,
           space,

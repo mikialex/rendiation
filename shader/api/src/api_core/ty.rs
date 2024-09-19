@@ -171,6 +171,11 @@ pub enum ShaderValueSingleType {
     sample_type: TextureSampleType,
     multi_sampled: bool,
   },
+  StorageTexture {
+    dimension: TextureViewDimension,
+    format: StorageFormat,
+    access: StorageTextureAccess,
+  },
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
@@ -434,4 +439,69 @@ impl<T: ShaderSizedValueNodeType> ShaderNodeSingleType for HostDynSizeArray<T> {
       0,
     ))
   }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub enum StorageTextureAccess {
+  Load,
+  Store,
+  LoadStore,
+}
+
+/// Image storage format.
+#[derive(Clone, Copy, Debug, Hash, Eq, Ord, PartialEq, PartialOrd)]
+pub enum StorageFormat {
+  // 8-bit formats
+  R8Unorm,
+  R8Snorm,
+  R8Uint,
+  R8Sint,
+
+  // 16-bit formats
+  R16Uint,
+  R16Sint,
+  R16Float,
+  Rg8Unorm,
+  Rg8Snorm,
+  Rg8Uint,
+  Rg8Sint,
+
+  // 32-bit formats
+  R32Uint,
+  R32Sint,
+  R32Float,
+  Rg16Uint,
+  Rg16Sint,
+  Rg16Float,
+  Rgba8Unorm,
+  Rgba8Snorm,
+  Rgba8Uint,
+  Rgba8Sint,
+  Bgra8Unorm,
+
+  // Packed 32-bit formats
+  Rgb10a2Uint,
+  Rgb10a2Unorm,
+  Rg11b10Float,
+
+  // 64-bit formats
+  Rg32Uint,
+  Rg32Sint,
+  Rg32Float,
+  Rgba16Uint,
+  Rgba16Sint,
+  Rgba16Float,
+
+  // 128-bit formats
+  Rgba32Uint,
+  Rgba32Sint,
+  Rgba32Float,
+
+  // Normalized 16-bit per channel formats
+  R16Unorm,
+  R16Snorm,
+  Rg16Unorm,
+  Rg16Snorm,
+  Rgba16Unorm,
+  Rgba16Snorm,
 }

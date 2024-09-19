@@ -101,6 +101,29 @@ impl ShaderBindingDescriptor {
       ShaderValueType::Never => None,
     }
   }
+
+  pub fn get_address_space(&self) -> Option<AddressSpace> {
+    match &self.ty {
+      ShaderValueType::Single(ty) => match ty {
+        ShaderValueSingleType::Sized(_) => {
+          if self.should_as_storage_buffer_if_is_buffer_like {
+            AddressSpace::Storage {
+              writeable: self.writeable_if_storage,
+            }
+          } else {
+            AddressSpace::Uniform
+          }
+        }
+        ShaderValueSingleType::Unsized(_) => AddressSpace::Storage {
+          writeable: self.writeable_if_storage,
+        },
+        _ => AddressSpace::Handle,
+      },
+      ShaderValueType::BindingArray { .. } => AddressSpace::Handle,
+      ShaderValueType::Never => return None,
+    }
+    .into()
+  }
 }
 
 impl<'a, T: ShaderBindingProvider> ShaderBindingProvider for &'a T {

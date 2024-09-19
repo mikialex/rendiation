@@ -94,6 +94,64 @@ pub fn map_shader_value_ty_to_binding_layout_type(
         sample_type,
         view_dimension: dimension,
       },
+      StorageTexture {
+        dimension,
+        format,
+        access,
+      } => gpu::BindingType::StorageTexture {
+        access: match access {
+          rendiation_shader_api::StorageTextureAccess::Load => gpu::StorageTextureAccess::ReadOnly,
+          rendiation_shader_api::StorageTextureAccess::Store => {
+            gpu::StorageTextureAccess::WriteOnly
+          }
+          rendiation_shader_api::StorageTextureAccess::LoadStore => {
+            gpu::StorageTextureAccess::ReadWrite
+          }
+        },
+        format: match format {
+          StorageFormat::R8Unorm => TextureFormat::R8Unorm,
+          StorageFormat::R8Snorm => TextureFormat::R8Snorm,
+          StorageFormat::R8Uint => TextureFormat::R8Uint,
+          StorageFormat::R8Sint => TextureFormat::R8Sint,
+          StorageFormat::R16Uint => TextureFormat::R16Uint,
+          StorageFormat::R16Sint => TextureFormat::R16Sint,
+          StorageFormat::R16Float => TextureFormat::R16Float,
+          StorageFormat::Rg8Unorm => TextureFormat::Rg8Unorm,
+          StorageFormat::Rg8Snorm => TextureFormat::Rg8Snorm,
+          StorageFormat::Rg8Uint => TextureFormat::Rg8Uint,
+          StorageFormat::Rg8Sint => TextureFormat::Rg8Sint,
+          StorageFormat::R32Uint => TextureFormat::R32Uint,
+          StorageFormat::R32Sint => TextureFormat::R32Sint,
+          StorageFormat::R32Float => TextureFormat::R32Float,
+          StorageFormat::Rg16Uint => TextureFormat::Rg16Uint,
+          StorageFormat::Rg16Sint => TextureFormat::Rg16Sint,
+          StorageFormat::Rg16Float => TextureFormat::Rg16Float,
+          StorageFormat::Rgba8Unorm => TextureFormat::Rgba8Unorm,
+          StorageFormat::Rgba8Snorm => TextureFormat::Rgba8Snorm,
+          StorageFormat::Rgba8Uint => TextureFormat::Rgba8Uint,
+          StorageFormat::Rgba8Sint => TextureFormat::Rgba8Sint,
+          StorageFormat::Bgra8Unorm => TextureFormat::Bgra8Unorm,
+          StorageFormat::Rgb10a2Uint => TextureFormat::Rgb10a2Uint,
+          StorageFormat::Rgb10a2Unorm => TextureFormat::Rgb10a2Unorm,
+          StorageFormat::Rg11b10Float => TextureFormat::Rg11b10Float,
+          StorageFormat::Rg32Uint => TextureFormat::Rg32Uint,
+          StorageFormat::Rg32Sint => TextureFormat::Rg32Sint,
+          StorageFormat::Rg32Float => TextureFormat::Rg32Float,
+          StorageFormat::Rgba16Uint => TextureFormat::Rgba16Uint,
+          StorageFormat::Rgba16Sint => TextureFormat::Rgba16Sint,
+          StorageFormat::Rgba16Float => TextureFormat::Rgba16Float,
+          StorageFormat::Rgba32Uint => TextureFormat::Rgba32Uint,
+          StorageFormat::Rgba32Sint => TextureFormat::Rgba32Sint,
+          StorageFormat::Rgba32Float => TextureFormat::Rgba32Float,
+          StorageFormat::R16Unorm => TextureFormat::R16Unorm,
+          StorageFormat::R16Snorm => TextureFormat::R16Snorm,
+          StorageFormat::Rg16Unorm => TextureFormat::Rg16Unorm,
+          StorageFormat::Rg16Snorm => TextureFormat::Rg16Snorm,
+          StorageFormat::Rgba16Unorm => TextureFormat::Rgba16Unorm,
+          StorageFormat::Rgba16Snorm => TextureFormat::Rgba16Snorm,
+        },
+        view_dimension: dimension,
+      },
     })
     .unwrap();
 
