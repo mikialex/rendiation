@@ -5,7 +5,9 @@ use super::*;
 pub struct DeviceTaskSystemBuildCtx<'a> {
   pub compute_cx: &'a mut ShaderComputePipelineBuilder,
 
-  pub(super) all_task_group_sources: Vec<&'a TaskGroupExecutorResource>,
+  pub(super) self_task_idx: usize,
+  pub(super) all_task_group_sources:
+    Vec<(&'a TaskGroupExecutorResource, &'a mut FastHashSet<usize>)>,
   pub(super) tasks_depend_on_self: FastHashMap<usize, TaskGroupDeviceInvocationInstance>,
 
   pub state_builder: DynamicTypeBuilder,
@@ -21,8 +23,9 @@ impl<'a> DeviceTaskSystemBuildCtx<'a> {
       .tasks_depend_on_self
       .entry(task_type)
       .or_insert_with(|| {
-        let source = &self.all_task_group_sources[task_type];
-        source.build_shader_for_spawner(self.compute_cx)
+        let source = &mut self.all_task_group_sources[task_type];
+        source.1.insert(self.self_task_idx);
+        source.0.build_shader_for_spawner(self.compute_cx)
       })
       .clone()
   }

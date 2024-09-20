@@ -76,7 +76,11 @@ impl DeviceTaskGraphExecutor {
   ) -> u32 {
     let task_type = self.task_groups.len();
 
-    let task_group_sources: Vec<_> = self.task_groups.iter().map(|x| &x.resource).collect();
+    let task_group_sources: Vec<_> = self
+      .task_groups
+      .iter_mut()
+      .map(|x| (&x.resource, &mut x.tasks_depend_by_self))
+      .collect();
 
     let task_executor = TaskGroupExecutor::new(
       task,

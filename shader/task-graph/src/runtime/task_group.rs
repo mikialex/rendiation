@@ -10,13 +10,13 @@ pub type OpaqueTask = Box<
 pub struct TaskGroupExecutor {
   pub state_desc: DynamicTypeMetaInfo,
   pub payload_ty: ShaderSizedValueType,
+  pub self_task_idx: usize,
+  pub required_poll_count: usize,
   pub task: OpaqueTask,
 
+  pub tasks_depend_by_self: FastHashSet<usize>,
   pub polling_pipeline: GPUComputePipeline,
-  pub tasks_depend_on_self: Vec<usize>,
-  pub self_task_idx: usize,
   pub resource: TaskGroupExecutorResource,
-  pub required_poll_count: usize,
 }
 
 impl TaskGroupExecutor {
@@ -24,7 +24,7 @@ impl TaskGroupExecutor {
     task: OpaqueTask,
     payload_ty: ShaderSizedValueType,
     pcx: &mut DeviceParallelComputeCtx,
-    task_group_sources: Vec<&TaskGroupExecutorResource>,
+    task_group_sources: Vec<(&TaskGroupExecutorResource, &mut FastHashSet<usize>)>,
     init_size: usize,
   ) -> Self {
     let task_type = task_group_sources.len();
@@ -36,12 +36,12 @@ impl TaskGroupExecutor {
       state_builder: DynamicTypeBuilder::new_named(&format!("Task_states_{}", task_type)),
       all_task_group_sources: task_group_sources,
       tasks_depend_on_self: Default::default(),
+      self_task_idx: task_type,
     };
 
     let state = task.build_poll(&mut build_ctx);
 
     let state_desc = build_ctx.state_builder.meta_info();
-    let tasks_depend_on_self = build_ctx.tasks_depend_on_self.keys().cloned().collect();
 
     let mut state_builder = build_ctx.state_builder;
 
@@ -77,6 +77,16 @@ impl TaskGroupExecutor {
         pool
           .rw_is_finished(task_index)
           .store(TASK_STATUE_FLAG_FINISHED);
+
+        let parent_index = pool.rw_parent_task_index(task_index).load();
+        let parent_task_type_id = pool.rw_parent_task_index(task_index).load();
+
+        // todo wake parent
+      })
+      .else_by(|| {
+        pool
+          .rw_is_finished(task_index)
+          .store(TASK_STATUE_FLAG_NOT_FINISHED_SLEEP);
       });
     });
 
@@ -89,7 +99,7 @@ impl TaskGroupExecutor {
       resource,
       state_desc,
       payload_ty,
-      tasks_depend_on_self,
+      tasks_depend_by_self: Default::default(),
       required_poll_count: task.required_poll_count(),
       task,
       self_task_idx: task_type,
