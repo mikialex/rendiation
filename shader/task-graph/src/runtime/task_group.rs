@@ -9,7 +9,7 @@ pub type OpaqueTask = Box<
 
 pub struct TaskGroupExecutor {
   pub state_desc: DynamicTypeMetaInfo,
-  pub task_type_desc: ShaderStructMetaInfo,
+  pub payload_ty: ShaderSizedValueType,
   pub task: OpaqueTask,
 
   pub polling_pipeline: GPUComputePipeline,
@@ -43,20 +43,13 @@ impl TaskGroupExecutor {
     let state_desc = build_ctx.state_builder.meta_info();
     let tasks_depend_on_self = build_ctx.tasks_depend_on_self.keys().cloned().collect();
 
-    let mut task_type_desc = ShaderStructMetaInfo::new("TaskType");
-    task_type_desc.push_field_dyn(
-      "is_finished",
-      ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Uint32),
-    );
-    task_type_desc.push_field_dyn("payload", payload_ty);
-    task_type_desc.push_field_dyn("state", ShaderSizedValueType::Struct(state_desc.ty.clone()));
     let mut state_builder = build_ctx.state_builder;
 
     let outer_builder = take_build_api(); // workaround, should be improved?
     let resource = TaskGroupExecutorResource::create_with_size(
       init_size,
       state_desc.clone(),
-      task_type_desc.clone(),
+      payload_ty.clone(),
       pcx,
     );
     set_build_api(outer_builder);
@@ -95,7 +88,7 @@ impl TaskGroupExecutor {
       polling_pipeline,
       resource,
       state_desc,
-      task_type_desc,
+      payload_ty,
       tasks_depend_on_self,
       required_poll_count: task.required_poll_count(),
       task,
@@ -202,7 +195,7 @@ impl TaskGroupExecutor {
       self.resource = TaskGroupExecutorResource::create_with_size(
         required_size,
         self.state_desc.clone(),
-        self.task_type_desc.clone(),
+        self.payload_ty.clone(),
         cx,
       );
     }
@@ -221,7 +214,7 @@ impl TaskGroupExecutorResource {
   pub fn create_with_size(
     size: usize,
     state_desc: DynamicTypeMetaInfo,
-    task_ty_desc: ShaderStructMetaInfo,
+    payload_ty: ShaderSizedValueType,
     cx: &mut DeviceParallelComputeCtx,
   ) -> Self {
     let device = &cx.gpu.device;
@@ -231,7 +224,7 @@ impl TaskGroupExecutorResource {
       active_task_idx: DeviceBumpAllocationInstance::new(size * 2, device),
       new_removed_task_idx: DeviceBumpAllocationInstance::new(size, device),
       empty_index_pool: DeviceBumpAllocationInstance::new(size * 2, device),
-      task_pool: TaskPool::create_with_size(size * 2, state_desc, task_ty_desc, device),
+      task_pool: TaskPool::create_with_size(size * 2, state_desc, payload_ty, device),
       size,
     };
 

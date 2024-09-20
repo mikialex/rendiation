@@ -24,11 +24,18 @@ impl TaskPool {
   pub fn create_with_size(
     size: usize,
     state_desc: DynamicTypeMetaInfo,
-    task_ty_desc: ShaderStructMetaInfo,
+    payload_ty: ShaderSizedValueType,
     device: &GPUDevice,
   ) -> Self {
     let usage = BufferUsages::STORAGE | BufferUsages::COPY_SRC;
 
+    let mut task_ty_desc = ShaderStructMetaInfo::new("TaskType");
+    task_ty_desc.push_field_dyn(
+      "is_finished",
+      ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Uint32),
+    );
+    task_ty_desc.push_field_dyn("payload", payload_ty);
+    task_ty_desc.push_field_dyn("state", ShaderSizedValueType::Struct(state_desc.ty.clone()));
     let stride = task_ty_desc.size_of_self(StructLayoutTarget::Std430);
 
     let init = BufferInit::Zeroed(NonZeroU64::new((size * stride) as u64).unwrap());
