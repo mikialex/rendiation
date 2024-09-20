@@ -120,7 +120,7 @@ impl RayTracingPassEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
 
     let size = (size.0 * size.1 * size.2) as usize;
     let executor = &mut current_pipeline.graph;
-    executor.set_execution_size(&mut cx, size);
+    executor.resize_execution_size(&mut cx, size);
     executor.execute(&mut cx, size);
   }
 }

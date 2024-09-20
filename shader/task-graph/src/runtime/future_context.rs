@@ -6,8 +6,7 @@ pub struct DeviceTaskSystemBuildCtx<'a> {
   pub compute_cx: &'a mut ShaderComputePipelineBuilder,
 
   pub(super) self_task_idx: usize,
-  pub(super) all_task_group_sources:
-    Vec<(&'a TaskGroupExecutorResource, &'a mut FastHashSet<usize>)>,
+  pub(super) all_task_group_sources: &'a mut Vec<(TaskGroupExecutorResource, FastHashSet<usize>)>,
   pub(super) tasks_depend_on_self: FastHashMap<usize, TaskGroupDeviceInvocationInstance>,
 
   pub state_builder: DynamicTypeBuilder,

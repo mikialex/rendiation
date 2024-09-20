@@ -4,13 +4,13 @@ async fn test_simple_map() {
 
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();
 
-  let mut graph = DeviceTaskGraphExecutor::new(12, 1);
+  let mut graph = DeviceTaskGraphBuildSource::default();
+
+  let test_task = graph.define_task::<u32, _>(BaseShaderFuture::default().map(|_: (), _| {}));
+  let test_task2 = graph.define_task::<u32, _>(BaseShaderFuture::default());
 
   let mut cx = DeviceParallelComputeCtx::new(&gpu);
-
-  let test_task =
-    graph.define_task::<u32, _>(BaseShaderFuture::default().map(|_: (), _| {}), &mut cx);
-  let test_task2 = graph.define_task::<u32, _>(BaseShaderFuture::default(), &mut cx);
+  let mut graph = graph.build(12, 1, &mut cx);
 
   let work_size = 3;
   let work_size2 = 4;
@@ -47,11 +47,9 @@ async fn test_task_graph_then_task_spawn() {
 
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();
 
-  let mut graph = DeviceTaskGraphExecutor::new(4, 1);
+  let mut graph = DeviceTaskGraphBuildSource::default();
 
-  let mut cx = DeviceParallelComputeCtx::new(&gpu);
-
-  let test_task = graph.define_task::<u32, _>(BaseShaderFuture::default(), &mut cx);
+  let test_task = graph.define_task::<u32, _>(BaseShaderFuture::default());
 
   let test_task2 = graph.define_task::<u32, _>(
     BaseShaderFuture::default()
@@ -60,8 +58,10 @@ async fn test_task_graph_then_task_spawn() {
         TaskFuture::<u32>::new(test_task as usize),
       )
       .map(|_, _| {}),
-    &mut cx,
   );
+
+  let mut cx = DeviceParallelComputeCtx::new(&gpu);
+  let mut graph = graph.build(4, 1, &mut cx);
 
   let work_size = 3;
 

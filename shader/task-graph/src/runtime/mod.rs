@@ -40,22 +40,13 @@ impl Debug for TaskExecutionDebugInfo {
   }
 }
 
-pub struct DeviceTaskGraphExecutor {
-  task_groups: Vec<TaskGroupExecutor>,
-  max_recursion_depth: usize,
-  current_prepared_execution_size: usize,
+#[derive(Default)]
+pub struct DeviceTaskGraphBuildSource {
+  task_groups: Vec<TaskGroupExecutorInternal>,
 }
 
-impl DeviceTaskGraphExecutor {
-  pub fn new(current_prepared_execution_size: usize, max_recursion_depth: usize) -> Self {
-    Self {
-      task_groups: Default::default(),
-      max_recursion_depth,
-      current_prepared_execution_size,
-    }
-  }
-
-  pub fn define_task<P, F>(&mut self, future: F, cx: &mut DeviceParallelComputeCtx) -> u32
+impl DeviceTaskGraphBuildSource {
+  pub fn define_task<P, F>(&mut self, future: F) -> u32
   where
     F: ShaderFuture<Output = ()> + 'static,
     P: ShaderSizedValueNodeType,
@@ -63,40 +54,79 @@ impl DeviceTaskGraphExecutor {
     self.define_task_dyn(
       Box::new(OpaqueTaskWrapper(future)) as OpaqueTask,
       P::sized_ty(),
-      cx,
     )
   }
 
   #[inline(never)]
-  pub fn define_task_dyn(
-    &mut self,
-    task: OpaqueTask,
-    payload_ty: ShaderSizedValueType,
-    pcx: &mut DeviceParallelComputeCtx,
-  ) -> u32 {
+  pub fn define_task_dyn(&mut self, task: OpaqueTask, payload_ty: ShaderSizedValueType) -> u32 {
     let task_type = self.task_groups.len();
 
-    let task_group_sources: Vec<_> = self
-      .task_groups
-      .iter_mut()
-      .map(|x| (&x.resource, &mut x.tasks_depend_by_self))
-      .collect();
-
-    let task_executor = TaskGroupExecutor::new(
-      task,
+    self.task_groups.push(TaskGroupExecutorInternal {
       payload_ty,
-      pcx,
-      task_group_sources,
-      self.current_prepared_execution_size,
-    );
-
-    self.task_groups.push(task_executor);
+      self_task_idx: task_type,
+      required_poll_count: task.required_poll_count(),
+      task,
+    });
 
     task_type as u32
   }
 
+  pub fn build(
+    self,
+    dispatch_size: usize,
+    max_recursion_depth: usize,
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> DeviceTaskGraphExecutor {
+    let init_size = dispatch_size * max_recursion_depth;
+    let mut task_group_sources = Vec::new();
+    let mut pre_builds = Vec::new();
+
+    for task_build_source in &self.task_groups {
+      let pre_build = TaskGroupExecutor::pre_build(task_build_source, &mut task_group_sources);
+
+      let resource = TaskGroupExecutorResource::create_with_size(
+        init_size,
+        pre_build.state_to_resolve.meta_info(),
+        task_build_source.payload_ty.clone(),
+        cx,
+      );
+
+      task_group_sources.push((resource, Default::default()));
+      pre_builds.push(pre_build);
+    }
+
+    let mut task_groups = Vec::new();
+    for ((task_build_source, pre_build), (resource, dependencies)) in self
+      .task_groups
+      .into_iter()
+      .zip(pre_builds)
+      .zip(task_group_sources)
+    {
+      let exe = TaskGroupExecutor::build(pre_build, task_build_source, cx, resource, dependencies);
+      task_groups.push(exe);
+    }
+
+    DeviceTaskGraphExecutor {
+      task_groups,
+      max_recursion_depth: 2,
+      current_prepared_execution_size: init_size,
+    }
+  }
+}
+
+pub struct DeviceTaskGraphExecutor {
+  task_groups: Vec<TaskGroupExecutor>,
+  max_recursion_depth: usize,
+  current_prepared_execution_size: usize,
+}
+
+impl DeviceTaskGraphExecutor {
   /// set exact execution dispatch size for this executor, this will resize all resources
-  pub fn set_execution_size(&mut self, ctx: &mut DeviceParallelComputeCtx, dispatch_size: usize) {
+  pub fn resize_execution_size(
+    &mut self,
+    ctx: &mut DeviceParallelComputeCtx,
+    dispatch_size: usize,
+  ) {
     let dispatch_size = dispatch_size.min(1);
     if self.current_prepared_execution_size == dispatch_size {
       return;
@@ -116,7 +146,7 @@ impl DeviceTaskGraphExecutor {
     let is_contained = self.current_prepared_execution_size <= dispatch_size;
 
     if !is_contained {
-      self.set_execution_size(ctx, dispatch_size)
+      self.resize_execution_size(ctx, dispatch_size)
     }
   }
 
@@ -248,7 +278,7 @@ impl DeviceTaskGraphExecutor {
     let max_required_poll_count = self
       .task_groups
       .iter()
-      .map(|v| v.required_poll_count)
+      .map(|v| v.internal.required_poll_count)
       .max()
       .unwrap_or(1);
     self.max_recursion_depth * max_required_poll_count + 1

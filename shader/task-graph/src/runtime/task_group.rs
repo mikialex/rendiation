@@ -8,25 +8,33 @@ pub type OpaqueTask = Box<
 >;
 
 pub struct TaskGroupExecutor {
+  pub internal: TaskGroupExecutorInternal,
   pub state_desc: DynamicTypeMetaInfo,
-  pub payload_ty: ShaderSizedValueType,
-  pub self_task_idx: usize,
-  pub required_poll_count: usize,
-  pub task: OpaqueTask,
 
   pub tasks_depend_by_self: FastHashSet<usize>,
   pub polling_pipeline: GPUComputePipeline,
   pub resource: TaskGroupExecutorResource,
 }
 
+pub struct TaskGroupExecutorInternal {
+  pub payload_ty: ShaderSizedValueType,
+  pub self_task_idx: usize,
+  pub required_poll_count: usize,
+  pub task: OpaqueTask,
+}
+
+pub(super) struct TaskGroupPreBuild {
+  pub shader: ShaderBuildingCtx,
+  pub cx: ShaderComputePipelineBuilder,
+  pub state_to_resolve: DynamicTypeBuilder,
+  pub invocation: Box<dyn ShaderFutureInvocation<Output = Box<dyn Any>>>,
+}
+
 impl TaskGroupExecutor {
-  pub fn new(
-    task: OpaqueTask,
-    payload_ty: ShaderSizedValueType,
-    pcx: &mut DeviceParallelComputeCtx,
-    task_group_sources: Vec<(&TaskGroupExecutorResource, &mut FastHashSet<usize>)>,
-    init_size: usize,
-  ) -> Self {
+  pub(super) fn pre_build(
+    internal: &TaskGroupExecutorInternal,
+    task_group_sources: &mut Vec<(TaskGroupExecutorResource, FastHashSet<usize>)>,
+  ) -> TaskGroupPreBuild {
     let task_type = task_group_sources.len();
 
     let mut cx = compute_shader_builder();
@@ -39,20 +47,28 @@ impl TaskGroupExecutor {
       self_task_idx: task_type,
     };
 
-    let state = task.build_poll(&mut build_ctx);
+    let invocation = internal.task.build_poll(&mut build_ctx);
+    let state_builder = build_ctx.state_builder;
+    let outer_builder = take_build_api();
 
-    let state_desc = build_ctx.state_builder.meta_info();
+    TaskGroupPreBuild {
+      shader: outer_builder,
+      state_to_resolve: state_builder,
+      invocation,
+      cx,
+    }
+  }
 
-    let mut state_builder = build_ctx.state_builder;
+  pub(super) fn build(
+    mut pre_build: TaskGroupPreBuild,
+    task_build_source: TaskGroupExecutorInternal,
+    pcx: &mut DeviceParallelComputeCtx,
+    resource: TaskGroupExecutorResource,
+    dependencies: FastHashSet<usize>,
+  ) -> TaskGroupExecutor {
+    set_build_api(pre_build.shader);
 
-    let outer_builder = take_build_api(); // workaround, should be improved?
-    let resource = TaskGroupExecutorResource::create_with_size(
-      init_size,
-      state_desc.clone(),
-      payload_ty.clone(),
-      pcx,
-    );
-    set_build_api(outer_builder);
+    let mut cx = pre_build.cx;
 
     let indices = cx.bind_by(&resource.active_task_idx.storage);
     let active_task_count = cx.bind_by(&resource.active_task_idx.current_size);
@@ -63,7 +79,7 @@ impl TaskGroupExecutor {
       let task_index = indices.index(active_idx).load();
 
       let item = pool.rw_states(task_index);
-      state_builder.resolve(item.cast_untyped_node());
+      pre_build.state_to_resolve.resolve(item.cast_untyped_node());
 
       let mut poll_ctx = DeviceTaskSystemPollCtx {
         self_task_idx: task_index,
@@ -72,7 +88,7 @@ impl TaskGroupExecutor {
         invocation_registry: Default::default(),
       };
 
-      let poll_result = state.device_poll(&mut poll_ctx);
+      let poll_result = pre_build.invocation.device_poll(&mut poll_ctx);
       if_by(poll_result.is_ready, || {
         pool
           .rw_is_finished(task_index)
@@ -97,12 +113,9 @@ impl TaskGroupExecutor {
     TaskGroupExecutor {
       polling_pipeline,
       resource,
-      state_desc,
-      payload_ty,
+      internal: task_build_source,
       tasks_depend_by_self: Default::default(),
-      required_poll_count: task.required_poll_count(),
-      task,
-      self_task_idx: task_type,
+      state_desc: pre_build.state_to_resolve.meta_info(),
     }
   }
 
@@ -128,11 +141,11 @@ impl TaskGroupExecutor {
         bound_task_group_instance: Default::default(),
       };
 
-      self.task.bind_input(&mut ctx);
+      self.internal.task.bind_input(&mut ctx);
 
       ctx.binder.bind(&imp.active_task_idx.storage);
       ctx.binder.bind(&imp.active_task_idx.current_size);
-      ctx.all_task_group_sources[self.self_task_idx]
+      ctx.all_task_group_sources[self.internal.self_task_idx]
         .task_pool
         .bind(ctx.binder);
 
@@ -191,7 +204,7 @@ impl TaskGroupExecutor {
   }
 
   pub fn reset_task_instance(&mut self, ctx: &mut DeviceParallelComputeCtx, dispatch_size: usize) {
-    self.task.reset(ctx, dispatch_size as u32);
+    self.internal.task.reset(ctx, dispatch_size as u32);
   }
 
   pub fn resize(
@@ -205,7 +218,7 @@ impl TaskGroupExecutor {
       self.resource = TaskGroupExecutorResource::create_with_size(
         required_size,
         self.state_desc.clone(),
-        self.payload_ty.clone(),
+        self.internal.payload_ty.clone(),
         cx,
       );
     }

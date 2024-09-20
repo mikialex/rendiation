@@ -18,7 +18,7 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
     desc: &GPURaytracingPipelineDescriptor,
     init_size: usize,
   ) -> Self {
-    let mut executor = DeviceTaskGraphExecutor::new(1, 1);
+    let mut graph = DeviceTaskGraphBuildSource::default();
 
     let mut payload_max_u32_count = 0;
 
@@ -75,35 +75,33 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
     });
 
     // create core tracer task as almost every other task depend on this one
-    executor.define_task_dyn(
+    graph.define_task_dyn(
       Box::new(OpaqueTaskWrapper(tracer_task)) as OpaqueTask,
       TraceTaskSelfPayload::sized_ty(),
-      cx,
     );
 
     for (stage, ty) in &desc.ray_gen_shaders {
-      executor.define_task_dyn(
+      graph.define_task_dyn(
         Box::new(OpaqueTaskWrapper(stage.build_device_future(&mut ctx))) as OpaqueTask,
         ty.clone(),
-        cx,
       );
     }
 
     for (stage, ty) in &desc.closest_hit_shaders {
-      executor.define_task_dyn(
+      graph.define_task_dyn(
         Box::new(OpaqueTaskWrapper(stage.build_device_future(&mut ctx))) as OpaqueTask,
         ty.clone(),
-        cx,
       );
     }
 
     for (stage, ty) in &desc.miss_hit_shaders {
-      executor.define_task_dyn(
+      graph.define_task_dyn(
         Box::new(OpaqueTaskWrapper(stage.build_device_future(&mut ctx))) as OpaqueTask,
         ty.clone(),
-        cx,
       );
     }
+
+    let executor = graph.build(1, 1, cx);
 
     GPUWaveFrontComputeRaytracingBakedPipelineInner {
       graph: executor,
