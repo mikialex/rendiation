@@ -301,10 +301,13 @@ impl<T: ShaderTextureType> TextureSamplingAction<T> {
   pub fn sample(self) -> Node<T::Output> {
     ShaderNodeExpr::TextureSampling(self.info).insert_api()
   }
+  /// do texture gather, the level will be override as zero
   pub fn gather(mut self, channel: GatherChannel) -> Node<Vec4<f32>>
   where
     T: D2LikeTextureType,
   {
+    // gather level can only be zero
+    self.info.level = SampleLevel::Zero;
     self.info.gather_channel = Some(channel);
     ShaderNodeExpr::TextureSampling(self.info).insert_api()
   }

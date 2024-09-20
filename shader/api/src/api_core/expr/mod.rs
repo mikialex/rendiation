@@ -117,6 +117,7 @@ pub enum ShaderNodeExpr {
   Convert {
     source: ShaderNodeRawHandle,
     convert_to: ValueKind,
+    /// this is channel wise byte size, if not specified, it will be bitcast conversion.
     convert: Option<u8>,
   },
   AtomicCall {

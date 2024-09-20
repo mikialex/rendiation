@@ -407,6 +407,39 @@ macro_rules! num_convert {
           .insert_api()
         }
       }
+      impl Node<Vec2<$src>> {
+        pub fn [< into_ $dst >](&self) -> Node<Vec2<$dst>> {
+          let a = self.handle();
+          ShaderNodeExpr::Convert {
+            source: a,
+            convert_to: $dst::KIND,
+            convert: Some($dst::BYTE_WIDTH),
+          }
+          .insert_api()
+        }
+      }
+      impl Node<Vec3<$src>> {
+        pub fn [< into_ $dst >](&self) -> Node<Vec3<$dst>> {
+          let a = self.handle();
+          ShaderNodeExpr::Convert {
+            source: a,
+            convert_to: $dst::KIND,
+            convert: Some($dst::BYTE_WIDTH),
+          }
+          .insert_api()
+        }
+      }
+      impl Node<Vec4<$src>> {
+        pub fn [< into_ $dst >](&self) -> Node<Vec4<$dst>> {
+          let a = self.handle();
+          ShaderNodeExpr::Convert {
+            source: a,
+            convert_to: $dst::KIND,
+            convert: Some($dst::BYTE_WIDTH),
+          }
+          .insert_api()
+        }
+      }
     }
   };
 }
