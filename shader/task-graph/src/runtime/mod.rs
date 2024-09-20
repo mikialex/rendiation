@@ -26,7 +26,7 @@ pub struct TaskGraphExecutionDebugInfo {
 
 #[derive(Clone)]
 pub struct TaskExecutionDebugInfo {
-  pub alive_idx: Vec<u32>,
+  pub active_idx: Vec<u32>,
   pub empty_idx: Vec<u32>,
   pub task_states: Vec<u8>,
 }
@@ -34,7 +34,7 @@ pub struct TaskExecutionDebugInfo {
 impl Debug for TaskExecutionDebugInfo {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     f.debug_struct("TaskExecutionDebugInfo")
-      .field("alive_idx", &self.alive_idx)
+      .field("active_idx", &self.active_idx)
       .field("empty_idx", &self.empty_idx)
       .finish() // skip task_states
   }
@@ -163,7 +163,7 @@ impl DeviceTaskGraphExecutor {
 
       task_group
         .resource
-        .alive_task_idx
+        .active_task_idx
         .commit_size(pass, device, true);
       task_group
         .resource
@@ -190,7 +190,7 @@ impl DeviceTaskGraphExecutor {
 
     for (i, task) in self.task_groups.iter().enumerate() {
       cx.encoder.copy_buffer_to_buffer(
-        task.resource.alive_task_idx.current_size.buffer.gpu(),
+        task.resource.active_task_idx.current_size.buffer.gpu(),
         0,
         result_buffer.buffer.gpu(),
         i as u64 * 4,
@@ -221,7 +221,7 @@ impl DeviceTaskGraphExecutor {
     let mut info = Vec::new();
 
     for task in &self.task_groups {
-      let alive_idx = task.resource.alive_task_idx.debug_execution(cx).await;
+      let active_idx = task.resource.active_task_idx.debug_execution(cx).await;
       let empty_idx = task.resource.empty_index_pool.debug_execution(cx).await;
 
       let task_states = cx.read_buffer_bytes(&task.resource.task_pool.tasks);
@@ -230,7 +230,7 @@ impl DeviceTaskGraphExecutor {
       let task_states = task_states.await.unwrap();
 
       info.push(TaskExecutionDebugInfo {
-        alive_idx,
+        active_idx,
         empty_idx,
         task_states,
       })

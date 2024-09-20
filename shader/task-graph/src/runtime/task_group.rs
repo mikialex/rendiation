@@ -61,8 +61,8 @@ impl TaskGroupExecutor {
     );
     set_build_api(outer_builder);
 
-    let indices = cx.bind_by(&resource.alive_task_idx.storage);
-    let active_task_count = cx.bind_by(&resource.alive_task_idx.current_size);
+    let indices = cx.bind_by(&resource.active_task_idx.storage);
+    let active_task_count = cx.bind_by(&resource.active_task_idx.current_size);
     let pool = resource.task_pool.build_shader(&mut cx);
 
     let active_idx = cx.global_invocation_id().x();
@@ -109,9 +109,9 @@ impl TaskGroupExecutor {
     cx.record_pass(|pass, device| {
       let imp = &mut self.resource;
 
-      let alive_execution_size =
+      let active_execution_size =
         imp
-          .alive_task_idx
+          .active_task_idx
           .prepare_dispatch_size(pass, device, TASK_EXECUTION_WORKGROUP_SIZE);
 
       // dispatch tasks
@@ -127,14 +127,14 @@ impl TaskGroupExecutor {
 
       self.task.bind_input(&mut ctx);
 
-      ctx.binder.bind(&imp.alive_task_idx.storage);
-      ctx.binder.bind(&imp.alive_task_idx.current_size);
+      ctx.binder.bind(&imp.active_task_idx.storage);
+      ctx.binder.bind(&imp.active_task_idx.current_size);
       ctx.all_task_group_sources[self.self_task_idx]
         .task_pool
         .bind(ctx.binder);
 
       bb.setup_compute_pass(pass, device, &self.polling_pipeline);
-      pass.dispatch_workgroups_indirect_by_buffer_resource_view(&alive_execution_size);
+      pass.dispatch_workgroups_indirect_by_buffer_resource_view(&active_execution_size);
     });
   }
 
@@ -142,24 +142,24 @@ impl TaskGroupExecutor {
     // commit bumpers
     ctx.record_pass(|pass, device| {
       let imp = &mut self.resource;
-      imp.alive_task_idx.commit_size(pass, device, true);
+      imp.active_task_idx.commit_size(pass, device, true);
       imp.empty_index_pool.commit_size(pass, device, false);
       imp.new_removed_task_idx.commit_size(pass, device, true);
     });
 
     let imp = &mut self.resource;
     // compact active task buffer
-    let alive_tasks = imp.alive_task_idx.storage.clone().into_readonly_view();
-    let re = alive_tasks
+    let active_tasks = imp.active_task_idx.storage.clone().into_readonly_view();
+    let re = active_tasks
       .clone()
       .stream_compaction(ActiveTaskCompact {
-        alive_size: imp.alive_task_idx.current_size.clone(),
-        active_tasks: alive_tasks.clone(),
+        active_size: imp.active_task_idx.current_size.clone(),
+        active_tasks: active_tasks.clone(),
         task_pool: imp.task_pool.clone(),
       })
       .materialize_storage_buffer(ctx);
-    imp.alive_task_idx.storage = re.buffer.into_rw_view();
-    let new_alive_task_size = re.size.unwrap();
+    imp.active_task_idx.storage = re.buffer.into_rw_view();
+    let new_active_task_size = re.size.unwrap();
 
     ctx.record_pass(|pass, device| {
       // manually update the alive task bumper's current size
@@ -167,15 +167,15 @@ impl TaskGroupExecutor {
       let hasher = shader_hasher_from_marker_ty!(SizeUpdate);
       let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
         builder.config_work_group_size(1);
-        let new_size = builder.bind_by(&new_alive_task_size);
-        let current_size = builder.bind_by(&imp.alive_task_idx.current_size);
+        let new_size = builder.bind_by(&new_active_task_size);
+        let current_size = builder.bind_by(&imp.active_task_idx.current_size);
         current_size.store(new_size.load().x());
         builder
       });
 
       BindingBuilder::new_as_compute()
-        .with_bind(&new_alive_task_size)
-        .with_bind(&imp.alive_task_idx.current_size)
+        .with_bind(&new_active_task_size)
+        .with_bind(&imp.active_task_idx.current_size)
         .setup_compute_pass(pass, device, &pipeline);
 
       pass.dispatch_workgroups(1, 1, 1);
@@ -210,7 +210,7 @@ impl TaskGroupExecutor {
 }
 
 pub struct TaskGroupExecutorResource {
-  pub alive_task_idx: DeviceBumpAllocationInstance<u32>,
+  pub active_task_idx: DeviceBumpAllocationInstance<u32>,
   pub new_removed_task_idx: DeviceBumpAllocationInstance<u32>,
   pub empty_index_pool: DeviceBumpAllocationInstance<u32>,
   pub task_pool: TaskPool,
@@ -228,7 +228,7 @@ impl TaskGroupExecutorResource {
     // the real task size should be size * n because self spawning requires.
     // todo, fix n may larger than 2
     let res = Self {
-      alive_task_idx: DeviceBumpAllocationInstance::new(size * 2, device),
+      active_task_idx: DeviceBumpAllocationInstance::new(size * 2, device),
       new_removed_task_idx: DeviceBumpAllocationInstance::new(size, device),
       empty_index_pool: DeviceBumpAllocationInstance::new(size * 2, device),
       task_pool: TaskPool::create_with_size(size * 2, state_desc, task_ty_desc, device),
@@ -275,7 +275,7 @@ impl TaskGroupExecutorResource {
       new_removed_task_idx: self.new_removed_task_idx.build_allocator_shader(cx),
       empty_index_pool: self.empty_index_pool.build_deallocator_shader(cx),
       task_pool: self.task_pool.build_shader(cx),
-      alive_task_idx: self.alive_task_idx.build_allocator_shader(cx),
+      active_task_idx: self.active_task_idx.build_allocator_shader(cx),
     }
   }
 
@@ -283,7 +283,7 @@ impl TaskGroupExecutorResource {
     self.new_removed_task_idx.bind_allocator(cx);
     self.empty_index_pool.bind_allocator(cx);
     self.task_pool.bind(cx);
-    self.alive_task_idx.bind_allocator(cx);
+    self.active_task_idx.bind_allocator(cx);
   }
 }
 
@@ -291,7 +291,7 @@ impl TaskGroupExecutorResource {
 pub struct TaskGroupDeviceInvocationInstance {
   new_removed_task_idx: DeviceBumpAllocationInvocationInstance<u32>,
   empty_index_pool: DeviceBumpDeAllocationInvocationInstance<u32>,
-  alive_task_idx: DeviceBumpAllocationInvocationInstance<u32>,
+  active_task_idx: DeviceBumpAllocationInvocationInstance<u32>,
   task_pool: TaskPoolInvocationInstance,
 }
 
@@ -313,7 +313,7 @@ impl TaskGroupDeviceInvocationInstance {
     let (idx, success) = self.empty_index_pool.bump_deallocate();
     if_by(success, || {
       self.task_pool.spawn_new_task_dyn(idx, payload, ty);
-      let (_, success) = self.alive_task_idx.bump_allocate(idx); // todo, error report
+      let (_, success) = self.active_task_idx.bump_allocate(idx); // todo, error report
       if_by(success.not(), || loop_by(|_| {}));
     })
     .else_by(|| {
