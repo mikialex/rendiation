@@ -3,7 +3,6 @@ async fn test_simple_map() {
   use crate::*;
 
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();
-
   let mut graph = DeviceTaskGraphBuildSource::default();
 
   let test_task = graph.define_task::<u32, _>(BaseShaderFuture::default().map(|_: (), _| {}));
@@ -17,7 +16,6 @@ async fn test_simple_map() {
 
   graph.dispatch_allocate_init_task(&mut cx, work_size, test_task, |_| val(0_u32));
   graph.dispatch_allocate_init_task(&mut cx, work_size2, test_task2, |_| val(0_u32));
-
   cx.submit_recorded_work_and_continue();
 
   let info = graph.read_back_execution_states(&mut cx).await;
@@ -48,7 +46,6 @@ async fn test_task_graph_then_task_spawn() {
   // }
 
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();
-
   let mut graph = DeviceTaskGraphBuildSource::default();
 
   let test_task = graph.define_task::<u32, _>(BaseShaderFuture::default());
@@ -73,7 +70,6 @@ async fn test_task_graph_then_task_spawn() {
   let work_size = 3;
 
   graph.dispatch_allocate_init_task(&mut cx, work_size, test_task2, |_| val(0_u32));
-
   cx.submit_recorded_work_and_continue();
 
   // let debug_info = graph.debug_execution(&mut cx).await;
@@ -103,7 +99,53 @@ async fn test_task_graph_then_task_spawn() {
 
   let info = graph.read_back_execution_states(&mut cx).await;
   assert_eq!(info.wake_task_counts[test_task as usize], 0);
-  assert_eq!(info.sleep_task_counts[test_task as usize], 0); // todo fix
+  assert_eq!(info.sleep_task_counts[test_task as usize], 0);
   assert_eq!(info.wake_task_counts[test_task2 as usize], 0);
   assert_eq!(info.sleep_task_counts[test_task2 as usize], work_size);
+}
+
+#[pollster::test]
+async fn test_task_graph_then_task_self_spawn() {
+  use crate::*;
+
+  let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  let mut graph = DeviceTaskGraphBuildSource::default();
+
+  let test_task = graph.next_task_idx();
+  let test_task = graph.define_task::<u32, _>(
+    BaseShaderFuture::default()
+      .then(
+        |_: (), then, cx| {
+          then
+            .spawner
+            .spawn_new_task(val(0_u32), cx.generate_self_as_parent())
+            .unwrap()
+        },
+        TaskFuture::<u32>::new(test_task as usize),
+      )
+      .map(|_, _| {}),
+  );
+
+  let mut cx = DeviceParallelComputeCtx::new(&gpu);
+  let mut graph = graph.build(4, 3, &mut cx);
+
+  let work_size = 3;
+
+  graph.dispatch_allocate_init_task(&mut cx, work_size, test_task, |_| val(0_u32));
+  cx.submit_recorded_work_and_continue();
+
+  let info = graph.read_back_execution_states(&mut cx).await;
+  assert_eq!(info.wake_task_counts[test_task as usize], work_size);
+
+  graph.execute(&mut cx, 1);
+
+  let info = graph.read_back_execution_states(&mut cx).await;
+  assert_eq!(info.wake_task_counts[test_task as usize], work_size);
+  assert_eq!(info.sleep_task_counts[test_task as usize], work_size);
+
+  graph.execute(&mut cx, 1);
+
+  let info = graph.read_back_execution_states(&mut cx).await;
+  assert_eq!(info.wake_task_counts[test_task as usize], work_size);
+  assert_eq!(info.sleep_task_counts[test_task as usize], work_size * 2);
 }

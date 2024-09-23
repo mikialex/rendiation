@@ -58,6 +58,9 @@ impl DeviceTaskGraphBuildSource {
       P::sized_ty(),
     )
   }
+  pub fn next_task_idx(&self) -> u32 {
+    self.task_groups.len() as u32
+  }
 
   #[inline(never)]
   pub fn define_task_dyn(&mut self, task: OpaqueTask, payload_ty: ShaderSizedValueType) -> u32 {
