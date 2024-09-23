@@ -3569,6 +3569,7 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-device-parallel-compute",
  "rendiation-device-task-graph",
+ "rendiation-geometry",
  "rendiation-shader-api",
  "rendiation-shader-derives",
  "rendiation-space-algorithm",

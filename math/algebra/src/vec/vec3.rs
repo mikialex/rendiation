@@ -89,6 +89,10 @@ where
   pub fn max_channel(self) -> T {
     self.x.max(self.y).max(self.z)
   }
+  #[inline]
+  pub fn min_channel(self) -> T {
+    self.x.min(self.y).min(self.z)
+  }
 }
 
 impl<T> Vec3<T>

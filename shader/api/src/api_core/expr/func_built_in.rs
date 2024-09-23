@@ -419,3 +419,8 @@ impl Node<Vec3<f32>> {
     self.x().max(self.y()).max(self.z())
   }
 }
+impl Node<Vec3<f32>> {
+  pub fn min_channel(self) -> Node<f32> {
+    self.x().min(self.y()).min(self.z())
+  }
+}
