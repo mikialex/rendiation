@@ -96,13 +96,31 @@ impl DeviceTaskGraphBuildSource {
     }
 
     let mut task_groups = Vec::new();
-    for ((task_build_source, pre_build), (resource, dependencies)) in self
+    for ((task_build_source, mut pre_build), (resource, dependencies)) in self
       .task_groups
       .into_iter()
       .zip(pre_builds)
-      .zip(task_group_sources)
+      .zip(&task_group_sources)
     {
-      let exe = TaskGroupExecutor::build(pre_build, task_build_source, cx, resource, dependencies);
+      let mut extra_task_bindings_for_waker = Vec::default();
+      for &dep in dependencies {
+        if let Entry::Vacant(e) = pre_build.injected.entry(dep) {
+          extra_task_bindings_for_waker.push(dep);
+          let spawner = task_group_sources[dep]
+            .0
+            .build_shader_for_spawner(&mut pre_build.cx);
+          e.insert(spawner);
+        }
+      }
+
+      let exe = TaskGroupExecutor::build(
+        pre_build,
+        task_build_source,
+        cx,
+        resource.clone(),
+        dependencies,
+        extra_task_bindings_for_waker,
+      );
       task_groups.push(exe);
     }
 

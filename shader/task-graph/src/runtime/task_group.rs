@@ -12,6 +12,7 @@ pub struct TaskGroupExecutor {
   pub state_desc: DynamicTypeMetaInfo,
 
   pub tasks_depend_by_self: FastHashSet<usize>,
+  pub extra_task_bindings_for_waker: Vec<usize>,
   pub polling_pipeline: GPUComputePipeline,
   pub resource: TaskGroupExecutorResource,
 }
@@ -28,6 +29,7 @@ pub(super) struct TaskGroupPreBuild {
   pub cx: ShaderComputePipelineBuilder,
   pub state_to_resolve: DynamicTypeBuilder,
   pub invocation: Box<dyn ShaderFutureInvocation<Output = Box<dyn Any>>>,
+  pub injected: FastHashMap<usize, TaskGroupDeviceInvocationInstance>,
 }
 
 impl TaskGroupExecutor {
@@ -55,6 +57,7 @@ impl TaskGroupExecutor {
       shader: outer_builder,
       state_to_resolve: state_builder,
       invocation,
+      injected: build_ctx.tasks_depend_on_self,
       cx,
     }
   }
@@ -64,7 +67,8 @@ impl TaskGroupExecutor {
     task_build_source: TaskGroupExecutorInternal,
     pcx: &mut DeviceParallelComputeCtx,
     resource: TaskGroupExecutorResource,
-    dependencies: FastHashSet<usize>,
+    dependencies: &FastHashSet<usize>,
+    extra_task_bindings_for_waker: Vec<usize>,
   ) -> TaskGroupExecutor {
     set_build_api(pre_build.shader);
 
@@ -97,7 +101,14 @@ impl TaskGroupExecutor {
         let parent_index = pool.rw_parent_task_index(task_index).load();
         let parent_task_type_id = pool.rw_parent_task_index(task_index).load();
 
-        // todo wake parent
+        let mut switcher = switch_by(parent_task_type_id);
+        for dep in dependencies {
+          switcher = switcher.case(*dep as u32, || {
+            let spawner = pre_build.injected.get(dep).unwrap();
+            spawner.wake_task_dyn(parent_index);
+          });
+        }
+        switcher.end_with_default(|| {});
       })
       .else_by(|| {
         pool
@@ -116,6 +127,7 @@ impl TaskGroupExecutor {
       internal: task_build_source,
       tasks_depend_by_self: Default::default(),
       state_desc: pre_build.state_to_resolve.meta_info(),
+      extra_task_bindings_for_waker,
     }
   }
 
@@ -148,6 +160,12 @@ impl TaskGroupExecutor {
       ctx.all_task_group_sources[self.internal.self_task_idx]
         .task_pool
         .bind(ctx.binder);
+
+      for extra in &self.extra_task_bindings_for_waker {
+        ctx.all_task_group_sources[*extra]
+          .task_pool
+          .bind(ctx.binder);
+      }
 
       bb.setup_compute_pass(pass, device, &self.polling_pipeline);
       pass.dispatch_workgroups_indirect_by_buffer_resource_view(&active_execution_size);
@@ -225,6 +243,7 @@ impl TaskGroupExecutor {
   }
 }
 
+#[derive(Clone)]
 pub struct TaskGroupExecutorResource {
   pub active_task_idx: DeviceBumpAllocationInstance<u32>,
   pub new_removed_task_idx: DeviceBumpAllocationInstance<u32>,
@@ -337,6 +356,15 @@ impl TaskGroupDeviceInvocationInstance {
       // error report, theoretically unreachable
     });
     Some(TaskFutureInvocationRightValue { task_handle: idx })
+  }
+
+  pub fn wake_task_dyn(&self, task_id: Node<u32>) {
+    self
+      .task_pool
+      .rw_is_finished(task_id)
+      .store(TASK_STATUE_FLAG_NOT_FINISHED_WAKEN);
+    let (_, success) = self.active_task_idx.bump_allocate(task_id); // todo, error report
+    if_by(success.not(), || loop_by(|_| {}));
   }
 
   #[must_use]
