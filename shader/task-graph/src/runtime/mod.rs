@@ -16,7 +16,8 @@ pub const TASK_EXECUTION_WORKGROUP_SIZE: u32 = 128;
 
 #[derive(Clone, Debug)]
 pub struct TaskGraphExecutionStates {
-  pub remain_task_counts: Vec<u32>,
+  pub wake_task_counts: Vec<u32>,
+  pub sleep_task_counts: Vec<u32>,
 }
 
 #[derive(Clone, Debug)]
@@ -114,7 +115,7 @@ impl DeviceTaskGraphBuildSource {
 
     DeviceTaskGraphExecutor {
       task_groups,
-      max_recursion_depth: 2,
+      max_recursion_depth,
       current_prepared_execution_size: init_size,
     }
   }
@@ -223,7 +224,11 @@ impl DeviceTaskGraphExecutor {
 
     let result_size = self.task_groups.len() * 4;
     let result_size = NonZeroU64::new(result_size as u64).unwrap();
-    let result_buffer = create_gpu_read_write_storage::<[u32]>(
+    let wake_task_counts = create_gpu_read_write_storage::<[u32]>(
+      StorageBufferInit::Zeroed(result_size),
+      &cx.gpu.device,
+    );
+    let empty_task_counts = create_gpu_read_write_storage::<[u32]>(
       StorageBufferInit::Zeroed(result_size),
       &cx.gpu.device,
     );
@@ -232,20 +237,38 @@ impl DeviceTaskGraphExecutor {
       cx.encoder.copy_buffer_to_buffer(
         task.resource.active_task_idx.current_size.buffer.gpu(),
         0,
-        result_buffer.buffer.gpu(),
+        wake_task_counts.buffer.gpu(),
+        i as u64 * 4,
+        4,
+      );
+      cx.encoder.copy_buffer_to_buffer(
+        task.resource.empty_index_pool.current_size.buffer.gpu(),
+        0,
+        empty_task_counts.buffer.gpu(),
         i as u64 * 4,
         4,
       );
     }
 
-    let result = cx.read_storage_array(&result_buffer);
+    let wake_task_counts = cx.read_storage_array(&wake_task_counts);
+    let empty_task_counts = cx.read_storage_array(&empty_task_counts);
 
     cx.submit_recorded_work_and_continue();
 
-    let results = result.await.unwrap();
+    let wake_task_counts = wake_task_counts.await.unwrap();
+    let empty_task_counts = empty_task_counts.await.unwrap();
+
+    let full_size = self.max_recursion_depth * self.current_prepared_execution_size * 2;
+
+    let sleep_task_counts = empty_task_counts
+      .into_iter()
+      .zip(wake_task_counts.iter())
+      .map(|(empty, &wake)| (full_size - empty as usize - wake as usize) as u32)
+      .collect();
 
     TaskGraphExecutionStates {
-      remain_task_counts: results,
+      wake_task_counts,
+      sleep_task_counts,
     }
   }
 

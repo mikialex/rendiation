@@ -21,14 +21,14 @@ async fn test_simple_map() {
   cx.submit_recorded_work_and_continue();
 
   let info = graph.read_back_execution_states(&mut cx).await;
-  assert_eq!(info.remain_task_counts[test_task as usize], work_size);
-  assert_eq!(info.remain_task_counts[test_task2 as usize], work_size2);
+  assert_eq!(info.wake_task_counts[test_task as usize], work_size);
+  assert_eq!(info.wake_task_counts[test_task2 as usize], work_size2);
 
   graph.execute(&mut cx, 1);
 
   let info = graph.read_back_execution_states(&mut cx).await;
-  assert_eq!(info.remain_task_counts[test_task as usize], 0);
-  assert_eq!(info.remain_task_counts[test_task2 as usize], 0);
+  assert_eq!(info.wake_task_counts[test_task as usize], 0);
+  assert_eq!(info.wake_task_counts[test_task2 as usize], 0);
 }
 
 #[pollster::test]
@@ -75,14 +75,16 @@ async fn test_task_graph_then_task_spawn() {
   // dbg!(cast_slice::<u8, State>(&debug_info.info[1].task_states));
 
   let info = graph.read_back_execution_states(&mut cx).await;
-  assert_eq!(info.remain_task_counts[test_task as usize], 0);
-  assert_eq!(info.remain_task_counts[test_task2 as usize], work_size);
+  assert_eq!(info.wake_task_counts[test_task as usize], 0);
+  assert_eq!(info.wake_task_counts[test_task2 as usize], work_size);
 
   graph.execute(&mut cx, 1);
 
   let info = graph.read_back_execution_states(&mut cx).await;
-  assert_eq!(info.remain_task_counts[test_task as usize], work_size);
-  assert_eq!(info.remain_task_counts[test_task2 as usize], 0);
+  assert_eq!(info.wake_task_counts[test_task as usize], work_size);
+  assert_eq!(info.sleep_task_counts[test_task as usize], 0);
+  assert_eq!(info.wake_task_counts[test_task2 as usize], 0);
+  assert_eq!(info.sleep_task_counts[test_task2 as usize], work_size);
 
   graph.execute(&mut cx, 1);
 
@@ -93,6 +95,8 @@ async fn test_task_graph_then_task_spawn() {
 
   let info = graph.read_back_execution_states(&mut cx).await;
 
-  assert_eq!(info.remain_task_counts[test_task as usize], 0);
-  assert_eq!(info.remain_task_counts[test_task2 as usize], 0);
+  assert_eq!(info.wake_task_counts[test_task as usize], 0);
+  // assert_eq!(info.sleep_task_counts[test_task as usize], 0); // todo fix
+  assert_eq!(info.wake_task_counts[test_task2 as usize], 0);
+  // assert_eq!(info.sleep_task_counts[test_task2 as usize], 0); // todo fix
 }
