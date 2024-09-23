@@ -102,6 +102,21 @@ pub const TASK_STATUE_FLAG_NOT_FINISHED_WAKEN: u32 = 1;
 pub const TASK_STATUE_FLAG_NOT_FINISHED_SLEEP: u32 = 2;
 pub const TASK_STATUE_FLAG_FINISHED: u32 = 3;
 
+#[derive(Clone, Copy)]
+pub struct TaskParentRef {
+  pub parent_task_index: Node<u32>,
+  pub parent_task_type_id: Node<u32>,
+}
+
+impl TaskParentRef {
+  pub fn none_parent() -> Self {
+    Self {
+      parent_task_index: val(u32::MAX),
+      parent_task_type_id: val(u32::MAX),
+    }
+  }
+}
+
 impl TaskPoolInvocationInstance {
   pub fn access_item_ptr(&self, idx: Node<u32>) -> StorageNode<AnyType> {
     self.pool.index(idx)
@@ -125,11 +140,19 @@ impl TaskPoolInvocationInstance {
     &self,
     at: Node<u32>,
     payload: Node<AnyType>,
+    parent_ref: TaskParentRef,
     ty: &ShaderSizedValueType,
   ) {
     self
       .rw_is_finished(at)
       .store(TASK_STATUE_FLAG_NOT_FINISHED_WAKEN);
+
+    self
+      .rw_parent_task_index(at)
+      .store(parent_ref.parent_task_index);
+    self
+      .rw_parent_task_type_id(at)
+      .store(parent_ref.parent_task_type_id);
 
     self.rw_payload_dyn(at).store(payload);
 

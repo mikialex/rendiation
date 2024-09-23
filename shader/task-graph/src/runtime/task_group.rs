@@ -30,6 +30,7 @@ pub(super) struct TaskGroupPreBuild {
   pub state_to_resolve: DynamicTypeBuilder,
   pub invocation: Box<dyn ShaderFutureInvocation<Output = Box<dyn Any>>>,
   pub injected: FastHashMap<usize, TaskGroupDeviceInvocationInstance>,
+  pub self_task_idx: usize,
 }
 
 impl TaskGroupExecutor {
@@ -59,6 +60,7 @@ impl TaskGroupExecutor {
       invocation,
       injected: build_ctx.tasks_depend_on_self,
       cx,
+      self_task_idx: task_type,
     }
   }
 
@@ -99,6 +101,7 @@ impl TaskGroupExecutor {
         self_task: pool.clone(),
         compute_cx: &mut cx,
         invocation_registry: Default::default(),
+        self_task_type_id: pre_build.self_task_idx as u32,
       };
 
       let poll_result = pre_build.invocation.device_poll(&mut poll_ctx);
@@ -108,16 +111,18 @@ impl TaskGroupExecutor {
           .store(TASK_STATUE_FLAG_FINISHED);
 
         let parent_index = pool.rw_parent_task_index(task_index).load();
-        let parent_task_type_id = pool.rw_parent_task_index(task_index).load();
+        let parent_task_type_id = pool.rw_parent_task_type_id(task_index).load();
 
-        let mut switcher = switch_by(parent_task_type_id);
-        for dep in dependencies {
-          switcher = switcher.case(*dep as u32, || {
-            let spawner = pre_build.injected.get(dep).unwrap();
-            spawner.wake_task_dyn(parent_index);
-          });
-        }
-        switcher.end_with_default(|| {});
+        if_by(parent_index.equals(u32::MAX).not(), || {
+          let mut switcher = switch_by(parent_task_type_id);
+          for dep in dependencies {
+            switcher = switcher.case(*dep as u32, || {
+              let spawner = pre_build.injected.get(dep).unwrap();
+              spawner.wake_task_dyn(parent_index);
+            });
+          }
+          switcher.end_with_default(|| {});
+        });
       })
       .else_by(|| {
         pool
@@ -342,19 +347,24 @@ impl TaskGroupDeviceInvocationInstance {
   pub fn spawn_new_task<T: ShaderSizedValueNodeType>(
     &self,
     payload: Node<T>,
+    parent_ref: TaskParentRef,
   ) -> Option<TaskFutureInvocationRightValue> {
-    self.spawn_new_task_dyn(payload.cast_untyped_node(), &T::sized_ty())
+    self.spawn_new_task_dyn(payload.cast_untyped_node(), parent_ref, &T::sized_ty())
   }
 
   #[must_use]
   pub fn spawn_new_task_dyn(
     &self,
     payload: Node<AnyType>,
+    parent_ref: TaskParentRef,
     ty: &ShaderSizedValueType,
   ) -> Option<TaskFutureInvocationRightValue> {
     let (idx, success) = self.empty_index_pool.bump_deallocate();
+
     if_by(success, || {
-      self.task_pool.spawn_new_task_dyn(idx, payload, ty);
+      self
+        .task_pool
+        .spawn_new_task_dyn(idx, payload, parent_ref, ty);
       let (_, success) = self.active_task_idx.bump_allocate(idx); // todo, error report
       if_by(success.not(), || loop_by(|_| {}));
     })
@@ -362,6 +372,7 @@ impl TaskGroupDeviceInvocationInstance {
       loop_by(|_| {})
       // error report, theoretically unreachable
     });
+
     Some(TaskFutureInvocationRightValue { task_handle: idx })
   }
 

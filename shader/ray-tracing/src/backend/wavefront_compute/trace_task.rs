@@ -157,6 +157,7 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
             &RayClosestHitCtxPayload::sized_ty(),
             self.untyped_payloads,
             trace_payload.payload_ref,
+            ctx.generate_self_as_parent(),
           );
 
           let ty: StorageNode<u32> = unsafe { index_access_field(trace_payload_all.handle(), 0) };
@@ -182,6 +183,7 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
             &RayMissHitCtxPayload::sized_ty(),
             self.untyped_payloads,
             trace_payload.payload_ref,
+            ctx.generate_self_as_parent(),
           );
 
           let ty: StorageNode<u32> = unsafe { index_access_field(trace_payload_all.handle(), 0) };
@@ -248,6 +250,7 @@ fn spawn_dynamic<'a>(
   ray_payload_desc: &ShaderSizedValueType,
   untyped_payload_arr: StorageNode<[u32]>,
   untyped_payload_idx: Node<u32>,
+  parent: TaskParentRef,
 ) -> Node<u32> {
   let mut switcher = switch_by(task_ty);
   // if allocation failed, then task is directly resolved.
@@ -271,7 +274,7 @@ fn spawn_dynamic<'a>(
       }
       .insert_api();
 
-      let re = cx.spawn_task_dyn(*id as usize, combined, &desc);
+      let re = cx.spawn_task_dyn(*id as usize, combined, &desc, parent);
 
       allocated_id.store(re);
     });
@@ -304,12 +307,13 @@ impl AllDownStreamTasks {
     task_tid: usize,
     payload: Node<AnyType>,
     ty: &ShaderSizedValueType,
+    parent: TaskParentRef,
   ) -> Node<u32> {
     self
       .tasks
       .get(&task_tid)
       .unwrap()
-      .spawn_new_task_dyn(payload, ty)
+      .spawn_new_task_dyn(payload, parent, ty)
       .unwrap()
       .task_handle
   }
@@ -386,6 +390,7 @@ impl TracingTaskInvocationSpawner for TracingTaskSpawnerInvocationImpl {
     trace_call: ShaderRayTraceCall,
     payload: ShaderNodeRawHandle,
     payload_ty: ShaderSizedValueType,
+    parent: TaskParentRef,
   ) -> TaskFutureInvocationRightValue {
     let task_handle = val(u32::MAX).make_local_var();
 
@@ -424,7 +429,7 @@ impl TracingTaskInvocationSpawner for TracingTaskSpawnerInvocationImpl {
       }
       .construct();
 
-      let task = task_group.spawn_new_task(payload).unwrap();
+      let task = task_group.spawn_new_task(payload, parent).unwrap();
 
       task_handle.store(task.task_handle);
     });

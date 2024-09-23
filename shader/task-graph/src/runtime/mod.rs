@@ -1,6 +1,7 @@
 use crate::*;
 
 mod task_pool;
+pub use task_pool::TaskParentRef;
 use task_pool::*;
 
 mod dispatch_compact;
@@ -187,7 +188,11 @@ impl DeviceTaskGraphExecutor {
       if_by(id.less_than(dispatch_size.load()), || {
         let payload = task_spawner(id);
         instance
-          .spawn_new_task(payload)
+          .spawn_new_task_dyn(
+            payload.cast_untyped_node(),
+            TaskParentRef::none_parent(),
+            &T::sized_ty(),
+          )
           .expect("payload miss match");
       });
 

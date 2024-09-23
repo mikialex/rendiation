@@ -65,8 +65,18 @@ impl<'a> DeviceTaskSystemBindCtx<'a> {
 pub struct DeviceTaskSystemPollCtx<'a> {
   pub compute_cx: &'a mut ShaderComputePipelineBuilder,
   pub(super) self_task_idx: Node<u32>,
+  pub(super) self_task_type_id: u32,
   pub(super) self_task: TaskPoolInvocationInstance,
   pub invocation_registry: AnyMap,
+}
+
+impl<'a> DeviceTaskSystemPollCtx<'a> {
+  pub fn generate_self_as_parent(&self) -> TaskParentRef {
+    TaskParentRef {
+      parent_task_index: self.self_task_idx,
+      parent_task_type_id: val(self.self_task_type_id),
+    }
+  }
 }
 
 #[derive(Default)]
