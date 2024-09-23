@@ -65,7 +65,7 @@ impl GPUAccelerationStructureInstanceProvider for Range<u32> {
 
 impl NaiveSahBvhSource {
   pub fn create_blas(&mut self, source: &[BottomLevelAccelerationStructureBuildSource]) -> u32 {
-    // TODO freelist
+    // todo freelist
     let index = self.blas_data.len();
     self.blas_data.push(Some(source.to_vec()));
     index as u32
@@ -74,7 +74,7 @@ impl NaiveSahBvhSource {
     &mut self,
     source: &[TopLevelAccelerationStructureSourceInstance],
   ) -> TlasHandle {
-    // TODO freelist
+    // todo freelist
     let start_index = self.tlas_data.len();
     for source in source {
       self.tlas_data.push(Some(*source));
@@ -82,17 +82,17 @@ impl NaiveSahBvhSource {
     start_index as u32..self.tlas_data.len() as u32
   }
   pub fn delete_blas(&mut self, i: u32) {
-    // TODO freelist
+    // todo freelist
     self.blas_data[i as usize] = None;
   }
   pub fn delete_tlas(&mut self, range: &TlasHandle) {
-    // TODO freelist
+    // todo freelist
     for i in range.start..range.end {
       self.tlas_data[i as usize] = None;
     }
   }
 
-  // TODO incremental change
+  // todo incremental change
   /// returns (
   ///   blas_meta_info,
   ///   blas_box,
@@ -132,7 +132,7 @@ impl NaiveSahBvhSource {
       let tri_start = tri_bvh.len();
       let box_start = box_bvh.len();
 
-      // TODO par_iter
+      // todo par_iter
       for (geometry_idx, source) in blas.iter().enumerate() {
         let geometry_idx = geometry_idx as u32;
         let mut root_box = Box3::default();
@@ -234,7 +234,7 @@ impl NaiveSahBvhSource {
     Vec<TlasBounding>,
   ) {
     let mut tlas_bvh_aabb = vec![];
-    let mut index_mapping = vec![]; // index_mapping[i++] = tlas_data[k]
+    let mut index_mapping = vec![]; // tlas_data[index_mapping[idx]] aabb = bvh.nodes[idx].bounding
 
     for (idx, tlas) in tlas_data.iter().enumerate() {
       if let Some(source) = tlas {
@@ -691,7 +691,7 @@ fn traverse_tlas_gpu(
     let ray = ray.expand();
     let pass_mask = ray.mask.bitand(tlas_bounding.mask).not_equals(val(0));
 
-    // TODO handle flags?
+    // todo handle flags?
     let hit = hit_tlas.and(pass_mask);
 
     (hit, tlas_idx)
@@ -712,7 +712,7 @@ impl<'a> IntersectionReporter for NaiveIntersectReporter<'a> {
     if_by(
       hit_t.less_than(self.closest_hit_info.hit_distance.load()),
       || {
-        let behavior = (self.any_hit)(&RayAnyHitCtx {
+        let any_hit_ctx = RayAnyHitCtx {
           launch_info: self.launch_info,
           world_ray: self.world_ray,
           hit_ctx: self.hit_ctx,
@@ -720,28 +720,40 @@ impl<'a> IntersectionReporter for NaiveIntersectReporter<'a> {
             hit_kind,
             hit_distance: hit_t,
           },
-        });
+        };
+        let closest_hit_ctx = self.closest_hit_ctx_info;
+        let closest_hit = self.closest_hit_info;
+        let any_hit = self.any_hit;
 
-        if_by(behavior.equals(val(IGNORE_THIS_INTERSECTION)), || {
-          // TODO ignore?
-        })
-        .else_if(behavior.equals(val(TERMINATE_TRAVERSE)), || {
-          // TODO terminate
-        })
-        .else_by(|| {
-          // hit! update closest
-          self.closest_hit_ctx_info.store(&self.hit_ctx);
-          self.closest_hit_info.test_and_store(&HitInfo {
-            hit_kind,
-            hit_distance: hit_t,
-          });
-          // TODO update ray range max
-          r.store(val(true));
-        });
+        resolve_any_hit(r, any_hit, &any_hit_ctx, closest_hit_ctx, closest_hit);
       },
     );
     r.load()
   }
+}
+
+fn resolve_any_hit(
+  r: LocalVarNode<bool>,
+  any_hit: &dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
+  any_hit_ctx: &RayAnyHitCtx,
+  closest_hit_ctx: &HitCtxInfoRegister,
+  closest_hit: &HitInfoRegister,
+) {
+  let behavior = any_hit(any_hit_ctx);
+
+  if_by(behavior.equals(val(HIT_ACCEPTED)), || {
+    // hit! update closest
+    closest_hit_ctx.store(&any_hit_ctx.hit_ctx);
+    closest_hit.test_and_store(&any_hit_ctx.hit);
+    // todo update ray range max?
+    r.store(val(true));
+  })
+  .else_if(behavior.equals(val(TERMINATE_TRAVERSE)), || {
+    // todo terminate
+  })
+  .else_by(|| {
+    // IGNORE_THIS_INTERSECTION or other values
+  });
 }
 
 #[repr(C)]
@@ -765,7 +777,7 @@ fn iterate_tlas_blas_gpu(
     let tlas_data = tlas_data.index(idx).load().expand();
 
     // transform ray to blas space
-    // TODO check det < 0, invert cull flag?
+    // todo check det < 0, invert cull flag?
     let blas_ray_origin = tlas_data.transform_inv * (ray.origin, val(1.)).into();
     let blas_ray_origin = blas_ray_origin.xyz() / blas_ray_origin.w().splat();
     let blas_ray_direction = tlas_data.transform_inv.shrink_to_3() * ray.direction;
@@ -808,8 +820,8 @@ fn intersect_blas_gpu(
 
   launch_info: RayLaunchInfo,
   world_ray: WorldRayInfo,
-  closest_hit_ctx_info: &HitCtxInfoRegister,
-  closest_hit_info: &HitInfoRegister,
+  closest_hit_ctx_reg: &HitCtxInfoRegister,
+  closest_hit_reg: &HitInfoRegister,
 ) {
   blas_iter.for_each(|ray_blas, _cx| {
     let ray_blas = ray_blas.expand();
@@ -842,12 +854,12 @@ fn intersect_blas_gpu(
         let hit = result.x().equals(val(0.));
         if_by(hit, move || {
           let world_distance = result.y() / ray_blas.distance_scaling;
-          // TODO load tlas on every hit? protect with a bool?
+          // todo load tlas on every hit? protect with a bool?
           let tlas = tlas_data.index(ray_blas.tlas_idx).load().expand();
 
           let hit_ctx = HitCtxInfo {
             primitive_id: tri_idx - primitive_start, // store tri offset in tri_bvh_root
-            instance_id: ray_blas.tlas_idx, // TODO not exactly instance id, deleted tlas are skipped
+            instance_id: ray_blas.tlas_idx, // todo not exactly instance id, deleted tlas are skipped
             instance_sbt_offset: tlas.instance_shader_binding_table_record_offset,
             instance_custom_id: tlas.instance_custom_index,
             geometry_id,
@@ -859,22 +871,36 @@ fn intersect_blas_gpu(
             },
           };
 
-          let intersect_ctx = RayIntersectCtx {
-            launch_info,
-            world_ray,
-            hit_ctx,
-          };
-          intersect(&intersect_ctx, &NaiveIntersectReporter {
-            launch_info,
-            world_ray,
-            hit_ctx,
-            closest_hit_ctx_info,
-            closest_hit_info,
-            any_hit,
-          });
+          let is_opaque = val(true); // todo check blas opaque flag
+          if_by(is_opaque, || {
+            // opaque -> invoke any_hit directly
+            let any_hit_ctx = RayAnyHitCtx {
+              launch_info,
+              world_ray,
+              hit_ctx,
+              hit: HitInfo { hit_kind: val(HIT_KIND_BACK_FACING_TRIANGLE), hit_distance: world_distance },
+            };
+            let updated = val(false).make_local_var();
+            resolve_any_hit(updated, any_hit, &any_hit_ctx, closest_hit_ctx_reg, closest_hit_reg);
 
-          // intersect will invoke any_hit and then update closest_hit
-          // TODO update intersect range to optimize
+          }).else_by(|| {
+            // non-opaque -> invode intersect
+            let intersect_ctx = RayIntersectCtx {
+              launch_info,
+              world_ray,
+              hit_ctx,
+            };
+            // intersect will invoke any_hit and then update closest_hit.
+            intersect(&intersect_ctx, &NaiveIntersectReporter {
+              launch_info,
+              world_ray,
+              hit_ctx,
+              closest_hit_ctx_info: closest_hit_ctx_reg,
+              closest_hit_info: closest_hit_reg,
+              any_hit,
+            });
+            // todo if force opaque, update intersect range to optimize
+          });
         });
       });
     });
@@ -898,7 +924,7 @@ fn intersect_blas_gpu(
     //
     //     let hit = intersect_ray_aabb_gpu(ray, min, max);
     //     if_by(hit, || {
-    //       // TODO call intersection with anyhit, remember distance_scaling
+    //       // todo call intersection with anyhit, remember distance_scaling
     //     });
     //   });
     // });
@@ -909,7 +935,7 @@ impl NaiveSahBvhCpu {
   fn traverse(
     &self,
     ray: &mut ShaderRayTraceCallStoragePayload,
-    any_hit: &mut dyn FnMut(u32, u32, f32, Vec3<f32>), /* geometry_idx, primitive_idx, distance, hit_position // TODO use ctx */
+    any_hit: &mut dyn FnMut(u32, u32, f32, Vec3<f32>), /* geometry_idx, primitive_idx, distance, hit_position // todo use ctx */
   ) {
     // traverse tlas bvh, hit leaf
     let tlas_iter = TraverseBvhIteratorCpu {
@@ -944,7 +970,6 @@ impl NaiveSahBvhCpu {
         let blas_idx = tlas_data.acceleration_structure_handle;
 
         // traverse blas bvh
-        // TODO prepare intersect ctx, anyhit ctx
         let blas_ray_origin = tlas_data.transform_inv * ray.ray_origin;
         let blas_ray_direction = ray
           .ray_direction
@@ -954,7 +979,7 @@ impl NaiveSahBvhCpu {
         let distance_scaling = (tlas_data.transform_inv.to_mat3() * ray.ray_direction).length();
         let blas_ray_range = ray.range * distance_scaling;
 
-        // TODO triangle related flags
+        // todo check triangle related flags
         let blas_meta_info = &self.blas_meta_info[blas_idx as usize];
         for tri_root_index in blas_meta_info.tri_root_range.x..blas_meta_info.tri_root_range.y {
           let idx = self.tri_bvh_root[tri_root_index as usize];
@@ -989,7 +1014,7 @@ impl NaiveSahBvhCpu {
                 v0,
                 v1,
                 v2,
-                // TODO triangle related flags
+                // todo check flags
               );
 
               if intersection[0] > 0. {
@@ -997,18 +1022,16 @@ impl NaiveSahBvhCpu {
                 let p = blas_ray_origin + distance * blas_ray_direction;
                 // println!("hit {p:?}");
                 any_hit(geometry_idx, primitive_idx, distance, p);
-                // TODO call anyhit
-                // TODO modify range after hit
               }
             }
           }
         }
 
-        // TODO check box related flags
+        // todo check box related flags
         for box_root_index in blas_meta_info.box_root_range.x..blas_meta_info.box_root_range.y {
           let idx = self.box_bvh_root[box_root_index as usize];
           let blas_root_idx = idx.x;
-          let geometry_idx = idx.y;
+          // let geometry_idx = idx.y;
 
           let box_iter = TraverseBvhIteratorCpu {
             bvh: &self.box_bvh_forest,
@@ -1031,8 +1054,8 @@ impl NaiveSahBvhCpu {
                 aabb[1],
               );
               if hit {
-                // TODO call intersect, then anyhit
-                // TODO modify range after hit
+                // todo call intersect, then anyhit
+                // todo modify range after hit
               }
             }
           }
@@ -1109,8 +1132,8 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
 
     // construct ctx
     let launch_info = RayLaunchInfo {
-      launch_id: val(vec3(0, 0, 0)),   // TODO
-      launch_size: val(vec3(0, 0, 0)), // TODO
+      launch_id: val(vec3(0, 0, 0)),   // todo
+      launch_size: val(vec3(0, 0, 0)), // todo
     };
     let world_ray = WorldRayInfo {
       world_ray: ShaderRay {
@@ -1195,6 +1218,7 @@ impl GPUAccelerationStructureSystemProvider for NaiveSahBVHSystem {
     Box::new(gpu.clone())
   }
 
+  // todo return instance ids? then TLAS device should store InstanceId
   fn create_top_level_acceleration_structure(
     &self,
     source: &[TopLevelAccelerationStructureSourceInstance],
@@ -1360,7 +1384,6 @@ fn test_cpu_triangle() {
       let origin = vec3(0., 0., 0.);
       let target = vec3(x, y, -1.); // fov = 90 deg
       let direction = (target - origin).normalize();
-      // TODO pass &mut distance to traverse to optimize
 
       payload.ray_origin = origin;
       payload.ray_direction = direction;

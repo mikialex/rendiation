@@ -29,7 +29,7 @@ pub struct ShaderOption<T> {
 #[repr(C)]
 #[std430_layout]
 #[derive(ShaderStruct, Clone, Copy)]
-struct Ray {
+pub(crate) struct Ray {
   pub origin: Vec3<f32>,
   pub flags: u32,
   pub direction: Vec3<f32>,
