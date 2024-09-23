@@ -38,7 +38,7 @@ where
 }
 
 pub struct TaskFutureInvocation<T> {
-  pub spawner: TaskGroupDeviceInvocationInstance,
+  pub spawner: TaskGroupDeviceInvocationInstanceMaybeSelf,
   task_handle: BoxedShaderLoadStore<Node<u32>>,
   phantom: PhantomData<T>,
 }

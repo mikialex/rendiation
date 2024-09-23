@@ -31,6 +31,7 @@ pub(super) struct TaskGroupPreBuild {
   pub invocation: Box<dyn ShaderFutureInvocation<Output = Box<dyn Any>>>,
   pub injected: FastHashMap<usize, TaskGroupDeviceInvocationInstance>,
   pub self_task_idx: usize,
+  pub self_spawner: Arc<RwLock<Option<TaskGroupDeviceInvocationInstance>>>,
 }
 
 impl TaskGroupExecutor {
@@ -41,6 +42,7 @@ impl TaskGroupExecutor {
     let task_type = task_group_sources.len();
 
     let mut cx = compute_shader_builder();
+    let self_spawner = Arc::new(RwLock::new(None));
 
     let mut build_ctx = DeviceTaskSystemBuildCtx {
       compute_cx: &mut cx,
@@ -48,6 +50,7 @@ impl TaskGroupExecutor {
       all_task_group_sources: task_group_sources,
       tasks_depend_on_self: Default::default(),
       self_task_idx: task_type,
+      self_spawner: self_spawner.clone(),
     };
 
     let invocation = internal.task.build_poll(&mut build_ctx);
@@ -61,6 +64,7 @@ impl TaskGroupExecutor {
       injected: build_ctx.tasks_depend_on_self,
       cx,
       self_task_idx: task_type,
+      self_spawner,
     }
   }
 
@@ -85,9 +89,13 @@ impl TaskGroupExecutor {
     let mut cx = pre_build.cx;
     let resource = resources[task_build_source.self_task_idx].0.clone();
 
-    let indices = cx.bind_by(&resource.active_task_idx.storage);
-    let active_task_count = cx.bind_by(&resource.active_task_idx.current_size);
-    let pool = resource.task_pool.build_shader(&mut cx);
+    let self_spawner = resource.build_shader_for_spawner(&mut cx);
+
+    let indices = self_spawner.active_task_idx.storage;
+    let active_task_count = self_spawner.active_task_idx.current_size;
+    let pool = self_spawner.task_pool.clone();
+
+    pre_build.self_spawner.write().replace(self_spawner);
 
     let active_idx = cx.global_invocation_id().x();
     if_by(active_idx.less_than(active_task_count.load()), || {
@@ -165,6 +173,7 @@ impl TaskGroupExecutor {
         binder: &mut bb,
         all_task_group_sources,
         bound_task_group_instance: Default::default(),
+        self_task_idx: self.internal.self_task_idx,
       };
 
       self.internal.task.bind_input(&mut ctx);
@@ -173,11 +182,7 @@ impl TaskGroupExecutor {
         ctx.all_task_group_sources[*extra].bind_for_spawner(&mut ctx);
       }
 
-      ctx.binder.bind(&imp.active_task_idx.storage);
-      ctx.binder.bind(&imp.active_task_idx.current_size);
-      ctx.all_task_group_sources[self.internal.self_task_idx]
-        .task_pool
-        .bind(ctx.binder);
+      imp.bind_for_spawner(&mut ctx);
 
       bb.setup_compute_pass(pass, device, &self.polling_pipeline);
       pass.dispatch_workgroups_indirect_by_buffer_resource_view(&active_execution_size);

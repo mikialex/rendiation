@@ -285,7 +285,7 @@ fn spawn_dynamic<'a>(
 }
 
 struct AllDownStreamTasks {
-  tasks: FastHashMap<usize, TaskGroupDeviceInvocationInstance>,
+  tasks: FastHashMap<usize, TaskGroupDeviceInvocationInstanceMaybeSelf>,
 }
 
 impl AllDownStreamTasks {
@@ -385,7 +385,7 @@ pub(crate) struct TracingTaskSpawnerInvocationImpl {
 impl TracingTaskInvocationSpawner for TracingTaskSpawnerInvocationImpl {
   fn spawn_new_tracing_task(
     &mut self,
-    task_group: &TaskGroupDeviceInvocationInstance,
+    task_group: &TaskGroupDeviceInvocationInstanceMaybeSelf,
     should_trace: Node<bool>,
     trace_call: ShaderRayTraceCall,
     payload: ShaderNodeRawHandle,
