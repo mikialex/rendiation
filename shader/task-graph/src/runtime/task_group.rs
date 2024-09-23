@@ -66,13 +66,22 @@ impl TaskGroupExecutor {
     mut pre_build: TaskGroupPreBuild,
     task_build_source: TaskGroupExecutorInternal,
     pcx: &mut DeviceParallelComputeCtx,
-    resource: TaskGroupExecutorResource,
+    resources: &[(TaskGroupExecutorResource, FastHashSet<usize>)],
     dependencies: &FastHashSet<usize>,
-    extra_task_bindings_for_waker: Vec<usize>,
   ) -> TaskGroupExecutor {
     set_build_api(pre_build.shader);
 
+    let mut extra_task_bindings_for_waker = Vec::default();
+    for &dep in dependencies {
+      if let Entry::Vacant(e) = pre_build.injected.entry(dep) {
+        extra_task_bindings_for_waker.push(dep);
+        let spawner = resources[dep].0.build_shader_for_spawner(&mut pre_build.cx);
+        e.insert(spawner);
+      }
+    }
+
     let mut cx = pre_build.cx;
+    let resource = resources[task_build_source.self_task_idx].0.clone();
 
     let indices = cx.bind_by(&resource.active_task_idx.storage);
     let active_task_count = cx.bind_by(&resource.active_task_idx.current_size);
@@ -155,17 +164,15 @@ impl TaskGroupExecutor {
 
       self.internal.task.bind_input(&mut ctx);
 
+      for extra in &self.extra_task_bindings_for_waker {
+        ctx.all_task_group_sources[*extra].bind_for_spawner(&mut ctx);
+      }
+
       ctx.binder.bind(&imp.active_task_idx.storage);
       ctx.binder.bind(&imp.active_task_idx.current_size);
       ctx.all_task_group_sources[self.internal.self_task_idx]
         .task_pool
         .bind(ctx.binder);
-
-      for extra in &self.extra_task_bindings_for_waker {
-        ctx.all_task_group_sources[*extra]
-          .task_pool
-          .bind(ctx.binder);
-      }
 
       bb.setup_compute_pass(pass, device, &self.polling_pipeline);
       pass.dispatch_workgroups_indirect_by_buffer_resource_view(&active_execution_size);
