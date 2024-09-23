@@ -82,7 +82,7 @@ async fn test_task_graph_then_task_spawn() {
 
   let info = graph.read_back_execution_states(&mut cx).await;
   assert_eq!(info.remain_task_counts[test_task as usize], work_size);
-  assert_eq!(info.remain_task_counts[test_task2 as usize], work_size);
+  assert_eq!(info.remain_task_counts[test_task2 as usize], 0);
 
   graph.execute(&mut cx, 1);
 
