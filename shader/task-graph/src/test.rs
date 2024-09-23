@@ -35,17 +35,17 @@ async fn test_simple_map() {
 async fn test_task_graph_then_task_spawn() {
   use crate::*;
 
-  #[repr(C)]
-  #[derive(Clone, Copy, Debug, Zeroable, Pod)]
-  struct State {
-    is_finished: u32,
-    payload: u32,
-    states_0: u32,
-    // states_1: u32,
-    // states_2: u32,
-    parent_task_type_id: u32,
-    parent_task_index: u32,
-  }
+  // #[repr(C)]
+  // #[derive(Clone, Copy, Debug, Zeroable, Pod)]
+  // struct State {
+  //   is_finished: u32,
+  //   payload: u32,
+  //   states_0: u32,
+  //   // states_1: u32,
+  //   // states_2: u32,
+  //   parent_task_type_id: u32,
+  //   parent_task_index: u32,
+  // }
 
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();
 

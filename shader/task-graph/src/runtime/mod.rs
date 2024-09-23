@@ -91,6 +91,7 @@ impl DeviceTaskGraphBuildSource {
         pre_build.state_to_resolve.meta_info(),
         task_build_source.payload_ty.clone(),
         cx,
+        max_recursion_depth,
       );
 
       task_group_sources.push((resource, Default::default()));

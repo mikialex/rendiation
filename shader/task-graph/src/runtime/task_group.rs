@@ -250,6 +250,7 @@ impl TaskGroupExecutor {
         self.state_desc.clone(),
         self.internal.payload_ty.clone(),
         cx,
+        max_recursion_depth,
       );
     }
   }
@@ -270,16 +271,16 @@ impl TaskGroupExecutorResource {
     state_desc: DynamicTypeMetaInfo,
     payload_ty: ShaderSizedValueType,
     cx: &mut DeviceParallelComputeCtx,
+    max_recursion_depth: usize,
   ) -> Self {
     let device = &cx.gpu.device;
-    // the real task size should be size * n because self spawning requires.
-    // todo, fix n may larger than 2
+    let max_retained_size = size * max_recursion_depth;
     let res = Self {
-      active_task_idx: DeviceBumpAllocationInstance::new(size * 2, device),
-      new_removed_task_idx: DeviceBumpAllocationInstance::new(size, device),
-      empty_index_pool: DeviceBumpAllocationInstance::new(size * 2, device),
-      task_pool: TaskPool::create_with_size(size * 2, state_desc, payload_ty, device),
-      size,
+      active_task_idx: DeviceBumpAllocationInstance::new(max_retained_size * 2, device),
+      new_removed_task_idx: DeviceBumpAllocationInstance::new(max_retained_size, device),
+      empty_index_pool: DeviceBumpAllocationInstance::new(max_retained_size * 2, device),
+      task_pool: TaskPool::create_with_size(max_retained_size * 2, state_desc, payload_ty, device),
+      size: max_retained_size,
     };
 
     cx.record_pass(|pass, device| {
@@ -308,7 +309,11 @@ impl TaskGroupExecutorResource {
         .with_bind(&res.empty_index_pool.current_size)
         .setup_compute_pass(pass, device, &pipeline);
 
-      pass.dispatch_workgroups(compute_dispatch_size(size as u32 * 2, workgroup_size), 1, 1);
+      pass.dispatch_workgroups(
+        compute_dispatch_size((max_retained_size * 2) as u32, workgroup_size),
+        1,
+        1,
+      );
     });
 
     res
