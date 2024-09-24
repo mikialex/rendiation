@@ -82,7 +82,6 @@ impl TaskGroupDeviceInvocationInstanceMaybeSelf {
 }
 
 impl<'a> DeviceTaskSystemBuildCtx<'a> {
-  // todo, handle self task spawner
   pub fn get_or_create_task_group_instance(
     &mut self,
     task_type: usize,

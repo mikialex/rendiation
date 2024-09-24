@@ -17,8 +17,8 @@ pub const TASK_EXECUTION_WORKGROUP_SIZE: u32 = 128;
 
 #[derive(Clone, Debug)]
 pub struct TaskGraphExecutionStates {
-  pub wake_task_counts: Vec<u32>,
-  pub sleep_task_counts: Vec<u32>,
+  pub wake_counts: Vec<u32>,
+  pub sleep_or_finished_counts: Vec<u32>,
 }
 
 #[derive(Clone, Debug)]
@@ -269,15 +269,15 @@ impl DeviceTaskGraphExecutor {
 
     let full_size = self.max_recursion_depth * self.current_prepared_execution_size * 2;
 
-    let sleep_task_counts = empty_task_counts
+    let sleep_or_finished_task_counts = empty_task_counts
       .into_iter()
       .zip(wake_task_counts.iter())
       .map(|(empty, &wake)| (full_size - empty as usize - wake as usize) as u32)
       .collect();
 
     TaskGraphExecutionStates {
-      wake_task_counts,
-      sleep_task_counts,
+      wake_counts: wake_task_counts,
+      sleep_or_finished_counts: sleep_or_finished_task_counts,
     }
   }
 
