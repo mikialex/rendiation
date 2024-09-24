@@ -101,7 +101,7 @@ async fn test_task_graph_then_task_spawn() {
   assert_eq!(info.wake_task_counts[test_task as usize], 0);
   assert_eq!(info.sleep_task_counts[test_task as usize], 0);
   assert_eq!(info.wake_task_counts[test_task2 as usize], 0);
-  assert_eq!(info.sleep_task_counts[test_task2 as usize], work_size);
+  assert_eq!(info.sleep_task_counts[test_task2 as usize], 0);
 }
 
 #[pollster::test]

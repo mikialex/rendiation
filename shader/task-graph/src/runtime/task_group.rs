@@ -95,7 +95,7 @@ impl TaskGroupExecutor {
     let active_task_count = self_spawner.active_task_idx.current_size;
     let pool = self_spawner.task_pool.clone();
 
-    pre_build.self_spawner.write().replace(self_spawner);
+    pre_build.self_spawner.write().replace(self_spawner.clone());
 
     let active_idx = cx.global_invocation_id().x();
     if_by(active_idx.less_than(active_task_count.load()), || {
@@ -121,7 +121,11 @@ impl TaskGroupExecutor {
         let parent_index = pool.rw_parent_task_index(task_index).load();
         let parent_task_type_id = pool.rw_parent_task_type_id(task_index).load();
 
-        if_by(parent_index.equals(u32::MAX).not(), || {
+        if_by(parent_index.equals(u32::MAX), || {
+          // if we do not have parent task, then we should cleanup ourself
+          self_spawner.cleanup_finished_task_state_and_payload(task_index);
+        })
+        .else_by(|| {
           let mut switcher = switch_by(parent_task_type_id);
           for dep in dependencies {
             switcher = switcher.case(*dep as u32, || {
