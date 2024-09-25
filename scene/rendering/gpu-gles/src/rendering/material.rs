@@ -151,3 +151,71 @@ impl GLESModelMaterialRenderImpl for PbrMRMaterialDefaultRenderImpl {
     Some(r)
   }
 }
+
+#[derive(Default)]
+pub struct PbrSGMaterialDefaultRenderImplProvider {
+  uniforms: UpdateResultToken,
+  tex_uniforms: UpdateResultToken,
+}
+
+impl RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>
+  for PbrSGMaterialDefaultRenderImplProvider
+{
+  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
+    self.uniforms = source.register_multi_updater(pbr_sg_material_uniforms(cx));
+    self.tex_uniforms = source.register_multi_updater(pbr_sg_material_tex_uniforms(cx));
+  }
+
+  fn create_impl(
+    &self,
+    res: &mut ConcurrentStreamUpdateResult,
+  ) -> Box<dyn GLESModelMaterialRenderImpl> {
+    Box::new(PbrSGMaterialDefaultRenderImpl {
+      material_access: global_entity_component_of::<StandardModelRefPbrSGMaterial>()
+        .read_foreign_key(),
+      uniforms: res.take_multi_updater_updated(self.uniforms).unwrap(),
+      tex_uniforms: res.take_multi_updater_updated(self.tex_uniforms).unwrap(),
+      alpha_mode: global_entity_component_of().read(),
+      albedo_tex_sampler: TextureSamplerIdView::read_from_global(),
+      specular_tex_sampler: TextureSamplerIdView::read_from_global(),
+      glossiness_tex_sampler: TextureSamplerIdView::read_from_global(),
+      emissive_tex_sampler: TextureSamplerIdView::read_from_global(),
+      normal_tex_sampler: TextureSamplerIdView::read_from_global(),
+    })
+  }
+}
+
+struct PbrSGMaterialDefaultRenderImpl {
+  material_access: ForeignKeyReadView<StandardModelRefPbrSGMaterial>,
+  uniforms: LockReadGuardHolder<PbrSGMaterialUniforms>,
+  tex_uniforms: LockReadGuardHolder<PbrSGMaterialTexUniforms>,
+  alpha_mode: ComponentReadView<PbrSGMaterialAlphaModeComponent>,
+  albedo_tex_sampler: TextureSamplerIdView<PbrSGMaterialAlbedoTex>,
+  specular_tex_sampler: TextureSamplerIdView<PbrSGMaterialSpecularTex>,
+  glossiness_tex_sampler: TextureSamplerIdView<PbrSGMaterialGlossinessTex>,
+  emissive_tex_sampler: TextureSamplerIdView<PbrSGMaterialEmissiveTex>,
+  normal_tex_sampler: TextureSamplerIdView<NormalTexSamplerOf<PbrSGMaterialNormalInfo>>,
+}
+
+impl GLESModelMaterialRenderImpl for PbrSGMaterialDefaultRenderImpl {
+  fn make_component<'a>(
+    &'a self,
+    idx: EntityHandle<StandardModelEntity>,
+    cx: &'a GPUTextureBindingSystem,
+  ) -> Option<Box<dyn RenderComponent + 'a>> {
+    let idx = self.material_access.get(idx)?;
+    let r = PhysicalSpecularGlossinessMaterialGPU {
+      uniform: self.uniforms.get(&idx)?,
+      alpha_mode: self.alpha_mode.get_value(idx)?,
+      albedo_tex_sampler: self.albedo_tex_sampler.get_pair(idx).unwrap_or((0, 0)),
+      specular_tex_sampler: self.specular_tex_sampler.get_pair(idx).unwrap_or((0, 0)),
+      glossiness_tex_sampler: self.glossiness_tex_sampler.get_pair(idx).unwrap_or((0, 0)),
+      emissive_tex_sampler: self.emissive_tex_sampler.get_pair(idx).unwrap_or((0, 0)),
+      normal_tex_sampler: self.normal_tex_sampler.get_pair(idx).unwrap_or((0, 0)),
+      texture_uniforms: self.tex_uniforms.get(&idx)?,
+      binding_sys: cx,
+    };
+    let r = Box::new(r) as Box<dyn RenderComponent + '_>;
+    Some(r)
+  }
+}

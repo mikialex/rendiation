@@ -2,7 +2,7 @@ use super::*;
 
 #[derive(Clone)]
 pub struct ActiveTaskCompact {
-  pub alive_size: StorageBufferDataView<u32>,
+  pub active_size: StorageBufferDataView<u32>,
   pub active_tasks: StorageBufferReadOnlyDataView<[u32]>,
   pub task_pool: TaskPool,
 }
@@ -34,7 +34,7 @@ impl DeviceInvocationComponent<Node<bool>> for ActiveTaskCompact {
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<Node<bool>>> {
     let active_tasks = builder.bind_by(&self.active_tasks);
-    let size = builder.bind_by(&self.alive_size);
+    let size = builder.bind_by(&self.active_size);
     let task_pool = self.task_pool.build_shader(builder);
     let inner = (active_tasks, size, task_pool);
 
@@ -45,7 +45,7 @@ impl DeviceInvocationComponent<Node<bool>> for ActiveTaskCompact {
         let is_valid = is_valid.and(id.x().less_than(inner.1.load()));
 
         let rr = val(false).make_local_var();
-        if_by(is_valid, || rr.store(inner.2.is_task_unfinished(r)));
+        if_by(is_valid, || rr.store(inner.2.is_task_unfinished_waken(r)));
         (rr.load(), is_valid)
       }),
       size: Box::new(|inner| (inner.1.load(), val(0), val(0)).into()),
@@ -55,7 +55,7 @@ impl DeviceInvocationComponent<Node<bool>> for ActiveTaskCompact {
 
   fn bind_input(&self, builder: &mut BindingBuilder) {
     builder.bind(&self.active_tasks);
-    builder.bind(&self.alive_size);
+    builder.bind(&self.active_size);
     self.task_pool.bind(builder);
   }
 

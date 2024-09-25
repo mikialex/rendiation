@@ -4,6 +4,8 @@ mod flat;
 pub use flat::*;
 mod mr;
 pub use mr::*;
+mod sg;
+pub use sg::*;
 
 #[repr(C)]
 #[std140_layout]
@@ -48,4 +50,29 @@ pub(super) fn bind_and_sample_enabled(
   let r = binding.sample_texture2d_with_shader_bind(builder, reg, host_pair, device_pair, uv);
 
   (r, device_pair.0.equals(val(0)))
+}
+
+pub fn add_tex_watcher<T, TexUniform>(
+  uniform: UniformUpdateContainer<EntityHandle<T::Entity>, TexUniform>,
+  offset: usize,
+  cx: &GPU,
+) -> UniformUpdateContainer<EntityHandle<T::Entity>, TexUniform>
+where
+  TexUniform: Std140 + Default,
+  T: TextureWithSamplingForeignKeys,
+{
+  let tex_offset = std::mem::offset_of!(TextureSamplerHandlePair, texture_handle);
+  let sam_offset = std::mem::offset_of!(TextureSamplerHandlePair, sampler_handle);
+
+  let tex = global_watch()
+    .watch::<SceneTexture2dRefOf<T>>()
+    .collective_map(|id| id.map(|v| v.index()).unwrap_or(0))
+    .into_uniform_collection_update(offset + tex_offset, cx);
+
+  let sampler = global_watch()
+    .watch::<SceneSamplerRefOf<T>>()
+    .collective_map(|id| id.map(|v| v.index()).unwrap_or(0))
+    .into_uniform_collection_update(offset + sam_offset, cx);
+
+  uniform.with_source(tex).with_source(sampler)
 }

@@ -102,11 +102,12 @@ pub const TRACING_TASK_INDEX: usize = 0;
 pub trait TracingTaskInvocationSpawner: DynClone {
   fn spawn_new_tracing_task(
     &mut self,
-    task_group: &TaskGroupDeviceInvocationInstance,
+    task_group: &TaskGroupDeviceInvocationInstanceMaybeSelf,
     should_trace: Node<bool>,
     trace_call: ShaderRayTraceCall,
     payload: ShaderNodeRawHandle,
     payload_ty: ShaderSizedValueType,
+    parent_ref: TaskParentRef,
   ) -> TaskFutureInvocationRightValue;
 }
 impl Clone for Box<dyn TracingTaskInvocationSpawner> {
@@ -132,6 +133,7 @@ where
           let ctx = cx.invocation_registry.get_mut::<TracingCtx>().unwrap();
           let (should_trace, trace, payload) = next_trace_logic(&o, ctx);
 
+          let parent = cx.generate_self_as_parent();
           cx.invocation_registry
             .get_mut::<Box<dyn TracingTaskInvocationSpawner>>()
             .unwrap()
@@ -141,6 +143,7 @@ where
               trace,
               payload.handle(),
               P::sized_ty(),
+              parent,
             )
         },
         TaskFuture::<P>::new(TRACING_TASK_INDEX),
