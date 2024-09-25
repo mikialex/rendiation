@@ -3929,12 +3929,44 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-lighting-gpu-system",
  "rendiation-scene-core",
+ "rendiation-texture-core",
+ "rendiation-texture-gpu-base",
  "rendiation-texture-gpu-system",
  "rendiation-webgpu",
+ "rendiation-webgpu-reactive-utils",
 ]
 
 [[package]]
 name = "rendiation-scene-rendering-gpu-gles"
+version = "0.1.0"
+dependencies = [
+ "database",
+ "dyn-downcast",
+ "fast-hash-collection",
+ "log",
+ "reactive",
+ "rendiation-algebra",
+ "rendiation-color",
+ "rendiation-geometry",
+ "rendiation-lighting-gpu-system",
+ "rendiation-lighting-punctual",
+ "rendiation-lighting-transport",
+ "rendiation-mesh-core",
+ "rendiation-mesh-gpu-system",
+ "rendiation-scene-core",
+ "rendiation-scene-rendering-gpu-base",
+ "rendiation-shader-api",
+ "rendiation-shader-library",
+ "rendiation-texture-core",
+ "rendiation-texture-gpu-base",
+ "rendiation-texture-gpu-process",
+ "rendiation-texture-gpu-system",
+ "rendiation-webgpu",
+ "rendiation-webgpu-reactive-utils",
+]
+
+[[package]]
+name = "rendiation-scene-rendering-gpu-indirect"
 version = "0.1.0"
 dependencies = [
  "database",
