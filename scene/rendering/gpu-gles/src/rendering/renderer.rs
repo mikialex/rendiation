@@ -20,6 +20,7 @@ pub fn build_default_gles_render_system() -> GLESRenderSystem {
       model_impl: vec![Box::new(DefaultSceneStdModelRendererProvider {
         materials: vec![
           Box::new(PbrMRMaterialDefaultRenderImplProvider::default()),
+          Box::new(PbrSGMaterialDefaultRenderImplProvider::default()),
           Box::new(FlatMaterialDefaultRenderImplProvider::default()),
         ],
         shapes: vec![Box::new(

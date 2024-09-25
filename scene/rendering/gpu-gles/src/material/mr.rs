@@ -72,22 +72,16 @@ type TexUniform = PhysicalMetallicRoughnessMaterialTextureHandlesUniform;
 pub type PbrMRMaterialTexUniforms =
   UniformUpdateContainer<EntityHandle<PbrMRMaterialEntity>, TexUniform>;
 pub fn pbr_mr_material_tex_uniforms(cx: &GPU) -> PbrMRMaterialTexUniforms {
-  let tex_offset = offset_of!(TextureSamplerHandlePair, texture_handle);
-  let sam_offset = offset_of!(TextureSamplerHandlePair, sampler_handle);
+  let c = PbrMRMaterialTexUniforms::default();
 
-  let base_color_texture = global_watch()
-    .watch::<SceneTexture2dRefOf<PbrMRMaterialBaseColorTex>>()
-    .collective_map(|id| id.map(|v| v.index()).unwrap_or(0))
-    .into_uniform_collection_update(offset_of!(TexUniform, base_color_texture) + tex_offset, cx);
-
-  let base_color_sampler = global_watch()
-    .watch::<SceneSamplerRefOf<PbrMRMaterialBaseColorTex>>()
-    .collective_map(|id| id.map(|v| v.index()).unwrap_or(0))
-    .into_uniform_collection_update(offset_of!(TexUniform, base_color_texture) + sam_offset, cx);
-
-  PbrMRMaterialTexUniforms::default()
-    .with_source(base_color_texture)
-    .with_source(base_color_sampler)
+  let base_color = offset_of!(TexUniform, base_color_texture);
+  let emissive = offset_of!(TexUniform, emissive_texture);
+  let metallic_roughness = offset_of!(TexUniform, metallic_roughness_texture);
+  let normal = offset_of!(TexUniform, normal_texture);
+  let c = add_tex_watcher::<PbrMRMaterialBaseColorTex, _>(c, base_color, cx);
+  let c = add_tex_watcher::<PbrMRMaterialEmissiveTex, _>(c, emissive, cx);
+  let c = add_tex_watcher::<PbrMRMaterialMetallicRoughnessTex, _>(c, metallic_roughness, cx);
+  add_tex_watcher::<NormalTexSamplerOf<PbrMRMaterialNormalInfo>, _>(c, normal, cx)
 }
 
 pub fn pbr_mr_material_pipeline_hash(
