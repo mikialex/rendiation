@@ -31,7 +31,7 @@ pub trait GPURayTracingDeviceProvider {
 }
 
 pub struct HitGroupShaderRecord {
-  pub closet_hit: Option<ShaderHandle>,
+  pub closest_hit: Option<ShaderHandle>,
   pub any_hit: Option<ShaderHandle>,
   pub intersection: Option<ShaderHandle>,
 }

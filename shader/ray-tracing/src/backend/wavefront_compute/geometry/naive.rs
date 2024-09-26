@@ -455,7 +455,7 @@ struct NaiveSahBvhGpu {
 }
 
 #[derive(Clone)]
-struct NaiveSahBVHSystem {
+pub struct NaiveSahBVHSystem {
   inner: Arc<RwLock<NaiveSahBVHSystemInner>>,
   device: GPUDevice,
 }
@@ -466,8 +466,7 @@ struct NaiveSahBVHSystemInner {
 }
 
 impl NaiveSahBVHSystem {
-  async fn new() -> Self {
-    let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+  pub(crate) fn new(gpu: GPU) -> Self {
     Self {
       inner: Arc::new(RwLock::new(NaiveSahBVHSystemInner {
         source: Default::default(),
@@ -602,35 +601,6 @@ impl<'a> Iterator for TraverseBvhIteratorCpu<'a> {
     }
 
     None
-  }
-}
-fn traverse_bvh_cpu(
-  root_idx: u32,
-  bvh: &[DeviceBVHNode],
-  ray_origin: Vec3<f32>,
-  ray_direction: Vec3<f32>,
-  ray_range: Vec2<f32>,
-  mut hit_leaf: impl FnMut(&DeviceBVHNode),
-) {
-  let mut curr = root_idx;
-  while curr != INVALID_NEXT {
-    let node = &bvh[curr as usize];
-    let next = if intersect_ray_aabb_cpu(
-      ray_origin,
-      ray_direction,
-      ray_range,
-      node.aabb_min,
-      node.aabb_max,
-    ) {
-      if node.hit_next == node.miss_next {
-        // is leaf
-        hit_leaf(node);
-      }
-      node.hit_next
-    } else {
-      node.miss_next
-    };
-    curr = next;
   }
 }
 
@@ -809,11 +779,11 @@ fn intersect_blas_gpu(
   tlas_data: ReadOnlyStorageNode<[TopLevelAccelerationStructureSourceDeviceInstance]>,
   tri_bvh_root: ReadOnlyStorageNode<[Vec3<u32>]>,
   tri_bvh_forest: ReadOnlyStorageNode<[DeviceBVHNode]>,
-  box_bvh_root: ReadOnlyStorageNode<[Vec3<u32>]>,
-  box_bvh_forest: ReadOnlyStorageNode<[DeviceBVHNode]>,
+  _box_bvh_root: ReadOnlyStorageNode<[Vec3<u32>]>,
+  _box_bvh_forest: ReadOnlyStorageNode<[DeviceBVHNode]>,
   indices: ReadOnlyStorageNode<[u32]>,
   vertices: ReadOnlyStorageNode<[Vec3<f32>]>,
-  boxes: ReadOnlyStorageNode<[Vec3<f32>]>,
+  _boxes: ReadOnlyStorageNode<[Vec3<f32>]>,
 
   intersect: &dyn Fn(&RayIntersectCtx, &dyn IntersectionReporter),
   any_hit: &dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
@@ -1117,7 +1087,7 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
     trace_payload: ENode<ShaderRayTraceCallStoragePayload>,
     intersect: &dyn Fn(&RayIntersectCtx, &dyn IntersectionReporter),
     any_hit: &dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
-  ) -> DeviceOption<RayClosestHitCtx> {
+  ) -> ShaderOption<RayClosestHitCtx> {
     let ray = Ray::construct(RayShaderAPIInstance {
       origin: trace_payload.ray_origin,
       flags: trace_payload.ray_flags,
@@ -1200,7 +1170,7 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
       &hit_info_reg,     // output
     );
 
-    DeviceOption {
+    ShaderOption {
       is_some: hit_info_reg.any_hit.load(),
       payload: RayClosestHitCtx {
         launch_info,
@@ -1278,34 +1248,29 @@ fn compute_bvh_next<B: BVHBounding>(flatten_nodes: &[FlattenBVHNode<B>]) -> Vec<
   result
 }
 
-#[test]
-fn test_cpu_triangle() {
-  const W: usize = 256;
-  const H: usize = 256;
-  const FAR: f32 = 100.;
-  // const GEOMETRY_IDX_MAX: u32 = 1;
-  const PRIMITIVE_IDX_MAX: u32 = 12;
-
+#[cfg(test)]
+pub(crate) fn init_default_acceleration_structure(
+  system: &dyn GPUAccelerationStructureSystemProvider,
+) {
   #[rustfmt::skip]
   const CUBE_POSITION: [f32; 72] = [
-       0.5,  0.5,  0.5, -0.5,  0.5,  0.5, -0.5, -0.5,  0.5,  0.5, -0.5,  0.5, // v0,v1,v2,v3 (front)
-       0.5,  0.5,  0.5,  0.5, -0.5,  0.5,  0.5, -0.5, -0.5,  0.5,  0.5, -0.5, // v0,v3,v4,v5 (right)
-       0.5,  0.5,  0.5,  0.5,  0.5, -0.5, -0.5,  0.5, -0.5, -0.5,  0.5,  0.5, // v0,v5,v6,v1 (top)
-      -0.5,  0.5,  0.5, -0.5,  0.5, -0.5, -0.5, -0.5, -0.5, -0.5, -0.5,  0.5, // v1,v6,v7,v2 (left)
-      -0.5, -0.5, -0.5,  0.5, -0.5, -0.5,  0.5, -0.5,  0.5, -0.5, -0.5,  0.5, // v7,v4,v3,v2 (bottom)
-       0.5, -0.5, -0.5, -0.5, -0.5, -0.5, -0.5,  0.5, -0.5,  0.5,  0.5, -0.5, // v4,v7,v6,v5 (back)
+     0.5,  0.5,  0.5, -0.5,  0.5,  0.5, -0.5, -0.5,  0.5,  0.5, -0.5,  0.5, // v0,v1,v2,v3 (front)
+     0.5,  0.5,  0.5,  0.5, -0.5,  0.5,  0.5, -0.5, -0.5,  0.5,  0.5, -0.5, // v0,v3,v4,v5 (right)
+     0.5,  0.5,  0.5,  0.5,  0.5, -0.5, -0.5,  0.5, -0.5, -0.5,  0.5,  0.5, // v0,v5,v6,v1 (top)
+    -0.5,  0.5,  0.5, -0.5,  0.5, -0.5, -0.5, -0.5, -0.5, -0.5, -0.5,  0.5, // v1,v6,v7,v2 (left)
+    -0.5, -0.5, -0.5,  0.5, -0.5, -0.5,  0.5, -0.5,  0.5, -0.5, -0.5,  0.5, // v7,v4,v3,v2 (bottom)
+     0.5, -0.5, -0.5, -0.5, -0.5, -0.5, -0.5,  0.5, -0.5,  0.5,  0.5, -0.5, // v4,v7,v6,v5 (back)
   ];
   #[rustfmt::skip]
   const CUBE_INDEX: [u16; 36] = [
-       0, 1, 2,   2, 3, 0,    // v0-v1-v2, v2-v3-v0 (front)
-       4, 5, 6,   6, 7, 4,    // v0-v3-v4, v4-v5-v0 (right)
-       8, 9,10,  10,11, 8,    // v0-v5-v6, v6-v1-v0 (top)
-      12,13,14,  14,15,12,    // v1-v6-v7, v7-v2-v1 (left)
-      16,17,18,  18,19,16,    // v7-v4-v3, v3-v2-v7 (bottom)
-      20,21,22,  22,23,20,    // v4-v7-v6, v6-v5-v4 (back)
+     0, 1, 2,   2, 3, 0,    // v0-v1-v2, v2-v3-v0 (front)
+     4, 5, 6,   6, 7, 4,    // v0-v3-v4, v4-v5-v0 (right)
+     8, 9,10,  10,11, 8,    // v0-v5-v6, v6-v1-v0 (top)
+    12,13,14,  14,15,12,    // v1-v6-v7, v7-v2-v1 (left)
+    16,17,18,  18,19,16,    // v7-v4-v3, v3-v2-v7 (bottom)
+    20,21,22,  22,23,20,    // v4-v7-v6, v6-v5-v4 (back)
   ];
 
-  let mut system = futures::executor::block_on(NaiveSahBVHSystem::new());
   let blas_handle = system.create_bottom_level_acceleration_structure(&[
     BottomLevelAccelerationStructureBuildSource::Triangles {
       positions: CUBE_POSITION
@@ -1317,7 +1282,7 @@ fn test_cpu_triangle() {
   ]);
 
   fn add_tlas(
-    system: &mut NaiveSahBVHSystem,
+    system: &dyn GPUAccelerationStructureSystemProvider,
     transform: Mat4<f32>,
     blas_handle: &BottomLevelAccelerationStructureHandle,
   ) -> Box<dyn GPUAccelerationStructureInstanceProvider> {
@@ -1333,38 +1298,51 @@ fn test_cpu_triangle() {
   for i in -2..=2 {
     for j in -2..=2 {
       add_tlas(
-        &mut system,
+        system,
         Mat4::translate((i as f32 * 1.5, j as f32 * 1.5, -10.)),
         &blas_handle,
       );
     }
   }
   add_tlas(
-    &mut system,
+    system,
     Mat4::translate((0., 4.5, -10.)) * Mat4::scale((5., 1., 1.)),
     &blas_handle,
   );
   add_tlas(
-    &mut system,
+    system,
     Mat4::translate((0., -4.5, -10.))
       * Mat4::rotate_y(std::f32::consts::PI)
       * Mat4::scale((5., 1., 1.)),
     &blas_handle,
   );
   add_tlas(
-    &mut system,
+    system,
     Mat4::translate((4.5, -4.5, -10.))
       * Mat4::rotate_y(std::f32::consts::PI * 0.5)
       * Mat4::scale((5., 1., 1.)),
     &blas_handle,
   );
   add_tlas(
-    &mut system,
+    system,
     Mat4::translate((-4.5, -4.5, -10.))
       * Mat4::rotate_y(std::f32::consts::PI * -0.5)
       * Mat4::scale((5., 1., 1.)),
     &blas_handle,
   );
+}
+
+#[test]
+fn test_cpu_triangle() {
+  const W: usize = 256;
+  const H: usize = 256;
+  const FAR: f32 = 100.;
+  // const GEOMETRY_IDX_MAX: u32 = 1;
+  const PRIMITIVE_IDX_MAX: u32 = 12;
+
+  let (gpu, _) = futures::executor::block_on(GPU::new(Default::default())).unwrap();
+  let system = NaiveSahBVHSystem::new(gpu);
+  init_default_acceleration_structure(&system);
 
   let _ = system.get_or_build_gpu_data(); // trigger build
   let inner = system.inner.read().unwrap();

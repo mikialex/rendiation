@@ -22,7 +22,7 @@ impl ShaderBindingTableProvider for ShaderBindingTableInfo {
       .set_value(
         hit_group_start + mesh_idx * ray_ty_idx,
         DeviceHitGroupShaderRecord {
-          closet_hit: hit_group.closet_hit.map(|v| v.0).unwrap_or(u32::MAX),
+          closest_hit: hit_group.closest_hit.map(|v| v.0).unwrap_or(u32::MAX),
           any_hit: hit_group.any_hit.map(|v| v.0).unwrap_or(u32::MAX),
           intersection: hit_group.intersection.map(|v| v.0).unwrap_or(u32::MAX),
           ..Zeroable::zeroed()
@@ -57,7 +57,7 @@ pub struct DeviceSBTTableMeta {
 #[std430_layout]
 #[derive(Clone, Copy, ShaderStruct, StorageNodePtrAccess)]
 pub struct DeviceHitGroupShaderRecord {
-  pub closet_hit: u32,
+  pub closest_hit: u32,
   pub any_hit: u32,
   pub intersection: u32,
 }
@@ -228,7 +228,7 @@ impl ShaderBindingTableDeviceInfoInvocation {
 
   pub fn get_closest_handle(&self, sbt_id: Node<u32>, hit_idx: Node<u32>) -> Node<u32> {
     let hit_group = self.get_hit_group(sbt_id, hit_idx);
-    DeviceHitGroupShaderRecord::readonly_storage_node_closet_hit_field_ptr(hit_group).load()
+    DeviceHitGroupShaderRecord::readonly_storage_node_closest_hit_field_ptr(hit_group).load()
   }
 
   pub fn get_any_handle(&self, sbt_id: Node<u32>, hit_idx: Node<u32>) -> Node<u32> {
