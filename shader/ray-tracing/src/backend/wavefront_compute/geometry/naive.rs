@@ -816,9 +816,12 @@ fn intersect_blas_gpu(
       let ray = ray.expand();
       iter.for_each(move |tri_idx, _cx| {
         let start = tri_idx * val(3);
-        let v0 = vertices.index(indices.index(start).load()).load();
-        let v1 = vertices.index(indices.index(start + val(1)).load()).load();
-        let v2 = vertices.index(indices.index(start + val(2)).load()).load();
+        let i0 = indices.index(start).load();
+        let i1 = indices.index(start + val(1)).load();
+        let i2 = indices.index(start + val(2)).load();
+        let v0 = vertices.index(i0).load();
+        let v1 = vertices.index(i1).load();
+        let v2 = vertices.index(i2).load();
         // returns (hit ? 1 : 0, distance, u, v)
         let result = intersect_ray_triangle_gpu(ray.origin, ray.direction, ray.range, v0, v1, v2);
         let hit = result.x().equals(val(0.));
@@ -1337,6 +1340,7 @@ fn test_cpu_triangle() {
   const W: usize = 256;
   const H: usize = 256;
   const FAR: f32 = 100.;
+  const ORIGIN: Vec3<f32> = vec3(0., 0., 0.);
   // const GEOMETRY_IDX_MAX: u32 = 1;
   const PRIMITIVE_IDX_MAX: u32 = 12;
 
@@ -1355,15 +1359,13 @@ fn test_cpu_triangle() {
   let mut out = Box::new([[(FAR, 0); W]; H]);
 
   for j in 0..H {
-    // println!("{j}");
     for i in 0..W {
       let x = (i as f32 + 0.5) / W as f32 * 2. - 1.;
       let y = 1. - (j as f32 + 0.5) / H as f32 * 2.;
-      let origin = vec3(0., 0., 0.);
       let target = vec3(x, y, -1.); // fov = 90 deg
-      let direction = (target - origin).normalize();
+      let direction = (target - ORIGIN).normalize();
 
-      payload.ray_origin = origin;
+      payload.ray_origin = ORIGIN;
       payload.ray_direction = direction;
       cpu_data.traverse(
         &mut payload,
@@ -1384,4 +1386,133 @@ fn test_cpu_triangle() {
     file.push('\n');
   }
   std::fs::write("trace_cpu.pbm", file).unwrap();
+}
+
+#[test]
+fn test_gpu_triangle() {
+  const H: usize = 16;
+  const W: usize = 16;
+  const FAR: f32 = 100.;
+  const ORIGIN: Vec3<f32> = vec3(0., 0., 0.);
+  // const GEOMETRY_IDX_MAX: u32 = 1;
+  const PRIMITIVE_IDX_MAX: u32 = 12;
+
+  let mut direction = vec![vec4(0., 0., 0., 0.); H * W];
+  for j in 0..H {
+    for i in 0..W {
+      let x = (i as f32 + 0.5) / W as f32 * 2. - 1.;
+      let y = 1. - (j as f32 + 0.5) / H as f32 * 2.;
+      let target = vec3(x, y, -1.); // fov = 90 deg
+      let dir = (target - ORIGIN).normalize();
+      direction[j * W + i] = vec4(dir.x, dir.y, dir.z, 0.);
+    }
+  }
+
+  let (gpu, _) = futures::executor::block_on(GPU::new(Default::default())).unwrap();
+  let mut cx = DeviceParallelComputeCtx::new(&gpu);
+
+  let direction = Box::new(direction) as Box<dyn DeviceParallelCompute<Node<Vec4<f32>>>>;
+  let tester = GpuTester::new(direction, gpu);
+
+  cx.force_indirect_dispatch = false;
+  let (_, size, result) = futures::executor::block_on(tester.read_back_host(&mut cx)).unwrap();
+  println!("size {size:?}");
+
+  let mut file = format!("P2\n{W} {H}\n{PRIMITIVE_IDX_MAX}\n");
+  for j in 0..H {
+    file.push_str(
+      result[j * W..(j + 1) * W]
+        .iter()
+        .map(|x| format!("{x}"))
+        .collect::<Vec<_>>()
+        .join(" ")
+        .as_str(),
+    );
+    file.push('\n');
+  }
+  std::fs::write("trace_gpu.pbm", file).unwrap();
+
+  #[derive(Clone)]
+  struct GpuTester {
+    upstream: Box<dyn DeviceParallelCompute<Node<Vec4<f32>>>>, // ray direction
+    system: NaiveSahBVHSystem,
+  }
+  struct GpuTesterInner {
+    upstream: Box<dyn DeviceInvocationComponent<Node<Vec4<f32>>>>, // ray direction
+    system: NaiveSahBvhGpu,
+  }
+
+  impl GpuTester {
+    fn new(upstream: Box<dyn DeviceParallelCompute<Node<Vec4<f32>>>>, gpu: GPU) -> Self {
+      let system = NaiveSahBVHSystem::new(gpu);
+      init_default_acceleration_structure(&system);
+      Self { upstream, system }
+    }
+  }
+  impl DeviceParallelCompute<Node<u32>> for GpuTester {
+    fn execute_and_expose(
+      &self,
+      cx: &mut DeviceParallelComputeCtx,
+    ) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
+      Box::new(GpuTesterInner {
+        upstream: self.upstream.execute_and_expose(cx),
+        system: self.system.get_or_build_gpu_data().clone(),
+      })
+    }
+    fn result_size(&self) -> u32 {
+      self.upstream.result_size()
+    }
+  }
+  impl DeviceParallelComputeIO<u32> for GpuTester {}
+
+  impl ShaderHashProvider for GpuTesterInner {
+    fn hash_type_info(&self, hasher: &mut PipelineHasher) {
+      use std::hash::Hash;
+      self.upstream.hash_type_info(hasher);
+      std::any::TypeId::of::<GpuTester>().hash(hasher);
+    }
+  }
+  impl DeviceInvocationComponent<Node<u32>> for GpuTesterInner {
+    fn work_size(&self) -> Option<u32> {
+      self.upstream.work_size()
+    }
+    fn build_shader(
+      &self,
+      builder: &mut ShaderComputePipelineBuilder,
+    ) -> Box<dyn DeviceInvocation<Node<u32>>> {
+      let traversable = self.system.build_shader(builder);
+      self
+        .upstream
+        .build_shader(builder)
+        .adhoc_invoke_with_self_size(move |upstream, id| {
+          let (input, valid) = upstream.invocation_logic(id);
+
+          let payload = ShaderRayTraceCallStoragePayloadShaderAPIInstance {
+            payload_ref: val(0),
+            tlas_idx: val(0),
+            ray_flags: val(0),
+            cull_mask: val(u32::MAX),
+            sbt_ray_config_offset: val(0),
+            sbt_ray_config_stride: val(0),
+            miss_index: val(0),
+            ray_origin: val(ORIGIN),
+            ray_direction: input.xyz(),
+            range: val(vec2(0., FAR)),
+          };
+
+          let output =
+            traversable.traverse(payload, &|_ctx, _reporter| {}, &|_ctx| val(HIT_ACCEPTED));
+
+          (output.payload.hit_ctx.primitive_id, valid)
+        })
+        .into_boxed()
+    }
+    fn bind_input(&self, builder: &mut BindingBuilder) {
+      self.upstream.bind_input(builder);
+      self.system.bind_pass(builder);
+    }
+    fn requested_workgroup_size(&self) -> Option<u32> {
+      self.upstream.requested_workgroup_size()
+    }
+  }
 }
