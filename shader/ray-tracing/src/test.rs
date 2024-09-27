@@ -22,7 +22,7 @@ fn test_wavefront_compute() {
           (
             val(true),
             ShaderRayTraceCall {
-              tlas_idx: val(0), // todo what is this?
+              tlas_idx: val(0), // todo
               ray_flags: val(0),
               cull_mask: val(0xff),
               sbt_ray_config: RaySBTConfig {

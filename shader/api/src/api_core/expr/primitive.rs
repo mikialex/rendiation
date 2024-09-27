@@ -451,6 +451,8 @@ num_convert!(i32, f32);
 num_convert!(u32, i32);
 num_convert!(i32, u32);
 num_convert!(u32, bool);
+num_convert!(bool, u32);
+num_convert!(bool, i32);
 
 pub trait DeviceRawBitCast {
   type Value: ValueType;

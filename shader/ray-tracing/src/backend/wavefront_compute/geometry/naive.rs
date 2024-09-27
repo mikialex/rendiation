@@ -317,7 +317,7 @@ impl NaiveSahBvhSource {
     let mut tri_bvh_forest = vec![];
     let mut box_bvh_forest = vec![];
     for (bvh, hit_miss, offset, geometry_idx) in tri_bvh {
-      tri_bvh_root.push(vec3(tri_bvh_forest.len() as u32, geometry_idx, offset));
+      tri_bvh_root.push(vec4(tri_bvh_forest.len() as u32, geometry_idx, offset, 0));
       let nodes = bvh
         .nodes
         .iter()
@@ -326,7 +326,7 @@ impl NaiveSahBvhSource {
       tri_bvh_forest.extend(nodes);
     }
     for (bvh, hit_miss, offset, geometry_idx) in box_bvh {
-      box_bvh_root.push(vec3(box_bvh_forest.len() as u32, geometry_idx, offset));
+      box_bvh_root.push(vec4(box_bvh_forest.len() as u32, geometry_idx, offset, 0));
       let nodes = bvh
         .nodes
         .iter()
@@ -354,8 +354,8 @@ impl NaiveSahBvhSource {
     let gpu_tri_bvh_forest = create_gpu_buffer(device, &tri_bvh_forest);
     let gpu_box_bvh_forest = create_gpu_buffer(device, &box_bvh_forest);
     let gpu_indices = create_gpu_buffer(device, &indices);
-    let gpu_vertices = create_gpu_buffer(device, &vertices);
-    let gpu_boxes = create_gpu_buffer(device, &boxes);
+    let gpu_vertices = create_gpu_buffer(device, &bytemuck::cast_slice(&vertices).to_vec());
+    let gpu_boxes = create_gpu_buffer(device, &bytemuck::cast_slice(&boxes).to_vec());
 
     // build tlas
     let mut tlas_bvh_forest = vec![];
@@ -417,10 +417,10 @@ struct NaiveSahBvhCpu {
 
   // tri_range to index tri_bvh_root, box_range to index box_bvh_root
   blas_meta_info: Vec<BlasMetaInfo>,
-  // vec3(tri_bvh_forest root_idx, geometry_idx, primitive_start)
-  tri_bvh_root: Vec<Vec3<u32>>,
-  // vec3(box_bvh_forest root_idx, geometry_idx, primitive_start)
-  box_bvh_root: Vec<Vec3<u32>>,
+  // vec3(tri_bvh_forest root_idx, geometry_idx, primitive_start, dummy)
+  tri_bvh_root: Vec<Vec4<u32>>,
+  // vec3(box_bvh_forest root_idx, geometry_idx, primitive_start, dummy)
+  box_bvh_root: Vec<Vec4<u32>>,
   // content range to index indices
   tri_bvh_forest: Vec<DeviceBVHNode>,
   // content range to index boxes
@@ -440,18 +440,18 @@ struct NaiveSahBvhGpu {
 
   // tri_range to index tri_bvh_root, box_range to index box_bvh_root
   blas_meta_info: StorageBufferReadOnlyDataView<[BlasMetaInfo]>,
-  // vec3(tri_bvh_forest root_idx, geometry_idx, primitive_start)
-  tri_bvh_root: StorageBufferReadOnlyDataView<[Vec3<u32>]>,
-  // vec3(box_bvh_forest root_idx, geometry_idx, primitive_start)
-  box_bvh_root: StorageBufferReadOnlyDataView<[Vec3<u32>]>,
+  // vec3(tri_bvh_forest root_idx, geometry_idx, primitive_start, dummy)
+  tri_bvh_root: StorageBufferReadOnlyDataView<[Vec4<u32>]>,
+  // vec3(box_bvh_forest root_idx, geometry_idx, primitive_start, dummy)
+  box_bvh_root: StorageBufferReadOnlyDataView<[Vec4<u32>]>,
   // content range to index indices
   tri_bvh_forest: StorageBufferReadOnlyDataView<[DeviceBVHNode]>,
   // content range to index boxes
   box_bvh_forest: StorageBufferReadOnlyDataView<[DeviceBVHNode]>,
 
   indices: StorageBufferReadOnlyDataView<[u32]>,
-  vertices: StorageBufferReadOnlyDataView<[Vec3<f32>]>,
-  boxes: StorageBufferReadOnlyDataView<[Vec3<f32>]>,
+  vertices: StorageBufferReadOnlyDataView<[f32]>,
+  boxes: StorageBufferReadOnlyDataView<[f32]>,
 }
 
 #[derive(Clone)]
@@ -543,6 +543,7 @@ impl GPUAccelerationStructureSystemCompImplInstance for NaiveSahBvhGpu {
   fn bind_pass(&self, builder: &mut BindingBuilder) {
     builder.bind(&self.tlas_bvh_forest);
     builder.bind(&self.tlas_data);
+    builder.bind(&self.tlas_bounding);
     builder.bind(&self.blas_meta_info);
     builder.bind(&self.tri_bvh_root);
     builder.bind(&self.box_bvh_root);
@@ -559,13 +560,13 @@ pub struct NaiveSahBVHInvocationInstance {
   tlas_data: ReadOnlyStorageNode<[TopLevelAccelerationStructureSourceDeviceInstance]>,
   tlas_bounding: ReadOnlyStorageNode<[TlasBounding]>,
   blas_meta_info: ReadOnlyStorageNode<[BlasMetaInfo]>,
-  tri_bvh_root: ReadOnlyStorageNode<[Vec3<u32>]>,
-  box_bvh_root: ReadOnlyStorageNode<[Vec3<u32>]>,
+  tri_bvh_root: ReadOnlyStorageNode<[Vec4<u32>]>,
+  box_bvh_root: ReadOnlyStorageNode<[Vec4<u32>]>,
   tri_bvh_forest: ReadOnlyStorageNode<[DeviceBVHNode]>,
   box_bvh_forest: ReadOnlyStorageNode<[DeviceBVHNode]>,
   indices: ReadOnlyStorageNode<[u32]>,
-  vertices: ReadOnlyStorageNode<[Vec3<f32>]>,
-  boxes: ReadOnlyStorageNode<[Vec3<f32>]>,
+  vertices: ReadOnlyStorageNode<[f32]>,
+  boxes: ReadOnlyStorageNode<[f32]>,
 }
 
 struct TraverseBvhIteratorCpu<'a> {
@@ -623,15 +624,15 @@ impl ShaderIterator for TraverseBvhIteratorGpu {
 
       if_by(hit_aabb, || {
         let is_leaf = node.hit_next.equals(node.miss_next);
+        self.node_idx.store(node.hit_next);
         if_by(is_leaf, || {
           has_next.store(val(true));
           item.store(node.content_range);
-          self.node_idx.store(node.hit_next);
           loop_cx.do_break();
-        })
-        .else_by(|| {
-          self.node_idx.store(node.miss_next);
         });
+      })
+      .else_by(|| {
+        self.node_idx.store(node.miss_next);
       });
     });
 
@@ -777,13 +778,13 @@ fn iterate_tlas_blas_gpu(
 fn intersect_blas_gpu(
   blas_iter: impl ShaderIterator<Item = Node<RayBlas>>,
   tlas_data: ReadOnlyStorageNode<[TopLevelAccelerationStructureSourceDeviceInstance]>,
-  tri_bvh_root: ReadOnlyStorageNode<[Vec3<u32>]>,
+  tri_bvh_root: ReadOnlyStorageNode<[Vec4<u32>]>,
   tri_bvh_forest: ReadOnlyStorageNode<[DeviceBVHNode]>,
-  _box_bvh_root: ReadOnlyStorageNode<[Vec3<u32>]>,
+  _box_bvh_root: ReadOnlyStorageNode<[Vec4<u32>]>,
   _box_bvh_forest: ReadOnlyStorageNode<[DeviceBVHNode]>,
   indices: ReadOnlyStorageNode<[u32]>,
-  vertices: ReadOnlyStorageNode<[Vec3<f32>]>,
-  _boxes: ReadOnlyStorageNode<[Vec3<f32>]>,
+  vertices: ReadOnlyStorageNode<[f32]>,
+  _boxes: ReadOnlyStorageNode<[f32]>,
 
   intersect: &dyn Fn(&RayIntersectCtx, &dyn IntersectionReporter),
   any_hit: &dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
@@ -814,14 +815,24 @@ fn intersect_blas_gpu(
       let iter = bvh_iter.flat_map(ForRange::new); // triangle index
 
       let ray = ray.expand();
+
+      fn read_vec3<T: ShaderNodeType>(idx: Node<u32>, array: ReadOnlyStorageNode<[T]>) -> [Node<T>; 3] {
+        let i = idx * val(3);
+        let v0 = array.index(i).load();
+        let v1 = array.index(i + val(1)).load();
+        let v2 = array.index(i + val(2)).load();
+        [v0, v1, v2]
+      }
+
       iter.for_each(move |tri_idx, _cx| {
         let start = tri_idx * val(3);
-        let i0 = indices.index(start).load();
-        let i1 = indices.index(start + val(1)).load();
-        let i2 = indices.index(start + val(2)).load();
-        let v0 = vertices.index(i0).load();
-        let v1 = vertices.index(i1).load();
-        let v2 = vertices.index(i2).load();
+        let [i0, i1, i2] = read_vec3(start, indices);
+        let [v0x, v0y, v0z] = read_vec3(i0, vertices);
+        let [v1x, v1y, v1z] = read_vec3(i1, vertices);
+        let [v2x, v2y, v2z] = read_vec3(i2, vertices);
+        let v0 = Node::<Vec3<f32>>::from((v0x, v0y, v0z));
+        let v1 = Node::<Vec3<f32>>::from((v1x, v1y, v1z));
+        let v2 = Node::<Vec3<f32>>::from((v2x, v2y, v2z));
         // returns (hit ? 1 : 0, distance, u, v)
         let result = intersect_ray_triangle_gpu(ray.origin, ray.direction, ray.range, v0, v1, v2);
         let hit = result.x().equals(val(0.));
@@ -1085,6 +1096,42 @@ impl HitInfoRegister {
 }
 
 impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVHInvocationInstance {
+  fn debug(&self, trace_payload: ENode<ShaderRayTraceCallStoragePayload>) -> Node<u32> {
+    let ray = Ray::construct(RayShaderAPIInstance {
+      origin: trace_payload.ray_origin,
+      flags: trace_payload.ray_flags,
+      direction: trace_payload.ray_direction,
+      mask: trace_payload.cull_mask,
+      range: trace_payload.range,
+    });
+
+    //// test intersect ray aabb
+    // let tlas_bounding_pack = self.tlas_bvh_forest.index(0).load();
+    // let tlas_bounding = tlas_bounding_pack.expand();
+    // let hit = intersect_ray_aabb_gpu(ray, tlas_bounding.aabb_min, tlas_bounding.aabb_max);
+    // hit.into_u32()
+
+    //// test bvh traversal
+    // let bvh_iter = TraverseBvhIteratorGpu {
+    //   bvh: self.tlas_bvh_forest,
+    //   ray,
+    //   node_idx: val(0).make_local_var(),
+    // };
+    // let (_valid, value) = bvh_iter.shader_next();
+    // value.x()
+
+    //// test tlas traverse
+    // let tlas_idx_iter = traverse_tlas_gpu(val(0), self.tlas_bvh_forest, self.tlas_bounding, ray);
+    // let (valid, _value) = tlas_idx_iter.shader_next();
+    // valid.into_u32()
+
+    //// test blas traverse
+    let tlas_idx_iter = traverse_tlas_gpu(val(0), self.tlas_bvh_forest, self.tlas_bounding, ray);
+    let blas_iter = iterate_tlas_blas_gpu(tlas_idx_iter, self.tlas_data, self.blas_meta_info, ray);
+    let (_valid, value) = blas_iter.shader_next();
+    value.expand().tlas_idx
+  }
+
   fn traverse(
     &self,
     trace_payload: ENode<ShaderRayTraceCallStoragePayload>,
@@ -1390,8 +1437,8 @@ fn test_cpu_triangle() {
 
 #[test]
 fn test_gpu_triangle() {
-  const H: usize = 16;
-  const W: usize = 16;
+  const H: usize = 64;
+  const W: usize = 64;
   const FAR: f32 = 100.;
   const ORIGIN: Vec3<f32> = vec3(0., 0., 0.);
   // const GEOMETRY_IDX_MAX: u32 = 1;
@@ -1415,15 +1462,15 @@ fn test_gpu_triangle() {
   let tester = GpuTester::new(direction, gpu);
 
   cx.force_indirect_dispatch = false;
-  let (_, size, result) = futures::executor::block_on(tester.read_back_host(&mut cx)).unwrap();
-  println!("size {size:?}");
+  let (_, _size, result) = futures::executor::block_on(tester.read_back_host(&mut cx)).unwrap();
+  println!("result {:?} {:?}", result.len(), result);
 
   let mut file = format!("P2\n{W} {H}\n{PRIMITIVE_IDX_MAX}\n");
   for j in 0..H {
     file.push_str(
       result[j * W..(j + 1) * W]
         .iter()
-        .map(|x| format!("{x}"))
+        .map(|v| format!("{v}"))
         .collect::<Vec<_>>()
         .join(" ")
         .as_str(),
@@ -1466,11 +1513,10 @@ fn test_gpu_triangle() {
   impl DeviceParallelComputeIO<u32> for GpuTester {}
 
   impl ShaderHashProvider for GpuTesterInner {
-    fn hash_type_info(&self, hasher: &mut PipelineHasher) {
-      use std::hash::Hash;
-      self.upstream.hash_type_info(hasher);
-      std::any::TypeId::of::<GpuTester>().hash(hasher);
+    fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+      self.upstream.hash_pipeline_with_type_info(hasher)
     }
+    shader_hash_type_id! {}
   }
   impl DeviceInvocationComponent<Node<u32>> for GpuTesterInner {
     fn work_size(&self) -> Option<u32> {
@@ -1480,10 +1526,13 @@ fn test_gpu_triangle() {
       &self,
       builder: &mut ShaderComputePipelineBuilder,
     ) -> Box<dyn DeviceInvocation<Node<u32>>> {
-      let traversable = self.system.build_shader(builder);
-      self
-        .upstream
-        .build_shader(builder)
+      builder.log_result = true;
+
+      let upstream_shader = self.upstream.build_shader(builder);
+
+      let traversable = self.system.clone().build_shader(builder);
+
+      upstream_shader
         .adhoc_invoke_with_self_size(move |upstream, id| {
           let (input, valid) = upstream.invocation_logic(id);
 
@@ -1500,10 +1549,17 @@ fn test_gpu_triangle() {
             range: val(vec2(0., FAR)),
           };
 
-          let output =
-            traversable.traverse(payload, &|_ctx, _reporter| {}, &|_ctx| val(HIT_ACCEPTED));
+          // debug1
+          // (id.x(), valid)
 
-          (output.payload.hit_ctx.primitive_id, valid)
+          // debug2
+          let output = traversable.debug(payload);
+          (output, valid)
+
+          // final traverse
+          // let output =
+          //   traversable.traverse(payload, &|_ctx, _reporter| {}, &|_ctx| val(HIT_ACCEPTED));
+          // (output.payload.hit_ctx.primitive_id, valid)
         })
         .into_boxed()
     }
