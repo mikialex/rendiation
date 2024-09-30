@@ -755,6 +755,7 @@ fn iterate_tlas_blas_gpu(
     let distance_scaling = blas_ray_direction.length();
     let blas_ray_range = ray.range * distance_scaling;
     let blas_ray_direction = blas_ray_direction.normalize();
+
     let blas_ray = Ray::construct(RayShaderAPIInstance {
       origin: blas_ray_origin,
       flags: ray.flags,
@@ -800,8 +801,6 @@ fn intersect_blas_gpu(
     let blas = ray_blas.blas.expand();
 
     ForRange::new(blas.tri_root_range).for_each(move |tri_root_idx, _cx| {
-      let ray_blas = ray_blas;
-      let ray = ray;
       let geometry = tri_bvh_root.index(tri_root_idx).load();
       let root = geometry.x();
       let geometry_id = geometry.y();
@@ -812,7 +811,7 @@ fn intersect_blas_gpu(
         ray,
         node_idx: root.make_local_var(),
       };
-      let iter = bvh_iter.flat_map(ForRange::new); // triangle index
+      let tri_idx_iter = bvh_iter.flat_map(ForRange::new); // triangle index
 
       let ray = ray.expand();
 
@@ -824,9 +823,8 @@ fn intersect_blas_gpu(
         [v0, v1, v2]
       }
 
-      iter.for_each(move |tri_idx, _cx| {
-        let start = tri_idx * val(3);
-        let [i0, i1, i2] = read_vec3(start, indices);
+      tri_idx_iter.for_each(move |tri_idx, _cx| {
+        let [i0, i1, i2] = read_vec3(tri_idx, indices);
         let [v0x, v0y, v0z] = read_vec3(i0, vertices);
         let [v1x, v1y, v1z] = read_vec3(i1, vertices);
         let [v2x, v2y, v2z] = read_vec3(i2, vertices);
@@ -955,24 +953,22 @@ impl NaiveSahBvhCpu {
         let blas_idx = tlas_data.acceleration_structure_handle;
 
         // traverse blas bvh
-        let blas_ray_origin = tlas_data.transform_inv * ray.ray_origin;
-        let blas_ray_direction = ray
-          .ray_direction
-          .transform_direction(tlas_data.transform_inv)
-          .value;
-
-        let distance_scaling = (tlas_data.transform_inv.to_mat3() * ray.ray_direction).length();
+        let blas_ray_origin = tlas_data.transform_inv * ray.ray_origin.expand_with_one();
+        let blas_ray_origin = blas_ray_origin.xyz() / blas_ray_origin.w();
+        let blas_ray_direction = tlas_data.transform_inv.to_mat3() * ray.ray_direction;
+        let distance_scaling = blas_ray_direction.length();
         let blas_ray_range = ray.range * distance_scaling;
+        let blas_ray_direction = blas_ray_direction.normalize();
 
         // todo check triangle related flags
         let blas_meta_info = &self.blas_meta_info[blas_idx as usize];
         for tri_root_index in blas_meta_info.tri_root_range.x..blas_meta_info.tri_root_range.y {
-          let idx = self.tri_bvh_root[tri_root_index as usize];
-          let blas_root_idx = idx.x;
-          let geometry_idx = idx.y;
-          let primitive_offset = idx.z;
+          let geometry = self.tri_bvh_root[tri_root_index as usize];
+          let blas_root_idx = geometry.x;
+          let geometry_idx = geometry.y;
+          let primitive_start = geometry.z;
 
-          let tri_iter = TraverseBvhIteratorCpu {
+          let bvh_iter = TraverseBvhIteratorCpu {
             bvh: &self.tri_bvh_forest,
             ray_origin: blas_ray_origin,
             ray_direction: blas_ray_direction,
@@ -980,17 +976,17 @@ impl NaiveSahBvhCpu {
             curr_idx: blas_root_idx,
           };
 
-          for hit_idx in tri_iter {
+          for hit_idx in bvh_iter {
             let node = &self.tri_bvh_forest[hit_idx as usize];
 
-            // intersect triangles
-            let indices =
-              &self.indices[node.content_range.x as usize * 3..node.content_range.y as usize * 3];
-            for (primitive_idx, triangle) in indices.chunks_exact(3).enumerate() {
-              let primitive_idx = primitive_idx as u32 - primitive_offset;
-              let v0 = self.vertices[triangle[0] as usize];
-              let v1 = self.vertices[triangle[1] as usize];
-              let v2 = self.vertices[triangle[2] as usize];
+            for tri_idx in node.content_range.x..node.content_range.y {
+              let i0 = self.indices[tri_idx as usize * 3];
+              let i1 = self.indices[tri_idx as usize * 3 + 1];
+              let i2 = self.indices[tri_idx as usize * 3 + 2];
+              let v0 = self.vertices[i0 as usize];
+              let v1 = self.vertices[i1 as usize];
+              let v2 = self.vertices[i2 as usize];
+
               // vec4(hit, distance, u, v)
               let intersection = intersect_ray_triangle_cpu(
                 blas_ray_origin,
@@ -1006,6 +1002,7 @@ impl NaiveSahBvhCpu {
                 let distance = intersection[1] / distance_scaling;
                 let p = blas_ray_origin + distance * blas_ray_direction;
                 // println!("hit {p:?}");
+                let primitive_idx = tri_idx - primitive_start;
                 any_hit(geometry_idx, primitive_idx, distance, p);
               }
             }
@@ -1185,7 +1182,7 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
           ray,
           node_idx: root.make_local_var(),
         };
-        let iter = bvh_iter.flat_map(ForRange::new); // triangle index
+        let tri_idx_iter = bvh_iter.flat_map(ForRange::new); // triangle index
 
         let ray = ray.expand();
 
@@ -1200,7 +1197,7 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
           [v0, v1, v2]
         }
 
-        iter.for_each(move |tri_idx, _cx| {
+        tri_idx_iter.for_each(move |tri_idx, _cx| {
           let [i0, i1, i2] = read_vec3(tri_idx, indices);
           let [v0x, v0y, v0z] = read_vec3(i0, vertices);
           let [v1x, v1y, v1z] = read_vec3(i1, vertices);
@@ -1210,7 +1207,7 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
           let v2 = Node::<Vec3<f32>>::from((v2x, v2y, v2z));
           // // returns (hit ? 1 : 0, distance, u, v)
           let result = intersect_ray_triangle_gpu(ray.origin, ray.direction, ray.range, v0, v1, v2);
-          let hit = result.x().equals(val(1.));
+          let hit = result.x().greater_than(val(0.));
           if_by(hit, move || {
             let world_distance = result.y() / ray_blas.distance_scaling;
             if_by(world_distance.less_than(d.load()), || {
@@ -1472,6 +1469,12 @@ pub(crate) fn init_default_acceleration_structure(
       * Mat4::scale((5., 1., 1.)),
     &blas_handle,
   );
+}
+
+#[test]
+fn test_both_triangle() {
+  test_gpu_triangle();
+  test_cpu_triangle();
 }
 
 #[test]
