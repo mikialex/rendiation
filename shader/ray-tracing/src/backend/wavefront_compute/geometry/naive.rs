@@ -704,7 +704,7 @@ impl<'a> IntersectionReporter for NaiveIntersectReporter<'a> {
 }
 
 fn resolve_any_hit(
-  r: LocalVarNode<bool>,
+  r: LocalVarNode<bool>, // todo just return a node
   any_hit: &dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
   any_hit_ctx: &RayAnyHitCtx,
   closest_hit_ctx: &HitCtxInfoRegister,
@@ -714,7 +714,7 @@ fn resolve_any_hit(
 
   if_by(behavior.equals(val(HIT_ACCEPTED)), || {
     // hit! update closest
-    closest_hit_ctx.store(&any_hit_ctx.hit_ctx);
+    closest_hit_ctx.store(&any_hit_ctx.hit_ctx); // todo only if closest_hit test passed!!!
     closest_hit.test_and_store(&any_hit_ctx.hit);
     // todo update ray range max?
     r.store(val(true));
@@ -837,6 +837,7 @@ fn intersect_blas_gpu(
         let result = intersect_ray_triangle_gpu(ray.origin, ray.direction, ray.range, v0, v1, v2);
         let hit = result.x().equals(val(0.));
         if_by(hit, move || {
+          // todo precompute local range for intersect_ray_triangle_gpu
           let world_distance = result.y() / ray_blas.distance_scaling;
           // todo load tlas on every hit? protect with a bool?
           let tlas = tlas_data.index(ray_blas.tlas_idx).load().expand();
@@ -1105,6 +1106,13 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
       range: trace_payload.range,
     });
 
+    #[allow(unused)]
+    fn iter_count<T: ShaderNodeType>(iter: impl ShaderIterator<Item = Node<T>>) -> Node<u32> {
+      let r = val(0).make_local_var();
+      iter.for_each(|_t, _cx| r.store(r.load() + val(1)));
+      r.load()
+    }
+
     //// test intersect ray aabb
     // let tlas_bounding_pack = self.tlas_bvh_forest.index(0).load();
     // let tlas_bounding = tlas_bounding_pack.expand();
@@ -1120,16 +1128,100 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
     // let (_valid, value) = bvh_iter.shader_next();
     // value.x()
 
+    //// test bvh traversal 2
+    // let bvh_iter = TraverseBvhIteratorGpu {
+    //   bvh: self.tlas_bvh_forest,
+    //   ray,
+    //   node_idx: val(0).make_local_var(),
+    // };
+    // let r = val(0).make_local_var();
+    // bvh_iter.for_each(|_tlas_idx, _cx| r.store(r.load() + val(1)));
+    // r.load()
+
     //// test tlas traverse
     // let tlas_idx_iter = traverse_tlas_gpu(val(0), self.tlas_bvh_forest, self.tlas_bounding, ray);
     // let (valid, _value) = tlas_idx_iter.shader_next();
     // valid.into_u32()
 
+    //// test tlas traverse 2
+    // let tlas_idx_iter = traverse_tlas_gpu(val(0), self.tlas_bvh_forest, self.tlas_bounding, ray);
+    // iter_count(tlas_idx_iter)
+
     //// test blas traverse
+    // let tlas_idx_iter = traverse_tlas_gpu(val(0), self.tlas_bvh_forest, self.tlas_bounding, ray);
+    // let blas_iter = iterate_tlas_blas_gpu(tlas_idx_iter, self.tlas_data, self.blas_meta_info, ray);
+    // let (_valid, value) = blas_iter.shader_next();
+    // value.expand().tlas_idx
+
+    //// test blas traverse 2
+    // let tlas_idx_iter = traverse_tlas_gpu(val(0), self.tlas_bvh_forest, self.tlas_bounding, ray);
+    // let blas_iter = iterate_tlas_blas_gpu(tlas_idx_iter, self.tlas_data, self.blas_meta_info, ray);
+    // let (_valid, value) = blas_iter.shader_next();
+    // let tri_range = value.expand().blas.expand().tri_root_range;
+    // tri_range.y() - tri_range.x()
+
+    //// test blas traverse 3
+    let tlas_data = self.tlas_data;
+    let indices = self.indices;
+    let vertices = self.vertices;
+    let d = val(100.).make_local_var();
+    let r = val(0).make_local_var();
     let tlas_idx_iter = traverse_tlas_gpu(val(0), self.tlas_bvh_forest, self.tlas_bounding, ray);
     let blas_iter = iterate_tlas_blas_gpu(tlas_idx_iter, self.tlas_data, self.blas_meta_info, ray);
-    let (_valid, value) = blas_iter.shader_next();
-    value.expand().tlas_idx
+    blas_iter.for_each(|ray_blas, _cx| {
+      let ray_blas = ray_blas.expand();
+      let ray = ray_blas.ray;
+      let blas = ray_blas.blas.expand();
+
+      ForRange::new(blas.tri_root_range).for_each(move |tri_root_idx, _cx| {
+        let ray = ray;
+        let geometry = self.tri_bvh_root.index(tri_root_idx).load();
+        let root = geometry.x();
+        let geometry_id = geometry.y();
+        let primitive_start = geometry.z();
+
+        let bvh_iter = TraverseBvhIteratorGpu {
+          bvh: self.tri_bvh_forest,
+          ray,
+          node_idx: root.make_local_var(),
+        };
+        let iter = bvh_iter.flat_map(ForRange::new); // triangle index
+
+        let ray = ray.expand();
+
+        fn read_vec3<T: ShaderNodeType>(
+          idx: Node<u32>,
+          array: ReadOnlyStorageNode<[T]>,
+        ) -> [Node<T>; 3] {
+          let i = idx * val(3);
+          let v0 = array.index(i).load();
+          let v1 = array.index(i + val(1)).load();
+          let v2 = array.index(i + val(2)).load();
+          [v0, v1, v2]
+        }
+
+        iter.for_each(move |tri_idx, _cx| {
+          let [i0, i1, i2] = read_vec3(tri_idx, indices);
+          let [v0x, v0y, v0z] = read_vec3(i0, vertices);
+          let [v1x, v1y, v1z] = read_vec3(i1, vertices);
+          let [v2x, v2y, v2z] = read_vec3(i2, vertices);
+          let v0 = Node::<Vec3<f32>>::from((v0x, v0y, v0z));
+          let v1 = Node::<Vec3<f32>>::from((v1x, v1y, v1z));
+          let v2 = Node::<Vec3<f32>>::from((v2x, v2y, v2z));
+          // // returns (hit ? 1 : 0, distance, u, v)
+          let result = intersect_ray_triangle_gpu(ray.origin, ray.direction, ray.range, v0, v1, v2);
+          let hit = result.x().equals(val(1.));
+          if_by(hit, move || {
+            let world_distance = result.y() / ray_blas.distance_scaling;
+            if_by(world_distance.less_than(d.load()), || {
+              d.store(world_distance);
+              r.store(tri_idx - primitive_start + val(1));
+            });
+          });
+        });
+      });
+    });
+    r.load()
   }
 
   fn traverse(
@@ -1437,8 +1529,8 @@ fn test_cpu_triangle() {
 
 #[test]
 fn test_gpu_triangle() {
-  const H: usize = 64;
-  const W: usize = 64;
+  const H: usize = 256;
+  const W: usize = 256;
   const FAR: f32 = 100.;
   const ORIGIN: Vec3<f32> = vec3(0., 0., 0.);
   // const GEOMETRY_IDX_MAX: u32 = 1;

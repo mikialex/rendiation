@@ -282,6 +282,7 @@ where
       if_by(n, || {
         has_next.store(val(true));
         item.store(mapped);
+        cx.do_break();
       });
     });
     (has_next.load(), item.load())

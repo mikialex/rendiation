@@ -12,7 +12,7 @@ pub trait GPUAccelerationStructureSystemCompImplInstance {
 }
 
 pub trait GPUAccelerationStructureSystemCompImplInvocationTraversable {
-  //todo
+  // todo
   fn debug(&self, trace_payload: ENode<ShaderRayTraceCallStoragePayload>) -> Node<u32>;
 
   /// return optional closest hit
@@ -149,7 +149,7 @@ fn intersect_ray_triangle_gpu(
   v2: Node<Vec3<f32>>,
   // TODO flags
 ) -> Node<Vec4<f32>> {
-  get_shader_fn::<Vec4<f32>>(shader_fn_name(intersect_ray_aabb_gpu))
+  get_shader_fn::<Vec4<f32>>(shader_fn_name(intersect_ray_triangle_gpu))
     .or_define(|cx| {
       let origin = cx.push_fn_parameter_by(origin);
       let direction = cx.push_fn_parameter_by(direction);
