@@ -11,7 +11,6 @@ pub struct TaskGroupExecutor {
   pub internal: TaskGroupExecutorInternal,
   pub state_desc: DynamicTypeMetaInfo,
 
-  pub tasks_depend_by_self: FastHashSet<usize>,
   pub extra_task_bindings_for_waker: Vec<usize>,
   pub polling_pipeline: GPUComputePipeline,
   pub resource: TaskGroupExecutorResource,
@@ -151,7 +150,6 @@ impl TaskGroupExecutor {
       polling_pipeline,
       resource,
       internal: task_build_source,
-      tasks_depend_by_self: Default::default(),
       state_desc: pre_build.state_to_resolve.meta_info(),
       extra_task_bindings_for_waker,
     }
