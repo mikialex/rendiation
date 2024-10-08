@@ -673,8 +673,8 @@ struct NaiveIntersectReporter<'a> {
   launch_info: RayLaunchInfo,
   world_ray: WorldRayInfo,
   hit_ctx: HitCtxInfo,
-  closest_hit_ctx_info: &'a HitCtxInfoRegister,
-  closest_hit_info: &'a HitInfoRegister,
+  closest_hit_ctx_info: &'a HitCtxInfoVar,
+  closest_hit_info: &'a HitInfoVar,
   any_hit: &'a dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
 }
 impl<'a> IntersectionReporter for NaiveIntersectReporter<'a> {
@@ -707,15 +707,16 @@ fn resolve_any_hit(
   r: LocalVarNode<bool>, // todo just return a node
   any_hit: &dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
   any_hit_ctx: &RayAnyHitCtx,
-  closest_hit_ctx: &HitCtxInfoRegister,
-  closest_hit: &HitInfoRegister,
+  closest_hit_ctx: &HitCtxInfoVar,
+  closest_hit: &HitInfoVar,
 ) {
   let behavior = any_hit(any_hit_ctx);
 
   if_by(behavior.equals(val(HIT_ACCEPTED)), || {
     // hit! update closest
-    closest_hit_ctx.store(&any_hit_ctx.hit_ctx); // todo only if closest_hit test passed!!!
-    closest_hit.test_and_store(&any_hit_ctx.hit);
+    closest_hit.test_and_store(&any_hit_ctx.hit, || {
+      closest_hit_ctx.store(&any_hit_ctx.hit_ctx)
+    });
     // todo update ray range max?
     r.store(val(true));
   })
@@ -792,8 +793,8 @@ fn intersect_blas_gpu(
 
   launch_info: RayLaunchInfo,
   world_ray: WorldRayInfo,
-  closest_hit_ctx_reg: &HitCtxInfoRegister,
-  closest_hit_reg: &HitInfoRegister,
+  closest_hit_ctx_var: &HitCtxInfoVar, // output
+  closest_hit_var: &HitInfoVar,        // output
 ) {
   blas_iter.for_each(|ray_blas, _cx| {
     let ray_blas = ray_blas.expand();
@@ -833,7 +834,7 @@ fn intersect_blas_gpu(
         let v2 = Node::<Vec3<f32>>::from((v2x, v2y, v2z));
         // returns (hit ? 1 : 0, distance, u, v)
         let result = intersect_ray_triangle_gpu(ray.origin, ray.direction, ray.range, v0, v1, v2);
-        let hit = result.x().equals(val(0.));
+        let hit = result.x().greater_than(val(0.));
         if_by(hit, move || {
           // todo precompute local range for intersect_ray_triangle_gpu
           let world_distance = result.y() / ray_blas.distance_scaling;
@@ -864,7 +865,8 @@ fn intersect_blas_gpu(
               hit: HitInfo { hit_kind: val(HIT_KIND_BACK_FACING_TRIANGLE), hit_distance: world_distance },
             };
             let updated = val(false).make_local_var();
-            resolve_any_hit(updated, any_hit, &any_hit_ctx, closest_hit_ctx_reg, closest_hit_reg);
+            resolve_any_hit(updated, any_hit, &any_hit_ctx, closest_hit_ctx_var, closest_hit_var);
+            // todo use updated?
 
           }).else_by(|| {
             // non-opaque -> invode intersect
@@ -878,8 +880,8 @@ fn intersect_blas_gpu(
               launch_info,
               world_ray,
               hit_ctx,
-              closest_hit_ctx_info: closest_hit_ctx_reg,
-              closest_hit_info: closest_hit_reg,
+              closest_hit_ctx_info: closest_hit_ctx_var,
+              closest_hit_info: closest_hit_var,
               any_hit,
             });
             // todo if force opaque, update intersect range to optimize
@@ -1047,7 +1049,8 @@ impl NaiveSahBvhCpu {
   }
 }
 
-struct HitCtxInfoRegister {
+#[derive(Copy, Clone)]
+struct HitCtxInfoVar {
   pub primitive_id: LocalVarNode<u32>,
   pub instance_id: LocalVarNode<u32>,
   pub instance_sbt_offset: LocalVarNode<u32>,
@@ -1058,7 +1061,7 @@ struct HitCtxInfoRegister {
   pub object_space_ray_origin: LocalVarNode<Vec3<f32>>,
   pub object_space_ray_direction: LocalVarNode<Vec3<f32>>,
 }
-impl HitCtxInfoRegister {
+impl HitCtxInfoVar {
   fn store(&self, source: &HitCtxInfo) {
     self.primitive_id.store(source.primitive_id);
     self.instance_id.store(source.instance_id);
@@ -1075,19 +1078,21 @@ impl HitCtxInfoRegister {
       .store(source.object_space_ray.direction);
   }
 }
-struct HitInfoRegister {
+#[derive(Copy, Clone)]
+struct HitInfoVar {
   pub any_hit: LocalVarNode<bool>,
   pub hit_kind: LocalVarNode<u32>,
   pub hit_distance: LocalVarNode<f32>,
 }
-impl HitInfoRegister {
-  fn test_and_store(&self, source: &HitInfo) {
+impl HitInfoVar {
+  fn test_and_store(&self, source: &HitInfo, if_passed: impl FnOnce()) {
     if_by(
       source.hit_distance.less_than(self.hit_distance.load()),
       || {
         self.any_hit.store(val(true));
         self.hit_kind.store(source.hit_kind);
         self.hit_distance.store(source.hit_distance);
+        if_passed();
       },
     );
   }
@@ -1157,12 +1162,29 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
     // let tri_range = value.expand().blas.expand().tri_root_range;
     // tri_range.y() - tri_range.x()
 
+    //// ctx for traverse
+    let hit_ctx_info_var = HitCtxInfoVar {
+      primitive_id: val(0).make_local_var(),
+      instance_id: val(0).make_local_var(),
+      instance_sbt_offset: val(0).make_local_var(),
+      instance_custom_id: val(0).make_local_var(),
+      geometry_id: val(0).make_local_var(),
+      object_to_world: mat4_identity_node().make_local_var(),
+      world_to_object: mat4_identity_node().make_local_var(),
+      object_space_ray_origin: val(vec3(0., 0., 0.)).make_local_var(),
+      object_space_ray_direction: val(vec3(0., 0., 0.)).make_local_var(),
+    };
+    let hit_info_var = HitInfoVar {
+      any_hit: val(false).make_local_var(),
+      hit_kind: val(0).make_local_var(),
+      hit_distance: trace_payload.range.y().make_local_var(),
+    };
+
     //// test blas traverse 3
     let tlas_data = self.tlas_data;
     let indices = self.indices;
     let vertices = self.vertices;
-    let d = val(100.).make_local_var();
-    let r = val(0).make_local_var();
+
     let tlas_idx_iter = traverse_tlas_gpu(val(0), self.tlas_bvh_forest, self.tlas_bounding, ray);
     let blas_iter = iterate_tlas_blas_gpu(tlas_idx_iter, self.tlas_data, self.blas_meta_info, ray);
     blas_iter.for_each(|ray_blas, _cx| {
@@ -1210,15 +1232,51 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
           let hit = result.x().greater_than(val(0.));
           if_by(hit, move || {
             let world_distance = result.y() / ray_blas.distance_scaling;
-            if_by(world_distance.less_than(d.load()), || {
-              d.store(world_distance);
-              r.store(tri_idx - primitive_start + val(1));
-            });
+            let tlas = tlas_data.index(ray_blas.tlas_idx).load().expand();
+
+            let hit_ctx = HitCtxInfo {
+              primitive_id: tri_idx - primitive_start, // store tri offset in tri_bvh_root
+              instance_id: ray_blas.tlas_idx, // todo not exactly instance id, deleted tlas are skipped
+              instance_sbt_offset: tlas.instance_shader_binding_table_record_offset,
+              instance_custom_id: tlas.instance_custom_index,
+              geometry_id,
+              object_to_world: tlas.transform_inv,
+              world_to_object: tlas.transform,
+              object_space_ray: ShaderRay {
+                origin: ray.origin,
+                direction: ray.direction,
+              },
+            };
+
+            let any_hit_ctx = RayAnyHitCtx {
+              launch_info: RayLaunchInfo {
+                launch_id: Default::default(),
+                launch_size: Default::default(),
+              },
+              world_ray: WorldRayInfo {
+                world_ray: ShaderRay {
+                  origin: trace_payload.ray_origin,
+                  direction: trace_payload.ray_direction,
+                },
+                ray_range: ShaderRayRange {
+                  min: trace_payload.range.x(),
+                  max: trace_payload.range.y(),
+                },
+                ray_flags: trace_payload.ray_flags,
+              },
+              hit_ctx,
+              hit: HitInfo { hit_kind: val(HIT_KIND_BACK_FACING_TRIANGLE), hit_distance: world_distance },
+            };
+
+            let updated = val(false).make_local_var();
+            resolve_any_hit(updated, &|_ctx| val(HIT_ACCEPTED), &any_hit_ctx, &hit_ctx_info_var, &hit_info_var);
           });
         });
       });
     });
-    r.load()
+
+    let r = hit_info_var.any_hit.load().into_u32();
+    r * (hit_ctx_info_var.primitive_id.load() + val(1))
   }
 
   fn traverse(
@@ -1256,39 +1314,22 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
       ray_flags: trace_payload.ray_flags,
     };
 
-    let hit_ctx_info_reg = HitCtxInfoRegister {
+    let hit_ctx_info_var = HitCtxInfoVar {
       primitive_id: val(0).make_local_var(),
       instance_id: val(0).make_local_var(),
       instance_sbt_offset: val(0).make_local_var(),
       instance_custom_id: val(0).make_local_var(),
       geometry_id: val(0).make_local_var(),
-      object_to_world: val(Mat4::identity()).make_local_var(),
-      world_to_object: val(Mat4::identity()).make_local_var(),
+      object_to_world: mat4_identity_node().make_local_var(),
+      world_to_object: mat4_identity_node().make_local_var(),
       object_space_ray_origin: val(vec3(0., 0., 0.)).make_local_var(),
       object_space_ray_direction: val(vec3(0., 0., 0.)).make_local_var(),
     };
-    let hit_ctx_info = HitCtxInfo {
-      primitive_id: hit_ctx_info_reg.primitive_id.load(),
-      instance_id: hit_ctx_info_reg.instance_id.load(),
-      instance_sbt_offset: hit_ctx_info_reg.instance_sbt_offset.load(),
-      instance_custom_id: hit_ctx_info_reg.instance_custom_id.load(),
-      geometry_id: hit_ctx_info_reg.geometry_id.load(),
-      object_to_world: hit_ctx_info_reg.object_to_world.load(),
-      world_to_object: hit_ctx_info_reg.world_to_object.load(),
-      object_space_ray: ShaderRay {
-        origin: hit_ctx_info_reg.object_space_ray_origin.load(),
-        direction: hit_ctx_info_reg.object_space_ray_direction.load(),
-      },
-    };
 
-    let hit_info_reg = HitInfoRegister {
+    let hit_info_var = HitInfoVar {
       any_hit: val(false).make_local_var(),
       hit_kind: val(0).make_local_var(),
       hit_distance: world_ray.ray_range.max.make_local_var(),
-    };
-    let hit_info = HitInfo {
-      hit_kind: hit_info_reg.hit_kind.load(),
-      hit_distance: hit_info_reg.hit_distance.load(),
     };
 
     intersect_blas_gpu(
@@ -1305,12 +1346,30 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
       any_hit,
       launch_info,
       world_ray,
-      &hit_ctx_info_reg, // output
-      &hit_info_reg,     // output
+      &hit_ctx_info_var, // output
+      &hit_info_var,     // output
     );
 
+    let hit_ctx_info = HitCtxInfo {
+      primitive_id: hit_ctx_info_var.primitive_id.load(),
+      instance_id: hit_ctx_info_var.instance_id.load(),
+      instance_sbt_offset: hit_ctx_info_var.instance_sbt_offset.load(),
+      instance_custom_id: hit_ctx_info_var.instance_custom_id.load(),
+      geometry_id: hit_ctx_info_var.geometry_id.load(),
+      object_to_world: hit_ctx_info_var.object_to_world.load(),
+      world_to_object: hit_ctx_info_var.world_to_object.load(),
+      object_space_ray: ShaderRay {
+        origin: hit_ctx_info_var.object_space_ray_origin.load(),
+        direction: hit_ctx_info_var.object_space_ray_direction.load(),
+      },
+    };
+    let hit_info = HitInfo {
+      hit_kind: hit_info_var.hit_kind.load(),
+      hit_distance: hit_info_var.hit_distance.load(),
+    };
+
     ShaderOption {
-      is_some: hit_info_reg.any_hit.load(),
+      is_some: hit_info_var.any_hit.load(),
       payload: RayClosestHitCtx {
         launch_info,
         world_ray,
@@ -1648,13 +1707,16 @@ fn test_gpu_triangle() {
           // (id.x(), valid)
 
           // debug2
-          let output = traversable.debug(payload);
-          (output, valid)
+          // let output = traversable.debug(payload);
+          // (output, valid)
 
           // final traverse
-          // let output =
-          //   traversable.traverse(payload, &|_ctx, _reporter| {}, &|_ctx| val(HIT_ACCEPTED));
-          // (output.payload.hit_ctx.primitive_id, valid)
+          let output =
+            traversable.traverse(payload, &|_ctx, _reporter| {}, &|_ctx| val(HIT_ACCEPTED));
+          (
+            output.payload.hit_ctx.primitive_id + output.is_some.into_u32(),
+            valid,
+          )
         })
         .into_boxed()
     }
@@ -1666,4 +1728,12 @@ fn test_gpu_triangle() {
       self.upstream.requested_workgroup_size()
     }
   }
+}
+
+fn mat4_identity_node() -> Node<Mat4<f32>> {
+  let x = val(vec4(1., 0., 0., 0.));
+  let y = val(vec4(0., 1., 0., 0.));
+  let z = val(vec4(0., 0., 1., 0.));
+  let w = val(vec4(0., 0., 0., 1.));
+  (x, y, z, w).into()
 }
