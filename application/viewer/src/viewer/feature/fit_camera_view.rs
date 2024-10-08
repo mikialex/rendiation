@@ -1,7 +1,7 @@
 use crate::*;
 
-/// target_world_aabb should not empty, is target is unbound, should give it logical center point as
-/// the bbox, return desired camera world matrix
+/// Target_world_aabb should not empty. If the target is unbound, should give a box that the center point
+/// is the logical target center. Return desired camera world matrix
 pub fn fit_camera_view(
   proj: &PerspectiveProjection<f32>,
   camera_world: Mat4<f32>,

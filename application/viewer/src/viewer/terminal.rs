@@ -44,13 +44,24 @@ impl Terminal {
 
   pub fn register_command<F, FR>(&mut self, name: impl AsRef<str>, f: F) -> &mut Self
   where
-    FR: Future<Output = ()> + Send + Unpin + 'static,
+    FR: Future<Output = ()> + Send + 'static,
     F: Fn(&mut DynCx, &Vec<String>) -> FR + 'static,
   {
     self.command_registry.insert(
       name.as_ref().to_owned(),
-      Box::new(move |c, p| Box::new(f(c, p))),
+      Box::new(move |c, p| Box::new(Box::pin(f(c, p)))),
     );
+    self
+  }
+
+  pub fn register_sync_command<F>(&mut self, name: impl AsRef<str>, f: F) -> &mut Self
+  where
+    F: Fn(&mut DynCx, &Vec<String>) + 'static + Send + Sync,
+  {
+    self.register_command(name, move |c, p| {
+      f(c, p);
+      async {}
+    });
     self
   }
 
@@ -77,7 +88,7 @@ impl Terminal {
 
 pub fn register_default_commands(terminal: &mut Terminal) {
   // this mainly to do test
-  terminal.register_command("clear-gpu-resource-cache", |ctx, _parameters| {
+  terminal.register_sync_command("clear-gpu-resource-cache", |ctx, _parameters| {
     access_cx!(ctx, gpu, GPU);
 
     println!(
@@ -85,13 +96,11 @@ pub fn register_default_commands(terminal: &mut Terminal) {
       gpu.create_cache_report()
     );
     gpu.clear_resource_cache();
-
-    Box::pin(async {})
   });
 
   // terminal.register_command("load-gltf", |ctx, _parameters| {
   //   let scene = ctx.scene.clone();
-  //   Box::pin(async move {
+  //   async move {
   //     use rfd::AsyncFileDialog;
 
   //     let file_handle = AsyncFileDialog::new()
@@ -102,12 +111,12 @@ pub fn register_default_commands(terminal: &mut Terminal) {
   //     if let Some(file_handle) = file_handle {
   //       rendiation_scene_gltf_loader::load_gltf(file_handle.path(), &scene).unwrap();
   //     }
-  //   })
+  //   }
   // });
 
   // terminal.register_command("load-obj", |ctx, _parameters| {
   //   let scene = ctx.scene.clone();
-  //   Box::pin(async move {
+  //   async move {
   //     use rfd::AsyncFileDialog;
 
   //     let file_handle = AsyncFileDialog::new()
@@ -118,27 +127,27 @@ pub fn register_default_commands(terminal: &mut Terminal) {
   //     if let Some(file_handle) = file_handle {
   //       rendiation_scene_obj_loader::load_obj(file_handle.path(), &scene).unwrap();
   //     }
-  //   })
+  //   }
   // });
 
   // terminal.register_command("export-gltf", |ctx, _parameters| {
   //   let scene = ctx.scene.clone();
 
-  //   Box::pin(async move {
+  //   async move {
   //     if let Some(mut dir) = dirs::download_dir() {
   //       dir.push("gltf_export");
   //       rendiation_scene_gltf_exporter::build_scene_to_gltf(&scene, &dir, "scene").unwrap();
   //     } else {
   //       log::error!("failed to locate the system's default download directory to write file
   // output")     }
-  //   })
+  //   }
   // });
 
   terminal.register_command("screenshot", |ctx, _parameters| {
     access_cx!(ctx, r, Viewer3dRenderingCtx);
     let result = r.read_next_render_result();
 
-    Box::pin(async {
+    async {
       match result.await {
           Ok(r) =>{
             if let Some(mut dir) = dirs::download_dir() {
@@ -150,7 +159,15 @@ pub fn register_default_commands(terminal: &mut Terminal) {
           },
           Err(e) => log::error!("{e:?}"),
       }
-    })
+    }
+  });
+
+  terminal.register_sync_command("fit-camera-view", |ctx, _parameters| {
+    access_cx!(ctx, scene_cx, Viewer3dSceneCtx);
+    if let Some(_selected) = &scene_cx.selected_target {
+      // let camera_world = fit_camera_view(proj, camera_world, target_world_aabb);
+      todo!();
+    }
   });
 
   // terminal.register_command("into-solid-line-mesh", |ctx, _parameters| {
@@ -170,18 +187,16 @@ pub fn register_default_commands(terminal: &mut Terminal) {
   #[cfg(feature = "heap-debug")]
   {
     use crate::GLOBAL_ALLOCATOR;
-    terminal.register_command("log-heap-stat", |_ctx, _parameters| {
+    terminal.register_sync_command("log-heap-stat", |_ctx, _parameters| {
       let stat = GLOBAL_ALLOCATOR.report();
       println!("{:#?}", stat);
-      Box::pin(async {})
     });
-    terminal.register_command("reset-heap-peak", |_ctx, _parameters| {
+    terminal.register_sync_command("reset-heap-peak", |_ctx, _parameters| {
       GLOBAL_ALLOCATOR.reset_history_peak();
       println!("allocator history peak stat has been reset!");
-      Box::pin(async {})
     });
 
-    terminal.register_command("log-all-type-count-stat", |_ctx, _parameters| {
+    terminal.register_sync_command("log-all-type-count-stat", |_ctx, _parameters| {
       let global = heap_tools::HEAP_TOOL_GLOBAL_INSTANCE_COUNTER
         .read()
         .unwrap();
@@ -191,17 +206,14 @@ pub fn register_default_commands(terminal: &mut Terminal) {
           report.current, report.history_peak
         );
       }
-
-      Box::pin(async {})
     });
 
-    terminal.register_command("reset-all-type-count-peak-stat", |_ctx, _parameters| {
+    terminal.register_sync_command("reset-all-type-count-peak-stat", |_ctx, _parameters| {
       heap_tools::HEAP_TOOL_GLOBAL_INSTANCE_COUNTER
         .write()
         .unwrap()
         .reset_all_instance_history_peak();
       println!("all type instance counter peak stat has been reset!");
-      Box::pin(async {})
     });
   }
 }

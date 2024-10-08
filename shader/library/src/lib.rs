@@ -26,6 +26,7 @@ pub fn shader_world_space_to_uv_space(
   (uv, ndc.z())
 }
 
+// todo, fix upstream
 pub fn shader_identity_mat4() -> Node<Mat4<f32>> {
   let a = val(Vec4::new(1., 0., 0., 0.));
   let b = val(Vec4::new(0., 1., 0., 0.));
@@ -34,6 +35,7 @@ pub fn shader_identity_mat4() -> Node<Mat4<f32>> {
   (a, b, c, d).into()
 }
 
+// todo, fix upstream
 pub fn shader_identity_mat3() -> Node<Mat3<f32>> {
   let a = val(Vec3::new(1., 0., 0.));
   let b = val(Vec3::new(0., 1., 0.));
