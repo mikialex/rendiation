@@ -12,6 +12,9 @@ rendiation-scene-core = { path = "../../core" }
 reactive = { path = "../../../utility/reactive" }
 database = { path = "../../../utility/database" }
 rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
+rendiation-webgpu-reactive-utils = { path = "../../../platform/graphics/webgpu-reactive-utils" }
+rendiation-texture-core = { path = "../../../content/texture/core" }
+rendiation-texture-gpu-base = { path = "../../../content/texture/gpu-base" }
 rendiation-texture-gpu-system = { path = "../../../content/texture/gpu-system" }
 rendiation-lighting-gpu-system = { path = "../../../content/lighting/gpu-system/lighting-system" }
 

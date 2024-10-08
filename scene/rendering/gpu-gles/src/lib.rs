@@ -13,8 +13,6 @@ use rendiation_texture_gpu_system::*;
 use rendiation_webgpu::*;
 use rendiation_webgpu_reactive_utils::*;
 
-mod texture;
-pub use texture::*;
 mod material;
 pub use material::*;
 mod mesh;

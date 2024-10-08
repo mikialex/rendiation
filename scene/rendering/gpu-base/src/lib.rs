@@ -25,6 +25,8 @@ use rendiation_webgpu::*;
 
 mod light;
 pub use light::*;
+mod texture;
+pub use texture::*;
 
 pub trait RenderImplProvider<T> {
   /// this will be called once when application init
