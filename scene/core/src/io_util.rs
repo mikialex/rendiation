@@ -6,6 +6,7 @@ pub struct SceneWriter {
   pub camera_writer: EntityWriter<SceneCameraEntity>,
   pub mesh_writer: AttributesMeshEntityFromAttributesMeshWriter,
   pub tex_writer: EntityWriter<SceneTexture2dEntity>,
+  pub cube_writer: EntityWriter<SceneTextureCubeEntity>,
   pub sampler_writer: EntityWriter<SceneSamplerEntity>,
   pub node_writer: EntityWriter<SceneNodeEntity>,
   pub std_model_writer: EntityWriter<StandardModelEntity>,
@@ -72,6 +73,7 @@ impl SceneWriter {
       camera_writer: global_entity_of().entity_writer(),
       mesh_writer: AttributesMesh::create_writer(),
       tex_writer: global_entity_of().entity_writer(),
+      cube_writer: global_entity_of().entity_writer(),
       sampler_writer: global_entity_of().entity_writer(),
       node_writer: global_entity_of().entity_writer(),
       std_model_writer: global_entity_of().entity_writer(),
@@ -92,6 +94,13 @@ impl SceneWriter {
     TexSamplerWriter {
       tex_writer: &mut self.tex_writer,
       sampler_writer: &mut self.sampler_writer,
+    }
+  }
+
+  pub fn cube_texture_writer(&mut self) -> TexCubeWriter {
+    TexCubeWriter {
+      tex_writer: &mut self.tex_writer,
+      cube_writer: &mut self.cube_writer,
     }
   }
 }
