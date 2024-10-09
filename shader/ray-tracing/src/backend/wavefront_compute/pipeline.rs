@@ -22,25 +22,30 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
 
     let mut payload_max_u32_count = 0;
 
-    let closest_task_range_base = desc.ray_gen_shaders.len();
+    let ray_gen_task_range_start = 1;
+    let ray_gen_task_range_end = ray_gen_task_range_start + desc.ray_gen_shaders.len();
+
+    let closest_task_range_start = ray_gen_task_range_end;
+    let closest_task_range_end = closest_task_range_start + desc.closest_hit_shaders.len();
     let closest_tasks = desc
       .closest_hit_shaders
       .iter()
       .enumerate()
       .map(|(i, (_, ty))| {
         payload_max_u32_count = payload_max_u32_count.max(ty.u32_size_count());
-        ((i + closest_task_range_base) as u32, ty.clone())
+        ((i + closest_task_range_start) as u32, ty.clone())
       })
       .collect();
 
-    let missing_tasks_base = closest_task_range_base + desc.closest_hit_shaders.len();
+    let missing_task_start = closest_task_range_end;
+    let missing_task_end = missing_task_start + desc.miss_hit_shaders.len();
     let missing_tasks = desc
       .closest_hit_shaders
       .iter()
       .enumerate()
       .map(|(i, (_, ty))| {
         payload_max_u32_count = payload_max_u32_count.max(ty.u32_size_count());
-        ((i + missing_tasks_base) as u32, ty.clone())
+        ((i + missing_task_start) as u32, ty.clone())
       })
       .collect();
 
@@ -75,30 +80,34 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
     });
 
     // create core tracer task as almost every other task depend on this one
-    graph.define_task_dyn(
+    let trace_task_id = graph.define_task_dyn(
       Box::new(OpaqueTaskWrapper(tracer_task)) as OpaqueTask,
       TraceTaskSelfPayload::sized_ty(),
     );
+    assert_eq!(trace_task_id, 0);
 
     for (stage, ty) in &desc.ray_gen_shaders {
-      graph.define_task_dyn(
+      let task_id = graph.define_task_dyn(
         Box::new(OpaqueTaskWrapper(stage.build_device_future(&mut ctx))) as OpaqueTask,
         ty.clone(),
       );
+      assert!((ray_gen_task_range_start..ray_gen_task_range_end).contains(&(task_id as usize)));
     }
 
     for (stage, ty) in &desc.closest_hit_shaders {
-      graph.define_task_dyn(
+      let task_id = graph.define_task_dyn(
         Box::new(OpaqueTaskWrapper(stage.build_device_future(&mut ctx))) as OpaqueTask,
         ty.clone(),
       );
+      assert!((closest_task_range_start..closest_task_range_end).contains(&(task_id as usize)));
     }
 
     for (stage, ty) in &desc.miss_hit_shaders {
-      graph.define_task_dyn(
+      let task_id = graph.define_task_dyn(
         Box::new(OpaqueTaskWrapper(stage.build_device_future(&mut ctx))) as OpaqueTask,
         ty.clone(),
       );
+      assert!((missing_task_start..missing_task_end).contains(&(task_id as usize)));
     }
 
     let executor = graph.build(1, 1, cx);
