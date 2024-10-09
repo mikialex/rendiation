@@ -1,121 +1,65 @@
 use rendiation_algebra::*;
-use rendiation_mesh_core::CommonVertex;
-use rendiation_mesh_core::*;
 use rendiation_mesh_generator::{
   build_attributes_mesh, CubeMeshParameter, SphereMeshParameter, TessellationConfig,
 };
-use rendiation_texture_core::{
-  create_padding_buffer, GPUBufferImage, Texture2D, TextureFormat, TextureSampler,
-};
+use rendiation_texture_loader::load_tex;
 
 use crate::*;
 
-pub fn textured_ball(scene: &mut SceneWriter) {
-  let path = if cfg!(windows) {
-    "C:/Users/mk/Desktop/rrf-resource/planets/earth_atmos_2048.jpg"
-  } else {
-    "/Users/mikialex/Desktop/test.png"
-  };
-}
-
-// pub fn load_img_cube() -> SceneTextureCube {
-//   let path = if cfg!(windows) {
-//     [
-//       "C:/Users/mk/Desktop/rrf-resource/Park2/posx.jpg",
-//       "C:/Users/mk/Desktop/rrf-resource/Park2/negx.jpg",
-//       "C:/Users/mk/Desktop/rrf-resource/Park2/posy.jpg",
-//       "C:/Users/mk/Desktop/rrf-resource/Park2/negy.jpg",
-//       "C:/Users/mk/Desktop/rrf-resource/Park2/posz.jpg",
-//       "C:/Users/mk/Desktop/rrf-resource/Park2/negz.jpg",
-//     ]
-//   } else {
-//     [
-//       "/Users/mikialex/dev/references/three.js/examples/textures/cube/pisa/px.png",
-//       "/Users/mikialex/dev/references/three.js/examples/textures/cube/pisa/nx.png",
-//       "/Users/mikialex/dev/references/three.js/examples/textures/cube/pisa/py.png",
-//       "/Users/mikialex/dev/references/three.js/examples/textures/cube/pisa/ny.png",
-//       "/Users/mikialex/dev/references/three.js/examples/textures/cube/pisa/pz.png",
-//       "/Users/mikialex/dev/references/three.js/examples/textures/cube/pisa/nz.png",
-//     ]
-//   };
-
-//   SceneTextureCubeImpl {
-//     faces: path.map(load_tex),
-//   }
-//   .into()
-// }
-
 pub fn load_default_scene(writer: &mut SceneWriter, viewer_scene: &Viewer3dSceneCtx) {
-  let path = if cfg!(windows) {
-    "C:/Users/mk/Desktop/rrf-resource/planets/earth_atmos_2048.jpg"
-  } else {
-    "/Users/mikialex/Desktop/test.png"
-  };
-
-  let texture = rendiation_texture_loader::load_tex(path);
-  let texture = writer
-    .texture_sample_pair_writer()
-    .write_tex_with_default_sampler(texture);
-
   writer.set_solid_background(Vec3::new(0.1, 0.1, 0.1));
-  //   // scene.set_background(Some(SceneBackGround::Env(EnvMapBackground {
-  //   //   texture: load_img_cube(),
-  //   // })));
 
-  //   {
-  let attribute_mesh = build_attributes_mesh(|builder| {
-    builder.triangulate_parametric(
-      &SphereMeshParameter::default().make_surface(),
-      TessellationConfig { u: 16, v: 16 },
-      true,
-    );
-  })
-  .build();
-  let attribute_mesh = writer.write_attribute_mesh(attribute_mesh);
+  // textured ball
+  {
+    let attribute_mesh = build_attributes_mesh(|builder| {
+      builder.triangulate_parametric(
+        &SphereMeshParameter::default().make_surface(),
+        TessellationConfig { u: 16, v: 16 },
+        true,
+      );
+    })
+    .build();
+    let attribute_mesh = writer.write_attribute_mesh(attribute_mesh);
 
-  let material = PhysicalMetallicRoughnessMaterialDataView {
-    base_color: Vec3::splat(1.),
-    base_color_texture: Some(texture),
-    ..Default::default()
+    let texture = textured_example_tex(writer);
+    let material = PhysicalMetallicRoughnessMaterialDataView {
+      base_color: Vec3::splat(1.),
+      base_color_texture: Some(texture),
+      ..Default::default()
+    }
+    .write(&mut writer.pbr_mr_mat_writer);
+    let material = SceneMaterialDataView::PbrMRMaterial(material);
+    let child = writer.create_root_child();
+    writer.create_scene_model(material, attribute_mesh, child);
   }
-  .write(&mut writer.pbr_mr_mat_writer);
-  let material = SceneMaterialDataView::PbrMRMaterial(material);
-  writer.create_scene_model(material, attribute_mesh, viewer_scene.root);
 
-  //     let child = scene.create_root_child();
-  //     child.set_local_matrix(Mat4::translate((2., 0., 3.)));
+  // cube
+  {
+    let cube = CubeMeshParameter {
+      width: 1.,
+      height: 2.,
+      depth: 3.,
+    };
+    let attribute_mesh = build_attributes_mesh(|builder| {
+      for face in cube.make_faces() {
+        builder.triangulate_parametric(&face, TessellationConfig { u: 2, v: 3 }, true);
+      }
+    })
+    .build();
+    let attribute_mesh = writer.write_attribute_mesh(attribute_mesh);
 
-  //     let model = StandardModel::new(material, mesh);
-  //     let model = ModelEnum::Standard(model.into());
-  //     let model = SceneModelImpl::new(model, child);
-  //     let _ = scene.insert_model(model.into());
-  //   }
+    let material = PhysicalSpecularGlossinessMaterialDataView {
+      albedo: Vec3::splat(1.),
+      ..Default::default()
+    }
+    .write(&mut writer.pbr_sg_mat_writer);
+    let material = SceneMaterialDataView::PbrSGMaterial(material);
 
-  //   {
-  //     let cube = CubeMeshParameter {
-  //       width: 1.,
-  //       height: 2.,
-  //       depth: 3.,
-  //     };
-  //     let mesh = build_scene_mesh(|builder| {
-  //       for face in cube.make_faces() {
-  //         builder.triangulate_parametric(&face, TessellationConfig { u: 2, v: 3 }, true);
-  //       }
-  //     });
+    let child = writer.create_root_child();
+    writer.set_local_matrix(child, Mat4::translate((2., 0., 3.)));
 
-  //     let material = PhysicalSpecularGlossinessMaterial {
-  //       albedo: Vec3::splat(1.),
-  //       albedo_texture: texture.clone().into(),
-  //       ..Default::default()
-  //     };
-  //     let material = MaterialEnum::PhysicalSpecularGlossiness(material.into());
-  //     let child = scene.create_root_child();
-
-  //     let model = StandardModel::new(material, mesh);
-  //     let model = ModelEnum::Standard(model.into());
-  //     let model = SceneModelImpl::new(model, child);
-  //     let _ = scene.insert_model(model.into());
-  //   }
+    writer.create_scene_model(material, attribute_mesh, child);
+  }
 
   //   {
   //     let mesh = build_scene_mesh(|builder| {
@@ -154,24 +98,21 @@ pub fn load_default_scene(writer: &mut SceneWriter, viewer_scene: &Viewer3dScene
 
   let up = Vec3::new(0., 1., 0.);
 
-  //   {
-  //     let camera = PerspectiveProjection::default();
-  //     let camera = CameraProjectionEnum::Perspective(camera);
-  //     let camera_node = scene.create_root_child();
-  //     camera_node.set_local_matrix(Mat4::lookat(Vec3::splat(3.), Vec3::splat(0.), up));
-  //     let camera = SceneCameraImpl::new(camera, camera_node).into_ptr();
-  //     let _ = scene.insert_camera(camera.clone());
-  //     scene.set_active_camera(camera.into());
-  //   }
+  // add another camera for camera related helper testing
+  {
+    let camera_node = writer.create_root_child();
+    writer.set_local_matrix(
+      camera_node,
+      Mat4::lookat(Vec3::splat(3.), Vec3::splat(0.), up),
+    );
 
-  //   {
-  //     let camera = PerspectiveProjection::default();
-  //     let camera = CameraProjectionEnum::Perspective(camera);
-  //     let camera_node = scene.create_root_child();
-  //     camera_node.set_local_matrix(Mat4::lookat(Vec3::splat(3.), Vec3::splat(0.), up));
-  //     let camera = SceneCameraImpl::new(camera, camera_node).into_ptr();
-  //     let _ = scene.insert_camera(camera);
-  //   }
+    global_entity_of::<SceneCameraEntity>()
+      .entity_writer()
+      .with_component_value_writer::<SceneCameraPerspective>(Some(PerspectiveProjection::default()))
+      .with_component_value_writer::<SceneCameraBelongsToScene>(Some(writer.scene.into_raw()))
+      .with_component_value_writer::<SceneCameraNode>(Some(camera_node.into_raw()))
+      .new_entity();
+  }
 
   {
     let directional_light_node = writer.create_root_child();
@@ -264,4 +205,48 @@ pub fn load_stress_test(scene: &mut SceneWriter) {
       }
     }
   }
+}
+
+pub fn textured_example_tex(scene: &mut SceneWriter) -> Texture2DWithSamplingDataView {
+  let path = if cfg!(windows) {
+    "C:/Users/mk/Desktop/rrf-resource/planets/earth_atmos_2048.jpg"
+  } else {
+    "/Users/mikialex/Desktop/test.png"
+  };
+  let tex = load_tex(path);
+  scene
+    .texture_sample_pair_writer()
+    .write_tex_with_default_sampler(tex)
+}
+
+pub fn load_example_cube_tex(writer: &mut SceneWriter) -> EntityHandle<SceneTextureCubeEntity> {
+  let path = if cfg!(windows) {
+    [
+      "C:/Users/mk/Desktop/rrf-resource/Park2/posx.jpg",
+      "C:/Users/mk/Desktop/rrf-resource/Park2/negx.jpg",
+      "C:/Users/mk/Desktop/rrf-resource/Park2/posy.jpg",
+      "C:/Users/mk/Desktop/rrf-resource/Park2/negy.jpg",
+      "C:/Users/mk/Desktop/rrf-resource/Park2/posz.jpg",
+      "C:/Users/mk/Desktop/rrf-resource/Park2/negz.jpg",
+    ]
+  } else {
+    [
+      "/Users/mikialex/dev/references/three.js/examples/textures/cube/pisa/px.png",
+      "/Users/mikialex/dev/references/three.js/examples/textures/cube/pisa/nx.png",
+      "/Users/mikialex/dev/references/three.js/examples/textures/cube/pisa/py.png",
+      "/Users/mikialex/dev/references/three.js/examples/textures/cube/pisa/ny.png",
+      "/Users/mikialex/dev/references/three.js/examples/textures/cube/pisa/pz.png",
+      "/Users/mikialex/dev/references/three.js/examples/textures/cube/pisa/nz.png",
+    ]
+  };
+  let x_pos = load_tex(path[0]);
+  let y_pos = load_tex(path[2]);
+  let z_pos = load_tex(path[4]);
+  let x_neg = load_tex(path[1]);
+  let y_neg = load_tex(path[3]);
+  let z_neg = load_tex(path[5]);
+
+  writer
+    .cube_texture_writer()
+    .write_cube_tex(x_pos, y_pos, z_pos, x_neg, y_neg, z_neg)
 }

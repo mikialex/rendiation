@@ -112,12 +112,12 @@ where
   /// filter map<k, v> by v
   fn collective_filter<F>(self, f: F) -> impl ReactiveCollection<K, V>
   where
-    V: Copy,
+    V: Clone,
     F: Fn(V) -> bool + Copy + Send + Sync + 'static,
   {
     ReactiveKVFilter {
       inner: self,
-      checker: move |v| if f(v) { Some(v) } else { None },
+      checker: move |v: V| if f(v.clone()) { Some(v) } else { None }, // todo remove clone
       k: PhantomData,
     }
   }
