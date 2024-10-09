@@ -152,7 +152,7 @@ pub fn load_default_scene(writer: &mut SceneWriter, viewer_scene: &Viewer3dScene
   //     let _ = scene.insert_model(model.into());
   //   }
 
-  //   let up = Vec3::new(0., 1., 0.);
+  let up = Vec3::new(0., 1., 0.);
 
   //   {
   //     let camera = PerspectiveProjection::default();
@@ -173,55 +173,61 @@ pub fn load_default_scene(writer: &mut SceneWriter, viewer_scene: &Viewer3dScene
   //     let _ = scene.insert_camera(camera);
   //   }
 
-  //   let directional_light_node = scene.create_root_child();
-  //   directional_light_node.set_local_matrix(Mat4::lookat(Vec3::splat(300.), Vec3::splat(0.), up));
-  //   let directional_light = DirectionalLight {
-  //     illuminance: 5.,
-  //     color_factor: Vec3::one(),
-  //   };
-  //   let directional_light = LightEnum::DirectionalLight(directional_light.into());
-  //   let directional_light = SceneLightImpl::new(directional_light, directional_light_node);
-  //   scene.insert_light(directional_light.into());
+  {
+    let directional_light_node = writer.create_root_child();
+    writer.set_local_matrix(
+      directional_light_node,
+      Mat4::lookat(Vec3::splat(300.), Vec3::splat(0.), up),
+    );
+    DirectionalLightDataView {
+      illuminance: Vec3::splat(5.),
+      node: directional_light_node,
+      scene: writer.scene,
+    }
+    .write(&mut writer.directional_light_writer);
+  }
 
-  //   let directional_light_node = scene.create_root_child();
-  //   directional_light_node.set_local_matrix(Mat4::lookat(
-  //     Vec3::new(30., 300., -30.),
-  //     Vec3::splat(0.),
-  //     up,
-  //   ));
-  //   let directional_light = DirectionalLight {
-  //     illuminance: 5.,
-  //     color_factor: Vec3::new(5., 3., 2.) / Vec3::splat(5.),
-  //   };
-  //   let directional_light = LightEnum::DirectionalLight(directional_light.into());
-  //   let directional_light = SceneLightImpl::new(directional_light, directional_light_node);
-  //   scene.insert_light(directional_light.into());
+  {
+    let directional_light_node = writer.create_root_child();
+    writer.set_local_matrix(
+      directional_light_node,
+      Mat4::lookat(Vec3::new(30., 300., -30.), Vec3::splat(0.), up),
+    );
+    DirectionalLightDataView {
+      illuminance: Vec3::new(5., 3., 2.) * 5.,
+      node: directional_light_node,
+      scene: writer.scene,
+    }
+    .write(&mut writer.directional_light_writer);
+  }
 
-  //   let point_light_node = scene.create_root_child();
-  //   point_light_node.set_local_matrix(Mat4::translate((2., 2., 2.)));
-  //   let point_light = PointLight {
-  //     color_factor: Vec3::new(5., 3., 2.) / Vec3::splat(5.),
-  //     luminance_intensity: 5.,
-  //     cutoff_distance: 40.,
-  //   };
-  //   let point_light = LightEnum::PointLight(point_light.into());
-  //   let point_light = SceneLightImpl::new(point_light, point_light_node);
-  //   scene.insert_light(point_light.into());
+  {
+    let point_light_node = writer.create_root_child();
+    writer.set_local_matrix(point_light_node, Mat4::translate((2., 2., 2.)));
+    PointLightDataView {
+      intensity: Vec3::new(5., 3., 2.) * 5.,
+      cutoff_distance: 40.,
+      node: point_light_node,
+      scene: writer.scene,
+    }
+    .write(&mut writer.point_light_writer);
+  }
 
-  //   let spot_light_node = scene.create_root_child();
-  //   spot_light_node.set_local_matrix(Mat4::lookat(Vec3::new(-5., 5., 5.), Vec3::splat(0.), up));
-  //   let spot_light = SpotLight {
-  //     luminance_intensity: 180.,
-  //     color_factor: Vec3::new(1., 0., 0.),
-  //     cutoff_distance: 40.,
-  //     half_cone_angle: Deg::by(5. / 2.).to_rad(),
-  //     half_penumbra_angle: Deg::by(5. / 2.).to_rad(),
-  //   };
-  //   let spot_light = LightEnum::SpotLight(spot_light.into());
-  //   let spot_light = SceneLightImpl::new(spot_light, spot_light_node);
-  //   scene.insert_light(spot_light.into());
+  {
+    let spot_light_node = writer.create_root_child();
+    writer.set_local_matrix(spot_light_node, Mat4::translate((2., 2., 2.)));
+    SpotLightDataView {
+      intensity: Vec3::new(1., 0., 0.) * 180.,
+      cutoff_distance: 40.,
+      half_cone_angle: Deg::by(5. / 2.).to_rad(),
+      half_penumbra_angle: Deg::by(5. / 2.).to_rad(),
+      node: spot_light_node,
+      scene: writer.scene,
+    }
+    .write(&mut writer.spot_light_writer);
+  }
 
-  //   // stress_test2(scene);
+  // stress_test2(scene);
 }
 
 pub fn load_stress_test(scene: &mut SceneWriter) {

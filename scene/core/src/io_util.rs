@@ -14,6 +14,9 @@ pub struct SceneWriter {
   pub flat_mat_writer: EntityWriter<FlatMaterialEntity>,
   pub pbr_sg_mat_writer: EntityWriter<PbrSGMaterialEntity>,
   pub pbr_mr_mat_writer: EntityWriter<PbrMRMaterialEntity>,
+  pub point_light_writer: EntityWriter<PointLightEntity>,
+  pub directional_light_writer: EntityWriter<DirectionalLightEntity>,
+  pub spot_light_writer: EntityWriter<SpotLightEntity>,
 }
 
 impl SceneWriter {
@@ -81,6 +84,9 @@ impl SceneWriter {
       flat_mat_writer: global_entity_of().entity_writer(),
       pbr_sg_mat_writer: global_entity_of().entity_writer(),
       pbr_mr_mat_writer: global_entity_of().entity_writer(),
+      point_light_writer: global_entity_of().entity_writer(),
+      directional_light_writer: global_entity_of().entity_writer(),
+      spot_light_writer: global_entity_of().entity_writer(),
     }
   }
   pub fn write_attribute_mesh(
