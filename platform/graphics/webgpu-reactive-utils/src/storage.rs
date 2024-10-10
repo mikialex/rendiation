@@ -2,11 +2,12 @@ use rendiation_shader_api::{bytes_of, Pod};
 
 use crate::*;
 
-type StorageBufferImpl<T> = GrowableDirectQueueUpdateBuffer<StorageBufferReadOnlyDataView<[T]>>;
+pub type CommonStorageBufferImpl<T> =
+  GrowableDirectQueueUpdateBuffer<StorageBufferReadOnlyDataView<[T]>>;
 
 /// group of(Rxc<id, T fieldChange>) =maintain=> storage buffer <T>
 pub struct ReactiveStorageBufferContainer<T: Std430> {
-  inner: MultiUpdateContainer<StorageBufferImpl<T>>,
+  pub inner: MultiUpdateContainer<CommonStorageBufferImpl<T>>,
 }
 
 fn make_init_size<T: Std430>(size: usize) -> StorageBufferInit<'static, [T]> {
@@ -54,7 +55,7 @@ struct CollectionToStorageBufferUpdater<T, K, V> {
   phantom: PhantomData<(K, V)>,
 }
 
-impl<T, C, K, V> CollectionUpdate<StorageBufferImpl<T>>
+impl<T, C, K, V> CollectionUpdate<CommonStorageBufferImpl<T>>
   for CollectionToStorageBufferUpdater<C, K, V>
 where
   T: Std430,
@@ -62,7 +63,7 @@ where
   K: CKey + LinearIdentified,
   C: ReactiveCollection<K, V>,
 {
-  fn update_target(&mut self, target: &mut StorageBufferImpl<T>, cx: &mut Context) {
+  fn update_target(&mut self, target: &mut CommonStorageBufferImpl<T>, cx: &mut Context) {
     let (changes, _) = self.upstream.poll_changes(cx);
     for (k, v) in changes.iter_key_value() {
       let index = k.alloc_index();

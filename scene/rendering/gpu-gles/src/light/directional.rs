@@ -44,9 +44,11 @@ impl RenderImplProvider<Box<dyn LightingComputeComponent>> for DirectionalUnifor
   ) -> Box<dyn LightingComputeComponent> {
     let uniform = res
       .take_multi_updater_updated::<UniformArray<DirectionalLightUniform, 8>>(self.token)
-      .unwrap();
+      .unwrap()
+      .target
+      .clone();
     let com = ArrayLights(
-      MultiUpdateContainerImplAbstractBindingSource(uniform),
+      uniform,
       |(_, light_uniform): (Node<u32>, UniformNode<DirectionalLightUniform>)| {
         let light_uniform = light_uniform.load().expand();
         ENode::<DirectionalShaderInfo> {
