@@ -2,7 +2,6 @@
 
 use std::any::Any;
 use std::any::TypeId;
-use std::collections::hash_map::Entry;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::marker::PhantomData;

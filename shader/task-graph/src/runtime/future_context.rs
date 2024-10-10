@@ -6,19 +6,27 @@ pub struct DeviceTaskSystemBuildCtx<'a> {
   pub compute_cx: &'a mut ShaderComputePipelineBuilder,
 
   pub(super) self_task_idx: usize,
-  pub(super) all_task_group_sources: &'a mut Vec<(TaskGroupExecutorResource, FastHashSet<usize>)>,
-  pub(super) tasks_depend_on_self: FastHashMap<usize, TaskGroupDeviceInvocationInstance>,
-  pub(super) self_spawner: Arc<RwLock<Option<TaskGroupDeviceInvocationInstance>>>,
+  pub(super) task_group_shared_info: &'a mut Vec<(
+    TaskGroupDeviceInvocationInstanceLateResolved,
+    FastHashSet<usize>,
+  )>,
+  pub(super) tasks_depend_on_self:
+    FastHashMap<usize, TaskGroupDeviceInvocationInstanceLateResolved>,
 
   pub state_builder: DynamicTypeBuilder,
 }
 
-pub enum TaskGroupDeviceInvocationInstanceMaybeSelf {
-  NoneSelfTask(TaskGroupDeviceInvocationInstance),
-  SelfTask(Arc<RwLock<Option<TaskGroupDeviceInvocationInstance>>>),
+#[derive(Clone, Default)]
+pub struct TaskGroupDeviceInvocationInstanceLateResolved {
+  inner: Arc<RwLock<Option<TaskGroupDeviceInvocationInstance>>>,
 }
 
-impl TaskGroupDeviceInvocationInstanceMaybeSelf {
+impl TaskGroupDeviceInvocationInstanceLateResolved {
+  pub fn resolve(&self, instance: TaskGroupDeviceInvocationInstance) {
+    dbg!("resolve");
+    self.inner.write().replace(instance);
+  }
+
   #[must_use]
   pub fn poll_task<T: ShaderSizedValueNodeType>(
     &self,
@@ -36,18 +44,11 @@ impl TaskGroupDeviceInvocationInstanceMaybeSelf {
     task_id: Node<u32>,
     argument_read_back: impl FnOnce(StorageNode<AnyType>) + Copy,
   ) -> Node<bool> {
-    match self {
-      TaskGroupDeviceInvocationInstanceMaybeSelf::NoneSelfTask(inner) => {
-        inner.poll_task_dyn(task_id, argument_read_back)
-      }
-      TaskGroupDeviceInvocationInstanceMaybeSelf::SelfTask(arc) => {
-        let inner = arc.read_recursive();
-        inner
-          .as_ref()
-          .unwrap()
-          .poll_task_dyn(task_id, argument_read_back)
-      }
-    }
+    let inner = self.inner.read_recursive();
+    inner
+      .as_ref()
+      .expect("source not resolved")
+      .poll_task_dyn(task_id, argument_read_back)
   }
 
   #[must_use]
@@ -66,18 +67,11 @@ impl TaskGroupDeviceInvocationInstanceMaybeSelf {
     parent_ref: TaskParentRef,
     ty: &ShaderSizedValueType,
   ) -> Option<TaskFutureInvocationRightValue> {
-    match self {
-      TaskGroupDeviceInvocationInstanceMaybeSelf::NoneSelfTask(inner) => {
-        inner.spawn_new_task_dyn(payload, parent_ref, ty)
-      }
-      TaskGroupDeviceInvocationInstanceMaybeSelf::SelfTask(arc) => {
-        let inner = arc.read_recursive();
-        inner
-          .as_ref()
-          .unwrap()
-          .spawn_new_task_dyn(payload, parent_ref, ty)
-      }
-    }
+    let inner = self.inner.read_recursive();
+    inner
+      .as_ref()
+      .expect("source not resolved")
+      .spawn_new_task_dyn(payload, parent_ref, ty)
   }
 }
 
@@ -85,31 +79,21 @@ impl<'a> DeviceTaskSystemBuildCtx<'a> {
   pub fn get_or_create_task_group_instance(
     &mut self,
     task_type: usize,
-  ) -> TaskGroupDeviceInvocationInstanceMaybeSelf {
-    if task_type == self.self_task_idx {
-      return TaskGroupDeviceInvocationInstanceMaybeSelf::SelfTask(self.self_spawner.clone());
-    }
-
-    let instance = self
+  ) -> TaskGroupDeviceInvocationInstanceLateResolved {
+    self
       .tasks_depend_on_self
       .entry(task_type)
       .or_insert_with(|| {
-        let source = &mut self.all_task_group_sources[task_type];
+        let source = &mut self.task_group_shared_info[task_type];
         source.1.insert(self.self_task_idx);
-        source.0.build_shader_for_spawner(self.compute_cx)
+        source.0.clone()
       })
-      .clone();
-
-    TaskGroupDeviceInvocationInstanceMaybeSelf::NoneSelfTask(instance)
+      .clone()
   }
 }
 
 pub struct DeviceTaskSystemBindCtx<'a> {
   pub binder: &'a mut BindingBuilder,
-  pub self_task_idx: usize,
-
-  pub(super) all_task_group_sources: Vec<&'a TaskGroupExecutorResource>,
-  pub bound_task_group_instance: FastHashSet<usize>,
 }
 
 impl<'a> DerefMut for DeviceTaskSystemBindCtx<'a> {
@@ -123,20 +107,6 @@ impl<'a> std::ops::Deref for DeviceTaskSystemBindCtx<'a> {
 
   fn deref(&self) -> &Self::Target {
     self.binder
-  }
-}
-
-impl<'a> DeviceTaskSystemBindCtx<'a> {
-  pub fn bind_task_group_instance(&mut self, task_type: usize) {
-    if task_type == self.self_task_idx {
-      return;
-    }
-    self
-      .bound_task_group_instance
-      .get_or_insert_with(&task_type, |_| {
-        self.all_task_group_sources[task_type].bind_for_spawner(self.binder);
-        task_type
-      });
   }
 }
 

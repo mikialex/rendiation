@@ -11,7 +11,7 @@ pub struct TaskGroupExecutor {
   pub internal: TaskGroupExecutorInternal,
   pub state_desc: DynamicTypeMetaInfo,
 
-  pub extra_task_bindings_for_waker: Vec<usize>,
+  pub all_spawners_binding_order: Vec<usize>,
   pub polling_pipeline: GPUComputePipeline,
   pub resource: TaskGroupExecutorResource,
 }
@@ -28,28 +28,27 @@ pub(super) struct TaskGroupPreBuild {
   pub cx: ShaderComputePipelineBuilder,
   pub state_to_resolve: DynamicTypeBuilder,
   pub invocation: Box<dyn ShaderFutureInvocation<Output = Box<dyn Any>>>,
-  pub injected: FastHashMap<usize, TaskGroupDeviceInvocationInstance>,
+  pub tasks_depend_on_self: FastHashMap<usize, TaskGroupDeviceInvocationInstanceLateResolved>,
   pub self_task_idx: usize,
-  pub self_spawner: Arc<RwLock<Option<TaskGroupDeviceInvocationInstance>>>,
 }
 
 impl TaskGroupExecutor {
   pub(super) fn pre_build(
     internal: &TaskGroupExecutorInternal,
-    task_group_sources: &mut Vec<(TaskGroupExecutorResource, FastHashSet<usize>)>,
+    task_type: usize,
+    task_group_shared_info: &mut Vec<(
+      TaskGroupDeviceInvocationInstanceLateResolved,
+      FastHashSet<usize>,
+    )>,
   ) -> TaskGroupPreBuild {
-    let task_type = task_group_sources.len();
-
     let mut cx = compute_shader_builder();
-    let self_spawner = Arc::new(RwLock::new(None));
 
     let mut build_ctx = DeviceTaskSystemBuildCtx {
       compute_cx: &mut cx,
       state_builder: DynamicTypeBuilder::new_named(&format!("Task_states_{}", task_type)),
-      all_task_group_sources: task_group_sources,
+      task_group_shared_info,
       tasks_depend_on_self: Default::default(),
       self_task_idx: task_type,
-      self_spawner: self_spawner.clone(),
     };
 
     let invocation = internal.task.build_poll(&mut build_ctx);
@@ -60,10 +59,9 @@ impl TaskGroupExecutor {
       shader: outer_builder,
       state_to_resolve: state_builder,
       invocation,
-      injected: build_ctx.tasks_depend_on_self,
+      tasks_depend_on_self: build_ctx.tasks_depend_on_self,
       cx,
       self_task_idx: task_type,
-      self_spawner,
     }
   }
 
@@ -71,30 +69,37 @@ impl TaskGroupExecutor {
     mut pre_build: TaskGroupPreBuild,
     task_build_source: TaskGroupExecutorInternal,
     pcx: &mut DeviceParallelComputeCtx,
-    resources: &[(TaskGroupExecutorResource, FastHashSet<usize>)],
-    dependencies: &FastHashSet<usize>,
+    resources: &[TaskGroupExecutorResource],
+    parent_dependencies: &FastHashSet<usize>,
   ) -> TaskGroupExecutor {
     set_build_api(pre_build.shader);
 
-    let mut extra_task_bindings_for_waker = Vec::default();
-    for &dep in dependencies {
-      if let Entry::Vacant(e) = pre_build.injected.entry(dep) {
-        extra_task_bindings_for_waker.push(dep);
-        let spawner = resources[dep].0.build_shader_for_spawner(&mut pre_build.cx);
-        e.insert(spawner);
-      }
+    let mut all_spawners = FastHashMap::default();
+    let mut all_spawners_binding_order = Vec::default();
+
+    for (&dep, spawner_to_resolve) in &pre_build.tasks_depend_on_self {
+      all_spawners.entry(dep).or_insert_with(|| {
+        all_spawners_binding_order.push(dep);
+        let spawner = resources[dep].build_shader_for_spawner(&mut pre_build.cx);
+        spawner_to_resolve.resolve(spawner.clone());
+        spawner
+      });
+    }
+    for &dep in parent_dependencies {
+      all_spawners.entry(dep).or_insert_with(|| {
+        all_spawners_binding_order.push(dep);
+        resources[dep].build_shader_for_spawner(&mut pre_build.cx)
+      });
     }
 
     let mut cx = pre_build.cx;
-    let resource = resources[task_build_source.self_task_idx].0.clone();
+    let resource = resources[task_build_source.self_task_idx].clone();
 
     let self_spawner = resource.build_shader_for_spawner(&mut cx);
 
     let indices = self_spawner.active_task_idx.storage;
     let active_task_count = self_spawner.active_task_idx.current_size;
     let pool = self_spawner.task_pool.clone();
-
-    pre_build.self_spawner.write().replace(self_spawner.clone());
 
     let active_idx = cx.global_invocation_id().x();
     if_by(active_idx.less_than(active_task_count.load()), || {
@@ -126,9 +131,9 @@ impl TaskGroupExecutor {
         })
         .else_by(|| {
           let mut switcher = switch_by(parent_task_type_id);
-          for dep in dependencies {
+          for dep in parent_dependencies {
             switcher = switcher.case(*dep as u32, || {
-              let spawner = pre_build.injected.get(dep).unwrap();
+              let spawner = all_spawners.get(dep).unwrap();
               spawner.wake_task_dyn(parent_index);
             });
           }
@@ -151,7 +156,7 @@ impl TaskGroupExecutor {
       resource,
       internal: task_build_source,
       state_desc: pre_build.state_to_resolve.meta_info(),
-      extra_task_bindings_for_waker,
+      all_spawners_binding_order,
     }
   }
 
@@ -169,19 +174,13 @@ impl TaskGroupExecutor {
       // dispatch tasks
       let mut bb = BindingBuilder::new_as_compute();
 
-      let all_task_group_sources: Vec<_> = all_tasks.iter().map(|t| &t.resource).collect();
-
-      let mut ctx = DeviceTaskSystemBindCtx {
-        binder: &mut bb,
-        all_task_group_sources,
-        bound_task_group_instance: Default::default(),
-        self_task_idx: self.internal.self_task_idx,
-      };
+      let mut ctx = DeviceTaskSystemBindCtx { binder: &mut bb };
 
       self.internal.task.bind_input(&mut ctx);
 
-      for extra in &self.extra_task_bindings_for_waker {
-        ctx.all_task_group_sources[*extra].bind_for_spawner(&mut ctx);
+      let all_task_group_sources: Vec<_> = all_tasks.iter().map(|t| &t.resource).collect();
+      for extra in &self.all_spawners_binding_order {
+        all_task_group_sources[*extra].bind_for_spawner(&mut ctx);
       }
 
       imp.bind_for_spawner(&mut ctx);
