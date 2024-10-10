@@ -162,3 +162,67 @@ impl<'a> TexSamplerWriter<'a> {
     Texture2DWithSamplingDataView { texture, sampler }
   }
 }
+
+pub struct TexCubeWriter<'a> {
+  pub tex_writer: &'a mut EntityWriter<SceneTexture2dEntity>,
+  pub cube_writer: &'a mut EntityWriter<SceneTextureCubeEntity>,
+}
+
+impl<'a> TexCubeWriter<'a> {
+  pub fn write_cube_tex(
+    &mut self,
+    x_pos: GPUBufferImage,
+    y_pos: GPUBufferImage,
+    z_pos: GPUBufferImage,
+    x_neg: GPUBufferImage,
+    y_neg: GPUBufferImage,
+    z_neg: GPUBufferImage,
+  ) -> EntityHandle<SceneTextureCubeEntity> {
+    let x_pos = self
+      .tex_writer
+      .component_value_writer::<SceneTexture2dEntityDirectContent>(
+        ExternalRefPtr::new(x_pos).into(),
+      )
+      .new_entity();
+    let y_pos = self
+      .tex_writer
+      .component_value_writer::<SceneTexture2dEntityDirectContent>(
+        ExternalRefPtr::new(y_pos).into(),
+      )
+      .new_entity();
+    let z_pos = self
+      .tex_writer
+      .component_value_writer::<SceneTexture2dEntityDirectContent>(
+        ExternalRefPtr::new(z_pos).into(),
+      )
+      .new_entity();
+    let x_neg = self
+      .tex_writer
+      .component_value_writer::<SceneTexture2dEntityDirectContent>(
+        ExternalRefPtr::new(x_neg).into(),
+      )
+      .new_entity();
+    let y_neg = self
+      .tex_writer
+      .component_value_writer::<SceneTexture2dEntityDirectContent>(
+        ExternalRefPtr::new(y_neg).into(),
+      )
+      .new_entity();
+    let z_neg = self
+      .tex_writer
+      .component_value_writer::<SceneTexture2dEntityDirectContent>(
+        ExternalRefPtr::new(z_neg).into(),
+      )
+      .new_entity();
+
+    self
+      .cube_writer
+      .component_value_writer::<SceneTextureCubeXPositiveFace>(x_pos.some_handle())
+      .component_value_writer::<SceneTextureCubeYPositiveFace>(y_pos.some_handle())
+      .component_value_writer::<SceneTextureCubeZPositiveFace>(z_pos.some_handle())
+      .component_value_writer::<SceneTextureCubeXNegativeFace>(x_neg.some_handle())
+      .component_value_writer::<SceneTextureCubeYNegativeFace>(y_neg.some_handle())
+      .component_value_writer::<SceneTextureCubeZNegativeFace>(z_neg.some_handle())
+      .new_entity()
+  }
+}

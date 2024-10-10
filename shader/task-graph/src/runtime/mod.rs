@@ -83,11 +83,14 @@ impl DeviceTaskGraphBuildSource {
     cx: &mut DeviceParallelComputeCtx,
   ) -> DeviceTaskGraphExecutor {
     let init_size = dispatch_size * max_recursion_depth;
-    let mut task_group_sources = Vec::new();
-    let mut pre_builds = Vec::new();
+    let mut task_group_shared_info = vec![Default::default(); self.task_groups.len()];
 
-    for task_build_source in &self.task_groups {
-      let pre_build = TaskGroupExecutor::pre_build(task_build_source, &mut task_group_sources);
+    let mut pre_builds = Vec::new();
+    let mut task_group_sources = Vec::new();
+
+    for (i, task_build_source) in self.task_groups.iter().enumerate() {
+      let pre_build =
+        TaskGroupExecutor::pre_build(task_build_source, i, &mut task_group_shared_info);
 
       let resource = TaskGroupExecutorResource::create_with_size(
         init_size,
@@ -97,29 +100,30 @@ impl DeviceTaskGraphBuildSource {
         max_recursion_depth,
       );
 
-      task_group_sources.push((resource, Default::default()));
+      task_group_sources.push(resource);
       pre_builds.push(pre_build);
     }
 
-    let mut task_groups = Vec::new();
-    for ((task_build_source, pre_build), (_, dependencies)) in self
+    let mut task_group_executors = Vec::new();
+
+    for ((task_build_source, pre_build), (_, parent_dependencies)) in self
       .task_groups
       .into_iter()
       .zip(pre_builds)
-      .zip(&task_group_sources)
+      .zip(&task_group_shared_info)
     {
       let exe = TaskGroupExecutor::build(
         pre_build,
         task_build_source,
         cx,
         &task_group_sources,
-        dependencies,
+        parent_dependencies,
       );
-      task_groups.push(exe);
+      task_group_executors.push(exe);
     }
 
     DeviceTaskGraphExecutor {
-      task_groups,
+      task_groups: task_group_executors,
       max_recursion_depth,
       current_prepared_execution_size: init_size,
     }

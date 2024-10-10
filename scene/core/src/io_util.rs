@@ -6,6 +6,7 @@ pub struct SceneWriter {
   pub camera_writer: EntityWriter<SceneCameraEntity>,
   pub mesh_writer: AttributesMeshEntityFromAttributesMeshWriter,
   pub tex_writer: EntityWriter<SceneTexture2dEntity>,
+  pub cube_writer: EntityWriter<SceneTextureCubeEntity>,
   pub sampler_writer: EntityWriter<SceneSamplerEntity>,
   pub node_writer: EntityWriter<SceneNodeEntity>,
   pub std_model_writer: EntityWriter<StandardModelEntity>,
@@ -13,6 +14,9 @@ pub struct SceneWriter {
   pub flat_mat_writer: EntityWriter<FlatMaterialEntity>,
   pub pbr_sg_mat_writer: EntityWriter<PbrSGMaterialEntity>,
   pub pbr_mr_mat_writer: EntityWriter<PbrMRMaterialEntity>,
+  pub point_light_writer: EntityWriter<PointLightEntity>,
+  pub directional_light_writer: EntityWriter<DirectionalLightEntity>,
+  pub spot_light_writer: EntityWriter<SpotLightEntity>,
 }
 
 impl SceneWriter {
@@ -72,6 +76,7 @@ impl SceneWriter {
       camera_writer: global_entity_of().entity_writer(),
       mesh_writer: AttributesMesh::create_writer(),
       tex_writer: global_entity_of().entity_writer(),
+      cube_writer: global_entity_of().entity_writer(),
       sampler_writer: global_entity_of().entity_writer(),
       node_writer: global_entity_of().entity_writer(),
       std_model_writer: global_entity_of().entity_writer(),
@@ -79,6 +84,9 @@ impl SceneWriter {
       flat_mat_writer: global_entity_of().entity_writer(),
       pbr_sg_mat_writer: global_entity_of().entity_writer(),
       pbr_mr_mat_writer: global_entity_of().entity_writer(),
+      point_light_writer: global_entity_of().entity_writer(),
+      directional_light_writer: global_entity_of().entity_writer(),
+      spot_light_writer: global_entity_of().entity_writer(),
     }
   }
   pub fn write_attribute_mesh(
@@ -92,6 +100,13 @@ impl SceneWriter {
     TexSamplerWriter {
       tex_writer: &mut self.tex_writer,
       sampler_writer: &mut self.sampler_writer,
+    }
+  }
+
+  pub fn cube_texture_writer(&mut self) -> TexCubeWriter {
+    TexCubeWriter {
+      tex_writer: &mut self.tex_writer,
+      cube_writer: &mut self.cube_writer,
     }
   }
 }

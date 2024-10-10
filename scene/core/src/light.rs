@@ -14,6 +14,20 @@ pub struct PointLightDataView {
   pub scene: EntityHandle<SceneEntity>,
 }
 
+impl PointLightDataView {
+  pub fn write(
+    self,
+    writer: &mut EntityWriter<PointLightEntity>,
+  ) -> EntityHandle<PointLightEntity> {
+    writer
+      .component_value_writer::<PointLightIntensity>(self.intensity)
+      .component_value_writer::<PointLightCutOffDistance>(self.cutoff_distance)
+      .component_value_writer::<PointLightRefNode>(self.node.some_handle())
+      .component_value_writer::<PointLightRefScene>(self.scene.some_handle())
+      .new_entity()
+  }
+}
+
 declare_entity!(PointLightEntity);
 declare_foreign_key!(PointLightRefScene, PointLightEntity, SceneEntity);
 declare_foreign_key!(PointLightRefNode, PointLightEntity, SceneNodeEntity);
@@ -38,9 +52,22 @@ pub struct SpotLightDataView {
   pub intensity: Vec3<f32>,
   pub cutoff_distance: f32,
   pub half_cone_angle: f32,
-  pub penumbra_angle: f32,
+  pub half_penumbra_angle: f32,
   pub node: EntityHandle<SceneNodeEntity>,
   pub scene: EntityHandle<SceneEntity>,
+}
+
+impl SpotLightDataView {
+  pub fn write(self, writer: &mut EntityWriter<SpotLightEntity>) -> EntityHandle<SpotLightEntity> {
+    writer
+      .component_value_writer::<SplitLightIntensity>(self.intensity)
+      .component_value_writer::<SpotLightCutOffDistance>(self.cutoff_distance)
+      .component_value_writer::<SpotLightHalfConeAngle>(self.half_cone_angle)
+      .component_value_writer::<SpotLightHalfPenumbraAngle>(self.half_penumbra_angle)
+      .component_value_writer::<SpotLightRefNode>(self.node.some_handle())
+      .component_value_writer::<SpotLightRefScene>(self.scene.some_handle())
+      .new_entity()
+  }
 }
 
 declare_entity!(SpotLightEntity);
@@ -71,6 +98,19 @@ pub struct DirectionalLightDataView {
   pub illuminance: Vec3<f32>,
   pub node: EntityHandle<SceneNodeEntity>,
   pub scene: EntityHandle<SceneEntity>,
+}
+
+impl DirectionalLightDataView {
+  pub fn write(
+    self,
+    writer: &mut EntityWriter<DirectionalLightEntity>,
+  ) -> EntityHandle<DirectionalLightEntity> {
+    writer
+      .component_value_writer::<DirectionalLightIlluminance>(self.illuminance)
+      .component_value_writer::<DirectionalRefNode>(self.node.some_handle())
+      .component_value_writer::<DirectionalRefScene>(self.scene.some_handle())
+      .new_entity()
+  }
 }
 
 declare_entity!(DirectionalLightEntity);
