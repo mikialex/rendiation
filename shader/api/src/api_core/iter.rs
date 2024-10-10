@@ -122,6 +122,45 @@ impl<T: ShaderNodeType, const U: usize> ShaderIterator for UniformArrayIter<T, U
   }
 }
 
+#[derive(Clone)]
+pub struct ReadOnlyStorageArrayIter<T> {
+  cursor: LocalVarNode<u32>,
+  array: ReadOnlyStorageNode<[T]>,
+  len: Node<u32>,
+}
+
+impl<T: ShaderNodeType> ShaderIterator for ReadOnlyStorageArrayIter<T> {
+  type Item = (Node<u32>, ReadOnlyStorageNode<T>);
+
+  fn shader_next(&self) -> (Node<bool>, Self::Item) {
+    let current_next = self.cursor.load();
+    self.cursor.store(current_next + val(1));
+    let has_next = current_next.less_than(self.len);
+    let uniform = self.array.index(current_next);
+    (has_next, (current_next, uniform))
+  }
+}
+
+#[derive(Clone)]
+pub struct StorageArrayIter<T> {
+  cursor: LocalVarNode<u32>,
+  array: StorageNode<[T]>,
+  len: Node<u32>,
+}
+
+impl<T: ShaderNodeType> ShaderIterator for StorageArrayIter<T> {
+  type Item = (Node<u32>, StorageNode<T>);
+
+  fn shader_next(&self) -> (Node<bool>, Self::Item) {
+    let current_next = self.cursor.load();
+    self.cursor.store(current_next + val(1));
+    let has_next = current_next.less_than(self.len);
+
+    let uniform = self.array.index(current_next);
+    (has_next, (current_next, uniform))
+  }
+}
+
 impl IntoShaderIterator for u32 {
   type ShaderIter = StepTo;
 
@@ -145,6 +184,30 @@ impl<T: ShaderNodeType, const U: usize> IntoShaderIterator for UniformNode<Shade
     UniformArrayIter {
       cursor: val(0).make_local_var(),
       array: self,
+    }
+  }
+}
+
+impl<T: ShaderNodeType> IntoShaderIterator for StorageNode<[T]> {
+  type ShaderIter = StorageArrayIter<T>;
+
+  fn into_shader_iter(self) -> Self::ShaderIter {
+    StorageArrayIter {
+      cursor: val(0).make_local_var(),
+      array: self,
+      len: self.array_length(),
+    }
+  }
+}
+
+impl<T: ShaderNodeType> IntoShaderIterator for ReadOnlyStorageNode<[T]> {
+  type ShaderIter = ReadOnlyStorageArrayIter<T>;
+
+  fn into_shader_iter(self) -> Self::ShaderIter {
+    ReadOnlyStorageArrayIter {
+      cursor: val(0).make_local_var(),
+      array: self,
+      len: self.array_length(),
     }
   }
 }
