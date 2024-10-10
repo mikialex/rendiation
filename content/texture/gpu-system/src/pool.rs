@@ -78,9 +78,7 @@ impl TexturePoolSource {
     gpu: &GPU,
     config: MultiLayerTexturePackerConfig,
     tex_input: RxCForker<Texture2DHandle, TexturePool2dSource>,
-    max_tex_count: impl Stream<Item = u32> + Unpin + 'static,
     sampler_input: Box<dyn DynReactiveCollection<SamplerHandle, TextureSampler>>,
-    max_sampler_count: impl Stream<Item = u32> + Unpin + 'static,
     format: TextureFormat,
   ) -> Self {
     let size = tex_input.clone().collective_map(|tex| tex.inner.size);
@@ -97,10 +95,9 @@ impl TexturePoolSource {
       ..Default::default()
     });
 
-    let address = ReactiveStorageBufferContainer::new(gpu.clone(), max_tex_count).with_source(p, 0);
+    let address = ReactiveStorageBufferContainer::new(gpu).with_source(p, 0);
     let samplers = sampler_input.collective_map(TextureSamplerShaderInfo::from);
-    let samplers =
-      ReactiveStorageBufferContainer::new(gpu.clone(), max_sampler_count).with_source(samplers, 0);
+    let samplers = ReactiveStorageBufferContainer::new(gpu).with_source(samplers, 0);
 
     Self {
       tex_input,

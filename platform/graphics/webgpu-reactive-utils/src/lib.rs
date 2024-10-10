@@ -1,8 +1,5 @@
 use std::sync::Arc;
-use std::{
-  marker::PhantomData,
-  task::{Context, Poll},
-};
+use std::{marker::PhantomData, task::Context};
 
 use reactive::*;
 use rendiation_shader_api::*;
