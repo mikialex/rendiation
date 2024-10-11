@@ -30,6 +30,7 @@ fn test_wavefront_compute() {
                 stride: val(0),
               },
               miss_index: val(0),
+              // todo ray from x,y
               ray: ShaderRay {
                 origin: val(vec3(0., 0., 1.)),
                 direction: val(vec3(0., 0., -1.)),
@@ -38,21 +39,28 @@ fn test_wavefront_compute() {
                 min: val(0.1),
                 max: val(100.),
               },
-              payload: val(1),
+              payload: val(0),
             },
-            val(0u32),
+            RayCustomPayload::construct(RayCustomPayloadShaderAPIInstance { color: val(0) }),
           )
         },
       );
-      let ray_gen_shader = ray_gen_shader.map(|_a, _b| ());
+      let ray_gen_shader = ray_gen_shader.map(|(_, _payload), _ctx|
+          // todo write payload to output buffer
+          ());
 
-      let ray_gen = rtx_pipeline_desc.register_ray_gen::<u32>(ray_gen_shader);
-      let closest_hit =
-        rtx_pipeline_desc.register_ray_closest_hit::<u32>(
-          WaveFrontTracingBaseProvider::closest_shader_base::<u32>(),
-        );
-      let miss = rtx_pipeline_desc
-        .register_ray_miss::<u32>(WaveFrontTracingBaseProvider::missing_shader_base::<u32>());
+      #[derive(Copy, Clone, Debug, Default, ShaderStruct)]
+      pub struct RayCustomPayload {
+        pub color: u32,
+      }
+
+      let ray_gen = rtx_pipeline_desc.register_ray_gen::<RayCustomPayload>(ray_gen_shader);
+      let closest_hit = rtx_pipeline_desc.register_ray_closest_hit::<RayCustomPayload>(
+        WaveFrontTracingBaseProvider::closest_shader_base::<RayCustomPayload>(),
+      );
+      let miss = rtx_pipeline_desc.register_ray_miss::<RayCustomPayload>(
+        WaveFrontTracingBaseProvider::missing_shader_base::<RayCustomPayload>(),
+      );
 
       let mesh_count = 1;
       let ray_type_count = 1;
