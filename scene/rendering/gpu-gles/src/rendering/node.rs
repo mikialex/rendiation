@@ -17,7 +17,7 @@ pub struct DefaultGLESNodeRenderImpl {
 
 impl RenderImplProvider<Box<dyn GLESNodeRenderImpl>> for DefaultGLESNodeRenderImplProvider {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    let uniforms = node_gpus(cx);
+    let uniforms = node_uniforms(cx);
     self.uniforms = source.register_multi_updater(uniforms);
   }
 
@@ -33,7 +33,7 @@ impl GLESNodeRenderImpl for DefaultGLESNodeRenderImpl {
     &self,
     idx: EntityHandle<SceneNodeEntity>,
   ) -> Option<Box<dyn RenderComponent + '_>> {
-    let node = NodeGPU {
+    let node = NodeGPUUniform {
       ubo: self.node_gpu.get(&idx)?,
     };
     Some(Box::new(node))

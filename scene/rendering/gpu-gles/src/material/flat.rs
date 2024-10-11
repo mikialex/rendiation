@@ -43,15 +43,3 @@ impl<'a> ShaderPassBuilder for FlatMaterialGPU<'a> {
     ctx.binding.bind(self.uniform);
   }
 }
-
-pub struct FlatMaterialGPUResource {
-  uniforms: FlatMaterialUniforms,
-}
-
-impl FlatMaterialGPUResource {
-  pub fn prepare_render(&self, flat: EntityHandle<FlatMaterialEntity>) -> FlatMaterialGPU {
-    FlatMaterialGPU {
-      uniform: self.uniforms.get(&flat).unwrap(),
-    }
-  }
-}
