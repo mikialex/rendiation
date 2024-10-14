@@ -12,9 +12,6 @@ pub trait GPUAccelerationStructureSystemCompImplInstance {
 }
 
 pub trait GPUAccelerationStructureSystemCompImplInvocationTraversable {
-  // todo
-  fn debug(&self, trace_payload: ENode<ShaderRayTraceCallStoragePayload>) -> Node<u32>;
-
   /// return optional closest hit
   fn traverse(
     &self,

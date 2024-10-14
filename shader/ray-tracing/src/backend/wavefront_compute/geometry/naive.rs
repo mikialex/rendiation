@@ -1099,186 +1099,6 @@ impl HitInfoVar {
 }
 
 impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVHInvocationInstance {
-  fn debug(&self, trace_payload: ENode<ShaderRayTraceCallStoragePayload>) -> Node<u32> {
-    let ray = Ray::construct(RayShaderAPIInstance {
-      origin: trace_payload.ray_origin,
-      flags: trace_payload.ray_flags,
-      direction: trace_payload.ray_direction,
-      mask: trace_payload.cull_mask,
-      range: trace_payload.range,
-    });
-
-    #[allow(unused)]
-    fn iter_count<T: ShaderNodeType>(iter: impl ShaderIterator<Item = Node<T>>) -> Node<u32> {
-      let r = val(0).make_local_var();
-      iter.for_each(|_t, _cx| r.store(r.load() + val(1)));
-      r.load()
-    }
-
-    //// test intersect ray aabb
-    // let tlas_bounding_pack = self.tlas_bvh_forest.index(0).load();
-    // let tlas_bounding = tlas_bounding_pack.expand();
-    // let hit = intersect_ray_aabb_gpu(ray, tlas_bounding.aabb_min, tlas_bounding.aabb_max);
-    // hit.into_u32()
-
-    //// test bvh traversal
-    // let bvh_iter = TraverseBvhIteratorGpu {
-    //   bvh: self.tlas_bvh_forest,
-    //   ray,
-    //   node_idx: val(0).make_local_var(),
-    // };
-    // let (_valid, value) = bvh_iter.shader_next();
-    // value.x()
-
-    //// test bvh traversal 2
-    // let bvh_iter = TraverseBvhIteratorGpu {
-    //   bvh: self.tlas_bvh_forest,
-    //   ray,
-    //   node_idx: val(0).make_local_var(),
-    // };
-    // let r = val(0).make_local_var();
-    // bvh_iter.for_each(|_tlas_idx, _cx| r.store(r.load() + val(1)));
-    // r.load()
-
-    //// test tlas traverse
-    // let tlas_idx_iter = traverse_tlas_gpu(val(0), self.tlas_bvh_forest, self.tlas_bounding, ray);
-    // let (valid, _value) = tlas_idx_iter.shader_next();
-    // valid.into_u32()
-
-    //// test tlas traverse 2
-    // let tlas_idx_iter = traverse_tlas_gpu(val(0), self.tlas_bvh_forest, self.tlas_bounding, ray);
-    // iter_count(tlas_idx_iter)
-
-    //// test blas traverse
-    // let tlas_idx_iter = traverse_tlas_gpu(val(0), self.tlas_bvh_forest, self.tlas_bounding, ray);
-    // let blas_iter = iterate_tlas_blas_gpu(tlas_idx_iter, self.tlas_data, self.blas_meta_info, ray);
-    // let (_valid, value) = blas_iter.shader_next();
-    // value.expand().tlas_idx
-
-    //// test blas traverse 2
-    // let tlas_idx_iter = traverse_tlas_gpu(val(0), self.tlas_bvh_forest, self.tlas_bounding, ray);
-    // let blas_iter = iterate_tlas_blas_gpu(tlas_idx_iter, self.tlas_data, self.blas_meta_info, ray);
-    // let (_valid, value) = blas_iter.shader_next();
-    // let tri_range = value.expand().blas.expand().tri_root_range;
-    // tri_range.y() - tri_range.x()
-
-    //// ctx for traverse
-    let hit_ctx_info_var = HitCtxInfoVar {
-      primitive_id: val(0).make_local_var(),
-      instance_id: val(0).make_local_var(),
-      instance_sbt_offset: val(0).make_local_var(),
-      instance_custom_id: val(0).make_local_var(),
-      geometry_id: val(0).make_local_var(),
-      object_to_world: mat4_identity_node().make_local_var(),
-      world_to_object: mat4_identity_node().make_local_var(),
-      object_space_ray_origin: val(vec3(0., 0., 0.)).make_local_var(),
-      object_space_ray_direction: val(vec3(0., 0., 0.)).make_local_var(),
-    };
-    let hit_info_var = HitInfoVar {
-      any_hit: val(false).make_local_var(),
-      hit_kind: val(0).make_local_var(),
-      hit_distance: trace_payload.range.y().make_local_var(),
-    };
-
-    //// test blas traverse 3
-    let tlas_data = self.tlas_data;
-    let indices = self.indices;
-    let vertices = self.vertices;
-
-    let tlas_idx_iter = traverse_tlas_gpu(val(0), self.tlas_bvh_forest, self.tlas_bounding, ray);
-    let blas_iter = iterate_tlas_blas_gpu(tlas_idx_iter, self.tlas_data, self.blas_meta_info, ray);
-    blas_iter.for_each(|ray_blas, _cx| {
-      let ray_blas = ray_blas.expand();
-      let ray = ray_blas.ray;
-      let blas = ray_blas.blas.expand();
-
-      ForRange::new(blas.tri_root_range).for_each(move |tri_root_idx, _cx| {
-        let ray = ray;
-        let geometry = self.tri_bvh_root.index(tri_root_idx).load();
-        let root = geometry.x();
-        let geometry_id = geometry.y();
-        let primitive_start = geometry.z();
-
-        let bvh_iter = TraverseBvhIteratorGpu {
-          bvh: self.tri_bvh_forest,
-          ray,
-          node_idx: root.make_local_var(),
-        };
-        let tri_idx_iter = bvh_iter.flat_map(ForRange::new); // triangle index
-
-        let ray = ray.expand();
-
-        fn read_vec3<T: ShaderNodeType>(
-          idx: Node<u32>,
-          array: ReadOnlyStorageNode<[T]>,
-        ) -> [Node<T>; 3] {
-          let i = idx * val(3);
-          let v0 = array.index(i).load();
-          let v1 = array.index(i + val(1)).load();
-          let v2 = array.index(i + val(2)).load();
-          [v0, v1, v2]
-        }
-
-        tri_idx_iter.for_each(move |tri_idx, _cx| {
-          let [i0, i1, i2] = read_vec3(tri_idx, indices);
-          let [v0x, v0y, v0z] = read_vec3(i0, vertices);
-          let [v1x, v1y, v1z] = read_vec3(i1, vertices);
-          let [v2x, v2y, v2z] = read_vec3(i2, vertices);
-          let v0 = Node::<Vec3<f32>>::from((v0x, v0y, v0z));
-          let v1 = Node::<Vec3<f32>>::from((v1x, v1y, v1z));
-          let v2 = Node::<Vec3<f32>>::from((v2x, v2y, v2z));
-          // // returns (hit ? 1 : 0, distance, u, v)
-          let result = intersect_ray_triangle_gpu(ray.origin, ray.direction, ray.range, v0, v1, v2);
-          let hit = result.x().greater_than(val(0.));
-          if_by(hit, move || {
-            let world_distance = result.y() / ray_blas.distance_scaling;
-            let tlas = tlas_data.index(ray_blas.tlas_idx).load().expand();
-
-            let hit_ctx = HitCtxInfo {
-              primitive_id: tri_idx - primitive_start, // store tri offset in tri_bvh_root
-              instance_id: ray_blas.tlas_idx, // todo not exactly instance id, deleted tlas are skipped
-              instance_sbt_offset: tlas.instance_shader_binding_table_record_offset,
-              instance_custom_id: tlas.instance_custom_index,
-              geometry_id,
-              object_to_world: tlas.transform_inv,
-              world_to_object: tlas.transform,
-              object_space_ray: ShaderRay {
-                origin: ray.origin,
-                direction: ray.direction,
-              },
-            };
-
-            let any_hit_ctx = RayAnyHitCtx {
-              launch_info: RayLaunchInfo {
-                launch_id: Default::default(),
-                launch_size: Default::default(),
-              },
-              world_ray: WorldRayInfo {
-                world_ray: ShaderRay {
-                  origin: trace_payload.ray_origin,
-                  direction: trace_payload.ray_direction,
-                },
-                ray_range: ShaderRayRange {
-                  min: trace_payload.range.x(),
-                  max: trace_payload.range.y(),
-                },
-                ray_flags: trace_payload.ray_flags,
-              },
-              hit_ctx,
-              hit: HitInfo { hit_kind: val(HIT_KIND_BACK_FACING_TRIANGLE), hit_distance: world_distance },
-            };
-
-            let updated = val(false).make_local_var();
-            resolve_any_hit(updated, &|_ctx| val(HIT_ACCEPTED), &any_hit_ctx, &hit_ctx_info_var, &hit_info_var);
-          });
-        });
-      });
-    });
-
-    let r = hit_info_var.any_hit.load().into_u32();
-    r * (hit_ctx_info_var.primitive_id.load() + val(1))
-  }
-
   fn traverse(
     &self,
     // todo launch info
@@ -1618,7 +1438,7 @@ fn test_gpu_triangle() {
 
   cx.force_indirect_dispatch = false;
   let (_, _size, result) = futures::executor::block_on(tester.read_back_host(&mut cx)).unwrap();
-  println!("result {:?} {:?}", result.len(), result);
+  // println!("result {:?} {:?}", result.len(), result);
 
   let mut file = format!("P2\n{W} {H}\n{PRIMITIVE_IDX_MAX}\n");
   for j in 0..H {
@@ -1693,7 +1513,7 @@ fn test_gpu_triangle() {
 
           let payload = ShaderRayTraceCallStoragePayloadShaderAPIInstance {
             payload_ref: val(0),
-            tlas_idx: val(0),
+            tlas_idx: val(0), // todo support tlas selection
             ray_flags: val(0),
             cull_mask: val(u32::MAX),
             sbt_ray_config_offset: val(0),
@@ -1704,14 +1524,6 @@ fn test_gpu_triangle() {
             range: val(vec2(0., FAR)),
           };
 
-          // debug1
-          // (id.x(), valid)
-
-          // debug2
-          // let output = traversable.debug(payload);
-          // (output, valid)
-
-          // final traverse
           let output =
             traversable.traverse(payload, &|_ctx, _reporter| {}, &|_ctx| val(HIT_ACCEPTED));
           (
