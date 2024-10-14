@@ -18,8 +18,7 @@ pub struct DefaultIndirectNodeRenderImpl {
 impl RenderImplProvider<Box<dyn IndirectNodeRenderImpl>> for DefaultIndirectNodeRenderImplProvider {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
     let storage = node_storages(cx);
-    // self.storage = source.register_multi_updater(storage);
-    todo!()
+    self.storage = source.register_multi_updater(storage.inner);
   }
 
   fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> Box<dyn IndirectNodeRenderImpl> {

@@ -23,7 +23,7 @@ impl RenderImplProvider<Box<dyn SceneRenderer>> for IndirectRenderSystem {
     Box::new(IndirectSceneRenderer {
       texture_system: self.texture_system.create_impl(res),
       camera: todo!(),
-      background: todo!(),
+      background: SceneBackgroundRenderer::new_from_global(),
       renderer: todo!(),
       grouper: todo!(),
     })
@@ -34,7 +34,7 @@ struct IndirectSceneRenderer {
   texture_system: GPUTextureBindingSystem,
   camera: Box<dyn CameraRenderImpl>,
 
-  background: SceneRendererRenderer,
+  background: SceneBackgroundRenderer,
 
   renderer: Box<dyn IndirectBatchSceneModelRenderer>,
 
@@ -77,7 +77,7 @@ impl SceneRenderer for IndirectSceneRenderer {
     &self,
     scene: EntityHandle<SceneEntity>,
   ) -> (Operations<rendiation_webgpu::Color>, Operations<f32>) {
-    todo!()
+    self.background.init_clear(scene)
   }
 
   fn get_scene_model_cx(&self) -> &GPUTextureBindingSystem {
@@ -116,10 +116,11 @@ struct GLESScenePassContent<'a> {
 
 impl<'a> PassContent for GLESScenePassContent<'a> {
   fn render(&mut self, cx: &mut FrameRenderPass) {
-    for indirect_batch in self.renderer.grouper.iter_grouped_scene_model() {
+    for (indirect_batch, any_id) in self.renderer.grouper.iter_grouped_scene_model(self.scene) {
       // do indirect dispatches here
       self.renderer.renderer.render_batch_models(
         indirect_batch,
+        any_id,
         self.camera,
         &self.renderer.texture_system,
         &self.pass,

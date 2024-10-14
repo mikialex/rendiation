@@ -1,5 +1,3 @@
-use rendering::shape;
-
 use crate::*;
 
 pub struct IndirectPreferredComOrderRendererProvider {
@@ -76,10 +74,19 @@ impl SceneModelRenderer for IndirectPreferredComOrderRenderer {
   }
 }
 
+pub trait IndirectBatchSource: ShaderHashProvider + ShaderPassBuilder {
+  fn create_indirect_invocation_source(&self) -> Box<dyn IndirectBatchInvocationSource>;
+}
+
+pub trait IndirectBatchInvocationSource {
+  fn current_invocation_scene_model_id(&self) -> Node<u32>;
+}
+
 pub trait IndirectBatchSceneModelRenderer: SceneModelRenderer {
   fn render_batch_models(
     &self,
-    models: StorageBufferReadOnlyDataView<[u32]>,
+    models: Box<dyn IndirectBatchSource>,
+    any_id: EntityHandle<SceneModelEntity>,
     camera: EntityHandle<SceneCameraEntity>,
     tex: &GPUTextureBindingSystem,
     pass: &dyn RenderComponent,
@@ -90,7 +97,8 @@ pub trait IndirectBatchSceneModelRenderer: SceneModelRenderer {
 impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
   fn render_batch_models(
     &self,
-    models: StorageBufferReadOnlyDataView<[u32]>,
+    models: Box<dyn IndirectBatchSource>,
+    any_id: EntityHandle<SceneModelEntity>,
     camera: EntityHandle<SceneCameraEntity>,
     tex: &GPUTextureBindingSystem,
     pass: &dyn RenderComponent,

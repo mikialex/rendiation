@@ -23,5 +23,6 @@ struct IndirectSceneDrawBatchGrouperImpl {
 pub trait IndirectSceneDrawBatchGrouper {
   fn iter_grouped_scene_model(
     &self,
-  ) -> Box<dyn Iterator<Item = StorageBufferReadOnlyDataView<[u32]>>>;
+    scene: EntityHandle<SceneEntity>,
+  ) -> Box<dyn Iterator<Item = (Box<dyn IndirectBatchSource>, EntityHandle<SceneModelEntity>)>>;
 }

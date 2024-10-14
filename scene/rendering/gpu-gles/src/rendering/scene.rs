@@ -46,7 +46,7 @@ impl RenderImplProvider<Box<dyn SceneRenderer>> for GLESRenderSystem {
         .iter()
         .map(|imp| imp.create_impl(res))
         .collect(),
-      background: SceneRendererRenderer::new_from_global(),
+      background: SceneBackgroundRenderer::new_from_global(),
       model_lookup: res
         .take_multi_reactive_collection_updated(self.model_lookup)
         .unwrap(),
@@ -60,7 +60,7 @@ struct GLESSceneRenderer {
   texture_system: GPUTextureBindingSystem,
   camera: Box<dyn CameraRenderImpl>,
   scene_model_renderer: Vec<Box<dyn SceneModelRenderer>>,
-  background: SceneRendererRenderer,
+  background: SceneBackgroundRenderer,
   model_lookup: RevRefOfForeignKey<SceneModelBelongsToScene>,
 }
 

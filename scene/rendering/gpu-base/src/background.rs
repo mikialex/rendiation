@@ -1,10 +1,10 @@
 use crate::*;
 
-pub struct SceneRendererRenderer {
+pub struct SceneBackgroundRenderer {
   background: ComponentReadView<SceneSolidBackground>,
 }
 
-impl SceneRendererRenderer {
+impl SceneBackgroundRenderer {
   pub fn new_from_global() -> Self {
     Self {
       background: global_entity_component_of::<SceneSolidBackground>().read(),
