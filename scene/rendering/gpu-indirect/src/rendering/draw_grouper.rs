@@ -2,7 +2,7 @@ use crate::*;
 
 pub type PipelineVariantKey = u64;
 
-struct IndirectSceneDrawBatchGrouper {
+struct IndirectSceneDrawBatchGrouperImpl {
   /// for performance reason(the scene model may exceed millions), the grouped dispatch source
   /// buffer should be maintained incrementally
   dispatch_scene_models_source: Vec<StorageBufferReadOnlyDataView<[u32]>>,
@@ -16,4 +16,12 @@ struct IndirectSceneDrawBatchGrouper {
 
   dispatch_group_renderer:
     FastHashMap<PipelineVariantKey, Box<dyn IndirectBatchSceneModelRenderer>>,
+
+  model_lookup: RevRefOfForeignKey<SceneModelBelongsToScene>,
+}
+
+pub trait IndirectSceneDrawBatchGrouper {
+  fn iter_grouped_scene_model(
+    &self,
+  ) -> Box<dyn Iterator<Item = StorageBufferReadOnlyDataView<[u32]>>>;
 }

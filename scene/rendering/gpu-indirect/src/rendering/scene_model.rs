@@ -83,7 +83,7 @@ pub trait IndirectBatchSceneModelRenderer: SceneModelRenderer {
     camera: EntityHandle<SceneCameraEntity>,
     tex: &GPUTextureBindingSystem,
     pass: &dyn RenderComponent,
-    cx: &mut FrameCtx,
+    cx: &mut FrameRenderPass,
   );
 }
 
@@ -94,7 +94,7 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
     camera: EntityHandle<SceneCameraEntity>,
     tex: &GPUTextureBindingSystem,
     pass: &dyn RenderComponent,
-    cx: &mut FrameCtx,
+    cx: &mut FrameRenderPass,
   ) {
     todo!()
   }

@@ -1,55 +1,51 @@
-use crate::*;
-
 mod cube;
 pub use cube::*;
-use rendiation_texture_gpu_base::*;
 
-/// not need to hash the sampler to reduce the gpu sampler count, in device we have deduplicated
-/// already, and we also not need to do materialize, in device we have cached all sample created
-pub fn sampler_gpus(cx: &GPU) -> impl ReactiveCollection<u32, GPUSamplerView> {
-  let cx = cx.clone();
-  global_watch()
-    .watch_untyped_key::<SceneSamplerInfo>()
-    // todo, we should consider using the simple map here
-    .collective_execute_map_by(move || {
-      let cx = cx.clone();
-      move |_, s| create_gpu_sampler(&cx, &s)
-    })
+mod d2_and_sampler;
+pub use d2_and_sampler::*;
+
+use crate::*;
+
+#[derive(Default)]
+pub struct TextureGPUSystemSource {
+  pub token: UpdateResultToken,
 }
 
-pub fn gpu_texture_2ds(
-  cx: &GPU,
-  default: GPU2DTextureView,
-) -> impl ReactiveCollection<u32, GPU2DTextureView> {
-  let cx = cx.clone();
+impl TextureGPUSystemSource {
+  pub fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
+    let default_2d: GPU2DTextureView = create_fallback_empty_texture(&cx.device)
+      .create_default_view()
+      .try_into()
+      .unwrap();
+    let texture_2d = gpu_texture_2ds(cx, default_2d.clone());
 
-  global_watch()
-    .watch_untyped_key::<SceneTexture2dEntityDirectContent>()
-    .collective_execute_map_by(move || {
-      let cx = cx.clone();
-      let default = default.clone();
-      let mut cx = MipmapCtx {
-        gpu: cx.clone(),
-        encoder: cx.create_encoder().into(),
+    let default_sampler = create_gpu_sampler(cx, &TextureSampler::default());
+    let samplers = sampler_gpus(cx);
+
+    let bindless_minimal_effective_count = 8192;
+    self.token = if is_bindless_supported_on_this_gpu(&cx.info, bindless_minimal_effective_count) {
+      let texture_system = BindlessTextureSystemSource::new(
+        texture_2d,
+        default_2d,
+        samplers,
+        default_sampler,
+        bindless_minimal_effective_count,
+      );
+
+      source.register(Box::new(ReactiveQueryBoxAnyResult(texture_system)))
+    } else {
+      let texture_system = TraditionalPerDrawBindingSystemSource {
+        textures: Box::new(texture_2d),
+        samplers: Box::new(samplers),
       };
-      move |_, tex| {
-        let cx = &mut cx;
-        tex
-          .map(move |tex| {
-            create_gpu_texture2d_with_mipmap(&cx.gpu, cx.encoder.as_mut().unwrap(), &tex)
-          })
-          .unwrap_or_else(|| default.clone())
-      }
-    })
-}
-
-struct MipmapCtx {
-  gpu: GPU,
-  encoder: Option<GPUCommandEncoder>,
-}
-
-impl Drop for MipmapCtx {
-  fn drop(&mut self) {
-    self.gpu.submit_encoder(self.encoder.take().unwrap());
+      source.register(Box::new(ReactiveQueryBoxAnyResult(texture_system)))
+    };
+  }
+  pub fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> GPUTextureBindingSystem {
+    *res
+      .take_result(self.token)
+      .unwrap()
+      .downcast::<GPUTextureBindingSystem>()
+      .unwrap()
   }
 }

@@ -3,8 +3,8 @@
 //! model: render model like with concept like shape and material
 //! specific topics: shape, material, camera, node
 
-mod renderer;
-pub use renderer::*;
+mod scene;
+pub use scene::*;
 
 mod scene_model;
 pub use scene_model::*;

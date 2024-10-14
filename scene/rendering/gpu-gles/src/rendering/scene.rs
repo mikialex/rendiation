@@ -1,11 +1,8 @@
-use rendiation_texture_core::TextureSampler;
-use rendiation_texture_gpu_base::*;
-
 use crate::*;
 
 pub struct GLESRenderSystem {
   pub model_lookup: UpdateResultToken,
-  pub texture_system: UpdateResultToken,
+  pub texture_system: TextureGPUSystemSource,
   pub camera: Box<dyn RenderImplProvider<Box<dyn CameraRenderImpl>>>,
   pub scene_model_impl: Vec<Box<dyn RenderImplProvider<Box<dyn SceneModelRenderer>>>>,
 }
@@ -33,35 +30,7 @@ pub fn build_default_gles_render_system() -> GLESRenderSystem {
 
 impl RenderImplProvider<Box<dyn SceneRenderer>> for GLESRenderSystem {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    let default_2d: GPU2DTextureView = create_fallback_empty_texture(&cx.device)
-      .create_default_view()
-      .try_into()
-      .unwrap();
-    let texture_2d = gpu_texture_2ds(cx, default_2d.clone());
-
-    let default_sampler = create_gpu_sampler(cx, &TextureSampler::default());
-    let samplers = sampler_gpus(cx);
-
-    let bindless_minimal_effective_count = 8192;
-    self.texture_system =
-      if is_bindless_supported_on_this_gpu(&cx.info, bindless_minimal_effective_count) {
-        let texture_system = BindlessTextureSystemSource::new(
-          texture_2d,
-          default_2d,
-          samplers,
-          default_sampler,
-          bindless_minimal_effective_count,
-        );
-
-        source.register(Box::new(ReactiveQueryBoxAnyResult(texture_system)))
-      } else {
-        let texture_system = TraditionalPerDrawBindingSystemSource {
-          textures: Box::new(texture_2d),
-          samplers: Box::new(samplers),
-        };
-        source.register(Box::new(ReactiveQueryBoxAnyResult(texture_system)))
-      };
-
+    self.texture_system.register_resource(source, cx);
     let model_lookup = global_rev_ref().watch_inv_ref::<SceneModelBelongsToScene>();
     self.model_lookup = source.register_reactive_multi_collection(model_lookup);
     self.camera.register_resource(source, cx);
@@ -77,15 +46,11 @@ impl RenderImplProvider<Box<dyn SceneRenderer>> for GLESRenderSystem {
         .iter()
         .map(|imp| imp.create_impl(res))
         .collect(),
-      background: global_entity_component_of::<SceneSolidBackground>().read(),
+      background: SceneRendererRenderer::new_from_global(),
       model_lookup: res
         .take_multi_reactive_collection_updated(self.model_lookup)
         .unwrap(),
-      texture_system: *res
-        .take_result(self.texture_system)
-        .unwrap()
-        .downcast::<GPUTextureBindingSystem>()
-        .unwrap(),
+      texture_system: self.texture_system.create_impl(res),
       camera: self.camera.create_impl(res),
     })
   }
@@ -95,7 +60,7 @@ struct GLESSceneRenderer {
   texture_system: GPUTextureBindingSystem,
   camera: Box<dyn CameraRenderImpl>,
   scene_model_renderer: Vec<Box<dyn SceneModelRenderer>>,
-  background: ComponentReadView<SceneSolidBackground>,
+  background: SceneRendererRenderer,
   model_lookup: RevRefOfForeignKey<SceneModelBelongsToScene>,
 }
 
@@ -133,15 +98,7 @@ impl SceneRenderer for GLESSceneRenderer {
     &self,
     scene: EntityHandle<SceneEntity>,
   ) -> (Operations<rendiation_webgpu::Color>, Operations<f32>) {
-    let color = self.background.get_value(scene).unwrap();
-    let color = color.unwrap_or(Vec3::splat(0.9));
-    let color = rendiation_webgpu::Color {
-      r: color.x as f64,
-      g: color.y as f64,
-      b: color.z as f64,
-      a: 1.,
-    };
-    (clear(color), clear(1.))
+    self.background.init_clear(scene)
   }
 
   fn get_scene_model_cx(&self) -> &GPUTextureBindingSystem {

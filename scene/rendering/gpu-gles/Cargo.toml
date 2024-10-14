@@ -18,9 +18,6 @@ rendiation-scene-rendering-gpu-base = { path = "../../rendering/gpu-base" }
 rendiation-shader-api = { path = "../../../shader/api" }
 rendiation-shader-library = { path = "../../../shader/library" }
 rendiation-texture-core = { path = "../../../content/texture/core" }
-rendiation-texture-gpu-system = { path = "../../../content/texture/gpu-system" }
-rendiation-texture-gpu-process = { path = "../../../content/texture/gpu-process" }
-rendiation-texture-gpu-base = { path = "../../../content/texture/gpu-base" }
 rendiation-lighting-gpu-system = { path = "../../../content/lighting/gpu-system/lighting-system" }
 rendiation-lighting-punctual = { path = "../../../content/lighting/punctual" }
 

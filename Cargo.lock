@@ -3957,9 +3957,6 @@ dependencies = [
  "rendiation-shader-api",
  "rendiation-shader-library",
  "rendiation-texture-core",
- "rendiation-texture-gpu-base",
- "rendiation-texture-gpu-process",
- "rendiation-texture-gpu-system",
  "rendiation-webgpu",
  "rendiation-webgpu-reactive-utils",
 ]
@@ -3983,13 +3980,9 @@ dependencies = [
  "rendiation-mesh-gpu-system",
  "rendiation-scene-core",
  "rendiation-scene-rendering-gpu-base",
- "rendiation-scene-rendering-gpu-gles",
  "rendiation-shader-api",
  "rendiation-shader-library",
  "rendiation-texture-core",
- "rendiation-texture-gpu-base",
- "rendiation-texture-gpu-process",
- "rendiation-texture-gpu-system",
  "rendiation-webgpu",
  "rendiation-webgpu-reactive-utils",
 ]

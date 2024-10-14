@@ -20,6 +20,8 @@ use database::*;
 use reactive::*;
 use rendiation_algebra::*;
 use rendiation_scene_core::*;
+use rendiation_texture_core::*;
+use rendiation_texture_gpu_base::*;
 use rendiation_texture_gpu_system::*;
 use rendiation_webgpu::*;
 
@@ -27,6 +29,8 @@ mod light;
 pub use light::*;
 mod texture;
 pub use texture::*;
+mod background;
+pub use background::*;
 
 pub trait RenderImplProvider<T> {
   /// this will be called once when application init
