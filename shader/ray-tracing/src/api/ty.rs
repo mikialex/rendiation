@@ -108,8 +108,7 @@ pub enum RayFlagTriangleCullBehavior {
 }
 
 pub type RayAnyHitBehavior = u32;
-pub const HIT_ACCEPTED: RayAnyHitBehavior = 0;
-pub const IGNORE_THIS_INTERSECTION: RayAnyHitBehavior = 1;
+pub const ACCEPT_HIT: RayAnyHitBehavior = 1;
 pub const TERMINATE_TRAVERSE: RayAnyHitBehavior = 2;
 
 pub type RayHitKind = u32;

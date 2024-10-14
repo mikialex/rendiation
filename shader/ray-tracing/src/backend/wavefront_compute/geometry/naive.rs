@@ -681,7 +681,7 @@ impl<'a> IntersectionReporter for NaiveIntersectReporter<'a> {
   fn report_intersection(&self, hit_t: Node<f32>, hit_kind: Node<u32>) -> Node<bool> {
     let r = val(false).make_local_var();
     if_by(
-      hit_t.less_than(self.closest_hit_info.hit_distance.load()),
+      hit_t.less_than(self.closest_hit_info.hit_distance.load()), // todo test hit_t in range
       || {
         let any_hit_ctx = RayAnyHitCtx {
           launch_info: self.launch_info,
@@ -707,24 +707,22 @@ fn resolve_any_hit(
   r: LocalVarNode<bool>, // todo just return a node
   any_hit: &dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
   any_hit_ctx: &RayAnyHitCtx,
-  closest_hit_ctx: &HitCtxInfoVar,
-  closest_hit: &HitInfoVar,
+  closest_hit_ctx: &HitCtxInfoVar, // output
+  closest_hit: &HitInfoVar,        // output
 ) {
   let behavior = any_hit(any_hit_ctx);
 
-  if_by(behavior.equals(val(HIT_ACCEPTED)), || {
+  if_by((behavior & (val(ACCEPT_HIT))).greater_than(val(0)), || {
     // hit! update closest
     closest_hit.test_and_store(&any_hit_ctx.hit, || {
       closest_hit_ctx.store(&any_hit_ctx.hit_ctx)
     });
-    // todo update ray range max?
+    // todo update ray range max
     r.store(val(true));
-  })
-  .else_if(behavior.equals(val(TERMINATE_TRAVERSE)), || {
+  });
+
+  if_by((behavior & val(TERMINATE_TRAVERSE)).greater_than(0), || {
     // todo terminate
-  })
-  .else_by(|| {
-    // IGNORE_THIS_INTERSECTION or other values
   });
 }
 
@@ -816,7 +814,10 @@ fn intersect_blas_gpu(
 
       let ray = ray.expand();
 
-      fn read_vec3<T: ShaderNodeType>(idx: Node<u32>, array: ReadOnlyStorageNode<[T]>) -> [Node<T>; 3] {
+      fn read_vec3<T: ShaderNodeType>(
+        idx: Node<u32>,
+        array: ReadOnlyStorageNode<[T]>,
+      ) -> [Node<T>; 3] {
         let i = idx * val(3);
         let v0 = array.index(i).load();
         let v1 = array.index(i + val(1)).load();
@@ -862,7 +863,7 @@ fn intersect_blas_gpu(
               launch_info,
               world_ray,
               hit_ctx,
-              hit: HitInfo { hit_kind: val(HIT_KIND_BACK_FACING_TRIANGLE), hit_distance: world_distance },
+              hit: HitInfo { hit_kind: val(HIT_KIND_BACK_FACING_TRIANGLE), hit_distance: world_distance }, // todo specify hit local/world distance
             };
             let updated = val(false).make_local_var();
             resolve_any_hit(updated, any_hit, &any_hit_ctx, closest_hit_ctx_var, closest_hit_var);
@@ -1525,7 +1526,7 @@ fn test_gpu_triangle() {
           };
 
           let output =
-            traversable.traverse(payload, &|_ctx, _reporter| {}, &|_ctx| val(HIT_ACCEPTED));
+            traversable.traverse(payload, &|_ctx, _reporter| {}, &|_ctx| val(ACCEPT_HIT));
           (
             output.payload.hit_ctx.primitive_id + output.is_some.into_u32(),
             valid,
