@@ -3983,6 +3983,7 @@ dependencies = [
  "rendiation-mesh-gpu-system",
  "rendiation-scene-core",
  "rendiation-scene-rendering-gpu-base",
+ "rendiation-scene-rendering-gpu-gles",
  "rendiation-shader-api",
  "rendiation-shader-library",
  "rendiation-texture-core",

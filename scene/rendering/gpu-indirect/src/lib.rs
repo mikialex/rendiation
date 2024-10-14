@@ -1,14 +1,18 @@
 #![feature(stmt_expr_attributes)]
 
 use database::*;
-// use fast_hash_collection::*;
+use fast_hash_collection::*;
 use reactive::*;
 use rendiation_lighting_gpu_system::*;
 use rendiation_lighting_punctual::*;
-// use rendiation_mesh_gpu_system::*;
+use rendiation_mesh_gpu_system::*;
 use rendiation_scene_core::*;
 pub use rendiation_scene_rendering_gpu_base::*;
+use rendiation_scene_rendering_gpu_gles::*;
 use rendiation_shader_api::*;
+use rendiation_texture_core::*;
+use rendiation_texture_gpu_base::*;
+use rendiation_texture_gpu_system::*;
 use rendiation_webgpu::*;
 use rendiation_webgpu_reactive_utils::*;
 
@@ -27,8 +31,8 @@ pub use scene_model::*;
 mod std_model;
 pub use std_model::*;
 
-// mod rendering;
-// pub use rendering::*;
+mod rendering;
+pub use rendering::*;
 
 both!(IndirectSceneAbstractMaterialId, u32);
 both!(IndirectSceneAbstractMeshId, u32);
