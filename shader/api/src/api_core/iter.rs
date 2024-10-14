@@ -136,8 +136,8 @@ impl<T: ShaderNodeType> ShaderIterator for ReadOnlyStorageArrayIter<T> {
     let current_next = self.cursor.load();
     self.cursor.store(current_next + val(1));
     let has_next = current_next.less_than(self.len);
-    let uniform = self.array.index(current_next);
-    (has_next, (current_next, uniform))
+    let data = self.array.index(current_next.min(self.len - val(1)));
+    (has_next, (current_next, data))
   }
 }
 
@@ -156,8 +156,8 @@ impl<T: ShaderNodeType> ShaderIterator for StorageArrayIter<T> {
     self.cursor.store(current_next + val(1));
     let has_next = current_next.less_than(self.len);
 
-    let uniform = self.array.index(current_next);
-    (has_next, (current_next, uniform))
+    let data = self.array.index(current_next.min(self.len - val(1)));
+    (has_next, (current_next, data))
   }
 }
 
