@@ -168,7 +168,6 @@ impl ShaderFutureInvocation for CtxProviderFutureInvocation {
     });
 
     let closest = (!self.is_missing_shader).then(|| unsafe {
-      // reinterpret_cast from task{}_payload_with_ray
       let ray_payload: StorageNode<RayClosestHitCtxPayload> =
         index_access_field(combined_payload.handle(), 0);
       Box::new(ray_payload) as Box<dyn ClosestHitCtxProvider>

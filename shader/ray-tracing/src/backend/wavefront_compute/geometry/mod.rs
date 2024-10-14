@@ -103,13 +103,13 @@ fn intersect_ray_triangle_cpu(
   v0: Vec3<f32>,
   v1: Vec3<f32>,
   v2: Vec3<f32>,
-  // TODO flags
+  // todo flags
 ) -> Vec4<f32> {
   let e1 = v1 - v0;
   let e2 = v2 - v0;
   let normal = e1.cross(e2).normalize();
   let b = normal.dot(direction);
-  // TODO cull
+  // todo cull
   let w0 = origin - v0;
   let a = -normal.dot(w0);
   let t = a / b;
@@ -144,7 +144,7 @@ fn intersect_ray_triangle_gpu(
   v0: Node<Vec3<f32>>,
   v1: Node<Vec3<f32>>,
   v2: Node<Vec3<f32>>,
-  // TODO flags
+  // todo flags
 ) -> Node<Vec4<f32>> {
   get_shader_fn::<Vec4<f32>>(shader_fn_name(intersect_ray_triangle_gpu))
     .or_define(|cx| {

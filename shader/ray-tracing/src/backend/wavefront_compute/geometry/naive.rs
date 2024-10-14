@@ -844,7 +844,7 @@ fn intersect_blas_gpu(
 
           let hit_ctx = HitCtxInfo {
             primitive_id: tri_idx - primitive_start, // store tri offset in tri_bvh_root
-            instance_id: ray_blas.tlas_idx, // todo not exactly instance id, deleted tlas are skipped
+            instance_id: ray_blas.tlas_idx,
             instance_sbt_offset: tlas.instance_shader_binding_table_record_offset,
             instance_custom_id: tlas.instance_custom_index,
             geometry_id,
@@ -863,13 +863,22 @@ fn intersect_blas_gpu(
               launch_info,
               world_ray,
               hit_ctx,
-              hit: HitInfo { hit_kind: val(HIT_KIND_BACK_FACING_TRIANGLE), hit_distance: world_distance }, // todo specify hit local/world distance
+              hit: HitInfo {
+                hit_kind: val(HIT_KIND_BACK_FACING_TRIANGLE),
+                hit_distance: world_distance,
+              }, // todo specify hit local/world distance
             };
             let updated = val(false).make_local_var();
-            resolve_any_hit(updated, any_hit, &any_hit_ctx, closest_hit_ctx_var, closest_hit_var);
+            resolve_any_hit(
+              updated,
+              any_hit,
+              &any_hit_ctx,
+              closest_hit_ctx_var,
+              closest_hit_var,
+            );
             // todo use updated?
-
-          }).else_by(|| {
+          })
+          .else_by(|| {
             // non-opaque -> invode intersect
             let intersect_ctx = RayIntersectCtx {
               launch_info,
@@ -877,14 +886,17 @@ fn intersect_blas_gpu(
               hit_ctx,
             };
             // intersect will invoke any_hit and then update closest_hit.
-            intersect(&intersect_ctx, &NaiveIntersectReporter {
-              launch_info,
-              world_ray,
-              hit_ctx,
-              closest_hit_ctx_info: closest_hit_ctx_var,
-              closest_hit_info: closest_hit_var,
-              any_hit,
-            });
+            intersect(
+              &intersect_ctx,
+              &NaiveIntersectReporter {
+                launch_info,
+                world_ray,
+                hit_ctx,
+                closest_hit_ctx_info: closest_hit_ctx_var,
+                closest_hit_info: closest_hit_var,
+                any_hit,
+              },
+            );
             // todo if force opaque, update intersect range to optimize
           });
         });
@@ -1525,6 +1537,7 @@ fn test_gpu_triangle() {
             range: val(vec2(0., FAR)),
           };
 
+          // todo how to access user payload?
           let output =
             traversable.traverse(payload, &|_ctx, _reporter| {}, &|_ctx| val(ACCEPT_HIT));
           (
