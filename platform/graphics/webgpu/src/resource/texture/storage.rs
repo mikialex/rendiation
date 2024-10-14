@@ -120,14 +120,18 @@ impl<T: StorageShaderTypeMapping> ShaderBindingProvider for StorageTextureViewRe
   fn binding_desc(&self) -> ShaderBindingDescriptor {
     let mut ty = Self::Node::ty();
 
-    if let ShaderValueType::Single(ShaderValueSingleType::StorageTexture { format, .. }) = &mut ty {
+    if let ShaderValueType::Single(ShaderValueSingleType::StorageTexture {
+      format, access, ..
+    }) = &mut ty
+    {
       *format = self.format;
+      *access = rendiation_shader_api::StorageTextureAccess::Load;
     }
 
     ShaderBindingDescriptor {
       should_as_storage_buffer_if_is_buffer_like: false,
       writeable_if_storage: false,
-      ty: Self::Node::ty(),
+      ty,
     }
   }
 }
@@ -149,14 +153,18 @@ impl<T: StorageShaderTypeMapping> ShaderBindingProvider for StorageTextureViewWr
   fn binding_desc(&self) -> ShaderBindingDescriptor {
     let mut ty = Self::Node::ty();
 
-    if let ShaderValueType::Single(ShaderValueSingleType::StorageTexture { format, .. }) = &mut ty {
+    if let ShaderValueType::Single(ShaderValueSingleType::StorageTexture {
+      format, access, ..
+    }) = &mut ty
+    {
       *format = self.format;
+      *access = rendiation_shader_api::StorageTextureAccess::Store;
     }
 
     ShaderBindingDescriptor {
       should_as_storage_buffer_if_is_buffer_like: false,
       writeable_if_storage: false,
-      ty: Self::Node::ty(),
+      ty,
     }
   }
 }
@@ -178,14 +186,18 @@ impl<T: StorageShaderTypeMapping> ShaderBindingProvider for StorageTextureReadWr
   fn binding_desc(&self) -> ShaderBindingDescriptor {
     let mut ty = Self::Node::ty();
 
-    if let ShaderValueType::Single(ShaderValueSingleType::StorageTexture { format, .. }) = &mut ty {
+    if let ShaderValueType::Single(ShaderValueSingleType::StorageTexture {
+      format, access, ..
+    }) = &mut ty
+    {
       *format = self.format;
+      *access = rendiation_shader_api::StorageTextureAccess::LoadStore;
     }
 
     ShaderBindingDescriptor {
       should_as_storage_buffer_if_is_buffer_like: false,
       writeable_if_storage: false,
-      ty: Self::Node::ty(),
+      ty,
     }
   }
 }
