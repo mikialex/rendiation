@@ -14,7 +14,7 @@ pub fn node_storages(cx: &GPU) -> SceneNodeStorages {
 }
 
 pub struct NodeGPUStorage<'a> {
-  pub buffer: &'a SceneNodeStorages,
+  pub buffer: &'a MultiUpdateContainer<CommonStorageBufferImpl<NodeStorage>>,
 }
 
 // impl<'a> NodeGPUStorage<'a> {

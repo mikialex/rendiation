@@ -144,10 +144,11 @@ pub trait SceneModelRenderer {
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
-  ) {
+  ) -> bool {
     for m in models {
       self.render_scene_model(m, camera, camera_gpu, pass, cx, tex);
     }
+    true
   }
 }
 

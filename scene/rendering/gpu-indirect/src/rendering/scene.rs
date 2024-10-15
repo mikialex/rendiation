@@ -4,7 +4,8 @@ pub struct IndirectRenderSystem {
   pub model_lookup: UpdateResultToken,
   pub texture_system: TextureGPUSystemSource,
   pub camera: Box<dyn RenderImplProvider<Box<dyn CameraRenderImpl>>>,
-  pub scene_model_impl: Vec<Box<dyn RenderImplProvider<Box<dyn SceneModelRenderer>>>>,
+  pub scene_model_impl: Vec<Box<dyn RenderImplProvider<Box<dyn IndirectBatchSceneModelRenderer>>>>,
+  pub grouper: Box<dyn RenderImplProvider<Box<dyn IndirectSceneDrawBatchGrouper>>>,
 }
 
 impl RenderImplProvider<Box<dyn SceneRenderer>> for IndirectRenderSystem {
@@ -14,18 +15,22 @@ impl RenderImplProvider<Box<dyn SceneRenderer>> for IndirectRenderSystem {
     let model_lookup = global_rev_ref().watch_inv_ref::<SceneModelBelongsToScene>();
     self.model_lookup = source.register_reactive_multi_collection(model_lookup);
     self.camera.register_resource(source, cx);
-    //   for imp in &mut self.scene_model_impl {
-    //     imp.register_resource(source, cx);
-    //   }
+    for imp in &mut self.scene_model_impl {
+      imp.register_resource(source, cx);
+    }
   }
 
   fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> Box<dyn SceneRenderer> {
     Box::new(IndirectSceneRenderer {
       texture_system: self.texture_system.create_impl(res),
-      camera: todo!(),
+      camera: self.camera.create_impl(res),
       background: SceneBackgroundRenderer::new_from_global(),
-      renderer: todo!(),
-      grouper: todo!(),
+      renderer: self
+        .scene_model_impl
+        .iter()
+        .map(|imp| imp.create_impl(res))
+        .collect(),
+      grouper: self.grouper.create_impl(res),
     })
   }
 }
@@ -36,7 +41,7 @@ struct IndirectSceneRenderer {
 
   background: SceneBackgroundRenderer,
 
-  renderer: Box<dyn IndirectBatchSceneModelRenderer>,
+  renderer: Vec<Box<dyn IndirectBatchSceneModelRenderer>>,
 
   grouper: Box<dyn IndirectSceneDrawBatchGrouper>,
 }
@@ -50,9 +55,12 @@ impl SceneModelRenderer for IndirectSceneRenderer {
     pass: &'a (dyn RenderComponent + 'a),
     tex: &'a GPUTextureBindingSystem,
   ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
-    self
-      .renderer
-      .make_component(idx, camera, camera_gpu, pass, tex)
+    for renderer in &self.renderer {
+      if let Some(com) = renderer.make_component(idx, camera, camera_gpu, pass, tex) {
+        return Some(com);
+      }
+    }
+    None
   }
 }
 
@@ -62,7 +70,7 @@ impl SceneRenderer for IndirectSceneRenderer {
     scene: EntityHandle<SceneEntity>,
     camera: EntityHandle<SceneCameraEntity>,
     pass: &'a dyn RenderComponent,
-    ctx: &mut FrameCtx,
+    _ctx: &mut FrameCtx,
   ) -> Box<dyn PassContent + 'a> {
     // do gpu driven culling here in future
     Box::new(GLESScenePassContent {
@@ -92,14 +100,18 @@ impl SceneRenderer for IndirectSceneRenderer {
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
   ) {
-    self.renderer.render_reorderable_models_impl(
-      models,
-      camera,
-      self.camera.as_ref(),
-      pass,
-      cx,
-      tex,
-    );
+    for renderer in &self.renderer {
+      if renderer.render_reorderable_models_impl(
+        models,
+        camera,
+        self.camera.as_ref(),
+        pass,
+        cx,
+        tex,
+      ) {
+        break;
+      }
+    }
   }
 
   fn get_camera_gpu(&self) -> &dyn CameraRenderImpl {
@@ -117,15 +129,21 @@ struct GLESScenePassContent<'a> {
 impl<'a> PassContent for GLESScenePassContent<'a> {
   fn render(&mut self, cx: &mut FrameRenderPass) {
     for (indirect_batch, any_id) in self.renderer.grouper.iter_grouped_scene_model(self.scene) {
-      // do indirect dispatches here
-      self.renderer.renderer.render_batch_models(
-        indirect_batch,
-        any_id,
-        self.camera,
-        &self.renderer.texture_system,
-        &self.pass,
-        cx,
-      );
+      for renderer in &self.renderer.renderer {
+        if renderer
+          .render_indirect_batch_models(
+            indirect_batch.as_ref(),
+            any_id,
+            self.camera,
+            &self.renderer.texture_system,
+            &self.pass,
+            cx,
+          )
+          .is_some()
+        {
+          return;
+        }
+      }
     }
   }
 }

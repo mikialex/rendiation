@@ -113,7 +113,7 @@ impl SceneRenderer for GLESSceneRenderer {
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
   ) {
-    self.render_reorderable_models_impl(models, camera, self.camera.as_ref(), pass, cx, tex)
+    self.render_reorderable_models_impl(models, camera, self.camera.as_ref(), pass, cx, tex);
   }
 
   fn get_camera_gpu(&self) -> &dyn CameraRenderImpl {

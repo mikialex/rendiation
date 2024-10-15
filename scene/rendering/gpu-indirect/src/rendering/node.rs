@@ -12,7 +12,7 @@ pub struct DefaultIndirectNodeRenderImplProvider {
   storage: UpdateResultToken,
 }
 pub struct DefaultIndirectNodeRenderImpl {
-  node_gpu: LockReadGuardHolder<SceneNodeStorages>,
+  node_gpu: LockReadGuardHolder<MultiUpdateContainer<CommonStorageBufferImpl<NodeStorage>>>,
 }
 
 impl RenderImplProvider<Box<dyn IndirectNodeRenderImpl>> for DefaultIndirectNodeRenderImplProvider {
@@ -22,10 +22,9 @@ impl RenderImplProvider<Box<dyn IndirectNodeRenderImpl>> for DefaultIndirectNode
   }
 
   fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> Box<dyn IndirectNodeRenderImpl> {
-    // Box::new(DefaultIndirectNodeRenderImpl {
-    //   node_gpu: res.take_multi_updater_updated(self.storage).unwrap(),
-    // })
-    todo!()
+    Box::new(DefaultIndirectNodeRenderImpl {
+      node_gpu: res.take_multi_updater_updated(self.storage).unwrap(),
+    })
   }
 }
 
