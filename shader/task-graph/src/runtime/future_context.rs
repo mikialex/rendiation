@@ -23,7 +23,6 @@ pub struct TaskGroupDeviceInvocationInstanceLateResolved {
 
 impl TaskGroupDeviceInvocationInstanceLateResolved {
   pub fn resolve(&self, instance: TaskGroupDeviceInvocationInstance) {
-    dbg!("resolve");
     self.inner.write().replace(instance);
   }
 

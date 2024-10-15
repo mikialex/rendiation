@@ -22,6 +22,7 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
 
     let mut payload_max_u32_count = 0;
 
+    // todo assert at least one for each stage will be defined
     let ray_gen_task_range_start = 1;
     let ray_gen_task_range_end = ray_gen_task_range_start + desc.ray_gen_shaders.len();
 
@@ -36,11 +37,12 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
         ((i + closest_task_range_start) as u32, ty.clone())
       })
       .collect();
+    dbg!(&closest_tasks);
 
     let missing_task_start = closest_task_range_end;
     let missing_task_end = missing_task_start + desc.miss_hit_shaders.len();
     let missing_tasks = desc
-      .closest_hit_shaders
+      .miss_hit_shaders
       .iter()
       .enumerate()
       .map(|(i, (_, ty))| {
@@ -48,6 +50,7 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
         ((i + missing_task_start) as u32, ty.clone())
       })
       .collect();
+    dbg!(&missing_tasks);
 
     let info = TraceTaskMetaInfo {
       closest_tasks,
@@ -95,17 +98,27 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
     }
 
     for (stage, ty) in &desc.closest_hit_shaders {
+      let task_payload_ty = create_composite_task_payload_desc(
+        graph.next_task_idx(),
+        ty,
+        &RayClosestHitCtxPayload::sized_ty(),
+      );
       let task_id = graph.define_task_dyn(
         Box::new(OpaqueTaskWrapper(stage.build_device_future(&mut ctx))) as OpaqueTask,
-        ty.clone(),
+        task_payload_ty,
       );
       assert!((closest_task_range_start..closest_task_range_end).contains(&(task_id as usize)));
     }
 
     for (stage, ty) in &desc.miss_hit_shaders {
+      let task_payload_ty = create_composite_task_payload_desc(
+        graph.next_task_idx(),
+        ty,
+        &RayMissHitCtxPayload::sized_ty(),
+      );
       let task_id = graph.define_task_dyn(
         Box::new(OpaqueTaskWrapper(stage.build_device_future(&mut ctx))) as OpaqueTask,
-        ty.clone(),
+        task_payload_ty,
       );
       assert!((missing_task_start..missing_task_end).contains(&(task_id as usize)));
     }

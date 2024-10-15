@@ -241,6 +241,18 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
   }
 }
 
+pub fn create_composite_task_payload_desc(
+  task_id: u32,
+  user_defined_payload_ty: &ShaderSizedValueType,
+  ray_info_payload: &ShaderSizedValueType,
+) -> ShaderSizedValueType {
+  let mut combined_struct_desc =
+    ShaderStructMetaInfo::new(&format!("task{}_payload_with_ray", task_id));
+  combined_struct_desc.push_field_dyn("ray", ray_info_payload.clone());
+  combined_struct_desc.push_field_dyn("payload", user_defined_payload_ty.clone());
+  ShaderSizedValueType::Struct(combined_struct_desc)
+}
+
 #[must_use]
 fn spawn_dynamic<'a>(
   task_range: impl IntoIterator<Item = &'a (u32, ShaderSizedValueType)>,
@@ -257,16 +269,14 @@ fn spawn_dynamic<'a>(
   // todo, should consider report this situation.
   let allocated_id = val(TASK_SPAWNED_FAILED).make_local_var();
 
-  for (id, payload_ty_desc) in task_range {
+  for (id, user_defined_payload_ty_desc) in task_range {
     switcher = switcher.case(*id, || {
       // copy untyped payload to typed specific tasks
-      let payload = payload_ty_desc.load_from_u32_buffer(untyped_payload_arr, untyped_payload_idx);
+      let payload =
+        user_defined_payload_ty_desc.load_from_u32_buffer(untyped_payload_arr, untyped_payload_idx);
 
-      let mut combined_struct_desc =
-        ShaderStructMetaInfo::new(&format!("task{}_payload_with_ray", id));
-      combined_struct_desc.push_field_dyn("ray", ray_payload_desc.clone());
-      combined_struct_desc.push_field_dyn("payload", payload_ty_desc.clone());
-      let desc = ShaderSizedValueType::Struct(combined_struct_desc);
+      let desc =
+        create_composite_task_payload_desc(*id, user_defined_payload_ty_desc, ray_payload_desc);
 
       let combined = ShaderNodeExpr::Compose {
         target: desc.clone(),
