@@ -25,7 +25,7 @@ impl Database {
 
   pub fn access_ecg_dyn<R>(&self, e_id: EntityId, f: impl FnOnce(&EntityComponentGroup) -> R) -> R {
     let tables = self.ecg_tables.read_recursive();
-    let ecg = tables.get(&e_id).unwrap();
+    let ecg = tables.get(&e_id).expect("unknown entity id");
     f(ecg)
   }
   pub fn access_ecg<E: EntitySemantic, R>(

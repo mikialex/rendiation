@@ -33,6 +33,7 @@ pub fn register_scene_core_data_model() {
 
   register_scene_texture2d_data_model();
   register_scene_sampler_data_model();
+  register_scene_texture_cube_data_model();
 
   register_camera_data_model();
 

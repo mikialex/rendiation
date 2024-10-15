@@ -95,7 +95,8 @@ mod sg_material {
       .declare_component::<PbrSGMaterialSpecularComponent>()
       .declare_component::<PbrSGMaterialGlossinessComponent>()
       .declare_component::<PbrSGMaterialEmissiveComponent>()
-      .declare_component::<PbrSGMaterialAlphaComponent>();
+      .declare_component::<PbrSGMaterialAlphaComponent>()
+      .declare_component::<PbrSGMaterialAlphaModeComponent>();
 
     let ecg = register_texture_with_sampling::<PbrSGMaterialAlbedoTex>(ecg);
     let ecg = register_texture_with_sampling::<PbrSGMaterialSpecularTex>(ecg);
