@@ -47,16 +47,17 @@ struct IndirectSceneRenderer {
 }
 
 impl SceneModelRenderer for IndirectSceneRenderer {
-  fn make_component<'a>(
-    &'a self,
+  fn render_scene_model(
+    &self,
     idx: EntityHandle<SceneModelEntity>,
-    camera: &'a (dyn RenderComponent + 'a),
-    pass: &'a (dyn RenderComponent + 'a),
-    tex: &'a GPUTextureBindingSystem,
-  ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
-    for renderer in &self.renderer {
-      if let Some(com) = renderer.make_component(idx, camera, pass, tex) {
-        return Some(com);
+    camera: &dyn RenderComponent,
+    pass: &dyn RenderComponent,
+    cx: &mut GPURenderPassCtx,
+    tex: &GPUTextureBindingSystem,
+  ) -> Option<()> {
+    for r in &self.renderer {
+      if r.render_scene_model(idx, camera, pass, cx, tex).is_some() {
+        return Some(());
       }
     }
     None
@@ -72,7 +73,7 @@ impl SceneRenderer for IndirectSceneRenderer {
     _ctx: &mut FrameCtx,
   ) -> Box<dyn PassContent + 'a> {
     // do gpu driven culling here in future
-    Box::new(GLESScenePassContent {
+    Box::new(IndirectScenePassContent {
       renderer: self,
       scene,
       pass,
@@ -112,25 +113,26 @@ impl SceneRenderer for IndirectSceneRenderer {
   }
 }
 
-struct GLESScenePassContent<'a> {
+struct IndirectScenePassContent<'a> {
   renderer: &'a IndirectSceneRenderer,
   scene: EntityHandle<SceneEntity>,
   pass: &'a dyn RenderComponent,
   camera: EntityHandle<SceneCameraEntity>,
 }
 
-impl<'a> PassContent for GLESScenePassContent<'a> {
+impl<'a> PassContent for IndirectScenePassContent<'a> {
   fn render(&mut self, cx: &mut FrameRenderPass) {
+    let camera = self.renderer.camera.make_component(self.camera).unwrap();
     for (indirect_batch, any_id) in self.renderer.grouper.iter_grouped_scene_model(self.scene) {
       for renderer in &self.renderer.renderer {
         if renderer
           .render_indirect_batch_models(
             indirect_batch.as_ref(),
             any_id,
-            self.camera,
+            &camera,
             &self.renderer.texture_system,
             &self.pass,
-            cx,
+            &mut cx.ctx,
           )
           .is_some()
         {

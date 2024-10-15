@@ -15,10 +15,10 @@ pub trait IndirectBatchSceneModelRenderer: SceneModelRenderer {
     &self,
     models: &dyn IndirectBatchSource,
     any_id: EntityHandle<SceneModelEntity>,
-    camera: EntityHandle<SceneCameraEntity>,
+    camera: &dyn RenderComponent,
     tex: &GPUTextureBindingSystem,
     pass: &dyn RenderComponent,
-    cx: &mut FrameRenderPass,
+    cx: &mut GPURenderPassCtx,
   ) -> Option<()>;
 }
 
@@ -52,46 +52,28 @@ pub trait IndirectBatchSceneModelRenderer: SceneModelRenderer {
 // }
 
 // impl SceneModelRenderer for IndirectPreferredComOrderRenderer {
-//   fn make_component<'a>(
-//     &'a self,
-//     idx: EntityHandle<SceneModelEntity>,
-//     camera: &'a (dyn RenderComponent + 'a),
-//     pass: &'a (dyn RenderComponent + 'a),
-//     tex: &'a GPUTextureBindingSystem,
-//   ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
-//     // let node = self.node.get(idx)?;
-//     // let node = self.node_render.make_component_indirect(node)?;
+//   // fn render_reorderable_models_impl(
+//   //   &self,
+//   //   models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
+//   //   camera: &dyn RenderComponent,
+//   //   pass: &dyn RenderComponent,
+//   //   cx: &mut GPURenderPassCtx,
+//   //   tex: &GPUTextureBindingSystem,
+//   // ) -> bool {
+//   //   // todo, host side prepared multi draw for better performance
+//   //   todo!()
+//   // }
 
-//     // let camera = camera_gpu.make_component(camera)?;
-
-//     // let shape = self.model_impl.shape_renderable_indirect(idx)?;
-//     // let material = self.model_impl.material_renderable_indirect(idx, tex)?;
-
-//     // let pass = Box::new(pass) as Box<dyn RenderComponent + 'a>;
-
-//     // let contents: [BindingController<Box<dyn RenderComponent + 'a>>; 5] = [
-//     //   pass.into_assign_binding_index(0),
-//     //   shape.into_assign_binding_index(2),
-//     //   node.into_assign_binding_index(2),
-//     //   camera.into_assign_binding_index(1),
-//     //   material.into_assign_binding_index(2),
-//     // ];
-
-//     // let render = Box::new(RenderArray(contents)) as Box<dyn RenderComponent>;
-//     // Some((render, todo!()))
-//     todo!()
-//   }
-
-//   fn render_reorderable_models_impl(
+//   fn render_scene_model(
 //     &self,
-//     models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
+//     idx: EntityHandle<SceneModelEntity>,
 //     camera: &dyn RenderComponent,
 //     pass: &dyn RenderComponent,
 //     cx: &mut GPURenderPassCtx,
 //     tex: &GPUTextureBindingSystem,
-//   ) -> bool {
-//     // todo, host side prepared multi draw for better performance
-//     todo!()
+//   ) -> Option<()> {
+//     self.render_indirect_batch_models(todo!(), idx, camera, tex, pass, cx);
+//     Some(())
 //   }
 // }
 
@@ -100,10 +82,10 @@ pub trait IndirectBatchSceneModelRenderer: SceneModelRenderer {
 //     &self,
 //     models: &dyn IndirectBatchSource,
 //     any_id: EntityHandle<SceneModelEntity>,
-//     camera: EntityHandle<SceneCameraEntity>,
+//     camera: &dyn RenderComponent,
 //     tex: &GPUTextureBindingSystem,
 //     pass: &dyn RenderComponent,
-//     cx: &mut FrameRenderPass,
+//     cx: &mut GPURenderPassCtx,
 //   ) -> Option<()> {
 //     // let node = self.node.get(any_id)?;
 //     // let node = self.node_render.make_component_indirect(node)?;

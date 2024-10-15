@@ -112,14 +112,7 @@ pub trait LightsRenderImpl {
 
 /// ability to do scene model level rendering
 pub trait SceneModelRenderer {
-  fn make_component<'a>(
-    &'a self,
-    idx: EntityHandle<SceneModelEntity>,
-    camera: &'a (dyn RenderComponent + 'a),
-    pass: &'a (dyn RenderComponent + 'a),
-    tex: &'a GPUTextureBindingSystem,
-  ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)>;
-
+  /// return if render successfully
   fn render_scene_model(
     &self,
     idx: EntityHandle<SceneModelEntity>,
@@ -127,11 +120,7 @@ pub trait SceneModelRenderer {
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
-  ) {
-    if let Some((com, command)) = self.make_component(idx, camera, pass, tex) {
-      com.render(cx, command)
-    }
-  }
+  ) -> Option<()>;
 
   /// maybe implementation could provide better performance for example host side multi draw
   fn render_reorderable_models_impl(
@@ -150,16 +139,17 @@ pub trait SceneModelRenderer {
 }
 
 impl SceneModelRenderer for Vec<Box<dyn SceneModelRenderer>> {
-  fn make_component<'a>(
-    &'a self,
+  fn render_scene_model(
+    &self,
     idx: EntityHandle<SceneModelEntity>,
-    camera: &'a (dyn RenderComponent + 'a),
-    pass: &'a (dyn RenderComponent + 'a),
-    tex: &'a GPUTextureBindingSystem,
-  ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
-    for provider in self {
-      if let Some(com) = provider.make_component(idx, camera, pass, tex) {
-        return Some(com);
+    camera: &dyn RenderComponent,
+    pass: &dyn RenderComponent,
+    cx: &mut GPURenderPassCtx,
+    tex: &GPUTextureBindingSystem,
+  ) -> Option<()> {
+    for r in self {
+      if r.render_scene_model(idx, camera, pass, cx, tex).is_some() {
+        return Some(());
       }
     }
     None

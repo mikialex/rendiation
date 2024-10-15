@@ -65,16 +65,17 @@ struct GLESSceneRenderer {
 }
 
 impl SceneModelRenderer for GLESSceneRenderer {
-  fn make_component<'a>(
-    &'a self,
+  fn render_scene_model(
+    &self,
     idx: EntityHandle<SceneModelEntity>,
-    camera: &'a (dyn RenderComponent + 'a),
-    pass: &'a (dyn RenderComponent + 'a),
-    tex: &'a GPUTextureBindingSystem,
-  ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
+    camera: &dyn RenderComponent,
+    pass: &dyn RenderComponent,
+    cx: &mut GPURenderPassCtx,
+    tex: &GPUTextureBindingSystem,
+  ) -> Option<()> {
     self
       .scene_model_renderer
-      .make_component(idx, camera, pass, tex)
+      .render_scene_model(idx, camera, pass, cx, tex)
   }
 }
 

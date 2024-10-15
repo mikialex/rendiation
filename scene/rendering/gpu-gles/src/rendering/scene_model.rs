@@ -30,13 +30,14 @@ pub struct GLESPreferredComOrderRenderer {
 }
 
 impl SceneModelRenderer for GLESPreferredComOrderRenderer {
-  fn make_component<'a>(
-    &'a self,
+  fn render_scene_model(
+    &self,
     idx: EntityHandle<SceneModelEntity>,
-    camera: &'a (dyn RenderComponent + 'a),
-    pass: &'a (dyn RenderComponent + 'a),
-    tex: &'a GPUTextureBindingSystem,
-  ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
+    camera: &dyn RenderComponent,
+    pass: &dyn RenderComponent,
+    cx: &mut GPURenderPassCtx,
+    tex: &GPUTextureBindingSystem,
+  ) -> Option<()> {
     let node = self.node.get(idx)?;
     let node = self.node_render.make_component(node)?;
 
@@ -45,9 +46,9 @@ impl SceneModelRenderer for GLESPreferredComOrderRenderer {
     let (shape, draw) = self.model_impl.shape_renderable(idx)?;
     let material = self.model_impl.material_renderable(idx, tex)?;
 
-    let pass = Box::new(pass) as Box<dyn RenderComponent + 'a>;
+    let pass = Box::new(pass) as Box<dyn RenderComponent>;
 
-    let contents: [BindingController<Box<dyn RenderComponent + 'a>>; 5] = [
+    let contents: [BindingController<Box<dyn RenderComponent>>; 5] = [
       pass.into_assign_binding_index(0),
       shape.into_assign_binding_index(2),
       node.into_assign_binding_index(2),
@@ -56,6 +57,8 @@ impl SceneModelRenderer for GLESPreferredComOrderRenderer {
     ];
 
     let render = Box::new(RenderArray(contents)) as Box<dyn RenderComponent>;
-    Some((render, draw))
+
+    render.render(cx, draw);
+    Some(())
   }
 }
