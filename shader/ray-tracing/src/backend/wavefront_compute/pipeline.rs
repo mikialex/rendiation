@@ -37,7 +37,6 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
         ((i + closest_task_range_start) as u32, ty.clone())
       })
       .collect();
-    dbg!(&closest_tasks);
 
     let missing_task_start = closest_task_range_end;
     let missing_task_end = missing_task_start + desc.miss_hit_shaders.len();
@@ -50,7 +49,6 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
         ((i + missing_task_start) as u32, ty.clone())
       })
       .collect();
-    dbg!(&missing_tasks);
 
     let info = TraceTaskMetaInfo {
       closest_tasks,

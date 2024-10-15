@@ -83,7 +83,10 @@ impl DeviceTaskGraphBuildSource {
     cx: &mut DeviceParallelComputeCtx,
   ) -> DeviceTaskGraphExecutor {
     let init_size = dispatch_size * max_recursion_depth;
-    let mut task_group_shared_info = vec![Default::default(); self.task_groups.len()];
+    let mut task_group_shared_info = Vec::new();
+    for _ in 0..self.task_groups.len() {
+      task_group_shared_info.push((Default::default(), Default::default()));
+    }
 
     let mut pre_builds = Vec::new();
     let mut task_group_sources = Vec::new();
@@ -99,6 +102,7 @@ impl DeviceTaskGraphBuildSource {
         cx,
         max_recursion_depth,
       );
+      // dbg!(&task_build_source.payload_ty);
 
       task_group_sources.push(resource);
       pre_builds.push(pre_build);
