@@ -68,14 +68,13 @@ impl SceneModelRenderer for GLESSceneRenderer {
   fn make_component<'a>(
     &'a self,
     idx: EntityHandle<SceneModelEntity>,
-    camera: EntityHandle<SceneCameraEntity>,
-    camera_gpu: &'a (dyn CameraRenderImpl + 'a),
+    camera: &'a (dyn RenderComponent + 'a),
     pass: &'a (dyn RenderComponent + 'a),
     tex: &'a GPUTextureBindingSystem,
   ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
     self
       .scene_model_renderer
-      .make_component(idx, camera, camera_gpu, pass, tex)
+      .make_component(idx, camera, pass, tex)
   }
 }
 
@@ -113,7 +112,8 @@ impl SceneRenderer for GLESSceneRenderer {
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
   ) {
-    self.render_reorderable_models_impl(models, camera, self.camera.as_ref(), pass, cx, tex);
+    let camera = self.camera.make_component(camera).unwrap();
+    self.render_reorderable_models_impl(models, &camera, pass, cx, tex);
   }
 
   fn get_camera_gpu(&self) -> &dyn CameraRenderImpl {

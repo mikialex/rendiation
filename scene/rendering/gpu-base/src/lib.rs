@@ -115,8 +115,7 @@ pub trait SceneModelRenderer {
   fn make_component<'a>(
     &'a self,
     idx: EntityHandle<SceneModelEntity>,
-    camera: EntityHandle<SceneCameraEntity>,
-    camera_gpu: &'a (dyn CameraRenderImpl + 'a),
+    camera: &'a (dyn RenderComponent + 'a),
     pass: &'a (dyn RenderComponent + 'a),
     tex: &'a GPUTextureBindingSystem,
   ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)>;
@@ -124,13 +123,12 @@ pub trait SceneModelRenderer {
   fn render_scene_model(
     &self,
     idx: EntityHandle<SceneModelEntity>,
-    camera: EntityHandle<SceneCameraEntity>,
-    camera_gpu: &dyn CameraRenderImpl,
+    camera: &dyn RenderComponent,
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
   ) {
-    if let Some((com, command)) = self.make_component(idx, camera, camera_gpu, pass, tex) {
+    if let Some((com, command)) = self.make_component(idx, camera, pass, tex) {
       com.render(cx, command)
     }
   }
@@ -139,14 +137,13 @@ pub trait SceneModelRenderer {
   fn render_reorderable_models_impl(
     &self,
     models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
-    camera: EntityHandle<SceneCameraEntity>,
-    camera_gpu: &dyn CameraRenderImpl,
+    camera: &dyn RenderComponent,
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
   ) -> bool {
     for m in models {
-      self.render_scene_model(m, camera, camera_gpu, pass, cx, tex);
+      self.render_scene_model(m, camera, pass, cx, tex);
     }
     true
   }
@@ -156,13 +153,12 @@ impl SceneModelRenderer for Vec<Box<dyn SceneModelRenderer>> {
   fn make_component<'a>(
     &'a self,
     idx: EntityHandle<SceneModelEntity>,
-    camera: EntityHandle<SceneCameraEntity>,
-    camera_gpu: &'a (dyn CameraRenderImpl + 'a),
+    camera: &'a (dyn RenderComponent + 'a),
     pass: &'a (dyn RenderComponent + 'a),
     tex: &'a GPUTextureBindingSystem,
   ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
     for provider in self {
-      if let Some(com) = provider.make_component(idx, camera, camera_gpu, pass, tex) {
+      if let Some(com) = provider.make_component(idx, camera, pass, tex) {
         return Some(com);
       }
     }

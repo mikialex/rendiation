@@ -50,13 +50,12 @@ impl SceneModelRenderer for IndirectSceneRenderer {
   fn make_component<'a>(
     &'a self,
     idx: EntityHandle<SceneModelEntity>,
-    camera: EntityHandle<SceneCameraEntity>,
-    camera_gpu: &'a (dyn CameraRenderImpl + 'a),
+    camera: &'a (dyn RenderComponent + 'a),
     pass: &'a (dyn RenderComponent + 'a),
     tex: &'a GPUTextureBindingSystem,
   ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
     for renderer in &self.renderer {
-      if let Some(com) = renderer.make_component(idx, camera, camera_gpu, pass, tex) {
+      if let Some(com) = renderer.make_component(idx, camera, pass, tex) {
         return Some(com);
       }
     }
@@ -100,15 +99,9 @@ impl SceneRenderer for IndirectSceneRenderer {
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
   ) {
+    let camera = self.camera.make_component(camera).unwrap();
     for renderer in &self.renderer {
-      if renderer.render_reorderable_models_impl(
-        models,
-        camera,
-        self.camera.as_ref(),
-        pass,
-        cx,
-        tex,
-      ) {
+      if renderer.render_reorderable_models_impl(models, &camera, pass, cx, tex) {
         break;
       }
     }

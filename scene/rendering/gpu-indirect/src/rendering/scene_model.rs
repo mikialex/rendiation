@@ -55,8 +55,7 @@ pub trait IndirectBatchSceneModelRenderer: SceneModelRenderer {
 //   fn make_component<'a>(
 //     &'a self,
 //     idx: EntityHandle<SceneModelEntity>,
-//     camera: EntityHandle<SceneCameraEntity>,
-//     camera_gpu: &'a (dyn CameraRenderImpl + 'a),
+//     camera: &'a (dyn RenderComponent + 'a),
 //     pass: &'a (dyn RenderComponent + 'a),
 //     tex: &'a GPUTextureBindingSystem,
 //   ) -> Option<(Box<dyn RenderComponent + 'a>, DrawCommand)> {
@@ -86,8 +85,7 @@ pub trait IndirectBatchSceneModelRenderer: SceneModelRenderer {
 //   fn render_reorderable_models_impl(
 //     &self,
 //     models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
-//     camera: EntityHandle<SceneCameraEntity>,
-//     camera_gpu: &dyn CameraRenderImpl,
+//     camera: &dyn RenderComponent,
 //     pass: &dyn RenderComponent,
 //     cx: &mut GPURenderPassCtx,
 //     tex: &GPUTextureBindingSystem,

@@ -17,20 +17,6 @@ pub struct NodeGPUStorage<'a> {
   pub buffer: &'a MultiUpdateContainer<CommonStorageBufferImpl<NodeStorage>>,
 }
 
-// impl<'a> NodeGPUStorage<'a> {
-//   pub fn inject_uniforms(&self, builder: &mut ShaderRenderPipelineBuilder) {
-//     builder
-//       .bind_by_and_prepare(&self.buffer.inner.gpu())
-//       .using_graphics_pair(builder, |r, node| {
-//         let nodes = builder.bind_by(self.buffer.inner.gpu());
-//         let current_node_id = builder.query::<IndirectSceneNodeId>()?;
-//         let node = nodes.index(current_node_id).load().expand();
-//         r.register_typed_both_stage::<WorldMatrix>(node.world_matrix);
-//         r.register_typed_both_stage::<WorldNormalMatrix>(node.normal_matrix);
-//       });
-//   }
-// }
-
 #[repr(C)]
 #[std430_layout]
 #[derive(Clone, Copy, Default, PartialEq, ShaderStruct, Debug)]
@@ -52,12 +38,6 @@ impl NodeStorage {
 impl<'a> ShaderHashProvider for NodeGPUStorage<'a> {
   shader_hash_type_id! {NodeGPUStorage<'static>}
 }
-
-// impl<'a> GraphicsShaderDependencyProvider for NodeGPUStorage<'a> {
-//   fn inject_shader_dependencies(&self, builder: &mut ShaderRenderPipelineBuilder) {
-//     self.inject_uniforms(builder);
-//   }
-// }
 
 impl<'a> GraphicsShaderProvider for NodeGPUStorage<'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
