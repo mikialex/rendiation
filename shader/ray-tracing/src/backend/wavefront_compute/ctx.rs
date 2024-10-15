@@ -2,7 +2,7 @@ use crate::*;
 
 #[repr(C)]
 #[std430_layout]
-#[derive(ShaderStruct, Clone, Copy)]
+#[derive(ShaderStruct, Clone, Copy, StorageNodePtrAccess)]
 pub struct TraceTaskSelfPayload {
   pub sub_task_ty: u32,
   pub sub_task_id: u32,
@@ -159,7 +159,8 @@ impl ShaderFutureInvocation for CtxProviderFutureInvocation {
   fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<()> {
     // accessing task{}_payload_with_ray, see fn spawn_dynamic in trace_task.rs
     let combined_payload = ctx.access_self_payload_untyped();
-    let payload: StorageNode<AnyType> = unsafe { index_access_field(combined_payload.handle(), 1) };
+    let user_defined_payload: StorageNode<AnyType> =
+      unsafe { index_access_field(combined_payload.handle(), 1) };
 
     let missing = self.is_missing_shader.then(|| unsafe {
       let ray_payload: StorageNode<RayMissHitCtxPayload> =
@@ -176,7 +177,7 @@ impl ShaderFutureInvocation for CtxProviderFutureInvocation {
     ctx.invocation_registry.register(TracingCtx {
       missing,
       closest,
-      payload: Some((payload, self.payload_ty.clone())),
+      payload: Some((user_defined_payload, self.payload_ty.clone())),
     });
 
     ctx.invocation_registry.register(self.ray_spawner.clone());
