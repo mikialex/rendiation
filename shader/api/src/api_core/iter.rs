@@ -57,6 +57,13 @@ pub trait ShaderIteratorExt: ShaderIterator + Sized {
     }
   }
 
+  fn filter_map<F: Fn(I) -> (Node<bool>, Node<O>), I, O>(
+    self,
+    f: F,
+  ) -> ShaderFilterMapIter<Self, F> {
+    ShaderFilterMapIter { iter: self, f }
+  }
+
   fn enumerate(self) -> ShaderEnumeratorIter<Self> {
     ShaderEnumeratorIter {
       iter: self,
@@ -73,6 +80,21 @@ pub trait ShaderIteratorExt: ShaderIterator + Sized {
     Self: ShaderIterator<Item = (Node<u32>, Node<T>)>,
   {
     self.take_while(move |&(idx, _): &(Node<u32>, Node<T>)| idx.less_than(count))
+  }
+
+  fn flat_map<
+    TT,
+    F: Fn(Self::Item) -> I,
+    I: ShaderIterator<Item = Node<TT>> + ShaderAbstractRightValue,
+  >(
+    self,
+    f: F,
+  ) -> ShaderFlatMapIter<Self, I, TT, F> {
+    ShaderFlatMapIter {
+      outer: self,
+      inner: I::create_left_value_from_builder(&mut LocalLeftValueBuilder),
+      f,
+    }
   }
 }
 impl<T: ShaderIterator + Sized> ShaderIteratorExt for T {}
@@ -98,6 +120,59 @@ impl ShaderIterator for StepTo {
     let current = self.current.load();
     self.current.store(current + val(1));
     (current.equals(self.to).not(), current)
+  }
+}
+
+pub struct ForRange {
+  to: LocalVarNode<u32>,
+  current: LocalVarNode<u32>,
+}
+impl Clone for ForRange {
+  fn clone(&self) -> Self {
+    *self
+  }
+}
+impl Copy for ForRange {}
+
+impl ForRange {
+  pub fn new(range: Node<Vec2<u32>>) -> Self {
+    Self {
+      to: range.y().make_local_var(),
+      current: range.x().make_local_var(),
+    }
+  }
+}
+
+impl ShaderIterator for ForRange {
+  type Item = Node<u32>;
+  fn shader_next(&self) -> (Node<bool>, Self::Item) {
+    let current = self.current.load();
+    self.current.store(current + val(1));
+    (current.equals(self.to.load()).not(), current)
+  }
+}
+impl ShaderAbstractRightValue for ForRange {
+  type AbstractLeftValue = ForRange;
+  fn create_left_value_from_builder<B: LeftValueBuilder>(
+    _builder: &mut B,
+  ) -> Self::AbstractLeftValue {
+    Self {
+      to: val(0).make_local_var(),
+      current: val(0).make_local_var(),
+    }
+  }
+}
+impl ShaderAbstractLeftValue for ForRange {
+  type RightValue = Self;
+  fn abstract_load(&self) -> Self::RightValue {
+    ForRange {
+      to: self.to,
+      current: self.current,
+    }
+  }
+  fn abstract_store(&self, payload: Self::RightValue) {
+    self.to.store(payload.to.load());
+    self.current.store(payload.current.load());
   }
 }
 
@@ -244,6 +319,40 @@ where
 }
 
 #[derive(Clone)]
+pub struct ShaderFilterMapIter<T, F> {
+  iter: T,
+  f: F,
+}
+
+impl<T, F, TT, O> ShaderIterator for ShaderFilterMapIter<T, F>
+where
+  T: ShaderIterator<Item = Node<TT>>,
+  TT: ShaderSizedValueNodeType,
+  O: ShaderSizedValueNodeType,
+  F: Fn(T::Item) -> (Node<bool>, Node<O>),
+{
+  type Item = Node<O>;
+
+  fn shader_next(&self) -> (Node<bool>, Self::Item) {
+    let has_next = val(false).make_local_var();
+    let item = zeroed_val().make_local_var();
+    loop_by(|cx| {
+      let (inner_has_next, inner) = self.iter.shader_next();
+      if_by(inner_has_next.not(), || {
+        cx.do_break();
+      });
+      let (n, mapped) = (self.f)(inner);
+      if_by(n, || {
+        has_next.store(val(true));
+        item.store(mapped);
+        cx.do_break();
+      });
+    });
+    (has_next.load(), item.load())
+  }
+}
+
+#[derive(Clone)]
 pub struct ShaderMapIter<T, F> {
   iter: T,
   f: F,
@@ -323,5 +432,59 @@ where
   fn shader_next(&self) -> (Node<bool>, Self::Item) {
     let (inner_has_next, inner) = self.iter.shader_next();
     (inner_has_next.and((self.f)(&inner)), inner)
+  }
+}
+
+#[derive(Clone)]
+pub struct ShaderFlatMapIter<
+  Outer: ShaderIterator,
+  Inner: ShaderIterator<Item = Node<IItem>> + ShaderAbstractRightValue,
+  IItem,
+  F: Fn(Outer::Item) -> Inner,
+> {
+  outer: Outer,
+  // initial inner must return has_next=false, Inner::create_left_value_from_builder(&mut LocalLeftValueBuilder);
+  inner: Inner::AbstractLeftValue,
+  // create inner from outer item, overwrite inner
+  f: F,
+}
+
+impl<
+    Outer: ShaderIterator,
+    Inner: ShaderIterator<Item = Node<IItem>> + ShaderAbstractRightValue,
+    IItem: ShaderSizedValueNodeType,
+    F: Fn(Outer::Item) -> Inner,
+  > ShaderIterator for ShaderFlatMapIter<Outer, Inner, IItem, F>
+{
+  type Item = Inner::Item;
+
+  fn shader_next(&self) -> (Node<bool>, Self::Item) {
+    let has_next = val(false).make_local_var();
+    let next = zeroed_val().make_local_var();
+
+    // poll inner first
+    let (inner_has_next, inner_next) = self.inner.abstract_load().shader_next();
+    if_by(inner_has_next, || {
+      has_next.store(val(true));
+      next.store(inner_next);
+    })
+    .else_by(|| {
+      // then poll outer to update inner
+
+      let (outer_has_next, outer_next) = self.outer.shader_next();
+      if_by(outer_has_next, || {
+        let inner = (self.f)(outer_next); // inner updated
+        self.inner.abstract_store(inner);
+
+        // todo avoid code duplication?
+        let (inner_has_next, inner_next) = self.inner.abstract_load().shader_next();
+        if_by(inner_has_next, || {
+          has_next.store(val(true));
+          next.store(inner_next);
+        });
+      });
+    });
+
+    (has_next.load(), next.load())
   }
 }

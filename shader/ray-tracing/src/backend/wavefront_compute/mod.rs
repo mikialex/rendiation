@@ -18,10 +18,9 @@ pub struct GPUWaveFrontComputeRaytracingSystem {
 
 impl GPUWaveFrontComputeRaytracingSystem {
   pub fn new(gpu: &GPU) -> Self {
-    #[allow(unreachable_code)]
     Self {
       gpu: gpu.clone(),
-      tlas_sys: todo!(),
+      tlas_sys: Box::new(NaiveSahBVHSystem::new(gpu.clone())),
     }
   }
 }

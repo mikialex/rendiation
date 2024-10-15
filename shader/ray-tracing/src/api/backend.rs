@@ -31,7 +31,7 @@ pub trait GPURayTracingDeviceProvider {
 }
 
 pub struct HitGroupShaderRecord {
-  pub closet_hit: Option<ShaderHandle>,
+  pub closest_hit: Option<ShaderHandle>,
   pub any_hit: Option<ShaderHandle>,
   pub intersection: Option<ShaderHandle>,
 }
@@ -43,6 +43,7 @@ pub trait ShaderBindingTableProvider {
   fn access_impl(&self) -> &dyn Any;
 }
 
+#[derive(Clone)]
 pub enum BottomLevelAccelerationStructureBuildSource {
   Triangles {
     positions: Vec<Vec3<f32>>,

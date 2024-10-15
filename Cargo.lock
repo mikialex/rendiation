@@ -3560,6 +3560,7 @@ dependencies = [
 name = "rendiation-device-ray-tracing"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
  "derivative",
  "dyn-clone",
  "fast-hash-collection",
@@ -3569,6 +3570,7 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-device-parallel-compute",
  "rendiation-device-task-graph",
+ "rendiation-geometry",
  "rendiation-shader-api",
  "rendiation-shader-derives",
  "rendiation-space-algorithm",

@@ -157,11 +157,13 @@ pub struct CtxProviderFutureInvocation {
 impl ShaderFutureInvocation for CtxProviderFutureInvocation {
   type Output = ();
   fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<()> {
+    // accessing task{}_payload_with_ray, see fn spawn_dynamic in trace_task.rs
     let combined_payload = ctx.access_self_payload_untyped();
     let payload: StorageNode<AnyType> = unsafe { index_access_field(combined_payload.handle(), 1) };
 
     let missing = self.is_missing_shader.then(|| unsafe {
-      let ray_payload = index_access_field(combined_payload.handle(), 0);
+      let ray_payload: StorageNode<RayMissHitCtxPayload> =
+        index_access_field(combined_payload.handle(), 0);
       Box::new(ray_payload) as Box<dyn MissingHitCtxProvider>
     });
 
