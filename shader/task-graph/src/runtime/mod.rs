@@ -102,7 +102,6 @@ impl DeviceTaskGraphBuildSource {
         cx,
         max_recursion_depth,
       );
-      // dbg!(&task_build_source.payload_ty);
 
       task_group_sources.push(resource);
       pre_builds.push(pre_build);

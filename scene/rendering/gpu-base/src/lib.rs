@@ -48,7 +48,7 @@ pub trait SceneRenderer: SceneModelRenderer {
   /// The rendering content is refer to which models to draw, and in which order, or if draw background.
   /// The rendering may initialize multiple render pass and any encoder operation.
   ///
-  /// the implementation may call `render_reorderable_models` internally. And the `pass` ctx should be
+  /// the implementation may call `render_batch_models` internally. And the `pass` ctx should be
   /// passed to the internal call
   fn make_pass_content<'a>(
     &'a self,
@@ -67,15 +67,30 @@ pub trait SceneRenderer: SceneModelRenderer {
 
   fn get_scene_model_cx(&self) -> &GPUTextureBindingSystem;
 
-  /// batch rendering passed models, the implementation is free to reorder the models in any ways.
-  fn render_reorderable_models(
+  /// batch rendering passed models, compare to render one single model at a time, this is more efficient
+  /// if the implementation can provide better performance
+  ///
+  /// if reorderable is true, the order of model may not be preserved
+  fn render_batch_models(
+    &self,
+    models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
+    reorderable: bool,
+    camera: EntityHandle<SceneCameraEntity>,
+    pass: &dyn RenderComponent,
+    cx: &mut GPURenderPassCtx,
+    tex: &GPUTextureBindingSystem,
+  );
+
+  fn render_reorderable_batch_models(
     &self,
     models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
     camera: EntityHandle<SceneCameraEntity>,
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
-  );
+  ) {
+    self.render_batch_models(models, true, camera, pass, cx, tex);
+  }
 
   /// expose the underlayer camera system impl to enable user access the
   /// direct camera gpu manipulation, this is useful when some effect pipeline
@@ -123,7 +138,7 @@ pub trait SceneModelRenderer {
   ) -> Option<()>;
 
   /// maybe implementation could provide better performance for example host side multi draw
-  fn render_reorderable_models_impl(
+  fn render_batch_models_impl(
     &self,
     models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
     camera: &dyn RenderComponent,
