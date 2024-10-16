@@ -31,13 +31,51 @@ impl PrimitiveShaderValueType {
     }
   }
 
-  pub fn mat_row(&self) -> Option<usize> {
+  pub fn u32_count_of_self(&self) -> usize {
     match self {
-      PrimitiveShaderValueType::Mat2Float32 => Some(2),
-      PrimitiveShaderValueType::Mat3Float32 => Some(3),
-      PrimitiveShaderValueType::Mat4Float32 => Some(4),
-      _ => None,
+      PrimitiveShaderValueType::Bool => 1,
+      PrimitiveShaderValueType::Int32 => 1,
+      PrimitiveShaderValueType::Uint32 => 1,
+      PrimitiveShaderValueType::Float32 => 1,
+      PrimitiveShaderValueType::Vec2Bool => 2,
+      PrimitiveShaderValueType::Vec3Bool => 3,
+      PrimitiveShaderValueType::Vec4Bool => 4,
+      PrimitiveShaderValueType::Vec2Float32 => 2,
+      PrimitiveShaderValueType::Vec3Float32 => 3,
+      PrimitiveShaderValueType::Vec4Float32 => 4,
+      PrimitiveShaderValueType::Vec2Uint32 => 2,
+      PrimitiveShaderValueType::Vec3Uint32 => 3,
+      PrimitiveShaderValueType::Vec4Uint32 => 4,
+      PrimitiveShaderValueType::Vec2Int32 => 2,
+      PrimitiveShaderValueType::Vec3Int32 => 3,
+      PrimitiveShaderValueType::Vec4Int32 => 4,
+      PrimitiveShaderValueType::Mat2Float32 => 4,
+      PrimitiveShaderValueType::Mat3Float32 => 9,
+      PrimitiveShaderValueType::Mat4Float32 => 16,
     }
+  }
+
+  pub fn is_single_primitive(&self) -> bool {
+    self.u32_count_of_self() == 1
+  }
+
+  pub fn mat_row_info(&self) -> Option<(usize, ShaderSizedValueType)> {
+    match self {
+      PrimitiveShaderValueType::Mat2Float32 => (
+        2,
+        ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Vec2Float32),
+      ),
+      PrimitiveShaderValueType::Mat3Float32 => (
+        3,
+        ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Vec3Float32),
+      ),
+      PrimitiveShaderValueType::Mat4Float32 => (
+        4,
+        ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Vec4Float32),
+      ),
+      _ => return None,
+    }
+    .into()
   }
 }
 
@@ -45,7 +83,7 @@ impl ShaderSizedValueType {
   pub fn u32_size_count(&self) -> u32 {
     match self {
       ShaderSizedValueType::Atomic(_) => 1,
-      ShaderSizedValueType::Primitive(p) => p.size_of_self() as u32 / 4,
+      ShaderSizedValueType::Primitive(p) => p.u32_count_of_self() as u32,
       ShaderSizedValueType::Struct(s) => {
         let mut size = 0;
         for field in &s.fields {
@@ -57,14 +95,19 @@ impl ShaderSizedValueType {
     }
   }
 
-  pub fn load_from_u32_buffer(&self, target: StorageNode<[u32]>, offset: Node<u32>) -> NodeUntyped {
+  pub fn load_from_u32_buffer(
+    &self,
+    target: StorageNode<[u32]>,
+    mut offset: Node<u32>,
+  ) -> NodeUntyped {
     match self {
       ShaderSizedValueType::Atomic(_) => unreachable!("atomic is not able to load from buffer"),
       ShaderSizedValueType::Primitive(p) => {
-        let size = self.u32_size_count();
+        let size = ShaderSizedValueType::Primitive(*p).u32_size_count();
         let mut parameters = Vec::new();
         for _ in 0..size {
           let u32_read = target.index(offset).load();
+          offset += val(1);
           let converted = ShaderNodeExpr::Convert {
             source: u32_read.handle(),
             convert_to: p.channel_ty(),
@@ -74,12 +117,12 @@ impl ShaderSizedValueType {
           parameters.push(converted.handle());
         }
 
-        if let Some(mat_row) = p.mat_row() {
+        if let Some((mat_row, row_ty)) = p.mat_row_info() {
           let mut parameter_row = Vec::with_capacity(mat_row);
           for sub_parameters in parameters.chunks_exact(mat_row) {
             parameter_row.push(
               ShaderNodeExpr::Compose {
-                target: self.clone(),
+                target: row_ty.clone(),
                 parameters: sub_parameters.to_vec(),
               }
               .insert_api::<AnyType>()
@@ -89,11 +132,15 @@ impl ShaderSizedValueType {
           parameters = parameter_row;
         }
 
-        ShaderNodeExpr::Compose {
-          target: self.clone(),
-          parameters,
+        if parameters.len() == 1 {
+          parameters[0].into_node_untyped()
+        } else {
+          ShaderNodeExpr::Compose {
+            target: ShaderSizedValueType::Primitive(*p),
+            parameters,
+          }
+          .insert_api()
         }
-        .insert_api()
       }
       ShaderSizedValueType::Struct(f) => {
         let mut offset = offset;
@@ -139,10 +186,14 @@ impl ShaderSizedValueType {
           target: StorageNode<[u32]>,
           offset: Node<u32>,
           source: NodeUntyped,
-          idx: u32,
+          idx: Option<u32>,
         ) {
-          let channel =
-            unsafe { index_access_field::<AnyType>(source.handle(), idx as usize).handle() };
+          let channel = if let Some(idx) = idx {
+            unsafe { index_access_field::<AnyType>(source.handle(), idx as usize).handle() }
+          } else {
+            source.handle()
+          };
+
           let converted = ShaderNodeExpr::Convert {
             source: channel,
             convert_to: ValueKind::Uint,
@@ -152,18 +203,10 @@ impl ShaderSizedValueType {
           target.index(offset).store(converted);
         }
 
-        if let Some(mat_row) = p.mat_row() {
-          for i in 0..mat_row {
-            let row = unsafe { index_access_field::<AnyType>(source.handle(), i) };
-            for j in 0..mat_row {
-              index_and_write(target, offset, row, j as u32);
-            }
-          }
-        } else {
-          for i in 0..self.u32_size_count() {
-            index_and_write(target, offset, source, i);
-            offset += val(1);
-          }
+        for i in 0..ShaderSizedValueType::Primitive(*p).u32_size_count() {
+          let single = p.is_single_primitive();
+          index_and_write(target, offset, source, (!single).then_some(i));
+          offset += val(1);
         }
       }
       ShaderSizedValueType::Struct(f) => {

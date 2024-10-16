@@ -88,6 +88,7 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
   type Output = ();
 
   fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<Self::Output> {
+    ctx.compute_cx.enable_log_shader();
     let trace_payload_all = ctx.access_self_payload::<TraceTaskSelfPayload>();
 
     let trace_payload_all_expand = trace_payload_all.load().expand();
@@ -348,6 +349,9 @@ fn poll_dynamic<'a>(
             .bump_allocate_by(val(payload_ty_desc.u32_size_count()), |target, offset| {
               let user_defined_payload: StorageNode<AnyType> =
                 unsafe { index_access_field(task_payload_node.handle(), 1) };
+
+              // let a = val(Vec2::<f32>::zero());
+              // let channel = unsafe { index_access_field::<AnyType>(a.handle(), 0).handle() };
 
               payload_ty_desc.store_into_u32_buffer(user_defined_payload.load(), target, offset)
             });
