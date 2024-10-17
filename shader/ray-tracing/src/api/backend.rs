@@ -89,7 +89,7 @@ pub struct TopLevelAccelerationStructureSourceInstance {
   pub instance_custom_index: u32,
   pub mask: u32,
   pub instance_shader_binding_table_record_offset: u32,
-  pub flags: GeometryInstanceFlags, // todo if transform is back -> xor flip?
+  pub flags: GeometryInstanceFlags, // FLIP_FACING excludes whether transform is front/back
   pub acceleration_structure_handle: BottomLevelAccelerationStructureHandle,
 }
 

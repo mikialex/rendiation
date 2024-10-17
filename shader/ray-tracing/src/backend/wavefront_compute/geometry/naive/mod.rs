@@ -3,12 +3,14 @@ mod test;
 #[cfg(test)]
 pub(crate) use test::init_default_acceleration_structure;
 
+mod flag;
 mod traverse_cpu;
 mod traverse_gpu;
 
 use std::ops::{BitAnd, Deref, Range};
 use std::sync::{RwLock, RwLockReadGuard};
 
+use flag::*;
 use rendiation_geometry::Box3;
 use rendiation_space_algorithm::bvh::*;
 use rendiation_space_algorithm::utils::TreeBuildOption;
@@ -269,13 +271,18 @@ impl NaiveSahBvhSource {
       let tlas_idx = index_mapping[*box_idx];
       let source = &tlas_data[tlas_idx].unwrap();
 
+      let mut flags = source.flags;
+      if source.transform.to_mat3().det() < 0. {
+        flags ^= GEOMETRY_INSTANCE_TRIANGLE_FLIP_FACING;
+      }
+
       let tlas_item = TopLevelAccelerationStructureSourceDeviceInstance {
         transform: source.transform,
         transform_inv: source.transform.inverse_or_identity(),
         instance_custom_index: source.instance_custom_index,
         instance_shader_binding_table_record_offset: source
           .instance_shader_binding_table_record_offset,
-        flags: source.flags,
+        flags,
         acceleration_structure_handle: source.acceleration_structure_handle.0,
         ..Zeroable::zeroed()
       };
@@ -283,7 +290,7 @@ impl NaiveSahBvhSource {
         world_min: aabb.min,
         world_max: aabb.max,
         mask: source.mask,
-        flags: source.flags,
+        flags,
         ..Zeroable::zeroed()
       };
       tlas_items.push(tlas_item);
@@ -356,14 +363,15 @@ impl NaiveSahBvhSource {
       }
     }
     // upload blas
+    use bytemuck::cast_slice;
     let gpu_blas_meta_info = create_gpu_buffer(device, &blas_meta_info);
     let gpu_tri_bvh_root = create_gpu_buffer(device, &tri_bvh_root);
     let gpu_box_bvh_root = create_gpu_buffer(device, &box_bvh_root);
     let gpu_tri_bvh_forest = create_gpu_buffer(device, &tri_bvh_forest);
     let gpu_box_bvh_forest = create_gpu_buffer(device, &box_bvh_forest);
     let gpu_indices = create_gpu_buffer(device, &indices);
-    let gpu_vertices = create_gpu_buffer(device, &bytemuck::cast_slice(&vertices).to_vec());
-    let gpu_boxes = create_gpu_buffer(device, &bytemuck::cast_slice(&boxes).to_vec());
+    let gpu_vertices = create_gpu_buffer(device, &cast_slice(&vertices).to_vec());
+    let gpu_boxes = create_gpu_buffer(device, &cast_slice(&boxes).to_vec());
 
     // build tlas
     let mut tlas_bvh_forest = vec![];
