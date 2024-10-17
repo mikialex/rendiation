@@ -1,21 +1,20 @@
 use crate::*;
 
-pub struct ReactiveKVMap<T, F, K, V> {
+pub struct ReactiveKVMap<T, F> {
   pub inner: T,
   pub map: F,
-  pub phantom: PhantomData<(K, V)>,
 }
 
-impl<T, F, K, V, V2> ReactiveCollection<K, V2> for ReactiveKVMap<T, F, K, V>
+impl<T, F, V2> ReactiveCollection for ReactiveKVMap<T, F>
 where
-  V: CValue,
-  K: CKey,
   V2: CValue,
-  F: Fn(&K, V) -> V2 + Copy + Send + Sync + 'static,
-  T: ReactiveCollection<K, V>,
+  F: Fn(&T::Key, T::Value) -> V2 + Copy + Send + Sync + 'static,
+  T: ReactiveCollection,
 {
-  type Changes = impl VirtualCollection<K, ValueChange<V2>>;
-  type View = impl VirtualCollection<K, V2>;
+  type Key = T::Key;
+  type Value = V2;
+  type Changes = impl VirtualCollection<Self::Key, ValueChange<V2>>;
+  type View = impl VirtualCollection<Self::Key, V2>;
 
   #[tracing::instrument(skip_all, name = "ReactiveKVMap")]
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
@@ -33,24 +32,23 @@ where
   }
 }
 
-pub struct ReactiveKeyDualMap<F1, F2, T, K, V> {
+pub struct ReactiveKeyDualMap<F1, F2, T> {
   pub f1: F1,
   pub f2: F2,
   pub inner: T,
-  pub phantom: PhantomData<(K, V)>,
 }
 
-impl<F1, F2, T, K, K2, V> ReactiveCollection<K2, V> for ReactiveKeyDualMap<F1, F2, T, K, V>
+impl<F1, F2, T, K2> ReactiveCollection for ReactiveKeyDualMap<F1, F2, T>
 where
-  K: CKey,
   K2: CKey,
-  V: CValue,
-  F1: Fn(K) -> K2 + Copy + Send + Sync + 'static,
-  F2: Fn(K2) -> K + Copy + Send + Sync + 'static,
-  T: ReactiveCollection<K, V>,
+  F1: Fn(T::Key) -> K2 + Copy + Send + Sync + 'static,
+  F2: Fn(K2) -> T::Key + Copy + Send + Sync + 'static,
+  T: ReactiveCollection,
 {
-  type Changes = impl VirtualCollection<K2, ValueChange<V>>;
-  type View = impl VirtualCollection<K2, V>;
+  type Key = K2;
+  type Value = T::Value;
+  type Changes = impl VirtualCollection<K2, ValueChange<T::Value>>;
+  type View = impl VirtualCollection<K2, T::Value>;
 
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let (d, v) = self.inner.poll_changes(cx);
@@ -65,24 +63,23 @@ where
 }
 
 /// compare to ReactiveKVMap, this execute immediately and not impose too many bounds on mapper
-pub struct ReactiveKVExecuteMap<T, F, K, V, V2> {
+pub struct ReactiveKVExecuteMap<T: ReactiveCollection, F, V2> {
   pub inner: T,
   pub map_creator: F,
-  pub cache: Arc<RwLock<FastHashMap<K, V2>>>,
-  pub phantom: PhantomData<(K, V, V2)>,
+  pub cache: Arc<RwLock<FastHashMap<T::Key, V2>>>,
 }
 
-impl<T, F, K, V, V2, FF> ReactiveCollection<K, V2> for ReactiveKVExecuteMap<T, F, K, V, V2>
+impl<T, F, V2, FF> ReactiveCollection for ReactiveKVExecuteMap<T, F, V2>
 where
-  V: CValue,
-  K: CKey,
   F: Fn() -> FF + Send + Sync + 'static,
-  FF: FnMut(&K, V) -> V2 + Send + Sync + 'static,
+  FF: FnMut(&T::Key, T::Value) -> V2 + Send + Sync + 'static,
   V2: CValue,
-  T: ReactiveCollection<K, V>,
+  T: ReactiveCollection,
 {
-  type Changes = impl VirtualCollection<K, ValueChange<V2>>;
-  type View = impl VirtualCollection<K, V2>;
+  type Key = T::Key;
+  type Value = V2;
+  type Changes = impl VirtualCollection<Self::Key, ValueChange<V2>>;
+  type View = impl VirtualCollection<Self::Key, V2>;
 
   #[tracing::instrument(skip_all, name = "ReactiveKVExecuteMap")]
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
@@ -91,7 +88,7 @@ where
     let mut mapper = (self.map_creator)();
     let materialized = d.iter_key_value().collect::<Vec<_>>();
     let mut cache = self.cache.write();
-    let materialized: FastHashMap<K, ValueChange<V2>> = materialized
+    let materialized: FastHashMap<T::Key, ValueChange<V2>> = materialized
       .into_iter()
       .map(|(k, delta)| match delta {
         ValueChange::Delta(d, _p) => {

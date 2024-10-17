@@ -1,18 +1,18 @@
 use crate::*;
 
-pub struct UnorderedMaterializedReactiveCollection<Map, K, V> {
+pub struct UnorderedMaterializedReactiveCollection<Map: ReactiveCollection> {
   pub inner: Map,
-  pub cache: Arc<RwLock<FastHashMap<K, V>>>,
+  pub cache: Arc<RwLock<FastHashMap<Map::Key, Map::Value>>>,
 }
 
-impl<Map, K, V> ReactiveCollection<K, V> for UnorderedMaterializedReactiveCollection<Map, K, V>
+impl<Map> ReactiveCollection for UnorderedMaterializedReactiveCollection<Map>
 where
-  Map: ReactiveCollection<K, V>,
-  K: CKey,
-  V: CValue,
+  Map: ReactiveCollection,
 {
-  type Changes = impl VirtualCollection<K, ValueChange<V>>;
-  type View = LockReadGuardHolder<FastHashMap<K, V>>;
+  type Key = Map::Key;
+  type Value = Map::Value;
+  type Changes = impl VirtualCollection<Self::Key, ValueChange<Self::Value>>;
+  type View = LockReadGuardHolder<FastHashMap<Self::Key, Self::Value>>;
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let (d, _) = self.inner.poll_changes(cx);
     {
@@ -42,19 +42,21 @@ where
   }
 }
 
-pub struct LinearMaterializedReactiveCollection<Map, V> {
+pub struct LinearMaterializedReactiveCollection<Map: ReactiveCollection> {
   pub inner: Map,
-  pub cache: Arc<RwLock<IndexKeptVec<V>>>,
+  pub cache: Arc<RwLock<IndexKeptVec<Map::Value>>>,
 }
 
-impl<Map, K, V> ReactiveCollection<K, V> for LinearMaterializedReactiveCollection<Map, V>
+impl<Map> ReactiveCollection for LinearMaterializedReactiveCollection<Map>
 where
-  Map: ReactiveCollection<K, V> + Sync,
-  K: LinearIdentification + CKey,
-  V: CValue,
+  Map: ReactiveCollection + Sync,
+  Map::Key: LinearIdentification + CKey,
+  Map::Value: CValue,
 {
-  type Changes = impl VirtualCollection<K, ValueChange<V>>;
-  type View = LockReadGuardHolder<IndexKeptVec<V>>;
+  type Key = Map::Key;
+  type Value = Map::Value;
+  type Changes = impl VirtualCollection<Self::Key, ValueChange<Self::Value>>;
+  type View = LockReadGuardHolder<IndexKeptVec<Self::Value>>;
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let (d, _) = self.inner.poll_changes(cx);
     {

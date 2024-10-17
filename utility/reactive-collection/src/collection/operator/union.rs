@@ -1,24 +1,22 @@
 use crate::*;
 
-pub struct ReactiveKVUnion<T1, T2, K, F, O, V1, V2> {
+pub struct ReactiveKVUnion<T1, T2, F> {
   pub a: T1,
   pub b: T2,
-  pub phantom: PhantomData<(K, O, V1, V2)>,
   pub f: F,
 }
 
-impl<T1, T2, K, F, O, V1, V2> ReactiveCollection<K, O> for ReactiveKVUnion<T1, T2, K, F, O, V1, V2>
+impl<T1, T2, F, O> ReactiveCollection for ReactiveKVUnion<T1, T2, F>
 where
-  T1: ReactiveCollection<K, V1>,
-  T2: ReactiveCollection<K, V2>,
-  F: Fn((Option<V1>, Option<V2>)) -> Option<O> + Send + Sync + Copy + 'static,
-  K: CKey,
+  T1: ReactiveCollection,
+  T2: ReactiveCollection<Key = T1::Key>,
+  F: Fn((Option<T1::Value>, Option<T2::Value>)) -> Option<O> + Send + Sync + Copy + 'static,
   O: CValue,
-  V1: CValue,
-  V2: CValue,
 {
-  type Changes = impl VirtualCollection<K, ValueChange<O>>;
-  type View = impl VirtualCollection<K, O>;
+  type Key = T1::Key;
+  type Value = O;
+  type Changes = impl VirtualCollection<T1::Key, ValueChange<O>>;
+  type View = impl VirtualCollection<T1::Key, O>;
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let (t1, a_access) = self.a.poll_changes(cx);
     let (t2, b_access) = self.b.poll_changes(cx);

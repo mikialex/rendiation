@@ -7,8 +7,11 @@ use crate::*;
 pub fn reactive_linear_allocation(
   init_count: u32,
   max_count: u32,
-  input: impl ReactiveCollection<u32, u32>,
-) -> (impl ReactiveCollection<u32, u32>, impl Stream<Item = u32>) {
+  input: impl ReactiveCollection<Key = u32, Value = u32>,
+) -> (
+  impl ReactiveCollection<Key = u32, Value = u32>,
+  impl Stream<Item = u32>,
+) {
   assert!(init_count <= max_count);
 
   let (sender, rev) = collective_channel::<u32, u32>();
@@ -120,7 +123,12 @@ impl Allocator {
   }
 }
 
-impl<T: ReactiveCollection<u32, u32>> ReactiveCollection<u32, u32> for ReactiveAllocator<T> {
+impl<T> ReactiveCollection for ReactiveAllocator<T>
+where
+  T: ReactiveCollection<Key = u32, Value = u32>,
+{
+  type Key = u32;
+  type Value = u32;
   type Changes = impl VirtualCollection<u32, ValueChange<u32>>;
   type View = impl VirtualCollection<u32, u32>;
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {

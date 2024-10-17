@@ -24,43 +24,36 @@ pub use utils::*;
 
 use crate::*;
 
-pub trait ReactiveCollectionExt<K, V>: ReactiveCollection<K, V>
+pub trait ReactiveCollectionExt: ReactiveCollection
 where
-  V: CValue,
-  K: CKey,
   Self: Sized + 'static,
 {
-  fn into_boxed(self) -> Box<dyn DynReactiveCollection<K, V>>
-  where
-    Self: Sized + 'static,
-  {
+  fn into_boxed(self) -> BoxedDynReactiveCollection<Self::Key, Self::Value> {
     Box::new(self)
   }
 
   fn into_reactive_state(self) -> impl ReactiveQuery<Output = Box<dyn std::any::Any>> {
-    ReactiveCollectionAsReactiveQuery {
-      inner: self,
-      phantom: PhantomData,
-    }
+    ReactiveCollectionAsReactiveQuery { inner: self }
   }
 
-  fn into_change_stream(self) -> impl futures::Stream<Item = Arc<FastHashMap<K, ValueChange<V>>>>
+  fn into_change_stream(
+    self,
+  ) -> impl futures::Stream<Item = Arc<FastHashMap<Self::Key, ValueChange<Self::Value>>>>
   where
     Self: Unpin,
   {
-    ReactiveCollectionAsStream {
-      inner: self,
-      phantom: PhantomData,
-    }
+    ReactiveCollectionAsStream { inner: self }
   }
 
-  fn key_as_value(self) -> impl ReactiveCollection<K, K> {
+  fn key_as_value(self) -> impl ReactiveCollection<Key = Self::Key, Value = Self::Key> {
     self.collective_kv_map(|k, _| k.clone())
   }
 
-  fn hash_reverse_assume_one_one(self) -> impl ReactiveCollection<V, K>
+  fn hash_reverse_assume_one_one(
+    self,
+  ) -> impl ReactiveCollection<Key = Self::Value, Value = Self::Key>
   where
-    V: CKey,
+    Self::Value: CKey,
   {
     OneToOneRefHashBookKeeping {
       upstream: self,
@@ -70,119 +63,121 @@ where
 
   fn collective_key_dual_map<K2: CKey>(
     self,
-    f: impl Fn(K) -> K2 + Copy + 'static + Send + Sync,
-    f2: impl Fn(K2) -> K + Copy + 'static + Send + Sync,
-  ) -> impl ReactiveCollection<K2, V> {
+    f: impl Fn(Self::Key) -> K2 + Copy + 'static + Send + Sync,
+    f2: impl Fn(K2) -> Self::Key + Copy + 'static + Send + Sync,
+  ) -> impl ReactiveCollection<Key = K2, Value = Self::Value> {
     ReactiveKeyDualMap {
       f1: f,
       f2,
       inner: self,
-      phantom: PhantomData,
     }
   }
 
   /// map map<k, v> to map<k, v2>
-  fn collective_kv_map<V2, F>(self, f: F) -> impl ReactiveCollection<K, V2>
+  fn collective_kv_map<V2, F>(self, f: F) -> impl ReactiveCollection<Key = Self::Key, Value = V2>
   where
-    F: Fn(&K, V) -> V2 + Copy + Send + Sync + 'static,
+    F: Fn(&Self::Key, Self::Value) -> V2 + Copy + Send + Sync + 'static,
     V2: CValue,
   {
     ReactiveKVMap {
       inner: self,
       map: f,
-      phantom: PhantomData,
     }
   }
 
   /// map map<k, v> to map<k, v2>
-  fn collective_map<V2, F>(self, f: F) -> impl ReactiveCollection<K, V2>
+  fn collective_map<V2, F>(self, f: F) -> impl ReactiveCollection<Key = Self::Key, Value = V2>
   where
-    F: Fn(V) -> V2 + Copy + Send + Sync + 'static,
+    F: Fn(Self::Value) -> V2 + Copy + Send + Sync + 'static,
     V2: CValue,
   {
     ReactiveKVMap {
       inner: self,
       map: move |_: &_, v| f(v),
-      phantom: PhantomData,
     }
   }
 
   /// map map<k, v> to map<k, v2>
-  fn collective_execute_map_by<V2, F, FF>(self, f: F) -> impl ReactiveCollection<K, V2>
+  fn collective_execute_map_by<V2, F, FF>(
+    self,
+    f: F,
+  ) -> impl ReactiveCollection<Key = Self::Key, Value = V2>
   where
     F: Fn() -> FF + Send + Sync + 'static,
-    FF: FnMut(&K, V) -> V2 + Send + Sync + 'static,
+    FF: FnMut(&Self::Key, Self::Value) -> V2 + Send + Sync + 'static,
     V2: CValue,
   {
     ReactiveKVExecuteMap {
       inner: self,
       map_creator: f,
       cache: Default::default(),
-      phantom: PhantomData,
     }
   }
 
   /// filter map<k, v> by v
-  fn collective_filter<F>(self, f: F) -> impl ReactiveCollection<K, V>
+  fn collective_filter<F>(
+    self,
+    f: F,
+  ) -> impl ReactiveCollection<Key = Self::Key, Value = Self::Value>
   where
-    V: Clone,
-    F: Fn(V) -> bool + Copy + Send + Sync + 'static,
+    F: Fn(Self::Value) -> bool + Copy + Send + Sync + 'static,
   {
     ReactiveKVFilter {
       inner: self,
-      checker: move |v: V| if f(v.clone()) { Some(v) } else { None }, // todo remove clone
-      k: PhantomData,
+      checker: move |v: Self::Value| if f(v.clone()) { Some(v) } else { None }, // todo remove clone
     }
   }
 
   /// filter map<k, v> by v
-  fn collective_filter_map<V2, F>(self, f: F) -> impl ReactiveCollection<K, V2>
+  fn collective_filter_map<V2, F>(
+    self,
+    f: F,
+  ) -> impl ReactiveCollection<Key = Self::Key, Value = V2>
   where
-    F: Fn(V) -> Option<V2> + Copy + Send + Sync + 'static,
+    F: Fn(Self::Value) -> Option<V2> + Copy + Send + Sync + 'static,
     V2: CValue,
   {
     ReactiveKVFilter {
       inner: self,
       checker: f,
-      k: PhantomData,
     }
   }
 
-  fn collective_cross_join<K2, V2>(
+  fn collective_cross_join<O>(
     self,
-    other: impl ReactiveCollection<K2, V2>,
-  ) -> impl ReactiveCollection<(K, K2), (V, V2)>
+    other: O,
+  ) -> impl ReactiveCollection<Key = (Self::Key, O::Key), Value = (Self::Value, O::Value)>
   where
-    K2: CKey,
-    V2: CValue,
+    O: ReactiveCollection,
   {
-    ReactiveCrossJoin {
-      a: self,
-      b: other,
-      phantom: PhantomData,
-    }
+    ReactiveCrossJoin { a: self, b: other }
   }
 
-  fn collective_union<V2, Other, F, O>(self, other: Other, f: F) -> impl ReactiveCollection<K, O>
+  fn collective_union<Other, F, O>(
+    self,
+    other: Other,
+    f: F,
+  ) -> impl ReactiveCollection<Key = Self::Key, Value = O>
   where
-    Other: ReactiveCollection<K, V2>,
-    V2: CValue,
+    Other: ReactiveCollection<Key = Self::Key>,
     O: CValue,
-    F: Fn((Option<V>, Option<V2>)) -> Option<O> + Send + Sync + Copy + 'static,
+    F: Fn((Option<Self::Value>, Option<Other::Value>)) -> Option<O> + Send + Sync + Copy + 'static,
   {
     ReactiveKVUnion {
       a: self,
       b: other,
-      phantom: PhantomData,
       f,
     }
     .into_boxed() // todo, remove this in release build
   }
 
   /// K should not overlap
-  fn collective_select<Other>(self, other: Other) -> impl ReactiveCollection<K, V>
+  fn collective_select<Other>(
+    self,
+    other: Other,
+  ) -> impl ReactiveCollection<Key = Self::Key, Value = Self::Value>
   where
-    Other: ReactiveCollection<K, V>,
+    Other: ReactiveCollection<Key = Self::Key, Value = Self::Value>,
   {
     self.collective_union(other, |(a, b)| match (a, b) {
       (Some(_), Some(_)) => unreachable!("key set should not overlap"),
@@ -193,10 +188,12 @@ where
   }
 
   /// K should fully overlap
-  fn collective_zip<Other, V2>(self, other: Other) -> impl ReactiveCollection<K, (V, V2)>
+  fn collective_zip<Other>(
+    self,
+    other: Other,
+  ) -> impl ReactiveCollection<Key = Self::Key, Value = (Self::Value, Other::Value)>
   where
-    Other: ReactiveCollection<K, V2>,
-    V2: CValue,
+    Other: ReactiveCollection<Key = Self::Key>,
   {
     self.collective_union(other, |(a, b)| match (a, b) {
       (Some(a), Some(b)) => Some((a, b)),
@@ -207,10 +204,12 @@ where
   }
 
   /// only return overlapped part
-  fn collective_intersect<Other, V2>(self, other: Other) -> impl ReactiveCollection<K, (V, V2)>
+  fn collective_intersect<Other>(
+    self,
+    other: Other,
+  ) -> impl ReactiveCollection<Key = Self::Key, Value = (Self::Value, Other::Value)>
   where
-    Other: ReactiveCollection<K, V2>,
-    V2: CValue,
+    Other: ReactiveCollection<Key = Self::Key>,
   {
     self.collective_union(other, |(a, b)| match (a, b) {
       (Some(a), Some(b)) => Some((a, b)),
@@ -220,9 +219,12 @@ where
 
   /// filter map<k, v> by reactive set<k>
   /// have to use box here to avoid complex type(could be improved)
-  fn filter_by_keyset<S>(self, set: S) -> impl ReactiveCollection<K, V>
+  fn filter_by_keyset<S>(
+    self,
+    set: S,
+  ) -> impl ReactiveCollection<Key = Self::Key, Value = Self::Value>
   where
-    S: ReactiveCollection<K, ()>,
+    S: ReactiveCollection<Key = Self::Key, Value = ()>,
   {
     self.collective_union(set, |(a, b)| match (a, b) {
       (Some(a), Some(_)) => Some(a),
@@ -230,11 +232,11 @@ where
     })
   }
 
-  fn into_forker(self) -> ReactiveKVMapFork<Self, K, V> {
+  fn into_forker(self) -> ReactiveKVMapFork<Self> {
     ReactiveKVMapFork::new(self, false)
   }
 
-  fn into_static_forker(self) -> ReactiveKVMapFork<Self, K, V> {
+  fn into_static_forker(self) -> ReactiveKVMapFork<Self> {
     ReactiveKVMapFork::new(self, true)
   }
 
@@ -251,18 +253,15 @@ where
     }
   }
 
-  fn materialize_unordered(self) -> UnorderedMaterializedReactiveCollection<Self, K, V>
-  where
-    K: CKey,
-  {
+  fn materialize_unordered(self) -> UnorderedMaterializedReactiveCollection<Self> {
     UnorderedMaterializedReactiveCollection {
       inner: self,
       cache: Default::default(),
     }
   }
-  fn materialize_linear(self) -> LinearMaterializedReactiveCollection<Self, V>
+  fn materialize_linear(self) -> LinearMaterializedReactiveCollection<Self>
   where
-    K: LinearIdentification + CKey,
+    Self::Key: LinearIdentification,
   {
     LinearMaterializedReactiveCollection {
       inner: self,
@@ -270,22 +269,15 @@ where
     }
   }
 
-  fn diff_change(self) -> impl ReactiveCollection<K, V>
-  where
-    K: CKey,
-    V: CValue,
-  {
-    ReactiveCollectionDiff {
-      inner: self,
-      phantom: Default::default(),
-    }
+  fn diff_change(self) -> impl ReactiveCollection<Key = Self::Key, Value = Self::Value> {
+    ReactiveCollectionDiff { inner: self }
   }
 
-  fn debug(self, label: &'static str, log_change: bool) -> impl ReactiveCollection<K, V>
-  where
-    K: CKey,
-    V: CValue,
-  {
+  fn debug(
+    self,
+    label: &'static str,
+    log_change: bool,
+  ) -> impl ReactiveCollection<Key = Self::Key, Value = Self::Value> {
     ReactiveCollectionDebug {
       inner: self,
       state: Default::default(),
@@ -294,10 +286,4 @@ where
     }
   }
 }
-impl<T, K, V> ReactiveCollectionExt<K, V> for T
-where
-  T: ReactiveCollection<K, V> + Sized + 'static,
-  V: CValue,
-  K: CKey,
-{
-}
+impl<T> ReactiveCollectionExt for T where T: ReactiveCollection + Sized + 'static {}

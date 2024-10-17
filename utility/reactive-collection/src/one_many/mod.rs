@@ -11,25 +11,32 @@ pub use projection::*;
 
 use crate::*;
 
-pub trait ReactiveOneToManyRelation<O: CKey, M: CKey>:
-  ReactiveCollection<M, O, View: VirtualMultiCollection<O, M>>
+pub trait ReactiveOneToManyRelation:
+  ReactiveCollection<
+  Key = Self::Many,
+  Value = Self::One,
+  View: VirtualMultiCollection<Self::One, Self::Many>,
+>
 {
+  type One: CKey;
+  type Many: CKey;
 }
 
-impl<O: CKey, M: CKey, T> ReactiveOneToManyRelation<O, M> for T where
-  T: ReactiveCollection<M, O, View: VirtualMultiCollection<O, M>>
+impl<T> ReactiveOneToManyRelation for T
+where
+  T: ReactiveCollection<View: VirtualMultiCollection<T::Value, T::Key>>,
+  T::Value: CKey,
 {
+  type One = T::Value;
+  type Many = T::Key;
 }
 
-pub trait ReactiveOneToManyRelationExt<O: CKey, M: CKey>: ReactiveOneToManyRelation<O, M> {
+pub trait ReactiveOneToManyRelationExt: ReactiveOneToManyRelation {
   fn into_reactive_state_many_one(self) -> impl ReactiveQuery<Output = Box<dyn std::any::Any>>
   where
     Self: Sized,
   {
-    ReactiveManyOneRelationAsReactiveQuery {
-      inner: self,
-      phantom: PhantomData,
-    }
+    ReactiveManyOneRelationAsReactiveQuery { inner: self }
   }
 
   fn collective_map_key_one_many<O2, F, F2>(

@@ -28,22 +28,21 @@ pub fn make_checker<V, V2>(
   }
 }
 
-pub struct ReactiveKVFilter<T, F, K, V> {
+pub struct ReactiveKVFilter<T, F> {
   pub inner: T,
   pub checker: F,
-  pub k: PhantomData<(K, V)>,
 }
 
-impl<T, F, K, V, V2> ReactiveCollection<K, V2> for ReactiveKVFilter<T, F, K, V>
+impl<T, F, V2> ReactiveCollection for ReactiveKVFilter<T, F>
 where
-  F: Fn(V) -> Option<V2> + Copy + Send + Sync + 'static,
-  T: ReactiveCollection<K, V> + Sync,
-  K: CKey,
-  V: CValue,
+  F: Fn(T::Value) -> Option<V2> + Copy + Send + Sync + 'static,
+  T: ReactiveCollection,
   V2: CValue,
 {
-  type Changes = impl VirtualCollection<K, ValueChange<V2>>;
-  type View = impl VirtualCollection<K, V2>;
+  type Key = T::Key;
+  type Value = V2;
+  type Changes = impl VirtualCollection<Self::Key, ValueChange<V2>>;
+  type View = impl VirtualCollection<Self::Key, V2>;
 
   #[tracing::instrument(skip_all, name = "ReactiveKVFilter")]
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {

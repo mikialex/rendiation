@@ -7,16 +7,13 @@ pub trait ReactiveQuery {
   fn poll_query(&mut self, cx: &mut Context) -> Self::Output;
 }
 
-pub struct ReactiveCollectionAsReactiveQuery<K, V, T> {
+pub struct ReactiveCollectionAsReactiveQuery<T> {
   pub inner: T,
-  pub phantom: PhantomData<(K, V)>,
 }
 
-impl<K, V, T> ReactiveQuery for ReactiveCollectionAsReactiveQuery<K, V, T>
+impl<T> ReactiveQuery for ReactiveCollectionAsReactiveQuery<T>
 where
-  K: CKey,
-  V: CValue,
-  T: ReactiveCollection<K, V>,
+  T: ReactiveCollection,
 {
   type Output = Box<dyn std::any::Any>;
 
@@ -26,16 +23,13 @@ where
   }
 }
 
-pub struct ReactiveCollectionSelfContainedAsReactiveQuery<K, V, T> {
+pub struct ReactiveCollectionSelfContainedAsReactiveQuery<T> {
   pub inner: T,
-  pub phantom: PhantomData<(K, V)>,
 }
 
-impl<K, V, T> ReactiveQuery for ReactiveCollectionSelfContainedAsReactiveQuery<K, V, T>
+impl<T> ReactiveQuery for ReactiveCollectionSelfContainedAsReactiveQuery<T>
 where
-  K: CKey,
-  V: CValue,
-  T: ReactiveCollectionSelfContained<K, V>,
+  T: ReactiveCollectionSelfContained,
 {
   type Output = Box<dyn std::any::Any>;
 
@@ -45,16 +39,13 @@ where
   }
 }
 
-pub struct ReactiveManyOneRelationAsReactiveQuery<K, V, T> {
+pub struct ReactiveManyOneRelationAsReactiveQuery<T> {
   pub inner: T,
-  pub phantom: PhantomData<(K, V)>,
 }
 
-impl<K, V, T> ReactiveQuery for ReactiveManyOneRelationAsReactiveQuery<K, V, T>
+impl<T> ReactiveQuery for ReactiveManyOneRelationAsReactiveQuery<T>
 where
-  K: CKey,
-  V: CKey,
-  T: ReactiveOneToManyRelation<K, V>,
+  T: ReactiveOneToManyRelation,
 {
   type Output = Box<dyn std::any::Any>;
 

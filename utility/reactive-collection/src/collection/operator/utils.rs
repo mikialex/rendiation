@@ -1,18 +1,18 @@
 use crate::*;
 
-pub struct ReactiveCollectionDebug<T, K, V> {
+pub struct ReactiveCollectionDebug<T: ReactiveCollection> {
   pub inner: T,
-  pub state: RwLock<FastHashMap<K, V>>,
+  pub state: RwLock<FastHashMap<T::Key, T::Value>>,
   pub label: &'static str,
   pub log_change: bool,
 }
 
-impl<T, K, V> ReactiveCollection<K, V> for ReactiveCollectionDebug<T, K, V>
+impl<T> ReactiveCollection for ReactiveCollectionDebug<T>
 where
-  T: ReactiveCollection<K, V>,
-  K: CKey,
-  V: CValue,
+  T: ReactiveCollection,
 {
+  type Key = T::Key;
+  type Value = T::Value;
   type Changes = T::Changes;
   type View = T::View;
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
@@ -54,9 +54,8 @@ where
   }
 }
 
-pub struct ReactiveCollectionDiff<T, K, V> {
+pub struct ReactiveCollectionDiff<T> {
   pub inner: T,
-  pub phantom: PhantomData<(K, V)>,
 }
 
 #[derive(Clone)]
@@ -87,14 +86,15 @@ where
   }
 }
 
-impl<T, K, V> ReactiveCollection<K, V> for ReactiveCollectionDiff<T, K, V>
+impl<T> ReactiveCollection for ReactiveCollectionDiff<T>
 where
-  T: ReactiveCollection<K, V>,
-  K: CKey,
-  V: CValue + PartialEq,
+  T: ReactiveCollection,
+  T::Value: PartialEq,
 {
-  type Changes = impl VirtualCollection<K, ValueChange<V>>;
-  type View = impl VirtualCollection<K, V>;
+  type Key = T::Key;
+  type Value = T::Value;
+  type Changes = impl VirtualCollection<Self::Key, ValueChange<Self::Value>>;
+  type View = impl VirtualCollection<Self::Key, Self::Value>;
 
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let (d, v) = self.inner.poll_changes(cx);
@@ -109,19 +109,16 @@ where
 }
 
 #[pin_project::pin_project]
-pub struct ReactiveCollectionAsStream<T, K, V> {
+pub struct ReactiveCollectionAsStream<T> {
   #[pin]
   pub inner: T,
-  pub phantom: PhantomData<(K, V)>,
 }
 
-impl<K, V, T> futures::Stream for ReactiveCollectionAsStream<T, K, V>
+impl<T> futures::Stream for ReactiveCollectionAsStream<T>
 where
-  T: ReactiveCollection<K, V> + Unpin,
-  K: CKey,
-  V: CValue,
+  T: ReactiveCollection + Unpin,
 {
-  type Item = Arc<FastHashMap<K, ValueChange<V>>>;
+  type Item = Arc<FastHashMap<T::Key, ValueChange<T::Value>>>;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();

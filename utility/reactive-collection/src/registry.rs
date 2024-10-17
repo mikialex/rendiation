@@ -5,10 +5,9 @@ pub(crate) trait ShrinkableAny: Any + Send + Sync {
   fn shrink_to_fit(&mut self);
 }
 
-pub type RxCForker<K, V> = ReactiveKVMapFork<Box<dyn DynReactiveCollection<K, V>>, K, V>;
+pub type RxCForker<K, V> = ReactiveKVMapFork<BoxedDynReactiveCollection<K, V>>;
 
-pub type OneManyRelationForker<O, M> =
-  ReactiveKVMapFork<Box<dyn DynReactiveOneToManyRelation<O, M>>, M, O>;
+pub type OneManyRelationForker<O, M> = ReactiveKVMapFork<BoxedDynReactiveOneToManyRelation<O, M>>;
 
 impl<K, V> ShrinkableAny for RxCForker<K, V>
 where
@@ -69,27 +68,23 @@ impl CollectionRegistry {
     }
   }
 
-  pub fn fork_or_insert_with<K, V, R>(
+  pub fn fork_or_insert_with<R>(
     &self,
     inserter: impl FnOnce() -> R + Any,
-  ) -> impl ReactiveCollection<K, V> + Clone
+  ) -> impl ReactiveCollection<Key = R::Key, Value = R::Value> + Clone
   where
-    K: CKey,
-    V: CValue,
-    R: ReactiveCollection<K, V>,
+    R: ReactiveCollection,
   {
     self.fork_or_insert_with_inner(inserter.type_id(), inserter)
   }
 
-  fn fork_or_insert_with_inner<K, V, R>(
+  fn fork_or_insert_with_inner<R>(
     &self,
     typeid: TypeId,
     inserter: impl FnOnce() -> R,
-  ) -> RxCForker<K, V>
+  ) -> RxCForker<R::Key, R::Value>
   where
-    K: CKey,
-    V: CValue,
-    R: ReactiveCollection<K, V>,
+    R: ReactiveCollection,
   {
     // note, we not using entry api because this call maybe be recursive and cause dead lock
     let registry = self.registry.read_recursive();
@@ -97,13 +92,13 @@ impl CollectionRegistry {
       let collection = collection
         .as_ref()
         .as_any()
-        .downcast_ref::<RxCForker<K, V>>()
+        .downcast_ref::<RxCForker<R::Key, R::Value>>()
         .unwrap();
       collection.clone()
     } else {
       drop(registry);
       let collection = inserter();
-      let boxed: Box<dyn DynReactiveCollection<K, V>> = Box::new(collection);
+      let boxed: BoxedDynReactiveCollection<R::Key, R::Value> = Box::new(collection);
       let forker = boxed.into_forker();
 
       let boxed = Box::new(forker) as Box<dyn ShrinkableAny>;
@@ -114,7 +109,7 @@ impl CollectionRegistry {
       let collection = collection
         .as_ref()
         .as_any()
-        .downcast_ref::<RxCForker<K, V>>()
+        .downcast_ref::<RxCForker<R::Key, R::Value>>()
         .unwrap();
       collection.clone()
     }

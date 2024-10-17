@@ -1,23 +1,19 @@
 use crate::*;
 
-pub struct ReactiveCrossJoin<A, B, K1, K2, V1, V2> {
+pub struct ReactiveCrossJoin<A, B> {
   pub a: A,
   pub b: B,
-  pub phantom: PhantomData<(K1, K2, V1, V2)>,
 }
 
-impl<A, B, K1, K2, V1, V2> ReactiveCollection<(K1, K2), (V1, V2)>
-  for ReactiveCrossJoin<A, B, K1, K2, V1, V2>
+impl<A, B> ReactiveCollection for ReactiveCrossJoin<A, B>
 where
-  K1: CKey,
-  K2: CKey,
-  V1: CValue,
-  V2: CValue,
-  A: ReactiveCollection<K1, V1>,
-  B: ReactiveCollection<K2, V2>,
+  A: ReactiveCollection,
+  B: ReactiveCollection,
 {
-  type Changes = impl VirtualCollection<(K1, K2), ValueChange<(V1, V2)>>;
-  type View = impl VirtualCollection<(K1, K2), (V1, V2)>;
+  type Key = (A::Key, B::Key);
+  type Value = (A::Value, B::Value);
+  type Changes = impl VirtualCollection<Self::Key, ValueChange<Self::Value>>;
+  type View = impl VirtualCollection<Self::Key, Self::Value>;
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let (t1, a_access) = self.a.poll_changes(cx);
     let (t2, b_access) = self.b.poll_changes(cx);

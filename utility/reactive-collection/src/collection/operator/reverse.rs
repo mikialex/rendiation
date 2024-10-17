@@ -1,25 +1,26 @@
 use crate::*;
 
-pub struct OneToOneRefHashBookKeeping<K, V, T> {
+pub struct OneToOneRefHashBookKeeping<T: ReactiveCollection> {
   pub upstream: T,
-  pub mapping: Arc<RwLock<FastHashMap<V, K>>>,
+  pub mapping: Arc<RwLock<FastHashMap<T::Value, T::Key>>>,
 }
 
-impl<K, V, T> ReactiveCollection<V, K> for OneToOneRefHashBookKeeping<K, V, T>
+impl<T> ReactiveCollection for OneToOneRefHashBookKeeping<T>
 where
-  K: CKey,
-  V: CKey,
-  T: ReactiveCollection<K, V>,
+  T: ReactiveCollection,
+  T::Value: CKey,
 {
-  type Changes = impl VirtualCollection<V, ValueChange<K>>;
-  type View = impl VirtualCollection<V, K>;
+  type Key = T::Value;
+  type Value = T::Key;
+  type Changes = impl VirtualCollection<Self::Key, ValueChange<Self::Value>>;
+  type View = impl VirtualCollection<Self::Key, Self::Value>;
 
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let (d, _) = self.upstream.poll_changes(cx);
 
     let mut mapping = self.mapping.write();
 
-    let mut mutations = FastHashMap::<V, ValueChange<K>>::default();
+    let mut mutations = FastHashMap::<T::Value, ValueChange<T::Key>>::default();
     let mut mutator = CollectionMutationCollector {
       delta: &mut mutations,
       target: mapping.deref_mut(),

@@ -17,18 +17,17 @@ struct DownStreamInfo<K, V> {
   should_send: bool,
 }
 
-pub struct ReactiveKVMapFork<Map, K, V> {
+pub struct ReactiveKVMapFork<Map: ReactiveCollection> {
   upstream: Arc<RwLock<Map>>,
-  downstream: Arc<RwLock<FastHashMap<u64, DownStreamInfo<K, V>>>>,
+  downstream: Arc<RwLock<FastHashMap<u64, DownStreamInfo<Map::Key, Map::Value>>>>,
   resolved: Arc<RwLock<Option<Weak<dyn Any + Send + Sync>>>>,
-  buffered: RwLock<Vec<ForkMessage<K, V>>>,
-  rev: RwLock<Receiver<K, V>>,
+  buffered: RwLock<Vec<ForkMessage<Map::Key, Map::Value>>>,
+  rev: RwLock<Receiver<Map::Key, Map::Value>>,
   id: u64,
   waker: Arc<AtomicWaker>,
-  phantom: PhantomData<(K, V)>,
 }
 
-impl<Map, K, V> ReactiveKVMapFork<Map, K, V> {
+impl<Map: ReactiveCollection> ReactiveKVMapFork<Map> {
   pub fn new(upstream: Map, as_static_forker: bool) -> Self {
     let (sender, rev) = unbounded();
     let mut init = FastHashMap::default();
@@ -47,23 +46,20 @@ impl<Map, K, V> ReactiveKVMapFork<Map, K, V> {
       rev: RwLock::new(rev),
       id,
       waker,
-      phantom: Default::default(),
       buffered: Default::default(),
     }
   }
 }
 
-impl<Map, K, V> Drop for ReactiveKVMapFork<Map, K, V> {
+impl<Map: ReactiveCollection> Drop for ReactiveKVMapFork<Map> {
   fn drop(&mut self) {
     self.downstream.write().remove(&self.id);
   }
 }
 
-impl<K, V, Map> Clone for ReactiveKVMapFork<Map, K, V>
+impl<Map> Clone for ReactiveKVMapFork<Map>
 where
-  Map: ReactiveCollection<K, V>,
-  K: CKey,
-  V: CValue,
+  Map: ReactiveCollection,
 {
   fn clone(&self) -> Self {
     // get updated current view and delta; this is necessary, because we require
@@ -118,7 +114,6 @@ where
       rev: RwLock::new(rev),
       resolved: self.resolved.clone(),
       waker,
-      phantom: PhantomData,
       buffered: Default::default(),
     }
   }
@@ -179,13 +174,13 @@ impl<K: CKey, V: CKey, T: VirtualMultiCollection<K, V>> VirtualMultiCollection<K
   }
 }
 
-impl<Map, K, V> ReactiveCollection<K, V> for ReactiveKVMapFork<Map, K, V>
+impl<Map> ReactiveCollection for ReactiveKVMapFork<Map>
 where
-  Map: ReactiveCollection<K, V>,
-  K: CKey,
-  V: CValue,
+  Map: ReactiveCollection,
 {
-  type Changes = impl VirtualCollection<K, ValueChange<V>>;
+  type Key = Map::Key;
+  type Value = Map::Value;
+  type Changes = impl VirtualCollection<Self::Key, ValueChange<Self::Value>>;
   type View = ForkedView<Map::View>;
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     // install new waker, this waker is shared by arc within the downstream info

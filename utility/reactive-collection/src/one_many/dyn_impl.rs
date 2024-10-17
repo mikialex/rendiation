@@ -1,5 +1,7 @@
 use crate::*;
 
+pub type BoxedDynReactiveOneToManyRelation<O, M> = Box<dyn DynReactiveOneToManyRelation<O, M>>;
+
 pub trait DynReactiveOneToManyRelation<O: CKey, M: CKey>: Send + Sync {
   /// we could return a single trait object that cover both access and inverse access
   /// but for simplicity we just return two trait objects as these two trait both impl clone.

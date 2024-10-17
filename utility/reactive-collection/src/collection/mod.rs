@@ -13,9 +13,12 @@ pub enum ExtraCollectionOperation {
   MemoryShrinkToFit,
 }
 
-pub trait ReactiveCollection<K: CKey, V: CValue>: Sync + Send + 'static {
-  type Changes: VirtualCollection<K, ValueChange<V>>;
-  type View: VirtualCollection<K, V>;
+pub trait ReactiveCollection: Sync + Send + 'static {
+  type Key: CKey;
+  type Value: CValue;
+  type Changes: VirtualCollection<Self::Key, ValueChange<Self::Value>>;
+  type View: VirtualCollection<Self::Key, Self::Value>;
+
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View);
 
   fn extra_request(&mut self, request: &mut ExtraCollectionOperation);
@@ -60,7 +63,9 @@ where
   }
 }
 
-impl<K: CKey, V: CValue> ReactiveCollection<K, V> for () {
+impl<K: CKey, V: CValue> ReactiveCollection for () {
+  type Key = K;
+  type Value = V;
   type Changes = ();
   type View = ();
   fn poll_changes(&self, _: &mut Context) -> (Self::Changes, Self::View) {

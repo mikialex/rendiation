@@ -1,25 +1,27 @@
 use crate::*;
 
-pub trait DynReactiveCollection<K: CKey, V: CValue>: Sync + Send + 'static {
-  fn poll_changes_dyn(
-    &self,
-    cx: &mut Context,
-  ) -> (
-    Box<dyn DynVirtualCollection<K, ValueChange<V>>>,
-    Box<dyn DynVirtualCollection<K, V>>,
-  );
+pub type BoxedDynReactiveCollection<K, V> = Box<dyn DynReactiveCollection<Key = K, Value = V>>;
+pub type DynReactiveCollectionPoll<K, V> = (
+  Box<dyn DynVirtualCollection<K, ValueChange<V>>>,
+  Box<dyn DynVirtualCollection<K, V>>,
+);
+
+pub trait DynReactiveCollection: Sync + Send + 'static {
+  type Key: CKey;
+  type Value: CValue;
+  fn poll_changes_dyn(&self, cx: &mut Context)
+    -> DynReactiveCollectionPoll<Self::Key, Self::Value>;
 
   fn extra_request_dyn(&mut self, request: &mut ExtraCollectionOperation);
 }
 
-impl<K: CKey, V: CValue, T: ReactiveCollection<K, V>> DynReactiveCollection<K, V> for T {
+impl<T: ReactiveCollection> DynReactiveCollection for T {
+  type Key = T::Key;
+  type Value = T::Value;
   fn poll_changes_dyn(
     &self,
     cx: &mut Context,
-  ) -> (
-    Box<dyn DynVirtualCollection<K, ValueChange<V>>>,
-    Box<dyn DynVirtualCollection<K, V>>,
-  ) {
+  ) -> DynReactiveCollectionPoll<Self::Key, Self::Value> {
     let (d, v) = self.poll_changes(cx);
     (Box::new(d), Box::new(v))
   }
@@ -29,7 +31,9 @@ impl<K: CKey, V: CValue, T: ReactiveCollection<K, V>> DynReactiveCollection<K, V
   }
 }
 
-impl<K: CKey, V: CValue> ReactiveCollection<K, V> for Box<dyn DynReactiveCollection<K, V>> {
+impl<K: CKey, V: CValue> ReactiveCollection for BoxedDynReactiveCollection<K, V> {
+  type Key = K;
+  type Value = V;
   type Changes = Box<dyn DynVirtualCollection<K, ValueChange<V>>>;
   type View = Box<dyn DynVirtualCollection<K, V>>;
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
