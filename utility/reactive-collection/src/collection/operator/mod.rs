@@ -16,6 +16,9 @@ pub use filter::*;
 mod join;
 pub use join::*;
 
+mod reverse;
+pub use reverse::*;
+
 mod utils;
 pub use utils::*;
 
@@ -53,6 +56,16 @@ where
 
   fn key_as_value(self) -> impl ReactiveCollection<K, K> {
     self.collective_kv_map(|k, _| k.clone())
+  }
+
+  fn hash_reverse_assume_one_one(self) -> impl ReactiveCollection<V, K>
+  where
+    V: CKey,
+  {
+    OneToOneRefHashBookKeeping {
+      upstream: self,
+      mapping: Default::default(), // todo, fix init states
+    }
   }
 
   fn collective_key_dual_map<K2: CKey>(

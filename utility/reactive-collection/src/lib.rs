@@ -32,8 +32,8 @@ pub use collection::*;
 mod utility;
 pub use utility::*;
 
-mod multi_collection;
-pub use multi_collection::*;
+mod one_many;
+pub use one_many::*;
 
 mod collection_channel;
 pub use collection_channel::*;
