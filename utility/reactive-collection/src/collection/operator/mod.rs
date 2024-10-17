@@ -64,7 +64,7 @@ where
   {
     OneToOneRefHashBookKeeping {
       upstream: self,
-      mapping: Default::default(), // todo, fix init states
+      mapping: Default::default(),
     }
   }
 
@@ -176,6 +176,7 @@ where
       phantom: PhantomData,
       f,
     }
+    .into_boxed() // todo, remove this in release build
   }
 
   /// K should not overlap
