@@ -1405,6 +1405,7 @@ fn map_binary_op(o: BinaryOperator) -> naga::BinaryOperator {
     BinaryOperator::LogicalAnd => naga::BinaryOperator::LogicalAnd,
     BinaryOperator::BitAnd => naga::BinaryOperator::And,
     BinaryOperator::BitOr => naga::BinaryOperator::InclusiveOr,
+    BinaryOperator::BitXor => naga::BinaryOperator::ExclusiveOr,
     BinaryOperator::ShiftLeft => naga::BinaryOperator::ShiftLeft,
     BinaryOperator::ShiftRight => naga::BinaryOperator::ShiftRight,
   }

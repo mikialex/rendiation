@@ -238,7 +238,7 @@ impl NaiveSahBvhSource {
 
     for (idx, tlas) in tlas_data.iter().enumerate() {
       if let Some(source) = tlas {
-        let blas_idx = source.acceleration_structure_handle as usize;
+        let blas_idx = source.acceleration_structure_handle.0 as usize;
         let aabb = blas_box[blas_idx].apply_matrix_into(source.transform);
         index_mapping.push(idx);
         tlas_bvh_aabb.push(aabb);
@@ -268,7 +268,7 @@ impl NaiveSahBvhSource {
         instance_shader_binding_table_record_offset: source
           .instance_shader_binding_table_record_offset,
         flags: source.flags,
-        acceleration_structure_handle: source.acceleration_structure_handle as u32,
+        acceleration_structure_handle: source.acceleration_structure_handle.0,
         ..Zeroable::zeroed()
       };
       let tlas_bounding = TlasBounding {
@@ -1324,7 +1324,7 @@ pub(crate) fn init_default_acceleration_structure(
       mask: u32::MAX,
       instance_shader_binding_table_record_offset: 0,
       flags: 0,
-      acceleration_structure_handle: blas_handle.0 as u64,
+      acceleration_structure_handle: *blas_handle,
     }])
   }
   for i in -2..=2 {
