@@ -59,7 +59,9 @@ struct Allocator {
   allocated: FastHashMap<u32, (AllocationHandle, u32, u32)>,
 }
 
-impl VirtualCollection<u32, u32> for LockReadGuardHolder<Allocator> {
+impl VirtualCollection for LockReadGuardHolder<Allocator> {
+  type Key = u32;
+  type Value = u32;
   fn iter_key_value(&self) -> impl Iterator<Item = (u32, u32)> + '_ {
     self.allocated.iter().map(|(k, v)| (*k, v.1))
   }
@@ -129,8 +131,8 @@ where
 {
   type Key = u32;
   type Value = u32;
-  type Changes = impl VirtualCollection<u32, ValueChange<u32>>;
-  type View = impl VirtualCollection<u32, u32>;
+  type Changes = impl VirtualCollection<Key = u32, Value = ValueChange<u32>>;
+  type View = impl VirtualCollection<Key = u32, Value = u32>;
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let mut allocator = self.allocator.write();
 
@@ -174,7 +176,7 @@ where
     let d = if let Poll::Ready(Some(r)) = self.accumulated_mutations.poll_impl(cx) {
       r
     } else {
-      VirtualCollectionExt::into_boxed(())
+      VirtualCollectionExt::into_boxed(EmptyCollection::default())
     };
 
     let v = self.allocator.make_read_holder();

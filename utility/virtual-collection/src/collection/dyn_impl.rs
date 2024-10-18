@@ -1,28 +1,37 @@
 use crate::*;
 
-pub trait DynVirtualCollection<K, V>: DynClone + Send + Sync {
-  fn iter_key_value_dyn(&self) -> Box<dyn Iterator<Item = (K, V)> + '_>;
-  fn access_dyn(&self, key: &K) -> Option<V>;
+pub type BoxedDynVirtualCollection<K, V> = Box<dyn DynVirtualCollection<Key = K, Value = V>>;
+pub trait DynVirtualCollection: DynClone + Send + Sync {
+  type Key: CKey;
+  type Value: CValue;
+  fn iter_key_value_dyn(&self) -> Box<dyn Iterator<Item = (Self::Key, Self::Value)> + '_>;
+  fn access_dyn(&self, key: &Self::Key) -> Option<Self::Value>;
 }
-impl<K: CKey, V: CValue, T> DynVirtualCollection<K, V> for T
+impl<T> DynVirtualCollection for T
 where
-  T: VirtualCollection<K, V>,
+  T: VirtualCollection,
 {
-  fn iter_key_value_dyn(&self) -> Box<dyn Iterator<Item = (K, V)> + '_> {
+  type Key = T::Key;
+  type Value = T::Value;
+  fn iter_key_value_dyn(&self) -> Box<dyn Iterator<Item = (Self::Key, Self::Value)> + '_> {
     Box::new(self.iter_key_value())
   }
-  fn access_dyn(&self, key: &K) -> Option<V> {
+  fn access_dyn(&self, key: &Self::Key) -> Option<Self::Value> {
     self.access(key)
   }
 }
 
-impl<'a, K, V> Clone for Box<dyn DynVirtualCollection<K, V> + 'a> {
+impl<'a, K, V> Clone for Box<dyn DynVirtualCollection<Key = K, Value = V> + 'a> {
   fn clone(&self) -> Self {
     dyn_clone::clone_box(&**self)
   }
 }
 
-impl<'a, K: CKey, V: CValue> VirtualCollection<K, V> for Box<dyn DynVirtualCollection<K, V> + 'a> {
+impl<'a, K: CKey, V: CValue> VirtualCollection
+  for Box<dyn DynVirtualCollection<Key = K, Value = V> + 'a>
+{
+  type Key = K;
+  type Value = V;
   fn iter_key_value(&self) -> impl Iterator<Item = (K, V)> + '_ {
     (**self).iter_key_value_dyn()
   }
@@ -32,7 +41,11 @@ impl<'a, K: CKey, V: CValue> VirtualCollection<K, V> for Box<dyn DynVirtualColle
   }
 }
 
-impl<'a, K: CKey, V: CValue> VirtualCollection<K, V> for &'a dyn DynVirtualCollection<K, V> {
+impl<'a, K: CKey, V: CValue> VirtualCollection
+  for &'a dyn DynVirtualCollection<Key = K, Value = V>
+{
+  type Key = K;
+  type Value = V;
   fn iter_key_value(&self) -> impl Iterator<Item = (K, V)> + '_ {
     (*self).iter_key_value_dyn()
   }

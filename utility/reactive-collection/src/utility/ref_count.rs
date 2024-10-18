@@ -27,8 +27,8 @@ impl<T, K> CollectionSetsRefcount<T, K> {
 impl<T: CKey, K: CKey> ReactiveCollection for CollectionSetsRefcount<T, K> {
   type Key = K;
   type Value = u32;
-  type Changes = impl VirtualCollection<K, ValueChange<u32>>;
-  type View = impl VirtualCollection<K, u32>;
+  type Changes = impl VirtualCollection<Key = K, Value = ValueChange<u32>>;
+  type View = impl VirtualCollection<Key = K, Value = u32>;
 
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     self.wake_for_new_source.register(cx.waker());

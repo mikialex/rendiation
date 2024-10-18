@@ -240,10 +240,10 @@ impl Viewer3dSceneDeriveSource {
 
 /// used in render & scene update
 pub struct Viewer3dSceneDerive {
-  pub world_mat: Box<dyn DynVirtualCollection<EntityHandle<SceneNodeEntity>, Mat4<f32>>>,
-  pub node_net_visible: Box<dyn DynVirtualCollection<EntityHandle<SceneNodeEntity>, bool>>,
+  pub world_mat: BoxedDynVirtualCollection<EntityHandle<SceneNodeEntity>, Mat4<f32>>,
+  pub node_net_visible: BoxedDynVirtualCollection<EntityHandle<SceneNodeEntity>, bool>,
   pub camera_transforms:
-    Box<dyn DynVirtualCollection<EntityHandle<SceneCameraEntity>, CameraTransform>>,
+    BoxedDynVirtualCollection<EntityHandle<SceneCameraEntity>, CameraTransform>,
   pub mesh_vertex_ref:
     RevRefOfForeignKey<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>,
 }

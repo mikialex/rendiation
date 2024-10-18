@@ -56,7 +56,9 @@ struct PackerCurrentView {
   packer: LockReadGuardHolder<PackerImpl>,
 }
 
-impl VirtualCollection<u32, PackResult2dWithDepth> for PackerCurrentView {
+impl VirtualCollection for PackerCurrentView {
+  type Key = u32;
+  type Value = PackResult2dWithDepth;
   fn iter_key_value(&self) -> impl Iterator<Item = (u32, PackResult2dWithDepth)> + '_ {
     self
       .packer
@@ -76,7 +78,7 @@ impl VirtualCollection<u32, PackResult2dWithDepth> for PackerCurrentView {
 impl ReactiveCollection for Packer {
   type Key = u32;
   type Value = PackResult2dWithDepth;
-  type Changes = Box<dyn DynVirtualCollection<u32, ValueChange<PackResult2dWithDepth>>>;
+  type Changes = BoxedDynVirtualCollection<u32, ValueChange<PackResult2dWithDepth>>;
   type View = PackerCurrentView;
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let (d, _) = self.size_source.poll_changes(cx);
@@ -172,7 +174,7 @@ impl ReactiveCollection for Packer {
     let d = if let Poll::Ready(Some(r)) = self.accumulated_mutations.poll_impl(cx) {
       r
     } else {
-      Box::new(())
+      Box::new(EmptyCollection::default())
     };
 
     (d, v)

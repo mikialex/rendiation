@@ -15,7 +15,7 @@ pub trait ReactiveOneToManyRelation:
   ReactiveCollection<
   Key = Self::Many,
   Value = Self::One,
-  View: VirtualMultiCollection<Self::One, Self::Many>,
+  View: VirtualMultiCollection<Key = Self::One, Value = Self::Many>,
 >
 {
   type One: CKey;
@@ -24,7 +24,7 @@ pub trait ReactiveOneToManyRelation:
 
 impl<T> ReactiveOneToManyRelation for T
 where
-  T: ReactiveCollection<View: VirtualMultiCollection<T::Value, T::Key>>,
+  T: ReactiveCollection<View: VirtualMultiCollection<Key = T::Value, Value = T::Key>>,
   T::Value: CKey,
 {
   type One = T::Value;

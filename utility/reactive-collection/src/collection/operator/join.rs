@@ -12,8 +12,8 @@ where
 {
   type Key = (A::Key, B::Key);
   type Value = (A::Value, B::Value);
-  type Changes = impl VirtualCollection<Self::Key, ValueChange<Self::Value>>;
-  type View = impl VirtualCollection<Self::Key, Self::Value>;
+  type Changes = impl VirtualCollection<Key = Self::Key, Value = ValueChange<Self::Value>>;
+  type View = impl VirtualCollection<Key = Self::Key, Value = Self::Value>;
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let (t1, a_access) = self.a.poll_changes(cx);
     let (t2, b_access) = self.b.poll_changes(cx);
@@ -50,18 +50,19 @@ struct CrossJoinValueChange<A, B, DA, DB> {
   b_current: B,
 }
 
-impl<A, B, DA, DB, K1, K2, V1, V2> VirtualCollection<(K1, K2), ValueChange<(V1, V2)>>
-  for CrossJoinValueChange<A, B, DA, DB>
+impl<A, B, DA, DB, K1, K2, V1, V2> VirtualCollection for CrossJoinValueChange<A, B, DA, DB>
 where
   K1: CKey,
   K2: CKey,
   V1: CValue,
   V2: CValue,
-  DA: VirtualCollection<K1, ValueChange<V1>>,
-  DB: VirtualCollection<K2, ValueChange<V2>>,
-  A: VirtualCollection<K1, V1>,
-  B: VirtualCollection<K2, V2>,
+  DA: VirtualCollection<Key = K1, Value = ValueChange<V1>>,
+  DB: VirtualCollection<Key = K2, Value = ValueChange<V2>>,
+  A: VirtualCollection<Key = K1, Value = V1>,
+  B: VirtualCollection<Key = K2, Value = V2>,
 {
+  type Key = (K1, K2);
+  type Value = ValueChange<(V1, V2)>;
   fn iter_key_value(&self) -> impl Iterator<Item = ((K1, K2), ValueChange<(V1, V2)>)> + '_ {
     let cross_section = self.a.iter_key_value().flat_map(move |(k1, v1_change)| {
       self.b.iter_key_value().map(move |(k2, v2_change)| {
@@ -152,16 +153,14 @@ struct CrossJoinCollection<A, B> {
   b: B,
 }
 
-impl<A, B, K1, K2, V1, V2> VirtualCollection<(K1, K2), (V1, V2)> for CrossJoinCollection<A, B>
+impl<A, B> VirtualCollection for CrossJoinCollection<A, B>
 where
-  K1: CKey,
-  K2: CKey,
-  V1: CValue,
-  V2: CValue,
-  A: VirtualCollection<K1, V1>,
-  B: VirtualCollection<K2, V2>,
+  A: VirtualCollection,
+  B: VirtualCollection,
 {
-  fn iter_key_value(&self) -> impl Iterator<Item = ((K1, K2), (V1, V2))> + '_ {
+  type Key = (A::Key, B::Key);
+  type Value = (A::Value, B::Value);
+  fn iter_key_value(&self) -> impl Iterator<Item = (Self::Key, Self::Value)> + '_ {
     self.a.iter_key_value().flat_map(move |(k1, v1)| {
       self
         .b
@@ -170,7 +169,7 @@ where
     })
   }
 
-  fn access(&self, key: &(K1, K2)) -> Option<(V1, V2)> {
+  fn access(&self, key: &Self::Key) -> Option<Self::Value> {
     self.a.access(&key.0).zip(self.b.access(&key.1))
   }
 }

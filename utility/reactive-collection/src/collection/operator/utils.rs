@@ -63,20 +63,21 @@ pub struct DiffChangedView<T> {
   inner: T,
 }
 
-impl<T, K, V> VirtualCollection<K, ValueChange<V>> for DiffChangedView<T>
+impl<T, V> VirtualCollection for DiffChangedView<T>
 where
-  T: VirtualCollection<K, ValueChange<V>>,
-  K: CKey,
+  T: VirtualCollection<Value = ValueChange<V>>,
   V: CValue,
 {
-  fn iter_key_value(&self) -> impl Iterator<Item = (K, ValueChange<V>)> + '_ {
+  type Key = T::Key;
+  type Value = ValueChange<V>;
+  fn iter_key_value(&self) -> impl Iterator<Item = (T::Key, ValueChange<V>)> + '_ {
     self
       .inner
       .iter_key_value()
       .filter(|(_, v)| !v.is_redundant())
   }
 
-  fn access(&self, key: &K) -> Option<ValueChange<V>> {
+  fn access(&self, key: &T::Key) -> Option<ValueChange<V>> {
     let change = self.inner.access(key)?;
     if change.is_redundant() {
       None
@@ -93,8 +94,8 @@ where
 {
   type Key = T::Key;
   type Value = T::Value;
-  type Changes = impl VirtualCollection<Self::Key, ValueChange<Self::Value>>;
-  type View = impl VirtualCollection<Self::Key, Self::Value>;
+  type Changes = impl VirtualCollection<Key = Self::Key, Value = ValueChange<Self::Value>>;
+  type View = impl VirtualCollection<Key = Self::Key, Value = Self::Value>;
 
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let (d, v) = self.inner.poll_changes(cx);

@@ -119,7 +119,9 @@ impl<T> Clone for IterableComponentReadView<T> {
   }
 }
 
-impl<T: CValue> VirtualCollection<u32, T> for IterableComponentReadView<T> {
+impl<T: CValue> VirtualCollection for IterableComponentReadView<T> {
+  type Key = u32;
+  type Value = T;
   fn iter_key_value(&self) -> impl Iterator<Item = (u32, T)> + '_ {
     self
       .ecg
@@ -132,7 +134,23 @@ impl<T: CValue> VirtualCollection<u32, T> for IterableComponentReadView<T> {
   }
 }
 
-impl<T: CValue> VirtualCollection<RawEntityHandle, T> for IterableComponentReadView<T> {
+pub struct IterableComponentReadViewChecked<T> {
+  pub ecg: EntityComponentGroup,
+  pub read_view: Box<dyn ComponentStorageReadView<T>>,
+}
+
+impl<T> Clone for IterableComponentReadViewChecked<T> {
+  fn clone(&self) -> Self {
+    Self {
+      ecg: self.ecg.clone(),
+      read_view: self.read_view.clone_read_view(),
+    }
+  }
+}
+
+impl<T: CValue> VirtualCollection for IterableComponentReadViewChecked<T> {
+  type Key = RawEntityHandle;
+  type Value = T;
   fn iter_key_value(&self) -> impl Iterator<Item = (RawEntityHandle, T)> + '_ {
     self
       .ecg

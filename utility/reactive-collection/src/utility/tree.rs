@@ -38,8 +38,8 @@ where
 {
   type Key = K;
   type Value = T;
-  type Changes = impl VirtualCollection<K, ValueChange<T>>;
-  type View = impl VirtualCollection<K, T>;
+  type Changes = impl VirtualCollection<Key = K, Value = ValueChange<T>>;
+  type View = impl VirtualCollection<Key = K, Value = T>;
 
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let (payload_change, current_source) = self.payload_source.poll_changes(cx);
@@ -163,9 +163,9 @@ struct TreeMutNode<'a, K, T, F> {
 
 struct Ctx<'a, K, T, F> {
   derive: CollectionMutationCollectorPtr<K, T>,
-  source: &'a dyn DynVirtualCollection<K, T>,
-  connectivity: &'a dyn DynVirtualMultiCollection<K, K>,
-  parent_connectivity: &'a dyn DynVirtualCollection<K, K>,
+  source: &'a dyn DynVirtualCollection<Key = K, Value = T>,
+  connectivity: &'a dyn DynVirtualMultiCollection<Key = K, Value = K>,
+  parent_connectivity: &'a dyn DynVirtualCollection<Key = K, Value = K>,
   derive_logic: F,
 }
 

@@ -8,37 +8,37 @@ pub struct OneToManyRefHashBookKeeping<T: ReactiveCollection> {
 }
 
 #[derive(Clone)]
-pub struct OneToManyRefHashBookKeepingCurrentView<T, M: CKey, O: CKey> {
+pub struct OneToManyRefHashBookKeepingCurrentView<T: VirtualCollection> {
   upstream: T,
-  mapping: LockReadGuardHolder<FastHashMap<O, FastHashSet<M>>>,
+  mapping: LockReadGuardHolder<FastHashMap<T::Value, FastHashSet<T::Key>>>,
 }
 
-impl<T, O, M> VirtualCollection<M, O> for OneToManyRefHashBookKeepingCurrentView<T, M, O>
+impl<T> VirtualCollection for OneToManyRefHashBookKeepingCurrentView<T>
 where
-  T: VirtualCollection<M, O>,
-  M: CKey,
-  O: CKey,
+  T: VirtualCollection,
 {
-  fn access(&self, m: &M) -> Option<O> {
+  type Key = T::Key;
+  type Value = T::Value;
+  fn access(&self, m: &T::Key) -> Option<T::Value> {
     self.upstream.access(m)
   }
 
-  fn iter_key_value(&self) -> impl Iterator<Item = (M, O)> + '_ {
+  fn iter_key_value(&self) -> impl Iterator<Item = (T::Key, T::Value)> + '_ {
     self.upstream.iter_key_value()
   }
 }
 
-impl<T, O, M> VirtualMultiCollection<O, M> for OneToManyRefHashBookKeepingCurrentView<T, M, O>
+impl<T> VirtualMultiCollection for OneToManyRefHashBookKeepingCurrentView<T>
 where
-  T: VirtualCollection<M, O>,
-  M: CKey,
-  O: CKey,
+  T: VirtualCollection<Value: CKey>,
 {
-  fn iter_key_in_multi_collection(&self) -> impl Iterator<Item = O> + '_ {
+  type Key = T::Value;
+  type Value = T::Key;
+  fn iter_key_in_multi_collection(&self) -> impl Iterator<Item = T::Value> + '_ {
     self.mapping.keys().cloned()
   }
 
-  fn access_multi(&self, o: &O) -> Option<impl Iterator<Item = M> + '_> {
+  fn access_multi(&self, o: &T::Value) -> Option<impl Iterator<Item = T::Key> + '_> {
     self.mapping.get(o).map(|set| set.iter().cloned())
   }
 }
@@ -51,8 +51,9 @@ where
   type Key = T::Key;
   type Value = T::Value;
 
-  type Changes = impl VirtualCollection<T::Key, ValueChange<T::Value>>;
-  type View = impl VirtualMultiCollection<T::Value, T::Key> + VirtualCollection<T::Key, T::Value>;
+  type Changes = impl VirtualCollection<Key = T::Key, Value = ValueChange<T::Value>>;
+  type View = impl VirtualMultiCollection<Key = T::Value, Value = T::Key>
+    + VirtualCollection<Key = T::Key, Value = T::Value>;
 
   #[tracing::instrument(skip_all, name = "OneToManyRefHashBookKeeping")]
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
@@ -115,37 +116,39 @@ pub struct OneToManyRefDenseBookKeepingCurrentView<T> {
   mapping: LockReadGuardHolder<Mapping>,
 }
 
-impl<T, O, M> VirtualCollection<M, O> for OneToManyRefDenseBookKeepingCurrentView<T>
+impl<T> VirtualCollection for OneToManyRefDenseBookKeepingCurrentView<T>
 where
-  T: VirtualCollection<M, O>,
-  M: CKey,
-  O: CKey,
+  T: VirtualCollection,
 {
-  fn access(&self, m: &M) -> Option<O> {
+  type Key = T::Key;
+  type Value = T::Value;
+  fn access(&self, m: &T::Key) -> Option<T::Value> {
     self.upstream.access(m)
   }
 
-  fn iter_key_value(&self) -> impl Iterator<Item = (M, O)> + '_ {
+  fn iter_key_value(&self) -> impl Iterator<Item = (T::Key, T::Value)> + '_ {
     self.upstream.iter_key_value()
   }
 }
 
-impl<T, O, M> VirtualMultiCollection<O, M> for OneToManyRefDenseBookKeepingCurrentView<T>
+impl<T> VirtualMultiCollection for OneToManyRefDenseBookKeepingCurrentView<T>
 where
-  T: VirtualCollection<M, O>,
-  M: CKey + LinearIdentification,
-  O: CKey + LinearIdentification,
+  T: VirtualCollection,
+  T::Key: CKey + LinearIdentification,
+  T::Value: CKey + LinearIdentification,
 {
-  fn iter_key_in_multi_collection(&self) -> impl Iterator<Item = O> + '_ {
+  type Key = T::Value;
+  type Value = T::Key;
+  fn iter_key_in_multi_collection(&self) -> impl Iterator<Item = T::Value> + '_ {
     self
       .mapping
       .mapping
       .iter()
       .enumerate()
-      .filter_map(|(i, list)| (!list.is_empty()).then_some(O::from_alloc_index(i as u32)))
+      .filter_map(|(i, list)| (!list.is_empty()).then_some(T::Value::from_alloc_index(i as u32)))
   }
 
-  fn access_multi(&self, o: &O) -> Option<impl Iterator<Item = M> + '_> {
+  fn access_multi(&self, o: &T::Value) -> Option<impl Iterator<Item = T::Key> + '_> {
     self
       .mapping
       .mapping
@@ -155,7 +158,7 @@ where
           .mapping
           .mapping_buffer
           .iter_list(list)
-          .map(|(v, _)| M::from_alloc_index(*v))
+          .map(|(v, _)| T::Key::from_alloc_index(*v))
       })
   }
 }
@@ -168,8 +171,9 @@ where
 {
   type Key = T::Key;
   type Value = T::Value;
-  type Changes = impl VirtualCollection<T::Key, ValueChange<T::Value>>;
-  type View = impl VirtualMultiCollection<T::Value, T::Key> + VirtualCollection<T::Key, T::Value>;
+  type Changes = impl VirtualCollection<Key = T::Key, Value = ValueChange<T::Value>>;
+  type View = impl VirtualMultiCollection<Key = T::Value, Value = T::Key>
+    + VirtualCollection<Key = T::Key, Value = T::Value>;
 
   #[tracing::instrument(skip_all, name = "OneToManyRefDenseBookKeeping")]
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {

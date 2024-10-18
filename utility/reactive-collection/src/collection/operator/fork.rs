@@ -121,15 +121,15 @@ where
 
 fn finalize_buffered_changes<K: CKey, V: CValue>(
   mut changes: Vec<ForkMessage<K, V>>,
-) -> Box<dyn DynVirtualCollection<K, ValueChange<V>>> {
+) -> BoxedDynVirtualCollection<K, ValueChange<V>> {
   if changes.is_empty() {
-    return Box::new(());
+    return Box::new(EmptyCollection::default());
   }
 
   if changes.len() == 1 {
     let first = changes.pop().unwrap();
     if first.is_empty() {
-      return Box::new(());
+      return Box::new(EmptyCollection::default());
     } else {
       return Box::new(first);
     }
@@ -142,7 +142,7 @@ fn finalize_buffered_changes<K: CKey, V: CValue>(
   }
 
   if target.is_empty() {
-    Box::new(())
+    Box::new(EmptyCollection::default())
   } else {
     Box::new(target)
   }
@@ -153,23 +153,25 @@ pub struct ForkedView<T> {
   inner: Arc<T>,
 }
 
-impl<K: CKey, V: CValue, T: VirtualCollection<K, V>> VirtualCollection<K, V> for ForkedView<T> {
-  fn iter_key_value(&self) -> impl Iterator<Item = (K, V)> + '_ {
+impl<T: VirtualCollection> VirtualCollection for ForkedView<T> {
+  type Key = T::Key;
+  type Value = T::Value;
+  fn iter_key_value(&self) -> impl Iterator<Item = (T::Key, T::Value)> + '_ {
     self.inner.iter_key_value()
   }
 
-  fn access(&self, key: &K) -> Option<V> {
+  fn access(&self, key: &T::Key) -> Option<T::Value> {
     self.inner.access(key)
   }
 }
-impl<K: CKey, V: CKey, T: VirtualMultiCollection<K, V>> VirtualMultiCollection<K, V>
-  for ForkedView<T>
-{
-  fn iter_key_in_multi_collection(&self) -> impl Iterator<Item = K> + '_ {
+impl<T: VirtualMultiCollection> VirtualMultiCollection for ForkedView<T> {
+  type Key = T::Key;
+  type Value = T::Value;
+  fn iter_key_in_multi_collection(&self) -> impl Iterator<Item = T::Key> + '_ {
     self.inner.iter_key_in_multi_collection()
   }
 
-  fn access_multi(&self, key: &K) -> Option<impl Iterator<Item = V> + '_> {
+  fn access_multi(&self, key: &T::Key) -> Option<impl Iterator<Item = T::Value> + '_> {
     self.inner.access_multi(key)
   }
 }
@@ -180,7 +182,7 @@ where
 {
   type Key = Map::Key;
   type Value = Map::Value;
-  type Changes = impl VirtualCollection<Self::Key, ValueChange<Self::Value>>;
+  type Changes = impl VirtualCollection<Key = Self::Key, Value = ValueChange<Self::Value>>;
   type View = ForkedView<Map::View>;
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     // install new waker, this waker is shared by arc within the downstream info

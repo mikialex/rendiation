@@ -69,11 +69,9 @@ pub struct AttributesMeshEntityVertexAccessView {
   pub count: ComponentReadView<SceneBufferViewBufferItemCount<AttributeVertexRef>>,
   pub multi_access:
     RevRefOfForeignKey<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>,
-  pub vertex: Box<
-    dyn VirtualCollectionSelfContained<
-      EntityHandle<AttributesMeshEntityVertexBufferRelation>,
-      GPUBufferResourceView,
-    >,
+  pub vertex: BoxedDynVirtualCollectionSelfContained<
+    EntityHandle<AttributesMeshEntityVertexBufferRelation>,
+    GPUBufferResourceView,
   >,
 }
 

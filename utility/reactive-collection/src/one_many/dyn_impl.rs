@@ -3,9 +3,9 @@ use crate::*;
 pub type BoxedDynReactiveOneToManyRelation<O, M> =
   Box<dyn DynReactiveOneToManyRelation<One = O, Many = M>>;
 pub type BoxedDynReactiveOneToManyRelationPoll<O, M> = (
-  Box<dyn DynVirtualCollection<M, ValueChange<O>>>,
-  Box<dyn DynVirtualCollection<M, O>>,
-  Box<dyn DynVirtualMultiCollection<O, M>>,
+  BoxedDynVirtualCollection<M, ValueChange<O>>,
+  BoxedDynVirtualCollection<M, O>,
+  BoxedDynVirtualMultiCollection<O, M>,
 );
 
 pub trait DynReactiveOneToManyRelation: Send + Sync {
@@ -47,8 +47,9 @@ where
 {
   type Key = M;
   type Value = O;
-  type Changes = impl VirtualCollection<M, ValueChange<O>>;
-  type View = impl VirtualCollection<M, O> + VirtualMultiCollection<O, M>;
+  type Changes = impl VirtualCollection<Key = M, Value = ValueChange<O>>;
+  type View =
+    impl VirtualCollection<Key = M, Value = O> + VirtualMultiCollection<Key = O, Value = M>;
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let (d, v, v2) = (**self).poll_changes_with_inv_dyn(cx);
     let v = OneManyRelationDualAccess {
@@ -68,13 +69,15 @@ pub struct OneManyRelationDualAccess<T, IT> {
   pub one_access_many: IT,
 }
 
-impl<O, M, T, IT> VirtualCollection<M, O> for OneManyRelationDualAccess<T, IT>
+impl<O, M, T, IT> VirtualCollection for OneManyRelationDualAccess<T, IT>
 where
   O: CKey,
   M: CKey,
-  T: VirtualCollection<M, O>,
-  IT: VirtualMultiCollection<O, M>,
+  T: VirtualCollection<Key = M, Value = O>,
+  IT: VirtualMultiCollection<Key = O, Value = M>,
 {
+  type Key = M;
+  type Value = O;
   fn iter_key_value(&self) -> impl Iterator<Item = (M, O)> + '_ {
     self.many_access_one.iter_key_value()
   }
@@ -84,13 +87,15 @@ where
   }
 }
 
-impl<O, M, T, IT> VirtualMultiCollection<O, M> for OneManyRelationDualAccess<T, IT>
+impl<O, M, T, IT> VirtualMultiCollection for OneManyRelationDualAccess<T, IT>
 where
   O: CKey,
   M: CKey,
-  T: VirtualCollection<M, O>,
-  IT: VirtualMultiCollection<O, M>,
+  T: VirtualCollection<Key = M, Value = O>,
+  IT: VirtualMultiCollection<Key = O, Value = M>,
 {
+  type Key = O;
+  type Value = M;
   fn iter_key_in_multi_collection(&self) -> impl Iterator<Item = O> + '_ {
     self.one_access_many.iter_key_in_multi_collection()
   }

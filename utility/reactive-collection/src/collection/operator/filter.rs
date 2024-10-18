@@ -41,8 +41,8 @@ where
 {
   type Key = T::Key;
   type Value = V2;
-  type Changes = impl VirtualCollection<Self::Key, ValueChange<V2>>;
-  type View = impl VirtualCollection<Self::Key, V2>;
+  type Changes = impl VirtualCollection<Key = Self::Key, Value = ValueChange<V2>>;
+  type View = impl VirtualCollection<Key = Self::Key, Value = V2>;
 
   #[tracing::instrument(skip_all, name = "ReactiveKVFilter")]
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {

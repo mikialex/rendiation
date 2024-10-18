@@ -13,9 +13,19 @@ impl DataBaseFeature for DatabaseMutationWatch {
   }
 }
 
-impl<V: CValue> VirtualCollection<RawEntityHandle, V> for Arena<V> {
+#[derive(Clone)]
+struct ArenaAccess<T: CValue>(LockReadGuardHolder<Arena<T>>);
+impl<T: CValue> VirtualCollectionProvider<RawEntityHandle, T> for ArenaAccess<T> {
+  fn access(&self) -> BoxedDynVirtualCollection<RawEntityHandle, T> {
+    Box::new(self.clone())
+  }
+}
+
+impl<V: CValue> VirtualCollection for ArenaAccess<V> {
+  type Key = RawEntityHandle;
+  type Value = V;
   fn iter_key_value(&self) -> impl Iterator<Item = (RawEntityHandle, V)> + '_ {
-    self.iter().map(|(h, v)| {
+    self.0.iter().map(|(h, v)| {
       let raw = h.into_raw_parts();
       (
         RawEntityHandle(Handle::from_raw_parts(raw.0, raw.1)),
@@ -25,8 +35,8 @@ impl<V: CValue> VirtualCollection<RawEntityHandle, V> for Arena<V> {
   }
 
   fn access(&self, key: &RawEntityHandle) -> Option<V> {
-    let handle = self.get_handle(key.index() as usize).unwrap();
-    self.get(handle).cloned()
+    let handle = self.0.get_handle(key.index() as usize).unwrap();
+    self.0.get(handle).cloned()
   }
 }
 
@@ -57,7 +67,7 @@ impl DatabaseMutationWatch {
     });
 
     let rxc = ReactiveCollectionFromCollectiveMutation::<RawEntityHandle, ()> {
-      full: Box::new(full),
+      full: Box::new(ArenaAccess(full.make_read_holder())),
       mutation: RwLock::new(rev),
     };
 
@@ -189,7 +199,7 @@ struct ComponentAccess<T> {
 }
 
 impl<T: CValue> VirtualCollectionProvider<u32, T> for ComponentAccess<T> {
-  fn access(&self) -> Box<dyn DynVirtualCollection<u32, T>> {
+  fn access(&self) -> BoxedDynVirtualCollection<u32, T> {
     IterableComponentReadView::<T> {
       ecg: self.ecg.clone(),
       read_view: self.original.create_read_view(),
@@ -199,8 +209,8 @@ impl<T: CValue> VirtualCollectionProvider<u32, T> for ComponentAccess<T> {
 }
 
 impl<T: CValue> VirtualCollectionProvider<RawEntityHandle, T> for ComponentAccess<T> {
-  fn access(&self) -> Box<dyn DynVirtualCollection<RawEntityHandle, T>> {
-    IterableComponentReadView::<T> {
+  fn access(&self) -> BoxedDynVirtualCollection<RawEntityHandle, T> {
+    IterableComponentReadViewChecked::<T> {
       ecg: self.ecg.clone(),
       read_view: self.original.create_read_view(),
     }
@@ -215,20 +225,21 @@ pub(crate) struct GenerationHelperView<T, C> {
 }
 
 #[derive(Clone)]
-struct GenerationHelperViewAccess<T, C> {
+struct GenerationHelperViewAccess<T> {
   inner: T,
-  phantom: PhantomData<C>,
   allocator: LockReadGuardHolder<Arena<()>>,
 }
 
-impl<C: CValue, T: VirtualCollection<RawEntityHandle, C> + Clone> VirtualCollection<u32, C>
-  for GenerationHelperViewAccess<T, C>
+impl<T: VirtualCollection<Key = RawEntityHandle> + Clone> VirtualCollection
+  for GenerationHelperViewAccess<T>
 {
-  fn iter_key_value(&self) -> impl Iterator<Item = (u32, C)> + '_ {
+  type Key = u32;
+  type Value = T::Value;
+  fn iter_key_value(&self) -> impl Iterator<Item = (u32, T::Value)> + '_ {
     self.inner.iter_key_value().map(|(h, v)| (h.index(), v))
   }
 
-  fn access(&self, key: &u32) -> Option<C> {
+  fn access(&self, key: &u32) -> Option<T::Value> {
     let handle = self.allocator.get_handle(*key as usize)?;
     self.inner.access(&RawEntityHandle(handle))
   }
@@ -239,20 +250,18 @@ impl<T: ReactiveCollection<Key = RawEntityHandle>> ReactiveCollection
 {
   type Key = u32;
   type Value = T::Value;
-  type Changes = impl VirtualCollection<u32, ValueChange<T::Value>>;
-  type View = impl VirtualCollection<u32, T::Value>;
+  type Changes = impl VirtualCollection<Key = u32, Value = ValueChange<T::Value>>;
+  type View = impl VirtualCollection<Key = u32, Value = T::Value>;
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let (inner, inner_access) = self.inner.poll_changes(cx);
 
     let delta = GenerationHelperViewAccess {
       inner,
-      phantom: PhantomData,
       allocator: self.allocator.make_read_holder(),
     };
 
     let access = GenerationHelperViewAccess {
       inner: inner_access,
-      phantom: PhantomData,
       allocator: self.allocator.make_read_holder(),
     };
 

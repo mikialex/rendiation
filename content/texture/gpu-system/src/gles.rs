@@ -17,8 +17,8 @@ impl ReactiveQuery for TraditionalPerDrawBindingSystemSource {
 }
 
 pub struct TraditionalPerDrawBindingSystem {
-  pub textures: Box<dyn DynVirtualCollection<Texture2DHandle, GPU2DTextureView>>,
-  pub samplers: Box<dyn DynVirtualCollection<SamplerHandle, GPUSamplerView>>,
+  pub textures: BoxedDynVirtualCollection<Texture2DHandle, GPU2DTextureView>,
+  pub samplers: BoxedDynVirtualCollection<SamplerHandle, GPUSamplerView>,
 }
 
 impl AbstractGPUTextureSystem for TraditionalPerDrawBindingSystem {

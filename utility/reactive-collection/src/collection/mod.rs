@@ -16,8 +16,8 @@ pub enum ExtraCollectionOperation {
 pub trait ReactiveCollection: Sync + Send + 'static {
   type Key: CKey;
   type Value: CValue;
-  type Changes: VirtualCollection<Self::Key, ValueChange<Self::Value>>;
-  type View: VirtualCollection<Self::Key, Self::Value>;
+  type Changes: VirtualCollection<Key = Self::Key, Value = ValueChange<Self::Value>>;
+  type View: VirtualCollection<Key = Self::Key, Value = Self::Value>;
 
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View);
 
@@ -34,13 +34,15 @@ pub fn make_previous<C, D>(current: C, delta: D) -> CollectionPreviousView<C, D>
 }
 
 /// the impl access the previous V
-impl<C, D, K, V> VirtualCollection<K, V> for CollectionPreviousView<C, D>
+impl<C, D, K, V> VirtualCollection for CollectionPreviousView<C, D>
 where
-  C: VirtualCollection<K, V>,
-  D: VirtualCollection<K, ValueChange<V>>,
+  C: VirtualCollection<Key = K, Value = V>,
+  D: VirtualCollection<Key = K, Value = ValueChange<V>>,
   K: CKey,
   V: CValue,
 {
+  type Key = K;
+  type Value = V;
   fn iter_key_value(&self) -> impl Iterator<Item = (K, V)> + '_ {
     let current_not_changed = self
       .current
@@ -63,21 +65,13 @@ where
   }
 }
 
-pub struct EmptyCollection<K, V>(PhantomData<(K, V)>);
-
-impl<K, V> Default for EmptyCollection<K, V> {
-  fn default() -> Self {
-    Self(PhantomData)
-  }
-}
-
 impl<K: CKey, V: CValue> ReactiveCollection for EmptyCollection<K, V> {
   type Key = K;
   type Value = V;
-  type Changes = ();
-  type View = ();
+  type Changes = EmptyCollection<K, ValueChange<V>>;
+  type View = EmptyCollection<K, V>;
   fn poll_changes(&self, _: &mut Context) -> (Self::Changes, Self::View) {
-    ((), ())
+    (Default::default(), Default::default())
   }
   fn extra_request(&mut self, _: &mut ExtraCollectionOperation) {}
 }

@@ -15,8 +15,8 @@ where
 {
   type Key = T1::Key;
   type Value = O;
-  type Changes = impl VirtualCollection<T1::Key, ValueChange<O>>;
-  type View = impl VirtualCollection<T1::Key, O>;
+  type Changes = impl VirtualCollection<Key = T1::Key, Value = ValueChange<O>>;
+  type View = impl VirtualCollection<Key = T1::Key, Value = O>;
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let (t1, a_access) = self.a.poll_changes(cx);
     let (t2, b_access) = self.b.poll_changes(cx);
@@ -29,14 +29,12 @@ where
       f: self.f,
       a_current: a_access.clone(),
       b_current: b_access.clone(),
-      phantom: PhantomData,
     };
 
     let v = UnionCollection {
       a: a_access,
       b: b_access,
       f: self.f,
-      phantom: PhantomData,
     };
 
     (d, v)
@@ -49,24 +47,23 @@ where
 }
 
 #[derive(Clone)]
-struct UnionCollection<A, B, K, V1, V2, F> {
+struct UnionCollection<A, B, F> {
   a: A,
   b: B,
-  phantom: PhantomData<(K, V1, V2)>,
   f: F,
 }
 
-impl<A, B, K, V1, V2, F, O> VirtualCollection<K, O> for UnionCollection<A, B, K, V1, V2, F>
+impl<A, B, F, O> VirtualCollection for UnionCollection<A, B, F>
 where
-  A: VirtualCollection<K, V1>,
-  B: VirtualCollection<K, V2>,
-  F: Fn((Option<V1>, Option<V2>)) -> Option<O> + Send + Sync + Copy + 'static,
-  K: CKey,
+  A: VirtualCollection,
+  B: VirtualCollection<Key = A::Key>,
+  F: Fn((Option<A::Value>, Option<B::Value>)) -> Option<O> + Send + Sync + Copy + 'static,
+
   O: CValue,
-  V1: CValue,
-  V2: CValue,
 {
-  fn iter_key_value(&self) -> impl Iterator<Item = (K, O)> + '_ {
+  type Key = A::Key;
+  type Value = O;
+  fn iter_key_value(&self) -> impl Iterator<Item = (A::Key, O)> + '_ {
     let a_side = self
       .a
       .iter_key_value()
@@ -81,34 +78,34 @@ where
     a_side.chain(b_side)
   }
 
-  fn access(&self, key: &K) -> Option<O> {
+  fn access(&self, key: &A::Key) -> Option<O> {
     (self.f)((self.a.access(key), self.b.access(key)))
   }
 }
 
 #[derive(Clone)]
-struct UnionValueChange<A, B, AD, BD, K, V1, V2, F> {
+struct UnionValueChange<A, B, AD, BD, F> {
   a: AD,
   b: BD,
   a_current: A,
   b_current: B,
   f: F,
-  phantom: PhantomData<(K, V1, V2)>,
 }
 
-impl<A, B, AD, BD, K, V1, V2, F, O> VirtualCollection<K, ValueChange<O>>
-  for UnionValueChange<A, B, AD, BD, K, V1, V2, F>
+impl<A, B, AD, BD, K, V1, V2, F, O> VirtualCollection for UnionValueChange<A, B, AD, BD, F>
 where
-  A: VirtualCollection<K, V1>,
-  B: VirtualCollection<K, V2>,
-  AD: VirtualCollection<K, ValueChange<V1>>,
-  BD: VirtualCollection<K, ValueChange<V2>>,
+  A: VirtualCollection<Key = K, Value = V1>,
+  B: VirtualCollection<Key = K, Value = V2>,
+  AD: VirtualCollection<Key = K, Value = ValueChange<V1>>,
+  BD: VirtualCollection<Key = K, Value = ValueChange<V2>>,
   F: Fn((Option<V1>, Option<V2>)) -> Option<O> + Send + Sync + Copy + 'static,
   K: CKey,
   O: CValue,
   V1: CValue,
   V2: CValue,
 {
+  type Key = K;
+  type Value = ValueChange<O>;
   fn iter_key_value(&self) -> impl Iterator<Item = (K, ValueChange<O>)> + '_ {
     let checker = make_checker(self.f);
 

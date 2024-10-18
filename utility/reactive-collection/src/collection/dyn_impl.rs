@@ -2,8 +2,8 @@ use crate::*;
 
 pub type BoxedDynReactiveCollection<K, V> = Box<dyn DynReactiveCollection<Key = K, Value = V>>;
 pub type DynReactiveCollectionPoll<K, V> = (
-  Box<dyn DynVirtualCollection<K, ValueChange<V>>>,
-  Box<dyn DynVirtualCollection<K, V>>,
+  BoxedDynVirtualCollection<K, ValueChange<V>>,
+  BoxedDynVirtualCollection<K, V>,
 );
 
 pub trait DynReactiveCollection: Sync + Send + 'static {
@@ -34,8 +34,8 @@ impl<T: ReactiveCollection> DynReactiveCollection for T {
 impl<K: CKey, V: CValue> ReactiveCollection for BoxedDynReactiveCollection<K, V> {
   type Key = K;
   type Value = V;
-  type Changes = Box<dyn DynVirtualCollection<K, ValueChange<V>>>;
-  type View = Box<dyn DynVirtualCollection<K, V>>;
+  type Changes = BoxedDynVirtualCollection<K, ValueChange<V>>;
+  type View = BoxedDynVirtualCollection<K, V>;
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     self.deref().poll_changes_dyn(cx)
   }

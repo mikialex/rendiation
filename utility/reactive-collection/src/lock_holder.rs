@@ -1,22 +1,20 @@
 use crate::*;
 
-impl<K: CKey, V: CValue, T: VirtualCollection<K, V>> VirtualCollection<K, V>
-  for LockReadGuardHolder<T>
-{
-  fn iter_key_value(&self) -> impl Iterator<Item = (K, V)> + '_ {
+impl<T: VirtualCollection> VirtualCollection for LockReadGuardHolder<T> {
+  type Key = T::Key;
+  type Value = T::Value;
+  fn iter_key_value(&self) -> impl Iterator<Item = (Self::Key, Self::Value)> + '_ {
     (**self).iter_key_value()
   }
 
-  fn access(&self, key: &K) -> Option<V> {
+  fn access(&self, key: &Self::Key) -> Option<Self::Value> {
     (**self).access(key)
   }
 }
 
-impl<K, V, T> VirtualCollectionSelfContained<K, V> for LockReadGuardHolder<T>
+impl<T, K, V> DynVirtualCollectionSelfContained for LockReadGuardHolder<T>
 where
-  K: CKey,
-  V: CValue,
-  T: VirtualCollection<K, V> + VirtualCollectionSelfContained<K, V>,
+  T: DynVirtualCollectionSelfContained<Key = K, Value = V> + VirtualCollection<Key = K, Value = V>,
 {
   fn access_ref(&self, key: &K) -> Option<&V> {
     self.deref().access_ref(key)

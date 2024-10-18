@@ -17,11 +17,9 @@ pub type RevRefOfForeignKeyWatch<S> = BoxedDynReactiveOneToManyRelation<
   EntityHandle<<S as EntityAssociateSemantic>::Entity>,
 >;
 
-pub type RevRefOfForeignKey<S> = Box<
-  dyn DynVirtualMultiCollection<
-    EntityHandle<<S as ForeignKeySemantic>::ForeignEntity>,
-    EntityHandle<<S as EntityAssociateSemantic>::Entity>,
-  >,
+pub type RevRefOfForeignKey<S> = BoxedDynVirtualMultiCollection<
+  EntityHandle<<S as ForeignKeySemantic>::ForeignEntity>,
+  EntityHandle<<S as EntityAssociateSemantic>::Entity>,
 >;
 
 impl DatabaseEntityReverseReference {
@@ -105,8 +103,9 @@ where
 {
   type Key = u32;
   type Value = u32;
-  type Changes = impl VirtualCollection<u32, ValueChange<u32>>;
-  type View = impl VirtualCollection<u32, u32> + VirtualMultiCollection<u32, u32>;
+  type Changes = impl VirtualCollection<Key = u32, Value = ValueChange<u32>>;
+  type View =
+    impl VirtualCollection<Key = u32, Value = u32> + VirtualMultiCollection<Key = u32, Value = u32>;
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let (d, v) = self.inner.poll_changes(cx);
 
@@ -123,7 +122,6 @@ where
 
     // todo, improve trait builder method
     let f_v = KeyDualMapCollection {
-      phantom: PhantomData,
       base: v.clone(),
       f1: |k: RawEntityHandle| k.index(),
       f2: move |k| RawEntityHandle(allocator.get_handle(k as usize)?).into(),
@@ -133,7 +131,6 @@ where
 
     let allocator = self.allocator.make_read_holder();
     let inv = KeyDualMapCollection {
-      phantom: PhantomData,
       base: v,
       f1: |k: RawEntityHandle| k.index(),
       f2: move |k| RawEntityHandle(allocator.get_handle(k as usize)?).into(),

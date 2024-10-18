@@ -47,8 +47,8 @@ pub struct SceneModelPickerImpl {
   pub mesh_topology: ComponentReadView<AttributesMeshEntityTopology>,
   pub buffer: ComponentReadView<BufferEntityData>,
 
-  pub node_world: Box<dyn DynVirtualCollection<EntityHandle<SceneNodeEntity>, Mat4<f32>>>,
-  pub node_net_visible: Box<dyn DynVirtualCollection<EntityHandle<SceneNodeEntity>, bool>>,
+  pub node_world: BoxedDynVirtualCollection<EntityHandle<SceneNodeEntity>, Mat4<f32>>,
+  pub node_net_visible: BoxedDynVirtualCollection<EntityHandle<SceneNodeEntity>, bool>,
 }
 
 impl SceneModelPicker for SceneModelPickerImpl {

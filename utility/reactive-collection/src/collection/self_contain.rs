@@ -1,7 +1,7 @@
 use crate::*;
 
 pub trait ReactiveCollectionSelfContained:
-  ReactiveCollection<View: VirtualCollectionSelfContained<Self::Key, Self::Value>>
+  ReactiveCollection<View: DynVirtualCollectionSelfContained<Key = Self::Key, Value = Self::Value>>
 {
   fn into_reactive_state_self_contained(self) -> impl ReactiveQuery<Output = Box<dyn std::any::Any>>
   where
@@ -22,15 +22,15 @@ pub trait ReactiveCollectionSelfContained:
 impl<T> ReactiveCollectionSelfContained for T
 where
   T: ReactiveCollection,
-  T::View: VirtualCollectionSelfContained<T::Key, T::Value>,
+  T::View: DynVirtualCollectionSelfContained<Key = T::Key, Value = T::Value>,
 {
 }
 
 pub type BoxedDynReactiveCollectionSelfContained<K, V> =
   Box<dyn DynReactiveCollectionSelfContained<Key = K, Value = V>>;
 pub type DynReactiveCollectionSelfContainedPoll<K, V> = (
-  Box<dyn DynVirtualCollection<K, ValueChange<V>>>,
-  Box<dyn VirtualCollectionSelfContained<K, V>>,
+  BoxedDynVirtualCollection<K, ValueChange<V>>,
+  Box<dyn DynVirtualCollectionSelfContained<Key = K, Value = V>>,
 );
 
 pub trait DynReactiveCollectionSelfContained {

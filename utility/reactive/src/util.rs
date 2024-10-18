@@ -80,10 +80,10 @@ impl ConcurrentStreamUpdateResult {
   pub fn take_reactive_collection_updated<K: CKey, V: CValue>(
     &mut self,
     token: UpdateResultToken,
-  ) -> Option<Box<dyn DynVirtualCollection<K, V>>> {
+  ) -> Option<BoxedDynVirtualCollection<K, V>> {
     self
       .take_result(token)?
-      .downcast::<Box<dyn DynVirtualCollection<K, V>>>()
+      .downcast::<BoxedDynVirtualCollection<K, V>>()
       .ok()
       .map(|v| *v)
   }
@@ -91,20 +91,20 @@ impl ConcurrentStreamUpdateResult {
   pub fn take_multi_reactive_collection_updated<K: CKey, V: CKey>(
     &mut self,
     token: UpdateResultToken,
-  ) -> Option<Box<dyn DynVirtualMultiCollection<K, V>>> {
+  ) -> Option<BoxedDynVirtualMultiCollection<K, V>> {
     self
       .take_result(token)?
-      .downcast::<Box<dyn DynVirtualMultiCollection<K, V>>>()
+      .downcast::<BoxedDynVirtualMultiCollection<K, V>>()
       .ok()
       .map(|v| *v)
   }
   pub fn take_self_contained_reactive_collection_updated<K: CKey, V: CValue>(
     &mut self,
     token: UpdateResultToken,
-  ) -> Option<Box<dyn VirtualCollectionSelfContained<K, V>>> {
+  ) -> Option<BoxedDynVirtualCollectionSelfContained<K, V>> {
     self
       .take_result(token)?
-      .downcast::<Box<dyn VirtualCollectionSelfContained<K, V>>>()
+      .downcast::<BoxedDynVirtualCollectionSelfContained<K, V>>()
       .ok()
       .map(|v| *v)
   }

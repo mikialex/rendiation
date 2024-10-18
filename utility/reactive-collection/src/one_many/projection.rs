@@ -16,8 +16,8 @@ where
 {
   type Key = Relation::Many;
   type Value = Upstream::Value;
-  type Changes = impl VirtualCollection<Relation::Many, ValueChange<Upstream::Value>>;
-  type View = impl VirtualCollection<Relation::Many, Upstream::Value>;
+  type Changes = impl VirtualCollection<Key = Relation::Many, Value = ValueChange<Upstream::Value>>;
+  type View = impl VirtualCollection<Key = Relation::Many, Value = Upstream::Value>;
 
   #[tracing::instrument(skip_all, name = "OneToManyFanout")]
   #[allow(clippy::collapsible_else_if)]
@@ -115,14 +115,16 @@ struct OneToManyFanoutCurrentView<U, R, O> {
   phantom: PhantomData<O>,
 }
 
-impl<U, R, O, M, X> VirtualCollection<M, X> for OneToManyFanoutCurrentView<U, R, O>
+impl<U, R, O, M, X> VirtualCollection for OneToManyFanoutCurrentView<U, R, O>
 where
   O: CKey,
   M: CKey,
   X: CValue,
-  U: VirtualCollection<O, X>,
-  R: VirtualCollection<M, O>,
+  U: VirtualCollection<Key = O, Value = X>,
+  R: VirtualCollection<Key = M, Value = O>,
 {
+  type Key = M;
+  type Value = X;
   fn iter_key_value(&self) -> impl Iterator<Item = (M, X)> + '_ {
     // this is pretty costly
     self
@@ -154,8 +156,8 @@ where
 {
   type Key = Relation::Value;
   type Value = ();
-  type Changes = impl VirtualCollection<Relation::Value, ValueChange<()>>;
-  type View = impl VirtualCollection<Relation::Value, ()>;
+  type Changes = impl VirtualCollection<Key = Relation::Value, Value = ValueChange<()>>;
+  type View = impl VirtualCollection<Key = Relation::Value, Value = ()>;
 
   #[tracing::instrument(skip_all, name = "ManyToOneReduce")]
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
@@ -269,7 +271,9 @@ struct ManyToOneReduceCurrentView<O: CKey> {
   ref_count: LockReadGuardHolder<FastHashMap<O, u32>>,
 }
 
-impl<O: CKey> VirtualCollection<O, ()> for ManyToOneReduceCurrentView<O> {
+impl<O: CKey> VirtualCollection for ManyToOneReduceCurrentView<O> {
+  type Key = O;
+  type Value = ();
   fn iter_key_value(&self) -> impl Iterator<Item = (O, ())> + '_ {
     self.ref_count.iter().map(|(k, _)| (k.clone(), ()))
   }

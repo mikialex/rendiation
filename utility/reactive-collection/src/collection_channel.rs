@@ -76,7 +76,7 @@ impl<K: CKey, T: CValue> CollectiveMutationReceiver<K, T> {
   pub fn poll_impl(
     &self,
     cx: &mut Context,
-  ) -> Poll<Option<Box<dyn DynVirtualCollection<K, ValueChange<T>>>>> {
+  ) -> Poll<Option<BoxedDynVirtualCollection<K, ValueChange<T>>>> {
     self.inner.1.register(cx.waker());
     let mut changes = self.inner.0.write();
     let changes: &mut MutationData<K, T> = &mut changes;
@@ -94,7 +94,7 @@ impl<K: CKey, T: CValue> CollectiveMutationReceiver<K, T> {
 }
 
 impl<K: CKey, T: CValue> Stream for CollectiveMutationReceiver<K, T> {
-  type Item = Box<dyn DynVirtualCollection<K, ValueChange<T>>>;
+  type Item = BoxedDynVirtualCollection<K, ValueChange<T>>;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     self.poll_impl(cx)
@@ -103,13 +103,13 @@ impl<K: CKey, T: CValue> Stream for CollectiveMutationReceiver<K, T> {
 
 // this trait could be lift into upper stream
 pub trait VirtualCollectionProvider<K, V>: Send + Sync {
-  fn access(&self) -> Box<dyn DynVirtualCollection<K, V>>;
+  fn access(&self) -> BoxedDynVirtualCollection<K, V>;
 }
 
-impl<K: CKey, V: CValue, T: VirtualCollection<K, V> + 'static> VirtualCollectionProvider<K, V>
+impl<T: VirtualCollection + 'static> VirtualCollectionProvider<T::Key, T::Value>
   for Arc<RwLock<T>>
 {
-  fn access(&self) -> Box<dyn DynVirtualCollection<K, V>> {
+  fn access(&self) -> BoxedDynVirtualCollection<T::Key, T::Value> {
     Box::new(self.make_read_holder())
   }
 }
@@ -121,12 +121,12 @@ pub struct ReactiveCollectionFromCollectiveMutation<K, T> {
 impl<K: CKey, T: CValue> ReactiveCollection for ReactiveCollectionFromCollectiveMutation<K, T> {
   type Key = K;
   type Value = T;
-  type Changes = impl VirtualCollection<K, ValueChange<T>>;
-  type View = impl VirtualCollection<K, T>;
+  type Changes = impl VirtualCollection<Key = K, Value = ValueChange<T>>;
+  type View = impl VirtualCollection<Key = K, Value = T>;
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let d = match self.mutation.write().poll_next_unpin(cx) {
       Poll::Ready(Some(r)) => r,
-      _ => Box::new(()),
+      _ => Box::new(EmptyCollection::default()) as BoxedDynVirtualCollection<K, ValueChange<T>>,
     };
     let v = self.full.access();
     (d, v)

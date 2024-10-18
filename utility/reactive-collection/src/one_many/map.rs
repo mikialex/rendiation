@@ -17,8 +17,9 @@ where
 {
   type Key = T::Many;
   type Value = V2;
-  type Changes = impl VirtualCollection<T::Many, ValueChange<V2>>;
-  type View = impl VirtualCollection<T::Many, V2> + VirtualMultiCollection<V2, T::Many>;
+  type Changes = impl VirtualCollection<Key = T::Many, Value = ValueChange<V2>>;
+  type View = impl VirtualCollection<Key = T::Many, Value = V2>
+    + VirtualMultiCollection<Key = V2, Value = T::Many>;
 
   #[tracing::instrument(skip_all, name = "ReactiveKVMap")]
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
@@ -56,8 +57,9 @@ where
 {
   type Key = K2;
   type Value = T::One;
-  type Changes = impl VirtualCollection<K2, ValueChange<T::One>>;
-  type View = impl VirtualCollection<K2, T::One> + VirtualMultiCollection<T::One, K2>;
+  type Changes = impl VirtualCollection<Key = K2, Value = ValueChange<T::One>>;
+  type View = impl VirtualCollection<Key = K2, Value = T::One>
+    + VirtualMultiCollection<Key = T::One, Value = K2>;
 
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let (d, v) = self.inner.poll_changes(cx);
