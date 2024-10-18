@@ -7,29 +7,29 @@ pub type UniformUpdateContainer<K, V> =
   MultiUpdateContainer<FastHashMap<K, UniformBufferDataView<V>>>;
 
 /// group of(Rxc<id, T fieldChange>) =maintain=> group of(uniform buffer <T>)
-pub struct UniformCollectionUpdate<T> {
+pub struct QueryBasedUniformUpdate<T> {
   field_offset: u32,
   upstream: T,
   gpu_ctx: GPU,
 }
 
-pub trait UniformCollectionUpdateExt: Sized {
-  fn into_uniform_collection_update(
+pub trait UniformQueryUpdateExt: Sized {
+  fn into_query_update_uniform(
     self,
     field_offset: usize,
     gpu_ctx: &GPU,
-  ) -> UniformCollectionUpdate<Self>;
+  ) -> QueryBasedUniformUpdate<Self>;
 }
-impl<T> UniformCollectionUpdateExt for T
+impl<T> UniformQueryUpdateExt for T
 where
-  T: ReactiveCollection,
+  T: ReactiveQuery,
 {
-  fn into_uniform_collection_update(
+  fn into_query_update_uniform(
     self,
     field_offset: usize,
     gpu_ctx: &GPU,
-  ) -> UniformCollectionUpdate<Self> {
-    UniformCollectionUpdate {
+  ) -> QueryBasedUniformUpdate<Self> {
+    QueryBasedUniformUpdate {
       field_offset: field_offset as u32,
       upstream: self,
       gpu_ctx: gpu_ctx.clone(),
@@ -37,11 +37,11 @@ where
   }
 }
 
-impl<T, C> CollectionUpdate<FastHashMap<C::Key, UniformBufferDataView<T>>>
-  for UniformCollectionUpdate<C>
+impl<T, C> QueryBasedUpdate<FastHashMap<C::Key, UniformBufferDataView<T>>>
+  for QueryBasedUniformUpdate<C>
 where
   T: Std140 + Default,
-  C: ReactiveCollection,
+  C: ReactiveQuery,
   C::Value: Pod,
 {
   fn update_target(

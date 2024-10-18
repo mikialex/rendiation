@@ -33,18 +33,18 @@ impl SceneNodeDataView {
   }
 }
 
-#[global_registered_collection_and_many_one_hash_relation]
+#[global_registered_query_and_many_one_hash_relation]
 pub fn scene_node_connectivity(
-) -> impl ReactiveCollection<Key = EntityHandle<SceneNodeEntity>, Value = EntityHandle<SceneNodeEntity>>
+) -> impl ReactiveQuery<Key = EntityHandle<SceneNodeEntity>, Value = EntityHandle<SceneNodeEntity>>
 {
   global_watch()
     .watch::<SceneNodeParentIdx>()
     .collective_filter_map(|v| v.map(|v| unsafe { EntityHandle::from_raw(v) }))
 }
 
-#[global_registered_collection]
+#[global_registered_query]
 pub fn scene_node_derive_visible(
-) -> impl ReactiveCollection<Key = EntityHandle<SceneNodeEntity>, Value = bool> {
+) -> impl ReactiveQuery<Key = EntityHandle<SceneNodeEntity>, Value = bool> {
   tree_payload_derive_by_parent_decide_children(
     Box::new(scene_node_connectivity_many_one_relation()),
     global_watch()
@@ -54,9 +54,9 @@ pub fn scene_node_derive_visible(
   )
 }
 
-#[global_registered_collection]
+#[global_registered_query]
 pub fn scene_node_derive_world_mat(
-) -> impl ReactiveCollection<Key = EntityHandle<SceneNodeEntity>, Value = Mat4<f32>> {
+) -> impl ReactiveQuery<Key = EntityHandle<SceneNodeEntity>, Value = Mat4<f32>> {
   tree_payload_derive_by_parent_decide_children(
     Box::new(scene_node_connectivity_many_one_relation()),
     global_watch()

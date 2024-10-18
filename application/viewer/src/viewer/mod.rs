@@ -215,10 +215,9 @@ pub struct Viewer3dSceneCtx {
 }
 
 pub struct Viewer3dSceneDeriveSource {
-  pub world_mat: BoxedDynReactiveCollection<EntityHandle<SceneNodeEntity>, Mat4<f32>>,
-  pub node_net_visible: BoxedDynReactiveCollection<EntityHandle<SceneNodeEntity>, bool>,
-  pub camera_transforms:
-    BoxedDynReactiveCollection<EntityHandle<SceneCameraEntity>, CameraTransform>,
+  pub world_mat: BoxedDynReactiveQuery<EntityHandle<SceneNodeEntity>, Mat4<f32>>,
+  pub node_net_visible: BoxedDynReactiveQuery<EntityHandle<SceneNodeEntity>, bool>,
+  pub camera_transforms: BoxedDynReactiveQuery<EntityHandle<SceneCameraEntity>, CameraTransform>,
   pub mesh_vertex_ref:
     RevRefOfForeignKeyWatch<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>,
 }
@@ -240,10 +239,9 @@ impl Viewer3dSceneDeriveSource {
 
 /// used in render & scene update
 pub struct Viewer3dSceneDerive {
-  pub world_mat: BoxedDynVirtualCollection<EntityHandle<SceneNodeEntity>, Mat4<f32>>,
-  pub node_net_visible: BoxedDynVirtualCollection<EntityHandle<SceneNodeEntity>, bool>,
-  pub camera_transforms:
-    BoxedDynVirtualCollection<EntityHandle<SceneCameraEntity>, CameraTransform>,
+  pub world_mat: BoxedDynQuery<EntityHandle<SceneNodeEntity>, Mat4<f32>>,
+  pub node_net_visible: BoxedDynQuery<EntityHandle<SceneNodeEntity>, bool>,
+  pub camera_transforms: BoxedDynQuery<EntityHandle<SceneCameraEntity>, CameraTransform>,
   pub mesh_vertex_ref:
     RevRefOfForeignKey<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>,
 }

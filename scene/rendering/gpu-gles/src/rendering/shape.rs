@@ -37,13 +37,13 @@ impl RenderImplProvider<Box<dyn GLESModelShapeRenderImpl>>
     let multi_access = global_rev_ref()
       .watch_inv_ref::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>(
     );
-    self.multi_access = source.register_reactive_multi_collection(multi_access);
+    self.multi_access = source.register_multi_reactive_query(multi_access);
 
     let index = attribute_mesh_index_buffers(cx);
-    self.index = source.register_self_contained_reactive_collection(index);
+    self.index = source.register_val_refed_reactive_query(index);
 
     let vertex = attribute_mesh_vertex_buffer_views(cx);
-    self.vertex = source.register_self_contained_reactive_collection(vertex);
+    self.vertex = source.register_val_refed_reactive_query(vertex);
   }
 
   fn create_impl(
@@ -55,17 +55,17 @@ impl RenderImplProvider<Box<dyn GLESModelShapeRenderImpl>>
         .read_foreign_key(),
       mode: global_entity_component_of::<AttributesMeshEntityTopology>().read(),
       index: res
-        .take_self_contained_reactive_collection_updated(self.index)
+        .take_val_refed_reactive_query_updated(self.index)
         .unwrap(),
       vertex: AttributesMeshEntityVertexAccessView {
         semantics: global_entity_component_of::<AttributesMeshEntityVertexBufferSemantic>().read(),
         count: global_entity_component_of::<SceneBufferViewBufferItemCount<AttributeVertexRef>>()
           .read(),
         multi_access: res
-          .take_multi_reactive_collection_updated(self.multi_access)
+          .take_reactive_multi_query_updated(self.multi_access)
           .unwrap(),
         vertex: res
-          .take_self_contained_reactive_collection_updated(self.vertex)
+          .take_val_refed_reactive_query_updated(self.vertex)
           .unwrap(),
       },
       count: global_entity_component_of::<SceneBufferViewBufferItemCount<AttributeIndexRef>>()
@@ -78,10 +78,7 @@ pub struct AttributesMeshEntityDefaultRenderImpl {
   mesh_access: ForeignKeyReadView<StandardModelRefAttributesMeshEntity>,
   mode: ComponentReadView<AttributesMeshEntityTopology>,
   count: ComponentReadView<SceneBufferViewBufferItemCount<AttributeIndexRef>>,
-  index: BoxedDynVirtualCollectionSelfContained<
-    EntityHandle<AttributesMeshEntity>,
-    GPUBufferResourceView,
-  >,
+  index: BoxedDynValueRefQuery<EntityHandle<AttributesMeshEntity>, GPUBufferResourceView>,
   vertex: AttributesMeshEntityVertexAccessView,
 }
 

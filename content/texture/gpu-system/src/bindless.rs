@@ -28,9 +28,9 @@ pub struct BindlessTextureSystemSource {
 
 impl BindlessTextureSystemSource {
   pub fn new(
-    texture2d: impl ReactiveCollection<Key = u32, Value = GPU2DTextureView>,
+    texture2d: impl ReactiveQuery<Key = u32, Value = GPU2DTextureView>,
     default_2d: GPU2DTextureView,
-    sampler: impl ReactiveCollection<Key = u32, Value = GPUSamplerView>,
+    sampler: impl ReactiveQuery<Key = u32, Value = GPUSamplerView>,
     default_sampler: GPUSamplerView,
     max_binding_length: u32,
   ) -> Self {
@@ -58,7 +58,7 @@ both!(
   ShaderHandlePtr<BindingArray<ShaderHandlePtr<ShaderSampler>>>
 );
 
-impl ReactiveQuery for BindlessTextureSystemSource {
+impl ReactiveGeneralQuery for BindlessTextureSystemSource {
   type Output = Box<dyn DynAbstractGPUTextureSystem>;
 
   fn poll_query(&mut self, cx: &mut Context) -> Self::Output {

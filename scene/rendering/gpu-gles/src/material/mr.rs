@@ -27,27 +27,27 @@ pub type PbrMRMaterialUniforms = UniformUpdateContainer<EntityHandle<PbrMRMateri
 pub fn pbr_mr_material_uniforms(cx: &GPU) -> PbrMRMaterialUniforms {
   let base_color = global_watch()
     .watch::<PbrMRMaterialBaseColorComponent>()
-    .into_uniform_collection_update(offset_of!(Uniform, base_color), cx);
+    .into_query_update_uniform(offset_of!(Uniform, base_color), cx);
 
   let emissive = global_watch()
     .watch::<PbrMRMaterialEmissiveComponent>()
-    .into_uniform_collection_update(offset_of!(Uniform, emissive), cx);
+    .into_query_update_uniform(offset_of!(Uniform, emissive), cx);
 
   let normal_mapping_scale = global_watch()
     .watch::<NormalScaleOf<PbrMRMaterialNormalInfo>>()
-    .into_uniform_collection_update(offset_of!(Uniform, normal_mapping_scale), cx);
+    .into_query_update_uniform(offset_of!(Uniform, normal_mapping_scale), cx);
 
   let roughness = global_watch()
     .watch::<PbrMRMaterialRoughnessComponent>()
-    .into_uniform_collection_update(offset_of!(Uniform, roughness), cx);
+    .into_query_update_uniform(offset_of!(Uniform, roughness), cx);
 
   let metallic = global_watch()
     .watch::<PbrMRMaterialMetallicComponent>()
-    .into_uniform_collection_update(offset_of!(Uniform, metallic), cx);
+    .into_query_update_uniform(offset_of!(Uniform, metallic), cx);
 
   let alpha = global_watch()
     .watch::<PbrMRMaterialAlphaComponent>()
-    .into_uniform_collection_update(offset_of!(Uniform, alpha), cx);
+    .into_query_update_uniform(offset_of!(Uniform, alpha), cx);
 
   PbrMRMaterialUniforms::default()
     .with_source(base_color)
@@ -85,7 +85,7 @@ pub fn pbr_mr_material_tex_uniforms(cx: &GPU) -> PbrMRMaterialTexUniforms {
 }
 
 pub fn pbr_mr_material_pipeline_hash(
-) -> impl ReactiveCollection<Key = EntityHandle<PbrMRMaterialEntity>, Value = AlphaMode> {
+) -> impl ReactiveQuery<Key = EntityHandle<PbrMRMaterialEntity>, Value = AlphaMode> {
   global_watch().watch::<PbrMRMaterialAlphaModeComponent>()
 }
 

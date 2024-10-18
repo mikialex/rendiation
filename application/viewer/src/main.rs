@@ -48,7 +48,7 @@ where
   env_logger::builder().init();
 
   setup_global_database(Default::default());
-  setup_active_collection_registry(Default::default());
+  setup_active_reactive_query_registry(Default::default());
 
   let watch = DatabaseMutationWatch::new(&global_database());
   let rev_watch = DatabaseEntityReverseReference::new(watch.clone());

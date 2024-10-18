@@ -156,7 +156,8 @@ impl<'a> IndexGet for PositionReader<'a> {
     self.position.get(key).copied()
   }
 }
-pub type AttributesMeshEntityShapeReadView<'a> = AttributesMeshEntityCustomReadView<'a, PositionReader<'a>>;
+pub type AttributesMeshEntityShapeReadView<'a> =
+  AttributesMeshEntityCustomReadView<'a, PositionReader<'a>>;
 
 #[derive(Clone)]
 pub struct FullReaderBase<'a> {
@@ -164,7 +165,8 @@ pub struct FullReaderBase<'a> {
   pub bytes: Vec<&'a [u8]>,
 }
 
-pub type AttributesMeshEntityFullReadView<'a> = AttributesMeshEntityCustomReadView<'a, FullReaderBase<'a>>;
+pub type AttributesMeshEntityFullReadView<'a> =
+  AttributesMeshEntityCustomReadView<'a, FullReaderBase<'a>>;
 
 #[derive(Clone, Copy)]
 pub struct FullReaderRead<'a> {

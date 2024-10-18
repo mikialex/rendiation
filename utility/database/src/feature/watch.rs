@@ -15,13 +15,13 @@ impl DataBaseFeature for DatabaseMutationWatch {
 
 #[derive(Clone)]
 struct ArenaAccess<T: CValue>(LockReadGuardHolder<Arena<T>>);
-impl<T: CValue> VirtualCollectionProvider<RawEntityHandle, T> for ArenaAccess<T> {
-  fn access(&self) -> BoxedDynVirtualCollection<RawEntityHandle, T> {
+impl<T: CValue> QueryProvider<RawEntityHandle, T> for ArenaAccess<T> {
+  fn access(&self) -> BoxedDynQuery<RawEntityHandle, T> {
     Box::new(self.clone())
   }
 }
 
-impl<V: CValue> VirtualCollection for ArenaAccess<V> {
+impl<V: CValue> Query for ArenaAccess<V> {
   type Key = RawEntityHandle;
   type Value = V;
   fn iter_key_value(&self) -> impl Iterator<Item = (RawEntityHandle, V)> + '_ {
@@ -52,7 +52,7 @@ impl DatabaseMutationWatch {
   pub fn watch_entity_set_dyn(
     &self,
     e_id: EntityId,
-  ) -> impl ReactiveCollection<Key = RawEntityHandle, Value = ()> {
+  ) -> impl ReactiveQuery<Key = RawEntityHandle, Value = ()> {
     if let Some(watcher) = self.entity_set_changes.read().get(&e_id) {
       let watcher = watcher
         .downcast_ref::<RxCForker<RawEntityHandle, ()>>()
@@ -66,7 +66,7 @@ impl DatabaseMutationWatch {
       (rev, full)
     });
 
-    let rxc = ReactiveCollectionFromCollectiveMutation::<RawEntityHandle, ()> {
+    let rxc = ReactiveQueryFromCollectiveMutation::<RawEntityHandle, ()> {
       full: Box::new(ArenaAccess(full.make_read_holder())),
       mutation: RwLock::new(rev),
     };
@@ -78,7 +78,7 @@ impl DatabaseMutationWatch {
 
   pub fn watch_untyped_key<C: ComponentSemantic>(
     &self,
-  ) -> impl ReactiveCollection<Key = u32, Value = C::Data> {
+  ) -> impl ReactiveQuery<Key = u32, Value = C::Data> {
     GenerationHelperView {
       inner: self.watch_dyn::<C::Data>(C::component_id(), C::Entity::entity_id()),
       phantom: PhantomData::<C::Data>,
@@ -90,7 +90,7 @@ impl DatabaseMutationWatch {
 
   pub fn watch<C: ComponentSemantic>(
     &self,
-  ) -> impl ReactiveCollection<Key = EntityHandle<C::Entity>, Value = C::Data> {
+  ) -> impl ReactiveQuery<Key = EntityHandle<C::Entity>, Value = C::Data> {
     self
       .watch_dyn(C::component_id(), C::Entity::entity_id())
       .collective_key_dual_map(
@@ -101,10 +101,8 @@ impl DatabaseMutationWatch {
 
   pub fn watch_typed_foreign_key<C: ForeignKeySemantic>(
     &self,
-  ) -> impl ReactiveCollection<
-    Key = EntityHandle<C::Entity>,
-    Value = Option<EntityHandle<C::ForeignEntity>>,
-  > {
+  ) -> impl ReactiveQuery<Key = EntityHandle<C::Entity>, Value = Option<EntityHandle<C::ForeignEntity>>>
+  {
     self
       .watch::<C>()
       .collective_map(|v| v.map(|v| unsafe { EntityHandle::<C::ForeignEntity>::from_raw(v) }))
@@ -114,7 +112,7 @@ impl DatabaseMutationWatch {
     &self,
     component_id: ComponentId,
     entity_id: EntityId,
-  ) -> impl ReactiveCollection<Key = RawEntityHandle, Value = ForeignKeyComponentData> {
+  ) -> impl ReactiveQuery<Key = RawEntityHandle, Value = ForeignKeyComponentData> {
     self.watch_dyn::<ForeignKeyComponentData>(component_id, entity_id)
   }
 
@@ -122,7 +120,7 @@ impl DatabaseMutationWatch {
     &self,
     component_id: ComponentId,
     entity_id: EntityId,
-  ) -> impl ReactiveCollection<Key = RawEntityHandle, Value = T> {
+  ) -> impl ReactiveQuery<Key = RawEntityHandle, Value = T> {
     if let Some(watcher) = self.component_changes.read().get(&component_id) {
       let watcher = watcher
         .downcast_ref::<RxCForker<RawEntityHandle, T>>()
@@ -150,7 +148,7 @@ impl DatabaseMutationWatch {
       .unwrap()
     });
 
-    let rxc = ReactiveCollectionFromCollectiveMutation {
+    let rxc = ReactiveQueryFromCollectiveMutation {
       full: Box::new(ComponentAccess {
         ecg: self.db.access_ecg_dyn(entity_id, |ecg| ecg.clone()),
         original,
@@ -158,7 +156,7 @@ impl DatabaseMutationWatch {
       mutation: RwLock::new(receiver),
     };
 
-    let rxc: BoxedDynReactiveCollection<RawEntityHandle, T> = Box::new(rxc);
+    let rxc: BoxedDynReactiveQuery<RawEntityHandle, T> = Box::new(rxc);
     let rxc: RxCForker<RawEntityHandle, T> = rxc.into_static_forker();
 
     self
@@ -198,8 +196,8 @@ struct ComponentAccess<T> {
   original: Arc<dyn ComponentStorage<T>>,
 }
 
-impl<T: CValue> VirtualCollectionProvider<u32, T> for ComponentAccess<T> {
-  fn access(&self) -> BoxedDynVirtualCollection<u32, T> {
+impl<T: CValue> QueryProvider<u32, T> for ComponentAccess<T> {
+  fn access(&self) -> BoxedDynQuery<u32, T> {
     IterableComponentReadView::<T> {
       ecg: self.ecg.clone(),
       read_view: self.original.create_read_view(),
@@ -208,8 +206,8 @@ impl<T: CValue> VirtualCollectionProvider<u32, T> for ComponentAccess<T> {
   }
 }
 
-impl<T: CValue> VirtualCollectionProvider<RawEntityHandle, T> for ComponentAccess<T> {
-  fn access(&self) -> BoxedDynVirtualCollection<RawEntityHandle, T> {
+impl<T: CValue> QueryProvider<RawEntityHandle, T> for ComponentAccess<T> {
+  fn access(&self) -> BoxedDynQuery<RawEntityHandle, T> {
     IterableComponentReadViewChecked::<T> {
       ecg: self.ecg.clone(),
       read_view: self.original.create_read_view(),
@@ -230,9 +228,7 @@ struct GenerationHelperViewAccess<T> {
   allocator: LockReadGuardHolder<Arena<()>>,
 }
 
-impl<T: VirtualCollection<Key = RawEntityHandle> + Clone> VirtualCollection
-  for GenerationHelperViewAccess<T>
-{
+impl<T: Query<Key = RawEntityHandle> + Clone> Query for GenerationHelperViewAccess<T> {
   type Key = u32;
   type Value = T::Value;
   fn iter_key_value(&self) -> impl Iterator<Item = (u32, T::Value)> + '_ {
@@ -245,13 +241,11 @@ impl<T: VirtualCollection<Key = RawEntityHandle> + Clone> VirtualCollection
   }
 }
 
-impl<T: ReactiveCollection<Key = RawEntityHandle>> ReactiveCollection
-  for GenerationHelperView<T, T::Value>
-{
+impl<T: ReactiveQuery<Key = RawEntityHandle>> ReactiveQuery for GenerationHelperView<T, T::Value> {
   type Key = u32;
   type Value = T::Value;
-  type Changes = impl VirtualCollection<Key = u32, Value = ValueChange<T::Value>>;
-  type View = impl VirtualCollection<Key = u32, Value = T::Value>;
+  type Changes = impl Query<Key = u32, Value = ValueChange<T::Value>>;
+  type View = impl Query<Key = u32, Value = T::Value>;
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let (inner, inner_access) = self.inner.poll_changes(cx);
 
@@ -268,7 +262,7 @@ impl<T: ReactiveCollection<Key = RawEntityHandle>> ReactiveCollection
     (delta, access)
   }
 
-  fn request(&mut self, request: &mut ReactiveCollectionRequest) {
+  fn request(&mut self, request: &mut ReactiveQueryRequest) {
     self.inner.request(request)
   }
 }

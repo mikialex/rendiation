@@ -32,7 +32,7 @@ impl RenderImplProvider<Box<dyn SceneRenderer>> for GLESRenderSystem {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
     self.texture_system.register_resource(source, cx);
     let model_lookup = global_rev_ref().watch_inv_ref::<SceneModelBelongsToScene>();
-    self.model_lookup = source.register_reactive_multi_collection(model_lookup);
+    self.model_lookup = source.register_multi_reactive_query(model_lookup);
     self.camera.register_resource(source, cx);
     for imp in &mut self.scene_model_impl {
       imp.register_resource(source, cx);
@@ -48,7 +48,7 @@ impl RenderImplProvider<Box<dyn SceneRenderer>> for GLESRenderSystem {
         .collect(),
       background: SceneBackgroundRenderer::new_from_global(),
       model_lookup: res
-        .take_multi_reactive_collection_updated(self.model_lookup)
+        .take_reactive_multi_query_updated(self.model_lookup)
         .unwrap(),
       texture_system: self.texture_system.create_impl(res),
       camera: self.camera.create_impl(res),

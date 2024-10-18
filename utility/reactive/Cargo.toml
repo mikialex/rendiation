@@ -11,7 +11,7 @@ pin-project = { workspace = true }
 heap-tools = { path = "../heap-tools" }
 # incremental = { path = "../incremental" }
 reactive-stream = { path = "../reactive-stream" }
-reactive-collection = { path = "../reactive-collection" }
+reactive-query = { path = "../reactive-query" }
 storage = { path = "../storage" }
 smallvec = { workspace = true }
 dyn-clone = { workspace = true }

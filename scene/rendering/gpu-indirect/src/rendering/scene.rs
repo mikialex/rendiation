@@ -13,7 +13,7 @@ impl RenderImplProvider<Box<dyn SceneRenderer>> for IndirectRenderSystem {
     self.texture_system.register_resource(source, cx);
 
     let model_lookup = global_rev_ref().watch_inv_ref::<SceneModelBelongsToScene>();
-    self.model_lookup = source.register_reactive_multi_collection(model_lookup);
+    self.model_lookup = source.register_multi_reactive_query(model_lookup);
     self.camera.register_resource(source, cx);
     for imp in &mut self.scene_model_impl {
       imp.register_resource(source, cx);

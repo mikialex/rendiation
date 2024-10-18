@@ -119,9 +119,9 @@ pub fn register_instance_mesh_data_model() {
     .declare_foreign_key::<InstanceMeshInstanceEntityRefAttributesMeshEntity>();
 }
 
-#[global_registered_collection]
+#[global_registered_query]
 pub fn attribute_mesh_local_bounding(
-) -> impl ReactiveCollection<Key = EntityHandle<AttributesMeshEntity>, Value = Box3> {
+) -> impl ReactiveQuery<Key = EntityHandle<AttributesMeshEntity>, Value = Box3> {
   let index_buffer_ref =
     global_watch().watch_typed_foreign_key::<SceneBufferViewBufferId<AttributeIndexRef>>();
   let index_buffer_range = global_watch().watch::<SceneBufferViewBufferRange<AttributeIndexRef>>();

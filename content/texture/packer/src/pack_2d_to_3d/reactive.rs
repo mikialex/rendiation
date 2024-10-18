@@ -8,9 +8,9 @@ use super::*;
 
 pub fn reactive_pack_2d_to_3d(
   mut config: MultiLayerTexturePackerConfig,
-  size: BoxedDynReactiveCollection<u32, Size>,
+  size: BoxedDynReactiveQuery<u32, Size>,
 ) -> (
-  impl ReactiveCollection<Key = u32, Value = PackResult2dWithDepth>,
+  impl ReactiveQuery<Key = u32, Value = PackResult2dWithDepth>,
   impl Stream<Item = SizeWithDepth> + Unpin,
 ) {
   config.make_sure_valid();
@@ -38,7 +38,7 @@ type PackerImpl = GrowablePacker<MultiLayerTexturePacker<EtagerePacker>>;
 
 struct Packer {
   max_size: SizeWithDepth,
-  size_source: BoxedDynReactiveCollection<u32, Size>,
+  size_source: BoxedDynReactiveQuery<u32, Size>,
 
   packer: Arc<RwLock<PackerImpl>>,
   // todo, i think this is not necessary if the packer lib not generate id
@@ -56,7 +56,7 @@ struct PackerCurrentView {
   packer: LockReadGuardHolder<PackerImpl>,
 }
 
-impl VirtualCollection for PackerCurrentView {
+impl Query for PackerCurrentView {
   type Key = u32;
   type Value = PackResult2dWithDepth;
   fn iter_key_value(&self) -> impl Iterator<Item = (u32, PackResult2dWithDepth)> + '_ {
@@ -75,10 +75,10 @@ impl VirtualCollection for PackerCurrentView {
   }
 }
 
-impl ReactiveCollection for Packer {
+impl ReactiveQuery for Packer {
   type Key = u32;
   type Value = PackResult2dWithDepth;
-  type Changes = BoxedDynVirtualCollection<u32, ValueChange<PackResult2dWithDepth>>;
+  type Changes = BoxedDynQuery<u32, ValueChange<PackResult2dWithDepth>>;
   type View = PackerCurrentView;
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let (d, _) = self.size_source.poll_changes(cx);
@@ -174,13 +174,13 @@ impl ReactiveCollection for Packer {
     let d = if let Poll::Ready(Some(r)) = self.accumulated_mutations.poll_impl(cx) {
       r
     } else {
-      Box::new(EmptyCollection::default())
+      Box::new(EmptyQuery::default())
     };
 
     (d, v)
   }
 
-  fn request(&mut self, request: &mut ReactiveCollectionRequest) {
+  fn request(&mut self, request: &mut ReactiveQueryRequest) {
     // consider trigger packer shrink logic here?
     self.size_source.request(request);
   }

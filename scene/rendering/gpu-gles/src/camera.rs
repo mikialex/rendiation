@@ -18,7 +18,7 @@ pub fn camera_gpus(cx: &GPU) -> CameraUniforms {
 
       ..Zeroable::zeroed()
     })
-    .into_uniform_collection_update(0, cx);
+    .into_query_update_uniform(0, cx);
 
   CameraUniforms::default().with_source(source)
 }

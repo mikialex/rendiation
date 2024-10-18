@@ -26,23 +26,23 @@ pub type PbrSGMaterialUniforms = UniformUpdateContainer<EntityHandle<PbrSGMateri
 pub fn pbr_sg_material_uniforms(cx: &GPU) -> PbrSGMaterialUniforms {
   let albedo = global_watch()
     .watch::<PbrSGMaterialAlbedoComponent>()
-    .into_uniform_collection_update(offset_of!(Uniform, albedo), cx);
+    .into_query_update_uniform(offset_of!(Uniform, albedo), cx);
 
   let emissive = global_watch()
     .watch::<PbrSGMaterialEmissiveComponent>()
-    .into_uniform_collection_update(offset_of!(Uniform, emissive), cx);
+    .into_query_update_uniform(offset_of!(Uniform, emissive), cx);
 
   let normal_mapping_scale = global_watch()
     .watch::<NormalScaleOf<PbrSGMaterialNormalInfo>>()
-    .into_uniform_collection_update(offset_of!(Uniform, normal_mapping_scale), cx);
+    .into_query_update_uniform(offset_of!(Uniform, normal_mapping_scale), cx);
 
   let glossiness = global_watch()
     .watch::<PbrSGMaterialGlossinessComponent>()
-    .into_uniform_collection_update(offset_of!(Uniform, glossiness), cx);
+    .into_query_update_uniform(offset_of!(Uniform, glossiness), cx);
 
   let alpha = global_watch()
     .watch::<PbrSGMaterialAlphaComponent>()
-    .into_uniform_collection_update(offset_of!(Uniform, alpha), cx);
+    .into_query_update_uniform(offset_of!(Uniform, alpha), cx);
 
   PbrSGMaterialUniforms::default()
     .with_source(albedo)
@@ -82,7 +82,7 @@ pub fn pbr_sg_material_tex_uniforms(cx: &GPU) -> PbrSGMaterialTexUniforms {
 }
 
 pub fn pbr_sg_material_pipeline_hash(
-) -> impl ReactiveCollection<Key = EntityHandle<PbrSGMaterialEntity>, Value = AlphaMode> {
+) -> impl ReactiveQuery<Key = EntityHandle<PbrSGMaterialEntity>, Value = AlphaMode> {
   global_watch().watch::<PbrSGMaterialAlphaModeComponent>()
 }
 

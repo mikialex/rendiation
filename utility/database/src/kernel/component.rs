@@ -119,7 +119,7 @@ impl<T> Clone for IterableComponentReadView<T> {
   }
 }
 
-impl<T: CValue> VirtualCollection for IterableComponentReadView<T> {
+impl<T: CValue> Query for IterableComponentReadView<T> {
   type Key = u32;
   type Value = T;
   fn iter_key_value(&self) -> impl Iterator<Item = (u32, T)> + '_ {
@@ -148,7 +148,7 @@ impl<T> Clone for IterableComponentReadViewChecked<T> {
   }
 }
 
-impl<T: CValue> VirtualCollection for IterableComponentReadViewChecked<T> {
+impl<T: CValue> Query for IterableComponentReadViewChecked<T> {
   type Key = RawEntityHandle;
   type Value = T;
   fn iter_key_value(&self) -> impl Iterator<Item = (RawEntityHandle, T)> + '_ {

@@ -1,0 +1,26 @@
+[package]
+edition = "2021"
+name = "reactive-query"
+version = "0.0.1"
+
+[dependencies]
+dyn-downcast = { path = "../dyn-downcast" }
+query = { path = "../query" }
+fast-hash-collection = { path = "../fast-hash-collection" }
+futures = { workspace = true }
+pin-project = { workspace = true }
+heap-tools = { path = "../heap-tools" }
+storage = { path = "../storage" }
+smallvec = { workspace = true }
+tracing = { workspace = true }
+dashmap = { workspace = true }
+dyn-clone = { workspace = true }
+rendiation-abstract-tree = { path = "../abstract-tree" }
+xalloc = "0.2.7"
+reactive-stream = { path = "../reactive-stream" }
+
+# we use it's rwlock to avoid recursive read deadlock
+parking_lot = { version = "0.12.1", features = ["send_guard"] }
+
+[lints]
+workspace = true

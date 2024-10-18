@@ -6,7 +6,7 @@ pub type FlatMaterialUniforms =
 pub fn flat_material_uniforms(cx: &GPU) -> FlatMaterialUniforms {
   let color = global_watch()
     .watch::<FlatMaterialDisplayColorComponent>()
-    .into_uniform_collection_update(offset_of!(FlatMaterialUniform, color), cx);
+    .into_query_update_uniform(offset_of!(FlatMaterialUniform, color), cx);
 
   FlatMaterialUniforms::default().with_source(color)
 }

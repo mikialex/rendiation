@@ -1,5 +1,5 @@
+use query::*;
 use rendiation_texture_core::GPUBufferImage;
-use virtual_collection::*;
 
 use crate::*;
 
@@ -10,7 +10,7 @@ pub struct SceneReader {
   pub mesh: AttributesMeshReader,
 
   pub node_reader: EntityReader<SceneNodeEntity>,
-  pub node_children: BoxedDynVirtualMultiCollection<RawEntityHandle, RawEntityHandle>,
+  pub node_children: BoxedDynMultiQuery<RawEntityHandle, RawEntityHandle>,
   pub scene_model: EntityReader<SceneModelEntity>,
   pub std_model: EntityReader<StandardModelEntity>,
   pub sampler: EntityReader<SceneSamplerEntity>,

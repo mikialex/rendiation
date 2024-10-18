@@ -35,11 +35,11 @@ impl<T: Std430> ReactiveStorageBufferContainer<T> {
 
   pub fn with_source<C>(mut self, source: C, field_offset: usize) -> Self
   where
-    C: ReactiveCollection,
+    C: ReactiveQuery,
     C::Key: LinearIdentified,
     C::Value: Pod,
   {
-    let updater = CollectionToStorageBufferUpdater {
+    let updater = QueryBasedStorageBufferUpdate {
       field_offset: field_offset as u32,
       upstream: source,
     };
@@ -49,15 +49,15 @@ impl<T: Std430> ReactiveStorageBufferContainer<T> {
   }
 }
 
-struct CollectionToStorageBufferUpdater<T> {
+struct QueryBasedStorageBufferUpdate<T> {
   field_offset: u32,
   upstream: T,
 }
 
-impl<T, C> CollectionUpdate<CommonStorageBufferImpl<T>> for CollectionToStorageBufferUpdater<C>
+impl<T, C> QueryBasedUpdate<CommonStorageBufferImpl<T>> for QueryBasedStorageBufferUpdate<C>
 where
   T: Std430,
-  C: ReactiveCollection,
+  C: ReactiveQuery,
   C::Key: LinearIdentified,
   C::Value: Pod,
 {

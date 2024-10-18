@@ -8,30 +8,30 @@ use crate::*;
 
 pub type CubeMapUpdateContainer<K> = MultiUpdateContainer<FastHashMap<K, GPUCubeTextureView>>;
 
-pub struct CubeMapCollectionUpdate<T> {
+pub struct QueryBasedCubeMapUpdate<T> {
   face: CubeTextureFace,
   upstream: T,
   gpu_ctx: GPU,
 }
 
-pub trait CubeMapCollectionUpdateExt: Sized {
-  fn into_cube_face_collection_update(
+pub trait CubeMapQueryUpdateExt: Sized {
+  fn into_query_update_cube_face(
     self,
     face: CubeTextureFace,
     gpu_ctx: &GPU,
-  ) -> CubeMapCollectionUpdate<Self>;
+  ) -> QueryBasedCubeMapUpdate<Self>;
 }
-impl<T> CubeMapCollectionUpdateExt for T
+impl<T> CubeMapQueryUpdateExt for T
 where
-  T: ReactiveCollection,
+  T: ReactiveQuery,
   T::Value: Deref<Target = GPUBufferImage>,
 {
-  fn into_cube_face_collection_update(
+  fn into_query_update_cube_face(
     self,
     face: CubeTextureFace,
     gpu_ctx: &GPU,
-  ) -> CubeMapCollectionUpdate<Self> {
-    CubeMapCollectionUpdate {
+  ) -> QueryBasedCubeMapUpdate<Self> {
+    QueryBasedCubeMapUpdate {
       face,
       upstream: self,
       gpu_ctx: gpu_ctx.clone(),
@@ -39,9 +39,9 @@ where
   }
 }
 
-impl<C> CollectionUpdate<FastHashMap<C::Key, GPUCubeTextureView>> for CubeMapCollectionUpdate<C>
+impl<C> QueryBasedUpdate<FastHashMap<C::Key, GPUCubeTextureView>> for QueryBasedCubeMapUpdate<C>
 where
-  C: ReactiveCollection,
+  C: ReactiveQuery,
   C::Value: Deref<Target = GPUBufferImage>,
 {
   fn update_target(

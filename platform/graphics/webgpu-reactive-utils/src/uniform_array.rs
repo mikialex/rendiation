@@ -4,29 +4,29 @@ pub type UniformArray<T, const N: usize> = UniformBufferDataView<Shader140Array<
 
 pub type UniformArrayUpdateContainer<T> = MultiUpdateContainer<UniformArray<T, 8>>;
 
-pub struct UniformArrayCollectionUpdate<T> {
+pub struct QueryBasedUniformArrayUpdate<T> {
   field_offset: u32,
   upstream: T,
   gpu_ctx: GPU,
 }
 
-pub trait UniformArrayCollectionUpdateExt: Sized {
-  fn into_uniform_array_collection_update(
+pub trait UniformArrayQueryUpdateExt: Sized {
+  fn into_query_update_uniform_array(
     self,
     field_offset: usize,
     gpu_ctx: &GPU,
-  ) -> UniformArrayCollectionUpdate<Self>;
+  ) -> QueryBasedUniformArrayUpdate<Self>;
 }
-impl<T> UniformArrayCollectionUpdateExt for T
+impl<T> UniformArrayQueryUpdateExt for T
 where
-  T: ReactiveCollection,
+  T: ReactiveQuery,
 {
-  fn into_uniform_array_collection_update(
+  fn into_query_update_uniform_array(
     self,
     field_offset: usize,
     gpu_ctx: &GPU,
-  ) -> UniformArrayCollectionUpdate<Self> {
-    UniformArrayCollectionUpdate {
+  ) -> QueryBasedUniformArrayUpdate<Self> {
+    QueryBasedUniformArrayUpdate {
       field_offset: field_offset as u32,
       upstream: self,
       gpu_ctx: gpu_ctx.clone(),
@@ -34,10 +34,10 @@ where
   }
 }
 
-impl<T, C> CollectionUpdate<UniformArray<T, 8>> for UniformArrayCollectionUpdate<C>
+impl<T, C> QueryBasedUpdate<UniformArray<T, 8>> for QueryBasedUniformArrayUpdate<C>
 where
   T: Std140 + Default,
-  C: ReactiveCollection,
+  C: ReactiveQuery,
   C::Key: LinearIdentified,
   C::Value: Pod,
 {

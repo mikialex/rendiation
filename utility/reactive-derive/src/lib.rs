@@ -4,7 +4,7 @@ use syn::Type;
 
 // note, this should split to another crate
 #[proc_macro_attribute]
-pub fn global_registered_collection(_args: TokenStream, input: TokenStream) -> TokenStream {
+pub fn global_registered_query(_args: TokenStream, input: TokenStream) -> TokenStream {
   let input: syn::ItemFn = syn::parse2(input.into()).unwrap();
 
   let mut original_fn = input;
@@ -16,7 +16,7 @@ pub fn global_registered_collection(_args: TokenStream, input: TokenStream) -> T
 
   quote! {
     pub fn #name() #rt {
-      reactive::global_collection_registry().fork_or_insert_with(#new_name)
+      reactive::global_reactive_query_registry().fork_or_insert_with(#new_name)
     }
 
     #original_fn
@@ -56,7 +56,7 @@ fn get_ty_name_pair(rt: &syn::ReturnType) -> (syn::Type, syn::Type) {
 }
 
 #[proc_macro_attribute]
-pub fn global_registered_collection_and_many_one_idx_relation(
+pub fn global_registered_query_and_many_one_idx_relation(
   _args: TokenStream,
   input: TokenStream,
 ) -> TokenStream {
@@ -75,11 +75,11 @@ pub fn global_registered_collection_and_many_one_idx_relation(
 
   quote! {
     pub fn #name() #rt + Clone {
-      reactive::global_collection_registry().fork_or_insert_with(#new_name)
+      reactive::global_reactive_query_registry().fork_or_insert_with(#new_name)
     }
 
     pub fn #relation_fn_name() -> impl ReactiveOneToManyRelation<#args_v, #args_k> + Clone {
-      reactive::global_collection_registry().get_or_create_relation_by_idx(#new_name)
+      reactive::global_reactive_query_registry().get_or_create_relation_by_idx(#new_name)
     }
 
     #original_fn
@@ -88,7 +88,7 @@ pub fn global_registered_collection_and_many_one_idx_relation(
 }
 
 #[proc_macro_attribute]
-pub fn global_registered_collection_and_many_one_hash_relation(
+pub fn global_registered_query_and_many_one_hash_relation(
   _args: TokenStream,
   input: TokenStream,
 ) -> TokenStream {
@@ -107,11 +107,11 @@ pub fn global_registered_collection_and_many_one_hash_relation(
 
   quote! {
     pub fn #name() #rt + Clone {
-      reactive::global_collection_registry().fork_or_insert_with(#new_name)
+      reactive::global_reactive_query_registry().fork_or_insert_with(#new_name)
     }
 
     pub fn #relation_fn_name() -> impl ReactiveOneToManyRelation<One = #args_v, Many =#args_k> + Clone {
-      reactive::global_collection_registry().get_or_create_relation_by_hash(#new_name)
+      reactive::global_reactive_query_registry().get_or_create_relation_by_hash(#new_name)
     }
 
     #original_fn

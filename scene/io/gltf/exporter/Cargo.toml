@@ -7,7 +7,7 @@ version = "0.0.1"
 gltf = "1.2.0"
 gltf-json = "1.2.0"
 database = { path = "../../../../utility/database" }
-virtual-collection = { path = "../../../../utility/virtual-collection" }
+query = { path = "../../../../utility/query" }
 rendiation-mesh-core = { path = "../../../../content/mesh/core" }
 rendiation-scene-core = { path = "../../../core" }
 rendiation-texture-core = { path = "../../../../content/texture/core" }
