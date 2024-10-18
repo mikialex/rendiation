@@ -1,4 +1,4 @@
-use rendiation_algebra::{Vec3, Vec4};
+use rendiation_algebra::Vec3;
 
 use crate::backend::wavefront_compute::geometry::intersect_ray_triangle_cpu;
 use crate::backend::wavefront_compute::geometry::naive::*;
@@ -13,10 +13,10 @@ pub(super) struct NaiveSahBvhCpu {
 
   // tri_range to index tri_bvh_root, box_range to index box_bvh_root
   pub(super) blas_meta_info: Vec<BlasMetaInfo>,
-  // vec3(tri_bvh_forest root_idx, geometry_idx, primitive_start, dummy)
-  pub(super) tri_bvh_root: Vec<Vec4<u32>>,
-  // vec3(box_bvh_forest root_idx, geometry_idx, primitive_start, dummy)
-  pub(super) box_bvh_root: Vec<Vec4<u32>>,
+  // tri_bvh_forest root_idx, geometry_idx, primitive_start, geometry_flags
+  pub(super) tri_bvh_root: Vec<GeometryMetaInfo>,
+  // box_bvh_forest root_idx, geometry_idx, primitive_start, geometry_flags
+  pub(super) box_bvh_root: Vec<GeometryMetaInfo>,
   // content range to index indices
   pub(super) tri_bvh_forest: Vec<DeviceBVHNode>,
   // content range to index boxes
@@ -82,9 +82,11 @@ impl NaiveSahBvhCpu {
         if !skip_triangles {
           for tri_root_index in blas_meta_info.tri_root_range.x..blas_meta_info.tri_root_range.y {
             let geometry = self.tri_bvh_root[tri_root_index as usize];
-            let blas_root_idx = geometry.x;
-            let geometry_idx = geometry.y;
-            let primitive_start = geometry.z;
+            let blas_root_idx = geometry.bvh_root_idx;
+            let geometry_idx = geometry.geometry_idx;
+            let primitive_start = geometry.primitive_start;
+            let geometry_flags = geometry.geometry_flags;
+            // todo apply flags, cull
 
             let bvh_iter = TraverseBvhIteratorCpu {
               bvh: &self.tri_bvh_forest,
@@ -132,8 +134,8 @@ impl NaiveSahBvhCpu {
         if !skip_boxes {
           for box_root_index in blas_meta_info.box_root_range.x..blas_meta_info.box_root_range.y {
             let idx = self.box_bvh_root[box_root_index as usize];
-            let blas_root_idx = idx.x;
-            // let geometry_idx = idx.y;
+            let blas_root_idx = idx.bvh_root_idx;
+            // let geometry_idx = idx.geometry_idx;
 
             let box_iter = TraverseBvhIteratorCpu {
               bvh: &self.box_bvh_forest,

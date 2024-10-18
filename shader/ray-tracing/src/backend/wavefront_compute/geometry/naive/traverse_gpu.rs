@@ -11,10 +11,10 @@ pub(super) struct NaiveSahBvhGpu {
 
   // tri_range to index tri_bvh_root, box_range to index box_bvh_root
   pub(super) blas_meta_info: StorageBufferReadOnlyDataView<[BlasMetaInfo]>,
-  // vec3(tri_bvh_forest root_idx, geometry_idx, primitive_start, dummy)
-  pub(super) tri_bvh_root: StorageBufferReadOnlyDataView<[Vec4<u32>]>,
-  // vec3(box_bvh_forest root_idx, geometry_idx, primitive_start, dummy)
-  pub(super) box_bvh_root: StorageBufferReadOnlyDataView<[Vec4<u32>]>,
+  // (tri_bvh_forest root_idx, geometry_idx, primitive_start, geometry_flags
+  pub(super) tri_bvh_root: StorageBufferReadOnlyDataView<[GeometryMetaInfo]>,
+  // box_bvh_forest root_idx, geometry_idx, primitive_start, geometry_flags
+  pub(super) box_bvh_root: StorageBufferReadOnlyDataView<[GeometryMetaInfo]>,
   // content range to index indices
   pub(super) tri_bvh_forest: StorageBufferReadOnlyDataView<[DeviceBVHNode]>,
   // content range to index boxes
@@ -79,8 +79,8 @@ pub struct NaiveSahBVHInvocationInstance {
   tlas_data: ReadOnlyStorageNode<[TopLevelAccelerationStructureSourceDeviceInstance]>,
   tlas_bounding: ReadOnlyStorageNode<[TlasBounding]>,
   blas_meta_info: ReadOnlyStorageNode<[BlasMetaInfo]>,
-  tri_bvh_root: ReadOnlyStorageNode<[Vec4<u32>]>,
-  box_bvh_root: ReadOnlyStorageNode<[Vec4<u32>]>,
+  tri_bvh_root: ReadOnlyStorageNode<[GeometryMetaInfo]>,
+  box_bvh_root: ReadOnlyStorageNode<[GeometryMetaInfo]>,
   tri_bvh_forest: ReadOnlyStorageNode<[DeviceBVHNode]>,
   box_bvh_forest: ReadOnlyStorageNode<[DeviceBVHNode]>,
   indices: ReadOnlyStorageNode<[u32]>,
@@ -364,9 +364,9 @@ fn iterate_tlas_blas_gpu(
 fn intersect_blas_gpu(
   blas_iter: impl ShaderIterator<Item = Node<RayBlas>>,
   tlas_data: ReadOnlyStorageNode<[TopLevelAccelerationStructureSourceDeviceInstance]>,
-  tri_bvh_root: ReadOnlyStorageNode<[Vec4<u32>]>,
+  tri_bvh_root: ReadOnlyStorageNode<[GeometryMetaInfo]>,
   tri_bvh_forest: ReadOnlyStorageNode<[DeviceBVHNode]>,
-  _box_bvh_root: ReadOnlyStorageNode<[Vec4<u32>]>,
+  _box_bvh_root: ReadOnlyStorageNode<[GeometryMetaInfo]>,
   _box_bvh_forest: ReadOnlyStorageNode<[DeviceBVHNode]>,
   indices: ReadOnlyStorageNode<[u32]>,
   vertices: ReadOnlyStorageNode<[f32]>,
@@ -386,10 +386,10 @@ fn intersect_blas_gpu(
     let blas = ray_blas.blas.expand();
 
     ForRange::new(blas.tri_root_range).for_each(move |tri_root_idx, _cx| {
-      let geometry = tri_bvh_root.index(tri_root_idx).load();
-      let root = geometry.x();
-      let geometry_id = geometry.y();
-      let primitive_start = geometry.z();
+      let geometry = tri_bvh_root.index(tri_root_idx).load().expand();
+      let root = geometry.bvh_root_idx;
+      let geometry_id = geometry.geometry_idx;
+      let primitive_start = geometry.primitive_start;
 
       let bvh_iter = TraverseBvhIteratorGpu {
         bvh: tri_bvh_forest,
@@ -490,9 +490,10 @@ fn intersect_blas_gpu(
     });
 
     // ForRange::new(blas.box_root_range).for_each(|box_root_idx, _cx| {
-    //   let geometry = box_bvh_root.index(box_root_idx).load();
-    //   let root = geometry.x();
-    //   let geometry_id = geometry.y();
+    //   let geometry = tri_bvh_root.index(box_root_idx).load().expand();
+    //   let root = geometry.bvh_root_idx;
+    //   let geometry_id = geometry.geometry_idx;
+    //   let primitive_start = geometry.primitive_start;
     //
     //   let bvh_iter = TraverseBvhIteratorGpu {
     //     bvh: box_bvh_forest,

@@ -43,6 +43,11 @@ pub trait ShaderBindingTableProvider {
   fn access_impl(&self) -> &dyn Any;
 }
 
+pub struct BottomLevelAccelerationStructureBuildSource2 {
+  geometry: BottomLevelAccelerationStructureBuildSource,
+  flags: GeometryFlags,
+}
+
 #[derive(Clone)]
 pub enum BottomLevelAccelerationStructureBuildSource {
   Triangles {

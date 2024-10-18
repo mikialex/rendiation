@@ -60,6 +60,16 @@ struct BlasMetaInfo {
   pub box_root_range: Vec2<u32>,
 }
 
+#[repr(C)]
+#[std430_layout]
+#[derive(Clone, Copy, PartialEq, Debug, ShaderStruct)]
+struct GeometryMetaInfo {
+  pub bvh_root_idx: u32,
+  pub geometry_idx: u32,
+  pub primitive_start: u32,
+  pub geometry_flags: u32,
+}
+
 #[derive(Default)]
 struct NaiveSahBvhSource {
   blas_data: Vec<Option<Vec<BottomLevelAccelerationStructureBuildSource>>>,
@@ -332,7 +342,13 @@ impl NaiveSahBvhSource {
     let mut tri_bvh_forest = vec![];
     let mut box_bvh_forest = vec![];
     for (bvh, hit_miss, offset, geometry_idx) in tri_bvh {
-      tri_bvh_root.push(vec4(tri_bvh_forest.len() as u32, geometry_idx, offset, 0));
+      tri_bvh_root.push(GeometryMetaInfo {
+        bvh_root_idx: tri_bvh_forest.len() as u32,
+        geometry_idx,
+        primitive_start: offset,
+        geometry_flags: 0, // todo fill geometry_flags
+        ..Zeroable::zeroed()
+      });
       let nodes = bvh
         .nodes
         .iter()
@@ -341,7 +357,13 @@ impl NaiveSahBvhSource {
       tri_bvh_forest.extend(nodes);
     }
     for (bvh, hit_miss, offset, geometry_idx) in box_bvh {
-      box_bvh_root.push(vec4(box_bvh_forest.len() as u32, geometry_idx, offset, 0));
+      box_bvh_root.push(GeometryMetaInfo {
+        bvh_root_idx: box_bvh_forest.len() as u32,
+        geometry_idx,
+        primitive_start: offset,
+        geometry_flags: 0, // todo fill geometry_flags
+        ..Zeroable::zeroed()
+      });
       let nodes = bvh
         .nodes
         .iter()
