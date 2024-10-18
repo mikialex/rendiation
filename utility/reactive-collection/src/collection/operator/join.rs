@@ -36,9 +36,9 @@ where
     (d, v)
   }
 
-  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
-    self.a.extra_request(request);
-    self.b.extra_request(request);
+  fn request(&mut self, request: &mut ReactiveCollectionRequest) {
+    self.a.request(request);
+    self.b.request(request);
   }
 }
 

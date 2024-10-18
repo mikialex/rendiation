@@ -70,13 +70,13 @@ impl<T: CKey, K: CKey> ReactiveCollection for CollectionSetsRefcount<T, K> {
     (d, v)
   }
 
-  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
+  fn request(&mut self, request: &mut ReactiveCollectionRequest) {
     let mut sources = self.source_sets.write();
     for source in sources.iter_mut() {
-      source.extra_request(request);
+      source.request(request);
     }
     match request {
-      ExtraCollectionOperation::MemoryShrinkToFit => self.ref_count.write().shrink_to_fit(),
+      ReactiveCollectionRequest::MemoryShrinkToFit => self.ref_count.write().shrink_to_fit(),
     }
   }
 }

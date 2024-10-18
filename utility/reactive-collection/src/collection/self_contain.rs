@@ -41,7 +41,7 @@ pub trait DynReactiveCollectionSelfContained {
     cx: &mut Context,
   ) -> DynReactiveCollectionSelfContainedPoll<Self::Key, Self::Value>;
 
-  fn extra_request_dyn(&mut self, request: &mut ExtraCollectionOperation);
+  fn extra_request_dyn(&mut self, request: &mut ReactiveCollectionRequest);
 }
 
 impl<T> DynReactiveCollectionSelfContained for T
@@ -58,7 +58,7 @@ where
     (Box::new(d), Box::new(v))
   }
 
-  fn extra_request_dyn(&mut self, request: &mut ExtraCollectionOperation) {
-    self.extra_request(request)
+  fn extra_request_dyn(&mut self, request: &mut ReactiveCollectionRequest) {
+    self.request(request)
   }
 }

@@ -132,7 +132,7 @@ impl<K: CKey, T: CValue> ReactiveCollection for ReactiveCollectionFromCollective
     (d, v)
   }
 
-  fn extra_request(&mut self, _request: &mut ExtraCollectionOperation) {
+  fn request(&mut self, _request: &mut ReactiveCollectionRequest) {
     // component storage should not shrink here
   }
 }

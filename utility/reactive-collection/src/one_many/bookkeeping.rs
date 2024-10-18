@@ -91,10 +91,10 @@ where
     (r, v)
   }
 
-  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
-    self.upstream.extra_request(request);
+  fn request(&mut self, request: &mut ReactiveCollectionRequest) {
+    self.upstream.request(request);
     match request {
-      ExtraCollectionOperation::MemoryShrinkToFit => self.mapping.write().shrink_to_fit(),
+      ReactiveCollectionRequest::MemoryShrinkToFit => self.mapping.write().shrink_to_fit(),
     }
   }
 }
@@ -227,10 +227,10 @@ where
     (r, v)
   }
 
-  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
-    self.upstream.extra_request(request);
+  fn request(&mut self, request: &mut ReactiveCollectionRequest) {
+    self.upstream.request(request);
     match request {
-      ExtraCollectionOperation::MemoryShrinkToFit => {
+      ReactiveCollectionRequest::MemoryShrinkToFit => {
         let mut mapping = self.mapping.write();
         mapping.mapping.shrink_to_fit();
         mapping.mapping_buffer.shrink_to_fit();

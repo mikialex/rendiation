@@ -27,8 +27,8 @@ where
     (d, v)
   }
 
-  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
-    self.inner.extra_request(request)
+  fn request(&mut self, request: &mut ReactiveCollectionRequest) {
+    self.inner.request(request)
   }
 }
 
@@ -57,8 +57,8 @@ where
     (d, v)
   }
 
-  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
-    self.inner.extra_request(request)
+  fn request(&mut self, request: &mut ReactiveCollectionRequest) {
+    self.inner.request(request)
   }
 }
 
@@ -109,10 +109,10 @@ where
     (d, v)
   }
 
-  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
+  fn request(&mut self, request: &mut ReactiveCollectionRequest) {
     match request {
-      ExtraCollectionOperation::MemoryShrinkToFit => self.cache.write().shrink_to_fit(),
+      ReactiveCollectionRequest::MemoryShrinkToFit => self.cache.write().shrink_to_fit(),
     }
-    self.inner.extra_request(request)
+    self.inner.request(request)
   }
 }

@@ -119,10 +119,10 @@ where
     (d, v)
   }
 
-  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
+  fn request(&mut self, request: &mut ReactiveCollectionRequest) {
     self.data.write().shrink_to_fit();
-    self.payload_source.extra_request(request);
-    self.connectivity_source.extra_request(request);
+    self.payload_source.request(request);
+    self.connectivity_source.request(request);
   }
 }
 

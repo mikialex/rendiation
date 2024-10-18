@@ -102,9 +102,9 @@ where
     (d, v)
   }
 
-  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
-    self.upstream.extra_request(request);
-    self.relations.extra_request(request);
+  fn request(&mut self, request: &mut ReactiveCollectionRequest) {
+    self.upstream.request(request);
+    self.relations.request(request);
   }
 }
 
@@ -255,11 +255,11 @@ where
     (d, v)
   }
 
-  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
-    self.upstream.extra_request(request);
-    self.relations.extra_request(request);
+  fn request(&mut self, request: &mut ReactiveCollectionRequest) {
+    self.upstream.request(request);
+    self.relations.request(request);
     match request {
-      ExtraCollectionOperation::MemoryShrinkToFit => {
+      ReactiveCollectionRequest::MemoryShrinkToFit => {
         self.ref_count.write().shrink_to_fit();
       }
     }

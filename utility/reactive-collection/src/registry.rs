@@ -18,7 +18,7 @@ where
     self
   }
   fn shrink_to_fit(&mut self) {
-    self.extra_request(&mut ExtraCollectionOperation::MemoryShrinkToFit);
+    self.request(&mut ReactiveCollectionRequest::MemoryShrinkToFit);
   }
 }
 impl<O, M> ShrinkableAny for OneManyRelationForker<O, M>
@@ -30,7 +30,7 @@ where
     self
   }
   fn shrink_to_fit(&mut self) {
-    self.extra_request(&mut ExtraCollectionOperation::MemoryShrinkToFit);
+    self.request(&mut ReactiveCollectionRequest::MemoryShrinkToFit);
   }
 }
 

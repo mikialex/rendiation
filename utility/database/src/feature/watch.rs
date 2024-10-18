@@ -268,7 +268,7 @@ impl<T: ReactiveCollection<Key = RawEntityHandle>> ReactiveCollection
     (delta, access)
   }
 
-  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
-    self.inner.extra_request(request)
+  fn request(&mut self, request: &mut ReactiveCollectionRequest) {
+    self.inner.request(request)
   }
 }

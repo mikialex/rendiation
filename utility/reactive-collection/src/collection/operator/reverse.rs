@@ -45,10 +45,10 @@ where
     (mutations, self.mapping.make_read_holder())
   }
 
-  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
+  fn request(&mut self, request: &mut ReactiveCollectionRequest) {
     match request {
-      ExtraCollectionOperation::MemoryShrinkToFit => self.mapping.write().shrink_to_fit(),
+      ReactiveCollectionRequest::MemoryShrinkToFit => self.mapping.write().shrink_to_fit(),
     }
-    self.upstream.extra_request(request);
+    self.upstream.request(request);
   }
 }

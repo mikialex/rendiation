@@ -12,7 +12,7 @@ pub trait DynReactiveCollection: Sync + Send + 'static {
   fn poll_changes_dyn(&self, cx: &mut Context)
     -> DynReactiveCollectionPoll<Self::Key, Self::Value>;
 
-  fn extra_request_dyn(&mut self, request: &mut ExtraCollectionOperation);
+  fn extra_request_dyn(&mut self, request: &mut ReactiveCollectionRequest);
 }
 
 impl<T: ReactiveCollection> DynReactiveCollection for T {
@@ -26,8 +26,8 @@ impl<T: ReactiveCollection> DynReactiveCollection for T {
     (Box::new(d), Box::new(v))
   }
 
-  fn extra_request_dyn(&mut self, request: &mut ExtraCollectionOperation) {
-    self.extra_request(request)
+  fn extra_request_dyn(&mut self, request: &mut ReactiveCollectionRequest) {
+    self.request(request)
   }
 }
 
@@ -39,7 +39,7 @@ impl<K: CKey, V: CValue> ReactiveCollection for BoxedDynReactiveCollection<K, V>
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     self.deref().poll_changes_dyn(cx)
   }
-  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
+  fn request(&mut self, request: &mut ReactiveCollectionRequest) {
     self.deref_mut().extra_request_dyn(request)
   }
 }

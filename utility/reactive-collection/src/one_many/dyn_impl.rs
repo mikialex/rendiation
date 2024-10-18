@@ -18,7 +18,7 @@ pub trait DynReactiveOneToManyRelation: Send + Sync {
     cx: &mut Context,
   ) -> BoxedDynReactiveOneToManyRelationPoll<Self::One, Self::Many>;
 
-  fn extra_request_dyn(&mut self, request: &mut ExtraCollectionOperation);
+  fn extra_request_dyn(&mut self, request: &mut ReactiveCollectionRequest);
 }
 
 impl<T> DynReactiveOneToManyRelation for T
@@ -35,8 +35,8 @@ where
     (Box::new(d), Box::new(v.clone()), Box::new(v))
   }
 
-  fn extra_request_dyn(&mut self, request: &mut ExtraCollectionOperation) {
-    self.extra_request(request)
+  fn extra_request_dyn(&mut self, request: &mut ReactiveCollectionRequest) {
+    self.request(request)
   }
 }
 
@@ -58,7 +58,7 @@ where
     };
     (d, v)
   }
-  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
+  fn request(&mut self, request: &mut ReactiveCollectionRequest) {
     self.deref_mut().extra_request_dyn(request)
   }
 }

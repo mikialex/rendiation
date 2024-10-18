@@ -9,7 +9,7 @@ pub use dyn_impl::*;
 mod operator;
 pub use operator::*;
 
-pub enum ExtraCollectionOperation {
+pub enum ReactiveCollectionRequest {
   MemoryShrinkToFit,
 }
 
@@ -21,7 +21,7 @@ pub trait ReactiveCollection: Sync + Send + 'static {
 
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View);
 
-  fn extra_request(&mut self, request: &mut ExtraCollectionOperation);
+  fn request(&mut self, request: &mut ReactiveCollectionRequest);
 }
 
 #[derive(Clone)]
@@ -73,5 +73,5 @@ impl<K: CKey, V: CValue> ReactiveCollection for EmptyCollection<K, V> {
   fn poll_changes(&self, _: &mut Context) -> (Self::Changes, Self::View) {
     (Default::default(), Default::default())
   }
-  fn extra_request(&mut self, _: &mut ExtraCollectionOperation) {}
+  fn request(&mut self, _: &mut ReactiveCollectionRequest) {}
 }

@@ -37,8 +37,8 @@ where
     (d, v)
   }
 
-  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
-    self.inner.extra_request(request)
+  fn request(&mut self, request: &mut ReactiveCollectionRequest) {
+    self.inner.request(request)
   }
 }
 
@@ -74,7 +74,7 @@ where
     (d, v)
   }
 
-  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
-    self.inner.extra_request(request)
+  fn request(&mut self, request: &mut ReactiveCollectionRequest) {
+    self.inner.request(request)
   }
 }

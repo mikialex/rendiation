@@ -180,8 +180,8 @@ impl ReactiveCollection for Packer {
     (d, v)
   }
 
-  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
+  fn request(&mut self, request: &mut ReactiveCollectionRequest) {
     // consider trigger packer shrink logic here?
-    self.size_source.extra_request(request);
+    self.size_source.request(request);
   }
 }

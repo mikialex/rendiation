@@ -184,7 +184,7 @@ where
     (d, v)
   }
 
-  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
-    self.source.extra_request(request)
+  fn request(&mut self, request: &mut ReactiveCollectionRequest) {
+    self.source.request(request)
   }
 }
