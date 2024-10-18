@@ -72,7 +72,7 @@ struct GeometryMetaInfo {
 
 #[derive(Default)]
 struct NaiveSahBvhSource {
-  blas_data: Vec<Option<Vec<BottomLevelAccelerationStructureBuildSource>>>,
+  blas_data: Vec<Option<Vec<BottomLevelAccelerationStructureBuildSource2>>>,
   tlas_data: Vec<Option<TopLevelAccelerationStructureSourceInstance>>,
 }
 
@@ -84,7 +84,7 @@ impl GPUAccelerationStructureInstanceProvider for Range<u32> {
 }
 
 impl NaiveSahBvhSource {
-  pub fn create_blas(&mut self, source: &[BottomLevelAccelerationStructureBuildSource]) -> u32 {
+  pub fn create_blas(&mut self, source: &[BottomLevelAccelerationStructureBuildSource2]) -> u32 {
     // todo freelist
     let index = self.blas_data.len();
     self.blas_data.push(Some(source.to_vec()));
@@ -116,19 +116,19 @@ impl NaiveSahBvhSource {
   /// returns (
   ///   blas_meta_info,
   ///   blas_box,
-  ///   (tri_bvh, hit miss, index_offset, geometry_idx),
-  ///   (box_bvh, hit miss, box_offset, geometry_idx),
+  ///   (tri_bvh, hit miss, index_offset, geometry_idx, geometry_flags),
+  ///   (box_bvh, hit miss, box_offset, geometry_idx, geometry_flags),
   ///   indices,
   ///   vertices,
   ///   boxes
   /// )
   fn build_blas(
-    blas_data: &[Option<Vec<BottomLevelAccelerationStructureBuildSource>>],
+    blas_data: &[Option<Vec<BottomLevelAccelerationStructureBuildSource2>>],
   ) -> (
     Vec<BlasMetaInfo>,
     Vec<Box3>,
-    Vec<(FlattenBVH<Box3>, Vec<(u32, u32)>, u32, u32)>,
-    Vec<(FlattenBVH<Box3>, Vec<(u32, u32)>, u32, u32)>,
+    Vec<(FlattenBVH<Box3>, Vec<(u32, u32)>, u32, u32, u32)>,
+    Vec<(FlattenBVH<Box3>, Vec<(u32, u32)>, u32, u32, u32)>,
     Vec<u32>,
     Vec<Vec3<f32>>,
     Vec<Vec3<f32>>,
@@ -156,7 +156,8 @@ impl NaiveSahBvhSource {
       for (geometry_idx, source) in blas.iter().enumerate() {
         let geometry_idx = geometry_idx as u32;
         let mut root_box = Box3::default();
-        match source {
+        let geometry_flags = source.flags;
+        match &source.geometry {
           BottomLevelAccelerationStructureBuildSource::Triangles { positions, indices } => {
             let index_start = geometry_indices.len() as u32;
             let vertex_start = geometry_vertices.len() as u32;
@@ -185,7 +186,13 @@ impl NaiveSahBvhSource {
               geometry_indices.push(vertex_start + indices[primitive_idx * 3 + 2]);
             }
 
-            tri_bvh.push((bvh, traverse_next, index_start, geometry_idx));
+            tri_bvh.push((
+              bvh,
+              traverse_next,
+              index_start,
+              geometry_idx,
+              geometry_flags,
+            ));
           }
 
           BottomLevelAccelerationStructureBuildSource::AABBs { aabbs } => {
@@ -217,7 +224,13 @@ impl NaiveSahBvhSource {
               geometry_boxes.push(point1);
             }
 
-            box_bvh.push((bvh, traverse_next, boxes_start, geometry_idx));
+            box_bvh.push((
+              bvh,
+              traverse_next,
+              boxes_start,
+              geometry_idx,
+              geometry_flags,
+            ));
           }
         }
         blas_box.push(root_box);
@@ -341,12 +354,12 @@ impl NaiveSahBvhSource {
     let mut box_bvh_root = vec![];
     let mut tri_bvh_forest = vec![];
     let mut box_bvh_forest = vec![];
-    for (bvh, hit_miss, offset, geometry_idx) in tri_bvh {
+    for (bvh, hit_miss, offset, geometry_idx, geometry_flags) in tri_bvh {
       tri_bvh_root.push(GeometryMetaInfo {
         bvh_root_idx: tri_bvh_forest.len() as u32,
         geometry_idx,
         primitive_start: offset,
-        geometry_flags: 0, // todo fill geometry_flags
+        geometry_flags,
         ..Zeroable::zeroed()
       });
       let nodes = bvh
@@ -356,12 +369,12 @@ impl NaiveSahBvhSource {
         .map(|(node, (hit, miss))| flatten_bvh_to_gpu_node(node, hit, miss, offset));
       tri_bvh_forest.extend(nodes);
     }
-    for (bvh, hit_miss, offset, geometry_idx) in box_bvh {
+    for (bvh, hit_miss, offset, geometry_idx, geometry_flags) in box_bvh {
       box_bvh_root.push(GeometryMetaInfo {
         bvh_root_idx: box_bvh_forest.len() as u32,
         geometry_idx,
         primitive_start: offset,
-        geometry_flags: 0, // todo fill geometry_flags
+        geometry_flags,
         ..Zeroable::zeroed()
       });
       let nodes = bvh
@@ -525,7 +538,7 @@ impl GPUAccelerationStructureSystemProvider for NaiveSahBVHSystem {
 
   fn create_bottom_level_acceleration_structure(
     &self,
-    source: &[BottomLevelAccelerationStructureBuildSource],
+    source: &[BottomLevelAccelerationStructureBuildSource2],
   ) -> BottomLevelAccelerationStructureHandle {
     let mut inner = self.inner.write().unwrap();
     inner.invalidate();

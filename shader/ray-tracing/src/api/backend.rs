@@ -43,9 +43,10 @@ pub trait ShaderBindingTableProvider {
   fn access_impl(&self) -> &dyn Any;
 }
 
+#[derive(Clone)]
 pub struct BottomLevelAccelerationStructureBuildSource2 {
-  geometry: BottomLevelAccelerationStructureBuildSource,
-  flags: GeometryFlags,
+  pub geometry: BottomLevelAccelerationStructureBuildSource,
+  pub flags: GeometryFlags,
 }
 
 #[derive(Clone)]
@@ -73,7 +74,7 @@ pub trait GPUAccelerationStructureSystemProvider: DynClone {
 
   fn create_bottom_level_acceleration_structure(
     &self,
-    source: &[BottomLevelAccelerationStructureBuildSource],
+    source: &[BottomLevelAccelerationStructureBuildSource2],
   ) -> BottomLevelAccelerationStructureHandle;
 
   fn delete_bottom_level_acceleration_structure(&self, id: BottomLevelAccelerationStructureHandle);

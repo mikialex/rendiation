@@ -23,12 +23,15 @@ pub(crate) fn init_default_acceleration_structure(
   ];
 
   let blas_handle = system.create_bottom_level_acceleration_structure(&[
-    BottomLevelAccelerationStructureBuildSource::Triangles {
-      positions: CUBE_POSITION
-        .chunks_exact(3)
-        .map(|abc| vec3(abc[0], abc[1], abc[2]))
-        .collect(),
-      indices: CUBE_INDEX.map(|i| i as u32).into_iter().collect(),
+    BottomLevelAccelerationStructureBuildSource2 {
+      flags: GEOMETRY_FLAG_OPAQUE,
+      geometry: BottomLevelAccelerationStructureBuildSource::Triangles {
+        positions: CUBE_POSITION
+          .chunks_exact(3)
+          .map(|abc| vec3(abc[0], abc[1], abc[2]))
+          .collect(),
+        indices: CUBE_INDEX.map(|i| i as u32).into_iter().collect(),
+      },
     },
   ]);
 
