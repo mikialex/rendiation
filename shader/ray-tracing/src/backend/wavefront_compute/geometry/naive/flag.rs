@@ -4,6 +4,7 @@ use crate::backend::wavefront_compute::geometry::naive::*;
 
 #[repr(u32)]
 #[allow(non_camel_case_types)]
+#[derive(Copy, Clone, Debug)]
 pub enum TraverseFlags {
   // first bits are identical to ray flag
   NONE = 0x00,
@@ -16,7 +17,7 @@ pub enum TraverseFlags {
   CULL_OPAQUE = 0x40,
   CULL_NON_OPAQUE = 0x80,
   SKIP_TRIANGLES = 0x100,
-  SKIP_PROCEDURAL_PRIMITIVES = 0x200,
+  SKIP_BOXES = 0x200,
 
   // GEOMETRY_NO_DUPLICATE_ANYHIT_INVOCATION,
   TRIANGLE_FLIP_FACING = 0x400,
@@ -25,26 +26,77 @@ pub enum TraverseFlags {
   IS_OPAQUE = 0x800,
 }
 
-fn if_bit(
-  source: Node<u32>,
-  bit: u32,
-  flag: LocalVarNode<u32>,
-  if_true: impl FnOnce(Node<u32>) -> Node<u32>,
-) {
-  if_by((source & val(bit)).greater_than(val(0)), || {
-    flag.store(if_true(flag.load()))
-  });
-}
-
 impl TraverseFlags {
-  pub fn from_ray_flag(ray_flag: Node<u32>) -> LocalVarNode<u32> {
+  pub fn from_ray_flag_cpu(ray_flag: u32) -> Self {
+    unsafe { std::mem::transmute(ray_flag) }
+  }
+  pub fn from_ray_flag_gpu(ray_flag: Node<u32>) -> LocalVarNode<u32> {
     ray_flag.make_local_var()
   }
 
-  pub fn apply_geometry_instance_flag(
+  pub fn apply_geometry_instance_flag_cpu(
+    self,
+    geometry_instance_flag: GeometryInstanceFlags,
+  ) -> TraverseFlags {
+    fn if_bit(
+      source: GeometryInstanceFlags,
+      bit: u32,
+      flag: &mut TraverseFlags,
+      if_true: impl FnOnce(u32) -> u32,
+    ) {
+      if source & bit > 0 {
+        *flag = unsafe { std::mem::transmute(if_true(*flag as u32)) };
+      }
+    }
+
+    use TraverseFlags::*;
+    let mut traverse_flag = self;
+
+    if_bit(
+      geometry_instance_flag,
+      GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE,
+      &mut traverse_flag,
+      |flag| flag & !(CULL_BACK_FACING_TRIANGLES as u32 | CULL_FRONT_FACING_TRIANGLES as u32),
+    );
+
+    if_bit(
+      geometry_instance_flag,
+      GEOMETRY_INSTANCE_TRIANGLE_FLIP_FACING,
+      &mut traverse_flag,
+      |flag| flag ^ TRIANGLE_FLIP_FACING as u32,
+    );
+
+    if_bit(
+      geometry_instance_flag,
+      GEOMETRY_INSTANCE_FORCE_OPAQUE,
+      &mut traverse_flag,
+      |flag| flag | FORCE_OPAQUE as u32,
+    );
+    if_bit(
+      geometry_instance_flag,
+      GEOMETRY_INSTANCE_FORCE_NO_OPAQUE,
+      &mut traverse_flag,
+      |flag| flag | FORCE_NON_OPAQUE as u32,
+    );
+
+    traverse_flag
+  }
+
+  pub fn apply_geometry_instance_flag_gpu(
     traverse_flag: LocalVarNode<u32>,
     geometry_instance_flag: Node<u32>,
   ) {
+    fn if_bit(
+      source: Node<u32>,
+      bit: u32,
+      flag: LocalVarNode<u32>,
+      if_true: impl FnOnce(Node<u32>) -> Node<u32>,
+    ) {
+      if_by((source & val(bit)).greater_than(val(0)), || {
+        flag.store(if_true(flag.load()))
+      });
+    }
+
     use TraverseFlags::*;
 
     if_bit(

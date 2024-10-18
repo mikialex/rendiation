@@ -33,6 +33,8 @@ impl NaiveSahBvhCpu {
     ray: &mut ShaderRayTraceCallStoragePayload,
     any_hit: &mut dyn FnMut(u32, u32, f32, Vec3<f32>), /* geometry_idx, primitive_idx, distance, hit_position // todo use ctx */
   ) {
+    let flags = TraverseFlags::from_ray_flag_cpu(ray.ray_flags);
+
     // traverse tlas bvh, hit leaf
     let tlas_iter = TraverseBvhIteratorCpu {
       bvh: &self.tlas_bvh_forest,
@@ -64,6 +66,7 @@ impl NaiveSahBvhCpu {
         let tlas_data = &self.tlas_data[tlas_idx as usize];
         // hit tlas
         let blas_idx = tlas_data.acceleration_structure_handle;
+        let flags = flags.apply_geometry_instance_flag_cpu(tlas_data.flags);
 
         // traverse blas bvh
         let blas_ray_origin = tlas_data.transform_inv * ray.ray_origin.expand_with_one();
@@ -73,84 +76,89 @@ impl NaiveSahBvhCpu {
         let blas_ray_range = ray.range * distance_scaling;
         let blas_ray_direction = blas_ray_direction.normalize();
 
-        // todo check triangle related flags
         let blas_meta_info = &self.blas_meta_info[blas_idx as usize];
-        for tri_root_index in blas_meta_info.tri_root_range.x..blas_meta_info.tri_root_range.y {
-          let geometry = self.tri_bvh_root[tri_root_index as usize];
-          let blas_root_idx = geometry.x;
-          let geometry_idx = geometry.y;
-          let primitive_start = geometry.z;
 
-          let bvh_iter = TraverseBvhIteratorCpu {
-            bvh: &self.tri_bvh_forest,
-            ray_origin: blas_ray_origin,
-            ray_direction: blas_ray_direction,
-            ray_range: blas_ray_range,
-            curr_idx: blas_root_idx,
-          };
+        let skip_triangles = (flags as u32 & TraverseFlags::SKIP_TRIANGLES as u32) > 0;
+        if !skip_triangles {
+          for tri_root_index in blas_meta_info.tri_root_range.x..blas_meta_info.tri_root_range.y {
+            let geometry = self.tri_bvh_root[tri_root_index as usize];
+            let blas_root_idx = geometry.x;
+            let geometry_idx = geometry.y;
+            let primitive_start = geometry.z;
 
-          for hit_idx in bvh_iter {
-            let node = &self.tri_bvh_forest[hit_idx as usize];
+            let bvh_iter = TraverseBvhIteratorCpu {
+              bvh: &self.tri_bvh_forest,
+              ray_origin: blas_ray_origin,
+              ray_direction: blas_ray_direction,
+              ray_range: blas_ray_range,
+              curr_idx: blas_root_idx,
+            };
 
-            for tri_idx in node.content_range.x..node.content_range.y {
-              let i0 = self.indices[tri_idx as usize * 3];
-              let i1 = self.indices[tri_idx as usize * 3 + 1];
-              let i2 = self.indices[tri_idx as usize * 3 + 2];
-              let v0 = self.vertices[i0 as usize];
-              let v1 = self.vertices[i1 as usize];
-              let v2 = self.vertices[i2 as usize];
+            for hit_idx in bvh_iter {
+              let node = &self.tri_bvh_forest[hit_idx as usize];
 
-              // vec4(hit, distance, u, v)
-              let intersection = intersect_ray_triangle_cpu(
-                blas_ray_origin,
-                blas_ray_direction,
-                blas_ray_range,
-                v0,
-                v1,
-                v2,
-                // todo check flags
-              );
+              for tri_idx in node.content_range.x..node.content_range.y {
+                let i0 = self.indices[tri_idx as usize * 3];
+                let i1 = self.indices[tri_idx as usize * 3 + 1];
+                let i2 = self.indices[tri_idx as usize * 3 + 2];
+                let v0 = self.vertices[i0 as usize];
+                let v1 = self.vertices[i1 as usize];
+                let v2 = self.vertices[i2 as usize];
 
-              if intersection[0] > 0. {
-                let distance = intersection[1] / distance_scaling;
-                let p = blas_ray_origin + distance * blas_ray_direction;
-                // println!("hit {p:?}");
-                let primitive_idx = tri_idx - primitive_start;
-                any_hit(geometry_idx, primitive_idx, distance, p);
+                // vec4(hit, distance, u, v)
+                let intersection = intersect_ray_triangle_cpu(
+                  blas_ray_origin,
+                  blas_ray_direction,
+                  blas_ray_range,
+                  v0,
+                  v1,
+                  v2,
+                  // todo check flags
+                );
+
+                if intersection[0] > 0. {
+                  let distance = intersection[1] / distance_scaling;
+                  let p = blas_ray_origin + distance * blas_ray_direction;
+                  // println!("hit {p:?}");
+                  let primitive_idx = tri_idx - primitive_start;
+                  any_hit(geometry_idx, primitive_idx, distance, p);
+                }
               }
             }
           }
         }
 
-        // todo check box related flags
-        for box_root_index in blas_meta_info.box_root_range.x..blas_meta_info.box_root_range.y {
-          let idx = self.box_bvh_root[box_root_index as usize];
-          let blas_root_idx = idx.x;
-          // let geometry_idx = idx.y;
+        let skip_boxes = (flags as u32 & TraverseFlags::SKIP_BOXES as u32) > 0;
+        if !skip_boxes {
+          for box_root_index in blas_meta_info.box_root_range.x..blas_meta_info.box_root_range.y {
+            let idx = self.box_bvh_root[box_root_index as usize];
+            let blas_root_idx = idx.x;
+            // let geometry_idx = idx.y;
 
-          let box_iter = TraverseBvhIteratorCpu {
-            bvh: &self.box_bvh_forest,
-            ray_origin: blas_ray_origin,
-            ray_direction: blas_ray_direction,
-            ray_range: blas_ray_range,
-            curr_idx: blas_root_idx,
-          };
+            let box_iter = TraverseBvhIteratorCpu {
+              bvh: &self.box_bvh_forest,
+              ray_origin: blas_ray_origin,
+              ray_direction: blas_ray_direction,
+              ray_range: blas_ray_range,
+              curr_idx: blas_root_idx,
+            };
 
-          for hit_idx in box_iter {
-            let node = &self.box_bvh_forest[hit_idx as usize];
-            let aabb =
-              &self.boxes[node.content_range.x as usize * 2..node.content_range.y as usize * 2];
-            for aabb in aabb.chunks_exact(2) {
-              let hit = intersect_ray_aabb_cpu(
-                blas_ray_origin,
-                blas_ray_direction,
-                blas_ray_range,
-                aabb[0],
-                aabb[1],
-              );
-              if hit {
-                // todo call intersect, then anyhit
-                // todo modify range after hit
+            for hit_idx in box_iter {
+              let node = &self.box_bvh_forest[hit_idx as usize];
+              let aabb =
+                &self.boxes[node.content_range.x as usize * 2..node.content_range.y as usize * 2];
+              for aabb in aabb.chunks_exact(2) {
+                let hit = intersect_ray_aabb_cpu(
+                  blas_ray_origin,
+                  blas_ray_direction,
+                  blas_ray_range,
+                  aabb[0],
+                  aabb[1],
+                );
+                if hit {
+                  // todo call intersect, then anyhit
+                  // todo modify range after hit
+                }
               }
             }
           }
