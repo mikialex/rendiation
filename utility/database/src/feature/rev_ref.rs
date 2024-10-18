@@ -12,11 +12,9 @@ impl DataBaseFeature for DatabaseEntityReverseReference {
   }
 }
 
-pub type RevRefOfForeignKeyWatch<S> = Box<
-  dyn DynReactiveOneToManyRelation<
-    EntityHandle<<S as ForeignKeySemantic>::ForeignEntity>,
-    EntityHandle<<S as EntityAssociateSemantic>::Entity>,
-  >,
+pub type RevRefOfForeignKeyWatch<S> = BoxedDynReactiveOneToManyRelation<
+  EntityHandle<<S as ForeignKeySemantic>::ForeignEntity>,
+  EntityHandle<<S as EntityAssociateSemantic>::Entity>,
 >;
 
 pub type RevRefOfForeignKey<S> = Box<
@@ -36,7 +34,8 @@ impl DatabaseEntityReverseReference {
 
   pub fn watch_inv_ref<S: ForeignKeySemantic>(
     &self,
-  ) -> impl ReactiveOneToManyRelation<EntityHandle<S::ForeignEntity>, EntityHandle<S::Entity>> {
+  ) -> impl ReactiveOneToManyRelation<One = EntityHandle<S::ForeignEntity>, Many = EntityHandle<S::Entity>>
+  {
     self
       .watch_inv_ref_dyn(S::component_id(), S::Entity::entity_id())
       .collective_map_key_one_many(|v| unsafe { EntityHandle::from_raw(v) }, |k| k.handle)
@@ -45,7 +44,7 @@ impl DatabaseEntityReverseReference {
 
   pub fn watch_inv_ref_untyped<S: ForeignKeySemantic>(
     &self,
-  ) -> Box<dyn DynReactiveOneToManyRelation<u32, u32>> {
+  ) -> BoxedDynReactiveOneToManyRelation<u32, u32> {
     let inner = self.watch_inv_ref_dyn(S::component_id(), S::Entity::entity_id());
 
     let db = &self.mutation_watcher.db;
@@ -64,7 +63,7 @@ impl DatabaseEntityReverseReference {
     &self,
     semantic_id: ComponentId,
     entity_id: EntityId,
-  ) -> Box<dyn DynReactiveOneToManyRelation<RawEntityHandle, RawEntityHandle>> {
+  ) -> BoxedDynReactiveOneToManyRelation<RawEntityHandle, RawEntityHandle> {
     if let Some(refs) = self.entity_rev_refs.read().get(&semantic_id) {
       return Box::new(
         refs
@@ -82,7 +81,7 @@ impl DatabaseEntityReverseReference {
       .into_one_to_many_by_hash();
 
     let watcher: OneManyRelationForker<RawEntityHandle, RawEntityHandle> = (Box::new(watcher)
-      as Box<dyn DynReactiveOneToManyRelation<RawEntityHandle, RawEntityHandle>>)
+      as BoxedDynReactiveOneToManyRelation<RawEntityHandle, RawEntityHandle>)
       .into_static_forker();
 
     self
@@ -100,10 +99,12 @@ pub(crate) struct GenerationHelperMultiView<T> {
   foreign_allocator: Arc<RwLock<Arena<()>>>,
 }
 
-impl<T> ReactiveCollection<u32, u32> for GenerationHelperMultiView<T>
+impl<T> ReactiveCollection for GenerationHelperMultiView<T>
 where
-  T: ReactiveOneToManyRelation<RawEntityHandle, RawEntityHandle>,
+  T: ReactiveOneToManyRelation<One = RawEntityHandle, Many = RawEntityHandle>,
 {
+  type Key = u32;
+  type Value = u32;
   type Changes = impl VirtualCollection<u32, ValueChange<u32>>;
   type View = impl VirtualCollection<u32, u32> + VirtualMultiCollection<u32, u32>;
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {

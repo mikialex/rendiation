@@ -26,8 +26,8 @@ pub fn register_camera_data_model() {
 }
 
 #[global_registered_collection]
-pub fn camera_project_matrix() -> impl ReactiveCollection<EntityHandle<SceneCameraEntity>, Mat4<f32>>
-{
+pub fn camera_project_matrix(
+) -> impl ReactiveCollection<Key = EntityHandle<SceneCameraEntity>, Value = Mat4<f32>> {
   let perspective = global_watch()
     .watch::<SceneCameraPerspective>()
     .collective_filter_map(|proj| proj.map(|proj| proj.compute_projection_mat::<WebGPU>()));
@@ -66,7 +66,7 @@ pub fn cast_world_ray(view_projection_inv: Mat4<f32>, normalized_position: Vec2<
 
 #[global_registered_collection]
 pub fn camera_transforms(
-) -> impl ReactiveCollection<EntityHandle<SceneCameraEntity>, CameraTransform> {
+) -> impl ReactiveCollection<Key = EntityHandle<SceneCameraEntity>, Value = CameraTransform> {
   let projections = camera_project_matrix();
   let node_mats = scene_node_derive_world_mat();
 

@@ -1,48 +1,42 @@
 use crate::*;
 
-struct CollectionUpdater<T, V, F> {
-  phantom: PhantomData<V>,
+struct CollectionUpdater<T, F> {
   collection: T,
   update_logic: F,
 }
 
-pub trait CollectionUpdaterExt<K, V> {
+pub trait CollectionUpdaterExt: ReactiveCollection {
   fn into_collective_updater<TV: Default + CValue>(
     self,
-    update_logic: impl FnOnce(V, &mut TV) + Copy,
-  ) -> impl CollectionUpdate<Box<dyn CollectionLikeMutateTarget<K, TV>>>;
+    update_logic: impl FnOnce(Self::Value, &mut TV) + Copy,
+  ) -> impl CollectionUpdate<Box<dyn CollectionLikeMutateTarget<Self::Key, TV>>>;
 }
 
-impl<T, K, V> CollectionUpdaterExt<K, V> for T
+impl<T> CollectionUpdaterExt for T
 where
-  T: ReactiveCollection<K, V>,
-  K: CKey,
-  V: CValue,
+  T: ReactiveCollection,
 {
   fn into_collective_updater<TV: Default + CValue>(
     self,
-    update_logic: impl FnOnce(V, &mut TV) + Copy,
-  ) -> impl CollectionUpdate<Box<dyn CollectionLikeMutateTarget<K, TV>>> {
+    update_logic: impl FnOnce(T::Value, &mut TV) + Copy,
+  ) -> impl CollectionUpdate<Box<dyn CollectionLikeMutateTarget<T::Key, TV>>> {
     CollectionUpdater {
-      phantom: PhantomData,
       collection: self,
       update_logic,
     }
   }
 }
 
-impl<T, K, V, TV, F> CollectionUpdate<Box<dyn CollectionLikeMutateTarget<K, TV>>>
-  for CollectionUpdater<T, V, F>
+impl<T, TV, F> CollectionUpdate<Box<dyn CollectionLikeMutateTarget<T::Key, TV>>>
+  for CollectionUpdater<T, F>
 where
-  F: FnOnce(V, &mut TV) + Copy,
-  T: ReactiveCollection<K, V>,
-  K: CKey,
-  V: CValue,
+  F: FnOnce(T::Value, &mut TV) + Copy,
+  T: ReactiveCollection,
   TV: Default + CValue,
 {
   fn update_target(
     &mut self,
-    target: &mut Box<dyn CollectionLikeMutateTarget<K, TV>>,
+    target: &mut Box<dyn CollectionLikeMutateTarget<T::Key, TV>>,
     cx: &mut Context,
   ) {
     let (d, _) = self.collection.poll_changes(cx);

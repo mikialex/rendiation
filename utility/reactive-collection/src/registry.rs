@@ -115,14 +115,14 @@ impl CollectionRegistry {
     }
   }
 
-  pub fn get_or_create_relation_by_idx<O, M, R>(
+  pub fn get_or_create_relation_by_idx<R>(
     &self,
     inserter: impl FnOnce() -> R + Any,
-  ) -> impl ReactiveOneToManyRelation<O, M> + Clone
+  ) -> impl ReactiveOneToManyRelation + Clone
   where
-    O: LinearIdentification + CKey,
-    M: LinearIdentification + CKey,
-    R: ReactiveCollection<M, O>,
+    R: ReactiveCollection,
+    R::Key: LinearIdentification,
+    R::Value: LinearIdentification + CKey,
   {
     // note, we not using entry api because this call maybe be recursive and cause dead lock
     let typeid = inserter.type_id();
@@ -131,14 +131,14 @@ impl CollectionRegistry {
       let collection = collection
         .as_ref()
         .as_any()
-        .downcast_ref::<OneManyRelationForker<O, M>>()
+        .downcast_ref::<OneManyRelationForker<R::Value, R::Key>>()
         .unwrap();
       collection.clone()
     } else {
       drop(relations);
       let upstream = self.fork_or_insert_with_inner(typeid, inserter);
       let relation = upstream.into_one_to_many_by_idx_expose_type();
-      let relation = Box::new(relation) as Box<dyn DynReactiveOneToManyRelation<O, M>>;
+      let relation = Box::new(relation) as BoxedDynReactiveOneToManyRelation<R::Value, R::Key>;
       let relation = ReactiveKVMapFork::new(relation, true);
 
       let boxed = Box::new(relation) as Box<dyn ShrinkableAny>;
@@ -149,20 +149,19 @@ impl CollectionRegistry {
       let relation = relation
         .as_ref()
         .as_any()
-        .downcast_ref::<OneManyRelationForker<O, M>>()
+        .downcast_ref::<OneManyRelationForker<R::Value, R::Key>>()
         .unwrap();
       relation.clone()
     }
   }
 
-  pub fn get_or_create_relation_by_hash<O, M, R>(
+  pub fn get_or_create_relation_by_hash<R>(
     &self,
     inserter: impl FnOnce() -> R + Any,
-  ) -> impl ReactiveOneToManyRelation<O, M> + Clone
+  ) -> impl ReactiveOneToManyRelation<One = R::Value, Many = R::Key> + Clone
   where
-    O: CKey,
-    M: CKey,
-    R: ReactiveCollection<M, O>,
+    R: ReactiveCollection,
+    R::Value: CKey,
   {
     // note, we not using entry api because this call maybe be recursive and cause dead lock
     let typeid = inserter.type_id();
@@ -171,14 +170,14 @@ impl CollectionRegistry {
       let collection = collection
         .as_ref()
         .as_any()
-        .downcast_ref::<OneManyRelationForker<O, M>>()
+        .downcast_ref::<OneManyRelationForker<R::Value, R::Key>>()
         .unwrap();
       collection.clone()
     } else {
       drop(relations);
       let upstream = self.fork_or_insert_with_inner(typeid, inserter);
       let relation = upstream.into_one_to_many_by_hash_expose_type();
-      let relation = Box::new(relation) as Box<dyn DynReactiveOneToManyRelation<O, M>>;
+      let relation = Box::new(relation) as BoxedDynReactiveOneToManyRelation<R::Value, R::Key>;
       let relation = ReactiveKVMapFork::new(relation, true);
 
       let boxed = Box::new(relation) as Box<dyn ShrinkableAny>;
@@ -189,7 +188,7 @@ impl CollectionRegistry {
       let relation = relation
         .as_ref()
         .as_any()
-        .downcast_ref::<OneManyRelationForker<O, M>>()
+        .downcast_ref::<OneManyRelationForker<R::Value, R::Key>>()
         .unwrap();
       relation.clone()
     }

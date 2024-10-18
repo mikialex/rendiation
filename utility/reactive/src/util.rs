@@ -24,31 +24,25 @@ impl ReactiveQueryJoinUpdater {
     self.register(updater)
   }
 
-  pub fn register_reactive_collection<C, K, V>(&mut self, c: C) -> UpdateResultToken
+  pub fn register_reactive_collection<C>(&mut self, c: C) -> UpdateResultToken
   where
-    K: CKey,
-    V: CValue,
-    C: ReactiveCollection<K, V> + Unpin,
+    C: ReactiveCollection + Unpin,
   {
     let c = Box::new(c.into_reactive_state()) as BoxedAnyReactiveQuery;
     self.register(c)
   }
 
-  pub fn register_self_contained_reactive_collection<C, K, V>(&mut self, c: C) -> UpdateResultToken
+  pub fn register_self_contained_reactive_collection<C>(&mut self, c: C) -> UpdateResultToken
   where
-    K: CKey,
-    V: CValue,
-    C: ReactiveCollectionSelfContained<K, V>,
+    C: ReactiveCollectionSelfContained,
   {
     let c = Box::new(c.into_reactive_state_self_contained()) as BoxedAnyReactiveQuery;
     self.register(c)
   }
 
-  pub fn register_reactive_multi_collection<C, K, V>(&mut self, c: C) -> UpdateResultToken
+  pub fn register_reactive_multi_collection<C>(&mut self, c: C) -> UpdateResultToken
   where
-    C: ReactiveOneToManyRelation<K, V>,
-    K: CKey,
-    V: CKey,
+    C: ReactiveOneToManyRelation,
   {
     let c = Box::new(c.into_reactive_state_many_one()) as BoxedAnyReactiveQuery;
     self.register(c)

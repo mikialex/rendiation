@@ -215,10 +215,10 @@ pub struct Viewer3dSceneCtx {
 }
 
 pub struct Viewer3dSceneDeriveSource {
-  pub world_mat: Box<dyn DynReactiveCollection<EntityHandle<SceneNodeEntity>, Mat4<f32>>>,
-  pub node_net_visible: Box<dyn DynReactiveCollection<EntityHandle<SceneNodeEntity>, bool>>,
+  pub world_mat: BoxedDynReactiveCollection<EntityHandle<SceneNodeEntity>, Mat4<f32>>,
+  pub node_net_visible: BoxedDynReactiveCollection<EntityHandle<SceneNodeEntity>, bool>,
   pub camera_transforms:
-    Box<dyn DynReactiveCollection<EntityHandle<SceneCameraEntity>, CameraTransform>>,
+    BoxedDynReactiveCollection<EntityHandle<SceneCameraEntity>, CameraTransform>,
   pub mesh_vertex_ref:
     RevRefOfForeignKeyWatch<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>,
 }

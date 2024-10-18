@@ -241,15 +241,16 @@ where
   }
 
   /// project map<O, V> -> map<M, V> when we have O - M one to many
-  fn one_to_many_fanout<MK, Relation>(self, relations: Relation) -> impl ReactiveCollection<MK, V>
+  fn one_to_many_fanout<Relation>(
+    self,
+    relations: Relation,
+  ) -> impl ReactiveCollection<Key = Relation::Many, Value = Self::Value>
   where
-    MK: CKey,
-    Relation: ReactiveOneToManyRelation<K, MK> + 'static,
+    Relation: ReactiveOneToManyRelation<One = Self::Key> + 'static,
   {
     OneToManyFanout {
       upstream: self,
       relations,
-      phantom: PhantomData,
     }
   }
 

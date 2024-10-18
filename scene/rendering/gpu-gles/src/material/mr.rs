@@ -85,7 +85,7 @@ pub fn pbr_mr_material_tex_uniforms(cx: &GPU) -> PbrMRMaterialTexUniforms {
 }
 
 pub fn pbr_mr_material_pipeline_hash(
-) -> impl ReactiveCollection<EntityHandle<PbrMRMaterialEntity>, AlphaMode> {
+) -> impl ReactiveCollection<Key = EntityHandle<PbrMRMaterialEntity>, Value = AlphaMode> {
   global_watch().watch::<PbrMRMaterialAlphaModeComponent>()
 }
 

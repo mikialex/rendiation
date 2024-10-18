@@ -63,7 +63,15 @@ where
   }
 }
 
-impl<K: CKey, V: CValue> ReactiveCollection for () {
+pub struct EmptyCollection<K, V>(PhantomData<(K, V)>);
+
+impl<K, V> Default for EmptyCollection<K, V> {
+  fn default() -> Self {
+    Self(PhantomData)
+  }
+}
+
+impl<K: CKey, V: CValue> ReactiveCollection for EmptyCollection<K, V> {
   type Key = K;
   type Value = V;
   type Changes = ();

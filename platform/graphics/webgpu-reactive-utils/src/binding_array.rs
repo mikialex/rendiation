@@ -1,7 +1,7 @@
 use crate::*;
 
 pub struct BindingArrayMaintainer<K, V> {
-  upstream: Box<dyn DynReactiveCollection<K, V>>,
+  upstream: BoxedDynReactiveCollection<K, V>,
   array: Option<BindingResourceArray<V>>,
   default_instance: V,
   max_length: u32,
@@ -15,7 +15,7 @@ impl<K, V> BindingArrayMaintainer<K, V> {
   /// will be costly.
   ///
   /// todo, provide another internal resizable binding length control
-  pub fn new(upstream: Box<dyn DynReactiveCollection<K, V>>, default: V, max_length: u32) -> Self {
+  pub fn new(upstream: BoxedDynReactiveCollection<K, V>, default: V, max_length: u32) -> Self {
     Self {
       upstream,
       array: Default::default(),

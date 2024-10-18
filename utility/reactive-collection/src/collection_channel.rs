@@ -118,9 +118,9 @@ pub struct ReactiveCollectionFromCollectiveMutation<K, T> {
   pub full: Box<dyn VirtualCollectionProvider<K, T>>,
   pub mutation: RwLock<CollectiveMutationReceiver<K, T>>,
 }
-impl<K: CKey, T: CValue> ReactiveCollection<K, T>
-  for ReactiveCollectionFromCollectiveMutation<K, T>
-{
+impl<K: CKey, T: CValue> ReactiveCollection for ReactiveCollectionFromCollectiveMutation<K, T> {
+  type Key = K;
+  type Value = T;
   type Changes = impl VirtualCollection<K, ValueChange<T>>;
   type View = impl VirtualCollection<K, T>;
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {

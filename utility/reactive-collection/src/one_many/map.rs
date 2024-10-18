@@ -1,25 +1,24 @@
 use crate::*;
 
-pub struct ReactiveKVMapRelation<T, F, F1, F2, K, V> {
+pub struct ReactiveKVMapRelation<T, F, F1, F2> {
   pub inner: T,
   pub map: F,
   pub f1: F1,
   pub f2: F2,
-  pub phantom: PhantomData<(K, V)>,
 }
 
-impl<T, F, F1, F2, K, V, V2> ReactiveCollection<K, V2> for ReactiveKVMapRelation<T, F, F1, F2, K, V>
+impl<T, F, F1, F2, V2> ReactiveCollection for ReactiveKVMapRelation<T, F, F1, F2>
 where
-  V: CKey,
-  K: CKey,
   V2: CKey,
-  F: Fn(&K, V) -> V2 + Copy + Send + Sync + 'static,
-  F1: Fn(V) -> V2 + Copy + Send + Sync + 'static,
-  F2: Fn(V2) -> V + Copy + Send + Sync + 'static,
-  T: ReactiveOneToManyRelation<V, K>,
+  F: Fn(&T::Many, T::One) -> V2 + Copy + Send + Sync + 'static,
+  F1: Fn(T::One) -> V2 + Copy + Send + Sync + 'static,
+  F2: Fn(V2) -> T::One + Copy + Send + Sync + 'static,
+  T: ReactiveOneToManyRelation,
 {
-  type Changes = impl VirtualCollection<K, ValueChange<V2>>;
-  type View = impl VirtualCollection<K, V2> + VirtualMultiCollection<V2, K>;
+  type Key = T::Many;
+  type Value = V2;
+  type Changes = impl VirtualCollection<T::Many, ValueChange<V2>>;
+  type View = impl VirtualCollection<T::Many, V2> + VirtualMultiCollection<V2, T::Many>;
 
   #[tracing::instrument(skip_all, name = "ReactiveKVMap")]
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
@@ -42,24 +41,23 @@ where
   }
 }
 
-pub struct ReactiveKeyDualMapRelation<F1, F2, T, K, V> {
+pub struct ReactiveKeyDualMapRelation<F1, F2, T> {
   pub f1: F1,
   pub f2: F2,
   pub inner: T,
-  pub phantom: PhantomData<(K, V)>,
 }
 
-impl<F1, F2, T, K, K2, V> ReactiveCollection<K2, V> for ReactiveKeyDualMapRelation<F1, F2, T, K, V>
+impl<F1, F2, T, K2> ReactiveCollection for ReactiveKeyDualMapRelation<F1, F2, T>
 where
-  K: CKey,
   K2: CKey,
-  V: CKey,
-  F1: Fn(K) -> K2 + Copy + Send + Sync + 'static,
-  F2: Fn(K2) -> K + Copy + Send + Sync + 'static,
-  T: ReactiveOneToManyRelation<V, K>,
+  F1: Fn(T::Many) -> K2 + Copy + Send + Sync + 'static,
+  F2: Fn(K2) -> T::Many + Copy + Send + Sync + 'static,
+  T: ReactiveOneToManyRelation,
 {
-  type Changes = impl VirtualCollection<K2, ValueChange<V>>;
-  type View = impl VirtualCollection<K2, V> + VirtualMultiCollection<V, K2>;
+  type Key = K2;
+  type Value = T::One;
+  type Changes = impl VirtualCollection<K2, ValueChange<T::One>>;
+  type View = impl VirtualCollection<K2, T::One> + VirtualMultiCollection<T::One, K2>;
 
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let (d, v) = self.inner.poll_changes(cx);

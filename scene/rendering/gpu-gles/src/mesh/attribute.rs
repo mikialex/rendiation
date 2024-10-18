@@ -5,8 +5,10 @@ use crate::*;
 
 pub fn attribute_mesh_index_buffers(
   cx: &GPU,
-) -> impl ReactiveCollectionSelfContained<EntityHandle<AttributesMeshEntity>, GPUBufferResourceView>
-{
+) -> impl ReactiveCollectionSelfContained<
+  Key = EntityHandle<AttributesMeshEntity>,
+  Value = GPUBufferResourceView,
+> {
   let cx = cx.clone();
   let attribute_mesh_index_buffers = global_watch()
     .watch::<SceneBufferViewBufferId<AttributeIndexRef>>()
@@ -30,8 +32,8 @@ pub fn attribute_mesh_index_buffers(
 pub fn attribute_mesh_vertex_buffer_views(
   cx: &GPU,
 ) -> impl ReactiveCollectionSelfContained<
-  EntityHandle<AttributesMeshEntityVertexBufferRelation>,
-  GPUBufferResourceView,
+  Key = EntityHandle<AttributesMeshEntityVertexBufferRelation>,
+  Value = GPUBufferResourceView,
 > {
   let cx = cx.clone();
   let attribute_mesh_vertex_buffers = global_watch()

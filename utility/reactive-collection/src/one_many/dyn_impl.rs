@@ -1,36 +1,36 @@
 use crate::*;
 
-pub type BoxedDynReactiveOneToManyRelation<O, M> = Box<dyn DynReactiveOneToManyRelation<O, M>>;
+pub type BoxedDynReactiveOneToManyRelation<O, M> =
+  Box<dyn DynReactiveOneToManyRelation<One = O, Many = M>>;
+pub type BoxedDynReactiveOneToManyRelationPoll<O, M> = (
+  Box<dyn DynVirtualCollection<M, ValueChange<O>>>,
+  Box<dyn DynVirtualCollection<M, O>>,
+  Box<dyn DynVirtualMultiCollection<O, M>>,
+);
 
-pub trait DynReactiveOneToManyRelation<O: CKey, M: CKey>: Send + Sync {
+pub trait DynReactiveOneToManyRelation: Send + Sync {
+  type One: CKey;
+  type Many: CKey;
   /// we could return a single trait object that cover both access and inverse access
   /// but for simplicity we just return two trait objects as these two trait both impl clone.
   fn poll_changes_with_inv_dyn(
     &self,
     cx: &mut Context,
-  ) -> (
-    Box<dyn DynVirtualCollection<M, ValueChange<O>>>,
-    Box<dyn DynVirtualCollection<M, O>>,
-    Box<dyn DynVirtualMultiCollection<O, M>>,
-  );
+  ) -> BoxedDynReactiveOneToManyRelationPoll<Self::One, Self::Many>;
 
   fn extra_request_dyn(&mut self, request: &mut ExtraCollectionOperation);
 }
 
-impl<O, M, T> DynReactiveOneToManyRelation<O, M> for T
+impl<T> DynReactiveOneToManyRelation for T
 where
-  O: CKey,
-  M: CKey,
-  T: ReactiveOneToManyRelation<O, M>,
+  T: ReactiveOneToManyRelation,
 {
+  type One = T::One;
+  type Many = T::Many;
   fn poll_changes_with_inv_dyn(
     &self,
     cx: &mut Context,
-  ) -> (
-    Box<dyn DynVirtualCollection<M, ValueChange<O>>>,
-    Box<dyn DynVirtualCollection<M, O>>,
-    Box<dyn DynVirtualMultiCollection<O, M>>,
-  ) {
+  ) -> BoxedDynReactiveOneToManyRelationPoll<Self::One, Self::Many> {
     let (d, v) = self.poll_changes(cx);
     (Box::new(d), Box::new(v.clone()), Box::new(v))
   }
@@ -40,11 +40,13 @@ where
   }
 }
 
-impl<O, M> ReactiveCollection<M, O> for Box<dyn DynReactiveOneToManyRelation<O, M>>
+impl<O, M> ReactiveCollection for BoxedDynReactiveOneToManyRelation<O, M>
 where
   O: CKey,
   M: CKey,
 {
+  type Key = M;
+  type Value = O;
   type Changes = impl VirtualCollection<M, ValueChange<O>>;
   type View = impl VirtualCollection<M, O> + VirtualMultiCollection<O, M>;
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {

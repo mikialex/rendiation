@@ -121,7 +121,7 @@ pub fn register_instance_mesh_data_model() {
 
 #[global_registered_collection]
 pub fn attribute_mesh_local_bounding(
-) -> impl ReactiveCollection<EntityHandle<AttributesMeshEntity>, Box3> {
+) -> impl ReactiveCollection<Key = EntityHandle<AttributesMeshEntity>, Value = Box3> {
   let index_buffer_ref =
     global_watch().watch_typed_foreign_key::<SceneBufferViewBufferId<AttributeIndexRef>>();
   let index_buffer_range = global_watch().watch::<SceneBufferViewBufferRange<AttributeIndexRef>>();

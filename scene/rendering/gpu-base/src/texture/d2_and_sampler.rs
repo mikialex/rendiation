@@ -2,7 +2,7 @@ use crate::*;
 
 /// not need to hash the sampler to reduce the gpu sampler count, in device we have deduplicated
 /// already, and we also not need to do materialize, in device we have cached all sample created
-pub fn sampler_gpus(cx: &GPU) -> impl ReactiveCollection<u32, GPUSamplerView> {
+pub fn sampler_gpus(cx: &GPU) -> impl ReactiveCollection<Key = u32, Value = GPUSamplerView> {
   let cx = cx.clone();
   global_watch()
     .watch_untyped_key::<SceneSamplerInfo>()
@@ -16,7 +16,7 @@ pub fn sampler_gpus(cx: &GPU) -> impl ReactiveCollection<u32, GPUSamplerView> {
 pub fn gpu_texture_2ds(
   cx: &GPU,
   default: GPU2DTextureView,
-) -> impl ReactiveCollection<u32, GPU2DTextureView> {
+) -> impl ReactiveCollection<Key = u32, Value = GPU2DTextureView> {
   let cx = cx.clone();
 
   global_watch()

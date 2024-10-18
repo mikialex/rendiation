@@ -2,9 +2,9 @@ use storage::{LinkListPool, ListHandle};
 
 use crate::*;
 
-pub struct OneToManyRefHashBookKeeping<O, M, T> {
+pub struct OneToManyRefHashBookKeeping<T: ReactiveCollection> {
   pub upstream: T,
-  pub mapping: Arc<RwLock<FastHashMap<O, FastHashSet<M>>>>,
+  pub mapping: Arc<RwLock<FastHashMap<T::Value, FastHashSet<T::Key>>>>,
 }
 
 #[derive(Clone)]
@@ -43,14 +43,16 @@ where
   }
 }
 
-impl<O, M, T> ReactiveCollection<M, O> for OneToManyRefHashBookKeeping<O, M, T>
+impl<T> ReactiveCollection for OneToManyRefHashBookKeeping<T>
 where
-  T: ReactiveCollection<M, O>,
-  M: CKey,
-  O: CKey,
+  T: ReactiveCollection,
+  T::Value: CKey,
 {
-  type Changes = impl VirtualCollection<M, ValueChange<O>>;
-  type View = impl VirtualMultiCollection<O, M> + VirtualCollection<M, O>;
+  type Key = T::Key;
+  type Value = T::Value;
+
+  type Changes = impl VirtualCollection<T::Key, ValueChange<T::Value>>;
+  type View = impl VirtualMultiCollection<T::Value, T::Key> + VirtualCollection<T::Key, T::Value>;
 
   #[tracing::instrument(skip_all, name = "OneToManyRefHashBookKeeping")]
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
@@ -96,10 +98,9 @@ where
   }
 }
 
-pub struct OneToManyRefDenseBookKeeping<O, M, T> {
+pub struct OneToManyRefDenseBookKeeping<T> {
   pub upstream: T,
   pub mapping: Arc<RwLock<Mapping>>,
-  pub phantom: PhantomData<(O, M)>,
 }
 
 #[derive(Default)]
@@ -159,14 +160,16 @@ where
   }
 }
 
-impl<O, M, T> ReactiveCollection<M, O> for OneToManyRefDenseBookKeeping<O, M, T>
+impl<T> ReactiveCollection for OneToManyRefDenseBookKeeping<T>
 where
-  T: ReactiveCollection<M, O>,
-  M: LinearIdentification + CKey,
-  O: LinearIdentification + CKey,
+  T: ReactiveCollection,
+  T::Value: LinearIdentification + CKey,
+  T::Key: LinearIdentification + CKey,
 {
-  type Changes = impl VirtualCollection<M, ValueChange<O>>;
-  type View = impl VirtualMultiCollection<O, M> + VirtualCollection<M, O>;
+  type Key = T::Key;
+  type Value = T::Value;
+  type Changes = impl VirtualCollection<T::Key, ValueChange<T::Value>>;
+  type View = impl VirtualMultiCollection<T::Value, T::Key> + VirtualCollection<T::Key, T::Value>;
 
   #[tracing::instrument(skip_all, name = "OneToManyRefDenseBookKeeping")]
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {

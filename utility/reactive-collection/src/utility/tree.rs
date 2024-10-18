@@ -2,14 +2,14 @@ use rendiation_abstract_tree::*;
 
 use crate::*;
 
-pub type ReactiveTreeConnectivity<K> = Box<dyn DynReactiveOneToManyRelation<K, K>>;
-pub type ReactiveTreePayload<K, T> = Box<dyn DynReactiveCollection<K, T>>;
+pub type ReactiveTreeConnectivity<K> = BoxedDynReactiveOneToManyRelation<K, K>;
+pub type ReactiveTreePayload<K, T> = BoxedDynReactiveCollection<K, T>;
 
 pub fn tree_payload_derive_by_parent_decide_children<K, T>(
   connectivity: ReactiveTreeConnectivity<K>,
   payload: ReactiveTreePayload<K, T>,
   derive_logic: impl Fn(&T, Option<&T>) -> T + Send + Sync + 'static + Copy,
-) -> impl ReactiveCollection<K, T>
+) -> impl ReactiveCollection<Key = K, Value = T>
 where
   K: CKey,
   T: CValue,
@@ -30,12 +30,14 @@ struct TreeDerivedData<K, T, F> {
   derive_logic: F,
 }
 
-impl<K, T, F> ReactiveCollection<K, T> for TreeDerivedData<K, T, F>
+impl<K, T, F> ReactiveCollection for TreeDerivedData<K, T, F>
 where
   K: CKey,
   T: CValue,
   F: Fn(&T, Option<&T>) -> T + Send + Sync + 'static + Copy,
 {
+  type Key = K;
+  type Value = T;
   type Changes = impl VirtualCollection<K, ValueChange<T>>;
   type View = impl VirtualCollection<K, T>;
 

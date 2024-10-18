@@ -8,9 +8,9 @@ use super::*;
 
 pub fn reactive_pack_2d_to_3d(
   mut config: MultiLayerTexturePackerConfig,
-  size: Box<dyn DynReactiveCollection<u32, Size>>,
+  size: BoxedDynReactiveCollection<u32, Size>,
 ) -> (
-  impl ReactiveCollection<u32, PackResult2dWithDepth>,
+  impl ReactiveCollection<Key = u32, Value = PackResult2dWithDepth>,
   impl Stream<Item = SizeWithDepth> + Unpin,
 ) {
   config.make_sure_valid();
@@ -38,7 +38,7 @@ type PackerImpl = GrowablePacker<MultiLayerTexturePacker<EtagerePacker>>;
 
 struct Packer {
   max_size: SizeWithDepth,
-  size_source: Box<dyn DynReactiveCollection<u32, Size>>,
+  size_source: BoxedDynReactiveCollection<u32, Size>,
 
   packer: Arc<RwLock<PackerImpl>>,
   // todo, i think this is not necessary if the packer lib not generate id
@@ -73,7 +73,9 @@ impl VirtualCollection<u32, PackResult2dWithDepth> for PackerCurrentView {
   }
 }
 
-impl ReactiveCollection<u32, PackResult2dWithDepth> for Packer {
+impl ReactiveCollection for Packer {
+  type Key = u32;
+  type Value = PackResult2dWithDepth;
   type Changes = Box<dyn DynVirtualCollection<u32, ValueChange<PackResult2dWithDepth>>>;
   type View = PackerCurrentView;
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {

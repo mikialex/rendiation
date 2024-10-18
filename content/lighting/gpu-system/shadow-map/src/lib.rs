@@ -12,13 +12,13 @@ use rendiation_webgpu_reactive_utils::*;
 
 pub struct BasicShadowMapSystemInputs {
   ///  alloc_id => shadow camera vp
-  pub source_view_proj: Box<dyn DynReactiveCollection<u32, Mat4<f32>>>,
+  pub source_view_proj: BoxedDynReactiveCollection<u32, Mat4<f32>>,
   /// alloc_id => shadow map resolution
-  pub size: Box<dyn DynReactiveCollection<u32, Size>>,
+  pub size: BoxedDynReactiveCollection<u32, Size>,
   /// alloc_id => shadow map bias
-  pub bias: Box<dyn DynReactiveCollection<u32, ShadowBias>>,
+  pub bias: BoxedDynReactiveCollection<u32, ShadowBias>,
   /// alloc_id => enabled
-  pub enabled: Box<dyn DynReactiveCollection<u32, bool>>,
+  pub enabled: BoxedDynReactiveCollection<u32, bool>,
 }
 
 pub fn basic_shadow_map_uniform(
@@ -58,21 +58,18 @@ pub fn basic_shadow_map_uniform(
 
 pub struct BasicShadowMapSystem {
   shadow_map_atlas: Option<GPUTexture>,
-  packing: Box<dyn DynReactiveCollection<u32, ShadowMapAddressInfo>>,
+  packing: BoxedDynReactiveCollection<u32, ShadowMapAddressInfo>,
   atlas_resize: Box<dyn Stream<Item = SizeWithDepth> + Unpin>,
   current_size: Option<SizeWithDepth>,
-  source_view_proj: Box<dyn DynReactiveCollection<u32, Mat4<f32>>>,
+  source_view_proj: BoxedDynReactiveCollection<u32, Mat4<f32>>,
 }
 
 impl BasicShadowMapSystem {
   pub fn new(
     config: MultiLayerTexturePackerConfig,
-    source_view_proj: Box<dyn DynReactiveCollection<u32, Mat4<f32>>>,
-    size: Box<dyn DynReactiveCollection<u32, Size>>,
-  ) -> (
-    Self,
-    Box<dyn DynReactiveCollection<u32, ShadowMapAddressInfo>>,
-  ) {
+    source_view_proj: BoxedDynReactiveCollection<u32, Mat4<f32>>,
+    size: BoxedDynReactiveCollection<u32, Size>,
+  ) -> (Self, BoxedDynReactiveCollection<u32, ShadowMapAddressInfo>) {
     let (packing, atlas_resize) = reactive_pack_2d_to_3d(config, size);
     let packing = packing.collective_map(convert_pack_result).into_forker();
 

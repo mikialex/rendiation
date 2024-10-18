@@ -2,8 +2,8 @@ use crate::*;
 
 // todo, improve performance using self contained collection
 pub struct TraditionalPerDrawBindingSystemSource {
-  pub textures: Box<dyn DynReactiveCollection<Texture2DHandle, GPU2DTextureView>>,
-  pub samplers: Box<dyn DynReactiveCollection<SamplerHandle, GPUSamplerView>>,
+  pub textures: BoxedDynReactiveCollection<Texture2DHandle, GPU2DTextureView>,
+  pub samplers: BoxedDynReactiveCollection<SamplerHandle, GPUSamplerView>,
 }
 
 impl ReactiveQuery for TraditionalPerDrawBindingSystemSource {

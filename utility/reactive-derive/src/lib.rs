@@ -44,11 +44,11 @@ fn get_ty_name_pair(rt: &syn::ReturnType) -> (syn::Type, syn::Type) {
     _ => unreachable!(),
   };
   let args_k = match &p.args[0] {
-    syn::GenericArgument::Type(ty) => ty.clone(),
+    syn::GenericArgument::Binding(binding) => binding.ty.clone(),
     _ => unreachable!(),
   };
   let args_v = match &p.args[1] {
-    syn::GenericArgument::Type(ty) => ty.clone(),
+    syn::GenericArgument::Binding(binding) => binding.ty.clone(),
     _ => unreachable!(),
   };
 
@@ -110,7 +110,7 @@ pub fn global_registered_collection_and_many_one_hash_relation(
       reactive::global_collection_registry().fork_or_insert_with(#new_name)
     }
 
-    pub fn #relation_fn_name() -> impl ReactiveOneToManyRelation<#args_v, #args_k> + Clone {
+    pub fn #relation_fn_name() -> impl ReactiveOneToManyRelation<One = #args_v, Many =#args_k> + Clone {
       reactive::global_collection_registry().get_or_create_relation_by_hash(#new_name)
     }
 

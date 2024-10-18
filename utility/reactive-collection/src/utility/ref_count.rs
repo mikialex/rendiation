@@ -2,7 +2,7 @@ use crate::*;
 
 #[derive(Clone)]
 pub struct CollectionSetsRefcount<T, K> {
-  source_sets: Arc<RwLock<Vec<Box<dyn DynReactiveCollection<T, K>>>>>,
+  source_sets: Arc<RwLock<Vec<BoxedDynReactiveCollection<T, K>>>>,
   wake_for_new_source: Arc<AtomicWaker>,
   ref_count: Arc<RwLock<FastHashMap<K, u32>>>,
 }
@@ -18,13 +18,15 @@ impl<T, K> Default for CollectionSetsRefcount<T, K> {
 }
 
 impl<T, K> CollectionSetsRefcount<T, K> {
-  pub fn add_source(&self, source: Box<dyn DynReactiveCollection<T, K>>) {
+  pub fn add_source(&self, source: BoxedDynReactiveCollection<T, K>) {
     self.source_sets.write().push(source);
     self.wake_for_new_source.wake();
   }
 }
 
-impl<T: CKey, K: CKey> ReactiveCollection<K, u32> for CollectionSetsRefcount<T, K> {
+impl<T: CKey, K: CKey> ReactiveCollection for CollectionSetsRefcount<T, K> {
+  type Key = K;
+  type Value = u32;
   type Changes = impl VirtualCollection<K, ValueChange<u32>>;
   type View = impl VirtualCollection<K, u32>;
 

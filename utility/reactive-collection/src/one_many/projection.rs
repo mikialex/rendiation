@@ -1,29 +1,23 @@
 use crate::*;
 
-pub struct OneToManyFanout<O, M, X, Upstream, Relation>
+pub struct OneToManyFanout<Upstream, Relation>
 where
-  Upstream: ReactiveCollection<O, X>,
-  Relation: ReactiveOneToManyRelation<O, M>,
-  M: CKey,
-  O: CKey,
-  X: CValue,
+  Upstream: ReactiveCollection,
+  Relation: ReactiveOneToManyRelation,
 {
   pub upstream: Upstream,
   pub relations: Relation,
-  pub phantom: PhantomData<(O, M, X)>,
 }
 
-impl<O, M, X, Upstream, Relation> ReactiveCollection<M, X>
-  for OneToManyFanout<O, M, X, Upstream, Relation>
+impl<Upstream, Relation> ReactiveCollection for OneToManyFanout<Upstream, Relation>
 where
-  M: CKey,
-  X: CValue,
-  O: CKey,
-  Upstream: ReactiveCollection<O, X>,
-  Relation: ReactiveOneToManyRelation<O, M> + 'static,
+  Upstream: ReactiveCollection<Key = Relation::One>,
+  Relation: ReactiveOneToManyRelation + 'static,
 {
-  type Changes = impl VirtualCollection<M, ValueChange<X>>;
-  type View = impl VirtualCollection<M, X>;
+  type Key = Relation::Many;
+  type Value = Upstream::Value;
+  type Changes = impl VirtualCollection<Relation::Many, ValueChange<Upstream::Value>>;
+  type View = impl VirtualCollection<Relation::Many, Upstream::Value>;
 
   #[tracing::instrument(skip_all, name = "OneToManyFanout")]
   #[allow(clippy::collapsible_else_if)]
@@ -143,29 +137,25 @@ where
   }
 }
 
-pub struct ManyToOneReduce<O, M, Upstream, Relation>
+pub struct ManyToOneReduce<Upstream, Relation>
 where
-  Upstream: ReactiveCollection<M, ()>,
-  Relation: ReactiveCollection<M, O>,
-  M: CKey,
-  O: CKey,
+  Relation: ReactiveCollection<Value: CKey>,
 {
   pub upstream: Upstream,
   pub relations: Relation,
-  pub phantom: PhantomData<(O, M)>,
-  pub ref_count: Arc<RwLock<FastHashMap<O, u32>>>,
+  pub ref_count: Arc<RwLock<FastHashMap<Relation::Value, u32>>>,
 }
 
-impl<O, M, Upstream, Relation> ReactiveCollection<O, ()>
-  for ManyToOneReduce<O, M, Upstream, Relation>
+impl<Upstream, Relation> ReactiveCollection for ManyToOneReduce<Upstream, Relation>
 where
-  M: CKey,
-  O: CKey,
-  Upstream: ReactiveCollection<M, ()>,
-  Relation: ReactiveCollection<M, O>,
+  Upstream: ReactiveCollection<Value = ()>,
+  Relation: ReactiveCollection<Key = Upstream::Key>,
+  Relation::Value: CKey,
 {
-  type Changes = impl VirtualCollection<O, ValueChange<()>>;
-  type View = impl VirtualCollection<O, ()>;
+  type Key = Relation::Value;
+  type Value = ();
+  type Changes = impl VirtualCollection<Relation::Value, ValueChange<()>>;
+  type View = impl VirtualCollection<Relation::Value, ()>;
 
   #[tracing::instrument(skip_all, name = "ManyToOneReduce")]
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
