@@ -150,6 +150,7 @@ impl Viewer {
         global_rev_ref()
           .watch_inv_ref::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>(),
       ),
+      mesh_local_bounding: Box::new(attribute_mesh_local_bounding()),
     };
 
     Self {
@@ -220,6 +221,7 @@ pub struct Viewer3dSceneDeriveSource {
   pub camera_transforms: BoxedDynReactiveQuery<EntityHandle<SceneCameraEntity>, CameraTransform>,
   pub mesh_vertex_ref:
     RevRefOfForeignKeyWatch<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>,
+  pub mesh_local_bounding: BoxedDynReactiveQuery<EntityHandle<AttributesMeshEntity>, Box3<f32>>,
 }
 
 impl Viewer3dSceneDeriveSource {
@@ -228,11 +230,13 @@ impl Viewer3dSceneDeriveSource {
     let (_, node_net_visible) = self.node_net_visible.poll_changes(cx);
     let (_, camera_transforms) = self.camera_transforms.poll_changes(cx);
     let (_, _, mesh_vertex_ref) = self.mesh_vertex_ref.poll_changes_with_inv_dyn(cx);
+    let (_, mesh_local_bounding) = self.mesh_local_bounding.poll_changes(cx);
     Viewer3dSceneDerive {
       world_mat,
       camera_transforms,
       mesh_vertex_ref,
       node_net_visible,
+      mesh_local_bounding,
     }
   }
 }
@@ -244,4 +248,5 @@ pub struct Viewer3dSceneDerive {
   pub camera_transforms: BoxedDynQuery<EntityHandle<SceneCameraEntity>, CameraTransform>,
   pub mesh_vertex_ref:
     RevRefOfForeignKey<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>,
+  pub mesh_local_bounding: BoxedDynQuery<EntityHandle<AttributesMeshEntity>, Box3<f32>>,
 }

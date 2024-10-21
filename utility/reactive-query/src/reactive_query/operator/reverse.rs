@@ -42,6 +42,8 @@ where
       }
     }
 
+    drop(mapping);
+
     (mutations, self.mapping.make_read_holder())
   }
 
