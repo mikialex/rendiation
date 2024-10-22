@@ -1,4 +1,7 @@
+use std::any::Any;
+
 use query::*;
+use reactive_query::global_reactive_query_registry;
 use rendiation_texture_core::GPUBufferImage;
 
 use crate::*;
@@ -20,6 +23,24 @@ pub struct SceneReader {
 }
 
 impl SceneReader {
+  pub fn new_from_global(scene_id: EntityHandle<SceneEntity>) -> Self {
+    Self {
+      scene_id,
+      scene_ref_models: global_rev_ref().update_and_read::<SceneModelBelongsToScene>(),
+      mesh: AttributesMeshReader::new_from_global(),
+      node_reader: global_entity_of().entity_reader(),
+      node_children: global_reactive_query_registry()
+        .update_and_read_multi_query::<RawEntityHandle, RawEntityHandle>(
+          scene_node_connectivity.type_id(),
+        ),
+      scene_model: global_entity_of().entity_reader(),
+      std_model: global_entity_of().entity_reader(),
+      sampler: global_entity_of().entity_reader(),
+      texture: global_entity_of().entity_reader(),
+      pbr_mr: global_entity_of().entity_reader(),
+    }
+  }
+
   pub fn models(&self) -> impl Iterator<Item = EntityHandle<SceneModelEntity>> + '_ {
     self.scene_ref_models.access_multi(&self.scene_id).unwrap()
   }
@@ -118,17 +139,6 @@ impl SceneReader {
   }
 }
 
-pub struct AttributesMeshReader {
-  topology: ComponentReadView<AttributesMeshEntityTopology>,
-  buffer: ComponentReadView<BufferEntityData>,
-  semantic: ComponentReadView<AttributesMeshEntityVertexBufferSemantic>,
-  mesh_ref_vertex:
-    RevRefOfForeignKey<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>,
-
-  index: SceneBufferViewReadView<AttributeIndexRef>,
-  vertex: SceneBufferViewReadView<AttributeVertexRef>,
-}
-
 pub struct SceneBufferViewReadView<T: SceneBufferView> {
   pub range: ComponentReadView<SceneBufferViewBufferRange<T>>,
   pub count: ComponentReadView<SceneBufferViewBufferItemCount<T>>,
@@ -136,6 +146,14 @@ pub struct SceneBufferViewReadView<T: SceneBufferView> {
 }
 
 impl<T: SceneBufferView> SceneBufferViewReadView<T> {
+  pub fn new_from_global() -> Self {
+    Self {
+      range: global_database().read(),
+      count: global_database().read(),
+      buffer: global_database().read_foreign_key(),
+    }
+  }
+
   pub fn read_view(&self, id: EntityHandle<T::Entity>) -> Option<SceneBufferViewDataView> {
     SceneBufferViewDataView {
       data: self.buffer.get(id),
@@ -168,7 +186,31 @@ pub fn scene_buffer_view_into_attribute(
   .into()
 }
 
+pub struct AttributesMeshReader {
+  topology: ComponentReadView<AttributesMeshEntityTopology>,
+  buffer: ComponentReadView<BufferEntityData>,
+  semantic: ComponentReadView<AttributesMeshEntityVertexBufferSemantic>,
+  mesh_ref_vertex:
+    RevRefOfForeignKey<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>,
+
+  index: SceneBufferViewReadView<AttributeIndexRef>,
+  vertex: SceneBufferViewReadView<AttributeVertexRef>,
+}
+
 impl AttributesMeshReader {
+  pub fn new_from_global() -> Self {
+    Self {
+      topology: global_database().read(),
+      buffer: global_database().read(),
+      semantic: global_database().read(),
+      mesh_ref_vertex: global_rev_ref()
+        .update_and_read::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>(
+      ),
+      index: SceneBufferViewReadView::new_from_global(),
+      vertex: SceneBufferViewReadView::new_from_global(),
+    }
+  }
+
   pub fn read(&self, id: EntityHandle<AttributesMeshEntity>) -> Option<AttributesMesh> {
     let mode = self.topology.get_value(id)?;
 

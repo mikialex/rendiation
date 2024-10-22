@@ -5,11 +5,11 @@ pub(crate) trait ShrinkableAny: Any + Send + Sync {
   fn shrink_to_fit(&mut self);
 }
 
-pub type RxCForker<K, V> = ReactiveKVMapFork<BoxedDynReactiveQuery<K, V>>;
+pub type RQForker<K, V> = ReactiveKVMapFork<BoxedDynReactiveQuery<K, V>>;
 
 pub type OneManyRelationForker<O, M> = ReactiveKVMapFork<BoxedDynReactiveOneToManyRelation<O, M>>;
 
-impl<K, V> ShrinkableAny for RxCForker<K, V>
+impl<K, V> ShrinkableAny for RQForker<K, V>
 where
   K: CKey,
   V: CValue,
@@ -70,6 +70,33 @@ impl ReactiveQueryRegistry {
     }
   }
 
+  pub fn update_and_read_query<K: CKey, V: CValue>(&self, id: TypeId) -> BoxedDynQuery<K, V> {
+    let registry = self.registry.read_recursive();
+    registry
+      .get(&id)
+      .unwrap()
+      .as_ref()
+      .as_any()
+      .downcast_ref::<RQForker<K, V>>()
+      .unwrap()
+      .update_and_read()
+  }
+
+  pub fn update_and_read_multi_query<K: CKey, V: CKey>(
+    &self,
+    id: TypeId,
+  ) -> BoxedDynMultiQuery<K, V> {
+    let registry = self.registry.read_recursive();
+    registry
+      .get(&id)
+      .unwrap()
+      .as_ref()
+      .as_any()
+      .downcast_ref::<OneManyRelationForker<K, V>>()
+      .unwrap()
+      .update_and_read()
+  }
+
   pub fn fork_or_insert_with<R>(
     &self,
     inserter: impl FnOnce() -> R + Any,
@@ -84,7 +111,7 @@ impl ReactiveQueryRegistry {
     &self,
     typeid: TypeId,
     inserter: impl FnOnce() -> R,
-  ) -> RxCForker<R::Key, R::Value>
+  ) -> RQForker<R::Key, R::Value>
   where
     R: ReactiveQuery,
   {
@@ -94,7 +121,7 @@ impl ReactiveQueryRegistry {
       let query = query
         .as_ref()
         .as_any()
-        .downcast_ref::<RxCForker<R::Key, R::Value>>()
+        .downcast_ref::<RQForker<R::Key, R::Value>>()
         .unwrap();
       query.clone()
     } else {
@@ -111,7 +138,7 @@ impl ReactiveQueryRegistry {
       let query = query
         .as_ref()
         .as_any()
-        .downcast_ref::<RxCForker<R::Key, R::Value>>()
+        .downcast_ref::<RQForker<R::Key, R::Value>>()
         .unwrap();
       query.clone()
     }

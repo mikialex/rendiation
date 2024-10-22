@@ -8,6 +8,7 @@ gltf = "1.2.0"
 gltf-json = "1.2.0"
 database = { path = "../../../../utility/database" }
 query = { path = "../../../../utility/query" }
+reactive-query = { path = "../../../../utility/reactive-query" }
 rendiation-mesh-core = { path = "../../../../content/mesh/core" }
 rendiation-scene-core = { path = "../../../core" }
 rendiation-texture-core = { path = "../../../../content/texture/core" }

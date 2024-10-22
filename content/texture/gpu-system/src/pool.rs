@@ -66,7 +66,7 @@ pub struct TexturePoolSource {
   texture: Option<GPUTexture>,
   address: ReactiveStorageBufferContainer<TexturePoolAddressInfo>,
   samplers: ReactiveStorageBufferContainer<TextureSamplerShaderInfo>,
-  tex_input: RxCForker<Texture2DHandle, TexturePool2dSource>,
+  tex_input: RQForker<Texture2DHandle, TexturePool2dSource>,
   packing: BoxedDynReactiveQuery<Texture2DHandle, PackResult2dWithDepth>,
   atlas_resize: Box<dyn Stream<Item = SizeWithDepth> + Unpin>,
   format: TextureFormat,
@@ -77,7 +77,7 @@ impl TexturePoolSource {
   pub fn new(
     gpu: &GPU,
     config: MultiLayerTexturePackerConfig,
-    tex_input: RxCForker<Texture2DHandle, TexturePool2dSource>,
+    tex_input: RQForker<Texture2DHandle, TexturePool2dSource>,
     sampler_input: BoxedDynReactiveQuery<SamplerHandle, TextureSampler>,
     format: TextureFormat,
   ) -> Self {

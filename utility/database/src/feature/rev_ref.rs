@@ -30,6 +30,22 @@ impl DatabaseEntityReverseReference {
     }
   }
 
+  pub fn update_and_read<S: ForeignKeySemantic>(&self) -> RevRefOfForeignKey<S> {
+    let view = self
+      .entity_rev_refs
+      .read()
+      .get(&S::component_id())
+      .unwrap()
+      .downcast_ref::<OneManyRelationForker<RawEntityHandle, RawEntityHandle>>()
+      .unwrap()
+      .update_and_read();
+
+    view
+      .multi_key_dual_map(|k| unsafe { EntityHandle::from_raw(k) }, |k| k.handle)
+      .multi_map(|_, v| unsafe { EntityHandle::from_raw(v) })
+      .into_boxed()
+  }
+
   pub fn watch_inv_ref<S: ForeignKeySemantic>(
     &self,
   ) -> impl ReactiveOneToManyRelation<One = EntityHandle<S::ForeignEntity>, Many = EntityHandle<S::Entity>>

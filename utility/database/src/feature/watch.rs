@@ -55,7 +55,7 @@ impl DatabaseMutationWatch {
   ) -> impl ReactiveQuery<Key = RawEntityHandle, Value = ()> {
     if let Some(watcher) = self.entity_set_changes.read().get(&e_id) {
       let watcher = watcher
-        .downcast_ref::<RxCForker<RawEntityHandle, ()>>()
+        .downcast_ref::<RQForker<RawEntityHandle, ()>>()
         .unwrap();
       return watcher.clone();
     }
@@ -123,7 +123,7 @@ impl DatabaseMutationWatch {
   ) -> impl ReactiveQuery<Key = RawEntityHandle, Value = T> {
     if let Some(watcher) = self.component_changes.read().get(&component_id) {
       let watcher = watcher
-        .downcast_ref::<RxCForker<RawEntityHandle, T>>()
+        .downcast_ref::<RQForker<RawEntityHandle, T>>()
         .unwrap();
       return watcher.clone();
     }
@@ -157,7 +157,7 @@ impl DatabaseMutationWatch {
     };
 
     let rxc: BoxedDynReactiveQuery<RawEntityHandle, T> = Box::new(rxc);
-    let rxc: RxCForker<RawEntityHandle, T> = rxc.into_static_forker();
+    let rxc: RQForker<RawEntityHandle, T> = rxc.into_static_forker();
 
     self
       .component_changes

@@ -16,7 +16,7 @@ mod convert_utils;
 use convert_utils::*;
 
 mod reader;
-use reader::*;
+pub use reader::*;
 
 #[derive(Debug)]
 pub enum GltfExportErr {

@@ -24,6 +24,7 @@ pub struct ReactiveKVMapFork<Map: ReactiveQuery> {
   buffered: RwLock<Vec<ForkMessage<Map::Key, Map::Value>>>,
   rev: RwLock<Receiver<Map::Key, Map::Value>>,
   id: u64,
+  as_static_forker: bool,
   waker: Arc<AtomicWaker>,
 }
 
@@ -46,8 +47,35 @@ impl<Map: ReactiveQuery> ReactiveKVMapFork<Map> {
       rev: RwLock::new(rev),
       id,
       waker,
+      as_static_forker,
       buffered: Default::default(),
     }
+  }
+}
+
+impl<K: CKey, V: CValue> RQForker<K, V> {
+  pub fn update_and_read(&self) -> BoxedDynQuery<K, V> {
+    assert!(self.as_static_forker);
+    let waker = Arc::new(BroadCast {
+      inner: self.downstream.clone(),
+    });
+    let waker = futures::task::waker_ref(&waker);
+    let mut cx = Context::from_waker(&waker);
+    let (_, v) = self.upstream.read().poll_changes(&mut cx);
+    v
+  }
+}
+
+impl<K: CKey, V: CKey> OneManyRelationForker<K, V> {
+  pub fn update_and_read(&self) -> BoxedDynMultiQuery<K, V> {
+    assert!(self.as_static_forker);
+    let waker = Arc::new(BroadCast {
+      inner: self.downstream.clone(),
+    });
+    let waker = futures::task::waker_ref(&waker);
+    let mut cx = Context::from_waker(&waker);
+    let (_, _, v) = self.upstream.read().poll_changes_with_inv_dyn(&mut cx);
+    v
   }
 }
 
@@ -115,6 +143,7 @@ where
       resolved: self.resolved.clone(),
       waker,
       buffered: Default::default(),
+      as_static_forker: false,
     }
   }
 }
