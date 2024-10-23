@@ -110,6 +110,7 @@ fn test_cpu_triangle() {
   let cpu_data = inner.cpu_data.as_ref().unwrap();
 
   let mut payload = ShaderRayTraceCallStoragePayload::zeroed();
+  // payload.ray_flags = RAY_FLAG_CULL_BACK_FACING_TRIANGLES as u32;
   payload.cull_mask = u32::MAX;
   payload.range = vec2(0., FAR);
 

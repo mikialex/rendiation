@@ -1,5 +1,3 @@
-use std::ops::BitXor;
-
 use crate::backend::wavefront_compute::geometry::naive::*;
 
 #[repr(u32)]
@@ -10,8 +8,8 @@ pub enum TraverseFlags {
   NONE = 0x00,
   FORCE_OPAQUE = 0x01,
   FORCE_NON_OPAQUE = 0x02,
-  ACCEPT_FIRST_HIT_AND_END_SEARCH = 0x04,
-  SKIP_CLOSEST_HIT_SHADER = 0x08,
+  ACCEPT_FIRST_HIT_AND_END_SEARCH = 0x04, // todo
+  SKIP_CLOSEST_HIT_SHADER = 0x08,         // todo
   CULL_BACK_FACING_TRIANGLES = 0x10,
   CULL_FRONT_FACING_TRIANGLES = 0x20,
   CULL_OPAQUE = 0x40,
@@ -139,7 +137,7 @@ impl TraverseFlags {
     let cull_non_opaque = traverse_flag as u32 & CULL_NON_OPAQUE as u32 > 0;
 
     let is_opaque = (geometry_opaque || force_opaque) && !force_non_opaque;
-    let pass = (is_opaque && cull_opaque) || (!is_opaque && cull_non_opaque);
+    let pass = (is_opaque && !cull_opaque) || (!is_opaque && !cull_non_opaque);
 
     (pass, is_opaque)
   }
@@ -160,34 +158,36 @@ impl TraverseFlags {
     // write IS_OPAQUE
     let is_opaque = geometry_opaque.or(force_opaque).and(force_non_opaque.not());
     let pass = is_opaque
-      .and(cull_opaque)
-      .or(is_opaque.not().and(cull_non_opaque));
+      .and(cull_opaque.not())
+      .or(is_opaque.not().and(cull_non_opaque.not()));
 
     (pass, is_opaque)
   }
 
-  /// returns Pass(true)/Fail(false)
-  pub fn cull_triangle_cpu(traverse_flag: TraverseFlags, is_ccw_in_local: bool) -> bool {
+  /// returns CullEnable(true)/Disable(false), CullBack(true)/CullFront(false)
+  pub fn cull_triangle_cpu(traverse_flag: TraverseFlags) -> (bool, bool) {
     use TraverseFlags::*;
     let flag = traverse_flag;
     let flip = flag as u32 & TRIANGLE_FLIP_FACING as u32 > 0;
     let cull_front = flag as u32 & CULL_FRONT_FACING_TRIANGLES as u32 > 0;
     let cull_back = flag as u32 & CULL_BACK_FACING_TRIANGLES as u32 > 0;
 
-    let is_front = is_ccw_in_local.bitxor(flip);
-    (is_front && !cull_front) || (!is_front && !cull_back)
+    let cull_enable = cull_front || cull_back;
+    let cull_back = (flip && cull_back) || (!flip && cull_front);
+
+    (cull_enable, cull_back)
   }
-  /// returns Pass(true)/Fail(false)
-  pub fn cull_triangle_gpu(traverse_flag: Node<u32>, is_ccw_in_local: Node<bool>) -> Node<bool> {
+  /// returns CullEnable(true)/Disable(false), CullBack(true)/CullFront(false)
+  pub fn cull_triangle_gpu(traverse_flag: Node<u32>) -> (Node<bool>, Node<bool>) {
     use TraverseFlags::*;
     let flag = traverse_flag;
     let flip = (flag & val(TRIANGLE_FLIP_FACING as u32)).greater_than(val(0));
     let cull_front = (flag & val(CULL_FRONT_FACING_TRIANGLES as u32)).greater_than(val(0));
     let cull_back = (flag & val(CULL_BACK_FACING_TRIANGLES as u32)).greater_than(val(0));
 
-    let is_front = is_ccw_in_local.bitxor(flip);
-    is_front
-      .and(cull_front.not())
-      .or(is_front.not().and(cull_back.not()))
+    let cull_enable = cull_front.or(cull_back);
+    let cull_back = flip.and(cull_back).or(flip.not().and(cull_front));
+
+    (cull_enable, cull_back)
   }
 }

@@ -87,10 +87,11 @@ impl NaiveSahBvhCpu {
             let primitive_start = geometry.primitive_start;
             let geometry_flags = geometry.geometry_flags;
 
-            let (pass, is_opaque) = TraverseFlags::cull_geometry_cpu(flags, geometry_flags);
+            let (pass, _is_opaque) = TraverseFlags::cull_geometry_cpu(flags, geometry_flags);
             if !pass {
               continue;
             }
+            let (cull_enable, cull_back) = TraverseFlags::cull_triangle_cpu(flags);
 
             let bvh_iter = TraverseBvhIteratorCpu {
               bvh: &self.tri_bvh_forest,
@@ -119,7 +120,8 @@ impl NaiveSahBvhCpu {
                   v0,
                   v1,
                   v2,
-                  // todo cull face flags
+                  cull_enable,
+                  cull_back,
                 );
 
                 if intersection[0] > 0. {
@@ -140,11 +142,11 @@ impl NaiveSahBvhCpu {
           for box_root_index in blas_meta_info.box_root_range.x..blas_meta_info.box_root_range.y {
             let geometry = self.box_bvh_root[box_root_index as usize];
             let blas_root_idx = geometry.bvh_root_idx;
-            let geometry_idx = geometry.geometry_idx;
-            let primitive_start = geometry.primitive_start;
+            let _geometry_idx = geometry.geometry_idx;
+            let _primitive_start = geometry.primitive_start;
             let geometry_flags = geometry.geometry_flags;
 
-            let (pass, is_opaque) = TraverseFlags::cull_geometry_cpu(flags, geometry_flags);
+            let (pass, _is_opaque) = TraverseFlags::cull_geometry_cpu(flags, geometry_flags);
             if !pass {
               continue;
             }

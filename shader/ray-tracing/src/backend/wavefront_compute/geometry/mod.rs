@@ -103,12 +103,21 @@ fn intersect_ray_triangle_cpu(
   v0: Vec3<f32>,
   v1: Vec3<f32>,
   v2: Vec3<f32>,
-  // todo flags
+  cull_enable: bool,
+  cull_back: bool,
 ) -> Vec4<f32> {
   let e1 = v1 - v0;
   let e2 = v2 - v0;
   let normal = e1.cross(e2).normalize();
   let b = normal.dot(direction);
+
+  if cull_enable {
+    let pass = cull_back ^ (b > 0.);
+    if !pass {
+      return vec4(0., 0., 0., 0.);
+    }
+  }
+
   // todo cull
   let w0 = origin - v0;
   let a = -normal.dot(w0);
