@@ -1,6 +1,7 @@
 mod geometry;
 pub use geometry::*;
 mod sbt;
+use parking_lot::lock_api::RwLock;
 pub use sbt::*;
 mod trace_task;
 pub use trace_task::*;
@@ -62,13 +63,16 @@ impl GPURayTracingDeviceProvider for GPUWaveFrontComputeRaytracingDevice {
     desc: &GPURaytracingPipelineDescriptor,
   ) -> Box<dyn GPURaytracingPipelineProvider> {
     let mut cx = DeviceParallelComputeCtx::new(&self.gpu);
-    Box::new(GPUWaveFrontComputeRaytracingBakedPipelineInner::compile(
+    let inner = GPUWaveFrontComputeRaytracingBakedPipelineInner::compile(
       &mut cx,
       self.tlas_sys.create_comp_instance(),
       self.sbt_sys.clone(),
       desc,
       self.default_init_size,
-    ))
+    );
+    Box::new(GPUWaveFrontComputeRaytracingBakedPipeline {
+      inner: Arc::new(RwLock::new(inner)),
+    })
   }
 
   fn create_sbt(

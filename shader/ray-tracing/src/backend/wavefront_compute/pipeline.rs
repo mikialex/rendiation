@@ -140,7 +140,7 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
   }
 }
 
-impl GPURaytracingPipelineProvider for GPUWaveFrontComputeRaytracingBakedPipelineInner {
+impl GPURaytracingPipelineProvider for GPUWaveFrontComputeRaytracingBakedPipeline {
   fn access_impl(&self) -> &dyn Any {
     self
   }

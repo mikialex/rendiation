@@ -61,6 +61,7 @@ impl ShaderFuture for TraceTaskImpl {
     self.sbt_sys.bind(builder);
     builder.bind(&self.payload_bumper.read().storage);
     self.payload_read_back_bumper.read().bind_allocator(builder);
+    builder.bind(&self.current_sbt);
   }
 
   fn reset(&mut self, ctx: &mut DeviceParallelComputeCtx, work_size: u32) {
@@ -389,7 +390,8 @@ impl TracingTaskSpawnerImplSource {
   }
 
   pub fn bind(&self, builder: &mut BindingBuilder) {
-    self.payload_spawn_bumper.read().bind_allocator(builder)
+    self.payload_spawn_bumper.read().bind_allocator(builder);
+    self.payload_read_back.read().bind_allocator(builder);
   }
 }
 
