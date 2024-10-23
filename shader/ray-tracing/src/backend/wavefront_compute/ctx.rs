@@ -155,7 +155,11 @@ impl ShaderFutureInvocation for CtxProviderFutureInvocation {
     // accessing task{}_payload_with_ray, see fn spawn_dynamic in trace_task.rs
     let combined_payload = ctx.access_self_payload_untyped();
     let user_defined_payload: StorageNode<AnyType> =
-      unsafe { index_access_field(combined_payload.handle(), 1) };
+      if matches!(self.stage, RayTraceableShaderStage::RayGeneration) {
+        combined_payload
+      } else {
+        unsafe { index_access_field(combined_payload.handle(), 1) }
+      };
 
     let missing = matches!(self.stage, RayTraceableShaderStage::Miss).then(|| unsafe {
       let ray_payload: StorageNode<RayMissHitCtxPayload> =
