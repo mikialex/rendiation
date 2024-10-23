@@ -1,7 +1,7 @@
 use crate::*;
 
 pub struct BindingArrayMaintainer<K, V> {
-  upstream: Box<dyn DynReactiveCollection<K, V>>,
+  upstream: BoxedDynReactiveQuery<K, V>,
   array: Option<BindingResourceArray<V>>,
   default_instance: V,
   max_length: u32,
@@ -15,7 +15,7 @@ impl<K, V> BindingArrayMaintainer<K, V> {
   /// will be costly.
   ///
   /// todo, provide another internal resizable binding length control
-  pub fn new(upstream: Box<dyn DynReactiveCollection<K, V>>, default: V, max_length: u32) -> Self {
+  pub fn new(upstream: BoxedDynReactiveQuery<K, V>, default: V, max_length: u32) -> Self {
     Self {
       upstream,
       array: Default::default(),
@@ -32,7 +32,7 @@ where
 {
   pub fn poll_update(&mut self, cx: &mut Context) -> BindingResourceArray<V> {
     // detail change info is useless here because the binding array update can not be preformed
-    // incrementally. but we still keep the form of full reactive collection to do optimization in
+    // incrementally. but we still keep the form of full reactive query to do optimization in
     // future if the wgpu provide the binding array incremental update method.
     let (_, full_view) = self.upstream.poll_changes(cx);
 

@@ -2,7 +2,10 @@ use crate::*;
 
 #[derive(Default)]
 pub struct SemanticRegistry {
-  registered: FastHashMap<TypeId, Node<AnyType>>,
+  static_semantic: FastHashMap<TypeId, NodeUntyped>,
+  /// this map can be used for store any dynamic semantic info.
+  /// this is useful if the semantic is dynamic for example the runtime index or enum
+  pub dynamic_semantic: FastHashMap<String, NodeUntyped>,
 }
 
 impl SemanticRegistry {
@@ -21,18 +24,16 @@ impl SemanticRegistry {
     self.register(TypeId::of::<T>(), node.into().cast_untyped_node());
   }
 
-  pub fn query(&self, id: TypeId, name: &'static str) -> Result<Node<AnyType>, ShaderBuildError> {
+  pub fn query(&self, id: TypeId, name: &'static str) -> Result<NodeUntyped, ShaderBuildError> {
     self
-      .registered
+      .static_semantic
       .get(&id)
       .copied()
       .ok_or(ShaderBuildError::MissingRequiredDependency(name))
   }
 
-  pub fn register(&mut self, id: TypeId, node: NodeUntyped) -> &Node<AnyType> {
-    self.registered.insert(id, node);
-    // fixme, rust hashmap, pain in the ass..
-    self.registered.get(&id).unwrap()
+  pub fn register(&mut self, id: TypeId, node: NodeUntyped) -> &NodeUntyped {
+    self.static_semantic.entry(id).or_insert(node)
   }
 }
 

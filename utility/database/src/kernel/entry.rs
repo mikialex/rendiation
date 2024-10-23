@@ -38,6 +38,9 @@ impl Database {
   pub fn read<C: ComponentSemantic>(&self) -> ComponentReadView<C> {
     self.access_ecg::<C::Entity, _>(|e| e.access_component::<C, _>(|c| c.read()))
   }
+  pub fn read_foreign_key<C: ForeignKeySemantic>(&self) -> ForeignKeyReadView<C> {
+    self.access_ecg::<C::Entity, _>(|e| e.access_component::<C, _>(|c| c.read_foreign_key()))
+  }
   pub fn write<C: ComponentSemantic>(&self) -> ComponentWriteView<C> {
     self.access_ecg::<C::Entity, _>(|e| e.access_component::<C, _>(|c| c.write()))
   }

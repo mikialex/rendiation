@@ -32,7 +32,7 @@ impl RenderImplProvider<Box<dyn SceneRenderer>> for GLESRenderSystem {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
     self.texture_system.register_resource(source, cx);
     let model_lookup = global_rev_ref().watch_inv_ref::<SceneModelBelongsToScene>();
-    self.model_lookup = source.register_reactive_multi_collection(model_lookup);
+    self.model_lookup = source.register_multi_reactive_query(model_lookup);
     self.camera.register_resource(source, cx);
     for imp in &mut self.scene_model_impl {
       imp.register_resource(source, cx);
@@ -48,7 +48,7 @@ impl RenderImplProvider<Box<dyn SceneRenderer>> for GLESRenderSystem {
         .collect(),
       background: SceneBackgroundRenderer::new_from_global(),
       model_lookup: res
-        .take_multi_reactive_collection_updated(self.model_lookup)
+        .take_reactive_multi_query_updated(self.model_lookup)
         .unwrap(),
       texture_system: self.texture_system.create_impl(res),
       camera: self.camera.create_impl(res),
@@ -105,16 +105,17 @@ impl SceneRenderer for GLESSceneRenderer {
     &self.texture_system
   }
 
-  fn render_reorderable_models(
+  fn render_batch_models(
     &self,
     models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
+    _reorderable: bool,
     camera: EntityHandle<SceneCameraEntity>,
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
   ) {
     let camera = self.camera.make_component(camera).unwrap();
-    self.render_reorderable_models_impl(models, &camera, pass, cx, tex);
+    self.render_batch_models_impl(models, &camera, pass, cx, tex);
   }
 
   fn get_camera_gpu(&self) -> &dyn CameraRenderImpl {
@@ -136,7 +137,7 @@ impl<'a> PassContent for GLESScenePassContent<'a> {
     let base = default_dispatcher(pass);
     let p = RenderArray([&base, self.pass] as [&dyn rendiation_webgpu::RenderComponent; 2]);
 
-    self.renderer.render_reorderable_models(
+    self.renderer.render_reorderable_batch_models(
       &mut models,
       self.camera,
       &p,

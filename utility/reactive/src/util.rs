@@ -1,6 +1,6 @@
 use crate::*;
 
-pub type BoxedAnyReactiveQuery = Box<dyn ReactiveQuery<Output = Box<dyn Any>>>;
+pub type BoxedAnyReactiveQuery = Box<dyn ReactiveGeneralQuery<Output = Box<dyn Any>>>;
 
 #[derive(Default)]
 pub struct ReactiveQueryJoinUpdater {
@@ -24,31 +24,25 @@ impl ReactiveQueryJoinUpdater {
     self.register(updater)
   }
 
-  pub fn register_reactive_collection<C, K, V>(&mut self, c: C) -> UpdateResultToken
+  pub fn register_reactive_query<C>(&mut self, c: C) -> UpdateResultToken
   where
-    K: CKey,
-    V: CValue,
-    C: ReactiveCollection<K, V> + Unpin,
+    C: ReactiveQuery + Unpin,
   {
     let c = Box::new(c.into_reactive_state()) as BoxedAnyReactiveQuery;
     self.register(c)
   }
 
-  pub fn register_self_contained_reactive_collection<C, K, V>(&mut self, c: C) -> UpdateResultToken
+  pub fn register_val_refed_reactive_query<C>(&mut self, c: C) -> UpdateResultToken
   where
-    K: CKey,
-    V: CValue,
-    C: ReactiveCollectionSelfContained<K, V>,
+    C: ReactiveValueRefQuery,
   {
     let c = Box::new(c.into_reactive_state_self_contained()) as BoxedAnyReactiveQuery;
     self.register(c)
   }
 
-  pub fn register_reactive_multi_collection<C, K, V>(&mut self, c: C) -> UpdateResultToken
+  pub fn register_multi_reactive_query<C>(&mut self, c: C) -> UpdateResultToken
   where
-    C: ReactiveOneToManyRelation<K, V>,
-    K: CKey,
-    V: CKey,
+    C: ReactiveOneToManyRelation,
   {
     let c = Box::new(c.into_reactive_state_many_one()) as BoxedAnyReactiveQuery;
     self.register(c)
@@ -83,34 +77,34 @@ impl ConcurrentStreamUpdateResult {
     self.inner.remove(&token.0)
   }
 
-  pub fn take_reactive_collection_updated<K: CKey, V: CValue>(
+  pub fn take_reactive_query_updated<K: CKey, V: CValue>(
     &mut self,
     token: UpdateResultToken,
-  ) -> Option<Box<dyn DynVirtualCollection<K, V>>> {
+  ) -> Option<BoxedDynQuery<K, V>> {
     self
       .take_result(token)?
-      .downcast::<Box<dyn DynVirtualCollection<K, V>>>()
+      .downcast::<BoxedDynQuery<K, V>>()
       .ok()
       .map(|v| *v)
   }
 
-  pub fn take_multi_reactive_collection_updated<K: CKey, V: CKey>(
+  pub fn take_reactive_multi_query_updated<K: CKey, V: CKey>(
     &mut self,
     token: UpdateResultToken,
-  ) -> Option<Box<dyn DynVirtualMultiCollection<K, V>>> {
+  ) -> Option<BoxedDynMultiQuery<K, V>> {
     self
       .take_result(token)?
-      .downcast::<Box<dyn DynVirtualMultiCollection<K, V>>>()
+      .downcast::<BoxedDynMultiQuery<K, V>>()
       .ok()
       .map(|v| *v)
   }
-  pub fn take_self_contained_reactive_collection_updated<K: CKey, V: CValue>(
+  pub fn take_val_refed_reactive_query_updated<K: CKey, V: CValue>(
     &mut self,
     token: UpdateResultToken,
-  ) -> Option<Box<dyn VirtualCollectionSelfContained<K, V>>> {
+  ) -> Option<BoxedDynValueRefQuery<K, V>> {
     self
       .take_result(token)?
-      .downcast::<Box<dyn VirtualCollectionSelfContained<K, V>>>()
+      .downcast::<BoxedDynValueRefQuery<K, V>>()
       .ok()
       .map(|v| *v)
   }

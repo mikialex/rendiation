@@ -13,7 +13,7 @@ impl RenderImplProvider<Box<dyn SceneRenderer>> for IndirectRenderSystem {
     self.texture_system.register_resource(source, cx);
 
     let model_lookup = global_rev_ref().watch_inv_ref::<SceneModelBelongsToScene>();
-    self.model_lookup = source.register_reactive_multi_collection(model_lookup);
+    self.model_lookup = source.register_multi_reactive_query(model_lookup);
     self.camera.register_resource(source, cx);
     for imp in &mut self.scene_model_impl {
       imp.register_resource(source, cx);
@@ -92,9 +92,10 @@ impl SceneRenderer for IndirectSceneRenderer {
     &self.texture_system
   }
 
-  fn render_reorderable_models(
+  fn render_batch_models(
     &self,
     models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
+    _reorderable: bool,
     camera: EntityHandle<SceneCameraEntity>,
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,
@@ -102,7 +103,7 @@ impl SceneRenderer for IndirectSceneRenderer {
   ) {
     let camera = self.camera.make_component(camera).unwrap();
     for renderer in &self.renderer {
-      if renderer.render_reorderable_models_impl(models, &camera, pass, cx, tex) {
+      if renderer.render_batch_models_impl(models, &camera, pass, cx, tex) {
         break;
       }
     }

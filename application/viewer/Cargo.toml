@@ -23,6 +23,9 @@ reactive = { path = "../../utility/reactive" }
 rendiation-infinity-plane = { path = "../../extension/infinity-plane" }
 rendiation-algebra = { path = "../../math/algebra" }
 rendiation-scene-geometry-query = { path = "../../scene/geometry-query" }
+rendiation-scene-gltf-exporter = { path = "../../scene/io/gltf/exporter" }
+rendiation-scene-gltf-loader = { path = "../../scene/io/gltf/loader" }
+rendiation-scene-obj-loader = { path = "../../scene/io/obj/loader" }
 rendiation-scene-rendering-gpu-gles = { path = "../../scene/rendering/gpu-gles" }
 rendiation-texture-gpu-process = { path = "../../content/texture/gpu-process" }
 rendiation-geometry = { path = "../../math/geometry" }

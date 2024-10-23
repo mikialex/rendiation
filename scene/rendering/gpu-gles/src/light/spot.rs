@@ -17,21 +17,21 @@ pub fn spot_uniform_array(gpu: &GPU) -> UniformArrayUpdateContainer<SpotLightUni
 
   let luminance_intensity = global_watch()
     .watch::<SplitLightIntensity>()
-    .into_uniform_array_collection_update(offset_of!(SpotLightUniform, luminance_intensity), gpu);
+    .into_query_update_uniform_array(offset_of!(SpotLightUniform, luminance_intensity), gpu);
 
   let cutoff_distance = global_watch()
     .watch::<SpotLightCutOffDistance>()
-    .into_uniform_array_collection_update(offset_of!(SpotLightUniform, cutoff_distance), gpu);
+    .into_query_update_uniform_array(offset_of!(SpotLightUniform, cutoff_distance), gpu);
 
   let half_cone_cos = global_watch()
     .watch::<SpotLightHalfConeAngle>()
     .collective_map(|rad| rad.cos())
-    .into_uniform_array_collection_update(offset_of!(SpotLightUniform, half_cone_cos), gpu);
+    .into_query_update_uniform_array(offset_of!(SpotLightUniform, half_cone_cos), gpu);
 
   let half_penumbra_cos = global_watch()
     .watch::<SpotLightHalfPenumbraAngle>()
     .collective_map(|rad| rad.cos())
-    .into_uniform_array_collection_update(offset_of!(SpotLightUniform, half_penumbra_cos), gpu);
+    .into_query_update_uniform_array(offset_of!(SpotLightUniform, half_penumbra_cos), gpu);
 
   let world = scene_node_derive_world_mat()
     .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SpotLightRefNode>())
@@ -40,11 +40,11 @@ pub fn spot_uniform_array(gpu: &GPU) -> UniformArrayUpdateContainer<SpotLightUni
   let position = world
     .clone()
     .collective_map(|mat| mat.position())
-    .into_uniform_array_collection_update(offset_of!(SpotLightUniform, position), gpu);
+    .into_query_update_uniform_array(offset_of!(SpotLightUniform, position), gpu);
 
   let direction = world
     .collective_map(|mat| mat.forward().reverse().normalize())
-    .into_uniform_array_collection_update(offset_of!(SpotLightUniform, direction), gpu);
+    .into_query_update_uniform_array(offset_of!(SpotLightUniform, direction), gpu);
 
   UniformArrayUpdateContainer::new(buffer)
     .with_source(luminance_intensity)

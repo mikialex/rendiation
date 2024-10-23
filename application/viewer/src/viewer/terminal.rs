@@ -98,50 +98,81 @@ pub fn register_default_commands(terminal: &mut Terminal) {
     gpu.clear_resource_cache();
   });
 
-  // terminal.register_command("load-gltf", |ctx, _parameters| {
-  //   let scene = ctx.scene.clone();
-  //   async move {
-  //     use rfd::AsyncFileDialog;
+  terminal.register_command("load-gltf", |ctx, _parameters| {
+    access_cx!(ctx, scene_cx, Viewer3dSceneCtx);
+    let load_target_node = scene_cx.root;
+    let load_target_scene = scene_cx.scene;
 
-  //     let file_handle = AsyncFileDialog::new()
-  //       .add_filter("gltf", &["gltf", "glb"])
-  //       .pick_file()
-  //       .await;
+    async move {
+      use rfd::AsyncFileDialog;
 
-  //     if let Some(file_handle) = file_handle {
-  //       rendiation_scene_gltf_loader::load_gltf(file_handle.path(), &scene).unwrap();
-  //     }
-  //   }
-  // });
+      let file_handle = AsyncFileDialog::new()
+        .add_filter("gltf", &["gltf", "glb"])
+        .pick_file()
+        .await;
 
-  // terminal.register_command("load-obj", |ctx, _parameters| {
-  //   let scene = ctx.scene.clone();
-  //   async move {
-  //     use rfd::AsyncFileDialog;
+      let mut writer = SceneWriter::from_global(load_target_scene);
 
-  //     let file_handle = AsyncFileDialog::new()
-  //       .add_filter("gltf", &["obj"])
-  //       .pick_file()
-  //       .await;
+      if let Some(file_handle) = file_handle {
+        rendiation_scene_gltf_loader::load_gltf(file_handle.path(), load_target_node, &mut writer)
+          .unwrap();
+      }
+    }
+  });
 
-  //     if let Some(file_handle) = file_handle {
-  //       rendiation_scene_obj_loader::load_obj(file_handle.path(), &scene).unwrap();
-  //     }
-  //   }
-  // });
+  terminal.register_command("load-obj", |ctx, _parameters| {
+    access_cx!(ctx, scene_cx, Viewer3dSceneCtx);
+    let load_target_node = scene_cx.root;
+    let load_target_scene = scene_cx.scene;
 
-  // terminal.register_command("export-gltf", |ctx, _parameters| {
-  //   let scene = ctx.scene.clone();
+    async move {
+      use rfd::AsyncFileDialog;
 
-  //   async move {
-  //     if let Some(mut dir) = dirs::download_dir() {
-  //       dir.push("gltf_export");
-  //       rendiation_scene_gltf_exporter::build_scene_to_gltf(&scene, &dir, "scene").unwrap();
-  //     } else {
-  //       log::error!("failed to locate the system's default download directory to write file
-  // output")     }
-  //   }
-  // });
+      let file_handle = AsyncFileDialog::new()
+        .add_filter("gltf", &["obj"])
+        .pick_file()
+        .await;
+
+      let mut writer = SceneWriter::from_global(load_target_scene);
+
+      if let Some(file_handle) = file_handle {
+        rendiation_scene_obj_loader::load_obj(
+          file_handle.path(),
+          load_target_node,
+          todo!(),
+          &mut writer,
+        )
+        .unwrap();
+      }
+    }
+  });
+
+  terminal.register_command("export-gltf", |ctx, _parameters| {
+    access_cx!(ctx, scene_cx, Viewer3dSceneCtx);
+    let export_root_node = scene_cx.root;
+    let export_scene = scene_cx.scene;
+
+    async move {
+      if let Some(mut dir) = dirs::download_dir() {
+        dir.push("gltf_export");
+
+        let reader = rendiation_scene_gltf_exporter::SceneReader::new_from_global(export_scene);
+
+        rendiation_scene_gltf_exporter::build_scene_to_gltf(
+          reader,
+          export_root_node,
+          &dir,
+          "scene",
+        )
+        .unwrap();
+      } else {
+        log::error!(
+          "failed to locate the system's default download directory to write file
+  output"
+        )
+      }
+    }
+  });
 
   terminal.register_command("screenshot", |ctx, _parameters| {
     access_cx!(ctx, r, Viewer3dRenderingCtx);

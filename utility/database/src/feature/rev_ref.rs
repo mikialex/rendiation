@@ -12,18 +12,14 @@ impl DataBaseFeature for DatabaseEntityReverseReference {
   }
 }
 
-pub type RevRefOfForeignKeyWatch<S> = Box<
-  dyn DynReactiveOneToManyRelation<
-    EntityHandle<<S as ForeignKeySemantic>::ForeignEntity>,
-    EntityHandle<<S as EntityAssociateSemantic>::Entity>,
-  >,
+pub type RevRefOfForeignKeyWatch<S> = BoxedDynReactiveOneToManyRelation<
+  EntityHandle<<S as ForeignKeySemantic>::ForeignEntity>,
+  EntityHandle<<S as EntityAssociateSemantic>::Entity>,
 >;
 
-pub type RevRefOfForeignKey<S> = Box<
-  dyn DynVirtualMultiCollection<
-    EntityHandle<<S as ForeignKeySemantic>::ForeignEntity>,
-    EntityHandle<<S as EntityAssociateSemantic>::Entity>,
-  >,
+pub type RevRefOfForeignKey<S> = BoxedDynMultiQuery<
+  EntityHandle<<S as ForeignKeySemantic>::ForeignEntity>,
+  EntityHandle<<S as EntityAssociateSemantic>::Entity>,
 >;
 
 impl DatabaseEntityReverseReference {
@@ -34,9 +30,26 @@ impl DatabaseEntityReverseReference {
     }
   }
 
+  pub fn update_and_read<S: ForeignKeySemantic>(&self) -> RevRefOfForeignKey<S> {
+    let view = self
+      .entity_rev_refs
+      .read()
+      .get(&S::component_id())
+      .unwrap()
+      .downcast_ref::<OneManyRelationForker<RawEntityHandle, RawEntityHandle>>()
+      .unwrap()
+      .update_and_read();
+
+    view
+      .multi_key_dual_map(|k| unsafe { EntityHandle::from_raw(k) }, |k| k.handle)
+      .multi_map(|_, v| unsafe { EntityHandle::from_raw(v) })
+      .into_boxed()
+  }
+
   pub fn watch_inv_ref<S: ForeignKeySemantic>(
     &self,
-  ) -> impl ReactiveOneToManyRelation<EntityHandle<S::ForeignEntity>, EntityHandle<S::Entity>> {
+  ) -> impl ReactiveOneToManyRelation<One = EntityHandle<S::ForeignEntity>, Many = EntityHandle<S::Entity>>
+  {
     self
       .watch_inv_ref_dyn(S::component_id(), S::Entity::entity_id())
       .collective_map_key_one_many(|v| unsafe { EntityHandle::from_raw(v) }, |k| k.handle)
@@ -45,7 +58,7 @@ impl DatabaseEntityReverseReference {
 
   pub fn watch_inv_ref_untyped<S: ForeignKeySemantic>(
     &self,
-  ) -> Box<dyn DynReactiveOneToManyRelation<u32, u32>> {
+  ) -> BoxedDynReactiveOneToManyRelation<u32, u32> {
     let inner = self.watch_inv_ref_dyn(S::component_id(), S::Entity::entity_id());
 
     let db = &self.mutation_watcher.db;
@@ -64,7 +77,7 @@ impl DatabaseEntityReverseReference {
     &self,
     semantic_id: ComponentId,
     entity_id: EntityId,
-  ) -> Box<dyn DynReactiveOneToManyRelation<RawEntityHandle, RawEntityHandle>> {
+  ) -> BoxedDynReactiveOneToManyRelation<RawEntityHandle, RawEntityHandle> {
     if let Some(refs) = self.entity_rev_refs.read().get(&semantic_id) {
       return Box::new(
         refs
@@ -82,7 +95,7 @@ impl DatabaseEntityReverseReference {
       .into_one_to_many_by_hash();
 
     let watcher: OneManyRelationForker<RawEntityHandle, RawEntityHandle> = (Box::new(watcher)
-      as Box<dyn DynReactiveOneToManyRelation<RawEntityHandle, RawEntityHandle>>)
+      as BoxedDynReactiveOneToManyRelation<RawEntityHandle, RawEntityHandle>)
       .into_static_forker();
 
     self
@@ -100,12 +113,14 @@ pub(crate) struct GenerationHelperMultiView<T> {
   foreign_allocator: Arc<RwLock<Arena<()>>>,
 }
 
-impl<T> ReactiveCollection<u32, u32> for GenerationHelperMultiView<T>
+impl<T> ReactiveQuery for GenerationHelperMultiView<T>
 where
-  T: ReactiveOneToManyRelation<RawEntityHandle, RawEntityHandle>,
+  T: ReactiveOneToManyRelation<One = RawEntityHandle, Many = RawEntityHandle>,
 {
-  type Changes = impl VirtualCollection<u32, ValueChange<u32>>;
-  type View = impl VirtualCollection<u32, u32> + VirtualMultiCollection<u32, u32>;
+  type Key = u32;
+  type Value = u32;
+  type Changes = impl Query<Key = u32, Value = ValueChange<u32>>;
+  type View = impl Query<Key = u32, Value = u32> + MultiQuery<Key = u32, Value = u32>;
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let (d, v) = self.inner.poll_changes(cx);
 
@@ -121,23 +136,21 @@ where
     let allocator = self.foreign_allocator.make_read_holder();
 
     // todo, improve trait builder method
-    let f_v = KeyDualMapCollection {
-      phantom: PhantomData,
+    let f_v = KeyDualMappedQuery {
       base: v.clone(),
       f1: |k: RawEntityHandle| k.index(),
       f2: move |k| RawEntityHandle(allocator.get_handle(k as usize)?).into(),
     };
 
-    let f_v = VirtualCollectionExt::map(f_v, |_: &u32, v: RawEntityHandle| v.index());
+    let f_v = QueryExt::map(f_v, |_: &u32, v: RawEntityHandle| v.index());
 
     let allocator = self.allocator.make_read_holder();
-    let inv = KeyDualMapCollection {
-      phantom: PhantomData,
+    let inv = KeyDualMappedQuery {
       base: v,
       f1: |k: RawEntityHandle| k.index(),
       f2: move |k| RawEntityHandle(allocator.get_handle(k as usize)?).into(),
     };
-    let inv = VirtualMultiCollectionExt::multi_map(inv, |_: &u32, v: RawEntityHandle| v.index());
+    let inv = MultiQueryExt::multi_map(inv, |_: &u32, v: RawEntityHandle| v.index());
 
     let v = OneManyRelationDualAccess {
       many_access_one: f_v,
@@ -147,7 +160,7 @@ where
     (d, v)
   }
 
-  fn extra_request(&mut self, request: &mut ExtraCollectionOperation) {
-    self.inner.extra_request(request)
+  fn request(&mut self, request: &mut ReactiveQueryRequest) {
+    self.inner.request(request)
   }
 }

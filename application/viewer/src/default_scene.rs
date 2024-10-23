@@ -6,7 +6,7 @@ use rendiation_texture_loader::load_tex;
 
 use crate::*;
 
-pub fn load_default_scene(writer: &mut SceneWriter, viewer_scene: &Viewer3dSceneCtx) {
+pub fn load_default_scene(writer: &mut SceneWriter, _viewer_scene: &Viewer3dSceneCtx) {
   writer.set_solid_background(Vec3::new(0.1, 0.1, 0.1));
 
   // textured ball
@@ -170,6 +170,7 @@ pub fn load_default_scene(writer: &mut SceneWriter, viewer_scene: &Viewer3dScene
   // stress_test2(scene);
 }
 
+#[allow(dead_code)]
 pub fn load_stress_test(scene: &mut SceneWriter) {
   let material = PhysicalSpecularGlossinessMaterialDataView {
     albedo: Vec3::splat(1.),
@@ -218,6 +219,7 @@ pub fn textured_example_tex(scene: &mut SceneWriter) -> Texture2DWithSamplingDat
     .write_tex_with_default_sampler(tex)
 }
 
+#[allow(dead_code)]
 pub fn load_example_cube_tex(writer: &mut SceneWriter) -> EntityHandle<SceneTextureCubeEntity> {
   let path = if cfg!(windows) {
     [

@@ -16,12 +16,12 @@ pub fn directional_uniform_array(
 
   let illuminance = global_watch()
     .watch::<DirectionalLightIlluminance>()
-    .into_uniform_array_collection_update(offset_of!(DirectionalLightUniform, illuminance), gpu);
+    .into_query_update_uniform_array(offset_of!(DirectionalLightUniform, illuminance), gpu);
 
   let direction = scene_node_derive_world_mat()
     .one_to_many_fanout(global_rev_ref().watch_inv_ref::<DirectionalRefNode>())
     .collective_map(|mat| mat.forward().reverse().normalize())
-    .into_uniform_array_collection_update(offset_of!(DirectionalLightUniform, direction), gpu);
+    .into_query_update_uniform_array(offset_of!(DirectionalLightUniform, direction), gpu);
 
   UniformArrayUpdateContainer::new(buffer)
     .with_source(illuminance)

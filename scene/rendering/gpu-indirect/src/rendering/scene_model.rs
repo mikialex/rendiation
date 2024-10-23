@@ -52,7 +52,7 @@ pub trait IndirectBatchSceneModelRenderer: SceneModelRenderer {
 // }
 
 // impl SceneModelRenderer for IndirectPreferredComOrderRenderer {
-//   // fn render_reorderable_models_impl(
+//   // fn render_batch_models_impl(
 //   //   &self,
 //   //   models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
 //   //   camera: &dyn RenderComponent,

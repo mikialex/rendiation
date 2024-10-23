@@ -67,12 +67,12 @@ where
   let tex = global_watch()
     .watch::<SceneTexture2dRefOf<T>>()
     .collective_map(|id| id.map(|v| v.index()).unwrap_or(0))
-    .into_uniform_collection_update(offset + tex_offset, cx);
+    .into_query_update_uniform(offset + tex_offset, cx);
 
   let sampler = global_watch()
     .watch::<SceneSamplerRefOf<T>>()
     .collective_map(|id| id.map(|v| v.index()).unwrap_or(0))
-    .into_uniform_collection_update(offset + sam_offset, cx);
+    .into_query_update_uniform(offset + sam_offset, cx);
 
   uniform.with_source(tex).with_source(sampler)
 }

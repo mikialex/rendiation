@@ -8,48 +8,47 @@ use crate::*;
 
 pub type CubeMapUpdateContainer<K> = MultiUpdateContainer<FastHashMap<K, GPUCubeTextureView>>;
 
-pub struct CubeMapCollectionUpdate<T, K, V> {
+pub struct QueryBasedCubeMapUpdate<T> {
   face: CubeTextureFace,
   upstream: T,
-  phantom: PhantomData<(K, V)>,
   gpu_ctx: GPU,
 }
 
-pub trait CubeMapCollectionUpdateExt<K, V>: Sized {
-  fn into_cube_face_collection_update(
+pub trait CubeMapQueryUpdateExt: Sized {
+  fn into_query_update_cube_face(
     self,
     face: CubeTextureFace,
     gpu_ctx: &GPU,
-  ) -> CubeMapCollectionUpdate<Self, K, V>;
+  ) -> QueryBasedCubeMapUpdate<Self>;
 }
-impl<K, V, T> CubeMapCollectionUpdateExt<K, V> for T
+impl<T> CubeMapQueryUpdateExt for T
 where
-  T: ReactiveCollection<K, V>,
-  K: CKey,
-  V: CValue + Deref<Target = GPUBufferImage>,
+  T: ReactiveQuery,
+  T::Value: Deref<Target = GPUBufferImage>,
 {
-  fn into_cube_face_collection_update(
+  fn into_query_update_cube_face(
     self,
     face: CubeTextureFace,
     gpu_ctx: &GPU,
-  ) -> CubeMapCollectionUpdate<Self, K, V> {
-    CubeMapCollectionUpdate {
+  ) -> QueryBasedCubeMapUpdate<Self> {
+    QueryBasedCubeMapUpdate {
       face,
       upstream: self,
-      phantom: PhantomData,
       gpu_ctx: gpu_ctx.clone(),
     }
   }
 }
 
-impl<C, K, V> CollectionUpdate<FastHashMap<K, GPUCubeTextureView>>
-  for CubeMapCollectionUpdate<C, K, V>
+impl<C> QueryBasedUpdate<FastHashMap<C::Key, GPUCubeTextureView>> for QueryBasedCubeMapUpdate<C>
 where
-  V: CValue + Deref<Target = GPUBufferImage>,
-  K: CKey,
-  C: ReactiveCollection<K, V>,
+  C: ReactiveQuery,
+  C::Value: Deref<Target = GPUBufferImage>,
 {
-  fn update_target(&mut self, target: &mut FastHashMap<K, GPUCubeTextureView>, cx: &mut Context) {
+  fn update_target(
+    &mut self,
+    target: &mut FastHashMap<C::Key, GPUCubeTextureView>,
+    cx: &mut Context,
+  ) {
     let (changes, _) = self.upstream.poll_changes(cx);
 
     for (k, v) in changes.iter_key_value() {

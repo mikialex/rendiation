@@ -33,15 +33,15 @@ impl<T: Std430> ReactiveStorageBufferContainer<T> {
     self.inner.target.gpu().clone()
   }
 
-  pub fn with_source<K: CKey + LinearIdentified, V: CValue + Pod>(
-    mut self,
-    source: impl ReactiveCollection<K, V>,
-    field_offset: usize,
-  ) -> Self {
-    let updater = CollectionToStorageBufferUpdater {
+  pub fn with_source<C>(mut self, source: C, field_offset: usize) -> Self
+  where
+    C: ReactiveQuery,
+    C::Key: LinearIdentified,
+    C::Value: Pod,
+  {
+    let updater = QueryBasedStorageBufferUpdate {
       field_offset: field_offset as u32,
       upstream: source,
-      phantom: PhantomData,
     };
 
     self.inner.add_source(updater);
@@ -49,19 +49,17 @@ impl<T: Std430> ReactiveStorageBufferContainer<T> {
   }
 }
 
-struct CollectionToStorageBufferUpdater<T, K, V> {
+struct QueryBasedStorageBufferUpdate<T> {
   field_offset: u32,
   upstream: T,
-  phantom: PhantomData<(K, V)>,
 }
 
-impl<T, C, K, V> CollectionUpdate<CommonStorageBufferImpl<T>>
-  for CollectionToStorageBufferUpdater<C, K, V>
+impl<T, C> QueryBasedUpdate<CommonStorageBufferImpl<T>> for QueryBasedStorageBufferUpdate<C>
 where
   T: Std430,
-  V: CValue + Pod,
-  K: CKey + LinearIdentified,
-  C: ReactiveCollection<K, V>,
+  C: ReactiveQuery,
+  C::Key: LinearIdentified,
+  C::Value: Pod,
 {
   fn update_target(&mut self, target: &mut CommonStorageBufferImpl<T>, cx: &mut Context) {
     let (changes, _) = self.upstream.poll_changes(cx);

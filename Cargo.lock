@@ -3201,6 +3201,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "query"
+version = "0.0.1"
+dependencies = [
+ "dashmap",
+ "dyn-clone",
+ "dyn-downcast",
+ "fast-hash-collection",
+ "parking_lot",
+ "storage",
+]
+
+[[package]]
 name = "quick-error"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3349,14 +3361,23 @@ dependencies = [
  "heap-tools",
  "parking_lot",
  "pin-project",
- "reactive-collection",
+ "reactive-query",
  "reactive-stream",
  "smallvec",
  "storage",
 ]
 
 [[package]]
-name = "reactive-collection"
+name = "reactive-derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "reactive-query"
 version = "0.0.1"
 dependencies = [
  "dashmap",
@@ -3367,22 +3388,13 @@ dependencies = [
  "heap-tools",
  "parking_lot",
  "pin-project",
+ "query",
  "reactive-stream",
  "rendiation-abstract-tree",
  "smallvec",
  "storage",
  "tracing",
- "virtual-collection",
  "xalloc",
-]
-
-[[package]]
-name = "reactive-derive"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
 ]
 
 [[package]]
@@ -3882,10 +3894,11 @@ dependencies = [
  "fast-hash-collection",
  "gltf",
  "gltf-json",
+ "query",
+ "reactive-query",
  "rendiation-mesh-core",
  "rendiation-scene-core",
  "rendiation-texture-core",
- "virtual-collection",
 ]
 
 [[package]]
@@ -4913,6 +4926,9 @@ dependencies = [
  "rendiation-mesh-generator",
  "rendiation-scene-core",
  "rendiation-scene-geometry-query",
+ "rendiation-scene-gltf-exporter",
+ "rendiation-scene-gltf-loader",
+ "rendiation-scene-obj-loader",
  "rendiation-scene-rendering-gpu-gles",
  "rendiation-shader-api",
  "rendiation-texture-core",
@@ -4922,18 +4938,6 @@ dependencies = [
  "rfd",
  "wasm-bindgen-futures",
  "winit",
-]
-
-[[package]]
-name = "virtual-collection"
-version = "0.0.1"
-dependencies = [
- "dashmap",
- "dyn-clone",
- "dyn-downcast",
- "fast-hash-collection",
- "parking_lot",
- "storage",
 ]
 
 [[package]]

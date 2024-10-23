@@ -119,68 +119,62 @@ pub fn register_instance_mesh_data_model() {
     .declare_foreign_key::<InstanceMeshInstanceEntityRefAttributesMeshEntity>();
 }
 
-// #[global_registered_collection]
-// pub fn attribute_mesh_local_bounding(
-// ) -> impl ReactiveCollection<EntityHandle<AttributesMeshEntity>, Box3> {
-//   let index_buffer_ref = global_watch().watch::<SceneBufferViewBufferId<AttributeIndexRef>>();
-//   let index_buffer_range = global_watch().watch::<SceneBufferViewBufferRange<AttributeIndexRef>>();
+#[global_registered_query]
+pub fn attribute_mesh_local_bounding(
+) -> impl ReactiveQuery<Key = EntityHandle<AttributesMeshEntity>, Value = Box3> {
+  let index_buffer_ref =
+    global_watch().watch_typed_foreign_key::<SceneBufferViewBufferId<AttributeIndexRef>>();
+  let index_buffer_range = global_watch().watch::<SceneBufferViewBufferRange<AttributeIndexRef>>();
 
-//   let ranged_index_buffer = index_buffer_ref
-//     .collective_union(index_buffer_range, |(a, b)| Some((a?, b?)))
-//     .into_forker();
+  // we not using intersect here because range may not exist
+  let ranged_index_buffer = index_buffer_ref
+    .collective_union(index_buffer_range, |(a, b)| Some((a?, b?)))
+    .into_forker();
 
-//   let indexed_meshes = ranged_index_buffer
-//     .clone()
-//     .collective_filter_map(|(b, _)| b);
+  let indexed_meshes_and_its_range = ranged_index_buffer
+    .clone()
+    .collective_filter_map(|(index, range)| index.map(|i| (i, range)));
 
-//   let none_indexed_mesh_set =
-//     ranged_index_buffer.collective_filter_map(|(b, _)| b.is_none().then_some(()));
+  let none_indexed_mesh_set =
+    ranged_index_buffer.collective_filter_map(|(b, _)| b.is_none().then_some(()));
 
-//   let positions_scope = global_watch()
-//     .watch::<AttributesMeshEntityVertexBufferSemantic>()
-//     .collective_filter(|semantic| semantic == AttributeSemantic::Positions)
-//     .collective_map(|_| {})
-//     .into_forker();
+  let positions_scope = global_watch()
+    .watch::<AttributesMeshEntityVertexBufferSemantic>()
+    .collective_filter(|semantic| semantic == AttributeSemantic::Positions)
+    .collective_map(|_| {})
+    .into_forker();
 
-//   let vertex_buffer_ref = global_watch()
-//     .watch::<SceneBufferViewBufferId<AttributeVertexRef>>()
-//     .filter_by_keyset(positions_scope.clone());
+  let vertex_buffer_ref = global_watch()
+    .watch_typed_foreign_key::<SceneBufferViewBufferId<AttributeVertexRef>>()
+    .filter_by_keyset(positions_scope.clone());
 
-//   let vertex_buffer_range = global_watch()
-//     .watch::<SceneBufferViewBufferRange<AttributeVertexRef>>()
-//     .filter_by_keyset(positions_scope);
+  let vertex_buffer_range = global_watch()
+    .watch::<SceneBufferViewBufferRange<AttributeVertexRef>>()
+    .filter_by_keyset(positions_scope.clone());
 
-//   let ranged_position_buffer =
-//     vertex_buffer_ref.collective_union(vertex_buffer_range, |(a, b)| Some((a?, b?)));
+  let ranged_position_buffer =
+    vertex_buffer_ref.collective_union(vertex_buffer_range, |(a, b)| Some((a?, b?)));
 
-//   let attribute_mesh_access_position_buffer = ranged_position_buffer
-//     .collective_zip(
-//       global_watch()
-//         .watch_typed_foreign_key::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>(
-//         ),
-//     )
-//     .collective_cross_join(global_watch().watch_entity_set_dyn(AttributesMeshEntity::entity_id()));
-//   // .collective_filter_key(|key| {});
+  let ab_ref_mesh = global_watch()
+    .watch_typed_foreign_key::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>()
+    .collective_filter_map(|v| v)
+    .filter_by_keyset(positions_scope)
+    .hash_reverse_assume_one_one();
 
-//   let attribute_mesh_access_position_buffer: Box<
-//     dyn DynReactiveCollection<
-//       EntityHandle<AttributesMeshEntity>,
-//       (Option<RawEntityHandle>, Option<BufferViewRange>),
-//     >,
-//   > = todo!();
+  // todo, impl chain instead of using one to many fanout
+  let attribute_mesh_access_position_buffer =
+    ranged_position_buffer.one_to_many_fanout(ab_ref_mesh.into_one_to_many_by_hash());
 
-//   let attribute_mesh_access_position_buffer = attribute_mesh_access_position_buffer.into_forker();
+  let attribute_mesh_access_position_buffer = attribute_mesh_access_position_buffer.into_forker();
 
-//   let compute_none_indexed_bounding = attribute_mesh_access_position_buffer
-//     .clone()
-//     .filter_by_keyset(none_indexed_mesh_set)
-//     .collective_map(|_| Box3::empty());
+  let compute_none_indexed_bounding = attribute_mesh_access_position_buffer
+    .clone()
+    .filter_by_keyset(none_indexed_mesh_set)
+    .collective_map(|_| Box3::<f32>::empty());
 
-//   let compute_indexed_bounding = attribute_mesh_access_position_buffer
-//     .collective_union(indexed_meshes)
-//     .collective_map(|_| Box3::empty());
+  let compute_indexed_bounding = attribute_mesh_access_position_buffer
+    .collective_intersect(indexed_meshes_and_its_range)
+    .collective_map(|_| Box3::<f32>::empty());
 
-//   compute_none_indexed_bounding.collective_select(compute_indexed_bounding);
-
-//   ()
-// }
+  compute_none_indexed_bounding.collective_select(compute_indexed_bounding)
+}

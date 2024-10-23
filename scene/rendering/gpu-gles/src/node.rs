@@ -9,7 +9,7 @@ pub fn node_uniforms(cx: &GPU) -> SceneNodeUniforms {
       normal_matrix: mat.to_normal_matrix().into(),
       ..Zeroable::zeroed()
     })
-    .into_uniform_collection_update(0, cx);
+    .into_query_update_uniform(0, cx);
 
   SceneNodeUniforms::default().with_source(source)
 }

@@ -160,10 +160,7 @@ impl UIWidgetModel {
   pub fn set_color(&mut self, cx3d: &mut SceneWriter, color: Vec3<f32>) -> &mut Self {
     cx3d
       .flat_mat_writer
-      .write::<FlatMaterialDisplayColorComponent>(
-        self.material,
-        color.expand_with_one(),
-      );
+      .write::<FlatMaterialDisplayColorComponent>(self.material, color.expand_with_one());
     self
   }
   pub fn set_visible(&mut self, cx3d: &mut SceneWriter, v: bool) -> &mut Self {
@@ -190,11 +187,7 @@ impl UIWidgetModel {
     self
   }
 
-  pub fn with_parent(
-    self,
-    cx3d: &mut SceneWriter,
-    parent: EntityHandle<SceneNodeEntity>,
-  ) -> Self {
+  pub fn with_parent(self, cx3d: &mut SceneWriter, parent: EntityHandle<SceneNodeEntity>) -> Self {
     cx3d
       .node_writer
       .write::<SceneNodeParentIdx>(self.node, Some(parent.into_raw()));

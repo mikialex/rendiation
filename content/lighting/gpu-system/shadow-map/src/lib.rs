@@ -12,13 +12,13 @@ use rendiation_webgpu_reactive_utils::*;
 
 pub struct BasicShadowMapSystemInputs {
   ///  alloc_id => shadow camera vp
-  pub source_view_proj: Box<dyn DynReactiveCollection<u32, Mat4<f32>>>,
+  pub source_view_proj: BoxedDynReactiveQuery<u32, Mat4<f32>>,
   /// alloc_id => shadow map resolution
-  pub size: Box<dyn DynReactiveCollection<u32, Size>>,
+  pub size: BoxedDynReactiveQuery<u32, Size>,
   /// alloc_id => shadow map bias
-  pub bias: Box<dyn DynReactiveCollection<u32, ShadowBias>>,
+  pub bias: BoxedDynReactiveQuery<u32, ShadowBias>,
   /// alloc_id => enabled
-  pub enabled: Box<dyn DynReactiveCollection<u32, bool>>,
+  pub enabled: BoxedDynReactiveQuery<u32, bool>,
 }
 
 pub fn basic_shadow_map_uniform(
@@ -33,16 +33,14 @@ pub fn basic_shadow_map_uniform(
   let (sys, address) =
     BasicShadowMapSystem::new(config, source_view_proj.clone().into_boxed(), inputs.size);
 
-  let map_info = address.into_uniform_array_collection_update(
-    std::mem::offset_of!(BasicShadowMapInfo, map_info),
-    gpu_ctx,
-  );
+  let map_info = address
+    .into_query_update_uniform_array(std::mem::offset_of!(BasicShadowMapInfo, map_info), gpu_ctx);
 
   let bias = inputs
     .bias
-    .into_uniform_array_collection_update(std::mem::offset_of!(BasicShadowMapInfo, bias), gpu_ctx);
+    .into_query_update_uniform_array(std::mem::offset_of!(BasicShadowMapInfo, bias), gpu_ctx);
 
-  let shadow_camera_view_proj = source_view_proj.into_uniform_array_collection_update(
+  let shadow_camera_view_proj = source_view_proj.into_query_update_uniform_array(
     std::mem::offset_of!(BasicShadowMapInfo, shadow_camera_view_proj),
     gpu_ctx,
   );
@@ -58,21 +56,18 @@ pub fn basic_shadow_map_uniform(
 
 pub struct BasicShadowMapSystem {
   shadow_map_atlas: Option<GPUTexture>,
-  packing: Box<dyn DynReactiveCollection<u32, ShadowMapAddressInfo>>,
+  packing: BoxedDynReactiveQuery<u32, ShadowMapAddressInfo>,
   atlas_resize: Box<dyn Stream<Item = SizeWithDepth> + Unpin>,
   current_size: Option<SizeWithDepth>,
-  source_view_proj: Box<dyn DynReactiveCollection<u32, Mat4<f32>>>,
+  source_view_proj: BoxedDynReactiveQuery<u32, Mat4<f32>>,
 }
 
 impl BasicShadowMapSystem {
   pub fn new(
     config: MultiLayerTexturePackerConfig,
-    source_view_proj: Box<dyn DynReactiveCollection<u32, Mat4<f32>>>,
-    size: Box<dyn DynReactiveCollection<u32, Size>>,
-  ) -> (
-    Self,
-    Box<dyn DynReactiveCollection<u32, ShadowMapAddressInfo>>,
-  ) {
+    source_view_proj: BoxedDynReactiveQuery<u32, Mat4<f32>>,
+    size: BoxedDynReactiveQuery<u32, Size>,
+  ) -> (Self, BoxedDynReactiveQuery<u32, ShadowMapAddressInfo>) {
     let (packing, atlas_resize) = reactive_pack_2d_to_3d(config, size);
     let packing = packing.collective_map(convert_pack_result).into_forker();
 

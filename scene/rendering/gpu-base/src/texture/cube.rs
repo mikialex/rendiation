@@ -7,7 +7,7 @@ use crate::*;
 fn cube_face_update<FK>(
   face: CubeTextureFace,
   cx: &GPU,
-) -> impl CollectionUpdate<FastHashMap<EntityHandle<SceneTextureCubeEntity>, GPUCubeTextureView>>
+) -> impl QueryBasedUpdate<FastHashMap<EntityHandle<SceneTextureCubeEntity>, GPUCubeTextureView>>
 where
   FK: ForeignKeySemantic<Entity = SceneTextureCubeEntity, ForeignEntity = SceneTexture2dEntity>,
 {
@@ -15,7 +15,7 @@ where
     .watch::<SceneTexture2dEntityDirectContent>()
     .collective_filter_map(|v| v)
     .one_to_many_fanout(global_rev_ref().watch_inv_ref::<FK>())
-    .into_cube_face_collection_update(face, cx)
+    .into_query_update_cube_face(face, cx)
 }
 
 pub fn gpu_texture_cubes(cx: &GPU) -> CubeMapUpdateContainer<EntityHandle<SceneTextureCubeEntity>> {

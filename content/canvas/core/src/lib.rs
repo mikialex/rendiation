@@ -24,7 +24,7 @@ pub trait PainterAPI {
   ///
   /// Another design purpose of this type is to group the painter representation in order to
   /// cache the compute. The drawing cost of the baked object should be cheaper than the
-  /// collection of discrete drawing commands. This provides a transparent way to express the
+  /// query of discrete drawing commands. This provides a transparent way to express the
   /// system's caching capability
   type Baked;
   fn draw_bake(&mut self, p: &Self::Baked);

@@ -1,5 +1,5 @@
-// we design this crate to provide an abstraction over different global gpu texture management
-// strategy
+// This crate is to provide an abstraction over different global gpu texture management
+// strategy and implementation.
 
 use rendiation_shader_api::*;
 use rendiation_texture_gpu_base::*;
@@ -126,6 +126,7 @@ impl<T: AbstractIndirectGPUTextureSystem> AbstractGPUTextureSystem for T {
   }
 }
 
+/// the object safe version of [[AbstractGPUTextureSystem]]
 pub trait DynAbstractGPUTextureSystem: Any {
   fn bind_system_self(&self, collector: &mut BindingBuilder);
   fn bind_texture2d(&self, collector: &mut BindingBuilder, handle: Texture2DHandle);

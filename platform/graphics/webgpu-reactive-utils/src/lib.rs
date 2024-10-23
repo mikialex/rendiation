@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use std::{marker::PhantomData, task::Context};
+use std::task::Context;
 
 use reactive::*;
 use rendiation_shader_api::*;
