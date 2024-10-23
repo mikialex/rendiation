@@ -6,7 +6,7 @@ pub struct TraceTaskImpl {
   pub tlas_sys: Box<dyn GPUAccelerationStructureSystemCompImplInstance>,
   pub sbt_sys: ShaderBindingTableDeviceInfo,
   pub payload_bumper: Arc<RwLock<DeviceBumpAllocationInstance<u32>>>,
-  pub payload_read_back_bumper: DeviceBumpAllocationInstance<u32>,
+  pub payload_read_back_bumper: Arc<RwLock<DeviceBumpAllocationInstance<u32>>>,
   pub ray_info_bumper: DeviceBumpAllocationInstance<ShaderRayTraceCallStoragePayload>,
   pub info: Arc<TraceTaskMetaInfo>,
   pub current_sbt: StorageBufferReadOnlyDataView<u32>,
@@ -49,6 +49,7 @@ impl ShaderFuture for TraceTaskImpl {
       info: self.info.clone(),
       payload_read_back_bumper: self
         .payload_read_back_bumper
+        .read()
         .build_allocator_shader(ctx.compute_cx),
       current_sbt: ctx.compute_cx.bind_by(&self.current_sbt),
       downstream: AllDownStreamTasks { tasks },
@@ -59,7 +60,7 @@ impl ShaderFuture for TraceTaskImpl {
     self.tlas_sys.bind_pass(builder);
     self.sbt_sys.bind(builder);
     builder.bind(&self.payload_bumper.read().storage);
-    self.payload_read_back_bumper.bind_allocator(builder);
+    self.payload_read_back_bumper.read().bind_allocator(builder);
   }
 
   fn reset(&mut self, ctx: &mut DeviceParallelComputeCtx, work_size: u32) {
@@ -350,9 +351,6 @@ fn poll_dynamic<'a>(
               let user_defined_payload: StorageNode<AnyType> =
                 unsafe { index_access_field(task_payload_node.handle(), 1) };
 
-              // let a = val(Vec2::<f32>::zero());
-              // let channel = unsafe { index_access_field::<AnyType>(a.handle(), 0).handle() };
-
               payload_ty_desc.store_into_u32_buffer(user_defined_payload.load(), target, offset)
             });
         bump_read_position.store(idx);
@@ -369,33 +367,39 @@ fn poll_dynamic<'a>(
 
 #[derive(Clone)]
 pub(crate) struct TracingTaskSpawnerImplSource {
-  pub(crate) payload_bumper: Arc<RwLock<DeviceBumpAllocationInstance<u32>>>,
+  pub(crate) payload_spawn_bumper: Arc<RwLock<DeviceBumpAllocationInstance<u32>>>,
+  pub(crate) payload_read_back: Arc<RwLock<DeviceBumpAllocationInstance<u32>>>,
 }
 
 impl TracingTaskSpawnerImplSource {
   pub fn create_invocation(
     &self,
     cx: &mut DeviceTaskSystemBuildCtx,
-  ) -> Box<dyn TracingTaskInvocationSpawner> {
-    Box::new(TracingTaskSpawnerInvocationImpl {
-      payload_bumper: self
-        .payload_bumper
+  ) -> TracingTaskSpawnerInvocation {
+    TracingTaskSpawnerInvocation {
+      payload_spawn_bumper: self
+        .payload_spawn_bumper
         .read()
         .build_allocator_shader(cx.compute_cx),
-    })
+      payload_read_back: self
+        .payload_read_back
+        .read()
+        .build_allocator_shader(cx.compute_cx),
+    }
   }
 
   pub fn bind(&self, builder: &mut BindingBuilder) {
-    self.payload_bumper.read().bind_allocator(builder)
+    self.payload_spawn_bumper.read().bind_allocator(builder)
   }
 }
 
 #[derive(Clone)]
-pub(crate) struct TracingTaskSpawnerInvocationImpl {
-  pub(crate) payload_bumper: DeviceBumpAllocationInvocationInstance<u32>,
+pub(crate) struct TracingTaskSpawnerInvocation {
+  pub(crate) payload_spawn_bumper: DeviceBumpAllocationInvocationInstance<u32>,
+  pub(crate) payload_read_back: DeviceBumpAllocationInvocationInstance<u32>,
 }
 
-impl TracingTaskInvocationSpawner for TracingTaskSpawnerInvocationImpl {
+impl TracingTaskSpawnerInvocation {
   fn spawn_new_tracing_task(
     &mut self,
     task_group: &TaskGroupDeviceInvocationInstanceLateResolved,
@@ -412,7 +416,7 @@ impl TracingTaskInvocationSpawner for TracingTaskSpawnerInvocationImpl {
 
       let (write_idx, success) =
         self
-          .payload_bumper
+          .payload_spawn_bumper
           .bump_allocate_by(val(payload_size), |storage, write_idx| {
             payload_ty.store_into_u32_buffer(payload.into_node_untyped(), storage, write_idx);
           });
@@ -450,5 +454,65 @@ impl TracingTaskInvocationSpawner for TracingTaskSpawnerInvocationImpl {
     TaskFutureInvocationRightValue {
       task_handle: task_handle.load(),
     }
+  }
+
+  fn read_back_user_payload(
+    &mut self,
+    payload_ty: ShaderSizedValueType,
+    payload_ref: Node<u32>,
+  ) -> ShaderNodeRawHandle {
+    payload_ty
+      .load_from_u32_buffer(self.payload_read_back.storage, payload_ref)
+      .handle()
+  }
+}
+
+pub const TRACING_TASK_INDEX: usize = 0;
+
+impl<F, T, O, P> ShaderFutureProvider<(O, Node<P>)> for TraceNextRay<F, T>
+where
+  T: ShaderFutureProvider<O>,
+  F: FnOnce(&O, &mut TracingCtx) -> (Node<bool>, ShaderRayTraceCall, Node<P>) + Copy + 'static,
+  P: ShaderSizedValueNodeType + Default + Copy,
+  O: ShaderAbstractRightValue + Default,
+{
+  fn build_device_future(&self, ctx: &mut AnyMap) -> DynShaderFuture<(O, Node<P>)> {
+    let next_trace_logic = self.next_trace_logic;
+    self
+      .upstream
+      .build_device_future(ctx)
+      .then(
+        move |o, then_invocation, cx| {
+          let ctx = cx.invocation_registry.get_mut::<TracingCtx>().unwrap();
+          let (should_trace, trace, payload) = next_trace_logic(&o, ctx);
+
+          let parent = cx.generate_self_as_parent();
+          cx.invocation_registry
+            .get_mut::<TracingTaskSpawnerInvocation>()
+            .unwrap()
+            .spawn_new_tracing_task(
+              &then_invocation.spawner,
+              should_trace,
+              trace,
+              payload.handle(),
+              P::sized_ty(),
+              parent,
+            )
+        },
+        TaskFuture::<TraceTaskSelfPayload>::new(TRACING_TASK_INDEX),
+      )
+      .map(move |(o, payload), cx| {
+        let user_payload = cx
+          .invocation_registry
+          .get_mut::<TracingTaskSpawnerInvocation>()
+          .unwrap()
+          .read_back_user_payload(
+            P::sized_ty(),
+            payload.expand().trace_call.expand().payload_ref, // todo reduce unnecessary load
+          );
+
+        (o, unsafe { user_payload.into_node() })
+      })
+      .into_dyn()
   }
 }

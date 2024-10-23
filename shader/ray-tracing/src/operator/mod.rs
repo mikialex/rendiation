@@ -37,10 +37,10 @@ pub trait TraceOperatorExt<T>: TraceOperator<T> + Sized {
     }
   }
 
-  fn then_trace<F, P>(self, then: F) -> impl TraceOperator<(T, Node<P>)>
+  fn then_trace<F, P>(self, then: F) -> TraceNextRay<F, Self>
   where
     F: FnOnce(&T, &mut TracingCtx) -> (Node<bool>, ShaderRayTraceCall, Node<P>) + Copy + 'static,
-    T: ShaderAbstractRightValue,
+    T: ShaderAbstractRightValue + Default,
     P: ShaderSizedValueNodeType + Default + Copy,
   {
     TraceNextRay {
@@ -93,63 +93,8 @@ where
 }
 
 pub struct TraceNextRay<F, T> {
-  upstream: T,
-  next_trace_logic: F,
-}
-
-pub const TRACING_TASK_INDEX: usize = 0;
-
-pub trait TracingTaskInvocationSpawner: DynClone {
-  fn spawn_new_tracing_task(
-    &mut self,
-    task_group: &TaskGroupDeviceInvocationInstanceLateResolved,
-    should_trace: Node<bool>,
-    trace_call: ShaderRayTraceCall,
-    payload: ShaderNodeRawHandle,
-    payload_ty: ShaderSizedValueType,
-    parent_ref: TaskParentRef,
-  ) -> TaskFutureInvocationRightValue;
-}
-impl Clone for Box<dyn TracingTaskInvocationSpawner> {
-  fn clone(&self) -> Self {
-    dyn_clone::clone_box(&**self)
-  }
-}
-
-impl<F, T, O, P> ShaderFutureProvider<(O, Node<P>)> for TraceNextRay<F, T>
-where
-  T: ShaderFutureProvider<O>,
-  F: FnOnce(&O, &mut TracingCtx) -> (Node<bool>, ShaderRayTraceCall, Node<P>) + Copy + 'static,
-  P: ShaderSizedValueNodeType + Default + Copy,
-  O: ShaderAbstractRightValue,
-{
-  fn build_device_future(&self, ctx: &mut AnyMap) -> DynShaderFuture<(O, Node<P>)> {
-    let next_trace_logic = self.next_trace_logic;
-    self
-      .upstream
-      .build_device_future(ctx)
-      .then(
-        move |o, then_invocation, cx| {
-          let ctx = cx.invocation_registry.get_mut::<TracingCtx>().unwrap();
-          let (should_trace, trace, payload) = next_trace_logic(&o, ctx);
-
-          let parent = cx.generate_self_as_parent();
-          cx.invocation_registry
-            .get_mut::<Box<dyn TracingTaskInvocationSpawner>>()
-            .unwrap()
-            .spawn_new_tracing_task(
-              &then_invocation.spawner,
-              should_trace,
-              trace,
-              payload.handle(),
-              P::sized_ty(),
-              parent,
-            )
-        },
-        TaskFuture::<P>::new(TRACING_TASK_INDEX),
-      )
-      .into_dyn()
-  }
+  pub upstream: T,
+  pub next_trace_logic: F,
 }
 
 impl<F, T, O, P> NativeRayTracingShaderBuilder<(O, Node<P>)> for TraceNextRay<F, T>

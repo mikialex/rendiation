@@ -2,7 +2,7 @@ use crate::*;
 
 #[repr(C)]
 #[std430_layout]
-#[derive(ShaderStruct, Clone, Copy, StorageNodePtrAccess)]
+#[derive(ShaderStruct, Clone, Copy, StorageNodePtrAccess, Default)]
 pub struct TraceTaskSelfPayload {
   pub sub_task_ty: u32,
   pub sub_task_id: u32,
@@ -11,7 +11,7 @@ pub struct TraceTaskSelfPayload {
 
 #[repr(C)]
 #[std430_layout]
-#[derive(ShaderStruct, Clone, Copy, StorageNodePtrAccess)]
+#[derive(ShaderStruct, Clone, Copy, StorageNodePtrAccess, Default)]
 pub struct ShaderRayTraceCallStoragePayload {
   pub payload_ref: u32,
   pub tlas_idx: u32,
@@ -147,7 +147,7 @@ impl ShaderFuture for CtxProviderFuture {
 pub struct CtxProviderFutureInvocation {
   stage: RayTraceableShaderStage,
   payload_ty: ShaderSizedValueType,
-  ray_spawner: Box<dyn TracingTaskInvocationSpawner>,
+  ray_spawner: TracingTaskSpawnerInvocation,
 }
 impl ShaderFutureInvocation for CtxProviderFutureInvocation {
   type Output = ();

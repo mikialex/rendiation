@@ -69,7 +69,10 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
         payload_u32_len,
         device,
       ))),
-      payload_read_back_bumper: DeviceBumpAllocationInstance::new(payload_u32_len, device),
+      payload_read_back_bumper: Arc::new(RwLock::new(DeviceBumpAllocationInstance::new(
+        payload_u32_len,
+        device,
+      ))),
       ray_info_bumper: DeviceBumpAllocationInstance::new(init_size * 2, device),
       info: Arc::new(info),
       current_sbt: target_sbt_buffer.clone(),
@@ -77,7 +80,8 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
 
     let mut ctx = AnyMap::default();
     ctx.register(TracingTaskSpawnerImplSource {
-      payload_bumper: tracer_task.payload_bumper.clone(),
+      payload_spawn_bumper: tracer_task.payload_bumper.clone(),
+      payload_read_back: tracer_task.payload_read_back_bumper.clone(),
     });
 
     // create core tracer task as almost every other task depend on this one
