@@ -73,30 +73,25 @@ pub struct RayMissHitCtxPayload {
 pub struct WaveFrontTracingBaseProvider;
 
 impl TraceFutureBaseProvider for WaveFrontTracingBaseProvider {
-  fn missing_shader_base<P: ShaderSizedValueNodeType>() -> impl TraceOperator<()> {
+  fn create_shader_base<P: ShaderSizedValueNodeType>(
+    stage: RayTraceableShaderStage,
+  ) -> impl TraceOperator<()> {
     CtxProviderTracer {
-      is_missing_shader: true,
-      payload_ty: P::sized_ty(),
-    }
-  }
-
-  fn closest_shader_base<P: ShaderSizedValueNodeType>() -> impl TraceOperator<()> {
-    CtxProviderTracer {
-      is_missing_shader: false,
+      stage,
       payload_ty: P::sized_ty(),
     }
   }
 }
 
 struct CtxProviderTracer {
-  is_missing_shader: bool,
+  stage: RayTraceableShaderStage,
   payload_ty: ShaderSizedValueType,
 }
 
 impl ShaderFutureProvider<()> for CtxProviderTracer {
   fn build_device_future(&self, ctx: &mut AnyMap) -> DynShaderFuture<()> {
     CtxProviderFuture {
-      is_missing_shader: self.is_missing_shader,
+      stage: self.stage,
       payload_ty: self.payload_ty.clone(),
       ray_spawner: ctx
         .get_mut::<TracingTaskSpawnerImplSource>()
@@ -118,7 +113,7 @@ where
 }
 
 pub struct CtxProviderFuture {
-  is_missing_shader: bool,
+  stage: RayTraceableShaderStage,
   payload_ty: ShaderSizedValueType,
   ray_spawner: TracingTaskSpawnerImplSource,
 }
@@ -134,7 +129,7 @@ impl ShaderFuture for CtxProviderFuture {
 
   fn build_poll(&self, cx: &mut DeviceTaskSystemBuildCtx) -> Self::Invocation {
     CtxProviderFutureInvocation {
-      is_missing_shader: self.is_missing_shader,
+      stage: self.stage,
       payload_ty: self.payload_ty.clone(),
       ray_spawner: self.ray_spawner.create_invocation(cx),
     }
@@ -150,7 +145,7 @@ impl ShaderFuture for CtxProviderFuture {
 }
 
 pub struct CtxProviderFutureInvocation {
-  is_missing_shader: bool,
+  stage: RayTraceableShaderStage,
   payload_ty: ShaderSizedValueType,
   ray_spawner: Box<dyn TracingTaskInvocationSpawner>,
 }
@@ -162,13 +157,13 @@ impl ShaderFutureInvocation for CtxProviderFutureInvocation {
     let user_defined_payload: StorageNode<AnyType> =
       unsafe { index_access_field(combined_payload.handle(), 1) };
 
-    let missing = self.is_missing_shader.then(|| unsafe {
+    let missing = matches!(self.stage, RayTraceableShaderStage::Miss).then(|| unsafe {
       let ray_payload: StorageNode<RayMissHitCtxPayload> =
         index_access_field(combined_payload.handle(), 0);
       Box::new(ray_payload) as Box<dyn MissingHitCtxProvider>
     });
 
-    let closest = (!self.is_missing_shader).then(|| unsafe {
+    let closest = matches!(self.stage, RayTraceableShaderStage::ClosestHit).then(|| unsafe {
       let ray_payload: StorageNode<RayClosestHitCtxPayload> =
         index_access_field(combined_payload.handle(), 0);
       Box::new(ray_payload) as Box<dyn ClosestHitCtxProvider>

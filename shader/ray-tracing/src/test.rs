@@ -13,37 +13,40 @@ async fn test_wavefront_compute() {
 
   let mut rtx_pipeline_desc = GPURaytracingPipelineDescriptor::default();
 
-  let ray_gen_shader = TraceBase::<()>::default()
-    .then_trace(
-      // (&T, &mut TracingCtx) -> (Node<bool>, ShaderRayTraceCall, Node<P>)
-      |_, _ctx| {
-        let trace_call = ShaderRayTraceCall {
-          tlas_idx: val(0), // todo
-          ray_flags: val(0),
-          cull_mask: val(0xff),
-          sbt_ray_config: RaySBTConfig {
-            offset: val(0),
-            stride: val(0),
-          },
-          miss_index: val(0),
-          // todo ray from x,y
-          ray: ShaderRay {
-            origin: val(vec3(0., 0., 1.)),
-            direction: val(vec3(0., 0., -1.)),
-          },
-          range: ShaderRayRange {
-            min: val(0.1),
-            max: val(100.),
-          },
-          payload: val(0),
-        };
+  // todo, remove ray gen payload
+  let ray_gen_shader = WaveFrontTracingBaseProvider::create_shader_base::<RayCustomPayload>(
+    RayTraceableShaderStage::RayGeneration,
+  )
+  .then_trace(
+    // (&T, &mut TracingCtx) -> (Node<bool>, ShaderRayTraceCall, Node<P>)
+    |_, _ctx| {
+      let trace_call = ShaderRayTraceCall {
+        tlas_idx: val(0), // todo
+        ray_flags: val(0),
+        cull_mask: val(0xff),
+        sbt_ray_config: RaySBTConfig {
+          offset: val(0),
+          stride: val(0),
+        },
+        miss_index: val(0),
+        // todo ray from x,y
+        ray: ShaderRay {
+          origin: val(vec3(0., 0., 1.)),
+          direction: val(vec3(0., 0., -1.)),
+        },
+        range: ShaderRayRange {
+          min: val(0.1),
+          max: val(100.),
+        },
+        payload: val(0),
+      };
 
-        let ray_payload = ENode::<RayCustomPayload> { color: val(0) }.construct();
+      let ray_payload = ENode::<RayCustomPayload> { color: val(0) }.construct();
 
-        (val(true), trace_call, ray_payload)
-      },
-    )
-    .map(|(_, _payload), _ctx| ()); // todo write payload to output buffer
+      (val(true), trace_call, ray_payload)
+    },
+  )
+  .map(|(_, _payload), _ctx| ()); // todo write payload to output buffer
 
   #[derive(Copy, Clone, Debug, Default, ShaderStruct)]
   pub struct RayCustomPayload {
@@ -52,10 +55,14 @@ async fn test_wavefront_compute() {
 
   let ray_gen = rtx_pipeline_desc.register_ray_gen::<RayCustomPayload>(ray_gen_shader);
   let closest_hit = rtx_pipeline_desc.register_ray_closest_hit::<RayCustomPayload>(
-    WaveFrontTracingBaseProvider::closest_shader_base::<RayCustomPayload>(),
+    WaveFrontTracingBaseProvider::create_shader_base::<RayCustomPayload>(
+      RayTraceableShaderStage::ClosestHit,
+    ),
   );
   let miss = rtx_pipeline_desc.register_ray_miss::<RayCustomPayload>(
-    WaveFrontTracingBaseProvider::missing_shader_base::<RayCustomPayload>(),
+    WaveFrontTracingBaseProvider::create_shader_base::<RayCustomPayload>(
+      RayTraceableShaderStage::Miss,
+    ),
   );
 
   let mesh_count = 1;
