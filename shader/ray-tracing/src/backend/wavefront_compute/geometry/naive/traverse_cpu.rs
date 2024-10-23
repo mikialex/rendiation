@@ -66,7 +66,7 @@ impl NaiveSahBvhCpu {
         let tlas_data = &self.tlas_data[tlas_idx as usize];
         // hit tlas
         let blas_idx = tlas_data.acceleration_structure_handle;
-        let flags = flags.apply_geometry_instance_flag_cpu(tlas_data.flags);
+        let flags = TraverseFlags::apply_geometry_instance_flag_cpu(flags, tlas_data.flags);
 
         // traverse blas bvh
         let blas_ray_origin = tlas_data.transform_inv * ray.ray_origin.expand_with_one();
@@ -86,7 +86,11 @@ impl NaiveSahBvhCpu {
             let geometry_idx = geometry.geometry_idx;
             let primitive_start = geometry.primitive_start;
             let geometry_flags = geometry.geometry_flags;
-            // todo apply flags, cull
+
+            let (pass, is_opaque) = TraverseFlags::cull_geometry_cpu(flags, geometry_flags);
+            if !pass {
+              continue;
+            }
 
             let bvh_iter = TraverseBvhIteratorCpu {
               bvh: &self.tri_bvh_forest,
@@ -115,7 +119,7 @@ impl NaiveSahBvhCpu {
                   v0,
                   v1,
                   v2,
-                  // todo check flags
+                  // todo cull face flags
                 );
 
                 if intersection[0] > 0. {
@@ -123,6 +127,7 @@ impl NaiveSahBvhCpu {
                   let p = blas_ray_origin + distance * blas_ray_direction;
                   // println!("hit {p:?}");
                   let primitive_idx = tri_idx - primitive_start;
+                  // todo opaque -> anyhit, non-opaque -> intersect
                   any_hit(geometry_idx, primitive_idx, distance, p);
                 }
               }
@@ -133,9 +138,16 @@ impl NaiveSahBvhCpu {
         let skip_boxes = (flags as u32 & TraverseFlags::SKIP_BOXES as u32) > 0;
         if !skip_boxes {
           for box_root_index in blas_meta_info.box_root_range.x..blas_meta_info.box_root_range.y {
-            let idx = self.box_bvh_root[box_root_index as usize];
-            let blas_root_idx = idx.bvh_root_idx;
-            // let geometry_idx = idx.geometry_idx;
+            let geometry = self.box_bvh_root[box_root_index as usize];
+            let blas_root_idx = geometry.bvh_root_idx;
+            let geometry_idx = geometry.geometry_idx;
+            let primitive_start = geometry.primitive_start;
+            let geometry_flags = geometry.geometry_flags;
+
+            let (pass, is_opaque) = TraverseFlags::cull_geometry_cpu(flags, geometry_flags);
+            if !pass {
+              continue;
+            }
 
             let box_iter = TraverseBvhIteratorCpu {
               bvh: &self.box_bvh_forest,
