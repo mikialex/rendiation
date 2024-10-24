@@ -25,8 +25,8 @@ impl TraverseFlags {
   pub fn from_ray_flag_cpu(ray_flag: u32) -> Self {
     unsafe { std::mem::transmute(ray_flag) }
   }
-  pub fn from_ray_flag_gpu(ray_flag: Node<u32>) -> LocalVarNode<u32> {
-    ray_flag.make_local_var()
+  pub fn from_ray_flag_gpu(ray_flag: Node<u32>) -> Node<u32> {
+    ray_flag
   }
 
   pub fn apply_geometry_instance_flag_cpu(
@@ -189,5 +189,18 @@ impl TraverseFlags {
     let cull_back = flip.and(cull_back).or(flip.not().and(cull_front));
 
     (cull_enable, cull_back)
+  }
+
+  pub fn visit_triangles_cpu(self) -> bool {
+    (self as u32 & TraverseFlags::SKIP_TRIANGLES as u32) == 0
+  }
+  pub fn visit_boxes_cpu(self) -> bool {
+    (self as u32 & TraverseFlags::SKIP_BOXES as u32) == 0
+  }
+  pub fn visit_triangles_gpu(traverse_flag: Node<u32>) -> Node<bool> {
+    (traverse_flag & val(TraverseFlags::SKIP_TRIANGLES as u32)).equals(val(0))
+  }
+  pub fn visit_boxes_gpu(traverse_flag: Node<u32>) -> Node<bool> {
+    (traverse_flag & val(TraverseFlags::SKIP_BOXES as u32)).equals(val(0))
   }
 }

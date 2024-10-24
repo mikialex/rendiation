@@ -320,6 +320,7 @@ struct RayBlas {
   pub blas: BlasMetaInfo,
   pub tlas_idx: u32,
   pub distance_scaling: f32,
+  pub flags: u32,
 }
 
 fn iterate_tlas_blas_gpu(
@@ -331,6 +332,9 @@ fn iterate_tlas_blas_gpu(
   tlas_iter.map(move |idx: Node<u32>| {
     let ray = ray.expand();
     let tlas_data = tlas_data.index(idx).load().expand();
+
+    let flags = TraverseFlags::from_ray_flag_gpu(ray.flags);
+    let flags = TraverseFlags::apply_geometry_instance_flag_gpu(flags, tlas_data.flags);
 
     // transform ray to blas space
     // todo check det < 0, invert cull flag?
@@ -357,6 +361,7 @@ fn iterate_tlas_blas_gpu(
       blas: blas_data,
       tlas_idx: idx,
       distance_scaling,
+      flags,
     })
   })
 }
@@ -384,106 +389,125 @@ fn intersect_blas_gpu(
     let ray_blas = ray_blas.expand();
     let ray = ray_blas.ray;
     let blas = ray_blas.blas.expand();
+    let flags = ray_blas.flags;
 
-    ForRange::new(blas.tri_root_range).for_each(move |tri_root_idx, _cx| {
+    ForRange::new(blas.tri_root_range).for_each(move |tri_root_idx, cx| {
       let geometry = tri_bvh_root.index(tri_root_idx).load().expand();
       let root = geometry.bvh_root_idx;
       let geometry_id = geometry.geometry_idx;
       let primitive_start = geometry.primitive_start;
+      let geometry_flags = geometry.geometry_flags;
 
-      let bvh_iter = TraverseBvhIteratorGpu {
-        bvh: tri_bvh_forest,
-        ray,
-        node_idx: root.make_local_var(),
-      };
-      let tri_idx_iter = bvh_iter.flat_map(ForRange::new); // triangle index
+      let (pass, _is_opaque) = TraverseFlags::cull_geometry_gpu(flags, geometry_flags);
+      if_by(pass.not(), || {
+        cx.do_continue();
+      });
+      let (cull_enable, cull_back) = TraverseFlags::cull_triangle_gpu(flags);
 
-      let ray = ray.expand();
+      if_by(TraverseFlags::visit_triangles_gpu(flags), || {
+        let bvh_iter = TraverseBvhIteratorGpu {
+          bvh: tri_bvh_forest,
+          ray,
+          node_idx: root.make_local_var(),
+        };
+        let tri_idx_iter = bvh_iter.flat_map(ForRange::new); // triangle index
 
-      fn read_vec3<T: ShaderNodeType>(
-        idx: Node<u32>,
-        array: ReadOnlyStorageNode<[T]>,
-      ) -> [Node<T>; 3] {
-        let i = idx * val(3);
-        let v0 = array.index(i).load();
-        let v1 = array.index(i + val(1)).load();
-        let v2 = array.index(i + val(2)).load();
-        [v0, v1, v2]
-      }
+        let ray = ray.expand();
 
-      tri_idx_iter.for_each(move |tri_idx, _cx| {
-        let [i0, i1, i2] = read_vec3(tri_idx, indices);
-        let [v0x, v0y, v0z] = read_vec3(i0, vertices);
-        let [v1x, v1y, v1z] = read_vec3(i1, vertices);
-        let [v2x, v2y, v2z] = read_vec3(i2, vertices);
-        let v0 = Node::<Vec3<f32>>::from((v0x, v0y, v0z));
-        let v1 = Node::<Vec3<f32>>::from((v1x, v1y, v1z));
-        let v2 = Node::<Vec3<f32>>::from((v2x, v2y, v2z));
-        // returns (hit ? 1 : 0, distance, u, v)
-        let result = intersect_ray_triangle_gpu(ray.origin, ray.direction, ray.range, v0, v1, v2);
-        let hit = result.x().greater_than(val(0.));
-        if_by(hit, move || {
-          // todo precompute local range for intersect_ray_triangle_gpu
-          let world_distance = result.y() / ray_blas.distance_scaling;
-          // todo load tlas on every hit? protect with a bool?
-          let tlas = tlas_data.index(ray_blas.tlas_idx).load().expand();
+        fn read_vec3<T: ShaderNodeType>(
+          idx: Node<u32>,
+          array: ReadOnlyStorageNode<[T]>,
+        ) -> [Node<T>; 3] {
+          let i = idx * val(3);
+          let v0 = array.index(i).load();
+          let v1 = array.index(i + val(1)).load();
+          let v2 = array.index(i + val(2)).load();
+          [v0, v1, v2]
+        }
 
-          let hit_ctx = HitCtxInfo {
-            primitive_id: tri_idx - primitive_start, // store tri offset in tri_bvh_root
-            instance_id: ray_blas.tlas_idx,
-            instance_sbt_offset: tlas.instance_shader_binding_table_record_offset,
-            instance_custom_id: tlas.instance_custom_index,
-            geometry_id,
-            object_to_world: tlas.transform_inv,
-            world_to_object: tlas.transform,
-            object_space_ray: ShaderRay {
-              origin: ray.origin,
-              direction: ray.direction,
-            },
-          };
+        tri_idx_iter.for_each(move |tri_idx, _cx| {
+          let [i0, i1, i2] = read_vec3(tri_idx, indices);
+          let [v0x, v0y, v0z] = read_vec3(i0, vertices);
+          let [v1x, v1y, v1z] = read_vec3(i1, vertices);
+          let [v2x, v2y, v2z] = read_vec3(i2, vertices);
+          let v0 = Node::<Vec3<f32>>::from((v0x, v0y, v0z));
+          let v1 = Node::<Vec3<f32>>::from((v1x, v1y, v1z));
+          let v2 = Node::<Vec3<f32>>::from((v2x, v2y, v2z));
+          // returns (hit ? 1 : 0, distance, u, v)
+          let result = intersect_ray_triangle_gpu(
+            ray.origin,
+            ray.direction,
+            ray.range,
+            v0,
+            v1,
+            v2,
+            cull_enable,
+            cull_back,
+          );
+          let hit = result.x().greater_than(val(0.));
+          if_by(hit, move || {
+            // todo precompute local range for intersect_ray_triangle_gpu
+            let world_distance = result.y() / ray_blas.distance_scaling;
+            // todo load tlas on every hit? protect with a bool?
+            let tlas = tlas_data.index(ray_blas.tlas_idx).load().expand();
 
-          let is_opaque = val(true); // todo check blas opaque flag
-          if_by(is_opaque, || {
-            // opaque -> invoke any_hit directly
-            let any_hit_ctx = RayAnyHitCtx {
-              launch_info,
-              world_ray,
-              hit_ctx,
-              hit: HitInfo {
-                hit_kind: val(HIT_KIND_BACK_FACING_TRIANGLE),
-                hit_distance: world_distance,
-              }, // todo specify hit local/world distance
+            let hit_ctx = HitCtxInfo {
+              primitive_id: tri_idx - primitive_start, // store tri offset in tri_bvh_root
+              instance_id: ray_blas.tlas_idx,
+              instance_sbt_offset: tlas.instance_shader_binding_table_record_offset,
+              instance_custom_id: tlas.instance_custom_index,
+              geometry_id,
+              object_to_world: tlas.transform_inv,
+              world_to_object: tlas.transform,
+              object_space_ray: ShaderRay {
+                origin: ray.origin,
+                direction: ray.direction,
+              },
             };
-            let updated = val(false).make_local_var();
-            resolve_any_hit(
-              updated,
-              any_hit,
-              &any_hit_ctx,
-              closest_hit_ctx_var,
-              closest_hit_var,
-            );
-            // todo use updated?
-          })
-          .else_by(|| {
-            // non-opaque -> invode intersect
-            let intersect_ctx = RayIntersectCtx {
-              launch_info,
-              world_ray,
-              hit_ctx,
-            };
-            // intersect will invoke any_hit and then update closest_hit.
-            intersect(
-              &intersect_ctx,
-              &NaiveIntersectReporter {
+
+            let is_opaque = val(true); // todo check blas opaque flag
+            if_by(is_opaque, || {
+              // opaque -> invoke any_hit directly
+              let any_hit_ctx = RayAnyHitCtx {
                 launch_info,
                 world_ray,
                 hit_ctx,
-                closest_hit_ctx_info: closest_hit_ctx_var,
-                closest_hit_info: closest_hit_var,
+                hit: HitInfo {
+                  hit_kind: val(HIT_KIND_BACK_FACING_TRIANGLE),
+                  hit_distance: world_distance,
+                }, // todo specify hit local/world distance
+              };
+              let updated = val(false).make_local_var();
+              resolve_any_hit(
+                updated,
                 any_hit,
-              },
-            );
-            // todo if force opaque, update intersect range to optimize
+                &any_hit_ctx,
+                closest_hit_ctx_var,
+                closest_hit_var,
+              );
+              // todo use updated?
+            })
+            .else_by(|| {
+              // non-opaque -> invode intersect
+              let intersect_ctx = RayIntersectCtx {
+                launch_info,
+                world_ray,
+                hit_ctx,
+              };
+              // intersect will invoke any_hit and then update closest_hit.
+              intersect(
+                &intersect_ctx,
+                &NaiveIntersectReporter {
+                  launch_info,
+                  world_ray,
+                  hit_ctx,
+                  closest_hit_ctx_info: closest_hit_ctx_var,
+                  closest_hit_info: closest_hit_var,
+                  any_hit,
+                },
+              );
+              // todo if force opaque, update intersect range to optimize
+            });
           });
         });
       });

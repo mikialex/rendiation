@@ -78,8 +78,7 @@ impl NaiveSahBvhCpu {
 
         let blas_meta_info = &self.blas_meta_info[blas_idx as usize];
 
-        let skip_triangles = (flags as u32 & TraverseFlags::SKIP_TRIANGLES as u32) > 0;
-        if !skip_triangles {
+        if flags.visit_triangles_cpu() {
           for tri_root_index in blas_meta_info.tri_root_range.x..blas_meta_info.tri_root_range.y {
             let geometry = self.tri_bvh_root[tri_root_index as usize];
             let blas_root_idx = geometry.bvh_root_idx;
@@ -137,8 +136,7 @@ impl NaiveSahBvhCpu {
           }
         }
 
-        let skip_boxes = (flags as u32 & TraverseFlags::SKIP_BOXES as u32) > 0;
-        if !skip_boxes {
+        if flags.visit_boxes_cpu() {
           for box_root_index in blas_meta_info.box_root_range.x..blas_meta_info.box_root_range.y {
             let geometry = self.box_bvh_root[box_root_index as usize];
             let blas_root_idx = geometry.bvh_root_idx;

@@ -110,7 +110,7 @@ fn test_cpu_triangle() {
   let cpu_data = inner.cpu_data.as_ref().unwrap();
 
   let mut payload = ShaderRayTraceCallStoragePayload::zeroed();
-  // payload.ray_flags = RAY_FLAG_CULL_BACK_FACING_TRIANGLES as u32;
+  payload.ray_flags = RayFlagConfigRaw::RAY_FLAG_CULL_BACK_FACING_TRIANGLES as u32;
   payload.cull_mask = u32::MAX;
   payload.range = vec2(0., FAR);
 
@@ -247,10 +247,11 @@ fn test_gpu_triangle() {
         .adhoc_invoke_with_self_size(move |upstream, id| {
           let (input, valid) = upstream.invocation_logic(id);
 
+          let ray_flags = RayFlagConfigRaw::RAY_FLAG_CULL_BACK_FACING_TRIANGLES as u32;
           let payload = ShaderRayTraceCallStoragePayloadShaderAPIInstance {
             payload_ref: val(0),
             tlas_idx: val(0), // todo support tlas selection
-            ray_flags: val(0),
+            ray_flags: val(ray_flags),
             cull_mask: val(u32::MAX),
             sbt_ray_config_offset: val(0),
             sbt_ray_config_stride: val(0),

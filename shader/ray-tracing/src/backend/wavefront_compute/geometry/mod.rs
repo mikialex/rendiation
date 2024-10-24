@@ -112,7 +112,7 @@ fn intersect_ray_triangle_cpu(
   let b = normal.dot(direction);
 
   if cull_enable {
-    let pass = cull_back ^ (b > 0.);
+    let pass = cull_back != (b < 0.);
     if !pass {
       return vec4(0., 0., 0., 0.);
     }
@@ -153,7 +153,8 @@ fn intersect_ray_triangle_gpu(
   v0: Node<Vec3<f32>>,
   v1: Node<Vec3<f32>>,
   v2: Node<Vec3<f32>>,
-  // todo flags
+  cull_enable: Node<bool>,
+  cull_back: Node<bool>,
 ) -> Node<Vec4<f32>> {
   get_shader_fn::<Vec4<f32>>(shader_fn_name(intersect_ray_triangle_gpu))
     .or_define(|cx| {
@@ -163,11 +164,21 @@ fn intersect_ray_triangle_gpu(
       let v0 = cx.push_fn_parameter_by(v0);
       let v1 = cx.push_fn_parameter_by(v1);
       let v2 = cx.push_fn_parameter_by(v2);
+      let cull_enable = cx.push_fn_parameter_by(cull_enable);
+      let cull_back = cx.push_fn_parameter_by(cull_back);
 
       let e1 = v1 - v0;
       let e2 = v2 - v0;
       let normal = e1.cross(e2).normalize();
       let b = normal.dot(direction);
+
+      if_by(cull_enable, || {
+        let pass = cull_back.not_equals(b.less_than(val(0.)));
+        if_by(pass.not(), || {
+          cx.do_return(val(vec4(0., 0., 0., 0.)));
+        });
+      });
+
       let w0 = origin - v0;
       let a = -normal.dot(w0);
       let t = a / b;
@@ -207,5 +218,7 @@ fn intersect_ray_triangle_gpu(
     .push(v0)
     .push(v1)
     .push(v2)
+    .push(cull_enable)
+    .push(cull_back)
     .call()
 }
