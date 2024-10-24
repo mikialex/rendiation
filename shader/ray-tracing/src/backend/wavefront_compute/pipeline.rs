@@ -7,6 +7,7 @@ pub struct GPUWaveFrontComputeRaytracingBakedPipeline {
 
 pub struct GPUWaveFrontComputeRaytracingBakedPipelineInner {
   pub(crate) graph: DeviceTaskGraphExecutor,
+  pub(crate) tracer_read_back_bumper: Arc<RwLock<DeviceBumpAllocationInstance<u32>>>,
   pub(crate) target_sbt_buffer: StorageBufferReadOnlyDataView<u32>,
 }
 
@@ -62,14 +63,21 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
     let target_sbt_buffer = StorageBufferReadOnlyDataView::create(device, &0);
 
     let payload_u32_len = init_size * 2 * (payload_max_u32_count as usize);
+    let payload_bumper = Arc::new(RwLock::new(DeviceBumpAllocationInstance::new(
+      payload_u32_len,
+      device,
+    )));
+
+    let payload_read_back_bumper = Arc::new(RwLock::new(DeviceBumpAllocationInstance::new(
+      payload_u32_len,
+      device,
+    )));
+
     let tracer_task = TraceTaskImpl {
       tlas_sys,
       sbt_sys,
-      payload_bumper: Arc::new(RwLock::new(DeviceBumpAllocationInstance::new(
-        payload_u32_len,
-        device,
-      ))),
-      payload_read_back_bumper: DeviceBumpAllocationInstance::new(payload_u32_len, device),
+      payload_bumper: payload_bumper.clone(),
+      payload_read_back_bumper: payload_read_back_bumper.clone(),
       ray_info_bumper: DeviceBumpAllocationInstance::new(init_size * 2, device),
       info: Arc::new(info),
       current_sbt: target_sbt_buffer.clone(),
@@ -77,7 +85,8 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
 
     let mut ctx = AnyMap::default();
     ctx.register(TracingTaskSpawnerImplSource {
-      payload_bumper: tracer_task.payload_bumper.clone(),
+      payload_spawn_bumper: tracer_task.payload_bumper.clone(),
+      payload_read_back: tracer_task.payload_read_back_bumper.clone(),
     });
 
     // create core tracer task as almost every other task depend on this one
@@ -126,11 +135,12 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
     GPUWaveFrontComputeRaytracingBakedPipelineInner {
       graph: executor,
       target_sbt_buffer,
+      tracer_read_back_bumper: payload_read_back_bumper,
     }
   }
 }
 
-impl GPURaytracingPipelineProvider for GPUWaveFrontComputeRaytracingBakedPipelineInner {
+impl GPURaytracingPipelineProvider for GPUWaveFrontComputeRaytracingBakedPipeline {
   fn access_impl(&self) -> &dyn Any {
     self
   }

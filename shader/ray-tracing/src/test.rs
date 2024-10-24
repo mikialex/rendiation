@@ -13,7 +13,8 @@ async fn test_wavefront_compute() {
 
   let mut rtx_pipeline_desc = GPURaytracingPipelineDescriptor::default();
 
-  let ray_gen_shader = TraceBase::<()>::default()
+  // todo, remove ray gen payload
+  let ray_gen_shader = WaveFrontTracingBaseProvider::create_ray_gen_shader_base()
     .then_trace(
       // (&T, &mut TracingCtx) -> (Node<bool>, ShaderRayTraceCall, Node<P>)
       |_, _ctx| {
@@ -52,10 +53,10 @@ async fn test_wavefront_compute() {
 
   let ray_gen = rtx_pipeline_desc.register_ray_gen::<RayCustomPayload>(ray_gen_shader);
   let closest_hit = rtx_pipeline_desc.register_ray_closest_hit::<RayCustomPayload>(
-    WaveFrontTracingBaseProvider::closest_shader_base::<RayCustomPayload>(),
+    WaveFrontTracingBaseProvider::create_closest_hit_shader_base::<RayCustomPayload>(),
   );
   let miss = rtx_pipeline_desc.register_ray_miss::<RayCustomPayload>(
-    WaveFrontTracingBaseProvider::missing_shader_base::<RayCustomPayload>(),
+    WaveFrontTracingBaseProvider::create_miss_hit_shader_base::<RayCustomPayload>(),
   );
 
   let mesh_count = 1;

@@ -1,6 +1,7 @@
 mod geometry;
 pub use geometry::*;
 mod sbt;
+use parking_lot::lock_api::RwLock;
 pub use sbt::*;
 mod trace_task;
 pub use trace_task::*;
@@ -62,13 +63,16 @@ impl GPURayTracingDeviceProvider for GPUWaveFrontComputeRaytracingDevice {
     desc: &GPURaytracingPipelineDescriptor,
   ) -> Box<dyn GPURaytracingPipelineProvider> {
     let mut cx = DeviceParallelComputeCtx::new(&self.gpu);
-    Box::new(GPUWaveFrontComputeRaytracingBakedPipelineInner::compile(
+    let inner = GPUWaveFrontComputeRaytracingBakedPipelineInner::compile(
       &mut cx,
       self.tlas_sys.create_comp_instance(),
       self.sbt_sys.clone(),
       desc,
       self.default_init_size,
-    ))
+    );
+    Box::new(GPUWaveFrontComputeRaytracingBakedPipeline {
+      inner: Arc::new(RwLock::new(inner)),
+    })
   }
 
   fn create_sbt(
@@ -118,8 +122,37 @@ impl RayTracingPassEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
     );
 
     let size = (size.0 * size.1 * size.2) as usize;
-    let executor = &mut current_pipeline.graph;
-    executor.resize_execution_size(&mut cx, size);
-    executor.execute(&mut cx, size);
+    {
+      let executor = &mut current_pipeline.graph;
+      executor.resize_execution_size(&mut cx, size);
+    }
+
+    let round_count = 3; // todo;
+    for _ in 0..round_count {
+      // reset read_back bumper;
+      {
+        let bumper = current_pipeline.tracer_read_back_bumper.read();
+        cx.record_pass(|pass, device| {
+          let hasher = shader_hasher_from_marker_ty!(SizeClear);
+          let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
+            builder.config_work_group_size(1);
+            let current_size = builder.bind_by(&bumper.current_size);
+            let bump_size = builder.bind_by(&bumper.bump_size);
+            current_size.store(val(0));
+            bump_size.atomic_store(val(0));
+            builder
+          });
+
+          BindingBuilder::new_as_compute()
+            .with_bind(&bumper.current_size)
+            .with_bind(&bumper.bump_size)
+            .setup_compute_pass(pass, device, &pipeline);
+
+          pass.dispatch_workgroups(1, 1, 1);
+        });
+      }
+
+      current_pipeline.graph.execute(&mut cx, 1);
+    }
   }
 }

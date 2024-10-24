@@ -106,10 +106,11 @@ impl TracingCtx {
     self.closest.as_deref()
   }
 
-  pub fn payload<T: ShaderSizedValueNodeType>(&self) -> StorageNode<T> {
-    let payload = self.payload.as_ref().unwrap();
+  /// user defined payload may not exist if the current shader stage is ray gen
+  pub fn payload<T: ShaderSizedValueNodeType>(&self) -> Option<StorageNode<T>> {
+    let payload = self.payload.as_ref()?;
     assert_eq!(&T::sized_ty(), &payload.1);
-    unsafe { payload.0.cast_type() }
+    Some(unsafe { payload.0.cast_type() })
   }
 }
 

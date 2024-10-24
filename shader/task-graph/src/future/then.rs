@@ -84,7 +84,7 @@ where
     } = self;
 
     let upstream_resolved_read = upstream_resolved.abstract_load().into_bool();
-    let upstream_resolved_local = upstream_resolved_read.make_local_var(); // we could use barrier to read back
+    let upstream_resolved_local = upstream_resolved_read.make_local_var();
     if_by(upstream_resolved_read.not(), || {
       let r = upstream.device_poll(ctx);
       if_by(r.is_ready, || {
@@ -94,6 +94,8 @@ where
         then.abstract_store(next);
       });
     });
+
+    storage_barrier();
 
     let resolved = LocalLeftValueBuilder.create_left_value(val(false));
     let output = LocalLeftValueBuilder.create_left_value(T::Output::default());

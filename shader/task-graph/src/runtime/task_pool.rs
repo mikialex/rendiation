@@ -171,9 +171,6 @@ impl TaskPoolInvocationInstance {
         }
       };
     }
-
-    // this is required if task spawn itself and using then operator
-    storage_barrier();
   }
 
   pub fn rw_is_finished(&self, task: Node<u32>) -> StorageNode<u32> {
