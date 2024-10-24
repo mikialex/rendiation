@@ -8,9 +8,11 @@ pub trait GPURaytracingSystem {
 }
 
 pub trait TraceFutureBaseProvider {
-  fn create_shader_base<P: ShaderSizedValueNodeType>(
-    stage: RayTraceableShaderStage,
-  ) -> impl TraceOperator<()>;
+  fn create_ray_gen_shader_base() -> impl TraceOperator<()>;
+
+  fn create_closest_hit_shader_base<P: ShaderSizedValueNodeType>() -> impl TraceOperator<()>;
+
+  fn create_miss_hit_shader_base<P: ShaderSizedValueNodeType>() -> impl TraceOperator<()>;
 }
 
 pub trait RayTracingPassEncoderProvider {
