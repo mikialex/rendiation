@@ -47,13 +47,13 @@ pub trait ShaderBindingTableProvider {
 }
 
 #[derive(Clone)]
-pub struct BottomLevelAccelerationStructureBuildSource2 {
-  pub geometry: BottomLevelAccelerationStructureBuildSource,
+pub struct BottomLevelAccelerationStructureBuildSource {
+  pub geometry: BottomLevelAccelerationStructureBuildBuffer,
   pub flags: GeometryFlags,
 }
 
 #[derive(Clone)]
-pub enum BottomLevelAccelerationStructureBuildSource {
+pub enum BottomLevelAccelerationStructureBuildBuffer {
   Triangles {
     positions: Vec<Vec3<f32>>,
     indices: Vec<u32>,
@@ -77,7 +77,7 @@ pub trait GPUAccelerationStructureSystemProvider: DynClone {
 
   fn create_bottom_level_acceleration_structure(
     &self,
-    source: &[BottomLevelAccelerationStructureBuildSource2],
+    source: &[BottomLevelAccelerationStructureBuildSource],
   ) -> BottomLevelAccelerationStructureHandle;
 
   fn delete_bottom_level_acceleration_structure(&self, id: BottomLevelAccelerationStructureHandle);

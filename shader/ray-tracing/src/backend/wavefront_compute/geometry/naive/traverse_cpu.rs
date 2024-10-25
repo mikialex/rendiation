@@ -27,20 +27,25 @@ pub(super) struct NaiveSahBvhCpu {
   pub(super) boxes: Vec<Vec3<f32>>,
 }
 
+use std::sync::atomic::AtomicU32;
+pub(super) static TRI_HIT_COUNT: AtomicU32 = AtomicU32::new(0);
+pub(super) static BVH_VISIT_COUNT: AtomicU32 = AtomicU32::new(0);
+
 impl NaiveSahBvhCpu {
   pub(super) fn traverse(
     &self,
     ray: &mut ShaderRayTraceCallStoragePayload,
-    any_hit: &mut dyn FnMut(u32, u32, f32, Vec3<f32>), /* geometry_idx, primitive_idx, distance, hit_position // todo use ctx */
+    any_hit: &mut dyn FnMut(u32, u32, f32, Vec3<f32>) -> bool, /* geometry_idx, primitive_idx, distance, hit_position // todo use ctx */
   ) {
     let flags = TraverseFlags::from_ray_flag_cpu(ray.ray_flags);
+    let ray_range = RayRange::new(ray.range.x, ray.range.y, 1.);
 
     // traverse tlas bvh, hit leaf
     let tlas_iter = TraverseBvhIteratorCpu {
       bvh: &self.tlas_bvh_forest,
       ray_origin: ray.ray_origin,
       ray_direction: ray.ray_direction,
-      ray_range: ray.range,
+      ray_range: ray_range.clone(),
       curr_idx: 0,
     };
     for hit_idx in tlas_iter {
@@ -73,7 +78,7 @@ impl NaiveSahBvhCpu {
         let blas_ray_origin = blas_ray_origin.xyz() / blas_ray_origin.w();
         let blas_ray_direction = tlas_data.transform_inv.to_mat3() * ray.ray_direction;
         let distance_scaling = blas_ray_direction.length();
-        let blas_ray_range = ray.range * distance_scaling;
+        let blas_ray_range = ray_range.clone_with_scaling(distance_scaling);
         let blas_ray_direction = blas_ray_direction.normalize();
 
         let blas_meta_info = &self.blas_meta_info[blas_idx as usize];
@@ -96,7 +101,7 @@ impl NaiveSahBvhCpu {
               bvh: &self.tri_bvh_forest,
               ray_origin: blas_ray_origin,
               ray_direction: blas_ray_direction,
-              ray_range: blas_ray_range,
+              ray_range: blas_ray_range.clone(),
               curr_idx: blas_root_idx,
             };
 
@@ -115,7 +120,7 @@ impl NaiveSahBvhCpu {
                 let intersection = intersect_ray_triangle_cpu(
                   blas_ray_origin,
                   blas_ray_direction,
-                  blas_ray_range,
+                  blas_ray_range.get(),
                   v0,
                   v1,
                   v2,
@@ -129,56 +134,97 @@ impl NaiveSahBvhCpu {
                   // println!("hit {p:?}");
                   let primitive_idx = tri_idx - primitive_start;
                   // todo opaque -> anyhit, non-opaque -> intersect
-                  any_hit(geometry_idx, primitive_idx, distance, p);
+                  TRI_HIT_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                  let accepted = any_hit(geometry_idx, primitive_idx, distance, p);
+                  if accepted {
+                    // ray.range.y = distance;
+                    ray_range.update_far(distance);
+                  }
                 }
               }
             }
           }
         }
 
-        if flags.visit_boxes_cpu() {
-          for box_root_index in blas_meta_info.box_root_range.x..blas_meta_info.box_root_range.y {
-            let geometry = self.box_bvh_root[box_root_index as usize];
-            let blas_root_idx = geometry.bvh_root_idx;
-            let _geometry_idx = geometry.geometry_idx;
-            let _primitive_start = geometry.primitive_start;
-            let geometry_flags = geometry.geometry_flags;
-
-            let (pass, _is_opaque) = TraverseFlags::cull_geometry_cpu(flags, geometry_flags);
-            if !pass {
-              continue;
-            }
-
-            let box_iter = TraverseBvhIteratorCpu {
-              bvh: &self.box_bvh_forest,
-              ray_origin: blas_ray_origin,
-              ray_direction: blas_ray_direction,
-              ray_range: blas_ray_range,
-              curr_idx: blas_root_idx,
-            };
-
-            for hit_idx in box_iter {
-              let node = &self.box_bvh_forest[hit_idx as usize];
-              let aabb =
-                &self.boxes[node.content_range.x as usize * 2..node.content_range.y as usize * 2];
-              for aabb in aabb.chunks_exact(2) {
-                let hit = intersect_ray_aabb_cpu(
-                  blas_ray_origin,
-                  blas_ray_direction,
-                  blas_ray_range,
-                  aabb[0],
-                  aabb[1],
-                );
-                if hit {
-                  // todo call intersect, then anyhit
-                  // todo modify range after hit
-                }
-              }
-            }
-          }
-        }
+        // if flags.visit_boxes_cpu() {
+        //   let blas_ray_range = ray_range.clone_with_scaling(distance_scaling);
+        //   for box_root_index in blas_meta_info.box_root_range.x..blas_meta_info.box_root_range.y {
+        //     let geometry = self.box_bvh_root[box_root_index as usize];
+        //     let blas_root_idx = geometry.bvh_root_idx;
+        //     let _geometry_idx = geometry.geometry_idx;
+        //     let _primitive_start = geometry.primitive_start;
+        //     let geometry_flags = geometry.geometry_flags;
+        //
+        //     let (pass, _is_opaque) = TraverseFlags::cull_geometry_cpu(flags, geometry_flags);
+        //     if !pass {
+        //       continue;
+        //     }
+        //
+        //     let box_iter = TraverseBvhIteratorCpu {
+        //       bvh: &self.box_bvh_forest,
+        //       ray_origin: blas_ray_origin,
+        //       ray_direction: blas_ray_direction,
+        //       ray_range: blas_ray_range.clone(),
+        //       curr_idx: blas_root_idx,
+        //     };
+        //
+        //     for hit_idx in box_iter {
+        //       let node = &self.box_bvh_forest[hit_idx as usize];
+        //       let aabb =
+        //         &self.boxes[node.content_range.x as usize * 2..node.content_range.y as usize * 2];
+        //       for aabb in aabb.chunks_exact(2) {
+        //         let hit = intersect_ray_aabb_cpu(
+        //           blas_ray_origin,
+        //           blas_ray_direction,
+        //           blas_ray_range.get(),
+        //           aabb[0],
+        //           aabb[1],
+        //         );
+        //         if hit {
+        //           // todo call intersect, then anyhit
+        //           // todo modify range after hit
+        //         }
+        //       }
+        //     }
+        //   }
+        // }
       }
     }
+  }
+}
+
+use std::cell::Cell;
+use std::rc::Rc;
+#[derive(Clone)]
+pub(crate) struct RayRange {
+  near: f32,
+  far: Rc<Cell<f32>>,
+  scaling: f32,
+}
+impl RayRange {
+  pub fn new(near: f32, far: f32, scaling: f32) -> Self {
+    Self {
+      near,
+      far: Rc::new(Cell::new(far)),
+      scaling,
+    }
+  }
+  pub fn clone_with_scaling(&self, scaling: f32) -> Self {
+    Self {
+      near: self.near,
+      far: self.far.clone(),
+      scaling,
+    }
+  }
+
+  pub fn update_far(&self, far: f32) {
+    assert!(self.near <= far);
+    assert!(far <= self.far.get());
+    self.far.set(far);
+  }
+  pub fn get(&self) -> Vec2<f32> {
+    let far = self.far.get();
+    Vec2::new(self.near * self.scaling, far * self.scaling)
   }
 }
 
@@ -186,7 +232,7 @@ struct TraverseBvhIteratorCpu<'a> {
   bvh: &'a [DeviceBVHNode],
   ray_origin: Vec3<f32>,
   ray_direction: Vec3<f32>,
-  ray_range: Vec2<f32>,
+  ray_range: RayRange,
 
   curr_idx: u32,
 }
@@ -194,11 +240,12 @@ impl<'a> Iterator for TraverseBvhIteratorCpu<'a> {
   type Item = u32;
   fn next(&mut self) -> Option<Self::Item> {
     while self.curr_idx != INVALID_NEXT {
+      BVH_VISIT_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
       let node = &self.bvh[self.curr_idx as usize];
       if intersect_ray_aabb_cpu(
         self.ray_origin,
         self.ray_direction,
-        self.ray_range,
+        self.ray_range.get(),
         node.aabb_min,
         node.aabb_max,
       ) {

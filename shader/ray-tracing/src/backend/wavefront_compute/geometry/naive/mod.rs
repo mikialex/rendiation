@@ -72,7 +72,7 @@ struct GeometryMetaInfo {
 
 #[derive(Default)]
 struct NaiveSahBvhSource {
-  blas_data: Vec<Option<Vec<BottomLevelAccelerationStructureBuildSource2>>>,
+  blas_data: Vec<Option<Vec<BottomLevelAccelerationStructureBuildSource>>>,
   tlas_data: Vec<Option<TopLevelAccelerationStructureSourceInstance>>,
 }
 
@@ -84,7 +84,7 @@ impl GPUAccelerationStructureInstanceProvider for Range<u32> {
 }
 
 impl NaiveSahBvhSource {
-  pub fn create_blas(&mut self, source: &[BottomLevelAccelerationStructureBuildSource2]) -> u32 {
+  pub fn create_blas(&mut self, source: &[BottomLevelAccelerationStructureBuildSource]) -> u32 {
     // todo freelist
     let index = self.blas_data.len();
     self.blas_data.push(Some(source.to_vec()));
@@ -123,7 +123,7 @@ impl NaiveSahBvhSource {
   ///   boxes
   /// )
   fn build_blas(
-    blas_data: &[Option<Vec<BottomLevelAccelerationStructureBuildSource2>>],
+    blas_data: &[Option<Vec<BottomLevelAccelerationStructureBuildSource>>],
   ) -> (
     Vec<BlasMetaInfo>,
     Vec<Box3>,
@@ -158,7 +158,7 @@ impl NaiveSahBvhSource {
         let mut root_box = Box3::default();
         let geometry_flags = source.flags;
         match &source.geometry {
-          BottomLevelAccelerationStructureBuildSource::Triangles { positions, indices } => {
+          BottomLevelAccelerationStructureBuildBuffer::Triangles { positions, indices } => {
             let index_start = geometry_indices.len() as u32;
             let vertex_start = geometry_vertices.len() as u32;
 
@@ -195,7 +195,7 @@ impl NaiveSahBvhSource {
             ));
           }
 
-          BottomLevelAccelerationStructureBuildSource::AABBs { aabbs } => {
+          BottomLevelAccelerationStructureBuildBuffer::AABBs { aabbs } => {
             let boxes_start = geometry_indices.len() as u32;
 
             let boxes = aabbs.iter().map(|aabb| {
@@ -538,7 +538,7 @@ impl GPUAccelerationStructureSystemProvider for NaiveSahBVHSystem {
 
   fn create_bottom_level_acceleration_structure(
     &self,
-    source: &[BottomLevelAccelerationStructureBuildSource2],
+    source: &[BottomLevelAccelerationStructureBuildSource],
   ) -> BottomLevelAccelerationStructureHandle {
     let mut inner = self.inner.write().unwrap();
     inner.invalidate();

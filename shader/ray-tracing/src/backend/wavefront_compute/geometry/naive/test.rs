@@ -23,9 +23,9 @@ pub(crate) fn init_default_acceleration_structure(
   ];
 
   let blas_handle = system.create_bottom_level_acceleration_structure(&[
-    BottomLevelAccelerationStructureBuildSource2 {
+    BottomLevelAccelerationStructureBuildSource {
       flags: GEOMETRY_FLAG_OPAQUE,
-      geometry: BottomLevelAccelerationStructureBuildSource::Triangles {
+      geometry: BottomLevelAccelerationStructureBuildBuffer::Triangles {
         positions: CUBE_POSITION
           .chunks_exact(3)
           .map(|abc| vec3(abc[0], abc[1], abc[2]))
@@ -132,11 +132,21 @@ fn test_cpu_triangle() {
           if distance < *d {
             *d = distance;
             *id = primitive_id + 1;
+            return true;
           }
+          false
         },
       );
     }
   }
+  println!(
+    "tri hit count: {}",
+    TRI_HIT_COUNT.load(std::sync::atomic::Ordering::Relaxed)
+  );
+  println!(
+    "bvh visit count: {}",
+    BVH_VISIT_COUNT.load(std::sync::atomic::Ordering::Relaxed)
+  );
 
   let mut file = format!("P2\n{W} {H}\n{PRIMITIVE_IDX_MAX}\n");
   for j in 0..H {

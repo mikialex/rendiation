@@ -5,11 +5,11 @@ use crate::backend::wavefront_compute::geometry::naive::*;
 #[derive(Copy, Clone, Debug)]
 pub enum TraverseFlags {
   // first bits are identical to ray flag
-  NONE = 0x00,
+  _NONE = 0x00,
   FORCE_OPAQUE = 0x01,
   FORCE_NON_OPAQUE = 0x02,
-  ACCEPT_FIRST_HIT_AND_END_SEARCH = 0x04, // todo
-  SKIP_CLOSEST_HIT_SHADER = 0x08,         // todo
+  _ACCEPT_FIRST_HIT_AND_END_SEARCH = 0x04, // todo
+  _SKIP_CLOSEST_HIT_SHADER = 0x08,         // todo
   CULL_BACK_FACING_TRIANGLES = 0x10,
   CULL_FRONT_FACING_TRIANGLES = 0x20,
   CULL_OPAQUE = 0x40,
