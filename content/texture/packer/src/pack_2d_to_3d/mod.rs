@@ -53,6 +53,7 @@ where
     for (idx, packer) in self.packers.iter_mut().enumerate() {
       if let Ok(sub_result) = packer.pack_with_id(input) {
         result = Some((idx, sub_result));
+        break;
       }
     }
     if let Some((idx, re)) = result {
