@@ -15,7 +15,7 @@ pub enum TraverseFlags {
   CULL_OPAQUE = 0x40,
   CULL_NON_OPAQUE = 0x80,
   SKIP_TRIANGLES = 0x100,
-  SKIP_BOXES = 0x200,
+  _SKIP_BOXES = 0x200,
 
   // GEOMETRY_NO_DUPLICATE_ANYHIT_INVOCATION,
   TRIANGLE_FLIP_FACING = 0x400,
@@ -194,13 +194,13 @@ impl TraverseFlags {
   pub fn visit_triangles_cpu(self) -> bool {
     (self as u32 & TraverseFlags::SKIP_TRIANGLES as u32) == 0
   }
-  pub fn visit_boxes_cpu(self) -> bool {
-    (self as u32 & TraverseFlags::SKIP_BOXES as u32) == 0
-  }
+  // pub fn visit_boxes_cpu(self) -> bool {
+  //   (self as u32 & TraverseFlags::SKIP_BOXES as u32) == 0
+  // }
   pub fn visit_triangles_gpu(traverse_flag: Node<u32>) -> Node<bool> {
     (traverse_flag & val(TraverseFlags::SKIP_TRIANGLES as u32)).equals(val(0))
   }
-  pub fn visit_boxes_gpu(traverse_flag: Node<u32>) -> Node<bool> {
-    (traverse_flag & val(TraverseFlags::SKIP_BOXES as u32)).equals(val(0))
-  }
+  // pub fn visit_boxes_gpu(traverse_flag: Node<u32>) -> Node<bool> {
+  //   (traverse_flag & val(TraverseFlags::SKIP_BOXES as u32)).equals(val(0))
+  // }
 }

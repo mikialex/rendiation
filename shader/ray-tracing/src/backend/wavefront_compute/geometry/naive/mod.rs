@@ -173,7 +173,7 @@ impl NaiveSahBvhSource {
 
             let option = TreeBuildOption {
               max_tree_depth: 50,
-              bin_size: 10,
+              bin_size: 2,
             };
             let mut sah = SAH::new(4);
             let bvh = FlattenBVH::new(boxes, &mut sah, &option);
@@ -209,7 +209,7 @@ impl NaiveSahBvhSource {
 
             let option = TreeBuildOption {
               max_tree_depth: 50,
-              bin_size: 10,
+              bin_size: 2,
             };
             let mut sah = SAH::new(4);
             let bvh = FlattenBVH::new(boxes, &mut sah, &option);

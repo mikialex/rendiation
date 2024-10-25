@@ -28,8 +28,10 @@ pub(super) struct NaiveSahBvhCpu {
 }
 
 use std::sync::atomic::AtomicU32;
+pub(super) static TRI_VISIT_COUNT: AtomicU32 = AtomicU32::new(0);
 pub(super) static TRI_HIT_COUNT: AtomicU32 = AtomicU32::new(0);
 pub(super) static BVH_VISIT_COUNT: AtomicU32 = AtomicU32::new(0);
+pub(super) static BVH_HIT_COUNT: AtomicU32 = AtomicU32::new(0);
 
 impl NaiveSahBvhCpu {
   pub(super) fn traverse(
@@ -116,6 +118,8 @@ impl NaiveSahBvhCpu {
                 let v1 = self.vertices[i1 as usize];
                 let v2 = self.vertices[i2 as usize];
 
+                TRI_VISIT_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+
                 // vec4(hit, distance, u, v)
                 let intersection = intersect_ray_triangle_cpu(
                   blas_ray_origin,
@@ -133,7 +137,8 @@ impl NaiveSahBvhCpu {
                   let p = blas_ray_origin + distance * blas_ray_direction;
                   // println!("hit {p:?}");
                   let primitive_idx = tri_idx - primitive_start;
-                  // todo opaque -> anyhit, non-opaque -> intersect
+                  // opaque -> anyhit, non-opaque -> intersect
+                  // assuming all opaque
                   TRI_HIT_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                   let accepted = any_hit(geometry_idx, primitive_idx, distance, p);
                   if accepted {
@@ -254,6 +259,7 @@ impl<'a> Iterator for TraverseBvhIteratorCpu<'a> {
 
         if node.hit_next == node.miss_next {
           // is leaf
+          BVH_HIT_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
           return Some(curr);
         }
       } else {

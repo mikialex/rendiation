@@ -140,12 +140,20 @@ fn test_cpu_triangle() {
     }
   }
   println!(
+    "tri visit count: {}",
+    TRI_VISIT_COUNT.load(std::sync::atomic::Ordering::Relaxed)
+  );
+  println!(
     "tri hit count: {}",
     TRI_HIT_COUNT.load(std::sync::atomic::Ordering::Relaxed)
   );
   println!(
     "bvh visit count: {}",
     BVH_VISIT_COUNT.load(std::sync::atomic::Ordering::Relaxed)
+  );
+  println!(
+    "bvh hit count: {}",
+    BVH_HIT_COUNT.load(std::sync::atomic::Ordering::Relaxed)
   );
 
   let mut file = format!("P2\n{W} {H}\n{PRIMITIVE_IDX_MAX}\n");
