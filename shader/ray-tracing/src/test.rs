@@ -12,7 +12,7 @@ async fn test_wavefront_compute() {
 
   let debug_output = GPUTexture::create(
     TextureDescriptor {
-      label: "shadow-map-atlas".into(),
+      label: "tracing-debug".into(),
       size: Size::from_u32_pair_min_one((1, 1)).into_gpu_size(),
       mip_level_count: 1,
       sample_count: 1,
