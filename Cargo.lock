@@ -4004,6 +4004,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-scene-rendering-gpu-ray-tracing"
+version = "0.1.0"
+dependencies = [
+ "database",
+ "dyn-downcast",
+ "fast-hash-collection",
+ "log",
+ "reactive",
+ "rendiation-algebra",
+ "rendiation-color",
+ "rendiation-device-ray-tracing",
+ "rendiation-geometry",
+ "rendiation-lighting-gpu-system",
+ "rendiation-lighting-punctual",
+ "rendiation-lighting-transport",
+ "rendiation-mesh-core",
+ "rendiation-mesh-gpu-system",
+ "rendiation-scene-core",
+ "rendiation-scene-rendering-gpu-base",
+ "rendiation-shader-api",
+ "rendiation-shader-library",
+ "rendiation-texture-core",
+ "rendiation-webgpu",
+ "rendiation-webgpu-reactive-utils",
+]
+
+[[package]]
 name = "rendiation-shader-api"
 version = "0.1.0"
 dependencies = [
