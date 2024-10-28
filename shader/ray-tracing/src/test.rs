@@ -1,7 +1,34 @@
 #[pollster::test]
 async fn test_wavefront_compute() {
+  use rendiation_texture_core::Size;
+
   use crate::*;
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();
+
+  let mut texture_io_system = RayTracingTextureIO::default();
+
+  pub struct RayTracingDebugOutput;
+  impl RayTracingOutputTargetSemantic for RayTracingDebugOutput {}
+
+  let debug_output = GPUTexture::create(
+    TextureDescriptor {
+      label: "shadow-map-atlas".into(),
+      size: Size::from_u32_pair_min_one((1, 1)).into_gpu_size(),
+      mip_level_count: 1,
+      sample_count: 1,
+      dimension: TextureDimension::D2,
+      format: TextureFormat::Rgba8Unorm,
+      view_formats: &[],
+      usage: TextureUsages::all(),
+    },
+    &gpu.device,
+  );
+  let debug_output = GPU2DTexture::try_from(debug_output)
+    .unwrap()
+    .create_default_view();
+  let debug_output = GPU2DTextureView::try_from(debug_output).unwrap();
+
+  texture_io_system.install_output_target::<RayTracingDebugOutput>(debug_output);
 
   let system = GPUWaveFrontComputeRaytracingSystem::new(&gpu);
   let as_sys = system.create_acceleration_structure_system();
@@ -15,6 +42,7 @@ async fn test_wavefront_compute() {
 
   // todo, remove ray gen payload
   let ray_gen_shader = WaveFrontTracingBaseProvider::create_ray_gen_shader_base()
+    .inject_ctx(texture_io_system.clone())
     .then_trace(
       // (&T, &mut TracingCtx) -> (Node<bool>, ShaderRayTraceCall, Node<P>)
       |_, _ctx| {
@@ -44,7 +72,10 @@ async fn test_wavefront_compute() {
         (val(true), trace_call, ray_payload)
       },
     )
-    .map(|(_, _payload), _ctx| ()); // todo write payload to output buffer
+    .map(|(_, _payload), ctx| {
+      let tex_io = ctx.registry.get_mut::<FrameOutputInvocation>().unwrap();
+      tex_io.write_output::<RayTracingDebugOutput>(val(Vec2::zero()), val(Vec4::zero()));
+    });
 
   #[derive(Copy, Clone, Debug, Default, ShaderStruct)]
   pub struct RayCustomPayload {
@@ -83,4 +114,6 @@ async fn test_wavefront_compute() {
 
   rtx_encoder.set_pipeline(rtx_pipeline.as_ref());
   rtx_encoder.trace_ray((canvas_size, canvas_size, 1), sbt.as_ref());
+
+  texture_io_system.take_output_target::<RayTracingDebugOutput>();
 }

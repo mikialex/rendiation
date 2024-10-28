@@ -1,5 +1,8 @@
 use crate::*;
 
+mod ctx_inject;
+pub use ctx_inject::*;
+
 pub struct TraceBase<T>(PhantomData<T>);
 
 impl<T> Default for TraceBase<T> {
@@ -24,6 +27,17 @@ where
 }
 
 pub trait TraceOperatorExt<T>: TraceOperator<T> + Sized {
+  fn inject_ctx<X>(self, ctx: X) -> impl TraceOperator<T>
+  where
+    X: RayTracingCustomCtxProvider,
+    T: 'static,
+  {
+    InjectCtx {
+      upstream: self,
+      ctx,
+    }
+  }
+
   fn map<F, T2>(self, map: F) -> impl TraceOperator<T2>
   where
     F: FnOnce(T, &mut TracingCtx) -> T2 + 'static + Copy,
