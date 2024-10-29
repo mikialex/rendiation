@@ -35,55 +35,59 @@ pub(crate) fn init_default_acceleration_structure(
     },
   ]);
 
-  fn add_tlas(
-    system: &dyn GPUAccelerationStructureSystemProvider,
+  fn add_tlas_source(
+    vec: &mut Vec<TopLevelAccelerationStructureSourceInstance>,
     transform: Mat4<f32>,
     blas_handle: &BottomLevelAccelerationStructureHandle,
-  ) -> Box<dyn GPUAccelerationStructureInstanceProvider> {
-    system.create_top_level_acceleration_structure(&[TopLevelAccelerationStructureSourceInstance {
+  ) {
+    vec.push(TopLevelAccelerationStructureSourceInstance {
       transform,
       instance_custom_index: 0,
       mask: u32::MAX,
       instance_shader_binding_table_record_offset: 0,
       flags: 0,
       acceleration_structure_handle: *blas_handle,
-    }])
+    });
   }
+
+  let mut sources = vec![];
   for i in -2..=2 {
     for j in -2..=2 {
-      add_tlas(
-        system,
+      add_tlas_source(
+        &mut sources,
         Mat4::translate((i as f32 * 1.5, j as f32 * 1.5, -10.)),
         &blas_handle,
       );
     }
   }
-  add_tlas(
-    system,
+  add_tlas_source(
+    &mut sources,
     Mat4::translate((0., 4.5, -10.)) * Mat4::scale((5., 1., 1.)),
     &blas_handle,
   );
-  add_tlas(
-    system,
+  add_tlas_source(
+    &mut sources,
     Mat4::translate((0., -4.5, -10.))
       * Mat4::rotate_y(std::f32::consts::PI)
       * Mat4::scale((5., 1., 1.)),
     &blas_handle,
   );
-  add_tlas(
-    system,
+  add_tlas_source(
+    &mut sources,
     Mat4::translate((4.5, -4.5, -10.))
       * Mat4::rotate_y(std::f32::consts::PI * 0.5)
       * Mat4::scale((5., 1., 1.)),
     &blas_handle,
   );
-  add_tlas(
-    system,
+  add_tlas_source(
+    &mut sources,
     Mat4::translate((-4.5, -4.5, -10.))
       * Mat4::rotate_y(std::f32::consts::PI * -0.5)
       * Mat4::scale((5., 1., 1.)),
     &blas_handle,
   );
+
+  system.create_top_level_acceleration_structure(&sources);
 }
 
 #[test]
