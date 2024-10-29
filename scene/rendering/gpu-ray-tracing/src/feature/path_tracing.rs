@@ -1,10 +1,12 @@
+use crate::*;
+
 pub struct DevicePathTracingRenderer {
   // create and maintain rtx pipeline
 }
 
 impl DevicePathTracingRenderer {
-  pub fn render(&self, input: Texture2d) -> Texture2d {
-    //
+  pub fn render(&self, input: GPU2DTextureView) -> GPU2DTextureView {
+    todo!()
   }
 }
 
