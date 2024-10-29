@@ -142,7 +142,6 @@ impl NaiveSahBvhCpu {
                   TRI_HIT_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                   let accepted = any_hit(geometry_idx, primitive_idx, distance, p);
                   if accepted {
-                    // ray.range.y = distance;
                     ray_range.update_far(distance);
                   }
                 }

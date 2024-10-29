@@ -92,6 +92,7 @@ struct TraverseBvhIteratorGpu {
   bvh: ReadOnlyStorageNode<[DeviceBVHNode]>,
   ray: Node<Ray>,
   node_idx: LocalVarNode<u32>,
+  ray_range: RayRange,
 }
 impl ShaderIterator for TraverseBvhIteratorGpu {
   type Item = Node<Vec2<u32>>; // node content range
@@ -103,7 +104,8 @@ impl ShaderIterator for TraverseBvhIteratorGpu {
       let idx = self.node_idx.load();
       if_by(idx.equals(val(INVALID_NEXT)), || loop_cx.do_break());
       let node = self.bvh.index(idx).load().expand();
-      let hit_aabb = intersect_ray_aabb_gpu(self.ray, node.aabb_min, node.aabb_max);
+      let (near, far) = self.ray_range.get();
+      let hit_aabb = intersect_ray_aabb_gpu(self.ray, node.aabb_min, node.aabb_max, near, far);
 
       if_by(hit_aabb, || {
         let is_leaf = node.hit_next.equals(node.miss_next);
@@ -129,23 +131,32 @@ fn traverse_tlas_gpu(
   bvh: ReadOnlyStorageNode<[DeviceBVHNode]>,
   tlas_bounding: ReadOnlyStorageNode<[TlasBounding]>,
   ray: Node<Ray>,
+  ray_range: RayRange,
 ) -> impl ShaderIterator<Item = Node<u32>> {
   let bvh_iter = TraverseBvhIteratorGpu {
     bvh,
     ray,
     node_idx: root.make_local_var(),
+    ray_range: ray_range.clone(),
   };
   let iter = bvh_iter.flat_map(ForRange::new);
 
   iter.filter_map(move |tlas_idx: Node<u32>| {
     let tlas_bounding_pack = tlas_bounding.index(tlas_idx).load();
     let tlas_bounding = tlas_bounding_pack.expand();
-    let hit_tlas = intersect_ray_aabb_gpu(ray, tlas_bounding.world_min, tlas_bounding.world_max);
+
+    let (near, far) = ray_range.get();
+    let hit_tlas = intersect_ray_aabb_gpu(
+      ray,
+      tlas_bounding.world_min,
+      tlas_bounding.world_max,
+      near,
+      far,
+    );
 
     let ray = ray.expand();
     let pass_mask = ray.mask.bitand(tlas_bounding.mask).not_equals(val(0));
 
-    // todo handle flags?
     let hit = hit_tlas.and(pass_mask);
 
     (hit, tlas_idx)
@@ -168,7 +179,15 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
       range: trace_payload.range,
     });
 
-    let tlas_idx_iter = traverse_tlas_gpu(val(0), self.tlas_bvh_forest, self.tlas_bounding, ray);
+    let world_ray_range = RayRange::new(trace_payload.range);
+
+    let tlas_idx_iter = traverse_tlas_gpu(
+      val(0),
+      self.tlas_bvh_forest,
+      self.tlas_bounding,
+      ray,
+      world_ray_range.clone(),
+    );
 
     let blas_iter = iterate_tlas_blas_gpu(tlas_idx_iter, self.tlas_data, self.blas_meta_info, ray);
 
@@ -223,6 +242,7 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
       world_ray,
       &hit_ctx_info_var, // output
       &hit_info_var,     // output
+      world_ray_range.clone(),
     );
 
     let hit_ctx_info = HitCtxInfo {
@@ -261,36 +281,47 @@ struct NaiveIntersectReporter<'a> {
   hit_ctx: HitCtxInfo,
   closest_hit_ctx_info: &'a HitCtxInfoVar,
   closest_hit_info: &'a HitInfoVar,
+  ray_range: RayRange,
   any_hit: &'a dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
 }
 impl<'a> IntersectionReporter for NaiveIntersectReporter<'a> {
   fn report_intersection(&self, hit_t: Node<f32>, hit_kind: Node<u32>) -> Node<bool> {
     let r = val(false).make_local_var();
-    if_by(
-      hit_t.less_than(self.closest_hit_info.hit_distance.load()), // todo test hit_t in range
-      || {
-        let any_hit_ctx = RayAnyHitCtx {
-          launch_info: self.launch_info,
-          world_ray: self.world_ray,
-          hit_ctx: self.hit_ctx,
-          hit: HitInfo {
-            hit_kind,
-            hit_distance: hit_t,
-          },
-        };
-        let closest_hit_ctx = self.closest_hit_ctx_info;
-        let closest_hit = self.closest_hit_info;
-        let any_hit = self.any_hit;
+    let (near, far) = self.ray_range.get();
 
-        resolve_any_hit(r, any_hit, &any_hit_ctx, closest_hit_ctx, closest_hit);
-      },
-    );
+    let in_range = near.less_equal_than(hit_t).and(hit_t.less_equal_than(far));
+
+    if_by(in_range, || {
+      let any_hit_ctx = RayAnyHitCtx {
+        launch_info: self.launch_info,
+        world_ray: self.world_ray,
+        hit_ctx: self.hit_ctx,
+        hit: HitInfo {
+          hit_kind,
+          hit_distance: hit_t,
+        },
+      };
+      let closest_hit_ctx = self.closest_hit_ctx_info;
+      let closest_hit = self.closest_hit_info;
+      let any_hit = self.any_hit;
+
+      resolve_any_hit(
+        |ctx| {
+          r.store(val(true));
+          self.ray_range.update_world_far(ctx.hit.hit_distance);
+        },
+        any_hit,
+        &any_hit_ctx,
+        closest_hit_ctx,
+        closest_hit,
+      );
+    });
     r.load()
   }
 }
 
 fn resolve_any_hit(
-  r: LocalVarNode<bool>, // todo just return a node
+  on_accept: impl FnOnce(&RayAnyHitCtx),
   any_hit: &dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
   any_hit_ctx: &RayAnyHitCtx,
   closest_hit_ctx: &HitCtxInfoVar, // output
@@ -301,15 +332,48 @@ fn resolve_any_hit(
   if_by((behavior & (val(ACCEPT_HIT))).greater_than(val(0)), || {
     // hit! update closest
     closest_hit.test_and_store(&any_hit_ctx.hit, || {
-      closest_hit_ctx.store(&any_hit_ctx.hit_ctx)
+      closest_hit_ctx.store(&any_hit_ctx.hit_ctx);
+      on_accept(any_hit_ctx);
     });
-    // todo update ray range max
-    r.store(val(true));
   });
 
   if_by((behavior & val(TERMINATE_TRAVERSE)).greater_than(0), || {
     // todo terminate
   });
+}
+
+#[derive(Clone)]
+pub(crate) struct RayRange {
+  near: Node<f32>,
+  far: LocalVarNode<f32>,
+  scaling: Option<Node<f32>>,
+}
+impl RayRange {
+  pub fn new(ray_range: Node<Vec2<f32>>) -> Self {
+    Self {
+      near: ray_range.x(),
+      far: ray_range.y().make_local_var(),
+      scaling: None,
+    }
+  }
+  pub fn clone_with_scaling(&self, scaling: Node<f32>) -> Self {
+    Self {
+      near: self.near,
+      far: self.far,
+      scaling: Some(scaling),
+    }
+  }
+
+  pub fn update_world_far(&self, far: Node<f32>) {
+    self.far.store(far);
+  }
+  pub fn get(&self) -> (Node<f32>, Node<f32>) {
+    if let Some(scaling) = self.scaling {
+      (self.near * scaling, self.far.load() * scaling)
+    } else {
+      (self.near, self.far.load())
+    }
+  }
 }
 
 #[repr(C)]
@@ -342,7 +406,7 @@ fn iterate_tlas_blas_gpu(
     let blas_ray_origin = blas_ray_origin.xyz() / blas_ray_origin.w().splat();
     let blas_ray_direction = tlas_data.transform_inv.shrink_to_3() * ray.direction;
     let distance_scaling = blas_ray_direction.length();
-    let blas_ray_range = ray.range * distance_scaling;
+    // let blas_ray_range = ray_range.clone_with_scaling(distance_scaling);
     let blas_ray_direction = blas_ray_direction.normalize();
 
     let blas_ray = Ray::construct(RayShaderAPIInstance {
@@ -350,7 +414,7 @@ fn iterate_tlas_blas_gpu(
       flags: ray.flags,
       direction: blas_ray_direction,
       mask: ray.mask,
-      range: blas_ray_range,
+      range: val(vec2(0., 0.)), // not used, calculated from
     });
 
     let blas_idx = tlas_data.acceleration_structure_handle;
@@ -384,12 +448,16 @@ fn intersect_blas_gpu(
   world_ray: WorldRayInfo,
   closest_hit_ctx_var: &HitCtxInfoVar, // output
   closest_hit_var: &HitInfoVar,        // output
+
+  world_ray_range: RayRange, // input/output
 ) {
   blas_iter.for_each(|ray_blas, _cx| {
     let ray_blas = ray_blas.expand();
     let ray = ray_blas.ray;
     let blas = ray_blas.blas.expand();
     let flags = ray_blas.flags;
+    let distance_scaling = ray_blas.distance_scaling;
+    let local_ray_range = world_ray_range.clone_with_scaling(distance_scaling);
 
     ForRange::new(blas.tri_root_range).for_each(move |tri_root_idx, cx| {
       let geometry = tri_bvh_root.index(tri_root_idx).load().expand();
@@ -398,17 +466,19 @@ fn intersect_blas_gpu(
       let primitive_start = geometry.primitive_start;
       let geometry_flags = geometry.geometry_flags;
 
-      let (pass, _is_opaque) = TraverseFlags::cull_geometry_gpu(flags, geometry_flags);
+      let (pass, is_opaque) = TraverseFlags::cull_geometry_gpu(flags, geometry_flags);
       if_by(pass.not(), || {
         cx.do_continue();
       });
       let (cull_enable, cull_back) = TraverseFlags::cull_triangle_gpu(flags);
 
-      if_by(TraverseFlags::visit_triangles_gpu(flags), || {
+      let local_ray_range = local_ray_range.clone();
+      if_by(TraverseFlags::visit_triangles_gpu(flags), move || {
         let bvh_iter = TraverseBvhIteratorGpu {
           bvh: tri_bvh_forest,
           ray,
           node_idx: root.make_local_var(),
+          ray_range: local_ray_range.clone(),
         };
         let tri_idx_iter = bvh_iter.flat_map(ForRange::new); // triangle index
 
@@ -433,11 +503,14 @@ fn intersect_blas_gpu(
           let v0 = Node::<Vec3<f32>>::from((v0x, v0y, v0z));
           let v1 = Node::<Vec3<f32>>::from((v1x, v1y, v1z));
           let v2 = Node::<Vec3<f32>>::from((v2x, v2y, v2z));
+
+          let (near, far) = local_ray_range.get();
           // returns (hit ? 1 : 0, distance, u, v)
           let result = intersect_ray_triangle_gpu(
             ray.origin,
             ray.direction,
-            ray.range,
+            near,
+            far,
             v0,
             v1,
             v2,
@@ -445,9 +518,9 @@ fn intersect_blas_gpu(
             cull_back,
           );
           let hit = result.x().greater_than(val(0.));
+          let local_ray_range = local_ray_range.clone();
           if_by(hit, move || {
-            // todo precompute local range for intersect_ray_triangle_gpu
-            let world_distance = result.y() / ray_blas.distance_scaling;
+            let world_distance = result.y() / distance_scaling;
             // todo load tlas on every hit? protect with a bool?
             let tlas = tlas_data.index(ray_blas.tlas_idx).load().expand();
 
@@ -465,7 +538,6 @@ fn intersect_blas_gpu(
               },
             };
 
-            let is_opaque = val(true); // todo check blas opaque flag
             if_by(is_opaque, || {
               // opaque -> invoke any_hit directly
               let any_hit_ctx = RayAnyHitCtx {
@@ -475,20 +547,18 @@ fn intersect_blas_gpu(
                 hit: HitInfo {
                   hit_kind: val(HIT_KIND_BACK_FACING_TRIANGLE),
                   hit_distance: world_distance,
-                }, // todo specify hit local/world distance
+                },
               };
-              let updated = val(false).make_local_var();
               resolve_any_hit(
-                updated,
+                |_| local_ray_range.update_world_far(world_distance),
                 any_hit,
                 &any_hit_ctx,
                 closest_hit_ctx_var,
                 closest_hit_var,
               );
-              // todo use updated?
             })
             .else_by(|| {
-              // non-opaque -> invode intersect
+              // non-opaque -> invoke intersect
               let intersect_ctx = RayIntersectCtx {
                 launch_info,
                 world_ray,
@@ -503,6 +573,7 @@ fn intersect_blas_gpu(
                   hit_ctx,
                   closest_hit_ctx_info: closest_hit_ctx_var,
                   closest_hit_info: closest_hit_var,
+                  ray_range: local_ray_range.clone(),
                   any_hit,
                 },
               );
