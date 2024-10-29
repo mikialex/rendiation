@@ -5,47 +5,37 @@ pub struct SceneRayTracingAOFeature {
   // should we keep this?
   pipeline: Box<dyn GPURaytracingPipelineProvider>,
   sbt: Box<dyn ShaderBindingTableProvider>,
+  tex_io: RayTracingTextureIO,
 }
+
+struct RayTracingAOOutput;
+impl RayTracingOutputTargetSemantic for RayTracingAOOutput {}
 
 impl SceneRayTracingAOFeature {
   pub fn new(gpu: &GPU, tlas_size: Box<dyn Stream<Item = u32>>) -> Self {
     todo!()
   }
 
-  pub fn render(&self, input: GPU2DTextureView) -> GPU2DTextureView {
+  pub fn render(
+    &self,
+    frame: &mut FrameCtx,
+    system: Box<dyn GPURaytracingSystem>,
+    previous_accumulation: GPU2DTextureView,
+    scene: EntityHandle<SceneEntity>,
+    camera: EntityHandle<SceneCameraEntity>,
+  ) -> GPU2DTextureView {
+    self
+      .tex_io
+      .install_output_target::<RayTracingAOOutput>(previous_accumulation);
+
+    let mut rtx_encoder = system.create_raytracing_encoder();
+
+    rtx_encoder.set_pipeline(self.pipeline.as_ref());
+    let canvas_size = frame.frame_size().into_u32();
+    rtx_encoder.trace_ray((canvas_size.0, canvas_size.1, 1), self.sbt.as_ref());
+
+    self.tex_io.take_output_target::<RayTracingAOOutput>();
+
     todo!()
-  }
-}
-
-struct ReactiveQuerySbtMaintainer {
-  updater: MultiUpdateContainer<Box<dyn ShaderBindingTableProvider>>,
-}
-
-impl ReactiveQuerySbtMaintainer {
-  // pub fn with_identical_source() -> Self{
-  // }
-}
-
-/// update a sbt's all hit groups at given ray_index with a rxq, assuming every blas has only one geometry.
-pub struct ReactiveQuerySbtUpdater<T> {
-  pub ray_ty_idx: u32,
-  pub source: T,
-}
-
-impl<T> QueryBasedUpdate<Box<dyn ShaderBindingTableProvider>> for ReactiveQuerySbtUpdater<T>
-where
-  T: ReactiveQuery<Key = u32, Value = HitGroupShaderRecord>,
-{
-  fn update_target(&mut self, target: &mut Box<dyn ShaderBindingTableProvider>, cx: &mut Context) {
-    let (change, _) = self.source.poll_changes(cx);
-
-    for (tlas_idx, change) in change.iter_key_value() {
-      match change {
-        ValueChange::Delta(new_hit_group, _) => {
-          target.config_hit_group(tlas_idx, self.ray_ty_idx, new_hit_group)
-        }
-        ValueChange::Remove(_) => {}
-      }
-    }
   }
 }
