@@ -145,3 +145,27 @@ impl<V: CValue> Query for IndexKeptVec<V> {
     self.try_get(key.alloc_index()).cloned()
   }
 }
+
+#[derive(Clone)]
+pub struct IdenticalCollection<V> {
+  pub value: V,
+  pub size: u32,
+}
+
+impl<V: CValue> Query for IdenticalCollection<V> {
+  type Key = u32;
+  type Value = V;
+  fn iter_key_value(&self) -> impl Iterator<Item = (u32, V)> + '_ {
+    std::iter::repeat_n(self.value.clone(), self.size as usize)
+      .enumerate()
+      .map(|(id, v)| (id as u32, v))
+  }
+
+  fn access(&self, key: &Self::Key) -> Option<Self::Value> {
+    if key < &self.size {
+      Some(self.value.clone())
+    } else {
+      None
+    }
+  }
+}

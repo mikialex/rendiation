@@ -266,7 +266,7 @@ where
 /// after internal_materialize_storage_buffer
 pub trait DeviceParallelCompute<T>: DynClone {
   /// The main logic is expressed in this fn call. The implementation could do multiple dispatch in
-  /// this function, just to prepare all the necessary data the final exposing step required
+  /// this function, just to prepare the all necessary data the final exposing step required
   fn execute_and_expose(
     &self,
     cx: &mut DeviceParallelComputeCtx,

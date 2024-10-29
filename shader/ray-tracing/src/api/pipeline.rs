@@ -22,6 +22,7 @@ impl Default for GPURaytracingPipelineDescriptor {
   }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ShaderHandle(pub u32, pub RayTracingShaderStage);
 
 impl GPURaytracingPipelineDescriptor {

@@ -58,7 +58,6 @@ where
 
 pub trait QueryBasedUpdate<T: ?Sized> {
   fn update_target(&mut self, target: &mut T, cx: &mut Context);
-  fn flush(&mut self) {}
 }
 
 /// this struct is to support merge multiple query updates into one target
