@@ -169,6 +169,7 @@ impl<T: StorageShaderTypeMapping> ShaderBindingProvider for StorageTextureViewWr
   }
 }
 
+#[derive(Clone)]
 pub struct StorageTextureReadWrite<T> {
   pub texture: T,
   pub format: StorageFormat,

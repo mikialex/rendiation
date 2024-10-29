@@ -74,35 +74,35 @@ pub struct WaveFrontTracingBaseProvider;
 
 impl TraceFutureBaseProvider for WaveFrontTracingBaseProvider {
   fn create_ray_gen_shader_base() -> impl TraceOperator<()> {
-    CtxProviderTracer {
+    TracingCtxProviderTracer {
       stage: RayTraceableShaderStage::RayGeneration,
       payload_ty: None,
     }
   }
 
   fn create_closest_hit_shader_base<P: ShaderSizedValueNodeType>() -> impl TraceOperator<()> {
-    CtxProviderTracer {
+    TracingCtxProviderTracer {
       stage: RayTraceableShaderStage::ClosestHit,
       payload_ty: Some(P::sized_ty()),
     }
   }
 
   fn create_miss_hit_shader_base<P: ShaderSizedValueNodeType>() -> impl TraceOperator<()> {
-    CtxProviderTracer {
+    TracingCtxProviderTracer {
       stage: RayTraceableShaderStage::Miss,
       payload_ty: Some(P::sized_ty()),
     }
   }
 }
 
-struct CtxProviderTracer {
+struct TracingCtxProviderTracer {
   stage: RayTraceableShaderStage,
   payload_ty: Option<ShaderSizedValueType>,
 }
 
-impl ShaderFutureProvider<()> for CtxProviderTracer {
+impl ShaderFutureProvider<()> for TracingCtxProviderTracer {
   fn build_device_future(&self, ctx: &mut AnyMap) -> DynShaderFuture<()> {
-    CtxProviderFuture {
+    TracingCtxProviderFuture {
       stage: self.stage,
       payload_ty: self.payload_ty.clone(),
       ray_spawner: ctx
@@ -113,7 +113,7 @@ impl ShaderFutureProvider<()> for CtxProviderTracer {
     .into_dyn()
   }
 }
-impl<T> NativeRayTracingShaderBuilder<T> for CtxProviderTracer
+impl<T> NativeRayTracingShaderBuilder<T> for TracingCtxProviderTracer
 where
   T: Default,
 {
@@ -124,23 +124,23 @@ where
   fn bind(&self, _: &mut BindingBuilder) {}
 }
 
-pub struct CtxProviderFuture {
+pub struct TracingCtxProviderFuture {
   stage: RayTraceableShaderStage,
   payload_ty: Option<ShaderSizedValueType>,
   ray_spawner: TracingTaskSpawnerImplSource,
 }
 
-impl ShaderFuture for CtxProviderFuture {
+impl ShaderFuture for TracingCtxProviderFuture {
   type Output = ();
 
-  type Invocation = CtxProviderFutureInvocation;
+  type Invocation = TracingCtxProviderFutureInvocation;
 
   fn required_poll_count(&self) -> usize {
     1
   }
 
   fn build_poll(&self, cx: &mut DeviceTaskSystemBuildCtx) -> Self::Invocation {
-    CtxProviderFutureInvocation {
+    TracingCtxProviderFutureInvocation {
       stage: self.stage,
       payload_ty: self.payload_ty.clone(),
       ray_spawner: self.ray_spawner.create_invocation(cx),
@@ -156,12 +156,12 @@ impl ShaderFuture for CtxProviderFuture {
   }
 }
 
-pub struct CtxProviderFutureInvocation {
+pub struct TracingCtxProviderFutureInvocation {
   stage: RayTraceableShaderStage,
   payload_ty: Option<ShaderSizedValueType>,
   ray_spawner: TracingTaskSpawnerInvocation,
 }
-impl ShaderFutureInvocation for CtxProviderFutureInvocation {
+impl ShaderFutureInvocation for TracingCtxProviderFutureInvocation {
   type Output = ();
   fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<()> {
     // accessing task{}_payload_with_ray, see fn spawn_dynamic in trace_task.rs
@@ -190,6 +190,7 @@ impl ShaderFutureInvocation for CtxProviderFutureInvocation {
       missing,
       closest,
       payload: user_defined_payload,
+      registry: Default::default(),
     });
 
     ctx.invocation_registry.register(self.ray_spawner.clone());

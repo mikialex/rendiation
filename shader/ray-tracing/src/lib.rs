@@ -1,6 +1,7 @@
 #![feature(mapped_lock_guards)]
 
 use std::any::Any;
+use std::any::TypeId;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
@@ -21,5 +22,8 @@ pub use operator::*;
 
 mod backend;
 pub use backend::*;
+
+mod texture_io;
+pub use texture_io::*;
 
 mod test;

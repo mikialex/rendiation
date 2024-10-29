@@ -595,13 +595,13 @@ impl ShaderTextureType for ShaderStorageTextureW1D {
 }
 
 impl ShaderDirectLoad for ShaderStorageTextureR1D {
-  type LoadInput = Node<u32>;
+  type LoadInput = u32;
 }
 impl ShaderDirectLoad for ShaderStorageTextureRW1D {
-  type LoadInput = Node<u32>;
+  type LoadInput = u32;
 }
 impl ShaderDirectLoad for ShaderStorageTextureW1D {
-  type LoadInput = Node<u32>;
+  type LoadInput = u32;
 }
 
 impl ShaderTextureType for ShaderStorageTextureR2D {
@@ -618,13 +618,13 @@ impl ShaderTextureType for ShaderStorageTextureW2D {
 }
 
 impl ShaderDirectLoad for ShaderStorageTextureR2D {
-  type LoadInput = Node<Vec2<u32>>;
+  type LoadInput = Vec2<u32>;
 }
 impl ShaderDirectLoad for ShaderStorageTextureRW2D {
-  type LoadInput = Node<Vec2<u32>>;
+  type LoadInput = Vec2<u32>;
 }
 impl ShaderDirectLoad for ShaderStorageTextureW2D {
-  type LoadInput = Node<Vec2<u32>>;
+  type LoadInput = Vec2<u32>;
 }
 
 impl ShaderTextureType for ShaderStorageTextureR3D {
@@ -641,13 +641,13 @@ impl ShaderTextureType for ShaderStorageTextureW3D {
 }
 
 impl ShaderDirectLoad for ShaderStorageTextureR3D {
-  type LoadInput = Node<Vec3<u32>>;
+  type LoadInput = Vec3<u32>;
 }
 impl ShaderDirectLoad for ShaderStorageTextureRW3D {
-  type LoadInput = Node<Vec3<u32>>;
+  type LoadInput = Vec3<u32>;
 }
 impl ShaderDirectLoad for ShaderStorageTextureW3D {
-  type LoadInput = Node<Vec3<u32>>;
+  type LoadInput = Vec3<u32>;
 }
 
 impl ShaderTextureType for ShaderStorageTextureR2DArray {
@@ -664,13 +664,13 @@ impl ShaderTextureType for ShaderStorageTextureW2DArray {
 }
 
 impl ShaderDirectLoad for ShaderStorageTextureR2DArray {
-  type LoadInput = Node<Vec2<u32>>;
+  type LoadInput = Vec2<u32>;
 }
 impl ShaderDirectLoad for ShaderStorageTextureRW2DArray {
-  type LoadInput = Node<Vec2<u32>>;
+  type LoadInput = Vec2<u32>;
 }
 impl ShaderDirectLoad for ShaderStorageTextureW2DArray {
-  type LoadInput = Node<Vec2<u32>>;
+  type LoadInput = Vec2<u32>;
 }
 
 pub trait ShaderStorageTextureLike {}
@@ -706,6 +706,19 @@ impl SingleLayerTarget for ShaderStorageTextureW3D {}
 impl ArrayLayerTarget for ShaderStorageTextureR2DArray {}
 impl ArrayLayerTarget for ShaderStorageTextureRW2DArray {}
 impl ArrayLayerTarget for ShaderStorageTextureW2DArray {}
+
+impl SingleSampleTarget for ShaderStorageTextureR1D {}
+impl SingleSampleTarget for ShaderStorageTextureRW1D {}
+impl SingleSampleTarget for ShaderStorageTextureW1D {}
+impl SingleSampleTarget for ShaderStorageTextureR2D {}
+impl SingleSampleTarget for ShaderStorageTextureRW2D {}
+impl SingleSampleTarget for ShaderStorageTextureW2D {}
+impl SingleSampleTarget for ShaderStorageTextureR3D {}
+impl SingleSampleTarget for ShaderStorageTextureRW3D {}
+impl SingleSampleTarget for ShaderStorageTextureW3D {}
+impl SingleSampleTarget for ShaderStorageTextureR2DArray {}
+impl SingleSampleTarget for ShaderStorageTextureRW2DArray {}
+impl SingleSampleTarget for ShaderStorageTextureW2DArray {}
 
 impl<T> HandleNode<T>
 where

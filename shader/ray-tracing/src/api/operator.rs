@@ -12,6 +12,7 @@ pub trait NativeRayTracingShaderBuilder<O> {
 }
 
 pub trait NativeRayTracingShaderCtx {
+  fn binding_builder(&mut self) -> &mut ShaderBindGroupBuilder;
   fn native_trace_ray(&self, ray: ShaderRayTraceCall, payload: Box<dyn Any>);
   fn tracing_ctx(&mut self) -> &mut TracingCtx;
 }

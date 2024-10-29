@@ -96,6 +96,7 @@ pub struct TracingCtx {
   pub(crate) missing: Option<Box<dyn MissingHitCtxProvider>>,
   pub(crate) closest: Option<Box<dyn ClosestHitCtxProvider>>,
   pub(crate) payload: Option<(StorageNode<AnyType>, ShaderSizedValueType)>,
+  pub registry: AnyMap,
 }
 
 impl TracingCtx {

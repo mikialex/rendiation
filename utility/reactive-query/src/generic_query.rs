@@ -2,6 +2,10 @@
 
 use crate::*;
 
+/// the difference between this and the Stream is that:
+/// - the output will always available when the query is polled instead of return pending or termination
+///   - of course, the pending or termination info could be included in the output depend on the user's demands
+/// - self parameter is not required to be pinned for sake of simplicity
 pub trait ReactiveGeneralQuery {
   type Output;
   fn poll_query(&mut self, cx: &mut Context) -> Self::Output;

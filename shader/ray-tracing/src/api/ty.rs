@@ -1,6 +1,6 @@
 use crate::*;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RayTracingShaderStage {
   RayGeneration,
   ClosestHit,
@@ -9,7 +9,7 @@ pub enum RayTracingShaderStage {
   Intersection,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RayTraceableShaderStage {
   RayGeneration,
   Miss,

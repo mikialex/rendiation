@@ -1,3 +1,5 @@
+#![feature(iter_repeat_n)]
+
 use std::marker::PhantomData;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
