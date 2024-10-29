@@ -40,4 +40,8 @@ impl<'a> FrameCtx<'a> {
   pub fn final_submit(self) {
     self.gpu.submit_encoder(self.encoder)
   }
+
+  pub fn frame_size(&self) -> Size {
+    self.frame_size
+  }
 }

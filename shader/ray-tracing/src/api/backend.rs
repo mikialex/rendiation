@@ -96,9 +96,20 @@ pub struct TopLevelAccelerationStructureSourceInstance {
   pub acceleration_structure_handle: u64,
 }
 
-pub trait GPUAccelerationStructureInstanceProvider {
+pub trait GPUAccelerationStructureInvocationInstance: DynClone {
+  fn id(&self) -> Node<u32>;
+}
+clone_trait_object!(GPUAccelerationStructureInvocationInstance);
+
+pub trait GPUAccelerationStructureInstanceProvider: DynClone {
+  fn create_invocation_instance(
+    &self,
+    builder: &mut ShaderBindGroupBuilder,
+  ) -> Box<dyn GPUAccelerationStructureInvocationInstance>;
+  fn bind_pass(&self, builder: &mut BindingBuilder);
   fn access_impl(&self) -> &dyn Any;
 }
+clone_trait_object!(GPUAccelerationStructureInstanceProvider);
 
 pub trait IntersectionReporter {
   /// Invokes the current hit shader once an intersection shader has determined
