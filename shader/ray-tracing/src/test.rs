@@ -2,6 +2,8 @@
 async fn test_wavefront_compute() {
   use rendiation_texture_core::Size;
 
+  let canvas_size = 16;
+
   use crate::*;
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();
 
@@ -13,7 +15,7 @@ async fn test_wavefront_compute() {
   let debug_output = GPUTexture::create(
     TextureDescriptor {
       label: "tracing-debug".into(),
-      size: Size::from_u32_pair_min_one((1, 1)).into_gpu_size(),
+      size: Size::from_u32_pair_min_one((canvas_size, canvas_size)).into_gpu_size(),
       mip_level_count: 1,
       sample_count: 1,
       dimension: TextureDimension::D2,
@@ -23,12 +25,11 @@ async fn test_wavefront_compute() {
     },
     &gpu.device,
   );
-  let debug_output = GPU2DTexture::try_from(debug_output)
-    .unwrap()
-    .create_default_view();
-  let debug_output = GPU2DTextureView::try_from(debug_output).unwrap();
+  let debug_output = GPU2DTexture::try_from(debug_output).unwrap();
+  let debug_output_view = debug_output.create_default_view();
+  let debug_output_view = GPU2DTextureView::try_from(debug_output_view).unwrap();
 
-  texture_io_system.install_output_target::<RayTracingDebugOutput>(debug_output);
+  texture_io_system.install_output_target::<RayTracingDebugOutput>(debug_output_view);
 
   let system = GPUWaveFrontComputeRaytracingSystem::new(&gpu);
   let as_sys = system.create_acceleration_structure_system();
@@ -93,8 +94,6 @@ async fn test_wavefront_compute() {
   let mesh_count = 1;
   let ray_type_count = 1;
 
-  let canvas_size = 1;
-
   let rtx_pipeline = rtx_device.create_raytracing_pipeline(&rtx_pipeline_desc);
 
   let mut sbt = rtx_device.create_sbt(mesh_count, ray_type_count);
@@ -115,5 +114,27 @@ async fn test_wavefront_compute() {
   rtx_encoder.set_pipeline(rtx_pipeline.as_ref());
   rtx_encoder.trace_ray((canvas_size, canvas_size, 1), sbt.as_ref());
 
-  texture_io_system.take_output_target::<RayTracingDebugOutput>();
+  // let view = texture_io_system.take_output_target::<RayTracingDebugOutput>();
+
+  let buffer = gpu
+    .device
+    .create_encoder()
+    .read_texture_2d(
+      &gpu.device,
+      &debug_output,
+      ReadRange {
+        size: Size::from_u32_pair_min_one((canvas_size, canvas_size)),
+        offset_x: 0,
+        offset_y: 0,
+      },
+    )
+    .await
+    .unwrap();
+
+  let buffer = buffer.read_raw();
+  use std::ops::Deref;
+  let buffer = buffer.deref();
+  let mut prefix = format!("P6\n{} {}\n", canvas_size, canvas_size).into_bytes();
+  prefix.extend_from_slice(buffer);
+  std::fs::write("trace.pbm", prefix).unwrap();
 }
