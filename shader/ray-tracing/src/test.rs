@@ -5,7 +5,7 @@ async fn test_wavefront_compute() {
   use crate::*;
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();
 
-  let mut texture_io_system = RayTracingTextureIO::default();
+  let texture_io_system = RayTracingTextureIO::default();
 
   pub struct RayTracingDebugOutput;
   impl RayTracingOutputTargetSemantic for RayTracingDebugOutput {}
