@@ -9,6 +9,7 @@ pub struct GPUWaveFrontComputeRaytracingBakedPipelineInner {
   pub(crate) graph: DeviceTaskGraphExecutor,
   pub(crate) tracer_read_back_bumper: Arc<RwLock<DeviceBumpAllocationInstance<u32>>>,
   pub(crate) target_sbt_buffer: StorageBufferReadOnlyDataView<u32>,
+  pub(crate) launch_size_buffer: StorageBufferReadOnlyDataView<Vec3<u32>>,
 }
 
 impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
@@ -61,6 +62,7 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
 
     let device = &cx.gpu.device;
     let target_sbt_buffer = StorageBufferReadOnlyDataView::create(device, &0);
+    let launch_size_buffer = StorageBufferReadOnlyDataView::create(device, &vec3(0, 0, 0));
 
     let payload_u32_len = init_size * 2 * (payload_max_u32_count as usize);
     let payload_bumper = Arc::new(RwLock::new(DeviceBumpAllocationInstance::new(
@@ -87,6 +89,7 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
     ctx.register(TracingTaskSpawnerImplSource {
       payload_spawn_bumper: tracer_task.payload_bumper.clone(),
       payload_read_back: tracer_task.payload_read_back_bumper.clone(),
+      launch_size: launch_size_buffer.clone(),
     });
 
     // create core tracer task as almost every other task depend on this one
@@ -135,6 +138,7 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
     GPUWaveFrontComputeRaytracingBakedPipelineInner {
       graph: executor,
       target_sbt_buffer,
+      launch_size_buffer,
       tracer_read_back_bumper: payload_read_back_bumper,
     }
   }

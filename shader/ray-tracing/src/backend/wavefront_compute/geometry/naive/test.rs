@@ -177,21 +177,12 @@ fn test_gpu_triangle() {
   // const GEOMETRY_IDX_MAX: u32 = 1;
   const PRIMITIVE_IDX_MAX: u32 = 12;
 
-  let mut direction = vec![vec4(0., 0., 0., 0.); H * W];
-  for j in 0..H {
-    for i in 0..W {
-      let x = (i as f32 + 0.5) / W as f32 * 2. - 1.;
-      let y = 1. - (j as f32 + 0.5) / H as f32 * 2.;
-      let target = vec3(x, y, -1.); // fov = 90 deg
-      let dir = (target - ORIGIN).normalize();
-      direction[j * W + i] = vec4(dir.x, dir.y, dir.z, 0.);
-    }
-  }
+  let dummy_array = vec![0u32; H * W];
 
   let (gpu, _) = futures::executor::block_on(GPU::new(Default::default())).unwrap();
   let mut cx = DeviceParallelComputeCtx::new(&gpu);
 
-  let direction = Box::new(direction) as Box<dyn DeviceParallelCompute<Node<Vec4<f32>>>>;
+  let direction = Box::new(dummy_array) as Box<dyn DeviceParallelCompute<Node<u32>>>;
   let tester = GpuTester::new(direction, gpu);
 
   cx.force_indirect_dispatch = false;
@@ -214,16 +205,16 @@ fn test_gpu_triangle() {
 
   #[derive(Clone)]
   struct GpuTester {
-    upstream: Box<dyn DeviceParallelCompute<Node<Vec4<f32>>>>, // ray direction
+    upstream: Box<dyn DeviceParallelCompute<Node<u32>>>,
     system: NaiveSahBVHSystem,
   }
   struct GpuTesterInner {
-    upstream: Box<dyn DeviceInvocationComponent<Node<Vec4<f32>>>>, // ray direction
+    upstream: Box<dyn DeviceInvocationComponent<Node<u32>>>,
     system: NaiveSahBvhGpu,
   }
 
   impl GpuTester {
-    fn new(upstream: Box<dyn DeviceParallelCompute<Node<Vec4<f32>>>>, gpu: GPU) -> Self {
+    fn new(upstream: Box<dyn DeviceParallelCompute<Node<u32>>>, gpu: GPU) -> Self {
       let system = NaiveSahBVHSystem::new(gpu);
       init_default_acceleration_structure(&system);
       Self { upstream, system }
@@ -267,10 +258,21 @@ fn test_gpu_triangle() {
 
       upstream_shader
         .adhoc_invoke_with_self_size(move |upstream, id| {
-          let (input, valid) = upstream.invocation_logic(id);
+          let (_, valid) = upstream.invocation_logic(id);
+
+          let linear_idx = id.x();
+          let idx_x = linear_idx % val(W as u32);
+          let idx_y = linear_idx / val(W as u32);
+
+          let x = (idx_x.into_f32() + val(0.5)) / val(W as f32) * val(2.) - val(1.);
+          let y = val(1.) - (idx_y.into_f32() + val(0.5)) / val(H as f32) * val(2.);
+          let target: Node<Vec3<f32>> = (x, y, val(-1.)).into(); // fov = 90 deg
+          let dir = (target - val(ORIGIN)).normalize();
 
           let ray_flags = RayFlagConfigRaw::RAY_FLAG_CULL_BACK_FACING_TRIANGLES as u32;
           let payload = ShaderRayTraceCallStoragePayloadShaderAPIInstance {
+            launch_size: (val(W as u32), val(H as u32), val(1)).into(),
+            launch_id: (idx_x, idx_y, val(0)).into(),
             payload_ref: val(0),
             tlas_idx: val(0), // todo support tlas selection
             ray_flags: val(ray_flags),
@@ -279,7 +281,7 @@ fn test_gpu_triangle() {
             sbt_ray_config_stride: val(0),
             miss_index: val(0),
             ray_origin: val(ORIGIN),
-            ray_direction: input.xyz(),
+            ray_direction: dir,
             range: val(vec2(0., FAR)),
           };
 

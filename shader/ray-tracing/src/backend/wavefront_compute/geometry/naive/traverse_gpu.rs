@@ -193,8 +193,8 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
 
     // construct ctx
     let launch_info = RayLaunchInfo {
-      launch_id: val(vec3(0, 0, 0)),   // todo
-      launch_size: val(vec3(0, 0, 0)), // todo
+      launch_id: trace_payload.launch_id,
+      launch_size: trace_payload.launch_size,
     };
     let world_ray = WorldRayInfo {
       world_ray: ShaderRay {

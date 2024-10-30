@@ -13,6 +13,8 @@ pub struct TraceTaskSelfPayload {
 #[std430_layout]
 #[derive(ShaderStruct, Clone, Copy, StorageNodePtrAccess, Default)]
 pub struct ShaderRayTraceCallStoragePayload {
+  pub launch_size: Vec3<u32>,
+  pub launch_id: Vec3<u32>,
   pub payload_ref: u32,
   pub tlas_idx: u32,
   pub ray_flags: u32,
@@ -201,11 +203,15 @@ impl ShaderFutureInvocation for TracingCtxProviderFutureInvocation {
 
 impl RayLaunchInfoProvider for StorageNode<RayClosestHitCtxPayload> {
   fn launch_id(&self) -> Node<Vec3<u32>> {
-    todo!()
+    let node = self.load();
+    let payload = node.expand().ray_info.expand();
+    payload.launch_id
   }
 
   fn launch_size(&self) -> Node<Vec3<u32>> {
-    todo!()
+    let node = self.load();
+    let payload = node.expand().ray_info.expand();
+    payload.launch_size
   }
 }
 

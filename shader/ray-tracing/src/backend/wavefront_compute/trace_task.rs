@@ -93,15 +93,32 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
     ctx.compute_cx.enable_log_shader();
     let trace_payload_all = ctx.access_self_payload::<TraceTaskSelfPayload>();
 
-    let trace_payload_all_expand = trace_payload_all.load().expand();
+    let mut trace_payload_all_expand = trace_payload_all.load().expand();
 
     if_by(
       trace_payload_all_expand
         .sub_task_id
         .equals(TASK_NOT_SPAWNED),
       || {
-        let trace_payload = trace_payload_all_expand.trace_call.expand();
+        let mut trace_payload = trace_payload_all_expand.trace_call.expand();
         let current_sbt = self.current_sbt.load();
+
+        if_by(trace_payload.launch_id.x().equals(val(u32::MAX)), || {
+          let launch_size = trace_payload.launch_size;
+          let launch_linear_idx = ctx.compute_cx.global_invocation_id().x();
+          let launch_x = launch_linear_idx % launch_size.x();
+          let launch_linear_idx = launch_linear_idx / launch_size.x();
+          let launch_y = launch_linear_idx % launch_size.y();
+          let launch_linear_idx = launch_linear_idx / launch_size.y();
+          let launch_z = launch_linear_idx % launch_size.z();
+
+          // update and write to storage
+          trace_payload.launch_id = (launch_x, launch_y, launch_z).into();
+          let payload = trace_payload.construct();
+          trace_payload_all_expand.trace_call = payload;
+          let node = TraceTaskSelfPayload::construct(trace_payload_all_expand);
+          trace_payload_all.store(node);
+        });
 
         let ray_sbt_config = RaySBTConfig {
           offset: trace_payload.sbt_ray_config_offset,
@@ -370,6 +387,7 @@ fn poll_dynamic<'a>(
 pub(crate) struct TracingTaskSpawnerImplSource {
   pub(crate) payload_spawn_bumper: Arc<RwLock<DeviceBumpAllocationInstance<u32>>>,
   pub(crate) payload_read_back: Arc<RwLock<DeviceBumpAllocationInstance<u32>>>,
+  pub(crate) launch_size: StorageBufferReadOnlyDataView<Vec3<u32>>,
 }
 
 impl TracingTaskSpawnerImplSource {
@@ -386,12 +404,14 @@ impl TracingTaskSpawnerImplSource {
         .payload_read_back
         .read()
         .build_allocator_shader(cx.compute_cx),
+      launch_size: cx.compute_cx.bind_by(&self.launch_size),
     }
   }
 
   pub fn bind(&self, builder: &mut BindingBuilder) {
     self.payload_spawn_bumper.read().bind_allocator(builder);
     self.payload_read_back.read().bind_allocator(builder);
+    builder.bind(&self.launch_size);
   }
 }
 
@@ -399,6 +419,7 @@ impl TracingTaskSpawnerImplSource {
 pub(crate) struct TracingTaskSpawnerInvocation {
   pub(crate) payload_spawn_bumper: DeviceBumpAllocationInvocationInstance<u32>,
   pub(crate) payload_read_back: DeviceBumpAllocationInvocationInstance<u32>,
+  pub(crate) launch_size: Node<ShaderReadOnlyStoragePtr<Vec3<u32>>>,
 }
 
 impl TracingTaskSpawnerInvocation {
@@ -412,6 +433,8 @@ impl TracingTaskSpawnerInvocation {
     parent: TaskParentRef,
   ) -> TaskFutureInvocationRightValue {
     let task_handle = val(u32::MAX).make_local_var();
+
+    let launch_size = self.launch_size.load();
 
     if_by(should_trace, || {
       let payload_size = payload_ty.u32_size_count();
@@ -428,6 +451,8 @@ impl TracingTaskSpawnerInvocation {
       });
 
       let payload = ENode::<ShaderRayTraceCallStoragePayload> {
+        launch_size,
+        launch_id: (val(u32::MAX), val(u32::MAX), val(u32::MAX)).into(), // filled by GPURayTraceTaskInvocationInstance only once
         tlas_idx: trace_call.tlas_idx,
         ray_flags: trace_call.ray_flags,
         cull_mask: trace_call.cull_mask,

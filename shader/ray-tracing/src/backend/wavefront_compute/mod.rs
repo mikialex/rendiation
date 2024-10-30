@@ -121,6 +121,15 @@ impl RayTracingPassEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
       &self.gpu.queue,
     );
 
+    let w = size.0;
+    let h = size.1;
+    assert_eq!(size.2, 0);
+    current_pipeline.launch_size_buffer.write_at(
+      0,
+      Std430::as_bytes(&vec3(w, h, 1)),
+      &self.gpu.queue,
+    );
+
     let size = (size.0 * size.1 * size.2) as usize;
     {
       let executor = &mut current_pipeline.graph;
