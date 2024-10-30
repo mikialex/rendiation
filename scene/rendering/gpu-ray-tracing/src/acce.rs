@@ -1,7 +1,6 @@
 use crate::*;
 
-type Blas = u32;
-type Tlas = u32;
+type Blas = BottomLevelAccelerationStructureHandle;
 
 pub fn mesh_group_to_blas(
 ) -> impl ReactiveQuery<Key = (EntityHandle<AttributesMeshEntity>, u32), Value = Blas> {
@@ -13,6 +12,7 @@ pub fn scene_model_to_tlas_instance(
   EmptyQuery::default()
 }
 
-pub fn scene_to_tlas() -> impl ReactiveQuery<Key = EntityHandle<SceneModelEntity>, Value = Tlas> {
+pub fn scene_to_tlas(
+) -> impl ReactiveQuery<Key = EntityHandle<SceneModelEntity>, Value = TlasInstance> {
   EmptyQuery::default()
 }

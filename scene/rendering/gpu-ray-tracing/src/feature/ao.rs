@@ -5,7 +5,38 @@ pub struct SceneRayTracingAOFeature {
   // should we keep this?
   pipeline: Box<dyn GPURaytracingPipelineProvider>,
   sbt: Box<dyn ShaderBindingTableProvider>,
+  scene_tlas: BoxedDynQuery<EntityHandle<SceneEntity>, TlasInstance>,
   tex_io: RayTracingTextureIO,
+}
+
+#[derive(Clone)]
+struct SceneRayTracingAOFeatureBinding {
+  scene: TlasInstance,
+  // camera: ,
+}
+
+impl ShaderHashProvider for SceneRayTracingAOFeatureBinding {
+  shader_hash_type_id! {}
+}
+
+#[derive(Clone)]
+struct SceneRayTracingAOFeatureInvocation {
+  scene: Box<dyn GPUAccelerationStructureInvocationInstance>,
+  // camera:
+}
+
+impl RayTracingCustomCtxProvider for SceneRayTracingAOFeatureBinding {
+  type Invocation = SceneRayTracingAOFeatureInvocation;
+
+  fn build_invocation(&self, cx: &mut ShaderBindGroupBuilder) -> Self::Invocation {
+    SceneRayTracingAOFeatureInvocation {
+      scene: self.scene.create_invocation_instance(cx),
+    }
+  }
+
+  fn bind(&self, builder: &mut BindingBuilder) {
+    self.scene.bind_pass(builder);
+  }
 }
 
 struct RayTracingAOOutput;
@@ -27,6 +58,8 @@ impl SceneRayTracingAOFeature {
     self
       .tex_io
       .install_output_target::<RayTracingAOOutput>(previous_accumulation);
+
+    let scene_source: SceneRayTracingAOFeatureBinding = todo!();
 
     let mut rtx_encoder = system.create_raytracing_encoder();
 
