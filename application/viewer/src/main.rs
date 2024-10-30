@@ -9,6 +9,7 @@ use std::any::Any;
 use std::hash::Hash;
 
 use database::*;
+use fast_hash_collection::*;
 use reactive::*;
 use rendiation_geometry::*;
 use rendiation_gizmo::*;

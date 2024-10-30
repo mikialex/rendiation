@@ -41,7 +41,6 @@ async fn test_wavefront_compute() {
 
   let mut rtx_pipeline_desc = GPURaytracingPipelineDescriptor::default();
 
-  // todo, remove ray gen payload
   let ray_gen_shader = shader_base_builder
     .create_ray_gen_shader_base()
     .inject_ctx(texture_io_system.clone())

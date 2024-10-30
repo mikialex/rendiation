@@ -78,7 +78,7 @@ pub fn egui_db_gui(ui: &mut egui::Context, state: &mut DBInspector) {
         if state.can_go_forward() && ui.button("Previous").clicked() {
           state.go_forward();
         }
-        if state.has_history() && ui.button("Clear history").clicked() {
+        if state.has_history() && ui.button("Clear visit history").clicked() {
           state.clear_history();
         }
       });

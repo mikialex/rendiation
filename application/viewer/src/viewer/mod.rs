@@ -13,6 +13,7 @@ mod rendering;
 pub use rendering::*;
 
 pub struct Viewer {
+  widget_intersection_group: WidgetSceneModelIntersectionGroupConfig,
   on_demand_rendering: bool,
   on_demand_draw: NotifyScope,
   scene: Viewer3dSceneCtx,
@@ -46,23 +47,20 @@ impl Widget for Viewer {
         );
 
         let picker = ViewerPicker::new(derived, input, main_camera_handle);
+        let mut interaction_cx =
+          prepare_picking_state(picker, input, &self.widget_intersection_group);
 
-        // todo, scene3d reader
-        // let mut writer = Scene3dWriter::from_global(viewer_scene.scene);
-        // cx.scoped_cx(&mut writer, |cx| {
-        cx.scoped_cx(&mut self.rendering, |cx| {
-          self.content.update_state(cx);
+        cx.scoped_cx(&mut self.widget_intersection_group, |cx| {
+          cx.scoped_cx(&mut interaction_cx, |cx| {
+            cx.scoped_cx(&mut self.rendering, |cx| {
+              self.content.update_state(cx);
+            });
+          });
         });
-        // });
       });
     });
   }
   fn update_view(&mut self, cx: &mut DynCx) {
-    cx.split_cx::<egui::Context>(|egui_cx, cx| {
-      self.egui(egui_cx, cx);
-      crate::db_egui_view::egui_db_gui(egui_cx, &mut self.egui_db_inspector);
-    });
-
     access_cx!(cx, platform, PlatformEventInput);
     let size = platform.window_state.size;
     let size_changed = platform.state_delta.size_change;
@@ -71,6 +69,17 @@ impl Widget for Viewer {
     }
 
     cx.scoped_cx(&mut self.scene, |cx| {
+      cx.split_cx::<egui::Context>(|egui_cx, cx| {
+        egui(
+          &mut self.terminal,
+          &mut self.on_demand_rendering,
+          &mut self.rendering,
+          egui_cx,
+          cx,
+        );
+        crate::db_egui_view::egui_db_gui(egui_cx, &mut self.egui_db_inspector);
+      });
+
       access_cx!(cx, viewer_scene, Viewer3dSceneCtx);
       let mut writer = SceneWriter::from_global(viewer_scene.scene);
 
@@ -154,6 +163,7 @@ impl Viewer {
     };
 
     Self {
+      widget_intersection_group: Default::default(),
       // todo, we current disable the on demand draw
       // because we not cache the rendering result yet
       on_demand_rendering: false,
@@ -177,34 +187,40 @@ impl Viewer {
       self.rendering.render(canvas.clone(), &self.scene, cx)
     });
   }
+}
 
-  pub fn egui(&mut self, ui: &egui::Context, cx: &mut DynCx) {
-    egui::Window::new("Viewer")
-      .vscroll(true)
-      .default_open(true)
-      .default_pos([10., 60.])
-      .max_width(1000.0)
-      .max_height(800.0)
-      .default_width(400.0)
-      .default_height(300.0)
-      .resizable(true)
-      .movable(true)
-      .show(ui, |ui| {
-        if ui.add(egui::Button::new("Click me")).clicked() {
-          println!("PRESSED")
-        }
-        if ui.button("Organize windows").clicked() {
-          ui.ctx().memory_mut(|mem| mem.reset_areas());
-        }
+fn egui(
+  terminal: &mut Terminal,
+  on_demand_rendering: &mut bool,
+  rendering: &mut Viewer3dRenderingCtx,
+  ui: &egui::Context,
+  cx: &mut DynCx,
+) {
+  egui::Window::new("Viewer")
+    .vscroll(true)
+    .default_open(true)
+    .default_pos([10., 60.])
+    .max_width(1000.0)
+    .max_height(800.0)
+    .default_width(400.0)
+    .default_height(300.0)
+    .resizable(true)
+    .movable(true)
+    .show(ui, |ui| {
+      if ui.add(egui::Button::new("Click me")).clicked() {
+        println!("PRESSED")
+      }
+      if ui.button("Organize windows").clicked() {
+        ui.ctx().memory_mut(|mem| mem.reset_areas());
+      }
 
-        ui.separator();
-        ui.checkbox(&mut self.on_demand_rendering, "enable on demand rendering");
-        ui.separator();
-        self.rendering.pipeline.egui(ui);
-        ui.separator();
-        self.terminal.egui(ui, cx);
-      });
-  }
+      ui.separator();
+      ui.checkbox(on_demand_rendering, "enable on demand rendering");
+      ui.separator();
+      rendering.pipeline.egui(ui);
+      ui.separator();
+      terminal.egui(ui, cx);
+    });
 }
 
 pub struct Viewer3dSceneCtx {

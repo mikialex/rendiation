@@ -20,6 +20,7 @@ impl ViewerPicker {
     camera_id: EntityHandle<SceneCameraEntity>,
   ) -> Self {
     let scene_model_picker = SceneModelPickerImpl {
+      mesh_bounding: dep.mesh_local_bounding.clone(),
       scene_model_node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
       model_access_std_model: global_entity_component_of::<SceneModelStdModelRenderPayload>()
         .read_foreign_key(),
@@ -83,15 +84,18 @@ impl Picker3d for ViewerPicker {
   }
 }
 
-pub fn prepare_picking_state(picker: ViewerPicker, input: PlatformEventInput) -> Interaction3dCtx {
+pub fn prepare_picking_state(
+  picker: ViewerPicker,
+  input: &PlatformEventInput,
+  g: &WidgetSceneModelIntersectionGroupConfig,
+) -> Interaction3dCtx {
   let mouse_position = &input.window_state.mouse_position;
   let window_size = &input.window_state.size;
 
   Interaction3dCtx {
     mouse_world_ray: picker.current_mouse_ray_in_world,
     picker: Box::new(picker),
-    intersection_group: todo!(),
-    world_ray_intersected_nearest: todo!(),
+    world_ray_intersected_nearest: None, // todo
   }
 }
 

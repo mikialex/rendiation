@@ -57,8 +57,18 @@ impl<T> std::fmt::Debug for EntityHandle<T> {
   }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct RawEntityHandle(pub(crate) Handle<()>);
+
+impl std::fmt::Debug for RawEntityHandle {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let inner = self.0.into_raw_parts();
+    f.debug_struct("RawEntityHandle")
+      .field("index", &inner.0)
+      .field("gen", &inner.1)
+      .finish()
+  }
+}
 
 impl LinearIdentified for RawEntityHandle {
   fn alloc_index(&self) -> u32 {
