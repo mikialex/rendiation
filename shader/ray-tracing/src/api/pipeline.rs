@@ -1,5 +1,6 @@
 use crate::*;
 
+#[derive(Clone)]
 pub struct GPURaytracingPipelineDescriptor {
   pub max_recursion_depth: u32,
   pub ray_gen_shaders: Vec<(Box<dyn TraceOperator<()>>, ShaderSizedValueType)>,
@@ -7,6 +8,12 @@ pub struct GPURaytracingPipelineDescriptor {
   pub closest_hit_shaders: Vec<(Box<dyn TraceOperator<()>>, ShaderSizedValueType)>,
   pub intersection_shaders: Vec<Arc<dyn Fn(&RayIntersectCtx, &dyn IntersectionReporter)>>,
   pub any_hit_shaders: Vec<Arc<dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>>>,
+}
+
+impl GPURaytracingPipelineDescriptor {
+  pub fn compute_hash(&self) -> u64 {
+    todo!()
+  }
 }
 
 impl Default for GPURaytracingPipelineDescriptor {

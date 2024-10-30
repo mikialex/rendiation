@@ -17,9 +17,19 @@ pub trait NativeRayTracingShaderCtx {
   fn tracing_ctx(&mut self) -> &mut TracingCtx;
 }
 
-pub trait TraceOperator<T>: ShaderFutureProvider<T> + NativeRayTracingShaderBuilder<T> {}
-impl<O, T> TraceOperator<O> for T where T: ShaderFutureProvider<O> + NativeRayTracingShaderBuilder<O>
-{}
+pub trait TraceOperator<T>:
+  ShaderFutureProvider<T> + NativeRayTracingShaderBuilder<T> + ShaderHashProvider + DynClone + 'static
+{
+}
+
+impl<O, T> TraceOperator<O> for T where
+  T: ShaderFutureProvider<O>
+    + NativeRayTracingShaderBuilder<O>
+    + ShaderHashProvider
+    + DynClone
+    + 'static
+{
+}
 
 impl<O> NativeRayTracingShaderBuilder<O> for Box<dyn TraceOperator<O>> {
   fn build(&self, ctx: &mut dyn NativeRayTracingShaderCtx) -> O {
@@ -34,6 +44,20 @@ impl<O> NativeRayTracingShaderBuilder<O> for Box<dyn TraceOperator<O>> {
 impl<O> ShaderFutureProvider<O> for Box<dyn TraceOperator<O>> {
   fn build_device_future(&self, ctx: &mut AnyMap) -> DynShaderFuture<O> {
     (**self).build_device_future(ctx)
+  }
+}
+
+impl<O: 'static> ShaderHashProvider for Box<dyn TraceOperator<O>> {
+  shader_hash_type_id! {}
+
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    (**self).hash_pipeline_with_type_info(hasher)
+  }
+}
+
+impl<T> Clone for Box<dyn TraceOperator<T>> {
+  fn clone(&self) -> Self {
+    dyn_clone::clone_box(&**self)
   }
 }
 

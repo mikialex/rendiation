@@ -31,6 +31,7 @@ async fn test_wavefront_compute() {
   texture_io_system.install_output_target::<RayTracingDebugOutput>(debug_output);
 
   let system = GPUWaveFrontComputeRaytracingSystem::new(&gpu);
+  let shader_base_builder = system.create_tracer_base_builder();
   let as_sys = system.create_acceleration_structure_system();
 
   use crate::GPURaytracingSystem;
@@ -41,7 +42,8 @@ async fn test_wavefront_compute() {
   let mut rtx_pipeline_desc = GPURaytracingPipelineDescriptor::default();
 
   // todo, remove ray gen payload
-  let ray_gen_shader = WaveFrontTracingBaseProvider::create_ray_gen_shader_base()
+  let ray_gen_shader = shader_base_builder
+    .create_ray_gen_shader_base()
     .inject_ctx(texture_io_system.clone())
     .then_trace(
       // (&T, &mut TracingCtx) -> (Node<bool>, ShaderRayTraceCall, Node<P>)
@@ -84,10 +86,10 @@ async fn test_wavefront_compute() {
 
   let ray_gen = rtx_pipeline_desc.register_ray_gen::<RayCustomPayload>(ray_gen_shader);
   let closest_hit = rtx_pipeline_desc.register_ray_closest_hit::<RayCustomPayload>(
-    WaveFrontTracingBaseProvider::create_closest_hit_shader_base::<RayCustomPayload>(),
+    shader_base_builder.create_closest_hit_shader_base::<RayCustomPayload>(),
   );
   let miss = rtx_pipeline_desc.register_ray_miss::<RayCustomPayload>(
-    WaveFrontTracingBaseProvider::create_miss_hit_shader_base::<RayCustomPayload>(),
+    shader_base_builder.create_miss_hit_shader_base::<RayCustomPayload>(),
   );
 
   let mesh_count = 1;
@@ -95,7 +97,7 @@ async fn test_wavefront_compute() {
 
   let canvas_size = 1;
 
-  let rtx_pipeline = rtx_device.create_raytracing_pipeline(&rtx_pipeline_desc);
+  let rtx_pipeline = rtx_device.create_raytracing_pipeline(rtx_pipeline_desc);
 
   let mut sbt = rtx_device.create_sbt(mesh_count, ray_type_count);
   sbt.config_ray_generation(ray_gen);

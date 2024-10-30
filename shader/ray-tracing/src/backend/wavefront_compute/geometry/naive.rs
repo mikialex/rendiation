@@ -86,6 +86,9 @@ impl GPUAccelerationStructureInstanceProvider for TlasHandle {
   fn access_impl(&self) -> &dyn Any {
     self as &dyn Any
   }
+  fn id(&self) -> u32 {
+    self.range.start
+  }
 }
 
 impl NaiveSahBvhSource {
@@ -1250,7 +1253,7 @@ impl GPUAccelerationStructureSystemProvider for NaiveSahBVHSystem {
   fn create_top_level_acceleration_structure(
     &self,
     source: &[TopLevelAccelerationStructureSourceInstance],
-  ) -> Box<dyn GPUAccelerationStructureInstanceProvider> {
+  ) -> TlasInstance {
     let mut inner = self.inner.write().unwrap();
     inner.invalidate();
 
@@ -1259,15 +1262,11 @@ impl GPUAccelerationStructureSystemProvider for NaiveSahBVHSystem {
       range: range_tlas.clone(),
       buffer: create_uniform(range_tlas.start, &self.device),
     };
-
-    Box::new(handle)
+    TlasInstance(Box::new(handle))
   }
 
-  fn delete_top_level_acceleration_structure(
-    &self,
-    id: Box<dyn GPUAccelerationStructureInstanceProvider>,
-  ) {
-    let range: &TlasHandle = id.access_impl().downcast_ref().unwrap();
+  fn delete_top_level_acceleration_structure(&self, tlas: TlasInstance) {
+    let range: &TlasHandle = tlas.0.access_impl().downcast_ref().unwrap();
     let mut inner = self.inner.write().unwrap();
     inner.invalidate();
     inner.source.delete_tlas(range);
@@ -1350,7 +1349,7 @@ pub(crate) fn init_default_acceleration_structure(
     system: &dyn GPUAccelerationStructureSystemProvider,
     transform: Mat4<f32>,
     blas_handle: &BottomLevelAccelerationStructureHandle,
-  ) -> Box<dyn GPUAccelerationStructureInstanceProvider> {
+  ) -> TlasInstance {
     system.create_top_level_acceleration_structure(&[TopLevelAccelerationStructureSourceInstance {
       transform,
       instance_custom_index: 0,

@@ -6,19 +6,44 @@ pub struct GPUWaveFrontComputeRaytracingBakedPipeline {
 }
 
 pub struct GPUWaveFrontComputeRaytracingBakedPipelineInner {
+  pub(crate) desc: GPURaytracingPipelineDescriptor,
+  pub(crate) executor: Option<(u64, GPUWaveFrontComputeRaytracingExecutor)>,
+}
+
+pub struct GPUWaveFrontComputeRaytracingExecutor {
   pub(crate) graph: DeviceTaskGraphExecutor,
   pub(crate) tracer_read_back_bumper: Arc<RwLock<DeviceBumpAllocationInstance<u32>>>,
   pub(crate) target_sbt_buffer: StorageBufferReadOnlyDataView<u32>,
 }
 
 impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
-  pub fn compile(
+  pub fn get_or_compile_executor(
+    &mut self,
     cx: &mut DeviceParallelComputeCtx,
     tlas_sys: Box<dyn GPUAccelerationStructureSystemCompImplInstance>,
     sbt_sys: ShaderBindingTableDeviceInfo,
-    desc: &GPURaytracingPipelineDescriptor,
     init_size: usize,
-  ) -> Self {
+  ) -> &mut GPUWaveFrontComputeRaytracingExecutor {
+    let current_hash = self.desc.compute_hash();
+    if let Some((hash, _)) = &mut self.executor {
+      if current_hash != *hash {
+        self.executor = None;
+      }
+    }
+    let (_, exe) = self.executor.get_or_insert_with(|| {
+      let exe = Self::compile_executor(&self.desc, cx, tlas_sys, sbt_sys, init_size);
+      (current_hash, exe)
+    });
+    exe
+  }
+
+  fn compile_executor(
+    desc: &GPURaytracingPipelineDescriptor,
+    cx: &mut DeviceParallelComputeCtx,
+    tlas_sys: Box<dyn GPUAccelerationStructureSystemCompImplInstance>,
+    sbt_sys: ShaderBindingTableDeviceInfo,
+    init_size: usize,
+  ) -> GPUWaveFrontComputeRaytracingExecutor {
     let mut graph = DeviceTaskGraphBuildSource::default();
 
     let mut payload_max_u32_count = 0;
@@ -132,7 +157,7 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
 
     let executor = graph.build(1, 1, cx);
 
-    GPUWaveFrontComputeRaytracingBakedPipelineInner {
+    GPUWaveFrontComputeRaytracingExecutor {
       graph: executor,
       target_sbt_buffer,
       tracer_read_back_bumper: payload_read_back_bumper,
