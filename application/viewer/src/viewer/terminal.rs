@@ -134,12 +134,13 @@ pub fn register_default_commands(terminal: &mut Terminal) {
         .await;
 
       let mut writer = SceneWriter::from_global(load_target_scene);
+      let default_mat = writer.pbr_sg_mat_writer.new_entity();
 
       if let Some(file_handle) = file_handle {
         rendiation_scene_obj_loader::load_obj(
           file_handle.path(),
           load_target_node,
-          todo!(),
+          default_mat,
           &mut writer,
         )
         .unwrap();

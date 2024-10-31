@@ -64,7 +64,8 @@ impl GraphicsShaderProvider for LDROutput {
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, _| {
       let l = builder.query::<LDRLightResult>()?;
-      builder.store_fragment_out(0, (l, val(1.0)))
+      builder.register::<DefaultDisplay>((l, val(1.0)));
+      Ok(())
     })
   }
 }

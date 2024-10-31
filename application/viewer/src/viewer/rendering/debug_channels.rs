@@ -61,7 +61,8 @@ impl GraphicsShaderProvider for ScreenChannelDebugger {
         start.store(start_end);
       }
 
-      builder.store_fragment_out(0, output.load())
+      builder.register::<DefaultDisplay>(output.load());
+      Ok(())
     })
   }
 }

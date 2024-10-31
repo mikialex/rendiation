@@ -115,18 +115,15 @@ impl ShaderVertexBuilder {
       unsafe { n.cast_type() }
     } else {
       let default: T::ValueType = by();
-      self.register::<T>(default)
+      self.register::<T>(default);
+      self.query::<T>().unwrap()
     }
   }
 
-  pub fn register<T: SemanticVertexShaderValue>(
-    &mut self,
-    node: impl Into<Node<T::ValueType>>,
-  ) -> Node<T::ValueType> {
-    let n = self
+  pub fn register<T: SemanticVertexShaderValue>(&mut self, node: impl Into<Node<T::ValueType>>) {
+    self
       .registry
       .register(TypeId::of::<T>(), node.into().cast_untyped_node());
-    unsafe { n.cast_type() }
   }
 
   /// return registered location

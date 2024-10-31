@@ -141,18 +141,15 @@ impl ShaderFragmentBuilder {
       unsafe { n.cast_type() }
     } else {
       let default: T::ValueType = by();
-      self.register::<T>(default)
+      self.register::<T>(default);
+      self.query::<T>().unwrap()
     }
   }
 
-  pub fn register<T: SemanticFragmentShaderValue>(
-    &mut self,
-    node: impl Into<Node<T::ValueType>>,
-  ) -> Node<T::ValueType> {
-    let n = self
+  pub fn register<T: SemanticFragmentShaderValue>(&mut self, node: impl Into<Node<T::ValueType>>) {
+    self
       .registry
       .register(TypeId::of::<T>(), node.into().cast_untyped_node());
-    unsafe { n.cast_type() }
   }
 
   pub fn get_fragment_in<T>(
