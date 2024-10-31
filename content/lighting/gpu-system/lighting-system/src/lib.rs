@@ -117,7 +117,9 @@ where
     let light_diffuse_result = val(Vec3::zero()).make_local_var();
 
     self.0.clone().for_each(|light, _| {
-      light.compute_lights(shading, geom_ctx);
+      let r = light.compute_lights(shading, geom_ctx);
+      light_specular_result.store(light_specular_result.load() + r.specular);
+      light_diffuse_result.store(light_diffuse_result.load() + r.diffuse);
     });
 
     ENode::<ShaderLightingResult> {
