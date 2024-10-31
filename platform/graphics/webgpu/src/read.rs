@@ -55,7 +55,10 @@ impl ReadBufferTask {
   pub fn new<S: RangeBounds<gpu::BufferAddress>>(buffer: gpu::Buffer, range: S) -> Self {
     let buffer_slice = buffer.slice(range);
     let (sender, receiver) = futures::channel::oneshot::channel();
-    buffer_slice.map_async(gpu::MapMode::Read, move |v| sender.send(v).unwrap());
+    buffer_slice.map_async(gpu::MapMode::Read, move |v| {
+      println!("buffer map_async callback");
+      sender.send(v).unwrap()
+    });
 
     Self {
       inner: receiver,
