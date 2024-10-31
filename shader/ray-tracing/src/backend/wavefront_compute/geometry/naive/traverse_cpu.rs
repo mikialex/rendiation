@@ -3,6 +3,7 @@ use rendiation_algebra::Vec3;
 use crate::backend::wavefront_compute::geometry::intersect_ray_triangle_cpu;
 use crate::backend::wavefront_compute::geometry::naive::*;
 
+#[allow(unused)]
 #[derive(Debug)]
 pub(super) struct NaiveSahBvhCpu {
   // global bvh, root at 0, content_range to index tlas_data/tlas_bounding

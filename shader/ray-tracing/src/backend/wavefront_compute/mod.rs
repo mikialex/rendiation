@@ -123,7 +123,7 @@ impl RayTracingPassEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
 
     let w = size.0;
     let h = size.1;
-    assert_eq!(size.2, 0);
+    assert_eq!(size.2, 1);
     current_pipeline.launch_size_buffer.write_at(
       0,
       Std430::as_bytes(&vec3(w, h, 1)),
