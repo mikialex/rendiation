@@ -1,10 +1,12 @@
 use crate::*;
 
 mod debug_channels;
+mod lighting;
 mod pipeline;
 
 use debug_channels::*;
 use futures::Future;
+pub use lighting::*;
 pub use pipeline::*;
 use reactive::EventSource;
 use rendiation_webgpu::*;
@@ -13,6 +15,7 @@ pub struct Viewer3dRenderingCtx {
   pub(crate) pipeline: ViewerPipeline,
   rendering_resource: ReactiveQueryJoinUpdater,
   renderer_impl: GLESRenderSystem,
+  lighting: LightSystem,
   pool: AttachmentPool,
   gpu: GPU,
   on_encoding_finished: EventSource<ViewRenderedState>,
@@ -24,15 +27,25 @@ impl Viewer3dRenderingCtx {
     let mut renderer_impl = build_default_gles_render_system();
     let mut rendering_resource = ReactiveQueryJoinUpdater::default();
     renderer_impl.register_resource(&mut rendering_resource, &gpu);
+
+    let mut lighting = LightSystem::new(&gpu);
+    lighting.register_resource(&mut rendering_resource, &gpu);
+
     Self {
       rendering_resource,
       renderer_impl,
       pipeline: ViewerPipeline::new(&gpu),
+      lighting,
       gpu,
       pool: Default::default(),
       on_encoding_finished: Default::default(),
       current_camera_view_projection_inv: Default::default(),
     }
+  }
+
+  pub fn egui(&mut self, ui: &mut egui::Ui) {
+    self.lighting.egui(ui);
+    self.pipeline.egui(ui);
   }
 
   /// only texture could be read. caller must sure the target passed in render call not using
@@ -62,9 +75,12 @@ impl Viewer3dRenderingCtx {
 
     let mut ctx = FrameCtx::new(&self.gpu, target.size(), &self.pool);
 
+    let lighting = self.lighting.create_impl(&mut resource, &mut ctx);
+
     self.pipeline.render(
       &mut ctx,
       renderer.as_ref(),
+      &lighting,
       content,
       &target,
       self.current_camera_view_projection_inv,

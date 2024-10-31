@@ -4922,6 +4922,7 @@ dependencies = [
  "rendiation-gizmo",
  "rendiation-gui-3d",
  "rendiation-infinity-plane",
+ "rendiation-lighting-gpu-system",
  "rendiation-lighting-transport",
  "rendiation-mesh-core",
  "rendiation-mesh-generator",

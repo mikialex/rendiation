@@ -36,6 +36,7 @@ rendiation-scene-core = { path = "../../scene/core" }
 rendiation-shader-api = { path = "../../shader/api" }
 rendiation-texture-core = { path = "../../content/texture/core" }
 rendiation-lighting-transport = { path = "../../content/lighting/transport" }
+rendiation-lighting-gpu-system = { path = "../../content/lighting/gpu-system/lighting-system" }
 rendiation-texture-loader = { path = "../../content/texture/loader" }
 rendiation-gui-3d = { path = "../../extension/gui-3d" }
 rendiation-gizmo = { path = "../../extension/gizmo" }

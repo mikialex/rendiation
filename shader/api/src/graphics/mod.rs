@@ -30,6 +30,7 @@ pub struct ShaderRenderPipelineBuilder {
   /// Log the shader build result when building shader, for debug purpose.
   pub log_result: bool,
 
+  /// todo use upstream any map
   pub context: FastHashMap<TypeId, Box<dyn Any>>,
 }
 

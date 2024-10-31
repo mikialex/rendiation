@@ -28,6 +28,7 @@ pub fn directional_uniform_array(
     .with_source(direction)
 }
 
+#[derive(Default)]
 pub struct DirectionalUniformLightList {
   token: UpdateResultToken,
 }

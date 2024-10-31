@@ -33,12 +33,12 @@ impl ShaderHashProvider for ToneMap {
   shader_hash_type_id! {}
 }
 impl ShaderPassBuilder for ToneMap {
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+  fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.exposure);
   }
 }
 impl GraphicsShaderProvider for ToneMap {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {
       let exposure = binding.bind_by(&self.exposure).load();
       let hdr = builder.query::<HDRLightResult>()?;

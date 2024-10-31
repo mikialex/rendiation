@@ -55,13 +55,14 @@ pub fn spot_uniform_array(gpu: &GPU) -> UniformArrayUpdateContainer<SpotLightUni
     .with_source(direction)
 }
 
+#[derive(Default)]
 pub struct SpotLightUniformLightList {
   token: UpdateResultToken,
 }
 
 impl RenderImplProvider<Box<dyn LightingComputeComponent>> for SpotLightUniformLightList {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    let uniform = directional_uniform_array(cx);
+    let uniform = spot_uniform_array(cx);
     self.token = source.register_multi_updater(uniform);
   }
 

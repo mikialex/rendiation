@@ -216,7 +216,7 @@ fn egui(
       ui.separator();
       ui.checkbox(on_demand_rendering, "enable on demand rendering");
       ui.separator();
-      rendering.pipeline.egui(ui);
+      rendering.egui(ui);
       ui.separator();
       terminal.egui(ui, cx);
     });

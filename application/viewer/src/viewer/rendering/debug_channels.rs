@@ -38,7 +38,7 @@ impl ShaderHashProvider for ScreenChannelDebugger {
 }
 
 impl GraphicsShaderProvider for ScreenChannelDebugger {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, _| {
       let ndc_position = builder.query::<FragmentPosition>()?;
 
@@ -65,6 +65,8 @@ impl GraphicsShaderProvider for ScreenChannelDebugger {
     })
   }
 }
+
+impl ShaderPassBuilder for ScreenChannelDebugger {}
 
 impl ChannelVisualize for FragmentWorldNormal {
   fn to_screen(&self, builder: &ShaderFragmentBuilderView) -> Node<Vec4<f32>> {

@@ -12,12 +12,6 @@ impl LightingComputeComponentGroup {
   }
 }
 
-impl ShaderPassBuilder for LightingComputeComponentGroup {
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    self.comps.iter().for_each(|c| c.setup_pass(ctx))
-  }
-}
-
 impl ShaderHashProvider for LightingComputeComponentGroup {
   fn hash_type_info(&self, hasher: &mut PipelineHasher) {
     self
@@ -39,6 +33,9 @@ impl LightingComputeComponent for LightingComputeComponentGroup {
         .map(|c| c.build_light_compute_invocation(binding))
         .collect(),
     })
+  }
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.comps.iter().for_each(|c| c.setup_pass(ctx))
   }
 }
 
