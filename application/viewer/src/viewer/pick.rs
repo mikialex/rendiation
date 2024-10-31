@@ -7,7 +7,6 @@ use crate::*;
 
 pub struct ViewerPicker {
   current_mouse_ray_in_world: Ray3,
-  normalized_position: Vec2<f32>,
   conf: MeshBufferIntersectConfig,
   camera_view_size: Size,
   scene_model_picker: SceneModelPickerImpl,
@@ -57,7 +56,6 @@ impl ViewerPicker {
     ViewerPicker {
       scene_model_picker,
       current_mouse_ray_in_world,
-      normalized_position: normalized_position.into(),
       conf: Default::default(),
       camera_view_size: Size::from_f32_pair_min_one(input.window_state.size),
     }
@@ -69,7 +67,7 @@ impl Picker3d for ViewerPicker {
     &self,
     model: EntityHandle<SceneModelEntity>,
     world_ray: Ray3,
-  ) -> Option<Vec3<f32>> {
+  ) -> Option<HitPoint3D> {
     self
       .scene_model_picker
       .query(
@@ -80,22 +78,23 @@ impl Picker3d for ViewerPicker {
           camera_view_size: self.camera_view_size,
         },
       )
-      .map(|v| v.hit.position)
+      .map(|v| v.hit)
   }
 }
 
 pub fn prepare_picking_state(
   picker: ViewerPicker,
-  input: &PlatformEventInput,
   g: &WidgetSceneModelIntersectionGroupConfig,
 ) -> Interaction3dCtx {
-  let mouse_position = &input.window_state.mouse_position;
-  let window_size = &input.window_state.size;
+  let world_ray_intersected_nearest = picker.pick_models_nearest(
+    &mut g.group.iter().copied(),
+    picker.current_mouse_ray_in_world,
+  );
 
   Interaction3dCtx {
     mouse_world_ray: picker.current_mouse_ray_in_world,
     picker: Box::new(picker),
-    world_ray_intersected_nearest: None, // todo
+    world_ray_intersected_nearest,
   }
 }
 

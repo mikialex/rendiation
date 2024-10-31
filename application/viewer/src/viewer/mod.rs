@@ -47,8 +47,7 @@ impl Widget for Viewer {
         );
 
         let picker = ViewerPicker::new(derived, input, main_camera_handle);
-        let mut interaction_cx =
-          prepare_picking_state(picker, input, &self.widget_intersection_group);
+        let mut interaction_cx = prepare_picking_state(picker, &self.widget_intersection_group);
 
         cx.scoped_cx(&mut self.widget_intersection_group, |cx| {
           cx.scoped_cx(&mut interaction_cx, |cx| {
