@@ -89,6 +89,8 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
     ctx.register(TracingTaskSpawnerImplSource {
       payload_spawn_bumper: tracer_task.payload_bumper.clone(),
       payload_read_back: tracer_task.payload_read_back_bumper.clone(),
+    });
+    ctx.register(RayLaunchSizeBuffer {
       launch_size: launch_size_buffer.clone(),
     });
 

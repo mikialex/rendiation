@@ -2,7 +2,7 @@
 async fn test_wavefront_compute() {
   use rendiation_texture_core::Size;
 
-  let canvas_size = 16;
+  let canvas_size = 64;
 
   use crate::*;
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();
@@ -41,13 +41,33 @@ async fn test_wavefront_compute() {
 
   let mut rtx_pipeline_desc = GPURaytracingPipelineDescriptor::default();
 
-  // todo, remove ray gen payload
   let ray_gen_shader = WaveFrontTracingBaseProvider::create_ray_gen_shader_base()
     .inject_ctx(texture_io_system.clone())
     .then_trace(
       // (&T, &mut TracingCtx) -> (Node<bool>, ShaderRayTraceCall, Node<P>)
-      |_, _ctx| {
+      |_, ctx| {
+        let launch_info = ctx.registry.get_mut::<RayLaunchRawInfo>().unwrap();
+        let launch_id = launch_info.launch_id();
+        let launch_size = launch_info.launch_size();
+
+        // let tex_io = ctx.registry.get_mut::<FrameOutputInvocation>().unwrap();
+        // tex_io.write_output::<RayTracingDebugOutput>(
+        //   val(vec2(1, 0)),
+        //   // (color.into_f32(), val(vec3(1., 1., 1.))).into(),
+        //   val(vec4(10., 1., 0.1, 1.)),
+        // );
+
+        const ORIGIN: Vec3<f32> = vec3(0., 0., -1.);
+        let x =
+          (launch_id.x().into_f32() + val(0.5)) / launch_size.x().into_f32() * val(2.) - val(1.);
+        let y =
+          val(1.) - (launch_id.y().into_f32() + val(0.5)) / launch_size.y().into_f32() * val(2.);
+        let target: Node<Vec3<f32>> = (x, y, val(-1.)).into(); // fov = 90 deg
+        let dir = (target - val(ORIGIN)).normalize();
+
         let trace_call = ShaderRayTraceCall {
+          launch_id,
+          launch_size,
           tlas_idx: val(0), // todo
           ray_flags: val(0),
           cull_mask: val(0xff),
@@ -56,16 +76,14 @@ async fn test_wavefront_compute() {
             stride: val(0),
           },
           miss_index: val(0),
-          // todo ray from x,y
           ray: ShaderRay {
-            origin: val(vec3(0., 0., 1.)),
-            direction: val(vec3(0., 0., -1.)),
+            origin: val(ORIGIN),
+            direction: dir,
           },
           range: ShaderRayRange {
             min: val(0.1),
             max: val(100.),
           },
-          payload: val(0),
         };
 
         let ray_payload = ENode::<RayCustomPayload> { color: val(0) }.construct();
@@ -73,9 +91,17 @@ async fn test_wavefront_compute() {
         (val(true), trace_call, ray_payload)
       },
     )
-    .map(|(_, _payload), ctx| {
+    .map(|(_, payload), ctx| {
+      let launch_info = ctx.registry.get_mut::<RayLaunchRawInfo>().unwrap();
+      let launch_id = launch_info.launch_id();
+      let payload: Node<RayCustomPayload> = payload;
+      let color = payload.expand().color;
       let tex_io = ctx.registry.get_mut::<FrameOutputInvocation>().unwrap();
-      tex_io.write_output::<RayTracingDebugOutput>(val(Vec2::zero()), val(Vec4::zero()));
+      tex_io.write_output::<RayTracingDebugOutput>(
+        launch_id.xy(),
+        (color.into_f32(), val(vec3(1., 1., 1.))).into(),
+        // val(vec4(10., 1., 0.1, 1.)),
+      );
     });
 
   #[derive(Copy, Clone, Debug, Default, ShaderStruct)]
@@ -113,13 +139,13 @@ async fn test_wavefront_compute() {
 
   rtx_encoder.set_pipeline(rtx_pipeline.as_ref());
   rtx_encoder.trace_ray((canvas_size, canvas_size, 1), sbt.as_ref());
+  drop(rtx_encoder);
 
-  // let view = texture_io_system.take_output_target::<RayTracingDebugOutput>();
+  let _view = texture_io_system.take_output_target::<RayTracingDebugOutput>();
 
-  let buffer = gpu
-    .device
-    .create_encoder()
-    .read_texture_2d(
+  let buffer = {
+    let mut encoder = gpu.device.create_encoder();
+    let buffer = encoder.read_texture_2d(
       &gpu.device,
       &debug_output,
       ReadRange {
@@ -127,14 +153,19 @@ async fn test_wavefront_compute() {
         offset_x: 0,
         offset_y: 0,
       },
-    )
-    .await
-    .unwrap();
+    );
+    gpu.submit_encoder(encoder);
+    buffer.await.unwrap()
+  };
 
   let buffer = buffer.read_raw();
-  use std::ops::Deref;
-  let buffer = buffer.deref();
-  let mut prefix = format!("P6\n{} {}\n", canvas_size, canvas_size).into_bytes();
-  prefix.extend_from_slice(buffer);
-  std::fs::write("trace.pbm", prefix).unwrap();
+  let mut write_buffer = format!("P6\n{} {}\n255\n", canvas_size, canvas_size).into_bytes();
+  buffer.chunks_exact(4).for_each(|chunk| {
+    let (r, g, b, _a) = (chunk[0], chunk[1], chunk[2], chunk[3]);
+    if r > 0 || g > 0 || b > 0 {
+      println!("!!");
+    }
+    write_buffer.extend_from_slice(&[r, g, b]);
+  });
+  std::fs::write("trace.pbm", write_buffer).unwrap();
 }

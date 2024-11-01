@@ -111,6 +111,7 @@ impl ShaderFutureProvider<()> for TracingCtxProviderTracer {
         .get_mut::<TracingTaskSpawnerImplSource>()
         .unwrap()
         .clone(),
+      launch_size: ctx.get_mut::<RayLaunchSizeBuffer>().unwrap().clone(),
     }
     .into_dyn()
   }
@@ -120,7 +121,6 @@ where
   T: Default,
 {
   fn build(&self, _: &mut dyn NativeRayTracingShaderCtx) -> T {
-    // todo, register ctx
     T::default()
   }
   fn bind(&self, _: &mut BindingBuilder) {}
@@ -130,6 +130,7 @@ pub struct TracingCtxProviderFuture {
   stage: RayTraceableShaderStage,
   payload_ty: Option<ShaderSizedValueType>,
   ray_spawner: TracingTaskSpawnerImplSource,
+  launch_size: RayLaunchSizeBuffer,
 }
 
 impl ShaderFuture for TracingCtxProviderFuture {
@@ -146,11 +147,13 @@ impl ShaderFuture for TracingCtxProviderFuture {
       stage: self.stage,
       payload_ty: self.payload_ty.clone(),
       ray_spawner: self.ray_spawner.create_invocation(cx),
+      launch_size: self.launch_size.build(cx),
     }
   }
 
   fn bind_input(&self, builder: &mut DeviceTaskSystemBindCtx) {
-    self.ray_spawner.bind(builder)
+    self.ray_spawner.bind(builder);
+    self.launch_size.bind(builder);
   }
 
   fn reset(&mut self, _: &mut DeviceParallelComputeCtx, _: u32) {
@@ -162,6 +165,7 @@ pub struct TracingCtxProviderFutureInvocation {
   stage: RayTraceableShaderStage,
   payload_ty: Option<ShaderSizedValueType>,
   ray_spawner: TracingTaskSpawnerInvocation,
+  launch_size: RayLaunchSizeInvocation,
 }
 impl ShaderFutureInvocation for TracingCtxProviderFutureInvocation {
   type Output = ();
@@ -188,13 +192,19 @@ impl ShaderFutureInvocation for TracingCtxProviderFutureInvocation {
       Box::new(ray_payload) as Box<dyn ClosestHitCtxProvider>
     });
 
-    ctx.invocation_registry.register(TracingCtx {
+    let linear_id = ctx.compute_cx.global_invocation_id().x();
+    let launch_size = self.launch_size.get();
+    let info = RayLaunchRawInfo::new(linear_id, launch_size);
+
+    let mut tracing_ctx = TracingCtx {
       missing,
       closest,
       payload: user_defined_payload,
       registry: Default::default(),
-    });
+    };
+    tracing_ctx.registry.register(info);
 
+    ctx.invocation_registry.register(tracing_ctx);
     ctx.invocation_registry.register(self.ray_spawner.clone());
 
     (val(true), ()).into()
@@ -203,13 +213,13 @@ impl ShaderFutureInvocation for TracingCtxProviderFutureInvocation {
 
 impl RayLaunchInfoProvider for StorageNode<RayClosestHitCtxPayload> {
   fn launch_id(&self) -> Node<Vec3<u32>> {
-    let node = self.load();
+    let node = self.load(); // todo load ptr directly
     let payload = node.expand().ray_info.expand();
     payload.launch_id
   }
 
   fn launch_size(&self) -> Node<Vec3<u32>> {
-    let node = self.load();
+    let node = self.load(); // todo load ptr directly
     let payload = node.expand().ray_info.expand();
     payload.launch_size
   }
@@ -299,11 +309,15 @@ impl ClosestHitCtxProvider for StorageNode<RayClosestHitCtxPayload> {
 
 impl RayLaunchInfoProvider for StorageNode<RayMissHitCtxPayload> {
   fn launch_id(&self) -> Node<Vec3<u32>> {
-    todo!()
+    let node = self.load(); // todo load ptr directly
+    let payload = node.expand().ray_info.expand();
+    payload.launch_id
   }
 
   fn launch_size(&self) -> Node<Vec3<u32>> {
-    todo!()
+    let node = self.load(); // todo load ptr directly
+    let payload = node.expand().ray_info.expand();
+    payload.launch_size
   }
 }
 impl WorldRayInfoProvider for StorageNode<RayMissHitCtxPayload> {
