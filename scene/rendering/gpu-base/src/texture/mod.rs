@@ -35,6 +35,8 @@ impl TextureGPUSystemSource {
       source.register(Box::new(ReactiveQueryBoxAnyResult(texture_system)))
     } else {
       let texture_system = TraditionalPerDrawBindingSystemSource {
+        default_tex: default_2d,
+        default_sampler,
         textures: Box::new(texture_2d),
         samplers: Box::new(samplers),
       };
@@ -50,6 +52,7 @@ impl TextureGPUSystemSource {
   }
 }
 
+#[allow(clippy::borrowed_box)]
 pub struct GPUTextureSystemAsRenderComponent<'a>(pub &'a Box<dyn DynAbstractGPUTextureSystem>);
 
 impl<'a> ShaderHashProvider for GPUTextureSystemAsRenderComponent<'a> {

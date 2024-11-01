@@ -46,7 +46,7 @@ impl GraphicsShaderProvider for LightingComputeComponentAsRenderComponent {
       let geom_ctx = ENode::<ShaderLightingGeometricCtx> {
         position: fragment_world,
         normal: builder.query::<FragmentWorldNormal>()?,
-        view_dir: camera_position - fragment_world,
+        view_dir: (camera_position - fragment_world).normalize(),
       };
 
       let hdr = invocation.compute_lights(shading.as_ref(), &geom_ctx);
