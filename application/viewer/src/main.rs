@@ -2,6 +2,7 @@
 #![feature(stmt_expr_attributes)]
 #![feature(type_alias_impl_trait)]
 #![feature(hash_raw_entry)]
+#![feature(ptr_metadata)]
 #![allow(clippy::collapsible_match)]
 
 use std::alloc::System;

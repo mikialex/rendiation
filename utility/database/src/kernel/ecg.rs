@@ -112,6 +112,12 @@ impl EntityComponentGroup {
     &self.inner.name
   }
 
+  pub fn get_handle_at(&self, index: usize) -> Option<RawEntityHandle> {
+    let inner = self.inner.allocator.make_read_holder();
+    let handle = inner.get_handle(index)?;
+    Some(RawEntityHandle(handle))
+  }
+
   pub fn entity_count(&self) -> usize {
     self.inner.allocator.read().len()
   }
