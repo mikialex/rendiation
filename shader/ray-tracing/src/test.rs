@@ -10,10 +10,12 @@ async fn test_wavefront_compute() {
   pub struct RayTracingDebugOutput;
   impl RayTracingOutputTargetSemantic for RayTracingDebugOutput {}
 
+  let canvas_size = 64;
+
   let debug_output = GPUTexture::create(
     TextureDescriptor {
       label: "tracing-debug".into(),
-      size: Size::from_u32_pair_min_one((1, 1)).into_gpu_size(),
+      size: Size::from_u32_pair_min_one((canvas_size, canvas_size)).into_gpu_size(),
       mip_level_count: 1,
       sample_count: 1,
       dimension: TextureDimension::D2,
@@ -23,12 +25,11 @@ async fn test_wavefront_compute() {
     },
     &gpu.device,
   );
-  let debug_output = GPU2DTexture::try_from(debug_output)
-    .unwrap()
-    .create_default_view();
-  let debug_output = GPU2DTextureView::try_from(debug_output).unwrap();
+  let debug_output = GPU2DTexture::try_from(debug_output).unwrap();
+  let debug_output_view = debug_output.create_default_view();
+  let debug_output_view = GPU2DTextureView::try_from(debug_output_view).unwrap();
 
-  texture_io_system.install_output_target::<RayTracingDebugOutput>(debug_output);
+  texture_io_system.install_output_target::<RayTracingDebugOutput>(debug_output_view);
 
   let system = GPUWaveFrontComputeRaytracingSystem::new(&gpu);
   let as_sys = system.create_acceleration_structure_system();
@@ -45,7 +46,10 @@ async fn test_wavefront_compute() {
     .inject_ctx(texture_io_system.clone())
     .then_trace(
       // (&T, &mut TracingCtx) -> (Node<bool>, ShaderRayTraceCall, Node<P>)
-      |_, _ctx| {
+      |_, ctx| {
+        let tex_io = ctx.registry.get_mut::<FrameOutputInvocation>().unwrap();
+        tex_io.write_output::<RayTracingDebugOutput>(val(vec2(1, 0)), val(vec4(1., 1., 1., 1.)));
+
         let trace_call = ShaderRayTraceCall {
           tlas_idx: val(0), // todo
           ray_flags: val(0),
@@ -73,8 +77,8 @@ async fn test_wavefront_compute() {
       },
     )
     .map(|(_, _payload), ctx| {
-      let tex_io = ctx.registry.get_mut::<FrameOutputInvocation>().unwrap();
-      tex_io.write_output::<RayTracingDebugOutput>(val(Vec2::zero()), val(Vec4::zero()));
+      // let tex_io = ctx.registry.get_mut::<FrameOutputInvocation>().unwrap();
+      // tex_io.write_output::<RayTracingDebugOutput>(val(Vec2::zero()), val(Vec4::zero()));
     });
 
   #[derive(Copy, Clone, Debug, Default, ShaderStruct)]
@@ -92,8 +96,6 @@ async fn test_wavefront_compute() {
 
   let mesh_count = 1;
   let ray_type_count = 1;
-
-  let canvas_size = 1;
 
   let rtx_pipeline = rtx_device.create_raytracing_pipeline(&rtx_pipeline_desc);
 
@@ -115,5 +117,31 @@ async fn test_wavefront_compute() {
   rtx_encoder.set_pipeline(rtx_pipeline.as_ref());
   rtx_encoder.trace_ray((canvas_size, canvas_size, 1), sbt.as_ref());
 
-  texture_io_system.take_output_target::<RayTracingDebugOutput>();
+  let _view = texture_io_system.take_output_target::<RayTracingDebugOutput>();
+
+  let buffer = {
+    let mut encoder = gpu.device.create_encoder();
+    let buffer = encoder.read_texture_2d(
+      &gpu.device,
+      &debug_output,
+      ReadRange {
+        size: Size::from_u32_pair_min_one((canvas_size, canvas_size)),
+        offset_x: 0,
+        offset_y: 0,
+      },
+    );
+    gpu.submit_encoder(encoder);
+    buffer.await.unwrap()
+  };
+
+  let buffer = buffer.read_raw();
+  let mut write_buffer = format!("P6\n{} {}\n255\n", canvas_size, canvas_size).into_bytes();
+  buffer.chunks_exact(4).for_each(|chunk| {
+    let (r, g, b, _a) = (chunk[0], chunk[1], chunk[2], chunk[3]);
+    if r > 0 || g > 0 || b > 0 {
+      println!("!!");
+    }
+    write_buffer.extend_from_slice(&[r, g, b]);
+  });
+  std::fs::write("trace.pbm", write_buffer).unwrap();
 }
