@@ -8,9 +8,21 @@ pub struct ToneMap {
 impl ToneMap {
   pub fn new(gpu: &GPU) -> Self {
     Self {
-      ty: ToneMapType::Linear,
+      ty: ToneMapType::ACESFilmic,
       exposure: create_uniform_with_cache(1., gpu),
     }
+  }
+
+  pub fn set_exposure(&self, exposure: f32) {
+    self.exposure.set(exposure);
+  }
+
+  pub fn mutate_exposure(&self, f: impl FnOnce(&mut f32)) {
+    self.exposure.mutate(f);
+  }
+
+  pub fn update(&self, gpu: &GPU) {
+    self.exposure.upload(&gpu.queue);
   }
 }
 

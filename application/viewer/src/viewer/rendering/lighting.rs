@@ -27,6 +27,13 @@ impl LightSystem {
 
   pub fn egui(&mut self, ui: &mut egui::Ui) {
     ui.checkbox(&mut self.enable_channel_debugger, "enable channel debug");
+    self.tonemap.mutate_exposure(|e| {
+      ui.add(
+        egui::Slider::new(e, 0.0..=2.0)
+          .step_by(0.05)
+          .text("exposure"),
+      );
+    });
   }
 
   pub fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
@@ -36,7 +43,7 @@ impl LightSystem {
   pub fn create_impl(
     &self,
     res: &mut ConcurrentStreamUpdateResult,
-    _frame_ctx: &mut FrameCtx,
+    frame_ctx: &mut FrameCtx,
   ) -> Box<dyn RenderComponent + '_> {
     let mut light = RenderVec::default();
 
@@ -46,9 +53,13 @@ impl LightSystem {
       light.push(LDROutput);
     }
 
-    light.push(&self.tonemap as &dyn RenderComponent).push(
-      LightingComputeComponentAsRenderComponent(self.internal.create_impl(res)),
-    );
+    self.tonemap.update(frame_ctx.gpu);
+
+    light
+      .push(&self.tonemap as &dyn RenderComponent) //
+      .push(LightingComputeComponentAsRenderComponent(
+        self.internal.create_impl(res),
+      ));
 
     Box::new(light)
   }
