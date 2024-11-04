@@ -176,7 +176,7 @@ pub fn register_default_commands(terminal: &mut Terminal) {
   });
 
   terminal.register_command("screenshot", |ctx, _parameters| {
-    access_cx!(ctx, r, Viewer3dRenderingCtx);
+    access_cx_mut!(ctx, r, Viewer3dRenderingCtx);
     let result = r.read_next_render_result();
 
     async {

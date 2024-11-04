@@ -218,7 +218,9 @@ fn egui(
       ui.separator();
       rendering.egui(ui);
       ui.separator();
-      terminal.egui(ui, cx);
+      cx.scoped_cx(rendering, |cx| {
+        terminal.egui(ui, cx);
+      });
     });
 }
 

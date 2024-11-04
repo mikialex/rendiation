@@ -10,23 +10,12 @@ async fn test_wavefront_compute() {
   pub struct RayTracingDebugOutput;
   impl RayTracingOutputTargetSemantic for RayTracingDebugOutput {}
 
-  let debug_output = GPUTexture::create(
-    TextureDescriptor {
-      label: "tracing-debug".into(),
-      size: Size::from_u32_pair_min_one((1, 1)).into_gpu_size(),
-      mip_level_count: 1,
-      sample_count: 1,
-      dimension: TextureDimension::D2,
-      format: TextureFormat::Rgba8Unorm,
-      view_formats: &[],
-      usage: TextureUsages::all(),
-    },
-    &gpu.device,
+  let debug_output = create_empty_2d_texture_view(
+    &gpu,
+    Size::from_u32_pair_min_one((1, 1)),
+    TextureUsages::all(),
+    TextureFormat::Rgba8Unorm,
   );
-  let debug_output = GPU2DTexture::try_from(debug_output)
-    .unwrap()
-    .create_default_view();
-  let debug_output = GPU2DTextureView::try_from(debug_output).unwrap();
 
   texture_io_system.install_output_target::<RayTracingDebugOutput>(debug_output);
 

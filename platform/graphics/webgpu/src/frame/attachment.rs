@@ -147,12 +147,23 @@ impl Attachment {
   }
 }
 
+// todo, consider remove this
 pub struct AttachmentView<T> {
   resource: T,
   pub(super) view: RenderTargetView,
 }
 
 impl<T> AttachmentView<T> {
+  pub fn from_any_view(view: impl Into<RenderTargetView>) -> Self
+  where
+    T: Default,
+  {
+    Self {
+      resource: Default::default(),
+      view: view.into(),
+    }
+  }
+
   pub fn resource(&self) -> &T {
     &self.resource
   }
