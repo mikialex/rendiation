@@ -12,7 +12,18 @@ pub struct GPURaytracingPipelineDescriptor {
 
 impl GPURaytracingPipelineDescriptor {
   pub fn compute_hash(&self) -> u64 {
-    todo!()
+    let mut hasher = PipelineHasher::default();
+    // note, the payload should have already been hashed in trace operator
+    for (s, _) in &self.ray_gen_shaders {
+      s.hash_pipeline_with_type_info(&mut hasher);
+    }
+    for (s, _) in &self.miss_hit_shaders {
+      s.hash_pipeline_with_type_info(&mut hasher);
+    }
+    for (s, _) in &self.closest_hit_shaders {
+      s.hash_pipeline_with_type_info(&mut hasher);
+    }
+    hasher.finish()
   }
 }
 

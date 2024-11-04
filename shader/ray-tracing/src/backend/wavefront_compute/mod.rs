@@ -135,6 +135,13 @@ impl RayTracingPassEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
     {
       let executor = &mut current_pipeline.graph;
       executor.resize_execution_size(&mut cx, required_size);
+
+      executor.dispatch_allocate_init_task(
+        &mut cx,
+        required_size as u32,
+        current_pipeline.ray_gen_task_idx,
+        |_| val(0_u32), // todo check if it's u32 payload if not define any payload
+      );
     }
 
     let round_count = 3; // todo;

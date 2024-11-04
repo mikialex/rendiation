@@ -12,6 +12,7 @@ pub struct GPUWaveFrontComputeRaytracingBakedPipelineInner {
 
 pub struct GPUWaveFrontComputeRaytracingExecutor {
   pub(crate) graph: DeviceTaskGraphExecutor,
+  pub(crate) ray_gen_task_idx: u32,
   pub(crate) tracer_read_back_bumper: Arc<RwLock<DeviceBumpAllocationInstance<u32>>>,
   pub(crate) target_sbt_buffer: StorageBufferReadOnlyDataView<u32>,
 }
@@ -121,11 +122,14 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
     );
     assert_eq!(trace_task_id, 0);
 
+    assert_eq!(desc.ray_gen_shaders.len(), 1);
+    let mut ray_gen_task_idx = 0;
     for (stage, ty) in &desc.ray_gen_shaders {
       let task_id = graph.define_task_dyn(
         Box::new(OpaqueTaskWrapper(stage.build_device_future(&mut ctx))) as OpaqueTask,
         ty.clone(),
       );
+      ray_gen_task_idx = task_id;
       assert!((ray_gen_task_range_start..ray_gen_task_range_end).contains(&(task_id as usize)));
     }
 
@@ -158,6 +162,7 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
     let executor = graph.build(1, 1, cx);
 
     GPUWaveFrontComputeRaytracingExecutor {
+      ray_gen_task_idx,
       graph: executor,
       target_sbt_buffer,
       tracer_read_back_bumper: payload_read_back_bumper,
