@@ -147,25 +147,26 @@ impl Attachment {
   }
 }
 
-// todo, consider remove this
 pub struct AttachmentView<T> {
   resource: T,
   pub(super) view: RenderTargetView,
 }
 
 impl<T> AttachmentView<T> {
-  pub fn from_any_view(view: impl Into<RenderTargetView>) -> Self
-  where
-    T: Default,
-  {
+  pub fn resource(&self) -> &T {
+    &self.resource
+  }
+}
+
+impl AttachmentView<()> {
+  // create the attachment view from any view without ref any resource(T).
+  // this is useful to bypass entire static check in attachment ownership and borrow model
+  // if user what use external resource directly
+  pub fn from_any_view(view: impl Into<RenderTargetView>) -> Self {
     Self {
       resource: Default::default(),
       view: view.into(),
     }
-  }
-
-  pub fn resource(&self) -> &T {
-    &self.resource
   }
 }
 

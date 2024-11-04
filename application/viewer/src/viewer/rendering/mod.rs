@@ -110,7 +110,7 @@ impl Viewer3dRenderingCtx {
         .with_color(target, load())
         .render_ctx(&mut ctx)
         .by(&mut rendiation_texture_gpu_process::copy_frame(
-          AttachmentView::<()>::from_any_view(render_target.clone()),
+          AttachmentView::from_any_view(render_target.clone()),
           None,
         ));
     }
