@@ -37,7 +37,7 @@ impl ViewerPipeline {
   pub fn render(
     &mut self,
     ctx: &mut FrameCtx,
-    renderer: &dyn SceneRenderer,
+    renderer: &dyn SceneRenderer<ContentKey = SceneContentKey>,
     lighting: &dyn RenderComponent,
     content: &Viewer3dSceneCtx,
     final_target: &RenderTargetView,
@@ -114,8 +114,10 @@ impl ViewerPipeline {
         // these pass will get correct gpu camera?
         let (color_ops, depth_ops) = renderer.init_clear(content.scene);
         // todo light dispatcher
-        let mut main_scene_content =
-          renderer.make_pass_content(content.scene, content.main_camera, lighting, ctx);
+        let key = SceneContentKey {
+          camera: content.main_camera,
+        };
+        let mut main_scene_content = renderer.make_pass_content(content.scene, key, lighting, ctx);
 
         pass("scene")
           .with_color(scene_result.write(), color_ops)
@@ -155,14 +157,14 @@ impl ViewerPipeline {
 
 pub struct HighLightDrawMaskTask<'a, T> {
   objects: Option<T>,
-  renderer: &'a dyn SceneRenderer,
+  renderer: &'a dyn SceneRenderer<ContentKey = SceneContentKey>,
   camera: EntityHandle<SceneCameraEntity>,
 }
 
 pub fn highlight<T>(
   objects: T,
   camera: EntityHandle<SceneCameraEntity>,
-  renderer: &dyn SceneRenderer,
+  renderer: &dyn SceneRenderer<ContentKey = SceneContentKey>,
 ) -> HighLightDrawMaskTask<T> {
   HighLightDrawMaskTask {
     objects: Some(objects),
@@ -189,7 +191,7 @@ where
 }
 
 struct SceneCameraTAAContent<'a, F> {
-  renderer: &'a dyn SceneRenderer,
+  renderer: &'a dyn SceneRenderer<ContentKey = SceneContentKey>,
   camera: EntityHandle<SceneCameraEntity>,
   queue: &'a GPUQueue,
   f: F,
