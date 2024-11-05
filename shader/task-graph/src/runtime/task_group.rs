@@ -238,28 +238,6 @@ impl TaskGroupExecutor {
         .drain_self_into_the_other(&imp.empty_index_pool, pass, device);
     });
   }
-
-  pub fn reset_task_instance(&mut self, ctx: &mut DeviceParallelComputeCtx, dispatch_size: usize) {
-    self.internal.task.reset(ctx, dispatch_size as u32);
-  }
-
-  pub fn resize(
-    &mut self,
-    size: usize,
-    max_recursion_depth: usize,
-    cx: &mut DeviceParallelComputeCtx,
-  ) {
-    let required_size = size * max_recursion_depth;
-    if self.resource.size != required_size {
-      self.resource = TaskGroupExecutorResource::create_with_size(
-        required_size,
-        self.state_desc.clone(),
-        self.internal.payload_ty.clone(),
-        cx,
-        max_recursion_depth,
-      );
-    }
-  }
 }
 
 #[derive(Clone)]
@@ -277,16 +255,15 @@ impl TaskGroupExecutorResource {
     state_desc: DynamicTypeMetaInfo,
     payload_ty: ShaderSizedValueType,
     cx: &mut DeviceParallelComputeCtx,
-    max_recursion_depth: usize,
   ) -> Self {
     let device = &cx.gpu.device;
-    let max_retained_size = size * max_recursion_depth;
+    // to support self spawning, some buffer's size is doubled for max extra allocation space
     let res = Self {
-      active_task_idx: DeviceBumpAllocationInstance::new(max_retained_size * 2, device),
-      new_removed_task_idx: DeviceBumpAllocationInstance::new(max_retained_size, device),
-      empty_index_pool: DeviceBumpAllocationInstance::new(max_retained_size * 2, device),
-      task_pool: TaskPool::create_with_size(max_retained_size * 2, state_desc, payload_ty, device),
-      size: max_retained_size,
+      active_task_idx: DeviceBumpAllocationInstance::new(size * 2, device),
+      new_removed_task_idx: DeviceBumpAllocationInstance::new(size, device),
+      empty_index_pool: DeviceBumpAllocationInstance::new(size * 2, device),
+      task_pool: TaskPool::create_with_size(size * 2, state_desc, payload_ty, device),
+      size,
     };
 
     cx.record_pass(|pass, device| {
@@ -316,7 +293,7 @@ impl TaskGroupExecutorResource {
         .setup_compute_pass(pass, device, &pipeline);
 
       pass.dispatch_workgroups(
-        compute_dispatch_size((max_retained_size * 2) as u32, workgroup_size),
+        compute_dispatch_size((size * 2) as u32, workgroup_size),
         1,
         1,
       );

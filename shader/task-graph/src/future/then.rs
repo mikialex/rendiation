@@ -46,11 +46,6 @@ where
     self.upstream.bind_input(builder);
     self.then.bind_input(builder);
   }
-
-  fn reset(&mut self, ctx: &mut DeviceParallelComputeCtx, work_size: u32) {
-    self.upstream.reset(ctx, work_size);
-    self.then.reset(ctx, work_size)
-  }
 }
 
 pub struct ShaderFutureThenInstance<U: ShaderFutureInvocation, F, T>

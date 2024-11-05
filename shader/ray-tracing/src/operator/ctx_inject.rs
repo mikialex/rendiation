@@ -83,11 +83,6 @@ where
     self.upstream.bind_input(builder);
     self.ctx.bind(builder.binder);
   }
-
-  fn reset(&mut self, ctx: &mut DeviceParallelComputeCtx, work_size: u32) {
-    self.upstream.reset(ctx, work_size);
-    // todo, resize self sized managed resource?
-  }
 }
 
 struct InjectCtxShaderFutureInvocation<T, C> {
