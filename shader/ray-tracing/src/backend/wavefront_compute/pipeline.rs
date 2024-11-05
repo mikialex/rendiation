@@ -159,7 +159,7 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
       assert!((missing_task_start..missing_task_end).contains(&(task_id as usize)));
     }
 
-    let executor = graph.build(1, 1, cx);
+    let executor = graph.build(init_size, 5, cx);
 
     GPUWaveFrontComputeRaytracingExecutor {
       ray_gen_task_idx,

@@ -18,6 +18,7 @@ mod types;
 use core::fmt::Debug;
 use core::num::NonZeroUsize;
 use core::{marker::PhantomData, num::NonZeroU64};
+use std::sync::atomic::AtomicBool;
 use std::{
   any::*,
   borrow::Cow,
@@ -69,6 +70,7 @@ pub struct GPU {
   pub info: GPUInfo,
   pub device: GPUDevice,
   pub queue: GPUQueue,
+  dropped: Arc<AtomicBool>,
 }
 
 pub struct GPUCreateConfig<'a> {
@@ -199,12 +201,28 @@ impl GPU {
       )
     });
 
+    let _instance = Arc::new(_instance);
+    let _instance_clone = _instance.clone();
+
+    let dropped = Arc::new(AtomicBool::new(false));
+    let dropped_clone = dropped.clone();
+    // wasm can not spawn thread, add the gpu will be automatically polled by runtime(browser)
+    #[cfg(not(target_family = "wasm"))]
+    std::thread::spawn(move || loop {
+      if dropped_clone.load(Ordering::Relaxed) {
+        break;
+      }
+      std::thread::sleep(std::time::Duration::from_millis(200));
+      _instance_clone.poll_all(false);
+    });
+
     let gpu = Self {
-      _instance: Arc::new(_instance),
+      _instance,
       _adaptor: Arc::new(_adaptor),
       info,
       device,
       queue,
+      dropped,
     };
 
     Ok((gpu, surface))
@@ -244,6 +262,12 @@ impl GPU {
 
   pub fn submit_encoder(&self, encoder: GPUCommandEncoder) {
     self.queue.submit_encoder(encoder);
+  }
+}
+
+impl Drop for GPU {
+  fn drop(&mut self) {
+    self.dropped.store(true, Ordering::Relaxed);
   }
 }
 
