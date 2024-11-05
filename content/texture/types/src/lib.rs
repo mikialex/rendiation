@@ -63,6 +63,11 @@ impl Size {
     (usize::from(self.width), usize::from(self.height))
   }
 
+  pub fn into_u32(&self) -> (u32, u32) {
+    let (w, h) = self.into_usize();
+    (w as u32, h as u32)
+  }
+
   pub fn into_f32(&self) -> (f32, f32) {
     let (width, height) = self.into_usize();
     (width as f32, height as f32)

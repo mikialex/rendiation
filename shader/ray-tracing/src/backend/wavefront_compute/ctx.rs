@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 use crate::*;
 
 #[repr(C)]
@@ -73,31 +75,40 @@ pub struct RayMissHitCtxPayload {
 pub struct WaveFrontTracingBaseProvider;
 
 impl TraceFutureBaseProvider for WaveFrontTracingBaseProvider {
-  fn create_ray_gen_shader_base() -> impl TraceOperator<()> {
-    TracingCtxProviderTracer {
+  fn create_ray_gen_shader_base(&self) -> Box<dyn TraceOperator<()>> {
+    Box::new(TracingCtxProviderTracer {
       stage: RayTraceableShaderStage::RayGeneration,
       payload_ty: None,
-    }
+    })
   }
 
-  fn create_closest_hit_shader_base<P: ShaderSizedValueNodeType>() -> impl TraceOperator<()> {
-    TracingCtxProviderTracer {
+  fn create_closest_hit_shader_base(&self, ty: ShaderSizedValueType) -> Box<dyn TraceOperator<()>> {
+    Box::new(TracingCtxProviderTracer {
       stage: RayTraceableShaderStage::ClosestHit,
-      payload_ty: Some(P::sized_ty()),
-    }
+      payload_ty: Some(ty),
+    })
   }
 
-  fn create_miss_hit_shader_base<P: ShaderSizedValueNodeType>() -> impl TraceOperator<()> {
-    TracingCtxProviderTracer {
+  fn create_miss_hit_shader_base(&self, ty: ShaderSizedValueType) -> Box<dyn TraceOperator<()>> {
+    Box::new(TracingCtxProviderTracer {
       stage: RayTraceableShaderStage::Miss,
-      payload_ty: Some(P::sized_ty()),
-    }
+      payload_ty: Some(ty),
+    })
   }
 }
 
+#[derive(Clone)]
 struct TracingCtxProviderTracer {
   stage: RayTraceableShaderStage,
   payload_ty: Option<ShaderSizedValueType>,
+}
+
+impl ShaderHashProvider for TracingCtxProviderTracer {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.stage.hash(hasher);
+    self.payload_ty.hash(hasher);
+  }
+  shader_hash_type_id! {}
 }
 
 impl ShaderFutureProvider<()> for TracingCtxProviderTracer {

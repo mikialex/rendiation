@@ -26,8 +26,8 @@ where
   fn bind(&self, _: &mut BindingBuilder) {}
 }
 
-pub trait TraceOperatorExt<T>: TraceOperator<T> + Sized {
-  fn inject_ctx<X>(self, ctx: X) -> impl TraceOperator<T>
+pub trait TraceOperatorExt<T>: TraceOperator<T> + Sized + Clone {
+  fn inject_ctx<X>(self, ctx: X) -> InjectCtx<Self, X>
   where
     X: RayTracingCustomCtxProvider,
     T: 'static,
@@ -38,7 +38,7 @@ pub trait TraceOperatorExt<T>: TraceOperator<T> + Sized {
     }
   }
 
-  fn map<F, T2>(self, map: F) -> impl TraceOperator<T2>
+  fn map<F, T2>(self, map: F) -> TraceOutputMap<F, Self, T>
   where
     F: FnOnce(T, &mut TracingCtx) -> T2 + 'static + Copy,
     T2: Default + ShaderAbstractRightValue,
@@ -63,12 +63,34 @@ pub trait TraceOperatorExt<T>: TraceOperator<T> + Sized {
     }
   }
 }
-impl<T, X: TraceOperator<T>> TraceOperatorExt<T> for X {}
+impl<T, X: TraceOperator<T> + Clone> TraceOperatorExt<T> for X {}
 
 pub struct TraceOutputMap<F, T, O> {
   upstream_o: PhantomData<O>,
   upstream: T,
   map: F,
+}
+
+impl<F: Clone, T: Clone, O> Clone for TraceOutputMap<F, T, O> {
+  fn clone(&self) -> Self {
+    Self {
+      upstream_o: self.upstream_o,
+      upstream: self.upstream.clone(),
+      map: self.map.clone(),
+    }
+  }
+}
+
+impl<F, T, O> ShaderHashProvider for TraceOutputMap<F, T, O>
+where
+  F: 'static,
+  T: ShaderHashProvider + 'static,
+  O: 'static,
+{
+  shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.upstream.hash_pipeline(hasher);
+  }
 }
 
 impl<O, O2, F, T> ShaderFutureProvider<O2> for TraceOutputMap<F, T, O>
@@ -106,9 +128,17 @@ where
   }
 }
 
+#[derive(Clone)]
 pub struct TraceNextRay<F, T> {
   pub upstream: T,
   pub next_trace_logic: F,
+}
+
+impl<F: 'static, T: ShaderHashProvider + 'static> ShaderHashProvider for TraceNextRay<F, T> {
+  shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.upstream.hash_pipeline(hasher);
+  }
 }
 
 impl<F, T, O, P> NativeRayTracingShaderBuilder<(O, Node<P>)> for TraceNextRay<F, T>

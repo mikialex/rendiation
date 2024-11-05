@@ -158,6 +158,18 @@ impl<T> AttachmentView<T> {
   }
 }
 
+impl AttachmentView<()> {
+  // create the attachment view from any view without ref any resource(T).
+  // this is useful to bypass entire static check in attachment ownership and borrow model
+  // if user what use external resource directly
+  pub fn from_any_view(view: impl Into<RenderTargetView>) -> Self {
+    Self {
+      resource: Default::default(),
+      view: view.into(),
+    }
+  }
+}
+
 impl<T> CacheAbleBindingSource for AttachmentView<T> {
   fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
     self.view.get_binding_build_source()

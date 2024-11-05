@@ -1,7 +1,8 @@
 #![feature(stmt_expr_attributes)]
 
+use std::hash::Hash;
+
 use database::*;
-// use fast_hash_collection::*;
 use reactive::*;
 use rendiation_lighting_gpu_system::*;
 use rendiation_lighting_punctual::*;

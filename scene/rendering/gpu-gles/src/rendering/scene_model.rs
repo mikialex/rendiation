@@ -47,9 +47,11 @@ impl SceneModelRenderer for GLESPreferredComOrderRenderer {
     let material = self.model_impl.material_renderable(idx, tex)?;
 
     let pass = Box::new(pass) as Box<dyn RenderComponent>;
+    let tex = Box::new(GPUTextureSystemAsRenderComponent(tex)) as Box<dyn RenderComponent>;
 
-    let contents: [BindingController<Box<dyn RenderComponent>>; 5] = [
+    let contents: [BindingController<Box<dyn RenderComponent>>; 6] = [
       pass.into_assign_binding_index(0),
+      tex.into_assign_binding_index(0),
       shape.into_assign_binding_index(2),
       node.into_assign_binding_index(2),
       camera.into_assign_binding_index(1),

@@ -6,19 +6,45 @@ pub struct GPUWaveFrontComputeRaytracingBakedPipeline {
 }
 
 pub struct GPUWaveFrontComputeRaytracingBakedPipelineInner {
+  pub(crate) desc: GPURaytracingPipelineDescriptor,
+  pub(crate) executor: Option<(u64, GPUWaveFrontComputeRaytracingExecutor)>,
+}
+
+pub struct GPUWaveFrontComputeRaytracingExecutor {
   pub(crate) graph: DeviceTaskGraphExecutor,
+  pub(crate) ray_gen_task_idx: u32,
   pub(crate) tracer_read_back_bumper: Arc<RwLock<DeviceBumpAllocationInstance<u32>>>,
   pub(crate) target_sbt_buffer: StorageBufferReadOnlyDataView<u32>,
 }
 
 impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
-  pub fn compile(
+  pub fn get_or_compile_executor(
+    &mut self,
     cx: &mut DeviceParallelComputeCtx,
     tlas_sys: Box<dyn GPUAccelerationStructureSystemCompImplInstance>,
     sbt_sys: ShaderBindingTableDeviceInfo,
-    desc: &GPURaytracingPipelineDescriptor,
     init_size: usize,
-  ) -> Self {
+  ) -> &mut GPUWaveFrontComputeRaytracingExecutor {
+    let current_hash = self.desc.compute_hash();
+    if let Some((hash, _)) = &mut self.executor {
+      if current_hash != *hash {
+        self.executor = None;
+      }
+    }
+    let (_, exe) = self.executor.get_or_insert_with(|| {
+      let exe = Self::compile_executor(&self.desc, cx, tlas_sys, sbt_sys, init_size);
+      (current_hash, exe)
+    });
+    exe
+  }
+
+  fn compile_executor(
+    desc: &GPURaytracingPipelineDescriptor,
+    cx: &mut DeviceParallelComputeCtx,
+    tlas_sys: Box<dyn GPUAccelerationStructureSystemCompImplInstance>,
+    sbt_sys: ShaderBindingTableDeviceInfo,
+    init_size: usize,
+  ) -> GPUWaveFrontComputeRaytracingExecutor {
     let mut graph = DeviceTaskGraphBuildSource::default();
 
     let mut payload_max_u32_count = 0;
@@ -96,11 +122,14 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
     );
     assert_eq!(trace_task_id, 0);
 
+    assert_eq!(desc.ray_gen_shaders.len(), 1);
+    let mut ray_gen_task_idx = 0;
     for (stage, ty) in &desc.ray_gen_shaders {
       let task_id = graph.define_task_dyn(
         Box::new(OpaqueTaskWrapper(stage.build_device_future(&mut ctx))) as OpaqueTask,
         ty.clone(),
       );
+      ray_gen_task_idx = task_id;
       assert!((ray_gen_task_range_start..ray_gen_task_range_end).contains(&(task_id as usize)));
     }
 
@@ -132,7 +161,8 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
 
     let executor = graph.build(1, 1, cx);
 
-    GPUWaveFrontComputeRaytracingBakedPipelineInner {
+    GPUWaveFrontComputeRaytracingExecutor {
+      ray_gen_task_idx,
       graph: executor,
       target_sbt_buffer,
       tracer_read_back_bumper: payload_read_back_bumper,

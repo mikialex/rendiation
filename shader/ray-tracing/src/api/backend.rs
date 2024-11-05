@@ -1,18 +1,47 @@
 use crate::*;
 
 pub trait GPURaytracingSystem {
+  fn create_tracer_base_builder(&self) -> TraceFutureBaseBuilder;
   fn create_raytracing_device(&self) -> Box<dyn GPURayTracingDeviceProvider>;
   fn create_raytracing_encoder(&self) -> Box<dyn RayTracingPassEncoderProvider>;
   fn create_acceleration_structure_system(&self)
     -> Box<dyn GPUAccelerationStructureSystemProvider>;
 }
 
+pub struct TraceFutureBaseBuilder {
+  pub inner: Arc<dyn TraceFutureBaseProvider>,
+}
+
+impl TraceFutureBaseBuilder {
+  pub fn create_ray_gen_shader_base(&self) -> Box<dyn TraceOperator<()>> {
+    self.inner.create_ray_gen_shader_base()
+  }
+
+  pub fn create_closest_hit_shader_base<P: ShaderSizedValueNodeType>(
+    &self,
+  ) -> Box<dyn TraceOperator<()>> {
+    self.inner.create_closest_hit_shader_base(P::sized_ty())
+  }
+
+  pub fn create_miss_hit_shader_base<P: ShaderSizedValueNodeType>(
+    &self,
+  ) -> Box<dyn TraceOperator<()>> {
+    self.inner.create_miss_hit_shader_base(P::sized_ty())
+  }
+}
+
 pub trait TraceFutureBaseProvider {
-  fn create_ray_gen_shader_base() -> impl TraceOperator<()>;
+  fn create_ray_gen_shader_base(&self) -> Box<dyn TraceOperator<()>>;
 
-  fn create_closest_hit_shader_base<P: ShaderSizedValueNodeType>() -> impl TraceOperator<()>;
+  fn create_closest_hit_shader_base(
+    &self,
+    payload_ty: ShaderSizedValueType,
+  ) -> Box<dyn TraceOperator<()>>;
 
-  fn create_miss_hit_shader_base<P: ShaderSizedValueNodeType>() -> impl TraceOperator<()>;
+  fn create_miss_hit_shader_base(
+    &self,
+    payload_ty: ShaderSizedValueType,
+  ) -> Box<dyn TraceOperator<()>>;
 }
 
 pub trait RayTracingPassEncoderProvider {
@@ -27,7 +56,7 @@ pub trait GPURaytracingPipelineProvider {
 pub trait GPURayTracingDeviceProvider {
   fn create_raytracing_pipeline(
     &self,
-    desc: &GPURaytracingPipelineDescriptor,
+    desc: GPURaytracingPipelineDescriptor,
   ) -> Box<dyn GPURaytracingPipelineProvider>;
   fn create_sbt(&self, mesh_count: u32, ray_type_count: u32)
     -> Box<dyn ShaderBindingTableProvider>;
@@ -63,12 +92,9 @@ pub trait GPUAccelerationStructureSystemProvider: DynClone {
   fn create_top_level_acceleration_structure(
     &self,
     source: &[TopLevelAccelerationStructureSourceInstance],
-  ) -> Box<dyn GPUAccelerationStructureInstanceProvider>;
+  ) -> TlasInstance;
 
-  fn delete_top_level_acceleration_structure(
-    &self,
-    id: Box<dyn GPUAccelerationStructureInstanceProvider>,
-  );
+  fn delete_top_level_acceleration_structure(&self, id: TlasInstance);
 
   fn create_bottom_level_acceleration_structure(
     &self,
@@ -83,6 +109,32 @@ impl Clone for Box<dyn GPUAccelerationStructureSystemProvider> {
   }
 }
 
+#[derive(Clone)]
+pub struct TlasInstance(pub(crate) Box<dyn GPUAccelerationStructureInstanceProvider>);
+
+impl TlasInstance {
+  pub fn create_invocation_instance(
+    &self,
+    builder: &mut ShaderBindGroupBuilder,
+  ) -> Box<dyn GPUAccelerationStructureInvocationInstance> {
+    self.0.create_invocation_instance(builder)
+  }
+  pub fn bind_pass(&self, builder: &mut BindingBuilder) {
+    self.0.bind_pass(builder);
+  }
+}
+impl std::fmt::Debug for TlasInstance {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_tuple("TlasInstance").field(&self.0.id()).finish()
+  }
+}
+impl PartialEq for TlasInstance {
+  fn eq(&self, other: &Self) -> bool {
+    self.0.id() == other.0.id()
+  }
+}
+
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct BottomLevelAccelerationStructureHandle(pub u32);
 
 /// https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ns-d3d12-d3d12_raytracing_instance_desc
@@ -96,9 +148,21 @@ pub struct TopLevelAccelerationStructureSourceInstance {
   pub acceleration_structure_handle: u64,
 }
 
-pub trait GPUAccelerationStructureInstanceProvider {
-  fn access_impl(&self) -> &dyn Any;
+pub trait GPUAccelerationStructureInvocationInstance: DynClone {
+  fn id(&self) -> Node<u32>;
 }
+clone_trait_object!(GPUAccelerationStructureInvocationInstance);
+
+pub trait GPUAccelerationStructureInstanceProvider: DynClone + Send + Sync {
+  fn create_invocation_instance(
+    &self,
+    builder: &mut ShaderBindGroupBuilder,
+  ) -> Box<dyn GPUAccelerationStructureInvocationInstance>;
+  fn bind_pass(&self, builder: &mut BindingBuilder);
+  fn access_impl(&self) -> &dyn Any;
+  fn id(&self) -> u32;
+}
+clone_trait_object!(GPUAccelerationStructureInstanceProvider);
 
 pub trait IntersectionReporter {
   /// Invokes the current hit shader once an intersection shader has determined

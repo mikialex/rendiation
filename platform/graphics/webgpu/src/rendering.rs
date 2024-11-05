@@ -170,6 +170,53 @@ impl<const N: usize, T: RenderComponent> GraphicsShaderProvider for RenderArray<
   }
 }
 
+#[derive(Default)]
+pub struct RenderVec<'a>(Vec<Box<dyn RenderComponent + 'a>>);
+
+impl<'a> RenderVec<'a> {
+  pub fn with(mut self, c: impl RenderComponent + 'a) -> Self {
+    self.0.push(Box::new(c));
+    self
+  }
+
+  pub fn push(&mut self, c: impl RenderComponent + 'a) -> &mut Self {
+    self.0.push(Box::new(c));
+    self
+  }
+
+  pub fn as_slice(&self) -> impl RenderComponent + '_ {
+    RenderSlice(self.0.as_slice())
+  }
+}
+
+impl<'a> ShaderPassBuilder for RenderVec<'a> {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.as_slice().setup_pass(ctx)
+  }
+  fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.as_slice().post_setup_pass(ctx)
+  }
+}
+
+impl<'a> ShaderHashProvider for RenderVec<'a> {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.as_slice().hash_pipeline(hasher)
+  }
+  fn hash_type_info(&self, hasher: &mut PipelineHasher) {
+    self.as_slice().hash_type_info(hasher)
+  }
+}
+
+impl<'a> GraphicsShaderProvider for RenderVec<'a> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+    self.as_slice().build(builder)
+  }
+
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+    self.as_slice().post_build(builder)
+  }
+}
+
 pub struct BindingController<T> {
   inner: T,
   target: usize,

@@ -49,7 +49,7 @@ pub(super) fn bind_and_sample_enabled(
   let device_pair = (device_pair.texture_handle, device_pair.sampler_handle);
   let r = binding.sample_texture2d_with_shader_bind(builder, reg, host_pair, device_pair, uv);
 
-  (r, device_pair.0.equals(val(0)))
+  (r, device_pair.0.not_equals(val(u32::MAX)))
 }
 
 pub fn add_tex_watcher<T, TexUniform>(
@@ -66,12 +66,12 @@ where
 
   let tex = global_watch()
     .watch::<SceneTexture2dRefOf<T>>()
-    .collective_map(|id| id.map(|v| v.index()).unwrap_or(0))
+    .collective_map(|id| id.map(|v| v.index()).unwrap_or(u32::MAX))
     .into_query_update_uniform(offset + tex_offset, cx);
 
   let sampler = global_watch()
     .watch::<SceneSamplerRefOf<T>>()
-    .collective_map(|id| id.map(|v| v.index()).unwrap_or(0))
+    .collective_map(|id| id.map(|v| v.index()).unwrap_or(u32::MAX))
     .into_query_update_uniform(offset + sam_offset, cx);
 
   uniform.with_source(tex).with_source(sampler)
