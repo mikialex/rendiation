@@ -63,14 +63,6 @@ impl ShaderFuture for TraceTaskImpl {
     self.payload_read_back_bumper.read().bind_allocator(builder);
     builder.bind(&self.current_sbt);
   }
-
-  fn reset(&mut self, ctx: &mut DeviceParallelComputeCtx, work_size: u32) {
-    *self.payload_bumper.write() = DeviceBumpAllocationInstance::new(
-      (work_size * self.info.payload_max_u32_count) as usize,
-      &ctx.gpu.device,
-    );
-    self.ray_info_bumper = DeviceBumpAllocationInstance::new(work_size as usize, &ctx.gpu.device);
-  }
 }
 
 pub struct GPURayTraceTaskInvocationInstance {

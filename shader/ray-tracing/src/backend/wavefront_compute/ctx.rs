@@ -161,10 +161,6 @@ impl ShaderFuture for TracingCtxProviderFuture {
   fn bind_input(&self, builder: &mut DeviceTaskSystemBindCtx) {
     self.ray_spawner.bind(builder)
   }
-
-  fn reset(&mut self, _: &mut DeviceParallelComputeCtx, _: u32) {
-    // ray_spawner should be reset by trace task, but not ours
-  }
 }
 
 pub struct TracingCtxProviderFutureInvocation {

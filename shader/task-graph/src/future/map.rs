@@ -28,10 +28,6 @@ where
   fn bind_input(&self, builder: &mut DeviceTaskSystemBindCtx) {
     self.upstream.bind_input(builder)
   }
-
-  fn reset(&mut self, ctx: &mut DeviceParallelComputeCtx, work_size: u32) {
-    self.upstream.reset(ctx, work_size)
-  }
 }
 
 pub struct ShaderFutureMapState<T, F> {

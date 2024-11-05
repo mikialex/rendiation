@@ -134,7 +134,6 @@ impl RayTracingPassEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
 
     {
       let executor = &mut current_pipeline.graph;
-      executor.resize_execution_size(&mut cx, required_size);
 
       executor.dispatch_allocate_init_task(
         &mut cx,

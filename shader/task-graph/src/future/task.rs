@@ -34,7 +34,6 @@ where
   fn bind_input(&self, _: &mut DeviceTaskSystemBindCtx) {
     // all task binding is handled up front
   }
-  fn reset(&mut self, _: &mut DeviceParallelComputeCtx, _: u32) {}
 }
 
 pub struct TaskFutureInvocation<T> {

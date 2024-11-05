@@ -7,7 +7,7 @@ pub struct GPUWaveFrontComputeRaytracingBakedPipeline {
 
 pub struct GPUWaveFrontComputeRaytracingBakedPipelineInner {
   pub(crate) desc: GPURaytracingPipelineDescriptor,
-  pub(crate) executor: Option<(u64, GPUWaveFrontComputeRaytracingExecutor)>,
+  pub(crate) executor: Option<(u64, usize, GPUWaveFrontComputeRaytracingExecutor)>,
 }
 
 pub struct GPUWaveFrontComputeRaytracingExecutor {
@@ -23,17 +23,17 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
     cx: &mut DeviceParallelComputeCtx,
     tlas_sys: Box<dyn GPUAccelerationStructureSystemCompImplInstance>,
     sbt_sys: ShaderBindingTableDeviceInfo,
-    init_size: usize,
+    required_size: usize,
   ) -> &mut GPUWaveFrontComputeRaytracingExecutor {
     let current_hash = self.desc.compute_hash();
-    if let Some((hash, _)) = &mut self.executor {
-      if current_hash != *hash {
+    if let Some((hash, size, _)) = &mut self.executor {
+      if current_hash != *hash || *size < required_size {
         self.executor = None;
       }
     }
-    let (_, exe) = self.executor.get_or_insert_with(|| {
-      let exe = Self::compile_executor(&self.desc, cx, tlas_sys, sbt_sys, init_size);
-      (current_hash, exe)
+    let (_, _, exe) = self.executor.get_or_insert_with(|| {
+      let exe = Self::compile_executor(&self.desc, cx, tlas_sys, sbt_sys, required_size);
+      (current_hash, required_size, exe)
     });
     exe
   }
