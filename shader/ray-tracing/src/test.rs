@@ -39,7 +39,7 @@ async fn test_wavefront_compute() {
       // (&T, &mut TracingCtx) -> (Node<bool>, ShaderRayTraceCall, Node<P>)
       |_, ctx| {
         let tex_io = ctx.registry.get_mut::<FrameOutputInvocation>().unwrap();
-        tex_io.write_output::<RayTracingDebugOutput>(val(vec2(1, 0)), val(vec4(1., 1., 1., 1.)));
+        tex_io.write_output::<RayTracingDebugOutput>(val(vec2(1, 0)), val(vec4(0., 0., 1., 1.)));
 
         let trace_call = ShaderRayTraceCall {
           tlas_idx: val(0), // todo
@@ -59,7 +59,6 @@ async fn test_wavefront_compute() {
             min: val(0.1),
             max: val(100.),
           },
-          payload: val(0),
         };
 
         let ray_payload = ENode::<RayCustomPayload> { color: val(0) }.construct();
@@ -69,7 +68,7 @@ async fn test_wavefront_compute() {
     )
     .map(|(_, _payload), ctx| {
       let tex_io = ctx.registry.get_mut::<FrameOutputInvocation>().unwrap();
-      tex_io.write_output::<RayTracingDebugOutput>(val(vec2(0, 1)), val(vec4(1., 1., 1., 1.)));
+      tex_io.write_output::<RayTracingDebugOutput>(val(vec2(0, 1)), val(vec4(1., 0., 0., 1.)));
     });
 
   #[derive(Copy, Clone, Debug, Default, ShaderStruct)]
@@ -127,13 +126,18 @@ async fn test_wavefront_compute() {
   };
 
   let buffer = buffer.read_raw();
-  let mut write_buffer = format!("P6\n{} {}\n255\n", canvas_size, canvas_size).into_bytes();
-  buffer.chunks_exact(4).for_each(|chunk| {
-    let (r, g, b, _a) = (chunk[0], chunk[1], chunk[2], chunk[3]);
-    if r > 0 || g > 0 || b > 0 {
-      println!("!!");
-    }
-    write_buffer.extend_from_slice(&[r, g, b]);
-  });
+  let mut write_buffer = format!("P3\n{} {}\n255\n", canvas_size, canvas_size);
+  buffer
+    .chunks_exact(canvas_size as usize * 4)
+    .for_each(|line| {
+      line.chunks_exact(4).for_each(|pixel| {
+        let (r, g, b, _a) = (pixel[0], pixel[1], pixel[2], pixel[3]);
+        if r > 0 || g > 0 || b > 0 {
+          println!("!");
+        }
+        write_buffer.push_str(&format!("{r} {g} {b} "));
+      });
+      write_buffer.push('\n');
+    });
   std::fs::write("trace.pbm", write_buffer).unwrap();
 }

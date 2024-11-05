@@ -60,8 +60,6 @@ pub struct ShaderRayTraceCall {
 
   pub ray: ShaderRay,
   pub range: ShaderRayRange,
-
-  pub payload: Node<i32>,
 }
 
 #[derive(Clone, Copy)]
