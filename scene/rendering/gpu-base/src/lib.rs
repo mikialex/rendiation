@@ -98,7 +98,7 @@ pub trait SceneRenderer: SceneModelRenderer {
   /// if the implementation can provide better performance
   ///
   /// if reorderable is true, the order of model may not be preserved
-  fn render_batch_models(
+  fn render_models(
     &self,
     models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
     reorderable: bool,
@@ -106,9 +106,12 @@ pub trait SceneRenderer: SceneModelRenderer {
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
-  );
+  ) {
+    let camera = self.get_camera_gpu().make_component(camera).unwrap();
+    self.render_models_impl(models, reorderable, &camera, pass, cx, tex);
+  }
 
-  fn render_reorderable_batch_models(
+  fn render_reorderable_models(
     &self,
     models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
     camera: EntityHandle<SceneCameraEntity>,
@@ -116,7 +119,7 @@ pub trait SceneRenderer: SceneModelRenderer {
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
   ) {
-    self.render_batch_models(models, true, camera, pass, cx, tex);
+    self.render_models(models, true, camera, pass, cx, tex);
   }
 
   /// expose the underlayer camera system impl to enable user access the
@@ -165,9 +168,10 @@ pub trait SceneModelRenderer {
   ) -> Option<()>;
 
   /// maybe implementation could provide better performance for example host side multi draw
-  fn render_batch_models_impl(
+  fn render_models_impl(
     &self,
     models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
+    _reorderable: bool,
     camera: &dyn RenderComponent,
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,

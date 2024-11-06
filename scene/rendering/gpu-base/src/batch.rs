@@ -20,7 +20,7 @@ dyn_clone::clone_trait_object!(HostRenderBatch);
 
 #[derive(Clone)]
 pub struct DeviceSceneModelRenderBatch {
-  pub scene_models: Box<dyn DeviceParallelComputeIO<u32>>,
+  pub scene_models: Vec<Box<dyn DeviceParallelComputeIO<u32>>>,
   pub impl_select_id: EntityHandle<SceneModelEntity>,
 }
 
@@ -32,6 +32,7 @@ impl SceneModelRenderBatch {
   pub fn get_device_batch(
     &self,
     force_convert: Option<&GPU>,
+    // todo use indirect grouper for safeness
   ) -> Option<DeviceSceneModelRenderBatch> {
     match self {
       SceneModelRenderBatch::Device(v) => Some(v.clone()),
@@ -43,7 +44,7 @@ impl SceneModelRenderBatch {
             .collect::<Vec<_>>();
           let storage = create_gpu_readonly_storage(data.as_slice(), &gpu.device);
           Some(DeviceSceneModelRenderBatch {
-            scene_models: Box::new(storage),
+            scene_models: vec![Box::new(storage)],
             impl_select_id: v.iter_scene_models().next().unwrap(),
           })
         } else {

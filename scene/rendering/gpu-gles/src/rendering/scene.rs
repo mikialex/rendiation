@@ -135,19 +135,6 @@ impl SceneRenderer for GLESSceneRenderer {
     &self.texture_system
   }
 
-  fn render_batch_models(
-    &self,
-    models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
-    _reorderable: bool,
-    camera: EntityHandle<SceneCameraEntity>,
-    pass: &dyn RenderComponent,
-    cx: &mut GPURenderPassCtx,
-    tex: &GPUTextureBindingSystem,
-  ) {
-    let camera = self.camera.make_component(camera).unwrap();
-    self.render_batch_models_impl(models, &camera, pass, cx, tex);
-  }
-
   fn get_camera_gpu(&self) -> &dyn CameraRenderImpl {
     self.camera.as_ref()
   }
@@ -167,7 +154,7 @@ impl<'a> PassContent for GLESScenePassContent<'a> {
     let base = default_dispatcher(pass);
     let p = RenderArray([&base, self.pass] as [&dyn rendiation_webgpu::RenderComponent; 2]);
 
-    self.renderer.render_reorderable_batch_models(
+    self.renderer.render_reorderable_models(
       &mut models,
       self.camera,
       &p,
