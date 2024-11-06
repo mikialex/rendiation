@@ -10,6 +10,7 @@ pub struct TraceTaskImpl {
   pub ray_info_bumper: DeviceBumpAllocationInstance<ShaderRayTraceCallStoragePayload>,
   pub info: Arc<TraceTaskMetaInfo>,
   pub current_sbt: StorageBufferReadOnlyDataView<u32>,
+  pub sbt_task_mapping: StorageBufferReadOnlyDataView<SbtTaskMapping>,
 }
 
 pub struct TraceTaskMetaInfo {
@@ -52,6 +53,7 @@ impl ShaderFuture for TraceTaskImpl {
         .read()
         .build_allocator_shader(ctx.compute_cx),
       current_sbt: ctx.compute_cx.bind_by(&self.current_sbt),
+      sbt_task_mapping: ctx.compute_cx.bind_by(&self.sbt_task_mapping),
       downstream: AllDownStreamTasks { tasks },
     }
   }
@@ -62,6 +64,7 @@ impl ShaderFuture for TraceTaskImpl {
     builder.bind(&self.payload_bumper.read().storage);
     self.payload_read_back_bumper.read().bind_allocator(builder);
     builder.bind(&self.current_sbt);
+    builder.bind(&self.sbt_task_mapping);
   }
 }
 
@@ -69,6 +72,7 @@ pub struct GPURayTraceTaskInvocationInstance {
   tlas_sys: Box<dyn GPUAccelerationStructureSystemCompImplInvocationTraversable>,
   sbt: ShaderBindingTableDeviceInfoInvocation,
   current_sbt: ReadOnlyStorageNode<u32>,
+  sbt_task_mapping: ReadOnlyStorageNode<SbtTaskMapping>,
   info: Arc<TraceTaskMetaInfo>,
   untyped_payloads: StorageNode<[u32]>,
   payload_read_back_bumper: DeviceBumpAllocationInvocationInstance<u32>,
@@ -93,6 +97,7 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
         .equals(TASK_NOT_SPAWNED),
       || {
         let trace_payload = trace_payload_all_expand.trace_call.expand();
+        let sbt_task_mapping = self.sbt_task_mapping.load().expand();
         let current_sbt = self.current_sbt.load();
 
         let ray_sbt_config = RaySBTConfig {
@@ -143,7 +148,7 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
           .construct();
 
           let closest_shader_index = self.sbt.get_closest_handle(current_sbt, hit_group);
-          let closest_task_index = closest_shader_index; // todo, make sure the shader index is task_index
+          let closest_task_index = sbt_task_mapping.get_closest_task(closest_shader_index);
           let sub_task_id = spawn_dynamic(
             &self.info.closest_tasks,
             &self.downstream,
@@ -169,7 +174,7 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
           let miss_sbt_index = self
             .sbt
             .get_missing_handle(current_sbt, trace_payload.miss_index);
-          let miss_task_index = miss_sbt_index; // todo, make sure the shader index is task_index
+          let miss_task_index = sbt_task_mapping.get_miss_task(miss_sbt_index);
           let sub_task_id = spawn_dynamic(
             &self.info.missing_tasks,
             &self.downstream,
