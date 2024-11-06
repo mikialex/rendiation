@@ -19,8 +19,10 @@
 //! ```
 
 use database::*;
+use dyn_clone::*;
 use reactive::*;
 use rendiation_algebra::*;
+use rendiation_device_parallel_compute::*;
 use rendiation_scene_core::*;
 use rendiation_shader_api::*;
 use rendiation_texture_core::*;
@@ -34,6 +36,8 @@ mod texture;
 pub use texture::*;
 mod background;
 pub use background::*;
+mod batch;
+pub use batch::*;
 
 pub trait RenderImplProvider<T> {
   /// this will be called once when application init
@@ -45,27 +49,41 @@ pub type GPUTextureBindingSystem = Box<dyn DynAbstractGPUTextureSystem>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SceneContentKey {
-  pub camera: EntityHandle<SceneCameraEntity>,
+  pub transparent: bool,
 }
 
 /// abstract over direct or indirect rendering
 pub trait SceneRenderer: SceneModelRenderer {
   type ContentKey = SceneContentKey;
-  /// render all content in given scene.
-  ///
-  /// The rendering content is specified by implementation.
-  /// The rendering content is refer to which models to draw, and in which order, or if draw background.
-  /// The rendering may initialize multiple render pass and any encoder operation.
-  ///
-  /// the implementation may call `render_batch_models` internally. And the `pass` ctx should be
-  /// passed to the internal call
-  fn make_pass_content<'a>(
-    &'a self,
+  /// extract batched scene model by given content semantic, the extracted batch may be used by external
+  /// system for further processing, for example culling. the simple culling logic may also be implemented here
+  fn extract_scene_batch(
+    &self,
     scene: EntityHandle<SceneEntity>,
     semantic: Self::ContentKey,
+    ctx: &mut FrameCtx,
+  ) -> SceneModelRenderBatch;
+
+  /// render batched scene model with given pass component on given pass
+  fn make_scene_batch_pass_content<'a>(
+    &'a self,
+    batch: SceneModelRenderBatch,
+    camera: EntityHandle<SceneCameraEntity>,
     pass: &'a dyn RenderComponent,
     ctx: &mut FrameCtx,
   ) -> Box<dyn PassContent + 'a>;
+
+  fn extract_and_make_pass_content<'a>(
+    &'a self,
+    semantic: Self::ContentKey,
+    scene: EntityHandle<SceneEntity>,
+    camera: EntityHandle<SceneCameraEntity>,
+    ctx: &mut FrameCtx,
+    pass: &'a dyn RenderComponent,
+  ) -> Box<dyn PassContent + 'a> {
+    let batch = self.extract_scene_batch(scene, semantic, ctx);
+    self.make_scene_batch_pass_content(batch, camera, pass, ctx)
+  }
 
   /// return if requires clear. this supposed to be true when background is drawn, or directly as a way to impl
   /// solid background.

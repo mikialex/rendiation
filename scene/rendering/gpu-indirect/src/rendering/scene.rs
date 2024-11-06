@@ -71,20 +71,29 @@ impl SceneModelRenderer for IndirectSceneRenderer {
 
 impl SceneRenderer for IndirectSceneRenderer {
   type ContentKey = SceneContentKey;
-  fn make_pass_content<'a>(
-    &'a self,
+  fn extract_scene_batch(
+    &self,
     scene: EntityHandle<SceneEntity>,
     semantic: Self::ContentKey,
-    pass: &'a dyn RenderComponent,
     _ctx: &mut FrameCtx,
-  ) -> Box<dyn PassContent + 'a> {
-    // do gpu driven culling here in future
-    Box::new(IndirectScenePassContent {
-      renderer: self,
-      scene,
-      pass,
-      camera: semantic.camera,
-    })
+  ) -> SceneModelRenderBatch {
+    todo!()
+  }
+
+  fn make_scene_batch_pass_content(
+    &self,
+    batch: SceneModelRenderBatch,
+    camera: EntityHandle<SceneCameraEntity>,
+    pass: &dyn RenderComponent,
+    _ctx: &mut FrameCtx,
+  ) -> Box<dyn PassContent> {
+    todo!()
+    // Box::new(IndirectScenePassContent {
+    //   renderer: self,
+    //   scene,
+    //   pass,
+    //   camera: semantic.camera,
+    // })
   }
 
   fn init_clear(

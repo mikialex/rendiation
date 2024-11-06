@@ -111,13 +111,15 @@ impl ViewerPipeline {
           )
         });
 
-        // these pass will get correct gpu camera?
         let (color_ops, depth_ops) = renderer.init_clear(content.scene);
-        // todo light dispatcher
-        let key = SceneContentKey {
-          camera: content.main_camera,
-        };
-        let mut main_scene_content = renderer.make_pass_content(content.scene, key, lighting, ctx);
+        let key = SceneContentKey { transparent: false };
+        let mut main_scene_content = renderer.extract_and_make_pass_content(
+          key,
+          content.scene,
+          content.main_camera,
+          ctx,
+          lighting,
+        );
 
         pass("scene")
           .with_color(scene_result.write(), color_ops)
