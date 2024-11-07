@@ -3936,6 +3936,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-scene-occlusion-culling"
+version = "0.1.0"
+dependencies = [
+ "database",
+ "dyn-downcast",
+ "fast-hash-collection",
+ "log",
+ "reactive",
+ "rendiation-algebra",
+ "rendiation-geometry",
+ "rendiation-scene-core",
+ "rendiation-scene-rendering-gpu-base",
+ "rendiation-shader-api",
+ "rendiation-shader-library",
+ "rendiation-texture-core",
+ "rendiation-webgpu",
+]
+
+[[package]]
 name = "rendiation-scene-rendering-gpu-base"
 version = "0.1.0"
 dependencies = [

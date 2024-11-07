@@ -111,6 +111,7 @@
         "multiview",
         "Nayar",
         "Noize",
+        "occluder",
         "octree",
         "oneshot",
         "OPENGL",
