@@ -90,7 +90,7 @@ impl SceneRenderer for IndirectSceneRenderer {
           .unwrap();
 
         (
-          batch.create_indirect_draw_provider(draw_command_builder.as_ref(), &mut cx),
+          batch.create_indirect_draw_provider(draw_command_builder, &mut cx),
           any_scene_model,
         )
       })
