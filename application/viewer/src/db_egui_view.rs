@@ -1,15 +1,31 @@
+use std::{any::TypeId, ops::Deref};
+
+use egui::Response;
 use egui_extras::{Column, TableBuilder};
+use egui_wgpu::wgpu::naga::FastHashMap;
 
 use crate::*;
 
 pub struct DBInspector {
+  inspector: DataDebugger,
   visit_history: Vec<Option<EntityId>>,
   current: usize,
 }
 
 impl Default for DBInspector {
   fn default() -> Self {
+    let mut inspector = DataDebugger::default();
+
+    inspector
+      .register::<Option<RawEntityHandle>>()
+      .register::<f32>()
+      .register::<Vec2<f32>>()
+      .register::<Vec3<f32>>()
+      .register::<Vec4<f32>>()
+      .register::<Mat4<f32>>();
+
     Self {
+      inspector,
       visit_history: vec![None],
       current: 0,
     }
@@ -78,7 +94,7 @@ pub fn egui_db_gui(ui: &mut egui::Context, state: &mut DBInspector) {
         if state.can_go_forward() && ui.button("Previous").clicked() {
           state.go_forward();
         }
-        if state.has_history() && ui.button("Clear history").clicked() {
+        if state.has_history() && ui.button("Clear visit history").clicked() {
           state.clear_history();
         }
       });
@@ -105,7 +121,11 @@ fn selected_table(ui: &mut egui::Ui, state: &mut DBInspector, e_id: EntityId) {
       .striped(true)
       .column(Column::auto())
       .columns(
-        Column::auto().resizable(true).at_most(500.).clip(true),
+        Column::auto()
+          .resizable(true)
+          .at_least(100.)
+          .at_most(300.)
+          .clip(true),
         ecg.component_count(),
       )
       .max_scroll_height(900.)
@@ -119,13 +139,15 @@ fn selected_table(ui: &mut egui::Ui, state: &mut DBInspector, e_id: EntityId) {
           });
           coms.values().for_each(|com| {
             header.col(|ui| {
-              ui.strong(com.name.clone());
+              let label = ui.strong(com.name.clone());
 
               if let Some(f) = com.as_foreign_key {
-                let name = db.access_ecg_dyn(f, |ecg| ecg.name().to_string());
-                if ui.link(name).clicked() {
-                  state.goto(Some(f));
-                }
+                label.highlight().on_hover_ui(|ui| {
+                  let name = db.access_ecg_dyn(f, |ecg| ecg.name().to_string());
+                  if ui.link(name).clicked() {
+                    state.goto(Some(f));
+                  }
+                });
               }
             });
           })
@@ -138,8 +160,21 @@ fn selected_table(ui: &mut egui::Ui, state: &mut DBInspector, e_id: EntityId) {
             });
             coms.values().for_each(|com| {
               row.col(|ui| {
-                if let Some(value) = com.debug_value(idx) {
-                  ui.label(value);
+                if let Some(idx_handle) = ecg.get_handle_at(idx) {
+                  let data = com
+                    .inner
+                    .create_dyn_reader()
+                    .read_component_into_boxed(idx_handle)
+                    .unwrap();
+
+                  let fallback_debug = com.inner.debug_value(idx).unwrap();
+
+                  let tid = (*data).type_id();
+                  assert_eq!(tid, com.data_typeid);
+                  let (raw_ptr, _) = (data.deref() as *const dyn Any).to_raw_parts();
+                  state
+                    .inspector
+                    .ui(&com.data_typeid, raw_ptr, ui, fallback_debug);
                 } else {
                   ui.weak("not exist");
                 }
@@ -150,6 +185,131 @@ fn selected_table(ui: &mut egui::Ui, state: &mut DBInspector, e_id: EntityId) {
         });
     });
   })
+}
+
+#[derive(Default)]
+struct DataDebugger {
+  inline_ui: FastHashMap<TypeId, fn(*const (), &mut egui::Ui) -> Response>,
+  hover_inspect_ui: FastHashMap<TypeId, fn(*const (), &mut egui::Ui)>,
+}
+
+impl DataDebugger {
+  pub fn register<T: EGUIDataView + 'static>(&mut self) -> &mut Self {
+    self.inline_ui.insert(TypeId::of::<T>(), |data, ui| {
+      let data = unsafe { &*(data as *const T) };
+      data.inline_view(ui)
+    });
+    self.hover_inspect_ui.insert(TypeId::of::<T>(), |data, ui| {
+      let data = unsafe { &*(data as *const T) };
+      data.hover_detail_view(ui);
+    });
+    self
+  }
+
+  pub fn ui(&self, tid: &TypeId, data: *const (), ui: &mut egui::Ui, fallback_debug: String) {
+    if let Some(f) = self.inline_ui.get(tid) {
+      let res = f(data, ui);
+      if let Some(f) = self.hover_inspect_ui.get(tid) {
+        res.on_hover_ui(|ui| {
+          f(data, ui);
+        });
+      }
+    } else {
+      fn truncate(s: &str, max_chars: usize) -> &str {
+        match s.char_indices().nth(max_chars) {
+          None => s,
+          Some((idx, _)) => &s[..idx],
+        }
+      }
+
+      ui.weak(truncate(&fallback_debug, 24))
+        .on_hover_ui(move |ui| {
+          ui.label(fallback_debug);
+        });
+    }
+  }
+}
+
+pub trait EGUIDataView: std::fmt::Debug {
+  // provide brief information
+  fn inline_view(&self, ui: &mut egui::Ui) -> egui::Response;
+  // provide more detailed information, the default impl will be the debug string
+  fn hover_detail_view(&self, ui: &mut egui::Ui) {
+    ui.label(format!("{:?}", self));
+  }
+}
+
+impl EGUIDataView for f32 {
+  fn inline_view(&self, ui: &mut egui::Ui) -> egui::Response {
+    ui.label(format!("{:.2}", self))
+  }
+
+  fn hover_detail_view(&self, ui: &mut egui::Ui) {
+    ui.label(format!("{:?}", self));
+  }
+}
+
+#[allow(clippy::format_collect)]
+fn display_float_array(array: &[f32]) -> String {
+  array
+    .iter()
+    .map(|v| format!("{:.2}, ", v))
+    .collect::<String>()
+}
+
+impl EGUIDataView for Option<RawEntityHandle> {
+  fn inline_view(&self, ui: &mut egui::Ui) -> egui::Response {
+    ui.label(format!("{:?}", self.map(|v| v.index())))
+  }
+}
+
+impl EGUIDataView for Vec2<f32> {
+  fn inline_view(&self, ui: &mut egui::Ui) -> egui::Response {
+    let array = bytes_of(self);
+    let array = cast_slice::<u8, f32>(array);
+    ui.label(display_float_array(array))
+  }
+}
+impl EGUIDataView for Vec3<f32> {
+  fn inline_view(&self, ui: &mut egui::Ui) -> egui::Response {
+    let array = bytes_of(self);
+    let array = cast_slice::<u8, f32>(array);
+    ui.label(display_float_array(array))
+  }
+}
+impl EGUIDataView for Vec4<f32> {
+  fn inline_view(&self, ui: &mut egui::Ui) -> egui::Response {
+    let array = bytes_of(self);
+    let array = cast_slice::<u8, f32>(array);
+    ui.label(display_float_array(array))
+  }
+}
+
+impl EGUIDataView for Mat4<f32> {
+  fn inline_view(&self, ui: &mut egui::Ui) -> egui::Response {
+    let array = bytes_of(self);
+    let array = cast_slice::<u8, f32>(array);
+
+    ui.label(display_float_array(array))
+  }
+  fn hover_detail_view(&self, ui: &mut egui::Ui) {
+    ui.label(format!(
+      "[{}, {}, {}, {}]",
+      self.a1, self.a2, self.a3, self.a4,
+    ));
+    ui.label(format!(
+      "[{}, {}, {}, {}]",
+      self.b1, self.b2, self.b3, self.b4,
+    ));
+    ui.label(format!(
+      "[{}, {}, {}, {}]",
+      self.c1, self.c2, self.c3, self.c4,
+    ));
+    ui.label(format!(
+      "[{}, {}, {}, {}]",
+      self.d1, self.d2, self.d3, self.d4,
+    ));
+  }
 }
 
 fn all_tables(ui: &mut egui::Ui, state: &mut DBInspector) {

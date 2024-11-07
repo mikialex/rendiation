@@ -23,12 +23,16 @@ pub struct UIWidgetModel {
 
 impl Widget for UIWidgetModel {
   fn update_view(&mut self, cx: &mut DynCx) {
-    access_cx_mut!(cx, interaction_cx, Interaction3dCtx);
+    access_cx_mut!(
+      cx,
+      sm_intersection_gp,
+      WidgetSceneModelIntersectionGroupConfig
+    );
     if let Some(mouse_interactive_previous) = self.mouse_interactive_previous.take() {
       if mouse_interactive_previous {
-        interaction_cx.intersection_group.remove(&self.model);
+        sm_intersection_gp.group.remove(&self.model);
       } else {
-        interaction_cx.intersection_group.insert(self.model);
+        sm_intersection_gp.group.insert(self.model);
       }
     }
   }

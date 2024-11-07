@@ -2,6 +2,8 @@ use crate::*;
 
 // todo, improve performance using value refed query
 pub struct TraditionalPerDrawBindingSystemSource {
+  pub default_tex: GPU2DTextureView,
+  pub default_sampler: GPUSamplerView,
   pub textures: BoxedDynReactiveQuery<Texture2DHandle, GPU2DTextureView>,
   pub samplers: BoxedDynReactiveQuery<SamplerHandle, GPUSamplerView>,
 }
@@ -12,11 +14,18 @@ impl ReactiveGeneralQuery for TraditionalPerDrawBindingSystemSource {
   fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
     let (_, textures) = self.textures.poll_changes(cx);
     let (_, samplers) = self.samplers.poll_changes(cx);
-    Box::new(TraditionalPerDrawBindingSystem { textures, samplers })
+    Box::new(TraditionalPerDrawBindingSystem {
+      textures,
+      samplers,
+      default_tex: self.default_tex.clone(),
+      default_sampler: self.default_sampler.clone(),
+    })
   }
 }
 
 pub struct TraditionalPerDrawBindingSystem {
+  pub default_tex: GPU2DTextureView,
+  pub default_sampler: GPUSamplerView,
   pub textures: BoxedDynQuery<Texture2DHandle, GPU2DTextureView>,
   pub samplers: BoxedDynQuery<SamplerHandle, GPUSamplerView>,
 }
@@ -26,11 +35,19 @@ impl AbstractGPUTextureSystem for TraditionalPerDrawBindingSystem {
   type RegisteredShaderSampler = HandleNode<ShaderSampler>;
 
   fn bind_texture2d(&self, collector: &mut BindingBuilder, handle: Texture2DHandle) {
-    let texture = self.textures.access(&handle).unwrap();
+    let texture = if handle == u32::MAX {
+      self.default_tex.clone()
+    } else {
+      self.textures.access(&handle).unwrap()
+    };
     collector.bind(&texture);
   }
   fn bind_sampler(&self, collector: &mut BindingBuilder, handle: SamplerHandle) {
-    let sampler = self.samplers.access(&handle).unwrap();
+    let sampler = if handle == u32::MAX {
+      self.default_sampler.clone()
+    } else {
+      self.samplers.access(&handle).unwrap()
+    };
     collector.bind(&sampler);
   }
   fn bind_system_self(&self, _: &mut BindingBuilder) {}
@@ -41,7 +58,11 @@ impl AbstractGPUTextureSystem for TraditionalPerDrawBindingSystem {
     handle: Texture2DHandle,
     _: Node<Texture2DHandle>,
   ) -> HandleNode<ShaderTexture2D> {
-    let texture = self.textures.access(&handle).unwrap();
+    let texture = if handle == u32::MAX {
+      self.default_tex.clone()
+    } else {
+      self.textures.access(&handle).unwrap()
+    };
     builder.bind_by(&texture)
   }
 
@@ -51,7 +72,11 @@ impl AbstractGPUTextureSystem for TraditionalPerDrawBindingSystem {
     handle: SamplerHandle,
     _: Node<Texture2DHandle>,
   ) -> HandleNode<ShaderSampler> {
-    let sampler = self.samplers.access(&handle).unwrap();
+    let sampler = if handle == u32::MAX {
+      self.default_sampler.clone()
+    } else {
+      self.samplers.access(&handle).unwrap()
+    };
     builder.bind_by(&sampler)
   }
 

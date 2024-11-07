@@ -2,6 +2,7 @@
 #![feature(stmt_expr_attributes)]
 #![feature(type_alias_impl_trait)]
 #![feature(hash_raw_entry)]
+#![feature(ptr_metadata)]
 #![allow(clippy::collapsible_match)]
 
 use std::alloc::System;
@@ -11,8 +12,9 @@ use std::hash::Hash;
 use database::*;
 use reactive::*;
 use rendiation_geometry::*;
-use rendiation_gizmo::*;
+// use rendiation_gizmo::*;
 use rendiation_gui_3d::*;
+use rendiation_lighting_gpu_system::*;
 use rendiation_lighting_transport::*;
 use rendiation_scene_rendering_gpu_gles::*;
 use rendiation_shader_api::*;

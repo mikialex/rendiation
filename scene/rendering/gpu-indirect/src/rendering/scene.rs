@@ -8,7 +8,9 @@ pub struct IndirectRenderSystem {
   pub grouper: Box<dyn RenderImplProvider<Box<dyn IndirectSceneDrawBatchGrouper>>>,
 }
 
-impl RenderImplProvider<Box<dyn SceneRenderer>> for IndirectRenderSystem {
+impl RenderImplProvider<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>>
+  for IndirectRenderSystem
+{
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
     self.texture_system.register_resource(source, cx);
 
@@ -20,7 +22,10 @@ impl RenderImplProvider<Box<dyn SceneRenderer>> for IndirectRenderSystem {
     }
   }
 
-  fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> Box<dyn SceneRenderer> {
+  fn create_impl(
+    &self,
+    res: &mut ConcurrentStreamUpdateResult,
+  ) -> Box<dyn SceneRenderer<ContentKey = SceneContentKey>> {
     Box::new(IndirectSceneRenderer {
       texture_system: self.texture_system.create_impl(res),
       camera: self.camera.create_impl(res),
@@ -65,10 +70,11 @@ impl SceneModelRenderer for IndirectSceneRenderer {
 }
 
 impl SceneRenderer for IndirectSceneRenderer {
+  type ContentKey = SceneContentKey;
   fn make_pass_content<'a>(
     &'a self,
     scene: EntityHandle<SceneEntity>,
-    camera: EntityHandle<SceneCameraEntity>,
+    semantic: Self::ContentKey,
     pass: &'a dyn RenderComponent,
     _ctx: &mut FrameCtx,
   ) -> Box<dyn PassContent + 'a> {
@@ -77,7 +83,7 @@ impl SceneRenderer for IndirectSceneRenderer {
       renderer: self,
       scene,
       pass,
-      camera,
+      camera: semantic.camera,
     })
   }
 

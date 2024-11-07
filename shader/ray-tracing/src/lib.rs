@@ -2,10 +2,11 @@
 
 use std::any::Any;
 use std::any::TypeId;
+use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use dyn_clone::DynClone;
+use dyn_clone::*;
 use fast_hash_collection::*;
 use parking_lot::RwLock;
 use rendiation_algebra::*;

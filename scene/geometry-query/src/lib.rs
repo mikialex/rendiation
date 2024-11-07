@@ -36,6 +36,8 @@ impl SceneModelPicker for Vec<Box<dyn SceneModelPicker>> {
 }
 
 pub struct SceneModelPickerImpl {
+  // we could use and cache sm bounding
+  pub mesh_bounding: BoxedDynQuery<EntityHandle<AttributesMeshEntity>, Box3<f32>>,
   pub scene_model_node: ForeignKeyReadView<SceneModelRefNode>,
   pub model_access_std_model: ForeignKeyReadView<SceneModelStdModelRenderPayload>,
   pub std_model_access_mesh: ForeignKeyReadView<StandardModelRefAttributesMeshEntity>,
@@ -88,6 +90,14 @@ impl SceneModelPicker for SceneModelPickerImpl {
 
     let model = self.model_access_std_model.get(idx)?;
     let mesh = self.std_model_access_mesh.get(model)?;
+    let mesh_local_bounding = self.mesh_bounding.access(&mesh)?;
+
+    let mat = self.node_world.access(&node)?;
+    let local_ray = ctx.world_ray.apply_matrix_into(mat.inverse_or_identity());
+
+    if !IntersectAble::<_, bool, _>::intersect(&local_ray, &mesh_local_bounding, &()) {
+      return None;
+    }
 
     let mode = self.mesh_topology.get_value(mesh)?;
 
@@ -112,9 +122,6 @@ impl SceneModelPicker for SceneModelPickerImpl {
       }
       .into()
     });
-
-    let mat = self.node_world.access(&node)?;
-    let local_ray = ctx.world_ray.apply_matrix_into(mat.inverse_or_identity());
 
     AttributesMeshEntityAbstractMeshReadView {
       mode,

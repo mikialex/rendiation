@@ -271,6 +271,15 @@ where
       *target = Some(data);
     }
   }
+  fn read_component_into_boxed(&self, idx: RawEntityHandle) -> Option<Box<dyn Any>> {
+    let idx = unsafe { EntityHandle::from_raw(idx) };
+    self
+      .component
+      .as_ref()
+      .unwrap()
+      .read(idx)
+      .map(|v| Box::new(v) as Box<dyn Any>)
+  }
 }
 
 impl<T, F> EntityComponentWriter for EntityComponentWriterImpl<T, F>

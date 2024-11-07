@@ -12,12 +12,6 @@ pub struct ComponentCollectionUntyped {
   pub component_type_id: ComponentId,
 }
 
-impl ComponentCollectionUntyped {
-  pub fn debug_value(&self, idx: usize) -> Option<String> {
-    self.inner.debug_value(idx)
-  }
-}
-
 pub struct ComponentCollection<C: ComponentSemantic> {
   phantom: PhantomData<C>,
   // todo make this optional static dispatch for better performance
@@ -82,6 +76,13 @@ impl<T: ComponentSemantic> EntityComponentReader for ComponentReadView<T> {
     if let Some(data) = self.data.get(idx).cloned() {
       *target = Some(data);
     }
+  }
+
+  fn read_component_into_boxed(&self, idx: RawEntityHandle) -> Option<Box<dyn Any>> {
+    self
+      .data
+      .get(idx)
+      .map(|v| Box::new(v.clone()) as Box<dyn Any>)
   }
 }
 

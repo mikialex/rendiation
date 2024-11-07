@@ -134,12 +134,13 @@ pub fn register_default_commands(terminal: &mut Terminal) {
         .await;
 
       let mut writer = SceneWriter::from_global(load_target_scene);
+      let default_mat = writer.pbr_sg_mat_writer.new_entity();
 
       if let Some(file_handle) = file_handle {
         rendiation_scene_obj_loader::load_obj(
           file_handle.path(),
           load_target_node,
-          todo!(),
+          default_mat,
           &mut writer,
         )
         .unwrap();
@@ -175,7 +176,7 @@ pub fn register_default_commands(terminal: &mut Terminal) {
   });
 
   terminal.register_command("screenshot", |ctx, _parameters| {
-    access_cx!(ctx, r, Viewer3dRenderingCtx);
+    access_cx_mut!(ctx, r, Viewer3dRenderingCtx);
     let result = r.read_next_render_result();
 
     async {
@@ -198,9 +199,28 @@ pub fn register_default_commands(terminal: &mut Terminal) {
     access_cx!(ctx, derived, Viewer3dSceneDerive);
     if let Some(selected) = &scene_cx.selected_target {
       let camera_world = derived.world_mat.access(&scene_cx.camera_node).unwrap();
-      // let selected_aabb = derived.world_mat.access(selected).unwrap();
-      // let camera_world = fit_camera_view(proj, camera_world, target_world_aabb);
-      todo!();
+
+      let node_reader = global_entity_component_of::<SceneModelRefNode>().read_foreign_key();
+      let std_reader =
+        global_entity_component_of::<SceneModelStdModelRenderPayload>().read_foreign_key();
+      let mesh_reader =
+        global_entity_component_of::<StandardModelRefAttributesMeshEntity>().read_foreign_key();
+      let camera_reader = global_entity_component_of::<SceneCameraPerspective>().read();
+
+      let target_node = node_reader.get(*selected).unwrap();
+      let std_model = std_reader.get(*selected).unwrap();
+      let mesh = mesh_reader.get(std_model).unwrap();
+      let selected_target_world_mat = derived.world_mat.access(&target_node).unwrap();
+      let selected_target_local_aabb = derived.mesh_local_bounding.access(&mesh).unwrap();
+      let target_world_aabb =
+        selected_target_local_aabb.apply_matrix_into(selected_target_world_mat);
+      let proj = camera_reader.get(scene_cx.main_camera).unwrap().unwrap();
+
+      let camera_world = fit_camera_view(&proj, camera_world, target_world_aabb);
+      // todo fix camera has parent mat
+      global_entity_component_of::<SceneNodeLocalMatrixComponent>()
+        .write()
+        .write(scene_cx.camera_node, camera_world);
     }
   });
 

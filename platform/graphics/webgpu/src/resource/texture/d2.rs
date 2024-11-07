@@ -1,5 +1,29 @@
 use crate::*;
 
+// for short cut
+pub fn create_empty_2d_texture_view(
+  gpu: &GPU,
+  size: Size,
+  usage: gpu::TextureUsages,
+  format: gpu::TextureFormat,
+) -> GPU2DTextureView {
+  let tex = GPUTexture::create(
+    TextureDescriptor {
+      label: None,
+      size: size.into_gpu_size(),
+      mip_level_count: 1,
+      sample_count: 1,
+      dimension: TextureDimension::D2,
+      format,
+      view_formats: &[],
+      usage,
+    },
+    &gpu.device,
+  );
+  let tex = GPU2DTexture::try_from(tex).unwrap().create_default_view();
+  GPU2DTextureView::try_from(tex).unwrap()
+}
+
 pub fn map_size_gpu(size: Size) -> gpu::Extent3d {
   gpu::Extent3d {
     width: Into::<usize>::into(size.width) as u32,

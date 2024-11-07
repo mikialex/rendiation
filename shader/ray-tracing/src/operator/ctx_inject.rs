@@ -6,9 +6,20 @@ pub trait RayTracingCustomCtxProvider: ShaderHashProvider + 'static + Clone {
   fn bind(&self, builder: &mut BindingBuilder);
 }
 
+#[derive(Clone)]
 pub struct InjectCtx<T, C> {
   pub upstream: T,
   pub ctx: C,
+}
+
+impl<T: ShaderHashProvider + 'static, C: RayTracingCustomCtxProvider> ShaderHashProvider
+  for InjectCtx<T, C>
+{
+  shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.upstream.hash_pipeline(hasher);
+    self.ctx.hash_pipeline(hasher);
+  }
 }
 
 impl<X, T, C> ShaderFutureProvider<X> for InjectCtx<T, C>
@@ -71,11 +82,6 @@ where
   fn bind_input(&self, builder: &mut DeviceTaskSystemBindCtx) {
     self.upstream.bind_input(builder);
     self.ctx.bind(builder.binder);
-  }
-
-  fn reset(&mut self, ctx: &mut DeviceParallelComputeCtx, work_size: u32) {
-    self.upstream.reset(ctx, work_size);
-    // todo, resize self sized managed resource?
   }
 }
 

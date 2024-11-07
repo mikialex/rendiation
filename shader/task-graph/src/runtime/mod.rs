@@ -100,7 +100,6 @@ impl DeviceTaskGraphBuildSource {
         pre_build.state_to_resolve.meta_info(),
         task_build_source.payload_ty.clone(),
         cx,
-        max_recursion_depth,
       );
 
       task_group_sources.push(resource);
@@ -128,7 +127,7 @@ impl DeviceTaskGraphBuildSource {
     DeviceTaskGraphExecutor {
       task_groups: task_group_executors,
       max_recursion_depth,
-      current_prepared_execution_size: init_size,
+      current_prepared_execution_size: dispatch_size,
     }
   }
 }
@@ -140,35 +139,6 @@ pub struct DeviceTaskGraphExecutor {
 }
 
 impl DeviceTaskGraphExecutor {
-  /// set exact execution dispatch size for this executor, this will resize all resources
-  pub fn resize_execution_size(
-    &mut self,
-    ctx: &mut DeviceParallelComputeCtx,
-    dispatch_size: usize,
-  ) {
-    let dispatch_size = dispatch_size.min(1);
-    if self.current_prepared_execution_size == dispatch_size {
-      return;
-    }
-    self.current_prepared_execution_size = dispatch_size;
-    for s in &mut self.task_groups {
-      s.reset_task_instance(ctx, dispatch_size);
-      s.resize(dispatch_size, self.max_recursion_depth, ctx);
-    }
-  }
-
-  pub fn make_sure_execution_size_is_enough(
-    &mut self,
-    ctx: &mut DeviceParallelComputeCtx,
-    dispatch_size: usize,
-  ) {
-    let is_contained = self.current_prepared_execution_size <= dispatch_size;
-
-    if !is_contained {
-      self.resize_execution_size(ctx, dispatch_size)
-    }
-  }
-
   /// Allocate task directly in the task pool by dispatching compute shader.
   ///
   /// T must match given task_id's payload type
@@ -178,14 +148,14 @@ impl DeviceTaskGraphExecutor {
   pub fn dispatch_allocate_init_task<T: ShaderSizedValueNodeType>(
     &mut self,
     cx: &mut DeviceParallelComputeCtx,
-    dispatch_size: u32,
+    task_count: u32,
     task_id: u32,
     task_spawner: impl FnOnce(Node<u32>) -> Node<T> + 'static,
   ) {
     let device = &cx.gpu.device;
     let task_group = &self.task_groups[task_id as usize];
 
-    let dispatch_size_buffer = create_gpu_readonly_storage(&dispatch_size, device);
+    let dispatch_size_buffer = create_gpu_readonly_storage(&task_count, device);
 
     let hasher = PipelineHasher::default().with_hash(task_spawner.type_id());
     let workgroup_size = 256;
@@ -215,7 +185,7 @@ impl DeviceTaskGraphExecutor {
       task_group.resource.bind_for_spawner(&mut bb);
       bb.setup_compute_pass(pass, device, &pipeline);
 
-      let size = compute_dispatch_size(dispatch_size, workgroup_size);
+      let size = compute_dispatch_size(task_count, workgroup_size);
       pass.dispatch_workgroups(size, 1, 1);
 
       task_group

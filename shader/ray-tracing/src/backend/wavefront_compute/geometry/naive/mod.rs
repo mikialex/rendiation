@@ -76,10 +76,38 @@ struct NaiveSahBvhSource {
   tlas_data: Vec<Option<TopLevelAccelerationStructureSourceInstance>>,
 }
 
-pub type TlasHandle = Range<u32>;
-impl GPUAccelerationStructureInstanceProvider for Range<u32> {
+#[derive(Clone)]
+pub struct TlasHandle {
+  range: Range<u32>,
+  buffer: UniformBufferDataView<u32>,
+}
+
+#[derive(Clone)]
+pub struct TlasHandleInvocation {
+  handle: UniformNode<u32>,
+}
+impl GPUAccelerationStructureInvocationInstance for TlasHandleInvocation {
+  fn id(&self) -> Node<u32> {
+    self.handle.load()
+  }
+}
+impl GPUAccelerationStructureInstanceProvider for TlasHandle {
+  fn create_invocation_instance(
+    &self,
+    builder: &mut ShaderBindGroupBuilder,
+  ) -> Box<dyn GPUAccelerationStructureInvocationInstance> {
+    let handle = builder.bind_by(&self.buffer);
+    Box::new(TlasHandleInvocation { handle })
+  }
+  fn bind_pass(&self, builder: &mut BindingBuilder) {
+    builder.bind(&self.buffer);
+  }
+
   fn access_impl(&self) -> &dyn Any {
     self as &dyn Any
+  }
+  fn id(&self) -> u32 {
+    self.range.start
   }
 }
 
@@ -93,7 +121,7 @@ impl NaiveSahBvhSource {
   pub fn create_tlas(
     &mut self,
     source: &[TopLevelAccelerationStructureSourceInstance],
-  ) -> TlasHandle {
+  ) -> Range<u32> {
     // todo freelist
     let start_index = self.tlas_data.len();
     for source in source {
@@ -105,8 +133,9 @@ impl NaiveSahBvhSource {
     // todo freelist
     self.blas_data[i as usize] = None;
   }
-  pub fn delete_tlas(&mut self, range: &TlasHandle) {
+  pub fn delete_tlas(&mut self, handle: &TlasHandle) {
     // todo freelist
+    let range = &handle.range;
     for i in range.start..range.end {
       self.tlas_data[i as usize] = None;
     }
@@ -520,17 +549,20 @@ impl GPUAccelerationStructureSystemProvider for NaiveSahBVHSystem {
   fn create_top_level_acceleration_structure(
     &self,
     source: &[TopLevelAccelerationStructureSourceInstance],
-  ) -> Box<dyn GPUAccelerationStructureInstanceProvider> {
+  ) -> TlasInstance {
     let mut inner = self.inner.write().unwrap();
     inner.invalidate();
-    Box::new(inner.source.create_tlas(source))
+
+    let range_tlas = inner.source.create_tlas(source);
+    let handle = TlasHandle {
+      range: range_tlas.clone(),
+      buffer: create_uniform(range_tlas.start, &self.device),
+    };
+    TlasInstance(Box::new(handle))
   }
 
-  fn delete_top_level_acceleration_structure(
-    &self,
-    id: Box<dyn GPUAccelerationStructureInstanceProvider>,
-  ) {
-    let range: &TlasHandle = id.access_impl().downcast_ref().unwrap();
+  fn delete_top_level_acceleration_structure(&self, id: TlasInstance) {
+    let range: &TlasHandle = id.0.access_impl().downcast_ref().unwrap();
     let mut inner = self.inner.write().unwrap();
     inner.invalidate();
     inner.source.delete_tlas(range);

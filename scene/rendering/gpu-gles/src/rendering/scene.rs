@@ -28,7 +28,7 @@ pub fn build_default_gles_render_system() -> GLESRenderSystem {
   }
 }
 
-impl RenderImplProvider<Box<dyn SceneRenderer>> for GLESRenderSystem {
+impl RenderImplProvider<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>> for GLESRenderSystem {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
     self.texture_system.register_resource(source, cx);
     let model_lookup = global_rev_ref().watch_inv_ref::<SceneModelBelongsToScene>();
@@ -39,7 +39,10 @@ impl RenderImplProvider<Box<dyn SceneRenderer>> for GLESRenderSystem {
     }
   }
 
-  fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> Box<dyn SceneRenderer> {
+  fn create_impl(
+    &self,
+    res: &mut ConcurrentStreamUpdateResult,
+  ) -> Box<dyn SceneRenderer<ContentKey = SceneContentKey>> {
     Box::new(GLESSceneRenderer {
       scene_model_renderer: self
         .scene_model_impl
@@ -80,10 +83,11 @@ impl SceneModelRenderer for GLESSceneRenderer {
 }
 
 impl SceneRenderer for GLESSceneRenderer {
+  type ContentKey = SceneContentKey;
   fn make_pass_content<'a>(
     &'a self,
     scene: EntityHandle<SceneEntity>,
-    camera: EntityHandle<SceneCameraEntity>,
+    semantic: Self::ContentKey,
     pass: &'a dyn RenderComponent,
     _: &mut FrameCtx,
   ) -> Box<dyn PassContent + 'a> {
@@ -91,7 +95,7 @@ impl SceneRenderer for GLESSceneRenderer {
       renderer: self,
       scene,
       pass,
-      camera,
+      camera: semantic.camera,
     })
   }
   fn init_clear(

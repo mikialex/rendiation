@@ -130,6 +130,8 @@ impl<T: TextureWithSamplingForeignKeys> TextureSamplerIdView<T> {
   }
 }
 
+pub const EMPTY_H: (u32, u32) = (u32::MAX, u32::MAX);
+
 impl GLESModelMaterialRenderImpl for PbrMRMaterialDefaultRenderImpl {
   fn make_component<'a>(
     &'a self,
@@ -140,10 +142,10 @@ impl GLESModelMaterialRenderImpl for PbrMRMaterialDefaultRenderImpl {
     let r = PhysicalMetallicRoughnessMaterialGPU {
       uniform: self.uniforms.get(&idx)?,
       alpha_mode: self.alpha_mode.get_value(idx)?,
-      base_color_tex_sampler: self.base_color_tex_sampler.get_pair(idx).unwrap_or((0, 0)),
-      mr_tex_sampler: self.mr_tex_sampler.get_pair(idx).unwrap_or((0, 0)),
-      emissive_tex_sampler: self.emissive_tex_sampler.get_pair(idx).unwrap_or((0, 0)),
-      normal_tex_sampler: self.normal_tex_sampler.get_pair(idx).unwrap_or((0, 0)),
+      base_color_tex_sampler: self.base_color_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
+      mr_tex_sampler: self.mr_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
+      emissive_tex_sampler: self.emissive_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
+      normal_tex_sampler: self.normal_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
       texture_uniforms: self.tex_uniforms.get(&idx)?,
       binding_sys: cx,
     };
@@ -207,11 +209,11 @@ impl GLESModelMaterialRenderImpl for PbrSGMaterialDefaultRenderImpl {
     let r = PhysicalSpecularGlossinessMaterialGPU {
       uniform: self.uniforms.get(&idx)?,
       alpha_mode: self.alpha_mode.get_value(idx)?,
-      albedo_tex_sampler: self.albedo_tex_sampler.get_pair(idx).unwrap_or((0, 0)),
-      specular_tex_sampler: self.specular_tex_sampler.get_pair(idx).unwrap_or((0, 0)),
-      glossiness_tex_sampler: self.glossiness_tex_sampler.get_pair(idx).unwrap_or((0, 0)),
-      emissive_tex_sampler: self.emissive_tex_sampler.get_pair(idx).unwrap_or((0, 0)),
-      normal_tex_sampler: self.normal_tex_sampler.get_pair(idx).unwrap_or((0, 0)),
+      albedo_tex_sampler: self.albedo_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
+      specular_tex_sampler: self.specular_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
+      glossiness_tex_sampler: self.glossiness_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
+      emissive_tex_sampler: self.emissive_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
+      normal_tex_sampler: self.normal_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
       texture_uniforms: self.tex_uniforms.get(&idx)?,
       binding_sys: cx,
     };

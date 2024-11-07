@@ -35,6 +35,8 @@ impl TextureGPUSystemSource {
       source.register(Box::new(ReactiveQueryBoxAnyResult(texture_system)))
     } else {
       let texture_system = TraditionalPerDrawBindingSystemSource {
+        default_tex: default_2d,
+        default_sampler,
         textures: Box::new(texture_2d),
         samplers: Box::new(samplers),
       };
@@ -47,5 +49,36 @@ impl TextureGPUSystemSource {
       .unwrap()
       .downcast::<GPUTextureBindingSystem>()
       .unwrap()
+  }
+}
+
+#[allow(clippy::borrowed_box)]
+pub struct GPUTextureSystemAsRenderComponent<'a>(pub &'a Box<dyn DynAbstractGPUTextureSystem>);
+
+impl<'a> ShaderHashProvider for GPUTextureSystemAsRenderComponent<'a> {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.0.hash_pipeline(hasher);
+  }
+  fn hash_type_info(&self, hasher: &mut PipelineHasher) {
+    self.0.hash_pipeline_with_type_info(hasher);
+  }
+}
+
+impl<'a> ShaderPassBuilder for GPUTextureSystemAsRenderComponent<'a> {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.0.setup_pass(ctx);
+  }
+
+  fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.0.post_setup_pass(ctx);
+  }
+}
+impl<'a> GraphicsShaderProvider for GPUTextureSystemAsRenderComponent<'a> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+    self.0.build(builder)
+  }
+
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+    self.0.post_build(builder)
   }
 }

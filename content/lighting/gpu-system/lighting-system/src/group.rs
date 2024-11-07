@@ -12,12 +12,6 @@ impl LightingComputeComponentGroup {
   }
 }
 
-impl ShaderPassBuilder for LightingComputeComponentGroup {
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    self.comps.iter().for_each(|c| c.setup_pass(ctx))
-  }
-}
-
 impl ShaderHashProvider for LightingComputeComponentGroup {
   fn hash_type_info(&self, hasher: &mut PipelineHasher) {
     self
@@ -40,6 +34,9 @@ impl LightingComputeComponent for LightingComputeComponentGroup {
         .collect(),
     })
   }
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.comps.iter().for_each(|c| c.setup_pass(ctx))
+  }
 }
 
 pub struct LightingComputeInvocationGroup {
@@ -56,7 +53,9 @@ impl LightingComputeInvocation for LightingComputeInvocationGroup {
     let light_diffuse_result = val(Vec3::zero()).make_local_var();
 
     self.comps.iter().for_each(|light| {
-      light.compute_lights(shading, geom_ctx);
+      let r = light.compute_lights(shading, geom_ctx);
+      light_specular_result.store(light_specular_result.load() + r.specular);
+      light_diffuse_result.store(light_diffuse_result.load() + r.diffuse);
     });
 
     ENode::<ShaderLightingResult> {

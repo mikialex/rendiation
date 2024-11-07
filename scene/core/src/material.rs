@@ -70,7 +70,7 @@ mod sg_material {
     Vec3<f32>,
     Vec3::zero()
   );
-  declare_component!(PbrSGMaterialAlphaComponent, PbrSGMaterialEntity, f32);
+  declare_component!(PbrSGMaterialAlphaComponent, PbrSGMaterialEntity, f32, 1.0);
   declare_component!(
     PbrSGMaterialAlphaModeComponent,
     PbrSGMaterialEntity,
@@ -204,7 +204,7 @@ mod mr_material {
     Vec3<f32>,
     Vec3::zero()
   );
-  declare_component!(PbrMRMaterialAlphaComponent, PbrMRMaterialEntity, f32);
+  declare_component!(PbrMRMaterialAlphaComponent, PbrMRMaterialEntity, f32, 1.0);
   declare_component!(
     PbrMRMaterialAlphaModeComponent,
     PbrMRMaterialEntity,

@@ -36,7 +36,7 @@ pub fn create_gpu_texture2d_with_mipmap(
 pub fn create_fallback_empty_texture(device: &GPUDevice) -> GPU2DTexture {
   GPUTexture::create(
     TextureDescriptor {
-      label: "unimplemented default texture".into(),
+      label: "global default texture".into(),
       size: Extent3d {
         width: 1,
         height: 1,

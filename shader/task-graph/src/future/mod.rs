@@ -48,10 +48,6 @@ pub trait ShaderFuture {
   fn build_poll(&self, ctx: &mut DeviceTaskSystemBuildCtx) -> Self::Invocation;
 
   fn bind_input(&self, builder: &mut DeviceTaskSystemBindCtx);
-
-  /// reset will be called if overall work_size changed.
-  /// the implementation may do resource recreation in this method.
-  fn reset(&mut self, ctx: &mut DeviceParallelComputeCtx, work_size: u32);
 }
 
 pub type DynShaderFuture<T> =
@@ -75,10 +71,6 @@ where
 
   fn bind_input(&self, builder: &mut DeviceTaskSystemBindCtx) {
     (**self).bind_input(builder)
-  }
-
-  fn reset(&mut self, ctx: &mut DeviceParallelComputeCtx, work_size: u32) {
-    (**self).reset(ctx, work_size)
   }
 }
 
@@ -156,7 +148,6 @@ where
   }
 
   fn bind_input(&self, _: &mut DeviceTaskSystemBindCtx) {}
-  fn reset(&mut self, _: &mut DeviceParallelComputeCtx, _: u32) {}
 }
 
 pub struct OpaqueTaskWrapper<T>(pub T);
@@ -177,10 +168,6 @@ impl<T: ShaderFuture> ShaderFuture for OpaqueTaskWrapper<T> {
 
   fn bind_input(&self, builder: &mut DeviceTaskSystemBindCtx) {
     self.0.bind_input(builder)
-  }
-
-  fn reset(&mut self, ctx: &mut DeviceParallelComputeCtx, work_size: u32) {
-    self.0.reset(ctx, work_size)
   }
 }
 
@@ -209,9 +196,5 @@ impl<T: ShaderFuture> ShaderFuture for WrapDynShaderFuture<T> {
 
   fn bind_input(&self, builder: &mut DeviceTaskSystemBindCtx) {
     self.0.bind_input(builder)
-  }
-
-  fn reset(&mut self, ctx: &mut DeviceParallelComputeCtx, work_size: u32) {
-    self.0.reset(ctx, work_size)
   }
 }

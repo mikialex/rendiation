@@ -166,6 +166,7 @@ pub trait DynAbstractGPUTextureSystem: Any {
     let sampler = self.register_shader_sampler(binding, host_handles.1, device_handles.1);
     self.sample_texture2d(reg, texture, sampler, uv)
   }
+  fn as_indirect_system(&self) -> Option<&dyn AbstractIndirectGPUTextureSystem>;
 }
 
 impl<T: AbstractGPUTextureSystem + Any> DynAbstractGPUTextureSystem for T {
@@ -217,6 +218,10 @@ impl<T: AbstractGPUTextureSystem + Any> DynAbstractGPUTextureSystem for T {
         .unwrap(),
       uv,
     )
+  }
+
+  fn as_indirect_system(&self) -> Option<&dyn AbstractIndirectGPUTextureSystem> {
+    self.as_indirect_system()
   }
 }
 

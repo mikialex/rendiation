@@ -1,3 +1,5 @@
+#![feature(associated_type_defaults)]
+
 //! The whole idea of extensible rendering architecture works like this:
 //!
 //! ```rust
@@ -20,6 +22,7 @@ use database::*;
 use reactive::*;
 use rendiation_algebra::*;
 use rendiation_scene_core::*;
+use rendiation_shader_api::*;
 use rendiation_texture_core::*;
 use rendiation_texture_gpu_base::*;
 use rendiation_texture_gpu_system::*;
@@ -40,8 +43,14 @@ pub trait RenderImplProvider<T> {
 
 pub type GPUTextureBindingSystem = Box<dyn DynAbstractGPUTextureSystem>;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct SceneContentKey {
+  pub camera: EntityHandle<SceneCameraEntity>,
+}
+
 /// abstract over direct or indirect rendering
 pub trait SceneRenderer: SceneModelRenderer {
+  type ContentKey = SceneContentKey;
   /// render all content in given scene.
   ///
   /// The rendering content is specified by implementation.
@@ -53,7 +62,7 @@ pub trait SceneRenderer: SceneModelRenderer {
   fn make_pass_content<'a>(
     &'a self,
     scene: EntityHandle<SceneEntity>,
-    camera: EntityHandle<SceneCameraEntity>,
+    semantic: Self::ContentKey,
     pass: &'a dyn RenderComponent,
     ctx: &mut FrameCtx,
   ) -> Box<dyn PassContent + 'a>;
