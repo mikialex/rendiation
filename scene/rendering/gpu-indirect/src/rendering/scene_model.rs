@@ -48,18 +48,6 @@ pub struct IndirectPreferredComOrderRenderer {
 }
 
 impl SceneModelRenderer for IndirectPreferredComOrderRenderer {
-  // fn render_batch_models_impl(
-  //   &self,
-  //   models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
-  //   camera: &dyn RenderComponent,
-  //   pass: &dyn RenderComponent,
-  //   cx: &mut GPURenderPassCtx,
-  //   tex: &GPUTextureBindingSystem,
-  // ) -> bool {
-  //   // todo, host side prepared multi draw for better performance
-  //   todo!()
-  // }
-
   fn render_scene_model(
     &self,
     idx: EntityHandle<SceneModelEntity>,
@@ -68,8 +56,60 @@ impl SceneModelRenderer for IndirectPreferredComOrderRenderer {
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
   ) -> Option<()> {
-    self.render_indirect_batch_models(todo!(), idx, camera, tex, pass, cx);
-    Some(())
+    let model_id = create_uniform(idx.alloc_index(), &cx.gpu.device);
+    let cmd = self
+      .make_draw_command_builder(idx)
+      .unwrap()
+      .draw_command_host_access(idx);
+
+    struct SingleModelImmediateDraw {
+      model_id: UniformBufferDataView<u32>,
+      cmd: DrawCommand,
+    }
+
+    impl ShaderHashProvider for SingleModelImmediateDraw {
+      shader_hash_type_id! {}
+    }
+
+    impl ShaderPassBuilder for SingleModelImmediateDraw {
+      fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+        ctx.binding.bind(&self.model_id);
+      }
+    }
+
+    impl IndirectDrawProvider for SingleModelImmediateDraw {
+      fn create_indirect_invocation_source(
+        &self,
+        binding: &mut ShaderBindGroupBuilder,
+      ) -> Box<dyn IndirectBatchInvocationSource> {
+        struct SingleModelImmediateDrawInvocation {
+          model_id: UniformNode<u32>,
+        }
+
+        impl IndirectBatchInvocationSource for SingleModelImmediateDrawInvocation {
+          fn current_invocation_scene_model_id(&self, _: &ShaderVertexBuilder) -> Node<u32> {
+            self.model_id.load()
+          }
+        }
+
+        Box::new(SingleModelImmediateDrawInvocation {
+          model_id: binding.bind_by(&self.model_id.clone()),
+        })
+      }
+
+      fn draw_command(&self) -> DrawCommand {
+        self.cmd.clone()
+      }
+    }
+
+    self.render_indirect_batch_models(
+      &SingleModelImmediateDraw { model_id, cmd },
+      idx,
+      camera,
+      tex,
+      pass,
+      cx,
+    )
   }
 }
 

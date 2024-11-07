@@ -103,14 +103,16 @@ pub trait SceneRenderer: SceneModelRenderer {
   fn render_models(
     &self,
     models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
-    reorderable: bool,
+    _reorderable: bool,
     camera: EntityHandle<SceneCameraEntity>,
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
   ) {
     let camera = self.get_camera_gpu().make_component(camera).unwrap();
-    self.render_models_impl(models, reorderable, &camera, pass, cx, tex);
+    for m in models {
+      self.render_scene_model(m, &camera, pass, cx, tex);
+    }
   }
 
   fn render_reorderable_models(
@@ -168,22 +170,6 @@ pub trait SceneModelRenderer {
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
   ) -> Option<()>;
-
-  /// maybe implementation could provide better performance for example host side multi draw
-  fn render_models_impl(
-    &self,
-    models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
-    _reorderable: bool,
-    camera: &dyn RenderComponent,
-    pass: &dyn RenderComponent,
-    cx: &mut GPURenderPassCtx,
-    tex: &GPUTextureBindingSystem,
-  ) -> bool {
-    for m in models {
-      self.render_scene_model(m, camera, pass, cx, tex);
-    }
-    true
-  }
 }
 
 impl SceneModelRenderer for Vec<Box<dyn SceneModelRenderer>> {

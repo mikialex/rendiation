@@ -57,6 +57,7 @@ impl SceneModelRenderer for IndirectSceneRenderer {
   }
 }
 
+// todo, impl better render models using host side immediate prepared indirect draw
 impl SceneRenderer for IndirectSceneRenderer {
   type ContentKey = SceneContentKey;
   fn extract_scene_batch(

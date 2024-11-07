@@ -1,6 +1,7 @@
 use crate::*;
 
 pub trait DrawCommandBuilder: ShaderHashProvider + ShaderPassBuilder + DynClone {
+  fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> DrawCommand;
   fn build_invocation(&self) -> Box<dyn DrawCommandBuilderInvocation>;
 }
 dyn_clone::clone_trait_object!(DrawCommandBuilder);
@@ -13,7 +14,10 @@ pub trait DrawCommandBuilderInvocation {
 }
 
 pub trait IndirectDrawProvider: ShaderHashProvider + ShaderPassBuilder {
-  fn create_indirect_invocation_source(&self) -> Box<dyn IndirectBatchInvocationSource>;
+  fn create_indirect_invocation_source(
+    &self,
+    binding: &mut ShaderBindGroupBuilder,
+  ) -> Box<dyn IndirectBatchInvocationSource>;
   fn draw_command(&self) -> DrawCommand;
 }
 
@@ -49,7 +53,10 @@ struct MultiIndirectDrawBatch {
 }
 
 impl IndirectDrawProvider for MultiIndirectDrawBatch {
-  fn create_indirect_invocation_source(&self) -> Box<dyn IndirectBatchInvocationSource> {
+  fn create_indirect_invocation_source(
+    &self,
+    _: &mut ShaderBindGroupBuilder,
+  ) -> Box<dyn IndirectBatchInvocationSource> {
     struct MultiIndirectDrawBatchInvocation;
 
     impl IndirectBatchInvocationSource for MultiIndirectDrawBatchInvocation {
