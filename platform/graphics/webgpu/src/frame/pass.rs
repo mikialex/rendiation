@@ -105,7 +105,7 @@ impl<'a> PassDescriptor<'a> {
 
   #[must_use]
   pub fn render_ctx(self, ctx: &mut FrameCtx) -> ActiveRenderPass {
-    self.render(&mut ctx.encoder, ctx.gpu)
+    self.render(&mut ctx.render_encoder, ctx.gpu)
   }
 
   #[must_use]

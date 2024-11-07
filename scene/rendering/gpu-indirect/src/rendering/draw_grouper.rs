@@ -1,12 +1,5 @@
 use crate::*;
 
-pub trait IndirectSceneDrawBatchGrouper {
-  fn iter_grouped_scene_model(
-    &self,
-    scene: EntityHandle<SceneEntity>,
-  ) -> Box<dyn Iterator<Item = (Box<dyn IndirectBatchSource>, EntityHandle<SceneModelEntity>)>>;
-}
-
 // pub type PipelineVariantKey = u64;
 
 // struct IndirectSceneDrawBatchGrouperImpl {

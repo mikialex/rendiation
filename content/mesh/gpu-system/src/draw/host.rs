@@ -24,16 +24,18 @@ impl GPUBindlessMeshSystem {
     iter: impl Iterator<Item = MeshSystemMeshHandle> + 'a,
   ) -> impl Iterator<Item = (DrawIndexedIndirect, DrawVertexIndirectInfo)> + 'a {
     iter.enumerate().map(|(i, handle)| {
-        let DrawMetaData { start,  count, vertex_info, .. } = self.metadata.get(handle as usize).unwrap();
-        let draw_indirect = DrawIndexedIndirect {
-          vertex_count: *count,
-          instance_count: 1,
-          base_index: *start,
-          vertex_offset: 0,
-          base_instance: i as u32, // we rely on this to get draw id. https://www.g-truc.net/post-0518.html
-        };
-        (draw_indirect, *vertex_info)
-      })
+      let DrawMetaData {
+        start,
+        count,
+        vertex_info,
+        ..
+      } = self.metadata.get(handle as usize).unwrap();
+      let draw_indirect = DrawIndexedIndirect::new(
+        *count, 1, *start, 0,
+        i as u32, // we rely on this to get draw id. https://www.g-truc.net/post-0518.html
+      );
+      (draw_indirect, *vertex_info)
+    })
   }
 }
 

@@ -38,6 +38,8 @@ mod background;
 pub use background::*;
 mod batch;
 pub use batch::*;
+mod mid;
+pub use mid::*;
 
 pub trait RenderImplProvider<T> {
   /// this will be called once when application init

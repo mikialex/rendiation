@@ -5,6 +5,12 @@ pub trait IndirectModelRenderImpl {
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
   ) -> Option<Box<dyn RenderComponent + '_>>;
+
+  fn make_draw_command_builder(
+    &self,
+    any_idx: EntityHandle<SceneModelEntity>,
+  ) -> Option<Box<dyn DrawCommandBuilder + '_>>;
+
   fn material_renderable_indirect<'a>(
     &'a self,
     any_idx: EntityHandle<SceneModelEntity>,
@@ -19,6 +25,18 @@ impl IndirectModelRenderImpl for Vec<Box<dyn IndirectModelRenderImpl>> {
   ) -> Option<Box<dyn RenderComponent + '_>> {
     for provider in self {
       if let Some(v) = provider.shape_renderable_indirect(any_idx) {
+        return Some(v);
+      }
+    }
+    None
+  }
+
+  fn make_draw_command_builder(
+    &self,
+    any_idx: EntityHandle<SceneModelEntity>,
+  ) -> Option<Box<dyn DrawCommandBuilder + '_>> {
+    for provider in self {
+      if let Some(v) = provider.make_draw_command_builder(any_idx) {
         return Some(v);
       }
     }
@@ -80,6 +98,14 @@ impl IndirectModelRenderImpl for SceneStdModelRenderer {
   ) -> Option<Box<dyn RenderComponent + '_>> {
     let model = self.model.get(any_idx)?;
     self.shapes.make_component_indirect(model)
+  }
+
+  fn make_draw_command_builder(
+    &self,
+    any_idx: EntityHandle<SceneModelEntity>,
+  ) -> Option<Box<dyn DrawCommandBuilder + '_>> {
+    let model = self.model.get(any_idx)?;
+    self.shapes.make_draw_command_builder(model)
   }
 
   fn material_renderable_indirect<'a>(
