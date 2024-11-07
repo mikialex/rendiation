@@ -104,7 +104,7 @@ impl<'a> ShaderPassBuilder for PhysicalSpecularGlossinessMaterialGPU<'a> {
 impl<'a> GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU<'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.fragment(|builder, binding| {
-      let id = builder.query::<IndirectSceneAbstractMaterialId>()?;
+      let id = builder.query::<IndirectAbstractMaterialId>()?;
       let storage = binding.bind_by(&self.storage).index(id).load().expand();
       let tex_storage = binding
         .bind_by(&self.texture_storages)

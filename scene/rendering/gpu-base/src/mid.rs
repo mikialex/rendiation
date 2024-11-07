@@ -18,7 +18,7 @@ pub trait IndirectDrawProvider: ShaderHashProvider + ShaderPassBuilder {
 }
 
 pub trait IndirectBatchInvocationSource {
-  fn current_invocation_scene_model_id(&self) -> Node<u32>;
+  fn current_invocation_scene_model_id(&self, builder: &ShaderVertexBuilder) -> Node<u32>;
 }
 
 impl DeviceSceneModelRenderSubBatch {
@@ -29,12 +29,14 @@ impl DeviceSceneModelRenderSubBatch {
   ) -> Box<dyn IndirectDrawProvider + 'static> {
     Box::new(MultiIndirectDrawBatch {
       draw_command_buffer: todo!(),
+      draw_count: todo!(),
     })
   }
 }
 
 struct MultiIndirectDrawBatch {
   draw_command_buffer: StorageBufferReadOnlyDataView<[DrawIndexedIndirect]>,
+  draw_count: StorageBufferReadOnlyDataView<u32>,
 }
 
 impl IndirectDrawProvider for MultiIndirectDrawBatch {
@@ -42,8 +44,8 @@ impl IndirectDrawProvider for MultiIndirectDrawBatch {
     struct MultiIndirectDrawBatchInvocation;
 
     impl IndirectBatchInvocationSource for MultiIndirectDrawBatchInvocation {
-      fn current_invocation_scene_model_id(&self) -> Node<u32> {
-        todo!()
+      fn current_invocation_scene_model_id(&self, builder: &ShaderVertexBuilder) -> Node<u32> {
+        builder.query::<VertexInstanceIndex>().unwrap()
       }
     }
 
@@ -51,8 +53,12 @@ impl IndirectDrawProvider for MultiIndirectDrawBatch {
   }
 
   fn draw_command(&self) -> DrawCommand {
-    todo!()
-    // DrawCommand::MultiIndirect { indexed: true, indirect_buffer: (), indirect_offset: 0, count: () }
+    DrawCommand::MultiIndirectCount {
+      indexed: true,
+      indirect_buffer: self.draw_command_buffer.gpu.clone(),
+      indirect_count: self.draw_count.gpu.clone(),
+      max_count: self.draw_command_buffer.item_count(),
+    }
   }
 }
 

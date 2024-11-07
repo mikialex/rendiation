@@ -6,6 +6,8 @@ use slab::Slab;
 mod draw;
 pub use draw::*;
 
+only_vertex!(IndirectAbstractMeshId, u32);
+
 pub type MeshSystemMeshHandle = u32;
 
 #[repr(C)]

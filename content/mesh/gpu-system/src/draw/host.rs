@@ -51,7 +51,6 @@ impl<'a> BindlessMeshDispatcher<'a> {
     DrawCommand::MultiIndirect {
       indirect_buffer: self.draw_indirect_buffer.clone(),
       indexed: true,
-      indirect_offset: 0,
       count: size as u32 / 20,
     }
   }
@@ -80,11 +79,11 @@ impl<'a> GraphicsShaderProvider for BindlessMeshDispatcher<'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
     builder.log_result = true;
     builder.vertex(|vertex, binding| {
-      let draw_id = vertex.query::<VertexInstanceIndex>().unwrap();
+      let mesh_handle = vertex.query::<IndirectAbstractMeshId>().unwrap();
       let vertex_id = vertex.query::<VertexIndex>().unwrap();
 
       let vertex_addresses = binding.bind_by(&self.vertex_address_buffer);
-      let vertex_address = vertex_addresses.index(draw_id).load().expand();
+      let vertex_address = vertex_addresses.index(mesh_handle).load().expand();
 
       let position = binding.bind_by(&self.system.position.gpu());
       let position = position

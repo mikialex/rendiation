@@ -1,3 +1,5 @@
+use rendiation_mesh_gpu_system::IndirectAbstractMeshId;
+
 use crate::*;
 
 both!(IndirectSceneStdModelId, u32);
@@ -26,8 +28,8 @@ impl<'a> GraphicsShaderProvider for StdModelGPUStorage<'a> {
       let current_model_id = builder.query::<IndirectSceneStdModelId>()?;
       let model = models.index(current_model_id).load().expand();
 
-      builder.register::<IndirectSceneAbstractMeshId>(model.mesh);
-      builder.register::<IndirectSceneAbstractMaterialId>(model.material);
+      builder.register::<IndirectAbstractMeshId>(model.mesh);
+      builder.register::<IndirectAbstractMaterialId>(model.material);
       Ok(())
     })
   }
