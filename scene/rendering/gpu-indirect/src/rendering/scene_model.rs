@@ -123,24 +123,30 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,
   ) -> Option<()> {
-    // let node = self.node.get(any_id)?;
-    // let node = self.node_render.make_component_indirect(node)?;
+    let node = self.node.get(any_id)?;
+    let node = self.node_render.make_component_indirect(node)?;
 
-    // let shape = self.model_impl.shape_renderable_indirect(any_id)?;
-    // let material = self.model_impl.material_renderable_indirect(any_id, tex)?;
+    let shape = self.model_impl.shape_renderable_indirect(any_id)?;
+    let material = self.model_impl.material_renderable_indirect(any_id, tex)?;
 
-    // let pass = Box::new(pass) as Box<dyn RenderComponent>;
+    let camera = Box::new(camera) as Box<dyn RenderComponent>;
+    let pass = Box::new(pass) as Box<dyn RenderComponent>;
+    let draw_source =
+      Box::new(IndirectDrawProviderAsRenderComponent(models)) as Box<dyn RenderComponent>;
 
-    // let contents: [BindingController<Box<dyn RenderComponent>>; 5] = [
-    //   pass.into_assign_binding_index(0),
-    //   shape.into_assign_binding_index(2),
-    //   node.into_assign_binding_index(2),
-    //   camera.into_assign_binding_index(1),
-    //   material.into_assign_binding_index(2),
-    // ];
+    let command = models.draw_command();
 
-    // let render = Box::new(RenderArray(contents)) as Box<dyn RenderComponent>;
-    // Some((render, todo!()))
+    let contents: [BindingController<Box<dyn RenderComponent>>; 6] = [
+      draw_source.into_assign_binding_index(0),
+      pass.into_assign_binding_index(0),
+      shape.into_assign_binding_index(2),
+      node.into_assign_binding_index(2),
+      camera.into_assign_binding_index(1),
+      material.into_assign_binding_index(2),
+    ];
+
+    let render = Box::new(RenderArray(contents)) as Box<dyn RenderComponent>;
+    render.render(cx, command);
     Some(())
   }
 

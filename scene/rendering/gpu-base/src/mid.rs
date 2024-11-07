@@ -1,5 +1,7 @@
 use crate::*;
 
+only_vertex!(IndirectSceneModelId, u32);
+
 pub trait DrawCommandBuilder: ShaderHashProvider + ShaderPassBuilder + DynClone {
   fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> DrawCommand;
   fn build_invocation(&self) -> Box<dyn DrawCommandBuilderInvocation>;
@@ -19,6 +21,34 @@ pub trait IndirectDrawProvider: ShaderHashProvider + ShaderPassBuilder {
     binding: &mut ShaderBindGroupBuilder,
   ) -> Box<dyn IndirectBatchInvocationSource>;
   fn draw_command(&self) -> DrawCommand;
+}
+
+pub struct IndirectDrawProviderAsRenderComponent<'a>(pub &'a dyn IndirectDrawProvider);
+
+impl<'a> ShaderHashProvider for IndirectDrawProviderAsRenderComponent<'a> {
+  fn hash_type_info(&self, hasher: &mut PipelineHasher) {
+    self.0.hash_type_info(hasher)
+  }
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.0.hash_pipeline(hasher);
+  }
+}
+impl<'a> ShaderPassBuilder for IndirectDrawProviderAsRenderComponent<'a> {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.0.setup_pass(ctx);
+  }
+}
+
+impl<'a> GraphicsShaderProvider for IndirectDrawProviderAsRenderComponent<'a> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+    builder.vertex(|builder, binder| {
+      let invocation = self.0.create_indirect_invocation_source(binder);
+      let scene_id = invocation.current_invocation_scene_model_id(builder);
+      builder.register::<IndirectSceneModelId>(scene_id);
+
+      Ok(())
+    })
+  }
 }
 
 pub trait IndirectBatchInvocationSource {
