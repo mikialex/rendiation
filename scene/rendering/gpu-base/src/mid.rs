@@ -21,12 +21,12 @@ pub trait IndirectBatchInvocationSource {
   fn current_invocation_scene_model_id(&self) -> Node<u32>;
 }
 
-impl DeviceSceneModelRenderBatch {
+impl DeviceSceneModelRenderSubBatch {
   pub fn create_indirect_draw_provider(
     &self,
     draw_command_builder: &dyn DrawCommandBuilder,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn IndirectDrawProvider> {
+  ) -> Box<dyn IndirectDrawProvider + 'static> {
     Box::new(MultiIndirectDrawBatch {
       draw_command_buffer: todo!(),
     })

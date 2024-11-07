@@ -77,22 +77,30 @@ impl SceneRenderer for IndirectSceneRenderer {
   ) -> Box<dyn PassContent> {
     let batch = batch.get_device_batch(None).unwrap();
 
-    let any_scene_model = batch.impl_select_id;
-    let draw_command_builder = self
-      .renderer
-      .make_draw_command_builder(batch.impl_select_id)
-      .unwrap();
+    let mut cx = todo!();
 
-    let cx = todo!();
+    let content: Vec<_> = batch
+      .sub_batches
+      .iter()
+      .map(|batch| {
+        let any_scene_model = batch.impl_select_id;
+        let draw_command_builder = self
+          .renderer
+          .make_draw_command_builder(batch.impl_select_id)
+          .unwrap();
 
-    let indirect_draw = batch.create_indirect_draw_provider(draw_command_builder.as_ref(), cx);
+        (
+          batch.create_indirect_draw_provider(draw_command_builder.as_ref(), &mut cx),
+          any_scene_model,
+        )
+      })
+      .collect();
 
     Box::new(IndirectScenePassContent {
       renderer: self,
-      content: indirect_draw,
+      content,
       pass,
       camera,
-      any_scene_model,
     })
   }
 
@@ -114,8 +122,11 @@ impl SceneRenderer for IndirectSceneRenderer {
 
 struct IndirectScenePassContent<'a> {
   renderer: &'a IndirectSceneRenderer,
-  content: Box<dyn IndirectDrawProvider>,
-  any_scene_model: EntityHandle<SceneModelEntity>,
+  content: Vec<(
+    Box<dyn IndirectDrawProvider>,
+    EntityHandle<SceneModelEntity>,
+  )>,
+
   pass: &'a dyn RenderComponent,
   camera: EntityHandle<SceneCameraEntity>,
 }
@@ -123,13 +134,15 @@ struct IndirectScenePassContent<'a> {
 impl<'a> PassContent for IndirectScenePassContent<'a> {
   fn render(&mut self, cx: &mut FrameRenderPass) {
     let camera = self.renderer.camera.make_component(self.camera).unwrap();
-    self.renderer.renderer.render_indirect_batch_models(
-      self.content.as_ref(),
-      self.any_scene_model,
-      &camera,
-      &self.renderer.texture_system,
-      &self.pass,
-      &mut cx.ctx,
-    );
+    for (content, any_scene_model) in &self.content {
+      self.renderer.renderer.render_indirect_batch_models(
+        content.as_ref(),
+        *any_scene_model,
+        &camera,
+        &self.renderer.texture_system,
+        &self.pass,
+        &mut cx.ctx,
+      );
+    }
   }
 }

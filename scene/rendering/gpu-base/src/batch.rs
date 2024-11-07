@@ -20,7 +20,12 @@ dyn_clone::clone_trait_object!(HostRenderBatch);
 
 #[derive(Clone)]
 pub struct DeviceSceneModelRenderBatch {
-  pub scene_models: Vec<Box<dyn DeviceParallelComputeIO<u32>>>,
+  pub sub_batches: Vec<DeviceSceneModelRenderSubBatch>,
+}
+
+#[derive(Clone)]
+pub struct DeviceSceneModelRenderSubBatch {
+  pub scene_models: Box<dyn DeviceParallelComputeIO<u32>>,
   pub impl_select_id: EntityHandle<SceneModelEntity>,
 }
 
@@ -44,8 +49,10 @@ impl SceneModelRenderBatch {
             .collect::<Vec<_>>();
           let storage = create_gpu_readonly_storage(data.as_slice(), &gpu.device);
           Some(DeviceSceneModelRenderBatch {
-            scene_models: vec![Box::new(storage)],
-            impl_select_id: v.iter_scene_models().next().unwrap(),
+            sub_batches: vec![DeviceSceneModelRenderSubBatch {
+              impl_select_id: v.iter_scene_models().next().unwrap(),
+              scene_models: Box::new(storage),
+            }],
           })
         } else {
           None
