@@ -171,7 +171,7 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
           &|info| {
             let hit_group = info.hit_ctx.compute_sbt_hit_group(ray_sbt_config);
             let any_shader_index = self.sbt.get_any_handle(current_sbt, hit_group);
-            let r = val(0).make_local_var();
+            let r = val(ACCEPT_HIT).make_local_var();
 
             let mut switcher = switch_by(any_shader_index);
             for (i, any_hit_shader) in self.info.any_hit_shaders.iter().enumerate() {

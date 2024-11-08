@@ -263,16 +263,20 @@ fn test_gpu_triangle() {
           let linear_idx = id.x();
           let idx_x = linear_idx % val(W as u32);
           let idx_y = linear_idx / val(W as u32);
+          let launch_id: Node<Vec3<u32>> = (idx_x, idx_y, val(0)).into();
+          let launch_size: Node<Vec3<u32>> = (val(W as u32), val(H as u32), val(1)).into();
 
-          let x = (idx_x.into_f32() + val(0.5)) / val(W as f32) * val(2.) - val(1.);
-          let y = val(1.) - (idx_y.into_f32() + val(0.5)) / val(H as f32) * val(2.);
+          let x =
+            (launch_id.x().into_f32() + val(0.5)) / launch_size.x().into_f32() * val(2.) - val(1.);
+          let y =
+            val(1.) - (launch_id.y().into_f32() + val(0.5)) / launch_size.y().into_f32() * val(2.);
           let target: Node<Vec3<f32>> = (x, y, val(-1.)).into(); // fov = 90 deg
           let dir = (target - val(ORIGIN)).normalize();
 
           let ray_flags = RayFlagConfigRaw::RAY_FLAG_CULL_BACK_FACING_TRIANGLES as u32;
           let payload = ShaderRayTraceCallStoragePayloadShaderAPIInstance {
-            launch_size: (val(W as u32), val(H as u32), val(1)).into(),
-            launch_id: (idx_x, idx_y, val(0)).into(),
+            launch_id,
+            launch_size,
             payload_ref: val(0),
             tlas_idx: val(0), // todo support tlas selection
             ray_flags: val(ray_flags),
@@ -282,7 +286,7 @@ fn test_gpu_triangle() {
             miss_index: val(0),
             ray_origin: val(ORIGIN),
             ray_direction: dir,
-            range: val(vec2(0., FAR)),
+            range: val(vec2(0.01, FAR)),
           };
 
           // todo how to access user payload?

@@ -220,15 +220,13 @@ impl ShaderFutureInvocation for TracingCtxProviderFutureInvocation {
 
 impl RayLaunchInfoProvider for StorageNode<RayClosestHitCtxPayload> {
   fn launch_id(&self) -> Node<Vec3<u32>> {
-    let node = self.load(); // todo load ptr directly
-    let payload = node.expand().ray_info.expand();
-    payload.launch_id
+    let node = RayClosestHitCtxPayload::storage_node_ray_info_field_ptr(*self);
+    ShaderRayTraceCallStoragePayload::storage_node_launch_id_field_ptr(node).load()
   }
 
   fn launch_size(&self) -> Node<Vec3<u32>> {
-    let node = self.load(); // todo load ptr directly
-    let payload = node.expand().ray_info.expand();
-    payload.launch_size
+    let node = RayClosestHitCtxPayload::storage_node_ray_info_field_ptr(*self);
+    ShaderRayTraceCallStoragePayload::storage_node_launch_size_field_ptr(node).load()
   }
 }
 
@@ -316,15 +314,13 @@ impl ClosestHitCtxProvider for StorageNode<RayClosestHitCtxPayload> {
 
 impl RayLaunchInfoProvider for StorageNode<RayMissHitCtxPayload> {
   fn launch_id(&self) -> Node<Vec3<u32>> {
-    let node = self.load(); // todo load ptr directly
-    let payload = node.expand().ray_info.expand();
-    payload.launch_id
+    let node = RayMissHitCtxPayload::storage_node_ray_info_field_ptr(*self);
+    ShaderRayTraceCallStoragePayload::storage_node_launch_id_field_ptr(node).load()
   }
 
   fn launch_size(&self) -> Node<Vec3<u32>> {
-    let node = self.load(); // todo load ptr directly
-    let payload = node.expand().ray_info.expand();
-    payload.launch_size
+    let node = RayMissHitCtxPayload::storage_node_ray_info_field_ptr(*self);
+    ShaderRayTraceCallStoragePayload::storage_node_launch_size_field_ptr(node).load()
   }
 }
 impl WorldRayInfoProvider for StorageNode<RayMissHitCtxPayload> {

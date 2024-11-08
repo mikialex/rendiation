@@ -349,7 +349,7 @@ impl<T: ShaderTextureType> HandleNode<T> {
       position: position.handle(),
       array_index: None,
       sample_index: None,
-      level: level.handle().into(),
+      level: None, // level.handle().into(), todo Some causes naga error
     })
     .insert_api()
   }

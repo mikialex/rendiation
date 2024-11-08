@@ -28,6 +28,10 @@ pub struct SbtTaskMapping {
 }
 impl SbtTaskMapping {
   pub fn new(ray_gen_start: u32, closest_start: u32, miss_start: u32) -> Self {
+    println!(
+      "ray_gen_start: {}, closest_start: {}, miss_start: {}",
+      ray_gen_start, closest_start, miss_start
+    );
     Self {
       ray_gen_start,
       closest_start,
@@ -126,6 +130,7 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
         missing_task_start as u32,
       ),
     );
+    // written in trace_ray. see RayLaunchSizeBuffer
     let launch_size_buffer = StorageBufferReadOnlyDataView::create(device, &vec3(0, 0, 0));
 
     let payload_u32_len = init_size * 2 * (payload_max_u32_count as usize);

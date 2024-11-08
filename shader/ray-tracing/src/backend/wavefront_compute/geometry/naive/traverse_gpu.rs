@@ -11,7 +11,7 @@ pub(super) struct NaiveSahBvhGpu {
 
   // tri_range to index tri_bvh_root, box_range to index box_bvh_root
   pub(super) blas_meta_info: StorageBufferReadOnlyDataView<[BlasMetaInfo]>,
-  // (tri_bvh_forest root_idx, geometry_idx, primitive_start, geometry_flags
+  // tri_bvh_forest root_idx, geometry_idx, primitive_start, geometry_flags
   pub(super) tri_bvh_root: StorageBufferReadOnlyDataView<[GeometryMetaInfo]>,
   // box_bvh_forest root_idx, geometry_idx, primitive_start, geometry_flags
   pub(super) box_bvh_root: StorageBufferReadOnlyDataView<[GeometryMetaInfo]>,
