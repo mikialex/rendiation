@@ -114,7 +114,8 @@ impl RayTracingPassEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
       .downcast_ref::<ShaderBindingTableInfo>()
       .unwrap();
 
-    let mut cx = DeviceParallelComputeCtx::new(&self.gpu);
+    let mut encoder = self.gpu.create_encoder();
+    let mut cx = DeviceParallelComputeCtx::new(&self.gpu, &mut encoder);
 
     let required_size = (size.0 * size.1 * size.2) as usize;
 

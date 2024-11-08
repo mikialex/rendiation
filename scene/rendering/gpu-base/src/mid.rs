@@ -60,7 +60,7 @@ impl DeviceSceneModelRenderSubBatch {
     &self,
     draw_command_builder: Box<dyn DrawCommandBuilder>,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn IndirectDrawProvider + 'static> {
+  ) -> Box<dyn IndirectDrawProvider> {
     let r = DrawCommandGenerator {
       scene_models: self.scene_models.clone(),
       generator: draw_command_builder,

@@ -18,6 +18,8 @@
 //! }
 //! ```
 
+use std::mem::ManuallyDrop;
+
 use database::*;
 use dyn_clone::*;
 use reactive::*;
@@ -187,5 +189,23 @@ impl SceneModelRenderer for Vec<Box<dyn SceneModelRenderer>> {
       }
     }
     None
+  }
+}
+
+pub trait FrameCtxParallelCompute {
+  fn access_parallel_compute<R>(&mut self, f: impl FnOnce(&mut DeviceParallelComputeCtx) -> R)
+    -> R;
+}
+
+impl<'a> FrameCtxParallelCompute for FrameCtx<'a> {
+  fn access_parallel_compute<R>(
+    &mut self,
+    f: impl FnOnce(&mut DeviceParallelComputeCtx) -> R,
+  ) -> R {
+    let mut ctx = DeviceParallelComputeCtx::new(self.gpu, &mut self.encoder);
+    let r = f(&mut ctx);
+    ctx.flush_pass();
+    let _ = ManuallyDrop::new(ctx); // avoid drop to avoid unnecessary submit
+    r
   }
 }

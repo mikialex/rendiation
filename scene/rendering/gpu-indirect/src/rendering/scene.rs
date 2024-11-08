@@ -69,16 +69,14 @@ impl SceneRenderer for IndirectSceneRenderer {
     todo!()
   }
 
-  fn make_scene_batch_pass_content(
-    &self,
+  fn make_scene_batch_pass_content<'a>(
+    &'a self,
     batch: SceneModelRenderBatch,
     camera: EntityHandle<SceneCameraEntity>,
-    pass: &dyn RenderComponent,
+    pass: &'a dyn RenderComponent,
     ctx: &mut FrameCtx,
-  ) -> Box<dyn PassContent> {
+  ) -> Box<dyn PassContent + 'a> {
     let batch = batch.get_device_batch(None).unwrap();
-
-    let mut cx = todo!();
 
     let content: Vec<_> = batch
       .sub_batches
@@ -90,10 +88,11 @@ impl SceneRenderer for IndirectSceneRenderer {
           .make_draw_command_builder(batch.impl_select_id)
           .unwrap();
 
-        (
-          batch.create_indirect_draw_provider(draw_command_builder, &mut cx),
-          any_scene_model,
-        )
+        let provider = ctx.access_parallel_compute(|cx| {
+          batch.create_indirect_draw_provider(draw_command_builder, cx)
+        });
+
+        (provider, any_scene_model)
       })
       .collect();
 

@@ -19,7 +19,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
     }
   }
 
-  pub async fn debug_execution(&self, cx: &mut DeviceParallelComputeCtx) -> Vec<T> {
+  pub async fn debug_execution<'a>(&self, cx: &mut DeviceParallelComputeCtx<'a>) -> Vec<T> {
     let size = cx.read_sized_storage_array(&self.current_size);
     let storage = cx.read_storage_array(&self.storage);
 

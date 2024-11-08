@@ -14,7 +14,7 @@ use crate::*;
 
 pub struct FrameCtx<'a> {
   pub gpu: &'a GPU,
-  pub render_encoder: GPUCommandEncoder,
+  pub encoder: GPUCommandEncoder,
   pool: &'a AttachmentPool,
   frame_size: Size,
 }
@@ -26,19 +26,19 @@ impl<'a> FrameCtx<'a> {
     Self {
       pool,
       frame_size,
-      render_encoder: encoder,
+      encoder,
       gpu,
     }
   }
 
   pub fn make_submit(&mut self) {
     let mut encoder = self.gpu.create_encoder();
-    std::mem::swap(&mut self.render_encoder, &mut encoder);
+    std::mem::swap(&mut self.encoder, &mut encoder);
     self.gpu.submit_encoder(encoder)
   }
 
   pub fn final_submit(self) {
-    self.gpu.submit_encoder(self.render_encoder)
+    self.gpu.submit_encoder(self.encoder)
   }
 
   pub fn frame_size(&self) -> Size {

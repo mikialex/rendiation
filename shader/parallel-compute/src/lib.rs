@@ -421,7 +421,8 @@ where
     T: Debug + PartialEq,
   {
     let (gpu, _) = GPU::new(Default::default()).await.unwrap();
-    let mut cx = DeviceParallelComputeCtx::new(&gpu);
+    let mut encoder = gpu.create_encoder();
+    let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder);
 
     fn check<T: PartialEq + Debug>(expect: &[T], result: &[T]) {
       if expect != result {
@@ -443,15 +444,16 @@ where
 
     cx.force_indirect_dispatch = true;
     let (_, size, result) = self.read_back_host(&mut cx).await.unwrap();
+
     check(expect, &result);
     if let (Some(size), Some(expect_size)) = (size, expect_size) {
       assert_eq!(size, expect_size);
     }
   }
 
-  async fn read_back_host(
+  async fn read_back_host<'a>(
     &self,
-    cx: &mut DeviceParallelComputeCtx,
+    cx: &mut DeviceParallelComputeCtx<'a>,
   ) -> Result<(DeviceMaterializeResult<T>, Option<Vec3<u32>>, Vec<T>), BufferAsyncError> {
     let output = self.materialize_storage_buffer(cx);
     cx.flush_pass();
@@ -708,23 +710,23 @@ where
 {
 }
 
-pub struct DeviceParallelComputeCtx {
+pub struct DeviceParallelComputeCtx<'a> {
   pub gpu: GPU,
-  pub encoder: GPUCommandEncoder,
+  pub encoder: &'a mut GPUCommandEncoder,
   pub pass: Option<GPUComputePass>,
   pub force_indirect_dispatch: bool,
 }
 
-impl Drop for DeviceParallelComputeCtx {
+impl<'a> Drop for DeviceParallelComputeCtx<'a> {
   fn drop(&mut self) {
     // make sure pass is dropped before encoder.
     self.submit_recorded_work_and_continue();
   }
 }
 
-impl DeviceParallelComputeCtx {
-  pub fn new(gpu: &GPU) -> Self {
-    let encoder = gpu.create_encoder();
+impl<'a> DeviceParallelComputeCtx<'a> {
+  /// note, the passed in encoder will be automatically been submitted after this ctx drop.
+  pub fn new(gpu: &GPU, encoder: &'a mut GPUCommandEncoder) -> Self {
     Self {
       gpu: gpu.clone(),
       encoder,
@@ -775,7 +777,7 @@ impl DeviceParallelComputeCtx {
   pub fn submit_recorded_work_and_continue(&mut self) {
     self.flush_pass();
     let new_encoder = self.gpu.create_encoder();
-    let current_encoder = std::mem::replace(&mut self.encoder, new_encoder);
+    let current_encoder = std::mem::replace(self.encoder, new_encoder);
 
     self.gpu.submit_encoder(current_encoder);
   }
