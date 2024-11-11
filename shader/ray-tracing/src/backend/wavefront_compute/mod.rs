@@ -149,7 +149,8 @@ impl RayTracingPassEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
         &mut cx,
         required_size as u32,
         current_pipeline.ray_gen_task_idx,
-        |_| val(0_u32), // todo check if it's u32 payload if not define any payload
+        // ray-gen payload is linear id. see TracingCtxProviderFutureInvocation.
+        |global_id| global_id,
       );
     }
 

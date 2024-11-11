@@ -39,9 +39,6 @@ pub struct ShaderRayRange {
 
 #[derive(Clone, Copy)]
 pub struct ShaderRayTraceCall {
-  pub launch_id: Node<Vec3<u32>>,
-  pub launch_size: Node<Vec3<u32>>,
-
   // todo, use Vec2<u32>, see https://github.com/KhronosGroup/GLSL/blob/main/extensions/ext/GLSL_EXT_ray_tracing.txt#L567
   pub tlas_idx: Node<u32>,
 

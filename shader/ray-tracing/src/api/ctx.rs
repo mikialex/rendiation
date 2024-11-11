@@ -93,6 +93,7 @@ pub struct RayIntersectCtx {
 }
 
 pub struct TracingCtx {
+  pub(crate) ray_gen: Option<Box<dyn Fn() -> Box<dyn RayGenCtxProvider>>>,
   pub(crate) missing: Option<Box<dyn MissingHitCtxProvider>>,
   pub(crate) closest: Option<Box<dyn ClosestHitCtxProvider>>,
   pub(crate) payload: Option<(StorageNode<AnyType>, ShaderSizedValueType)>,
@@ -100,6 +101,9 @@ pub struct TracingCtx {
 }
 
 impl TracingCtx {
+  pub fn ray_gen_ctx(&self) -> Option<Box<dyn RayGenCtxProvider>> {
+    self.ray_gen.as_ref().map(|f| f())
+  }
   pub fn miss_hit_ctx(&self) -> Option<&dyn MissingHitCtxProvider> {
     self.missing.as_deref()
   }
@@ -130,6 +134,7 @@ pub trait RayLaunchInfoProvider {
   fn launch_size(&self) -> Node<Vec3<u32>>;
 }
 
+pub trait RayGenCtxProvider: RayLaunchInfoProvider {}
 pub trait MissingHitCtxProvider: WorldRayInfoProvider + RayLaunchInfoProvider {}
 pub trait ClosestHitCtxProvider: WorldRayInfoProvider + RayLaunchInfoProvider {
   /// gl_PrimitiveID

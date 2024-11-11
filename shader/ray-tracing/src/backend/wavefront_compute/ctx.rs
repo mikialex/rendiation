@@ -178,6 +178,7 @@ impl ShaderFutureInvocation for TracingCtxProviderFutureInvocation {
   type Output = ();
   fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<()> {
     // accessing task{}_payload_with_ray, see fn spawn_dynamic in trace_task.rs
+    // todo should only pass pointers and load values in closure
     let combined_payload = ctx.access_self_payload_untyped();
     let user_defined_payload = if matches!(self.stage, RayTraceableShaderStage::RayGeneration) {
       None
@@ -199,17 +200,25 @@ impl ShaderFutureInvocation for TracingCtxProviderFutureInvocation {
       Box::new(ray_payload) as Box<dyn ClosestHitCtxProvider>
     });
 
-    let linear_id = ctx.compute_cx.global_invocation_id().x();
-    let launch_size = self.launch_size.get();
-    let info = RayLaunchRawInfo::new(linear_id, launch_size);
+    // should only pass pointers and load values in closure
+    let launch_size = self.launch_size;
+    let ray_gen = matches!(self.stage, RayTraceableShaderStage::RayGeneration).then(|| {
+      // ray_gen payload is global id. see trace_ray.
+      let ray_gen_payload_ptr: StorageNode<u32> = ctx.access_self_payload();
+      Box::new(move || {
+        let global_id = ray_gen_payload_ptr.load();
+        let info = RayLaunchRawInfo::new(global_id, launch_size.get());
+        Box::new(info) as Box<dyn RayGenCtxProvider>
+      }) as Box<dyn Fn() -> Box<dyn RayGenCtxProvider>>
+    });
 
-    let mut tracing_ctx = TracingCtx {
+    let tracing_ctx = TracingCtx {
+      ray_gen,
       missing,
       closest,
       payload: user_defined_payload,
       registry: Default::default(),
     };
-    tracing_ctx.registry.register(info);
 
     ctx.invocation_registry.register(tracing_ctx);
     ctx.invocation_registry.register(self.ray_spawner.clone());

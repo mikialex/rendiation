@@ -96,6 +96,7 @@ impl RayLaunchSizeBuffer {
     builder.bind(&self.launch_size);
   }
 }
+#[derive(Copy, Clone)]
 pub struct RayLaunchSizeInvocation {
   launch_size: ReadOnlyStorageNode<Vec3<u32>>,
 }
@@ -123,13 +124,16 @@ impl RayLaunchRawInfo {
       launch_size,
     }
   }
-  pub fn launch_size(&self) -> Node<Vec3<u32>> {
-    self.launch_size
-  }
-  pub fn launch_id(&self) -> Node<Vec3<u32>> {
+}
+impl RayLaunchInfoProvider for RayLaunchRawInfo {
+  fn launch_id(&self) -> Node<Vec3<u32>> {
     self.launch_id
   }
+  fn launch_size(&self) -> Node<Vec3<u32>> {
+    self.launch_size
+  }
 }
+impl RayGenCtxProvider for RayLaunchRawInfo {}
 
 impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
   type Output = ();
@@ -456,6 +460,8 @@ impl TracingTaskSpawnerInvocation {
     payload: ShaderNodeRawHandle,
     payload_ty: ShaderSizedValueType,
     parent: TaskParentRef,
+    launch_id: Node<Vec3<u32>>,
+    launch_size: Node<Vec3<u32>>,
   ) -> TaskFutureInvocationRightValue {
     let task_handle = val(u32::MAX).make_local_var();
 
@@ -474,8 +480,8 @@ impl TracingTaskSpawnerInvocation {
       });
 
       let payload = ENode::<ShaderRayTraceCallStoragePayload> {
-        launch_size: trace_call.launch_size,
-        launch_id: trace_call.launch_id,
+        launch_id,
+        launch_size,
         tlas_idx: trace_call.tlas_idx,
         ray_flags: trace_call.ray_flags,
         cull_mask: trace_call.cull_mask,
@@ -536,6 +542,16 @@ where
           let ctx = cx.invocation_registry.get_mut::<TracingCtx>().unwrap();
           let (should_trace, trace, payload) = next_trace_logic(&o, ctx);
 
+          let (launch_id, launch_size) = if let Some(ray_gen) = ctx.ray_gen_ctx() {
+            (ray_gen.launch_id(), ray_gen.launch_size())
+          } else if let Some(closest) = ctx.closest_hit_ctx() {
+            (closest.launch_id(), closest.launch_size())
+          } else if let Some(missing) = ctx.miss_hit_ctx() {
+            (missing.launch_id(), missing.launch_size())
+          } else {
+            unreachable!()
+          };
+
           let parent = cx.generate_self_as_parent();
           cx.invocation_registry
             .get_mut::<TracingTaskSpawnerInvocation>()
@@ -547,6 +563,8 @@ where
               payload.handle(),
               P::sized_ty(),
               parent,
+              launch_id,
+              launch_size,
             )
         },
         TaskFuture::<TraceTaskSelfPayload>::new(TRACING_TASK_INDEX),

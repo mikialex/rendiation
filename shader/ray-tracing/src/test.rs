@@ -38,9 +38,9 @@ async fn test_wavefront_compute() {
     .then_trace(
       // (&T, &mut TracingCtx) -> (Node<bool>, ShaderRayTraceCall, Node<P>)
       |_, ctx| {
-        let launch_info = ctx.registry.get_mut::<RayLaunchRawInfo>().unwrap();
-        let launch_id = launch_info.launch_id();
-        let launch_size = launch_info.launch_size();
+        let ray_gen_ctx = ctx.ray_gen_ctx().unwrap();
+        let launch_id = ray_gen_ctx.launch_id();
+        let launch_size = ray_gen_ctx.launch_size();
 
         let tex_io = ctx.registry.get_mut::<FrameOutputInvocation>().unwrap();
         tex_io
@@ -56,8 +56,6 @@ async fn test_wavefront_compute() {
 
         let ray_flags = RayFlagConfigRaw::RAY_FLAG_CULL_BACK_FACING_TRIANGLES as u32;
         let trace_call = ShaderRayTraceCall {
-          launch_id,
-          launch_size,
           tlas_idx: val(0), // todo
           ray_flags: val(ray_flags),
           cull_mask: val(u32::MAX),
@@ -76,19 +74,15 @@ async fn test_wavefront_compute() {
           },
         };
 
-        let ray_payload = ENode::<RayCustomPayload> {
-          color: val(0),
-          launch_id,
-        }
-        .construct();
+        let ray_payload = ENode::<RayCustomPayload> { color: val(0) }.construct();
 
         (val(true), trace_call, ray_payload)
       },
     )
-    .map(|(_, payload), ctx| {
-      let payload: Node<RayCustomPayload> = payload;
-      let payload = payload.expand();
-      let launch_id = payload.launch_id;
+    .map(|(_, _payload), ctx| {
+      let ray_gen_ctx = ctx.ray_gen_ctx().unwrap();
+      let launch_id = ray_gen_ctx.launch_id();
+
       let tex_io = ctx.registry.get_mut::<FrameOutputInvocation>().unwrap();
       let prev = tex_io.read_output::<RayTracingDebugOutput>(launch_id.xy());
       tex_io.write_output::<RayTracingDebugOutput>(
@@ -100,7 +94,6 @@ async fn test_wavefront_compute() {
   #[derive(Copy, Clone, Debug, Default, ShaderStruct)]
   pub struct RayCustomPayload {
     pub color: u32,
-    pub launch_id: Vec3<u32>,
   }
 
   let ray_gen = rtx_pipeline_desc.register_ray_gen::<u32>(ray_gen_shader);
@@ -114,11 +107,6 @@ async fn test_wavefront_compute() {
 
         let tex_io = ctx.registry.get_mut::<FrameOutputInvocation>().unwrap();
         let prev = tex_io.read_output::<RayTracingDebugOutput>(launch_id.xy());
-
-        // let (node, ty) = &ctx.payload.clone().unwrap();
-        // let node = unsafe { node.cast_type::<ShaderStoragePtr<RayCustomPayload>>() };
-        // let launch_id_payload = node.load().expand().launch_id;
-
         tex_io.write_output::<RayTracingDebugOutput>(
           launch_id.xy(),
           (prev.x(), prev.y() + val(100. / 255.), prev.z(), val(1.)).into(),
@@ -135,11 +123,6 @@ async fn test_wavefront_compute() {
 
         let tex_io = ctx.registry.get_mut::<FrameOutputInvocation>().unwrap();
         let prev = tex_io.read_output::<RayTracingDebugOutput>(launch_id.xy());
-
-        // let (node, ty) = &ctx.payload.clone().unwrap();
-        // let node = unsafe { node.cast_type::<ShaderStoragePtr<RayCustomPayload>>() };
-        // let payload = node.load().expand();
-
         tex_io.write_output::<RayTracingDebugOutput>(
           launch_id.xy(),
           (prev.x() + val(100. / 255.), prev.y(), prev.z(), val(1.)).into(),
