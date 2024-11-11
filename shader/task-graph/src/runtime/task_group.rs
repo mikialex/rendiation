@@ -188,6 +188,16 @@ impl TaskGroupExecutor {
       bb.setup_compute_pass(pass, device, &self.polling_pipeline);
       pass.dispatch_workgroups_indirect_by_buffer_resource_view(&active_execution_size);
     });
+
+    // todo, this must be improved. extra prepare_execution is costly.
+    // this is required because when task poll sleep, if we not do alive task compact, when the
+    // subsequent task wake the parent in this task group, it will create duplicate invocation.
+    //
+    // we can not simply clear the alive list because the task could self spawn new tasks.
+    // maybe one solution is to add anther task state to mark the task is sleeping but still in alive task.
+    // the prepare execution will still compact by this flag(and will reset it), but when child task wake parent,
+    //  if it see this special flag the alive task index spawn will be skipped.
+    self.prepare_execution(cx);
   }
 
   pub fn prepare_execution(&mut self, ctx: &mut DeviceParallelComputeCtx) {
