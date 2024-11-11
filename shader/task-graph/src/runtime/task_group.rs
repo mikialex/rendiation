@@ -188,6 +188,8 @@ impl TaskGroupExecutor {
       bb.setup_compute_pass(pass, device, &self.polling_pipeline);
       pass.dispatch_workgroups_indirect_by_buffer_resource_view(&active_execution_size);
     });
+
+    self.prepare_execution(cx);
   }
 
   pub fn prepare_execution(&mut self, ctx: &mut DeviceParallelComputeCtx) {
