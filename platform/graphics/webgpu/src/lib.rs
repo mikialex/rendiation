@@ -228,8 +228,8 @@ impl GPU {
     Ok((gpu, surface))
   }
 
-  pub fn poll(&self) {
-    self._instance.poll_all(false);
+  pub fn poll(&self, force_wait: bool) {
+    self._instance.poll_all(force_wait);
   }
 
   pub fn create_cache_report(&self) -> GPUResourceCacheSizeReport {

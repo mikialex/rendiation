@@ -139,6 +139,21 @@ pub struct DeviceTaskGraphExecutor {
 }
 
 impl DeviceTaskGraphExecutor {
+  pub fn set_task_before_execution_hook(
+    &mut self,
+    task_id: usize,
+    hook: impl Fn(&mut DeviceParallelComputeCtx, &TaskGroupExecutor) + 'static,
+  ) {
+    self.task_groups[task_id].before_execute = Some(Box::new(hook));
+  }
+  pub fn set_task_after_execution_hook(
+    &mut self,
+    task_id: usize,
+    hook: impl Fn(&mut DeviceParallelComputeCtx, &TaskGroupExecutor) + 'static,
+  ) {
+    self.task_groups[task_id].after_execute = Some(Box::new(hook));
+  }
+
   /// Allocate task directly in the task pool by dispatching compute shader.
   ///
   /// T must match given task_id's payload type
