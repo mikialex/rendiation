@@ -219,15 +219,13 @@ impl ShaderFutureInvocation for TracingCtxProviderFutureInvocation {
       }) as Box<dyn Fn() -> Box<dyn RayGenCtxProvider>>
     });
 
-    let tracing_ctx = TracingCtx {
+    ctx.invocation_registry.register(TracingCtx {
       ray_gen,
       missing,
       closest,
       payload: user_defined_payload,
       registry: Default::default(),
-    };
-
-    ctx.invocation_registry.register(tracing_ctx);
+    });
     ctx.invocation_registry.register(self.ray_spawner.clone());
 
     (val(true), ()).into()
