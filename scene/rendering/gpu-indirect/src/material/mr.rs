@@ -104,9 +104,9 @@ impl<'a> ShaderPassBuilder for PhysicalMetallicRoughnessMaterialIndirectGPU<'a> 
 }
 
 impl<'a> GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialIndirectGPU<'a> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
-      let id = builder.query::<IndirectAbstractMaterialId>()?;
+      let id = builder.query::<IndirectAbstractMaterialId>();
       let storage = binding.bind_by(&self.storage).index(id).load().expand();
       let tex_storage = binding
         .bind_by(&self.texture_storages)
@@ -189,7 +189,6 @@ impl<'a> GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialIndirectGPU
       builder.register::<RoughnessChannel>(roughness * roughness);
 
       builder.register::<DefaultDisplay>((base_color, val(1.)));
-      Ok(())
     })
   }
 }

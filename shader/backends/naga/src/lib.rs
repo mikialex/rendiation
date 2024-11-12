@@ -584,6 +584,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
     #[allow(clippy::never_loop)] // we here use loop to early exit match block!
     let expr = loop {
       break match expr {
+        ShaderNodeExpr::Fake => return ShaderNodeRawHandle { handle: 0 },
         ShaderNodeExpr::Zeroed { target } => naga::Expression::ZeroValue(self.register_ty_impl(
           ShaderValueType::Single(ShaderValueSingleType::Sized(target)),
           None,

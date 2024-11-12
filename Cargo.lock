@@ -4013,6 +4013,7 @@ dependencies = [
  "bytemuck",
  "fast-hash-collection",
  "once_cell",
+ "parking_lot",
  "paste",
  "rendiation-algebra",
  "rendiation-shader-derives",

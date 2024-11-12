@@ -22,7 +22,8 @@ pub struct UIWidgetModel {
 }
 
 impl Widget for UIWidgetModel {
-  fn update_view(&mut self, cx: &mut DynCx) {
+  fn update_view(&mut self, _: &mut DynCx) {}
+  fn update_state(&mut self, cx: &mut DynCx) {
     access_cx_mut!(
       cx,
       sm_intersection_gp,
@@ -35,8 +36,7 @@ impl Widget for UIWidgetModel {
         sm_intersection_gp.group.insert(self.model);
       }
     }
-  }
-  fn update_state(&mut self, cx: &mut DynCx) {
+
     access_cx!(cx, platform_event, PlatformEventInput);
     access_cx!(cx, interaction_cx, Interaction3dCtx);
 

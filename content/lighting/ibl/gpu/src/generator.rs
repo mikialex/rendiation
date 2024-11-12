@@ -6,10 +6,10 @@ impl ShaderHashProvider for BrdfLUTGenerator {
   shader_hash_type_id! {}
 }
 impl GraphicsShaderProvider for BrdfLUTGenerator {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, _| {
       let sample_count = val(32);
-      let uv = builder.query::<FragmentUv>().unwrap();
+      let uv = builder.query::<FragmentUv>();
       let result = integrate_brdf(uv.x(), uv.y(), sample_count);
       builder.store_fragment_out(0, (result, val(1.), val(1.)))
     })

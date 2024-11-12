@@ -111,6 +111,7 @@ pub struct ShaderTextureStore {
 }
 
 pub enum ShaderNodeExpr {
+  Fake,
   Zeroed {
     target: ShaderSizedValueType,
   },
@@ -204,6 +205,15 @@ where
     target: T::sized_ty(),
   }
   .insert_api()
+}
+
+/// # Safety
+///
+/// the upper layer may create "fake" node for error handling downgrade purpose.
+/// the api's backend implementation could do anything to return a fake node.
+#[must_use]
+pub unsafe fn fake_val<T: ShaderNodeType>() -> Node<T> {
+  ShaderNodeExpr::Fake.insert_api()
 }
 
 impl ShaderNodeExpr {

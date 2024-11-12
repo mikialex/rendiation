@@ -35,7 +35,7 @@ pub trait BuilderNormalExt {
 impl<'a> BuilderNormalExt for ShaderFragmentBuilderView<'a> {
   fn get_or_compute_fragment_normal(&mut self) -> Node<Vec3<f32>> {
     // check first and avoid unnecessary renormalize
-    if let Ok(normal) = self.query::<FragmentWorldNormal>() {
+    if let Some(normal) = self.try_query::<FragmentWorldNormal>() {
       normal
     } else {
       let normal = self.query_or_interpolate_by::<FragmentWorldNormal, WorldVertexNormal>();
@@ -58,10 +58,7 @@ pub fn apply_normal_mapping(
   let normal_adjust = normal_map_sample * val(Vec3::splat(2.)) - val(Vec3::one());
   let normal_adjust = normal_adjust * scale.splat::<Vec3<f32>>();
 
-  let face = builder
-    .query::<FragmentFrontFacing>()
-    .unwrap() // builtin type
-    .select(0., 1.);
+  let face = builder.query::<FragmentFrontFacing>().select(0., 1.);
 
   let normal = perturb_normal_2_arb(position, normal, normal_adjust, uv, face);
   builder.register::<FragmentWorldNormal>(normal);
@@ -83,10 +80,7 @@ pub fn apply_normal_mapping_conditional(
     let normal_adjust = normal_map_sample * val(Vec3::splat(2.)) - val(Vec3::one());
     let normal_adjust = normal_adjust * scale.splat::<Vec3<f32>>();
 
-    let face = builder
-      .query::<FragmentFrontFacing>()
-      .unwrap() // builtin type
-      .select(0., 1.);
+    let face = builder.query::<FragmentFrontFacing>().select(0., 1.);
 
     let n = perturb_normal_2_arb_fn(position, normal.load(), normal_adjust, uv, face);
     normal.store(n);

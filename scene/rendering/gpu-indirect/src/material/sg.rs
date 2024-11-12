@@ -102,9 +102,9 @@ impl<'a> ShaderPassBuilder for PhysicalSpecularGlossinessMaterialGPU<'a> {
 }
 
 impl<'a> GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU<'a> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
-      let id = builder.query::<IndirectAbstractMaterialId>()?;
+      let id = builder.query::<IndirectAbstractMaterialId>();
       let storage = binding.bind_by(&self.storage).index(id).load().expand();
       let tex_storage = binding
         .bind_by(&self.texture_storages)
@@ -193,7 +193,6 @@ impl<'a> GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU<'a> {
       builder.register::<GlossinessChannel>(glossiness);
 
       builder.register::<DefaultDisplay>((albedo.xyz(), val(1.)));
-      Ok(())
     })
   }
 }

@@ -74,11 +74,11 @@ impl<'a> ShaderPassBuilder for GPUTextureSystemAsRenderComponent<'a> {
   }
 }
 impl<'a> GraphicsShaderProvider for GPUTextureSystemAsRenderComponent<'a> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder)  {
     self.0.build(builder)
   }
 
-  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder)  {
     self.0.post_build(builder)
   }
 }
