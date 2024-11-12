@@ -94,9 +94,9 @@ pub struct RayIntersectCtx {
 
 pub struct TracingCtx {
   pub(crate) ray_gen: Option<Box<dyn Fn() -> Box<dyn RayGenCtxProvider>>>,
-  pub(crate) missing: Option<Box<dyn MissingHitCtxProvider>>,
-  pub(crate) closest: Option<Box<dyn ClosestHitCtxProvider>>,
-  pub(crate) payload: Option<(StorageNode<AnyType>, ShaderSizedValueType)>,
+  pub(crate) missing: Option<Box<dyn Fn() -> Box<dyn MissingHitCtxProvider>>>,
+  pub(crate) closest: Option<Box<dyn Fn() -> Box<dyn ClosestHitCtxProvider>>>,
+  pub(crate) payload: Option<Box<dyn Fn() -> (StorageNode<AnyType>, ShaderSizedValueType)>>,
   pub registry: AnyMap,
 }
 
@@ -104,16 +104,16 @@ impl TracingCtx {
   pub fn ray_gen_ctx(&self) -> Option<Box<dyn RayGenCtxProvider>> {
     self.ray_gen.as_ref().map(|f| f())
   }
-  pub fn miss_hit_ctx(&self) -> Option<&dyn MissingHitCtxProvider> {
-    self.missing.as_deref()
+  pub fn miss_hit_ctx(&self) -> Option<Box<dyn MissingHitCtxProvider>> {
+    self.missing.as_ref().map(|f| f())
   }
-  pub fn closest_hit_ctx(&self) -> Option<&dyn ClosestHitCtxProvider> {
-    self.closest.as_deref()
+  pub fn closest_hit_ctx(&self) -> Option<Box<dyn ClosestHitCtxProvider>> {
+    self.closest.as_ref().map(|f| f())
   }
 
   /// user defined payload may not exist if the current shader stage is ray gen
   pub fn payload<T: ShaderSizedValueNodeType>(&self) -> Option<StorageNode<T>> {
-    let payload = self.payload.as_ref()?;
+    let payload = self.payload.as_ref()?();
     assert_eq!(&T::sized_ty(), &payload.1);
     Some(unsafe { payload.0.cast_type() })
   }

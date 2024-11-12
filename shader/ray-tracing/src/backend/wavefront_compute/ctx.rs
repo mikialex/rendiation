@@ -177,30 +177,37 @@ pub struct TracingCtxProviderFutureInvocation {
 impl ShaderFutureInvocation for TracingCtxProviderFutureInvocation {
   type Output = ();
   fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<()> {
+    // store pointers in closures so that payload/ctx will be reloaded when shader is awakened
+
     // accessing task{}_payload_with_ray, see fn spawn_dynamic in trace_task.rs
-    // todo should only pass pointers and load values in closure
     let combined_payload = ctx.access_self_payload_untyped();
     let user_defined_payload = if matches!(self.stage, RayTraceableShaderStage::RayGeneration) {
       None
     } else {
-      let user_defined_payload: StorageNode<AnyType> =
-        unsafe { index_access_field(combined_payload.handle(), 1) };
-      Some((user_defined_payload, self.payload_ty.clone().unwrap()))
+      let payload_ty = self.payload_ty.clone().unwrap();
+      Some(Box::new(move || {
+        let user_defined_payload: StorageNode<AnyType> =
+          unsafe { index_access_field(combined_payload.handle(), 1) };
+        (user_defined_payload, payload_ty.clone())
+      }) as Box<_>)
     };
 
     let missing = matches!(self.stage, RayTraceableShaderStage::Miss).then(|| unsafe {
-      let ray_payload: StorageNode<RayMissHitCtxPayload> =
-        index_access_field(combined_payload.handle(), 0);
-      Box::new(ray_payload) as Box<dyn MissingHitCtxProvider>
+      Box::new(move || {
+        let ray_payload: StorageNode<RayMissHitCtxPayload> =
+          index_access_field(combined_payload.handle(), 0);
+        Box::new(ray_payload) as Box<dyn MissingHitCtxProvider>
+      }) as Box<_>
     });
 
     let closest = matches!(self.stage, RayTraceableShaderStage::ClosestHit).then(|| unsafe {
-      let ray_payload: StorageNode<RayClosestHitCtxPayload> =
-        index_access_field(combined_payload.handle(), 0);
-      Box::new(ray_payload) as Box<dyn ClosestHitCtxProvider>
+      Box::new(move || {
+        let ray_payload: StorageNode<RayClosestHitCtxPayload> =
+          index_access_field(combined_payload.handle(), 0);
+        Box::new(ray_payload) as Box<dyn ClosestHitCtxProvider>
+      }) as Box<_>
     });
 
-    // should only pass pointers and load values in closure
     let launch_size = self.launch_size;
     let ray_gen = matches!(self.stage, RayTraceableShaderStage::RayGeneration).then(|| {
       // ray_gen payload is global id. see trace_ray.
