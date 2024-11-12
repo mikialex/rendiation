@@ -63,15 +63,16 @@ pub(crate) fn intersect_ray_aabb_gpu(
   ray: Node<Ray>,
   box_min: Node<Vec3<f32>>,
   box_max: Node<Vec3<f32>>,
+  near: Node<f32>,
+  far: Node<f32>,
 ) -> Node<bool> {
   get_shader_fn::<bool>(shader_fn_name(intersect_ray_aabb_gpu))
     .or_define(|cx| {
       let ray = cx.push_fn_parameter_by(ray).expand();
       let box_min = cx.push_fn_parameter_by(box_min);
       let box_max = cx.push_fn_parameter_by(box_max);
-
-      let t_min = ray.range.x();
-      let t_max = ray.range.y();
+      let t_min = cx.push_fn_parameter_by(near);
+      let t_max = cx.push_fn_parameter_by(far);
 
       let inv_d = val(vec3(1., 1., 1.)) / ray.direction;
       let t0 = (box_min - ray.origin) * inv_d;
@@ -92,6 +93,8 @@ pub(crate) fn intersect_ray_aabb_gpu(
     .push(ray)
     .push(box_min)
     .push(box_max)
+    .push(near)
+    .push(far)
     .call()
 }
 
@@ -103,12 +106,21 @@ fn intersect_ray_triangle_cpu(
   v0: Vec3<f32>,
   v1: Vec3<f32>,
   v2: Vec3<f32>,
-  // todo flags
+  cull_enable: bool,
+  cull_back: bool,
 ) -> Vec4<f32> {
   let e1 = v1 - v0;
   let e2 = v2 - v0;
   let normal = e1.cross(e2).normalize();
   let b = normal.dot(direction);
+
+  if cull_enable {
+    let pass = cull_back != (b < 0.);
+    if !pass {
+      return vec4(0., 0., 0., 0.);
+    }
+  }
+
   // todo cull
   let w0 = origin - v0;
   let a = -normal.dot(w0);
@@ -140,30 +152,43 @@ fn intersect_ray_triangle_cpu(
 fn intersect_ray_triangle_gpu(
   origin: Node<Vec3<f32>>,
   direction: Node<Vec3<f32>>,
-  range: Node<Vec2<f32>>,
+  near: Node<f32>,
+  far: Node<f32>,
   v0: Node<Vec3<f32>>,
   v1: Node<Vec3<f32>>,
   v2: Node<Vec3<f32>>,
-  // todo flags
+  cull_enable: Node<bool>,
+  cull_back: Node<bool>,
 ) -> Node<Vec4<f32>> {
   get_shader_fn::<Vec4<f32>>(shader_fn_name(intersect_ray_triangle_gpu))
     .or_define(|cx| {
       let origin = cx.push_fn_parameter_by(origin);
       let direction = cx.push_fn_parameter_by(direction);
-      let range = cx.push_fn_parameter_by(range);
+      let near = cx.push_fn_parameter_by(near);
+      let far = cx.push_fn_parameter_by(far);
       let v0 = cx.push_fn_parameter_by(v0);
       let v1 = cx.push_fn_parameter_by(v1);
       let v2 = cx.push_fn_parameter_by(v2);
+      let cull_enable = cx.push_fn_parameter_by(cull_enable);
+      let cull_back = cx.push_fn_parameter_by(cull_back);
 
       let e1 = v1 - v0;
       let e2 = v2 - v0;
       let normal = e1.cross(e2).normalize();
       let b = normal.dot(direction);
+
+      if_by(cull_enable, || {
+        let pass = cull_back.not_equals(b.less_than(val(0.)));
+        if_by(pass.not(), || {
+          cx.do_return(val(vec4(0., 0., 0., 0.)));
+        });
+      });
+
       let w0 = origin - v0;
       let a = -normal.dot(w0);
       let t = a / b;
 
-      let out_of_range = t.less_than(range.x()).or(t.greater_than(range.y()));
+      let out_of_range = t.less_than(near).or(t.greater_than(far));
       if_by(out_of_range, || {
         cx.do_return(val(vec4(0., 0., 0., 0.)));
       });
@@ -194,9 +219,12 @@ fn intersect_ray_triangle_gpu(
     .prepare_parameters()
     .push(origin)
     .push(direction)
-    .push(range)
+    .push(near)
+    .push(far)
     .push(v0)
     .push(v1)
     .push(v2)
+    .push(cull_enable)
+    .push(cull_back)
     .call()
 }

@@ -133,6 +133,13 @@ impl RayTracingPassEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
       &self.gpu.queue,
     );
 
+    // setup launch size:
+    current_pipeline.launch_size_buffer.write_at(
+      0,
+      Std430::as_bytes(&vec3(size.0, size.1, size.2)),
+      &self.gpu.queue,
+    );
+
     {
       let executor = &mut current_pipeline.graph;
 
@@ -140,7 +147,8 @@ impl RayTracingPassEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
         &mut cx,
         required_size as u32,
         current_pipeline.ray_gen_task_idx,
-        |_| val(0_u32), // todo check if it's u32 payload if not define any payload
+        // ray-gen payload is linear id. see TracingCtxProviderFutureInvocation.
+        |global_id| global_id,
       );
     }
 

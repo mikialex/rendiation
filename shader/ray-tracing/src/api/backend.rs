@@ -77,7 +77,13 @@ pub trait ShaderBindingTableProvider {
 }
 
 #[derive(Clone)]
-pub enum BottomLevelAccelerationStructureBuildSource {
+pub struct BottomLevelAccelerationStructureBuildSource {
+  pub geometry: BottomLevelAccelerationStructureBuildBuffer,
+  pub flags: GeometryFlags,
+}
+
+#[derive(Clone)]
+pub enum BottomLevelAccelerationStructureBuildBuffer {
   Triangles {
     positions: Vec<Vec3<f32>>,
     indices: Vec<u32>,
@@ -144,8 +150,8 @@ pub struct TopLevelAccelerationStructureSourceInstance {
   pub instance_custom_index: u32,
   pub mask: u32,
   pub instance_shader_binding_table_record_offset: u32,
-  pub flags: u32,
-  pub acceleration_structure_handle: u64,
+  pub flags: GeometryInstanceFlags, // FLIP_FACING excludes whether transform is front/back
+  pub acceleration_structure_handle: BottomLevelAccelerationStructureHandle,
 }
 
 pub trait GPUAccelerationStructureInvocationInstance: DynClone {

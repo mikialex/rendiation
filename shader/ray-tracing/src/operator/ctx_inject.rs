@@ -71,16 +71,17 @@ where
   }
 
   fn build_poll(&self, ctx: &mut DeviceTaskSystemBuildCtx) -> Self::Invocation {
+    let upstream = self.upstream.build_poll(ctx);
     let invocation = self.ctx.build_invocation(ctx.compute_cx.bindgroups());
     InjectCtxShaderFutureInvocation {
-      upstream: self.upstream.build_poll(ctx),
+      upstream,
       ctx: invocation,
     }
   }
 
   fn bind_input(&self, builder: &mut DeviceTaskSystemBindCtx) {
-    self.ctx.bind(builder.binder);
     self.upstream.bind_input(builder);
+    self.ctx.bind(builder.binder);
   }
 }
 
@@ -97,8 +98,9 @@ where
   type Output = T::Output;
 
   fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<Self::Output> {
+    let r = self.upstream.device_poll(ctx);
     let t_ctx = ctx.invocation_registry.get_mut::<TracingCtx>().unwrap();
     t_ctx.registry.register(self.ctx.clone());
-    self.upstream.device_poll(ctx)
+    r
   }
 }
