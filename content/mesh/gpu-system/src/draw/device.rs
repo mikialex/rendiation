@@ -44,6 +44,8 @@ pub struct BindlessDrawCreatorInDevice {
 }
 
 impl BindlessDrawCreatorInDevice {
+  /// user should be able to address mesh_handle from draw_id when drawing.
+  /// the draw_id will be exposed to shader through [VertexInstanceIndex]
   pub fn generate_draw_command(
     &self,
     mesh_handle: Node<u32>,

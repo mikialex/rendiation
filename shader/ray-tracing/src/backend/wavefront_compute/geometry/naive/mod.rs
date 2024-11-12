@@ -506,7 +506,7 @@ impl NaiveSahBVHSystem {
         cpu_data: None,
         gpu_data: None,
       })),
-      device: gpu.device,
+      device: gpu.device.clone(),
     }
   }
 

@@ -19,7 +19,28 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
     }
   }
 
-  pub async fn debug_execution(&self, cx: &mut DeviceParallelComputeCtx) -> Vec<T> {
+  pub fn reset(&self, cx: &mut DeviceParallelComputeCtx) {
+    cx.record_pass(|pass, device| {
+      let hasher = shader_hasher_from_marker_ty!(SizeClear);
+      let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
+        builder.config_work_group_size(1);
+        let current_size = builder.bind_by(&self.current_size);
+        let bump_size = builder.bind_by(&self.bump_size);
+        current_size.store(val(0));
+        bump_size.atomic_store(val(0));
+        builder
+      });
+
+      BindingBuilder::new_as_compute()
+        .with_bind(&self.current_size)
+        .with_bind(&self.bump_size)
+        .setup_compute_pass(pass, device, &pipeline);
+
+      pass.dispatch_workgroups(1, 1, 1);
+    });
+  }
+
+  pub async fn debug_execution<'a>(&self, cx: &mut DeviceParallelComputeCtx<'a>) -> Vec<T> {
     let size = cx.read_sized_storage_array(&self.current_size);
     let storage = cx.read_storage_array(&self.storage);
 

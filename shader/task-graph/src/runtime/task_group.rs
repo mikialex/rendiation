@@ -14,6 +14,8 @@ pub struct TaskGroupExecutor {
   pub all_spawners_binding_order: Vec<usize>,
   pub polling_pipeline: GPUComputePipeline,
   pub resource: TaskGroupExecutorResource,
+  pub before_execute: Option<Box<dyn Fn(&mut DeviceParallelComputeCtx, &Self)>>,
+  pub after_execute: Option<Box<dyn Fn(&mut DeviceParallelComputeCtx, &Self)>>,
 }
 
 pub struct TaskGroupExecutorInternal {
@@ -157,11 +159,17 @@ impl TaskGroupExecutor {
       internal: task_build_source,
       state_desc: pre_build.state_to_resolve.meta_info(),
       all_spawners_binding_order,
+      before_execute: None,
+      after_execute: None,
     }
   }
 
   pub fn execute(&mut self, cx: &mut DeviceParallelComputeCtx, all_tasks: &[Self]) {
     self.prepare_execution(cx);
+
+    if let Some(f) = self.before_execute.as_ref() {
+      f(cx, self)
+    }
 
     cx.record_pass(|pass, device| {
       let imp = &mut self.resource;
@@ -189,7 +197,19 @@ impl TaskGroupExecutor {
       pass.dispatch_workgroups_indirect_by_buffer_resource_view(&active_execution_size);
     });
 
+    // todo, this must be improved. extra prepare_execution is costly.
+    // this is required because when task poll sleep, if we not do alive task compact, when the
+    // subsequent task wake the parent in this task group, it will create duplicate invocation.
+    //
+    // we can not simply clear the alive list because the task could self spawn new tasks.
+    // maybe one solution is to add anther task state to mark the task is sleeping but still in alive task.
+    // the prepare execution will still compact by this flag(and will reset it), but when child task wake parent,
+    //  if it see this special flag the alive task index spawn will be skipped.
     self.prepare_execution(cx);
+
+    if let Some(f) = self.after_execute.as_ref() {
+      f(cx, self)
+    }
   }
 
   pub fn prepare_execution(&mut self, ctx: &mut DeviceParallelComputeCtx) {

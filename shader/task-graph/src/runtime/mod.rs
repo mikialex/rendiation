@@ -139,6 +139,21 @@ pub struct DeviceTaskGraphExecutor {
 }
 
 impl DeviceTaskGraphExecutor {
+  pub fn set_task_before_execution_hook(
+    &mut self,
+    task_id: usize,
+    hook: impl Fn(&mut DeviceParallelComputeCtx, &TaskGroupExecutor) + 'static,
+  ) {
+    self.task_groups[task_id].before_execute = Some(Box::new(hook));
+  }
+  pub fn set_task_after_execution_hook(
+    &mut self,
+    task_id: usize,
+    hook: impl Fn(&mut DeviceParallelComputeCtx, &TaskGroupExecutor) + 'static,
+  ) {
+    self.task_groups[task_id].after_execute = Some(Box::new(hook));
+  }
+
   /// Allocate task directly in the task pool by dispatching compute shader.
   ///
   /// T must match given task_id's payload type
@@ -199,9 +214,9 @@ impl DeviceTaskGraphExecutor {
     })
   }
 
-  pub async fn read_back_execution_states(
+  pub async fn read_back_execution_states<'a>(
     &mut self,
-    cx: &mut DeviceParallelComputeCtx,
+    cx: &mut DeviceParallelComputeCtx<'a>,
   ) -> TaskGraphExecutionStates {
     self.task_groups.iter_mut().for_each(|task| {
       task.prepare_execution(cx);
@@ -258,9 +273,9 @@ impl DeviceTaskGraphExecutor {
     }
   }
 
-  pub async fn debug_execution(
+  pub async fn debug_execution<'a>(
     &mut self,
-    cx: &mut DeviceParallelComputeCtx,
+    cx: &mut DeviceParallelComputeCtx<'a>,
   ) -> TaskGraphExecutionDebugInfo {
     self.task_groups.iter_mut().for_each(|task| {
       task.prepare_execution(cx);

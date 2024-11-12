@@ -6,6 +6,8 @@ use slab::Slab;
 mod draw;
 pub use draw::*;
 
+only_vertex!(IndirectAbstractMeshId, u32);
+
 pub type MeshSystemMeshHandle = u32;
 
 #[repr(C)]
@@ -24,22 +26,6 @@ pub struct DrawVertexIndirectInfo {
   pub position_buffer_offset: u32,
   pub normal_buffer_offset: u32,
   pub uv_buffer_offset: u32,
-}
-
-#[repr(C)]
-#[derive(Clone, Copy, ShaderStruct, Zeroable, Pod, Debug)]
-pub struct DrawIndexedIndirect {
-  /// The number of vertices to draw.
-  pub vertex_count: u32,
-  /// The number of instances to draw.
-  pub instance_count: u32,
-  /// The base index within the index buffer.
-  pub base_index: u32,
-  /// The value added to the vertex index before indexing into the vertex buffer.
-  pub vertex_offset: i32,
-  /// The instance ID of the first instance to draw.
-  /// Has to be 0, unless INDIRECT_FIRST_INSTANCE is enabled.
-  pub base_instance: u32,
 }
 
 pub struct BindlessMeshSource<'a> {

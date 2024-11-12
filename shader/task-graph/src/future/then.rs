@@ -87,6 +87,7 @@ where
         upstream_resolved_local.abstract_store(val(true));
         let next = create_then_invocation_instance(r.payload, &self.then, ctx);
         then.abstract_store(next);
+        upstream_output.abstract_store(r.payload); // todo improve, this store may not needed if the then resolved directly
       });
     });
 

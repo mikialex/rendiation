@@ -1,6 +1,5 @@
 use crate::*;
 
-both!(IndirectSceneModelId, u32);
 pub type SceneModelStorageBuffer = ReactiveStorageBufferContainer<SceneModelStorage>;
 
 #[repr(C)]

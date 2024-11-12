@@ -237,17 +237,41 @@ impl GPURenderPass {
         instances,
       } => self.draw(vertices, instances),
       DrawCommand::Skip => {}
+      DrawCommand::Indirect {
+        indirect_buffer,
+        indexed,
+      } => {
+        let buffer = &indirect_buffer.resource.gpu;
+        if indexed {
+          self.draw_indexed_indirect(buffer, 0)
+        } else {
+          self.draw_indirect(buffer, 0)
+        }
+      }
       DrawCommand::MultiIndirect {
         indirect_buffer,
         indexed,
-        indirect_offset,
         count,
       } => {
         let buffer = &indirect_buffer.resource.gpu;
         if indexed {
-          self.multi_draw_indexed_indirect(buffer, indirect_offset, count)
+          self.multi_draw_indexed_indirect(buffer, 0, count)
         } else {
-          self.multi_draw_indirect(buffer, indirect_offset, count)
+          self.multi_draw_indirect(buffer, 0, count)
+        }
+      }
+      DrawCommand::MultiIndirectCount {
+        indirect_buffer,
+        indirect_count,
+        indexed,
+        max_count,
+      } => {
+        let buffer = &indirect_buffer.resource.gpu;
+        let count_buffer = &indirect_count.resource.gpu;
+        if indexed {
+          self.multi_draw_indexed_indirect_count(buffer, 0, count_buffer, 0, max_count)
+        } else {
+          self.multi_draw_indirect_count(buffer, 0, count_buffer, 0, max_count)
         }
       }
     }
@@ -265,11 +289,20 @@ pub enum DrawCommand {
     vertices: Range<u32>,
     instances: Range<u32>,
   },
+  Indirect {
+    indirect_buffer: GPUBufferResourceView,
+    indexed: bool,
+  },
   MultiIndirect {
+    indirect_buffer: GPUBufferResourceView,
+    indexed: bool,
+    count: u32,
+  },
+  MultiIndirectCount {
     indexed: bool,
     indirect_buffer: GPUBufferResourceView,
-    indirect_offset: BufferAddress,
-    count: u32,
+    indirect_count: GPUBufferResourceView,
+    max_count: u32,
   },
   Skip,
 }

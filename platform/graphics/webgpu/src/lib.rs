@@ -18,6 +18,7 @@ mod types;
 use core::fmt::Debug;
 use core::num::NonZeroUsize;
 use core::{marker::PhantomData, num::NonZeroU64};
+use std::sync::atomic::AtomicBool;
 use std::{
   any::*,
   borrow::Cow,
@@ -69,6 +70,7 @@ pub struct GPU {
   pub info: GPUInfo,
   pub device: GPUDevice,
   pub queue: GPUQueue,
+  dropped: Arc<AtomicBool>,
 }
 
 pub struct GPUCreateConfig<'a> {
@@ -199,19 +201,35 @@ impl GPU {
       )
     });
 
+    let _instance = Arc::new(_instance);
+    let _instance_clone = _instance.clone();
+
+    let dropped = Arc::new(AtomicBool::new(false));
+    let dropped_clone = dropped.clone();
+    // wasm can not spawn thread, add the gpu will be automatically polled by runtime(browser)
+    #[cfg(not(target_family = "wasm"))]
+    std::thread::spawn(move || loop {
+      if dropped_clone.load(Ordering::Relaxed) {
+        break;
+      }
+      std::thread::sleep(std::time::Duration::from_millis(200));
+      _instance_clone.poll_all(false);
+    });
+
     let gpu = Self {
-      _instance: Arc::new(_instance),
+      _instance,
       _adaptor: Arc::new(_adaptor),
       info,
       device,
       queue,
+      dropped,
     };
 
     Ok((gpu, surface))
   }
 
-  pub fn poll(&self) {
-    self._instance.poll_all(false);
+  pub fn poll(&self, force_wait: bool) {
+    self._instance.poll_all(force_wait);
   }
 
   pub fn create_cache_report(&self) -> GPUResourceCacheSizeReport {
@@ -247,6 +265,12 @@ impl GPU {
   }
 }
 
+impl Drop for GPU {
+  fn drop(&mut self) {
+    self.dropped.store(true, Ordering::Relaxed);
+  }
+}
+
 impl AsRef<GPUDevice> for GPU {
   fn as_ref(&self) -> &GPUDevice {
     &self.device
@@ -263,4 +287,40 @@ impl IndexBufferSourceType for u32 {
 
 impl IndexBufferSourceType for u16 {
   const FORMAT: gpu::IndexFormat = gpu::IndexFormat::Uint16;
+}
+
+#[repr(C)]
+#[std430_layout]
+#[derive(Clone, Copy, ShaderStruct, Debug)]
+pub struct DrawIndexedIndirect {
+  /// The number of vertices to draw.
+  pub vertex_count: u32,
+  /// The number of instances to draw.
+  pub instance_count: u32,
+  /// The base index within the index buffer.
+  pub base_index: u32,
+  /// The value added to the vertex index before indexing into the vertex buffer.
+  pub vertex_offset: i32,
+  /// The instance ID of the first instance to draw.
+  /// Has to be 0, unless INDIRECT_FIRST_INSTANCE is enabled.
+  pub base_instance: u32,
+}
+
+impl DrawIndexedIndirect {
+  pub fn new(
+    vertex_count: u32,
+    instance_count: u32,
+    base_index: u32,
+    vertex_offset: i32,
+    base_instance: u32,
+  ) -> Self {
+    Self {
+      vertex_count,
+      instance_count,
+      base_index,
+      vertex_offset,
+      base_instance,
+      ..Zeroable::zeroed()
+    }
+  }
 }

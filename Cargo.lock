@@ -3940,9 +3940,11 @@ name = "rendiation-scene-rendering-gpu-base"
 version = "0.1.0"
 dependencies = [
  "database",
+ "dyn-clone",
  "fast-hash-collection",
  "reactive",
  "rendiation-algebra",
+ "rendiation-device-parallel-compute",
  "rendiation-lighting-gpu-system",
  "rendiation-scene-core",
  "rendiation-shader-api",

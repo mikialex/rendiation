@@ -114,7 +114,8 @@ impl RayTracingPassEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
       .downcast_ref::<ShaderBindingTableInfo>()
       .unwrap();
 
-    let mut cx = DeviceParallelComputeCtx::new(&self.gpu);
+    let mut encoder = self.gpu.create_encoder();
+    let mut cx = DeviceParallelComputeCtx::new(&self.gpu, &mut encoder);
 
     let required_size = (size.0 * size.1 * size.2) as usize;
 
@@ -156,29 +157,6 @@ impl RayTracingPassEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
 
     let round_count = 3; // todo;
     for _ in 0..round_count {
-      // reset read_back bumper;
-      {
-        let bumper = current_pipeline.tracer_read_back_bumper.read();
-        cx.record_pass(|pass, device| {
-          let hasher = shader_hasher_from_marker_ty!(SizeClear);
-          let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
-            builder.config_work_group_size(1);
-            let current_size = builder.bind_by(&bumper.current_size);
-            let bump_size = builder.bind_by(&bumper.bump_size);
-            current_size.store(val(0));
-            bump_size.atomic_store(val(0));
-            builder
-          });
-
-          BindingBuilder::new_as_compute()
-            .with_bind(&bumper.current_size)
-            .with_bind(&bumper.bump_size)
-            .setup_compute_pass(pass, device, &pipeline);
-
-          pass.dispatch_workgroups(1, 1, 1);
-        });
-      }
-
       current_pipeline.graph.execute(&mut cx, 1);
     }
   }
