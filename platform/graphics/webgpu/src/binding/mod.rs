@@ -39,12 +39,6 @@ pub struct BindGroupBuilder {
   // layouts: Vec<gpu::BindGroupLayoutEntry>,
 }
 
-impl std::fmt::Debug for BindGroupBuilder {
-  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    f.debug_struct("BindGroupBuilder").finish()
-  }
-}
-
 impl BindGroupBuilder {
   pub fn reset(&mut self) {
     self.items.clear();
@@ -70,21 +64,21 @@ impl BindGroupBuilder {
   }
 }
 
-#[derive(Default)]
 pub struct BindingBuilder {
   groups: [BindGroupBuilder; 5],
   current_index: usize,
 }
 
-impl BindingBuilder {
-  pub fn new_as_compute() -> Self {
-    let groups: Vec<_> = (0..5).map(|_| BindGroupBuilder::default()).collect();
+impl Default for BindingBuilder {
+  fn default() -> Self {
     Self {
-      groups: groups.try_into().unwrap(),
-      ..Default::default()
+      groups: std::array::from_fn(|_| BindGroupBuilder::default()),
+      current_index: 0,
     }
   }
+}
 
+impl BindingBuilder {
   pub fn set_binding_slot(&mut self, new: usize) -> usize {
     std::mem::replace(&mut self.current_index, new)
   }

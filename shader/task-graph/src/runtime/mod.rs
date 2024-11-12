@@ -196,7 +196,7 @@ impl DeviceTaskGraphExecutor {
     });
 
     cx.record_pass(|pass, device| {
-      let mut bb = BindingBuilder::new_as_compute().with_bind(&dispatch_size_buffer);
+      let mut bb = BindingBuilder::default().with_bind(&dispatch_size_buffer);
       task_group.resource.bind_for_spawner(&mut bb);
       bb.setup_compute_pass(pass, device, &pipeline);
 

@@ -180,7 +180,7 @@ impl TaskGroupExecutor {
           .prepare_dispatch_size(pass, device, TASK_EXECUTION_WORKGROUP_SIZE);
 
       // dispatch tasks
-      let mut bb = BindingBuilder::new_as_compute();
+      let mut bb = BindingBuilder::default();
 
       let mut ctx = DeviceTaskSystemBindCtx { binder: &mut bb };
 
@@ -247,7 +247,7 @@ impl TaskGroupExecutor {
         builder
       });
 
-      BindingBuilder::new_as_compute()
+      BindingBuilder::default()
         .with_bind(&new_active_task_size)
         .with_bind(&imp.active_task_idx.current_size)
         .setup_compute_pass(pass, device, &pipeline);
@@ -309,7 +309,7 @@ impl TaskGroupExecutorResource {
         builder
       });
 
-      BindingBuilder::new_as_compute()
+      BindingBuilder::default()
         .with_bind(&res.empty_index_pool.storage)
         .with_bind(&res.empty_index_pool.current_size)
         .setup_compute_pass(pass, device, &pipeline);
