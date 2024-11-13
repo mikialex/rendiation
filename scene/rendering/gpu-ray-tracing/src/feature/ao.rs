@@ -39,6 +39,36 @@ impl RayTracingCustomCtxProvider for SceneRayTracingAOFeatureBinding {
   }
 }
 
+struct RayTracingAOComputeInvocation {
+  max_sample_count: u32,
+  hit_position: BoxedShaderLoadStore<Node<Vec3<f32>>>,
+  hit_normal: BoxedShaderLoadStore<Node<Vec3<f32>>>,
+  hit_has_compute: BoxedShaderLoadStore<Node<bool>>,
+  next_sample_idx: BoxedShaderLoadStore<Node<u32>>,
+  occlusion_acc: BoxedShaderLoadStore<Node<f32>>,
+  trace_on_the_fly: TracingFutureInvocation<f32>,
+}
+
+impl ShaderFutureInvocation for RayTracingAOComputeInvocation {
+  type Output = ();
+
+  fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<Self::Output> {
+    let current_idx = self.next_sample_idx.abstract_load();
+    let sample_is_done = current_idx.greater_equal_than(self.max_sample_count);
+
+    if_by(sample_is_done.not(), || {
+      // let r = self.next_trace_on_the_fly.try_spawn_and_poll(ctx);
+      // if_by(r.is_ready, || {
+      //   self.next_sample_idx.abstract_store(current_idx + val(1));
+      // });
+      //
+    });
+
+    let occlusion = self.occlusion_acc.abstract_load() / val(self.max_sample_count as f32);
+    (sample_is_done, ()).into()
+  }
+}
+
 struct RayTracingAOOutput;
 impl RayTracingOutputTargetSemantic for RayTracingAOOutput {}
 
