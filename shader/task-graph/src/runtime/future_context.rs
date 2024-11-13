@@ -141,6 +141,12 @@ impl AnyMap {
       .get_mut(&TypeId::of::<T>())
       .and_then(|x| x.downcast_mut())
   }
+  pub fn get<T: Any>(&self) -> Option<&T> {
+    self
+      .map
+      .get(&TypeId::of::<T>())
+      .and_then(|x| x.downcast_ref())
+  }
 }
 
 impl<'a> DeviceTaskSystemPollCtx<'a> {

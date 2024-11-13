@@ -11,15 +11,17 @@ impl<T> Default for TraceBase<T> {
   }
 }
 
-impl<T: Default + Copy + 'static> ShaderFutureProvider<T> for TraceBase<T> {
+impl<T: Default + Copy + 'static> ShaderFutureProvider for TraceBase<T> {
+  type Output = T;
   fn build_device_future(&self, _: &mut AnyMap) -> DynShaderFuture<T> {
     BaseShaderFuture::<T>::default().into_dyn()
   }
 }
-impl<T> NativeRayTracingShaderBuilder<T> for TraceBase<T>
+impl<T> NativeRayTracingShaderBuilder for TraceBase<T>
 where
   T: Default,
 {
+  type Output = T;
   fn build(&self, _: &mut dyn NativeRayTracingShaderCtx) -> T {
     T::default()
   }
@@ -93,13 +95,14 @@ where
   }
 }
 
-impl<O, O2, F, T> ShaderFutureProvider<O2> for TraceOutputMap<F, T, O>
+impl<O, O2, F, T> ShaderFutureProvider for TraceOutputMap<F, T, O>
 where
-  T: ShaderFutureProvider<O>,
+  T: ShaderFutureProvider<Output = O>,
   F: FnOnce(O, &mut TracingCtx) -> O2 + 'static + Copy,
   O2: Default + ShaderAbstractRightValue,
   O: 'static,
 {
+  type Output = O2;
   fn build_device_future(&self, ctx: &mut AnyMap) -> DynShaderFuture<O2> {
     let map = self.map;
     self
@@ -113,11 +116,12 @@ where
   }
 }
 
-impl<F, T, O, O2> NativeRayTracingShaderBuilder<O2> for TraceOutputMap<F, T, O>
+impl<F, T, O, O2> NativeRayTracingShaderBuilder for TraceOutputMap<F, T, O>
 where
-  T: NativeRayTracingShaderBuilder<O>,
+  T: NativeRayTracingShaderBuilder<Output = O>,
   F: FnOnce(O, &mut TracingCtx) -> O2 + 'static + Copy,
 {
+  type Output = O2;
   fn build(&self, ctx: &mut dyn NativeRayTracingShaderCtx) -> O2 {
     let o = self.upstream.build(ctx);
     (self.map)(o, ctx.tracing_ctx())
@@ -141,12 +145,13 @@ impl<F: 'static, T: ShaderHashProvider + 'static> ShaderHashProvider for TraceNe
   }
 }
 
-impl<F, T, O, P> NativeRayTracingShaderBuilder<(O, Node<P>)> for TraceNextRay<F, T>
+impl<F, T, O, P> NativeRayTracingShaderBuilder for TraceNextRay<F, T>
 where
-  T: NativeRayTracingShaderBuilder<O>,
+  T: NativeRayTracingShaderBuilder<Output = O>,
   F: FnOnce(&O, &mut TracingCtx) -> (Node<bool>, ShaderRayTraceCall, Node<P>) + Copy,
   P: 'static,
 {
+  type Output = (O, Node<P>);
   fn build(&self, ctx: &mut dyn NativeRayTracingShaderCtx) -> (O, Node<P>) {
     let o = self.upstream.build(ctx);
 
