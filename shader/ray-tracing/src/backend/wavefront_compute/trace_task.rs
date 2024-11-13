@@ -525,13 +525,14 @@ impl TracingTaskSpawnerInvocation {
 
 pub const TRACING_TASK_INDEX: usize = 0;
 
-impl<F, T, O, P> ShaderFutureProvider<(O, Node<P>)> for TraceNextRay<F, T>
+impl<F, T, O, P> ShaderFutureProvider for TraceNextRay<F, T>
 where
-  T: ShaderFutureProvider<O>,
+  T: ShaderFutureProvider<Output = O>,
   F: FnOnce(&O, &mut TracingCtx) -> (Node<bool>, ShaderRayTraceCall, Node<P>) + Copy + 'static,
   P: ShaderSizedValueNodeType + Default + Copy,
   O: ShaderAbstractRightValue + Default,
 {
+  type Output = (O, Node<P>);
   fn build_device_future(&self, ctx: &mut AnyMap) -> DynShaderFuture<(O, Node<P>)> {
     let next_trace_logic = self.next_trace_logic;
     self

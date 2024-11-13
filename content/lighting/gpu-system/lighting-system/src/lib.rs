@@ -39,7 +39,7 @@ impl GraphicsShaderProvider for LightingComputeComponentAsRenderComponent {
     builder.fragment(|builder, binder| {
       let invocation = self.0.build_light_compute_invocation(binder);
       let shading_provider = PhysicalShading; // todo, make it configurable by user
-      let shading = shading_provider.construct_shading(builder);
+      let shading = shading_provider.construct_shading(builder); // todo, make it return optional to avoid lighting cost for none lightable material
 
       let fragment_world = builder.query::<FragmentWorldPosition>();
       let camera_position = builder.query::<CameraWorldMatrix>().position();
