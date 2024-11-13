@@ -32,8 +32,8 @@ impl SemanticRegistry {
       .ok_or(ShaderBuildError::MissingRequiredDependency(name))
   }
 
-  pub fn register(&mut self, id: TypeId, node: NodeUntyped) -> &NodeUntyped {
-    self.static_semantic.entry(id).or_insert(node)
+  pub fn register(&mut self, id: TypeId, node: NodeUntyped) {
+    self.static_semantic.insert(id, node);
   }
 }
 

@@ -1,3 +1,5 @@
+#![feature(associated_type_defaults)]
+
 //! The whole idea of extensible rendering architecture works like this:
 //!
 //! ```rust
@@ -16,10 +18,15 @@
 //! }
 //! ```
 
+use std::mem::ManuallyDrop;
+
 use database::*;
+use dyn_clone::*;
 use reactive::*;
 use rendiation_algebra::*;
+use rendiation_device_parallel_compute::*;
 use rendiation_scene_core::*;
+use rendiation_shader_api::*;
 use rendiation_texture_core::*;
 use rendiation_texture_gpu_base::*;
 use rendiation_texture_gpu_system::*;
@@ -31,6 +38,10 @@ mod texture;
 pub use texture::*;
 mod background;
 pub use background::*;
+mod batch;
+pub use batch::*;
+mod mid;
+pub use mid::*;
 
 pub trait RenderImplProvider<T> {
   /// this will be called once when application init
@@ -40,23 +51,43 @@ pub trait RenderImplProvider<T> {
 
 pub type GPUTextureBindingSystem = Box<dyn DynAbstractGPUTextureSystem>;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct SceneContentKey {
+  pub transparent: bool,
+}
+
 /// abstract over direct or indirect rendering
 pub trait SceneRenderer: SceneModelRenderer {
-  /// render all content in given scene.
-  ///
-  /// The rendering content is specified by implementation.
-  /// The rendering content is refer to which models to draw, and in which order, or if draw background.
-  /// The rendering may initialize multiple render pass and any encoder operation.
-  ///
-  /// the implementation may call `render_batch_models` internally. And the `pass` ctx should be
-  /// passed to the internal call
-  fn make_pass_content<'a>(
-    &'a self,
+  type ContentKey = SceneContentKey;
+  /// extract batched scene model by given content semantic, the extracted batch may be used by external
+  /// system for further processing, for example culling. the simple culling logic may also be implemented here
+  fn extract_scene_batch(
+    &self,
     scene: EntityHandle<SceneEntity>,
+    semantic: Self::ContentKey,
+    ctx: &mut FrameCtx,
+  ) -> SceneModelRenderBatch;
+
+  /// render batched scene model with given pass component on given pass
+  fn make_scene_batch_pass_content<'a>(
+    &'a self,
+    batch: SceneModelRenderBatch,
     camera: EntityHandle<SceneCameraEntity>,
     pass: &'a dyn RenderComponent,
     ctx: &mut FrameCtx,
   ) -> Box<dyn PassContent + 'a>;
+
+  fn extract_and_make_pass_content<'a>(
+    &'a self,
+    semantic: Self::ContentKey,
+    scene: EntityHandle<SceneEntity>,
+    camera: EntityHandle<SceneCameraEntity>,
+    ctx: &mut FrameCtx,
+    pass: &'a dyn RenderComponent,
+  ) -> Box<dyn PassContent + 'a> {
+    let batch = self.extract_scene_batch(scene, semantic, ctx);
+    self.make_scene_batch_pass_content(batch, camera, pass, ctx)
+  }
 
   /// return if requires clear. this supposed to be true when background is drawn, or directly as a way to impl
   /// solid background.
@@ -71,17 +102,22 @@ pub trait SceneRenderer: SceneModelRenderer {
   /// if the implementation can provide better performance
   ///
   /// if reorderable is true, the order of model may not be preserved
-  fn render_batch_models(
+  fn render_models(
     &self,
     models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
-    reorderable: bool,
+    _reorderable: bool,
     camera: EntityHandle<SceneCameraEntity>,
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
-  );
+  ) {
+    let camera = self.get_camera_gpu().make_component(camera).unwrap();
+    for m in models {
+      self.render_scene_model(m, &camera, pass, cx, tex);
+    }
+  }
 
-  fn render_reorderable_batch_models(
+  fn render_reorderable_models(
     &self,
     models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
     camera: EntityHandle<SceneCameraEntity>,
@@ -89,7 +125,7 @@ pub trait SceneRenderer: SceneModelRenderer {
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
   ) {
-    self.render_batch_models(models, true, camera, pass, cx, tex);
+    self.render_models(models, true, camera, pass, cx, tex);
   }
 
   /// expose the underlayer camera system impl to enable user access the
@@ -136,21 +172,6 @@ pub trait SceneModelRenderer {
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
   ) -> Option<()>;
-
-  /// maybe implementation could provide better performance for example host side multi draw
-  fn render_batch_models_impl(
-    &self,
-    models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
-    camera: &dyn RenderComponent,
-    pass: &dyn RenderComponent,
-    cx: &mut GPURenderPassCtx,
-    tex: &GPUTextureBindingSystem,
-  ) -> bool {
-    for m in models {
-      self.render_scene_model(m, camera, pass, cx, tex);
-    }
-    true
-  }
 }
 
 impl SceneModelRenderer for Vec<Box<dyn SceneModelRenderer>> {
@@ -168,5 +189,23 @@ impl SceneModelRenderer for Vec<Box<dyn SceneModelRenderer>> {
       }
     }
     None
+  }
+}
+
+pub trait FrameCtxParallelCompute {
+  fn access_parallel_compute<R>(&mut self, f: impl FnOnce(&mut DeviceParallelComputeCtx) -> R)
+    -> R;
+}
+
+impl<'a> FrameCtxParallelCompute for FrameCtx<'a> {
+  fn access_parallel_compute<R>(
+    &mut self,
+    f: impl FnOnce(&mut DeviceParallelComputeCtx) -> R,
+  ) -> R {
+    let mut ctx = DeviceParallelComputeCtx::new(self.gpu, &mut self.encoder);
+    let r = f(&mut ctx);
+    ctx.flush_pass();
+    let _ = ManuallyDrop::new(ctx); // avoid drop to avoid unnecessary submit
+    r
   }
 }

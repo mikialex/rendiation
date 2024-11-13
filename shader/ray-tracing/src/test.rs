@@ -2,6 +2,8 @@
 async fn test_wavefront_compute() {
   use rendiation_texture_core::Size;
 
+  let canvas_size = 64;
+
   use crate::*;
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();
 
@@ -10,27 +12,17 @@ async fn test_wavefront_compute() {
   pub struct RayTracingDebugOutput;
   impl RayTracingOutputTargetSemantic for RayTracingDebugOutput {}
 
-  let debug_output = GPUTexture::create(
-    TextureDescriptor {
-      label: "tracing-debug".into(),
-      size: Size::from_u32_pair_min_one((1, 1)).into_gpu_size(),
-      mip_level_count: 1,
-      sample_count: 1,
-      dimension: TextureDimension::D2,
-      format: TextureFormat::Rgba8Unorm,
-      view_formats: &[],
-      usage: TextureUsages::all(),
-    },
-    &gpu.device,
+  let debug_output = create_empty_2d_texture_view(
+    &gpu,
+    Size::from_u32_pair_min_one((canvas_size, canvas_size)),
+    TextureUsages::all(),
+    TextureFormat::Rgba8Unorm,
   );
-  let debug_output = GPU2DTexture::try_from(debug_output)
-    .unwrap()
-    .create_default_view();
-  let debug_output = GPU2DTextureView::try_from(debug_output).unwrap();
 
   texture_io_system.install_output_target::<RayTracingDebugOutput>(debug_output);
 
   let system = GPUWaveFrontComputeRaytracingSystem::new(&gpu);
+  let shader_base_builder = system.create_tracer_base_builder();
   let as_sys = system.create_acceleration_structure_system();
 
   use crate::GPURaytracingSystem;
@@ -40,31 +32,46 @@ async fn test_wavefront_compute() {
 
   let mut rtx_pipeline_desc = GPURaytracingPipelineDescriptor::default();
 
-  // todo, remove ray gen payload
-  let ray_gen_shader = WaveFrontTracingBaseProvider::create_ray_gen_shader_base()
+  let ray_gen_shader = shader_base_builder
+    .create_ray_gen_shader_base()
     .inject_ctx(texture_io_system.clone())
     .then_trace(
       // (&T, &mut TracingCtx) -> (Node<bool>, ShaderRayTraceCall, Node<P>)
-      |_, _ctx| {
+      |_, ctx| {
+        let ray_gen_ctx = ctx.ray_gen_ctx().unwrap();
+        let launch_id = ray_gen_ctx.launch_id();
+        let launch_size = ray_gen_ctx.launch_size();
+
+        let tex_io = ctx.registry.get_mut::<FrameOutputInvocation>().unwrap();
+        tex_io
+          .write_output::<RayTracingDebugOutput>(launch_id.xy(), val(vec4(0., 0., 50. / 255., 1.)));
+
+        const ORIGIN: Vec3<f32> = vec3(0., 0., 0.);
+        let x =
+          (launch_id.x().into_f32() + val(0.5)) / launch_size.x().into_f32() * val(2.) - val(1.);
+        let y =
+          val(1.) - (launch_id.y().into_f32() + val(0.5)) / launch_size.y().into_f32() * val(2.);
+        let target: Node<Vec3<f32>> = (x, y, val(-1.)).into(); // fov = 90 deg
+        let dir = (target - val(ORIGIN)).normalize();
+
+        let ray_flags = RayFlagConfigRaw::RAY_FLAG_CULL_BACK_FACING_TRIANGLES as u32;
         let trace_call = ShaderRayTraceCall {
           tlas_idx: val(0), // todo
-          ray_flags: val(0),
-          cull_mask: val(0xff),
+          ray_flags: val(ray_flags),
+          cull_mask: val(u32::MAX),
           sbt_ray_config: RaySBTConfig {
             offset: val(0),
             stride: val(0),
           },
           miss_index: val(0),
-          // todo ray from x,y
           ray: ShaderRay {
-            origin: val(vec3(0., 0., 1.)),
-            direction: val(vec3(0., 0., -1.)),
+            origin: val(ORIGIN),
+            direction: dir,
           },
           range: ShaderRayRange {
             min: val(0.1),
             max: val(100.),
           },
-          payload: val(0),
         };
 
         let ray_payload = ENode::<RayCustomPayload> { color: val(0) }.construct();
@@ -73,8 +80,15 @@ async fn test_wavefront_compute() {
       },
     )
     .map(|(_, _payload), ctx| {
+      let ray_gen_ctx = ctx.ray_gen_ctx().unwrap();
+      let launch_id = ray_gen_ctx.launch_id();
+
       let tex_io = ctx.registry.get_mut::<FrameOutputInvocation>().unwrap();
-      tex_io.write_output::<RayTracingDebugOutput>(val(Vec2::zero()), val(Vec4::zero()));
+      let prev = tex_io.read_output::<RayTracingDebugOutput>(launch_id.xy());
+      tex_io.write_output::<RayTracingDebugOutput>(
+        launch_id.xy(),
+        (prev.x(), prev.y(), prev.z() + val(100. / 255.), val(1.)).into(),
+      );
     });
 
   #[derive(Copy, Clone, Debug, Default, ShaderStruct)]
@@ -82,20 +96,44 @@ async fn test_wavefront_compute() {
     pub color: u32,
   }
 
-  let ray_gen = rtx_pipeline_desc.register_ray_gen::<RayCustomPayload>(ray_gen_shader);
+  let ray_gen = rtx_pipeline_desc.register_ray_gen::<u32>(ray_gen_shader);
   let closest_hit = rtx_pipeline_desc.register_ray_closest_hit::<RayCustomPayload>(
-    WaveFrontTracingBaseProvider::create_closest_hit_shader_base::<RayCustomPayload>(),
+    shader_base_builder
+      .create_closest_hit_shader_base::<RayCustomPayload>()
+      .inject_ctx(texture_io_system.clone())
+      .map(|_, ctx| {
+        let closest_ctx = ctx.closest_hit_ctx().unwrap();
+        let launch_id = closest_ctx.launch_id();
+
+        let tex_io = ctx.registry.get_mut::<FrameOutputInvocation>().unwrap();
+        let prev = tex_io.read_output::<RayTracingDebugOutput>(launch_id.xy());
+        tex_io.write_output::<RayTracingDebugOutput>(
+          launch_id.xy(),
+          (prev.x(), prev.y() + val(100. / 255.), prev.z(), val(1.)).into(),
+        );
+      }),
   );
   let miss = rtx_pipeline_desc.register_ray_miss::<RayCustomPayload>(
-    WaveFrontTracingBaseProvider::create_miss_hit_shader_base::<RayCustomPayload>(),
+    shader_base_builder
+      .create_miss_hit_shader_base::<RayCustomPayload>()
+      .inject_ctx(texture_io_system.clone())
+      .map(|_, ctx| {
+        let miss_ctx = ctx.miss_hit_ctx().unwrap();
+        let launch_id = miss_ctx.launch_id();
+
+        let tex_io = ctx.registry.get_mut::<FrameOutputInvocation>().unwrap();
+        let prev = tex_io.read_output::<RayTracingDebugOutput>(launch_id.xy());
+        tex_io.write_output::<RayTracingDebugOutput>(
+          launch_id.xy(),
+          (prev.x() + val(100. / 255.), prev.y(), prev.z(), val(1.)).into(),
+        );
+      }),
   );
 
   let mesh_count = 1;
   let ray_type_count = 1;
 
-  let canvas_size = 1;
-
-  let rtx_pipeline = rtx_device.create_raytracing_pipeline(&rtx_pipeline_desc);
+  let rtx_pipeline = rtx_device.create_raytracing_pipeline(rtx_pipeline_desc);
 
   let mut sbt = rtx_device.create_sbt(mesh_count, ray_type_count);
   sbt.config_ray_generation(ray_gen);
@@ -114,6 +152,36 @@ async fn test_wavefront_compute() {
 
   rtx_encoder.set_pipeline(rtx_pipeline.as_ref());
   rtx_encoder.trace_ray((canvas_size, canvas_size, 1), sbt.as_ref());
+  drop(rtx_encoder);
 
-  texture_io_system.take_output_target::<RayTracingDebugOutput>();
+  let view = texture_io_system.take_output_target::<RayTracingDebugOutput>();
+
+  let buffer = {
+    let mut encoder = gpu.device.create_encoder();
+    let texture = view.resource.clone().try_into();
+    let buffer = encoder.read_texture_2d(
+      &gpu.device,
+      &texture.unwrap(),
+      ReadRange {
+        size: Size::from_u32_pair_min_one((canvas_size, canvas_size)),
+        offset_x: 0,
+        offset_y: 0,
+      },
+    );
+    gpu.submit_encoder(encoder);
+    buffer.await.unwrap()
+  };
+
+  let buffer = buffer.read_raw();
+  let mut write_buffer = format!("P3\n{} {}\n255\n", canvas_size, canvas_size);
+  buffer
+    .chunks_exact(canvas_size as usize * 4)
+    .for_each(|line| {
+      line.chunks_exact(4).for_each(|pixel| {
+        let (r, g, b, _a) = (pixel[0], pixel[1], pixel[2], pixel[3]);
+        write_buffer.push_str(&format!("{r} {g} {b} "));
+      });
+      write_buffer.push('\n');
+    });
+  std::fs::write("trace.pbm", write_buffer).unwrap();
 }

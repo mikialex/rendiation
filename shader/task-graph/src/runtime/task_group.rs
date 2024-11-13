@@ -14,6 +14,8 @@ pub struct TaskGroupExecutor {
   pub all_spawners_binding_order: Vec<usize>,
   pub polling_pipeline: GPUComputePipeline,
   pub resource: TaskGroupExecutorResource,
+  pub before_execute: Option<Box<dyn Fn(&mut DeviceParallelComputeCtx, &Self)>>,
+  pub after_execute: Option<Box<dyn Fn(&mut DeviceParallelComputeCtx, &Self)>>,
 }
 
 pub struct TaskGroupExecutorInternal {
@@ -157,11 +159,17 @@ impl TaskGroupExecutor {
       internal: task_build_source,
       state_desc: pre_build.state_to_resolve.meta_info(),
       all_spawners_binding_order,
+      before_execute: None,
+      after_execute: None,
     }
   }
 
   pub fn execute(&mut self, cx: &mut DeviceParallelComputeCtx, all_tasks: &[Self]) {
     self.prepare_execution(cx);
+
+    if let Some(f) = self.before_execute.as_ref() {
+      f(cx, self)
+    }
 
     cx.record_pass(|pass, device| {
       let imp = &mut self.resource;
@@ -172,7 +180,7 @@ impl TaskGroupExecutor {
           .prepare_dispatch_size(pass, device, TASK_EXECUTION_WORKGROUP_SIZE);
 
       // dispatch tasks
-      let mut bb = BindingBuilder::new_as_compute();
+      let mut bb = BindingBuilder::default();
 
       let mut ctx = DeviceTaskSystemBindCtx { binder: &mut bb };
 
@@ -188,6 +196,20 @@ impl TaskGroupExecutor {
       bb.setup_compute_pass(pass, device, &self.polling_pipeline);
       pass.dispatch_workgroups_indirect_by_buffer_resource_view(&active_execution_size);
     });
+
+    // todo, this must be improved. extra prepare_execution is costly.
+    // this is required because when task poll sleep, if we not do alive task compact, when the
+    // subsequent task wake the parent in this task group, it will create duplicate invocation.
+    //
+    // we can not simply clear the alive list because the task could self spawn new tasks.
+    // maybe one solution is to add anther task state to mark the task is sleeping but still in alive task.
+    // the prepare execution will still compact by this flag(and will reset it), but when child task wake parent,
+    //  if it see this special flag the alive task index spawn will be skipped.
+    self.prepare_execution(cx);
+
+    if let Some(f) = self.after_execute.as_ref() {
+      f(cx, self)
+    }
   }
 
   pub fn prepare_execution(&mut self, ctx: &mut DeviceParallelComputeCtx) {
@@ -225,7 +247,7 @@ impl TaskGroupExecutor {
         builder
       });
 
-      BindingBuilder::new_as_compute()
+      BindingBuilder::default()
         .with_bind(&new_active_task_size)
         .with_bind(&imp.active_task_idx.current_size)
         .setup_compute_pass(pass, device, &pipeline);
@@ -237,28 +259,6 @@ impl TaskGroupExecutor {
         .new_removed_task_idx
         .drain_self_into_the_other(&imp.empty_index_pool, pass, device);
     });
-  }
-
-  pub fn reset_task_instance(&mut self, ctx: &mut DeviceParallelComputeCtx, dispatch_size: usize) {
-    self.internal.task.reset(ctx, dispatch_size as u32);
-  }
-
-  pub fn resize(
-    &mut self,
-    size: usize,
-    max_recursion_depth: usize,
-    cx: &mut DeviceParallelComputeCtx,
-  ) {
-    let required_size = size * max_recursion_depth;
-    if self.resource.size != required_size {
-      self.resource = TaskGroupExecutorResource::create_with_size(
-        required_size,
-        self.state_desc.clone(),
-        self.internal.payload_ty.clone(),
-        cx,
-        max_recursion_depth,
-      );
-    }
   }
 }
 
@@ -277,16 +277,15 @@ impl TaskGroupExecutorResource {
     state_desc: DynamicTypeMetaInfo,
     payload_ty: ShaderSizedValueType,
     cx: &mut DeviceParallelComputeCtx,
-    max_recursion_depth: usize,
   ) -> Self {
     let device = &cx.gpu.device;
-    let max_retained_size = size * max_recursion_depth;
+    // to support self spawning, some buffer's size is doubled for max extra allocation space
     let res = Self {
-      active_task_idx: DeviceBumpAllocationInstance::new(max_retained_size * 2, device),
-      new_removed_task_idx: DeviceBumpAllocationInstance::new(max_retained_size, device),
-      empty_index_pool: DeviceBumpAllocationInstance::new(max_retained_size * 2, device),
-      task_pool: TaskPool::create_with_size(max_retained_size * 2, state_desc, payload_ty, device),
-      size: max_retained_size,
+      active_task_idx: DeviceBumpAllocationInstance::new(size * 2, device),
+      new_removed_task_idx: DeviceBumpAllocationInstance::new(size, device),
+      empty_index_pool: DeviceBumpAllocationInstance::new(size * 2, device),
+      task_pool: TaskPool::create_with_size(size * 2, state_desc, payload_ty, device),
+      size,
     };
 
     cx.record_pass(|pass, device| {
@@ -310,13 +309,13 @@ impl TaskGroupExecutorResource {
         builder
       });
 
-      BindingBuilder::new_as_compute()
+      BindingBuilder::default()
         .with_bind(&res.empty_index_pool.storage)
         .with_bind(&res.empty_index_pool.current_size)
         .setup_compute_pass(pass, device, &pipeline);
 
       pass.dispatch_workgroups(
-        compute_dispatch_size((max_retained_size * 2) as u32, workgroup_size),
+        compute_dispatch_size((size * 2) as u32, workgroup_size),
         1,
         1,
       );

@@ -26,14 +26,13 @@ impl<'a> ShaderHashProvider for FlatMaterialStorageGPU<'a> {
 }
 
 impl<'a> GraphicsShaderProvider for FlatMaterialStorageGPU<'a> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let materials = binding.bind_by(&self.buffer.inner.gpu());
-      let current_material_id = builder.query::<IndirectSceneAbstractMaterialId>()?;
+      let current_material_id = builder.query::<IndirectAbstractMaterialId>();
       let material = materials.index(current_material_id).load().expand();
 
       builder.register::<DefaultDisplay>(material.color);
-      Ok(())
     })
   }
 }

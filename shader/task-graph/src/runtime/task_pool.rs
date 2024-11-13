@@ -77,16 +77,7 @@ impl TaskPool {
   }
 
   pub fn bind(&self, cx: &mut BindingBuilder) {
-    cx.bind_dyn(
-      self.tasks.get_binding_build_source(),
-      &ShaderBindingDescriptor {
-        should_as_storage_buffer_if_is_buffer_like: true,
-        ty: ShaderValueType::Single(ShaderValueSingleType::Sized(ShaderSizedValueType::Struct(
-          self.state_desc.ty.clone(),
-        ))),
-        writeable_if_storage: true,
-      },
-    );
+    cx.bind_dyn(self.tasks.get_binding_build_source());
   }
 }
 

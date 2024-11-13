@@ -65,16 +65,16 @@ impl<'a> GraphicsShaderDependencyProvider for CameraGPU<'a> {
 }
 
 impl<'a> GraphicsShaderProvider for CameraGPU<'a> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     let camera = self.inject_uniforms(builder);
 
     builder.vertex(|builder, _| {
       let camera = camera.using().load().expand();
-      let position = builder.query::<WorldVertexPosition>()?;
+      let position = builder.query::<WorldVertexPosition>();
 
       let mut clip_position = camera.view_projection * (position, val(1.)).into();
 
-      let jitter = if let Ok(texel_size) = builder.query::<TexelSize>() {
+      let jitter = if let Some(texel_size) = builder.try_query::<TexelSize>() {
         let jitter = texel_size * camera.jitter_normalized * clip_position.w();
         (jitter, val(0.), val(0.)).into()
       } else {
@@ -83,8 +83,6 @@ impl<'a> GraphicsShaderProvider for CameraGPU<'a> {
       clip_position += jitter;
 
       builder.register::<ClipPosition>(clip_position);
-
-      Ok(())
     })
   }
 }

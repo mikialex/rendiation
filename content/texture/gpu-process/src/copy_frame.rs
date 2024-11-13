@@ -40,15 +40,12 @@ impl<T> ShaderPassBuilder for CopyFrame<T> {
 }
 
 impl<T> GraphicsShaderProvider for CopyFrame<T> {
-  fn build(
-    &self,
-    builder: &mut rendiation_shader_api::ShaderRenderPipelineBuilder,
-  ) -> Result<(), rendiation_shader_api::ShaderBuildError> {
+  fn build(&self, builder: &mut rendiation_shader_api::ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let sampler = binding.bind_by(&self.sampler);
       let source = binding.bind_by(&self.source);
 
-      let uv = builder.query::<FragmentUv>()?;
+      let uv = builder.query::<FragmentUv>();
       let value = source.sample(sampler, uv);
       builder.store_fragment_out(0, value)
     })

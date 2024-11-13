@@ -34,40 +34,38 @@ impl<'a> ShaderPassBuilder for WideLineMaterialGPU<'a> {
 }
 
 impl<'a> GraphicsShaderProvider for WideLineMaterialGPU<'a> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, binding| {
-      let uv = builder.query::<GeometryUV>()?;
-      let color_with_alpha = builder.query::<GeometryColorWithAlpha>()?;
+      let uv = builder.query::<GeometryUV>();
+      let color_with_alpha = builder.query::<GeometryColorWithAlpha>();
       let material = binding.bind_by(&self.uniform).load().expand();
 
       // todo move to shape post build
       let vertex_position = wide_line_vertex(
-        builder.query::<CameraProjectionMatrix>()?,
-        builder.query::<CameraViewMatrix>()?,
-        builder.query::<WorldMatrix>()?,
-        builder.query::<WideLineStart>()?,
-        builder.query::<WideLineEnd>()?,
-        builder.query::<GeometryPosition>()?,
-        builder.query::<RenderBufferSize>()?,
+        builder.query::<CameraProjectionMatrix>(),
+        builder.query::<CameraViewMatrix>(),
+        builder.query::<WorldMatrix>(),
+        builder.query::<WideLineStart>(),
+        builder.query::<WideLineEnd>(),
+        builder.query::<GeometryPosition>(),
+        builder.query::<RenderBufferSize>(),
         material.width,
       );
 
       builder.register::<ClipPosition>(vertex_position);
       builder.set_vertex_out::<FragmentUv>(uv);
       builder.set_vertex_out::<FragmentColorAndAlpha>(color_with_alpha);
-      Ok(())
-    })?;
+    });
 
     builder.fragment(|builder, _| {
-      let uv = builder.query::<FragmentUv>()?;
-      let color = builder.query::<FragmentColorAndAlpha>()?;
+      let uv = builder.query::<FragmentUv>();
+      let color = builder.query::<FragmentColorAndAlpha>();
 
       if_by(discard_round_corner(uv), || {
         builder.discard();
       });
 
       builder.register::<DefaultDisplay>(color);
-      Ok(())
     })
   }
 }

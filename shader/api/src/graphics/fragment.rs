@@ -18,14 +18,14 @@ impl<'a> ShaderFragmentBuilderView<'a> {
     V: SemanticVertexShaderValue,
     T: SemanticFragmentShaderValue<ValueType = <V as SemanticVertexShaderValue>::ValueType>,
   {
-    if let Ok(r) = self.query::<T>() {
+    if let Some(r) = self.try_query::<T>() {
       return r;
     }
 
     set_current_building(ShaderStages::Vertex.into());
     let is_ok = {
-      let v_node = self.vertex.query::<V>();
-      if let Ok(v_node) = v_node {
+      let v_node = self.vertex.try_query::<V>();
+      if let Some(v_node) = v_node {
         self.vertex.set_vertex_out::<T>(v_node);
         true
       } else {
@@ -37,7 +37,7 @@ impl<'a> ShaderFragmentBuilderView<'a> {
     set_current_building(ShaderStages::Fragment.into());
 
     if is_ok {
-      self.query::<T>().unwrap()
+      self.query::<T>()
     } else {
       self.query_or_insert_default::<T>()
     }
@@ -76,16 +76,18 @@ pub struct ShaderFragmentBuilder {
   pub depth_stencil: Option<DepthStencilState>,
   // improve: check if all the output should be multisampled target
   pub multisample: MultisampleState,
+  pub(crate) errors: ErrorSink,
 }
 
 impl ShaderFragmentBuilder {
-  pub(crate) fn new() -> Self {
+  pub(crate) fn new(errors: ErrorSink) -> Self {
     let mut result = Self {
       fragment_in: Default::default(),
       registry: Default::default(),
       frag_output: Default::default(),
       multisample: Default::default(),
       depth_stencil: Default::default(),
+      errors,
     };
 
     set_current_building(ShaderStages::Fragment.into());
@@ -115,13 +117,25 @@ impl ShaderFragmentBuilder {
     call_shader_api(|g| g.discard())
   }
 
-  pub fn query<T: SemanticFragmentShaderValue>(
-    &self,
-  ) -> Result<Node<T::ValueType>, ShaderBuildError> {
+  pub fn query<T: SemanticFragmentShaderValue>(&self) -> Node<T::ValueType> {
     self
       .registry
       .query(TypeId::of::<T>(), T::NAME)
       .map(|n| unsafe { std::mem::transmute(n) })
+      .unwrap_or_else(|_| unsafe {
+        self
+          .errors
+          .push(ShaderBuildError::MissingRequiredDependency(T::NAME));
+        fake_val()
+      })
+  }
+
+  pub fn try_query<T: SemanticFragmentShaderValue>(&self) -> Option<Node<T::ValueType>> {
+    self
+      .registry
+      .query(TypeId::of::<T>(), T::NAME)
+      .map(|n| unsafe { std::mem::transmute(n) })
+      .ok()
   }
 
   pub fn query_or_insert_default<T>(&mut self) -> Node<T::ValueType>
@@ -141,18 +155,15 @@ impl ShaderFragmentBuilder {
       unsafe { n.cast_type() }
     } else {
       let default: T::ValueType = by();
-      self.register::<T>(default)
+      self.register::<T>(default);
+      self.query::<T>()
     }
   }
 
-  pub fn register<T: SemanticFragmentShaderValue>(
-    &mut self,
-    node: impl Into<Node<T::ValueType>>,
-  ) -> Node<T::ValueType> {
-    let n = self
+  pub fn register<T: SemanticFragmentShaderValue>(&mut self, node: impl Into<Node<T::ValueType>>) {
+    self
       .registry
       .register(TypeId::of::<T>(), node.into().cast_untyped_node());
-    unsafe { n.cast_type() }
   }
 
   pub fn get_fragment_in<T>(
@@ -182,14 +193,13 @@ impl ShaderFragmentBuilder {
   }
 
   /// always called by material side to provide fragment out
-  pub fn store_fragment_out(
-    &mut self,
-    slot: usize,
-    node: impl Into<Node<Vec4<f32>>>,
-  ) -> Result<(), ShaderBuildError> {
-    let target = self.get_fragment_out_var(slot)?;
-    target.store(node.into());
-    Ok(())
+  pub fn store_fragment_out(&mut self, slot: usize, node: impl Into<Node<Vec4<f32>>>) {
+    match self.get_fragment_out_var(slot) {
+      Ok(target) => target.store(node.into()),
+      Err(err) => {
+        self.errors.push(err);
+      }
+    }
   }
 
   fn get_fragment_out_var(
@@ -212,13 +222,16 @@ impl ShaderFragmentBuilder {
   /// currently we all depend on FragmentDepthOutput in semantic registry to given the final result
   /// this behavior will be changed in future;
   pub fn finalize_depth_write(&mut self) {
-    let depth = self.query::<FragmentDepthOutput>();
-    if let Ok(depth) = depth {
+    let depth = self.try_query::<FragmentDepthOutput>();
+    if let Some(depth) = depth {
       call_shader_api(|api| {
         let target = api.define_frag_depth_output();
         api.store(depth.handle(), target)
       });
     }
+  }
+  pub fn error(&mut self, err: ShaderBuildError) {
+    self.errors.push(err);
   }
 }
 

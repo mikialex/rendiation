@@ -97,7 +97,7 @@ impl GLESModelShapeRenderImpl for AttributesMeshEntityDefaultRenderImpl {
       let fmt = match stride {
         4 => AttributeIndexFormat::Uint32,
         2 => AttributeIndexFormat::Uint16,
-        _ => unreachable!("invalid index format"),
+        _ => unreachable!("invalid index format, computed stride size {}", stride),
       };
       (fmt, count)
     });

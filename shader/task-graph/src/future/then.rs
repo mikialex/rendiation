@@ -46,11 +46,6 @@ where
     self.upstream.bind_input(builder);
     self.then.bind_input(builder);
   }
-
-  fn reset(&mut self, ctx: &mut DeviceParallelComputeCtx, work_size: u32) {
-    self.upstream.reset(ctx, work_size);
-    self.then.reset(ctx, work_size)
-  }
 }
 
 pub struct ShaderFutureThenInstance<U: ShaderFutureInvocation, F, T>
@@ -92,6 +87,7 @@ where
         upstream_resolved_local.abstract_store(val(true));
         let next = create_then_invocation_instance(r.payload, &self.then, ctx);
         then.abstract_store(next);
+        upstream_output.abstract_store(r.payload); // todo improve, this store may not needed if the then resolved directly
       });
     });
 

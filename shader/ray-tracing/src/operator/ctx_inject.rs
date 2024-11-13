@@ -6,9 +6,20 @@ pub trait RayTracingCustomCtxProvider: ShaderHashProvider + 'static + Clone {
   fn bind(&self, builder: &mut BindingBuilder);
 }
 
+#[derive(Clone)]
 pub struct InjectCtx<T, C> {
   pub upstream: T,
   pub ctx: C,
+}
+
+impl<T: ShaderHashProvider + 'static, C: RayTracingCustomCtxProvider> ShaderHashProvider
+  for InjectCtx<T, C>
+{
+  shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.upstream.hash_pipeline(hasher);
+    self.ctx.hash_pipeline(hasher);
+  }
 }
 
 impl<X, T, C> ShaderFutureProvider<X> for InjectCtx<T, C>
@@ -60,21 +71,17 @@ where
   }
 
   fn build_poll(&self, ctx: &mut DeviceTaskSystemBuildCtx) -> Self::Invocation {
+    let upstream = self.upstream.build_poll(ctx);
     let invocation = self.ctx.build_invocation(ctx.compute_cx.bindgroups());
     InjectCtxShaderFutureInvocation {
-      upstream: self.upstream.build_poll(ctx),
+      upstream,
       ctx: invocation,
     }
   }
 
   fn bind_input(&self, builder: &mut DeviceTaskSystemBindCtx) {
-    self.ctx.bind(builder.binder);
     self.upstream.bind_input(builder);
-  }
-
-  fn reset(&mut self, ctx: &mut DeviceParallelComputeCtx, work_size: u32) {
-    self.upstream.reset(ctx, work_size);
-    // todo, resize self sized managed resource?
+    self.ctx.bind(builder.binder);
   }
 }
 
@@ -91,8 +98,9 @@ where
   type Output = T::Output;
 
   fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<Self::Output> {
+    let r = self.upstream.device_poll(ctx);
     let t_ctx = ctx.invocation_registry.get_mut::<TracingCtx>().unwrap();
     t_ctx.registry.register(self.ctx.clone());
-    self.upstream.device_poll(ctx)
+    r
   }
 }

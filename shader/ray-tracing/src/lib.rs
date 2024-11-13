@@ -2,6 +2,7 @@
 
 use std::any::Any;
 use std::any::TypeId;
+use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::sync::Arc;
 

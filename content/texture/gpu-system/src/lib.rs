@@ -166,6 +166,7 @@ pub trait DynAbstractGPUTextureSystem: Any {
     let sampler = self.register_shader_sampler(binding, host_handles.1, device_handles.1);
     self.sample_texture2d(reg, texture, sampler, uv)
   }
+  fn as_indirect_system(&self) -> Option<&dyn AbstractIndirectGPUTextureSystem>;
 }
 
 impl<T: AbstractGPUTextureSystem + Any> DynAbstractGPUTextureSystem for T {
@@ -218,6 +219,10 @@ impl<T: AbstractGPUTextureSystem + Any> DynAbstractGPUTextureSystem for T {
       uv,
     )
   }
+
+  fn as_indirect_system(&self) -> Option<&dyn AbstractIndirectGPUTextureSystem> {
+    self.as_indirect_system()
+  }
 }
 
 impl ShaderPassBuilder for Box<dyn DynAbstractGPUTextureSystem> {
@@ -232,8 +237,7 @@ impl ShaderHashProvider for Box<dyn DynAbstractGPUTextureSystem> {
   shader_hash_type_id! {}
 }
 impl GraphicsShaderProvider for Box<dyn DynAbstractGPUTextureSystem> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     self.register_system_self(builder);
-    Ok(())
   }
 }

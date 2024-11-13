@@ -57,11 +57,11 @@ impl<'a> ShaderPassBuilder for &'a dyn RenderComponent {
   }
 }
 impl<'a> GraphicsShaderProvider for &'a dyn RenderComponent {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     (*self).build(builder)
   }
 
-  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     (*self).post_build(builder)
   }
 }
@@ -81,11 +81,11 @@ impl<'a> ShaderPassBuilder for Box<dyn RenderComponent + 'a> {
   }
 }
 impl<'a> GraphicsShaderProvider for Box<dyn RenderComponent + 'a> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     (**self).build(builder)
   }
 
-  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     (**self).post_build(builder)
   }
 }
@@ -119,18 +119,16 @@ impl<'a, T: RenderComponent> ShaderHashProvider for RenderSlice<'a, T> {
 }
 
 impl<'a, T: RenderComponent> GraphicsShaderProvider for RenderSlice<'a, T> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     for c in self.0 {
-      c.build(builder)?;
+      c.build(builder);
     }
-    Ok(())
   }
 
-  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     for c in self.0.iter().rev() {
-      c.post_build(builder)?;
+      c.post_build(builder);
     }
-    Ok(())
   }
 }
 
@@ -161,11 +159,58 @@ impl<const N: usize, T: RenderComponent> ShaderHashProvider for RenderArray<N, T
 }
 
 impl<const N: usize, T: RenderComponent> GraphicsShaderProvider for RenderArray<N, T> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     self.as_slice().build(builder)
   }
 
-  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    self.as_slice().post_build(builder)
+  }
+}
+
+#[derive(Default)]
+pub struct RenderVec<'a>(Vec<Box<dyn RenderComponent + 'a>>);
+
+impl<'a> RenderVec<'a> {
+  pub fn with(mut self, c: impl RenderComponent + 'a) -> Self {
+    self.0.push(Box::new(c));
+    self
+  }
+
+  pub fn push(&mut self, c: impl RenderComponent + 'a) -> &mut Self {
+    self.0.push(Box::new(c));
+    self
+  }
+
+  pub fn as_slice(&self) -> impl RenderComponent + '_ {
+    RenderSlice(self.0.as_slice())
+  }
+}
+
+impl<'a> ShaderPassBuilder for RenderVec<'a> {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.as_slice().setup_pass(ctx)
+  }
+  fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.as_slice().post_setup_pass(ctx)
+  }
+}
+
+impl<'a> ShaderHashProvider for RenderVec<'a> {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.as_slice().hash_pipeline(hasher)
+  }
+  fn hash_type_info(&self, hasher: &mut PipelineHasher) {
+    self.as_slice().hash_type_info(hasher)
+  }
+}
+
+impl<'a> GraphicsShaderProvider for RenderVec<'a> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    self.as_slice().build(builder)
+  }
+
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     self.as_slice().post_build(builder)
   }
 }
@@ -214,18 +259,16 @@ impl<T: ShaderPassBuilder> ShaderPassBuilder for BindingController<T> {
   }
 }
 impl<T: GraphicsShaderProvider> GraphicsShaderProvider for BindingController<T> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     let before = builder.set_binding_slot(self.target);
-    let r = self.inner.build(builder);
+    self.inner.build(builder);
     builder.set_binding_slot(before);
-    r
   }
 
-  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     let before = builder.set_binding_slot(self.target);
-    let r = self.inner.post_build(builder);
+    self.inner.post_build(builder);
     builder.set_binding_slot(before);
-    r
   }
 }
 

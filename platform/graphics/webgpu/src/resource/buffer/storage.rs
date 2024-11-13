@@ -1,8 +1,8 @@
 use crate::*;
 
 pub struct StorageBufferReadOnlyDataView<T: Std430MaybeUnsized + ?Sized> {
-  pub(crate) gpu: GPUBufferResourceView,
-  phantom: PhantomData<T>,
+  pub gpu: GPUBufferResourceView,
+  pub(crate) phantom: PhantomData<T>,
 }
 
 impl<T: Std430MaybeUnsized + ?Sized> StorageBufferReadOnlyDataView<T> {
@@ -94,7 +94,7 @@ pub fn create_gpu_readonly_storage<T: Std430MaybeUnsized + ?Sized>(
 }
 
 pub struct StorageBufferDataView<T: Std430MaybeUnsized + ?Sized> {
-  pub(crate) gpu: GPUBufferResourceView,
+  pub gpu: GPUBufferResourceView,
   pub(crate) phantom: PhantomData<T>,
 }
 

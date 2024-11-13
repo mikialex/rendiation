@@ -118,4 +118,5 @@ pub trait EntityComponentReader {
   /// target's type is Option<T>, if read success, the implementation should cast the target and
   /// set the read value.
   unsafe fn read_component(&self, idx: RawEntityHandle, target: *mut ());
+  fn read_component_into_boxed(&self, idx: RawEntityHandle) -> Option<Box<dyn Any>>;
 }

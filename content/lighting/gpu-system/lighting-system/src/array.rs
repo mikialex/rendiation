@@ -2,15 +2,6 @@ use crate::*;
 
 pub struct ArrayLights<C, F>(pub C, pub F);
 
-/// should we consider impl such trait for containers in upstream?
-impl<C, F> ShaderPassBuilder for ArrayLights<C, F>
-where
-  C: AbstractBindingSource,
-{
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    self.0.bind_pass(&mut ctx.binding);
-  }
-}
 impl<C, F> ShaderHashProvider for ArrayLights<C, F>
 where
   C: 'static,
@@ -34,6 +25,10 @@ where
   ) -> Box<dyn LightingComputeInvocation> {
     let node = self.0.bind_shader(binding);
     Box::new(IterAsLightInvocation(node.into_shader_iter().map(self.1)))
+  }
+
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.0.bind_pass(&mut ctx.binding);
   }
 }
 

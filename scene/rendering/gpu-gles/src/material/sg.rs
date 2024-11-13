@@ -1,8 +1,5 @@
-use std::any::Any;
-
 use rendiation_lighting_transport::{
-  AlphaChannel, AlphaCutChannel, EmissiveChannel, GlossinessChannel,
-  LightableSurfaceShadingProvider, PhysicalShading, ShadingSelection, SpecularChannel,
+  AlphaChannel, AlphaCutChannel, EmissiveChannel, GlossinessChannel, SpecularChannel,
 };
 use rendiation_shader_library::normal_mapping::apply_normal_mapping_conditional;
 
@@ -122,12 +119,7 @@ impl<'a> ShaderPassBuilder for PhysicalSpecularGlossinessMaterialGPU<'a> {
 }
 
 impl<'a> GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU<'a> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
-    builder.context.insert(
-      ShadingSelection.type_id(),
-      Box::new(&PhysicalShading as &dyn LightableSurfaceShadingProvider),
-    );
-
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let uniform = binding.bind_by(&self.uniform).load().expand();
       let tex_uniform = binding.bind_by(&self.texture_uniforms).load().expand();
@@ -223,7 +215,6 @@ impl<'a> GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU<'a> {
       builder.register::<GlossinessChannel>(glossiness);
 
       builder.register::<DefaultDisplay>((albedo.xyz(), val(1.)));
-      Ok(())
     })
   }
 }

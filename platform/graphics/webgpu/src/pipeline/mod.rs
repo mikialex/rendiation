@@ -38,10 +38,6 @@ impl<T> GPUPipeline<T> {
       inner: Arc::new(inner),
     }
   }
-
-  pub fn get_layout(&self, index: usize) -> &GPUBindGroupLayout {
-    self.bg_layouts.get(index).unwrap()
-  }
 }
 
 pub struct GPUPipelineImpl<T> {

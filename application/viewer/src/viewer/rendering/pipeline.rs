@@ -3,7 +3,6 @@ use rendiation_infinity_plane::*;
 use rendiation_texture_gpu_process::*;
 use rendiation_webgpu::*;
 
-use super::ScreenChannelDebugger;
 use crate::*;
 
 pub struct ViewerPipeline {
@@ -13,9 +12,6 @@ pub struct ViewerPipeline {
   pub enable_ssao: bool,
   ssao: SSAO,
   _blur: CrossBlurData,
-  pub enable_channel_debugger: bool,
-  channel_debugger: ScreenChannelDebugger,
-  tonemap: ToneMap,
   ground: UniformBufferDataView<ShaderPlane>,
   grid: UniformBufferDataView<GridEffect>,
 }
@@ -29,9 +25,6 @@ impl ViewerPipeline {
       taa: TAA::new(),
       enable_ssao: true,
       ssao: SSAO::new(gpu),
-      enable_channel_debugger: false,
-      channel_debugger: ScreenChannelDebugger::default_useful(),
-      tonemap: ToneMap::new(gpu),
       ground: UniformBufferDataView::create(&gpu.device, ShaderPlane::ground_like()),
       grid: UniformBufferDataView::create_default(&gpu.device),
     }
@@ -39,13 +32,13 @@ impl ViewerPipeline {
 
   pub fn egui(&mut self, ui: &mut egui::Ui) {
     ui.checkbox(&mut self.enable_ssao, "enable ssao");
-    ui.checkbox(&mut self.enable_channel_debugger, "enable channel debug");
   }
 
   pub fn render(
     &mut self,
     ctx: &mut FrameCtx,
-    renderer: &dyn SceneRenderer,
+    renderer: &dyn SceneRenderer<ContentKey = SceneContentKey>,
+    lighting: &dyn RenderComponent,
     content: &Viewer3dSceneCtx,
     final_target: &RenderTargetView,
     current_camera_view_projection_inv: Mat4<f32>,
@@ -118,11 +111,15 @@ impl ViewerPipeline {
           )
         });
 
-        // these pass will get correct gpu camera?
         let (color_ops, depth_ops) = renderer.init_clear(content.scene);
-        // todo light dispatcher
-        let mut main_scene_content =
-          renderer.make_pass_content(content.scene, content.main_camera, &(), ctx);
+        let key = SceneContentKey { transparent: false };
+        let mut main_scene_content = renderer.extract_and_make_pass_content(
+          key,
+          content.scene,
+          content.main_camera,
+          ctx,
+          lighting,
+        );
 
         pass("scene")
           .with_color(scene_result.write(), color_ops)
@@ -162,14 +159,14 @@ impl ViewerPipeline {
 
 pub struct HighLightDrawMaskTask<'a, T> {
   objects: Option<T>,
-  renderer: &'a dyn SceneRenderer,
+  renderer: &'a dyn SceneRenderer<ContentKey = SceneContentKey>,
   camera: EntityHandle<SceneCameraEntity>,
 }
 
 pub fn highlight<T>(
   objects: T,
   camera: EntityHandle<SceneCameraEntity>,
-  renderer: &dyn SceneRenderer,
+  renderer: &dyn SceneRenderer<ContentKey = SceneContentKey>,
 ) -> HighLightDrawMaskTask<T> {
   HighLightDrawMaskTask {
     objects: Some(objects),
@@ -184,7 +181,7 @@ where
 {
   fn render(&mut self, pass: &mut FrameRenderPass) {
     if let Some(mut objects) = self.objects.take() {
-      self.renderer.render_reorderable_batch_models(
+      self.renderer.render_reorderable_models(
         &mut objects,
         self.camera,
         &HighLightMaskDispatcher,
@@ -196,7 +193,7 @@ where
 }
 
 struct SceneCameraTAAContent<'a, F> {
-  renderer: &'a dyn SceneRenderer,
+  renderer: &'a dyn SceneRenderer<ContentKey = SceneContentKey>,
   camera: EntityHandle<SceneCameraEntity>,
   queue: &'a GPUQueue,
   f: F,

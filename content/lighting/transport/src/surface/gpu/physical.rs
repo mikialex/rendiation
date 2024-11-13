@@ -26,27 +26,31 @@ impl LightableSurfaceShadingProvider for PhysicalShading {
     builder: &mut ShaderFragmentBuilder,
   ) -> Box<dyn LightableSurfaceShading> {
     let perceptual_roughness = builder
-      .query::<RoughnessChannel>()
-      .or_else(|_| Ok(val(1.) - builder.query::<GlossinessChannel>()?))
-      .unwrap_or_else(|_: ShaderBuildError| val(0.3));
+      .try_query::<RoughnessChannel>()
+      .or_else(|| {
+        builder
+          .try_query::<GlossinessChannel>()
+          .map(|v| val(1.0) - v)
+      })
+      .unwrap_or_else(|| val(0.3));
 
     let base_color = builder
-      .query::<ColorChannel>()
-      .unwrap_or_else(|_| val(Vec3::splat(0.5)));
+      .try_query::<ColorChannel>()
+      .unwrap_or_else(|| val(Vec3::splat(0.5)));
 
     // assume specular workflow
-    let (diffuse, f0) = if let Ok(specular) = builder.query::<SpecularChannel>() {
+    let (diffuse, f0) = if let Some(specular) = builder.try_query::<SpecularChannel>() {
       let metallic = specular.max_channel();
       (base_color * (val(1.) - metallic), specular)
     } else {
       // assume metallic workflow
       let metallic = builder
-        .query::<MetallicChannel>()
-        .unwrap_or_else(|_| val(0.0));
+        .try_query::<MetallicChannel>()
+        .unwrap_or_else(|| val(0.0));
 
       let reflectance = builder
-        .query::<ReflectanceChannel>()
-        .unwrap_or_else(|_| val(0.5));
+        .try_query::<ReflectanceChannel>()
+        .unwrap_or_else(|| val(0.5));
 
       let dielectric_f0 = compute_dielectric_f0(reflectance);
 

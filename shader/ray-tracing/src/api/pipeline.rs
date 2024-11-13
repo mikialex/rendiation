@@ -1,5 +1,6 @@
 use crate::*;
 
+#[derive(Clone)]
 pub struct GPURaytracingPipelineDescriptor {
   pub max_recursion_depth: u32,
   pub ray_gen_shaders: Vec<(Box<dyn TraceOperator<()>>, ShaderSizedValueType)>,
@@ -7,6 +8,23 @@ pub struct GPURaytracingPipelineDescriptor {
   pub closest_hit_shaders: Vec<(Box<dyn TraceOperator<()>>, ShaderSizedValueType)>,
   pub intersection_shaders: Vec<Arc<dyn Fn(&RayIntersectCtx, &dyn IntersectionReporter)>>,
   pub any_hit_shaders: Vec<Arc<dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>>>,
+}
+
+impl GPURaytracingPipelineDescriptor {
+  pub fn compute_hash(&self) -> u64 {
+    let mut hasher = PipelineHasher::default();
+    // note, the payload should have already been hashed in trace operator
+    for (s, _) in &self.ray_gen_shaders {
+      s.hash_pipeline_with_type_info(&mut hasher);
+    }
+    for (s, _) in &self.miss_hit_shaders {
+      s.hash_pipeline_with_type_info(&mut hasher);
+    }
+    for (s, _) in &self.closest_hit_shaders {
+      s.hash_pipeline_with_type_info(&mut hasher);
+    }
+    hasher.finish()
+  }
 }
 
 impl Default for GPURaytracingPipelineDescriptor {

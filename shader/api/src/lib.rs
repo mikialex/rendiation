@@ -10,6 +10,7 @@ mod layout;
 mod re_export;
 mod serialization;
 
+use std::sync::Arc;
 use std::{
   any::{Any, TypeId},
   cell::RefCell,
@@ -26,6 +27,7 @@ pub use compute::*;
 use fast_hash_collection::*;
 pub use graphics::*;
 pub use layout::*;
+use parking_lot::RwLock;
 pub use re_export::*;
 pub use rendiation_algebra::*;
 pub use rendiation_shader_derives::*;
@@ -38,6 +40,8 @@ pub enum BarrierScope {
   WorkGroup,
 }
 
+/// In current design, the implementation should not panic when the shader is building
+/// because the upper layer user may well handled error that not expect panic.
 pub trait ShaderAPI {
   type Output;
 

@@ -40,22 +40,21 @@ impl<'a> ShaderHashProvider for NodeGPUStorage<'a> {
 }
 
 impl<'a> GraphicsShaderProvider for NodeGPUStorage<'a> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, binding| {
       let nodes = binding.bind_by(self.buffer.inner.gpu());
-      let current_node_id = builder.query::<IndirectSceneNodeId>()?;
+      let current_node_id = builder.query::<IndirectSceneNodeId>();
       let node = nodes.index(current_node_id).load().expand();
 
-      let position = builder.query::<GeometryPosition>()?;
+      let position = builder.query::<GeometryPosition>();
       let position = node.world_matrix * (position, val(1.)).into();
 
       builder.register::<WorldMatrix>(node.world_matrix);
       builder.register::<WorldNormalMatrix>(node.normal_matrix);
       builder.register::<WorldVertexPosition>(position.xyz());
 
-      let normal = builder.query::<GeometryNormal>()?;
+      let normal = builder.query::<GeometryNormal>();
       builder.register::<WorldVertexNormal>(node.normal_matrix * normal);
-      Ok(())
     })
   }
 }

@@ -8,7 +8,8 @@ async fn test_simple_map() {
   let test_task = graph.define_task::<u32, _>(BaseShaderFuture::default().map(|_: (), _| {}));
   let test_task2 = graph.define_task::<u32, _>(BaseShaderFuture::default());
 
-  let mut cx = DeviceParallelComputeCtx::new(&gpu);
+  let mut encoder = gpu.create_encoder();
+  let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder);
   let mut graph = graph.build(12, 1, &mut cx);
 
   let work_size = 3;
@@ -64,7 +65,8 @@ async fn test_task_graph_then_task_spawn() {
       .map(|_, _| {}),
   );
 
-  let mut cx = DeviceParallelComputeCtx::new(&gpu);
+  let mut encoder = gpu.create_encoder();
+  let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder);
   let mut graph = graph.build(4, 1, &mut cx);
 
   let work_size = 3;
@@ -129,7 +131,8 @@ async fn test_task_graph_then_task_self_spawn_recursive() {
       .map(|_, _| {}),
   );
 
-  let mut cx = DeviceParallelComputeCtx::new(&gpu);
+  let mut encoder = gpu.create_encoder();
+  let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder);
   let mut graph = graph.build(4, 3, &mut cx);
 
   let work_size = 3;

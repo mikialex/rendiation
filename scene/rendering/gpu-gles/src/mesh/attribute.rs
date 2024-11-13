@@ -119,7 +119,7 @@ impl<'a> ShaderHashProvider for AttributesMeshGPU<'a> {
   }
 }
 impl<'a> GraphicsShaderProvider for AttributesMeshGPU<'a> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     let mode = VertexStepMode::Vertex;
     builder.vertex(|builder, _| {
       for vertex_info_id in self.vertex.multi_access.access_multi_value(&self.mesh_id) {
@@ -137,7 +137,7 @@ impl<'a> GraphicsShaderProvider for AttributesMeshGPU<'a> {
             0 => builder.push_single_vertex_layout::<GeometryUVChannel<0>>(mode),
             1 => builder.push_single_vertex_layout::<GeometryUVChannel<1>>(mode),
             2 => builder.push_single_vertex_layout::<GeometryUVChannel<2>>(mode),
-            _ => return Err(ShaderBuildError::SemanticNotSupported),
+            _ => builder.error(ShaderBuildError::SemanticNotSupported),
           },
           AttributeSemantic::Joints(channel) => match channel {
             // support 4 channel should be enough
@@ -145,7 +145,7 @@ impl<'a> GraphicsShaderProvider for AttributesMeshGPU<'a> {
             1 => builder.push_single_vertex_layout::<JointIndexChannel<1>>(mode),
             2 => builder.push_single_vertex_layout::<JointIndexChannel<2>>(mode),
             3 => builder.push_single_vertex_layout::<JointIndexChannel<3>>(mode),
-            _ => return Err(ShaderBuildError::SemanticNotSupported),
+            _ => builder.error(ShaderBuildError::SemanticNotSupported),
           },
           AttributeSemantic::Weights(channel) => match channel {
             // support 4 channel should be enough
@@ -153,18 +153,20 @@ impl<'a> GraphicsShaderProvider for AttributesMeshGPU<'a> {
             1 => builder.push_single_vertex_layout::<WeightChannel<1>>(mode),
             2 => builder.push_single_vertex_layout::<WeightChannel<2>>(mode),
             3 => builder.push_single_vertex_layout::<WeightChannel<3>>(mode),
-            _ => return Err(ShaderBuildError::SemanticNotSupported),
+            _ => builder.error(ShaderBuildError::SemanticNotSupported),
           },
           AttributeSemantic::Foreign(key) => {
-            get_dyn_trait_downcaster_static!(CustomAttributeKeyGPU)
+            if let Some(v) = get_dyn_trait_downcaster_static!(CustomAttributeKeyGPU)
               .downcast_ref(key.implementation.as_ref())
-              .ok_or(ShaderBuildError::SemanticNotSupported)?
-              .inject_shader(builder)
+            {
+              v.inject_shader(builder)
+            } else {
+              builder.error(ShaderBuildError::SemanticNotSupported)
+            }
           }
         }
       }
       builder.primitive_state.topology = map_topology(self.mode);
-      Ok(())
     })
   }
 }

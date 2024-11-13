@@ -130,12 +130,10 @@ impl GPUCommandEncoder {
       size,
     );
 
-    let device = device.clone();
-    self.on_submit.once_future(|_| {}).then(move |_| {
-      let r = ReadBufferTask::new(output_buffer, ..);
-      device.poll(Maintain::Wait);
-      r
-    })
+    self
+      .on_submit
+      .once_future(|_| {})
+      .then(|_| ReadBufferTask::new(output_buffer, ..))
   }
 
   pub fn read_buffer_bytes(
@@ -206,13 +204,17 @@ impl GPUCommandEncoder {
       range.size.into_gpu_size(),
     );
 
+    let device = device.clone();
     self.on_submit.once_future(|_| {}).then(move |_| {
-      ReadBufferTask::new(output_buffer, ..).map(move |r| {
+      let r = ReadBufferTask::new(output_buffer, ..).map(move |r| {
         r.map(move |buffer| ReadableTextureBuffer {
           info: buffer_dimensions,
           buffer,
         })
-      })
+      });
+
+      device.poll(Maintain::Wait);
+      r
     })
   }
 }

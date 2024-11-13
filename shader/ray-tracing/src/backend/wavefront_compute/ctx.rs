@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 use crate::*;
 
 #[repr(C)]
@@ -13,6 +15,8 @@ pub struct TraceTaskSelfPayload {
 #[std430_layout]
 #[derive(ShaderStruct, Clone, Copy, StorageNodePtrAccess, Default)]
 pub struct ShaderRayTraceCallStoragePayload {
+  pub launch_size: Vec3<u32>,
+  pub launch_id: Vec3<u32>,
   pub payload_ref: u32,
   pub tlas_idx: u32,
   pub ray_flags: u32,
@@ -73,31 +77,40 @@ pub struct RayMissHitCtxPayload {
 pub struct WaveFrontTracingBaseProvider;
 
 impl TraceFutureBaseProvider for WaveFrontTracingBaseProvider {
-  fn create_ray_gen_shader_base() -> impl TraceOperator<()> {
-    TracingCtxProviderTracer {
+  fn create_ray_gen_shader_base(&self) -> Box<dyn TraceOperator<()>> {
+    Box::new(TracingCtxProviderTracer {
       stage: RayTraceableShaderStage::RayGeneration,
       payload_ty: None,
-    }
+    })
   }
 
-  fn create_closest_hit_shader_base<P: ShaderSizedValueNodeType>() -> impl TraceOperator<()> {
-    TracingCtxProviderTracer {
+  fn create_closest_hit_shader_base(&self, ty: ShaderSizedValueType) -> Box<dyn TraceOperator<()>> {
+    Box::new(TracingCtxProviderTracer {
       stage: RayTraceableShaderStage::ClosestHit,
-      payload_ty: Some(P::sized_ty()),
-    }
+      payload_ty: Some(ty),
+    })
   }
 
-  fn create_miss_hit_shader_base<P: ShaderSizedValueNodeType>() -> impl TraceOperator<()> {
-    TracingCtxProviderTracer {
+  fn create_miss_hit_shader_base(&self, ty: ShaderSizedValueType) -> Box<dyn TraceOperator<()>> {
+    Box::new(TracingCtxProviderTracer {
       stage: RayTraceableShaderStage::Miss,
-      payload_ty: Some(P::sized_ty()),
-    }
+      payload_ty: Some(ty),
+    })
   }
 }
 
+#[derive(Clone)]
 struct TracingCtxProviderTracer {
   stage: RayTraceableShaderStage,
   payload_ty: Option<ShaderSizedValueType>,
+}
+
+impl ShaderHashProvider for TracingCtxProviderTracer {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.stage.hash(hasher);
+    self.payload_ty.hash(hasher);
+  }
+  shader_hash_type_id! {}
 }
 
 impl ShaderFutureProvider<()> for TracingCtxProviderTracer {
@@ -109,6 +122,7 @@ impl ShaderFutureProvider<()> for TracingCtxProviderTracer {
         .get_mut::<TracingTaskSpawnerImplSource>()
         .unwrap()
         .clone(),
+      launch_size: ctx.get_mut::<RayLaunchSizeBuffer>().unwrap().clone(),
     }
     .into_dyn()
   }
@@ -118,7 +132,6 @@ where
   T: Default,
 {
   fn build(&self, _: &mut dyn NativeRayTracingShaderCtx) -> T {
-    // todo, register ctx
     T::default()
   }
   fn bind(&self, _: &mut BindingBuilder) {}
@@ -128,6 +141,7 @@ pub struct TracingCtxProviderFuture {
   stage: RayTraceableShaderStage,
   payload_ty: Option<ShaderSizedValueType>,
   ray_spawner: TracingTaskSpawnerImplSource,
+  launch_size: RayLaunchSizeBuffer,
 }
 
 impl ShaderFuture for TracingCtxProviderFuture {
@@ -144,15 +158,13 @@ impl ShaderFuture for TracingCtxProviderFuture {
       stage: self.stage,
       payload_ty: self.payload_ty.clone(),
       ray_spawner: self.ray_spawner.create_invocation(cx),
+      launch_size: self.launch_size.build(cx),
     }
   }
 
   fn bind_input(&self, builder: &mut DeviceTaskSystemBindCtx) {
-    self.ray_spawner.bind(builder)
-  }
-
-  fn reset(&mut self, _: &mut DeviceParallelComputeCtx, _: u32) {
-    // ray_spawner should be reset by trace task, but not ours
+    self.ray_spawner.bind(builder);
+    self.launch_size.bind(builder);
   }
 }
 
@@ -160,39 +172,60 @@ pub struct TracingCtxProviderFutureInvocation {
   stage: RayTraceableShaderStage,
   payload_ty: Option<ShaderSizedValueType>,
   ray_spawner: TracingTaskSpawnerInvocation,
+  launch_size: RayLaunchSizeInvocation,
 }
 impl ShaderFutureInvocation for TracingCtxProviderFutureInvocation {
   type Output = ();
   fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<()> {
+    // store pointers in closures so that payload/ctx will be reloaded when shader is awakened
+
     // accessing task{}_payload_with_ray, see fn spawn_dynamic in trace_task.rs
     let combined_payload = ctx.access_self_payload_untyped();
     let user_defined_payload = if matches!(self.stage, RayTraceableShaderStage::RayGeneration) {
       None
     } else {
-      let user_defined_payload: StorageNode<AnyType> =
-        unsafe { index_access_field(combined_payload.handle(), 1) };
-      Some((user_defined_payload, self.payload_ty.clone().unwrap()))
+      let payload_ty = self.payload_ty.clone().unwrap();
+      Some(Box::new(move || {
+        let user_defined_payload: StorageNode<AnyType> =
+          unsafe { index_access_field(combined_payload.handle(), 1) };
+        (user_defined_payload, payload_ty.clone())
+      }) as Box<_>)
     };
 
     let missing = matches!(self.stage, RayTraceableShaderStage::Miss).then(|| unsafe {
-      let ray_payload: StorageNode<RayMissHitCtxPayload> =
-        index_access_field(combined_payload.handle(), 0);
-      Box::new(ray_payload) as Box<dyn MissingHitCtxProvider>
+      Box::new(move || {
+        let ray_payload: StorageNode<RayMissHitCtxPayload> =
+          index_access_field(combined_payload.handle(), 0);
+        Box::new(ray_payload) as Box<dyn MissingHitCtxProvider>
+      }) as Box<_>
     });
 
     let closest = matches!(self.stage, RayTraceableShaderStage::ClosestHit).then(|| unsafe {
-      let ray_payload: StorageNode<RayClosestHitCtxPayload> =
-        index_access_field(combined_payload.handle(), 0);
-      Box::new(ray_payload) as Box<dyn ClosestHitCtxProvider>
+      Box::new(move || {
+        let ray_payload: StorageNode<RayClosestHitCtxPayload> =
+          index_access_field(combined_payload.handle(), 0);
+        Box::new(ray_payload) as Box<dyn ClosestHitCtxProvider>
+      }) as Box<_>
+    });
+
+    let launch_size = self.launch_size;
+    let ray_gen = matches!(self.stage, RayTraceableShaderStage::RayGeneration).then(|| {
+      // ray_gen payload is global id. see trace_ray.
+      let ray_gen_payload_ptr: StorageNode<u32> = ctx.access_self_payload();
+      Box::new(move || {
+        let global_id = ray_gen_payload_ptr.load();
+        let info = RayLaunchRawInfo::new(global_id, launch_size.get());
+        Box::new(info) as Box<dyn RayGenCtxProvider>
+      }) as Box<dyn Fn() -> Box<dyn RayGenCtxProvider>>
     });
 
     ctx.invocation_registry.register(TracingCtx {
+      ray_gen,
       missing,
       closest,
       payload: user_defined_payload,
       registry: Default::default(),
     });
-
     ctx.invocation_registry.register(self.ray_spawner.clone());
 
     (val(true), ()).into()
@@ -201,11 +234,13 @@ impl ShaderFutureInvocation for TracingCtxProviderFutureInvocation {
 
 impl RayLaunchInfoProvider for StorageNode<RayClosestHitCtxPayload> {
   fn launch_id(&self) -> Node<Vec3<u32>> {
-    todo!()
+    let node = RayClosestHitCtxPayload::storage_node_ray_info_field_ptr(*self);
+    ShaderRayTraceCallStoragePayload::storage_node_launch_id_field_ptr(node).load()
   }
 
   fn launch_size(&self) -> Node<Vec3<u32>> {
-    todo!()
+    let node = RayClosestHitCtxPayload::storage_node_ray_info_field_ptr(*self);
+    ShaderRayTraceCallStoragePayload::storage_node_launch_size_field_ptr(node).load()
   }
 }
 
@@ -293,11 +328,13 @@ impl ClosestHitCtxProvider for StorageNode<RayClosestHitCtxPayload> {
 
 impl RayLaunchInfoProvider for StorageNode<RayMissHitCtxPayload> {
   fn launch_id(&self) -> Node<Vec3<u32>> {
-    todo!()
+    let node = RayMissHitCtxPayload::storage_node_ray_info_field_ptr(*self);
+    ShaderRayTraceCallStoragePayload::storage_node_launch_id_field_ptr(node).load()
   }
 
   fn launch_size(&self) -> Node<Vec3<u32>> {
-    todo!()
+    let node = RayMissHitCtxPayload::storage_node_ray_info_field_ptr(*self);
+    ShaderRayTraceCallStoragePayload::storage_node_launch_size_field_ptr(node).load()
   }
 }
 impl WorldRayInfoProvider for StorageNode<RayMissHitCtxPayload> {

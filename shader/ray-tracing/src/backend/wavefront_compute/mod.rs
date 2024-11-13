@@ -15,6 +15,7 @@ use crate::*;
 pub struct GPUWaveFrontComputeRaytracingSystem {
   gpu: GPU,
   tlas_sys: Box<dyn GPUAccelerationStructureSystemProvider>,
+  sbt_sys: ShaderBindingTableDeviceInfo,
 }
 
 impl GPUWaveFrontComputeRaytracingSystem {
@@ -22,17 +23,20 @@ impl GPUWaveFrontComputeRaytracingSystem {
     Self {
       gpu: gpu.clone(),
       tlas_sys: Box::new(NaiveSahBVHSystem::new(gpu.clone())),
+      sbt_sys: ShaderBindingTableDeviceInfo::new(gpu),
     }
   }
 }
 
 impl GPURaytracingSystem for GPUWaveFrontComputeRaytracingSystem {
+  fn create_tracer_base_builder(&self) -> TraceFutureBaseBuilder {
+    TraceFutureBaseBuilder {
+      inner: Arc::new(WaveFrontTracingBaseProvider),
+    }
+  }
   fn create_raytracing_device(&self) -> Box<dyn GPURayTracingDeviceProvider> {
     Box::new(GPUWaveFrontComputeRaytracingDevice {
-      gpu: self.gpu.clone(),
-      default_init_size: 512 * 512,
-      sbt_sys: ShaderBindingTableDeviceInfo::new(&self.gpu),
-      tlas_sys: self.tlas_sys.clone(),
+      sbt_sys: self.sbt_sys.clone(),
     })
   }
 
@@ -40,6 +44,8 @@ impl GPURaytracingSystem for GPUWaveFrontComputeRaytracingSystem {
     Box::new(GPUWaveFrontComputeRaytracingEncoder {
       gpu: self.gpu.clone(),
       current_pipeline: None,
+      sbt_sys: self.sbt_sys.clone(),
+      tlas_sys: self.tlas_sys.clone(),
     })
   }
 
@@ -51,27 +57,21 @@ impl GPURaytracingSystem for GPUWaveFrontComputeRaytracingSystem {
 }
 
 pub struct GPUWaveFrontComputeRaytracingDevice {
-  gpu: GPU,
-  default_init_size: usize,
   sbt_sys: ShaderBindingTableDeviceInfo,
-  tlas_sys: Box<dyn GPUAccelerationStructureSystemProvider>,
 }
 
 impl GPURayTracingDeviceProvider for GPUWaveFrontComputeRaytracingDevice {
   fn create_raytracing_pipeline(
     &self,
-    desc: &GPURaytracingPipelineDescriptor,
+    desc: GPURaytracingPipelineDescriptor,
   ) -> Box<dyn GPURaytracingPipelineProvider> {
-    let mut cx = DeviceParallelComputeCtx::new(&self.gpu);
-    let inner = GPUWaveFrontComputeRaytracingBakedPipelineInner::compile(
-      &mut cx,
-      self.tlas_sys.create_comp_instance(),
-      self.sbt_sys.clone(),
-      desc,
-      self.default_init_size,
-    );
     Box::new(GPUWaveFrontComputeRaytracingBakedPipeline {
-      inner: Arc::new(RwLock::new(inner)),
+      inner: Arc::new(RwLock::new(
+        GPUWaveFrontComputeRaytracingBakedPipelineInner {
+          desc,
+          executor: None,
+        },
+      )),
     })
   }
 
@@ -91,6 +91,8 @@ impl GPURayTracingDeviceProvider for GPUWaveFrontComputeRaytracingDevice {
 pub struct GPUWaveFrontComputeRaytracingEncoder {
   gpu: GPU,
   current_pipeline: Option<GPUWaveFrontComputeRaytracingBakedPipeline>,
+  sbt_sys: ShaderBindingTableDeviceInfo,
+  tlas_sys: Box<dyn GPUAccelerationStructureSystemProvider>,
 }
 
 impl RayTracingPassEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
@@ -112,46 +114,46 @@ impl RayTracingPassEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
       .downcast_ref::<ShaderBindingTableInfo>()
       .unwrap();
 
-    let mut cx = DeviceParallelComputeCtx::new(&self.gpu);
+    let mut encoder = self.gpu.create_encoder();
+    let mut cx = DeviceParallelComputeCtx::new(&self.gpu, &mut encoder);
 
-    // setup sbt:
+    let required_size = (size.0 * size.1 * size.2) as usize;
+
+    let current_pipeline = current_pipeline.get_or_compile_executor(
+      &mut cx,
+      self.tlas_sys.create_comp_instance(),
+      self.sbt_sys.clone(),
+      required_size,
+    );
+
+    // setup current binding sbt:
     current_pipeline.target_sbt_buffer.write_at(
       0,
       Std430::as_bytes(&sbt.self_idx),
       &self.gpu.queue,
     );
 
-    let size = (size.0 * size.1 * size.2) as usize;
+    // setup launch size:
+    current_pipeline.launch_size_buffer.write_at(
+      0,
+      Std430::as_bytes(&vec3(size.0, size.1, size.2)),
+      &self.gpu.queue,
+    );
+
     {
       let executor = &mut current_pipeline.graph;
-      executor.resize_execution_size(&mut cx, size);
+
+      executor.dispatch_allocate_init_task(
+        &mut cx,
+        required_size as u32,
+        current_pipeline.ray_gen_task_idx,
+        // ray-gen payload is linear id. see TracingCtxProviderFutureInvocation.
+        |global_id| global_id,
+      );
     }
 
     let round_count = 3; // todo;
     for _ in 0..round_count {
-      // reset read_back bumper;
-      {
-        let bumper = current_pipeline.tracer_read_back_bumper.read();
-        cx.record_pass(|pass, device| {
-          let hasher = shader_hasher_from_marker_ty!(SizeClear);
-          let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
-            builder.config_work_group_size(1);
-            let current_size = builder.bind_by(&bumper.current_size);
-            let bump_size = builder.bind_by(&bumper.bump_size);
-            current_size.store(val(0));
-            bump_size.atomic_store(val(0));
-            builder
-          });
-
-          BindingBuilder::new_as_compute()
-            .with_bind(&bumper.current_size)
-            .with_bind(&bumper.bump_size)
-            .setup_compute_pass(pass, device, &pipeline);
-
-          pass.dispatch_workgroups(1, 1, 1);
-        });
-      }
-
       current_pipeline.graph.execute(&mut cx, 1);
     }
   }

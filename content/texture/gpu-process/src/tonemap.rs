@@ -8,9 +8,21 @@ pub struct ToneMap {
 impl ToneMap {
   pub fn new(gpu: &GPU) -> Self {
     Self {
-      ty: ToneMapType::Linear,
+      ty: ToneMapType::ACESFilmic,
       exposure: create_uniform_with_cache(1., gpu),
     }
+  }
+
+  pub fn set_exposure(&self, exposure: f32) {
+    self.exposure.set(exposure);
+  }
+
+  pub fn mutate_exposure(&self, f: impl FnOnce(&mut f32)) {
+    self.exposure.mutate(f);
+  }
+
+  pub fn update(&self, gpu: &GPU) {
+    self.exposure.upload(&gpu.queue);
   }
 }
 
@@ -33,15 +45,15 @@ impl ShaderHashProvider for ToneMap {
   shader_hash_type_id! {}
 }
 impl ShaderPassBuilder for ToneMap {
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+  fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.exposure);
   }
 }
 impl GraphicsShaderProvider for ToneMap {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let exposure = binding.bind_by(&self.exposure).load();
-      let hdr = builder.query::<HDRLightResult>()?;
+      let hdr = builder.query::<HDRLightResult>();
 
       let mapped = match self.ty {
         ToneMapType::Linear => linear_tone_mapping(hdr, exposure),
@@ -51,7 +63,6 @@ impl GraphicsShaderProvider for ToneMap {
       };
 
       builder.register::<LDRLightResult>(mapped);
-      Ok(())
     })
   }
 }
@@ -141,22 +152,21 @@ impl<'a, T> ShaderPassBuilder for ToneMapTask<'a, T> {
 }
 
 impl<'a, T> GraphicsShaderProvider for ToneMapTask<'a, T> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let hdr = binding.bind_by(&self.hdr);
       let sampler = binding.bind_by(&ImmediateGPUSamplerViewBind);
 
-      let uv = builder.query::<FragmentUv>()?;
+      let uv = builder.query::<FragmentUv>();
       let hdr = hdr.sample(sampler, uv).xyz();
 
       builder.register::<HDRLightResult>(hdr);
-      Ok(())
-    })?;
+    });
 
-    self.config.build(builder)?;
+    self.config.build(builder);
 
     builder.fragment(|builder, _| {
-      let ldr = builder.query::<LDRLightResult>()?;
+      let ldr = builder.query::<LDRLightResult>();
       builder.store_fragment_out(0, (ldr, val(1.)))
     })
   }

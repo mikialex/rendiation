@@ -1,8 +1,5 @@
-use std::any::Any;
-
 use rendiation_lighting_transport::{
-  AlphaChannel, AlphaCutChannel, EmissiveChannel, LightableSurfaceShadingProvider, MetallicChannel,
-  PhysicalShading, RoughnessChannel, ShadingSelection,
+  AlphaChannel, AlphaCutChannel, EmissiveChannel, MetallicChannel, RoughnessChannel,
 };
 use rendiation_shader_library::normal_mapping::apply_normal_mapping_conditional;
 
@@ -123,12 +120,7 @@ impl<'a> ShaderPassBuilder for PhysicalMetallicRoughnessMaterialGPU<'a> {
 }
 
 impl<'a> GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialGPU<'a> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
-    builder.context.insert(
-      ShadingSelection.type_id(),
-      Box::new(&PhysicalShading as &dyn LightableSurfaceShadingProvider),
-    );
-
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let uniform = binding.bind_by(&self.uniform).load().expand();
       let tex_uniform = binding.bind_by(&self.texture_uniforms).load().expand();
@@ -216,7 +208,6 @@ impl<'a> GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialGPU<'a> {
       builder.register::<RoughnessChannel>(roughness * roughness);
 
       builder.register::<DefaultDisplay>((base_color, val(1.)));
-      Ok(())
     })
   }
 }

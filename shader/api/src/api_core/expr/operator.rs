@@ -21,6 +21,7 @@ pub enum BinaryOperator {
   LogicalAnd,
   BitAnd,
   BitOr,
+  BitXor,
   ShiftLeft,
   /// Right shift carries the sign of signed integers only.
   ShiftRight,
@@ -213,6 +214,23 @@ where
       left: self.handle(),
       right: rhs.handle(),
       operator: BinaryOperator::BitOr,
+    }
+    .insert_api()
+  }
+}
+
+impl<T> BitXor for Node<T>
+where
+  T: BitXor<T, Output = T>,
+  T: ShaderNodeType,
+{
+  type Output = Node<T>;
+
+  fn bitxor(self, rhs: Self) -> Self::Output {
+    OperatorNode::Binary {
+      left: self.handle(),
+      right: rhs.handle(),
+      operator: BinaryOperator::BitXor,
     }
     .insert_api()
   }
