@@ -453,19 +453,28 @@ pub(crate) struct TracingTaskSpawnerInvocation {
 
 impl TracingTaskSpawnerInvocation {
   fn spawn_new_tracing_task(
-    &mut self,
+    &self,
     task_group: &TaskGroupDeviceInvocationInstanceLateResolved,
     should_trace: Node<bool>,
     trace_call: ShaderRayTraceCall,
     payload: ShaderNodeRawHandle,
     payload_ty: ShaderSizedValueType,
     parent: TaskParentRef,
-    launch_id: Node<Vec3<u32>>,
-    launch_size: Node<Vec3<u32>>,
-  ) -> TaskFutureInvocationRightValue {
+    tcx: &TracingCtx,
+  ) -> TracingFutureInvocationRightValue {
     let task_handle = val(u32::MAX).make_local_var();
 
     if_by(should_trace, || {
+      let (launch_id, launch_size) = if let Some(ray_gen) = tcx.ray_gen_ctx() {
+        (ray_gen.launch_id(), ray_gen.launch_size())
+      } else if let Some(closest) = tcx.closest_hit_ctx() {
+        (closest.launch_id(), closest.launch_size())
+      } else if let Some(missing) = tcx.miss_hit_ctx() {
+        (missing.launch_id(), missing.launch_size())
+      } else {
+        unreachable!()
+      };
+
       let payload_size = payload_ty.u32_size_count();
 
       let (write_idx, success) =
@@ -507,9 +516,10 @@ impl TracingTaskSpawnerInvocation {
       task_handle.store(task.task_handle);
     });
 
-    TaskFutureInvocationRightValue {
+    let inner = TaskFutureInvocationRightValue {
       task_handle: task_handle.load(),
-    }
+    };
+    TracingFutureInvocationRightValue { inner }
   }
 
   fn read_back_user_payload(
@@ -541,47 +551,136 @@ where
       .then(
         move |o, then_invocation, cx| {
           let ctx = cx.invocation_registry.get_mut::<TracingCtx>().unwrap();
-          let (should_trace, trace, payload) = next_trace_logic(&o, ctx);
-
-          let (launch_id, launch_size) = if let Some(ray_gen) = ctx.ray_gen_ctx() {
-            (ray_gen.launch_id(), ray_gen.launch_size())
-          } else if let Some(closest) = ctx.closest_hit_ctx() {
-            (closest.launch_id(), closest.launch_size())
-          } else if let Some(missing) = ctx.miss_hit_ctx() {
-            (missing.launch_id(), missing.launch_size())
-          } else {
-            unreachable!()
-          };
-
-          let parent = cx.generate_self_as_parent();
-          cx.invocation_registry
-            .get_mut::<TracingTaskSpawnerInvocation>()
-            .unwrap()
-            .spawn_new_tracing_task(
-              &then_invocation.spawner,
-              should_trace,
-              trace,
-              payload.handle(),
-              P::sized_ty(),
-              parent,
-              launch_id,
-              launch_size,
-            )
+          let (should_trace, trace_call, payload) = next_trace_logic(&o, ctx);
+          cx.spawn_new_tracing_task(should_trace, trace_call, payload, then_invocation)
         },
-        TaskFuture::<TraceTaskSelfPayload>::new(TRACING_TASK_INDEX),
+        TracingFuture::default(),
       )
-      .map(move |(o, payload), cx| {
-        let user_payload = cx
-          .invocation_registry
-          .get_mut::<TracingTaskSpawnerInvocation>()
-          .unwrap()
-          .read_back_user_payload(
-            P::sized_ty(),
-            payload.expand().trace_call.expand().payload_ref, // todo reduce unnecessary load
-          );
-
-        (o, unsafe { user_payload.into_node() })
-      })
       .into_dyn()
+  }
+}
+
+pub trait DeviceTaskSystemPollCtxTracingExt {
+  fn spawn_new_tracing_task<P: ShaderSizedValueNodeType>(
+    &self,
+    should_trace: Node<bool>,
+    trace_call: ShaderRayTraceCall,
+    payload: Node<P>,
+    state: &TracingFutureInvocation<P>,
+  ) -> TracingFutureInvocationRightValue;
+}
+
+impl<'a> DeviceTaskSystemPollCtxTracingExt for DeviceTaskSystemPollCtx<'a> {
+  fn spawn_new_tracing_task<P: ShaderSizedValueNodeType>(
+    &self,
+    should_trace: Node<bool>,
+    trace_call: ShaderRayTraceCall,
+    payload: Node<P>,
+    state: &TracingFutureInvocation<P>,
+  ) -> TracingFutureInvocationRightValue {
+    let ctx = self.invocation_registry.get::<TracingCtx>().unwrap();
+
+    let parent = self.generate_self_as_parent();
+    let spawner = self
+      .invocation_registry
+      .get::<TracingTaskSpawnerInvocation>()
+      .unwrap();
+
+    spawner.spawn_new_tracing_task(
+      &state.inner_task.spawner,
+      should_trace,
+      trace_call,
+      payload.handle(),
+      P::sized_ty(),
+      parent,
+      ctx,
+    )
+  }
+}
+
+pub struct TracingFuture<T> {
+  pub inner_task: TaskFuture<TraceTaskSelfPayload>,
+  phantom: PhantomData<T>,
+}
+
+impl<T> Default for TracingFuture<T> {
+  fn default() -> Self {
+    Self {
+      inner_task: TaskFuture::new(TRACING_TASK_INDEX),
+      phantom: PhantomData,
+    }
+  }
+}
+
+impl<T> ShaderFuture for TracingFuture<T>
+where
+  T: ShaderSizedValueNodeType + Default + Copy,
+{
+  type Output = Node<T>;
+
+  type Invocation = TracingFutureInvocation<T>;
+
+  fn required_poll_count(&self) -> usize {
+    self.inner_task.required_poll_count()
+  }
+
+  fn build_poll(&self, ctx: &mut DeviceTaskSystemBuildCtx) -> Self::Invocation {
+    TracingFutureInvocation {
+      inner_task: self.inner_task.build_poll(ctx),
+      phantom: PhantomData,
+    }
+  }
+
+  fn bind_input(&self, builder: &mut DeviceTaskSystemBindCtx) {
+    self.inner_task.bind_input(builder);
+  }
+}
+
+/// this struct wraps around TaskFutureInvocation, store the state of the flying tracing task
+pub struct TracingFutureInvocation<T> {
+  pub inner_task: TaskFutureInvocation<TraceTaskSelfPayload>,
+  phantom: PhantomData<T>,
+}
+
+impl<T> ShaderFutureInvocation for TracingFutureInvocation<T>
+where
+  T: ShaderSizedValueNodeType + Default + Copy,
+{
+  type Output = Node<T>;
+
+  fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<Self::Output> {
+    let inner = self.inner_task.device_poll(ctx);
+    let payload = make_local_var();
+    if_by(inner.is_ready, || {
+      let user_payload = ctx
+        .invocation_registry
+        .get_mut::<TracingTaskSpawnerInvocation>()
+        .unwrap()
+        .read_back_user_payload(
+          T::sized_ty(),
+          inner.payload.expand().trace_call.expand().payload_ref, // todo reduce unnecessary load
+        );
+
+      payload.store(unsafe { user_payload.into_node() });
+    });
+    (inner.is_ready, payload.load()).into()
+  }
+}
+
+pub struct TracingFutureInvocationRightValue {
+  inner: TaskFutureInvocationRightValue,
+}
+
+impl<T> ShaderAbstractLeftValue for TracingFutureInvocation<T> {
+  type RightValue = TracingFutureInvocationRightValue;
+
+  fn abstract_load(&self) -> Self::RightValue {
+    TracingFutureInvocationRightValue {
+      inner: self.inner_task.abstract_load(),
+    }
+  }
+
+  fn abstract_store(&self, payload: Self::RightValue) {
+    self.inner_task.abstract_store(payload.inner);
   }
 }
