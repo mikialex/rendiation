@@ -115,9 +115,9 @@ pub enum RayFlagTriangleCullBehavior {
 
 pub type RayAnyHitBehavior = u32;
 pub const ACCEPT_HIT: RayAnyHitBehavior = 1;
-pub const TERMINATE_TRAVERSE: RayAnyHitBehavior = 2;
+pub const TERMINATE_TRAVERSE: RayAnyHitBehavior = 2; // todo impl
 
-pub type RayHitKind = u32;
+pub type RayHitKind = u32; // todo impl
 pub const HIT_KIND_FRONT_FACING_TRIANGLE: RayHitKind = 0xFE;
 pub const HIT_KIND_BACK_FACING_TRIANGLE: RayHitKind = 0xFF;
 
@@ -137,4 +137,4 @@ pub type GeometryFlags = u32;
 /// this geometry does not invoke the any-hit shaders even if present in a hit group.
 pub const GEOMETRY_FLAG_OPAQUE: GeometryFlags = 0x1;
 /// the implementation must only call the any-hit shader a single time for each primitive in this geometry. If this bit is absent an implementation may invoke the any-hit shader more than once for this geometry.
-pub const GEOMETRY_FLAG_NO_DUPLICATE_ANYHIT_INVOCATION: GeometryFlags = 0x2;
+pub const GEOMETRY_FLAG_NO_DUPLICATE_ANYHIT_INVOCATION: GeometryFlags = 0x2; // always guaranteed

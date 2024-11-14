@@ -553,7 +553,7 @@ fn intersect_blas_gpu(
                 world_ray,
                 hit_ctx,
                 hit: HitInfo {
-                  hit_kind: val(HIT_KIND_BACK_FACING_TRIANGLE),
+                  hit_kind: val(HIT_KIND_BACK_FACING_TRIANGLE), // todo impl
                   hit_distance: world_distance,
                 },
               };

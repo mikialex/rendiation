@@ -113,6 +113,7 @@ pub struct RayLaunchRawInfo {
 }
 impl RayLaunchRawInfo {
   pub fn new(linear_id: Node<u32>, launch_size: Node<Vec3<u32>>) -> Self {
+    // todo split bits for z pattern warps/waves
     let launch_linear_idx = linear_id;
     let launch_x = launch_linear_idx % launch_size.x();
     let launch_linear_idx = launch_linear_idx / launch_size.x();
