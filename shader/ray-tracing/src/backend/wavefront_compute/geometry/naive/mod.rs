@@ -7,7 +7,7 @@ mod flag;
 mod traverse_cpu;
 mod traverse_gpu;
 
-use std::ops::{BitAnd, Deref, Range};
+use std::ops::{BitAnd, Deref};
 use std::sync::{RwLock, RwLockReadGuard};
 
 use flag::*;
@@ -73,12 +73,12 @@ struct GeometryMetaInfo {
 #[derive(Default)]
 struct NaiveSahBvhSource {
   blas_data: Vec<Option<Vec<BottomLevelAccelerationStructureBuildSource>>>,
-  tlas_data: Vec<Option<TopLevelAccelerationStructureSourceInstance>>,
+  tlas_data: Vec<Option<Vec<TopLevelAccelerationStructureSourceInstance>>>,
 }
 
 #[derive(Clone)]
 pub struct TlasHandle {
-  range: Range<u32>,
+  idx: u32,
   buffer: UniformBufferDataView<u32>,
 }
 
@@ -107,7 +107,7 @@ impl GPUAccelerationStructureInstanceProvider for TlasHandle {
     self as &dyn Any
   }
   fn id(&self) -> u32 {
-    self.range.start
+    self.idx
   }
 }
 
@@ -118,16 +118,11 @@ impl NaiveSahBvhSource {
     self.blas_data.push(Some(source.to_vec()));
     index as u32
   }
-  pub fn create_tlas(
-    &mut self,
-    source: &[TopLevelAccelerationStructureSourceInstance],
-  ) -> Range<u32> {
+  pub fn create_tlas(&mut self, source: &[TopLevelAccelerationStructureSourceInstance]) -> u32 {
     // todo freelist
     let start_index = self.tlas_data.len();
-    for source in source {
-      self.tlas_data.push(Some(*source));
-    }
-    start_index as u32..self.tlas_data.len() as u32
+    self.tlas_data.push(Some(source.to_vec()));
+    start_index as u32
   }
   pub fn delete_blas(&mut self, i: u32) {
     // todo freelist
@@ -135,10 +130,8 @@ impl NaiveSahBvhSource {
   }
   pub fn delete_tlas(&mut self, handle: &TlasHandle) {
     // todo freelist
-    let range = &handle.range;
-    for i in range.start..range.end {
-      self.tlas_data[i as usize] = None;
-    }
+    let idx = handle.idx;
+    self.tlas_data[idx as usize] = None;
   }
 
   // todo incremental change
@@ -265,11 +258,11 @@ impl NaiveSahBvhSource {
         blas_box.push(root_box);
       }
 
-      let triangle_end = tri_bvh.len();
+      let tri_end = tri_bvh.len();
       let box_end = box_bvh.len();
 
       blas_meta_info.push(BlasMetaInfo {
-        tri_root_range: vec2(tri_start as u32, triangle_end as u32),
+        tri_root_range: vec2(tri_start as u32, tri_end as u32),
         box_root_range: vec2(box_start as u32, box_end as u32),
         ..Zeroable::zeroed()
       });
@@ -287,24 +280,19 @@ impl NaiveSahBvhSource {
   }
 
   fn build_tlas(
-    tlas_data: &mut [Option<TopLevelAccelerationStructureSourceInstance>],
+    tlas_data: &[TopLevelAccelerationStructureSourceInstance],
     blas_box: &[Box3],
-  ) -> (
-    FlattenBVH<Box3>,
-    Vec<(u32, u32)>,
-    Vec<TopLevelAccelerationStructureSourceDeviceInstance>,
-    Vec<TlasBounding>,
-  ) {
+    tlas_items_out: &mut Vec<TopLevelAccelerationStructureSourceDeviceInstance>,
+    tlas_boundings_out: &mut Vec<TlasBounding>,
+  ) -> (FlattenBVH<Box3>, Vec<(u32, u32)>) {
     let mut tlas_bvh_aabb = vec![];
     let mut index_mapping = vec![]; // tlas_data[index_mapping[idx]] aabb = bvh.nodes[idx].bounding
 
-    for (idx, tlas) in tlas_data.iter().enumerate() {
-      if let Some(source) = tlas {
-        let blas_idx = source.acceleration_structure_handle.0 as usize;
-        let aabb = blas_box[blas_idx].apply_matrix_into(source.transform);
-        index_mapping.push(idx);
-        tlas_bvh_aabb.push(aabb);
-      }
+    for (idx, source) in tlas_data.iter().enumerate() {
+      let blas_idx = source.acceleration_structure_handle.0 as usize;
+      let aabb = blas_box[blas_idx].apply_matrix_into(source.transform);
+      index_mapping.push(idx);
+      tlas_bvh_aabb.push(aabb);
     }
 
     let option = TreeBuildOption {
@@ -315,13 +303,10 @@ impl NaiveSahBvhSource {
     let bvh = FlattenBVH::new(tlas_bvh_aabb.clone().into_iter(), &mut sah, &option);
     let traverse_next = compute_bvh_next(&bvh.nodes);
 
-    let mut tlas_boundings = vec![];
-    let mut tlas_items = vec![];
-
     for box_idx in &bvh.sorted_primitive_index {
       let aabb = tlas_bvh_aabb[*box_idx];
       let tlas_idx = index_mapping[*box_idx];
-      let source = &tlas_data[tlas_idx].unwrap();
+      let source = &tlas_data[tlas_idx];
 
       let mut flags = source.flags;
       if source.transform.to_mat3().det() < 0. {
@@ -345,11 +330,11 @@ impl NaiveSahBvhSource {
         flags,
         ..Zeroable::zeroed()
       };
-      tlas_items.push(tlas_item);
-      tlas_boundings.push(tlas_bounding);
+      tlas_items_out.push(tlas_item);
+      tlas_boundings_out.push(tlas_bounding);
     }
 
-    (bvh, traverse_next, tlas_items, tlas_boundings)
+    (bvh, traverse_next)
   }
 
   pub fn build(
@@ -365,16 +350,28 @@ impl NaiveSahBvhSource {
       node: &FlattenBVHNode<Box3>,
       hit: u32,
       miss: u32,
-      offset: u32,
+      next_offset: u32,
+      primitive_offset: u32,
     ) -> DeviceBVHNode {
+      let hit = if hit != INVALID_NEXT {
+        hit + next_offset
+      } else {
+        INVALID_NEXT
+      };
+      let miss = if miss != INVALID_NEXT {
+        miss + next_offset
+      } else {
+        INVALID_NEXT
+      };
+
       DeviceBVHNode {
         aabb_min: node.bounding.min,
         aabb_max: node.bounding.max,
         hit_next: hit,
         miss_next: miss,
         content_range: vec2(
-          node.primitive_range.start as u32 + offset,
-          node.primitive_range.end as u32 + offset,
+          node.primitive_range.start as u32 + primitive_offset,
+          node.primitive_range.end as u32 + primitive_offset,
         ),
         ..Zeroable::zeroed()
       }
@@ -384,8 +381,9 @@ impl NaiveSahBvhSource {
     let mut tri_bvh_forest = vec![];
     let mut box_bvh_forest = vec![];
     for (bvh, hit_miss, offset, geometry_idx, geometry_flags) in tri_bvh {
+      let bvh_start = tri_bvh_forest.len() as u32;
       tri_bvh_root.push(GeometryMetaInfo {
-        bvh_root_idx: tri_bvh_forest.len() as u32,
+        bvh_root_idx: bvh_start,
         geometry_idx,
         primitive_start: offset,
         geometry_flags,
@@ -395,12 +393,13 @@ impl NaiveSahBvhSource {
         .nodes
         .iter()
         .zip(hit_miss)
-        .map(|(node, (hit, miss))| flatten_bvh_to_gpu_node(node, hit, miss, offset));
+        .map(|(node, (hit, miss))| flatten_bvh_to_gpu_node(node, hit, miss, bvh_start, offset));
       tri_bvh_forest.extend(nodes);
     }
     for (bvh, hit_miss, offset, geometry_idx, geometry_flags) in box_bvh {
+      let bvh_start = box_bvh_forest.len() as u32;
       box_bvh_root.push(GeometryMetaInfo {
-        bvh_root_idx: box_bvh_forest.len() as u32,
+        bvh_root_idx: bvh_start,
         geometry_idx,
         primitive_start: offset,
         geometry_flags,
@@ -410,7 +409,7 @@ impl NaiveSahBvhSource {
         .nodes
         .iter()
         .zip(hit_miss)
-        .map(|(node, (hit, miss))| flatten_bvh_to_gpu_node(node, hit, miss, offset));
+        .map(|(node, (hit, miss))| flatten_bvh_to_gpu_node(node, hit, miss, bvh_start, offset));
       box_bvh_forest.extend(nodes);
     }
 
@@ -438,24 +437,44 @@ impl NaiveSahBvhSource {
     let gpu_boxes = create_gpu_buffer(device, &cast_slice(&boxes).to_vec());
 
     // build tlas
+    let mut tlas_bvh_root = vec![];
     let mut tlas_bvh_forest = vec![];
-    let (tlas_bvh, tlas_traverse_next, tlas_data, tlas_bounding) =
-      Self::build_tlas(&mut self.tlas_data, &blas_box);
-    {
-      let nodes = tlas_bvh
-        .nodes
-        .iter()
-        .zip(tlas_traverse_next)
-        .map(|(node, (hit, miss))| flatten_bvh_to_gpu_node(node, hit, miss, 0));
-      tlas_bvh_forest.extend(nodes);
+    let mut tlas_data = vec![];
+    let mut tlas_bounding = vec![];
+
+    for tlas in &self.tlas_data {
+      if let Some(tlas) = tlas {
+        let bvh_start = tlas_bvh_forest.len() as u32;
+        let primitive_start = tlas_data.len() as u32;
+        println!(
+          "bvh_start: {}, primitive_start: {}",
+          bvh_start, primitive_start
+        );
+        let (tlas_bvh, tlas_traverse_next) =
+          Self::build_tlas(tlas, &blas_box, &mut tlas_data, &mut tlas_bounding);
+        let nodes = tlas_bvh
+          .nodes
+          .iter()
+          .zip(tlas_traverse_next)
+          .map(|(node, (hit, miss))| {
+            flatten_bvh_to_gpu_node(node, hit, miss, bvh_start, primitive_start)
+          });
+        tlas_bvh_root.push(bvh_start);
+        tlas_bvh_forest.extend(nodes);
+      } else {
+        tlas_bvh_root.push(INVALID_NEXT); // tested in bvh iter
+      }
     }
+    println!("tlas_bvh_root: {tlas_bvh_root:?}");
 
     // upload tlas
+    let gpu_tlas_bvh_root = create_gpu_buffer(device, &tlas_bvh_root);
     let gpu_tlas_bvh_forest = create_gpu_buffer(device, &tlas_bvh_forest);
     let gpu_tlas_data = create_gpu_buffer(device, &tlas_data);
     let gpu_tlas_bounding = create_gpu_buffer(device, &tlas_bounding);
 
     let cpu = NaiveSahBvhCpu {
+      tlas_bvh_root,
       tlas_bvh_forest,
       tlas_data,
       tlas_bounding,
@@ -472,6 +491,7 @@ impl NaiveSahBvhSource {
     *cpu_data = Some(cpu);
 
     *gpu_data = Some(NaiveSahBvhGpu {
+      tlas_bvh_root: gpu_tlas_bvh_root,
       tlas_bvh_forest: gpu_tlas_bvh_forest,
       tlas_data: gpu_tlas_data,
       tlas_bounding: gpu_tlas_bounding,
@@ -553,10 +573,10 @@ impl GPUAccelerationStructureSystemProvider for NaiveSahBVHSystem {
     let mut inner = self.inner.write().unwrap();
     inner.invalidate();
 
-    let range_tlas = inner.source.create_tlas(source);
+    let idx = inner.source.create_tlas(source);
     let handle = TlasHandle {
-      range: range_tlas.clone(),
-      buffer: create_uniform(range_tlas.start, &self.device),
+      idx,
+      buffer: create_uniform(idx, &self.device),
     };
     TlasInstance(Box::new(handle))
   }

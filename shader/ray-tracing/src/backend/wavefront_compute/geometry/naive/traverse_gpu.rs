@@ -2,7 +2,9 @@ use crate::backend::wavefront_compute::geometry::naive::*;
 
 #[derive(Clone)]
 pub(super) struct NaiveSahBvhGpu {
-  // global bvh, root at 0, content_range to index tlas_data/tlas_bounding
+  // maps user tlas_id to tlas_bvh root node idx in tlas_bvh_forest
+  pub(super) tlas_bvh_root: StorageBufferReadOnlyDataView<[u32]>,
+  // global bvh, root at tlas_bvh_root[tlas_idx], content_range to index tlas_data/tlas_bounding
   pub(super) tlas_bvh_forest: StorageBufferReadOnlyDataView<[DeviceBVHNode]>,
   // acceleration_structure_handle to index blas_meta_info
   pub(super) tlas_data:
@@ -30,6 +32,7 @@ impl GPUAccelerationStructureSystemCompImplInstance for NaiveSahBvhGpu {
     &self,
     compute_cx: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn GPUAccelerationStructureSystemCompImplInvocationTraversable> {
+    let tlas_bvh_root = compute_cx.bind_by(&self.tlas_bvh_root);
     let tlas_bvh_forest = compute_cx.bind_by(&self.tlas_bvh_forest);
     let tlas_data = compute_cx.bind_by(&self.tlas_data);
     let tlas_bounding = compute_cx.bind_by(&self.tlas_bounding);
@@ -43,6 +46,7 @@ impl GPUAccelerationStructureSystemCompImplInstance for NaiveSahBvhGpu {
     let boxes = compute_cx.bind_by(&self.boxes);
 
     let instance = NaiveSahBVHInvocationInstance {
+      tlas_bvh_root,
       tlas_bvh_forest,
       tlas_data,
       tlas_bounding,
@@ -60,6 +64,7 @@ impl GPUAccelerationStructureSystemCompImplInstance for NaiveSahBvhGpu {
   }
 
   fn bind_pass(&self, builder: &mut BindingBuilder) {
+    builder.bind(&self.tlas_bvh_root);
     builder.bind(&self.tlas_bvh_forest);
     builder.bind(&self.tlas_data);
     builder.bind(&self.tlas_bounding);
@@ -75,6 +80,7 @@ impl GPUAccelerationStructureSystemCompImplInstance for NaiveSahBvhGpu {
 }
 
 pub struct NaiveSahBVHInvocationInstance {
+  tlas_bvh_root: ReadOnlyStorageNode<[u32]>,
   tlas_bvh_forest: ReadOnlyStorageNode<[DeviceBVHNode]>,
   tlas_data: ReadOnlyStorageNode<[TopLevelAccelerationStructureSourceDeviceInstance]>,
   tlas_bounding: ReadOnlyStorageNode<[TlasBounding]>,
@@ -181,8 +187,10 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
 
     let world_ray_range = RayRange::new(trace_payload.range);
 
+    // let tlas_bvh_root = self.tlas_bvh_root.index(trace_payload.tlas_idx).load();
+
     let tlas_idx_iter = traverse_tlas_gpu(
-      val(0),
+      val(0), /* tlas_bvh_root, // tlas_bvh_root == INVALID_NEXT checked inside TraverseBvhIteratorGpu */
       self.tlas_bvh_forest,
       self.tlas_bounding,
       ray,

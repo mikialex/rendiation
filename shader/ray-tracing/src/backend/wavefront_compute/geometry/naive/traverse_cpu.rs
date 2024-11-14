@@ -6,7 +6,9 @@ use crate::backend::wavefront_compute::geometry::naive::*;
 #[allow(unused)]
 #[derive(Debug)]
 pub(super) struct NaiveSahBvhCpu {
-  // global bvh, root at 0, content_range to index tlas_data/tlas_bounding
+  // maps user tlas_id to tlas_bvh root node idx in tlas_bvh_forest
+  pub(super) tlas_bvh_root: Vec<u32>,
+  // global bvh, root at tlas_bvh_root[tlas_idx], content_range to index tlas_data/tlas_bounding
   pub(super) tlas_bvh_forest: Vec<DeviceBVHNode>,
   // acceleration_structure_handle to index blas_meta_info
   pub(super) tlas_data: Vec<TopLevelAccelerationStructureSourceDeviceInstance>,
@@ -37,11 +39,13 @@ pub(super) static BVH_HIT_COUNT: AtomicU32 = AtomicU32::new(0);
 impl NaiveSahBvhCpu {
   pub(super) fn traverse(
     &self,
-    ray: &mut ShaderRayTraceCallStoragePayload,
+    ray: &ShaderRayTraceCallStoragePayload,
     any_hit: &mut dyn FnMut(u32, u32, f32, Vec3<f32>) -> bool, /* geometry_idx, primitive_idx, distance, hit_position // todo use ctx */
   ) {
     let flags = TraverseFlags::from_ray_flag_cpu(ray.ray_flags);
     let ray_range = RayRange::new(ray.range.x, ray.range.y, 1.);
+
+    let tlas_bvh_root = self.tlas_bvh_root[ray.tlas_idx as usize];
 
     // traverse tlas bvh, hit leaf
     let tlas_iter = TraverseBvhIteratorCpu {
@@ -49,7 +53,7 @@ impl NaiveSahBvhCpu {
       ray_origin: ray.ray_origin,
       ray_direction: ray.ray_direction,
       ray_range: ray_range.clone(),
-      curr_idx: 0,
+      curr_idx: tlas_bvh_root,
     };
     for hit_idx in tlas_iter {
       let node = &self.tlas_bvh_forest[hit_idx as usize];

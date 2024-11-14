@@ -50,44 +50,59 @@ pub(crate) fn init_default_acceleration_structure(
     });
   }
 
-  let mut sources = vec![];
+  let mut sources0 = vec![];
   for i in -2..=2 {
     for j in -2..=2 {
       add_tlas_source(
-        &mut sources,
+        &mut sources0,
         Mat4::translate((i as f32 * 1.5, j as f32 * 1.5, -10.)),
         &blas_handle,
       );
     }
   }
   add_tlas_source(
-    &mut sources,
+    &mut sources0,
     Mat4::translate((0., 4.5, -10.)) * Mat4::scale((5., 1., 1.)),
     &blas_handle,
   );
   add_tlas_source(
-    &mut sources,
+    &mut sources0,
     Mat4::translate((0., -4.5, -10.))
       * Mat4::rotate_y(std::f32::consts::PI)
       * Mat4::scale((5., 1., 1.)),
     &blas_handle,
   );
   add_tlas_source(
-    &mut sources,
+    &mut sources0,
     Mat4::translate((4.5, -4.5, -10.))
       * Mat4::rotate_y(std::f32::consts::PI * 0.5)
       * Mat4::scale((5., 1., 1.)),
     &blas_handle,
   );
   add_tlas_source(
-    &mut sources,
+    &mut sources0,
     Mat4::translate((-4.5, -4.5, -10.))
       * Mat4::rotate_y(std::f32::consts::PI * -0.5)
       * Mat4::scale((5., 1., 1.)),
     &blas_handle,
   );
 
-  system.create_top_level_acceleration_structure(&sources);
+  let _tlas0 = system.create_top_level_acceleration_structure(&sources0);
+
+  // let mut sources1 = vec![];
+  // for i in -2..=2 {
+  //   for j in -2..=2 {
+  //     for k in -2..=2 {
+  //       add_tlas_source(
+  //         &mut sources1,
+  //         Mat4::translate((i as f32 * 2., j as f32 * 2., -10. + k as f32 * 2.)),
+  //         &blas_handle,
+  //       );
+  //     }
+  //   }
+  // }
+  //
+  // let _tlas1 = system.create_top_level_acceleration_structure(&sources1);
 }
 
 #[test]
@@ -117,6 +132,8 @@ fn test_cpu_triangle() {
   payload.ray_flags = RayFlagConfigRaw::RAY_FLAG_CULL_BACK_FACING_TRIANGLES as u32;
   payload.cull_mask = u32::MAX;
   payload.range = vec2(0., FAR);
+  payload.tlas_idx = 0;
+  payload.ray_origin = ORIGIN;
 
   let mut out = Box::new([[(FAR, 0); W]; H]);
 
@@ -127,10 +144,9 @@ fn test_cpu_triangle() {
       let target = vec3(x, y, -1.); // fov = 90 deg
       let direction = (target - ORIGIN).normalize();
 
-      payload.ray_origin = ORIGIN;
       payload.ray_direction = direction;
       cpu_data.traverse(
-        &mut payload,
+        &payload,
         &mut |_geometry_id, primitive_id, distance, _position| {
           let (d, id) = &mut out[j][i];
           if distance < *d {
@@ -279,7 +295,7 @@ fn test_gpu_triangle() {
             launch_id,
             launch_size,
             payload_ref: val(0),
-            tlas_idx: val(0), // todo support tlas selection
+            tlas_idx: val(0),
             ray_flags: val(ray_flags),
             cull_mask: val(u32::MAX),
             sbt_ray_config_offset: val(0),
