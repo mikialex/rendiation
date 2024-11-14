@@ -130,12 +130,9 @@ impl GPUCommandEncoder {
       size,
     );
 
-    #[cfg(test)]
     let device = device.clone();
-
     self.on_submit.once_future(|_| {}).then(move |_| {
       let r = ReadBufferTask::new(output_buffer, ..);
-      #[cfg(test)]
       device.poll(Maintain::Wait);
       r
     })
@@ -209,7 +206,6 @@ impl GPUCommandEncoder {
       range.size.into_gpu_size(),
     );
 
-    #[cfg(test)]
     let device = device.clone();
     self.on_submit.once_future(|_| {}).then(move |_| {
       let r = ReadBufferTask::new(output_buffer, ..).map(move |r| {
@@ -219,7 +215,6 @@ impl GPUCommandEncoder {
         })
       });
 
-      #[cfg(test)]
       device.poll(Maintain::Wait);
       r
     })
