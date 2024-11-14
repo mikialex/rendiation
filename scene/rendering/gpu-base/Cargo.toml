@@ -20,6 +20,7 @@ rendiation-texture-gpu-base = { path = "../../../content/texture/gpu-base" }
 rendiation-texture-gpu-system = { path = "../../../content/texture/gpu-system" }
 rendiation-lighting-gpu-system = { path = "../../../content/lighting/gpu-system/lighting-system" }
 rendiation-device-parallel-compute = { path = "../../../shader/parallel-compute" }
+thiserror = { workspace = true }
 
 [lints]
 workspace = true

@@ -18,7 +18,7 @@
 //! }
 //! ```
 
-use std::mem::ManuallyDrop;
+use std::{error::Error, mem::ManuallyDrop};
 
 use database::*;
 use dyn_clone::*;
@@ -113,7 +113,12 @@ pub trait SceneRenderer: SceneModelRenderer {
   ) {
     let camera = self.get_camera_gpu().make_component(camera).unwrap();
     for m in models {
-      self.render_scene_model(m, &camera, pass, cx, tex);
+      if let Err(e) = self.render_scene_model(m, &camera, pass, cx, tex) {
+        println!("{}", e);
+        if let Some(e) = e.source() {
+          println!("Caused by: {}", e);
+        }
+      }
     }
   }
 
@@ -171,7 +176,17 @@ pub trait SceneModelRenderer {
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
-  ) -> Option<()>;
+  ) -> Result<(), UnableToRenderSceneModelError>;
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum UnableToRenderSceneModelError {
+  #[error("failed to find model renderer impl for: {model_id}")]
+  UnableToFindImpl {
+    model_id: EntityHandle<SceneModelEntity>,
+  },
+  #[error("model renderer impl found but unable to render, the detail is: {0}")]
+  FoundImplButUnableToRender(#[from] Box<dyn std::error::Error>),
 }
 
 impl SceneModelRenderer for Vec<Box<dyn SceneModelRenderer>> {
@@ -182,13 +197,11 @@ impl SceneModelRenderer for Vec<Box<dyn SceneModelRenderer>> {
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
-  ) -> Option<()> {
+  ) -> Result<(), UnableToRenderSceneModelError> {
     for r in self {
-      if r.render_scene_model(idx, camera, pass, cx, tex).is_some() {
-        return Some(());
-      }
+      r.render_scene_model(idx, camera, pass, cx, tex)?
     }
-    None
+    Err(UnableToRenderSceneModelError::UnableToFindImpl { model_id: idx })
   }
 }
 

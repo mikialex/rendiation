@@ -1,8 +1,16 @@
+use std::fmt::Display;
+
 use crate::*;
 
 pub struct EntityHandle<T> {
   pub(crate) ty: PhantomData<T>,
   pub(crate) handle: RawEntityHandle,
+}
+
+impl<T> Display for EntityHandle<T> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", self.handle)
+  }
 }
 
 impl<T> LinearIdentified for EntityHandle<T> {
@@ -59,6 +67,12 @@ impl<T> std::fmt::Debug for EntityHandle<T> {
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct RawEntityHandle(pub(crate) Handle<()>);
+
+impl Display for RawEntityHandle {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", self.0)
+  }
+}
 
 impl std::fmt::Debug for RawEntityHandle {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

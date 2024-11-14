@@ -87,7 +87,7 @@ impl SceneModelRenderer for GLESSceneRenderer {
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
-  ) -> Option<()> {
+  ) -> Result<(), UnableToRenderSceneModelError> {
     self
       .scene_model_renderer
       .render_scene_model(idx, camera, pass, cx, tex)
