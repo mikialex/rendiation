@@ -3583,6 +3583,8 @@ dependencies = [
  "rendiation-device-parallel-compute",
  "rendiation-device-task-graph",
  "rendiation-geometry",
+ "rendiation-mesh-core",
+ "rendiation-mesh-generator",
  "rendiation-shader-api",
  "rendiation-shader-derives",
  "rendiation-space-algorithm",

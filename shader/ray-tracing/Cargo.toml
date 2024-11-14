@@ -23,5 +23,9 @@ bytemuck = { workspace = true }
 
 pollster = { workspace = true } # used in examples
 
+[dev-dependencies]
+rendiation-mesh-generator = { path = "../../content/mesh/generator" }
+rendiation-mesh-core = { path = "../../content/mesh/core" }
+
 [lints]
 workspace = true

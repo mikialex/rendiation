@@ -25,7 +25,6 @@ async fn test_wavefront_compute() {
   let shader_base_builder = system.create_tracer_base_builder();
   let as_sys = system.create_acceleration_structure_system();
 
-  use crate::GPURaytracingSystem;
   init_default_acceleration_structure(as_sys.as_ref());
 
   let rtx_device = system.create_raytracing_device();
@@ -56,7 +55,7 @@ async fn test_wavefront_compute() {
 
         let ray_flags = RayFlagConfigRaw::RAY_FLAG_CULL_BACK_FACING_TRIANGLES as u32;
         let trace_call = ShaderRayTraceCall {
-          tlas_idx: val(1),
+          tlas_idx: val(TEST_TLAS_IDX),
           ray_flags: val(ray_flags),
           cull_mask: val(u32::MAX),
           sbt_ray_config: RaySBTConfig {

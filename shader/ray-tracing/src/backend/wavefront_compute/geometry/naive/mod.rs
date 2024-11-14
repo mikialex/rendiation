@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 #[cfg(test)]
-pub(crate) use test::init_default_acceleration_structure;
+pub(crate) use test::*;
 
 mod flag;
 mod traverse_cpu;
@@ -138,7 +138,7 @@ impl NaiveSahBvhSource {
   /// returns (
   ///   blas_meta_info,
   ///   blas_box,
-  ///   (tri_bvh, hit miss, index_offset, geometry_idx, geometry_flags),
+  ///   (tri_bvh, hit miss, primitive_offset, geometry_idx, geometry_flags),
   ///   (box_bvh, hit miss, box_offset, geometry_idx, geometry_flags),
   ///   indices,
   ///   vertices,
@@ -181,7 +181,7 @@ impl NaiveSahBvhSource {
         let geometry_flags = source.flags;
         match &source.geometry {
           BottomLevelAccelerationStructureBuildBuffer::Triangles { positions, indices } => {
-            let index_start = geometry_indices.len() as u32;
+            let primitive_start = geometry_indices.len() as u32 / 3;
             let vertex_start = geometry_vertices.len() as u32;
 
             geometry_vertices.extend_from_slice(positions);
@@ -203,15 +203,18 @@ impl NaiveSahBvhSource {
             let traverse_next = compute_bvh_next(&bvh.nodes);
 
             for primitive_idx in &bvh.sorted_primitive_index {
-              geometry_indices.push(vertex_start + indices[primitive_idx * 3]);
-              geometry_indices.push(vertex_start + indices[primitive_idx * 3 + 1]);
-              geometry_indices.push(vertex_start + indices[primitive_idx * 3 + 2]);
+              let a = vertex_start + indices[primitive_idx * 3];
+              let b = vertex_start + indices[primitive_idx * 3 + 1];
+              let c = vertex_start + indices[primitive_idx * 3 + 2];
+              geometry_indices.push(a);
+              geometry_indices.push(b);
+              geometry_indices.push(c);
             }
 
             tri_bvh.push((
               bvh,
               traverse_next,
-              index_start,
+              primitive_start,
               geometry_idx,
               geometry_flags,
             ));
@@ -380,36 +383,32 @@ impl NaiveSahBvhSource {
     let mut box_bvh_root = vec![];
     let mut tri_bvh_forest = vec![];
     let mut box_bvh_forest = vec![];
-    for (bvh, hit_miss, offset, geometry_idx, geometry_flags) in tri_bvh {
+    for (bvh, hit_miss, primitive_start, geometry_idx, geometry_flags) in tri_bvh {
       let bvh_start = tri_bvh_forest.len() as u32;
       tri_bvh_root.push(GeometryMetaInfo {
         bvh_root_idx: bvh_start,
         geometry_idx,
-        primitive_start: offset,
+        primitive_start,
         geometry_flags,
         ..Zeroable::zeroed()
       });
-      let nodes = bvh
-        .nodes
-        .iter()
-        .zip(hit_miss)
-        .map(|(node, (hit, miss))| flatten_bvh_to_gpu_node(node, hit, miss, bvh_start, offset));
+      let nodes = bvh.nodes.iter().zip(hit_miss).map(|(node, (hit, miss))| {
+        flatten_bvh_to_gpu_node(node, hit, miss, bvh_start, primitive_start)
+      });
       tri_bvh_forest.extend(nodes);
     }
-    for (bvh, hit_miss, offset, geometry_idx, geometry_flags) in box_bvh {
+    for (bvh, hit_miss, primitive_start, geometry_idx, geometry_flags) in box_bvh {
       let bvh_start = box_bvh_forest.len() as u32;
       box_bvh_root.push(GeometryMetaInfo {
         bvh_root_idx: bvh_start,
         geometry_idx,
-        primitive_start: offset,
+        primitive_start,
         geometry_flags,
         ..Zeroable::zeroed()
       });
-      let nodes = bvh
-        .nodes
-        .iter()
-        .zip(hit_miss)
-        .map(|(node, (hit, miss))| flatten_bvh_to_gpu_node(node, hit, miss, bvh_start, offset));
+      let nodes = bvh.nodes.iter().zip(hit_miss).map(|(node, (hit, miss))| {
+        flatten_bvh_to_gpu_node(node, hit, miss, bvh_start, primitive_start)
+      });
       box_bvh_forest.extend(nodes);
     }
 
@@ -446,10 +445,7 @@ impl NaiveSahBvhSource {
       if let Some(tlas) = tlas {
         let bvh_start = tlas_bvh_forest.len() as u32;
         let primitive_start = tlas_data.len() as u32;
-        println!(
-          "bvh_start: {}, primitive_start: {}",
-          bvh_start, primitive_start
-        );
+
         let (tlas_bvh, tlas_traverse_next) =
           Self::build_tlas(tlas, &blas_box, &mut tlas_data, &mut tlas_bounding);
         let nodes = tlas_bvh
@@ -465,7 +461,6 @@ impl NaiveSahBvhSource {
         tlas_bvh_root.push(INVALID_NEXT); // tested in bvh iter
       }
     }
-    println!("tlas_bvh_root: {tlas_bvh_root:?}");
 
     // upload tlas
     let gpu_tlas_bvh_root = create_gpu_buffer(device, &tlas_bvh_root);
