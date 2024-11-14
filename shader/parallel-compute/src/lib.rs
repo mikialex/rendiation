@@ -175,7 +175,7 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
       let _ = invocation_source.invocation_logic(invocation_id);
     });
     cx.record_pass(|pass, device| {
-      let mut bb = BindingBuilder::new_as_compute();
+      let mut bb = BindingBuilder::default();
       self.bind_input(&mut bb);
       bb.setup_compute_pass(pass, device, &main_pipeline);
     });
@@ -233,7 +233,7 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
     });
 
     cx.record_pass(|pass, device| {
-      let mut bb = BindingBuilder::new_as_compute()
+      let mut bb = BindingBuilder::default()
         .with_bind(&size_output)
         .with_bind(&work_size_output)
         .with_bind(&workgroup_size_buffer);

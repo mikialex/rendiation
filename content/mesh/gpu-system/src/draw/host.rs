@@ -76,11 +76,11 @@ impl<'a> ShaderPassBuilder for BindlessMeshDispatcher<'a> {
 }
 
 impl<'a> GraphicsShaderProvider for BindlessMeshDispatcher<'a> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.log_result = true;
     builder.vertex(|vertex, binding| {
-      let mesh_handle = vertex.query::<IndirectAbstractMeshId>().unwrap();
-      let vertex_id = vertex.query::<VertexIndex>().unwrap();
+      let mesh_handle = vertex.query::<IndirectAbstractMeshId>();
+      let vertex_id = vertex.query::<VertexIndex>();
 
       let vertex_addresses = binding.bind_by(&self.vertex_address_buffer);
       let vertex_address = vertex_addresses.index(mesh_handle).load().expand();
@@ -101,7 +101,6 @@ impl<'a> GraphicsShaderProvider for BindlessMeshDispatcher<'a> {
       vertex.register::<GeometryPosition>(position.xyz());
       vertex.register::<GeometryNormal>(normal.xyz());
       vertex.register::<GeometryUV>(uv.xy());
-      Ok(())
     })
   }
 }

@@ -19,15 +19,14 @@ impl<'a> ShaderHashProvider for SceneModelGPUStorage<'a> {
 }
 
 impl<'a> GraphicsShaderProvider for SceneModelGPUStorage<'a> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, binding| {
       let models = binding.bind_by(self.buffer.inner.gpu());
-      let current_model_id = builder.query::<IndirectSceneModelId>()?;
+      let current_model_id = builder.query::<IndirectSceneModelId>();
       let model = models.index(current_model_id).load().expand();
 
       builder.register::<IndirectSceneNodeId>(model.node);
       builder.register::<IndirectSceneStdModelId>(model.std_model);
-      Ok(())
     })
   }
 }

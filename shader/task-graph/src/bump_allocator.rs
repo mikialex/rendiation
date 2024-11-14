@@ -31,7 +31,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
         builder
       });
 
-      BindingBuilder::new_as_compute()
+      BindingBuilder::default()
         .with_bind(&self.current_size)
         .with_bind(&self.bump_size)
         .setup_compute_pass(pass, device, &pipeline);
@@ -79,7 +79,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
       builder
     });
 
-    BindingBuilder::new_as_compute()
+    BindingBuilder::default()
       .with_bind(&self.current_size)
       .with_bind(&size)
       .with_bind(&workgroup_size)
@@ -124,7 +124,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
       builder
     });
 
-    BindingBuilder::new_as_compute()
+    BindingBuilder::default()
       .with_bind(&self.bump_size)
       .with_bind(&self.current_size)
       .with_bind(&self.storage)
@@ -166,7 +166,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
       builder
     });
 
-    BindingBuilder::new_as_compute()
+    BindingBuilder::default()
       .with_bind(&self.storage)
       .with_bind(&self.current_size)
       .with_bind(&the_other.storage)

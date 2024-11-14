@@ -8,7 +8,7 @@ version = "0.1.0"
 image = "*"
 rendiation-algebra = { path = "../../../math/algebra" }
 rendiation-texture-core = { path = "../core" }
-thiserror = "1.0.43"
+thiserror = { workspace = true }
 
 [lints]
 workspace = true

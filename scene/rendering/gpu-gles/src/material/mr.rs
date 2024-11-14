@@ -120,7 +120,7 @@ impl<'a> ShaderPassBuilder for PhysicalMetallicRoughnessMaterialGPU<'a> {
 }
 
 impl<'a> GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialGPU<'a> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let uniform = binding.bind_by(&self.uniform).load().expand();
       let tex_uniform = binding.bind_by(&self.texture_uniforms).load().expand();
@@ -208,7 +208,6 @@ impl<'a> GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialGPU<'a> {
       builder.register::<RoughnessChannel>(roughness * roughness);
 
       builder.register::<DefaultDisplay>((base_color, val(1.)));
-      Ok(())
     })
   }
 }

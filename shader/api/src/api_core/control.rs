@@ -3,20 +3,9 @@ use crate::*;
 pub struct LoopCtx;
 
 pub fn loop_by(f: impl FnOnce(LoopCtx)) {
-  loop_by_ok(|cx| {
-    f(cx);
-    Ok(())
-  })
-  .unwrap()
-}
-
-pub fn loop_by_ok(
-  f: impl FnOnce(LoopCtx) -> Result<(), ShaderBuildError>,
-) -> Result<(), ShaderBuildError> {
   call_shader_api(|g| g.push_loop_scope());
-  f(LoopCtx)?;
+  f(LoopCtx);
   call_shader_api(|g| g.pop_scope());
-  Ok(())
 }
 
 impl LoopCtx {
@@ -66,30 +55,17 @@ impl ElseEmitter {
   }
 }
 
-#[inline(never)]
 pub fn if_by(condition: impl Into<Node<bool>>, logic: impl FnOnce()) -> ElseEmitter {
-  if_by_ok(condition, || {
-    logic();
-    Ok(())
-  })
-  .unwrap()
-}
-
-#[inline(never)]
-pub fn if_by_ok(
-  condition: impl Into<Node<bool>>,
-  logic: impl FnOnce() -> Result<(), ShaderBuildError>,
-) -> Result<ElseEmitter, ShaderBuildError> {
   let condition = condition.into().handle();
   call_shader_api(|builder| {
     builder.push_if_scope(condition);
   });
 
-  logic()?;
+  logic();
 
   call_shader_api(|g| g.pop_scope());
 
-  Ok(ElseEmitter(0))
+  ElseEmitter(0)
 }
 
 impl Node<bool> {

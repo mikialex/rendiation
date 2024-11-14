@@ -22,13 +22,14 @@ impl<T: ShaderHashProvider + 'static, C: RayTracingCustomCtxProvider> ShaderHash
   }
 }
 
-impl<X, T, C> ShaderFutureProvider<X> for InjectCtx<T, C>
+impl<T, C> ShaderFutureProvider for InjectCtx<T, C>
 where
-  X: 'static,
-  T: ShaderFutureProvider<X>,
+  T::Output: 'static,
+  T: ShaderFutureProvider,
   C: RayTracingCustomCtxProvider,
 {
-  fn build_device_future(&self, ctx: &mut AnyMap) -> DynShaderFuture<X> {
+  type Output = T::Output;
+  fn build_device_future(&self, ctx: &mut AnyMap) -> DynShaderFuture<T::Output> {
     InjectCtxShaderFuture {
       upstream: self.upstream.build_device_future(ctx),
       ctx: self.ctx.clone(),
@@ -37,12 +38,13 @@ where
   }
 }
 
-impl<O, T, C> NativeRayTracingShaderBuilder<O> for InjectCtx<T, C>
+impl<T, C> NativeRayTracingShaderBuilder for InjectCtx<T, C>
 where
-  T: NativeRayTracingShaderBuilder<O>,
+  T: NativeRayTracingShaderBuilder,
   C: RayTracingCustomCtxProvider,
 {
-  fn build(&self, ctx: &mut dyn NativeRayTracingShaderCtx) -> O {
+  type Output = T::Output;
+  fn build(&self, ctx: &mut dyn NativeRayTracingShaderCtx) -> Self::Output {
     self.ctx.build_invocation(ctx.binding_builder());
     self.upstream.build(ctx)
   }

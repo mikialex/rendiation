@@ -113,7 +113,8 @@ impl ShaderHashProvider for TracingCtxProviderTracer {
   shader_hash_type_id! {}
 }
 
-impl ShaderFutureProvider<()> for TracingCtxProviderTracer {
+impl ShaderFutureProvider for TracingCtxProviderTracer {
+  type Output = ();
   fn build_device_future(&self, ctx: &mut AnyMap) -> DynShaderFuture<()> {
     TracingCtxProviderFuture {
       stage: self.stage,
@@ -127,13 +128,9 @@ impl ShaderFutureProvider<()> for TracingCtxProviderTracer {
     .into_dyn()
   }
 }
-impl<T> NativeRayTracingShaderBuilder<T> for TracingCtxProviderTracer
-where
-  T: Default,
-{
-  fn build(&self, _: &mut dyn NativeRayTracingShaderCtx) -> T {
-    T::default()
-  }
+impl NativeRayTracingShaderBuilder for TracingCtxProviderTracer {
+  type Output = ();
+  fn build(&self, _: &mut dyn NativeRayTracingShaderCtx) {}
   fn bind(&self, _: &mut BindingBuilder) {}
 }
 

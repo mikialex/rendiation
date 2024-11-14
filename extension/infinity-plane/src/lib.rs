@@ -58,15 +58,14 @@ impl<'a> ShaderPassBuilder for GridGroundShading<'a> {
   }
 }
 impl<'a> GraphicsShaderProvider for GridGroundShading<'a> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let shading = binding.bind_by(&self.shading).load();
-      let world_position = builder.query::<FragmentWorldPosition>()?;
+      let world_position = builder.query::<FragmentWorldPosition>();
 
       let grid = grid(world_position, shading);
 
       builder.register::<DefaultDisplay>(grid);
-      Ok(())
     })
   }
 }
@@ -118,11 +117,11 @@ impl<'a> ShaderPassBuilder for InfinityShaderPlaneEffect<'a> {
 }
 
 impl<'a> GraphicsShaderProvider for InfinityShaderPlaneEffect<'a> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     self.camera.inject_shader_dependencies(builder);
 
     builder.vertex(|builder, _| {
-      let out = generate_quad(builder.query::<VertexIndex>()?, 0.).expand();
+      let out = generate_quad(builder.query::<VertexIndex>(), 0.).expand();
       builder.set_vertex_out::<FragmentUv>(out.uv);
       builder.register::<ClipPosition>((out.position.xyz(), val(1.)));
 
@@ -131,17 +130,15 @@ impl<'a> GraphicsShaderProvider for InfinityShaderPlaneEffect<'a> {
         front_face: FrontFace::Cw,
         ..Default::default()
       };
-
-      Ok(())
-    })?;
+    });
 
     builder.fragment(|builder, binding| {
-      let proj = builder.query::<CameraProjectionMatrix>()?;
-      let world = builder.query::<CameraWorldMatrix>()?;
-      let view = builder.query::<CameraViewMatrix>()?;
-      let view_proj_inv = builder.query::<CameraViewProjectionInverseMatrix>()?;
+      let proj = builder.query::<CameraProjectionMatrix>();
+      let world = builder.query::<CameraWorldMatrix>();
+      let view = builder.query::<CameraViewMatrix>();
+      let view_proj_inv = builder.query::<CameraViewProjectionInverseMatrix>();
 
-      let uv = builder.query::<FragmentUv>()?;
+      let uv = builder.query::<FragmentUv>();
       let plane = binding.bind_by(self.plane);
 
       let ndc_xy = uv * val(2.) - val(Vec2::one());
@@ -166,15 +163,14 @@ impl<'a> GraphicsShaderProvider for InfinityShaderPlaneEffect<'a> {
 
       builder.register::<FragmentWorldPosition>(plane_hit);
       builder.register::<IsHitInfinityPlane>(plane_if_hit);
-      Ok(())
     })
   }
 
   // override
-  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, _| {
-      let has_hit = builder.query::<IsHitInfinityPlane>()?;
-      let previous_display = builder.query::<DefaultDisplay>()?;
+      let has_hit = builder.query::<IsHitInfinityPlane>();
+      let previous_display = builder.query::<DefaultDisplay>();
       builder.register::<DefaultDisplay>((
         previous_display.xyz() * has_hit,
         previous_display.w() * has_hit,
@@ -187,7 +183,6 @@ impl<'a> GraphicsShaderProvider for InfinityShaderPlaneEffect<'a> {
         ..Default::default()
       }
       .apply_pipeline_builder(builder);
-      Ok(())
     })
   }
 }

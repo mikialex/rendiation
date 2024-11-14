@@ -40,13 +40,11 @@ impl<'a> ShaderPassBuilder for IndirectDrawProviderAsRenderComponent<'a> {
 }
 
 impl<'a> GraphicsShaderProvider for IndirectDrawProviderAsRenderComponent<'a> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, binder| {
       let invocation = self.0.create_indirect_invocation_source(binder);
       let scene_id = invocation.current_invocation_scene_model_id(builder);
       builder.register::<IndirectSceneModelId>(scene_id);
-
-      Ok(())
     })
   }
 }
@@ -91,7 +89,7 @@ impl IndirectDrawProvider for MultiIndirectDrawBatch {
 
     impl IndirectBatchInvocationSource for MultiIndirectDrawBatchInvocation {
       fn current_invocation_scene_model_id(&self, builder: &ShaderVertexBuilder) -> Node<u32> {
-        builder.query::<VertexInstanceIndex>().unwrap()
+        builder.query::<VertexInstanceIndex>()
       }
     }
 

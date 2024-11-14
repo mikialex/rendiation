@@ -97,7 +97,7 @@ impl<'a> ShaderPassBuilder for AOComputer<'a> {
   }
 }
 impl<'a> GraphicsShaderProvider for AOComputer<'a> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let depth_tex = binding.bind_by(&DisableFiltering(&self.depth));
       let parameter = binding.bind_by(&self.parameter.parameters).load().expand();
@@ -106,7 +106,7 @@ impl<'a> GraphicsShaderProvider for AOComputer<'a> {
 
       let reproject = binding.bind_by(self.reproject).load().expand();
 
-      let uv = builder.query::<FragmentUv>()?;
+      let uv = builder.query::<FragmentUv>();
 
       let sample_count_f = parameter.sample_count.into_f32();
 

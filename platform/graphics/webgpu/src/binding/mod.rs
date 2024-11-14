@@ -5,6 +5,9 @@ use crate::*;
 mod cache;
 pub use cache::*;
 
+mod bind_source;
+pub use bind_source::*;
+
 mod owned;
 pub use owned::*;
 
@@ -30,128 +33,23 @@ impl Deref for GPUBindGroupLayout {
   }
 }
 
-pub trait CacheAbleBindingSource {
-  fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource;
+#[derive(Default)]
+pub struct BindGroupBuilder {
+  items: Vec<CacheAbleBindingBuildSource>,
+  // layouts: Vec<gpu::BindGroupLayoutEntry>,
 }
 
-impl<T> CacheAbleBindingSource for ResourceViewRc<T>
-where
-  T: Resource,
-  Self: BindableResourceProvider,
-{
-  fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
-    CacheAbleBindingBuildSource {
-      source: self.get_bindable(),
-      view_id: self.guid,
-    }
-  }
-}
-
-pub struct CacheAbleBindingBuildSource {
-  pub(crate) source: BindingResourceOwned,
-  pub(crate) view_id: usize,
-}
-
-pub struct BindGroupBuilder<T> {
-  is_compute: bool,
-  items: Vec<T>,
-  layouts: Vec<gpu::BindGroupLayoutEntry>,
-}
-
-impl<T> std::fmt::Debug for BindGroupBuilder<T> {
-  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    f.debug_struct("BindGroupBuilder")
-      .field("is_compute", &self.is_compute)
-      .finish()
-  }
-}
-
-impl<T> Default for BindGroupBuilder<T> {
-  fn default() -> Self {
-    Self {
-      is_compute: false,
-      items: Default::default(),
-      layouts: Default::default(),
-    }
-  }
-}
-
-pub trait BindingGroupBuildImpl: Sized {
-  fn build_bindgroup(
-    sources: &[Self],
-    device: &GPUDevice,
-    layout: &gpu::BindGroupLayout,
-  ) -> gpu::BindGroup;
-}
-
-impl BindingGroupBuildImpl for CacheAbleBindingBuildSource {
-  fn build_bindgroup(
-    sources: &[Self],
-    device: &GPUDevice,
-    layout: &gpu::BindGroupLayout,
-  ) -> gpu::BindGroup {
-    let entries_prepare: Vec<_> = sources.iter().map(|s| s.source.prepare_ref()).collect();
-    let entries: Vec<_> = entries_prepare
-      .iter()
-      .enumerate()
-      .map(|(i, s)| gpu::BindGroupEntry {
-        binding: i as u32,
-        resource: s.as_binding_ref(),
-      })
-      .collect();
-
-    device.create_bind_group(&gpu::BindGroupDescriptor {
-      label: None,
-      layout,
-      entries: &entries,
-    })
-  }
-}
-
-impl<T> BindGroupBuilder<T> {
-  pub fn new_as_compute() -> Self {
-    Self {
-      is_compute: true,
-      ..Default::default()
-    }
-  }
-
+impl BindGroupBuilder {
   pub fn reset(&mut self) {
     self.items.clear();
-    self.layouts.clear();
-  }
-
-  pub fn bind_raw(&mut self, item: T, entry_ty: gpu::BindGroupLayoutEntry) {
-    self.items.push(item);
-    self.layouts.push(entry_ty);
-  }
-
-  pub fn create_bind_group_layout(&mut self, device: &GPUDevice) -> GPUBindGroupLayout {
-    device.create_and_cache_bindgroup_layout(self.layouts.as_ref())
-  }
-
-  pub fn create_bind_group(
-    &mut self,
-    device: &GPUDevice,
-    layout: &wgpu::BindGroupLayout,
-  ) -> wgpu::BindGroup
-  where
-    T: BindingGroupBuildImpl,
-  {
-    T::build_bindgroup(&self.items, device, layout)
   }
 
   pub fn is_empty(&self) -> bool {
     self.items.is_empty()
   }
-}
 
-impl BindGroupBuilder<CacheAbleBindingBuildSource> {
-  pub fn bind(&mut self, source: CacheAbleBindingBuildSource, desc: &ShaderBindingDescriptor) {
-    self.bind_raw(
-      source,
-      map_shader_value_ty_to_binding_layout_type(desc, self.items.len(), self.is_compute),
-    )
+  pub fn bind(&mut self, source: CacheAbleBindingBuildSource) {
+    self.items.push(source);
   }
   fn hash_binding_ids(&self, hasher: &mut impl Hasher) {
     self.items.iter().for_each(|b| {
@@ -166,21 +64,21 @@ impl BindGroupBuilder<CacheAbleBindingBuildSource> {
   }
 }
 
-#[derive(Default)]
 pub struct BindingBuilder {
-  groups: [BindGroupBuilder<CacheAbleBindingBuildSource>; 5],
+  groups: [BindGroupBuilder; 5],
   current_index: usize,
 }
 
-impl BindingBuilder {
-  pub fn new_as_compute() -> Self {
-    let groups: Vec<_> = (0..5).map(|_| BindGroupBuilder::new_as_compute()).collect();
+impl Default for BindingBuilder {
+  fn default() -> Self {
     Self {
-      groups: groups.try_into().unwrap(),
-      ..Default::default()
+      groups: std::array::from_fn(|_| BindGroupBuilder::default()),
+      current_index: 0,
     }
   }
+}
 
+impl BindingBuilder {
   pub fn set_binding_slot(&mut self, new: usize) -> usize {
     std::mem::replace(&mut self.current_index, new)
   }
@@ -201,15 +99,12 @@ impl BindingBuilder {
   where
     T: CacheAbleBindingSource + ShaderBindingProvider,
   {
-    self.bind_dyn(item.get_binding_build_source(), &item.binding_desc())
+    let desc = item.binding_desc();
+    self.bind_dyn(item.get_binding_build_source())
   }
 
-  pub fn bind_dyn(
-    &mut self,
-    source: CacheAbleBindingBuildSource,
-    desc: &ShaderBindingDescriptor,
-  ) -> &mut Self {
-    self.groups[self.current_index].bind(source, desc);
+  pub fn bind_dyn(&mut self, source: CacheAbleBindingBuildSource) -> &mut Self {
+    self.groups[self.current_index].bind(source);
     self
   }
 
@@ -250,7 +145,8 @@ impl BindingBuilder {
           skip_drop: false,
         });
 
-        let bindgroup = group.create_bind_group(device, layout);
+        let bindgroup =
+          CacheAbleBindingBuildSource::build_bindgroup(group.items.as_slice(), device, layout);
         Arc::new(bindgroup)
       });
 
@@ -297,7 +193,8 @@ impl BindingBuilder {
           skip_drop: false,
         });
 
-        let bindgroup = group.create_bind_group(device, layout);
+        let bindgroup =
+          CacheAbleBindingBuildSource::build_bindgroup(group.items.as_slice(), device, layout);
         Arc::new(bindgroup)
       });
 

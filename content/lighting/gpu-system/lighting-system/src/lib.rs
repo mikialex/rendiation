@@ -35,24 +35,22 @@ impl ShaderPassBuilder for LightingComputeComponentAsRenderComponent {
 }
 
 impl GraphicsShaderProvider for LightingComputeComponentAsRenderComponent {
-  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binder| {
       let invocation = self.0.build_light_compute_invocation(binder);
       let shading_provider = PhysicalShading; // todo, make it configurable by user
-      let shading = shading_provider.construct_shading(builder);
+      let shading = shading_provider.construct_shading(builder); // todo, make it return optional to avoid lighting cost for none lightable material
 
-      let fragment_world = builder.query::<FragmentWorldPosition>()?;
-      let camera_position = builder.query::<CameraWorldMatrix>()?.position();
+      let fragment_world = builder.query::<FragmentWorldPosition>();
+      let camera_position = builder.query::<CameraWorldMatrix>().position();
       let geom_ctx = ENode::<ShaderLightingGeometricCtx> {
         position: fragment_world,
-        normal: builder.query::<FragmentWorldNormal>()?,
+        normal: builder.query::<FragmentWorldNormal>(),
         view_dir: (camera_position - fragment_world).normalize(),
       };
 
       let hdr = invocation.compute_lights(shading.as_ref(), &geom_ctx);
       builder.register::<HDRLightResult>(hdr.diffuse + hdr.specular);
-
-      Ok(())
     })
   }
 }

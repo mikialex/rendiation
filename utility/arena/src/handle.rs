@@ -1,4 +1,9 @@
-use std::{cmp, fmt::Debug, hash::Hash, marker::PhantomData};
+use std::{
+  cmp,
+  fmt::{Debug, Display},
+  hash::Hash,
+  marker::PhantomData,
+};
 
 use crate::{Arena, Entry};
 
@@ -24,6 +29,12 @@ pub struct Handle<T> {
 
 unsafe impl<T> Send for Handle<T> {}
 unsafe impl<T> Sync for Handle<T> {}
+
+impl<T> Display for Handle<T> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "({}, g:{})", self.handle, self.generation)
+  }
+}
 
 impl<T> Debug for Handle<T> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

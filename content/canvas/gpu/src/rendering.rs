@@ -56,22 +56,17 @@ impl ShaderPassBuilder for UIPrimitivesGPU {
 }
 
 impl GraphicsShaderProvider for UIPrimitivesGPU {
-  fn build(
-    &self,
-    builder: &mut rendiation_shader_api::ShaderRenderPipelineBuilder,
-  ) -> Result<(), rendiation_shader_api::ShaderBuildError> {
+  fn build(&self, builder: &mut rendiation_shader_api::ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, binding| {
       builder.register_vertex::<GraphicsVertex>(VertexStepMode::Vertex);
       builder.primitive_state.topology = PrimitiveTopology::TriangleList;
       builder.primitive_state.cull_mode = None;
 
-      let position = builder.query::<GeometryPosition2D>().unwrap();
-      let color = builder
-        .query::<GeometryColorWithAlphaPremultiplied>()
-        .unwrap();
-      let uv = builder.query::<GeometryUV>().unwrap();
+      let position = builder.query::<GeometryPosition2D>();
+      let color = builder.query::<GeometryColorWithAlphaPremultiplied>();
+      let uv = builder.query::<GeometryUV>();
 
-      let meta_index = builder.query::<UIMetadata>().unwrap();
+      let meta_index = builder.query::<UIMetadata>();
 
       let metadata = binding.bind_by(&self.metadata_buffer);
       let metadata = metadata.index(meta_index).load().expand();
@@ -79,8 +74,6 @@ impl GraphicsShaderProvider for UIPrimitivesGPU {
       let position = metadata.world_transform * position;
       let image_id = metadata.image_id;
       let uv = uv * metadata.uv_scale + metadata.uv_offset;
-      //
-      Ok(())
     })
 
     // builder.fragment(|builder, binding| {

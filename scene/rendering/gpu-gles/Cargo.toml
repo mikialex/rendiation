@@ -25,6 +25,8 @@ reactive = { path = "../../../utility/reactive" }
 rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
 rendiation-webgpu-reactive-utils = { path = "../../../platform/graphics/webgpu-reactive-utils" }
 rendiation-lighting-transport = { path = "../../../content/lighting/transport" }
+thiserror = { workspace = true }
+
 
 [lints]
 workspace = true

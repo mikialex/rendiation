@@ -72,11 +72,10 @@ impl ShaderHashProvider for LDROutput {
 }
 impl ShaderPassBuilder for LDROutput {}
 impl GraphicsShaderProvider for LDROutput {
-  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, _| {
-      let l = builder.query::<LDRLightResult>()?;
+      let l = builder.query::<LDRLightResult>();
       builder.register::<DefaultDisplay>((l, val(1.0)));
-      Ok(())
     })
   }
 }

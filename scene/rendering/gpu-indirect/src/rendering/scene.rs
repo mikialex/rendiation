@@ -52,7 +52,7 @@ impl SceneModelRenderer for IndirectSceneRenderer {
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
-  ) -> Option<()> {
+  ) -> Result<(), UnableToRenderSceneModelError> {
     self.renderer.render_scene_model(idx, camera, pass, cx, tex)
   }
 }
