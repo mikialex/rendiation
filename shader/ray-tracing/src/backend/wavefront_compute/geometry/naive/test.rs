@@ -406,7 +406,8 @@ fn test_gpu_triangle() {
           let output =
             traversable.traverse(payload, &|_ctx, _reporter| {}, &|_ctx| val(ACCEPT_HIT));
           (
-            output.payload.hit_ctx.primitive_id + output.is_some.into_u32(),
+            output.payload.hit_ctx.primitive_id % val(PRIMITIVE_IDX_MAX)
+              + output.is_some.into_u32(),
             valid,
           )
         })
