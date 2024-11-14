@@ -18,7 +18,7 @@
 //! }
 //! ```
 
-use std::{error::Error, mem::ManuallyDrop};
+use std::mem::ManuallyDrop;
 
 use database::*;
 use dyn_clone::*;
@@ -115,9 +115,6 @@ pub trait SceneRenderer: SceneModelRenderer {
     for m in models {
       if let Err(e) = self.render_scene_model(m, &camera, pass, cx, tex) {
         println!("{}", e);
-        if let Some(e) = e.source() {
-          println!("Caused by: {}", e);
-        }
       }
     }
   }
@@ -181,9 +178,10 @@ pub trait SceneModelRenderer {
 
 #[derive(thiserror::Error, Debug)]
 pub enum UnableToRenderSceneModelError {
-  #[error("failed to find model renderer impl for: {model_id}")]
+  #[error("failed to find model renderer impl for: {model_id} the sub tries are: {tried:?}")]
   UnableToFindImpl {
     model_id: EntityHandle<SceneModelEntity>,
+    tried: Vec<Self>,
   },
   #[error("model renderer impl found but unable to render, the detail is: {0}")]
   FoundImplButUnableToRender(#[from] Box<dyn std::error::Error>),
@@ -199,9 +197,22 @@ impl SceneModelRenderer for Vec<Box<dyn SceneModelRenderer>> {
     tex: &GPUTextureBindingSystem,
   ) -> Result<(), UnableToRenderSceneModelError> {
     for r in self {
-      r.render_scene_model(idx, camera, pass, cx, tex)?
+      if r.render_scene_model(idx, camera, pass, cx, tex).is_ok() {
+        return Ok(());
+      }
     }
-    Err(UnableToRenderSceneModelError::UnableToFindImpl { model_id: idx })
+    let tried = self
+      .iter()
+      .map(|v| {
+        v.render_scene_model(idx, camera, pass, cx, tex)
+          .unwrap_err()
+      })
+      .collect();
+
+    Err(UnableToRenderSceneModelError::UnableToFindImpl {
+      model_id: idx,
+      tried,
+    })
   }
 }
 

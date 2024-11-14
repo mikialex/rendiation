@@ -27,8 +27,8 @@ impl EntityCustomWrite<BufferEntity> for AttributeAccessor {
   }
 
   fn write(self, writer: &mut Self::Writer) -> EntityHandle<BufferEntity> {
-    let start = self.byte_offset;
-    let end = self.byte_offset + self.count * self.item_byte_size;
+    let start = self.byte_offset + self.view.range.offset as usize;
+    let end = start + self.count * self.item_byte_size;
     // for simplicity we clone out sub buffer, this should be improved
     writer
       .component_value_writer::<BufferEntityData>(ExternalRefPtr::new_shared(std::sync::Arc::new(
