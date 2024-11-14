@@ -187,10 +187,10 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
 
     let world_ray_range = RayRange::new(trace_payload.range);
 
-    // let tlas_bvh_root = self.tlas_bvh_root.index(trace_payload.tlas_idx).load();
+    let tlas_bvh_root = self.tlas_bvh_root.index(trace_payload.tlas_idx).load();
 
     let tlas_idx_iter = traverse_tlas_gpu(
-      val(0), /* tlas_bvh_root, // tlas_bvh_root == INVALID_NEXT checked inside TraverseBvhIteratorGpu */
+      tlas_bvh_root, // tlas_bvh_root == INVALID_NEXT checked inside TraverseBvhIteratorGpu
       self.tlas_bvh_forest,
       self.tlas_bounding,
       ray,

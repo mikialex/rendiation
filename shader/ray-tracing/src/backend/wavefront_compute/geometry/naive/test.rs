@@ -89,20 +89,20 @@ pub(crate) fn init_default_acceleration_structure(
 
   let _tlas0 = system.create_top_level_acceleration_structure(&sources0);
 
-  // let mut sources1 = vec![];
-  // for i in -2..=2 {
-  //   for j in -2..=2 {
-  //     for k in -2..=2 {
-  //       add_tlas_source(
-  //         &mut sources1,
-  //         Mat4::translate((i as f32 * 2., j as f32 * 2., -10. + k as f32 * 2.)),
-  //         &blas_handle,
-  //       );
-  //     }
-  //   }
-  // }
-  //
-  // let _tlas1 = system.create_top_level_acceleration_structure(&sources1);
+  let mut sources1 = vec![];
+  for i in -2..=2 {
+    for j in -2..=2 {
+      for k in -2..=2 {
+        add_tlas_source(
+          &mut sources1,
+          Mat4::translate((i as f32 * 2., j as f32 * 2., -10. + k as f32 * 2.)),
+          &blas_handle,
+        );
+      }
+    }
+  }
+
+  let _tlas1 = system.create_top_level_acceleration_structure(&sources1);
 }
 
 #[test]
