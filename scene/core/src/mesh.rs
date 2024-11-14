@@ -122,6 +122,18 @@ pub fn register_instance_mesh_data_model() {
 #[global_registered_query]
 pub fn attribute_mesh_local_bounding(
 ) -> impl ReactiveQuery<Key = EntityHandle<AttributesMeshEntity>, Value = Box3> {
+  let PositionRelatedAttributeMeshQuery {
+    indexed,
+    none_indexed,
+  } = attribute_mesh_position_query();
+
+  indexed
+    .collective_map(|_| Box3::empty())
+    .collective_select(none_indexed.collective_map(|_| Box3::empty()))
+}
+
+// todo, this should be registered into global query registry
+pub fn attribute_mesh_position_query() -> PositionRelatedAttributeMeshQuery {
   let index_buffer_ref =
     global_watch().watch_typed_foreign_key::<SceneBufferViewBufferId<AttributeIndexRef>>();
   let index_buffer_range = global_watch().watch::<SceneBufferViewBufferRange<AttributeIndexRef>>();
@@ -152,29 +164,49 @@ pub fn attribute_mesh_local_bounding(
     .watch::<SceneBufferViewBufferRange<AttributeVertexRef>>()
     .filter_by_keyset(positions_scope.clone());
 
-  let ranged_position_buffer =
-    vertex_buffer_ref.collective_union(vertex_buffer_range, |(a, b)| Some((a?, b?)));
+  let ranged_position_buffer = vertex_buffer_ref
+    .collective_union(vertex_buffer_range, |(a, b)| Some((a?, b?)))
+    .into_boxed();
 
   let ab_ref_mesh = global_watch()
     .watch_typed_foreign_key::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>()
     .collective_filter_map(|v| v)
     .filter_by_keyset(positions_scope)
-    .hash_reverse_assume_one_one();
+    .hash_reverse_assume_one_one()
+    .into_boxed();
 
   // todo, impl chain instead of using one to many fanout
-  let attribute_mesh_access_position_buffer =
-    ranged_position_buffer.one_to_many_fanout(ab_ref_mesh.into_one_to_many_by_hash());
+  let attribute_mesh_access_position_buffer = ranged_position_buffer
+    .one_to_many_fanout(ab_ref_mesh.into_one_to_many_by_hash())
+    .into_boxed();
 
   let attribute_mesh_access_position_buffer = attribute_mesh_access_position_buffer.into_forker();
 
-  let compute_none_indexed_bounding = attribute_mesh_access_position_buffer
+  let none_indexed = attribute_mesh_access_position_buffer
     .clone()
     .filter_by_keyset(none_indexed_mesh_set)
-    .collective_map(|_| Box3::<f32>::empty());
+    .into_boxed();
 
-  let compute_indexed_bounding = attribute_mesh_access_position_buffer
+  let indexed = attribute_mesh_access_position_buffer
     .collective_intersect(indexed_meshes_and_its_range)
-    .collective_map(|_| Box3::<f32>::empty());
+    .into_boxed();
 
-  compute_none_indexed_bounding.collective_select(compute_indexed_bounding)
+  PositionRelatedAttributeMeshQuery {
+    none_indexed,
+    indexed,
+  }
+}
+
+pub struct PositionRelatedAttributeMeshQuery {
+  pub indexed: BoxedDynReactiveQuery<
+    EntityHandle<AttributesMeshEntity>,
+    (
+      (Option<EntityHandle<BufferEntity>>, Option<BufferViewRange>),
+      (EntityHandle<BufferEntity>, Option<BufferViewRange>),
+    ),
+  >,
+  pub none_indexed: BoxedDynReactiveQuery<
+    EntityHandle<AttributesMeshEntity>,
+    (Option<EntityHandle<BufferEntity>>, Option<BufferViewRange>),
+  >,
 }
