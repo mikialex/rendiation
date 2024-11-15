@@ -93,7 +93,7 @@ pub enum BottomLevelAccelerationStructureBuildBuffer {
   },
 }
 
-pub trait GPUAccelerationStructureSystemProvider: DynClone {
+pub trait GPUAccelerationStructureSystemProvider: DynClone + Send + Sync {
   fn create_comp_instance(&self) -> Box<dyn GPUAccelerationStructureSystemCompImplInstance>;
   fn create_top_level_acceleration_structure(
     &self,

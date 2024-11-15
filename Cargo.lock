@@ -4010,6 +4010,7 @@ dependencies = [
 name = "rendiation-scene-rendering-gpu-ray-tracing"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
  "database",
  "dyn-downcast",
  "fast-hash-collection",

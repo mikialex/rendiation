@@ -201,8 +201,8 @@ pub struct PositionRelatedAttributeMeshQuery {
   pub indexed: BoxedDynReactiveQuery<
     EntityHandle<AttributesMeshEntity>,
     (
-      (Option<EntityHandle<BufferEntity>>, Option<BufferViewRange>),
-      (EntityHandle<BufferEntity>, Option<BufferViewRange>),
+      (Option<EntityHandle<BufferEntity>>, Option<BufferViewRange>), // position
+      (EntityHandle<BufferEntity>, Option<BufferViewRange>),         // index
     ),
   >,
   pub none_indexed: BoxedDynReactiveQuery<
