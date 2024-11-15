@@ -7,7 +7,7 @@ pub(crate) const TEST_TLAS_IDX: u32 = 2;
 
 pub(crate) fn init_default_acceleration_structure(
   system: &dyn GPUAccelerationStructureSystemProvider,
-) -> Vec<TlasInstance> {
+) -> Vec<TlasHandle> {
   fn add_blas_source(
     vec: &mut Vec<BottomLevelAccelerationStructureBuildSource>,
     surface: &impl ParametricSurface,
@@ -50,7 +50,7 @@ pub(crate) fn init_default_acceleration_structure(
   fn build_blas(
     system: &dyn GPUAccelerationStructureSystemProvider,
     sources: &[(&impl ParametricSurface, TessellationConfig)],
-  ) -> BottomLevelAccelerationStructureHandle {
+  ) -> BlasHandle {
     let mut blas_sources = vec![];
     for (surface, config) in sources {
       add_blas_source(&mut blas_sources, *surface, *config, GEOMETRY_FLAG_OPAQUE);
@@ -116,7 +116,7 @@ pub(crate) fn init_default_acceleration_structure(
   fn add_tlas_source(
     vec: &mut Vec<TopLevelAccelerationStructureSourceInstance>,
     transform: Mat4<f32>,
-    blas_handle: &BottomLevelAccelerationStructureHandle,
+    blas_handle: &BlasHandle,
   ) {
     vec.push(TopLevelAccelerationStructureSourceInstance {
       transform,
@@ -129,8 +129,8 @@ pub(crate) fn init_default_acceleration_structure(
   }
   fn build_tlas(
     system: &dyn GPUAccelerationStructureSystemProvider,
-    sources: &[(Mat4<f32>, &BottomLevelAccelerationStructureHandle)],
-  ) -> TlasInstance {
+    sources: &[(Mat4<f32>, &BlasHandle)],
+  ) -> TlasHandle {
     let mut vec = vec![];
     for (transform, blas_handle) in sources {
       add_tlas_source(&mut vec, *transform, blas_handle);

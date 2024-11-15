@@ -76,41 +76,6 @@ struct NaiveSahBvhSource {
   tlas_data: Vec<Option<Vec<TopLevelAccelerationStructureSourceInstance>>>,
 }
 
-#[derive(Clone)]
-pub struct TlasHandle {
-  idx: u32,
-  buffer: UniformBufferDataView<u32>,
-}
-
-#[derive(Clone)]
-pub struct TlasHandleInvocation {
-  handle: UniformNode<u32>,
-}
-impl GPUAccelerationStructureInvocationInstance for TlasHandleInvocation {
-  fn id(&self) -> Node<u32> {
-    self.handle.load()
-  }
-}
-impl GPUAccelerationStructureInstanceProvider for TlasHandle {
-  fn create_invocation_instance(
-    &self,
-    builder: &mut ShaderBindGroupBuilder,
-  ) -> Box<dyn GPUAccelerationStructureInvocationInstance> {
-    let handle = builder.bind_by(&self.buffer);
-    Box::new(TlasHandleInvocation { handle })
-  }
-  fn bind_pass(&self, builder: &mut BindingBuilder) {
-    builder.bind(&self.buffer);
-  }
-
-  fn access_impl(&self) -> &dyn Any {
-    self as &dyn Any
-  }
-  fn id(&self) -> u32 {
-    self.idx
-  }
-}
-
 impl NaiveSahBvhSource {
   pub fn create_blas(&mut self, source: &[BottomLevelAccelerationStructureBuildSource]) -> u32 {
     // todo freelist
@@ -124,13 +89,14 @@ impl NaiveSahBvhSource {
     self.tlas_data.push(Some(source.to_vec()));
     start_index as u32
   }
-  pub fn delete_blas(&mut self, i: u32) {
+  pub fn delete_blas(&mut self, handle: BlasHandle) {
     // todo freelist
-    self.blas_data[i as usize] = None;
+    let idx = handle.0;
+    self.blas_data[idx as usize] = None;
   }
-  pub fn delete_tlas(&mut self, handle: &TlasHandle) {
+  pub fn delete_tlas(&mut self, handle: TlasHandle) {
     // todo freelist
-    let idx = handle.idx;
+    let idx = handle.0;
     self.tlas_data[idx as usize] = None;
   }
 
@@ -564,39 +530,33 @@ impl GPUAccelerationStructureSystemProvider for NaiveSahBVHSystem {
   fn create_top_level_acceleration_structure(
     &self,
     source: &[TopLevelAccelerationStructureSourceInstance],
-  ) -> TlasInstance {
+  ) -> TlasHandle {
     let mut inner = self.inner.write().unwrap();
     inner.invalidate();
-
     let idx = inner.source.create_tlas(source);
-    let handle = TlasHandle {
-      idx,
-      buffer: create_uniform(idx, &self.device),
-    };
-    TlasInstance(Box::new(handle))
+    TlasHandle(idx)
   }
 
-  fn delete_top_level_acceleration_structure(&self, id: TlasInstance) {
-    let range: &TlasHandle = id.0.access_impl().downcast_ref().unwrap();
+  fn delete_top_level_acceleration_structure(&self, handle: TlasHandle) {
     let mut inner = self.inner.write().unwrap();
     inner.invalidate();
-    inner.source.delete_tlas(range);
+    inner.source.delete_tlas(handle)
   }
 
   fn create_bottom_level_acceleration_structure(
     &self,
     source: &[BottomLevelAccelerationStructureBuildSource],
-  ) -> BottomLevelAccelerationStructureHandle {
+  ) -> BlasHandle {
     let mut inner = self.inner.write().unwrap();
     inner.invalidate();
-    let index = inner.source.create_blas(source);
-    BottomLevelAccelerationStructureHandle(index)
+    let idx = inner.source.create_blas(source);
+    BlasHandle(idx)
   }
 
-  fn delete_bottom_level_acceleration_structure(&self, id: BottomLevelAccelerationStructureHandle) {
+  fn delete_bottom_level_acceleration_structure(&self, handle: BlasHandle) {
     let mut inner = self.inner.write().unwrap();
     inner.invalidate();
-    inner.source.delete_blas(id.0)
+    inner.source.delete_blas(handle)
   }
 }
 
