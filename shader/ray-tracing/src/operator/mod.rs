@@ -3,6 +3,9 @@ use crate::*;
 mod ctx_inject;
 pub use ctx_inject::*;
 
+mod future_to_native;
+pub use future_to_native::*;
+
 pub struct TraceBase<T>(PhantomData<T>);
 
 impl<T> Default for TraceBase<T> {
