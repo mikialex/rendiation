@@ -1,41 +1,79 @@
 use crate::*;
 
 pub struct SceneRayTracingAOFeature {
-  desc: GPURaytracingPipelineDescriptor,
-  // should we keep this?
-  pipeline: Box<dyn GPURaytracingPipelineProvider>,
+  executor: GPURaytracingPipelineExecutor,
+  desc: GPURaytracingPipelineAndBindingSource,
   sbt: Box<dyn ShaderBindingTableProvider>,
   scene_tlas: BoxedDynQuery<EntityHandle<SceneEntity>, TlasInstance>,
-  tex_io: RayTracingTextureIO,
 }
 
 #[derive(Clone)]
-struct SceneRayTracingAOFeatureBinding {
+struct RayTracingAOComputeTraceOperator {
+  base: Box<dyn TraceOperator<()>>,
+  max_sample_count: u32,
   scene: TlasInstance,
-  // camera: ,
+  ao_buffer: GPU2DTextureView,
 }
 
-impl ShaderHashProvider for SceneRayTracingAOFeatureBinding {
+impl ShaderHashProvider for RayTracingAOComputeTraceOperator {
   shader_hash_type_id! {}
 }
 
-#[derive(Clone)]
-struct SceneRayTracingAOFeatureInvocation {
-  scene: Box<dyn GPUAccelerationStructureInvocationInstance>,
-  // camera:
-}
+impl NativeRayTracingShaderBuilder for RayTracingAOComputeTraceOperator {
+  type Output = ();
 
-impl RayTracingCustomCtxProvider for SceneRayTracingAOFeatureBinding {
-  type Invocation = SceneRayTracingAOFeatureInvocation;
-
-  fn build_invocation(&self, cx: &mut ShaderBindGroupBuilder) -> Self::Invocation {
-    SceneRayTracingAOFeatureInvocation {
-      scene: self.scene.create_invocation_instance(cx),
-    }
+  fn build(&self, ctx: &mut dyn NativeRayTracingShaderCtx) -> Self::Output {
+    todo!()
   }
 
   fn bind(&self, builder: &mut BindingBuilder) {
-    self.scene.bind_pass(builder);
+    todo!()
+  }
+}
+
+impl ShaderFutureProvider for RayTracingAOComputeTraceOperator {
+  type Output = ();
+  fn build_device_future(&self, ctx: &mut AnyMap) -> DynShaderFuture<Self::Output> {
+    RayTracingAOComputeFuture {
+      upstream: self.base.build_device_future(ctx),
+      max_sample_count: self.max_sample_count,
+      tracing: TracingFuture::default(),
+    }
+    .into_dyn()
+  }
+}
+
+struct RayTracingAOComputeFuture {
+  upstream: DynShaderFuture<()>,
+  max_sample_count: u32,
+  tracing: TracingFuture<f32>,
+}
+
+impl ShaderFuture for RayTracingAOComputeFuture {
+  type Output = ();
+
+  type Invocation = RayTracingAOComputeInvocation;
+
+  fn required_poll_count(&self) -> usize {
+    self.upstream.required_poll_count() + 1
+  }
+
+  fn build_poll(&self, ctx: &mut DeviceTaskSystemBuildCtx) -> Self::Invocation {
+    RayTracingAOComputeInvocation {
+      max_sample_count: self.max_sample_count,
+      hit_position: ctx
+        .state_builder
+        .create_or_reconstruct_any_left_value_by_right::<Node<Vec3<f32>>>(),
+      hit_normal: todo!(),
+      hit_has_compute: todo!(),
+      next_sample_idx: todo!(),
+      occlusion_acc: todo!(),
+      trace_on_the_fly: self.tracing.build_poll(ctx),
+    }
+  }
+
+  fn bind_input(&self, builder: &mut DeviceTaskSystemBindCtx) {
+    todo!()
   }
 }
 
@@ -69,9 +107,6 @@ impl ShaderFutureInvocation for RayTracingAOComputeInvocation {
   }
 }
 
-struct RayTracingAOOutput;
-impl RayTracingOutputTargetSemantic for RayTracingAOOutput {}
-
 impl SceneRayTracingAOFeature {
   pub fn new(gpu: &GPU, tlas_size: Box<dyn Stream<Item = u32>>) -> Self {
     todo!()
@@ -84,21 +119,28 @@ impl SceneRayTracingAOFeature {
     previous_accumulation: GPU2DTextureView,
     scene: EntityHandle<SceneEntity>,
     camera: EntityHandle<SceneCameraEntity>,
-  ) -> GPU2DTextureView {
-    self
-      .tex_io
-      .install_output_target::<RayTracingAOOutput>(previous_accumulation);
+    ao_buffer: GPU2DTextureView,
+  ) {
+    let mut desc = GPURaytracingPipelineAndBindingSource::default();
 
-    let scene_source: SceneRayTracingAOFeatureBinding = todo!();
+    let trace_base_builder = system.create_tracer_base_builder();
+    let ray_gen_shader = RayTracingAOComputeTraceOperator {
+      base: trace_base_builder.create_ray_gen_shader_base(),
+      scene: self.scene_tlas.access(&scene).unwrap(),
+      ao_buffer,
+      max_sample_count: 8,
+    };
+
+    desc.register_ray_gen::<u32>(ray_gen_shader);
 
     let mut rtx_encoder = system.create_raytracing_encoder();
 
-    rtx_encoder.set_pipeline(self.pipeline.as_ref());
     let canvas_size = frame.frame_size().into_u32();
-    rtx_encoder.trace_ray((canvas_size.0, canvas_size.1, 1), self.sbt.as_ref());
-
-    self.tex_io.take_output_target::<RayTracingAOOutput>();
-
-    todo!()
+    rtx_encoder.trace_ray(
+      &desc,
+      &self.executor,
+      (canvas_size.0, canvas_size.1, 1),
+      self.sbt.as_ref(),
+    );
   }
 }
