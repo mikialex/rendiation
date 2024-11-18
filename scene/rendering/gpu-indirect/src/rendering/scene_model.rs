@@ -55,7 +55,7 @@ impl SceneModelRenderer for IndirectPreferredComOrderRenderer {
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
-  ) -> Option<()> {
+  ) -> Result<(), UnableToRenderSceneModelError> {
     let model_id = create_uniform(idx.alloc_index(), &cx.gpu.device);
     let cmd = self
       .make_draw_command_builder(idx)
@@ -102,14 +102,18 @@ impl SceneModelRenderer for IndirectPreferredComOrderRenderer {
       }
     }
 
-    self.render_indirect_batch_models(
-      &SingleModelImmediateDraw { model_id, cmd },
-      idx,
-      camera,
-      tex,
-      pass,
-      cx,
-    )
+    self
+      .render_indirect_batch_models(
+        &SingleModelImmediateDraw { model_id, cmd },
+        idx,
+        camera,
+        tex,
+        pass,
+        cx,
+      )
+      .unwrap();
+
+    Ok(())
   }
 }
 

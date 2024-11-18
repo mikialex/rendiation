@@ -3,7 +3,7 @@ use crate::*;
 pub trait GPURaytracingSystem {
   fn create_tracer_base_builder(&self) -> TraceFutureBaseBuilder;
   fn create_raytracing_device(&self) -> Box<dyn GPURayTracingDeviceProvider>;
-  fn create_raytracing_encoder(&self) -> Box<dyn RayTracingPassEncoderProvider>;
+  fn create_raytracing_encoder(&self) -> Box<dyn RayTracingEncoderProvider>;
   fn create_acceleration_structure_system(&self)
     -> Box<dyn GPUAccelerationStructureSystemProvider>;
 }
@@ -44,20 +44,32 @@ pub trait TraceFutureBaseProvider {
   ) -> Box<dyn TraceOperator<()>>;
 }
 
-pub trait RayTracingPassEncoderProvider {
-  fn set_pipeline(&mut self, pipeline: &dyn GPURaytracingPipelineProvider);
-  fn trace_ray(&mut self, size: (u32, u32, u32), sbt: &dyn ShaderBindingTableProvider);
+pub trait RayTracingEncoderProvider {
+  fn trace_ray(
+    &mut self,
+    pipeline: &GPURaytracingPipelineAndBindingSource,
+    executor: &GPURaytracingPipelineExecutor,
+    size: (u32, u32, u32),
+    sbt: &dyn ShaderBindingTableProvider,
+  );
 }
 
-pub trait GPURaytracingPipelineProvider {
+/// an opaque rtx pipeline executor instance. cheap clonable.
+pub trait GPURaytracingPipelineExecutorImpl: DynClone {
   fn access_impl(&self) -> &dyn Any;
 }
+dyn_clone::clone_trait_object!(GPURaytracingPipelineExecutorImpl);
 
+#[derive(Clone)]
+pub struct GPURaytracingPipelineExecutor {
+  pub(crate) inner: Box<dyn GPURaytracingPipelineExecutorImpl>,
+}
+
+/// the ray tracing device abstraction.
 pub trait GPURayTracingDeviceProvider {
-  fn create_raytracing_pipeline(
-    &self,
-    desc: GPURaytracingPipelineDescriptor,
-  ) -> Box<dyn GPURaytracingPipelineProvider>;
+  /// create a pipeline executor. the executor is not the pipeline, the main reason for this api is that
+  /// we want to cache the executor resource in user side and expose executor implementation in some cases.
+  fn create_raytracing_pipeline_executor(&self) -> GPURaytracingPipelineExecutor;
   fn create_sbt(&self, mesh_count: u32, ray_type_count: u32)
     -> Box<dyn ShaderBindingTableProvider>;
 }
