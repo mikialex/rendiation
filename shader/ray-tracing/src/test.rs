@@ -30,7 +30,7 @@ async fn test_wavefront_compute() {
 
   let rtx_device = system.create_raytracing_device();
 
-  let mut rtx_pipeline_desc = GPURaytracingPipelineDescriptor::default();
+  let mut rtx_pipeline_desc = GPURaytracingPipelineAndBindingSource::default();
 
   let ray_gen_shader = shader_base_builder
     .create_ray_gen_shader_base()
@@ -133,7 +133,7 @@ async fn test_wavefront_compute() {
   let mesh_count = 1;
   let ray_type_count = 1;
 
-  let rtx_pipeline = rtx_device.create_raytracing_pipeline(rtx_pipeline_desc);
+  let executor = rtx_device.create_raytracing_pipeline_executor();
 
   let mut sbt = rtx_device.create_sbt(mesh_count, ray_type_count);
   sbt.config_ray_generation(ray_gen);
@@ -150,8 +150,13 @@ async fn test_wavefront_compute() {
 
   let mut rtx_encoder = system.create_raytracing_encoder();
 
-  rtx_encoder.set_pipeline(rtx_pipeline.as_ref());
-  rtx_encoder.trace_ray((canvas_size, canvas_size, 1), sbt.as_ref());
+  rtx_encoder.trace_ray(
+    &rtx_pipeline_desc,
+    &executor,
+    (canvas_size, canvas_size, 1),
+    sbt.as_ref(),
+  );
+
   drop(rtx_encoder);
 
   let view = texture_io_system.take_output_target::<RayTracingDebugOutput>();

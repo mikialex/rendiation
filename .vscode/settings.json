@@ -33,6 +33,7 @@
         "Chirality",
         "Cineon",
         "clippy",
+        "clonable",
         "codegen",
         "colorspace",
         "combinators",
