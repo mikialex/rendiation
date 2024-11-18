@@ -183,6 +183,10 @@ where
     make_builtin_call(ShaderBuiltInFunction::Abs, [self.handle()])
   }
 
+  pub fn sign(self) -> Self {
+    make_builtin_call(ShaderBuiltInFunction::Sign, [self.handle()])
+  }
+
   /// e^self
   pub fn exp(self) -> Self {
     make_builtin_call(ShaderBuiltInFunction::Exp, [self.handle()])

@@ -513,7 +513,7 @@ fn intersect_blas_gpu(
           let v2 = Node::<Vec3<f32>>::from((v2x, v2y, v2z));
 
           let (near, far) = local_ray_range.get();
-          // returns (hit ? 1 : 0, distance, u, v)
+          // returns (hit, distance, u, v), hit = front hit -> 1, back hit -> -1, miss -> 0
           let result = intersect_ray_triangle_gpu(
             ray.origin,
             ray.direction,
@@ -525,14 +525,16 @@ fn intersect_blas_gpu(
             cull_enable,
             cull_back,
           );
-          let hit = result.x().greater_than(val(0.));
+          let hit_face = result.x();
+          let hit = hit_face.not_equals(val(0.));
           let local_ray_range = local_ray_range.clone();
           if_by(hit, move || {
             let world_distance = result.y() / distance_scaling;
-            // todo load tlas on every hit? protect with a bool?
+            // todo load tlas on every hit? protect with a bool? store last tlas idx as guard
             let tlas = tlas_data.index(ray_blas.tlas_idx).load().expand();
 
             let hit_ctx = HitCtxInfo {
+              // todo create beforehand, overwrite if hit
               primitive_id: tri_idx - primitive_start, // store tri offset in tri_bvh_root
               instance_id: ray_blas.tlas_idx,
               instance_sbt_offset: tlas.instance_shader_binding_table_record_offset,
@@ -546,6 +548,11 @@ fn intersect_blas_gpu(
               },
             };
 
+            let hit_kind = val(HIT_KIND_FRONT_FACING_TRIANGLE).make_local_var();
+            if_by(hit_face.less_than(val(0.)), || {
+              hit_kind.store(val(HIT_KIND_BACK_FACING_TRIANGLE));
+            });
+
             if_by(is_opaque, || {
               // opaque -> invoke any_hit directly
               let any_hit_ctx = RayAnyHitCtx {
@@ -553,7 +560,7 @@ fn intersect_blas_gpu(
                 world_ray,
                 hit_ctx,
                 hit: HitInfo {
-                  hit_kind: val(HIT_KIND_BACK_FACING_TRIANGLE), // todo impl
+                  hit_kind: hit_kind.load(),
                   hit_distance: world_distance,
                 },
               };

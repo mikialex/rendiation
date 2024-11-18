@@ -3,7 +3,7 @@ use rendiation_mesh_generator::*;
 
 use crate::backend::wavefront_compute::geometry::naive::*;
 
-pub(crate) const TEST_TLAS_IDX: u32 = 2;
+pub(crate) const TEST_TLAS_IDX: u32 = 3;
 
 pub(crate) fn init_default_acceleration_structure(
   system: &dyn GPUAccelerationStructureSystemProvider,
@@ -198,7 +198,21 @@ pub(crate) fn init_default_acceleration_structure(
     )],
   );
 
-  vec![tlas0, tlas1, tlas2]
+  let mut sources3 = vec![];
+  for i in -2..=2 {
+    for j in -2..=2 {
+      for k in -2..=2 {
+        add_tlas_source(
+          &mut sources3,
+          Mat4::translate((i as f32 * 1.5, j as f32 * 1.5, -8. + k as f32 * 1.5)),
+          &cube,
+        );
+      }
+    }
+  }
+  let tlas3 = system.create_top_level_acceleration_structure(&sources3);
+
+  vec![tlas0, tlas1, tlas2, tlas3]
 }
 
 #[test]
@@ -248,9 +262,9 @@ fn test_cpu_triangle() {
           if distance < *d {
             *d = distance;
             *id = primitive_id % PRIMITIVE_IDX_MAX + 1;
-            return true;
+            // return ACCEPT_HIT | TERMINATE_TRAVERSE;
           }
-          false
+          0
         },
       );
     }

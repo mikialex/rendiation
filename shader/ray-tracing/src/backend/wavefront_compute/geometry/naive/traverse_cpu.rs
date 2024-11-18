@@ -40,7 +40,7 @@ impl NaiveSahBvhCpu {
   pub(super) fn traverse(
     &self,
     ray: &ShaderRayTraceCallStoragePayload,
-    any_hit: &mut dyn FnMut(u32, u32, f32, Vec3<f32>) -> bool, /* geometry_idx, primitive_idx, distance, hit_position // todo use ctx */
+    any_hit: &mut dyn FnMut(u32, u32, f32, Vec3<f32>) -> RayAnyHitBehavior, /* geometry_idx, primitive_idx, distance, hit_position // todo use ctx */
   ) {
     let flags = TraverseFlags::from_ray_flag_cpu(ray.ray_flags);
     let ray_range = RayRange::new(ray.range.x, ray.range.y, 1.);
@@ -55,7 +55,7 @@ impl NaiveSahBvhCpu {
       ray_range: ray_range.clone(),
       curr_idx: tlas_bvh_root,
     };
-    for hit_idx in tlas_iter {
+    'tlas_loop: for hit_idx in tlas_iter {
       let node = &self.tlas_bvh_forest[hit_idx as usize];
 
       // for each tlas, visit blas
@@ -125,7 +125,7 @@ impl NaiveSahBvhCpu {
 
                 TRI_VISIT_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
-                // vec4(hit, distance, u, v)
+                // returns (hit, distance, u, v), hit = front hit -> 1, back hit -> -1, miss -> 0
                 let intersection = intersect_ray_triangle_cpu(
                   blas_ray_origin,
                   blas_ray_direction,
@@ -137,7 +137,7 @@ impl NaiveSahBvhCpu {
                   cull_back,
                 );
 
-                if intersection[0] > 0. {
+                if intersection[0] != 0. {
                   let distance = intersection[1] / distance_scaling;
                   let p = blas_ray_origin + distance * blas_ray_direction;
                   // println!("hit {p:?}");
@@ -145,9 +145,13 @@ impl NaiveSahBvhCpu {
                   // opaque -> anyhit, non-opaque -> intersect
                   // assuming all opaque
                   TRI_HIT_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                  let accepted = any_hit(geometry_idx, primitive_idx, distance, p);
+                  let behavior = any_hit(geometry_idx, primitive_idx, distance, p);
+                  let accepted = behavior & ACCEPT_HIT > 0;
                   if accepted {
                     ray_range.update_far(distance);
+                  }
+                  if behavior & TERMINATE_TRAVERSE > 0 {
+                    break 'tlas_loop;
                   }
                 }
               }
