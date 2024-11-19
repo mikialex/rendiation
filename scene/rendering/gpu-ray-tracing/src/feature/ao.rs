@@ -116,7 +116,6 @@ impl SceneRayTracingAOFeature {
     &self,
     frame: &mut FrameCtx,
     system: Box<dyn GPURaytracingSystem>,
-    previous_accumulation: GPU2DTextureView,
     scene: EntityHandle<SceneEntity>,
     camera: EntityHandle<SceneCameraEntity>,
     ao_buffer: GPU2DTextureView,
