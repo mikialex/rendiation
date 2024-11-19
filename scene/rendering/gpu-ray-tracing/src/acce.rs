@@ -1,3 +1,5 @@
+use fast_hash_collection::FastHashMap;
+
 use crate::*;
 
 fn get_sub_buffer(buffer: &[u8], range: Option<BufferViewRange>) -> &[u8] {
@@ -111,8 +113,41 @@ pub fn scene_model_to_tlas_instance(
 
 pub fn scene_to_tlas(
   acc_sys: Box<dyn GPUAccelerationStructureSystemProvider>,
-) -> impl ReactiveQuery<Key = EntityHandle<SceneModelEntity>, Value = TlasInstance> {
-  global_rev_ref().watch_inv_ref::<SceneModelBelongsToScene>();
-  //
-  EmptyQuery::default()
+) -> impl ReactiveQuery<Key = EntityHandle<SceneEntity>, Value = TlasInstance> {
+  SceneTlasMaintainer {
+    acc_sys: acc_sys.clone(),
+    source: scene_model_to_tlas_instance(acc_sys).into_boxed(),
+    scene_sm: Box::new(global_rev_ref().watch_inv_ref::<SceneModelBelongsToScene>()),
+    tlas: Default::default(),
+  }
+}
+
+struct SceneTlasMaintainer {
+  acc_sys: Box<dyn GPUAccelerationStructureSystemProvider>,
+  source: BoxedDynReactiveQuery<EntityHandle<SceneModelEntity>, (BlasInstance, Mat4<f32>)>,
+  scene_sm:
+    BoxedDynReactiveOneToManyRelation<EntityHandle<SceneEntity>, EntityHandle<SceneModelEntity>>,
+  tlas: FastHashMap<EntityHandle<SceneEntity>, TlasInstance>,
+}
+
+impl ReactiveQuery for SceneTlasMaintainer {
+  type Key = EntityHandle<SceneEntity>;
+  type Value = TlasInstance;
+  type Changes = impl Query<Key = Self::Key, Value = ValueChange<Self::Value>>;
+  type View = impl Query<Key = Self::Key, Value = Self::Value>;
+
+  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
+    let (d, v, i_v) = self.scene_sm.poll_changes_with_inv_dyn(cx);
+
+    let (d, v) = self.source.poll_changes(cx);
+    for (k, change) in d.iter_key_value() {
+      // mat
+    }
+    (EmptyQuery::default(), EmptyQuery::default())
+  }
+
+  fn request(&mut self, request: &mut ReactiveQueryRequest) {
+    self.source.request(request);
+    self.scene_sm.request(request);
+  }
 }
