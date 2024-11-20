@@ -1,13 +1,13 @@
 use crate::*;
 
 pub fn make_checker<V, V2>(
-  checker: impl Fn(V) -> Option<V2> + Copy + Send + Sync + 'static,
-) -> impl Fn(ValueChange<V>) -> Option<ValueChange<V2>> + Copy + Send + Sync + 'static {
+  checker: impl Fn(V) -> Option<V2> + Clone + Send + Sync + 'static,
+) -> impl Fn(ValueChange<V>) -> Option<ValueChange<V2>> + Clone + Send + Sync + 'static {
   move |delta| {
     match delta {
       ValueChange::Delta(v, pre_v) => {
         let new_map = checker(v);
-        let pre_map = pre_v.and_then(checker);
+        let pre_map = pre_v.and_then(checker.clone());
         match (new_map, pre_map) {
           (Some(v), Some(pre_v)) => ValueChange::Delta(v, Some(pre_v)),
           (Some(v), None) => ValueChange::Delta(v, None),
@@ -35,7 +35,7 @@ pub struct ReactiveKVFilter<T, F> {
 
 impl<T, F, V2> ReactiveQuery for ReactiveKVFilter<T, F>
 where
-  F: Fn(T::Value) -> Option<V2> + Copy + Send + Sync + 'static,
+  F: Fn(T::Value) -> Option<V2> + Clone + Send + Sync + 'static,
   T: ReactiveQuery,
   V2: CValue,
 {
@@ -48,9 +48,9 @@ where
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let (d, v) = self.inner.poll_changes(cx);
 
-    let checker = make_checker(self.checker);
+    let checker = make_checker(self.checker.clone());
     let d = d.filter_map(checker);
-    let v = v.filter_map(self.checker);
+    let v = v.filter_map(self.checker.clone());
 
     (d, v)
   }

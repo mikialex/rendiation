@@ -3990,6 +3990,7 @@ dependencies = [
  "dyn-downcast",
  "fast-hash-collection",
  "log",
+ "parking_lot",
  "reactive",
  "rendiation-algebra",
  "rendiation-color",
@@ -4194,6 +4195,7 @@ name = "rendiation-webgpu-reactive-utils"
 version = "0.1.0"
 dependencies = [
  "fast-hash-collection",
+ "parking_lot",
  "reactive",
  "rendiation-shader-api",
  "rendiation-texture-core",

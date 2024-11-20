@@ -154,10 +154,10 @@ impl<T> RangeAllocatorStorage for GPURangeAllocateMaintainer<T>
 where
   T: ResizableLinearStorage + LinearStorageDirectAccess + GPULinearStorage,
 {
-  fn deallocate(&mut self, idx: u32) {
-    let (size, token) = self.ranges.remove(&idx).unwrap();
+  fn deallocate(&mut self, offset: u32) {
+    let (size, token) = self.ranges.remove(&offset).unwrap();
     self.allocator.dealloc(token).unwrap();
-    self.buffer.removes(idx, size);
+    self.buffer.removes(offset, size);
     self.used_count -= size;
   }
 
