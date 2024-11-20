@@ -8,18 +8,8 @@ only_vertex!(IndirectAbstractMeshId, u32);
 
 use crate::*;
 
-#[derive(Clone)]
-pub struct IndexPool {
-  buffer: Arc<RwLock<RangeAllocatePool<TypedGPUBuffer<u32>>>>,
-}
-
-#[derive(Clone)]
-pub struct VertexPool {
-  buffer: Arc<RwLock<RangeAllocatePool<TypedGPUBuffer<u32>>>>,
-}
-
 pub fn attribute_indices(
-  index_pool: &IndexPool,
+  index_pool: &UntypedPool,
   gpu: &GPU,
 ) -> impl ReactiveQuery<Key = EntityHandle<AttributesMeshEntity>, Value = u32> {
   let index_buffer_ref =
@@ -37,7 +27,7 @@ pub fn attribute_indices(
     })
     .into_boxed();
 
-  ReactiveRangeAllocatePool::new(index_pool.buffer.clone(), source, gpu)
+  ReactiveRangeAllocatePool::new(index_pool, source, gpu)
 }
 
 fn range_convert(range: Option<BufferViewRange>) -> Option<GPUBufferViewRange> {
@@ -48,7 +38,7 @@ fn range_convert(range: Option<BufferViewRange>) -> Option<GPUBufferViewRange> {
 }
 
 pub fn attribute_vertex(
-  pool: &VertexPool,
+  pool: &UntypedPool,
   semantic: AttributeSemantic,
   gpu: &GPU,
 ) -> impl ReactiveQuery<Key = EntityHandle<AttributesMeshEntity>, Value = u32> {
@@ -83,7 +73,7 @@ pub fn attribute_vertex(
 
   // we not using intersect here because range may not exist
   // todo, put it into registry
-  ReactiveRangeAllocatePool::new(pool.buffer.clone(), ranged_buffer, gpu)
+  ReactiveRangeAllocatePool::new(pool, ranged_buffer, gpu)
     .one_to_many_fanout(ab_ref_mesh.into_one_to_many_by_hash())
 }
 
@@ -100,8 +90,8 @@ pub struct AttributeMeshMeta {
 
 pub fn attribute_buffer_metadata(
   gpu: &GPU,
-  index_pool: &IndexPool,
-  vertex_pool: &VertexPool,
+  index_pool: &UntypedPool,
+  vertex_pool: &UntypedPool,
 ) -> ReactiveStorageBufferContainer<AttributeMeshMeta> {
   ReactiveStorageBufferContainer::<AttributeMeshMeta>::new(gpu)
     // todo count
@@ -125,26 +115,29 @@ pub fn attribute_buffer_metadata(
 
 pub struct MeshBindlessGPUSystemSource {
   attribute_buffer_metadata: UpdateResultToken,
-  indices: IndexPool,
-  vertex: VertexPool,
+  indices: UntypedPool,
+  vertex: UntypedPool,
 }
 
 impl MeshBindlessGPUSystemSource {
   pub fn new(gpu: &GPU) -> Self {
+    let indices =
+      create_storage_buffer_range_allocate_pool(gpu, 20 * 1024 * 1024, 200 * 1024 * 1024);
+    let vertex =
+      create_storage_buffer_range_allocate_pool(gpu, 200 * 1024 * 1024, 2000 * 1024 * 1024);
+
     Self {
       attribute_buffer_metadata: Default::default(),
-      indices: todo!(),
-      vertex: todo!(),
+      indices: Arc::new(RwLock::new(indices)),
+      vertex: Arc::new(RwLock::new(vertex)),
     }
   }
 }
 
 impl RenderImplProvider<Box<dyn IndirectModelShapeRenderImpl>> for MeshBindlessGPUSystemSource {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    let index_pool = todo!();
-    let vertex_pool = todo!();
-    self.attribute_buffer_metadata =
-      source.register_multi_updater(attribute_buffer_metadata(cx, &index_pool, &vertex_pool).inner);
+    self.attribute_buffer_metadata = source
+      .register_multi_updater(attribute_buffer_metadata(cx, &self.indices, &self.vertex).inner);
   }
 
   fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
@@ -158,16 +151,29 @@ impl RenderImplProvider<Box<dyn IndirectModelShapeRenderImpl>> for MeshBindlessG
     Box::new(MeshGPUBindlessImpl {
       indices: self.indices.clone(),
       vertex: self.vertex.clone(),
-      checker: todo!(),
+      checker: global_entity_component_of::<StandardModelRefAttributesMeshEntity>()
+        .read_foreign_key(),
+      indices_checker: global_entity_component_of::<SceneBufferViewBufferId<AttributeIndexRef>>()
+        .read_foreign_key(),
+      vertex_address_buffer: res
+        .take_multi_updater_updated::<CommonStorageBufferImpl<AttributeMeshMeta>>(
+          self.attribute_buffer_metadata,
+        )
+        .unwrap()
+        .gpu()
+        .clone()
+        .into_rw_view(),
     })
   }
 }
 
 struct MeshGPUBindlessImpl {
-  indices: IndexPool,
-  vertex: VertexPool,
+  indices: UntypedPool,
+  vertex: UntypedPool,
+  vertex_address_buffer: StorageBufferDataView<[AttributeMeshMeta]>,
   //   source: BoxedDynReactiveQuery<EntityHandle<StandardModelEntity>, MeshSystemMeshInstance>,
   checker: ForeignKeyReadView<StandardModelRefAttributesMeshEntity>,
+  indices_checker: ForeignKeyReadView<SceneBufferViewBufferId<AttributeIndexRef>>,
 }
 
 impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
@@ -175,12 +181,19 @@ impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
     &self,
     any_idx: EntityHandle<StandardModelEntity>,
   ) -> Option<Box<dyn RenderComponent + '_>> {
-    let _ = self.checker.get(any_idx)?; // check the given model has attributes mesh
-                                        // todo, check mesh must have indices.
+    // check the given model has attributes mesh
+    let mesh_id = self.checker.get(any_idx)?;
+    // check mesh must have indices.
+    let _ = self.indices_checker.get(mesh_id)?;
+    let vertex_pool =
+      StorageBufferDataView::try_from_raw(self.vertex.read().raw_gpu().clone()).unwrap();
+
+    let index_pool = self.indices.read().raw_gpu().clone();
+
     Some(Box::new(BindlessMeshDispatcher {
-      vertex_address_buffer: todo!(),
-      vertex_pool: todo!(),
-      index_pool: todo!(),
+      vertex_address_buffer: self.vertex_address_buffer.clone(),
+      vertex_pool,
+      index_pool,
     }))
   }
 
@@ -188,7 +201,13 @@ impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
     &self,
     any_idx: EntityHandle<StandardModelEntity>,
   ) -> Option<Box<dyn DrawCommandBuilder>> {
-    todo!()
+    // check the given model has attributes mesh
+    let mesh_id = self.checker.get(any_idx)?;
+    // check mesh must have indices.
+    let _ = self.indices_checker.get(mesh_id)?;
+    Some(Box::new(BindlessDrawCreator {
+      metadata: self.vertex_address_buffer.clone(),
+    }))
   }
 }
 

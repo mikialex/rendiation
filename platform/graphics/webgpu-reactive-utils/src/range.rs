@@ -4,8 +4,10 @@ use parking_lot::RwLock;
 
 use crate::*;
 
+pub type UntypedPool = Arc<RwLock<StorageBufferRangeAllocatePool<u32>>>;
+
 pub struct ReactiveRangeAllocatePool<T: ReactiveQuery> {
-  buffer: Arc<RwLock<RangeAllocatePool<TypedGPUBuffer<u32>>>>,
+  buffer: UntypedPool,
   record: Arc<RwLock<FastHashMap<T::Key, u32>>>,
   rev_map: Arc<RwLock<FastHashMap<u32, T::Key>>>,
   gpu: GPU,
@@ -13,13 +15,9 @@ pub struct ReactiveRangeAllocatePool<T: ReactiveQuery> {
 }
 
 impl<T: ReactiveQuery> ReactiveRangeAllocatePool<T> {
-  pub fn new(
-    buffer: Arc<RwLock<RangeAllocatePool<TypedGPUBuffer<u32>>>>,
-    upstream: T,
-    gpu: &GPU,
-  ) -> Self {
+  pub fn new(buffer: &UntypedPool, upstream: T, gpu: &GPU) -> Self {
     Self {
-      buffer,
+      buffer: buffer.clone(),
       record: Default::default(),
       rev_map: Default::default(),
       gpu: gpu.clone(),
