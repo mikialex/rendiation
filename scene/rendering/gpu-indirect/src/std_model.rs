@@ -1,5 +1,3 @@
-use rendiation_mesh_gpu_system::IndirectAbstractMeshId;
-
 use crate::*;
 
 both!(IndirectSceneStdModelId, u32);
