@@ -23,7 +23,9 @@ pub struct IndirectPreferredComOrderRendererProvider {
   pub model_impl: Vec<Box<dyn RenderImplProvider<Box<dyn IndirectModelRenderImpl>>>>,
 }
 
-impl RenderImplProvider<Box<dyn SceneModelRenderer>> for IndirectPreferredComOrderRendererProvider {
+impl RenderImplProvider<Box<dyn IndirectBatchSceneModelRenderer>>
+  for IndirectPreferredComOrderRendererProvider
+{
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
     self.node.register_resource(source, cx);
     self
@@ -40,7 +42,10 @@ impl RenderImplProvider<Box<dyn SceneModelRenderer>> for IndirectPreferredComOrd
       .for_each(|i| i.deregister_resource(source));
   }
 
-  fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> Box<dyn SceneModelRenderer> {
+  fn create_impl(
+    &self,
+    res: &mut ConcurrentStreamUpdateResult,
+  ) -> Box<dyn IndirectBatchSceneModelRenderer> {
     Box::new(IndirectPreferredComOrderRenderer {
       model_impl: self.model_impl.iter().map(|i| i.create_impl(res)).collect(),
       node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),

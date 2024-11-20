@@ -8,6 +8,18 @@ pub struct IndirectRenderSystem {
   // pub grouper: Box<dyn RenderImplProvider<Box<dyn IndirectSceneDrawBatchGrouper>>>,
 }
 
+pub fn build_default_gles_render_system() -> IndirectRenderSystem {
+  IndirectRenderSystem {
+    model_lookup: Default::default(),
+    texture_system: Default::default(),
+    camera: todo!(),
+    scene_model_impl: Box::new(IndirectPreferredComOrderRendererProvider {
+      node: Box::new(DefaultIndirectNodeRenderImplProvider::default()),
+      model_impl: vec![],
+    }),
+  }
+}
+
 impl RenderImplProvider<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>>
   for IndirectRenderSystem
 {
