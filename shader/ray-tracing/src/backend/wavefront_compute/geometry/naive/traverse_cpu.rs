@@ -146,8 +146,7 @@ impl NaiveSahBvhCpu {
                   // assuming all opaque
                   TRI_HIT_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                   let behavior = any_hit(geometry_idx, primitive_idx, distance, p);
-                  let accepted = behavior & ACCEPT_HIT > 0;
-                  if accepted {
+                  if behavior & ACCEPT_HIT > 0 {
                     ray_range.update_far(distance);
                   }
                   if behavior & TERMINATE_TRAVERSE > 0 {

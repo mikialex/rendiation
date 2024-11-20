@@ -4,6 +4,7 @@ use rendiation_mesh_generator::*;
 use crate::backend::wavefront_compute::geometry::naive::*;
 
 pub(crate) const TEST_TLAS_IDX: u32 = 3;
+pub(crate) const TEST_ANY_HIT_BEHAVIOR: u32 = ACCEPT_HIT; // | TERMINATE_TRAVERSE;
 
 pub(crate) fn init_default_acceleration_structure(
   system: &dyn GPUAccelerationStructureSystemProvider,
@@ -259,12 +260,9 @@ fn test_cpu_triangle() {
         &payload,
         &mut |_geometry_id, primitive_id, distance, _position| {
           let (d, id) = &mut out[j][i];
-          if distance < *d {
-            *d = distance;
-            *id = primitive_id % PRIMITIVE_IDX_MAX + 1;
-            // return ACCEPT_HIT | TERMINATE_TRAVERSE;
-          }
-          0
+          *d = distance;
+          *id = primitive_id % PRIMITIVE_IDX_MAX + 1;
+          TEST_ANY_HIT_BEHAVIOR
         },
       );
     }
@@ -416,12 +414,12 @@ fn test_gpu_triangle() {
             range: val(vec2(0.01, FAR)),
           };
 
-          // todo how to access user payload?
-          let output =
-            traversable.traverse(payload, &|_ctx, _reporter| {}, &|_ctx| val(ACCEPT_HIT));
+          let output = traversable.traverse(payload, &|_ctx, _reporter| {}, &|_ctx| {
+            val(TEST_ANY_HIT_BEHAVIOR)
+          });
           (
-            output.payload.hit_ctx.primitive_id % val(PRIMITIVE_IDX_MAX)
-              + output.is_some.into_u32(),
+            output.is_some.into_u32()
+              * (output.payload.hit_ctx.primitive_id % val(PRIMITIVE_IDX_MAX) + val(1)),
             valid,
           )
         })
