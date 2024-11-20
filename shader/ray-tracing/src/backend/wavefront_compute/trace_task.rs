@@ -154,6 +154,10 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
         let sbt_task_mapping = self.sbt_task_mapping.load().expand();
         let current_sbt = self.current_sbt.load();
 
+        let skip_closest = (trace_payload.ray_flags
+          & val(RayFlagConfigRaw::RAY_FLAG_SKIP_CLOSEST_HIT_SHADER as u32))
+        .greater_than(val(0));
+
         let ray_sbt_config = RaySBTConfig {
           offset: trace_payload.sbt_ray_config_offset,
           stride: trace_payload.sbt_ray_config_stride,
@@ -190,34 +194,36 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
         );
 
         if_by(closest_hit.is_some, || {
-          let hit_group = closest_hit
-            .payload
-            .hit_ctx
-            .compute_sbt_hit_group(ray_sbt_config);
+          if_by(skip_closest.not(), || {
+            let hit_group = closest_hit
+              .payload
+              .hit_ctx
+              .compute_sbt_hit_group(ray_sbt_config);
 
-          let closest_payload = ENode::<RayClosestHitCtxPayload> {
-            ray_info: trace_payload_all_expand.trace_call,
-            hit_ctx: hit_ctx_storage_from_hit_ctx(&closest_hit.payload.hit_ctx),
-          }
-          .construct();
+            let closest_payload = ENode::<RayClosestHitCtxPayload> {
+              ray_info: trace_payload_all_expand.trace_call,
+              hit_ctx: hit_ctx_storage_from_hit_ctx(&closest_hit.payload.hit_ctx),
+            }
+            .construct();
 
-          let closest_shader_index = self.sbt.get_closest_handle(current_sbt, hit_group);
-          let closest_task_index = sbt_task_mapping.get_closest_task(closest_shader_index);
-          let sub_task_id = spawn_dynamic(
-            &self.info.closest_tasks,
-            &self.downstream,
-            closest_task_index,
-            closest_payload.cast_untyped_node(),
-            &RayClosestHitCtxPayload::sized_ty(),
-            self.untyped_payloads,
-            trace_payload.payload_ref,
-            ctx.generate_self_as_parent(),
-          );
+            let closest_shader_index = self.sbt.get_closest_handle(current_sbt, hit_group);
+            let closest_task_index = sbt_task_mapping.get_closest_task(closest_shader_index);
+            let sub_task_id = spawn_dynamic(
+              &self.info.closest_tasks,
+              &self.downstream,
+              closest_task_index,
+              closest_payload.cast_untyped_node(),
+              &RayClosestHitCtxPayload::sized_ty(),
+              self.untyped_payloads,
+              trace_payload.payload_ref,
+              ctx.generate_self_as_parent(),
+            );
 
-          let ty = TraceTaskSelfPayload::storage_node_sub_task_ty_field_ptr(trace_payload_all);
-          ty.store(closest_task_index);
-          let id = TraceTaskSelfPayload::storage_node_sub_task_id_field_ptr(trace_payload_all);
-          id.store(sub_task_id);
+            let ty = TraceTaskSelfPayload::storage_node_sub_task_ty_field_ptr(trace_payload_all);
+            ty.store(closest_task_index);
+            let id = TraceTaskSelfPayload::storage_node_sub_task_id_field_ptr(trace_payload_all);
+            id.store(sub_task_id);
+          });
         })
         .else_by(|| {
           let missing_payload = ENode::<RayMissHitCtxPayload> {

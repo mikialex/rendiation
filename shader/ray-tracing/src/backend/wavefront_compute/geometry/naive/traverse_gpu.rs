@@ -264,7 +264,7 @@ struct NaiveIntersectReporter<'a> {
   closest_hit_info: &'a HitInfoVar,
   ray_range: RayRange,
   any_hit: &'a dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
-  on_terminate_traverse: Box<dyn Fn()>,
+  on_end_search: Box<dyn Fn()>,
 }
 impl<'a> IntersectionReporter for NaiveIntersectReporter<'a> {
   fn report_intersection(&self, hit_t: Node<f32>, hit_kind: Node<u32>) -> Node<bool> {
@@ -292,7 +292,7 @@ impl<'a> IntersectionReporter for NaiveIntersectReporter<'a> {
           r.store(val(true));
           self.ray_range.update_world_far(ctx.hit.hit_distance);
         },
-        || (self.on_terminate_traverse)(),
+        || (self.on_end_search)(),
         any_hit,
         &any_hit_ctx,
         closest_hit_ctx,
@@ -305,7 +305,7 @@ impl<'a> IntersectionReporter for NaiveIntersectReporter<'a> {
 
 fn resolve_any_hit(
   on_accept: impl FnOnce(&RayAnyHitCtx),
-  on_terminate_traverse: impl FnOnce(),
+  on_end_search: impl FnOnce(),
   any_hit: &dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
   any_hit_ctx: &RayAnyHitCtx,
   closest_hit_ctx: &HitCtxInfoVar, // output
@@ -321,8 +321,8 @@ fn resolve_any_hit(
     });
   });
 
-  if_by((behavior & val(TERMINATE_TRAVERSE)).greater_than(0), || {
-    on_terminate_traverse();
+  if_by((behavior & val(END_SEARCH)).greater_than(0), || {
+    on_end_search();
   });
 }
 
@@ -381,8 +381,8 @@ fn iterate_tlas_blas_gpu(
     let ray = ray.expand();
     let tlas_data = tlas_data.index(idx).load().expand();
 
-    let flags = TraverseFlags::from_ray_flag_gpu(ray.flags);
-    let flags = TraverseFlags::apply_geometry_instance_flag_gpu(flags, tlas_data.flags);
+    let flags = TraverseFlagsGpu::from_ray_flag(ray.flags);
+    let flags = flags.merge_geometry_instance_flag(tlas_data.flags);
 
     // transform ray to blas space
     // todo check det < 0, invert cull flag?
@@ -409,7 +409,7 @@ fn iterate_tlas_blas_gpu(
       blas: blas_data,
       tlas_idx: idx,
       distance_scaling,
-      flags,
+      flags: flags.as_u32(),
     })
   })
 }
@@ -436,13 +436,13 @@ fn intersect_blas_gpu(
   world_ray_range: RayRange, // input/output
 ) {
   let hit_ctx_curr = HitCtxInfoVar::default();
-  let terminate_traverse = val(false).make_local_var();
+  let end_search = val(false).make_local_var();
 
   blas_iter.for_each(|ray_blas, blas_loop| {
     let ray_blas = ray_blas.expand();
     let ray = ray_blas.ray;
     let blas = ray_blas.blas.expand();
-    let flags = ray_blas.flags;
+    let flags = TraverseFlagsGpu::from_ray_flag(ray_blas.flags);
     let distance_scaling = ray_blas.distance_scaling;
     let local_ray_range = world_ray_range.clone_with_scaling(distance_scaling);
 
@@ -453,14 +453,14 @@ fn intersect_blas_gpu(
       let primitive_start = geometry.primitive_start;
       let geometry_flags = geometry.geometry_flags;
 
-      let (pass, is_opaque) = TraverseFlags::cull_geometry_gpu(flags, geometry_flags);
+      let (pass, is_opaque) = flags.cull_geometry(geometry_flags);
       if_by(pass.not(), || {
         mesh_loop.do_continue();
       });
-      let (cull_enable, cull_back) = TraverseFlags::cull_triangle_gpu(flags);
+      let (cull_enable, cull_back) = flags.cull_triangle();
 
       let local_ray_range = local_ray_range.clone();
-      if_by(TraverseFlags::visit_triangles_gpu(flags), move || {
+      if_by(flags.visit_triangles(), move || {
         let bvh_iter = TraverseBvhIteratorGpu {
           bvh: tri_bvh_forest,
           ray,
@@ -554,8 +554,11 @@ fn intersect_blas_gpu(
                 },
               };
               resolve_any_hit(
-                |_| local_ray_range.update_world_far(world_distance),
-                || terminate_traverse.store(true),
+                |_| {
+                  local_ray_range.update_world_far(world_distance);
+                  if_by(flags.end_search_on_hit(), || end_search.store(true));
+                },
+                || end_search.store(true),
                 any_hit,
                 &any_hit_ctx,
                 closest_hit_ctx_var,
@@ -580,15 +583,15 @@ fn intersect_blas_gpu(
                   closest_hit_info: closest_hit_var,
                   ray_range: local_ray_range.clone(),
                   any_hit,
-                  on_terminate_traverse: Box::new(move || terminate_traverse.store(true)),
+                  on_end_search: Box::new(move || end_search.store(true)),
                 },
               );
             });
 
-            if_by(terminate_traverse.load(), || tri_loop.do_break());
+            if_by(end_search.load(), || tri_loop.do_break());
           });
         });
-        if_by(terminate_traverse.load(), || mesh_loop.do_break());
+        if_by(end_search.load(), || mesh_loop.do_break());
       });
     });
 
@@ -617,7 +620,7 @@ fn intersect_blas_gpu(
     //   });
     // });
 
-    if_by(terminate_traverse.load(), || blas_loop.do_break());
+    if_by(end_search.load(), || blas_loop.do_break());
   });
 }
 

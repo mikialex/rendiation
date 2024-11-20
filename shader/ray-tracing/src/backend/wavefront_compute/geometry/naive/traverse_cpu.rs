@@ -42,7 +42,7 @@ impl NaiveSahBvhCpu {
     ray: &ShaderRayTraceCallStoragePayload,
     any_hit: &mut dyn FnMut(u32, u32, f32, Vec3<f32>) -> RayAnyHitBehavior, /* geometry_idx, primitive_idx, distance, hit_position // todo use ctx */
   ) {
-    let flags = TraverseFlags::from_ray_flag_cpu(ray.ray_flags);
+    let flags = TraverseFlags::from_ray_flag(ray.ray_flags);
     let ray_range = RayRange::new(ray.range.x, ray.range.y, 1.);
 
     let tlas_bvh_root = self.tlas_bvh_root[ray.tlas_idx as usize];
@@ -78,7 +78,7 @@ impl NaiveSahBvhCpu {
         let tlas_data = &self.tlas_data[tlas_idx as usize];
         // hit tlas
         let blas_idx = tlas_data.acceleration_structure_handle;
-        let flags = TraverseFlags::apply_geometry_instance_flag_cpu(flags, tlas_data.flags);
+        let flags = TraverseFlags::merge_geometry_instance_flag(flags, tlas_data.flags);
 
         // traverse blas bvh
         let blas_ray_origin = tlas_data.transform_inv * ray.ray_origin.expand_with_one();
@@ -90,7 +90,7 @@ impl NaiveSahBvhCpu {
 
         let blas_meta_info = &self.blas_meta_info[blas_idx as usize];
 
-        if flags.visit_triangles_cpu() {
+        if flags.visit_triangles() {
           for tri_root_index in blas_meta_info.tri_root_range.x..blas_meta_info.tri_root_range.y {
             let geometry = self.tri_bvh_root[tri_root_index as usize];
             let blas_root_idx = geometry.bvh_root_idx;
@@ -98,11 +98,11 @@ impl NaiveSahBvhCpu {
             let primitive_start = geometry.primitive_start;
             let geometry_flags = geometry.geometry_flags;
 
-            let (pass, _is_opaque) = TraverseFlags::cull_geometry_cpu(flags, geometry_flags);
+            let (pass, _is_opaque) = TraverseFlags::cull_geometry(flags, geometry_flags);
             if !pass {
               continue;
             }
-            let (cull_enable, cull_back) = TraverseFlags::cull_triangle_cpu(flags);
+            let (cull_enable, cull_back) = TraverseFlags::cull_triangle(flags);
 
             let bvh_iter = TraverseBvhIteratorCpu {
               bvh: &self.tri_bvh_forest,
@@ -145,11 +145,15 @@ impl NaiveSahBvhCpu {
                   // opaque -> anyhit, non-opaque -> intersect
                   // assuming all opaque
                   TRI_HIT_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                  let behavior = any_hit(geometry_idx, primitive_idx, distance, p);
+                  let mut behavior = any_hit(geometry_idx, primitive_idx, distance, p);
                   if behavior & ACCEPT_HIT > 0 {
                     ray_range.update_far(distance);
+
+                    if flags.end_search_on_hit() {
+                      behavior |= END_SEARCH;
+                    }
                   }
-                  if behavior & TERMINATE_TRAVERSE > 0 {
+                  if behavior & END_SEARCH > 0 {
                     break 'tlas_loop;
                   }
                 }
