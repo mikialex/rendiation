@@ -49,19 +49,19 @@ impl<T: Std430> ReactiveStorageBufferContainer<T> {
   }
 }
 
-struct QueryBasedStorageBufferUpdate<T> {
-  field_offset: u32,
-  upstream: T,
+pub struct QueryBasedStorageBufferUpdate<T> {
+  pub field_offset: u32,
+  pub upstream: T,
 }
 
-impl<T, C> QueryBasedUpdate<CommonStorageBufferImpl<T>> for QueryBasedStorageBufferUpdate<C>
+impl<T, C> QueryBasedUpdate<T> for QueryBasedStorageBufferUpdate<C>
 where
-  T: Std430,
+  T: LinearStorageDirectAccess,
   C: ReactiveQuery,
   C::Key: LinearIdentified,
   C::Value: Pod,
 {
-  fn update_target(&mut self, target: &mut CommonStorageBufferImpl<T>, cx: &mut Context) {
+  fn update_target(&mut self, target: &mut T, cx: &mut Context) {
     let (changes, _) = self.upstream.poll_changes(cx);
     for (k, v) in changes.iter_key_value() {
       let index = k.alloc_index();
