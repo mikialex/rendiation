@@ -39,6 +39,10 @@ impl RenderImplProvider<Box<dyn LightingComputeComponent>> for DirectionalUnifor
     self.token = source.register_multi_updater(uniform);
   }
 
+  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
+    source.deregister(&mut self.token);
+  }
+
   fn create_impl(
     &self,
     res: &mut ConcurrentStreamUpdateResult,

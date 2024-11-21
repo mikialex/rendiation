@@ -39,6 +39,14 @@ impl RenderImplProvider<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>> fo
     }
   }
 
+  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
+    self.texture_system.deregister_resource(source);
+    self.camera.deregister_resource(source);
+    for imp in &mut self.scene_model_impl {
+      imp.deregister_resource(source);
+    }
+  }
+
   fn create_impl(
     &self,
     res: &mut ConcurrentStreamUpdateResult,

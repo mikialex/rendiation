@@ -46,6 +46,12 @@ impl RenderImplProvider<Box<dyn GLESModelShapeRenderImpl>>
     self.vertex = source.register_val_refed_reactive_query(vertex);
   }
 
+  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
+    source.deregister(&mut self.multi_access);
+    source.deregister(&mut self.index);
+    source.deregister(&mut self.vertex);
+  }
+
   fn create_impl(
     &self,
     res: &mut ConcurrentStreamUpdateResult,

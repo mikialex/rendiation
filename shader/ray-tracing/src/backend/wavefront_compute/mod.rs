@@ -1,7 +1,7 @@
 mod geometry;
 pub use geometry::*;
 mod sbt;
-use parking_lot::lock_api::RwLock;
+use parking_lot::RwLock;
 pub use sbt::*;
 mod trace_task;
 pub use trace_task::*;
@@ -40,10 +40,9 @@ impl GPURaytracingSystem for GPUWaveFrontComputeRaytracingSystem {
     })
   }
 
-  fn create_raytracing_encoder(&self) -> Box<dyn RayTracingPassEncoderProvider> {
+  fn create_raytracing_encoder(&self) -> Box<dyn RayTracingEncoderProvider> {
     Box::new(GPUWaveFrontComputeRaytracingEncoder {
       gpu: self.gpu.clone(),
-      current_pipeline: None,
       sbt_sys: self.sbt_sys.clone(),
       tlas_sys: self.tlas_sys.clone(),
     })
@@ -61,20 +60,6 @@ pub struct GPUWaveFrontComputeRaytracingDevice {
 }
 
 impl GPURayTracingDeviceProvider for GPUWaveFrontComputeRaytracingDevice {
-  fn create_raytracing_pipeline(
-    &self,
-    desc: GPURaytracingPipelineDescriptor,
-  ) -> Box<dyn GPURaytracingPipelineProvider> {
-    Box::new(GPUWaveFrontComputeRaytracingBakedPipeline {
-      inner: Arc::new(RwLock::new(
-        GPUWaveFrontComputeRaytracingBakedPipelineInner {
-          desc,
-          executor: None,
-        },
-      )),
-    })
-  }
-
   fn create_sbt(
     &self,
     mesh_count: u32,
@@ -86,28 +71,38 @@ impl GPURayTracingDeviceProvider for GPUWaveFrontComputeRaytracingDevice {
       self_idx,
     })
   }
+
+  fn create_raytracing_pipeline_executor(&self) -> GPURaytracingPipelineExecutor {
+    GPURaytracingPipelineExecutor {
+      inner: Box::new(GPUWaveFrontComputeRaytracingBakedPipeline {
+        inner: Arc::new(RwLock::new(
+          GPUWaveFrontComputeRaytracingBakedPipelineInner { executor: None },
+        )),
+      }),
+    }
+  }
 }
 
 pub struct GPUWaveFrontComputeRaytracingEncoder {
   gpu: GPU,
-  current_pipeline: Option<GPUWaveFrontComputeRaytracingBakedPipeline>,
   sbt_sys: ShaderBindingTableDeviceInfo,
   tlas_sys: Box<dyn GPUAccelerationStructureSystemProvider>,
 }
 
-impl RayTracingPassEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
-  fn set_pipeline(&mut self, pipeline: &dyn GPURaytracingPipelineProvider) {
-    self.current_pipeline = pipeline
+impl RayTracingEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
+  fn trace_ray(
+    &mut self,
+    pipeline_source: &GPURaytracingPipelineAndBindingSource,
+    executor: &GPURaytracingPipelineExecutor,
+    size: (u32, u32, u32),
+    sbt: &dyn ShaderBindingTableProvider,
+  ) {
+    let executor = executor
+      .inner
       .access_impl()
       .downcast_ref::<GPUWaveFrontComputeRaytracingBakedPipeline>()
-      .unwrap()
-      .clone()
-      .into();
-  }
-
-  fn trace_ray(&mut self, size: (u32, u32, u32), sbt: &dyn ShaderBindingTableProvider) {
-    let current_pipeline = self.current_pipeline.as_ref().expect("no pipeline bound");
-    let mut current_pipeline = current_pipeline.inner.write();
+      .unwrap();
+    let mut pipeline = executor.inner.write();
 
     let sbt = sbt
       .access_impl()
@@ -124,34 +119,33 @@ impl RayTracingPassEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
 
     let required_size = (w_align * h_align * size.2) as usize;
 
-    let current_pipeline = current_pipeline.get_or_compile_executor(
+    let pipeline = pipeline.get_or_compile_executor(
       &mut cx,
+      pipeline_source,
       self.tlas_sys.create_comp_instance(),
       self.sbt_sys.clone(),
       required_size,
     );
 
     // setup current binding sbt:
-    current_pipeline.target_sbt_buffer.write_at(
-      0,
-      Std430::as_bytes(&sbt.self_idx),
-      &self.gpu.queue,
-    );
+    pipeline
+      .target_sbt_buffer
+      .write_at(0, Std430::as_bytes(&sbt.self_idx), &self.gpu.queue);
 
     // setup launch size:
-    current_pipeline.launch_size_buffer.write_at(
+    pipeline.launch_size_buffer.write_at(
       0,
       Std430::as_bytes(&vec3(size.0, size.1, size.2)),
       &self.gpu.queue,
     );
 
     {
-      let executor = &mut current_pipeline.graph;
+      let executor = &mut pipeline.graph;
 
       executor.dispatch_allocate_init_task(
         &mut cx,
         required_size as u32,
-        current_pipeline.ray_gen_task_idx,
+        pipeline.ray_gen_task_idx,
         // ray-gen payload is linear id. see TracingCtxProviderFutureInvocation.
         |global_id| global_id,
       );
@@ -159,7 +153,7 @@ impl RayTracingPassEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
 
     let round_count = 3; // todo;
     for _ in 0..round_count {
-      current_pipeline.graph.execute(&mut cx, 1);
+      pipeline.graph.execute(&mut cx, 1);
     }
   }
 }

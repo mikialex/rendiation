@@ -13,6 +13,9 @@ impl RenderImplProvider<Box<dyn CameraRenderImpl>> for DefaultGLESCameraRenderIm
     let uniforms = camera_gpus(cx);
     self.uniforms = source.register_multi_updater(uniforms);
   }
+  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
+    source.deregister(&mut self.uniforms);
+  }
 
   fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> Box<dyn CameraRenderImpl> {
     Box::new(DefaultGLESCameraRenderImpl {

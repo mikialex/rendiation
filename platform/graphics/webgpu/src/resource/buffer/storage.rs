@@ -6,6 +6,17 @@ pub struct StorageBufferReadOnlyDataView<T: Std430MaybeUnsized + ?Sized> {
 }
 
 impl<T: Std430MaybeUnsized + ?Sized> StorageBufferReadOnlyDataView<T> {
+  pub fn try_from_raw(gpu: GPUBufferResourceView) -> Option<Self> {
+    // todo, check if size is correct
+    if gpu.resource.desc.usage.contains(gpu::BufferUsages::STORAGE) {
+      Some(StorageBufferReadOnlyDataView {
+        gpu,
+        phantom: PhantomData,
+      })
+    } else {
+      None
+    }
+  }
   pub fn into_rw_view(self) -> StorageBufferDataView<T> {
     StorageBufferDataView {
       gpu: self.gpu.clone(),
@@ -108,6 +119,17 @@ impl<T: Std430MaybeUnsized + ?Sized> Clone for StorageBufferDataView<T> {
 }
 
 impl<T: Std430MaybeUnsized + ?Sized> StorageBufferDataView<T> {
+  pub fn try_from_raw(gpu: GPUBufferResourceView) -> Option<Self> {
+    // todo, check if size is correct
+    if gpu.resource.desc.usage.contains(gpu::BufferUsages::STORAGE) {
+      Some(StorageBufferDataView {
+        gpu,
+        phantom: PhantomData,
+      })
+    } else {
+      None
+    }
+  }
   pub fn into_readonly_view(self) -> StorageBufferReadOnlyDataView<T> {
     StorageBufferReadOnlyDataView {
       gpu: self.gpu.clone(),

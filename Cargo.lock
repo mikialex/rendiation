@@ -3784,19 +3784,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rendiation-mesh-gpu-system"
-version = "0.1.0"
-dependencies = [
- "bytemuck",
- "fast-hash-collection",
- "futures",
- "pin-project",
- "rendiation-shader-api",
- "rendiation-webgpu",
- "slab",
-]
-
-[[package]]
 name = "rendiation-mesh-lod-graph"
 version = "0.1.0"
 dependencies = [
@@ -3993,6 +3980,7 @@ dependencies = [
  "dyn-downcast",
  "fast-hash-collection",
  "log",
+ "parking_lot",
  "reactive",
  "rendiation-algebra",
  "rendiation-color",
@@ -4001,7 +3989,6 @@ dependencies = [
  "rendiation-lighting-punctual",
  "rendiation-lighting-transport",
  "rendiation-mesh-core",
- "rendiation-mesh-gpu-system",
  "rendiation-scene-core",
  "rendiation-scene-rendering-gpu-base",
  "rendiation-shader-api",
@@ -4197,6 +4184,7 @@ name = "rendiation-webgpu-reactive-utils"
 version = "0.1.0"
 dependencies = [
  "fast-hash-collection",
+ "parking_lot",
  "reactive",
  "rendiation-shader-api",
  "rendiation-texture-core",

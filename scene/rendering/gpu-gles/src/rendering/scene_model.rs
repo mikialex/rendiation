@@ -14,6 +14,14 @@ impl RenderImplProvider<Box<dyn SceneModelRenderer>> for GLESPreferredComOrderRe
       .for_each(|i| i.register_resource(source, cx));
   }
 
+  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
+    self.node.deregister_resource(source);
+    self
+      .model_impl
+      .iter_mut()
+      .for_each(|i| i.deregister_resource(source));
+  }
+
   fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> Box<dyn SceneModelRenderer> {
     Box::new(GLESPreferredComOrderRenderer {
       model_impl: self.model_impl.iter().map(|i| i.create_impl(res)).collect(),

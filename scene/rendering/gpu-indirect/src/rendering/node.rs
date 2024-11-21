@@ -21,6 +21,10 @@ impl RenderImplProvider<Box<dyn IndirectNodeRenderImpl>> for DefaultIndirectNode
     self.storage = source.register_multi_updater(storage.inner);
   }
 
+  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
+    source.deregister(&mut self.storage);
+  }
+
   fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> Box<dyn IndirectNodeRenderImpl> {
     Box::new(DefaultIndirectNodeRenderImpl {
       node_gpu: res.take_multi_updater_updated(self.storage).unwrap(),

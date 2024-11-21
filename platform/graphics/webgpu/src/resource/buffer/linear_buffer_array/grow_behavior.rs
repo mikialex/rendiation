@@ -10,7 +10,7 @@ pub struct ResizeInput {
 /// try auto grow when unbound mutation occurred
 pub struct CustomGrowBehaviorMaintainer<T> {
   pub inner: T,
-  pub size_adjust: Box<dyn Fn(ResizeInput) -> Option<u32>>,
+  pub size_adjust: Box<dyn Fn(ResizeInput) -> Option<u32> + Send + Sync>,
 }
 
 impl<T: ResizableLinearStorage> ResizableLinearStorage for CustomGrowBehaviorMaintainer<T> {

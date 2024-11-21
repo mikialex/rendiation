@@ -74,6 +74,17 @@ impl RenderImplProvider<Box<dyn IndirectModelRenderImpl>> for DefaultSceneStdMod
       .for_each(|p| p.register_resource(source, cx));
   }
 
+  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
+    self
+      .materials
+      .iter_mut()
+      .for_each(|p| p.deregister_resource(source));
+    self
+      .shapes
+      .iter_mut()
+      .for_each(|p| p.deregister_resource(source));
+  }
+
   fn create_impl(
     &self,
     res: &mut ConcurrentStreamUpdateResult,
