@@ -27,4 +27,5 @@ pub use backend::*;
 mod texture_io;
 pub use texture_io::*;
 
+#[cfg(test)]
 mod test;

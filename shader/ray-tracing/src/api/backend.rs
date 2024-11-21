@@ -98,7 +98,7 @@ pub struct BottomLevelAccelerationStructureBuildSource {
 pub enum BottomLevelAccelerationStructureBuildBuffer {
   Triangles {
     positions: Vec<Vec3<f32>>,
-    indices: Vec<u32>,
+    indices: Option<Vec<u32>>,
   },
   AABBs {
     aabbs: Vec<[f32; 6]>,
@@ -110,16 +110,16 @@ pub trait GPUAccelerationStructureSystemProvider: DynClone {
   fn create_top_level_acceleration_structure(
     &self,
     source: &[TopLevelAccelerationStructureSourceInstance],
-  ) -> TlasInstance;
+  ) -> TlasHandle;
 
-  fn delete_top_level_acceleration_structure(&self, id: TlasInstance);
+  fn delete_top_level_acceleration_structure(&self, id: TlasHandle);
 
   fn create_bottom_level_acceleration_structure(
     &self,
     source: &[BottomLevelAccelerationStructureBuildSource],
-  ) -> BottomLevelAccelerationStructureHandle;
+  ) -> BlasHandle;
 
-  fn delete_bottom_level_acceleration_structure(&self, id: BottomLevelAccelerationStructureHandle);
+  fn delete_bottom_level_acceleration_structure(&self, id: BlasHandle);
 }
 impl Clone for Box<dyn GPUAccelerationStructureSystemProvider> {
   fn clone(&self) -> Self {
@@ -127,33 +127,11 @@ impl Clone for Box<dyn GPUAccelerationStructureSystemProvider> {
   }
 }
 
-#[derive(Clone)]
-pub struct TlasInstance(pub(crate) Box<dyn GPUAccelerationStructureInstanceProvider>);
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub struct TlasHandle(pub u32);
 
-impl TlasInstance {
-  pub fn create_invocation_instance(
-    &self,
-    builder: &mut ShaderBindGroupBuilder,
-  ) -> Box<dyn GPUAccelerationStructureInvocationInstance> {
-    self.0.create_invocation_instance(builder)
-  }
-  pub fn bind_pass(&self, builder: &mut BindingBuilder) {
-    self.0.bind_pass(builder);
-  }
-}
-impl std::fmt::Debug for TlasInstance {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    f.debug_tuple("TlasInstance").field(&self.0.id()).finish()
-  }
-}
-impl PartialEq for TlasInstance {
-  fn eq(&self, other: &Self) -> bool {
-    self.0.id() == other.0.id()
-  }
-}
-
-#[derive(Clone, Copy, PartialEq, Debug)]
-pub struct BottomLevelAccelerationStructureHandle(pub u32);
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub struct BlasHandle(pub u32);
 
 /// https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ns-d3d12-d3d12_raytracing_instance_desc
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -163,7 +141,7 @@ pub struct TopLevelAccelerationStructureSourceInstance {
   pub mask: u32,
   pub instance_shader_binding_table_record_offset: u32,
   pub flags: GeometryInstanceFlags, // FLIP_FACING excludes whether transform is front/back
-  pub acceleration_structure_handle: BottomLevelAccelerationStructureHandle,
+  pub acceleration_structure_handle: BlasHandle,
 }
 
 pub trait GPUAccelerationStructureInvocationInstance: DynClone {

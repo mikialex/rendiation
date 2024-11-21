@@ -98,7 +98,7 @@ pub(crate) fn intersect_ray_aabb_gpu(
     .call()
 }
 
-/// returns (hit ? 1 : 0, distance, u, v)
+/// returns (hit, distance, u, v), hit = front hit -> 1, back hit -> -1, miss -> 0
 fn intersect_ray_triangle_cpu(
   origin: Vec3<f32>,
   direction: Vec3<f32>,
@@ -113,6 +113,8 @@ fn intersect_ray_triangle_cpu(
   let e2 = v2 - v0;
   let normal = e1.cross(e2).normalize();
   let b = normal.dot(direction);
+
+  let sign = b.signum();
 
   if cull_enable {
     let pass = cull_back != (b < 0.);
@@ -146,9 +148,9 @@ fn intersect_ray_triangle_cpu(
   if v < 0. || (u + v) > 1. {
     return vec4(0., 0., 0., 0.);
   }
-  vec4(1., t, u, v)
+  vec4(sign, t, u, v)
 }
-/// returns (hit ? 1 : 0, distance, u, v)
+/// returns (hit, distance, u, v), hit = front hit -> 1, back hit -> -1, miss -> 0
 fn intersect_ray_triangle_gpu(
   origin: Node<Vec3<f32>>,
   direction: Node<Vec3<f32>>,
@@ -176,10 +178,12 @@ fn intersect_ray_triangle_gpu(
       let e2 = v2 - v0;
       let normal = e1.cross(e2).normalize();
       let b = normal.dot(direction);
+      let sign = b.sign();
 
       if_by(cull_enable, || {
-        let pass = cull_back.not_equals(b.less_than(val(0.)));
-        if_by(pass.not(), || {
+        let is_front_facing = b.greater_than(val(0.));
+        let pass = cull_back.not_equals(is_front_facing); // cull facing not equal to triangle facing
+        if_by(pass, || {
           cx.do_return(val(vec4(0., 0., 0., 0.)));
         });
       });
@@ -214,7 +218,7 @@ fn intersect_ray_triangle_gpu(
         cx.do_return(val(vec4(0., 0., 0., 0.)));
       });
 
-      cx.do_return(Node::<Vec4<f32>>::from((val(1.), t, u, v)));
+      cx.do_return(Node::<Vec4<f32>>::from((sign, t, u, v)));
     })
     .prepare_parameters()
     .push(origin)

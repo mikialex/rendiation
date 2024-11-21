@@ -106,6 +106,12 @@ impl RayLaunchSizeInvocation {
   }
 }
 
+// 8x8 tiles
+pub(crate) const LAUNCH_ID_TILE_POW_2: u32 = 3;
+pub(crate) const LAUNCH_ID_TILE_SIZE: u32 = 1 << LAUNCH_ID_TILE_POW_2;
+pub(crate) const LAUNCH_ID_TILE_MASK: u32 = LAUNCH_ID_TILE_SIZE - 1;
+pub(crate) const LAUNCH_ID_TILE_AREA: u32 = LAUNCH_ID_TILE_SIZE * LAUNCH_ID_TILE_SIZE;
+
 #[derive(Copy, Clone)]
 pub struct RayLaunchRawInfo {
   launch_id: Node<Vec3<u32>>,
@@ -113,14 +119,31 @@ pub struct RayLaunchRawInfo {
 }
 impl RayLaunchRawInfo {
   pub fn new(linear_id: Node<u32>, launch_size: Node<Vec3<u32>>) -> Self {
-    let launch_linear_idx = linear_id;
-    let launch_x = launch_linear_idx % launch_size.x();
-    let launch_linear_idx = launch_linear_idx / launch_size.x();
-    let launch_y = launch_linear_idx % launch_size.y();
-    let launch_linear_idx = launch_linear_idx / launch_size.y();
-    let launch_z = launch_linear_idx % launch_size.z();
+    use rendiation_shader_library::*;
+
+    fn pad_pow2(input: Node<u32>, mask: u32) -> Node<u32> {
+      (input + val(mask)) & val(!mask)
+    }
+    // todo move to cpu side
+    let launch_padded_w = pad_pow2(launch_size.x(), LAUNCH_ID_TILE_MASK);
+    let launch_padded_h = pad_pow2(launch_size.y(), LAUNCH_ID_TILE_MASK);
+    let page_size = launch_padded_w * launch_padded_h;
+
+    let z = linear_id / page_size;
+    let xy_id = linear_id % page_size;
+    let local_id = xy_id % val(LAUNCH_ID_TILE_AREA);
+    let tile_id = xy_id / val(LAUNCH_ID_TILE_AREA);
+    let tile_w = launch_padded_w >> val(LAUNCH_ID_TILE_POW_2);
+    let tile_h = launch_padded_h >> val(LAUNCH_ID_TILE_POW_2);
+
+    let local_xy = remap_for_wave_reduction_fn(local_id);
+    let tile_x = tile_id % tile_w;
+    let tile_y = tile_id / tile_h;
+    let x = tile_x * val(LAUNCH_ID_TILE_SIZE) + local_xy.x();
+    let y = tile_y * val(LAUNCH_ID_TILE_SIZE) + local_xy.y();
+
     Self {
-      launch_id: (launch_x, launch_y, launch_z).into(),
+      launch_id: (x, y, z).into(),
       launch_size,
     }
   }
@@ -153,6 +176,10 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
         let sbt_task_mapping = self.sbt_task_mapping.load().expand();
         let current_sbt = self.current_sbt.load();
 
+        let skip_closest = (trace_payload.ray_flags
+          & val(RayFlagConfigRaw::RAY_FLAG_SKIP_CLOSEST_HIT_SHADER as u32))
+        .greater_than(val(0));
+
         let ray_sbt_config = RaySBTConfig {
           offset: trace_payload.sbt_ray_config_offset,
           stride: trace_payload.sbt_ray_config_stride,
@@ -175,7 +202,7 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
           &|info| {
             let hit_group = info.hit_ctx.compute_sbt_hit_group(ray_sbt_config);
             let any_shader_index = self.sbt.get_any_handle(current_sbt, hit_group);
-            let r = val(ACCEPT_HIT).make_local_var();
+            let r = val(ANYHIT_BEHAVIOR_ACCEPT_HIT).make_local_var();
 
             let mut switcher = switch_by(any_shader_index);
             for (i, any_hit_shader) in self.info.any_hit_shaders.iter().enumerate() {
@@ -189,34 +216,36 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
         );
 
         if_by(closest_hit.is_some, || {
-          let hit_group = closest_hit
-            .payload
-            .hit_ctx
-            .compute_sbt_hit_group(ray_sbt_config);
+          if_by(skip_closest.not(), || {
+            let hit_group = closest_hit
+              .payload
+              .hit_ctx
+              .compute_sbt_hit_group(ray_sbt_config);
 
-          let closest_payload = ENode::<RayClosestHitCtxPayload> {
-            ray_info: trace_payload_all_expand.trace_call,
-            hit_ctx: hit_ctx_storage_from_hit_ctx(&closest_hit.payload.hit_ctx),
-          }
-          .construct();
+            let closest_payload = ENode::<RayClosestHitCtxPayload> {
+              ray_info: trace_payload_all_expand.trace_call,
+              hit_ctx: hit_ctx_storage_from_hit_ctx(&closest_hit.payload.hit_ctx),
+            }
+            .construct();
 
-          let closest_shader_index = self.sbt.get_closest_handle(current_sbt, hit_group);
-          let closest_task_index = sbt_task_mapping.get_closest_task(closest_shader_index);
-          let sub_task_id = spawn_dynamic(
-            &self.info.closest_tasks,
-            &self.downstream,
-            closest_task_index,
-            closest_payload.cast_untyped_node(),
-            &RayClosestHitCtxPayload::sized_ty(),
-            self.untyped_payloads,
-            trace_payload.payload_ref,
-            ctx.generate_self_as_parent(),
-          );
+            let closest_shader_index = self.sbt.get_closest_handle(current_sbt, hit_group);
+            let closest_task_index = sbt_task_mapping.get_closest_task(closest_shader_index);
+            let sub_task_id = spawn_dynamic(
+              &self.info.closest_tasks,
+              &self.downstream,
+              closest_task_index,
+              closest_payload.cast_untyped_node(),
+              &RayClosestHitCtxPayload::sized_ty(),
+              self.untyped_payloads,
+              trace_payload.payload_ref,
+              ctx.generate_self_as_parent(),
+            );
 
-          let ty = TraceTaskSelfPayload::storage_node_sub_task_ty_field_ptr(trace_payload_all);
-          ty.store(closest_task_index);
-          let id = TraceTaskSelfPayload::storage_node_sub_task_id_field_ptr(trace_payload_all);
-          id.store(sub_task_id);
+            let ty = TraceTaskSelfPayload::storage_node_sub_task_ty_field_ptr(trace_payload_all);
+            ty.store(closest_task_index);
+            let id = TraceTaskSelfPayload::storage_node_sub_task_id_field_ptr(trace_payload_all);
+            id.store(sub_task_id);
+          });
         })
         .else_by(|| {
           let missing_payload = ENode::<RayMissHitCtxPayload> {

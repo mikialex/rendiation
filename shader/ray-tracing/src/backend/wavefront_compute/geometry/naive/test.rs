@@ -1,8 +1,85 @@
+use rendiation_mesh_core::AttributeIndexFormat;
+use rendiation_mesh_generator::*;
+
 use crate::backend::wavefront_compute::geometry::naive::*;
+
+pub(crate) const TEST_TLAS_IDX: u32 = 3;
+pub(crate) const TEST_ANYHIT_BEHAVIOR: u32 = ANYHIT_BEHAVIOR_ACCEPT_HIT; // | ANYHIT_BEHAVIOR_END_SEARCH;
 
 pub(crate) fn init_default_acceleration_structure(
   system: &dyn GPUAccelerationStructureSystemProvider,
-) {
+) -> Vec<TlasHandle> {
+  fn add_blas_source(
+    vec: &mut Vec<BottomLevelAccelerationStructureBuildSource>,
+    surface: &impl ParametricSurface,
+    config: TessellationConfig,
+    geometry_flags: GeometryFlags,
+  ) {
+    let attribute_mesh = build_attributes_mesh(|builder| {
+      builder.triangulate_parametric(surface, config, true);
+    })
+    .build();
+    assert_eq!(
+      attribute_mesh.mode,
+      rendiation_mesh_core::PrimitiveTopology::TriangleList
+    );
+    assert!(attribute_mesh.indices.is_some());
+    let vertices = attribute_mesh.get_position();
+    let (format, indices) = attribute_mesh.indices.as_ref().unwrap();
+    let vertices = vertices.read().visit_slice::<Vec3<f32>>().unwrap().to_vec();
+    let indices = match format {
+      AttributeIndexFormat::Uint16 => indices
+        .read()
+        .visit_slice::<u16>()
+        .unwrap()
+        .iter()
+        .map(|i| *i as u32)
+        .collect(),
+      AttributeIndexFormat::Uint32 => indices.read().visit_slice::<u32>().unwrap().to_vec(),
+    };
+
+    let source = BottomLevelAccelerationStructureBuildSource {
+      geometry: BottomLevelAccelerationStructureBuildBuffer::Triangles {
+        positions: vertices,
+        indices: Some(indices),
+      },
+      flags: geometry_flags,
+    };
+
+    vec.push(source);
+  }
+  fn build_blas(
+    system: &dyn GPUAccelerationStructureSystemProvider,
+    sources: &[(&impl ParametricSurface, TessellationConfig)],
+  ) -> BlasHandle {
+    let mut blas_sources = vec![];
+    for (surface, config) in sources {
+      add_blas_source(&mut blas_sources, *surface, *config, GEOMETRY_FLAG_OPAQUE);
+    }
+    system.create_bottom_level_acceleration_structure(&blas_sources)
+  }
+
+  #[allow(unused)]
+  let sphere = build_blas(
+    system,
+    &[(
+      &SphereMeshParameter::default().make_surface(),
+      TessellationConfig { u: 16, v: 8 },
+    )],
+  );
+  #[allow(unused)]
+  let torus = build_blas(
+    system,
+    &[(
+      &TorusMeshParameter {
+        radius: 1.0,
+        tube_radius: 0.2,
+      }
+      .make_surface(),
+      TessellationConfig { u: 32, v: 8 },
+    )],
+  );
+
   #[rustfmt::skip]
   const CUBE_POSITION: [f32; 72] = [
      0.5,  0.5,  0.5, -0.5,  0.5,  0.5, -0.5, -0.5,  0.5,  0.5, -0.5,  0.5, // v0,v1,v2,v3 (front)
@@ -21,16 +98,18 @@ pub(crate) fn init_default_acceleration_structure(
     16,17,18,  18,19,16,    // v7-v4-v3, v3-v2-v7 (bottom)
     20,21,22,  22,23,20,    // v4-v7-v6, v6-v5-v4 (back)
   ];
-
-  let blas_handle = system.create_bottom_level_acceleration_structure(&[
+  let cube_position = CUBE_POSITION
+    .chunks_exact(3)
+    .map(|abc| vec3(abc[0], abc[1], abc[2]))
+    .collect();
+  let cube_index = CUBE_INDEX.map(|i| i as u32).into_iter().collect();
+  #[allow(unused)]
+  let cube = system.create_bottom_level_acceleration_structure(&[
     BottomLevelAccelerationStructureBuildSource {
       flags: GEOMETRY_FLAG_OPAQUE,
       geometry: BottomLevelAccelerationStructureBuildBuffer::Triangles {
-        positions: CUBE_POSITION
-          .chunks_exact(3)
-          .map(|abc| vec3(abc[0], abc[1], abc[2]))
-          .collect(),
-        indices: CUBE_INDEX.map(|i| i as u32).into_iter().collect(),
+        positions: cube_position,
+        indices: Some(cube_index),
       },
     },
   ]);
@@ -38,7 +117,7 @@ pub(crate) fn init_default_acceleration_structure(
   fn add_tlas_source(
     vec: &mut Vec<TopLevelAccelerationStructureSourceInstance>,
     transform: Mat4<f32>,
-    blas_handle: &BottomLevelAccelerationStructureHandle,
+    blas_handle: &BlasHandle,
   ) {
     vec.push(TopLevelAccelerationStructureSourceInstance {
       transform,
@@ -49,45 +128,92 @@ pub(crate) fn init_default_acceleration_structure(
       acceleration_structure_handle: *blas_handle,
     });
   }
+  fn build_tlas(
+    system: &dyn GPUAccelerationStructureSystemProvider,
+    sources: &[(Mat4<f32>, &BlasHandle)],
+  ) -> TlasHandle {
+    let mut vec = vec![];
+    for (transform, blas_handle) in sources {
+      add_tlas_source(&mut vec, *transform, blas_handle);
+    }
+    system.create_top_level_acceleration_structure(&vec)
+  }
 
-  let mut sources = vec![];
+  let mut sources0 = vec![];
   for i in -2..=2 {
     for j in -2..=2 {
       add_tlas_source(
-        &mut sources,
+        &mut sources0,
         Mat4::translate((i as f32 * 1.5, j as f32 * 1.5, -10.)),
-        &blas_handle,
+        &cube,
       );
     }
   }
   add_tlas_source(
-    &mut sources,
+    &mut sources0,
     Mat4::translate((0., 4.5, -10.)) * Mat4::scale((5., 1., 1.)),
-    &blas_handle,
+    &cube,
   );
   add_tlas_source(
-    &mut sources,
+    &mut sources0,
     Mat4::translate((0., -4.5, -10.))
       * Mat4::rotate_y(std::f32::consts::PI)
       * Mat4::scale((5., 1., 1.)),
-    &blas_handle,
+    &cube,
   );
   add_tlas_source(
-    &mut sources,
+    &mut sources0,
     Mat4::translate((4.5, -4.5, -10.))
       * Mat4::rotate_y(std::f32::consts::PI * 0.5)
       * Mat4::scale((5., 1., 1.)),
-    &blas_handle,
+    &cube,
   );
   add_tlas_source(
-    &mut sources,
+    &mut sources0,
     Mat4::translate((-4.5, -4.5, -10.))
       * Mat4::rotate_y(std::f32::consts::PI * -0.5)
       * Mat4::scale((5., 1., 1.)),
-    &blas_handle,
+    &cube,
+  );
+  let tlas0 = system.create_top_level_acceleration_structure(&sources0);
+
+  let tlas1_sources = (0usize..6)
+    .map(|i| {
+      let angle = i as f32 / 6.0 * std::f32::consts::PI * 2.0;
+      let (sin, cos) = angle.sin_cos();
+      (
+        Mat4::translate((sin * 4., cos * 4., -5.))
+          * Mat4::rotate_z(-angle)
+          * Mat4::scale((3., 0.5, 0.5)),
+        &cube,
+      )
+    })
+    .collect::<Vec<_>>();
+  let tlas1 = build_tlas(system, &tlas1_sources);
+
+  let tlas2 = build_tlas(
+    system,
+    &[(
+      Mat4::translate((0., 0., -10.)) * Mat4::scale((5., 5., 5.)) * Mat4::rotate_x(-0.5),
+      &torus,
+    )],
   );
 
-  system.create_top_level_acceleration_structure(&sources);
+  let mut sources3 = vec![];
+  for i in -2..=2 {
+    for j in -2..=2 {
+      for k in -2..=2 {
+        add_tlas_source(
+          &mut sources3,
+          Mat4::translate((i as f32 * 1.5, j as f32 * 1.5, -8. + k as f32 * 1.5)),
+          &cube,
+        );
+      }
+    }
+  }
+  let tlas3 = system.create_top_level_acceleration_structure(&sources3);
+
+  vec![tlas0, tlas1, tlas2, tlas3]
 }
 
 #[test]
@@ -117,6 +243,8 @@ fn test_cpu_triangle() {
   payload.ray_flags = RayFlagConfigRaw::RAY_FLAG_CULL_BACK_FACING_TRIANGLES as u32;
   payload.cull_mask = u32::MAX;
   payload.range = vec2(0., FAR);
+  payload.tlas_idx = TEST_TLAS_IDX;
+  payload.ray_origin = ORIGIN;
 
   let mut out = Box::new([[(FAR, 0); W]; H]);
 
@@ -127,18 +255,14 @@ fn test_cpu_triangle() {
       let target = vec3(x, y, -1.); // fov = 90 deg
       let direction = (target - ORIGIN).normalize();
 
-      payload.ray_origin = ORIGIN;
       payload.ray_direction = direction;
       cpu_data.traverse(
-        &mut payload,
+        &payload,
         &mut |_geometry_id, primitive_id, distance, _position| {
           let (d, id) = &mut out[j][i];
-          if distance < *d {
-            *d = distance;
-            *id = primitive_id + 1;
-            return true;
-          }
-          false
+          *d = distance;
+          *id = primitive_id % PRIMITIVE_IDX_MAX + 1;
+          TEST_ANYHIT_BEHAVIOR
         },
       );
     }
@@ -279,7 +403,7 @@ fn test_gpu_triangle() {
             launch_id,
             launch_size,
             payload_ref: val(0),
-            tlas_idx: val(0), // todo support tlas selection
+            tlas_idx: val(TEST_TLAS_IDX),
             ray_flags: val(ray_flags),
             cull_mask: val(u32::MAX),
             sbt_ray_config_offset: val(0),
@@ -290,11 +414,12 @@ fn test_gpu_triangle() {
             range: val(vec2(0.01, FAR)),
           };
 
-          // todo how to access user payload?
-          let output =
-            traversable.traverse(payload, &|_ctx, _reporter| {}, &|_ctx| val(ACCEPT_HIT));
+          let output = traversable.traverse(payload, &|_ctx, _reporter| {}, &|_ctx| {
+            val(TEST_ANYHIT_BEHAVIOR)
+          });
           (
-            output.payload.hit_ctx.primitive_id + output.is_some.into_u32(),
+            output.is_some.into_u32()
+              * (output.payload.hit_ctx.primitive_id % val(PRIMITIVE_IDX_MAX) + val(1)),
             valid,
           )
         })
