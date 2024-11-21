@@ -86,7 +86,7 @@ pub struct BottomLevelAccelerationStructureBuildSource {
 pub enum BottomLevelAccelerationStructureBuildBuffer {
   Triangles {
     positions: Vec<Vec3<f32>>,
-    indices: Vec<u32>, // todo support non-indexed
+    indices: Option<Vec<u32>>,
   },
   AABBs {
     aabbs: Vec<[f32; 6]>,

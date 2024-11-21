@@ -150,6 +150,13 @@ impl NaiveSahBvhSource {
             let primitive_start = geometry_indices.len() as u32 / 3;
             let vertex_start = geometry_vertices.len() as u32;
 
+            use std::borrow::Cow;
+            // if non-indexed, create a Vec<u32> as indices. this will be memory consuming.
+            let indices = match indices.as_ref() {
+              None => Cow::Owned((0..positions.len() as u32).collect::<Vec<u32>>()),
+              Some(indices) => Cow::Borrowed(indices.as_slice()),
+            };
+
             geometry_vertices.extend_from_slice(positions);
 
             let boxes = indices.chunks_exact(3).map(|triangle| {

@@ -41,7 +41,7 @@ pub(crate) fn init_default_acceleration_structure(
     let source = BottomLevelAccelerationStructureBuildSource {
       geometry: BottomLevelAccelerationStructureBuildBuffer::Triangles {
         positions: vertices,
-        indices,
+        indices: Some(indices),
       },
       flags: geometry_flags,
     };
@@ -109,7 +109,7 @@ pub(crate) fn init_default_acceleration_structure(
       flags: GEOMETRY_FLAG_OPAQUE,
       geometry: BottomLevelAccelerationStructureBuildBuffer::Triangles {
         positions: cube_position,
-        indices: cube_index,
+        indices: Some(cube_index),
       },
     },
   ]);
