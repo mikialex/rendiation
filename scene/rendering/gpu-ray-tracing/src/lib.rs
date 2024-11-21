@@ -12,8 +12,8 @@ use rendiation_scene_rendering_gpu_base::*;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 
-mod acce;
-use acce::*;
+mod acceleration_structure;
+pub use acceleration_structure::*;
 
 mod feature;
 pub use feature::*;

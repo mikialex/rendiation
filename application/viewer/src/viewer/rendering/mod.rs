@@ -18,6 +18,7 @@ pub struct Viewer3dRenderingCtx {
   rendering_resource: ReactiveQueryJoinUpdater,
   renderer_impl: GLESRenderSystem,
   rtx_ao_renderer_impl: RayTracingAORenderSystem,
+  enable_rtx_ao_rendering: bool,
   lighting: LightSystem,
   pool: AttachmentPool,
   gpu: GPU,
@@ -35,12 +36,16 @@ impl Viewer3dRenderingCtx {
     let mut lighting = LightSystem::new(&gpu);
     lighting.register_resource(&mut rendering_resource, &gpu);
 
+    let mut rtx_ao_renderer_impl =
+      RayTracingAORenderSystem::new(Box::new(GPUWaveFrontComputeRaytracingSystem::new(&gpu)));
+
+    rtx_ao_renderer_impl.register_resource(&mut rendering_resource, &gpu);
+
     Self {
       rendering_resource,
       renderer_impl,
-      rtx_ao_renderer_impl: RayTracingAORenderSystem::new(Box::new(
-        GPUWaveFrontComputeRaytracingSystem::new(&gpu),
-      )),
+      rtx_ao_renderer_impl,
+      enable_rtx_ao_rendering: false,
       frame_logic: ViewerFrameLogic::new(&gpu),
       lighting,
       gpu,
@@ -52,6 +57,7 @@ impl Viewer3dRenderingCtx {
   }
 
   pub fn egui(&mut self, ui: &mut egui::Ui) {
+    ui.checkbox(&mut self.enable_rtx_ao_rendering, "enable_rtx_ao_rendering");
     self.lighting.egui(ui);
     self.frame_logic.egui(ui);
   }
@@ -81,6 +87,7 @@ impl Viewer3dRenderingCtx {
   pub fn render(&mut self, target: RenderTargetView, content: &Viewer3dSceneCtx, cx: &mut Context) {
     let mut resource = self.rendering_resource.poll_update_all(cx);
     let renderer = self.renderer_impl.create_impl(&mut resource);
+    let rtx_ao_renderer = self.rtx_ao_renderer_impl.create_impl(&mut resource);
 
     let render_target = if self.expect_read_back_for_next_render_result
       && matches!(target, RenderTargetView::SurfaceTexture { .. })
@@ -97,16 +104,22 @@ impl Viewer3dRenderingCtx {
 
     let mut ctx = FrameCtx::new(&self.gpu, target.size(), &self.pool);
 
-    let lighting = self.lighting.create_impl(&mut resource, &mut ctx);
+    if self.enable_rtx_ao_rendering {
+      // todo, rtx logic
 
-    self.frame_logic.render(
-      &mut ctx,
-      renderer.as_ref(),
-      &lighting,
-      content,
-      &render_target,
-      self.current_camera_view_projection_inv,
-    );
+      // rtx_ao_renderer.render(&mut ctx, content.scene, content.main_camera, ao_buffer);
+    } else {
+      let lighting = self.lighting.create_impl(&mut resource, &mut ctx);
+
+      self.frame_logic.render(
+        &mut ctx,
+        renderer.as_ref(),
+        &lighting,
+        content,
+        &render_target,
+        self.current_camera_view_projection_inv,
+      );
+    }
 
     // do extra copy to surface texture
     if self.expect_read_back_for_next_render_result

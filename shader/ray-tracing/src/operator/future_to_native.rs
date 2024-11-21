@@ -1,7 +1,16 @@
 use crate::*;
 
 #[derive(Clone)]
-pub struct ShaderFutureProviderIntoTraceOperator<T: ShaderFutureProvider>(pub T);
+pub struct ShaderFutureProviderIntoTraceOperator<T>(pub T);
+
+impl<T: ShaderHashProvider> ShaderHashProvider for ShaderFutureProviderIntoTraceOperator<T> {
+  fn hash_type_info(&self, hasher: &mut PipelineHasher) {
+    self.0.hash_type_info(hasher)
+  }
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.0.hash_pipeline(hasher)
+  }
+}
 
 impl<T: ShaderFutureProvider> ShaderFutureProvider for ShaderFutureProviderIntoTraceOperator<T> {
   type Output = T::Output;
