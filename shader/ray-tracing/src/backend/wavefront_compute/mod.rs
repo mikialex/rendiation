@@ -111,13 +111,14 @@ impl RayTracingEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
 
     let mut encoder = self.gpu.create_encoder();
     let mut cx = DeviceParallelComputeCtx::new(&self.gpu, &mut encoder);
-    fn align_8(input: u32) -> u32 {
-      (input + 0b111) & !0b111
-    }
-    let w_align = align_8(size.0);
-    let h_align = align_8(size.1);
 
-    let required_size = (w_align * h_align * size.2) as usize;
+    fn pad_pow2(input: u32, mask: u32) -> u32 {
+      (input + mask) & !mask
+    }
+    let w_pad = pad_pow2(size.0, LAUNCH_ID_TILE_MASK);
+    let h_pad = pad_pow2(size.1, LAUNCH_ID_TILE_MASK);
+
+    let required_size = (w_pad * h_pad * size.2) as usize;
 
     let pipeline = pipeline.get_or_compile_executor(
       &mut cx,

@@ -106,6 +106,12 @@ impl RayLaunchSizeInvocation {
   }
 }
 
+// 8x8 tiles
+pub(crate) const LAUNCH_ID_TILE_POW_2: u32 = 3;
+pub(crate) const LAUNCH_ID_TILE_SIZE: u32 = 1 << LAUNCH_ID_TILE_POW_2;
+pub(crate) const LAUNCH_ID_TILE_MASK: u32 = LAUNCH_ID_TILE_SIZE - 1;
+pub(crate) const LAUNCH_ID_TILE_AREA: u32 = LAUNCH_ID_TILE_SIZE * LAUNCH_ID_TILE_SIZE;
+
 #[derive(Copy, Clone)]
 pub struct RayLaunchRawInfo {
   launch_id: Node<Vec3<u32>>,
@@ -115,26 +121,26 @@ impl RayLaunchRawInfo {
   pub fn new(linear_id: Node<u32>, launch_size: Node<Vec3<u32>>) -> Self {
     use rendiation_shader_library::*;
 
-    fn align_8(input: Node<u32>) -> Node<u32> {
-      (input + val(0b111)) & val(!0b111)
+    fn pad_pow2(input: Node<u32>, mask: u32) -> Node<u32> {
+      (input + val(mask)) & val(!mask)
     }
-    // todo cpu side calculation
-    let launch_padded_w = align_8(launch_size.x());
-    let launch_padded_h = align_8(launch_size.y());
+    // todo move to cpu side
+    let launch_padded_w = pad_pow2(launch_size.x(), LAUNCH_ID_TILE_MASK);
+    let launch_padded_h = pad_pow2(launch_size.y(), LAUNCH_ID_TILE_MASK);
     let page_size = launch_padded_w * launch_padded_h;
 
     let z = linear_id / page_size;
     let xy_id = linear_id % page_size;
-    let local_id = xy_id % val(64);
-    let tile_id = xy_id / val(64);
-    let tile_w = launch_padded_w >> val(3);
-    let tile_h = launch_padded_h >> val(3);
+    let local_id = xy_id % val(LAUNCH_ID_TILE_AREA);
+    let tile_id = xy_id / val(LAUNCH_ID_TILE_AREA);
+    let tile_w = launch_padded_w >> val(LAUNCH_ID_TILE_POW_2);
+    let tile_h = launch_padded_h >> val(LAUNCH_ID_TILE_POW_2);
 
     let local_xy = remap_for_wave_reduction_fn(local_id);
     let tile_x = tile_id % tile_w;
     let tile_y = tile_id / tile_h;
-    let x = tile_x * val(8) + local_xy.x();
-    let y = tile_y * val(8) + local_xy.y();
+    let x = tile_x * val(LAUNCH_ID_TILE_SIZE) + local_xy.x();
+    let y = tile_y * val(LAUNCH_ID_TILE_SIZE) + local_xy.y();
 
     Self {
       launch_id: (x, y, z).into(),
