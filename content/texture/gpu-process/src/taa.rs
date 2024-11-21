@@ -85,7 +85,6 @@ impl TAA {
         .draw_quad(),
       );
 
-    // todo, fix this, this return the last frame result
     // note, if the history size different than current, it's still works fine
     // and the history will be correct update to new size
     std::mem::swap(history, &mut resolve_target);
