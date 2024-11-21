@@ -78,6 +78,7 @@ impl RtxCameraRenderComponent for DefaultRtxCameraRenderComponent {
 }
 
 pub trait RtxCameraRenderInvocation {
+  // normalized position is ranged from 0. to 1.
   fn generate_ray(&self, normalized_position: Node<Vec2<f32>>) -> ShaderRay;
 }
 
@@ -87,6 +88,20 @@ pub struct DefaultRtxCameraInvocation {
 
 impl RtxCameraRenderInvocation for DefaultRtxCameraInvocation {
   fn generate_ray(&self, normalized_position: Node<Vec2<f32>>) -> ShaderRay {
-    todo!()
+    let camera = self.camera.load().expand(); // todo avoid unnecessary load
+    let ndc: Node<Vec4<_>> = (
+      normalized_position * val(1.) - val(Vec2::one()),
+      val(1.),
+      val(1.),
+    )
+      .into();
+    let unprojected = camera.view_projection_inv * ndc;
+    let unprojected = unprojected.xyz() / unprojected.w().splat();
+
+    let origin = camera.world.position();
+
+    let direction = (unprojected - origin).normalize();
+
+    ShaderRay { origin, direction }
   }
 }
