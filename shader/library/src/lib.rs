@@ -99,3 +99,16 @@ pub fn shader_depth_bias(
 
   bias.load()
 }
+
+/// map 6bit id to 8x8 grid point
+#[shader_fn]
+pub fn remap_for_wave_reduction(a: Node<u32>) -> Node<Vec2<u32>> {
+  let x = a
+    .extract_bits(val(2), val(3))
+    .insert_bits(a, val(0), val(1));
+  let n = a.extract_bits(val(1), val(2));
+  let y = a
+    .extract_bits(val(3), val(3))
+    .insert_bits(n, val(0), val(2));
+  (x, y).into()
+}
