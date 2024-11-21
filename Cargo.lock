@@ -4001,6 +4001,7 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "database",
+ "dyn-clone",
  "dyn-downcast",
  "fast-hash-collection",
  "log",
