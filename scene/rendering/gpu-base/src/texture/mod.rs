@@ -43,6 +43,11 @@ impl TextureGPUSystemSource {
       source.register(Box::new(ReactiveQueryBoxAnyResult(texture_system)))
     };
   }
+
+  pub fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
+    source.deregister(&mut self.token);
+  }
+
   pub fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> GPUTextureBindingSystem {
     *res
       .take_result(self.token)
@@ -74,11 +79,11 @@ impl<'a> ShaderPassBuilder for GPUTextureSystemAsRenderComponent<'a> {
   }
 }
 impl<'a> GraphicsShaderProvider for GPUTextureSystemAsRenderComponent<'a> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder)  {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     self.0.build(builder)
   }
 
-  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder)  {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     self.0.post_build(builder)
   }
 }

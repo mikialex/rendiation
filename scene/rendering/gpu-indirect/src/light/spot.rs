@@ -58,6 +58,10 @@ impl RenderImplProvider<Box<dyn LightingComputeComponent>> for SpotLightStorageL
     self.token = source.register_multi_updater(buffer.inner);
   }
 
+  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
+    source.deregister(&mut self.token);
+  }
+
   fn create_impl(
     &self,
     res: &mut ConcurrentStreamUpdateResult,

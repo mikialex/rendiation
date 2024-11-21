@@ -42,6 +42,9 @@ impl RenderImplProvider<Box<dyn LightingComputeComponent>> for PointLightUniform
     let uniform = point_uniform_array(cx);
     self.token = source.register_multi_updater(uniform);
   }
+  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
+    source.deregister(&mut self.token);
+  }
 
   fn create_impl(
     &self,

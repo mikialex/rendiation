@@ -115,7 +115,7 @@ where
   /// filter map<k, v> by v
   fn collective_filter<F>(self, f: F) -> impl ReactiveQuery<Key = Self::Key, Value = Self::Value>
   where
-    F: Fn(Self::Value) -> bool + Copy + Send + Sync + 'static,
+    F: Fn(Self::Value) -> bool + Clone + Send + Sync + 'static,
   {
     ReactiveKVFilter {
       inner: self,

@@ -16,6 +16,10 @@ impl ReactiveQueryJoinUpdater {
     UpdateResultToken(token)
   }
 
+  pub fn deregister(&mut self, token: &mut UpdateResultToken) {
+    self.update_logic.remove(&std::mem::take(token).0);
+  }
+
   pub fn register_multi_updater<T: 'static>(
     &mut self,
     updater: MultiUpdateContainer<T>,

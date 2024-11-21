@@ -5,7 +5,21 @@ pub struct IndirectRenderSystem {
   pub texture_system: TextureGPUSystemSource,
   pub camera: Box<dyn RenderImplProvider<Box<dyn CameraRenderImpl>>>,
   pub scene_model_impl: Box<dyn RenderImplProvider<Box<dyn IndirectBatchSceneModelRenderer>>>,
-  // pub grouper: Box<dyn RenderImplProvider<Box<dyn IndirectSceneDrawBatchGrouper>>>,
+}
+
+pub fn build_default_gles_render_system(gpu: &GPU) -> IndirectRenderSystem {
+  IndirectRenderSystem {
+    model_lookup: Default::default(),
+    texture_system: Default::default(),
+    camera: todo!(),
+    scene_model_impl: Box::new(IndirectPreferredComOrderRendererProvider {
+      node: Box::new(DefaultIndirectNodeRenderImplProvider::default()),
+      model_impl: vec![Box::new(DefaultSceneStdModelRendererProvider {
+        materials: todo!(),
+        shapes: vec![Box::new(MeshBindlessGPUSystemSource::new(gpu))],
+      })],
+    }),
+  }
 }
 
 impl RenderImplProvider<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>>
@@ -18,6 +32,12 @@ impl RenderImplProvider<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>>
     self.model_lookup = source.register_multi_reactive_query(model_lookup);
     self.camera.register_resource(source, cx);
     self.scene_model_impl.register_resource(source, cx);
+  }
+
+  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
+    self.texture_system.deregister_resource(source);
+    self.camera.deregister_resource(source);
+    self.scene_model_impl.deregister_resource(source);
   }
 
   fn create_impl(

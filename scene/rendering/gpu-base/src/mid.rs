@@ -4,7 +4,10 @@ only_vertex!(IndirectSceneModelId, u32);
 
 pub trait DrawCommandBuilder: ShaderHashProvider + ShaderPassBuilder + DynClone {
   fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> DrawCommand;
-  fn build_invocation(&self) -> Box<dyn DrawCommandBuilderInvocation>;
+  fn build_invocation(
+    &self,
+    cx: &mut ShaderComputePipelineBuilder,
+  ) -> Box<dyn DrawCommandBuilderInvocation>;
 }
 dyn_clone::clone_trait_object!(DrawCommandBuilder);
 
@@ -159,7 +162,7 @@ impl DeviceInvocationComponent<Node<DrawIndexedIndirect>> for DrawCommandGenerat
   ) -> Box<dyn DeviceInvocation<Node<DrawIndexedIndirect>>> {
     Box::new(DrawCommandGeneratorInvocation {
       scene_models: self.scene_models.build_shader(builder),
-      generator: self.generator.build_invocation(),
+      generator: self.generator.build_invocation(builder),
     })
   }
 

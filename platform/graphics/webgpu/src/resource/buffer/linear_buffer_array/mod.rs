@@ -87,7 +87,7 @@ pub trait ResizableLinearStorage: LinearStorageBase {
 
   fn with_grow_behavior(
     self,
-    resizer: impl Fn(ResizeInput) -> Option<u32> + 'static,
+    resizer: impl Fn(ResizeInput) -> Option<u32> + 'static + Send + Sync,
   ) -> CustomGrowBehaviorMaintainer<Self> {
     CustomGrowBehaviorMaintainer {
       inner: self,

@@ -24,6 +24,12 @@ impl RenderImplProvider<Box<dyn LightingComputeComponent>> for LightArrayRenderI
       .iter_mut()
       .for_each(|l| l.register_resource(source, cx));
   }
+  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
+    self
+      .lights
+      .iter_mut()
+      .for_each(|l| l.deregister_resource(source));
+  }
 
   fn create_impl(
     &self,
