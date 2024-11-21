@@ -27,10 +27,13 @@ rendiation-scene-gltf-exporter = { path = "../../scene/io/gltf/exporter" }
 rendiation-scene-gltf-loader = { path = "../../scene/io/gltf/loader" }
 rendiation-scene-obj-loader = { path = "../../scene/io/obj/loader" }
 rendiation-scene-rendering-gpu-gles = { path = "../../scene/rendering/gpu-gles" }
+rendiation-scene-rendering-gpu-indirect = { path = "../../scene/rendering/gpu-indirect" }
+rendiation-scene-rendering-gpu-ray-tracing = { path = "../../scene/rendering/gpu-ray-tracing" }
 rendiation-texture-gpu-process = { path = "../../content/texture/gpu-process" }
 rendiation-geometry = { path = "../../math/geometry" }
 rendiation-mesh-core = { path = "../../content/mesh/core" }
 rendiation-mesh-generator = { path = "../../content/mesh/generator" }
+rendiation-device-ray-tracing = { path = "../../shader/ray-tracing" }
 rendiation-controller = { path = "../../extension/controller" }
 rendiation-scene-core = { path = "../../scene/core" }
 rendiation-shader-api = { path = "../../shader/api" }

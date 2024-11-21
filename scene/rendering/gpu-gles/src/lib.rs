@@ -16,8 +16,6 @@ mod material;
 pub use material::*;
 mod mesh;
 pub use mesh::*;
-mod camera;
-pub use camera::*;
 mod node;
 pub use node::*;
 mod light;

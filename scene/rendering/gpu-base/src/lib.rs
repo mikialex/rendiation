@@ -17,7 +17,6 @@
 //!   }
 //! }
 //! ```
-
 use std::mem::ManuallyDrop;
 
 use database::*;
@@ -31,7 +30,10 @@ use rendiation_texture_core::*;
 use rendiation_texture_gpu_base::*;
 use rendiation_texture_gpu_system::*;
 use rendiation_webgpu::*;
+use rendiation_webgpu_reactive_utils::*;
 
+mod camera;
+pub use camera::*;
 mod light;
 pub use light::*;
 mod texture;
@@ -135,25 +137,6 @@ pub trait SceneRenderer: SceneModelRenderer {
   /// direct camera gpu manipulation, this is useful when some effect pipeline
   /// requires camera manipulation such as TAA.
   fn get_camera_gpu(&self) -> &dyn CameraRenderImpl;
-}
-
-pub trait CameraRenderImpl {
-  fn make_component(
-    &self,
-    idx: EntityHandle<SceneCameraEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>>;
-
-  fn make_dep_component(
-    &self,
-    idx: EntityHandle<SceneCameraEntity>,
-  ) -> Option<Box<dyn RenderDependencyComponent + '_>>;
-
-  fn setup_camera_jitter(
-    &self,
-    camera: EntityHandle<SceneCameraEntity>,
-    jitter: Vec2<f32>,
-    queue: &GPUQueue,
-  );
 }
 
 pub trait LightsRenderImpl {

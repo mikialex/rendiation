@@ -12,6 +12,7 @@ pub use ctx::*;
 
 use crate::*;
 
+#[derive(Clone)]
 pub struct GPUWaveFrontComputeRaytracingSystem {
   gpu: GPU,
   tlas_sys: Box<dyn GPUAccelerationStructureSystemProvider>,

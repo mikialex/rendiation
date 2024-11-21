@@ -1,5 +1,24 @@
 use crate::*;
 
+pub trait CameraRenderImpl {
+  fn make_component(
+    &self,
+    idx: EntityHandle<SceneCameraEntity>,
+  ) -> Option<Box<dyn RenderComponent + '_>>;
+
+  fn make_dep_component(
+    &self,
+    idx: EntityHandle<SceneCameraEntity>,
+  ) -> Option<Box<dyn RenderDependencyComponent + '_>>;
+
+  fn setup_camera_jitter(
+    &self,
+    camera: EntityHandle<SceneCameraEntity>,
+    jitter: Vec2<f32>,
+    queue: &GPUQueue,
+  );
+}
+
 pub type CameraUniforms =
   UniformUpdateContainer<EntityHandle<SceneCameraEntity>, CameraGPUTransform>;
 

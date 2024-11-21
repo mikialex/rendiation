@@ -1,10 +1,100 @@
 use crate::*;
 
-pub struct SceneRayTracingAOFeature {
+pub struct RayTracingAORenderSystem {
+  camera: DefaultRtxCameraRenderImplProvider,
+  sbt: UpdateResultToken,
+  scene_tlas: UpdateResultToken,
+  rtx_system: Box<dyn GPURaytracingSystem>,
+  rtx_device: Box<dyn GPURayTracingDeviceProvider>,
+  rtx_acc: Box<dyn GPUAccelerationStructureSystemProvider>,
   executor: GPURaytracingPipelineExecutor,
-  desc: GPURaytracingPipelineAndBindingSource,
+}
+
+impl RayTracingAORenderSystem {
+  pub fn new(rtx: Box<dyn GPURaytracingSystem>) -> Self {
+    let rtx_device = rtx.create_raytracing_device();
+    Self {
+      camera: Default::default(),
+      scene_tlas: Default::default(),
+      sbt: Default::default(),
+      executor: rtx_device.create_raytracing_pipeline_executor(),
+      rtx_acc: rtx.create_acceleration_structure_system(),
+      rtx_device,
+      rtx_system: rtx,
+    }
+  }
+}
+
+impl RenderImplProvider<SceneRayTracingAORenderer> for RayTracingAORenderSystem {
+  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
+    self.scene_tlas = source.register_reactive_query(scene_to_tlas(self.rtx_acc.clone()));
+
+    // todo check mesh count grow
+    let sbt = MultiUpdateContainer::new(self.rtx_device.create_sbt(2000, 2));
+    // todo, add sbt maintain logic here
+    // .with_source(source);
+
+    self.sbt = source.register_multi_updater(sbt);
+    self.camera.register_resource(source, cx);
+  }
+
+  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
+    source.deregister(&mut self.scene_tlas);
+    source.deregister(&mut self.sbt);
+    self.camera.deregister_resource(source);
+  }
+
+  fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> SceneRayTracingAORenderer {
+    SceneRayTracingAORenderer {
+      executor: self.executor.clone(),
+      // sbt: res.take_multi_updater_updated(self.sbt).unwrap().target,
+      sbt: todo!(),
+      scene_tlas: res.take_reactive_query_updated(self.scene_tlas).unwrap(),
+      camera: self.camera.create_impl(res),
+    }
+  }
+}
+
+pub struct SceneRayTracingAORenderer {
+  camera: Box<dyn RtxCameraRenderImpl>,
+  executor: GPURaytracingPipelineExecutor,
   sbt: Box<dyn ShaderBindingTableProvider>,
   scene_tlas: BoxedDynQuery<EntityHandle<SceneEntity>, TlasInstance>,
+}
+
+impl SceneRayTracingAORenderer {
+  pub fn render(
+    &self,
+    frame: &mut FrameCtx,
+    system: Box<dyn GPURaytracingSystem>,
+    scene: EntityHandle<SceneEntity>,
+    camera: EntityHandle<SceneCameraEntity>,
+    ao_buffer: GPU2DTextureView,
+  ) {
+    let mut desc = GPURaytracingPipelineAndBindingSource::default();
+
+    let camera = self.camera.get_rtx_camera(camera);
+
+    let trace_base_builder = system.create_tracer_base_builder();
+    let ray_gen_shader = RayTracingAOComputeTraceOperator {
+      base: trace_base_builder.create_ray_gen_shader_base(),
+      scene: self.scene_tlas.access(&scene).unwrap(),
+      ao_buffer,
+      max_sample_count: 8,
+    };
+
+    desc.register_ray_gen::<u32>(ray_gen_shader);
+
+    let mut rtx_encoder = system.create_raytracing_encoder();
+
+    let canvas_size = frame.frame_size().into_u32();
+    rtx_encoder.trace_ray(
+      &desc,
+      &self.executor,
+      (canvas_size.0, canvas_size.1, 1),
+      self.sbt.as_ref(),
+    );
+  }
 }
 
 #[derive(Clone)]
@@ -104,42 +194,5 @@ impl ShaderFutureInvocation for RayTracingAOComputeInvocation {
 
     let occlusion = self.occlusion_acc.abstract_load() / val(self.max_sample_count as f32);
     (sample_is_done, ()).into()
-  }
-}
-
-impl SceneRayTracingAOFeature {
-  pub fn new(gpu: &GPU, tlas_size: Box<dyn Stream<Item = u32>>) -> Self {
-    todo!()
-  }
-
-  pub fn render(
-    &self,
-    frame: &mut FrameCtx,
-    system: Box<dyn GPURaytracingSystem>,
-    scene: EntityHandle<SceneEntity>,
-    camera: EntityHandle<SceneCameraEntity>,
-    ao_buffer: GPU2DTextureView,
-  ) {
-    let mut desc = GPURaytracingPipelineAndBindingSource::default();
-
-    let trace_base_builder = system.create_tracer_base_builder();
-    let ray_gen_shader = RayTracingAOComputeTraceOperator {
-      base: trace_base_builder.create_ray_gen_shader_base(),
-      scene: self.scene_tlas.access(&scene).unwrap(),
-      ao_buffer,
-      max_sample_count: 8,
-    };
-
-    desc.register_ray_gen::<u32>(ray_gen_shader);
-
-    let mut rtx_encoder = system.create_raytracing_encoder();
-
-    let canvas_size = frame.frame_size().into_u32();
-    rtx_encoder.trace_ray(
-      &desc,
-      &self.executor,
-      (canvas_size.0, canvas_size.1, 1),
-      self.sbt.as_ref(),
-    );
   }
 }

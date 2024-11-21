@@ -1,20 +1,23 @@
 use crate::*;
 
 mod debug_channels;
+mod frame_logic;
 mod lighting;
-mod pipeline;
 
 use debug_channels::*;
+pub use frame_logic::*;
 use futures::Future;
 pub use lighting::*;
-pub use pipeline::*;
 use reactive::EventSource;
+use rendiation_device_ray_tracing::GPUWaveFrontComputeRaytracingSystem;
+use rendiation_scene_rendering_gpu_ray_tracing::*;
 use rendiation_webgpu::*;
 
 pub struct Viewer3dRenderingCtx {
-  pub(crate) pipeline: ViewerPipeline,
+  pub(crate) frame_logic: ViewerFrameLogic,
   rendering_resource: ReactiveQueryJoinUpdater,
   renderer_impl: GLESRenderSystem,
+  rtx_ao_renderer_impl: RayTracingAORenderSystem,
   lighting: LightSystem,
   pool: AttachmentPool,
   gpu: GPU,
@@ -35,7 +38,10 @@ impl Viewer3dRenderingCtx {
     Self {
       rendering_resource,
       renderer_impl,
-      pipeline: ViewerPipeline::new(&gpu),
+      rtx_ao_renderer_impl: RayTracingAORenderSystem::new(Box::new(
+        GPUWaveFrontComputeRaytracingSystem::new(&gpu),
+      )),
+      frame_logic: ViewerFrameLogic::new(&gpu),
       lighting,
       gpu,
       pool: Default::default(),
@@ -47,7 +53,7 @@ impl Viewer3dRenderingCtx {
 
   pub fn egui(&mut self, ui: &mut egui::Ui) {
     self.lighting.egui(ui);
-    self.pipeline.egui(ui);
+    self.frame_logic.egui(ui);
   }
 
   /// only texture could be read. caller must sure the target passed in render call not using
@@ -93,7 +99,7 @@ impl Viewer3dRenderingCtx {
 
     let lighting = self.lighting.create_impl(&mut resource, &mut ctx);
 
-    self.pipeline.render(
+    self.frame_logic.render(
       &mut ctx,
       renderer.as_ref(),
       &lighting,

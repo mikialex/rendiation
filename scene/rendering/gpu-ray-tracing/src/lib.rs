@@ -8,6 +8,7 @@ use rendiation_algebra::*;
 use rendiation_device_ray_tracing::*;
 use rendiation_mesh_core::*;
 use rendiation_scene_core::*;
+use rendiation_scene_rendering_gpu_base::*;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 
@@ -15,16 +16,16 @@ mod acce;
 use acce::*;
 
 mod feature;
-use feature::*;
+pub use feature::*;
 
 mod sbt_util;
-use sbt_util::*;
+pub use sbt_util::*;
 
 mod ray_util;
-use ray_util::*;
+pub use ray_util::*;
 
 mod camera;
-use camera::*;
+pub use camera::*;
 
 mod pixel_sampling;
-use pixel_sampling::*;
+pub use pixel_sampling::*;

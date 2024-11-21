@@ -5,7 +5,7 @@ use rendiation_webgpu::*;
 
 use crate::*;
 
-pub struct ViewerPipeline {
+pub struct ViewerFrameLogic {
   highlight: HighLighter,
   reproject: GPUReprojectInfo,
   taa: TAA,
@@ -16,7 +16,7 @@ pub struct ViewerPipeline {
   grid: UniformBufferDataView<GridEffect>,
 }
 
-impl ViewerPipeline {
+impl ViewerFrameLogic {
   pub fn new(gpu: &GPU) -> Self {
     Self {
       highlight: HighLighter::new(gpu),
