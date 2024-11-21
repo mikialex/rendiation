@@ -113,15 +113,31 @@ pub struct RayLaunchRawInfo {
 }
 impl RayLaunchRawInfo {
   pub fn new(linear_id: Node<u32>, launch_size: Node<Vec3<u32>>) -> Self {
-    // todo split bits for z pattern warps/waves
-    let launch_linear_idx = linear_id;
-    let launch_x = launch_linear_idx % launch_size.x();
-    let launch_linear_idx = launch_linear_idx / launch_size.x();
-    let launch_y = launch_linear_idx % launch_size.y();
-    let launch_linear_idx = launch_linear_idx / launch_size.y();
-    let launch_z = launch_linear_idx % launch_size.z();
+    use rendiation_shader_library::*;
+
+    fn align_8(input: Node<u32>) -> Node<u32> {
+      (input + val(0b111)) & val(!0b111)
+    }
+    // todo cpu side calculation
+    let launch_padded_w = align_8(launch_size.x());
+    let launch_padded_h = align_8(launch_size.y());
+    let page_size = launch_padded_w * launch_padded_h;
+
+    let z = linear_id / page_size;
+    let xy_id = linear_id % page_size;
+    let local_id = xy_id % val(64);
+    let tile_id = xy_id / val(64);
+    let tile_w = launch_padded_w >> val(3);
+    let tile_h = launch_padded_h >> val(3);
+
+    let local_xy = remap_for_wave_reduction_fn(local_id);
+    let tile_x = tile_id % tile_w;
+    let tile_y = tile_id / tile_h;
+    let x = tile_x * val(8) + local_xy.x();
+    let y = tile_y * val(8) + local_xy.y();
+
     Self {
-      launch_id: (launch_x, launch_y, launch_z).into(),
+      launch_id: (x, y, z).into(),
       launch_size,
     }
   }

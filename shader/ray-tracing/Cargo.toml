@@ -9,6 +9,7 @@ rendiation-algebra = { path = "../../math/algebra" }
 rendiation-geometry = { path = "../../math/geometry" }
 rendiation-shader-derives = { path = "../derive" }
 rendiation-shader-api = { path = "../api" }
+rendiation-shader-library = { path = "../library" }
 rendiation-device-task-graph = { path = "../task-graph" }
 rendiation-device-parallel-compute = { path = "../parallel-compute" }
 rendiation-webgpu = { path = "../../platform/graphics/webgpu" }

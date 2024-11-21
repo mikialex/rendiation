@@ -112,18 +112,3 @@ pub fn remap_for_wave_reduction(a: Node<u32>) -> Node<Vec2<u32>> {
     .insert_bits(n, val(0), val(2));
   (x, y).into()
 }
-
-/// align input up to the minimum greater-equal `n*2^k`, where mask = `2^k-1`.
-/// e.g. align to 8, mask = 0b111. 0->0, 1~8->8, 9~16->16.
-#[shader_fn]
-pub fn align_pow2(input: Node<u32>, align_mask: Node<u32>) -> Node<u32> {
-  use std::ops::Neg;
-  let input = input - val(1);
-  (input.neg() & align_mask) + input + val(1)
-}
-pub fn align_8(input: Node<u32>) -> Node<u32> {
-  align_pow2(input, val(0b111))
-}
-pub fn align_16(input: Node<u32>) -> Node<u32> {
-  align_pow2(input, val(0b1111))
-}

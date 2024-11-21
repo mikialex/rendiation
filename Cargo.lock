@@ -3587,6 +3587,7 @@ dependencies = [
  "rendiation-mesh-generator",
  "rendiation-shader-api",
  "rendiation-shader-derives",
+ "rendiation-shader-library",
  "rendiation-space-algorithm",
  "rendiation-texture-core",
  "rendiation-webgpu",

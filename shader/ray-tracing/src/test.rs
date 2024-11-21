@@ -2,7 +2,7 @@
 async fn test_wavefront_compute() {
   use rendiation_texture_core::Size;
 
-  let canvas_size = 64;
+  let canvas_size = 13;
 
   use crate::*;
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();
@@ -40,6 +40,7 @@ async fn test_wavefront_compute() {
         let ray_gen_ctx = ctx.ray_gen_ctx().unwrap();
         let launch_id = ray_gen_ctx.launch_id();
         let launch_size = ray_gen_ctx.launch_size();
+        let valid = launch_id.less_than(launch_size).all();
 
         let tex_io = ctx.registry.get_mut::<FrameOutputInvocation>().unwrap();
         tex_io
@@ -75,7 +76,7 @@ async fn test_wavefront_compute() {
 
         let ray_payload = ENode::<RayCustomPayload> { color: val(0) }.construct();
 
-        (val(true), trace_call, ray_payload)
+        (valid, trace_call, ray_payload)
       },
     )
     .map(|(_, _payload), ctx| {
@@ -171,11 +172,13 @@ async fn test_wavefront_compute() {
     buffer.await.unwrap()
   };
 
+  let info = buffer.info();
   let buffer = buffer.read_raw();
   let mut write_buffer = format!("P3\n{} {}\n255\n", canvas_size, canvas_size);
   buffer
-    .chunks_exact(canvas_size as usize * 4)
+    .chunks_exact(info.padded_bytes_per_row)
     .for_each(|line| {
+      let line = &line[0..info.unpadded_bytes_per_row];
       line.chunks_exact(4).for_each(|pixel| {
         let (r, g, b, _a) = (pixel[0], pixel[1], pixel[2], pixel[3]);
         write_buffer.push_str(&format!("{r} {g} {b} "));
