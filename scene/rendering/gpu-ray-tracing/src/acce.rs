@@ -1,4 +1,7 @@
-use fast_hash_collection::FastHashMap;
+use std::sync::Arc;
+
+use fast_hash_collection::{FastHashMap, FastHashSet};
+use parking_lot::RwLock;
 
 use crate::*;
 
@@ -127,7 +130,7 @@ struct SceneTlasMaintainer {
   source: BoxedDynReactiveQuery<EntityHandle<SceneModelEntity>, (BlasInstance, Mat4<f32>)>,
   scene_sm:
     BoxedDynReactiveOneToManyRelation<EntityHandle<SceneEntity>, EntityHandle<SceneModelEntity>>,
-  tlas: FastHashMap<EntityHandle<SceneEntity>, TlasInstance>,
+  tlas: Arc<RwLock<FastHashMap<EntityHandle<SceneEntity>, TlasInstance>>>,
 }
 
 impl ReactiveQuery for SceneTlasMaintainer {
@@ -137,12 +140,54 @@ impl ReactiveQuery for SceneTlasMaintainer {
   type View = impl Query<Key = Self::Key, Value = Self::Value>;
 
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (d, v, i_v) = self.scene_sm.poll_changes_with_inv_dyn(cx);
+    let mut tlas = self.tlas.write();
 
-    let (d, v) = self.source.poll_changes(cx);
-    for (k, change) in d.iter_key_value() {
-      // mat
+    let mut regenerate_scene = FastHashSet::<EntityHandle<SceneEntity>>::default();
+    let (scene_ref_sm_change, current_sm_acc_scene, current_scene_ref_sm) =
+      self.scene_sm.poll_changes_with_inv_dyn(cx);
+    for (_, change) in scene_ref_sm_change.iter_key_value() {
+      if let Some(new_scene) = change.new_value() {
+        regenerate_scene.insert(*new_scene);
+      }
+      if let Some(new_scene) = change.old_value() {
+        regenerate_scene.insert(*new_scene);
+      }
     }
+
+    let (sm_blas_change, current_sm_blas) = self.source.poll_changes(cx);
+    for (k, _) in sm_blas_change.iter_key_value() {
+      if let Some(scene) = current_sm_acc_scene.access(&k) {
+        regenerate_scene.insert(scene);
+      }
+    }
+
+    for scene in regenerate_scene.drain() {
+      if let Some(tlas) = tlas.remove(&scene) {
+        self.acc_sys.delete_top_level_acceleration_structure(tlas);
+      }
+      let source = current_scene_ref_sm
+        .access_multi(&scene)
+        .unwrap()
+        .filter_map(|sm| {
+          current_sm_blas.access(&sm).map(|(blas, transform)| {
+            TopLevelAccelerationStructureSourceInstance {
+              transform,
+              instance_custom_index: sm.alloc_index(),
+              mask: 0, // todo check
+              instance_shader_binding_table_record_offset: sm.alloc_index(),
+              flags: 0, // todo check
+              acceleration_structure_handle: blas.handle,
+            }
+          })
+        })
+        .collect::<Vec<_>>();
+      let new_tlas = self
+        .acc_sys
+        .create_top_level_acceleration_structure(source.as_slice());
+      tlas.insert(scene, new_tlas);
+    }
+
+    // todo
     (EmptyQuery::default(), EmptyQuery::default())
   }
 
