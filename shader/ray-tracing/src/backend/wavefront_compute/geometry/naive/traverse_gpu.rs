@@ -313,17 +313,23 @@ fn resolve_any_hit(
 ) {
   let behavior = any_hit(any_hit_ctx);
 
-  if_by((behavior & (val(ACCEPT_HIT))).greater_than(val(0)), || {
-    // hit! update closest
-    closest_hit.test_and_store(&any_hit_ctx.hit, || {
-      closest_hit_ctx.store(&any_hit_ctx.hit_ctx);
-      on_accept(any_hit_ctx);
-    });
-  });
+  if_by(
+    (behavior & (val(ANYHIT_BEHAVIOR_ACCEPT_HIT))).greater_than(val(0)),
+    || {
+      // hit! update closest
+      closest_hit.test_and_store(&any_hit_ctx.hit, || {
+        closest_hit_ctx.store(&any_hit_ctx.hit_ctx);
+        on_accept(any_hit_ctx);
+      });
+    },
+  );
 
-  if_by((behavior & val(END_SEARCH)).greater_than(0), || {
-    on_end_search();
-  });
+  if_by(
+    (behavior & val(ANYHIT_BEHAVIOR_END_SEARCH)).greater_than(0),
+    || {
+      on_end_search();
+    },
+  );
 }
 
 #[derive(Clone)]

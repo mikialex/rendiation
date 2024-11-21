@@ -378,6 +378,24 @@ impl<T: ShaderNodeType> Node<T> {
   pub fn trunc(self) -> Node<T> {
     make_builtin_call(ShaderBuiltInFunction::Trunc, [self.handle()])
   }
+
+  pub fn extract_bits(self, offset: Node<u32>, count: Node<u32>) -> Node<T> {
+    make_builtin_call(
+      ShaderBuiltInFunction::ExtractBits,
+      [self.handle(), offset.handle(), count.handle()],
+    )
+  }
+  pub fn insert_bits(self, new_bits: Node<T>, offset: Node<u32>, count: Node<u32>) -> Node<T> {
+    make_builtin_call(
+      ShaderBuiltInFunction::InsertBits,
+      [
+        self.handle(),
+        new_bits.handle(),
+        offset.handle(),
+        count.handle(),
+      ],
+    )
+  }
 }
 
 pub trait ExpDecomposableShaderNodeType: PrimitiveShaderNodeType {

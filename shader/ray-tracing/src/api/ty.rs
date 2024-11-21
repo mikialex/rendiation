@@ -114,8 +114,8 @@ pub enum RayFlagTriangleCullBehavior {
 }
 
 pub type RayAnyHitBehavior = u32;
-pub const ACCEPT_HIT: RayAnyHitBehavior = 1;
-pub const END_SEARCH: RayAnyHitBehavior = 2;
+pub const ANYHIT_BEHAVIOR_ACCEPT_HIT: RayAnyHitBehavior = 1;
+pub const ANYHIT_BEHAVIOR_END_SEARCH: RayAnyHitBehavior = 2;
 
 pub type RayHitKind = u32; // todo impl
 pub const HIT_KIND_FRONT_FACING_TRIANGLE: RayHitKind = 0xFE;

@@ -146,14 +146,14 @@ impl NaiveSahBvhCpu {
                   // assuming all opaque
                   TRI_HIT_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                   let mut behavior = any_hit(geometry_idx, primitive_idx, distance, p);
-                  if behavior & ACCEPT_HIT > 0 {
+                  if behavior & ANYHIT_BEHAVIOR_ACCEPT_HIT > 0 {
                     ray_range.update_far(distance);
 
                     if flags.end_search_on_hit() {
-                      behavior |= END_SEARCH;
+                      behavior |= ANYHIT_BEHAVIOR_END_SEARCH;
                     }
                   }
-                  if behavior & END_SEARCH > 0 {
+                  if behavior & ANYHIT_BEHAVIOR_END_SEARCH > 0 {
                     break 'tlas_loop;
                   }
                 }

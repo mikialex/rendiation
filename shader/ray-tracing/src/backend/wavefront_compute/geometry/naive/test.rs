@@ -4,7 +4,7 @@ use rendiation_mesh_generator::*;
 use crate::backend::wavefront_compute::geometry::naive::*;
 
 pub(crate) const TEST_TLAS_IDX: u32 = 3;
-pub(crate) const TEST_ANY_HIT_BEHAVIOR: u32 = ACCEPT_HIT; // | TERMINATE_TRAVERSE;
+pub(crate) const TEST_ANYHIT_BEHAVIOR: u32 = ANYHIT_BEHAVIOR_ACCEPT_HIT; // | ANYHIT_BEHAVIOR_END_SEARCH;
 
 pub(crate) fn init_default_acceleration_structure(
   system: &dyn GPUAccelerationStructureSystemProvider,
@@ -262,7 +262,7 @@ fn test_cpu_triangle() {
           let (d, id) = &mut out[j][i];
           *d = distance;
           *id = primitive_id % PRIMITIVE_IDX_MAX + 1;
-          TEST_ANY_HIT_BEHAVIOR
+          TEST_ANYHIT_BEHAVIOR
         },
       );
     }
@@ -415,7 +415,7 @@ fn test_gpu_triangle() {
           };
 
           let output = traversable.traverse(payload, &|_ctx, _reporter| {}, &|_ctx| {
-            val(TEST_ANY_HIT_BEHAVIOR)
+            val(TEST_ANYHIT_BEHAVIOR)
           });
           (
             output.is_some.into_u32()
