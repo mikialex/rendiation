@@ -277,13 +277,14 @@ impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
   }
 }
 
+#[derive(Clone)]
 pub struct BindlessMeshDispatcher {
   // todo, use readonly
-  vertex_address_buffer: StorageBufferDataView<[AttributeMeshMeta]>,
-  index_pool: GPUBufferResourceView,
-  position: StorageBufferDataView<[u32]>,
-  normal: StorageBufferDataView<[u32]>,
-  uv: StorageBufferDataView<[u32]>,
+  pub vertex_address_buffer: StorageBufferDataView<[AttributeMeshMeta]>,
+  pub index_pool: GPUBufferResourceView,
+  pub position: StorageBufferDataView<[u32]>,
+  pub normal: StorageBufferDataView<[u32]>,
+  pub uv: StorageBufferDataView<[u32]>,
 }
 
 impl ShaderHashProvider for BindlessMeshDispatcher {

@@ -145,6 +145,7 @@ impl SceneRayTracingAORenderer {
       base: trace_base_builder.create_closest_hit_shader_base::<RayGenTracePayload>(),
       scene: scene_tlas,
       max_sample_count: 8,
+      bindless_mesh: todo!(),
     };
 
     desc.register_ray_gen::<u32>(ShaderFutureProviderIntoTraceOperator(ray_gen_shader));
@@ -188,6 +189,7 @@ impl RayTracingCustomCtxProvider for RayTracingAORayGenCtx {
     RayTracingAORayGenCtxInvocation {
       camera: self.camera.build_invocation(cx),
       ao_buffer: cx.bind_by(&self.ao_buffer),
+      bindless_mesh: todo!(),
     }
   }
 
@@ -200,6 +202,7 @@ impl RayTracingCustomCtxProvider for RayTracingAORayGenCtx {
 struct RayTracingAORayGenCtxInvocation {
   camera: Box<dyn RtxCameraRenderInvocation>,
   ao_buffer: HandleNode<ShaderStorageTextureRW2D>,
+  bindless_mesh: BindlessMeshDispatcher,
 }
 
 #[derive(Clone)]
@@ -207,6 +210,7 @@ struct RayTracingAOComputeTraceOperator {
   base: Box<dyn TraceOperator<()>>,
   max_sample_count: u32,
   scene: TlasHandle,
+  bindless_mesh: BindlessMeshDispatcher,
 }
 
 impl ShaderHashProvider for RayTracingAOComputeTraceOperator {
@@ -220,6 +224,7 @@ impl ShaderFutureProvider for RayTracingAOComputeTraceOperator {
       upstream: self.base.build_device_future(ctx),
       max_sample_count: self.max_sample_count,
       tracing: TracingFuture::default(),
+      bindless_mesh: self.bindless_mesh.clone(),
     }
     .into_dyn()
   }
@@ -229,6 +234,7 @@ struct RayTracingAOComputeFuture {
   upstream: DynShaderFuture<()>,
   max_sample_count: u32,
   tracing: TracingFuture<f32>,
+  bindless_mesh: BindlessMeshDispatcher,
 }
 
 impl ShaderFuture for RayTracingAOComputeFuture {
@@ -249,11 +255,20 @@ impl ShaderFuture for RayTracingAOComputeFuture {
       next_sample_idx: ctx.make_state::<Node<u32>>(),
       occlusion_acc: ctx.make_state::<Node<f32>>(),
       trace_on_the_fly: self.tracing.build_poll(ctx),
+      bindless_mesh: BindlessMeshRtxAccessInvocation {
+        normal: todo!(),
+        indices: todo!(),
+        address: todo!(),
+      },
+      sm_to_mesh: todo!(),
     }
   }
 
-  fn bind_input(&self, _builder: &mut DeviceTaskSystemBindCtx) {
-    todo!()
+  fn bind_input(&self, builder: &mut DeviceTaskSystemBindCtx) {
+    self.upstream.bind_input(builder);
+    builder.bind(&self.bindless_mesh.normal);
+    // builder.bind(&self.bindless_mesh.index_pool); // todo
+    builder.bind(&self.bindless_mesh.vertex_address_buffer);
   }
 }
 
@@ -265,6 +280,31 @@ struct RayTracingAOComputeInvocation {
   next_sample_idx: BoxedShaderLoadStore<Node<u32>>,
   occlusion_acc: BoxedShaderLoadStore<Node<f32>>,
   trace_on_the_fly: TracingFutureInvocation<f32>,
+  bindless_mesh: BindlessMeshRtxAccessInvocation,
+  sm_to_mesh: StorageNode<[u32]>,
+}
+
+pub struct BindlessMeshRtxAccessInvocation {
+  normal: StorageNode<[u32]>,
+  indices: StorageNode<[u32]>,
+  address: StorageNode<[AttributeMeshMeta]>,
+}
+
+impl BindlessMeshRtxAccessInvocation {
+  pub fn get_triangle_idx(&self, primitive_id: Node<u32>, mesh_id: Node<u32>) -> Node<Vec3<u32>> {
+    (
+      self.indices.index(primitive_id * val(3)).load(),
+      self.indices.index(primitive_id * val(3) + val(1)).load(),
+      self.indices.index(primitive_id * val(3) + val(2)).load(),
+    )
+      .into()
+  }
+
+  pub fn get_normal(&self, index: Node<u32>, mesh_id: Node<u32>) -> Node<Vec3<f32>> {
+    let normal_offset = self.address.index(mesh_id).load().expand().normal_offset;
+    // self.normal.index(mesh_id + index).load().cast_type()
+    todo!()
+  }
 }
 
 impl ShaderFutureInvocation for RayTracingAOComputeInvocation {
@@ -286,13 +326,34 @@ impl ShaderFutureInvocation for RayTracingAOComputeInvocation {
 
       let hit_position = closest_hit_ctx.world_ray().origin
         + closest_hit_ctx.world_ray().direction * closest_hit_ctx.hit_distance();
-      let hit_normal = todo!();
+
+      let scene_model_id = closest_hit_ctx.instance_custom_id();
+      let mesh_id = self.sm_to_mesh.index(scene_model_id).load();
+      let tri_id = closest_hit_ctx.primitive_id();
+      let tri_idx_s = self.bindless_mesh.get_triangle_idx(tri_id, mesh_id);
+
+      let tri_a_normal = self.bindless_mesh.get_normal(tri_idx_s.x(), mesh_id);
+      let tri_b_normal = self.bindless_mesh.get_normal(tri_idx_s.y(), mesh_id);
+      let tri_c_normal = self.bindless_mesh.get_normal(tri_idx_s.z(), mesh_id);
+
+      let attribs: Node<Vec2<f32>> = todo!();
+      let barycentric: Node<Vec3<f32>> = (
+        val(1.0) - attribs.x() - attribs.y(),
+        attribs.x(),
+        attribs.y(),
+      )
+        .into();
+
+      // Computing the normal at hit position
+      let normal = tri_a_normal * barycentric.x()
+        + tri_b_normal * barycentric.y()
+        + tri_c_normal * barycentric.z();
+      // Transforming the normal to world space
+      let normal = (closest_hit_ctx.object_to_world().shrink_to_3() * normal).normalize();
 
       self.hit_position.abstract_store(hit_position);
-      self.hit_normal.abstract_store(hit_normal);
+      self.hit_normal.abstract_store(normal);
     });
-
-    // self.camera.generate_ray(normalized_position);
 
     if_by(sample_is_done.not(), || {
       let ray = todo!();

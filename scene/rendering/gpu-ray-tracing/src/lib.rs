@@ -13,6 +13,7 @@ use rendiation_device_ray_tracing::*;
 use rendiation_mesh_core::*;
 use rendiation_scene_core::*;
 use rendiation_scene_rendering_gpu_base::*;
+use rendiation_scene_rendering_gpu_indirect::*;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 
