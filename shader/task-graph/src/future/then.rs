@@ -34,9 +34,7 @@ where
       upstream_resolved: ctx
         .state_builder
         .create_or_reconstruct_inline_state_with_default(Bool::from(false)),
-      upstream_output: ctx
-        .state_builder
-        .create_or_reconstruct_any_left_value_by_right::<U::Output>(),
+      upstream_output: ctx.make_state::<U::Output>(),
       then: self.then.build_poll(ctx),
       create_then_invocation_instance: self.create_then_invocation_instance,
     }

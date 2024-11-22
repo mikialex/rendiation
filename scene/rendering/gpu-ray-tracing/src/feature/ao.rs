@@ -76,15 +76,23 @@ impl SceneRayTracingAORenderer {
     let camera = self.camera.get_rtx_camera(camera);
 
     let trace_base_builder = self.rtx_system.create_tracer_base_builder();
-    let ray_gen_shader = RayTracingAOComputeTraceOperator {
+
+    let ray_gen_shader = trace_base_builder
+      .create_ray_gen_shader_base()
+      .inject_ctx(RayTracingAORayGenCtx { camera });
+    // .then_trace(|_| {
+    //   //
+    // });
+
+    let ao_closest = RayTracingAOComputeTraceOperator {
       base: trace_base_builder.create_ray_gen_shader_base(),
       scene: self.scene_tlas.access(&scene).unwrap(),
       ao_buffer,
       max_sample_count: 8,
-      camera,
     };
 
     desc.register_ray_gen::<u32>(ShaderFutureProviderIntoTraceOperator(ray_gen_shader));
+    desc.register_ray_closest_hit::<u32>(ShaderFutureProviderIntoTraceOperator(ao_closest));
 
     let mut rtx_encoder = self.rtx_system.create_raytracing_encoder();
 
@@ -100,19 +108,46 @@ impl SceneRayTracingAORenderer {
 }
 
 #[derive(Clone)]
+struct RayTracingAORayGenCtx {
+  camera: Box<dyn RtxCameraRenderComponent>,
+}
+
+impl ShaderHashProvider for RayTracingAORayGenCtx {
+  shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.camera.hash_pipeline(hasher);
+  }
+}
+
+impl RayTracingCustomCtxProvider for RayTracingAORayGenCtx {
+  type Invocation = RayTracingAORayGenCtxInvocation;
+
+  fn build_invocation(&self, cx: &mut ShaderBindGroupBuilder) -> Self::Invocation {
+    RayTracingAORayGenCtxInvocation {
+      camera: self.camera.build_invocation(cx),
+    }
+  }
+
+  fn bind(&self, builder: &mut BindingBuilder) {
+    self.camera.bind(builder);
+  }
+}
+
+#[derive(Clone)]
+struct RayTracingAORayGenCtxInvocation {
+  camera: Box<dyn RtxCameraRenderInvocation>,
+}
+
+#[derive(Clone)]
 struct RayTracingAOComputeTraceOperator {
   base: Box<dyn TraceOperator<()>>,
   max_sample_count: u32,
-  camera: Box<dyn RtxCameraRenderComponent>,
   scene: TlasHandle,
   ao_buffer: GPU2DTextureView,
 }
 
 impl ShaderHashProvider for RayTracingAOComputeTraceOperator {
   shader_hash_type_id! {}
-  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.camera.hash_pipeline(hasher);
-  }
 }
 
 impl ShaderFutureProvider for RayTracingAOComputeTraceOperator {
@@ -120,7 +155,6 @@ impl ShaderFutureProvider for RayTracingAOComputeTraceOperator {
   fn build_device_future(&self, ctx: &mut AnyMap) -> DynShaderFuture<Self::Output> {
     RayTracingAOComputeFuture {
       upstream: self.base.build_device_future(ctx),
-      camera: self.camera.clone(),
       max_sample_count: self.max_sample_count,
       tracing: TracingFuture::default(),
     }
@@ -130,7 +164,6 @@ impl ShaderFutureProvider for RayTracingAOComputeTraceOperator {
 
 struct RayTracingAOComputeFuture {
   upstream: DynShaderFuture<()>,
-  camera: Box<dyn RtxCameraRenderComponent>,
   max_sample_count: u32,
   tracing: TracingFuture<f32>,
 }
@@ -146,42 +179,55 @@ impl ShaderFuture for RayTracingAOComputeFuture {
 
   fn build_poll(&self, ctx: &mut DeviceTaskSystemBuildCtx) -> Self::Invocation {
     RayTracingAOComputeInvocation {
+      upstream: self.upstream.build_poll(ctx),
       max_sample_count: self.max_sample_count,
-      hit_position: ctx
-        .state_builder
-        .create_or_reconstruct_any_left_value_by_right::<Node<Vec3<f32>>>(),
-      hit_normal: todo!(),
-      hit_has_compute: todo!(),
-      next_sample_idx: todo!(),
-      occlusion_acc: todo!(),
+      hit_position: ctx.make_state::<Node<Vec3<f32>>>(),
+      hit_normal: ctx.make_state::<Node<Vec3<f32>>>(),
+      next_sample_idx: ctx.make_state::<Node<u32>>(),
+      occlusion_acc: ctx.make_state::<Node<f32>>(),
       trace_on_the_fly: self.tracing.build_poll(ctx),
-      camera: self.camera.build_invocation(ctx.compute_cx.bindgroups()),
     }
   }
 
-  fn bind_input(&self, builder: &mut DeviceTaskSystemBindCtx) {
-    self.camera.bind(builder);
+  fn bind_input(&self, _builder: &mut DeviceTaskSystemBindCtx) {
     todo!()
   }
 }
 
 struct RayTracingAOComputeInvocation {
+  upstream: Box<dyn ShaderFutureInvocation<Output = ()>>,
   max_sample_count: u32,
   hit_position: BoxedShaderLoadStore<Node<Vec3<f32>>>,
   hit_normal: BoxedShaderLoadStore<Node<Vec3<f32>>>,
-  hit_has_compute: BoxedShaderLoadStore<Node<bool>>,
   next_sample_idx: BoxedShaderLoadStore<Node<u32>>,
   occlusion_acc: BoxedShaderLoadStore<Node<f32>>,
   trace_on_the_fly: TracingFutureInvocation<f32>,
-  camera: Box<dyn RtxCameraRenderInvocation>,
 }
 
 impl ShaderFutureInvocation for RayTracingAOComputeInvocation {
   type Output = ();
 
   fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<Self::Output> {
+    let _ = self.upstream.device_poll(ctx); // upstream has no real runtime logic, let's skip the check
+
     let current_idx = self.next_sample_idx.abstract_load();
     let sample_is_done = current_idx.greater_equal_than(self.max_sample_count);
+
+    if_by(current_idx.equals(0), || {
+      let closest_hit_ctx = ctx
+        .invocation_registry
+        .get::<TracingCtx>()
+        .unwrap()
+        .closest_hit_ctx()
+        .unwrap();
+
+      let hit_position = closest_hit_ctx.world_ray().origin
+        + closest_hit_ctx.world_ray().direction * closest_hit_ctx.hit_distance();
+      let hit_normal = todo!();
+
+      self.hit_position.abstract_store(hit_position);
+      self.hit_normal.abstract_store(hit_normal);
+    });
 
     // self.camera.generate_ray(normalized_position);
 

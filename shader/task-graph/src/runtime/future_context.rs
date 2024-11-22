@@ -16,6 +16,15 @@ pub struct DeviceTaskSystemBuildCtx<'a> {
   pub state_builder: DynamicTypeBuilder,
 }
 
+impl<'a> DeviceTaskSystemBuildCtx<'a> {
+  /// just inner method short cut
+  pub fn make_state<T: ShaderAbstractRightValue>(&mut self) -> T::AbstractLeftValue {
+    self
+      .state_builder
+      .create_or_reconstruct_any_left_value_by_right::<T>()
+  }
+}
+
 #[derive(Clone, Default)]
 pub struct TaskGroupDeviceInvocationInstanceLateResolved {
   inner: Arc<RwLock<Option<TaskGroupDeviceInvocationInstance>>>,

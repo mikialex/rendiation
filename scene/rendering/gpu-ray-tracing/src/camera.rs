@@ -77,11 +77,14 @@ impl RtxCameraRenderComponent for DefaultRtxCameraRenderComponent {
   }
 }
 
-pub trait RtxCameraRenderInvocation {
+pub trait RtxCameraRenderInvocation: DynClone {
   // normalized position is ranged from 0. to 1.
   fn generate_ray(&self, normalized_position: Node<Vec2<f32>>) -> ShaderRay;
 }
 
+clone_trait_object!(RtxCameraRenderInvocation);
+
+#[derive(Clone)]
 pub struct DefaultRtxCameraInvocation {
   camera: UniformNode<CameraGPUTransform>,
 }
