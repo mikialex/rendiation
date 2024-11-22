@@ -61,7 +61,7 @@ pub struct SceneRayTracingAORenderer {
   executor: GPURaytracingPipelineExecutor,
   sbt: Box<dyn ShaderBindingTableProvider>,
   rtx_system: Box<dyn GPURaytracingSystem>,
-  scene_tlas: BoxedDynQuery<EntityHandle<SceneEntity>, TlasInstance>,
+  scene_tlas: BoxedDynQuery<EntityHandle<SceneEntity>, TlasHandle>,
 }
 
 impl SceneRayTracingAORenderer {
@@ -104,7 +104,7 @@ struct RayTracingAOComputeTraceOperator {
   base: Box<dyn TraceOperator<()>>,
   max_sample_count: u32,
   camera: Box<dyn RtxCameraRenderComponent>,
-  scene: TlasInstance,
+  scene: TlasHandle,
   ao_buffer: GPU2DTextureView,
 }
 

@@ -15,7 +15,7 @@ fn get_sub_buffer(buffer: &[u8], range: Option<BufferViewRange>) -> &[u8] {
 
 #[derive(Clone)]
 pub struct BlasInstance {
-  handle: BottomLevelAccelerationStructureHandle,
+  handle: BlasHandle,
   sys: Box<dyn GPUAccelerationStructureSystemProvider>,
 }
 
@@ -61,7 +61,7 @@ pub fn attribute_mesh_to_blas(
       let source = BottomLevelAccelerationStructureBuildSource {
         geometry: BottomLevelAccelerationStructureBuildBuffer::Triangles {
           positions: position_buffer.to_vec(), // todo, avoid vec
-          indices: todo!(),
+          indices: None,
         },
         flags: 0, // todo check
       };
@@ -88,7 +88,7 @@ pub fn attribute_mesh_to_blas(
         let source = BottomLevelAccelerationStructureBuildSource {
           geometry: BottomLevelAccelerationStructureBuildBuffer::Triangles {
             positions: position_buffer.to_vec(), // todo, avoid vec
-            indices: index_buffer.to_vec(),
+            indices: Some(index_buffer.to_vec()),
           },
           flags: 0, // todo check
         };
@@ -116,7 +116,7 @@ pub fn scene_model_to_tlas_instance(
 
 pub fn scene_to_tlas(
   acc_sys: Box<dyn GPUAccelerationStructureSystemProvider>,
-) -> impl ReactiveQuery<Key = EntityHandle<SceneEntity>, Value = TlasInstance> {
+) -> impl ReactiveQuery<Key = EntityHandle<SceneEntity>, Value = TlasHandle> {
   SceneTlasMaintainer {
     acc_sys: acc_sys.clone(),
     source: scene_model_to_tlas_instance(acc_sys).into_boxed(),
@@ -130,12 +130,12 @@ struct SceneTlasMaintainer {
   source: BoxedDynReactiveQuery<EntityHandle<SceneModelEntity>, (BlasInstance, Mat4<f32>)>,
   scene_sm:
     BoxedDynReactiveOneToManyRelation<EntityHandle<SceneEntity>, EntityHandle<SceneModelEntity>>,
-  tlas: Arc<RwLock<FastHashMap<EntityHandle<SceneEntity>, TlasInstance>>>,
+  tlas: Arc<RwLock<FastHashMap<EntityHandle<SceneEntity>, TlasHandle>>>,
 }
 
 impl ReactiveQuery for SceneTlasMaintainer {
   type Key = EntityHandle<SceneEntity>;
-  type Value = TlasInstance;
+  type Value = TlasHandle;
   type Changes = impl Query<Key = Self::Key, Value = ValueChange<Self::Value>>;
   type View = impl Query<Key = Self::Key, Value = Self::Value>;
 
