@@ -56,6 +56,7 @@ impl GPURaytracingSystem for GPUWaveFrontComputeRaytracingSystem {
   }
 }
 
+#[derive(Clone)]
 pub struct GPUWaveFrontComputeRaytracingDevice {
   sbt_sys: ShaderBindingTableDeviceInfo,
 }

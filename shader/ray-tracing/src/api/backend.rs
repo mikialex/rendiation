@@ -67,13 +67,14 @@ pub struct GPURaytracingPipelineExecutor {
 }
 
 /// the ray tracing device abstraction.
-pub trait GPURayTracingDeviceProvider {
+pub trait GPURayTracingDeviceProvider: DynClone {
   /// create a pipeline executor. the executor is not the pipeline, the main reason for this api is that
   /// we want to cache the executor resource in user side and expose executor implementation in some cases.
   fn create_raytracing_pipeline_executor(&self) -> GPURaytracingPipelineExecutor;
   fn create_sbt(&self, mesh_count: u32, ray_type_count: u32)
     -> Box<dyn ShaderBindingTableProvider>;
 }
+dyn_clone::clone_trait_object!(GPURayTracingDeviceProvider);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct HitGroupShaderRecord {

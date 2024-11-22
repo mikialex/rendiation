@@ -36,8 +36,8 @@ impl Viewer3dRenderingCtx {
     let mut lighting = LightSystem::new(&gpu);
     lighting.register_resource(&mut rendering_resource, &gpu);
 
-    let mut rtx_ao_renderer_impl =
-      RayTracingAORenderSystem::new(Box::new(GPUWaveFrontComputeRaytracingSystem::new(&gpu)));
+    let rtx_system = RtxSystemCore::new(Box::new(GPUWaveFrontComputeRaytracingSystem::new(&gpu)));
+    let mut rtx_ao_renderer_impl = RayTracingAORenderSystem::new(&rtx_system);
 
     rtx_ao_renderer_impl.register_resource(&mut rendering_resource, &gpu);
 

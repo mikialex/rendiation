@@ -3,34 +3,29 @@ use crate::*;
 pub struct RayTracingAORenderSystem {
   camera: DefaultRtxCameraRenderImplProvider,
   sbt: UpdateResultToken,
-  scene_tlas: UpdateResultToken,
-  rtx_system: Box<dyn GPURaytracingSystem>,
-  rtx_device: Box<dyn GPURayTracingDeviceProvider>,
-  rtx_acc: Box<dyn GPUAccelerationStructureSystemProvider>,
   executor: GPURaytracingPipelineExecutor,
+  scene_tlas: UpdateResultToken, // todo, share, unify the share mechanism with the texture
+  system: RtxSystemCore,
 }
 
 impl RayTracingAORenderSystem {
-  pub fn new(rtx: Box<dyn GPURaytracingSystem>) -> Self {
-    let rtx_device = rtx.create_raytracing_device();
+  pub fn new(rtx: &RtxSystemCore) -> Self {
     Self {
       camera: Default::default(),
       scene_tlas: Default::default(),
       sbt: Default::default(),
-      executor: rtx_device.create_raytracing_pipeline_executor(),
-      rtx_acc: rtx.create_acceleration_structure_system(),
-      rtx_device,
-      rtx_system: rtx,
+      executor: rtx.rtx_device.create_raytracing_pipeline_executor(),
+      system: rtx.clone(),
     }
   }
 }
 
 impl RenderImplProvider<SceneRayTracingAORenderer> for RayTracingAORenderSystem {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    self.scene_tlas = source.register_reactive_query(scene_to_tlas(self.rtx_acc.clone()));
+    self.scene_tlas = source.register_reactive_query(scene_to_tlas(self.system.rtx_acc.clone()));
 
-    // todo check mesh count grow
-    let sbt = GPUSbt::new(self.rtx_device.create_sbt(2000, 2));
+    // todo support max mesh count grow
+    let sbt = GPUSbt::new(self.system.rtx_device.create_sbt(2000, 2));
     let sbt = MultiUpdateContainer::new(sbt);
     // todo, add sbt maintain logic here
     // .with_source(source);
@@ -55,7 +50,7 @@ impl RenderImplProvider<SceneRayTracingAORenderer> for RayTracingAORenderSystem 
         .clone(),
       scene_tlas: res.take_reactive_query_updated(self.scene_tlas).unwrap(),
       camera: self.camera.create_impl(res),
-      rtx_system: self.rtx_system.clone(),
+      rtx_system: self.system.rtx_system.clone(),
     }
   }
 }
