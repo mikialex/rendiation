@@ -17,7 +17,7 @@ pub struct Viewer3dRenderingCtx {
   pub(crate) frame_logic: ViewerFrameLogic,
   rendering_resource: ReactiveQueryJoinUpdater,
   renderer_impl: GLESRenderSystem,
-  rtx_ao_renderer_impl: RayTracingAORenderSystem,
+  rtx_ao_renderer_impl: Option<RayTracingAORenderSystem>,
   enable_rtx_ao_rendering: bool,
   lighting: LightSystem,
   pool: AttachmentPool,
@@ -36,15 +36,10 @@ impl Viewer3dRenderingCtx {
     let mut lighting = LightSystem::new(&gpu);
     lighting.register_resource(&mut rendering_resource, &gpu);
 
-    let rtx_system = RtxSystemCore::new(Box::new(GPUWaveFrontComputeRaytracingSystem::new(&gpu)));
-    let mut rtx_ao_renderer_impl = RayTracingAORenderSystem::new(&rtx_system);
-
-    rtx_ao_renderer_impl.register_resource(&mut rendering_resource, &gpu);
-
     Self {
       rendering_resource,
       renderer_impl,
-      rtx_ao_renderer_impl,
+      rtx_ao_renderer_impl: None, // late init
       enable_rtx_ao_rendering: false,
       frame_logic: ViewerFrameLogic::new(&gpu),
       lighting,
@@ -56,8 +51,37 @@ impl Viewer3dRenderingCtx {
     }
   }
 
+  pub fn enable_rtx_ao_rendering_support(&mut self) {
+    if self.rtx_ao_renderer_impl.is_none() {
+      let rtx_system = RtxSystemCore::new(Box::new(GPUWaveFrontComputeRaytracingSystem::new(
+        &self.gpu,
+      )));
+      let mut rtx_ao_renderer_impl = RayTracingAORenderSystem::new(&rtx_system);
+
+      rtx_ao_renderer_impl.register_resource(&mut self.rendering_resource, &self.gpu);
+
+      self.rtx_ao_renderer_impl = Some(rtx_ao_renderer_impl);
+    }
+  }
+
+  pub fn disable_rtx_ao_rendering_support(&mut self) {
+    if let Some(rtx) = &mut self.rtx_ao_renderer_impl {
+      rtx.deregister_resource(&mut self.rendering_resource);
+    }
+  }
+
   pub fn egui(&mut self, ui: &mut egui::Ui) {
-    ui.checkbox(&mut self.enable_rtx_ao_rendering, "enable_rtx_ao_rendering");
+    let mut rtx_ao_renderer_impl_exist = self.rtx_ao_renderer_impl.is_some();
+    ui.checkbox(&mut rtx_ao_renderer_impl_exist, "is_rtx_ao_renderer_active");
+    if !rtx_ao_renderer_impl_exist {
+      self.disable_rtx_ao_rendering_support();
+    } else if self.rtx_ao_renderer_impl.is_none() {
+      self.enable_rtx_ao_rendering_support();
+    }
+
+    if self.rtx_ao_renderer_impl.is_some() {
+      ui.checkbox(&mut self.enable_rtx_ao_rendering, "enable_rtx_ao_rendering");
+    }
     self.lighting.egui(ui);
     self.frame_logic.egui(ui);
   }
@@ -87,7 +111,6 @@ impl Viewer3dRenderingCtx {
   pub fn render(&mut self, target: RenderTargetView, content: &Viewer3dSceneCtx, cx: &mut Context) {
     let mut resource = self.rendering_resource.poll_update_all(cx);
     let renderer = self.renderer_impl.create_impl(&mut resource);
-    let rtx_ao_renderer = self.rtx_ao_renderer_impl.create_impl(&mut resource);
 
     let render_target = if self.expect_read_back_for_next_render_result
       && matches!(target, RenderTargetView::SurfaceTexture { .. })
@@ -104,10 +127,13 @@ impl Viewer3dRenderingCtx {
 
     let mut ctx = FrameCtx::new(&self.gpu, target.size(), &self.pool);
 
-    if self.enable_rtx_ao_rendering {
-      // todo, rtx logic
-
-      // rtx_ao_renderer.render(&mut ctx, content.scene, content.main_camera, ao_buffer);
+    if self.enable_rtx_ao_rendering && self.rtx_ao_renderer_impl.is_some() {
+      let rtx_ao_renderer = self
+        .rtx_ao_renderer_impl
+        .as_ref()
+        .unwrap()
+        .create_impl(&mut resource);
+      rtx_ao_renderer.render(&mut ctx, content.scene, content.main_camera, &render_target);
     } else {
       let lighting = self.lighting.create_impl(&mut resource, &mut ctx);
 

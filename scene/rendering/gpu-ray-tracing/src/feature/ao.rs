@@ -6,6 +6,7 @@ pub struct RayTracingAORenderSystem {
   executor: GPURaytracingPipelineExecutor,
   scene_tlas: UpdateResultToken, // todo, share, unify the share mechanism with the texture
   system: RtxSystemCore,
+  ao_buffer: Option<GPU2DTextureView>,
 }
 
 impl RayTracingAORenderSystem {
@@ -16,6 +17,7 @@ impl RayTracingAORenderSystem {
       sbt: Default::default(),
       executor: rtx.rtx_device.create_raytracing_pipeline_executor(),
       system: rtx.clone(),
+      ao_buffer: None,
     }
   }
 }
@@ -51,6 +53,7 @@ impl RenderImplProvider<SceneRayTracingAORenderer> for RayTracingAORenderSystem 
       scene_tlas: res.take_reactive_query_updated(self.scene_tlas).unwrap(),
       camera: self.camera.create_impl(res),
       rtx_system: self.system.rtx_system.clone(),
+      ao_buffer: self.ao_buffer.clone(),
     }
   }
 }
@@ -61,6 +64,7 @@ pub struct SceneRayTracingAORenderer {
   sbt: GPUSbt,
   rtx_system: Box<dyn GPURaytracingSystem>,
   scene_tlas: BoxedDynQuery<EntityHandle<SceneEntity>, TlasHandle>,
+  ao_buffer: Option<GPU2DTextureView>,
 }
 
 impl SceneRayTracingAORenderer {
@@ -69,8 +73,10 @@ impl SceneRayTracingAORenderer {
     frame: &mut FrameCtx,
     scene: EntityHandle<SceneEntity>,
     camera: EntityHandle<SceneCameraEntity>,
-    ao_buffer: GPU2DTextureView,
+    copy_target: &RenderTargetView,
   ) {
+    let ao_buffer = self.ao_buffer.clone().unwrap_or(todo!());
+
     let mut desc = GPURaytracingPipelineAndBindingSource::default();
 
     let camera = self.camera.get_rtx_camera(camera);

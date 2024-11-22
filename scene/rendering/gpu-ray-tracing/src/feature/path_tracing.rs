@@ -4,12 +4,6 @@ pub struct DevicePathTracingRenderer {
   // create and maintain rtx pipeline
 }
 
-impl DevicePathTracingRenderer {
-  pub fn render(&self, input: GPU2DTextureView) -> GPU2DTextureView {
-    todo!()
-  }
-}
-
 pub trait DevicePathTracingSceneSource: ShaderHashProvider + ShaderPassBuilder {
   fn sbt(&self) -> Box<dyn Any>;
 
