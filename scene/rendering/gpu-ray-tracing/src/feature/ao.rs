@@ -30,7 +30,8 @@ impl RenderImplProvider<SceneRayTracingAORenderer> for RayTracingAORenderSystem 
     self.scene_tlas = source.register_reactive_query(scene_to_tlas(self.rtx_acc.clone()));
 
     // todo check mesh count grow
-    let sbt = MultiUpdateContainer::new(self.rtx_device.create_sbt(2000, 2));
+    let sbt = GPUSbt::new(self.rtx_device.create_sbt(2000, 2));
+    let sbt = MultiUpdateContainer::new(sbt);
     // todo, add sbt maintain logic here
     // .with_source(source);
 
@@ -47,8 +48,11 @@ impl RenderImplProvider<SceneRayTracingAORenderer> for RayTracingAORenderSystem 
   fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> SceneRayTracingAORenderer {
     SceneRayTracingAORenderer {
       executor: self.executor.clone(),
-      // sbt: res.take_multi_updater_updated(self.sbt).unwrap().target,
-      sbt: todo!(),
+      sbt: res
+        .take_multi_updater_updated::<GPUSbt>(self.sbt)
+        .unwrap()
+        .target
+        .clone(),
       scene_tlas: res.take_reactive_query_updated(self.scene_tlas).unwrap(),
       camera: self.camera.create_impl(res),
       rtx_system: self.rtx_system.clone(),
@@ -59,7 +63,7 @@ impl RenderImplProvider<SceneRayTracingAORenderer> for RayTracingAORenderSystem 
 pub struct SceneRayTracingAORenderer {
   camera: Box<dyn RtxCameraRenderImpl>,
   executor: GPURaytracingPipelineExecutor,
-  sbt: Box<dyn ShaderBindingTableProvider>,
+  sbt: GPUSbt,
   rtx_system: Box<dyn GPURaytracingSystem>,
   scene_tlas: BoxedDynQuery<EntityHandle<SceneEntity>, TlasHandle>,
 }
@@ -90,11 +94,12 @@ impl SceneRayTracingAORenderer {
     let mut rtx_encoder = self.rtx_system.create_raytracing_encoder();
 
     let canvas_size = frame.frame_size().into_u32();
+    let sbt = self.sbt.inner.read();
     rtx_encoder.trace_ray(
       &desc,
       &self.executor,
       (canvas_size.0, canvas_size.1, 1),
-      self.sbt.as_ref(),
+      (*sbt).as_ref(),
     );
   }
 }

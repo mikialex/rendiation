@@ -1,7 +1,20 @@
 use crate::*;
 
+#[derive(Clone)]
+pub struct GPUSbt {
+  pub inner: Arc<RwLock<Box<dyn ShaderBindingTableProvider>>>,
+}
+
+impl GPUSbt {
+  pub fn new(inner: Box<dyn ShaderBindingTableProvider>) -> Self {
+    Self {
+      inner: Arc::new(RwLock::new(inner)),
+    }
+  }
+}
+
 pub struct ReactiveQuerySbtMaintainer {
-  updater: MultiUpdateContainer<Box<dyn ShaderBindingTableProvider>>,
+  updater: MultiUpdateContainer<GPUSbt>,
 }
 
 impl ReactiveQuerySbtMaintainer {
@@ -28,11 +41,12 @@ pub struct ReactiveQuerySbtUpdater<T> {
   pub source: T,
 }
 
-impl<T> QueryBasedUpdate<Box<dyn ShaderBindingTableProvider>> for ReactiveQuerySbtUpdater<T>
+impl<T> QueryBasedUpdate<GPUSbt> for ReactiveQuerySbtUpdater<T>
 where
   T: ReactiveQuery<Key = u32, Value = HitGroupShaderRecord>,
 {
-  fn update_target(&mut self, target: &mut Box<dyn ShaderBindingTableProvider>, cx: &mut Context) {
+  fn update_target(&mut self, target: &mut GPUSbt, cx: &mut Context) {
+    let mut target = target.inner.write();
     let (change, _) = self.source.poll_changes(cx);
 
     for (tlas_idx, change) in change.iter_key_value() {

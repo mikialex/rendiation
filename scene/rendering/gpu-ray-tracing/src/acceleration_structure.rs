@@ -1,8 +1,3 @@
-use std::sync::Arc;
-
-use fast_hash_collection::{FastHashMap, FastHashSet};
-use parking_lot::RwLock;
-
 use crate::*;
 
 fn get_sub_buffer(buffer: &[u8], range: Option<BufferViewRange>) -> &[u8] {
@@ -142,6 +137,13 @@ impl ReactiveQuery for SceneTlasMaintainer {
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let mut tlas = self.tlas.write();
 
+    let mut mutations =
+      FastHashMap::<EntityHandle<SceneEntity>, ValueChange<TlasHandle>>::default();
+    let mut mutator = QueryMutationCollector {
+      delta: &mut mutations,
+      target: tlas.deref_mut(),
+    };
+
     let mut regenerate_scene = FastHashSet::<EntityHandle<SceneEntity>>::default();
     let (scene_ref_sm_change, current_sm_acc_scene, current_scene_ref_sm) =
       self.scene_sm.poll_changes_with_inv_dyn(cx);
@@ -162,7 +164,7 @@ impl ReactiveQuery for SceneTlasMaintainer {
     }
 
     for scene in regenerate_scene.drain() {
-      if let Some(tlas) = tlas.remove(&scene) {
+      if let Some(tlas) = mutator.remove(scene) {
         self.acc_sys.delete_top_level_acceleration_structure(tlas);
       }
       let source = current_scene_ref_sm
@@ -184,11 +186,12 @@ impl ReactiveQuery for SceneTlasMaintainer {
       let new_tlas = self
         .acc_sys
         .create_top_level_acceleration_structure(source.as_slice());
-      tlas.insert(scene, new_tlas);
+      mutator.set_value(scene, new_tlas);
     }
 
-    // todo
-    (EmptyQuery::default(), EmptyQuery::default())
+    drop(tlas);
+
+    (mutations, self.tlas.make_read_holder())
   }
 
   fn request(&mut self, request: &mut ReactiveQueryRequest) {
