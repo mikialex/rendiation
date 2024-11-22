@@ -65,14 +65,7 @@ impl RenderTargetView {
 
   pub fn size(&self) -> Size {
     match self {
-      RenderTargetView::Texture(t) => {
-        let size = t
-          .resource
-          .desc
-          .size
-          .mip_level_size(t.desc.base_mip_level, gpu::TextureDimension::D2);
-        GPUTextureSize::from_gpu_size(size)
-      }
+      RenderTargetView::Texture(t) => t.size(),
       RenderTargetView::SurfaceTexture { size, .. } => *size,
     }
   }

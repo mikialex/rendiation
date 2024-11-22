@@ -43,13 +43,10 @@ impl RenderImplProvider<SceneRayTracingAORenderer> for RayTracingAORenderSystem 
   }
 
   fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> SceneRayTracingAORenderer {
+    let sbt = res.take_multi_updater_updated::<GPUSbt>(self.sbt).unwrap();
     SceneRayTracingAORenderer {
       executor: self.executor.clone(),
-      sbt: res
-        .take_multi_updater_updated::<GPUSbt>(self.sbt)
-        .unwrap()
-        .target
-        .clone(),
+      sbt: sbt.target.clone(),
       scene_tlas: res.take_reactive_query_updated(self.scene_tlas).unwrap(),
       camera: self.camera.create_impl(res),
       rtx_system: self.system.rtx_system.clone(),
@@ -67,15 +64,41 @@ pub struct SceneRayTracingAORenderer {
   ao_buffer: Option<GPU2DTextureView>,
 }
 
+#[repr(u32)]
+#[derive(Debug, Clone, Copy)]
+enum AOTestRayType {
+  Primary = 0,
+  AOTest = 1,
+}
+
+impl AOTestRayType {
+  fn to_sbt_cfg(self) -> RaySBTConfig {
+    RaySBTConfig {
+      offset: val(self as u32),
+      stride: val(2),
+    }
+  }
+}
+
 impl SceneRayTracingAORenderer {
   pub fn render(
-    &self,
+    &mut self,
     frame: &mut FrameCtx,
     scene: EntityHandle<SceneEntity>,
     camera: EntityHandle<SceneCameraEntity>,
-    copy_target: &RenderTargetView,
-  ) {
-    let ao_buffer = self.ao_buffer.clone().unwrap_or(todo!());
+  ) -> GPU2DTextureView {
+    let scene_tlas = self.scene_tlas.access(&scene).unwrap();
+
+    if let Some(ao_buffer) = &self.ao_buffer {
+      if ao_buffer.size() != frame.frame_size() {
+        self.ao_buffer = None;
+      }
+    }
+    let ao_buffer = self.ao_buffer.clone().unwrap_or_else(|| todo!());
+    let ao_buffer_rw = ao_buffer
+      .clone()
+      .into_storage_texture_view_readwrite()
+      .unwrap();
 
     let mut desc = GPURaytracingPipelineAndBindingSource::default();
 
@@ -85,20 +108,49 @@ impl SceneRayTracingAORenderer {
 
     let ray_gen_shader = trace_base_builder
       .create_ray_gen_shader_base()
-      .inject_ctx(RayTracingAORayGenCtx { camera });
-    // .then_trace(|_| {
-    //   //
-    // });
+      .inject_ctx(RayTracingAORayGenCtx {
+        camera,
+        ao_buffer: ao_buffer_rw,
+        scene: scene_tlas,
+      })
+      .then_trace(|_, ctx| {
+        let rg_cx = ctx.expect_ray_gen_ctx();
+        let cx = ctx.expect_custom_cx::<RayTracingAORayGenCtxInvocation>();
+        let normalized_position =
+          rg_cx.launch_id().into_f32().xy() / rg_cx.launch_size().into_f32().xy();
+        let ray = cx.camera.generate_ray(normalized_position);
 
+        let trace_call = ShaderRayTraceCall {
+          tlas_idx: val(todo!()),
+          ray_flags: val(RayFlagConfigRaw::RAY_FLAG_CULL_BACK_FACING_TRIANGLES as u32),
+          cull_mask: val(u32::MAX),
+          sbt_ray_config: AOTestRayType::Primary.to_sbt_cfg(),
+          miss_index: val(0),
+          ray,
+          range: ShaderRayRange::default(),
+        };
+
+        (val(true), trace_call, val(0.))
+      })
+      .map(|(_, payload), ctx| {
+        let cx = ctx.expect_custom_cx::<RayTracingAORayGenCtxInvocation>();
+        let position = ctx.expect_ray_gen_ctx().launch_id().xy();
+
+        cx.ao_buffer
+          .write_texel(position, (payload, payload, payload, val(1.0)).into());
+      });
+
+    type RayGenTracePayload = f32; // occlusion
     let ao_closest = RayTracingAOComputeTraceOperator {
-      base: trace_base_builder.create_ray_gen_shader_base(),
-      scene: self.scene_tlas.access(&scene).unwrap(),
-      ao_buffer,
+      base: trace_base_builder.create_closest_hit_shader_base::<RayGenTracePayload>(),
+      scene: scene_tlas,
       max_sample_count: 8,
     };
 
     desc.register_ray_gen::<u32>(ShaderFutureProviderIntoTraceOperator(ray_gen_shader));
     desc.register_ray_closest_hit::<u32>(ShaderFutureProviderIntoTraceOperator(ao_closest));
+    // desc.register_ray_any_hit(builder);
+    // desc.register_ray_miss(ray_logic)
 
     let mut rtx_encoder = self.rtx_system.create_raytracing_encoder();
 
@@ -110,12 +162,16 @@ impl SceneRayTracingAORenderer {
       (canvas_size.0, canvas_size.1, 1),
       (*sbt).as_ref(),
     );
+
+    ao_buffer
   }
 }
 
 #[derive(Clone)]
 struct RayTracingAORayGenCtx {
   camera: Box<dyn RtxCameraRenderComponent>,
+  ao_buffer: StorageTextureReadWrite<GPU2DTextureView>,
+  scene: TlasHandle,
 }
 
 impl ShaderHashProvider for RayTracingAORayGenCtx {
@@ -131,6 +187,7 @@ impl RayTracingCustomCtxProvider for RayTracingAORayGenCtx {
   fn build_invocation(&self, cx: &mut ShaderBindGroupBuilder) -> Self::Invocation {
     RayTracingAORayGenCtxInvocation {
       camera: self.camera.build_invocation(cx),
+      ao_buffer: cx.bind_by(&self.ao_buffer),
     }
   }
 
@@ -142,6 +199,7 @@ impl RayTracingCustomCtxProvider for RayTracingAORayGenCtx {
 #[derive(Clone)]
 struct RayTracingAORayGenCtxInvocation {
   camera: Box<dyn RtxCameraRenderInvocation>,
+  ao_buffer: HandleNode<ShaderStorageTextureRW2D>,
 }
 
 #[derive(Clone)]
@@ -149,7 +207,6 @@ struct RayTracingAOComputeTraceOperator {
   base: Box<dyn TraceOperator<()>>,
   max_sample_count: u32,
   scene: TlasHandle,
-  ao_buffer: GPU2DTextureView,
 }
 
 impl ShaderHashProvider for RayTracingAOComputeTraceOperator {
@@ -238,6 +295,18 @@ impl ShaderFutureInvocation for RayTracingAOComputeInvocation {
     // self.camera.generate_ray(normalized_position);
 
     if_by(sample_is_done.not(), || {
+      let ray = todo!();
+
+      let trace_call = ShaderRayTraceCall {
+        tlas_idx: val(todo!()),
+        ray_flags: val(RayFlagConfigRaw::RAY_FLAG_CULL_BACK_FACING_TRIANGLES as u32),
+        cull_mask: val(u32::MAX),
+        sbt_ray_config: AOTestRayType::AOTest.to_sbt_cfg(),
+        miss_index: val(0),
+        ray,
+        range: ShaderRayRange::default(),
+      };
+
       // let r = self.next_trace_on_the_fly.try_spawn_and_poll(ctx);
       // if_by(r.is_ready, || {
       //   self.next_sample_idx.abstract_store(current_idx + val(1));

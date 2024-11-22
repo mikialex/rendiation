@@ -11,6 +11,7 @@ pub use lighting::*;
 use reactive::EventSource;
 use rendiation_device_ray_tracing::GPUWaveFrontComputeRaytracingSystem;
 use rendiation_scene_rendering_gpu_ray_tracing::*;
+use rendiation_texture_gpu_process::copy_frame;
 use rendiation_webgpu::*;
 
 pub struct Viewer3dRenderingCtx {
@@ -128,12 +129,21 @@ impl Viewer3dRenderingCtx {
     let mut ctx = FrameCtx::new(&self.gpu, target.size(), &self.pool);
 
     if self.enable_rtx_ao_rendering && self.rtx_ao_renderer_impl.is_some() {
-      let rtx_ao_renderer = self
+      let mut rtx_ao_renderer = self
         .rtx_ao_renderer_impl
         .as_ref()
         .unwrap()
         .create_impl(&mut resource);
-      rtx_ao_renderer.render(&mut ctx, content.scene, content.main_camera, &render_target);
+
+      let ao_result = rtx_ao_renderer.render(&mut ctx, content.scene, content.main_camera);
+
+      pass("copy rtx ao into final target")
+        .with_color(target.clone(), load())
+        .render_ctx(&mut ctx)
+        .by(&mut copy_frame(
+          AttachmentView::from_any_view(ao_result),
+          None,
+        ));
     } else {
       let lighting = self.lighting.create_impl(&mut resource, &mut ctx);
 

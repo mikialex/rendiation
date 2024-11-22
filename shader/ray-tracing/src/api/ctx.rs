@@ -101,14 +101,26 @@ pub struct TracingCtx {
 }
 
 impl TracingCtx {
+  pub fn expect_custom_cx<T: Any>(&self) -> &T {
+    self.registry.get::<T>().unwrap()
+  }
   pub fn ray_gen_ctx(&self) -> Option<Box<dyn RayGenCtxProvider>> {
     self.ray_gen.as_ref().map(|f| f())
+  }
+  pub fn expect_ray_gen_ctx(&self) -> Box<dyn RayGenCtxProvider> {
+    self.ray_gen_ctx().unwrap()
   }
   pub fn miss_hit_ctx(&self) -> Option<Box<dyn MissingHitCtxProvider>> {
     self.missing.as_ref().map(|f| f())
   }
+  pub fn expect_miss_hit_ctx(&self) -> Box<dyn MissingHitCtxProvider> {
+    self.miss_hit_ctx().unwrap()
+  }
   pub fn closest_hit_ctx(&self) -> Option<Box<dyn ClosestHitCtxProvider>> {
     self.closest.as_ref().map(|f| f())
+  }
+  pub fn expect_closest_hit_ctx(&self) -> Box<dyn ClosestHitCtxProvider> {
+    self.closest_hit_ctx().unwrap()
   }
 
   /// user defined payload may not exist if the current shader stage is ray gen
@@ -116,6 +128,9 @@ impl TracingCtx {
     let payload = self.payload.as_ref()?();
     assert_eq!(&T::sized_ty(), &payload.1);
     Some(unsafe { payload.0.cast_type() })
+  }
+  pub fn expect_payload<T: ShaderSizedValueNodeType>(&self) -> StorageNode<T> {
+    self.payload::<T>().unwrap()
   }
 }
 

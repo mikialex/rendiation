@@ -112,6 +112,18 @@ texture_downcast!(
 pub struct GPU1DTextureView(pub GPUTextureView);
 #[derive(Clone, Debug, PartialEq)]
 pub struct GPU2DTextureView(pub GPUTextureView);
+
+impl GPU2DTextureView {
+  pub fn size(&self) -> Size {
+    let size = self
+      .resource
+      .desc
+      .size
+      .mip_level_size(self.desc.base_mip_level, gpu::TextureDimension::D2);
+    GPUTextureSize::from_gpu_size(size)
+  }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct GPU2DArrayTextureView(pub GPUTextureView);
 #[derive(Clone, Debug, PartialEq)]

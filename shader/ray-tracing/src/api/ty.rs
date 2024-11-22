@@ -37,6 +37,15 @@ pub struct ShaderRayRange {
   pub max: Node<f32>,
 }
 
+impl Default for ShaderRayRange {
+  fn default() -> Self {
+    Self {
+      min: val(f32::EPSILON), // is this good?
+      max: val(f32::MAX),
+    }
+  }
+}
+
 #[derive(Clone, Copy)]
 pub struct ShaderRayTraceCall {
   // todo, use Vec2<u32>, see https://github.com/KhronosGroup/GLSL/blob/main/extensions/ext/GLSL_EXT_ray_tracing.txt#L567
