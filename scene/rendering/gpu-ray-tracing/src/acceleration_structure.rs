@@ -1,5 +1,29 @@
 use crate::*;
 
+#[derive(Clone)]
+pub struct TlASInstance {
+  instance_handle: UniformBufferDataView<Vec4<u32>>,
+}
+impl std::fmt::Debug for TlASInstance {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_struct("BlasInstance").finish()
+  }
+}
+impl PartialEq for TlASInstance {
+  fn eq(&self, _other: &Self) -> bool {
+    false
+  }
+}
+
+impl TlASInstance {
+  pub fn bind(&self, builder: &mut BindingBuilder) {
+    builder.bind(&self.instance_handle);
+  }
+  pub fn build(&self, builder: &mut ShaderBindGroupBuilder) -> Node<u32> {
+    builder.bind_by(&self.instance_handle).load().x()
+  }
+}
+
 fn get_sub_buffer(buffer: &[u8], range: Option<BufferViewRange>) -> &[u8] {
   if let Some(range) = range {
     buffer.get(range.into_range(buffer.len())).unwrap()
@@ -96,7 +120,7 @@ pub fn attribute_mesh_to_blas(
     .collective_select(none_indexed)
 }
 
-pub fn scene_model_to_tlas_instance(
+pub fn scene_model_to_blas_instance(
   acc_sys: Box<dyn GPUAccelerationStructureSystemProvider>,
 ) -> impl ReactiveQuery<Key = EntityHandle<SceneModelEntity>, Value = (BlasInstance, Mat4<f32>)> {
   // todo, this should register into registry
@@ -110,14 +134,22 @@ pub fn scene_model_to_tlas_instance(
 }
 
 pub fn scene_to_tlas(
+  gpu: &GPU,
   acc_sys: Box<dyn GPUAccelerationStructureSystemProvider>,
-) -> impl ReactiveQuery<Key = EntityHandle<SceneEntity>, Value = TlasHandle> {
+) -> impl ReactiveQuery<Key = EntityHandle<SceneEntity>, Value = TlASInstance> {
+  let gpu = gpu.clone();
   SceneTlasMaintainer {
     acc_sys: acc_sys.clone(),
-    source: scene_model_to_tlas_instance(acc_sys).into_boxed(),
+    source: scene_model_to_blas_instance(acc_sys).into_boxed(),
     scene_sm: Box::new(global_rev_ref().watch_inv_ref::<SceneModelBelongsToScene>()),
     tlas: Default::default(),
   }
+  .collective_execute_map_by(move || {
+    let gpu = gpu.clone();
+    move |_k, v| TlASInstance {
+      instance_handle: create_uniform(Vec4::new(v.0, 0, 0, 0), &gpu.device),
+    }
+  })
 }
 
 struct SceneTlasMaintainer {

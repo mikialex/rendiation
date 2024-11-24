@@ -1,4 +1,4 @@
-use rendiation_shader_library::sampling::{hammersley_2d_fn, sample_hemisphere_cos_fn};
+use rendiation_shader_library::sampling::{hammersley_2d_fn, sample_hemisphere_cos_fn, tbn_fn};
 
 use crate::*;
 
@@ -8,7 +8,7 @@ pub fn prefilter_diffuse(
   normal: Node<Vec3<f32>>,
   sampler_count: Node<u32>,
 ) -> Node<Vec3<f32>> {
-  let tbn = tbn(normal);
+  let tbn = tbn_fn(normal);
   sampler_count
     .into_shader_iter()
     .map(|index| {
@@ -32,7 +32,7 @@ pub fn prefilter_specular(
   roughness: Node<f32>,
   sampler_count: Node<u32>,
 ) -> Node<Vec3<f32>> {
-  let tbn = tbn(normal);
+  let tbn = tbn_fn(normal);
   let roughness2 = roughness * roughness;
 
   let result = sampler_count
@@ -75,18 +75,4 @@ pub fn prefilter_specular(
 fn d_ggx(n_o_h: Node<f32>, roughness4: Node<f32>) -> Node<f32> {
   let d = (n_o_h * roughness4 - n_o_h) * n_o_h + val(1.0);
   roughness4 / (val(f32::PI()) * d * d)
-}
-
-/// https://graphics.pixar.com/library/OrthonormalB/paper.pdf
-fn tbn(normal: Node<Vec3<f32>>) -> Node<Mat3<f32>> {
-  let sign = normal.z().less_than(0.).select(val(-1.), val(1.));
-  let a = val(-1.) / (sign + normal.z());
-  let b = normal.x() * normal.y() * a;
-  let tangent = vec3_node((
-    val(1.) + sign * normal.x() * normal.y() * a,
-    sign * b,
-    -sign * normal.x(),
-  ));
-  let bi_tangent = vec3_node((b, sign + normal.y() * normal.y() * a, -normal.y()));
-  (tangent.normalize(), bi_tangent.normalize(), normal).into()
 }
