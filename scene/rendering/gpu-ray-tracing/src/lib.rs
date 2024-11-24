@@ -23,6 +23,9 @@ pub use acceleration_structure::*;
 mod feature;
 pub use feature::*;
 
+mod bindless_mesh_bridge;
+pub use bindless_mesh_bridge::*;
+
 mod sbt_util;
 pub use sbt_util::*;
 

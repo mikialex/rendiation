@@ -192,13 +192,13 @@ impl RayTracingCustomCtxProvider for RayTracingAORayGenCtx {
     RayTracingAORayGenCtxInvocation {
       camera: self.camera.build_invocation(cx),
       ao_buffer: cx.bind_by(&self.ao_buffer),
-      bindless_mesh: todo!(),
       tlas_idx: self.scene.build(cx),
     }
   }
 
   fn bind(&self, builder: &mut BindingBuilder) {
     self.camera.bind(builder);
+    builder.bind(&self.ao_buffer);
     self.scene.bind(builder);
   }
 }
@@ -207,7 +207,6 @@ impl RayTracingCustomCtxProvider for RayTracingAORayGenCtx {
 struct RayTracingAORayGenCtxInvocation {
   camera: Box<dyn RtxCameraRenderInvocation>,
   ao_buffer: HandleNode<ShaderStorageTextureRW2D>,
-  bindless_mesh: BindlessMeshDispatcher,
   tlas_idx: Node<u32>,
 }
 
@@ -263,11 +262,9 @@ impl ShaderFuture for RayTracingAOComputeFuture {
       next_sample_idx: ctx.make_state::<Node<u32>>(),
       occlusion_acc: ctx.make_state::<Node<f32>>(),
       trace_on_the_fly: self.tracing.build_poll(ctx),
-      bindless_mesh: BindlessMeshRtxAccessInvocation {
-        normal: todo!(),
-        indices: todo!(),
-        address: todo!(),
-      },
+      bindless_mesh: self
+        .bindless_mesh
+        .build_bindless_mesh_rtx_access(ctx.compute_cx.bindgroups()),
       sm_to_mesh: todo!(),
       tlas: self.tlas.build(&mut ctx.compute_cx.bindgroups()),
     }
@@ -275,8 +272,8 @@ impl ShaderFuture for RayTracingAOComputeFuture {
 
   fn bind_input(&self, builder: &mut DeviceTaskSystemBindCtx) {
     self.upstream.bind_input(builder);
-    builder.bind(&self.bindless_mesh.normal);
-    // builder.bind(&self.bindless_mesh.index_pool); // todo
+    self.tracing.bind_input(builder);
+    self.bindless_mesh.bind_bindless_mesh_rtx_access(builder);
     builder.bind(&self.bindless_mesh.vertex_address_buffer);
     self.tlas.bind(builder);
   }
@@ -293,29 +290,6 @@ struct RayTracingAOComputeInvocation {
   bindless_mesh: BindlessMeshRtxAccessInvocation,
   sm_to_mesh: StorageNode<[u32]>,
   tlas: Node<u32>,
-}
-
-pub struct BindlessMeshRtxAccessInvocation {
-  normal: StorageNode<[u32]>,
-  indices: StorageNode<[u32]>,
-  address: StorageNode<[AttributeMeshMeta]>,
-}
-
-impl BindlessMeshRtxAccessInvocation {
-  pub fn get_triangle_idx(&self, primitive_id: Node<u32>, mesh_id: Node<u32>) -> Node<Vec3<u32>> {
-    (
-      self.indices.index(primitive_id * val(3)).load(),
-      self.indices.index(primitive_id * val(3) + val(1)).load(),
-      self.indices.index(primitive_id * val(3) + val(2)).load(),
-    )
-      .into()
-  }
-
-  pub fn get_normal(&self, index: Node<u32>, mesh_id: Node<u32>) -> Node<Vec3<f32>> {
-    let normal_offset = self.address.index(mesh_id).load().expand().normal_offset;
-    // self.normal.index(mesh_id + index).load().cast_type()
-    todo!()
-  }
 }
 
 impl ShaderFutureInvocation for RayTracingAOComputeInvocation {
@@ -366,7 +340,10 @@ impl ShaderFutureInvocation for RayTracingAOComputeInvocation {
       self.hit_normal_tbn.abstract_store(tbn_fn(normal));
     });
 
-    if_by(sample_is_done.not(), || {
+    // todo, check states
+    let no_on_the_fly_trace_active = val(true);
+
+    if_by(sample_is_done.not().and(no_on_the_fly_trace_active), || {
       let random = hammersley_2d_fn(current_idx, val(self.max_sample_count));
 
       let ray = ShaderRay {
@@ -384,14 +361,17 @@ impl ShaderFutureInvocation for RayTracingAOComputeInvocation {
         range: ShaderRayRange::default(),
       };
 
-      // let r = self.next_trace_on_the_fly.try_spawn_and_poll(ctx);
-      // if_by(r.is_ready, || {
-      //   self.next_sample_idx.abstract_store(current_idx + val(1));
-      // });
-      //
+      let trace_on_the_fly_right =
+        ctx.spawn_new_tracing_task(val(true), trace_call, val(0.), &self.trace_on_the_fly);
+
+      self.trace_on_the_fly.abstract_store(trace_on_the_fly_right); // todo, this is weird, should be improved
     });
+    storage_barrier(); // todo, how to make this invisible for native rtx?
+
+    // todo, check poll result of current on the fly trace
 
     let occlusion = self.occlusion_acc.abstract_load() / val(self.max_sample_count as f32);
+    ctx.access_self_payload().store(occlusion);
     (sample_is_done, ()).into()
   }
 }
