@@ -11,11 +11,15 @@ pub fn build_default_gles_render_system(gpu: &GPU) -> IndirectRenderSystem {
   IndirectRenderSystem {
     model_lookup: Default::default(),
     texture_system: Default::default(),
-    camera: todo!(),
+    camera: Box::new(DefaultGLESCameraRenderImplProvider::default()),
     scene_model_impl: Box::new(IndirectPreferredComOrderRendererProvider {
       node: Box::new(DefaultIndirectNodeRenderImplProvider::default()),
       model_impl: vec![Box::new(DefaultSceneStdModelRendererProvider {
-        materials: todo!(),
+        materials: vec![
+          Box::new(FlatMaterialDefaultIndirectRenderImplProvider::default()),
+          Box::new(PbrMRMaterialDefaultIndirectRenderImplProvider::default()),
+          Box::new(PbrSGMaterialDefaultIndirectRenderImplProvider::default()),
+        ],
         shapes: vec![Box::new(MeshBindlessGPUSystemSource::new(gpu))],
       })],
     }),

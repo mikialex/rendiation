@@ -17,18 +17,18 @@ pub struct FlatMaterialStorage {
 }
 
 #[derive(Clone)]
-pub struct FlatMaterialStorageGPU<'a> {
-  pub buffer: &'a FlatMaterialStorageBuffer,
+pub struct FlatMaterialStorageGPU {
+  pub buffer: StorageBufferReadOnlyDataView<[FlatMaterialStorage]>,
 }
 
-impl<'a> ShaderHashProvider for FlatMaterialStorageGPU<'a> {
-  shader_hash_type_id! {FlatMaterialStorageGPU<'static>}
+impl ShaderHashProvider for FlatMaterialStorageGPU {
+  shader_hash_type_id! {}
 }
 
-impl<'a> GraphicsShaderProvider for FlatMaterialStorageGPU<'a> {
+impl GraphicsShaderProvider for FlatMaterialStorageGPU {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
-      let materials = binding.bind_by(&self.buffer.inner.gpu());
+      let materials = binding.bind_by(&self.buffer);
       let current_material_id = builder.query::<IndirectAbstractMaterialId>();
       let material = materials.index(current_material_id).load().expand();
 
@@ -37,8 +37,8 @@ impl<'a> GraphicsShaderProvider for FlatMaterialStorageGPU<'a> {
   }
 }
 
-impl<'a> ShaderPassBuilder for FlatMaterialStorageGPU<'a> {
+impl ShaderPassBuilder for FlatMaterialStorageGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(self.buffer.inner.gpu());
+    ctx.binding.bind(&self.buffer);
   }
 }

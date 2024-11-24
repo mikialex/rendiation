@@ -22,3 +22,191 @@ impl IndirectModelMaterialRenderImpl for Vec<Box<dyn IndirectModelMaterialRender
     None
   }
 }
+
+#[derive(Default)]
+pub struct FlatMaterialDefaultIndirectRenderImplProvider {
+  storages: UpdateResultToken,
+}
+impl RenderImplProvider<Box<dyn IndirectModelMaterialRenderImpl>>
+  for FlatMaterialDefaultIndirectRenderImplProvider
+{
+  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
+    let updater = flat_material_storage_buffer(cx);
+    self.storages = source.register_multi_updater(updater.inner);
+  }
+  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
+    source.deregister(&mut self.storages);
+  }
+
+  fn create_impl(
+    &self,
+    res: &mut ConcurrentStreamUpdateResult,
+  ) -> Box<dyn IndirectModelMaterialRenderImpl> {
+    Box::new(FlatMaterialDefaultIndirectRenderImpl {
+      material_access: global_entity_component_of::<StandardModelRefFlatMaterial>()
+        .read_foreign_key(),
+      storages: res
+        .take_multi_updater_updated::<CommonStorageBufferImpl<FlatMaterialStorage>>(self.storages)
+        .unwrap()
+        .inner
+        .gpu()
+        .clone(),
+    })
+  }
+}
+
+struct FlatMaterialDefaultIndirectRenderImpl {
+  material_access: ForeignKeyReadView<StandardModelRefFlatMaterial>,
+  storages: StorageBufferReadOnlyDataView<[FlatMaterialStorage]>,
+}
+
+impl IndirectModelMaterialRenderImpl for FlatMaterialDefaultIndirectRenderImpl {
+  fn make_component_indirect<'a>(
+    &'a self,
+    any_idx: EntityHandle<StandardModelEntity>,
+    _cx: &'a GPUTextureBindingSystem,
+  ) -> Option<Box<dyn RenderComponent + 'a>> {
+    let _ = self.material_access.get(any_idx)?;
+    Some(Box::new(FlatMaterialStorageGPU {
+      buffer: self.storages.clone(),
+    }))
+  }
+}
+
+#[derive(Default)]
+pub struct PbrMRMaterialDefaultIndirectRenderImplProvider {
+  storages: UpdateResultToken,
+  tex_storages: UpdateResultToken,
+}
+
+impl RenderImplProvider<Box<dyn IndirectModelMaterialRenderImpl>>
+  for PbrMRMaterialDefaultIndirectRenderImplProvider
+{
+  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
+    self.storages = source.register_multi_updater(pbr_mr_material_storages(cx).inner);
+    self.tex_storages = source.register_multi_updater(pbr_mr_material_tex_storages(cx).inner);
+  }
+  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
+    source.deregister(&mut self.storages);
+    source.deregister(&mut self.tex_storages);
+  }
+
+  fn create_impl(
+    &self,
+    res: &mut ConcurrentStreamUpdateResult,
+  ) -> Box<dyn IndirectModelMaterialRenderImpl> {
+    Box::new(PbrMRMaterialDefaultIndirectRenderImpl {
+      material_access: global_entity_component_of::<StandardModelRefPbrMRMaterial>()
+        .read_foreign_key(),
+      storages: res.take_multi_updater_updated::<CommonStorageBufferImpl<PhysicalMetallicRoughnessMaterialStorage>>(self.storages).unwrap().target.gpu().clone(),
+      tex_storages: res.take_multi_updater_updated::<CommonStorageBufferImpl<PhysicalMetallicRoughnessMaterialTextureHandlesStorage>>(self.tex_storages).unwrap().target.gpu().clone(),
+      alpha_mode: global_entity_component_of().read(),
+    })
+  }
+}
+
+struct PbrMRMaterialDefaultIndirectRenderImpl {
+  material_access: ForeignKeyReadView<StandardModelRefPbrMRMaterial>,
+  storages: StorageBufferReadOnlyDataView<[PhysicalMetallicRoughnessMaterialStorage]>,
+  tex_storages:
+    StorageBufferReadOnlyDataView<[PhysicalMetallicRoughnessMaterialTextureHandlesStorage]>,
+  alpha_mode: ComponentReadView<PbrMRMaterialAlphaModeComponent>,
+}
+
+pub struct TextureSamplerIdView<T: TextureWithSamplingForeignKeys> {
+  pub texture: ForeignKeyReadView<SceneTexture2dRefOf<T>>,
+  pub sampler: ForeignKeyReadView<SceneSamplerRefOf<T>>,
+}
+
+impl<T: TextureWithSamplingForeignKeys> TextureSamplerIdView<T> {
+  pub fn read_from_global() -> Self {
+    Self {
+      texture: global_entity_component_of().read_foreign_key(),
+      sampler: global_entity_component_of().read_foreign_key(),
+    }
+  }
+
+  pub fn get_pair(&self, id: EntityHandle<T::Entity>) -> Option<(u32, u32)> {
+    let tex = self.texture.get(id)?;
+    let tex = tex.alloc_index();
+    let sampler = self.sampler.get(id)?;
+    let sampler = sampler.alloc_index();
+    Some((tex, sampler))
+  }
+}
+
+impl IndirectModelMaterialRenderImpl for PbrMRMaterialDefaultIndirectRenderImpl {
+  fn make_component_indirect<'a>(
+    &'a self,
+    any_idx: EntityHandle<StandardModelEntity>,
+    cx: &'a GPUTextureBindingSystem,
+  ) -> Option<Box<dyn RenderComponent + 'a>> {
+    let idx = self.material_access.get(any_idx)?;
+    let r = PhysicalMetallicRoughnessMaterialIndirectGPU {
+      storage: &self.storages,
+      alpha_mode: self.alpha_mode.get_value(idx)?,
+      texture_storages: &self.tex_storages,
+      binding_sys: cx,
+    };
+    let r = Box::new(r) as Box<dyn RenderComponent + '_>;
+    Some(r)
+  }
+}
+
+#[derive(Default)]
+pub struct PbrSGMaterialDefaultIndirectRenderImplProvider {
+  storages: UpdateResultToken,
+  tex_storages: UpdateResultToken,
+}
+
+impl RenderImplProvider<Box<dyn IndirectModelMaterialRenderImpl>>
+  for PbrSGMaterialDefaultIndirectRenderImplProvider
+{
+  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
+    self.storages = source.register_multi_updater(pbr_sg_material_storages(cx).inner);
+    self.tex_storages = source.register_multi_updater(pbr_sg_material_tex_storages(cx).inner);
+  }
+  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
+    source.deregister(&mut self.storages);
+    source.deregister(&mut self.tex_storages);
+  }
+
+  fn create_impl(
+    &self,
+    res: &mut ConcurrentStreamUpdateResult,
+  ) -> Box<dyn IndirectModelMaterialRenderImpl> {
+    Box::new(PbrSGMaterialDefaultIndirectRenderImpl {
+      material_access: global_entity_component_of::<StandardModelRefPbrSGMaterial>()
+        .read_foreign_key(),
+      storages: res.take_multi_updater_updated::<CommonStorageBufferImpl<PhysicalSpecularGlossinessMaterialStorage>>(self.storages).unwrap().target.gpu().clone(),
+      tex_storages: res.take_multi_updater_updated::<CommonStorageBufferImpl<PhysicalSpecularGlossinessMaterialTextureHandlesStorage>>(self.tex_storages).unwrap().target.gpu().clone(),
+      alpha_mode: global_entity_component_of().read(),
+    })
+  }
+}
+
+struct PbrSGMaterialDefaultIndirectRenderImpl {
+  material_access: ForeignKeyReadView<StandardModelRefPbrSGMaterial>,
+  storages: StorageBufferReadOnlyDataView<[PhysicalSpecularGlossinessMaterialStorage]>,
+  tex_storages:
+    StorageBufferReadOnlyDataView<[PhysicalSpecularGlossinessMaterialTextureHandlesStorage]>,
+  alpha_mode: ComponentReadView<PbrSGMaterialAlphaModeComponent>,
+}
+
+impl IndirectModelMaterialRenderImpl for PbrSGMaterialDefaultIndirectRenderImpl {
+  fn make_component_indirect<'a>(
+    &'a self,
+    any_idx: EntityHandle<StandardModelEntity>,
+    cx: &'a GPUTextureBindingSystem,
+  ) -> Option<Box<dyn RenderComponent + 'a>> {
+    let idx = self.material_access.get(any_idx)?;
+    let r = PhysicalSpecularGlossinessMaterialGPU {
+      storage: &self.storages,
+      alpha_mode: self.alpha_mode.get_value(idx)?,
+      texture_storages: &self.tex_storages,
+      binding_sys: cx,
+    };
+    let r = Box::new(r) as Box<dyn RenderComponent + '_>;
+    Some(r)
+  }
+}
