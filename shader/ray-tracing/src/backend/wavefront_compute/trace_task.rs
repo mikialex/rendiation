@@ -671,6 +671,15 @@ pub struct TracingFutureInvocation<T> {
   phantom: PhantomData<T>,
 }
 
+impl<T> TracingFutureInvocation<T> {
+  pub fn task_has_already_resolved(&self) -> Node<bool> {
+    self.inner_task.task_has_already_resolved()
+  }
+  pub fn task_not_allocated(&self) -> Node<bool> {
+    self.inner_task.task_not_allocated()
+  }
+}
+
 impl<T> ShaderFutureInvocation for TracingFutureInvocation<T>
 where
   T: ShaderSizedValueNodeType + Default + Copy,

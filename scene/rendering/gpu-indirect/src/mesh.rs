@@ -154,6 +154,37 @@ impl MeshBindlessGPUSystemSource {
       uv: Arc::new(RwLock::new(uv)),
     }
   }
+
+  pub fn create_impl_internal_impl(
+    &self,
+    res: &mut ConcurrentStreamUpdateResult,
+  ) -> MeshGPUBindlessImpl {
+    let vertex_address_buffer = res
+      .take_multi_updater_updated::<CommonStorageBufferImplWithHostBackup<AttributeMeshMeta>>(
+        self.attribute_buffer_metadata,
+      )
+      .unwrap();
+
+    MeshGPUBindlessImpl {
+      indices: self.indices.clone(),
+      position: self.position.clone(),
+      normal: self.normal.clone(),
+      uv: self.uv.clone(),
+      checker: global_entity_component_of::<StandardModelRefAttributesMeshEntity>()
+        .read_foreign_key(),
+      indices_checker: global_entity_component_of::<SceneBufferViewBufferId<AttributeIndexRef>>()
+        .read_foreign_key(),
+      vertex_address_buffer: vertex_address_buffer.gpu().clone().into_rw_view(),
+      vertex_address_buffer_host: vertex_address_buffer.clone(),
+      sm_to_mesh_device: res
+        .take_multi_updater_updated::<CommonStorageBufferImpl<u32>>(self.sm_to_mesh_device)
+        .unwrap()
+        .gpu()
+        .clone()
+        .into_rw_view(),
+      sm_to_mesh: res.take_reactive_query_updated(self.sm_to_mesh).unwrap(),
+    }
+  }
 }
 
 impl RenderImplProvider<Box<dyn IndirectModelShapeRenderImpl>> for MeshBindlessGPUSystemSource {
@@ -192,35 +223,11 @@ impl RenderImplProvider<Box<dyn IndirectModelShapeRenderImpl>> for MeshBindlessG
     &self,
     res: &mut ConcurrentStreamUpdateResult,
   ) -> Box<dyn IndirectModelShapeRenderImpl> {
-    let vertex_address_buffer = res
-      .take_multi_updater_updated::<CommonStorageBufferImplWithHostBackup<AttributeMeshMeta>>(
-        self.attribute_buffer_metadata,
-      )
-      .unwrap();
-
-    Box::new(MeshGPUBindlessImpl {
-      indices: self.indices.clone(),
-      position: self.position.clone(),
-      normal: self.normal.clone(),
-      uv: self.uv.clone(),
-      checker: global_entity_component_of::<StandardModelRefAttributesMeshEntity>()
-        .read_foreign_key(),
-      indices_checker: global_entity_component_of::<SceneBufferViewBufferId<AttributeIndexRef>>()
-        .read_foreign_key(),
-      vertex_address_buffer: vertex_address_buffer.gpu().clone().into_rw_view(),
-      vertex_address_buffer_host: vertex_address_buffer.clone(),
-      sm_to_mesh_device: res
-        .take_multi_updater_updated::<CommonStorageBufferImpl<u32>>(self.sm_to_mesh_device)
-        .unwrap()
-        .gpu()
-        .clone()
-        .into_rw_view(),
-      sm_to_mesh: res.take_reactive_query_updated(self.sm_to_mesh).unwrap(),
-    })
+    Box::new(self.create_impl_internal_impl(res))
   }
 }
 
-struct MeshGPUBindlessImpl {
+pub struct MeshGPUBindlessImpl {
   indices: UntypedPool,
   position: UntypedPool,
   normal: UntypedPool,
@@ -235,6 +242,25 @@ struct MeshGPUBindlessImpl {
   indices_checker: ForeignKeyReadView<SceneBufferViewBufferId<AttributeIndexRef>>,
 }
 
+impl MeshGPUBindlessImpl {
+  pub fn make_bindless_dispatcher(&self) -> BindlessMeshDispatcher {
+    let position =
+      StorageBufferDataView::try_from_raw(self.position.read().raw_gpu().clone()).unwrap();
+    let normal = StorageBufferDataView::try_from_raw(self.normal.read().raw_gpu().clone()).unwrap();
+    let uv = StorageBufferDataView::try_from_raw(self.uv.read().raw_gpu().clone()).unwrap();
+
+    let index_pool = self.indices.read().raw_gpu().clone();
+
+    BindlessMeshDispatcher {
+      vertex_address_buffer: self.vertex_address_buffer.clone(),
+      position,
+      normal,
+      uv,
+      index_pool,
+    }
+  }
+}
+
 impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
   fn make_component_indirect(
     &self,
@@ -244,20 +270,7 @@ impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
     let mesh_id = self.checker.get(any_idx)?;
     // check mesh must have indices.
     let _ = self.indices_checker.get(mesh_id)?;
-    let position =
-      StorageBufferDataView::try_from_raw(self.position.read().raw_gpu().clone()).unwrap();
-    let normal = StorageBufferDataView::try_from_raw(self.normal.read().raw_gpu().clone()).unwrap();
-    let uv = StorageBufferDataView::try_from_raw(self.uv.read().raw_gpu().clone()).unwrap();
-
-    let index_pool = self.indices.read().raw_gpu().clone();
-
-    Some(Box::new(BindlessMeshDispatcher {
-      vertex_address_buffer: self.vertex_address_buffer.clone(),
-      position,
-      normal,
-      uv,
-      index_pool,
-    }))
+    Some(Box::new(self.make_bindless_dispatcher()))
   }
 
   fn make_draw_command_builder(

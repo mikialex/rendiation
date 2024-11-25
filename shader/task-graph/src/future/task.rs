@@ -42,6 +42,18 @@ pub struct TaskFutureInvocation<T> {
   phantom: PhantomData<T>,
 }
 
+impl<T> TaskFutureInvocation<T> {
+  pub fn task_has_already_resolved(&self) -> Node<bool> {
+    self
+      .task_handle
+      .abstract_load()
+      .equals(RESOLVED_TASK_HANDLE)
+  }
+  pub fn task_not_allocated(&self) -> Node<bool> {
+    self.task_handle.abstract_load().equals(UN_INIT_TASK_HANDLE)
+  }
+}
+
 impl<T> ShaderFutureInvocation for TaskFutureInvocation<T>
 where
   T: ShaderSizedValueNodeType + Default + Copy,

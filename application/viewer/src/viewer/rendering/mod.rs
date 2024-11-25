@@ -54,10 +54,9 @@ impl Viewer3dRenderingCtx {
 
   pub fn enable_rtx_ao_rendering_support(&mut self) {
     if self.rtx_ao_renderer_impl.is_none() {
-      let rtx_system = RtxSystemCore::new(Box::new(GPUWaveFrontComputeRaytracingSystem::new(
-        &self.gpu,
-      )));
-      let mut rtx_ao_renderer_impl = RayTracingAORenderSystem::new(&rtx_system);
+      let rtx_backend_system = GPUWaveFrontComputeRaytracingSystem::new(&self.gpu);
+      let rtx_system = RtxSystemCore::new(Box::new(rtx_backend_system));
+      let mut rtx_ao_renderer_impl = RayTracingAORenderSystem::new(&rtx_system, &self.gpu);
 
       rtx_ao_renderer_impl.register_resource(&mut self.rendering_resource, &self.gpu);
 
