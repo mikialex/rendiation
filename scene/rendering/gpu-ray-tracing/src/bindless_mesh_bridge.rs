@@ -46,12 +46,14 @@ impl BindlessMeshDispatcherRtxEXT for BindlessMeshDispatcher {
   ) -> BindlessMeshRtxAccessInvocation {
     BindlessMeshRtxAccessInvocation {
       normal: cx.bind_by(&self.normal),
-      indices: todo!(),
+      indices: cx.bind_by(&self.index_pool),
       address: cx.bind_by(&self.vertex_address_buffer),
     }
   }
 
   fn bind_bindless_mesh_rtx_access(&self, cx: &mut BindingBuilder) {
-    // todo
+    cx.bind(&self.normal);
+    cx.bind(&self.index_pool);
+    cx.bind(&self.vertex_address_buffer);
   }
 }
