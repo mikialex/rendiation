@@ -152,7 +152,7 @@ pub fn attribute_mesh_local_bounding(
         let position = get_ranged_buffer(position, position_range);
         let position: &[Vec3<f32>] = cast_slice(position);
 
-        // todo, check topology
+        // as we are compute bounding, the topology not matters
         let mesh = IndexedMesh::<TriangleList, _, _>::new(position, index);
         mesh
           .primitive_iter()
@@ -169,7 +169,7 @@ pub fn attribute_mesh_local_bounding(
         let position = get_ranged_buffer(position, position_range);
         let position: &[Vec3<f32>] = cast_slice(position);
 
-        // todo, check topology
+        // as we are compute bounding, the topology not matters
         let mesh = NoneIndexedMesh::<TriangleList, _>::new(position);
         mesh
           .primitive_iter()

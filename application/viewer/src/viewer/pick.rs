@@ -49,7 +49,7 @@ impl ViewerPicker {
       .camera_transforms
       .access(&camera_id)
       .unwrap()
-      .projection_inv;
+      .view_projection_inv;
 
     let current_mouse_ray_in_world = cast_world_ray(projection_inv, normalized_position.into());
 
@@ -59,6 +59,10 @@ impl ViewerPicker {
       conf: Default::default(),
       camera_view_size: Size::from_f32_pair_min_one(input.window_state.size),
     }
+  }
+
+  pub fn current_mouse_ray_in_world(&self) -> &Ray3 {
+    &self.current_mouse_ray_in_world
   }
 }
 
