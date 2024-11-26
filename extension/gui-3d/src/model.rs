@@ -3,7 +3,7 @@ use crate::*;
 pub struct UIWidgetModel {
   /// indicate if this widget is interactive to mouse event
   mouse_interactive: bool,
-  mouse_interactive_previous: Option<bool>,
+  registered_interactive_set: bool,
 
   is_mouse_in: bool,
   is_mouse_down_in_history: bool,
@@ -29,12 +29,14 @@ impl Widget for UIWidgetModel {
       sm_intersection_gp,
       WidgetSceneModelIntersectionGroupConfig
     );
-    if let Some(mouse_interactive_previous) = self.mouse_interactive_previous.take() {
-      if mouse_interactive_previous {
-        sm_intersection_gp.group.remove(&self.model);
-      } else {
+    if self.mouse_interactive != self.registered_interactive_set {
+      if self.mouse_interactive && !self.registered_interactive_set {
         sm_intersection_gp.group.insert(self.model);
       }
+      if !self.mouse_interactive && self.registered_interactive_set {
+        sm_intersection_gp.group.remove(&self.model);
+      }
+      self.registered_interactive_set = self.mouse_interactive;
     }
 
     access_cx!(cx, platform_event, PlatformEventInput);
@@ -49,6 +51,7 @@ impl Widget for UIWidgetModel {
       }
       let mut current_frame_hitting = None;
       if let Some((hit, model)) = interaction_cx.world_ray_intersected_nearest {
+        dbg!(model);
         current_frame_hitting = (model == self.model).then_some(hit);
       }
 
@@ -108,7 +111,7 @@ impl UIWidgetModel {
 
     Self {
       mouse_interactive: true,
-      mouse_interactive_previous: None,
+      registered_interactive_set: false,
       is_mouse_in: false,
       is_mouse_down_in_history: false,
       on_mouse_click: None,
@@ -131,7 +134,6 @@ impl UIWidgetModel {
   }
 
   pub fn set_mouse_interactive(&mut self, v: bool) -> &mut Self {
-    self.mouse_interactive_previous = self.mouse_interactive.into();
     self.mouse_interactive = v;
     if !self.mouse_interactive {
       self.is_mouse_in = false;

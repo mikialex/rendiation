@@ -1,10 +1,11 @@
 mod camera_control;
 pub use camera_control::*;
+mod gizmo_bridge;
+pub use gizmo_bridge::*;
 mod fit_camera_view;
 pub use fit_camera_view::*;
 mod pick_scene;
 pub use pick_scene::*;
-use rendiation_gizmo::gizmo;
 
 use crate::*;
 
@@ -14,7 +15,7 @@ pub fn core_viewer_features<V: Widget + 'static>(
   move |cx| {
     let gizmo = StateCxCreateOnce::new(|cx| {
       access_cx_mut!(cx, scene_cx, SceneWriter);
-      gizmo(scene_cx)
+      GizmoBridge::new(scene_cx)
     });
     Box::new(
       WidgetGroup::default()
