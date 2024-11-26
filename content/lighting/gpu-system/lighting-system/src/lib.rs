@@ -41,11 +41,12 @@ impl GraphicsShaderProvider for LightingComputeComponentAsRenderComponent {
       let shading_provider = PhysicalShading; // todo, make it configurable by user
       let shading = shading_provider.construct_shading(builder); // todo, make it return optional to avoid lighting cost for none lightable material
 
-      let fragment_world = builder.query::<FragmentWorldPosition>();
+      let fragment_world =
+        builder.query_or_interpolate_by::<FragmentWorldPosition, WorldVertexPosition>();
       let camera_position = builder.query::<CameraWorldMatrix>().position();
       let geom_ctx = ENode::<ShaderLightingGeometricCtx> {
         position: fragment_world,
-        normal: builder.query::<FragmentWorldNormal>(),
+        normal: builder.query_or_interpolate_by::<FragmentWorldNormal, WorldVertexNormal>(),
         view_dir: (camera_position - fragment_world).normalize(),
       };
 

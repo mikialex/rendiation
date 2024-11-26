@@ -26,9 +26,7 @@ pub struct Viewer {
 
 impl Widget for Viewer {
   fn update_state(&mut self, cx: &mut DynCx) {
-    let waker = futures::task::noop_waker_ref();
-    let mut ctx = Context::from_waker(waker);
-    let mut derived = self.derives.poll_update(&mut ctx);
+    let mut derived = self.derives.poll_update();
 
     cx.scoped_cx(&mut derived, |cx| {
       cx.scoped_cx(&mut self.scene, |cx| {
@@ -69,15 +67,17 @@ impl Widget for Viewer {
     }
 
     cx.scoped_cx(&mut self.scene, |cx| {
-      cx.split_cx::<egui::Context>(|egui_cx, cx| {
-        egui(
-          &mut self.terminal,
-          &mut self.on_demand_rendering,
-          &mut self.rendering,
-          egui_cx,
-          cx,
-        );
-        crate::db_egui_view::egui_db_gui(egui_cx, &mut self.egui_db_inspector);
+      cx.scoped_cx(&mut self.derives, |cx| {
+        cx.split_cx::<egui::Context>(|egui_cx, cx| {
+          egui(
+            &mut self.terminal,
+            &mut self.on_demand_rendering,
+            &mut self.rendering,
+            egui_cx,
+            cx,
+          );
+          crate::db_egui_view::egui_db_gui(egui_cx, &mut self.egui_db_inspector);
+        });
       });
 
       access_cx!(cx, viewer_scene, Viewer3dSceneCtx);
@@ -243,7 +243,11 @@ pub struct Viewer3dSceneDeriveSource {
 }
 
 impl Viewer3dSceneDeriveSource {
-  fn poll_update(&self, cx: &mut Context) -> Viewer3dSceneDerive {
+  fn poll_update(&self) -> Viewer3dSceneDerive {
+    let waker = futures::task::noop_waker_ref();
+    let mut cx = Context::from_waker(waker);
+    let cx = &mut cx;
+
     let (_, world_mat) = self.world_mat.poll_changes(cx);
     let (_, node_net_visible) = self.node_net_visible.poll_changes(cx);
     let (_, camera_transforms) = self.camera_transforms.poll_changes(cx);

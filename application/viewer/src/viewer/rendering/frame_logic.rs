@@ -47,8 +47,6 @@ impl ViewerFrameLogic {
       .reproject
       .update(ctx, current_camera_view_projection_inv);
 
-    // let mut mip_gen = scene.resources.bindable_ctx.gpu.mipmap_gen.borrow_mut();
-    // mip_gen.flush_mipmap_gen_request(ctx);
     // let mut single_proj_sys = scene
     //   .scene_resources
     //   .shadows
@@ -67,7 +65,7 @@ impl ViewerFrameLogic {
       .make_dep_component(content.main_camera)
       .unwrap();
 
-    let _ = pass("scene-widgets")
+    pass("scene-widgets")
       .with_color(msaa_color.write(), clear(all_zero()))
       .with_depth(msaa_depth.write(), clear(1.))
       .resolve_to(widgets_result.write())
@@ -126,8 +124,6 @@ impl ViewerFrameLogic {
           .with_depth(scene_depth.write(), depth_ops)
           .render_ctx(ctx)
           .by(&mut main_scene_content)
-          // .by(scene.by_main_camera_and_self(&mut s.ground)) // transparent, should go after
-          // opaque
           .by(&mut ao);
 
         NewTAAFrameSample {

@@ -196,7 +196,8 @@ pub fn register_default_commands(terminal: &mut Terminal) {
 
   terminal.register_sync_command("fit-camera-view", |ctx, _parameters| {
     access_cx!(ctx, scene_cx, Viewer3dSceneCtx);
-    access_cx!(ctx, derived, Viewer3dSceneDerive);
+    access_cx!(ctx, derived, Viewer3dSceneDeriveSource);
+    let derived = derived.poll_update();
     if let Some(selected) = &scene_cx.selected_target {
       let camera_world = derived.world_mat.access(&scene_cx.camera_node).unwrap();
 
