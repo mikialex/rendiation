@@ -18,14 +18,11 @@ impl Widget for SceneOrbitCameraControl {
       size: p.window_state.size.into(),
     };
 
+    if p.window_state.mouse_position_in_ui {
+      return;
+    }
+
     for e in &p.accumulate_events {
-      if let Event::WindowEvent { event, .. } = e {
-        if let WindowEvent::MouseInput { .. } = event {
-          if p.window_state.mouse_position_in_ui {
-            continue;
-          }
-        }
-      }
       self.controller.event(e, bound)
     }
   }

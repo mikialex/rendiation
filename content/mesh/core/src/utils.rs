@@ -52,3 +52,9 @@ impl<T> CollectionSize for Vec<T> {
     self.len()
   }
 }
+
+impl<'a, T> CollectionSize for &'a [T] {
+  fn len(&self) -> usize {
+    (*self).len()
+  }
+}

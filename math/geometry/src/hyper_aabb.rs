@@ -53,6 +53,16 @@ impl<V> HyperAABB<V> {
   {
     self.expand_by_other(other)
   }
+
+  #[inline(always)]
+  pub fn union_into<T>(mut self, other: Self) -> Self
+  where
+    T: Scalar,
+    V: RealVector<T>,
+  {
+    self.expand_by_other(other);
+    self
+  }
 }
 
 impl<T, V, const D: usize> SolidEntity<T, D> for HyperAABB<V>

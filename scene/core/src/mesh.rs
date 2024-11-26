@@ -127,9 +127,58 @@ pub fn attribute_mesh_local_bounding(
     none_indexed,
   } = attribute_mesh_position_query();
 
-  indexed
-    .collective_map(|_| Box3::empty())
-    .collective_select(none_indexed.collective_map(|_| Box3::empty()))
+  fn get_ranged_buffer(buffer: &[u8], range: Option<BufferViewRange>) -> &[u8] {
+    if let Some(range) = range {
+      let start = range.offset as usize;
+      let count = range
+        .size
+        .map(|v| u64::from(v) as usize)
+        .unwrap_or(buffer.len());
+      buffer.get(start..(start + count)).unwrap()
+    } else {
+      buffer
+    }
+  }
+
+  let indexed = indexed
+    .collective_execute_map_by(|| {
+      let buffer_access = global_entity_component_of::<BufferEntityData>().read();
+      move |_, ((position, position_range), (idx, idx_range))| {
+        let index = buffer_access.get(idx).unwrap();
+        let index = get_ranged_buffer(index, idx_range);
+        let index: &[u32] = cast_slice(index); // todo u16 index
+                                               //
+        let position = buffer_access.get(position.unwrap()).unwrap();
+        let position = get_ranged_buffer(position, position_range);
+        let position: &[Vec3<f32>] = cast_slice(position);
+
+        // todo, check topology
+        let mesh = IndexedMesh::<TriangleList, _, _>::new(position, index);
+        mesh
+          .primitive_iter()
+          .fold(Box3::empty(), |b, p| b.union_into(p.to_bounding()))
+      }
+    })
+    .into_boxed();
+
+  let none_indexed = none_indexed
+    .collective_execute_map_by(|| {
+      let buffer_access = global_entity_component_of::<BufferEntityData>().read();
+      move |_, (position, position_range)| {
+        let position = buffer_access.get(position.unwrap()).unwrap();
+        let position = get_ranged_buffer(position, position_range);
+        let position: &[Vec3<f32>] = cast_slice(position);
+
+        // todo, check topology
+        let mesh = NoneIndexedMesh::<TriangleList, _>::new(position);
+        mesh
+          .primitive_iter()
+          .fold(Box3::empty(), |b, p| b.union_into(p.to_bounding()))
+      }
+    })
+    .into_boxed();
+
+  indexed.collective_select(none_indexed)
 }
 
 // todo, this should be registered into global query registry
