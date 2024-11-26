@@ -31,6 +31,8 @@ pub trait Picker3d {
           if hit.is_near_than(&n.0) {
             nearest = Some((hit, m));
           }
+        } else {
+          nearest = Some((hit, m));
         }
       }
     }

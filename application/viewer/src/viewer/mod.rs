@@ -48,16 +48,6 @@ impl Widget for Viewer {
 
         let picker = ViewerPicker::new(derived, input, main_camera_handle);
 
-        // test picking
-        // for sm in global_rev_ref()
-        //   .update_and_read::<SceneModelBelongsToScene>()
-        //   .access_multi(&viewer_scene.scene)
-        //   .unwrap()
-        // {
-        //   let r = picker.pick_model_nearest(sm, *picker.current_mouse_ray_in_world());
-        //   dbg!(r);
-        // }
-
         let mut interaction_cx = prepare_picking_state(picker, &self.widget_intersection_group);
 
         cx.scoped_cx(&mut self.widget_intersection_group, |cx| {
