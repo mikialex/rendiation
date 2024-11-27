@@ -151,6 +151,7 @@ pub struct GizmoControlTargetState {
   pub target_world_mat: Mat4<f32>,
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct GizmoUpdateTargetLocal(pub Mat4<f32>);
 
 impl GizmoControlTargetState {

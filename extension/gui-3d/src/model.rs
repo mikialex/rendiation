@@ -51,7 +51,6 @@ impl Widget for UIWidgetModel {
       }
       let mut current_frame_hitting = None;
       if let Some((hit, model)) = interaction_cx.world_ray_intersected_nearest {
-        dbg!(model);
         current_frame_hitting = (model == self.model).then_some(hit);
       }
 

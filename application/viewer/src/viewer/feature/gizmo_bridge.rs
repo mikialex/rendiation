@@ -1,15 +1,17 @@
-use rendiation_gizmo::{gizmo, GizmoControlTargetState};
+use rendiation_gizmo::*;
 
 use crate::*;
 
 pub struct GizmoBridge {
   gizmo: Box<dyn Widget>,
+  view_update: Option<(EntityHandle<SceneNodeEntity>, GizmoUpdateTargetLocal)>,
 }
 
 impl GizmoBridge {
   pub fn new(w: &mut SceneWriter) -> Self {
     Self {
       gizmo: Box::new(gizmo(w)),
+      view_update: None,
     }
   }
 }
@@ -41,13 +43,26 @@ impl Widget for GizmoBridge {
       }
     });
 
+    let node = scene_cx
+      .selected_target
+      .map(|target| node_view.get(target).unwrap());
+
     cx.scoped_cx(&mut target, |cx| {
       self.gizmo.update_state(cx);
+      self.view_update = cx
+        .message
+        .take::<GizmoUpdateTargetLocal>()
+        .map(|a| (node.unwrap(), a));
     });
   }
 
   fn update_view(&mut self, cx: &mut DynCx) {
     self.gizmo.update_view(cx);
+    if let Some((node, update)) = self.view_update.take() {
+      access_cx_mut!(cx, w, SceneWriter);
+      dbg!(update);
+      w.set_local_matrix(node, update.0);
+    }
   }
 
   fn clean_up(&mut self, cx: &mut DynCx) {
