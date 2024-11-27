@@ -11,7 +11,6 @@ database = { path = "../../../utility/database" }
 log = { workspace = true }
 parking_lot = { version = "0.12.1", features = ["send_guard"] }
 rendiation-algebra = { path = "../../../math/algebra" }
-rendiation-color = { path = "../../../content/color" }
 rendiation-geometry = { path = "../../../math/geometry" }
 rendiation-mesh-core = { path = "../../../content/mesh/core" }
 rendiation-scene-core = { path = "../../core" }

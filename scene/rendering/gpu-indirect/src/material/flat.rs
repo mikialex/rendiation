@@ -3,7 +3,9 @@ use crate::*;
 pub type FlatMaterialStorageBuffer = ReactiveStorageBufferContainer<FlatMaterialStorage>;
 
 pub fn flat_material_storage_buffer(cx: &GPU) -> FlatMaterialStorageBuffer {
-  let color = global_watch().watch::<FlatMaterialDisplayColorComponent>();
+  let color = global_watch()
+    .watch::<FlatMaterialDisplayColorComponent>()
+    .collective_map(srgb4_to_linear4);
   let color_offset = offset_of!(FlatMaterialStorage, color);
 
   ReactiveStorageBufferContainer::new(cx).with_source(color, color_offset)
