@@ -4,14 +4,20 @@ use crate::*;
 
 pub struct GizmoBridge {
   gizmo: Box<dyn Widget>,
+  widget_scene: EntityHandle<SceneEntity>,
   view_update: Option<(EntityHandle<SceneNodeEntity>, GizmoUpdateTargetLocal)>,
 }
 
 impl GizmoBridge {
-  pub fn new(w: &mut SceneWriter) -> Self {
+  pub fn new(cx: &mut DynCx) -> Self {
+    access_cx!(cx, viewer_scene, Viewer3dSceneCtx);
+    let widget_scene = viewer_scene.widget_scene;
+    access_cx_mut!(cx, w, SceneWriter);
+    let gizmo = w.write_other_scene(widget_scene, |w| Box::new(gizmo(w)));
     Self {
-      gizmo: Box::new(gizmo(w)),
+      gizmo,
       view_update: None,
+      widget_scene,
     }
   }
 }
@@ -57,15 +63,27 @@ impl Widget for GizmoBridge {
   }
 
   fn update_view(&mut self, cx: &mut DynCx) {
+    access_cx_mut!(cx, w, SceneWriter);
+    let scene = w.replace_target_scene(self.widget_scene);
+
     self.gizmo.update_view(cx);
+
     if let Some((node, update)) = self.view_update.take() {
       access_cx_mut!(cx, w, SceneWriter);
-      dbg!(update);
       w.set_local_matrix(node, update.0);
     }
+
+    access_cx_mut!(cx, w, SceneWriter);
+    w.scene = scene;
   }
 
   fn clean_up(&mut self, cx: &mut DynCx) {
+    access_cx_mut!(cx, w, SceneWriter);
+    let scene = w.replace_target_scene(self.widget_scene);
+
     self.gizmo.clean_up(cx);
+
+    access_cx_mut!(cx, w, SceneWriter);
+    w.scene = scene;
   }
 }

@@ -42,13 +42,18 @@ impl Widget for UIWidgetModel {
     access_cx!(cx, platform_event, PlatformEventInput);
     access_cx!(cx, interaction_cx, Interaction3dCtx);
 
-    if self.mouse_interactive && self.has_any_mouse_event_handler() {
-      let is_pressing = platform_event.state_delta.is_left_mouse_pressing();
-      let is_releasing = platform_event.state_delta.is_right_mouse_pressing();
+    #[allow(unused_variables)]
+    fn debug(label: &str) {
+      println!("{}", label);
+    }
 
-      if is_releasing {
-        self.is_mouse_down_in_history = false;
-      }
+    if platform_event.window_state.has_any_mouse_event
+      && self.mouse_interactive
+      && self.has_any_mouse_event_handler()
+    {
+      let is_pressing = platform_event.state_delta.is_left_mouse_pressing();
+      let is_releasing = platform_event.state_delta.is_left_mouse_releasing();
+
       let mut current_frame_hitting = None;
       if let Some((hit, model)) = interaction_cx.world_ray_intersected_nearest {
         current_frame_hitting = (model == self.model).then_some(hit);
@@ -56,25 +61,33 @@ impl Widget for UIWidgetModel {
 
       if let Some(hitting) = current_frame_hitting {
         if !self.is_mouse_in {
+          debug("mouse in");
+          self.is_mouse_in = true;
           if let Some(on_mouse_in) = &mut self.on_mouse_in {
             on_mouse_in(cx);
           }
         }
+        debug("mouse hovering");
         if let Some(on_mouse_hovering) = &mut self.on_mouse_hovering {
           on_mouse_hovering(cx, hitting);
         }
         if is_pressing {
+          debug("mouse down");
           if let Some(on_mouse_down) = &mut self.on_mouse_down {
             on_mouse_down(cx, current_frame_hitting.unwrap());
           }
           self.is_mouse_down_in_history = true;
         }
         if is_releasing && self.is_mouse_down_in_history {
+          debug("click");
           if let Some(on_mouse_click) = &mut self.on_mouse_click {
             on_mouse_click(cx, current_frame_hitting.unwrap());
           }
+          self.is_mouse_down_in_history = false;
         }
       } else if self.is_mouse_in {
+        debug("mouse out");
+        self.is_mouse_in = false;
         if let Some(on_mouse_out) = &mut self.on_mouse_out {
           on_mouse_out(cx);
         }

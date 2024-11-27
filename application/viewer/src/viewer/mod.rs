@@ -105,7 +105,8 @@ impl Widget for Viewer {
   }
 
   fn clean_up(&mut self, cx: &mut DynCx) {
-    self.content.clean_up(cx)
+    let mut writer = SceneWriter::from_global(self.scene.scene);
+    cx.scoped_cx(&mut writer, |cx| self.content.clean_up(cx));
   }
 }
 
@@ -115,6 +116,10 @@ impl Viewer {
     register_default_commands(&mut terminal);
 
     let scene = global_entity_of::<SceneEntity>()
+      .entity_writer()
+      .new_entity();
+
+    let widget_scene = global_entity_of::<SceneEntity>()
       .entity_writer()
       .new_entity();
 
@@ -144,6 +149,7 @@ impl Viewer {
       scene,
       root,
       selected_target: None,
+      widget_scene,
     };
 
     {
@@ -231,6 +237,7 @@ pub struct Viewer3dSceneCtx {
   pub root: EntityHandle<SceneNodeEntity>,
   pub scene: EntityHandle<SceneEntity>,
   pub selected_target: Option<EntityHandle<SceneModelEntity>>,
+  pub widget_scene: EntityHandle<SceneEntity>,
 }
 
 pub struct Viewer3dSceneDeriveSource {

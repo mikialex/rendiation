@@ -65,16 +65,20 @@ impl ViewerFrameLogic {
       .make_dep_component(content.main_camera)
       .unwrap();
 
+    let mut widget_scene_content = renderer.extract_and_make_pass_content(
+      SceneContentKey { transparent: false },
+      content.widget_scene,
+      content.main_camera,
+      ctx,
+      &(),
+    );
+
     pass("scene-widgets")
       .with_color(msaa_color.write(), clear(all_zero()))
       .with_depth(msaa_depth.write(), clear(1.))
       .resolve_to(widgets_result.write())
       .render_ctx(ctx)
-      .by(&mut GridGround {
-        plane: &self.ground,
-        shading: &self.grid,
-        camera: main_camera_gpu.as_ref(),
-      });
+      .by(&mut widget_scene_content);
 
     let mut highlight_compose = (content.selected_target.is_some()).then(|| {
       let masked_content = highlight(
@@ -124,6 +128,11 @@ impl ViewerFrameLogic {
           .with_depth(scene_depth.write(), depth_ops)
           .render_ctx(ctx)
           .by(&mut main_scene_content)
+          .by(&mut GridGround {
+            plane: &self.ground,
+            shading: &self.grid,
+            camera: main_camera_gpu.as_ref(),
+          })
           .by(&mut ao);
 
         NewTAAFrameSample {

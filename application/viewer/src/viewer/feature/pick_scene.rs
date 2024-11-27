@@ -1,6 +1,8 @@
 use crate::*;
 
-pub struct PickScene;
+pub struct PickScene {
+  pub enable_hit_debug_log: bool,
+}
 
 impl Widget for PickScene {
   fn update_state(&mut self, cx: &mut DynCx) {
@@ -15,7 +17,9 @@ impl Widget for PickScene {
         .picker
         .pick_models_nearest(&mut main_scene_models, picker.mouse_world_ray)
       {
-        dbg!(hit);
+        if self.enable_hit_debug_log {
+          dbg!(hit);
+        }
 
         access_cx_mut!(cx, viewer_scene, Viewer3dSceneCtx);
         viewer_scene.selected_target = hit.1.into();
