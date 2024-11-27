@@ -1,11 +1,23 @@
 use crate::*;
 
+#[repr(C)]
+#[std430_layout]
+#[derive(Clone, Copy, ShaderStruct, StorageNodePtrAccess)]
+pub struct BuiltInTriangleHitAttribute {
+  pub bary_coord: Vec2<f32>,
+}
+
+pub type HitAttribute = BuiltInTriangleHitAttribute;
+
 #[derive(Clone, Copy)]
 pub struct HitInfo {
   /// gl_HitKindEXT
   pub hit_kind: Node<u32>,
   /// gl_HitTEXT (in world space)
   pub hit_distance: Node<f32>,
+  /// attribute for anyhit and closest shader, is bary_coord for triangle geometry
+  /// todo support with custom attribute for intersection shader
+  pub hit_attribute: Node<HitAttribute>,
 }
 
 #[derive(Clone, Copy)]
@@ -177,4 +189,6 @@ pub trait ClosestHitCtxProvider: WorldRayInfoProvider + RayLaunchInfoProvider {
   fn hit_kind(&self) -> Node<u32>;
   /// gl_HitTEXT (in world space)
   fn hit_distance(&self) -> Node<f32>;
+  /// gl_HitAttributeEXT
+  fn hit_attribute(&self) -> Node<HitAttribute>;
 }

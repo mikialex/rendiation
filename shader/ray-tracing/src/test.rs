@@ -2,7 +2,7 @@
 async fn test_wavefront_compute() {
   use rendiation_texture_core::Size;
 
-  let canvas_size = 13;
+  let canvas_size = 64;
 
   use crate::*;
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();
@@ -104,29 +104,35 @@ async fn test_wavefront_compute() {
       .map(|_, ctx| {
         let closest_ctx = ctx.closest_hit_ctx().unwrap();
         let launch_id = closest_ctx.launch_id();
+        let attribute = closest_ctx.hit_attribute();
+        let bary_coord = attribute.expand().bary_coord;
 
         let tex_io = ctx.registry.get_mut::<FrameOutputInvocation>().unwrap();
         let prev = tex_io.read_output::<RayTracingDebugOutput>(launch_id.xy());
         tex_io.write_output::<RayTracingDebugOutput>(
           launch_id.xy(),
-          (prev.x(), prev.y() + val(100. / 255.), prev.z(), val(1.)).into(),
+          (bary_coord.x(), bary_coord.y(), prev.z(), val(1.)).into(),
         );
+        // tex_io.write_output::<RayTracingDebugOutput>(
+        //   launch_id.xy(),
+        //   (prev.x(), prev.y() + val(100. / 255.), prev.z(), val(1.)).into(),
+        // );
       }),
   );
   let miss = rtx_pipeline_desc.register_ray_miss::<RayCustomPayload>(
     shader_base_builder
       .create_miss_hit_shader_base::<RayCustomPayload>()
       .inject_ctx(texture_io_system.clone())
-      .map(|_, ctx| {
-        let miss_ctx = ctx.miss_hit_ctx().unwrap();
-        let launch_id = miss_ctx.launch_id();
+      .map(|_, _ctx| {
+        // let miss_ctx = ctx.miss_hit_ctx().unwrap();
+        // let launch_id = miss_ctx.launch_id();
 
-        let tex_io = ctx.registry.get_mut::<FrameOutputInvocation>().unwrap();
-        let prev = tex_io.read_output::<RayTracingDebugOutput>(launch_id.xy());
-        tex_io.write_output::<RayTracingDebugOutput>(
-          launch_id.xy(),
-          (prev.x() + val(100. / 255.), prev.y(), prev.z(), val(1.)).into(),
-        );
+        // let tex_io = ctx.registry.get_mut::<FrameOutputInvocation>().unwrap();
+        // let prev = tex_io.read_output::<RayTracingDebugOutput>(launch_id.xy());
+        // tex_io.write_output::<RayTracingDebugOutput>(
+        //   launch_id.xy(),
+        //   (prev.x() + val(100. / 255.), prev.y(), prev.z(), val(1.)).into(),
+        // );
       }),
   );
 

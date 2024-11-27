@@ -225,6 +225,7 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
             let closest_payload = ENode::<RayClosestHitCtxPayload> {
               ray_info: trace_payload_all_expand.trace_call,
               hit_ctx: hit_ctx_storage_from_hit_ctx(&closest_hit.payload.hit_ctx),
+              hit: hit_storage_from_hit(&closest_hit.payload.hit),
             }
             .construct();
 

@@ -32,6 +32,19 @@ pub struct ShaderRayTraceCallStoragePayload {
 #[repr(C)]
 #[std430_layout]
 #[derive(ShaderStruct, Clone, Copy, StorageNodePtrAccess)]
+pub struct HitStorage {
+  /// gl_HitKindEXT
+  pub hit_kind: u32,
+  /// gl_HitTEXT (in world space)
+  pub hit_distance: f32,
+  /// attribute for anyhit and closest shader, is bary_coord for triangle geometry
+  /// todo support with custom attribute for intersection shader
+  pub hit_attribute: HitAttribute,
+}
+
+#[repr(C)]
+#[std430_layout]
+#[derive(ShaderStruct, Clone, Copy, StorageNodePtrAccess)]
 pub struct HitCtxStorage {
   pub primitive_id: u32,
   pub instance_id: u32,
@@ -42,6 +55,15 @@ pub struct HitCtxStorage {
   pub world_to_object: Mat4<f32>,
   pub object_space_ray_origin: Vec3<f32>,
   pub object_space_ray_direction: Vec3<f32>,
+}
+
+pub fn hit_storage_from_hit(hit: &HitInfo) -> Node<HitStorage> {
+  ENode::<HitStorage> {
+    hit_kind: hit.hit_kind,
+    hit_distance: hit.hit_distance,
+    hit_attribute: hit.hit_attribute,
+  }
+  .construct()
 }
 
 pub fn hit_ctx_storage_from_hit_ctx(hit_ctx: &HitCtxInfo) -> Node<HitCtxStorage> {
@@ -65,6 +87,7 @@ pub fn hit_ctx_storage_from_hit_ctx(hit_ctx: &HitCtxInfo) -> Node<HitCtxStorage>
 pub struct RayClosestHitCtxPayload {
   pub ray_info: ShaderRayTraceCallStoragePayload,
   pub hit_ctx: HitCtxStorage,
+  pub hit: HitStorage,
 }
 
 #[repr(C)]
@@ -315,11 +338,18 @@ impl ClosestHitCtxProvider for StorageNode<RayClosestHitCtxPayload> {
   }
 
   fn hit_kind(&self) -> Node<u32> {
-    todo!()
+    let ctx = RayClosestHitCtxPayload::storage_node_hit_field_ptr(*self);
+    HitStorage::storage_node_hit_kind_field_ptr(ctx).load()
   }
 
   fn hit_distance(&self) -> Node<f32> {
-    todo!()
+    let ctx = RayClosestHitCtxPayload::storage_node_hit_field_ptr(*self);
+    HitStorage::storage_node_hit_distance_field_ptr(ctx).load()
+  }
+
+  fn hit_attribute(&self) -> Node<HitAttribute> {
+    let ctx = RayClosestHitCtxPayload::storage_node_hit_field_ptr(*self);
+    HitStorage::storage_node_hit_attribute_field_ptr(ctx).load()
   }
 }
 

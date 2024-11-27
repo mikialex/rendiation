@@ -1,9 +1,10 @@
+#![allow(unused)]
+
 use rendiation_algebra::Vec3;
 
 use crate::backend::wavefront_compute::geometry::intersect_ray_triangle_cpu;
 use crate::backend::wavefront_compute::geometry::naive::*;
 
-#[allow(unused)]
 #[derive(Debug)]
 pub(super) struct NaiveSahBvhCpu {
   // maps user tlas_id to tlas_bvh root node idx in tlas_bvh_forest
