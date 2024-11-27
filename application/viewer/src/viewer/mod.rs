@@ -208,14 +208,11 @@ fn egui(
     .default_pos([10., 60.])
     .max_width(1000.0)
     .max_height(800.0)
-    .default_width(400.0)
+    .default_width(250.0)
     .default_height(300.0)
     .resizable(true)
     .movable(true)
     .show(ui, |ui| {
-      if ui.add(egui::Button::new("Click me")).clicked() {
-        println!("PRESSED")
-      }
       if ui.button("Organize windows").clicked() {
         ui.ctx().memory_mut(|mem| mem.reset_areas());
       }

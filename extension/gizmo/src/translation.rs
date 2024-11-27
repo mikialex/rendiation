@@ -46,7 +46,7 @@ fn arrow(
     .with_on_mouse_down(start_drag)
     .with_on_mouse_hovering(hovering)
     .with_on_mouse_out(stop_hovering)
-    .with_view_update(update_per_axis_model(AxisType::X))
+    .with_view_update(update_per_axis_model(axis))
     .with_state_pick(axis_lens(axis))
 }
 
@@ -99,8 +99,29 @@ fn plane(
   UIWidgetModel::new(v, mesh)
     .with_parent(v, parent)
     .with_matrix(v, mat)
-    .with_view_update(plane_update(AxisType::X))
+    .with_on_mouse_down(start_drag)
+    .with_on_mouse_hovering(plane_hovering(axis))
+    .with_on_mouse_out(plane_stop_hovering(axis))
+    .with_view_update(plane_update(axis))
     .with_state_pick(axis_lens(axis))
+}
+
+fn plane_hovering(axis: AxisType) -> impl FnMut(&mut DynCx, HitPoint3D) {
+  move |cx, _hit| {
+    access_cx_mut!(cx, gizmo, AxisActiveState);
+    let (a, b) = gizmo.get_rest_axis_mut(axis);
+    a.hovering = true;
+    b.hovering = true;
+  }
+}
+
+fn plane_stop_hovering(axis: AxisType) -> impl FnMut(&mut DynCx) {
+  move |cx| {
+    access_cx_mut!(cx, gizmo, AxisActiveState);
+    let (a, b) = gizmo.get_rest_axis_mut(axis);
+    a.hovering = false;
+    b.hovering = false;
+  }
 }
 
 fn handle_translating(

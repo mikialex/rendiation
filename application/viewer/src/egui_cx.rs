@@ -13,11 +13,10 @@ pub struct EguiContext<T> {
 
 impl<T: Widget> Widget for EguiContext<T> {
   fn update_state(&mut self, cx: &mut DynCx) {
-    {
-      access_cx_mut!(cx, platform_event, PlatformEventInput);
-
-      platform_event.window_state.mouse_position_in_ui = self.context.is_pointer_over_area();
+    if self.context.is_pointer_over_area() {
+      cx.message.put(CameraControlBlocked);
     }
+
     access_cx!(cx, window, Window);
     access_cx!(cx, platform_event, PlatformEventInput);
 

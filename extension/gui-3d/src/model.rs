@@ -44,7 +44,7 @@ impl Widget for UIWidgetModel {
 
     #[allow(unused_variables)]
     fn debug(label: &str) {
-      println!("{}", label);
+      // println!("{}", label);
     }
 
     if platform_event.window_state.has_any_mouse_event
