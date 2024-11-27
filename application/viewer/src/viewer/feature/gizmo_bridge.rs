@@ -26,21 +26,27 @@ impl Widget for GizmoBridge {
   fn update_state(&mut self, cx: &mut DynCx) {
     access_cx!(cx, scene_cx, Viewer3dSceneCtx);
     access_cx!(cx, derived, Viewer3dSceneDerive);
+    access_cx!(cx, scene_reader, SceneReader);
 
-    let node_view = global_entity_component_of::<SceneModelRefNode>().read_foreign_key();
-    let node_local_mat_view = global_entity_component_of::<SceneNodeLocalMatrixComponent>().read();
-    let node_parent = global_entity_component_of::<SceneNodeParentIdx>().read();
-
+    let mut node = None;
     let mut target = scene_cx.selected_target.map(|target| {
-      let node = node_view.get(target).unwrap();
-      let target_local_mat = node_local_mat_view.get_value(node).unwrap();
+      node = scene_reader
+        .scene_model
+        .read_foreign_key::<SceneModelRefNode>(target);
+      let node = node.unwrap();
+
+      let target_local_mat = scene_reader
+        .node_reader
+        .read::<SceneNodeLocalMatrixComponent>(node);
+
       let target_world_mat = derived.world_mat.access(&node).unwrap();
-      let target_parent_world_mat = if let Some(parent) = node_parent.get_value(node).unwrap() {
-        let parent = unsafe { EntityHandle::from_raw(parent) };
-        derived.world_mat.access(&parent).unwrap()
-      } else {
-        Mat4::identity()
-      };
+      let target_parent_world_mat =
+        if let Some(parent) = scene_reader.node_reader.read::<SceneNodeParentIdx>(node) {
+          let parent = unsafe { EntityHandle::from_raw(parent) };
+          derived.world_mat.access(&parent).unwrap()
+        } else {
+          Mat4::identity()
+        };
 
       GizmoControlTargetState {
         target_local_mat,
@@ -48,10 +54,6 @@ impl Widget for GizmoBridge {
         target_world_mat,
       }
     });
-
-    let node = scene_cx
-      .selected_target
-      .map(|target| node_view.get(target).unwrap());
 
     cx.scoped_cx(&mut target, |cx| {
       self.gizmo.update_state(cx);

@@ -15,9 +15,6 @@ use rendiation_texture_core::TextureSampler;
 mod convert_utils;
 use convert_utils::*;
 
-mod reader;
-pub use reader::*;
-
 #[derive(Debug)]
 pub enum GltfExportErr {
   IO(std::io::Error),

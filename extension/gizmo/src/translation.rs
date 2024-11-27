@@ -42,10 +42,10 @@ fn arrow(
 ) -> impl Widget {
   UIWidgetModel::new(v, ArrowShape::default().build())
     .with_parent(v, parent)
-    .with_matrix(v, axis.mat())
     .with_on_mouse_down(start_drag)
     .with_on_mouse_hovering(hovering)
     .with_on_mouse_out(stop_hovering)
+    .into_view_independent(axis.mat())
     .with_view_update(update_per_axis_model(axis))
     .with_state_pick(axis_lens(axis))
 }
@@ -63,7 +63,9 @@ fn plane(
     );
   });
 
-  fn plane_update(axis: AxisType) -> impl FnMut(&mut UIWidgetModel, &mut DynCx) + 'static {
+  fn plane_update(
+    axis: AxisType,
+  ) -> impl FnMut(&mut ViewIndependentWidgetModel, &mut DynCx) + 'static {
     move |plane, cx| {
       access_cx!(cx, style, GlobalUIStyle);
       let color = style.get_axis_primary_color(axis);
@@ -98,10 +100,10 @@ fn plane(
 
   UIWidgetModel::new(v, mesh)
     .with_parent(v, parent)
-    .with_matrix(v, mat)
     .with_on_mouse_down(start_drag)
     .with_on_mouse_hovering(plane_hovering(axis))
     .with_on_mouse_out(plane_stop_hovering(axis))
+    .into_view_independent(mat)
     .with_view_update(plane_update(axis))
     .with_state_pick(axis_lens(axis))
 }

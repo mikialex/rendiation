@@ -6,9 +6,6 @@ version = "0.1.0"
 
 [dependencies]
 rendiation-algebra = { path = "../../math/algebra" }
-rendiation-scene-core = { path = "../../scene/core" }
-database = { path = "../../utility/database" }
-reactive = { path = "../../utility/reactive" }
 webgpu = { package = "rendiation-webgpu", path = "../../platform/graphics/webgpu" }
 
 [lints]

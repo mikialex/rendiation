@@ -59,10 +59,10 @@ pub fn build_rotator(
 
   UIWidgetModel::new(v, mesh)
     .with_parent(v, parent)
-    .with_matrix(v, mat)
     .with_on_mouse_down(start_drag)
     .with_on_mouse_hovering(hovering)
     .with_on_mouse_out(stop_hovering)
+    .into_view_independent(mat)
     .with_view_update(update_per_axis_model(axis))
     .with_state_pick(axis_lens(axis))
 }

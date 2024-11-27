@@ -16,7 +16,7 @@ pub struct UIWidgetModel {
 
   std_model: EntityHandle<StandardModelEntity>,
   model: EntityHandle<SceneModelEntity>,
-  node: EntityHandle<SceneNodeEntity>,
+  pub(crate) node: EntityHandle<SceneNodeEntity>,
   material: EntityHandle<FlatMaterialEntity>,
   mesh: EntityHandle<AttributesMeshEntity>,
 }

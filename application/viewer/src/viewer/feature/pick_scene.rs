@@ -11,12 +11,15 @@ impl Widget for PickScene {
     access_cx!(cx, picker, Interaction3dCtx);
 
     if input.previous_frame_window_state.is_left_mouse_pressed() {
-      let sms = global_rev_ref().update_and_read::<SceneModelBelongsToScene>();
+      access_cx!(cx, derive, Viewer3dSceneDerive);
+      let sms = &derive.sm_to_s;
       let mut main_scene_models = sms.access_multi(&viewer_scene.scene).unwrap();
-      if let Some(hit) = picker
+      let hit = picker
         .picker
-        .pick_models_nearest(&mut main_scene_models, picker.mouse_world_ray)
-      {
+        .pick_models_nearest(&mut main_scene_models, picker.mouse_world_ray);
+      drop(main_scene_models);
+
+      if let Some(hit) = hit {
         if self.enable_hit_debug_log {
           dbg!(hit);
         }

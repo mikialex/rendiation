@@ -47,11 +47,30 @@ impl Widget for Viewer {
         let picker = ViewerPicker::new(derived, input, main_camera_handle);
 
         let mut interaction_cx = prepare_picking_state(picker, &self.widget_intersection_group);
+        let mut scene_reader = SceneReader::new_from_global(
+          viewer_scene.scene,
+          derived.mesh_vertex_ref.clone(),
+          derived.node_children.clone(),
+          derived.sm_to_s.clone(),
+        );
+        let mut widget_derive_access = Box::new(WidgetEnvAccessImpl {
+          world_mat: derived.world_mat.clone(),
+          camera_node: viewer_scene.camera_node,
+          camera_proj: scene_reader
+            .camera
+            .read::<SceneCameraPerspective>(viewer_scene.main_camera)
+            .unwrap(),
+          camera_view_height: input.window_state.size.1,
+        }) as Box<dyn WidgetEnvAccess>;
 
-        cx.scoped_cx(&mut self.widget_intersection_group, |cx| {
-          cx.scoped_cx(&mut interaction_cx, |cx| {
-            cx.scoped_cx(&mut self.rendering, |cx| {
-              self.content.update_state(cx);
+        cx.scoped_cx(&mut widget_derive_access, |cx| {
+          cx.scoped_cx(&mut scene_reader, |cx| {
+            cx.scoped_cx(&mut self.widget_intersection_group, |cx| {
+              cx.scoped_cx(&mut interaction_cx, |cx| {
+                cx.scoped_cx(&mut self.rendering, |cx| {
+                  self.content.update_state(cx);
+                });
+              });
             });
           });
         });
@@ -165,7 +184,9 @@ impl Viewer {
         global_rev_ref()
           .watch_inv_ref::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>(),
       ),
+      sm_to_s: Box::new(global_rev_ref().watch_inv_ref::<SceneModelBelongsToScene>()),
       mesh_local_bounding: Box::new(attribute_mesh_local_bounding()),
+      node_children: Box::new(scene_node_connectivity_many_one_relation()),
     };
 
     Self {
@@ -243,7 +264,10 @@ pub struct Viewer3dSceneDeriveSource {
   pub camera_transforms: BoxedDynReactiveQuery<EntityHandle<SceneCameraEntity>, CameraTransform>,
   pub mesh_vertex_ref:
     RevRefOfForeignKeyWatch<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>,
+  pub sm_to_s: RevRefOfForeignKeyWatch<SceneModelBelongsToScene>,
   pub mesh_local_bounding: BoxedDynReactiveQuery<EntityHandle<AttributesMeshEntity>, Box3<f32>>,
+  pub node_children:
+    BoxedDynReactiveOneToManyRelation<EntityHandle<SceneNodeEntity>, EntityHandle<SceneNodeEntity>>,
 }
 
 impl Viewer3dSceneDeriveSource {
@@ -256,23 +280,56 @@ impl Viewer3dSceneDeriveSource {
     let (_, node_net_visible) = self.node_net_visible.poll_changes(cx);
     let (_, camera_transforms) = self.camera_transforms.poll_changes(cx);
     let (_, _, mesh_vertex_ref) = self.mesh_vertex_ref.poll_changes_with_inv_dyn(cx);
+    let (_, _, sm_to_s) = self.sm_to_s.poll_changes_with_inv_dyn(cx);
     let (_, mesh_local_bounding) = self.mesh_local_bounding.poll_changes(cx);
+    let (_, _, node_children) = self.node_children.poll_changes_with_inv_dyn(cx);
     Viewer3dSceneDerive {
       world_mat,
       camera_transforms,
       mesh_vertex_ref,
       node_net_visible,
       mesh_local_bounding,
+      node_children,
+      sm_to_s,
     }
   }
 }
 
 /// used in render & scene update
+#[derive(Clone)]
 pub struct Viewer3dSceneDerive {
   pub world_mat: BoxedDynQuery<EntityHandle<SceneNodeEntity>, Mat4<f32>>,
   pub node_net_visible: BoxedDynQuery<EntityHandle<SceneNodeEntity>, bool>,
+  pub node_children:
+    BoxedDynMultiQuery<EntityHandle<SceneNodeEntity>, EntityHandle<SceneNodeEntity>>,
   pub camera_transforms: BoxedDynQuery<EntityHandle<SceneCameraEntity>, CameraTransform>,
   pub mesh_vertex_ref:
     RevRefOfForeignKey<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>,
   pub mesh_local_bounding: BoxedDynQuery<EntityHandle<AttributesMeshEntity>, Box3<f32>>,
+  pub sm_to_s: RevRefOfForeignKey<SceneModelBelongsToScene>,
+}
+
+struct WidgetEnvAccessImpl {
+  world_mat: BoxedDynQuery<EntityHandle<SceneNodeEntity>, Mat4<f32>>,
+  camera_node: EntityHandle<SceneNodeEntity>,
+  camera_proj: PerspectiveProjection<f32>,
+  camera_view_height: f32,
+}
+
+impl WidgetEnvAccess for WidgetEnvAccessImpl {
+  fn get_world_mat(&self, sm: EntityHandle<SceneNodeEntity>) -> Option<Mat4<f32>> {
+    self.world_mat.access(&sm)
+  }
+
+  fn get_camera_node(&self) -> EntityHandle<SceneNodeEntity> {
+    self.camera_node
+  }
+
+  fn get_camera_perspective_proj(&self) -> PerspectiveProjection<f32> {
+    self.camera_proj
+  }
+
+  fn get_view_height(&self) -> f32 {
+    self.camera_view_height
+  }
 }

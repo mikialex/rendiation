@@ -1,7 +1,3 @@
-use std::any::Any;
-
-use query::*;
-use reactive_query::global_reactive_query_registry;
 use rendiation_texture_core::GPUBufferImage;
 
 use crate::*;
@@ -13,7 +9,9 @@ pub struct SceneReader {
   pub mesh: AttributesMeshReader,
 
   pub node_reader: EntityReader<SceneNodeEntity>,
-  pub node_children: BoxedDynMultiQuery<RawEntityHandle, RawEntityHandle>,
+  pub node_children:
+    BoxedDynMultiQuery<EntityHandle<SceneNodeEntity>, EntityHandle<SceneNodeEntity>>,
+  pub camera: EntityReader<SceneCameraEntity>,
   pub scene_model: EntityReader<SceneModelEntity>,
   pub std_model: EntityReader<StandardModelEntity>,
   pub sampler: EntityReader<SceneSamplerEntity>,
@@ -23,17 +21,22 @@ pub struct SceneReader {
 }
 
 impl SceneReader {
-  pub fn new_from_global(scene_id: EntityHandle<SceneEntity>) -> Self {
+  pub fn new_from_global(
+    scene_id: EntityHandle<SceneEntity>,
+    mesh_ref_vertex: RevRefOfForeignKey<
+      AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity,
+    >,
+    node_children: BoxedDynMultiQuery<EntityHandle<SceneNodeEntity>, EntityHandle<SceneNodeEntity>>,
+    scene_ref_models: RevRefOfForeignKey<SceneModelBelongsToScene>,
+  ) -> Self {
     Self {
       scene_id,
-      scene_ref_models: global_rev_ref().update_and_read::<SceneModelBelongsToScene>(),
-      mesh: AttributesMeshReader::new_from_global(),
+      scene_ref_models,
+      mesh: AttributesMeshReader::new_from_global(mesh_ref_vertex),
       node_reader: global_entity_of().entity_reader(),
-      node_children: global_reactive_query_registry()
-        .update_and_read_multi_query::<RawEntityHandle, RawEntityHandle>(
-          scene_node_connectivity.type_id(),
-        ),
+      node_children,
       scene_model: global_entity_of().entity_reader(),
+      camera: global_entity_of().entity_reader(),
       std_model: global_entity_of().entity_reader(),
       sampler: global_entity_of().entity_reader(),
       texture: global_entity_of().entity_reader(),
@@ -129,9 +132,8 @@ impl SceneReader {
     root: EntityHandle<SceneNodeEntity>,
     f: &mut impl FnMut(EntityHandle<SceneNodeEntity>, Option<EntityHandle<SceneNodeEntity>>),
   ) {
-    if let Some(children) = self.node_children.access_multi(&root.into_raw()) {
+    if let Some(children) = self.node_children.access_multi(&root) {
       for child in children {
-        let child = unsafe { EntityHandle::from_raw(child) };
         f(child, Some(root));
         self.traverse_children_tree_impl(child, f);
       }
@@ -198,14 +200,16 @@ pub struct AttributesMeshReader {
 }
 
 impl AttributesMeshReader {
-  pub fn new_from_global() -> Self {
+  pub fn new_from_global(
+    mesh_ref_vertex: RevRefOfForeignKey<
+      AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity,
+    >,
+  ) -> Self {
     Self {
+      mesh_ref_vertex,
       topology: global_database().read(),
       buffer: global_database().read(),
       semantic: global_database().read(),
-      mesh_ref_vertex: global_rev_ref()
-        .update_and_read::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>(
-      ),
       index: SceneBufferViewReadView::new_from_global(),
       vertex: SceneBufferViewReadView::new_from_global(),
     }

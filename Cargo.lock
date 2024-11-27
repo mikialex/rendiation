@@ -3401,6 +3401,7 @@ dependencies = [
  "rendiation-scene-core",
  "rendiation-shader-api",
  "rendiation-state-override",
+ "rendiation-view-override-model",
  "widget",
 ]
 
@@ -3928,10 +3929,7 @@ version = "0.1.0"
 name = "rendiation-view-override-model"
 version = "0.1.0"
 dependencies = [
- "database",
- "reactive",
  "rendiation-algebra",
- "rendiation-scene-core",
  "rendiation-webgpu",
 ]
 
