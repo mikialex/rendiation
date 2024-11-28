@@ -16,11 +16,11 @@ pub fn core_viewer_features<V: Widget + 'static>(
     let gizmo = StateCxCreateOnce::new(GizmoBridge::new);
     Box::new(
       WidgetGroup::default()
+        .with_child(gizmo)
         .with_child(SceneOrbitCameraControl::default())
         .with_child(PickScene {
           enable_hit_debug_log: false,
         })
-        .with_child(gizmo)
         .with_child(content_logic(cx)),
     )
   }

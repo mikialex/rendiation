@@ -7,6 +7,7 @@ use crate::*;
 
 pub struct ViewerPicker {
   current_mouse_ray_in_world: Ray3,
+  normalized_position: Vec2<f32>,
   conf: MeshBufferIntersectConfig,
   camera_view_size: Size,
   scene_model_picker: SceneModelPickerImpl,
@@ -57,12 +58,17 @@ impl ViewerPicker {
       scene_model_picker,
       current_mouse_ray_in_world,
       conf: Default::default(),
+      normalized_position: Vec2::from(*mouse_position),
       camera_view_size: Size::from_f32_pair_min_one(input.window_state.size),
     }
   }
 
-  pub fn current_mouse_ray_in_world(&self) -> &Ray3 {
-    &self.current_mouse_ray_in_world
+  pub fn current_mouse_ray_in_world(&self) -> Ray3 {
+    self.current_mouse_ray_in_world
+  }
+
+  pub fn normalized_position(&self) -> Vec2<f32> {
+    self.normalized_position
   }
 }
 

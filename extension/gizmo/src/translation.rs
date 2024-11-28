@@ -12,12 +12,6 @@ pub fn translation_gizmo_view(
     .with_child(plane(v, AxisType::Y, parent))
     .with_child(plane(v, AxisType::Z, parent))
     .with_state_post_update(|cx| {
-      access_cx!(cx, platform_event, PlatformEventInput);
-      if platform_event.state_delta.is_left_mouse_pressing() {
-        access_cx_mut!(cx, start_states, Option::<DragStartState>);
-        *start_states = None;
-      }
-
       if let Some(drag_action) = cx.message.take::<DragTargetAction>() {
         access_cx!(cx, target, Option::<GizmoControlTargetState>);
         access_cx!(cx, axis, AxisActiveState);
@@ -26,6 +20,7 @@ pub fn translation_gizmo_view(
         if let Some(start_states) = start_states {
           if let Some(target) = target {
             if let Some(action) = handle_translating(start_states, target, axis, drag_action) {
+              println!("handle translating");
               cx.message.put(GizmoUpdateTargetLocal(action))
             }
           }

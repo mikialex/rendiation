@@ -99,7 +99,7 @@ impl Widget for ViewIndependentRoot {
       override_position: access.get_world_mat(self.node()).unwrap().position(),
       scale: self.config,
       camera_world: access.get_camera_world_mat(),
-      camera_view_height: access.get_view_height(),
+      camera_view_height: access.get_view_resolution().y as f32,
       camera_proj: access.get_camera_perspective_proj(),
     };
 

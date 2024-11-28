@@ -6,6 +6,7 @@ pub struct GizmoBridge {
   gizmo: Box<dyn Widget>,
   widget_scene: EntityHandle<SceneEntity>,
   state: Option<GizmoControlTargetState>,
+  is_in_control: bool,
   view_update: Option<(EntityHandle<SceneNodeEntity>, GizmoUpdateTargetLocal)>,
 }
 
@@ -19,6 +20,7 @@ impl GizmoBridge {
       gizmo,
       state: None,
       view_update: None,
+      is_in_control: false,
       widget_scene,
     }
   }
@@ -64,6 +66,19 @@ impl Widget for GizmoBridge {
         .take::<GizmoUpdateTargetLocal>()
         .map(|a| (node.unwrap(), a));
     });
+
+    if cx.message.take::<GizmoInControl>().is_some() {
+      self.is_in_control = true;
+    }
+
+    if cx.message.take::<GizmoOutControl>().is_some() {
+      self.is_in_control = false;
+    }
+
+    if self.is_in_control {
+      cx.message.put(CameraControlBlocked);
+      cx.message.put(PickSceneBlocked);
+    }
   }
 
   fn update_view(&mut self, cx: &mut DynCx) {

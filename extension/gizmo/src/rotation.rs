@@ -17,6 +17,7 @@ pub fn rotation_gizmo_view(
         let start_states = start_states.as_ref().unwrap();
 
         if let Some(target) = target {
+          println!("handle rotation");
           if let Some(action) = handle_rotating(
             start_states,
             target,

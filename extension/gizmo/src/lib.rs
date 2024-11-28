@@ -10,6 +10,9 @@ use rendiation_scene_core::*;
 pub use rotation::*;
 pub use translation::*;
 
+pub struct GizmoInControl;
+pub struct GizmoOutControl;
+
 /// the user should provide Option::<GizmoControlTargetState> for target selecting,
 /// and should apply change GizmoUpdateTargetLocal to source object, the applied change should sync
 /// back to GizmoControlTargetState
@@ -21,9 +24,36 @@ pub fn gizmo(v: &mut SceneWriter) -> impl Widget {
     .with_view_update(|node, cx| {
       access_cx!(cx, target, Option::<GizmoControlTargetState>);
       let visible = target.is_some();
+      let mat = target
+        .map(|v| v.target_world_mat)
+        .unwrap_or(Mat4::identity());
 
       access_cx_mut!(cx, w, SceneWriter);
       node.set_visible(w, visible);
+      node.set_matrix(w, mat); // assuming our world mat is identity
+    })
+    .with_state_update(|cx| {
+      access_cx!(cx, start_states, Option::<DragStartState>);
+      access_cx!(cx, platform_event, PlatformEventInput);
+      if start_states.is_some() && platform_event.state_delta.mouse_position_change {
+        access_cx!(cx, w_env, Box<dyn WidgetEnvAccess>);
+        let action = DragTargetAction {
+          camera_world: w_env.get_camera_world_mat(),
+          camera_projection: w_env.get_camera_proj_mat(),
+          world_ray: w_env.get_camera_world_ray(),
+          screen_position: Vec2::from(platform_event.window_state.mouse_position),
+        };
+        cx.message.put(action);
+        println!("dragging");
+      }
+
+      access_cx!(cx, platform_event, PlatformEventInput);
+      if platform_event.state_delta.is_left_mouse_releasing() {
+        access_cx_mut!(cx, start_states, Option::<DragStartState>);
+        println!("stop drag");
+        *start_states = None;
+        cx.message.put(GizmoOutControl);
+      }
     })
     .with_local_state_inject(Option::<DragStartState>::default())
     .with_local_state_inject(GlobalUIStyle::default())
@@ -129,7 +159,9 @@ fn start_drag(cx: &mut DynCx, pick_position: HitPoint3D) {
   if let Some(target) = target {
     let drag_start_info = target.start_drag(pick_position.position);
     access_cx_mut!(cx, drag_start, Option::<DragStartState>);
-    *drag_start = Some(drag_start_info)
+    println!("start drag");
+    *drag_start = Some(drag_start_info);
+    cx.message.put(GizmoInControl);
   }
 }
 

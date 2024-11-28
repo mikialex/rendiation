@@ -16,6 +16,13 @@ impl MessageStore {
   pub fn put(&mut self, msg: impl Any) {
     self.messages.insert(msg.type_id(), Box::new(msg));
   }
+  pub fn get<T: Any>(&self) -> Option<&T> {
+    self
+      .messages
+      .get(&TypeId::of::<T>())
+      .as_ref()
+      .map(|v| v.downcast_ref::<T>().unwrap())
+  }
   pub fn take<T: Any>(&mut self) -> Option<T> {
     self
       .messages

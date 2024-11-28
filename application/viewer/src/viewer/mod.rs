@@ -46,7 +46,6 @@ impl Widget for Viewer {
 
         let picker = ViewerPicker::new(derived, input, main_camera_handle);
 
-        let mut interaction_cx = prepare_picking_state(picker, &self.widget_intersection_group);
         let mut scene_reader = SceneReader::new_from_global(
           viewer_scene.scene,
           derived.mesh_vertex_ref.clone(),
@@ -60,8 +59,15 @@ impl Widget for Viewer {
             .camera
             .read::<SceneCameraPerspective>(viewer_scene.main_camera)
             .unwrap(),
-          camera_view_height: input.window_state.size.1,
+          canvas_resolution: Vec2::new(
+            input.window_state.size.0 as u32, //todo, fix , this should use render resolution instead of window size
+            input.window_state.size.1 as u32,
+          ),
+          camera_world_ray: picker.current_mouse_ray_in_world(),
+          normalized_canvas_position: picker.normalized_position(),
         }) as Box<dyn WidgetEnvAccess>;
+
+        let mut interaction_cx = prepare_picking_state(picker, &self.widget_intersection_group);
 
         cx.scoped_cx(&mut widget_derive_access, |cx| {
           cx.scoped_cx(&mut scene_reader, |cx| {
@@ -313,7 +319,9 @@ struct WidgetEnvAccessImpl {
   world_mat: BoxedDynQuery<EntityHandle<SceneNodeEntity>, Mat4<f32>>,
   camera_node: EntityHandle<SceneNodeEntity>,
   camera_proj: PerspectiveProjection<f32>,
-  camera_view_height: f32,
+  canvas_resolution: Vec2<u32>,
+  camera_world_ray: Ray3,
+  normalized_canvas_position: Vec2<f32>,
 }
 
 impl WidgetEnvAccess for WidgetEnvAccessImpl {
@@ -329,7 +337,15 @@ impl WidgetEnvAccess for WidgetEnvAccessImpl {
     self.camera_proj
   }
 
-  fn get_view_height(&self) -> f32 {
-    self.camera_view_height
+  fn get_camera_world_ray(&self) -> Ray3 {
+    self.camera_world_ray
+  }
+
+  fn get_normalized_canvas_position(&self) -> Vec2<f32> {
+    self.normalized_canvas_position
+  }
+
+  fn get_view_resolution(&self) -> Vec2<u32> {
+    self.canvas_resolution
   }
 }

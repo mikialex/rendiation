@@ -30,6 +30,12 @@ impl UINode {
       .write::<SceneNodeVisibleComponent>(self.node, v);
     self
   }
+  pub fn set_matrix(&mut self, cx3d: &mut SceneWriter, mat: Mat4<f32>) -> &mut Self {
+    cx3d
+      .node_writer
+      .write::<SceneNodeLocalMatrixComponent>(self.node, mat);
+    self
+  }
 }
 
 impl Widget for UINode {

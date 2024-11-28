@@ -136,9 +136,9 @@ impl<T: Scalar> NDCSpaceMapper<T> for OpenGL {
   }
 }
 
-pub struct WebGPU;
+pub struct WebGPUxNDC;
 
-impl<T: Scalar> NDCSpaceMapper<T> for WebGPU {
+impl<T: Scalar> NDCSpaceMapper<T> for WebGPUxNDC {
   fn from_opengl_standard() -> Mat4<T> {
     #[rustfmt::skip]
     Mat4::new(
