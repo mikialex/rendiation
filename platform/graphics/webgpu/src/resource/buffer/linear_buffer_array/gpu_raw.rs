@@ -26,7 +26,7 @@ impl<T: GPULinearStorageImpl + LinearStorageBase> ResizableLinearStorage for Res
       .gpu
       .resize_gpu(&mut encoder, &self.ctx.device, new_size);
     self.ctx.queue.submit_encoder(encoder);
-    todo!()
+    true
   }
 }
 

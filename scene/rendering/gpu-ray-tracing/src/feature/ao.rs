@@ -125,7 +125,14 @@ impl SceneRayTracingAORenderer {
         self.ao_buffer = None;
       }
     }
-    let ao_buffer = self.ao_buffer.clone().unwrap_or_else(|| todo!());
+    let ao_buffer = self.ao_buffer.clone().unwrap_or_else(|| {
+      create_empty_2d_texture_view(
+        frame.gpu,
+        frame.frame_size(),
+        TextureUsages::all(),
+        TextureFormat::Rgba8Unorm,
+      )
+    });
     let ao_buffer_rw = ao_buffer
       .clone()
       .into_storage_texture_view_readwrite()

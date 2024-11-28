@@ -124,7 +124,7 @@ pub fn create_growable_buffer<T: GPULinearStorageImpl>(
       if required_size > max_size {
         None
       } else {
-        Some((current_size * 2).min(max_size))
+        Some((current_size * 2).max(required_size).min(max_size))
       }
     },
   )

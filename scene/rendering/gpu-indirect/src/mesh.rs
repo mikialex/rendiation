@@ -198,18 +198,19 @@ impl RenderImplProvider<Box<dyn IndirectModelShapeRenderImpl>> for MeshBindlessG
     ));
 
     let sm_to_mesh = global_watch()
-      .watch::<StandardModelRefAttributesMeshEntity>()
+      .watch_typed_foreign_key::<StandardModelRefAttributesMeshEntity>()
       .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelStdModelRenderPayload>())
       .into_forker();
 
     let sm_to_mesh_device_source = sm_to_mesh
       .clone()
-      .collective_map(|v| v.map(|v| v.index()).unwrap_or(u32::MAX));
+      .collective_map(|v| v.map(|v| v.alloc_index()).unwrap_or(u32::MAX));
 
     let sm_to_mesh_device =
       ReactiveStorageBufferContainer::<u32>::new(cx).with_source(sm_to_mesh_device_source, 0);
 
     self.sm_to_mesh_device = source.register_multi_updater(sm_to_mesh_device.inner);
+    let sm_to_mesh = sm_to_mesh.collective_filter_map(|v| v);
     self.sm_to_mesh = source.register_reactive_query(sm_to_mesh);
   }
 
