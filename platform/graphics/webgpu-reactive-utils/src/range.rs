@@ -76,15 +76,23 @@ impl<T: ReactiveQuery<Value = (Arc<Vec<u8>>, Option<GPUBufferViewRange>)>> React
           new.0.as_slice()
         };
 
+        let mut override_offsets: FastHashMap<u32, T::Key> = FastHashMap::default();
         let count = data_to_write.len();
         let offset = buffer
           .allocate_range(count as u32, &mut |relocation| {
-            let id = rev.remove(&relocation.previous_offset).unwrap();
+            let id = override_offsets
+              .remove(&relocation.previous_offset)
+              .unwrap_or_else(|| rev.remove(&relocation.previous_offset).unwrap());
+
             mutator.remove(id.clone());
-            rev.insert(relocation.new_offset, id.clone());
+            if let Some(overridden) = rev.insert(relocation.new_offset, id.clone()) {
+              override_offsets.insert(relocation.new_offset, overridden);
+            }
             mutator.set_value(id, relocation.new_offset);
           })
           .unwrap();
+        assert!(override_offsets.is_empty());
+
         let gpu_buffer = buffer.raw_gpu();
         self
           .gpu
