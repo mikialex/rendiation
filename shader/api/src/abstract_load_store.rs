@@ -63,7 +63,7 @@ impl<T: ShaderSizedValueNodeType> ShaderAbstractRightValue for Node<T> {
   fn create_left_value_from_builder<B: LeftValueBuilder>(
     builder: &mut B,
   ) -> Self::AbstractLeftValue {
-    builder.create_single_left_value_zeroed()
+    builder.create_single_left_value()
   }
 }
 
