@@ -35,7 +35,7 @@ pub(crate) struct Ray {
   pub flags: u32,
   pub direction: Vec3<f32>,
   pub mask: u32,
-  pub range: Vec2<f32>,
+  // pub range: Vec2<f32>,
 }
 
 pub(crate) fn intersect_ray_aabb_cpu(

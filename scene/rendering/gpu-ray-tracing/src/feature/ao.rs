@@ -362,7 +362,7 @@ impl ShaderFutureInvocation for RayTracingAOComputeInvocation {
       let tri_b_normal = self.bindless_mesh.get_normal(tri_idx_s.y(), mesh_id);
       let tri_c_normal = self.bindless_mesh.get_normal(tri_idx_s.z(), mesh_id);
 
-      let attribs: Node<Vec2<f32>> = todo!();
+      let attribs: Node<Vec2<f32>> = closest_hit_ctx.hit_attribute().expand().bary_coord;
       let barycentric: Node<Vec3<f32>> = (
         val(1.0) - attribs.x() - attribs.y(),
         attribs.x(),

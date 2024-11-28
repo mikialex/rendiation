@@ -174,5 +174,10 @@ pub trait IntersectionReporter {
   /// rejected and false is returned.
   ///
   /// https://github.com/KhronosGroup/GLSL/blob/main/extensions/ext/GLSL_EXT_ray_tracing.txt#L954
-  fn report_intersection(&self, hit_t: Node<f32>, hit_kind: Node<u32>) -> Node<bool>;
+  fn report_intersection(
+    &self,
+    hit_t: Node<f32>,
+    hit_kind: Node<u32>,
+    hit_attribute: Node<HitAttribute>,
+  ) -> Node<bool>;
 }
