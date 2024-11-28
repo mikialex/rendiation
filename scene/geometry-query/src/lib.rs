@@ -132,5 +132,16 @@ impl SceneModelPicker for SceneModelPickerImpl {
     }
     .intersect_nearest(local_ray, &ctx.conf, MeshGroup { start: 0, count })
     .0
+    .map(|hit| {
+      let world_hit_position = hit.hit.position.apply_matrix_into(mat);
+
+      MeshBufferHitPoint {
+        hit: HitPoint {
+          position: world_hit_position,
+          distance: ctx.world_ray.origin.distance_to(world_hit_position),
+        },
+        primitive_index: hit.primitive_index,
+      }
+    })
   }
 }

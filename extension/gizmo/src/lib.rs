@@ -100,10 +100,10 @@ pub fn update_per_axis_model(
     let color = style.get_axis_primary_color(axis);
 
     access_cx!(cx, gizmo, AxisActiveState);
-    let axis_state = *gizmo.get_axis(axis);
+    access_cx!(cx, axis_state, ItemState);
     let self_active = axis_state.active;
     let visible = !gizmo.has_any_active() || self_active;
-    let color = map_color(color, axis_state);
+    let color = map_color(color, *axis_state);
 
     access_cx_mut!(cx, cx3d, SceneWriter);
     view.set_visible(cx3d, visible);

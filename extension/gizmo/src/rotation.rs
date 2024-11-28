@@ -10,6 +10,11 @@ pub fn rotation_gizmo_view(
     .with_child(build_rotator(v, AxisType::Y, parent))
     .with_child(build_rotator(v, AxisType::Z, parent))
     .with_state_post_update(move |cx| {
+      if cx.message.get::<GizmoOutControl>().is_some() {
+        access_cx_mut!(cx, axis, AxisActiveState);
+        *axis = AxisActiveState::default()
+      }
+
       if let Some(drag_action) = cx.message.take::<DragTargetAction>() {
         access_cx!(cx, target, Option::<GizmoControlTargetState>);
         access_cx!(cx, rotate_view, AxisActiveState);

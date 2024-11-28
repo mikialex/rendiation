@@ -14,7 +14,7 @@ impl Widget for PickScene {
     access_cx!(cx, viewer_scene, Viewer3dSceneCtx);
     access_cx!(cx, picker, Interaction3dCtx);
 
-    if input.previous_frame_window_state.is_left_mouse_pressed() && !blocked {
+    if input.state_delta.is_left_mouse_pressing() && !blocked {
       access_cx!(cx, derive, Viewer3dSceneDerive);
       let sms = &derive.sm_to_s;
       let mut main_scene_models = sms.access_multi(&viewer_scene.scene).unwrap();

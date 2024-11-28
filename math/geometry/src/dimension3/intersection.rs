@@ -87,7 +87,7 @@ where
     if dist_sq > *t * *t {
       return OptionalNearest::none();
     }
-    let distance = self.origin.distance(inter_ray);
+    let distance = self.origin.distance_to(inter_ray);
     OptionalNearest::some(HitPoint3D::new(inter_ray, distance))
   }
 }
@@ -104,7 +104,7 @@ where
     if dist_sq > *t * *t {
       return OptionalNearest::none();
     }
-    let distance = self.origin.distance(point);
+    let distance = self.origin.distance_to(point);
     OptionalNearest::some(HitPoint3D::new(point, distance))
   }
 }
