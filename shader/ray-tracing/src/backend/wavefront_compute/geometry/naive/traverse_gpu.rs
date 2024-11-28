@@ -217,7 +217,7 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
 
     let hit_ctx_info_var = HitCtxInfoVar::default();
     let hit_info_var = HitInfoVar::default();
-    hit_info_var.hit_t.store(world_ray.ray_range.max);
+    hit_info_var.hit_distance.store(world_ray.ray_range.max);
 
     intersect_blas_gpu(
       blas_iter,
@@ -241,7 +241,7 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
     let hit_ctx_info = hit_ctx_info_var.load();
     let hit_info = HitInfo {
       hit_kind: hit_info_var.hit_kind.load(),
-      hit_distance: hit_info_var.hit_t.load(),
+      hit_distance: hit_info_var.hit_distance.load(),
       hit_attribute: hit_info_var.hit_attribute.load(),
     };
 
@@ -706,7 +706,7 @@ impl HitCtxInfoVar {
 struct HitInfoVar {
   pub any_hit: LocalVarNode<bool>,
   pub hit_kind: LocalVarNode<u32>,
-  pub hit_t: LocalVarNode<f32>,
+  pub hit_distance: LocalVarNode<f32>,
   pub hit_attribute: LocalVarNode<HitAttribute>,
 }
 impl Default for HitInfoVar {
@@ -714,7 +714,7 @@ impl Default for HitInfoVar {
     Self {
       any_hit: val(false).make_local_var(),
       hit_kind: val(0).make_local_var(),
-      hit_t: val(f32::MAX).make_local_var(),
+      hit_distance: val(f32::MAX).make_local_var(),
       hit_attribute: BuiltInTriangleHitAttributeShaderAPIInstance {
         bary_coord: val(vec2(0., 0.)),
       }
@@ -725,13 +725,16 @@ impl Default for HitInfoVar {
 }
 impl HitInfoVar {
   fn test_and_store(&self, source: &HitInfo, if_passed: impl FnOnce()) {
-    if_by(source.hit_distance.less_than(self.hit_t.load()), || {
-      self.any_hit.store(val(true));
-      self.hit_kind.store(source.hit_kind);
-      self.hit_t.store(source.hit_distance);
-      self.hit_attribute.store(source.hit_attribute);
-      if_passed();
-    });
+    if_by(
+      source.hit_distance.less_than(self.hit_distance.load()),
+      || {
+        self.any_hit.store(val(true));
+        self.hit_kind.store(source.hit_kind);
+        self.hit_distance.store(source.hit_distance);
+        self.hit_attribute.store(source.hit_attribute);
+        if_passed();
+      },
+    );
   }
 }
 
