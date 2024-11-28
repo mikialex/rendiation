@@ -244,6 +244,14 @@ pub struct ForeignKeyReadView<T: ForeignKeySemantic> {
   data: Box<dyn ComponentStorageReadView<T::Data>>,
 }
 
+impl<T: ForeignKeySemantic> Clone for ForeignKeyReadView<T> {
+  fn clone(&self) -> Self {
+    Self {
+      data: self.data.clone_read_view(),
+    }
+  }
+}
+
 impl<T: ForeignKeySemantic> ForeignKeyReadView<T> {
   pub fn get(&self, idx: EntityHandle<T::Entity>) -> Option<EntityHandle<T::ForeignEntity>> {
     self

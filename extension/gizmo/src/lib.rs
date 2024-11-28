@@ -18,6 +18,13 @@ pub fn gizmo(v: &mut SceneWriter) -> impl Widget {
     .with_child(v, translation_gizmo_view)
     .with_child(v, rotation_gizmo_view)
     .into_view_independent_root(100.0)
+    .with_view_update(|node, cx| {
+      access_cx!(cx, target, Option::<GizmoControlTargetState>);
+      let visible = target.is_some();
+
+      access_cx_mut!(cx, w, SceneWriter);
+      node.set_visible(w, visible);
+    })
     .with_local_state_inject(Option::<DragStartState>::default())
     .with_local_state_inject(GlobalUIStyle::default())
 }

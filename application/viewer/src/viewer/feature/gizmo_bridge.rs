@@ -5,6 +5,7 @@ use crate::*;
 pub struct GizmoBridge {
   gizmo: Box<dyn Widget>,
   widget_scene: EntityHandle<SceneEntity>,
+  state: Option<GizmoControlTargetState>,
   view_update: Option<(EntityHandle<SceneNodeEntity>, GizmoUpdateTargetLocal)>,
 }
 
@@ -16,6 +17,7 @@ impl GizmoBridge {
     let gizmo = w.write_other_scene(widget_scene, |w| Box::new(gizmo(w)));
     Self {
       gizmo,
+      state: None,
       view_update: None,
       widget_scene,
     }
@@ -29,7 +31,7 @@ impl Widget for GizmoBridge {
     access_cx!(cx, scene_reader, SceneReader);
 
     let mut node = None;
-    let mut target = scene_cx.selected_target.map(|target| {
+    self.state = scene_cx.selected_target.map(|target| {
       node = scene_reader
         .scene_model
         .read_foreign_key::<SceneModelRefNode>(target);
@@ -55,7 +57,7 @@ impl Widget for GizmoBridge {
       }
     });
 
-    cx.scoped_cx(&mut target, |cx| {
+    cx.scoped_cx(&mut self.state, |cx| {
       self.gizmo.update_state(cx);
       self.view_update = cx
         .message
@@ -68,7 +70,9 @@ impl Widget for GizmoBridge {
     access_cx_mut!(cx, w, SceneWriter);
     let scene = w.replace_target_scene(self.widget_scene);
 
-    self.gizmo.update_view(cx);
+    cx.scoped_cx(&mut self.state, |cx| {
+      self.gizmo.update_view(cx);
+    });
 
     if let Some((node, update)) = self.view_update.take() {
       access_cx_mut!(cx, w, SceneWriter);

@@ -2,6 +2,7 @@ use crate::*;
 
 pub struct GLESRenderSystem {
   pub model_lookup: UpdateResultToken,
+  pub node_net_visible: UpdateResultToken,
   pub texture_system: TextureGPUSystemSource,
   pub camera: Box<dyn RenderImplProvider<Box<dyn CameraRenderImpl>>>,
   pub scene_model_impl: Vec<Box<dyn RenderImplProvider<Box<dyn SceneModelRenderer>>>>,
@@ -11,6 +12,7 @@ pub fn build_default_gles_render_system() -> GLESRenderSystem {
   GLESRenderSystem {
     model_lookup: Default::default(),
     texture_system: Default::default(),
+    node_net_visible: Default::default(),
     camera: Box::new(DefaultGLESCameraRenderImplProvider::default()),
     scene_model_impl: vec![Box::new(GLESPreferredComOrderRendererProvider {
       node: Box::new(DefaultGLESNodeRenderImplProvider::default()),
@@ -37,6 +39,7 @@ impl RenderImplProvider<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>> fo
     for imp in &mut self.scene_model_impl {
       imp.register_resource(source, cx);
     }
+    self.node_net_visible = source.register_reactive_query(scene_node_derive_visible());
   }
 
   fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
@@ -45,6 +48,8 @@ impl RenderImplProvider<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>> fo
     for imp in &mut self.scene_model_impl {
       imp.deregister_resource(source);
     }
+    source.deregister(&mut self.model_lookup);
+    source.deregister(&mut self.node_net_visible);
   }
 
   fn create_impl(
@@ -63,6 +68,10 @@ impl RenderImplProvider<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>> fo
         .unwrap(),
       texture_system: self.texture_system.create_impl(res),
       camera: self.camera.create_impl(res),
+      node_net_visible: res
+        .take_reactive_query_updated(self.node_net_visible)
+        .unwrap(),
+      sm_ref_node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
     })
   }
 }
@@ -73,17 +82,25 @@ struct GLESSceneRenderer {
   scene_model_renderer: Vec<Box<dyn SceneModelRenderer>>,
   background: SceneBackgroundRenderer,
   model_lookup: RevRefOfForeignKey<SceneModelBelongsToScene>,
+  node_net_visible: BoxedDynQuery<EntityHandle<SceneNodeEntity>, bool>,
+  sm_ref_node: ForeignKeyReadView<SceneModelRefNode>,
 }
 
 #[derive(Clone)]
-struct HostModelLoopUp {
+struct HostModelLookUp {
   v: RevRefOfForeignKey<SceneModelBelongsToScene>,
+  node_net_visible: BoxedDynQuery<EntityHandle<SceneNodeEntity>, bool>,
+  sm_ref_node: ForeignKeyReadView<SceneModelRefNode>,
   scene_id: EntityHandle<SceneEntity>,
 }
 
-impl HostRenderBatch for HostModelLoopUp {
+impl HostRenderBatch for HostModelLookUp {
   fn iter_scene_models(&self) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + '_> {
-    Box::new(self.v.access_multi_value_dyn(&self.scene_id))
+    let iter = self.v.access_multi_value_dyn(&self.scene_id).filter(|sm| {
+      let node = self.sm_ref_node.get(*sm).unwrap();
+      self.node_net_visible.access(&node).unwrap_or(false)
+    });
+    Box::new(iter)
   }
 }
 
@@ -111,8 +128,10 @@ impl SceneRenderer for GLESSceneRenderer {
     _semantic: Self::ContentKey, // todo
     _ctx: &mut FrameCtx,
   ) -> SceneModelRenderBatch {
-    SceneModelRenderBatch::Host(Box::new(HostModelLoopUp {
+    SceneModelRenderBatch::Host(Box::new(HostModelLookUp {
       v: self.model_lookup.clone(),
+      node_net_visible: self.node_net_visible.clone(),
+      sm_ref_node: self.sm_ref_node.clone(),
       scene_id: scene,
     }))
   }

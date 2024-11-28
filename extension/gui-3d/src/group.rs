@@ -23,6 +23,13 @@ impl UINode {
     self.children = self.children.with_child(child(self.node, v));
     self
   }
+
+  pub fn set_visible(&mut self, cx3d: &mut SceneWriter, v: bool) -> &mut Self {
+    cx3d
+      .node_writer
+      .write::<SceneNodeVisibleComponent>(self.node, v);
+    self
+  }
 }
 
 impl Widget for UINode {
