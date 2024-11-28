@@ -17,7 +17,7 @@ pub fn translation_gizmo_view(
         *axis = AxisActiveState::default()
       }
 
-      if let Some(drag_action) = cx.message.take::<DragTargetAction>() {
+      if let Some(drag_action) = cx.message.get::<DragTargetAction>() {
         access_cx!(cx, target, Option::<GizmoControlTargetState>);
         access_cx!(cx, axis, AxisActiveState);
         access_cx!(cx, start_states, Option::<DragStartState>);
@@ -25,7 +25,7 @@ pub fn translation_gizmo_view(
         if let Some(start_states) = start_states {
           if let Some(target) = target {
             if let Some(action) = handle_translating(start_states, target, axis, drag_action) {
-              println!("handle translating");
+              debug_print("handle translating");
               cx.message.put(GizmoUpdateTargetLocal(action))
             }
           }
@@ -137,7 +137,7 @@ fn handle_translating(
   states: &DragStartState,
   target: &GizmoControlTargetState,
   axis: &AxisActiveState,
-  action: DragTargetAction,
+  action: &DragTargetAction,
 ) -> Option<Mat4<f32>> {
   let camera_world_position = action.camera_world.position();
 

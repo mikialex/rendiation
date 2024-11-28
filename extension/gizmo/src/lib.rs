@@ -13,6 +13,11 @@ pub use translation::*;
 pub struct GizmoInControl;
 pub struct GizmoOutControl;
 
+#[allow(unused_variables)]
+fn debug_print(msg: &str) {
+  // println!("{}", msg);
+}
+
 /// the user should provide Option::<GizmoControlTargetState> for target selecting,
 /// and should apply change GizmoUpdateTargetLocal to source object, the applied change should sync
 /// back to GizmoControlTargetState
@@ -41,16 +46,16 @@ pub fn gizmo(v: &mut SceneWriter) -> impl Widget {
           camera_world: w_env.get_camera_world_mat(),
           camera_projection: w_env.get_camera_proj_mat(),
           world_ray: w_env.get_camera_world_ray(),
-          screen_position: Vec2::from(platform_event.window_state.mouse_position),
+          normalized_screen_position: w_env.get_normalized_canvas_position(),
         };
         cx.message.put(action);
-        println!("dragging");
+        debug_print("dragging");
       }
 
       access_cx!(cx, platform_event, PlatformEventInput);
       if platform_event.state_delta.is_left_mouse_releasing() {
         access_cx_mut!(cx, start_states, Option::<DragStartState>);
-        println!("stop drag");
+        debug_print("stop drag");
         *start_states = None;
         cx.message.put(GizmoOutControl);
       }
@@ -159,7 +164,7 @@ fn start_drag(cx: &mut DynCx, pick_position: HitPoint3D) {
   if let Some(target) = target {
     let drag_start_info = target.start_drag(pick_position.position);
     access_cx_mut!(cx, drag_start, Option::<DragStartState>);
-    println!("start drag");
+    debug_print("start drag");
     *drag_start = Some(drag_start_info);
     cx.message.put(GizmoInControl);
   }
@@ -214,7 +219,8 @@ struct DragTargetAction {
   camera_world: Mat4<f32>,
   camera_projection: Mat4<f32>,
   world_ray: Ray3<f32>,
-  screen_position: Vec2<f32>,
+  /// x, y: -1 to 1
+  normalized_screen_position: Vec2<f32>,
 }
 
 pub fn axis_lens(axis: AxisType) -> impl Fn(&mut AxisActiveState) -> &mut ItemState {

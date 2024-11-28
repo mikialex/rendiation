@@ -58,7 +58,7 @@ impl ViewerPicker {
       scene_model_picker,
       current_mouse_ray_in_world,
       conf: Default::default(),
-      normalized_position: Vec2::from(*mouse_position),
+      normalized_position: Vec2::from(normalized_position),
       camera_view_size: Size::from_f32_pair_min_one(input.window_state.size),
     }
   }

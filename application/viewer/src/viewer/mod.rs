@@ -321,6 +321,7 @@ struct WidgetEnvAccessImpl {
   camera_proj: PerspectiveProjection<f32>,
   canvas_resolution: Vec2<u32>,
   camera_world_ray: Ray3,
+  // xy -1 to 1
   normalized_canvas_position: Vec2<f32>,
 }
 

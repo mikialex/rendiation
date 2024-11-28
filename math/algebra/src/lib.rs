@@ -127,9 +127,9 @@ pub trait NDCSpaceMapper<T: Scalar> {
   fn from_opengl_standard() -> Mat4<T>;
 }
 
-pub struct OpenGL;
+pub struct OpenGLxNDC;
 
-impl<T: Scalar> NDCSpaceMapper<T> for OpenGL {
+impl<T: Scalar> NDCSpaceMapper<T> for OpenGLxNDC {
   /// Of course we don't need transform here, so it's identity
   fn from_opengl_standard() -> Mat4<T> {
     Mat4::identity()

@@ -12,25 +12,27 @@ pub fn rotation_gizmo_view(
     .with_state_post_update(move |cx| {
       if cx.message.get::<GizmoOutControl>().is_some() {
         access_cx_mut!(cx, axis, AxisActiveState);
-        *axis = AxisActiveState::default()
+        *axis = AxisActiveState::default();
+        rotate_state = None;
       }
 
-      if let Some(drag_action) = cx.message.take::<DragTargetAction>() {
+      if let Some(drag_action) = cx.message.get::<DragTargetAction>() {
         access_cx!(cx, target, Option::<GizmoControlTargetState>);
         access_cx!(cx, rotate_view, AxisActiveState);
         access_cx!(cx, start_states, Option::<DragStartState>);
-        let start_states = start_states.as_ref().unwrap();
 
-        if let Some(target) = target {
-          println!("handle rotation");
-          if let Some(action) = handle_rotating(
-            start_states,
-            target,
-            &mut rotate_state,
-            rotate_view,
-            drag_action,
-          ) {
-            cx.message.put(GizmoUpdateTargetLocal(action))
+        if let Some(start_states) = start_states {
+          if let Some(target) = target {
+            debug_print("handle rotation");
+            if let Some(action) = handle_rotating(
+              start_states,
+              target,
+              &mut rotate_state,
+              rotate_view,
+              drag_action,
+            ) {
+              cx.message.put(GizmoUpdateTargetLocal(action))
+            }
           }
         }
       }
@@ -83,7 +85,7 @@ fn handle_rotating(
   target: &GizmoControlTargetState,
   rotate_state: &mut Option<RotateState>,
   axis: &AxisActiveState,
-  action: DragTargetAction,
+  action: &DragTargetAction,
 ) -> Option<Mat4<f32>> {
   #[rustfmt::skip]
   // new_hit_world = M(parent) * M(local_translate) * M(new_local_rotate) * M(local_scale) * start_hit_local_position =>
@@ -100,7 +102,7 @@ fn handle_rotating(
 
   let origin_dir = start_hit_screen_position - pivot_center_screen_position;
   let origin_dir = origin_dir.normalize();
-  let new_dir = action.screen_position - pivot_center_screen_position;
+  let new_dir = action.normalized_screen_position - pivot_center_screen_position;
   let new_dir = new_dir.normalize();
 
   let RotateState {
