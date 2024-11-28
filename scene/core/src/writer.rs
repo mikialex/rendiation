@@ -20,6 +20,25 @@ pub struct SceneWriter {
 }
 
 impl SceneWriter {
+  pub fn replace_target_scene(
+    &mut self,
+    new_scene: EntityHandle<SceneEntity>,
+  ) -> EntityHandle<SceneEntity> {
+    let scene_backup = self.scene;
+    self.scene = new_scene;
+    scene_backup
+  }
+  pub fn write_other_scene<R>(
+    &mut self,
+    scene: EntityHandle<SceneEntity>,
+    f: impl FnOnce(&mut Self) -> R,
+  ) -> R {
+    let scene_backup = self.replace_target_scene(scene);
+    let r = f(self);
+    self.scene = scene_backup;
+    r
+  }
+
   pub fn set_solid_background(&mut self, solid: Vec3<f32>) {
     self
       .scene_writer

@@ -25,19 +25,23 @@ impl PlatformEventInput {
   pub fn end_frame(&mut self) {
     self.accumulate_events.clear();
     self.previous_frame_window_state = self.window_state.clone();
+    self.window_state.reset_in_frame_states();
   }
 }
 
 #[derive(Clone)]
 pub struct WindowState {
   pub size: (f32, f32),
+  pub has_any_mouse_event: bool,
   pub mouse_position: (f32, f32),
-  pub mouse_position_in_ui: bool,
   pub left_mouse_state: ElementState,
   pub right_mouse_state: ElementState,
 }
 
 impl WindowState {
+  pub fn reset_in_frame_states(&mut self) {
+    self.has_any_mouse_event = false;
+  }
   pub fn compare(&self, old: &WindowState) -> WindowStateChange {
     fn compare_button_state(old: ElementState, new: ElementState) -> Option<ElementState> {
       if old == new {
@@ -100,14 +104,18 @@ impl WindowState {
           self.size.0 = size.width as f32;
           self.size.1 = size.height as f32;
         }
-        WindowEvent::MouseInput { button, state, .. } => match button {
-          MouseButton::Left => self.left_mouse_state = *state,
-          MouseButton::Right => self.right_mouse_state = *state,
-          _ => {}
-        },
+        WindowEvent::MouseInput { button, state, .. } => {
+          match button {
+            MouseButton::Left => self.left_mouse_state = *state,
+            MouseButton::Right => self.right_mouse_state = *state,
+            _ => {}
+          }
+          self.has_any_mouse_event = true
+        }
         WindowEvent::CursorMoved { position, .. } => {
           self.mouse_position.0 = position.x as f32;
           self.mouse_position.1 = position.y as f32;
+          self.has_any_mouse_event = true
         }
         _ => (),
       },
@@ -121,9 +129,9 @@ impl Default for WindowState {
     Self {
       size: (0.0, 0.0),
       mouse_position: (0.0, 0.0),
-      mouse_position_in_ui: false,
       left_mouse_state: ElementState::Released,
       right_mouse_state: ElementState::Released,
+      has_any_mouse_event: false,
     }
   }
 }

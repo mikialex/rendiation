@@ -176,10 +176,16 @@ impl ControllerWinitEventSupport for OrbitController {
           s.mouse_position.x = position.x as f32;
           s.mouse_position.y = position.y as f32;
         }
-        WindowEvent::MouseWheel { delta, .. } => {
-          if let MouseScrollDelta::LineDelta(_, y) = delta {
+        WindowEvent::MouseWheel { delta, .. } => match delta {
+          MouseScrollDelta::LineDelta(_, y) => {
             self.zoom(1.0 - y * 0.1);
           }
+          MouseScrollDelta::PixelDelta(physical_position) => {
+            self.zoom(1.0 - physical_position.y as f32 * 0.01);
+          }
+        },
+        WindowEvent::PinchGesture { delta, .. } => {
+          self.zoom(1.0 - *delta as f32 * 10.);
         }
         _ => {}
       },

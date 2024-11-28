@@ -9,18 +9,20 @@ pub struct SceneOrbitCameraControl {
   pub controller: ControllerWinitAdapter<OrbitController>,
 }
 
+pub struct CameraControlBlocked;
+
 impl Widget for SceneOrbitCameraControl {
   fn update_state(&mut self, cx: &mut DynCx) {
+    if cx.message.take::<CameraControlBlocked>().is_some() {
+      return;
+    }
+
     access_cx!(cx, p, PlatformEventInput);
 
     let bound = InputBound {
       origin: Vec2::zero(),
       size: p.window_state.size.into(),
     };
-
-    if p.window_state.mouse_position_in_ui {
-      return;
-    }
 
     for e in &p.accumulate_events {
       self.controller.event(e, bound)

@@ -3,7 +3,7 @@ use crate::*;
 pub struct UIWidgetModel {
   /// indicate if this widget is interactive to mouse event
   mouse_interactive: bool,
-  mouse_interactive_previous: Option<bool>,
+  registered_interactive_set: bool,
 
   is_mouse_in: bool,
   is_mouse_down_in_history: bool,
@@ -16,7 +16,7 @@ pub struct UIWidgetModel {
 
   std_model: EntityHandle<StandardModelEntity>,
   model: EntityHandle<SceneModelEntity>,
-  node: EntityHandle<SceneNodeEntity>,
+  pub(crate) node: EntityHandle<SceneNodeEntity>,
   material: EntityHandle<FlatMaterialEntity>,
   mesh: EntityHandle<AttributesMeshEntity>,
 }
@@ -29,24 +29,31 @@ impl Widget for UIWidgetModel {
       sm_intersection_gp,
       WidgetSceneModelIntersectionGroupConfig
     );
-    if let Some(mouse_interactive_previous) = self.mouse_interactive_previous.take() {
-      if mouse_interactive_previous {
-        sm_intersection_gp.group.remove(&self.model);
-      } else {
+    if self.mouse_interactive != self.registered_interactive_set {
+      if self.mouse_interactive && !self.registered_interactive_set {
         sm_intersection_gp.group.insert(self.model);
       }
+      if !self.mouse_interactive && self.registered_interactive_set {
+        sm_intersection_gp.group.remove(&self.model);
+      }
+      self.registered_interactive_set = self.mouse_interactive;
     }
 
     access_cx!(cx, platform_event, PlatformEventInput);
     access_cx!(cx, interaction_cx, Interaction3dCtx);
 
-    if self.mouse_interactive && self.has_any_mouse_event_handler() {
-      let is_pressing = platform_event.state_delta.is_left_mouse_pressing();
-      let is_releasing = platform_event.state_delta.is_right_mouse_pressing();
+    #[allow(unused_variables)]
+    fn debug(label: &str) {
+      // println!("{}", label);
+    }
 
-      if is_releasing {
-        self.is_mouse_down_in_history = false;
-      }
+    if platform_event.window_state.has_any_mouse_event
+      && self.mouse_interactive
+      && self.has_any_mouse_event_handler()
+    {
+      let is_pressing = platform_event.state_delta.is_left_mouse_pressing();
+      let is_releasing = platform_event.state_delta.is_left_mouse_releasing();
+
       let mut current_frame_hitting = None;
       if let Some((hit, model)) = interaction_cx.world_ray_intersected_nearest {
         current_frame_hitting = (model == self.model).then_some(hit);
@@ -54,25 +61,33 @@ impl Widget for UIWidgetModel {
 
       if let Some(hitting) = current_frame_hitting {
         if !self.is_mouse_in {
+          debug("mouse in");
+          self.is_mouse_in = true;
           if let Some(on_mouse_in) = &mut self.on_mouse_in {
             on_mouse_in(cx);
           }
         }
+        debug("mouse hovering");
         if let Some(on_mouse_hovering) = &mut self.on_mouse_hovering {
           on_mouse_hovering(cx, hitting);
         }
         if is_pressing {
+          debug("mouse down");
           if let Some(on_mouse_down) = &mut self.on_mouse_down {
             on_mouse_down(cx, current_frame_hitting.unwrap());
           }
           self.is_mouse_down_in_history = true;
         }
         if is_releasing && self.is_mouse_down_in_history {
+          debug("click");
           if let Some(on_mouse_click) = &mut self.on_mouse_click {
             on_mouse_click(cx, current_frame_hitting.unwrap());
           }
+          self.is_mouse_down_in_history = false;
         }
       } else if self.is_mouse_in {
+        debug("mouse out");
+        self.is_mouse_in = false;
         if let Some(on_mouse_out) = &mut self.on_mouse_out {
           on_mouse_out(cx);
         }
@@ -108,7 +123,7 @@ impl UIWidgetModel {
 
     Self {
       mouse_interactive: true,
-      mouse_interactive_previous: None,
+      registered_interactive_set: false,
       is_mouse_in: false,
       is_mouse_down_in_history: false,
       on_mouse_click: None,
@@ -131,7 +146,6 @@ impl UIWidgetModel {
   }
 
   pub fn set_mouse_interactive(&mut self, v: bool) -> &mut Self {
-    self.mouse_interactive_previous = self.mouse_interactive.into();
     self.mouse_interactive = v;
     if !self.mouse_interactive {
       self.is_mouse_in = false;

@@ -17,6 +17,7 @@ pub fn gizmo(v: &mut SceneWriter) -> impl Widget {
   UINode::new(v)
     .with_child(v, translation_gizmo_view)
     .with_child(v, rotation_gizmo_view)
+    .into_view_independent_root(100.0)
     .with_local_state_inject(Option::<DragStartState>::default())
     .with_local_state_inject(GlobalUIStyle::default())
 }
@@ -56,7 +57,7 @@ impl AxisActiveState {
 
 pub fn update_per_axis_model(
   axis: AxisType,
-) -> impl FnMut(&mut UIWidgetModel, &mut DynCx) + 'static {
+) -> impl FnMut(&mut ViewIndependentWidgetModel, &mut DynCx) + 'static {
   move |view, cx| {
     access_cx!(cx, style, GlobalUIStyle);
     let color = style.get_axis_primary_color(axis);
@@ -151,6 +152,7 @@ pub struct GizmoControlTargetState {
   pub target_world_mat: Mat4<f32>,
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct GizmoUpdateTargetLocal(pub Mat4<f32>);
 
 impl GizmoControlTargetState {

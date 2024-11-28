@@ -150,6 +150,12 @@ pub fn register_default_commands(terminal: &mut Terminal) {
 
   terminal.register_command("export-gltf", |ctx, _parameters| {
     access_cx!(ctx, scene_cx, Viewer3dSceneCtx);
+    access_cx!(ctx, derive_source, Viewer3dSceneDeriveSource);
+    let derive_update = derive_source.poll_update();
+    let node_children = derive_update.node_children;
+    let mesh_ref_vertex = derive_update.mesh_vertex_ref;
+    let sm_ref_s = derive_update.sm_to_s;
+
     let export_root_node = scene_cx.root;
     let export_scene = scene_cx.scene;
 
@@ -157,7 +163,8 @@ pub fn register_default_commands(terminal: &mut Terminal) {
       if let Some(mut dir) = dirs::download_dir() {
         dir.push("gltf_export");
 
-        let reader = rendiation_scene_gltf_exporter::SceneReader::new_from_global(export_scene);
+        let reader =
+          SceneReader::new_from_global(export_scene, mesh_ref_vertex, node_children, sm_ref_s);
 
         rendiation_scene_gltf_exporter::build_scene_to_gltf(
           reader,
@@ -196,7 +203,8 @@ pub fn register_default_commands(terminal: &mut Terminal) {
 
   terminal.register_sync_command("fit-camera-view", |ctx, _parameters| {
     access_cx!(ctx, scene_cx, Viewer3dSceneCtx);
-    access_cx!(ctx, derived, Viewer3dSceneDerive);
+    access_cx!(ctx, derived, Viewer3dSceneDeriveSource);
+    let derived = derived.poll_update();
     if let Some(selected) = &scene_cx.selected_target {
       let camera_world = derived.world_mat.access(&scene_cx.camera_node).unwrap();
 

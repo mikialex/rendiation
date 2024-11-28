@@ -23,6 +23,7 @@ use database::*;
 use dyn_clone::*;
 use reactive::*;
 use rendiation_algebra::*;
+use rendiation_color::*;
 use rendiation_device_parallel_compute::*;
 use rendiation_scene_core::*;
 use rendiation_shader_api::*;
@@ -44,6 +45,11 @@ mod batch;
 pub use batch::*;
 mod mid;
 pub use mid::*;
+
+pub fn srgb4_to_linear4(color: Vec4<f32>) -> Vec4<f32> {
+  let linear = LinearRGBColor::from(SRGBColor::from(color.xyz()));
+  Vec4::new(linear.r, linear.g, linear.b, color.w)
+}
 
 pub trait RenderImplProvider<T> {
   /// this will be called once when application init

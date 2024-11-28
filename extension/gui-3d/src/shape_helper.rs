@@ -12,7 +12,7 @@ impl Default for ArrowShape {
   fn default() -> Self {
     Self {
       body_height: 2.0,
-      body_radius: 0.002,
+      body_radius: 0.02,
       tip_height: 0.2,
       tip_radius: 0.06,
       segments: 10,
@@ -48,7 +48,8 @@ impl ArrowShape {
             height: self.tip_height,
             ..Default::default()
           }
-          .body_surface(),
+          .body_surface()
+          .transform_by(Mat4::translate((0., self.body_height, 0.))),
           config,
           true,
         );
