@@ -34,6 +34,21 @@ fn get_sub_buffer(buffer: &[u8], range: Option<BufferViewRange>) -> &[u8] {
 
 #[derive(Clone)]
 pub struct BlasInstance {
+  inner: Arc<BlasInstanceInternal>,
+}
+
+impl BlasInstance {
+  pub fn new(handle: BlasHandle, sys: Box<dyn GPUAccelerationStructureSystemProvider>) -> Self {
+    Self {
+      inner: Arc::new(BlasInstanceInternal { handle, sys }),
+    }
+  }
+  pub fn handle(&self) -> BlasHandle {
+    self.inner.handle
+  }
+}
+
+struct BlasInstanceInternal {
   handle: BlasHandle,
   sys: Box<dyn GPUAccelerationStructureSystemProvider>,
 }
@@ -41,18 +56,18 @@ pub struct BlasInstance {
 impl std::fmt::Debug for BlasInstance {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     f.debug_struct("BlasInstance")
-      .field("handle", &self.handle)
+      .field("handle", &self.inner.handle)
       .finish()
   }
 }
 
 impl PartialEq for BlasInstance {
   fn eq(&self, other: &Self) -> bool {
-    self.handle == other.handle
+    self.inner.handle == other.inner.handle
   }
 }
 
-impl Drop for BlasInstance {
+impl Drop for BlasInstanceInternal {
   fn drop(&mut self) {
     self
       .sys
@@ -84,10 +99,10 @@ pub fn attribute_mesh_to_blas(
         },
         flags: 0, // todo check
       };
-      BlasInstance {
-        handle: acc_sys.create_bottom_level_acceleration_structure(&[source]),
-        sys: acc_sys.clone(),
-      }
+      BlasInstance::new(
+        acc_sys.create_bottom_level_acceleration_structure(&[source]),
+        acc_sys.clone(),
+      )
     }
   });
 
@@ -111,10 +126,10 @@ pub fn attribute_mesh_to_blas(
           },
           flags: 0, // todo check
         };
-        BlasInstance {
-          handle: acc_sys.create_bottom_level_acceleration_structure(&[source]),
-          sys: acc_sys.clone(),
-        }
+        BlasInstance::new(
+          acc_sys.create_bottom_level_acceleration_structure(&[source]),
+          acc_sys.clone(),
+        )
       }
     })
     .collective_select(none_indexed)
@@ -210,7 +225,7 @@ impl ReactiveQuery for SceneTlasMaintainer {
               mask: 0, // todo check
               instance_shader_binding_table_record_offset: sm.alloc_index(),
               flags: 0, // todo check
-              acceleration_structure_handle: blas.handle,
+              acceleration_structure_handle: blas.handle(),
             }
           })
         })
