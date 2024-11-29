@@ -77,7 +77,6 @@ pub fn egui_db_gui(ui: &mut egui::Context, state: &mut DBInspector) {
     .default_height(400.)
     .resizable(true)
     .movable(true)
-    .default_pos([10., 10.])
     .scroll([true, true])
     .show(ui, |ui| {
       let mut back_to_all_table_view = false;
