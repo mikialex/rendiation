@@ -9,13 +9,33 @@ pub use task::*;
 
 #[derive(Clone, Copy)]
 pub struct ShaderPoll<T> {
-  pub is_ready: Node<bool>,
+  pub result_state: Node<u32>,
   pub payload: T,
 }
 
-impl<T> From<(Node<bool>, T)> for ShaderPoll<T> {
-  fn from((is_ready, payload): (Node<bool>, T)) -> Self {
-    Self { is_ready, payload }
+pub const SHADER_POLL_PENDING: u32 = 0;
+pub const SHADER_POLL_RESOLVING: u32 = 1;
+pub const SHADER_POLL_TERMINATED: u32 = 2;
+
+impl<T> ShaderPoll<T> {
+  pub fn is_resolving(&self) -> Node<bool> {
+    self.result_state.equals(val(SHADER_POLL_RESOLVING))
+  }
+
+  pub fn resolving(&self, payload: T) -> Self {
+    Self {
+      result_state: val(SHADER_POLL_RESOLVING),
+      payload,
+    }
+  }
+}
+
+impl<T> From<(Node<u32>, T)> for ShaderPoll<T> {
+  fn from((result_state, payload): (Node<u32>, T)) -> Self {
+    Self {
+      result_state,
+      payload,
+    }
   }
 }
 
@@ -31,11 +51,16 @@ impl<T: 'static> ShaderFutureInvocation for Box<dyn ShaderFutureInvocation<Outpu
   }
 }
 
-pub struct DeviceReady<T>(pub T);
+pub struct DeviceReady<T>(pub T, pub BoxedShaderLoadStore<Node<bool>>);
 impl<T: Copy + 'static> ShaderFutureInvocation for DeviceReady<T> {
   type Output = T;
   fn device_poll(&self, _: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<T> {
-    (val(true), self.0).into()
+    let flag = val(SHADER_POLL_RESOLVING).make_local_var();
+    if_by(self.1.abstract_load(), || {
+      flag.abstract_store(val(SHADER_POLL_TERMINATED));
+    });
+    self.1.abstract_store(val(true));
+    (flag.abstract_load(), self.0).into()
   }
 }
 
@@ -143,8 +168,8 @@ where
     1
   }
 
-  fn build_poll(&self, _: &mut DeviceTaskSystemBuildCtx) -> Self::Invocation {
-    DeviceReady(Output::default())
+  fn build_poll(&self, cx: &mut DeviceTaskSystemBuildCtx) -> Self::Invocation {
+    DeviceReady(Output::default(), cx.make_state::<Node<bool>>())
   }
 
   fn bind_input(&self, _: &mut DeviceTaskSystemBindCtx) {}
@@ -177,7 +202,7 @@ impl<T: ShaderFutureInvocation> ShaderFutureInvocation for OpaqueTaskInvocationW
 
   fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<Self::Output> {
     let p = self.0.device_poll(ctx);
-    (p.is_ready, Box::new(p.payload) as Box<dyn Any>).into()
+    (p.result_state, Box::new(p.payload) as Box<dyn Any>).into()
   }
 }
 
