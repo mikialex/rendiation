@@ -336,19 +336,16 @@ impl GraphicsShaderProvider for BindlessMeshDispatcher {
         let position = Vec3::<f32>::sized_ty()
           .load_from_u32_buffer(
             position,
-            vertex_address.position_offset + vertex_id * val(3 * 4),
+            vertex_address.position_offset + vertex_id * val(3),
           )
           .cast_type::<Vec3<f32>>();
 
         let normal = Vec3::<f32>::sized_ty()
-          .load_from_u32_buffer(
-            normal,
-            vertex_address.normal_offset + vertex_id * val(3 * 4),
-          )
+          .load_from_u32_buffer(normal, vertex_address.normal_offset + vertex_id * val(3))
           .cast_type::<Vec3<f32>>();
 
         let uv = Vec2::<f32>::sized_ty()
-          .load_from_u32_buffer(uv, vertex_address.uv_offset + vertex_id * val(2 * 4))
+          .load_from_u32_buffer(uv, vertex_address.uv_offset + vertex_id * val(2))
           .cast_type::<Vec2<f32>>();
 
         vertex.register::<GeometryPosition>(position);

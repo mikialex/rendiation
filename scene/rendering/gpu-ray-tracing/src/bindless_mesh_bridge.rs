@@ -25,7 +25,7 @@ impl BindlessMeshRtxAccessInvocation {
 
     unsafe {
       Vec3::<f32>::sized_ty()
-        .load_from_u32_buffer(self.normal, normal_offset + index * val(3 * 4))
+        .load_from_u32_buffer(self.normal, normal_offset + index * val(3))
         .cast_type::<Vec3<f32>>()
     }
   }
