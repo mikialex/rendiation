@@ -147,6 +147,7 @@ impl ShaderFutureProvider for TracingCtxProviderTracer {
         .unwrap()
         .clone(),
       launch_size: ctx.get_mut::<RayLaunchSizeBuffer>().unwrap().clone(),
+      base: Default::default(),
     }
     .into_dyn()
   }
@@ -162,6 +163,7 @@ pub struct TracingCtxProviderFuture {
   payload_ty: Option<ShaderSizedValueType>,
   ray_spawner: TracingTaskSpawnerImplSource,
   launch_size: RayLaunchSizeBuffer,
+  base: BaseShaderFuture<()>,
 }
 
 impl ShaderFuture for TracingCtxProviderFuture {
@@ -179,6 +181,7 @@ impl ShaderFuture for TracingCtxProviderFuture {
       payload_ty: self.payload_ty.clone(),
       ray_spawner: self.ray_spawner.create_invocation(cx),
       launch_size: self.launch_size.build(cx),
+      base: self.base.build_poll(cx),
     }
   }
 
@@ -189,6 +192,7 @@ impl ShaderFuture for TracingCtxProviderFuture {
 }
 
 pub struct TracingCtxProviderFutureInvocation {
+  base: BaseFutureInvocation<()>,
   stage: RayTraceableShaderStage,
   payload_ty: Option<ShaderSizedValueType>,
   ray_spawner: TracingTaskSpawnerInvocation,
@@ -197,6 +201,7 @@ pub struct TracingCtxProviderFutureInvocation {
 impl ShaderFutureInvocation for TracingCtxProviderFutureInvocation {
   type Output = ();
   fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<()> {
+    let r = self.base.device_poll(ctx);
     // store pointers in closures so that payload/ctx will be reloaded when shader is awakened
 
     // accessing task{}_payload_with_ray, see fn spawn_dynamic in trace_task.rs
@@ -205,38 +210,31 @@ impl ShaderFutureInvocation for TracingCtxProviderFutureInvocation {
       None
     } else {
       let payload_ty = self.payload_ty.clone().unwrap();
-      Some(Box::new(move || {
-        let user_defined_payload: StorageNode<AnyType> =
-          unsafe { index_access_field(combined_payload.handle(), 1) };
-        (user_defined_payload, payload_ty.clone())
-      }) as Box<_>)
+      // todo fix fall back task access
+      let user_defined_payload: StorageNode<AnyType> =
+        unsafe { index_access_field(combined_payload.handle(), 1) };
+      Some((user_defined_payload, payload_ty.clone()))
     };
 
     let missing = matches!(self.stage, RayTraceableShaderStage::Miss).then(|| unsafe {
-      Box::new(move || {
-        let ray_payload: StorageNode<RayMissHitCtxPayload> =
-          index_access_field(combined_payload.handle(), 0);
-        Box::new(ray_payload) as Box<dyn MissingHitCtxProvider>
-      }) as Box<_>
+      let ray_payload: StorageNode<RayMissHitCtxPayload> =
+        index_access_field(combined_payload.handle(), 0);
+      Box::new(ray_payload) as Box<dyn MissingHitCtxProvider>
     });
 
     let closest = matches!(self.stage, RayTraceableShaderStage::ClosestHit).then(|| unsafe {
-      Box::new(move || {
-        let ray_payload: StorageNode<RayClosestHitCtxPayload> =
-          index_access_field(combined_payload.handle(), 0);
-        Box::new(ray_payload) as Box<dyn ClosestHitCtxProvider>
-      }) as Box<_>
+      let ray_payload: StorageNode<RayClosestHitCtxPayload> =
+        index_access_field(combined_payload.handle(), 0);
+      Box::new(ray_payload) as Box<dyn ClosestHitCtxProvider>
     });
 
     let launch_size = self.launch_size;
     let ray_gen = matches!(self.stage, RayTraceableShaderStage::RayGeneration).then(|| {
       // ray_gen payload is global id. see trace_ray.
       let ray_gen_payload_ptr: StorageNode<u32> = ctx.access_self_payload();
-      Box::new(move || {
-        let global_id = ray_gen_payload_ptr.load();
-        let info = RayLaunchRawInfo::new(global_id, launch_size.get());
-        Box::new(info) as Box<dyn RayGenCtxProvider>
-      }) as Box<dyn Fn() -> Box<dyn RayGenCtxProvider>>
+      let global_id = ray_gen_payload_ptr.load();
+      let info = RayLaunchRawInfo::new(global_id, launch_size.get());
+      Box::new(info) as Box<dyn RayGenCtxProvider>
     });
 
     ctx.invocation_registry.register(TracingCtx {
@@ -248,7 +246,7 @@ impl ShaderFutureInvocation for TracingCtxProviderFutureInvocation {
     });
     ctx.invocation_registry.register(self.ray_spawner.clone());
 
-    (val(true), ()).into()
+    (r.resolved, ()).into()
   }
 }
 

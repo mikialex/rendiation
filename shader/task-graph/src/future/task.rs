@@ -65,7 +65,7 @@ where
 
     let task_handle = self.task_handle.abstract_load();
 
-    let r = val(SHADER_POLL_PENDING).make_local_var();
+    let r = val(false).make_local_var();
 
     // this check maybe not needed
     let task_has_already_resolved = task_handle.equals(RESOLVED_TASK_HANDLE);
@@ -77,21 +77,17 @@ where
       .not()
       .and(task_not_allocated.not());
 
-    if_by(task_has_already_resolved, || {
-      r.abstract_store(val(SHADER_POLL_TERMINATED));
-    });
-
     if_by(should_poll, || {
       let resolved = self.spawner.poll_task::<T>(task_handle, |r| {
         output.abstract_store(r);
         self.task_handle.abstract_store(val(RESOLVED_TASK_HANDLE));
       });
       if_by(resolved, || {
-        r.store(val(SHADER_POLL_RESOLVING));
+        r.store(val(true));
       });
     });
 
-    (r.load(), output.abstract_load()).into()
+    (r, output.abstract_load()).into()
   }
 }
 

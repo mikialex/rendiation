@@ -70,7 +70,7 @@ where
 
     let r = upstream.device_poll(ctx);
 
-    if_by(r.is_resolving(), || {
+    if_by(r.is_resolved(), || {
       let next = create_then_invocation_instance(r.payload, &self.then, ctx);
       then.abstract_store(next);
     });
@@ -79,6 +79,6 @@ where
 
     let rr = self.then.device_poll(ctx);
 
-    (rr.result_state, (r.payload, rr.payload)).into()
+    (rr.resolved, (r.payload, rr.payload)).into()
   }
 }

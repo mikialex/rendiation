@@ -55,6 +55,7 @@ impl ShaderFuture for TraceTaskImpl {
       current_sbt: ctx.compute_cx.bind_by(&self.current_sbt),
       sbt_task_mapping: ctx.compute_cx.bind_by(&self.sbt_task_mapping),
       downstream: AllDownStreamTasks { tasks },
+      has_terminated: ctx.make_state::<Node<Bool>>(),
     }
   }
 
@@ -77,6 +78,7 @@ pub struct GPURayTraceTaskInvocationInstance {
   untyped_payloads: StorageNode<[u32]>,
   payload_read_back_bumper: DeviceBumpAllocationInvocationInstance<u32>,
   downstream: AllDownStreamTasks,
+  has_terminated: BoxedShaderLoadStore<Node<Bool>>,
 }
 
 const TASK_NOT_SPAWNED: u32 = u32::MAX;
@@ -277,48 +279,62 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
       },
     );
 
-    let tid = trace_payload_all_expand.sub_task_ty;
-    let id = trace_payload_all_expand.sub_task_id;
+    // todo, reduce barrier usage;
+    storage_barrier();
+    let task_spawn_failed =
+      TraceTaskSelfPayload::storage_node_sub_task_id_field_ptr(trace_payload_all)
+        .load()
+        .equals(TASK_SPAWNED_FAILED);
+    if_by(task_spawn_failed, || {
+      self.has_terminated.abstract_store(val(true.into()));
+    });
+    storage_barrier();
 
-    let task_spawn_failed = trace_payload_all_expand
-      .sub_task_id
-      .equals(TASK_SPAWNED_FAILED);
+    let final_poll_resolved = val(false).make_local_var();
 
-    let trace_payload = TraceTaskSelfPayload::storage_node_trace_call_field_ptr(trace_payload_all);
-    let trace_payload_idx =
-      ShaderRayTraceCallStoragePayload::storage_node_payload_ref_field_ptr(trace_payload);
+    if_by(self.has_terminated.abstract_load().into_bool(), || {
+      final_poll_resolved.store(val(false));
+    })
+    .else_by(|| {
+      let tid = trace_payload_all_expand.sub_task_ty;
+      let id = trace_payload_all_expand.sub_task_id;
 
-    let (missing_task_resolved, payload_idx) = poll_dynamic(
-      &self.info.missing_tasks,
-      &self.downstream,
-      tid,
-      id,
-      &self.payload_read_back_bumper,
-    );
+      let trace_payload =
+        TraceTaskSelfPayload::storage_node_trace_call_field_ptr(trace_payload_all);
+      let trace_payload_idx =
+        ShaderRayTraceCallStoragePayload::storage_node_payload_ref_field_ptr(trace_payload);
 
-    if_by(missing_task_resolved, || {
-      trace_payload_idx.store(payload_idx);
+      let (missing_task_resolved, payload_idx) = poll_dynamic(
+        &self.info.missing_tasks,
+        &self.downstream,
+        tid,
+        id,
+        &self.payload_read_back_bumper,
+      );
+
+      if_by(missing_task_resolved, || {
+        trace_payload_idx.store(payload_idx);
+      });
+
+      let (closest_resolved, payload_idx) = poll_dynamic(
+        &self.info.closest_tasks,
+        &self.downstream,
+        tid,
+        id,
+        &self.payload_read_back_bumper,
+      );
+
+      if_by(closest_resolved, || {
+        trace_payload_idx.store(payload_idx);
+      });
+
+      if_by(missing_task_resolved.or(closest_resolved), || {
+        self.has_terminated.abstract_store(val(true.into()));
+        final_poll_resolved.store(true);
+      });
     });
 
-    let (closest_resolved, payload_idx) = poll_dynamic(
-      &self.info.closest_tasks,
-      &self.downstream,
-      tid,
-      id,
-      &self.payload_read_back_bumper,
-    );
-
-    if_by(closest_resolved, || {
-      trace_payload_idx.store(payload_idx);
-    });
-
-    (
-      task_spawn_failed
-        .or(missing_task_resolved)
-        .or(closest_resolved),
-      (),
-    )
-      .into()
+    (final_poll_resolved, ()).into()
   }
 }
 
@@ -690,7 +706,7 @@ where
   fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<Self::Output> {
     let inner = self.inner_task.device_poll(ctx);
     let payload = make_local_var();
-    if_by(inner.is_ready, || {
+    if_by(inner.is_resolved(), || {
       let user_payload = ctx
         .invocation_registry
         .get_mut::<TracingTaskSpawnerInvocation>()
@@ -702,7 +718,7 @@ where
 
       payload.store(unsafe { user_payload.into_node() });
     });
-    (inner.is_ready, payload.load()).into()
+    (inner.resolved, payload.load()).into()
   }
 }
 

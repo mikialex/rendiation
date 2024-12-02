@@ -45,11 +45,11 @@ where
   fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<O> {
     let r = self.upstream.device_poll(ctx);
     let output = LocalLeftValueBuilder.create_left_value(O::default());
-    if_by(r.is_resolving(), || {
+    if_by(r.is_resolved(), || {
       let o = (self.map)(r.payload, ctx);
       output.abstract_store(o);
     });
 
-    (r.result_state, output.abstract_load()).into()
+    (r.resolved, output.abstract_load()).into()
   }
 }
