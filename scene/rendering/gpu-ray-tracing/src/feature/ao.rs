@@ -339,6 +339,10 @@ impl ShaderFutureInvocation for RayTracingAOComputeInvocation {
   fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<Self::Output> {
     let source = self.upstream.device_poll(ctx);
 
+    if_by(ctx.is_fallback_task().not(), || {
+      source.resolved.store(true);
+    });
+
     let current_idx = self.next_sample_idx.abstract_load();
     let sample_is_done = current_idx.greater_equal_than(self.max_sample_count);
 

@@ -106,7 +106,7 @@ impl TaskGroupExecutor {
     let active_idx = cx.global_invocation_id().x();
 
     // even if the task is out of active bound, we still required to poll something to maintain the uniform control flow.
-    // the task to poll for this case always resides at index 0 and always stay in terminated state.
+    // the task to poll for this case always resides at index 0 and always stay in pending state.
     let task_index = active_idx
       .less_than(active_task_count.load())
       .select_branched(|| indices.index(active_idx).load(), || val(0));
@@ -123,32 +123,32 @@ impl TaskGroupExecutor {
     };
 
     let poll_result = pre_build.invocation.device_poll(&mut poll_ctx);
-    if_by(poll_result.is_resolved(), || {
-      pool
-        .rw_is_finished(task_index)
-        .store(TASK_STATUE_FLAG_FINISHED);
 
-      let parent_index = pool.rw_parent_task_index(task_index).load();
-      let parent_task_type_id = pool.rw_parent_task_type_id(task_index).load();
+    if_by(poll_ctx.is_fallback_task().not(), || {
+      if_by(poll_result.is_resolved(), || {
+        pool
+          .rw_is_finished(task_index)
+          .store(TASK_STATUE_FLAG_FINISHED);
 
-      if_by(parent_index.equals(u32::MAX), || {
-        // if we do not have parent task, then we should cleanup ourself
-        self_spawner.cleanup_finished_task_state_and_payload(task_index);
+        let parent_index = pool.rw_parent_task_index(task_index).load();
+        let parent_task_type_id = pool.rw_parent_task_type_id(task_index).load();
+
+        if_by(parent_index.equals(u32::MAX), || {
+          // if we do not have parent task, then we should cleanup ourself
+          self_spawner.cleanup_finished_task_state_and_payload(task_index);
+        })
+        .else_by(|| {
+          let mut switcher = switch_by(parent_task_type_id);
+          for dep in parent_dependencies {
+            switcher = switcher.case(*dep as u32, || {
+              let spawner = all_spawners.get(dep).unwrap();
+              spawner.wake_task_dyn(parent_index);
+            });
+          }
+          switcher.end_with_default(|| {});
+        });
       })
       .else_by(|| {
-        let mut switcher = switch_by(parent_task_type_id);
-        for dep in parent_dependencies {
-          switcher = switcher.case(*dep as u32, || {
-            let spawner = all_spawners.get(dep).unwrap();
-            spawner.wake_task_dyn(parent_index);
-          });
-        }
-        switcher.end_with_default(|| {});
-      });
-    })
-    .else_by(|| {
-      // we could skip check this?
-      if_by(poll_ctx.is_fallback_task().not(), || {
         pool
           .rw_is_finished(task_index)
           .store(TASK_STATUE_FLAG_NOT_FINISHED_SLEEP);
@@ -321,7 +321,7 @@ impl TaskGroupExecutorResource {
         })
         .else_by(|| {
           if_by(id.less_than(empty_pool.array_length()), || {
-            empty_pool.index(id).store(id);
+            empty_pool.index(id).store(id - val(1));
           });
         });
 

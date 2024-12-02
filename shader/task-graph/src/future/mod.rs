@@ -41,11 +41,16 @@ impl<T: 'static> ShaderFutureInvocation for Box<dyn ShaderFutureInvocation<Outpu
   }
 }
 
-pub struct BaseFutureInvocation<T>(pub T);
+pub struct BaseFutureInvocation<T>(pub T, pub BoxedShaderLoadStore<Node<Bool>>);
 impl<T: Copy + 'static> ShaderFutureInvocation for BaseFutureInvocation<T> {
   type Output = T;
   fn device_poll(&self, cx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<T> {
     let flag = val(true).make_local_var();
+
+    if_by(self.1.abstract_load().into_bool(), || {
+      flag.abstract_store(val(false));
+    });
+    self.1.abstract_store(val(true.into()));
 
     if_by(cx.is_fallback_task(), || {
       flag.abstract_store(val(false));
@@ -160,7 +165,7 @@ where
   }
 
   fn build_poll(&self, cx: &mut DeviceTaskSystemBuildCtx) -> Self::Invocation {
-    BaseFutureInvocation(Output::default())
+    BaseFutureInvocation(Output::default(), cx.make_state::<Node<Bool>>())
   }
 
   fn bind_input(&self, _: &mut DeviceTaskSystemBindCtx) {}

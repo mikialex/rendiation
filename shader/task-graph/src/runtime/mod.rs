@@ -259,7 +259,8 @@ impl DeviceTaskGraphExecutor {
     let wake_task_counts = wake_task_counts.await.unwrap();
     let empty_task_counts = empty_task_counts.await.unwrap();
 
-    let full_size = self.max_recursion_depth * self.current_prepared_execution_size * 2;
+    // minus one is for the default task
+    let full_size = self.max_recursion_depth * self.current_prepared_execution_size * 2 - 1;
 
     let sleep_or_finished_task_counts = empty_task_counts
       .into_iter()
