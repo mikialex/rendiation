@@ -5,9 +5,11 @@ use fast_hash_collection::FastHashMap;
 use futures::{executor::ThreadPool, Future};
 use rendiation_webgpu::ReadableTextureBuffer;
 
+use super::{ConsoleBuilder, ConsoleEvent, ConsoleWindow};
 use crate::*;
 
 pub struct Terminal {
+  console: ConsoleWindow,
   pub current_input: String,
   pub command_history: Vec<String>,
   pub command_registry: FastHashMap<String, TerminalCommandCb>,
@@ -17,6 +19,11 @@ pub struct Terminal {
 impl Default for Terminal {
   fn default() -> Self {
     Self {
+      console: ConsoleBuilder::new()
+        .prompt(">> ")
+        .history_size(20)
+        .tab_quote_character('\"')
+        .build(),
       current_input: Default::default(),
       command_history: Default::default(),
       command_registry: Default::default(),
@@ -34,12 +41,13 @@ type TerminalCommandCb =
 
 impl Terminal {
   pub fn egui(&mut self, ui: &mut egui::Ui, cx: &mut DynCx) {
-    ui.label("terminal");
-    let re = ui.text_edit_singleline(&mut self.current_input);
-    if re.lost_focus() && re.ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
+    let console_response = self.console.draw(ui);
+    if let ConsoleEvent::Command(command) = console_response {
+      self.current_input.clone_from(&command);
       self.execute_current(cx);
+      self.console.write(&command);
+      self.console.prompt();
     }
-    ui.end_row();
   }
 
   pub fn register_command<F, FR>(&mut self, name: impl AsRef<str>, f: F) -> &mut Self

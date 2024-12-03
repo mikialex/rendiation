@@ -46,6 +46,7 @@ rendiation-gizmo = { path = "../../extension/gizmo" }
 database = { path = "../../utility/database" }
 rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
 
+itertools = { version = "*" }
 egui = { git = "https://github.com/emilk/egui.git", rev = "9a1e358a144b5d2af9d03a80257c34883f57cf0b" }
 egui_extras = { git = "https://github.com/emilk/egui.git", rev = "9a1e358a144b5d2af9d03a80257c34883f57cf0b" }
 egui-wgpu = { git = "https://github.com/emilk/egui.git", rev = "9a1e358a144b5d2af9d03a80257c34883f57cf0b" }

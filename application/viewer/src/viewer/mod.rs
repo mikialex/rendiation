@@ -9,6 +9,9 @@ mod terminal;
 pub use pick::*;
 pub use terminal::*;
 
+mod egui_console;
+pub use egui_console::*;
+
 mod rendering;
 pub use rendering::*;
 
@@ -20,8 +23,15 @@ pub struct Viewer {
   rendering: Viewer3dRenderingCtx,
   derives: Viewer3dSceneDeriveSource,
   content: Box<dyn Widget>,
+  ui_state: ViewerUIState,
   egui_db_inspector: db_egui_view::DBInspector,
   terminal: Terminal,
+}
+
+struct ViewerUIState {
+  show_db_inspector: bool,
+  show_viewer_config_panel: bool,
+  show_terminal: bool,
 }
 
 impl Widget for Viewer {
@@ -99,9 +109,12 @@ impl Widget for Viewer {
             &mut self.on_demand_rendering,
             &mut self.rendering,
             egui_cx,
+            &mut self.ui_state,
             cx,
           );
-          crate::db_egui_view::egui_db_gui(egui_cx, &mut self.egui_db_inspector);
+          if self.ui_state.show_db_inspector {
+            crate::db_egui_view::egui_db_gui(egui_cx, &mut self.egui_db_inspector);
+          }
         });
       });
 
@@ -200,6 +213,11 @@ impl Viewer {
       // todo, we current disable the on demand draw
       // because we not cache the rendering result yet
       on_demand_rendering: false,
+      ui_state: ViewerUIState {
+        show_db_inspector: false,
+        show_viewer_config_panel: true,
+        show_terminal: true,
+      },
       content: Box::new(content_logic),
       scene,
       terminal,
@@ -227,32 +245,50 @@ fn egui(
   on_demand_rendering: &mut bool,
   rendering: &mut Viewer3dRenderingCtx,
   ui: &egui::Context,
+  ui_state: &mut ViewerUIState,
   cx: &mut DynCx,
 ) {
-  egui::Window::new("Viewer")
-    .vscroll(true)
-    .default_open(true)
-    .default_pos([10., 60.])
-    .max_width(1000.0)
-    .max_height(800.0)
-    .default_width(250.0)
-    .default_height(300.0)
-    .resizable(true)
-    .movable(true)
-    .show(ui, |ui| {
-      if ui.button("Organize windows").clicked() {
-        ui.ctx().memory_mut(|mem| mem.reset_areas());
-      }
+  egui::TopBottomPanel::top("view top menu").show(ui, |ui| {
+    ui.horizontal_wrapped(|ui| {
+      egui::widgets::global_dark_light_mode_switch(ui);
+      ui.separator();
+      ui.checkbox(&mut ui_state.show_db_inspector, "database inspector");
+      ui.checkbox(&mut ui_state.show_viewer_config_panel, "viewer config");
+      ui.checkbox(&mut ui_state.show_terminal, "terminal");
+    });
+  });
 
-      ui.separator();
-      ui.checkbox(on_demand_rendering, "enable on demand rendering");
-      ui.separator();
-      rendering.egui(ui);
-      ui.separator();
+  if ui_state.show_viewer_config_panel {
+    egui::Window::new("Viewer")
+      .vscroll(true)
+      .default_open(true)
+      .default_pos([10., 60.])
+      .max_width(1000.0)
+      .max_height(800.0)
+      .default_width(250.0)
+      .default_height(300.0)
+      .resizable(true)
+      .movable(true)
+      .show(ui, |ui| {
+        if ui.button("Organize windows").clicked() {
+          ui.ctx().memory_mut(|mem| mem.reset_areas());
+        }
+
+        ui.separator();
+        ui.checkbox(on_demand_rendering, "enable on demand rendering");
+        ui.separator();
+        rendering.egui(ui);
+        ui.separator();
+      });
+  }
+
+  if ui_state.show_terminal {
+    egui::TopBottomPanel::bottom("view bottom terminal").show(ui, |ui| {
       cx.scoped_cx(rendering, |cx| {
         terminal.egui(ui, cx);
       });
     });
+  }
 }
 
 pub struct Viewer3dSceneCtx {
