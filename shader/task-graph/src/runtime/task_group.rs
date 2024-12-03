@@ -321,7 +321,7 @@ impl TaskGroupExecutorResource {
         })
         .else_by(|| {
           if_by(id.less_than(empty_pool.array_length()), || {
-            empty_pool.index(id).store(id - val(1));
+            empty_pool.index(id - val(1)).store(id);
           });
         });
 

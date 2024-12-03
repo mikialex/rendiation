@@ -34,17 +34,28 @@ async fn test_simple_map() {
 async fn test_task_graph_then_task_spawn() {
   use crate::*;
 
-  // #[repr(C)]
-  // #[derive(Clone, Copy, Debug, Zeroable, Pod)]
-  // struct State {
-  //   is_finished: u32,
-  //   payload: u32,
-  //   states_0: u32,
-  //   // states_1: u32,
-  //   // states_2: u32,
-  //   parent_task_type_id: u32,
-  //   parent_task_index: u32,
-  // }
+  #[repr(C)]
+  #[derive(Clone, Copy, Debug, Zeroable, Pod)]
+  struct Task1State {
+    is_finished: u32,
+    payload: u32,
+    states_0: u32,
+    states_1: u32,
+    parent_task_type_id: u32,
+    parent_task_index: u32,
+  }
+
+  #[repr(C)]
+  #[derive(Clone, Copy, Debug, Zeroable, Pod)]
+  struct Task2State {
+    is_finished: u32,
+    payload: u32,
+    states_0: u32,
+    states_1: u32,
+    states_2: u32,
+    parent_task_type_id: u32,
+    parent_task_index: u32,
+  }
 
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();
   let mut graph = DeviceTaskGraphBuildSource::default();
@@ -74,10 +85,14 @@ async fn test_task_graph_then_task_spawn() {
   graph.dispatch_allocate_init_task(&mut cx, work_size, test_task2, |_| val(0_u32));
   cx.submit_recorded_work_and_continue();
 
-  // let debug_info = graph.debug_execution(&mut cx).await;
-  // println!("{:?}", debug_info);
-
-  // dbg!(cast_slice::<u8, State>(&debug_info.info[1].task_states));
+  let debug_info = graph.debug_execution(&mut cx).await;
+  println!("{:?}", debug_info);
+  dbg!(cast_slice::<u8, Task1State>(
+    &debug_info.info[test_task as usize].task_states
+  ));
+  dbg!(cast_slice::<u8, Task2State>(
+    &debug_info.info[test_task2 as usize].task_states
+  ));
 
   let info = graph.read_back_execution_states(&mut cx).await;
   assert_eq!(info.wake_counts[test_task as usize], 0);
@@ -85,11 +100,14 @@ async fn test_task_graph_then_task_spawn() {
 
   graph.execute(&mut cx, 1);
 
-  // let debug_info = graph.debug_execution(&mut cx).await;
-  // println!("{:?}", debug_info);
-  // dbg!(cast_slice::<u8, State>(
-  //   &debug_info.info[test_task as usize].task_states
-  // ));
+  let debug_info = graph.debug_execution(&mut cx).await;
+  println!("{:?}", debug_info);
+  dbg!(cast_slice::<u8, Task1State>(
+    &debug_info.info[test_task as usize].task_states
+  ));
+  dbg!(cast_slice::<u8, Task2State>(
+    &debug_info.info[test_task2 as usize].task_states
+  ));
 
   let info = graph.read_back_execution_states(&mut cx).await;
   assert_eq!(info.wake_counts[test_task as usize], work_size);
@@ -101,6 +119,15 @@ async fn test_task_graph_then_task_spawn() {
   );
 
   graph.execute(&mut cx, 1);
+
+  let debug_info = graph.debug_execution(&mut cx).await;
+  println!("{:?}", debug_info);
+  dbg!(cast_slice::<u8, Task1State>(
+    &debug_info.info[test_task as usize].task_states
+  ));
+  dbg!(cast_slice::<u8, Task2State>(
+    &debug_info.info[test_task2 as usize].task_states
+  ));
 
   let info = graph.read_back_execution_states(&mut cx).await;
   assert_eq!(info.wake_counts[test_task as usize], 0);
