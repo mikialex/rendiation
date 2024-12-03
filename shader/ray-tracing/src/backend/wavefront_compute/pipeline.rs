@@ -215,7 +215,7 @@ impl GPUWaveFrontComputeRaytracingBakedPipelineInner {
       assert!((missing_task_start..missing_task_end).contains(&(task_id as usize)));
     }
 
-    let mut executor = graph.build(init_size, 5, cx);
+    let mut executor = graph.build(init_size, desc.max_recursion_depth as usize, cx);
 
     executor.set_task_before_execution_hook(TRACING_TASK_INDEX, move |cx, _| {
       payload_read_back_bumper.read().reset(cx);

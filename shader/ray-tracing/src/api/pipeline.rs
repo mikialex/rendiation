@@ -39,7 +39,7 @@ impl GPURaytracingPipelineAndBindingSource {
 impl Default for GPURaytracingPipelineAndBindingSource {
   fn default() -> Self {
     Self {
-      max_recursion_depth: 4,
+      max_recursion_depth: 1,
       ray_gen: Default::default(),
       closest_hit: Default::default(),
       miss_hit: Default::default(),

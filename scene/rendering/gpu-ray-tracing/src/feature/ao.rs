@@ -125,18 +125,31 @@ impl SceneRayTracingAORenderer {
         self.ao_buffer = None;
       }
     }
-    let ao_buffer = self.ao_buffer.clone().unwrap_or_else(|| {
-      create_empty_2d_texture_view(
-        frame.gpu,
-        frame.frame_size(),
-        TextureUsages::all(),
-        TextureFormat::Rgba8Unorm,
-      )
-    });
+
+    let mut is_first_time_draw = false;
+
+    let ao_buffer = self
+      .ao_buffer
+      .get_or_insert_with(|| {
+        is_first_time_draw = true;
+        create_empty_2d_texture_view(
+          frame.gpu,
+          frame.frame_size(),
+          TextureUsages::all(),
+          TextureFormat::Rgba8Unorm,
+        )
+      })
+      .clone();
     let ao_buffer_rw = ao_buffer
       .clone()
       .into_storage_texture_view_readwrite()
       .unwrap();
+
+    if !is_first_time_draw {
+      // if we not return here, on windows we will have blue death.
+      // remove this when fixed all bug.
+      return ao_buffer;
+    }
 
     let mut desc = GPURaytracingPipelineAndBindingSource::default();
 
@@ -189,9 +202,11 @@ impl SceneRayTracingAORenderer {
     };
 
     desc.register_ray_gen::<u32>(ShaderFutureProviderIntoTraceOperator(ray_gen_shader));
-    desc.register_ray_closest_hit::<u32>(ShaderFutureProviderIntoTraceOperator(ao_closest));
-    // desc.register_ray_any_hit(builder);
-    // desc.register_ray_miss(ray_logic)
+    desc.register_ray_closest_hit::<f32>(ShaderFutureProviderIntoTraceOperator(ao_closest));
+    desc.register_ray_any_hit(|_any_ctx| {
+      val(ANYHIT_BEHAVIOR_ACCEPT_HIT & ANYHIT_BEHAVIOR_END_SEARCH)
+    });
+    desc.register_ray_miss::<f32>(trace_base_builder.create_miss_hit_shader_base::<f32>());
 
     let mut rtx_encoder = self.rtx_system.create_raytracing_encoder();
 
@@ -314,7 +329,6 @@ impl ShaderFuture for RayTracingAOComputeFuture {
     self.upstream.bind_input(builder);
     self.tracing.bind_input(builder);
     self.bindless_mesh.bind_bindless_mesh_rtx_access(builder);
-    builder.bind(&self.bindless_mesh.vertex_address_buffer);
     builder.bind(&self.sm_to_mesh);
     self.tlas.bind(builder);
   }
@@ -444,7 +458,13 @@ impl ShaderFutureInvocation for RayTracingAOComputeInvocation {
       if_by(sample_is_done, || {
         let occlusion =
           self.occlusion_count.abstract_load().into_f32() / val(self.max_sample_count as f32);
-        ctx.access_self_payload().store(occlusion);
+        ctx
+          .invocation_registry
+          .get::<TracingCtx>()
+          .unwrap()
+          .payload()
+          .unwrap()
+          .store(occlusion);
         final_resolved.store(true);
       });
     });

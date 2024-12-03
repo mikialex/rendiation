@@ -7,10 +7,10 @@ pub struct IndirectRenderSystem {
   pub scene_model_impl: Box<dyn RenderImplProvider<Box<dyn IndirectBatchSceneModelRenderer>>>,
 }
 
-pub fn build_default_gles_render_system(gpu: &GPU) -> IndirectRenderSystem {
+pub fn build_default_gles_render_system(gpu: &GPU, prefer_bindless: bool) -> IndirectRenderSystem {
   IndirectRenderSystem {
     model_lookup: Default::default(),
-    texture_system: Default::default(),
+    texture_system: TextureGPUSystemSource::new(prefer_bindless),
     camera: Box::new(DefaultGLESCameraRenderImplProvider::default()),
     scene_model_impl: Box::new(IndirectPreferredComOrderRendererProvider {
       node: Box::new(DefaultIndirectNodeRenderImplProvider::default()),
