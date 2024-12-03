@@ -190,8 +190,10 @@ impl SceneRayTracingAORenderer {
 
     desc.register_ray_gen::<u32>(ShaderFutureProviderIntoTraceOperator(ray_gen_shader));
     desc.register_ray_closest_hit::<u32>(ShaderFutureProviderIntoTraceOperator(ao_closest));
-    // desc.register_ray_any_hit(builder);
-    // desc.register_ray_miss(ray_logic)
+    desc.register_ray_any_hit(|_any_ctx| {
+      val(ANYHIT_BEHAVIOR_ACCEPT_HIT & ANYHIT_BEHAVIOR_END_SEARCH)
+    });
+    desc.register_ray_miss::<u32>(trace_base_builder.create_miss_hit_shader_base::<u32>());
 
     let mut rtx_encoder = self.rtx_system.create_raytracing_encoder();
 
