@@ -49,6 +49,24 @@ impl DatabaseMutationWatch {
     }
   }
 
+  pub fn watch_entity_set<E: EntitySemantic>(
+    &self,
+  ) -> impl ReactiveQuery<Key = RawEntityHandle, Value = ()> {
+    self.watch_entity_set_dyn(E::entity_id())
+  }
+
+  pub fn watch_entity_set_untyped_key<E: EntitySemantic>(
+    &self,
+  ) -> impl ReactiveQuery<Key = u32, Value = ()> {
+    GenerationHelperView {
+      inner: self.watch_entity_set_dyn(E::entity_id()),
+      phantom: PhantomData::<()>,
+      allocator: self
+        .db
+        .access_ecg::<E, _>(|e| e.inner.inner.allocator.clone()),
+    }
+  }
+
   pub fn watch_entity_set_dyn(
     &self,
     e_id: EntityId,

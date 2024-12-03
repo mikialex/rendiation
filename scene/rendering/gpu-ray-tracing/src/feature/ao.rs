@@ -12,6 +12,14 @@ pub struct RayTracingAORenderSystem {
   sm_to_mesh: UpdateResultToken, // todo share?
   system: RtxSystemCore,
   ao_buffer: Option<GPU2DTextureView>,
+  shader_handles: AOShaderHandles,
+}
+
+#[derive(Clone, PartialEq, Debug)]
+struct AOShaderHandles {
+  ray_gen: ShaderHandle,
+  closest_hit: ShaderHandle,
+  any_hit: ShaderHandle,
 }
 
 impl RayTracingAORenderSystem {
@@ -25,6 +33,11 @@ impl RayTracingAORenderSystem {
       system: rtx.clone(),
       ao_buffer: None,
       mesh: MeshBindlessGPUSystemSource::new(gpu),
+      shader_handles: AOShaderHandles {
+        ray_gen: ShaderHandle(0, RayTracingShaderStage::RayGeneration),
+        closest_hit: ShaderHandle(0, RayTracingShaderStage::ClosestHit),
+        any_hit: ShaderHandle(0, RayTracingShaderStage::AnyHit),
+      },
     }
   }
 }
@@ -36,9 +49,29 @@ impl RenderImplProvider<SceneRayTracingAORenderer> for RayTracingAORenderSystem 
 
     // todo support max mesh count grow
     let sbt = GPUSbt::new(self.system.rtx_device.create_sbt(2000, 2));
-    let sbt = MultiUpdateContainer::new(sbt);
-    // todo, add sbt maintain logic here
-    // .with_source(source);
+    let closest_hit = self.shader_handles.closest_hit;
+    let any = self.shader_handles.any_hit;
+    let sbt = MultiUpdateContainer::new(sbt)
+      .with_source(ReactiveQuerySbtUpdater {
+        ray_ty_idx: AORayType::Primary as u32,
+        source: global_watch()
+          .watch_entity_set_untyped_key::<SceneModelEntity>()
+          .collective_map(move |_| HitGroupShaderRecord {
+            closest_hit: Some(closest_hit),
+            any_hit: None,
+            intersection: None,
+          }),
+      })
+      .with_source(ReactiveQuerySbtUpdater {
+        ray_ty_idx: AORayType::AOTest as u32,
+        source: global_watch()
+          .watch_entity_set_untyped_key::<SceneModelEntity>()
+          .collective_map(move |_| HitGroupShaderRecord {
+            closest_hit: None,
+            any_hit: Some(any),
+            intersection: None,
+          }),
+      });
 
     let sm_to_mesh = ReactiveStorageBufferContainer::<u32>::new(cx).with_source(
       global_watch()
@@ -80,6 +113,7 @@ impl RenderImplProvider<SceneRayTracingAORenderer> for RayTracingAORenderSystem 
         .unwrap()
         .gpu()
         .clone(),
+      shader_handles: self.shader_handles.clone(),
     }
   }
 }
@@ -93,16 +127,17 @@ pub struct SceneRayTracingAORenderer {
   ao_buffer: Option<GPU2DTextureView>,
   mesh: MeshGPUBindlessImpl,
   sm_to_mesh: StorageBufferReadOnlyDataView<[u32]>,
+  shader_handles: AOShaderHandles,
 }
 
 #[repr(u32)]
 #[derive(Debug, Clone, Copy)]
-enum AOTestRayType {
+enum AORayType {
   Primary = 0,
   AOTest = 1,
 }
 
-impl AOTestRayType {
+impl AORayType {
   fn to_sbt_cfg(self) -> RaySBTConfig {
     RaySBTConfig {
       offset: val(self as u32),
@@ -175,7 +210,7 @@ impl SceneRayTracingAORenderer {
           tlas_idx: cx.tlas_idx,
           ray_flags: val(RayFlagConfigRaw::RAY_FLAG_CULL_BACK_FACING_TRIANGLES as u32),
           cull_mask: val(u32::MAX),
-          sbt_ray_config: AOTestRayType::Primary.to_sbt_cfg(),
+          sbt_ray_config: AORayType::Primary.to_sbt_cfg(),
           miss_index: val(0),
           ray,
           range: ShaderRayRange::default(),
@@ -201,12 +236,15 @@ impl SceneRayTracingAORenderer {
       sm_to_mesh: self.sm_to_mesh.clone(),
     };
 
-    desc.register_ray_gen::<u32>(ShaderFutureProviderIntoTraceOperator(ray_gen_shader));
-    desc.register_ray_closest_hit::<f32>(ShaderFutureProviderIntoTraceOperator(ao_closest));
-    desc.register_ray_any_hit(|_any_ctx| {
-      val(ANYHIT_BEHAVIOR_ACCEPT_HIT & ANYHIT_BEHAVIOR_END_SEARCH)
-    });
-    desc.register_ray_miss::<f32>(trace_base_builder.create_miss_hit_shader_base::<f32>());
+    let handles = AOShaderHandles {
+      ray_gen: desc.register_ray_gen::<u32>(ShaderFutureProviderIntoTraceOperator(ray_gen_shader)),
+      closest_hit: desc
+        .register_ray_closest_hit::<f32>(ShaderFutureProviderIntoTraceOperator(ao_closest)),
+      any_hit: desc.register_ray_any_hit(|_any_ctx| {
+        val(ANYHIT_BEHAVIOR_ACCEPT_HIT & ANYHIT_BEHAVIOR_END_SEARCH)
+      }),
+    };
+    assert_eq!(handles, self.shader_handles);
 
     let mut rtx_encoder = self.rtx_system.create_raytracing_encoder();
 
@@ -413,7 +451,7 @@ impl ShaderFutureInvocation for RayTracingAOComputeInvocation {
         tlas_idx: self.tlas,
         ray_flags: val(RayFlagConfigRaw::RAY_FLAG_CULL_BACK_FACING_TRIANGLES as u32),
         cull_mask: val(u32::MAX),
-        sbt_ray_config: AOTestRayType::AOTest.to_sbt_cfg(),
+        sbt_ray_config: AORayType::AOTest.to_sbt_cfg(),
         miss_index: val(0),
         ray,
         range: ShaderRayRange::default(), // todo, should control max ray length

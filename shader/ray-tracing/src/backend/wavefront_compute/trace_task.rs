@@ -230,22 +230,24 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
             .construct();
 
             let closest_shader_index = self.sbt.get_closest_handle(current_sbt, hit_group);
-            let closest_task_index = sbt_task_mapping.get_closest_task(closest_shader_index);
-            let sub_task_id = spawn_dynamic(
-              &self.info.closest_tasks,
-              &self.downstream,
-              closest_task_index,
-              closest_payload.cast_untyped_node(),
-              &RayClosestHitCtxPayload::sized_ty(),
-              self.untyped_payloads,
-              trace_payload.payload_ref,
-              ctx.generate_self_as_parent(),
-            );
+            if_by(closest_shader_index.not_equals(val(u32::MAX)), || {
+              let closest_task_index = sbt_task_mapping.get_closest_task(closest_shader_index);
+              let sub_task_id = spawn_dynamic(
+                &self.info.closest_tasks,
+                &self.downstream,
+                closest_task_index,
+                closest_payload.cast_untyped_node(),
+                &RayClosestHitCtxPayload::sized_ty(),
+                self.untyped_payloads,
+                trace_payload.payload_ref,
+                ctx.generate_self_as_parent(),
+              );
 
-            let ty = TraceTaskSelfPayload::storage_node_sub_task_ty_field_ptr(trace_payload_all);
-            ty.store(closest_task_index);
-            let id = TraceTaskSelfPayload::storage_node_sub_task_id_field_ptr(trace_payload_all);
-            id.store(sub_task_id);
+              let ty = TraceTaskSelfPayload::storage_node_sub_task_ty_field_ptr(trace_payload_all);
+              ty.store(closest_task_index);
+              let id = TraceTaskSelfPayload::storage_node_sub_task_id_field_ptr(trace_payload_all);
+              id.store(sub_task_id);
+            });
           });
         })
         .else_by(|| {
@@ -257,22 +259,24 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
           let miss_sbt_index = self
             .sbt
             .get_missing_handle(current_sbt, trace_payload.miss_index);
-          let miss_task_index = sbt_task_mapping.get_miss_task(miss_sbt_index);
-          let sub_task_id = spawn_dynamic(
-            &self.info.missing_tasks,
-            &self.downstream,
-            miss_task_index,
-            missing_payload.cast_untyped_node(),
-            &RayMissHitCtxPayload::sized_ty(),
-            self.untyped_payloads,
-            trace_payload.payload_ref,
-            ctx.generate_self_as_parent(),
-          );
+          if_by(miss_sbt_index.not_equals(val(u32::MAX)), || {
+            let miss_task_index = sbt_task_mapping.get_miss_task(miss_sbt_index);
+            let sub_task_id = spawn_dynamic(
+              &self.info.missing_tasks,
+              &self.downstream,
+              miss_task_index,
+              missing_payload.cast_untyped_node(),
+              &RayMissHitCtxPayload::sized_ty(),
+              self.untyped_payloads,
+              trace_payload.payload_ref,
+              ctx.generate_self_as_parent(),
+            );
 
-          let ty = TraceTaskSelfPayload::storage_node_sub_task_ty_field_ptr(trace_payload_all);
-          ty.store(miss_task_index);
-          let id = TraceTaskSelfPayload::storage_node_sub_task_id_field_ptr(trace_payload_all);
-          id.store(sub_task_id);
+            let ty = TraceTaskSelfPayload::storage_node_sub_task_ty_field_ptr(trace_payload_all);
+            ty.store(miss_task_index);
+            let id = TraceTaskSelfPayload::storage_node_sub_task_id_field_ptr(trace_payload_all);
+            id.store(sub_task_id);
+          });
         });
       },
     );
@@ -282,7 +286,12 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
 
     let task_spawn_failed = trace_payload_all_expand
       .sub_task_id
-      .equals(TASK_SPAWNED_FAILED);
+      .equals(TASK_SPAWNED_FAILED)
+      .or(
+        trace_payload_all_expand
+          .sub_task_id
+          .equals(TASK_NOT_SPAWNED),
+      );
 
     let trace_payload = TraceTaskSelfPayload::storage_node_trace_call_field_ptr(trace_payload_all);
     let trace_payload_idx =
