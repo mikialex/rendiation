@@ -6,9 +6,18 @@ pub use d2_and_sampler::*;
 
 use crate::*;
 
-#[derive(Default)]
 pub struct TextureGPUSystemSource {
   pub token: UpdateResultToken,
+  pub prefer_bindless: bool,
+}
+
+impl TextureGPUSystemSource {
+  pub fn new(prefer_bindless: bool) -> Self {
+    Self {
+      token: Default::default(),
+      prefer_bindless,
+    }
+  }
 }
 
 impl TextureGPUSystemSource {
@@ -23,7 +32,9 @@ impl TextureGPUSystemSource {
     let samplers = sampler_gpus(cx);
 
     let bindless_minimal_effective_count = 8192;
-    self.token = if is_bindless_supported_on_this_gpu(&cx.info, bindless_minimal_effective_count) {
+    self.token = if self.prefer_bindless
+      && is_bindless_supported_on_this_gpu(&cx.info, bindless_minimal_effective_count)
+    {
       let texture_system = BindlessTextureSystemSource::new(
         texture_2d,
         default_2d,

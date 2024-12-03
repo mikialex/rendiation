@@ -30,7 +30,8 @@ pub struct Viewer3dRenderingCtx {
 
 impl Viewer3dRenderingCtx {
   pub fn new(gpu: GPU) -> Self {
-    let mut renderer_impl = build_default_gles_render_system();
+    let prefer_bindless_textures = false;
+    let mut renderer_impl = build_default_gles_render_system(prefer_bindless_textures);
     let mut rendering_resource = ReactiveQueryJoinUpdater::default();
     renderer_impl.register_resource(&mut rendering_resource, &gpu);
 

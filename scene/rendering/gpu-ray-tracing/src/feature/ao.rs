@@ -128,15 +128,18 @@ impl SceneRayTracingAORenderer {
 
     let mut is_first_time_draw = false;
 
-    let ao_buffer = self.ao_buffer.clone().unwrap_or_else(|| {
-      is_first_time_draw = true;
-      create_empty_2d_texture_view(
-        frame.gpu,
-        frame.frame_size(),
-        TextureUsages::all(),
-        TextureFormat::Rgba8Unorm,
-      )
-    });
+    let ao_buffer = self
+      .ao_buffer
+      .get_or_insert_with(|| {
+        is_first_time_draw = true;
+        create_empty_2d_texture_view(
+          frame.gpu,
+          frame.frame_size(),
+          TextureUsages::all(),
+          TextureFormat::Rgba8Unorm,
+        )
+      })
+      .clone();
     let ao_buffer_rw = ao_buffer
       .clone()
       .into_storage_texture_view_readwrite()
