@@ -3,6 +3,7 @@ use crate::*;
 pub struct ShaderBindingTableInfo {
   pub(crate) sys: ShaderBindingTableDeviceInfo,
   pub(crate) self_idx: u32,
+  pub(crate) ray_stride: u32,
 }
 
 // todo support resize
@@ -14,13 +15,19 @@ impl ShaderBindingTableProvider for ShaderBindingTableInfo {
     sys.ray_gen.set_value(ray_gen_start, s.0).unwrap();
   }
 
-  fn config_hit_group(&mut self, mesh_idx: u32, ray_ty_idx: u32, hit_group: HitGroupShaderRecord) {
+  fn config_hit_group(
+    &mut self,
+    geometry_idx: u32,
+    tlas_offset: u32,
+    ray_ty_idx: u32,
+    hit_group: HitGroupShaderRecord,
+  ) {
     let mut sys = self.sys.inner.write();
     let hit_group_start = sys.meta.get(self.self_idx).unwrap().hit_group_start;
     sys
       .ray_hit
       .set_value(
-        hit_group_start + mesh_idx * ray_ty_idx,
+        hit_group_start + ray_ty_idx + geometry_idx * self.ray_stride + tlas_offset,
         DeviceHitGroupShaderRecord {
           closest_hit: hit_group.closest_hit.map(|v| v.0).unwrap_or(u32::MAX),
           any_hit: hit_group.any_hit.map(|v| v.0).unwrap_or(u32::MAX),
@@ -110,24 +117,29 @@ impl ShaderBindingTableDeviceInfo {
     }
   }
 
-  pub fn allocate(&self, mesh_count: u32, ray_type_count: u32) -> Option<u32> {
+  pub fn allocate(
+    &self,
+    max_geometry_count_in_blas: u32,
+    max_tlas_offset: u32,
+    ray_type_count: u32,
+  ) -> Option<u32> {
     let mut inner = self.inner.write();
     let inner: &mut ShaderBindingTableDeviceInfoImpl = &mut inner;
-    let hit_group_start =
-      inner
-        .ray_hit
-        .allocate_range(mesh_count * ray_type_count, &mut |r| unsafe {
-          let meta = inner.hit_offset_map.remove(&r.previous_offset).unwrap();
-          inner.hit_offset_map.insert(r.new_offset, meta).unwrap();
-          inner
-            .meta
-            .set_value_sub_bytes(
-              meta,
-              std::mem::offset_of!(DeviceSBTTableMeta, hit_group_start),
-              bytes_of(&r.new_offset),
-            )
-            .unwrap();
-        })?;
+    let hit_group_start = inner.ray_hit.allocate_range(
+      max_geometry_count_in_blas * max_tlas_offset * ray_type_count,
+      &mut |r| unsafe {
+        let meta = inner.hit_offset_map.remove(&r.previous_offset).unwrap();
+        inner.hit_offset_map.insert(r.new_offset, meta).unwrap();
+        inner
+          .meta
+          .set_value_sub_bytes(
+            meta,
+            std::mem::offset_of!(DeviceSBTTableMeta, hit_group_start),
+            bytes_of(&r.new_offset),
+          )
+          .unwrap();
+      },
+    )?;
     let miss_start = inner
       .ray_miss
       .allocate_range(ray_type_count, &mut |r| unsafe {

@@ -1,4 +1,5 @@
 use rendiation_shader_library::sampling::{hammersley_2d_fn, sample_hemisphere_cos_fn, tbn_fn};
+use rendiation_texture_core::Size;
 use rendiation_webgpu_reactive_utils::{CommonStorageBufferImpl, ReactiveStorageBufferContainer};
 
 use crate::*;
@@ -48,7 +49,12 @@ impl RenderImplProvider<SceneRayTracingAORenderer> for RayTracingAORenderSystem 
       source.register_reactive_query(scene_to_tlas(cx, self.system.rtx_acc.clone()));
 
     // todo support max mesh count grow
-    let sbt = GPUSbt::new(self.system.rtx_device.create_sbt(2000, 2));
+    let sbt = GPUSbt::new(
+      self
+        .system
+        .rtx_device
+        .create_sbt(1, 2000, GLOBAL_TLAS_MAX_RAY_STRIDE),
+    );
     let closest_hit = self.shader_handles.closest_hit;
     let any = self.shader_handles.any_hit;
     let sbt = MultiUpdateContainer::new(sbt)
@@ -154,11 +160,13 @@ impl SceneRayTracingAORenderer {
     camera: EntityHandle<SceneCameraEntity>,
   ) -> GPU2DTextureView {
     let scene_tlas = self.scene_tlas.access(&scene).unwrap().clone();
+    // let render_size = frame.frame_size();
+    let render_size = Size::from_u32_pair_min_one((64, 64));
 
     let mut ao_buffer = self.ao_buffer.write();
     let ao_buffer = ao_buffer.deref_mut();
     if let Some(ao) = &ao_buffer {
-      if ao.size() != frame.frame_size() {
+      if ao.size() != render_size {
         *ao_buffer = None;
       }
     }
@@ -170,7 +178,7 @@ impl SceneRayTracingAORenderer {
         is_first_time_draw = true;
         create_empty_2d_texture_view(
           frame.gpu,
-          frame.frame_size(),
+          render_size,
           TextureUsages::all(),
           TextureFormat::Rgba8Unorm,
         )
@@ -249,12 +257,15 @@ impl SceneRayTracingAORenderer {
 
     let mut rtx_encoder = self.rtx_system.create_raytracing_encoder();
 
-    let canvas_size = frame.frame_size().into_u32();
     let sbt = self.sbt.inner.read();
     rtx_encoder.trace_ray(
       &desc,
       &self.executor,
-      (canvas_size.0, canvas_size.1, 1),
+      (
+        render_size.width_usize() as u32,
+        render_size.height_usize() as u32,
+        1,
+      ),
       (*sbt).as_ref(),
     );
 

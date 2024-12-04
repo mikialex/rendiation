@@ -30,7 +30,7 @@ where
     for (tlas_idx, change) in change.iter_key_value() {
       match change {
         ValueChange::Delta(new_hit_group, _) => {
-          target.config_hit_group(tlas_idx, self.ray_ty_idx, new_hit_group)
+          target.config_hit_group(0, tlas_idx, self.ray_ty_idx, new_hit_group)
         }
         ValueChange::Remove(_) => {}
       }

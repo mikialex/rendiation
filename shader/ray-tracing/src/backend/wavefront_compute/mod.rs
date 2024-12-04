@@ -64,13 +64,18 @@ pub struct GPUWaveFrontComputeRaytracingDevice {
 impl GPURayTracingDeviceProvider for GPUWaveFrontComputeRaytracingDevice {
   fn create_sbt(
     &self,
-    mesh_count: u32,
+    max_geometry_count_in_blas: u32,
+    max_tlas_offset: u32,
     ray_type_count: u32,
   ) -> Box<dyn ShaderBindingTableProvider> {
-    let self_idx = self.sbt_sys.allocate(mesh_count, ray_type_count).unwrap();
+    let self_idx = self
+      .sbt_sys
+      .allocate(max_geometry_count_in_blas, max_tlas_offset, ray_type_count)
+      .unwrap();
     Box::new(ShaderBindingTableInfo {
       sys: self.sbt_sys.clone(),
       self_idx,
+      ray_stride: ray_type_count,
     })
   }
 

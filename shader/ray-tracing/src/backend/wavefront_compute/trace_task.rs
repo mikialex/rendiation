@@ -139,7 +139,6 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
   type Output = ();
 
   fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<Self::Output> {
-    ctx.compute_cx.enable_log_shader();
     let trace_payload_all = ctx.access_self_payload::<TraceTaskSelfPayload>();
 
     let trace_payload_all_expand = trace_payload_all.load().expand();

@@ -97,7 +97,7 @@ pub fn attribute_mesh_to_blas(
           positions: position_buffer.to_vec(), // todo, avoid vec
           indices: None,
         },
-        flags: 0, // todo check
+        flags: GEOMETRY_FLAG_OPAQUE,
       };
       BlasInstance::new(
         acc_sys.create_bottom_level_acceleration_structure(&[source]),
@@ -124,7 +124,7 @@ pub fn attribute_mesh_to_blas(
             positions: position_buffer.to_vec(), // todo, avoid vec
             indices: Some(index_buffer.to_vec()),
           },
-          flags: 0, // todo check
+          flags: GEOMETRY_FLAG_OPAQUE,
         };
         BlasInstance::new(
           acc_sys.create_bottom_level_acceleration_structure(&[source]),
@@ -166,6 +166,8 @@ pub fn scene_to_tlas(
     }
   })
 }
+
+pub const GLOBAL_TLAS_MAX_RAY_STRIDE: u32 = 4;
 
 struct SceneTlasMaintainer {
   acc_sys: Box<dyn GPUAccelerationStructureSystemProvider>,
@@ -222,9 +224,10 @@ impl ReactiveQuery for SceneTlasMaintainer {
             TopLevelAccelerationStructureSourceInstance {
               transform,
               instance_custom_index: sm.alloc_index(),
-              mask: 0, // todo check
-              instance_shader_binding_table_record_offset: sm.alloc_index(),
-              flags: 0, // todo check
+              mask: u32::MAX,
+              instance_shader_binding_table_record_offset: sm.alloc_index()
+                * GLOBAL_TLAS_MAX_RAY_STRIDE,
+              flags: 0,
               acceleration_structure_handle: blas.handle(),
             }
           })
