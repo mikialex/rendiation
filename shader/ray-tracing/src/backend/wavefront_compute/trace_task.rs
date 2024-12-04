@@ -257,17 +257,15 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
       },
     );
 
-    let tid = trace_payload_all_expand.sub_task_ty;
-    let id = trace_payload_all_expand.sub_task_id;
+    storage_barrier();
 
-    let task_spawn_failed = trace_payload_all_expand
-      .sub_task_id
+    let trace_payload_all = ctx.access_self_payload::<TraceTaskSelfPayload>();
+    let tid = TraceTaskSelfPayload::storage_node_sub_task_ty_field_ptr(trace_payload_all).load();
+    let id = TraceTaskSelfPayload::storage_node_sub_task_id_field_ptr(trace_payload_all).load();
+
+    let task_spawn_failed = tid
       .equals(TASK_SPAWNED_FAILED)
-      .or(
-        trace_payload_all_expand
-          .sub_task_id
-          .equals(TASK_NOT_SPAWNED),
-      );
+      .or(tid.equals(TASK_NOT_SPAWNED));
 
     let trace_payload = TraceTaskSelfPayload::storage_node_trace_call_field_ptr(trace_payload_all);
     let trace_payload_idx =
