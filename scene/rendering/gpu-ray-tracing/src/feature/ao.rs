@@ -11,7 +11,7 @@ pub struct RayTracingAORenderSystem {
   mesh: MeshBindlessGPUSystemSource, // todo, share
   sm_to_mesh: UpdateResultToken, // todo share?
   system: RtxSystemCore,
-  ao_buffer: Option<GPU2DTextureView>,
+  ao_buffer: Arc<RwLock<Option<GPU2DTextureView>>>,
   shader_handles: AOShaderHandles,
 }
 
@@ -31,7 +31,7 @@ impl RayTracingAORenderSystem {
       sm_to_mesh: Default::default(),
       executor: rtx.rtx_device.create_raytracing_pipeline_executor(),
       system: rtx.clone(),
-      ao_buffer: None,
+      ao_buffer: Default::default(),
       mesh: MeshBindlessGPUSystemSource::new(gpu),
       shader_handles: AOShaderHandles {
         ray_gen: ShaderHandle(0, RayTracingShaderStage::RayGeneration),
@@ -124,7 +124,7 @@ pub struct SceneRayTracingAORenderer {
   sbt: GPUSbt,
   rtx_system: Box<dyn GPURaytracingSystem>,
   scene_tlas: BoxedDynQuery<EntityHandle<SceneEntity>, TlASInstance>,
-  ao_buffer: Option<GPU2DTextureView>,
+  ao_buffer: Arc<RwLock<Option<GPU2DTextureView>>>,
   mesh: MeshGPUBindlessImpl,
   sm_to_mesh: StorageBufferReadOnlyDataView<[u32]>,
   shader_handles: AOShaderHandles,
@@ -155,16 +155,17 @@ impl SceneRayTracingAORenderer {
   ) -> GPU2DTextureView {
     let scene_tlas = self.scene_tlas.access(&scene).unwrap().clone();
 
-    if let Some(ao_buffer) = &self.ao_buffer {
-      if ao_buffer.size() != frame.frame_size() {
-        self.ao_buffer = None;
+    let mut ao_buffer = self.ao_buffer.write();
+    let ao_buffer = ao_buffer.deref_mut();
+    if let Some(ao) = &ao_buffer {
+      if ao.size() != frame.frame_size() {
+        *ao_buffer = None;
       }
     }
 
     let mut is_first_time_draw = false;
 
-    let ao_buffer = self
-      .ao_buffer
+    let ao_buffer = ao_buffer
       .get_or_insert_with(|| {
         is_first_time_draw = true;
         create_empty_2d_texture_view(
