@@ -13,28 +13,6 @@ impl GPUSbt {
   }
 }
 
-pub struct ReactiveQuerySbtMaintainer {
-  updater: MultiUpdateContainer<GPUSbt>,
-}
-
-impl ReactiveQuerySbtMaintainer {
-  pub fn with_identical_source(self) -> Self {
-    // todo
-    self
-  }
-
-  pub fn with_given_ray_ty_sbt_update(
-    mut self,
-    ray_ty_idx: u32,
-    source: impl ReactiveQuery<Key = u32, Value = HitGroupShaderRecord>,
-  ) -> Self {
-    self
-      .updater
-      .add_source(ReactiveQuerySbtUpdater { ray_ty_idx, source });
-    self
-  }
-}
-
 /// update a sbt's all hit groups at given ray_index with a rxq, assuming every blas has only one geometry.
 pub struct ReactiveQuerySbtUpdater<T> {
   pub ray_ty_idx: u32,
