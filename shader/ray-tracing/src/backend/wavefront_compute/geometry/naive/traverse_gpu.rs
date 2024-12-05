@@ -15,16 +15,16 @@ pub(super) struct NaiveSahBvhGpu {
   pub(super) blas_meta_info: StorageBufferReadOnlyDataView<[BlasMetaInfo]>,
   // tri_bvh_forest root_idx, geometry_idx, primitive_start, geometry_flags
   pub(super) tri_bvh_root: StorageBufferReadOnlyDataView<[GeometryMetaInfo]>,
-  // box_bvh_forest root_idx, geometry_idx, primitive_start, geometry_flags
-  pub(super) box_bvh_root: StorageBufferReadOnlyDataView<[GeometryMetaInfo]>,
+  // // box_bvh_forest root_idx, geometry_idx, primitive_start, geometry_flags
+  // pub(super) box_bvh_root: StorageBufferReadOnlyDataView<[GeometryMetaInfo]>,
   // content range to index indices
   pub(super) tri_bvh_forest: StorageBufferReadOnlyDataView<[DeviceBVHNode]>,
-  // content range to index boxes
-  pub(super) box_bvh_forest: StorageBufferReadOnlyDataView<[DeviceBVHNode]>,
-
+  // // content range to index boxes
+  // pub(super) box_bvh_forest: StorageBufferReadOnlyDataView<[DeviceBVHNode]>,
+  pub(super) indices_redirect: StorageBufferReadOnlyDataView<[u32]>,
   pub(super) indices: StorageBufferReadOnlyDataView<[u32]>,
   pub(super) vertices: StorageBufferReadOnlyDataView<[f32]>,
-  pub(super) boxes: StorageBufferReadOnlyDataView<[f32]>,
+  // pub(super) boxes: StorageBufferReadOnlyDataView<[f32]>,
 }
 
 impl GPUAccelerationStructureSystemCompImplInstance for NaiveSahBvhGpu {
@@ -38,12 +38,13 @@ impl GPUAccelerationStructureSystemCompImplInstance for NaiveSahBvhGpu {
     let tlas_bounding = compute_cx.bind_by(&self.tlas_bounding);
     let blas_meta_info = compute_cx.bind_by(&self.blas_meta_info);
     let tri_bvh_root = compute_cx.bind_by(&self.tri_bvh_root);
-    let box_bvh_root = compute_cx.bind_by(&self.box_bvh_root);
+    // let box_bvh_root = compute_cx.bind_by(&self.box_bvh_root);
     let tri_bvh_forest = compute_cx.bind_by(&self.tri_bvh_forest);
-    let box_bvh_forest = compute_cx.bind_by(&self.box_bvh_forest);
+    // let box_bvh_forest = compute_cx.bind_by(&self.box_bvh_forest);
+    let indices_redirect = compute_cx.bind_by(&self.indices_redirect);
     let indices = compute_cx.bind_by(&self.indices);
     let vertices = compute_cx.bind_by(&self.vertices);
-    let boxes = compute_cx.bind_by(&self.boxes);
+    // let boxes = compute_cx.bind_by(&self.boxes);
 
     let instance = NaiveSahBVHInvocationInstance {
       tlas_bvh_root,
@@ -52,12 +53,13 @@ impl GPUAccelerationStructureSystemCompImplInstance for NaiveSahBvhGpu {
       tlas_bounding,
       blas_meta_info,
       tri_bvh_root,
-      box_bvh_root,
+      // box_bvh_root,
       tri_bvh_forest,
-      box_bvh_forest,
+      // box_bvh_forest,
+      indices_redirect,
       indices,
       vertices,
-      boxes,
+      // boxes,
     };
 
     Box::new(instance)
@@ -70,12 +72,13 @@ impl GPUAccelerationStructureSystemCompImplInstance for NaiveSahBvhGpu {
     builder.bind(&self.tlas_bounding);
     builder.bind(&self.blas_meta_info);
     builder.bind(&self.tri_bvh_root);
-    builder.bind(&self.box_bvh_root);
+    // builder.bind(&self.box_bvh_root);
     builder.bind(&self.tri_bvh_forest);
-    builder.bind(&self.box_bvh_forest);
+    // builder.bind(&self.box_bvh_forest);
+    builder.bind(&self.indices_redirect);
     builder.bind(&self.indices);
     builder.bind(&self.vertices);
-    builder.bind(&self.boxes);
+    // builder.bind(&self.boxes);
   }
 }
 
@@ -86,12 +89,13 @@ pub struct NaiveSahBVHInvocationInstance {
   tlas_bounding: ReadOnlyStorageNode<[TlasBounding]>,
   blas_meta_info: ReadOnlyStorageNode<[BlasMetaInfo]>,
   tri_bvh_root: ReadOnlyStorageNode<[GeometryMetaInfo]>,
-  box_bvh_root: ReadOnlyStorageNode<[GeometryMetaInfo]>,
+  // box_bvh_root: ReadOnlyStorageNode<[GeometryMetaInfo]>,
   tri_bvh_forest: ReadOnlyStorageNode<[DeviceBVHNode]>,
-  box_bvh_forest: ReadOnlyStorageNode<[DeviceBVHNode]>,
+  // box_bvh_forest: ReadOnlyStorageNode<[DeviceBVHNode]>,
+  indices_redirect: ReadOnlyStorageNode<[u32]>,
   indices: ReadOnlyStorageNode<[u32]>,
   vertices: ReadOnlyStorageNode<[f32]>,
-  boxes: ReadOnlyStorageNode<[f32]>,
+  // boxes: ReadOnlyStorageNode<[f32]>,
 }
 
 struct TraverseBvhIteratorGpu {
@@ -224,11 +228,12 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
       self.tlas_data,
       self.tri_bvh_root,
       self.tri_bvh_forest,
-      self.box_bvh_root,
-      self.box_bvh_forest,
+      // self.box_bvh_root,
+      // self.box_bvh_forest,
+      self.indices_redirect,
       self.indices,
       self.vertices,
-      self.boxes,
+      // self.boxes,
       intersect,
       any_hit,
       launch_info,
@@ -431,12 +436,12 @@ fn intersect_blas_gpu(
   tlas_data: ReadOnlyStorageNode<[TopLevelAccelerationStructureSourceDeviceInstance]>,
   tri_bvh_root: ReadOnlyStorageNode<[GeometryMetaInfo]>,
   tri_bvh_forest: ReadOnlyStorageNode<[DeviceBVHNode]>,
-  _box_bvh_root: ReadOnlyStorageNode<[GeometryMetaInfo]>,
-  _box_bvh_forest: ReadOnlyStorageNode<[DeviceBVHNode]>,
+  // _box_bvh_root: ReadOnlyStorageNode<[GeometryMetaInfo]>,
+  // _box_bvh_forest: ReadOnlyStorageNode<[DeviceBVHNode]>,
+  indices_redirect: ReadOnlyStorageNode<[u32]>,
   indices: ReadOnlyStorageNode<[u32]>,
   vertices: ReadOnlyStorageNode<[f32]>,
-  _boxes: ReadOnlyStorageNode<[f32]>,
-
+  // _boxes: ReadOnlyStorageNode<[f32]>,
   intersect: &dyn Fn(&RayIntersectCtx, &dyn IntersectionReporter),
   any_hit: &dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
 
@@ -495,6 +500,7 @@ fn intersect_blas_gpu(
         }
 
         tri_idx_iter.for_each(move |tri_idx, tri_loop| {
+          let tri_idx = indices_redirect.index(tri_idx).load();
           let [i0, i1, i2] = read_vec3(tri_idx, indices);
           let [v0x, v0y, v0z] = read_vec3(i0, vertices);
           let [v1x, v1y, v1z] = read_vec3(i1, vertices);

@@ -19,16 +19,16 @@ pub(super) struct NaiveSahBvhCpu {
   pub(super) blas_meta_info: Vec<BlasMetaInfo>,
   // tri_bvh_forest root_idx, geometry_idx, primitive_start, geometry_flags
   pub(super) tri_bvh_root: Vec<GeometryMetaInfo>,
-  // box_bvh_forest root_idx, geometry_idx, primitive_start, geometry_flags
-  pub(super) box_bvh_root: Vec<GeometryMetaInfo>,
+  // // box_bvh_forest root_idx, geometry_idx, primitive_start, geometry_flags
+  // pub(super) box_bvh_root: Vec<GeometryMetaInfo>,
   // content range to index indices
   pub(super) tri_bvh_forest: Vec<DeviceBVHNode>,
-  // content range to index boxes
-  pub(super) box_bvh_forest: Vec<DeviceBVHNode>,
-
+  // // content range to index boxes
+  // pub(super) box_bvh_forest: Vec<DeviceBVHNode>,
+  pub(super) indices_redirect: Vec<u32>,
   pub(super) indices: Vec<u32>,
   pub(super) vertices: Vec<Vec3<f32>>,
-  pub(super) boxes: Vec<Vec3<f32>>,
+  // pub(super) boxes: Vec<Vec3<f32>>,
 }
 
 use std::sync::atomic::AtomicU32;
@@ -117,6 +117,7 @@ impl NaiveSahBvhCpu {
               let node = &self.tri_bvh_forest[hit_idx as usize];
 
               for tri_idx in node.content_range.x..node.content_range.y {
+                let tri_idx = self.indices_redirect[tri_idx as usize];
                 let i0 = self.indices[tri_idx as usize * 3];
                 let i1 = self.indices[tri_idx as usize * 3 + 1];
                 let i2 = self.indices[tri_idx as usize * 3 + 2];
