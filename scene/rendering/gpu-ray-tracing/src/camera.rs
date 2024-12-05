@@ -1,3 +1,5 @@
+use rendiation_shader_library::shader_uv_space_to_world_space;
+
 use crate::*;
 
 #[derive(Default)]
@@ -78,8 +80,8 @@ impl RtxCameraRenderComponent for DefaultRtxCameraRenderComponent {
 }
 
 pub trait RtxCameraRenderInvocation: DynClone {
-  // normalized position is ranged from 0. to 1.
-  fn generate_ray(&self, normalized_position: Node<Vec2<f32>>) -> ShaderRay;
+  // uv is ranged from 0. to 1.
+  fn generate_ray(&self, uv: Node<Vec2<f32>>) -> ShaderRay;
 }
 
 clone_trait_object!(RtxCameraRenderInvocation);
@@ -90,20 +92,16 @@ pub struct DefaultRtxCameraInvocation {
 }
 
 impl RtxCameraRenderInvocation for DefaultRtxCameraInvocation {
-  fn generate_ray(&self, normalized_position: Node<Vec2<f32>>) -> ShaderRay {
-    let camera = self.camera.load().expand(); // todo avoid unnecessary load
-    let ndc: Node<Vec4<_>> = (
-      normalized_position * val(1.) - val(Vec2::one()),
-      val(1.),
-      val(1.),
-    )
-      .into();
-    let unprojected = camera.view_projection_inv * ndc;
-    let unprojected = unprojected.xyz() / unprojected.w().splat();
+  fn generate_ray(&self, uv: Node<Vec2<f32>>) -> ShaderRay {
+    let view_projection_inv =
+      CameraGPUTransform::uniform_node_view_projection_inv_field_ptr(self.camera).load();
+    let world = CameraGPUTransform::uniform_node_world_field_ptr(self.camera).load();
 
-    let origin = camera.world.position();
+    let world_target = shader_uv_space_to_world_space(view_projection_inv, uv, val(1.));
 
-    let direction = (unprojected - origin).normalize();
+    let origin = world.position();
+
+    let direction = (world_target - origin).normalize();
 
     ShaderRay { origin, direction }
   }

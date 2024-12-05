@@ -108,7 +108,7 @@ impl<'a> GraphicsShaderProvider for CameraGPU<'a> {
 
 #[repr(C)]
 #[std140_layout]
-#[derive(Clone, Copy, Default, ShaderStruct, Debug, PartialEq)]
+#[derive(Clone, Copy, Default, ShaderStruct, Debug, PartialEq, UniformNodePtrAccess)]
 pub struct CameraGPUTransform {
   pub projection: Mat4<f32>,
   pub projection_inv: Mat4<f32>,
