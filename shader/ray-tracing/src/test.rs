@@ -2,7 +2,8 @@
 async fn test_wavefront_compute() {
   use rendiation_texture_core::Size;
 
-  let canvas_size = 64;
+  let canvas_w = 52;
+  let canvas_h = 81;
 
   use crate::*;
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();
@@ -14,7 +15,7 @@ async fn test_wavefront_compute() {
 
   let debug_output = create_empty_2d_texture_view(
     &gpu,
-    Size::from_u32_pair_min_one((canvas_size, canvas_size)),
+    Size::from_u32_pair_min_one((canvas_w, canvas_h)),
     TextureUsages::all(),
     TextureFormat::Rgba8Unorm,
   );
@@ -34,66 +35,78 @@ async fn test_wavefront_compute() {
   let ray_gen_shader = shader_base_builder
     .create_ray_gen_shader_base()
     .inject_ctx(texture_io_system.clone())
-    .then_trace(
-      // (&T, &mut TracingCtx) -> (Node<bool>, ShaderRayTraceCall, Node<P>)
-      |_, ctx| {
-        let ray_gen_ctx = ctx.ray_gen_ctx().unwrap();
-        let launch_id = ray_gen_ctx.launch_id();
-        let launch_size = ray_gen_ctx.launch_size();
-        let valid = launch_id.less_than(launch_size).all();
-
-        let tex_io = ctx.registry.get_mut::<FrameOutputInvocation>().unwrap();
-        tex_io
-          .write_output::<RayTracingDebugOutput>(launch_id.xy(), val(vec4(0., 0., 50. / 255., 1.)));
-
-        const ORIGIN: Vec3<f32> = vec3(0., 0., 0.);
-        let x =
-          (launch_id.x().into_f32() + val(0.5)) / launch_size.x().into_f32() * val(2.) - val(1.);
-        let y =
-          val(1.) - (launch_id.y().into_f32() + val(0.5)) / launch_size.y().into_f32() * val(2.);
-        let target: Node<Vec3<f32>> = (x, y, val(-1.)).into(); // fov = 90 deg
-        let dir = (target - val(ORIGIN)).normalize();
-
-        let ray_flags = RayFlagConfigRaw::RAY_FLAG_CULL_BACK_FACING_TRIANGLES as u32;
-        let trace_call = ShaderRayTraceCall {
-          tlas_idx: val(TEST_TLAS_IDX),
-          ray_flags: val(ray_flags),
-          cull_mask: val(u32::MAX),
-          sbt_ray_config: RaySBTConfig {
-            offset: val(0),
-            stride: val(0),
-          },
-          miss_index: val(0),
-          ray: ShaderRay {
-            origin: val(ORIGIN),
-            direction: dir,
-          },
-          range: ShaderRayRange {
-            min: val(0.1),
-            max: val(100.),
-          },
-        };
-
-        let ray_payload = ENode::<RayCustomPayload> { color: val(0) }.construct();
-
-        (valid, trace_call, ray_payload)
-      },
-    )
-    .map(|(_, _payload), ctx| {
+    .map(|_, ctx| {
       let ray_gen_ctx = ctx.ray_gen_ctx().unwrap();
       let launch_id = ray_gen_ctx.launch_id();
 
       let tex_io = ctx.registry.get_mut::<FrameOutputInvocation>().unwrap();
-      let prev = tex_io.read_output::<RayTracingDebugOutput>(launch_id.xy());
-      tex_io.write_output::<RayTracingDebugOutput>(
-        launch_id.xy(),
-        (prev.x(), prev.y(), prev.z() + val(100. / 255.), val(1.)).into(),
-      );
+      // let prev = tex_io.read_output::<RayTracingDebugOutput>(launch_id.xy());
+      // tex_io.write_output::<RayTracingDebugOutput>(
+      //   launch_id.xy(),
+      //   (prev.x(), prev.y(), prev.z() + val(100. / 255.), val(1.)).into(),
+      // );
+      tex_io.write_output::<RayTracingDebugOutput>(launch_id.xy(), val(vec4(0.5, 0.5, 0.5, 1.)));
     });
+  // .then_trace(
+  //   // (&T, &mut TracingCtx) -> (Node<bool>, ShaderRayTraceCall, Node<P>)
+  //   |_, ctx| {
+  //     let ray_gen_ctx = ctx.ray_gen_ctx().unwrap();
+  //     let launch_id = ray_gen_ctx.launch_id();
+  //     let launch_size = ray_gen_ctx.launch_size();
+  //     let valid = launch_id.less_than(launch_size).all();
+  //
+  //     let tex_io = ctx.registry.get_mut::<FrameOutputInvocation>().unwrap();
+  //     tex_io
+  //       .write_output::<RayTracingDebugOutput>(launch_id.xy(), val(vec4(0., 0., 50. / 255., 1.)));
+  //
+  //     const ORIGIN: Vec3<f32> = vec3(0., 0., 0.);
+  //     let x =
+  //       (launch_id.x().into_f32() + val(0.5)) / launch_size.x().into_f32() * val(2.) - val(1.);
+  //     let y =
+  //       val(1.) - (launch_id.y().into_f32() + val(0.5)) / launch_size.y().into_f32() * val(2.);
+  //     let target: Node<Vec3<f32>> = (x, y, val(-1.)).into(); // fov = 90 deg
+  //     let dir = (target - val(ORIGIN)).normalize();
+  //
+  //     let ray_flags = RayFlagConfigRaw::RAY_FLAG_CULL_BACK_FACING_TRIANGLES as u32;
+  //     let trace_call = ShaderRayTraceCall {
+  //       tlas_idx: val(TEST_TLAS_IDX),
+  //       ray_flags: val(ray_flags),
+  //       cull_mask: val(u32::MAX),
+  //       sbt_ray_config: RaySBTConfig {
+  //         offset: val(0),
+  //         stride: val(0),
+  //       },
+  //       miss_index: val(0),
+  //       ray: ShaderRay {
+  //         origin: val(ORIGIN),
+  //         direction: dir,
+  //       },
+  //       range: ShaderRayRange {
+  //         min: val(0.1),
+  //         max: val(100.),
+  //       },
+  //     };
+  //
+  //     let ray_payload = ENode::<RayCustomPayload> { color: val(0) }.construct();
+  //
+  //     (valid, trace_call, ray_payload)
+  //   },
+  // )
+  // .map(|(_, _payload), ctx| {
+  //   let ray_gen_ctx = ctx.ray_gen_ctx().unwrap();
+  //   let launch_id = ray_gen_ctx.launch_id();
+  //
+  //   let tex_io = ctx.registry.get_mut::<FrameOutputInvocation>().unwrap();
+  //   let prev = tex_io.read_output::<RayTracingDebugOutput>(launch_id.xy());
+  //   tex_io.write_output::<RayTracingDebugOutput>(
+  //     launch_id.xy(),
+  //     (prev.x(), prev.y(), prev.z() + val(100. / 255.), val(1.)).into(),
+  //   );
+  // });
 
   #[derive(Copy, Clone, Debug, Default, ShaderStruct)]
   pub struct RayCustomPayload {
-    pub color: u32,
+    pub color: Vec4<f32>,
   }
 
   let ray_gen = rtx_pipeline_desc.register_ray_gen::<u32>(ray_gen_shader);
@@ -136,6 +149,9 @@ async fn test_wavefront_compute() {
       }),
   );
 
+  let any_hit = rtx_pipeline_desc.register_ray_any_hit(|_ctx| val(ANYHIT_BEHAVIOR_ACCEPT_HIT));
+  let intersection = rtx_pipeline_desc.register_ray_intersection(|_ctx, _reporter| {});
+
   let ray_type_count = 1;
 
   let executor = rtx_device.create_raytracing_pipeline_executor();
@@ -149,8 +165,8 @@ async fn test_wavefront_compute() {
     0,
     HitGroupShaderRecord {
       closest_hit: Some(closest_hit),
-      any_hit: None,
-      intersection: None,
+      any_hit: Some(any_hit),
+      intersection: Some(intersection),
     },
   );
 
@@ -159,7 +175,7 @@ async fn test_wavefront_compute() {
   rtx_encoder.trace_ray(
     &rtx_pipeline_desc,
     &executor,
-    (canvas_size, canvas_size, 1),
+    (canvas_w, canvas_h, 1),
     sbt.as_ref(),
   );
 
@@ -174,7 +190,7 @@ async fn test_wavefront_compute() {
       &gpu.device,
       &texture.unwrap(),
       ReadRange {
-        size: Size::from_u32_pair_min_one((canvas_size, canvas_size)),
+        size: Size::from_u32_pair_min_one((canvas_w, canvas_h)),
         offset_x: 0,
         offset_y: 0,
       },
@@ -185,7 +201,7 @@ async fn test_wavefront_compute() {
 
   let info = buffer.info();
   let buffer = buffer.read_raw();
-  let mut write_buffer = format!("P3\n{} {}\n255\n", canvas_size, canvas_size);
+  let mut write_buffer = format!("P3\n{} {}\n255\n", canvas_w, canvas_h);
   buffer
     .chunks_exact(info.padded_bytes_per_row)
     .for_each(|line| {

@@ -58,7 +58,7 @@ impl ShaderComputePipelineBuilder {
       local_invocation_index: ShaderInputNode::BuiltIn(CompLocalInvocationIndex).insert_api(),
       workgroup_id: ShaderInputNode::BuiltIn(CompWorkgroupId).insert_api(),
       workgroup_count: ShaderInputNode::BuiltIn(CompNumWorkgroup).insert_api(),
-      log_result: false,
+      log_result: true,
     };
 
     // if user not setting any workgroup size in building process, we use this as default config

@@ -99,7 +99,7 @@ impl BindingBuilder {
   where
     T: CacheAbleBindingSource + ShaderBindingProvider,
   {
-    let desc = item.binding_desc();
+    let _desc = item.binding_desc();
     self.bind_dyn(item.get_binding_build_source())
   }
 

@@ -93,7 +93,7 @@ impl RtxCameraRenderInvocation for DefaultRtxCameraInvocation {
   fn generate_ray(&self, normalized_position: Node<Vec2<f32>>) -> ShaderRay {
     let camera = self.camera.load().expand(); // todo avoid unnecessary load
     let ndc: Node<Vec4<_>> = (
-      normalized_position * val(1.) - val(Vec2::one()),
+      normalized_position * val(2.) - val(Vec2::one()),
       val(1.),
       val(1.),
     )

@@ -47,7 +47,7 @@ pub fn create_fallback_empty_texture(device: &GPUDevice) -> GPU2DTexture {
       dimension: TextureDimension::D2,
       format: TextureFormat::Rgba8Unorm,
       view_formats: &[],
-      usage: TextureUsages::all(),
+      usage: TextureUsages::all() - TextureUsages::STORAGE_BINDING,
     },
     device,
   )

@@ -85,9 +85,9 @@ impl NaiveSahBvhSource {
   }
   pub fn create_tlas(&mut self, source: &[TopLevelAccelerationStructureSourceInstance]) -> u32 {
     // todo freelist
-    let start_index = self.tlas_data.len();
+    let index = self.tlas_data.len();
     self.tlas_data.push(Some(source.to_vec()));
-    start_index as u32
+    index as u32
   }
   pub fn delete_blas(&mut self, handle: BlasHandle) {
     // todo freelist
