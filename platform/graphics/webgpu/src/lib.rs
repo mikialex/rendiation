@@ -5,6 +5,7 @@ mod binding;
 mod device;
 mod encoder;
 mod frame;
+mod instance_poller;
 mod pass;
 mod pipeline;
 mod query;
@@ -48,6 +49,7 @@ pub use gpu::{
   ShaderModuleDescriptor, ShaderSource, ShaderStages, StoreOp, TextureView, TextureViewDescriptor,
   VertexBufferLayout, VertexState,
 };
+use instance_poller::GPUInstance;
 pub use pass::*;
 pub use pipeline::*;
 pub use query::*;
@@ -65,12 +67,11 @@ pub use wgpu_types::*;
 
 #[derive(Clone)]
 pub struct GPU {
-  _instance: Arc<gpu::Instance>,
+  _instance: GPUInstance,
   _adaptor: Arc<gpu::Adapter>,
   pub info: GPUInfo,
   pub device: GPUDevice,
   pub queue: GPUQueue,
-  dropped: Arc<AtomicBool>,
 }
 
 pub struct GPUCreateConfig<'a> {
@@ -196,20 +197,7 @@ impl GPU {
       )
     });
 
-    let _instance = Arc::new(_instance);
-    let _instance_clone = _instance.clone();
-
-    let dropped = Arc::new(AtomicBool::new(false));
-    let dropped_clone = dropped.clone();
-    // wasm can not spawn thread, add the gpu will be automatically polled by runtime(browser)
-    #[cfg(not(target_family = "wasm"))]
-    std::thread::spawn(move || loop {
-      if dropped_clone.load(Ordering::Relaxed) {
-        break;
-      }
-      std::thread::sleep(std::time::Duration::from_millis(200));
-      _instance_clone.poll_all(false);
-    });
+    let _instance = GPUInstance::new(_instance);
 
     let gpu = Self {
       _instance,
@@ -217,7 +205,6 @@ impl GPU {
       info,
       device,
       queue,
-      dropped,
     };
 
     Ok((gpu, surface))
@@ -257,12 +244,6 @@ impl GPU {
 
   pub fn submit_encoder(&self, encoder: GPUCommandEncoder) {
     self.queue.submit_encoder(encoder);
-  }
-}
-
-impl Drop for GPU {
-  fn drop(&mut self) {
-    self.dropped.store(true, Ordering::Relaxed);
   }
 }
 
