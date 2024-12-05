@@ -19,6 +19,7 @@ pub const TASK_EXECUTION_WORKGROUP_SIZE: u32 = 128;
 pub struct TaskGraphExecutionStates {
   pub wake_counts: Vec<u32>,
   pub sleep_or_finished_counts: Vec<u32>,
+  pub empty_counts: Vec<u32>,
 }
 
 #[derive(Clone, Debug)]
@@ -214,6 +215,12 @@ impl DeviceTaskGraphExecutor {
     })
   }
 
+  pub async fn check_is_empty<'a>(&mut self, cx: &mut DeviceParallelComputeCtx<'a>) -> bool {
+    let states = self.read_back_execution_states(cx).await;
+    states.sleep_or_finished_counts.iter().all(|c| *c == 0)
+      && states.wake_counts.iter().all(|c| *c == 0)
+  }
+
   pub async fn read_back_execution_states<'a>(
     &mut self,
     cx: &mut DeviceParallelComputeCtx<'a>,
@@ -256,20 +263,21 @@ impl DeviceTaskGraphExecutor {
 
     cx.submit_recorded_work_and_continue();
 
-    let wake_task_counts = wake_task_counts.await.unwrap();
-    let empty_task_counts = empty_task_counts.await.unwrap();
+    let wake_counts = wake_task_counts.await.unwrap();
+    let empty_counts = empty_task_counts.await.unwrap();
 
     let full_size = self.max_recursion_depth * self.current_prepared_execution_size * 2;
 
-    let sleep_or_finished_task_counts = empty_task_counts
-      .into_iter()
-      .zip(wake_task_counts.iter())
-      .map(|(empty, &wake)| (full_size - empty as usize - wake as usize) as u32)
+    let sleep_or_finished_counts = empty_counts
+      .iter()
+      .zip(wake_counts.iter())
+      .map(|(empty, &wake)| (full_size - *empty as usize - wake as usize) as u32)
       .collect();
 
     TaskGraphExecutionStates {
-      wake_counts: wake_task_counts,
-      sleep_or_finished_counts: sleep_or_finished_task_counts,
+      wake_counts,
+      empty_counts,
+      sleep_or_finished_counts,
     }
   }
 

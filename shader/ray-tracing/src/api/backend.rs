@@ -58,12 +58,19 @@ pub trait RayTracingEncoderProvider {
 /// an opaque rtx pipeline executor instance. cheap clonable.
 pub trait GPURaytracingPipelineExecutorImpl: DynClone {
   fn access_impl(&self) -> &dyn Any;
+  fn blocking_check_is_empty(&self, cx: &mut DeviceParallelComputeCtx) -> bool;
 }
 dyn_clone::clone_trait_object!(GPURaytracingPipelineExecutorImpl);
 
 #[derive(Clone)]
 pub struct GPURaytracingPipelineExecutor {
   pub(crate) inner: Box<dyn GPURaytracingPipelineExecutorImpl>,
+}
+
+impl GPURaytracingPipelineExecutor {
+  pub fn blocking_check_is_empty<'a>(&self, cx: &mut DeviceParallelComputeCtx<'a>) -> bool {
+    self.inner.blocking_check_is_empty(cx)
+  }
 }
 
 /// the ray tracing device abstraction.

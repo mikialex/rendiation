@@ -8,6 +8,7 @@ pub struct RayTracingShaderStageDefine {
 
 #[derive(Clone)]
 pub struct GPURaytracingPipelineAndBindingSource {
+  pub execution_round_hint: u32,
   pub max_recursion_depth: u32,
   pub ray_gen: Vec<RayTracingShaderStageDefine>,
   pub miss_hit: Vec<RayTracingShaderStageDefine>,
@@ -39,6 +40,7 @@ impl GPURaytracingPipelineAndBindingSource {
 impl Default for GPURaytracingPipelineAndBindingSource {
   fn default() -> Self {
     Self {
+      execution_round_hint: 4,
       max_recursion_depth: 1,
       ray_gen: Default::default(),
       closest_hit: Default::default(),
@@ -55,6 +57,10 @@ pub struct ShaderHandle(pub u32, pub RayTracingShaderStage);
 impl GPURaytracingPipelineAndBindingSource {
   pub fn set_max_recursion_depth(&mut self, max_recursion_depth: u32) -> &mut Self {
     self.max_recursion_depth = max_recursion_depth;
+    self
+  }
+  pub fn set_execution_round_hint(&mut self, execution_round_hint: u32) -> &mut Self {
+    self.execution_round_hint = execution_round_hint;
     self
   }
 

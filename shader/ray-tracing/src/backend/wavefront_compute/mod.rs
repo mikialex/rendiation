@@ -119,6 +119,8 @@ impl RayTracingEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
     let mut encoder = self.gpu.create_encoder();
     let mut cx = DeviceParallelComputeCtx::new(&self.gpu, &mut encoder);
 
+    // assert!(executor.blocking_check_is_empty(&mut cx));
+
     let required_size = (size.0 * size.1 * size.2) as usize;
 
     let pipeline = pipeline.get_or_compile_executor(
@@ -153,8 +155,7 @@ impl RayTracingEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
       );
     }
 
-    let round_count = 3; // todo;
-    for _ in 0..round_count {
+    for _ in 0..pipeline_source.execution_round_hint {
       pipeline.graph.execute(&mut cx, 1);
     }
   }
