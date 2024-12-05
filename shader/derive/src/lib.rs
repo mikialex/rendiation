@@ -39,6 +39,12 @@ pub fn derive_shader_struct_storage_ptr_access(input: TokenStream) -> TokenStrea
   let input = parse_macro_input!(input as syn::DeriveInput);
   derive_shader_struct_storage_ptr_access_impl(&input).into()
 }
+/// Generate field access methods for UniformNode<StructType>
+#[proc_macro_derive(UniformNodePtrAccess)]
+pub fn derive_shader_struct_uniform_ptr_access(input: TokenStream) -> TokenStream {
+  let input = parse_macro_input!(input as syn::DeriveInput);
+  derive_shader_struct_uniform_ptr_access_impl(&input).into()
+}
 
 /// Validate the struct if possible to create std140 memory layout version.
 ///

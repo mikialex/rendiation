@@ -136,15 +136,15 @@ async fn test_wavefront_compute() {
       }),
   );
 
-  let mesh_count = 1;
   let ray_type_count = 1;
 
   let executor = rtx_device.create_raytracing_pipeline_executor();
 
-  let mut sbt = rtx_device.create_sbt(mesh_count, ray_type_count);
+  let mut sbt = rtx_device.create_sbt(1, 1, ray_type_count);
   sbt.config_ray_generation(ray_gen);
   sbt.config_missing(0, miss);
   sbt.config_hit_group(
+    0,
     0,
     0,
     HitGroupShaderRecord {

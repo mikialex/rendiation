@@ -3,7 +3,7 @@ use rendiation_mesh_generator::*;
 
 use crate::backend::wavefront_compute::geometry::naive::*;
 
-pub(crate) const TEST_TLAS_IDX: u32 = 3;
+pub(crate) const TEST_TLAS_IDX: u32 = 4;
 pub(crate) const TEST_ANYHIT_BEHAVIOR: u32 = ANYHIT_BEHAVIOR_ACCEPT_HIT; // | ANYHIT_BEHAVIOR_END_SEARCH;
 
 pub(crate) fn init_default_acceleration_structure(
@@ -64,7 +64,7 @@ pub(crate) fn init_default_acceleration_structure(
     system,
     &[(
       &SphereMeshParameter::default().make_surface(),
-      TessellationConfig { u: 16, v: 8 },
+      TessellationConfig { u: 32, v: 16 },
     )],
   );
   #[allow(unused)]
@@ -213,7 +213,15 @@ pub(crate) fn init_default_acceleration_structure(
   }
   let tlas3 = system.create_top_level_acceleration_structure(&sources3);
 
-  vec![tlas0, tlas1, tlas2, tlas3]
+  let tlas4 = build_tlas(
+    system,
+    &[(
+      Mat4::translate((0., 0., -10.)) * Mat4::scale((5., 5., 5.)),
+      &sphere,
+    )],
+  );
+
+  vec![tlas0, tlas1, tlas2, tlas3, tlas4]
 }
 
 #[test]

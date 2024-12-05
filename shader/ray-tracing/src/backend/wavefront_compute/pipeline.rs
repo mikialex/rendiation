@@ -1,3 +1,5 @@
+use pollster::block_on;
+
 use crate::*;
 
 #[derive(Clone)]
@@ -8,6 +10,14 @@ pub struct GPUWaveFrontComputeRaytracingBakedPipeline {
 impl GPURaytracingPipelineExecutorImpl for GPUWaveFrontComputeRaytracingBakedPipeline {
   fn access_impl(&self) -> &dyn Any {
     self
+  }
+  fn blocking_check_is_empty(&self, cx: &mut DeviceParallelComputeCtx) -> bool {
+    let mut inner = self.inner.write();
+    if let Some((_, _, executor)) = &mut inner.executor {
+      block_on(executor.graph.check_is_empty(cx))
+    } else {
+      true
+    }
   }
 }
 

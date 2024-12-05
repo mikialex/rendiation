@@ -79,7 +79,7 @@ pub fn attribute_vertex(
 
 #[repr(C)]
 #[std430_layout]
-#[derive(Debug, Clone, PartialEq, Copy, ShaderStruct, Default)]
+#[derive(Debug, Clone, PartialEq, Copy, ShaderStruct, Default, StorageNodePtrAccess)]
 pub struct AttributeMeshMeta {
   pub index_offset: u32,
   pub count: u32,

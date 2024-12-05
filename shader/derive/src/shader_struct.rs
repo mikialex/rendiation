@@ -176,3 +176,35 @@ fn derive_shader_struct_storage_ptr_access(s: &StructInfo) -> proc_macro2::Token
     }
   }
 }
+
+pub fn derive_shader_struct_uniform_ptr_access_impl(
+  input: &syn::DeriveInput,
+) -> proc_macro2::TokenStream {
+  let s = StructInfo::new(input);
+  let mut generated = proc_macro2::TokenStream::new();
+  generated.append_all(derive_shader_struct_uniform_ptr_access(&s));
+  generated
+}
+
+fn derive_shader_struct_uniform_ptr_access(s: &StructInfo) -> proc_macro2::TokenStream {
+  let struct_name = &s.struct_name;
+
+  let field_ptr_access = s
+    .iter_visible_fields()
+    .enumerate()
+    .map(|(idx, (field_name, ty))| {
+      let fn_name = format_ident!("uniform_node_{}_field_ptr", field_name);
+      quote! {
+       pub fn #fn_name(node: rendiation_shader_api::UniformNode<#struct_name>) -> rendiation_shader_api::UniformNode<#ty> {
+          unsafe { rendiation_shader_api::index_access_field(node.handle(), #idx) }
+       }
+      }
+    })
+    .collect::<Vec<_>>();
+
+  quote! {
+    impl #struct_name {
+      #(#field_ptr_access)*
+    }
+  }
+}

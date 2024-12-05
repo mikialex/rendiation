@@ -58,6 +58,7 @@ pub trait RayTracingEncoderProvider {
 /// an opaque rtx pipeline executor instance. cheap clonable.
 pub trait GPURaytracingPipelineExecutorImpl: DynClone {
   fn access_impl(&self) -> &dyn Any;
+  fn blocking_check_is_empty(&self, cx: &mut DeviceParallelComputeCtx) -> bool;
 }
 dyn_clone::clone_trait_object!(GPURaytracingPipelineExecutorImpl);
 
@@ -66,13 +67,23 @@ pub struct GPURaytracingPipelineExecutor {
   pub(crate) inner: Box<dyn GPURaytracingPipelineExecutorImpl>,
 }
 
+impl GPURaytracingPipelineExecutor {
+  pub fn blocking_check_is_empty<'a>(&self, cx: &mut DeviceParallelComputeCtx<'a>) -> bool {
+    self.inner.blocking_check_is_empty(cx)
+  }
+}
+
 /// the ray tracing device abstraction.
 pub trait GPURayTracingDeviceProvider: DynClone {
   /// create a pipeline executor. the executor is not the pipeline, the main reason for this api is that
   /// we want to cache the executor resource in user side and expose executor implementation in some cases.
   fn create_raytracing_pipeline_executor(&self) -> GPURaytracingPipelineExecutor;
-  fn create_sbt(&self, mesh_count: u32, ray_type_count: u32)
-    -> Box<dyn ShaderBindingTableProvider>;
+  fn create_sbt(
+    &self,
+    max_geometry_count_in_blas: u32,
+    max_tlas_offset: u32,
+    ray_type_count: u32,
+  ) -> Box<dyn ShaderBindingTableProvider>;
 }
 dyn_clone::clone_trait_object!(GPURayTracingDeviceProvider);
 
@@ -85,7 +96,13 @@ pub struct HitGroupShaderRecord {
 
 pub trait ShaderBindingTableProvider {
   fn config_ray_generation(&mut self, s: ShaderHandle);
-  fn config_hit_group(&mut self, tlas_idx: u32, ray_ty_idx: u32, hit_group: HitGroupShaderRecord);
+  fn config_hit_group(
+    &mut self,
+    geometry_idx: u32,
+    tlas_offset: u32,
+    ray_ty_idx: u32,
+    hit_group: HitGroupShaderRecord,
+  );
   fn config_missing(&mut self, ray_ty_idx: u32, s: ShaderHandle);
   fn access_impl(&self) -> &dyn Any;
 }

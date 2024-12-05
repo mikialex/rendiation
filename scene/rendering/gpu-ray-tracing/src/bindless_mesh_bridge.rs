@@ -10,7 +10,8 @@ pub struct BindlessMeshRtxAccessInvocation {
 impl BindlessMeshRtxAccessInvocation {
   pub fn get_triangle_idx(&self, primitive_id: Node<u32>, mesh_id: Node<u32>) -> Node<Vec3<u32>> {
     let vertex_id = primitive_id * val(3);
-    let index_offset = self.address.index(mesh_id).load().expand().index_offset; // todo fix full expand
+    let index_offset =
+      AttributeMeshMeta::storage_node_index_offset_field_ptr(self.address.index(mesh_id)).load();
     let offset = index_offset + vertex_id;
     (
       self.indices.index(offset).load(),
@@ -21,7 +22,8 @@ impl BindlessMeshRtxAccessInvocation {
   }
 
   pub fn get_normal(&self, index: Node<u32>, mesh_id: Node<u32>) -> Node<Vec3<f32>> {
-    let normal_offset = self.address.index(mesh_id).load().expand().normal_offset; // todo fix full expand
+    let normal_offset =
+      AttributeMeshMeta::storage_node_normal_offset_field_ptr(self.address.index(mesh_id)).load();
 
     unsafe {
       Vec3::<f32>::sized_ty()

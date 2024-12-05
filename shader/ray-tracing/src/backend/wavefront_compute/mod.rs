@@ -64,13 +64,18 @@ pub struct GPUWaveFrontComputeRaytracingDevice {
 impl GPURayTracingDeviceProvider for GPUWaveFrontComputeRaytracingDevice {
   fn create_sbt(
     &self,
-    mesh_count: u32,
+    max_geometry_count_in_blas: u32,
+    max_tlas_offset: u32,
     ray_type_count: u32,
   ) -> Box<dyn ShaderBindingTableProvider> {
-    let self_idx = self.sbt_sys.allocate(mesh_count, ray_type_count).unwrap();
+    let self_idx = self
+      .sbt_sys
+      .allocate(max_geometry_count_in_blas, max_tlas_offset, ray_type_count)
+      .unwrap();
     Box::new(ShaderBindingTableInfo {
       sys: self.sbt_sys.clone(),
       self_idx,
+      ray_stride: ray_type_count,
     })
   }
 
@@ -114,13 +119,9 @@ impl RayTracingEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
     let mut encoder = self.gpu.create_encoder();
     let mut cx = DeviceParallelComputeCtx::new(&self.gpu, &mut encoder);
 
-    fn pad_pow2(input: u32, mask: u32) -> u32 {
-      (input + mask) & !mask
-    }
-    let w_pad = pad_pow2(size.0, LAUNCH_ID_TILE_MASK);
-    let h_pad = pad_pow2(size.1, LAUNCH_ID_TILE_MASK);
+    // assert!(executor.blocking_check_is_empty(&mut cx));
 
-    let required_size = (w_pad * h_pad * size.2) as usize;
+    let required_size = (size.0 * size.1 * size.2) as usize;
 
     let pipeline = pipeline.get_or_compile_executor(
       &mut cx,
@@ -154,8 +155,7 @@ impl RayTracingEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
       );
     }
 
-    let round_count = 3; // todo;
-    for _ in 0..round_count {
+    for _ in 0..pipeline_source.execution_round_hint {
       pipeline.graph.execute(&mut cx, 1);
     }
   }
