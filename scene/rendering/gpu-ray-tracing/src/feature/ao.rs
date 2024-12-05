@@ -21,6 +21,7 @@ struct AOShaderHandles {
   ray_gen: ShaderHandle,
   closest_hit: ShaderHandle,
   any_hit: ShaderHandle,
+  miss: ShaderHandle,
 }
 
 impl RayTracingAORenderSystem {
@@ -38,6 +39,7 @@ impl RayTracingAORenderSystem {
         ray_gen: ShaderHandle(0, RayTracingShaderStage::RayGeneration),
         closest_hit: ShaderHandle(0, RayTracingShaderStage::ClosestHit),
         any_hit: ShaderHandle(0, RayTracingShaderStage::AnyHit),
+        miss: ShaderHandle(0, RayTracingShaderStage::Miss),
       },
     }
   }
@@ -171,11 +173,8 @@ impl SceneRayTracingAORenderer {
       }
     }
 
-    let mut is_first_time_draw = false;
-
     let ao_buffer = ao_buffer
       .get_or_insert_with(|| {
-        is_first_time_draw = true;
         create_empty_2d_texture_view(
           frame.gpu,
           render_size,
@@ -188,12 +187,6 @@ impl SceneRayTracingAORenderer {
       .clone()
       .into_storage_texture_view_readwrite()
       .unwrap();
-
-    if !is_first_time_draw {
-      // if we not return here, on windows we will have blue death.
-      // remove this when fixed all bug.
-      return ao_buffer;
-    }
 
     let mut desc = GPURaytracingPipelineAndBindingSource::default();
 
@@ -247,11 +240,19 @@ impl SceneRayTracingAORenderer {
 
     let handles = AOShaderHandles {
       ray_gen: desc.register_ray_gen::<u32>(ShaderFutureProviderIntoTraceOperator(ray_gen_shader)),
-      closest_hit: desc
-        .register_ray_closest_hit::<f32>(ShaderFutureProviderIntoTraceOperator(ao_closest)),
+      closest_hit: desc.register_ray_closest_hit::<RayGenTracePayload>(
+        ShaderFutureProviderIntoTraceOperator(ao_closest),
+      ),
       any_hit: desc.register_ray_any_hit(|_any_ctx| {
         val(ANYHIT_BEHAVIOR_ACCEPT_HIT & ANYHIT_BEHAVIOR_END_SEARCH)
       }),
+      miss: desc.register_ray_miss::<RayGenTracePayload>(
+        trace_base_builder
+          .create_miss_hit_shader_base::<RayGenTracePayload>()
+          .map(|_, cx| {
+            cx.payload().unwrap().store(val(1.0_f32));
+          }),
+      ),
     };
     assert_eq!(handles, self.shader_handles);
 
@@ -403,109 +404,119 @@ impl ShaderFutureInvocation for RayTracingAOComputeInvocation {
   fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<Self::Output> {
     let _ = self.upstream.device_poll(ctx); // upstream has no real runtime logic, let's skip the check
 
-    let current_idx = self.next_sample_idx.abstract_load();
-    let sample_is_done = current_idx.greater_equal_than(self.max_sample_count);
+    ctx
+      .invocation_registry
+      .get::<TracingCtx>()
+      .unwrap()
+      .payload()
+      .unwrap()
+      .store(val(0.0_f32));
 
-    if_by(current_idx.equals(0), || {
-      let closest_hit_ctx = ctx
-        .invocation_registry
-        .get::<TracingCtx>()
-        .unwrap()
-        .closest_hit_ctx()
-        .unwrap();
+    (val(true), ()).into()
 
-      let hit_position = closest_hit_ctx.world_ray().origin
-        + closest_hit_ctx.world_ray().direction * closest_hit_ctx.hit_distance();
+    // let current_idx = self.next_sample_idx.abstract_load();
+    // let sample_is_done = current_idx.greater_equal_than(self.max_sample_count);
 
-      let scene_model_id = closest_hit_ctx.instance_custom_id();
-      let mesh_id = self.sm_to_mesh.index(scene_model_id).load();
-      let tri_id = closest_hit_ctx.primitive_id();
-      let tri_idx_s = self.bindless_mesh.get_triangle_idx(tri_id, mesh_id);
+    // if_by(current_idx.equals(0), || {
+    //   let closest_hit_ctx = ctx
+    //     .invocation_registry
+    //     .get::<TracingCtx>()
+    //     .unwrap()
+    //     .closest_hit_ctx()
+    //     .unwrap();
 
-      let tri_a_normal = self.bindless_mesh.get_normal(tri_idx_s.x(), mesh_id);
-      let tri_b_normal = self.bindless_mesh.get_normal(tri_idx_s.y(), mesh_id);
-      let tri_c_normal = self.bindless_mesh.get_normal(tri_idx_s.z(), mesh_id);
+    //   let hit_position = closest_hit_ctx.world_ray().origin
+    //     + closest_hit_ctx.world_ray().direction * closest_hit_ctx.hit_distance();
 
-      let attribs: Node<Vec2<f32>> = closest_hit_ctx.hit_attribute().expand().bary_coord;
-      let barycentric: Node<Vec3<f32>> = (
-        val(1.0) - attribs.x() - attribs.y(),
-        attribs.x(),
-        attribs.y(),
-      )
-        .into();
+    //   let scene_model_id = closest_hit_ctx.instance_custom_id();
+    //   let mesh_id = self.sm_to_mesh.index(scene_model_id).load();
+    //   let tri_id = closest_hit_ctx.primitive_id();
+    //   let tri_idx_s = self.bindless_mesh.get_triangle_idx(tri_id, mesh_id);
 
-      // Computing the normal at hit position
-      let normal = tri_a_normal * barycentric.x()
-        + tri_b_normal * barycentric.y()
-        + tri_c_normal * barycentric.z();
-      // Transforming the normal to world space
-      let normal = (closest_hit_ctx.object_to_world().shrink_to_3() * normal).normalize();
+    //   let tri_a_normal = self.bindless_mesh.get_normal(tri_idx_s.x(), mesh_id);
+    //   let tri_b_normal = self.bindless_mesh.get_normal(tri_idx_s.y(), mesh_id);
+    //   let tri_c_normal = self.bindless_mesh.get_normal(tri_idx_s.z(), mesh_id);
 
-      self.hit_position.abstract_store(hit_position);
-      self.hit_normal_tbn.abstract_store(tbn_fn(normal));
-    });
+    //   let attribs: Node<Vec2<f32>> = closest_hit_ctx.hit_attribute().expand().bary_coord;
+    //   let barycentric: Node<Vec3<f32>> = (
+    //     val(1.0) - attribs.x() - attribs.y(),
+    //     attribs.x(),
+    //     attribs.y(),
+    //   )
+    //     .into();
 
-    let on_the_fly_trace_not_active = self
-      .trace_on_the_fly
-      .task_not_allocated()
-      .or(self.trace_on_the_fly.task_has_already_resolved());
-    let should_spawn_new_ray = sample_is_done.not().and(on_the_fly_trace_not_active);
+    //   // Computing the normal at hit position
+    //   let normal = tri_a_normal * barycentric.x()
+    //     + tri_b_normal * barycentric.y()
+    //     + tri_c_normal * barycentric.z();
+    //   // Transforming the normal to world space
+    //   let normal = (closest_hit_ctx.object_to_world().shrink_to_3() * normal).normalize();
 
-    if_by(should_spawn_new_ray, || {
-      let random = hammersley_2d_fn(current_idx, val(self.max_sample_count));
+    //   self.hit_position.abstract_store(hit_position);
+    //   self.hit_normal_tbn.abstract_store(tbn_fn(normal));
+    // });
 
-      let ray = ShaderRay {
-        origin: self.hit_position.abstract_load(),
-        direction: self.hit_normal_tbn.abstract_load() * sample_hemisphere_cos_fn(random),
-      };
+    // let on_the_fly_trace_not_active = self
+    //   .trace_on_the_fly
+    //   .task_not_allocated()
+    //   .or(self.trace_on_the_fly.task_has_already_resolved());
+    // let should_spawn_new_ray = sample_is_done.not().and(on_the_fly_trace_not_active);
 
-      let trace_call = ShaderRayTraceCall {
-        tlas_idx: self.tlas,
-        ray_flags: val(RayFlagConfigRaw::RAY_FLAG_CULL_BACK_FACING_TRIANGLES as u32),
-        cull_mask: val(u32::MAX),
-        sbt_ray_config: AORayType::AOTest.to_sbt_cfg(),
-        miss_index: val(0),
-        ray,
-        range: ShaderRayRange::default(), // todo, should control max ray length
-      };
+    // if_by(should_spawn_new_ray, || {
+    //   let random = hammersley_2d_fn(current_idx, val(self.max_sample_count));
 
-      let trace_on_the_fly_right =
-        ctx.spawn_new_tracing_task(val(true), trace_call, val(0), &self.trace_on_the_fly);
+    //   let ray = ShaderRay {
+    //     origin: self.hit_position.abstract_load(),
+    //     direction: self.hit_normal_tbn.abstract_load() * sample_hemisphere_cos_fn(random),
+    //   };
 
-      self.trace_on_the_fly.abstract_store(trace_on_the_fly_right); // todo, this is weird, should be improved
-    });
+    //   let trace_call = ShaderRayTraceCall {
+    //     tlas_idx: self.tlas,
+    //     ray_flags: val(RayFlagConfigRaw::RAY_FLAG_CULL_BACK_FACING_TRIANGLES as u32),
+    //     cull_mask: val(u32::MAX),
+    //     sbt_ray_config: AORayType::AOTest.to_sbt_cfg(),
+    //     miss_index: val(0),
+    //     ray,
+    //     range: ShaderRayRange::default(), // todo, should control max ray length
+    //   };
 
-    storage_barrier(); // todo, how to make this invisible for native rtx?
+    //   let trace_on_the_fly_right =
+    //     ctx.spawn_new_tracing_task(val(true), trace_call, val(0), &self.trace_on_the_fly);
 
-    // todo, check poll result of current on the fly trace
-    let should_pool = self
-      .trace_on_the_fly
-      .task_not_allocated()
-      .not()
-      .and(self.trace_on_the_fly.task_has_already_resolved().not());
-    if_by(should_pool, || {
-      let r = self.trace_on_the_fly.device_poll(ctx);
-      if_by(r.is_ready, || {
-        self
-          .occlusion_count
-          .abstract_store(self.occlusion_count.abstract_load() + r.payload);
-      });
-    });
+    //   self.trace_on_the_fly.abstract_store(trace_on_the_fly_right); // todo, this is weird, should be improved
+    // });
 
-    storage_barrier();
+    // storage_barrier(); // todo, how to make this invisible for native rtx?
 
-    if_by(sample_is_done, || {
-      let occlusion =
-        self.occlusion_count.abstract_load().into_f32() / val(self.max_sample_count as f32);
-      ctx
-        .invocation_registry
-        .get::<TracingCtx>()
-        .unwrap()
-        .payload()
-        .unwrap()
-        .store(occlusion);
-    });
+    // // todo, check poll result of current on the fly trace
+    // let should_pool = self
+    //   .trace_on_the_fly
+    //   .task_not_allocated()
+    //   .not()
+    //   .and(self.trace_on_the_fly.task_has_already_resolved().not());
+    // if_by(should_pool, || {
+    //   let r = self.trace_on_the_fly.device_poll(ctx);
+    //   if_by(r.is_ready, || {
+    //     self
+    //       .occlusion_count
+    //       .abstract_store(self.occlusion_count.abstract_load() + r.payload);
+    //   });
+    // });
 
-    (sample_is_done, ()).into()
+    // storage_barrier();
+
+    // if_by(sample_is_done, || {
+    //   let occlusion =
+    //     self.occlusion_count.abstract_load().into_f32() / val(self.max_sample_count as f32);
+    //   ctx
+    //     .invocation_registry
+    //     .get::<TracingCtx>()
+    //     .unwrap()
+    //     .payload()
+    //     .unwrap()
+    //     .store(occlusion);
+    // });
+
+    // (sample_is_done, ()).into()
   }
 }
