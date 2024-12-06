@@ -69,6 +69,7 @@ impl Viewer3dRenderingCtx {
     if let Some(rtx) = &mut self.rtx_ao_renderer_impl {
       rtx.deregister_resource(&mut self.rendering_resource);
     }
+    self.rtx_ao_renderer_impl = None;
   }
 
   pub fn egui(&mut self, ui: &mut egui::Ui) {
