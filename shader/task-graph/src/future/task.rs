@@ -65,11 +65,11 @@ where
 
     let task_handle = self.task_handle.abstract_load();
 
+    let r = val(false).make_local_var();
+
     // this check maybe not needed
     let task_has_already_resolved = task_handle.equals(RESOLVED_TASK_HANDLE);
     let task_not_allocated = task_handle.equals(UN_INIT_TASK_HANDLE);
-
-    let result = task_has_already_resolved.make_local_var();
 
     // once task resolved, it can not be polled again because the states is deallocated.
     // also, should skip simply because task not allocated at all.
@@ -82,10 +82,12 @@ where
         output.abstract_store(r);
         self.task_handle.abstract_store(val(RESOLVED_TASK_HANDLE));
       });
-      result.store(resolved);
+      if_by(resolved, || {
+        r.store(val(true));
+      });
     });
 
-    (result.load(), output.abstract_load()).into()
+    (r, output.abstract_load()).into()
   }
 }
 

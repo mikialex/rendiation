@@ -127,6 +127,9 @@ pub struct DeviceTaskSystemPollCtx<'a> {
 }
 
 impl<'a> DeviceTaskSystemPollCtx<'a> {
+  pub fn is_fallback_task(&self) -> Node<bool> {
+    self.self_task_idx.equals(val(0))
+  }
   pub fn generate_self_as_parent(&self) -> TaskParentRef {
     TaskParentRef {
       parent_task_index: self.self_task_idx,

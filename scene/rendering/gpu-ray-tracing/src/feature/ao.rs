@@ -404,7 +404,11 @@ impl ShaderFutureInvocation for RayTracingAOComputeInvocation {
   type Output = ();
 
   fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<Self::Output> {
-    let _ = self.upstream.device_poll(ctx); // upstream has no real runtime logic, let's skip the check
+    let source = self.upstream.device_poll(ctx);
+
+    if_by(ctx.is_fallback_task().not(), || {
+      source.resolved.store(true);
+    });
 
     ctx
       .invocation_registry
@@ -414,7 +418,7 @@ impl ShaderFutureInvocation for RayTracingAOComputeInvocation {
       .unwrap()
       .store(val(0.0_f32));
 
-    (val(true), ()).into()
+    (val(true).make_local_var(), ()).into()
 
     // let current_idx = self.next_sample_idx.abstract_load();
     // let sample_is_done = current_idx.greater_equal_than(self.max_sample_count);

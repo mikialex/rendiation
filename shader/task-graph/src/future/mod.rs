@@ -9,18 +9,28 @@ pub use task::*;
 
 #[derive(Clone, Copy)]
 pub struct ShaderPoll<T> {
-  pub is_ready: Node<bool>,
+  pub resolved: LocalVarNode<bool>,
   pub payload: T,
 }
 
-impl<T> From<(Node<bool>, T)> for ShaderPoll<T> {
-  fn from((is_ready, payload): (Node<bool>, T)) -> Self {
-    Self { is_ready, payload }
+impl<T> ShaderPoll<T> {
+  pub fn mark_resolved(self) {
+    self.resolved.store(val(true));
+  }
+  pub fn is_resolved(&self) -> Node<bool> {
+    self.resolved.load()
+  }
+}
+
+impl<T> From<(LocalVarNode<bool>, T)> for ShaderPoll<T> {
+  fn from((resolved, payload): (LocalVarNode<bool>, T)) -> Self {
+    Self { resolved, payload }
   }
 }
 
 pub trait ShaderFutureInvocation {
   type Output: 'static;
+  /// the poll logic can safely assumed in side the uniform control flow. so calling barrier is allowed.
   fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<Self::Output>;
 }
 
@@ -31,11 +41,22 @@ impl<T: 'static> ShaderFutureInvocation for Box<dyn ShaderFutureInvocation<Outpu
   }
 }
 
-pub struct DeviceReady<T>(pub T);
-impl<T: Copy + 'static> ShaderFutureInvocation for DeviceReady<T> {
+pub struct BaseFutureInvocation<T>(pub T, pub BoxedShaderLoadStore<Node<Bool>>);
+impl<T: Copy + 'static> ShaderFutureInvocation for BaseFutureInvocation<T> {
   type Output = T;
-  fn device_poll(&self, _: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<T> {
-    (val(true), self.0).into()
+  fn device_poll(&self, cx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<T> {
+    let flag = val(true).make_local_var();
+
+    if_by(self.1.abstract_load().into_bool(), || {
+      flag.abstract_store(val(false));
+    });
+    self.1.abstract_store(val(true.into()));
+
+    if_by(cx.is_fallback_task(), || {
+      flag.abstract_store(val(false));
+    });
+
+    (flag, self.0).into()
   }
 }
 
@@ -137,14 +158,14 @@ where
   Output: Default + Copy + 'static,
 {
   type Output = Output;
-  type Invocation = DeviceReady<Output>;
+  type Invocation = BaseFutureInvocation<Output>;
 
   fn required_poll_count(&self) -> usize {
     1
   }
 
-  fn build_poll(&self, _: &mut DeviceTaskSystemBuildCtx) -> Self::Invocation {
-    DeviceReady(Output::default())
+  fn build_poll(&self, cx: &mut DeviceTaskSystemBuildCtx) -> Self::Invocation {
+    BaseFutureInvocation(Output::default(), cx.make_state::<Node<Bool>>())
   }
 
   fn bind_input(&self, _: &mut DeviceTaskSystemBindCtx) {}
@@ -177,7 +198,7 @@ impl<T: ShaderFutureInvocation> ShaderFutureInvocation for OpaqueTaskInvocationW
 
   fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<Self::Output> {
     let p = self.0.device_poll(ctx);
-    (p.is_ready, Box::new(p.payload) as Box<dyn Any>).into()
+    (p.resolved, Box::new(p.payload) as Box<dyn Any>).into()
   }
 }
 

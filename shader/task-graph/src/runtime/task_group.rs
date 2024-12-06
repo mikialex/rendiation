@@ -104,22 +104,28 @@ impl TaskGroupExecutor {
     let pool = self_spawner.task_pool.clone();
 
     let active_idx = cx.global_invocation_id().x();
-    if_by(active_idx.less_than(active_task_count.load()), || {
-      let task_index = indices.index(active_idx).load();
 
-      let item = pool.rw_states(task_index);
-      pre_build.state_to_resolve.resolve(item.cast_untyped_node());
+    // even if the task is out of active bound, we still required to poll something to maintain the uniform control flow.
+    // the task to poll for this case always resides at index 0 and always stay in pending state.
+    let task_index = active_idx
+      .less_than(active_task_count.load())
+      .select_branched(|| indices.index(active_idx).load(), || val(0));
 
-      let mut poll_ctx = DeviceTaskSystemPollCtx {
-        self_task_idx: task_index,
-        self_task: pool.clone(),
-        compute_cx: &mut cx,
-        invocation_registry: Default::default(),
-        self_task_type_id: pre_build.self_task_idx as u32,
-      };
+    let item = pool.rw_states(task_index);
+    pre_build.state_to_resolve.resolve(item.cast_untyped_node());
 
-      let poll_result = pre_build.invocation.device_poll(&mut poll_ctx);
-      if_by(poll_result.is_ready, || {
+    let mut poll_ctx = DeviceTaskSystemPollCtx {
+      self_task_idx: task_index,
+      self_task: pool.clone(),
+      compute_cx: &mut cx,
+      invocation_registry: Default::default(),
+      self_task_type_id: pre_build.self_task_idx as u32,
+    };
+
+    let poll_result = pre_build.invocation.device_poll(&mut poll_ctx);
+
+    if_by(poll_ctx.is_fallback_task().not(), || {
+      if_by(poll_result.is_resolved(), || {
         pool
           .rw_is_finished(task_index)
           .store(TASK_STATUE_FLAG_FINISHED);
@@ -284,10 +290,12 @@ impl TaskGroupExecutorResource {
       active_task_idx: DeviceBumpAllocationInstance::new(size * 2, device),
       new_removed_task_idx: DeviceBumpAllocationInstance::new(size, device),
       empty_index_pool: DeviceBumpAllocationInstance::new(size * 2, device),
-      task_pool: TaskPool::create_with_size(size * 2, state_desc, payload_ty, device),
+      // add one is for the first default task
+      task_pool: TaskPool::create_with_size(size * 2 + 1, state_desc, payload_ty.clone(), device),
       size,
     };
 
+    // fill the empty pool, allocate the first default task
     cx.record_pass(|pass, device| {
       let hasher = shader_hasher_from_marker_ty!(PrepareEmptyIndices);
 
@@ -297,22 +305,37 @@ impl TaskGroupExecutorResource {
 
         let empty_pool = builder.bind_by(&res.empty_index_pool.storage);
         let empty_pool_size = builder.bind_by(&res.empty_index_pool.current_size);
+        let task_pool = res.task_pool.build_shader(&mut builder);
         let id = builder.global_invocation_id().x();
 
         if_by(id.equals(0), || {
-          empty_pool_size.store(empty_pool.array_length());
+          empty_pool_size.store(empty_pool.array_length() - val(1));
+          task_pool.spawn_new_task_dyn(
+            val(0),
+            ShaderNodeExpr::Zeroed {
+              target: payload_ty.clone(),
+            }
+            .insert_api(),
+            TaskParentRef::none_parent(),
+            &payload_ty,
+          );
+        })
+        .else_by(|| {
+          if_by(id.less_than(empty_pool.array_length()), || {
+            empty_pool.index(id - val(1)).store(id);
+          });
         });
 
-        if_by(id.less_than(empty_pool.array_length()), || {
-          empty_pool.index(id).store(id);
-        });
         builder
       });
 
-      BindingBuilder::default()
+      let mut builder = BindingBuilder::default()
         .with_bind(&res.empty_index_pool.storage)
-        .with_bind(&res.empty_index_pool.current_size)
-        .setup_compute_pass(pass, device, &pipeline);
+        .with_bind(&res.empty_index_pool.current_size);
+
+      res.task_pool.bind(&mut builder);
+
+      builder.setup_compute_pass(pass, device, &pipeline);
 
       pass.dispatch_workgroups(
         compute_dispatch_size((size * 2) as u32, workgroup_size),
