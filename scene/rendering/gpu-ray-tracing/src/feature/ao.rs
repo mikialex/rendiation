@@ -1,4 +1,4 @@
-use rendiation_shader_library::sampling::{random2_fn, sample_hemisphere_cos_fn, tbn_fn};
+use rendiation_shader_library::sampling::{hammersley_2d_fn, sample_hemisphere_cos_fn, tbn_fn};
 use rendiation_texture_core::Size;
 
 use crate::*;
@@ -59,6 +59,7 @@ impl AORenderState {
 struct AOShaderHandles {
   ray_gen: ShaderHandle,
   closest_hit: ShaderHandle,
+  second_closest: ShaderHandle,
   any_hit: ShaderHandle,
   miss: ShaderHandle,
 }
@@ -76,6 +77,7 @@ impl RayTracingAORenderSystem {
       shader_handles: AOShaderHandles {
         ray_gen: ShaderHandle(0, RayTracingShaderStage::RayGeneration),
         closest_hit: ShaderHandle(0, RayTracingShaderStage::ClosestHit),
+        second_closest: ShaderHandle(1, RayTracingShaderStage::ClosestHit),
         any_hit: ShaderHandle(0, RayTracingShaderStage::AnyHit),
         miss: ShaderHandle(0, RayTracingShaderStage::Miss),
       },
@@ -96,7 +98,8 @@ impl RenderImplProvider<SceneRayTracingAORenderer> for RayTracingAORenderSystem 
         .create_sbt(1, 2000, GLOBAL_TLAS_MAX_RAY_STRIDE),
     );
     let closest_hit = self.shader_handles.closest_hit;
-    let any = self.shader_handles.any_hit;
+    let second_closest = self.shader_handles.second_closest;
+    // let any = self.shader_handles.any_hit;
     let sbt = MultiUpdateContainer::new(sbt)
       .with_source(ReactiveQuerySbtUpdater {
         ray_ty_idx: AORayType::Primary as u32,
@@ -113,8 +116,9 @@ impl RenderImplProvider<SceneRayTracingAORenderer> for RayTracingAORenderSystem 
         source: global_watch()
           .watch_entity_set_untyped_key::<SceneModelEntity>()
           .collective_map(move |_| HitGroupShaderRecord {
-            closest_hit: None,
-            any_hit: Some(any),
+            closest_hit: Some(second_closest),
+            // any_hit: Some(any), // todo fix
+            any_hit: None,
             intersection: None,
           }),
       });
@@ -258,6 +262,7 @@ impl SceneRayTracingAORenderer {
       .inject_ctx(RayTracingAORayClosestCtx {
         scene: scene_tlas.clone(),
         bindless_mesh,
+        ao_sample_count: ao_state.sample_count.clone(),
       })
       .then_trace(|_, ctx| {
         let ao_cx = ctx.expect_custom_cx::<RayTracingAORayClosestCtxInvocation>();
@@ -291,7 +296,7 @@ impl SceneRayTracingAORenderer {
         let origin = closest_hit_ctx.world_ray().origin
           + closest_hit_ctx.world_ray().direction * closest_hit_ctx.hit_distance();
 
-        let random = random2_fn(closest_hit_ctx.world_ray().origin.xy());
+        let random = hammersley_2d_fn(ao_cx.ao_sample_count.load().x(), val(256));
         let direction = hit_normal_tbn * sample_hemisphere_cos_fn(random);
 
         let ray = ShaderRay { origin, direction };
@@ -306,13 +311,18 @@ impl SceneRayTracingAORenderer {
           range: ShaderRayRange::default(), // todo, should control max ray length
         };
 
-        (val(true), trace_call, val(0.)) // zero means occluded, use miss shader to write one
+        (val(true), trace_call, val(1.))
       })
       .map(|(_, payload), ctx| ctx.expect_payload().store(payload));
+
+    let second_cloest = trace_base_builder
+      .create_closest_hit_shader_base::<RayGenTracePayload>()
+      .map(|_, ctx| ctx.expect_payload().store(val(0.0_f32)));
 
     let handles = AOShaderHandles {
       ray_gen: desc.register_ray_gen::<u32>(ray_gen_shader),
       closest_hit: desc.register_ray_closest_hit::<RayGenTracePayload>(ao_closest),
+      second_closest: desc.register_ray_closest_hit::<RayGenTracePayload>(second_cloest),
       any_hit: desc.register_ray_any_hit(|_any_ctx| {
         val(ANYHIT_BEHAVIOR_ACCEPT_HIT & ANYHIT_BEHAVIOR_END_SEARCH)
       }),
@@ -325,6 +335,8 @@ impl SceneRayTracingAORenderer {
       ),
     };
     assert_eq!(handles, self.shader_handles);
+    desc.set_max_recursion_depth(4);
+    desc.set_execution_round_hint(8);
 
     let mut rtx_encoder = self.rtx_system.create_raytracing_encoder();
 
@@ -395,6 +407,7 @@ struct RayTracingAORayGenCtxInvocation {
 struct RayTracingAORayClosestCtx {
   scene: TlASInstance,
   bindless_mesh: BindlessMeshDispatcher,
+  ao_sample_count: UniformBufferDataView<Vec4<u32>>,
 }
 
 impl ShaderHashProvider for RayTracingAORayClosestCtx {
@@ -408,12 +421,14 @@ impl RayTracingCustomCtxProvider for RayTracingAORayClosestCtx {
     RayTracingAORayClosestCtxInvocation {
       tlas: self.scene.build(cx),
       bindless_mesh: self.bindless_mesh.build_bindless_mesh_rtx_access(cx),
+      ao_sample_count: cx.bind_by(&self.ao_sample_count),
     }
   }
 
   fn bind(&self, builder: &mut BindingBuilder) {
     self.scene.bind(builder);
     self.bindless_mesh.bind_bindless_mesh_rtx_access(builder);
+    builder.bind(&self.ao_sample_count);
   }
 }
 
@@ -421,4 +436,5 @@ impl RayTracingCustomCtxProvider for RayTracingAORayClosestCtx {
 struct RayTracingAORayClosestCtxInvocation {
   bindless_mesh: BindlessMeshRtxAccessInvocation,
   tlas: Node<u32>,
+  ao_sample_count: UniformNode<Vec4<u32>>,
 }
