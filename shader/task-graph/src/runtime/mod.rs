@@ -22,6 +22,13 @@ pub struct TaskGraphExecutionStates {
   pub empty_counts: Vec<u32>,
 }
 
+impl TaskGraphExecutionStates {
+  pub fn is_empty(&self) -> bool {
+    self.sleep_or_finished_counts.iter().all(|c| *c == 0)
+      && self.wake_counts.iter().all(|c| *c == 0)
+  }
+}
+
 #[derive(Clone, Debug)]
 pub struct TaskGraphExecutionDebugInfo {
   pub info: Vec<TaskExecutionDebugInfo>,
@@ -213,12 +220,6 @@ impl DeviceTaskGraphExecutor {
         .empty_index_pool
         .commit_size(pass, device, false);
     })
-  }
-
-  pub async fn check_is_empty<'a>(&mut self, cx: &mut DeviceParallelComputeCtx<'a>) -> bool {
-    let states = self.read_back_execution_states(cx).await;
-    states.sleep_or_finished_counts.iter().all(|c| *c == 0)
-      && states.wake_counts.iter().all(|c| *c == 0)
   }
 
   pub async fn read_back_execution_states<'a>(
