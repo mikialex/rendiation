@@ -11,6 +11,14 @@ pub fn random(seed: Node<Vec2<f32>>) -> Node<f32> {
   (seed.dot((s1, s2)).sin() * s3).fract()
 }
 
+/// generate an unbound 2D white noise by a 2D seed(such as uv)
+#[shader_fn]
+pub fn random2(seed: Node<Vec2<f32>>) -> Node<Vec2<f32>> {
+  let x = random(seed);
+  let y = random((seed + random(seed).splat()).sin());
+  (x, y).into()
+}
+
 /// generate an unbound 3D white noise by a 2D seed(such as uv)
 #[shader_fn]
 pub fn random3(seed: Node<Vec2<f32>>) -> Node<Vec3<f32>> {

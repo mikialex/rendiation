@@ -5,6 +5,7 @@ pub struct BindlessMeshRtxAccessInvocation {
   normal: StorageNode<[u32]>,
   indices: StorageNode<[u32]>,
   address: StorageNode<[AttributeMeshMeta]>,
+  pub sm_to_mesh: StorageNode<[u32]>,
 }
 
 impl BindlessMeshRtxAccessInvocation {
@@ -50,6 +51,7 @@ impl BindlessMeshDispatcherRtxEXT for BindlessMeshDispatcher {
       normal: cx.bind_by(&self.normal),
       indices: cx.bind_by(&self.index_pool),
       address: cx.bind_by(&self.vertex_address_buffer),
+      sm_to_mesh: cx.bind_by(&self.sm_to_mesh),
     }
   }
 
@@ -57,5 +59,6 @@ impl BindlessMeshDispatcherRtxEXT for BindlessMeshDispatcher {
     cx.bind(&self.normal);
     cx.bind(&self.index_pool);
     cx.bind(&self.vertex_address_buffer);
+    cx.bind(&self.sm_to_mesh);
   }
 }

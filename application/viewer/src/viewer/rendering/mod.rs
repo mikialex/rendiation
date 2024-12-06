@@ -81,8 +81,12 @@ impl Viewer3dRenderingCtx {
       self.enable_rtx_ao_rendering_support();
     }
 
-    if self.rtx_ao_renderer_impl.is_some() {
+    if let Some(ao) = &self.rtx_ao_renderer_impl {
       ui.checkbox(&mut self.enable_rtx_ao_rendering, "enable_rtx_ao_rendering");
+      // todo, currently the on demand rendering is broken, use this button to workaround.
+      if ui.button("reset ao sample").clicked() {
+        ao.reset_ao_sample(&self.gpu);
+      }
     }
     self.lighting.egui(ui);
     self.frame_logic.egui(ui);

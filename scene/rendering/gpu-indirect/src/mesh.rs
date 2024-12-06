@@ -254,6 +254,7 @@ impl MeshGPUBindlessImpl {
       StorageBufferDataView::try_from_raw(self.indices.read().raw_gpu().clone()).unwrap();
 
     BindlessMeshDispatcher {
+      sm_to_mesh: self.sm_to_mesh_device.clone(),
       vertex_address_buffer: self.vertex_address_buffer.clone(),
       position,
       normal,
@@ -295,6 +296,7 @@ impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
 #[derive(Clone)]
 pub struct BindlessMeshDispatcher {
   // todo, use readonly
+  pub sm_to_mesh: StorageBufferDataView<[u32]>,
   pub vertex_address_buffer: StorageBufferDataView<[AttributeMeshMeta]>,
   pub index_pool: StorageBufferDataView<[u32]>,
   pub position: StorageBufferDataView<[u32]>,

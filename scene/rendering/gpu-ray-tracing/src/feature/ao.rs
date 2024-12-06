@@ -1,6 +1,5 @@
-use rendiation_shader_library::sampling::{hammersley_2d_fn, sample_hemisphere_cos_fn, tbn_fn};
+use rendiation_shader_library::sampling::{random2_fn, sample_hemisphere_cos_fn, tbn_fn};
 use rendiation_texture_core::Size;
-use rendiation_webgpu_reactive_utils::{CommonStorageBufferImpl, ReactiveStorageBufferContainer};
 
 use crate::*;
 
@@ -10,10 +9,50 @@ pub struct RayTracingAORenderSystem {
   executor: GPURaytracingPipelineExecutor,
   scene_tlas: UpdateResultToken, // todo, share, unify the share mechanism with the texture
   mesh: MeshBindlessGPUSystemSource, // todo, share
-  sm_to_mesh: UpdateResultToken, // todo share?
   system: RtxSystemCore,
-  ao_buffer: Arc<RwLock<Option<GPU2DTextureView>>>,
+  ao_state: Arc<RwLock<Option<AORenderState>>>,
   shader_handles: AOShaderHandles,
+}
+
+impl RayTracingAORenderSystem {
+  pub fn reset_ao_sample(&self, gpu: &GPU) {
+    if let Some(state) = self.ao_state.write().as_mut() {
+      state.reset(gpu);
+    }
+  }
+}
+
+#[derive(Clone)]
+struct AORenderState {
+  ao_buffer: GPU2DTextureView,
+  sample_count_host: u32,
+  sample_count: UniformBufferDataView<Vec4<u32>>,
+}
+
+impl AORenderState {
+  fn new(size: Size, gpu: &GPU) -> Self {
+    Self {
+      ao_buffer: create_empty_2d_texture_view(
+        gpu,
+        size,
+        TextureUsages::all(),
+        TextureFormat::Rgba8Unorm,
+      ),
+      sample_count_host: 0,
+      sample_count: create_uniform(Vec4::zeroed(), gpu),
+    }
+  }
+  fn next_sample(&mut self, gpu: &GPU) {
+    self.sample_count_host += 1;
+    self
+      .sample_count
+      .write_at(&gpu.queue, &self.sample_count_host, 0);
+  }
+  fn reset(&mut self, gpu: &GPU) {
+    self.sample_count_host = 0;
+    // buffer should be reset automatically in rtx pipeline
+    self.sample_count.write_at(&gpu.queue, &0_u32, 0);
+  }
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -30,10 +69,9 @@ impl RayTracingAORenderSystem {
       camera: Default::default(),
       scene_tlas: Default::default(),
       sbt: Default::default(),
-      sm_to_mesh: Default::default(),
       executor: rtx.rtx_device.create_raytracing_pipeline_executor(),
       system: rtx.clone(),
-      ao_buffer: Default::default(),
+      ao_state: Default::default(),
       mesh: MeshBindlessGPUSystemSource::new(gpu),
       shader_handles: AOShaderHandles {
         ray_gen: ShaderHandle(0, RayTracingShaderStage::RayGeneration),
@@ -81,18 +119,6 @@ impl RenderImplProvider<SceneRayTracingAORenderer> for RayTracingAORenderSystem 
           }),
       });
 
-    let sm_to_mesh = ReactiveStorageBufferContainer::<u32>::new(cx).with_source(
-      global_watch()
-        .watch_typed_foreign_key::<StandardModelRefAttributesMeshEntity>()
-        .collective_filter_map(|v| v)
-        .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelStdModelRenderPayload>())
-        .collective_map(|v| v.alloc_index())
-        .into_boxed(),
-      0,
-    );
-
-    self.sm_to_mesh = source.register_multi_updater(sm_to_mesh.inner);
-
     self.sbt = source.register_multi_updater(sbt);
     self.camera.register_resource(source, cx);
     self.mesh.register_resource(source, cx);
@@ -101,7 +127,6 @@ impl RenderImplProvider<SceneRayTracingAORenderer> for RayTracingAORenderSystem 
   fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
     source.deregister(&mut self.scene_tlas);
     source.deregister(&mut self.sbt);
-    source.deregister(&mut self.sm_to_mesh);
     self.camera.deregister_resource(source);
     self.mesh.deregister_resource(source);
   }
@@ -114,13 +139,8 @@ impl RenderImplProvider<SceneRayTracingAORenderer> for RayTracingAORenderSystem 
       scene_tlas: res.take_reactive_query_updated(self.scene_tlas).unwrap(),
       camera: self.camera.create_impl(res),
       rtx_system: self.system.rtx_system.clone(),
-      ao_buffer: self.ao_buffer.clone(),
+      ao_state: self.ao_state.clone(),
       mesh: self.mesh.create_impl_internal_impl(res),
-      sm_to_mesh: res
-        .take_multi_updater_updated::<CommonStorageBufferImpl<u32>>(self.sm_to_mesh)
-        .unwrap()
-        .gpu()
-        .clone(),
       shader_handles: self.shader_handles.clone(),
     }
   }
@@ -132,9 +152,8 @@ pub struct SceneRayTracingAORenderer {
   sbt: GPUSbt,
   rtx_system: Box<dyn GPURaytracingSystem>,
   scene_tlas: BoxedDynQuery<EntityHandle<SceneEntity>, TlASInstance>,
-  ao_buffer: Arc<RwLock<Option<GPU2DTextureView>>>,
+  ao_state: Arc<RwLock<Option<AORenderState>>>,
   mesh: MeshGPUBindlessImpl,
-  sm_to_mesh: StorageBufferReadOnlyDataView<[u32]>,
   shader_handles: AOShaderHandles,
 }
 
@@ -165,25 +184,19 @@ impl SceneRayTracingAORenderer {
     // let render_size = frame.frame_size();
     let render_size = Size::from_u32_pair_min_one((64, 64));
 
-    let mut ao_buffer = self.ao_buffer.write();
-    let ao_buffer = ao_buffer.deref_mut();
-    if let Some(ao) = &ao_buffer {
-      if ao.size() != render_size {
-        *ao_buffer = None;
+    let mut ao_state = self.ao_state.write();
+    let ao_state = ao_state.deref_mut();
+    if let Some(ao) = &ao_state {
+      if ao.ao_buffer.size() != render_size {
+        *ao_state = None;
       }
     }
 
-    let ao_buffer = ao_buffer
-      .get_or_insert_with(|| {
-        create_empty_2d_texture_view(
-          frame.gpu,
-          render_size,
-          TextureUsages::all(),
-          TextureFormat::Rgba8Unorm,
-        )
-      })
+    let mut ao_state = ao_state
+      .get_or_insert_with(|| AORenderState::new(render_size, frame.gpu))
       .clone();
-    let ao_buffer_rw = ao_buffer
+    let ao_buffer_rw = ao_state
+      .ao_buffer
       .clone()
       .into_storage_texture_view_readwrite()
       .unwrap();
@@ -199,17 +212,18 @@ impl SceneRayTracingAORenderer {
       .inject_ctx(RayTracingAORayGenCtx {
         camera,
         ao_buffer: ao_buffer_rw,
+        ao_sample_count: ao_state.sample_count.clone(),
         scene: scene_tlas.clone(),
       })
       .then_trace(|_, ctx| {
         let rg_cx = ctx.expect_ray_gen_ctx();
-        let cx = ctx.expect_custom_cx::<RayTracingAORayGenCtxInvocation>();
+        let ao_cx = ctx.expect_custom_cx::<RayTracingAORayGenCtxInvocation>();
         let normalized_position =
           rg_cx.launch_id().into_f32().xy() / rg_cx.launch_size().into_f32().xy();
-        let ray = cx.camera.generate_ray(normalized_position);
+        let ray = ao_cx.camera.generate_ray(normalized_position);
 
         let trace_call = ShaderRayTraceCall {
-          tlas_idx: cx.tlas_idx,
+          tlas_idx: ao_cx.tlas_idx,
           ray_flags: val(RayFlagConfigRaw::RAY_FLAG_CULL_BACK_FACING_TRIANGLES as u32),
           cull_mask: val(u32::MAX),
           sbt_ray_config: AORayType::Primary.to_sbt_cfg(),
@@ -218,31 +232,87 @@ impl SceneRayTracingAORenderer {
           range: ShaderRayRange::default(),
         };
 
-        (val(true), trace_call, val(0.))
+        (val(true), trace_call, val(0.)) // zero means occluded, use miss shader to write one
       })
       .map(|(_, payload), ctx| {
-        let cx = ctx.expect_custom_cx::<RayTracingAORayGenCtxInvocation>();
+        let ao_cx = ctx.expect_custom_cx::<RayTracingAORayGenCtxInvocation>();
         let position = ctx.expect_ray_gen_ctx().launch_id().xy();
 
-        cx.ao_buffer
-          .write_texel(position, (payload, payload, payload, val(1.0)).into());
+        let previous_sample_count = ao_cx.ao_sample_count.load().x().into_f32();
+        let all_sample_count = previous_sample_count + val(1.0);
+
+        let previous_sample_acc = ao_cx.ao_buffer.load_texel(position, val(0)).x();
+        let new_sample_acc =
+          (previous_sample_acc * previous_sample_count + payload) / all_sample_count;
+        let new_sample_acc = new_sample_acc.splat::<Vec3<_>>();
+
+        ao_cx
+          .ao_buffer
+          .write_texel(position, (new_sample_acc, val(1.0)).into());
       });
 
     type RayGenTracePayload = f32; // occlusion
     let bindless_mesh = self.mesh.make_bindless_dispatcher();
-    let ao_closest = RayTracingAOComputeTraceOperator {
-      base: trace_base_builder.create_closest_hit_shader_base::<RayGenTracePayload>(),
-      scene: scene_tlas,
-      max_sample_count: 8,
-      bindless_mesh,
-      sm_to_mesh: self.sm_to_mesh.clone(),
-    };
+    let ao_closest = trace_base_builder
+      .create_closest_hit_shader_base::<RayGenTracePayload>()
+      .inject_ctx(RayTracingAORayClosestCtx {
+        scene: scene_tlas.clone(),
+        bindless_mesh,
+      })
+      .then_trace(|_, ctx| {
+        let ao_cx = ctx.expect_custom_cx::<RayTracingAORayClosestCtxInvocation>();
+        let closest_hit_ctx = ctx.expect_closest_hit_ctx();
+
+        let scene_model_id = closest_hit_ctx.instance_custom_id();
+        let mesh_id = ao_cx.bindless_mesh.sm_to_mesh.index(scene_model_id).load();
+        let tri_id = closest_hit_ctx.primitive_id();
+        let tri_idx_s = ao_cx.bindless_mesh.get_triangle_idx(tri_id, mesh_id);
+
+        let tri_a_normal = ao_cx.bindless_mesh.get_normal(tri_idx_s.x(), mesh_id);
+        let tri_b_normal = ao_cx.bindless_mesh.get_normal(tri_idx_s.y(), mesh_id);
+        let tri_c_normal = ao_cx.bindless_mesh.get_normal(tri_idx_s.z(), mesh_id);
+
+        let attribs: Node<Vec2<f32>> = closest_hit_ctx.hit_attribute().expand().bary_coord;
+        let barycentric: Node<Vec3<f32>> = (
+          val(1.0) - attribs.x() - attribs.y(),
+          attribs.x(),
+          attribs.y(),
+        )
+          .into();
+
+        // Computing the normal at hit position
+        let normal = tri_a_normal * barycentric.x()
+          + tri_b_normal * barycentric.y()
+          + tri_c_normal * barycentric.z();
+        // Transforming the normal to world space
+        let normal = (closest_hit_ctx.object_to_world().shrink_to_3() * normal).normalize();
+        let hit_normal_tbn = tbn_fn(normal);
+
+        let origin = closest_hit_ctx.world_ray().origin
+          + closest_hit_ctx.world_ray().direction * closest_hit_ctx.hit_distance();
+
+        let random = random2_fn(closest_hit_ctx.world_ray().origin.xy());
+        let direction = hit_normal_tbn * sample_hemisphere_cos_fn(random);
+
+        let ray = ShaderRay { origin, direction };
+
+        let trace_call = ShaderRayTraceCall {
+          tlas_idx: ao_cx.tlas,
+          ray_flags: val(RayFlagConfigRaw::RAY_FLAG_CULL_BACK_FACING_TRIANGLES as u32),
+          cull_mask: val(u32::MAX),
+          sbt_ray_config: AORayType::AOTest.to_sbt_cfg(),
+          miss_index: val(0), // using the sample miss shader as primary ray
+          ray,
+          range: ShaderRayRange::default(), // todo, should control max ray length
+        };
+
+        (val(true), trace_call, val(0.)) // zero means occluded, use miss shader to write one
+      })
+      .map(|(_, payload), ctx| ctx.expect_payload().store(payload));
 
     let handles = AOShaderHandles {
-      ray_gen: desc.register_ray_gen::<u32>(ShaderFutureProviderIntoTraceOperator(ray_gen_shader)),
-      closest_hit: desc.register_ray_closest_hit::<RayGenTracePayload>(
-        ShaderFutureProviderIntoTraceOperator(ao_closest),
-      ),
+      ray_gen: desc.register_ray_gen::<u32>(ray_gen_shader),
+      closest_hit: desc.register_ray_closest_hit::<RayGenTracePayload>(ao_closest),
       any_hit: desc.register_ray_any_hit(|_any_ctx| {
         val(ANYHIT_BEHAVIOR_ACCEPT_HIT & ANYHIT_BEHAVIOR_END_SEARCH)
       }),
@@ -270,9 +340,11 @@ impl SceneRayTracingAORenderer {
       (*sbt).as_ref(),
     );
 
+    // keep this next line for debug:
     // self.executor.assert_is_empty(frame.gpu);
 
-    ao_buffer
+    ao_state.next_sample(frame.gpu);
+    ao_state.ao_buffer.clone()
   }
 }
 
@@ -280,6 +352,7 @@ impl SceneRayTracingAORenderer {
 struct RayTracingAORayGenCtx {
   camera: Box<dyn RtxCameraRenderComponent>,
   ao_buffer: StorageTextureReadWrite<GPU2DTextureView>,
+  ao_sample_count: UniformBufferDataView<Vec4<u32>>,
   scene: TlASInstance,
 }
 
@@ -298,6 +371,7 @@ impl RayTracingCustomCtxProvider for RayTracingAORayGenCtx {
       camera: self.camera.build_invocation(cx),
       ao_buffer: cx.bind_by(&self.ao_buffer),
       tlas_idx: self.scene.build(cx),
+      ao_sample_count: cx.bind_by(&self.ao_sample_count),
     }
   }
 
@@ -305,6 +379,7 @@ impl RayTracingCustomCtxProvider for RayTracingAORayGenCtx {
     self.camera.bind(builder);
     builder.bind(&self.ao_buffer);
     self.scene.bind(builder);
+    builder.bind(&self.ao_sample_count);
   }
 }
 
@@ -313,216 +388,37 @@ struct RayTracingAORayGenCtxInvocation {
   camera: Box<dyn RtxCameraRenderInvocation>,
   ao_buffer: HandleNode<ShaderStorageTextureRW2D>,
   tlas_idx: Node<u32>,
+  ao_sample_count: UniformNode<Vec4<u32>>,
 }
 
 #[derive(Clone)]
-struct RayTracingAOComputeTraceOperator {
-  base: Box<dyn TraceOperator<()>>,
-  max_sample_count: u32,
+struct RayTracingAORayClosestCtx {
   scene: TlASInstance,
   bindless_mesh: BindlessMeshDispatcher,
-  sm_to_mesh: StorageBufferReadOnlyDataView<[u32]>,
 }
 
-impl ShaderHashProvider for RayTracingAOComputeTraceOperator {
+impl ShaderHashProvider for RayTracingAORayClosestCtx {
   shader_hash_type_id! {}
 }
 
-impl ShaderFutureProvider for RayTracingAOComputeTraceOperator {
-  type Output = ();
-  fn build_device_future(&self, ctx: &mut AnyMap) -> DynShaderFuture<Self::Output> {
-    RayTracingAOComputeFuture {
-      upstream: self.base.build_device_future(ctx),
-      max_sample_count: self.max_sample_count,
-      tracing: TracingFuture::default(),
-      bindless_mesh: self.bindless_mesh.clone(),
-      tlas: self.scene.clone(),
-      sm_to_mesh: self.sm_to_mesh.clone(),
-    }
-    .into_dyn()
-  }
-}
+impl RayTracingCustomCtxProvider for RayTracingAORayClosestCtx {
+  type Invocation = RayTracingAORayClosestCtxInvocation;
 
-struct RayTracingAOComputeFuture {
-  upstream: DynShaderFuture<()>,
-  max_sample_count: u32,
-  tracing: TracingFuture<u32>,
-  bindless_mesh: BindlessMeshDispatcher,
-  sm_to_mesh: StorageBufferReadOnlyDataView<[u32]>,
-  tlas: TlASInstance,
-}
-
-impl ShaderFuture for RayTracingAOComputeFuture {
-  type Output = ();
-
-  type Invocation = RayTracingAOComputeInvocation;
-
-  fn required_poll_count(&self) -> usize {
-    self.upstream.required_poll_count() + 1
-  }
-
-  fn build_poll(&self, ctx: &mut DeviceTaskSystemBuildCtx) -> Self::Invocation {
-    RayTracingAOComputeInvocation {
-      upstream: self.upstream.build_poll(ctx),
-      max_sample_count: self.max_sample_count,
-      hit_position: ctx.make_state::<Node<Vec3<f32>>>(),
-      hit_normal_tbn: ctx.make_state::<Node<Mat3<f32>>>(),
-      next_sample_idx: ctx.make_state::<Node<u32>>(),
-      occlusion_count: ctx.make_state::<Node<u32>>(),
-      trace_on_the_fly: self.tracing.build_poll(ctx),
-      bindless_mesh: self
-        .bindless_mesh
-        .build_bindless_mesh_rtx_access(ctx.compute_cx.bindgroups()),
-      sm_to_mesh: ctx.compute_cx.bind_by(&self.sm_to_mesh),
-      tlas: self.tlas.build(ctx.compute_cx.bindgroups()),
+  fn build_invocation(&self, cx: &mut ShaderBindGroupBuilder) -> Self::Invocation {
+    RayTracingAORayClosestCtxInvocation {
+      tlas: self.scene.build(cx),
+      bindless_mesh: self.bindless_mesh.build_bindless_mesh_rtx_access(cx),
     }
   }
 
-  fn bind_input(&self, builder: &mut DeviceTaskSystemBindCtx) {
-    self.upstream.bind_input(builder);
-    self.tracing.bind_input(builder);
+  fn bind(&self, builder: &mut BindingBuilder) {
+    self.scene.bind(builder);
     self.bindless_mesh.bind_bindless_mesh_rtx_access(builder);
-    builder.bind(&self.sm_to_mesh);
-    self.tlas.bind(builder);
   }
 }
 
-struct RayTracingAOComputeInvocation {
-  upstream: Box<dyn ShaderFutureInvocation<Output = ()>>,
-  max_sample_count: u32,
-  hit_position: BoxedShaderLoadStore<Node<Vec3<f32>>>,
-  hit_normal_tbn: BoxedShaderLoadStore<Node<Mat3<f32>>>,
-  next_sample_idx: BoxedShaderLoadStore<Node<u32>>,
-  occlusion_count: BoxedShaderLoadStore<Node<u32>>,
-  trace_on_the_fly: TracingFutureInvocation<u32>, // 0 means not hit
+#[derive(Clone)]
+struct RayTracingAORayClosestCtxInvocation {
   bindless_mesh: BindlessMeshRtxAccessInvocation,
-  sm_to_mesh: ReadOnlyStorageNode<[u32]>,
   tlas: Node<u32>,
-}
-
-impl ShaderFutureInvocation for RayTracingAOComputeInvocation {
-  type Output = ();
-
-  fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<Self::Output> {
-    let source = self.upstream.device_poll(ctx);
-
-    if_by(ctx.is_fallback_task().not(), || {
-      source.resolved.store(true);
-    });
-
-    ctx
-      .invocation_registry
-      .get::<TracingCtx>()
-      .unwrap()
-      .payload()
-      .unwrap()
-      .store(val(0.0_f32));
-
-    (val(true).make_local_var(), ()).into()
-
-    // let current_idx = self.next_sample_idx.abstract_load();
-    // let sample_is_done = current_idx.greater_equal_than(self.max_sample_count);
-
-    // if_by(current_idx.equals(0), || {
-    //   let closest_hit_ctx = ctx
-    //     .invocation_registry
-    //     .get::<TracingCtx>()
-    //     .unwrap()
-    //     .closest_hit_ctx()
-    //     .unwrap();
-
-    //   let hit_position = closest_hit_ctx.world_ray().origin
-    //     + closest_hit_ctx.world_ray().direction * closest_hit_ctx.hit_distance();
-
-    //   let scene_model_id = closest_hit_ctx.instance_custom_id();
-    //   let mesh_id = self.sm_to_mesh.index(scene_model_id).load();
-    //   let tri_id = closest_hit_ctx.primitive_id();
-    //   let tri_idx_s = self.bindless_mesh.get_triangle_idx(tri_id, mesh_id);
-
-    //   let tri_a_normal = self.bindless_mesh.get_normal(tri_idx_s.x(), mesh_id);
-    //   let tri_b_normal = self.bindless_mesh.get_normal(tri_idx_s.y(), mesh_id);
-    //   let tri_c_normal = self.bindless_mesh.get_normal(tri_idx_s.z(), mesh_id);
-
-    //   let attribs: Node<Vec2<f32>> = closest_hit_ctx.hit_attribute().expand().bary_coord;
-    //   let barycentric: Node<Vec3<f32>> = (
-    //     val(1.0) - attribs.x() - attribs.y(),
-    //     attribs.x(),
-    //     attribs.y(),
-    //   )
-    //     .into();
-
-    //   // Computing the normal at hit position
-    //   let normal = tri_a_normal * barycentric.x()
-    //     + tri_b_normal * barycentric.y()
-    //     + tri_c_normal * barycentric.z();
-    //   // Transforming the normal to world space
-    //   let normal = (closest_hit_ctx.object_to_world().shrink_to_3() * normal).normalize();
-
-    //   self.hit_position.abstract_store(hit_position);
-    //   self.hit_normal_tbn.abstract_store(tbn_fn(normal));
-    // });
-
-    // let on_the_fly_trace_not_active = self
-    //   .trace_on_the_fly
-    //   .task_not_allocated()
-    //   .or(self.trace_on_the_fly.task_has_already_resolved());
-    // let should_spawn_new_ray = sample_is_done.not().and(on_the_fly_trace_not_active);
-
-    // if_by(should_spawn_new_ray, || {
-    //   let random = hammersley_2d_fn(current_idx, val(self.max_sample_count));
-
-    //   let ray = ShaderRay {
-    //     origin: self.hit_position.abstract_load(),
-    //     direction: self.hit_normal_tbn.abstract_load() * sample_hemisphere_cos_fn(random),
-    //   };
-
-    //   let trace_call = ShaderRayTraceCall {
-    //     tlas_idx: self.tlas,
-    //     ray_flags: val(RayFlagConfigRaw::RAY_FLAG_CULL_BACK_FACING_TRIANGLES as u32),
-    //     cull_mask: val(u32::MAX),
-    //     sbt_ray_config: AORayType::AOTest.to_sbt_cfg(),
-    //     miss_index: val(0),
-    //     ray,
-    //     range: ShaderRayRange::default(), // todo, should control max ray length
-    //   };
-
-    //   let trace_on_the_fly_right =
-    //     ctx.spawn_new_tracing_task(val(true), trace_call, val(0), &self.trace_on_the_fly);
-
-    //   self.trace_on_the_fly.abstract_store(trace_on_the_fly_right); // todo, this is weird, should be improved
-    // });
-
-    // storage_barrier(); // todo, how to make this invisible for native rtx?
-
-    // // todo, check poll result of current on the fly trace
-    // let should_pool = self
-    //   .trace_on_the_fly
-    //   .task_not_allocated()
-    //   .not()
-    //   .and(self.trace_on_the_fly.task_has_already_resolved().not());
-    // if_by(should_pool, || {
-    //   let r = self.trace_on_the_fly.device_poll(ctx);
-    //   if_by(r.is_ready, || {
-    //     self
-    //       .occlusion_count
-    //       .abstract_store(self.occlusion_count.abstract_load() + r.payload);
-    //   });
-    // });
-
-    // storage_barrier();
-
-    // if_by(sample_is_done, || {
-    //   let occlusion =
-    //     self.occlusion_count.abstract_load().into_f32() / val(self.max_sample_count as f32);
-    //   ctx
-    //     .invocation_registry
-    //     .get::<TracingCtx>()
-    //     .unwrap()
-    //     .payload()
-    //     .unwrap()
-    //     .store(occlusion);
-    // });
-
-    // (sample_is_done, ()).into()
-  }
 }
