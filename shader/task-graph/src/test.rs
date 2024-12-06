@@ -82,58 +82,61 @@ async fn test_task_graph_then_task_spawn() {
 
   let work_size = 3;
 
-  graph.dispatch_allocate_init_task(&mut cx, work_size, test_task2, |_| val(0_u32));
-  cx.submit_recorded_work_and_continue();
+  let enable_debug = false; // enable this may output too much debug info
+  let debug_detail_states = |debug_info: &TaskGraphExecutionDebugInfo| {
+    if enable_debug {
+      dbg!(cast_slice::<u8, Task1State>(
+        &debug_info.info[test_task as usize].task_states
+      ));
+      dbg!(cast_slice::<u8, Task2State>(
+        &debug_info.info[test_task2 as usize].task_states
+      ));
+    }
+  };
 
-  let debug_info = graph.debug_execution(&mut cx).await;
-  println!("{:?}", debug_info);
-  dbg!(cast_slice::<u8, Task1State>(
-    &debug_info.info[test_task as usize].task_states
-  ));
-  dbg!(cast_slice::<u8, Task2State>(
-    &debug_info.info[test_task2 as usize].task_states
-  ));
+  let mut test_round = async || {
+    println!("test round:");
+    graph.dispatch_allocate_init_task(&mut cx, work_size, test_task2, |_| val(0_u32));
+    cx.submit_recorded_work_and_continue();
 
-  let info = graph.read_back_execution_states(&mut cx).await;
-  assert_eq!(info.wake_counts[test_task as usize], 0);
-  assert_eq!(info.wake_counts[test_task2 as usize], work_size);
+    let debug_info = graph.debug_execution(&mut cx).await;
+    println!("{:?}", debug_info);
+    debug_detail_states(&debug_info);
 
-  graph.execute(&mut cx, 1);
+    let info = graph.read_back_execution_states(&mut cx).await;
+    assert_eq!(info.wake_counts[test_task as usize], 0);
+    assert_eq!(info.wake_counts[test_task2 as usize], work_size);
 
-  let debug_info = graph.debug_execution(&mut cx).await;
-  println!("{:?}", debug_info);
-  dbg!(cast_slice::<u8, Task1State>(
-    &debug_info.info[test_task as usize].task_states
-  ));
-  dbg!(cast_slice::<u8, Task2State>(
-    &debug_info.info[test_task2 as usize].task_states
-  ));
+    graph.execute(&mut cx, 1);
 
-  let info = graph.read_back_execution_states(&mut cx).await;
-  assert_eq!(info.wake_counts[test_task as usize], work_size);
-  assert_eq!(info.sleep_or_finished_counts[test_task as usize], 0);
-  assert_eq!(info.wake_counts[test_task2 as usize], 0);
-  assert_eq!(
-    info.sleep_or_finished_counts[test_task2 as usize],
-    work_size
-  );
+    let debug_info = graph.debug_execution(&mut cx).await;
+    println!("{:?}", debug_info);
+    debug_detail_states(&debug_info);
 
-  graph.execute(&mut cx, 1);
+    let info = graph.read_back_execution_states(&mut cx).await;
+    assert_eq!(info.wake_counts[test_task as usize], work_size);
+    assert_eq!(info.sleep_or_finished_counts[test_task as usize], 0);
+    assert_eq!(info.wake_counts[test_task2 as usize], 0);
+    assert_eq!(
+      info.sleep_or_finished_counts[test_task2 as usize],
+      work_size
+    );
 
-  let debug_info = graph.debug_execution(&mut cx).await;
-  println!("{:?}", debug_info);
-  dbg!(cast_slice::<u8, Task1State>(
-    &debug_info.info[test_task as usize].task_states
-  ));
-  dbg!(cast_slice::<u8, Task2State>(
-    &debug_info.info[test_task2 as usize].task_states
-  ));
+    graph.execute(&mut cx, 1);
 
-  let info = graph.read_back_execution_states(&mut cx).await;
-  assert_eq!(info.wake_counts[test_task as usize], 0);
-  assert_eq!(info.sleep_or_finished_counts[test_task as usize], 0);
-  assert_eq!(info.wake_counts[test_task2 as usize], 0);
-  assert_eq!(info.sleep_or_finished_counts[test_task2 as usize], 0);
+    let debug_info = graph.debug_execution(&mut cx).await;
+    println!("{:?}", debug_info);
+    debug_detail_states(&debug_info);
+
+    let info = graph.read_back_execution_states(&mut cx).await;
+    assert_eq!(info.wake_counts[test_task as usize], 0);
+    assert_eq!(info.sleep_or_finished_counts[test_task as usize], 0);
+    assert_eq!(info.wake_counts[test_task2 as usize], 0);
+    assert_eq!(info.sleep_or_finished_counts[test_task2 as usize], 0);
+  };
+
+  test_round().await;
+  test_round().await;
 }
 
 #[pollster::test]

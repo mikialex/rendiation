@@ -26,7 +26,7 @@ impl GPUInstance {
       if dropped_clone.load(Ordering::Relaxed) {
         break;
       }
-      std::thread::sleep(std::time::Duration::from_millis(200));
+      std::thread::sleep(std::time::Duration::from_millis(20));
       instance_clone.poll_all(false);
     });
 
