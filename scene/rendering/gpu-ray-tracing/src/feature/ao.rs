@@ -1,4 +1,8 @@
-use rendiation_shader_library::sampling::{hammersley_2d_fn, sample_hemisphere_cos_fn, tbn_fn};
+use rendiation_shader_library::sampling::sample_hemisphere_uniform_fn;
+#[allow(unused_imports)]
+use rendiation_shader_library::sampling::{
+  hammersley_2d_fn, random2_fn, sample_hemisphere_cos_fn, tbn_fn,
+};
 use rendiation_texture_core::Size;
 
 use crate::*;
@@ -25,7 +29,7 @@ impl RayTracingAORenderSystem {
 #[derive(Clone)]
 struct AORenderState {
   ao_buffer: GPU2DTextureView,
-  sample_count_host: u32,
+  sample_count_host: Arc<RwLock<u32>>,
   sample_count: UniformBufferDataView<Vec4<u32>>,
 }
 
@@ -38,18 +42,17 @@ impl AORenderState {
         TextureUsages::all(),
         TextureFormat::Rgba8Unorm,
       ),
-      sample_count_host: 0,
+      sample_count_host: Default::default(),
       sample_count: create_uniform(Vec4::zeroed(), gpu),
     }
   }
   fn next_sample(&mut self, gpu: &GPU) {
-    self.sample_count_host += 1;
-    self
-      .sample_count
-      .write_at(&gpu.queue, &self.sample_count_host, 0);
+    let current = *self.sample_count_host.read();
+    self.sample_count.write_at(&gpu.queue, &(current + 1), 0);
+    *self.sample_count_host.write() = current + 1;
   }
   fn reset(&mut self, gpu: &GPU) {
-    self.sample_count_host = 0;
+    *self.sample_count_host.write() = 0;
     // buffer should be reset automatically in rtx pipeline
     self.sample_count.write_at(&gpu.queue, &0_u32, 0);
   }
@@ -296,8 +299,11 @@ impl SceneRayTracingAORenderer {
         let origin = closest_hit_ctx.world_ray().origin
           + closest_hit_ctx.world_ray().direction * closest_hit_ctx.hit_distance();
 
-        let random = hammersley_2d_fn(ao_cx.ao_sample_count.load().x(), val(256));
-        let direction = hit_normal_tbn * sample_hemisphere_cos_fn(random);
+        // let random = hammersley_2d_fn(ao_cx.ao_sample_count.load().x(), val(256));
+        let seed = ao_cx.ao_sample_count.load().x().into_f32();
+        let random = random2_fn((seed, (seed + seed).sin().cos()).into());
+        // let direction = hit_normal_tbn * sample_hemisphere_cos_fn(random);
+        let direction = hit_normal_tbn * sample_hemisphere_uniform_fn(random);
 
         let ray = ShaderRay { origin, direction };
 
