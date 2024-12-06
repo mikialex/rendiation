@@ -290,11 +290,12 @@ impl TaskGroupExecutorResource {
       active_task_idx: DeviceBumpAllocationInstance::new(size * 2, device),
       new_removed_task_idx: DeviceBumpAllocationInstance::new(size, device),
       empty_index_pool: DeviceBumpAllocationInstance::new(size * 2, device),
-      task_pool: TaskPool::create_with_size(size * 2, state_desc, payload_ty.clone(), device),
+      // add one is for the first default task
+      task_pool: TaskPool::create_with_size(size * 2 + 1, state_desc, payload_ty.clone(), device),
       size,
     };
 
-    // fill the empty pool, allocate the "dead" task
+    // fill the empty pool, allocate the first default task
     cx.record_pass(|pass, device| {
       let hasher = shader_hasher_from_marker_ty!(PrepareEmptyIndices);
 
