@@ -11,12 +11,15 @@ impl GPURaytracingPipelineExecutorImpl for GPUWaveFrontComputeRaytracingBakedPip
   fn access_impl(&self) -> &dyn Any {
     self
   }
-  fn blocking_check_is_empty(&self, cx: &mut DeviceParallelComputeCtx) -> bool {
+  fn assert_is_empty(&self, gpu: &GPU) {
     let mut inner = self.inner.write();
     if let Some((_, _, executor)) = &mut inner.executor {
-      block_on(executor.graph.check_is_empty(cx))
-    } else {
-      true
+      let mut encoder = gpu.create_encoder();
+      let mut cx = DeviceParallelComputeCtx::new(gpu, &mut encoder);
+      let states = block_on(executor.graph.read_back_execution_states(&mut cx));
+      if !states.is_empty() {
+        panic!("pipeline is not empty:\n {:?}", states);
+      }
     }
   }
 }

@@ -270,6 +270,8 @@ impl SceneRayTracingAORenderer {
       (*sbt).as_ref(),
     );
 
+    // self.executor.assert_is_empty(frame.gpu);
+
     ao_buffer
   }
 }
