@@ -7,6 +7,7 @@ version = "0.1.0"
 [dependencies]
 bytemuck = { workspace = true, features = ["derive"] }
 dyn-downcast = { path = "../../../utility/dyn-downcast" }
+heap-tools = { path = "../../../utility/heap-tools" }
 fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 futures = { workspace = true }
 naga = { version = "22", features = ["wgsl-out"] }

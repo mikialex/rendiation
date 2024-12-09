@@ -58,6 +58,7 @@ console_error_panic_hook = "0.1.6"
 wasm-bindgen-futures = "0.4.28"
 
 [features]
+default = ["heap-debug"]
 heap-debug = ["heap-tools/enabled"]
 webgl = ["rendiation-webgpu/webgl"]
 

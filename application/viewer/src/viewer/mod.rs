@@ -279,6 +279,25 @@ fn egui(
         ui.separator();
         rendering.egui(ui);
         ui.separator();
+
+        ui.collapsing("Instance Counts", |ui| {
+          let mut counters = heap_tools::HEAP_TOOL_GLOBAL_INSTANCE_COUNTER
+            .write()
+            .unwrap();
+
+          for (name, r) in counters.report_all_instance_count() {
+            ui.label(format!(
+              "{}: current:{} peak:{}",
+              get_short_name(name),
+              r.current,
+              r.history_peak
+            ));
+          }
+
+          if ui.button("reset peak").clicked() {
+            counters.reset_all_instance_history_peak();
+          }
+        });
       });
   }
 

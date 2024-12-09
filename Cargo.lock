@@ -3941,6 +3941,7 @@ dependencies = [
  "dyn-downcast",
  "fast-hash-collection",
  "futures",
+ "heap-tools",
  "naga",
  "pollster",
  "reactive",

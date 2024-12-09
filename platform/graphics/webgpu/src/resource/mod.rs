@@ -34,6 +34,7 @@ impl<T: Resource> std::ops::Deref for ResourceViewContainer<T> {
 /// store the resource with it's create parameter,
 /// and some dropping callbacks
 pub struct ResourceContainer<T: Resource> {
+  _counter: Counted<Self>,
   pub guid: usize,
   pub resource: ResourceExplicitDestroy<T>,
   pub desc: T::Descriptor,
@@ -76,6 +77,7 @@ impl<T: Resource> ResourceContainer<T> {
 
   pub fn create_with_raw(resource: T, desc: T::Descriptor, device: &GPUDevice) -> Self {
     Self {
+      _counter: Default::default(),
       guid: get_new_resource_guid(),
       resource: device
         .inner

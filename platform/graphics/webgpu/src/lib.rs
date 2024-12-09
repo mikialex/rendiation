@@ -49,6 +49,7 @@ pub use gpu::{
   ShaderModuleDescriptor, ShaderSource, ShaderStages, StoreOp, TextureView, TextureViewDescriptor,
   VertexBufferLayout, VertexState,
 };
+use heap_tools::*;
 use instance_poller::GPUInstance;
 pub use pass::*;
 pub use pipeline::*;

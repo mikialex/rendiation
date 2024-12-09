@@ -100,6 +100,11 @@ impl<T: Any> Default for Counted<T> {
 
 impl<T: Any> Clone for Counted<T> {
   fn clone(&self) -> Self {
+    #[cfg(feature = "enabled")]
+    HEAP_TOOL_GLOBAL_INSTANCE_COUNTER
+      .write()
+      .unwrap()
+      .increase_instance::<T>();
     Self {
       phantom: PhantomData,
     }

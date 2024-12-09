@@ -28,6 +28,7 @@ mod app_loop;
 mod db_egui_view;
 mod default_scene;
 mod egui_cx;
+mod util;
 mod viewer;
 //  use default_scene::*;
 
@@ -37,6 +38,7 @@ use heap_tools::*;
 use rendiation_scene_core::*;
 use rendiation_texture_core::*;
 use rendiation_webgpu::*;
+use util::*;
 pub use viewer::*;
 
 #[global_allocator]
