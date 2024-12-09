@@ -1,16 +1,13 @@
-use std::mem::ManuallyDrop;
-
 use crate::*;
 
 pub struct ComputeResultForker<T: Std430> {
   pub inner: Box<dyn DeviceParallelComputeIO<T>>,
   /// if we not add cache here, the cost may be exponential!
   pub size_cache: u32,
-  pub children: RwLock<FastHashMap<usize, ComputeResultForkerInstance<T>>>,
+  pub children: RwLock<FastHashMap<usize, Arc<RwLock<Option<DeviceMaterializeResult<T>>>>>>,
   pub id: RwLock<usize>,
 }
 
-// todo mem leak
 pub struct ComputeResultForkerInstance<T: Std430> {
   pub upstream: Arc<ComputeResultForker<T>>,
   pub result: Arc<RwLock<Option<DeviceMaterializeResult<T>>>>,
@@ -31,16 +28,8 @@ impl<T: Std430> ComputeResultForkerInstance<T> {
       id: 0,
     };
 
-    r.upstream.children.write().insert(0, r.plain_clone());
+    r.upstream.children.write().insert(0, r.result.clone());
     r
-  }
-
-  fn plain_clone(&self) -> Self {
-    Self {
-      upstream: self.upstream.clone(),
-      result: self.result.clone(),
-      id: self.id,
-    }
   }
 }
 
@@ -57,15 +46,14 @@ impl<T: Std430> Clone for ComputeResultForkerInstance<T> {
       id,
     };
 
-    self.upstream.children.write().insert(id, r.plain_clone());
+    self.upstream.children.write().insert(id, r.result.clone());
 
     r
   }
 }
 impl<T: Std430> Drop for ComputeResultForkerInstance<T> {
   fn drop(&mut self) {
-    let a = self.upstream.children.write().remove(&self.id);
-    let _ = ManuallyDrop::new(a);
+    self.upstream.children.write().remove(&self.id);
   }
 }
 
@@ -102,9 +90,8 @@ where
 
     let result = self.upstream.inner.materialize_storage_buffer(cx);
     let children = self.upstream.children.read();
-    for c in children.values() {
-      let result = result.clone();
-      if c.result.write().replace(result).is_some() {
+    for child_result in children.values() {
+      if child_result.write().replace(result.clone()).is_some() {
         panic!("all forked result must be consumed")
       }
     }

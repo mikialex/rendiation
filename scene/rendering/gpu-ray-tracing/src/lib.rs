@@ -44,6 +44,7 @@ pub fn clamp_size_by_area(size: Size, area: usize) -> Size {
   let (width, height) = size.into_usize();
   let origin_area = width * height;
   let ratio = area as f32 / origin_area as f32;
+  let ratio = ratio.sqrt();
   let width = (width as f32 * ratio).floor() as usize;
   let height = (height as f32 * ratio).floor() as usize;
   Size::from_usize_pair_min_one((width, height))
