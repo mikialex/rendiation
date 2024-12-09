@@ -6,7 +6,7 @@ pub struct TlASInstance {
 }
 impl std::fmt::Debug for TlASInstance {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    f.debug_struct("BlasInstance").finish()
+    f.debug_struct("TlASInstance").finish()
   }
 }
 impl PartialEq for TlASInstance {

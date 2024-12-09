@@ -392,19 +392,14 @@ impl TaskGroupDeviceInvocationInstance {
     parent_ref: TaskParentRef,
     ty: &ShaderSizedValueType,
   ) -> Option<TaskFutureInvocationRightValue> {
-    let (idx, success) = self.empty_index_pool.bump_deallocate();
+    let (idx, success) = self.empty_index_pool.bump_deallocate(); // todo, error report
+    shader_assert(success);
 
-    if_by(success, || {
-      self
-        .task_pool
-        .spawn_new_task_dyn(idx, payload, parent_ref, ty);
-      let (_, success) = self.active_task_idx.bump_allocate(idx); // todo, error report
-      if_by(success.not(), || loop_by(|_| {}));
-    })
-    .else_by(|| {
-      loop_by(|_| {})
-      // error report, theoretically unreachable
-    });
+    self
+      .task_pool
+      .spawn_new_task_dyn(idx, payload, parent_ref, ty);
+    let (_, success) = self.active_task_idx.bump_allocate(idx); // todo, error report
+    shader_assert(success);
 
     Some(TaskFutureInvocationRightValue { task_handle: idx })
   }
@@ -415,7 +410,7 @@ impl TaskGroupDeviceInvocationInstance {
       .rw_is_finished(task_id)
       .store(TASK_STATUE_FLAG_NOT_FINISHED_WAKEN);
     let (_, success) = self.active_task_idx.bump_allocate(task_id); // todo, error report
-    if_by(success.not(), || loop_by(|_| {}));
+    shader_assert(success);
   }
 
   #[must_use]
@@ -445,15 +440,12 @@ impl TaskGroupDeviceInvocationInstance {
 
   fn cleanup_finished_task_state_and_payload(&self, task: Node<u32>) {
     let (_, success) = self.new_removed_task_idx.bump_allocate(task);
+    shader_assert(success);
     self
       .task_pool
       .rw_is_finished(task)
       .store(TASK_STATUE_FLAG_TASK_NOT_EXIST);
     // todo consider zeroing the state and payload
-    if_by(success.not(), || {
-      loop_by(|_| {})
-      // error report, theoretically unreachable
-    });
   }
 
   fn is_task_finished(&self, task_id: Node<u32>) -> Node<bool> {
