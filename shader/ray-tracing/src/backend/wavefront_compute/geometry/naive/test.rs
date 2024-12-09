@@ -343,7 +343,7 @@ fn test_gpu_triangle() {
   }
   struct GpuTesterInner {
     upstream: Box<dyn DeviceInvocationComponent<Node<u32>>>,
-    system: NaiveSahBvhGpu,
+    system: Box<dyn GPUAccelerationStructureSystemCompImplInstance>,
   }
 
   impl GpuTester {
@@ -360,7 +360,7 @@ fn test_gpu_triangle() {
     ) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
       Box::new(GpuTesterInner {
         upstream: self.upstream.execute_and_expose(cx),
-        system: self.system.get_or_build_gpu_data().clone(),
+        system: Box::new(self.system.clone()),
       })
     }
     fn result_size(&self) -> u32 {
@@ -387,7 +387,7 @@ fn test_gpu_triangle() {
 
       let upstream_shader = self.upstream.build_shader(builder);
 
-      let traversable = self.system.clone().build_shader(builder);
+      let traversable = self.system.build_shader(builder);
 
       upstream_shader
         .adhoc_invoke_with_self_size(move |upstream, id| {

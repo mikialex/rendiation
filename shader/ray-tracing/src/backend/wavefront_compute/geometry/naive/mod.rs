@@ -103,9 +103,9 @@ impl NaiveSahBvhSource {
   }
   pub fn create_tlas(&mut self, source: &[TopLevelAccelerationStructureSourceInstance]) -> u32 {
     // todo freelist
-    let start_index = self.tlas_data.len();
+    let index = self.tlas_data.len();
     self.tlas_data.push(Some(source.to_vec()));
-    start_index as u32
+    index as u32
   }
   pub fn delete_blas(&mut self, handle: BlasHandle) {
     // todo freelist
@@ -492,6 +492,32 @@ struct NaiveSahBVHSystemInner {
   gpu_data: Option<NaiveSahBvhGpu>,
 }
 
+impl GPUAccelerationStructureSystemCompImplInstance for NaiveSahBVHSystem {
+  fn build_shader(
+    &self,
+    compute_cx: &mut ShaderComputePipelineBuilder,
+  ) -> Box<dyn GPUAccelerationStructureSystemCompImplInvocationTraversable> {
+    self
+      .inner
+      .read()
+      .unwrap()
+      .gpu_data
+      .as_ref()
+      .unwrap()
+      .build_shader(compute_cx)
+  }
+  fn bind_pass(&self, builder: &mut BindingBuilder) {
+    self
+      .inner
+      .read()
+      .unwrap()
+      .gpu_data
+      .as_ref()
+      .unwrap()
+      .bind_pass(builder)
+  }
+}
+
 impl NaiveSahBVHSystem {
   pub(crate) fn new(gpu: GPU) -> Self {
     Self {
@@ -535,8 +561,8 @@ impl NaiveSahBVHSystemInner {
 
 impl GPUAccelerationStructureSystemProvider for NaiveSahBVHSystem {
   fn create_comp_instance(&self) -> Box<dyn GPUAccelerationStructureSystemCompImplInstance> {
-    let gpu = self.get_or_build_gpu_data();
-    Box::new(gpu.clone())
+    let _ = self.get_or_build_gpu_data();
+    Box::new(self.clone())
   }
 
   // todo return instance ids? then TLAS device should store InstanceId
