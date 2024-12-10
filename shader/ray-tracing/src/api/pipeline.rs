@@ -10,6 +10,7 @@ pub struct RayTracingShaderStageDefine {
 pub struct GPURaytracingPipelineAndBindingSource {
   pub execution_round_hint: u32,
   pub max_recursion_depth: u32,
+  pub capacity: u32,
   pub ray_gen: Vec<RayTracingShaderStageDefine>,
   pub miss_hit: Vec<RayTracingShaderStageDefine>,
   pub closest_hit: Vec<RayTracingShaderStageDefine>,
@@ -33,6 +34,8 @@ impl GPURaytracingPipelineAndBindingSource {
     for s in &self.closest_hit {
       s.logic.hash_pipeline_with_type_info(&mut hasher);
     }
+    self.max_recursion_depth.hash(&mut hasher);
+    self.capacity.hash(&mut hasher);
     hasher.finish()
   }
 }
@@ -42,6 +45,7 @@ impl Default for GPURaytracingPipelineAndBindingSource {
     Self {
       execution_round_hint: 4,
       max_recursion_depth: 1,
+      capacity: 512,
       ray_gen: Default::default(),
       closest_hit: Default::default(),
       miss_hit: Default::default(),
@@ -61,6 +65,10 @@ impl GPURaytracingPipelineAndBindingSource {
   }
   pub fn set_execution_round_hint(&mut self, execution_round_hint: u32) -> &mut Self {
     self.execution_round_hint = execution_round_hint;
+    self
+  }
+  pub fn set_capacity(&mut self, capacity: u32) -> &mut Self {
+    self.capacity = capacity;
     self
   }
 

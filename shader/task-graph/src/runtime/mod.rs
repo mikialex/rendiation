@@ -52,10 +52,23 @@ impl Debug for TaskExecutionDebugInfo {
 
 #[derive(Default)]
 pub struct DeviceTaskGraphBuildSource {
-  task_groups: Vec<TaskGroupExecutorInternal>,
+  tasks: Vec<TaskGroupBuildSource>,
+  pub max_recursion_depth: usize,
+  pub capacity: usize,
 }
 
 impl DeviceTaskGraphBuildSource {
+  // todo, impl more conservative upper execute bound
+  pub fn compute_conservative_dispatch_round_count(&self) -> usize {
+    let max_required_poll_count = self
+      .tasks
+      .iter()
+      .map(|v| v.task.required_poll_count())
+      .max()
+      .unwrap_or(1);
+    self.max_recursion_depth * max_required_poll_count + 1
+  }
+
   pub fn define_task<P, F>(&mut self, future: F) -> u32
   where
     F: ShaderFuture<Output = ()> + 'static,
@@ -67,39 +80,33 @@ impl DeviceTaskGraphBuildSource {
     )
   }
   pub fn next_task_idx(&self) -> u32 {
-    self.task_groups.len() as u32
+    self.tasks.len() as u32
   }
 
   #[inline(never)]
   pub fn define_task_dyn(&mut self, task: OpaqueTask, payload_ty: ShaderSizedValueType) -> u32 {
-    let task_type = self.task_groups.len();
+    let task_type = self.tasks.len();
 
-    self.task_groups.push(TaskGroupExecutorInternal {
+    self.tasks.push(TaskGroupBuildSource {
       payload_ty,
       self_task_idx: task_type,
-      required_poll_count: task.required_poll_count(),
       task,
     });
 
     task_type as u32
   }
 
-  pub fn build(
-    self,
-    dispatch_size: usize,
-    max_recursion_depth: usize,
-    cx: &mut DeviceParallelComputeCtx,
-  ) -> DeviceTaskGraphExecutor {
-    let init_size = dispatch_size * max_recursion_depth;
+  pub fn build(&self, cx: &mut DeviceParallelComputeCtx) -> DeviceTaskGraphExecutor {
+    let init_size = self.max_recursion_depth * self.capacity;
     let mut task_group_shared_info = Vec::new();
-    for _ in 0..self.task_groups.len() {
+    for _ in 0..self.tasks.len() {
       task_group_shared_info.push((Default::default(), Default::default()));
     }
 
     let mut pre_builds = Vec::new();
     let mut task_group_sources = Vec::new();
 
-    for (i, task_build_source) in self.task_groups.iter().enumerate() {
+    for (i, task_build_source) in self.tasks.iter().enumerate() {
       let pre_build =
         TaskGroupExecutor::pre_build(task_build_source, i, &mut task_group_shared_info);
 
@@ -117,8 +124,8 @@ impl DeviceTaskGraphBuildSource {
     let mut task_group_executors = Vec::new();
 
     for ((task_build_source, pre_build), (_, parent_dependencies)) in self
-      .task_groups
-      .into_iter()
+      .tasks
+      .iter()
       .zip(pre_builds)
       .zip(&task_group_shared_info)
     {
@@ -134,8 +141,8 @@ impl DeviceTaskGraphBuildSource {
 
     DeviceTaskGraphExecutor {
       task_groups: task_group_executors,
-      max_recursion_depth,
-      current_prepared_execution_size: dispatch_size,
+      max_recursion_depth: self.max_recursion_depth,
+      current_prepared_execution_size: self.capacity,
     }
   }
 }
@@ -313,27 +320,22 @@ impl DeviceTaskGraphExecutor {
     TaskGraphExecutionDebugInfo { info }
   }
 
-  // todo, impl more conservative upper execute bound
-  pub fn compute_conservative_dispatch_round_count(&self) -> usize {
-    let max_required_poll_count = self
-      .task_groups
-      .iter()
-      .map(|v| v.internal.required_poll_count)
-      .max()
-      .unwrap_or(1);
-    self.max_recursion_depth * max_required_poll_count + 1
-  }
-
   // todo, dispatch should in reverse order
-  pub fn execute(&mut self, cx: &mut DeviceParallelComputeCtx, dispatch_round_count: usize) {
-    // it's safe because the reference is not overlapped
+  pub fn execute(
+    &mut self,
+    cx: &mut DeviceParallelComputeCtx,
+    dispatch_round_count: usize,
+    source: &DeviceTaskGraphBuildSource,
+  ) {
     let self_task_groups: &[TaskGroupExecutor] = &self.task_groups;
+    // todo, this is unsound
     let self_task_groups: &'static [TaskGroupExecutor] =
       unsafe { std::mem::transmute(self_task_groups) };
 
     for _ in 0..dispatch_round_count {
-      for task in &mut self.task_groups {
-        task.execute(cx, self_task_groups);
+      for (idx, task) in self.task_groups.iter_mut().enumerate() {
+        let source = &source.tasks[idx];
+        task.execute(cx, self_task_groups, source);
       }
     }
   }

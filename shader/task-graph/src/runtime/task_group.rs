@@ -8,7 +8,6 @@ pub type OpaqueTask = Box<
 >;
 
 pub struct TaskGroupExecutor {
-  pub internal: TaskGroupExecutorInternal,
   pub state_desc: DynamicTypeMetaInfo,
 
   pub all_spawners_binding_order: Vec<usize>,
@@ -18,10 +17,9 @@ pub struct TaskGroupExecutor {
   pub after_execute: Option<Box<dyn Fn(&mut DeviceParallelComputeCtx, &Self)>>,
 }
 
-pub struct TaskGroupExecutorInternal {
+pub struct TaskGroupBuildSource {
   pub payload_ty: ShaderSizedValueType,
   pub self_task_idx: usize,
-  pub required_poll_count: usize,
   pub task: OpaqueTask,
 }
 
@@ -36,7 +34,7 @@ pub(super) struct TaskGroupPreBuild {
 
 impl TaskGroupExecutor {
   pub(super) fn pre_build(
-    internal: &TaskGroupExecutorInternal,
+    internal: &TaskGroupBuildSource,
     task_type: usize,
     task_group_shared_info: &mut Vec<(
       TaskGroupDeviceInvocationInstanceLateResolved,
@@ -69,7 +67,7 @@ impl TaskGroupExecutor {
 
   pub(super) fn build(
     mut pre_build: TaskGroupPreBuild,
-    task_build_source: TaskGroupExecutorInternal,
+    task_build_source: &TaskGroupBuildSource,
     pcx: &mut DeviceParallelComputeCtx,
     resources: &[TaskGroupExecutorResource],
     parent_dependencies: &FastHashSet<usize>,
@@ -162,7 +160,6 @@ impl TaskGroupExecutor {
     TaskGroupExecutor {
       polling_pipeline,
       resource,
-      internal: task_build_source,
       state_desc: pre_build.state_to_resolve.meta_info(),
       all_spawners_binding_order,
       before_execute: None,
@@ -170,7 +167,12 @@ impl TaskGroupExecutor {
     }
   }
 
-  pub fn execute(&mut self, cx: &mut DeviceParallelComputeCtx, all_tasks: &[Self]) {
+  pub fn execute(
+    &mut self,
+    cx: &mut DeviceParallelComputeCtx,
+    all_tasks: &[Self],
+    task_source: &TaskGroupBuildSource,
+  ) {
     self.prepare_execution(cx);
 
     if let Some(f) = self.before_execute.as_ref() {
@@ -190,7 +192,7 @@ impl TaskGroupExecutor {
 
       let mut ctx = DeviceTaskSystemBindCtx { binder: &mut bb };
 
-      self.internal.task.bind_input(&mut ctx);
+      task_source.task.bind_input(&mut ctx);
 
       let all_task_group_sources: Vec<_> = all_tasks.iter().map(|t| &t.resource).collect();
       for extra in &self.all_spawners_binding_order {
@@ -221,7 +223,7 @@ impl TaskGroupExecutor {
   pub fn prepare_execution(&mut self, ctx: &mut DeviceParallelComputeCtx) {
     // commit bumpers
     ctx.record_pass(|pass, device| {
-      let imp = &mut self.resource;
+      let imp = &self.resource;
       imp.active_task_idx.commit_size(pass, device, true);
       imp.empty_index_pool.commit_size(pass, device, false);
       imp.new_removed_task_idx.commit_size(pass, device, true);
