@@ -473,16 +473,24 @@ where
   }
 }
 
-macro_rules! slice_like_index {
+/// enable this when mysterious device lost happen.
+/// attempt to quick check if the lost is due to the out of bound access
+const ENABLE_STORAGE_BUFFER_BOUND_CHECK: bool = false;
+
+macro_rules! index_access_slice_like {
   ($NodeType: tt) => {
     impl<T> $NodeType<[T]>
     where
       T: ShaderNodeType,
     {
       pub fn index(&self, node: impl Into<Node<u32>>) -> $NodeType<T> {
+        let idx = node.into();
+        if ENABLE_STORAGE_BUFFER_BOUND_CHECK {
+          shader_assert(idx.less_than(self.array_length()));
+        }
         OperatorNode::Index {
           array: self.handle(),
-          entry: node.into().handle(),
+          entry: idx.handle(),
         }
         .insert_api()
       }
@@ -490,5 +498,5 @@ macro_rules! slice_like_index {
   };
 }
 
-slice_like_index!(StorageNode);
-slice_like_index!(ReadOnlyStorageNode);
+index_access_slice_like!(StorageNode);
+index_access_slice_like!(ReadOnlyStorageNode);

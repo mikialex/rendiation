@@ -38,6 +38,7 @@ where
   fn requested_workgroup_size(&self) -> Option<u32> {
     Some(self.workgroup_size)
   }
+  // todo, fix out bound access
   fn build_shader(
     &self,
     builder: &mut ShaderComputePipelineBuilder,

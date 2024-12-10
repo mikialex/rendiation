@@ -74,7 +74,8 @@ where
       .build_shader(builder)
       .adhoc_invoke_with_self_size(move |input, id| {
         let ((data, write_idx, should_write), valid) = input.invocation_logic(id);
-        if_by(valid.and(should_write), || {
+        let write_is_in_bound = write_idx.less_than(output.array_length());
+        if_by(valid.and(should_write).and(write_is_in_bound), || {
           output.index(write_idx).store(data);
         });
 

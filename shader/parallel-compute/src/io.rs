@@ -220,7 +220,7 @@ where
       .adhoc_invoke_with_self_size(move |inner, id| {
         let r = inner.invocation_logic(id);
 
-        if_by(r.1, || {
+        if_by(r.1.and(id.x().less_than(output.array_length())), || {
           let target_idx = result_write_idx_mapper(id.x());
           output.index(target_idx).store(r.0);
         });
