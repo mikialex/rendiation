@@ -56,7 +56,7 @@ impl GPUWaveFrontComputeRaytracingExecutorInternal {
       }
     }
 
-    let task_graph = create_task_graph(
+    let (task_graph, trace_resource) = create_task_graph(
       source,
       tlas_sys,
       sbt_sys,
@@ -66,10 +66,22 @@ impl GPUWaveFrontComputeRaytracingExecutorInternal {
     );
 
     let (_, exe) = self.executor.get_or_insert_with(|| {
-      let exe = task_graph.build(cx);
+      let payload_read_back_bumper = trace_resource.payload_read_back_bumper.clone();
+      let payload_bumper = trace_resource.payload_bumper.clone();
+
+      let mut exe = task_graph.build(cx);
+
+      exe.set_task_before_execution_hook(TRACING_TASK_INDEX, move |cx, _| {
+        payload_read_back_bumper.reset(cx);
+      });
+
+      exe.set_task_after_execution_hook(TRACING_TASK_INDEX, move |cx, _| {
+        payload_bumper.reset(cx);
+      });
+
       let exe = GPUWaveFrontComputeRaytracingExecutor {
         graph_executor: exe,
-        resource: self.resource.clone().unwrap(),
+        resource: trace_resource.clone(),
       };
       (current_hash, exe)
     });
@@ -88,14 +100,14 @@ pub struct TraceTaskResource {
   pub launch_size: StorageBufferReadOnlyDataView<Vec3<u32>>,
 }
 
-fn create_task_graph(
+fn create_task_graph<'a>(
   source: &GPURaytracingPipelineAndBindingSource,
   tlas_sys: Box<dyn GPUAccelerationStructureSystemCompImplInstance>,
   sbt_sys: ShaderBindingTableDeviceInfo,
-  trace_resource: &mut Option<TraceTaskResource>,
+  trace_resource: &'a mut Option<TraceTaskResource>,
   device: &GPUDevice,
   size: u32,
-) -> DeviceTaskGraphBuildSource {
+) -> (DeviceTaskGraphBuildSource, &'a TraceTaskResource) {
   let mut graph = DeviceTaskGraphBuildSource::default();
 
   let trace_resource = trace_resource.get_or_insert_with(|| {
@@ -182,7 +194,7 @@ fn create_task_graph(
 
   graph.capacity = size as usize;
   graph.max_recursion_depth = source.max_recursion_depth as usize;
-  graph
+  (graph, trace_resource)
 }
 
 impl GPURaytracingPipelineAndBindingSource {
