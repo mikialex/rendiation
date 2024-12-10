@@ -7,25 +7,27 @@ async fn test_simple_map() {
 
   let test_task = graph.define_task::<u32, _>(BaseShaderFuture::default().map(|_: (), _| {}));
   let test_task2 = graph.define_task::<u32, _>(BaseShaderFuture::default());
+  graph.max_recursion_depth = 1;
+  graph.capacity = 12;
 
   let mut encoder = gpu.create_encoder();
   let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder);
-  let mut graph = graph.build(12, 1, &mut cx);
+  let mut graph_exe = graph.build(&mut cx);
 
   let work_size = 3;
   let work_size2 = 4;
 
-  graph.dispatch_allocate_init_task(&mut cx, work_size, test_task, |_| val(0_u32));
-  graph.dispatch_allocate_init_task(&mut cx, work_size2, test_task2, |_| val(0_u32));
+  graph_exe.dispatch_allocate_init_task(&mut cx, work_size, test_task, |_| val(0_u32));
+  graph_exe.dispatch_allocate_init_task(&mut cx, work_size2, test_task2, |_| val(0_u32));
   cx.submit_recorded_work_and_continue();
 
-  let info = graph.read_back_execution_states(&mut cx).await;
+  let info = graph_exe.read_back_execution_states(&mut cx).await;
   assert_eq!(info.wake_counts[test_task as usize], work_size);
   assert_eq!(info.wake_counts[test_task2 as usize], work_size2);
 
-  graph.execute(&mut cx, 1);
+  graph_exe.execute(&mut cx, 1, &graph);
 
-  let info = graph.read_back_execution_states(&mut cx).await;
+  let info = graph_exe.read_back_execution_states(&mut cx).await;
   assert_eq!(info.wake_counts[test_task as usize], 0);
   assert_eq!(info.wake_counts[test_task2 as usize], 0);
 }
@@ -59,6 +61,8 @@ async fn test_task_graph_then_task_spawn() {
 
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();
   let mut graph = DeviceTaskGraphBuildSource::default();
+  graph.max_recursion_depth = 1;
+  graph.capacity = 4;
 
   let test_task = graph.define_task::<u32, _>(BaseShaderFuture::default());
 
@@ -78,7 +82,7 @@ async fn test_task_graph_then_task_spawn() {
 
   let mut encoder = gpu.create_encoder();
   let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder);
-  let mut graph = graph.build(4, 1, &mut cx);
+  let mut graph_exe = graph.build(&mut cx);
 
   let work_size = 3;
 
@@ -96,24 +100,24 @@ async fn test_task_graph_then_task_spawn() {
 
   let mut test_round = async || {
     println!("test round:");
-    graph.dispatch_allocate_init_task(&mut cx, work_size, test_task2, |_| val(0_u32));
+    graph_exe.dispatch_allocate_init_task(&mut cx, work_size, test_task2, |_| val(0_u32));
     cx.submit_recorded_work_and_continue();
 
-    let debug_info = graph.debug_execution(&mut cx).await;
+    let debug_info = graph_exe.debug_execution(&mut cx).await;
     println!("{:?}", debug_info);
     debug_detail_states(&debug_info);
 
-    let info = graph.read_back_execution_states(&mut cx).await;
+    let info = graph_exe.read_back_execution_states(&mut cx).await;
     assert_eq!(info.wake_counts[test_task as usize], 0);
     assert_eq!(info.wake_counts[test_task2 as usize], work_size);
 
-    graph.execute(&mut cx, 1);
+    graph_exe.execute(&mut cx, 1, &graph);
 
-    let debug_info = graph.debug_execution(&mut cx).await;
+    let debug_info = graph_exe.debug_execution(&mut cx).await;
     println!("{:?}", debug_info);
     debug_detail_states(&debug_info);
 
-    let info = graph.read_back_execution_states(&mut cx).await;
+    let info = graph_exe.read_back_execution_states(&mut cx).await;
     assert_eq!(info.wake_counts[test_task as usize], work_size);
     assert_eq!(info.sleep_or_finished_counts[test_task as usize], 0);
     assert_eq!(info.wake_counts[test_task2 as usize], 0);
@@ -122,13 +126,13 @@ async fn test_task_graph_then_task_spawn() {
       work_size
     );
 
-    graph.execute(&mut cx, 1);
+    graph_exe.execute(&mut cx, 1, &graph);
 
-    let debug_info = graph.debug_execution(&mut cx).await;
+    let debug_info = graph_exe.debug_execution(&mut cx).await;
     println!("{:?}", debug_info);
     debug_detail_states(&debug_info);
 
-    let info = graph.read_back_execution_states(&mut cx).await;
+    let info = graph_exe.read_back_execution_states(&mut cx).await;
     assert_eq!(info.wake_counts[test_task as usize], 0);
     assert_eq!(info.sleep_or_finished_counts[test_task as usize], 0);
     assert_eq!(info.wake_counts[test_task2 as usize], 0);
@@ -145,6 +149,8 @@ async fn test_task_graph_then_task_self_spawn_recursive() {
 
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();
   let mut graph = DeviceTaskGraphBuildSource::default();
+  graph.max_recursion_depth = 3;
+  graph.capacity = 4;
 
   let test_task = graph.next_task_idx();
   let test_task = graph.define_task::<u32, _>(
@@ -163,34 +169,34 @@ async fn test_task_graph_then_task_self_spawn_recursive() {
 
   let mut encoder = gpu.create_encoder();
   let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder);
-  let mut graph = graph.build(4, 3, &mut cx);
+  let mut graph_exe = graph.build(&mut cx);
 
   let work_size = 3;
 
-  graph.dispatch_allocate_init_task(&mut cx, work_size, test_task, |_| val(0_u32));
+  graph_exe.dispatch_allocate_init_task(&mut cx, work_size, test_task, |_| val(0_u32));
   cx.submit_recorded_work_and_continue();
 
-  let info = graph.read_back_execution_states(&mut cx).await;
+  let info = graph_exe.read_back_execution_states(&mut cx).await;
   assert_eq!(info.wake_counts[test_task as usize], work_size);
 
-  graph.execute(&mut cx, 1);
+  graph_exe.execute(&mut cx, 1, &graph);
 
-  let info = graph.read_back_execution_states(&mut cx).await;
+  let info = graph_exe.read_back_execution_states(&mut cx).await;
   assert_eq!(info.wake_counts[test_task as usize], work_size);
   assert_eq!(info.sleep_or_finished_counts[test_task as usize], work_size);
 
-  graph.execute(&mut cx, 1);
+  graph_exe.execute(&mut cx, 1, &graph);
 
-  let info = graph.read_back_execution_states(&mut cx).await;
+  let info = graph_exe.read_back_execution_states(&mut cx).await;
   assert_eq!(info.wake_counts[test_task as usize], work_size);
   assert_eq!(
     info.sleep_or_finished_counts[test_task as usize],
     work_size * 2
   );
 
-  graph.execute(&mut cx, 1);
+  graph_exe.execute(&mut cx, 1, &graph);
 
-  let info = graph.read_back_execution_states(&mut cx).await;
+  let info = graph_exe.read_back_execution_states(&mut cx).await;
   assert_eq!(info.wake_counts[test_task as usize], work_size);
   assert_eq!(
     info.sleep_or_finished_counts[test_task as usize],

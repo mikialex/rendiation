@@ -1,7 +1,6 @@
 mod geometry;
 pub use geometry::*;
 mod sbt;
-use parking_lot::RwLock;
 pub use sbt::*;
 mod trace_task;
 pub use trace_task::*;
@@ -81,11 +80,7 @@ impl GPURayTracingDeviceProvider for GPUWaveFrontComputeRaytracingDevice {
 
   fn create_raytracing_pipeline_executor(&self) -> GPURaytracingPipelineExecutor {
     GPURaytracingPipelineExecutor {
-      inner: Box::new(GPUWaveFrontComputeRaytracingBakedPipeline {
-        inner: Arc::new(RwLock::new(
-          GPUWaveFrontComputeRaytracingBakedPipelineInner { executor: None },
-        )),
-      }),
+      inner: Box::new(GPUWaveFrontComputeRaytracingExecutorImpl::default()),
     }
   }
 }
@@ -99,7 +94,7 @@ pub struct GPUWaveFrontComputeRaytracingEncoder {
 impl RayTracingEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
   fn trace_ray(
     &mut self,
-    pipeline_source: &GPURaytracingPipelineAndBindingSource,
+    source: &GPURaytracingPipelineAndBindingSource,
     executor: &GPURaytracingPipelineExecutor,
     size: (u32, u32, u32),
     sbt: &dyn ShaderBindingTableProvider,
@@ -107,9 +102,9 @@ impl RayTracingEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
     let executor = executor
       .inner
       .access_impl()
-      .downcast_ref::<GPUWaveFrontComputeRaytracingBakedPipeline>()
+      .downcast_ref::<GPUWaveFrontComputeRaytracingExecutorImpl>()
       .unwrap();
-    let mut pipeline = executor.inner.write();
+    let mut executor = executor.inner.write();
 
     let sbt = sbt
       .access_impl()
@@ -121,40 +116,41 @@ impl RayTracingEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
 
     let required_size = (size.0 * size.1 * size.2) as usize;
 
-    let pipeline = pipeline.get_or_compile_executor(
+    let (executor, task_source) = executor.get_or_compile_task_executor_and_task_source(
       &mut cx,
-      pipeline_source,
+      source,
       self.tlas_sys.create_comp_instance(),
       self.sbt_sys.clone(),
-      required_size,
+      required_size as u32,
     );
 
     // setup current binding sbt:
-    pipeline
-      .target_sbt_buffer
+    executor
+      .resource
+      .current_sbt
       .write_at(0, Std430::as_bytes(&sbt.self_idx), &self.gpu.queue);
 
     // setup launch size:
-    pipeline.launch_size_buffer.write_at(
+    executor.resource.launch_size.write_at(
       0,
       Std430::as_bytes(&vec3(size.0, size.1, size.2)),
       &self.gpu.queue,
     );
 
     {
-      let executor = &mut pipeline.graph;
+      let graph_executor = &mut executor.graph_executor;
 
-      executor.dispatch_allocate_init_task(
+      graph_executor.dispatch_allocate_init_task(
         &mut cx,
         required_size as u32,
-        pipeline.ray_gen_task_idx,
+        executor.resource.info.ray_gen_task_idx,
         // ray-gen payload is linear id. see TracingCtxProviderFutureInvocation.
         |global_id| global_id,
       );
     }
 
-    for _ in 0..pipeline_source.execution_round_hint {
-      pipeline.graph.execute(&mut cx, 1);
-    }
+    executor
+      .graph_executor
+      .execute(&mut cx, source.execution_round_hint as usize, &task_source);
   }
 }

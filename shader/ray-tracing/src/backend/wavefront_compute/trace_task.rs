@@ -1,19 +1,13 @@
-use parking_lot::RwLock;
-
 use crate::*;
 
 pub struct TraceTaskImpl {
   pub tlas_sys: Box<dyn GPUAccelerationStructureSystemCompImplInstance>,
   pub sbt_sys: ShaderBindingTableDeviceInfo,
-  pub payload_bumper: Arc<RwLock<DeviceBumpAllocationInstance<u32>>>,
-  pub payload_read_back_bumper: Arc<RwLock<DeviceBumpAllocationInstance<u32>>>,
-  pub ray_info_bumper: DeviceBumpAllocationInstance<ShaderRayTraceCallStoragePayload>,
-  pub info: Arc<TraceTaskMetaInfo>,
-  pub current_sbt: StorageBufferReadOnlyDataView<u32>,
-  pub sbt_task_mapping: StorageBufferReadOnlyDataView<SbtTaskMapping>,
+  pub shared: TraceTaskResource,
 }
 
 pub struct TraceTaskMetaInfo {
+  pub ray_gen_task_idx: u32,
   /// (task idx, payload ty desc)
   pub closest_tasks: Vec<(u32, ShaderSizedValueType)>,
   /// (task idx, payload ty desc)
@@ -21,6 +15,32 @@ pub struct TraceTaskMetaInfo {
   pub intersection_shaders: Vec<Arc<dyn Fn(&RayIntersectCtx, &dyn IntersectionReporter)>>,
   pub any_hit_shaders: Vec<Arc<dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>>>,
   pub payload_max_u32_count: u32,
+
+  pub closest_task_range_start: usize,
+  pub missing_task_start: usize,
+  pub missing_task_end: usize,
+}
+
+impl TraceTaskMetaInfo {
+  pub fn assert_ray_gen_in_bound(&self, task_id: usize) {
+    assert!((1..self.closest_task_range_start).contains(&task_id));
+  }
+
+  pub fn assert_closest_hit_in_bound(&self, task_id: usize) {
+    assert!((self.closest_task_range_start..self.missing_task_start).contains(&task_id));
+  }
+
+  pub fn assert_miss_hit_in_bound(&self, task_id: usize) {
+    assert!((self.missing_task_start..self.missing_task_end).contains(&task_id));
+  }
+
+  pub fn create_sbt_mapping(&self) -> SbtTaskMapping {
+    SbtTaskMapping::new(
+      1, // todo, remove?
+      self.closest_task_range_start as u32,
+      self.missing_task_start as u32,
+    )
+  }
 }
 
 impl ShaderFuture for TraceTaskImpl {
@@ -33,12 +53,13 @@ impl ShaderFuture for TraceTaskImpl {
   }
 
   fn build_poll(&self, ctx: &mut DeviceTaskSystemBuildCtx) -> Self::Invocation {
-    let tasks = self
+    let resource = &self.shared;
+    let tasks = resource
       .info
       .closest_tasks
       .iter()
       .map(|v| v.0)
-      .chain(self.info.missing_tasks.iter().map(|v| v.0))
+      .chain(resource.info.missing_tasks.iter().map(|v| v.0))
       .map(|id| id as usize)
       .map(|task_id| (task_id, ctx.get_or_create_task_group_instance(task_id)))
       .collect();
@@ -46,14 +67,13 @@ impl ShaderFuture for TraceTaskImpl {
     GPURayTraceTaskInvocationInstance {
       tlas_sys: self.tlas_sys.build_shader(ctx.compute_cx),
       sbt: self.sbt_sys.build(ctx.compute_cx),
-      untyped_payloads: ctx.compute_cx.bind_by(&self.payload_bumper.read().storage),
-      info: self.info.clone(),
-      payload_read_back_bumper: self
+      untyped_payloads: ctx.compute_cx.bind_by(&resource.payload_bumper.storage),
+      info: resource.info.clone(),
+      payload_read_back_bumper: resource
         .payload_read_back_bumper
-        .read()
         .build_allocator_shader(ctx.compute_cx),
-      current_sbt: ctx.compute_cx.bind_by(&self.current_sbt),
-      sbt_task_mapping: ctx.compute_cx.bind_by(&self.sbt_task_mapping),
+      current_sbt: ctx.compute_cx.bind_by(&resource.current_sbt),
+      sbt_task_mapping: ctx.compute_cx.bind_by(&resource.sbt_task_mapping),
       downstream: AllDownStreamTasks { tasks },
       has_terminated: ctx.make_state::<Node<Bool>>(),
     }
@@ -62,10 +82,12 @@ impl ShaderFuture for TraceTaskImpl {
   fn bind_input(&self, builder: &mut DeviceTaskSystemBindCtx) {
     self.tlas_sys.bind_pass(builder);
     self.sbt_sys.bind(builder);
-    builder.bind(&self.payload_bumper.read().storage);
-    self.payload_read_back_bumper.read().bind_allocator(builder);
-    builder.bind(&self.current_sbt);
-    builder.bind(&self.sbt_task_mapping);
+
+    let resource = &self.shared;
+    builder.bind(&resource.payload_bumper.storage);
+    resource.payload_read_back_bumper.bind_allocator(builder);
+    builder.bind(&resource.current_sbt);
+    builder.bind(&resource.sbt_task_mapping);
   }
 }
 
@@ -452,8 +474,8 @@ fn poll_dynamic<'a>(
 
 #[derive(Clone)]
 pub(crate) struct TracingTaskSpawnerImplSource {
-  pub(crate) payload_spawn_bumper: Arc<RwLock<DeviceBumpAllocationInstance<u32>>>,
-  pub(crate) payload_read_back: Arc<RwLock<DeviceBumpAllocationInstance<u32>>>,
+  pub(crate) payload_spawn_bumper: DeviceBumpAllocationInstance<u32>,
+  pub(crate) payload_read_back: DeviceBumpAllocationInstance<u32>,
 }
 
 impl TracingTaskSpawnerImplSource {
@@ -464,18 +486,14 @@ impl TracingTaskSpawnerImplSource {
     TracingTaskSpawnerInvocation {
       payload_spawn_bumper: self
         .payload_spawn_bumper
-        .read()
         .build_allocator_shader(cx.compute_cx),
-      payload_read_back: self
-        .payload_read_back
-        .read()
-        .build_allocator_shader(cx.compute_cx),
+      payload_read_back: self.payload_read_back.build_allocator_shader(cx.compute_cx),
     }
   }
 
   pub fn bind(&self, builder: &mut BindingBuilder) {
-    self.payload_spawn_bumper.read().bind_allocator(builder);
-    self.payload_read_back.read().bind_allocator(builder);
+    self.payload_spawn_bumper.bind_allocator(builder);
+    self.payload_read_back.bind_allocator(builder);
   }
 }
 

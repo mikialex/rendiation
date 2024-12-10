@@ -21,7 +21,7 @@ pub struct GPURaytracingPipelineAndBindingSource {
 }
 
 impl GPURaytracingPipelineAndBindingSource {
-  pub fn compute_hash(&self) -> u64 {
+  pub fn compute_hash(&self, size: u32) -> u64 {
     let mut hasher = PipelineHasher::default();
     // note, the payload should have already been hashed in trace operator
     for s in &self.ray_gen {
@@ -33,6 +33,8 @@ impl GPURaytracingPipelineAndBindingSource {
     for s in &self.closest_hit {
       s.logic.hash_pipeline_with_type_info(&mut hasher);
     }
+    self.max_recursion_depth.hash(&mut hasher);
+    size.hash(&mut hasher);
     hasher.finish()
   }
 }
