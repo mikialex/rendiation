@@ -121,6 +121,7 @@ impl RayTracingEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
       source,
       self.tlas_sys.create_comp_instance(),
       self.sbt_sys.clone(),
+      required_size as u32,
     );
 
     // setup current binding sbt:
@@ -148,8 +149,8 @@ impl RayTracingEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
       );
     }
 
-    for _ in 0..source.execution_round_hint {
-      executor.graph_executor.execute(&mut cx, 1, &task_source);
-    }
+    executor
+      .graph_executor
+      .execute(&mut cx, source.execution_round_hint as usize, &task_source);
   }
 }

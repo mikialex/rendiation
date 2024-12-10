@@ -42,11 +42,12 @@ impl GPUWaveFrontComputeRaytracingExecutorInternal {
     source: &GPURaytracingPipelineAndBindingSource,
     tlas_sys: Box<dyn GPUAccelerationStructureSystemCompImplInstance>,
     sbt_sys: ShaderBindingTableDeviceInfo,
+    size: u32,
   ) -> (
     &mut GPUWaveFrontComputeRaytracingExecutor,
     DeviceTaskGraphBuildSource,
   ) {
-    let current_hash = source.compute_hash();
+    let current_hash = source.compute_hash(size);
     // todo, optimization size only change by skip shader recompile.
     if let Some((hash, _)) = &mut self.executor {
       if current_hash != *hash {
@@ -61,6 +62,7 @@ impl GPUWaveFrontComputeRaytracingExecutorInternal {
       sbt_sys,
       &mut self.resource,
       &cx.gpu.device,
+      size,
     );
 
     let (_, exe) = self.executor.get_or_insert_with(|| {
@@ -92,6 +94,7 @@ fn create_task_graph(
   sbt_sys: ShaderBindingTableDeviceInfo,
   trace_resource: &mut Option<TraceTaskResource>,
   device: &GPUDevice,
+  size: u32,
 ) -> DeviceTaskGraphBuildSource {
   let mut graph = DeviceTaskGraphBuildSource::default();
 
@@ -104,7 +107,7 @@ fn create_task_graph(
     // written in trace_ray. see RayLaunchSizeBuffer
     let launch_size_buffer = StorageBufferReadOnlyDataView::create(device, &vec3(0, 0, 0));
 
-    let payload_u32_len = source.capacity as usize * 2 * (info.payload_max_u32_count as usize);
+    let payload_u32_len = size as usize * 2 * (info.payload_max_u32_count as usize);
     let payload_bumper = DeviceBumpAllocationInstance::new(payload_u32_len, device);
 
     let payload_read_back_bumper = DeviceBumpAllocationInstance::new(payload_u32_len, device);
@@ -177,7 +180,7 @@ fn create_task_graph(
     checker.assert_miss_hit_in_bound(task_id as usize);
   }
 
-  graph.capacity = source.capacity as usize;
+  graph.capacity = size as usize;
   graph.max_recursion_depth = source.max_recursion_depth as usize;
   graph
 }
