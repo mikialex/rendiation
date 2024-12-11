@@ -105,12 +105,21 @@ impl GPUDevice {
     })
   }
 
-  pub fn create_and_cache_bindgroup_layout(
+  pub fn create_and_cache_bindgroup_layout<'a>(
     &self,
-    layouts: &[gpu::BindGroupLayoutEntry],
+    iter: impl Iterator<Item = &'a ShaderBindingDescriptor>,
+    is_compute: bool,
   ) -> GPUBindGroupLayout {
+    let layouts: Vec<_> = iter.cloned().collect();
+
+    let raw_layouts: Vec<_> = layouts
+      .iter()
+      .enumerate()
+      .map(|(i, ty)| map_shader_value_ty_to_binding_layout_type(ty, i, is_compute))
+      .collect();
+
     let mut hasher = FastHasher::default();
-    layouts.hash(&mut hasher);
+    raw_layouts.hash(&mut hasher);
     let key = hasher.finish();
 
     self
@@ -123,11 +132,12 @@ impl GPUDevice {
       .or_insert_with(|| {
         let inner = self.create_bind_group_layout(&gpu::BindGroupLayoutDescriptor {
           label: None,
-          entries: layouts,
+          entries: &raw_layouts,
         });
         GPUBindGroupLayout {
           inner: Arc::new(inner),
           cache_id: key,
+          layouts,
         }
       })
       .clone()

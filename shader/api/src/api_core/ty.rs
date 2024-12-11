@@ -132,7 +132,7 @@ pub enum ShaderAtomicValueType {
   U32,
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum ShaderValueType {
   Single(ShaderValueSingleType),
   BindingArray {
@@ -161,7 +161,7 @@ impl ShaderValueType {
   }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum ShaderValueSingleType {
   Sized(ShaderSizedValueType),
   Unsized(ShaderUnSizedValueType),

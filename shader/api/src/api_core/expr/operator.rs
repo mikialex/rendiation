@@ -473,8 +473,8 @@ where
   }
 }
 
-/// enable this when mysterious device lost happen.
-/// attempt to quick check if the lost is due to the out of bound access
+/// enable this when mysterious device lost happens randomly.
+/// check if the crash is due to the out of bound access by crashing the device deterministically
 const ENABLE_STORAGE_BUFFER_BOUND_CHECK: bool = false;
 
 macro_rules! index_access_slice_like {

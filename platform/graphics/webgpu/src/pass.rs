@@ -149,6 +149,16 @@ pub struct GPURenderPass {
   pub(crate) formats: RenderTargetFormatsInfo,
 }
 
+impl AbstractPassBinding for GPURenderPass {
+  fn set_bind_group_placeholder(&mut self, index: u32) {
+    self.pass.set_bind_group(index, &self.placeholder_bg, &[]);
+  }
+
+  fn set_bind_group(&mut self, index: u32, bind_group: &BindGroup, offsets: &[DynamicOffset]) {
+    self.pass.set_bind_group(index, bind_group, offsets);
+  }
+}
+
 impl Deref for GPURenderPass {
   type Target = gpu::RenderPass<'static>;
 
@@ -174,10 +184,6 @@ impl GPURenderPass {
 
   pub fn set_gpu_pipeline(&mut self, pipeline: &GPURenderPipeline) {
     self.pass.set_pipeline(&pipeline.inner.as_ref().pipeline)
-  }
-
-  pub fn set_bind_group_placeholder(&mut self, index: u32) {
-    self.pass.set_bind_group(index, &self.placeholder_bg, &[]);
   }
 
   pub fn set_vertex_buffer_by_buffer_resource_view(
@@ -305,6 +311,16 @@ pub struct GPUComputePass {
   pub(crate) placeholder_bg: Arc<gpu::BindGroup>,
 }
 
+impl AbstractPassBinding for GPUComputePass {
+  fn set_bind_group_placeholder(&mut self, index: u32) {
+    self.pass.set_bind_group(index, &self.placeholder_bg, &[]);
+  }
+
+  fn set_bind_group(&mut self, index: u32, bind_group: &BindGroup, offsets: &[DynamicOffset]) {
+    self.pass.set_bind_group(index, bind_group, offsets);
+  }
+}
+
 impl Deref for GPUComputePass {
   type Target = gpu::ComputePass<'static>;
 
@@ -322,10 +338,6 @@ impl DerefMut for GPUComputePass {
 impl GPUComputePass {
   pub fn set_gpu_pipeline(&mut self, pipeline: &GPUComputePipeline) {
     self.pass.set_pipeline(&pipeline.inner.as_ref().pipeline)
-  }
-
-  pub fn set_bind_group_placeholder(&mut self, index: u32) {
-    self.pass.set_bind_group(index, &self.placeholder_bg, &[]);
   }
 
   pub fn dispatch_workgroups_indirect_by_buffer_resource_view(

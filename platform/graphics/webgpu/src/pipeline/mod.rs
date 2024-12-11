@@ -168,19 +168,6 @@ pub fn map_shader_value_ty_to_binding_layout_type(
   }
 }
 
-pub fn create_bindgroup_layout_by_node_ty<'a>(
-  device: &GPUDevice,
-  iter: impl Iterator<Item = &'a ShaderBindingDescriptor>,
-  is_compute: bool,
-) -> GPUBindGroupLayout {
-  let entries: Vec<_> = iter
-    .enumerate()
-    .map(|(i, ty)| map_shader_value_ty_to_binding_layout_type(ty, i, is_compute))
-    .collect();
-
-  device.create_and_cache_bindgroup_layout(entries.as_ref())
-}
-
 impl GPUDevice {
   pub fn build_pipeline_by_shader_api(
     &self,
@@ -287,7 +274,7 @@ fn create_layouts(
     .unwrap()
     .iter()
     .map(|b| {
-      create_bindgroup_layout_by_node_ty(device, b.bindings.iter().map(|e| &e.desc), is_compute)
+      device.create_and_cache_bindgroup_layout(b.bindings.iter().map(|e| &e.desc), is_compute)
     })
     .collect();
 

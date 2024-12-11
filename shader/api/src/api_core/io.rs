@@ -72,7 +72,7 @@ pub trait ShaderBindingProvider {
   }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct ShaderBindingDescriptor {
   pub should_as_storage_buffer_if_is_buffer_like: bool,
   pub ty: ShaderValueType,
