@@ -1,8 +1,8 @@
 # Mesh Simplification
 
-This implementation is roughly based on the https://github.com/zeux/meshoptimizer v 0.19, with the reference rust port of https://github.com/yzsolt/meshopt-rs.
+This implementation is roughly based on the <https://github.com/zeux/meshoptimizer> v 0.19, with the reference rust port of <https://github.com/yzsolt/meshopt-rs>.
 
-My original algorithm reading notes is here: https://mikialex.github.io/2020/04/04/mesh-simplification/
+My original algorithm reading notes is here: <https://mikialex.github.io/2020/04/04/mesh-simplification/>
 
 ## Bin Examples
 
