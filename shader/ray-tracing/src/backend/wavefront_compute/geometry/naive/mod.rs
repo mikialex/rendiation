@@ -74,6 +74,8 @@ struct GeometryMetaInfo {
 struct NaiveSahBvhSource {
   blas_data: Vec<Option<Vec<BottomLevelAccelerationStructureBuildSource>>>,
   tlas_data: Vec<Option<Vec<TopLevelAccelerationStructureSourceInstance>>>,
+  blas_free_list: Vec<usize>,
+  tlas_free_list: Vec<usize>,
 }
 
 struct BuiltBlas {
@@ -96,26 +98,54 @@ struct BuiltBlas {
 
 impl NaiveSahBvhSource {
   pub fn create_blas(&mut self, source: &[BottomLevelAccelerationStructureBuildSource]) -> u32 {
-    // todo freelist
-    let index = self.blas_data.len();
-    self.blas_data.push(Some(source.to_vec()));
+    let index = if let Some(index) = self.blas_free_list.pop() {
+      assert!(self.blas_data[index].is_none());
+      self.blas_data[index] = Some(source.to_vec());
+      // println!("create blas reuse {index}");
+      index
+    } else {
+      let index = self.blas_data.len();
+      self.blas_data.push(Some(source.to_vec()));
+      // println!("create blas new {index}");
+      index
+    };
     index as u32
   }
   pub fn create_tlas(&mut self, source: &[TopLevelAccelerationStructureSourceInstance]) -> u32 {
-    // todo freelist
-    let start_index = self.tlas_data.len();
-    self.tlas_data.push(Some(source.to_vec()));
-    start_index as u32
+    let index = if let Some(index) = self.tlas_free_list.pop() {
+      assert!(self.tlas_data[index].is_none());
+      self.tlas_data[index] = Some(source.to_vec());
+      // println!("create tlas reuse {index}");
+      index
+    } else {
+      let index = self.tlas_data.len();
+      self.tlas_data.push(Some(source.to_vec()));
+      // println!("create tlas new {index}");
+      index
+    };
+    index as u32
   }
   pub fn delete_blas(&mut self, handle: BlasHandle) {
-    // todo freelist
-    let idx = handle.0;
-    self.blas_data[idx as usize] = None;
+    let index = handle.0 as usize;
+    if index == self.blas_data.len() - 1 {
+      self.blas_data.pop();
+      // println!("delete blas {index} shrink");
+    } else {
+      self.blas_data[index] = None;
+      self.blas_free_list.push(index);
+      // println!("delete blas {index} set none");
+    }
   }
   pub fn delete_tlas(&mut self, handle: TlasHandle) {
-    // todo freelist
-    let idx = handle.0;
-    self.tlas_data[idx as usize] = None;
+    let index = handle.0 as usize;
+    if index == self.tlas_data.len() - 1 {
+      self.tlas_data.pop();
+      // println!("delete tlas {index} shrink");
+    } else {
+      self.tlas_data[index] = None;
+      self.tlas_free_list.push(index);
+      // println!("delete tlas {index} set none");
+    }
   }
 
   // todo incremental change
