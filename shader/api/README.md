@@ -21,4 +21,5 @@ The only correct approach is that the shader should be a programmable data struc
 
 - same development experience as the host language
 - using host language type system to type-checking shader code
+  - and also type-checking resource binding
 - build sophisticated abstractions in shader using host language feature

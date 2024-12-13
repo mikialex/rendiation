@@ -114,7 +114,8 @@ impl RayTracingEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
     let mut encoder = self.gpu.create_encoder();
     let mut cx = DeviceParallelComputeCtx::new(&self.gpu, &mut encoder);
 
-    let required_size = (size.0 * size.1 * size.2) as usize;
+    let tile_size = 256;
+    let required_size = (tile_size * tile_size) as usize;
 
     let (executor, task_source) = executor.get_or_compile_task_executor_and_task_source(
       &mut cx,
@@ -137,20 +138,23 @@ impl RayTracingEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
       &self.gpu.queue,
     );
 
-    {
-      let graph_executor = &mut executor.graph_executor;
+    let (x, y, z) = size;
+    assert_eq!(z, 1); // todo, support z;
 
-      graph_executor.dispatch_allocate_init_task(
+    let graph_executor = &mut executor.graph_executor;
+    for TiledUnit { offset, size } in tiling_iter((x, y), tile_size) {
+      graph_executor.dispatch_allocate_init_task::<Vec3<u32>>(
         &mut cx,
         required_size as u32,
         executor.resource.info.ray_gen_task_idx,
-        // ray-gen payload is linear id. see TracingCtxProviderFutureInvocation.
-        |global_id| global_id,
+        move |global_id| {
+          let x = global_id % val(size.0);
+          let y = global_id / val(size.0);
+          (x + val(offset.0), y + val(offset.1), val(0)).into()
+        },
       );
-    }
 
-    executor
-      .graph_executor
-      .execute(&mut cx, source.execution_round_hint as usize, &task_source);
+      graph_executor.execute(&mut cx, source.execution_round_hint as usize, &task_source);
+    }
   }
 }
