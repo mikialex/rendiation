@@ -53,23 +53,11 @@ impl Debug for TaskExecutionDebugInfo {
 #[derive(Default)]
 pub struct DeviceTaskGraphBuildSource {
   tasks: Vec<TaskGroupBuildSource>,
-  pub max_recursion_depth: usize,
   pub capacity: usize,
 }
 
 impl DeviceTaskGraphBuildSource {
-  // todo, impl more conservative upper execute bound
-  pub fn compute_conservative_dispatch_round_count(&self) -> usize {
-    let max_required_poll_count = self
-      .tasks
-      .iter()
-      .map(|v| v.task.required_poll_count())
-      .max()
-      .unwrap_or(1);
-    self.max_recursion_depth * max_required_poll_count + 1
-  }
-
-  pub fn define_task<P, F>(&mut self, future: F) -> u32
+  pub fn define_task<P, F>(&mut self, future: F, max_in_flight: usize) -> u32
   where
     F: ShaderFuture<Output = ()> + 'static,
     P: ShaderSizedValueNodeType,
@@ -77,6 +65,7 @@ impl DeviceTaskGraphBuildSource {
     self.define_task_dyn(
       Box::new(OpaqueTaskWrapper(future)) as OpaqueTask,
       P::sized_ty(),
+      max_in_flight,
     )
   }
   pub fn next_task_idx(&self) -> u32 {
@@ -84,20 +73,25 @@ impl DeviceTaskGraphBuildSource {
   }
 
   #[inline(never)]
-  pub fn define_task_dyn(&mut self, task: OpaqueTask, payload_ty: ShaderSizedValueType) -> u32 {
+  pub fn define_task_dyn(
+    &mut self,
+    task: OpaqueTask,
+    payload_ty: ShaderSizedValueType,
+    max_in_flight: usize,
+  ) -> u32 {
     let task_type = self.tasks.len();
 
     self.tasks.push(TaskGroupBuildSource {
       payload_ty,
       self_task_idx: task_type,
       task,
+      max_in_flight,
     });
 
     task_type as u32
   }
 
   pub fn build(&self, cx: &mut DeviceParallelComputeCtx) -> DeviceTaskGraphExecutor {
-    let init_size = self.max_recursion_depth * self.capacity;
     let mut task_group_shared_info = Vec::new();
     for _ in 0..self.tasks.len() {
       task_group_shared_info.push((Default::default(), Default::default()));
@@ -110,6 +104,7 @@ impl DeviceTaskGraphBuildSource {
       let pre_build =
         TaskGroupExecutor::pre_build(task_build_source, i, &mut task_group_shared_info);
 
+      let init_size = task_build_source.max_in_flight * self.capacity;
       let resource = TaskGroupExecutorResource::create_with_size(
         init_size,
         pre_build.state_to_resolve.meta_info(),
@@ -141,7 +136,6 @@ impl DeviceTaskGraphBuildSource {
 
     DeviceTaskGraphExecutor {
       task_groups: task_group_executors,
-      max_recursion_depth: self.max_recursion_depth,
       current_prepared_execution_size: self.capacity,
     }
   }
@@ -149,7 +143,6 @@ impl DeviceTaskGraphBuildSource {
 
 pub struct DeviceTaskGraphExecutor {
   task_groups: Vec<TaskGroupExecutor>,
-  max_recursion_depth: usize,
   current_prepared_execution_size: usize,
 }
 
@@ -274,13 +267,16 @@ impl DeviceTaskGraphExecutor {
     let wake_counts = wake_task_counts.await.unwrap();
     let empty_counts = empty_task_counts.await.unwrap();
 
-    // minus one is for the default task
-    let full_size = self.max_recursion_depth * self.current_prepared_execution_size * 2 - 1;
-
     let sleep_or_finished_counts = empty_counts
       .iter()
       .zip(wake_counts.iter())
-      .map(|(empty, &wake)| (full_size - *empty as usize - wake as usize) as u32)
+      .zip(self.task_groups.iter())
+      .map(|((empty, &wake), info)| {
+        // minus one is for the default task
+        let full_size = info.max_in_flight * self.current_prepared_execution_size - 1;
+
+        (full_size - *empty as usize - wake as usize) as u32
+      })
       .collect();
 
     TaskGraphExecutionStates {

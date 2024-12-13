@@ -9,6 +9,7 @@ pub type OpaqueTask = Box<
 
 pub struct TaskGroupExecutor {
   pub state_desc: DynamicTypeMetaInfo,
+  pub max_in_flight: usize,
 
   pub all_spawners_binding_order: Vec<usize>,
   pub polling_pipeline: GPUComputePipeline,
@@ -21,6 +22,7 @@ pub struct TaskGroupBuildSource {
   pub payload_ty: ShaderSizedValueType,
   pub self_task_idx: usize,
   pub task: OpaqueTask,
+  pub max_in_flight: usize,
 }
 
 pub(super) struct TaskGroupPreBuild {
@@ -159,6 +161,7 @@ impl TaskGroupExecutor {
 
     TaskGroupExecutor {
       polling_pipeline,
+      max_in_flight: task_build_source.max_in_flight,
       resource,
       state_desc: pre_build.state_to_resolve.meta_info(),
       all_spawners_binding_order,
@@ -289,11 +292,11 @@ impl TaskGroupExecutorResource {
     let device = &cx.gpu.device;
     // to support self spawning, some buffer's size is doubled for max extra allocation space
     let res = Self {
-      active_task_idx: DeviceBumpAllocationInstance::new(size * 2, device),
+      active_task_idx: DeviceBumpAllocationInstance::new(size, device),
       new_removed_task_idx: DeviceBumpAllocationInstance::new(size, device),
-      empty_index_pool: DeviceBumpAllocationInstance::new(size * 2, device),
+      empty_index_pool: DeviceBumpAllocationInstance::new(size, device),
       // add one is for the first default task
-      task_pool: TaskPool::create_with_size(size * 2 + 1, state_desc, payload_ty.clone(), device),
+      task_pool: TaskPool::create_with_size(size, state_desc, payload_ty.clone(), device),
       size,
     };
 
@@ -339,11 +342,7 @@ impl TaskGroupExecutorResource {
 
       builder.setup_compute_pass(pass, device, &pipeline);
 
-      pass.dispatch_workgroups(
-        compute_dispatch_size((size * 2) as u32, workgroup_size),
-        1,
-        1,
-      );
+      pass.dispatch_workgroups(compute_dispatch_size(size as u32, workgroup_size), 1, 1);
     });
 
     res

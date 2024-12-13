@@ -194,7 +194,7 @@ impl SceneRayTracingAORenderer {
     camera: EntityHandle<SceneCameraEntity>,
   ) -> GPU2DTextureView {
     let scene_tlas = self.scene_tlas.access(&scene).unwrap().clone();
-    let render_size = clamp_size_by_area(frame.frame_size(), 64 * 64);
+    let render_size = clamp_size_by_area(frame.frame_size(), 256 * 256);
 
     let mut ao_state = self.ao_state.write();
     let ao_state = ao_state.deref_mut();
@@ -330,10 +330,11 @@ impl SceneRayTracingAORenderer {
       .create_closest_hit_shader_base::<RayGenTracePayload>()
       .map(|_, ctx| ctx.expect_payload().store(val(0.0_f32)));
 
+    source.max_in_flight_trace_ray(2);
     let handles = AOShaderHandles {
       ray_gen: source.register_ray_gen::<u32>(ray_gen_shader),
-      closest_hit: source.register_ray_closest_hit::<RayGenTracePayload>(ao_closest),
-      second_closest: source.register_ray_closest_hit::<RayGenTracePayload>(second_closest),
+      closest_hit: source.register_ray_closest_hit::<RayGenTracePayload>(ao_closest, 1),
+      second_closest: source.register_ray_closest_hit::<RayGenTracePayload>(second_closest, 1),
       any_hit: source.register_ray_any_hit(|_any_ctx| {
         val(ANYHIT_BEHAVIOR_ACCEPT_HIT & ANYHIT_BEHAVIOR_END_SEARCH)
       }),
@@ -343,10 +344,10 @@ impl SceneRayTracingAORenderer {
           .map(|_, cx| {
             cx.payload().unwrap().store(val(1.0_f32));
           }),
+        1,
       ),
     };
     assert_eq!(handles, self.shader_handles);
-    source.set_max_recursion_depth(4);
     source.set_execution_round_hint(8);
 
     let mut rtx_encoder = self.rtx_system.create_raytracing_encoder();
