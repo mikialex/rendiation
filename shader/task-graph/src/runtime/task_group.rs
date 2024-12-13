@@ -290,13 +290,12 @@ impl TaskGroupExecutorResource {
     cx: &mut DeviceParallelComputeCtx,
   ) -> Self {
     let device = &cx.gpu.device;
-    // to support self spawning, some buffer's size is doubled for max extra allocation space
     let res = Self {
       active_task_idx: DeviceBumpAllocationInstance::new(size, device),
       new_removed_task_idx: DeviceBumpAllocationInstance::new(size, device),
       empty_index_pool: DeviceBumpAllocationInstance::new(size, device),
       // add one is for the first default task
-      task_pool: TaskPool::create_with_size(size, state_desc, payload_ty.clone(), device),
+      task_pool: TaskPool::create_with_size(size + 1, state_desc, payload_ty.clone(), device),
       size,
     };
 
@@ -314,7 +313,7 @@ impl TaskGroupExecutorResource {
         let id = builder.global_invocation_id().x();
 
         if_by(id.equals(0), || {
-          empty_pool_size.store(empty_pool.array_length() - val(1));
+          empty_pool_size.store(empty_pool.array_length());
           task_pool.spawn_new_task_dyn(
             val(0),
             ShaderNodeExpr::Zeroed {
@@ -324,11 +323,10 @@ impl TaskGroupExecutorResource {
             TaskParentRef::none_parent(),
             &payload_ty,
           );
-        })
-        .else_by(|| {
-          if_by(id.less_than(empty_pool.array_length()), || {
-            empty_pool.index(id - val(1)).store(id);
-          });
+        });
+
+        if_by(id.less_than(empty_pool.array_length()), || {
+          empty_pool.index(id).store(id + val(1));
         });
 
         builder

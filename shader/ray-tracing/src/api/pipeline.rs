@@ -28,12 +28,15 @@ impl GPURaytracingPipelineAndBindingSource {
     // note, the payload should have already been hashed in trace operator
     for s in &self.ray_gen {
       s.logic.hash_pipeline_with_type_info(&mut hasher);
+      s.max_in_flight.hash(&mut hasher);
     }
     for s in &self.miss_hit {
       s.logic.hash_pipeline_with_type_info(&mut hasher);
+      s.max_in_flight.hash(&mut hasher);
     }
     for s in &self.closest_hit {
       s.logic.hash_pipeline_with_type_info(&mut hasher);
+      s.max_in_flight.hash(&mut hasher);
     }
     self.max_in_flight_trace_ray.hash(&mut hasher);
     size.hash(&mut hasher);

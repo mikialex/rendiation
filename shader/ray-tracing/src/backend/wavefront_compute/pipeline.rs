@@ -119,7 +119,7 @@ fn create_task_graph<'a>(
     // written in trace_ray. see RayLaunchSizeBuffer
     let launch_size_buffer = StorageBufferReadOnlyDataView::create(device, &vec3(0, 0, 0));
 
-    let payload_u32_len = size as usize * 2 * (info.payload_max_u32_count as usize);
+    let payload_u32_len = size as usize * (info.payload_max_u32_count as usize);
     let payload_bumper = DeviceBumpAllocationInstance::new(payload_u32_len, device);
 
     let payload_read_back_bumper = DeviceBumpAllocationInstance::new(payload_u32_len, device);

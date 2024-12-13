@@ -272,8 +272,7 @@ impl DeviceTaskGraphExecutor {
       .zip(wake_counts.iter())
       .zip(self.task_groups.iter())
       .map(|((empty, &wake), info)| {
-        // minus one is for the default task
-        let full_size = info.max_in_flight * self.current_prepared_execution_size - 1;
+        let full_size = info.max_in_flight * self.current_prepared_execution_size;
 
         (full_size - *empty as usize - wake as usize) as u32
       })
