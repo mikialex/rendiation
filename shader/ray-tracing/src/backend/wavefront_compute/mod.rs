@@ -145,7 +145,7 @@ impl RayTracingEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
     for TiledUnit { offset, size } in tiling_iter((x, y), tile_size) {
       graph_executor.dispatch_allocate_init_task::<Vec3<u32>>(
         &mut cx,
-        required_size as u32,
+        (size.0 * size.1) as u32,
         executor.resource.info.ray_gen_task_idx,
         move |global_id| {
           let x = global_id % val(size.0);
@@ -157,4 +157,27 @@ impl RayTracingEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
       graph_executor.execute(&mut cx, source.execution_round_hint as usize, &task_source);
     }
   }
+}
+
+pub fn tiling_iter(full_size: (u32, u32), tile_size: u32) -> impl Iterator<Item = TiledUnit> {
+  let x_repeat = full_size.0 / tile_size + 1;
+  let y_repeat = full_size.1 / tile_size + 1;
+
+  (0..x_repeat)
+    .flat_map(move |x| (0..y_repeat).map(move |y| (x, y)))
+    .map(move |(x, y)| {
+      let offset = (x * tile_size, y * tile_size);
+      let x_left = full_size.0 - offset.0;
+      let y_left = full_size.1 - offset.1;
+
+      TiledUnit {
+        offset,
+        size: (tile_size.min(x_left), tile_size.min(y_left)),
+      }
+    })
+}
+
+pub struct TiledUnit {
+  pub offset: (u32, u32),
+  pub size: (u32, u32), // size may smaller than tile_size
 }
