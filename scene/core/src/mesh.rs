@@ -146,8 +146,15 @@ pub fn attribute_mesh_local_bounding(
       move |_, ((position, position_range), (idx, idx_range))| {
         let index = buffer_access.get(idx).unwrap();
         let index = get_ranged_buffer(index, idx_range);
-        let index: &[u32] = cast_slice(index); // todo u16 index
-                                               //
+
+        let index = if index.len() % 4 != 0 {
+          let index: &[u16] = cast_slice(index);
+          DynIndexRef::Uint16(index)
+        } else {
+          let index: &[u32] = cast_slice(index);
+          DynIndexRef::Uint32(index)
+        };
+
         let position = buffer_access.get(position.unwrap()).unwrap();
         let position = get_ranged_buffer(position, position_range);
         let position: &[Vec3<f32>] = cast_slice(position);

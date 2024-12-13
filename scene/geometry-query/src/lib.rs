@@ -1,3 +1,4 @@
+use bytemuck::cast_slice;
 use database::*;
 use reactive::*;
 use rendiation_algebra::*;
@@ -76,18 +77,6 @@ impl SceneModelPicker for SceneModelPickerImpl {
       }
     }
 
-    struct IndexBuffer<'a> {
-      buffer: &'a [u32],
-    }
-
-    impl<'a> IndexGet for IndexBuffer<'a> {
-      type Output = usize;
-
-      fn index_get(&self, key: usize) -> Option<Self::Output> {
-        self.buffer.get(key).map(|v| *v as usize)
-      }
-    }
-
     let model = self.model_access_std_model.get(idx)?;
     let mesh = self.std_model_access_mesh.get(model)?;
     let mesh_local_bounding = self.mesh_bounding.access(&mesh)?;
@@ -116,9 +105,15 @@ impl SceneModelPicker for SceneModelPickerImpl {
 
     let index = self.mesh_index_attribute.get(mesh).and_then(|v| {
       let buffer = self.buffer.get(v)?;
-      count = buffer.len() / 4; // todo u16 index support
-      IndexBuffer {
-        buffer: bytemuck::cast_slice(buffer.as_slice()),
+
+      if buffer.len() % 4 != 0 {
+        let index: &[u16] = cast_slice(buffer);
+        count = buffer.len() / 2;
+        DynIndexRef::Uint16(index)
+      } else {
+        let index: &[u32] = cast_slice(buffer);
+        count = buffer.len() / 4;
+        DynIndexRef::Uint32(index)
       }
       .into()
     });
