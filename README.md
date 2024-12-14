@@ -75,7 +75,7 @@ By leveraging these crates, users can build, assemble and customize their own fe
   - io: file io supports for scene
   - rendering
     - gpu-base: shareable scene rendering abstraction and implementations for scene
-    - gpu-gles: a gles style(compatible mode) rendering implementation for scene
+    - gpu-gles: a "GLES300" style(mostly used in compatible mode) rendering implementation for scene
     - gpu-indirect: an indirect style(gpu driven mode) rendering implementation for scene
     - gpu-ray-tracing: an experimental offline gpu raytracing rendering implementation for scene
 - extension: extra implementations that leverage and extent the above abilities in specific domain
@@ -93,6 +93,6 @@ By leveraging these crates, users can build, assemble and customize their own fe
 
 ## Development
 
-Install the default Rust toolchain, and everything should works fine.
+Install the default Rust toolchain, and everything should works fine.RRF uses nightly language features, the Cargo will automatically switch to the correct nightly version.
 
-RRF uses nightly language features, the Cargo will automatically switch to the correct nightly version.
+more details see [development guide](./development-guide.md)

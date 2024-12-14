@@ -2,12 +2,20 @@ use std::ops::Add;
 
 use crate::*;
 
+/// A device monoid abstraction. This trait enables user to inject custom monoid logic for algorithms that require monoid behavior.
+///
+/// https://en.wikipedia.org/wiki/Monoid
+///
+/// a monoid is a set equipped with an associative binary operation and an identity element
 pub trait DeviceMonoidLogic {
   type Data: ShaderSizedValueNodeType;
+  /// implement the identity element here. The identity element must be constant.
   fn identity() -> Node<Self::Data>;
+  /// implement the associative binary operation here
   fn combine(a: Node<Self::Data>, b: Node<Self::Data>) -> Node<Self::Data>;
 }
 
+/// The most common monoid logic: the addition;
 #[derive(Default)]
 pub struct AdditionMonoid<T>(PhantomData<T>);
 
