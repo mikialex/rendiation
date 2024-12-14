@@ -2,9 +2,7 @@ use bytemuck::*;
 
 use crate::*;
 
-/// GLSL's `bool` type.
-///
-/// Boolean values in GLSL are 32 bits, in contrast with Rust's 8 bit bools.
+/// A host shareable(32 bits) `bool` type used in shader code. aka "Big Bool"
 #[derive(Clone, Copy, Eq, PartialEq, Zeroable, Pod, Default, Hash)]
 #[repr(transparent)]
 pub struct Bool(pub u32);
