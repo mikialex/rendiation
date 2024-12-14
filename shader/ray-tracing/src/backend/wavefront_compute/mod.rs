@@ -45,6 +45,9 @@ impl GPURaytracingSystem for GPUWaveFrontComputeRaytracingSystem {
       gpu: self.gpu.clone(),
       sbt_sys: self.sbt_sys.clone(),
       tlas_sys: self.tlas_sys.clone(),
+      ray_gen_spawner: RangedTaskSpawner {
+        size_offset: create_uniform(Vec4::zero(), &self.gpu.device),
+      },
     })
   }
 
@@ -89,6 +92,8 @@ pub struct GPUWaveFrontComputeRaytracingEncoder {
   gpu: GPU,
   sbt_sys: ShaderBindingTableDeviceInfo,
   tlas_sys: Box<dyn GPUAccelerationStructureSystemProvider>,
+  #[allow(dead_code)]
+  ray_gen_spawner: RangedTaskSpawner,
 }
 
 impl RayTracingEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
@@ -142,20 +147,69 @@ impl RayTracingEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
     assert_eq!(z, 1); // todo, support z;
 
     let graph_executor = &mut executor.graph_executor;
+
     for TiledUnit { offset, size } in tiling_iter((x, y), tile_size) {
+      // todo, queue write buffer seems not take effect even if we submit queue, check if it's a wgpu bug?
+      // self.ray_gen_spawner.size_offset.write_at(
+      //   &self.gpu.queue,
+      //   &Vec4::new(size.0, size.1, offset.0, offset.1),
+      //   0,
+      // );
+      // cx.submit_recorded_work_and_continue();
+
+      let ray_gen_spawner = RangedTaskSpawner {
+        size_offset: create_uniform(
+          Vec4::new(size.0, size.1, offset.0, offset.1),
+          &self.gpu.device,
+        ),
+      };
+
       graph_executor.dispatch_allocate_init_task::<Vec3<u32>>(
         &mut cx,
-        (size.0 * size.1) as u32,
+        size.0 * size.1,
         executor.resource.info.ray_gen_task_idx,
-        move |global_id| {
-          let x = global_id % val(size.0);
-          let y = global_id / val(size.0);
-          (x + val(offset.0), y + val(offset.1), val(0)).into()
-        },
+        &ray_gen_spawner,
       );
 
       graph_executor.execute(&mut cx, source.execution_round_hint as usize, &task_source);
     }
+  }
+}
+
+struct RangedTaskSpawner {
+  size_offset: UniformBufferDataView<Vec4<u32>>,
+}
+impl ShaderHashProvider for RangedTaskSpawner {
+  shader_hash_type_id! {}
+}
+impl TaskSpawner<Vec3<u32>> for RangedTaskSpawner {
+  fn build_invocation(
+    &self,
+    cx: &mut ShaderBindGroupBuilder,
+  ) -> Box<dyn TaskSpawnerInvocation<Vec3<u32>>> {
+    Box::new(RangedTaskSpawnerInvocation {
+      size_offset: cx.bind_by(&self.size_offset),
+    })
+  }
+
+  fn bind(&self, cx: &mut BindingBuilder) {
+    cx.bind(&self.size_offset);
+  }
+}
+struct RangedTaskSpawnerInvocation {
+  size_offset: UniformNode<Vec4<u32>>,
+}
+
+impl TaskSpawnerInvocation<Vec3<u32>> for RangedTaskSpawnerInvocation {
+  fn spawn_task(&self, global_id: Node<u32>, _count: Node<u32>) -> Node<Vec3<u32>> {
+    let size_offset = self.size_offset.load();
+    let width = size_offset.x();
+    let offset = size_offset.zw();
+    let x = global_id % width;
+    let y = global_id / width;
+    // shader_assert(y.less_than(size_offset.y()));
+    // shader_assert(_count.equals(size_offset.x() * size_offset.y()));
+    (x + offset.x(), y + offset.y(), val(0)).into()
   }
 }
 

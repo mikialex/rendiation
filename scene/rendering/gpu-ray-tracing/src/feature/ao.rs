@@ -194,7 +194,7 @@ impl SceneRayTracingAORenderer {
     camera: EntityHandle<SceneCameraEntity>,
   ) -> GPU2DTextureView {
     let scene_tlas = self.scene_tlas.access(&scene).unwrap().clone();
-    let render_size = clamp_size_by_area(frame.frame_size(), 256 * 256);
+    let render_size = clamp_size_by_area(frame.frame_size(), 512 * 512);
 
     let mut ao_state = self.ao_state.write();
     let ao_state = ao_state.deref_mut();
