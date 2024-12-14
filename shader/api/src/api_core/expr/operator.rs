@@ -475,7 +475,7 @@ where
 
 /// enable this when mysterious device lost happens randomly.
 /// check if the crash is due to the out of bound access by crashing the device deterministically
-const ENABLE_STORAGE_BUFFER_BOUND_CHECK: bool = false;
+const ENABLE_STORAGE_BUFFER_BOUND_CHECK: bool = true;
 
 macro_rules! index_access_slice_like {
   ($NodeType: tt) => {

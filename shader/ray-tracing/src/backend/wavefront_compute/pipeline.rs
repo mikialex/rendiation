@@ -162,7 +162,7 @@ fn create_task_graph<'a>(
   for s in &source.ray_gen {
     let task_id = graph.define_task_dyn(
       Box::new(OpaqueTaskWrapper(s.logic.build_device_future(&mut ctx))) as OpaqueTask,
-      s.user_defined_payload_input_ty.clone(),
+      Vec3::<u32>::sized_ty(), // ignore the user defined payload(it's just a placeholder)
       s.max_in_flight.unwrap_or(1) as usize,
     );
     checker.assert_ray_gen_in_bound(task_id as usize);

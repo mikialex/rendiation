@@ -45,6 +45,9 @@ impl GPURaytracingSystem for GPUWaveFrontComputeRaytracingSystem {
       gpu: self.gpu.clone(),
       sbt_sys: self.sbt_sys.clone(),
       tlas_sys: self.tlas_sys.clone(),
+      ray_gen_spawner: RangedTaskSpawner {
+        size_offset: create_uniform(Vec4::zero(), &self.gpu.device),
+      },
     })
   }
 
@@ -89,6 +92,8 @@ pub struct GPUWaveFrontComputeRaytracingEncoder {
   gpu: GPU,
   sbt_sys: ShaderBindingTableDeviceInfo,
   tlas_sys: Box<dyn GPUAccelerationStructureSystemProvider>,
+  #[allow(dead_code)]
+  ray_gen_spawner: RangedTaskSpawner,
 }
 
 impl RayTracingEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
@@ -114,7 +119,8 @@ impl RayTracingEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
     let mut encoder = self.gpu.create_encoder();
     let mut cx = DeviceParallelComputeCtx::new(&self.gpu, &mut encoder);
 
-    let required_size = (size.0 * size.1 * size.2) as usize;
+    let tile_size = 256;
+    let required_size = (tile_size * tile_size) as usize;
 
     let (executor, task_source) = executor.get_or_compile_task_executor_and_task_source(
       &mut cx,
@@ -137,20 +143,108 @@ impl RayTracingEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
       &self.gpu.queue,
     );
 
-    {
-      let graph_executor = &mut executor.graph_executor;
+    let (x, y, z) = size;
+    assert_eq!(z, 1); // todo, support z;
 
-      graph_executor.dispatch_allocate_init_task(
+    let graph_executor = &mut executor.graph_executor;
+
+    for RectRange { offset, size } in rect_split_iter((x, y), tile_size * tile_size) {
+      // todo, queue write buffer seems not take effect even if we submit queue, check if it's a wgpu bug?
+      // self.ray_gen_spawner.size_offset.write_at(
+      //   &self.gpu.queue,
+      //   &Vec4::new(size.0, size.1, offset.0, offset.1),
+      //   0,
+      // );
+      // cx.submit_recorded_work_and_continue();
+
+      let ray_gen_spawner = RangedTaskSpawner {
+        size_offset: create_uniform(
+          Vec4::new(size.0, size.1, offset.0, offset.1),
+          &self.gpu.device,
+        ),
+      };
+
+      graph_executor.dispatch_allocate_init_task::<Vec3<u32>>(
         &mut cx,
-        required_size as u32,
+        size.0 * size.1,
         executor.resource.info.ray_gen_task_idx,
-        // ray-gen payload is linear id. see TracingCtxProviderFutureInvocation.
-        |global_id| global_id,
+        &ray_gen_spawner,
       );
-    }
 
-    executor
-      .graph_executor
-      .execute(&mut cx, source.execution_round_hint as usize, &task_source);
+      graph_executor.execute(&mut cx, source.execution_round_hint as usize, &task_source);
+    }
   }
+}
+
+struct RangedTaskSpawner {
+  size_offset: UniformBufferDataView<Vec4<u32>>,
+}
+impl ShaderHashProvider for RangedTaskSpawner {
+  shader_hash_type_id! {}
+}
+impl TaskSpawner<Vec3<u32>> for RangedTaskSpawner {
+  fn build_invocation(
+    &self,
+    cx: &mut ShaderBindGroupBuilder,
+  ) -> Box<dyn TaskSpawnerInvocation<Vec3<u32>>> {
+    Box::new(RangedTaskSpawnerInvocation {
+      size_offset: cx.bind_by(&self.size_offset),
+    })
+  }
+
+  fn bind(&self, cx: &mut BindingBuilder) {
+    cx.bind(&self.size_offset);
+  }
+}
+struct RangedTaskSpawnerInvocation {
+  size_offset: UniformNode<Vec4<u32>>,
+}
+
+impl TaskSpawnerInvocation<Vec3<u32>> for RangedTaskSpawnerInvocation {
+  fn spawn_task(&self, global_id: Node<u32>, _count: Node<u32>) -> Node<Vec3<u32>> {
+    let size_offset = self.size_offset.load();
+    let width = size_offset.x();
+    let offset = size_offset.zw();
+    let x = global_id % width;
+    let y = global_id / width;
+    // shader_assert(y.less_than(size_offset.y()));
+    // shader_assert(_count.equals(size_offset.x() * size_offset.y()));
+    (x + offset.x(), y + offset.y(), val(0)).into()
+  }
+}
+
+pub fn rect_split_iter(full_size: (u32, u32), max_area: u32) -> impl Iterator<Item = RectRange> {
+  let full_area = full_size.0 * full_size.1;
+  let split_count = full_area / max_area + 1;
+
+  let sub_width = full_size.0 / split_count;
+
+  (0..split_count).map(move |i| RectRange {
+    offset: (sub_width * i, 0),
+    size: (sub_width, full_size.1),
+  })
+}
+
+// we currently not use this because it yield small unnecessary edge tile.
+pub fn tiling_iter(full_size: (u32, u32), tile_size: u32) -> impl Iterator<Item = RectRange> {
+  let x_repeat = full_size.0 / tile_size + 1;
+  let y_repeat = full_size.1 / tile_size + 1;
+
+  (0..x_repeat)
+    .flat_map(move |x| (0..y_repeat).map(move |y| (x, y)))
+    .map(move |(x, y)| {
+      let offset = (x * tile_size, y * tile_size);
+      let x_left = full_size.0 - offset.0;
+      let y_left = full_size.1 - offset.1;
+
+      RectRange {
+        offset,
+        size: (tile_size.min(x_left), tile_size.min(y_left)),
+      }
+    })
+}
+
+pub struct RectRange {
+  pub offset: (u32, u32),
+  pub size: (u32, u32), // size may smaller than tile_size
 }

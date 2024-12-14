@@ -16,8 +16,8 @@ async fn test_simple_map() {
   let work_size = 3;
   let work_size2 = 4;
 
-  graph_exe.dispatch_allocate_init_task(&mut cx, work_size, test_task, |_| val(0_u32));
-  graph_exe.dispatch_allocate_init_task(&mut cx, work_size2, test_task2, |_| val(0_u32));
+  graph_exe.dispatch_allocate_init_task_by_fn(&mut cx, work_size, test_task, |_| val(0_u32));
+  graph_exe.dispatch_allocate_init_task_by_fn(&mut cx, work_size2, test_task2, |_| val(0_u32));
   cx.submit_recorded_work_and_continue();
 
   let info = graph_exe.read_back_execution_states(&mut cx).await;
@@ -99,7 +99,7 @@ async fn test_task_graph_then_task_spawn() {
 
   let mut test_round = async || {
     println!("test round:");
-    graph_exe.dispatch_allocate_init_task(&mut cx, work_size, test_task2, |_| val(0_u32));
+    graph_exe.dispatch_allocate_init_task_by_fn(&mut cx, work_size, test_task2, |_| val(0_u32));
     cx.submit_recorded_work_and_continue();
 
     let debug_info = graph_exe.debug_execution(&mut cx).await;
@@ -172,7 +172,7 @@ async fn test_task_graph_then_task_self_spawn_recursive() {
 
   let work_size = 3;
 
-  graph_exe.dispatch_allocate_init_task(&mut cx, work_size, test_task, |_| val(0_u32));
+  graph_exe.dispatch_allocate_init_task_by_fn(&mut cx, work_size, test_task, |_| val(0_u32));
   cx.submit_recorded_work_and_continue();
 
   let info = graph_exe.read_back_execution_states(&mut cx).await;

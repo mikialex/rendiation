@@ -21,6 +21,7 @@ The only correct approach is that **the shader should be a programmable data str
 
 - same development experience as the host language
 - using host language type system to type-checking shader code
+  - and also type-checking resource binding
 - build sophisticated abstractions in shader using host language feature
 
 Currently, the shader API is the cornerstone of the Rendiation project. Based on the powerful expressiveness of the API, layers of abstractions can be built upon it. For example, the trait you are familiar with in Rust also has a "device" version:

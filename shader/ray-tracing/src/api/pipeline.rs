@@ -72,14 +72,11 @@ impl GPURaytracingPipelineAndBindingSource {
     self
   }
 
-  pub fn register_ray_gen<P: ShaderSizedValueNodeType>(
-    &mut self,
-    ray_logic: impl TraceOperator<()> + 'static,
-  ) -> ShaderHandle {
+  pub fn register_ray_gen(&mut self, ray_logic: impl TraceOperator<()> + 'static) -> ShaderHandle {
     let idx = self.ray_gen.len() as u32;
     let stage = RayTracingShaderStageDefine {
       logic: Box::new(ray_logic),
-      user_defined_payload_input_ty: P::sized_ty(),
+      user_defined_payload_input_ty: u32::sized_ty(), // this type is a placeholder
       max_in_flight: None,
     };
     self.ray_gen.push(stage);

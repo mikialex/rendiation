@@ -132,23 +132,10 @@ impl RayLaunchSizeInvocation {
 
 #[derive(Copy, Clone)]
 pub struct RayLaunchRawInfo {
-  launch_id: Node<Vec3<u32>>,
-  launch_size: Node<Vec3<u32>>,
+  pub launch_id: Node<Vec3<u32>>,
+  pub launch_size: Node<Vec3<u32>>,
 }
-impl RayLaunchRawInfo {
-  pub fn new(linear_id: Node<u32>, launch_size: Node<Vec3<u32>>) -> Self {
-    let x = linear_id % launch_size.x();
-    let linear_id = linear_id / launch_size.x();
-    let y = linear_id % launch_size.y();
-    let linear_id = linear_id / launch_size.y();
-    let z = linear_id % launch_size.z();
 
-    Self {
-      launch_id: (x, y, z).into(),
-      launch_size,
-    }
-  }
-}
 impl RayLaunchInfoProvider for RayLaunchRawInfo {
   fn launch_id(&self) -> Node<Vec3<u32>> {
     self.launch_id

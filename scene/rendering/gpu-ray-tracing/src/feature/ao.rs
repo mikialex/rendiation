@@ -194,7 +194,7 @@ impl SceneRayTracingAORenderer {
     camera: EntityHandle<SceneCameraEntity>,
   ) -> GPU2DTextureView {
     let scene_tlas = self.scene_tlas.access(&scene).unwrap().clone();
-    let render_size = clamp_size_by_area(frame.frame_size(), 256 * 256);
+    let render_size = clamp_size_by_area(frame.frame_size(), 512 * 512);
 
     let mut ao_state = self.ao_state.write();
     let ao_state = ao_state.deref_mut();
@@ -332,7 +332,7 @@ impl SceneRayTracingAORenderer {
 
     source.max_in_flight_trace_ray(2);
     let handles = AOShaderHandles {
-      ray_gen: source.register_ray_gen::<u32>(ray_gen_shader),
+      ray_gen: source.register_ray_gen(ray_gen_shader),
       closest_hit: source.register_ray_closest_hit::<RayGenTracePayload>(ao_closest, 1),
       second_closest: source.register_ray_closest_hit::<RayGenTracePayload>(second_closest, 1),
       any_hit: source.register_ray_any_hit(|_any_ctx| {
@@ -359,9 +359,6 @@ impl SceneRayTracingAORenderer {
       dispatch_size(render_size),
       (*sbt).as_ref(),
     );
-
-    // keep this next line for debug:
-    // self.executor.assert_is_empty(frame.gpu);
 
     ao_state.next_sample(frame.gpu);
     ao_state.ao_buffer.clone()
