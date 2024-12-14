@@ -148,7 +148,7 @@ impl RayTracingEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
 
     let graph_executor = &mut executor.graph_executor;
 
-    for TiledUnit { offset, size } in tiling_iter((x, y), tile_size) {
+    for RectRange { offset, size } in rect_split_iter((x, y), tile_size * tile_size) {
       // todo, queue write buffer seems not take effect even if we submit queue, check if it's a wgpu bug?
       // self.ray_gen_spawner.size_offset.write_at(
       //   &self.gpu.queue,
@@ -213,7 +213,20 @@ impl TaskSpawnerInvocation<Vec3<u32>> for RangedTaskSpawnerInvocation {
   }
 }
 
-pub fn tiling_iter(full_size: (u32, u32), tile_size: u32) -> impl Iterator<Item = TiledUnit> {
+pub fn rect_split_iter(full_size: (u32, u32), max_area: u32) -> impl Iterator<Item = RectRange> {
+  let full_area = full_size.0 * full_size.1;
+  let split_count = full_area / max_area + 1;
+
+  let sub_width = full_size.0 / split_count;
+
+  (0..split_count).map(move |i| RectRange {
+    offset: (sub_width * i, 0),
+    size: (sub_width, full_size.1),
+  })
+}
+
+// we currently not use this because it yield small unnecessary edge tile.
+pub fn tiling_iter(full_size: (u32, u32), tile_size: u32) -> impl Iterator<Item = RectRange> {
   let x_repeat = full_size.0 / tile_size + 1;
   let y_repeat = full_size.1 / tile_size + 1;
 
@@ -224,14 +237,14 @@ pub fn tiling_iter(full_size: (u32, u32), tile_size: u32) -> impl Iterator<Item 
       let x_left = full_size.0 - offset.0;
       let y_left = full_size.1 - offset.1;
 
-      TiledUnit {
+      RectRange {
         offset,
         size: (tile_size.min(x_left), tile_size.min(y_left)),
       }
     })
 }
 
-pub struct TiledUnit {
+pub struct RectRange {
   pub offset: (u32, u32),
   pub size: (u32, u32), // size may smaller than tile_size
 }
