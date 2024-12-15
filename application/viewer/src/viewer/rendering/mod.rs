@@ -4,10 +4,12 @@ mod debug_channels;
 mod frame_logic;
 mod lighting;
 
+mod post;
 use debug_channels::*;
 pub use frame_logic::*;
 use futures::Future;
 pub use lighting::*;
+pub use post::*;
 use reactive::EventSource;
 use rendiation_device_ray_tracing::GPUWaveFrontComputeRaytracingSystem;
 use rendiation_scene_rendering_gpu_ray_tracing::*;

@@ -8,6 +8,16 @@ pub struct ChromaticAberration {
   pub color_offset: Vec3<f32>,
 }
 
+impl Default for ChromaticAberration {
+  fn default() -> Self {
+    Self {
+      normalized_screen_focus_point: Vec2::zero(),
+      color_offset: Vec3::one(),
+      ..Zeroable::zeroed()
+    }
+  }
+}
+
 /// https://github.com/lettier/3d-game-shaders-for-beginners/blob/master/demonstration/shaders/fragment/chromatic-aberration.frag
 #[shader_fn]
 pub fn chromatic_aberration(

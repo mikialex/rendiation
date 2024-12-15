@@ -11,6 +11,19 @@ pub struct VignetteEffect {
   pub color: Vec3<f32>,
 }
 
+impl Default for VignetteEffect {
+  fn default() -> Self {
+    Self {
+      mid_point: 1.0,
+      radius: 100.0,
+      aspect: 1.0,
+      feather: 1.0,
+      color: Vec3::zero(),
+      ..Zeroable::zeroed()
+    }
+  }
+}
+
 /// from filament
 pub fn vignette(
   uv: Node<Vec2<f32>>,

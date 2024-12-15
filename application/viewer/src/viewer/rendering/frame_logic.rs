@@ -12,8 +12,9 @@ pub struct ViewerFrameLogic {
   pub enable_ssao: bool,
   ssao: SSAO,
   _blur: CrossBlurData,
-  ground: UniformBufferDataView<ShaderPlane>,
-  grid: UniformBufferDataView<GridEffect>,
+  ground: UniformBufferCachedDataView<ShaderPlane>,
+  grid: UniformBufferCachedDataView<GridEffect>,
+  post: UniformBufferCachedDataView<PostEffects>,
 }
 
 impl ViewerFrameLogic {
@@ -25,8 +26,9 @@ impl ViewerFrameLogic {
       taa: TAA::new(),
       enable_ssao: true,
       ssao: SSAO::new(gpu),
-      ground: UniformBufferDataView::create(&gpu.device, ShaderPlane::ground_like()),
-      grid: UniformBufferDataView::create_default(&gpu.device),
+      ground: UniformBufferCachedDataView::create(&gpu.device, ShaderPlane::ground_like()),
+      grid: UniformBufferCachedDataView::create_default(&gpu.device),
+      post: UniformBufferCachedDataView::create_default(&gpu.device),
     }
   }
 
@@ -146,8 +148,6 @@ impl ViewerFrameLogic {
       .taa
       .render_aa_content(taa_content, ctx, &self.reproject);
 
-    let mut main_scene_content = copy_frame(taa_result.read(), None);
-
     let mut scene_msaa_widgets = copy_frame(
       widgets_result.read_into(),
       BlendState::PREMULTIPLIED_ALPHA_BLENDING.into(),
@@ -156,7 +156,13 @@ impl ViewerFrameLogic {
     pass("compose-all")
       .with_color(final_target.clone(), load())
       .render_ctx(ctx)
-      .by(&mut main_scene_content)
+      .by(
+        &mut PostProcess {
+          input: taa_result.read(),
+          config: &self.post,
+        }
+        .draw_quad(),
+      )
       .by(&mut highlight_compose)
       .by(&mut scene_msaa_widgets);
   }
