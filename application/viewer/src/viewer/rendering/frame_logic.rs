@@ -12,8 +12,9 @@ pub struct ViewerFrameLogic {
   pub enable_ssao: bool,
   ssao: SSAO,
   _blur: CrossBlurData,
-  ground: UniformBufferDataView<ShaderPlane>,
-  grid: UniformBufferDataView<GridEffect>,
+  ground: UniformBufferCachedDataView<ShaderPlane>,
+  grid: UniformBufferCachedDataView<GridEffect>,
+  post: UniformBufferCachedDataView<PostEffects>,
 }
 
 impl ViewerFrameLogic {
@@ -25,13 +26,44 @@ impl ViewerFrameLogic {
       taa: TAA::new(),
       enable_ssao: true,
       ssao: SSAO::new(gpu),
-      ground: UniformBufferDataView::create(&gpu.device, ShaderPlane::ground_like()),
-      grid: UniformBufferDataView::create_default(&gpu.device),
+      ground: UniformBufferCachedDataView::create(&gpu.device, ShaderPlane::ground_like()),
+      grid: UniformBufferCachedDataView::create_default(&gpu.device),
+      post: UniformBufferCachedDataView::create_default(&gpu.device),
     }
   }
 
   pub fn egui(&mut self, ui: &mut egui::Ui) {
     ui.checkbox(&mut self.enable_ssao, "enable ssao");
+
+    ui.collapsing("vignette", |ui| {
+      self.post.mutate(|post| {
+        let mut enabled: bool = post.enable_vignette.into();
+        ui.checkbox(&mut enabled, "enabled");
+        post.enable_vignette = enabled.into();
+
+        ui.add(
+          egui::Slider::new(&mut post.vignette.radius, 0.0..=1.0)
+            .step_by(0.05)
+            .text("radius"),
+        );
+        ui.add(
+          egui::Slider::new(&mut post.vignette.feather, 0.0..=1.0)
+            .step_by(0.05)
+            .text("feather"),
+        );
+        ui.add(
+          egui::Slider::new(&mut post.vignette.mid_point, 0.0..=1.0)
+            .step_by(0.05)
+            .text("mid_point"),
+        );
+      });
+    });
+
+    self.post.mutate(|post| {
+      let mut enabled: bool = post.enable_chromatic_aberration.into();
+      ui.checkbox(&mut enabled, "enable_chromatic_aberration");
+      post.enable_chromatic_aberration = enabled.into();
+    });
   }
 
   pub fn render(
@@ -46,6 +78,8 @@ impl ViewerFrameLogic {
     self
       .reproject
       .update(ctx, current_camera_view_projection_inv);
+
+    self.post.upload_with_diff(&ctx.gpu.queue);
 
     // let mut single_proj_sys = scene
     //   .scene_resources
@@ -146,8 +180,6 @@ impl ViewerFrameLogic {
       .taa
       .render_aa_content(taa_content, ctx, &self.reproject);
 
-    let mut main_scene_content = copy_frame(taa_result.read(), None);
-
     let mut scene_msaa_widgets = copy_frame(
       widgets_result.read_into(),
       BlendState::PREMULTIPLIED_ALPHA_BLENDING.into(),
@@ -156,7 +188,13 @@ impl ViewerFrameLogic {
     pass("compose-all")
       .with_color(final_target.clone(), load())
       .render_ctx(ctx)
-      .by(&mut main_scene_content)
+      .by(
+        &mut PostProcess {
+          input: taa_result.read(),
+          config: &self.post,
+        }
+        .draw_quad(),
+      )
       .by(&mut highlight_compose)
       .by(&mut scene_msaa_widgets);
   }
