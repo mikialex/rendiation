@@ -35,6 +35,7 @@ struct ViewerUIState {
 }
 
 impl Widget for Viewer {
+  #[instrument(name = "viewer update state", skip_all)]
   fn update_state(&mut self, cx: &mut DynCx) {
     let mut derived = self.derives.poll_update();
 
@@ -93,6 +94,7 @@ impl Widget for Viewer {
       });
     });
   }
+  #[instrument(name = "viewer update view", skip_all)]
   fn update_view(&mut self, cx: &mut DynCx) {
     access_cx!(cx, platform, PlatformEventInput);
     let size = platform.window_state.size;

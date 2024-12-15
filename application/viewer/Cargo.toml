@@ -5,54 +5,57 @@ name = "viewer"
 version = "0.1.0"
 
 [dependencies]
-bytemuck = {workspace = true, features = ["derive"]}
+bytemuck = { workspace = true, features = ["derive"] }
 env_logger = "0.8.4"
-futures = {workspace = true, features = ["thread-pool"]}
+futures = { workspace = true, features = ["thread-pool"] }
 
-database = {path = "../../utility/database"}
+database = { path = "../../utility/database" }
 dirs = "4.0.0"
-fast-hash-collection = {path = "../../utility/fast-hash-collection"}
-heap-tools = {path = "../../utility/heap-tools"}
+fast-hash-collection = { path = "../../utility/fast-hash-collection" }
+heap-tools = { path = "../../utility/heap-tools" }
 image = "*"
-log = {workspace = true}
-pin-project = {workspace = true}
+log = { workspace = true }
+pin-project = { workspace = true }
 png = "*"
-pollster = {workspace = true}
-rayon = {workspace = true}
-reactive = {path = "../../utility/reactive"}
-rendiation-algebra = {path = "../../math/algebra"}
-rendiation-controller = {path = "../../extension/controller"}
-rendiation-device-ray-tracing = {path = "../../shader/ray-tracing"}
-rendiation-geometry = {path = "../../math/geometry"}
-rendiation-gizmo = {path = "../../extension/gizmo"}
-rendiation-gui-3d = {path = "../../extension/gui-3d"}
-rendiation-infinity-plane = {path = "../../extension/infinity-plane"}
-rendiation-lighting-gpu-system = {path = "../../content/lighting/gpu-system/lighting-system"}
-rendiation-lighting-transport = {path = "../../content/lighting/transport"}
-rendiation-mesh-core = {path = "../../content/mesh/core"}
-rendiation-mesh-generator = {path = "../../content/mesh/generator"}
-rendiation-scene-core = {path = "../../scene/core"}
-rendiation-scene-geometry-query = {path = "../../scene/geometry-query"}
-rendiation-scene-gltf-exporter = {path = "../../scene/io/gltf/exporter"}
-rendiation-scene-gltf-loader = {path = "../../scene/io/gltf/loader"}
-rendiation-scene-obj-loader = {path = "../../scene/io/obj/loader"}
-rendiation-scene-rendering-gpu-gles = {path = "../../scene/rendering/gpu-gles"}
-rendiation-scene-rendering-gpu-indirect = {path = "../../scene/rendering/gpu-indirect"}
-rendiation-scene-rendering-gpu-ray-tracing = {path = "../../scene/rendering/gpu-ray-tracing"}
-rendiation-shader-api = {path = "../../shader/api"}
-rendiation-texture-core = {path = "../../content/texture/core"}
-rendiation-texture-gpu-base = {path = "../../content/texture/gpu-base"}
-rendiation-texture-gpu-process = {path = "../../content/texture/gpu-process"}
-rendiation-texture-loader = {path = "../../content/texture/loader"}
-rendiation-webgpu = {path = "../../platform/graphics/webgpu"}
+pollster = { workspace = true }
+rayon = { workspace = true }
+reactive = { path = "../../utility/reactive" }
+rendiation-algebra = { path = "../../math/algebra" }
+rendiation-controller = { path = "../../extension/controller" }
+rendiation-device-ray-tracing = { path = "../../shader/ray-tracing" }
+rendiation-geometry = { path = "../../math/geometry" }
+rendiation-gizmo = { path = "../../extension/gizmo" }
+rendiation-gui-3d = { path = "../../extension/gui-3d" }
+rendiation-infinity-plane = { path = "../../extension/infinity-plane" }
+rendiation-lighting-gpu-system = { path = "../../content/lighting/gpu-system/lighting-system" }
+rendiation-lighting-transport = { path = "../../content/lighting/transport" }
+rendiation-mesh-core = { path = "../../content/mesh/core" }
+rendiation-mesh-generator = { path = "../../content/mesh/generator" }
+rendiation-scene-core = { path = "../../scene/core" }
+rendiation-scene-geometry-query = { path = "../../scene/geometry-query" }
+rendiation-scene-gltf-exporter = { path = "../../scene/io/gltf/exporter" }
+rendiation-scene-gltf-loader = { path = "../../scene/io/gltf/loader" }
+rendiation-scene-obj-loader = { path = "../../scene/io/obj/loader" }
+rendiation-scene-rendering-gpu-gles = { path = "../../scene/rendering/gpu-gles" }
+rendiation-scene-rendering-gpu-indirect = { path = "../../scene/rendering/gpu-indirect" }
+rendiation-scene-rendering-gpu-ray-tracing = { path = "../../scene/rendering/gpu-ray-tracing" }
+rendiation-shader-api = { path = "../../shader/api" }
+rendiation-texture-core = { path = "../../content/texture/core" }
+rendiation-texture-gpu-base = { path = "../../content/texture/gpu-base" }
+rendiation-texture-gpu-process = { path = "../../content/texture/gpu-process" }
+rendiation-texture-loader = { path = "../../content/texture/loader" }
+rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
 rfd = "0.14.0"
+tracing = { workspace = true }
+tracing-subscriber = "0.3.19"
+tracing-tracy = "0.11.3"
 
-egui = {git = "https://github.com/emilk/egui.git", rev = "9a1e358a144b5d2af9d03a80257c34883f57cf0b"}
-egui-wgpu = {git = "https://github.com/emilk/egui.git", rev = "9a1e358a144b5d2af9d03a80257c34883f57cf0b"}
-egui-winit = {git = "https://github.com/emilk/egui.git", rev = "9a1e358a144b5d2af9d03a80257c34883f57cf0b"}
-egui_extras = {git = "https://github.com/emilk/egui.git", rev = "9a1e358a144b5d2af9d03a80257c34883f57cf0b"}
-itertools = {version = "*"}
-winit = {workspace = true}
+egui = { git = "https://github.com/emilk/egui.git", rev = "9a1e358a144b5d2af9d03a80257c34883f57cf0b" }
+egui-wgpu = { git = "https://github.com/emilk/egui.git", rev = "9a1e358a144b5d2af9d03a80257c34883f57cf0b" }
+egui-winit = { git = "https://github.com/emilk/egui.git", rev = "9a1e358a144b5d2af9d03a80257c34883f57cf0b" }
+egui_extras = { git = "https://github.com/emilk/egui.git", rev = "9a1e358a144b5d2af9d03a80257c34883f57cf0b" }
+itertools = { version = "*" }
+winit = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1.6"

@@ -187,6 +187,7 @@ impl AORayType {
 }
 
 impl SceneRayTracingAORenderer {
+  #[instrument(name = "SceneRayTracingAORenderer rendering", skip_all)]
   pub fn render(
     &mut self,
     frame: &mut FrameCtx,

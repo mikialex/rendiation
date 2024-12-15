@@ -66,6 +66,7 @@ impl ViewerFrameLogic {
     });
   }
 
+  #[instrument(name = "ViewerRasterizationFrameLogic rendering", skip_all)]
   pub fn render(
     &mut self,
     ctx: &mut FrameCtx,
@@ -157,6 +158,7 @@ impl ViewerFrameLogic {
           lighting,
         );
 
+        let _span = span!(Level::INFO, "main scene content encode pass");
         pass("scene")
           .with_color(scene_result.write(), color_ops)
           .with_depth(scene_depth.write(), depth_ops)
