@@ -45,7 +45,21 @@ impl DeviceInvocationComponent<Node<bool>> for ActiveTaskCompact {
         let is_valid = is_valid.and(id.x().less_than(inner.1.load()));
 
         let rr = val(false).make_local_var();
-        if_by(is_valid, || rr.store(inner.2.is_task_unfinished_waken(r)));
+
+        if_by(is_valid, || {
+          let task_state = inner.2.rw_task_state(r).load();
+
+          if_by(task_state.equals(TASK_STATUE_FLAG_SLEEPING), || {
+            inner
+              .2
+              .rw_task_state(r)
+              .store(TASK_STATUE_FLAG_NOT_FINISHED_SLEEP);
+          });
+
+          let is_task_unfinished_waken = task_state.equals(TASK_STATUE_FLAG_NOT_FINISHED_WAKEN);
+
+          rr.store(is_task_unfinished_waken)
+        });
         (rr.load(), is_valid)
       }),
       size: Box::new(|inner| (inner.1.load(), val(0), val(0)).into()),
