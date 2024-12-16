@@ -676,6 +676,9 @@ impl HitCtxInfoVar {
     &self,
     tlas_data: ReadOnlyStorageNode<[TopLevelAccelerationStructureSourceDeviceInstance]>,
   ) -> HitCtxInfo {
+    if_by(self.instance_id.load().equals(val(u32::MAX)), || {
+      self.instance_id.store(val(0));
+    });
     let tlas_idx = self.instance_id.load();
     let tlas = tlas_data.index(tlas_idx);
     HitCtxInfo {
