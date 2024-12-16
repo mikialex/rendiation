@@ -177,6 +177,7 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
   fn traverse(
     &self,
     trace_payload: ENode<ShaderRayTraceCallStoragePayload>,
+    user_defined_payloads: StorageNode<[u32]>,
     intersect: &dyn Fn(&RayIntersectCtx, &dyn IntersectionReporter),
     any_hit: &dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
   ) -> ShaderOption<RayClosestHitCtx> {
@@ -223,7 +224,13 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
     let hit_info_var = HitInfoVar::default();
     hit_info_var.hit_distance.store(world_ray.ray_range.max);
 
+    let user_defined_payload = U32BufferLoadStoreSource {
+      array: user_defined_payloads,
+      offset: trace_payload.payload_ref,
+    };
+
     intersect_blas_gpu(
+      user_defined_payload,
       blas_iter,
       self.tlas_data,
       self.tri_bvh_root,
@@ -271,6 +278,7 @@ struct NaiveIntersectReporter<'a> {
   ray_range: RayRange,
   any_hit: &'a dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
   on_end_search: Box<dyn Fn()>,
+  user_defined_payload: U32BufferLoadStoreSource,
 }
 impl<'a> IntersectionReporter for NaiveIntersectReporter<'a> {
   fn report_intersection(
@@ -294,6 +302,7 @@ impl<'a> IntersectionReporter for NaiveIntersectReporter<'a> {
           hit_distance: hit_t,
           hit_attribute,
         },
+        payload: self.user_defined_payload,
       };
       let closest_hit_ctx = self.closest_hit_ctx_info;
       let closest_hit = self.closest_hit_info;
@@ -431,6 +440,7 @@ fn iterate_tlas_blas_gpu(
 }
 
 fn intersect_blas_gpu(
+  user_defined_payload: U32BufferLoadStoreSource,
   blas_iter: impl ShaderIterator<Item = Node<RayBlas>>,
   tlas_data: ReadOnlyStorageNode<[TopLevelAccelerationStructureSourceDeviceInstance]>,
   tri_bvh_root: ReadOnlyStorageNode<[GeometryMetaInfo]>,
@@ -576,6 +586,7 @@ fn intersect_blas_gpu(
                   hit_distance: world_distance,
                   hit_attribute: attribute,
                 },
+                payload: user_defined_payload,
               };
               resolve_any_hit(
                 |_| {
@@ -608,6 +619,7 @@ fn intersect_blas_gpu(
                   ray_range: local_ray_range.clone(),
                   any_hit,
                   on_end_search: Box::new(move || end_search.store(true)),
+                  user_defined_payload,
                 },
               );
             });

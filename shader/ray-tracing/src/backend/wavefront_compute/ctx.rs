@@ -18,6 +18,7 @@ pub struct ShaderRayTraceCallStoragePayload {
   pub launch_size: Vec3<u32>,
   pub launch_id: Vec3<u32>,
   pub payload_ref: u32,
+  pub payload_u32_len: u32,
   pub tlas_idx: u32,
   pub ray_flags: u32,
   pub cull_mask: u32,
