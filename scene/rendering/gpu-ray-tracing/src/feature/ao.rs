@@ -294,7 +294,8 @@ impl SceneRayTracingAORenderer {
           + tri_b_normal * barycentric.y()
           + tri_c_normal * barycentric.z();
         // Transforming the normal to world space
-        let normal = (closest_hit_ctx.object_to_world().shrink_to_3() * normal).normalize();
+        let normal =
+          (closest_hit_ctx.world_to_object().shrink_to_3().transpose() * normal).normalize();
         let hit_normal_tbn = tbn_fn(normal);
 
         let origin = closest_hit_ctx.world_ray().origin

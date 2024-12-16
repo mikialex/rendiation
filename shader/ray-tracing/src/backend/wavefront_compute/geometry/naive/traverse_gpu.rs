@@ -706,8 +706,8 @@ impl HitCtxInfoVar {
       geometry_id: self.geometry_id.load(),
       instance_sbt_offset: self.instance_sbt_offset.load(),
       instance_custom_id: self.instance_custom_id.load(),
-      object_to_world: TopLevelAccelerationStructureSourceDeviceInstance::readonly_storage_node_transform_inv_field_ptr(tlas),
-      world_to_object: TopLevelAccelerationStructureSourceDeviceInstance::readonly_storage_node_transform_field_ptr(
+      object_to_world: TopLevelAccelerationStructureSourceDeviceInstance::readonly_storage_node_transform_field_ptr(tlas),
+      world_to_object: TopLevelAccelerationStructureSourceDeviceInstance::readonly_storage_node_transform_inv_field_ptr(
         tlas,
       ),
       object_space_ray: ShaderRay {
