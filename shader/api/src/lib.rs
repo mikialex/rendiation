@@ -9,6 +9,7 @@ mod graphics;
 mod layout;
 mod re_export;
 mod serialization;
+mod u32_load_store;
 
 use std::sync::Arc;
 use std::{
@@ -32,6 +33,7 @@ pub use re_export::*;
 pub use rendiation_algebra::*;
 pub use rendiation_shader_derives::*;
 pub use serialization::*;
+pub use u32_load_store::*;
 
 pub type DynamicShaderAPI = Box<dyn ShaderAPI<Output = Box<dyn Any>>>;
 

@@ -96,6 +96,20 @@ pub struct RayAnyHitCtx {
   pub world_ray: WorldRayInfo,
   pub hit_ctx: HitCtxInfo,
   pub hit: HitInfo,
+  pub payload: U32BufferLoadStoreSource,
+}
+
+impl RayAnyHitCtx {
+  // todo, optional debug type check if matched on device
+  pub fn payload<T>(&self) -> BoxedShaderLoadStore<Node<T>>
+  where
+    T: ShaderSizedValueNodeType,
+  {
+    Box::new(U32BufferLoadStore {
+      accessor: self.payload,
+      ty: PhantomData,
+    })
+  }
 }
 
 pub struct RayIntersectCtx {
