@@ -127,7 +127,7 @@ impl TaskGroupExecutor {
     if_by(poll_ctx.is_fallback_task().not(), || {
       if_by(poll_result.is_resolved(), || {
         pool
-          .rw_is_finished(task_index)
+          .rw_task_state(task_index)
           .store(TASK_STATUE_FLAG_FINISHED);
 
         let parent_index = pool.rw_parent_task_index(task_index).load();
@@ -150,8 +150,8 @@ impl TaskGroupExecutor {
       })
       .else_by(|| {
         pool
-          .rw_is_finished(task_index)
-          .store(TASK_STATUE_FLAG_NOT_FINISHED_SLEEP);
+          .rw_task_state(task_index)
+          .store(TASK_STATUE_FLAG_SLEEPING);
       });
     });
 
@@ -207,16 +207,6 @@ impl TaskGroupExecutor {
       bb.setup_compute_pass(pass, device, &self.polling_pipeline);
       pass.dispatch_workgroups_indirect_by_buffer_resource_view(&active_execution_size);
     });
-
-    // todo, this must be improved. extra prepare_execution is costly.
-    // this is required because when task poll sleep, if we not do alive task compact, when the
-    // subsequent task wake the parent in this task group, it will create duplicate invocation.
-    //
-    // we can not simply clear the alive list because the task could self spawn new tasks.
-    // maybe one solution is to add anther task state to mark the task is sleeping but still in alive task.
-    // the prepare execution will still compact by this flag(and will reset it), but when child task wake parent,
-    //  if it see this special flag the alive task index spawn will be skipped.
-    self.prepare_execution(cx);
 
     if let Some(f) = self.after_execute.as_ref() {
       f(cx, self)
@@ -404,12 +394,19 @@ impl TaskGroupDeviceInvocationInstance {
   }
 
   pub fn wake_task_dyn(&self, task_id: Node<u32>) {
+    let is_in_active_list = self
+      .task_pool
+      .rw_task_state(task_id)
+      .load()
+      .equals(TASK_STATUE_FLAG_SLEEPING);
     self
       .task_pool
-      .rw_is_finished(task_id)
+      .rw_task_state(task_id)
       .store(TASK_STATUE_FLAG_NOT_FINISHED_WAKEN);
-    let (_, success) = self.active_task_idx.bump_allocate(task_id); // todo, error report
-    shader_assert(success);
+    if_by(is_in_active_list.not(), || {
+      let (_, success) = self.active_task_idx.bump_allocate(task_id); // todo, error report
+      shader_assert(success);
+    });
   }
 
   #[must_use]
@@ -442,7 +439,7 @@ impl TaskGroupDeviceInvocationInstance {
     shader_assert(success);
     self
       .task_pool
-      .rw_is_finished(task)
+      .rw_task_state(task)
       .store(TASK_STATUE_FLAG_TASK_NOT_EXIST);
     // todo consider zeroing the state and payload
   }
