@@ -243,7 +243,7 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
       world_ray_range.clone(),
     );
 
-    let hit_ctx_info = hit_ctx_info_var.load();
+    let hit_ctx_info = hit_ctx_info_var.load(self.tlas_data);
     let hit_info = HitInfo {
       hit_kind: hit_info_var.hit_kind.load(),
       hit_distance: hit_info_var.hit_distance.load(),
@@ -539,16 +539,16 @@ fn intersect_blas_gpu(
                 .load()
                 .not_equals(ray_blas.tlas_idx),
               || {
-                let tlas = tlas_data.index(ray_blas.tlas_idx).load().expand();
+                let ptr = tlas_data.index(ray_blas.tlas_idx);
+                let instance_shader_binding_table_record_offset = TopLevelAccelerationStructureSourceDeviceInstance::readonly_storage_node_instance_shader_binding_table_record_offset_field_ptr(ptr).load();
+                let instance_custom_index = TopLevelAccelerationStructureSourceDeviceInstance::readonly_storage_node_instance_custom_index_field_ptr(ptr).load();
                 hit_ctx_curr.instance_id.store(ray_blas.tlas_idx);
                 hit_ctx_curr
                   .instance_sbt_offset
-                  .store(tlas.instance_shader_binding_table_record_offset);
+                  .store(instance_shader_binding_table_record_offset);
                 hit_ctx_curr
                   .instance_custom_id
-                  .store(tlas.instance_custom_index);
-                hit_ctx_curr.object_to_world.store(tlas.transform_inv);
-                hit_ctx_curr.world_to_object.store(tlas.transform);
+                  .store(instance_custom_index);
               },
             );
 
@@ -557,7 +557,7 @@ fn intersect_blas_gpu(
             hit_ctx_curr.object_space_ray_origin.store(ray.origin);
             hit_ctx_curr.object_space_ray_direction.store(ray.direction);
 
-            let hit_ctx = hit_ctx_curr.load();
+            let hit_ctx = hit_ctx_curr.load(tlas_data);
 
             if_by(is_opaque, || {
               // opaque -> invoke any_hit directly
@@ -655,8 +655,6 @@ struct HitCtxInfoVar {
   pub instance_sbt_offset: LocalVarNode<u32>,
   pub instance_custom_id: LocalVarNode<u32>,
   pub geometry_id: LocalVarNode<u32>,
-  pub object_to_world: LocalVarNode<Mat4<f32>>,
-  pub world_to_object: LocalVarNode<Mat4<f32>>,
   pub object_space_ray_origin: LocalVarNode<Vec3<f32>>,
   pub object_space_ray_direction: LocalVarNode<Vec3<f32>>,
 }
@@ -668,23 +666,28 @@ impl Default for HitCtxInfoVar {
       instance_sbt_offset: val(u32::MAX).make_local_var(),
       instance_custom_id: val(u32::MAX).make_local_var(),
       geometry_id: val(u32::MAX).make_local_var(),
-      object_to_world: mat4_identity_node().make_local_var(),
-      world_to_object: mat4_identity_node().make_local_var(),
       object_space_ray_origin: val(vec3(0., 0., 0.)).make_local_var(),
       object_space_ray_direction: val(vec3(0., 0., 0.)).make_local_var(),
     }
   }
 }
 impl HitCtxInfoVar {
-  fn load(&self) -> HitCtxInfo {
+  fn load(
+    &self,
+    tlas_data: ReadOnlyStorageNode<[TopLevelAccelerationStructureSourceDeviceInstance]>,
+  ) -> HitCtxInfo {
+    let tlas_idx = self.instance_id.load();
+    let tlas = tlas_data.index(tlas_idx);
     HitCtxInfo {
       primitive_id: self.primitive_id.load(),
-      instance_id: self.instance_id.load(),
+      instance_id: tlas_idx,
+      geometry_id: self.geometry_id.load(),
       instance_sbt_offset: self.instance_sbt_offset.load(),
       instance_custom_id: self.instance_custom_id.load(),
-      geometry_id: self.geometry_id.load(),
-      object_to_world: self.object_to_world.load(),
-      world_to_object: self.world_to_object.load(),
+      object_to_world: TopLevelAccelerationStructureSourceDeviceInstance::readonly_storage_node_transform_inv_field_ptr(tlas),
+      world_to_object: TopLevelAccelerationStructureSourceDeviceInstance::readonly_storage_node_transform_field_ptr(
+        tlas,
+      ),
       object_space_ray: ShaderRay {
         origin: self.object_space_ray_origin.load(),
         direction: self.object_space_ray_direction.load(),
@@ -697,8 +700,6 @@ impl HitCtxInfoVar {
     self.instance_sbt_offset.store(source.instance_sbt_offset);
     self.instance_custom_id.store(source.instance_custom_id);
     self.geometry_id.store(source.geometry_id);
-    self.object_to_world.store(source.object_to_world);
-    self.world_to_object.store(source.world_to_object);
     self
       .object_space_ray_origin
       .store(source.object_space_ray.origin);

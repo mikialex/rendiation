@@ -73,8 +73,8 @@ pub fn hit_ctx_storage_from_hit_ctx(hit_ctx: &HitCtxInfo) -> Node<HitCtxStorage>
     instance_sbt_offset: hit_ctx.instance_sbt_offset,
     instance_custom_id: hit_ctx.instance_custom_id,
     geometry_id: hit_ctx.geometry_id,
-    object_to_world: hit_ctx.object_to_world,
-    world_to_object: hit_ctx.world_to_object,
+    object_to_world: hit_ctx.object_to_world.load(),
+    world_to_object: hit_ctx.world_to_object.load(),
     object_space_ray_origin: hit_ctx.object_space_ray.origin,
     object_space_ray_direction: hit_ctx.object_space_ray.direction,
   }
