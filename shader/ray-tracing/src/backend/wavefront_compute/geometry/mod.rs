@@ -3,13 +3,14 @@ pub use naive::*;
 
 use crate::*;
 
-pub trait GPUAccelerationStructureSystemCompImplInstance {
+pub trait GPUAccelerationStructureSystemCompImplInstance: DynClone {
   fn build_shader(
     &self,
     compute_cx: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn GPUAccelerationStructureSystemCompImplInvocationTraversable>;
   fn bind_pass(&self, builder: &mut BindingBuilder);
 }
+clone_trait_object!(GPUAccelerationStructureSystemCompImplInstance);
 
 pub trait GPUAccelerationStructureSystemCompImplInvocationTraversable {
   /// return optional closest hit
@@ -20,6 +21,11 @@ pub trait GPUAccelerationStructureSystemCompImplInvocationTraversable {
     intersect: &dyn Fn(&RayIntersectCtx, &dyn IntersectionReporter),
     any_hit: &dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
   ) -> ShaderOption<RayClosestHitCtx>;
+
+  fn index_tlas(
+    &self,
+    idx: Node<u32>,
+  ) -> ReadOnlyStorageNode<TopLevelAccelerationStructureSourceDeviceInstance>;
 }
 
 #[derive(Clone, Copy)]

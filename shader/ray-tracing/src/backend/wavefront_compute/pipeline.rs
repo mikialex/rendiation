@@ -135,7 +135,7 @@ fn create_task_graph<'a>(
   });
 
   let tracer_task = TraceTaskImpl {
-    tlas_sys,
+    tlas_sys: tlas_sys.clone(),
     sbt_sys,
     shared: trace_resource.clone(),
   };
@@ -148,6 +148,7 @@ fn create_task_graph<'a>(
   ctx.register(RayLaunchSizeBuffer {
     launch_size: trace_resource.launch_size.clone(),
   });
+  ctx.register(tlas_sys);
 
   // create core tracer task as almost every other task depend on this one
   let trace_task_id = graph.define_task_dyn(

@@ -267,6 +267,13 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
       },
     }
   }
+
+  fn index_tlas(
+    &self,
+    idx: Node<u32>,
+  ) -> ReadOnlyStorageNode<TopLevelAccelerationStructureSourceDeviceInstance> {
+    self.tlas_data.index(idx)
+  }
 }
 
 struct NaiveIntersectReporter<'a> {
@@ -757,12 +764,4 @@ impl HitInfoVar {
       },
     );
   }
-}
-
-fn mat4_identity_node() -> Node<Mat4<f32>> {
-  let x = val(vec4(1., 0., 0., 0.));
-  let y = val(vec4(0., 1., 0., 0.));
-  let z = val(vec4(0., 0., 1., 0.));
-  let w = val(vec4(0., 0., 0., 1.));
-  (x, y, z, w).into()
 }
