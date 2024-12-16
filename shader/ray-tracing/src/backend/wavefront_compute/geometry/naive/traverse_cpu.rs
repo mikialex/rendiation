@@ -117,7 +117,7 @@ impl NaiveSahBvhCpu {
               let node = &self.tri_bvh_forest[hit_idx as usize];
 
               for tri_idx in node.content_range.x..node.content_range.y {
-                let tri_idx = self.indices_redirect[tri_idx as usize];
+                let tri_idx = self.indices_redirect[(tri_idx + primitive_start) as usize];
                 let i0 = self.indices[tri_idx as usize * 3];
                 let i1 = self.indices[tri_idx as usize * 3 + 1];
                 let i2 = self.indices[tri_idx as usize * 3 + 2];

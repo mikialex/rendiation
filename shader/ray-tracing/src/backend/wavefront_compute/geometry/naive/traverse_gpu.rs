@@ -500,7 +500,7 @@ fn intersect_blas_gpu(
         }
 
         tri_idx_iter.for_each(move |tri_idx, tri_loop| {
-          let tri_idx = indices_redirect.index(tri_idx).load();
+          let tri_idx = indices_redirect.index(tri_idx + primitive_start).load();
           let [i0, i1, i2] = read_vec3(tri_idx, indices);
           let [v0x, v0y, v0z] = read_vec3(i0, vertices);
           let [v1x, v1y, v1z] = read_vec3(i1, vertices);

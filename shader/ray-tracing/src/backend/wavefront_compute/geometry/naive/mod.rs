@@ -405,7 +405,7 @@ impl NaiveSahBvhSource {
         ..Zeroable::zeroed()
       });
       let nodes = bvh.nodes.iter().zip(hit_miss).map(|(node, (hit, miss))| {
-        flatten_bvh_to_gpu_node(node, hit, miss, bvh_start, primitive_start)
+        flatten_bvh_to_gpu_node(node, hit, miss, bvh_start, 0) // primitive_offset added in traversal
       });
       tri_bvh_forest.extend(nodes);
     }
