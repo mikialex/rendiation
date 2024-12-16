@@ -62,7 +62,6 @@ impl AORenderState {
 struct AOShaderHandles {
   ray_gen: ShaderHandle,
   closest_hit: ShaderHandle,
-  second_closest: ShaderHandle,
   any_hit: ShaderHandle,
   miss: ShaderHandle,
 }
@@ -72,7 +71,6 @@ impl Default for AOShaderHandles {
     Self {
       ray_gen: ShaderHandle(0, RayTracingShaderStage::RayGeneration),
       closest_hit: ShaderHandle(0, RayTracingShaderStage::ClosestHit),
-      second_closest: ShaderHandle(1, RayTracingShaderStage::ClosestHit),
       any_hit: ShaderHandle(0, RayTracingShaderStage::AnyHit),
       miss: ShaderHandle(0, RayTracingShaderStage::Miss),
     }
@@ -107,8 +105,7 @@ impl RenderImplProvider<SceneRayTracingAORenderer> for RayTracingAORenderSystem 
         .create_sbt(1, 2000, GLOBAL_TLAS_MAX_RAY_STRIDE),
     );
     let closest_hit = self.shader_handles.closest_hit;
-    let second_closest = self.shader_handles.second_closest;
-    // let any = self.shader_handles.any_hit;
+    let any = self.shader_handles.any_hit;
     let sbt = MultiUpdateContainer::new(sbt)
       .with_source(ReactiveQuerySbtUpdater {
         ray_ty_idx: AORayType::Primary as u32,
@@ -125,9 +122,8 @@ impl RenderImplProvider<SceneRayTracingAORenderer> for RayTracingAORenderSystem 
         source: global_watch()
           .watch_entity_set_untyped_key::<SceneModelEntity>()
           .collective_map(move |_| HitGroupShaderRecord {
-            closest_hit: Some(second_closest),
-            // any_hit: Some(any), // todo fix
-            any_hit: None,
+            closest_hit: None,
+            any_hit: Some(any),
             intersection: None,
           }),
       });
@@ -327,16 +323,14 @@ impl SceneRayTracingAORenderer {
       })
       .map(|(_, payload), ctx| ctx.expect_payload().store(payload));
 
-    let second_closest = trace_base_builder
-      .create_closest_hit_shader_base::<RayGenTracePayload>()
-      .map(|_, ctx| ctx.expect_payload().store(val(0.0_f32)));
-
     source.max_in_flight_trace_ray(2);
     let handles = AOShaderHandles {
       ray_gen: source.register_ray_gen(ray_gen_shader),
       closest_hit: source.register_ray_closest_hit::<RayGenTracePayload>(ao_closest, 1),
-      second_closest: source.register_ray_closest_hit::<RayGenTracePayload>(second_closest, 1),
-      any_hit: source.register_ray_any_hit(|_any_ctx| {
+      any_hit: source.register_ray_any_hit(|any_ctx| {
+        any_ctx
+          .payload::<RayGenTracePayload>()
+          .abstract_store(val(0.0));
         val(ANYHIT_BEHAVIOR_ACCEPT_HIT & ANYHIT_BEHAVIOR_END_SEARCH)
       }),
       miss: source.register_ray_miss::<RayGenTracePayload>(

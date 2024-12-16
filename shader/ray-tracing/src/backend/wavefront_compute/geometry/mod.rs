@@ -16,6 +16,7 @@ pub trait GPUAccelerationStructureSystemCompImplInvocationTraversable {
   fn traverse(
     &self,
     trace_payload: ENode<ShaderRayTraceCallStoragePayload>,
+    user_defined_payloads: StorageNode<[u32]>,
     intersect: &dyn Fn(&RayIntersectCtx, &dyn IntersectionReporter),
     any_hit: &dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
   ) -> ShaderOption<RayClosestHitCtx>;

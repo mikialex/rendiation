@@ -174,6 +174,7 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
 
         let closest_hit = self.tlas_sys.traverse(
           trace_payload,
+          self.untyped_payloads,
           &|info, reporter| {
             let hit_group = info.hit_ctx.compute_sbt_hit_group(ray_sbt_config);
             let intersection_shader_index =
