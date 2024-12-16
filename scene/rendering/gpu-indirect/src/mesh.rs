@@ -20,10 +20,24 @@ pub fn attribute_indices(
   // todo, put it into registry
   let source = index_buffer_ref
     .collective_union(index_buffer_range, |(a, b)| Some((a?, b?)))
-    .collective_filter_map(|(index, range)| index.map(|i| (i, range)))
+    .collective_zip(global_watch().watch::<SceneBufferViewBufferItemCount<AttributeIndexRef>>())
+    .collective_filter_map(|((index, range), count)| index.map(|i| (i, range, count.unwrap())))
     .collective_execute_map_by(|| {
       let data = global_entity_component_of::<BufferEntityData>().read();
-      move |_, v| (data.get(v.0).unwrap().ptr.clone(), range_convert(v.1))
+      move |_, (buffer_id, range, count)| {
+        let count = count as usize;
+        let buffer = data.get(buffer_id).unwrap().ptr.clone();
+        if buffer.len() / count == 4 {
+          (buffer, range_convert(range))
+        } else if buffer.len() / count == 2 {
+          let buffer = buffer.iter().map(|i| *i as u32).collect::<Vec<_>>();
+          let buffer = bytemuck::cast_slice::<_, u8>(buffer.as_slice());
+          let buffer = Arc::new(buffer.to_vec());
+          (buffer, None)
+        } else {
+          unreachable!("index count must be 2 or 4")
+        }
+      }
     })
     .into_boxed();
 

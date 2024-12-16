@@ -119,17 +119,28 @@ where
   T: ShaderSizedValueNodeType,
   S: DeviceHistogramMappingLogic<Data = T> + 'static,
 {
-  fn materialize_storage_buffer(
+  fn materialize_storage_buffer_into(
     &self,
+    target: StorageBufferDataView<[u32]>,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> DeviceMaterializeResult<u32>
-  where
-    u32: Std430 + ShaderSizedValueNodeType,
-  {
+  ) -> DeviceMaterializeResult<u32> {
     let workgroup_size = self.workgroup_size;
-    custom_write_into_storage_buffer(self, cx, move |global_id| {
-      global_id / val(workgroup_size * S::MAX) + global_id % val(workgroup_size)
-    })
+
+    struct HistogramWrite(u32);
+    impl ShaderHashProvider for HistogramWrite {
+      fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+        self.0.hash(hasher);
+      }
+      shader_hash_type_id! {}
+    }
+
+    custom_write_into_storage_buffer(
+      self,
+      cx,
+      move |global_id| global_id / val(workgroup_size * S::MAX) + global_id % val(workgroup_size),
+      Box::new(HistogramWrite(workgroup_size)),
+      target,
+    )
   }
 }
 

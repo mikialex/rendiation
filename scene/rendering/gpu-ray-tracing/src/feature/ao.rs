@@ -1,7 +1,6 @@
-use rendiation_shader_library::sampling::sample_hemisphere_uniform_fn;
 #[allow(unused_imports)]
 use rendiation_shader_library::sampling::{
-  hammersley_2d_fn, random2_fn, sample_hemisphere_cos_fn, tbn_fn,
+  hammersley_2d_fn, random2_fn, sample_hemisphere_cos_fn, sample_hemisphere_uniform_fn, tbn_fn,
 };
 use rendiation_texture_core::Size;
 
@@ -301,11 +300,11 @@ impl SceneRayTracingAORenderer {
         let origin = closest_hit_ctx.world_ray().origin
           + closest_hit_ctx.world_ray().direction * closest_hit_ctx.hit_distance();
 
-        // let random = hammersley_2d_fn(ao_cx.ao_sample_count.load().x(), val(256));
-        let seed = ao_cx.ao_sample_count.load().x().into_f32();
-        let random = random2_fn((seed, (seed + seed).sin().cos()).into());
-        // let direction = hit_normal_tbn * sample_hemisphere_cos_fn(random);
-        let direction = hit_normal_tbn * sample_hemisphere_uniform_fn(random);
+        let random = hammersley_2d_fn(ao_cx.ao_sample_count.load().x(), val(256));
+        // let seed = ao_cx.ao_sample_count.load().x().into_f32();
+        // let random = random2_fn((seed, (seed + seed).sin().cos()).into());
+        let direction = hit_normal_tbn * sample_hemisphere_cos_fn(random);
+        // let direction = hit_normal_tbn * sample_hemisphere_uniform_fn(random);
 
         let ray = ShaderRay { origin, direction };
 

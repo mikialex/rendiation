@@ -232,8 +232,13 @@ impl TaskGroupExecutor {
         active_tasks: active_tasks.clone(),
         task_pool: imp.task_pool.clone(),
       })
-      .materialize_storage_buffer(ctx);
-    imp.active_task_idx.storage = re.buffer.into_rw_view();
+      .materialize_storage_buffer_into(imp.active_task_idx_back_buffer.clone(), ctx);
+
+    std::mem::swap(
+      &mut imp.active_task_idx.storage,
+      &mut imp.active_task_idx_back_buffer,
+    );
+
     let new_active_task_size = re.size.unwrap();
 
     ctx.record_pass(|pass, device| {
@@ -265,6 +270,8 @@ impl TaskGroupExecutor {
 
 #[derive(Clone)]
 pub struct TaskGroupExecutorResource {
+  /// reused as active task compaction target
+  pub active_task_idx_back_buffer: StorageBufferDataView<[u32]>,
   pub active_task_idx: DeviceBumpAllocationInstance<u32>,
   pub new_removed_task_idx: DeviceBumpAllocationInstance<u32>,
   pub empty_index_pool: DeviceBumpAllocationInstance<u32>,
@@ -281,6 +288,7 @@ impl TaskGroupExecutorResource {
   ) -> Self {
     let device = &cx.gpu.device;
     let res = Self {
+      active_task_idx_back_buffer: create_gpu_read_write_storage(size, device),
       active_task_idx: DeviceBumpAllocationInstance::new(size, device),
       new_removed_task_idx: DeviceBumpAllocationInstance::new(size, device),
       empty_index_pool: DeviceBumpAllocationInstance::new(size, device),

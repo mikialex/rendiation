@@ -110,15 +110,21 @@ where
   T: ShaderSizedValueNodeType,
   S: DeviceMonoidLogic<Data = T> + 'static,
 {
-  fn materialize_storage_buffer(
+  fn materialize_storage_buffer_into(
     &self,
+    target: StorageBufferDataView<[T]>,
     cx: &mut DeviceParallelComputeCtx,
   ) -> DeviceMaterializeResult<T>
   where
     T: Std430 + ShaderSizedValueNodeType,
   {
-    let workgroup_size = self.workgroup_size;
-    custom_write_into_storage_buffer(self, cx, move |global_id| global_id / val(workgroup_size))
+    custom_write_into_storage_buffer(
+      self,
+      cx,
+      move |global_id| global_id,
+      Box::new(LinearWriterHash),
+      target,
+    )
   }
 }
 
