@@ -284,6 +284,35 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
       if_by(
         self.has_terminated.abstract_load().into_bool().not(),
         || {
+          // if nothing to spawn, we copy back the user passed in payload, because the payload may be modified in any hit
+          let trace_payload =
+            TraceTaskSelfPayload::storage_node_trace_call_field_ptr(trace_payload_all);
+          let payload_u32_len =
+            ShaderRayTraceCallStoragePayload::storage_node_payload_u32_len_field_ptr(trace_payload)
+              .load();
+          let trace_payload_idx =
+            ShaderRayTraceCallStoragePayload::storage_node_payload_ref_field_ptr(trace_payload);
+          let current_payload_idx = trace_payload_idx.load();
+
+          let (idx, _success) =
+            self
+              .payload_read_back_bumper
+              .bump_allocate_by(payload_u32_len, |target, offset| {
+                let u32_copy_count = val(0).make_local_var();
+                loop_by(|cx| {
+                  let data = self
+                    .untyped_payloads
+                    .index(current_payload_idx + u32_copy_count.load())
+                    .load();
+                  target.index(offset + u32_copy_count.load()).store(data);
+                  u32_copy_count.store(u32_copy_count.load() + val(1));
+                  if_by(u32_copy_count.load().equals(payload_u32_len), || {
+                    cx.do_break()
+                  });
+                });
+              });
+          trace_payload_idx.store(idx);
+
           self.has_terminated.abstract_store(val(true.into()));
           final_poll_resolved.store(true);
         },
@@ -541,6 +570,7 @@ impl TracingTaskSpawnerInvocation {
         ray_direction: trace_call.ray.direction,
         range: (trace_call.range.min, trace_call.range.max).into(),
         payload_ref: write_idx,
+        payload_u32_len: val(payload_size),
       }
       .construct();
 

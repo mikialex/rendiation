@@ -429,6 +429,7 @@ fn test_gpu_triangle() {
             ray_origin: val(ORIGIN),
             ray_direction: dir,
             range: val(vec2(0.01, FAR)),
+            payload_u32_len: val(1),
           };
 
           let output = traversable.traverse(payload, payloads, &|_ctx, _reporter| {}, &|_ctx| {

@@ -331,7 +331,7 @@ impl SceneRayTracingAORenderer {
         any_ctx
           .payload::<RayGenTracePayload>()
           .abstract_store(val(0.0));
-        val(ANYHIT_BEHAVIOR_ACCEPT_HIT & ANYHIT_BEHAVIOR_END_SEARCH)
+        val(ANYHIT_BEHAVIOR_ACCEPT_HIT | ANYHIT_BEHAVIOR_END_SEARCH)
       }),
       miss: source.register_ray_miss::<RayGenTracePayload>(
         trace_base_builder
