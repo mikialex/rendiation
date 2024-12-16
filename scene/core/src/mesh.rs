@@ -143,16 +143,19 @@ pub fn attribute_mesh_local_bounding(
   let indexed = indexed
     .collective_execute_map_by(|| {
       let buffer_access = global_entity_component_of::<BufferEntityData>().read();
-      move |_, ((position, position_range), (idx, idx_range))| {
+      move |_, ((position, position_range), (idx, idx_range, count))| {
         let index = buffer_access.get(idx).unwrap();
         let index = get_ranged_buffer(index, idx_range);
 
-        let index = if index.len() % 4 != 0 {
+        let count = count as usize;
+        let index = if index.len() / count == 2 {
           let index: &[u16] = cast_slice(index);
           DynIndexRef::Uint16(index)
-        } else {
+        } else if index.len() / count == 4 {
           let index: &[u32] = cast_slice(index);
           DynIndexRef::Uint32(index)
+        } else {
+          unreachable!("index count must be 2 or 4")
         };
 
         let position = buffer_access.get(position.unwrap()).unwrap();
@@ -199,9 +202,12 @@ pub fn attribute_mesh_position_query() -> PositionRelatedAttributeMeshQuery {
     .collective_union(index_buffer_range, |(a, b)| Some((a?, b?)))
     .into_forker();
 
+  let index_count = global_watch().watch::<SceneBufferViewBufferItemCount<AttributeIndexRef>>();
+
   let indexed_meshes_and_its_range = ranged_index_buffer
     .clone()
-    .collective_filter_map(|(index, range)| index.map(|i| (i, range)));
+    .collective_zip(index_count)
+    .collective_filter_map(|((index, range), count)| index.map(|i| (i, range, count.unwrap())));
 
   let none_indexed_mesh_set =
     ranged_index_buffer.collective_filter_map(|(b, _)| b.is_none().then_some(()));
@@ -258,7 +264,7 @@ pub struct PositionRelatedAttributeMeshQuery {
     EntityHandle<AttributesMeshEntity>,
     (
       (Option<EntityHandle<BufferEntity>>, Option<BufferViewRange>), // position
-      (EntityHandle<BufferEntity>, Option<BufferViewRange>),         // index
+      (EntityHandle<BufferEntity>, Option<BufferViewRange>, u32), /* index, count(used to distinguish the index format) */
     ),
   >,
   pub none_indexed: BoxedDynReactiveQuery<

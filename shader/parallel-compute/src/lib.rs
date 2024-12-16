@@ -291,7 +291,19 @@ pub trait DeviceParallelComputeIO<T>: DeviceParallelCompute<Node<T>> {
   where
     T: Std430 + ShaderSizedValueNodeType,
   {
-    do_write_into_storage_buffer(self, cx)
+    let output = create_gpu_read_write_storage::<[T]>(self.result_size() as usize, &cx.gpu);
+    self.materialize_storage_buffer_into(output, cx)
+  }
+
+  fn materialize_storage_buffer_into(
+    &self,
+    target: StorageBufferDataView<[T]>,
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> DeviceMaterializeResult<T>
+  where
+    T: Std430 + ShaderSizedValueNodeType,
+  {
+    do_write_into_storage_buffer(self, cx, target)
   }
 }
 

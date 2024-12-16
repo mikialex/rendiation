@@ -3796,6 +3796,7 @@ dependencies = [
 name = "rendiation-scene-rendering-gpu-indirect"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
  "database",
  "dyn-downcast",
  "fast-hash-collection",
