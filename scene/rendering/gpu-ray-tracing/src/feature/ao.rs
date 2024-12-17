@@ -315,7 +315,10 @@ impl SceneRayTracingAORenderer {
           sbt_ray_config: AORayType::AOTest.to_sbt_cfg(),
           miss_index: val(0), // using the sample miss shader as primary ray
           ray,
-          range: ShaderRayRange::default(), // todo, should control max ray length
+          range: ShaderRayRange {
+            min: val(0.01),
+            max: val(10.0),
+          },
         };
 
         (val(true), trace_call, val(1.))

@@ -28,10 +28,9 @@ impl<T> From<(LocalVarNode<bool>, T)> for ShaderPoll<T> {
   }
 }
 
-/// The "device" version future. Almost as same as the Rust std Future, but has one important difference:
+/// The "device" version future. Almost as same as the Rust std Future, but with some important difference:
 /// - The implementation must be "fused", so that `device_poll` can be called multiple times at any time.
-/// The reason why "fused" should be guaranteed is in order to ensure the implementation has uniform control flow
-/// in side the device_poll.
+/// The reason is to ensure the implementation has uniform control flow in side the device_poll.
 /// - The `device_poll` must be called inside the uniform control flow.
 pub trait ShaderFutureInvocation {
   type Output: 'static;

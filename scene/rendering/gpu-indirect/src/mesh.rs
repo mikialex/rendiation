@@ -30,6 +30,7 @@ pub fn attribute_indices(
         if buffer.len() / count == 4 {
           (buffer, range_convert(range))
         } else if buffer.len() / count == 2 {
+          let buffer = bytemuck::cast_slice::<_, u16>(&buffer);
           let buffer = buffer.iter().map(|i| *i as u32).collect::<Vec<_>>();
           let buffer = bytemuck::cast_slice::<_, u8>(buffer.as_slice());
           let buffer = Arc::new(buffer.to_vec());
