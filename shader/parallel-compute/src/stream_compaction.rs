@@ -38,7 +38,7 @@ where
       .filter
       .clone()
       .map(|v| v.select(1_u32, 0))
-      .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(64, 64);
+      .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(512, 512);
 
     let (_, size) = PrefixSumTailAsSize {
       prefix_sum_result: write_target_positions.execute_and_expose(cx),

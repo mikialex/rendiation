@@ -261,28 +261,29 @@ where
 
 /// The top level composable trait for parallel compute.
 ///
-/// Note that the clone is implemented by duplicating upstream work, if you want to reuse the work
-/// by materialize and share the result, you should using the fork operator, instead of call clone
-/// after internal_materialize_storage_buffer
+/// Note that [Clone] is implemented by duplicating the upstream work. If you want to reuse the work
+/// by materializing and sharing the result, you should use the [into_forker](DeviceParallelComputeIOExt::into_forker) operator before clone
+/// instead of calling [clone](Clone::clone) after [internal_materialize_storage_buffer](DeviceParallelComputeIOExt::internal_materialize_storage_buffer).
 pub trait DeviceParallelCompute<T>: DynClone {
-  /// The main logic is expressed in this fn call. The implementation could do multiple dispatch in
-  /// this function, just to prepare the all necessary data the final exposing step required
+  /// This function represents the core logic of parallel computation. It may execute multiple dispatches within
+  /// this function to prepare all necessary data for the final exposure step.
   fn execute_and_expose(
     &self,
     cx: &mut DeviceParallelComputeCtx,
   ) -> Box<dyn DeviceInvocationComponent<T>>;
 
-  /// if the material output size is different from execute_and_expose's work size(for example reduction),
-  /// custom impl or multi dispatch is required
+  /// If the material output size is different from [execute_and_expose](DeviceParallelCompute::execute_and_expose)'s
+  /// work size(for example in reduction operation), a custom implementation or a multi-dispatch is required to override the method
   fn result_size(&self) -> u32;
 }
 
-/// This trait is to avoid all possible redundant storage buffer materialize but not requires
-/// specialization. if the type impls DeviceParallelCompute<Node<T>>, it should impl this trait as
-/// well.
+/// This trait aims to minimize redundant storage buffer materialization without relying on
+/// language specialization support. Any type implementing DeviceParallelCompute<Node<T>> should also implement this trait.
 pub trait DeviceParallelComputeIO<T>: DeviceParallelCompute<Node<T>> {
-  /// if the implementation already has materialized storage buffer, should provide it directly to
-  /// avoid re-materialize cost, the user should not mutate the materialized result
+  /// The user must not mutate the materialized result returned from this function.
+  ///
+  /// If the implementation has already materialized the storage buffer internally, a custom implementation
+  /// should override this method to expose the result directly and avoid re-materialization cost.
   fn materialize_storage_buffer(
     &self,
     cx: &mut DeviceParallelComputeCtx,
@@ -290,7 +291,19 @@ pub trait DeviceParallelComputeIO<T>: DeviceParallelCompute<Node<T>> {
   where
     T: Std430 + ShaderSizedValueNodeType,
   {
-    do_write_into_storage_buffer(self, cx)
+    let output = create_gpu_read_write_storage::<[T]>(self.result_size() as usize, &cx.gpu);
+    self.materialize_storage_buffer_into(output, cx)
+  }
+
+  fn materialize_storage_buffer_into(
+    &self,
+    target: StorageBufferDataView<[T]>,
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> DeviceMaterializeResult<T>
+  where
+    T: Std430 + ShaderSizedValueNodeType,
+  {
+    do_write_into_storage_buffer(self, cx, target)
   }
 }
 

@@ -5,9 +5,8 @@ async fn test_simple_map() {
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();
   let mut graph = DeviceTaskGraphBuildSource::default();
 
-  let test_task = graph.define_task::<u32, _>(BaseShaderFuture::default().map(|_: (), _| {}));
-  let test_task2 = graph.define_task::<u32, _>(BaseShaderFuture::default());
-  graph.max_recursion_depth = 1;
+  let test_task = graph.define_task::<u32, _>(BaseShaderFuture::default().map(|_: (), _| {}), 2);
+  let test_task2 = graph.define_task::<u32, _>(BaseShaderFuture::default(), 2);
   graph.capacity = 12;
 
   let mut encoder = gpu.create_encoder();
@@ -17,8 +16,8 @@ async fn test_simple_map() {
   let work_size = 3;
   let work_size2 = 4;
 
-  graph_exe.dispatch_allocate_init_task(&mut cx, work_size, test_task, |_| val(0_u32));
-  graph_exe.dispatch_allocate_init_task(&mut cx, work_size2, test_task2, |_| val(0_u32));
+  graph_exe.dispatch_allocate_init_task_by_fn(&mut cx, work_size, test_task, |_| val(0_u32));
+  graph_exe.dispatch_allocate_init_task_by_fn(&mut cx, work_size2, test_task2, |_| val(0_u32));
   cx.submit_recorded_work_and_continue();
 
   let info = graph_exe.read_back_execution_states(&mut cx).await;
@@ -61,10 +60,9 @@ async fn test_task_graph_then_task_spawn() {
 
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();
   let mut graph = DeviceTaskGraphBuildSource::default();
-  graph.max_recursion_depth = 1;
   graph.capacity = 4;
 
-  let test_task = graph.define_task::<u32, _>(BaseShaderFuture::default());
+  let test_task = graph.define_task::<u32, _>(BaseShaderFuture::default(), 2);
 
   let test_task2 = graph.define_task::<u32, _>(
     BaseShaderFuture::default()
@@ -78,6 +76,7 @@ async fn test_task_graph_then_task_spawn() {
         TaskFuture::<u32>::new(test_task as usize),
       )
       .map(|_, _| {}),
+    2,
   );
 
   let mut encoder = gpu.create_encoder();
@@ -100,7 +99,7 @@ async fn test_task_graph_then_task_spawn() {
 
   let mut test_round = async || {
     println!("test round:");
-    graph_exe.dispatch_allocate_init_task(&mut cx, work_size, test_task2, |_| val(0_u32));
+    graph_exe.dispatch_allocate_init_task_by_fn(&mut cx, work_size, test_task2, |_| val(0_u32));
     cx.submit_recorded_work_and_continue();
 
     let debug_info = graph_exe.debug_execution(&mut cx).await;
@@ -149,7 +148,6 @@ async fn test_task_graph_then_task_self_spawn_recursive() {
 
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();
   let mut graph = DeviceTaskGraphBuildSource::default();
-  graph.max_recursion_depth = 3;
   graph.capacity = 4;
 
   let test_task = graph.next_task_idx();
@@ -165,6 +163,7 @@ async fn test_task_graph_then_task_self_spawn_recursive() {
         TaskFuture::<u32>::new(test_task as usize),
       )
       .map(|_, _| {}),
+    4,
   );
 
   let mut encoder = gpu.create_encoder();
@@ -173,7 +172,7 @@ async fn test_task_graph_then_task_self_spawn_recursive() {
 
   let work_size = 3;
 
-  graph_exe.dispatch_allocate_init_task(&mut cx, work_size, test_task, |_| val(0_u32));
+  graph_exe.dispatch_allocate_init_task_by_fn(&mut cx, work_size, test_task, |_| val(0_u32));
   cx.submit_recorded_work_and_continue();
 
   let info = graph_exe.read_back_execution_states(&mut cx).await;

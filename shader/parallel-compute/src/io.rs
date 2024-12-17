@@ -62,6 +62,24 @@ where
   {
     DeviceMaterializeResult::full_buffer(self.clone())
   }
+
+  fn materialize_storage_buffer_into(
+    &self,
+    target: StorageBufferDataView<[T]>,
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> DeviceMaterializeResult<T>
+  where
+    T: Std430 + ShaderSizedValueNodeType,
+  {
+    cx.encoder.copy_buffer_to_buffer(
+      self.raw_gpu().buffer.gpu(),
+      0,
+      target.raw_gpu().buffer.gpu(),
+      0,
+      self.raw_gpu().view_byte_size().into(),
+    );
+    DeviceMaterializeResult::full_buffer(target.into_readonly_view())
+  }
 }
 
 impl<T> DeviceParallelCompute<Node<T>> for Vec<T>
@@ -189,12 +207,16 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceParallelComputeIO<T>
 pub struct WriteIntoStorageWriter<T: Std430> {
   pub inner: Box<dyn DeviceInvocationComponent<Node<T>>>,
   pub result_write_idx: Arc<dyn Fn(Node<u32>) -> Node<u32>>,
+  pub result_write_idx_hasher: Box<dyn ShaderHashProvider>,
   pub output: StorageBufferDataView<[T]>,
 }
 
 impl<T: Std430> ShaderHashProvider for WriteIntoStorageWriter<T> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.inner.hash_pipeline_with_type_info(hasher)
+    self.inner.hash_pipeline_with_type_info(hasher);
+    self
+      .result_write_idx_hasher
+      .hash_pipeline_with_type_info(hasher);
   }
   shader_hash_type_id! {}
 }
@@ -243,15 +265,19 @@ where
 pub fn custom_write_into_storage_buffer<T: Std430 + ShaderSizedValueNodeType>(
   source: &(impl DeviceParallelComputeIO<T> + ?Sized),
   cx: &mut DeviceParallelComputeCtx,
-  write_target: impl Fn(Node<u32>) -> Node<u32> + 'static,
+  write_position_mapper: impl Fn(Node<u32>) -> Node<u32> + 'static,
+  result_write_idx_hasher: Box<dyn ShaderHashProvider>,
+  write_target: StorageBufferDataView<[T]>,
 ) -> DeviceMaterializeResult<T> {
   let input_source = source.execute_and_expose(cx);
-  let output = create_gpu_read_write_storage::<[T]>(source.result_size() as usize, &cx.gpu);
+
+  assert!(write_target.item_count() >= source.result_size());
 
   let write = WriteIntoStorageWriter {
     inner: input_source,
-    result_write_idx: Arc::new(write_target),
-    output,
+    result_write_idx: Arc::new(write_position_mapper),
+    output: write_target,
+    result_write_idx_hasher,
   };
 
   let size = write.dispatch_compute(cx);
@@ -262,11 +288,17 @@ pub fn custom_write_into_storage_buffer<T: Std430 + ShaderSizedValueNodeType>(
   }
 }
 
+pub struct LinearWriterHash;
+impl ShaderHashProvider for LinearWriterHash {
+  shader_hash_type_id! {}
+}
+
 pub fn do_write_into_storage_buffer<T: Std430 + ShaderSizedValueNodeType>(
   source: &(impl DeviceParallelComputeIO<T> + ?Sized),
   cx: &mut DeviceParallelComputeCtx,
+  write_target: StorageBufferDataView<[T]>,
 ) -> DeviceMaterializeResult<T> {
-  custom_write_into_storage_buffer(source, cx, |x| x)
+  custom_write_into_storage_buffer(source, cx, |x| x, Box::new(LinearWriterHash), write_target)
 }
 
 #[derive(Derivative)]
@@ -297,7 +329,17 @@ impl<T: ShaderSizedValueNodeType + Std430> DeviceParallelComputeIO<T>
     &self,
     cx: &mut DeviceParallelComputeCtx,
   ) -> DeviceMaterializeResult<T> {
-    do_write_into_storage_buffer(&self.inner, cx)
+    self.inner.materialize_storage_buffer(cx)
+  }
+  fn materialize_storage_buffer_into(
+    &self,
+    target: StorageBufferDataView<[T]>,
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> DeviceMaterializeResult<T>
+  where
+    T: Std430 + ShaderSizedValueNodeType,
+  {
+    self.inner.materialize_storage_buffer_into(target, cx)
   }
 }
 

@@ -3,8 +3,8 @@ use rendiation_state_override::MaterialStates;
 use rendiation_webgpu::*;
 
 pub struct GridGround<'a> {
-  pub shading: &'a UniformBufferDataView<GridEffect>,
-  pub plane: &'a UniformBufferDataView<ShaderPlane>,
+  pub shading: &'a UniformBufferCachedDataView<GridEffect>,
+  pub plane: &'a UniformBufferCachedDataView<ShaderPlane>,
   pub camera: &'a dyn RenderDependencyComponent,
 }
 
@@ -47,7 +47,7 @@ impl Default for GridEffect {
 }
 
 pub struct GridGroundShading<'a> {
-  pub shading: &'a UniformBufferDataView<GridEffect>,
+  pub shading: &'a UniformBufferCachedDataView<GridEffect>,
 }
 impl<'a> ShaderHashProvider for GridGroundShading<'a> {
   shader_hash_type_id! {GridGroundShading<'static>}
@@ -98,7 +98,7 @@ impl ShaderPlane {
 }
 
 pub struct InfinityShaderPlaneEffect<'a> {
-  pub plane: &'a UniformBufferDataView<ShaderPlane>,
+  pub plane: &'a UniformBufferCachedDataView<ShaderPlane>,
   pub camera: &'a dyn RenderDependencyComponent,
 }
 

@@ -4,10 +4,12 @@ mod debug_channels;
 mod frame_logic;
 mod lighting;
 
+mod post;
 use debug_channels::*;
 pub use frame_logic::*;
 use futures::Future;
 pub use lighting::*;
+pub use post::*;
 use reactive::EventSource;
 use rendiation_device_ray_tracing::GPUWaveFrontComputeRaytracingSystem;
 use rendiation_scene_rendering_gpu_ray_tracing::*;
@@ -114,8 +116,12 @@ impl Viewer3dRenderingCtx {
     self.current_camera_view_projection_inv = camera_view_projection_inv;
   }
 
+  #[instrument(name = "frame rendering", skip_all)]
   pub fn render(&mut self, target: RenderTargetView, content: &Viewer3dSceneCtx, cx: &mut Context) {
+    let span = span!(Level::INFO, "update all rendering resource");
     let mut resource = self.rendering_resource.poll_update_all(cx);
+    drop(span);
+
     let renderer = self.renderer_impl.create_impl(&mut resource);
 
     let render_target = if self.expect_read_back_for_next_render_result

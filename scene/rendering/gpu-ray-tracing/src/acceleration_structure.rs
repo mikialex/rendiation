@@ -110,19 +110,29 @@ pub fn attribute_mesh_to_blas(
     .collective_execute_map_by(move || {
       let acc_sys = acc_sys.clone();
       let buffer_accessor = global_entity_component_of::<BufferEntityData>().read();
-      move |_, (position, index)| {
+      move |_, (position, (index_buffer, index_range, index_count))| {
         let position_buffer = buffer_accessor.get(position.0.unwrap()).unwrap();
         let position_buffer = get_sub_buffer(position_buffer.as_slice(), position.1);
         let position_buffer = bytemuck::cast_slice(position_buffer);
 
-        let index_buffer = buffer_accessor.get(index.0).unwrap();
-        let index_buffer = get_sub_buffer(index_buffer.as_slice(), index.1);
-        let index_buffer = bytemuck::cast_slice(index_buffer);
+        let index_buffer = buffer_accessor.get(index_buffer).unwrap();
+        let index = get_sub_buffer(index_buffer.as_slice(), index_range);
+
+        let count = index_count as usize;
+        let index = if index.len() / count == 2 {
+          let index: &[u16] = cast_slice(index);
+          index.iter().map(|i| *i as u32).collect()
+        } else if index.len() / count == 4 {
+          let index: &[u32] = cast_slice(index);
+          index.to_vec()
+        } else {
+          unreachable!("index count must be 2 or 4")
+        };
 
         let source = BottomLevelAccelerationStructureBuildSource {
           geometry: BottomLevelAccelerationStructureBuildBuffer::Triangles {
             positions: position_buffer.to_vec(), // todo, avoid vec
-            indices: Some(index_buffer.to_vec()),
+            indices: Some(index),
           },
           flags: GEOMETRY_FLAG_OPAQUE,
         };

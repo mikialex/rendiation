@@ -132,23 +132,10 @@ impl RayLaunchSizeInvocation {
 
 #[derive(Copy, Clone)]
 pub struct RayLaunchRawInfo {
-  launch_id: Node<Vec3<u32>>,
-  launch_size: Node<Vec3<u32>>,
+  pub launch_id: Node<Vec3<u32>>,
+  pub launch_size: Node<Vec3<u32>>,
 }
-impl RayLaunchRawInfo {
-  pub fn new(linear_id: Node<u32>, launch_size: Node<Vec3<u32>>) -> Self {
-    let x = linear_id % launch_size.x();
-    let linear_id = linear_id / launch_size.x();
-    let y = linear_id % launch_size.y();
-    let linear_id = linear_id / launch_size.y();
-    let z = linear_id % launch_size.z();
 
-    Self {
-      launch_id: (x, y, z).into(),
-      launch_size,
-    }
-  }
-}
 impl RayLaunchInfoProvider for RayLaunchRawInfo {
   fn launch_id(&self) -> Node<Vec3<u32>> {
     self.launch_id
@@ -187,6 +174,7 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
 
         let closest_hit = self.tlas_sys.traverse(
           trace_payload,
+          self.untyped_payloads,
           &|info, reporter| {
             let hit_group = info.hit_ctx.compute_sbt_hit_group(ray_sbt_config);
             let intersection_shader_index =
@@ -296,6 +284,35 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
       if_by(
         self.has_terminated.abstract_load().into_bool().not(),
         || {
+          // if nothing to spawn, we copy back the user passed in payload, because the payload may be modified in any hit
+          let trace_payload =
+            TraceTaskSelfPayload::storage_node_trace_call_field_ptr(trace_payload_all);
+          let payload_u32_len =
+            ShaderRayTraceCallStoragePayload::storage_node_payload_u32_len_field_ptr(trace_payload)
+              .load();
+          let trace_payload_idx =
+            ShaderRayTraceCallStoragePayload::storage_node_payload_ref_field_ptr(trace_payload);
+          let current_payload_idx = trace_payload_idx.load();
+
+          let (idx, _success) =
+            self
+              .payload_read_back_bumper
+              .bump_allocate_by(payload_u32_len, |target, offset| {
+                let u32_copy_count = val(0).make_local_var();
+                loop_by(|cx| {
+                  let data = self
+                    .untyped_payloads
+                    .index(current_payload_idx + u32_copy_count.load())
+                    .load();
+                  target.index(offset + u32_copy_count.load()).store(data);
+                  u32_copy_count.store(u32_copy_count.load() + val(1));
+                  if_by(u32_copy_count.load().equals(payload_u32_len), || {
+                    cx.do_break()
+                  });
+                });
+              });
+          trace_payload_idx.store(idx);
+
           self.has_terminated.abstract_store(val(true.into()));
           final_poll_resolved.store(true);
         },
@@ -553,6 +570,7 @@ impl TracingTaskSpawnerInvocation {
         ray_direction: trace_call.ray.direction,
         range: (trace_call.range.min, trace_call.range.max).into(),
         payload_ref: write_idx,
+        payload_u32_len: val(payload_size),
       }
       .construct();
 

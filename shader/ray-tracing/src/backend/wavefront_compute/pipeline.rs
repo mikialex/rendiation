@@ -119,7 +119,7 @@ fn create_task_graph<'a>(
     // written in trace_ray. see RayLaunchSizeBuffer
     let launch_size_buffer = StorageBufferReadOnlyDataView::create(device, &vec3(0, 0, 0));
 
-    let payload_u32_len = size as usize * 2 * (info.payload_max_u32_count as usize);
+    let payload_u32_len = size as usize * (info.payload_max_u32_count as usize);
     let payload_bumper = DeviceBumpAllocationInstance::new(payload_u32_len, device);
 
     let payload_read_back_bumper = DeviceBumpAllocationInstance::new(payload_u32_len, device);
@@ -153,6 +153,7 @@ fn create_task_graph<'a>(
   let trace_task_id = graph.define_task_dyn(
     Box::new(OpaqueTaskWrapper(tracer_task)) as OpaqueTask,
     TraceTaskSelfPayload::sized_ty(),
+    source.max_in_flight_trace_ray as usize,
   );
   assert_eq!(trace_task_id, 0);
 
@@ -161,7 +162,8 @@ fn create_task_graph<'a>(
   for s in &source.ray_gen {
     let task_id = graph.define_task_dyn(
       Box::new(OpaqueTaskWrapper(s.logic.build_device_future(&mut ctx))) as OpaqueTask,
-      s.user_defined_payload_input_ty.clone(),
+      Vec3::<u32>::sized_ty(), // ignore the user defined payload(it's just a placeholder)
+      s.max_in_flight.unwrap_or(1) as usize,
     );
     checker.assert_ray_gen_in_bound(task_id as usize);
   }
@@ -175,6 +177,7 @@ fn create_task_graph<'a>(
     let task_id = graph.define_task_dyn(
       Box::new(OpaqueTaskWrapper(s.logic.build_device_future(&mut ctx))) as OpaqueTask,
       task_payload_ty,
+      s.max_in_flight.unwrap_or(1) as usize,
     );
     checker.assert_closest_hit_in_bound(task_id as usize);
   }
@@ -188,12 +191,12 @@ fn create_task_graph<'a>(
     let task_id = graph.define_task_dyn(
       Box::new(OpaqueTaskWrapper(s.logic.build_device_future(&mut ctx))) as OpaqueTask,
       task_payload_ty,
+      s.max_in_flight.unwrap_or(1) as usize,
     );
     checker.assert_miss_hit_in_bound(task_id as usize);
   }
 
   graph.capacity = size as usize;
-  graph.max_recursion_depth = source.max_recursion_depth as usize;
   (graph, trace_resource)
 }
 

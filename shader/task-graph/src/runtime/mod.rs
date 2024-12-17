@@ -53,23 +53,11 @@ impl Debug for TaskExecutionDebugInfo {
 #[derive(Default)]
 pub struct DeviceTaskGraphBuildSource {
   tasks: Vec<TaskGroupBuildSource>,
-  pub max_recursion_depth: usize,
   pub capacity: usize,
 }
 
 impl DeviceTaskGraphBuildSource {
-  // todo, impl more conservative upper execute bound
-  pub fn compute_conservative_dispatch_round_count(&self) -> usize {
-    let max_required_poll_count = self
-      .tasks
-      .iter()
-      .map(|v| v.task.required_poll_count())
-      .max()
-      .unwrap_or(1);
-    self.max_recursion_depth * max_required_poll_count + 1
-  }
-
-  pub fn define_task<P, F>(&mut self, future: F) -> u32
+  pub fn define_task<P, F>(&mut self, future: F, max_in_flight: usize) -> u32
   where
     F: ShaderFuture<Output = ()> + 'static,
     P: ShaderSizedValueNodeType,
@@ -77,6 +65,7 @@ impl DeviceTaskGraphBuildSource {
     self.define_task_dyn(
       Box::new(OpaqueTaskWrapper(future)) as OpaqueTask,
       P::sized_ty(),
+      max_in_flight,
     )
   }
   pub fn next_task_idx(&self) -> u32 {
@@ -84,20 +73,25 @@ impl DeviceTaskGraphBuildSource {
   }
 
   #[inline(never)]
-  pub fn define_task_dyn(&mut self, task: OpaqueTask, payload_ty: ShaderSizedValueType) -> u32 {
+  pub fn define_task_dyn(
+    &mut self,
+    task: OpaqueTask,
+    payload_ty: ShaderSizedValueType,
+    max_in_flight: usize,
+  ) -> u32 {
     let task_type = self.tasks.len();
 
     self.tasks.push(TaskGroupBuildSource {
       payload_ty,
       self_task_idx: task_type,
       task,
+      max_in_flight,
     });
 
     task_type as u32
   }
 
   pub fn build(&self, cx: &mut DeviceParallelComputeCtx) -> DeviceTaskGraphExecutor {
-    let init_size = self.max_recursion_depth * self.capacity;
     let mut task_group_shared_info = Vec::new();
     for _ in 0..self.tasks.len() {
       task_group_shared_info.push((Default::default(), Default::default()));
@@ -110,6 +104,7 @@ impl DeviceTaskGraphBuildSource {
       let pre_build =
         TaskGroupExecutor::pre_build(task_build_source, i, &mut task_group_shared_info);
 
+      let init_size = task_build_source.max_in_flight * self.capacity;
       let resource = TaskGroupExecutorResource::create_with_size(
         init_size,
         pre_build.state_to_resolve.meta_info(),
@@ -141,7 +136,6 @@ impl DeviceTaskGraphBuildSource {
 
     DeviceTaskGraphExecutor {
       task_groups: task_group_executors,
-      max_recursion_depth: self.max_recursion_depth,
       current_prepared_execution_size: self.capacity,
     }
   }
@@ -149,8 +143,16 @@ impl DeviceTaskGraphBuildSource {
 
 pub struct DeviceTaskGraphExecutor {
   task_groups: Vec<TaskGroupExecutor>,
-  max_recursion_depth: usize,
   current_prepared_execution_size: usize,
+}
+
+pub trait TaskSpawnerInvocation<T> {
+  fn spawn_task(&self, global_id: Node<u32>, count: Node<u32>) -> Node<T>;
+}
+
+pub trait TaskSpawner<T>: ShaderHashProvider {
+  fn build_invocation(&self, cx: &mut ShaderBindGroupBuilder) -> Box<dyn TaskSpawnerInvocation<T>>;
+  fn bind(&self, cx: &mut BindingBuilder);
 }
 
 impl DeviceTaskGraphExecutor {
@@ -171,23 +173,65 @@ impl DeviceTaskGraphExecutor {
 
   /// Allocate task directly in the task pool by dispatching compute shader.
   ///
-  /// T must match given task_id's payload type
+  /// The task_spawner should not has any shader variant.
   ///
-  /// From perspective of performance, this method can be implemented as a special task
-  /// polling, but for consistency and simplicity, we implemented as a standalone task allocation procedure.
+  /// T must match given task_id's payload type
+  pub fn dispatch_allocate_init_task_by_fn<T: ShaderSizedValueNodeType>(
+    &mut self,
+    cx: &mut DeviceParallelComputeCtx,
+    task_count: u32,
+    task_id: u32,
+    task_spawner: impl FnOnce(Node<u32>) -> Node<T> + Copy + 'static,
+  ) {
+    struct SimpleFnSpawner<T>(T);
+    impl<T: 'static> ShaderHashProvider for SimpleFnSpawner<T> {
+      fn hash_type_info(&self, hasher: &mut PipelineHasher) {
+        self.0.type_id().hash(hasher)
+      }
+    }
+    impl<P, T> TaskSpawner<P> for SimpleFnSpawner<T>
+    where
+      T: FnOnce(Node<u32>) -> Node<P> + Copy + 'static,
+    {
+      fn build_invocation(
+        &self,
+        _: &mut ShaderBindGroupBuilder,
+      ) -> Box<dyn TaskSpawnerInvocation<P>> {
+        Box::new(SimplerFnSpawnerInvocation(self.0))
+      }
+
+      fn bind(&self, _: &mut BindingBuilder) {}
+    }
+    struct SimplerFnSpawnerInvocation<T>(T);
+    impl<P, T> TaskSpawnerInvocation<P> for SimplerFnSpawnerInvocation<T>
+    where
+      T: FnOnce(Node<u32>) -> Node<P> + Copy,
+    {
+      fn spawn_task(&self, global_id: Node<u32>, _: Node<u32>) -> Node<P> {
+        (self.0)(global_id)
+      }
+    }
+
+    self.dispatch_allocate_init_task(cx, task_count, task_id, &SimpleFnSpawner(task_spawner));
+  }
+
+  /// Allocate task directly in the task pool by dispatching compute shader.
+  ///
+  /// T must match given task_id's payload type
   pub fn dispatch_allocate_init_task<T: ShaderSizedValueNodeType>(
     &mut self,
     cx: &mut DeviceParallelComputeCtx,
     task_count: u32,
     task_id: u32,
-    task_spawner: impl FnOnce(Node<u32>) -> Node<T> + 'static,
+    task_spawner: &dyn TaskSpawner<T>,
   ) {
     let device = &cx.gpu.device;
     let task_group = &self.task_groups[task_id as usize];
 
     let dispatch_size_buffer = create_gpu_readonly_storage(&task_count, device);
 
-    let hasher = PipelineHasher::default().with_hash(task_spawner.type_id());
+    let mut hasher = PipelineHasher::default();
+    task_spawner.hash_pipeline_with_type_info(&mut hasher);
     let workgroup_size = 256;
     let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
       builder.config_work_group_size(workgroup_size);
@@ -195,9 +239,11 @@ impl DeviceTaskGraphExecutor {
       let dispatch_size = builder.bind_by(&dispatch_size_buffer);
       let instance = task_group.resource.build_shader_for_spawner(&mut builder);
       let id = builder.global_invocation_id().x();
+      let spawner = task_spawner.build_invocation(builder.bindgroups());
 
-      if_by(id.less_than(dispatch_size.load()), || {
-        let payload = task_spawner(id);
+      let dispatch_size = dispatch_size.load();
+      if_by(id.less_than(dispatch_size), || {
+        let payload = spawner.spawn_task(id, dispatch_size);
         instance
           .spawn_new_task_dyn(
             payload.cast_untyped_node(),
@@ -213,6 +259,7 @@ impl DeviceTaskGraphExecutor {
     cx.record_pass(|pass, device| {
       let mut bb = BindingBuilder::default().with_bind(&dispatch_size_buffer);
       task_group.resource.bind_for_spawner(&mut bb);
+      task_spawner.bind(&mut bb);
       bb.setup_compute_pass(pass, device, &pipeline);
 
       let size = compute_dispatch_size(task_count, workgroup_size);
@@ -274,13 +321,15 @@ impl DeviceTaskGraphExecutor {
     let wake_counts = wake_task_counts.await.unwrap();
     let empty_counts = empty_task_counts.await.unwrap();
 
-    // minus one is for the default task
-    let full_size = self.max_recursion_depth * self.current_prepared_execution_size * 2 - 1;
-
     let sleep_or_finished_counts = empty_counts
       .iter()
       .zip(wake_counts.iter())
-      .map(|(empty, &wake)| (full_size - *empty as usize - wake as usize) as u32)
+      .zip(self.task_groups.iter())
+      .map(|((empty, &wake), info)| {
+        let full_size = info.max_in_flight * self.current_prepared_execution_size;
+
+        (full_size - *empty as usize - wake as usize) as u32
+      })
       .collect();
 
     TaskGraphExecutionStates {

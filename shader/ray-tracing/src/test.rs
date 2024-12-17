@@ -96,7 +96,7 @@ async fn test_wavefront_compute() {
     pub color: u32,
   }
 
-  let ray_gen = rtx_pipeline_desc.register_ray_gen::<u32>(ray_gen_shader);
+  let ray_gen = rtx_pipeline_desc.register_ray_gen(ray_gen_shader);
   let closest_hit = rtx_pipeline_desc.register_ray_closest_hit::<RayCustomPayload>(
     shader_base_builder
       .create_closest_hit_shader_base::<RayCustomPayload>()
@@ -118,6 +118,7 @@ async fn test_wavefront_compute() {
         //   (prev.x(), prev.y() + val(100. / 255.), prev.z(), val(1.)).into(),
         // );
       }),
+    1,
   );
   let miss = rtx_pipeline_desc.register_ray_miss::<RayCustomPayload>(
     shader_base_builder
@@ -134,6 +135,7 @@ async fn test_wavefront_compute() {
         //   (prev.x() + val(100. / 255.), prev.y(), prev.z(), val(1.)).into(),
         // );
       }),
+    1,
   );
 
   let ray_type_count = 1;

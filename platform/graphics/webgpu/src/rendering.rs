@@ -3,7 +3,9 @@ use rendiation_shader_backend_naga::ShaderAPINagaImpl;
 
 use crate::*;
 
+/// RenderComponent is a type erased composable unit for user to express and compose the rendering logic.
 pub trait RenderComponent: ShaderHashProvider + GraphicsShaderProvider + ShaderPassBuilder {
+  /// Calling this method to do the real drawcall on given pass. if the implementation is efficient enough to specify a draw logic.
   fn render(&self, ctx: &mut GPURenderPassCtx, com: DrawCommand) {
     let mut hasher = PipelineHasher::default();
     self.hash_pipeline(&mut hasher);

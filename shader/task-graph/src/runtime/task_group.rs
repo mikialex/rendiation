@@ -9,6 +9,7 @@ pub type OpaqueTask = Box<
 
 pub struct TaskGroupExecutor {
   pub state_desc: DynamicTypeMetaInfo,
+  pub max_in_flight: usize,
 
   pub all_spawners_binding_order: Vec<usize>,
   pub polling_pipeline: GPUComputePipeline,
@@ -21,6 +22,7 @@ pub struct TaskGroupBuildSource {
   pub payload_ty: ShaderSizedValueType,
   pub self_task_idx: usize,
   pub task: OpaqueTask,
+  pub max_in_flight: usize,
 }
 
 pub(super) struct TaskGroupPreBuild {
@@ -125,7 +127,7 @@ impl TaskGroupExecutor {
     if_by(poll_ctx.is_fallback_task().not(), || {
       if_by(poll_result.is_resolved(), || {
         pool
-          .rw_is_finished(task_index)
+          .rw_task_state(task_index)
           .store(TASK_STATUE_FLAG_FINISHED);
 
         let parent_index = pool.rw_parent_task_index(task_index).load();
@@ -148,8 +150,8 @@ impl TaskGroupExecutor {
       })
       .else_by(|| {
         pool
-          .rw_is_finished(task_index)
-          .store(TASK_STATUE_FLAG_NOT_FINISHED_SLEEP);
+          .rw_task_state(task_index)
+          .store(TASK_STATUE_FLAG_SLEEPING);
       });
     });
 
@@ -159,6 +161,7 @@ impl TaskGroupExecutor {
 
     TaskGroupExecutor {
       polling_pipeline,
+      max_in_flight: task_build_source.max_in_flight,
       resource,
       state_desc: pre_build.state_to_resolve.meta_info(),
       all_spawners_binding_order,
@@ -205,16 +208,6 @@ impl TaskGroupExecutor {
       pass.dispatch_workgroups_indirect_by_buffer_resource_view(&active_execution_size);
     });
 
-    // todo, this must be improved. extra prepare_execution is costly.
-    // this is required because when task poll sleep, if we not do alive task compact, when the
-    // subsequent task wake the parent in this task group, it will create duplicate invocation.
-    //
-    // we can not simply clear the alive list because the task could self spawn new tasks.
-    // maybe one solution is to add anther task state to mark the task is sleeping but still in alive task.
-    // the prepare execution will still compact by this flag(and will reset it), but when child task wake parent,
-    //  if it see this special flag the alive task index spawn will be skipped.
-    self.prepare_execution(cx);
-
     if let Some(f) = self.after_execute.as_ref() {
       f(cx, self)
     }
@@ -239,8 +232,13 @@ impl TaskGroupExecutor {
         active_tasks: active_tasks.clone(),
         task_pool: imp.task_pool.clone(),
       })
-      .materialize_storage_buffer(ctx);
-    imp.active_task_idx.storage = re.buffer.into_rw_view();
+      .materialize_storage_buffer_into(imp.active_task_idx_back_buffer.clone(), ctx);
+
+    std::mem::swap(
+      &mut imp.active_task_idx.storage,
+      &mut imp.active_task_idx_back_buffer,
+    );
+
     let new_active_task_size = re.size.unwrap();
 
     ctx.record_pass(|pass, device| {
@@ -272,6 +270,8 @@ impl TaskGroupExecutor {
 
 #[derive(Clone)]
 pub struct TaskGroupExecutorResource {
+  /// reused as active task compaction target
+  pub active_task_idx_back_buffer: StorageBufferDataView<[u32]>,
   pub active_task_idx: DeviceBumpAllocationInstance<u32>,
   pub new_removed_task_idx: DeviceBumpAllocationInstance<u32>,
   pub empty_index_pool: DeviceBumpAllocationInstance<u32>,
@@ -287,13 +287,13 @@ impl TaskGroupExecutorResource {
     cx: &mut DeviceParallelComputeCtx,
   ) -> Self {
     let device = &cx.gpu.device;
-    // to support self spawning, some buffer's size is doubled for max extra allocation space
     let res = Self {
-      active_task_idx: DeviceBumpAllocationInstance::new(size * 2, device),
+      active_task_idx_back_buffer: create_gpu_read_write_storage(size, device),
+      active_task_idx: DeviceBumpAllocationInstance::new(size, device),
       new_removed_task_idx: DeviceBumpAllocationInstance::new(size, device),
-      empty_index_pool: DeviceBumpAllocationInstance::new(size * 2, device),
+      empty_index_pool: DeviceBumpAllocationInstance::new(size, device),
       // add one is for the first default task
-      task_pool: TaskPool::create_with_size(size * 2 + 1, state_desc, payload_ty.clone(), device),
+      task_pool: TaskPool::create_with_size(size + 1, state_desc, payload_ty.clone(), device),
       size,
     };
 
@@ -311,7 +311,7 @@ impl TaskGroupExecutorResource {
         let id = builder.global_invocation_id().x();
 
         if_by(id.equals(0), || {
-          empty_pool_size.store(empty_pool.array_length() - val(1));
+          empty_pool_size.store(empty_pool.array_length());
           task_pool.spawn_new_task_dyn(
             val(0),
             ShaderNodeExpr::Zeroed {
@@ -321,11 +321,10 @@ impl TaskGroupExecutorResource {
             TaskParentRef::none_parent(),
             &payload_ty,
           );
-        })
-        .else_by(|| {
-          if_by(id.less_than(empty_pool.array_length()), || {
-            empty_pool.index(id - val(1)).store(id);
-          });
+        });
+
+        if_by(id.less_than(empty_pool.array_length()), || {
+          empty_pool.index(id).store(id + val(1));
         });
 
         builder
@@ -339,11 +338,7 @@ impl TaskGroupExecutorResource {
 
       builder.setup_compute_pass(pass, device, &pipeline);
 
-      pass.dispatch_workgroups(
-        compute_dispatch_size((size * 2) as u32, workgroup_size),
-        1,
-        1,
-      );
+      pass.dispatch_workgroups(compute_dispatch_size(size as u32, workgroup_size), 1, 1);
     });
 
     res
@@ -407,12 +402,19 @@ impl TaskGroupDeviceInvocationInstance {
   }
 
   pub fn wake_task_dyn(&self, task_id: Node<u32>) {
+    let is_in_active_list = self
+      .task_pool
+      .rw_task_state(task_id)
+      .load()
+      .equals(TASK_STATUE_FLAG_SLEEPING);
     self
       .task_pool
-      .rw_is_finished(task_id)
+      .rw_task_state(task_id)
       .store(TASK_STATUE_FLAG_NOT_FINISHED_WAKEN);
-    let (_, success) = self.active_task_idx.bump_allocate(task_id); // todo, error report
-    shader_assert(success);
+    if_by(is_in_active_list.not(), || {
+      let (_, success) = self.active_task_idx.bump_allocate(task_id); // todo, error report
+      shader_assert(success);
+    });
   }
 
   #[must_use]
@@ -445,7 +447,7 @@ impl TaskGroupDeviceInvocationInstance {
     shader_assert(success);
     self
       .task_pool
-      .rw_is_finished(task)
+      .rw_task_state(task)
       .store(TASK_STATUE_FLAG_TASK_NOT_EXIST);
     // todo consider zeroing the state and payload
   }

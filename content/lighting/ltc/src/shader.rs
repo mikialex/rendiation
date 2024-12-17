@@ -55,7 +55,7 @@ pub fn ltc_light_eval(
   let disk = light.expand().is_disk;
   let light_color = LTCRectLight::intensity(light);
 
-  let mut spec = disk.select_branched(
+  let mut spec = disk.into_bool().select_branched(
     || ltc_evaluate_disk_fn(normal, view, position, min_v, light, ltc_2, sampler),
     || ltc_evaluate_rect_fn(normal, view, position, min_v, light, ltc_2, sampler),
   );
@@ -71,7 +71,7 @@ pub fn ltc_light_eval(
   )
     .into();
 
-  let diff = disk.select_branched(
+  let diff = disk.into_bool().select_branched(
     || ltc_evaluate_disk_fn(normal, view, position, identity, light, ltc_2, sampler),
     || ltc_evaluate_rect_fn(normal, view, position, identity, light, ltc_2, sampler),
   );
@@ -113,7 +113,7 @@ pub fn ltc_evaluate_rect(
   let light_normal = (l.p2 - l.p1).cross(l.p4 - l.p1);
   let behind = dir.dot(light_normal).less_than(0.);
 
-  behind.not().or(l.double_side).select_branched(
+  behind.not().or(l.double_side.into_bool()).select_branched(
     || {
       let mut v_sum = integrate_edge_vec(l1, l2);
       v_sum += integrate_edge_vec(l2, l3);
@@ -186,7 +186,7 @@ pub fn ltc_evaluate_disk(
 
   let behind = V1.cross(V2).dot(C).less_than(0.);
 
-  behind.not().or(l.double_side).select_branched(
+  behind.not().or(l.double_side.into_bool()).select_branched(
     || {
       // compute eigenvectors of ellipse
       let a = val(0.).make_local_var();

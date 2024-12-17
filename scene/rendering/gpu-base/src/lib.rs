@@ -46,6 +46,8 @@ pub use batch::*;
 mod mid;
 pub use mid::*;
 
+/// All color in shader should be in linear space, for some scene API that use sRGB color space, use this to convert before upload the
+/// data into the gpu.
 pub fn srgb4_to_linear4(color: Vec4<f32>) -> Vec4<f32> {
   let linear = LinearRGBColor::from(SRGBColor::from(color.xyz()));
   Vec4::new(linear.r, linear.g, linear.b, color.w)
@@ -65,9 +67,12 @@ pub struct SceneContentKey {
   pub transparent: bool,
 }
 
-/// abstract over direct or indirect rendering
+/// A scene renderer that encapsulate the scene rendering ability.
 pub trait SceneRenderer: SceneModelRenderer {
+  /// A user defined content semantic key. This key is used to represent the semantic part of the scene content.
+  /// These content is the scene's user-defined internal structure that require different pass effects or drawn in given order.
   type ContentKey = SceneContentKey;
+
   /// extract batched scene model by given content semantic, the extracted batch may be used by external
   /// system for further processing, for example culling. the simple culling logic may also be implemented here
   fn extract_scene_batch(
@@ -98,8 +103,9 @@ pub trait SceneRenderer: SceneModelRenderer {
     self.make_scene_batch_pass_content(batch, camera, pass, ctx)
   }
 
-  /// return if requires clear. this supposed to be true when background is drawn, or directly as a way to impl
-  /// solid background.
+  /// Return if the scene rendering requires clear in every sub draw pass.
+  /// This is supposed to be false when background is drawn by custom object.
+  /// The simple solid background could use this as the implementation
   fn init_clear(
     &self,
     scene: EntityHandle<SceneEntity>,
@@ -107,8 +113,8 @@ pub trait SceneRenderer: SceneModelRenderer {
 
   fn get_scene_model_cx(&self) -> &GPUTextureBindingSystem;
 
-  /// batch rendering passed models, compare to render one single model at a time, this is more efficient
-  /// if the implementation can provide better performance
+  /// Batch rendering the passed models. Comparing to render one single model at a time(using [SceneModelRenderer]), this may be more efficient.
+  /// The implementation should be override if it can provide better performance. The default implementation is a loop call using [SceneModelRenderer]
   ///
   /// if reorderable is true, the order of model may not be preserved
   fn render_models(
@@ -139,9 +145,9 @@ pub trait SceneRenderer: SceneModelRenderer {
     self.render_models(models, true, camera, pass, cx, tex);
   }
 
-  /// expose the underlayer camera system impl to enable user access the
-  /// direct camera gpu manipulation, this is useful when some effect pipeline
-  /// requires camera manipulation such as TAA.
+  /// Expose the under-layer camera system implementation to enable user access the
+  /// direct camera gpu manipulation(for example access and modify the camera gpu data).
+  /// This is useful for some effect pipelines that require directly camera manipulation for example TAA.
   fn get_camera_gpu(&self) -> &dyn CameraRenderImpl;
 }
 
@@ -153,7 +159,7 @@ pub trait LightsRenderImpl {
   fn make_component(&self) -> Option<Box<dyn RenderComponent + '_>>;
 }
 
-/// ability to do scene model level rendering
+/// A renderer supports rendering in scene model granularity
 pub trait SceneModelRenderer {
   /// return if render successfully
   fn render_scene_model(

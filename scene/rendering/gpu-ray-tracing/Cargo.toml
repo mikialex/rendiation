@@ -5,30 +5,31 @@ name = "rendiation-scene-rendering-gpu-ray-tracing"
 version = "0.1.0"
 
 [dependencies]
-fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
-dyn-downcast = { path = "../../../utility/dyn-downcast" }
-database = { path = "../../../utility/database" }
-log = { workspace = true }
-dyn-clone = { workspace = true }
 bytemuck = { workspace = true, features = ["derive"] }
+database = { path = "../../../utility/database" }
+dyn-clone = { workspace = true }
+dyn-downcast = { path = "../../../utility/dyn-downcast" }
+fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
+log = { workspace = true }
+parking_lot = { version = "0.12.1", features = ["send_guard"] }
+reactive = { path = "../../../utility/reactive" }
 rendiation-algebra = { path = "../../../math/algebra" }
 rendiation-color = { path = "../../../content/color" }
+rendiation-device-ray-tracing = { path = "../../../shader/ray-tracing" }
 rendiation-geometry = { path = "../../../math/geometry" }
+rendiation-lighting-gpu-system = { path = "../../../content/lighting/gpu-system/lighting-system" }
+rendiation-lighting-punctual = { path = "../../../content/lighting/punctual" }
+rendiation-lighting-transport = { path = "../../../content/lighting/transport" }
 rendiation-mesh-core = { path = "../../../content/mesh/core" }
 rendiation-scene-core = { path = "../../core" }
 rendiation-scene-rendering-gpu-base = { path = "../../rendering/gpu-base" }
 rendiation-scene-rendering-gpu-indirect = { path = "../../rendering/gpu-indirect" }
 rendiation-shader-api = { path = "../../../shader/api" }
 rendiation-shader-library = { path = "../../../shader/library" }
-rendiation-device-ray-tracing = { path = "../../../shader/ray-tracing" }
 rendiation-texture-core = { path = "../../../content/texture/core" }
-rendiation-lighting-gpu-system = { path = "../../../content/lighting/gpu-system/lighting-system" }
-rendiation-lighting-punctual = { path = "../../../content/lighting/punctual" }
-parking_lot = { version = "0.12.1", features = ["send_guard"] }
-reactive = { path = "../../../utility/reactive" }
 rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
 rendiation-webgpu-reactive-utils = { path = "../../../platform/graphics/webgpu-reactive-utils" }
-rendiation-lighting-transport = { path = "../../../content/lighting/transport" }
+tracing = { workspace = true }
 
 [lints]
 workspace = true

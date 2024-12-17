@@ -65,6 +65,7 @@ shader_field_ty_mapper!(Vec4<u32>);
 shader_field_ty_mapper!(Mat2<f32>);
 shader_field_ty_mapper!(Mat3<f32>);
 shader_field_ty_mapper!(Mat4<f32>);
+shader_field_ty_mapper!(Bool);
 
 // std140
 impl ShaderFieldTypeMapper for Shader16PaddedMat2 {
@@ -78,13 +79,6 @@ impl ShaderFieldTypeMapper for Shader16PaddedMat3 {
   type ShaderType = Mat3<f32>;
   fn into_shader_ty(self) -> Self::ShaderType {
     self.into()
-  }
-}
-
-impl ShaderFieldTypeMapper for Bool {
-  type ShaderType = bool;
-  fn into_shader_ty(self) -> Self::ShaderType {
-    self.0 != 0
   }
 }
 
