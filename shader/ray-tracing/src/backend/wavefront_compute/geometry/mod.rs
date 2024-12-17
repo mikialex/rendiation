@@ -3,7 +3,7 @@ pub use naive::*;
 
 use crate::*;
 
-pub trait GPUAccelerationStructureSystemCompImplInstance: DynClone {
+pub trait GPUAccelerationStructureSystemCompImplInstance {
   fn build_shader(
     &self,
     compute_cx: &mut ShaderComputePipelineBuilder,
@@ -12,7 +12,6 @@ pub trait GPUAccelerationStructureSystemCompImplInstance: DynClone {
 
   fn create_tlas_instance(&self) -> Box<dyn GPUAccelerationStructureSystemTlasCompImplInstance>;
 }
-clone_trait_object!(GPUAccelerationStructureSystemCompImplInstance);
 
 pub trait GPUAccelerationStructureSystemTlasCompImplInstance: DynClone {
   fn build_shader(
