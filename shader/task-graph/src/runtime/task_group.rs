@@ -208,20 +208,14 @@ impl TaskGroupExecutor {
       pass.dispatch_workgroups_indirect_by_buffer_resource_view(&active_execution_size);
     });
 
+    self.compact_alive_tasks(cx);
+
     if let Some(f) = self.after_execute.as_ref() {
       f(cx, self)
     }
   }
 
-  pub fn prepare_execution(&mut self, ctx: &mut DeviceParallelComputeCtx) {
-    // commit bumpers
-    ctx.record_pass(|pass, device| {
-      let imp = &self.resource;
-      imp.active_task_idx.commit_size(pass, device, true);
-      imp.empty_index_pool.commit_size(pass, device, false);
-      imp.new_removed_task_idx.commit_size(pass, device, true);
-    });
-
+  fn compact_alive_tasks(&mut self, ctx: &mut DeviceParallelComputeCtx) {
     let imp = &mut self.resource;
     // compact active task buffer
     let active_tasks = imp.active_task_idx.storage.clone().into_readonly_view();
@@ -259,7 +253,25 @@ impl TaskGroupExecutor {
         .setup_compute_pass(pass, device, &pipeline);
 
       pass.dispatch_workgroups(1, 1, 1);
+    });
+  }
 
+  pub fn prepare_execution_and_compact_living_task(&mut self, ctx: &mut DeviceParallelComputeCtx) {
+    self.prepare_execution(ctx);
+    self.compact_alive_tasks(ctx);
+  }
+
+  pub fn prepare_execution(&mut self, ctx: &mut DeviceParallelComputeCtx) {
+    // commit bumpers
+    ctx.record_pass(|pass, device| {
+      let imp = &self.resource;
+      imp.active_task_idx.commit_size(pass, device, true);
+      imp.empty_index_pool.commit_size(pass, device, false);
+      imp.new_removed_task_idx.commit_size(pass, device, true);
+    });
+
+    ctx.record_pass(|pass, device| {
+      let imp = &self.resource;
       // drain empty to empty pool
       imp
         .new_removed_task_idx
