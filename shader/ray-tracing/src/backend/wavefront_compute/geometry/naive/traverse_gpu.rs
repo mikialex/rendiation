@@ -80,6 +80,12 @@ impl GPUAccelerationStructureSystemCompImplInstance for NaiveSahBvhGpu {
     builder.bind(&self.vertices);
     // builder.bind(&self.boxes);
   }
+
+  fn create_tlas_instance(&self) -> Box<dyn GPUAccelerationStructureSystemTlasCompImplInstance> {
+    Box::new(NaiveSahBvhGpuTlas {
+      tlas_data: self.tlas_data.clone(),
+    })
+  }
 }
 
 pub struct NaiveSahBVHInvocationInstance {
@@ -96,6 +102,35 @@ pub struct NaiveSahBVHInvocationInstance {
   indices: ReadOnlyStorageNode<[u32]>,
   vertices: ReadOnlyStorageNode<[f32]>,
   // boxes: ReadOnlyStorageNode<[f32]>,
+}
+
+#[derive(Clone)]
+pub(super) struct NaiveSahBvhGpuTlas {
+  pub(super) tlas_data:
+    StorageBufferReadOnlyDataView<[TopLevelAccelerationStructureSourceDeviceInstance]>,
+}
+impl GPUAccelerationStructureSystemTlasCompImplInstance for NaiveSahBvhGpuTlas {
+  fn build_shader(
+    &self,
+    compute_cx: &mut ShaderComputePipelineBuilder,
+  ) -> Box<dyn GPUAccelerationStructureSystemTlasCompImplInvocation> {
+    let tlas_data = compute_cx.bind_by(&self.tlas_data);
+    Box::new(NaiveSahBVHTlasInvocationInstance { tlas_data })
+  }
+  fn bind_pass(&self, builder: &mut BindingBuilder) {
+    builder.bind(&self.tlas_data);
+  }
+}
+pub struct NaiveSahBVHTlasInvocationInstance {
+  tlas_data: ReadOnlyStorageNode<[TopLevelAccelerationStructureSourceDeviceInstance]>,
+}
+impl GPUAccelerationStructureSystemTlasCompImplInvocation for NaiveSahBVHTlasInvocationInstance {
+  fn index_tlas(
+    &self,
+    idx: Node<u32>,
+  ) -> ReadOnlyStorageNode<TopLevelAccelerationStructureSourceDeviceInstance> {
+    self.tlas_data.index(idx)
+  }
 }
 
 struct TraverseBvhIteratorGpu {
@@ -266,13 +301,6 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
         hit: hit_info,
       },
     }
-  }
-
-  fn index_tlas(
-    &self,
-    idx: Node<u32>,
-  ) -> ReadOnlyStorageNode<TopLevelAccelerationStructureSourceDeviceInstance> {
-    self.tlas_data.index(idx)
   }
 }
 

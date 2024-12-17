@@ -146,7 +146,7 @@ impl ShaderFutureProvider for TracingCtxProviderTracer {
       launch_size: ctx.get_mut::<RayLaunchSizeBuffer>().unwrap().clone(),
       base: Default::default(),
       tlas_sys: ctx
-        .get::<Box<dyn GPUAccelerationStructureSystemCompImplInstance>>()
+        .get::<Box<dyn GPUAccelerationStructureSystemTlasCompImplInstance>>()
         .unwrap()
         .clone(),
     }
@@ -166,7 +166,7 @@ pub struct TracingCtxProviderFuture {
   launch_size: RayLaunchSizeBuffer,
   base: BaseShaderFuture<()>,
   // only effective in closest stage
-  tlas_sys: Box<dyn GPUAccelerationStructureSystemCompImplInstance>,
+  tlas_sys: Box<dyn GPUAccelerationStructureSystemTlasCompImplInstance>,
 }
 
 impl ShaderFuture for TracingCtxProviderFuture {
@@ -205,7 +205,7 @@ pub struct TracingCtxProviderFutureInvocation {
   ray_spawner: TracingTaskSpawnerInvocation,
   launch_size: RayLaunchSizeInvocation,
   // Some in closest stage, None in other stages
-  tlas_sys: Option<Box<dyn GPUAccelerationStructureSystemCompImplInvocationTraversable>>,
+  tlas_sys: Option<Box<dyn GPUAccelerationStructureSystemTlasCompImplInvocation>>,
 }
 impl ShaderFutureInvocation for TracingCtxProviderFutureInvocation {
   type Output = ();
