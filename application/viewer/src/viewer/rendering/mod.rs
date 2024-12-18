@@ -17,7 +17,7 @@ use rendiation_texture_gpu_process::copy_frame;
 use rendiation_webgpu::*;
 
 pub struct Viewer3dRenderingCtx {
-  pub(crate) frame_logic: ViewerFrameLogic,
+  frame_logic: ViewerFrameLogic,
   rendering_resource: ReactiveQueryJoinUpdater,
   renderer_impl: GLESRenderSystem,
   rtx_ao_renderer_impl: Option<RayTracingAORenderSystem>,
@@ -31,6 +31,10 @@ pub struct Viewer3dRenderingCtx {
 }
 
 impl Viewer3dRenderingCtx {
+  pub fn gpu(&self) -> &GPU {
+    &self.gpu
+  }
+
   pub fn new(gpu: GPU) -> Self {
     let prefer_bindless_textures = false;
     let mut renderer_impl = build_default_gles_render_system(prefer_bindless_textures);

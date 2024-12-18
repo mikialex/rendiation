@@ -97,7 +97,7 @@ impl<'a> Default for GPUCreateConfig<'a> {
 
 #[derive(Clone)]
 pub struct GPUInfo {
-  pub requested_backend_type: Backends,
+  pub adaptor_info: AdapterInfo,
   pub power_preference: PowerPreference,
   pub supported_features: Features,
   pub supported_limits: Limits,
@@ -183,7 +183,7 @@ impl GPU {
     let queue = GPUQueue::new(queue);
 
     let info = GPUInfo {
-      requested_backend_type: config.backends,
+      adaptor_info: _adaptor.get_info(),
       power_preference: config.power_preference,
       supported_features,
       supported_limits,

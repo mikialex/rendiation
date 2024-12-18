@@ -43,7 +43,7 @@ By leveraging these crates, users can build, assemble and customize their own fe
   - library: useful graphics shader logic collection
   - parallel-compute: express parallel computation in monad-like high level api
   - task-graph: a on-device task-graph runtime to support massively stateful computation in gpu.
-  - ray-tracing: a monad-like high level api for gpu ray tracing with the same capabilities as the native hardware rtx. and a wavefront tracing executor based on task-graph.
+  - [ray-tracing](./shader/ray-tracing/README.md): a monad-like high level api for gpu ray tracing with the same capabilities as the native hardware rtx. and a wavefront tracing executor based on task-graph.
 - content: graphics related data structure and algorithm for domain related problem
   - texture
     - core
