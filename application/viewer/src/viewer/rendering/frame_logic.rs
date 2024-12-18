@@ -1,8 +1,9 @@
 use rendiation_algebra::*;
-use rendiation_infinity_plane::*;
+use rendiation_infinity_primitive::*;
 use rendiation_texture_gpu_process::*;
 use rendiation_webgpu::*;
 
+use super::{GridEffect, GridGround};
 use crate::*;
 
 pub struct ViewerFrameLogic {

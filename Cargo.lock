@@ -3474,7 +3474,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rendiation-infinity-plane"
+name = "rendiation-infinity-primitive"
 version = "0.1.0"
 dependencies = [
  "database",
@@ -4836,7 +4836,7 @@ dependencies = [
  "rendiation-geometry",
  "rendiation-gizmo",
  "rendiation-gui-3d",
- "rendiation-infinity-plane",
+ "rendiation-infinity-primitive",
  "rendiation-lighting-gpu-system",
  "rendiation-lighting-transport",
  "rendiation-mesh-core",
