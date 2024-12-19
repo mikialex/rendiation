@@ -3,6 +3,7 @@ mod test;
 #[cfg(test)]
 pub(crate) use test::*;
 
+mod blas;
 mod flag;
 mod traverse_cpu;
 mod traverse_gpu;
@@ -10,6 +11,7 @@ mod traverse_gpu;
 use std::ops::{BitAnd, Deref};
 use std::sync::{RwLock, RwLockReadGuard};
 
+use blas::*;
 use flag::*;
 use rendiation_geometry::Box3;
 use rendiation_space_algorithm::bvh::*;
