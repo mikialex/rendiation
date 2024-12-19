@@ -23,6 +23,7 @@ The following things is the current project development direction.
 
 - fix scene gpu lighting is globally shared
 - fix some mesh can not be picked (maybe related to u16 index format)
+- fix viewer screenshot channel mismatch
 
 ## Useful commands
 

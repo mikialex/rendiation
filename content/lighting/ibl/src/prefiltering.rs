@@ -77,10 +77,10 @@ impl ShaderHashProvider for BrdfLUTGenerator {
 impl GraphicsShaderProvider for BrdfLUTGenerator {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, _| {
-      let sample_count = val(32);
+      let sample_count = val(128);
       let uv = builder.query::<FragmentUv>();
       let result = integrate_brdf(uv.x(), uv.y(), sample_count);
-      builder.store_fragment_out(0, (result, val(1.), val(1.)))
+      builder.store_fragment_out(0, (result, val(0.), val(1.)))
     })
   }
 }

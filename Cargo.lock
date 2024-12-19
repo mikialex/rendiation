@@ -3507,7 +3507,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rendiation-lighting-ibl-core"
+name = "rendiation-lighting-ibl"
 version = "0.1.0"
 dependencies = [
  "bytemuck",

@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use rendiation_algebra::Vec4;
-use rendiation_lighting_ibl_core::generate_brdf_lut;
+use rendiation_lighting_ibl::generate_brdf_lut;
 use rendiation_texture_core::*;
 use rendiation_texture_loader::*;
 use rendiation_webgpu::*;
@@ -21,6 +21,8 @@ pub async fn main() {
 
   generate_brdf_lut(&mut frame_ctx, target);
 
+  frame_ctx.final_submit();
+
   let mut encoder = gpu.device.create_encoder();
   let reader = encoder.read_texture_2d(
     &gpu.device,
@@ -34,7 +36,13 @@ pub async fn main() {
   gpu.submit_encoder(encoder);
   let result = reader.await.unwrap();
 
-  let buffer = result.read_raw();
+  let padded_buffer = result.read_raw();
+  let info = result.info();
+  let mut buffer = Vec::with_capacity(info.unpadded_bytes_per_row * info.height);
+  for chunk in padded_buffer.chunks(info.padded_bytes_per_row) {
+    buffer.extend_from_slice(&chunk[..info.unpadded_bytes_per_row]);
+  }
+
   let image: &[Vec4<u8>] = bytemuck::cast_slice(&buffer);
   let image = Texture2DBuffer {
     data: image.to_vec(),
