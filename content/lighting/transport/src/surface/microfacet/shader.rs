@@ -7,6 +7,7 @@ pub struct ShaderPhysicalShading {
   pub diffuse: Vec3<f32>,
   pub perceptual_roughness: f32,
   pub f0: Vec3<f32>,
+  pub emissive: Vec3<f32>,
 }
 
 pub fn bias_n_dot_l(n_dot_l: Node<f32>) -> Node<f32> {
@@ -15,7 +16,7 @@ pub fn bias_n_dot_l(n_dot_l: Node<f32>) -> Node<f32> {
 
 /// Microfacet Models for Refraction through Rough Surfaces - equation (33)
 /// http://graphicrants.blogspot.com/2013/08/specular-brdf-reference.html
-fn d_ggx(n_o_h: Node<f32>, roughness4: Node<f32>) -> Node<f32> {
+pub fn d_ggx(n_o_h: Node<f32>, roughness4: Node<f32>) -> Node<f32> {
   let d = (n_o_h * roughness4 - n_o_h) * n_o_h + val(1.0);
   roughness4 / (val(f32::PI()) * d * d)
 }

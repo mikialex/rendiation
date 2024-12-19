@@ -24,7 +24,7 @@ The following things is the current project development direction.
 - fix scene gpu lighting is globally shared
 - fix some mesh can not be picked (maybe related to u16 index format)
 
-## Misc
+## Useful commands
 
 most used testing and developing commands (write it down for convenience)
 
@@ -48,3 +48,14 @@ samply record cargo r --release viewer
 ```
 
 For GPU debugging and profiling, the metal gpu capture is recommended to investigate gpu workload on macos. On the other platform that using Nvidia graphics card, the Nsight is recommended. If the webgpu backend switched to Dx12, the Pixi debugger is another good choice.
+
+## Coding style
+
+The coding style is enforced by rustfmt. Some extra notes are:
+
+- If the name of the struct or type contains multiple terminology nouns in sequence, for example "GPU" and "NDC" in "WebGPUNDC", use the "WebGPUxNDC" instead.
+- Make sure the code looks comfortable visually, adjust the line break and insert empty row in pair with how logic and data flows. Rustfmt can not do that for you.
+
+## Version control
+
+- Avoid committing derived data, binary data (including bitmap images) into the repository. We're consider using a separate submodule repository for these types of assets.

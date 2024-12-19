@@ -3511,17 +3511,7 @@ name = "rendiation-lighting-ibl-core"
 version = "0.1.0"
 dependencies = [
  "rendiation-algebra",
- "rendiation-lighting-transport",
- "rendiation-shader-api",
- "rendiation-shader-library",
- "rendiation-texture-core",
-]
-
-[[package]]
-name = "rendiation-lighting-ibl-gpu"
-version = "0.1.0"
-dependencies = [
- "rendiation-algebra",
+ "rendiation-lighting-gpu-system",
  "rendiation-lighting-transport",
  "rendiation-shader-api",
  "rendiation-shader-library",
