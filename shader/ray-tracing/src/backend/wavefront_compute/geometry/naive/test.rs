@@ -113,28 +113,20 @@ pub(crate) fn init_default_acceleration_structure(
       },
     },
   ]);
-
-  fn add_tlas_source(
-    vec: &mut Vec<TopLevelAccelerationStructureSourceInstance>,
-    transform: Mat4<f32>,
-    blas_handle: &BlasHandle,
-  ) {
-    vec.push(TopLevelAccelerationStructureSourceInstance {
-      transform,
-      instance_custom_index: 0,
-      mask: u32::MAX,
-      instance_shader_binding_table_record_offset: 0,
-      flags: 0,
-      acceleration_structure_handle: *blas_handle,
-    });
-  }
   fn build_tlas(
     system: &dyn GPUAccelerationStructureSystemProvider,
-    sources: &[(Mat4<f32>, &BlasHandle)],
+    sources: &[(Mat4<f32>, BlasHandle)],
   ) -> TlasHandle {
     let mut vec = vec![];
-    for (transform, blas_handle) in sources {
-      add_tlas_source(&mut vec, *transform, blas_handle);
+    for &(transform, blas_handle) in sources {
+      vec.push(TopLevelAccelerationStructureSourceInstance {
+        transform,
+        instance_custom_index: 0,
+        mask: u32::MAX,
+        instance_shader_binding_table_record_offset: 0,
+        flags: 0,
+        acceleration_structure_handle: blas_handle,
+      });
     }
     system.create_top_level_acceleration_structure(&vec)
   }
@@ -142,40 +134,35 @@ pub(crate) fn init_default_acceleration_structure(
   let mut sources0 = vec![];
   for i in -2..=2 {
     for j in -2..=2 {
-      add_tlas_source(
-        &mut sources0,
+      sources0.push((
         Mat4::translate((i as f32 * 1.5, j as f32 * 1.5, -10.)),
-        &cube,
-      );
+        cube,
+      ));
     }
   }
-  add_tlas_source(
-    &mut sources0,
+  sources0.push((
     Mat4::translate((0., 4.5, -10.)) * Mat4::scale((5., 1., 1.)),
-    &cube,
-  );
-  add_tlas_source(
-    &mut sources0,
+    cube,
+  ));
+  sources0.push((
     Mat4::translate((0., -4.5, -10.))
       * Mat4::rotate_y(std::f32::consts::PI)
       * Mat4::scale((5., 1., 1.)),
-    &cube,
-  );
-  add_tlas_source(
-    &mut sources0,
+    cube,
+  ));
+  sources0.push((
     Mat4::translate((4.5, -4.5, -10.))
       * Mat4::rotate_y(std::f32::consts::PI * 0.5)
       * Mat4::scale((5., 1., 1.)),
-    &cube,
-  );
-  add_tlas_source(
-    &mut sources0,
+    cube,
+  ));
+  sources0.push((
     Mat4::translate((-4.5, -4.5, -10.))
       * Mat4::rotate_y(std::f32::consts::PI * -0.5)
       * Mat4::scale((5., 1., 1.)),
-    &cube,
-  );
-  let tlas0 = system.create_top_level_acceleration_structure(&sources0);
+    cube,
+  ));
+  let tlas0 = build_tlas(system, &sources0);
 
   let tlas1_sources = (0usize..6)
     .map(|i| {
@@ -185,7 +172,7 @@ pub(crate) fn init_default_acceleration_structure(
         Mat4::translate((sin * 4., cos * 4., -5.))
           * Mat4::rotate_z(-angle)
           * Mat4::scale((3., 0.5, 0.5)),
-        &cube,
+        cube,
       )
     })
     .collect::<Vec<_>>();
@@ -195,7 +182,7 @@ pub(crate) fn init_default_acceleration_structure(
     system,
     &[(
       Mat4::translate((0., 0., -10.)) * Mat4::scale((5., 5., 5.)) * Mat4::rotate_x(-0.5),
-      &torus,
+      torus,
     )],
   );
 
@@ -203,21 +190,20 @@ pub(crate) fn init_default_acceleration_structure(
   for i in -2..=2 {
     for j in -2..=2 {
       for k in -2..=2 {
-        add_tlas_source(
-          &mut sources3,
+        sources3.push((
           Mat4::translate((i as f32 * 1.5, j as f32 * 1.5, -8. + k as f32 * 1.5)),
-          &cube,
-        );
+          cube,
+        ));
       }
     }
   }
-  let tlas3 = system.create_top_level_acceleration_structure(&sources3);
+  let tlas3 = build_tlas(system, &sources3);
 
   let tlas4 = build_tlas(
     system,
     &[(
       Mat4::translate((0., 0., -10.)) * Mat4::scale((5., 5., 5.)),
-      &sphere,
+      sphere,
     )],
   );
 
@@ -391,11 +377,9 @@ fn test_gpu_triangle() {
       &self,
       builder: &mut ShaderComputePipelineBuilder,
     ) -> Box<dyn DeviceInvocation<Node<u32>>> {
-      builder.log_result = true;
-
       let upstream_shader = self.upstream.build_shader(builder);
 
-      let traversable = self.system.clone().build_shader(builder);
+      let traversable = self.system.build_shader(builder);
       let payloads = builder.bindgroups().bind_by(&self.payloads);
 
       upstream_shader

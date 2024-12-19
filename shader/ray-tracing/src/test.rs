@@ -2,7 +2,8 @@
 async fn test_wavefront_compute() {
   use rendiation_texture_core::Size;
 
-  let canvas_size = 64;
+  let canvas_w = 256;
+  let canvas_h = 256;
 
   use crate::*;
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();
@@ -14,7 +15,7 @@ async fn test_wavefront_compute() {
 
   let debug_output = create_empty_2d_texture_view(
     &gpu,
-    Size::from_u32_pair_min_one((canvas_size, canvas_size)),
+    Size::from_u32_pair_min_one((canvas_w, canvas_h)),
     TextureUsages::all(),
     TextureFormat::Rgba8Unorm,
   );
@@ -124,19 +125,21 @@ async fn test_wavefront_compute() {
     shader_base_builder
       .create_miss_hit_shader_base::<RayCustomPayload>()
       .inject_ctx(texture_io_system.clone())
-      .map(|_, _ctx| {
-        // let miss_ctx = ctx.miss_hit_ctx().unwrap();
-        // let launch_id = miss_ctx.launch_id();
+      .map(|_, ctx| {
+        let miss_ctx = ctx.miss_hit_ctx().unwrap();
+        let launch_id = miss_ctx.launch_id();
 
-        // let tex_io = ctx.registry.get_mut::<FrameOutputInvocation>().unwrap();
-        // let prev = tex_io.read_output::<RayTracingDebugOutput>(launch_id.xy());
-        // tex_io.write_output::<RayTracingDebugOutput>(
-        //   launch_id.xy(),
-        //   (prev.x() + val(100. / 255.), prev.y(), prev.z(), val(1.)).into(),
-        // );
+        let tex_io = ctx.registry.get_mut::<FrameOutputInvocation>().unwrap();
+        let prev = tex_io.read_output::<RayTracingDebugOutput>(launch_id.xy());
+        tex_io.write_output::<RayTracingDebugOutput>(
+          launch_id.xy(),
+          (prev.x() + val(100. / 255.), prev.y(), prev.z(), val(1.)).into(),
+        );
       }),
     1,
   );
+
+  let any_hit = rtx_pipeline_desc.register_ray_any_hit(|_ctx| val(ANYHIT_BEHAVIOR_ACCEPT_HIT));
 
   let ray_type_count = 1;
 
@@ -151,7 +154,7 @@ async fn test_wavefront_compute() {
     0,
     HitGroupShaderRecord {
       closest_hit: Some(closest_hit),
-      any_hit: None,
+      any_hit: Some(any_hit),
       intersection: None,
     },
   );
@@ -161,7 +164,7 @@ async fn test_wavefront_compute() {
   rtx_encoder.trace_ray(
     &rtx_pipeline_desc,
     &executor,
-    (canvas_size, canvas_size, 1),
+    (canvas_w, canvas_h, 1),
     sbt.as_ref(),
   );
 
@@ -176,7 +179,7 @@ async fn test_wavefront_compute() {
       &gpu.device,
       &texture.unwrap(),
       ReadRange {
-        size: Size::from_u32_pair_min_one((canvas_size, canvas_size)),
+        size: Size::from_u32_pair_min_one((canvas_w, canvas_h)),
         offset_x: 0,
         offset_y: 0,
       },
@@ -187,7 +190,7 @@ async fn test_wavefront_compute() {
 
   let info = buffer.info();
   let buffer = buffer.read_raw();
-  let mut write_buffer = format!("P3\n{} {}\n255\n", canvas_size, canvas_size);
+  let mut write_buffer = format!("P3\n{} {}\n255\n", canvas_w, canvas_h);
   buffer
     .chunks_exact(info.padded_bytes_per_row)
     .for_each(|line| {
