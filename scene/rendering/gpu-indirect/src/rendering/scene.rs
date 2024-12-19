@@ -7,7 +7,10 @@ pub struct IndirectRenderSystem {
   pub scene_model_impl: Box<dyn RenderImplProvider<Box<dyn IndirectBatchSceneModelRenderer>>>,
 }
 
-pub fn build_default_gles_render_system(gpu: &GPU, prefer_bindless: bool) -> IndirectRenderSystem {
+pub fn build_default_indirect_render_system(
+  gpu: &GPU,
+  prefer_bindless: bool,
+) -> IndirectRenderSystem {
   IndirectRenderSystem {
     model_lookup: Default::default(),
     texture_system: TextureGPUSystemSource::new(prefer_bindless),
