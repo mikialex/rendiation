@@ -1,3 +1,5 @@
+use std::any::TypeId;
+
 use crate::*;
 
 pub trait IndirectModelMaterialRenderImpl {
@@ -6,6 +8,11 @@ pub trait IndirectModelMaterialRenderImpl {
     any_idx: EntityHandle<StandardModelEntity>,
     cx: &'a GPUTextureBindingSystem,
   ) -> Option<Box<dyn RenderComponent + 'a>>;
+  fn hash_shader_group_key(
+    &self,
+    any_id: EntityHandle<StandardModelEntity>,
+    hasher: &mut PipelineHasher,
+  ) -> Option<()>;
 }
 
 impl IndirectModelMaterialRenderImpl for Vec<Box<dyn IndirectModelMaterialRenderImpl>> {
@@ -17,6 +24,18 @@ impl IndirectModelMaterialRenderImpl for Vec<Box<dyn IndirectModelMaterialRender
     for provider in self {
       if let Some(com) = provider.make_component_indirect(any_idx, cx) {
         return Some(com);
+      }
+    }
+    None
+  }
+  fn hash_shader_group_key(
+    &self,
+    any_id: EntityHandle<StandardModelEntity>,
+    hasher: &mut PipelineHasher,
+  ) -> Option<()> {
+    for provider in self {
+      if let Some(v) = provider.hash_shader_group_key(any_id, hasher) {
+        return Some(v);
       }
     }
     None
@@ -70,6 +89,14 @@ impl IndirectModelMaterialRenderImpl for FlatMaterialDefaultIndirectRenderImpl {
     Some(Box::new(FlatMaterialStorageGPU {
       buffer: self.storages.clone(),
     }))
+  }
+  fn hash_shader_group_key(
+    &self,
+    _: EntityHandle<StandardModelEntity>,
+    hasher: &mut PipelineHasher,
+  ) -> Option<()> {
+    TypeId::of::<Self>().hash(hasher);
+    Some(())
   }
 }
 
@@ -151,6 +178,16 @@ impl IndirectModelMaterialRenderImpl for PbrMRMaterialDefaultIndirectRenderImpl 
     let r = Box::new(r) as Box<dyn RenderComponent + '_>;
     Some(r)
   }
+  fn hash_shader_group_key(
+    &self,
+    idx: EntityHandle<StandardModelEntity>,
+    hasher: &mut PipelineHasher,
+  ) -> Option<()> {
+    TypeId::of::<Self>().hash(hasher);
+    let idx = self.material_access.get(idx)?;
+    self.alpha_mode.get_value(idx)?.hash(hasher);
+    Some(())
+  }
 }
 
 #[derive(Default)]
@@ -208,5 +245,15 @@ impl IndirectModelMaterialRenderImpl for PbrSGMaterialDefaultIndirectRenderImpl 
     };
     let r = Box::new(r) as Box<dyn RenderComponent + '_>;
     Some(r)
+  }
+  fn hash_shader_group_key(
+    &self,
+    idx: EntityHandle<StandardModelEntity>,
+    hasher: &mut PipelineHasher,
+  ) -> Option<()> {
+    TypeId::of::<Self>().hash(hasher);
+    let idx = self.material_access.get(idx)?;
+    self.alpha_mode.get_value(idx)?.hash(hasher);
+    Some(())
   }
 }

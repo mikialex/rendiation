@@ -115,12 +115,9 @@ pub trait SceneRenderer: SceneModelRenderer {
 
   /// Batch rendering the passed models. Comparing to render one single model at a time(using [SceneModelRenderer]), this may be more efficient.
   /// The implementation should be override if it can provide better performance. The default implementation is a loop call using [SceneModelRenderer]
-  ///
-  /// if reorderable is true, the order of model may not be preserved
   fn render_models(
     &self,
     models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
-    _reorderable: bool,
     camera: EntityHandle<SceneCameraEntity>,
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,
@@ -132,17 +129,6 @@ pub trait SceneRenderer: SceneModelRenderer {
         println!("{}", e);
       }
     }
-  }
-
-  fn render_reorderable_models(
-    &self,
-    models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
-    camera: EntityHandle<SceneCameraEntity>,
-    pass: &dyn RenderComponent,
-    cx: &mut GPURenderPassCtx,
-    tex: &GPUTextureBindingSystem,
-  ) {
-    self.render_models(models, true, camera, pass, cx, tex);
   }
 
   /// Expose the under-layer camera system implementation to enable user access the

@@ -86,24 +86,6 @@ struct GLESSceneRenderer {
   sm_ref_node: ForeignKeyReadView<SceneModelRefNode>,
 }
 
-#[derive(Clone)]
-struct HostModelLookUp {
-  v: RevRefOfForeignKey<SceneModelBelongsToScene>,
-  node_net_visible: BoxedDynQuery<EntityHandle<SceneNodeEntity>, bool>,
-  sm_ref_node: ForeignKeyReadView<SceneModelRefNode>,
-  scene_id: EntityHandle<SceneEntity>,
-}
-
-impl HostRenderBatch for HostModelLookUp {
-  fn iter_scene_models(&self) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + '_> {
-    let iter = self.v.access_multi_value_dyn(&self.scene_id).filter(|sm| {
-      let node = self.sm_ref_node.get(*sm).unwrap();
-      self.node_net_visible.access(&node).unwrap_or(false)
-    });
-    Box::new(iter)
-  }
-}
-
 impl SceneModelRenderer for GLESSceneRenderer {
   fn render_scene_model(
     &self,
@@ -181,7 +163,7 @@ impl<'a> PassContent for GLESScenePassContent<'a> {
     let base = default_dispatcher(pass);
     let p = RenderArray([&base, self.pass] as [&dyn rendiation_webgpu::RenderComponent; 2]);
 
-    self.renderer.render_reorderable_models(
+    self.renderer.render_models(
       &mut models,
       self.camera,
       &p,

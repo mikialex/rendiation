@@ -227,7 +227,7 @@ where
 {
   fn render(&mut self, pass: &mut FrameRenderPass) {
     if let Some(mut objects) = self.objects.take() {
-      self.renderer.render_reorderable_models(
+      self.renderer.render_models(
         &mut objects,
         self.camera,
         &HighLightMaskDispatcher,
