@@ -631,31 +631,6 @@ fn intersect_blas_gpu(
       });
     });
 
-    // ForRange::new(blas.box_root_range).for_each(|box_root_idx, _cx| {
-    //   let geometry = tri_bvh_root.index(box_root_idx).load().expand();
-    //   let root = geometry.bvh_root_idx;
-    //   let geometry_id = geometry.geometry_idx;
-    //   let primitive_start = geometry.primitive_start;
-    //
-    //   let bvh_iter = TraverseBvhIteratorGpu {
-    //     bvh: box_bvh_forest,
-    //     ray,
-    //     node_idx: root.make_local_var(),
-    //   };
-    //   let iter = bvh_iter.flat_map(ForRange::new); // box index
-    //
-    //   iter.for_each(|box_idx, _cx| {
-    //     let start = box_idx * val(2);
-    //     let min = boxes.index(indices.index(start).load()).load();
-    //     let max = boxes.index(indices.index(start + val(1)).load()).load();
-    //
-    //     let hit = intersect_ray_aabb_gpu(ray, min, max);
-    //     if_by(hit, || {
-    //       // todo call intersection with anyhit, remember distance_scaling
-    //     });
-    //   });
-    // });
-
     if_by(end_search.load(), || blas_loop.do_break());
   });
 }

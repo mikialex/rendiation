@@ -163,49 +163,6 @@ impl NaiveSahBvhCpu {
             }
           }
         }
-
-        // if flags.visit_boxes_cpu() {
-        //   let blas_ray_range = ray_range.clone_with_scaling(distance_scaling);
-        //   for box_root_index in blas_meta_info.box_root_range.x..blas_meta_info.box_root_range.y {
-        //     let geometry = self.box_bvh_root[box_root_index as usize];
-        //     let blas_root_idx = geometry.bvh_root_idx;
-        //     let _geometry_idx = geometry.geometry_idx;
-        //     let _primitive_start = geometry.primitive_start;
-        //     let geometry_flags = geometry.geometry_flags;
-        //
-        //     let (pass, _is_opaque) = TraverseFlags::cull_geometry_cpu(flags, geometry_flags);
-        //     if !pass {
-        //       continue;
-        //     }
-        //
-        //     let box_iter = TraverseBvhIteratorCpu {
-        //       bvh: &self.box_bvh_forest,
-        //       ray_origin: blas_ray_origin,
-        //       ray_direction: blas_ray_direction,
-        //       ray_range: blas_ray_range.clone(),
-        //       curr_idx: blas_root_idx,
-        //     };
-        //
-        //     for hit_idx in box_iter {
-        //       let node = &self.box_bvh_forest[hit_idx as usize];
-        //       let aabb =
-        //         &self.boxes[node.content_range.x as usize * 2..node.content_range.y as usize * 2];
-        //       for aabb in aabb.chunks_exact(2) {
-        //         let hit = intersect_ray_aabb_cpu(
-        //           blas_ray_origin,
-        //           blas_ray_direction,
-        //           blas_ray_range.get(),
-        //           aabb[0],
-        //           aabb[1],
-        //         );
-        //         if hit {
-        //           // todo call intersect, then anyhit
-        //           // todo modify range after hit
-        //         }
-        //       }
-        //     }
-        //   }
-        // }
       }
     }
   }
