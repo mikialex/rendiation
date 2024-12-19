@@ -91,12 +91,3 @@ pub fn generate_brdf_lut(ctx: &mut FrameCtx, target: GPU2DTextureView) {
     .render_ctx(ctx)
     .by(&mut BrdfLUTGenerator.draw_quad());
 }
-
-// pub struct PrefilteredCubeMapPair {
-//   diffuse: GPUTextureCube,
-//   specular: GPUTextureCube,
-// }
-
-// pub fn prefilter(cube: GPUTextureCube) -> PrefilteredCubeMapPair {
-//   todo!()
-// }

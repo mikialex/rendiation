@@ -62,7 +62,7 @@ By leveraging these crates, users can build, assemble and customize their own fe
   - lighting
     - core
     - gpu-system: gpu lighting compute utils
-    - ibl: IBL environmental lighting tools
+    - [ibl](./content/lighting/ibl/README.md): IBL environmental lighting
     - [ltc](./content/lighting/ltc/README.md): LTC area lighting and lut map generator
     - punctual
     - transport
