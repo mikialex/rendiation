@@ -250,15 +250,12 @@ fn test_cpu_triangle() {
       let direction = (target - ORIGIN).normalize();
 
       payload.ray_direction = direction;
-      cpu_data.traverse(
-        &payload,
-        &mut |_geometry_id, primitive_id, distance, _position| {
-          let (d, id) = &mut out[j][i];
-          *d = distance;
-          *id = primitive_id % PRIMITIVE_IDX_MAX + 1;
-          TEST_ANYHIT_BEHAVIOR
-        },
-      );
+      cpu_data.traverse(&payload, &mut |hit_point| {
+        let (d, id) = &mut out[j][i];
+        *d = hit_point.distance;
+        *id = hit_point.primitive_idx % PRIMITIVE_IDX_MAX + 1;
+        TEST_ANYHIT_BEHAVIOR
+      });
     }
   }
   println!(

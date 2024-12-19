@@ -5,7 +5,6 @@ use rendiation_algebra::Vec3;
 use crate::backend::wavefront_compute::geometry::intersect_ray_triangle_cpu;
 use crate::backend::wavefront_compute::geometry::naive::*;
 
-#[derive(Debug)]
 pub(super) struct NaiveSahBvhCpu {
   // maps user tlas_id to tlas_bvh root node idx in tlas_bvh_forest
   pub(super) tlas_bvh_root: Vec<u32>,
@@ -15,20 +14,7 @@ pub(super) struct NaiveSahBvhCpu {
   pub(super) tlas_data: Vec<TopLevelAccelerationStructureSourceDeviceInstance>,
   pub(super) tlas_bounding: Vec<TlasBounding>,
 
-  // tri_range to index tri_bvh_root, box_range to index box_bvh_root
-  pub(super) blas_meta_info: Vec<BlasMetaInfo>,
-  // tri_bvh_forest root_idx, geometry_idx, primitive_start, geometry_flags
-  pub(super) tri_bvh_root: Vec<GeometryMetaInfo>,
-  // // box_bvh_forest root_idx, geometry_idx, primitive_start, geometry_flags
-  // pub(super) box_bvh_root: Vec<GeometryMetaInfo>,
-  // content range to index indices
-  pub(super) tri_bvh_forest: Vec<DeviceBVHNode>,
-  // // content range to index boxes
-  // pub(super) box_bvh_forest: Vec<DeviceBVHNode>,
-  pub(super) indices_redirect: Vec<u32>,
-  pub(super) indices: Vec<u32>,
-  pub(super) vertices: Vec<Vec3<f32>>,
-  // pub(super) boxes: Vec<Vec3<f32>>,
+  pub(super) blas_sys: BuiltBlasPack,
 }
 
 use std::sync::atomic::AtomicU32;
@@ -41,7 +27,7 @@ impl NaiveSahBvhCpu {
   pub(super) fn traverse(
     &self,
     ray: &ShaderRayTraceCallStoragePayload,
-    any_hit: &mut dyn FnMut(u32, u32, f32, Vec3<f32>) -> RayAnyHitBehavior, /* geometry_idx, primitive_idx, distance, hit_position // todo use ctx */
+    any_hit: &mut impl FnMut(HitPoint) -> RayAnyHitBehavior,
   ) {
     let flags = TraverseFlags::from_ray_flag(ray.ray_flags);
     let ray_range = RayRange::new(ray.range.x, ray.range.y, 1.);
@@ -77,10 +63,10 @@ impl NaiveSahBvhCpu {
         }
 
         let tlas_data = &self.tlas_data[tlas_idx as usize];
-        // hit tlas
-        let blas_idx = tlas_data.acceleration_structure_handle;
         let flags = TraverseFlags::merge_geometry_instance_flag(flags, tlas_data.flags);
 
+        // hit tlas
+        let blas_idx = tlas_data.acceleration_structure_handle;
         // traverse blas bvh
         let blas_ray_origin = tlas_data.transform_inv * ray.ray_origin.expand_with_one();
         let blas_ray_origin = blas_ray_origin.xyz() / blas_ray_origin.w();
@@ -89,78 +75,18 @@ impl NaiveSahBvhCpu {
         let blas_ray_range = ray_range.clone_with_scaling(distance_scaling);
         let blas_ray_direction = blas_ray_direction.normalize();
 
-        let blas_meta_info = &self.blas_meta_info[blas_idx as usize];
-
         if flags.visit_triangles() {
-          for tri_root_index in blas_meta_info.tri_root_range.x..blas_meta_info.tri_root_range.y {
-            let geometry = self.tri_bvh_root[tri_root_index as usize];
-            let blas_root_idx = geometry.bvh_root_idx;
-            let geometry_idx = geometry.geometry_idx;
-            let primitive_start = geometry.primitive_start;
-            let geometry_flags = geometry.geometry_flags;
-
-            let (pass, _is_opaque) = TraverseFlags::cull_geometry(flags, geometry_flags);
-            if !pass {
-              continue;
-            }
-            let (cull_enable, cull_back) = TraverseFlags::cull_triangle(flags);
-
-            let bvh_iter = TraverseBvhIteratorCpu {
-              bvh: &self.tri_bvh_forest,
-              ray_origin: blas_ray_origin,
-              ray_direction: blas_ray_direction,
-              ray_range: blas_ray_range.clone(),
-              curr_idx: blas_root_idx,
-            };
-
-            for hit_idx in bvh_iter {
-              let node = &self.tri_bvh_forest[hit_idx as usize];
-
-              for tri_idx in node.content_range.x..node.content_range.y {
-                let tri_idx = self.indices_redirect[(tri_idx + primitive_start) as usize];
-                let i0 = self.indices[tri_idx as usize * 3];
-                let i1 = self.indices[tri_idx as usize * 3 + 1];
-                let i2 = self.indices[tri_idx as usize * 3 + 2];
-                let v0 = self.vertices[i0 as usize];
-                let v1 = self.vertices[i1 as usize];
-                let v2 = self.vertices[i2 as usize];
-
-                TRI_VISIT_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-
-                // returns (hit, distance, u, v), hit = front hit -> 1, back hit -> -1, miss -> 0
-                let intersection = intersect_ray_triangle_cpu(
-                  blas_ray_origin,
-                  blas_ray_direction,
-                  blas_ray_range.get(),
-                  v0,
-                  v1,
-                  v2,
-                  cull_enable,
-                  cull_back,
-                );
-
-                if intersection[0] != 0. {
-                  let distance = intersection[1] / distance_scaling;
-                  let p = blas_ray_origin + distance * blas_ray_direction;
-                  // println!("hit {p:?}");
-                  let primitive_idx = tri_idx - primitive_start;
-                  // opaque -> anyhit, non-opaque -> intersect
-                  // assuming all opaque
-                  TRI_HIT_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                  let mut behavior = any_hit(geometry_idx, primitive_idx, distance, p);
-                  if behavior & ANYHIT_BEHAVIOR_ACCEPT_HIT > 0 {
-                    ray_range.update_far(distance);
-
-                    if flags.end_search_on_hit() {
-                      behavior |= ANYHIT_BEHAVIOR_END_SEARCH;
-                    }
-                  }
-                  if behavior & ANYHIT_BEHAVIOR_END_SEARCH > 0 {
-                    break 'tlas_loop;
-                  }
-                }
-              }
-            }
+          let end_search = self.blas_sys.intersect_blas_cpu(
+            blas_idx,
+            blas_ray_origin,
+            blas_ray_direction,
+            blas_ray_range,
+            distance_scaling,
+            flags,
+            any_hit,
+          );
+          if end_search {
+            break 'tlas_loop;
           }
         }
       }

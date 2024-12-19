@@ -405,7 +405,7 @@ fn iterate_tlas_blas_gpu(
 ) -> impl ShaderIterator<Item = Node<RayBlas>> {
   tlas_iter.map(move |idx: Node<u32>| {
     let ray = ray.expand();
-    let tlas_data = tlas_data.index(idx).load().expand();
+    let tlas_data = tlas_data.index(idx).load().expand(); // todo read via ptr
 
     let flags = TraverseFlagsGpu::from_ray_flag(ray.flags);
     let flags = flags.merge_geometry_instance_flag(tlas_data.flags);

@@ -483,17 +483,14 @@ impl NaiveSahBvhSource {
     let gpu_tlas_data = create_gpu_buffer(device, &tlas_data);
     let gpu_tlas_bounding = create_gpu_buffer(device, &tlas_bounding);
 
+    let blas_sys = BuiltBlasPack::build(&self.blas_data);
+
     let cpu = NaiveSahBvhCpu {
       tlas_bvh_root,
       tlas_bvh_forest,
       tlas_data,
       tlas_bounding,
-      blas_meta_info,
-      tri_bvh_root,
-      tri_bvh_forest,
-      indices_redirect,
-      indices,
-      vertices,
+      blas_sys,
     };
     // println!("{cpu:#?}");
     *cpu_data = Some(cpu);

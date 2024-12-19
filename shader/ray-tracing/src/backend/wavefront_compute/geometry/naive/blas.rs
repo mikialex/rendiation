@@ -50,7 +50,7 @@ struct GeometryMeta {
 }
 
 /// save offsets in meta, pack buffers with no modification
-struct BuiltBlasPack {
+pub struct BuiltBlasPack {
   blas_meta: Vec<BlasMeta>, // length = blas count
 
   geometry_meta: Vec<GeometryMeta>, // length = geometry count
@@ -93,7 +93,7 @@ impl BuiltBlasPack {
     Self::pack(built_blas_list)
   }
 
-  pub fn pack(blas: Vec<BuiltGeometryPack>) -> Self {
+  fn pack(blas: Vec<BuiltGeometryPack>) -> Self {
     let mut blas_meta = vec![];
     let mut bvh = vec![];
     let mut geometry_meta = vec![];
@@ -138,24 +138,24 @@ struct BuiltGeometryPack {
   vertices: Vec<Vec3<f32>>,
 }
 impl BuiltGeometryPack {
-  pub fn pack(built_geometry_triangles: Vec<BuiltGeometry>) -> Self {
+  fn pack(built_geometry_triangles: Vec<BuiltGeometry>) -> Self {
     let mut bvh = vec![];
     let mut geometry_meta = vec![];
     let mut indices_redirect = vec![];
     let mut indices = vec![];
     let mut vertices = vec![];
     // todo optimize for single geometry
-    for (geometry_idx, built_geometry) in built_geometry_triangles.into_iter().enumerate() {
-      bvh.extend(built_geometry.bvh);
+    for built_geometry in built_geometry_triangles {
       let indices_offset = indices.len() as u32;
       assert_eq!(0, indices_offset % 3);
       geometry_meta.push(GeometryMeta {
         bvh_root: bvh.len() as u32,
         geometry_flags: built_geometry.geometry_flags,
-        geometry_idx: geometry_idx as u32,
+        geometry_idx: built_geometry.geometry_idx,
         primitives_offset: indices_offset / 3,
         vertices_offset: vertices.len() as u32,
       });
+      bvh.extend(built_geometry.bvh);
       indices_redirect.extend(built_geometry.indices_redirect);
       indices.extend(built_geometry.indices);
       vertices.extend(built_geometry.vertices);
@@ -180,7 +180,7 @@ struct BuiltGeometry {
   vertices: Vec<Vec3<f32>>,
 }
 impl BuiltGeometry {
-  pub fn build(
+  fn build(
     geometry_idx: u32,
     flags: GeometryFlags,
     vertices: &Vec<Vec3<f32>>,
@@ -291,7 +291,7 @@ impl BuiltBlasPack {
     ray_range: RayRange,
     distance_scaling: f32,
     flags: TraverseFlags,
-    mut on_hit: impl FnMut(HitPoint) -> RayAnyHitBehavior,
+    on_hit: &mut impl FnMut(HitPoint) -> RayAnyHitBehavior,
   ) -> bool {
     let blas = &self.blas_meta[blas_idx as usize];
 
@@ -320,7 +320,7 @@ impl BuiltBlasPack {
         ray_direction,
         ray_range: ray_range.clone(),
         bvh_offset: geometry_meta.bvh_root, // root is offset
-        curr_idx: geometry_meta.bvh_root,   // start from root
+        curr_idx: 0,                        // start from first local node
       };
       for bvh_node_idx in iter_bvh {
         let node = self.bvh[bvh_node_idx as usize];
