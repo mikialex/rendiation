@@ -131,7 +131,6 @@ impl IndirectSceneRenderer {
   }
 }
 
-// todo, impl better render models using host side immediate prepared indirect draw
 impl SceneRenderer for IndirectSceneRenderer {
   type ContentKey = SceneContentKey;
   fn extract_scene_batch(
@@ -150,23 +149,16 @@ impl SceneRenderer for IndirectSceneRenderer {
     self.create_batch_from_iter(iter.iter_scene_models())
   }
 
-  // fn render_models(
-  //   &self,
-  //   models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
-  //   camera: EntityHandle<SceneCameraEntity>,
-  //   pass: &dyn RenderComponent,
-  //   cx: &mut GPURenderPassCtx,
-  //   tex: &GPUTextureBindingSystem,
-  // ) {
-  //   let batch = self.create_batch_from_iter(models);
-  //   let pass_content = self.make_scene_batch_pass_content(batch, camera, pass, cx);
-
-  //   for m in models {
-  //     if let Err(e) = self.render_scene_model(m, &camera, pass, cx, tex) {
-  //       println!("{}", e);
-  //     }
-  //   }
-  // }
+  fn render_models<'a>(
+    &'a self,
+    models: Box<dyn HostRenderBatch>,
+    camera: EntityHandle<SceneCameraEntity>,
+    pass: &'a dyn RenderComponent,
+    ctx: &mut FrameCtx,
+  ) -> Box<dyn PassContent + 'a> {
+    let batch = self.create_batch_from_iter(models.iter_scene_models());
+    self.make_scene_batch_pass_content(batch, camera, pass, ctx)
+  }
 
   fn make_scene_batch_pass_content<'a>(
     &'a self,
@@ -208,10 +200,6 @@ impl SceneRenderer for IndirectSceneRenderer {
     scene: EntityHandle<SceneEntity>,
   ) -> (Operations<rendiation_webgpu::Color>, Operations<f32>) {
     self.background.init_clear(scene)
-  }
-
-  fn get_scene_model_cx(&self) -> &GPUTextureBindingSystem {
-    &self.texture_system
   }
 
   fn get_camera_gpu(&self) -> &dyn CameraRenderImpl {
