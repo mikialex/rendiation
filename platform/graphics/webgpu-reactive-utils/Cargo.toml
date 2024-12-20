@@ -12,7 +12,7 @@ rendiation-texture-core = { path = "../../../content/texture/core" }
 rendiation-texture-gpu-base = { path = "../../../content/texture/gpu-base" }
 rendiation-webgpu = { path = "../webgpu" }
 fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
-parking_lot = { version = "0.12.1", features = ["send_guard"] }
+parking_lot = { workspace = true }
 
 [lints]
 workspace = true

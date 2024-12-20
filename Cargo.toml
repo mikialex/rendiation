@@ -97,6 +97,8 @@ rand = "0.8.5"
 pollster = { version = "0.3.0", features = ["macro"] }
 thiserror = "1.0.43"
 anyhow = "1.0.93"
+parking_lot = { version = "0.12.1", features = ["send_guard"] }
+criterion = { version = "0.5.1", features = ["html_reports"] }
 
 # https://doc.rust-lang.org/cargo/reference/profiles.html
 
