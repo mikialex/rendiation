@@ -21,6 +21,7 @@ pub enum BinaryOperator {
   LogicalAnd,
   BitAnd,
   BitOr,
+  BitXor,
   ShiftLeft,
   /// Right shift carries the sign of signed integers only.
   ShiftRight,
@@ -213,6 +214,23 @@ where
       left: self.handle(),
       right: rhs.handle(),
       operator: BinaryOperator::BitOr,
+    }
+    .insert_api()
+  }
+}
+
+impl<T> BitXor for Node<T>
+where
+  T: BitXor<T, Output = T>,
+  T: ShaderNodeType,
+{
+  type Output = Node<T>;
+
+  fn bitxor(self, rhs: Self) -> Self::Output {
+    OperatorNode::Binary {
+      left: self.handle(),
+      right: rhs.handle(),
+      operator: BinaryOperator::BitXor,
     }
     .insert_api()
   }
@@ -455,16 +473,24 @@ where
   }
 }
 
-macro_rules! slice_like_index {
+/// enable this when mysterious device lost happens randomly.
+/// check if the crash is due to the out of bound access by crashing the device deterministically
+const ENABLE_STORAGE_BUFFER_BOUND_CHECK: bool = true;
+
+macro_rules! index_access_slice_like {
   ($NodeType: tt) => {
     impl<T> $NodeType<[T]>
     where
       T: ShaderNodeType,
     {
       pub fn index(&self, node: impl Into<Node<u32>>) -> $NodeType<T> {
+        let idx = node.into();
+        if ENABLE_STORAGE_BUFFER_BOUND_CHECK {
+          shader_assert(idx.less_than(self.array_length()));
+        }
         OperatorNode::Index {
           array: self.handle(),
-          entry: node.into().handle(),
+          entry: idx.handle(),
         }
         .insert_api()
       }
@@ -472,5 +498,5 @@ macro_rules! slice_like_index {
   };
 }
 
-slice_like_index!(StorageNode);
-slice_like_index!(ReadOnlyStorageNode);
+index_access_slice_like!(StorageNode);
+index_access_slice_like!(ReadOnlyStorageNode);

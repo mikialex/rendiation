@@ -43,7 +43,7 @@ impl<'a> GPUSurface<'a> {
       .iter()
       .find(|&f| *f == gpu::TextureFormat::Bgra8UnormSrgb) // prefer use srgb
       .or(capabilities.formats.first())
-      .expect("should at least one supported format");
+      .expect("none supported format exist in surface capabilities");
 
     let config = gpu::SurfaceConfiguration {
       usage: gpu::TextureUsages::RENDER_ATTACHMENT,

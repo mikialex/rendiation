@@ -34,6 +34,9 @@ impl RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>
     let updater = flat_material_uniforms(cx);
     self.uniforms = source.register_multi_updater(updater);
   }
+  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
+    source.deregister(&mut self.uniforms);
+  }
 
   fn create_impl(
     &self,
@@ -77,6 +80,10 @@ impl RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
     self.uniforms = source.register_multi_updater(pbr_mr_material_uniforms(cx));
     self.tex_uniforms = source.register_multi_updater(pbr_mr_material_tex_uniforms(cx));
+  }
+  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
+    source.deregister(&mut self.uniforms);
+    source.deregister(&mut self.tex_uniforms);
   }
 
   fn create_impl(
@@ -166,6 +173,10 @@ impl RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
     self.uniforms = source.register_multi_updater(pbr_sg_material_uniforms(cx));
     self.tex_uniforms = source.register_multi_updater(pbr_sg_material_tex_uniforms(cx));
+  }
+  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
+    source.deregister(&mut self.uniforms);
+    source.deregister(&mut self.tex_uniforms);
   }
 
   fn create_impl(

@@ -6,9 +6,18 @@ pub use d2_and_sampler::*;
 
 use crate::*;
 
-#[derive(Default)]
 pub struct TextureGPUSystemSource {
   pub token: UpdateResultToken,
+  pub prefer_bindless: bool,
+}
+
+impl TextureGPUSystemSource {
+  pub fn new(prefer_bindless: bool) -> Self {
+    Self {
+      token: Default::default(),
+      prefer_bindless,
+    }
+  }
 }
 
 impl TextureGPUSystemSource {
@@ -23,7 +32,9 @@ impl TextureGPUSystemSource {
     let samplers = sampler_gpus(cx);
 
     let bindless_minimal_effective_count = 8192;
-    self.token = if is_bindless_supported_on_this_gpu(&cx.info, bindless_minimal_effective_count) {
+    self.token = if self.prefer_bindless
+      && is_bindless_supported_on_this_gpu(&cx.info, bindless_minimal_effective_count)
+    {
       let texture_system = BindlessTextureSystemSource::new(
         texture_2d,
         default_2d,
@@ -43,6 +54,11 @@ impl TextureGPUSystemSource {
       source.register(Box::new(ReactiveQueryBoxAnyResult(texture_system)))
     };
   }
+
+  pub fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
+    source.deregister(&mut self.token);
+  }
+
   pub fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> GPUTextureBindingSystem {
     *res
       .take_result(self.token)
@@ -74,11 +90,11 @@ impl<'a> ShaderPassBuilder for GPUTextureSystemAsRenderComponent<'a> {
   }
 }
 impl<'a> GraphicsShaderProvider for GPUTextureSystemAsRenderComponent<'a> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     self.0.build(builder)
   }
 
-  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     self.0.post_build(builder)
   }
 }

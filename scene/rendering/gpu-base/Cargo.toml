@@ -7,6 +7,7 @@ version = "0.1.0"
 [dependencies]
 
 dyn-clone = { workspace = true }
+rendiation-color = { path = "../../../content/color" }
 rendiation-algebra = { path = "../../../math/algebra" }
 fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 rendiation-scene-core = { path = "../../core" }
@@ -20,6 +21,7 @@ rendiation-texture-gpu-base = { path = "../../../content/texture/gpu-base" }
 rendiation-texture-gpu-system = { path = "../../../content/texture/gpu-system" }
 rendiation-lighting-gpu-system = { path = "../../../content/lighting/gpu-system/lighting-system" }
 rendiation-device-parallel-compute = { path = "../../../shader/parallel-compute" }
+thiserror = { workspace = true }
 
 [lints]
 workspace = true

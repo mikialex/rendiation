@@ -19,7 +19,28 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
     }
   }
 
-  pub async fn debug_execution(&self, cx: &mut DeviceParallelComputeCtx) -> Vec<T> {
+  pub fn reset(&self, cx: &mut DeviceParallelComputeCtx) {
+    cx.record_pass(|pass, device| {
+      let hasher = shader_hasher_from_marker_ty!(SizeClear);
+      let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
+        builder.config_work_group_size(1);
+        let current_size = builder.bind_by(&self.current_size);
+        let bump_size = builder.bind_by(&self.bump_size);
+        current_size.store(val(0));
+        bump_size.atomic_store(val(0));
+        builder
+      });
+
+      BindingBuilder::default()
+        .with_bind(&self.current_size)
+        .with_bind(&self.bump_size)
+        .setup_compute_pass(pass, device, &pipeline);
+
+      pass.dispatch_workgroups(1, 1, 1);
+    });
+  }
+
+  pub async fn debug_execution<'a>(&self, cx: &mut DeviceParallelComputeCtx<'a>) -> Vec<T> {
     let size = cx.read_sized_storage_array(&self.current_size);
     let storage = cx.read_storage_array(&self.storage);
 
@@ -58,7 +79,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
       builder
     });
 
-    BindingBuilder::new_as_compute()
+    BindingBuilder::default()
       .with_bind(&self.current_size)
       .with_bind(&size)
       .with_bind(&workgroup_size)
@@ -103,7 +124,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
       builder
     });
 
-    BindingBuilder::new_as_compute()
+    BindingBuilder::default()
       .with_bind(&self.bump_size)
       .with_bind(&self.current_size)
       .with_bind(&self.storage)
@@ -124,11 +145,36 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
     let size = self.prepare_dispatch_size(pass, device, 256);
 
     let hasher = shader_hasher_from_marker_ty!(Drainer);
-
     let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
       let input = builder.bind_by(&self.storage);
       let input_current_size = builder.bind_by(&self.current_size);
       let output = builder.bind_by(&the_other.storage);
+      let output_current_size = builder.bind_by(&the_other.current_size);
+      let output_offset = output_current_size.load();
+
+      let id = builder.global_invocation_id().x();
+
+      if_by(id.less_than(input_current_size.load()), || {
+        output
+          .index(id + output_offset)
+          .store(input.index(id).load());
+      });
+
+      builder
+    });
+
+    BindingBuilder::default()
+      .with_bind(&self.storage)
+      .with_bind(&self.current_size)
+      .with_bind(&the_other.storage)
+      .with_bind(&the_other.current_size)
+      .setup_compute_pass(pass, device, &pipeline);
+    pass.dispatch_workgroups_indirect_by_buffer_resource_view(&size);
+
+    let hasher = shader_hasher_from_marker_ty!(DrainerSizeSet);
+    let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
+      builder.config_work_group_size(1);
+      let input_current_size = builder.bind_by(&self.current_size);
       let output_current_size = builder.bind_by(&the_other.current_size);
       let output_offset = output_current_size.load();
 
@@ -139,20 +185,14 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
         input_current_size.store(0);
       });
 
-      output
-        .index(id + output_offset)
-        .store(input.index(id).load());
       builder
     });
 
-    BindingBuilder::new_as_compute()
-      .with_bind(&self.storage)
+    BindingBuilder::default()
       .with_bind(&self.current_size)
-      .with_bind(&the_other.storage)
       .with_bind(&the_other.current_size)
       .setup_compute_pass(pass, device, &pipeline);
-
-    pass.dispatch_workgroups_indirect_by_buffer_resource_view(&size);
+    pass.dispatch_workgroups(1, 1, 1);
 
     size
   }

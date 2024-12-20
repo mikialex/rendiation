@@ -5,9 +5,11 @@ use fast_hash_collection::FastHashMap;
 use futures::{executor::ThreadPool, Future};
 use rendiation_webgpu::ReadableTextureBuffer;
 
+use super::{ConsoleBuilder, ConsoleEvent, ConsoleWindow};
 use crate::*;
 
 pub struct Terminal {
+  console: ConsoleWindow,
   pub current_input: String,
   pub command_history: Vec<String>,
   pub command_registry: FastHashMap<String, TerminalCommandCb>,
@@ -17,6 +19,11 @@ pub struct Terminal {
 impl Default for Terminal {
   fn default() -> Self {
     Self {
+      console: ConsoleBuilder::new()
+        .prompt(">> ")
+        .history_size(20)
+        .tab_quote_character('\"')
+        .build(),
       current_input: Default::default(),
       command_history: Default::default(),
       command_registry: Default::default(),
@@ -34,12 +41,13 @@ type TerminalCommandCb =
 
 impl Terminal {
   pub fn egui(&mut self, ui: &mut egui::Ui, cx: &mut DynCx) {
-    ui.label("terminal");
-    let re = ui.text_edit_singleline(&mut self.current_input);
-    if re.lost_focus() && re.ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
+    let console_response = self.console.draw(ui);
+    if let ConsoleEvent::Command(command) = console_response {
+      self.current_input.clone_from(&command);
       self.execute_current(cx);
+      self.console.write(&command);
+      self.console.prompt();
     }
-    ui.end_row();
   }
 
   pub fn register_command<F, FR>(&mut self, name: impl AsRef<str>, f: F) -> &mut Self
@@ -150,6 +158,12 @@ pub fn register_default_commands(terminal: &mut Terminal) {
 
   terminal.register_command("export-gltf", |ctx, _parameters| {
     access_cx!(ctx, scene_cx, Viewer3dSceneCtx);
+    access_cx!(ctx, derive_source, Viewer3dSceneDeriveSource);
+    let derive_update = derive_source.poll_update();
+    let node_children = derive_update.node_children;
+    let mesh_ref_vertex = derive_update.mesh_vertex_ref;
+    let sm_ref_s = derive_update.sm_to_s;
+
     let export_root_node = scene_cx.root;
     let export_scene = scene_cx.scene;
 
@@ -157,7 +171,8 @@ pub fn register_default_commands(terminal: &mut Terminal) {
       if let Some(mut dir) = dirs::download_dir() {
         dir.push("gltf_export");
 
-        let reader = rendiation_scene_gltf_exporter::SceneReader::new_from_global(export_scene);
+        let reader =
+          SceneReader::new_from_global(export_scene, mesh_ref_vertex, node_children, sm_ref_s);
 
         rendiation_scene_gltf_exporter::build_scene_to_gltf(
           reader,
@@ -196,7 +211,8 @@ pub fn register_default_commands(terminal: &mut Terminal) {
 
   terminal.register_sync_command("fit-camera-view", |ctx, _parameters| {
     access_cx!(ctx, scene_cx, Viewer3dSceneCtx);
-    access_cx!(ctx, derived, Viewer3dSceneDerive);
+    access_cx!(ctx, derived, Viewer3dSceneDeriveSource);
+    let derived = derived.poll_update();
     if let Some(selected) = &scene_cx.selected_target {
       let camera_world = derived.world_mat.access(&scene_cx.camera_node).unwrap();
 

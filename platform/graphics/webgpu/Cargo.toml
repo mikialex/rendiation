@@ -7,6 +7,7 @@ version = "0.1.0"
 [dependencies]
 bytemuck = { workspace = true, features = ["derive"] }
 dyn-downcast = { path = "../../../utility/dyn-downcast" }
+heap-tools = { path = "../../../utility/heap-tools" }
 fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 futures = { workspace = true }
 naga = { version = "22", features = ["wgsl-out"] }
@@ -15,7 +16,7 @@ rendiation-algebra = { path = "../../../math/algebra" }
 rendiation-shader-api = { path = "../../../shader/api" }
 rendiation-shader-backend-naga = { path = "../../../shader/backends/naga" }
 rendiation-texture-types = { path = "../../../content/texture/types" }
-thiserror = "1.0.43"
+thiserror = { workspace = true }
 wgpu = { version = "22", features = ["naga-ir"] }
 wgpu-types = "22"
 winit = { workspace = true }

@@ -6,6 +6,10 @@ mod fragment;
 pub use fragment::*;
 mod semantic;
 pub use semantic::*;
+mod debugger;
+pub use debugger::*;
+mod error_sink;
+pub(crate) use error_sink::*;
 
 #[derive(Copy, Clone)]
 pub enum ShaderVaryingInterpolation {
@@ -13,7 +17,7 @@ pub enum ShaderVaryingInterpolation {
   Perspective,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ShaderBuildError {
   MissingRequiredDependency(&'static str),
   FragmentOutputSlotNotDeclared,
@@ -32,17 +36,23 @@ pub struct ShaderRenderPipelineBuilder {
 
   /// todo use upstream any map
   pub context: FastHashMap<TypeId, Box<dyn Any>>,
+
+  errors: ErrorSink,
+  pub debugger: ShaderBuilderDebugger,
 }
 
 impl ShaderRenderPipelineBuilder {
   fn new(api: &dyn Fn(ShaderStages) -> DynamicShaderAPI) -> Self {
     set_build_api_by(api);
+    let errors = ErrorSink::new(true);
     Self {
       bindgroups: Default::default(),
-      vertex: ShaderVertexBuilder::new(),
-      fragment: ShaderFragmentBuilder::new(),
+      vertex: ShaderVertexBuilder::new(errors.clone()),
+      fragment: ShaderFragmentBuilder::new(errors.clone()),
       log_result: false,
       context: Default::default(),
+      debugger: Default::default(),
+      errors,
     }
   }
 }
@@ -64,32 +74,27 @@ impl std::ops::DerefMut for ShaderRenderPipelineBuilder {
 impl ShaderRenderPipelineBuilder {
   pub fn vertex<T>(
     &mut self,
-    logic: impl FnOnce(
-      &mut ShaderVertexBuilder,
-      &mut ShaderBindGroupBuilder,
-    ) -> Result<T, ShaderBuildError>,
-  ) -> Result<T, ShaderBuildError> {
+    logic: impl FnOnce(&mut ShaderVertexBuilder, &mut ShaderBindGroupBuilder) -> T,
+  ) -> T {
     set_current_building(ShaderStages::Vertex.into());
-    let result = logic(&mut self.vertex, &mut self.bindgroups)?;
+    let result = logic(&mut self.vertex, &mut self.bindgroups);
     set_current_building(None);
-    Ok(result)
+    result
   }
+
   pub fn fragment<T>(
     &mut self,
-    logic: impl FnOnce(
-      &mut ShaderFragmentBuilderView,
-      &mut ShaderBindGroupBuilder,
-    ) -> Result<T, ShaderBuildError>,
-  ) -> Result<T, ShaderBuildError> {
+    logic: impl FnOnce(&mut ShaderFragmentBuilderView, &mut ShaderBindGroupBuilder) -> T,
+  ) -> T {
     self.vertex.sync_fragment_out(&mut self.fragment);
     set_current_building(ShaderStages::Fragment.into());
     let mut builder = ShaderFragmentBuilderView {
       base: &mut self.fragment,
       vertex: &mut self.vertex,
     };
-    let result = logic(&mut builder, &mut self.bindgroups)?;
+    let result = logic(&mut builder, &mut self.bindgroups);
     set_current_building(None);
-    Ok(result)
+    result
   }
 
   pub fn build(mut self) -> Result<GraphicsShaderCompileResult, ShaderBuildError> {
@@ -136,24 +141,31 @@ pub trait GraphicsShaderDependencyProvider {
 /// The reason why we use two function is that the build process
 /// require to generate two separate root scope: two entry main function;
 pub trait GraphicsShaderProvider {
-  fn build(&self, _builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
-    // default do nothing
-    Ok(())
+  fn build(&self, _builder: &mut ShaderRenderPipelineBuilder) {
+    // do nothing in default
   }
 
-  fn post_build(&self, _builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
-    // default do nothing
-    Ok(())
+  fn post_build(&self, _builder: &mut ShaderRenderPipelineBuilder) {
+    // do nothing in default
   }
 
   fn build_self(
     &self,
     api_builder: &dyn Fn(ShaderStages) -> DynamicShaderAPI,
-  ) -> Result<ShaderRenderPipelineBuilder, ShaderBuildError> {
+  ) -> Result<ShaderRenderPipelineBuilder, Vec<ShaderBuildError>> {
     let mut builder = ShaderRenderPipelineBuilder::new(api_builder);
-    self.build(&mut builder)?;
-    self.post_build(&mut builder)?;
-    Ok(builder)
+    self.build(&mut builder);
+    self.post_build(&mut builder);
+    let errors = builder.errors.finish();
+    if errors.is_empty() {
+      Ok(builder)
+    } else {
+      Err(errors)
+    }
+  }
+
+  fn debug_label(&self) -> String {
+    std::any::type_name::<Self>().into()
   }
 }
 

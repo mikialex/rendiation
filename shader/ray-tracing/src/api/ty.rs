@@ -37,6 +37,15 @@ pub struct ShaderRayRange {
   pub max: Node<f32>,
 }
 
+impl Default for ShaderRayRange {
+  fn default() -> Self {
+    Self {
+      min: val(f32::EPSILON), // is this good?
+      max: val(f32::MAX),
+    }
+  }
+}
+
 #[derive(Clone, Copy)]
 pub struct ShaderRayTraceCall {
   // todo, use Vec2<u32>, see https://github.com/KhronosGroup/GLSL/blob/main/extensions/ext/GLSL_EXT_ray_tracing.txt#L567
@@ -60,8 +69,6 @@ pub struct ShaderRayTraceCall {
 
   pub ray: ShaderRay,
   pub range: ShaderRayRange,
-
-  pub payload: Node<i32>,
 }
 
 #[derive(Clone, Copy)]
@@ -116,19 +123,12 @@ pub enum RayFlagTriangleCullBehavior {
 }
 
 pub type RayAnyHitBehavior = u32;
-pub const ACCEPT_HIT: RayAnyHitBehavior = 1;
-pub const TERMINATE_TRAVERSE: RayAnyHitBehavior = 2;
+pub const ANYHIT_BEHAVIOR_ACCEPT_HIT: RayAnyHitBehavior = 1;
+pub const ANYHIT_BEHAVIOR_END_SEARCH: RayAnyHitBehavior = 2;
 
 pub type RayHitKind = u32;
 pub const HIT_KIND_FRONT_FACING_TRIANGLE: RayHitKind = 0xFE;
 pub const HIT_KIND_BACK_FACING_TRIANGLE: RayHitKind = 0xFF;
-
-// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGeometryFlagBitsKHR.html
-pub type GeometryFlags = u32;
-/// this geometry does not invoke the any-hit shaders even if present in a hit group.
-pub const GEOMETRY_FLAG_OPAQUE: GeometryFlags = 0x1;
-/// the implementation must only call the any-hit shader a single time for each primitive in this geometry. If this bit is absent an implementation may invoke the any-hit shader more than once for this geometry.
-pub const GEOMETRY_FLAG_NO_DUPLICATE_ANYHIT_INVOCATION: GeometryFlags = 0x2;
 
 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGeometryInstanceFlagBitsNV.html
 pub type GeometryInstanceFlags = u32;
@@ -140,3 +140,10 @@ pub const GEOMETRY_INSTANCE_TRIANGLE_FLIP_FACING: GeometryInstanceFlags = 0x2;
 pub const GEOMETRY_INSTANCE_FORCE_OPAQUE: GeometryInstanceFlags = 0x4;
 /// causes this instance to act as though VK_GEOMETRY_OPAQUE_BIT_KHR were not specified on all geometries referenced by this instance. This behavior can be overridden by the SPIR-V OpaqueKHR ray flag.
 pub const GEOMETRY_INSTANCE_FORCE_NO_OPAQUE: GeometryInstanceFlags = 0x8;
+
+// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGeometryFlagBitsKHR.html
+pub type GeometryFlags = u32;
+/// this geometry does not invoke the any-hit shaders even if present in a hit group.
+pub const GEOMETRY_FLAG_OPAQUE: GeometryFlags = 0x1;
+/// the implementation must only call the any-hit shader a single time for each primitive in this geometry. If this bit is absent an implementation may invoke the any-hit shader more than once for this geometry.
+pub const GEOMETRY_FLAG_NO_DUPLICATE_ANYHIT_INVOCATION: GeometryFlags = 0x2; // always guaranteed

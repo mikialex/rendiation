@@ -65,7 +65,7 @@ impl<T: Scalar> Ray3<T> {
     let seg_dir = (v1 - v0).normalize();
     let diff = self.origin - seg_center;
 
-    let seg_length = v0.distance(v1) * T::half();
+    let seg_length = v0.distance_to(v1) * T::half();
     let a01 = -self.direction.dot(seg_dir);
     let b0 = diff.dot(self.direction);
     let b1 = -diff.dot(seg_dir);

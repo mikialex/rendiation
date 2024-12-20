@@ -128,7 +128,7 @@ impl ShaderHashProvider for StateGPUImpl {
 }
 
 impl GraphicsShaderProvider for StateGPUImpl {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     let id = STATE_ID.lock().unwrap();
 
     let value = id.get_value(self.state_id).unwrap();
@@ -136,12 +136,10 @@ impl GraphicsShaderProvider for StateGPUImpl {
     builder.vertex(|builder, _| {
       builder.primitive_state.front_face = value.front_face;
       builder.primitive_state.cull_mode = value.cull_mode;
-      Ok(())
-    })?;
+    });
 
     builder.fragment(|builder, _| {
       value.apply_pipeline_builder(builder);
-      Ok(())
     })
   }
 }

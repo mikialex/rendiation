@@ -11,6 +11,14 @@ pub fn random(seed: Node<Vec2<f32>>) -> Node<f32> {
   (seed.dot((s1, s2)).sin() * s3).fract()
 }
 
+/// generate an unbound 2D white noise by a 2D seed(such as uv)
+#[shader_fn]
+pub fn random2(seed: Node<Vec2<f32>>) -> Node<Vec2<f32>> {
+  let x = random(seed);
+  let y = random((seed + random(seed).splat()).sin());
+  (x, y).into()
+}
+
 /// generate an unbound 3D white noise by a 2D seed(such as uv)
 #[shader_fn]
 pub fn random3(seed: Node<Vec2<f32>>) -> Node<Vec3<f32>> {
@@ -22,9 +30,9 @@ pub fn random3(seed: Node<Vec2<f32>>) -> Node<Vec3<f32>> {
 
 /// generate a low discrepancy uniform distribution in 2D, bounded in [0., 1.]
 #[shader_fn]
-pub fn hammersley_2d(index: Node<u32>, num_samples: Node<u32>) -> Node<Vec2<f32>> {
+pub fn hammersley_2d(index: Node<u32>, total_num_samples: Node<u32>) -> Node<Vec2<f32>> {
   (
-    index.into_f32() / num_samples.into_f32(),
+    index.into_f32() / total_num_samples.into_f32(),
     radical_inverse_vdc(index),
   )
     .into()
@@ -41,7 +49,7 @@ fn radical_inverse_vdc(bits: Node<u32>) -> Node<f32> {
   bits.into_f32() * val(2.328_306_4e-10) // 0x100000000
 }
 
-/// map the distribution from the unit square to sphere uniformly
+/// map the distribution from the unit square to unit sphere uniformly
 #[shader_fn]
 pub fn sample_hemisphere_uniform(uv: Node<Vec2<f32>>) -> Node<Vec3<f32>> {
   let phi = val(2.0 * std::f32::consts::PI) * uv.y();
@@ -50,11 +58,26 @@ pub fn sample_hemisphere_uniform(uv: Node<Vec2<f32>>) -> Node<Vec3<f32>> {
   (phi.cos() * sin_theta, phi.sin() * sin_theta, cos_theta).into()
 }
 
-/// map the distribution from the unit square to sphere by cos weight
+/// map the distribution from the unit square to unit sphere by cos weight
 #[shader_fn]
 pub fn sample_hemisphere_cos(uv: Node<Vec2<f32>>) -> Node<Vec3<f32>> {
   let phi = val(2.0 * std::f32::consts::PI) * uv.y();
   let cos_theta = (val(1.0) - uv.x()).sqrt();
   let sin_theta = (val(1.0) - cos_theta * cos_theta).sqrt();
   (phi.cos() * sin_theta, phi.sin() * sin_theta, cos_theta).into()
+}
+
+/// https://graphics.pixar.com/library/OrthonormalB/paper.pdf
+#[shader_fn]
+pub fn tbn(normal: Node<Vec3<f32>>) -> Node<Mat3<f32>> {
+  let sign = normal.z().less_than(0.).select(val(-1.), val(1.));
+  let a = val(-1.) / (sign + normal.z());
+  let b = normal.x() * normal.y() * a;
+  let tangent = vec3_node((
+    val(1.) + sign * normal.x() * normal.y() * a,
+    sign * b,
+    -sign * normal.x(),
+  ));
+  let bi_tangent = vec3_node((b, sign + normal.y() * normal.y() * a, -normal.y()));
+  (tangent.normalize(), bi_tangent.normalize(), normal).into()
 }

@@ -107,7 +107,7 @@ struct TAAResolver<'a> {
 }
 
 impl<'a> GraphicsShaderProvider for TAAResolver<'a> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let sampler = binding.bind_by(&DisableFiltering(ImmediateGPUSamplerViewBind));
       let color_sampler = binding.bind_by(&ImmediateGPUSamplerViewBind);
@@ -117,7 +117,7 @@ impl<'a> GraphicsShaderProvider for TAAResolver<'a> {
 
       let reproject = binding.bind_by(&self.reproject.reproject).load().expand();
 
-      let uv = builder.query::<FragmentUv>()?;
+      let uv = builder.query::<FragmentUv>();
 
       let depth = new_depth.sample(sampler, uv).x();
 
@@ -128,7 +128,7 @@ impl<'a> GraphicsShaderProvider for TAAResolver<'a> {
 
       let previous = history.sample(color_sampler, reproject_uv);
 
-      let texel_size = builder.query::<TexelSize>()?;
+      let texel_size = builder.query::<TexelSize>();
       let previous_clamped = clamp_color(new, color_sampler, texel_size, uv, previous.xyz());
 
       let new = new.sample(color_sampler, uv).xyz();

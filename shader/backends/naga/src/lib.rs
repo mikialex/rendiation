@@ -584,6 +584,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
     #[allow(clippy::never_loop)] // we here use loop to early exit match block!
     let expr = loop {
       break match expr {
+        ShaderNodeExpr::Fake => return ShaderNodeRawHandle { handle: 0 },
         ShaderNodeExpr::Zeroed { target } => naga::Expression::ZeroValue(self.register_ty_impl(
           ShaderValueType::Single(ShaderValueSingleType::Sized(target)),
           None,
@@ -1405,6 +1406,7 @@ fn map_binary_op(o: BinaryOperator) -> naga::BinaryOperator {
     BinaryOperator::LogicalAnd => naga::BinaryOperator::LogicalAnd,
     BinaryOperator::BitAnd => naga::BinaryOperator::And,
     BinaryOperator::BitOr => naga::BinaryOperator::InclusiveOr,
+    BinaryOperator::BitXor => naga::BinaryOperator::ExclusiveOr,
     BinaryOperator::ShiftLeft => naga::BinaryOperator::ShiftLeft,
     BinaryOperator::ShiftRight => naga::BinaryOperator::ShiftRight,
   }

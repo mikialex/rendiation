@@ -12,13 +12,12 @@ pub fn translation_gizmo_view(
     .with_child(plane(v, AxisType::Y, parent))
     .with_child(plane(v, AxisType::Z, parent))
     .with_state_post_update(|cx| {
-      access_cx!(cx, platform_event, PlatformEventInput);
-      if platform_event.state_delta.is_left_mouse_pressing() {
-        access_cx_mut!(cx, start_states, Option::<DragStartState>);
-        *start_states = None;
+      if cx.message.get::<GizmoOutControl>().is_some() {
+        access_cx_mut!(cx, axis, AxisActiveState);
+        *axis = AxisActiveState::default()
       }
 
-      if let Some(drag_action) = cx.message.take::<DragTargetAction>() {
+      if let Some(drag_action) = cx.message.get::<DragTargetAction>() {
         access_cx!(cx, target, Option::<GizmoControlTargetState>);
         access_cx!(cx, axis, AxisActiveState);
         access_cx!(cx, start_states, Option::<DragStartState>);
@@ -26,6 +25,7 @@ pub fn translation_gizmo_view(
         if let Some(start_states) = start_states {
           if let Some(target) = target {
             if let Some(action) = handle_translating(start_states, target, axis, drag_action) {
+              debug_print("handle translating");
               cx.message.put(GizmoUpdateTargetLocal(action))
             }
           }
@@ -42,11 +42,11 @@ fn arrow(
 ) -> impl Widget {
   UIWidgetModel::new(v, ArrowShape::default().build())
     .with_parent(v, parent)
-    .with_matrix(v, axis.mat())
     .with_on_mouse_down(start_drag)
     .with_on_mouse_hovering(hovering)
     .with_on_mouse_out(stop_hovering)
-    .with_view_update(update_per_axis_model(AxisType::X))
+    .into_view_independent(axis.mat())
+    .with_view_update(update_per_axis_model(axis))
     .with_state_pick(axis_lens(axis))
 }
 
@@ -63,26 +63,6 @@ fn plane(
     );
   });
 
-  fn plane_update(axis: AxisType) -> impl FnMut(&mut UIWidgetModel, &mut DynCx) + 'static {
-    move |plane, cx| {
-      access_cx!(cx, style, GlobalUIStyle);
-      let color = style.get_axis_primary_color(axis);
-
-      access_cx!(cx, gizmo, AxisActiveState);
-      let (a, b) = gizmo.get_rest_axis(axis);
-      let axis_state = ItemState {
-        hovering: a.hovering && b.hovering,
-        active: a.active && b.active,
-      };
-      let self_active = axis_state.active;
-      let visible = !gizmo.has_any_active() || self_active;
-      let color = map_color(color, axis_state);
-      access_cx_mut!(cx, cx3d, SceneWriter);
-      plane.set_visible(cx3d, visible);
-      plane.set_color(cx3d, color);
-    }
-  }
-
   let plane_scale = Mat4::scale(Vec3::splat(0.4));
   let plane_move = Vec3::splat(1.3);
   let degree_90 = f32::PI() / 2.;
@@ -96,18 +76,68 @@ fn plane(
   };
   let mat = move_mat * rotate * plane_scale;
 
-  UIWidgetModel::new(v, mesh)
-    .with_parent(v, parent)
-    .with_matrix(v, mat)
-    .with_view_update(plane_update(AxisType::X))
-    .with_state_pick(axis_lens(axis))
+  plane_state_len(
+    axis,
+    UIWidgetModel::new(v, mesh)
+      .with_parent(v, parent)
+      .with_on_mouse_down(start_drag)
+      .with_on_mouse_hovering(hovering)
+      .with_on_mouse_out(stop_hovering)
+      .into_view_independent(mat)
+      .with_view_update(update_per_axis_model(axis)),
+  )
+}
+
+struct PlaneStateLens<T> {
+  inner: T,
+  axis: AxisType,
+}
+
+fn plane_state_len(axis: AxisType, inner: impl Widget) -> PlaneStateLens<impl Widget> {
+  PlaneStateLens { inner, axis }
+}
+
+fn plane_state_len_impl(axis: AxisType, f: impl FnOnce(&mut DynCx), cx: &mut DynCx) {
+  access_cx!(cx, gizmo, AxisActiveState);
+  let (a, b) = gizmo.get_rest_axis(axis);
+  let mut axis_state = ItemState {
+    hovering: a.hovering && b.hovering,
+    active: a.active && b.active,
+  };
+
+  cx.scoped_cx(&mut axis_state, f);
+
+  access_cx_mut!(cx, gizmo, AxisActiveState);
+  let (a, b) = gizmo.get_rest_axis_mut(axis);
+  // if the hovering state is not decided by one axis, then we override it
+  // i think there is a better way to express this
+  if a.hovering == b.hovering {
+    a.hovering = axis_state.hovering;
+    b.hovering = axis_state.hovering;
+  }
+  a.active |= axis_state.active; // the active will be correctly reset by stop dragging
+  b.active |= axis_state.active;
+}
+
+impl<T: Widget> Widget for PlaneStateLens<T> {
+  fn update_state(&mut self, cx: &mut DynCx) {
+    plane_state_len_impl(self.axis, move |cx| self.inner.update_state(cx), cx);
+  }
+
+  fn update_view(&mut self, cx: &mut DynCx) {
+    plane_state_len_impl(self.axis, move |cx| self.inner.update_view(cx), cx);
+  }
+
+  fn clean_up(&mut self, cx: &mut DynCx) {
+    self.inner.clean_up(cx);
+  }
 }
 
 fn handle_translating(
   states: &DragStartState,
   target: &GizmoControlTargetState,
   axis: &AxisActiveState,
-  action: DragTargetAction,
+  action: &DragTargetAction,
 ) -> Option<Mat4<f32>> {
   let camera_world_position = action.camera_world.position();
 

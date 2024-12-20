@@ -1,6 +1,12 @@
 use crate::*;
 
 pub trait IndirectModelRenderImpl {
+  fn hash_shader_group_key(
+    &self,
+    any_id: EntityHandle<SceneModelEntity>,
+    hasher: &mut PipelineHasher,
+  ) -> Option<()>;
+
   fn shape_renderable_indirect(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
@@ -9,7 +15,7 @@ pub trait IndirectModelRenderImpl {
   fn make_draw_command_builder(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Box<dyn DrawCommandBuilder + '_>>;
+  ) -> Option<Box<dyn DrawCommandBuilder>>;
 
   fn material_renderable_indirect<'a>(
     &'a self,
@@ -19,6 +25,19 @@ pub trait IndirectModelRenderImpl {
 }
 
 impl IndirectModelRenderImpl for Vec<Box<dyn IndirectModelRenderImpl>> {
+  fn hash_shader_group_key(
+    &self,
+    any_id: EntityHandle<SceneModelEntity>,
+    hasher: &mut PipelineHasher,
+  ) -> Option<()> {
+    for provider in self {
+      if let Some(v) = provider.hash_shader_group_key(any_id, hasher) {
+        return Some(v);
+      }
+    }
+    None
+  }
+
   fn shape_renderable_indirect(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
@@ -34,7 +53,7 @@ impl IndirectModelRenderImpl for Vec<Box<dyn IndirectModelRenderImpl>> {
   fn make_draw_command_builder(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Box<dyn DrawCommandBuilder + '_>> {
+  ) -> Option<Box<dyn DrawCommandBuilder>> {
     for provider in self {
       if let Some(v) = provider.make_draw_command_builder(any_idx) {
         return Some(v);
@@ -74,6 +93,17 @@ impl RenderImplProvider<Box<dyn IndirectModelRenderImpl>> for DefaultSceneStdMod
       .for_each(|p| p.register_resource(source, cx));
   }
 
+  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
+    self
+      .materials
+      .iter_mut()
+      .for_each(|p| p.deregister_resource(source));
+    self
+      .shapes
+      .iter_mut()
+      .for_each(|p| p.deregister_resource(source));
+  }
+
   fn create_impl(
     &self,
     res: &mut ConcurrentStreamUpdateResult,
@@ -92,6 +122,17 @@ struct SceneStdModelRenderer {
 }
 
 impl IndirectModelRenderImpl for SceneStdModelRenderer {
+  fn hash_shader_group_key(
+    &self,
+    any_id: EntityHandle<SceneModelEntity>,
+    hasher: &mut PipelineHasher,
+  ) -> Option<()> {
+    let model = self.model.get(any_id)?;
+    self.materials.hash_shader_group_key(model, hasher)?;
+    self.shapes.hash_shader_group_key(model, hasher)?;
+    Some(())
+  }
+
   fn shape_renderable_indirect(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
@@ -103,7 +144,7 @@ impl IndirectModelRenderImpl for SceneStdModelRenderer {
   fn make_draw_command_builder(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Box<dyn DrawCommandBuilder + '_>> {
+  ) -> Option<Box<dyn DrawCommandBuilder>> {
     let model = self.model.get(any_idx)?;
     self.shapes.make_draw_command_builder(model)
   }

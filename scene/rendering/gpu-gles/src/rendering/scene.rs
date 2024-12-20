@@ -2,15 +2,17 @@ use crate::*;
 
 pub struct GLESRenderSystem {
   pub model_lookup: UpdateResultToken,
+  pub node_net_visible: UpdateResultToken,
   pub texture_system: TextureGPUSystemSource,
   pub camera: Box<dyn RenderImplProvider<Box<dyn CameraRenderImpl>>>,
   pub scene_model_impl: Vec<Box<dyn RenderImplProvider<Box<dyn SceneModelRenderer>>>>,
 }
 
-pub fn build_default_gles_render_system() -> GLESRenderSystem {
+pub fn build_default_gles_render_system(prefer_bindless: bool) -> GLESRenderSystem {
   GLESRenderSystem {
     model_lookup: Default::default(),
-    texture_system: Default::default(),
+    texture_system: TextureGPUSystemSource::new(prefer_bindless),
+    node_net_visible: Default::default(),
     camera: Box::new(DefaultGLESCameraRenderImplProvider::default()),
     scene_model_impl: vec![Box::new(GLESPreferredComOrderRendererProvider {
       node: Box::new(DefaultGLESNodeRenderImplProvider::default()),
@@ -37,6 +39,17 @@ impl RenderImplProvider<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>> fo
     for imp in &mut self.scene_model_impl {
       imp.register_resource(source, cx);
     }
+    self.node_net_visible = source.register_reactive_query(scene_node_derive_visible());
+  }
+
+  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
+    self.texture_system.deregister_resource(source);
+    self.camera.deregister_resource(source);
+    for imp in &mut self.scene_model_impl {
+      imp.deregister_resource(source);
+    }
+    source.deregister(&mut self.model_lookup);
+    source.deregister(&mut self.node_net_visible);
   }
 
   fn create_impl(
@@ -55,6 +68,10 @@ impl RenderImplProvider<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>> fo
         .unwrap(),
       texture_system: self.texture_system.create_impl(res),
       camera: self.camera.create_impl(res),
+      node_net_visible: res
+        .take_reactive_query_updated(self.node_net_visible)
+        .unwrap(),
+      sm_ref_node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
     })
   }
 }
@@ -65,18 +82,8 @@ struct GLESSceneRenderer {
   scene_model_renderer: Vec<Box<dyn SceneModelRenderer>>,
   background: SceneBackgroundRenderer,
   model_lookup: RevRefOfForeignKey<SceneModelBelongsToScene>,
-}
-
-#[derive(Clone)]
-struct HostModelLoopUp {
-  v: RevRefOfForeignKey<SceneModelBelongsToScene>,
-  scene_id: EntityHandle<SceneEntity>,
-}
-
-impl HostRenderBatch for HostModelLoopUp {
-  fn iter_scene_models(&self) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + '_> {
-    Box::new(self.v.access_multi_value_dyn(&self.scene_id))
-  }
+  node_net_visible: BoxedDynQuery<EntityHandle<SceneNodeEntity>, bool>,
+  sm_ref_node: ForeignKeyReadView<SceneModelRefNode>,
 }
 
 impl SceneModelRenderer for GLESSceneRenderer {
@@ -87,7 +94,7 @@ impl SceneModelRenderer for GLESSceneRenderer {
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
-  ) -> Option<()> {
+  ) -> Result<(), UnableToRenderSceneModelError> {
     self
       .scene_model_renderer
       .render_scene_model(idx, camera, pass, cx, tex)
@@ -103,8 +110,10 @@ impl SceneRenderer for GLESSceneRenderer {
     _semantic: Self::ContentKey, // todo
     _ctx: &mut FrameCtx,
   ) -> SceneModelRenderBatch {
-    SceneModelRenderBatch::Host(Box::new(HostModelLoopUp {
+    SceneModelRenderBatch::Host(Box::new(HostModelLookUp {
       v: self.model_lookup.clone(),
+      node_net_visible: self.node_net_visible.clone(),
+      sm_ref_node: self.sm_ref_node.clone(),
       scene_id: scene,
     }))
   }
@@ -116,6 +125,7 @@ impl SceneRenderer for GLESSceneRenderer {
     pass: &'a dyn RenderComponent,
     _ctx: &mut FrameCtx,
   ) -> Box<dyn PassContent + 'a> {
+    let camera = self.get_camera_gpu().make_component(camera).unwrap();
     Box::new(GLESScenePassContent {
       renderer: self,
       batch: batch.get_host_batch().unwrap(),
@@ -131,10 +141,6 @@ impl SceneRenderer for GLESSceneRenderer {
     self.background.init_clear(scene)
   }
 
-  fn get_scene_model_cx(&self) -> &GPUTextureBindingSystem {
-    &self.texture_system
-  }
-
   fn get_camera_gpu(&self) -> &dyn CameraRenderImpl {
     self.camera.as_ref()
   }
@@ -144,22 +150,22 @@ struct GLESScenePassContent<'a> {
   renderer: &'a GLESSceneRenderer,
   batch: Box<dyn HostRenderBatch>,
   pass: &'a dyn RenderComponent,
-  camera: EntityHandle<SceneCameraEntity>,
+  camera: Box<dyn RenderComponent + 'a>,
 }
 
 impl<'a> PassContent for GLESScenePassContent<'a> {
   fn render(&mut self, pass: &mut FrameRenderPass) {
-    let mut models = self.batch.iter_scene_models();
-
     let base = default_dispatcher(pass);
     let p = RenderArray([&base, self.pass] as [&dyn rendiation_webgpu::RenderComponent; 2]);
 
-    self.renderer.render_reorderable_models(
-      &mut models,
-      self.camera,
-      &p,
-      &mut pass.ctx,
-      &self.renderer.texture_system,
-    );
+    for sm in self.batch.iter_scene_models() {
+      let _ = self.renderer.render_scene_model(
+        sm,
+        &self.camera,
+        &p,
+        &mut pass.ctx,
+        &self.renderer.texture_system,
+      );
+    }
   }
 }

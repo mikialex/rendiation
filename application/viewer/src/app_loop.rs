@@ -21,17 +21,11 @@ impl<T: Widget> winit::application::ApplicationHandler for WinitAppImpl<T> {
         .unwrap();
       window.request_redraw();
 
-      let minimal_required_features = rendiation_webgpu::Features::all_webgpu_mask();
-      // minimal_required_features.insert(Features::TEXTURE_BINDING_ARRAY);
-      // minimal_required_features.insert(Features::BUFFER_BINDING_ARRAY);
-      // minimal_required_features.insert(Features::PARTIALLY_BOUND_BINDING_ARRAY);
-
       let config = GPUCreateConfig {
         surface_for_compatible_check_init: Some((
           &window,
           Size::from_usize_pair_min_one((300, 200)),
         )),
-        minimal_required_features,
         ..Default::default()
       };
 

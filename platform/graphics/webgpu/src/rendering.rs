@@ -3,7 +3,9 @@ use rendiation_shader_backend_naga::ShaderAPINagaImpl;
 
 use crate::*;
 
+/// RenderComponent is a type erased composable unit for user to express and compose the rendering logic.
 pub trait RenderComponent: ShaderHashProvider + GraphicsShaderProvider + ShaderPassBuilder {
+  /// Calling this method to do the real drawcall on given pass. if the implementation is efficient enough to specify a draw logic.
   fn render(&self, ctx: &mut GPURenderPassCtx, com: DrawCommand) {
     let mut hasher = PipelineHasher::default();
     self.hash_pipeline(&mut hasher);
@@ -23,6 +25,10 @@ pub trait RenderComponent: ShaderHashProvider + GraphicsShaderProvider + ShaderP
 
     ctx.binding.reset();
     ctx.reset_vertex_binding_index();
+
+    if ENABLE_BINDING_TYPE_MATCH_CHECKING {
+      ctx.binding.setup_checking_layout(&pipeline.bg_layouts);
+    }
 
     self.setup_pass_self(ctx);
 
@@ -57,11 +63,11 @@ impl<'a> ShaderPassBuilder for &'a dyn RenderComponent {
   }
 }
 impl<'a> GraphicsShaderProvider for &'a dyn RenderComponent {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     (*self).build(builder)
   }
 
-  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     (*self).post_build(builder)
   }
 }
@@ -81,11 +87,11 @@ impl<'a> ShaderPassBuilder for Box<dyn RenderComponent + 'a> {
   }
 }
 impl<'a> GraphicsShaderProvider for Box<dyn RenderComponent + 'a> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     (**self).build(builder)
   }
 
-  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     (**self).post_build(builder)
   }
 }
@@ -119,18 +125,16 @@ impl<'a, T: RenderComponent> ShaderHashProvider for RenderSlice<'a, T> {
 }
 
 impl<'a, T: RenderComponent> GraphicsShaderProvider for RenderSlice<'a, T> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     for c in self.0 {
-      c.build(builder)?;
+      c.build(builder);
     }
-    Ok(())
   }
 
-  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     for c in self.0.iter().rev() {
-      c.post_build(builder)?;
+      c.post_build(builder);
     }
-    Ok(())
   }
 }
 
@@ -161,11 +165,11 @@ impl<const N: usize, T: RenderComponent> ShaderHashProvider for RenderArray<N, T
 }
 
 impl<const N: usize, T: RenderComponent> GraphicsShaderProvider for RenderArray<N, T> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     self.as_slice().build(builder)
   }
 
-  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     self.as_slice().post_build(builder)
   }
 }
@@ -208,11 +212,11 @@ impl<'a> ShaderHashProvider for RenderVec<'a> {
 }
 
 impl<'a> GraphicsShaderProvider for RenderVec<'a> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     self.as_slice().build(builder)
   }
 
-  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     self.as_slice().post_build(builder)
   }
 }
@@ -261,18 +265,16 @@ impl<T: ShaderPassBuilder> ShaderPassBuilder for BindingController<T> {
   }
 }
 impl<T: GraphicsShaderProvider> GraphicsShaderProvider for BindingController<T> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     let before = builder.set_binding_slot(self.target);
-    let r = self.inner.build(builder);
+    self.inner.build(builder);
     builder.set_binding_slot(before);
-    r
   }
 
-  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     let before = builder.set_binding_slot(self.target);
-    let r = self.inner.post_build(builder);
+    self.inner.post_build(builder);
     builder.set_binding_slot(before);
-    r
   }
 }
 

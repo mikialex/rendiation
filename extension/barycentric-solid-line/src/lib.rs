@@ -112,17 +112,16 @@ pub struct SolidLinedMeshGPU<'a> {
 both!(BarycentricCoord, Vec3<f32>);
 
 impl<'a> GraphicsShaderProvider for SolidLinedMeshGPU<'a> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
-    self.inner.build(builder)?;
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    self.inner.build(builder);
     builder.vertex(|builder, _| {
-      builder.set_vertex_out::<BarycentricCoord>(builder.query::<BarycentricCoord>().unwrap());
-      Ok(())
+      builder.set_vertex_out::<BarycentricCoord>(builder.query::<BarycentricCoord>());
     })
   }
 
-  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, _| {
-      let barycentric = builder.query::<BarycentricCoord>().unwrap();
+      let barycentric = builder.query::<BarycentricCoord>();
 
       let line_color = val(Vec3::zero());
       let smoothing = val(1.);
@@ -134,11 +133,9 @@ impl<'a> GraphicsShaderProvider for SolidLinedMeshGPU<'a> {
       let ratio = barycentric.smoothstep(thickness, thickness + smoothing);
       let ratio = ratio.x().min(ratio.y()).min(ratio.z());
 
-      if let Ok(color) = builder.query::<ColorChannel>() {
+      if let Some(color) = builder.try_query::<ColorChannel>() {
         builder.register::<ColorChannel>(ratio.mix(line_color, color));
       }
-
-      Ok(())
     })
   }
 }

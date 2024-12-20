@@ -60,18 +60,17 @@ impl ShaderHashProvider for FullScreenQuad {
   shader_hash_type_id! {}
 }
 impl GraphicsShaderProvider for FullScreenQuad {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, _| {
       builder.primitive_state = PrimitiveState {
         topology: PrimitiveTopology::TriangleStrip,
         front_face: FrontFace::Cw,
         ..Default::default()
       };
-      let out = generate_quad(builder.query::<VertexIndex>()?, 0.).expand();
+      let out = generate_quad(builder.query::<VertexIndex>(), 0.).expand();
       builder.register::<ClipPosition>(out.position);
       builder.set_vertex_out::<FragmentUv>(out.uv);
-      Ok(())
-    })?;
+    });
 
     builder.fragment(|builder, _| {
       builder.frag_output.iter_mut().for_each(|(_, state)| {
@@ -82,8 +81,6 @@ impl GraphicsShaderProvider for FullScreenQuad {
         depth.depth_compare = CompareFunction::Always;
         depth.depth_write_enabled = false;
       }
-
-      Ok(())
     })
   }
 }

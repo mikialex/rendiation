@@ -73,15 +73,15 @@ impl<'a, T> ShaderHashProvider for HighLightComposeTask<'a, T> {
 }
 
 impl<'a, T> GraphicsShaderProvider for HighLightComposeTask<'a, T> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let highlighter = binding.bind_by(&self.lighter.data).load().expand();
 
       let mask = binding.bind_by(&self.mask);
       let sampler = binding.bind_by(&ImmediateGPUSamplerViewBind);
 
-      let uv = builder.query::<FragmentUv>()?;
-      let size = builder.query::<RenderBufferSize>()?;
+      let uv = builder.query::<FragmentUv>();
+      let size = builder.query::<RenderBufferSize>();
 
       builder.store_fragment_out(
         0,
@@ -124,14 +124,15 @@ impl ShaderHashProvider for HighLightMaskDispatcher {
 impl ShaderPassBuilder for HighLightMaskDispatcher {}
 
 impl GraphicsShaderProvider for HighLightMaskDispatcher {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, _| {
-      builder.define_out_by(channel(HIGH_LIGHT_MASK_TARGET_FORMAT));
-      Ok(())
+      builder.frag_output.first_mut().unwrap().1 = channel(HIGH_LIGHT_MASK_TARGET_FORMAT).into();
     })
   }
 
-  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
-    builder.fragment(|builder, _| builder.store_fragment_out(0, val(Vec4::one())))
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    builder.fragment(|builder, _| {
+      builder.register::<DefaultDisplay>(val(Vec4::one()));
+    })
   }
 }

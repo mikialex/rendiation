@@ -340,7 +340,7 @@ impl<T: ShaderTextureType> HandleNode<T> {
       .sample()
   }
 
-  pub fn load_texel(&self, position: Node<T::LoadInput>, level: Node<u32>) -> Node<T::Output>
+  pub fn load_texel(&self, position: Node<T::LoadInput>, _level: Node<u32>) -> Node<T::Output>
   where
     T: SingleSampleTarget + SingleLayerTarget + ShaderDirectLoad,
   {
@@ -349,7 +349,7 @@ impl<T: ShaderTextureType> HandleNode<T> {
       position: position.handle(),
       array_index: None,
       sample_index: None,
-      level: level.handle().into(),
+      level: None, // level.handle().into(), todo fix naga error
     })
     .insert_api()
   }

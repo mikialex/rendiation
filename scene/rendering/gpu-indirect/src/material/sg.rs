@@ -78,12 +78,12 @@ pub fn pbr_sg_material_pipeline_hash(
 }
 
 pub struct PhysicalSpecularGlossinessMaterialGPU<'a> {
-  pub storage: &'a StorageBufferDataView<[PhysicalSpecularGlossinessMaterialStorage]>,
+  pub storage: &'a StorageBufferReadOnlyDataView<[PhysicalSpecularGlossinessMaterialStorage]>,
   pub alpha_mode: AlphaMode,
   // no matter if we using indirect texture binding, this storage is required for checking the
   // texture if is exist in shader
   pub texture_storages:
-    &'a StorageBufferDataView<[PhysicalSpecularGlossinessMaterialTextureHandlesStorage]>,
+    &'a StorageBufferReadOnlyDataView<[PhysicalSpecularGlossinessMaterialTextureHandlesStorage]>,
   pub binding_sys: &'a GPUTextureBindingSystem,
 }
 
@@ -102,9 +102,9 @@ impl<'a> ShaderPassBuilder for PhysicalSpecularGlossinessMaterialGPU<'a> {
 }
 
 impl<'a> GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU<'a> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
-      let id = builder.query::<IndirectSceneAbstractMaterialId>()?;
+      let id = builder.query::<IndirectAbstractMaterialId>();
       let storage = binding.bind_by(&self.storage).index(id).load().expand();
       let tex_storage = binding
         .bind_by(&self.texture_storages)
@@ -193,7 +193,6 @@ impl<'a> GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU<'a> {
       builder.register::<GlossinessChannel>(glossiness);
 
       builder.register::<DefaultDisplay>((albedo.xyz(), val(1.)));
-      Ok(())
     })
   }
 }

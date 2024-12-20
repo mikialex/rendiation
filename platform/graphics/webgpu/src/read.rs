@@ -206,7 +206,7 @@ impl GPUCommandEncoder {
 
     self.on_submit.once_future(|_| {}).then(move |_| {
       ReadBufferTask::new(output_buffer, ..).map(move |r| {
-        r.map(move |buffer| ReadableTextureBuffer {
+        r.map(|buffer| ReadableTextureBuffer {
           info: buffer_dimensions,
           buffer,
         })

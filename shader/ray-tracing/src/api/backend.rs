@@ -1,12 +1,13 @@
 use crate::*;
 
-pub trait GPURaytracingSystem {
+pub trait GPURaytracingSystem: DynClone {
   fn create_tracer_base_builder(&self) -> TraceFutureBaseBuilder;
   fn create_raytracing_device(&self) -> Box<dyn GPURayTracingDeviceProvider>;
-  fn create_raytracing_encoder(&self) -> Box<dyn RayTracingPassEncoderProvider>;
+  fn create_raytracing_encoder(&self) -> Box<dyn RayTracingEncoderProvider>;
   fn create_acceleration_structure_system(&self)
     -> Box<dyn GPUAccelerationStructureSystemProvider>;
 }
+clone_trait_object!(GPURaytracingSystem);
 
 pub struct TraceFutureBaseBuilder {
   pub inner: Arc<dyn TraceFutureBaseProvider>,
@@ -44,23 +45,47 @@ pub trait TraceFutureBaseProvider {
   ) -> Box<dyn TraceOperator<()>>;
 }
 
-pub trait RayTracingPassEncoderProvider {
-  fn set_pipeline(&mut self, pipeline: &dyn GPURaytracingPipelineProvider);
-  fn trace_ray(&mut self, size: (u32, u32, u32), sbt: &dyn ShaderBindingTableProvider);
+pub trait RayTracingEncoderProvider {
+  fn trace_ray(
+    &mut self,
+    pipeline: &GPURaytracingPipelineAndBindingSource,
+    executor: &GPURaytracingPipelineExecutor,
+    size: (u32, u32, u32),
+    sbt: &dyn ShaderBindingTableProvider,
+  );
 }
 
-pub trait GPURaytracingPipelineProvider {
+/// an opaque rtx pipeline executor instance. cheap clonable.
+pub trait GPURaytracingPipelineExecutorImpl: DynClone {
   fn access_impl(&self) -> &dyn Any;
+  fn assert_is_empty(&self, gpu: &GPU);
+}
+dyn_clone::clone_trait_object!(GPURaytracingPipelineExecutorImpl);
+
+#[derive(Clone)]
+pub struct GPURaytracingPipelineExecutor {
+  pub(crate) inner: Box<dyn GPURaytracingPipelineExecutorImpl>,
 }
 
-pub trait GPURayTracingDeviceProvider {
-  fn create_raytracing_pipeline(
-    &self,
-    desc: GPURaytracingPipelineDescriptor,
-  ) -> Box<dyn GPURaytracingPipelineProvider>;
-  fn create_sbt(&self, mesh_count: u32, ray_type_count: u32)
-    -> Box<dyn ShaderBindingTableProvider>;
+impl GPURaytracingPipelineExecutor {
+  pub fn assert_is_empty(&self, gpu: &GPU) {
+    self.inner.assert_is_empty(gpu)
+  }
 }
+
+/// the ray tracing device abstraction.
+pub trait GPURayTracingDeviceProvider: DynClone {
+  /// create a pipeline executor. the executor is not the pipeline, the main reason for this api is that
+  /// we want to cache the executor resource in user side and expose executor implementation in some cases.
+  fn create_raytracing_pipeline_executor(&self) -> GPURaytracingPipelineExecutor;
+  fn create_sbt(
+    &self,
+    max_geometry_count_in_blas: u32,
+    max_tlas_offset: u32,
+    ray_type_count: u32,
+  ) -> Box<dyn ShaderBindingTableProvider>;
+}
+dyn_clone::clone_trait_object!(GPURayTracingDeviceProvider);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct HitGroupShaderRecord {
@@ -71,37 +96,49 @@ pub struct HitGroupShaderRecord {
 
 pub trait ShaderBindingTableProvider {
   fn config_ray_generation(&mut self, s: ShaderHandle);
-  fn config_hit_group(&mut self, tlas_idx: u32, ray_ty_idx: u32, hit_group: HitGroupShaderRecord);
+  fn config_hit_group(
+    &mut self,
+    geometry_idx: u32,
+    tlas_offset: u32,
+    ray_ty_idx: u32,
+    hit_group: HitGroupShaderRecord,
+  );
   fn config_missing(&mut self, ray_ty_idx: u32, s: ShaderHandle);
   fn access_impl(&self) -> &dyn Any;
 }
 
 #[derive(Clone)]
-pub enum BottomLevelAccelerationStructureBuildSource {
+pub struct BottomLevelAccelerationStructureBuildSource {
+  pub geometry: BottomLevelAccelerationStructureBuildBuffer,
+  pub flags: GeometryFlags,
+}
+
+#[derive(Clone)]
+pub enum BottomLevelAccelerationStructureBuildBuffer {
   Triangles {
     positions: Vec<Vec3<f32>>,
-    indices: Vec<u32>,
+    indices: Option<Vec<u32>>,
   },
   AABBs {
     aabbs: Vec<[f32; 6]>,
   },
 }
 
-pub trait GPUAccelerationStructureSystemProvider: DynClone {
+pub trait GPUAccelerationStructureSystemProvider: DynClone + Send + Sync {
   fn create_comp_instance(&self) -> Box<dyn GPUAccelerationStructureSystemCompImplInstance>;
   fn create_top_level_acceleration_structure(
     &self,
     source: &[TopLevelAccelerationStructureSourceInstance],
-  ) -> TlasInstance;
+  ) -> TlasHandle;
 
-  fn delete_top_level_acceleration_structure(&self, id: TlasInstance);
+  fn delete_top_level_acceleration_structure(&self, id: TlasHandle);
 
   fn create_bottom_level_acceleration_structure(
     &self,
     source: &[BottomLevelAccelerationStructureBuildSource],
-  ) -> BottomLevelAccelerationStructureHandle;
+  ) -> BlasHandle;
 
-  fn delete_bottom_level_acceleration_structure(&self, id: BottomLevelAccelerationStructureHandle);
+  fn delete_bottom_level_acceleration_structure(&self, id: BlasHandle);
 }
 impl Clone for Box<dyn GPUAccelerationStructureSystemProvider> {
   fn clone(&self) -> Self {
@@ -109,33 +146,11 @@ impl Clone for Box<dyn GPUAccelerationStructureSystemProvider> {
   }
 }
 
-#[derive(Clone)]
-pub struct TlasInstance(pub(crate) Box<dyn GPUAccelerationStructureInstanceProvider>);
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub struct TlasHandle(pub u32);
 
-impl TlasInstance {
-  pub fn create_invocation_instance(
-    &self,
-    builder: &mut ShaderBindGroupBuilder,
-  ) -> Box<dyn GPUAccelerationStructureInvocationInstance> {
-    self.0.create_invocation_instance(builder)
-  }
-  pub fn bind_pass(&self, builder: &mut BindingBuilder) {
-    self.0.bind_pass(builder);
-  }
-}
-impl std::fmt::Debug for TlasInstance {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    f.debug_tuple("TlasInstance").field(&self.0.id()).finish()
-  }
-}
-impl PartialEq for TlasInstance {
-  fn eq(&self, other: &Self) -> bool {
-    self.0.id() == other.0.id()
-  }
-}
-
-#[derive(Clone, Copy, PartialEq, Debug)]
-pub struct BottomLevelAccelerationStructureHandle(pub u32);
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub struct BlasHandle(pub u32);
 
 /// https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ns-d3d12-d3d12_raytracing_instance_desc
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -144,8 +159,8 @@ pub struct TopLevelAccelerationStructureSourceInstance {
   pub instance_custom_index: u32,
   pub mask: u32,
   pub instance_shader_binding_table_record_offset: u32,
-  pub flags: u32,
-  pub acceleration_structure_handle: u64,
+  pub flags: GeometryInstanceFlags, // FLIP_FACING excludes whether transform is front/back
+  pub acceleration_structure_handle: BlasHandle,
 }
 
 pub trait GPUAccelerationStructureInvocationInstance: DynClone {
@@ -176,5 +191,10 @@ pub trait IntersectionReporter {
   /// rejected and false is returned.
   ///
   /// https://github.com/KhronosGroup/GLSL/blob/main/extensions/ext/GLSL_EXT_ray_tracing.txt#L954
-  fn report_intersection(&self, hit_t: Node<f32>, hit_kind: Node<u32>) -> Node<bool>;
+  fn report_intersection(
+    &self,
+    hit_t: Node<f32>,
+    hit_kind: Node<u32>,
+    hit_attribute: Node<HitAttribute>,
+  ) -> Node<bool>;
 }

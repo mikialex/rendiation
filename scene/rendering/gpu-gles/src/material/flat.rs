@@ -6,6 +6,7 @@ pub type FlatMaterialUniforms =
 pub fn flat_material_uniforms(cx: &GPU) -> FlatMaterialUniforms {
   let color = global_watch()
     .watch::<FlatMaterialDisplayColorComponent>()
+    .collective_map(srgb4_to_linear4)
     .into_query_update_uniform(offset_of!(FlatMaterialUniform, color), cx);
 
   FlatMaterialUniforms::default().with_source(color)
@@ -28,12 +29,11 @@ impl<'a> ShaderHashProvider for FlatMaterialGPU<'a> {
 }
 
 impl<'a> GraphicsShaderProvider for FlatMaterialGPU<'a> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let uniform = binding.bind_by(&self.uniform).load().expand();
 
       builder.register::<DefaultDisplay>(uniform.color);
-      Ok(())
     })
   }
 }

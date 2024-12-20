@@ -18,6 +18,7 @@ use rendiation_lighting_gpu_system::*;
 use rendiation_lighting_transport::*;
 use rendiation_scene_rendering_gpu_gles::*;
 use rendiation_shader_api::*;
+use tracing::*;
 use winit::{
   event::{Event, WindowEvent},
   event_loop::EventLoop,
@@ -28,6 +29,7 @@ mod app_loop;
 mod db_egui_view;
 mod default_scene;
 mod egui_cx;
+mod util;
 mod viewer;
 //  use default_scene::*;
 
@@ -37,7 +39,8 @@ use heap_tools::*;
 use rendiation_scene_core::*;
 use rendiation_texture_core::*;
 use rendiation_webgpu::*;
-use viewer::*;
+use util::*;
+pub use viewer::*;
 
 #[global_allocator]
 static GLOBAL_ALLOCATOR: PreciseAllocationStatistics<System> =
@@ -73,5 +76,11 @@ where
 }
 
 fn main() {
+  use tracing_subscriber::prelude::*;
+  tracing::subscriber::set_global_default(
+    tracing_subscriber::registry().with(tracing_tracy::TracyLayer::default()),
+  )
+  .expect("setting tracing default failed");
+
   run_viewer_app(|_| {});
 }

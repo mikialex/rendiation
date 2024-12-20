@@ -237,8 +237,7 @@ impl ShaderHashProvider for Box<dyn DynAbstractGPUTextureSystem> {
   shader_hash_type_id! {}
 }
 impl GraphicsShaderProvider for Box<dyn DynAbstractGPUTextureSystem> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     self.register_system_self(builder);
-    Ok(())
   }
 }

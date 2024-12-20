@@ -15,6 +15,9 @@ use rendiation_webgpu_reactive_utils::*;
 mod node;
 pub use node::*;
 
+mod mesh;
+pub use mesh::*;
+
 mod light;
 pub use light::*;
 
@@ -29,6 +32,3 @@ pub use std_model::*;
 
 mod rendering;
 pub use rendering::*;
-
-both!(IndirectSceneAbstractMaterialId, u32);
-both!(IndirectSceneAbstractMeshId, u32);

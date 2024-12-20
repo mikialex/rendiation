@@ -1,3 +1,4 @@
+use bytemuck::*;
 use database::*;
 use reactive::*;
 use reactive_derive::*;
@@ -9,22 +10,24 @@ use rendiation_texture_core::*;
 mod animation;
 mod buffer;
 mod camera;
-mod io_util;
 mod light;
 mod material;
 mod mesh;
 mod node;
+mod reader;
 mod texture;
+mod writer;
 
 pub use animation::*;
 pub use buffer::*;
 pub use camera::*;
-pub use io_util::*;
 pub use light::*;
 pub use material::*;
 pub use mesh::*;
 pub use node::*;
+pub use reader::*;
 pub use texture::*;
+pub use writer::*;
 
 pub fn register_scene_core_data_model() {
   register_scene_self_data_model();

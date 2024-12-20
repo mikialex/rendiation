@@ -87,7 +87,7 @@ pub trait ResizableLinearStorage: LinearStorageBase {
 
   fn with_grow_behavior(
     self,
-    resizer: impl Fn(ResizeInput) -> Option<u32> + 'static,
+    resizer: impl Fn(ResizeInput) -> Option<u32> + 'static + Send + Sync,
   ) -> CustomGrowBehaviorMaintainer<Self> {
     CustomGrowBehaviorMaintainer {
       inner: self,
@@ -124,7 +124,7 @@ pub fn create_growable_buffer<T: GPULinearStorageImpl>(
       if required_size > max_size {
         None
       } else {
-        Some((current_size * 2).min(max_size))
+        Some((current_size * 2).max(required_size).min(max_size))
       }
     },
   )

@@ -30,11 +30,11 @@ pub fn camera_project_matrix(
 ) -> impl ReactiveQuery<Key = EntityHandle<SceneCameraEntity>, Value = Mat4<f32>> {
   let perspective = global_watch()
     .watch::<SceneCameraPerspective>()
-    .collective_filter_map(|proj| proj.map(|proj| proj.compute_projection_mat::<WebGPU>()));
+    .collective_filter_map(|proj| proj.map(|proj| proj.compute_projection_mat::<WebGPUxNDC>()));
 
   let orth = global_watch()
     .watch::<SceneCameraOrthographic>()
-    .collective_filter_map(|proj| proj.map(|proj| proj.compute_projection_mat::<WebGPU>()));
+    .collective_filter_map(|proj| proj.map(|proj| proj.compute_projection_mat::<WebGPUxNDC>()));
 
   perspective.collective_select(orth)
 }

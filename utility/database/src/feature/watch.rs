@@ -14,12 +14,15 @@ impl DataBaseFeature for DatabaseMutationWatch {
 }
 
 #[derive(Clone)]
-struct ArenaAccess<T: CValue>(LockReadGuardHolder<Arena<T>>);
-impl<T: CValue> QueryProvider<RawEntityHandle, T> for ArenaAccess<T> {
+struct ArenaAccessProvider<T: CValue>(Arc<RwLock<Arena<T>>>);
+impl<T: CValue> QueryProvider<RawEntityHandle, T> for ArenaAccessProvider<T> {
   fn access(&self) -> BoxedDynQuery<RawEntityHandle, T> {
-    Box::new(self.clone())
+    Box::new(ArenaAccess(self.0.make_read_holder()))
   }
 }
+
+#[derive(Clone)]
+struct ArenaAccess<T: CValue>(LockReadGuardHolder<Arena<T>>);
 
 impl<V: CValue> Query for ArenaAccess<V> {
   type Key = RawEntityHandle;
@@ -49,6 +52,24 @@ impl DatabaseMutationWatch {
     }
   }
 
+  pub fn watch_entity_set<E: EntitySemantic>(
+    &self,
+  ) -> impl ReactiveQuery<Key = RawEntityHandle, Value = ()> {
+    self.watch_entity_set_dyn(E::entity_id())
+  }
+
+  pub fn watch_entity_set_untyped_key<E: EntitySemantic>(
+    &self,
+  ) -> impl ReactiveQuery<Key = u32, Value = ()> {
+    GenerationHelperView {
+      inner: self.watch_entity_set_dyn(E::entity_id()),
+      phantom: PhantomData::<()>,
+      allocator: self
+        .db
+        .access_ecg::<E, _>(|e| e.inner.inner.allocator.clone()),
+    }
+  }
+
   pub fn watch_entity_set_dyn(
     &self,
     e_id: EntityId,
@@ -67,9 +88,12 @@ impl DatabaseMutationWatch {
     });
 
     let rxc = ReactiveQueryFromCollectiveMutation::<RawEntityHandle, ()> {
-      full: Box::new(ArenaAccess(full.make_read_holder())),
+      full: Box::new(ArenaAccessProvider(full)),
       mutation: RwLock::new(rev),
     };
+
+    let rxc: BoxedDynReactiveQuery<RawEntityHandle, ()> = Box::new(rxc);
+    let rxc: RQForker<RawEntityHandle, ()> = rxc.into_static_forker();
 
     self.entity_set_changes.write().insert(e_id, Box::new(rxc));
 

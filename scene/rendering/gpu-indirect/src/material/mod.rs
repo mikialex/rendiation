@@ -9,6 +9,8 @@ pub use mr::*;
 mod sg;
 pub use sg::*;
 
+both!(IndirectAbstractMaterialId, u32);
+
 #[repr(C)]
 #[std430_layout]
 #[derive(Clone, Copy, ShaderStruct, Default, Debug, PartialEq)]

@@ -22,7 +22,7 @@ rendiation-texture-core = { path = "../../content/texture/core" }
 smallvec = { workspace = true }
 database = { path = "../../utility/database" }
 reactive-derive = { path = "../../utility/reactive-derive" }
-parking_lot = { version = "0.12.1", features = ["send_guard"] }
+parking_lot = { workspace = true }
 
 [lints]
 workspace = true

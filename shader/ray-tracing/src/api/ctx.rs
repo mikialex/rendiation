@@ -1,11 +1,23 @@
 use crate::*;
 
+#[repr(C)]
+#[std430_layout]
+#[derive(Clone, Copy, ShaderStruct, StorageNodePtrAccess)]
+pub struct BuiltInTriangleHitAttribute {
+  pub bary_coord: Vec2<f32>,
+}
+
+pub type HitAttribute = BuiltInTriangleHitAttribute;
+
 #[derive(Clone, Copy)]
 pub struct HitInfo {
   /// gl_HitKindEXT
   pub hit_kind: Node<u32>,
   /// gl_HitTEXT (in world space)
   pub hit_distance: Node<f32>,
+  /// attribute for anyhit and closest shader, is bary_coord for triangle geometry
+  /// todo support with custom attribute for intersection shader
+  pub hit_attribute: Node<HitAttribute>,
 }
 
 #[derive(Clone, Copy)]
@@ -27,9 +39,9 @@ pub struct HitCtxInfo {
   /// is index in blas geometry list
   pub geometry_id: Node<u32>,
   /// gl_ObjectToWorldEXT
-  pub object_to_world: Node<Mat4<f32>>,
+  pub object_to_world: ReadOnlyStorageNode<Mat4<f32>>,
   /// gl_WorldToObjectEXT
-  pub world_to_object: Node<Mat4<f32>>,
+  pub world_to_object: ReadOnlyStorageNode<Mat4<f32>>,
   /// gl_ObjectRayOriginEXT and gl_ObjectRayDirectionEXT
   pub object_space_ray: ShaderRay,
 }
@@ -84,6 +96,20 @@ pub struct RayAnyHitCtx {
   pub world_ray: WorldRayInfo,
   pub hit_ctx: HitCtxInfo,
   pub hit: HitInfo,
+  pub payload: U32BufferLoadStoreSource,
+}
+
+impl RayAnyHitCtx {
+  // todo, optional debug type check if matched on device
+  pub fn payload<T>(&self) -> BoxedShaderLoadStore<Node<T>>
+  where
+    T: ShaderSizedValueNodeType,
+  {
+    Box::new(U32BufferLoadStore {
+      accessor: self.payload,
+      ty: PhantomData,
+    })
+  }
 }
 
 pub struct RayIntersectCtx {
@@ -93,6 +119,7 @@ pub struct RayIntersectCtx {
 }
 
 pub struct TracingCtx {
+  pub(crate) ray_gen: Option<Box<dyn RayGenCtxProvider>>,
   pub(crate) missing: Option<Box<dyn MissingHitCtxProvider>>,
   pub(crate) closest: Option<Box<dyn ClosestHitCtxProvider>>,
   pub(crate) payload: Option<(StorageNode<AnyType>, ShaderSizedValueType)>,
@@ -100,11 +127,26 @@ pub struct TracingCtx {
 }
 
 impl TracingCtx {
+  pub fn expect_custom_cx<T: Any>(&self) -> &T {
+    self.registry.get::<T>().unwrap()
+  }
+  pub fn ray_gen_ctx(&self) -> Option<&dyn RayGenCtxProvider> {
+    self.ray_gen.as_deref()
+  }
+  pub fn expect_ray_gen_ctx(&self) -> &dyn RayGenCtxProvider {
+    self.ray_gen_ctx().unwrap()
+  }
   pub fn miss_hit_ctx(&self) -> Option<&dyn MissingHitCtxProvider> {
     self.missing.as_deref()
   }
+  pub fn expect_miss_hit_ctx(&self) -> &dyn MissingHitCtxProvider {
+    self.miss_hit_ctx().unwrap()
+  }
   pub fn closest_hit_ctx(&self) -> Option<&dyn ClosestHitCtxProvider> {
     self.closest.as_deref()
+  }
+  pub fn expect_closest_hit_ctx(&self) -> &dyn ClosestHitCtxProvider {
+    self.closest_hit_ctx().unwrap()
   }
 
   /// user defined payload may not exist if the current shader stage is ray gen
@@ -112,6 +154,9 @@ impl TracingCtx {
     let payload = self.payload.as_ref()?;
     assert_eq!(&T::sized_ty(), &payload.1);
     Some(unsafe { payload.0.cast_type() })
+  }
+  pub fn expect_payload<T: ShaderSizedValueNodeType>(&self) -> StorageNode<T> {
+    self.payload::<T>().unwrap()
   }
 }
 
@@ -130,6 +175,7 @@ pub trait RayLaunchInfoProvider {
   fn launch_size(&self) -> Node<Vec3<u32>>;
 }
 
+pub trait RayGenCtxProvider: RayLaunchInfoProvider {}
 pub trait MissingHitCtxProvider: WorldRayInfoProvider + RayLaunchInfoProvider {}
 pub trait ClosestHitCtxProvider: WorldRayInfoProvider + RayLaunchInfoProvider {
   /// gl_PrimitiveID
@@ -157,4 +203,6 @@ pub trait ClosestHitCtxProvider: WorldRayInfoProvider + RayLaunchInfoProvider {
   fn hit_kind(&self) -> Node<u32>;
   /// gl_HitTEXT (in world space)
   fn hit_distance(&self) -> Node<f32>;
+  /// gl_HitAttributeEXT
+  fn hit_attribute(&self) -> Node<HitAttribute>;
 }

@@ -91,7 +91,7 @@ impl BindableResourceView for GPUBufferView {
   }
 }
 
-#[derive(Debug, Copy, Clone, Default)]
+#[derive(Debug, Copy, Clone, Default, PartialEq)]
 pub struct GPUBufferViewRange {
   /// in bytes
   pub offset: u64,

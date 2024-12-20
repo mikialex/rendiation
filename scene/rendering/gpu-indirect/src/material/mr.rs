@@ -80,12 +80,12 @@ pub fn pbr_mr_material_pipeline_hash(
 }
 
 pub struct PhysicalMetallicRoughnessMaterialIndirectGPU<'a> {
-  pub storage: &'a StorageBufferDataView<[PhysicalMetallicRoughnessMaterialStorage]>,
+  pub storage: &'a StorageBufferReadOnlyDataView<[PhysicalMetallicRoughnessMaterialStorage]>,
   pub alpha_mode: AlphaMode,
   // no matter if we using indirect texture binding, this storage is required for checking the
   // texture if is exist in shader
   pub texture_storages:
-    &'a StorageBufferDataView<[PhysicalMetallicRoughnessMaterialTextureHandlesStorage]>,
+    &'a StorageBufferReadOnlyDataView<[PhysicalMetallicRoughnessMaterialTextureHandlesStorage]>,
   pub binding_sys: &'a GPUTextureBindingSystem,
 }
 
@@ -104,9 +104,9 @@ impl<'a> ShaderPassBuilder for PhysicalMetallicRoughnessMaterialIndirectGPU<'a> 
 }
 
 impl<'a> GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialIndirectGPU<'a> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
-      let id = builder.query::<IndirectSceneAbstractMaterialId>()?;
+      let id = builder.query::<IndirectAbstractMaterialId>();
       let storage = binding.bind_by(&self.storage).index(id).load().expand();
       let tex_storage = binding
         .bind_by(&self.texture_storages)
@@ -189,7 +189,6 @@ impl<'a> GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialIndirectGPU
       builder.register::<RoughnessChannel>(roughness * roughness);
 
       builder.register::<DefaultDisplay>((base_color, val(1.)));
-      Ok(())
     })
   }
 }

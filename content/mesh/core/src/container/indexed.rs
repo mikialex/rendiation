@@ -14,6 +14,11 @@ impl IndexType for u32 {
     self as usize
   }
 }
+impl IndexType for usize {
+  fn into_usize(self) -> usize {
+    self
+  }
+}
 impl IndexType for u16 {
   fn into_usize(self) -> usize {
     self as usize
@@ -148,8 +153,8 @@ impl IndexGet for DynIndexContainer {
 
   fn index_get(&self, key: usize) -> Option<Self::Output> {
     match self {
-      DynIndexContainer::Uint16(i) => DynIndex::Uint16(i.index_get(key).unwrap()),
-      DynIndexContainer::Uint32(i) => DynIndex::Uint32(i.index_get(key).unwrap()),
+      Self::Uint16(i) => DynIndex::Uint16(i.index_get(key).unwrap()),
+      Self::Uint32(i) => DynIndex::Uint32(i.index_get(key).unwrap()),
     }
     .into()
   }
@@ -158,8 +163,34 @@ impl IndexGet for DynIndexContainer {
 impl CollectionSize for DynIndexContainer {
   fn len(&self) -> usize {
     match self {
-      DynIndexContainer::Uint16(i) => i.len(),
-      DynIndexContainer::Uint32(i) => i.len(),
+      Self::Uint16(i) => i.len(),
+      Self::Uint32(i) => i.len(),
+    }
+  }
+}
+
+pub enum DynIndexRef<'a> {
+  Uint16(&'a [u16]),
+  Uint32(&'a [u32]),
+}
+
+impl<'a> IndexGet for DynIndexRef<'a> {
+  type Output = usize;
+
+  fn index_get(&self, key: usize) -> Option<Self::Output> {
+    match self {
+      Self::Uint16(i) => i[key] as usize,
+      Self::Uint32(i) => i[key] as usize,
+    }
+    .into()
+  }
+}
+
+impl<'a> CollectionSize for DynIndexRef<'a> {
+  fn len(&self) -> usize {
+    match self {
+      Self::Uint16(i) => i.len(),
+      Self::Uint32(i) => i.len(),
     }
   }
 }

@@ -175,7 +175,7 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
       let _ = invocation_source.invocation_logic(invocation_id);
     });
     cx.record_pass(|pass, device| {
-      let mut bb = BindingBuilder::new_as_compute();
+      let mut bb = BindingBuilder::default();
       self.bind_input(&mut bb);
       bb.setup_compute_pass(pass, device, &main_pipeline);
     });
@@ -233,7 +233,7 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
     });
 
     cx.record_pass(|pass, device| {
-      let mut bb = BindingBuilder::new_as_compute()
+      let mut bb = BindingBuilder::default()
         .with_bind(&size_output)
         .with_bind(&work_size_output)
         .with_bind(&workgroup_size_buffer);
@@ -261,28 +261,29 @@ where
 
 /// The top level composable trait for parallel compute.
 ///
-/// Note that the clone is implemented by duplicating upstream work, if you want to reuse the work
-/// by materialize and share the result, you should using the fork operator, instead of call clone
-/// after internal_materialize_storage_buffer
+/// Note that [Clone] is implemented by duplicating the upstream work. If you want to reuse the work
+/// by materializing and sharing the result, you should use the [into_forker](DeviceParallelComputeIOExt::into_forker) operator before clone
+/// instead of calling [clone](Clone::clone) after [internal_materialize_storage_buffer](DeviceParallelComputeIOExt::internal_materialize_storage_buffer).
 pub trait DeviceParallelCompute<T>: DynClone {
-  /// The main logic is expressed in this fn call. The implementation could do multiple dispatch in
-  /// this function, just to prepare the all necessary data the final exposing step required
+  /// This function represents the core logic of parallel computation. It may execute multiple dispatches within
+  /// this function to prepare all necessary data for the final exposure step.
   fn execute_and_expose(
     &self,
     cx: &mut DeviceParallelComputeCtx,
   ) -> Box<dyn DeviceInvocationComponent<T>>;
 
-  /// if the material output size is different from execute_and_expose's work size(for example reduction),
-  /// custom impl or multi dispatch is required
+  /// If the material output size is different from [execute_and_expose](DeviceParallelCompute::execute_and_expose)'s
+  /// work size(for example in reduction operation), a custom implementation or a multi-dispatch is required to override the method
   fn result_size(&self) -> u32;
 }
 
-/// This trait is to avoid all possible redundant storage buffer materialize but not requires
-/// specialization. if the type impls DeviceParallelCompute<Node<T>>, it should impl this trait as
-/// well.
+/// This trait aims to minimize redundant storage buffer materialization without relying on
+/// language specialization support. Any type implementing DeviceParallelCompute<Node<T>> should also implement this trait.
 pub trait DeviceParallelComputeIO<T>: DeviceParallelCompute<Node<T>> {
-  /// if the implementation already has materialized storage buffer, should provide it directly to
-  /// avoid re-materialize cost, the user should not mutate the materialized result
+  /// The user must not mutate the materialized result returned from this function.
+  ///
+  /// If the implementation has already materialized the storage buffer internally, a custom implementation
+  /// should override this method to expose the result directly and avoid re-materialization cost.
   fn materialize_storage_buffer(
     &self,
     cx: &mut DeviceParallelComputeCtx,
@@ -290,7 +291,19 @@ pub trait DeviceParallelComputeIO<T>: DeviceParallelCompute<Node<T>> {
   where
     T: Std430 + ShaderSizedValueNodeType,
   {
-    do_write_into_storage_buffer(self, cx)
+    let output = create_gpu_read_write_storage::<[T]>(self.result_size() as usize, &cx.gpu);
+    self.materialize_storage_buffer_into(output, cx)
+  }
+
+  fn materialize_storage_buffer_into(
+    &self,
+    target: StorageBufferDataView<[T]>,
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> DeviceMaterializeResult<T>
+  where
+    T: Std430 + ShaderSizedValueNodeType,
+  {
+    do_write_into_storage_buffer(self, cx, target)
   }
 }
 
@@ -421,7 +434,8 @@ where
     T: Debug + PartialEq,
   {
     let (gpu, _) = GPU::new(Default::default()).await.unwrap();
-    let mut cx = DeviceParallelComputeCtx::new(&gpu);
+    let mut encoder = gpu.create_encoder();
+    let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder);
 
     fn check<T: PartialEq + Debug>(expect: &[T], result: &[T]) {
       if expect != result {
@@ -443,15 +457,16 @@ where
 
     cx.force_indirect_dispatch = true;
     let (_, size, result) = self.read_back_host(&mut cx).await.unwrap();
+
     check(expect, &result);
     if let (Some(size), Some(expect_size)) = (size, expect_size) {
       assert_eq!(size, expect_size);
     }
   }
 
-  async fn read_back_host(
+  async fn read_back_host<'a>(
     &self,
-    cx: &mut DeviceParallelComputeCtx,
+    cx: &mut DeviceParallelComputeCtx<'a>,
   ) -> Result<(DeviceMaterializeResult<T>, Option<Vec3<u32>>, Vec<T>), BufferAsyncError> {
     let output = self.materialize_storage_buffer(cx);
     cx.flush_pass();
@@ -708,23 +723,23 @@ where
 {
 }
 
-pub struct DeviceParallelComputeCtx {
+pub struct DeviceParallelComputeCtx<'a> {
   pub gpu: GPU,
-  pub encoder: GPUCommandEncoder,
+  pub encoder: &'a mut GPUCommandEncoder,
   pub pass: Option<GPUComputePass>,
   pub force_indirect_dispatch: bool,
 }
 
-impl Drop for DeviceParallelComputeCtx {
+impl<'a> Drop for DeviceParallelComputeCtx<'a> {
   fn drop(&mut self) {
     // make sure pass is dropped before encoder.
     self.submit_recorded_work_and_continue();
   }
 }
 
-impl DeviceParallelComputeCtx {
-  pub fn new(gpu: &GPU) -> Self {
-    let encoder = gpu.create_encoder();
+impl<'a> DeviceParallelComputeCtx<'a> {
+  /// note, the passed in encoder will be automatically been submitted after this ctx drop.
+  pub fn new(gpu: &GPU, encoder: &'a mut GPUCommandEncoder) -> Self {
     Self {
       gpu: gpu.clone(),
       encoder,
@@ -775,7 +790,7 @@ impl DeviceParallelComputeCtx {
   pub fn submit_recorded_work_and_continue(&mut self) {
     self.flush_pass();
     let new_encoder = self.gpu.create_encoder();
-    let current_encoder = std::mem::replace(&mut self.encoder, new_encoder);
+    let current_encoder = std::mem::replace(self.encoder, new_encoder);
 
     self.gpu.submit_encoder(current_encoder);
   }

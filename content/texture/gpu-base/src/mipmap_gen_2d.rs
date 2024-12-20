@@ -140,11 +140,11 @@ impl<'a> ShaderHashProvider for Mipmap2DGeneratorTask<'a> {
 }
 
 impl<'a> GraphicsShaderProvider for Mipmap2DGeneratorTask<'a> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
-      let position = builder.query::<FragmentPosition>()?.xy();
-      let buffer_size = builder.query::<RenderBufferSize>()?;
-      let texel_size = builder.query::<TexelSize>()? * val(0.5);
+      let position = builder.query::<FragmentPosition>().xy();
+      let buffer_size = builder.query::<RenderBufferSize>();
+      let texel_size = builder.query::<TexelSize>() * val(0.5);
       let source = binding.bind_by(&self.view);
       let sampler = binding.bind_by(&ImmediateGPUSamplerViewBind);
 

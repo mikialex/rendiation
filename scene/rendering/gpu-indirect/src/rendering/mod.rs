@@ -15,6 +15,3 @@ pub use node::*;
 
 mod scene;
 pub use scene::*;
-
-mod draw_grouper;
-pub use draw_grouper::*;

@@ -3,6 +3,7 @@ use rendiation_shader_api::*;
 pub mod cube;
 pub mod normal_mapping;
 pub mod sampling;
+pub mod z_order;
 
 pub fn shader_uv_space_to_world_space(
   view_projection_inv: Node<Mat4<f32>>,

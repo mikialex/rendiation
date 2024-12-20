@@ -5,6 +5,12 @@ pub trait IndirectNodeRenderImpl {
     &self,
     any_idx: EntityHandle<SceneNodeEntity>,
   ) -> Option<Box<dyn RenderComponent + '_>>;
+
+  fn hash_shader_group_key(
+    &self,
+    any_id: EntityHandle<SceneNodeEntity>,
+    hasher: &mut PipelineHasher,
+  ) -> Option<()>;
 }
 
 #[derive(Default)]
@@ -19,6 +25,10 @@ impl RenderImplProvider<Box<dyn IndirectNodeRenderImpl>> for DefaultIndirectNode
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
     let storage = node_storages(cx);
     self.storage = source.register_multi_updater(storage.inner);
+  }
+
+  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
+    source.deregister(&mut self.storage);
   }
 
   fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> Box<dyn IndirectNodeRenderImpl> {
@@ -37,5 +47,12 @@ impl IndirectNodeRenderImpl for DefaultIndirectNodeRenderImpl {
       buffer: &self.node_gpu,
     };
     Some(Box::new(node))
+  }
+  fn hash_shader_group_key(
+    &self,
+    _: EntityHandle<SceneNodeEntity>,
+    _: &mut PipelineHasher,
+  ) -> Option<()> {
+    Some(())
   }
 }

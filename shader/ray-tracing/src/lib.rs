@@ -11,7 +11,7 @@ use fast_hash_collection::*;
 use parking_lot::RwLock;
 use rendiation_algebra::*;
 use rendiation_device_parallel_compute::*;
-use rendiation_device_task_graph::*;
+pub use rendiation_device_task_graph::*;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 
@@ -27,4 +27,5 @@ pub use backend::*;
 mod texture_io;
 pub use texture_io::*;
 
+#[cfg(test)]
 mod test;

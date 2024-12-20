@@ -108,6 +108,7 @@ where
   type Value = ValueChange<O>;
   fn iter_key_value(&self) -> impl Iterator<Item = (K, ValueChange<O>)> + '_ {
     let checker = make_checker(self.f);
+    let checker2 = checker.clone();
 
     let a_side = self.a.iter_key_value().filter_map(move |(k, v1)| {
       checker(join_change(
@@ -126,7 +127,7 @@ where
       .iter_key_value()
       .filter(|(k, _)| self.a.access(k).is_none()) // remove the a_side part
       .filter_map(move |(k, v2)| {
-        checker(join_change(
+        checker2(join_change(
           &k,
           &k,
           self.a.access(&k),

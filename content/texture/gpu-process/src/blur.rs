@@ -55,7 +55,7 @@ impl<'a, T> ShaderHashProvider for LinearBlurTask<'a, T> {
 }
 
 impl<'a, T> GraphicsShaderProvider for LinearBlurTask<'a, T> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let config = binding.bind_by(self.config).load().expand();
       let weights = binding.bind_by(&self.weights.weights);
@@ -64,8 +64,8 @@ impl<'a, T> GraphicsShaderProvider for LinearBlurTask<'a, T> {
       let input: HandleNode<_> = binding.bind_by(&self.input);
       let sampler = binding.bind_by(&ImmediateGPUSamplerViewBind);
 
-      let uv = builder.query::<FragmentUv>()?;
-      let size = builder.query::<TexelSize>()?;
+      let uv = builder.query::<FragmentUv>();
+      let size = builder.query::<TexelSize>();
 
       let sample_offset = size * config.direction;
 

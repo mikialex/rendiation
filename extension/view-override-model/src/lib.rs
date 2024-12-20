@@ -46,11 +46,29 @@ pub enum ViewAutoScalablePositionOverride {
   SyncNode(u32),
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct ViewAutoScalable {
   pub independent_scale_factor: f32,
 }
 
 impl ViewAutoScalable {
+  pub fn compute_scale(
+    &self,
+    override_position: Vec3<f32>,
+    camera_world: Mat4<f32>,
+    camera_view_height: f32,
+    camera_proj: impl Projection<f32>,
+  ) -> f32 {
+    let camera_position = camera_world.position();
+    let camera_forward = camera_world.forward().reverse().normalize();
+    let camera_to_target = override_position - camera_position;
+
+    let projected_distance = camera_to_target.dot(camera_forward);
+
+    self.independent_scale_factor
+      / camera_proj.pixels_per_unit(projected_distance, camera_view_height)
+  }
+
   pub fn override_mat(
     &self,
     world_matrix: Mat4<f32>,
@@ -61,14 +79,12 @@ impl ViewAutoScalable {
   ) -> Mat4<f32> {
     let world_translation = Mat4::translate(override_position);
 
-    let camera_position = camera_world.position();
-    let camera_forward = camera_world.forward().reverse().normalize();
-    let camera_to_target = override_position - camera_position;
-
-    let projected_distance = camera_to_target.dot(camera_forward);
-
-    let scale = self.independent_scale_factor
-      / camera_proj.pixels_per_unit(projected_distance, camera_view_height);
+    let scale = self.compute_scale(
+      override_position,
+      camera_world,
+      camera_view_height,
+      camera_proj,
+    );
 
     world_translation // move back to position
       * Mat4::scale(Vec3::splat(scale)) // apply new scale

@@ -8,19 +8,21 @@ pub type OpaqueTask = Box<
 >;
 
 pub struct TaskGroupExecutor {
-  pub internal: TaskGroupExecutorInternal,
   pub state_desc: DynamicTypeMetaInfo,
+  pub max_in_flight: usize,
 
   pub all_spawners_binding_order: Vec<usize>,
   pub polling_pipeline: GPUComputePipeline,
   pub resource: TaskGroupExecutorResource,
+  pub before_execute: Option<Box<dyn Fn(&mut DeviceParallelComputeCtx, &Self)>>,
+  pub after_execute: Option<Box<dyn Fn(&mut DeviceParallelComputeCtx, &Self)>>,
 }
 
-pub struct TaskGroupExecutorInternal {
+pub struct TaskGroupBuildSource {
   pub payload_ty: ShaderSizedValueType,
   pub self_task_idx: usize,
-  pub required_poll_count: usize,
   pub task: OpaqueTask,
+  pub max_in_flight: usize,
 }
 
 pub(super) struct TaskGroupPreBuild {
@@ -34,7 +36,7 @@ pub(super) struct TaskGroupPreBuild {
 
 impl TaskGroupExecutor {
   pub(super) fn pre_build(
-    internal: &TaskGroupExecutorInternal,
+    internal: &TaskGroupBuildSource,
     task_type: usize,
     task_group_shared_info: &mut Vec<(
       TaskGroupDeviceInvocationInstanceLateResolved,
@@ -67,7 +69,7 @@ impl TaskGroupExecutor {
 
   pub(super) fn build(
     mut pre_build: TaskGroupPreBuild,
-    task_build_source: TaskGroupExecutorInternal,
+    task_build_source: &TaskGroupBuildSource,
     pcx: &mut DeviceParallelComputeCtx,
     resources: &[TaskGroupExecutorResource],
     parent_dependencies: &FastHashSet<usize>,
@@ -102,24 +104,30 @@ impl TaskGroupExecutor {
     let pool = self_spawner.task_pool.clone();
 
     let active_idx = cx.global_invocation_id().x();
-    if_by(active_idx.less_than(active_task_count.load()), || {
-      let task_index = indices.index(active_idx).load();
 
-      let item = pool.rw_states(task_index);
-      pre_build.state_to_resolve.resolve(item.cast_untyped_node());
+    // even if the task is out of active bound, we still required to poll something to maintain the uniform control flow.
+    // the task to poll for this case always resides at index 0 and always stay in pending state.
+    let task_index = active_idx
+      .less_than(active_task_count.load())
+      .select_branched(|| indices.index(active_idx).load(), || val(0));
 
-      let mut poll_ctx = DeviceTaskSystemPollCtx {
-        self_task_idx: task_index,
-        self_task: pool.clone(),
-        compute_cx: &mut cx,
-        invocation_registry: Default::default(),
-        self_task_type_id: pre_build.self_task_idx as u32,
-      };
+    let item = pool.rw_states(task_index);
+    pre_build.state_to_resolve.resolve(item.cast_untyped_node());
 
-      let poll_result = pre_build.invocation.device_poll(&mut poll_ctx);
-      if_by(poll_result.is_ready, || {
+    let mut poll_ctx = DeviceTaskSystemPollCtx {
+      self_task_idx: task_index,
+      self_task: pool.clone(),
+      compute_cx: &mut cx,
+      invocation_registry: Default::default(),
+      self_task_type_id: pre_build.self_task_idx as u32,
+    };
+
+    let poll_result = pre_build.invocation.device_poll(&mut poll_ctx);
+
+    if_by(poll_ctx.is_fallback_task().not(), || {
+      if_by(poll_result.is_resolved(), || {
         pool
-          .rw_is_finished(task_index)
+          .rw_task_state(task_index)
           .store(TASK_STATUE_FLAG_FINISHED);
 
         let parent_index = pool.rw_parent_task_index(task_index).load();
@@ -142,8 +150,8 @@ impl TaskGroupExecutor {
       })
       .else_by(|| {
         pool
-          .rw_is_finished(task_index)
-          .store(TASK_STATUE_FLAG_NOT_FINISHED_SLEEP);
+          .rw_task_state(task_index)
+          .store(TASK_STATUE_FLAG_SLEEPING);
       });
     });
 
@@ -153,15 +161,26 @@ impl TaskGroupExecutor {
 
     TaskGroupExecutor {
       polling_pipeline,
+      max_in_flight: task_build_source.max_in_flight,
       resource,
-      internal: task_build_source,
       state_desc: pre_build.state_to_resolve.meta_info(),
       all_spawners_binding_order,
+      before_execute: None,
+      after_execute: None,
     }
   }
 
-  pub fn execute(&mut self, cx: &mut DeviceParallelComputeCtx, all_tasks: &[Self]) {
+  pub fn execute(
+    &mut self,
+    cx: &mut DeviceParallelComputeCtx,
+    all_tasks: &[Self],
+    task_source: &TaskGroupBuildSource,
+  ) {
     self.prepare_execution(cx);
+
+    if let Some(f) = self.before_execute.as_ref() {
+      f(cx, self)
+    }
 
     cx.record_pass(|pass, device| {
       let imp = &mut self.resource;
@@ -172,11 +191,11 @@ impl TaskGroupExecutor {
           .prepare_dispatch_size(pass, device, TASK_EXECUTION_WORKGROUP_SIZE);
 
       // dispatch tasks
-      let mut bb = BindingBuilder::new_as_compute();
+      let mut bb = BindingBuilder::default();
 
       let mut ctx = DeviceTaskSystemBindCtx { binder: &mut bb };
 
-      self.internal.task.bind_input(&mut ctx);
+      task_source.task.bind_input(&mut ctx);
 
       let all_task_group_sources: Vec<_> = all_tasks.iter().map(|t| &t.resource).collect();
       for extra in &self.all_spawners_binding_order {
@@ -188,17 +207,15 @@ impl TaskGroupExecutor {
       bb.setup_compute_pass(pass, device, &self.polling_pipeline);
       pass.dispatch_workgroups_indirect_by_buffer_resource_view(&active_execution_size);
     });
+
+    self.compact_alive_tasks(cx);
+
+    if let Some(f) = self.after_execute.as_ref() {
+      f(cx, self)
+    }
   }
 
-  pub fn prepare_execution(&mut self, ctx: &mut DeviceParallelComputeCtx) {
-    // commit bumpers
-    ctx.record_pass(|pass, device| {
-      let imp = &mut self.resource;
-      imp.active_task_idx.commit_size(pass, device, true);
-      imp.empty_index_pool.commit_size(pass, device, false);
-      imp.new_removed_task_idx.commit_size(pass, device, true);
-    });
-
+  fn compact_alive_tasks(&mut self, ctx: &mut DeviceParallelComputeCtx) {
     let imp = &mut self.resource;
     // compact active task buffer
     let active_tasks = imp.active_task_idx.storage.clone().into_readonly_view();
@@ -209,8 +226,13 @@ impl TaskGroupExecutor {
         active_tasks: active_tasks.clone(),
         task_pool: imp.task_pool.clone(),
       })
-      .materialize_storage_buffer(ctx);
-    imp.active_task_idx.storage = re.buffer.into_rw_view();
+      .materialize_storage_buffer_into(imp.active_task_idx_back_buffer.clone(), ctx);
+
+    std::mem::swap(
+      &mut imp.active_task_idx.storage,
+      &mut imp.active_task_idx_back_buffer,
+    );
+
     let new_active_task_size = re.size.unwrap();
 
     ctx.record_pass(|pass, device| {
@@ -225,13 +247,31 @@ impl TaskGroupExecutor {
         builder
       });
 
-      BindingBuilder::new_as_compute()
+      BindingBuilder::default()
         .with_bind(&new_active_task_size)
         .with_bind(&imp.active_task_idx.current_size)
         .setup_compute_pass(pass, device, &pipeline);
 
       pass.dispatch_workgroups(1, 1, 1);
+    });
+  }
 
+  pub fn prepare_execution_and_compact_living_task(&mut self, ctx: &mut DeviceParallelComputeCtx) {
+    self.prepare_execution(ctx);
+    self.compact_alive_tasks(ctx);
+  }
+
+  pub fn prepare_execution(&mut self, ctx: &mut DeviceParallelComputeCtx) {
+    // commit bumpers
+    ctx.record_pass(|pass, device| {
+      let imp = &self.resource;
+      imp.active_task_idx.commit_size(pass, device, true);
+      imp.empty_index_pool.commit_size(pass, device, false);
+      imp.new_removed_task_idx.commit_size(pass, device, true);
+    });
+
+    ctx.record_pass(|pass, device| {
+      let imp = &self.resource;
       // drain empty to empty pool
       imp
         .new_removed_task_idx
@@ -242,6 +282,8 @@ impl TaskGroupExecutor {
 
 #[derive(Clone)]
 pub struct TaskGroupExecutorResource {
+  /// reused as active task compaction target
+  pub active_task_idx_back_buffer: StorageBufferDataView<[u32]>,
   pub active_task_idx: DeviceBumpAllocationInstance<u32>,
   pub new_removed_task_idx: DeviceBumpAllocationInstance<u32>,
   pub empty_index_pool: DeviceBumpAllocationInstance<u32>,
@@ -257,15 +299,17 @@ impl TaskGroupExecutorResource {
     cx: &mut DeviceParallelComputeCtx,
   ) -> Self {
     let device = &cx.gpu.device;
-    // to support self spawning, some buffer's size is doubled for max extra allocation space
     let res = Self {
-      active_task_idx: DeviceBumpAllocationInstance::new(size * 2, device),
+      active_task_idx_back_buffer: create_gpu_read_write_storage(size, device),
+      active_task_idx: DeviceBumpAllocationInstance::new(size, device),
       new_removed_task_idx: DeviceBumpAllocationInstance::new(size, device),
-      empty_index_pool: DeviceBumpAllocationInstance::new(size * 2, device),
-      task_pool: TaskPool::create_with_size(size * 2, state_desc, payload_ty, device),
+      empty_index_pool: DeviceBumpAllocationInstance::new(size, device),
+      // add one is for the first default task
+      task_pool: TaskPool::create_with_size(size + 1, state_desc, payload_ty.clone(), device),
       size,
     };
 
+    // fill the empty pool, allocate the first default task
     cx.record_pass(|pass, device| {
       let hasher = shader_hasher_from_marker_ty!(PrepareEmptyIndices);
 
@@ -275,28 +319,38 @@ impl TaskGroupExecutorResource {
 
         let empty_pool = builder.bind_by(&res.empty_index_pool.storage);
         let empty_pool_size = builder.bind_by(&res.empty_index_pool.current_size);
+        let task_pool = res.task_pool.build_shader(&mut builder);
         let id = builder.global_invocation_id().x();
 
         if_by(id.equals(0), || {
           empty_pool_size.store(empty_pool.array_length());
+          task_pool.spawn_new_task_dyn(
+            val(0),
+            ShaderNodeExpr::Zeroed {
+              target: payload_ty.clone(),
+            }
+            .insert_api(),
+            TaskParentRef::none_parent(),
+            &payload_ty,
+          );
         });
 
         if_by(id.less_than(empty_pool.array_length()), || {
-          empty_pool.index(id).store(id);
+          empty_pool.index(id).store(id + val(1));
         });
+
         builder
       });
 
-      BindingBuilder::new_as_compute()
+      let mut builder = BindingBuilder::default()
         .with_bind(&res.empty_index_pool.storage)
-        .with_bind(&res.empty_index_pool.current_size)
-        .setup_compute_pass(pass, device, &pipeline);
+        .with_bind(&res.empty_index_pool.current_size);
 
-      pass.dispatch_workgroups(
-        compute_dispatch_size((size * 2) as u32, workgroup_size),
-        1,
-        1,
-      );
+      res.task_pool.bind(&mut builder);
+
+      builder.setup_compute_pass(pass, device, &pipeline);
+
+      pass.dispatch_workgroups(compute_dispatch_size(size as u32, workgroup_size), 1, 1);
     });
 
     res
@@ -347,30 +401,32 @@ impl TaskGroupDeviceInvocationInstance {
     parent_ref: TaskParentRef,
     ty: &ShaderSizedValueType,
   ) -> Option<TaskFutureInvocationRightValue> {
-    let (idx, success) = self.empty_index_pool.bump_deallocate();
+    let (idx, success) = self.empty_index_pool.bump_deallocate(); // todo, error report
+    shader_assert(success);
 
-    if_by(success, || {
-      self
-        .task_pool
-        .spawn_new_task_dyn(idx, payload, parent_ref, ty);
-      let (_, success) = self.active_task_idx.bump_allocate(idx); // todo, error report
-      if_by(success.not(), || loop_by(|_| {}));
-    })
-    .else_by(|| {
-      loop_by(|_| {})
-      // error report, theoretically unreachable
-    });
+    self
+      .task_pool
+      .spawn_new_task_dyn(idx, payload, parent_ref, ty);
+    let (_, success) = self.active_task_idx.bump_allocate(idx); // todo, error report
+    shader_assert(success);
 
     Some(TaskFutureInvocationRightValue { task_handle: idx })
   }
 
   pub fn wake_task_dyn(&self, task_id: Node<u32>) {
+    let is_in_active_list = self
+      .task_pool
+      .rw_task_state(task_id)
+      .load()
+      .equals(TASK_STATUE_FLAG_SLEEPING);
     self
       .task_pool
-      .rw_is_finished(task_id)
+      .rw_task_state(task_id)
       .store(TASK_STATUE_FLAG_NOT_FINISHED_WAKEN);
-    let (_, success) = self.active_task_idx.bump_allocate(task_id); // todo, error report
-    if_by(success.not(), || loop_by(|_| {}));
+    if_by(is_in_active_list.not(), || {
+      let (_, success) = self.active_task_idx.bump_allocate(task_id); // todo, error report
+      shader_assert(success);
+    });
   }
 
   #[must_use]
@@ -400,15 +456,12 @@ impl TaskGroupDeviceInvocationInstance {
 
   fn cleanup_finished_task_state_and_payload(&self, task: Node<u32>) {
     let (_, success) = self.new_removed_task_idx.bump_allocate(task);
+    shader_assert(success);
     self
       .task_pool
-      .rw_is_finished(task)
+      .rw_task_state(task)
       .store(TASK_STATUE_FLAG_TASK_NOT_EXIST);
     // todo consider zeroing the state and payload
-    if_by(success.not(), || {
-      loop_by(|_| {})
-      // error report, theoretically unreachable
-    });
   }
 
   fn is_task_finished(&self, task_id: Node<u32>) -> Node<bool> {

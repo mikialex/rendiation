@@ -16,6 +16,15 @@ pub struct DeviceTaskSystemBuildCtx<'a> {
   pub state_builder: DynamicTypeBuilder,
 }
 
+impl<'a> DeviceTaskSystemBuildCtx<'a> {
+  /// just inner method short cut
+  pub fn make_state<T: ShaderAbstractRightValue>(&mut self) -> T::AbstractLeftValue {
+    self
+      .state_builder
+      .create_or_reconstruct_any_left_value_by_right::<T>()
+  }
+}
+
 #[derive(Clone, Default)]
 pub struct TaskGroupDeviceInvocationInstanceLateResolved {
   inner: Arc<RwLock<Option<TaskGroupDeviceInvocationInstance>>>,
@@ -118,6 +127,9 @@ pub struct DeviceTaskSystemPollCtx<'a> {
 }
 
 impl<'a> DeviceTaskSystemPollCtx<'a> {
+  pub fn is_fallback_task(&self) -> Node<bool> {
+    self.self_task_idx.equals(val(0))
+  }
   pub fn generate_self_as_parent(&self) -> TaskParentRef {
     TaskParentRef {
       parent_task_index: self.self_task_idx,
@@ -140,6 +152,12 @@ impl AnyMap {
       .map
       .get_mut(&TypeId::of::<T>())
       .and_then(|x| x.downcast_mut())
+  }
+  pub fn get<T: Any>(&self) -> Option<&T> {
+    self
+      .map
+      .get(&TypeId::of::<T>())
+      .and_then(|x| x.downcast_ref())
   }
 }
 

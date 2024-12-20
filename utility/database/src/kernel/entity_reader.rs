@@ -83,8 +83,6 @@ impl EntityComponentGroup {
       .map(|(id, c)| (*id, c.inner.create_dyn_reader()))
       .collect();
 
-    self.inner.entity_watchers.emit(&ScopedMessage::Start);
-
     EntityReaderUntyped {
       type_id: self.inner.type_id,
       components,

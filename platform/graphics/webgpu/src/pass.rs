@@ -65,14 +65,7 @@ impl RenderTargetView {
 
   pub fn size(&self) -> Size {
     match self {
-      RenderTargetView::Texture(t) => {
-        let size = t
-          .resource
-          .desc
-          .size
-          .mip_level_size(t.desc.base_mip_level, gpu::TextureDimension::D2);
-        GPUTextureSize::from_gpu_size(size)
-      }
+      RenderTargetView::Texture(t) => t.size(),
       RenderTargetView::SurfaceTexture { size, .. } => *size,
     }
   }
@@ -156,6 +149,16 @@ pub struct GPURenderPass {
   pub(crate) formats: RenderTargetFormatsInfo,
 }
 
+impl AbstractPassBinding for GPURenderPass {
+  fn set_bind_group_placeholder(&mut self, index: u32) {
+    self.pass.set_bind_group(index, &self.placeholder_bg, &[]);
+  }
+
+  fn set_bind_group(&mut self, index: u32, bind_group: &BindGroup, offsets: &[DynamicOffset]) {
+    self.pass.set_bind_group(index, bind_group, offsets);
+  }
+}
+
 impl Deref for GPURenderPass {
   type Target = gpu::RenderPass<'static>;
 
@@ -181,10 +184,6 @@ impl GPURenderPass {
 
   pub fn set_gpu_pipeline(&mut self, pipeline: &GPURenderPipeline) {
     self.pass.set_pipeline(&pipeline.inner.as_ref().pipeline)
-  }
-
-  pub fn set_bind_group_placeholder(&mut self, index: u32) {
-    self.pass.set_bind_group(index, &self.placeholder_bg, &[]);
   }
 
   pub fn set_vertex_buffer_by_buffer_resource_view(
@@ -237,17 +236,41 @@ impl GPURenderPass {
         instances,
       } => self.draw(vertices, instances),
       DrawCommand::Skip => {}
+      DrawCommand::Indirect {
+        indirect_buffer,
+        indexed,
+      } => {
+        let buffer = &indirect_buffer.resource.gpu;
+        if indexed {
+          self.draw_indexed_indirect(buffer, 0)
+        } else {
+          self.draw_indirect(buffer, 0)
+        }
+      }
       DrawCommand::MultiIndirect {
         indirect_buffer,
         indexed,
-        indirect_offset,
         count,
       } => {
         let buffer = &indirect_buffer.resource.gpu;
         if indexed {
-          self.multi_draw_indexed_indirect(buffer, indirect_offset, count)
+          self.multi_draw_indexed_indirect(buffer, 0, count)
         } else {
-          self.multi_draw_indirect(buffer, indirect_offset, count)
+          self.multi_draw_indirect(buffer, 0, count)
+        }
+      }
+      DrawCommand::MultiIndirectCount {
+        indirect_buffer,
+        indirect_count,
+        indexed,
+        max_count,
+      } => {
+        let buffer = &indirect_buffer.resource.gpu;
+        let count_buffer = &indirect_count.resource.gpu;
+        if indexed {
+          self.multi_draw_indexed_indirect_count(buffer, 0, count_buffer, 0, max_count)
+        } else {
+          self.multi_draw_indirect_count(buffer, 0, count_buffer, 0, max_count)
         }
       }
     }
@@ -265,11 +288,20 @@ pub enum DrawCommand {
     vertices: Range<u32>,
     instances: Range<u32>,
   },
+  Indirect {
+    indirect_buffer: GPUBufferResourceView,
+    indexed: bool,
+  },
   MultiIndirect {
+    indirect_buffer: GPUBufferResourceView,
+    indexed: bool,
+    count: u32,
+  },
+  MultiIndirectCount {
     indexed: bool,
     indirect_buffer: GPUBufferResourceView,
-    indirect_offset: BufferAddress,
-    count: u32,
+    indirect_count: GPUBufferResourceView,
+    max_count: u32,
   },
   Skip,
 }
@@ -277,6 +309,16 @@ pub enum DrawCommand {
 pub struct GPUComputePass {
   pub(crate) pass: gpu::ComputePass<'static>,
   pub(crate) placeholder_bg: Arc<gpu::BindGroup>,
+}
+
+impl AbstractPassBinding for GPUComputePass {
+  fn set_bind_group_placeholder(&mut self, index: u32) {
+    self.pass.set_bind_group(index, &self.placeholder_bg, &[]);
+  }
+
+  fn set_bind_group(&mut self, index: u32, bind_group: &BindGroup, offsets: &[DynamicOffset]) {
+    self.pass.set_bind_group(index, bind_group, offsets);
+  }
 }
 
 impl Deref for GPUComputePass {
@@ -296,10 +338,6 @@ impl DerefMut for GPUComputePass {
 impl GPUComputePass {
   pub fn set_gpu_pipeline(&mut self, pipeline: &GPUComputePipeline) {
     self.pass.set_pipeline(&pipeline.inner.as_ref().pipeline)
-  }
-
-  pub fn set_bind_group_placeholder(&mut self, index: u32) {
-    self.pass.set_bind_group(index, &self.placeholder_bg, &[]);
   }
 
   pub fn dispatch_workgroups_indirect_by_buffer_resource_view(

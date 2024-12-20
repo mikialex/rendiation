@@ -52,7 +52,7 @@ where
           }
           // we only check first vertex;
           let v = vertices[indices[tri * 3] as usize].position();
-          let distance = v.distance2(position);
+          let distance = v.distance2_to(position);
           if distance < minimal {
             minimal = distance;
             result = tri;
@@ -60,7 +60,7 @@ where
         }
         NextTraverseVisit::SkipChildren
       } else if node.bounding.contains(&position)
-        || node.bounding.nearest_point(position).distance2(position) > minimal
+        || node.bounding.nearest_point(position).distance2_to(position) > minimal
       {
         NextTraverseVisit::VisitChildren
       } else {

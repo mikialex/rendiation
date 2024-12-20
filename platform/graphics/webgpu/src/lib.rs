@@ -5,6 +5,7 @@ mod binding;
 mod device;
 mod encoder;
 mod frame;
+mod instance_poller;
 mod pass;
 mod pipeline;
 mod query;
@@ -48,6 +49,8 @@ pub use gpu::{
   ShaderModuleDescriptor, ShaderSource, ShaderStages, StoreOp, TextureView, TextureViewDescriptor,
   VertexBufferLayout, VertexState,
 };
+use heap_tools::*;
+use instance_poller::GPUInstance;
 pub use pass::*;
 pub use pipeline::*;
 pub use query::*;
@@ -65,12 +68,11 @@ pub use wgpu_types::*;
 
 #[derive(Clone)]
 pub struct GPU {
-  _instance: Arc<gpu::Instance>,
+  _instance: GPUInstance,
   _adaptor: Arc<gpu::Adapter>,
   pub info: GPUInfo,
   pub device: GPUDevice,
   pub queue: GPUQueue,
-  dropped: Arc<AtomicBool>,
 }
 
 pub struct GPUCreateConfig<'a> {
@@ -83,16 +85,11 @@ pub struct GPUCreateConfig<'a> {
 
 impl<'a> Default for GPUCreateConfig<'a> {
   fn default() -> Self {
-    let mut minimal_required_features = Features::all_webgpu_mask();
-    minimal_required_features.remove(Features::TIMESTAMP_QUERY); // note: on macos we currently do not have this
-    minimal_required_features.remove(Features::TEXTURE_COMPRESSION_ASTC); // NVIDIA/AMD cards don't have this
-    minimal_required_features.remove(Features::TEXTURE_COMPRESSION_ETC2); // NVIDIA/AMD cards don't have this
-
     Self {
       backends: Backends::all(),
       power_preference: PowerPreference::HighPerformance,
       surface_for_compatible_check_init: None,
-      minimal_required_features,
+      minimal_required_features: Features::empty(),
       minimal_required_limits: Default::default(),
     }
   }
@@ -100,7 +97,7 @@ impl<'a> Default for GPUCreateConfig<'a> {
 
 #[derive(Clone)]
 pub struct GPUInfo {
-  pub requested_backend_type: Backends,
+  pub adaptor_info: AdapterInfo,
   pub power_preference: PowerPreference,
   pub supported_features: Features,
   pub supported_limits: Limits,
@@ -186,7 +183,7 @@ impl GPU {
     let queue = GPUQueue::new(queue);
 
     let info = GPUInfo {
-      requested_backend_type: config.backends,
+      adaptor_info: _adaptor.get_info(),
       power_preference: config.power_preference,
       supported_features,
       supported_limits,
@@ -201,20 +198,7 @@ impl GPU {
       )
     });
 
-    let _instance = Arc::new(_instance);
-    let _instance_clone = _instance.clone();
-
-    let dropped = Arc::new(AtomicBool::new(false));
-    let dropped_clone = dropped.clone();
-    // wasm can not spawn thread, add the gpu will be automatically polled by runtime(browser)
-    #[cfg(not(target_family = "wasm"))]
-    std::thread::spawn(move || loop {
-      if dropped_clone.load(Ordering::Relaxed) {
-        break;
-      }
-      std::thread::sleep(std::time::Duration::from_millis(200));
-      _instance_clone.poll_all(false);
-    });
+    let _instance = GPUInstance::new(_instance);
 
     let gpu = Self {
       _instance,
@@ -222,14 +206,13 @@ impl GPU {
       info,
       device,
       queue,
-      dropped,
     };
 
     Ok((gpu, surface))
   }
 
-  pub fn poll(&self) {
-    self._instance.poll_all(false);
+  pub fn poll(&self, force_wait: bool) {
+    self._instance.poll_all(force_wait);
   }
 
   pub fn create_cache_report(&self) -> GPUResourceCacheSizeReport {
@@ -262,12 +245,6 @@ impl GPU {
 
   pub fn submit_encoder(&self, encoder: GPUCommandEncoder) {
     self.queue.submit_encoder(encoder);
-  }
-}
-
-impl Drop for GPU {
-  fn drop(&mut self) {
-    self.dropped.store(true, Ordering::Relaxed);
   }
 }
 

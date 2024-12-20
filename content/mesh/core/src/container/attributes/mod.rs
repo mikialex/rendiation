@@ -18,6 +18,17 @@ pub struct BufferViewRange {
   pub size: Option<std::num::NonZeroU64>,
 }
 
+impl BufferViewRange {
+  pub fn into_range(self, len: usize) -> std::ops::Range<usize> {
+    let start = self.offset as usize;
+    let end = match self.size {
+      None => len,
+      Some(size) => start + u64::from(size) as usize,
+    };
+    start..end
+  }
+}
+
 /// like slice, but owned, ref counted cheap clone
 #[derive(Clone)]
 pub struct UnTypedBufferView {

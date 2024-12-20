@@ -1,13 +1,15 @@
 use crate::*;
 
-pub trait ShaderFutureProvider<T> {
-  fn build_device_future(&self, ctx: &mut AnyMap) -> DynShaderFuture<T>;
+pub trait ShaderFutureProvider {
+  type Output;
+  fn build_device_future(&self, ctx: &mut AnyMap) -> DynShaderFuture<Self::Output>;
 }
 
 /// impl native rtx support, the main difference between the future based impl
 /// is the direct support of recursion call in shader
-pub trait NativeRayTracingShaderBuilder<O> {
-  fn build(&self, ctx: &mut dyn NativeRayTracingShaderCtx) -> O;
+pub trait NativeRayTracingShaderBuilder {
+  type Output;
+  fn build(&self, ctx: &mut dyn NativeRayTracingShaderCtx) -> Self::Output;
   fn bind(&self, builder: &mut BindingBuilder);
 }
 
@@ -18,20 +20,25 @@ pub trait NativeRayTracingShaderCtx {
 }
 
 pub trait TraceOperator<T>:
-  ShaderFutureProvider<T> + NativeRayTracingShaderBuilder<T> + ShaderHashProvider + DynClone + 'static
+  ShaderFutureProvider<Output = T>
+  + NativeRayTracingShaderBuilder<Output = T>
+  + ShaderHashProvider
+  + DynClone
+  + 'static
 {
 }
 
 impl<O, T> TraceOperator<O> for T where
-  T: ShaderFutureProvider<O>
-    + NativeRayTracingShaderBuilder<O>
+  T: ShaderFutureProvider<Output = O>
+    + NativeRayTracingShaderBuilder<Output = O>
     + ShaderHashProvider
     + DynClone
     + 'static
 {
 }
 
-impl<O> NativeRayTracingShaderBuilder<O> for Box<dyn TraceOperator<O>> {
+impl<O> NativeRayTracingShaderBuilder for Box<dyn TraceOperator<O>> {
+  type Output = O;
   fn build(&self, ctx: &mut dyn NativeRayTracingShaderCtx) -> O {
     (**self).build(ctx)
   }
@@ -41,7 +48,8 @@ impl<O> NativeRayTracingShaderBuilder<O> for Box<dyn TraceOperator<O>> {
   }
 }
 
-impl<O> ShaderFutureProvider<O> for Box<dyn TraceOperator<O>> {
+impl<O> ShaderFutureProvider for Box<dyn TraceOperator<O>> {
+  type Output = O;
   fn build_device_future(&self, ctx: &mut AnyMap) -> DynShaderFuture<O> {
     (**self).build_device_future(ctx)
   }

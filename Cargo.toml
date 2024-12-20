@@ -23,7 +23,6 @@ members = [
   "content/mesh/core",
   "content/mesh/generator",
   "content/mesh/simplification",
-  "content/mesh/gpu-system",
   "content/mesh/segmentation",
   "content/mesh/lod-graph",
   "content/texture/core",
@@ -35,16 +34,12 @@ members = [
   "content/texture/loader",
   "content/lighting/core",
   "content/lighting/ltc",
-  "content/lighting/ibl/core",
-  "content/lighting/ibl/gpu",
+  "content/lighting/ibl",
   "content/lighting/transport",
   "content/lighting/punctual",
   "content/lighting/gpu-system/shadow-map",
   "content/lighting/gpu-system/lighting-system",
   "content/space",
-  "content/fontext",
-  "content/canvas/core",
-  "content/canvas/gpu",
   "shader/api",
   "shader/derive",
   "shader/backends/naga",
@@ -57,6 +52,7 @@ members = [
   "scene/rendering/gpu-gles",
   "scene/rendering/gpu-indirect",
   "scene/rendering/occlusion-culling",
+  "scene/rendering/gpu-ray-tracing",
   "scene/io/obj/loader",
   "scene/io/gltf/loader",
   "scene/io/gltf/exporter",
@@ -70,7 +66,7 @@ members = [
   "extension/scene-debug-helper",
   "extension/gui-3d",
   "extension/state-override",
-  "extension/infinity-plane",
+  "extension/infinity-primitive",
   "extension/wide-line",
   "extension/gizmo",
   "application/viewer",
@@ -100,6 +96,10 @@ syn = { version = "1.0.11", features = ["full"] }
 tracing = "0.1"
 rand = "0.8.5"
 pollster = { version = "0.3.0", features = ["macro"] }
+thiserror = "1.0.43"
+anyhow = "1.0.93"
+parking_lot = { version = "0.12.1", features = ["send_guard"] }
+criterion = { version = "0.5.1", features = ["html_reports"] }
 
 # https://doc.rust-lang.org/cargo/reference/profiles.html
 

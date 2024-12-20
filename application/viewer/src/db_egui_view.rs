@@ -66,9 +66,9 @@ impl DBInspector {
   }
 }
 
-pub fn egui_db_gui(ui: &mut egui::Context, state: &mut DBInspector) {
+pub fn egui_db_gui(ui: &mut egui::Context, state: &mut DBInspector, opened: &mut bool) {
   egui::Window::new("Database Inspector")
-    .default_open(false)
+    .open(opened)
     .min_width(500.0)
     .max_width(700.0)
     .min_height(400.0)
@@ -77,14 +77,10 @@ pub fn egui_db_gui(ui: &mut egui::Context, state: &mut DBInspector) {
     .default_height(400.)
     .resizable(true)
     .movable(true)
-    .default_pos([10., 10.])
     .scroll([true, true])
     .show(ui, |ui| {
       let mut back_to_all_table_view = false;
       ui.horizontal_wrapped(|ui| {
-        // ui.with_layout(Layout::left_to_right().with_main_justify( true), |ui|{
-
-        // });
         if state.current().is_some() {
           back_to_all_table_view = ui.button("View all tables in DB").clicked();
         }

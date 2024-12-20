@@ -28,6 +28,7 @@ pub struct ShaderVertexBuilder {
   // user vertex out
   pub vertex_out: FastHashMap<TypeId, VertexIOInfo>,
   pub(crate) vertex_out_not_synced_to_fragment: FastHashSet<TypeId>,
+  pub(crate) errors: ErrorSink,
 }
 
 #[derive(Copy, Clone)]
@@ -38,7 +39,7 @@ pub struct VertexIOInfo {
 }
 
 impl ShaderVertexBuilder {
-  pub(crate) fn new() -> Self {
+  pub(crate) fn new(errors: ErrorSink) -> Self {
     let mut result = Self {
       vertex_in: Default::default(),
       registry: Default::default(),
@@ -49,6 +50,7 @@ impl ShaderVertexBuilder {
         ..Default::default()
       },
       vertex_out_not_synced_to_fragment: Default::default(),
+      errors,
     };
 
     set_current_building(ShaderStages::Vertex.into());
@@ -89,13 +91,25 @@ impl ShaderVertexBuilder {
     &self.registry
   }
 
-  pub fn query<T: SemanticVertexShaderValue>(
-    &self,
-  ) -> Result<Node<T::ValueType>, ShaderBuildError> {
+  pub fn query<T: SemanticVertexShaderValue>(&self) -> Node<T::ValueType> {
     self
       .registry
       .query(TypeId::of::<T>(), T::NAME)
       .map(|n| unsafe { std::mem::transmute(n) })
+      .unwrap_or_else(|_| unsafe {
+        self
+          .errors
+          .push(ShaderBuildError::MissingRequiredDependency(T::NAME));
+        fake_val()
+      })
+  }
+
+  pub fn try_query<T: SemanticVertexShaderValue>(&self) -> Option<Node<T::ValueType>> {
+    self
+      .registry
+      .query(TypeId::of::<T>(), T::NAME)
+      .map(|n| unsafe { std::mem::transmute(n) })
+      .ok()
   }
 
   pub fn query_or_insert_default<T>(&mut self) -> Node<T::ValueType>
@@ -116,7 +130,7 @@ impl ShaderVertexBuilder {
     } else {
       let default: T::ValueType = by();
       self.register::<T>(default);
-      self.query::<T>().unwrap()
+      self.query::<T>()
     }
   }
 
@@ -204,6 +218,10 @@ impl ShaderVertexBuilder {
       let target = api.define_vertex_position_output();
       api.store(position.handle(), target)
     });
+  }
+
+  pub fn error(&mut self, err: ShaderBuildError) {
+    self.errors.push(err);
   }
 }
 
@@ -300,10 +318,10 @@ impl VertexInBuilder for Mat4<f32> {
     builder.push(format, vertex_builder.register_vertex_in::<SemanticShaderMat4VertexInColum<S, 2>>());
     builder.push(format, vertex_builder.register_vertex_in::<SemanticShaderMat4VertexInColum<S, 3>>());
 
-    let c1 = vertex_builder.query::<SemanticShaderMat4VertexInColum<S, 0>>().unwrap();
-    let c2 = vertex_builder.query::<SemanticShaderMat4VertexInColum<S, 1>>().unwrap();
-    let c3 = vertex_builder.query::<SemanticShaderMat4VertexInColum<S, 2>>().unwrap();
-    let c4 = vertex_builder.query::<SemanticShaderMat4VertexInColum<S, 3>>().unwrap();
+    let c1 = vertex_builder.query::<SemanticShaderMat4VertexInColum<S, 0>>();
+    let c2 = vertex_builder.query::<SemanticShaderMat4VertexInColum<S, 1>>();
+    let c3 = vertex_builder.query::<SemanticShaderMat4VertexInColum<S, 2>>();
+    let c4 = vertex_builder.query::<SemanticShaderMat4VertexInColum<S, 3>>();
 
     let mat: Node<Self> = (c1, c2, c3, c4).into();
     vertex_builder.register::<S>(mat);

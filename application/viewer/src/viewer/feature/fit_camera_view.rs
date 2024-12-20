@@ -11,7 +11,7 @@ pub fn fit_camera_view(
 
   let padding_ratio = 0.1;
   let target_center = target_world_aabb.center();
-  let object_radius = target_world_aabb.min.distance(target_center);
+  let object_radius = target_world_aabb.min.distance_to(target_center);
 
   //   if we not even have one box, only do look at
   let desired_camera_center = if object_radius == 0. {

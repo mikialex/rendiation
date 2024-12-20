@@ -47,13 +47,12 @@ impl WideLineMeshGPU {
 }
 
 impl GraphicsShaderProvider for WideLineMeshGPU {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) -> Result<(), ShaderBuildError> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, _| {
       builder.register_vertex::<CommonVertex>(VertexStepMode::Vertex);
       builder.register_vertex::<WideLineVertex>(VertexStepMode::Instance);
       builder.primitive_state.topology = rendiation_webgpu::PrimitiveTopology::TriangleList;
       builder.primitive_state.cull_mode = None;
-      Ok(())
     })
   }
 }

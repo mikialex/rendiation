@@ -17,11 +17,13 @@
 //!   }
 //! }
 //! ```
+use std::mem::ManuallyDrop;
 
 use database::*;
 use dyn_clone::*;
 use reactive::*;
 use rendiation_algebra::*;
+use rendiation_color::*;
 use rendiation_device_parallel_compute::*;
 use rendiation_scene_core::*;
 use rendiation_shader_api::*;
@@ -29,7 +31,10 @@ use rendiation_texture_core::*;
 use rendiation_texture_gpu_base::*;
 use rendiation_texture_gpu_system::*;
 use rendiation_webgpu::*;
+use rendiation_webgpu_reactive_utils::*;
 
+mod camera;
+pub use camera::*;
 mod light;
 pub use light::*;
 mod texture;
@@ -41,9 +46,17 @@ pub use batch::*;
 mod mid;
 pub use mid::*;
 
+/// All color in shader should be in linear space, for some scene API that use sRGB color space, use this to convert before upload the
+/// data into the gpu.
+pub fn srgb4_to_linear4(color: Vec4<f32>) -> Vec4<f32> {
+  let linear = LinearRGBColor::from(SRGBColor::from(color.xyz()));
+  Vec4::new(linear.r, linear.g, linear.b, color.w)
+}
+
 pub trait RenderImplProvider<T> {
   /// this will be called once when application init
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU);
+  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater);
   fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> T;
 }
 
@@ -54,9 +67,12 @@ pub struct SceneContentKey {
   pub transparent: bool,
 }
 
-/// abstract over direct or indirect rendering
+/// A scene renderer that encapsulate the scene rendering ability.
 pub trait SceneRenderer: SceneModelRenderer {
+  /// A user defined content semantic key. This key is used to represent the semantic part of the scene content.
+  /// These content is the scene's user-defined internal structure that require different pass effects or drawn in given order.
   type ContentKey = SceneContentKey;
+
   /// extract batched scene model by given content semantic, the extracted batch may be used by external
   /// system for further processing, for example culling. the simple culling logic may also be implemented here
   fn extract_scene_batch(
@@ -87,66 +103,31 @@ pub trait SceneRenderer: SceneModelRenderer {
     self.make_scene_batch_pass_content(batch, camera, pass, ctx)
   }
 
-  /// return if requires clear. this supposed to be true when background is drawn, or directly as a way to impl
-  /// solid background.
+  /// Return if the scene rendering requires clear in every sub draw pass.
+  /// This is supposed to be false when background is drawn by custom object.
+  /// The simple solid background could use this as the implementation
   fn init_clear(
     &self,
     scene: EntityHandle<SceneEntity>,
   ) -> (Operations<rendiation_webgpu::Color>, Operations<f32>);
 
-  fn get_scene_model_cx(&self) -> &GPUTextureBindingSystem;
-
-  /// batch rendering passed models, compare to render one single model at a time, this is more efficient
-  /// if the implementation can provide better performance
-  ///
-  /// if reorderable is true, the order of model may not be preserved
-  fn render_models(
-    &self,
-    models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
-    reorderable: bool,
+  /// Batch rendering the passed models. Comparing to render one single model at a time(using [SceneModelRenderer]), this may be more efficient.
+  /// The implementation should be override if it can provide better performance. The default implementation is a loop call using [SceneModelRenderer]
+  fn render_models<'a>(
+    &'a self,
+    models: Box<dyn HostRenderBatch>,
     camera: EntityHandle<SceneCameraEntity>,
-    pass: &dyn RenderComponent,
-    cx: &mut GPURenderPassCtx,
-    tex: &GPUTextureBindingSystem,
-  ) {
-    let camera = self.get_camera_gpu().make_component(camera).unwrap();
-    self.render_models_impl(models, reorderable, &camera, pass, cx, tex);
+    pass: &'a dyn RenderComponent,
+    ctx: &mut FrameCtx,
+  ) -> Box<dyn PassContent + 'a> {
+    let batch = SceneModelRenderBatch::Host(models);
+    self.make_scene_batch_pass_content(batch, camera, pass, ctx)
   }
 
-  fn render_reorderable_models(
-    &self,
-    models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
-    camera: EntityHandle<SceneCameraEntity>,
-    pass: &dyn RenderComponent,
-    cx: &mut GPURenderPassCtx,
-    tex: &GPUTextureBindingSystem,
-  ) {
-    self.render_models(models, true, camera, pass, cx, tex);
-  }
-
-  /// expose the underlayer camera system impl to enable user access the
-  /// direct camera gpu manipulation, this is useful when some effect pipeline
-  /// requires camera manipulation such as TAA.
+  /// Expose the under-layer camera system implementation to enable user access the
+  /// direct camera gpu manipulation(for example access and modify the camera gpu data).
+  /// This is useful for some effect pipelines that require directly camera manipulation for example TAA.
   fn get_camera_gpu(&self) -> &dyn CameraRenderImpl;
-}
-
-pub trait CameraRenderImpl {
-  fn make_component(
-    &self,
-    idx: EntityHandle<SceneCameraEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>>;
-
-  fn make_dep_component(
-    &self,
-    idx: EntityHandle<SceneCameraEntity>,
-  ) -> Option<Box<dyn RenderDependencyComponent + '_>>;
-
-  fn setup_camera_jitter(
-    &self,
-    camera: EntityHandle<SceneCameraEntity>,
-    jitter: Vec2<f32>,
-    queue: &GPUQueue,
-  );
 }
 
 pub trait LightsRenderImpl {
@@ -157,7 +138,7 @@ pub trait LightsRenderImpl {
   fn make_component(&self) -> Option<Box<dyn RenderComponent + '_>>;
 }
 
-/// ability to do scene model level rendering
+/// A renderer supports rendering in scene model granularity
 pub trait SceneModelRenderer {
   /// return if render successfully
   fn render_scene_model(
@@ -167,23 +148,18 @@ pub trait SceneModelRenderer {
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
-  ) -> Option<()>;
+  ) -> Result<(), UnableToRenderSceneModelError>;
+}
 
-  /// maybe implementation could provide better performance for example host side multi draw
-  fn render_models_impl(
-    &self,
-    models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
-    _reorderable: bool,
-    camera: &dyn RenderComponent,
-    pass: &dyn RenderComponent,
-    cx: &mut GPURenderPassCtx,
-    tex: &GPUTextureBindingSystem,
-  ) -> bool {
-    for m in models {
-      self.render_scene_model(m, camera, pass, cx, tex);
-    }
-    true
-  }
+#[derive(thiserror::Error, Debug)]
+pub enum UnableToRenderSceneModelError {
+  #[error("failed to find model renderer impl for: {model_id} the sub tries are: {tried:?}")]
+  UnableToFindImpl {
+    model_id: EntityHandle<SceneModelEntity>,
+    tried: Vec<Self>,
+  },
+  #[error("model renderer impl found but unable to render, the detail is: {0}")]
+  FoundImplButUnableToRender(#[from] Box<dyn std::error::Error>),
 }
 
 impl SceneModelRenderer for Vec<Box<dyn SceneModelRenderer>> {
@@ -194,12 +170,41 @@ impl SceneModelRenderer for Vec<Box<dyn SceneModelRenderer>> {
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
-  ) -> Option<()> {
+  ) -> Result<(), UnableToRenderSceneModelError> {
     for r in self {
-      if r.render_scene_model(idx, camera, pass, cx, tex).is_some() {
-        return Some(());
+      if r.render_scene_model(idx, camera, pass, cx, tex).is_ok() {
+        return Ok(());
       }
     }
-    None
+    let tried = self
+      .iter()
+      .map(|v| {
+        v.render_scene_model(idx, camera, pass, cx, tex)
+          .unwrap_err()
+      })
+      .collect();
+
+    Err(UnableToRenderSceneModelError::UnableToFindImpl {
+      model_id: idx,
+      tried,
+    })
+  }
+}
+
+pub trait FrameCtxParallelCompute {
+  fn access_parallel_compute<R>(&mut self, f: impl FnOnce(&mut DeviceParallelComputeCtx) -> R)
+    -> R;
+}
+
+impl<'a> FrameCtxParallelCompute for FrameCtx<'a> {
+  fn access_parallel_compute<R>(
+    &mut self,
+    f: impl FnOnce(&mut DeviceParallelComputeCtx) -> R,
+  ) -> R {
+    let mut ctx = DeviceParallelComputeCtx::new(self.gpu, &mut self.encoder);
+    let r = f(&mut ctx);
+    ctx.flush_pass();
+    let _ = ManuallyDrop::new(ctx); // avoid drop to avoid unnecessary submit
+    r
   }
 }

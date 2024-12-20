@@ -2,21 +2,31 @@ use crate::*;
 
 #[repr(C)]
 #[std140_layout]
-#[derive(Clone, Copy, ShaderStruct)]
+#[derive(Clone, Copy, ShaderStruct, PartialEq)]
 pub struct ChromaticAberration {
   pub normalized_screen_focus_point: Vec2<f32>,
   pub color_offset: Vec3<f32>,
+}
+
+impl Default for ChromaticAberration {
+  fn default() -> Self {
+    Self {
+      normalized_screen_focus_point: Vec2::splat(0.5),
+      color_offset: Vec3::new(0.0, 0.005, -0.005),
+      ..Zeroable::zeroed()
+    }
+  }
 }
 
 /// https://github.com/lettier/3d-game-shaders-for-beginners/blob/master/demonstration/shaders/fragment/chromatic-aberration.frag
 #[shader_fn]
 pub fn chromatic_aberration(
   uv: Node<Vec2<f32>>,
-  config: UniformNode<ChromaticAberration>,
+  config: Node<ChromaticAberration>,
   color_tex: HandleNode<ShaderTexture2D>,
   sampler: HandleNode<ShaderSampler>,
 ) -> Node<Vec3<f32>> {
-  let config = config.load().expand();
+  let config = config.expand();
   let direction = uv - config.normalized_screen_focus_point;
 
   let r_uv = uv + direction * config.color_offset.x().splat::<Vec2<_>>();

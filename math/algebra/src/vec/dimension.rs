@@ -135,12 +135,12 @@ pub trait InnerProductSpace<T: Scalar>: VectorSpace<T> {
   }
 
   #[inline]
-  fn distance<Rhs: InnerData<Self>>(&self, b: Rhs) -> T {
+  fn distance_to<Rhs: InnerData<Self>>(&self, b: Rhs) -> T {
     (*self - b.get_inner()).length()
   }
 
   #[inline]
-  fn distance2<Rhs: InnerData<Self>>(&self, b: Rhs) -> T {
+  fn distance2_to<Rhs: InnerData<Self>>(&self, b: Rhs) -> T {
     (*self - b.get_inner()).length2()
   }
 
