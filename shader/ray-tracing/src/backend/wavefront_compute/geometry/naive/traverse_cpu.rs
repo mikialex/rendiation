@@ -30,7 +30,7 @@ impl NaiveSahBvhCpu {
     any_hit: &mut impl FnMut(HitPoint) -> RayAnyHitBehavior,
   ) {
     let flags = TraverseFlags::from_ray_flag(ray.ray_flags);
-    let ray_range = RayRange::new(ray.range.x, ray.range.y, 1.);
+    let ray_range = RayRangeCpu::new(ray.range.x, ray.range.y, 1.);
 
     let tlas_bvh_root = self.tlas_bvh_root[ray.tlas_idx as usize];
 
@@ -97,12 +97,12 @@ impl NaiveSahBvhCpu {
 use std::cell::Cell;
 use std::rc::Rc;
 #[derive(Clone)]
-pub(crate) struct RayRange {
+pub(crate) struct RayRangeCpu {
   near: f32,
   far: Rc<Cell<f32>>,
   scaling: f32,
 }
-impl RayRange {
+impl RayRangeCpu {
   pub fn new(near: f32, far: f32, scaling: f32) -> Self {
     Self {
       near,
@@ -133,7 +133,7 @@ struct TraverseBvhIteratorCpu<'a> {
   bvh: &'a [DeviceBVHNode],
   ray_origin: Vec3<f32>,
   ray_direction: Vec3<f32>,
-  ray_range: RayRange,
+  ray_range: RayRangeCpu,
 
   curr_idx: u32,
 }

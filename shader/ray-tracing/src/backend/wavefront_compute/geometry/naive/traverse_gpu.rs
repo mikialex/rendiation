@@ -102,7 +102,7 @@ struct TraverseBvhIteratorGpu {
   bvh: ReadOnlyStorageNode<[DeviceBVHNode]>,
   ray: Node<Ray>,
   node_idx: LocalVarNode<u32>,
-  ray_range: RayRange,
+  ray_range: RayRangeGpu,
 }
 impl ShaderIterator for TraverseBvhIteratorGpu {
   type Item = Node<Vec2<u32>>; // node content range
@@ -141,7 +141,7 @@ fn traverse_tlas_gpu(
   bvh: ReadOnlyStorageNode<[DeviceBVHNode]>,
   tlas_bounding: ReadOnlyStorageNode<[TlasBounding]>,
   ray: Node<Ray>,
-  ray_range: RayRange,
+  ray_range: RayRangeGpu,
 ) -> impl ShaderIterator<Item = Node<u32>> {
   let bvh_iter = TraverseBvhIteratorGpu {
     bvh,
@@ -189,7 +189,7 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
       // range: trace_payload.range,
     });
 
-    let world_ray_range = RayRange::new(trace_payload.range);
+    let world_ray_range = RayRangeGpu::new(trace_payload.range);
 
     let tlas_bvh_root = self.tlas_bvh_root.index(trace_payload.tlas_idx).load();
 
@@ -275,7 +275,7 @@ struct NaiveIntersectReporter<'a> {
   hit_ctx: HitCtxInfo,
   closest_hit_ctx_info: &'a HitCtxInfoVar,
   closest_hit_info: &'a HitInfoVar,
-  ray_range: RayRange,
+  ray_range: RayRangeGpu,
   any_hit: &'a dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
   on_end_search: Box<dyn Fn()>,
   user_defined_payload: U32BufferLoadStoreSource,
@@ -354,12 +354,12 @@ fn resolve_any_hit(
 }
 
 #[derive(Clone)]
-pub(crate) struct RayRange {
+pub(crate) struct RayRangeGpu {
   near: Node<f32>,
   far: LocalVarNode<f32>,
   scaling: Option<Node<f32>>,
 }
-impl RayRange {
+impl RayRangeGpu {
   pub fn new(ray_range: Node<Vec2<f32>>) -> Self {
     Self {
       near: ray_range.x(),
@@ -388,7 +388,7 @@ impl RayRange {
 }
 
 #[repr(C)]
-#[derive(ShaderStruct, Clone, Copy)]
+#[derive(Copy, Clone, ShaderStruct)]
 struct RayBlas {
   pub ray: Ray,
   pub blas: BlasMetaInfo,
@@ -459,7 +459,7 @@ fn intersect_blas_gpu(
   closest_hit_ctx_var: &HitCtxInfoVar, // output
   closest_hit_var: &HitInfoVar,        // output
 
-  world_ray_range: RayRange, // input/output
+  world_ray_range: RayRangeGpu, // input/output
 ) {
   let hit_ctx_curr = HitCtxInfoVar::default();
   let end_search = val(false).make_local_var();

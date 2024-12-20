@@ -3,7 +3,7 @@ use rendiation_mesh_generator::*;
 
 use crate::backend::wavefront_compute::geometry::naive::*;
 
-pub(crate) const TEST_TLAS_IDX: u32 = 4;
+pub(crate) const TEST_TLAS_IDX: u32 = 0;
 pub(crate) const TEST_ANYHIT_BEHAVIOR: u32 = ANYHIT_BEHAVIOR_ACCEPT_HIT; // | ANYHIT_BEHAVIOR_END_SEARCH;
 
 pub(crate) fn init_default_acceleration_structure(
