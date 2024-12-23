@@ -294,7 +294,8 @@ impl SceneRayTracingAORenderer {
           + tri_b_normal * barycentric.y()
           + tri_c_normal * barycentric.z();
         // Transforming the normal to world space
-        let normal = (closest_hit_ctx.object_to_world().shrink_to_3() * normal).normalize();
+        let normal =
+          (closest_hit_ctx.world_to_object().shrink_to_3().transpose() * normal).normalize();
         let hit_normal_tbn = tbn_fn(normal);
 
         let origin = closest_hit_ctx.world_ray().origin
@@ -315,7 +316,10 @@ impl SceneRayTracingAORenderer {
           sbt_ray_config: AORayType::AOTest.to_sbt_cfg(),
           miss_index: val(0), // using the sample miss shader as primary ray
           ray,
-          range: ShaderRayRange::default(), // todo, should control max ray length
+          range: ShaderRayRange {
+            min: val(0.01),
+            max: val(10.0),
+          },
         };
 
         (val(true), trace_call, val(1.))

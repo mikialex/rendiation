@@ -232,15 +232,31 @@ fn create_gpu_texture_by_fn(
 
 pub fn textured_example_tex(scene: &mut SceneWriter) -> Texture2DWithSamplingDataView {
   let width = 256;
-  let tex = create_gpu_texture_by_fn(Size::from_u32_pair_min_one((width, width)), |x, y| {
-    let u = x as f32 / width as f32;
-    let v = y as f32 / width as f32;
 
-    if x % 25 == 0 || y % 25 == 0 {
-      return Vec4::new(0., 0., 0., 1.);
+  // // simple grid texture with gradient background
+  // let tex = create_gpu_texture_by_fn(Size::from_u32_pair_min_one((width, width)), |x, y| {
+  //   let u = x as f32 / width as f32;
+  //   let v = y as f32 / width as f32;
+
+  //   if x % 25 == 0 || y % 25 == 0 {
+  //     return Vec4::new(0., 0., 0., 1.);
+  //   }
+
+  //   Vec4::new(0., u, v, 1.)
+  // });
+
+  // https://lodev.org/cgtutor/xortexture.html
+  let tex = create_gpu_texture_by_fn(Size::from_u32_pair_min_one((width, width)), |x, y| {
+    let c = (x as u8) ^ (y as u8);
+    let r = 255 - c;
+    let g = c;
+    let b = c % 128;
+
+    fn channel(c: u8) -> f32 {
+      c as f32 / 255.
     }
 
-    Vec4::new(0., u, v, 1.)
+    Vec4::new(channel(r), channel(g), channel(b), 1.)
   });
 
   scene

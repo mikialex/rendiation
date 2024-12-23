@@ -6,7 +6,7 @@ version = "0.1.0"
 
 [dependencies]
 fast-hash-collection = { path = "../../../../utility/fast-hash-collection" }
-parking_lot = { version = "0.12.1", features = ["send_guard"] }
+parking_lot = { workspace = true }
 database = { path = "../../../../utility/database" }
 rendiation-algebra = { path = "../../../../math/algebra" }
 rendiation-shader-api = { path = "../../../../shader/api" }

@@ -1,5 +1,8 @@
 use crate::*;
 
+/// a logical batch of scene models
+///
+/// the models are reorderable currently, but may be configurable in future
 #[derive(Clone)]
 pub enum SceneModelRenderBatch {
   Device(DeviceSceneModelRenderBatch),
@@ -8,6 +11,16 @@ pub enum SceneModelRenderBatch {
 
 pub trait HostRenderBatch: DynClone {
   fn iter_scene_models(&self) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + '_>;
+}
+#[derive(Clone)]
+pub struct IteratorAsHostRenderBatch<T>(pub T);
+impl<T> HostRenderBatch for IteratorAsHostRenderBatch<T>
+where
+  T: IntoIterator<Item = EntityHandle<SceneModelEntity>> + Clone,
+{
+  fn iter_scene_models(&self) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + '_> {
+    Box::new(self.0.clone().into_iter())
+  }
 }
 
 impl HostRenderBatch for Vec<EntityHandle<SceneModelEntity>> {
@@ -19,7 +32,26 @@ impl HostRenderBatch for Vec<EntityHandle<SceneModelEntity>> {
 dyn_clone::clone_trait_object!(HostRenderBatch);
 
 #[derive(Clone)]
+pub struct HostModelLookUp {
+  pub v: RevRefOfForeignKey<SceneModelBelongsToScene>,
+  pub node_net_visible: BoxedDynQuery<EntityHandle<SceneNodeEntity>, bool>,
+  pub sm_ref_node: ForeignKeyReadView<SceneModelRefNode>,
+  pub scene_id: EntityHandle<SceneEntity>,
+}
+
+impl HostRenderBatch for HostModelLookUp {
+  fn iter_scene_models(&self) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + '_> {
+    let iter = self.v.access_multi_value_dyn(&self.scene_id).filter(|sm| {
+      let node = self.sm_ref_node.get(*sm).unwrap();
+      self.node_net_visible.access(&node).unwrap_or(false)
+    });
+    Box::new(iter)
+  }
+}
+
+#[derive(Clone)]
 pub struct DeviceSceneModelRenderBatch {
+  /// each sub batch could be and would be drawn by a multi-indirect-draw.
   pub sub_batches: Vec<DeviceSceneModelRenderSubBatch>,
 }
 

@@ -11,7 +11,7 @@ dashmap = { workspace = true }
 storage = { path = "../storage" }
 
 # we use it's rwlock to avoid recursive read deadlock
-parking_lot = { version = "0.12.1", features = ["send_guard"] }
+parking_lot = { workspace = true }
 
 [lints]
 workspace = true

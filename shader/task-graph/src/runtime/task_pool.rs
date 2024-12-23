@@ -139,13 +139,6 @@ impl TaskPoolInvocationInstance {
       .equals(TASK_STATUE_FLAG_FINISHED)
   }
 
-  pub fn set_sleeping_flag(&self, task_id: Node<u32>) -> Node<bool> {
-    self
-      .rw_task_state(task_id)
-      .load()
-      .equals(TASK_STATUE_FLAG_FINISHED)
-  }
-
   pub fn is_task_unfinished_waken(&self, task_id: Node<u32>) -> Node<bool> {
     self
       .rw_task_state(task_id)

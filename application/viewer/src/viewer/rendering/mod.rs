@@ -2,24 +2,59 @@ use crate::*;
 
 mod debug_channels;
 mod frame_logic;
+mod grid_ground;
 mod lighting;
 
 mod post;
 use debug_channels::*;
 pub use frame_logic::*;
 use futures::Future;
+use grid_ground::*;
 pub use lighting::*;
 pub use post::*;
 use reactive::EventSource;
 use rendiation_device_ray_tracing::GPUWaveFrontComputeRaytracingSystem;
+use rendiation_scene_rendering_gpu_indirect::build_default_indirect_render_system;
 use rendiation_scene_rendering_gpu_ray_tracing::*;
 use rendiation_texture_gpu_process::copy_frame;
 use rendiation_webgpu::*;
 
+#[derive(Debug, PartialEq, Clone, Copy)]
+enum RasterizationRenderBackendType {
+  Gles,
+  Indirect,
+}
+
+pub type BoxedSceneRenderImplProvider =
+  Box<dyn RenderImplProvider<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>>>;
+
+fn init_renderer(
+  updater: &mut ReactiveQueryJoinUpdater,
+  ty: RasterizationRenderBackendType,
+  gpu: &GPU,
+) -> BoxedSceneRenderImplProvider {
+  let mut renderer_impl = match ty {
+    RasterizationRenderBackendType::Gles => {
+      let prefer_bindless_textures = false;
+      log::info!("init gles rendering");
+      Box::new(build_default_gles_render_system(prefer_bindless_textures))
+        as BoxedSceneRenderImplProvider
+    }
+    RasterizationRenderBackendType::Indirect => {
+      log::info!("init indirect rendering");
+      Box::new(build_default_indirect_render_system(gpu, true))
+    }
+  };
+
+  renderer_impl.register_resource(updater, gpu);
+  renderer_impl
+}
+
 pub struct Viewer3dRenderingCtx {
-  pub(crate) frame_logic: ViewerFrameLogic,
+  frame_logic: ViewerFrameLogic,
   rendering_resource: ReactiveQueryJoinUpdater,
-  renderer_impl: GLESRenderSystem,
+  renderer_impl: BoxedSceneRenderImplProvider,
+  current_renderer_impl_ty: RasterizationRenderBackendType,
   rtx_ao_renderer_impl: Option<RayTracingAORenderSystem>,
   enable_rtx_ao_rendering: bool,
   lighting: LightSystem,
@@ -31,18 +66,26 @@ pub struct Viewer3dRenderingCtx {
 }
 
 impl Viewer3dRenderingCtx {
+  pub fn gpu(&self) -> &GPU {
+    &self.gpu
+  }
+
   pub fn new(gpu: GPU) -> Self {
-    let prefer_bindless_textures = false;
-    let mut renderer_impl = build_default_gles_render_system(prefer_bindless_textures);
     let mut rendering_resource = ReactiveQueryJoinUpdater::default();
-    renderer_impl.register_resource(&mut rendering_resource, &gpu);
 
     let mut lighting = LightSystem::new(&gpu);
     lighting.register_resource(&mut rendering_resource, &gpu);
 
+    let renderer_impl = init_renderer(
+      &mut rendering_resource,
+      RasterizationRenderBackendType::Gles,
+      &gpu,
+    );
+
     Self {
       rendering_resource,
       renderer_impl,
+      current_renderer_impl_ty: RasterizationRenderBackendType::Gles,
       rtx_ao_renderer_impl: None, // late init
       enable_rtx_ao_rendering: false,
       frame_logic: ViewerFrameLogic::new(&gpu),
@@ -75,6 +118,35 @@ impl Viewer3dRenderingCtx {
   }
 
   pub fn egui(&mut self, ui: &mut egui::Ui) {
+    let old = self.current_renderer_impl_ty;
+    egui::ComboBox::from_label("RasterizationRender Backend")
+      .selected_text(format!("{:?}", &self.current_renderer_impl_ty))
+      .show_ui(ui, |ui| {
+        ui.selectable_value(
+          &mut self.current_renderer_impl_ty,
+          RasterizationRenderBackendType::Gles,
+          "Gles",
+        );
+        ui.selectable_value(
+          &mut self.current_renderer_impl_ty,
+          RasterizationRenderBackendType::Indirect,
+          "Indirect",
+        );
+      });
+
+    ui.separator();
+
+    if old != self.current_renderer_impl_ty {
+      self
+        .renderer_impl
+        .deregister_resource(&mut self.rendering_resource);
+      self.renderer_impl = init_renderer(
+        &mut self.rendering_resource,
+        self.current_renderer_impl_ty,
+        &self.gpu,
+      );
+    }
+
     let mut rtx_ao_renderer_impl_exist = self.rtx_ao_renderer_impl.is_some();
     ui.checkbox(&mut rtx_ao_renderer_impl_exist, "is_rtx_ao_renderer_active");
     if !rtx_ao_renderer_impl_exist {
@@ -90,6 +162,9 @@ impl Viewer3dRenderingCtx {
         ao.reset_ao_sample(&self.gpu);
       }
     }
+
+    ui.separator();
+
     self.lighting.egui(ui);
     self.frame_logic.egui(ui);
   }

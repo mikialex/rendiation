@@ -1,8 +1,9 @@
 use rendiation_algebra::*;
-use rendiation_infinity_plane::*;
+use rendiation_infinity_primitive::*;
 use rendiation_texture_gpu_process::*;
 use rendiation_webgpu::*;
 
+use super::{GridEffect, GridGround};
 use crate::*;
 
 pub struct ViewerFrameLogic {
@@ -116,10 +117,11 @@ impl ViewerFrameLogic {
       .by(&mut widget_scene_content);
 
     let mut highlight_compose = (content.selected_target.is_some()).then(|| {
-      let masked_content = highlight(
-        content.selected_target.iter().cloned(),
+      let masked_content = renderer.render_models(
+        Box::new(IteratorAsHostRenderBatch(content.selected_target)),
         content.main_camera,
-        renderer,
+        &HighLightMaskDispatcher,
+        ctx,
       );
       self.highlight.draw(ctx, masked_content)
     });
@@ -199,41 +201,6 @@ impl ViewerFrameLogic {
       )
       .by(&mut highlight_compose)
       .by(&mut scene_msaa_widgets);
-  }
-}
-
-pub struct HighLightDrawMaskTask<'a, T> {
-  objects: Option<T>,
-  renderer: &'a dyn SceneRenderer<ContentKey = SceneContentKey>,
-  camera: EntityHandle<SceneCameraEntity>,
-}
-
-pub fn highlight<T>(
-  objects: T,
-  camera: EntityHandle<SceneCameraEntity>,
-  renderer: &dyn SceneRenderer<ContentKey = SceneContentKey>,
-) -> HighLightDrawMaskTask<T> {
-  HighLightDrawMaskTask {
-    objects: Some(objects),
-    camera,
-    renderer,
-  }
-}
-
-impl<'a, T> PassContent for HighLightDrawMaskTask<'a, T>
-where
-  T: Iterator<Item = EntityHandle<SceneModelEntity>>,
-{
-  fn render(&mut self, pass: &mut FrameRenderPass) {
-    if let Some(mut objects) = self.objects.take() {
-      self.renderer.render_reorderable_models(
-        &mut objects,
-        self.camera,
-        &HighLightMaskDispatcher,
-        &mut pass.ctx,
-        self.renderer.get_scene_model_cx(),
-      );
-    }
   }
 }
 

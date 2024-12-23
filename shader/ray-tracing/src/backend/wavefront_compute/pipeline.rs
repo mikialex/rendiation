@@ -134,6 +134,8 @@ fn create_task_graph<'a>(
     }
   });
 
+  let tlas_instance = tlas_sys.create_tlas_instance();
+
   let tracer_task = TraceTaskImpl {
     tlas_sys,
     sbt_sys,
@@ -148,6 +150,7 @@ fn create_task_graph<'a>(
   ctx.register(RayLaunchSizeBuffer {
     launch_size: trace_resource.launch_size.clone(),
   });
+  ctx.register(tlas_instance); // used by TracingCtxProviderTracer
 
   // create core tracer task as almost every other task depend on this one
   let trace_task_id = graph.define_task_dyn(

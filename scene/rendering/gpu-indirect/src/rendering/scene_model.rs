@@ -12,6 +12,20 @@ pub trait IndirectBatchSceneModelRenderer: SceneModelRenderer {
     cx: &mut GPURenderPassCtx,
   ) -> Option<()>;
 
+  /// shader_group_key is like shader hash but a bit different
+  ///
+  /// - compute shader_group_key should be cheaper than shader hash
+  ///   - the outside render dispatchers or component can be omitted
+  ///   - the render component is not created
+  /// - the shader_group_key logic must match the shader hash
+  ///
+  /// if error occurs, return None
+  fn hash_shader_group_key(
+    &self,
+    any_id: EntityHandle<SceneModelEntity>,
+    hasher: &mut PipelineHasher,
+  ) -> Option<()>;
+
   fn make_draw_command_builder(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
@@ -164,6 +178,17 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
 
     let render = Box::new(RenderArray(contents)) as Box<dyn RenderComponent>;
     render.render(cx, command);
+    Some(())
+  }
+
+  fn hash_shader_group_key(
+    &self,
+    any_id: EntityHandle<SceneModelEntity>,
+    hasher: &mut PipelineHasher,
+  ) -> Option<()> {
+    let node = self.node.get(any_id)?;
+    self.node_render.hash_shader_group_key(node, hasher)?;
+    self.model_impl.hash_shader_group_key(any_id, hasher)?;
     Some(())
   }
 

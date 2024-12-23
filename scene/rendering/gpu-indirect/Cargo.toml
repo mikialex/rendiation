@@ -9,7 +9,7 @@ fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 dyn-downcast = { path = "../../../utility/dyn-downcast" }
 database = { path = "../../../utility/database" }
 log = { workspace = true }
-parking_lot = { version = "0.12.1", features = ["send_guard"] }
+parking_lot = { workspace = true }
 rendiation-algebra = { path = "../../../math/algebra" }
 rendiation-geometry = { path = "../../../math/geometry" }
 rendiation-mesh-core = { path = "../../../content/mesh/core" }

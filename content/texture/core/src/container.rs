@@ -6,8 +6,8 @@ use crate::{Texture2D, Texture2dInitAble};
 
 #[derive(Clone)]
 pub struct Texture2DBuffer<P> {
-  data: Vec<P>,
-  size: Size,
+  pub data: Vec<P>,
+  pub size: Size,
 }
 
 impl<P> Texture2DBuffer<P> {

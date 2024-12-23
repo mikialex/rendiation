@@ -59,10 +59,15 @@ impl LightableSurfaceShadingProvider for PhysicalShading {
       (base_color * (val(1.) - metallic), f0)
     };
 
+    let emissive = builder
+      .try_query::<EmissiveChannel>()
+      .unwrap_or_else(|| val(Vec3::zero()));
+
     Box::new(ENode::<ShaderPhysicalShading> {
       diffuse,
       f0,
       perceptual_roughness,
+      emissive,
     })
   }
 }
@@ -74,6 +79,10 @@ impl LightableSurfaceShading for ENode<ShaderPhysicalShading> {
     ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> ENode<ShaderLightingResult> {
     physical_shading_fn(direct_light.construct(), ctx.construct(), self.construct()).expand()
+  }
+
+  fn as_any(&self) -> &dyn std::any::Any {
+    self
   }
 }
 
@@ -106,7 +115,7 @@ fn physical_shading_fn(
       );
 
       cx.do_return(ENode::<ShaderLightingResult> {
-        diffuse: light.color * direct_diffuse_brdf * n_dot_l,
+        diffuse: light.color * direct_diffuse_brdf * n_dot_l + shading.emissive,
         specular: light.color * direct_specular_brdf * n_dot_l,
       })
     })

@@ -26,7 +26,7 @@ rendiation-device-ray-tracing = { path = "../../shader/ray-tracing" }
 rendiation-geometry = { path = "../../math/geometry" }
 rendiation-gizmo = { path = "../../extension/gizmo" }
 rendiation-gui-3d = { path = "../../extension/gui-3d" }
-rendiation-infinity-plane = { path = "../../extension/infinity-plane" }
+rendiation-infinity-primitive = { path = "../../extension/infinity-primitive" }
 rendiation-lighting-gpu-system = { path = "../../content/lighting/gpu-system/lighting-system" }
 rendiation-lighting-transport = { path = "../../content/lighting/transport" }
 rendiation-mesh-core = { path = "../../content/mesh/core" }

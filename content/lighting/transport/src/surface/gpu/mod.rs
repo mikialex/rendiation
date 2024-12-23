@@ -48,4 +48,6 @@ pub trait LightableSurfaceShading {
     direct_light: &ENode<ShaderIncidentLight>,
     ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> ENode<ShaderLightingResult>;
+
+  fn as_any(&self) -> &dyn std::any::Any;
 }

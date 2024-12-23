@@ -86,24 +86,6 @@ struct GLESSceneRenderer {
   sm_ref_node: ForeignKeyReadView<SceneModelRefNode>,
 }
 
-#[derive(Clone)]
-struct HostModelLookUp {
-  v: RevRefOfForeignKey<SceneModelBelongsToScene>,
-  node_net_visible: BoxedDynQuery<EntityHandle<SceneNodeEntity>, bool>,
-  sm_ref_node: ForeignKeyReadView<SceneModelRefNode>,
-  scene_id: EntityHandle<SceneEntity>,
-}
-
-impl HostRenderBatch for HostModelLookUp {
-  fn iter_scene_models(&self) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + '_> {
-    let iter = self.v.access_multi_value_dyn(&self.scene_id).filter(|sm| {
-      let node = self.sm_ref_node.get(*sm).unwrap();
-      self.node_net_visible.access(&node).unwrap_or(false)
-    });
-    Box::new(iter)
-  }
-}
-
 impl SceneModelRenderer for GLESSceneRenderer {
   fn render_scene_model(
     &self,
@@ -143,6 +125,7 @@ impl SceneRenderer for GLESSceneRenderer {
     pass: &'a dyn RenderComponent,
     _ctx: &mut FrameCtx,
   ) -> Box<dyn PassContent + 'a> {
+    let camera = self.get_camera_gpu().make_component(camera).unwrap();
     Box::new(GLESScenePassContent {
       renderer: self,
       batch: batch.get_host_batch().unwrap(),
@@ -158,10 +141,6 @@ impl SceneRenderer for GLESSceneRenderer {
     self.background.init_clear(scene)
   }
 
-  fn get_scene_model_cx(&self) -> &GPUTextureBindingSystem {
-    &self.texture_system
-  }
-
   fn get_camera_gpu(&self) -> &dyn CameraRenderImpl {
     self.camera.as_ref()
   }
@@ -171,22 +150,22 @@ struct GLESScenePassContent<'a> {
   renderer: &'a GLESSceneRenderer,
   batch: Box<dyn HostRenderBatch>,
   pass: &'a dyn RenderComponent,
-  camera: EntityHandle<SceneCameraEntity>,
+  camera: Box<dyn RenderComponent + 'a>,
 }
 
 impl<'a> PassContent for GLESScenePassContent<'a> {
   fn render(&mut self, pass: &mut FrameRenderPass) {
-    let mut models = self.batch.iter_scene_models();
-
     let base = default_dispatcher(pass);
     let p = RenderArray([&base, self.pass] as [&dyn rendiation_webgpu::RenderComponent; 2]);
 
-    self.renderer.render_reorderable_models(
-      &mut models,
-      self.camera,
-      &p,
-      &mut pass.ctx,
-      &self.renderer.texture_system,
-    );
+    for sm in self.batch.iter_scene_models() {
+      let _ = self.renderer.render_scene_model(
+        sm,
+        &self.camera,
+        &p,
+        &mut pass.ctx,
+        &self.renderer.texture_system,
+      );
+    }
   }
 }

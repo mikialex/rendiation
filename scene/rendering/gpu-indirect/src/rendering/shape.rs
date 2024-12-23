@@ -6,6 +6,12 @@ pub trait IndirectModelShapeRenderImpl {
     any_idx: EntityHandle<StandardModelEntity>,
   ) -> Option<Box<dyn RenderComponent + '_>>;
 
+  fn hash_shader_group_key(
+    &self,
+    any_id: EntityHandle<StandardModelEntity>,
+    hasher: &mut PipelineHasher,
+  ) -> Option<()>;
+
   fn make_draw_command_builder(
     &self,
     any_idx: EntityHandle<StandardModelEntity>,
@@ -20,6 +26,19 @@ impl IndirectModelShapeRenderImpl for Vec<Box<dyn IndirectModelShapeRenderImpl>>
     for provider in self {
       if let Some(com) = provider.make_component_indirect(idx) {
         return Some(com);
+      }
+    }
+    None
+  }
+
+  fn hash_shader_group_key(
+    &self,
+    any_id: EntityHandle<StandardModelEntity>,
+    hasher: &mut PipelineHasher,
+  ) -> Option<()> {
+    for provider in self {
+      if let Some(v) = provider.hash_shader_group_key(any_id, hasher) {
+        return Some(v);
       }
     }
     None

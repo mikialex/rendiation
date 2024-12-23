@@ -9,7 +9,18 @@ pub trait GPUAccelerationStructureSystemCompImplInstance {
     compute_cx: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn GPUAccelerationStructureSystemCompImplInvocationTraversable>;
   fn bind_pass(&self, builder: &mut BindingBuilder);
+
+  fn create_tlas_instance(&self) -> Box<dyn GPUAccelerationStructureSystemTlasCompImplInstance>;
 }
+
+pub trait GPUAccelerationStructureSystemTlasCompImplInstance: DynClone {
+  fn build_shader(
+    &self,
+    compute_cx: &mut ShaderComputePipelineBuilder,
+  ) -> Box<dyn GPUAccelerationStructureSystemTlasCompImplInvocation>;
+  fn bind_pass(&self, builder: &mut BindingBuilder);
+}
+clone_trait_object!(GPUAccelerationStructureSystemTlasCompImplInstance);
 
 pub trait GPUAccelerationStructureSystemCompImplInvocationTraversable {
   /// return optional closest hit
@@ -20,6 +31,13 @@ pub trait GPUAccelerationStructureSystemCompImplInvocationTraversable {
     intersect: &dyn Fn(&RayIntersectCtx, &dyn IntersectionReporter),
     any_hit: &dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
   ) -> ShaderOption<RayClosestHitCtx>;
+}
+
+pub trait GPUAccelerationStructureSystemTlasCompImplInvocation {
+  fn index_tlas(
+    &self,
+    idx: Node<u32>,
+  ) -> ReadOnlyStorageNode<TopLevelAccelerationStructureSourceDeviceInstance>;
 }
 
 #[derive(Clone, Copy)]

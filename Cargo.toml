@@ -34,8 +34,7 @@ members = [
   "content/texture/loader",
   "content/lighting/core",
   "content/lighting/ltc",
-  "content/lighting/ibl/core",
-  "content/lighting/ibl/gpu",
+  "content/lighting/ibl",
   "content/lighting/transport",
   "content/lighting/punctual",
   "content/lighting/gpu-system/shadow-map",
@@ -66,7 +65,7 @@ members = [
   "extension/scene-debug-helper",
   "extension/gui-3d",
   "extension/state-override",
-  "extension/infinity-plane",
+  "extension/infinity-primitive",
   "extension/wide-line",
   "extension/gizmo",
   "application/viewer",
@@ -98,6 +97,8 @@ rand = "0.8.5"
 pollster = { version = "0.3.0", features = ["macro"] }
 thiserror = "1.0.43"
 anyhow = "1.0.93"
+parking_lot = { version = "0.12.1", features = ["send_guard"] }
+criterion = { version = "0.5.1", features = ["html_reports"] }
 
 # https://doc.rust-lang.org/cargo/reference/profiles.html
 

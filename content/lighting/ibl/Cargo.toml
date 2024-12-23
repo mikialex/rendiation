@@ -1,0 +1,24 @@
+[package]
+authors = ["mikialex <18516340862@163.com>"]
+edition = "2021"
+name = "rendiation-lighting-ibl"
+version = "0.1.0"
+
+[dependencies]
+rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
+rendiation-algebra = { path = "../../../math/algebra" }
+rendiation-texture-gpu-base = { path = "../../texture/gpu-base" }
+rendiation-shader-api = { path = "../../../shader/api" }
+rendiation-shader-library = { path = "../../../shader/library" }
+rendiation-texture-core = { path = "../../texture/core" }
+rendiation-lighting-transport = { path = "../transport" }
+rendiation-lighting-gpu-system = { path = "../gpu-system/lighting-system" }
+
+[dev-dependencies]
+bytemuck = { workspace = true, features = ["derive"] }
+pollster = { workspace = true }
+rendiation-texture-loader = { path = "../../texture/loader" }
+image = "*"
+
+[lints]
+workspace = true

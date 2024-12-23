@@ -1,4 +1,4 @@
-use std::{mem::offset_of, sync::Arc};
+use std::{any::TypeId, mem::offset_of, sync::Arc};
 
 use parking_lot::RwLock;
 use rendiation_mesh_core::{AttributeSemantic, BufferViewRange};
@@ -30,6 +30,7 @@ pub fn attribute_indices(
         if buffer.len() / count == 4 {
           (buffer, range_convert(range))
         } else if buffer.len() / count == 2 {
+          let buffer = bytemuck::cast_slice::<_, u16>(&buffer);
           let buffer = buffer.iter().map(|i| *i as u32).collect::<Vec<_>>();
           let buffer = bytemuck::cast_slice::<_, u8>(buffer.as_slice());
           let buffer = Arc::new(buffer.to_vec());
@@ -288,6 +289,15 @@ impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
     // check mesh must have indices.
     let _ = self.indices_checker.get(mesh_id)?;
     Some(Box::new(self.make_bindless_dispatcher()))
+  }
+
+  fn hash_shader_group_key(
+    &self,
+    _any_id: EntityHandle<StandardModelEntity>,
+    hasher: &mut PipelineHasher,
+  ) -> Option<()> {
+    TypeId::of::<Self>().hash(hasher);
+    Some(())
   }
 
   fn make_draw_command_builder(

@@ -43,7 +43,7 @@ By leveraging these crates, users can build, assemble and customize their own fe
   - library: useful graphics shader logic collection
   - parallel-compute: express parallel computation in monad-like high level api
   - task-graph: a on-device task-graph runtime to support massively stateful computation in gpu.
-  - ray-tracing: a monad-like high level api for gpu ray tracing with the same capabilities as the native hardware rtx. and a wavefront tracing executor based on task-graph.
+  - [ray-tracing](./shader/ray-tracing/README.md): a monad-like high level api for gpu ray tracing with the same capabilities as the native hardware rtx. and a wavefront tracing executor based on task-graph.
 - content: graphics related data structure and algorithm for domain related problem
   - texture
     - core
@@ -62,7 +62,7 @@ By leveraging these crates, users can build, assemble and customize their own fe
   - lighting
     - core
     - gpu-system: gpu lighting compute utils
-    - ibl: IBL environmental lighting tools
+    - [ibl](./content/lighting/ibl/README.md): IBL environmental lighting
     - [ltc](./content/lighting/ltc/README.md): LTC area lighting and lut map generator
     - punctual
     - transport
@@ -83,7 +83,7 @@ By leveraging these crates, users can build, assemble and customize their own fe
   - controller
   - gizmo
   - gui-3d
-  - infinity-plane
+  - infinity-primitive
   - scene-debug-helper
   - state-override
   - view-override-model

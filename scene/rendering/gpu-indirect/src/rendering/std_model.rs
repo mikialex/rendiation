@@ -1,6 +1,12 @@
 use crate::*;
 
 pub trait IndirectModelRenderImpl {
+  fn hash_shader_group_key(
+    &self,
+    any_id: EntityHandle<SceneModelEntity>,
+    hasher: &mut PipelineHasher,
+  ) -> Option<()>;
+
   fn shape_renderable_indirect(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
@@ -19,6 +25,19 @@ pub trait IndirectModelRenderImpl {
 }
 
 impl IndirectModelRenderImpl for Vec<Box<dyn IndirectModelRenderImpl>> {
+  fn hash_shader_group_key(
+    &self,
+    any_id: EntityHandle<SceneModelEntity>,
+    hasher: &mut PipelineHasher,
+  ) -> Option<()> {
+    for provider in self {
+      if let Some(v) = provider.hash_shader_group_key(any_id, hasher) {
+        return Some(v);
+      }
+    }
+    None
+  }
+
   fn shape_renderable_indirect(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
@@ -103,6 +122,17 @@ struct SceneStdModelRenderer {
 }
 
 impl IndirectModelRenderImpl for SceneStdModelRenderer {
+  fn hash_shader_group_key(
+    &self,
+    any_id: EntityHandle<SceneModelEntity>,
+    hasher: &mut PipelineHasher,
+  ) -> Option<()> {
+    let model = self.model.get(any_id)?;
+    self.materials.hash_shader_group_key(model, hasher)?;
+    self.shapes.hash_shader_group_key(model, hasher)?;
+    Some(())
+  }
+
   fn shape_renderable_indirect(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,

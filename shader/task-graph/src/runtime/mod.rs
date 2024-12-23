@@ -281,7 +281,7 @@ impl DeviceTaskGraphExecutor {
     cx: &mut DeviceParallelComputeCtx<'a>,
   ) -> TaskGraphExecutionStates {
     self.task_groups.iter_mut().for_each(|task| {
-      task.prepare_execution(cx);
+      task.prepare_execution_and_compact_living_task(cx);
     });
     cx.flush_pass();
 
@@ -344,7 +344,7 @@ impl DeviceTaskGraphExecutor {
     cx: &mut DeviceParallelComputeCtx<'a>,
   ) -> TaskGraphExecutionDebugInfo {
     self.task_groups.iter_mut().for_each(|task| {
-      task.prepare_execution(cx);
+      task.prepare_execution_and_compact_living_task(cx);
     });
     cx.flush_pass();
 

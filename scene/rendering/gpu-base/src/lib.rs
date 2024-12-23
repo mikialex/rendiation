@@ -111,38 +111,17 @@ pub trait SceneRenderer: SceneModelRenderer {
     scene: EntityHandle<SceneEntity>,
   ) -> (Operations<rendiation_webgpu::Color>, Operations<f32>);
 
-  fn get_scene_model_cx(&self) -> &GPUTextureBindingSystem;
-
   /// Batch rendering the passed models. Comparing to render one single model at a time(using [SceneModelRenderer]), this may be more efficient.
   /// The implementation should be override if it can provide better performance. The default implementation is a loop call using [SceneModelRenderer]
-  ///
-  /// if reorderable is true, the order of model may not be preserved
-  fn render_models(
-    &self,
-    models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
-    _reorderable: bool,
+  fn render_models<'a>(
+    &'a self,
+    models: Box<dyn HostRenderBatch>,
     camera: EntityHandle<SceneCameraEntity>,
-    pass: &dyn RenderComponent,
-    cx: &mut GPURenderPassCtx,
-    tex: &GPUTextureBindingSystem,
-  ) {
-    let camera = self.get_camera_gpu().make_component(camera).unwrap();
-    for m in models {
-      if let Err(e) = self.render_scene_model(m, &camera, pass, cx, tex) {
-        println!("{}", e);
-      }
-    }
-  }
-
-  fn render_reorderable_models(
-    &self,
-    models: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
-    camera: EntityHandle<SceneCameraEntity>,
-    pass: &dyn RenderComponent,
-    cx: &mut GPURenderPassCtx,
-    tex: &GPUTextureBindingSystem,
-  ) {
-    self.render_models(models, true, camera, pass, cx, tex);
+    pass: &'a dyn RenderComponent,
+    ctx: &mut FrameCtx,
+  ) -> Box<dyn PassContent + 'a> {
+    let batch = SceneModelRenderBatch::Host(models);
+    self.make_scene_batch_pass_content(batch, camera, pass, ctx)
   }
 
   /// Expose the under-layer camera system implementation to enable user access the

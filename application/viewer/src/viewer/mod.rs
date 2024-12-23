@@ -32,6 +32,7 @@ struct ViewerUIState {
   show_db_inspector: bool,
   show_viewer_config_panel: bool,
   show_terminal: bool,
+  show_gpu_info: bool,
 }
 
 impl Widget for Viewer {
@@ -114,9 +115,11 @@ impl Widget for Viewer {
             &mut self.ui_state,
             cx,
           );
-          if self.ui_state.show_db_inspector {
-            crate::db_egui_view::egui_db_gui(egui_cx, &mut self.egui_db_inspector);
-          }
+          crate::db_egui_view::egui_db_gui(
+            egui_cx,
+            &mut self.egui_db_inspector,
+            &mut self.ui_state.show_db_inspector,
+          );
         });
       });
 
@@ -219,6 +222,7 @@ impl Viewer {
         show_db_inspector: false,
         show_viewer_config_panel: true,
         show_terminal: true,
+        show_gpu_info: false,
       },
       content: Box::new(content_logic),
       scene,
@@ -257,51 +261,72 @@ fn egui(
       ui.checkbox(&mut ui_state.show_db_inspector, "database inspector");
       ui.checkbox(&mut ui_state.show_viewer_config_panel, "viewer config");
       ui.checkbox(&mut ui_state.show_terminal, "terminal");
+      ui.checkbox(&mut ui_state.show_gpu_info, "gpu info")
     });
   });
 
-  if ui_state.show_viewer_config_panel {
-    egui::Window::new("Viewer")
-      .vscroll(true)
-      .default_open(true)
-      .default_pos([10., 60.])
-      .max_width(1000.0)
-      .max_height(800.0)
-      .default_width(250.0)
-      .default_height(300.0)
-      .resizable(true)
-      .movable(true)
-      .show(ui, |ui| {
-        if ui.button("Organize windows").clicked() {
-          ui.ctx().memory_mut(|mem| mem.reset_areas());
+  egui::Window::new("Viewer")
+    .vscroll(true)
+    .open(&mut ui_state.show_viewer_config_panel)
+    .default_pos([10., 60.])
+    .max_width(1000.0)
+    .max_height(800.0)
+    .default_width(250.0)
+    .default_height(300.0)
+    .resizable(true)
+    .movable(true)
+    .show(ui, |ui| {
+      if ui.button("Organize windows").clicked() {
+        ui.ctx().memory_mut(|mem| mem.reset_areas());
+      }
+
+      ui.separator();
+      ui.checkbox(on_demand_rendering, "enable on demand rendering");
+      ui.separator();
+      rendering.egui(ui);
+      ui.separator();
+
+      ui.collapsing("Instance Counts", |ui| {
+        let mut counters = heap_tools::HEAP_TOOL_GLOBAL_INSTANCE_COUNTER
+          .write()
+          .unwrap();
+
+        for (name, r) in counters.report_all_instance_count() {
+          ui.label(format!(
+            "{}: current:{} peak:{}",
+            get_short_name(name),
+            r.current,
+            r.history_peak
+          ));
         }
 
-        ui.separator();
-        ui.checkbox(on_demand_rendering, "enable on demand rendering");
-        ui.separator();
-        rendering.egui(ui);
-        ui.separator();
-
-        ui.collapsing("Instance Counts", |ui| {
-          let mut counters = heap_tools::HEAP_TOOL_GLOBAL_INSTANCE_COUNTER
-            .write()
-            .unwrap();
-
-          for (name, r) in counters.report_all_instance_count() {
-            ui.label(format!(
-              "{}: current:{} peak:{}",
-              get_short_name(name),
-              r.current,
-              r.history_peak
-            ));
-          }
-
-          if ui.button("reset peak").clicked() {
-            counters.reset_all_instance_history_peak();
-          }
-        });
+        if ui.button("reset peak").clicked() {
+          counters.reset_all_instance_history_peak();
+        }
       });
-  }
+    });
+
+  egui::Window::new("GPU Info")
+    .open(&mut ui_state.show_gpu_info)
+    .vscroll(true)
+    .show(ui, |ui| {
+      let info = &rendering.gpu().info;
+
+      ui.collapsing("adaptor info", |ui| {
+        ui.label(format!("{:#?}", info.adaptor_info));
+        ui.label(format!("power preference: {:?}", info.power_preference));
+      });
+
+      ui.collapsing("supported_features", |ui| {
+        for (supported_feature, _) in info.supported_features.iter_names() {
+          ui.label(format!("{:?}", supported_feature));
+        }
+      });
+
+      ui.collapsing("supported limits", |ui| {
+        ui.label(format!("{:#?}", info.supported_limits));
+      });
+    });
 
   if ui_state.show_terminal {
     egui::TopBottomPanel::bottom("view bottom terminal").show(ui, |ui| {
