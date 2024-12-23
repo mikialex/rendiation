@@ -117,6 +117,8 @@ impl BuiltGeometry {
 
 /// save offsets in meta, pack buffers with no modification
 struct BuiltGeometryPack {
+  bounding: Box3,
+
   geometry_meta: Vec<GeometryMeta>, // length = geometry count
 
   bvh: Vec<DeviceBVHNode>,
@@ -127,6 +129,7 @@ struct BuiltGeometryPack {
 }
 impl BuiltGeometryPack {
   fn pack(built_geometry_triangles: Vec<BuiltGeometry>) -> Self {
+    let mut bounding = Box3::default();
     let mut bvh = vec![];
     let mut geometry_meta = vec![];
     let mut indices_redirect = vec![];
@@ -144,12 +147,17 @@ impl BuiltGeometryPack {
         vertices_offset: vertices.len() as u32,
         ..Zeroable::zeroed()
       });
+      bounding.expand_by_other(Box3::new(
+        built_geometry.bvh[0].aabb_min,
+        built_geometry.bvh[0].aabb_max,
+      ));
       bvh.extend(built_geometry.bvh);
       indices_redirect.extend(built_geometry.indices_redirect);
       indices.extend(built_geometry.indices);
       vertices.extend(built_geometry.vertices);
     }
     Self {
+      bounding,
       bvh,
       geometry_meta,
       indices_redirect,
@@ -161,7 +169,8 @@ impl BuiltGeometryPack {
 
 /// save offsets in meta, pack buffers with no modification
 pub struct BuiltBlasPack {
-  blas_meta: Vec<BlasMeta>, // length = blas count
+  pub blas_bounding: Vec<Box3>, // length = blas count, read by tlas
+  blas_meta: Vec<BlasMeta>,     // length = blas count
 
   geometry_meta: Vec<GeometryMeta>, // length = geometry count
 
@@ -204,6 +213,7 @@ impl BuiltBlasPack {
   }
 
   fn pack(blas: Vec<BuiltGeometryPack>) -> Self {
+    let mut blas_bounding = vec![];
     let mut blas_meta = vec![];
     let mut bvh = vec![];
     let mut geometry_meta = vec![];
@@ -211,6 +221,7 @@ impl BuiltBlasPack {
     let mut indices = vec![];
     let mut vertices = vec![];
     for built_blas in blas {
+      blas_bounding.push(built_blas.bounding);
       let indices_offset = indices.len() as u32;
       assert_eq!(0, indices_offset % 3);
       blas_meta.push(BlasMeta {
@@ -228,6 +239,7 @@ impl BuiltBlasPack {
       vertices.extend(built_blas.vertices);
     }
     Self {
+      blas_bounding,
       blas_meta,
       bvh,
       geometry_meta,

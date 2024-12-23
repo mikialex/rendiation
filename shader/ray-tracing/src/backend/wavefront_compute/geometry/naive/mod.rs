@@ -80,24 +80,6 @@ struct NaiveSahBvhSource {
   tlas_free_list: Vec<usize>,
 }
 
-struct BuiltBlas {
-  blas_meta_info: Vec<BlasMetaInfo>,
-  blas_box: Vec<Box3>,
-
-  // (tri_bvh, hit miss, primitive_offset, geometry_idx, geometry_flags)
-  tri_bvh: Vec<(FlattenBVH<Box3>, Vec<(u32, u32)>, u32, u32, u32)>,
-  // (box_bvh, hit miss, box_offset, geometry_idx, geometry_flags)
-  // box_bvh: Vec<(FlattenBVH<Box3>, Vec<(u32, u32)>, u32, u32, u32)>,
-
-  // map bvh sorted triangle id to source triangle id
-  indices_redirect: Vec<u32>,
-  // directly index vertices, no offset required
-  indices: Vec<u32>,
-  vertices: Vec<Vec3<f32>>,
-  // boxes_redirect: Vec<f32>,
-  // boxes: Vec<Vec3<f32>>,
-}
-
 impl NaiveSahBvhSource {
   pub fn create_blas(&mut self, source: &[BottomLevelAccelerationStructureBuildSource]) -> u32 {
     let index = if let Some(index) = self.blas_free_list.pop() {
@@ -147,146 +129,6 @@ impl NaiveSahBvhSource {
       self.tlas_data[index] = None;
       self.tlas_free_list.push(index);
       // println!("delete tlas {index} set none");
-    }
-  }
-
-  // todo incremental change
-  fn build_blas(
-    blas_data: &[Option<Vec<BottomLevelAccelerationStructureBuildSource>>],
-  ) -> BuiltBlas {
-    let mut geometry_indices_redirect = vec![];
-    let mut geometry_indices = vec![];
-    let mut geometry_vertices = vec![];
-    // let mut geometry_boxes_redirect = vec![];
-    // let mut geometry_boxes = vec![];
-
-    let mut blas_meta_info = vec![];
-    let mut blas_box = vec![];
-    let mut tri_bvh = vec![];
-    // let mut box_bvh = vec![];
-
-    for blas in blas_data {
-      if blas.is_none() {
-        blas_meta_info.push(BlasMetaInfo::zeroed());
-        continue;
-      }
-      let blas = blas.as_ref().unwrap();
-
-      let tri_start = tri_bvh.len();
-      // let box_start = box_bvh.len();
-
-      // todo par_iter
-      for (geometry_idx, source) in blas.iter().enumerate() {
-        let geometry_idx = geometry_idx as u32;
-        let mut root_box = Box3::default();
-        let geometry_flags = source.flags;
-        match &source.geometry {
-          BottomLevelAccelerationStructureBuildBuffer::Triangles { positions, indices } => {
-            let primitive_start = geometry_indices.len() as u32 / 3;
-            let vertex_start = geometry_vertices.len() as u32;
-
-            use std::borrow::Cow;
-            // if non-indexed, create a Vec<u32> as indices. this will be memory consuming.
-            let indices = match indices.as_ref() {
-              None => Cow::Owned((0..positions.len() as u32).collect::<Vec<u32>>()),
-              Some(indices) => Cow::Borrowed(indices.as_slice()),
-            };
-
-            geometry_vertices.extend_from_slice(positions);
-
-            let boxes = indices.chunks_exact(3).map(|triangle| {
-              triangle
-                .iter()
-                .map(|idx| positions[*idx as usize])
-                .collect::<Box3>()
-            });
-
-            let option = TreeBuildOption {
-              max_tree_depth: 50,
-              bin_size: 2,
-            };
-            let mut sah = SAH::new(4);
-            let bvh = FlattenBVH::new(boxes, &mut sah, &option);
-            root_box.expand_by_other(bvh.nodes[0].bounding);
-            let traverse_next = compute_bvh_next(&bvh.nodes);
-
-            let raw_primitive_start = geometry_indices.len() as u32 / 3;
-            for &primitive_idx in &bvh.sorted_primitive_index {
-              geometry_indices_redirect.push(raw_primitive_start + primitive_idx as u32);
-            }
-            indices.chunks_exact(3).for_each(|triangle| {
-              geometry_indices.push(vertex_start + triangle[0]);
-              geometry_indices.push(vertex_start + triangle[1]);
-              geometry_indices.push(vertex_start + triangle[2]);
-            });
-
-            tri_bvh.push((
-              bvh,
-              traverse_next,
-              primitive_start,
-              geometry_idx,
-              geometry_flags,
-            ));
-          }
-
-          BottomLevelAccelerationStructureBuildBuffer::AABBs { aabbs: _ } => {
-            // let boxes_start = geometry_indices.len() as u32;
-            //
-            // let boxes = aabbs.iter().map(|aabb| {
-            //   let mut r = Box3::default();
-            //   let point0 = vec3(aabb[0], aabb[1], aabb[2]);
-            //   let point1 = vec3(aabb[3], aabb[4], aabb[5]);
-            //   r.expand_by_point(point0);
-            //   r.expand_by_point(point1);
-            //   r
-            // });
-            //
-            // let option = TreeBuildOption {
-            //   max_tree_depth: 50,
-            //   bin_size: 2,
-            // };
-            // let mut sah = SAH::new(4);
-            // let bvh = FlattenBVH::new(boxes, &mut sah, &option);
-            // root_box.expand_by_other(bvh.nodes[0].bounding);
-            // let traverse_next = compute_bvh_next(&bvh.nodes);
-            //
-            // for primitive_idx in &bvh.sorted_primitive_index {
-            //   let aabb = &aabbs[*primitive_idx];
-            //   let point0 = vec3(aabb[0], aabb[1], aabb[2]);
-            //   let point1 = vec3(aabb[3], aabb[4], aabb[5]);
-            //   geometry_boxes.push(point0);
-            //   geometry_boxes.push(point1);
-            // }
-            //
-            // box_bvh.push((
-            //   bvh,
-            //   traverse_next,
-            //   boxes_start,
-            //   geometry_idx,
-            //   geometry_flags,
-            // ));
-          }
-        }
-        blas_box.push(root_box);
-      }
-
-      let tri_end = tri_bvh.len();
-      // let box_end = box_bvh.len();
-
-      blas_meta_info.push(BlasMetaInfo {
-        tri_root_range: vec2(tri_start as u32, tri_end as u32),
-        // box_root_range: vec2(box_start as u32, box_end as u32),
-        ..Zeroable::zeroed()
-      });
-    }
-
-    BuiltBlas {
-      blas_meta_info,
-      blas_box,
-      tri_bvh,
-      indices_redirect: geometry_indices_redirect,
-      indices: geometry_indices,
-      vertices: geometry_vertices,
     }
   }
 
@@ -355,14 +197,9 @@ impl NaiveSahBvhSource {
     gpu_data: &mut Option<NaiveSahBvhGpu>,
   ) {
     // build blas
-    let BuiltBlas {
-      blas_meta_info,
-      blas_box,
-      tri_bvh,
-      indices_redirect,
-      indices,
-      vertices,
-    } = Self::build_blas(&self.blas_data);
+    let blas_data_cpu = BuiltBlasPack::build(&self.blas_data);
+    let blas_data_gpu = blas_data_cpu.build_gpu(device);
+
     fn flatten_bvh_to_gpu_node(
       node: &FlattenBVHNode<Box3>,
       hit: u32,
@@ -393,50 +230,6 @@ impl NaiveSahBvhSource {
         ..Zeroable::zeroed()
       }
     }
-    let mut tri_bvh_root = vec![];
-    // let mut box_bvh_root = vec![];
-    let mut tri_bvh_forest = vec![];
-    // let mut box_bvh_forest = vec![];
-    for (bvh, hit_miss, primitive_start, geometry_idx, geometry_flags) in tri_bvh {
-      let bvh_start = tri_bvh_forest.len() as u32;
-      tri_bvh_root.push(GeometryMetaInfo {
-        bvh_root_idx: bvh_start,
-        geometry_idx,
-        primitive_start,
-        geometry_flags,
-        ..Zeroable::zeroed()
-      });
-      let nodes = bvh.nodes.iter().zip(hit_miss).map(|(node, (hit, miss))| {
-        flatten_bvh_to_gpu_node(node, hit, miss, bvh_start, 0) // primitive_offset added in traversal
-      });
-      tri_bvh_forest.extend(nodes);
-    }
-    // for (bvh, hit_miss, primitive_start, geometry_idx, geometry_flags) in box_bvh {
-    //   let bvh_start = box_bvh_forest.len() as u32;
-    //   box_bvh_root.push(GeometryMetaInfo {
-    //     bvh_root_idx: bvh_start,
-    //     geometry_idx,
-    //     primitive_start,
-    //     geometry_flags,
-    //     ..Zeroable::zeroed()
-    //   });
-    //   let nodes = bvh.nodes.iter().zip(hit_miss).map(|(node, (hit, miss))| {
-    //     flatten_bvh_to_gpu_node(node, hit, miss, bvh_start, primitive_start)
-    //   });
-    //   box_bvh_forest.extend(nodes);
-    // }
-
-    // upload blas
-    use bytemuck::cast_slice;
-    let gpu_blas_meta_info = create_gpu_buffer_non_empty(device, &blas_meta_info);
-    let gpu_tri_bvh_root = create_gpu_buffer_non_empty(device, &tri_bvh_root);
-    // let gpu_box_bvh_root = create_gpu_buffer(device, &box_bvh_root);
-    let gpu_tri_bvh_forest = create_gpu_buffer_non_empty(device, &tri_bvh_forest);
-    // let gpu_box_bvh_forest = create_gpu_buffer(device, &box_bvh_forest);
-    let gpu_indices_redirect = create_gpu_buffer_non_empty(device, &indices_redirect);
-    let gpu_indices = create_gpu_buffer_non_empty(device, &indices);
-    let gpu_vertices = create_gpu_buffer_non_empty(device, &cast_slice(&vertices).to_vec());
-    // let gpu_boxes = create_gpu_buffer(device, &cast_slice(&boxes).to_vec());
 
     // build tlas
     let mut tlas_bvh_root = vec![];
@@ -449,8 +242,12 @@ impl NaiveSahBvhSource {
         let bvh_start = tlas_bvh_forest.len() as u32;
         let primitive_start = tlas_data.len() as u32;
 
-        let (tlas_bvh, tlas_traverse_next) =
-          Self::build_tlas(tlas, &blas_box, &mut tlas_data, &mut tlas_bounding);
+        let (tlas_bvh, tlas_traverse_next) = Self::build_tlas(
+          tlas,
+          &blas_data_cpu.blas_bounding,
+          &mut tlas_data,
+          &mut tlas_bounding,
+        );
         let nodes = tlas_bvh
           .nodes
           .iter()
@@ -471,9 +268,6 @@ impl NaiveSahBvhSource {
     let gpu_tlas_data = create_gpu_buffer_non_empty(device, &tlas_data);
     let gpu_tlas_bounding = create_gpu_buffer_non_empty(device, &tlas_bounding);
 
-    let blas_data_cpu = BuiltBlasPack::build(&self.blas_data);
-    let blas_data_gpu = blas_data_cpu.build_gpu(device);
-
     let cpu = NaiveSahBvhCpu {
       tlas_bvh_root,
       tlas_bvh_forest,
@@ -491,13 +285,6 @@ impl NaiveSahBvhSource {
       tlas_bounding: gpu_tlas_bounding,
 
       blas_data: blas_data_gpu,
-
-      blas_meta_info: gpu_blas_meta_info,
-      tri_bvh_root: gpu_tri_bvh_root,
-      tri_bvh_forest: gpu_tri_bvh_forest,
-      indices_redirect: gpu_indices_redirect,
-      indices: gpu_indices,
-      vertices: gpu_vertices,
     });
   }
 }
