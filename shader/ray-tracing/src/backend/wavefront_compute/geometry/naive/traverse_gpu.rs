@@ -1,6 +1,77 @@
 use crate::backend::wavefront_compute::geometry::naive::*;
 
 #[derive(Clone)]
+pub struct BuiltBlasPackGpu {
+  pub blas_meta: StorageBufferReadOnlyDataView<[BlasMeta]>,
+  pub geometry_meta: StorageBufferReadOnlyDataView<[GeometryMeta]>,
+  pub bvh: StorageBufferReadOnlyDataView<[DeviceBVHNode]>,
+  pub indices_redirect: StorageBufferReadOnlyDataView<[u32]>,
+  pub indices: StorageBufferReadOnlyDataView<[u32]>,
+  pub vertices: StorageBufferReadOnlyDataView<[f32]>,
+}
+
+impl BuiltBlasPack {
+  pub fn build_gpu(&self, device: &GPUDevice) -> BuiltBlasPackGpu {
+    let blas_meta = create_gpu_buffer_non_empty(device, &self.blas_meta);
+    let bvh = create_gpu_buffer_non_empty(device, &self.bvh);
+    let geometry_meta = create_gpu_buffer_non_empty(device, &self.geometry_meta);
+    let indices_redirect = create_gpu_buffer_non_empty(device, &self.indices_redirect);
+    let indices = create_gpu_buffer_non_empty(device, &self.indices);
+    let vertices = create_gpu_buffer_non_empty(device, &cast_slice(&self.vertices).to_vec());
+    BuiltBlasPackGpu {
+      blas_meta,
+      bvh,
+      geometry_meta,
+      indices_redirect,
+      indices,
+      vertices,
+    }
+  }
+}
+
+#[derive(Copy, Clone)]
+pub struct BuiltBlasPackGpuInstance {
+  pub blas_meta: ReadOnlyStorageNode<[BlasMeta]>,
+  pub geometry_meta: ReadOnlyStorageNode<[GeometryMeta]>,
+  pub bvh: ReadOnlyStorageNode<[DeviceBVHNode]>,
+  pub indices_redirect: ReadOnlyStorageNode<[u32]>,
+  pub indices: ReadOnlyStorageNode<[u32]>,
+  pub vertices: ReadOnlyStorageNode<[f32]>,
+}
+
+impl BuiltBlasPackGpu {
+  pub fn build_shader(
+    &self,
+    compute_cx: &mut ShaderComputePipelineBuilder,
+  ) -> BuiltBlasPackGpuInstance {
+    let blas_meta = compute_cx.bind_by(&self.blas_meta);
+    let geometry_meta = compute_cx.bind_by(&self.geometry_meta);
+    let bvh = compute_cx.bind_by(&self.bvh);
+    let indices_redirect = compute_cx.bind_by(&self.indices_redirect);
+    let indices = compute_cx.bind_by(&self.indices);
+    let vertices = compute_cx.bind_by(&self.vertices);
+
+    BuiltBlasPackGpuInstance {
+      blas_meta,
+      geometry_meta,
+      bvh,
+      indices_redirect,
+      indices,
+      vertices,
+    }
+  }
+
+  pub fn bind_pass(&self, builder: &mut BindingBuilder) {
+    builder.bind(&self.blas_meta);
+    builder.bind(&self.geometry_meta);
+    builder.bind(&self.bvh);
+    builder.bind(&self.indices_redirect);
+    builder.bind(&self.indices);
+    builder.bind(&self.vertices);
+  }
+}
+
+#[derive(Clone)]
 pub(super) struct NaiveSahBvhGpu {
   // maps user tlas_id to tlas_bvh root node idx in tlas_bvh_forest
   pub(super) tlas_bvh_root: StorageBufferReadOnlyDataView<[u32]>,
@@ -728,5 +799,44 @@ impl HitInfoVar {
         if_passed();
       },
     );
+  }
+}
+
+pub struct TraverseBvhIteratorGpu2 {
+  pub bvh: ReadOnlyStorageNode<[DeviceBVHNode]>,
+  pub ray: Node<Ray>,
+  pub ray_range: RayRangeGpu,
+  pub bvh_offset: Node<u32>,
+
+  pub curr_idx: LocalVarNode<u32>,
+}
+impl ShaderIterator for TraverseBvhIteratorGpu2 {
+  type Item = Node<Vec2<u32>>; // node content range
+  fn shader_next(&self) -> (Node<bool>, Self::Item) {
+    let has_next = val(false).make_local_var();
+    let item = zeroed_val().make_local_var();
+
+    loop_by(|loop_cx| {
+      let idx = self.curr_idx.load();
+      if_by(idx.equals(val(INVALID_NEXT)), || loop_cx.do_break());
+      let node = self.bvh.index(idx + self.bvh_offset).load().expand();
+      let (near, far) = self.ray_range.get();
+      let hit_aabb = intersect_ray_aabb_gpu(self.ray, node.aabb_min, node.aabb_max, near, far);
+
+      if_by(hit_aabb, || {
+        let is_leaf = node.hit_next.equals(node.miss_next);
+        self.curr_idx.store(node.hit_next);
+        if_by(is_leaf, || {
+          has_next.store(val(true));
+          item.store(node.content_range);
+          loop_cx.do_break();
+        });
+      })
+      .else_by(|| {
+        self.curr_idx.store(node.miss_next);
+      });
+    });
+
+    (has_next.load(), item.load())
   }
 }
