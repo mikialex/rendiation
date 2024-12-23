@@ -142,7 +142,6 @@ fn intersect_ray_triangle_cpu(
     }
   }
 
-  // todo cull
   let w0 = origin - v0;
   let a = -normal.dot(w0);
   let t = a / b;

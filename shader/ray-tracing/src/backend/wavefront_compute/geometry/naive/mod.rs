@@ -426,28 +426,16 @@ impl NaiveSahBvhSource {
     //   box_bvh_forest.extend(nodes);
     // }
 
-    fn create_gpu_buffer<T>(device: &GPUDevice, data: &Vec<T>) -> StorageBufferReadOnlyDataView<[T]>
-    where
-      [T]: Std430MaybeUnsized,
-      T: Zeroable,
-    {
-      if data.is_empty() {
-        let data = vec![T::zeroed()];
-        StorageBufferReadOnlyDataView::create(device, &data)
-      } else {
-        StorageBufferReadOnlyDataView::create(device, data)
-      }
-    }
     // upload blas
     use bytemuck::cast_slice;
-    let gpu_blas_meta_info = create_gpu_buffer(device, &blas_meta_info);
-    let gpu_tri_bvh_root = create_gpu_buffer(device, &tri_bvh_root);
+    let gpu_blas_meta_info = create_gpu_buffer_non_empty(device, &blas_meta_info);
+    let gpu_tri_bvh_root = create_gpu_buffer_non_empty(device, &tri_bvh_root);
     // let gpu_box_bvh_root = create_gpu_buffer(device, &box_bvh_root);
-    let gpu_tri_bvh_forest = create_gpu_buffer(device, &tri_bvh_forest);
+    let gpu_tri_bvh_forest = create_gpu_buffer_non_empty(device, &tri_bvh_forest);
     // let gpu_box_bvh_forest = create_gpu_buffer(device, &box_bvh_forest);
-    let gpu_indices_redirect = create_gpu_buffer(device, &indices_redirect);
-    let gpu_indices = create_gpu_buffer(device, &indices);
-    let gpu_vertices = create_gpu_buffer(device, &cast_slice(&vertices).to_vec());
+    let gpu_indices_redirect = create_gpu_buffer_non_empty(device, &indices_redirect);
+    let gpu_indices = create_gpu_buffer_non_empty(device, &indices);
+    let gpu_vertices = create_gpu_buffer_non_empty(device, &cast_slice(&vertices).to_vec());
     // let gpu_boxes = create_gpu_buffer(device, &cast_slice(&boxes).to_vec());
 
     // build tlas
@@ -478,19 +466,20 @@ impl NaiveSahBvhSource {
     }
 
     // upload tlas
-    let gpu_tlas_bvh_root = create_gpu_buffer(device, &tlas_bvh_root);
-    let gpu_tlas_bvh_forest = create_gpu_buffer(device, &tlas_bvh_forest);
-    let gpu_tlas_data = create_gpu_buffer(device, &tlas_data);
-    let gpu_tlas_bounding = create_gpu_buffer(device, &tlas_bounding);
+    let gpu_tlas_bvh_root = create_gpu_buffer_non_empty(device, &tlas_bvh_root);
+    let gpu_tlas_bvh_forest = create_gpu_buffer_non_empty(device, &tlas_bvh_forest);
+    let gpu_tlas_data = create_gpu_buffer_non_empty(device, &tlas_data);
+    let gpu_tlas_bounding = create_gpu_buffer_non_empty(device, &tlas_bounding);
 
-    let blas_sys = BuiltBlasPack::build(&self.blas_data);
+    let blas_data_cpu = BuiltBlasPack::build(&self.blas_data);
+    let blas_data_gpu = blas_data_cpu.build_gpu(device);
 
     let cpu = NaiveSahBvhCpu {
       tlas_bvh_root,
       tlas_bvh_forest,
       tlas_data,
       tlas_bounding,
-      blas_sys,
+      blas_data: blas_data_cpu,
     };
     // println!("{cpu:#?}");
     *cpu_data = Some(cpu);
@@ -500,6 +489,9 @@ impl NaiveSahBvhSource {
       tlas_bvh_forest: gpu_tlas_bvh_forest,
       tlas_data: gpu_tlas_data,
       tlas_bounding: gpu_tlas_bounding,
+
+      blas_data: blas_data_gpu,
+
       blas_meta_info: gpu_blas_meta_info,
       tri_bvh_root: gpu_tri_bvh_root,
       tri_bvh_forest: gpu_tri_bvh_forest,
@@ -623,4 +615,20 @@ fn compute_bvh_next<B: BVHBounding>(flatten_nodes: &[FlattenBVHNode<B>]) -> Vec<
     result.push((hit, miss));
   }
   result
+}
+
+pub(crate) fn create_gpu_buffer_non_empty<T>(
+  device: &GPUDevice,
+  data: &Vec<T>,
+) -> StorageBufferReadOnlyDataView<[T]>
+where
+  [T]: Std430MaybeUnsized,
+  T: Zeroable,
+{
+  if data.is_empty() {
+    let data = vec![T::zeroed()];
+    StorageBufferReadOnlyDataView::create(device, &data)
+  } else {
+    StorageBufferReadOnlyDataView::create(device, data)
+  }
 }

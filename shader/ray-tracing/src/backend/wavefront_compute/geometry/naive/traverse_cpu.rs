@@ -14,7 +14,7 @@ pub(super) struct NaiveSahBvhCpu {
   pub(super) tlas_data: Vec<TopLevelAccelerationStructureSourceDeviceInstance>,
   pub(super) tlas_bounding: Vec<TlasBounding>,
 
-  pub(super) blas_sys: BuiltBlasPack,
+  pub(super) blas_data: BuiltBlasPack,
 }
 
 use std::sync::atomic::AtomicU32;
@@ -76,7 +76,7 @@ impl NaiveSahBvhCpu {
         let blas_ray_direction = blas_ray_direction.normalize();
 
         if flags.visit_triangles() {
-          let end_search = self.blas_sys.intersect_blas_cpu(
+          let end_search = self.blas_data.intersect_blas_cpu(
             blas_idx,
             blas_ray_origin,
             blas_ray_direction,

@@ -11,6 +11,8 @@ pub(super) struct NaiveSahBvhGpu {
     StorageBufferReadOnlyDataView<[TopLevelAccelerationStructureSourceDeviceInstance]>,
   pub(super) tlas_bounding: StorageBufferReadOnlyDataView<[TlasBounding]>,
 
+  pub(super) blas_data: BuiltBlasPackGpu,
+
   // tri_range to index tri_bvh_root, box_range to index box_bvh_root
   pub(super) blas_meta_info: StorageBufferReadOnlyDataView<[BlasMetaInfo]>,
   // tri_bvh_forest root_idx, geometry_idx, primitive_start, geometry_flags
@@ -36,6 +38,9 @@ impl GPUAccelerationStructureSystemCompImplInstance for NaiveSahBvhGpu {
     let tlas_bvh_forest = compute_cx.bind_by(&self.tlas_bvh_forest);
     let tlas_data = compute_cx.bind_by(&self.tlas_data);
     let tlas_bounding = compute_cx.bind_by(&self.tlas_bounding);
+
+    let blas_data = self.blas_data.build_shader(compute_cx);
+
     let blas_meta_info = compute_cx.bind_by(&self.blas_meta_info);
     let tri_bvh_root = compute_cx.bind_by(&self.tri_bvh_root);
     // let box_bvh_root = compute_cx.bind_by(&self.box_bvh_root);
@@ -51,6 +56,9 @@ impl GPUAccelerationStructureSystemCompImplInstance for NaiveSahBvhGpu {
       tlas_bvh_forest,
       tlas_data,
       tlas_bounding,
+
+      blas_data,
+
       blas_meta_info,
       tri_bvh_root,
       // box_bvh_root,
@@ -70,6 +78,9 @@ impl GPUAccelerationStructureSystemCompImplInstance for NaiveSahBvhGpu {
     builder.bind(&self.tlas_bvh_forest);
     builder.bind(&self.tlas_data);
     builder.bind(&self.tlas_bounding);
+
+    self.blas_data.bind_pass(builder);
+
     builder.bind(&self.blas_meta_info);
     builder.bind(&self.tri_bvh_root);
     // builder.bind(&self.box_bvh_root);
@@ -93,6 +104,9 @@ pub struct NaiveSahBVHInvocationInstance {
   tlas_bvh_forest: ReadOnlyStorageNode<[DeviceBVHNode]>,
   tlas_data: ReadOnlyStorageNode<[TopLevelAccelerationStructureSourceDeviceInstance]>,
   tlas_bounding: ReadOnlyStorageNode<[TlasBounding]>,
+
+  blas_data: BuiltBlasPackGpuInstance,
+
   blas_meta_info: ReadOnlyStorageNode<[BlasMetaInfo]>,
   tri_bvh_root: ReadOnlyStorageNode<[GeometryMetaInfo]>,
   // box_bvh_root: ReadOnlyStorageNode<[GeometryMetaInfo]>,
@@ -236,7 +250,9 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
       world_ray_range.clone(),
     );
 
-    let blas_iter = iterate_tlas_blas_gpu(tlas_idx_iter, self.tlas_data, self.blas_meta_info, ray);
+    // let blas_iter = iterate_tlas_blas_gpu(tlas_idx_iter, self.tlas_data, self.blas_meta_info, ray);
+    let blas_iter2 =
+      iterate_tlas_blas_gpu2(tlas_idx_iter, self.tlas_data, self.blas_data.blas_meta, ray);
 
     // construct ctx
     let launch_info = RayLaunchInfo {
@@ -264,18 +280,11 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
       offset: trace_payload.payload_ref,
     };
 
-    intersect_blas_gpu(
+    intersect_blas_gpu2(
       user_defined_payload,
-      blas_iter,
+      blas_iter2,
       self.tlas_data,
-      self.tri_bvh_root,
-      self.tri_bvh_forest,
-      // self.box_bvh_root,
-      // self.box_bvh_forest,
-      self.indices_redirect,
-      self.indices,
-      self.vertices,
-      // self.boxes,
+      self.blas_data,
       intersect,
       any_hit,
       launch_info,
@@ -658,6 +667,262 @@ fn intersect_blas_gpu(
                 },
               );
             });
+
+            if_by(end_search.load(), || tri_loop.do_break());
+          });
+        });
+        if_by(end_search.load(), || mesh_loop.do_break());
+      });
+    });
+
+    if_by(end_search.load(), || blas_loop.do_break());
+  });
+}
+
+fn iterate_tlas_blas_gpu2(
+  tlas_iter: impl ShaderIterator<Item = Node<u32>>,
+  tlas_data: ReadOnlyStorageNode<[TopLevelAccelerationStructureSourceDeviceInstance]>,
+  blas_data: ReadOnlyStorageNode<[BlasMeta]>,
+  ray: Node<Ray>,
+) -> impl ShaderIterator<Item = Node<RayBlas2>> {
+  tlas_iter.map(move |idx: Node<u32>| {
+    let ray = ray.expand();
+    let tlas = tlas_data.index(idx);
+    let flags = TopLevelAccelerationStructureSourceDeviceInstance::readonly_storage_node_flags_field_ptr(tlas).load();
+    let transform_inv = TopLevelAccelerationStructureSourceDeviceInstance::readonly_storage_node_transform_inv_field_ptr(tlas).load();
+    let acceleration_structure_handle = TopLevelAccelerationStructureSourceDeviceInstance::readonly_storage_node_acceleration_structure_handle_field_ptr(tlas).load();
+
+    let flags = TraverseFlagsGpu::from_ray_flag(ray.flags).merge_geometry_instance_flag(flags);
+
+    // transform ray to blas space
+    let blas_ray_origin = transform_inv * (ray.origin, val(1.)).into();
+    let blas_ray_origin = blas_ray_origin.xyz() / blas_ray_origin.w().splat();
+    let blas_ray_direction = transform_inv.shrink_to_3() * ray.direction;
+    let distance_scaling = blas_ray_direction.length();
+    let blas_ray_direction = blas_ray_direction.normalize();
+
+    let blas_ray = Ray::construct(RayShaderAPIInstance {
+      origin: blas_ray_origin,
+      flags: ray.flags,
+      direction: blas_ray_direction,
+      mask: ray.mask,
+    });
+
+    let blas_idx = acceleration_structure_handle;
+    let blas_data = blas_data.index(blas_idx).load();
+
+    RayBlas2::construct(RayBlas2ShaderAPIInstance {
+      ray: blas_ray,
+      blas: blas_data,
+      tlas_idx: idx,
+      distance_scaling,
+      flags: flags.as_u32(),
+    })
+  })
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, ShaderStruct)]
+struct RayBlas2 {
+  pub ray: Ray,
+  pub blas: BlasMeta,
+  pub tlas_idx: u32,
+  pub distance_scaling: f32,
+  pub flags: u32,
+}
+
+fn intersect_blas_gpu2(
+  user_defined_payload: U32BufferLoadStoreSource,
+  blas_iter: impl ShaderIterator<Item = Node<RayBlas2>>,
+  tlas_data: ReadOnlyStorageNode<[TopLevelAccelerationStructureSourceDeviceInstance]>,
+
+  blas_data: BuiltBlasPackGpuInstance,
+
+  intersect: &dyn Fn(&RayIntersectCtx, &dyn IntersectionReporter),
+  any_hit: &dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
+
+  launch_info: RayLaunchInfo,
+  world_ray: WorldRayInfo,
+  closest_hit_ctx_var: &HitCtxInfoVar, // output
+  closest_hit_var: &HitInfoVar,        // output
+
+  world_ray_range: RayRangeGpu, // input/output
+) {
+  let hit_ctx_curr = HitCtxInfoVar::default();
+  let end_search = val(false).make_local_var();
+
+  blas_iter.for_each(|ray_blas, blas_loop| {
+    let ray_blas = ray_blas.expand();
+    let ray = ray_blas.ray;
+    let blas = ray_blas.blas.expand();
+    let flags = TraverseFlagsGpu::from_ray_flag(ray_blas.flags);
+    let distance_scaling = ray_blas.distance_scaling;
+    let local_ray_range = world_ray_range.clone_with_scaling(distance_scaling);
+
+    ForRange::new(
+      (
+        val(0),
+        val(0) + blas.geometry_count,
+      )
+        .into(),
+    )
+    .for_each(move |geometry_idx, mesh_loop| {
+      let geometry = blas_data.geometry_meta.index(blas.geometry_offset + geometry_idx).load().expand();
+      let bvh_root = geometry.bvh_root + blas.bvh_offset;
+      let primitive_offset = geometry.primitives_offset + blas.primitives_offset;
+      let vertices_offset = geometry.vertices_offset + blas.vertices_offset;
+      let geometry_id = geometry.geometry_idx;
+      let geometry_flags = geometry.geometry_flags;
+
+      let (pass, is_opaque) = flags.cull_geometry(geometry_flags);
+      if_by(pass.not(), || {
+        mesh_loop.do_continue();
+      });
+      let (cull_enable, cull_back) = flags.cull_triangle();
+
+      let local_ray_range = local_ray_range.clone();
+      if_by(flags.visit_triangles(), move || {
+        let bvh_iter = TraverseBvhIteratorGpu2 {
+          bvh: blas_data.bvh,
+          ray,
+          ray_range: local_ray_range.clone(),
+          bvh_offset: bvh_root,
+          curr_idx: val(0).make_local_var(),
+        };
+        let tri_idx_iter = bvh_iter.flat_map(ForRange::new); // triangle index
+
+        let ray = ray.expand();
+
+        fn read_vec3<T: ShaderNodeType>(
+          idx: Node<u32>,
+          array: ReadOnlyStorageNode<[T]>,
+        ) -> [Node<T>; 3] {
+          let i = idx * val(3);
+          let v0 = array.index(i).load();
+          let v1 = array.index(i + val(1)).load();
+          let v2 = array.index(i + val(2)).load();
+          [v0, v1, v2]
+        }
+
+        tri_idx_iter.for_each(move |tri_idx, tri_loop| {
+          let primitive_idx_local = blas_data
+            .indices_redirect
+            .index(tri_idx + primitive_offset)
+            .load();
+          let primitive_idx = primitive_idx_local + primitive_offset;
+          let [i0, i1, i2] = read_vec3(primitive_idx, blas_data.indices);
+          let [v0x, v0y, v0z] = read_vec3(i0 + vertices_offset, blas_data.vertices);
+          let [v1x, v1y, v1z] = read_vec3(i1 + vertices_offset, blas_data.vertices);
+          let [v2x, v2y, v2z] = read_vec3(i2 + vertices_offset, blas_data.vertices);
+          let v0 = Node::<Vec3<f32>>::from((v0x, v0y, v0z));
+          let v1 = Node::<Vec3<f32>>::from((v1x, v1y, v1z));
+          let v2 = Node::<Vec3<f32>>::from((v2x, v2y, v2z));
+
+          let (near, far) = local_ray_range.get();
+          // returns (hit, distance, u, v), hit = front hit -> 1, back hit -> -1, miss -> 0
+          let result = intersect_ray_triangle_gpu(
+            ray.origin,
+            ray.direction,
+            near,
+            far,
+            v0,
+            v1,
+            v2,
+            cull_enable,
+            cull_back,
+          );
+          let hit_face = result.x();
+          let hit = hit_face.not_equals(val(0.));
+          let local_ray_range = local_ray_range.clone();
+          if_by(hit, move || {
+            let world_distance = result.y() / distance_scaling;
+
+            let hit_kind = val(HIT_KIND_FRONT_FACING_TRIANGLE).make_local_var();
+            if_by(hit_face.less_than(val(0.)), || {
+              hit_kind.store(val(HIT_KIND_BACK_FACING_TRIANGLE));
+            });
+
+            // load tlas, write to hit ctx
+            if_by(
+              hit_ctx_curr
+                .instance_id
+                .load()
+                .not_equals(ray_blas.tlas_idx),
+              || {
+                let ptr = tlas_data.index(ray_blas.tlas_idx);
+                let instance_shader_binding_table_record_offset = TopLevelAccelerationStructureSourceDeviceInstance::readonly_storage_node_instance_shader_binding_table_record_offset_field_ptr(ptr).load();
+                let instance_custom_index = TopLevelAccelerationStructureSourceDeviceInstance::readonly_storage_node_instance_custom_index_field_ptr(ptr).load();
+                hit_ctx_curr.instance_id.store(ray_blas.tlas_idx);
+                hit_ctx_curr
+                  .instance_sbt_offset
+                  .store(instance_shader_binding_table_record_offset);
+                hit_ctx_curr
+                  .instance_custom_id
+                  .store(instance_custom_index);
+              },
+            );
+
+            hit_ctx_curr.primitive_id.store(primitive_idx_local);
+            hit_ctx_curr.geometry_id.store(geometry_id);
+            hit_ctx_curr.object_space_ray_origin.store(ray.origin);
+            hit_ctx_curr.object_space_ray_direction.store(ray.direction);
+
+            let hit_ctx = hit_ctx_curr.load(tlas_data);
+
+            if_by(is_opaque, || {
+              // opaque -> invoke any_hit directly
+
+              let attribute = BuiltInTriangleHitAttributeShaderAPIInstance {
+                bary_coord: result.zw(),
+              }
+                .construct();
+
+              let any_hit_ctx = RayAnyHitCtx {
+                launch_info,
+                world_ray,
+                hit_ctx,
+                hit: HitInfo {
+                  hit_kind: hit_kind.load(),
+                  hit_distance: world_distance,
+                  hit_attribute: attribute,
+                },
+                payload: user_defined_payload,
+              };
+              resolve_any_hit(
+                |_| {
+                  local_ray_range.update_world_far(world_distance);
+                  if_by(flags.end_search_on_hit(), || end_search.store(true));
+                },
+                || end_search.store(true),
+                any_hit,
+                &any_hit_ctx,
+                closest_hit_ctx_var,
+                closest_hit_var,
+              );
+            })
+              .else_by(|| {
+                // non-opaque -> invoke intersect
+                let intersect_ctx = RayIntersectCtx {
+                  launch_info,
+                  world_ray,
+                  hit_ctx,
+                };
+                // intersect will invoke any_hit and then update closest_hit.
+                intersect(
+                  &intersect_ctx,
+                  &NaiveIntersectReporter {
+                    launch_info,
+                    world_ray,
+                    hit_ctx,
+                    closest_hit_ctx_info: closest_hit_ctx_var,
+                    closest_hit_info: closest_hit_var,
+                    ray_range: local_ray_range.clone(),
+                    any_hit,
+                    on_end_search: Box::new(move || end_search.store(true)),
+                    user_defined_payload,
+                  },
+                );
+              });
 
             if_by(end_search.load(), || tri_loop.do_break());
           });

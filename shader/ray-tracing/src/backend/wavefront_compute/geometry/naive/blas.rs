@@ -21,7 +21,7 @@ use crate::*;
 #[repr(C)]
 #[std430_layout]
 #[derive(Copy, Clone, ShaderStruct)]
-struct GeometryMeta {
+pub struct GeometryMeta {
   pub bvh_root: u32,
   pub geometry_flags: GeometryFlags,
   pub geometry_idx: u32,
@@ -31,7 +31,7 @@ struct GeometryMeta {
 #[repr(C)]
 #[std430_layout]
 #[derive(Copy, Clone, ShaderStruct)]
-struct BlasMeta {
+pub struct BlasMeta {
   pub geometry_count: u32,
   pub geometry_offset: u32,
   pub bvh_offset: u32,
@@ -287,6 +287,23 @@ pub struct HitPoint {
 }
 
 impl BuiltBlasPack {
+  pub fn build_gpu(&self, device: &GPUDevice) -> BuiltBlasPackGpu {
+    let blas_meta = create_gpu_buffer_non_empty(device, &self.blas_meta);
+    let bvh = create_gpu_buffer_non_empty(device, &self.bvh);
+    let geometry_meta = create_gpu_buffer_non_empty(device, &self.geometry_meta);
+    let indices_redirect = create_gpu_buffer_non_empty(device, &self.indices_redirect);
+    let indices = create_gpu_buffer_non_empty(device, &self.indices);
+    let vertices = create_gpu_buffer_non_empty(device, &cast_slice(&self.vertices).to_vec());
+    BuiltBlasPackGpu {
+      blas_meta,
+      bvh,
+      geometry_meta,
+      indices_redirect,
+      indices,
+      vertices,
+    }
+  }
+
   /// returns end_search
   pub fn intersect_blas_cpu(
     &self,
@@ -333,8 +350,8 @@ impl BuiltBlasPack {
         let end = content_range.y + geometry_meta.primitives_offset;
 
         for primitive_idx in start..end {
-          let primitive_idx_raw = self.indices_redirect[primitive_idx as usize];
-          let primitive_idx = (primitive_idx_raw + geometry_meta.primitives_offset) as usize;
+          let primitive_idx_local = self.indices_redirect[primitive_idx as usize];
+          let primitive_idx = (primitive_idx_local + geometry_meta.primitives_offset) as usize;
           let a = self.indices[primitive_idx * 3] + geometry_meta.vertices_offset;
           let b = self.indices[primitive_idx * 3 + 1] + geometry_meta.vertices_offset;
           let c = self.indices[primitive_idx * 3 + 2] + geometry_meta.vertices_offset;
@@ -364,7 +381,7 @@ impl BuiltBlasPack {
 
             let hit_point = HitPoint {
               geometry_idx,
-              primitive_idx: primitive_idx_raw,
+              primitive_idx: primitive_idx_local,
               distance,
               position,
               uv: vec2(intersection[2], intersection[3]),
@@ -390,31 +407,27 @@ impl BuiltBlasPack {
   }
 }
 
+#[derive(Clone)]
 pub struct BuiltBlasPackGpu {
-  blas_meta: StorageBufferReadOnlyDataView<[BlasMeta]>, // length = blas count
-
-  geometry_meta: StorageBufferReadOnlyDataView<[GeometryMeta]>, // length = geometry count
-
-  bvh: StorageBufferReadOnlyDataView<[DeviceBVHNode]>, // next = hit/miss + root of geometry_idx
-
-  indices_redirect: StorageBufferReadOnlyDataView<[u32]>, // bvh node index -> primitive id
+  blas_meta: StorageBufferReadOnlyDataView<[BlasMeta]>,
+  geometry_meta: StorageBufferReadOnlyDataView<[GeometryMeta]>,
+  bvh: StorageBufferReadOnlyDataView<[DeviceBVHNode]>,
+  indices_redirect: StorageBufferReadOnlyDataView<[u32]>,
   indices: StorageBufferReadOnlyDataView<[u32]>,
   vertices: StorageBufferReadOnlyDataView<[f32]>,
 }
+#[derive(Copy, Clone)]
 pub struct BuiltBlasPackGpuInstance {
-  blas_meta: ReadOnlyStorageNode<[BlasMeta]>, // length = blas count
-
-  geometry_meta: ReadOnlyStorageNode<[GeometryMeta]>, // length = geometry count
-
-  bvh: ReadOnlyStorageNode<[DeviceBVHNode]>, // next = hit/miss + root of geometry_idx
-
-  indices_redirect: ReadOnlyStorageNode<[u32]>, // bvh node index -> primitive id
-  indices: ReadOnlyStorageNode<[u32]>,
-  vertices: ReadOnlyStorageNode<[f32]>,
+  pub blas_meta: ReadOnlyStorageNode<[BlasMeta]>,
+  pub geometry_meta: ReadOnlyStorageNode<[GeometryMeta]>,
+  pub bvh: ReadOnlyStorageNode<[DeviceBVHNode]>,
+  pub indices_redirect: ReadOnlyStorageNode<[u32]>,
+  pub indices: ReadOnlyStorageNode<[u32]>,
+  pub vertices: ReadOnlyStorageNode<[f32]>,
 }
 
 impl BuiltBlasPackGpu {
-  fn build_shader(
+  pub fn build_shader(
     &self,
     compute_cx: &mut ShaderComputePipelineBuilder,
   ) -> BuiltBlasPackGpuInstance {
@@ -435,7 +448,7 @@ impl BuiltBlasPackGpu {
     }
   }
 
-  fn bind_pass(&self, builder: &mut BindingBuilder) {
+  pub fn bind_pass(&self, builder: &mut BindingBuilder) {
     builder.bind(&self.blas_meta);
     builder.bind(&self.geometry_meta);
     builder.bind(&self.bvh);
@@ -445,13 +458,13 @@ impl BuiltBlasPackGpu {
   }
 }
 
-struct TraverseBvhIteratorGpu2 {
-  bvh: ReadOnlyStorageNode<[DeviceBVHNode]>,
-  ray: Node<Ray>,
-  ray_range: RayRangeGpu,
-  bvh_offset: Node<u32>,
+pub struct TraverseBvhIteratorGpu2 {
+  pub bvh: ReadOnlyStorageNode<[DeviceBVHNode]>,
+  pub ray: Node<Ray>,
+  pub ray_range: RayRangeGpu,
+  pub bvh_offset: Node<u32>,
 
-  curr_idx: LocalVarNode<u32>,
+  pub curr_idx: LocalVarNode<u32>,
 }
 impl ShaderIterator for TraverseBvhIteratorGpu2 {
   type Item = Node<Vec2<u32>>; // node content range
@@ -460,9 +473,9 @@ impl ShaderIterator for TraverseBvhIteratorGpu2 {
     let item = zeroed_val().make_local_var();
 
     loop_by(|loop_cx| {
-      let idx = self.curr_idx.load() + self.bvh_offset;
+      let idx = self.curr_idx.load();
       if_by(idx.equals(val(INVALID_NEXT)), || loop_cx.do_break());
-      let node = self.bvh.index(idx).load().expand();
+      let node = self.bvh.index(idx + self.bvh_offset).load().expand();
       let (near, far) = self.ray_range.get();
       let hit_aabb = intersect_ray_aabb_gpu(self.ray, node.aabb_min, node.aabb_max, near, far);
 
