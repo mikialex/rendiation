@@ -34,7 +34,7 @@ struct BuiltGeometry {
   geometry_flags: GeometryFlags,
   geometry_idx: u32,
   bvh: Vec<DeviceBVHNode>,
-  indices_redirect: Vec<u32>,
+  primitive_redirect: Vec<u32>,
   indices: Vec<u32>,
   vertices: Vec<Vec3<f32>>,
 }
@@ -82,7 +82,7 @@ impl BuiltGeometry {
     );
     let bvh_nodes = bvh.nodes;
     let hit_miss = compute_bvh_next(&bvh_nodes);
-    let geometry_indices_redirect = bvh
+    let geometry_primitive_redirect = bvh
       .sorted_primitive_index
       .into_iter()
       .map(|i| i as u32)
@@ -98,7 +98,7 @@ impl BuiltGeometry {
       geometry_flags: flags,
       geometry_idx,
       bvh: bvh_nodes,
-      indices_redirect: geometry_indices_redirect,
+      primitive_redirect: geometry_primitive_redirect,
       indices,
       vertices: vertices.clone(),
     }
@@ -113,16 +113,30 @@ struct BuiltGeometryPack {
 
   bvh: Vec<DeviceBVHNode>,
 
-  indices_redirect: Vec<u32>,
+  primitive_redirect: Vec<u32>,
   indices: Vec<u32>,
   vertices: Vec<Vec3<f32>>,
 }
 impl BuiltGeometryPack {
+  pub fn build(source: &Vec<BottomLevelAccelerationStructureBuildSource>) -> Self {
+    let built_geometry_list = source
+      .iter()
+      .enumerate()
+      .filter_map(|(geometry_idx, geometry)| match &geometry.geometry {
+        BottomLevelAccelerationStructureBuildBuffer::Triangles { positions, indices } => Some(
+          BuiltGeometry::build(geometry_idx as u32, geometry.flags, positions, indices),
+        ),
+        BottomLevelAccelerationStructureBuildBuffer::AABBs { .. } => None,
+      })
+      .collect::<Vec<_>>();
+    Self::pack(built_geometry_list)
+  }
+
   fn pack(built_geometry_triangles: Vec<BuiltGeometry>) -> Self {
     let mut bounding = Box3::default();
     let mut bvh = vec![];
     let mut geometry_meta = vec![];
-    let mut indices_redirect = vec![];
+    let mut primitive_redirect = vec![];
     let mut indices = vec![];
     let mut vertices = vec![];
     // todo optimize for single geometry
@@ -142,7 +156,7 @@ impl BuiltGeometryPack {
         built_geometry.bvh[0].aabb_max,
       ));
       bvh.extend(built_geometry.bvh);
-      indices_redirect.extend(built_geometry.indices_redirect);
+      primitive_redirect.extend(built_geometry.primitive_redirect);
       indices.extend(built_geometry.indices);
       vertices.extend(built_geometry.vertices);
     }
@@ -150,7 +164,7 @@ impl BuiltGeometryPack {
       bounding,
       bvh,
       geometry_meta,
-      indices_redirect,
+      primitive_redirect,
       indices,
       vertices,
     }
@@ -166,48 +180,32 @@ pub struct BuiltBlasPack {
 
   pub bvh: Vec<DeviceBVHNode>, // next = hit/miss + root of geometry_idx
 
-  pub indices_redirect: Vec<u32>, // bvh node index -> primitive id
+  pub primitive_redirect: Vec<u32>, // bvh node index -> primitive id
   pub indices: Vec<u32>,
   pub vertices: Vec<Vec3<f32>>,
 }
 impl BuiltBlasPack {
   pub fn build(sources: &[Option<Vec<BottomLevelAccelerationStructureBuildSource>>]) -> Self {
-    let built_blas_list = sources
+    let built_blas_list: Vec<_> = sources
       .iter()
       .map(|source| {
         if let Some(source) = source {
-          let built_geometry_list = source
-            .iter()
-            .enumerate()
-            .filter_map(|(geometry_idx, geometry)| match &geometry.geometry {
-              BottomLevelAccelerationStructureBuildBuffer::Triangles { positions, indices } => {
-                Some(BuiltGeometry::build(
-                  geometry_idx as u32,
-                  geometry.flags,
-                  positions,
-                  indices,
-                ))
-              }
-              BottomLevelAccelerationStructureBuildBuffer::AABBs { .. } => None,
-            })
-            .collect::<Vec<_>>();
-          BuiltGeometryPack::pack(built_geometry_list)
+          BuiltGeometryPack::build(source)
         } else {
-          let geometry = BuiltGeometry::default();
-          BuiltGeometryPack::pack(vec![geometry])
+          BuiltGeometryPack::pack(vec![BuiltGeometry::default()])
         }
       })
       .collect();
 
-    Self::pack(built_blas_list)
+    Self::pack(&built_blas_list)
   }
 
-  fn pack(blas: Vec<BuiltGeometryPack>) -> Self {
+  fn pack(blas: &[BuiltGeometryPack]) -> Self {
     let mut blas_bounding = vec![];
     let mut blas_meta = vec![];
     let mut bvh = vec![];
     let mut geometry_meta = vec![];
-    let mut indices_redirect = vec![];
+    let mut primitive_redirect = vec![];
     let mut indices = vec![];
     let mut vertices = vec![];
     for built_blas in blas {
@@ -222,18 +220,18 @@ impl BuiltBlasPack {
         vertices_offset: vertices.len() as u32,
         ..Zeroable::zeroed()
       });
-      bvh.extend(built_blas.bvh);
-      geometry_meta.extend(built_blas.geometry_meta);
-      indices_redirect.extend(built_blas.indices_redirect);
-      indices.extend(built_blas.indices);
-      vertices.extend(built_blas.vertices);
+      bvh.extend_from_slice(&built_blas.bvh);
+      geometry_meta.extend_from_slice(&built_blas.geometry_meta);
+      primitive_redirect.extend_from_slice(&built_blas.primitive_redirect);
+      indices.extend_from_slice(&built_blas.indices);
+      vertices.extend_from_slice(&built_blas.vertices);
     }
     Self {
       blas_bounding,
       blas_meta,
       bvh,
       geometry_meta,
-      indices_redirect,
+      primitive_redirect,
       indices,
       vertices,
     }

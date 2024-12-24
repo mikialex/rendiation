@@ -31,7 +31,7 @@ pub struct TopLevelAccelerationStructureSourceDeviceInstance {
   pub instance_custom_index: u32,
   pub instance_shader_binding_table_record_offset: u32,
   pub flags: u32,
-  pub acceleration_structure_handle: u32, // blas index
+  pub acceleration_structure_handle: u32, // blas id
 }
 #[repr(C)]
 #[std430_layout]
@@ -54,28 +54,10 @@ struct DeviceBVHNode {
   pub content_range: Vec2<u32>,
 }
 
-#[repr(C)]
-#[std430_layout]
-#[derive(Clone, Copy, PartialEq, Debug, ShaderStruct)]
-struct BlasMetaInfo {
-  pub tri_root_range: Vec2<u32>,
-  // pub box_root_range: Vec2<u32>,
-}
-
-#[repr(C)]
-#[std430_layout]
-#[derive(Clone, Copy, PartialEq, Debug, ShaderStruct)]
-struct GeometryMetaInfo {
-  pub bvh_root_idx: u32,
-  pub geometry_idx: u32,
-  pub primitive_start: u32,
-  pub geometry_flags: u32,
-}
-
 #[derive(Default)]
 struct NaiveSahBvhSource {
-  blas_data: Vec<Option<Vec<BottomLevelAccelerationStructureBuildSource>>>,
-  tlas_data: Vec<Option<Vec<TopLevelAccelerationStructureSourceInstance>>>,
+  blas_source: Vec<Option<Vec<BottomLevelAccelerationStructureBuildSource>>>,
+  tlas_source: Vec<Option<Vec<TopLevelAccelerationStructureSourceInstance>>>,
   blas_free_list: Vec<usize>,
   tlas_free_list: Vec<usize>,
 }
@@ -83,13 +65,13 @@ struct NaiveSahBvhSource {
 impl NaiveSahBvhSource {
   pub fn create_blas(&mut self, source: &[BottomLevelAccelerationStructureBuildSource]) -> u32 {
     let index = if let Some(index) = self.blas_free_list.pop() {
-      assert!(self.blas_data[index].is_none());
-      self.blas_data[index] = Some(source.to_vec());
+      assert!(self.blas_source[index].is_none());
+      self.blas_source[index] = Some(source.to_vec());
       // println!("create blas reuse {index}");
       index
     } else {
-      let index = self.blas_data.len();
-      self.blas_data.push(Some(source.to_vec()));
+      let index = self.blas_source.len();
+      self.blas_source.push(Some(source.to_vec()));
       // println!("create blas new {index}");
       index
     };
@@ -97,13 +79,13 @@ impl NaiveSahBvhSource {
   }
   pub fn create_tlas(&mut self, source: &[TopLevelAccelerationStructureSourceInstance]) -> u32 {
     let index = if let Some(index) = self.tlas_free_list.pop() {
-      assert!(self.tlas_data[index].is_none());
-      self.tlas_data[index] = Some(source.to_vec());
+      assert!(self.tlas_source[index].is_none());
+      self.tlas_source[index] = Some(source.to_vec());
       // println!("create tlas reuse {index}");
       index
     } else {
-      let index = self.tlas_data.len();
-      self.tlas_data.push(Some(source.to_vec()));
+      let index = self.tlas_source.len();
+      self.tlas_source.push(Some(source.to_vec()));
       // println!("create tlas new {index}");
       index
     };
@@ -111,22 +93,22 @@ impl NaiveSahBvhSource {
   }
   pub fn delete_blas(&mut self, handle: BlasHandle) {
     let index = handle.0 as usize;
-    if index == self.blas_data.len() - 1 {
-      self.blas_data.pop();
+    if index == self.blas_source.len() - 1 {
+      self.blas_source.pop();
       // println!("delete blas {index} shrink");
     } else {
-      self.blas_data[index] = None;
+      self.blas_source[index] = None;
       self.blas_free_list.push(index);
       // println!("delete blas {index} set none");
     }
   }
   pub fn delete_tlas(&mut self, handle: TlasHandle) {
     let index = handle.0 as usize;
-    if index == self.tlas_data.len() - 1 {
-      self.tlas_data.pop();
+    if index == self.tlas_source.len() - 1 {
+      self.tlas_source.pop();
       // println!("delete tlas {index} shrink");
     } else {
-      self.tlas_data[index] = None;
+      self.tlas_source[index] = None;
       self.tlas_free_list.push(index);
       // println!("delete tlas {index} set none");
     }
@@ -197,7 +179,7 @@ impl NaiveSahBvhSource {
     gpu_data: &mut Option<NaiveSahBvhGpu>,
   ) {
     // build blas
-    let blas_data_cpu = BuiltBlasPack::build(&self.blas_data);
+    let blas_data_cpu = BuiltBlasPack::build(&self.blas_source);
     let blas_data_gpu = blas_data_cpu.build_gpu(device);
 
     fn flatten_bvh_to_gpu_node(
@@ -237,7 +219,7 @@ impl NaiveSahBvhSource {
     let mut tlas_data = vec![];
     let mut tlas_bounding = vec![];
 
-    for tlas in &self.tlas_data {
+    for tlas in &self.tlas_source {
       if let Some(tlas) = tlas {
         let bvh_start = tlas_bvh_forest.len() as u32;
         let primitive_start = tlas_data.len() as u32;
@@ -376,7 +358,7 @@ impl GPUAccelerationStructureSystemProvider for NaiveSahBVHSystem {
 
   fn delete_bottom_level_acceleration_structure(&self, handle: BlasHandle) {
     let mut inner = self.inner.write().unwrap();
-    inner.invalidate();
+    // inner.invalidate();
     inner.source.delete_blas(handle)
   }
 }

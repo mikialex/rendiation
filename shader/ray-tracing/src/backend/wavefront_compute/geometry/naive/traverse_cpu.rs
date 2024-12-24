@@ -251,7 +251,7 @@ impl BuiltBlasPack {
         let end = content_range.y + primitives_offset;
 
         for primitive_idx in start..end {
-          let primitive_idx_local = self.indices_redirect[primitive_idx as usize];
+          let primitive_idx_local = self.primitive_redirect[primitive_idx as usize];
           let primitive_idx = (primitive_idx_local + primitives_offset) as usize;
           let a = self.indices[primitive_idx * 3] + vertices_offset;
           let b = self.indices[primitive_idx * 3 + 1] + vertices_offset;

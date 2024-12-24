@@ -5,7 +5,7 @@ pub struct BuiltBlasPackGpu {
   pub blas_meta: StorageBufferReadOnlyDataView<[BlasMeta]>,
   pub geometry_meta: StorageBufferReadOnlyDataView<[GeometryMeta]>,
   pub bvh: StorageBufferReadOnlyDataView<[DeviceBVHNode]>,
-  pub indices_redirect: StorageBufferReadOnlyDataView<[u32]>,
+  pub primitive_redirect: StorageBufferReadOnlyDataView<[u32]>,
   pub indices: StorageBufferReadOnlyDataView<[u32]>,
   pub vertices: StorageBufferReadOnlyDataView<[f32]>,
 }
@@ -15,14 +15,14 @@ impl BuiltBlasPack {
     let blas_meta = create_gpu_buffer_non_empty(device, &self.blas_meta);
     let bvh = create_gpu_buffer_non_empty(device, &self.bvh);
     let geometry_meta = create_gpu_buffer_non_empty(device, &self.geometry_meta);
-    let indices_redirect = create_gpu_buffer_non_empty(device, &self.indices_redirect);
+    let primitive_redirect = create_gpu_buffer_non_empty(device, &self.primitive_redirect);
     let indices = create_gpu_buffer_non_empty(device, &self.indices);
     let vertices = create_gpu_buffer_non_empty(device, &cast_slice(&self.vertices).to_vec());
     BuiltBlasPackGpu {
       blas_meta,
       bvh,
       geometry_meta,
-      indices_redirect,
+      primitive_redirect,
       indices,
       vertices,
     }
@@ -34,7 +34,7 @@ pub struct BuiltBlasPackGpuInstance {
   pub blas_meta: ReadOnlyStorageNode<[BlasMeta]>,
   pub geometry_meta: ReadOnlyStorageNode<[GeometryMeta]>,
   pub bvh: ReadOnlyStorageNode<[DeviceBVHNode]>,
-  pub indices_redirect: ReadOnlyStorageNode<[u32]>,
+  pub primitive_redirect: ReadOnlyStorageNode<[u32]>,
   pub indices: ReadOnlyStorageNode<[u32]>,
   pub vertices: ReadOnlyStorageNode<[f32]>,
 }
@@ -47,7 +47,7 @@ impl BuiltBlasPackGpu {
     let blas_meta = compute_cx.bind_by(&self.blas_meta);
     let geometry_meta = compute_cx.bind_by(&self.geometry_meta);
     let bvh = compute_cx.bind_by(&self.bvh);
-    let indices_redirect = compute_cx.bind_by(&self.indices_redirect);
+    let primitive_redirect = compute_cx.bind_by(&self.primitive_redirect);
     let indices = compute_cx.bind_by(&self.indices);
     let vertices = compute_cx.bind_by(&self.vertices);
 
@@ -55,7 +55,7 @@ impl BuiltBlasPackGpu {
       blas_meta,
       geometry_meta,
       bvh,
-      indices_redirect,
+      primitive_redirect,
       indices,
       vertices,
     }
@@ -65,7 +65,7 @@ impl BuiltBlasPackGpu {
     builder.bind(&self.blas_meta);
     builder.bind(&self.geometry_meta);
     builder.bind(&self.bvh);
-    builder.bind(&self.indices_redirect);
+    builder.bind(&self.primitive_redirect);
     builder.bind(&self.indices);
     builder.bind(&self.vertices);
   }
@@ -574,7 +574,7 @@ fn intersect_blas_gpu2(
 
         tri_idx_iter.for_each(move |tri_idx, tri_loop| {
           let primitive_idx_local = blas_data
-            .indices_redirect
+            .primitive_redirect
             .index(tri_idx + primitive_offset)
             .load();
           let primitive_idx = primitive_idx_local + primitive_offset;
