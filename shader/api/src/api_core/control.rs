@@ -130,3 +130,11 @@ pub fn switch_by<T>(selector: Node<T>) -> SwitchBuilder<T> {
   call_shader_api(|g| g.begin_switch(selector.handle()));
   SwitchBuilder(Default::default())
 }
+
+pub fn return_value<T>(v: Option<Node<T>>) {
+  call_shader_api(|g| g.do_return(v.map(|v| v.handle())))
+}
+
+pub fn do_return() {
+  call_shader_api(|g| g.do_return(None))
+}

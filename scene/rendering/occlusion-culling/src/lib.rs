@@ -5,6 +5,9 @@ use rendiation_scene_core::*;
 use rendiation_scene_rendering_gpu_base::*;
 use rendiation_webgpu::*;
 
+mod spd;
+use spd::*;
+
 pub struct GPUTwoPassOcclusionCulling {
   max_scene_model_id: usize,
   last_frame_visibility: FastHashMap<u32, StorageBufferDataView<[Bool]>>,
@@ -59,7 +62,7 @@ impl GPUTwoPassOcclusionCulling {
     let pyramid = generate_depth_pyramid(&depth);
 
     // second pass
-    // draw rest object and do occlusion on all object
+    // draw rest object and do occlusion test on all object
     // using depth pyramid. keep culling result for next frame usage
     let rest_objects =
       update_last_frame_visibility_by_all_and_return_objects_that_not_be_occluded_in_this_frame(
