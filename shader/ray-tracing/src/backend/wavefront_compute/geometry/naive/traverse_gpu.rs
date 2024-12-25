@@ -82,7 +82,7 @@ pub(super) struct NaiveSahBvhGpu {
     StorageBufferReadOnlyDataView<[TopLevelAccelerationStructureSourceDeviceInstance]>,
   pub(super) tlas_bounding: StorageBufferReadOnlyDataView<[TlasBounding]>,
 
-  pub(super) blas_data: BuiltBlasPackGpu,
+  pub(super) blas_data: Arc<BuiltBlasPackGpu>,
 }
 
 impl GPUAccelerationStructureSystemCompImplInstance for NaiveSahBvhGpu {
@@ -452,7 +452,7 @@ fn iterate_tlas_blas_gpu2(
   tlas_data: ReadOnlyStorageNode<[TopLevelAccelerationStructureSourceDeviceInstance]>,
   blas_data: ReadOnlyStorageNode<[BlasMeta]>,
   ray: Node<Ray>,
-) -> impl ShaderIterator<Item = Node<RayBlas2>> {
+) -> impl ShaderIterator<Item = Node<RayBlas>> {
   tlas_iter.map(move |idx: Node<u32>| {
     let ray = ray.expand();
     let tlas = tlas_data.index(idx);
@@ -479,7 +479,7 @@ fn iterate_tlas_blas_gpu2(
     let blas_idx = acceleration_structure_handle;
     let blas_data = blas_data.index(blas_idx).load();
 
-    RayBlas2::construct(RayBlas2ShaderAPIInstance {
+    RayBlas::construct(RayBlasShaderAPIInstance {
       ray: blas_ray,
       blas: blas_data,
       tlas_idx: idx,
@@ -491,7 +491,7 @@ fn iterate_tlas_blas_gpu2(
 
 #[repr(C)]
 #[derive(Copy, Clone, ShaderStruct)]
-struct RayBlas2 {
+struct RayBlas {
   pub ray: Ray,
   pub blas: BlasMeta,
   pub tlas_idx: u32,
@@ -501,7 +501,7 @@ struct RayBlas2 {
 
 fn intersect_blas_gpu2(
   user_defined_payload: U32BufferLoadStoreSource,
-  blas_iter: impl ShaderIterator<Item = Node<RayBlas2>>,
+  blas_iter: impl ShaderIterator<Item = Node<RayBlas>>,
   tlas_data: ReadOnlyStorageNode<[TopLevelAccelerationStructureSourceDeviceInstance]>,
 
   blas_data: BuiltBlasPackGpuInstance,

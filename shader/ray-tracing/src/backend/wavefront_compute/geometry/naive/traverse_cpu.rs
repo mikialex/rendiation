@@ -14,7 +14,7 @@ pub(super) struct NaiveSahBvhCpu {
   pub(super) tlas_data: Vec<TopLevelAccelerationStructureSourceDeviceInstance>,
   pub(super) tlas_bounding: Vec<TlasBounding>,
 
-  pub(super) blas_data: BuiltBlasPack,
+  pub(super) blas_data: Arc<BuiltBlasPack>,
 }
 
 use std::sync::atomic::AtomicU32;

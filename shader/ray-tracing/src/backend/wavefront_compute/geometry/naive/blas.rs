@@ -5,6 +5,7 @@ use rendiation_shader_derives::{std430_layout, ShaderStruct};
 use rendiation_space_algorithm::bvh::{FlattenBVH, FlattenBVHNode, SAH};
 use rendiation_space_algorithm::utils::TreeBuildOption;
 
+use crate::backend::wavefront_compute::geometry::naive::traverse_gpu::BuiltBlasPackGpu;
 use crate::backend::wavefront_compute::geometry::naive::{compute_bvh_next, DeviceBVHNode};
 use crate::*;
 
@@ -118,7 +119,7 @@ struct BuiltGeometryPack {
   vertices: Vec<Vec3<f32>>,
 }
 impl BuiltGeometryPack {
-  pub fn build(source: &Vec<BottomLevelAccelerationStructureBuildSource>) -> Self {
+  pub fn build(source: &[BottomLevelAccelerationStructureBuildSource]) -> Self {
     let built_geometry_list = source
       .iter()
       .enumerate()
@@ -171,6 +172,46 @@ impl BuiltGeometryPack {
   }
 }
 
+#[derive(Default)]
+pub struct BuiltBlasPool {
+  blas: Vec<BuiltGeometryPack>,
+
+  result: Option<(Arc<BuiltBlasPack>, Arc<BuiltBlasPackGpu>)>,
+}
+
+impl BuiltBlasPool {
+  pub fn create(
+    &mut self,
+    idx: usize,
+    blas_source: &[BottomLevelAccelerationStructureBuildSource],
+  ) {
+    let pack = BuiltGeometryPack::build(blas_source);
+    if self.blas.len() <= idx {
+      self.blas.push(pack);
+    } else {
+      self.blas[idx] = pack;
+    }
+    self.result = None;
+  }
+  pub fn delete(&mut self, idx: usize) {
+    self.blas[idx] = BuiltGeometryPack::build(&[]);
+    // no invalidation
+  }
+
+  pub fn shrink(&mut self) {
+    todo!()
+  }
+
+  pub fn get(&mut self, device: &GPUDevice) -> &(Arc<BuiltBlasPack>, Arc<BuiltBlasPackGpu>) {
+    if self.result.is_none() {
+      let cpu = BuiltBlasPack::pack(&self.blas);
+      let gpu = cpu.build_gpu(device);
+      self.result = Some((Arc::new(cpu), Arc::new(gpu)));
+    }
+    self.result.as_ref().unwrap()
+  }
+}
+
 /// save offsets in meta, pack buffers with no modification
 pub struct BuiltBlasPack {
   pub blas_bounding: Vec<Box3>, // length = blas count, read by tlas
@@ -185,21 +226,6 @@ pub struct BuiltBlasPack {
   pub vertices: Vec<Vec3<f32>>,
 }
 impl BuiltBlasPack {
-  pub fn build(sources: &[Option<Vec<BottomLevelAccelerationStructureBuildSource>>]) -> Self {
-    let built_blas_list: Vec<_> = sources
-      .iter()
-      .map(|source| {
-        if let Some(source) = source {
-          BuiltGeometryPack::build(source)
-        } else {
-          BuiltGeometryPack::pack(vec![BuiltGeometry::default()])
-        }
-      })
-      .collect();
-
-    Self::pack(&built_blas_list)
-  }
-
   fn pack(blas: &[BuiltGeometryPack]) -> Self {
     let mut blas_bounding = vec![];
     let mut blas_meta = vec![];

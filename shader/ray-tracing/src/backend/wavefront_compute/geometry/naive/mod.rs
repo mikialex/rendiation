@@ -57,6 +57,7 @@ struct DeviceBVHNode {
 #[derive(Default)]
 struct NaiveSahBvhSource {
   blas_source: Vec<Option<Vec<BottomLevelAccelerationStructureBuildSource>>>,
+  blas_pool: BuiltBlasPool,
   tlas_source: Vec<Option<Vec<TopLevelAccelerationStructureSourceInstance>>>,
   blas_free_list: Vec<usize>,
   tlas_free_list: Vec<usize>,
@@ -75,6 +76,7 @@ impl NaiveSahBvhSource {
       // println!("create blas new {index}");
       index
     };
+    self.blas_pool.create(index, source);
     index as u32
   }
   pub fn create_tlas(&mut self, source: &[TopLevelAccelerationStructureSourceInstance]) -> u32 {
@@ -93,6 +95,7 @@ impl NaiveSahBvhSource {
   }
   pub fn delete_blas(&mut self, handle: BlasHandle) {
     let index = handle.0 as usize;
+    self.blas_pool.delete(index);
     if index == self.blas_source.len() - 1 {
       self.blas_source.pop();
       // println!("delete blas {index} shrink");
@@ -179,8 +182,7 @@ impl NaiveSahBvhSource {
     gpu_data: &mut Option<NaiveSahBvhGpu>,
   ) {
     // build blas
-    let blas_data_cpu = BuiltBlasPack::build(&self.blas_source);
-    let blas_data_gpu = blas_data_cpu.build_gpu(device);
+    let (blas_data_cpu, blas_data_gpu) = self.blas_pool.get(device);
 
     fn flatten_bvh_to_gpu_node(
       node: &FlattenBVHNode<Box3>,
@@ -255,7 +257,7 @@ impl NaiveSahBvhSource {
       tlas_bvh_forest,
       tlas_data,
       tlas_bounding,
-      blas_data: blas_data_cpu,
+      blas_data: blas_data_cpu.clone(),
     };
     // println!("{cpu:#?}");
     *cpu_data = Some(cpu);
@@ -266,7 +268,7 @@ impl NaiveSahBvhSource {
       tlas_data: gpu_tlas_data,
       tlas_bounding: gpu_tlas_bounding,
 
-      blas_data: blas_data_gpu,
+      blas_data: blas_data_gpu.clone(),
     });
   }
 }
