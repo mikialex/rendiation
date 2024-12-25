@@ -59,6 +59,7 @@ impl GPUTwoPassOcclusionCulling {
     // then generate depth pyramid for the occluder
     let (_, depth) = target.depth_stencil_target.clone().unwrap();
     let depth: GPU2DDepthTextureView = todo!();
+    // todo check depth size is correct.
     let pyramid = generate_depth_pyramid(&depth);
 
     // second pass

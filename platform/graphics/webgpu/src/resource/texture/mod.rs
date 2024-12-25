@@ -177,6 +177,9 @@ texture_view_inner!(GPU2DArrayDepthTextureView);
 texture_view_inner!(GPUCubeDepthTextureView);
 texture_view_inner!(GPUCubeArrayDepthTextureView);
 
+texture_view_inner!(GPUMultiSample2DTextureView);
+texture_view_inner!(GPUMultiSample2DDepthTextureView);
+
 macro_rules! texture_view_downcast {
   ($ty: ty, $var:tt, $check: expr, $err: tt) => {
     impl TryFrom<GPUTextureView> for $ty {

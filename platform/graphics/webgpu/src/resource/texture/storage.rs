@@ -77,7 +77,7 @@ impl StorageShaderTypeMapping for GPU3DTextureView {
 pub trait IntoStorageTextureView: Sized {
   fn into_storage_texture_view_readonly(self) -> Option<StorageTextureViewReadOnly<Self>>;
   fn into_storage_texture_view_writeonly(self) -> Option<StorageTextureViewWriteOnly<Self>>;
-  fn into_storage_texture_view_readwrite(self) -> Option<StorageTextureReadWrite<Self>>;
+  fn into_storage_texture_view_readwrite(self) -> Option<StorageTextureViewReadWrite<Self>>;
 }
 
 impl<T: StorageShaderTypeMapping> IntoStorageTextureView for T {
@@ -95,8 +95,8 @@ impl<T: StorageShaderTypeMapping> IntoStorageTextureView for T {
     })
   }
 
-  fn into_storage_texture_view_readwrite(self) -> Option<StorageTextureReadWrite<Self>> {
-    self.downcast().map(|format| StorageTextureReadWrite {
+  fn into_storage_texture_view_readwrite(self) -> Option<StorageTextureViewReadWrite<Self>> {
+    self.downcast().map(|format| StorageTextureViewReadWrite {
       texture: self,
       format,
     })
@@ -170,18 +170,18 @@ impl<T: StorageShaderTypeMapping> ShaderBindingProvider for StorageTextureViewWr
 }
 
 #[derive(Clone)]
-pub struct StorageTextureReadWrite<T> {
+pub struct StorageTextureViewReadWrite<T> {
   pub texture: T,
   pub format: StorageFormat,
 }
 
-impl<T: CacheAbleBindingSource> CacheAbleBindingSource for StorageTextureReadWrite<T> {
+impl<T: CacheAbleBindingSource> CacheAbleBindingSource for StorageTextureViewReadWrite<T> {
   fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
     self.texture.get_binding_build_source()
   }
 }
 
-impl<T: StorageShaderTypeMapping> ShaderBindingProvider for StorageTextureReadWrite<T> {
+impl<T: StorageShaderTypeMapping> ShaderBindingProvider for StorageTextureViewReadWrite<T> {
   type Node = ShaderHandlePtr<T::StorageTextureShaderTypeRW>;
 
   fn binding_desc(&self) -> ShaderBindingDescriptor {

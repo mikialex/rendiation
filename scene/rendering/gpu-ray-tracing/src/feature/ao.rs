@@ -366,7 +366,7 @@ impl SceneRayTracingAORenderer {
 #[derive(Clone)]
 struct RayTracingAORayGenCtx {
   camera: Box<dyn RtxCameraRenderComponent>,
-  ao_buffer: StorageTextureReadWrite<GPU2DTextureView>,
+  ao_buffer: StorageTextureViewReadWrite<GPU2DTextureView>,
   ao_sample_count: UniformBufferDataView<Vec4<u32>>,
   scene: TlASInstance,
 }
