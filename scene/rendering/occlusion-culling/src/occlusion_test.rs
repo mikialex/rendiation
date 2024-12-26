@@ -4,8 +4,10 @@ pub fn test_and_update_last_frame_visibility_use_all_passed_batch_and_return_cul
   depth_pyramid: &GPU2DDepthTextureView,
   pass: &mut GPUComputePass,
   device: &GPUDevice,
+  last_frame_visibility: StorageBufferDataView<[Bool]>,
   camera_view_proj: &UniformBufferDataView<Mat4<f32>>,
   bounding_provider: Box<dyn DrawUnitWorldBoundingProvider>,
+  last_frame_occluder_batch: DeviceSceneModelRenderBatch,
 ) -> Box<dyn AbstractCullerProvider> {
   let hasher = shader_hasher_from_marker_ty!(OcclusionTestAndUpdate);
   let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut ctx| {
@@ -17,12 +19,14 @@ pub fn test_and_update_last_frame_visibility_use_all_passed_batch_and_return_cul
     depth_pyramid: depth_pyramid.clone(),
     view_projection: camera_view_proj.clone(),
     bounding_provider,
+    last_frame_visibility,
   })
 }
 
 #[derive(Clone)]
 struct OcclusionTester {
   depth_pyramid: GPU2DDepthTextureView,
+  last_frame_visibility: StorageBufferDataView<[Bool]>,
   view_projection: UniformBufferDataView<Mat4<f32>>,
   bounding_provider: Box<dyn DrawUnitWorldBoundingProvider>,
 }
@@ -36,24 +40,38 @@ impl AbstractCullerProvider for OcclusionTester {
     &self,
     cx: &mut ShaderBindGroupBuilder,
   ) -> Box<dyn AbstractCullerInvocation> {
-    todo!()
+    Box::new(OcclusionTesterInvocation {
+      depth: todo!(),
+      view_projection: cx.bind_by(&self.view_projection),
+      bounding_provider: self.bounding_provider.create_invocation(cx),
+      last_frame_visibility: cx.bind_by(&self.last_frame_visibility),
+    })
   }
 
   fn bind(&self, cx: &mut BindingBuilder) {
-    todo!()
+    self.depth_pyramid.bind_pass(cx);
+    self.view_projection.bind_pass(cx);
+    self.bounding_provider.bind(cx);
+    self.last_frame_visibility.bind_pass(cx);
   }
 }
 
 struct OcclusionTesterInvocation {
-  depth_pyramid: HandleNode<ShaderTexture2D>,
-  view_projection: Node<Mat4<f32>>,
+  depth: HandleNode<ShaderTexture2D>,
+  view_projection: UniformNode<Mat4<f32>>,
   bounding_provider: Box<dyn DrawUnitWorldBoundingInvocationProvider>,
+  last_frame_visibility: StorageNode<[Bool]>,
 }
 
 impl AbstractCullerInvocation for OcclusionTesterInvocation {
   fn cull(&self, id: Node<u32>) -> Node<bool> {
     let target_world_bounding = self.bounding_provider.get_world_bounding(id);
-    self.is_occluded(target_world_bounding)
+    let is_occluded = self.is_occluded(target_world_bounding);
+    self
+      .last_frame_visibility
+      .index(id)
+      .store(is_occluded.not().into_big_bool());
+    is_occluded
   }
 }
 
@@ -104,7 +122,7 @@ impl OcclusionTesterInvocation {
 
       let point: Node<Vec4<f32>> =
         (corner_x.load(), corner_y.load(), corner_z.load(), val(1.)).into();
-      let clip_position = self.view_projection * point;
+      let clip_position = self.view_projection.load() * point;
 
       let pos_xyz = clip_position.xyz() / clip_position.w().splat();
       let x = pos_xyz.x().clamp(val(-1.), val(1.0));
@@ -122,16 +140,13 @@ impl OcclusionTesterInvocation {
     let min_xy = min_xy.load();
     let max_xy = max_xy.load();
 
-    let depth_pyramid_size_0 = self
-      .depth_pyramid
-      .texture_dimension_2d(Some(val(0)))
-      .into_f32();
+    let depth_pyramid_size_0 = self.depth.texture_dimension_2d(Some(val(0))).into_f32();
 
     let box_size = (max_xy - min_xy) * depth_pyramid_size_0;
     let mip_level = box_size.x().max(box_size.y()).log2().ceil().into_u32();
-    let mip_level = mip_level.clamp(val(0), self.depth_pyramid.texture_number_levels() - val(1));
+    let mip_level = mip_level.clamp(val(0), self.depth.texture_number_levels() - val(1));
 
-    let depth_pyramid_size = self.depth_pyramid.texture_dimension_2d(Some(mip_level));
+    let depth_pyramid_size = self.depth.texture_dimension_2d(Some(mip_level));
     let limit_x = depth_pyramid_size.x() - val(1);
     let limit_y = depth_pyramid_size.y() - val(1);
     let top_left = (min_xy * depth_pyramid_size.into_f32()).into_u32();
@@ -141,22 +156,10 @@ impl OcclusionTesterInvocation {
     let r_x = (l_x + val(1)).clamp(val(0), limit_x);
     let b_y = (t_y + val(1)).clamp(val(0), limit_y);
 
-    let d_0 = self
-      .depth_pyramid
-      .load_texel((l_x, t_y).into(), mip_level)
-      .x();
-    let d_1 = self
-      .depth_pyramid
-      .load_texel((r_x, t_y).into(), mip_level)
-      .x();
-    let d_2 = self
-      .depth_pyramid
-      .load_texel((l_x, b_y).into(), mip_level)
-      .x();
-    let d_3 = self
-      .depth_pyramid
-      .load_texel((r_x, b_y).into(), mip_level)
-      .x();
+    let d_0 = self.depth.load_texel((l_x, t_y).into(), mip_level).x();
+    let d_1 = self.depth.load_texel((r_x, t_y).into(), mip_level).x();
+    let d_2 = self.depth.load_texel((l_x, b_y).into(), mip_level).x();
+    let d_3 = self.depth.load_texel((r_x, b_y).into(), mip_level).x();
 
     let max_depth = d_0.max(d_1).max(d_2).max(d_3);
     min_z.load().greater_than(max_depth)

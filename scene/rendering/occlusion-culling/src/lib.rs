@@ -22,8 +22,11 @@ pub struct TargetWorldBounding {
 }
 
 pub trait DrawUnitWorldBoundingProvider: ShaderHashProvider + DynClone {
-  fn create_invocation(&self) -> Box<dyn DrawUnitWorldBoundingInvocationProvider>;
-  fn bind(&self);
+  fn create_invocation(
+    &self,
+    cx: &mut ShaderBindGroupBuilder,
+  ) -> Box<dyn DrawUnitWorldBoundingInvocationProvider>;
+  fn bind(&self, cx: &mut BindingBuilder);
 }
 dyn_clone::clone_trait_object!(DrawUnitWorldBoundingProvider);
 
@@ -75,6 +78,8 @@ impl GPUTwoPassOcclusionCulling {
     camera: EntityHandle<SceneCameraEntity>,
     pass_com: &dyn RenderComponent,
     frame_ctx: &mut FrameCtx,
+    camera_view_proj: &UniformBufferDataView<Mat4<f32>>,
+    bounding_provider: Box<dyn DrawUnitWorldBoundingProvider>,
   ) {
     let pre_culler = batch.stash_culler.clone().unwrap_or(Box::new(NoopCuller));
 
@@ -93,7 +98,7 @@ impl GPUTwoPassOcclusionCulling {
       .with_desc(target.clone())
       .render_ctx(frame_ctx)
       .by(&mut scene_renderer.make_scene_batch_pass_content(
-        SceneModelRenderBatch::Device(first_pass_batch),
+        SceneModelRenderBatch::Device(first_pass_batch.clone()),
         camera,
         pass_com,
         frame_ctx,
@@ -148,8 +153,10 @@ impl GPUTwoPassOcclusionCulling {
         &pyramid,
         &mut compute_pass,
         &frame_ctx.gpu.device,
-        todo!(),
-        todo!(),
+        last_frame_visibility.clone(),
+        camera_view_proj,
+        bounding_provider,
+        first_pass_batch,
       );
 
     // second pass, draw rest but not occluded
