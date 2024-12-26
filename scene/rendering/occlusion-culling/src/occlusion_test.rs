@@ -1,12 +1,10 @@
 use crate::*;
 
-pub fn update_last_frame_visibility_by_all_and_return_objects_that_not_be_occluded_in_this_frame(
-  last_frame: &StorageBufferDataView<[Bool]>,
+pub fn test_and_update_last_frame_visibility_use_all_passed_batch_and_return_culler(
   depth_pyramid: &GPU2DDepthTextureView,
-  batch: &DeviceSceneModelRenderBatch,
   pass: &mut GPUComputePass,
   device: &GPUDevice,
-) -> DeviceSceneModelRenderBatch {
+) -> Box<dyn AbstractCullerProvider> {
   let hasher = shader_hasher_from_marker_ty!(OcclusionTestAndUpdate);
   let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut ctx| {
     //

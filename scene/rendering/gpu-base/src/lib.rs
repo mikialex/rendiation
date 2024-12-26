@@ -75,6 +75,7 @@ pub trait SceneRenderer: SceneModelRenderer {
 
   /// extract batched scene model by given content semantic, the extracted batch may be used by external
   /// system for further processing, for example culling. the simple culling logic may also be implemented here
+  #[must_use]
   fn extract_scene_batch(
     &self,
     scene: EntityHandle<SceneEntity>,
@@ -83,6 +84,7 @@ pub trait SceneRenderer: SceneModelRenderer {
   ) -> SceneModelRenderBatch;
 
   /// render batched scene model with given pass component on given pass
+  #[must_use]
   fn make_scene_batch_pass_content<'a>(
     &'a self,
     batch: SceneModelRenderBatch,
@@ -91,6 +93,7 @@ pub trait SceneRenderer: SceneModelRenderer {
     ctx: &mut FrameCtx,
   ) -> Box<dyn PassContent + 'a>;
 
+  #[must_use]
   fn extract_and_make_pass_content<'a>(
     &'a self,
     semantic: Self::ContentKey,
@@ -113,6 +116,7 @@ pub trait SceneRenderer: SceneModelRenderer {
 
   /// Batch rendering the passed models. Comparing to render one single model at a time(using [SceneModelRenderer]), this may be more efficient.
   /// The implementation should be override if it can provide better performance. The default implementation is a loop call using [SceneModelRenderer]
+  #[must_use]
   fn render_models<'a>(
     &'a self,
     models: Box<dyn HostRenderBatch>,

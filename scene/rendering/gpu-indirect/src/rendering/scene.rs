@@ -127,7 +127,10 @@ impl IndirectSceneRenderer {
       })
       .collect();
 
-    SceneModelRenderBatch::Device(DeviceSceneModelRenderBatch { sub_batches })
+    SceneModelRenderBatch::Device(DeviceSceneModelRenderBatch {
+      sub_batches,
+      stash_culler: None,
+    })
   }
 }
 

@@ -28,6 +28,9 @@ pub trait DrawUnitWorldBoundingProvider: ShaderHashProvider {
 
 pub trait DrawUnitWorldBoundingInvocationProvider {
   fn get_world_bounding(&self) -> TargetWorldBounding;
+  fn should_not_as_occluder(&self) -> Node<bool> {
+    val(false)
+  }
 }
 
 pub struct GPUTwoPassOcclusionCulling {
@@ -59,17 +62,21 @@ impl GPUTwoPassOcclusionCulling {
   ///
   /// the target's depth must be multi sampled.
   ///
+  /// return a culler with occlusion test ability
+  ///
   /// todo, support single sampled depth
-  pub fn draw(
+  pub fn draw_occluder_and_create_rest_tester(
     &mut self,
     view_key: u32,
-    batch: DeviceSceneModelRenderBatch,
+    batch: &DeviceSceneModelRenderBatch,
     target: RenderPassDescriptorOwned,
     scene_renderer: &impl SceneRenderer,
     camera: EntityHandle<SceneCameraEntity>,
     pass_com: &dyn RenderComponent,
     frame_ctx: &mut FrameCtx,
   ) {
+    let pre_culler = batch.stash_culler.clone().unwrap_or(Box::new(NoopCuller));
+
     let last_frame_visibility = self
       .last_frame_visibility
       .entry(view_key)
@@ -77,13 +84,15 @@ impl GPUTwoPassOcclusionCulling {
 
     // first pass
     // draw all visible object in last frame culling result as the occluder
-    let last_frame_visible_object = filter_last_frame_visible_object(last_frame_visibility, &batch);
-    scene_renderer.make_scene_batch_pass_content(
-      SceneModelRenderBatch::Device(last_frame_visible_object),
+    let only_last_frame_visible = filter_last_frame_visible_object(last_frame_visibility);
+    let first_pass_culler = only_last_frame_visible.chain(pre_culler.clone());
+    let first_pass_batch = batch.clone().with_override_culler(first_pass_culler);
+    let _ = scene_renderer.make_scene_batch_pass_content(
+      SceneModelRenderBatch::Device(first_pass_batch),
       camera,
       pass_com,
       frame_ctx,
-    );
+    ); // todo, draw
 
     // then generate depth pyramid for the occluder
     let (_, depth) = target.depth_stencil_target.clone().unwrap();
@@ -126,28 +135,31 @@ impl GPUTwoPassOcclusionCulling {
       &frame_ctx.gpu.device,
     );
 
-    // second pass
     // draw rest object and do occlusion test on all object
     // using depth pyramid. keep culling result for next frame usage
     let pyramid = pyramid.create_default_view();
     let pyramid = GPU2DDepthTextureView::try_from(pyramid).unwrap();
-    let rest_objects =
-      update_last_frame_visibility_by_all_and_return_objects_that_not_be_occluded_in_this_frame(
-        last_frame_visibility,
+
+    let occlusion_culler =
+      test_and_update_last_frame_visibility_use_all_passed_batch_and_return_culler(
         &pyramid,
-        &batch,
         &mut compute_pass,
         &frame_ctx.gpu.device,
       );
 
-    drop(compute_pass);
+    let second_pass_culler = only_last_frame_visible
+      .not()
+      .chain(pre_culler)
+      .chain(occlusion_culler);
+    let second_pass_batch = batch.clone().with_override_culler(second_pass_culler);
 
-    scene_renderer.make_scene_batch_pass_content(
-      SceneModelRenderBatch::Device(rest_objects),
+    // second pass, draw rest but not occluded
+    let _ = scene_renderer.make_scene_batch_pass_content(
+      SceneModelRenderBatch::Device(second_pass_batch),
       camera,
       pass_com,
       frame_ctx,
-    );
+    ); // todo, draw
   }
 
   /// if some view key is not used anymore, do cleanup to release underlayer resources

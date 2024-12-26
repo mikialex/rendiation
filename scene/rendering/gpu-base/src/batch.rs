@@ -53,6 +53,7 @@ impl HostRenderBatch for HostModelLookUp {
 pub struct DeviceSceneModelRenderBatch {
   /// each sub batch could be and would be drawn by a multi-indirect-draw.
   pub sub_batches: Vec<DeviceSceneModelRenderSubBatch>,
+  pub stash_culler: Option<Box<dyn AbstractCullerProvider>>,
 }
 
 #[derive(Clone)]
@@ -86,6 +87,7 @@ impl SceneModelRenderBatch {
               impl_select_id: v.iter_scene_models().next().unwrap(),
               scene_models: Box::new(storage),
             }],
+            stash_culler: None,
           })
         } else {
           None
@@ -100,4 +102,90 @@ impl SceneModelRenderBatch {
       SceneModelRenderBatch::Device(_) => None,
     }
   }
+}
+
+pub trait AbstractCullerProvider: ShaderHashProvider + DynClone {
+  fn create_invocation(&self) -> Box<dyn AbstractCullerInvocation>;
+  fn bind(&self);
+
+  fn not(&self) -> Box<dyn AbstractCullerProvider> {
+    todo!()
+  }
+
+  fn chain(&self, other: Box<dyn AbstractCullerProvider>) -> Box<dyn AbstractCullerProvider> {
+    todo!()
+  }
+}
+dyn_clone::clone_trait_object!(AbstractCullerProvider);
+
+pub trait AbstractCullerInvocation {
+  fn cull(&self, id: Node<u32>) -> Node<bool>;
+}
+
+impl DeviceSceneModelRenderBatch {
+  pub fn with_override_culler(mut self, v: Box<dyn AbstractCullerProvider>) -> Self {
+    self.stash_culler = Some(v);
+    self
+  }
+
+  // todo, implement culling
+  pub fn flush_culler(
+    &self,
+    _cx: &mut DeviceParallelComputeCtx,
+  ) -> Vec<DeviceSceneModelRenderSubBatch> {
+    self.sub_batches.clone()
+  }
+}
+
+// #[derive(Clone)]
+// struct Filter {
+//   last_frame: StorageBufferDataView<[Bool]>,
+//   input: Box<dyn DeviceParallelComputeIO<u32>>,
+// }
+
+// impl DeviceParallelCompute<Node<u32>> for Filter {
+//   fn execute_and_expose(
+//     &self,
+//     cx: &mut DeviceParallelComputeCtx,
+//   ) -> Box<dyn DeviceInvocationComponent<Node<u32>>> {
+//     todo!()
+//   }
+
+//   fn result_size(&self) -> u32 {
+//     todo!()
+//   }
+// }
+
+// impl DeviceParallelComputeIO<u32> for Filter {}
+
+// let sub_batches = batch
+//   .sub_batches
+//   .iter()
+//   .map(|sub_batch| {
+//     let scene_models = Box::new(Filter {
+//       last_frame: last_frame.clone(),
+//       input: sub_batch.scene_models.clone(),
+//     });
+
+//     DeviceSceneModelRenderSubBatch {
+//       scene_models,
+//       impl_select_id: sub_batch.impl_select_id,
+//     }
+//   })
+//   .collect();
+
+// DeviceSceneModelRenderBatch { sub_batches }
+
+#[derive(Clone)]
+pub struct NoopCuller;
+
+impl ShaderHashProvider for NoopCuller {
+  shader_hash_type_id! {}
+}
+
+impl AbstractCullerProvider for NoopCuller {
+  fn create_invocation(&self) -> Box<dyn AbstractCullerInvocation> {
+    todo!()
+  }
+  fn bind(&self) {}
 }
