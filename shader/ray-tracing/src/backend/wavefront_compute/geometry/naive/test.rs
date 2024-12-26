@@ -267,12 +267,14 @@ fn test_cpu_triangle() {
     TRI_HIT_COUNT.load(std::sync::atomic::Ordering::Relaxed)
   );
   println!(
-    "bvh visit count: {}",
-    BVH_VISIT_COUNT.load(std::sync::atomic::Ordering::Relaxed)
+    "bvh visit count: tlas {}, blas {}",
+    TLAS_VISIT_COUNT.load(std::sync::atomic::Ordering::Relaxed),
+    BLAS_VISIT_COUNT.load(std::sync::atomic::Ordering::Relaxed)
   );
   println!(
-    "bvh hit count: {}",
-    BVH_HIT_COUNT.load(std::sync::atomic::Ordering::Relaxed)
+    "bvh hit count: tlas {}, blas {}",
+    TLAS_HIT_COUNT.load(std::sync::atomic::Ordering::Relaxed),
+    BLAS_HIT_COUNT.load(std::sync::atomic::Ordering::Relaxed)
   );
 
   let mut file = format!("P2\n{W} {H}\n{PRIMITIVE_IDX_MAX}\n");

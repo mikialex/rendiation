@@ -198,7 +198,7 @@ impl BuiltBlasPool {
     // no invalidation
   }
 
-  pub fn shrink(&mut self) {
+  pub fn _shrink(&mut self) {
     todo!()
   }
 

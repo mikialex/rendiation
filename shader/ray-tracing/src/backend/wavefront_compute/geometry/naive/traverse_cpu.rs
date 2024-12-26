@@ -20,8 +20,10 @@ pub(super) struct NaiveSahBvhCpu {
 use std::sync::atomic::AtomicU32;
 pub(super) static TRI_VISIT_COUNT: AtomicU32 = AtomicU32::new(0);
 pub(super) static TRI_HIT_COUNT: AtomicU32 = AtomicU32::new(0);
-pub(super) static BVH_VISIT_COUNT: AtomicU32 = AtomicU32::new(0);
-pub(super) static BVH_HIT_COUNT: AtomicU32 = AtomicU32::new(0);
+pub(super) static TLAS_VISIT_COUNT: AtomicU32 = AtomicU32::new(0);
+pub(super) static TLAS_HIT_COUNT: AtomicU32 = AtomicU32::new(0);
+pub(super) static BLAS_VISIT_COUNT: AtomicU32 = AtomicU32::new(0);
+pub(super) static BLAS_HIT_COUNT: AtomicU32 = AtomicU32::new(0);
 
 impl NaiveSahBvhCpu {
   pub(super) fn traverse(
@@ -141,7 +143,7 @@ impl<'a> Iterator for TraverseBvhIteratorCpu<'a> {
   type Item = u32;
   fn next(&mut self) -> Option<Self::Item> {
     while self.curr_idx != INVALID_NEXT {
-      BVH_VISIT_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+      TLAS_VISIT_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
       let node = &self.bvh[self.curr_idx as usize];
       if intersect_ray_aabb_cpu(
         self.ray_origin,
@@ -154,8 +156,8 @@ impl<'a> Iterator for TraverseBvhIteratorCpu<'a> {
         self.curr_idx = node.hit_next;
 
         if node.hit_next == node.miss_next {
-          // is leaf
-          BVH_HIT_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+          // leaf node
+          TLAS_HIT_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
           return Some(curr);
         }
       } else {
@@ -181,7 +183,7 @@ impl<'a> Iterator for TraverseBvhIteratorCpu2<'a> {
   type Item = Vec2<u32>;
   fn next(&mut self) -> Option<Vec2<u32>> {
     while self.curr_idx != INVALID_NEXT {
-      BVH_VISIT_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+      BLAS_VISIT_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
       let node = &self.bvh[(self.curr_idx + self.bvh_offset) as usize];
       if intersect_ray_aabb_cpu(
         self.ray_origin,
@@ -194,7 +196,7 @@ impl<'a> Iterator for TraverseBvhIteratorCpu2<'a> {
 
         if node.hit_next == node.miss_next {
           // leaf node
-          BVH_HIT_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+          BLAS_HIT_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
           return Some(node.content_range);
         }
       } else {

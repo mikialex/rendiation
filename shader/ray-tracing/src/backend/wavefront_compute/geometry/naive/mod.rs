@@ -133,12 +133,15 @@ impl NaiveSahBvhSource {
       tlas_bvh_aabb.push(aabb);
     }
 
-    let option = TreeBuildOption {
-      max_tree_depth: 50,
-      bin_size: 10,
-    };
     let mut sah = SAH::new(4);
-    let bvh = FlattenBVH::new(tlas_bvh_aabb.clone().into_iter(), &mut sah, &option);
+    let bvh = FlattenBVH::new(
+      tlas_bvh_aabb.clone().into_iter(),
+      &mut sah,
+      &TreeBuildOption {
+        max_tree_depth: 50,
+        bin_size: 2,
+      },
+    );
     let traverse_next = compute_bvh_next(&bvh.nodes);
 
     for box_idx in &bvh.sorted_primitive_index {
