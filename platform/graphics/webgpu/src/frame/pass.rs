@@ -68,6 +68,12 @@ impl<'a> From<AttachmentView<&'a mut Attachment>> for RenderTargetView {
 
 impl<'a> PassDescriptor<'a> {
   #[must_use]
+  pub fn with_desc(mut self, desc: RenderPassDescriptorOwned) -> Self {
+    self.desc = desc;
+    self
+  }
+
+  #[must_use]
   pub fn with_color(
     mut self,
     attachment: impl Into<RenderTargetView> + 'a,

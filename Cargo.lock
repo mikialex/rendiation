@@ -3749,12 +3749,12 @@ name = "rendiation-scene-occlusion-culling"
 version = "0.1.0"
 dependencies = [
  "database",
+ "dyn-clone",
  "dyn-downcast",
  "fast-hash-collection",
  "log",
  "reactive",
  "rendiation-algebra",
- "rendiation-device-parallel-compute",
  "rendiation-geometry",
  "rendiation-scene-core",
  "rendiation-scene-rendering-gpu-base",

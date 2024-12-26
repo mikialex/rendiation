@@ -1,7 +1,7 @@
 use database::*;
+use dyn_clone::*;
 use fast_hash_collection::*;
 use rendiation_algebra::*;
-use rendiation_device_parallel_compute::*;
 use rendiation_scene_core::*;
 use rendiation_scene_rendering_gpu_base::*;
 use rendiation_shader_api::*;
@@ -21,14 +21,15 @@ pub struct TargetWorldBounding {
   pub max: Node<Vec3<f32>>,
 }
 
-pub trait DrawUnitWorldBoundingProvider: ShaderHashProvider {
+pub trait DrawUnitWorldBoundingProvider: ShaderHashProvider + DynClone {
   fn create_invocation(&self) -> Box<dyn DrawUnitWorldBoundingInvocationProvider>;
   fn bind(&self);
 }
+dyn_clone::clone_trait_object!(DrawUnitWorldBoundingProvider);
 
 pub trait DrawUnitWorldBoundingInvocationProvider {
-  fn get_world_bounding(&self) -> TargetWorldBounding;
-  fn should_not_as_occluder(&self) -> Node<bool> {
+  fn get_world_bounding(&self, id: Node<u32>) -> TargetWorldBounding;
+  fn should_not_as_occluder(&self, _id: Node<u32>) -> Node<bool> {
     val(false)
   }
 }
@@ -87,12 +88,16 @@ impl GPUTwoPassOcclusionCulling {
     let only_last_frame_visible = filter_last_frame_visible_object(last_frame_visibility);
     let first_pass_culler = only_last_frame_visible.chain(pre_culler.clone());
     let first_pass_batch = batch.clone().with_override_culler(first_pass_culler);
-    let _ = scene_renderer.make_scene_batch_pass_content(
-      SceneModelRenderBatch::Device(first_pass_batch),
-      camera,
-      pass_com,
-      frame_ctx,
-    ); // todo, draw
+
+    pass("occlusion-culling-first-pass")
+      .with_desc(target.clone())
+      .render_ctx(frame_ctx)
+      .by(&mut scene_renderer.make_scene_batch_pass_content(
+        SceneModelRenderBatch::Device(first_pass_batch),
+        camera,
+        pass_com,
+        frame_ctx,
+      ));
 
     // then generate depth pyramid for the occluder
     let (_, depth) = target.depth_stencil_target.clone().unwrap();
@@ -135,8 +140,6 @@ impl GPUTwoPassOcclusionCulling {
       &frame_ctx.gpu.device,
     );
 
-    // draw rest object and do occlusion test on all object
-    // using depth pyramid. keep culling result for next frame usage
     let pyramid = pyramid.create_default_view();
     let pyramid = GPU2DDepthTextureView::try_from(pyramid).unwrap();
 
@@ -145,21 +148,26 @@ impl GPUTwoPassOcclusionCulling {
         &pyramid,
         &mut compute_pass,
         &frame_ctx.gpu.device,
+        todo!(),
+        todo!(),
       );
 
+    // second pass, draw rest but not occluded
     let second_pass_culler = only_last_frame_visible
       .not()
       .chain(pre_culler)
       .chain(occlusion_culler);
     let second_pass_batch = batch.clone().with_override_culler(second_pass_culler);
 
-    // second pass, draw rest but not occluded
-    let _ = scene_renderer.make_scene_batch_pass_content(
-      SceneModelRenderBatch::Device(second_pass_batch),
-      camera,
-      pass_com,
-      frame_ctx,
-    ); // todo, draw
+    pass("occlusion-culling-second-pass")
+      .with_desc(target.clone())
+      .render_ctx(frame_ctx)
+      .by(&mut scene_renderer.make_scene_batch_pass_content(
+        SceneModelRenderBatch::Device(second_pass_batch),
+        camera,
+        pass_com,
+        frame_ctx,
+      ));
   }
 
   /// if some view key is not used anymore, do cleanup to release underlayer resources

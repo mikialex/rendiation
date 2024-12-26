@@ -105,8 +105,9 @@ impl SceneModelRenderBatch {
 }
 
 pub trait AbstractCullerProvider: ShaderHashProvider + DynClone {
-  fn create_invocation(&self) -> Box<dyn AbstractCullerInvocation>;
-  fn bind(&self);
+  fn create_invocation(&self, cx: &mut ShaderBindGroupBuilder)
+    -> Box<dyn AbstractCullerInvocation>;
+  fn bind(&self, cx: &mut BindingBuilder);
 
   fn not(&self) -> Box<dyn AbstractCullerProvider> {
     todo!()
@@ -184,8 +185,11 @@ impl ShaderHashProvider for NoopCuller {
 }
 
 impl AbstractCullerProvider for NoopCuller {
-  fn create_invocation(&self) -> Box<dyn AbstractCullerInvocation> {
+  fn create_invocation(
+    &self,
+    cx: &mut ShaderBindGroupBuilder,
+  ) -> Box<dyn AbstractCullerInvocation> {
     todo!()
   }
-  fn bind(&self) {}
+  fn bind(&self, cx: &mut BindingBuilder) {}
 }

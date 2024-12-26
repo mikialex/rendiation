@@ -4,23 +4,62 @@ pub fn test_and_update_last_frame_visibility_use_all_passed_batch_and_return_cul
   depth_pyramid: &GPU2DDepthTextureView,
   pass: &mut GPUComputePass,
   device: &GPUDevice,
+  camera_view_proj: &UniformBufferDataView<Mat4<f32>>,
+  bounding_provider: Box<dyn DrawUnitWorldBoundingProvider>,
 ) -> Box<dyn AbstractCullerProvider> {
   let hasher = shader_hasher_from_marker_ty!(OcclusionTestAndUpdate);
   let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut ctx| {
     //
     ctx
   });
-  todo!()
+
+  Box::new(OcclusionTester {
+    depth_pyramid: depth_pyramid.clone(),
+    view_projection: camera_view_proj.clone(),
+    bounding_provider,
+  })
 }
 
+#[derive(Clone)]
 struct OcclusionTester {
+  depth_pyramid: GPU2DDepthTextureView,
+  view_projection: UniformBufferDataView<Mat4<f32>>,
+  bounding_provider: Box<dyn DrawUnitWorldBoundingProvider>,
+}
+
+impl ShaderHashProvider for OcclusionTester {
+  shader_hash_type_id! {}
+}
+
+impl AbstractCullerProvider for OcclusionTester {
+  fn create_invocation(
+    &self,
+    cx: &mut ShaderBindGroupBuilder,
+  ) -> Box<dyn AbstractCullerInvocation> {
+    todo!()
+  }
+
+  fn bind(&self, cx: &mut BindingBuilder) {
+    todo!()
+  }
+}
+
+struct OcclusionTesterInvocation {
   depth_pyramid: HandleNode<ShaderTexture2D>,
   view_projection: Node<Mat4<f32>>,
+  bounding_provider: Box<dyn DrawUnitWorldBoundingInvocationProvider>,
 }
 
-impl OcclusionTester {
+impl AbstractCullerInvocation for OcclusionTesterInvocation {
+  fn cull(&self, id: Node<u32>) -> Node<bool> {
+    let target_world_bounding = self.bounding_provider.get_world_bounding(id);
+    self.is_occluded(target_world_bounding)
+  }
+}
+
+impl OcclusionTesterInvocation {
   /// return if visible
-  fn test_occlusion(&self, target_world_bounding: TargetWorldBounding) -> Node<bool> {
+  fn is_occluded(&self, target_world_bounding: TargetWorldBounding) -> Node<bool> {
     let size = target_world_bounding.max - target_world_bounding.min;
 
     let min_xy: Node<Vec2<f32>> = (val(1.), val(1.)).into();
@@ -120,6 +159,6 @@ impl OcclusionTester {
       .x();
 
     let max_depth = d_0.max(d_1).max(d_2).max(d_3);
-    min_z.load().less_equal_than(max_depth)
+    min_z.load().greater_than(max_depth)
   }
 }
