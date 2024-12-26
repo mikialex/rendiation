@@ -245,6 +245,13 @@ texture_view_downcast!(
   "raw texture view not a 2d depth"
 );
 texture_view_downcast!(
+  GPUMultiSample2DDepthTextureView,
+  value,
+  value.resource.desc.dimension == gpu::TextureDimension::D2
+    && value.resource.desc.sample_count > 1,
+  "raw texture view not a 2d depth"
+);
+texture_view_downcast!(
   GPU2DArrayDepthTextureView,
   value,
   value.resource.desc.dimension == gpu::TextureDimension::D2,

@@ -3,23 +3,44 @@ use rendiation_shader_api::*;
 use crate::*;
 
 /// the target is a h depth texture, user should guarantee it has correct size and format.
+///
+/// todo, error handling for too large input
 pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
-  depth: GPUMultiSample2DDepthTextureView,
-  target: GPU2DDepthTextureView,
+  ms_depth: &GPUMultiSample2DDepthTextureView,
+  target: &GPU2DTexture,
   pass: &mut GPUComputePass,
   device: &GPUDevice,
 ) {
-  let x = todo!();
-  let y = todo!();
-  let mip_level_count: u32 = todo!();
+  let x = target.desc.size.width.div_ceil(64);
+  let y = target.desc.size.height.div_ceil(64);
+  let mip_level_count = target.desc.mip_level_count;
+
+  // level that exceeds will be clamped to max level
+  let mips: [GPU2DTextureView; 13] = std::array::from_fn(|index| {
+    target
+      .create_view(TextureViewDescriptor {
+        base_mip_level: (index as u32).clamp(0, mip_level_count - 1),
+        mip_level_count: Some(1),
+        base_array_layer: 0,
+        ..Default::default()
+      })
+      .try_into()
+      .unwrap()
+  });
+
+  let level_0 = mips[0]
+    .clone()
+    .into_storage_texture_view_writeonly()
+    .unwrap();
+  let mip_count_buffer = create_uniform(Vec4::new(mip_level_count, 0, 0, 0), device);
+  let level_1_6: [StorageTextureViewWriteOnly<GPU2DTextureView>; 6] = std::array::from_fn(|i| {
+    mips[i + 1]
+      .clone()
+      .into_storage_texture_view_writeonly()
+      .unwrap()
+  });
 
   let hasher = shader_hasher_from_marker_ty!(SPDxFirstPass);
-
-  let ms_depth: GPUMultiSample2DDepthTextureView = todo!();
-  let level_0: StorageTextureViewWriteOnly<GPU2DTextureView> = todo!();
-  let mip_count_buffer: UniformBufferDataView<Vec4<u32>> = todo!();
-  let level_1_6: [StorageTextureViewWriteOnly<GPU2DTextureView>; 6] = todo!();
-
   let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut ctx| {
     ctx.config_work_group_size(256);
     let shared = ctx.define_workgroup_shared_var::<IntermediateBuffer<f32>>();
@@ -78,7 +99,7 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
   });
 
   let mut bb = BindingBuilder::default()
-    .with_bind(&ms_depth)
+    .with_bind(ms_depth)
     .with_bind(&level_0);
   for v in level_1_6.iter() {
     bb.bind(v);
@@ -90,8 +111,13 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
     return;
   }
 
-  let l_6: GPU2DTextureView = todo!();
-  let l_7_12: [StorageTextureViewWriteOnly<GPU2DTextureView>; 6] = todo!();
+  let l_6 = mips[6].clone();
+  let l_7_12: [StorageTextureViewWriteOnly<GPU2DTextureView>; 6] = std::array::from_fn(|i| {
+    mips[i + 7]
+      .clone()
+      .into_storage_texture_view_writeonly()
+      .unwrap()
+  });
 
   let hasher = shader_hasher_from_marker_ty!(SPDxSecondPass);
   let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut ctx| {
@@ -180,7 +206,7 @@ impl SourceImageLoader<f32> for MSDepthLoader {
       .ms_depth
       .load_texel_multi_sample_index(depth_coord, val(3));
 
-    let v = (d1 + d2 + d3 + d4) / val(4.); // todo check
+    let v = (d1 + d2 + d3 + d4) / val(4.); // todo fix me, this is wrong!
     self.mip_0.write_texel(coord, v.splat());
     v
   }

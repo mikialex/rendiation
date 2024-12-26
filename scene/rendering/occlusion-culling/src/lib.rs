@@ -11,6 +11,8 @@ use spd::*;
 pub struct GPUTwoPassOcclusionCulling {
   max_scene_model_id: usize,
   last_frame_visibility: FastHashMap<u32, StorageBufferDataView<[Bool]>>,
+  // todo, improve: we could share the depth pyramid cache for different view
+  depth_pyramid_cache: FastHashMap<u32, GPU2DTexture>,
 }
 
 impl GPUTwoPassOcclusionCulling {
@@ -21,7 +23,8 @@ impl GPUTwoPassOcclusionCulling {
   pub fn new(max_scene_model_count: usize) -> Self {
     Self {
       max_scene_model_id: max_scene_model_count,
-      last_frame_visibility: FastHashMap::default(),
+      last_frame_visibility: Default::default(),
+      depth_pyramid_cache: Default::default(),
     }
   }
 }
@@ -31,6 +34,10 @@ impl GPUTwoPassOcclusionCulling {
   /// because the per scene model last frame visibility state should be kept for different view
   ///
   /// mix used view key for different view may cause culling efficiency problem
+  ///
+  /// the target's depth must be multi sampled.
+  ///
+  /// todo, support single sampled depth
   pub fn draw(
     &mut self,
     view_key: u32,
@@ -38,7 +45,7 @@ impl GPUTwoPassOcclusionCulling {
     target: RenderPassDescriptorOwned,
     scene_renderer: &impl SceneRenderer,
     camera: EntityHandle<SceneCameraEntity>,
-    pass: &dyn RenderComponent,
+    pass_com: &dyn RenderComponent,
     frame_ctx: &mut FrameCtx,
   ) {
     let last_frame_visibility = self
@@ -52,19 +59,58 @@ impl GPUTwoPassOcclusionCulling {
     scene_renderer.make_scene_batch_pass_content(
       SceneModelRenderBatch::Device(last_frame_visible_object),
       camera,
-      pass,
+      pass_com,
       frame_ctx,
     );
 
     // then generate depth pyramid for the occluder
     let (_, depth) = target.depth_stencil_target.clone().unwrap();
-    let depth: GPU2DDepthTextureView = todo!();
-    // todo check depth size is correct.
-    let pyramid = generate_depth_pyramid(&depth);
+    let size = depth.size();
+
+    let depth = depth.expect_standalone_texture_view().0.clone();
+    let depth = GPUMultiSample2DDepthTextureView::try_from(depth).unwrap();
+
+    let required_mip_level_count = MipLevelCount::BySize.get_level_count_wgpu(size);
+    if let Some(cache) = self.depth_pyramid_cache.get(&view_key) {
+      if cache.size() != size.into_gpu_size() || cache.mip_level_count() != required_mip_level_count
+      {
+        self.depth_pyramid_cache.remove(&view_key);
+      }
+    }
+
+    let pyramid = self.depth_pyramid_cache.entry(view_key).or_insert_with(|| {
+      let tex = GPUTexture::create(
+        TextureDescriptor {
+          label: "gpu-occlusion-culling-depth-pyramid".into(),
+          size: size.into_gpu_size(),
+          mip_level_count: required_mip_level_count,
+          sample_count: 1,
+          dimension: TextureDimension::D2,
+          format: TextureFormat::Depth32Float,
+          view_formats: &[],
+          usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
+        },
+        &frame_ctx.gpu.device,
+      );
+      GPU2DTexture::try_from(tex).unwrap()
+    });
+
+    let mut compute_pass = frame_ctx.encoder.begin_compute_pass();
+
+    compute_hierarchy_depth_from_multi_sample_depth_texture(
+      &depth,
+      pyramid,
+      &mut compute_pass,
+      &frame_ctx.gpu.device,
+    );
+
+    drop(compute_pass);
 
     // second pass
     // draw rest object and do occlusion test on all object
     // using depth pyramid. keep culling result for next frame usage
+    let pyramid = pyramid.create_default_view();
+    let pyramid = GPU2DDepthTextureView::try_from(pyramid).unwrap();
     let rest_objects =
       update_last_frame_visibility_by_all_and_return_objects_that_not_be_occluded_in_this_frame(
         last_frame_visibility,
@@ -74,7 +120,7 @@ impl GPUTwoPassOcclusionCulling {
     scene_renderer.make_scene_batch_pass_content(
       SceneModelRenderBatch::Device(rest_objects),
       camera,
-      pass,
+      pass_com,
       frame_ctx,
     );
   }
@@ -83,10 +129,6 @@ impl GPUTwoPassOcclusionCulling {
   pub fn cleanup_view_key_culling_states(&mut self, view_key: u32) {
     self.last_frame_visibility.remove(&view_key);
   }
-}
-
-fn generate_depth_pyramid(depth: &GPU2DDepthTextureView) -> GPU2DDepthTextureView {
-  todo!()
 }
 
 fn filter_last_frame_visible_object(
