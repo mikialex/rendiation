@@ -3754,6 +3754,7 @@ dependencies = [
  "log",
  "reactive",
  "rendiation-algebra",
+ "rendiation-device-parallel-compute",
  "rendiation-geometry",
  "rendiation-scene-core",
  "rendiation-scene-rendering-gpu-base",

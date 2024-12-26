@@ -58,6 +58,7 @@ pub struct DeviceSceneModelRenderBatch {
 #[derive(Clone)]
 pub struct DeviceSceneModelRenderSubBatch {
   pub scene_models: Box<dyn DeviceParallelComputeIO<u32>>,
+  /// this id is only used for implementation selecting. this may be not included in scene model.
   pub impl_select_id: EntityHandle<SceneModelEntity>,
 }
 

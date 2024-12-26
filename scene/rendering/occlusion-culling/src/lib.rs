@@ -1,12 +1,34 @@
 use database::*;
 use fast_hash_collection::*;
 use rendiation_algebra::*;
+use rendiation_device_parallel_compute::*;
 use rendiation_scene_core::*;
 use rendiation_scene_rendering_gpu_base::*;
+use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 
 mod spd;
 use spd::*;
+
+mod filter;
+use filter::*;
+
+mod occlusion_test;
+use occlusion_test::*;
+
+pub struct TargetWorldBounding {
+  pub min: Node<Vec3<f32>>,
+  pub max: Node<Vec3<f32>>,
+}
+
+pub trait DrawUnitWorldBoundingProvider: ShaderHashProvider {
+  fn create_invocation(&self) -> Box<dyn DrawUnitWorldBoundingInvocationProvider>;
+  fn bind(&self);
+}
+
+pub trait DrawUnitWorldBoundingInvocationProvider {
+  fn get_world_bounding(&self) -> TargetWorldBounding;
+}
 
 pub struct GPUTwoPassOcclusionCulling {
   max_scene_model_id: usize,
@@ -104,8 +126,6 @@ impl GPUTwoPassOcclusionCulling {
       &frame_ctx.gpu.device,
     );
 
-    drop(compute_pass);
-
     // second pass
     // draw rest object and do occlusion test on all object
     // using depth pyramid. keep culling result for next frame usage
@@ -116,7 +136,12 @@ impl GPUTwoPassOcclusionCulling {
         last_frame_visibility,
         &pyramid,
         &batch,
+        &mut compute_pass,
+        &frame_ctx.gpu.device,
       );
+
+    drop(compute_pass);
+
     scene_renderer.make_scene_batch_pass_content(
       SceneModelRenderBatch::Device(rest_objects),
       camera,
@@ -129,19 +154,4 @@ impl GPUTwoPassOcclusionCulling {
   pub fn cleanup_view_key_culling_states(&mut self, view_key: u32) {
     self.last_frame_visibility.remove(&view_key);
   }
-}
-
-fn filter_last_frame_visible_object(
-  last_frame: &StorageBufferDataView<[Bool]>,
-  batch: &DeviceSceneModelRenderBatch,
-) -> DeviceSceneModelRenderBatch {
-  todo!()
-}
-
-fn update_last_frame_visibility_by_all_and_return_objects_that_not_be_occluded_in_this_frame(
-  last_frame: &StorageBufferDataView<[Bool]>,
-  depth_pyramid: &GPU2DDepthTextureView,
-  batch: &DeviceSceneModelRenderBatch,
-) -> DeviceSceneModelRenderBatch {
-  todo!()
 }
