@@ -136,6 +136,13 @@ impl DeviceSceneModelRenderBatch {
   ) -> Vec<DeviceSceneModelRenderSubBatch> {
     self.sub_batches.clone()
   }
+
+  pub fn flush_culler_into_new(&self, cx: &mut DeviceParallelComputeCtx) -> Self {
+    Self {
+      sub_batches: self.flush_culler(cx),
+      stash_culler: None,
+    }
+  }
 }
 
 // #[derive(Clone)]

@@ -1,26 +1,57 @@
 use crate::*;
 
 pub fn test_and_update_last_frame_visibility_use_all_passed_batch_and_return_culler(
+  cx: &mut DeviceParallelComputeCtx,
   depth_pyramid: &GPU2DDepthTextureView,
-  pass: &mut GPUComputePass,
-  device: &GPUDevice,
   last_frame_visibility: StorageBufferDataView<[Bool]>,
   camera_view_proj: &UniformBufferDataView<Mat4<f32>>,
   bounding_provider: Box<dyn DrawUnitWorldBoundingProvider>,
   last_frame_occluder_batch: DeviceSceneModelRenderBatch,
 ) -> Box<dyn AbstractCullerProvider> {
-  let hasher = shader_hasher_from_marker_ty!(OcclusionTestAndUpdate);
-  let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut ctx| {
-    //
-    ctx
-  });
+  let device = cx.gpu.device.clone();
 
-  Box::new(OcclusionTester {
+  // the test will update the last_frame visibility when do testing
+  let tester = Box::new(OcclusionTester {
     depth_pyramid: depth_pyramid.clone(),
     view_projection: camera_view_proj.clone(),
     bounding_provider,
     last_frame_visibility,
-  })
+  });
+
+  // update the occluder's visibility for the occluder
+
+  // the occluder culler must be flushed
+  assert!(last_frame_occluder_batch.stash_culler.is_none());
+
+  for sub_batch in &last_frame_occluder_batch.sub_batches {
+    let scene_models = sub_batch.scene_models.execute_and_expose(cx);
+    // update the occluder's visibility for the occluder
+    let hasher = shader_hasher_from_marker_ty!(OcclusionLastFrameVisibleUpdater);
+    let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut ctx| {
+      let scene_models = scene_models.build_shader(&mut ctx);
+      let culler = tester.create_invocation(ctx.bindgroups());
+
+      let (id, valid) = scene_models.invocation_logic(ctx.global_invocation_id());
+      if_by(valid, || {
+        // the result will be write into the visible buffer
+        culler.cull(id);
+      });
+
+      ctx
+    });
+
+    cx.record_pass(|pass, _| {
+      let mut binder = BindingBuilder::default();
+      scene_models.bind_input(&mut binder);
+      tester.bind(&mut binder);
+      binder.setup_compute_pass(pass, &device, &pipeline);
+    });
+
+    scene_models.dispatch_compute(cx);
+  }
+
+  // and return it for the rest
+  tester
 }
 
 #[derive(Clone)]
@@ -41,7 +72,7 @@ impl AbstractCullerProvider for OcclusionTester {
     cx: &mut ShaderBindGroupBuilder,
   ) -> Box<dyn AbstractCullerInvocation> {
     Box::new(OcclusionTesterInvocation {
-      depth: todo!(),
+      depth: cx.bind_by(&self.depth_pyramid),
       view_projection: cx.bind_by(&self.view_projection),
       bounding_provider: self.bounding_provider.create_invocation(cx),
       last_frame_visibility: cx.bind_by(&self.last_frame_visibility),
@@ -57,7 +88,7 @@ impl AbstractCullerProvider for OcclusionTester {
 }
 
 struct OcclusionTesterInvocation {
-  depth: HandleNode<ShaderTexture2D>,
+  depth: HandleNode<ShaderDepthTexture2D>,
   view_projection: UniformNode<Mat4<f32>>,
   bounding_provider: Box<dyn DrawUnitWorldBoundingInvocationProvider>,
   last_frame_visibility: StorageNode<[Bool]>,
@@ -156,10 +187,10 @@ impl OcclusionTesterInvocation {
     let r_x = (l_x + val(1)).clamp(val(0), limit_x);
     let b_y = (t_y + val(1)).clamp(val(0), limit_y);
 
-    let d_0 = self.depth.load_texel((l_x, t_y).into(), mip_level).x();
-    let d_1 = self.depth.load_texel((r_x, t_y).into(), mip_level).x();
-    let d_2 = self.depth.load_texel((l_x, b_y).into(), mip_level).x();
-    let d_3 = self.depth.load_texel((r_x, b_y).into(), mip_level).x();
+    let d_0 = self.depth.load_texel((l_x, t_y).into(), mip_level);
+    let d_1 = self.depth.load_texel((r_x, t_y).into(), mip_level);
+    let d_2 = self.depth.load_texel((l_x, b_y).into(), mip_level);
+    let d_3 = self.depth.load_texel((r_x, b_y).into(), mip_level);
 
     let max_depth = d_0.max(d_1).max(d_2).max(d_3);
     min_z.load().greater_than(max_depth)

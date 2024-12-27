@@ -2,6 +2,7 @@ use database::*;
 use dyn_clone::*;
 use fast_hash_collection::*;
 use rendiation_algebra::*;
+use rendiation_device_parallel_compute::*;
 use rendiation_scene_core::*;
 use rendiation_scene_rendering_gpu_base::*;
 use rendiation_shader_api::*;
@@ -71,14 +72,14 @@ impl GPUTwoPassOcclusionCulling {
   /// todo, support single sampled depth
   pub fn draw_occluder_and_create_rest_tester(
     &mut self,
+    frame_ctx: &mut FrameCtx,
     view_key: u32,
     batch: &DeviceSceneModelRenderBatch,
     target: RenderPassDescriptorOwned,
     scene_renderer: &impl SceneRenderer,
     camera: EntityHandle<SceneCameraEntity>,
-    pass_com: &dyn RenderComponent,
-    frame_ctx: &mut FrameCtx,
     camera_view_proj: &UniformBufferDataView<Mat4<f32>>,
+    pass_com: &dyn RenderComponent,
     bounding_provider: Box<dyn DrawUnitWorldBoundingProvider>,
   ) {
     let pre_culler = batch.stash_culler.clone().unwrap_or(Box::new(NoopCuller));
@@ -93,6 +94,10 @@ impl GPUTwoPassOcclusionCulling {
     let only_last_frame_visible = filter_last_frame_visible_object(last_frame_visibility);
     let first_pass_culler = only_last_frame_visible.chain(pre_culler.clone());
     let first_pass_batch = batch.clone().with_override_culler(first_pass_culler);
+
+    // must flush culler, because the new culler will update the previous culler's result.
+    let first_pass_batch =
+      frame_ctx.access_parallel_compute(|cx| first_pass_batch.flush_culler_into_new(cx));
 
     pass("occlusion-culling-first-pass")
       .with_desc(target.clone())
@@ -148,16 +153,16 @@ impl GPUTwoPassOcclusionCulling {
     let pyramid = pyramid.create_default_view();
     let pyramid = GPU2DDepthTextureView::try_from(pyramid).unwrap();
 
-    let occlusion_culler =
+    let occlusion_culler = frame_ctx.access_parallel_compute(|cx| {
       test_and_update_last_frame_visibility_use_all_passed_batch_and_return_culler(
+        cx,
         &pyramid,
-        &mut compute_pass,
-        &frame_ctx.gpu.device,
         last_frame_visibility.clone(),
         camera_view_proj,
         bounding_provider,
         first_pass_batch,
-      );
+      )
+    });
 
     // second pass, draw rest but not occluded
     let second_pass_culler = only_last_frame_visible
