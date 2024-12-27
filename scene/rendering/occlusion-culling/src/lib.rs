@@ -92,7 +92,7 @@ impl GPUTwoPassOcclusionCulling {
     // first pass
     // draw all visible object in last frame culling result as the occluder
     let only_last_frame_visible = filter_last_frame_visible_object(last_frame_visibility);
-    let first_pass_culler = only_last_frame_visible.chain(pre_culler.clone());
+    let first_pass_culler = only_last_frame_visible.shortcut_or(pre_culler.clone());
     let first_pass_batch = batch.clone().with_override_culler(first_pass_culler);
 
     // must flush culler, because the new culler will update the previous culler's result.
@@ -167,8 +167,8 @@ impl GPUTwoPassOcclusionCulling {
     // second pass, draw rest but not occluded
     let second_pass_culler = only_last_frame_visible
       .not()
-      .chain(pre_culler)
-      .chain(occlusion_culler);
+      .shortcut_or(pre_culler)
+      .shortcut_or(occlusion_culler);
     let second_pass_batch = batch.clone().with_override_culler(second_pass_culler);
 
     pass("occlusion-culling-second-pass")
