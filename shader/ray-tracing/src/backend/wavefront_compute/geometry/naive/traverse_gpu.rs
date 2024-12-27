@@ -73,9 +73,9 @@ impl BuiltBlasPackGpu {
 
 #[derive(Clone)]
 pub(super) struct NaiveSahBvhGpu {
-  // maps user tlas_id to tlas_bvh root node idx in tlas_bvh_forest
+  // maps user tlas_id to tlas_bvh root node idx in tlas_bvh_forest, 8 roots per tlas for each ray direction (see select_dir)
   pub(super) tlas_bvh_root: StorageBufferReadOnlyDataView<[u32]>,
-  // global bvh, root at tlas_bvh_root[tlas_idx], content_range to index tlas_data/tlas_bounding
+  // global bvh, root at tlas_bvh_root[tlas_idx * 8 + dir], content_range to index tlas_data/tlas_bounding
   pub(super) tlas_bvh_forest: StorageBufferReadOnlyDataView<[DeviceBVHNode]>,
   // acceleration_structure_handle to index blas_meta_info
   pub(super) tlas_data:
@@ -256,7 +256,12 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
 
     let world_ray_range = RayRangeGpu::new(trace_payload.range);
 
-    let tlas_bvh_root = self.tlas_bvh_root.index(trace_payload.tlas_idx).load();
+    let select_dir = select_dir_gpu(trace_payload.ray_direction);
+
+    let tlas_bvh_root = self
+      .tlas_bvh_root
+      .index(trace_payload.tlas_idx * val(8) + select_dir)
+      .load();
 
     let tlas_idx_iter = traverse_tlas_gpu(
       tlas_bvh_root, // tlas_bvh_root == INVALID_NEXT checked inside TraverseBvhIteratorGpu
@@ -526,6 +531,7 @@ fn intersect_blas_gpu2(
     let flags = TraverseFlagsGpu::from_ray_flag(ray_blas.flags);
     let distance_scaling = ray_blas.distance_scaling;
     let local_ray_range = world_ray_range.clone_with_scaling(distance_scaling);
+    let select_dir = select_dir_gpu(ray.expand().direction);
 
     ForRange::new(
       (
@@ -536,7 +542,7 @@ fn intersect_blas_gpu2(
     )
     .for_each(move |geometry_idx, mesh_loop| {
       let geometry = blas_data.geometry_meta.index(blas.geometry_offset + geometry_idx).load().expand();
-      let bvh_root = geometry.bvh_root + blas.bvh_offset;
+      let bvh_root = geometry.bvh_root + geometry.bvh_size * select_dir + blas.bvh_offset;
       let primitive_offset = geometry.primitives_offset + blas.primitives_offset;
       let vertices_offset = geometry.vertices_offset + blas.vertices_offset;
       let geometry_id = geometry.geometry_idx;

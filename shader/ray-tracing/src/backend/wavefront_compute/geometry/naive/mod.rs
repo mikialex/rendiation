@@ -423,28 +423,6 @@ fn compute_bvh_next_dir(
 
   result
 }
-fn compute_bvh_next(flatten_nodes: &[FlattenBVHNode<Box3>]) -> Vec<(u32, u32)> {
-  let mut result = vec![(0, 0); flatten_nodes.len()];
-  let mut next_stack = vec![];
-  next_stack.push(0);
-
-  while let Some(curr) = next_stack.pop() {
-    let miss = next_stack.last().cloned().unwrap_or(INVALID_NEXT);
-    let node = &flatten_nodes[curr as usize];
-    let (hit, miss) =
-      if let (Some(left), Some(right)) = (node.left_child_offset(), node.right_child_offset()) {
-        let hit = left as u32;
-        next_stack.push(right as u32);
-        next_stack.push(left as u32);
-        (hit, miss)
-      } else {
-        (miss, miss)
-      };
-    result[curr as usize] = (hit, miss);
-  }
-
-  result
-}
 
 pub(crate) fn create_gpu_buffer_non_empty<T>(
   device: &GPUDevice,

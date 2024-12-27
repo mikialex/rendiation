@@ -229,7 +229,8 @@ impl BuiltBlasPack {
 
       assert_eq!(meta.geometry_idx, geometry_idx);
 
-      let bvh_root = meta.bvh_root + blas.bvh_offset;
+      let select_dir = select_dir_cpu(ray_direction);
+      let bvh_root = meta.bvh_root + meta.bvh_size * select_dir + blas.bvh_offset;
       let geometry_flags = meta.geometry_flags;
       let geometry_idx = meta.geometry_idx;
       let primitives_offset = meta.primitives_offset + blas.primitives_offset;

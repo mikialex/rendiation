@@ -6,14 +6,15 @@ use rendiation_space_algorithm::bvh::{FlattenBVH, FlattenBVHNode, SAH};
 use rendiation_space_algorithm::utils::TreeBuildOption;
 
 use crate::backend::wavefront_compute::geometry::naive::traverse_gpu::BuiltBlasPackGpu;
-use crate::backend::wavefront_compute::geometry::naive::{compute_bvh_next, DeviceBVHNode};
+use crate::backend::wavefront_compute::geometry::naive::{compute_bvh_next_dirs, DeviceBVHNode};
 use crate::*;
 
 #[repr(C)]
 #[std430_layout]
 #[derive(Copy, Clone, ShaderStruct)]
 pub struct GeometryMeta {
-  pub bvh_root: u32,
+  pub bvh_size: u32,
+  pub bvh_root: u32, // root = bvh_root + bvh_size * select_dir(ray_dir) + external offset
   pub geometry_flags: GeometryFlags,
   pub geometry_idx: u32,
   pub primitives_offset: u32,
@@ -34,7 +35,8 @@ pub struct BlasMeta {
 struct BuiltGeometry {
   geometry_flags: GeometryFlags,
   geometry_idx: u32,
-  bvh: Vec<DeviceBVHNode>,
+  bvh_size: u32,           // single bvh size
+  bvh: Vec<DeviceBVHNode>, // 8x bvh size by ray direction
   primitive_redirect: Vec<u32>,
   indices: Vec<u32>,
   vertices: Vec<Vec3<f32>>,
@@ -82,23 +84,28 @@ impl BuiltGeometry {
       },
     );
     let bvh_nodes = bvh.nodes;
-    let hit_miss = compute_bvh_next(&bvh_nodes);
+    let hit_miss = compute_bvh_next_dirs(&bvh_nodes);
     let geometry_primitive_redirect = bvh
       .sorted_primitive_index
       .into_iter()
       .map(|i| i as u32)
       .collect();
 
-    let bvh_nodes = bvh_nodes
-      .iter()
-      .zip(hit_miss)
-      .map(|(node, (hit, miss))| flatten_bvh_to_gpu_node(node, hit, miss))
-      .collect::<Vec<_>>();
+    let bvh = hit_miss
+      .into_iter()
+      .flat_map(|hit_miss| {
+        bvh_nodes
+          .iter()
+          .zip(hit_miss)
+          .map(|(node, (hit, miss))| flatten_bvh_to_gpu_node(node, hit, miss))
+      })
+      .collect();
 
     Self {
       geometry_flags: flags,
       geometry_idx,
-      bvh: bvh_nodes,
+      bvh_size: bvh_nodes.len() as u32,
+      bvh,
       primitive_redirect: geometry_primitive_redirect,
       indices,
       vertices: vertices.clone(),
@@ -145,6 +152,7 @@ impl BuiltGeometryPack {
       let indices_offset = indices.len() as u32;
       assert_eq!(0, indices_offset % 3);
       geometry_meta.push(GeometryMeta {
+        bvh_size: built_geometry.bvh_size,
         bvh_root: bvh.len() as u32,
         geometry_flags: built_geometry.geometry_flags,
         geometry_idx: built_geometry.geometry_idx,
@@ -264,6 +272,7 @@ impl BuiltBlasPack {
   }
 }
 
+#[allow(unused)]
 pub struct HitPoint {
   pub geometry_idx: u32,
   pub primitive_idx: u32,
