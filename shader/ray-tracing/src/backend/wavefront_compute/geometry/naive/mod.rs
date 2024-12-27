@@ -122,7 +122,7 @@ impl NaiveSahBvhSource {
     blas_box: &[Box3],
     tlas_items_out: &mut Vec<TopLevelAccelerationStructureSourceDeviceInstance>,
     tlas_boundings_out: &mut Vec<TlasBounding>,
-  ) -> (FlattenBVH<Box3>, Vec<(u32, u32)>) {
+  ) -> (FlattenBVH<Box3>, [Vec<(u32, u32)>; 8]) {
     let mut tlas_bvh_aabb = vec![];
     let mut index_mapping = vec![]; // tlas_data[index_mapping[idx]] aabb = bvh.nodes[idx].bounding
 
@@ -142,7 +142,8 @@ impl NaiveSahBvhSource {
         bin_size: 2,
       },
     );
-    let traverse_next = compute_bvh_next(&bvh.nodes);
+    let traverse_next_dirs = compute_bvh_next_dirs(&bvh.nodes);
+    // let traverse_next = compute_bvh_next(&bvh.nodes);
 
     for box_idx in &bvh.sorted_primitive_index {
       let aabb = tlas_bvh_aabb[*box_idx];
@@ -175,7 +176,7 @@ impl NaiveSahBvhSource {
       tlas_boundings_out.push(tlas_bounding);
     }
 
-    (bvh, traverse_next)
+    (bvh, traverse_next_dirs)
   }
 
   pub fn build(
@@ -224,28 +225,27 @@ impl NaiveSahBvhSource {
     let mut tlas_data = vec![];
     let mut tlas_bounding = vec![];
 
+    // 8 roots for each tlas
     for tlas in &self.tlas_source {
       if let Some(tlas) = tlas {
-        let bvh_start = tlas_bvh_forest.len() as u32;
         let primitive_start = tlas_data.len() as u32;
-
-        let (tlas_bvh, tlas_traverse_next) = Self::build_tlas(
+        let (tlas_bvh, tlas_traverse_next_dirs) = Self::build_tlas(
           tlas,
           &blas_data_cpu.blas_bounding,
           &mut tlas_data,
           &mut tlas_bounding,
         );
-        let nodes = tlas_bvh
-          .nodes
-          .iter()
-          .zip(tlas_traverse_next)
-          .map(|(node, (hit, miss))| {
+
+        for next in tlas_traverse_next_dirs {
+          let bvh_start = tlas_bvh_forest.len() as u32;
+          let nodes = tlas_bvh.nodes.iter().zip(next).map(|(node, (hit, miss))| {
             flatten_bvh_to_gpu_node(node, hit, miss, bvh_start, primitive_start)
           });
-        tlas_bvh_root.push(bvh_start);
-        tlas_bvh_forest.extend(nodes);
+          tlas_bvh_root.push(bvh_start);
+          tlas_bvh_forest.extend(nodes);
+        }
       } else {
-        tlas_bvh_root.push(INVALID_NEXT); // tested in bvh iter
+        tlas_bvh_root.extend([INVALID_NEXT; 8]); // tested in bvh iter
       }
     }
 
@@ -369,25 +369,80 @@ impl GPUAccelerationStructureSystemProvider for NaiveSahBVHSystem {
 }
 
 const INVALID_NEXT: u32 = u32::MAX;
-fn compute_bvh_next<B: BVHBounding>(flatten_nodes: &[FlattenBVHNode<B>]) -> Vec<(u32, u32)> {
-  let mut result = vec![];
+pub fn select_dir_cpu(ray: Vec3<f32>) -> u32 {
+  (ray.x >= 0.) as u32 + (ray.y >= 0.) as u32 * 2 + (ray.z >= 0.) as u32 * 4
+}
+pub fn select_dir_gpu(ray: Node<Vec3<f32>>) -> Node<u32> {
+  ray.x().greater_equal_than(val(0.)).into_u32()
+    + ray.y().greater_equal_than(val(0.)).into_u32() * val(2)
+    + ray.z().greater_equal_than(val(0.)).into_u32() * val(4)
+}
+fn compute_bvh_next_dirs(flatten_nodes: &[FlattenBVHNode<Box3>]) -> [Vec<(u32, u32)>; 8] {
+  [
+    compute_bvh_next_dir(flatten_nodes, Vec3::new(-1., -1., -1.)),
+    compute_bvh_next_dir(flatten_nodes, Vec3::new(1., -1., -1.)),
+    compute_bvh_next_dir(flatten_nodes, Vec3::new(-1., 1., -1.)),
+    compute_bvh_next_dir(flatten_nodes, Vec3::new(1., 1., -1.)),
+    compute_bvh_next_dir(flatten_nodes, Vec3::new(-1., -1., 1.)),
+    compute_bvh_next_dir(flatten_nodes, Vec3::new(1., -1., 1.)),
+    compute_bvh_next_dir(flatten_nodes, Vec3::new(-1., 1., 1.)),
+    compute_bvh_next_dir(flatten_nodes, Vec3::new(1., 1., 1.)),
+  ]
+}
+fn compute_bvh_next_dir(
+  flatten_nodes: &[FlattenBVHNode<Box3>],
+  ray_dir: Vec3<f32>,
+) -> Vec<(u32, u32)> {
+  let mut result = vec![(0, 0); flatten_nodes.len()];
   let mut next_stack = vec![];
+  next_stack.push(0);
 
-  for node in flatten_nodes {
-    if next_stack.last().cloned() == Some(node.self_index as u32) {
-      next_stack.pop();
-    }
+  while let Some(curr) = next_stack.pop() {
     let miss = next_stack.last().cloned().unwrap_or(INVALID_NEXT);
+    let node = &flatten_nodes[curr as usize];
     let (hit, miss) =
       if let (Some(left), Some(right)) = (node.left_child_offset(), node.right_child_offset()) {
-        let hit = left as u32;
-        next_stack.push(right as u32);
+        let left_center = flatten_nodes[left].bounding.center();
+        let right_center = flatten_nodes[right].bounding.center();
+        let hit = if left_center.dot(ray_dir) < right_center.dot(ray_dir) {
+          // dot product is less => left is closer
+          next_stack.push(right as u32);
+          next_stack.push(left as u32);
+          left as u32
+        } else {
+          next_stack.push(left as u32);
+          next_stack.push(right as u32);
+          right as u32
+        };
         (hit, miss)
       } else {
         (miss, miss)
       };
-    result.push((hit, miss));
+    result[curr as usize] = (hit, miss);
   }
+
+  result
+}
+fn compute_bvh_next(flatten_nodes: &[FlattenBVHNode<Box3>]) -> Vec<(u32, u32)> {
+  let mut result = vec![(0, 0); flatten_nodes.len()];
+  let mut next_stack = vec![];
+  next_stack.push(0);
+
+  while let Some(curr) = next_stack.pop() {
+    let miss = next_stack.last().cloned().unwrap_or(INVALID_NEXT);
+    let node = &flatten_nodes[curr as usize];
+    let (hit, miss) =
+      if let (Some(left), Some(right)) = (node.left_child_offset(), node.right_child_offset()) {
+        let hit = left as u32;
+        next_stack.push(right as u32);
+        next_stack.push(left as u32);
+        (hit, miss)
+      } else {
+        (miss, miss)
+      };
+    result[curr as usize] = (hit, miss);
+  }
+
   result
 }
 

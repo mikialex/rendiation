@@ -6,9 +6,9 @@ use crate::backend::wavefront_compute::geometry::intersect_ray_triangle_cpu;
 use crate::backend::wavefront_compute::geometry::naive::*;
 
 pub(super) struct NaiveSahBvhCpu {
-  // maps user tlas_id to tlas_bvh root node idx in tlas_bvh_forest
+  // maps user tlas_id to tlas_bvh root node idx in tlas_bvh_forest, 8 roots per tlas for each ray direction (see select_dir)
   pub(super) tlas_bvh_root: Vec<u32>,
-  // global bvh, root at tlas_bvh_root[tlas_idx], content_range to index tlas_data/tlas_bounding
+  // global bvh, root at tlas_bvh_root[tlas_idx * 8 + dir], content_range to index tlas_data/tlas_bounding
   pub(super) tlas_bvh_forest: Vec<DeviceBVHNode>,
   // acceleration_structure_handle to index blas_meta_info
   pub(super) tlas_data: Vec<TopLevelAccelerationStructureSourceDeviceInstance>,
@@ -18,12 +18,12 @@ pub(super) struct NaiveSahBvhCpu {
 }
 
 use std::sync::atomic::AtomicU32;
-pub(super) static TRI_VISIT_COUNT: AtomicU32 = AtomicU32::new(0);
-pub(super) static TRI_HIT_COUNT: AtomicU32 = AtomicU32::new(0);
 pub(super) static TLAS_VISIT_COUNT: AtomicU32 = AtomicU32::new(0);
 pub(super) static TLAS_HIT_COUNT: AtomicU32 = AtomicU32::new(0);
 pub(super) static BLAS_VISIT_COUNT: AtomicU32 = AtomicU32::new(0);
 pub(super) static BLAS_HIT_COUNT: AtomicU32 = AtomicU32::new(0);
+pub(super) static TRI_VISIT_COUNT: AtomicU32 = AtomicU32::new(0);
+pub(super) static TRI_HIT_COUNT: AtomicU32 = AtomicU32::new(0);
 
 impl NaiveSahBvhCpu {
   pub(super) fn traverse(
@@ -33,8 +33,9 @@ impl NaiveSahBvhCpu {
   ) {
     let flags = TraverseFlags::from_ray_flag(ray.ray_flags);
     let ray_range = RayRangeCpu::new(ray.range.x, ray.range.y, 1.);
+    let dir_idx = select_dir_cpu(ray.ray_direction);
 
-    let tlas_bvh_root = self.tlas_bvh_root[ray.tlas_idx as usize];
+    let tlas_bvh_root = self.tlas_bvh_root[ray.tlas_idx as usize * 8 + dir_idx as usize];
 
     // traverse tlas bvh, hit leaf
     let tlas_iter = TraverseBvhIteratorCpu {

@@ -46,7 +46,7 @@ impl BuiltGeometry {
     vertices: &Vec<Vec3<f32>>,
     indices: &Option<Vec<u32>>,
   ) -> Self {
-    fn flatten_bvh_to_gpu_node(node: FlattenBVHNode<Box3>, hit: u32, miss: u32) -> DeviceBVHNode {
+    fn flatten_bvh_to_gpu_node(node: &FlattenBVHNode<Box3>, hit: u32, miss: u32) -> DeviceBVHNode {
       DeviceBVHNode {
         aabb_min: node.bounding.min,
         aabb_max: node.bounding.max,
@@ -90,7 +90,7 @@ impl BuiltGeometry {
       .collect();
 
     let bvh_nodes = bvh_nodes
-      .into_iter()
+      .iter()
       .zip(hit_miss)
       .map(|(node, (hit, miss))| flatten_bvh_to_gpu_node(node, hit, miss))
       .collect::<Vec<_>>();
