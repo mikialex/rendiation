@@ -177,6 +177,9 @@ texture_view_inner!(GPU2DArrayDepthTextureView);
 texture_view_inner!(GPUCubeDepthTextureView);
 texture_view_inner!(GPUCubeArrayDepthTextureView);
 
+texture_view_inner!(GPUMultiSample2DTextureView);
+texture_view_inner!(GPUMultiSample2DDepthTextureView);
+
 macro_rules! texture_view_downcast {
   ($ty: ty, $var:tt, $check: expr, $err: tt) => {
     impl TryFrom<GPUTextureView> for $ty {
@@ -239,6 +242,13 @@ texture_view_downcast!(
   GPU2DDepthTextureView,
   value,
   value.resource.desc.dimension == gpu::TextureDimension::D2,
+  "raw texture view not a 2d depth"
+);
+texture_view_downcast!(
+  GPUMultiSample2DDepthTextureView,
+  value,
+  value.resource.desc.dimension == gpu::TextureDimension::D2
+    && value.resource.desc.sample_count > 1,
   "raw texture view not a 2d depth"
 );
 texture_view_downcast!(

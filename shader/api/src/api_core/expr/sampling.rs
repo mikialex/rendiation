@@ -504,30 +504,34 @@ pub trait D3TextureType {}
 impl D3TextureType for ShaderTexture3D {}
 
 impl<T: ShaderTextureType> HandleNode<T> {
-  fn texture_dimension(&self, level: Node<u32>) -> ShaderNodeExpr {
+  /// using None means base level
+  fn texture_dimension(&self, level: Option<Node<u32>>) -> ShaderNodeExpr {
     ShaderNodeExpr::TextureQuery(
       self.handle(),
       TextureQuery::Size {
-        level: Some(level.handle()),
+        level: level.map(|v| v.handle()),
       },
     )
   }
 
-  pub fn texture_dimension_1d(&self, level: Node<u32>) -> Node<u32>
+  /// using None means base level
+  pub fn texture_dimension_1d(&self, level: Option<Node<u32>>) -> Node<u32>
   where
     T: D1TextureType,
   {
     self.texture_dimension(level).insert_api()
   }
 
-  pub fn texture_dimension_2d(&self, level: Node<u32>) -> Node<Vec2<u32>>
+  /// using None means base level
+  pub fn texture_dimension_2d(&self, level: Option<Node<u32>>) -> Node<Vec2<u32>>
   where
     T: D2LikeTextureType,
   {
     self.texture_dimension(level).insert_api()
   }
 
-  pub fn texture_dimension_3d(&self, level: Node<u32>) -> Node<Vec3<u32>>
+  /// using None means base level
+  pub fn texture_dimension_3d(&self, level: Option<Node<u32>>) -> Node<Vec3<u32>>
   where
     T: D3TextureType,
   {
@@ -569,17 +573,33 @@ storage_tex_impl!(ShaderStorageTextureR1D, TextureViewDimension::D1);
 storage_tex_impl!(ShaderStorageTextureRW1D, TextureViewDimension::D1);
 storage_tex_impl!(ShaderStorageTextureW1D, TextureViewDimension::D1);
 
+impl D1TextureType for ShaderStorageTextureR1D {}
+impl D1TextureType for ShaderStorageTextureRW1D {}
+impl D1TextureType for ShaderStorageTextureW1D {}
+
 storage_tex_impl!(ShaderStorageTextureR2D, TextureViewDimension::D2);
 storage_tex_impl!(ShaderStorageTextureRW2D, TextureViewDimension::D2);
 storage_tex_impl!(ShaderStorageTextureW2D, TextureViewDimension::D2);
+
+impl D2LikeTextureType for ShaderStorageTextureR2D {}
+impl D2LikeTextureType for ShaderStorageTextureRW2D {}
+impl D2LikeTextureType for ShaderStorageTextureW2D {}
 
 storage_tex_impl!(ShaderStorageTextureR3D, TextureViewDimension::D3);
 storage_tex_impl!(ShaderStorageTextureRW3D, TextureViewDimension::D3);
 storage_tex_impl!(ShaderStorageTextureW3D, TextureViewDimension::D3);
 
+impl D3TextureType for ShaderStorageTextureR3D {}
+impl D3TextureType for ShaderStorageTextureRW3D {}
+impl D3TextureType for ShaderStorageTextureW3D {}
+
 storage_tex_impl!(ShaderStorageTextureR2DArray, TextureViewDimension::D2Array);
 storage_tex_impl!(ShaderStorageTextureRW2DArray, TextureViewDimension::D2Array);
 storage_tex_impl!(ShaderStorageTextureW2DArray, TextureViewDimension::D2Array);
+
+impl D2LikeTextureType for ShaderStorageTextureR2DArray {}
+impl D2LikeTextureType for ShaderStorageTextureRW2DArray {}
+impl D2LikeTextureType for ShaderStorageTextureW2DArray {}
 
 impl ShaderTextureType for ShaderStorageTextureR1D {
   type Input = f32;

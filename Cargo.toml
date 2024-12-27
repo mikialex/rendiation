@@ -51,6 +51,7 @@ members = [
   "scene/rendering/gpu-base",
   "scene/rendering/gpu-gles",
   "scene/rendering/gpu-indirect",
+  "scene/rendering/occlusion-culling",
   "scene/rendering/gpu-ray-tracing",
   "scene/io/obj/loader",
   "scene/io/gltf/loader",

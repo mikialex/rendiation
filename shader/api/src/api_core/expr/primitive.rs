@@ -232,6 +232,12 @@ impl Node<Bool> {
   }
 }
 
+impl Node<bool> {
+  pub fn into_big_bool(&self) -> Node<Bool> {
+    unsafe { self.select(val(1), val(0)).cast_type() }
+  }
+}
+
 fn swizzle_node<I: ShaderNodeType, T: ShaderNodeType>(n: &Node<I>, ty: &'static str) -> Node<T> {
   let source = n.handle();
   ShaderNodeExpr::Swizzle { ty, source }.insert_api()

@@ -53,11 +53,13 @@ impl HostRenderBatch for HostModelLookUp {
 pub struct DeviceSceneModelRenderBatch {
   /// each sub batch could be and would be drawn by a multi-indirect-draw.
   pub sub_batches: Vec<DeviceSceneModelRenderSubBatch>,
+  pub stash_culler: Option<Box<dyn AbstractCullerProvider>>,
 }
 
 #[derive(Clone)]
 pub struct DeviceSceneModelRenderSubBatch {
   pub scene_models: Box<dyn DeviceParallelComputeIO<u32>>,
+  /// this id is only used for implementation selecting. this may be not included in scene model.
   pub impl_select_id: EntityHandle<SceneModelEntity>,
 }
 
@@ -85,6 +87,7 @@ impl SceneModelRenderBatch {
               impl_select_id: v.iter_scene_models().next().unwrap(),
               scene_models: Box::new(storage),
             }],
+            stash_culler: None,
           })
         } else {
           None
@@ -97,6 +100,45 @@ impl SceneModelRenderBatch {
     match self {
       SceneModelRenderBatch::Host(v) => Some(v.clone()),
       SceneModelRenderBatch::Device(_) => None,
+    }
+  }
+}
+
+impl DeviceSceneModelRenderBatch {
+  pub fn with_override_culler(mut self, v: Box<dyn AbstractCullerProvider>) -> Self {
+    self.stash_culler = Some(v);
+    self
+  }
+
+  pub fn flush_culler(
+    &self,
+    _cx: &mut DeviceParallelComputeCtx,
+  ) -> Vec<DeviceSceneModelRenderSubBatch> {
+    if let Some(culler) = &self.stash_culler {
+      self
+        .sub_batches
+        .iter()
+        .map(|sub_batch| {
+          let mask = SceneModelCulling {
+            culler: culler.clone(),
+            input: sub_batch.scene_models.clone(),
+          };
+
+          DeviceSceneModelRenderSubBatch {
+            scene_models: Box::new(sub_batch.scene_models.clone().stream_compaction(mask)),
+            impl_select_id: sub_batch.impl_select_id,
+          }
+        })
+        .collect()
+    } else {
+      self.sub_batches.clone()
+    }
+  }
+
+  pub fn flush_culler_into_new(&self, cx: &mut DeviceParallelComputeCtx) -> Self {
+    Self {
+      sub_batches: self.flush_culler(cx),
+      stash_culler: None,
     }
   }
 }

@@ -56,6 +56,13 @@ impl From<GPU2DTextureView> for RenderTargetView {
 }
 
 impl RenderTargetView {
+  pub fn expect_standalone_texture_view(&self) -> &GPU2DTextureView {
+    match self {
+      RenderTargetView::Texture(view) => view,
+      RenderTargetView::SurfaceTexture { .. } => panic!("expect standalone render target"),
+    }
+  }
+
   pub fn as_view(&self) -> &gpu::TextureView {
     match self {
       RenderTargetView::Texture(t) => &t.view,

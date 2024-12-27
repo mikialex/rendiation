@@ -1,0 +1,25 @@
+[package]
+authors = ["MikiAlex <18516340862@163.com>"]
+edition = "2021"
+name = "rendiation-scene-occlusion-culling"
+version = "0.1.0"
+
+[dependencies]
+fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
+dyn-downcast = { path = "../../../utility/dyn-downcast" }
+database = { path = "../../../utility/database" }
+log = { workspace = true }
+rendiation-algebra = { path = "../../../math/algebra" }
+rendiation-geometry = { path = "../../../math/geometry" }
+rendiation-scene-core = { path = "../../core" }
+rendiation-scene-rendering-gpu-base = { path = "../../rendering/gpu-base" }
+rendiation-shader-api = { path = "../../../shader/api" }
+rendiation-device-parallel-compute = { path = "../../../shader/parallel-compute" }
+rendiation-shader-library = { path = "../../../shader/library" }
+rendiation-texture-core = { path = "../../../content/texture/core" }
+dyn-clone = { workspace = true }
+reactive = { path = "../../../utility/reactive" }
+rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
+
+[lints]
+workspace = true
