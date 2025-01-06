@@ -7,6 +7,8 @@ version = "0.1.0"
 bytemuck = { workspace = true, features = ["derive"] }
 num-traits = "0.2"
 paste = { workspace = true }
+serde = { version = "1.0.215", features = ["serde_derive"] }
+serde_derive = "1.0.215"
 
 
 [dev-dependencies]

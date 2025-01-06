@@ -107,13 +107,13 @@ pub trait ShaderBindingTableProvider {
   fn access_impl(&self) -> &dyn Any;
 }
 
-#[derive(Clone)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct BottomLevelAccelerationStructureBuildSource {
   pub geometry: BottomLevelAccelerationStructureBuildBuffer,
   pub flags: GeometryFlags,
 }
 
-#[derive(Clone)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub enum BottomLevelAccelerationStructureBuildBuffer {
   Triangles {
     positions: Vec<Vec3<f32>>,
@@ -149,11 +149,11 @@ impl Clone for Box<dyn GPUAccelerationStructureSystemProvider> {
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct TlasHandle(pub u32);
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug, serde::Serialize, serde::Deserialize)]
 pub struct BlasHandle(pub u32);
 
 /// https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ns-d3d12-d3d12_raytracing_instance_desc
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug, serde::Serialize, serde::Deserialize)]
 pub struct TopLevelAccelerationStructureSourceInstance {
   pub transform: Mat4<f32>,
   pub instance_custom_index: u32,

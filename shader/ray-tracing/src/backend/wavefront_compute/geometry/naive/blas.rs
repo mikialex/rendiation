@@ -80,7 +80,7 @@ impl BuiltGeometry {
       &mut SAH::new(4),
       &TreeBuildOption {
         max_tree_depth: 50,
-        bin_size: 2,
+        bin_size: 1,
       },
     );
     let bvh_nodes = bvh.nodes;

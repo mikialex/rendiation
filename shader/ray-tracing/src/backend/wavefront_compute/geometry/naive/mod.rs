@@ -54,6 +54,12 @@ struct DeviceBVHNode {
   pub content_range: Vec2<u32>,
 }
 
+#[derive(serde::Serialize, serde::Deserialize)]
+enum SourceCommand {
+  CreateBlas(Vec<BottomLevelAccelerationStructureBuildSource>),
+  CreateTlas(Vec<TopLevelAccelerationStructureSourceInstance>),
+}
+
 #[derive(Default)]
 struct NaiveSahBvhSource {
   blas_source: Vec<Option<Vec<BottomLevelAccelerationStructureBuildSource>>>,
@@ -139,7 +145,7 @@ impl NaiveSahBvhSource {
       &mut sah,
       &TreeBuildOption {
         max_tree_depth: 50,
-        bin_size: 2,
+        bin_size: 8,
       },
     );
     let traverse_next_dirs = compute_bvh_next_dirs(&bvh.nodes);
@@ -299,7 +305,41 @@ impl NaiveSahBVHSystem {
     }
   }
 
+  pub(crate) fn load_from_ron(gpu: GPU) -> Self {
+    let content = std::fs::read_to_string("source.ron").unwrap();
+    let cmd: Vec<SourceCommand> = ron::de::from_str(&content).unwrap();
+    let r = Self::new(gpu);
+    for cmd in cmd {
+      match cmd {
+        SourceCommand::CreateBlas(source) => {
+          r.create_bottom_level_acceleration_structure(&source);
+        }
+        SourceCommand::CreateTlas(source) => {
+          r.create_top_level_acceleration_structure(&source);
+        }
+      }
+    }
+    r
+  }
+  pub(crate) fn store_to_ron(&self) {
+    let mut cmd = vec![];
+    let inner = self.inner.read().unwrap();
+    for blas in &inner.source.blas_source {
+      cmd.push(SourceCommand::CreateBlas(blas.as_ref().unwrap().clone()));
+    }
+    for blas in &inner.source.tlas_source {
+      cmd.push(SourceCommand::CreateTlas(blas.as_ref().unwrap().clone()));
+    }
+
+    let content = ron::ser::to_string(&cmd).unwrap();
+    std::fs::write("source.ron", content).unwrap();
+  }
+
   fn get_or_build_gpu_data(&self) -> impl Deref<Target = NaiveSahBvhGpu> + '_ {
+    if !std::path::Path::new("source.ron").exists() {
+      self.store_to_ron();
+    }
+
     let read = self.inner.read().unwrap();
     if read.gpu_data.is_some() {
       RwLockReadGuard::map(read, |g| g.gpu_data.as_ref().unwrap())
@@ -387,6 +427,14 @@ fn compute_bvh_next_dirs(flatten_nodes: &[FlattenBVHNode<Box3>]) -> [Vec<(u32, u
     compute_bvh_next_dir(flatten_nodes, Vec3::new(1., -1., 1.)),
     compute_bvh_next_dir(flatten_nodes, Vec3::new(-1., 1., 1.)),
     compute_bvh_next_dir(flatten_nodes, Vec3::new(1., 1., 1.)),
+    // compute_bvh_next(flatten_nodes),
+    // compute_bvh_next(flatten_nodes),
+    // compute_bvh_next(flatten_nodes),
+    // compute_bvh_next(flatten_nodes),
+    // compute_bvh_next(flatten_nodes),
+    // compute_bvh_next(flatten_nodes),
+    // compute_bvh_next(flatten_nodes),
+    // compute_bvh_next(flatten_nodes),
   ]
 }
 fn compute_bvh_next_dir(
@@ -414,6 +462,28 @@ fn compute_bvh_next_dir(
           next_stack.push(right as u32);
           right as u32
         };
+        (hit, miss)
+      } else {
+        (miss, miss)
+      };
+    result[curr as usize] = (hit, miss);
+  }
+
+  result
+}
+fn compute_bvh_next(flatten_nodes: &[FlattenBVHNode<Box3>]) -> Vec<(u32, u32)> {
+  let mut result = vec![(0, 0); flatten_nodes.len()];
+  let mut next_stack = vec![];
+  next_stack.push(0);
+
+  while let Some(curr) = next_stack.pop() {
+    let miss = next_stack.last().cloned().unwrap_or(INVALID_NEXT);
+    let node = &flatten_nodes[curr as usize];
+    let (hit, miss) =
+      if let (Some(left), Some(right)) = (node.left_child_offset(), node.right_child_offset()) {
+        let hit = left as u32;
+        next_stack.push(right as u32);
+        next_stack.push(left as u32);
         (hit, miss)
       } else {
         (miss, miss)

@@ -218,16 +218,23 @@ fn test_both_triangle() {
 
 #[test]
 fn test_cpu_triangle() {
+  let origin = vec3(-5.1716228, 2.417025, 0.7915981);
+  let target = vec3(-4.27492754, 2.8542136, 0.860908124);
+  let direction = (target - origin).normalize(); // vec3(0.89669526, 0.4371886, 0.069310024)
+  let up = vec3(0., 1., 0.);
+  let right = direction.cross(up).normalize();
+  let up = right.cross(direction).normalize();
+
   const W: usize = 256;
   const H: usize = 256;
   const FAR: f32 = 100.;
-  const ORIGIN: Vec3<f32> = vec3(0., 0., 0.);
   // const GEOMETRY_IDX_MAX: u32 = 1;
   const PRIMITIVE_IDX_MAX: u32 = 12;
 
   let (gpu, _) = futures::executor::block_on(GPU::new(Default::default())).unwrap();
-  let system = NaiveSahBVHSystem::new(gpu);
-  init_default_acceleration_structure(&system);
+  let system = NaiveSahBVHSystem::load_from_ron(gpu);
+  // let system = NaiveSahBVHSystem::new(gpu);
+  // init_default_acceleration_structure(&system);
 
   let _ = system.get_or_build_gpu_data(); // trigger build
   let inner = system.inner.read().unwrap();
@@ -238,7 +245,7 @@ fn test_cpu_triangle() {
   payload.cull_mask = u32::MAX;
   payload.range = vec2(0., FAR);
   payload.tlas_idx = TEST_TLAS_IDX;
-  payload.ray_origin = ORIGIN;
+  payload.ray_origin = origin;
 
   let mut out = Box::new([[(FAR, 0); W]; H]);
 
@@ -246,8 +253,8 @@ fn test_cpu_triangle() {
     for i in 0..W {
       let x = (i as f32 + 0.5) / W as f32 * 2. - 1.;
       let y = 1. - (j as f32 + 0.5) / H as f32 * 2.;
-      let target = vec3(x, y, -1.); // fov = 90 deg
-      let direction = (target - ORIGIN).normalize();
+      let target = origin + direction + right * x + up * y; // fov = 90 deg
+      let direction = (target - origin).normalize();
 
       payload.ray_direction = direction;
       cpu_data.traverse(&payload, &mut |hit_point| {
@@ -269,7 +276,7 @@ fn test_cpu_triangle() {
     BLAS_HIT_COUNT.load(std::sync::atomic::Ordering::Relaxed)
   );
   println!(
-    "tri visit count: visit {}  hit {}",
+    "tri count: visit {}  hit {}",
     TRI_VISIT_COUNT.load(std::sync::atomic::Ordering::Relaxed),
     TRI_HIT_COUNT.load(std::sync::atomic::Ordering::Relaxed)
   );
