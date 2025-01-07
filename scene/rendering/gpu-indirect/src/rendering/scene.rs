@@ -8,6 +8,7 @@ pub struct IndirectRenderSystem {
   pub model_lookup: UpdateResultToken,
   pub node_net_visible: UpdateResultToken,
   pub texture_system: TextureGPUSystemSource,
+  pub background: SceneBackgroundRendererSource,
   pub camera: Box<dyn RenderImplProvider<Box<dyn CameraRenderImpl>>>,
   pub scene_model_impl: Box<dyn RenderImplProvider<Box<dyn IndirectBatchSceneModelRenderer>>>,
 }
@@ -19,6 +20,7 @@ pub fn build_default_indirect_render_system(
   IndirectRenderSystem {
     model_lookup: Default::default(),
     node_net_visible: Default::default(),
+    background: Default::default(),
     texture_system: TextureGPUSystemSource::new(prefer_bindless),
     camera: Box::new(DefaultGLESCameraRenderImplProvider::default()),
     scene_model_impl: Box::new(IndirectPreferredComOrderRendererProvider {
@@ -40,6 +42,7 @@ impl RenderImplProvider<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>>
 {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
     self.texture_system.register_resource(source, cx);
+    self.background.register_resource(source, cx);
 
     let model_lookup = global_rev_ref().watch_inv_ref::<SceneModelBelongsToScene>();
     self.model_lookup = source.register_multi_reactive_query(model_lookup);
@@ -50,6 +53,7 @@ impl RenderImplProvider<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>>
 
   fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
     self.texture_system.deregister_resource(source);
+    self.background.deregister_resource(source);
     self.camera.deregister_resource(source);
     self.scene_model_impl.deregister_resource(source);
     source.deregister(&mut self.model_lookup);
@@ -63,7 +67,7 @@ impl RenderImplProvider<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>>
     Box::new(IndirectSceneRenderer {
       texture_system: self.texture_system.create_impl(res),
       camera: self.camera.create_impl(res),
-      background: SceneBackgroundRenderer::new_from_global(),
+      background: self.background.create_impl(res),
       renderer: self.scene_model_impl.create_impl(res),
       node_net_visible: res
         .take_reactive_query_updated(self.node_net_visible)
@@ -203,6 +207,14 @@ impl SceneRenderer for IndirectSceneRenderer {
     scene: EntityHandle<SceneEntity>,
   ) -> (Operations<rendiation_webgpu::Color>, Operations<f32>) {
     self.background.init_clear(scene)
+  }
+  fn render_background(
+    &self,
+    scene: EntityHandle<SceneEntity>,
+    camera: EntityHandle<SceneCameraEntity>,
+  ) -> Box<dyn PassContent + '_> {
+    let camera = self.get_camera_gpu().make_component(camera).unwrap();
+    Box::new(self.background.draw(scene, camera))
   }
 
   fn get_camera_gpu(&self) -> &dyn CameraRenderImpl {

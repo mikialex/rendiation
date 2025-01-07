@@ -63,7 +63,7 @@ impl ReactiveQueryJoinUpdater {
   }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct UpdateResultToken(u32);
 
 impl Default for UpdateResultToken {

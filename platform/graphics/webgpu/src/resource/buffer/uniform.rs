@@ -4,10 +4,16 @@ use rendiation_shader_api::{Shader140Array, ShaderSizedValueNodeType, Std140};
 
 use crate::*;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct UniformBufferDataView<T: Std140> {
   gpu: GPUBufferResourceView,
   phantom: PhantomData<T>,
+}
+
+impl<T: Std140> PartialEq for UniformBufferDataView<T> {
+  fn eq(&self, other: &Self) -> bool {
+    self.gpu == other.gpu
+  }
 }
 
 impl<T: Std140> UniformBufferDataView<T> {
@@ -70,6 +76,12 @@ pub fn create_uniform<T: Std140>(
 pub struct UniformBufferCachedDataView<T: Std140> {
   gpu: UniformBufferDataView<T>,
   diff: Arc<RwLock<DiffState<T>>>,
+}
+
+impl<T: Std140> PartialEq for UniformBufferCachedDataView<T> {
+  fn eq(&self, other: &Self) -> bool {
+    self.gpu == other.gpu
+  }
 }
 
 /// just short convenient method

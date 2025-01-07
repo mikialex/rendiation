@@ -116,6 +116,12 @@ pub trait SceneRenderer: SceneModelRenderer {
     scene: EntityHandle<SceneEntity>,
   ) -> (Operations<rendiation_webgpu::Color>, Operations<f32>);
 
+  fn render_background(
+    &self,
+    scene: EntityHandle<SceneEntity>,
+    camera: EntityHandle<SceneCameraEntity>,
+  ) -> Box<dyn PassContent + '_>;
+
   /// Batch rendering the passed models. Comparing to render one single model at a time(using [SceneModelRenderer]), this may be more efficient.
   /// The implementation should be override if it can provide better performance. The default implementation is a loop call using [SceneModelRenderer]
   #[must_use]

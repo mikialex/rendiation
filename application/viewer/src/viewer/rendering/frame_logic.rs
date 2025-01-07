@@ -165,6 +165,7 @@ impl ViewerFrameLogic {
           .with_color(scene_result.write(), color_ops)
           .with_depth(scene_depth.write(), depth_ops)
           .render_ctx(ctx)
+          .by(&mut renderer.render_background(content.scene, content.main_camera))
           .by(&mut main_scene_content)
           .by(&mut GridGround {
             plane: &self.ground,

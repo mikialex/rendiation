@@ -4,6 +4,7 @@ pub struct GLESRenderSystem {
   pub model_lookup: UpdateResultToken,
   pub node_net_visible: UpdateResultToken,
   pub texture_system: TextureGPUSystemSource,
+  pub background: SceneBackgroundRendererSource,
   pub camera: Box<dyn RenderImplProvider<Box<dyn CameraRenderImpl>>>,
   pub scene_model_impl: Vec<Box<dyn RenderImplProvider<Box<dyn SceneModelRenderer>>>>,
 }
@@ -12,6 +13,7 @@ pub fn build_default_gles_render_system(prefer_bindless: bool) -> GLESRenderSyst
   GLESRenderSystem {
     model_lookup: Default::default(),
     texture_system: TextureGPUSystemSource::new(prefer_bindless),
+    background: Default::default(),
     node_net_visible: Default::default(),
     camera: Box::new(DefaultGLESCameraRenderImplProvider::default()),
     scene_model_impl: vec![Box::new(GLESPreferredComOrderRendererProvider {
@@ -33,6 +35,7 @@ pub fn build_default_gles_render_system(prefer_bindless: bool) -> GLESRenderSyst
 impl RenderImplProvider<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>> for GLESRenderSystem {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
     self.texture_system.register_resource(source, cx);
+    self.background.register_resource(source, cx);
     let model_lookup = global_rev_ref().watch_inv_ref::<SceneModelBelongsToScene>();
     self.model_lookup = source.register_multi_reactive_query(model_lookup);
     self.camera.register_resource(source, cx);
@@ -44,6 +47,7 @@ impl RenderImplProvider<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>> fo
 
   fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
     self.texture_system.deregister_resource(source);
+    self.background.deregister_resource(source);
     self.camera.deregister_resource(source);
     for imp in &mut self.scene_model_impl {
       imp.deregister_resource(source);
@@ -62,7 +66,7 @@ impl RenderImplProvider<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>> fo
         .iter()
         .map(|imp| imp.create_impl(res))
         .collect(),
-      background: SceneBackgroundRenderer::new_from_global(),
+      background: self.background.create_impl(res),
       model_lookup: res
         .take_reactive_multi_query_updated(self.model_lookup)
         .unwrap(),
@@ -139,6 +143,14 @@ impl SceneRenderer for GLESSceneRenderer {
     scene: EntityHandle<SceneEntity>,
   ) -> (Operations<rendiation_webgpu::Color>, Operations<f32>) {
     self.background.init_clear(scene)
+  }
+  fn render_background(
+    &self,
+    scene: EntityHandle<SceneEntity>,
+    camera: EntityHandle<SceneCameraEntity>,
+  ) -> Box<dyn PassContent + '_> {
+    let camera = self.get_camera_gpu().make_component(camera).unwrap();
+    Box::new(self.background.draw(scene, camera))
   }
 
   fn get_camera_gpu(&self) -> &dyn CameraRenderImpl {
