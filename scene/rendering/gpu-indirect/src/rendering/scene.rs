@@ -213,7 +213,7 @@ impl SceneRenderer for IndirectSceneRenderer {
     scene: EntityHandle<SceneEntity>,
     camera: EntityHandle<SceneCameraEntity>,
   ) -> Box<dyn PassContent + '_> {
-    let camera = self.get_camera_gpu().make_component(camera).unwrap();
+    let camera = self.get_camera_gpu().make_dep_component(camera).unwrap();
     Box::new(self.background.draw(scene, camera))
   }
 

@@ -69,7 +69,7 @@ impl SceneBackgroundRenderer {
   pub fn draw<'a>(
     &'a self,
     scene: EntityHandle<SceneEntity>,
-    camera: Box<dyn RenderComponent + 'a>,
+    camera: Box<dyn RenderDependencyComponent + 'a>,
   ) -> impl PassContent + 'a {
     if let Some(env) = self.env_background_map.get(scene) {
       BackGroundDrawPassContent::CubeEnv(
@@ -103,7 +103,7 @@ impl<'a> PassContent for BackGroundDrawPassContent<'a> {
 struct CubeEnvComponent<'a> {
   map: GPUCubeTextureView,
   intensity: UniformBufferDataView<Vec4<f32>>,
-  camera: Box<dyn RenderComponent + 'a>,
+  camera: Box<dyn RenderDependencyComponent + 'a>,
 }
 
 impl<'a> ShaderHashProvider for CubeEnvComponent<'a> {
@@ -111,14 +111,42 @@ impl<'a> ShaderHashProvider for CubeEnvComponent<'a> {
 }
 impl<'a> ShaderPassBuilder for CubeEnvComponent<'a> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.map);
-    ctx.binding.bind(&self.intensity);
     self.camera.setup_pass(ctx);
+    ctx.binding.bind(&self.map);
+    ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
+    ctx.binding.bind(&self.intensity);
   }
 }
+
+only_vertex!(EnvSampleDirectionVertex, Vec3<f32>);
+only_fragment!(EnvSampleDirectionFrag, Vec3<f32>);
+
 impl<'a> GraphicsShaderProvider for CubeEnvComponent<'a> {
-  fn build(&self, _builder: &mut ShaderRenderPipelineBuilder) {
-    // do nothing in default
-    todo!()
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    self.camera.inject_shader_dependencies(builder);
+
+    builder.vertex(|builder, _| {
+      let clip = builder.query::<ClipPosition>();
+      let proj_inv = builder.query::<CameraProjectionInverseMatrix>();
+      // camera view should be orthonormal
+      let view_inverse = builder
+        .query::<CameraViewMatrix>()
+        .shrink_to_3()
+        .transpose();
+      let unprojected = proj_inv * clip;
+      builder.register::<EnvSampleDirectionVertex>(view_inverse * unprojected.xyz());
+    });
+
+    builder.fragment(|builder, binding| {
+      let direction =
+        builder.query_or_interpolate_by::<EnvSampleDirectionFrag, EnvSampleDirectionVertex>();
+
+      let cube = binding.bind_by(&self.map);
+      let sampler = binding.bind_by(&ImmediateGPUSamplerViewBind);
+      let _intensity = binding.bind_by(&self.intensity).load().x(); // todo tonemap
+      let result = cube.sample_zero_level(sampler, direction);
+
+      builder.store_fragment_out(0, result);
+    });
   }
 }
