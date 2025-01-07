@@ -55,12 +55,22 @@ pub fn register_scene_core_data_model() {
 }
 
 declare_entity!(SceneEntity);
+
 declare_component!(SceneSolidBackground, SceneEntity, Option<Vec3<f32>>);
+
+declare_component!(SceneHDRxEnvBackgroundIntensity, SceneEntity, Option<f32>);
+declare_foreign_key!(
+  SceneHDRxEnvBackgroundCubeMap,
+  SceneEntity,
+  SceneTextureCubeEntity
+);
 
 pub fn register_scene_self_data_model() {
   global_database()
     .declare_entity::<SceneEntity>()
-    .declare_component::<SceneSolidBackground>();
+    .declare_component::<SceneSolidBackground>()
+    .declare_component::<SceneHDRxEnvBackgroundIntensity>()
+    .declare_foreign_key::<SceneHDRxEnvBackgroundCubeMap>();
 }
 
 declare_entity!(SceneModelEntity);

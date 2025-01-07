@@ -2,7 +2,7 @@ use crate::*;
 
 mod feature;
 mod pick;
-use default_scene::load_default_scene;
+use default_scene::{load_default_scene, load_example_cube_tex};
 pub use feature::*;
 
 mod terminal;
@@ -26,6 +26,19 @@ pub struct Viewer {
   ui_state: ViewerUIState,
   egui_db_inspector: db_egui_view::DBInspector,
   terminal: Terminal,
+  background: ViewerBackgroundState,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+enum ViewerBackgroundType {
+  Color,
+  Environment,
+}
+
+struct ViewerBackgroundState {
+  current: ViewerBackgroundType,
+  default_env_background: EntityHandle<SceneTextureCubeEntity>,
+  solid_background_color: [f32; 3],
 }
 
 struct ViewerUIState {
@@ -104,13 +117,16 @@ impl Widget for Viewer {
       self.rendering.resize_view()
     }
 
+    let scene = self.scene.scene;
     cx.scoped_cx(&mut self.scene, |cx| {
       cx.scoped_cx(&mut self.derives, |cx| {
         cx.split_cx::<egui::Context>(|egui_cx, cx| {
           egui(
             &mut self.terminal,
+            &mut self.background,
             &mut self.on_demand_rendering,
             &mut self.rendering,
+            scene,
             egui_cx,
             &mut self.ui_state,
             cx,
@@ -195,10 +211,18 @@ impl Viewer {
       widget_scene,
     };
 
-    {
+    let background = {
       let mut writer = SceneWriter::from_global(scene.scene);
       load_default_scene(&mut writer, &scene);
-    }
+
+      writer.set_solid_background(Vec3::new(0.1, 0.1, 0.1));
+      let default_env_background = load_example_cube_tex(&mut writer);
+      ViewerBackgroundState {
+        current: ViewerBackgroundType::Color,
+        default_env_background,
+        solid_background_color: [0.1, 0.1, 0.1],
+      }
+    };
 
     let derives = Viewer3dSceneDeriveSource {
       world_mat: Box::new(scene_node_derive_world_mat()),
@@ -231,6 +255,7 @@ impl Viewer {
       derives,
       on_demand_draw: Default::default(),
       egui_db_inspector: Default::default(),
+      background,
     }
   }
 
@@ -248,8 +273,10 @@ impl Viewer {
 
 fn egui(
   terminal: &mut Terminal,
+  background: &mut ViewerBackgroundState,
   on_demand_rendering: &mut bool,
   rendering: &mut Viewer3dRenderingCtx,
+  scene: EntityHandle<SceneEntity>,
   ui: &egui::Context,
   ui_state: &mut ViewerUIState,
   cx: &mut DynCx,
@@ -272,7 +299,7 @@ fn egui(
     .max_width(1000.0)
     .max_height(800.0)
     .default_width(250.0)
-    .default_height(300.0)
+    .default_height(400.0)
     .resizable(true)
     .movable(true)
     .show(ui, |ui| {
@@ -284,6 +311,47 @@ fn egui(
       ui.checkbox(on_demand_rendering, "enable on demand rendering");
       ui.separator();
       rendering.egui(ui);
+      ui.separator();
+
+      ui.collapsing("Background", |ui| {
+        let previous = background.current;
+        egui::ComboBox::from_label("background type")
+          .selected_text(format!("{:?}", &background.current))
+          .show_ui(ui, |ui| {
+            ui.selectable_value(
+              &mut background.current,
+              ViewerBackgroundType::Color,
+              "Solid Color",
+            );
+            ui.selectable_value(
+              &mut background.current,
+              ViewerBackgroundType::Environment,
+              "EnvBackground",
+            );
+          });
+
+        {
+          let mut writer = SceneWriter::from_global(scene);
+          match background.current {
+            ViewerBackgroundType::Color => {
+              ui.color_edit_button_rgb(&mut background.solid_background_color);
+              writer.set_solid_background(Vec3::from(background.solid_background_color))
+            }
+            ViewerBackgroundType::Environment => {}
+          }
+          if background.current != previous {
+            match background.current {
+              ViewerBackgroundType::Color => {
+                writer.set_solid_background(Vec3::from(background.solid_background_color));
+              }
+              ViewerBackgroundType::Environment => {
+                writer.set_hdr_env_background(background.default_env_background, 1.);
+              }
+            }
+          }
+        }
+      });
+
       ui.separator();
 
       ui.collapsing("Instance Counts", |ui| {

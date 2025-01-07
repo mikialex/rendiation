@@ -138,6 +138,17 @@ impl<E: EntitySemantic> EntityWriter<E> {
     self
   }
 
+  pub fn write_foreign_key<C>(
+    &mut self,
+    idx: EntityHandle<C::Entity>,
+    data: Option<EntityHandle<C::ForeignEntity>>,
+  ) -> &mut Self
+  where
+    C: ForeignKeySemantic<Entity = E>,
+  {
+    self.write::<C>(idx, data.map(|d| d.handle))
+  }
+
   pub fn try_read<C>(&self, idx: EntityHandle<C::Entity>) -> Option<C::Data>
   where
     C: ComponentSemantic<Entity = E>,
