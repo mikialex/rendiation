@@ -8,6 +8,8 @@ pub trait DrawCommandBuilder: ShaderHashProvider + ShaderPassBuilder + DynClone 
     &self,
     cx: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DrawCommandBuilderInvocation>;
+
+  fn bind(&self, builder: &mut BindingBuilder);
 }
 dyn_clone::clone_trait_object!(DrawCommandBuilder);
 
@@ -168,6 +170,7 @@ impl DeviceInvocationComponent<Node<DrawIndexedIndirect>> for DrawCommandGenerat
 
   fn bind_input(&self, builder: &mut BindingBuilder) {
     self.scene_models.bind_input(builder);
+    self.generator.bind(builder);
   }
 
   fn requested_workgroup_size(&self) -> Option<u32> {

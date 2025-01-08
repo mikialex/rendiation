@@ -4,7 +4,7 @@ use parking_lot::RwLock;
 use rendiation_mesh_core::{AttributeSemantic, BufferViewRange};
 use rendiation_shader_api::*;
 
-only_vertex!(IndirectAbstractMeshId, u32);
+both!(IndirectAbstractMeshId, u32);
 
 use crate::*;
 
@@ -420,6 +420,11 @@ impl DrawCommandBuilder for BindlessDrawCreator {
       node,
       sm_to_mesh_device,
     })
+  }
+
+  fn bind(&self, builder: &mut BindingBuilder) {
+    builder.bind(&self.metadata);
+    builder.bind(&self.sm_to_mesh_device);
   }
 }
 

@@ -157,6 +157,7 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
     let node = self.node.get(any_id)?;
     let node = self.node_render.make_component_indirect(node)?;
 
+    let sub_id_injector = self.model_impl.device_id_injector(any_id)?;
     let shape = self.model_impl.shape_renderable_indirect(any_id)?;
     let material = self.model_impl.material_renderable_indirect(any_id, tex)?;
 
@@ -167,9 +168,10 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
 
     let command = models.draw_command();
 
-    let contents: [BindingController<Box<dyn RenderComponent>>; 6] = [
+    let contents: [BindingController<Box<dyn RenderComponent>>; 7] = [
       draw_source.into_assign_binding_index(0),
       pass.into_assign_binding_index(0),
+      sub_id_injector.into_assign_binding_index(2),
       shape.into_assign_binding_index(2),
       node.into_assign_binding_index(2),
       camera.into_assign_binding_index(1),

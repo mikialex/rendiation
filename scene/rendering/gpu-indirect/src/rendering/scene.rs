@@ -26,6 +26,7 @@ pub fn build_default_indirect_render_system(
     scene_model_impl: Box::new(IndirectPreferredComOrderRendererProvider {
       node: Box::new(DefaultIndirectNodeRenderImplProvider::default()),
       model_impl: vec![Box::new(DefaultSceneStdModelRendererProvider {
+        std_model: Default::default(),
         materials: vec![
           Box::new(FlatMaterialDefaultIndirectRenderImplProvider::default()),
           Box::new(PbrMRMaterialDefaultIndirectRenderImplProvider::default()),

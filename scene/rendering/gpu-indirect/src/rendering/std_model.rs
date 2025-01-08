@@ -7,6 +7,11 @@ pub trait IndirectModelRenderImpl {
     hasher: &mut PipelineHasher,
   ) -> Option<()>;
 
+  fn device_id_injector(
+    &self,
+    any_idx: EntityHandle<SceneModelEntity>,
+  ) -> Option<Box<dyn RenderComponent + '_>>;
+
   fn shape_renderable_indirect(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
@@ -25,6 +30,17 @@ pub trait IndirectModelRenderImpl {
 }
 
 impl IndirectModelRenderImpl for Vec<Box<dyn IndirectModelRenderImpl>> {
+  fn device_id_injector(
+    &self,
+    any_id: EntityHandle<SceneModelEntity>,
+  ) -> Option<Box<dyn RenderComponent + '_>> {
+    for provider in self {
+      if let Some(v) = provider.device_id_injector(any_id) {
+        return Some(v);
+      }
+    }
+    None
+  }
   fn hash_shader_group_key(
     &self,
     any_id: EntityHandle<SceneModelEntity>,
@@ -77,12 +93,14 @@ impl IndirectModelRenderImpl for Vec<Box<dyn IndirectModelRenderImpl>> {
 }
 
 pub struct DefaultSceneStdModelRendererProvider {
+  pub std_model: UpdateResultToken,
   pub materials: Vec<Box<dyn RenderImplProvider<Box<dyn IndirectModelMaterialRenderImpl>>>>,
   pub shapes: Vec<Box<dyn RenderImplProvider<Box<dyn IndirectModelShapeRenderImpl>>>>,
 }
 
 impl RenderImplProvider<Box<dyn IndirectModelRenderImpl>> for DefaultSceneStdModelRendererProvider {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
+    self.std_model = source.register_multi_updater(std_model_data(cx).inner);
     self
       .materials
       .iter_mut()
@@ -94,6 +112,7 @@ impl RenderImplProvider<Box<dyn IndirectModelRenderImpl>> for DefaultSceneStdMod
   }
 
   fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
+    source.deregister(&mut self.std_model);
     self
       .materials
       .iter_mut()
@@ -112,11 +131,18 @@ impl RenderImplProvider<Box<dyn IndirectModelRenderImpl>> for DefaultSceneStdMod
       model: global_entity_component_of::<SceneModelStdModelRenderPayload>().read_foreign_key(),
       materials: self.materials.iter().map(|v| v.create_impl(res)).collect(),
       shapes: self.shapes.iter().map(|v| v.create_impl(res)).collect(),
+      std_model: res
+        .take_multi_updater_updated::<CommonStorageBufferImpl<SceneStdModelStorage>>(self.std_model)
+        .unwrap()
+        .inner
+        .gpu()
+        .clone(),
     })
   }
 }
 struct SceneStdModelRenderer {
   model: ForeignKeyReadView<SceneModelStdModelRenderPayload>,
+  std_model: StorageBufferReadOnlyDataView<[SceneStdModelStorage]>,
   materials: Vec<Box<dyn IndirectModelMaterialRenderImpl>>,
   shapes: Vec<Box<dyn IndirectModelShapeRenderImpl>>,
 }
@@ -131,6 +157,49 @@ impl IndirectModelRenderImpl for SceneStdModelRenderer {
     self.materials.hash_shader_group_key(model, hasher)?;
     self.shapes.hash_shader_group_key(model, hasher)?;
     Some(())
+  }
+
+  fn device_id_injector(
+    &self,
+    _: EntityHandle<SceneModelEntity>,
+  ) -> Option<Box<dyn RenderComponent + '_>> {
+    struct SceneStdModelIdInjector {
+      std_model: StorageBufferReadOnlyDataView<[SceneStdModelStorage]>,
+    }
+
+    impl ShaderHashProvider for SceneStdModelIdInjector {
+      shader_hash_type_id! {}
+    }
+
+    impl ShaderPassBuilder for SceneStdModelIdInjector {
+      fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+        ctx.binding.bind(&self.std_model);
+      }
+    }
+
+    impl GraphicsShaderProvider for SceneStdModelIdInjector {
+      fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+        builder
+          .bind_by_and_prepare(&self.std_model)
+          .using_graphics_pair(builder, |r, node| {
+            let sm_id = unsafe {
+              r.query(
+                std::any::TypeId::of::<IndirectSceneModelId>(),
+                IndirectSceneModelId::NAME,
+              )
+              .unwrap()
+              .cast_type()
+            }; // todo fix error handle and code;
+            let info = node.index(sm_id).load().expand();
+            r.register_typed_both_stage::<IndirectAbstractMaterialId>(info.material);
+            r.register_typed_both_stage::<IndirectAbstractMeshId>(info.mesh);
+          });
+      }
+    }
+
+    Some(Box::new(SceneStdModelIdInjector {
+      std_model: self.std_model.clone(),
+    }))
   }
 
   fn shape_renderable_indirect(

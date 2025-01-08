@@ -3,6 +3,38 @@ use crate::*;
 both!(IndirectSceneStdModelId, u32);
 pub type SceneStdModelStorageBuffer = ReactiveStorageBufferContainer<SceneStdModelStorage>;
 
+pub fn std_model_data(cx: &GPU) -> SceneStdModelStorageBuffer {
+  let mesh = global_watch()
+    .watch::<StandardModelRefAttributesMeshEntity>()
+    .collective_map(|id| id.map(|v| v.index()).unwrap_or(u32::MAX));
+  let mesh_offset = offset_of!(SceneStdModelStorage, mesh);
+
+  let material_flat = global_watch()
+    .watch::<StandardModelRefFlatMaterial>()
+    .collective_filter_map(|id| id.map(|v| v.index()))
+    .into_boxed();
+
+  let material_pbr_mr = global_watch()
+    .watch::<StandardModelRefPbrMRMaterial>()
+    .collective_filter_map(|id| id.map(|v| v.index()))
+    .into_boxed();
+
+  let material_pbr_sg = global_watch()
+    .watch::<StandardModelRefPbrSGMaterial>()
+    .collective_filter_map(|id| id.map(|v| v.index()))
+    .into_boxed();
+
+  let material = material_flat
+    .collective_select(material_pbr_mr)
+    .collective_select(material_pbr_sg);
+
+  let material_offset = offset_of!(SceneStdModelStorage, material);
+
+  ReactiveStorageBufferContainer::new(cx)
+    .with_source(mesh, mesh_offset)
+    .with_source(material, material_offset)
+}
+
 #[repr(C)]
 #[std430_layout]
 #[derive(Clone, Copy, Default, PartialEq, ShaderStruct, Debug)]
