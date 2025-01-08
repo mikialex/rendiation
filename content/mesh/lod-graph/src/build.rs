@@ -23,7 +23,7 @@ pub trait MeshLodGraphBuilder {
 
     // if the last level is single meshlet, we will have nothing to do
     // and finish build
-    while last_level.meshlets.len() == 1 {
+    while last_level.meshlets.len() != 1 {
       let new_last_level = MeshLODGraphLevel::build_from_finer_level(self, &mut last_level);
       let last_last_level = std::mem::replace(&mut last_level, new_last_level);
       levels.push(last_last_level);
