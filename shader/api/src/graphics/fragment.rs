@@ -64,7 +64,7 @@ pub struct ShaderFragmentBuilder {
     (
       NodeUntyped,
       PrimitiveShaderValueType,
-      ShaderVaryingInterpolation,
+      ShaderInterpolation,
       usize,
     ),
   >,

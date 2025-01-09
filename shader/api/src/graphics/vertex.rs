@@ -26,7 +26,7 @@ pub struct ShaderVertexBuilder {
   pub(crate) registry: SemanticRegistry,
 
   // user vertex out
-  pub vertex_out: FastHashMap<TypeId, VertexIOInfo>,
+  pub vertex_out: FastHashMap<TypeId, (VertexIOInfo, ShaderInterpolation)>,
   pub(crate) vertex_out_not_synced_to_fragment: FastHashSet<TypeId>,
   pub(crate) errors: ErrorSink,
 }
@@ -73,17 +73,21 @@ impl ShaderVertexBuilder {
       .vertex_out_not_synced_to_fragment
       .drain()
       .for_each(|id| {
-        let VertexIOInfo { ty, location, .. } = *vertex_out.get(&id).unwrap();
+        let (VertexIOInfo { ty, location, .. }, interpolation) = *vertex_out.get(&id).unwrap();
 
         set_current_building(ShaderStages::Fragment.into());
-        let node = ShaderInputNode::UserDefinedIn { ty, location }.insert_api();
+        let node = ShaderInputNode::UserDefinedIn {
+          ty,
+          location,
+          interpolation: Some(interpolation),
+        }
+        .insert_api();
         fragment.registry.register(id, node);
         set_current_building(None);
 
-        fragment.fragment_in.insert(
-          id,
-          (node, ty, ShaderVaryingInterpolation::Perspective, location),
-        );
+        fragment
+          .fragment_in
+          .insert(id, (node, ty, interpolation, location));
       })
   }
 
@@ -152,7 +156,12 @@ impl ShaderVertexBuilder {
   /// untyped version
   pub fn register_vertex_in_inner(&mut self, ty: PrimitiveShaderValueType, ty_id: TypeId) -> u32 {
     let location = self.vertex_in.len();
-    let node = ShaderInputNode::UserDefinedIn { ty, location }.insert_api();
+    let node = ShaderInputNode::UserDefinedIn {
+      ty,
+      location,
+      interpolation: None,
+    }
+    .insert_api();
     self.registry.register(ty_id, node);
 
     self.vertex_in.entry(ty_id).or_insert_with(|| VertexIOInfo {
@@ -178,8 +187,20 @@ impl ShaderVertexBuilder {
     builder.build(self, step_mode);
   }
 
+  /// default using perspective interpolation
   pub fn set_vertex_out<T>(&mut self, node: impl Into<Node<T::ValueType>>)
   where
+    T: SemanticFragmentShaderValue,
+    T::ValueType: PrimitiveShaderNodeType,
+  {
+    self.set_vertex_out_with_given_interpolate::<T>(node, ShaderInterpolation::Perspective)
+  }
+
+  pub fn set_vertex_out_with_given_interpolate<T>(
+    &mut self,
+    node: impl Into<Node<T::ValueType>>,
+    mut interpolation: ShaderInterpolation,
+  ) where
     T: SemanticFragmentShaderValue,
     T::ValueType: PrimitiveShaderNodeType,
   {
@@ -190,13 +211,14 @@ impl ShaderVertexBuilder {
       .entry(id)
       .or_insert_with(|| {
         let ty = T::ValueType::PRIMITIVE_TYPE;
-        let interpolation_override = ty
-          .vertex_out_could_interpolated()
-          .then_some(ShaderInterpolation::Perspective);
-        let node = call_shader_api(|api| api.define_next_vertex_output(ty, interpolation_override));
+        if !ty.vertex_out_could_interpolated() {
+          interpolation = ShaderInterpolation::Flat
+        }
+        let node = call_shader_api(|api| api.define_next_vertex_output(ty, Some(interpolation)));
 
-        VertexIOInfo { node, ty, location }
+        (VertexIOInfo { node, ty, location }, interpolation)
       })
+      .0
       .node;
     call_shader_api(|api| api.store(node.into().handle(), target));
 

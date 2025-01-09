@@ -474,7 +474,11 @@ impl ShaderAPI for ShaderAPINagaImpl {
         self.expression_mapping.insert(return_handle, g);
         return_handle
       }
-      ShaderInputNode::UserDefinedIn { ty, location } => {
+      ShaderInputNode::UserDefinedIn {
+        ty,
+        location,
+        interpolation,
+      } => {
         let ty = self.register_ty_impl(
           ShaderValueType::Single(ShaderValueSingleType::Sized(
             ShaderSizedValueType::Primitive(ty),
@@ -486,7 +490,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
           ty,
           binding: naga::Binding::Location {
             location: location as u32,
-            interpolation: naga::Interpolation::Perspective.into(),
+            interpolation: interpolation.map(map_interpolation),
             sampling: None,
             second_blend_source: false,
           }
@@ -1502,6 +1506,14 @@ fn gen_unsized_struct_define(
   }
 }
 
+fn map_interpolation(interpolation: ShaderInterpolation) -> naga::Interpolation {
+  match interpolation {
+    ShaderInterpolation::Perspective => naga::Interpolation::Perspective,
+    ShaderInterpolation::Linear => naga::Interpolation::Linear,
+    ShaderInterpolation::Flat => naga::Interpolation::Flat,
+  }
+}
+
 fn struct_member(
   name: &str,
   api: &mut ShaderAPINagaImpl,
@@ -1534,11 +1546,7 @@ fn struct_member(
       ShaderFieldDecorator::BuiltIn(bt) => naga::Binding::BuiltIn(match_built_in(bt)),
       ShaderFieldDecorator::Location(location, interpolation) => naga::Binding::Location {
         location: location as u32,
-        interpolation: interpolation.map(|interpolation| match interpolation {
-          ShaderInterpolation::Perspective => naga::Interpolation::Perspective,
-          ShaderInterpolation::Linear => naga::Interpolation::Linear,
-          ShaderInterpolation::Flat => naga::Interpolation::Flat,
-        }),
+        interpolation: interpolation.map(map_interpolation),
         sampling: None,
         second_blend_source: false,
       },

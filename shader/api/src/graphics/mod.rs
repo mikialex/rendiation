@@ -11,12 +11,6 @@ pub use debugger::*;
 mod error_sink;
 pub(crate) use error_sink::*;
 
-#[derive(Copy, Clone)]
-pub enum ShaderVaryingInterpolation {
-  Flat,
-  Perspective,
-}
-
 #[derive(Debug, Clone)]
 pub enum ShaderBuildError {
   MissingRequiredDependency(&'static str),

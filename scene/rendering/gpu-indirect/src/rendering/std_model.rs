@@ -184,13 +184,9 @@ impl IndirectModelRenderImpl for SceneStdModelRenderer {
           let sm_id = builder.query::<IndirectSceneStdModelId>();
           let info = buffer.index(sm_id).load().expand();
           builder.register::<IndirectAbstractMaterialId>(info.material);
+          builder.set_vertex_out::<IndirectAbstractMaterialId>(info.material);
           builder.register::<IndirectAbstractMeshId>(info.mesh);
         });
-
-        builder.fragment(|builder, _| {
-          builder
-            .query_or_interpolate_by::<IndirectAbstractMaterialId, IndirectAbstractMaterialId>();
-        })
       }
     }
 
