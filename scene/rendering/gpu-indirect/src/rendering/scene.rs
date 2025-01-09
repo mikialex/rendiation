@@ -238,6 +238,9 @@ struct IndirectScenePassContent<'a> {
 
 impl<'a> PassContent for IndirectScenePassContent<'a> {
   fn render(&mut self, cx: &mut FrameRenderPass) {
+    let base = default_dispatcher(cx);
+    let p = RenderArray([&base, self.pass] as [&dyn rendiation_webgpu::RenderComponent; 2]);
+
     let camera = self.renderer.camera.make_component(self.camera).unwrap();
     for (content, any_scene_model) in &self.content {
       self.renderer.renderer.render_indirect_batch_models(
@@ -245,7 +248,7 @@ impl<'a> PassContent for IndirectScenePassContent<'a> {
         *any_scene_model,
         &camera,
         &self.renderer.texture_system,
-        &self.pass,
+        &p,
         &mut cx.ctx,
       );
     }
