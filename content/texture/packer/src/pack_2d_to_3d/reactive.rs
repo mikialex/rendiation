@@ -16,6 +16,7 @@ pub fn reactive_pack_2d_to_3d(
   config.make_sure_valid();
 
   let (size_sender, size_rev) = single_value_channel();
+  size_sender.update(config.init_size).unwrap();
   let (sender, rev) = collective_channel::<u32, PackResult2dWithDepth>();
 
   let packer: PackerImpl = GrowablePacker::new(config.init_size);

@@ -179,7 +179,8 @@ pub trait WebGPU2DTextureSource: Send + Sync {
       view_formats: &[],
       usage: gpu::TextureUsages::TEXTURE_BINDING
         | gpu::TextureUsages::RENDER_ATTACHMENT
-        | gpu::TextureUsages::COPY_DST,
+        | gpu::TextureUsages::COPY_DST
+        | gpu::TextureUsages::COPY_SRC,
     }
   }
 
@@ -194,7 +195,8 @@ pub trait WebGPU2DTextureSource: Send + Sync {
       format: self.format(),
       usage: gpu::TextureUsages::TEXTURE_BINDING
         | gpu::TextureUsages::RENDER_ATTACHMENT
-        | gpu::TextureUsages::COPY_DST,
+        | gpu::TextureUsages::COPY_DST
+        | gpu::TextureUsages::COPY_SRC,
     }
   }
 }

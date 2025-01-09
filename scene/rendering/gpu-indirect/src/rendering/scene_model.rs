@@ -173,13 +173,15 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
 
     let camera = Box::new(camera) as Box<dyn RenderComponent>;
     let pass = Box::new(pass) as Box<dyn RenderComponent>;
+    let tex = Box::new(GPUTextureSystemAsRenderComponent(tex)) as Box<dyn RenderComponent>;
     let draw_source =
       Box::new(IndirectDrawProviderAsRenderComponent(models)) as Box<dyn RenderComponent>;
 
     let command = models.draw_command();
 
-    let contents: [BindingController<Box<dyn RenderComponent>>; 8] = [
+    let contents: [BindingController<Box<dyn RenderComponent>>; 9] = [
       draw_source.into_assign_binding_index(0),
+      tex.into_assign_binding_index(0),
       pass.into_assign_binding_index(0),
       id_inject.into_assign_binding_index(0),
       sub_id_injector.into_assign_binding_index(2),

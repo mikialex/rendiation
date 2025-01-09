@@ -128,7 +128,9 @@ impl ReactiveGeneralQuery for TexturePoolSource {
           dimension: TextureDimension::D2,
           format: self.format,
           view_formats: &[],
-          usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
+          usage: TextureUsages::COPY_DST
+            | TextureUsages::TEXTURE_BINDING
+            | TextureUsages::RENDER_ATTACHMENT,
         },
         &self.gpu.device,
       ));
@@ -161,10 +163,13 @@ impl ReactiveGeneralQuery for TexturePoolSource {
             }
           }
 
+          // if texture has already created as new texture, we skip the move operation
           if !tex_has_recreated {
-            let tex = tex_input_current.access(&id).unwrap();
-            let tex = create_gpu_texture2d(&self.gpu, &tex.inner);
-            copy_tex(&mut encoder, tex, target, &new_pack);
+            if let Some(tex) = tex_input_current.access(&id) {
+              // tex maybe removed
+              let tex = create_gpu_texture2d(&self.gpu, &tex.inner);
+              copy_tex(&mut encoder, tex, target, &new_pack);
+            }
           }
         }
         ValueChange::Remove(_) => {}

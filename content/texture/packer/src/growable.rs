@@ -27,7 +27,8 @@ impl<P: RePackablePacker + TexturePackerInit> GrowablePacker<P> {
   ) -> Result<PackResultWithId<P::PackOutput>, PackError> {
     loop {
       if let Ok(r) = self.packer.pack_with_id(input.clone()) {
-        self.result.insert(r.id, (input.clone(), r.result));
+        self.result.insert(r.id, (input.clone(), r.result.clone()));
+        return Ok(r);
       } else if let Some(new_config) = on_grow(self.current_config.clone()) {
         // todo, should we expose the current allocation info to avoid loop grow?
         // todo, we should support batch allocation to further avoid loop grow!
