@@ -100,12 +100,14 @@ impl Mesh {
 
     let total_vertices = generate_vertex_remap(&mut remap, None, &vertices);
 
-    result.indices = remap;
-
     result
       .vertices
       .resize(total_vertices, CommonVertex::default());
-    remap_vertex_buffer(&mut result.vertices, &vertices, &result.indices);
+    let mut indices = vec![0; total_indices];
+
+    remap_vertex_buffer(&mut result.vertices, &vertices, &remap);
+    remap_index_buffer(&mut indices, None, total_indices, &remap);
+    result.indices = indices;
 
     println!(
       "# {:?}: {} vertices, {} triangles",

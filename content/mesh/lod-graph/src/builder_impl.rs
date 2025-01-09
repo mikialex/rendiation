@@ -1,7 +1,8 @@
 use fast_hash_collection::FastHashMap;
 use rendiation_mesh_segmentation::{build_meshlets, ClusteringConfig};
 use rendiation_mesh_simplification::{
-  generate_vertex_remap, remap_vertex_buffer, simplify_by_edge_collapse, EdgeCollapseConfig,
+  generate_vertex_remap, remap_index_buffer, remap_vertex_buffer, simplify_by_edge_collapse,
+  EdgeCollapseConfig,
 };
 
 use crate::*;
@@ -45,11 +46,18 @@ impl MeshLodGraphBuilder for DefaultMeshLODBuilder {
     let total_vertices = generate_vertex_remap(&mut remap, Some(&simplified_indices), vertices);
 
     let mut result_vertices = vec![CommonVertex::default(); total_vertices];
+    let mut result_indices = vec![0; simplified_indices.len()];
     remap_vertex_buffer(&mut result_vertices, vertices, &remap);
+    remap_index_buffer(
+      &mut result_indices,
+      Some(&simplified_indices),
+      simplified_indices.len(),
+      &remap,
+    );
 
     MeshLODGraphSimplificationResult {
       mesh: MeshBufferSource {
-        indices: remap,
+        indices: result_indices,
         vertices: result_vertices,
       },
       error: result.result_error,

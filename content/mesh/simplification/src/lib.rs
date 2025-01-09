@@ -25,4 +25,4 @@ use connectivity::*;
 const INVALID_INDEX: u32 = u32::MAX;
 
 pub use edge_collapse::{simplify_by_edge_collapse, EdgeCollapseConfig, EdgeCollapseResult};
-pub use remap::{generate_vertex_remap, remap_vertex_buffer};
+pub use remap::{generate_vertex_remap, remap_index_buffer, remap_vertex_buffer};
