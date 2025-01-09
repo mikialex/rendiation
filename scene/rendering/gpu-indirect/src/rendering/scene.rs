@@ -17,11 +17,12 @@ pub fn build_default_indirect_render_system(
   gpu: &GPU,
   prefer_bindless: bool,
 ) -> IndirectRenderSystem {
+  let tex_sys_ty = get_suitable_texture_system_ty(gpu, true, prefer_bindless);
   IndirectRenderSystem {
     model_lookup: Default::default(),
     node_net_visible: Default::default(),
     background: Default::default(),
-    texture_system: TextureGPUSystemSource::new(prefer_bindless),
+    texture_system: TextureGPUSystemSource::new(tex_sys_ty),
     camera: Box::new(DefaultGLESCameraRenderImplProvider::default()),
     scene_model_impl: Box::new(IndirectPreferredComOrderRendererProvider {
       ids: Default::default(),

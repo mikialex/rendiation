@@ -9,10 +9,11 @@ pub struct GLESRenderSystem {
   pub scene_model_impl: Vec<Box<dyn RenderImplProvider<Box<dyn SceneModelRenderer>>>>,
 }
 
-pub fn build_default_gles_render_system(prefer_bindless: bool) -> GLESRenderSystem {
+pub fn build_default_gles_render_system(cx: &GPU, prefer_bindless: bool) -> GLESRenderSystem {
+  let tex_sys_ty = get_suitable_texture_system_ty(cx, false, prefer_bindless);
   GLESRenderSystem {
     model_lookup: Default::default(),
-    texture_system: TextureGPUSystemSource::new(prefer_bindless),
+    texture_system: TextureGPUSystemSource::new(tex_sys_ty),
     background: Default::default(),
     node_net_visible: Default::default(),
     camera: Box::new(DefaultGLESCameraRenderImplProvider::default()),

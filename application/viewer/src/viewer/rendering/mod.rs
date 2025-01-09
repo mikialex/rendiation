@@ -33,16 +33,21 @@ fn init_renderer(
   ty: RasterizationRenderBackendType,
   gpu: &GPU,
 ) -> BoxedSceneRenderImplProvider {
+  let prefer_bindless_textures = false;
   let mut renderer_impl = match ty {
     RasterizationRenderBackendType::Gles => {
-      let prefer_bindless_textures = false;
       log::info!("init gles rendering");
-      Box::new(build_default_gles_render_system(prefer_bindless_textures))
-        as BoxedSceneRenderImplProvider
+      Box::new(build_default_gles_render_system(
+        gpu,
+        prefer_bindless_textures,
+      )) as BoxedSceneRenderImplProvider
     }
     RasterizationRenderBackendType::Indirect => {
       log::info!("init indirect rendering");
-      Box::new(build_default_indirect_render_system(gpu, true))
+      Box::new(build_default_indirect_render_system(
+        gpu,
+        prefer_bindless_textures,
+      ))
     }
   };
 

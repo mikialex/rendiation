@@ -1,4 +1,5 @@
 use rendiation_texture_core::*;
+pub use rendiation_texture_packer::pack_2d_to_3d::MultiLayerTexturePackerConfig;
 use rendiation_texture_packer::pack_2d_to_3d::*;
 use rendiation_webgpu_reactive_utils::ReactiveStorageBufferContainer;
 
