@@ -64,13 +64,20 @@ impl DeviceSceneModelRenderSubBatch {
     draw_command_builder: Box<dyn DrawCommandBuilder>,
     cx: &mut DeviceParallelComputeCtx,
   ) -> Box<dyn IndirectDrawProvider> {
-    let r = DrawCommandGenerator {
+    let generator = DrawCommandGenerator {
       scene_models: self.scene_models.clone(),
       generator: draw_command_builder,
-    }
-    .materialize_storage_buffer(cx);
+    };
+    let size = generator.result_size();
 
-    let size = r.buffer.item_count();
+    let draw_command_buffer = StorageBufferDataView::create_by_with_extra_usage(
+      cx.gpu.device.as_ref(),
+      StorageBufferInit::<[DrawIndexedIndirect]>::from(size as usize),
+      BufferUsages::INDIRECT,
+    );
+
+    let r = generator.materialize_storage_buffer_into(draw_command_buffer, cx);
+
     Box::new(MultiIndirectDrawBatch {
       draw_command_buffer: r.buffer,
       draw_count: r

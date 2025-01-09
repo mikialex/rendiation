@@ -1,4 +1,4 @@
-use std::{any::TypeId, mem::offset_of, sync::Arc};
+use std::{any::TypeId, mem::offset_of, num::NonZeroU64, sync::Arc};
 
 use parking_lot::RwLock;
 use rendiation_mesh_core::{AttributeSemantic, BufferViewRange};
@@ -151,8 +151,18 @@ pub struct MeshBindlessGPUSystemSource {
 
 impl MeshBindlessGPUSystemSource {
   pub fn new(gpu: &GPU) -> Self {
-    let indices =
-      create_storage_buffer_range_allocate_pool(gpu, 20 * 1024 * 1024, 200 * 1024 * 1024);
+    let indices_init_size = 20 * 1024 * 1024;
+    let indices_max_size = 200 * 1024 * 1024;
+
+    let indices = StorageBufferReadOnlyDataView::<[u32]>::create_by_with_extra_usage(
+      &gpu.device,
+      StorageBufferInit::Zeroed(NonZeroU64::new(indices_init_size as u64).unwrap()),
+      BufferUsages::INDEX,
+    );
+
+    let indices = create_growable_buffer(gpu, indices, indices_max_size);
+    let indices = GPURangeAllocateMaintainer::new(gpu, indices);
+
     let position =
       create_storage_buffer_range_allocate_pool(gpu, 100 * 1024 * 1024, 1000 * 1024 * 1024);
     let normal =

@@ -72,8 +72,18 @@ impl<T: Std430MaybeUnsized + ?Sized> StorageBufferReadOnlyDataView<T> {
   }
 
   pub fn create_by(device: &GPUDevice, source: StorageBufferInit<T>) -> Self {
-    let usage =
-      gpu::BufferUsages::STORAGE | gpu::BufferUsages::COPY_DST | gpu::BufferUsages::COPY_SRC;
+    Self::create_by_with_extra_usage(device, source, gpu::BufferUsages::empty())
+  }
+
+  pub fn create_by_with_extra_usage(
+    device: &GPUDevice,
+    source: StorageBufferInit<T>,
+    extra_usage: gpu::BufferUsages,
+  ) -> Self {
+    let usage = gpu::BufferUsages::STORAGE
+      | gpu::BufferUsages::COPY_DST
+      | gpu::BufferUsages::COPY_SRC
+      | extra_usage;
 
     let init = source.into_buffer_init();
     let desc = GPUBufferDescriptor {
@@ -239,8 +249,18 @@ impl<T: Std430MaybeUnsized + ?Sized> StorageBufferDataView<T> {
   }
 
   pub fn create_by(device: &GPUDevice, source: StorageBufferInit<T>) -> Self {
-    let usage =
-      gpu::BufferUsages::STORAGE | gpu::BufferUsages::COPY_DST | gpu::BufferUsages::COPY_SRC;
+    Self::create_by_with_extra_usage(device, source, gpu::BufferUsages::empty())
+  }
+
+  pub fn create_by_with_extra_usage(
+    device: &GPUDevice,
+    source: StorageBufferInit<T>,
+    extra_usage: gpu::BufferUsages,
+  ) -> Self {
+    let usage = gpu::BufferUsages::STORAGE
+      | gpu::BufferUsages::COPY_DST
+      | gpu::BufferUsages::COPY_SRC
+      | extra_usage;
 
     let init = source.into_buffer_init();
     let desc = GPUBufferDescriptor {

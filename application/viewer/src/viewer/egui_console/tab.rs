@@ -200,15 +200,12 @@ pub(crate) fn fs_tab_complete(search: &str, nth: usize) -> Option<PathBuf> {
     // windows returns things in ascii case sensitive order
     // this is a surprise to windows users
     #[cfg(target_os = "windows")]
-    let entries = entries
-      .filter(|e| e.is_ok())
-      .map(|e| e.unwrap())
-      .sorted_by(|a, b| {
-        Ord::cmp(
-          &a.file_name().to_ascii_lowercase(),
-          &b.file_name().to_ascii_lowercase(),
-        )
-      });
+    let entries = entries.flatten().sorted_by(|a, b| {
+      Ord::cmp(
+        &a.file_name().to_ascii_lowercase(),
+        &b.file_name().to_ascii_lowercase(),
+      )
+    });
 
     // linux is well behaved!
     #[cfg(target_os = "linux")]

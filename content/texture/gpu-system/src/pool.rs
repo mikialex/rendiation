@@ -178,7 +178,14 @@ impl ReactiveGeneralQuery for TexturePoolSource {
 
     self.gpu.queue.submit_encoder(encoder);
 
-    let texture = target.create_default_view().try_into().unwrap();
+    let texture = target
+      .create_view(TextureViewDescriptor {
+        label: "texture pool view".into(),
+        dimension: TextureViewDimension::D2Array.into(),
+        ..Default::default()
+      })
+      .try_into()
+      .unwrap();
 
     let address = self.address.poll_update(cx);
     let samplers = self.samplers.poll_update(cx);
