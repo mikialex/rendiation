@@ -24,6 +24,7 @@ pub fn build_default_indirect_render_system(
     texture_system: TextureGPUSystemSource::new(prefer_bindless),
     camera: Box::new(DefaultGLESCameraRenderImplProvider::default()),
     scene_model_impl: Box::new(IndirectPreferredComOrderRendererProvider {
+      ids: Default::default(),
       node: Box::new(DefaultIndirectNodeRenderImplProvider::default()),
       model_impl: vec![Box::new(DefaultSceneStdModelRendererProvider {
         std_model: Default::default(),

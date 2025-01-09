@@ -1,6 +1,6 @@
 use crate::*;
 
-both!(IndirectSceneStdModelId, u32);
+only_vertex!(IndirectSceneStdModelId, u32);
 pub type SceneStdModelStorageBuffer = ReactiveStorageBufferContainer<SceneStdModelStorage>;
 
 pub fn std_model_data(cx: &GPU) -> SceneStdModelStorageBuffer {

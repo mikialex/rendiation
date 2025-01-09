@@ -33,6 +33,7 @@ pub trait IndirectBatchSceneModelRenderer: SceneModelRenderer {
 }
 
 pub struct IndirectPreferredComOrderRendererProvider {
+  pub ids: DefaultSceneModelIdProvider,
   pub node: Box<dyn RenderImplProvider<Box<dyn IndirectNodeRenderImpl>>>,
   pub model_impl: Vec<Box<dyn RenderImplProvider<Box<dyn IndirectModelRenderImpl>>>>,
 }
@@ -42,6 +43,7 @@ impl RenderImplProvider<Box<dyn IndirectBatchSceneModelRenderer>>
 {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
     self.node.register_resource(source, cx);
+    self.ids.register_resource(source, cx);
     self
       .model_impl
       .iter_mut()
@@ -50,6 +52,7 @@ impl RenderImplProvider<Box<dyn IndirectBatchSceneModelRenderer>>
 
   fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
     self.node.deregister_resource(source);
+    self.ids.deregister_resource(source);
     self
       .model_impl
       .iter_mut()
@@ -64,6 +67,7 @@ impl RenderImplProvider<Box<dyn IndirectBatchSceneModelRenderer>>
       model_impl: self.model_impl.iter().map(|i| i.create_impl(res)).collect(),
       node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
       node_render: self.node.create_impl(res),
+      id_inject: self.ids.create_impl(res),
     })
   }
 }
@@ -72,6 +76,7 @@ pub struct IndirectPreferredComOrderRenderer {
   model_impl: Vec<Box<dyn IndirectModelRenderImpl>>,
   node_render: Box<dyn IndirectNodeRenderImpl>,
   node: ForeignKeyReadView<SceneModelRefNode>,
+  id_inject: DefaultSceneModelIdInject,
 }
 
 impl SceneModelRenderer for IndirectPreferredComOrderRenderer {
@@ -83,14 +88,14 @@ impl SceneModelRenderer for IndirectPreferredComOrderRenderer {
     cx: &mut GPURenderPassCtx,
     tex: &GPUTextureBindingSystem,
   ) -> Result<(), UnableToRenderSceneModelError> {
-    let model_id = create_uniform(idx.alloc_index(), &cx.gpu.device);
+    let scene_model_id = create_uniform(idx.alloc_index(), &cx.gpu.device);
     let cmd = self
       .make_draw_command_builder(idx)
       .unwrap()
       .draw_command_host_access(idx);
 
     struct SingleModelImmediateDraw {
-      model_id: UniformBufferDataView<u32>,
+      scene_model_id: UniformBufferDataView<u32>,
       cmd: DrawCommand,
     }
 
@@ -100,7 +105,7 @@ impl SceneModelRenderer for IndirectPreferredComOrderRenderer {
 
     impl ShaderPassBuilder for SingleModelImmediateDraw {
       fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-        ctx.binding.bind(&self.model_id);
+        ctx.binding.bind(&self.scene_model_id);
       }
     }
 
@@ -110,17 +115,17 @@ impl SceneModelRenderer for IndirectPreferredComOrderRenderer {
         binding: &mut ShaderBindGroupBuilder,
       ) -> Box<dyn IndirectBatchInvocationSource> {
         struct SingleModelImmediateDrawInvocation {
-          model_id: UniformNode<u32>,
+          scene_model_id: UniformNode<u32>,
         }
 
         impl IndirectBatchInvocationSource for SingleModelImmediateDrawInvocation {
           fn current_invocation_scene_model_id(&self, _: &ShaderVertexBuilder) -> Node<u32> {
-            self.model_id.load()
+            self.scene_model_id.load()
           }
         }
 
         Box::new(SingleModelImmediateDrawInvocation {
-          model_id: binding.bind_by(&self.model_id.clone()),
+          scene_model_id: binding.bind_by(&self.scene_model_id.clone()),
         })
       }
 
@@ -131,7 +136,10 @@ impl SceneModelRenderer for IndirectPreferredComOrderRenderer {
 
     self
       .render_indirect_batch_models(
-        &SingleModelImmediateDraw { model_id, cmd },
+        &SingleModelImmediateDraw {
+          scene_model_id,
+          cmd,
+        },
         idx,
         camera,
         tex,
@@ -154,6 +162,8 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,
   ) -> Option<()> {
+    let id_inject = Box::new(self.id_inject.clone()) as Box<dyn RenderComponent>;
+
     let node = self.node.get(any_id)?;
     let node = self.node_render.make_component_indirect(node)?;
 
@@ -168,9 +178,10 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
 
     let command = models.draw_command();
 
-    let contents: [BindingController<Box<dyn RenderComponent>>; 7] = [
+    let contents: [BindingController<Box<dyn RenderComponent>>; 8] = [
       draw_source.into_assign_binding_index(0),
       pass.into_assign_binding_index(0),
+      id_inject.into_assign_binding_index(0),
       sub_id_injector.into_assign_binding_index(2),
       shape.into_assign_binding_index(2),
       node.into_assign_binding_index(2),
@@ -199,5 +210,58 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
     any_idx: EntityHandle<SceneModelEntity>,
   ) -> Option<Box<dyn DrawCommandBuilder>> {
     self.model_impl.make_draw_command_builder(any_idx)
+  }
+}
+
+#[derive(Default)]
+pub struct DefaultSceneModelIdProvider {
+  pub id_buffer: UpdateResultToken,
+}
+
+#[derive(Clone)]
+pub struct DefaultSceneModelIdInject {
+  pub id_buffer: StorageBufferReadOnlyDataView<[SceneModelStorage]>,
+}
+
+impl RenderImplProvider<DefaultSceneModelIdInject> for DefaultSceneModelIdProvider {
+  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
+    self.id_buffer = source.register_multi_updater(scene_model_data(cx).inner);
+  }
+
+  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
+    source.deregister(&mut self.id_buffer);
+  }
+
+  fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> DefaultSceneModelIdInject {
+    DefaultSceneModelIdInject {
+      id_buffer: res
+        .take_multi_updater_updated::<CommonStorageBufferImpl<SceneModelStorage>>(self.id_buffer)
+        .unwrap()
+        .inner
+        .gpu()
+        .clone(),
+    }
+  }
+}
+
+impl ShaderHashProvider for DefaultSceneModelIdInject {
+  shader_hash_type_id! {}
+}
+
+impl ShaderPassBuilder for DefaultSceneModelIdInject {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx.binding.bind(&self.id_buffer);
+  }
+}
+
+impl GraphicsShaderProvider for DefaultSceneModelIdInject {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    builder.vertex(|builder, binding| {
+      let buffer = binding.bind_by(&self.id_buffer);
+      let current_id = builder.query::<IndirectSceneModelId>();
+      let model = buffer.index(current_id).load().expand();
+      builder.register::<IndirectSceneNodeId>(model.node);
+      builder.register::<IndirectSceneStdModelId>(model.std_model);
+    })
   }
 }

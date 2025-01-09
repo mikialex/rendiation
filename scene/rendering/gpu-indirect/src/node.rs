@@ -1,6 +1,6 @@
 use crate::*;
 
-both!(IndirectSceneNodeId, u32);
+only_vertex!(IndirectSceneNodeId, u32);
 pub type SceneNodeStorages = ReactiveStorageBufferContainer<NodeStorage>;
 
 pub fn node_storages(cx: &GPU) -> SceneNodeStorages {

@@ -24,6 +24,9 @@ pub use light::*;
 mod material;
 pub use material::*;
 
+mod scene_model;
+pub use scene_model::*;
+
 mod std_model;
 pub use std_model::*;
 

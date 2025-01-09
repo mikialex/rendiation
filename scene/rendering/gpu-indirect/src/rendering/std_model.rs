@@ -179,21 +179,18 @@ impl IndirectModelRenderImpl for SceneStdModelRenderer {
 
     impl GraphicsShaderProvider for SceneStdModelIdInjector {
       fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
-        builder
-          .bind_by_and_prepare(&self.std_model)
-          .using_graphics_pair(builder, |r, node| {
-            let sm_id = unsafe {
-              r.query(
-                std::any::TypeId::of::<IndirectSceneModelId>(),
-                IndirectSceneModelId::NAME,
-              )
-              .unwrap()
-              .cast_type()
-            }; // todo fix error handle and code;
-            let info = node.index(sm_id).load().expand();
-            r.register_typed_both_stage::<IndirectAbstractMaterialId>(info.material);
-            r.register_typed_both_stage::<IndirectAbstractMeshId>(info.mesh);
-          });
+        builder.vertex(|builder, binding| {
+          let buffer = binding.bind_by(&self.std_model);
+          let sm_id = builder.query::<IndirectSceneStdModelId>();
+          let info = buffer.index(sm_id).load().expand();
+          builder.register::<IndirectAbstractMaterialId>(info.material);
+          builder.register::<IndirectAbstractMeshId>(info.mesh);
+        });
+
+        builder.fragment(|builder, _| {
+          builder
+            .query_or_interpolate_by::<IndirectAbstractMaterialId, IndirectAbstractMaterialId>();
+        })
       }
     }
 

@@ -4,7 +4,7 @@ use parking_lot::RwLock;
 use rendiation_mesh_core::{AttributeSemantic, BufferViewRange};
 use rendiation_shader_api::*;
 
-both!(IndirectAbstractMeshId, u32);
+only_vertex!(IndirectAbstractMeshId, u32);
 
 use crate::*;
 
