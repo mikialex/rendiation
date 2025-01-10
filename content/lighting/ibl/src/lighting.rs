@@ -1,6 +1,42 @@
-use rendiation_lighting_gpu_system::LightingComputeInvocation;
+use rendiation_lighting_gpu_system::{LightingComputeComponent, LightingComputeInvocation};
+use rendiation_texture_core::TextureSampler;
+use rendiation_texture_gpu_base::SamplerConvertExt;
 
 use crate::*;
+
+pub struct IBLLightingComponent {
+  pub diffuse: GPUCubeTextureView,
+  pub specular: GPUCubeTextureView,
+  pub brdf_lut: GPU2DTextureView,
+  pub uniform: UniformBufferDataView<IblShaderInfo>,
+}
+
+impl ShaderHashProvider for IBLLightingComponent {
+  shader_hash_type_id! {}
+}
+
+impl LightingComputeComponent for IBLLightingComponent {
+  fn build_light_compute_invocation(
+    &self,
+    binding: &mut ShaderBindGroupBuilder,
+  ) -> Box<dyn LightingComputeInvocation> {
+    Box::new(IBLLighting {
+      diffuse: binding.bind_by(&self.diffuse),
+      specular: binding.bind_by(&self.specular),
+      brdf_lut: binding.bind_by(&self.brdf_lut),
+      sampler: binding.bind_by(&ImmediateGPUSamplerViewBind),
+      uniform: binding.bind_by(&self.uniform),
+    })
+  }
+
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx.binding.bind(&self.diffuse);
+    ctx.binding.bind(&self.specular);
+    ctx.binding.bind(&self.brdf_lut);
+    ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
+    ctx.binding.bind(&self.uniform);
+  }
+}
 
 #[repr(C)]
 #[std140_layout]

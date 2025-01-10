@@ -159,7 +159,7 @@ pub fn map_shader_value_ty_to_binding_layout_type(
   gpu::BindGroupLayoutEntry {
     binding: id as u32,
     visibility: if is_compute {
-      gpu::ShaderStages::all()
+      gpu::ShaderStages::COMPUTE
     } else {
       gpu::ShaderStages::VERTEX_FRAGMENT
     },
