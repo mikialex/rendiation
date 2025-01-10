@@ -11,6 +11,7 @@ futures = { workspace = true, features = ["thread-pool"] }
 
 database = { path = "../../utility/database" }
 dirs = "4.0.0"
+parking_lot = { workspace = true }
 fast-hash-collection = { path = "../../utility/fast-hash-collection" }
 heap-tools = { path = "../../utility/heap-tools" }
 image = "*"
@@ -29,6 +30,7 @@ rendiation-gui-3d = { path = "../../extension/gui-3d" }
 rendiation-infinity-primitive = { path = "../../extension/infinity-primitive" }
 rendiation-lighting-gpu-system = { path = "../../content/lighting/gpu-system/lighting-system" }
 rendiation-lighting-transport = { path = "../../content/lighting/transport" }
+rendiation-lighting-ibl = { path = "../../content/lighting/ibl" }
 rendiation-mesh-core = { path = "../../content/mesh/core" }
 rendiation-mesh-generator = { path = "../../content/mesh/generator" }
 rendiation-scene-core = { path = "../../scene/core" }

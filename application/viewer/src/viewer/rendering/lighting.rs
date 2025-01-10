@@ -1,3 +1,11 @@
+use std::sync::Arc;
+
+use fast_hash_collection::FastHashMap;
+use parking_lot::RwLock;
+use rendiation_lighting_ibl::{
+  generate_pre_filter_map, IBLLightingComponent, PreFilterMapGenerationConfig,
+  PreFilterMapGenerationResult,
+};
 use rendiation_texture_gpu_process::ToneMap;
 
 use super::ScreenChannelDebugger;
@@ -10,14 +18,23 @@ pub struct LightSystem {
   tonemap: ToneMap,
 }
 
+// pub trait LightSystemSceneProvider {
+//   fn get_scene_lighting(
+//     &self,
+//     scene: EntityHandle<SceneEntity>,
+//   ) -> Box<dyn LightingComputeComponent>;
+// }
+
+// struct LightSystemSceneProviderDefault {}
+
 impl LightSystem {
   pub fn new(gpu: &GPU) -> Self {
     Self {
       internal: Box::new(
-        LightArrayRenderImplProvider::default()
+        DifferentLightRenderImplProvider::default()
           .with_light(DirectionalUniformLightList::default())
           .with_light(SpotLightUniformLightList::default())
-          .with_light(PointLightUniformLightList::default()),
+          .with_light(PointLightUniformLightList::default()), /* .with_light(IBLProvider::new(gpu)), */
       ),
       enable_channel_debugger: false,
       channel_debugger: ScreenChannelDebugger::default_useful(),
@@ -77,5 +94,110 @@ impl GraphicsShaderProvider for LDROutput {
       let l = builder.query::<LDRLightResult>();
       builder.register::<DefaultDisplay>((l, val(1.0)));
     })
+  }
+}
+
+struct IBLProvider {
+  brdf_lut: GPU2DTextureView,
+  intensity: UpdateResultToken,
+  // todo
+  // note, currently the cube map is standalone maintained, this is wasteful if user shared it elsewhere
+  cube_map: UpdateResultToken,
+}
+
+impl IBLProvider {
+  pub fn new(cx: &GPU) -> Self {
+    todo!()
+  }
+}
+
+impl RenderImplProvider<Box<dyn LightingComputeComponent>> for IBLProvider {
+  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
+    global_watch()
+      .watch::<SceneHDRxEnvBackgroundCubeMap>()
+      .collective_filter_map(|v| v);
+
+    let cube_prefilter = CubeMapWithPrefilter {
+      inner: RwLock::new(gpu_texture_cubes(cx, Default::default())),
+      map: Default::default(),
+      gpu: cx.clone(),
+    };
+
+    self.cube_map = source.register(Box::new(cube_prefilter));
+  }
+
+  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
+    source.deregister(&mut self.intensity);
+    source.deregister(&mut self.cube_map);
+  }
+
+  fn create_impl(
+    &self,
+    res: &mut ConcurrentStreamUpdateResult,
+  ) -> Box<dyn LightingComputeComponent> {
+    let prefiltered = res
+      .take_result(self.cube_map)
+      .unwrap()
+      .downcast::<LockReadGuardHolder<
+        FastHashMap<EntityHandle<SceneTextureCubeEntity>, PreFilterMapGenerationResult>,
+      >>()
+      .unwrap();
+
+    Box::new(IBLLightingComponent {
+      prefiltered: todo!(),
+      brdf_lut: self.brdf_lut.clone(),
+      uniform: todo!(),
+    })
+  }
+}
+
+type CubeMaintainerInternal<K> = QueryMutationCollector<
+  FastHashMap<K, ValueChange<GPUCubeTextureView>>,
+  FastHashMap<K, GPUCubeTextureView>,
+>;
+
+pub struct CubeMapWithPrefilter<K> {
+  inner: RwLock<MultiUpdateContainer<CubeMaintainerInternal<K>>>,
+  map: Arc<RwLock<FastHashMap<K, PreFilterMapGenerationResult>>>,
+  gpu: GPU,
+}
+
+impl<K: CKey> ReactiveGeneralQuery for CubeMapWithPrefilter<K> {
+  type Output = Box<dyn Any>;
+
+  fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
+    let mut inner = self.inner.write();
+    inner.poll_update(cx);
+
+    let delta = std::mem::take(&mut inner.target.delta);
+    let mut map = self.map.write();
+
+    let gpu = &self.gpu;
+    let mut encoder = gpu.create_encoder();
+
+    for (k, change) in delta.iter_key_value() {
+      match change.clone() {
+        ValueChange::Delta(v, _) => {
+          let config = PreFilterMapGenerationConfig {
+            specular_resolution: 256,
+            specular_sample_count: 32,
+            diffuse_sample_count: 32,
+            diffuse_resolution: 128,
+          };
+
+          let result = generate_pre_filter_map(&mut encoder, gpu, v, config);
+
+          map.insert(k.clone(), result);
+        }
+        ValueChange::Remove(_) => {
+          map.remove(&k);
+        }
+      }
+    }
+
+    gpu.submit_encoder(encoder);
+    drop(map);
+
+    Box::new(self.map.make_read_holder())
   }
 }

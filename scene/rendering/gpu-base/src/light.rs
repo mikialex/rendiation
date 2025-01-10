@@ -3,11 +3,11 @@ use rendiation_lighting_gpu_system::*;
 use crate::*;
 
 #[derive(Default)]
-pub struct LightArrayRenderImplProvider {
+pub struct DifferentLightRenderImplProvider {
   lights: Vec<Box<dyn RenderImplProvider<Box<dyn LightingComputeComponent>>>>,
 }
 
-impl LightArrayRenderImplProvider {
+impl DifferentLightRenderImplProvider {
   pub fn with_light(
     mut self,
     impls: impl RenderImplProvider<Box<dyn LightingComputeComponent>> + 'static,
@@ -17,7 +17,7 @@ impl LightArrayRenderImplProvider {
   }
 }
 
-impl RenderImplProvider<Box<dyn LightingComputeComponent>> for LightArrayRenderImplProvider {
+impl RenderImplProvider<Box<dyn LightingComputeComponent>> for DifferentLightRenderImplProvider {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
     self
       .lights
