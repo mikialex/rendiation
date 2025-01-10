@@ -1,3 +1,5 @@
+use fast_hash_collection::FastHashMap;
+
 use crate::*;
 
 #[derive(Default)]
@@ -10,7 +12,7 @@ pub struct SceneBackgroundRendererSource {
 
 impl RenderImplProvider<SceneBackgroundRenderer> for SceneBackgroundRendererSource {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    self.cube_map = source.register_multi_updater(gpu_texture_cubes(cx));
+    self.cube_map = source.register_multi_updater(gpu_texture_cubes(cx, FastHashMap::default()));
     let cx = cx.clone();
     let intensity = global_watch()
       .watch::<SceneHDRxEnvBackgroundIntensity>()

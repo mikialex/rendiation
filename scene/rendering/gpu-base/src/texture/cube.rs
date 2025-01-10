@@ -1,32 +1,32 @@
-use fast_hash_collection::FastHashMap;
 use rendiation_texture_core::CubeTextureFace;
 use rendiation_webgpu_reactive_utils::*;
 
 use crate::*;
 
-fn cube_face_update<FK>(
-  face: CubeTextureFace,
-  cx: &GPU,
-) -> impl QueryBasedUpdate<FastHashMap<EntityHandle<SceneTextureCubeEntity>, GPUCubeTextureView>>
+fn cube_face_update<FK, T>(face: CubeTextureFace, cx: &GPU) -> impl QueryBasedUpdate<T>
 where
   FK: ForeignKeySemantic<Entity = SceneTextureCubeEntity, ForeignEntity = SceneTexture2dEntity>,
+  T: QueryLikeMutateTarget<EntityHandle<SceneTextureCubeEntity>, GPUCubeTextureView>,
 {
   global_watch()
     .watch::<SceneTexture2dEntityDirectContent>()
     .collective_filter_map(|v| v)
     .one_to_many_fanout(global_rev_ref().watch_inv_ref::<FK>())
-    .into_query_update_cube_face(face, cx)
+    .into_query_update_cube_face(face, cx, false)
 }
 
-pub fn gpu_texture_cubes(cx: &GPU) -> CubeMapUpdateContainer<EntityHandle<SceneTextureCubeEntity>> {
-  let px = cube_face_update::<SceneTextureCubeXPositiveFace>(CubeTextureFace::PositiveX, cx);
-  let py = cube_face_update::<SceneTextureCubeXPositiveFace>(CubeTextureFace::PositiveY, cx);
-  let pz = cube_face_update::<SceneTextureCubeXPositiveFace>(CubeTextureFace::PositiveZ, cx);
-  let nx = cube_face_update::<SceneTextureCubeXPositiveFace>(CubeTextureFace::NegativeX, cx);
-  let ny = cube_face_update::<SceneTextureCubeXPositiveFace>(CubeTextureFace::NegativeY, cx);
-  let nz = cube_face_update::<SceneTextureCubeXPositiveFace>(CubeTextureFace::NegativeZ, cx);
+pub fn gpu_texture_cubes<T>(cx: &GPU, init: T) -> MultiUpdateContainer<T>
+where
+  T: QueryLikeMutateTarget<EntityHandle<SceneTextureCubeEntity>, GPUCubeTextureView> + 'static,
+{
+  let px = cube_face_update::<SceneTextureCubeXPositiveFace, T>(CubeTextureFace::PositiveX, cx);
+  let py = cube_face_update::<SceneTextureCubeYPositiveFace, T>(CubeTextureFace::PositiveY, cx);
+  let pz = cube_face_update::<SceneTextureCubeZPositiveFace, T>(CubeTextureFace::PositiveZ, cx);
+  let nx = cube_face_update::<SceneTextureCubeXNegativeFace, T>(CubeTextureFace::NegativeX, cx);
+  let ny = cube_face_update::<SceneTextureCubeYNegativeFace, T>(CubeTextureFace::NegativeY, cx);
+  let nz = cube_face_update::<SceneTextureCubeZNegativeFace, T>(CubeTextureFace::NegativeZ, cx);
 
-  CubeMapUpdateContainer::default()
+  MultiUpdateContainer::<T>::new(init)
     .with_source(px)
     .with_source(py)
     .with_source(pz)
