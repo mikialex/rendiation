@@ -5,8 +5,7 @@ use rendiation_texture_gpu_base::SamplerConvertExt;
 use crate::*;
 
 pub struct IBLLightingComponent {
-  pub diffuse: GPUCubeTextureView,
-  pub specular: GPUCubeTextureView,
+  pub prefiltered: PreFilterMapGenerationResult,
   pub brdf_lut: GPU2DTextureView,
   pub uniform: UniformBufferDataView<IblShaderInfo>,
 }
@@ -21,8 +20,8 @@ impl LightingComputeComponent for IBLLightingComponent {
     binding: &mut ShaderBindGroupBuilder,
   ) -> Box<dyn LightingComputeInvocation> {
     Box::new(IBLLighting {
-      diffuse: binding.bind_by(&self.diffuse),
-      specular: binding.bind_by(&self.specular),
+      diffuse: binding.bind_by(&self.prefiltered.diffuse),
+      specular: binding.bind_by(&self.prefiltered.specular),
       brdf_lut: binding.bind_by(&self.brdf_lut),
       sampler: binding.bind_by(&ImmediateGPUSamplerViewBind),
       uniform: binding.bind_by(&self.uniform),
@@ -30,8 +29,8 @@ impl LightingComputeComponent for IBLLightingComponent {
   }
 
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.diffuse);
-    ctx.binding.bind(&self.specular);
+    ctx.binding.bind(&self.prefiltered.diffuse);
+    ctx.binding.bind(&self.prefiltered.specular);
     ctx.binding.bind(&self.brdf_lut);
     ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
     ctx.binding.bind(&self.uniform);

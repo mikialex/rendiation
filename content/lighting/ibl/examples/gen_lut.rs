@@ -12,16 +12,15 @@ pub async fn main() {
 
   let size = Size::from_u32_pair_min_one((64, 64));
 
-  let pool = Default::default();
-  let mut frame_ctx = FrameCtx::new(&gpu, size, &pool);
-
   let target =
     create_empty_2d_texture_view(&gpu, size, TextureUsages::all(), TextureFormat::Rgba8Unorm);
   let target_res = target.resource.clone();
 
-  generate_brdf_lut(&mut frame_ctx, target);
+  let mut encoder = gpu.create_encoder();
 
-  frame_ctx.final_submit();
+  generate_brdf_lut(&mut encoder, &gpu, target);
+
+  gpu.submit_encoder(encoder);
 
   let mut encoder = gpu.device.create_encoder();
   let reader = encoder.read_texture_2d(

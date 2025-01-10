@@ -20,10 +20,10 @@ impl GraphicsShaderProvider for BrdfLUTGenerator {
   }
 }
 
-pub fn generate_brdf_lut(ctx: &mut FrameCtx, target: GPU2DTextureView) {
+pub fn generate_brdf_lut(encoder: &mut GPUCommandEncoder, gpu: &GPU, target: GPU2DTextureView) {
   pass("brdf lut generate")
     .with_color(target, load())
-    .render_ctx(ctx)
+    .render(encoder, gpu)
     .by(&mut BrdfLUTGenerator.draw_quad());
 }
 
@@ -40,12 +40,13 @@ pub struct PreFilterMapGenerationConfig {
 }
 
 pub fn generate_pre_filter_map(
-  ctx: &mut FrameCtx,
+  encoder: &mut GPUCommandEncoder,
+  gpu: &GPU,
   input: GPUCubeTextureView,
   config: PreFilterMapGenerationConfig,
 ) -> PreFilterMapGenerationResult {
   let diffuse = create_cube(
-    &ctx.gpu.device,
+    &gpu.device,
     config.diffuse_resolution,
     MipLevelCount::EmptyMipMap,
   );
@@ -57,12 +58,12 @@ pub fn generate_pre_filter_map(
         sample_count: config.diffuse_sample_count,
         ..Default::default()
       },
-      &ctx.gpu.device,
+      &gpu.device,
     );
 
     pass("prefilter diffuse env map")
       .with_color(target, load())
-      .render_ctx(ctx)
+      .render(encoder, gpu)
       .by(
         &mut PreFilterDiffuseTask {
           input: input.clone(),
@@ -73,7 +74,7 @@ pub fn generate_pre_filter_map(
   }
 
   let specular = create_cube(
-    &ctx.gpu.device,
+    &gpu.device,
     config.specular_resolution,
     MipLevelCount::BySize,
   );
@@ -91,12 +92,12 @@ pub fn generate_pre_filter_map(
           sample_count: config.specular_sample_count,
           ..Default::default()
         },
-        &ctx.gpu.device,
+        &gpu.device,
       );
 
       pass("prefilter specular env map")
         .with_color(target, load())
-        .render_ctx(ctx)
+        .render(encoder, gpu)
         .by(
           &mut PreFilterSpecularTask {
             input: input.clone(),

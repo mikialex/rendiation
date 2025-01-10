@@ -69,6 +69,7 @@ impl<T: CValue> QueryLikeMutateTarget<u32, T> for IndexKeptVec<T> {
   }
 }
 
+#[derive(Default)]
 pub struct QueryMutationCollector<D, T> {
   pub delta: D,
   pub target: T,
