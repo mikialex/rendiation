@@ -85,7 +85,7 @@ pub fn generate_pre_filter_map(
 
   for (idx, direction) in face_direction_iter() {
     for level in 0..mip_level_count {
-      let target = cube_face_view(&diffuse, idx as u32, level);
+      let target = cube_face_view(&specular, idx as u32, level);
       let config = create_uniform(
         SpecularGenerationConfig {
           direction,
@@ -119,7 +119,7 @@ fn cube_face_view(cube: &GPUCubeTextureView, face_idx: u32, level: u32) -> GPU2D
     dimension: Some(TextureViewDimension::D2),
     aspect: TextureAspect::All,
     base_mip_level: level,
-    mip_level_count: None,
+    mip_level_count: Some(1),
     base_array_layer: face_idx,
     array_layer_count: Some(1),
   });
@@ -128,15 +128,20 @@ fn cube_face_view(cube: &GPUCubeTextureView, face_idx: u32, level: u32) -> GPU2D
 }
 
 fn create_cube(device: &GPUDevice, resolution: u32, level: MipLevelCount) -> GPUCubeTextureView {
-  let size = Size::from_u32_pair_min_one((resolution, resolution));
+  let size_ = Size::from_u32_pair_min_one((resolution, resolution));
+  let size = Extent3d {
+    width: resolution,
+    height: resolution,
+    depth_or_array_layers: 6,
+  };
   let output = GPUTexture::create(
     TextureDescriptor {
       label: None,
-      size: size.into_gpu_size(),
-      mip_level_count: level.get_level_count_wgpu(size),
+      size,
+      mip_level_count: level.get_level_count_wgpu(size_),
       sample_count: 1,
       dimension: TextureDimension::D2,
-      format: TextureFormat::Rgba8Unorm,
+      format: TextureFormat::Rgba8UnormSrgb,
       usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
       view_formats: &[],
     },
@@ -204,8 +209,8 @@ impl GraphicsShaderProvider for PreFilterSpecularTask {
 
       let resolution = builder.query::<RenderBufferSize>().x();
       let uv = builder.query::<FragmentUv>();
-      let cube_face_local = uv * val(2.) - val(Vec2::one());
-      let cube_face = config.direction * (cube_face_local, val(1.)).into();
+      let cube_face_local = uv * val(2.0) - val(Vec2::one());
+      let cube_face = config.direction.shrink_to_3() * (cube_face_local, val(1.)).into();
       // is the uv interpolate from the pixel center?? i don't care
       let pixel_center_direction = cube_face.normalize();
 
@@ -302,7 +307,7 @@ impl GraphicsShaderProvider for PreFilterDiffuseTask {
 
       let uv = builder.query::<FragmentUv>();
       let cube_face_local = uv * val(2.) - val(Vec2::one());
-      let cube_face = config.direction * (cube_face_local, val(1.)).into();
+      let cube_face = config.direction.shrink_to_3() * (cube_face_local, val(1.)).into();
       // is the uv interpolate from the pixel center?? i don't care
       let pixel_center_direction = cube_face.normalize();
 

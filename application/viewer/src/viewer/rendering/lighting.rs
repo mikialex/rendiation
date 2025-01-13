@@ -85,7 +85,7 @@ impl<'a> SceneLightSystem<'a> {
     light
       .push(&system.tonemap as &dyn RenderComponent) //
       .push(LightingComputeComponentAsRenderComponent(
-        self.imp.get_scene_lighting(scene),
+        self.imp.get_scene_lighting(scene).unwrap(),
       ));
 
     Box::new(light)
@@ -128,7 +128,8 @@ impl IBLProvider {
       cx,
       &GPUBufferImage {
         data: buf,
-        format: TextureFormat::Rgba8Uint, // lut is linear
+        format: TextureFormat::Rgba8Unorm, // lut is linear
+        // todo, use two channel 16 bit
         size: Size::from_u32_pair_min_one((width, height)),
       },
     );
@@ -190,11 +191,13 @@ impl RenderImplProvider<Box<dyn LightSystemSceneProvider>> for IBLProvider {
       prefiltered: *prefiltered,
       brdf_lut: self.brdf_lut.clone(),
       uniform: intensity,
+      access: global_database().read_foreign_key::<SceneHDRxEnvBackgroundCubeMap>(),
     })
   }
 }
 
 struct IBLLightingComponentProvider {
+  access: ForeignKeyReadView<SceneHDRxEnvBackgroundCubeMap>,
   prefiltered: LockReadGuardHolder<
     FastHashMap<EntityHandle<SceneTextureCubeEntity>, PreFilterMapGenerationResult>,
   >,
@@ -207,12 +210,13 @@ impl LightSystemSceneProvider for IBLLightingComponentProvider {
   fn get_scene_lighting(
     &self,
     scene: EntityHandle<SceneEntity>,
-  ) -> Box<dyn LightingComputeComponent> {
-    Box::new(IBLLightingComponent {
-      prefiltered: self.prefiltered.get(todo!()).unwrap().clone(),
+  ) -> Option<Box<dyn LightingComputeComponent>> {
+    let map = self.access.get(scene)?;
+    Some(Box::new(IBLLightingComponent {
+      prefiltered: self.prefiltered.get(&map).unwrap().clone(),
       brdf_lut: self.brdf_lut.clone(),
       uniform: self.uniform.get(&scene).unwrap().clone(),
-    })
+    }))
   }
 }
 

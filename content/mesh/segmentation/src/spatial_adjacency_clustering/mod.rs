@@ -78,7 +78,7 @@ pub fn build_meshlets<V: Positioned<Position = Vec3<f32>>, SA: SpaceSearchAccele
   meshlet_vertices: &mut [u32],
   meshlet_triangles: &mut [u8],
 ) -> usize {
-  assert!(indices.len() / 3 == 0);
+  assert!(indices.len() % 3 == 0);
   assert!(indices.len() >= 3);
 
   let mut adjacency = TriangleAdjacency::new(indices, vertices.len());

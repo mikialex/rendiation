@@ -483,7 +483,7 @@ impl<T: ShaderTextureType> HandleNode<T> {
   where
     T: SingleSampleTarget,
   {
-    ShaderNodeExpr::TextureQuery(self.handle(), TextureQuery::NumLayers).insert_api()
+    ShaderNodeExpr::TextureQuery(self.handle(), TextureQuery::NumLevels).insert_api()
   }
 }
 

@@ -6,7 +6,7 @@ pub trait LightSystemSceneProvider {
   fn get_scene_lighting(
     &self,
     scene: EntityHandle<SceneEntity>,
-  ) -> Box<dyn LightingComputeComponent>;
+  ) -> Option<Box<dyn LightingComputeComponent>>;
 }
 
 #[derive(Default)]
@@ -56,13 +56,13 @@ impl LightSystemSceneProvider for LightingComputeComponentGroupProvider {
   fn get_scene_lighting(
     &self,
     scene: EntityHandle<SceneEntity>,
-  ) -> Box<dyn LightingComputeComponent> {
-    Box::new(LightingComputeComponentGroup {
+  ) -> Option<Box<dyn LightingComputeComponent>> {
+    Some(Box::new(LightingComputeComponentGroup {
       comps: self
         .lights
         .iter()
-        .map(|i| i.get_scene_lighting(scene))
+        .filter_map(|i| i.get_scene_lighting(scene))
         .collect(),
-    })
+    }))
   }
 }

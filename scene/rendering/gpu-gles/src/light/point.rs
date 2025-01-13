@@ -68,7 +68,7 @@ impl LightSystemSceneProvider for ScenePointLightingProvider {
   fn get_scene_lighting(
     &self,
     _scene: EntityHandle<SceneEntity>,
-  ) -> Box<dyn LightingComputeComponent> {
+  ) -> Option<Box<dyn LightingComputeComponent>> {
     let com = ArrayLights(
       self.uniform.clone(),
       |(_, light_uniform): (Node<u32>, UniformNode<PointLightUniform>)| {
@@ -81,6 +81,6 @@ impl LightSystemSceneProvider for ScenePointLightingProvider {
         .construct()
       },
     );
-    Box::new(com)
+    Some(Box::new(com))
   }
 }
