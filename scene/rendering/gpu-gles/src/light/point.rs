@@ -37,7 +37,7 @@ pub struct PointLightUniformLightList {
   token: UpdateResultToken,
 }
 
-impl RenderImplProvider<Box<dyn LightingComputeComponent>> for PointLightUniformLightList {
+impl RenderImplProvider<Box<dyn LightSystemSceneProvider>> for PointLightUniformLightList {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
     let uniform = point_uniform_array(cx);
     self.token = source.register_multi_updater(uniform);
@@ -49,14 +49,28 @@ impl RenderImplProvider<Box<dyn LightingComputeComponent>> for PointLightUniform
   fn create_impl(
     &self,
     res: &mut ConcurrentStreamUpdateResult,
-  ) -> Box<dyn LightingComputeComponent> {
+  ) -> Box<dyn LightSystemSceneProvider> {
     let uniform = res
       .take_multi_updater_updated::<UniformArray<PointLightUniform, 8>>(self.token)
       .unwrap()
       .target
       .clone();
+
+    Box::new(ScenePointLightingProvider { uniform })
+  }
+}
+
+struct ScenePointLightingProvider {
+  uniform: UniformBufferDataView<Shader140Array<PointLightUniform, 8>>,
+}
+
+impl LightSystemSceneProvider for ScenePointLightingProvider {
+  fn get_scene_lighting(
+    &self,
+    _scene: EntityHandle<SceneEntity>,
+  ) -> Box<dyn LightingComputeComponent> {
     let com = ArrayLights(
-      uniform,
+      self.uniform.clone(),
       |(_, light_uniform): (Node<u32>, UniformNode<PointLightUniform>)| {
         let light_uniform = light_uniform.load().expand();
         ENode::<PointLightShaderInfo> {

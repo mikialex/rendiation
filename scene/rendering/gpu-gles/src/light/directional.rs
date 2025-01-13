@@ -33,7 +33,7 @@ pub struct DirectionalUniformLightList {
   token: UpdateResultToken,
 }
 
-impl RenderImplProvider<Box<dyn LightingComputeComponent>> for DirectionalUniformLightList {
+impl RenderImplProvider<Box<dyn LightSystemSceneProvider>> for DirectionalUniformLightList {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
     let uniform = directional_uniform_array(cx);
     self.token = source.register_multi_updater(uniform);
@@ -46,14 +46,27 @@ impl RenderImplProvider<Box<dyn LightingComputeComponent>> for DirectionalUnifor
   fn create_impl(
     &self,
     res: &mut ConcurrentStreamUpdateResult,
-  ) -> Box<dyn LightingComputeComponent> {
+  ) -> Box<dyn LightSystemSceneProvider> {
     let uniform = res
       .take_multi_updater_updated::<UniformArray<DirectionalLightUniform, 8>>(self.token)
       .unwrap()
       .target
       .clone();
+    Box::new(SceneDirectionalLightingProvider { uniform })
+  }
+}
+
+struct SceneDirectionalLightingProvider {
+  uniform: UniformBufferDataView<Shader140Array<DirectionalLightUniform, 8>>,
+}
+
+impl LightSystemSceneProvider for SceneDirectionalLightingProvider {
+  fn get_scene_lighting(
+    &self,
+    _scene: EntityHandle<SceneEntity>,
+  ) -> Box<dyn LightingComputeComponent> {
     let com = ArrayLights(
-      uniform,
+      self.uniform.clone(),
       |(_, light_uniform): (Node<u32>, UniformNode<DirectionalLightUniform>)| {
         let light_uniform = light_uniform.load().expand();
         ENode::<DirectionalShaderInfo> {

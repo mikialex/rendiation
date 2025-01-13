@@ -14,20 +14,11 @@ use super::ScreenChannelDebugger;
 use crate::*;
 
 pub struct LightSystem {
-  internal: Box<dyn RenderImplProvider<Box<dyn LightingComputeComponent>>>,
+  internal: Box<dyn RenderImplProvider<Box<dyn LightSystemSceneProvider>>>,
   enable_channel_debugger: bool,
   channel_debugger: ScreenChannelDebugger,
   tonemap: ToneMap,
 }
-
-// pub trait LightSystemSceneProvider {
-//   fn get_scene_lighting(
-//     &self,
-//     scene: EntityHandle<SceneEntity>,
-//   ) -> Box<dyn LightingComputeComponent>;
-// }
-
-// struct LightSystemSceneProviderDefault {}
 
 impl LightSystem {
   pub fn new(gpu: &GPU) -> Self {
@@ -60,25 +51,41 @@ impl LightSystem {
     self.internal.register_resource(source, cx);
   }
 
-  pub fn create_impl(
+  pub fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> SceneLightSystem {
+    SceneLightSystem {
+      system: self,
+      imp: self.internal.create_impl(res),
+    }
+  }
+}
+
+pub struct SceneLightSystem<'a> {
+  system: &'a LightSystem,
+  imp: Box<dyn LightSystemSceneProvider>,
+}
+
+impl<'a> SceneLightSystem<'a> {
+  pub fn get_scene_lighting(
     &self,
-    res: &mut ConcurrentStreamUpdateResult,
+    scene: EntityHandle<SceneEntity>,
     frame_ctx: &mut FrameCtx,
   ) -> Box<dyn RenderComponent + '_> {
     let mut light = RenderVec::default();
 
-    if self.enable_channel_debugger {
-      light.push(&self.channel_debugger as &dyn RenderComponent);
+    let system = &self.system;
+
+    if system.enable_channel_debugger {
+      light.push(&system.channel_debugger as &dyn RenderComponent);
     } else {
       light.push(LDROutput);
     }
 
-    self.tonemap.update(frame_ctx.gpu);
+    system.tonemap.update(frame_ctx.gpu);
 
     light
-      .push(&self.tonemap as &dyn RenderComponent) //
+      .push(&system.tonemap as &dyn RenderComponent) //
       .push(LightingComputeComponentAsRenderComponent(
-        self.internal.create_impl(res),
+        self.imp.get_scene_lighting(scene),
       ));
 
     Box::new(light)
@@ -134,7 +141,7 @@ impl IBLProvider {
   }
 }
 
-impl RenderImplProvider<Box<dyn LightingComputeComponent>> for IBLProvider {
+impl RenderImplProvider<Box<dyn LightSystemSceneProvider>> for IBLProvider {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
     let diffuse_illuminance = global_watch()
       .watch::<SceneHDRxEnvBackgroundIntensity>()
@@ -168,7 +175,7 @@ impl RenderImplProvider<Box<dyn LightingComputeComponent>> for IBLProvider {
   fn create_impl(
     &self,
     res: &mut ConcurrentStreamUpdateResult,
-  ) -> Box<dyn LightingComputeComponent> {
+  ) -> Box<dyn LightSystemSceneProvider> {
     let prefiltered = res
       .take_result(self.cube_map)
       .unwrap()
@@ -177,12 +184,34 @@ impl RenderImplProvider<Box<dyn LightingComputeComponent>> for IBLProvider {
       >>()
       .unwrap();
 
-    // let intensity = res.take_multi_updater_updated(self.intensity).unwrap();
+    let intensity = res.take_multi_updater_updated(self.intensity).unwrap();
 
-    Box::new(IBLLightingComponent {
-      prefiltered: todo!(),
+    Box::new(IBLLightingComponentProvider {
+      prefiltered: *prefiltered,
       brdf_lut: self.brdf_lut.clone(),
-      uniform: todo!(),
+      uniform: intensity,
+    })
+  }
+}
+
+struct IBLLightingComponentProvider {
+  prefiltered: LockReadGuardHolder<
+    FastHashMap<EntityHandle<SceneTextureCubeEntity>, PreFilterMapGenerationResult>,
+  >,
+  brdf_lut: GPU2DTextureView,
+  uniform: LockReadGuardHolder<IBLUniforms>,
+}
+
+type IBLUniforms = UniformUpdateContainer<EntityHandle<SceneEntity>, IblShaderInfo>;
+impl LightSystemSceneProvider for IBLLightingComponentProvider {
+  fn get_scene_lighting(
+    &self,
+    scene: EntityHandle<SceneEntity>,
+  ) -> Box<dyn LightingComputeComponent> {
+    Box::new(IBLLightingComponent {
+      prefiltered: self.prefiltered.get(todo!()).unwrap().clone(),
+      brdf_lut: self.brdf_lut.clone(),
+      uniform: self.uniform.get(&scene).unwrap().clone(),
     })
   }
 }

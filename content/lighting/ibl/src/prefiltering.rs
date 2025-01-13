@@ -27,6 +27,7 @@ pub fn generate_brdf_lut(encoder: &mut GPUCommandEncoder, gpu: &GPU, target: GPU
     .by(&mut BrdfLUTGenerator.draw_quad());
 }
 
+#[derive(Clone)]
 pub struct PreFilterMapGenerationResult {
   pub diffuse: GPUCubeTextureView,
   pub specular: GPUCubeTextureView,

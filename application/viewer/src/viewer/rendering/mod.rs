@@ -236,7 +236,8 @@ impl Viewer3dRenderingCtx {
           None,
         ));
     } else {
-      let lighting = self.lighting.create_impl(&mut resource, &mut ctx);
+      let lighting = self.lighting.create_impl(&mut resource);
+      let lighting = lighting.get_scene_lighting(content.scene, &mut ctx);
 
       self.frame_logic.render(
         &mut ctx,
