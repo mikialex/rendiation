@@ -117,7 +117,8 @@ impl IndirectSceneRenderer {
       let mut hasher = PipelineHasher::default();
       self
         .renderer
-        .hash_shader_group_key_with_self_type_info(sm, &mut hasher);
+        .hash_shader_group_key_with_self_type_info(sm, &mut hasher)
+        .expect("unable to find indirect group key for scene_model: {sm}");
       let shader_hash = hasher.finish();
       let list = classifier.entry(shader_hash).or_insert_with(Vec::new);
       list.push(sm);

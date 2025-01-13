@@ -1,4 +1,4 @@
-use std::{any::TypeId, mem::offset_of, num::NonZeroU64, sync::Arc};
+use std::{mem::offset_of, num::NonZeroU64, sync::Arc};
 
 use parking_lot::RwLock;
 use rendiation_mesh_core::{AttributeSemantic, BufferViewRange};
@@ -307,9 +307,8 @@ impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
   fn hash_shader_group_key(
     &self,
     _any_id: EntityHandle<StandardModelEntity>,
-    hasher: &mut PipelineHasher,
+    _hasher: &mut PipelineHasher,
   ) -> Option<()> {
-    TypeId::of::<Self>().hash(hasher);
     Some(())
   }
 

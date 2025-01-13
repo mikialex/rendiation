@@ -1,5 +1,3 @@
-use std::any::TypeId;
-
 use crate::*;
 
 pub trait IndirectModelMaterialRenderImpl: Any {
@@ -105,10 +103,10 @@ impl IndirectModelMaterialRenderImpl for FlatMaterialDefaultIndirectRenderImpl {
   }
   fn hash_shader_group_key(
     &self,
-    _: EntityHandle<StandardModelEntity>,
-    hasher: &mut PipelineHasher,
+    any_idx: EntityHandle<StandardModelEntity>,
+    _: &mut PipelineHasher,
   ) -> Option<()> {
-    TypeId::of::<Self>().hash(hasher);
+    self.material_access.get(any_idx)?;
     Some(())
   }
   fn as_any(&self) -> &dyn Any {
@@ -199,7 +197,6 @@ impl IndirectModelMaterialRenderImpl for PbrMRMaterialDefaultIndirectRenderImpl 
     idx: EntityHandle<StandardModelEntity>,
     hasher: &mut PipelineHasher,
   ) -> Option<()> {
-    TypeId::of::<Self>().hash(hasher);
     let idx = self.material_access.get(idx)?;
     self.alpha_mode.get_value(idx)?.hash(hasher);
     Some(())
@@ -270,7 +267,6 @@ impl IndirectModelMaterialRenderImpl for PbrSGMaterialDefaultIndirectRenderImpl 
     idx: EntityHandle<StandardModelEntity>,
     hasher: &mut PipelineHasher,
   ) -> Option<()> {
-    TypeId::of::<Self>().hash(hasher);
     let idx = self.material_access.get(idx)?;
     self.alpha_mode.get_value(idx)?.hash(hasher);
     Some(())

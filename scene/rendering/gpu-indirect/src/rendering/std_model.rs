@@ -169,8 +169,12 @@ impl IndirectModelRenderImpl for SceneStdModelRenderer {
     hasher: &mut PipelineHasher,
   ) -> Option<()> {
     let model = self.model.get(any_id)?;
-    self.materials.hash_shader_group_key(model, hasher)?;
-    self.shapes.hash_shader_group_key(model, hasher)?;
+    self
+      .materials
+      .hash_shader_group_key_with_self_type_info(model, hasher)?;
+    self
+      .shapes
+      .hash_shader_group_key_with_self_type_info(model, hasher)?;
     Some(())
   }
   fn as_any(&self) -> &dyn Any {

@@ -216,8 +216,12 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
     hasher: &mut PipelineHasher,
   ) -> Option<()> {
     let node = self.node.get(any_id)?;
-    self.node_render.hash_shader_group_key(node, hasher)?;
-    self.model_impl.hash_shader_group_key(any_id, hasher)?;
+    self
+      .node_render
+      .hash_shader_group_key_with_self_type_info(node, hasher)?;
+    self
+      .model_impl
+      .hash_shader_group_key_with_self_type_info(any_id, hasher)?;
     Some(())
   }
 
