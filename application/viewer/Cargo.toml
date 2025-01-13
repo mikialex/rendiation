@@ -31,6 +31,7 @@ rendiation-infinity-primitive = { path = "../../extension/infinity-primitive" }
 rendiation-lighting-gpu-system = { path = "../../content/lighting/gpu-system/lighting-system" }
 rendiation-lighting-transport = { path = "../../content/lighting/transport" }
 rendiation-lighting-ibl = { path = "../../content/lighting/ibl" }
+rendiation-lighting-shadow-map = { path = "../../content/lighting/gpu-system/shadow-map" }
 rendiation-mesh-core = { path = "../../content/mesh/core" }
 rendiation-mesh-generator = { path = "../../content/mesh/generator" }
 rendiation-scene-core = { path = "../../scene/core" }

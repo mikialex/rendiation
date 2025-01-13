@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{num::NonZeroU32, sync::Arc};
 
 use fast_hash_collection::FastHashMap;
 use parking_lot::RwLock;
@@ -6,6 +6,7 @@ use rendiation_lighting_ibl::{
   generate_pre_filter_map, IBLLightingComponent, IblShaderInfo, PreFilterMapGenerationConfig,
   PreFilterMapGenerationResult,
 };
+use rendiation_lighting_shadow_map::*;
 use rendiation_texture_gpu_base::create_gpu_texture2d;
 use rendiation_texture_gpu_process::ToneMap;
 use rendiation_webgpu_reactive_utils::*;
@@ -15,6 +16,8 @@ use crate::*;
 
 pub struct LightSystem {
   internal: Box<dyn RenderImplProvider<Box<dyn LightSystemSceneProvider>>>,
+  directional_light_shadow: BasicShadowMapSystem,
+  spot_light_shadow: BasicShadowMapSystem,
   enable_channel_debugger: bool,
   channel_debugger: ScreenChannelDebugger,
   tonemap: ToneMap,
@@ -22,7 +25,42 @@ pub struct LightSystem {
 
 impl LightSystem {
   pub fn new(gpu: &GPU) -> Self {
+    let size = Size::from_u32_pair_min_one((2048, 2048));
+    let config = MultiLayerTexturePackerConfig {
+      max_size: SizeWithDepth {
+        depth: NonZeroU32::new(2).unwrap(),
+        size,
+      },
+      init_size: SizeWithDepth {
+        depth: NonZeroU32::new(1).unwrap(),
+        size,
+      },
+    };
+    let (directional_light_shadow, directional_light_shadow_address) = basic_shadow_map_uniform(
+      BasicShadowMapSystemInputs {
+        source_view_proj: todo!(),
+        size: todo!(),
+        bias: todo!(),
+        enabled: todo!(),
+      },
+      config,
+      gpu,
+    );
+
+    let (spot_light_shadow, spot_light_shadow_address) = basic_shadow_map_uniform(
+      BasicShadowMapSystemInputs {
+        source_view_proj: todo!(),
+        size: todo!(),
+        bias: todo!(),
+        enabled: todo!(),
+      },
+      config,
+      gpu,
+    );
+
     Self {
+      directional_light_shadow,
+      spot_light_shadow,
       internal: Box::new(
         DifferentLightRenderImplProvider::default()
           .with_light(DirectionalUniformLightList::default())
@@ -51,6 +89,27 @@ impl LightSystem {
     self.internal.register_resource(source, cx);
   }
 
+  pub fn prepare(
+    &self,
+    frame_ctx: &mut FrameCtx,
+    cx: &mut Context,
+    renderer: &dyn SceneRenderer<ContentKey = SceneContentKey>,
+    target_scene: EntityHandle<SceneEntity>,
+  ) {
+    self.tonemap.update(frame_ctx.gpu);
+
+    let key = SceneContentKey { transparent: false };
+    let mut depth_pass_scene_content =
+      renderer.extract_and_make_pass_content(key, target_scene, todo!(), frame_ctx, todo!());
+    self
+      .directional_light_shadow
+      .update_shadow_maps(cx, frame_ctx, &mut depth_pass_scene_content);
+
+    self
+      .spot_light_shadow
+      .update_shadow_maps(cx, frame_ctx, &mut depth_pass_scene_content);
+  }
+
   pub fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> SceneLightSystem {
     SceneLightSystem {
       system: self,
@@ -68,7 +127,6 @@ impl<'a> SceneLightSystem<'a> {
   pub fn get_scene_lighting(
     &self,
     scene: EntityHandle<SceneEntity>,
-    frame_ctx: &mut FrameCtx,
   ) -> Box<dyn RenderComponent + '_> {
     let mut light = RenderVec::default();
 
@@ -79,8 +137,6 @@ impl<'a> SceneLightSystem<'a> {
     } else {
       light.push(LDROutput);
     }
-
-    system.tonemap.update(frame_ctx.gpu);
 
     light
       .push(&system.tonemap as &dyn RenderComponent) //

@@ -4855,6 +4855,7 @@ dependencies = [
  "rendiation-infinity-primitive",
  "rendiation-lighting-gpu-system",
  "rendiation-lighting-ibl",
+ "rendiation-lighting-shadow-map",
  "rendiation-lighting-transport",
  "rendiation-mesh-core",
  "rendiation-mesh-generator",

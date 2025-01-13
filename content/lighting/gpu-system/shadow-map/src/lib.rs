@@ -4,8 +4,9 @@ use reactive::*;
 use rendiation_algebra::*;
 use rendiation_shader_api::*;
 use rendiation_texture_core::*;
-use rendiation_texture_packer::pack_2d_to_3d::{
-  reactive_pack_2d_to_3d, MultiLayerTexturePackerConfig, PackResult2dWithDepth,
+use rendiation_texture_packer::pack_2d_to_3d::reactive_pack_2d_to_3d;
+pub use rendiation_texture_packer::pack_2d_to_3d::{
+  MultiLayerTexturePackerConfig, PackResult2dWithDepth,
 };
 use rendiation_webgpu::*;
 use rendiation_webgpu_reactive_utils::*;
