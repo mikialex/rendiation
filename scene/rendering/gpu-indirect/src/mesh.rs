@@ -11,7 +11,7 @@ use crate::*;
 pub fn attribute_indices(
   index_pool: &UntypedPool,
   gpu: &GPU,
-) -> impl ReactiveQuery<Key = EntityHandle<AttributesMeshEntity>, Value = u32> {
+) -> impl ReactiveQuery<Key = EntityHandle<AttributesMeshEntity>, Value = Vec2<u32>> {
   let index_buffer_ref =
     global_watch().watch_typed_foreign_key::<SceneBufferViewBufferId<AttributeIndexRef>>();
   let index_buffer_range = global_watch().watch::<SceneBufferViewBufferRange<AttributeIndexRef>>();
@@ -43,6 +43,7 @@ pub fn attribute_indices(
     .into_boxed();
 
   ReactiveRangeAllocatePool::new(index_pool, source, gpu)
+    .collective_map(|(offset, count)| Vec2::new(offset, count))
 }
 
 fn range_convert(range: Option<BufferViewRange>) -> Option<GPUBufferViewRange> {
@@ -89,6 +90,7 @@ pub fn attribute_vertex(
   // we not using intersect here because range may not exist
   // todo, put it into registry
   ReactiveRangeAllocatePool::new(pool, ranged_buffer, gpu)
+    .collective_map(|(offset, _)| offset)
     .one_to_many_fanout(ab_ref_mesh.into_one_to_many_by_hash())
 }
 
@@ -122,6 +124,7 @@ pub fn attribute_buffer_metadata(
 
   data
     .with_source(QueryBasedStorageBufferUpdate {
+      // note, the offset and count is update together
       field_offset: offset_of!(AttributeMeshMeta, index_offset) as u32,
       upstream: attribute_indices(index_pool, gpu),
     })
