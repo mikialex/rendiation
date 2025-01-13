@@ -43,7 +43,6 @@ impl LightingComputeComponent for IBLLightingComponent {
 pub struct IblShaderInfo {
   pub diffuse_illuminance: f32,
   pub specular_illuminance: f32,
-  pub roughness_one_level: f32,
 }
 
 pub struct IBLLighting {
@@ -83,7 +82,7 @@ impl LightingComputeInvocation for IBLLighting {
 
     let diffuse = diffuse.xyz() * surface_diffuse * uniform.diffuse_illuminance + emissive;
 
-    let lod = perceptual_roughness * uniform.roughness_one_level;
+    let lod = perceptual_roughness * (self.specular.texture_number_levels() - val(1)).into_f32();
     let specular = self
       .specular
       .build_sample_call(self.sampler, geom_ctx.normal)

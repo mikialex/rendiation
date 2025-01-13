@@ -4872,6 +4872,7 @@ dependencies = [
  "rendiation-texture-gpu-process",
  "rendiation-texture-loader",
  "rendiation-webgpu",
+ "rendiation-webgpu-reactive-utils",
  "rfd",
  "tracing",
  "tracing-subscriber",

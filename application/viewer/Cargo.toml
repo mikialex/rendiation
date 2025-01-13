@@ -47,6 +47,7 @@ rendiation-texture-gpu-base = { path = "../../content/texture/gpu-base" }
 rendiation-texture-gpu-process = { path = "../../content/texture/gpu-process" }
 rendiation-texture-loader = { path = "../../content/texture/loader" }
 rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
+rendiation-webgpu-reactive-utils = { path = "../../platform/graphics/webgpu-reactive-utils" }
 rfd = "0.14.0"
 tracing = { workspace = true }
 tracing-subscriber = "0.3.19"

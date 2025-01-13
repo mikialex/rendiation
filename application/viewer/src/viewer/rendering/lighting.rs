@@ -3,10 +3,12 @@ use std::sync::Arc;
 use fast_hash_collection::FastHashMap;
 use parking_lot::RwLock;
 use rendiation_lighting_ibl::{
-  generate_pre_filter_map, IBLLightingComponent, PreFilterMapGenerationConfig,
+  generate_pre_filter_map, IBLLightingComponent, IblShaderInfo, PreFilterMapGenerationConfig,
   PreFilterMapGenerationResult,
 };
+use rendiation_texture_gpu_base::create_gpu_texture2d;
 use rendiation_texture_gpu_process::ToneMap;
+use rendiation_webgpu_reactive_utils::*;
 
 use super::ScreenChannelDebugger;
 use crate::*;
@@ -34,7 +36,8 @@ impl LightSystem {
         DifferentLightRenderImplProvider::default()
           .with_light(DirectionalUniformLightList::default())
           .with_light(SpotLightUniformLightList::default())
-          .with_light(PointLightUniformLightList::default()), /* .with_light(IBLProvider::new(gpu)), */
+          .with_light(PointLightUniformLightList::default())
+          .with_light(IBLProvider::new(gpu)),
       ),
       enable_channel_debugger: false,
       channel_debugger: ScreenChannelDebugger::default_useful(),
@@ -107,15 +110,46 @@ struct IBLProvider {
 
 impl IBLProvider {
   pub fn new(cx: &GPU) -> Self {
-    todo!()
+    let brdf_lut_bitmap_png = include_bytes!("./brdf_lut.png");
+    let png_decoder = png::Decoder::new(brdf_lut_bitmap_png.as_slice());
+    let mut png_reader = png_decoder.read_info().unwrap();
+    let mut buf = vec![0; png_reader.output_buffer_size()];
+    png_reader.next_frame(&mut buf).unwrap();
+
+    let (width, height) = png_reader.info().size();
+    let brdf_lut = create_gpu_texture2d(
+      cx,
+      &GPUBufferImage {
+        data: buf,
+        format: TextureFormat::Rgba8Uint, // lut is linear
+        size: Size::from_u32_pair_min_one((width, height)),
+      },
+    );
+
+    Self {
+      brdf_lut,
+      intensity: Default::default(),
+      cube_map: Default::default(),
+    }
   }
 }
 
 impl RenderImplProvider<Box<dyn LightingComputeComponent>> for IBLProvider {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    global_watch()
-      .watch::<SceneHDRxEnvBackgroundCubeMap>()
-      .collective_filter_map(|v| v);
+    let diffuse_illuminance = global_watch()
+      .watch::<SceneHDRxEnvBackgroundIntensity>()
+      .collective_filter_map(|v| v)
+      .into_query_update_uniform(offset_of!(IblShaderInfo, diffuse_illuminance), cx);
+    let specular_illuminance = global_watch()
+      .watch::<SceneHDRxEnvBackgroundIntensity>()
+      .collective_filter_map(|v| v)
+      .into_query_update_uniform(offset_of!(IblShaderInfo, specular_illuminance), cx);
+
+    let intensity = UniformUpdateContainer::<EntityHandle<SceneEntity>, IblShaderInfo>::default()
+      .with_source(specular_illuminance)
+      .with_source(diffuse_illuminance);
+
+    self.intensity = source.register_multi_updater(intensity);
 
     let cube_prefilter = CubeMapWithPrefilter {
       inner: RwLock::new(gpu_texture_cubes(cx, Default::default())),
@@ -142,6 +176,8 @@ impl RenderImplProvider<Box<dyn LightingComputeComponent>> for IBLProvider {
         FastHashMap<EntityHandle<SceneTextureCubeEntity>, PreFilterMapGenerationResult>,
       >>()
       .unwrap();
+
+    // let intensity = res.take_multi_updater_updated(self.intensity).unwrap();
 
     Box::new(IBLLightingComponent {
       prefiltered: todo!(),
