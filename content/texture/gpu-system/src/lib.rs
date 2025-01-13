@@ -22,6 +22,7 @@ use rendiation_webgpu_reactive_utils::BindingArrayMaintainer;
 pub trait AbstractIndirectGPUTextureSystem {
   fn bind_system_self(&self, collector: &mut BindingBuilder);
   fn register_system_self(&self, builder: &mut ShaderRenderPipelineBuilder);
+  /// caller must ensure the texture and sample handle are valid
   fn sample_texture2d_indirect(
     &self,
     reg: &SemanticRegistry,

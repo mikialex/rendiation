@@ -313,6 +313,10 @@ impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
     Some(())
   }
 
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
+
   fn make_draw_command_builder(
     &self,
     any_idx: EntityHandle<StandardModelEntity>,

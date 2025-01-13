@@ -42,9 +42,15 @@ pub(super) fn bind_and_sample_enabled(
 
   let device_pair = handles.expand();
   let device_pair = (device_pair.texture_handle, device_pair.sampler_handle);
-  let r = binding.sample_texture2d_indirect(reg, device_pair.0, device_pair.1, uv);
 
-  (r, device_pair.0.not_equals(val(u32::MAX)))
+  let has_texture = device_pair.0.not_equals(val(u32::MAX));
+
+  let r = has_texture.select_branched(
+    || binding.sample_texture2d_indirect(reg, device_pair.0, device_pair.1, uv),
+    zeroed_val,
+  );
+
+  (r, has_texture)
 }
 
 pub fn add_tex_watcher<T, TexStorage>(

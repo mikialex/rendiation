@@ -11,6 +11,17 @@ pub trait IndirectNodeRenderImpl {
     any_id: EntityHandle<SceneNodeEntity>,
     hasher: &mut PipelineHasher,
   ) -> Option<()>;
+  fn hash_shader_group_key_with_self_type_info(
+    &self,
+    any_id: EntityHandle<SceneNodeEntity>,
+    hasher: &mut PipelineHasher,
+  ) -> Option<()> {
+    self.hash_shader_group_key(any_id, hasher).map(|_| {
+      self.as_any().type_id().hash(hasher);
+    })
+  }
+
+  fn as_any(&self) -> &dyn Any;
 }
 
 #[derive(Default)]
@@ -54,5 +65,9 @@ impl IndirectNodeRenderImpl for DefaultIndirectNodeRenderImpl {
     _: &mut PipelineHasher,
   ) -> Option<()> {
     Some(())
+  }
+
+  fn as_any(&self) -> &dyn Any {
+    self
   }
 }

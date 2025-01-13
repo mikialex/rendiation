@@ -2,7 +2,7 @@ use std::any::TypeId;
 
 use crate::*;
 
-pub trait IndirectModelMaterialRenderImpl {
+pub trait IndirectModelMaterialRenderImpl: Any {
   fn make_component_indirect<'a>(
     &'a self,
     any_idx: EntityHandle<StandardModelEntity>,
@@ -13,6 +13,16 @@ pub trait IndirectModelMaterialRenderImpl {
     any_id: EntityHandle<StandardModelEntity>,
     hasher: &mut PipelineHasher,
   ) -> Option<()>;
+  fn as_any(&self) -> &dyn Any;
+  fn hash_shader_group_key_with_self_type_info(
+    &self,
+    any_id: EntityHandle<StandardModelEntity>,
+    hasher: &mut PipelineHasher,
+  ) -> Option<()> {
+    self.hash_shader_group_key(any_id, hasher).map(|_| {
+      self.as_any().type_id().hash(hasher);
+    })
+  }
 }
 
 impl IndirectModelMaterialRenderImpl for Vec<Box<dyn IndirectModelMaterialRenderImpl>> {
@@ -28,13 +38,16 @@ impl IndirectModelMaterialRenderImpl for Vec<Box<dyn IndirectModelMaterialRender
     }
     None
   }
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
   fn hash_shader_group_key(
     &self,
     any_id: EntityHandle<StandardModelEntity>,
     hasher: &mut PipelineHasher,
   ) -> Option<()> {
     for provider in self {
-      if let Some(v) = provider.hash_shader_group_key(any_id, hasher) {
+      if let Some(v) = provider.hash_shader_group_key_with_self_type_info(any_id, hasher) {
         return Some(v);
       }
     }
@@ -97,6 +110,9 @@ impl IndirectModelMaterialRenderImpl for FlatMaterialDefaultIndirectRenderImpl {
   ) -> Option<()> {
     TypeId::of::<Self>().hash(hasher);
     Some(())
+  }
+  fn as_any(&self) -> &dyn Any {
+    self
   }
 }
 
@@ -188,6 +204,9 @@ impl IndirectModelMaterialRenderImpl for PbrMRMaterialDefaultIndirectRenderImpl 
     self.alpha_mode.get_value(idx)?.hash(hasher);
     Some(())
   }
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
 }
 
 #[derive(Default)]
@@ -255,5 +274,8 @@ impl IndirectModelMaterialRenderImpl for PbrSGMaterialDefaultIndirectRenderImpl 
     let idx = self.material_access.get(idx)?;
     self.alpha_mode.get_value(idx)?.hash(hasher);
     Some(())
+  }
+  fn as_any(&self) -> &dyn Any {
+    self
   }
 }

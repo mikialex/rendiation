@@ -1,5 +1,6 @@
 #![feature(stmt_expr_attributes)]
 
+use std::any::Any;
 use std::hash::Hash;
 
 use database::*;

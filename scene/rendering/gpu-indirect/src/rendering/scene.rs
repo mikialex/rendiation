@@ -115,7 +115,9 @@ impl IndirectSceneRenderer {
 
     for sm in iter {
       let mut hasher = PipelineHasher::default();
-      self.renderer.hash_shader_group_key(sm, &mut hasher);
+      self
+        .renderer
+        .hash_shader_group_key_with_self_type_info(sm, &mut hasher);
       let shader_hash = hasher.finish();
       let list = classifier.entry(shader_hash).or_insert_with(Vec::new);
       list.push(sm);

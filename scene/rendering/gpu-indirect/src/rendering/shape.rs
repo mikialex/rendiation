@@ -11,6 +11,17 @@ pub trait IndirectModelShapeRenderImpl {
     any_id: EntityHandle<StandardModelEntity>,
     hasher: &mut PipelineHasher,
   ) -> Option<()>;
+  fn hash_shader_group_key_with_self_type_info(
+    &self,
+    any_id: EntityHandle<StandardModelEntity>,
+    hasher: &mut PipelineHasher,
+  ) -> Option<()> {
+    self.hash_shader_group_key(any_id, hasher).map(|_| {
+      self.as_any().type_id().hash(hasher);
+    })
+  }
+
+  fn as_any(&self) -> &dyn Any;
 
   fn make_draw_command_builder(
     &self,
@@ -37,11 +48,14 @@ impl IndirectModelShapeRenderImpl for Vec<Box<dyn IndirectModelShapeRenderImpl>>
     hasher: &mut PipelineHasher,
   ) -> Option<()> {
     for provider in self {
-      if let Some(v) = provider.hash_shader_group_key(any_id, hasher) {
+      if let Some(v) = provider.hash_shader_group_key_with_self_type_info(any_id, hasher) {
         return Some(v);
       }
     }
     None
+  }
+  fn as_any(&self) -> &dyn Any {
+    self
   }
 
   fn make_draw_command_builder(

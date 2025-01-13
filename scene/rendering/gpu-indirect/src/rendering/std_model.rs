@@ -6,6 +6,17 @@ pub trait IndirectModelRenderImpl {
     any_id: EntityHandle<SceneModelEntity>,
     hasher: &mut PipelineHasher,
   ) -> Option<()>;
+  fn hash_shader_group_key_with_self_type_info(
+    &self,
+    any_id: EntityHandle<SceneModelEntity>,
+    hasher: &mut PipelineHasher,
+  ) -> Option<()> {
+    self.hash_shader_group_key(any_id, hasher).map(|_| {
+      self.as_any().type_id().hash(hasher);
+    })
+  }
+
+  fn as_any(&self) -> &dyn Any;
 
   fn device_id_injector(
     &self,
@@ -47,11 +58,15 @@ impl IndirectModelRenderImpl for Vec<Box<dyn IndirectModelRenderImpl>> {
     hasher: &mut PipelineHasher,
   ) -> Option<()> {
     for provider in self {
-      if let Some(v) = provider.hash_shader_group_key(any_id, hasher) {
+      if let Some(v) = provider.hash_shader_group_key_with_self_type_info(any_id, hasher) {
         return Some(v);
       }
     }
     None
+  }
+
+  fn as_any(&self) -> &dyn Any {
+    self
   }
 
   fn shape_renderable_indirect(
@@ -157,6 +172,9 @@ impl IndirectModelRenderImpl for SceneStdModelRenderer {
     self.materials.hash_shader_group_key(model, hasher)?;
     self.shapes.hash_shader_group_key(model, hasher)?;
     Some(())
+  }
+  fn as_any(&self) -> &dyn Any {
+    self
   }
 
   fn device_id_injector(

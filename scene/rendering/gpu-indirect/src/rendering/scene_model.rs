@@ -25,6 +25,17 @@ pub trait IndirectBatchSceneModelRenderer: SceneModelRenderer {
     any_id: EntityHandle<SceneModelEntity>,
     hasher: &mut PipelineHasher,
   ) -> Option<()>;
+  fn hash_shader_group_key_with_self_type_info(
+    &self,
+    any_id: EntityHandle<SceneModelEntity>,
+    hasher: &mut PipelineHasher,
+  ) -> Option<()> {
+    self.hash_shader_group_key(any_id, hasher).map(|_| {
+      self.as_any().type_id().hash(hasher);
+    })
+  }
+
+  fn as_any(&self) -> &dyn Any;
 
   fn make_draw_command_builder(
     &self,
@@ -153,6 +164,9 @@ impl SceneModelRenderer for IndirectPreferredComOrderRenderer {
 }
 
 impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
   fn render_indirect_batch_models(
     &self,
     models: &dyn IndirectDrawProvider,
