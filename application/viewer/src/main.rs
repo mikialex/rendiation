@@ -61,6 +61,7 @@ where
   register_global_database_feature(rev_watch);
 
   register_scene_core_data_model();
+  register_light_shadow_config();
 
   let content_logic = core_viewer_features(content_logic);
 

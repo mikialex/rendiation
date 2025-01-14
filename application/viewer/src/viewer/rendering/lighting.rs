@@ -99,8 +99,10 @@ impl LightSystem {
     self.tonemap.update(frame_ctx.gpu);
 
     let key = SceneContentKey { transparent: false };
+
+    // we could just use default pass dispatcher, because the color channel not exist at all
     let mut depth_pass_scene_content =
-      renderer.extract_and_make_pass_content(key, target_scene, todo!(), frame_ctx, todo!());
+      renderer.extract_and_make_pass_content(key, target_scene, todo!(), frame_ctx, &());
     self
       .directional_light_shadow
       .update_shadow_maps(cx, frame_ctx, &mut depth_pass_scene_content);
