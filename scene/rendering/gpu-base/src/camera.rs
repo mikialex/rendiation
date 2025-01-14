@@ -37,11 +37,11 @@ pub fn camera_gpus(cx: &GPU) -> CameraUniforms {
   CameraUniforms::default().with_source(source)
 }
 
-pub struct CameraGPU<'a> {
-  pub ubo: &'a UniformBufferDataView<CameraGPUTransform>,
+pub struct CameraGPU {
+  pub ubo: UniformBufferDataView<CameraGPUTransform>,
 }
 
-impl<'a> CameraGPU<'a> {
+impl CameraGPU {
   pub fn inject_uniforms(
     &self,
     builder: &mut ShaderRenderPipelineBuilder,
@@ -62,17 +62,17 @@ impl<'a> CameraGPU<'a> {
   }
 }
 
-impl<'a> ShaderHashProvider for CameraGPU<'a> {
-  shader_hash_type_id! {CameraGPU<'static>}
+impl ShaderHashProvider for CameraGPU {
+  shader_hash_type_id! {}
 }
 
-impl<'a> ShaderPassBuilder for CameraGPU<'a> {
+impl ShaderPassBuilder for CameraGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(self.ubo);
+    ctx.binding.bind(&self.ubo);
   }
 }
 
-impl<'a> GraphicsShaderProvider for CameraGPU<'a> {
+impl GraphicsShaderProvider for CameraGPU {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     let camera = self.inject_uniforms(builder);
 
@@ -160,7 +160,7 @@ impl CameraRenderImpl for DefaultGLESCameraRenderImpl {
     idx: EntityHandle<SceneCameraEntity>,
   ) -> Option<Box<dyn RenderComponent + '_>> {
     let node = CameraGPU {
-      ubo: self.uniforms.get(&idx)?,
+      ubo: self.uniforms.get(&idx)?.clone(),
     };
     Some(Box::new(node))
   }

@@ -1,13 +1,10 @@
 use crate::*;
 
-mod debug_channels;
 mod frame_logic;
 mod grid_ground;
 mod lighting;
-mod shadow;
 
 mod post;
-use debug_channels::*;
 pub use frame_logic::*;
 use futures::Future;
 use grid_ground::*;
@@ -19,7 +16,6 @@ use rendiation_scene_rendering_gpu_indirect::build_default_indirect_render_syste
 use rendiation_scene_rendering_gpu_ray_tracing::*;
 use rendiation_texture_gpu_process::copy_frame;
 use rendiation_webgpu::*;
-pub use shadow::*;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 enum RasterizationRenderBackendType {

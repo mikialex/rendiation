@@ -32,6 +32,7 @@ rendiation-lighting-gpu-system = { path = "../../content/lighting/gpu-system/lig
 rendiation-lighting-transport = { path = "../../content/lighting/transport" }
 rendiation-lighting-ibl = { path = "../../content/lighting/ibl" }
 rendiation-lighting-shadow-map = { path = "../../content/lighting/gpu-system/shadow-map" }
+rendiation-lighting-punctual = { path = "../../content/lighting/punctual" }
 rendiation-mesh-core = { path = "../../content/mesh/core" }
 rendiation-mesh-generator = { path = "../../content/mesh/generator" }
 rendiation-scene-core = { path = "../../scene/core" }

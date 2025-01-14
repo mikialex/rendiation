@@ -82,11 +82,11 @@ impl BasicShadowMapSystem {
     (sys, packing.into_boxed())
   }
 
-  pub fn update_shadow_maps(
+  pub fn update_shadow_maps<'a>(
     &mut self,
     cx: &mut Context,
     frame_ctx: &mut FrameCtx,
-    scene_content: &mut impl FnMut(Mat4<f32>, &mut FrameCtx) -> Box<dyn PassContent>, /* view_proj mat */
+    scene_content: &impl Fn(Mat4<f32>, &mut FrameCtx) -> Box<dyn PassContent + 'a>, /* view_proj mat */
   ) {
     let (_, current_layouts) = self.packing.poll_changes(cx); // incremental detail is useless here
     while let Poll::Ready(Some(new_size)) = self.atlas_resize.poll_next_unpin(cx) {
