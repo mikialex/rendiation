@@ -277,13 +277,3 @@ impl<T: GraphicsShaderProvider> GraphicsShaderProvider for BindingController<T> 
     builder.set_binding_slot(before);
   }
 }
-
-/// weaker version of RenderComponent, only inject shader dependencies
-pub trait RenderDependencyComponent:
-  ShaderHashProvider + GraphicsShaderDependencyProvider + ShaderPassBuilder
-{
-}
-impl<T> RenderDependencyComponent for T where
-  T: ShaderHashProvider + GraphicsShaderDependencyProvider + ShaderPassBuilder
-{
-}

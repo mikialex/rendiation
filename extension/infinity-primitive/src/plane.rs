@@ -22,7 +22,7 @@ impl ShaderPlane {
 
 pub struct InfinityShaderPlaneEffect<'a> {
   pub plane: &'a UniformBufferCachedDataView<ShaderPlane>,
-  pub camera: &'a dyn RenderDependencyComponent,
+  pub camera: &'a dyn RenderComponent,
 }
 
 impl<'a> ShaderHashProvider for InfinityShaderPlaneEffect<'a> {
@@ -41,7 +41,7 @@ impl<'a> ShaderPassBuilder for InfinityShaderPlaneEffect<'a> {
 
 impl<'a> GraphicsShaderProvider for InfinityShaderPlaneEffect<'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    self.camera.inject_shader_dependencies(builder);
+    self.camera.build(builder);
 
     builder.vertex(|builder, _| {
       let out = generate_quad(builder.query::<VertexIndex>(), 0.).expand();

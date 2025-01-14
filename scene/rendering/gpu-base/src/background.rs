@@ -71,7 +71,7 @@ impl SceneBackgroundRenderer {
   pub fn draw<'a>(
     &'a self,
     scene: EntityHandle<SceneEntity>,
-    camera: Box<dyn RenderDependencyComponent + 'a>,
+    camera: Box<dyn RenderComponent + 'a>,
   ) -> impl PassContent + 'a {
     if let Some(env) = self.env_background_map.get(scene) {
       BackGroundDrawPassContent::CubeEnv(
@@ -105,7 +105,7 @@ impl<'a> PassContent for BackGroundDrawPassContent<'a> {
 struct CubeEnvComponent<'a> {
   map: GPUCubeTextureView,
   intensity: UniformBufferDataView<Vec4<f32>>,
-  camera: Box<dyn RenderDependencyComponent + 'a>,
+  camera: Box<dyn RenderComponent + 'a>,
 }
 
 impl<'a> ShaderHashProvider for CubeEnvComponent<'a> {
@@ -125,7 +125,7 @@ only_fragment!(EnvSampleDirectionFrag, Vec3<f32>);
 
 impl<'a> GraphicsShaderProvider for CubeEnvComponent<'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    self.camera.inject_shader_dependencies(builder);
+    self.camera.build(builder);
 
     builder.vertex(|builder, _| {
       let clip = builder.query::<ClipPosition>();

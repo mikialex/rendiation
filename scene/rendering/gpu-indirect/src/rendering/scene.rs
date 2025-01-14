@@ -165,7 +165,7 @@ impl SceneRenderer for IndirectSceneRenderer {
   fn render_models<'a>(
     &'a self,
     models: Box<dyn HostRenderBatch>,
-    camera: EntityHandle<SceneCameraEntity>,
+    camera: CameraRenderSource,
     pass: &'a dyn RenderComponent,
     ctx: &mut FrameCtx,
   ) -> Box<dyn PassContent + 'a> {
@@ -176,7 +176,7 @@ impl SceneRenderer for IndirectSceneRenderer {
   fn make_scene_batch_pass_content<'a>(
     &'a self,
     batch: SceneModelRenderBatch,
-    camera: EntityHandle<SceneCameraEntity>,
+    camera: CameraRenderSource,
     pass: &'a dyn RenderComponent,
     ctx: &mut FrameCtx,
   ) -> Box<dyn PassContent + 'a> {
@@ -200,6 +200,11 @@ impl SceneRenderer for IndirectSceneRenderer {
       })
       .collect();
 
+    let camera = match camera {
+      CameraRenderSource::Scene(camera) => self.camera.make_component(camera).unwrap(),
+      CameraRenderSource::External(camera) => camera,
+    };
+
     Box::new(IndirectScenePassContent {
       renderer: self,
       content,
@@ -217,9 +222,12 @@ impl SceneRenderer for IndirectSceneRenderer {
   fn render_background(
     &self,
     scene: EntityHandle<SceneEntity>,
-    camera: EntityHandle<SceneCameraEntity>,
+    camera: CameraRenderSource,
   ) -> Box<dyn PassContent + '_> {
-    let camera = self.get_camera_gpu().make_dep_component(camera).unwrap();
+    let camera = match camera {
+      CameraRenderSource::Scene(camera) => self.get_camera_gpu().make_component(camera).unwrap(),
+      CameraRenderSource::External(camera) => camera,
+    };
     Box::new(self.background.draw(scene, camera))
   }
 
@@ -236,7 +244,7 @@ struct IndirectScenePassContent<'a> {
   )>,
 
   pass: &'a dyn RenderComponent,
-  camera: EntityHandle<SceneCameraEntity>,
+  camera: Box<dyn RenderComponent + 'a>,
 }
 
 impl<'a> PassContent for IndirectScenePassContent<'a> {
@@ -244,12 +252,11 @@ impl<'a> PassContent for IndirectScenePassContent<'a> {
     let base = default_dispatcher(cx);
     let p = RenderArray([&base, self.pass] as [&dyn rendiation_webgpu::RenderComponent; 2]);
 
-    let camera = self.renderer.camera.make_component(self.camera).unwrap();
     for (content, any_scene_model) in &self.content {
       self.renderer.renderer.render_indirect_batch_models(
         content.as_ref(),
         *any_scene_model,
-        &camera,
+        &self.camera,
         &self.renderer.texture_system,
         &p,
         &mut cx.ctx,

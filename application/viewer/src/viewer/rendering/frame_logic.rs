@@ -83,14 +83,7 @@ impl ViewerFrameLogic {
 
     self.post.upload_with_diff(&ctx.gpu.queue);
 
-    // let mut single_proj_sys = scene
-    //   .scene_resources
-    //   .shadows
-    //   .single_proj_sys
-    //   .write()
-    //   .unwrap();
-    // single_proj_sys.update_depth_maps(ctx, scene);
-    // drop(single_proj_sys);
+    let camera = CameraRenderSource::Scene(content.main_camera);
 
     let mut msaa_color = attachment().sample_count(4).request(ctx);
     let mut msaa_depth = depth_attachment().sample_count(4).request(ctx);
@@ -98,13 +91,13 @@ impl ViewerFrameLogic {
 
     let main_camera_gpu = renderer
       .get_camera_gpu()
-      .make_dep_component(content.main_camera)
+      .make_component(content.main_camera)
       .unwrap();
 
     let mut widget_scene_content = renderer.extract_and_make_pass_content(
       SceneContentKey { transparent: false },
       content.widget_scene,
-      content.main_camera,
+      camera,
       ctx,
       &(),
     );
@@ -119,7 +112,7 @@ impl ViewerFrameLogic {
     let mut highlight_compose = (content.selected_target.is_some()).then(|| {
       let masked_content = renderer.render_models(
         Box::new(IteratorAsHostRenderBatch(content.selected_target)),
-        content.main_camera,
+        CameraRenderSource::Scene(content.main_camera),
         &HighLightMaskDispatcher,
         ctx,
       );
@@ -155,7 +148,7 @@ impl ViewerFrameLogic {
         let mut main_scene_content = renderer.extract_and_make_pass_content(
           key,
           content.scene,
-          content.main_camera,
+          CameraRenderSource::Scene(content.main_camera),
           ctx,
           lighting,
         );
@@ -165,7 +158,10 @@ impl ViewerFrameLogic {
           .with_color(scene_result.write(), color_ops)
           .with_depth(scene_depth.write(), depth_ops)
           .render_ctx(ctx)
-          .by(&mut renderer.render_background(content.scene, content.main_camera))
+          .by(&mut renderer.render_background(
+            content.scene,
+            CameraRenderSource::Scene(content.main_camera),
+          ))
           .by(&mut main_scene_content)
           .by(&mut GridGround {
             plane: &self.ground,

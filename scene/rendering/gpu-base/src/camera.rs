@@ -6,11 +6,6 @@ pub trait CameraRenderImpl {
     idx: EntityHandle<SceneCameraEntity>,
   ) -> Option<Box<dyn RenderComponent + '_>>;
 
-  fn make_dep_component(
-    &self,
-    idx: EntityHandle<SceneCameraEntity>,
-  ) -> Option<Box<dyn RenderDependencyComponent + '_>>;
-
   fn setup_camera_jitter(
     &self,
     camera: EntityHandle<SceneCameraEntity>,
@@ -77,31 +72,25 @@ impl<'a> ShaderPassBuilder for CameraGPU<'a> {
   }
 }
 
-impl<'a> GraphicsShaderDependencyProvider for CameraGPU<'a> {
-  fn inject_shader_dependencies(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    self.inject_uniforms(builder);
-  }
-}
-
 impl<'a> GraphicsShaderProvider for CameraGPU<'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     let camera = self.inject_uniforms(builder);
 
     builder.vertex(|builder, _| {
       let camera = camera.using().load().expand();
-      let position = builder.query::<WorldVertexPosition>();
+      if let Some(position) = builder.try_query::<WorldVertexPosition>() {
+        let mut clip_position = camera.view_projection * (position, val(1.)).into();
 
-      let mut clip_position = camera.view_projection * (position, val(1.)).into();
+        let jitter = if let Some(texel_size) = builder.try_query::<TexelSize>() {
+          let jitter = texel_size * camera.jitter_normalized * clip_position.w();
+          (jitter, val(0.), val(0.)).into()
+        } else {
+          Vec4::zero().into()
+        };
+        clip_position += jitter;
 
-      let jitter = if let Some(texel_size) = builder.try_query::<TexelSize>() {
-        let jitter = texel_size * camera.jitter_normalized * clip_position.w();
-        (jitter, val(0.), val(0.)).into()
-      } else {
-        Vec4::zero().into()
-      };
-      clip_position += jitter;
-
-      builder.register::<ClipPosition>(clip_position);
+        builder.register::<ClipPosition>(clip_position);
+      }
     })
   }
 }
@@ -170,16 +159,6 @@ impl CameraRenderImpl for DefaultGLESCameraRenderImpl {
     &self,
     idx: EntityHandle<SceneCameraEntity>,
   ) -> Option<Box<dyn RenderComponent + '_>> {
-    let node = CameraGPU {
-      ubo: self.uniforms.get(&idx)?,
-    };
-    Some(Box::new(node))
-  }
-
-  fn make_dep_component(
-    &self,
-    idx: EntityHandle<SceneCameraEntity>,
-  ) -> Option<Box<dyn RenderDependencyComponent + '_>> {
     let node = CameraGPU {
       ubo: self.uniforms.get(&idx)?,
     };

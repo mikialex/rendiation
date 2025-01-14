@@ -126,11 +126,14 @@ impl SceneRenderer for GLESSceneRenderer {
   fn make_scene_batch_pass_content<'a>(
     &'a self,
     batch: SceneModelRenderBatch,
-    camera: EntityHandle<SceneCameraEntity>,
+    camera: CameraRenderSource,
     pass: &'a dyn RenderComponent,
     _ctx: &mut FrameCtx,
   ) -> Box<dyn PassContent + 'a> {
-    let camera = self.get_camera_gpu().make_component(camera).unwrap();
+    let camera = match camera {
+      CameraRenderSource::Scene(camera) => self.get_camera_gpu().make_component(camera).unwrap(),
+      CameraRenderSource::External(camera) => camera,
+    };
     Box::new(GLESScenePassContent {
       renderer: self,
       batch: batch.get_host_batch().unwrap(),
@@ -148,9 +151,12 @@ impl SceneRenderer for GLESSceneRenderer {
   fn render_background(
     &self,
     scene: EntityHandle<SceneEntity>,
-    camera: EntityHandle<SceneCameraEntity>,
+    camera: CameraRenderSource,
   ) -> Box<dyn PassContent + '_> {
-    let camera = self.get_camera_gpu().make_dep_component(camera).unwrap();
+    let camera = match camera {
+      CameraRenderSource::Scene(camera) => self.get_camera_gpu().make_component(camera).unwrap(),
+      CameraRenderSource::External(camera) => camera,
+    };
     Box::new(self.background.draw(scene, camera))
   }
 

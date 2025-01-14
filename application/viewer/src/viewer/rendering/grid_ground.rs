@@ -5,7 +5,7 @@ use crate::*;
 pub struct GridGround<'a> {
   pub shading: &'a UniformBufferCachedDataView<GridEffect>,
   pub plane: &'a UniformBufferCachedDataView<ShaderPlane>,
-  pub camera: &'a dyn RenderDependencyComponent,
+  pub camera: &'a dyn RenderComponent,
 }
 
 impl<'a> PassContent for GridGround<'a> {

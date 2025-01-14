@@ -167,6 +167,8 @@ impl LightSystem {
     // we could just use empty pass dispatcher, because the color channel not exist at all
     let depth = ();
 
+    // let camera_gpu = UniformBufferDataView::create(device, CameraGPUTransform {});
+
     self.directional_light_shadow.update_shadow_maps(
       cx,
       frame_ctx,

@@ -62,6 +62,11 @@ pub trait RenderImplProvider<T> {
   fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> T;
 }
 
+pub enum CameraRenderSource {
+  Scene(EntityHandle<SceneCameraEntity>),
+  External(Box<dyn RenderComponent>),
+}
+
 pub type GPUTextureBindingSystem = Box<dyn DynAbstractGPUTextureSystem>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -90,7 +95,7 @@ pub trait SceneRenderer: SceneModelRenderer {
   fn make_scene_batch_pass_content<'a>(
     &'a self,
     batch: SceneModelRenderBatch,
-    camera: EntityHandle<SceneCameraEntity>,
+    camera: CameraRenderSource,
     pass: &'a dyn RenderComponent,
     ctx: &mut FrameCtx,
   ) -> Box<dyn PassContent + 'a>;
@@ -100,7 +105,7 @@ pub trait SceneRenderer: SceneModelRenderer {
     &'a self,
     semantic: Self::ContentKey,
     scene: EntityHandle<SceneEntity>,
-    camera: EntityHandle<SceneCameraEntity>,
+    camera: CameraRenderSource,
     ctx: &mut FrameCtx,
     pass: &'a dyn RenderComponent,
   ) -> Box<dyn PassContent + 'a> {
@@ -119,7 +124,7 @@ pub trait SceneRenderer: SceneModelRenderer {
   fn render_background(
     &self,
     scene: EntityHandle<SceneEntity>,
-    camera: EntityHandle<SceneCameraEntity>,
+    camera: CameraRenderSource,
   ) -> Box<dyn PassContent + '_>;
 
   /// Batch rendering the passed models. Comparing to render one single model at a time(using [SceneModelRenderer]), this may be more efficient.
@@ -128,7 +133,7 @@ pub trait SceneRenderer: SceneModelRenderer {
   fn render_models<'a>(
     &'a self,
     models: Box<dyn HostRenderBatch>,
-    camera: EntityHandle<SceneCameraEntity>,
+    camera: CameraRenderSource,
     pass: &'a dyn RenderComponent,
     ctx: &mut FrameCtx,
   ) -> Box<dyn PassContent + 'a> {

@@ -55,12 +55,6 @@ impl<'a> ShaderHashProvider for NodeGPUUniform<'a> {
   shader_hash_type_id! {NodeGPUUniform<'static>}
 }
 
-impl<'a> GraphicsShaderDependencyProvider for NodeGPUUniform<'a> {
-  fn inject_shader_dependencies(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    self.inject_uniforms(builder);
-  }
-}
-
 impl<'a> GraphicsShaderProvider for NodeGPUUniform<'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, binding| {

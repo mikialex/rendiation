@@ -104,7 +104,7 @@ impl GPUTwoPassOcclusionCulling {
       .render_ctx(frame_ctx)
       .by(&mut scene_renderer.make_scene_batch_pass_content(
         SceneModelRenderBatch::Device(first_pass_batch.clone()),
-        camera,
+        CameraRenderSource::Scene(camera),
         pass_com,
         frame_ctx,
       ));
@@ -176,7 +176,7 @@ impl GPUTwoPassOcclusionCulling {
       .render_ctx(frame_ctx)
       .by(&mut scene_renderer.make_scene_batch_pass_content(
         SceneModelRenderBatch::Device(second_pass_batch),
-        camera,
+        CameraRenderSource::Scene(camera),
         pass_com,
         frame_ctx,
       ));

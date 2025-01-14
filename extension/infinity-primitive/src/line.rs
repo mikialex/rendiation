@@ -15,7 +15,7 @@ pub struct ShaderLine {
 
 pub struct InfinityShaderLineEffect<'a> {
   pub line: &'a UniformBufferCachedDataView<ShaderLine>,
-  pub camera: &'a dyn RenderDependencyComponent,
+  pub camera: &'a dyn RenderComponent,
 }
 
 impl<'a> ShaderHashProvider for InfinityShaderLineEffect<'a> {
@@ -34,7 +34,7 @@ impl<'a> ShaderPassBuilder for InfinityShaderLineEffect<'a> {
 
 impl<'a> GraphicsShaderProvider for InfinityShaderLineEffect<'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    self.camera.inject_shader_dependencies(builder);
+    self.camera.build(builder);
 
     builder.vertex(|builder, bind| {
       let vertex_index = builder.query::<VertexIndex>();
