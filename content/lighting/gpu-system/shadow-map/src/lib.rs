@@ -86,7 +86,7 @@ impl BasicShadowMapSystem {
     &mut self,
     cx: &mut Context,
     frame_ctx: &mut FrameCtx,
-    scene_content: &mut impl PassContent,
+    scene_content: &mut impl FnMut(Mat4<f32>, &mut FrameCtx) -> Box<dyn PassContent>, /* view_proj mat */
   ) {
     let (_, current_layouts) = self.packing.poll_changes(cx); // incremental detail is useless here
     while let Poll::Ready(Some(new_size)) = self.atlas_resize.poll_next_unpin(cx) {
@@ -115,7 +115,7 @@ impl BasicShadowMapSystem {
 
     // do shadowmap updates
     for (idx, shadow_view) in current_layouts.iter_key_value() {
-      let _view_proj = view_proj_mats.access(&idx).unwrap();
+      let view_proj = view_proj_mats.access(&idx).unwrap();
 
       let write_view: GPU2DTextureView = shadow_map_atlas
         .create_view(TextureViewDescriptor {
@@ -140,7 +140,7 @@ impl BasicShadowMapSystem {
       let h = shadow_view.size.y;
       raw_pass.set_viewport(x, y, w, h, 0., 1.);
 
-      pass.by(scene_content);
+      pass.by(&mut scene_content(view_proj, frame_ctx));
     }
   }
 }

@@ -1,3 +1,5 @@
+use rendiation_lighting_shadow_map::ShadowBias;
+
 use crate::*;
 
 pub trait BasicShadowMapConfigurable: EntityAssociateSemantic {}
@@ -19,7 +21,7 @@ impl<T: BasicShadowMapConfigurable> EntityAssociateSemantic for BasicShadowMapBi
   type Entity = T::Entity;
 }
 impl<T: BasicShadowMapConfigurable> ComponentSemantic for BasicShadowMapBiasOf<T> {
-  type Data = f32;
+  type Data = ShadowBias;
 }
 
 pub struct BasicShadowMapEnabledOf<T>(T);

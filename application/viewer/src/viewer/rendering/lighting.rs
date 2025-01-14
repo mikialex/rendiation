@@ -36,23 +36,87 @@ impl LightSystem {
         size,
       },
     };
+
+    let proj = global_watch()
+      .watch::<DirectionLightShadowBound>()
+      .collective_map(|orth| {
+        orth
+          .unwrap_or(OrthographicProjection {
+            left: -20.,
+            right: 20.,
+            top: 20.,
+            bottom: -20.,
+            near: 0.,
+            far: 50.,
+          })
+          .compute_projection_mat::<WebGPUxNDC>()
+      });
+
+    let view = scene_node_derive_world_mat()
+      .one_to_many_fanout(global_rev_ref().watch_inv_ref::<DirectionalRefNode>())
+      .collective_map(|v| v.inverse_or_identity())
+      .into_boxed();
+
+    let source_view_proj = proj
+      .collective_zip(view)
+      .collective_map(|(proj, view)| proj * view)
+      .untyped_entity_handle()
+      .into_boxed();
+
     let (directional_light_shadow, directional_light_shadow_address) = basic_shadow_map_uniform(
       BasicShadowMapSystemInputs {
-        source_view_proj: todo!(),
-        size: todo!(),
-        bias: todo!(),
-        enabled: todo!(),
+        source_view_proj,
+        size: global_watch()
+          .watch_untyped_key::<BasicShadowMapResolutionOf<DirectionLightBasicShadowInfo>>()
+          .collective_map(|size| Size::from_u32_pair_min_one(size.into()))
+          .into_boxed(),
+        bias: global_watch()
+          .watch_untyped_key::<BasicShadowMapBiasOf<DirectionLightBasicShadowInfo>>()
+          .into_boxed(),
+        enabled: global_watch()
+          .watch_untyped_key::<BasicShadowMapEnabledOf<DirectionLightBasicShadowInfo>>()
+          .into_boxed(),
       },
       config,
       gpu,
     );
 
+    let proj = global_watch()
+      .watch::<SpotLightHalfConeAngle>()
+      .collective_map(|half_cone_angle| {
+        PerspectiveProjection {
+          near: 0.1,
+          far: 2000.,
+          fov: Deg::from_rad(half_cone_angle * 2.),
+          aspect: 1.,
+        }
+        .compute_projection_mat::<WebGPUxNDC>()
+      });
+
+    let view = scene_node_derive_world_mat()
+      .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SpotLightRefNode>())
+      .collective_map(|v| v.inverse_or_identity())
+      .into_boxed();
+
+    let source_view_proj = proj
+      .collective_zip(view)
+      .collective_map(|(proj, view)| proj * view)
+      .untyped_entity_handle()
+      .into_boxed();
+
     let (spot_light_shadow, spot_light_shadow_address) = basic_shadow_map_uniform(
       BasicShadowMapSystemInputs {
-        source_view_proj: todo!(),
-        size: todo!(),
-        bias: todo!(),
-        enabled: todo!(),
+        source_view_proj,
+        size: global_watch()
+          .watch_untyped_key::<BasicShadowMapResolutionOf<SpotLightBasicShadowInfo>>()
+          .collective_map(|size| Size::from_u32_pair_min_one(size.into()))
+          .into_boxed(),
+        bias: global_watch()
+          .watch_untyped_key::<BasicShadowMapBiasOf<SpotLightBasicShadowInfo>>()
+          .into_boxed(),
+        enabled: global_watch()
+          .watch_untyped_key::<BasicShadowMapEnabledOf<SpotLightBasicShadowInfo>>()
+          .into_boxed(),
       },
       config,
       gpu,
@@ -90,7 +154,7 @@ impl LightSystem {
   }
 
   pub fn prepare(
-    &self,
+    &mut self,
     frame_ctx: &mut FrameCtx,
     cx: &mut Context,
     renderer: &dyn SceneRenderer<ContentKey = SceneContentKey>,
@@ -100,16 +164,22 @@ impl LightSystem {
 
     let key = SceneContentKey { transparent: false };
 
-    // we could just use default pass dispatcher, because the color channel not exist at all
-    let mut depth_pass_scene_content =
-      renderer.extract_and_make_pass_content(key, target_scene, todo!(), frame_ctx, &());
-    self
-      .directional_light_shadow
-      .update_shadow_maps(cx, frame_ctx, &mut depth_pass_scene_content);
+    // we could just use empty pass dispatcher, because the color channel not exist at all
+    let depth = ();
+
+    self.directional_light_shadow.update_shadow_maps(
+      cx,
+      frame_ctx,
+      &mut |_view_proj, frame_ctx| {
+        renderer.extract_and_make_pass_content(key, target_scene, todo!(), frame_ctx, &depth)
+      },
+    );
 
     self
       .spot_light_shadow
-      .update_shadow_maps(cx, frame_ctx, &mut depth_pass_scene_content);
+      .update_shadow_maps(cx, frame_ctx, &mut |_view_proj, frame_ctx| {
+        renderer.extract_and_make_pass_content(key, target_scene, todo!(), frame_ctx, &depth)
+      });
   }
 
   pub fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> SceneLightSystem {

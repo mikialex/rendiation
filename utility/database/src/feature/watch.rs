@@ -63,7 +63,6 @@ impl DatabaseMutationWatch {
   ) -> impl ReactiveQuery<Key = u32, Value = ()> {
     GenerationHelperView {
       inner: self.watch_entity_set_dyn(E::entity_id()),
-      phantom: PhantomData::<()>,
       allocator: self
         .db
         .access_ecg::<E, _>(|e| e.inner.inner.allocator.clone()),
@@ -105,7 +104,6 @@ impl DatabaseMutationWatch {
   ) -> impl ReactiveQuery<Key = u32, Value = C::Data> {
     GenerationHelperView {
       inner: self.watch_dyn::<C::Data>(C::component_id(), C::Entity::entity_id()),
-      phantom: PhantomData::<C::Data>,
       allocator: self
         .db
         .access_ecg::<C::Entity, _>(|e| e.inner.inner.allocator.clone()),
@@ -240,9 +238,26 @@ impl<T: CValue> QueryProvider<RawEntityHandle, T> for ComponentAccess<T> {
   }
 }
 
-pub(crate) struct GenerationHelperView<T, C> {
+pub trait UntypedEntityHandleExt: ReactiveQuery {
+  fn untyped_entity_handle(self) -> impl ReactiveQuery<Key = u32, Value = Self::Value>;
+}
+
+impl<E, T> UntypedEntityHandleExt for T
+where
+  E: EntitySemantic,
+  T: ReactiveQuery<Key = EntityHandle<E>>,
+{
+  fn untyped_entity_handle(self) -> impl ReactiveQuery<Key = u32, Value = Self::Value> {
+    GenerationHelperView {
+      inner: self
+        .collective_key_dual_map(|k| k.handle, |k| unsafe { EntityHandle::<E>::from_raw(k) }),
+      allocator: global_database().access_ecg::<E, _>(|e| e.inner.inner.allocator.clone()),
+    }
+  }
+}
+
+pub(crate) struct GenerationHelperView<T> {
   inner: T,
-  phantom: PhantomData<C>,
   allocator: Arc<RwLock<Arena<()>>>,
 }
 
@@ -265,7 +280,7 @@ impl<T: Query<Key = RawEntityHandle> + Clone> Query for GenerationHelperViewAcce
   }
 }
 
-impl<T: ReactiveQuery<Key = RawEntityHandle>> ReactiveQuery for GenerationHelperView<T, T::Value> {
+impl<T: ReactiveQuery<Key = RawEntityHandle>> ReactiveQuery for GenerationHelperView<T> {
   type Key = u32;
   type Value = T::Value;
   type Changes = impl Query<Key = u32, Value = ValueChange<T::Value>>;
