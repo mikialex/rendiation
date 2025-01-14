@@ -15,6 +15,7 @@ dyn-clone = { workspace = true }
 derivative = { workspace = true }
 futures = { workspace = true }
 bytemuck = { workspace = true }
+anymap = { path = "../../utility/anymap" }
 
 pollster = { workspace = true } # used in examples
 

@@ -6,6 +6,7 @@ use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::sync::Arc;
 
+use anymap::AnyMap;
 use dyn_clone::*;
 use fast_hash_collection::*;
 use parking_lot::RwLock;

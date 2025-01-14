@@ -190,13 +190,16 @@ impl LightSystem {
       renderer.extract_and_make_pass_content(key, target_scene, camera, frame_ctx, &depth)
     };
 
-    self
+    let ds = self
       .directional_light_shadow
       .update_shadow_maps(cx, frame_ctx, &content);
 
-    self
+    let ss = self
       .spot_light_shadow
       .update_shadow_maps(cx, frame_ctx, &content);
+
+    res.type_based_result.register(DirectionalShaderAtlas(ds));
+    res.type_based_result.register(SpotShaderAtlas(ss));
 
     SceneLightSystem {
       system: self,

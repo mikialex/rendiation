@@ -4,6 +4,9 @@ use rendiation_webgpu_reactive_utils::{UniformArray, UniformArrayUpdateContainer
 
 use crate::*;
 
+pub struct DirectionalShaderAtlas(pub GPUTexture);
+pub struct SpotShaderAtlas(pub GPUTexture);
+
 pub struct DirectionalUniformLightList {
   light: UpdateResultToken,
   shadow: UpdateResultToken,
@@ -43,13 +46,22 @@ impl RenderImplProvider<Box<dyn LightSystemSceneProvider>> for DirectionalUnifor
       .unwrap()
       .target
       .clone();
-    Box::new(SceneDirectionalLightingProvider { light, shadow })
+    Box::new(SceneDirectionalLightingProvider {
+      light,
+      shadow,
+      map: res
+        .type_based_result
+        .take::<DirectionalShaderAtlas>()
+        .unwrap()
+        .0,
+    })
   }
 }
 
 struct SceneDirectionalLightingProvider {
   light: UniformBufferDataView<Shader140Array<DirectionalLightUniform, 8>>,
   shadow: UniformBufferDataView<Shader140Array<BasicShadowMapInfo, 8>>,
+  map: GPUTexture,
 }
 
 impl LightSystemSceneProvider for SceneDirectionalLightingProvider {
@@ -160,13 +172,18 @@ impl RenderImplProvider<Box<dyn LightSystemSceneProvider>> for SpotLightUniformL
       .unwrap()
       .target
       .clone();
-    Box::new(SceneSpotLightingProvider { light, shadow })
+    Box::new(SceneSpotLightingProvider {
+      light,
+      shadow,
+      map: res.type_based_result.take::<SpotShaderAtlas>().unwrap().0,
+    })
   }
 }
 
 struct SceneSpotLightingProvider {
   light: UniformBufferDataView<Shader140Array<SpotLightUniform, 8>>,
   shadow: UniformBufferDataView<Shader140Array<BasicShadowMapInfo, 8>>,
+  map: GPUTexture,
 }
 
 impl LightSystemSceneProvider for SceneSpotLightingProvider {

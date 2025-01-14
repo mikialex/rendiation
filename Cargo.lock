@@ -124,6 +124,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4c95c10ba0b00a02636238b814946408b1322d5ac4760326e6fb8ec956d85775"
 
 [[package]]
+name = "anymap"
+version = "0.0.1"
+dependencies = [
+ "fast-hash-collection",
+]
+
+[[package]]
 name = "approx"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3188,6 +3195,7 @@ dependencies = [
 name = "reactive"
 version = "0.0.1"
 dependencies = [
+ "anymap",
  "dyn-clone",
  "dyn-downcast",
  "fast-hash-collection",
@@ -3395,6 +3403,7 @@ dependencies = [
 name = "rendiation-device-ray-tracing"
 version = "0.1.0"
 dependencies = [
+ "anymap",
  "bytemuck",
  "derivative",
  "dyn-clone",
@@ -3420,6 +3429,7 @@ dependencies = [
 name = "rendiation-device-task-graph"
 version = "0.1.0"
 dependencies = [
+ "anymap",
  "bytemuck",
  "derivative",
  "dyn-clone",

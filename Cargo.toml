@@ -9,6 +9,7 @@ members = [
   "utility/reactive-query",
   "utility/query",
   "utility/arena",
+  "utility/anymap",
   "utility/dyn-downcast",
   "utility/storage",
   "utility/abstract-tree",

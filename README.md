@@ -34,6 +34,7 @@ By leveraging these crates, users can build, assemble and customize their own fe
   - interning: type interning util
   - dyn-downcast: a util to impl runtime virtual table
   - arena: a strong type generational arena
+  - anymap: a simple type id keyed un-type value map container
   - widget: an simple widget definition with a view-state update cycle
 - shader: language agnostic & dynamic programmable shader logic abstraction
   - [api](./shader/api/README.md): an EDSL like shader api. users use this to expressing their shading logic.

@@ -1,3 +1,7 @@
+use std::any::TypeId;
+
+use anymap::AnyMap;
+
 use crate::*;
 
 pub type BoxedAnyReactiveQuery = Box<dyn ReactiveGeneralQuery<Output = Box<dyn Any>>>;
@@ -54,11 +58,12 @@ impl ReactiveQueryJoinUpdater {
 
   pub fn poll_update_all(&mut self, cx: &mut Context) -> QueryResultCtx {
     QueryResultCtx {
-      inner: self
+      token_based_result: self
         .update_logic
         .iter_mut()
         .map(|(k, v)| (*k, v.poll_query(cx)))
         .collect(),
+      type_based_result: Default::default(),
     }
   }
 }
@@ -73,12 +78,14 @@ impl Default for UpdateResultToken {
 }
 
 pub struct QueryResultCtx {
-  inner: FastHashMap<u32, Box<dyn Any>>,
+  pub token_based_result: FastHashMap<u32, Box<dyn Any>>,
+  /// this field provides convenient way to inject any adhoc result for parameter passing
+  pub type_based_result: AnyMap,
 }
 
 impl QueryResultCtx {
   pub fn take_result(&mut self, token: UpdateResultToken) -> Option<Box<dyn Any>> {
-    self.inner.remove(&token.0)
+    self.token_based_result.remove(&token.0)
   }
 
   pub fn take_reactive_query_updated<K: CKey, V: CValue>(
