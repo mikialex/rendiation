@@ -59,7 +59,7 @@ pub trait RenderImplProvider<T> {
   /// this will be called once when application init
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU);
   fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater);
-  fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> T;
+  fn create_impl(&self, res: &mut QueryResultCtx) -> T;
 }
 
 pub enum CameraRenderSource {

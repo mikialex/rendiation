@@ -70,10 +70,7 @@ impl RenderImplProvider<Box<dyn IndirectBatchSceneModelRenderer>>
       .for_each(|i| i.deregister_resource(source));
   }
 
-  fn create_impl(
-    &self,
-    res: &mut ConcurrentStreamUpdateResult,
-  ) -> Box<dyn IndirectBatchSceneModelRenderer> {
+  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn IndirectBatchSceneModelRenderer> {
     Box::new(IndirectPreferredComOrderRenderer {
       model_impl: self.model_impl.iter().map(|i| i.create_impl(res)).collect(),
       node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
@@ -252,7 +249,7 @@ impl RenderImplProvider<DefaultSceneModelIdInject> for DefaultSceneModelIdProvid
     source.deregister(&mut self.id_buffer);
   }
 
-  fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> DefaultSceneModelIdInject {
+  fn create_impl(&self, res: &mut QueryResultCtx) -> DefaultSceneModelIdInject {
     DefaultSceneModelIdInject {
       id_buffer: res
         .take_multi_updater_updated::<CommonStorageBufferImpl<SceneModelStorage>>(self.id_buffer)

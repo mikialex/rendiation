@@ -68,10 +68,7 @@ impl RenderImplProvider<Box<dyn IndirectModelMaterialRenderImpl>>
     source.deregister(&mut self.storages);
   }
 
-  fn create_impl(
-    &self,
-    res: &mut ConcurrentStreamUpdateResult,
-  ) -> Box<dyn IndirectModelMaterialRenderImpl> {
+  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn IndirectModelMaterialRenderImpl> {
     Box::new(FlatMaterialDefaultIndirectRenderImpl {
       material_access: global_entity_component_of::<StandardModelRefFlatMaterial>()
         .read_foreign_key(),
@@ -132,10 +129,7 @@ impl RenderImplProvider<Box<dyn IndirectModelMaterialRenderImpl>>
     source.deregister(&mut self.tex_storages);
   }
 
-  fn create_impl(
-    &self,
-    res: &mut ConcurrentStreamUpdateResult,
-  ) -> Box<dyn IndirectModelMaterialRenderImpl> {
+  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn IndirectModelMaterialRenderImpl> {
     Box::new(PbrMRMaterialDefaultIndirectRenderImpl {
       material_access: global_entity_component_of::<StandardModelRefPbrMRMaterial>()
         .read_foreign_key(),
@@ -224,10 +218,7 @@ impl RenderImplProvider<Box<dyn IndirectModelMaterialRenderImpl>>
     source.deregister(&mut self.tex_storages);
   }
 
-  fn create_impl(
-    &self,
-    res: &mut ConcurrentStreamUpdateResult,
-  ) -> Box<dyn IndirectModelMaterialRenderImpl> {
+  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn IndirectModelMaterialRenderImpl> {
     Box::new(PbrSGMaterialDefaultIndirectRenderImpl {
       material_access: global_entity_component_of::<StandardModelRefPbrSGMaterial>()
         .read_foreign_key(),

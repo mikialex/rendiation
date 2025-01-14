@@ -125,7 +125,7 @@ impl TextureGPUSystemSource {
     source.deregister(&mut self.token);
   }
 
-  pub fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> GPUTextureBindingSystem {
+  pub fn create_impl(&self, res: &mut QueryResultCtx) -> GPUTextureBindingSystem {
     *res
       .take_result(self.token)
       .unwrap()

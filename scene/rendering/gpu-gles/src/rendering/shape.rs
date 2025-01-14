@@ -52,10 +52,7 @@ impl RenderImplProvider<Box<dyn GLESModelShapeRenderImpl>>
     source.deregister(&mut self.vertex);
   }
 
-  fn create_impl(
-    &self,
-    res: &mut ConcurrentStreamUpdateResult,
-  ) -> Box<dyn GLESModelShapeRenderImpl> {
+  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn GLESModelShapeRenderImpl> {
     Box::new(AttributesMeshEntityDefaultRenderImpl {
       mesh_access: global_entity_component_of::<StandardModelRefAttributesMeshEntity>()
         .read_foreign_key(),

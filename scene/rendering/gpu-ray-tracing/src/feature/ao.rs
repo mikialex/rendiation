@@ -139,7 +139,7 @@ impl RenderImplProvider<SceneRayTracingAORenderer> for RayTracingAORenderSystem 
     self.mesh.deregister_resource(source);
   }
 
-  fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> SceneRayTracingAORenderer {
+  fn create_impl(&self, res: &mut QueryResultCtx) -> SceneRayTracingAORenderer {
     let sbt = res.take_multi_updater_updated::<GPUSbt>(self.sbt).unwrap();
     SceneRayTracingAORenderer {
       executor: self.executor.clone(),

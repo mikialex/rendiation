@@ -66,7 +66,7 @@ impl RenderImplProvider<Box<dyn GLESModelRenderImpl>> for DefaultSceneStdModelRe
       .for_each(|p| p.deregister_resource(source));
   }
 
-  fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> Box<dyn GLESModelRenderImpl> {
+  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn GLESModelRenderImpl> {
     Box::new(SceneStdModelRenderer {
       model: global_entity_component_of::<SceneModelStdModelRenderPayload>().read_foreign_key(),
       materials: self.materials.iter().map(|v| v.create_impl(res)).collect(),

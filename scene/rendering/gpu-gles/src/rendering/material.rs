@@ -38,10 +38,7 @@ impl RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>
     source.deregister(&mut self.uniforms);
   }
 
-  fn create_impl(
-    &self,
-    res: &mut ConcurrentStreamUpdateResult,
-  ) -> Box<dyn GLESModelMaterialRenderImpl> {
+  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn GLESModelMaterialRenderImpl> {
     Box::new(FlatMaterialDefaultRenderImpl {
       material_access: global_entity_component_of::<StandardModelRefFlatMaterial>()
         .read_foreign_key(),
@@ -86,10 +83,7 @@ impl RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>
     source.deregister(&mut self.tex_uniforms);
   }
 
-  fn create_impl(
-    &self,
-    res: &mut ConcurrentStreamUpdateResult,
-  ) -> Box<dyn GLESModelMaterialRenderImpl> {
+  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn GLESModelMaterialRenderImpl> {
     Box::new(PbrMRMaterialDefaultRenderImpl {
       material_access: global_entity_component_of::<StandardModelRefPbrMRMaterial>()
         .read_foreign_key(),
@@ -179,10 +173,7 @@ impl RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>
     source.deregister(&mut self.tex_uniforms);
   }
 
-  fn create_impl(
-    &self,
-    res: &mut ConcurrentStreamUpdateResult,
-  ) -> Box<dyn GLESModelMaterialRenderImpl> {
+  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn GLESModelMaterialRenderImpl> {
     Box::new(PbrSGMaterialDefaultRenderImpl {
       material_access: global_entity_component_of::<StandardModelRefPbrSGMaterial>()
         .read_foreign_key(),

@@ -82,12 +82,13 @@ impl BasicShadowMapSystem {
     (sys, packing.into_boxed())
   }
 
+  #[must_use]
   pub fn update_shadow_maps<'a>(
     &mut self,
     cx: &mut Context,
     frame_ctx: &mut FrameCtx,
     scene_content: &impl Fn(Mat4<f32>, &mut FrameCtx) -> Box<dyn PassContent + 'a>, /* view_proj mat */
-  ) {
+  ) -> GPUTexture {
     let (_, current_layouts) = self.packing.poll_changes(cx); // incremental detail is useless here
     while let Poll::Ready(Some(new_size)) = self.atlas_resize.poll_next_unpin(cx) {
       // if we do shadow cache, we should also do content copy
@@ -142,6 +143,8 @@ impl BasicShadowMapSystem {
 
       pass.by(&mut scene_content(view_proj, frame_ctx));
     }
+
+    shadow_map_atlas.clone()
   }
 }
 

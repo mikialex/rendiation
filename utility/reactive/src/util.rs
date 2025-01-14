@@ -52,8 +52,8 @@ impl ReactiveQueryJoinUpdater {
     self.register(c)
   }
 
-  pub fn poll_update_all(&mut self, cx: &mut Context) -> ConcurrentStreamUpdateResult {
-    ConcurrentStreamUpdateResult {
+  pub fn poll_update_all(&mut self, cx: &mut Context) -> QueryResultCtx {
+    QueryResultCtx {
       inner: self
         .update_logic
         .iter_mut()
@@ -72,11 +72,11 @@ impl Default for UpdateResultToken {
   }
 }
 
-pub struct ConcurrentStreamUpdateResult {
+pub struct QueryResultCtx {
   inner: FastHashMap<u32, Box<dyn Any>>,
 }
 
-impl ConcurrentStreamUpdateResult {
+impl QueryResultCtx {
   pub fn take_result(&mut self, token: UpdateResultToken) -> Option<Box<dyn Any>> {
     self.inner.remove(&token.0)
   }

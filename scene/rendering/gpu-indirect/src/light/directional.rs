@@ -36,10 +36,7 @@ impl RenderImplProvider<Box<dyn LightingComputeComponent>> for DirectionalStorag
     source.deregister(&mut self.token);
   }
 
-  fn create_impl(
-    &self,
-    res: &mut ConcurrentStreamUpdateResult,
-  ) -> Box<dyn LightingComputeComponent> {
+  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn LightingComputeComponent> {
     let buffer = res
       .take_multi_updater_updated::<CommonStorageBufferImpl<DirectionalLightStorage>>(self.token)
       .unwrap()

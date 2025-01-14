@@ -1,38 +1,55 @@
 use rendiation_lighting_punctual::*;
-use rendiation_webgpu_reactive_utils::UniformArray;
+use rendiation_lighting_shadow_map::BasicShadowMapInfo;
+use rendiation_webgpu_reactive_utils::{UniformArray, UniformArrayUpdateContainer};
 
 use crate::*;
 
-#[derive(Default)]
 pub struct DirectionalUniformLightList {
-  token: UpdateResultToken,
+  light: UpdateResultToken,
+  shadow: UpdateResultToken,
+}
+
+impl DirectionalUniformLightList {
+  pub fn new(
+    source: &mut ReactiveQueryJoinUpdater,
+    light: UniformArrayUpdateContainer<DirectionalLightUniform>,
+    shadow: UniformArrayUpdateContainer<BasicShadowMapInfo>,
+  ) -> Self {
+    Self {
+      light: source.register_multi_updater(light),
+      shadow: source.register_multi_updater(shadow),
+    }
+  }
 }
 
 impl RenderImplProvider<Box<dyn LightSystemSceneProvider>> for DirectionalUniformLightList {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    let uniform = directional_uniform_array(cx);
-    self.token = source.register_multi_updater(uniform);
-  }
+  // registered in constructor
+  fn register_resource(&mut self, _: &mut ReactiveQueryJoinUpdater, _: &GPU) {}
 
   fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.token);
+    source.deregister(&mut self.light);
+    source.deregister(&mut self.shadow);
   }
 
-  fn create_impl(
-    &self,
-    res: &mut ConcurrentStreamUpdateResult,
-  ) -> Box<dyn LightSystemSceneProvider> {
-    let uniform = res
-      .take_multi_updater_updated::<UniformArray<DirectionalLightUniform, 8>>(self.token)
+  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn LightSystemSceneProvider> {
+    let light = res
+      .take_multi_updater_updated::<UniformArray<DirectionalLightUniform, 8>>(self.light)
       .unwrap()
       .target
       .clone();
-    Box::new(SceneDirectionalLightingProvider { uniform })
+
+    let shadow = res
+      .take_multi_updater_updated::<UniformArray<BasicShadowMapInfo, 8>>(self.shadow)
+      .unwrap()
+      .target
+      .clone();
+    Box::new(SceneDirectionalLightingProvider { light, shadow })
   }
 }
 
 struct SceneDirectionalLightingProvider {
-  uniform: UniformBufferDataView<Shader140Array<DirectionalLightUniform, 8>>,
+  light: UniformBufferDataView<Shader140Array<DirectionalLightUniform, 8>>,
+  shadow: UniformBufferDataView<Shader140Array<BasicShadowMapInfo, 8>>,
 }
 
 impl LightSystemSceneProvider for SceneDirectionalLightingProvider {
@@ -41,7 +58,7 @@ impl LightSystemSceneProvider for SceneDirectionalLightingProvider {
     _scene: EntityHandle<SceneEntity>,
   ) -> Option<Box<dyn LightingComputeComponent>> {
     let com = ArrayLights(
-      self.uniform.clone(),
+      self.light.clone(),
       |(_, light_uniform): (Node<u32>, UniformNode<DirectionalLightUniform>)| {
         let light_uniform = light_uniform.load().expand();
         ENode::<DirectionalShaderInfo> {
@@ -57,24 +74,21 @@ impl LightSystemSceneProvider for SceneDirectionalLightingProvider {
 
 #[derive(Default)]
 pub struct PointLightUniformLightList {
-  token: UpdateResultToken,
+  light: UpdateResultToken,
 }
 
 impl RenderImplProvider<Box<dyn LightSystemSceneProvider>> for PointLightUniformLightList {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
     let uniform = point_uniform_array(cx);
-    self.token = source.register_multi_updater(uniform);
+    self.light = source.register_multi_updater(uniform);
   }
   fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.token);
+    source.deregister(&mut self.light);
   }
 
-  fn create_impl(
-    &self,
-    res: &mut ConcurrentStreamUpdateResult,
-  ) -> Box<dyn LightSystemSceneProvider> {
+  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn LightSystemSceneProvider> {
     let uniform = res
-      .take_multi_updater_updated::<UniformArray<PointLightUniform, 8>>(self.token)
+      .take_multi_updater_updated::<UniformArray<PointLightUniform, 8>>(self.light)
       .unwrap()
       .target
       .clone();
@@ -108,35 +122,51 @@ impl LightSystemSceneProvider for ScenePointLightingProvider {
   }
 }
 
-#[derive(Default)]
 pub struct SpotLightUniformLightList {
-  token: UpdateResultToken,
+  light: UpdateResultToken,
+  shadow: UpdateResultToken,
+}
+
+impl SpotLightUniformLightList {
+  pub fn new(
+    source: &mut ReactiveQueryJoinUpdater,
+    light: UniformArrayUpdateContainer<SpotLightUniform>,
+    shadow: UniformArrayUpdateContainer<BasicShadowMapInfo>,
+  ) -> Self {
+    Self {
+      light: source.register_multi_updater(light),
+      shadow: source.register_multi_updater(shadow),
+    }
+  }
 }
 
 impl RenderImplProvider<Box<dyn LightSystemSceneProvider>> for SpotLightUniformLightList {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    let uniform = spot_uniform_array(cx);
-    self.token = source.register_multi_updater(uniform);
-  }
+  // registered in constructor
+  fn register_resource(&mut self, _source: &mut ReactiveQueryJoinUpdater, _cx: &GPU) {}
   fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.token);
+    source.deregister(&mut self.light);
+    source.deregister(&mut self.shadow);
   }
 
-  fn create_impl(
-    &self,
-    res: &mut ConcurrentStreamUpdateResult,
-  ) -> Box<dyn LightSystemSceneProvider> {
-    let uniform = res
-      .take_multi_updater_updated::<UniformArray<SpotLightUniform, 8>>(self.token)
+  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn LightSystemSceneProvider> {
+    let light = res
+      .take_multi_updater_updated::<UniformArray<SpotLightUniform, 8>>(self.light)
       .unwrap()
       .target
       .clone();
-    Box::new(SceneSpotLightingProvider { uniform })
+
+    let shadow = res
+      .take_multi_updater_updated::<UniformArray<BasicShadowMapInfo, 8>>(self.shadow)
+      .unwrap()
+      .target
+      .clone();
+    Box::new(SceneSpotLightingProvider { light, shadow })
   }
 }
 
 struct SceneSpotLightingProvider {
-  uniform: UniformBufferDataView<Shader140Array<SpotLightUniform, 8>>,
+  light: UniformBufferDataView<Shader140Array<SpotLightUniform, 8>>,
+  shadow: UniformBufferDataView<Shader140Array<BasicShadowMapInfo, 8>>,
 }
 
 impl LightSystemSceneProvider for SceneSpotLightingProvider {
@@ -145,7 +175,7 @@ impl LightSystemSceneProvider for SceneSpotLightingProvider {
     _scene: EntityHandle<SceneEntity>,
   ) -> Option<Box<dyn LightingComputeComponent>> {
     let com = ArrayLights(
-      self.uniform.clone(),
+      self.light.clone(),
       |(_, light_uniform): (Node<u32>, UniformNode<SpotLightUniform>)| {
         let light_uniform = light_uniform.load().expand();
         ENode::<SpotLightShaderInfo> {

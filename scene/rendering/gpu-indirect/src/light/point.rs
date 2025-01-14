@@ -41,10 +41,7 @@ impl RenderImplProvider<Box<dyn LightingComputeComponent>> for PointStorageLight
     source.deregister(&mut self.token);
   }
 
-  fn create_impl(
-    &self,
-    res: &mut ConcurrentStreamUpdateResult,
-  ) -> Box<dyn LightingComputeComponent> {
+  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn LightingComputeComponent> {
     let buffer = res
       .take_multi_updater_updated::<CommonStorageBufferImpl<PointLightStorage>>(self.token)
       .unwrap()

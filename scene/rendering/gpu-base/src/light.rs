@@ -38,10 +38,7 @@ impl RenderImplProvider<Box<dyn LightSystemSceneProvider>> for DifferentLightRen
       .for_each(|l| l.deregister_resource(source));
   }
 
-  fn create_impl(
-    &self,
-    res: &mut ConcurrentStreamUpdateResult,
-  ) -> Box<dyn LightSystemSceneProvider> {
+  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn LightSystemSceneProvider> {
     Box::new(LightingComputeComponentGroupProvider {
       lights: self.lights.iter().map(|i| i.create_impl(res)).collect(),
     })

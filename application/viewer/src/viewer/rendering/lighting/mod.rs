@@ -25,7 +25,7 @@ pub struct LightSystem {
 }
 
 impl LightSystem {
-  pub fn new(gpu: &GPU) -> Self {
+  pub fn new_and_register(source: &mut ReactiveQueryJoinUpdater, gpu: &GPU) -> Self {
     let size = Size::from_u32_pair_min_one((2048, 2048));
     let config = MultiLayerTexturePackerConfig {
       max_size: SizeWithDepth {
@@ -123,16 +123,28 @@ impl LightSystem {
       gpu,
     );
 
+    let mut internal = Box::new(
+      DifferentLightRenderImplProvider::default()
+        .with_light(DirectionalUniformLightList::new(
+          source,
+          directional_uniform_array(gpu),
+          directional_light_shadow_address,
+        ))
+        .with_light(SpotLightUniformLightList::new(
+          source,
+          spot_uniform_array(gpu),
+          spot_light_shadow_address,
+        ))
+        .with_light(PointLightUniformLightList::default())
+        .with_light(IBLProvider::new(gpu)),
+    );
+
+    internal.register_resource(source, gpu);
+
     Self {
       directional_light_shadow,
       spot_light_shadow,
-      internal: Box::new(
-        DifferentLightRenderImplProvider::default()
-          .with_light(DirectionalUniformLightList::default())
-          .with_light(SpotLightUniformLightList::default())
-          .with_light(PointLightUniformLightList::default())
-          .with_light(IBLProvider::new(gpu)),
-      ),
+      internal,
       enable_channel_debugger: false,
       channel_debugger: ScreenChannelDebugger::default_useful(),
       tonemap: ToneMap::new(gpu),
@@ -150,17 +162,18 @@ impl LightSystem {
     });
   }
 
-  pub fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    self.internal.register_resource(source, cx);
+  pub fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
+    self.internal.deregister_resource(source);
   }
 
-  pub fn prepare(
+  pub fn prepare_and_create_impl(
     &mut self,
+    res: &mut QueryResultCtx,
     frame_ctx: &mut FrameCtx,
     cx: &mut Context,
     renderer: &dyn SceneRenderer<ContentKey = SceneContentKey>,
     target_scene: EntityHandle<SceneEntity>,
-  ) {
+  ) -> SceneLightSystem {
     self.tonemap.update(frame_ctx.gpu);
 
     let key = SceneContentKey { transparent: false };
@@ -184,9 +197,7 @@ impl LightSystem {
     self
       .spot_light_shadow
       .update_shadow_maps(cx, frame_ctx, &content);
-  }
 
-  pub fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> SceneLightSystem {
     SceneLightSystem {
       system: self,
       imp: self.internal.create_impl(res),

@@ -76,8 +76,7 @@ impl Viewer3dRenderingCtx {
   pub fn new(gpu: GPU) -> Self {
     let mut rendering_resource = ReactiveQueryJoinUpdater::default();
 
-    let mut lighting = LightSystem::new(&gpu);
-    lighting.register_resource(&mut rendering_resource, &gpu);
+    let lighting = LightSystem::new_and_register(&mut rendering_resource, &gpu);
 
     let renderer_impl = init_renderer(
       &mut rendering_resource,
@@ -234,11 +233,14 @@ impl Viewer3dRenderingCtx {
           None,
         ));
     } else {
-      self
-        .lighting
-        .prepare(&mut ctx, cx, renderer.as_ref(), content.scene);
+      let lighting = self.lighting.prepare_and_create_impl(
+        &mut resource,
+        &mut ctx,
+        cx,
+        renderer.as_ref(),
+        content.scene,
+      );
 
-      let lighting = self.lighting.create_impl(&mut resource);
       let lighting = lighting.get_scene_lighting(content.scene);
 
       self.frame_logic.render(

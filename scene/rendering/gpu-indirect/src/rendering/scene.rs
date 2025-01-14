@@ -65,7 +65,7 @@ impl RenderImplProvider<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>>
 
   fn create_impl(
     &self,
-    res: &mut ConcurrentStreamUpdateResult,
+    res: &mut QueryResultCtx,
   ) -> Box<dyn SceneRenderer<ContentKey = SceneContentKey>> {
     Box::new(IndirectSceneRenderer {
       texture_system: self.texture_system.create_impl(res),

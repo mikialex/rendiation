@@ -59,7 +59,7 @@ impl RenderImplProvider<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>> fo
 
   fn create_impl(
     &self,
-    res: &mut ConcurrentStreamUpdateResult,
+    res: &mut QueryResultCtx,
   ) -> Box<dyn SceneRenderer<ContentKey = SceneContentKey>> {
     Box::new(GLESSceneRenderer {
       scene_model_renderer: self

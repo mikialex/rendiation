@@ -17,7 +17,7 @@ impl RenderImplProvider<Box<dyn RtxCameraRenderImpl>> for DefaultRtxCameraRender
     source.deregister(&mut self.uniforms);
   }
 
-  fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> Box<dyn RtxCameraRenderImpl> {
+  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn RtxCameraRenderImpl> {
     Box::new(DefaultRtxCameraRenderImpl {
       uniforms: res.take_multi_updater_updated(self.uniforms).unwrap(),
     })

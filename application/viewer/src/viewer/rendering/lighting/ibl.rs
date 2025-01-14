@@ -74,10 +74,7 @@ impl RenderImplProvider<Box<dyn LightSystemSceneProvider>> for IBLProvider {
     source.deregister(&mut self.cube_map);
   }
 
-  fn create_impl(
-    &self,
-    res: &mut ConcurrentStreamUpdateResult,
-  ) -> Box<dyn LightSystemSceneProvider> {
+  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn LightSystemSceneProvider> {
     let prefiltered = res
       .take_result(self.cube_map)
       .unwrap()

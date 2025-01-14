@@ -30,7 +30,7 @@ impl RenderImplProvider<SceneBackgroundRenderer> for SceneBackgroundRendererSour
     source.deregister(&mut self.cube_map);
   }
 
-  fn create_impl(&self, res: &mut ConcurrentStreamUpdateResult) -> SceneBackgroundRenderer {
+  fn create_impl(&self, res: &mut QueryResultCtx) -> SceneBackgroundRenderer {
     SceneBackgroundRenderer {
       solid_background: global_entity_component_of::<SceneSolidBackground>().read(),
       env_background_map: global_entity_component_of::<SceneHDRxEnvBackgroundCubeMap>()

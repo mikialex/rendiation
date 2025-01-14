@@ -138,10 +138,7 @@ impl RenderImplProvider<Box<dyn IndirectModelRenderImpl>> for DefaultSceneStdMod
       .for_each(|p| p.deregister_resource(source));
   }
 
-  fn create_impl(
-    &self,
-    res: &mut ConcurrentStreamUpdateResult,
-  ) -> Box<dyn IndirectModelRenderImpl> {
+  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn IndirectModelRenderImpl> {
     Box::new(SceneStdModelRenderer {
       model: global_entity_component_of::<SceneModelStdModelRenderPayload>().read_foreign_key(),
       materials: self.materials.iter().map(|v| v.create_impl(res)).collect(),

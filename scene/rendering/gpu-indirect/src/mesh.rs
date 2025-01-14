@@ -183,10 +183,7 @@ impl MeshBindlessGPUSystemSource {
     }
   }
 
-  pub fn create_impl_internal_impl(
-    &self,
-    res: &mut ConcurrentStreamUpdateResult,
-  ) -> MeshGPUBindlessImpl {
+  pub fn create_impl_internal_impl(&self, res: &mut QueryResultCtx) -> MeshGPUBindlessImpl {
     let vertex_address_buffer = res
       .take_multi_updater_updated::<CommonStorageBufferImplWithHostBackup<AttributeMeshMeta>>(
         self.attribute_buffer_metadata,
@@ -248,10 +245,7 @@ impl RenderImplProvider<Box<dyn IndirectModelShapeRenderImpl>> for MeshBindlessG
     source.deregister(&mut self.sm_to_mesh);
   }
 
-  fn create_impl(
-    &self,
-    res: &mut ConcurrentStreamUpdateResult,
-  ) -> Box<dyn IndirectModelShapeRenderImpl> {
+  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn IndirectModelShapeRenderImpl> {
     Box::new(self.create_impl_internal_impl(res))
   }
 }
