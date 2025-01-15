@@ -53,6 +53,23 @@ pub struct CameraTransform {
   pub view_projection_inv: Mat4<f32>,
 }
 
+impl CameraTransform {
+  pub fn new(proj: Mat4<f32>, world: Mat4<f32>) -> Self {
+    let view = world.inverse_or_identity();
+    let view_projection = proj * view;
+    CameraTransform {
+      world,
+      view,
+      rotation: world.extract_rotation_mat(),
+
+      projection: proj,
+      projection_inv: proj.inverse_or_identity(),
+      view_projection,
+      view_projection_inv: view_projection.inverse_or_identity(),
+    }
+  }
+}
+
 /// normalized_position: -1 to 1
 pub fn cast_world_ray(view_projection_inv: Mat4<f32>, normalized_position: Vec2<f32>) -> Ray3<f32> {
   let start = Vec3::new(normalized_position.x, normalized_position.y, -0.5);
@@ -75,18 +92,5 @@ pub fn camera_transforms(
 
   camera_world_mat
     .collective_zip(projections)
-    .collective_map(|(world, proj)| {
-      let view = world.inverse_or_identity();
-      let view_projection = proj * view;
-      CameraTransform {
-        world,
-        view,
-        rotation: world.extract_rotation_mat(),
-
-        projection: proj,
-        projection_inv: proj.inverse_or_identity(),
-        view_projection,
-        view_projection_inv: view_projection.inverse_or_identity(),
-      }
-    })
+    .collective_map(|(world, proj)| CameraTransform::new(proj, world))
 }

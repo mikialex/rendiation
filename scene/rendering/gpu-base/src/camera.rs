@@ -20,18 +20,7 @@ pub type CameraUniforms =
 pub fn camera_gpus(cx: &GPU) -> CameraUniforms {
   let source = camera_transforms()
     // todo, fix jitter override
-    .collective_map(|t| CameraGPUTransform {
-      world: t.world,
-      view: t.view,
-      rotation: t.rotation,
-
-      projection: t.projection,
-      projection_inv: t.projection_inv,
-      view_projection: t.view_projection,
-      view_projection_inv: t.view_projection_inv,
-
-      ..Zeroable::zeroed()
-    })
+    .collective_map(CameraGPUTransform::from)
     .into_query_update_uniform(0, cx);
 
   CameraUniforms::default().with_source(source)
@@ -113,6 +102,23 @@ pub struct CameraGPUTransform {
   /// jitter is always applied (cheap and reduce shader variance)
   /// range: -0.5 to 0.5
   pub jitter_normalized: Vec2<f32>,
+}
+
+impl From<CameraTransform> for CameraGPUTransform {
+  fn from(t: CameraTransform) -> Self {
+    Self {
+      world: t.world,
+      view: t.view,
+      rotation: t.rotation,
+
+      projection: t.projection,
+      projection_inv: t.projection_inv,
+      view_projection: t.view_projection,
+      view_projection_inv: t.view_projection_inv,
+
+      ..Zeroable::zeroed()
+    }
+  }
 }
 
 // pub fn setup_viewport(cb: &CameraViewBounds, pass: &mut GPURenderPass, buffer_size: Size) {

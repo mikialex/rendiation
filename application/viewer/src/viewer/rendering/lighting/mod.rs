@@ -38,8 +38,8 @@ impl LightSystem {
       },
     };
 
-    let proj = global_watch()
-      .watch::<DirectionLightShadowBound>()
+    let source_proj = global_watch()
+      .watch_untyped_key::<DirectionLightShadowBound>()
       .collective_map(|orth| {
         orth
           .unwrap_or(OrthographicProjection {
@@ -48,25 +48,21 @@ impl LightSystem {
             top: 20.,
             bottom: -20.,
             near: 0.,
-            far: 50.,
+            far: 1000.,
           })
           .compute_projection_mat::<WebGPUxNDC>()
-      });
-
-    let view = scene_node_derive_world_mat()
-      .one_to_many_fanout(global_rev_ref().watch_inv_ref::<DirectionalRefNode>())
-      .collective_map(|v| v.inverse_or_identity())
+      })
       .into_boxed();
 
-    let source_view_proj = proj
-      .collective_zip(view)
-      .collective_map(|(proj, view)| proj * view)
+    let source_world = scene_node_derive_world_mat()
+      .one_to_many_fanout(global_rev_ref().watch_inv_ref::<DirectionalRefNode>())
       .untyped_entity_handle()
       .into_boxed();
 
     let (directional_light_shadow, directional_light_shadow_address) = basic_shadow_map_uniform(
       BasicShadowMapSystemInputs {
-        source_view_proj,
+        source_world,
+        source_proj,
         size: global_watch()
           .watch_untyped_key::<BasicShadowMapResolutionOf<DirectionLightBasicShadowInfo>>()
           .collective_map(|size| Size::from_u32_pair_min_one(size.into()))
@@ -82,8 +78,8 @@ impl LightSystem {
       gpu,
     );
 
-    let proj = global_watch()
-      .watch::<SpotLightHalfConeAngle>()
+    let source_proj = global_watch()
+      .watch_untyped_key::<SpotLightHalfConeAngle>()
       .collective_map(|half_cone_angle| {
         PerspectiveProjection {
           near: 0.1,
@@ -92,22 +88,18 @@ impl LightSystem {
           aspect: 1.,
         }
         .compute_projection_mat::<WebGPUxNDC>()
-      });
-
-    let view = scene_node_derive_world_mat()
-      .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SpotLightRefNode>())
-      .collective_map(|v| v.inverse_or_identity())
+      })
       .into_boxed();
 
-    let source_view_proj = proj
-      .collective_zip(view)
-      .collective_map(|(proj, view)| proj * view)
+    let source_world = scene_node_derive_world_mat()
+      .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SpotLightRefNode>())
       .untyped_entity_handle()
       .into_boxed();
 
     let (spot_light_shadow, spot_light_shadow_address) = basic_shadow_map_uniform(
       BasicShadowMapSystemInputs {
-        source_view_proj,
+        source_proj,
+        source_world,
         size: global_watch()
           .watch_untyped_key::<BasicShadowMapResolutionOf<SpotLightBasicShadowInfo>>()
           .collective_map(|size| Size::from_u32_pair_min_one(size.into()))
@@ -181,9 +173,11 @@ impl LightSystem {
     // we could just use empty pass dispatcher, because the color channel not exist at all
     let depth = ();
 
-    let content = |_view_proj: Mat4<f32>, frame_ctx: &mut FrameCtx| {
-      let camera =
-        UniformBufferDataView::create(&frame_ctx.gpu.device, CameraGPUTransform::zeroed());
+    let content = |proj: Mat4<f32>, world: Mat4<f32>, frame_ctx: &mut FrameCtx| {
+      let camera = UniformBufferDataView::create(
+        &frame_ctx.gpu.device,
+        CameraGPUTransform::from(CameraTransform::new(proj, world)),
+      );
       let camera = Box::new(CameraGPU { ubo: camera });
       let camera = CameraRenderSource::External(camera);
 

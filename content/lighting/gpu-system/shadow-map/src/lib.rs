@@ -12,8 +12,10 @@ use rendiation_webgpu::*;
 use rendiation_webgpu_reactive_utils::*;
 
 pub struct BasicShadowMapSystemInputs {
-  ///  alloc_id => shadow camera vp
-  pub source_view_proj: BoxedDynReactiveQuery<u32, Mat4<f32>>,
+  /// alloc_id => shadow map world
+  pub source_world: BoxedDynReactiveQuery<u32, Mat4<f32>>,
+  /// alloc_id => shadow map proj
+  pub source_proj: BoxedDynReactiveQuery<u32, Mat4<f32>>,
   /// alloc_id => shadow map resolution
   pub size: BoxedDynReactiveQuery<u32, Size>,
   /// alloc_id => shadow map bias
@@ -30,9 +32,22 @@ pub fn basic_shadow_map_uniform(
   BasicShadowMapSystem,
   UniformArrayUpdateContainer<BasicShadowMapInfo>,
 ) {
-  let source_view_proj = inputs.source_view_proj.into_forker();
-  let (sys, address) =
-    BasicShadowMapSystem::new(config, source_view_proj.clone().into_boxed(), inputs.size);
+  let source_world = inputs.source_world.into_forker();
+
+  let source_proj = inputs.source_proj.into_forker();
+
+  let source_view_proj = source_world
+    .clone()
+    .collective_zip(source_proj.clone())
+    .collective_map(|(w, p)| p * w.inverse_or_identity())
+    .into_boxed();
+
+  let (sys, address) = BasicShadowMapSystem::new(
+    config,
+    source_world.into_boxed(),
+    source_proj.into_boxed(),
+    inputs.size,
+  );
 
   let map_info = address
     .into_query_update_uniform_array(std::mem::offset_of!(BasicShadowMapInfo, map_info), gpu_ctx);
@@ -60,13 +75,15 @@ pub struct BasicShadowMapSystem {
   packing: BoxedDynReactiveQuery<u32, ShadowMapAddressInfo>,
   atlas_resize: Box<dyn Stream<Item = SizeWithDepth> + Unpin>,
   current_size: Option<SizeWithDepth>,
-  source_view_proj: BoxedDynReactiveQuery<u32, Mat4<f32>>,
+  source_world: BoxedDynReactiveQuery<u32, Mat4<f32>>,
+  source_proj: BoxedDynReactiveQuery<u32, Mat4<f32>>,
 }
 
 impl BasicShadowMapSystem {
   pub fn new(
     config: MultiLayerTexturePackerConfig,
-    source_view_proj: BoxedDynReactiveQuery<u32, Mat4<f32>>,
+    source_world: BoxedDynReactiveQuery<u32, Mat4<f32>>,
+    source_proj: BoxedDynReactiveQuery<u32, Mat4<f32>>,
     size: BoxedDynReactiveQuery<u32, Size>,
   ) -> (Self, BoxedDynReactiveQuery<u32, ShadowMapAddressInfo>) {
     let (packing, atlas_resize) = reactive_pack_2d_to_3d(config, size);
@@ -77,7 +94,8 @@ impl BasicShadowMapSystem {
       current_size: None,
       packing: packing.clone().into_boxed(),
       atlas_resize: Box::new(atlas_resize),
-      source_view_proj,
+      source_world,
+      source_proj,
     };
     (sys, packing.into_boxed())
   }
@@ -87,7 +105,8 @@ impl BasicShadowMapSystem {
     &mut self,
     cx: &mut Context,
     frame_ctx: &mut FrameCtx,
-    scene_content: &impl Fn(Mat4<f32>, &mut FrameCtx) -> Box<dyn PassContent + 'a>, /* view_proj mat */
+    // proj, world
+    scene_content: &impl Fn(Mat4<f32>, Mat4<f32>, &mut FrameCtx) -> Box<dyn PassContent + 'a>,
   ) -> GPU2DArrayDepthTextureView {
     let (_, current_layouts) = self.packing.poll_changes(cx); // incremental detail is useless here
     while let Poll::Ready(Some(new_size)) = self.atlas_resize.poll_next_unpin(cx) {
@@ -112,11 +131,31 @@ impl BasicShadowMapSystem {
       )
     });
 
-    let (_, view_proj_mats) = self.source_view_proj.poll_changes(cx);
+    let (_, world) = self.source_world.poll_changes(cx);
+    let (_, proj) = self.source_proj.poll_changes(cx);
+
+    for layer in 0..u32::from(self.current_size.unwrap().depth) {
+      // clear all
+      let write_view: GPU2DTextureView = shadow_map_atlas
+        .create_view(TextureViewDescriptor {
+          label: Some("shadowmap-clear-view"),
+          dimension: Some(TextureViewDimension::D2),
+          base_array_layer: layer,
+          array_layer_count: Some(1),
+          ..Default::default()
+        })
+        .try_into()
+        .unwrap();
+
+      let _ = pass("shadow-map-clear")
+        .with_depth(write_view, clear(1.))
+        .render_ctx(frame_ctx);
+    }
 
     // do shadowmap updates
     for (idx, shadow_view) in current_layouts.iter_key_value() {
-      let view_proj = view_proj_mats.access(&idx).unwrap();
+      let world = world.access(&idx).unwrap();
+      let proj = proj.access(&idx).unwrap();
 
       let write_view: GPU2DTextureView = shadow_map_atlas
         .create_view(TextureViewDescriptor {
@@ -129,9 +168,10 @@ impl BasicShadowMapSystem {
         .try_into()
         .unwrap();
 
+      // todo, consider merge the pass within the same layer
       // custom dispatcher is not required because we only have depth output.
       let mut pass = pass("shadow-map")
-        .with_depth(write_view, clear(1.))
+        .with_depth(write_view, load())
         .render_ctx(frame_ctx);
 
       let raw_pass = &mut pass.pass.ctx.pass;
@@ -141,10 +181,16 @@ impl BasicShadowMapSystem {
       let h = shadow_view.size.y;
       raw_pass.set_viewport(x, y, w, h, 0., 1.);
 
-      pass.by(&mut scene_content(view_proj, frame_ctx));
+      pass.by(&mut scene_content(proj, world, frame_ctx));
     }
 
-    shadow_map_atlas.create_default_view().try_into().unwrap()
+    shadow_map_atlas
+      .create_view(TextureViewDescriptor {
+        dimension: TextureViewDimension::D2Array.into(),
+        ..Default::default()
+      })
+      .try_into()
+      .unwrap()
   }
 }
 
@@ -186,7 +232,9 @@ pub struct ShadowBias {
 #[derive(Clone, Copy, Default, ShaderStruct, Debug, PartialEq)]
 pub struct ShadowMapAddressInfo {
   pub layer_index: i32,
+  /// in pixel unit
   pub size: Vec2<f32>,
+  /// in pixel unit
   pub offset: Vec2<f32>,
 }
 
@@ -326,6 +374,11 @@ fn sample_shadow_pcf_x36_by_offset(
   let depth = shadow_position.z();
   let layer = info.layer_index;
   let mut ratio = val(0.0);
+
+  let map_size = map.texture_dimension_2d(None).into_f32();
+  let extra_scale = info.size / map_size;
+
+  let uv = uv * extra_scale + info.offset / map_size;
 
   let s = 2_i32; // we should write a for here?
 
