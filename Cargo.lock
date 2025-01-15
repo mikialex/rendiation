@@ -3808,8 +3808,6 @@ dependencies = [
  "reactive",
  "rendiation-algebra",
  "rendiation-geometry",
- "rendiation-lighting-gpu-system",
- "rendiation-lighting-punctual",
  "rendiation-lighting-transport",
  "rendiation-mesh-core",
  "rendiation-scene-core",

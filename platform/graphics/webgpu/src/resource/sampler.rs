@@ -157,3 +157,9 @@ pub struct ImmediateGPUSamplerViewBind;
 impl ShaderBindingProvider for ImmediateGPUSamplerViewBind {
   type Node = <GPUSamplerView as ShaderBindingProvider>::Node;
 }
+
+pub struct ImmediateGPUCompareSamplerViewBind;
+
+impl ShaderBindingProvider for ImmediateGPUCompareSamplerViewBind {
+  type Node = <GPUComparisonSamplerView as ShaderBindingProvider>::Node;
+}

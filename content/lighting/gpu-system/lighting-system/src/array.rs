@@ -32,33 +32,60 @@ where
   }
 }
 
-pub struct LightAndShadowCombined<L, S>(L, S);
-
-impl<L: AbstractBindingSource, S: AbstractBindingSource> AbstractBindingSource
-  for LightAndShadowCombined<L, S>
+pub struct IterAsLightInvocation<T>(pub T);
+impl<T> LightingComputeInvocation for IterAsLightInvocation<T>
+where
+  T::Item: LightingComputeInvocation,
+  T: ShaderIterator + Clone,
 {
-  type ShaderBindResult =
-    LightAndShadowCombinedShaderInput<L::ShaderBindResult, S::ShaderBindResult>;
+  fn compute_lights(
+    &self,
+    shading: &dyn LightableSurfaceShading,
+    geom_ctx: &ENode<ShaderLightingGeometricCtx>,
+  ) -> ENode<ShaderLightingResult> {
+    let light_specular_result = val(Vec3::zero()).make_local_var();
+    let light_diffuse_result = val(Vec3::zero()).make_local_var();
 
-  fn bind_pass(&self, ctx: &mut BindingBuilder) {
-    self.0.bind_pass(ctx);
-    self.1.bind_pass(ctx);
-  }
+    self.0.clone().for_each(|light, _| {
+      let r = light.compute_lights(shading, geom_ctx);
+      light_specular_result.store(light_specular_result.load() + r.specular);
+      light_diffuse_result.store(light_diffuse_result.load() + r.diffuse);
+    });
 
-  fn bind_shader(&self, ctx: &mut ShaderBindGroupBuilder) -> Self::ShaderBindResult {
-    LightAndShadowCombinedShaderInput(self.0.bind_shader(ctx), self.1.bind_shader(ctx))
+    ENode::<ShaderLightingResult> {
+      diffuse: light_diffuse_result.load(),
+      specular: light_specular_result.load(),
+    }
   }
 }
 
-#[derive(Clone, Copy)]
-pub struct LightAndShadowCombinedShaderInput<L, S>(L, S);
+// pub struct LightAndShadowCombined<L, S>(L, S);
 
-impl<L: IntoShaderIterator, S: IntoShaderIterator> IntoShaderIterator
-  for LightAndShadowCombinedShaderInput<L, S>
-{
-  type ShaderIter = ShaderZipIter<L::ShaderIter, S::ShaderIter>;
+// impl<L: AbstractBindingSource, S: AbstractBindingSource> AbstractBindingSource
+//   for LightAndShadowCombined<L, S>
+// {
+//   type ShaderBindResult =
+//     LightAndShadowCombinedShaderInput<L::ShaderBindResult, S::ShaderBindResult>;
 
-  fn into_shader_iter(self) -> Self::ShaderIter {
-    self.0.into_shader_iter().zip(self.1.into_shader_iter())
-  }
-}
+//   fn bind_pass(&self, ctx: &mut BindingBuilder) {
+//     self.0.bind_pass(ctx);
+//     self.1.bind_pass(ctx);
+//   }
+
+//   fn bind_shader(&self, ctx: &mut ShaderBindGroupBuilder) -> Self::ShaderBindResult {
+//     LightAndShadowCombinedShaderInput(self.0.bind_shader(ctx), self.1.bind_shader(ctx))
+//   }
+// }
+
+// #[derive(Clone, Copy)]
+// pub struct LightAndShadowCombinedShaderInput<L, S>(L, S);
+
+// impl<L: IntoShaderIterator, S: IntoShaderIterator> IntoShaderIterator
+//   for LightAndShadowCombinedShaderInput<L, S>
+// {
+//   type ShaderIter = ShaderZipIter<L::ShaderIter, S::ShaderIter>;
+
+//   fn into_shader_iter(self) -> Self::ShaderIter {
+//     self.0.into_shader_iter().zip(self.1.into_shader_iter())
+//   }
+// }

@@ -1,5 +1,3 @@
-use std::any::TypeId;
-
 use anymap::AnyMap;
 
 use crate::*;

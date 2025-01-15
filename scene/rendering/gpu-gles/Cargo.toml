@@ -5,14 +5,12 @@ name = "rendiation-scene-rendering-gpu-gles"
 version = "0.1.0"
 
 [dependencies]
+rendiation-geometry = { path = "../../../math/geometry" }
 database = { path = "../../../utility/database" }
 dyn-downcast = { path = "../../../utility/dyn-downcast" }
 fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 log = { workspace = true }
 rendiation-algebra = { path = "../../../math/algebra" }
-rendiation-geometry = { path = "../../../math/geometry" }
-rendiation-lighting-gpu-system = { path = "../../../content/lighting/gpu-system/lighting-system" }
-rendiation-lighting-punctual = { path = "../../../content/lighting/punctual" }
 rendiation-mesh-core = { path = "../../../content/mesh/core" }
 rendiation-scene-core = { path = "../../core" }
 rendiation-scene-rendering-gpu-base = { path = "../../rendering/gpu-base" }

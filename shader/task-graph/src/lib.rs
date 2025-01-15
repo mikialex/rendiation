@@ -2,7 +2,6 @@
 #![feature(async_closure)] // used in testing
 
 use std::any::Any;
-use std::any::TypeId;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::marker::PhantomData;

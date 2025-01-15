@@ -1,11 +1,11 @@
 use rendiation_lighting_punctual::*;
-use rendiation_lighting_shadow_map::BasicShadowMapInfo;
+use rendiation_lighting_shadow_map::*;
 use rendiation_webgpu_reactive_utils::{UniformArray, UniformArrayUpdateContainer};
 
 use crate::*;
 
-pub struct DirectionalShaderAtlas(pub GPUTexture);
-pub struct SpotShaderAtlas(pub GPUTexture);
+pub struct DirectionalShaderAtlas(pub GPU2DArrayDepthTextureView);
+pub struct SpotShaderAtlas(pub GPU2DArrayDepthTextureView);
 
 pub struct DirectionalUniformLightList {
   light: UpdateResultToken,
@@ -41,27 +41,29 @@ impl RenderImplProvider<Box<dyn LightSystemSceneProvider>> for DirectionalUnifor
       .target
       .clone();
 
-    let shadow = res
+    let info = res
       .take_multi_updater_updated::<UniformArray<BasicShadowMapInfo, 8>>(self.shadow)
       .unwrap()
       .target
       .clone();
+    let shadow_map_atlas = res
+      .type_based_result
+      .take::<DirectionalShaderAtlas>()
+      .unwrap()
+      .0;
     Box::new(SceneDirectionalLightingProvider {
       light,
-      shadow,
-      map: res
-        .type_based_result
-        .take::<DirectionalShaderAtlas>()
-        .unwrap()
-        .0,
+      shadow: BasicShadowMapComponent {
+        shadow_map_atlas,
+        info,
+      },
     })
   }
 }
 
 struct SceneDirectionalLightingProvider {
   light: UniformBufferDataView<Shader140Array<DirectionalLightUniform, 8>>,
-  shadow: UniformBufferDataView<Shader140Array<BasicShadowMapInfo, 8>>,
-  map: GPUTexture,
+  shadow: BasicShadowMapComponent,
 }
 
 impl LightSystemSceneProvider for SceneDirectionalLightingProvider {
@@ -166,24 +168,25 @@ impl RenderImplProvider<Box<dyn LightSystemSceneProvider>> for SpotLightUniformL
       .unwrap()
       .target
       .clone();
-
-    let shadow = res
+    let info = res
       .take_multi_updater_updated::<UniformArray<BasicShadowMapInfo, 8>>(self.shadow)
       .unwrap()
       .target
       .clone();
+    let shadow_map_atlas = res.type_based_result.take::<SpotShaderAtlas>().unwrap().0;
     Box::new(SceneSpotLightingProvider {
       light,
-      shadow,
-      map: res.type_based_result.take::<SpotShaderAtlas>().unwrap().0,
+      shadow: BasicShadowMapComponent {
+        shadow_map_atlas,
+        info,
+      },
     })
   }
 }
 
 struct SceneSpotLightingProvider {
   light: UniformBufferDataView<Shader140Array<SpotLightUniform, 8>>,
-  shadow: UniformBufferDataView<Shader140Array<BasicShadowMapInfo, 8>>,
-  map: GPUTexture,
+  shadow: BasicShadowMapComponent,
 }
 
 impl LightSystemSceneProvider for SceneSpotLightingProvider {

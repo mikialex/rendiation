@@ -78,52 +78,25 @@ where
   }
 }
 
-impl<L, S> LightingComputeInvocation for (Node<L>, Node<S>)
-where
-  Node<L>: PunctualShaderLight,
-  Node<S>: ShadowOcclusionQuery,
-{
-  fn compute_lights(
-    &self,
-    shading: &dyn LightableSurfaceShading,
-    geom_ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> ENode<ShaderLightingResult> {
-    let (light, shadow) = &self;
-    let mut incident = light.compute_incident_light(geom_ctx);
+// impl<L, S> LightingComputeInvocation for (Node<L>, Node<S>)
+// where
+//   Node<L>: PunctualShaderLight,
+//   Node<S>: ShadowOcclusionQuery,
+// {
+//   fn compute_lights(
+//     &self,
+//     shading: &dyn LightableSurfaceShading,
+//     geom_ctx: &ENode<ShaderLightingGeometricCtx>,
+//   ) -> ENode<ShaderLightingResult> {
+//     let (light, shadow) = &self;
+//     let mut incident = light.compute_incident_light(geom_ctx);
 
-    let occlusion = val(1.).make_local_var();
-    if_by(incident.color.greater_than(Vec3::splat(0.)).all(), || {
-      occlusion.store(shadow.query_shadow_occlusion(geom_ctx.position, geom_ctx.normal));
-    });
-    incident.color = incident.color * occlusion.load();
+//     let occlusion = val(1.).make_local_var();
+//     if_by(incident.color.greater_than(Vec3::splat(0.)).all(), || {
+//       occlusion.store(shadow.query_shadow_occlusion(geom_ctx.position, geom_ctx.normal));
+//     });
+//     incident.color = incident.color * occlusion.load();
 
-    shading.compute_lighting_by_incident(&incident, geom_ctx)
-  }
-}
-
-pub struct IterAsLightInvocation<T>(pub T);
-impl<T> LightingComputeInvocation for IterAsLightInvocation<T>
-where
-  T::Item: LightingComputeInvocation,
-  T: ShaderIterator + Clone,
-{
-  fn compute_lights(
-    &self,
-    shading: &dyn LightableSurfaceShading,
-    geom_ctx: &ENode<ShaderLightingGeometricCtx>,
-  ) -> ENode<ShaderLightingResult> {
-    let light_specular_result = val(Vec3::zero()).make_local_var();
-    let light_diffuse_result = val(Vec3::zero()).make_local_var();
-
-    self.0.clone().for_each(|light, _| {
-      let r = light.compute_lights(shading, geom_ctx);
-      light_specular_result.store(light_specular_result.load() + r.specular);
-      light_diffuse_result.store(light_diffuse_result.load() + r.diffuse);
-    });
-
-    ENode::<ShaderLightingResult> {
-      diffuse: light_diffuse_result.load(),
-      specular: light_specular_result.load(),
-    }
-  }
-}
+//     shading.compute_lighting_by_incident(&incident, geom_ctx)
+//   }
+// }

@@ -88,7 +88,7 @@ impl BasicShadowMapSystem {
     cx: &mut Context,
     frame_ctx: &mut FrameCtx,
     scene_content: &impl Fn(Mat4<f32>, &mut FrameCtx) -> Box<dyn PassContent + 'a>, /* view_proj mat */
-  ) -> GPUTexture {
+  ) -> GPU2DArrayDepthTextureView {
     let (_, current_layouts) = self.packing.poll_changes(cx); // incremental detail is useless here
     while let Poll::Ready(Some(new_size)) = self.atlas_resize.poll_next_unpin(cx) {
       // if we do shadow cache, we should also do content copy
@@ -144,7 +144,7 @@ impl BasicShadowMapSystem {
       pass.by(&mut scene_content(view_proj, frame_ctx));
     }
 
-    shadow_map_atlas.clone()
+    shadow_map_atlas.create_default_view().try_into().unwrap()
   }
 }
 
@@ -196,6 +196,34 @@ pub trait ShadowOcclusionQuery {
     world_position: Node<Vec3<f32>>,
     world_normal: Node<Vec3<f32>>,
   ) -> Node<f32>;
+}
+
+#[derive(Clone)]
+pub struct BasicShadowMapComponent {
+  pub shadow_map_atlas: GPU2DArrayDepthTextureView,
+  pub info: UniformBufferDataView<Shader140Array<BasicShadowMapInfo, 8>>,
+}
+
+impl BasicShadowMapComponent {
+  pub fn bind_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx.binding.bind(&self.shadow_map_atlas);
+    ctx.bind_immediate_sampler(&SamplerDescriptor {
+      mag_filter: rendiation_webgpu::FilterMode::Linear,
+      min_filter: rendiation_webgpu::FilterMode::Linear,
+      mipmap_filter: rendiation_webgpu::FilterMode::Nearest,
+      compare: Some(CompareFunction::Less),
+      ..Default::default()
+    });
+    ctx.binding.bind(&self.info);
+  }
+
+  pub fn create_invocation(&self, cx: &mut ShaderBindGroupBuilder) -> BasicShadowMapInvocation {
+    BasicShadowMapInvocation {
+      shadow_map_atlas: cx.bind_by(&self.shadow_map_atlas),
+      sampler: cx.bind_by(&ImmediateGPUCompareSamplerViewBind),
+      info: cx.bind_by(&self.info),
+    }
+  }
 }
 
 #[derive(Clone, Copy)]

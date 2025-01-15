@@ -4,8 +4,6 @@ use std::hash::Hash;
 
 use database::*;
 use reactive::*;
-use rendiation_lighting_gpu_system::*;
-use rendiation_lighting_punctual::*;
 use rendiation_scene_core::*;
 pub use rendiation_scene_rendering_gpu_base::*;
 use rendiation_shader_api::*;
