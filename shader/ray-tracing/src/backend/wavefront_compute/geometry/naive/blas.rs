@@ -264,6 +264,7 @@ impl BuiltBlasPack {
   }
 }
 
+#[allow(unused)]
 pub struct HitPoint {
   pub geometry_idx: u32,
   pub primitive_idx: u32,

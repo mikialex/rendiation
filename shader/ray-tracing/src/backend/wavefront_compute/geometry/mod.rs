@@ -1,4 +1,6 @@
+mod lbvh;
 mod naive;
+
 pub use naive::*;
 
 use crate::*;

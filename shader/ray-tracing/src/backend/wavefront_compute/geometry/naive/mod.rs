@@ -19,6 +19,7 @@ use rendiation_space_algorithm::utils::TreeBuildOption;
 use traverse_cpu::*;
 use traverse_gpu::*;
 
+use crate::backend::wavefront_compute::geometry::lbvh::build_tlas_bvh;
 use crate::backend::wavefront_compute::geometry::{intersect_ray_triangle_gpu, Ray};
 use crate::*;
 
@@ -46,7 +47,7 @@ pub struct TlasBounding {
 #[repr(C)]
 #[std430_layout]
 #[derive(Clone, Copy, PartialEq, Debug, ShaderStruct)]
-struct DeviceBVHNode {
+pub struct DeviceBVHNode {
   pub aabb_min: Vec3<f32>,
   pub hit_next: u32,
   pub aabb_max: Vec3<f32>,
@@ -61,6 +62,90 @@ struct NaiveSahBvhSource {
   tlas_source: Vec<Option<Vec<TopLevelAccelerationStructureSourceInstance>>>,
   blas_free_list: Vec<usize>,
   tlas_free_list: Vec<usize>,
+}
+
+pub trait BvhBuilder {
+  fn build_tlas_bvh(
+    self,
+    boxes: &[Box3],
+    node_offset: u32,
+    id_offset: u32,
+  ) -> (Vec<DeviceBVHNode>, Vec<usize>);
+}
+
+pub struct LbvhBuilder;
+impl BvhBuilder for LbvhBuilder {
+  fn build_tlas_bvh(
+    self,
+    boxes: &[Box3],
+    node_offset: u32,
+    id_offset: u32,
+  ) -> (Vec<DeviceBVHNode>, Vec<usize>) {
+    let nodes = build_tlas_bvh(boxes, node_offset, id_offset);
+    let primitive_indices = (0..boxes.len()).collect();
+    (nodes, primitive_indices)
+  }
+}
+
+pub struct SahBuilder;
+impl BvhBuilder for SahBuilder {
+  fn build_tlas_bvh(
+    self,
+    boxes: &[Box3],
+    node_offset: u32,
+    id_offset: u32,
+  ) -> (Vec<DeviceBVHNode>, Vec<usize>) {
+    let bvh = FlattenBVH::new(
+      boxes.iter().cloned(),
+      &mut SAH::new(4),
+      &TreeBuildOption {
+        max_tree_depth: 50,
+        bin_size: 1,
+      },
+    );
+    let traverse_next = compute_bvh_next(&bvh.nodes);
+
+    fn flatten_bvh_to_gpu_node(
+      node: &FlattenBVHNode<Box3>,
+      hit: u32,
+      miss: u32,
+      next_offset: u32,
+      primitive_offset: u32,
+    ) -> DeviceBVHNode {
+      let hit = if hit != INVALID_NEXT {
+        hit + next_offset
+      } else {
+        INVALID_NEXT
+      };
+      let miss = if miss != INVALID_NEXT {
+        miss + next_offset
+      } else {
+        INVALID_NEXT
+      };
+
+      DeviceBVHNode {
+        aabb_min: node.bounding.min,
+        aabb_max: node.bounding.max,
+        hit_next: hit,
+        miss_next: miss,
+        content_range: vec2(
+          node.primitive_range.start as u32 + primitive_offset,
+          node.primitive_range.end as u32 + primitive_offset,
+        ),
+        ..Zeroable::zeroed()
+      }
+    }
+    let nodes = bvh
+      .nodes
+      .iter()
+      .zip(traverse_next)
+      .map(|(node, (hit, miss))| flatten_bvh_to_gpu_node(node, hit, miss, node_offset, id_offset))
+      .collect();
+
+    let primitive_indices = bvh.sorted_primitive_index;
+
+    (nodes, primitive_indices)
+  }
 }
 
 impl NaiveSahBvhSource {
@@ -122,7 +207,10 @@ impl NaiveSahBvhSource {
     blas_box: &[Box3],
     tlas_items_out: &mut Vec<TopLevelAccelerationStructureSourceDeviceInstance>,
     tlas_boundings_out: &mut Vec<TlasBounding>,
-  ) -> (FlattenBVH<Box3>, Vec<(u32, u32)>) {
+    bvh_start: u32,
+    primitive_start: u32,
+    bvh_builder: impl BvhBuilder,
+  ) -> Vec<DeviceBVHNode> {
     let mut tlas_bvh_aabb = vec![];
     let mut index_mapping = vec![]; // tlas_data[index_mapping[idx]] aabb = bvh.nodes[idx].bounding
 
@@ -133,20 +221,12 @@ impl NaiveSahBvhSource {
       tlas_bvh_aabb.push(aabb);
     }
 
-    let mut sah = SAH::new(4);
-    let bvh = FlattenBVH::new(
-      tlas_bvh_aabb.clone().into_iter(),
-      &mut sah,
-      &TreeBuildOption {
-        max_tree_depth: 50,
-        bin_size: 2,
-      },
-    );
-    let traverse_next = compute_bvh_next(&bvh.nodes);
+    let (nodes, primitive_indices) =
+      bvh_builder.build_tlas_bvh(&tlas_bvh_aabb, bvh_start, primitive_start);
 
-    for box_idx in &bvh.sorted_primitive_index {
-      let aabb = tlas_bvh_aabb[*box_idx];
-      let tlas_idx = index_mapping[*box_idx];
+    for box_idx in primitive_indices {
+      let aabb = tlas_bvh_aabb[box_idx];
+      let tlas_idx = index_mapping[box_idx];
       let source = &tlas_data[tlas_idx];
 
       let mut flags = source.flags;
@@ -175,7 +255,7 @@ impl NaiveSahBvhSource {
       tlas_boundings_out.push(tlas_bounding);
     }
 
-    (bvh, traverse_next)
+    nodes
   }
 
   pub fn build(
@@ -186,37 +266,6 @@ impl NaiveSahBvhSource {
   ) {
     // build blas
     let (blas_data_cpu, blas_data_gpu) = self.blas_pool.get(device);
-
-    fn flatten_bvh_to_gpu_node(
-      node: &FlattenBVHNode<Box3>,
-      hit: u32,
-      miss: u32,
-      next_offset: u32,
-      primitive_offset: u32,
-    ) -> DeviceBVHNode {
-      let hit = if hit != INVALID_NEXT {
-        hit + next_offset
-      } else {
-        INVALID_NEXT
-      };
-      let miss = if miss != INVALID_NEXT {
-        miss + next_offset
-      } else {
-        INVALID_NEXT
-      };
-
-      DeviceBVHNode {
-        aabb_min: node.bounding.min,
-        aabb_max: node.bounding.max,
-        hit_next: hit,
-        miss_next: miss,
-        content_range: vec2(
-          node.primitive_range.start as u32 + primitive_offset,
-          node.primitive_range.end as u32 + primitive_offset,
-        ),
-        ..Zeroable::zeroed()
-      }
-    }
 
     // build tlas
     let mut tlas_bvh_root = vec![];
@@ -229,19 +278,16 @@ impl NaiveSahBvhSource {
         let bvh_start = tlas_bvh_forest.len() as u32;
         let primitive_start = tlas_data.len() as u32;
 
-        let (tlas_bvh, tlas_traverse_next) = Self::build_tlas(
+        let nodes = Self::build_tlas(
           tlas,
           &blas_data_cpu.blas_bounding,
           &mut tlas_data,
           &mut tlas_bounding,
+          bvh_start,
+          primitive_start,
+          SahBuilder,
         );
-        let nodes = tlas_bvh
-          .nodes
-          .iter()
-          .zip(tlas_traverse_next)
-          .map(|(node, (hit, miss))| {
-            flatten_bvh_to_gpu_node(node, hit, miss, bvh_start, primitive_start)
-          });
+
         tlas_bvh_root.push(bvh_start);
         tlas_bvh_forest.extend(nodes);
       } else {
