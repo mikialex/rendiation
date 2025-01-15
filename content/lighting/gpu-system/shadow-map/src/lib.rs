@@ -204,8 +204,9 @@ pub struct BasicShadowMapComponent {
   pub info: UniformBufferDataView<Shader140Array<BasicShadowMapInfo, 8>>,
 }
 
-impl BasicShadowMapComponent {
-  pub fn bind_pass(&self, ctx: &mut GPURenderPassCtx) {
+impl AbstractBindingSource for BasicShadowMapComponent {
+  type ShaderBindResult = BasicShadowMapInvocation;
+  fn bind_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.shadow_map_atlas);
     ctx.bind_immediate_sampler(&SamplerDescriptor {
       mag_filter: rendiation_webgpu::FilterMode::Linear,
@@ -217,7 +218,7 @@ impl BasicShadowMapComponent {
     ctx.binding.bind(&self.info);
   }
 
-  pub fn create_invocation(&self, cx: &mut ShaderBindGroupBuilder) -> BasicShadowMapInvocation {
+  fn bind_shader(&self, cx: &mut ShaderBindGroupBuilder) -> BasicShadowMapInvocation {
     BasicShadowMapInvocation {
       shadow_map_atlas: cx.bind_by(&self.shadow_map_atlas),
       sampler: cx.bind_by(&ImmediateGPUCompareSamplerViewBind),
@@ -265,6 +266,39 @@ impl BasicShadowMapInvocation {
   }
 }
 
+impl IntoShaderIterator for BasicShadowMapInvocation {
+  type ShaderIter = BasicShadowMapInvocationIter;
+
+  fn into_shader_iter(self) -> Self::ShaderIter {
+    BasicShadowMapInvocationIter {
+      inner: self,
+      iter: self.info.into_shader_iter(),
+    }
+  }
+}
+
+#[derive(Clone)]
+pub struct BasicShadowMapInvocationIter {
+  inner: BasicShadowMapInvocation,
+  iter: UniformArrayIter<BasicShadowMapInfo, 8>,
+}
+
+impl ShaderIterator for BasicShadowMapInvocationIter {
+  type Item = BasicShadowMapSingleInvocation;
+
+  fn shader_next(&self) -> (Node<bool>, Self::Item) {
+    let (valid, (index, _)) = self.iter.shader_next();
+
+    let item = BasicShadowMapSingleInvocation {
+      sys: self.inner,
+      index,
+    };
+
+    (valid, item)
+  }
+}
+
+#[derive(Clone, Copy)]
 pub struct BasicShadowMapSingleInvocation {
   sys: BasicShadowMapInvocation,
   index: Node<u32>,

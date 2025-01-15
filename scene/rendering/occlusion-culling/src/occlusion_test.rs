@@ -80,10 +80,10 @@ impl AbstractCullerProvider for OcclusionTester {
   }
 
   fn bind(&self, cx: &mut BindingBuilder) {
-    self.depth_pyramid.bind_pass(cx);
-    self.view_projection.bind_pass(cx);
+    cx.bind(&self.depth_pyramid);
+    cx.bind(&self.view_projection);
     self.bounding_provider.bind(cx);
-    self.last_frame_visibility.bind_pass(cx);
+    cx.bind(&self.last_frame_visibility);
   }
 }
 

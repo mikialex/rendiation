@@ -28,7 +28,7 @@ impl AbstractCullerProvider for OnlyLastFrameVisible {
   }
 
   fn bind(&self, cx: &mut BindingBuilder) {
-    self.last_frame.bind_pass(cx);
+    cx.bind(&self.last_frame);
   }
 }
 

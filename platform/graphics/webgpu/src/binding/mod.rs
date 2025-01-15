@@ -231,15 +231,15 @@ impl BindingBuilder {
 
 pub trait AbstractBindingSource {
   type ShaderBindResult;
-  fn bind_pass(&self, ctx: &mut BindingBuilder);
+  fn bind_pass(&self, ctx: &mut GPURenderPassCtx);
   fn bind_shader(&self, ctx: &mut ShaderBindGroupBuilder) -> Self::ShaderBindResult;
 }
 
 impl<T: CacheAbleBindingSource + ShaderBindingProvider> AbstractBindingSource for T {
   type ShaderBindResult = Node<T::Node>;
 
-  fn bind_pass(&self, ctx: &mut BindingBuilder) {
-    ctx.bind(self);
+  fn bind_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx.binding.bind(self);
   }
 
   fn bind_shader(&self, ctx: &mut ShaderBindGroupBuilder) -> Self::ShaderBindResult {

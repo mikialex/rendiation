@@ -72,14 +72,18 @@ impl LightSystemSceneProvider for SceneDirectionalLightingProvider {
     _scene: EntityHandle<SceneEntity>,
   ) -> Option<Box<dyn LightingComputeComponent>> {
     let com = ArrayLights(
-      self.light.clone(),
-      |(_, light_uniform): (Node<u32>, UniformNode<DirectionalLightUniform>)| {
-        let light_uniform = light_uniform.load().expand();
-        ENode::<DirectionalShaderInfo> {
+      LightAndShadowCombinedSource(self.light.clone(), self.shadow.clone()),
+      |((_, light), shadow): (
+        (Node<u32>, UniformNode<DirectionalLightUniform>),
+        BasicShadowMapSingleInvocation,
+      )| {
+        let light_uniform = light.load().expand();
+        let light = ENode::<DirectionalShaderInfo> {
           illuminance: light_uniform.illuminance,
           direction: light_uniform.direction,
         }
-        .construct()
+        .construct();
+        ShadowedPunctualLighting { light, shadow }
       },
     );
     Some(Box::new(com))
@@ -195,10 +199,13 @@ impl LightSystemSceneProvider for SceneSpotLightingProvider {
     _scene: EntityHandle<SceneEntity>,
   ) -> Option<Box<dyn LightingComputeComponent>> {
     let com = ArrayLights(
-      self.light.clone(),
-      |(_, light_uniform): (Node<u32>, UniformNode<SpotLightUniform>)| {
-        let light_uniform = light_uniform.load().expand();
-        ENode::<SpotLightShaderInfo> {
+      LightAndShadowCombinedSource(self.light.clone(), self.shadow.clone()),
+      |((_, light), shadow): (
+        (Node<u32>, UniformNode<SpotLightUniform>),
+        BasicShadowMapSingleInvocation,
+      )| {
+        let light_uniform = light.load().expand();
+        let light = ENode::<SpotLightShaderInfo> {
           luminance_intensity: light_uniform.luminance_intensity,
           position: light_uniform.position,
           direction: light_uniform.direction,
@@ -206,9 +213,11 @@ impl LightSystemSceneProvider for SceneSpotLightingProvider {
           half_cone_cos: light_uniform.half_cone_cos,
           half_penumbra_cos: light_uniform.half_penumbra_cos,
         }
-        .construct()
+        .construct();
+        ShadowedPunctualLighting { light, shadow }
       },
     );
+
     Some(Box::new(com))
   }
 }

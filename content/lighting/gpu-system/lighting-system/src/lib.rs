@@ -78,25 +78,30 @@ where
   }
 }
 
-// impl<L, S> LightingComputeInvocation for (Node<L>, Node<S>)
-// where
-//   Node<L>: PunctualShaderLight,
-//   Node<S>: ShadowOcclusionQuery,
-// {
-//   fn compute_lights(
-//     &self,
-//     shading: &dyn LightableSurfaceShading,
-//     geom_ctx: &ENode<ShaderLightingGeometricCtx>,
-//   ) -> ENode<ShaderLightingResult> {
-//     let (light, shadow) = &self;
-//     let mut incident = light.compute_incident_light(geom_ctx);
+pub struct ShadowedPunctualLighting<L, S> {
+  pub light: L,
+  pub shadow: S,
+}
 
-//     let occlusion = val(1.).make_local_var();
-//     if_by(incident.color.greater_than(Vec3::splat(0.)).all(), || {
-//       occlusion.store(shadow.query_shadow_occlusion(geom_ctx.position, geom_ctx.normal));
-//     });
-//     incident.color = incident.color * occlusion.load();
+impl<L, S> LightingComputeInvocation for ShadowedPunctualLighting<L, S>
+where
+  L: PunctualShaderLight,
+  S: ShadowOcclusionQuery,
+{
+  fn compute_lights(
+    &self,
+    shading: &dyn LightableSurfaceShading,
+    geom_ctx: &ENode<ShaderLightingGeometricCtx>,
+  ) -> ENode<ShaderLightingResult> {
+    let ShadowedPunctualLighting { light, shadow } = &self;
+    let mut incident = light.compute_incident_light(geom_ctx);
 
-//     shading.compute_lighting_by_incident(&incident, geom_ctx)
-//   }
-// }
+    let occlusion = val(1.).make_local_var();
+    if_by(incident.color.greater_than(Vec3::splat(0.)).all(), || {
+      occlusion.store(shadow.query_shadow_occlusion(geom_ctx.position, geom_ctx.normal));
+    });
+    incident.color = incident.color * occlusion.load();
+
+    shading.compute_lighting_by_incident(&incident, geom_ctx)
+  }
+}
