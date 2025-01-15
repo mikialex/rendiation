@@ -62,11 +62,9 @@ impl Query for PackerCurrentView {
   type Value = PackResult2dWithDepth;
   fn iter_key_value(&self) -> impl Iterator<Item = (u32, PackResult2dWithDepth)> + '_ {
     self
-      .packer
-      .current_states()
-      .1
+      .rev_mapping
       .iter()
-      .map(|(k, v)| (k.0, v.1))
+      .map(|(k, v)| (*k, self.packer.current_states().1.get(v).unwrap().1))
   }
 
   fn access(&self, key: &u32) -> Option<PackResult2dWithDepth> {
