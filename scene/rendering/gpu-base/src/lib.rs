@@ -147,14 +147,6 @@ pub trait SceneRenderer: SceneModelRenderer {
   fn get_camera_gpu(&self) -> &dyn CameraRenderImpl;
 }
 
-pub trait LightsRenderImpl {
-  /// todo, in current impl, the lighting is truly global. todo: support filter by scene
-  ///
-  /// impl scene filter is complex to impl because the multi access indirect data required to be
-  /// incrementally maintained in device
-  fn make_component(&self) -> Option<Box<dyn RenderComponent + '_>>;
-}
-
 /// A renderer supports rendering in scene model granularity
 pub trait SceneModelRenderer {
   /// return if render successfully
@@ -208,12 +200,12 @@ impl SceneModelRenderer for Vec<Box<dyn SceneModelRenderer>> {
   }
 }
 
-pub trait FrameCtxParallelCompute {
+pub trait FrameCtxParallelComputeExt {
   fn access_parallel_compute<R>(&mut self, f: impl FnOnce(&mut DeviceParallelComputeCtx) -> R)
     -> R;
 }
 
-impl<'a> FrameCtxParallelCompute for FrameCtx<'a> {
+impl<'a> FrameCtxParallelComputeExt for FrameCtx<'a> {
   fn access_parallel_compute<R>(
     &mut self,
     f: impl FnOnce(&mut DeviceParallelComputeCtx) -> R,

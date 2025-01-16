@@ -254,18 +254,6 @@ impl AsRef<GPUDevice> for GPU {
   }
 }
 
-pub trait IndexBufferSourceType: Pod {
-  const FORMAT: gpu::IndexFormat;
-}
-
-impl IndexBufferSourceType for u32 {
-  const FORMAT: gpu::IndexFormat = gpu::IndexFormat::Uint32;
-}
-
-impl IndexBufferSourceType for u16 {
-  const FORMAT: gpu::IndexFormat = gpu::IndexFormat::Uint16;
-}
-
 #[repr(C)]
 #[std430_layout]
 #[derive(Clone, Copy, ShaderStruct, Debug)]

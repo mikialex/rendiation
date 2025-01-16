@@ -3647,6 +3647,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-occlusion-culling"
+version = "0.1.0"
+dependencies = [
+ "database",
+ "dyn-clone",
+ "dyn-downcast",
+ "fast-hash-collection",
+ "log",
+ "reactive",
+ "rendiation-algebra",
+ "rendiation-device-parallel-compute",
+ "rendiation-geometry",
+ "rendiation-scene-core",
+ "rendiation-scene-rendering-gpu-base",
+ "rendiation-shader-api",
+ "rendiation-shader-library",
+ "rendiation-texture-core",
+ "rendiation-webgpu",
+]
+
+[[package]]
 name = "rendiation-platform-event-input"
 version = "0.1.0"
 dependencies = [
@@ -3752,27 +3773,6 @@ dependencies = [
  "smallvec",
  "thiserror",
  "tobj",
-]
-
-[[package]]
-name = "rendiation-scene-occlusion-culling"
-version = "0.1.0"
-dependencies = [
- "database",
- "dyn-clone",
- "dyn-downcast",
- "fast-hash-collection",
- "log",
- "reactive",
- "rendiation-algebra",
- "rendiation-device-parallel-compute",
- "rendiation-geometry",
- "rendiation-scene-core",
- "rendiation-scene-rendering-gpu-base",
- "rendiation-shader-api",
- "rendiation-shader-library",
- "rendiation-texture-core",
- "rendiation-webgpu",
 ]
 
 [[package]]
@@ -4868,6 +4868,7 @@ dependencies = [
  "rendiation-lighting-transport",
  "rendiation-mesh-core",
  "rendiation-mesh-generator",
+ "rendiation-occlusion-culling",
  "rendiation-scene-core",
  "rendiation-scene-geometry-query",
  "rendiation-scene-gltf-exporter",

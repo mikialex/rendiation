@@ -35,7 +35,7 @@ pub use rendiation_shader_derives::*;
 pub use serialization::*;
 pub use u32_load_store::*;
 
-pub type DynamicShaderAPI = Box<dyn ShaderAPI<Output = Box<dyn Any>>>;
+pub type DynamicShaderAPI = Box<dyn ShaderAPI>;
 
 pub enum BarrierScope {
   Storage,
@@ -45,8 +45,6 @@ pub enum BarrierScope {
 /// In current design, the implementation should not panic when the shader is building
 /// because the upper layer user may well handled error that not expect panic.
 pub trait ShaderAPI {
-  type Output;
-
   fn set_workgroup_size(&mut self, size: (u32, u32, u32));
   fn barrier(&mut self, scope: BarrierScope);
 
@@ -86,7 +84,7 @@ pub trait ShaderAPI {
   fn do_return(&mut self, v: Option<ShaderNodeRawHandle>);
   fn end_fn_define(&mut self) -> ShaderUserDefinedFunction;
 
-  fn build(&mut self) -> (String, Self::Output);
+  fn build(&mut self) -> (String, Box<dyn Any>);
 }
 
 pub struct ShaderBuildingCtx {
@@ -100,9 +98,7 @@ thread_local! {
   static IN_BUILDING_SHADER_API: RefCell<Option<ShaderBuildingCtx>> = const { RefCell::new(None) };
 }
 
-pub(crate) fn call_shader_api<T>(
-  modifier: impl FnOnce(&mut dyn ShaderAPI<Output = Box<dyn Any>>) -> T,
-) -> T {
+pub(crate) fn call_shader_api<T>(modifier: impl FnOnce(&mut dyn ShaderAPI) -> T) -> T {
   IN_BUILDING_SHADER_API.with_borrow_mut(|api| {
     let api = api.as_mut().unwrap();
     let api = match api.current.unwrap() {

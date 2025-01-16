@@ -12,6 +12,7 @@ pub use lighting::*;
 pub use post::*;
 use reactive::EventSource;
 use rendiation_device_ray_tracing::GPUWaveFrontComputeRaytracingSystem;
+use rendiation_occlusion_culling::GPUTwoPassOcclusionCulling;
 use rendiation_scene_rendering_gpu_indirect::build_default_indirect_render_system;
 use rendiation_scene_rendering_gpu_ray_tracing::*;
 use rendiation_texture_gpu_process::copy_frame;
@@ -57,6 +58,7 @@ pub struct Viewer3dRenderingCtx {
   frame_logic: ViewerFrameLogic,
   rendering_resource: ReactiveQueryJoinUpdater,
   renderer_impl: BoxedSceneRenderImplProvider,
+  indirect_occlusion_culling_impl: Option<GPUTwoPassOcclusionCulling>,
   current_renderer_impl_ty: RasterizationRenderBackendType,
   rtx_ao_renderer_impl: Option<RayTracingAORenderSystem>,
   enable_rtx_ao_rendering: bool,
@@ -85,6 +87,7 @@ impl Viewer3dRenderingCtx {
     );
 
     Self {
+      indirect_occlusion_culling_impl: None,
       rendering_resource,
       renderer_impl,
       current_renderer_impl_ty: RasterizationRenderBackendType::Gles,
@@ -100,23 +103,34 @@ impl Viewer3dRenderingCtx {
     }
   }
 
-  pub fn enable_rtx_ao_rendering_support(&mut self) {
-    if self.rtx_ao_renderer_impl.is_none() {
-      let rtx_backend_system = GPUWaveFrontComputeRaytracingSystem::new(&self.gpu);
-      let rtx_system = RtxSystemCore::new(Box::new(rtx_backend_system));
-      let mut rtx_ao_renderer_impl = RayTracingAORenderSystem::new(&rtx_system, &self.gpu);
-
-      rtx_ao_renderer_impl.register_resource(&mut self.rendering_resource, &self.gpu);
-
-      self.rtx_ao_renderer_impl = Some(rtx_ao_renderer_impl);
+  pub fn set_enable_indirect_occlusion_culling_support(&mut self, enable: bool) {
+    if enable {
+      if self.indirect_occlusion_culling_impl.is_none() {
+        self.indirect_occlusion_culling_impl =
+          GPUTwoPassOcclusionCulling::new(u16::MAX as usize).into();
+      }
+    } else {
+      self.indirect_occlusion_culling_impl = None
     }
   }
 
-  pub fn disable_rtx_ao_rendering_support(&mut self) {
-    if let Some(rtx) = &mut self.rtx_ao_renderer_impl {
-      rtx.deregister_resource(&mut self.rendering_resource);
+  pub fn set_enable_rtx_ao_rendering_support(&mut self, enable: bool) {
+    if enable {
+      if self.rtx_ao_renderer_impl.is_none() {
+        let rtx_backend_system = GPUWaveFrontComputeRaytracingSystem::new(&self.gpu);
+        let rtx_system = RtxSystemCore::new(Box::new(rtx_backend_system));
+        let mut rtx_ao_renderer_impl = RayTracingAORenderSystem::new(&rtx_system, &self.gpu);
+
+        rtx_ao_renderer_impl.register_resource(&mut self.rendering_resource, &self.gpu);
+
+        self.rtx_ao_renderer_impl = Some(rtx_ao_renderer_impl);
+      }
+    } else {
+      if let Some(rtx) = &mut self.rtx_ao_renderer_impl {
+        rtx.deregister_resource(&mut self.rendering_resource);
+      }
+      self.rtx_ao_renderer_impl = None;
     }
-    self.rtx_ao_renderer_impl = None;
   }
 
   pub fn egui(&mut self, ui: &mut egui::Ui) {
@@ -149,13 +163,16 @@ impl Viewer3dRenderingCtx {
       );
     }
 
+    let mut indirect_occlusion_culling_impl_exist = self.indirect_occlusion_culling_impl.is_some();
+    ui.checkbox(
+      &mut indirect_occlusion_culling_impl_exist,
+      "occlusion_culling_system_is_ready",
+    );
+    self.set_enable_indirect_occlusion_culling_support(indirect_occlusion_culling_impl_exist);
+
     let mut rtx_ao_renderer_impl_exist = self.rtx_ao_renderer_impl.is_some();
-    ui.checkbox(&mut rtx_ao_renderer_impl_exist, "is_rtx_ao_renderer_active");
-    if !rtx_ao_renderer_impl_exist {
-      self.disable_rtx_ao_rendering_support();
-    } else if self.rtx_ao_renderer_impl.is_none() {
-      self.enable_rtx_ao_rendering_support();
-    }
+    ui.checkbox(&mut rtx_ao_renderer_impl_exist, "rtx_ao_renderer_is_ready");
+    self.set_enable_rtx_ao_rendering_support(rtx_ao_renderer_impl_exist);
 
     if let Some(ao) = &self.rtx_ao_renderer_impl {
       ui.checkbox(&mut self.enable_rtx_ao_rendering, "enable_rtx_ao_rendering");

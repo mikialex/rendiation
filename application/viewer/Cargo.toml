@@ -43,6 +43,7 @@ rendiation-scene-obj-loader = { path = "../../scene/io/obj/loader" }
 rendiation-scene-rendering-gpu-gles = { path = "../../scene/rendering/gpu-gles" }
 rendiation-scene-rendering-gpu-indirect = { path = "../../scene/rendering/gpu-indirect" }
 rendiation-scene-rendering-gpu-ray-tracing = { path = "../../scene/rendering/gpu-ray-tracing" }
+rendiation-occlusion-culling = { path = "../../scene/rendering/occlusion-culling" }
 rendiation-shader-api = { path = "../../shader/api" }
 rendiation-texture-core = { path = "../../content/texture/core" }
 rendiation-texture-gpu-base = { path = "../../content/texture/gpu-base" }

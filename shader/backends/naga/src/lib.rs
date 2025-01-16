@@ -1,4 +1,5 @@
 use core::num::NonZeroU32;
+use std::any::Any;
 
 use fast_hash_collection::*;
 use naga::Span;
@@ -326,8 +327,6 @@ impl ShaderAPINagaImpl {
 }
 
 impl ShaderAPI for ShaderAPINagaImpl {
-  type Output = Box<dyn core::any::Any>;
-
   fn set_workgroup_size(&mut self, size: (u32, u32, u32)) {
     self.module.entry_points[0].workgroup_size = [size.0, size.1, size.2]
   }
@@ -1386,7 +1385,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
     ShaderUserDefinedFunction { name: f_name }
   }
 
-  fn build(&mut self) -> (String, Self::Output) {
+  fn build(&mut self) -> (String, Box<dyn Any>) {
     self.pop_scope();
 
     (ENTRY_POINT_NAME.to_owned(), Box::new(self.module.clone()))
