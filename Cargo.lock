@@ -3485,6 +3485,7 @@ dependencies = [
  "rendiation-shader-api",
  "rendiation-state-override",
  "rendiation-view-override-model",
+ "rendiation-wide-line",
  "widget",
 ]
 
@@ -4075,11 +4076,17 @@ name = "rendiation-wide-line"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
+ "database",
+ "reactive",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-mesh-core",
+ "rendiation-scene-core",
+ "rendiation-scene-rendering-gpu-base",
+ "rendiation-scene-rendering-gpu-gles",
  "rendiation-shader-api",
  "rendiation-webgpu",
+ "rendiation-webgpu-reactive-utils",
 ]
 
 [[package]]

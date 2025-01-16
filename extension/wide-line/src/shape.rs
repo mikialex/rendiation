@@ -1,75 +1,184 @@
 use crate::*;
 
-pub type WideLineMesh = NoneIndexedMesh<LineList, Vec<WideLineVertex>>;
+pub type WideLineUniforms =
+  UniformUpdateContainer<EntityHandle<WideLineModelEntity>, WideLineUniform>;
 
-pub struct WideLineMeshGPU {
-  vertex: GPUBufferResourceView,
-  /// All wide_line gpu instance shall share one instance buffer
-  // instance: Rc<MeshGPU>,
-  range_full: MeshGroup,
+pub fn wide_line_uniforms(cx: &GPU) -> WideLineUniforms {
+  let width = global_watch()
+    .watch::<WideLineWidth>()
+    .into_query_update_uniform(offset_of!(WideLineUniform, width), cx);
+
+  WideLineUniforms::default().with_source(width)
 }
 
-impl WideLineMeshGPU {
-  pub fn draw_command(&self) -> DrawCommand {
-    let range = self.range_full;
-
-    LINE_SEG_INSTANCE.with(|instance| DrawCommand::Indexed {
-      base_vertex: 0,
-      indices: 0..instance.draw_count() as u32,
-      instances: range.into(),
+pub fn wide_line_instance_buffers(
+  cx: &GPU,
+) -> impl ReactiveValueRefQuery<Key = EntityHandle<WideLineModelEntity>, Value = GPUBufferResourceView>
+{
+  let cx = cx.clone();
+  global_watch()
+    .watch::<WideLineMeshBuffer>()
+    .collective_execute_map_by(move || {
+      let cx = cx.clone();
+      move |_, buffer| {
+        create_gpu_buffer(buffer.as_slice(), BufferUsages::VERTEX, &cx.device) //
+          .create_default_view()
+      }
     })
-  }
+    .materialize_unordered()
+}
 
-  pub fn new(mesh: WideLineMesh, device: &GPUDevice) -> WideLineMeshGPU {
-    let vertex = bytemuck::cast_slice(mesh.data.as_slice());
-    let vertex = create_gpu_buffer(vertex, BufferUsages::VERTEX, device).create_default_view();
+#[repr(C)]
+#[std140_layout]
+#[derive(Clone, Copy, ShaderStruct, Default)]
+pub struct WideLineUniform {
+  pub width: f32,
+}
 
-    // let instance = ctx
-    //   .custom_storage
-    //   .write()
-    //   .unwrap()
-    //   .entry()
-    //   .or_insert_with(|| create_wide_line_quad_gpu(&ctx.gpu.device))
-    //   .data
-    //   .clone();
+pub struct WideLineGPU<'a> {
+  pub uniform: &'a UniformBufferDataView<WideLineUniform>,
+  pub index_buffer: &'a GPUBufferResourceView,
+  pub vertex_buffer: &'a GPUBufferResourceView,
+  pub instance_buffer: &'a GPUBufferResourceView,
+}
 
-    let range_full = MeshGroup {
-      start: 0,
-      count: mesh.draw_count(),
-    };
+impl<'a> ShaderHashProvider for WideLineGPU<'a> {
+  shader_hash_type_id! {WideLineGPU<'static>}
+}
 
-    WideLineMeshGPU {
-      vertex,
-      // instance,
-      range_full,
-    }
+impl<'a> ShaderPassBuilder for WideLineGPU<'a> {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx
+      .pass
+      .set_index_buffer_by_buffer_resource_view(self.index_buffer, IndexFormat::Uint16);
+    ctx.set_vertex_buffer_by_buffer_resource_view_next(self.vertex_buffer);
+    ctx.set_vertex_buffer_by_buffer_resource_view_next(self.instance_buffer);
+
+    ctx.binding.bind(self.uniform);
   }
 }
 
-impl GraphicsShaderProvider for WideLineMeshGPU {
+impl<'a> GraphicsShaderProvider for WideLineGPU<'a> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    builder.vertex(|builder, _| {
+    builder.vertex(|builder, binding| {
       builder.register_vertex::<CommonVertex>(VertexStepMode::Vertex);
       builder.register_vertex::<WideLineVertex>(VertexStepMode::Instance);
       builder.primitive_state.topology = rendiation_webgpu::PrimitiveTopology::TriangleList;
       builder.primitive_state.cull_mode = None;
+
+      let uv = builder.query::<GeometryUV>();
+      let color_with_alpha = builder.query::<GeometryColorWithAlpha>();
+      let material = binding.bind_by(&self.uniform).load().expand();
+
+      let vertex_position = wide_line_vertex(
+        builder.query::<CameraProjectionMatrix>(),
+        builder.query::<CameraViewMatrix>(),
+        builder.query::<WorldMatrix>(),
+        builder.query::<WideLineStart>(),
+        builder.query::<WideLineEnd>(),
+        builder.query::<GeometryPosition>(),
+        builder.query::<RenderBufferSize>(),
+        material.width,
+      );
+
+      builder.register::<ClipPosition>(vertex_position);
+      builder.set_vertex_out::<FragmentUv>(uv);
+      builder.set_vertex_out::<FragmentColorAndAlpha>(color_with_alpha);
+    });
+
+    builder.fragment(|builder, _| {
+      let uv = builder.query::<FragmentUv>();
+      let color = builder.query::<FragmentColorAndAlpha>();
+
+      if_by(discard_round_corner(uv), || {
+        builder.discard();
+      });
+
+      builder.register::<DefaultDisplay>(color);
     })
   }
 }
 
-impl ShaderHashProvider for WideLineMeshGPU {
-  shader_hash_type_id! {}
+fn wide_line_vertex(
+  projection: Node<Mat4<f32>>,
+  view: Node<Mat4<f32>>,
+  world_matrix: Node<Mat4<f32>>,
+  wide_line_start: Node<Vec3<f32>>,
+  wide_line_end: Node<Vec3<f32>>,
+  position: Node<Vec3<f32>>,
+  view_size: Node<Vec2<f32>>,
+  width: Node<f32>,
+) -> Node<Vec4<f32>> {
+  let wide_line_start = vec4_node((wide_line_start, val(1.0)));
+  let wide_line_end = vec4_node((wide_line_end, val(1.0)));
+  // camera space
+  let start = view * world_matrix * wide_line_start;
+  let end = view * world_matrix * wide_line_end;
+
+  let aspect = view_size.x() / view_size.y();
+
+  // clip space
+  let clip_start = projection * start;
+  let clip_end = projection * end;
+
+  // ndc space
+  let ndc_start = clip_start.xy() / clip_start.w().splat();
+  let ndc_end = clip_end.xy() / clip_end.w().splat();
+
+  // direction
+  let dir = ndc_end - ndc_start;
+
+  // account for clip-space aspect ratio
+  let dir = vec2_node((dir.x() * aspect, dir.y()));
+  let dir = dir.normalize();
+
+  // perpendicular to dir
+  let offset = vec2_node((dir.y(), -dir.x()));
+
+  // undo aspect ratio adjustment
+  let dir = vec2_node((dir.x() / aspect, dir.y()));
+  let offset = vec2_node((offset.x() / aspect, offset.y()));
+  let offset = offset.make_local_var();
+
+  // sign flip
+  if_by(position.x().less_than(0.), || {
+    offset.store(-offset.load());
+  });
+
+  // end caps
+  if_by(position.y().less_than(0.), || {
+    offset.store(offset.load() - dir);
+  });
+
+  if_by(position.y().greater_than(1.), || {
+    offset.store(offset.load() + dir);
+  });
+
+  let mut offset = offset.load();
+
+  // adjust for width
+  offset *= width.splat();
+  // adjust for clip-space to screen-space conversion // maybe resolution should be based on
+  // viewport ...
+  offset /= view_size.y().splat();
+
+  // select end
+  let clip = position.y().less_than(0.5).select(clip_start, clip_end);
+
+  // back to clip space
+  offset = offset * clip.w();
+  (clip.xy() + offset, clip.zw()).into()
 }
 
-impl ShaderPassBuilder for WideLineMeshGPU {
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    // todo, self.instance.setup_pass(ctx);
-    ctx.set_vertex_buffer_by_buffer_resource_view_next(&self.vertex);
-  }
+fn discard_round_corner(uv: Node<Vec2<f32>>) -> Node<bool> {
+  let a = uv.x();
+  let b = uv.y() + uv.y().greater_than(0.).select(-1., 1.);
+  let len2 = a * a + b * b;
+
+  uv.y().abs().greater_than(1.).and(len2.greater_than(1.))
 }
 
 use bytemuck::{Pod, Zeroable};
-use rendiation_mesh_core::{CommonVertex, NoneIndexedMesh};
 
 #[repr(C)]
 #[derive(Copy, Clone, Zeroable, Pod, ShaderVertex)]
@@ -84,10 +193,6 @@ pub struct WideLineVertex {
 
 only_vertex!(WideLineStart, Vec3<f32>);
 only_vertex!(WideLineEnd, Vec3<f32>);
-
-pub struct WideLineQuadInstance {
-  // data: Rc<MeshGPU>,
-}
 
 fn create_wide_line_quad() -> IndexedMesh<TriangleList, Vec<CommonVertex>, Vec<u16>> {
   #[rustfmt::skip]
@@ -110,12 +215,20 @@ fn create_wide_line_quad() -> IndexedMesh<TriangleList, Vec<CommonVertex>, Vec<u
   IndexedMesh::new(data, index)
 }
 
-thread_local! {
-  static LINE_SEG_INSTANCE: IndexedMesh<TriangleList, Vec<CommonVertex>, Vec<u16>> = create_wide_line_quad()
-}
+pub fn create_wide_line_quad_gpu(gpu: &GPU) -> (GPUBufferResourceView, GPUBufferResourceView) {
+  let line = create_wide_line_quad();
 
-// fn create_wide_line_quad_gpu(device: &GPUDevice) -> WideLineQuadInstance {
-//   WideLineQuadInstance {
-//     data: Rc::new(LINE_SEG_INSTANCE.with(|f| create_gpu(f, device, Default::default()))),
-//   }
-// }
+  let index = create_gpu_buffer(
+    bytemuck::cast_slice(&line.index),
+    BufferUsages::INDEX,
+    &gpu.device,
+  )
+  .create_default_view();
+  let vertex = create_gpu_buffer(
+    bytemuck::cast_slice(&line.vertex),
+    BufferUsages::VERTEX,
+    &gpu.device,
+  )
+  .create_default_view();
+  (index, vertex)
+}

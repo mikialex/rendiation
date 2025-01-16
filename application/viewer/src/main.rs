@@ -62,6 +62,7 @@ where
 
   register_scene_core_data_model();
   register_light_shadow_config();
+  register_gui3d_extension_data_model();
 
   let content_logic = core_viewer_features(content_logic);
 

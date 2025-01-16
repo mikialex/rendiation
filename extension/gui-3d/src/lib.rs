@@ -39,3 +39,7 @@ pub trait WidgetEnvAccess {
   }
   fn get_view_resolution(&self) -> Vec2<u32>;
 }
+
+pub fn register_gui3d_extension_data_model() {
+  rendiation_wide_line::register_wide_line_data_model();
+}

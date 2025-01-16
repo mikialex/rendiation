@@ -18,6 +18,7 @@ rendiation-state-override = { path = "../state-override" }
 fast-hash-collection = { path = "../../utility/fast-hash-collection" }
 rendiation-platform-event-input = { path = "../../platform/event-input" }
 rendiation-view-override-model = { path = "../view-override-model" }
+rendiation-wide-line = { path = "../wide-line" }
 
 [lints]
 workspace = true

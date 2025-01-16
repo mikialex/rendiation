@@ -54,6 +54,10 @@ pub fn srgb4_to_linear4(color: Vec4<f32>) -> Vec4<f32> {
   let linear = LinearRGBColor::from(SRGBColor::from(color.xyz()));
   Vec4::new(linear.r, linear.g, linear.b, color.w)
 }
+pub fn srgb3_to_linear3(color: Vec3<f32>) -> Vec3<f32> {
+  let linear = LinearRGBColor::from(SRGBColor::from(color.xyz()));
+  Vec3::new(linear.r, linear.g, linear.b)
+}
 
 pub trait RenderImplProvider<T> {
   /// this will be called once when application init

@@ -4,7 +4,6 @@ use fast_hash_collection::FastHashMap;
 use futures::{executor::ThreadPool, Future};
 use rendiation_webgpu::ReadableTextureBuffer;
 
-// use super::{ConsoleBuilder, ConsoleEvent, ConsoleWindow};
 use crate::*;
 
 pub struct Terminal {
