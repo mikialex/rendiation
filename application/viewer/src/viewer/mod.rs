@@ -9,8 +9,8 @@ mod terminal;
 pub use pick::*;
 pub use terminal::*;
 
-mod egui_console;
-pub use egui_console::*;
+mod console;
+pub use console::*;
 
 mod rendering;
 pub use rendering::*;
@@ -397,11 +397,13 @@ fn egui(
     });
 
   if ui_state.show_terminal {
-    egui::TopBottomPanel::bottom("view bottom terminal").show(ui, |ui| {
-      cx.scoped_cx(rendering, |cx| {
-        terminal.egui(ui, cx);
+    egui::TopBottomPanel::bottom("view bottom terminal")
+      .resizable(true)
+      .show(ui, |ui| {
+        cx.scoped_cx(rendering, |cx| {
+          terminal.egui(ui, cx);
+        });
       });
-    });
   }
 }
 

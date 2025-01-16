@@ -1,17 +1,14 @@
 use std::{io::Write, path::Path};
 
-use egui::TextBuffer;
 use fast_hash_collection::FastHashMap;
 use futures::{executor::ThreadPool, Future};
 use rendiation_webgpu::ReadableTextureBuffer;
 
-use super::{ConsoleBuilder, ConsoleEvent, ConsoleWindow};
+// use super::{ConsoleBuilder, ConsoleEvent, ConsoleWindow};
 use crate::*;
 
 pub struct Terminal {
-  console: ConsoleWindow,
-  pub current_input: String,
-  pub command_history: Vec<String>,
+  console: Console,
   pub command_registry: FastHashMap<String, TerminalCommandCb>,
   pub executor: ThreadPool,
 }
@@ -19,13 +16,7 @@ pub struct Terminal {
 impl Default for Terminal {
   fn default() -> Self {
     Self {
-      console: ConsoleBuilder::new()
-        .prompt(">> ")
-        .history_size(20)
-        .tab_quote_character('\"')
-        .build(),
-      current_input: Default::default(),
-      command_history: Default::default(),
+      console: Console::new(),
       command_registry: Default::default(),
       executor: futures::executor::ThreadPool::builder()
         .name_prefix("viewer_io_threads")
@@ -41,12 +32,9 @@ type TerminalCommandCb =
 
 impl Terminal {
   pub fn egui(&mut self, ui: &mut egui::Ui, cx: &mut DynCx) {
-    let console_response = self.console.draw(ui);
-    if let ConsoleEvent::Command(command) = console_response {
-      self.current_input.clone_from(&command);
-      self.execute_current(cx);
-      self.console.write(&command);
-      self.console.prompt();
+    let console_response = self.console.ui(ui);
+    if let Some(command) = console_response {
+      self.execute_current(command, cx);
     }
   }
 
@@ -73,8 +61,7 @@ impl Terminal {
     self
   }
 
-  pub fn execute_current(&mut self, ctx: &mut DynCx) {
-    let command = self.current_input.take();
+  pub fn execute_current(&mut self, command: String, ctx: &mut DynCx) {
     let parameters: Vec<String> = command
       .split_ascii_whitespace()
       .map(|s| s.to_owned())
@@ -82,14 +69,13 @@ impl Terminal {
 
     if let Some(command_name) = parameters.first() {
       if let Some(exe) = self.command_registry.get(command_name) {
-        println!("execute: {command}");
-
         let task = exe(ctx, &parameters);
         self.executor.spawn_ok(task);
       } else {
-        println!("unknown command {command_name}")
+        self
+          .console
+          .writeln(format!("unknown command {command_name}"));
       }
-      self.command_history.push(command);
     }
   }
 }
