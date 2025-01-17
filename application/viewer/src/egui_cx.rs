@@ -57,7 +57,7 @@ impl<T> EguiContext<T> {
   pub fn new(inner: T) -> EguiContext<T> {
     let egui_context = egui::Context::default();
 
-    const BORDER_RADIUS: f32 = 2.0;
+    const BORDER_RADIUS: u8 = 2;
 
     let visuals = Visuals {
       window_rounding: egui::Rounding::same(BORDER_RADIUS),
@@ -77,14 +77,14 @@ impl<T> EguiContext<T> {
 
   pub fn begin_frame(&mut self, window: &Window) {
     let state = self.state.as_mut().unwrap();
-    self.context.begin_frame(state.take_egui_input(window));
+    self.context.begin_pass(state.take_egui_input(window));
   }
 
   pub fn end_frame_and_draw(&mut self, gpu: &GPU, window: &Window, target: &RenderTargetView) {
     let state = self.state.as_mut().unwrap();
     let view = target.as_view();
 
-    let full_output = self.context.end_frame();
+    let full_output = self.context.end_pass();
 
     state.handle_platform_output(window, full_output.platform_output);
 
@@ -130,7 +130,7 @@ impl<T> EguiContext<T> {
       &screen_descriptor,
     );
 
-    let mut rpass = encoder.begin_render_pass(&rendiation_webgpu::RenderPassDescriptor {
+    let rpass = encoder.begin_render_pass(&rendiation_webgpu::RenderPassDescriptor {
       color_attachments: &[Some(rendiation_webgpu::RenderPassColorAttachment {
         view,
         resolve_target: None,
@@ -144,6 +144,7 @@ impl<T> EguiContext<T> {
       timestamp_writes: None,
       occlusion_query_set: None,
     });
+    let mut rpass = rpass.forget_lifetime();
     renderer.render(&mut rpass, &tris, &screen_descriptor);
     drop(rpass);
 

@@ -129,7 +129,6 @@ pub fn map_shader_value_ty_to_binding_layout_type(
           StorageFormat::Bgra8Unorm => TextureFormat::Bgra8Unorm,
           StorageFormat::Rgb10a2Uint => TextureFormat::Rgb10a2Uint,
           StorageFormat::Rgb10a2Unorm => TextureFormat::Rgb10a2Unorm,
-          StorageFormat::Rg11b10Float => TextureFormat::Rg11b10Float,
           StorageFormat::Rg32Uint => TextureFormat::Rg32Uint,
           StorageFormat::Rg32Sint => TextureFormat::Rg32Sint,
           StorageFormat::Rg32Float => TextureFormat::Rg32Float,
@@ -232,13 +231,13 @@ impl GPUDevice {
       layout: Some(&pipeline_layout),
       vertex: gpu::VertexState {
         module: &vertex,
-        entry_point: &vertex_entry,
+        entry_point: Some(&vertex_entry),
         buffers: vertex_buffers.as_slice(),
         compilation_options: Default::default(),
       },
       fragment: Some(gpu::FragmentState {
         module: &fragment,
-        entry_point: &frag_entry,
+        entry_point: Some(&frag_entry),
         targets: color_states
           .iter()
           .map(|s| Some(s.clone()))
@@ -352,7 +351,7 @@ impl ComputeIntoPipelineExt for ShaderComputePipelineBuilder {
       label: None,
       layout: Some(&pipeline_layout),
       module: &module,
-      entry_point: &entry,
+      entry_point: Some(&entry),
       compilation_options: Default::default(),
       cache: None,
     });

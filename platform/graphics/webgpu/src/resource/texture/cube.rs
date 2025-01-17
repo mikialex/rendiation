@@ -23,7 +23,7 @@ impl GPUCubeTexture {
   ) -> Self {
     // validation
     queue.write_texture(
-      gpu::ImageCopyTexture {
+      gpu::TexelCopyTextureInfo {
         texture: &self.0,
         mip_level: mip_level as u32,
         origin: gpu::Origin3d {
@@ -34,7 +34,7 @@ impl GPUCubeTexture {
         aspect: gpu::TextureAspect::All,
       },
       source.as_bytes(),
-      gpu::ImageDataLayout {
+      gpu::TexelCopyBufferLayout {
         offset: 0,
         bytes_per_row: Some(source.bytes_per_row()),
         rows_per_image: None,

@@ -49,7 +49,7 @@ pub enum BufferInit<'a> {
   Zeroed(std::num::NonZeroU64),
 }
 
-impl<'a> BufferInit<'a> {
+impl BufferInit<'_> {
   pub fn size(&self) -> NonZeroU64 {
     match self {
       BufferInit::WithInit(bytes) => std::num::NonZeroU64::new(bytes.len() as u64).unwrap(),

@@ -214,7 +214,7 @@ impl<'a, T: Std430> From<&'a [T]> for StorageBufferInit<'a, [T]> {
   }
 }
 
-impl<'a, T: Std430> From<usize> for StorageBufferInit<'a, [T]> {
+impl<T: Std430> From<usize> for StorageBufferInit<'_, [T]> {
   fn from(len: usize) -> Self {
     let byte_len = std::mem::size_of::<T>() * len;
     StorageBufferInit::Zeroed(NonZeroU64::new(byte_len as u64).unwrap())

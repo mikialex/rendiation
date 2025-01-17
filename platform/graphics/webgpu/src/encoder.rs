@@ -166,15 +166,15 @@ impl GPUCommandEncoder {
     let (upload_buffer, size) = source.create_upload_buffer(device);
 
     self.encoder.copy_buffer_to_texture(
-      gpu::ImageCopyBuffer {
+      gpu::TexelCopyBufferInfo {
         buffer: &upload_buffer,
-        layout: gpu::ImageDataLayout {
+        layout: gpu::TexelCopyBufferLayout {
           offset: 0,
           bytes_per_row: Some(Into::<usize>::into(size.width) as u32),
           rows_per_image: Some(Into::<usize>::into(size.height) as u32),
         },
       },
-      gpu::ImageCopyTexture {
+      gpu::TexelCopyTextureInfo {
         texture: &target.0,
         mip_level: 0,
         origin: gpu::Origin3d {

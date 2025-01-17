@@ -1,5 +1,4 @@
 #![feature(hash_set_entry)]
-#![feature(async_closure)] // used in testing
 
 use std::any::Any;
 use std::fmt::Debug;

@@ -158,7 +158,9 @@ pub struct GPURenderPass {
 
 impl AbstractPassBinding for GPURenderPass {
   fn set_bind_group_placeholder(&mut self, index: u32) {
-    self.pass.set_bind_group(index, &self.placeholder_bg, &[]);
+    self
+      .pass
+      .set_bind_group(index, self.placeholder_bg.as_ref(), &[]);
   }
 
   fn set_bind_group(&mut self, index: u32, bind_group: &BindGroup, offsets: &[DynamicOffset]) {
@@ -320,7 +322,9 @@ pub struct GPUComputePass {
 
 impl AbstractPassBinding for GPUComputePass {
   fn set_bind_group_placeholder(&mut self, index: u32) {
-    self.pass.set_bind_group(index, &self.placeholder_bg, &[]);
+    self
+      .pass
+      .set_bind_group(index, self.placeholder_bg.as_ref(), &[]);
   }
 
   fn set_bind_group(&mut self, index: u32, bind_group: &BindGroup, offsets: &[DynamicOffset]) {

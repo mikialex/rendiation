@@ -61,7 +61,7 @@ impl GPU2DTexture {
     origin: TextureOrigin,
   ) -> &Self {
     queue.write_texture(
-      gpu::ImageCopyTexture {
+      gpu::TexelCopyTextureInfo {
         texture: &self.0.inner.resource,
         mip_level: mip_level as u32,
         origin: gpu::Origin3d {
@@ -72,7 +72,7 @@ impl GPU2DTexture {
         aspect: gpu::TextureAspect::All,
       },
       source.as_bytes(),
-      gpu::ImageDataLayout {
+      gpu::TexelCopyBufferLayout {
         offset: 0,
         bytes_per_row: Some(source.bytes_per_row()),
         rows_per_image: None,

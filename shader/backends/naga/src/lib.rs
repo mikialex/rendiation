@@ -45,6 +45,7 @@ impl ShaderAPINagaImpl {
       early_depth_test: None,
       workgroup_size: [0, 0, 0],
       function: Default::default(),
+      workgroup_size_overrides: None,
     };
     module.entry_points.push(entry);
 
@@ -243,7 +244,6 @@ impl ShaderAPINagaImpl {
             StorageFormat::Bgra8Unorm => naga::StorageFormat::Bgra8Unorm,
             StorageFormat::Rgb10a2Uint => naga::StorageFormat::Rgb10a2Uint,
             StorageFormat::Rgb10a2Unorm => naga::StorageFormat::Rgb10a2Unorm,
-            StorageFormat::Rg11b10Float => naga::StorageFormat::Rg11b10Float,
             StorageFormat::Rg32Uint => naga::StorageFormat::Rg32Uint,
             StorageFormat::Rg32Sint => naga::StorageFormat::Rg32Sint,
             StorageFormat::Rg32Float => naga::StorageFormat::Rg32Float,
@@ -759,7 +759,10 @@ impl ShaderAPI for ShaderAPINagaImpl {
                     .module
                     .generate_predeclared_type(naga::PredeclaredType::ModfResult {
                       size,
-                      width: ty_help_info.size_of_self() as u8,
+                      scalar: naga::Scalar {
+                        kind: naga::ScalarKind::Float,
+                        width: ty_help_info.size_of_self() as u8,
+                      },
                     });
 
                   naga::MathFunction::Modf
@@ -771,7 +774,10 @@ impl ShaderAPI for ShaderAPINagaImpl {
                     .module
                     .generate_predeclared_type(naga::PredeclaredType::FrexpResult {
                       size,
-                      width: ty_help_info.size_of_self() as u8,
+                      scalar: naga::Scalar {
+                        kind: naga::ScalarKind::Float,
+                        width: ty_help_info.size_of_self() as u8,
+                      },
                     });
 
                   naga::MathFunction::Frexp
@@ -800,8 +806,6 @@ impl ShaderAPI for ShaderAPINagaImpl {
                 ShaderBuiltInFunction::ReverseBits => naga::MathFunction::ReverseBits,
                 ShaderBuiltInFunction::ExtractBits => naga::MathFunction::ExtractBits,
                 ShaderBuiltInFunction::InsertBits => naga::MathFunction::InsertBits,
-                ShaderBuiltInFunction::FindLsb => naga::MathFunction::FindLsb,
-                ShaderBuiltInFunction::FindMsb => naga::MathFunction::FindMsb,
                 ShaderBuiltInFunction::Pack4x8snorm => naga::MathFunction::Pack4x8snorm,
                 ShaderBuiltInFunction::Pack4x8unorm => naga::MathFunction::Pack4x8unorm,
                 ShaderBuiltInFunction::Pack2x16snorm => naga::MathFunction::Pack2x16snorm,

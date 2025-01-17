@@ -1,5 +1,3 @@
-#![feature(option_get_or_insert_default)]
-
 use std::borrow::Cow;
 use std::fs::{self, File};
 use std::io::BufWriter;

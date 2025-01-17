@@ -482,7 +482,6 @@ pub enum StorageFormat {
   // Packed 32-bit formats
   Rgb10a2Uint,
   Rgb10a2Unorm,
-  Rg11b10Float,
 
   // 64-bit formats
   Rg32Uint,
@@ -541,7 +540,6 @@ impl TryFrom<TextureFormat> for StorageFormat {
       TextureFormat::Bgra8UnormSrgb => StorageFormat::Rgba8Unorm,
       TextureFormat::Rgb10a2Uint => StorageFormat::Rgb10a2Uint,
       TextureFormat::Rgb10a2Unorm => StorageFormat::Rgb10a2Unorm,
-      TextureFormat::Rg11b10Float => StorageFormat::Rg11b10Float,
       TextureFormat::Rg32Uint => StorageFormat::Rg32Uint,
       TextureFormat::Rg32Sint => StorageFormat::Rg32Sint,
       TextureFormat::Rg32Float => StorageFormat::Rg32Float,

@@ -127,11 +127,10 @@ impl GPU {
   pub async fn new(
     config: GPUCreateConfig<'_>,
   ) -> Result<(Self, Option<GPUSurface>), GPUCreateFailure> {
-    let _instance = gpu::Instance::new(gpu::InstanceDescriptor {
+    let _instance = gpu::Instance::new(&gpu::InstanceDescriptor {
       backends: config.backends,
-      dx12_shader_compiler: Default::default(),
       flags: Default::default(),
-      gles_minor_version: Default::default(),
+      backend_options: Default::default(),
     });
     let power_preference = gpu::PowerPreference::HighPerformance;
 
