@@ -62,7 +62,7 @@ impl<K: Hash + Eq + Clone, T> StreamMap<K, T> {
 
   pub fn remove(&mut self, key: K) -> Option<T> {
     self.waker.wake();
-    self.streams.remove(&key).inspect(|d| {
+    self.streams.remove(&key).inspect(|_| {
       self.ref_changes.push(RefChange::Remove(key));
     })
   }

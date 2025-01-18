@@ -6,12 +6,12 @@ use rendiation_algebra::{Lerp, Vec2};
 pub use sobol::*;
 
 /// https://www.pbr-book.org/3ed-2018/Sampling_and_Reconstruction/Sampling_Interface#fragment-SamplerInterface-2
-
+///
 /// Because sample values must be strictly less than 1,
 /// OneMinusEpsilon, that represents the largest representable floating-point constant that is less
 /// than 1. Later, we will clamp sample vector values to be no larger than this value.
-// const ONE_MINUS_EPSILON: f32 = 0x1.ffffffep - 1;
-
+/// const ONE_MINUS_EPSILON: f32 = 0x1.ffffffep - 1;
+///
 /// The task of a Sampler is to generate a sequence of -dimensional samples in
 /// [0, 1) ^ d
 pub trait Sampler {

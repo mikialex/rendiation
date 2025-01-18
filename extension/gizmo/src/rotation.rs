@@ -92,9 +92,8 @@ fn handle_rotating(
   // M-1(local_translate) * M-1(parent) * new_hit_world =  M(new_local_rotate) * M(local_scale) * start_hit_local_position
   // should we support world space point align like above? but the question is, we have to also modify scale, because
   // it's maybe impossible to rotate one point to the other if your rotation center is origin.
-
+  //
   // here we use simple screen space rotation match local space to see the effects.
-
   let vp = action.camera_projection * action.camera_world.inverse()?;
 
   let start_hit_screen_position = (vp * states.start_hit_world_position).xy();

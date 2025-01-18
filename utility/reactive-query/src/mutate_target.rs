@@ -11,9 +11,7 @@ pub trait QueryLikeMutateTarget<K, V: CValue> {
   fn set_value(&mut self, k: K, v: V) -> Option<V>;
 }
 
-impl<K: CKey, V: CValue, T: QueryLikeMutateTarget<K, V>> QueryLikeMutateTarget<K, V>
-  for &mut T
-{
+impl<K: CKey, V: CValue, T: QueryLikeMutateTarget<K, V>> QueryLikeMutateTarget<K, V> for &mut T {
   fn get_current(&self, k: K) -> Option<&V> {
     (**self).get_current(k)
   }

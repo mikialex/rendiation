@@ -21,10 +21,13 @@ impl<T: Widget> winit::application::ApplicationHandler for WinitAppImpl<T> {
         .unwrap();
       window.request_redraw();
 
+      let width = window.inner_size().width;
+      let height = window.inner_size().height;
+
       let config = GPUCreateConfig {
         surface_for_compatible_check_init: Some((
           &window,
-          Size::from_usize_pair_min_one((300, 200)),
+          Size::from_u32_pair_min_one((width, height)),
         )),
         ..Default::default()
       };

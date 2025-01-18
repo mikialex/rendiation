@@ -464,9 +464,9 @@ where
     }
   }
 
-  async fn read_back_host<'a>(
+  async fn read_back_host(
     &self,
-    cx: &mut DeviceParallelComputeCtx<'a>,
+    cx: &mut DeviceParallelComputeCtx<'_>,
   ) -> Result<(DeviceMaterializeResult<T>, Option<Vec3<u32>>, Vec<T>), BufferAsyncError> {
     let output = self.materialize_storage_buffer(cx);
     cx.flush_pass();
