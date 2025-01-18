@@ -21,21 +21,21 @@ struct FullReaderReadWithBarycentric<'a> {
   barycentric: Vec3<f32>,
 }
 
-impl<'a> Eq for FullReaderReadWithBarycentric<'a> {}
-impl<'a> PartialEq for FullReaderReadWithBarycentric<'a> {
+impl Eq for FullReaderReadWithBarycentric<'_> {}
+impl PartialEq for FullReaderReadWithBarycentric<'_> {
   fn eq(&self, other: &Self) -> bool {
     self.inner == other.inner && self.barycentric == other.barycentric
   }
 }
 
-impl<'a> Hash for FullReaderReadWithBarycentric<'a> {
+impl Hash for FullReaderReadWithBarycentric<'_> {
   fn hash<H: Hasher>(&self, state: &mut H) {
     self.inner.hash(state);
     self.barycentric.map(|f| f.to_bits()).hash(state);
   }
 }
 
-impl<'a> AttributeVertex for FullReaderReadWithBarycentric<'a> {
+impl AttributeVertex for FullReaderReadWithBarycentric<'_> {
   fn layout(&self) -> Vec<AttributeSemantic> {
     let mut inner = self.inner.layout();
 
@@ -111,7 +111,7 @@ pub struct SolidLinedMeshGPU<'a> {
 
 both!(BarycentricCoord, Vec3<f32>);
 
-impl<'a> GraphicsShaderProvider for SolidLinedMeshGPU<'a> {
+impl GraphicsShaderProvider for SolidLinedMeshGPU<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     self.inner.build(builder);
     builder.vertex(|builder, _| {
@@ -140,10 +140,10 @@ impl<'a> GraphicsShaderProvider for SolidLinedMeshGPU<'a> {
   }
 }
 
-impl<'a> ShaderHashProvider for SolidLinedMeshGPU<'a> {
+impl ShaderHashProvider for SolidLinedMeshGPU<'_> {
   shader_hash_type_id! {SolidLinedMeshGPU<'static>}
 }
-impl<'a> ShaderPassBuilder for SolidLinedMeshGPU<'a> {
+impl ShaderPassBuilder for SolidLinedMeshGPU<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.inner.setup_pass(ctx);
   }

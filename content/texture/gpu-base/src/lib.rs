@@ -52,7 +52,7 @@ pub struct GPUBufferImageForeignImpl<'a> {
   pub inner: &'a GPUBufferImage,
 }
 
-impl<'a> WebGPU2DTextureSource for GPUBufferImageForeignImpl<'a> {
+impl WebGPU2DTextureSource for GPUBufferImageForeignImpl<'_> {
   fn format(&self) -> TextureFormat {
     self.inner.format
   }

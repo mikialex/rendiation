@@ -6,7 +6,7 @@ version = "0.1.0"
 
 [dependencies]
 rendiation-shader-api = { path = "../../api" }
-naga = { version = "22" }
+naga = { version = "24" }
 fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 
 [lints]

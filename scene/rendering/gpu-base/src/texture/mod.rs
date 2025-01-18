@@ -137,7 +137,7 @@ impl TextureGPUSystemSource {
 #[allow(clippy::borrowed_box)]
 pub struct GPUTextureSystemAsRenderComponent<'a>(pub &'a Box<dyn DynAbstractGPUTextureSystem>);
 
-impl<'a> ShaderHashProvider for GPUTextureSystemAsRenderComponent<'a> {
+impl ShaderHashProvider for GPUTextureSystemAsRenderComponent<'_> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.0.hash_pipeline(hasher);
   }
@@ -146,7 +146,7 @@ impl<'a> ShaderHashProvider for GPUTextureSystemAsRenderComponent<'a> {
   }
 }
 
-impl<'a> ShaderPassBuilder for GPUTextureSystemAsRenderComponent<'a> {
+impl ShaderPassBuilder for GPUTextureSystemAsRenderComponent<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.0.setup_pass(ctx);
   }
@@ -155,7 +155,7 @@ impl<'a> ShaderPassBuilder for GPUTextureSystemAsRenderComponent<'a> {
     self.0.post_setup_pass(ctx);
   }
 }
-impl<'a> GraphicsShaderProvider for GPUTextureSystemAsRenderComponent<'a> {
+impl GraphicsShaderProvider for GPUTextureSystemAsRenderComponent<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     self.0.build(builder)
   }

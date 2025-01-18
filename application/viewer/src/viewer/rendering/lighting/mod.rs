@@ -207,7 +207,7 @@ pub struct SceneLightSystem<'a> {
   imp: Box<dyn LightSystemSceneProvider>,
 }
 
-impl<'a> SceneLightSystem<'a> {
+impl SceneLightSystem<'_> {
   pub fn get_scene_lighting(
     &self,
     scene: EntityHandle<SceneEntity>,

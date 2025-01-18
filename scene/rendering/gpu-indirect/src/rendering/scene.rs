@@ -118,7 +118,7 @@ impl IndirectSceneRenderer {
       self
         .renderer
         .hash_shader_group_key_with_self_type_info(sm, &mut hasher)
-        .expect("unable to find indirect group key for scene_model: {sm}");
+        .expect("unable to find indirect group key for scene_model");
       let shader_hash = hasher.finish();
       let list = classifier.entry(shader_hash).or_insert_with(Vec::new);
       list.push(sm);
@@ -247,7 +247,7 @@ struct IndirectScenePassContent<'a> {
   camera: Box<dyn RenderComponent + 'a>,
 }
 
-impl<'a> PassContent for IndirectScenePassContent<'a> {
+impl PassContent for IndirectScenePassContent<'_> {
   fn render(&mut self, cx: &mut FrameRenderPass) {
     let base = default_dispatcher(cx);
     let p = RenderArray([&base, self.pass] as [&dyn rendiation_webgpu::RenderComponent; 2]);

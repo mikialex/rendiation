@@ -204,14 +204,14 @@ fn copy_tex(
   target: &GPUTexture,
   pack: &PackResult2dWithDepth,
 ) {
-  let source = ImageCopyTexture {
+  let source = TexelCopyTextureInfo {
     texture: src.resource.gpu_resource(),
     mip_level: 0,
     origin: Origin3d::ZERO,
     aspect: TextureAspect::All,
   };
 
-  let dst = ImageCopyTexture {
+  let dst = TexelCopyTextureInfo {
     texture: target.gpu_resource(),
     mip_level: 0,
     origin: Origin3d {

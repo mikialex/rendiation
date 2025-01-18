@@ -36,7 +36,7 @@ pub trait AttributeVertex {
   fn write(self, target: &mut [Vec<u8>]);
 }
 
-impl<'a> AttributeVertex for FullReaderRead<'a> {
+impl AttributeVertex for FullReaderRead<'_> {
   fn write(self, target: &mut [Vec<u8>]) {
     for (source, target) in self.read_bytes().zip(target.iter_mut()) {
       target.extend_from_slice(source)

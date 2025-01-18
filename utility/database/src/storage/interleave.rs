@@ -201,7 +201,6 @@ impl<T: CValue> ComponentStorageReadWriteView<T> for InterleavedDataContainerRea
 }
 
 /// All interleave component has same allocation layout, so the must in same entity(E);
-
 pub struct InterleavedDataContainerBuilder<E> {
   phantom: PhantomData<E>,
   layout: Option<Layout>,

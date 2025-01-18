@@ -48,7 +48,7 @@ where
   pub node: &'a BSTNode<T, N, D>,
 }
 
-impl<'a, T, const N: usize, const D: usize> AbstractTreeNode for BSTTreeNodeRef<'a, T, N, D>
+impl<T, const N: usize, const D: usize> AbstractTreeNode for BSTTreeNodeRef<'_, T, N, D>
 where
   T: BinarySpaceTree<D, N>,
 {

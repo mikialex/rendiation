@@ -147,7 +147,7 @@ impl<'a, T> Iterator for Iter<'a, T> {
   }
 }
 
-impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
+impl<T> DoubleEndedIterator for Iter<'_, T> {
   fn next_back(&mut self) -> Option<Self::Item> {
     loop {
       match self.inner.next_back() {
@@ -176,13 +176,13 @@ impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
   }
 }
 
-impl<'a, T> ExactSizeIterator for Iter<'a, T> {
+impl<T> ExactSizeIterator for Iter<'_, T> {
   fn len(&self) -> usize {
     self.len
   }
 }
 
-impl<'a, T> FusedIterator for Iter<'a, T> {}
+impl<T> FusedIterator for Iter<'_, T> {}
 
 impl<'a, T> IntoIterator for &'a mut Arena<T> {
   type Item = (Handle<T>, &'a mut T);
@@ -253,7 +253,7 @@ impl<'a, T> Iterator for IterMut<'a, T> {
   }
 }
 
-impl<'a, T> DoubleEndedIterator for IterMut<'a, T> {
+impl<T> DoubleEndedIterator for IterMut<'_, T> {
   fn next_back(&mut self) -> Option<Self::Item> {
     loop {
       match self.inner.next_back() {
@@ -282,13 +282,13 @@ impl<'a, T> DoubleEndedIterator for IterMut<'a, T> {
   }
 }
 
-impl<'a, T> ExactSizeIterator for IterMut<'a, T> {
+impl<T> ExactSizeIterator for IterMut<'_, T> {
   fn len(&self) -> usize {
     self.len
   }
 }
 
-impl<'a, T> FusedIterator for IterMut<'a, T> {}
+impl<T> FusedIterator for IterMut<'_, T> {}
 
 /// An iterator that removes elements from the arena.
 ///
@@ -322,7 +322,7 @@ pub struct Drain<'a, T: 'a> {
   pub(crate) inner: iter::Enumerate<vec::Drain<'a, Entry<T>>>,
 }
 
-impl<'a, T> Iterator for Drain<'a, T> {
+impl<T> Iterator for Drain<'_, T> {
   type Item = (Handle<T>, T);
 
   fn next(&mut self) -> Option<Self::Item> {

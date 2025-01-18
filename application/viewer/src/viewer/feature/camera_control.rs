@@ -46,7 +46,7 @@ struct ControlleeWrapper<'a> {
   writer: &'a mut SceneWriter,
 }
 
-impl<'a> Transformed3DControllee for ControlleeWrapper<'a> {
+impl Transformed3DControllee for ControlleeWrapper<'_> {
   fn get_matrix(&self) -> Mat4<f32> {
     self.writer.get_local_mat(self.controllee).unwrap()
   }

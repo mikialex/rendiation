@@ -394,7 +394,7 @@ impl NaiveSahBvhSource {
     //   box_bvh_forest.extend(nodes);
     // }
 
-    fn create_gpu_buffer<T>(device: &GPUDevice, data: &Vec<T>) -> StorageBufferReadOnlyDataView<[T]>
+    fn create_gpu_buffer<T>(device: &GPUDevice, data: &[T]) -> StorageBufferReadOnlyDataView<[T]>
     where
       [T]: Std430MaybeUnsized,
       T: Zeroable,
@@ -415,7 +415,7 @@ impl NaiveSahBvhSource {
     // let gpu_box_bvh_forest = create_gpu_buffer(device, &box_bvh_forest);
     let gpu_indices_redirect = create_gpu_buffer(device, &indices_redirect);
     let gpu_indices = create_gpu_buffer(device, &indices);
-    let gpu_vertices = create_gpu_buffer(device, &cast_slice(&vertices).to_vec());
+    let gpu_vertices = create_gpu_buffer(device, cast_slice(&vertices));
     // let gpu_boxes = create_gpu_buffer(device, &cast_slice(&boxes).to_vec());
 
     // build tlas

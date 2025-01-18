@@ -208,7 +208,7 @@ struct SceneCameraTAAContent<'a, F> {
   f: F,
 }
 
-impl<'a, F> TAAContent for SceneCameraTAAContent<'a, F>
+impl<F> TAAContent for SceneCameraTAAContent<'_, F>
 where
   F: FnOnce(&mut FrameCtx) -> NewTAAFrameSample,
 {

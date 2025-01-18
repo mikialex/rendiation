@@ -30,7 +30,7 @@ pub trait IndirectDrawProvider: ShaderHashProvider + ShaderPassBuilder {
 
 pub struct IndirectDrawProviderAsRenderComponent<'a>(pub &'a dyn IndirectDrawProvider);
 
-impl<'a> ShaderHashProvider for IndirectDrawProviderAsRenderComponent<'a> {
+impl ShaderHashProvider for IndirectDrawProviderAsRenderComponent<'_> {
   fn hash_type_info(&self, hasher: &mut PipelineHasher) {
     self.0.hash_type_info(hasher)
   }
@@ -38,13 +38,13 @@ impl<'a> ShaderHashProvider for IndirectDrawProviderAsRenderComponent<'a> {
     self.0.hash_pipeline(hasher);
   }
 }
-impl<'a> ShaderPassBuilder for IndirectDrawProviderAsRenderComponent<'a> {
+impl ShaderPassBuilder for IndirectDrawProviderAsRenderComponent<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.0.setup_pass(ctx);
   }
 }
 
-impl<'a> GraphicsShaderProvider for IndirectDrawProviderAsRenderComponent<'a> {
+impl GraphicsShaderProvider for IndirectDrawProviderAsRenderComponent<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, binder| {
       let invocation = self.0.create_indirect_invocation_source(binder);

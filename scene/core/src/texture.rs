@@ -135,7 +135,7 @@ pub struct TexSamplerWriter<'a> {
   pub sampler_writer: &'a mut EntityWriter<SceneSamplerEntity>,
 }
 
-impl<'a> TexSamplerWriter<'a> {
+impl TexSamplerWriter<'_> {
   pub fn write_tex_with_default_sampler(
     &mut self,
     texture: GPUBufferImage,
@@ -168,7 +168,7 @@ pub struct TexCubeWriter<'a> {
   pub cube_writer: &'a mut EntityWriter<SceneTextureCubeEntity>,
 }
 
-impl<'a> TexCubeWriter<'a> {
+impl TexCubeWriter<'_> {
   pub fn write_cube_tex(
     &mut self,
     x_pos: GPUBufferImage,

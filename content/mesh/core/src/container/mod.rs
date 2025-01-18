@@ -130,7 +130,7 @@ pub struct AbstractMeshIter<'a, G> {
   count: usize,
 }
 
-impl<'a, G: AbstractMesh> Iterator for AbstractMeshIter<'a, G> {
+impl<G: AbstractMesh> Iterator for AbstractMeshIter<'_, G> {
   type Item = G::Primitive;
 
   #[inline(always)]
@@ -149,7 +149,7 @@ impl<'a, G: AbstractMesh> Iterator for AbstractMeshIter<'a, G> {
   }
 }
 
-impl<'a, G: AbstractMesh> CollectionSize for AbstractMeshIter<'a, G> {
+impl<G: AbstractMesh> CollectionSize for AbstractMeshIter<'_, G> {
   #[inline(always)]
   fn len(&self) -> usize {
     self.mesh.primitive_count() - self.current
@@ -162,7 +162,7 @@ pub struct AbstractMeshUncheckIter<'a, G> {
   count: usize,
 }
 
-impl<'a, G: AbstractMesh> Iterator for AbstractMeshUncheckIter<'a, G> {
+impl<G: AbstractMesh> Iterator for AbstractMeshUncheckIter<'_, G> {
   type Item = G::Primitive;
 
   #[inline(always)]
@@ -181,7 +181,7 @@ impl<'a, G: AbstractMesh> Iterator for AbstractMeshUncheckIter<'a, G> {
   }
 }
 
-impl<'a, G: AbstractMesh> CollectionSize for AbstractMeshUncheckIter<'a, G> {
+impl<G: AbstractMesh> CollectionSize for AbstractMeshUncheckIter<'_, G> {
   #[inline(always)]
   fn len(&self) -> usize {
     self.mesh.primitive_count() - self.current

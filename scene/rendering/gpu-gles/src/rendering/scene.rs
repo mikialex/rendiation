@@ -172,7 +172,7 @@ struct GLESScenePassContent<'a> {
   camera: Box<dyn RenderComponent + 'a>,
 }
 
-impl<'a> PassContent for GLESScenePassContent<'a> {
+impl PassContent for GLESScenePassContent<'_> {
   fn render(&mut self, pass: &mut FrameRenderPass) {
     let base = default_dispatcher(pass);
     let p = RenderArray([&base, self.pass] as [&dyn rendiation_webgpu::RenderComponent; 2]);

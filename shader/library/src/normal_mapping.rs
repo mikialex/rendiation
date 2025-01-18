@@ -32,7 +32,7 @@ pub trait BuilderNormalExt {
   fn get_or_compute_fragment_normal(&mut self) -> Node<Vec3<f32>>;
 }
 
-impl<'a> BuilderNormalExt for ShaderFragmentBuilderView<'a> {
+impl BuilderNormalExt for ShaderFragmentBuilderView<'_> {
   fn get_or_compute_fragment_normal(&mut self) -> Node<Vec3<f32>> {
     // check first and avoid unnecessary renormalize
     if let Some(normal) = self.try_query::<FragmentWorldNormal>() {

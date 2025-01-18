@@ -25,21 +25,21 @@ pub struct InfinityShaderPlaneEffect<'a> {
   pub camera: &'a dyn RenderComponent,
 }
 
-impl<'a> ShaderHashProvider for InfinityShaderPlaneEffect<'a> {
+impl ShaderHashProvider for InfinityShaderPlaneEffect<'_> {
   shader_hash_type_id! {InfinityShaderPlaneEffect<'static>}
 
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.camera.hash_pipeline(hasher);
   }
 }
-impl<'a> ShaderPassBuilder for InfinityShaderPlaneEffect<'a> {
+impl ShaderPassBuilder for InfinityShaderPlaneEffect<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.camera.setup_pass(ctx);
     ctx.binding.bind(self.plane);
   }
 }
 
-impl<'a> GraphicsShaderProvider for InfinityShaderPlaneEffect<'a> {
+impl GraphicsShaderProvider for InfinityShaderPlaneEffect<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     self.camera.build(builder);
 

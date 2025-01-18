@@ -124,7 +124,7 @@ impl<S: DeviceInvocation<T>, T, R> DeviceInvocation<R> for AdhocInvocationResult
 }
 
 pub fn compute_dispatch_size(work_size: u32, workgroup_size: u32) -> u32 {
-  (work_size + workgroup_size - 1) / workgroup_size
+  work_size.div_ceil(workgroup_size)
 }
 pub fn device_compute_dispatch_size(work_size: Node<u32>, workgroup_size: Node<u32>) -> Node<u32> {
   (work_size + workgroup_size - val(1)) / workgroup_size
@@ -189,7 +189,7 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
     StorageBufferDataView<Vec4<u32>>,
   ) {
     struct SizeWriter<'a, T: ?Sized>(&'a T);
-    impl<'a, T: ShaderHashProvider + ?Sized> ShaderHashProvider for SizeWriter<'a, T> {
+    impl<T: ShaderHashProvider + ?Sized> ShaderHashProvider for SizeWriter<'_, T> {
       fn hash_type_info(&self, hasher: &mut PipelineHasher) {
         struct Marker;
         std::any::TypeId::of::<Marker>().hash(hasher);
@@ -464,9 +464,9 @@ where
     }
   }
 
-  async fn read_back_host<'a>(
+  async fn read_back_host(
     &self,
-    cx: &mut DeviceParallelComputeCtx<'a>,
+    cx: &mut DeviceParallelComputeCtx<'_>,
   ) -> Result<(DeviceMaterializeResult<T>, Option<Vec3<u32>>, Vec<T>), BufferAsyncError> {
     let output = self.materialize_storage_buffer(cx);
     cx.flush_pass();
@@ -730,7 +730,7 @@ pub struct DeviceParallelComputeCtx<'a> {
   pub force_indirect_dispatch: bool,
 }
 
-impl<'a> Drop for DeviceParallelComputeCtx<'a> {
+impl Drop for DeviceParallelComputeCtx<'_> {
   fn drop(&mut self) {
     // make sure pass is dropped before encoder.
     self.submit_recorded_work_and_continue();

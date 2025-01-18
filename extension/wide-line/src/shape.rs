@@ -42,11 +42,11 @@ pub struct WideLineGPU<'a> {
   pub instance_buffer: &'a GPUBufferResourceView,
 }
 
-impl<'a> ShaderHashProvider for WideLineGPU<'a> {
+impl ShaderHashProvider for WideLineGPU<'_> {
   shader_hash_type_id! {WideLineGPU<'static>}
 }
 
-impl<'a> ShaderPassBuilder for WideLineGPU<'a> {
+impl ShaderPassBuilder for WideLineGPU<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx
       .pass
@@ -58,7 +58,7 @@ impl<'a> ShaderPassBuilder for WideLineGPU<'a> {
   }
 }
 
-impl<'a> GraphicsShaderProvider for WideLineGPU<'a> {
+impl GraphicsShaderProvider for WideLineGPU<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, binding| {
       builder.register_vertex::<CommonVertex>(VertexStepMode::Vertex);

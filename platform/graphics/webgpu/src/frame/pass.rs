@@ -128,7 +128,7 @@ impl<'a> PassDescriptor<'a> {
 pub trait PassContent {
   fn render(&mut self, pass: &mut FrameRenderPass);
 }
-impl<'a> PassContent for Box<dyn PassContent + 'a> {
+impl PassContent for Box<dyn PassContent + '_> {
   fn render(&mut self, pass: &mut FrameRenderPass) {
     (**self).render(pass);
   }

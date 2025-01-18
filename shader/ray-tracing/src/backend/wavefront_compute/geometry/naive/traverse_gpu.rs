@@ -315,7 +315,7 @@ struct NaiveIntersectReporter<'a> {
   on_end_search: Box<dyn Fn()>,
   user_defined_payload: U32BufferLoadStoreSource,
 }
-impl<'a> IntersectionReporter for NaiveIntersectReporter<'a> {
+impl IntersectionReporter for NaiveIntersectReporter<'_> {
   fn report_intersection(
     &self,
     hit_t: Node<f32>,

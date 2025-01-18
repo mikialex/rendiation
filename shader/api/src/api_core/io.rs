@@ -128,7 +128,7 @@ impl ShaderBindingDescriptor {
   }
 }
 
-impl<'a, T: ShaderBindingProvider> ShaderBindingProvider for &'a T {
+impl<T: ShaderBindingProvider> ShaderBindingProvider for &T {
   type Node = T::Node;
 
   fn binding_desc(&self) -> ShaderBindingDescriptor {

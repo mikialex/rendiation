@@ -93,7 +93,7 @@ enum BackGroundDrawPassContent<'a> {
   CubeEnv(QuadDraw<CubeEnvComponent<'a>>),
 }
 
-impl<'a> PassContent for BackGroundDrawPassContent<'a> {
+impl PassContent for BackGroundDrawPassContent<'_> {
   fn render(&mut self, pass: &mut FrameRenderPass) {
     match self {
       BackGroundDrawPassContent::Solid => {} // implemented in pass clear, nothing to do here
@@ -108,10 +108,10 @@ struct CubeEnvComponent<'a> {
   camera: Box<dyn RenderComponent + 'a>,
 }
 
-impl<'a> ShaderHashProvider for CubeEnvComponent<'a> {
+impl ShaderHashProvider for CubeEnvComponent<'_> {
   shader_hash_type_id! {CubeEnvComponent<'static>}
 }
-impl<'a> ShaderPassBuilder for CubeEnvComponent<'a> {
+impl ShaderPassBuilder for CubeEnvComponent<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.camera.setup_pass(ctx);
     ctx.binding.bind(&self.map);
@@ -123,7 +123,7 @@ impl<'a> ShaderPassBuilder for CubeEnvComponent<'a> {
 only_vertex!(EnvSampleDirectionVertex, Vec3<f32>);
 only_fragment!(EnvSampleDirectionFrag, Vec3<f32>);
 
-impl<'a> GraphicsShaderProvider for CubeEnvComponent<'a> {
+impl GraphicsShaderProvider for CubeEnvComponent<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     self.camera.build(builder);
 

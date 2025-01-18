@@ -75,8 +75,6 @@ pub enum ShaderBuiltInFunction {
   ReverseBits,
   ExtractBits,
   InsertBits,
-  FindLsb,
-  FindMsb,
   // data packing
   Pack4x8snorm,
   Pack4x8unorm,

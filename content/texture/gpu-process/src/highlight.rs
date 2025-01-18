@@ -60,7 +60,7 @@ pub struct HighLightComposeTask<'a, T> {
   lighter: &'a HighLighter,
 }
 
-impl<'a, T> ShaderPassBuilder for HighLightComposeTask<'a, T> {
+impl<T> ShaderPassBuilder for HighLightComposeTask<'_, T> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.lighter.data);
     ctx.binding.bind(&self.mask);
@@ -68,11 +68,11 @@ impl<'a, T> ShaderPassBuilder for HighLightComposeTask<'a, T> {
   }
 }
 
-impl<'a, T> ShaderHashProvider for HighLightComposeTask<'a, T> {
+impl<T> ShaderHashProvider for HighLightComposeTask<'_, T> {
   shader_hash_type_id! {HighLighter}
 }
 
-impl<'a, T> GraphicsShaderProvider for HighLightComposeTask<'a, T> {
+impl<T> GraphicsShaderProvider for HighLightComposeTask<'_, T> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let highlighter = binding.bind_by(&self.lighter.data).load().expand();

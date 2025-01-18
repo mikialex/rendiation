@@ -34,6 +34,8 @@ pub fn create_gpu_texture2d_with_mipmap(
 }
 
 pub fn create_fallback_empty_texture(device: &GPUDevice) -> GPU2DTexture {
+  let mut usage = TextureUsages::all();
+  usage.remove(TextureUsages::STORAGE_ATOMIC);
   GPUTexture::create(
     TextureDescriptor {
       label: "global default texture".into(),
@@ -47,7 +49,7 @@ pub fn create_fallback_empty_texture(device: &GPUDevice) -> GPU2DTexture {
       dimension: TextureDimension::D2,
       format: TextureFormat::Rgba8Unorm,
       view_formats: &[],
-      usage: TextureUsages::all(),
+      usage,
     },
     device,
   )

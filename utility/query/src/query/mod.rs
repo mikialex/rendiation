@@ -26,7 +26,7 @@ pub trait Query: Send + Sync + Clone {
   }
 }
 
-impl<'a, T: Query> Query for &'a T {
+impl<T: Query> Query for &T {
   type Key = T::Key;
   type Value = T::Value;
   fn iter_key_value(&self) -> impl Iterator<Item = (Self::Key, Self::Value)> + '_ {

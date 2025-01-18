@@ -74,7 +74,7 @@ impl DynIndexContainer {
   }
 
   pub fn push_index_clamped_u32(&mut self, index: usize) {
-    let index = u32::MAX.min(index as u32);
+    let index = index as u32;
     self.push_index(index)
   }
 
@@ -117,7 +117,7 @@ pub struct DynIndexContainerIter<'a> {
   count: usize,
 }
 
-impl<'a> Iterator for DynIndexContainerIter<'a> {
+impl Iterator for DynIndexContainerIter<'_> {
   type Item = DynIndex;
 
   fn next(&mut self) -> Option<Self::Item> {
@@ -174,7 +174,7 @@ pub enum DynIndexRef<'a> {
   Uint32(&'a [u32]),
 }
 
-impl<'a> IndexGet for DynIndexRef<'a> {
+impl IndexGet for DynIndexRef<'_> {
   type Output = usize;
 
   fn index_get(&self, key: usize) -> Option<Self::Output> {
@@ -186,7 +186,7 @@ impl<'a> IndexGet for DynIndexRef<'a> {
   }
 }
 
-impl<'a> CollectionSize for DynIndexRef<'a> {
+impl CollectionSize for DynIndexRef<'_> {
   fn len(&self) -> usize {
     match self {
       Self::Uint16(i) => i.len(),
@@ -258,7 +258,7 @@ pub struct IndexView<'a, T> {
   pub mesh: &'a T,
 }
 
-impl<'a, T> std::ops::Deref for IndexView<'a, T> {
+impl<T> std::ops::Deref for IndexView<'_, T> {
   type Target = T;
 
   fn deref(&self) -> &Self::Target {
@@ -266,7 +266,7 @@ impl<'a, T> std::ops::Deref for IndexView<'a, T> {
   }
 }
 
-impl<'a, T, U, IU> AbstractMesh for IndexView<'a, IndexedMesh<T, U, IU>>
+impl<T, U, IU> AbstractMesh for IndexView<'_, IndexedMesh<T, U, IU>>
 where
   IU: IndexContainer,
   IU::Output: IndexType,

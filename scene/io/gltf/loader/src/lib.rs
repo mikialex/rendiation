@@ -1,5 +1,3 @@
-#![feature(const_float_bits_conv)]
-
 use core::num::NonZeroU64;
 use std::path::Path;
 

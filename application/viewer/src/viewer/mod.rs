@@ -283,7 +283,7 @@ fn egui(
 ) {
   egui::TopBottomPanel::top("view top menu").show(ui, |ui| {
     ui.horizontal_wrapped(|ui| {
-      egui::widgets::global_dark_light_mode_switch(ui);
+      egui::widgets::global_theme_preference_switch(ui);
       ui.separator();
       ui.checkbox(&mut ui_state.show_db_inspector, "database inspector");
       ui.checkbox(&mut ui_state.show_viewer_config_panel, "viewer config");

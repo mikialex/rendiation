@@ -640,7 +640,7 @@ pub trait DeviceTaskSystemPollCtxTracingExt {
   ) -> TracingFutureInvocationRightValue;
 }
 
-impl<'a> DeviceTaskSystemPollCtxTracingExt for DeviceTaskSystemPollCtx<'a> {
+impl DeviceTaskSystemPollCtxTracingExt for DeviceTaskSystemPollCtx<'_> {
   fn spawn_new_tracing_task<P: ShaderSizedValueNodeType>(
     &self,
     should_trace: Node<bool>,

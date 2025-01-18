@@ -45,7 +45,7 @@ impl<T> RenderComponent for T where
 {
 }
 
-impl<'a> ShaderHashProvider for &'a dyn RenderComponent {
+impl ShaderHashProvider for &dyn RenderComponent {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     (*self).hash_pipeline_with_type_info(hasher)
   }
@@ -53,7 +53,7 @@ impl<'a> ShaderHashProvider for &'a dyn RenderComponent {
   shader_hash_type_id! {&'static dyn RenderComponent}
 }
 
-impl<'a> ShaderPassBuilder for &'a dyn RenderComponent {
+impl ShaderPassBuilder for &dyn RenderComponent {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     (*self).setup_pass(ctx);
   }
@@ -62,7 +62,7 @@ impl<'a> ShaderPassBuilder for &'a dyn RenderComponent {
     (*self).post_setup_pass(ctx);
   }
 }
-impl<'a> GraphicsShaderProvider for &'a dyn RenderComponent {
+impl GraphicsShaderProvider for &dyn RenderComponent {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     (*self).build(builder)
   }
@@ -71,13 +71,13 @@ impl<'a> GraphicsShaderProvider for &'a dyn RenderComponent {
     (*self).post_build(builder)
   }
 }
-impl<'a> ShaderHashProvider for Box<dyn RenderComponent + 'a> {
+impl ShaderHashProvider for Box<dyn RenderComponent + '_> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     (**self).hash_pipeline_with_type_info(hasher);
   }
   shader_hash_type_id! {Box<dyn RenderComponent>}
 }
-impl<'a> ShaderPassBuilder for Box<dyn RenderComponent + 'a> {
+impl ShaderPassBuilder for Box<dyn RenderComponent + '_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     (**self).setup_pass(ctx);
   }
@@ -86,7 +86,7 @@ impl<'a> ShaderPassBuilder for Box<dyn RenderComponent + 'a> {
     (**self).post_setup_pass(ctx);
   }
 }
-impl<'a> GraphicsShaderProvider for Box<dyn RenderComponent + 'a> {
+impl GraphicsShaderProvider for Box<dyn RenderComponent + '_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     (**self).build(builder)
   }
@@ -98,7 +98,7 @@ impl<'a> GraphicsShaderProvider for Box<dyn RenderComponent + 'a> {
 
 pub struct RenderSlice<'a, T>(pub &'a [T]);
 
-impl<'a, T: RenderComponent> ShaderPassBuilder for RenderSlice<'a, T> {
+impl<T: RenderComponent> ShaderPassBuilder for RenderSlice<'_, T> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.0.iter().for_each(|c| c.setup_pass(ctx));
   }
@@ -107,7 +107,7 @@ impl<'a, T: RenderComponent> ShaderPassBuilder for RenderSlice<'a, T> {
   }
 }
 
-impl<'a, T: RenderComponent> ShaderHashProvider for RenderSlice<'a, T> {
+impl<T: RenderComponent> ShaderHashProvider for RenderSlice<'_, T> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self
       .0
@@ -124,7 +124,7 @@ impl<'a, T: RenderComponent> ShaderHashProvider for RenderSlice<'a, T> {
   }
 }
 
-impl<'a, T: RenderComponent> GraphicsShaderProvider for RenderSlice<'a, T> {
+impl<T: RenderComponent> GraphicsShaderProvider for RenderSlice<'_, T> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     for c in self.0 {
       c.build(builder);
@@ -193,7 +193,7 @@ impl<'a> RenderVec<'a> {
   }
 }
 
-impl<'a> ShaderPassBuilder for RenderVec<'a> {
+impl ShaderPassBuilder for RenderVec<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.as_slice().setup_pass(ctx)
   }
@@ -202,7 +202,7 @@ impl<'a> ShaderPassBuilder for RenderVec<'a> {
   }
 }
 
-impl<'a> ShaderHashProvider for RenderVec<'a> {
+impl ShaderHashProvider for RenderVec<'_> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.as_slice().hash_pipeline(hasher)
   }
@@ -211,7 +211,7 @@ impl<'a> ShaderHashProvider for RenderVec<'a> {
   }
 }
 
-impl<'a> GraphicsShaderProvider for RenderVec<'a> {
+impl GraphicsShaderProvider for RenderVec<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     self.as_slice().build(builder)
   }

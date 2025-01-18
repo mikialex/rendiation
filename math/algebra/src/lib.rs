@@ -48,6 +48,7 @@ pub trait Scalar = Float
 
 const PI: f32 = std::f32::consts::PI;
 
+#[allow(clippy::transmute_float_to_int)]
 pub const fn scalar_transmute(value: f32) -> u32 {
   unsafe { std::mem::transmute(value) }
 }

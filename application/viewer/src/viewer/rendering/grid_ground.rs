@@ -8,7 +8,7 @@ pub struct GridGround<'a> {
   pub camera: &'a dyn RenderComponent,
 }
 
-impl<'a> PassContent for GridGround<'a> {
+impl PassContent for GridGround<'_> {
   fn render(&mut self, pass: &mut FrameRenderPass) {
     let base = default_dispatcher(pass);
 
@@ -49,15 +49,15 @@ impl Default for GridEffect {
 pub struct GridGroundShading<'a> {
   pub shading: &'a UniformBufferCachedDataView<GridEffect>,
 }
-impl<'a> ShaderHashProvider for GridGroundShading<'a> {
+impl ShaderHashProvider for GridGroundShading<'_> {
   shader_hash_type_id! {GridGroundShading<'static>}
 }
-impl<'a> ShaderPassBuilder for GridGroundShading<'a> {
+impl ShaderPassBuilder for GridGroundShading<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(self.shading);
   }
 }
-impl<'a> GraphicsShaderProvider for GridGroundShading<'a> {
+impl GraphicsShaderProvider for GridGroundShading<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let shading = binding.bind_by(&self.shading).load();

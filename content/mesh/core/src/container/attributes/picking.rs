@@ -51,7 +51,7 @@ impl SpaceBounding<f32, Box3, 3> for AttributeDynPrimitive {
   }
 }
 
-impl<'a> GPUConsumableMeshBuffer for AttributesMeshEntityReadView<'a> {
+impl GPUConsumableMeshBuffer for AttributesMeshEntityReadView<'_> {
   fn draw_count(&self) -> usize {
     self.mesh.draw_count()
   }
@@ -78,7 +78,7 @@ pub struct DynIndexView<'a> {
   buffer: AttributeAccessorReadView<'a>,
 }
 
-impl<'a> IndexGet for DynIndexView<'a> {
+impl IndexGet for DynIndexView<'_> {
   type Output = usize;
 
   fn index_get(&self, key: usize) -> Option<Self::Output> {
@@ -114,7 +114,7 @@ impl<'a, F> Deref for AttributesMeshEntityCustomReadView<'a, F> {
   }
 }
 
-impl<'a, F> GPUConsumableMeshBuffer for AttributesMeshEntityCustomReadView<'a, F> {
+impl<F> GPUConsumableMeshBuffer for AttributesMeshEntityCustomReadView<'_, F> {
   fn draw_count(&self) -> usize {
     self.mesh.draw_count()
   }
@@ -173,7 +173,7 @@ where
   }
 }
 
-impl<'a> IntersectAbleGroupedMesh for AttributesMeshEntityShapeReadView<'a> {
+impl IntersectAbleGroupedMesh for AttributesMeshEntityShapeReadView<'_> {
   fn intersect_list_by_group(
     &self,
     ray: Ray3,

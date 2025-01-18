@@ -50,11 +50,11 @@ pub struct LinearBlurTask<'a, T> {
   weights: &'a ShaderSamplingWeights,
 }
 
-impl<'a, T> ShaderHashProvider for LinearBlurTask<'a, T> {
+impl<T> ShaderHashProvider for LinearBlurTask<'_, T> {
   shader_hash_type_id! {UniformBufferCachedDataView<LinearBlurConfig>}
 }
 
-impl<'a, T> GraphicsShaderProvider for LinearBlurTask<'a, T> {
+impl<T> GraphicsShaderProvider for LinearBlurTask<'_, T> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let config = binding.bind_by(self.config).load().expand();
@@ -83,7 +83,7 @@ impl<'a, T> GraphicsShaderProvider for LinearBlurTask<'a, T> {
     })
   }
 }
-impl<'a, T> ShaderPassBuilder for LinearBlurTask<'a, T> {
+impl<T> ShaderPassBuilder for LinearBlurTask<'_, T> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(self.config);
     ctx.binding.bind(&self.weights.weights);

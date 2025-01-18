@@ -183,7 +183,7 @@ impl GPUCommandEncoder {
     });
 
     self.copy_texture_to_buffer(
-      gpu::ImageCopyTexture {
+      gpu::TexelCopyTextureInfo {
         texture,
         mip_level: 0,
         origin: gpu::Origin3d {
@@ -193,9 +193,9 @@ impl GPUCommandEncoder {
         },
         aspect: gpu::TextureAspect::All,
       },
-      gpu::ImageCopyBuffer {
+      gpu::TexelCopyBufferInfo {
         buffer: &output_buffer,
-        layout: gpu::ImageDataLayout {
+        layout: gpu::TexelCopyBufferLayout {
           offset: 0,
           bytes_per_row: Some(buffer_dimensions.padded_bytes_per_row as u32),
           rows_per_image: None,

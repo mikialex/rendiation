@@ -87,21 +87,21 @@ pub struct PhysicalSpecularGlossinessMaterialGPU<'a> {
   pub binding_sys: &'a GPUTextureBindingSystem,
 }
 
-impl<'a> ShaderHashProvider for PhysicalSpecularGlossinessMaterialGPU<'a> {
+impl ShaderHashProvider for PhysicalSpecularGlossinessMaterialGPU<'_> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.alpha_mode.hash(hasher);
   }
   shader_hash_type_id! {PhysicalSpecularGlossinessMaterialGPU<'static>}
 }
 
-impl<'a> ShaderPassBuilder for PhysicalSpecularGlossinessMaterialGPU<'a> {
+impl ShaderPassBuilder for PhysicalSpecularGlossinessMaterialGPU<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(self.storage);
     ctx.binding.bind(self.texture_storages);
   }
 }
 
-impl<'a> GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU<'a> {
+impl GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let id = builder.query::<IndirectAbstractMaterialId>();

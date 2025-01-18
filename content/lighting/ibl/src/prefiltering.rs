@@ -122,6 +122,7 @@ fn cube_face_view(cube: &GPUCubeTextureView, face_idx: u32, level: u32) -> GPU2D
     mip_level_count: Some(1),
     base_array_layer: face_idx,
     array_layer_count: Some(1),
+    usage: None,
   });
 
   GPU2DTextureView::try_from(view).unwrap()
@@ -156,6 +157,7 @@ fn create_cube(device: &GPUDevice, resolution: u32, level: MipLevelCount) -> GPU
     mip_level_count: None,
     base_array_layer: 0,
     array_layer_count: None,
+    usage: None,
   });
   GPUCubeTextureView::try_from(output_view).unwrap()
 }

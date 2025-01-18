@@ -69,7 +69,7 @@ impl SceneModelPicker for SceneModelPickerImpl {
       buffer: &'a [Vec3<f32>],
     }
 
-    impl<'a> IndexGet for PositionBuffer<'a> {
+    impl IndexGet for PositionBuffer<'_> {
       type Output = Vec3<f32>;
 
       fn index_get(&self, key: usize) -> Option<Self::Output> {

@@ -55,7 +55,7 @@ pub struct CxGuard<'a, T> {
   pub ptr: &'a T,
 }
 
-impl<'a, T> Deref for CxGuard<'a, T> {
+impl<T> Deref for CxGuard<'_, T> {
   type Target = T;
 
   fn deref(&self) -> &Self::Target {
@@ -77,14 +77,14 @@ pub struct CxMutGuard<'a, T> {
   pub ptr: &'a mut T,
 }
 
-impl<'a, T> Deref for CxMutGuard<'a, T> {
+impl<T> Deref for CxMutGuard<'_, T> {
   type Target = T;
 
   fn deref(&self) -> &Self::Target {
     self.ptr
   }
 }
-impl<'a, T> DerefMut for CxMutGuard<'a, T> {
+impl<T> DerefMut for CxMutGuard<'_, T> {
   fn deref_mut(&mut self) -> &mut Self::Target {
     self.ptr
   }

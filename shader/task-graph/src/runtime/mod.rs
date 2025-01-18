@@ -276,9 +276,9 @@ impl DeviceTaskGraphExecutor {
     })
   }
 
-  pub async fn read_back_execution_states<'a>(
+  pub async fn read_back_execution_states(
     &mut self,
-    cx: &mut DeviceParallelComputeCtx<'a>,
+    cx: &mut DeviceParallelComputeCtx<'_>,
   ) -> TaskGraphExecutionStates {
     self.task_groups.iter_mut().for_each(|task| {
       task.prepare_execution_and_compact_living_task(cx);
@@ -339,9 +339,9 @@ impl DeviceTaskGraphExecutor {
     }
   }
 
-  pub async fn debug_execution<'a>(
+  pub async fn debug_execution(
     &mut self,
-    cx: &mut DeviceParallelComputeCtx<'a>,
+    cx: &mut DeviceParallelComputeCtx<'_>,
   ) -> TaskGraphExecutionDebugInfo {
     self.task_groups.iter_mut().for_each(|task| {
       task.prepare_execution_and_compact_living_task(cx);

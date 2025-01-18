@@ -101,14 +101,14 @@ pub struct PhysicalMetallicRoughnessMaterialGPU<'a> {
   pub binding_sys: &'a GPUTextureBindingSystem,
 }
 
-impl<'a> ShaderHashProvider for PhysicalMetallicRoughnessMaterialGPU<'a> {
+impl ShaderHashProvider for PhysicalMetallicRoughnessMaterialGPU<'_> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.alpha_mode.hash(hasher);
   }
   shader_hash_type_id! {PhysicalMetallicRoughnessMaterialGPU<'static>}
 }
 
-impl<'a> ShaderPassBuilder for PhysicalMetallicRoughnessMaterialGPU<'a> {
+impl ShaderPassBuilder for PhysicalMetallicRoughnessMaterialGPU<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(self.uniform);
     ctx.binding.bind(self.texture_uniforms);
@@ -119,7 +119,7 @@ impl<'a> ShaderPassBuilder for PhysicalMetallicRoughnessMaterialGPU<'a> {
   }
 }
 
-impl<'a> GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialGPU<'a> {
+impl GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialGPU<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let uniform = binding.bind_by(&self.uniform).load().expand();

@@ -5,7 +5,7 @@ pub trait DynValueRefQuery: DynQuery {
   fn access_ref(&self, key: &Self::Key) -> Option<&Self::Value>;
 }
 
-impl<'a, K: CKey, V: CValue> Query for &'a dyn DynValueRefQuery<Key = K, Value = V> {
+impl<K: CKey, V: CValue> Query for &dyn DynValueRefQuery<Key = K, Value = V> {
   type Key = K;
   type Value = V;
   fn iter_key_value(&self) -> impl Iterator<Item = (K, V)> + '_ {
@@ -17,7 +17,7 @@ impl<'a, K: CKey, V: CValue> Query for &'a dyn DynValueRefQuery<Key = K, Value =
   }
 }
 
-impl<'a, K: CKey, V: CValue> DynValueRefQuery for &'a dyn DynValueRefQuery<Key = K, Value = V> {
+impl<K: CKey, V: CValue> DynValueRefQuery for &dyn DynValueRefQuery<Key = K, Value = V> {
   fn access_ref(&self, key: &K) -> Option<&V> {
     (**self).access_ref(key)
   }

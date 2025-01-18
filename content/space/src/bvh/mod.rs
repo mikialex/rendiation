@@ -34,7 +34,7 @@ pub struct BVHTreeNodeRef<'a, B: BVHBounding> {
   pub node: &'a FlattenBVHNode<B>,
 }
 
-impl<'a, B: BVHBounding> AbstractTreeNode for BVHTreeNodeRef<'a, B> {
+impl<B: BVHBounding> AbstractTreeNode for BVHTreeNodeRef<'_, B> {
   fn visit_children(&self, mut visitor: impl FnMut(&Self)) {
     if let Some(n) = self.node.left_child_offset() {
       visitor(&self.tree.create_node_ref(n))

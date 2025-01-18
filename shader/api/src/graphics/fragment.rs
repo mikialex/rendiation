@@ -10,7 +10,7 @@ pub struct ShaderFragmentBuilderView<'a> {
   pub(crate) vertex: &'a mut ShaderVertexBuilder,
 }
 
-impl<'a> ShaderFragmentBuilderView<'a> {
+impl ShaderFragmentBuilderView<'_> {
   pub fn query_or_interpolate_by<T, V>(&mut self) -> Node<T::ValueType>
   where
     T: SemanticFragmentShaderValue,
@@ -44,14 +44,14 @@ impl<'a> ShaderFragmentBuilderView<'a> {
   }
 }
 
-impl<'a> Deref for ShaderFragmentBuilderView<'a> {
+impl Deref for ShaderFragmentBuilderView<'_> {
   type Target = ShaderFragmentBuilder;
 
   fn deref(&self) -> &Self::Target {
     self.base
   }
 }
-impl<'a> DerefMut for ShaderFragmentBuilderView<'a> {
+impl DerefMut for ShaderFragmentBuilderView<'_> {
   fn deref_mut(&mut self) -> &mut Self::Target {
     self.base
   }
