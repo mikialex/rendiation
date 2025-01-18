@@ -128,18 +128,18 @@ struct Mipmap2DGeneratorTask<'a> {
   reducer: &'a dyn Mipmap2dReducer,
 }
 
-impl<'a> ShaderPassBuilder for Mipmap2DGeneratorTask<'a> {
+impl ShaderPassBuilder for Mipmap2DGeneratorTask<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.view);
     ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
   }
 }
 
-impl<'a> ShaderHashProvider for Mipmap2DGeneratorTask<'a> {
+impl ShaderHashProvider for Mipmap2DGeneratorTask<'_> {
   shader_hash_type_id! {Mipmap2DGeneratorTask<'static>}
 }
 
-impl<'a> GraphicsShaderProvider for Mipmap2DGeneratorTask<'a> {
+impl GraphicsShaderProvider for Mipmap2DGeneratorTask<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let position = builder.query::<FragmentPosition>().xy();

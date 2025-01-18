@@ -59,9 +59,9 @@ fn build_meshlets_bound(index_count: usize, config: &ClusteringConfig) -> usize 
   // we have space for 3 we can pack any triangle
   let max_vertices_conservative = (config.max_vertices - 2) as usize;
   let meshlet_limit_vertices =
-    (index_count + max_vertices_conservative - 1) / max_vertices_conservative;
+    index_count.div_ceil(max_vertices_conservative);
   let meshlet_limit_triangles =
-    (index_count / 3 + config.max_triangles as usize - 1) / config.max_triangles as usize;
+    (index_count / 3).div_ceil(config.max_triangles as usize);
 
   if meshlet_limit_vertices > meshlet_limit_triangles {
     meshlet_limit_vertices

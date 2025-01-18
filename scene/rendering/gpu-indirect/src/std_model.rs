@@ -47,11 +47,11 @@ pub struct StdModelGPUStorage<'a> {
   pub buffer: &'a SceneStdModelStorageBuffer,
 }
 
-impl<'a> ShaderHashProvider for StdModelGPUStorage<'a> {
+impl ShaderHashProvider for StdModelGPUStorage<'_> {
   shader_hash_type_id! {StdModelGPUStorage<'static>}
 }
 
-impl<'a> GraphicsShaderProvider for StdModelGPUStorage<'a> {
+impl GraphicsShaderProvider for StdModelGPUStorage<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, binding| {
       let models = binding.bind_by(self.buffer.inner.gpu());
@@ -64,7 +64,7 @@ impl<'a> GraphicsShaderProvider for StdModelGPUStorage<'a> {
   }
 }
 
-impl<'a> ShaderPassBuilder for StdModelGPUStorage<'a> {
+impl ShaderPassBuilder for StdModelGPUStorage<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(self.buffer.inner.gpu());
   }

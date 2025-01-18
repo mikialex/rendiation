@@ -53,7 +53,7 @@ impl<T: 'static> DeviceInvocationComponent<T> for Builder<T> {
   fn work_size(&self) -> Option<u32> {
     let work_size = self.source.work_size()?;
     if self.reduce {
-      (work_size + self.stride - 1) / self.stride
+      work_size.div_ceil(self.stride)
     } else {
       work_size * self.stride
     }
@@ -83,7 +83,7 @@ impl<T: 'static> DeviceParallelCompute<T> for DeviceParallelComputeStrideRead<T>
 
   fn result_size(&self) -> u32 {
     if self.reduce {
-      (self.source.result_size() + self.stride - 1) / self.stride
+      self.source.result_size().div_ceil(self.stride)
     } else {
       self.source.result_size() * self.stride
     }

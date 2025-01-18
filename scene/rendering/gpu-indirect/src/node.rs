@@ -35,11 +35,11 @@ impl NodeStorage {
   }
 }
 
-impl<'a> ShaderHashProvider for NodeGPUStorage<'a> {
+impl ShaderHashProvider for NodeGPUStorage<'_> {
   shader_hash_type_id! {NodeGPUStorage<'static>}
 }
 
-impl<'a> GraphicsShaderProvider for NodeGPUStorage<'a> {
+impl GraphicsShaderProvider for NodeGPUStorage<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, binding| {
       let nodes = binding.bind_by(self.buffer.inner.gpu());
@@ -59,7 +59,7 @@ impl<'a> GraphicsShaderProvider for NodeGPUStorage<'a> {
   }
 }
 
-impl<'a> ShaderPassBuilder for NodeGPUStorage<'a> {
+impl ShaderPassBuilder for NodeGPUStorage<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(self.buffer.inner.gpu());
   }

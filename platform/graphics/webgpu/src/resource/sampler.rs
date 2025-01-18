@@ -115,7 +115,7 @@ pub struct GPUSamplerDescriptor {
   pub border_color: Option<SamplerBorderColor>,
 }
 
-impl<'a> From<GPUSamplerDescriptor> for gpu::SamplerDescriptor<'a> {
+impl From<GPUSamplerDescriptor> for gpu::SamplerDescriptor<'_> {
   fn from(s: GPUSamplerDescriptor) -> Self {
     Self {
       label: None,

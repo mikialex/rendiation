@@ -82,7 +82,7 @@ pub struct AttributesMeshGPU<'a> {
   pub vertex: &'a AttributesMeshEntityVertexAccessView,
 }
 
-impl<'a> ShaderPassBuilder for AttributesMeshGPU<'a> {
+impl ShaderPassBuilder for AttributesMeshGPU<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     for vertex_info_id in self.vertex.multi_access.access_multi_value(&self.mesh_id) {
       let gpu_buffer = self.vertex.vertex.access_ref(&vertex_info_id).unwrap();
@@ -101,7 +101,7 @@ pub trait CustomAttributeKeyGPU {
 }
 define_dyn_trait_downcaster_static!(CustomAttributeKeyGPU);
 
-impl<'a> ShaderHashProvider for AttributesMeshGPU<'a> {
+impl ShaderHashProvider for AttributesMeshGPU<'_> {
   shader_hash_type_id! {AttributesMeshGPU<'static>}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     for vertex_info_id in self.vertex.multi_access.access_multi_value(&self.mesh_id) {
@@ -118,7 +118,7 @@ impl<'a> ShaderHashProvider for AttributesMeshGPU<'a> {
     }
   }
 }
-impl<'a> GraphicsShaderProvider for AttributesMeshGPU<'a> {
+impl GraphicsShaderProvider for AttributesMeshGPU<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     let mode = VertexStepMode::Vertex;
     builder.vertex(|builder, _| {
@@ -171,7 +171,7 @@ impl<'a> GraphicsShaderProvider for AttributesMeshGPU<'a> {
   }
 }
 
-impl<'a> AttributesMeshGPU<'a> {
+impl AttributesMeshGPU<'_> {
   pub fn draw_command(&self) -> DrawCommand {
     if let Some((_, count)) = &self.index {
       DrawCommand::Indexed {

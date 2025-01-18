@@ -83,11 +83,11 @@ pub struct AOComputer<'a> {
   reproject: &'a UniformBufferCachedDataView<ReprojectInfo>,
 }
 
-impl<'a> ShaderHashProvider for AOComputer<'a> {
+impl ShaderHashProvider for AOComputer<'_> {
   shader_hash_type_id! {AOComputer<'static>}
 }
 
-impl<'a> ShaderPassBuilder for AOComputer<'a> {
+impl ShaderPassBuilder for AOComputer<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.depth);
     ctx.binding.bind(&self.parameter.parameters);
@@ -96,7 +96,7 @@ impl<'a> ShaderPassBuilder for AOComputer<'a> {
     ctx.binding.bind(self.reproject);
   }
 }
-impl<'a> GraphicsShaderProvider for AOComputer<'a> {
+impl GraphicsShaderProvider for AOComputer<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let depth_tex = binding.bind_by(&DisableFiltering(&self.depth));

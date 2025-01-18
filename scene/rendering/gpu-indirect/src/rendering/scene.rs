@@ -247,7 +247,7 @@ struct IndirectScenePassContent<'a> {
   camera: Box<dyn RenderComponent + 'a>,
 }
 
-impl<'a> PassContent for IndirectScenePassContent<'a> {
+impl PassContent for IndirectScenePassContent<'_> {
   fn render(&mut self, cx: &mut FrameRenderPass) {
     let base = default_dispatcher(cx);
     let p = RenderArray([&base, self.pass] as [&dyn rendiation_webgpu::RenderComponent; 2]);

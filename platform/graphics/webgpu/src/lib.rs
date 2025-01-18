@@ -83,7 +83,7 @@ pub struct GPUCreateConfig<'a> {
   pub minimal_required_limits: Limits,
 }
 
-impl<'a> Default for GPUCreateConfig<'a> {
+impl Default for GPUCreateConfig<'_> {
   fn default() -> Self {
     Self {
       backends: Backends::all(),

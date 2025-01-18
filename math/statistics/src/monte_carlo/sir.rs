@@ -19,7 +19,7 @@ pub struct SamplingImportanceResamplingResult<'a, D: Distribution, PD> {
   weight_average_inv: f32,
 }
 
-impl<'a, D: Distribution, PD> SamplingImportanceResamplingResult<'a, D, PD> {
+impl<D: Distribution, PD> SamplingImportanceResamplingResult<'_, D, PD> {
   pub fn get_target_distribution_importance_sample(&self, idx: usize) -> D::Sample {
     self.pre_sample_samples[idx].sample_at
   }
@@ -73,7 +73,7 @@ where
   }
 }
 
-impl<'a, D: Distribution, PD> Distribution for SamplingImportanceResamplingResult<'a, D, PD> {
+impl<D: Distribution, PD> Distribution for SamplingImportanceResamplingResult<'_, D, PD> {
   type Sample = usize;
 
   /// we assume the input is uniform 0 to 1
@@ -83,8 +83,8 @@ impl<'a, D: Distribution, PD> Distribution for SamplingImportanceResamplingResul
 }
 
 // this should only sample once
-impl<'a, D: Distribution, PD> ImportanceSampledDistribution
-  for SamplingImportanceResamplingResult<'a, D, PD>
+impl<D: Distribution, PD> ImportanceSampledDistribution
+  for SamplingImportanceResamplingResult<'_, D, PD>
 {
   fn importance_sample(&self, uniform_sample: Self::Sample) -> Self::Sample {
     importance_sample_discrete(&self.weights, uniform_sample as f32)

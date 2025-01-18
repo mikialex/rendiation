@@ -24,11 +24,11 @@ pub struct FlatMaterialGPU<'a> {
   pub uniform: &'a UniformBufferDataView<FlatMaterialUniform>,
 }
 
-impl<'a> ShaderHashProvider for FlatMaterialGPU<'a> {
+impl ShaderHashProvider for FlatMaterialGPU<'_> {
   shader_hash_type_id! {FlatMaterialGPU<'static>}
 }
 
-impl<'a> GraphicsShaderProvider for FlatMaterialGPU<'a> {
+impl GraphicsShaderProvider for FlatMaterialGPU<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let uniform = binding.bind_by(&self.uniform).load().expand();
@@ -38,7 +38,7 @@ impl<'a> GraphicsShaderProvider for FlatMaterialGPU<'a> {
   }
 }
 
-impl<'a> ShaderPassBuilder for FlatMaterialGPU<'a> {
+impl ShaderPassBuilder for FlatMaterialGPU<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(self.uniform);
   }

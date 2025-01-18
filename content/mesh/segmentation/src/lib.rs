@@ -35,7 +35,7 @@ pub struct SegmentResult {
 }
 
 pub struct AbstractMeshAsPrimitiveSource<'a, T>(pub &'a T);
-impl<'a, T: AbstractMesh> SegmentationSource for AbstractMeshAsPrimitiveSource<'a, T> {
+impl<T: AbstractMesh> SegmentationSource for AbstractMeshAsPrimitiveSource<'_, T> {
   type Item = T::Primitive;
 
   fn count(&self) -> u32 {

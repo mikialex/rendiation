@@ -106,7 +106,7 @@ struct TAAResolver<'a> {
   reproject: &'a GPUReprojectInfo,
 }
 
-impl<'a> GraphicsShaderProvider for TAAResolver<'a> {
+impl GraphicsShaderProvider for TAAResolver<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let sampler = binding.bind_by(&DisableFiltering(ImmediateGPUSamplerViewBind));
@@ -165,7 +165,7 @@ fn clamp_color(
   previous.clamp(min_c, max_c)
 }
 
-impl<'a> ShaderPassBuilder for TAAResolver<'a> {
+impl ShaderPassBuilder for TAAResolver<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
     ctx.bind_immediate_sampler(
@@ -182,7 +182,7 @@ impl<'a> ShaderPassBuilder for TAAResolver<'a> {
     ctx.binding.bind(&self.reproject.reproject);
   }
 }
-impl<'a> ShaderHashProvider for TAAResolver<'a> {
+impl ShaderHashProvider for TAAResolver<'_> {
   shader_hash_type_id! {TAAResolver<'static>}
 }
 

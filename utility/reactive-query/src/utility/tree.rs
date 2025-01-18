@@ -169,7 +169,7 @@ struct Ctx<'a, K, T, F> {
   derive_logic: F,
 }
 
-impl<'a, K, T, F> TreeMutNode<'a, K, T, F>
+impl<K, T, F> TreeMutNode<'_, K, T, F>
 where
   K: CKey,
   T: CValue,
@@ -199,7 +199,7 @@ where
   }
 }
 
-impl<'a, K: CKey, T, F> AbstractTreeMutNode for TreeMutNode<'a, K, T, F> {
+impl<K: CKey, T, F> AbstractTreeMutNode for TreeMutNode<'_, K, T, F> {
   fn visit_children_mut(&mut self, mut visitor: impl FnMut(&mut Self)) {
     if let Some(children) = self.ctx.connectivity.access_multi(&self.idx) {
       for idx in children {
@@ -213,7 +213,7 @@ impl<'a, K: CKey, T, F> AbstractTreeMutNode for TreeMutNode<'a, K, T, F> {
   }
 }
 
-impl<'a, K: CKey, T, F> AbstractParentAddressableMutTreeNode for TreeMutNode<'a, K, T, F> {
+impl<K: CKey, T, F> AbstractParentAddressableMutTreeNode for TreeMutNode<'_, K, T, F> {
   fn get_parent_mut(&mut self) -> Option<Self> {
     self
       .ctx

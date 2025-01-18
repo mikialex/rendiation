@@ -41,13 +41,13 @@ where
   }
 }
 
-impl<'a, K, V> Clone for Box<dyn DynMultiQuery<Key = K, Value = V> + 'a> {
+impl<K, V> Clone for Box<dyn DynMultiQuery<Key = K, Value = V> + '_> {
   fn clone(&self) -> Self {
     dyn_clone::clone_box(&**self)
   }
 }
 
-impl<'a, K: CKey, V: CKey> MultiQuery for Box<dyn DynMultiQuery<Key = K, Value = V> + 'a> {
+impl<K: CKey, V: CKey> MultiQuery for Box<dyn DynMultiQuery<Key = K, Value = V> + '_> {
   type Key = K;
   type Value = V;
   fn iter_keys(&self) -> impl Iterator<Item = K> + '_ {
@@ -59,7 +59,7 @@ impl<'a, K: CKey, V: CKey> MultiQuery for Box<dyn DynMultiQuery<Key = K, Value =
   }
 }
 
-impl<'a, K: CKey, V: CKey> MultiQuery for &'a dyn DynMultiQuery<Key = K, Value = V> {
+impl<K: CKey, V: CKey> MultiQuery for &dyn DynMultiQuery<Key = K, Value = V> {
   type Key = K;
   type Value = V;
   fn iter_keys(&self) -> impl Iterator<Item = K> + '_ {

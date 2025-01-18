@@ -15,7 +15,7 @@ pub struct UnTypedBufferViewReadView<'a> {
   view: &'a UnTypedBufferView,
 }
 
-impl<'a> std::ops::Deref for UnTypedBufferViewReadView<'a> {
+impl std::ops::Deref for UnTypedBufferViewReadView<'_> {
   type Target = UnTypedBufferView;
 
   fn deref(&self) -> &Self::Target {
@@ -23,7 +23,7 @@ impl<'a> std::ops::Deref for UnTypedBufferViewReadView<'a> {
   }
 }
 
-impl<'a> UnTypedBufferViewReadView<'a> {
+impl UnTypedBufferViewReadView<'_> {
   pub fn visit_bytes(&self, view_byte_offset: usize) -> Option<&[u8]> {
     let byte_slice = self.buffer.as_slice();
     let offset = self.range.offset as usize + view_byte_offset;
@@ -65,7 +65,7 @@ pub struct AttributeAccessorReadView<'a> {
   acc: &'a AttributeAccessor,
 }
 
-impl<'a> std::ops::Deref for AttributeAccessorReadView<'a> {
+impl std::ops::Deref for AttributeAccessorReadView<'_> {
   type Target = AttributeAccessor;
 
   fn deref(&self) -> &Self::Target {
@@ -73,7 +73,7 @@ impl<'a> std::ops::Deref for AttributeAccessorReadView<'a> {
   }
 }
 
-impl<'a> AttributeAccessorReadView<'a> {
+impl AttributeAccessorReadView<'_> {
   pub fn visit_bytes(&self) -> Option<&[u8]> {
     self.view.visit_bytes(self.byte_offset)
   }
@@ -103,7 +103,7 @@ pub struct AttributesMeshEntityReadView<'a> {
   pub mesh: &'a AttributesMesh,
 }
 
-impl<'a> std::ops::Deref for AttributesMeshEntityReadView<'a> {
+impl std::ops::Deref for AttributesMeshEntityReadView<'_> {
   type Target = AttributesMesh;
 
   fn deref(&self) -> &Self::Target {
@@ -111,7 +111,7 @@ impl<'a> std::ops::Deref for AttributesMeshEntityReadView<'a> {
   }
 }
 
-impl<'a> AttributesMeshEntityReadView<'a> {
+impl AttributesMeshEntityReadView<'_> {
   pub fn primitive_count(&self) -> usize {
     let count = if let Some((_, index)) = &self.indices {
       index.count
@@ -149,7 +149,7 @@ impl<'a> AttributesMeshEntityReadView<'a> {
 pub struct PositionReader<'a> {
   position: &'a [Vec3<f32>],
 }
-impl<'a> IndexGet for PositionReader<'a> {
+impl IndexGet for PositionReader<'_> {
   type Output = Vec3<f32>;
 
   fn index_get(&self, key: usize) -> Option<Self::Output> {
@@ -174,13 +174,13 @@ pub struct FullReaderRead<'a> {
   pub idx: usize,
 }
 
-impl<'a> Hash for FullReaderRead<'a> {
+impl Hash for FullReaderRead<'_> {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
     self.read_bytes().for_each(|bytes| bytes.hash(state))
   }
 }
 
-impl<'a> PartialEq for FullReaderRead<'a> {
+impl PartialEq for FullReaderRead<'_> {
   fn eq(&self, other: &Self) -> bool {
     if self.reader.keys.len() != other.reader.keys.len() {
       return false;
@@ -193,7 +193,7 @@ impl<'a> PartialEq for FullReaderRead<'a> {
     true
   }
 }
-impl<'a> Eq for FullReaderRead<'a> {}
+impl Eq for FullReaderRead<'_> {}
 
 impl<'a> FullReaderRead<'a> {
   pub fn read_bytes(&self) -> impl Iterator<Item = &'a [u8]> + '_ {

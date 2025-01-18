@@ -50,7 +50,7 @@ pub trait MonteCarloEstimator {
 
 /// The most naive estimator
 pub struct BasicEstimator<'a, D>(&'a D);
-impl<'a, D> MonteCarloEstimator for BasicEstimator<'a, D>
+impl<D> MonteCarloEstimator for BasicEstimator<'_, D>
 where
   D: Distribution,
 {
@@ -73,7 +73,7 @@ pub trait ImportanceSampledDistribution: Distribution {
   fn pdf(&self, sampled_at: Self::Sample) -> f32;
 }
 
-impl<'a, D> MonteCarloEstimator for ImportanceEstimator<'a, D>
+impl<D> MonteCarloEstimator for ImportanceEstimator<'_, D>
 where
   D: ImportanceSampledDistribution,
 {

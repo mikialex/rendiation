@@ -209,7 +209,7 @@ pub trait FrameCtxParallelComputeExt {
     -> R;
 }
 
-impl<'a> FrameCtxParallelComputeExt for FrameCtx<'a> {
+impl FrameCtxParallelComputeExt for FrameCtx<'_> {
   fn access_parallel_compute<R>(
     &mut self,
     f: impl FnOnce(&mut DeviceParallelComputeCtx) -> R,

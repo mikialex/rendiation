@@ -137,13 +137,13 @@ struct ToneMapTask<'a, T> {
   config: &'a ToneMap,
 }
 
-impl<'a, T> ShaderHashProvider for ToneMapTask<'a, T> {
+impl<T> ShaderHashProvider for ToneMapTask<'_, T> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.config.hash_pipeline(hasher)
   }
   shader_hash_type_id! {ToneMapTask<'static, ()>}
 }
-impl<'a, T> ShaderPassBuilder for ToneMapTask<'a, T> {
+impl<T> ShaderPassBuilder for ToneMapTask<'_, T> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.hdr);
     ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
@@ -151,7 +151,7 @@ impl<'a, T> ShaderPassBuilder for ToneMapTask<'a, T> {
   }
 }
 
-impl<'a, T> GraphicsShaderProvider for ToneMapTask<'a, T> {
+impl<T> GraphicsShaderProvider for ToneMapTask<'_, T> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let hdr = binding.bind_by(&self.hdr);

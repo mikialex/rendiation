@@ -18,7 +18,7 @@ pub struct PostProcess<'a, T> {
   pub config: &'a UniformBufferCachedDataView<PostEffects>,
 }
 
-impl<'a, T> ShaderPassBuilder for PostProcess<'a, T> {
+impl<T> ShaderPassBuilder for PostProcess<'_, T> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.input);
     ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
@@ -26,11 +26,11 @@ impl<'a, T> ShaderPassBuilder for PostProcess<'a, T> {
   }
 }
 
-impl<'a, T> ShaderHashProvider for PostProcess<'a, T> {
+impl<T> ShaderHashProvider for PostProcess<'_, T> {
   shader_hash_type_id! {PostProcess< 'static, ()>}
 }
 
-impl<'a, T> GraphicsShaderProvider for PostProcess<'a, T> {
+impl<T> GraphicsShaderProvider for PostProcess<'_, T> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let input_tex = binding.bind_by(&self.input);

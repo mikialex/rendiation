@@ -18,21 +18,21 @@ pub struct InfinityShaderLineEffect<'a> {
   pub camera: &'a dyn RenderComponent,
 }
 
-impl<'a> ShaderHashProvider for InfinityShaderLineEffect<'a> {
+impl ShaderHashProvider for InfinityShaderLineEffect<'_> {
   shader_hash_type_id! {InfinityShaderPlaneEffect<'static>}
 
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.camera.hash_pipeline(hasher);
   }
 }
-impl<'a> ShaderPassBuilder for InfinityShaderLineEffect<'a> {
+impl ShaderPassBuilder for InfinityShaderLineEffect<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.camera.setup_pass(ctx);
     ctx.binding.bind(self.line);
   }
 }
 
-impl<'a> GraphicsShaderProvider for InfinityShaderLineEffect<'a> {
+impl GraphicsShaderProvider for InfinityShaderLineEffect<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     self.camera.build(builder);
 

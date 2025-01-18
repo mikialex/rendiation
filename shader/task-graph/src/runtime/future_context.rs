@@ -18,7 +18,7 @@ pub struct DeviceTaskSystemBuildCtx<'a> {
   pub state_builder: DynamicTypeBuilder,
 }
 
-impl<'a> DeviceTaskSystemBuildCtx<'a> {
+impl DeviceTaskSystemBuildCtx<'_> {
   /// just inner method short cut
   pub fn make_state<T: ShaderAbstractRightValue>(&mut self) -> T::AbstractLeftValue {
     self
@@ -85,7 +85,7 @@ impl TaskGroupDeviceInvocationInstanceLateResolved {
   }
 }
 
-impl<'a> DeviceTaskSystemBuildCtx<'a> {
+impl DeviceTaskSystemBuildCtx<'_> {
   pub fn get_or_create_task_group_instance(
     &mut self,
     task_type: usize,
@@ -106,13 +106,13 @@ pub struct DeviceTaskSystemBindCtx<'a> {
   pub binder: &'a mut BindingBuilder,
 }
 
-impl<'a> DerefMut for DeviceTaskSystemBindCtx<'a> {
+impl DerefMut for DeviceTaskSystemBindCtx<'_> {
   fn deref_mut(&mut self) -> &mut Self::Target {
     self.binder
   }
 }
 
-impl<'a> std::ops::Deref for DeviceTaskSystemBindCtx<'a> {
+impl std::ops::Deref for DeviceTaskSystemBindCtx<'_> {
   type Target = BindingBuilder;
 
   fn deref(&self) -> &Self::Target {
@@ -128,7 +128,7 @@ pub struct DeviceTaskSystemPollCtx<'a> {
   pub invocation_registry: AnyMap,
 }
 
-impl<'a> DeviceTaskSystemPollCtx<'a> {
+impl DeviceTaskSystemPollCtx<'_> {
   pub fn is_fallback_task(&self) -> Node<bool> {
     self.self_task_idx.equals(val(0))
   }
@@ -140,7 +140,7 @@ impl<'a> DeviceTaskSystemPollCtx<'a> {
   }
 }
 
-impl<'a> DeviceTaskSystemPollCtx<'a> {
+impl DeviceTaskSystemPollCtx<'_> {
   pub fn access_self_payload<T: ShaderSizedValueNodeType>(&mut self) -> StorageNode<T> {
     let current = self.self_task_idx;
     self.self_task.rw_payload(current)

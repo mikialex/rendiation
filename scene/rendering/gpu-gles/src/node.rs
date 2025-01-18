@@ -18,7 +18,7 @@ pub struct NodeGPUUniform<'a> {
   pub ubo: &'a UniformBufferDataView<NodeUniform>,
 }
 
-impl<'a> NodeGPUUniform<'a> {
+impl NodeGPUUniform<'_> {
   pub fn inject_uniforms(
     &self,
     builder: &mut ShaderRenderPipelineBuilder,
@@ -51,11 +51,11 @@ impl NodeUniform {
   }
 }
 
-impl<'a> ShaderHashProvider for NodeGPUUniform<'a> {
+impl ShaderHashProvider for NodeGPUUniform<'_> {
   shader_hash_type_id! {NodeGPUUniform<'static>}
 }
 
-impl<'a> GraphicsShaderProvider for NodeGPUUniform<'a> {
+impl GraphicsShaderProvider for NodeGPUUniform<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, binding| {
       let node = binding.bind_by(&self.ubo).load().expand();
@@ -72,7 +72,7 @@ impl<'a> GraphicsShaderProvider for NodeGPUUniform<'a> {
   }
 }
 
-impl<'a> ShaderPassBuilder for NodeGPUUniform<'a> {
+impl ShaderPassBuilder for NodeGPUUniform<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(self.ubo);
   }

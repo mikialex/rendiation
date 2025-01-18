@@ -254,7 +254,7 @@ struct TraverseBvhIteratorCpu<'a> {
 
   curr_idx: u32,
 }
-impl<'a> Iterator for TraverseBvhIteratorCpu<'a> {
+impl Iterator for TraverseBvhIteratorCpu<'_> {
   type Item = u32;
   fn next(&mut self) -> Option<Self::Item> {
     while self.curr_idx != INVALID_NEXT {

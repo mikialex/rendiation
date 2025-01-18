@@ -30,7 +30,7 @@ impl<T: Copy> IndexGet for Vec<T> {
   }
 }
 
-impl<'a, T: Copy> IndexGet for &'a [T] {
+impl<T: Copy> IndexGet for &[T] {
   type Output = T;
 
   fn index_get(&self, key: usize) -> Option<Self::Output> {
@@ -53,7 +53,7 @@ impl<T> CollectionSize for Vec<T> {
   }
 }
 
-impl<'a, T> CollectionSize for &'a [T] {
+impl<T> CollectionSize for &[T] {
   fn len(&self) -> usize {
     (*self).len()
   }
