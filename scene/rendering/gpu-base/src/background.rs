@@ -2,12 +2,22 @@ use fast_hash_collection::FastHashMap;
 
 use crate::*;
 
-#[derive(Default)]
 pub struct SceneBackgroundRendererSource {
   env_background_intensity_uniform: UpdateResultToken,
   // todo
   // note, currently the cube map is standalone maintained, this is wasteful if user shared it elsewhere
   cube_map: UpdateResultToken,
+  reversed_depth: bool,
+}
+
+impl SceneBackgroundRendererSource {
+  pub fn new(reversed_depth: bool) -> Self {
+    Self {
+      env_background_intensity_uniform: Default::default(),
+      cube_map: Default::default(),
+      reversed_depth,
+    }
+  }
 }
 
 impl RenderImplProvider<SceneBackgroundRenderer> for SceneBackgroundRendererSource {
@@ -39,6 +49,7 @@ impl RenderImplProvider<SceneBackgroundRenderer> for SceneBackgroundRendererSour
       env_background_intensity: res
         .take_reactive_query_updated(self.env_background_intensity_uniform)
         .unwrap(),
+      reversed_depth: self.reversed_depth,
     }
   }
 }
@@ -50,6 +61,7 @@ pub struct SceneBackgroundRenderer {
     LockReadGuardHolder<CubeMapUpdateContainer<EntityHandle<SceneTextureCubeEntity>>>,
   env_background_intensity:
     BoxedDynQuery<EntityHandle<SceneEntity>, UniformBufferDataView<Vec4<f32>>>,
+  reversed_depth: bool,
 }
 
 impl SceneBackgroundRenderer {
@@ -65,7 +77,10 @@ impl SceneBackgroundRenderer {
       b: color.z as f64,
       a: 1.,
     };
-    (clear(color), clear(1.))
+    (
+      clear(color),
+      clear(if self.reversed_depth { 0. } else { 1. }),
+    )
   }
 
   pub fn draw<'a>(

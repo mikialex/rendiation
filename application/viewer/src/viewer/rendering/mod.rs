@@ -27,10 +27,31 @@ enum RasterizationRenderBackendType {
 pub type BoxedSceneRenderImplProvider =
   Box<dyn RenderImplProvider<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>>>;
 
+#[derive(Clone, Copy)]
+pub struct ViewerNDC {
+  pub enable_reverse_z: bool,
+}
+
+/// currently, the reverse z is implement by a custom ndc space mapper.
+/// this is conceptually wrong because ndc is not changed at all.
+/// however it's convenient to do so because the reverse operation must implement in projection(not post transform)
+/// and ndc space mapper create a good place to inject projection modification logic.
+impl<T: Scalar> NDCSpaceMapper<T> for ViewerNDC {
+  fn transform_from_opengl_standard_ndc(&self) -> Mat4<T> {
+    let mut m = WebGPUxNDC.transform_from_opengl_standard_ndc();
+
+    if self.enable_reverse_z {
+      m.c3 = -T::half()
+    }
+    m
+  }
+}
+
 fn init_renderer(
   updater: &mut ReactiveQueryJoinUpdater,
   ty: RasterizationRenderBackendType,
   gpu: &GPU,
+  ndc: ViewerNDC,
 ) -> BoxedSceneRenderImplProvider {
   let prefer_bindless_textures = false;
   let mut renderer_impl = match ty {
@@ -39,6 +60,8 @@ fn init_renderer(
       Box::new(build_default_gles_render_system(
         gpu,
         prefer_bindless_textures,
+        ndc,
+        ndc.enable_reverse_z,
       )) as BoxedSceneRenderImplProvider
     }
     RasterizationRenderBackendType::Indirect => {
@@ -46,6 +69,8 @@ fn init_renderer(
       Box::new(build_default_indirect_render_system(
         gpu,
         prefer_bindless_textures,
+        ndc,
+        ndc.enable_reverse_z,
       ))
     }
   };
@@ -55,6 +80,7 @@ fn init_renderer(
 }
 
 pub struct Viewer3dRenderingCtx {
+  ndc: ViewerNDC,
   frame_logic: ViewerFrameLogic,
   rendering_resource: ReactiveQueryJoinUpdater,
   renderer_impl: BoxedSceneRenderImplProvider,
@@ -75,18 +101,21 @@ impl Viewer3dRenderingCtx {
     &self.gpu
   }
 
-  pub fn new(gpu: GPU) -> Self {
+  pub fn new(gpu: GPU, ndc: ViewerNDC) -> Self {
     let mut rendering_resource = ReactiveQueryJoinUpdater::default();
 
-    let lighting = LightSystem::new_and_register(&mut rendering_resource, &gpu);
+    let lighting =
+      LightSystem::new_and_register(&mut rendering_resource, &gpu, ndc.enable_reverse_z, ndc);
 
     let renderer_impl = init_renderer(
       &mut rendering_resource,
       RasterizationRenderBackendType::Gles,
       &gpu,
+      ndc,
     );
 
     Self {
+      ndc,
       indirect_occlusion_culling_impl: None,
       rendering_resource,
       renderer_impl,
@@ -119,7 +148,8 @@ impl Viewer3dRenderingCtx {
       if self.rtx_ao_renderer_impl.is_none() {
         let rtx_backend_system = GPUWaveFrontComputeRaytracingSystem::new(&self.gpu);
         let rtx_system = RtxSystemCore::new(Box::new(rtx_backend_system));
-        let mut rtx_ao_renderer_impl = RayTracingAORenderSystem::new(&rtx_system, &self.gpu);
+        let mut rtx_ao_renderer_impl =
+          RayTracingAORenderSystem::new(&rtx_system, &self.gpu, self.ndc);
 
         rtx_ao_renderer_impl.register_resource(&mut self.rendering_resource, &self.gpu);
 
@@ -160,6 +190,7 @@ impl Viewer3dRenderingCtx {
         &mut self.rendering_resource,
         self.current_renderer_impl_ty,
         &self.gpu,
+        self.ndc,
       );
     }
 
@@ -267,6 +298,7 @@ impl Viewer3dRenderingCtx {
         content,
         &render_target,
         self.current_camera_view_projection_inv,
+        self.ndc.enable_reverse_z,
       );
     }
 

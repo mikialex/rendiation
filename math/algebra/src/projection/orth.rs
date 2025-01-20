@@ -24,14 +24,15 @@ impl<T: Scalar> Default for OrthographicProjection<T> {
 }
 
 impl<T: Scalar> Projection<T> for OrthographicProjection<T> {
-  fn compute_projection_mat<S: NDCSpaceMapper<T>>(&self) -> Mat4<T> {
-    Mat4::ortho::<S>(
+  fn compute_projection_mat(&self, mapper: &dyn NDCSpaceMapper<T>) -> Mat4<T> {
+    Mat4::ortho(
       self.left,
       self.right,
       self.bottom,
       self.top,
       self.near,
       self.far,
+      mapper,
     )
   }
 
@@ -86,8 +87,8 @@ impl<T: Scalar> Default for ViewFrustumOrthographicProjection<T> {
 }
 
 impl<T: Scalar> Projection<T> for ViewFrustumOrthographicProjection<T> {
-  fn compute_projection_mat<S: NDCSpaceMapper<T>>(&self) -> Mat4<T> {
-    self.orth.compute_projection_mat::<S>()
+  fn compute_projection_mat(&self, mapper: &dyn NDCSpaceMapper<T>) -> Mat4<T> {
+    self.orth.compute_projection_mat(mapper)
   }
 
   fn pixels_per_unit(&self, distance: T, view_height: T) -> T {
@@ -102,13 +103,14 @@ impl<T: Scalar> ResizableProjection<T> for ViewFrustumOrthographicProjection<T> 
 }
 
 impl<T: Scalar> Mat4<T> {
-  pub fn ortho<S: NDCSpaceMapper<T>>(
+  pub fn ortho(
     left: T,
     right: T,
     bottom: T,
     top: T,
     near: T,
     far: T,
+    mapper: &dyn NDCSpaceMapper<T>,
   ) -> Self {
     let w = T::one() / (right - left);
     let h = T::one() / (top - bottom);
@@ -126,6 +128,6 @@ impl<T: Scalar> Mat4<T> {
       -x,           -y,           -z,           T::one(),
     );
 
-    S::from_opengl_standard() * mat
+    mapper.transform_from_opengl_standard_ndc() * mat
   }
 }

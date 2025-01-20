@@ -7,16 +7,23 @@ pub struct GLESRenderSystem {
   pub background: SceneBackgroundRendererSource,
   pub camera: Box<dyn RenderImplProvider<Box<dyn CameraRenderImpl>>>,
   pub scene_model_impl: Vec<Box<dyn RenderImplProvider<Box<dyn SceneModelRenderer>>>>,
+  pub reversed_depth: bool,
 }
 
-pub fn build_default_gles_render_system(cx: &GPU, prefer_bindless: bool) -> GLESRenderSystem {
+pub fn build_default_gles_render_system(
+  cx: &GPU,
+  prefer_bindless: bool,
+  ndc: impl NDCSpaceMapper<f32> + Copy,
+  reversed_depth: bool,
+) -> GLESRenderSystem {
   let tex_sys_ty = get_suitable_texture_system_ty(cx, false, prefer_bindless);
   GLESRenderSystem {
+    reversed_depth,
     model_lookup: Default::default(),
     texture_system: TextureGPUSystemSource::new(tex_sys_ty),
-    background: Default::default(),
+    background: SceneBackgroundRendererSource::new(reversed_depth),
     node_net_visible: Default::default(),
-    camera: Box::new(DefaultGLESCameraRenderImplProvider::default()),
+    camera: Box::new(DefaultGLESCameraRenderImplProvider::new(ndc)),
     scene_model_impl: vec![Box::new(GLESPreferredComOrderRendererProvider {
       node: Box::new(DefaultGLESNodeRenderImplProvider::default()),
       model_impl: vec![Box::new(DefaultSceneStdModelRendererProvider {
@@ -77,6 +84,7 @@ impl RenderImplProvider<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>> fo
         .take_reactive_query_updated(self.node_net_visible)
         .unwrap(),
       sm_ref_node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
+      reversed_depth: self.reversed_depth,
     })
   }
 }
@@ -89,6 +97,7 @@ struct GLESSceneRenderer {
   model_lookup: RevRefOfForeignKey<SceneModelBelongsToScene>,
   node_net_visible: BoxedDynQuery<EntityHandle<SceneNodeEntity>, bool>,
   sm_ref_node: ForeignKeyReadView<SceneModelRefNode>,
+  reversed_depth: bool,
 }
 
 impl SceneModelRenderer for GLESSceneRenderer {
@@ -139,6 +148,7 @@ impl SceneRenderer for GLESSceneRenderer {
       batch: batch.get_host_batch().unwrap(),
       pass,
       camera,
+      reversed_depth: self.reversed_depth,
     })
   }
 
@@ -170,11 +180,12 @@ struct GLESScenePassContent<'a> {
   batch: Box<dyn HostRenderBatch>,
   pass: &'a dyn RenderComponent,
   camera: Box<dyn RenderComponent + 'a>,
+  reversed_depth: bool,
 }
 
 impl PassContent for GLESScenePassContent<'_> {
   fn render(&mut self, pass: &mut FrameRenderPass) {
-    let base = default_dispatcher(pass);
+    let base = default_dispatcher(pass, self.reversed_depth);
     let p = RenderArray([&base, self.pass] as [&dyn rendiation_webgpu::RenderComponent; 2]);
 
     for sm in self.batch.iter_scene_models() {

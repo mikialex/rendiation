@@ -107,6 +107,7 @@ impl BasicShadowMapSystem {
     frame_ctx: &mut FrameCtx,
     // proj, world
     scene_content: &impl Fn(Mat4<f32>, Mat4<f32>, &mut FrameCtx) -> Box<dyn PassContent + 'a>,
+    reversed_depth: bool,
   ) -> GPU2DArrayDepthTextureView {
     let (_, current_layouts) = self.packing.poll_changes(cx); // incremental detail is useless here
     while let Poll::Ready(Some(new_size)) = self.atlas_resize.poll_next_unpin(cx) {
@@ -148,7 +149,7 @@ impl BasicShadowMapSystem {
         .unwrap();
 
       let _ = pass("shadow-map-clear")
-        .with_depth(write_view, clear(1.))
+        .with_depth(write_view, clear(if reversed_depth { 0. } else { 1. }))
         .render_ctx(frame_ctx);
     }
 
@@ -250,6 +251,7 @@ pub trait ShadowOcclusionQuery {
 pub struct BasicShadowMapComponent {
   pub shadow_map_atlas: GPU2DArrayDepthTextureView,
   pub info: UniformBufferDataView<Shader140Array<BasicShadowMapInfo, 8>>,
+  pub reversed_depth: bool,
 }
 
 impl AbstractBindingSource for BasicShadowMapComponent {
@@ -260,7 +262,11 @@ impl AbstractBindingSource for BasicShadowMapComponent {
       mag_filter: rendiation_webgpu::FilterMode::Linear,
       min_filter: rendiation_webgpu::FilterMode::Linear,
       mipmap_filter: rendiation_webgpu::FilterMode::Nearest,
-      compare: Some(CompareFunction::Less),
+      compare: Some(if self.reversed_depth {
+        CompareFunction::Greater
+      } else {
+        CompareFunction::Less
+      }),
       ..Default::default()
     });
     ctx.binding.bind(&self.info);

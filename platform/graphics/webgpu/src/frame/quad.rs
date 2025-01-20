@@ -118,7 +118,7 @@ where
   T: RenderComponent,
 {
   fn render(&mut self, pass: &mut FrameRenderPass) {
-    let mut base = default_dispatcher(pass);
+    let mut base = default_dispatcher(pass, false);
     base.auto_write = false;
     let components: [&dyn RenderComponent; 3] = [&base, &self.quad, &self.content];
     RenderArray(components).render(&mut pass.ctx, QUAD_DRAW_CMD);

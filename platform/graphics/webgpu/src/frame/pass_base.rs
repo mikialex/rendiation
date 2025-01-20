@@ -1,16 +1,18 @@
 use crate::*;
 
-pub fn default_dispatcher(pass: &FrameRenderPass) -> DefaultPassDispatcher {
+pub fn default_dispatcher(pass: &FrameRenderPass, reversed_depth: bool) -> DefaultPassDispatcher {
   DefaultPassDispatcher {
     formats: pass.ctx.pass.formats().clone(),
     pass_info: pass.pass_info.clone(),
     auto_write: true,
+    reversed_depth,
   }
 }
 
 pub struct DefaultPassDispatcher {
   pub formats: RenderTargetFormatsInfo,
   pub auto_write: bool,
+  pub reversed_depth: bool,
   pub pass_info: UniformBufferCachedDataView<RenderPassGPUInfoData>,
 }
 
@@ -52,7 +54,11 @@ impl GraphicsShaderProvider for DefaultPassDispatcher {
         .map(|format| DepthStencilState {
           format,
           depth_write_enabled: true,
-          depth_compare: CompareFunction::Less,
+          depth_compare: if self.reversed_depth {
+            CompareFunction::Greater
+          } else {
+            CompareFunction::Less
+          },
           stencil: Default::default(),
           bias: Default::default(),
         });

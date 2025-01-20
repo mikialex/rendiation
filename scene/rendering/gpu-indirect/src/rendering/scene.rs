@@ -11,19 +11,23 @@ pub struct IndirectRenderSystem {
   pub background: SceneBackgroundRendererSource,
   pub camera: Box<dyn RenderImplProvider<Box<dyn CameraRenderImpl>>>,
   pub scene_model_impl: Box<dyn RenderImplProvider<Box<dyn IndirectBatchSceneModelRenderer>>>,
+  pub reversed_depth: bool,
 }
 
 pub fn build_default_indirect_render_system(
   gpu: &GPU,
   prefer_bindless: bool,
+  ndc: impl NDCSpaceMapper<f32> + Copy,
+  reversed_depth: bool,
 ) -> IndirectRenderSystem {
   let tex_sys_ty = get_suitable_texture_system_ty(gpu, true, prefer_bindless);
   IndirectRenderSystem {
+    reversed_depth,
     model_lookup: Default::default(),
     node_net_visible: Default::default(),
-    background: Default::default(),
+    background: SceneBackgroundRendererSource::new(reversed_depth),
     texture_system: TextureGPUSystemSource::new(tex_sys_ty),
-    camera: Box::new(DefaultGLESCameraRenderImplProvider::default()),
+    camera: Box::new(DefaultGLESCameraRenderImplProvider::new(ndc)),
     scene_model_impl: Box::new(IndirectPreferredComOrderRendererProvider {
       ids: Default::default(),
       node: Box::new(DefaultIndirectNodeRenderImplProvider::default()),
@@ -79,6 +83,7 @@ impl RenderImplProvider<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>>
       model_lookup: res
         .take_reactive_multi_query_updated(self.model_lookup)
         .unwrap(),
+      reversed_depth: self.reversed_depth,
     })
   }
 }
@@ -91,6 +96,7 @@ struct IndirectSceneRenderer {
   model_lookup: RevRefOfForeignKey<SceneModelBelongsToScene>,
   node_net_visible: BoxedDynQuery<EntityHandle<SceneNodeEntity>, bool>,
   sm_ref_node: ForeignKeyReadView<SceneModelRefNode>,
+  reversed_depth: bool,
 }
 
 impl SceneModelRenderer for IndirectSceneRenderer {
@@ -210,6 +216,7 @@ impl SceneRenderer for IndirectSceneRenderer {
       content,
       pass,
       camera,
+      reversed_depth: self.reversed_depth,
     })
   }
 
@@ -245,11 +252,12 @@ struct IndirectScenePassContent<'a> {
 
   pass: &'a dyn RenderComponent,
   camera: Box<dyn RenderComponent + 'a>,
+  reversed_depth: bool,
 }
 
 impl PassContent for IndirectScenePassContent<'_> {
   fn render(&mut self, cx: &mut FrameRenderPass) {
-    let base = default_dispatcher(cx);
+    let base = default_dispatcher(cx, self.reversed_depth);
     let p = RenderArray([&base, self.pass] as [&dyn rendiation_webgpu::RenderComponent; 2]);
 
     for (content, any_scene_model) in &self.content {

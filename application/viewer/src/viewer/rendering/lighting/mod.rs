@@ -16,6 +16,7 @@ pub use shadow::*;
 use crate::*;
 
 pub struct LightSystem {
+  reversed_depth: bool,
   internal: Box<dyn RenderImplProvider<Box<dyn LightSystemSceneProvider>>>,
   directional_light_shadow: BasicShadowMapSystem,
   spot_light_shadow: BasicShadowMapSystem,
@@ -25,7 +26,12 @@ pub struct LightSystem {
 }
 
 impl LightSystem {
-  pub fn new_and_register(source: &mut ReactiveQueryJoinUpdater, gpu: &GPU) -> Self {
+  pub fn new_and_register(
+    source: &mut ReactiveQueryJoinUpdater,
+    gpu: &GPU,
+    reversed_depth: bool,
+    ndc: impl NDCSpaceMapper<f32> + Copy,
+  ) -> Self {
     let size = Size::from_u32_pair_min_one((2048, 2048));
     let config = MultiLayerTexturePackerConfig {
       max_size: SizeWithDepth {
@@ -40,7 +46,7 @@ impl LightSystem {
 
     let source_proj = global_watch()
       .watch_untyped_key::<DirectionLightShadowBound>()
-      .collective_map(|orth| {
+      .collective_map(move |orth| {
         orth
           .unwrap_or(OrthographicProjection {
             left: -20.,
@@ -50,7 +56,7 @@ impl LightSystem {
             near: 0.,
             far: 1000.,
           })
-          .compute_projection_mat::<WebGPUxNDC>()
+          .compute_projection_mat(&ndc)
       })
       .into_boxed();
 
@@ -80,14 +86,14 @@ impl LightSystem {
 
     let source_proj = global_watch()
       .watch_untyped_key::<SpotLightHalfConeAngle>()
-      .collective_map(|half_cone_angle| {
+      .collective_map(move |half_cone_angle| {
         PerspectiveProjection {
           near: 0.1,
           far: 2000.,
           fov: Deg::from_rad(half_cone_angle * 2.),
           aspect: 1.,
         }
-        .compute_projection_mat::<WebGPUxNDC>()
+        .compute_projection_mat(&ndc)
       })
       .into_boxed();
 
@@ -121,11 +127,13 @@ impl LightSystem {
           source,
           directional_uniform_array(gpu),
           directional_light_shadow_address,
+          reversed_depth,
         ))
         .with_light(SpotLightUniformLightList::new(
           source,
           spot_uniform_array(gpu),
           spot_light_shadow_address,
+          reversed_depth,
         ))
         .with_light(PointLightUniformLightList::default())
         .with_light(IBLProvider::new(gpu)),
@@ -140,6 +148,7 @@ impl LightSystem {
       enable_channel_debugger: false,
       channel_debugger: ScreenChannelDebugger::default_useful(),
       tonemap: ToneMap::new(gpu),
+      reversed_depth,
     }
   }
 
@@ -184,13 +193,17 @@ impl LightSystem {
       renderer.extract_and_make_pass_content(key, target_scene, camera, frame_ctx, &depth)
     };
 
-    let ds = self
-      .directional_light_shadow
-      .update_shadow_maps(cx, frame_ctx, &content);
+    let ds = self.directional_light_shadow.update_shadow_maps(
+      cx,
+      frame_ctx,
+      &content,
+      self.reversed_depth,
+    );
 
-    let ss = self
-      .spot_light_shadow
-      .update_shadow_maps(cx, frame_ctx, &content);
+    let ss =
+      self
+        .spot_light_shadow
+        .update_shadow_maps(cx, frame_ctx, &content, self.reversed_depth);
 
     res.type_based_result.register(DirectionalShaderAtlas(ds));
     res.type_based_result.register(SpotShaderAtlas(ss));

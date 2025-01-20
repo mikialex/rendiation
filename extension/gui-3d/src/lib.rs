@@ -35,7 +35,7 @@ pub trait WidgetEnvAccess {
   fn get_camera_proj_mat(&self) -> Mat4<f32> {
     self
       .get_camera_perspective_proj()
-      .compute_projection_mat::<OpenGLxNDC>()
+      .compute_projection_mat(&OpenGLxNDC)
   }
   fn get_view_resolution(&self) -> Vec2<u32>;
 }

@@ -7,7 +7,7 @@ use rendiation_texture_core::Size;
 use crate::*;
 
 pub struct RayTracingAORenderSystem {
-  camera: DefaultRtxCameraRenderImplProvider,
+  camera: Box<dyn RenderImplProvider<Box<dyn RtxCameraRenderImpl>>>,
   sbt: UpdateResultToken,
   executor: GPURaytracingPipelineExecutor,
   scene_tlas: UpdateResultToken, // todo, share, unify the share mechanism with the texture
@@ -77,9 +77,9 @@ impl Default for AOShaderHandles {
 }
 
 impl RayTracingAORenderSystem {
-  pub fn new(rtx: &RtxSystemCore, gpu: &GPU) -> Self {
+  pub fn new(rtx: &RtxSystemCore, gpu: &GPU, ndc: impl NDCSpaceMapper<f32> + Copy) -> Self {
     Self {
-      camera: Default::default(),
+      camera: Box::new(DefaultRtxCameraRenderImplProvider::new(ndc)),
       scene_tlas: Default::default(),
       sbt: Default::default(),
       executor: rtx.rtx_device.create_raytracing_pipeline_executor(),

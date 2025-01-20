@@ -122,25 +122,32 @@ pub enum Handiness {
 
 /// Should impl on target clip space.
 /// The target clip space is defined by the API vendors such as OpenGL or WebGPU
-pub trait NDCSpaceMapper<T: Scalar> {
+pub trait NDCSpaceMapper<T: Scalar>: Send + Sync + dyn_clone::DynClone + 'static {
   /// We use OpenGL's NDC range as standard, this function return the transformation matrix
   /// from the OpenGL's NDC space to it's defined NDC Space
-  fn from_opengl_standard() -> Mat4<T>;
+  fn transform_from_opengl_standard_ndc(&self) -> Mat4<T>;
+}
+impl Clone for Box<dyn NDCSpaceMapper<f32> + '_> {
+  fn clone(&self) -> Self {
+    dyn_clone::clone_box(&**self)
+  }
 }
 
+#[derive(Copy, Clone)]
 pub struct OpenGLxNDC;
 
 impl<T: Scalar> NDCSpaceMapper<T> for OpenGLxNDC {
   /// Of course we don't need transform here, so it's identity
-  fn from_opengl_standard() -> Mat4<T> {
+  fn transform_from_opengl_standard_ndc(&self) -> Mat4<T> {
     Mat4::identity()
   }
 }
 
+#[derive(Copy, Clone)]
 pub struct WebGPUxNDC;
 
 impl<T: Scalar> NDCSpaceMapper<T> for WebGPUxNDC {
-  fn from_opengl_standard() -> Mat4<T> {
+  fn transform_from_opengl_standard_ndc(&self) -> Mat4<T> {
     #[rustfmt::skip]
     Mat4::new(
       T::one(),  T::zero(), T::zero(), T::zero(),

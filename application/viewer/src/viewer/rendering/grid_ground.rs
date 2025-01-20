@@ -5,23 +5,25 @@ use crate::*;
 pub struct GridGround<'a> {
   pub shading: &'a UniformBufferCachedDataView<GridEffect>,
   pub plane: &'a UniformBufferCachedDataView<ShaderPlane>,
+  pub reversed_depth: bool,
   pub camera: &'a dyn RenderComponent,
 }
 
 impl PassContent for GridGround<'_> {
   fn render(&mut self, pass: &mut FrameRenderPass) {
-    let base = default_dispatcher(pass);
+    let base = default_dispatcher(pass, self.reversed_depth);
 
-    let effect = InfinityShaderPlaneEffect {
+    let plane = InfinityShaderPlaneEffect {
       plane: self.plane,
       camera: self.camera,
+      reversed_depth: self.reversed_depth,
     };
 
     let grid = GridGroundShading {
       shading: self.shading,
     };
 
-    let com: [&dyn RenderComponent; 3] = [&base, &effect, &grid];
+    let com: [&dyn RenderComponent; 3] = [&base, &plane, &grid];
     let com = RenderArray(com);
 
     com.render(&mut pass.ctx, PLANE_DRAW_CMD)

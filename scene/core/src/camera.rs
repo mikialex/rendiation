@@ -25,16 +25,16 @@ pub fn register_camera_data_model() {
     .declare_foreign_key::<SceneCameraNode>();
 }
 
-#[global_registered_query]
 pub fn camera_project_matrix(
+  ndc_mapper: impl NDCSpaceMapper<f32> + Copy,
 ) -> impl ReactiveQuery<Key = EntityHandle<SceneCameraEntity>, Value = Mat4<f32>> {
   let perspective = global_watch()
     .watch::<SceneCameraPerspective>()
-    .collective_filter_map(|proj| proj.map(|proj| proj.compute_projection_mat::<WebGPUxNDC>()));
+    .collective_filter_map(move |proj| proj.map(|proj| proj.compute_projection_mat(&ndc_mapper)));
 
   let orth = global_watch()
     .watch::<SceneCameraOrthographic>()
-    .collective_filter_map(|proj| proj.map(|proj| proj.compute_projection_mat::<WebGPUxNDC>()));
+    .collective_filter_map(move |proj| proj.map(|proj| proj.compute_projection_mat(&ndc_mapper)));
 
   perspective.collective_select(orth)
 }
@@ -81,10 +81,10 @@ pub fn cast_world_ray(view_projection_inv: Mat4<f32>, normalized_position: Vec2<
   Ray3::from_origin_to_target(world_start, world_end)
 }
 
-#[global_registered_query]
 pub fn camera_transforms(
+  ndc_mapper: impl NDCSpaceMapper<f32> + Copy,
 ) -> impl ReactiveQuery<Key = EntityHandle<SceneCameraEntity>, Value = CameraTransform> {
-  let projections = camera_project_matrix();
+  let projections = camera_project_matrix(ndc_mapper);
   let node_mats = scene_node_derive_world_mat();
 
   let camera_world_mat =

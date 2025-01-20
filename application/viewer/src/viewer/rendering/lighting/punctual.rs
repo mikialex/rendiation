@@ -10,6 +10,7 @@ pub struct SpotShaderAtlas(pub GPU2DArrayDepthTextureView);
 pub struct DirectionalUniformLightList {
   light: UpdateResultToken,
   shadow: UpdateResultToken,
+  reversed_depth: bool,
 }
 
 impl DirectionalUniformLightList {
@@ -17,10 +18,12 @@ impl DirectionalUniformLightList {
     source: &mut ReactiveQueryJoinUpdater,
     light: UniformArrayUpdateContainer<DirectionalLightUniform>,
     shadow: UniformArrayUpdateContainer<BasicShadowMapInfo>,
+    reversed_depth: bool,
   ) -> Self {
     Self {
       light: source.register_multi_updater(light),
       shadow: source.register_multi_updater(shadow),
+      reversed_depth,
     }
   }
 }
@@ -56,6 +59,7 @@ impl RenderImplProvider<Box<dyn LightSystemSceneProvider>> for DirectionalUnifor
       shadow: BasicShadowMapComponent {
         shadow_map_atlas,
         info,
+        reversed_depth: self.reversed_depth,
       },
     })
   }
@@ -143,6 +147,7 @@ impl LightSystemSceneProvider for ScenePointLightingProvider {
 pub struct SpotLightUniformLightList {
   light: UpdateResultToken,
   shadow: UpdateResultToken,
+  reversed_depth: bool,
 }
 
 impl SpotLightUniformLightList {
@@ -150,10 +155,12 @@ impl SpotLightUniformLightList {
     source: &mut ReactiveQueryJoinUpdater,
     light: UniformArrayUpdateContainer<SpotLightUniform>,
     shadow: UniformArrayUpdateContainer<BasicShadowMapInfo>,
+    reversed_depth: bool,
   ) -> Self {
     Self {
       light: source.register_multi_updater(light),
       shadow: source.register_multi_updater(shadow),
+      reversed_depth,
     }
   }
 }
@@ -183,6 +190,7 @@ impl RenderImplProvider<Box<dyn LightSystemSceneProvider>> for SpotLightUniformL
       shadow: BasicShadowMapComponent {
         shadow_map_atlas,
         info,
+        reversed_depth: self.reversed_depth,
       },
     })
   }

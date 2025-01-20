@@ -76,6 +76,7 @@ impl ViewerFrameLogic {
     content: &Viewer3dSceneCtx,
     final_target: &RenderTargetView,
     current_camera_view_projection_inv: Mat4<f32>,
+    reversed_depth: bool,
   ) {
     self
       .reproject
@@ -104,7 +105,10 @@ impl ViewerFrameLogic {
 
     pass("scene-widgets")
       .with_color(msaa_color.write(), clear(all_zero()))
-      .with_depth(msaa_depth.write(), clear(1.))
+      .with_depth(
+        msaa_depth.write(),
+        clear(if reversed_depth { 0. } else { 1. }),
+      )
       .resolve_to(widgets_result.write())
       .render_ctx(ctx)
       .by(&mut widget_scene_content);
@@ -167,6 +171,7 @@ impl ViewerFrameLogic {
             plane: &self.ground,
             shading: &self.grid,
             camera: main_camera_gpu.as_ref(),
+            reversed_depth,
           })
           .by(&mut ao);
 

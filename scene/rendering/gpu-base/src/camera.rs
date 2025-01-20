@@ -17,8 +17,8 @@ pub trait CameraRenderImpl {
 pub type CameraUniforms =
   UniformUpdateContainer<EntityHandle<SceneCameraEntity>, CameraGPUTransform>;
 
-pub fn camera_gpus(cx: &GPU) -> CameraUniforms {
-  let source = camera_transforms()
+pub fn camera_gpus(cx: &GPU, ndc: impl NDCSpaceMapper<f32> + Copy) -> CameraUniforms {
+  let source = camera_transforms(ndc)
     // todo, fix jitter override
     .collective_map(CameraGPUTransform::from)
     .into_query_update_uniform(0, cx);
@@ -136,17 +136,29 @@ impl From<CameraTransform> for CameraGPUTransform {
 //   )
 // }
 
-#[derive(Default)]
-pub struct DefaultGLESCameraRenderImplProvider {
+pub struct DefaultGLESCameraRenderImplProvider<T> {
   uniforms: UpdateResultToken,
+  ndc_mapper: T,
 }
+
+impl<T> DefaultGLESCameraRenderImplProvider<T> {
+  pub fn new(ndc_mapper: T) -> Self {
+    Self {
+      uniforms: Default::default(),
+      ndc_mapper,
+    }
+  }
+}
+
 pub struct DefaultGLESCameraRenderImpl {
   uniforms: LockReadGuardHolder<CameraUniforms>,
 }
 
-impl RenderImplProvider<Box<dyn CameraRenderImpl>> for DefaultGLESCameraRenderImplProvider {
+impl<T: NDCSpaceMapper<f32> + Copy> RenderImplProvider<Box<dyn CameraRenderImpl>>
+  for DefaultGLESCameraRenderImplProvider<T>
+{
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    let uniforms = camera_gpus(cx);
+    let uniforms = camera_gpus(cx, self.ndc_mapper);
     self.uniforms = source.register_multi_updater(uniforms);
   }
   fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {

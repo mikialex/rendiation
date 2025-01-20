@@ -21,8 +21,8 @@ impl<T: Scalar> Default for PerspectiveProjection<T> {
 }
 
 impl<T: Scalar> Projection<T> for PerspectiveProjection<T> {
-  fn compute_projection_mat<S: NDCSpaceMapper<T>>(&self) -> Mat4<T> {
-    Mat4::perspective_fov_aspect::<S>(self.fov.to_rad(), self.aspect, self.near, self.far)
+  fn compute_projection_mat(&self, mapper: &dyn NDCSpaceMapper<T>) -> Mat4<T> {
+    Mat4::perspective_fov_aspect(self.fov.to_rad(), self.aspect, self.near, self.far, mapper)
   }
 
   fn pixels_per_unit(&self, distance: T, view_height: T) -> T {
@@ -40,7 +40,13 @@ impl<T: Scalar> ResizableProjection<T> for PerspectiveProjection<T> {
 
 impl<T: Scalar> Mat4<T> {
   // https://www.scratchapixel.com/lessons/3d-basic-rendering/perspective-and-orthographic-projection-matrix/opengl-perspective-projection-matrix
-  pub fn perspective_fov_aspect<S: NDCSpaceMapper<T>>(fov: T, aspect: T, near: T, far: T) -> Self {
+  pub fn perspective_fov_aspect(
+    fov: T,
+    aspect: T,
+    near: T,
+    far: T,
+    mapper: &dyn NDCSpaceMapper<T>,
+  ) -> Self {
     let h = T::one() / (fov * T::half()).tan();
     let w = h / aspect;
     let c = -(far + near) / (far - near);
@@ -54,6 +60,6 @@ impl<T: Scalar> Mat4<T> {
       T::zero(), T::zero(), q,         T::zero(),
     );
 
-    S::from_opengl_standard() * mat
+    mapper.transform_from_opengl_standard_ndc() * mat
   }
 }

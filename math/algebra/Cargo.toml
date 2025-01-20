@@ -6,6 +6,7 @@ version = "0.1.0"
 [dependencies]
 bytemuck = { workspace = true, features = ["derive"] }
 num-traits = "0.2"
+dyn-clone = { workspace = true }
 paste = { workspace = true }
 
 

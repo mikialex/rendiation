@@ -2,14 +2,25 @@ use rendiation_shader_library::shader_uv_space_to_world_space;
 
 use crate::*;
 
-#[derive(Default)]
-pub struct DefaultRtxCameraRenderImplProvider {
+pub struct DefaultRtxCameraRenderImplProvider<T> {
   uniforms: UpdateResultToken,
+  ndc_mapper: T,
 }
 
-impl RenderImplProvider<Box<dyn RtxCameraRenderImpl>> for DefaultRtxCameraRenderImplProvider {
+impl<T> DefaultRtxCameraRenderImplProvider<T> {
+  pub fn new(ndc_mapper: T) -> Self {
+    Self {
+      uniforms: Default::default(),
+      ndc_mapper,
+    }
+  }
+}
+
+impl<T: NDCSpaceMapper<f32> + Copy> RenderImplProvider<Box<dyn RtxCameraRenderImpl>>
+  for DefaultRtxCameraRenderImplProvider<T>
+{
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    let uniforms = camera_gpus(cx);
+    let uniforms = camera_gpus(cx, self.ndc_mapper);
     self.uniforms = source.register_multi_updater(uniforms);
   }
 

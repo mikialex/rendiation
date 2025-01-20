@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 use crate::*;
 
 pub const PLANE_DRAW_CMD: DrawCommand = QUAD_DRAW_CMD;
@@ -23,6 +25,7 @@ impl ShaderPlane {
 pub struct InfinityShaderPlaneEffect<'a> {
   pub plane: &'a UniformBufferCachedDataView<ShaderPlane>,
   pub camera: &'a dyn RenderComponent,
+  pub reversed_depth: bool,
 }
 
 impl ShaderHashProvider for InfinityShaderPlaneEffect<'_> {
@@ -30,6 +33,7 @@ impl ShaderHashProvider for InfinityShaderPlaneEffect<'_> {
 
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.camera.hash_pipeline(hasher);
+    self.reversed_depth.hash(hasher);
   }
 }
 impl ShaderPassBuilder for InfinityShaderPlaneEffect<'_> {
@@ -67,8 +71,19 @@ impl GraphicsShaderProvider for InfinityShaderPlaneEffect<'_> {
       let ndc_xy = uv * val(2.) - val(Vec2::one());
       let ndc_xy = ndc_xy * val(Vec2::new(1., -1.));
 
-      let far = view_proj_inv * (ndc_xy, val(1.), val(1.)).into();
-      let near = view_proj_inv * (ndc_xy, val(0.), val(1.)).into();
+      let far = if self.reversed_depth {
+        val(0.)
+      } else {
+        val(1.)
+      };
+      let near = if self.reversed_depth {
+        val(1.)
+      } else {
+        val(0.)
+      };
+
+      let far = view_proj_inv * (ndc_xy, far, val(1.)).into();
+      let near = view_proj_inv * (ndc_xy, near, val(1.)).into();
 
       let far = far.xyz() / far.w().splat();
       let near = near.xyz() / near.w().splat();
@@ -102,7 +117,11 @@ impl GraphicsShaderProvider for InfinityShaderPlaneEffect<'_> {
       MaterialStates {
         blend: BlendState::ALPHA_BLENDING.into(),
         depth_write_enabled: false,
-        depth_compare: CompareFunction::LessEqual,
+        depth_compare: if self.reversed_depth {
+          CompareFunction::Greater
+        } else {
+          CompareFunction::Less
+        },
         ..Default::default()
       }
       .apply_pipeline_builder(builder);
