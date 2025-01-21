@@ -275,6 +275,7 @@ impl ShaderAPINagaImpl {
             class,
           }
         }
+        &ShaderValueSingleType::AccelerationStructure => naga::TypeInner::AccelerationStructure,
       },
       ShaderValueType::BindingArray { count, ty } => naga::TypeInner::BindingArray {
         base: self.register_ty_impl(ShaderValueType::Single(ty.clone()), layout),

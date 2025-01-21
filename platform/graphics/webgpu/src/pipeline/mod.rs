@@ -147,6 +147,7 @@ pub fn map_shader_value_ty_to_binding_layout_type(
         },
         view_dimension: dimension,
       },
+      AccelerationStructure => gpu::BindingType::AccelerationStructure,
     })
     .unwrap();
 

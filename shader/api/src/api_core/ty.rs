@@ -176,6 +176,7 @@ pub enum ShaderValueSingleType {
     format: StorageFormat,
     access: StorageTextureAccess,
   },
+  AccelerationStructure,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]

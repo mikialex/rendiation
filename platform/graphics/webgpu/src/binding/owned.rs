@@ -9,6 +9,7 @@ pub enum BindingResourceOwned {
   RawTextureView(Arc<gpu::TextureView>, BindGroupResourceHolder), // to support surface texture
   TextureView(GPUTextureView),
   TextureViewArray(Arc<Vec<GPUTextureView>>),
+  AccelerationStructure(GPUTlasView),
 }
 
 impl BindingResourceOwned {
@@ -33,6 +34,9 @@ impl BindingResourceOwned {
       BindingResourceOwned::TextureViewArray(v) => v
         .iter()
         .for_each(|v| v.resource.bindgroup_holder.increase(record.clone_another())),
+      BindingResourceOwned::AccelerationStructure(v) => {
+        v.resource.bindgroup_holder.increase(record.clone_another())
+      }
     }
   }
 
@@ -60,6 +64,9 @@ impl BindingResourceOwned {
       BindingResourceOwned::TextureViewArray(textures) => {
         BindingResourceOwnedRef::TextureViewArray(textures.iter().map(|s| &s.view).collect())
       }
+      BindingResourceOwned::AccelerationStructure(tlas) => {
+        BindingResourceOwnedRef::AccelerationStructure(tlas.resource.tlas())
+      }
     }
   }
 }
@@ -71,6 +78,7 @@ pub enum BindingResourceOwnedRef<'a> {
   SamplerArray(Vec<&'a gpu::Sampler>),
   TextureView(&'a gpu::TextureView),
   TextureViewArray(Vec<&'a gpu::TextureView>),
+  AccelerationStructure(&'a gpu::Tlas),
 }
 
 impl<'a> BindingResourceOwnedRef<'a> {
@@ -87,6 +95,9 @@ impl<'a> BindingResourceOwnedRef<'a> {
       BindingResourceOwnedRef::TextureView(texture) => gpu::BindingResource::TextureView(texture),
       BindingResourceOwnedRef::TextureViewArray(textures) => {
         gpu::BindingResource::TextureViewArray(textures.as_ref())
+      }
+      BindingResourceOwnedRef::AccelerationStructure(tlas) => {
+        gpu::BindingResource::AccelerationStructure(tlas)
       }
     }
   }
