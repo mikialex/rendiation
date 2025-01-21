@@ -58,7 +58,7 @@ fn sort_morton_cpu(morton_idx: &mut [Vec2<u32>]) {
   morton_idx.sort_by_cached_key(|i| i.x);
 }
 
-// todo support duplicated code:
+// todo support duplicated morton code:
 // 1. check let same = code[idx] == code[idx-1] for idx = 0 to m
 // 2. compute prefix sum of 'same' as new index (last value as n)
 // 3. allocate redirect[n] {left, right} inclusive
@@ -73,7 +73,7 @@ fn triangles_to_bounding_cpu(vertices: &[f32], indices: &[u32]) -> (Vec<Box3>, B
   }
   let mut boxes = vec![];
   let mut global = Box3::default();
-  for i in 0..(index_len as usize) {
+  for i in 0..index_len {
     let abc = read_vec3(indices, i);
     let a = read_vec3(vertices, abc.x as usize);
     let b = read_vec3(vertices, abc.y as usize);
@@ -82,10 +82,10 @@ fn triangles_to_bounding_cpu(vertices: &[f32], indices: &[u32]) -> (Vec<Box3>, B
     local.expand_by_point(a);
     local.expand_by_point(b);
     local.expand_by_point(c);
-    let center = local.center();
+    // let center = local.center();
     boxes.push(local);
-    // global.expand_by_other(local);
-    global.expand_by_point(center);
+    global.expand_by_other(local);
+    // global.expand_by_point(center);
   }
   (boxes, global)
 }
@@ -373,7 +373,7 @@ fn test_all() {
   print_device_nodes(&device_nodes);
 }
 
-pub fn build_tlas_bvh(boxes: &[Box3], node_offset: u32, id_offset: u32) -> Vec<DeviceBVHNode> {
+pub fn build_tlas_bvh_cpu(boxes: &[Box3], node_offset: u32, id_offset: u32) -> Vec<DeviceBVHNode> {
   let global_box = boxes.iter().collect::<Box3>();
 
   let mut morton = centers_to_morton_cpu(boxes, global_box);
@@ -400,12 +400,13 @@ pub fn build_tlas_bvh(boxes: &[Box3], node_offset: u32, id_offset: u32) -> Vec<D
   device_nodes
 }
 
-pub fn triangles_to_bvh_cpu(vertices: &[f32], indices: &[u32]) -> Vec<DeviceBVHNode> {
+pub fn build_geometry_bvh_cpu(vertices: &[f32], indices: &[u32]) -> (Vec<DeviceBVHNode>, Box3) {
   let (boxes, global_bounding) = triangles_to_bounding_cpu(vertices, indices);
   let mut morton = centers_to_morton_cpu(&boxes, global_bounding);
   sort_morton_cpu(&mut morton);
   let lbvh_nodes = lbvh_tree_cpu(&morton);
   let device_nodes = lbvh_nodes_to_device_nodes(&lbvh_nodes, &boxes);
 
-  device_nodes_merge_aabb(device_nodes, &lbvh_nodes)
+  let nodes = device_nodes_merge_aabb(device_nodes, &lbvh_nodes);
+  (nodes, global_bounding)
 }

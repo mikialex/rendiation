@@ -19,7 +19,7 @@ use rendiation_space_algorithm::utils::TreeBuildOption;
 use traverse_cpu::*;
 use traverse_gpu::*;
 
-use crate::backend::wavefront_compute::geometry::lbvh::build_tlas_bvh;
+use crate::backend::wavefront_compute::geometry::lbvh::build_tlas_bvh_cpu;
 use crate::backend::wavefront_compute::geometry::{intersect_ray_triangle_gpu, Ray};
 use crate::*;
 
@@ -81,7 +81,7 @@ impl BvhBuilder for LbvhBuilder {
     node_offset: u32,
     id_offset: u32,
   ) -> (Vec<DeviceBVHNode>, Vec<usize>) {
-    let nodes = build_tlas_bvh(boxes, node_offset, id_offset);
+    let nodes = build_tlas_bvh_cpu(boxes, node_offset, id_offset);
     let primitive_indices = (0..boxes.len()).collect();
     (nodes, primitive_indices)
   }
