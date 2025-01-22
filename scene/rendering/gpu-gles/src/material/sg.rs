@@ -1,6 +1,4 @@
-use rendiation_lighting_transport::{
-  AlphaChannel, AlphaCutChannel, EmissiveChannel, GlossinessChannel, SpecularChannel,
-};
+use rendiation_lighting_transport::{EmissiveChannel, GlossinessChannel, SpecularChannel};
 use rendiation_shader_library::normal_mapping::apply_normal_mapping_conditional;
 
 use crate::*;
@@ -194,20 +192,12 @@ impl GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU<'_> {
         enabled,
       );
 
-      match self.alpha_mode {
-        AlphaMode::Opaque => {}
-        AlphaMode::Mask => {
-          let alpha = alpha.less_than(uniform.alpha_cutoff).select(val(0.), alpha);
-          builder.register::<AlphaChannel>(alpha);
-          builder.register::<AlphaCutChannel>(uniform.alpha_cutoff);
-        }
-        AlphaMode::Blend => {
-          builder.register::<AlphaChannel>(alpha);
-          builder.frag_output.iter_mut().for_each(|(_, state)| {
-            state.blend = BlendState::ALPHA_BLENDING.into();
-          });
-        }
-      };
+      ShaderAlphaConfig {
+        alpha_mode: self.alpha_mode,
+        alpha_cutoff: uniform.alpha_cutoff,
+        alpha,
+      }
+      .apply(builder);
 
       builder.register::<ColorChannel>(base_color);
       builder.register::<SpecularChannel>(specular);

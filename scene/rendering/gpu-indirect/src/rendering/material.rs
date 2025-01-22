@@ -78,6 +78,7 @@ impl RenderImplProvider<Box<dyn IndirectModelMaterialRenderImpl>>
         .inner
         .gpu()
         .clone(),
+      alpha_mode: global_entity_component_of().read(),
     })
   }
 }
@@ -85,6 +86,7 @@ impl RenderImplProvider<Box<dyn IndirectModelMaterialRenderImpl>>
 struct FlatMaterialDefaultIndirectRenderImpl {
   material_access: ForeignKeyReadView<StandardModelRefFlatMaterial>,
   storages: StorageBufferReadOnlyDataView<[FlatMaterialStorage]>,
+  alpha_mode: ComponentReadView<AlphaModeOf<FlatMaterialAlphaConfig>>,
 }
 
 impl IndirectModelMaterialRenderImpl for FlatMaterialDefaultIndirectRenderImpl {
@@ -93,9 +95,10 @@ impl IndirectModelMaterialRenderImpl for FlatMaterialDefaultIndirectRenderImpl {
     any_idx: EntityHandle<StandardModelEntity>,
     _cx: &'a GPUTextureBindingSystem,
   ) -> Option<Box<dyn RenderComponent + 'a>> {
-    let _ = self.material_access.get(any_idx)?;
+    let m = self.material_access.get(any_idx)?;
     Some(Box::new(FlatMaterialStorageGPU {
       buffer: self.storages.clone(),
+      alpha_mode: self.alpha_mode.get_value(m)?,
     }))
   }
   fn hash_shader_group_key(

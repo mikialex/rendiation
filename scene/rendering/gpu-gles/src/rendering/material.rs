@@ -43,6 +43,7 @@ impl RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>
       material_access: global_entity_component_of::<StandardModelRefFlatMaterial>()
         .read_foreign_key(),
       uniforms: res.take_multi_updater_updated(self.uniforms).unwrap(),
+      alpha_mode: global_entity_component_of().read(),
     })
   }
 }
@@ -50,6 +51,7 @@ impl RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>
 struct FlatMaterialDefaultRenderImpl {
   material_access: ForeignKeyReadView<StandardModelRefFlatMaterial>,
   uniforms: LockReadGuardHolder<FlatMaterialUniforms>,
+  alpha_mode: ComponentReadView<AlphaModeOf<FlatMaterialAlphaConfig>>,
 }
 
 impl GLESModelMaterialRenderImpl for FlatMaterialDefaultRenderImpl {
@@ -61,6 +63,7 @@ impl GLESModelMaterialRenderImpl for FlatMaterialDefaultRenderImpl {
     let idx = self.material_access.get(idx)?;
     Some(Box::new(FlatMaterialGPU {
       uniform: self.uniforms.get(&idx)?,
+      alpha_mode: self.alpha_mode.get_value(idx)?,
     }))
   }
 }
