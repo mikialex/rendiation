@@ -2,7 +2,7 @@ use core::num::NonZeroU32;
 use std::any::Any;
 
 use fast_hash_collection::*;
-use naga::Span;
+use naga::{RayQueryFunction, Span};
 use rendiation_shader_api::*;
 
 pub struct ShaderAPINagaImpl {
@@ -276,6 +276,7 @@ impl ShaderAPINagaImpl {
           }
         }
         &ShaderValueSingleType::AccelerationStructure => naga::TypeInner::AccelerationStructure,
+        &ShaderValueSingleType::RayQuery => naga::TypeInner::RayQuery,
       },
       ShaderValueType::BindingArray { count, ty } => naga::TypeInner::BindingArray {
         base: self.register_ty_impl(ShaderValueType::Single(ty.clone()), layout),
@@ -1105,6 +1106,37 @@ impl ShaderAPI for ShaderAPINagaImpl {
             }
           }
         }
+        ShaderNodeExpr::RayQueryProceed { ray_query } => {
+          let r = self
+            .building_fn
+            .last_mut()
+            .unwrap()
+            .expressions
+            .append(naga::Expression::RayQueryProceedResult, Span::UNDEFINED);
+          let r_handle = self.make_new_handle();
+          self.expression_mapping.insert(r_handle, r);
+
+          self.push_top_statement(naga::Statement::RayQuery {
+            query: self.get_expression(ray_query),
+            fun: RayQueryFunction::Proceed { result: r },
+          });
+
+          return r_handle;
+        }
+        ShaderNodeExpr::RayQueryGetCandidateIntersection { ray_query } => {
+          self.module.generate_ray_intersection_type();
+          naga::Expression::RayQueryGetIntersection {
+            query: self.get_expression(ray_query),
+            committed: false,
+          }
+        }
+        ShaderNodeExpr::RayQueryGetCommitedIntersection { ray_query } => {
+          self.module.generate_ray_intersection_type();
+          naga::Expression::RayQueryGetIntersection {
+            query: self.get_expression(ray_query),
+            committed: true,
+          }
+        }
       };
     };
 
@@ -1141,6 +1173,13 @@ impl ShaderAPI for ShaderAPINagaImpl {
     self.push_top_statement(st);
   }
 
+  fn load(&mut self, source: ShaderNodeRawHandle) -> ShaderNodeRawHandle {
+    let ex = naga::Expression::Load {
+      pointer: self.get_expression(source),
+    };
+    self.make_expression_inner(ex)
+  }
+
   fn texture_store(&mut self, store: ShaderTextureStore) {
     let st = naga::Statement::ImageStore {
       image: self.get_expression(store.image),
@@ -1151,12 +1190,38 @@ impl ShaderAPI for ShaderAPINagaImpl {
     self.push_top_statement(st);
   }
 
-  fn load(&mut self, source: ShaderNodeRawHandle) -> ShaderNodeRawHandle {
-    let ex = naga::Expression::Load {
-      pointer: self.get_expression(source),
-    };
-    self.make_expression_inner(ex)
+  fn ray_query_initialize(
+    &mut self,
+    tlas: HandleNode<ShaderAccelerationStructure>,
+    ray_desc: ShaderRayDesc,
+  ) -> ShaderNodeRawHandle {
+    let ray_desc_type = self.module.generate_ray_desc_type();
+
+    let query = self.make_local_var(ShaderValueType::Single(ShaderValueSingleType::RayQuery));
+
+    let ray_desc_raw = self.make_expression_inner(naga::Expression::Compose {
+      ty: ray_desc_type,
+      components: vec![
+        self.get_expression(ray_desc.flags),
+        self.get_expression(ray_desc.cull_mask),
+        self.get_expression(ray_desc.t_min),
+        self.get_expression(ray_desc.t_max),
+        self.get_expression(ray_desc.origin),
+        self.get_expression(ray_desc.dir),
+      ],
+    });
+
+    self.push_top_statement(naga::Statement::RayQuery {
+      query: self.get_expression(query),
+      fun: RayQueryFunction::Initialize {
+        acceleration_structure: self.get_expression(tlas.handle()),
+        descriptor: self.get_expression(ray_desc_raw),
+      },
+    });
+
+    query
   }
+  // todo ray query terminate?
 
   fn push_scope(&mut self) {
     self

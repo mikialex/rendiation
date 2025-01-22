@@ -110,6 +110,16 @@ pub struct ShaderTextureStore {
   pub value: ShaderNodeRawHandle,
 }
 
+#[derive(Clone, Copy)]
+pub struct ShaderRayDesc {
+  pub flags: ShaderNodeRawHandle,
+  pub cull_mask: ShaderNodeRawHandle,
+  pub t_min: ShaderNodeRawHandle,
+  pub t_max: ShaderNodeRawHandle,
+  pub origin: ShaderNodeRawHandle,
+  pub dir: ShaderNodeRawHandle,
+}
+
 pub enum ShaderNodeExpr {
   Fake,
   Zeroed {
@@ -154,6 +164,15 @@ pub enum ShaderNodeExpr {
   },
   Const {
     data: PrimitiveShaderValue,
+  },
+  RayQueryProceed {
+    ray_query: ShaderNodeRawHandle,
+  },
+  RayQueryGetCandidateIntersection {
+    ray_query: ShaderNodeRawHandle,
+  },
+  RayQueryGetCommitedIntersection {
+    ray_query: ShaderNodeRawHandle,
   },
 }
 
