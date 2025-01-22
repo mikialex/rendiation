@@ -398,9 +398,10 @@ impl Ctx {
         self.materials.get_or_insert_with(*material, || {
           let material = self.reader.read_pbr_mr_material(*material);
           gltf_json::Material {
-            alpha_cutoff: None,
-            // alpha_cutoff: gltf_json::material::AlphaCutoff(material.alpha_cutoff).into(),
-            alpha_mode: gltf_json::validation::Checked::Valid(map_alpha_mode(material.alpha_mode)),
+            alpha_cutoff: gltf_json::material::AlphaCutoff(material.alpha.alpha_cutoff).into(),
+            alpha_mode: gltf_json::validation::Checked::Valid(map_alpha_mode(
+              material.alpha.alpha_mode,
+            )),
             double_sided: false,
             pbr_metallic_roughness: gltf_json::material::PbrMetallicRoughness {
               base_color_factor: gltf_json::material::PbrBaseColorFactor([

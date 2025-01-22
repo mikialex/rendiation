@@ -309,15 +309,17 @@ fn build_pbr_material(
   });
 
   let alpha_mode = map_alpha(material.alpha_mode());
-  // let alpha_cut = material.alpha_cutoff().unwrap_or(1.);
+  let alpha_cut = material.alpha_cutoff().unwrap_or(0.5);
 
   let color_and_alpha = Vec4::from(pbr.base_color_factor());
 
   let result = PhysicalMetallicRoughnessMaterialDataView {
     base_color: color_and_alpha.rgb(),
-    alpha: color_and_alpha.a(),
-    // alpha_cutoff: alpha_cut,
-    alpha_mode,
+    alpha: AlphaConfigDataView {
+      alpha_mode,
+      alpha_cutoff: alpha_cut,
+      alpha: color_and_alpha.a(),
+    },
     roughness: pbr.roughness_factor(),
     metallic: pbr.metallic_factor(),
     emissive: Vec3::from(material.emissive_factor()),

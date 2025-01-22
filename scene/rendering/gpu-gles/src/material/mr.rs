@@ -43,7 +43,7 @@ pub fn pbr_mr_material_uniforms(cx: &GPU) -> PbrMRMaterialUniforms {
     .into_query_update_uniform(offset_of!(Uniform, metallic), cx);
 
   let alpha = global_watch()
-    .watch::<PbrMRMaterialAlphaComponent>()
+    .watch::<AlphaOf<PbrMRMaterialAlphaConfig>>()
     .into_query_update_uniform(offset_of!(Uniform, alpha), cx);
 
   PbrMRMaterialUniforms::default()
@@ -83,7 +83,7 @@ pub fn pbr_mr_material_tex_uniforms(cx: &GPU) -> PbrMRMaterialTexUniforms {
 
 pub fn pbr_mr_material_pipeline_hash(
 ) -> impl ReactiveQuery<Key = EntityHandle<PbrMRMaterialEntity>, Value = AlphaMode> {
-  global_watch().watch::<PbrMRMaterialAlphaModeComponent>()
+  global_watch().watch::<AlphaModeOf<PbrMRMaterialAlphaConfig>>()
 }
 
 pub struct PhysicalMetallicRoughnessMaterialGPU<'a> {

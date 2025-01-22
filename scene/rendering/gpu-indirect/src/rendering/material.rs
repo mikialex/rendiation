@@ -145,7 +145,7 @@ struct PbrMRMaterialDefaultIndirectRenderImpl {
   storages: StorageBufferReadOnlyDataView<[PhysicalMetallicRoughnessMaterialStorage]>,
   tex_storages:
     StorageBufferReadOnlyDataView<[PhysicalMetallicRoughnessMaterialTextureHandlesStorage]>,
-  alpha_mode: ComponentReadView<PbrMRMaterialAlphaModeComponent>,
+  alpha_mode: ComponentReadView<AlphaModeOf<PbrMRMaterialAlphaConfig>>,
 }
 
 pub struct TextureSamplerIdView<T: TextureWithSamplingForeignKeys> {
@@ -234,7 +234,7 @@ struct PbrSGMaterialDefaultIndirectRenderImpl {
   storages: StorageBufferReadOnlyDataView<[PhysicalSpecularGlossinessMaterialStorage]>,
   tex_storages:
     StorageBufferReadOnlyDataView<[PhysicalSpecularGlossinessMaterialTextureHandlesStorage]>,
-  alpha_mode: ComponentReadView<PbrSGMaterialAlphaModeComponent>,
+  alpha_mode: ComponentReadView<AlphaModeOf<PbrSGMaterialAlphaConfig>>,
 }
 
 impl IndirectModelMaterialRenderImpl for PbrSGMaterialDefaultIndirectRenderImpl {

@@ -33,7 +33,7 @@ pub fn pbr_sg_material_storages(cx: &GPU) -> PbrSGMaterialStorages {
   let glossiness = global_watch().watch::<PbrSGMaterialGlossinessComponent>();
   let glossiness_offset = offset_of!(Storage, glossiness);
 
-  let alpha = global_watch().watch::<PbrSGMaterialAlphaComponent>();
+  let alpha = global_watch().watch::<AlphaOf<PbrSGMaterialAlphaConfig>>();
   let alpha_offset = offset_of!(Storage, alpha);
 
   PbrSGMaterialStorages::new(cx)
@@ -74,7 +74,7 @@ pub fn pbr_sg_material_tex_storages(cx: &GPU) -> PbrSGMaterialTexStorages {
 
 pub fn pbr_sg_material_pipeline_hash(
 ) -> impl ReactiveQuery<Key = EntityHandle<PbrSGMaterialEntity>, Value = AlphaMode> {
-  global_watch().watch::<PbrSGMaterialAlphaModeComponent>()
+  global_watch().watch::<AlphaModeOf<PbrSGMaterialAlphaConfig>>()
 }
 
 pub struct PhysicalSpecularGlossinessMaterialGPU<'a> {

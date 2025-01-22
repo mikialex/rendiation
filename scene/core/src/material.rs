@@ -19,13 +19,19 @@ mod flat_material {
     Vec4::one()
   );
   pub fn register_flat_material_data_model() {
-    global_database()
+    let ecg = global_database()
       .declare_entity::<FlatMaterialEntity>()
       .declare_component::<FlatMaterialDisplayColorComponent>();
+
+    register_alpha_config::<FlatMaterialAlphaConfig>(ecg);
   }
+
+  declare_entity_associated!(FlatMaterialAlphaConfig, FlatMaterialEntity);
+  impl AlphaInfoSemantic for FlatMaterialAlphaConfig {}
 
   pub struct FlatMaterialDataView {
     pub color: Vec4<f32>,
+    pub alpha: AlphaConfigDataView,
   }
   impl EntityCustomWrite<FlatMaterialEntity> for FlatMaterialDataView {
     type Writer = EntityWriter<FlatMaterialEntity>;
@@ -35,9 +41,9 @@ mod flat_material {
     }
 
     fn write(self, writer: &mut Self::Writer) -> EntityHandle<FlatMaterialEntity> {
-      writer
-        .component_value_writer::<FlatMaterialDisplayColorComponent>(self.color)
-        .new_entity()
+      let w = writer.component_value_writer::<FlatMaterialDisplayColorComponent>(self.color);
+      self.alpha.write::<FlatMaterialAlphaConfig, _>(w);
+      w.new_entity()
     }
   }
 }
@@ -70,12 +76,9 @@ mod sg_material {
     Vec3<f32>,
     Vec3::zero()
   );
-  declare_component!(PbrSGMaterialAlphaComponent, PbrSGMaterialEntity, f32, 1.0);
-  declare_component!(
-    PbrSGMaterialAlphaModeComponent,
-    PbrSGMaterialEntity,
-    AlphaMode
-  );
+
+  declare_entity_associated!(PbrSGMaterialAlphaConfig, PbrSGMaterialEntity);
+  impl AlphaInfoSemantic for PbrSGMaterialAlphaConfig {}
 
   declare_entity_associated!(PbrSGMaterialAlbedoTex, PbrSGMaterialEntity);
   impl TextureWithSamplingForeignKeys for PbrSGMaterialAlbedoTex {}
@@ -94,15 +97,14 @@ mod sg_material {
       .declare_component::<PbrSGMaterialAlbedoComponent>()
       .declare_component::<PbrSGMaterialSpecularComponent>()
       .declare_component::<PbrSGMaterialGlossinessComponent>()
-      .declare_component::<PbrSGMaterialEmissiveComponent>()
-      .declare_component::<PbrSGMaterialAlphaComponent>()
-      .declare_component::<PbrSGMaterialAlphaModeComponent>();
+      .declare_component::<PbrSGMaterialEmissiveComponent>();
 
     let ecg = register_texture_with_sampling::<PbrSGMaterialAlbedoTex>(ecg);
     let ecg = register_texture_with_sampling::<PbrSGMaterialSpecularTex>(ecg);
     let ecg = register_texture_with_sampling::<PbrSGMaterialGlossinessTex>(ecg);
     let ecg = register_texture_with_sampling::<PbrSGMaterialEmissiveTex>(ecg);
-    register_normal::<PbrSGMaterialNormalInfo>(ecg);
+    let ecg = register_normal::<PbrSGMaterialNormalInfo>(ecg);
+    register_alpha_config::<PbrSGMaterialAlphaConfig>(ecg);
   }
 
   #[derive(Clone)]
@@ -111,9 +113,7 @@ mod sg_material {
     pub specular: Vec3<f32>,
     pub glossiness: f32,
     pub emissive: Vec3<f32>,
-    pub alpha: f32,
-    pub alpha_cutoff: f32,
-    pub alpha_mode: AlphaMode,
+    pub alpha: AlphaConfigDataView,
     pub albedo_texture: Option<Texture2DWithSamplingDataView>,
     pub specular_texture: Option<Texture2DWithSamplingDataView>,
     pub glossiness_texture: Option<Texture2DWithSamplingDataView>,
@@ -128,9 +128,7 @@ mod sg_material {
         specular: Vec3::zero(),
         glossiness: 0.5,
         emissive: Vec3::zero(),
-        alpha: 1.0,
-        alpha_cutoff: 1.0,
-        alpha_mode: Default::default(),
+        alpha: Default::default(),
         albedo_texture: None,
         specular_texture: None,
         glossiness_texture: None,
@@ -147,11 +145,11 @@ mod sg_material {
     ) -> EntityHandle<PbrSGMaterialEntity> {
       writer
         .component_value_writer::<PbrSGMaterialAlbedoComponent>(self.albedo)
-        .component_value_writer::<PbrSGMaterialAlphaModeComponent>(self.alpha_mode)
         .component_value_writer::<PbrSGMaterialSpecularComponent>(self.specular)
         .component_value_writer::<PbrSGMaterialGlossinessComponent>(self.glossiness)
-        .component_value_writer::<PbrSGMaterialEmissiveComponent>(self.emissive)
-        .component_value_writer::<PbrSGMaterialAlphaComponent>(self.alpha);
+        .component_value_writer::<PbrSGMaterialEmissiveComponent>(self.emissive);
+
+      self.alpha.write::<PbrSGMaterialAlphaConfig, _>(writer);
 
       if let Some(t) = self.albedo_texture {
         t.write::<PbrSGMaterialAlbedoTex, _>(writer)
@@ -204,12 +202,9 @@ mod mr_material {
     Vec3<f32>,
     Vec3::zero()
   );
-  declare_component!(PbrMRMaterialAlphaComponent, PbrMRMaterialEntity, f32, 1.0);
-  declare_component!(
-    PbrMRMaterialAlphaModeComponent,
-    PbrMRMaterialEntity,
-    AlphaMode
-  );
+
+  declare_entity_associated!(PbrMRMaterialAlphaConfig, PbrMRMaterialEntity);
+  impl AlphaInfoSemantic for PbrMRMaterialAlphaConfig {}
 
   declare_entity_associated!(PbrMRMaterialBaseColorTex, PbrMRMaterialEntity);
   impl TextureWithSamplingForeignKeys for PbrMRMaterialBaseColorTex {}
@@ -226,14 +221,13 @@ mod mr_material {
       .declare_component::<PbrMRMaterialBaseColorComponent>()
       .declare_component::<PbrMRMaterialRoughnessComponent>()
       .declare_component::<PbrMRMaterialMetallicComponent>()
-      .declare_component::<PbrMRMaterialEmissiveComponent>()
-      .declare_component::<PbrMRMaterialAlphaComponent>()
-      .declare_component::<PbrMRMaterialAlphaModeComponent>();
+      .declare_component::<PbrMRMaterialEmissiveComponent>();
 
     let ecg = register_texture_with_sampling::<PbrMRMaterialBaseColorTex>(ecg);
     let ecg = register_texture_with_sampling::<PbrMRMaterialMetallicRoughnessTex>(ecg);
     let ecg = register_texture_with_sampling::<PbrMRMaterialEmissiveTex>(ecg);
-    register_normal::<PbrMRMaterialNormalInfo>(ecg);
+    let ecg = register_normal::<PbrMRMaterialNormalInfo>(ecg);
+    register_alpha_config::<PbrMRMaterialAlphaConfig>(ecg);
   }
 
   #[derive(Clone)]
@@ -246,9 +240,7 @@ mod mr_material {
     pub metallic: f32,
     // pub reflectance: f32,
     pub emissive: Vec3<f32>,
-    pub alpha: f32,
-    // pub alpha_cutoff: f32,
-    pub alpha_mode: AlphaMode,
+    pub alpha: AlphaConfigDataView,
     pub base_color_texture: Option<Texture2DWithSamplingDataView>,
     pub metallic_roughness_texture: Option<Texture2DWithSamplingDataView>,
     pub emissive_texture: Option<Texture2DWithSamplingDataView>,
@@ -261,9 +253,7 @@ mod mr_material {
         base_color: Vec3::one(),
         roughness: 0.5,
         metallic: 0.0,
-        alpha: 1.0,
-        // alpha_cutoff: 1.0,
-        alpha_mode: Default::default(),
+        alpha: Default::default(),
         emissive: Vec3::zero(),
         base_color_texture: None,
         metallic_roughness_texture: None,
@@ -283,8 +273,9 @@ mod mr_material {
         .component_value_writer::<PbrMRMaterialBaseColorComponent>(self.base_color)
         .component_value_writer::<PbrMRMaterialRoughnessComponent>(self.roughness)
         .component_value_writer::<PbrMRMaterialMetallicComponent>(self.metallic)
-        .component_value_writer::<PbrMRMaterialEmissiveComponent>(self.emissive)
-        .component_value_writer::<PbrMRMaterialAlphaComponent>(self.alpha);
+        .component_value_writer::<PbrMRMaterialEmissiveComponent>(self.emissive);
+
+      self.alpha.write::<PbrMRMaterialAlphaConfig, _>(writer);
 
       if let Some(t) = self.base_color_texture {
         t.write::<PbrMRMaterialBaseColorTex, _>(writer)
@@ -302,27 +293,6 @@ mod mr_material {
 
       writer.new_entity()
     }
-  }
-}
-
-/// The alpha rendering mode of a material.
-#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug)]
-pub enum AlphaMode {
-  /// The alpha value is ignored and the rendered output is fully opaque.
-  Opaque,
-
-  /// The rendered output is either fully opaque or fully transparent depending on
-  /// the alpha value and the specified alpha cutoff value.
-  Mask,
-
-  /// The alpha value is used, to determine the transparency of the rendered output.
-  /// The alpha cutoff value is ignored.
-  Blend,
-}
-
-impl Default for AlphaMode {
-  fn default() -> Self {
-    Self::Opaque
   }
 }
 
@@ -370,5 +340,111 @@ impl NormalMappingDataView {
         scale: reader.read::<NormalScaleOf<T>>(id),
       }
     })
+  }
+}
+
+#[derive(Clone, Copy)]
+pub struct AlphaConfigDataView {
+  pub alpha_mode: AlphaMode,
+  pub alpha_cutoff: f32,
+  pub alpha: f32,
+}
+
+impl Default for AlphaConfigDataView {
+  fn default() -> Self {
+    Self {
+      alpha_mode: Default::default(),
+      alpha_cutoff: 0.5,
+      alpha: 1.0,
+    }
+  }
+}
+
+impl AlphaConfigDataView {
+  pub fn write<C, E>(self, writer: &mut EntityWriter<E>)
+  where
+    E: EntitySemantic,
+    C: AlphaInfoSemantic,
+    C: EntityAssociateSemantic<Entity = E>,
+  {
+    writer
+      .component_value_writer::<AlphaCutoffOf<C>>(self.alpha_cutoff)
+      .component_value_writer::<AlphaModeOf<C>>(self.alpha_mode)
+      .component_value_writer::<AlphaOf<C>>(self.alpha);
+  }
+
+  pub fn read<T, E>(reader: &EntityReader<E>, id: EntityHandle<E>) -> Self
+  where
+    T: AlphaInfoSemantic<Entity = E>,
+    E: EntitySemantic,
+  {
+    AlphaConfigDataView {
+      alpha_mode: reader.read::<AlphaModeOf<T>>(id),
+      alpha_cutoff: reader.read::<AlphaCutoffOf<T>>(id),
+      alpha: reader.read::<AlphaOf<T>>(id),
+    }
+  }
+}
+
+pub trait AlphaInfoSemantic: EntityAssociateSemantic {}
+pub struct AlphaOf<T>(T);
+impl<T: AlphaInfoSemantic> EntityAssociateSemantic for AlphaOf<T> {
+  type Entity = T::Entity;
+}
+impl<T: AlphaInfoSemantic> ComponentSemantic for AlphaOf<T> {
+  type Data = f32;
+  fn default_override() -> Self::Data {
+    1.0
+  }
+}
+
+pub struct AlphaCutoffOf<T>(T);
+impl<T: AlphaInfoSemantic> EntityAssociateSemantic for AlphaCutoffOf<T> {
+  type Entity = T::Entity;
+}
+impl<T: AlphaInfoSemantic> ComponentSemantic for AlphaCutoffOf<T> {
+  type Data = f32;
+  fn default_override() -> Self::Data {
+    0.5
+  }
+}
+pub struct AlphaModeOf<T>(T);
+impl<T: AlphaInfoSemantic> EntityAssociateSemantic for AlphaModeOf<T> {
+  type Entity = T::Entity;
+}
+impl<T: AlphaInfoSemantic> ComponentSemantic for AlphaModeOf<T> {
+  type Data = AlphaMode;
+  fn default_override() -> Self::Data {
+    AlphaMode::Opaque
+  }
+}
+
+pub fn register_alpha_config<T: AlphaInfoSemantic>(
+  ecg: EntityComponentGroupTyped<T::Entity>,
+) -> EntityComponentGroupTyped<T::Entity> {
+  ecg
+    .declare_component::<AlphaOf<T>>()
+    .declare_component::<AlphaModeOf<T>>()
+    .declare_component::<AlphaCutoffOf<T>>()
+}
+
+/// The alpha rendering mode of a material.
+#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug)]
+pub enum AlphaMode {
+  /// The alpha value is ignored and the rendered output is fully opaque.
+  Opaque,
+
+  /// The rendered output is either fully opaque or fully transparent depending on
+  /// the alpha value and the specified alpha cutoff value.
+  Mask,
+
+  /// The alpha value is used, to determine the transparency of the rendered output.
+  /// The alpha cutoff value is ignored.
+  Blend,
+}
+
+impl Default for AlphaMode {
+  fn default() -> Self {
+    Self::Opaque
   }
 }

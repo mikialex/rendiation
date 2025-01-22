@@ -37,7 +37,7 @@ pub fn pbr_mr_material_storages(cx: &GPU) -> PbrMRMaterialStorages {
   let metallic = global_watch().watch::<PbrMRMaterialMetallicComponent>();
   let metallic_offset = offset_of!(Storage, metallic);
 
-  let alpha = global_watch().watch::<PbrMRMaterialAlphaComponent>();
+  let alpha = global_watch().watch::<AlphaOf<PbrMRMaterialAlphaConfig>>();
   let alpha_offset = offset_of!(Storage, alpha);
 
   PbrMRMaterialStorages::new(cx)
@@ -76,7 +76,7 @@ pub fn pbr_mr_material_tex_storages(cx: &GPU) -> PbrMRMaterialTexStorages {
 
 pub fn pbr_mr_material_pipeline_hash(
 ) -> impl ReactiveQuery<Key = EntityHandle<PbrMRMaterialEntity>, Value = AlphaMode> {
-  global_watch().watch::<PbrMRMaterialAlphaModeComponent>()
+  global_watch().watch::<AlphaModeOf<PbrMRMaterialAlphaConfig>>()
 }
 
 pub struct PhysicalMetallicRoughnessMaterialIndirectGPU<'a> {

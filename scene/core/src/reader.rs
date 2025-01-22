@@ -18,6 +18,7 @@ pub struct SceneReader {
   pub texture: EntityReader<SceneTexture2dEntity>,
 
   pub pbr_mr: EntityReader<PbrMRMaterialEntity>,
+  pub pbr_sg: EntityReader<PbrSGMaterialEntity>,
 }
 
 impl SceneReader {
@@ -41,6 +42,7 @@ impl SceneReader {
       sampler: global_entity_of().entity_reader(),
       texture: global_entity_of().entity_reader(),
       pbr_mr: global_entity_of().entity_reader(),
+      pbr_sg: global_entity_of().entity_reader(),
     }
   }
 
@@ -104,8 +106,7 @@ impl SceneReader {
       roughness: m.read::<PbrMRMaterialRoughnessComponent>(id),
       metallic: m.read::<PbrMRMaterialMetallicComponent>(id),
       emissive: m.read::<PbrMRMaterialEmissiveComponent>(id),
-      alpha: m.read::<PbrMRMaterialAlphaComponent>(id),
-      alpha_mode: m.read::<PbrMRMaterialAlphaModeComponent>(id),
+      alpha: AlphaConfigDataView::read::<PbrMRMaterialAlphaConfig, _>(m, id),
       base_color_texture: Texture2DWithSamplingDataView::read::<PbrMRMaterialBaseColorTex, _>(
         m, id,
       ),
@@ -115,6 +116,27 @@ impl SceneReader {
       >(m, id),
       emissive_texture: Texture2DWithSamplingDataView::read::<PbrMRMaterialEmissiveTex, _>(m, id),
       normal_texture: NormalMappingDataView::read::<PbrMRMaterialNormalInfo, _>(m, id),
+    }
+  }
+
+  pub fn read_pbr_sg_material(
+    &self,
+    id: EntityHandle<PbrSGMaterialEntity>,
+  ) -> PhysicalSpecularGlossinessMaterialDataView {
+    let m = &self.pbr_sg;
+    PhysicalSpecularGlossinessMaterialDataView {
+      albedo: m.read::<PbrSGMaterialAlbedoComponent>(id),
+      specular: m.read::<PbrSGMaterialSpecularComponent>(id),
+      glossiness: m.read::<PbrSGMaterialGlossinessComponent>(id),
+      emissive: m.read::<PbrSGMaterialEmissiveComponent>(id),
+      alpha: AlphaConfigDataView::read::<PbrSGMaterialAlphaConfig, _>(m, id),
+      emissive_texture: Texture2DWithSamplingDataView::read::<PbrSGMaterialEmissiveTex, _>(m, id),
+      normal_texture: NormalMappingDataView::read::<PbrSGMaterialNormalInfo, _>(m, id),
+      albedo_texture: Texture2DWithSamplingDataView::read::<PbrSGMaterialAlbedoTex, _>(m, id),
+      specular_texture: Texture2DWithSamplingDataView::read::<PbrSGMaterialSpecularTex, _>(m, id),
+      glossiness_texture: Texture2DWithSamplingDataView::read::<PbrSGMaterialGlossinessTex, _>(
+        m, id,
+      ),
     }
   }
 
