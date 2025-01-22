@@ -18,6 +18,9 @@ pub use func::*;
 mod func_built_in;
 pub use func_built_in::*;
 
+mod ray_query;
+pub use ray_query::*;
+
 pub enum ValueKind {
   Uint,
   Int,
@@ -110,6 +113,14 @@ pub struct ShaderTextureStore {
   pub value: ShaderNodeRawHandle,
 }
 
+// struct RayDesc {
+//   flags: u32,
+//   cull_mask: u32,
+//   t_min: f32,
+//   t_max: f32,
+//   origin: vec3<f32>,
+//   dir: vec3<f32>,
+// }
 #[derive(Clone, Copy)]
 pub struct ShaderRayDesc {
   pub flags: ShaderNodeRawHandle,
