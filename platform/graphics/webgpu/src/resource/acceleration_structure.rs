@@ -14,8 +14,15 @@ impl BindableResourceView for gpu::Tlas {
 pub type GPUTlas = ResourceRc<gpu::TlasPackage>;
 pub type GPUTlasView = ResourceViewRc<gpu::TlasPackage>;
 
+#[derive(Clone)]
+pub struct GPUTlasSource {
+  pub instances: Vec<Option<TlasInstance>>,
+  pub flags: wgpu_types::AccelerationStructureFlags,
+  pub update_mode: wgpu_types::AccelerationStructureUpdateMode,
+}
+
 impl Resource for gpu::TlasPackage {
-  type Descriptor = gpu::CreateTlasDescriptor<'static>;
+  type Descriptor = GPUTlasSource;
 
   type View = gpu::Tlas;
 
@@ -33,8 +40,13 @@ impl BindableResourceProvider for GPUTlasView {
 }
 
 impl InitResourceByAllocation for gpu::TlasPackage {
-  fn create_resource(desc: &Self::Descriptor, device: &GPUDevice) -> Self {
-    let tlas = device.create_tlas(desc);
-    Self::new(tlas)
+  fn create_resource(tlas_source: &Self::Descriptor, device: &GPUDevice) -> Self {
+    let tlas = device.create_tlas(&CreateTlasDescriptor {
+      label: None,
+      max_instances: tlas_source.instances.len() as u32,
+      flags: tlas_source.flags,
+      update_mode: tlas_source.update_mode,
+    });
+    Self::new_with_instances(tlas, tlas_source.instances.clone())
   }
 }
