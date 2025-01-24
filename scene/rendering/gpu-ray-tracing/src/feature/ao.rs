@@ -311,7 +311,7 @@ impl SceneRayTracingAORenderer {
 
         let trace_call = ShaderRayTraceCall {
           tlas_idx: ao_cx.tlas,
-          ray_flags: val(RayFlagConfigRaw::RAY_FLAG_CULL_BACK_FACING_TRIANGLES as u32),
+          ray_flags: val(RayFlagConfigRaw::RAY_FLAG_FORCE_NON_OPAQUE as u32), // to allow anyhit
           cull_mask: val(u32::MAX),
           sbt_ray_config: AORayType::AOTest.to_sbt_cfg(),
           miss_index: val(0), // using the sample miss shader as primary ray

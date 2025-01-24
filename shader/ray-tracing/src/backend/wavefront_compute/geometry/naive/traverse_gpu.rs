@@ -604,25 +604,33 @@ fn intersect_blas_gpu(
 
             let hit_ctx = hit_ctx_curr.load(tlas_data);
 
-            if_by(is_opaque, || {
-              // opaque -> invoke any_hit directly
-
-              let attribute = BuiltInTriangleHitAttributeShaderAPIInstance {
-                bary_coord: result.zw(),
-              }
+            let attribute = BuiltInTriangleHitAttributeShaderAPIInstance {
+              bary_coord: result.zw(),
+            }
               .construct();
 
-              let any_hit_ctx = RayAnyHitCtx {
-                launch_info,
-                world_ray,
-                hit_ctx,
-                hit: HitInfo {
-                  hit_kind: hit_kind.load(),
-                  hit_distance: world_distance,
-                  hit_attribute: attribute,
-                },
-                payload: user_defined_payload,
-              };
+            // just to bundle data with no runtime cost. any_hit shader does not run.
+            let any_hit_ctx = RayAnyHitCtx {
+              launch_info,
+              world_ray,
+              hit_ctx,
+              hit: HitInfo {
+                hit_kind: hit_kind.load(),
+                hit_distance: world_distance,
+                hit_attribute: attribute,
+              },
+              payload: user_defined_payload,
+            };
+
+            if_by(is_opaque, || {
+              // opaque -> commit
+              closest_hit_var.test_and_store(&any_hit_ctx.hit, || {
+                closest_hit_ctx_var.store(&any_hit_ctx.hit_ctx);
+                local_ray_range.update_world_far(world_distance);
+                if_by(flags.end_search_on_hit(), || end_search.store(true));
+              });
+            }).else_by(|| {
+              // transparent trangle -> anyhit, then commit
               resolve_any_hit(
                 |_| {
                   local_ray_range.update_world_far(world_distance);
@@ -634,29 +642,6 @@ fn intersect_blas_gpu(
                 closest_hit_ctx_var,
                 closest_hit_var,
               );
-            })
-            .else_by(|| {
-              // non-opaque -> invoke intersect
-              let intersect_ctx = RayIntersectCtx {
-                launch_info,
-                world_ray,
-                hit_ctx,
-              };
-              // intersect will invoke any_hit and then update closest_hit.
-              intersect(
-                &intersect_ctx,
-                &NaiveIntersectReporter {
-                  launch_info,
-                  world_ray,
-                  hit_ctx,
-                  closest_hit_ctx_info: closest_hit_ctx_var,
-                  closest_hit_info: closest_hit_var,
-                  ray_range: local_ray_range.clone(),
-                  any_hit,
-                  on_end_search: Box::new(move || end_search.store(true)),
-                  user_defined_payload,
-                },
-              );
             });
 
             if_by(end_search.load(), || tri_loop.do_break());
@@ -666,30 +651,27 @@ fn intersect_blas_gpu(
       });
     });
 
-    // ForRange::new(blas.box_root_range).for_each(|box_root_idx, _cx| {
-    //   let geometry = tri_bvh_root.index(box_root_idx).load().expand();
-    //   let root = geometry.bvh_root_idx;
-    //   let geometry_id = geometry.geometry_idx;
-    //   let primitive_start = geometry.primitive_start;
-    //
-    //   let bvh_iter = TraverseBvhIteratorGpu {
-    //     bvh: box_bvh_forest,
-    //     ray,
-    //     node_idx: root.make_local_var(),
-    //   };
-    //   let iter = bvh_iter.flat_map(ForRange::new); // box index
-    //
-    //   iter.for_each(|box_idx, _cx| {
-    //     let start = box_idx * val(2);
-    //     let min = boxes.index(indices.index(start).load()).load();
-    //     let max = boxes.index(indices.index(start + val(1)).load()).load();
-    //
-    //     let hit = intersect_ray_aabb_gpu(ray, min, max);
-    //     if_by(hit, || {
-    //       // todo call intersection with anyhit, remember distance_scaling
-    //     });
-    //   });
-    // });
+    // put intersect code here just in case
+    // let intersect_ctx = RayIntersectCtx {
+    //   launch_info,
+    //   world_ray,
+    //   hit_ctx,
+    // };
+    // // intersect will invoke any_hit and then update closest_hit.
+    // intersect(
+    //   &intersect_ctx,
+    //   &NaiveIntersectReporter {
+    //     launch_info,
+    //     world_ray,
+    //     hit_ctx,
+    //     closest_hit_ctx_info: closest_hit_ctx_var,
+    //     closest_hit_info: closest_hit_var,
+    //     ray_range: local_ray_range.clone(),
+    //     any_hit,
+    //     on_end_search: Box::new(move || end_search.store(true)),
+    //     user_defined_payload,
+    //   },
+    // );
 
     if_by(end_search.load(), || blas_loop.do_break());
   });

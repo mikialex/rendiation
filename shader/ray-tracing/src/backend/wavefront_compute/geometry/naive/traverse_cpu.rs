@@ -37,12 +37,23 @@ pub(super) static TRI_HIT_COUNT: AtomicU32 = AtomicU32::new(0);
 pub(super) static BVH_VISIT_COUNT: AtomicU32 = AtomicU32::new(0);
 pub(super) static BVH_HIT_COUNT: AtomicU32 = AtomicU32::new(0);
 
+#[derive(Copy, Clone, Debug)]
+pub(super) struct Hit {
+  pub geometry_idx: u32,
+  pub primitive_idx: u32,
+  pub distance: f32,
+  pub hit_position: Vec3<f32>,
+}
+
 impl NaiveSahBvhCpu {
   pub(super) fn traverse(
     &self,
     ray: &ShaderRayTraceCallStoragePayload,
-    any_hit: &mut dyn FnMut(u32, u32, f32, Vec3<f32>) -> RayAnyHitBehavior, /* geometry_idx, primitive_idx, distance, hit_position // todo use ctx */
-  ) {
+    // geometry_idx, primitive_idx, distance, hit_position
+    any_hit: &mut dyn FnMut(Hit) -> RayAnyHitBehavior,
+  ) -> Option<Hit> {
+    let mut r = None;
+
     let flags = TraverseFlags::from_ray_flag(ray.ray_flags);
     let ray_range = RayRange::new(ray.range.x, ray.range.y, 1.);
 
@@ -99,7 +110,7 @@ impl NaiveSahBvhCpu {
             let primitive_start = geometry.primitive_start;
             let geometry_flags = geometry.geometry_flags;
 
-            let (pass, _is_opaque) = TraverseFlags::cull_geometry(flags, geometry_flags);
+            let (pass, is_opaque) = TraverseFlags::cull_geometry(flags, geometry_flags);
             if !pass {
               continue;
             }
@@ -144,12 +155,30 @@ impl NaiveSahBvhCpu {
                   let p = blas_ray_origin + distance * blas_ray_direction;
                   // println!("hit {p:?}");
                   let primitive_idx = tri_idx - primitive_start;
-                  // opaque -> anyhit, non-opaque -> intersect
-                  // assuming all opaque
+
                   TRI_HIT_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                  let mut behavior = any_hit(geometry_idx, primitive_idx, distance, p);
+
+                  let mut behavior = if is_opaque {
+                    // opaque -> commit
+                    ANYHIT_BEHAVIOR_ACCEPT_HIT
+                  } else {
+                    // transparent -> any_hit
+                    any_hit(Hit {
+                      geometry_idx,
+                      primitive_idx,
+                      distance,
+                      hit_position: p,
+                    })
+                  };
+
                   if behavior & ANYHIT_BEHAVIOR_ACCEPT_HIT > 0 {
                     ray_range.update_far(distance);
+                    r = Some(Hit {
+                      geometry_idx,
+                      primitive_idx,
+                      distance,
+                      hit_position: p,
+                    });
 
                     if flags.end_search_on_hit() {
                       behavior |= ANYHIT_BEHAVIOR_END_SEARCH;
@@ -208,6 +237,8 @@ impl NaiveSahBvhCpu {
         // }
       }
     }
+
+    r
   }
 }
 

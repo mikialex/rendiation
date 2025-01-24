@@ -142,6 +142,7 @@ pub const GEOMETRY_INSTANCE_FORCE_OPAQUE: GeometryInstanceFlags = 0x4;
 pub const GEOMETRY_INSTANCE_FORCE_NO_OPAQUE: GeometryInstanceFlags = 0x8;
 
 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGeometryFlagBitsKHR.html
+// todo use AccelerationStructureGeometryFlags
 pub type GeometryFlags = u32;
 /// this geometry does not invoke the any-hit shaders even if present in a hit group.
 pub const GEOMETRY_FLAG_OPAQUE: GeometryFlags = 0x1;
