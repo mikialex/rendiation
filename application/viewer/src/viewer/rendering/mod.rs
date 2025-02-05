@@ -255,7 +255,7 @@ impl Viewer3dRenderingCtx {
       RenderTargetView::Texture(create_empty_2d_texture_view(
         &self.gpu,
         target.size(),
-        TextureUsages::all(),
+        TextureUsages::all() - TextureUsages::STORAGE_ATOMIC,
         target.format(),
       ))
     } else {

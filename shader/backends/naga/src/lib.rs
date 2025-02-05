@@ -264,7 +264,9 @@ impl ShaderAPINagaImpl {
           let access = match access {
             StorageTextureAccess::Load => naga::StorageAccess::LOAD,
             StorageTextureAccess::Store => naga::StorageAccess::STORE,
-            StorageTextureAccess::LoadStore => naga::StorageAccess::all(),
+            StorageTextureAccess::LoadStore => {
+              naga::StorageAccess::LOAD | naga::StorageAccess::STORE
+            }
           };
 
           let class = naga::ImageClass::Storage { format, access };
@@ -446,7 +448,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
           AddressSpace::Uniform => naga::AddressSpace::Uniform,
           AddressSpace::Storage { writeable } => naga::AddressSpace::Storage {
             access: if writeable {
-              naga::StorageAccess::all()
+              naga::StorageAccess::LOAD | naga::StorageAccess::STORE
             } else {
               naga::StorageAccess::LOAD
             },

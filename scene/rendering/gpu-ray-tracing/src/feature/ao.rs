@@ -38,7 +38,7 @@ impl AORenderState {
       ao_buffer: create_empty_2d_texture_view(
         gpu,
         size,
-        TextureUsages::all(),
+        TextureUsages::all() - TextureUsages::STORAGE_ATOMIC,
         TextureFormat::Rgba8Unorm,
       ),
       sample_count_host: Default::default(),

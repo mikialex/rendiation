@@ -15,7 +15,7 @@ async fn test_wavefront_compute() {
   let debug_output = create_empty_2d_texture_view(
     &gpu,
     Size::from_u32_pair_min_one((canvas_size, canvas_size)),
-    TextureUsages::all(),
+    TextureUsages::all() - TextureUsages::STORAGE_ATOMIC,
     TextureFormat::Rgba8Unorm,
   );
 
