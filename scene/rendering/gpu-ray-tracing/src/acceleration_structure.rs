@@ -2,7 +2,7 @@ use crate::*;
 
 #[derive(Clone)]
 pub struct TlASInstance {
-  instance_handle: UniformBufferDataView<Vec4<u32>>,
+  pub tlas_handle: TlasHandle,
 }
 impl std::fmt::Debug for TlASInstance {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -12,15 +12,6 @@ impl std::fmt::Debug for TlASInstance {
 impl PartialEq for TlASInstance {
   fn eq(&self, _other: &Self) -> bool {
     false
-  }
-}
-
-impl TlASInstance {
-  pub fn bind(&self, builder: &mut BindingBuilder) {
-    builder.bind(&self.instance_handle);
-  }
-  pub fn build(&self, builder: &mut ShaderBindGroupBuilder) -> Node<u32> {
-    builder.bind_by(&self.instance_handle).load().x()
   }
 }
 
@@ -159,22 +150,16 @@ pub fn scene_model_to_blas_instance(
 }
 
 pub fn scene_to_tlas(
-  gpu: &GPU,
+  _gpu: &GPU,
   acc_sys: Box<dyn GPUAccelerationStructureSystemProvider>,
 ) -> impl ReactiveQuery<Key = EntityHandle<SceneEntity>, Value = TlASInstance> {
-  let gpu = gpu.clone();
   SceneTlasMaintainer {
     acc_sys: acc_sys.clone(),
     source: scene_model_to_blas_instance(acc_sys).into_boxed(),
     scene_sm: Box::new(global_rev_ref().watch_inv_ref::<SceneModelBelongsToScene>()),
     tlas: Default::default(),
   }
-  .collective_execute_map_by(move || {
-    let gpu = gpu.clone();
-    move |_k, v| TlASInstance {
-      instance_handle: create_uniform(Vec4::new(v.0, 0, 0, 0), &gpu.device),
-    }
-  })
+  .collective_execute_map_by(move || move |_k, v| TlASInstance { tlas_handle: v })
 }
 
 pub const GLOBAL_TLAS_MAX_RAY_STRIDE: u32 = 4;

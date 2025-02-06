@@ -421,7 +421,7 @@ fn test_gpu_triangle() {
             launch_id,
             launch_size,
             payload_ref: val(0),
-            tlas_idx: val(TEST_TLAS_IDX),
+            tlas_idx: val(0),
             ray_flags: val(ray_flags),
             cull_mask: val(u32::MAX),
             sbt_ray_config_offset: val(0),
