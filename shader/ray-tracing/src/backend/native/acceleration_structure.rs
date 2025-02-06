@@ -1,90 +1,86 @@
-use std::borrow::Cow;
-
 use crate::*;
 
-// fn create_blas(device: &GPUDevice) {
-//   let vertex_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-//     label: Some("Vertex Buffer"),
-//     contents: bytemuck::cast_slice(&vertex_data),
-//     usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::BLAS_INPUT,
-//   });
-//
-//   let index_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-//     label: Some("Index Buffer"),
-//     contents: bytemuck::cast_slice(&index_data),
-//     usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::BLAS_INPUT,
-//   });
-//
-//   let blas_geo_size_desc = wgpu::BlasTriangleGeometrySizeDescriptor {
-//     vertex_format: wgpu::VertexFormat::Float32x3,
-//     vertex_count: vertex_data.len() as u32,
-//     index_format: Some(wgpu::IndexFormat::Uint16),
-//     index_count: Some(index_data.len() as u32),
-//     flags: wgpu::AccelerationStructureGeometryFlags::OPAQUE,
-//   };
-//
-//   let blas = device.create_blas(
-//     &wgpu::CreateBlasDescriptor {
-//       label: None,
-//       flags: wgpu::AccelerationStructureFlags::PREFER_FAST_TRACE,
-//       update_mode: wgpu::AccelerationStructureUpdateMode::Build,
-//     },
-//     wgpu::BlasGeometrySizeDescriptors::Triangles {
-//       descriptors: vec![blas_geo_size_desc.clone()],
-//     },
-//   );
-//
-//   // todo builder
-//
-//   // todo return a blas instance
-// }
-
-fn create_tlas(device: &GPUDevice) {
-  // instance array
-  // create tlas
-  // return builder
+#[derive(Clone)]
+pub struct BlasBuilder {
+  blas: Blas,
+  buffers: Vec<(
+    GPUBufferResource,
+    Option<GPUBufferResource>,
+    BlasTriangleGeometrySizeDescriptor,
+  )>,
+}
+impl BlasBuilder {
+  pub fn make_build_entry(&self) -> BlasBuildEntry<'_> {
+    BlasBuildEntry {
+      blas: &self.blas,
+      geometry: BlasGeometries::TriangleGeometries(
+        self
+          .buffers
+          .iter()
+          .map(
+            |(vertex_buffer, index_buffer, size_desc)| BlasTriangleGeometry {
+              size: size_desc,
+              vertex_buffer: vertex_buffer.gpu(),
+              first_vertex: 0,
+              vertex_stride: 12,
+              index_buffer: index_buffer.as_ref().map(|b| b.gpu()),
+              first_index: index_buffer.as_ref().map(|_| 0),
+              transform_buffer: None,
+              transform_buffer_offset: None,
+            },
+          )
+          .collect(),
+      ),
+    }
+  }
 }
 
+#[derive(Clone)]
 pub struct DeviceBlas {
-  dirty: bool,
   blas: Blas,
 }
 impl DeviceBlas {
   pub fn create(
     device: &GPUDevice,
     sources: &[BottomLevelAccelerationStructureBuildSource],
-  ) -> Self {
-    let mut vertex_buffer: Vec<f32> = vec![];
-    let mut index_buffer: Vec<u32> = vec![];
+  ) -> (Self, BlasBuilder) {
+    let mut buffers = vec![];
     let mut size_descriptors: Vec<BlasTriangleGeometrySizeDescriptor> = vec![];
 
     for source in sources {
       match &source.geometry {
         BottomLevelAccelerationStructureBuildBuffer::Triangles { positions, indices } => {
           use bytemuck::cast_slice;
-          vertex_buffer.extend_from_slice(cast_slice(positions));
-          let index_count = match indices.as_ref() {
-            None => {
-              index_buffer.extend(0..positions.len() as u32);
-              positions.len()
-            }
-            Some(indices) => {
-              index_buffer.extend_from_slice(indices);
-              indices.len()
-            }
-          };
+
+          let vertex_buffer =
+            create_gpu_buffer(cast_slice(positions), BufferUsages::BLAS_INPUT, device);
+          let mut index_buffer = None;
+
+          let index_len = indices.as_ref().map(|indices| {
+            index_buffer = Some(create_gpu_buffer(
+              cast_slice(indices),
+              BufferUsages::BLAS_INPUT,
+              device,
+            ));
+            indices.len()
+          });
 
           // this is all non-buffer data
-          size_descriptors.push(BlasTriangleGeometrySizeDescriptor {
+          let size_desc = BlasTriangleGeometrySizeDescriptor {
             vertex_format: VertexFormat::Float32x3,
             vertex_count: positions.len() as u32,
-            index_format: Some(IndexFormat::Uint32),
-            index_count: Some(index_count as u32),
+            index_format: index_len.map(|_| IndexFormat::Uint32),
+            index_count: index_len.map(|i| i as u32),
             // GeometryFlags === AccelerationStructureGeometryFlags
             flags: AccelerationStructureGeometryFlags::from_bits(source.flags as u8).unwrap(),
-          })
+          };
+          size_descriptors.push(size_desc.clone());
+
+          buffers.push((vertex_buffer, index_buffer, size_desc));
         }
-        BottomLevelAccelerationStructureBuildBuffer::AABBs { .. } => {}
+        BottomLevelAccelerationStructureBuildBuffer::AABBs { .. } => {
+          unimplemented!()
+        }
       }
     }
 
@@ -99,15 +95,15 @@ impl DeviceBlas {
       },
     );
 
-    // todo create buffer uploader, blas builder
-
-    todo!()
+    (
+      DeviceBlas { blas: blas.clone() },
+      BlasBuilder { blas, buffers },
+    )
   }
-  pub fn build(&self) {}
 }
 
+#[derive(Clone)]
 pub struct DeviceTlas {
-  dirty: bool,
   tlas: GPUTlas,
 }
 impl DeviceTlas {
@@ -115,11 +111,60 @@ impl DeviceTlas {
     device: &GPUDevice,
     sources: &[TopLevelAccelerationStructureSourceInstance],
   ) -> Self {
+    // let source = GPUTlasSource {
+    //   instances: vec![],
+    //   flags: (),
+    //   update_mode: AccelerationStructureUpdateMode::Build,
+    // };
     // GPUTlas::create()
     todo!()
   }
   pub fn bind(&self) {
     // check build
     // bind
+  }
+}
+#[derive(Clone)]
+struct TlasBuilder {}
+
+#[derive(Clone)]
+pub struct NativeAccelerationStructureSystemProvider {
+  inner: Arc<RwLock<NativeAccelerationStructureSystemProviderInner>>,
+}
+#[derive(Clone)]
+pub struct NativeAccelerationStructureSystemProviderInner {
+  blas: Vec<Option<DeviceBlas>>,
+  blas_freelist: Vec<BlasHandle>,
+  tlas: Vec<Option<DeviceTlas>>,
+  tlas_freelist: Vec<TlasHandle>,
+
+  blas_builders: Vec<BlasBuilder>,
+  tlas_builders: Vec<TlasBuilder>,
+}
+impl GPUAccelerationStructureSystemProvider for NativeAccelerationStructureSystemProvider {
+  fn create_comp_instance(&self) -> Box<dyn GPUAccelerationStructureSystemCompImplInstance> {
+    todo!()
+  }
+
+  fn create_top_level_acceleration_structure(
+    &self,
+    source: &[TopLevelAccelerationStructureSourceInstance],
+  ) -> TlasHandle {
+    todo!()
+  }
+
+  fn delete_top_level_acceleration_structure(&self, id: TlasHandle) {
+    todo!()
+  }
+
+  fn create_bottom_level_acceleration_structure(
+    &self,
+    source: &[BottomLevelAccelerationStructureBuildSource],
+  ) -> BlasHandle {
+    todo!()
+  }
+
+  fn delete_bottom_level_acceleration_structure(&self, id: BlasHandle) {
+    todo!()
   }
 }
