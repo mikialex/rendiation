@@ -56,7 +56,7 @@ async fn test_wavefront_compute() {
 
         let ray_flags = RayFlagConfigRaw::RAY_FLAG_CULL_BACK_FACING_TRIANGLES as u32;
         let trace_call = ShaderRayTraceCall {
-          tlas_idx: val(TEST_TLAS_IDX),
+          tlas_idx: val(0),
           ray_flags: val(ray_flags),
           cull_mask: val(u32::MAX),
           sbt_ray_config: RaySBTConfig {
