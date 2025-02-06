@@ -4025,6 +4025,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-webgpu-virtual-storage-buffer"
+version = "0.1.0"
+dependencies = [
+ "fast-hash-collection",
+ "parking_lot",
+ "rendiation-shader-api",
+ "rendiation-webgpu",
+]
+
+[[package]]
 name = "rendiation-wide-line"
 version = "0.1.0"
 dependencies = [
