@@ -2,6 +2,9 @@ use crate::backend::wavefront_compute::geometry::naive::*;
 
 #[derive(Clone)]
 pub(super) struct NaiveSahBvhGpu {
+  // maps tlas_idx to tlas_handle: tlas_bvh_root[tlas_binding[tlas_idx]]
+  pub(super) tlas_binding: StorageBufferReadOnlyDataView<[u32]>,
+
   // maps user tlas_id to tlas_bvh root node idx in tlas_bvh_forest
   pub(super) tlas_bvh_root: StorageBufferReadOnlyDataView<[u32]>,
   // global bvh, root at tlas_bvh_root[tlas_idx], content_range to index tlas_data/tlas_bounding
@@ -32,6 +35,7 @@ impl GPUAccelerationStructureSystemCompImplInstance for NaiveSahBvhGpu {
     &self,
     compute_cx: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn GPUAccelerationStructureSystemCompImplInvocationTraversable> {
+    let tlas_binding = compute_cx.bind_by(&self.tlas_binding);
     let tlas_bvh_root = compute_cx.bind_by(&self.tlas_bvh_root);
     let tlas_bvh_forest = compute_cx.bind_by(&self.tlas_bvh_forest);
     let tlas_data = compute_cx.bind_by(&self.tlas_data);
@@ -47,6 +51,7 @@ impl GPUAccelerationStructureSystemCompImplInstance for NaiveSahBvhGpu {
     // let boxes = compute_cx.bind_by(&self.boxes);
 
     let instance = NaiveSahBVHInvocationInstance {
+      tlas_binding,
       tlas_bvh_root,
       tlas_bvh_forest,
       tlas_data,
@@ -66,6 +71,7 @@ impl GPUAccelerationStructureSystemCompImplInstance for NaiveSahBvhGpu {
   }
 
   fn bind_pass(&self, builder: &mut BindingBuilder) {
+    builder.bind(&self.tlas_binding);
     builder.bind(&self.tlas_bvh_root);
     builder.bind(&self.tlas_bvh_forest);
     builder.bind(&self.tlas_data);
@@ -89,6 +95,7 @@ impl GPUAccelerationStructureSystemCompImplInstance for NaiveSahBvhGpu {
 }
 
 pub struct NaiveSahBVHInvocationInstance {
+  tlas_binding: ReadOnlyStorageNode<[u32]>,
   tlas_bvh_root: ReadOnlyStorageNode<[u32]>,
   tlas_bvh_forest: ReadOnlyStorageNode<[DeviceBVHNode]>,
   tlas_data: ReadOnlyStorageNode<[TopLevelAccelerationStructureSourceDeviceInstance]>,
@@ -226,7 +233,8 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
 
     let world_ray_range = RayRange::new(trace_payload.range);
 
-    let tlas_bvh_root = self.tlas_bvh_root.index(trace_payload.tlas_idx).load();
+    let tlas_selected = self.tlas_binding.index(trace_payload.tlas_idx).load();
+    let tlas_bvh_root = self.tlas_bvh_root.index(tlas_selected).load();
 
     let tlas_idx_iter = traverse_tlas_gpu(
       tlas_bvh_root, // tlas_bvh_root == INVALID_NEXT checked inside TraverseBvhIteratorGpu

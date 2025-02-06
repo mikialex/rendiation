@@ -38,7 +38,7 @@ impl AORenderState {
       ao_buffer: create_empty_2d_texture_view(
         gpu,
         size,
-        TextureUsages::all(),
+        TextureUsages::all() - TextureUsages::STORAGE_ATOMIC,
         TextureFormat::Rgba8Unorm,
       ),
       sample_count_host: Default::default(),
@@ -215,13 +215,20 @@ impl SceneRayTracingAORenderer {
 
     let trace_base_builder = self.rtx_system.create_tracer_base_builder();
 
+    // bind tlas, see ShaderRayTraceCall::tlas_idx.
+    self
+      .rtx_system
+      .create_acceleration_structure_system()
+      .bind_tlas(&[scene_tlas.tlas_handle]);
+
+    let mut rtx_encoder = self.rtx_system.create_raytracing_encoder();
+
     let ray_gen_shader = trace_base_builder
       .create_ray_gen_shader_base()
       .inject_ctx(RayTracingAORayGenCtx {
         camera,
         ao_buffer: ao_buffer_rw,
         ao_sample_count: ao_state.sample_count.clone(),
-        scene: scene_tlas.clone(),
       })
       .then_trace(|_, ctx| {
         let rg_cx = ctx.expect_ray_gen_ctx();
@@ -231,7 +238,7 @@ impl SceneRayTracingAORenderer {
         let ray = ao_cx.camera.generate_ray(normalized_position);
 
         let trace_call = ShaderRayTraceCall {
-          tlas_idx: ao_cx.tlas_idx,
+          tlas_idx: val(0), // only one tlas, select first
           ray_flags: val(RayFlagConfigRaw::RAY_FLAG_CULL_BACK_FACING_TRIANGLES as u32),
           cull_mask: val(u32::MAX),
           sbt_ray_config: AORayType::Primary.to_sbt_cfg(),
@@ -264,7 +271,6 @@ impl SceneRayTracingAORenderer {
     let ao_closest = trace_base_builder
       .create_closest_hit_shader_base::<RayGenTracePayload>()
       .inject_ctx(RayTracingAORayClosestCtx {
-        scene: scene_tlas.clone(),
         bindless_mesh,
         ao_sample_count: ao_state.sample_count.clone(),
       })
@@ -310,7 +316,7 @@ impl SceneRayTracingAORenderer {
         let ray = ShaderRay { origin, direction };
 
         let trace_call = ShaderRayTraceCall {
-          tlas_idx: ao_cx.tlas,
+          tlas_idx: val(0),
           ray_flags: val(RayFlagConfigRaw::RAY_FLAG_FORCE_NON_OPAQUE as u32), // to allow anyhit
           cull_mask: val(u32::MAX),
           sbt_ray_config: AORayType::AOTest.to_sbt_cfg(),
@@ -348,8 +354,6 @@ impl SceneRayTracingAORenderer {
     assert_eq!(handles, self.shader_handles);
     source.set_execution_round_hint(8);
 
-    let mut rtx_encoder = self.rtx_system.create_raytracing_encoder();
-
     let sbt = self.sbt.inner.read();
     rtx_encoder.trace_ray(
       &source,
@@ -368,7 +372,6 @@ struct RayTracingAORayGenCtx {
   camera: Box<dyn RtxCameraRenderComponent>,
   ao_buffer: StorageTextureViewReadWrite<GPU2DTextureView>,
   ao_sample_count: UniformBufferDataView<Vec4<u32>>,
-  scene: TlASInstance,
 }
 
 impl ShaderHashProvider for RayTracingAORayGenCtx {
@@ -385,7 +388,6 @@ impl RayTracingCustomCtxProvider for RayTracingAORayGenCtx {
     RayTracingAORayGenCtxInvocation {
       camera: self.camera.build_invocation(cx),
       ao_buffer: cx.bind_by(&self.ao_buffer),
-      tlas_idx: self.scene.build(cx),
       ao_sample_count: cx.bind_by(&self.ao_sample_count),
     }
   }
@@ -393,7 +395,6 @@ impl RayTracingCustomCtxProvider for RayTracingAORayGenCtx {
   fn bind(&self, builder: &mut BindingBuilder) {
     self.camera.bind(builder);
     builder.bind(&self.ao_buffer);
-    self.scene.bind(builder);
     builder.bind(&self.ao_sample_count);
   }
 }
@@ -402,13 +403,11 @@ impl RayTracingCustomCtxProvider for RayTracingAORayGenCtx {
 struct RayTracingAORayGenCtxInvocation {
   camera: Box<dyn RtxCameraRenderInvocation>,
   ao_buffer: HandleNode<ShaderStorageTextureRW2D>,
-  tlas_idx: Node<u32>,
   ao_sample_count: UniformNode<Vec4<u32>>,
 }
 
 #[derive(Clone)]
 struct RayTracingAORayClosestCtx {
-  scene: TlASInstance,
   bindless_mesh: BindlessMeshDispatcher,
   ao_sample_count: UniformBufferDataView<Vec4<u32>>,
 }
@@ -422,14 +421,12 @@ impl RayTracingCustomCtxProvider for RayTracingAORayClosestCtx {
 
   fn build_invocation(&self, cx: &mut ShaderBindGroupBuilder) -> Self::Invocation {
     RayTracingAORayClosestCtxInvocation {
-      tlas: self.scene.build(cx),
       bindless_mesh: self.bindless_mesh.build_bindless_mesh_rtx_access(cx),
       ao_sample_count: cx.bind_by(&self.ao_sample_count),
     }
   }
 
   fn bind(&self, builder: &mut BindingBuilder) {
-    self.scene.bind(builder);
     self.bindless_mesh.bind_bindless_mesh_rtx_access(builder);
     builder.bind(&self.ao_sample_count);
   }
@@ -438,6 +435,5 @@ impl RayTracingCustomCtxProvider for RayTracingAORayClosestCtx {
 #[derive(Clone)]
 struct RayTracingAORayClosestCtxInvocation {
   bindless_mesh: BindlessMeshRtxAccessInvocation,
-  tlas: Node<u32>,
   ao_sample_count: UniformNode<Vec4<u32>>,
 }

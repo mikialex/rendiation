@@ -12,8 +12,12 @@ pub async fn main() {
 
   let size = Size::from_u32_pair_min_one((64, 64));
 
-  let target =
-    create_empty_2d_texture_view(&gpu, size, TextureUsages::all(), TextureFormat::Rgba8Unorm);
+  let target = create_empty_2d_texture_view(
+    &gpu,
+    size,
+    TextureUsages::all() - TextureUsages::STORAGE_ATOMIC,
+    TextureFormat::Rgba8Unorm,
+  );
   let target_res = target.resource.clone();
 
   let mut encoder = gpu.create_encoder();

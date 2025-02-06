@@ -43,6 +43,7 @@ impl RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>
       material_access: global_entity_component_of::<StandardModelRefFlatMaterial>()
         .read_foreign_key(),
       uniforms: res.take_multi_updater_updated(self.uniforms).unwrap(),
+      alpha_mode: global_entity_component_of().read(),
     })
   }
 }
@@ -50,6 +51,7 @@ impl RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>
 struct FlatMaterialDefaultRenderImpl {
   material_access: ForeignKeyReadView<StandardModelRefFlatMaterial>,
   uniforms: LockReadGuardHolder<FlatMaterialUniforms>,
+  alpha_mode: ComponentReadView<AlphaModeOf<FlatMaterialAlphaConfig>>,
 }
 
 impl GLESModelMaterialRenderImpl for FlatMaterialDefaultRenderImpl {
@@ -61,6 +63,7 @@ impl GLESModelMaterialRenderImpl for FlatMaterialDefaultRenderImpl {
     let idx = self.material_access.get(idx)?;
     Some(Box::new(FlatMaterialGPU {
       uniform: self.uniforms.get(&idx)?,
+      alpha_mode: self.alpha_mode.get_value(idx)?,
     }))
   }
 }
@@ -102,7 +105,7 @@ struct PbrMRMaterialDefaultRenderImpl {
   material_access: ForeignKeyReadView<StandardModelRefPbrMRMaterial>,
   uniforms: LockReadGuardHolder<PbrMRMaterialUniforms>,
   tex_uniforms: LockReadGuardHolder<PbrMRMaterialTexUniforms>,
-  alpha_mode: ComponentReadView<PbrMRMaterialAlphaModeComponent>,
+  alpha_mode: ComponentReadView<AlphaModeOf<PbrMRMaterialAlphaConfig>>,
   base_color_tex_sampler: TextureSamplerIdView<PbrMRMaterialBaseColorTex>,
   mr_tex_sampler: TextureSamplerIdView<PbrMRMaterialMetallicRoughnessTex>,
   emissive_tex_sampler: TextureSamplerIdView<PbrMRMaterialEmissiveTex>,
@@ -193,7 +196,7 @@ struct PbrSGMaterialDefaultRenderImpl {
   material_access: ForeignKeyReadView<StandardModelRefPbrSGMaterial>,
   uniforms: LockReadGuardHolder<PbrSGMaterialUniforms>,
   tex_uniforms: LockReadGuardHolder<PbrSGMaterialTexUniforms>,
-  alpha_mode: ComponentReadView<PbrSGMaterialAlphaModeComponent>,
+  alpha_mode: ComponentReadView<AlphaModeOf<PbrSGMaterialAlphaConfig>>,
   albedo_tex_sampler: TextureSamplerIdView<PbrSGMaterialAlbedoTex>,
   specular_tex_sampler: TextureSamplerIdView<PbrSGMaterialSpecularTex>,
   glossiness_tex_sampler: TextureSamplerIdView<PbrSGMaterialGlossinessTex>,

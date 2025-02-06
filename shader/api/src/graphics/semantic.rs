@@ -100,6 +100,9 @@ only_vertex!(GeometryNormal, Vec3<f32>);
 // the forth channel is hand ness
 only_vertex!(GeometryTangent, Vec4<f32>);
 
+only_fragment!(AlphaCutChannel, f32);
+only_fragment!(AlphaChannel, f32);
+
 pub type GeometryUV = GeometryUVChannel<0>;
 pub struct GeometryUVChannel<const I: usize>;
 impl<const I: usize> SemanticVertexShaderValue for GeometryUVChannel<I> {

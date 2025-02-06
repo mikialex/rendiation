@@ -1,6 +1,4 @@
-use rendiation_lighting_transport::{
-  AlphaChannel, AlphaCutChannel, EmissiveChannel, GlossinessChannel, SpecularChannel,
-};
+use rendiation_lighting_transport::{EmissiveChannel, GlossinessChannel, SpecularChannel};
 use rendiation_shader_library::normal_mapping::apply_normal_mapping_conditional;
 
 use crate::*;
@@ -38,7 +36,7 @@ pub fn pbr_sg_material_uniforms(cx: &GPU) -> PbrSGMaterialUniforms {
     .into_query_update_uniform(offset_of!(Uniform, glossiness), cx);
 
   let alpha = global_watch()
-    .watch::<PbrSGMaterialAlphaComponent>()
+    .watch::<AlphaOf<PbrSGMaterialAlphaConfig>>()
     .into_query_update_uniform(offset_of!(Uniform, alpha), cx);
 
   PbrSGMaterialUniforms::default()
@@ -80,7 +78,7 @@ pub fn pbr_sg_material_tex_uniforms(cx: &GPU) -> PbrSGMaterialTexUniforms {
 
 pub fn pbr_sg_material_pipeline_hash(
 ) -> impl ReactiveQuery<Key = EntityHandle<PbrSGMaterialEntity>, Value = AlphaMode> {
-  global_watch().watch::<PbrSGMaterialAlphaModeComponent>()
+  global_watch().watch::<AlphaModeOf<PbrSGMaterialAlphaConfig>>()
 }
 
 pub struct PhysicalSpecularGlossinessMaterialGPU<'a> {
@@ -194,20 +192,12 @@ impl GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU<'_> {
         enabled,
       );
 
-      match self.alpha_mode {
-        AlphaMode::Opaque => {}
-        AlphaMode::Mask => {
-          let alpha = alpha.less_than(uniform.alpha_cutoff).select(val(0.), alpha);
-          builder.register::<AlphaChannel>(alpha);
-          builder.register::<AlphaCutChannel>(uniform.alpha_cutoff);
-        }
-        AlphaMode::Blend => {
-          builder.register::<AlphaChannel>(alpha);
-          builder.frag_output.iter_mut().for_each(|(_, state)| {
-            state.blend = BlendState::ALPHA_BLENDING.into();
-          });
-        }
-      };
+      ShaderAlphaConfig {
+        alpha_mode: self.alpha_mode,
+        alpha_cutoff: uniform.alpha_cutoff,
+        alpha,
+      }
+      .apply(builder);
 
       builder.register::<ColorChannel>(base_color);
       builder.register::<SpecularChannel>(specular);

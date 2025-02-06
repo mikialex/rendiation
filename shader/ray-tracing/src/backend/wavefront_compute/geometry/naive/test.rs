@@ -8,7 +8,7 @@ pub(crate) const TEST_ANYHIT_BEHAVIOR: u32 = ANYHIT_BEHAVIOR_ACCEPT_HIT; // | AN
 
 pub(crate) fn init_default_acceleration_structure(
   system: &dyn GPUAccelerationStructureSystemProvider,
-) -> Vec<TlasHandle> {
+) {
   fn add_blas_source(
     vec: &mut Vec<BottomLevelAccelerationStructureBuildSource>,
     surface: &impl ParametricSurface,
@@ -221,7 +221,8 @@ pub(crate) fn init_default_acceleration_structure(
     )],
   );
 
-  vec![tlas0, tlas1, tlas2, tlas3, tlas4]
+  let tlas_list = [tlas0, tlas1, tlas2, tlas3, tlas4];
+  system.bind_tlas(&[tlas_list[TEST_TLAS_IDX as usize]]);
 }
 
 #[test]
@@ -251,7 +252,7 @@ fn test_cpu_triangle() {
   payload.ray_flags = RayFlagConfigRaw::RAY_FLAG_CULL_BACK_FACING_TRIANGLES as u32;
   payload.cull_mask = u32::MAX;
   payload.range = vec2(0., FAR);
-  payload.tlas_idx = TEST_TLAS_IDX;
+  payload.tlas_idx = 0;
   payload.ray_origin = ORIGIN;
 
   let mut out = Box::new([[(FAR, 0); W]; H]);
@@ -417,7 +418,7 @@ fn test_gpu_triangle() {
             launch_id,
             launch_size,
             payload_ref: val(0),
-            tlas_idx: val(TEST_TLAS_IDX),
+            tlas_idx: val(0),
             ray_flags: val(ray_flags),
             cull_mask: val(u32::MAX),
             sbt_ray_config_offset: val(0),

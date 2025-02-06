@@ -1,6 +1,4 @@
-use rendiation_lighting_transport::{
-  AlphaChannel, AlphaCutChannel, EmissiveChannel, GlossinessChannel, SpecularChannel,
-};
+use rendiation_lighting_transport::{EmissiveChannel, GlossinessChannel, SpecularChannel};
 use rendiation_shader_library::normal_mapping::apply_normal_mapping_conditional;
 
 use crate::*;
@@ -33,7 +31,7 @@ pub fn pbr_sg_material_storages(cx: &GPU) -> PbrSGMaterialStorages {
   let glossiness = global_watch().watch::<PbrSGMaterialGlossinessComponent>();
   let glossiness_offset = offset_of!(Storage, glossiness);
 
-  let alpha = global_watch().watch::<PbrSGMaterialAlphaComponent>();
+  let alpha = global_watch().watch::<AlphaOf<PbrSGMaterialAlphaConfig>>();
   let alpha_offset = offset_of!(Storage, alpha);
 
   PbrSGMaterialStorages::new(cx)
@@ -74,7 +72,7 @@ pub fn pbr_sg_material_tex_storages(cx: &GPU) -> PbrSGMaterialTexStorages {
 
 pub fn pbr_sg_material_pipeline_hash(
 ) -> impl ReactiveQuery<Key = EntityHandle<PbrSGMaterialEntity>, Value = AlphaMode> {
-  global_watch().watch::<PbrSGMaterialAlphaModeComponent>()
+  global_watch().watch::<AlphaModeOf<PbrSGMaterialAlphaConfig>>()
 }
 
 pub struct PhysicalSpecularGlossinessMaterialGPU<'a> {
@@ -172,20 +170,12 @@ impl GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU<'_> {
         enabled,
       );
 
-      match self.alpha_mode {
-        AlphaMode::Opaque => {}
-        AlphaMode::Mask => {
-          let alpha = alpha.less_than(storage.alpha_cutoff).select(val(0.), alpha);
-          builder.register::<AlphaChannel>(alpha);
-          builder.register::<AlphaCutChannel>(storage.alpha_cutoff);
-        }
-        AlphaMode::Blend => {
-          builder.register::<AlphaChannel>(alpha);
-          builder.frag_output.iter_mut().for_each(|(_, state)| {
-            state.blend = BlendState::ALPHA_BLENDING.into();
-          });
-        }
-      };
+      ShaderAlphaConfig {
+        alpha_mode: self.alpha_mode,
+        alpha_cutoff: storage.alpha_cutoff,
+        alpha,
+      }
+      .apply(builder);
 
       builder.register::<ColorChannel>(base_color);
       builder.register::<SpecularChannel>(specular);

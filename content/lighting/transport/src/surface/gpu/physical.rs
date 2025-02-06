@@ -1,9 +1,6 @@
 use crate::*;
 
 both!(EmissiveChannel, Vec3<f32>);
-
-both!(AlphaCutChannel, f32);
-both!(AlphaChannel, f32);
 both!(SpecularChannel, Vec3<f32>);
 
 // This is the alpha, which is the square of the perceptual roughness

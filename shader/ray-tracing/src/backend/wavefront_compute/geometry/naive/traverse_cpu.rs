@@ -7,6 +7,9 @@ use crate::backend::wavefront_compute::geometry::naive::*;
 
 #[derive(Debug)]
 pub(super) struct NaiveSahBvhCpu {
+  // maps tlas_idx to tlas_handle: tlas_bvh_root[tlas_binding[tlas_idx]]
+  pub(super) tlas_binding: Vec<u32>,
+
   // maps user tlas_id to tlas_bvh root node idx in tlas_bvh_forest
   pub(super) tlas_bvh_root: Vec<u32>,
   // global bvh, root at tlas_bvh_root[tlas_idx], content_range to index tlas_data/tlas_bounding
@@ -57,7 +60,7 @@ impl NaiveSahBvhCpu {
     let flags = TraverseFlags::from_ray_flag(ray.ray_flags);
     let ray_range = RayRange::new(ray.range.x, ray.range.y, 1.);
 
-    let tlas_bvh_root = self.tlas_bvh_root[ray.tlas_idx as usize];
+    let tlas_bvh_root = self.tlas_bvh_root[self.tlas_binding[ray.tlas_idx as usize] as usize];
 
     // traverse tlas bvh, hit leaf
     let tlas_iter = TraverseBvhIteratorCpu {

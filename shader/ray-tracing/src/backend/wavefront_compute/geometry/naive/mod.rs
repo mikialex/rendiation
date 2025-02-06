@@ -321,6 +321,7 @@ impl NaiveSahBvhSource {
     device: &GPUDevice,
     cpu_data: &mut Option<NaiveSahBvhCpu>,
     gpu_data: &mut Option<NaiveSahBvhGpu>,
+    tlas_binding: &[TlasHandle],
   ) {
     // build blas
     let BuiltBlas {
@@ -446,12 +447,15 @@ impl NaiveSahBvhSource {
     }
 
     // upload tlas
+    let tlas_binding = tlas_binding.iter().map(|i| i.0).collect::<Vec<_>>();
+    let gpu_tlas_binding = create_gpu_buffer(device, &tlas_binding);
     let gpu_tlas_bvh_root = create_gpu_buffer(device, &tlas_bvh_root);
     let gpu_tlas_bvh_forest = create_gpu_buffer(device, &tlas_bvh_forest);
     let gpu_tlas_data = create_gpu_buffer(device, &tlas_data);
     let gpu_tlas_bounding = create_gpu_buffer(device, &tlas_bounding);
 
     let cpu = NaiveSahBvhCpu {
+      tlas_binding,
       tlas_bvh_root,
       tlas_bvh_forest,
       tlas_data,
@@ -467,6 +471,7 @@ impl NaiveSahBvhSource {
     *cpu_data = Some(cpu);
 
     *gpu_data = Some(NaiveSahBvhGpu {
+      tlas_binding: gpu_tlas_binding,
       tlas_bvh_root: gpu_tlas_bvh_root,
       tlas_bvh_forest: gpu_tlas_bvh_forest,
       tlas_data: gpu_tlas_data,
@@ -488,6 +493,7 @@ pub struct NaiveSahBVHSystem {
 }
 struct NaiveSahBVHSystemInner {
   source: NaiveSahBvhSource,
+  tlas_binding: Vec<TlasHandle>,
   cpu_data: Option<NaiveSahBvhCpu>,
   gpu_data: Option<NaiveSahBvhGpu>,
 }
@@ -497,6 +503,7 @@ impl NaiveSahBVHSystem {
     Self {
       inner: Arc::new(RwLock::new(NaiveSahBVHSystemInner {
         source: Default::default(),
+        tlas_binding: vec![],
         cpu_data: None,
         gpu_data: None,
       })),
@@ -522,14 +529,24 @@ impl NaiveSahBVHSystem {
   }
 }
 impl NaiveSahBVHSystemInner {
+  fn set_binding(&mut self, tlas: &[TlasHandle]) {
+    let new_binding = tlas.to_vec();
+    if self.tlas_binding != new_binding {
+      self.tlas_binding = new_binding;
+      self.invalidate(); // todo just reupload buffer
+    }
+  }
   fn invalidate(&mut self) {
     self.cpu_data = None;
     self.gpu_data = None;
   }
   fn rebuild_acceleration_structures(&mut self, device: &GPUDevice) {
-    self
-      .source
-      .build(device, &mut self.cpu_data, &mut self.gpu_data);
+    self.source.build(
+      device,
+      &mut self.cpu_data,
+      &mut self.gpu_data,
+      self.tlas_binding.as_slice(),
+    );
   }
 }
 
@@ -537,6 +554,14 @@ impl GPUAccelerationStructureSystemProvider for NaiveSahBVHSystem {
   fn create_comp_instance(&self) -> Box<dyn GPUAccelerationStructureSystemCompImplInstance> {
     let gpu = self.get_or_build_gpu_data();
     Box::new(gpu.clone())
+  }
+
+  fn bind_tlas_max_len(&self) -> u32 {
+    u32::MAX
+  }
+
+  fn bind_tlas(&self, tlas: &[TlasHandle]) {
+    self.inner.write().unwrap().set_binding(tlas);
   }
 
   // todo return instance ids? then TLAS device should store InstanceId

@@ -12,7 +12,6 @@ use std::hash::Hash;
 use database::*;
 use reactive::*;
 use rendiation_geometry::*;
-// use rendiation_gizmo::*;
 use rendiation_gui_3d::*;
 use rendiation_lighting_gpu_system::*;
 use rendiation_lighting_transport::*;
@@ -31,7 +30,6 @@ mod default_scene;
 mod egui_cx;
 mod util;
 mod viewer;
-//  use default_scene::*;
 
 use app_loop::*;
 use egui_cx::EguiContext;

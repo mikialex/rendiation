@@ -1,6 +1,4 @@
-use rendiation_lighting_transport::{
-  AlphaChannel, AlphaCutChannel, EmissiveChannel, MetallicChannel, RoughnessChannel,
-};
+use rendiation_lighting_transport::{EmissiveChannel, MetallicChannel, RoughnessChannel};
 use rendiation_shader_library::normal_mapping::apply_normal_mapping_conditional;
 
 use crate::*;
@@ -37,7 +35,7 @@ pub fn pbr_mr_material_storages(cx: &GPU) -> PbrMRMaterialStorages {
   let metallic = global_watch().watch::<PbrMRMaterialMetallicComponent>();
   let metallic_offset = offset_of!(Storage, metallic);
 
-  let alpha = global_watch().watch::<PbrMRMaterialAlphaComponent>();
+  let alpha = global_watch().watch::<AlphaOf<PbrMRMaterialAlphaConfig>>();
   let alpha_offset = offset_of!(Storage, alpha);
 
   PbrMRMaterialStorages::new(cx)
@@ -76,7 +74,7 @@ pub fn pbr_mr_material_tex_storages(cx: &GPU) -> PbrMRMaterialTexStorages {
 
 pub fn pbr_mr_material_pipeline_hash(
 ) -> impl ReactiveQuery<Key = EntityHandle<PbrMRMaterialEntity>, Value = AlphaMode> {
-  global_watch().watch::<PbrMRMaterialAlphaModeComponent>()
+  global_watch().watch::<AlphaModeOf<PbrMRMaterialAlphaConfig>>()
 }
 
 pub struct PhysicalMetallicRoughnessMaterialIndirectGPU<'a> {
@@ -168,20 +166,12 @@ impl GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialIndirectGPU<'_>
         enabled,
       );
 
-      match self.alpha_mode {
-        AlphaMode::Opaque => {}
-        AlphaMode::Mask => {
-          let alpha = alpha.less_than(storage.alpha_cutoff).select(val(0.), alpha);
-          builder.register::<AlphaChannel>(alpha);
-          builder.register::<AlphaCutChannel>(storage.alpha_cutoff);
-        }
-        AlphaMode::Blend => {
-          builder.register::<AlphaChannel>(alpha);
-          builder.frag_output.iter_mut().for_each(|(_, state)| {
-            state.blend = BlendState::ALPHA_BLENDING.into();
-          });
-        }
-      };
+      ShaderAlphaConfig {
+        alpha_mode: self.alpha_mode,
+        alpha_cutoff: storage.alpha_cutoff,
+        alpha,
+      }
+      .apply(builder);
 
       builder.register::<ColorChannel>(base_color);
       builder.register::<EmissiveChannel>(emissive);

@@ -52,6 +52,7 @@ pub fn register_scene_core_data_model() {
   register_flat_material_data_model();
   register_pbr_sg_material_data_model();
   register_pbr_mr_material_data_model();
+  register_scene_animation_data_model();
 }
 
 declare_entity!(SceneEntity);
