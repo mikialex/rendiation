@@ -103,13 +103,15 @@ impl Viewer3dRenderingCtx {
     &self.gpu
   }
 
-  pub fn new(gpu: GPU, ndc: ViewerNDC) -> Self {
+  pub fn new(
+    gpu: GPU,
+    ndc: ViewerNDC,
+    camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
+  ) -> Self {
     let mut rendering_resource = ReactiveQueryJoinUpdater::default();
 
     let lighting =
       LightSystem::new_and_register(&mut rendering_resource, &gpu, ndc.enable_reverse_z, ndc);
-
-    let camera_source = camera_transforms(ndc).into_boxed().into_static_forker();
 
     let camera_source_init = camera_source.clone_as_static();
 

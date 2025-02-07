@@ -11,12 +11,22 @@ pub struct SceneCameraHelper {
 
 impl SceneCameraHelper {
   pub fn new(
-    _scene: EntityHandle<SceneEntity>, // todo, filter other scene
+    scene: EntityHandle<SceneEntity>,
     camera: impl ReactiveQuery<Key = EntityHandle<SceneCameraEntity>, Value = CameraTransform>,
   ) -> Self {
+    let camera_set = global_watch()
+      .watch::<SceneCameraBelongsToScene>()
+      .collective_filter(move |v| v.unwrap() == scene.into_raw())
+      .collective_map(|_| {});
+
+    let camera_changes = camera
+      .filter_by_keyset(camera_set)
+      .collective_map(|t| t.view_projection)
+      .into_boxed();
+
     Self {
       helper_models: Default::default(),
-      camera_changes: camera.collective_map(|t| t.view_projection).into_boxed(),
+      camera_changes,
     }
   }
 }

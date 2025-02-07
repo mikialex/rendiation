@@ -228,10 +228,14 @@ impl Viewer {
       enable_reverse_z: true,
     };
 
+    let camera_transforms = camera_transforms(viewer_ndc)
+      .into_boxed()
+      .into_static_forker();
+
     let derives = Viewer3dSceneDeriveSource {
       world_mat: Box::new(scene_node_derive_world_mat()),
       node_net_visible: Box::new(scene_node_derive_visible()),
-      camera_transforms: Box::new(camera_transforms(viewer_ndc)),
+      camera_transforms: camera_transforms.clone().into_boxed(),
       mesh_vertex_ref: Box::new(
         global_rev_ref()
           .watch_inv_ref::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>(),
@@ -255,7 +259,7 @@ impl Viewer {
       content: Box::new(content_logic),
       scene,
       terminal,
-      rendering: Viewer3dRenderingCtx::new(gpu, viewer_ndc),
+      rendering: Viewer3dRenderingCtx::new(gpu, viewer_ndc, camera_transforms),
       derives,
       on_demand_draw: Default::default(),
       egui_db_inspector: Default::default(),

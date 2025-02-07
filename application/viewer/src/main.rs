@@ -64,7 +64,7 @@ where
 
   let content_logic = core_viewer_features(content_logic);
 
-  let viewer = StateCxCreateOnce::new(|cx| {
+  let viewer = StateCxCreateOnce::create_at_view(|cx| {
     access_cx!(cx, gpu, GPU);
     Viewer::new(gpu.clone(), content_logic(cx))
   });

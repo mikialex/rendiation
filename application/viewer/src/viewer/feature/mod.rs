@@ -15,10 +15,9 @@ pub fn core_viewer_features<V: Widget + 'static>(
   content_logic: impl Fn(&mut DynCx) -> V + 'static,
 ) -> impl Fn(&mut DynCx) -> Box<dyn Widget> {
   move |cx| {
-    let gizmo = StateCxCreateOnce::new(GizmoBridge::new);
     Box::new(
       WidgetGroup::default()
-        .with_child(gizmo)
+        .with_child(StateCxCreateOnce::create_at_view(GizmoBridge::new))
         .with_child(SceneOrbitCameraControl::default())
         .with_child(PickScene {
           enable_hit_debug_log: false,
