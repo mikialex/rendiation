@@ -17,7 +17,7 @@ pub struct IndirectRenderSystem {
 pub fn build_default_indirect_render_system(
   gpu: &GPU,
   prefer_bindless: bool,
-  ndc: impl NDCSpaceMapper<f32> + Copy,
+  camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
   reversed_depth: bool,
 ) -> IndirectRenderSystem {
   let tex_sys_ty = get_suitable_texture_system_ty(gpu, true, prefer_bindless);
@@ -27,7 +27,7 @@ pub fn build_default_indirect_render_system(
     node_net_visible: Default::default(),
     background: SceneBackgroundRendererSource::new(reversed_depth),
     texture_system: TextureGPUSystemSource::new(tex_sys_ty),
-    camera: Box::new(DefaultGLESCameraRenderImplProvider::new(ndc)),
+    camera: Box::new(DefaultGLESCameraRenderImplProvider::new(camera_source)),
     scene_model_impl: Box::new(IndirectPreferredComOrderRendererProvider {
       ids: Default::default(),
       node: Box::new(DefaultIndirectNodeRenderImplProvider::default()),

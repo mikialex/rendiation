@@ -90,6 +90,19 @@ where
   Map: ReactiveQuery,
 {
   fn clone(&self) -> Self {
+    self.clone_impl(false)
+  }
+}
+
+impl<Map> ReactiveKVMapFork<Map>
+where
+  Map: ReactiveQuery,
+{
+  pub fn clone_as_static(&self) -> Self {
+    self.clone_impl(true)
+  }
+
+  fn clone_impl(&self, as_static_forker: bool) -> Self {
     // get updated current view and delta; this is necessary, because we require
     // current view as init delta for new forked downstream
     //
@@ -143,7 +156,7 @@ where
       resolved: self.resolved.clone(),
       waker,
       buffered: Default::default(),
-      as_static_forker: false,
+      as_static_forker,
     }
   }
 }

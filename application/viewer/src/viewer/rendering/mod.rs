@@ -51,7 +51,8 @@ fn init_renderer(
   updater: &mut ReactiveQueryJoinUpdater,
   ty: RasterizationRenderBackendType,
   gpu: &GPU,
-  ndc: ViewerNDC,
+  camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
+  enable_reverse_z: bool,
 ) -> BoxedSceneRenderImplProvider {
   let prefer_bindless_textures = false;
   let mut renderer_impl = match ty {
@@ -60,8 +61,8 @@ fn init_renderer(
       Box::new(build_default_gles_render_system(
         gpu,
         prefer_bindless_textures,
-        ndc,
-        ndc.enable_reverse_z,
+        camera_source,
+        enable_reverse_z,
       )) as BoxedSceneRenderImplProvider
     }
     RasterizationRenderBackendType::Indirect => {
@@ -69,8 +70,8 @@ fn init_renderer(
       Box::new(build_default_indirect_render_system(
         gpu,
         prefer_bindless_textures,
-        ndc,
-        ndc.enable_reverse_z,
+        camera_source,
+        enable_reverse_z,
       ))
     }
   };
@@ -94,6 +95,7 @@ pub struct Viewer3dRenderingCtx {
   on_encoding_finished: EventSource<ViewRenderedState>,
   expect_read_back_for_next_render_result: bool,
   current_camera_view_projection_inv: Mat4<f32>,
+  camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
 }
 
 impl Viewer3dRenderingCtx {
@@ -107,11 +109,16 @@ impl Viewer3dRenderingCtx {
     let lighting =
       LightSystem::new_and_register(&mut rendering_resource, &gpu, ndc.enable_reverse_z, ndc);
 
+    let camera_source = camera_transforms(ndc).into_boxed().into_static_forker();
+
+    let camera_source_init = camera_source.clone_as_static();
+
     let renderer_impl = init_renderer(
       &mut rendering_resource,
       RasterizationRenderBackendType::Gles,
       &gpu,
-      ndc,
+      camera_source,
+      ndc.enable_reverse_z,
     );
 
     Self {
@@ -129,6 +136,7 @@ impl Viewer3dRenderingCtx {
       on_encoding_finished: Default::default(),
       expect_read_back_for_next_render_result: false,
       current_camera_view_projection_inv: Default::default(),
+      camera_source: camera_source_init,
     }
   }
 
@@ -148,8 +156,11 @@ impl Viewer3dRenderingCtx {
       if self.rtx_ao_renderer_impl.is_none() {
         let rtx_backend_system = GPUWaveFrontComputeRaytracingSystem::new(&self.gpu);
         let rtx_system = RtxSystemCore::new(Box::new(rtx_backend_system));
-        let mut rtx_ao_renderer_impl =
-          RayTracingAORenderSystem::new(&rtx_system, &self.gpu, self.ndc);
+        let mut rtx_ao_renderer_impl = RayTracingAORenderSystem::new(
+          &rtx_system,
+          &self.gpu,
+          self.camera_source.clone_as_static(),
+        );
 
         rtx_ao_renderer_impl.register_resource(&mut self.rendering_resource, &self.gpu);
 
@@ -190,7 +201,8 @@ impl Viewer3dRenderingCtx {
         &mut self.rendering_resource,
         self.current_renderer_impl_ty,
         &self.gpu,
-        self.ndc,
+        self.camera_source.clone_as_static(),
+        self.ndc.enable_reverse_z,
       );
     }
 

@@ -77,9 +77,13 @@ impl Default for AOShaderHandles {
 }
 
 impl RayTracingAORenderSystem {
-  pub fn new(rtx: &RtxSystemCore, gpu: &GPU, ndc: impl NDCSpaceMapper<f32> + Copy) -> Self {
+  pub fn new(
+    rtx: &RtxSystemCore,
+    gpu: &GPU,
+    camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
+  ) -> Self {
     Self {
-      camera: Box::new(DefaultRtxCameraRenderImplProvider::new(ndc)),
+      camera: Box::new(DefaultRtxCameraRenderImplProvider::new(camera_source)),
       scene_tlas: Default::default(),
       sbt: Default::default(),
       executor: rtx.rtx_device.create_raytracing_pipeline_executor(),

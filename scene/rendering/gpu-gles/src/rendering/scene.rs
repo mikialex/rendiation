@@ -13,7 +13,7 @@ pub struct GLESRenderSystem {
 pub fn build_default_gles_render_system(
   cx: &GPU,
   prefer_bindless: bool,
-  ndc: impl NDCSpaceMapper<f32> + Copy,
+  camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
   reversed_depth: bool,
 ) -> GLESRenderSystem {
   let tex_sys_ty = get_suitable_texture_system_ty(cx, false, prefer_bindless);
@@ -23,7 +23,7 @@ pub fn build_default_gles_render_system(
     texture_system: TextureGPUSystemSource::new(tex_sys_ty),
     background: SceneBackgroundRendererSource::new(reversed_depth),
     node_net_visible: Default::default(),
-    camera: Box::new(DefaultGLESCameraRenderImplProvider::new(ndc)),
+    camera: Box::new(DefaultGLESCameraRenderImplProvider::new(camera_source)),
     scene_model_impl: vec![Box::new(GLESPreferredComOrderRendererProvider {
       node: Box::new(DefaultGLESNodeRenderImplProvider::default()),
       model_impl: vec![Box::new(DefaultSceneStdModelRendererProvider {

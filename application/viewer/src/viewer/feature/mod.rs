@@ -6,6 +6,8 @@ mod fit_camera_view;
 pub use fit_camera_view::*;
 mod pick_scene;
 pub use pick_scene::*;
+mod camera_helper;
+pub use camera_helper::*;
 
 use crate::*;
 
