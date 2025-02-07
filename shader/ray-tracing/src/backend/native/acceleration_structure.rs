@@ -220,7 +220,7 @@ pub struct NativeInlineSystemInner {
 
 impl NativeInlineSystemInner {
   fn maintain(&mut self, encoder: &mut GPUCommandEncoder) {
-    if !self.blas_builders.is_empty() || !self.tlas_builders.is_empty() {
+    if self.blas_builders.is_empty() && self.tlas_builders.is_empty() {
       return;
     }
 

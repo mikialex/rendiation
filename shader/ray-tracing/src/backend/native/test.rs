@@ -49,7 +49,7 @@ fn test_gpu_triangle() {
     );
     file.push('\n');
   }
-  std::fs::write("trace_gpu.pbm", file).unwrap();
+  std::fs::write("trace_native.pbm", file).unwrap();
 
   #[derive(Clone)]
   struct GpuTester {
@@ -111,7 +111,7 @@ fn test_gpu_triangle() {
       &self,
       builder: &mut ShaderComputePipelineBuilder,
     ) -> Box<dyn DeviceInvocation<Node<u32>>> {
-      builder.log_result = true;
+      // builder.log_result = true;
 
       let upstream_shader = self.upstream.build_shader(builder);
 
