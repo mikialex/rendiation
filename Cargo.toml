@@ -64,7 +64,6 @@ members = [
   "extension/controller",
   "extension/view-override-model",
   "extension/barycentric-solid-line",
-  "extension/scene-debug-helper",
   "extension/gui-3d",
   "extension/state-override",
   "extension/infinity-primitive",
