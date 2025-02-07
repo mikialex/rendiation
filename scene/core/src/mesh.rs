@@ -36,7 +36,35 @@ pub trait AttributesMeshWriter {
     self,
     writer: &mut AttributesMeshEntityFromAttributesMeshWriter,
     buffer: &mut EntityWriter<BufferEntity>,
-  ) -> EntityHandle<AttributesMeshEntity>;
+  ) -> AttributesMeshEntities;
+}
+
+pub struct AttributesMeshEntities {
+  pub mesh: EntityHandle<AttributesMeshEntity>,
+  pub index: Option<EntityHandle<BufferEntity>>,
+  pub vertices: Vec<(
+    EntityHandle<AttributesMeshEntityVertexBufferRelation>,
+    EntityHandle<BufferEntity>,
+  )>,
+}
+
+impl AttributesMeshEntities {
+  pub fn clean_up(
+    &self,
+    writer: &mut AttributesMeshEntityFromAttributesMeshWriter,
+    buffer: &mut EntityWriter<BufferEntity>,
+  ) {
+    for (r, b) in &self.vertices {
+      writer.relation.delete_entity(*r);
+      buffer.delete_entity(*b);
+    }
+
+    writer.mesh.delete_entity(self.mesh);
+
+    if let Some(index) = self.index {
+      buffer.delete_entity(index);
+    }
+  }
 }
 
 impl AttributesMeshWriter for AttributesMesh {
@@ -51,12 +79,12 @@ impl AttributesMeshWriter for AttributesMesh {
     self,
     writer: &mut AttributesMeshEntityFromAttributesMeshWriter,
     buffer: &mut EntityWriter<BufferEntity>,
-  ) -> EntityHandle<AttributesMeshEntity> {
+  ) -> AttributesMeshEntities {
     let count = self.indices.as_ref().map(|(_, data)| data.count as u32);
-    let index = self.indices.map(|(_, data)| data.write(buffer));
+    let index_data = self.indices.map(|(_, data)| data.write(buffer));
 
     let index = SceneBufferViewDataView {
-      data: index,
+      data: index_data,
       range: None,
       count,
     };
@@ -66,27 +94,35 @@ impl AttributesMeshWriter for AttributesMesh {
     mesh_writer.component_value_writer::<AttributesMeshEntityTopology>(self.mode);
     let mesh = mesh_writer.new_entity();
 
+    let mut vertices = Vec::with_capacity(self.attributes.len());
+
     for (semantic, vertex) in self.attributes {
       let count = vertex.count;
-      let vertex = vertex.write(buffer);
+      let vertex_data = vertex.write(buffer);
 
       let vertex = SceneBufferViewDataView {
-        data: Some(vertex),
+        data: Some(vertex_data),
         range: None,
         count: Some(count as u32),
       };
 
       let relation_writer = &mut writer.relation;
       vertex.write::<AttributeVertexRef>(relation_writer);
-      relation_writer
+      let vertex = relation_writer
         .component_value_writer::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>(
           mesh.some_handle(),
         )
         .component_value_writer::<AttributesMeshEntityVertexBufferSemantic>(semantic)
         .new_entity();
+
+      vertices.push((vertex, vertex_data));
     }
 
-    mesh
+    AttributesMeshEntities {
+      mesh,
+      index: index_data,
+      vertices,
+    }
   }
 }
 

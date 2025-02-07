@@ -138,10 +138,7 @@ impl SceneWriter {
       buffer_writer: global_entity_of().entity_writer(),
     }
   }
-  pub fn write_attribute_mesh(
-    &mut self,
-    mesh: AttributesMesh,
-  ) -> EntityHandle<mesh::AttributesMeshEntity> {
+  pub fn write_attribute_mesh(&mut self, mesh: AttributesMesh) -> AttributesMeshEntities {
     mesh.write(&mut self.mesh_writer, &mut self.buffer_writer)
   }
 

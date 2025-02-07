@@ -46,7 +46,7 @@ pub fn load_obj_content(
     .iter()
     .map(|m| {
       let attribute_mesh = create_attribute_mesh_from_obj_mesh(&m.mesh);
-      let attribute_mesh = writer.write_attribute_mesh(attribute_mesh);
+      let attribute_mesh = writer.write_attribute_mesh(attribute_mesh).mesh;
 
       let mut material = None;
       if let Some(material_id) = m.mesh.material_id {

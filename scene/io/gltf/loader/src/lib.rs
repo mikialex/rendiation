@@ -145,7 +145,7 @@ fn build_model(
     mode,
     groups: Default::default(),
   };
-  let mesh = ctx.io.write_attribute_mesh(mesh);
+  let mesh = ctx.io.write_attribute_mesh(mesh).mesh;
 
   let material = build_pbr_material(primitive.material(), ctx).write(&mut ctx.io.pbr_mr_mat_writer);
 

@@ -16,7 +16,7 @@ pub fn load_default_scene(writer: &mut SceneWriter, _viewer_scene: &Viewer3dScen
       );
     })
     .build();
-    let attribute_mesh = writer.write_attribute_mesh(attribute_mesh);
+    let attribute_mesh = writer.write_attribute_mesh(attribute_mesh).mesh;
 
     let texture = textured_example_tex(writer);
     let material = PhysicalMetallicRoughnessMaterialDataView {
@@ -43,7 +43,7 @@ pub fn load_default_scene(writer: &mut SceneWriter, _viewer_scene: &Viewer3dScen
       }
     })
     .build();
-    let attribute_mesh = writer.write_attribute_mesh(attribute_mesh);
+    let attribute_mesh = writer.write_attribute_mesh(attribute_mesh).mesh;
 
     let material = PhysicalSpecularGlossinessMaterialDataView {
       albedo: Vec3::splat(1.),
@@ -196,7 +196,7 @@ pub fn load_stress_test(scene: &mut SceneWriter) {
             builder.triangulate_parametric(&face, TessellationConfig { u: 2, v: 3 }, true);
           }
         });
-        let mesh = scene.write_attribute_mesh(mesh.build());
+        let mesh = scene.write_attribute_mesh(mesh.build()).mesh;
 
         scene.create_scene_model(material, mesh, node);
       }
