@@ -6,6 +6,7 @@ pub struct SceneWriter {
   pub camera_writer: EntityWriter<SceneCameraEntity>,
   pub mesh_writer: AttributesMeshEntityFromAttributesMeshWriter,
   pub tex_writer: EntityWriter<SceneTexture2dEntity>,
+  pub buffer_writer: EntityWriter<BufferEntity>,
   pub cube_writer: EntityWriter<SceneTextureCubeEntity>,
   pub sampler_writer: EntityWriter<SceneSamplerEntity>,
   pub node_writer: EntityWriter<SceneNodeEntity>,
@@ -17,6 +18,8 @@ pub struct SceneWriter {
   pub point_light_writer: EntityWriter<PointLightEntity>,
   pub directional_light_writer: EntityWriter<DirectionalLightEntity>,
   pub spot_light_writer: EntityWriter<SpotLightEntity>,
+  pub animation: EntityWriter<SceneAnimationEntity>,
+  pub animation_channel: EntityWriter<SceneAnimationChannelEntity>,
 }
 
 impl SceneWriter {
@@ -130,13 +133,16 @@ impl SceneWriter {
       point_light_writer: global_entity_of().entity_writer(),
       directional_light_writer: global_entity_of().entity_writer(),
       spot_light_writer: global_entity_of().entity_writer(),
+      animation: global_entity_of().entity_writer(),
+      animation_channel: global_entity_of().entity_writer(),
+      buffer_writer: global_entity_of().entity_writer(),
     }
   }
   pub fn write_attribute_mesh(
     &mut self,
     mesh: AttributesMesh,
   ) -> EntityHandle<mesh::AttributesMeshEntity> {
-    mesh.write(&mut self.mesh_writer)
+    mesh.write(&mut self.mesh_writer, &mut self.buffer_writer)
   }
 
   pub fn texture_sample_pair_writer(&mut self) -> TexSamplerWriter {

@@ -48,11 +48,9 @@ pub struct SceneBufferViewDataView {
 }
 
 impl SceneBufferViewDataView {
-  pub fn write<C, E>(self, writer: &mut EntityWriter<E>)
+  pub fn write<C>(self, writer: &mut EntityWriter<C::Entity>)
   where
-    E: EntitySemantic,
     C: SceneBufferView,
-    C: EntityAssociateSemantic<Entity = E>,
   {
     writer
       .component_value_writer::<SceneBufferViewBufferId<C>>(self.data.and_then(|v| v.some_handle()))

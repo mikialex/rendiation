@@ -1,10 +1,17 @@
 use crate::*;
 
+declare_entity!(SceneAnimationEntity);
+
 declare_entity!(SceneAnimationChannelEntity);
 declare_foreign_key!(
   SceneAnimationChannelTargetNode,
   SceneAnimationChannelEntity,
   SceneNodeEntity
+);
+declare_foreign_key!(
+  SceneAnimationChannelBelongToAnimation,
+  SceneAnimationChannelEntity,
+  SceneAnimationEntity
 );
 
 declare_component!(
@@ -43,13 +50,51 @@ impl SceneBufferView for SceneAnimationChannelInput {}
 impl SceneBufferView for SceneAnimationChannelOutput {}
 
 pub fn register_scene_animation_data_model() {
+  global_database().declare_entity::<SceneAnimationEntity>();
+
   let ecg = global_database()
     .declare_entity::<SceneAnimationChannelEntity>()
+    .declare_foreign_key::<SceneAnimationChannelBelongToAnimation>()
+    .declare_foreign_key::<SceneAnimationChannelTargetNode>()
     .declare_component::<SceneAnimationChannelInterpolation>()
     .declare_component::<SceneAnimationChannelField>();
 
   let ecg = register_scene_buffer_view::<SceneAnimationChannelInput>(ecg);
   let _ = register_scene_buffer_view::<SceneAnimationChannelOutput>(ecg);
+}
+
+pub struct AnimationChannelDataView {
+  pub sampler: AnimationSampler,
+  pub target_node: EntityHandle<SceneNodeEntity>,
+  pub animation: EntityHandle<SceneAnimationEntity>,
+}
+
+impl AnimationChannelDataView {
+  pub fn write(&self, writer: &mut SceneWriter) -> EntityHandle<SceneAnimationChannelEntity> {
+    writer
+      .animation_channel
+      .component_value_writer::<SceneAnimationChannelField>(self.sampler.field)
+      .component_value_writer::<SceneAnimationChannelInterpolation>(self.sampler.interpolation)
+      .component_value_writer::<SceneAnimationChannelTargetNode>(self.target_node.some_handle());
+
+    let data = self.sampler.input.clone().write(&mut writer.buffer_writer);
+    let input = SceneBufferViewDataView {
+      data: Some(data),
+      range: None,
+      count: Some(self.sampler.input.count as u32),
+    };
+    let data = self.sampler.output.clone().write(&mut writer.buffer_writer);
+    let output = SceneBufferViewDataView {
+      data: Some(data),
+      range: None,
+      count: Some(self.sampler.output.count as u32),
+    };
+
+    input.write::<SceneAnimationChannelInput>(&mut writer.animation_channel);
+    output.write::<SceneAnimationChannelOutput>(&mut writer.animation_channel);
+
+    writer.animation_channel.new_entity()
+  }
 }
 
 /// An animation sampler combines timestamps with a sequence of

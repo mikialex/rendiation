@@ -40,9 +40,9 @@ pub fn load_gltf(
   //     build_skin(skin, &mut ctx);
   //   }
 
-  //   for animation in document.animations() {
-  //     build_animation(animation, &mut ctx);
-  //   }
+  for animation in document.animations() {
+    build_animation(animation, &mut ctx);
+  }
 
   for gltf_scene in document.scenes() {
     for node in gltf_scene.nodes() {
@@ -67,6 +67,8 @@ pub struct GltfLoadResult {
   pub primitive_map: FastHashMap<usize, EntityHandle<SceneModelEntity>>,
   pub node_map: FastHashMap<usize, EntityHandle<SceneNodeEntity>>,
   pub view_map: FastHashMap<usize, UnTypedBufferView>,
+  // pub skin_map: FastHashMap<usize, EntityHandle<SceneSkinEntity>>,
+  pub animation_map: FastHashMap<usize, EntityHandle<SceneAnimationEntity>>,
 }
 
 /// https://docs.rs/gltf/latest/gltf/struct.Node.html
@@ -166,36 +168,35 @@ fn build_model(
   sm.write(&mut ctx.io.model_writer)
 }
 
-// fn build_animation(animation: gltf::Animation, ctx: &mut Context) {
-//   let channels = animation
-//     .channels()
-//     .map(|channel| {
-//       let target = channel.target();
-//       let node = ctx
-//         .result
-//         .node_map
-//         .get(&target.node().index())
-//         .unwrap()
-//         .clone();
+fn build_animation(animation: gltf::Animation, ctx: &mut Context) {
+  let animation_handle = ctx.io.animation.new_entity();
+  animation.channels().for_each(|channel| {
+    let target = channel.target();
+    let node = *ctx.result.node_map.get(&target.node().index()).unwrap();
 
-//       let field = map_animation_field(target.property());
-//       let gltf_sampler = channel.sampler();
-//       let sampler = AnimationSampler {
-//         interpolation: map_animation_interpolation(gltf_sampler.interpolation()),
-//         field,
-//         input: build_accessor(gltf_sampler.input(), ctx),
-//         output: build_accessor(gltf_sampler.output(), ctx),
-//       };
+    let field = map_animation_field(target.property());
+    let gltf_sampler = channel.sampler();
+    let sampler = AnimationSampler {
+      interpolation: map_animation_interpolation(gltf_sampler.interpolation()),
+      field,
+      input: build_accessor(gltf_sampler.input(), ctx),
+      output: build_accessor(gltf_sampler.output(), ctx),
+    };
 
-//       SceneAnimationChannel {
-//         target_node: node,
-//         sampler,
-//       }
-//     })
-//     .collect();
+    let channel = AnimationChannelDataView {
+      sampler,
+      target_node: node,
+      animation: animation_handle,
+    };
 
-//   ctx.result.animations.push(SceneAnimation { channels })
-// }
+    channel.write(ctx.io);
+  });
+
+  ctx
+    .result
+    .animation_map
+    .insert(animation.index(), animation_handle);
+}
 
 // fn build_skin(skin: gltf::Skin, ctx: &mut Context) {
 //   let mut joints: Vec<_> = skin

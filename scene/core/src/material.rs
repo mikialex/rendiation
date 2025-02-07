@@ -42,7 +42,7 @@ mod flat_material {
 
     fn write(self, writer: &mut Self::Writer) -> EntityHandle<FlatMaterialEntity> {
       let w = writer.component_value_writer::<FlatMaterialDisplayColorComponent>(self.color);
-      self.alpha.write::<FlatMaterialAlphaConfig, _>(w);
+      self.alpha.write::<FlatMaterialAlphaConfig>(w);
       w.new_entity()
     }
   }
@@ -149,22 +149,22 @@ mod sg_material {
         .component_value_writer::<PbrSGMaterialGlossinessComponent>(self.glossiness)
         .component_value_writer::<PbrSGMaterialEmissiveComponent>(self.emissive);
 
-      self.alpha.write::<PbrSGMaterialAlphaConfig, _>(writer);
+      self.alpha.write::<PbrSGMaterialAlphaConfig>(writer);
 
       if let Some(t) = self.albedo_texture {
-        t.write::<PbrSGMaterialAlbedoTex, _>(writer)
+        t.write::<PbrSGMaterialAlbedoTex>(writer)
       }
 
       if let Some(t) = self.specular_texture {
-        t.write::<PbrSGMaterialSpecularTex, _>(writer)
+        t.write::<PbrSGMaterialSpecularTex>(writer)
       }
 
       if let Some(t) = self.glossiness_texture {
-        t.write::<PbrSGMaterialGlossinessTex, _>(writer)
+        t.write::<PbrSGMaterialGlossinessTex>(writer)
       }
 
       if let Some(t) = self.emissive_texture {
-        t.write::<PbrSGMaterialEmissiveTex, _>(writer)
+        t.write::<PbrSGMaterialEmissiveTex>(writer)
       }
 
       // todo normal map
@@ -275,18 +275,18 @@ mod mr_material {
         .component_value_writer::<PbrMRMaterialMetallicComponent>(self.metallic)
         .component_value_writer::<PbrMRMaterialEmissiveComponent>(self.emissive);
 
-      self.alpha.write::<PbrMRMaterialAlphaConfig, _>(writer);
+      self.alpha.write::<PbrMRMaterialAlphaConfig>(writer);
 
       if let Some(t) = self.base_color_texture {
-        t.write::<PbrMRMaterialBaseColorTex, _>(writer)
+        t.write::<PbrMRMaterialBaseColorTex>(writer)
       }
 
       if let Some(t) = self.metallic_roughness_texture {
-        t.write::<PbrMRMaterialMetallicRoughnessTex, _>(writer)
+        t.write::<PbrMRMaterialMetallicRoughnessTex>(writer)
       }
 
       if let Some(t) = self.emissive_texture {
-        t.write::<PbrMRMaterialEmissiveTex, _>(writer)
+        t.write::<PbrMRMaterialEmissiveTex>(writer)
       }
 
       // todo normal map
@@ -361,11 +361,9 @@ impl Default for AlphaConfigDataView {
 }
 
 impl AlphaConfigDataView {
-  pub fn write<C, E>(self, writer: &mut EntityWriter<E>)
+  pub fn write<C>(self, writer: &mut EntityWriter<C::Entity>)
   where
-    E: EntitySemantic,
     C: AlphaInfoSemantic,
-    C: EntityAssociateSemantic<Entity = E>,
   {
     writer
       .component_value_writer::<AlphaCutoffOf<C>>(self.alpha_cutoff)

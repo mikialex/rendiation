@@ -26,25 +26,34 @@ declare_foreign_key!(
 );
 
 pub struct AttributesMeshEntityFromAttributesMeshWriter {
-  buffer: EntityWriter<BufferEntity>,
   relation: EntityWriter<AttributesMeshEntityVertexBufferRelation>,
   mesh: EntityWriter<AttributesMeshEntity>,
 }
 
-impl EntityCustomWrite<AttributesMeshEntity> for AttributesMesh {
-  type Writer = AttributesMeshEntityFromAttributesMeshWriter;
+pub trait AttributesMeshWriter {
+  fn create_writer() -> AttributesMeshEntityFromAttributesMeshWriter;
+  fn write(
+    self,
+    writer: &mut AttributesMeshEntityFromAttributesMeshWriter,
+    buffer: &mut EntityWriter<BufferEntity>,
+  ) -> EntityHandle<AttributesMeshEntity>;
+}
 
-  fn create_writer() -> Self::Writer {
+impl AttributesMeshWriter for AttributesMesh {
+  fn create_writer() -> AttributesMeshEntityFromAttributesMeshWriter {
     AttributesMeshEntityFromAttributesMeshWriter {
-      buffer: global_entity_of::<BufferEntity>().entity_writer(),
       relation: global_entity_of::<AttributesMeshEntityVertexBufferRelation>().entity_writer(),
       mesh: global_entity_of::<AttributesMeshEntity>().entity_writer(),
     }
   }
 
-  fn write(self, writer: &mut Self::Writer) -> EntityHandle<AttributesMeshEntity> {
+  fn write(
+    self,
+    writer: &mut AttributesMeshEntityFromAttributesMeshWriter,
+    buffer: &mut EntityWriter<BufferEntity>,
+  ) -> EntityHandle<AttributesMeshEntity> {
     let count = self.indices.as_ref().map(|(_, data)| data.count as u32);
-    let index = self.indices.map(|(_, data)| data.write(&mut writer.buffer));
+    let index = self.indices.map(|(_, data)| data.write(buffer));
 
     let index = SceneBufferViewDataView {
       data: index,
@@ -53,13 +62,13 @@ impl EntityCustomWrite<AttributesMeshEntity> for AttributesMesh {
     };
 
     let mesh_writer = &mut writer.mesh;
-    index.write::<AttributeIndexRef, _>(mesh_writer);
+    index.write::<AttributeIndexRef>(mesh_writer);
     mesh_writer.component_value_writer::<AttributesMeshEntityTopology>(self.mode);
     let mesh = mesh_writer.new_entity();
 
     for (semantic, vertex) in self.attributes {
       let count = vertex.count;
-      let vertex = vertex.write(&mut writer.buffer);
+      let vertex = vertex.write(buffer);
 
       let vertex = SceneBufferViewDataView {
         data: Some(vertex),
@@ -68,7 +77,7 @@ impl EntityCustomWrite<AttributesMeshEntity> for AttributesMesh {
       };
 
       let relation_writer = &mut writer.relation;
-      vertex.write::<AttributeVertexRef, _>(relation_writer);
+      vertex.write::<AttributeVertexRef>(relation_writer);
       relation_writer
         .component_value_writer::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>(
           mesh.some_handle(),

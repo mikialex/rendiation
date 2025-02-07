@@ -108,7 +108,7 @@ pub fn map_alpha(a: gltf::material::AlphaMode) -> AlphaMode {
   }
 }
 
-pub fn _map_animation_field(a: gltf::animation::Property) -> SceneAnimationField {
+pub fn map_animation_field(a: gltf::animation::Property) -> SceneAnimationField {
   match a {
     gltf::animation::Property::Translation => SceneAnimationField::Position,
     gltf::animation::Property::Rotation => SceneAnimationField::Rotation,
@@ -117,7 +117,7 @@ pub fn _map_animation_field(a: gltf::animation::Property) -> SceneAnimationField
   }
 }
 
-pub fn _map_animation_interpolation(a: gltf::animation::Interpolation) -> InterpolationStyle {
+pub fn map_animation_interpolation(a: gltf::animation::Interpolation) -> InterpolationStyle {
   match a {
     gltf::animation::Interpolation::Linear => InterpolationStyle::Linear,
     gltf::animation::Interpolation::Step => InterpolationStyle::Step,
