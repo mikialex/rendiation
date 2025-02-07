@@ -10,20 +10,23 @@ pub fn attribute_mesh_index_buffers(
   let cx = cx.clone();
   let attribute_mesh_index_buffers = global_watch()
     .watch::<SceneBufferViewBufferId<AttributeIndexRef>>()
+    .collective_filter_map(|b| b)
     .collective_execute_map_by(move || {
       let cx = cx.clone();
       let read_view = global_entity_component_of::<BufferEntityData>().read();
       move |_, buffer_idx| {
         let buffer = read_view
-          .get_without_generation_check(buffer_idx.unwrap().index())
+          .get_without_generation_check(buffer_idx.index())
           .unwrap();
         create_gpu_buffer(buffer.as_slice(), BufferUsages::INDEX, &cx.device)
       }
     });
 
   attribute_mesh_index_buffers
-    .collective_zip(global_watch().watch::<SceneBufferViewBufferRange<AttributeIndexRef>>())
-    .collective_map(|(buffer, range)| buffer.create_view(map_view(range)))
+    .collective_union(
+      global_watch().watch::<SceneBufferViewBufferRange<AttributeIndexRef>>(),
+      |(buffer, range)| buffer.map(|buffer| buffer.create_view(map_view(range.flatten()))),
+    )
     .materialize_unordered()
 }
 

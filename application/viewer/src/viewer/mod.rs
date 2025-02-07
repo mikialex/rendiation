@@ -27,6 +27,7 @@ pub struct Viewer {
   egui_db_inspector: db_egui_view::DBInspector,
   terminal: Terminal,
   background: ViewerBackgroundState,
+  camera_helpers: SceneCameraHelper,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -139,8 +140,15 @@ impl Widget for Viewer {
         });
       });
 
+      let waker = futures::task::noop_waker_ref();
+      let mut ctx = Context::from_waker(waker);
+      let ctx = &mut ctx;
+      self.camera_helpers.prepare_update(ctx);
+
       access_cx!(cx, viewer_scene, Viewer3dSceneCtx);
       let mut writer = SceneWriter::from_global(viewer_scene.scene);
+
+      self.camera_helpers.apply_updates(&mut writer);
 
       if size_changed {
         writer
@@ -166,6 +174,7 @@ impl Widget for Viewer {
   fn clean_up(&mut self, cx: &mut DynCx) {
     let mut writer = SceneWriter::from_global(self.scene.scene);
     cx.scoped_cx(&mut writer, |cx| self.content.clean_up(cx));
+    self.camera_helpers.do_cleanup(&mut writer);
   }
 }
 
@@ -245,6 +254,8 @@ impl Viewer {
       node_children: Box::new(scene_node_connectivity_many_one_relation()),
     };
 
+    let camera_helpers = SceneCameraHelper::new(scene.scene, camera_transforms.clone());
+
     Self {
       widget_intersection_group: Default::default(),
       // todo, we current disable the on demand draw
@@ -257,6 +268,7 @@ impl Viewer {
         show_gpu_info: false,
       },
       content: Box::new(content_logic),
+      camera_helpers,
       scene,
       terminal,
       rendering: Viewer3dRenderingCtx::new(gpu, viewer_ndc, camera_transforms),

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use fast_hash_collection::FastHashMap;
 use rendiation_mesh_core::{AttributeSemantic, AttributesMeshData};
 
@@ -7,6 +9,8 @@ use crate::*;
 pub struct SceneCameraHelper {
   helper_models: FastHashMap<EntityHandle<SceneCameraEntity>, UIWidgetModel>,
   camera_changes: BoxedDynReactiveQuery<EntityHandle<SceneCameraEntity>, Mat4<f32>>,
+  pending_updates:
+    Option<Arc<FastHashMap<EntityHandle<SceneCameraEntity>, ValueChange<Mat4<f32>>>>>,
 }
 
 impl SceneCameraHelper {
@@ -27,44 +31,43 @@ impl SceneCameraHelper {
     Self {
       helper_models: Default::default(),
       camera_changes,
+      pending_updates: None,
     }
   }
-}
 
-impl Widget for SceneCameraHelper {
-  fn update_state(&mut self, _cx: &mut DynCx) {}
-
-  fn update_view(&mut self, cx: &mut DynCx) {
-    access_cx_mut!(cx, scene_cx, SceneWriter);
-
-    let waker = futures::task::noop_waker_ref();
-    let mut cx = Context::from_waker(waker);
-    let cx = &mut cx;
-
+  pub fn prepare_update(&mut self, cx: &mut Context) {
     let (changes, _) = self.camera_changes.poll_changes(cx);
+    self.pending_updates = changes.materialize().into()
+  }
 
-    for (k, c) in changes.iter_key_value() {
-      match c {
-        ValueChange::Remove(_) => {
-          let mut model = self.helper_models.remove(&k).unwrap();
-          model.do_cleanup(scene_cx);
-        }
-        ValueChange::Delta(new, _) => {
-          let new_mesh = build_debug_line_in_camera_space(new);
-          if let Some(helper) = self.helper_models.get_mut(&k) {
-            helper.replace_new_shape_and_cleanup_old(scene_cx, new_mesh);
-          } else {
-            self
-              .helper_models
-              .insert(k, UIWidgetModel::new(scene_cx, new_mesh));
+  pub fn apply_updates(&mut self, scene_cx: &mut SceneWriter) {
+    if let Some(changes) = self.pending_updates.take() {
+      for (k, c) in changes.iter_key_value() {
+        match c {
+          ValueChange::Remove(_) => {
+            let mut model = self.helper_models.remove(&k).unwrap();
+            model.do_cleanup(scene_cx);
+          }
+          ValueChange::Delta(new, _) => {
+            let new_mesh = build_debug_line_in_camera_space(new);
+            if let Some(helper) = self.helper_models.get_mut(&k) {
+              helper.replace_new_shape_and_cleanup_old(scene_cx, new_mesh);
+            } else {
+              self
+                .helper_models
+                .insert(k, UIWidgetModel::new(scene_cx, new_mesh));
+            }
           }
         }
       }
     }
   }
 
-  fn clean_up(&mut self, cx: &mut DynCx) {
-    self.helper_models.values_mut().for_each(|m| m.clean_up(cx));
+  pub fn do_cleanup(&mut self, scene_cx: &mut SceneWriter) {
+    self
+      .helper_models
+      .values_mut()
+      .for_each(|m| m.do_cleanup(scene_cx));
   }
 }
 
@@ -86,10 +89,10 @@ fn build_debug_line_in_camera_space(project_mat: Mat4<f32>) -> AttributesMeshDat
     .into_iter()
     .map(|[a, b]| [project_mat * a, project_mat * b])
     .collect();
-  let lines = cast_vec(lines);
+  let lines: &[u8] = cast_slice(lines.as_slice());
 
   AttributesMeshData {
-    attributes: vec![(AttributeSemantic::Positions, lines)],
+    attributes: vec![(AttributeSemantic::Positions, lines.to_vec())],
     indices: None,
     mode: rendiation_mesh_core::PrimitiveTopology::LineList,
     groups: Default::default(),
