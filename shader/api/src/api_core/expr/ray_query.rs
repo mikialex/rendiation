@@ -7,7 +7,6 @@ use crate::{
 
 impl Node<ShaderRayQuery> {
   pub fn initialize(
-    self,
     tlas: HandleNode<ShaderAccelerationStructure>,
     flags: Node<u32>,
     cull_mask: Node<u32>,
@@ -108,4 +107,12 @@ impl RayIntersection {
   //   // todo support Mat4x3
   //   unsafe { index_access_field(self.raw, 10) }
   // }
+}
+
+#[repr(u32)]
+pub enum RayIntersectionKind {
+  None = 0,
+  Triangle = 1,
+  Generated = 2,
+  AABB = 3,
 }

@@ -188,8 +188,4 @@ impl GPUCommandEncoder {
     );
     self
   }
-
-  pub fn build_acceleration_structures(&mut self, _device: &GPUDevice) {
-    todo!()
-  }
 }
