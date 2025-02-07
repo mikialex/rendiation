@@ -101,6 +101,9 @@ thiserror = "1.0.43"
 anyhow = "1.0.93"
 parking_lot = { version = "0.12.1", features = ["send_guard"] }
 criterion = { version = "0.5.1", features = ["html_reports"] }
+wgpu-types = "24"
+wgpu = { version = "24", features = ["naga-ir"] }
+naga = { version = "24", features = ["wgsl-out"] }
 
 # https://doc.rust-lang.org/cargo/reference/profiles.html
 

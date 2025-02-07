@@ -12,7 +12,7 @@ paste = { workspace = true }
 rendiation-algebra = { path = "../../math/algebra" }
 rendiation-shader-derives = { path = "../derive" }
 parking_lot = { workspace = true }
-wgpu-types = "24"
+wgpu-types = { workspace = true }
 
 [lints]
 workspace = true
