@@ -22,5 +22,7 @@ mod chromatic_aberration;
 pub use chromatic_aberration::*;
 mod vignette;
 pub use vignette::*;
+mod outline;
+pub use outline::*;
 mod reproject;
 pub use reproject::*;

@@ -118,8 +118,8 @@ impl ShaderRenderPipelineBuilder {
         .fragment
         .frag_output
         .iter()
+        .map(|p| &p.states)
         .cloned()
-        .map(|(_, s)| s)
         .collect(),
       depth_stencil: self.fragment.depth_stencil,
       multisample: self.fragment.multisample,

@@ -71,12 +71,32 @@ pub struct ShaderFragmentBuilder {
 
   pub(crate) registry: SemanticRegistry,
 
-  pub frag_output: Vec<(LocalVarNode<Vec4<f32>>, ColorTargetState)>,
+  pub frag_output: Vec<FragmentOutputPort>,
   // improve: check the relationship between depth_output and depth_stencil
   pub depth_stencil: Option<DepthStencilState>,
   // improve: check if all the output should be multisampled target
   pub multisample: MultisampleState,
   pub(crate) errors: ErrorSink,
+}
+
+pub struct FragmentOutputPort {
+  node: ShaderNodeRawHandle,
+  pub ty: ShaderSizedValueType,
+  pub states: ColorTargetState,
+}
+
+impl FragmentOutputPort {
+  pub fn get_output_var<T: ShaderSizedValueNodeType>(&self) -> LocalVarNode<T> {
+    assert!(self.ty == T::sized_ty());
+    unsafe { self.node.into_node::<ShaderLocalPtr<T>>() }
+  }
+  pub fn store<T: ShaderSizedValueNodeType>(&self, node: Node<T>) {
+    self.get_output_var().store(node);
+  }
+
+  pub fn load<T: ShaderSizedValueNodeType>(&self) -> Node<T> {
+    self.get_output_var().load()
+  }
 }
 
 impl ShaderFragmentBuilder {
@@ -187,8 +207,13 @@ impl ShaderFragmentBuilder {
   /// Declare fragment outputs
   pub fn define_out_by(&mut self, meta: impl Into<ColorTargetState>) -> usize {
     let slot = self.frag_output.len();
-    let target = call_shader_api(|g| unsafe { g.define_next_frag_out().into_node() });
-    self.frag_output.push((target, meta.into()));
+    let target: LocalVarNode<Vec4<f32>> =
+      call_shader_api(|g| unsafe { g.define_next_frag_out().into_node() });
+    self.frag_output.push(FragmentOutputPort {
+      node: target.handle(),
+      ty: Vec4::<f32>::sized_ty(),
+      states: meta.into(),
+    });
     slot
   }
 
@@ -211,7 +236,7 @@ impl ShaderFragmentBuilder {
         .frag_output
         .get(slot)
         .ok_or(ShaderBuildError::FragmentOutputSlotNotDeclared)?
-        .0,
+        .get_output_var(),
     )
   }
 

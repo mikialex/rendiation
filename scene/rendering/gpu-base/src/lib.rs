@@ -50,6 +50,22 @@ pub use batch::*;
 mod mid;
 pub use mid::*;
 
+both!(LogicalRenderEntityId, u32);
+
+// pub struct EntityIdWriter {
+//   pub id_channel_idx: usize,
+// }
+
+// impl GraphicsShaderProvider for EntityIdWriter {
+//   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+//     builder.fragment(|builder, _| {
+//       let id = builder.query_or_interpolate_by::<LogicalRenderEntityId, LogicalRenderEntityId>();
+//       builder.frag_output[self.id_channel_idx].0.store(id.splat());
+//       //  todo write out
+//     })
+//   }
+// }
+
 /// All color in shader should be in linear space, for some scene API that use sRGB color space, use this to convert before upload the
 /// data into the gpu.
 pub fn srgb4_to_linear4(color: Vec4<f32>) -> Vec4<f32> {

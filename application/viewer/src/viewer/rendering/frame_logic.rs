@@ -148,10 +148,24 @@ impl ViewerFrameLogic {
           lighting,
         );
 
+        // pseudo code for future feature.
+        let outline_effect_enabled = false;
+        let gpu_picking_enabled = false;
+        let is_entity_id_rendering_required = outline_effect_enabled || gpu_picking_enabled;
+
+        let mut id_buffer = attachment().format(TextureFormat::R32Uint).request(ctx);
+
         let _span = span!(Level::INFO, "main scene content encode pass");
-        pass("scene")
+        let mut scene_main_pass_desc = pass("scene")
           .with_color(scene_result.write(), color_ops)
-          .with_depth(scene_depth.write(), depth_ops)
+          .with_depth(scene_depth.write(), depth_ops);
+
+        if is_entity_id_rendering_required {
+          scene_main_pass_desc =
+            scene_main_pass_desc.with_color(id_buffer.write(), clear(all_zero()));
+        }
+
+        scene_main_pass_desc
           .render_ctx(ctx)
           .by(&mut renderer.render_background(
             content.scene,

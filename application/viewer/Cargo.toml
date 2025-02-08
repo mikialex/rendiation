@@ -60,12 +60,9 @@ egui = { git = "https://github.com/emilk/egui.git", rev = "cf965aaa30987a5b6fa23
 egui-wgpu = { git = "https://github.com/emilk/egui.git", rev = "cf965aaa30987a5b6fa2380f37c0ce8cb869347d" }
 egui-winit = { git = "https://github.com/emilk/egui.git", rev = "cf965aaa30987a5b6fa2380f37c0ce8cb869347d" }
 egui_extras = { git = "https://github.com/emilk/egui.git", rev = "cf965aaa30987a5b6fa2380f37c0ce8cb869347d" }
-itertools = { version = "*" }
+
 winit = { workspace = true }
 
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-console_error_panic_hook = "0.1.6"
-wasm-bindgen-futures = "0.4.28"
 
 [features]
 default = ["heap-debug"]

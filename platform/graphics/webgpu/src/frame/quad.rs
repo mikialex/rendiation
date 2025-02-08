@@ -73,8 +73,8 @@ impl GraphicsShaderProvider for FullScreenQuad {
     });
 
     builder.fragment(|builder, _| {
-      builder.frag_output.iter_mut().for_each(|(_, state)| {
-        state.blend = self.blend;
+      builder.frag_output.iter_mut().for_each(|p| {
+        p.states.blend = self.blend;
       });
 
       if let Some(depth) = &mut builder.depth_stencil {

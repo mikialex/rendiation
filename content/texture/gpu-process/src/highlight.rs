@@ -126,7 +126,8 @@ impl ShaderPassBuilder for HighLightMaskDispatcher {}
 impl GraphicsShaderProvider for HighLightMaskDispatcher {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, _| {
-      builder.frag_output.first_mut().unwrap().1 = channel(HIGH_LIGHT_MASK_TARGET_FORMAT).into();
+      builder.frag_output.first_mut().unwrap().states =
+        channel(HIGH_LIGHT_MASK_TARGET_FORMAT).into();
     })
   }
 
