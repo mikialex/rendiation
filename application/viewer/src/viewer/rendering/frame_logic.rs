@@ -138,22 +138,6 @@ impl ViewerFrameLogic {
         let mut scene_result = attachment().request(ctx);
         let mut scene_depth = depth_attachment().request(ctx);
 
-        let mut ao = self.enable_ssao.then(|| {
-          let ao = self.ssao.draw(ctx, &scene_depth, &self.reproject.reproject);
-          copy_frame(
-            ao.read_into(),
-            BlendState {
-              color: BlendComponent {
-                src_factor: BlendFactor::Dst,
-                dst_factor: BlendFactor::One,
-                operation: BlendOperation::Add,
-              },
-              alpha: BlendComponent::REPLACE,
-            }
-            .into(),
-          )
-        });
-
         let (color_ops, depth_ops) = renderer.init_clear(content.scene);
         let key = SceneContentKey { transparent: false };
         let mut main_scene_content = renderer.extract_and_make_pass_content(
@@ -179,8 +163,29 @@ impl ViewerFrameLogic {
             shading: &self.grid,
             camera: main_camera_gpu.as_ref(),
             reversed_depth,
-          })
-          .by(&mut ao);
+          });
+
+        if self.enable_ssao {
+          let ao = self
+            .ssao
+            .draw(ctx, &scene_depth, &self.reproject.reproject, reversed_depth);
+
+          pass("ao blend to scene")
+            .with_color(scene_result.write(), load())
+            .render_ctx(ctx)
+            .by(&mut copy_frame(
+              ao.read_into(),
+              BlendState {
+                color: BlendComponent {
+                  src_factor: BlendFactor::Dst,
+                  dst_factor: BlendFactor::Zero,
+                  operation: BlendOperation::Add,
+                },
+                alpha: BlendComponent::REPLACE,
+              }
+              .into(),
+            ));
+        }
 
         NewTAAFrameSample {
           new_color: scene_result,
