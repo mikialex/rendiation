@@ -25,6 +25,7 @@ pub fn build_default_gles_render_system(
     node_net_visible: Default::default(),
     camera: Box::new(DefaultGLESCameraRenderImplProvider::new(camera_source)),
     scene_model_impl: vec![Box::new(GLESPreferredComOrderRendererProvider {
+      scene_model_ids: Default::default(),
       node: Box::new(DefaultGLESNodeRenderImplProvider::default()),
       model_impl: vec![Box::new(DefaultSceneStdModelRendererProvider {
         materials: vec![
