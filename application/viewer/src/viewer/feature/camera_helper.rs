@@ -9,6 +9,7 @@ use crate::*;
 pub struct SceneCameraHelper {
   helper_models: FastHashMap<EntityHandle<SceneCameraEntity>, UIWidgetModel>,
   camera_changes: BoxedDynReactiveQuery<EntityHandle<SceneCameraEntity>, Mat4<f32>>,
+  self_hidden_camera: Option<EntityHandle<SceneCameraEntity>>,
   pending_updates:
     Option<Arc<FastHashMap<EntityHandle<SceneCameraEntity>, ValueChange<Mat4<f32>>>>>,
 }
@@ -25,13 +26,14 @@ impl SceneCameraHelper {
 
     let camera_changes = camera
       .filter_by_keyset(camera_set)
-      .collective_map(|t| t.view_projection)
+      .collective_map(|t| t.view_projection_inv)
       .into_boxed();
 
     Self {
       helper_models: Default::default(),
       camera_changes,
       pending_updates: None,
+      self_hidden_camera: None,
     }
   }
 
@@ -40,26 +42,45 @@ impl SceneCameraHelper {
     self.pending_updates = changes.materialize().into()
   }
 
-  pub fn apply_updates(&mut self, scene_cx: &mut SceneWriter) {
-    if let Some(changes) = self.pending_updates.take() {
-      for (k, c) in changes.iter_key_value() {
-        match c {
-          ValueChange::Remove(_) => {
-            let mut model = self.helper_models.remove(&k).unwrap();
-            model.do_cleanup(scene_cx);
-          }
-          ValueChange::Delta(new, _) => {
-            let new_mesh = build_debug_line_in_camera_space(new);
-            if let Some(helper) = self.helper_models.get_mut(&k) {
-              helper.replace_new_shape_and_cleanup_old(scene_cx, new_mesh);
-            } else {
-              self
-                .helper_models
-                .insert(k, UIWidgetModel::new(scene_cx, new_mesh));
+  pub fn apply_updates(
+    &mut self,
+    scene_cx: &mut SceneWriter,
+    widget_target: EntityHandle<SceneEntity>,
+    main_camera: EntityHandle<SceneCameraEntity>,
+  ) {
+    scene_cx.write_other_scene(widget_target, |scene_cx| {
+      if let Some(changes) = self.pending_updates.take() {
+        for (k, c) in changes.iter_key_value() {
+          match c {
+            ValueChange::Remove(_) => {
+              let mut model = self.helper_models.remove(&k).unwrap();
+              model.do_cleanup(scene_cx);
+            }
+            ValueChange::Delta(new, _) => {
+              let new_mesh = build_debug_line_in_camera_space(new);
+              if let Some(helper) = self.helper_models.get_mut(&k) {
+                helper.replace_new_shape_and_cleanup_old(scene_cx, new_mesh);
+              } else {
+                self
+                  .helper_models
+                  .insert(k, UIWidgetModel::new(scene_cx, new_mesh));
+              }
             }
           }
         }
       }
+    });
+
+    if let Some(self_hidden_camera) = self.self_hidden_camera {
+      if self_hidden_camera != main_camera {
+        if let Some(helper) = self.helper_models.get_mut(&self_hidden_camera) {
+          helper.set_visible(scene_cx, true);
+        }
+      }
+    }
+    self.self_hidden_camera = Some(main_camera);
+    if let Some(helper) = self.helper_models.get_mut(&main_camera) {
+      helper.set_visible(scene_cx, false);
     }
   }
 
@@ -71,7 +92,7 @@ impl SceneCameraHelper {
   }
 }
 
-fn build_debug_line_in_camera_space(project_mat: Mat4<f32>) -> AttributesMeshData {
+fn build_debug_line_in_camera_space(view_projection_inv: Mat4<f32>) -> AttributesMeshData {
   let zero = 0.0001;
   let one = 0.9999;
 
@@ -87,7 +108,7 @@ fn build_debug_line_in_camera_space(project_mat: Mat4<f32>) -> AttributesMeshDat
 
   let lines: Vec<_> = line_box(min, max)
     .into_iter()
-    .map(|[a, b]| [project_mat * a, project_mat * b])
+    .map(|[a, b]| [view_projection_inv * a, view_projection_inv * b])
     .collect();
   let lines: &[u8] = cast_slice(lines.as_slice());
 

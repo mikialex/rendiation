@@ -189,13 +189,16 @@ impl PassContent for GLESScenePassContent<'_> {
     let p = RenderArray([&base, self.pass] as [&dyn rendiation_webgpu::RenderComponent; 2]);
 
     for sm in self.batch.iter_scene_models() {
-      let _ = self.renderer.render_scene_model(
+      let r = self.renderer.render_scene_model(
         sm,
         &self.camera,
         &p,
         &mut pass.ctx,
         &self.renderer.texture_system,
       );
+      if let Err(e) = r {
+        println!("Failed to render scene model: {}", e);
+      }
     }
   }
 }

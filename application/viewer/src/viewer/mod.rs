@@ -148,7 +148,11 @@ impl Widget for Viewer {
       access_cx!(cx, viewer_scene, Viewer3dSceneCtx);
       let mut writer = SceneWriter::from_global(viewer_scene.scene);
 
-      self.camera_helpers.apply_updates(&mut writer);
+      self.camera_helpers.apply_updates(
+        &mut writer,
+        viewer_scene.widget_scene,
+        viewer_scene.main_camera,
+      );
 
       if size_changed {
         writer

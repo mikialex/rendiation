@@ -213,7 +213,14 @@ impl UIWidgetModel {
     cx3d: &mut SceneWriter,
     shape: AttributesMeshData,
   ) -> AttributesMeshEntities {
-    std::mem::replace(&mut self.mesh, cx3d.write_attribute_mesh(shape.build()))
+    let new_mesh = cx3d.write_attribute_mesh(shape.build());
+    cx3d
+      .std_model_writer
+      .write_foreign_key::<StandardModelRefAttributesMeshEntity>(
+        self.std_model,
+        Some(new_mesh.mesh),
+      );
+    std::mem::replace(&mut self.mesh, new_mesh)
   }
 
   pub fn replace_new_shape_and_cleanup_old(

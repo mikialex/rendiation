@@ -92,23 +92,22 @@ impl GLESModelShapeRenderImpl for AttributesMeshEntityDefaultRenderImpl {
   ) -> Option<(Box<dyn RenderComponent + '_>, DrawCommand)> {
     let mesh_id = self.mesh_access.get(idx)?;
 
-    let index_buffer = self.index.access_ref(&mesh_id)?;
-
-    let count = self.count.get_value(mesh_id)?;
-    let index_info = count.map(|count| {
-      let stride = u64::from(index_buffer.view_byte_size()) / count as u64;
+    let index = if let Some(index_buffer) = self.index.access_ref(&mesh_id) {
+      let count = self.count.get_value(mesh_id).unwrap().unwrap() as u64;
+      let stride = u64::from(index_buffer.view_byte_size()) / count;
       let fmt = match stride {
         4 => AttributeIndexFormat::Uint32,
         2 => AttributeIndexFormat::Uint16,
         _ => unreachable!("invalid index format, computed stride size {}", stride),
       };
-      (fmt, count)
-    });
+      (fmt, count as u32, index_buffer).into()
+    } else {
+      None
+    };
 
     let gpu = AttributesMeshGPU {
       mode: self.mode.get_value(mesh_id)?,
-      index: index_info,
-      index_buffer,
+      index,
       mesh_id,
       vertex: &self.vertex,
     };

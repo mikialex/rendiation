@@ -28,7 +28,7 @@ impl PickScene {
         }
         Some(hit.1.into())
       } else {
-        None
+        Some(None)
       }
     } else {
       None
