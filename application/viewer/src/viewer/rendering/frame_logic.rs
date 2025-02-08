@@ -16,6 +16,8 @@ pub struct ViewerFrameLogic {
   ground: UniformBufferCachedDataView<ShaderPlane>,
   grid: UniformBufferCachedDataView<GridEffect>,
   post: UniformBufferCachedDataView<PostEffects>,
+  axis: UniformBufferCachedDataView<ShaderLine>,
+  axis_shading: UniformBufferCachedDataView<Vec4<f32>>,
 }
 
 impl ViewerFrameLogic {
@@ -30,6 +32,11 @@ impl ViewerFrameLogic {
       ground: UniformBufferCachedDataView::create(&gpu.device, ShaderPlane::ground_like()),
       grid: UniformBufferCachedDataView::create_default(&gpu.device),
       post: UniformBufferCachedDataView::create_default(&gpu.device),
+      axis_shading: UniformBufferCachedDataView::create_default(&gpu.device),
+      axis: UniformBufferCachedDataView::create(
+        &gpu.device,
+        ShaderLine::new(Vec3::zero(), Vec3::new(1., 0., 0.).normalize()),
+      ),
     }
   }
 
@@ -111,6 +118,12 @@ impl ViewerFrameLogic {
       )
       .resolve_to(widgets_result.write())
       .render_ctx(ctx)
+      .by(&mut super::axis::CoordinateInfinityAxis {
+        shading: &self.axis_shading,
+        line: &self.axis,
+        reversed_depth,
+        camera: main_camera_gpu.as_ref(),
+      })
       .by(&mut widget_scene_content);
 
     let mut highlight_compose = (content.selected_target.is_some()).then(|| {
@@ -167,12 +180,12 @@ impl ViewerFrameLogic {
             CameraRenderSource::Scene(content.main_camera),
           ))
           .by(&mut main_scene_content)
-          .by(&mut GridGround {
-            plane: &self.ground,
-            shading: &self.grid,
-            camera: main_camera_gpu.as_ref(),
-            reversed_depth,
-          })
+          // .by(&mut GridGround {
+          //   plane: &self.ground,
+          //   shading: &self.grid,
+          //   camera: main_camera_gpu.as_ref(),
+          //   reversed_depth,
+          // })
           .by(&mut ao);
 
         NewTAAFrameSample {
