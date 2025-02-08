@@ -84,7 +84,7 @@ impl GraphicsShaderProvider for OutlineComputer<'_> {
       let normal_edge_ratio = (normal_diff - normal_bias).saturate();
       let edge = edge.max(normal_edge_ratio);
 
-      builder.store_fragment_out(0, (edge.splat(), val(1.)));
+      builder.store_fragment_out_vec4f(0, (edge.splat(), val(1.)));
     })
   }
 }

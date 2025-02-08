@@ -49,7 +49,7 @@ pub trait ShaderAPI {
   fn barrier(&mut self, scope: BarrierScope);
 
   fn define_module_input(&mut self, input: ShaderInputNode) -> ShaderNodeRawHandle;
-  fn define_next_frag_out(&mut self) -> ShaderNodeRawHandle;
+  fn define_next_frag_out(&mut self, ty: ShaderSizedValueType) -> ShaderNodeRawHandle;
   fn define_next_vertex_output(
     &mut self,
     ty: PrimitiveShaderValueType,

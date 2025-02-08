@@ -137,7 +137,7 @@ impl GraphicsShaderProvider for TAAResolver<'_> {
 
       let output = new * val(ratio) + previous_clamped * val(1. - ratio);
 
-      builder.store_fragment_out(0, (output, val(1.)))
+      builder.store_fragment_out_vec4f(0, (output, val(1.)))
     })
   }
 }

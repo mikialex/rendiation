@@ -52,7 +52,7 @@ impl<T> GraphicsShaderProvider for PostProcess<'_, T> {
         input.store(compute_vignette_fn(uv, config.vignette, input.load()));
       });
 
-      builder.store_fragment_out(0, (input.load(), val(1.0)))
+      builder.store_fragment_out_vec4f(0, (input.load(), val(1.0)))
     });
   }
 }

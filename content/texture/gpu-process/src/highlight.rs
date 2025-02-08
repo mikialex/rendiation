@@ -83,13 +83,11 @@ impl<T> GraphicsShaderProvider for HighLightComposeTask<'_, T> {
       let uv = builder.query::<FragmentUv>();
       let size = builder.query::<RenderBufferSize>();
 
-      builder.store_fragment_out(
-        0,
-        (
-          highlighter.color.xyz(),
-          edge_intensity_fn(uv, mask, sampler, highlighter.width, size) * highlighter.color.w(),
-        ),
-      )
+      let alpha =
+        edge_intensity_fn(uv, mask, sampler, highlighter.width, size) * highlighter.color.w();
+      let output: Node<Vec4<f32>> = (highlighter.color.xyz(), alpha).into();
+
+      builder.store_fragment_out(0, output)
     })
   }
 }
@@ -133,7 +131,7 @@ impl GraphicsShaderProvider for HighLightMaskDispatcher {
 
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, _| {
-      builder.register::<DefaultDisplay>(val(Vec4::one()));
+      builder.store_fragment_out(0, val(1.0));
     })
   }
 }

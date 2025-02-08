@@ -167,7 +167,7 @@ impl<T> GraphicsShaderProvider for ToneMapTask<'_, T> {
 
     builder.fragment(|builder, _| {
       let ldr = builder.query::<LDRLightResult>();
-      builder.store_fragment_out(0, (ldr, val(1.)))
+      builder.store_fragment_out_vec4f(0, (ldr, val(1.)))
     })
   }
 }

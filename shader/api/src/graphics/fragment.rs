@@ -206,31 +206,41 @@ impl ShaderFragmentBuilder {
 
   /// Declare fragment outputs
   pub fn define_out_by(&mut self, meta: impl Into<ColorTargetState>) -> usize {
+    let states = meta.into();
+
+    let output_shader_ty = get_suitable_shader_write_ty_from_texture_format(states.format)
+      .expect("invalid attachment texture format");
+
     let slot = self.frag_output.len();
     let target: LocalVarNode<Vec4<f32>> =
-      call_shader_api(|g| unsafe { g.define_next_frag_out().into_node() });
+      call_shader_api(|g| unsafe { g.define_next_frag_out(output_shader_ty.clone()).into_node() });
     self.frag_output.push(FragmentOutputPort {
       node: target.handle(),
-      ty: Vec4::<f32>::sized_ty(),
-      states: meta.into(),
+      ty: output_shader_ty,
+      states,
     });
     slot
   }
 
-  /// always called by material side to provide fragment out
-  pub fn store_fragment_out(&mut self, slot: usize, node: impl Into<Node<Vec4<f32>>>) {
+  // this is the mostly common one
+  pub fn store_fragment_out_vec4f(&mut self, slot: usize, node: impl Into<Node<Vec4<f32>>>) {
+    let node = node.into();
+    self.store_fragment_out(slot, node);
+  }
+
+  pub fn store_fragment_out<T: ShaderSizedValueNodeType>(&mut self, slot: usize, node: Node<T>) {
     match self.get_fragment_out_var(slot) {
-      Ok(target) => target.store(node.into()),
+      Ok(target) => target.store(node),
       Err(err) => {
         self.errors.push(err);
       }
     }
   }
 
-  fn get_fragment_out_var(
+  fn get_fragment_out_var<T: ShaderSizedValueNodeType>(
     &mut self,
     slot: usize,
-  ) -> Result<LocalVarNode<Vec4<f32>>, ShaderBuildError> {
+  ) -> Result<LocalVarNode<T>, ShaderBuildError> {
     Ok(
       self
         .frag_output
@@ -240,7 +250,10 @@ impl ShaderFragmentBuilder {
     )
   }
 
-  pub fn load_fragment_out(&mut self, slot: usize) -> Result<Node<Vec4<f32>>, ShaderBuildError> {
+  pub fn load_fragment_out<T: ShaderSizedValueNodeType>(
+    &mut self,
+    slot: usize,
+  ) -> Result<Node<T>, ShaderBuildError> {
     Ok(self.get_fragment_out_var(slot)?.load())
   }
 
@@ -289,4 +302,65 @@ impl From<ColorTargetStateBuilder> for ColorTargetState {
   fn from(b: ColorTargetStateBuilder) -> Self {
     b.state
   }
+}
+
+/// maybe we should let user decide the output type if the texture format can be written by different shader ty.
+pub fn get_suitable_shader_write_ty_from_texture_format(
+  format: TextureFormat,
+) -> Option<ShaderSizedValueType> {
+  let ty = match format {
+    TextureFormat::R8Unorm => PrimitiveShaderValueType::Float32,
+    TextureFormat::R8Snorm => PrimitiveShaderValueType::Float32,
+    TextureFormat::R8Uint => PrimitiveShaderValueType::Uint32,
+    TextureFormat::R8Sint => PrimitiveShaderValueType::Int32,
+    TextureFormat::R16Uint => PrimitiveShaderValueType::Uint32,
+    TextureFormat::R16Sint => PrimitiveShaderValueType::Int32,
+    TextureFormat::R16Unorm => PrimitiveShaderValueType::Float32,
+    TextureFormat::R16Snorm => PrimitiveShaderValueType::Float32,
+    TextureFormat::R16Float => PrimitiveShaderValueType::Float32,
+    TextureFormat::Rg8Unorm => PrimitiveShaderValueType::Vec2Float32,
+    TextureFormat::Rg8Snorm => PrimitiveShaderValueType::Vec2Float32,
+    TextureFormat::Rg8Uint => PrimitiveShaderValueType::Vec2Uint32,
+    TextureFormat::Rg8Sint => PrimitiveShaderValueType::Vec2Int32,
+    TextureFormat::R32Uint => PrimitiveShaderValueType::Vec2Uint32,
+    TextureFormat::R32Sint => PrimitiveShaderValueType::Vec2Int32,
+    TextureFormat::R32Float => PrimitiveShaderValueType::Vec2Float32,
+    TextureFormat::Rg16Uint => PrimitiveShaderValueType::Vec2Uint32,
+    TextureFormat::Rg16Sint => PrimitiveShaderValueType::Vec2Int32,
+    TextureFormat::Rg16Unorm => PrimitiveShaderValueType::Vec2Float32,
+    TextureFormat::Rg16Snorm => PrimitiveShaderValueType::Vec2Float32,
+    TextureFormat::Rg16Float => PrimitiveShaderValueType::Vec2Float32,
+    TextureFormat::Rgba8Unorm => PrimitiveShaderValueType::Vec4Float32,
+    TextureFormat::Rgba8UnormSrgb => PrimitiveShaderValueType::Vec4Float32,
+    TextureFormat::Rgba8Snorm => PrimitiveShaderValueType::Vec4Float32,
+    TextureFormat::Rgba8Uint => PrimitiveShaderValueType::Vec4Uint32,
+    TextureFormat::Rgba8Sint => PrimitiveShaderValueType::Vec4Int32,
+    TextureFormat::Bgra8Unorm => PrimitiveShaderValueType::Vec4Float32,
+    TextureFormat::Bgra8UnormSrgb => PrimitiveShaderValueType::Vec4Float32,
+    TextureFormat::Rgb9e5Ufloat => PrimitiveShaderValueType::Vec4Float32,
+    TextureFormat::Rgb10a2Uint => PrimitiveShaderValueType::Vec4Uint32,
+    TextureFormat::Rgb10a2Unorm => PrimitiveShaderValueType::Vec4Float32,
+    TextureFormat::Rg11b10Ufloat => PrimitiveShaderValueType::Vec4Float32,
+    TextureFormat::R64Uint => return None,
+    TextureFormat::Rg32Uint => PrimitiveShaderValueType::Vec2Uint32,
+    TextureFormat::Rg32Sint => PrimitiveShaderValueType::Vec2Int32,
+    TextureFormat::Rg32Float => PrimitiveShaderValueType::Vec2Float32,
+    TextureFormat::Rgba16Uint => PrimitiveShaderValueType::Vec4Uint32,
+    TextureFormat::Rgba16Sint => PrimitiveShaderValueType::Vec4Int32,
+    TextureFormat::Rgba16Unorm => PrimitiveShaderValueType::Vec4Float32,
+    TextureFormat::Rgba16Snorm => PrimitiveShaderValueType::Vec4Float32,
+    TextureFormat::Rgba16Float => PrimitiveShaderValueType::Vec4Float32,
+    TextureFormat::Rgba32Uint => PrimitiveShaderValueType::Uint32,
+    TextureFormat::Rgba32Sint => PrimitiveShaderValueType::Int32,
+    TextureFormat::Rgba32Float => PrimitiveShaderValueType::Vec4Float32,
+    TextureFormat::Stencil8 => PrimitiveShaderValueType::Uint32,
+    TextureFormat::Depth16Unorm => PrimitiveShaderValueType::Float32,
+    TextureFormat::Depth24Plus => PrimitiveShaderValueType::Float32,
+    TextureFormat::Depth24PlusStencil8 => PrimitiveShaderValueType::Float32,
+    TextureFormat::Depth32Float => PrimitiveShaderValueType::Float32,
+    TextureFormat::Depth32FloatStencil8 => PrimitiveShaderValueType::Float32,
+    _ => return None,
+  };
+
+  ShaderSizedValueType::Primitive(ty).into()
 }

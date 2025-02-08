@@ -15,7 +15,7 @@ impl GraphicsShaderProvider for BrdfLUTGenerator {
       let sample_count = val(128);
       let uv = builder.query::<FragmentUv>();
       let result = integrate_brdf(uv.x(), uv.y(), sample_count);
-      builder.store_fragment_out(0, (result, val(0.), val(1.)))
+      builder.store_fragment_out_vec4f(0, (result, val(0.), val(1.)))
     })
   }
 }
@@ -225,7 +225,7 @@ impl GraphicsShaderProvider for PreFilterSpecularTask {
         config.sample_count,
       );
 
-      builder.store_fragment_out(0, (specular, val(1.)));
+      builder.store_fragment_out_vec4f(0, (specular, val(1.)));
     });
   }
 }
@@ -315,7 +315,7 @@ impl GraphicsShaderProvider for PreFilterDiffuseTask {
 
       let specular = prefilter_diffuse(input, sampler, pixel_center_direction, config.sample_count);
 
-      builder.store_fragment_out(0, (specular, val(1.)));
+      builder.store_fragment_out_vec4f(0, (specular, val(1.)));
     });
   }
 }

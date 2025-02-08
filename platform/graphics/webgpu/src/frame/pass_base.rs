@@ -70,8 +70,14 @@ impl GraphicsShaderProvider for DefaultPassDispatcher {
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, _| {
       if self.auto_write && !self.formats.color_formats.is_empty() {
-        let default = builder.query_or_insert_default::<DefaultDisplay>();
-        builder.store_fragment_out(0, default)
+        if let Some(first) = self.formats.color_formats.first() {
+          if get_suitable_shader_write_ty_from_texture_format(*first).unwrap()
+            == ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Vec4Float32)
+          {
+            let default = builder.query_or_insert_default::<DefaultDisplay>();
+            builder.store_fragment_out(0, default)
+          }
+        }
       }
     })
   }

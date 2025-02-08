@@ -120,7 +120,7 @@ impl GraphicsShaderProvider for AOComputer<'_> {
       };
 
       if_by(is_background, || {
-        builder.store_fragment_out(0, Vec4::one());
+        builder.store_fragment_out_vec4f(0, Vec4::one());
       })
       .else_by(|| {
         let position_world =
@@ -168,7 +168,7 @@ impl GraphicsShaderProvider for AOComputer<'_> {
         let occlusion = occlusion.pow(parameter.magnitude);
         let occlusion = parameter.contrast * (occlusion - val(0.5)) + val(0.5);
 
-        builder.store_fragment_out(0, ((val(1.) - occlusion.saturate()).splat(), val(1.)))
+        builder.store_fragment_out_vec4f(0, ((val(1.) - occlusion.saturate()).splat(), val(1.)))
       });
     })
   }

@@ -537,11 +537,10 @@ impl ShaderAPI for ShaderAPINagaImpl {
     }
   }
 
-  fn define_next_frag_out(&mut self) -> ShaderNodeRawHandle {
+  fn define_next_frag_out(&mut self, ty: ShaderSizedValueType) -> ShaderNodeRawHandle {
     assert!(self.block.len() == 1); // we should define input in root scope
     assert!(self.building_fn.len() == 1);
 
-    let ty = ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Vec4Float32);
     self.outputs_define.push(ShaderStructFieldMetaInfo {
       name: format!("frag_out_{}", self.outputs_define.len()),
       ty: ty.clone(),
