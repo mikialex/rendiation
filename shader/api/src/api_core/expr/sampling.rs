@@ -1,5 +1,37 @@
 use crate::*;
 
+pub trait ShaderTextureDimension: 'static {
+  const DIMENSION: TextureViewDimension;
+}
+pub trait ShaderTextureKind: 'static {
+  const SAMPLING_TYPE: TextureSampleType;
+  const IS_MULTI_SAMPLE: bool;
+}
+
+pub struct ShaderTexture<D, F>(pub D, pub F);
+impl<D, F> ShaderNodeSingleType for ShaderTexture<D, F>
+where
+  D: ShaderTextureDimension,
+  F: ShaderTextureKind,
+{
+  fn single_ty() -> ShaderValueSingleType {
+    ShaderValueSingleType::Texture {
+      dimension: D::DIMENSION,
+      sample_type: F::SAMPLING_TYPE,
+      multi_sampled: F::IS_MULTI_SAMPLE,
+    }
+  }
+}
+impl<D, F> ShaderNodeType for ShaderTexture<D, F>
+where
+  D: ShaderTextureDimension,
+  F: ShaderTextureKind,
+{
+  fn ty() -> ShaderValueType {
+    ShaderValueType::Single(Self::single_ty())
+  }
+}
+
 #[derive(Clone, Copy)]
 pub struct ShaderTexture1D;
 #[derive(Clone, Copy)]
