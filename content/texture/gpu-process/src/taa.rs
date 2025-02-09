@@ -38,7 +38,7 @@ impl TAA {
     mut content: impl TAAContent<R>,
     ctx: &mut FrameCtx,
     reproject: &GPUReprojectInfo,
-  ) -> (&Attachment, R) {
+  ) -> (&Attachment, Attachment, R) {
     content.set_jitter(self.next_jitter());
 
     let (
@@ -49,7 +49,11 @@ impl TAA {
       r,
     ) = content.render(ctx);
 
-    (self.resolve(&new_color, &new_depth, ctx, reproject), r)
+    (
+      self.resolve(&new_color, &new_depth, ctx, reproject),
+      new_depth,
+      r,
+    )
   }
 
   fn next_jitter(&mut self) -> Vec2<f32> {

@@ -4,6 +4,7 @@ mod axis;
 mod frame_logic;
 mod grid_ground;
 mod lighting;
+mod outline;
 
 mod post;
 pub use frame_logic::*;

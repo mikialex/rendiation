@@ -4852,6 +4852,7 @@ dependencies = [
  "rendiation-scene-rendering-gpu-indirect",
  "rendiation-scene-rendering-gpu-ray-tracing",
  "rendiation-shader-api",
+ "rendiation-shader-library",
  "rendiation-state-override",
  "rendiation-texture-core",
  "rendiation-texture-gpu-base",

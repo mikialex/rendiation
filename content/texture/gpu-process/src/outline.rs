@@ -1,9 +1,9 @@
 use crate::*;
 
 pub struct OutlineSource {
-  position: Node<Vec3<f32>>,
-  normal: Node<Vec3<f32>>,
-  entity_id: Node<u32>,
+  pub position: Node<Vec3<f32>>,
+  pub normal: Node<Vec3<f32>>,
+  pub entity_id: Node<u32>,
 }
 
 pub trait OutlineComputeSourceInvocation {
@@ -11,22 +11,35 @@ pub trait OutlineComputeSourceInvocation {
 }
 
 pub trait OutlineComputeSourceProvider: ShaderHashProvider {
-  fn build(
-    &self,
-    builder: &mut ShaderRenderPipelineBuilder,
-  ) -> Box<dyn OutlineComputeSourceInvocation>;
+  fn build(&self, bind: &mut ShaderBindGroupBuilder) -> Box<dyn OutlineComputeSourceInvocation>;
   fn bind(&self, cx: &mut GPURenderPassCtx);
 }
 
 pub struct OutlineComputer<'a> {
-  source: &'a dyn OutlineComputeSourceProvider,
+  pub source: &'a dyn OutlineComputeSourceProvider,
+}
+
+impl ShaderHashProvider for OutlineComputer<'_> {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.source.hash_pipeline(hasher);
+  }
+
+  fn hash_type_info(&self, hasher: &mut PipelineHasher) {
+    self.source.hash_type_info(hasher);
+  }
+}
+
+impl ShaderPassBuilder for OutlineComputer<'_> {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.source.bind(ctx);
+  }
 }
 
 impl GraphicsShaderProvider for OutlineComputer<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    let source = self.source.build(builder);
+    builder.fragment(|builder, binding| {
+      let source = self.source.build(binding);
 
-    builder.fragment(|builder, _| {
       let uv = builder.query::<FragmentUv>();
       let texel = builder.query::<TexelSize>();
 

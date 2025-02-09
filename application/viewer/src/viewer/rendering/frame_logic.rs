@@ -3,7 +3,9 @@ use rendiation_infinity_primitive::*;
 use rendiation_texture_gpu_process::*;
 use rendiation_webgpu::*;
 
-use super::{axis::WorldCoordinateAxis, GridEffect, GridGround};
+use super::{
+  axis::WorldCoordinateAxis, outline::ViewerOutlineSourceProvider, GridEffect, GridGround,
+};
 use crate::*;
 
 pub struct ViewerFrameLogic {
@@ -11,6 +13,7 @@ pub struct ViewerFrameLogic {
   reproject: GPUReprojectInfo,
   taa: TAA,
   pub enable_ssao: bool,
+  pub enable_outline: bool,
   ssao: SSAO,
   _blur: CrossBlurData,
   ground: UniformBufferCachedDataView<ShaderPlane>,
@@ -27,6 +30,7 @@ impl ViewerFrameLogic {
       reproject: GPUReprojectInfo::new(gpu),
       taa: TAA::new(),
       enable_ssao: true,
+      enable_outline: false,
       ssao: SSAO::new(gpu),
       ground: UniformBufferCachedDataView::create(&gpu.device, ShaderPlane::ground_like()),
       grid: UniformBufferCachedDataView::create_default(&gpu.device),
@@ -37,6 +41,7 @@ impl ViewerFrameLogic {
 
   pub fn egui(&mut self, ui: &mut egui::Ui) {
     ui.checkbox(&mut self.enable_ssao, "enable ssao");
+    ui.checkbox(&mut self.enable_outline, "enable outline");
 
     ui.collapsing("vignette", |ui| {
       self.post.mutate(|post| {
@@ -131,9 +136,8 @@ impl ViewerFrameLogic {
     });
 
     // pseudo code for future feature.
-    let outline_effect_enabled = true;
     let gpu_picking_enabled = false;
-    let is_entity_id_rendering_required = outline_effect_enabled || gpu_picking_enabled;
+    let is_entity_id_rendering_required = self.enable_outline || gpu_picking_enabled;
 
     let taa_content = SceneCameraTAAContent {
       queue: &ctx.gpu.queue,
@@ -222,20 +226,17 @@ impl ViewerFrameLogic {
       },
     };
 
-    let (taa_result, id_buffer) = self
-      .taa
-      .render_aa_content(taa_content, ctx, &self.reproject);
-
-    if outline_effect_enabled {
-      let _ = id_buffer; // todo, outline compute logic
-    }
+    let (taa_result, scene_depth, id_buffer) =
+      self
+        .taa
+        .render_aa_content(taa_content, ctx, &self.reproject);
 
     let mut scene_msaa_widgets = copy_frame(
       widgets_result.read_into(),
       BlendState::PREMULTIPLIED_ALPHA_BLENDING.into(),
     );
 
-    pass("compose-all")
+    let mut compose = pass("compose-all")
       .with_color(final_target.clone(), load())
       .render_ctx(ctx)
       .by(
@@ -245,8 +246,23 @@ impl ViewerFrameLogic {
         }
         .draw_quad(),
       )
-      .by(&mut highlight_compose)
-      .by(&mut scene_msaa_widgets);
+      .by(&mut highlight_compose);
+
+    if self.enable_outline {
+      // should we draw outline on taa buffer?
+      compose = compose.by(
+        &mut OutlineComputer {
+          source: &ViewerOutlineSourceProvider {
+            depth: &scene_depth,
+            ids: &id_buffer,
+            reproject: &self.reproject.reproject,
+          },
+        }
+        .draw_quad(),
+      );
+    }
+
+    compose.by(&mut scene_msaa_widgets);
   }
 }
 
