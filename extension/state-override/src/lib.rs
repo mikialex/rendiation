@@ -75,11 +75,17 @@ impl Eq for MaterialStates {}
 
 impl MaterialStates {
   pub fn map_color_states(&self, format: TextureFormat) -> ColorTargetState {
-    ColorTargetState {
+    let mut s = ColorTargetState {
       format,
       blend: self.blend,
       write_mask: self.write_mask,
+    };
+
+    if !is_texture_fmt_blendable(format) {
+      s.blend = None;
     }
+
+    s
   }
   pub fn map_depth_stencil_state(
     &self,

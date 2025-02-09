@@ -26,6 +26,7 @@
         "bitcast",
         "bitflags",
         "BLAS",
+        "blendable",
         "Blinn",
         "Bowtie",
         "BRDF",

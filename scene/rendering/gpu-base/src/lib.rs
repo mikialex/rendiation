@@ -17,7 +17,7 @@
 //!   }
 //! }
 //! ```
-use std::mem::ManuallyDrop;
+use std::{hash::Hash, mem::ManuallyDrop};
 
 use database::*;
 use dyn_clone::*;
@@ -52,19 +52,25 @@ pub use mid::*;
 
 both!(LogicalRenderEntityId, u32);
 
-// pub struct EntityIdWriter {
-//   pub id_channel_idx: usize,
-// }
+pub struct EntityIdWriter {
+  pub id_channel_idx: usize,
+}
 
-// impl GraphicsShaderProvider for EntityIdWriter {
-//   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
-//     builder.fragment(|builder, _| {
-//       let id = builder.query_or_interpolate_by::<LogicalRenderEntityId, LogicalRenderEntityId>();
-//       builder.frag_output[self.id_channel_idx].0.store(id.splat());
-//       //  todo write out
-//     })
-//   }
-// }
+impl ShaderHashProvider for EntityIdWriter {
+  shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.id_channel_idx.hash(hasher);
+  }
+}
+impl ShaderPassBuilder for EntityIdWriter {}
+impl GraphicsShaderProvider for EntityIdWriter {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    builder.fragment(|builder, _| {
+      let id = builder.query_or_interpolate_by::<LogicalRenderEntityId, LogicalRenderEntityId>();
+      builder.frag_output[self.id_channel_idx].store(id);
+    })
+  }
+}
 
 /// All color in shader should be in linear space, for some scene API that use sRGB color space, use this to convert before upload the
 /// data into the gpu.

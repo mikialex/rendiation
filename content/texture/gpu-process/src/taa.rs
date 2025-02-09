@@ -18,10 +18,10 @@ pub struct NewTAAFrameSample {
   pub new_depth: Attachment,
 }
 
-pub trait TAAContent {
+pub trait TAAContent<R> {
   fn set_jitter(&mut self, next_jitter: Vec2<f32>);
   // the reproject info maybe useful in
-  fn render(self, ctx: &mut FrameCtx) -> NewTAAFrameSample;
+  fn render(self, ctx: &mut FrameCtx) -> (NewTAAFrameSample, R);
 }
 
 impl TAA {
@@ -33,20 +33,23 @@ impl TAA {
     }
   }
 
-  pub fn render_aa_content(
+  pub fn render_aa_content<R>(
     &mut self,
-    mut content: impl TAAContent,
+    mut content: impl TAAContent<R>,
     ctx: &mut FrameCtx,
     reproject: &GPUReprojectInfo,
-  ) -> &Attachment {
+  ) -> (&Attachment, R) {
     content.set_jitter(self.next_jitter());
 
-    let NewTAAFrameSample {
-      new_color,
-      new_depth,
-    } = content.render(ctx);
+    let (
+      NewTAAFrameSample {
+        new_color,
+        new_depth,
+      },
+      r,
+    ) = content.render(ctx);
 
-    self.resolve(&new_color, &new_depth, ctx, reproject)
+    (self.resolve(&new_color, &new_depth, ctx, reproject), r)
   }
 
   fn next_jitter(&mut self) -> Vec2<f32> {

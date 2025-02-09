@@ -1,4 +1,5 @@
 use rendiation_infinity_primitive::*;
+use rendiation_state_override::MaterialStates;
 
 use crate::*;
 
@@ -21,6 +22,7 @@ impl PassContent for GridGround<'_> {
 
     let grid = GridGroundShading {
       shading: self.shading,
+      reversed_depth: self.reversed_depth,
     };
 
     let com: [&dyn RenderComponent; 3] = [&base, &plane, &grid];
@@ -50,6 +52,7 @@ impl Default for GridEffect {
 
 pub struct GridGroundShading<'a> {
   pub shading: &'a UniformBufferCachedDataView<GridEffect>,
+  pub reversed_depth: bool, // this should has already been hashed in infinity shader
 }
 impl ShaderHashProvider for GridGroundShading<'_> {
   shader_hash_type_id! {GridGroundShading<'static>}
@@ -68,6 +71,18 @@ impl GraphicsShaderProvider for GridGroundShading<'_> {
       let grid = grid(world_position, shading);
 
       builder.register::<DefaultDisplay>(grid);
+
+      MaterialStates {
+        blend: BlendState::ALPHA_BLENDING.into(),
+        depth_write_enabled: false,
+        depth_compare: if self.reversed_depth {
+          CompareFunction::Greater
+        } else {
+          CompareFunction::Less
+        },
+        ..Default::default()
+      }
+      .apply_pipeline_builder(builder);
     })
   }
 }

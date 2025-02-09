@@ -39,6 +39,7 @@ impl ShaderFragmentBuilderView<'_> {
     if is_ok {
       self.query::<T>()
     } else {
+      self.error(ShaderBuildError::MissingRequiredDependency(V::NAME));
       self.query_or_insert_default::<T>()
     }
   }
@@ -85,9 +86,36 @@ pub struct FragmentOutputPort {
   pub states: ColorTargetState,
 }
 
+pub fn is_texture_fmt_blendable(fmt: TextureFormat) -> bool {
+  if let Some(ty) = get_suitable_shader_write_ty_from_texture_format(fmt) {
+    is_shader_ty_blendable(&ty)
+  } else {
+    false
+  }
+}
+
+pub fn is_shader_ty_blendable(ty: &ShaderSizedValueType) -> bool {
+  let ty = match ty {
+    ShaderSizedValueType::Primitive(p) => p,
+    _ => unreachable!(),
+  };
+
+  matches!(
+    ty,
+    PrimitiveShaderValueType::Vec4Float32
+      | PrimitiveShaderValueType::Vec3Float32
+      | PrimitiveShaderValueType::Vec2Float32
+      | PrimitiveShaderValueType::Float32
+  )
+}
+
 impl FragmentOutputPort {
+  pub fn is_blendable(&self) -> bool {
+    is_shader_ty_blendable(&self.ty)
+  }
+
   pub fn get_output_var<T: ShaderSizedValueNodeType>(&self) -> LocalVarNode<T> {
-    assert!(self.ty == T::sized_ty());
+    assert_eq!(self.ty, T::sized_ty());
     unsafe { self.node.into_node::<ShaderLocalPtr<T>>() }
   }
   pub fn store<T: ShaderSizedValueNodeType>(&self, node: Node<T>) {
@@ -322,9 +350,9 @@ pub fn get_suitable_shader_write_ty_from_texture_format(
     TextureFormat::Rg8Snorm => PrimitiveShaderValueType::Vec2Float32,
     TextureFormat::Rg8Uint => PrimitiveShaderValueType::Vec2Uint32,
     TextureFormat::Rg8Sint => PrimitiveShaderValueType::Vec2Int32,
-    TextureFormat::R32Uint => PrimitiveShaderValueType::Vec2Uint32,
-    TextureFormat::R32Sint => PrimitiveShaderValueType::Vec2Int32,
-    TextureFormat::R32Float => PrimitiveShaderValueType::Vec2Float32,
+    TextureFormat::R32Uint => PrimitiveShaderValueType::Uint32,
+    TextureFormat::R32Sint => PrimitiveShaderValueType::Int32,
+    TextureFormat::R32Float => PrimitiveShaderValueType::Float32,
     TextureFormat::Rg16Uint => PrimitiveShaderValueType::Vec2Uint32,
     TextureFormat::Rg16Sint => PrimitiveShaderValueType::Vec2Int32,
     TextureFormat::Rg16Unorm => PrimitiveShaderValueType::Vec2Float32,

@@ -130,6 +130,11 @@ impl ViewerFrameLogic {
       self.highlight.draw(ctx, masked_content)
     });
 
+    // pseudo code for future feature.
+    let outline_effect_enabled = true;
+    let gpu_picking_enabled = false;
+    let is_entity_id_rendering_required = outline_effect_enabled || gpu_picking_enabled;
+
     let taa_content = SceneCameraTAAContent {
       queue: &ctx.gpu.queue,
       camera: content.main_camera,
@@ -140,19 +145,25 @@ impl ViewerFrameLogic {
 
         let (color_ops, depth_ops) = renderer.init_clear(content.scene);
         let key = SceneContentKey { transparent: false };
+
+        let scene_pass_dispatcher = if is_entity_id_rendering_required {
+          &RenderArray([
+            &EntityIdWriter { id_channel_idx: 1 } as &dyn RenderComponent,
+            lighting,
+          ])
+        } else {
+          lighting
+        };
+
         let mut main_scene_content = renderer.extract_and_make_pass_content(
           key,
           content.scene,
           CameraRenderSource::Scene(content.main_camera),
           ctx,
-          lighting,
+          scene_pass_dispatcher,
         );
 
-        // pseudo code for future feature.
-        let outline_effect_enabled = false;
-        let gpu_picking_enabled = false;
-        let is_entity_id_rendering_required = outline_effect_enabled || gpu_picking_enabled;
-
+        // todo create in branch
         let mut id_buffer = attachment().format(TextureFormat::R32Uint).request(ctx);
 
         let _span = span!(Level::INFO, "main scene content encode pass");
@@ -201,16 +212,23 @@ impl ViewerFrameLogic {
             ));
         }
 
-        NewTAAFrameSample {
-          new_color: scene_result,
-          new_depth: scene_depth,
-        }
+        (
+          NewTAAFrameSample {
+            new_color: scene_result,
+            new_depth: scene_depth,
+          },
+          id_buffer,
+        )
       },
     };
 
-    let taa_result = self
+    let (taa_result, id_buffer) = self
       .taa
       .render_aa_content(taa_content, ctx, &self.reproject);
+
+    if outline_effect_enabled {
+      let _ = id_buffer; // todo, outline compute logic
+    }
 
     let mut scene_msaa_widgets = copy_frame(
       widgets_result.read_into(),
@@ -239,16 +257,16 @@ struct SceneCameraTAAContent<'a, F> {
   f: F,
 }
 
-impl<F> TAAContent for SceneCameraTAAContent<'_, F>
+impl<F, R> TAAContent<R> for SceneCameraTAAContent<'_, F>
 where
-  F: FnOnce(&mut FrameCtx) -> NewTAAFrameSample,
+  F: FnOnce(&mut FrameCtx) -> (NewTAAFrameSample, R),
 {
   fn set_jitter(&mut self, next_jitter: Vec2<f32>) {
     let cameras = self.renderer.get_camera_gpu();
     cameras.setup_camera_jitter(self.camera, next_jitter, self.queue);
   }
 
-  fn render(self, ctx: &mut FrameCtx) -> NewTAAFrameSample {
+  fn render(self, ctx: &mut FrameCtx) -> (NewTAAFrameSample, R) {
     (self.f)(ctx)
   }
 }

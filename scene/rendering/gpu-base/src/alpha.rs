@@ -21,7 +21,9 @@ impl ShaderAlphaConfig {
       AlphaMode::Blend => {
         builder.register::<AlphaChannel>(self.alpha);
         builder.frag_output.iter_mut().for_each(|p| {
-          p.states.blend = BlendState::ALPHA_BLENDING.into();
+          if p.is_blendable() {
+            p.states.blend = BlendState::ALPHA_BLENDING.into();
+          }
         });
       }
     };
