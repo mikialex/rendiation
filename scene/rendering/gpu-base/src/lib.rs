@@ -72,6 +72,27 @@ impl GraphicsShaderProvider for EntityIdWriter {
   }
 }
 
+pub struct NormalWriter {
+  pub id_channel_idx: usize,
+}
+
+impl ShaderHashProvider for NormalWriter {
+  shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.id_channel_idx.hash(hasher);
+  }
+}
+impl ShaderPassBuilder for NormalWriter {}
+impl GraphicsShaderProvider for NormalWriter {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    builder.fragment(|builder, _| {
+      let normal = builder.query_or_interpolate_by::<FragmentWorldNormal, WorldVertexNormal>();
+      let out: Node<Vec4<f32>> = (normal, val(1.0)).into();
+      builder.frag_output[self.id_channel_idx].store(out);
+    })
+  }
+}
+
 /// All color in shader should be in linear space, for some scene API that use sRGB color space, use this to convert before upload the
 /// data into the gpu.
 pub fn srgb4_to_linear4(color: Vec4<f32>) -> Vec4<f32> {

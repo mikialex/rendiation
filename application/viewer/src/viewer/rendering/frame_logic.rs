@@ -135,10 +135,6 @@ impl ViewerFrameLogic {
       self.highlight.draw(ctx, masked_content)
     });
 
-    // pseudo code for future feature.
-    let gpu_picking_enabled = false;
-    let is_entity_id_rendering_required = self.enable_outline || gpu_picking_enabled;
-
     let taa_content = SceneCameraTAAContent {
       queue: &ctx.gpu.queue,
       camera: content.main_camera,
@@ -150,9 +146,10 @@ impl ViewerFrameLogic {
         let (color_ops, depth_ops) = renderer.init_clear(content.scene);
         let key = SceneContentKey { transparent: false };
 
-        let scene_pass_dispatcher = if is_entity_id_rendering_required {
+        let scene_pass_dispatcher = if self.enable_outline {
           &RenderArray([
             &EntityIdWriter { id_channel_idx: 1 } as &dyn RenderComponent,
+            &NormalWriter { id_channel_idx: 2 } as &dyn RenderComponent,
             lighting,
           ])
         } else {
@@ -169,15 +166,27 @@ impl ViewerFrameLogic {
 
         // todo create in branch
         let mut id_buffer = attachment().format(TextureFormat::R32Uint).request(ctx);
+        let mut normal_buffer = attachment()
+          .format(TextureFormat::Rgb10a2Unorm)
+          .request(ctx);
+
+        let id_background = rendiation_webgpu::Color {
+          r: u32::MAX as f64,
+          g: 0.,
+          b: 0.,
+          a: 0.,
+        };
 
         let _span = span!(Level::INFO, "main scene content encode pass");
         let mut scene_main_pass_desc = pass("scene")
           .with_color(scene_result.write(), color_ops)
           .with_depth(scene_depth.write(), depth_ops);
 
-        if is_entity_id_rendering_required {
+        if self.enable_outline {
           scene_main_pass_desc =
-            scene_main_pass_desc.with_color(id_buffer.write(), clear(all_zero()));
+            scene_main_pass_desc.with_color(id_buffer.write(), clear(id_background));
+          scene_main_pass_desc =
+            scene_main_pass_desc.with_color(normal_buffer.write(), clear(all_zero()));
         }
 
         scene_main_pass_desc
@@ -186,7 +195,13 @@ impl ViewerFrameLogic {
             content.scene,
             CameraRenderSource::Scene(content.main_camera),
           ))
-          .by(&mut main_scene_content)
+          .by(&mut main_scene_content);
+
+        // this must a separate pass, because the id buffer should not be written.
+        pass("grid_ground")
+          .with_color(scene_result.write(), load())
+          .with_depth(scene_depth.write(), load())
+          .render_ctx(ctx)
           .by(&mut GridGround {
             plane: &self.ground,
             shading: &self.grid,
@@ -221,12 +236,12 @@ impl ViewerFrameLogic {
             new_color: scene_result,
             new_depth: scene_depth,
           },
-          id_buffer,
+          (id_buffer, normal_buffer),
         )
       },
     };
 
-    let (taa_result, scene_depth, id_buffer) =
+    let (taa_result, scene_depth, (id_buffer, normal_buffer)) =
       self
         .taa
         .render_aa_content(taa_content, ctx, &self.reproject);
@@ -253,12 +268,13 @@ impl ViewerFrameLogic {
       compose = compose.by(
         &mut OutlineComputer {
           source: &ViewerOutlineSourceProvider {
+            normal: &normal_buffer,
             depth: &scene_depth,
             ids: &id_buffer,
             reproject: &self.reproject.reproject,
           },
         }
-        .draw_quad(),
+        .draw_quad_with_blend(BlendState::ALPHA_BLENDING.into()),
       );
     }
 

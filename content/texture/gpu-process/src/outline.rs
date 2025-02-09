@@ -74,16 +74,12 @@ impl GraphicsShaderProvider for OutlineComputer<'_> {
       let shape_edge_ratio = shape_edge_ratio.smoothstep(0.15, 1.0);
       let edge = edge.max(shape_edge_ratio);
 
-      let entity_top_diff = (top.entity_id - center.entity_id).abs();
-      let entity_bottom_diff = (bottom.entity_id - center.entity_id).abs();
-      let entity_left_diff = (left.entity_id - center.entity_id).abs();
-      let entity_right_diff = (right.entity_id - center.entity_id).abs();
-      let entity_edge_ratio = entity_top_diff
-        .max(entity_bottom_diff)
-        .max(entity_left_diff)
-        .max(entity_right_diff)
-        .min(1)
-        .into_f32();
+      let t = top.entity_id.not_equals(center.entity_id);
+      let b = bottom.entity_id.not_equals(center.entity_id);
+      let l = left.entity_id.not_equals(center.entity_id);
+      let r = right.entity_id.not_equals(center.entity_id);
+
+      let entity_edge_ratio = t.or(b).or(l).or(r).select(val(1.), val(0.));
 
       let edge = edge.max(entity_edge_ratio);
 
@@ -97,7 +93,13 @@ impl GraphicsShaderProvider for OutlineComputer<'_> {
       let normal_edge_ratio = (normal_diff - normal_bias).saturate();
       let edge = edge.max(normal_edge_ratio);
 
-      builder.store_fragment_out_vec4f(0, (edge.splat(), val(1.)));
+      if_by(center.entity_id.equals(val(u32::MAX)), || {
+        builder.store_fragment_out_vec4f(0, (val(0.).splat(), val(0.)));
+      })
+      .else_by(|| {
+        // builder.store_fragment_out_vec4f(0, (val(0.).splat(), edge));
+        builder.store_fragment_out_vec4f(0, (edge.splat(), val(1.))); // keep this for debugging
+      });
     })
   }
 }

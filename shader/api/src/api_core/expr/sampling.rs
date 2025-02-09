@@ -349,7 +349,7 @@ impl<T: ShaderTextureType> HandleNode<T> {
       position: position.handle(),
       array_index: None,
       sample_index: None,
-      level: None, // level.handle().into(), todo fix naga error
+      level: Some(val(0).handle()), // level.handle().into(), todo fix naga error
     })
     .insert_api()
   }
@@ -770,4 +770,27 @@ where
       })
     })
   }
+}
+
+///// extra
+
+#[derive(Clone, Copy)]
+pub struct ShaderTexture2DUint;
+sg_node_impl!(
+  ShaderTexture2DUint,
+  ShaderValueSingleType::Texture {
+    dimension: TextureViewDimension::D2,
+    sample_type: TextureSampleType::Uint,
+    multi_sampled: false,
+  }
+);
+
+impl SingleSampleTarget for ShaderTexture2DUint {}
+impl SingleLayerTarget for ShaderTexture2DUint {}
+impl ShaderTextureType for ShaderTexture2DUint {
+  type Input = Vec2<u32>;
+  type Output = Vec4<u32>;
+}
+impl ShaderDirectLoad for ShaderTexture2DUint {
+  type LoadInput = Vec2<u32>;
 }
