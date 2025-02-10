@@ -37,10 +37,10 @@ impl CameraGPU {
   pub fn inject_uniforms(
     &self,
     builder: &mut ShaderRenderPipelineBuilder,
-  ) -> BindingPreparer<ShaderUniformPtr<CameraGPUTransform>> {
+  ) -> GraphicsPairInputNodeAccessor<ShaderUniformPtr<CameraGPUTransform>> {
     builder
       .bind_by_and_prepare(&self.ubo)
-      .using_graphics_pair(builder, |r, camera| {
+      .using_graphics_pair(|r, camera| {
         let camera = camera.load().expand();
         r.register_typed_both_stage::<CameraViewMatrix>(camera.view);
         r.register_typed_both_stage::<CameraProjectionMatrix>(camera.projection);
@@ -69,7 +69,7 @@ impl GraphicsShaderProvider for CameraGPU {
     let camera = self.inject_uniforms(builder);
 
     builder.vertex(|builder, _| {
-      let camera = camera.using().load().expand();
+      let camera = camera.get().load().expand();
       if let Some(position) = builder.try_query::<WorldVertexPosition>() {
         let mut clip_position = camera.view_projection * (position, val(1.)).into();
 

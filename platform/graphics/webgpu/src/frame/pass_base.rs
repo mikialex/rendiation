@@ -31,19 +31,15 @@ impl ShaderPassBuilder for DefaultPassDispatcher {
 
 impl GraphicsShaderProvider for DefaultPassDispatcher {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    let pass = builder.bind_by_and_prepare(&self.pass_info);
-
-    builder.vertex(|builder, _| {
-      let pass = pass.using().load().expand();
-      builder.register::<RenderBufferSize>(pass.buffer_size);
-      builder.register::<TexelSize>(pass.texel_size);
-    });
+    builder
+      .bind_by_and_prepare(&self.pass_info)
+      .using_graphics_pair(|r, pass| {
+        let pass = pass.load().expand();
+        r.register_typed_both_stage::<RenderBufferSize>(pass.buffer_size);
+        r.register_typed_both_stage::<TexelSize>(pass.texel_size);
+      });
 
     builder.fragment(|builder, _| {
-      let pass = pass.using().load().expand();
-      builder.register::<RenderBufferSize>(pass.buffer_size);
-      builder.register::<TexelSize>(pass.texel_size);
-
       for &format in &self.formats.color_formats {
         builder.define_out_by(channel(format));
       }

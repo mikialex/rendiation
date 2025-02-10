@@ -1,7 +1,7 @@
 use crate::*;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub enum ShaderStages {
+pub enum ShaderStage {
   Vertex,
   Fragment,
   Compute,

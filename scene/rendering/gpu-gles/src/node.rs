@@ -22,10 +22,10 @@ impl NodeGPUUniform<'_> {
   pub fn inject_uniforms(
     &self,
     builder: &mut ShaderRenderPipelineBuilder,
-  ) -> BindingPreparer<ShaderUniformPtr<NodeUniform>> {
+  ) -> GraphicsPairInputNodeAccessor<ShaderUniformPtr<NodeUniform>> {
     builder
       .bind_by_and_prepare(&self.ubo)
-      .using_graphics_pair(builder, |r, node| {
+      .using_graphics_pair(|r, node| {
         let node = node.load().expand();
         r.register_typed_both_stage::<WorldMatrix>(node.world_matrix);
         r.register_typed_both_stage::<WorldNormalMatrix>(node.normal_matrix);

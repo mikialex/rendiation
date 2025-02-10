@@ -22,7 +22,7 @@ impl ShaderFragmentBuilderView<'_> {
       return r;
     }
 
-    set_current_building(ShaderStages::Vertex.into());
+    set_current_building(ShaderStage::Vertex.into());
     let is_ok = {
       let v_node = self.vertex.try_query::<V>();
       if let Some(v_node) = v_node {
@@ -34,7 +34,7 @@ impl ShaderFragmentBuilderView<'_> {
     };
     set_current_building(None);
     self.vertex.sync_fragment_out(self.base);
-    set_current_building(ShaderStages::Fragment.into());
+    set_current_building(ShaderStage::Fragment.into());
 
     if is_ok {
       self.query::<T>()
@@ -138,7 +138,7 @@ impl ShaderFragmentBuilder {
       errors,
     };
 
-    set_current_building(ShaderStages::Fragment.into());
+    set_current_building(ShaderStage::Fragment.into());
 
     let frag_ndc = ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::FragPositionIn).insert_api();
     result.register::<FragmentPosition>(frag_ndc);

@@ -36,7 +36,7 @@ pub struct ShaderRenderPipelineBuilder {
 }
 
 impl ShaderRenderPipelineBuilder {
-  fn new(api: &dyn Fn(ShaderStages) -> DynamicShaderAPI) -> Self {
+  fn new(api: &dyn Fn(ShaderStage) -> DynamicShaderAPI) -> Self {
     set_build_api_by(api);
     let errors = ErrorSink::new(true);
     Self {
@@ -70,7 +70,7 @@ impl ShaderRenderPipelineBuilder {
     &mut self,
     logic: impl FnOnce(&mut ShaderVertexBuilder, &mut ShaderBindGroupBuilder) -> T,
   ) -> T {
-    set_current_building(ShaderStages::Vertex.into());
+    set_current_building(ShaderStage::Vertex.into());
     let result = logic(&mut self.vertex, &mut self.bindgroups);
     set_current_building(None);
     result
@@ -81,7 +81,7 @@ impl ShaderRenderPipelineBuilder {
     logic: impl FnOnce(&mut ShaderFragmentBuilderView, &mut ShaderBindGroupBuilder) -> T,
   ) -> T {
     self.vertex.sync_fragment_out(&mut self.fragment);
-    set_current_building(ShaderStages::Fragment.into());
+    set_current_building(ShaderStage::Fragment.into());
     let mut builder = ShaderFragmentBuilderView {
       base: &mut self.fragment,
       vertex: &mut self.vertex,
@@ -94,11 +94,11 @@ impl ShaderRenderPipelineBuilder {
   pub fn build(mut self) -> Result<GraphicsShaderCompileResult, ShaderBuildError> {
     self.vertex.sync_fragment_out(&mut self.fragment);
 
-    set_current_building(ShaderStages::Vertex.into());
+    set_current_building(ShaderStage::Vertex.into());
     self.vertex.finalize_position_write();
     set_current_building(None);
 
-    set_current_building(ShaderStages::Fragment.into());
+    set_current_building(ShaderStage::Fragment.into());
     self.fragment.finalize_depth_write();
     set_current_building(None);
 
@@ -140,7 +140,7 @@ pub trait GraphicsShaderProvider {
 
   fn build_self(
     &self,
-    api_builder: &dyn Fn(ShaderStages) -> DynamicShaderAPI,
+    api_builder: &dyn Fn(ShaderStage) -> DynamicShaderAPI,
   ) -> Result<ShaderRenderPipelineBuilder, Vec<ShaderBuildError>> {
     let mut builder = ShaderRenderPipelineBuilder::new(api_builder);
     self.build(&mut builder);

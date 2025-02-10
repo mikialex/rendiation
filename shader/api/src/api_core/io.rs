@@ -57,9 +57,42 @@ pub struct ShaderBindGroup {
 #[derive(Clone)]
 pub struct ShaderBindEntry {
   pub desc: ShaderBindingDescriptor,
-  pub vertex_node: ShaderNodeRawHandle,
-  pub fragment_node: ShaderNodeRawHandle,
-  pub compute_node: ShaderNodeRawHandle,
+  pub visibility: ShaderStages,
+  pub bindgroup_index: usize,
+  pub entry_index: usize,
+  pub vertex_node: Option<ShaderNodeRawHandle>,
+  pub fragment_node: Option<ShaderNodeRawHandle>,
+  pub compute_node: Option<ShaderNodeRawHandle>,
+}
+
+impl ShaderBindEntry {
+  pub fn using(&mut self) -> ShaderNodeRawHandle {
+    let current_stage = get_current_stage().expect("must in shader building");
+
+    let node = match current_stage {
+      ShaderStage::Vertex => &mut self.vertex_node,
+      ShaderStage::Fragment => &mut self.fragment_node,
+      ShaderStage::Compute => &mut self.compute_node,
+    };
+
+    *node.get_or_insert_with(|| {
+      let bit = match current_stage {
+        ShaderStage::Vertex => ShaderStages::VERTEX,
+        ShaderStage::Fragment => ShaderStages::FRAGMENT,
+        ShaderStage::Compute => ShaderStages::COMPUTE,
+      };
+
+      self.visibility.insert(bit);
+
+      let input = ShaderInputNode::Binding {
+        desc: self.desc.clone(),
+        bindgroup_index: self.bindgroup_index,
+        entry_index: self.entry_index,
+      };
+
+      input.insert_api_raw()
+    })
+  }
 }
 
 /// should impl by user's container ty

@@ -68,7 +68,7 @@ impl TaskPool {
       )),
       writeable_if_storage: true,
     };
-    let node = cx.bindgroups().binding_dyn(desc).compute_node;
+    let node = cx.bindgroups().binding_dyn(desc).using();
     TaskPoolInvocationInstance {
       pool: unsafe { node.into_node() },
       state_desc: self.state_desc.clone(),

@@ -31,11 +31,11 @@ pub enum BlockBuildingState {
 const ENTRY_POINT_NAME: &str = "main";
 
 impl ShaderAPINagaImpl {
-  pub fn new(stage: ShaderStages) -> Self {
+  pub fn new(stage: ShaderStage) -> Self {
     let stage = match stage {
-      ShaderStages::Vertex => naga::ShaderStage::Vertex,
-      ShaderStages::Fragment => naga::ShaderStage::Fragment,
-      ShaderStages::Compute => naga::ShaderStage::Compute,
+      ShaderStage::Vertex => naga::ShaderStage::Vertex,
+      ShaderStage::Fragment => naga::ShaderStage::Fragment,
+      ShaderStage::Compute => naga::ShaderStage::Compute,
     };
 
     let mut module = naga::Module::default();
