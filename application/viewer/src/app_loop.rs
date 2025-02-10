@@ -89,33 +89,36 @@ impl<T: Widget> winit::application::ApplicationHandler for WinitAppImpl<T> {
           &gpu.device,
         ),
         WindowEvent::RedrawRequested => {
-          let (output, mut canvas) = surface.get_current_frame_with_render_target_view().unwrap();
+          // when window resize to zero, the surface will be outdated.
+          // but when should we deal with the surface lost case?
+          if let Ok((output, mut canvas)) = surface.get_current_frame_with_render_target_view() {
+            let mut cx = DynCx::default();
 
-          let mut cx = DynCx::default();
-
-          event_state.begin_frame();
-          cx.scoped_cx(window, |cx| {
-            cx.scoped_cx(event_state, |cx| {
-              cx.scoped_cx(gpu, |cx| {
-                cx.scoped_cx(&mut canvas, |cx| {
-                  self.root.update_state(cx);
+            event_state.begin_frame();
+            cx.scoped_cx(window, |cx| {
+              cx.scoped_cx(event_state, |cx| {
+                cx.scoped_cx(gpu, |cx| {
+                  cx.scoped_cx(&mut canvas, |cx| {
+                    self.root.update_state(cx);
+                  });
                 });
               });
             });
-          });
 
-          event_state.end_frame();
-          cx.scoped_cx(window, |cx| {
-            cx.scoped_cx(event_state, |cx| {
-              cx.scoped_cx(gpu, |cx| {
-                cx.scoped_cx(&mut canvas, |cx| {
-                  self.root.update_view(cx);
+            event_state.end_frame();
+            cx.scoped_cx(window, |cx| {
+              cx.scoped_cx(event_state, |cx| {
+                cx.scoped_cx(gpu, |cx| {
+                  cx.scoped_cx(&mut canvas, |cx| {
+                    self.root.update_view(cx);
+                  });
                 });
               });
             });
-          });
 
-          output.present();
+            output.present();
+          }
+
           window.request_redraw();
         }
         _ => {}
