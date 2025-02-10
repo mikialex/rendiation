@@ -271,7 +271,7 @@ impl Viewer3dRenderingCtx {
       RenderTargetView::Texture(create_empty_2d_texture_view(
         &self.gpu,
         target.size(),
-        TextureUsages::all(),
+        basic_texture_usages(),
         target.format(),
       ))
     } else {

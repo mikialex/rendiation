@@ -340,7 +340,9 @@ impl<T: ShaderTextureType> HandleNode<T> {
       .sample()
   }
 
-  pub fn load_texel(&self, position: Node<T::LoadInput>, _level: Node<u32>) -> Node<T::Output>
+  /// the difference between the `load_texel` is that some target can only load base level
+  /// this function must be called on storage texture
+  pub fn load_texel_base_level(&self, position: Node<T::LoadInput>) -> Node<T::Output>
   where
     T: SingleSampleTarget + SingleLayerTarget + ShaderDirectLoad,
   {
@@ -349,7 +351,22 @@ impl<T: ShaderTextureType> HandleNode<T> {
       position: position.handle(),
       array_index: None,
       sample_index: None,
-      level: Some(val(0).handle()), // level.handle().into(), todo fix naga error
+      level: None,
+    })
+    .insert_api()
+  }
+
+  /// this function must not be called on storage texture
+  pub fn load_texel(&self, position: Node<T::LoadInput>, level: Node<u32>) -> Node<T::Output>
+  where
+    T: SingleSampleTarget + SingleLayerTarget + ShaderDirectLoad,
+  {
+    ShaderNodeExpr::TextureLoad(ShaderTextureLoad {
+      texture: self.handle(),
+      position: position.handle(),
+      array_index: None,
+      sample_index: None,
+      level: Some(level.handle()),
     })
     .insert_api()
   }
