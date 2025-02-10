@@ -112,6 +112,12 @@ naga = { version = "24", features = ["wgsl-out"] }
 [profile.dev]
 panic = "abort"
 
+[profile.dev.package.zune-jpeg]
+opt-level = 3
+[profile.dev.package.gltf]
+opt-level = 3
+
+
 [profile.release]
 panic = "abort"
 

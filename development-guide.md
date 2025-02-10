@@ -49,7 +49,8 @@ cargo doc --no-deps --open
 If you're on macos or linux, [the samply profiler](https://github.com/mstange/samply) is recommended to investigate cpu performance issue.  the most used command is:
 
 ```bash
-samply record cargo r --release viewer
+cargo build --release --bin viewer
+samply record ./target/debug/viewer
 ```
 
 For GPU debugging and profiling, the metal gpu capture is recommended to investigate gpu workload on macos. On the other platform that using Nvidia graphics card, the Nsight is recommended. If the webgpu backend switched to Dx12, the Pixi debugger is another good choice.
