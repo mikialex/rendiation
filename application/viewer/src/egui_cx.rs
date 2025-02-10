@@ -60,7 +60,7 @@ impl<T> EguiContext<T> {
     const BORDER_RADIUS: u8 = 2;
 
     let visuals = Visuals {
-      window_rounding: egui::Rounding::same(BORDER_RADIUS),
+      window_corner_radius: egui::CornerRadius::same(BORDER_RADIUS),
       window_shadow: Shadow::NONE,
       ..Default::default()
     };
