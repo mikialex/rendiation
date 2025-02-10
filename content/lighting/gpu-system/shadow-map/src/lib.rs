@@ -169,6 +169,8 @@ impl BasicShadowMapSystem {
         .try_into()
         .unwrap();
 
+      let mut scene_content = scene_content(proj, world, frame_ctx);
+
       // todo, consider merge the pass within the same layer
       // custom dispatcher is not required because we only have depth output.
       let mut pass = pass("shadow-map")
@@ -182,7 +184,7 @@ impl BasicShadowMapSystem {
       let h = shadow_view.size.y;
       raw_pass.set_viewport(x, y, w, h, 0., 1.);
 
-      pass.by(&mut scene_content(proj, world, frame_ctx));
+      pass.by(&mut scene_content);
     }
 
     shadow_map_atlas

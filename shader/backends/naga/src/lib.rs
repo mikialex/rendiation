@@ -446,7 +446,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
           AddressSpace::Uniform => naga::AddressSpace::Uniform,
           AddressSpace::Storage { writeable } => naga::AddressSpace::Storage {
             access: if writeable {
-              naga::StorageAccess::all()
+              naga::StorageAccess::LOAD | naga::StorageAccess::STORE
             } else {
               naga::StorageAccess::LOAD
             },
