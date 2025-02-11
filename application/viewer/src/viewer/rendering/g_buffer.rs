@@ -6,7 +6,7 @@ pub struct FrameGeometryBuffer {
   pub entity_id: Attachment,
 }
 
-pub const ID_BACKGROUND: rendiation_webgpu::Color = rendiation_webgpu::Color {
+const ID_BACKGROUND: rendiation_webgpu::Color = rendiation_webgpu::Color {
   r: u32::MAX as f64,
   g: 0.,
   b: 0.,
@@ -19,6 +19,19 @@ impl FrameGeometryBuffer {
       depth: depth_attachment().request(cx),
       normal: attachment().format(TextureFormat::Rgb10a2Unorm).request(cx),
       entity_id: attachment().format(TextureFormat::R32Uint).request(cx),
+    }
+  }
+
+  pub fn extend_pass_desc<'a>(
+    &'a mut self,
+    desc: &mut PassDescriptor<'a>,
+    depth_op: impl Into<Operations<f32>>,
+  ) -> FrameGeometryBufferPassEncoder {
+    desc.set_depth(self.depth.write(), depth_op);
+
+    FrameGeometryBufferPassEncoder {
+      normal: desc.push_color(self.normal.write(), clear(all_zero())),
+      entity_id: desc.push_color(self.entity_id.write(), clear(ID_BACKGROUND)),
     }
   }
 }

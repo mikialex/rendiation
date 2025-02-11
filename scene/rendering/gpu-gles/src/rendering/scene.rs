@@ -186,7 +186,7 @@ struct GLESScenePassContent<'a> {
 
 impl PassContent for GLESScenePassContent<'_> {
   fn render(&mut self, pass: &mut FrameRenderPass) {
-    let base = default_dispatcher(pass, self.reversed_depth);
+    let base = default_dispatcher(pass, self.reversed_depth).disable_auto_write();
     let p = RenderArray([&base, self.pass] as [&dyn rendiation_webgpu::RenderComponent; 2]);
 
     for sm in self.batch.iter_scene_models() {

@@ -79,8 +79,18 @@ impl<'a> PassDescriptor<'a> {
     attachment: impl Into<RenderTargetView> + 'a,
     op: impl Into<gpu::Operations<gpu::Color>>,
   ) -> Self {
-    self.desc.channels.push((op.into(), attachment.into()));
+    self.push_color(attachment, op);
     self
+  }
+
+  pub fn push_color(
+    &mut self,
+    attachment: impl Into<RenderTargetView> + 'a,
+    op: impl Into<gpu::Operations<gpu::Color>>,
+  ) -> usize {
+    let idx = self.desc.channels.len();
+    self.desc.channels.push((op.into(), attachment.into()));
+    idx
   }
 
   #[must_use]
@@ -89,14 +99,19 @@ impl<'a> PassDescriptor<'a> {
     attachment: impl Into<RenderTargetView> + 'a,
     op: impl Into<gpu::Operations<f32>>,
   ) -> Self {
+    self.set_depth(attachment, op);
+    self
+  }
+
+  pub fn set_depth(
+    &mut self,
+    attachment: impl Into<RenderTargetView> + 'a,
+    op: impl Into<gpu::Operations<f32>>,
+  ) {
     self
       .desc
       .depth_stencil_target
       .replace((op.into(), attachment.into()));
-
-    // todo check sample count is same as color's
-
-    self
   }
 
   pub fn buffer_size(&self) -> Vec2<f32> {

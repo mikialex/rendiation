@@ -23,6 +23,18 @@ impl FrameGeneralMaterialBuffer {
       channel_c: attachment().format(TextureFormat::Rg16Float).request(cx),
     }
   }
+
+  pub fn extend_pass_desc<'a>(
+    &'a mut self,
+    desc: &mut PassDescriptor<'a>,
+  ) -> FrameGeneralMaterialChannelIndices {
+    FrameGeneralMaterialChannelIndices {
+      material_type_id: desc.push_color(self.material_type_id.write(), clear(all_zero())),
+      channel_a: desc.push_color(self.channel_a.write(), clear(all_zero())),
+      channel_b: desc.push_color(self.channel_b.write(), clear(all_zero())),
+      channel_c: desc.push_color(self.channel_c.write(), clear(all_zero())),
+    }
+  }
 }
 
 pub struct FrameGeneralMaterialBufferShaderInstance {
@@ -38,17 +50,6 @@ pub struct FrameGeneralMaterialChannelIndices {
   pub channel_a: usize,
   pub channel_b: usize,
   pub channel_c: usize,
-}
-
-impl FrameGeneralMaterialChannelIndices {
-  pub fn from_idx(idx: usize) -> Self {
-    Self {
-      material_type_id: idx,
-      channel_a: idx + 1,
-      channel_b: idx + 2,
-      channel_c: idx + 3,
-    }
-  }
 }
 
 pub struct FrameGeneralMaterialBufferEncoder<'a> {

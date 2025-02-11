@@ -16,6 +16,13 @@ pub struct DefaultPassDispatcher {
   pub pass_info: UniformBufferCachedDataView<RenderPassGPUInfoData>,
 }
 
+impl DefaultPassDispatcher {
+  pub fn disable_auto_write(mut self) -> Self {
+    self.auto_write = false;
+    self
+  }
+}
+
 impl ShaderHashProvider for DefaultPassDispatcher {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.formats.hash(hasher);

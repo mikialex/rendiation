@@ -119,50 +119,33 @@ impl ViewerFrameLogic {
         let (color_ops, depth_ops) = renderer.init_clear(content.scene);
         let key = SceneContentKey { transparent: false };
 
-        let g_buffer_base_writer = FrameGeometryBufferPassEncoder {
-          normal: 2,
-          entity_id: 1,
-        };
-
-        let material_writer = FrameGeneralMaterialBufferEncoder {
-          indices: FrameGeneralMaterialChannelIndices::from_idx(3),
-          materials: deferred_mat_supports,
-        };
-
-        let scene_pass_dispatcher = match opaque_lighting {
-          LightingTechniqueKind::Forward => {
-            &RenderArray([&g_buffer_base_writer as &dyn RenderComponent, lighting])
-              as &dyn RenderComponent
-          }
-          LightingTechniqueKind::DeferLighting => &RenderArray([
-            &g_buffer_base_writer as &dyn RenderComponent,
-            &material_writer,
-            lighting,
-          ]) as &dyn RenderComponent,
-        };
-
-        let mut main_scene_content = renderer.extract_and_make_pass_content(
-          key,
-          content.scene,
-          CameraRenderSource::Scene(content.main_camera),
-          ctx,
-          scene_pass_dispatcher,
-        );
-
         let mut background = renderer.render_background(
           content.scene,
           CameraRenderSource::Scene(content.main_camera),
         );
 
         let _span = span!(Level::INFO, "main scene content encode pass");
-        let pass_base = pass("scene")
-          .with_color(scene_result.write(), color_ops)
-          .with_depth(g_buffer.depth.write(), depth_ops)
-          .with_color(g_buffer.entity_id.write(), clear(ID_BACKGROUND))
-          .with_color(g_buffer.normal.write(), clear(all_zero()));
 
         match opaque_lighting {
           LightingTechniqueKind::Forward => {
+            let mut pass_base = pass("scene").with_color(scene_result.write(), color_ops);
+
+            let g_buffer_base_writer = g_buffer.extend_pass_desc(&mut pass_base, depth_ops);
+
+            let scene_pass_dispatcher = &RenderArray([
+              &ForwardLightResultWriter as &dyn RenderComponent,
+              &g_buffer_base_writer as &dyn RenderComponent,
+              lighting,
+            ]) as &dyn RenderComponent;
+
+            let mut main_scene_content = renderer.extract_and_make_pass_content(
+              key,
+              content.scene,
+              CameraRenderSource::Scene(content.main_camera),
+              ctx,
+              scene_pass_dispatcher,
+            );
+
             pass_base
               .render_ctx(ctx)
               // the following pass will check depth to decide if pixel is background,
@@ -171,17 +154,41 @@ impl ViewerFrameLogic {
               .by(&mut main_scene_content);
           }
           LightingTechniqueKind::DeferLighting => {
+            let mut pass_base = pass("scene");
+
+            let g_buffer_base_writer = g_buffer.extend_pass_desc(&mut pass_base, depth_ops);
             let mut m_buffer = FrameGeneralMaterialBuffer::new(ctx);
 
+            let indices = m_buffer.extend_pass_desc(&mut pass_base);
+            let material_writer = FrameGeneralMaterialBufferEncoder {
+              indices,
+              materials: deferred_mat_supports,
+            };
+
+            let scene_pass_dispatcher = &RenderArray([
+              &g_buffer_base_writer as &dyn RenderComponent,
+              &material_writer,
+            ]) as &dyn RenderComponent;
+
+            let mut main_scene_content = renderer.extract_and_make_pass_content(
+              key,
+              content.scene,
+              CameraRenderSource::Scene(content.main_camera),
+              ctx,
+              scene_pass_dispatcher,
+            );
+
             pass_base
-              .with_color(m_buffer.material_type_id.write(), clear(all_zero()))
-              .with_color(m_buffer.channel_a.write(), clear(all_zero()))
-              .with_color(m_buffer.channel_b.write(), clear(all_zero()))
-              .with_color(m_buffer.channel_c.write(), clear(all_zero()))
               .render_ctx(ctx)
               // ditto
               .by(&mut background)
               .by(&mut main_scene_content);
+
+            let _ = pass("deferred lighting compute")
+              .with_color(scene_result.write(), color_ops)
+              .render_ctx(ctx)
+            // .by()
+            ;
           }
         }
 

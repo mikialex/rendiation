@@ -257,7 +257,7 @@ struct IndirectScenePassContent<'a> {
 
 impl PassContent for IndirectScenePassContent<'_> {
   fn render(&mut self, cx: &mut FrameRenderPass) {
-    let base = default_dispatcher(cx, self.reversed_depth);
+    let base = default_dispatcher(cx, self.reversed_depth).disable_auto_write();
     let p = RenderArray([&base, self.pass] as [&dyn rendiation_webgpu::RenderComponent; 2]);
 
     for (content, any_scene_model) in &self.content {

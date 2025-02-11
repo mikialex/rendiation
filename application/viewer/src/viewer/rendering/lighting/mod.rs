@@ -259,3 +259,17 @@ impl GraphicsShaderProvider for LDROutput {
     })
   }
 }
+
+pub struct ForwardLightResultWriter;
+impl ShaderHashProvider for ForwardLightResultWriter {
+  shader_hash_type_id! {}
+}
+impl ShaderPassBuilder for ForwardLightResultWriter {}
+impl GraphicsShaderProvider for ForwardLightResultWriter {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    builder.fragment(|builder, _| {
+      let default = builder.query_or_insert_default::<DefaultDisplay>();
+      builder.store_fragment_out(0, default)
+    })
+  }
+}
