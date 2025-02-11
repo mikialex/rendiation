@@ -40,11 +40,23 @@ pub struct FrameGeneralMaterialChannelIndices {
   pub channel_c: usize,
 }
 
-pub struct FrameGeneralMaterialBufferEncoder {
-  pub indices: FrameGeneralMaterialChannelIndices,
-  pub materials: DeferLightingMaterialRegistry,
+impl FrameGeneralMaterialChannelIndices {
+  pub fn from_idx(idx: usize) -> Self {
+    Self {
+      material_type_id: idx,
+      channel_a: idx + 1,
+      channel_b: idx + 2,
+      channel_c: idx + 3,
+    }
+  }
 }
 
+pub struct FrameGeneralMaterialBufferEncoder<'a> {
+  pub indices: FrameGeneralMaterialChannelIndices,
+  pub materials: &'a DeferLightingMaterialRegistry,
+}
+
+#[derive(Default)]
 pub struct DeferLightingMaterialRegistry {
   pub material_impl_ids: Vec<TypeId>,
   pub encoders:
@@ -68,15 +80,17 @@ impl DeferLightingMaterialRegistry {
   }
 }
 
-impl ShaderHashProvider for FrameGeneralMaterialBufferEncoder {
-  shader_hash_type_id! {}
+impl ShaderHashProvider for FrameGeneralMaterialBufferEncoder<'_> {
+  shader_hash_type_id! { FrameGeneralMaterialBufferEncoder<'static> }
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.indices.hash(hasher);
     self.materials.material_impl_ids.hash(hasher);
   }
 }
 
-impl GraphicsShaderProvider for FrameGeneralMaterialBufferEncoder {
+impl ShaderPassBuilder for FrameGeneralMaterialBufferEncoder<'_> {}
+
+impl GraphicsShaderProvider for FrameGeneralMaterialBufferEncoder<'_> {
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, _| {
       for m in &self.materials.encoders {

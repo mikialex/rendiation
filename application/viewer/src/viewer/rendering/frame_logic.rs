@@ -55,6 +55,8 @@ impl ViewerFrameLogic {
     final_target: &RenderTargetView,
     current_camera_view_projection_inv: Mat4<f32>,
     reversed_depth: bool,
+    opaque_lighting: LightingTechniqueKind,
+    deferred_mat_supports: &DeferLightingMaterialRegistry,
   ) {
     self
       .reproject
@@ -117,13 +119,27 @@ impl ViewerFrameLogic {
         let (color_ops, depth_ops) = renderer.init_clear(content.scene);
         let key = SceneContentKey { transparent: false };
 
-        let scene_pass_dispatcher = &RenderArray([
-          &FrameGeometryBufferPassEncoder {
-            normal: 2,
-            entity_id: 1,
-          } as &dyn RenderComponent,
-          lighting,
-        ]);
+        let g_buffer_base_writer = FrameGeometryBufferPassEncoder {
+          normal: 2,
+          entity_id: 1,
+        };
+
+        let material_writer = FrameGeneralMaterialBufferEncoder {
+          indices: FrameGeneralMaterialChannelIndices::from_idx(3),
+          materials: deferred_mat_supports,
+        };
+
+        let scene_pass_dispatcher = match opaque_lighting {
+          LightingTechniqueKind::Forward => {
+            &RenderArray([&g_buffer_base_writer as &dyn RenderComponent, lighting])
+              as &dyn RenderComponent
+          }
+          LightingTechniqueKind::DeferLighting => &RenderArray([
+            &g_buffer_base_writer as &dyn RenderComponent,
+            &material_writer,
+            lighting,
+          ]) as &dyn RenderComponent,
+        };
 
         let mut main_scene_content = renderer.extract_and_make_pass_content(
           key,
@@ -133,27 +149,41 @@ impl ViewerFrameLogic {
           scene_pass_dispatcher,
         );
 
-        let id_background = rendiation_webgpu::Color {
-          r: u32::MAX as f64,
-          g: 0.,
-          b: 0.,
-          a: 0.,
-        };
+        let mut background = renderer.render_background(
+          content.scene,
+          CameraRenderSource::Scene(content.main_camera),
+        );
 
         let _span = span!(Level::INFO, "main scene content encode pass");
-        pass("scene")
+        let pass_base = pass("scene")
           .with_color(scene_result.write(), color_ops)
           .with_depth(g_buffer.depth.write(), depth_ops)
-          .with_color(g_buffer.entity_id.write(), clear(id_background))
-          .with_color(g_buffer.normal.write(), clear(all_zero()))
-          .render_ctx(ctx)
-          // the following pass will check depth to decide if pixel is background,
-          // so miss overwrite other channel is not a problem here
-          .by(&mut renderer.render_background(
-            content.scene,
-            CameraRenderSource::Scene(content.main_camera),
-          ))
-          .by(&mut main_scene_content);
+          .with_color(g_buffer.entity_id.write(), clear(ID_BACKGROUND))
+          .with_color(g_buffer.normal.write(), clear(all_zero()));
+
+        match opaque_lighting {
+          LightingTechniqueKind::Forward => {
+            pass_base
+              .render_ctx(ctx)
+              // the following pass will check depth to decide if pixel is background,
+              // so miss overwrite other channel is not a problem here
+              .by(&mut background)
+              .by(&mut main_scene_content);
+          }
+          LightingTechniqueKind::DeferLighting => {
+            let mut m_buffer = FrameGeneralMaterialBuffer::new(ctx);
+
+            pass_base
+              .with_color(m_buffer.material_type_id.write(), clear(all_zero()))
+              .with_color(m_buffer.channel_a.write(), clear(all_zero()))
+              .with_color(m_buffer.channel_b.write(), clear(all_zero()))
+              .with_color(m_buffer.channel_c.write(), clear(all_zero()))
+              .render_ctx(ctx)
+              // ditto
+              .by(&mut background)
+              .by(&mut main_scene_content);
+          }
+        }
 
         // this must a separate pass, because the id buffer should not be written.
         pass("grid_ground")

@@ -6,6 +6,13 @@ pub struct FrameGeometryBuffer {
   pub entity_id: Attachment,
 }
 
+pub const ID_BACKGROUND: rendiation_webgpu::Color = rendiation_webgpu::Color {
+  r: u32::MAX as f64,
+  g: 0.,
+  b: 0.,
+  a: 0.,
+};
+
 impl FrameGeometryBuffer {
   pub fn new(cx: &mut FrameCtx) -> Self {
     Self {

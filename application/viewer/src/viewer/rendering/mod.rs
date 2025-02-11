@@ -105,6 +105,7 @@ pub struct Viewer3dRenderingCtx {
   enable_rtx_ao_rendering: bool,
   opaque_scene_content_lighting_technique: LightingTechniqueKind,
   lighting: LightSystem,
+  material_defer_lighting_supports: DeferLightingMaterialRegistry,
   pool: AttachmentPool,
   gpu: GPU,
   on_encoding_finished: EventSource<ViewRenderedState>,
@@ -149,6 +150,7 @@ impl Viewer3dRenderingCtx {
       opaque_scene_content_lighting_technique: LightingTechniqueKind::Forward,
       frame_logic: ViewerFrameLogic::new(&gpu),
       lighting,
+      material_defer_lighting_supports: Default::default(),
       gpu,
       pool: Default::default(),
       on_encoding_finished: Default::default(),
@@ -370,6 +372,8 @@ impl Viewer3dRenderingCtx {
         &render_target,
         self.current_camera_view_projection_inv,
         self.ndc.enable_reverse_z,
+        self.opaque_scene_content_lighting_technique,
+        &self.material_defer_lighting_supports,
       );
     }
 
