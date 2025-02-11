@@ -4,30 +4,49 @@
 
 The following things is the current project development direction.
 
-### Improve gpu ray-tracing infrastructure and feature set
-
-- improve the wavefront dispatch performance
-  - let user manual control dispatch rounds
-- improve the wavefront memory management
-  - improve the parallel compute infra, remove per frame large buffer recreation, fix the memory peak.
-- implement a reference path tracing renderer
-- implement new wavefront geometry backend by wgpu ray query api
-- investigate how to support metal and web (greatly reduce storage binding count)
-
-### Indirect rendering
-
-- implement basic indirect rendering capability
-  - investigate current bindless texture performance issue(create binding group).
-
 ### Basic correctness
 
 - use view space shading compute
 - disable ssao when channel debug on
-- fix normal matrix
+- fix db multi thead write lock access deadlock
+- fix parallel compute test out of bound shader access
 - fix scene gpu lighting is globally shared
 - fix some mesh can not be picked (maybe related to u16 index format)
 - fix viewer screenshot channel mismatch
 - fix shader api serialization padding bug
+- fix outline camera shaking
+- fix missing blur pass in ssao
+- ibl brdf lut should use higher precision lut
+
+### Indirect rendering
+
+- fix mid count buffer missing indirect buffer usage flag
+- implement basic indirect rendering capability
+  - investigate current bindless texture performance issue(create binding group).
+
+### Not yet integrated(tested) features
+
+- widen line
+- sky shading
+- gpu driven occlusion culling
+- ltc lighting
+- on_demand_draw
+
+### New features planed
+
+- gpu picking
+- deferred rendering
+- ray tracing
+  - reference path tracing renderer
+
+### Infra and framework improvements planed
+
+- storage buffer virtual merge
+- ray tracing
+  - new wavefront geometry backend by wgpu ray query api
+  - improve the wavefront dispatch performance
+    - let user manual control dispatch rounds
+- remove per frame large buffer recreation in parallel compute, fix the memory peak.
 
 ## Useful commands
 

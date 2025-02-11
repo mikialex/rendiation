@@ -327,11 +327,6 @@ fn egui(
     .resizable(true)
     .movable(true)
     .show(ui, |ui| {
-      if ui.button("Organize windows").clicked() {
-        ui.ctx().memory_mut(|mem| mem.reset_areas());
-      }
-
-      ui.separator();
       ui.checkbox(on_demand_rendering, "enable on demand rendering");
       ui.separator();
       rendering.egui(ui);

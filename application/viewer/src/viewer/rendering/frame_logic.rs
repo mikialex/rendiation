@@ -12,8 +12,8 @@ pub struct ViewerFrameLogic {
   highlight: HighLighter,
   reproject: GPUReprojectInfo,
   taa: TAA,
-  pub enable_ssao: bool,
-  pub enable_outline: bool,
+  enable_ssao: bool,
+  enable_outline: bool,
   ssao: SSAO,
   _blur: CrossBlurData,
   ground: UniformBufferCachedDataView<ShaderPlane>,
@@ -42,36 +42,7 @@ impl ViewerFrameLogic {
   pub fn egui(&mut self, ui: &mut egui::Ui) {
     ui.checkbox(&mut self.enable_ssao, "enable ssao");
     ui.checkbox(&mut self.enable_outline, "enable outline");
-
-    ui.collapsing("vignette", |ui| {
-      self.post.mutate(|post| {
-        let mut enabled: bool = post.enable_vignette.into();
-        ui.checkbox(&mut enabled, "enabled");
-        post.enable_vignette = enabled.into();
-
-        ui.add(
-          egui::Slider::new(&mut post.vignette.radius, 0.0..=1.0)
-            .step_by(0.05)
-            .text("radius"),
-        );
-        ui.add(
-          egui::Slider::new(&mut post.vignette.feather, 0.0..=1.0)
-            .step_by(0.05)
-            .text("feather"),
-        );
-        ui.add(
-          egui::Slider::new(&mut post.vignette.mid_point, 0.0..=1.0)
-            .step_by(0.05)
-            .text("mid_point"),
-        );
-      });
-    });
-
-    self.post.mutate(|post| {
-      let mut enabled: bool = post.enable_chromatic_aberration.into();
-      ui.checkbox(&mut enabled, "enable_chromatic_aberration");
-      post.enable_chromatic_aberration = enabled.into();
-    });
+    post_egui(ui, &self.post);
   }
 
   #[instrument(name = "ViewerRasterizationFrameLogic rendering", skip_all)]

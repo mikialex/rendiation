@@ -179,6 +179,12 @@ impl Viewer3dRenderingCtx {
   }
 
   pub fn egui(&mut self, ui: &mut egui::Ui) {
+    let is_target_support_indirect_draw = self
+      .gpu
+      .info
+      .supported_features
+      .contains(Features::MULTI_DRAW_INDIRECT_COUNT);
+
     let old = self.current_renderer_impl_ty;
     egui::ComboBox::from_label("RasterizationRender Backend")
       .selected_text(format!("{:?}", &self.current_renderer_impl_ty))
@@ -188,11 +194,15 @@ impl Viewer3dRenderingCtx {
           RasterizationRenderBackendType::Gles,
           "Gles",
         );
-        ui.selectable_value(
-          &mut self.current_renderer_impl_ty,
-          RasterizationRenderBackendType::Indirect,
-          "Indirect",
-        );
+
+        ui.add_enabled_ui(is_target_support_indirect_draw, |ui| {
+          ui.selectable_value(
+            &mut self.current_renderer_impl_ty,
+            RasterizationRenderBackendType::Indirect,
+            "Indirect",
+          )
+          .on_disabled_hover_text("current platform/gpu does not support indirect rendering");
+        });
       });
 
     ui.separator();
@@ -210,24 +220,34 @@ impl Viewer3dRenderingCtx {
       );
     }
 
-    let mut indirect_occlusion_culling_impl_exist = self.indirect_occlusion_culling_impl.is_some();
-    ui.checkbox(
-      &mut indirect_occlusion_culling_impl_exist,
-      "occlusion_culling_system_is_ready",
-    );
-    self.set_enable_indirect_occlusion_culling_support(indirect_occlusion_culling_impl_exist);
+    ui.add_enabled_ui(is_target_support_indirect_draw, |ui| {
+      let mut indirect_occlusion_culling_impl_exist =
+        self.indirect_occlusion_culling_impl.is_some();
+      ui.checkbox(
+        &mut indirect_occlusion_culling_impl_exist,
+        "occlusion_culling_system_is_ready",
+      )
+      .on_disabled_hover_text("current platform/gpu does not support gpu driven occlusion culling");
+      self.set_enable_indirect_occlusion_culling_support(indirect_occlusion_culling_impl_exist);
+    });
 
-    let mut rtx_ao_renderer_impl_exist = self.rtx_ao_renderer_impl.is_some();
-    ui.checkbox(&mut rtx_ao_renderer_impl_exist, "rtx_ao_renderer_is_ready");
-    self.set_enable_rtx_ao_rendering_support(rtx_ao_renderer_impl_exist);
+    let is_vulkan = self.gpu.info.adaptor_info.backend == Backend::Vulkan;
+    ui.add_enabled_ui(is_vulkan, |ui| {
+      let mut rtx_ao_renderer_impl_exist = self.rtx_ao_renderer_impl.is_some();
+      ui.checkbox(&mut rtx_ao_renderer_impl_exist, "rtx_ao_renderer_is_ready")
+        .on_disabled_hover_text(
+          "currently the ray tracing related feature only enabled on vulkan backend",
+        );
+      self.set_enable_rtx_ao_rendering_support(rtx_ao_renderer_impl_exist);
 
-    if let Some(ao) = &self.rtx_ao_renderer_impl {
-      ui.checkbox(&mut self.enable_rtx_ao_rendering, "enable_rtx_ao_rendering");
-      // todo, currently the on demand rendering is broken, use this button to workaround.
-      if ui.button("reset ao sample").clicked() {
-        ao.reset_ao_sample(&self.gpu);
+      if let Some(ao) = &self.rtx_ao_renderer_impl {
+        ui.checkbox(&mut self.enable_rtx_ao_rendering, "enable_rtx_ao_rendering");
+        // todo, currently the on demand rendering is broken, use this button to workaround.
+        if ui.button("reset ao sample").clicked() {
+          ao.reset_ao_sample(&self.gpu);
+        }
       }
-    }
+    });
 
     ui.separator();
 
