@@ -112,20 +112,18 @@ impl ViewerFrameLogic {
       renderer,
       f: |ctx: &mut FrameCtx| {
         let mut scene_result = attachment().request(ctx);
-        let mut scene_depth = depth_attachment().request(ctx);
+        let mut g_buffer = FrameGeometryBuffer::new(ctx);
 
         let (color_ops, depth_ops) = renderer.init_clear(content.scene);
         let key = SceneContentKey { transparent: false };
 
-        let scene_pass_dispatcher = if self.enable_outline {
-          &RenderArray([
-            &EntityIdWriter { id_channel_idx: 1 } as &dyn RenderComponent,
-            &NormalWriter { id_channel_idx: 2 } as &dyn RenderComponent,
-            lighting,
-          ])
-        } else {
-          lighting
-        };
+        let scene_pass_dispatcher = &RenderArray([
+          &FrameGeometryBufferPassEncoder {
+            normal: 2,
+            entity_id: 1,
+          } as &dyn RenderComponent,
+          lighting,
+        ]);
 
         let mut main_scene_content = renderer.extract_and_make_pass_content(
           key,
@@ -135,12 +133,6 @@ impl ViewerFrameLogic {
           scene_pass_dispatcher,
         );
 
-        // todo create in branch
-        let mut id_buffer = attachment().format(TextureFormat::R32Uint).request(ctx);
-        let mut normal_buffer = attachment()
-          .format(TextureFormat::Rgb10a2Unorm)
-          .request(ctx);
-
         let id_background = rendiation_webgpu::Color {
           r: u32::MAX as f64,
           g: 0.,
@@ -149,19 +141,14 @@ impl ViewerFrameLogic {
         };
 
         let _span = span!(Level::INFO, "main scene content encode pass");
-        let mut scene_main_pass_desc = pass("scene")
+        pass("scene")
           .with_color(scene_result.write(), color_ops)
-          .with_depth(scene_depth.write(), depth_ops);
-
-        if self.enable_outline {
-          scene_main_pass_desc =
-            scene_main_pass_desc.with_color(id_buffer.write(), clear(id_background));
-          scene_main_pass_desc =
-            scene_main_pass_desc.with_color(normal_buffer.write(), clear(all_zero()));
-        }
-
-        scene_main_pass_desc
+          .with_depth(g_buffer.depth.write(), depth_ops)
+          .with_color(g_buffer.entity_id.write(), clear(id_background))
+          .with_color(g_buffer.normal.write(), clear(all_zero()))
           .render_ctx(ctx)
+          // the following pass will check depth to decide if pixel is background,
+          // so miss overwrite other channel is not a problem here
           .by(&mut renderer.render_background(
             content.scene,
             CameraRenderSource::Scene(content.main_camera),
@@ -171,7 +158,7 @@ impl ViewerFrameLogic {
         // this must a separate pass, because the id buffer should not be written.
         pass("grid_ground")
           .with_color(scene_result.write(), load())
-          .with_depth(scene_depth.write(), load())
+          .with_depth(g_buffer.depth.write(), load())
           .render_ctx(ctx)
           .by(&mut GridGround {
             plane: &self.ground,
@@ -181,9 +168,12 @@ impl ViewerFrameLogic {
           });
 
         if self.enable_ssao {
-          let ao = self
-            .ssao
-            .draw(ctx, &scene_depth, &self.reproject.reproject, reversed_depth);
+          let ao = self.ssao.draw(
+            ctx,
+            &g_buffer.depth,
+            &self.reproject.reproject,
+            reversed_depth,
+          );
 
           pass("ao blend to scene")
             .with_color(scene_result.write(), load())
@@ -205,9 +195,9 @@ impl ViewerFrameLogic {
         (
           NewTAAFrameSample {
             new_color: scene_result,
-            new_depth: scene_depth,
+            new_depth: g_buffer.depth,
           },
-          (id_buffer, normal_buffer),
+          (g_buffer.entity_id, g_buffer.normal),
         )
       },
     };
@@ -216,6 +206,11 @@ impl ViewerFrameLogic {
       self
         .taa
         .render_aa_content(taa_content, ctx, &self.reproject);
+    let g_buffer = FrameGeometryBuffer {
+      depth: scene_depth,
+      normal: normal_buffer,
+      entity_id: id_buffer,
+    };
 
     let mut scene_msaa_widgets = copy_frame(
       widgets_result.read_into(),
@@ -239,9 +234,7 @@ impl ViewerFrameLogic {
       compose = compose.by(
         &mut OutlineComputer {
           source: &ViewerOutlineSourceProvider {
-            normal: &normal_buffer,
-            depth: &scene_depth,
-            ids: &id_buffer,
+            g_buffer: &g_buffer,
             reproject: &self.reproject.reproject,
           },
         }

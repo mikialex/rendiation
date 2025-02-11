@@ -5,9 +5,7 @@ use rendiation_texture_gpu_process::*;
 use crate::*;
 
 pub struct ViewerOutlineSourceProvider<'a> {
-  pub depth: &'a Attachment,
-  pub ids: &'a Attachment,
-  pub normal: &'a Attachment,
+  pub g_buffer: &'a FrameGeometryBuffer,
   pub reproject: &'a UniformBufferCachedDataView<ReprojectInfo>,
 }
 
@@ -23,8 +21,8 @@ impl ShaderBindingProvider for U32Texture2d {
 
 impl OutlineComputeSourceProvider for ViewerOutlineSourceProvider<'_> {
   fn build(&self, binding: &mut ShaderBindGroupBuilder) -> Box<dyn OutlineComputeSourceInvocation> {
-    let normal = binding.bind_by(&self.normal.read());
-    let depth = binding.bind_by(&DisableFiltering(&self.depth.read()));
+    let normal = binding.bind_by(&self.g_buffer.normal.read());
+    let depth = binding.bind_by(&DisableFiltering(&self.g_buffer.depth.read()));
     let ids = binding.bind_by(&U32Texture2d);
     let sampler = binding.bind_by(&DisableFiltering(ImmediateGPUSamplerViewBind));
     let reproject = binding.bind_by(self.reproject).load().expand();
@@ -42,9 +40,9 @@ impl OutlineComputeSourceProvider for ViewerOutlineSourceProvider<'_> {
   }
 
   fn bind(&self, cx: &mut GPURenderPassCtx) {
-    self.normal.read().bind_pass(cx);
-    self.depth.read().bind_pass(cx);
-    self.ids.read().bind_pass(cx);
+    self.g_buffer.normal.read().bind_pass(cx);
+    self.g_buffer.depth.read().bind_pass(cx);
+    self.g_buffer.entity_id.read().bind_pass(cx);
     cx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
     cx.binding.bind(self.reproject);
   }

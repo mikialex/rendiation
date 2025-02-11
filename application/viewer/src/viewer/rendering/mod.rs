@@ -6,6 +6,11 @@ mod grid_ground;
 mod lighting;
 mod outline;
 
+mod g_buffer;
+pub use g_buffer::*;
+mod defer_lighting;
+pub use defer_lighting::*;
+
 mod post;
 pub use frame_logic::*;
 use futures::Future;
@@ -24,6 +29,13 @@ use rendiation_webgpu::*;
 enum RasterizationRenderBackendType {
   Gles,
   Indirect,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum LightingTechniqueKind {
+  Forward,
+  DeferLighting,
+  // Visibility,
 }
 
 pub type BoxedSceneRenderImplProvider =
@@ -91,6 +103,7 @@ pub struct Viewer3dRenderingCtx {
   current_renderer_impl_ty: RasterizationRenderBackendType,
   rtx_ao_renderer_impl: Option<RayTracingAORenderSystem>,
   enable_rtx_ao_rendering: bool,
+  opaque_scene_content_lighting_technique: LightingTechniqueKind,
   lighting: LightSystem,
   pool: AttachmentPool,
   gpu: GPU,
@@ -133,6 +146,7 @@ impl Viewer3dRenderingCtx {
       current_renderer_impl_ty: RasterizationRenderBackendType::Gles,
       rtx_ao_renderer_impl: None, // late init
       enable_rtx_ao_rendering: false,
+      opaque_scene_content_lighting_technique: LightingTechniqueKind::Forward,
       frame_logic: ViewerFrameLogic::new(&gpu),
       lighting,
       gpu,
@@ -203,6 +217,27 @@ impl Viewer3dRenderingCtx {
           )
           .on_disabled_hover_text("current platform/gpu does not support indirect rendering");
         });
+      });
+
+    ui.separator();
+
+    egui::ComboBox::from_label("Lighting technique for opaque objects")
+      .selected_text(format!(
+        "{:?}",
+        &self.opaque_scene_content_lighting_technique
+      ))
+      .show_ui(ui, |ui| {
+        ui.selectable_value(
+          &mut self.opaque_scene_content_lighting_technique,
+          LightingTechniqueKind::Forward,
+          "Forward",
+        );
+
+        ui.selectable_value(
+          &mut self.opaque_scene_content_lighting_technique,
+          LightingTechniqueKind::DeferLighting,
+          "DeferLighting",
+        )
       });
 
     ui.separator();
@@ -325,7 +360,7 @@ impl Viewer3dRenderingCtx {
         content.scene,
       );
 
-      let lighting = lighting.get_scene_lighting(content.scene);
+      let lighting = lighting.get_scene_forward_lighting_component(content.scene);
 
       self.frame_logic.render(
         &mut ctx,

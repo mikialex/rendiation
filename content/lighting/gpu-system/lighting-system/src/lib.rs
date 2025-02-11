@@ -18,9 +18,11 @@ pub trait LightingComputeComponent: ShaderHashProvider {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx);
 }
 
-pub struct LightingComputeComponentAsRenderComponent(pub Box<dyn LightingComputeComponent>);
+pub struct LightingComputeComponentAsForwardLightingRenderComponent(
+  pub Box<dyn LightingComputeComponent>,
+);
 
-impl ShaderHashProvider for LightingComputeComponentAsRenderComponent {
+impl ShaderHashProvider for LightingComputeComponentAsForwardLightingRenderComponent {
   fn hash_type_info(&self, hasher: &mut PipelineHasher) {
     self.0.hash_type_info(hasher)
   }
@@ -28,13 +30,13 @@ impl ShaderHashProvider for LightingComputeComponentAsRenderComponent {
     self.0.hash_pipeline(hasher);
   }
 }
-impl ShaderPassBuilder for LightingComputeComponentAsRenderComponent {
+impl ShaderPassBuilder for LightingComputeComponentAsForwardLightingRenderComponent {
   fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.0.setup_pass(ctx);
   }
 }
 
-impl GraphicsShaderProvider for LightingComputeComponentAsRenderComponent {
+impl GraphicsShaderProvider for LightingComputeComponentAsForwardLightingRenderComponent {
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binder| {
       let invocation = self.0.build_light_compute_invocation(binder);
@@ -49,6 +51,45 @@ impl GraphicsShaderProvider for LightingComputeComponentAsRenderComponent {
         normal: builder.query_or_interpolate_by::<FragmentWorldNormal, WorldVertexNormal>(),
         view_dir: (camera_position - fragment_world).normalize(),
       };
+
+      let hdr = invocation.compute_lights(shading.as_ref(), &geom_ctx);
+      builder.register::<HDRLightResult>(hdr.diffuse + hdr.specular);
+    })
+  }
+}
+
+pub trait GeometryCtxProvider {
+  fn construct_ctx(&self, builder: &mut ShaderFragmentBuilder)
+    -> ENode<ShaderLightingGeometricCtx>;
+}
+
+// todo, merge this with the forward one
+pub struct LightingComputeComponentAsDeferredLightingRenderComponent {
+  pub geometry_constructor: Box<dyn GeometryCtxProvider>, // todo, this should be hashed
+  pub surface_constructor: Box<dyn LightableSurfaceShadingProvider>, // todo, this should be hashed
+  pub lighting: Box<dyn LightingComputeComponent>,
+}
+
+impl ShaderHashProvider for LightingComputeComponentAsDeferredLightingRenderComponent {
+  fn hash_type_info(&self, hasher: &mut PipelineHasher) {
+    self.lighting.hash_type_info(hasher)
+  }
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.lighting.hash_pipeline(hasher);
+  }
+}
+impl ShaderPassBuilder for LightingComputeComponentAsDeferredLightingRenderComponent {
+  fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.lighting.setup_pass(ctx);
+  }
+}
+
+impl GraphicsShaderProvider for LightingComputeComponentAsDeferredLightingRenderComponent {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    builder.fragment(|builder, binder| {
+      let invocation = self.lighting.build_light_compute_invocation(binder);
+      let shading = self.surface_constructor.construct_shading(builder);
+      let geom_ctx = self.geometry_constructor.construct_ctx(builder);
 
       let hdr = invocation.compute_lights(shading.as_ref(), &geom_ctx);
       builder.register::<HDRLightResult>(hdr.diffuse + hdr.specular);

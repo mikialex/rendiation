@@ -221,7 +221,7 @@ pub struct SceneLightSystem<'a> {
 }
 
 impl SceneLightSystem<'_> {
-  pub fn get_scene_lighting(
+  pub fn get_scene_forward_lighting_component(
     &self,
     scene: EntityHandle<SceneEntity>,
   ) -> Box<dyn RenderComponent + '_> {
@@ -237,7 +237,7 @@ impl SceneLightSystem<'_> {
 
     light
       .push(&system.tonemap as &dyn RenderComponent) //
-      .push(LightingComputeComponentAsRenderComponent(
+      .push(LightingComputeComponentAsForwardLightingRenderComponent(
         self.imp.get_scene_lighting(scene).unwrap(),
       ));
 
