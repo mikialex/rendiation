@@ -69,7 +69,8 @@ impl LightableSurfaceShadingLogicProvider for PhysicalShading {
   }
 }
 
-impl LightableSurfaceShading for ENode<ShaderPhysicalShading> {
+/// we have to use the real type name to avoid mysterious impl conflict, what a shame
+impl LightableSurfaceShading for ShaderPhysicalShadingShaderAPIInstance {
   fn compute_lighting_by_incident(
     &self,
     direct_light: &ENode<ShaderIncidentLight>,

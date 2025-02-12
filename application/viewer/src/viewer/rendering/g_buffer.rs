@@ -1,3 +1,5 @@
+use rendiation_shader_library::shader_uv_space_to_world_space;
+
 use crate::*;
 
 pub struct FrameGeometryBuffer {
@@ -138,9 +140,17 @@ impl GeometryCtxProvider for FrameGeometryBufferReconstructGeometryCtx<'_> {
     self.camera.build(builder);
     builder.fragment(|builder, binding| {
       let read = self.g_buffer.build_read_invocation(binding);
-      let (depth, normal) = read.read_depth_normal(builder.query::<FragmentUv>());
+      let uv = builder.query::<FragmentUv>();
+      let (depth, normal) = read.read_depth_normal(uv);
+      let view_proj_inv = builder.query::<CameraViewProjectionInverseMatrix>();
+      let world_position = shader_uv_space_to_world_space(view_proj_inv, uv, depth);
 
-      todo!()
+      let camera_position = builder.query::<CameraWorldMatrix>().position();
+      ENode::<ShaderLightingGeometricCtx> {
+        position: world_position,
+        normal,
+        view_dir: (camera_position - world_position).normalize(),
+      }
     })
   }
 }

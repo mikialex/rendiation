@@ -38,10 +38,10 @@ impl FrameGeneralMaterialBuffer {
 }
 
 pub struct FrameGeneralMaterialBufferShaderInstance {
-  pub material_type_id: HandleNode<ShaderTexture2D>,
   pub channel_a: HandleNode<ShaderTexture2D>,
   pub channel_b: HandleNode<ShaderTexture2D>,
   pub channel_c: HandleNode<ShaderTexture2D>,
+  pub sampler: HandleNode<ShaderSampler>,
 }
 
 #[derive(Hash)]
@@ -57,13 +57,12 @@ pub struct FrameGeneralMaterialBufferEncoder<'a> {
   pub materials: &'a DeferLightingMaterialRegistry,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct DeferLightingMaterialRegistry {
   pub material_impl_ids: Vec<TypeId>,
-  pub encoders:
-    Vec<Box<dyn Fn(&mut ShaderFragmentBuilderView, &FrameGeneralMaterialChannelIndices)>>,
+  pub encoders: Vec<fn(&mut ShaderFragmentBuilderView, &FrameGeneralMaterialChannelIndices)>,
   pub decoders:
-    Vec<Box<dyn Fn(&FrameGeneralMaterialBufferShaderInstance) -> Box<dyn LightableSurfaceShading>>>,
+    Vec<fn(&FrameGeneralMaterialBufferShaderInstance) -> Box<dyn LightableSurfaceShading>>,
 }
 
 pub trait DeferLightingMaterialBufferReadWrite: 'static {
@@ -76,8 +75,8 @@ pub trait DeferLightingMaterialBufferReadWrite: 'static {
 impl DeferLightingMaterialRegistry {
   pub fn register_material_impl<M: DeferLightingMaterialBufferReadWrite>(&mut self) {
     self.material_impl_ids.push(TypeId::of::<M>());
-    self.encoders.push(Box::new(M::encode));
-    self.decoders.push(Box::new(M::decode));
+    self.encoders.push(M::encode);
+    self.decoders.push(M::decode);
   }
 }
 
@@ -121,7 +120,7 @@ impl ShaderPassBuilder for FrameGeneralMaterialBufferReconstructSurface<'_> {
 impl LightableSurfaceProvider for FrameGeneralMaterialBufferReconstructSurface<'_> {
   fn construct_shading(
     &self,
-    _builder: &mut ShaderFragmentBuilderView,
+    builder: &mut ShaderFragmentBuilderView,
     binding: &mut ShaderBindGroupBuilder,
   ) -> Box<dyn LightableSurfaceShading> {
     let ids = binding.bind_by(&U32Texture2d);
@@ -130,6 +129,60 @@ impl LightableSurfaceProvider for FrameGeneralMaterialBufferReconstructSurface<'
     let channel_c = binding.bind_by(&self.m_buffer.channel_c.read());
     let sampler = binding.bind_by(&DisableFiltering(ImmediateGPUSamplerViewBind));
 
-    todo!()
+    let uv = builder.query::<FragmentUv>();
+
+    let input_size = channel_a.texture_dimension_2d(None).into_f32();
+    let u32_uv = (input_size * uv).floor().into_u32();
+    let material_ty_id = ids.load_texel(u32_uv, val(0)).x();
+
+    Box::new(MultiMaterialUberDecoder {
+      registry: self.registry.clone(),
+      material_ty_id,
+      data: FrameGeneralMaterialBufferShaderInstance {
+        channel_a,
+        channel_b,
+        channel_c,
+        sampler,
+      },
+    })
+  }
+}
+
+struct MultiMaterialUberDecoder {
+  registry: DeferLightingMaterialRegistry,
+  material_ty_id: Node<u32>,
+  data: FrameGeneralMaterialBufferShaderInstance,
+}
+
+impl LightableSurfaceShading for MultiMaterialUberDecoder {
+  fn compute_lighting_by_incident(
+    &self,
+    direct_light: &ENode<ShaderIncidentLight>,
+    ctx: &ENode<ShaderLightingGeometricCtx>,
+  ) -> ENode<ShaderLightingResult> {
+    let diffuse = val(Vec3::<f32>::zero()).make_local_var();
+    let specular = val(Vec3::<f32>::zero()).make_local_var();
+
+    let mut switch = switch_by(self.material_ty_id);
+
+    for (i, logic) in self.registry.decoders.iter().enumerate() {
+      switch = switch.case(i as u32, || {
+        let shading = logic(&self.data);
+        let r = shading.compute_lighting_by_incident(direct_light, ctx);
+        diffuse.store(r.diffuse);
+        specular.store(r.specular);
+      })
+    }
+
+    switch.end_with_default(|| {});
+
+    ENode::<ShaderLightingResult> {
+      diffuse: diffuse.load(),
+      specular: specular.load(),
+    }
+  }
+
+  fn as_any(&self) -> &dyn std::any::Any {
+    self
   }
 }

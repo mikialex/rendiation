@@ -79,26 +79,26 @@ impl GeometryCtxProvider for DirectGeometryProvider {
 
 pub struct LightingComputeComponentAsRenderComponent<'a> {
   pub geometry_constructor: Box<dyn GeometryCtxProvider + 'a>,
-  pub surface_constructor: Box<dyn LightableSurfaceProvider + 'a>,
   pub lighting: Box<dyn LightingComputeComponent + 'a>,
+  pub surface_constructor: Box<dyn LightableSurfaceProvider + 'a>,
 }
 
 impl ShaderHashProvider for LightingComputeComponentAsRenderComponent<'_> {
   fn hash_type_info(&self, hasher: &mut PipelineHasher) {
-    self.lighting.hash_type_info(hasher);
     self.geometry_constructor.hash_type_info(hasher);
+    self.lighting.hash_type_info(hasher);
     self.surface_constructor.hash_type_info(hasher);
   }
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.lighting.hash_pipeline(hasher);
     self.geometry_constructor.hash_pipeline(hasher);
+    self.lighting.hash_pipeline(hasher);
     self.surface_constructor.hash_pipeline(hasher);
   }
 }
 impl ShaderPassBuilder for LightingComputeComponentAsRenderComponent<'_> {
   fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    self.lighting.setup_pass(ctx);
     self.geometry_constructor.setup_pass(ctx);
+    self.lighting.setup_pass(ctx);
     self.surface_constructor.setup_pass(ctx);
   }
 }
