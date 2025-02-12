@@ -11,6 +11,7 @@ use std::hash::Hash;
 
 use database::*;
 use reactive::*;
+use rendiation_area_lighting::register_area_lighting_data_model;
 use rendiation_geometry::*;
 use rendiation_gui_3d::*;
 use rendiation_lighting_gpu_system::*;
@@ -62,6 +63,7 @@ where
   register_scene_core_data_model();
   register_light_shadow_config();
   register_gui3d_extension_data_model();
+  register_area_lighting_data_model();
 
   let content_logic = core_viewer_features(content_logic);
 

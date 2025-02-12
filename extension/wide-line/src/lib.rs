@@ -11,10 +11,12 @@ mod shape;
 pub use shape::*;
 
 pub fn register_wide_line_data_model() {
-  global_entity_of::<SceneModelEntity>().declare_foreign_key::<SceneModelWideLineRenderPayload>();
+  global_entity_of::<SceneModelEntity>() //
+    .declare_foreign_key::<SceneModelWideLineRenderPayload>();
 
   global_database()
     .declare_entity::<WideLineModelEntity>()
+    .declare_component::<WideLineWidth>()
     .declare_component::<WideLineMeshBuffer>();
 }
 

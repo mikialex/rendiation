@@ -1,7 +1,7 @@
 use rendiation_texture_core::Size;
 
 use crate::{
-  brdf::{Brdf, BrdfEval},
+  brdf::{BrdfEval, BrdfForLTCxFit},
   *,
 };
 
@@ -37,7 +37,7 @@ pub struct LtcFitResult {
   pub ltc_lut2: Texture2DBuffer<Vec4<f32>>,
 }
 
-pub fn fit(brdf: impl Brdf, config: &LtcFitConfig) -> LtcFitResult {
+pub fn fit(brdf: impl BrdfForLTCxFit, config: &LtcFitConfig) -> LtcFitResult {
   let mut tab = vec![Mat3::<f32>::identity(); config.lut_data_size()];
   let mut tab_mag_fresnel = vec![Vec2::<f32>::zero(); config.lut_data_size()];
   let mut tab_sphere = vec![0.; config.lut_data_size()];
@@ -48,7 +48,7 @@ pub fn fit(brdf: impl Brdf, config: &LtcFitConfig) -> LtcFitResult {
 }
 
 fn fit_tab(
-  brdf: impl Brdf,
+  brdf: impl BrdfForLTCxFit,
   config: &LtcFitConfig,
   tab: &mut [Mat3<f32>],
   tab_mag_fresnel: &mut [Vec2<f32>],
@@ -298,7 +298,12 @@ struct AverageInfo {
   norm: f32,
 }
 
-fn compute_avg_terms(brdf: impl Brdf, v: Vec3<f32>, alpha: f32, sample: usize) -> AverageInfo {
+fn compute_avg_terms(
+  brdf: impl BrdfForLTCxFit,
+  v: Vec3<f32>,
+  alpha: f32,
+  sample: usize,
+) -> AverageInfo {
   let mut avg = AverageInfo::default();
 
   for j in 0..sample {
@@ -335,7 +340,13 @@ fn compute_avg_terms(brdf: impl Brdf, v: Vec3<f32>, alpha: f32, sample: usize) -
 
 // compute the error between the BRDF and the LTC
 // using Multiple Importance Sampling
-fn compute_error(brdf: impl Brdf, ltc: &LTC, v: Vec3<f32>, alpha: f32, sample: usize) -> f32 {
+fn compute_error(
+  brdf: impl BrdfForLTCxFit,
+  ltc: &LTC,
+  v: Vec3<f32>,
+  alpha: f32,
+  sample: usize,
+) -> f32 {
   let mut error: f64 = 0.0;
 
   for j in 0..sample {

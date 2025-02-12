@@ -37,7 +37,7 @@ The following things is the current project development direction.
 ### New features planed
 
 - gpu picking
-- deferred rendering
+- visibility rendering
 - ray tracing
   - reference path tracing renderer
 

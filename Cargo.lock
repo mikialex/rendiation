@@ -3303,6 +3303,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-area-lighting"
+version = "0.1.0"
+dependencies = [
+ "database",
+ "reactive",
+ "rendiation-algebra",
+ "rendiation-geometry",
+ "rendiation-mesh-core",
+ "rendiation-scene-core",
+ "rendiation-scene-rendering-gpu-base",
+ "rendiation-scene-rendering-gpu-gles",
+ "rendiation-shader-api",
+ "rendiation-webgpu",
+ "rendiation-webgpu-reactive-utils",
+]
+
+[[package]]
 name = "rendiation-barycentric-solid-line"
 version = "0.1.0"
 dependencies = [
@@ -3496,6 +3513,8 @@ version = "0.1.0"
 dependencies = [
  "image 0.25.1",
  "rendiation-algebra",
+ "rendiation-lighting-gpu-system",
+ "rendiation-lighting-transport",
  "rendiation-shader-api",
  "rendiation-texture-core",
  "rendiation-texture-loader",
@@ -4837,6 +4856,7 @@ dependencies = [
  "rayon",
  "reactive",
  "rendiation-algebra",
+ "rendiation-area-lighting",
  "rendiation-controller",
  "rendiation-device-ray-tracing",
  "rendiation-geometry",

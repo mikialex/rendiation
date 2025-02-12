@@ -1,4 +1,6 @@
 use rendiation_algebra::*;
+use rendiation_lighting_gpu_system::*;
+use rendiation_lighting_transport::*;
 use rendiation_shader_api::*;
 use rendiation_texture_core::Texture2DBuffer;
 
@@ -16,3 +18,38 @@ pub use shader::*;
 ///
 /// 0: the original ltc impl
 pub const LTC_LUT_VERSION: u64 = 0;
+
+pub struct LTCRectLightingCompute {
+  pub light: Node<LTCRectLight>,
+  pub ltc_1: HandleNode<ShaderTexture2D>,
+  pub ltc_2: HandleNode<ShaderTexture2D>,
+  pub sampler: HandleNode<ShaderSampler>,
+}
+
+impl LightingComputeInvocation for LTCRectLightingCompute {
+  fn compute_lights(
+    &self,
+    shading: &dyn LightableSurfaceShading,
+    geom_ctx: &ENode<ShaderLightingGeometricCtx>,
+  ) -> ENode<ShaderLightingResult> {
+    let shading = shading
+      .as_any()
+      .downcast_ref::<ENode<ShaderPhysicalShading>>();
+    if shading.is_none() {
+      return zeroed_val::<ShaderLightingResult>().expand();
+    }
+    let shading = shading.unwrap();
+
+    LTCxLightEval {
+      light: self.light,
+      diffuse_color: shading.diffuse,
+      specular_color: shading.f0,              // todo fix
+      roughness: shading.perceptual_roughness, // todo check
+      geom: *geom_ctx,
+      ltc_1: self.ltc_1,
+      ltc_2: self.ltc_2,
+      sampler: self.sampler,
+    }
+    .eval()
+  }
+}
