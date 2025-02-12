@@ -50,7 +50,7 @@ impl ViewerFrameLogic {
     &mut self,
     ctx: &mut FrameCtx,
     renderer: &dyn SceneRenderer<ContentKey = SceneContentKey>,
-    lighting: &dyn RenderComponent,
+    lighting: &SceneLightSystem,
     content: &Viewer3dSceneCtx,
     final_target: &RenderTargetView,
     current_camera_view_projection_inv: Mat4<f32>,
@@ -80,7 +80,7 @@ impl ViewerFrameLogic {
       content.widget_scene,
       camera,
       ctx,
-      &(),
+      &DefaultDisplayWriter,
     );
 
     pass("scene-widgets")
@@ -131,11 +131,12 @@ impl ViewerFrameLogic {
             let mut pass_base = pass("scene").with_color(scene_result.write(), color_ops);
 
             let g_buffer_base_writer = g_buffer.extend_pass_desc(&mut pass_base, depth_ops);
+            let lighting = lighting.get_scene_forward_lighting_component(content.scene);
 
             let scene_pass_dispatcher = &RenderArray([
-              &ForwardLightResultWriter as &dyn RenderComponent,
+              &DefaultDisplayWriter as &dyn RenderComponent,
               &g_buffer_base_writer as &dyn RenderComponent,
-              lighting,
+              lighting.as_ref(),
             ]) as &dyn RenderComponent;
 
             let mut main_scene_content = renderer.extract_and_make_pass_content(
@@ -184,11 +185,24 @@ impl ViewerFrameLogic {
               .by(&mut background)
               .by(&mut main_scene_content);
 
+            let geometry_from_g_buffer = Box::new(FrameGeometryBufferReconstructGeometryCtx {
+              camera: &main_camera_gpu,
+              g_buffer: &g_buffer,
+            }) as Box<dyn GeometryCtxProvider>;
+            let surface_from_m_buffer = Box::new(FrameGeneralMaterialBufferReconstructSurface {
+              m_buffer: &m_buffer,
+              registry: deferred_mat_supports,
+            });
+            let lighting = lighting.get_scene_lighting_component(
+              content.scene,
+              geometry_from_g_buffer,
+              surface_from_m_buffer,
+            );
+
             let _ = pass("deferred lighting compute")
               .with_color(scene_result.write(), color_ops)
               .render_ctx(ctx)
-            // .by()
-            ;
+              .by(&mut lighting.draw_quad());
           }
         }
 

@@ -63,3 +63,84 @@ impl GraphicsShaderProvider for FrameGeometryBufferPassEncoder {
     })
   }
 }
+
+impl ShaderPassBuilder for FrameGeometryBuffer {
+  fn setup_pass(&self, cx: &mut GPURenderPassCtx) {
+    self.normal.read().bind_pass(cx);
+    self.depth.read().bind_pass(cx);
+    self.entity_id.read().bind_pass(cx);
+    cx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
+  }
+}
+
+impl FrameGeometryBuffer {
+  pub fn build_read_invocation(
+    &self,
+    binding: &mut ShaderBindGroupBuilder,
+  ) -> FrameGeometryBufferReadInvocation {
+    let normal = binding.bind_by(&self.normal.read());
+    let input_size = normal.texture_dimension_2d(None).into_f32();
+
+    FrameGeometryBufferReadInvocation {
+      normal,
+      depth: binding.bind_by(&DisableFiltering(&self.depth.read())),
+      ids: binding.bind_by(&U32Texture2d),
+      sampler: binding.bind_by(&DisableFiltering(ImmediateGPUSamplerViewBind)),
+      input_size,
+    }
+  }
+}
+
+/// work around
+pub struct U32Texture2d;
+impl ShaderBindingProvider for U32Texture2d {
+  type Node = ShaderHandlePtr<ShaderTexture2DUint>;
+}
+
+pub struct FrameGeometryBufferReadInvocation {
+  pub depth: HandleNode<ShaderTexture2D>,
+  pub normal: HandleNode<ShaderTexture2D>,
+  pub ids: HandleNode<ShaderTexture2DUint>,
+  pub sampler: HandleNode<ShaderSampler>,
+  input_size: Node<Vec2<f32>>,
+}
+
+impl FrameGeometryBufferReadInvocation {
+  pub fn read_depth_normal(&self, uv: Node<Vec2<f32>>) -> (Node<f32>, Node<Vec3<f32>>) {
+    let depth = self.depth.sample(self.sampler, uv).x();
+    let normal = self.normal.sample(self.sampler, uv).xyz().normalize();
+    (depth, normal)
+  }
+  pub fn read_id(&self, uv: Node<Vec2<f32>>) -> Node<u32> {
+    let u32_uv = (self.input_size * uv).floor().into_u32();
+    self.ids.load_texel(u32_uv, val(0)).x()
+  }
+}
+
+pub struct FrameGeometryBufferReconstructGeometryCtx<'a> {
+  pub camera: &'a dyn RenderComponent,
+  pub g_buffer: &'a FrameGeometryBuffer,
+}
+impl ShaderHashProvider for FrameGeometryBufferReconstructGeometryCtx<'_> {
+  shader_hash_type_id! {FrameGeometryBufferReconstructGeometryCtx<'static>}
+}
+impl ShaderPassBuilder for FrameGeometryBufferReconstructGeometryCtx<'_> {
+  fn setup_pass(&self, cx: &mut GPURenderPassCtx) {
+    self.camera.setup_pass(cx);
+    self.g_buffer.setup_pass(cx);
+  }
+}
+impl GeometryCtxProvider for FrameGeometryBufferReconstructGeometryCtx<'_> {
+  fn construct_ctx(
+    &self,
+    builder: &mut ShaderRenderPipelineBuilder,
+  ) -> ENode<ShaderLightingGeometricCtx> {
+    self.camera.build(builder);
+    builder.fragment(|builder, binding| {
+      let read = self.g_buffer.build_read_invocation(binding);
+      let (depth, normal) = read.read_depth_normal(builder.query::<FragmentUv>());
+
+      todo!()
+    })
+  }
+}

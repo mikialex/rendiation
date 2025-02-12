@@ -362,8 +362,6 @@ impl Viewer3dRenderingCtx {
         content.scene,
       );
 
-      let lighting = lighting.get_scene_forward_lighting_component(content.scene);
-
       self.frame_logic.render(
         &mut ctx,
         renderer.as_ref(),

@@ -228,16 +228,16 @@ impl SceneLightSystem<'_> {
     self.get_scene_lighting_component(
       scene,
       Box::new(DirectGeometryProvider),
-      Box::new(PhysicalShading),
+      Box::new(LightableSurfaceShadingLogicProviderAsLightableSurfaceProvider(PhysicalShading)),
     )
   }
 
-  pub fn get_scene_lighting_component(
-    &self,
+  pub fn get_scene_lighting_component<'a>(
+    &'a self,
     scene: EntityHandle<SceneEntity>,
-    geometry_constructor: Box<dyn GeometryCtxProvider>,
-    surface_constructor: Box<dyn LightableSurfaceShadingProvider>,
-  ) -> Box<dyn RenderComponent + '_> {
+    geometry_constructor: Box<dyn GeometryCtxProvider + 'a>,
+    surface_constructor: Box<dyn LightableSurfaceProvider + 'a>,
+  ) -> Box<dyn RenderComponent + 'a> {
     let mut light = RenderVec::default();
 
     let system = &self.system;
@@ -275,12 +275,14 @@ impl GraphicsShaderProvider for LDROutput {
   }
 }
 
-pub struct ForwardLightResultWriter;
-impl ShaderHashProvider for ForwardLightResultWriter {
+/// we disable the base dispatch auto write in scene pass content. however in some times
+/// we still need to write to the default display, use this as the outer dispatcher to inject write logic
+pub struct DefaultDisplayWriter;
+impl ShaderHashProvider for DefaultDisplayWriter {
   shader_hash_type_id! {}
 }
-impl ShaderPassBuilder for ForwardLightResultWriter {}
-impl GraphicsShaderProvider for ForwardLightResultWriter {
+impl ShaderPassBuilder for DefaultDisplayWriter {}
+impl GraphicsShaderProvider for DefaultDisplayWriter {
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, _| {
       let default = builder.query_or_insert_default::<DefaultDisplay>();
