@@ -179,6 +179,7 @@ impl GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialIndirectGPU<'_>
       builder.register::<RoughnessChannel>(roughness * roughness);
 
       builder.register::<DefaultDisplay>((base_color, val(1.)));
+      builder.insert_type_tag::<PbrMRMaterialTag>();
     })
   }
 }

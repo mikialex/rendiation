@@ -29,7 +29,7 @@ impl FrameGeneralMaterialBuffer {
     desc: &mut PassDescriptor<'a>,
   ) -> FrameGeneralMaterialChannelIndices {
     FrameGeneralMaterialChannelIndices {
-      material_type_id: desc.push_color(self.material_type_id.write(), clear(all_zero())),
+      material_type_id: desc.push_color(self.material_type_id.write(), clear(MAX_U8_ID_BACKGROUND)),
       channel_a: desc.push_color(self.channel_a.write(), clear(all_zero())),
       channel_b: desc.push_color(self.channel_b.write(), clear(all_zero())),
       channel_c: desc.push_color(self.channel_c.write(), clear(all_zero())),
@@ -37,11 +37,17 @@ impl FrameGeneralMaterialBuffer {
   }
 }
 
-pub struct FrameGeneralMaterialBufferShaderInstance {
-  pub channel_a: HandleNode<ShaderTexture2D>,
-  pub channel_b: HandleNode<ShaderTexture2D>,
-  pub channel_c: HandleNode<ShaderTexture2D>,
-  pub sampler: HandleNode<ShaderSampler>,
+pub const MAX_U8_ID_BACKGROUND: rendiation_webgpu::Color = rendiation_webgpu::Color {
+  r: u8::MAX as f64,
+  g: 0.,
+  b: 0.,
+  a: 0.,
+};
+
+pub struct FrameGeneralMaterialBufferReadValue {
+  pub channel_a: Node<Vec4<f32>>,
+  pub channel_b: Node<Vec4<f32>>,
+  pub channel_c: Node<Vec2<f32>>,
 }
 
 #[derive(Hash)]
@@ -61,22 +67,20 @@ pub struct FrameGeneralMaterialBufferEncoder<'a> {
 pub struct DeferLightingMaterialRegistry {
   pub material_impl_ids: Vec<TypeId>,
   pub encoders: Vec<fn(&mut ShaderFragmentBuilderView, &FrameGeneralMaterialChannelIndices)>,
-  pub decoders:
-    Vec<fn(&FrameGeneralMaterialBufferShaderInstance) -> Box<dyn LightableSurfaceShading>>,
+  pub decoders: Vec<fn(&FrameGeneralMaterialBufferReadValue) -> Box<dyn LightableSurfaceShading>>,
 }
 
 pub trait DeferLightingMaterialBufferReadWrite: 'static {
   fn encode(builder: &mut ShaderFragmentBuilderView, indices: &FrameGeneralMaterialChannelIndices);
-  fn decode(
-    instance: &FrameGeneralMaterialBufferShaderInstance,
-  ) -> Box<dyn LightableSurfaceShading>;
+  fn decode(instance: &FrameGeneralMaterialBufferReadValue) -> Box<dyn LightableSurfaceShading>;
 }
 
 impl DeferLightingMaterialRegistry {
-  pub fn register_material_impl<M: DeferLightingMaterialBufferReadWrite>(&mut self) {
+  pub fn register_material_impl<M: DeferLightingMaterialBufferReadWrite>(mut self) -> Self {
     self.material_impl_ids.push(TypeId::of::<M>());
     self.encoders.push(M::encode);
     self.decoders.push(M::decode);
+    self
   }
 }
 
@@ -93,8 +97,9 @@ impl ShaderPassBuilder for FrameGeneralMaterialBufferEncoder<'_> {}
 impl GraphicsShaderProvider for FrameGeneralMaterialBufferEncoder<'_> {
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, _| {
-      for m in &self.materials.encoders {
+      for (i, m) in self.materials.encoders.iter().enumerate() {
         m(builder, &self.indices);
+        builder.frag_output[self.indices.material_type_id].store(val(i as u32));
       }
     })
   }
@@ -135,15 +140,21 @@ impl LightableSurfaceProvider for FrameGeneralMaterialBufferReconstructSurface<'
     let u32_uv = (input_size * uv).floor().into_u32();
     let material_ty_id = ids.load_texel(u32_uv, val(0)).x();
 
+    // discard compute to display the  background
+    if_by(material_ty_id.equals(u8::MAX as u32), || {
+      builder.discard();
+    });
+
+    let values = FrameGeneralMaterialBufferReadValue {
+      channel_a: channel_a.sample_zero_level(sampler, uv),
+      channel_b: channel_b.sample_zero_level(sampler, uv),
+      channel_c: channel_c.sample_zero_level(sampler, uv).xy(),
+    };
+
     Box::new(MultiMaterialUberDecoder {
       registry: self.registry.clone(),
       material_ty_id,
-      data: FrameGeneralMaterialBufferShaderInstance {
-        channel_a,
-        channel_b,
-        channel_c,
-        sampler,
-      },
+      data: values,
     })
   }
 }
@@ -151,7 +162,7 @@ impl LightableSurfaceProvider for FrameGeneralMaterialBufferReconstructSurface<'
 struct MultiMaterialUberDecoder {
   registry: DeferLightingMaterialRegistry,
   material_ty_id: Node<u32>,
-  data: FrameGeneralMaterialBufferShaderInstance,
+  data: FrameGeneralMaterialBufferReadValue,
 }
 
 impl LightableSurfaceShading for MultiMaterialUberDecoder {
@@ -184,5 +195,45 @@ impl LightableSurfaceShading for MultiMaterialUberDecoder {
 
   fn as_any(&self) -> &dyn std::any::Any {
     self
+  }
+}
+
+pub struct PbrSurfaceEncodeDecode;
+// alpha is not used because in defer mode transparency is not supported
+// and alpha discard has already done in encoder.
+impl DeferLightingMaterialBufferReadWrite for PbrSurfaceEncodeDecode {
+  fn encode(builder: &mut ShaderFragmentBuilderView, indices: &FrameGeneralMaterialChannelIndices) {
+    if builder.contains_type_tag::<PbrMRMaterialTag>()
+      || builder.contains_type_tag::<PbrSGMaterialTag>()
+    {
+      let ENode::<ShaderPhysicalShading> {
+        diffuse,
+        perceptual_roughness,
+        f0,
+        emissive,
+      } = PhysicalShading::construct_shading_impl(builder);
+
+      let diffuse_roughness: Node<Vec4<_>> = (diffuse, perceptual_roughness).into();
+      let f0_emissive_x: Node<Vec4<_>> = (f0, emissive.x()).into();
+
+      builder.frag_output[indices.channel_a].store(diffuse_roughness);
+      builder.frag_output[indices.channel_b].store(f0_emissive_x);
+      builder.frag_output[indices.channel_c].store(emissive.yz());
+    }
+  }
+
+  fn decode(instance: &FrameGeneralMaterialBufferReadValue) -> Box<dyn LightableSurfaceShading> {
+    let diffuse_roughness = instance.channel_a;
+    let f0_emissive_x = instance.channel_b;
+    let emissive_yz = instance.channel_c;
+
+    let emissive = vec3_node((f0_emissive_x.w(), emissive_yz.x(), emissive_yz.y()));
+
+    Box::new(ENode::<ShaderPhysicalShading> {
+      diffuse: diffuse_roughness.xyz(),
+      perceptual_roughness: diffuse_roughness.w(),
+      f0: f0_emissive_x.xyz(),
+      emissive,
+    })
   }
 }

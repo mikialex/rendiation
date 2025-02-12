@@ -150,7 +150,8 @@ impl Viewer3dRenderingCtx {
       opaque_scene_content_lighting_technique: LightingTechniqueKind::Forward,
       frame_logic: ViewerFrameLogic::new(&gpu),
       lighting,
-      material_defer_lighting_supports: Default::default(),
+      material_defer_lighting_supports: DeferLightingMaterialRegistry::default()
+        .register_material_impl::<PbrSurfaceEncodeDecode>(),
       gpu,
       pool: Default::default(),
       on_encoding_finished: Default::default(),

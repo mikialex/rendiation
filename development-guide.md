@@ -8,6 +8,8 @@ The following things is the current project development direction.
 
 - use view space shading compute
 - disable ssao when channel debug on
+- fix channel debug in defer mode
+- support material emissive larger than one
 - fix db multi thead write lock access deadlock
 - fix parallel compute test out of bound shader access
 - fix scene gpu lighting is globally shared

@@ -161,6 +161,13 @@ impl ShaderFragmentBuilder {
     &self.registry
   }
 
+  pub fn contains_type_tag<T: Any>(&self) -> bool {
+    self.registry.contains_type_tag::<T>()
+  }
+  pub fn insert_type_tag<T: Any>(&mut self) {
+    self.registry.insert_type_tag::<T>()
+  }
+
   pub fn discard(&self) {
     call_shader_api(|g| g.discard())
   }

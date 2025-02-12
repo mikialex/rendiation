@@ -8,7 +8,7 @@ pub struct FrameGeometryBuffer {
   pub entity_id: Attachment,
 }
 
-const ID_BACKGROUND: rendiation_webgpu::Color = rendiation_webgpu::Color {
+pub const MAX_U32_ID_BACKGROUND: rendiation_webgpu::Color = rendiation_webgpu::Color {
   r: u32::MAX as f64,
   g: 0.,
   b: 0.,
@@ -19,7 +19,7 @@ impl FrameGeometryBuffer {
   pub fn new(cx: &mut FrameCtx) -> Self {
     Self {
       depth: depth_attachment().request(cx),
-      normal: attachment().format(TextureFormat::Rgb10a2Unorm).request(cx),
+      normal: attachment().format(TextureFormat::Rgba16Float).request(cx),
       entity_id: attachment().format(TextureFormat::R32Uint).request(cx),
     }
   }
@@ -33,7 +33,7 @@ impl FrameGeometryBuffer {
 
     FrameGeometryBufferPassEncoder {
       normal: desc.push_color(self.normal.write(), clear(all_zero())),
-      entity_id: desc.push_color(self.entity_id.write(), clear(ID_BACKGROUND)),
+      entity_id: desc.push_color(self.entity_id.write(), clear(MAX_U32_ID_BACKGROUND)),
     }
   }
 }
@@ -59,7 +59,9 @@ impl GraphicsShaderProvider for FrameGeometryBufferPassEncoder {
       let id = builder.query_or_interpolate_by::<LogicalRenderEntityId, LogicalRenderEntityId>();
       builder.frag_output[self.entity_id].store(id);
 
-      let normal = builder.query_or_interpolate_by::<FragmentWorldNormal, WorldVertexNormal>();
+      let normal = builder
+        .query_or_interpolate_by::<FragmentWorldNormal, WorldVertexNormal>()
+        .normalize();
       let out: Node<Vec4<f32>> = (normal, val(1.0)).into();
       builder.frag_output[self.normal].store(out);
     })

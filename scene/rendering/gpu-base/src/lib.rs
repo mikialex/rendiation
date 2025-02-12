@@ -52,6 +52,9 @@ pub use mid::*;
 
 both!(LogicalRenderEntityId, u32);
 
+pub struct PbrMRMaterialTag;
+pub struct PbrSGMaterialTag;
+
 /// All color in shader should be in linear space, for some scene API that use sRGB color space, use this to convert before upload the
 /// data into the gpu.
 pub fn srgb4_to_linear4(color: Vec4<f32>) -> Vec4<f32> {

@@ -179,11 +179,7 @@ impl ViewerFrameLogic {
               scene_pass_dispatcher,
             );
 
-            pass_base
-              .render_ctx(ctx)
-              // ditto
-              .by(&mut background)
-              .by(&mut main_scene_content);
+            pass_base.render_ctx(ctx).by(&mut main_scene_content);
 
             let geometry_from_g_buffer = Box::new(FrameGeometryBufferReconstructGeometryCtx {
               camera: &main_camera_gpu,
@@ -199,9 +195,15 @@ impl ViewerFrameLogic {
               surface_from_m_buffer,
             );
 
+            let lighting = RenderArray([
+              &DefaultDisplayWriter as &dyn RenderComponent,
+              lighting.as_ref(),
+            ]);
+
             let _ = pass("deferred lighting compute")
               .with_color(scene_result.write(), color_ops)
               .render_ctx(ctx)
+              .by(&mut background)
               .by(&mut lighting.draw_quad());
           }
         }

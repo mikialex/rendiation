@@ -6,9 +6,17 @@ pub struct SemanticRegistry {
   /// this map can be used for store any dynamic semantic info.
   /// this is useful if the semantic is dynamic for example the runtime index or enum
   pub dynamic_semantic: FastHashMap<String, NodeUntyped>,
+  pub dynamic_tag: FastHashSet<TypeId>,
 }
 
 impl SemanticRegistry {
+  pub fn contains_type_tag<T: Any>(&self) -> bool {
+    self.dynamic_tag.contains(&TypeId::of::<T>())
+  }
+  pub fn insert_type_tag<T: Any>(&mut self) {
+    self.dynamic_tag.insert(TypeId::of::<T>());
+  }
+
   pub fn query_typed_both_stage<T: SemanticFragmentShaderValue + SemanticFragmentShaderValue>(
     &self,
   ) -> Result<Node<T::ValueType>, ShaderBuildError> {

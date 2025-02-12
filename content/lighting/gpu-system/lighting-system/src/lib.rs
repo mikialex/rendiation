@@ -65,8 +65,9 @@ impl GeometryCtxProvider for DirectGeometryProvider {
     builder.fragment(|builder, _| {
       let fragment_world =
         builder.query_or_interpolate_by::<FragmentWorldPosition, WorldVertexPosition>();
-      let fragment_normal =
-        builder.query_or_interpolate_by::<FragmentWorldNormal, WorldVertexNormal>();
+      let fragment_normal = builder
+        .query_or_interpolate_by::<FragmentWorldNormal, WorldVertexNormal>()
+        .normalize();
       let camera_position = builder.query::<CameraWorldMatrix>().position();
       ENode::<ShaderLightingGeometricCtx> {
         position: fragment_world,

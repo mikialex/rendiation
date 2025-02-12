@@ -205,6 +205,7 @@ impl GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU<'_> {
       builder.register::<GlossinessChannel>(glossiness);
 
       builder.register::<DefaultDisplay>((albedo.xyz(), val(1.)));
+      builder.insert_type_tag::<PbrSGMaterialTag>();
     })
   }
 }
