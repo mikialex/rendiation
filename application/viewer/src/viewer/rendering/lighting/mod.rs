@@ -225,6 +225,19 @@ impl SceneLightSystem<'_> {
     &self,
     scene: EntityHandle<SceneEntity>,
   ) -> Box<dyn RenderComponent + '_> {
+    self.get_scene_lighting_component(
+      scene,
+      Box::new(DirectGeometryProvider),
+      Box::new(PhysicalShading),
+    )
+  }
+
+  pub fn get_scene_lighting_component(
+    &self,
+    scene: EntityHandle<SceneEntity>,
+    geometry_constructor: Box<dyn GeometryCtxProvider>,
+    surface_constructor: Box<dyn LightableSurfaceShadingProvider>,
+  ) -> Box<dyn RenderComponent + '_> {
     let mut light = RenderVec::default();
 
     let system = &self.system;
@@ -237,9 +250,11 @@ impl SceneLightSystem<'_> {
 
     light
       .push(&system.tonemap as &dyn RenderComponent) //
-      .push(LightingComputeComponentAsForwardLightingRenderComponent(
-        self.imp.get_scene_lighting(scene).unwrap(),
-      ));
+      .push(LightingComputeComponentAsRenderComponent {
+        geometry_constructor,
+        surface_constructor,
+        lighting: self.imp.get_scene_lighting(scene).unwrap(),
+      });
 
     Box::new(light)
   }

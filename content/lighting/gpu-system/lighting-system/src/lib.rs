@@ -18,59 +18,41 @@ pub trait LightingComputeComponent: ShaderHashProvider {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx);
 }
 
-pub struct LightingComputeComponentAsForwardLightingRenderComponent(
-  pub Box<dyn LightingComputeComponent>,
-);
-
-impl ShaderHashProvider for LightingComputeComponentAsForwardLightingRenderComponent {
-  fn hash_type_info(&self, hasher: &mut PipelineHasher) {
-    self.0.hash_type_info(hasher)
-  }
-  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.0.hash_pipeline(hasher);
-  }
-}
-impl ShaderPassBuilder for LightingComputeComponentAsForwardLightingRenderComponent {
-  fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    self.0.setup_pass(ctx);
-  }
-}
-
-impl GraphicsShaderProvider for LightingComputeComponentAsForwardLightingRenderComponent {
-  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    builder.fragment(|builder, binder| {
-      let invocation = self.0.build_light_compute_invocation(binder);
-      let shading_provider = PhysicalShading; // todo, make it configurable by user
-      let shading = shading_provider.construct_shading(builder); // todo, make it return optional to avoid lighting cost for none lightable material
-
-      let fragment_world =
-        builder.query_or_interpolate_by::<FragmentWorldPosition, WorldVertexPosition>();
-      let camera_position = builder.query::<CameraWorldMatrix>().position();
-      let geom_ctx = ENode::<ShaderLightingGeometricCtx> {
-        position: fragment_world,
-        normal: builder.query_or_interpolate_by::<FragmentWorldNormal, WorldVertexNormal>(),
-        view_dir: (camera_position - fragment_world).normalize(),
-      };
-
-      let hdr = invocation.compute_lights(shading.as_ref(), &geom_ctx);
-      builder.register::<HDRLightResult>(hdr.diffuse + hdr.specular);
-    })
-  }
-}
-
 pub trait GeometryCtxProvider {
-  fn construct_ctx(&self, builder: &mut ShaderFragmentBuilder)
-    -> ENode<ShaderLightingGeometricCtx>;
+  fn construct_ctx(
+    &self,
+    builder: &mut ShaderFragmentBuilderView,
+  ) -> ENode<ShaderLightingGeometricCtx>;
+}
+
+pub struct DirectGeometryProvider;
+
+impl GeometryCtxProvider for DirectGeometryProvider {
+  fn construct_ctx(
+    &self,
+    builder: &mut ShaderFragmentBuilderView,
+  ) -> ENode<ShaderLightingGeometricCtx> {
+    let fragment_world =
+      builder.query_or_interpolate_by::<FragmentWorldPosition, WorldVertexPosition>();
+    let fragment_normal =
+      builder.query_or_interpolate_by::<FragmentWorldNormal, WorldVertexNormal>();
+    let camera_position = builder.query::<CameraWorldMatrix>().position();
+    ENode::<ShaderLightingGeometricCtx> {
+      position: fragment_world,
+      normal: fragment_normal,
+      view_dir: (camera_position - fragment_world).normalize(),
+    }
+  }
 }
 
 // todo, merge this with the forward one
-pub struct LightingComputeComponentAsDeferredLightingRenderComponent {
+pub struct LightingComputeComponentAsRenderComponent {
   pub geometry_constructor: Box<dyn GeometryCtxProvider>, // todo, this should be hashed
   pub surface_constructor: Box<dyn LightableSurfaceShadingProvider>, // todo, this should be hashed
   pub lighting: Box<dyn LightingComputeComponent>,
 }
 
-impl ShaderHashProvider for LightingComputeComponentAsDeferredLightingRenderComponent {
+impl ShaderHashProvider for LightingComputeComponentAsRenderComponent {
   fn hash_type_info(&self, hasher: &mut PipelineHasher) {
     self.lighting.hash_type_info(hasher)
   }
@@ -78,13 +60,13 @@ impl ShaderHashProvider for LightingComputeComponentAsDeferredLightingRenderComp
     self.lighting.hash_pipeline(hasher);
   }
 }
-impl ShaderPassBuilder for LightingComputeComponentAsDeferredLightingRenderComponent {
+impl ShaderPassBuilder for LightingComputeComponentAsRenderComponent {
   fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.lighting.setup_pass(ctx);
   }
 }
 
-impl GraphicsShaderProvider for LightingComputeComponentAsDeferredLightingRenderComponent {
+impl GraphicsShaderProvider for LightingComputeComponentAsRenderComponent {
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binder| {
       let invocation = self.lighting.build_light_compute_invocation(binder);
