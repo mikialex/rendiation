@@ -6,7 +6,10 @@ version = "0.0.1"
 [dependencies]
 bytemuck = { workspace = true, features = ["derive"] }
 fast-hash-collection = { path = "../../../../utility/fast-hash-collection" }
-gltf = { version = "1.2.0", features = ["KHR_materials_pbrSpecularGlossiness"] }
+gltf = { version = "1.2.0", features = [
+    "KHR_materials_pbrSpecularGlossiness",
+    "KHR_lights_punctual",
+] }
 half = "*"
 database = { path = "../../../../utility/database" }
 rendiation-algebra = { path = "../../../../math/algebra" }

@@ -1,5 +1,7 @@
 use crate::*;
 
+pub const DEFAULT_CUTOFF_DISTANCE: f32 = 10.; // in meter
+
 #[derive(Clone, Copy)]
 pub enum SceneLightDataView {
   FlatMaterial(EntityHandle<FlatMaterialEntity>),
@@ -31,7 +33,12 @@ impl PointLightDataView {
 declare_entity!(PointLightEntity);
 declare_foreign_key!(PointLightRefScene, PointLightEntity, SceneEntity);
 declare_foreign_key!(PointLightRefNode, PointLightEntity, SceneNodeEntity);
-declare_component!(PointLightCutOffDistance, PointLightEntity, f32, 10.); // in meter
+declare_component!(
+  PointLightCutOffDistance,
+  PointLightEntity,
+  f32,
+  DEFAULT_CUTOFF_DISTANCE
+); // in meter
 declare_component!(
   PointLightIntensity,
   PointLightEntity,
@@ -73,7 +80,12 @@ impl SpotLightDataView {
 declare_entity!(SpotLightEntity);
 declare_foreign_key!(SpotLightRefScene, SpotLightEntity, SceneEntity);
 declare_foreign_key!(SpotLightRefNode, SpotLightEntity, SceneNodeEntity);
-declare_component!(SpotLightCutOffDistance, SpotLightEntity, f32, 10.); // in meter
+declare_component!(
+  SpotLightCutOffDistance,
+  SpotLightEntity,
+  f32,
+  DEFAULT_CUTOFF_DISTANCE
+); // in meter
 declare_component!(SpotLightHalfConeAngle, SpotLightEntity, f32, 0.5); // in rad
 declare_component!(SpotLightHalfPenumbraAngle, SpotLightEntity, f32, 0.5); // in rad
 declare_component!(

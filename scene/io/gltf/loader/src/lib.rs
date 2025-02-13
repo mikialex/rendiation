@@ -11,7 +11,8 @@ mod convert_utils;
 use convert_utils::*;
 use rendiation_texture_core::*;
 
-const SUPPORTED_GLTF_EXTENSIONS: [&str; 1] = ["KHR_materials_pbrSpecularGlossiness"];
+const SUPPORTED_GLTF_EXTENSIONS: [&str; 2] =
+  ["KHR_materials_pbrSpecularGlossiness", "KHR_lights_punctual"];
 
 #[derive(Debug)]
 pub enum GLTFLoaderError {
@@ -93,6 +94,9 @@ pub struct GltfLoadResult {
   pub view_map: FastHashMap<usize, UnTypedBufferView>,
   // pub skin_map: FastHashMap<usize, EntityHandle<SceneSkinEntity>>,
   pub animation_map: FastHashMap<usize, EntityHandle<SceneAnimationEntity>>,
+  pub directional_light_map: FastHashMap<usize, EntityHandle<DirectionalLightEntity>>,
+  pub point_light_map: FastHashMap<usize, EntityHandle<PointLightEntity>>,
+  pub spot_light_map: FastHashMap<usize, EntityHandle<SpotLightEntity>>,
   pub used_but_not_supported_extensions: Vec<String>,
 }
 
@@ -129,6 +133,56 @@ fn create_node_content_recursive(gltf_node: &Node, ctx: &mut Context) {
       let model_handle = build_model(node, primitive, gltf_node, ctx);
 
       ctx.result.primitive_map.insert(index, model_handle);
+    }
+  }
+
+  if let Some(light) = gltf_node.light() {
+    let intensity = light.intensity();
+    let color = light.color();
+    let intensity = Vec3::from(color) * intensity;
+    let cutoff_distance = light.range().unwrap_or(DEFAULT_CUTOFF_DISTANCE);
+    let scene = ctx.io.scene;
+    match light.kind() {
+      gltf::khr_lights_punctual::Kind::Directional => {
+        let scene_light = DirectionalLightDataView {
+          illuminance: intensity,
+          node,
+          scene,
+        }
+        .write(&mut ctx.io.directional_light_writer);
+        ctx
+          .result
+          .directional_light_map
+          .insert(light.index(), scene_light);
+      }
+      gltf::khr_lights_punctual::Kind::Point => {
+        let scene_light = PointLightDataView {
+          intensity,
+          cutoff_distance,
+          node,
+          scene,
+        }
+        .write(&mut ctx.io.point_light_writer);
+        ctx
+          .result
+          .point_light_map
+          .insert(light.index(), scene_light);
+      }
+      gltf::khr_lights_punctual::Kind::Spot {
+        inner_cone_angle,
+        outer_cone_angle,
+      } => {
+        let scene_light = SpotLightDataView {
+          intensity,
+          cutoff_distance,
+          half_cone_angle: outer_cone_angle,
+          half_penumbra_angle: inner_cone_angle,
+          node,
+          scene,
+        }
+        .write(&mut ctx.io.spot_light_writer);
+        ctx.result.spot_light_map.insert(light.index(), scene_light);
+      }
     }
   }
 
