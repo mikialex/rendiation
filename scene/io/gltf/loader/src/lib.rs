@@ -3,7 +3,7 @@ use std::path::Path;
 
 use database::*;
 use fast_hash_collection::*;
-use gltf::{Node, Result as GltfResult};
+use gltf::Node;
 use rendiation_algebra::*;
 use rendiation_mesh_core::*;
 use rendiation_scene_core::*;
@@ -11,13 +11,28 @@ mod convert_utils;
 use convert_utils::*;
 use rendiation_texture_core::*;
 
+const SUPPORTED_GLTF_EXTENSIONS: [&str; 1] = ["KHR_materials_pbrSpecularGlossiness"];
+
+#[derive(Debug)]
+pub enum GLTFLoaderError {
+  GltfFileLoadError(gltf::Error),
+  UnsupportedGLTFExtension(String),
+}
+
 /// the root of the gltf will be loaded under the target node
 pub fn load_gltf(
   path: impl AsRef<Path>,
   target: EntityHandle<SceneNodeEntity>,
   writer: &mut SceneWriter,
-) -> GltfResult<GltfLoadResult> {
-  let (document, mut buffers, images) = gltf::import(path)?;
+) -> Result<GltfLoadResult, GLTFLoaderError> {
+  let (document, mut buffers, images) =
+    gltf::import(path).map_err(GLTFLoaderError::GltfFileLoadError)?;
+
+  for ext in document.extensions_required() {
+    if !SUPPORTED_GLTF_EXTENSIONS.contains(&ext) {
+      return Err(GLTFLoaderError::UnsupportedGLTFExtension(ext.to_string()));
+    }
+  }
 
   let mut ctx = Context {
     images,
@@ -29,6 +44,15 @@ pub fn load_gltf(
     result: Default::default(),
     io: writer,
   };
+
+  for ext in document.extensions_used() {
+    if !SUPPORTED_GLTF_EXTENSIONS.contains(&ext) {
+      ctx
+        .result
+        .used_but_not_supported_extensions
+        .push(ext.to_string());
+    }
+  }
 
   for gltf_scene in document.scenes() {
     for node in gltf_scene.nodes() {
@@ -69,6 +93,7 @@ pub struct GltfLoadResult {
   pub view_map: FastHashMap<usize, UnTypedBufferView>,
   // pub skin_map: FastHashMap<usize, EntityHandle<SceneSkinEntity>>,
   pub animation_map: FastHashMap<usize, EntityHandle<SceneAnimationEntity>>,
+  pub used_but_not_supported_extensions: Vec<String>,
 }
 
 /// https://docs.rs/gltf/latest/gltf/struct.Node.html
@@ -147,12 +172,9 @@ fn build_model(
   };
   let mesh = ctx.io.write_attribute_mesh(mesh).mesh;
 
-  let material = build_pbr_material(primitive.material(), ctx).write(&mut ctx.io.pbr_mr_mat_writer);
+  let material = build_material(primitive.material(), ctx);
 
-  let model = StandardModelDataView {
-    material: SceneMaterialDataView::PbrMRMaterial(material),
-    mesh,
-  };
+  let model = StandardModelDataView { material, mesh };
 
   if let Some(_skin) = gltf_node.skin() {
     // let sk = ctx.result.skin_map.get(&skin.index()).unwrap();
@@ -286,19 +308,11 @@ fn build_accessor(accessor: gltf::Accessor, ctx: &mut Context) -> AttributeAcces
 }
 
 /// https://docs.rs/gltf/latest/gltf/struct.Material.html
-fn build_pbr_material(
-  material: gltf::Material,
-  ctx: &mut Context,
-) -> PhysicalMetallicRoughnessMaterialDataView {
+fn build_material(material: gltf::Material, ctx: &mut Context) -> SceneMaterialDataView {
   let pbr = material.pbr_metallic_roughness();
 
-  let base_color_texture = pbr
-    .base_color_texture()
-    .map(|tex| build_texture(tex.texture(), true, ctx));
-
-  let metallic_roughness_texture = pbr
-    .metallic_roughness_texture()
-    .map(|tex| build_texture(tex.texture(), false, ctx));
+  let alpha_mode = map_alpha(material.alpha_mode());
+  let alpha_cut = material.alpha_cutoff().unwrap_or(0.5);
 
   let emissive_texture = material
     .emissive_texture()
@@ -309,32 +323,70 @@ fn build_pbr_material(
     scale: tex.scale(),
   });
 
-  let alpha_mode = map_alpha(material.alpha_mode());
-  let alpha_cut = material.alpha_cutoff().unwrap_or(0.5);
+  if let Some(pbr_specular) = material.pbr_specular_glossiness() {
+    let albedo_texture = pbr_specular
+      .diffuse_texture()
+      .map(|tex| build_texture(tex.texture(), true, ctx));
 
-  let color_and_alpha = Vec4::from(pbr.base_color_factor());
+    let specular_glossiness_texture = pbr_specular
+      .specular_glossiness_texture()
+      .map(|tex| build_texture(tex.texture(), true, ctx));
 
-  let result = PhysicalMetallicRoughnessMaterialDataView {
-    base_color: color_and_alpha.rgb(),
-    alpha: AlphaConfigDataView {
-      alpha_mode,
-      alpha_cutoff: alpha_cut,
-      alpha: color_and_alpha.a(),
-    },
-    roughness: pbr.roughness_factor(),
-    metallic: pbr.metallic_factor(),
-    emissive: Vec3::from(material.emissive_factor()),
-    base_color_texture,
-    metallic_roughness_texture,
-    emissive_texture,
-    normal_texture,
-    // reflectance: 0.5, // todo from gltf ior extension
-  };
+    let albedo_and_alpha = Vec4::from(pbr_specular.diffuse_factor());
 
-  if material.double_sided() {
-    // result.states.cull_mode = None;
+    let result = PhysicalSpecularGlossinessMaterialDataView {
+      albedo: albedo_and_alpha.xyz(),
+      specular: Vec3::from(pbr_specular.specular_factor()),
+      glossiness: pbr_specular.glossiness_factor(),
+      emissive: Vec3::from(material.emissive_factor()),
+      alpha: AlphaConfigDataView {
+        alpha_mode,
+        alpha_cutoff: alpha_cut,
+        alpha: albedo_and_alpha.a(),
+      },
+      albedo_texture,
+      specular_glossiness_texture,
+      emissive_texture,
+      normal_texture,
+    };
+
+    if material.double_sided() {
+      // result.states.cull_mode = None;
+    }
+    SceneMaterialDataView::PbrSGMaterial(result.write(&mut ctx.io.pbr_sg_mat_writer))
+  } else {
+    let base_color_texture = pbr
+      .base_color_texture()
+      .map(|tex| build_texture(tex.texture(), true, ctx));
+
+    let metallic_roughness_texture = pbr
+      .metallic_roughness_texture()
+      .map(|tex| build_texture(tex.texture(), false, ctx));
+
+    let color_and_alpha = Vec4::from(pbr.base_color_factor());
+
+    let result = PhysicalMetallicRoughnessMaterialDataView {
+      base_color: color_and_alpha.rgb(),
+      alpha: AlphaConfigDataView {
+        alpha_mode,
+        alpha_cutoff: alpha_cut,
+        alpha: color_and_alpha.a(),
+      },
+      roughness: pbr.roughness_factor(),
+      metallic: pbr.metallic_factor(),
+      emissive: Vec3::from(material.emissive_factor()),
+      base_color_texture,
+      metallic_roughness_texture,
+      emissive_texture,
+      normal_texture,
+      // reflectance: 0.5, // todo from gltf ior extension
+    };
+
+    if material.double_sided() {
+      // result.states.cull_mode = None;
+    }
+    SceneMaterialDataView::PbrMRMaterial(result.write(&mut ctx.io.pbr_mr_mat_writer))
   }
-  result
 }
 
 // i assume all gpu use little endian?

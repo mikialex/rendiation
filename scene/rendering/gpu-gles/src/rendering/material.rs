@@ -184,8 +184,7 @@ impl RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>
       tex_uniforms: res.take_multi_updater_updated(self.tex_uniforms).unwrap(),
       alpha_mode: global_entity_component_of().read(),
       albedo_tex_sampler: TextureSamplerIdView::read_from_global(),
-      specular_tex_sampler: TextureSamplerIdView::read_from_global(),
-      glossiness_tex_sampler: TextureSamplerIdView::read_from_global(),
+      specular_glossiness_tex_sampler: TextureSamplerIdView::read_from_global(),
       emissive_tex_sampler: TextureSamplerIdView::read_from_global(),
       normal_tex_sampler: TextureSamplerIdView::read_from_global(),
     })
@@ -198,8 +197,7 @@ struct PbrSGMaterialDefaultRenderImpl {
   tex_uniforms: LockReadGuardHolder<PbrSGMaterialTexUniforms>,
   alpha_mode: ComponentReadView<AlphaModeOf<PbrSGMaterialAlphaConfig>>,
   albedo_tex_sampler: TextureSamplerIdView<PbrSGMaterialAlbedoTex>,
-  specular_tex_sampler: TextureSamplerIdView<PbrSGMaterialSpecularTex>,
-  glossiness_tex_sampler: TextureSamplerIdView<PbrSGMaterialGlossinessTex>,
+  specular_glossiness_tex_sampler: TextureSamplerIdView<PbrSGMaterialSpecularGlossinessTex>,
   emissive_tex_sampler: TextureSamplerIdView<PbrSGMaterialEmissiveTex>,
   normal_tex_sampler: TextureSamplerIdView<NormalTexSamplerOf<PbrSGMaterialNormalInfo>>,
 }
@@ -215,8 +213,10 @@ impl GLESModelMaterialRenderImpl for PbrSGMaterialDefaultRenderImpl {
       uniform: self.uniforms.get(&idx)?,
       alpha_mode: self.alpha_mode.get_value(idx)?,
       albedo_tex_sampler: self.albedo_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
-      specular_tex_sampler: self.specular_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
-      glossiness_tex_sampler: self.glossiness_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
+      specular_glossiness_tex_sampler: self
+        .specular_glossiness_tex_sampler
+        .get_pair(idx)
+        .unwrap_or(EMPTY_H),
       emissive_tex_sampler: self.emissive_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
       normal_tex_sampler: self.normal_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
       texture_uniforms: self.tex_uniforms.get(&idx)?,

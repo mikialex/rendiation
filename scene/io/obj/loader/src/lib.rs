@@ -89,8 +89,9 @@ fn into_rff_material(
       .into();
   }
   if let Some(specular_texture) = &m.specular_texture {
+    // the glossiness channel will default to one and that's ok
     let specular_texture = load_tex(specular_texture);
-    mat.specular_texture = writer
+    mat.specular_glossiness_texture = writer
       .texture_sample_pair_writer()
       .write_tex_with_default_sampler(specular_texture)
       .into();

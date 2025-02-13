@@ -47,9 +47,8 @@ pub fn pbr_sg_material_storages(cx: &GPU) -> PbrSGMaterialStorages {
 #[derive(Clone, Copy, ShaderStruct, Debug, PartialEq, Default)]
 pub struct PhysicalSpecularGlossinessMaterialTextureHandlesStorage {
   pub albedo_texture: TextureSamplerHandlePair,
-  pub specular_texture: TextureSamplerHandlePair,
+  pub specular_glossiness_texture: TextureSamplerHandlePair,
   pub emissive_texture: TextureSamplerHandlePair,
-  pub glossiness_texture: TextureSamplerHandlePair,
   pub normal_texture: TextureSamplerHandlePair,
 }
 type TexStorage = PhysicalSpecularGlossinessMaterialTextureHandlesStorage;
@@ -60,13 +59,11 @@ pub fn pbr_sg_material_tex_storages(cx: &GPU) -> PbrSGMaterialTexStorages {
 
   let albedo = offset_of!(TexStorage, albedo_texture);
   let emissive = offset_of!(TexStorage, emissive_texture);
-  let specular = offset_of!(TexStorage, specular_texture);
-  let glossiness = offset_of!(TexStorage, glossiness_texture);
+  let specular_glossiness = offset_of!(TexStorage, specular_glossiness_texture);
   let normal = offset_of!(TexStorage, normal_texture);
   let c = add_tex_watcher::<PbrSGMaterialAlbedoTex, _>(c, albedo);
   let c = add_tex_watcher::<PbrSGMaterialEmissiveTex, _>(c, emissive);
-  let c = add_tex_watcher::<PbrSGMaterialSpecularTex, _>(c, specular);
-  let c = add_tex_watcher::<PbrSGMaterialGlossinessTex, _>(c, glossiness);
+  let c = add_tex_watcher::<PbrSGMaterialSpecularGlossinessTex, _>(c, specular_glossiness);
   add_tex_watcher::<NormalTexSamplerOf<PbrSGMaterialNormalInfo>, _>(c, normal)
 }
 
@@ -126,24 +123,16 @@ impl GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU<'_> {
       base_color *= albedo.xyz();
 
       let mut specular = storage.specular;
-      specular *= bind_and_sample(
+      let specular_glossiness = bind_and_sample(
         self.binding_sys,
         builder.registry(),
-        tex_storage.specular_texture,
+        tex_storage.specular_glossiness_texture,
         uv,
         val(Vec4::one()),
-      )
-      .xyz();
+      );
+      specular *= specular_glossiness.xyz();
 
-      let mut glossiness = storage.glossiness;
-      glossiness *= bind_and_sample(
-        self.binding_sys,
-        builder.registry(),
-        tex_storage.glossiness_texture,
-        uv,
-        val(Vec4::one()),
-      )
-      .x();
+      let glossiness = storage.glossiness * specular_glossiness.w();
 
       let mut emissive = storage.emissive;
       emissive *= bind_and_sample(

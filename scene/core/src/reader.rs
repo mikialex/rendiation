@@ -133,10 +133,10 @@ impl SceneReader {
       emissive_texture: Texture2DWithSamplingDataView::read::<PbrSGMaterialEmissiveTex, _>(m, id),
       normal_texture: NormalMappingDataView::read::<PbrSGMaterialNormalInfo, _>(m, id),
       albedo_texture: Texture2DWithSamplingDataView::read::<PbrSGMaterialAlbedoTex, _>(m, id),
-      specular_texture: Texture2DWithSamplingDataView::read::<PbrSGMaterialSpecularTex, _>(m, id),
-      glossiness_texture: Texture2DWithSamplingDataView::read::<PbrSGMaterialGlossinessTex, _>(
-        m, id,
-      ),
+      specular_glossiness_texture: Texture2DWithSamplingDataView::read::<
+        PbrSGMaterialSpecularGlossinessTex,
+        _,
+      >(m, id),
     }
   }
 

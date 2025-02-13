@@ -13,7 +13,7 @@ mod flat_material {
   use crate::*;
   declare_entity!(FlatMaterialEntity);
   declare_component!(
-    FlatMaterialDisplayColorComponent,
+    FlatMaterialDisplayColorComponent, // srgb
     FlatMaterialEntity,
     Vec4<f32>,
     Vec4::one()
@@ -53,7 +53,7 @@ mod sg_material {
   use crate::*;
   declare_entity!(PbrSGMaterialEntity);
   declare_component!(
-    PbrSGMaterialAlbedoComponent,
+    PbrSGMaterialAlbedoComponent, // linear
     PbrSGMaterialEntity,
     Vec3<f32>,
     Vec3::one()
@@ -82,10 +82,8 @@ mod sg_material {
 
   declare_entity_associated!(PbrSGMaterialAlbedoTex, PbrSGMaterialEntity);
   impl TextureWithSamplingForeignKeys for PbrSGMaterialAlbedoTex {}
-  declare_entity_associated!(PbrSGMaterialSpecularTex, PbrSGMaterialEntity);
-  impl TextureWithSamplingForeignKeys for PbrSGMaterialSpecularTex {}
-  declare_entity_associated!(PbrSGMaterialGlossinessTex, PbrSGMaterialEntity);
-  impl TextureWithSamplingForeignKeys for PbrSGMaterialGlossinessTex {}
+  declare_entity_associated!(PbrSGMaterialSpecularGlossinessTex, PbrSGMaterialEntity);
+  impl TextureWithSamplingForeignKeys for PbrSGMaterialSpecularGlossinessTex {}
   declare_entity_associated!(PbrSGMaterialEmissiveTex, PbrSGMaterialEntity);
   impl TextureWithSamplingForeignKeys for PbrSGMaterialEmissiveTex {}
   declare_entity_associated!(PbrSGMaterialNormalInfo, PbrSGMaterialEntity);
@@ -100,8 +98,7 @@ mod sg_material {
       .declare_component::<PbrSGMaterialEmissiveComponent>();
 
     let ecg = register_texture_with_sampling::<PbrSGMaterialAlbedoTex>(ecg);
-    let ecg = register_texture_with_sampling::<PbrSGMaterialSpecularTex>(ecg);
-    let ecg = register_texture_with_sampling::<PbrSGMaterialGlossinessTex>(ecg);
+    let ecg = register_texture_with_sampling::<PbrSGMaterialSpecularGlossinessTex>(ecg);
     let ecg = register_texture_with_sampling::<PbrSGMaterialEmissiveTex>(ecg);
     let ecg = register_normal::<PbrSGMaterialNormalInfo>(ecg);
     register_alpha_config::<PbrSGMaterialAlphaConfig>(ecg);
@@ -115,8 +112,7 @@ mod sg_material {
     pub emissive: Vec3<f32>,
     pub alpha: AlphaConfigDataView,
     pub albedo_texture: Option<Texture2DWithSamplingDataView>,
-    pub specular_texture: Option<Texture2DWithSamplingDataView>,
-    pub glossiness_texture: Option<Texture2DWithSamplingDataView>,
+    pub specular_glossiness_texture: Option<Texture2DWithSamplingDataView>,
     pub emissive_texture: Option<Texture2DWithSamplingDataView>,
     pub normal_texture: Option<NormalMappingDataView>,
   }
@@ -130,8 +126,7 @@ mod sg_material {
         emissive: Vec3::zero(),
         alpha: Default::default(),
         albedo_texture: None,
-        specular_texture: None,
-        glossiness_texture: None,
+        specular_glossiness_texture: None,
         emissive_texture: None,
         normal_texture: None,
       }
@@ -155,12 +150,8 @@ mod sg_material {
         t.write::<PbrSGMaterialAlbedoTex>(writer)
       }
 
-      if let Some(t) = self.specular_texture {
-        t.write::<PbrSGMaterialSpecularTex>(writer)
-      }
-
-      if let Some(t) = self.glossiness_texture {
-        t.write::<PbrSGMaterialGlossinessTex>(writer)
+      if let Some(t) = self.specular_glossiness_texture {
+        t.write::<PbrSGMaterialSpecularGlossinessTex>(writer)
       }
 
       if let Some(t) = self.emissive_texture {
@@ -179,7 +170,7 @@ mod mr_material {
   use crate::*;
   declare_entity!(PbrMRMaterialEntity);
   declare_component!(
-    PbrMRMaterialBaseColorComponent,
+    PbrMRMaterialBaseColorComponent, // linear
     PbrMRMaterialEntity,
     Vec3<f32>,
     Vec3::one()
