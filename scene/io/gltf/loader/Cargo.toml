@@ -9,6 +9,7 @@ fast-hash-collection = { path = "../../../../utility/fast-hash-collection" }
 gltf = { version = "1.2.0", features = [
     "KHR_materials_pbrSpecularGlossiness",
     "KHR_lights_punctual",
+    "KHR_materials_unlit",
 ] }
 half = "*"
 database = { path = "../../../../utility/database" }

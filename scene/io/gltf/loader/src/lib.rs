@@ -11,8 +11,11 @@ mod convert_utils;
 use convert_utils::*;
 use rendiation_texture_core::*;
 
-const SUPPORTED_GLTF_EXTENSIONS: [&str; 2] =
-  ["KHR_materials_pbrSpecularGlossiness", "KHR_lights_punctual"];
+const SUPPORTED_GLTF_EXTENSIONS: [&str; 3] = [
+  "KHR_materials_pbrSpecularGlossiness",
+  "KHR_lights_punctual",
+  "KHR_materials_unlit",
+];
 
 #[derive(Debug)]
 pub enum GLTFLoaderError {
@@ -376,6 +379,24 @@ fn build_material(material: gltf::Material, ctx: &mut Context) -> SceneMaterialD
     content: build_texture(tex.texture(), false, ctx),
     scale: tex.scale(),
   });
+
+  if material.unlit() {
+    let color_and_alpha = Vec4::from(pbr.base_color_factor());
+    let base_color_texture = pbr
+      .base_color_texture()
+      .map(|tex| build_texture(tex.texture(), true, ctx));
+    let mat = UnlitMaterialDataView {
+      color: color_and_alpha,
+      color_alpha_tex: base_color_texture,
+      alpha: AlphaConfigDataView {
+        alpha_mode,
+        alpha_cutoff: alpha_cut,
+        alpha: color_and_alpha.a(),
+      },
+    }
+    .write(&mut ctx.io.unlit_mat_writer);
+    return SceneMaterialDataView::UnlitMaterial(mat);
+  }
 
   if let Some(pbr_specular) = material.pbr_specular_glossiness() {
     let albedo_texture = pbr_specular
