@@ -1,48 +1,53 @@
-pub use flat_material::*;
+pub use unlit_material::*;
 
 use crate::*;
 
 #[derive(Clone, Copy)]
 pub enum SceneMaterialDataView {
-  FlatMaterial(EntityHandle<FlatMaterialEntity>),
+  UnlitMaterial(EntityHandle<UnlitMaterialEntity>),
   PbrSGMaterial(EntityHandle<PbrSGMaterialEntity>),
   PbrMRMaterial(EntityHandle<PbrMRMaterialEntity>),
 }
 
-mod flat_material {
+mod unlit_material {
   use crate::*;
-  declare_entity!(FlatMaterialEntity);
+  declare_entity!(UnlitMaterialEntity);
   declare_component!(
-    FlatMaterialDisplayColorComponent, // srgb
-    FlatMaterialEntity,
+    UnlitMaterialColorComponent, // srgb
+    UnlitMaterialEntity,
     Vec4<f32>,
     Vec4::one()
   );
-  pub fn register_flat_material_data_model() {
+  declare_entity_associated!(UnlitMaterialColorAlphaTex, UnlitMaterialEntity);
+  impl TextureWithSamplingForeignKeys for UnlitMaterialColorAlphaTex {}
+  pub fn register_unlit_material_data_model() {
     let ecg = global_database()
-      .declare_entity::<FlatMaterialEntity>()
-      .declare_component::<FlatMaterialDisplayColorComponent>();
+      .declare_entity::<UnlitMaterialEntity>()
+      .declare_component::<UnlitMaterialColorComponent>();
 
-    register_alpha_config::<FlatMaterialAlphaConfig>(ecg);
+    let ecg = register_texture_with_sampling::<UnlitMaterialColorAlphaTex>(ecg);
+
+    register_alpha_config::<UnlitMaterialAlphaConfig>(ecg);
   }
 
-  declare_entity_associated!(FlatMaterialAlphaConfig, FlatMaterialEntity);
-  impl AlphaInfoSemantic for FlatMaterialAlphaConfig {}
+  declare_entity_associated!(UnlitMaterialAlphaConfig, UnlitMaterialEntity);
+  impl AlphaInfoSemantic for UnlitMaterialAlphaConfig {}
 
-  pub struct FlatMaterialDataView {
+  pub struct UnlitMaterialDataView {
     pub color: Vec4<f32>,
+    pub color_alpha_tex: Option<Texture2DWithSamplingDataView>,
     pub alpha: AlphaConfigDataView,
   }
-  impl EntityCustomWrite<FlatMaterialEntity> for FlatMaterialDataView {
-    type Writer = EntityWriter<FlatMaterialEntity>;
+  impl EntityCustomWrite<UnlitMaterialEntity> for UnlitMaterialDataView {
+    type Writer = EntityWriter<UnlitMaterialEntity>;
 
     fn create_writer() -> Self::Writer {
-      global_entity_of::<FlatMaterialEntity>().entity_writer()
+      global_entity_of::<UnlitMaterialEntity>().entity_writer()
     }
 
-    fn write(self, writer: &mut Self::Writer) -> EntityHandle<FlatMaterialEntity> {
-      let w = writer.component_value_writer::<FlatMaterialDisplayColorComponent>(self.color);
-      self.alpha.write::<FlatMaterialAlphaConfig>(w);
+    fn write(self, writer: &mut Self::Writer) -> EntityHandle<UnlitMaterialEntity> {
+      let w = writer.component_value_writer::<UnlitMaterialColorComponent>(self.color);
+      self.alpha.write::<UnlitMaterialAlphaConfig>(w);
       w.new_entity()
     }
   }
@@ -80,8 +85,8 @@ mod sg_material {
   declare_entity_associated!(PbrSGMaterialAlphaConfig, PbrSGMaterialEntity);
   impl AlphaInfoSemantic for PbrSGMaterialAlphaConfig {}
 
-  declare_entity_associated!(PbrSGMaterialAlbedoTex, PbrSGMaterialEntity);
-  impl TextureWithSamplingForeignKeys for PbrSGMaterialAlbedoTex {}
+  declare_entity_associated!(PbrSGMaterialAlbedoAlphaTex, PbrSGMaterialEntity);
+  impl TextureWithSamplingForeignKeys for PbrSGMaterialAlbedoAlphaTex {}
   declare_entity_associated!(PbrSGMaterialSpecularGlossinessTex, PbrSGMaterialEntity);
   impl TextureWithSamplingForeignKeys for PbrSGMaterialSpecularGlossinessTex {}
   declare_entity_associated!(PbrSGMaterialEmissiveTex, PbrSGMaterialEntity);
@@ -97,7 +102,7 @@ mod sg_material {
       .declare_component::<PbrSGMaterialGlossinessComponent>()
       .declare_component::<PbrSGMaterialEmissiveComponent>();
 
-    let ecg = register_texture_with_sampling::<PbrSGMaterialAlbedoTex>(ecg);
+    let ecg = register_texture_with_sampling::<PbrSGMaterialAlbedoAlphaTex>(ecg);
     let ecg = register_texture_with_sampling::<PbrSGMaterialSpecularGlossinessTex>(ecg);
     let ecg = register_texture_with_sampling::<PbrSGMaterialEmissiveTex>(ecg);
     let ecg = register_normal::<PbrSGMaterialNormalInfo>(ecg);
@@ -147,7 +152,7 @@ mod sg_material {
       self.alpha.write::<PbrSGMaterialAlphaConfig>(writer);
 
       if let Some(t) = self.albedo_texture {
-        t.write::<PbrSGMaterialAlbedoTex>(writer)
+        t.write::<PbrSGMaterialAlbedoAlphaTex>(writer)
       }
 
       if let Some(t) = self.specular_glossiness_texture {
@@ -197,8 +202,8 @@ mod mr_material {
   declare_entity_associated!(PbrMRMaterialAlphaConfig, PbrMRMaterialEntity);
   impl AlphaInfoSemantic for PbrMRMaterialAlphaConfig {}
 
-  declare_entity_associated!(PbrMRMaterialBaseColorTex, PbrMRMaterialEntity);
-  impl TextureWithSamplingForeignKeys for PbrMRMaterialBaseColorTex {}
+  declare_entity_associated!(PbrMRMaterialBaseColorAlphaTex, PbrMRMaterialEntity);
+  impl TextureWithSamplingForeignKeys for PbrMRMaterialBaseColorAlphaTex {}
   declare_entity_associated!(PbrMRMaterialMetallicRoughnessTex, PbrMRMaterialEntity);
   impl TextureWithSamplingForeignKeys for PbrMRMaterialMetallicRoughnessTex {}
   declare_entity_associated!(PbrMRMaterialEmissiveTex, PbrMRMaterialEntity);
@@ -214,7 +219,7 @@ mod mr_material {
       .declare_component::<PbrMRMaterialMetallicComponent>()
       .declare_component::<PbrMRMaterialEmissiveComponent>();
 
-    let ecg = register_texture_with_sampling::<PbrMRMaterialBaseColorTex>(ecg);
+    let ecg = register_texture_with_sampling::<PbrMRMaterialBaseColorAlphaTex>(ecg);
     let ecg = register_texture_with_sampling::<PbrMRMaterialMetallicRoughnessTex>(ecg);
     let ecg = register_texture_with_sampling::<PbrMRMaterialEmissiveTex>(ecg);
     let ecg = register_normal::<PbrMRMaterialNormalInfo>(ecg);
@@ -269,7 +274,7 @@ mod mr_material {
       self.alpha.write::<PbrMRMaterialAlphaConfig>(writer);
 
       if let Some(t) = self.base_color_texture {
-        t.write::<PbrMRMaterialBaseColorTex>(writer)
+        t.write::<PbrMRMaterialBaseColorAlphaTex>(writer)
       }
 
       if let Some(t) = self.metallic_roughness_texture {

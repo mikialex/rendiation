@@ -49,7 +49,7 @@ pub fn register_scene_core_data_model() {
   register_attribute_mesh_data_model();
   register_instance_mesh_data_model();
 
-  register_flat_material_data_model();
+  register_unlit_material_data_model();
   register_pbr_sg_material_data_model();
   register_pbr_mr_material_data_model();
   register_scene_animation_data_model();
@@ -111,9 +111,9 @@ impl SceneModelDataView {
 
 declare_entity!(StandardModelEntity);
 declare_foreign_key!(
-  StandardModelRefFlatMaterial,
+  StandardModelRefUnlitMaterial,
   StandardModelEntity,
-  FlatMaterialEntity
+  UnlitMaterialEntity
 );
 declare_foreign_key!(
   StandardModelRefPbrSGMaterial,
@@ -135,7 +135,7 @@ pub fn register_std_model_data_model() {
   global_database()
     .declare_entity::<StandardModelEntity>()
     .declare_foreign_key::<StandardModelRefAttributesMeshEntity>()
-    .declare_foreign_key::<StandardModelRefFlatMaterial>()
+    .declare_foreign_key::<StandardModelRefUnlitMaterial>()
     .declare_foreign_key::<StandardModelRefPbrSGMaterial>()
     .declare_foreign_key::<StandardModelRefPbrMRMaterial>();
 }
@@ -151,8 +151,8 @@ impl StandardModelDataView {
     writer: &mut EntityWriter<StandardModelEntity>,
   ) -> EntityHandle<StandardModelEntity> {
     match self.material {
-      SceneMaterialDataView::FlatMaterial(m) => {
-        writer.component_value_writer::<StandardModelRefFlatMaterial>(m.some_handle());
+      SceneMaterialDataView::UnlitMaterial(m) => {
+        writer.component_value_writer::<StandardModelRefUnlitMaterial>(m.some_handle());
       }
       SceneMaterialDataView::PbrSGMaterial(m) => {
         writer.component_value_writer::<StandardModelRefPbrSGMaterial>(m.some_handle());

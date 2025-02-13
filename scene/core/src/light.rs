@@ -4,7 +4,7 @@ pub const DEFAULT_CUTOFF_DISTANCE: f32 = 10.; // in meter
 
 #[derive(Clone, Copy)]
 pub enum SceneLightDataView {
-  FlatMaterial(EntityHandle<FlatMaterialEntity>),
+  UnlitMaterial(EntityHandle<UnlitMaterialEntity>),
   PbrSGMaterial(EntityHandle<PbrSGMaterialEntity>),
   PbrMRMaterial(EntityHandle<PbrMRMaterialEntity>),
 }

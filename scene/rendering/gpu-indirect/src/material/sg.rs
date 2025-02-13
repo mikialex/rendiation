@@ -61,7 +61,7 @@ pub fn pbr_sg_material_tex_storages(cx: &GPU) -> PbrSGMaterialTexStorages {
   let emissive = offset_of!(TexStorage, emissive_texture);
   let specular_glossiness = offset_of!(TexStorage, specular_glossiness_texture);
   let normal = offset_of!(TexStorage, normal_texture);
-  let c = add_tex_watcher::<PbrSGMaterialAlbedoTex, _>(c, albedo);
+  let c = add_tex_watcher::<PbrSGMaterialAlbedoAlphaTex, _>(c, albedo);
   let c = add_tex_watcher::<PbrSGMaterialEmissiveTex, _>(c, emissive);
   let c = add_tex_watcher::<PbrSGMaterialSpecularGlossinessTex, _>(c, specular_glossiness);
   add_tex_watcher::<NormalTexSamplerOf<PbrSGMaterialNormalInfo>, _>(c, normal)

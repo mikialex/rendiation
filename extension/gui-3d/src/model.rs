@@ -17,7 +17,7 @@ pub struct UIWidgetModel {
   std_model: EntityHandle<StandardModelEntity>,
   model: EntityHandle<SceneModelEntity>,
   pub(crate) node: EntityHandle<SceneNodeEntity>,
-  material: EntityHandle<FlatMaterialEntity>,
+  material: EntityHandle<UnlitMaterialEntity>,
   mesh: AttributesMeshEntities,
 }
 
@@ -102,10 +102,10 @@ impl Widget for UIWidgetModel {
 
 impl UIWidgetModel {
   pub fn new(v: &mut SceneWriter, shape: AttributesMeshData) -> Self {
-    let material = v.flat_mat_writer.new_entity();
+    let material = v.unlit_mat_writer.new_entity();
     let mesh = v.write_attribute_mesh(shape.build());
     let model = StandardModelDataView {
-      material: SceneMaterialDataView::FlatMaterial(material),
+      material: SceneMaterialDataView::UnlitMaterial(material),
       mesh: mesh.mesh,
     }
     .write(&mut v.std_model_writer);
@@ -139,7 +139,7 @@ impl UIWidgetModel {
     scene_cx.std_model_writer.delete_entity(self.std_model);
     scene_cx.model_writer.delete_entity(self.model);
     scene_cx.node_writer.delete_entity(self.node);
-    scene_cx.flat_mat_writer.delete_entity(self.material);
+    scene_cx.unlit_mat_writer.delete_entity(self.material);
 
     self
       .mesh
@@ -184,8 +184,8 @@ impl UIWidgetModel {
 
   pub fn set_color(&mut self, cx3d: &mut SceneWriter, color: Vec3<f32>) -> &mut Self {
     cx3d
-      .flat_mat_writer
-      .write::<FlatMaterialDisplayColorComponent>(self.material, color.expand_with_one());
+      .unlit_mat_writer
+      .write::<UnlitMaterialColorComponent>(self.material, color.expand_with_one());
     self
   }
   pub fn set_visible(&mut self, cx3d: &mut SceneWriter, v: bool) -> &mut Self {

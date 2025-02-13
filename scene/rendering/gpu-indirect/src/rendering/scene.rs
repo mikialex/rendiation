@@ -34,7 +34,7 @@ pub fn build_default_indirect_render_system(
       model_impl: vec![Box::new(DefaultSceneStdModelRendererProvider {
         std_model: Default::default(),
         materials: vec![
-          Box::new(FlatMaterialDefaultIndirectRenderImplProvider::default()),
+          Box::new(UnlitMaterialDefaultIndirectRenderImplProvider::default()),
           Box::new(PbrMRMaterialDefaultIndirectRenderImplProvider::default()),
           Box::new(PbrSGMaterialDefaultIndirectRenderImplProvider::default()),
         ],

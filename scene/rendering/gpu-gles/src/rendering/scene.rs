@@ -31,7 +31,7 @@ pub fn build_default_gles_render_system(
         materials: vec![
           Box::new(PbrMRMaterialDefaultRenderImplProvider::default()),
           Box::new(PbrSGMaterialDefaultRenderImplProvider::default()),
-          Box::new(FlatMaterialDefaultRenderImplProvider::default()),
+          Box::new(UnlitMaterialDefaultRenderImplProvider::default()),
         ],
         shapes: vec![Box::new(
           AttributesMeshEntityDefaultRenderImplProvider::default(),

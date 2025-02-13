@@ -57,7 +57,7 @@ pub fn pbr_mr_material_uniforms(cx: &GPU) -> PbrMRMaterialUniforms {
 #[std140_layout]
 #[derive(Clone, Copy, ShaderStruct, Debug, PartialEq, Default)]
 pub struct PhysicalMetallicRoughnessMaterialTextureHandlesUniform {
-  pub base_color_texture: TextureSamplerHandlePair,
+  pub base_color_alpha_texture: TextureSamplerHandlePair,
   pub emissive_texture: TextureSamplerHandlePair,
   pub metallic_roughness_texture: TextureSamplerHandlePair,
   pub normal_texture: TextureSamplerHandlePair,
@@ -69,11 +69,11 @@ pub type PbrMRMaterialTexUniforms =
 pub fn pbr_mr_material_tex_uniforms(cx: &GPU) -> PbrMRMaterialTexUniforms {
   let c = PbrMRMaterialTexUniforms::default();
 
-  let base_color = offset_of!(TexUniform, base_color_texture);
+  let base_color_alpha = offset_of!(TexUniform, base_color_alpha_texture);
   let emissive = offset_of!(TexUniform, emissive_texture);
   let metallic_roughness = offset_of!(TexUniform, metallic_roughness_texture);
   let normal = offset_of!(TexUniform, normal_texture);
-  let c = add_tex_watcher::<PbrMRMaterialBaseColorTex, _>(c, base_color, cx);
+  let c = add_tex_watcher::<PbrMRMaterialBaseColorAlphaTex, _>(c, base_color_alpha, cx);
   let c = add_tex_watcher::<PbrMRMaterialEmissiveTex, _>(c, emissive, cx);
   let c = add_tex_watcher::<PbrMRMaterialMetallicRoughnessTex, _>(c, metallic_roughness, cx);
   add_tex_watcher::<NormalTexSamplerOf<PbrMRMaterialNormalInfo>, _>(c, normal, cx)
@@ -88,7 +88,7 @@ pub struct PhysicalMetallicRoughnessMaterialGPU<'a> {
   pub uniform: &'a UniformBufferDataView<PhysicalMetallicRoughnessMaterialUniform>,
   pub alpha_mode: AlphaMode,
   // these idx is only useful in per object binding mode
-  pub base_color_tex_sampler: (u32, u32),
+  pub base_color_alpha_tex_sampler: (u32, u32),
   pub mr_tex_sampler: (u32, u32),
   pub emissive_tex_sampler: (u32, u32),
   pub normal_tex_sampler: (u32, u32),
@@ -110,7 +110,7 @@ impl ShaderPassBuilder for PhysicalMetallicRoughnessMaterialGPU<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(self.uniform);
     ctx.binding.bind(self.texture_uniforms);
-    setup_tex(ctx, self.binding_sys, self.base_color_tex_sampler);
+    setup_tex(ctx, self.binding_sys, self.base_color_alpha_tex_sampler);
     setup_tex(ctx, self.binding_sys, self.mr_tex_sampler);
     setup_tex(ctx, self.binding_sys, self.emissive_tex_sampler);
     setup_tex(ctx, self.binding_sys, self.normal_tex_sampler);
@@ -128,17 +128,17 @@ impl GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialGPU<'_> {
       let mut alpha = uniform.alpha;
       let mut base_color = uniform.base_color;
 
-      let base_color_tex = bind_and_sample(
+      let base_color_alpha_tex = bind_and_sample(
         self.binding_sys,
         binding,
         builder.registry(),
-        self.base_color_tex_sampler,
-        tex_uniform.base_color_texture,
+        self.base_color_alpha_tex_sampler,
+        tex_uniform.base_color_alpha_texture,
         uv,
         val(Vec4::one()),
       );
-      alpha *= base_color_tex.w();
-      base_color *= base_color_tex.xyz();
+      alpha *= base_color_alpha_tex.w();
+      base_color *= base_color_alpha_tex.xyz();
 
       let mut metallic = uniform.metallic;
       let mut roughness = uniform.roughness;

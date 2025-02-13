@@ -10,7 +10,7 @@ pub fn std_model_data(cx: &GPU) -> SceneStdModelStorageBuffer {
   let mesh_offset = offset_of!(SceneStdModelStorage, mesh);
 
   let material_flat = global_watch()
-    .watch::<StandardModelRefFlatMaterial>()
+    .watch::<StandardModelRefUnlitMaterial>()
     .collective_filter_map(|id| id.map(|v| v.index()))
     .into_boxed();
 
