@@ -1,12 +1,27 @@
 use database::*;
-// use reactive::*;
+use reactive::*;
 use rendiation_algebra::*;
+use rendiation_lighting_gpu_system::*;
+use rendiation_lighting_ltc::*;
+use rendiation_lighting_transport::*;
 use rendiation_scene_core::*;
+use rendiation_scene_rendering_gpu_base::*;
+use rendiation_shader_api::*;
+use rendiation_texture_core::*;
+use rendiation_texture_gpu_base::*;
+use rendiation_webgpu::*;
+use rendiation_webgpu_reactive_utils::*;
+
+mod gles;
+pub use gles::*;
 
 pub fn register_area_lighting_data_model() {
   global_database()
     .declare_entity::<AreaLightEntity>()
     .declare_component::<AreaLightSize>()
+    .declare_component::<AreaLightIntensity>()
+    .declare_component::<AreaLightIsRound>()
+    .declare_component::<AreaLightIsDoubleSide>()
     .declare_foreign_key::<AreaLightRefScene>()
     .declare_foreign_key::<AreaLightRefNode>();
 }

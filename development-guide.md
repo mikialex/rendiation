@@ -38,6 +38,7 @@ The following things is the current project development direction.
 
 - gpu picking
 - visibility rendering
+- cluster lighting
 - ray tracing
   - reference path tracing renderer
 

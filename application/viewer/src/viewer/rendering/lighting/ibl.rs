@@ -3,7 +3,6 @@ use std::sync::Arc;
 use fast_hash_collection::FastHashMap;
 use parking_lot::RwLock;
 use rendiation_lighting_ibl::*;
-use rendiation_texture_gpu_base::*;
 use rendiation_webgpu_reactive_utils::*;
 
 use crate::*;
@@ -19,21 +18,10 @@ pub struct IBLProvider {
 impl IBLProvider {
   pub fn new(cx: &GPU) -> Self {
     let brdf_lut_bitmap_png = include_bytes!("./brdf_lut.png");
-    let png_decoder = png::Decoder::new(brdf_lut_bitmap_png.as_slice());
-    let mut png_reader = png_decoder.read_info().unwrap();
-    let mut buf = vec![0; png_reader.output_buffer_size()];
-    png_reader.next_frame(&mut buf).unwrap();
 
-    let (width, height) = png_reader.info().size();
-    let brdf_lut = create_gpu_texture2d(
-      cx,
-      &GPUBufferImage {
-        data: buf,
-        format: TextureFormat::Rgba8Unorm, // lut is linear
-        // todo, use two channel 16 bit
-        size: Size::from_u32_pair_min_one((width, height)),
-      },
-    );
+    // todo, use two channel 16 bit
+    let brdf_lut =
+      create_gpu_tex_from_png_buffer(cx, brdf_lut_bitmap_png, TextureFormat::Rgba8Unorm);
 
     Self {
       brdf_lut,

@@ -13,9 +13,14 @@ rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
 rendiation-shader-api = { path = "../../shader/api" }
 rendiation-mesh-core = { path = "../../content/mesh/core" }
 rendiation-webgpu-reactive-utils = { path = "../../platform/graphics/webgpu-reactive-utils" }
+rendiation-lighting-gpu-system = { path = "../../content/lighting/gpu-system/lighting-system" }
 rendiation-scene-rendering-gpu-base = { path = "../../scene/rendering/gpu-base" }
 rendiation-scene-rendering-gpu-gles = { path = "../../scene/rendering/gpu-gles" }
 rendiation-scene-core = { path = "../../scene/core" }
-
+rendiation-lighting-ltc = { path = "../../content/lighting/ltc" }
+rendiation-texture-core = { path = "../../content/texture/core" }
+rendiation-texture-gpu-base = { path = "../../content/texture/gpu-base" }
+rendiation-lighting-transport = { path = "../../content/lighting/transport" }
+png = "*"
 [lints]
 workspace = true

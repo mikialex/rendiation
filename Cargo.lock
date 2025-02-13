@@ -3307,14 +3307,20 @@ name = "rendiation-area-lighting"
 version = "0.1.0"
 dependencies = [
  "database",
+ "png",
  "reactive",
  "rendiation-algebra",
  "rendiation-geometry",
+ "rendiation-lighting-gpu-system",
+ "rendiation-lighting-ltc",
+ "rendiation-lighting-transport",
  "rendiation-mesh-core",
  "rendiation-scene-core",
  "rendiation-scene-rendering-gpu-base",
  "rendiation-scene-rendering-gpu-gles",
  "rendiation-shader-api",
+ "rendiation-texture-core",
+ "rendiation-texture-gpu-base",
  "rendiation-webgpu",
  "rendiation-webgpu-reactive-utils",
 ]

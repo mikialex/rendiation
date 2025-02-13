@@ -27,9 +27,7 @@ pub struct LTCxLightEval {
   pub specular_color: Node<Vec3<f32>>,
   pub roughness: Node<f32>,
   pub geom: ENode<ShaderLightingGeometricCtx>,
-  pub ltc_1: HandleNode<ShaderTexture2D>,
-  pub ltc_2: HandleNode<ShaderTexture2D>,
-  pub sampler: HandleNode<ShaderSampler>,
+  pub lut: LTCxLUTxInvocation,
 }
 
 impl LTCxLightEval {
@@ -45,9 +43,11 @@ impl LTCxLightEval {
           normal,
           view_dir,
         },
-      ltc_1,
-      ltc_2,
-      sampler,
+      lut: LTCxLUTxInvocation {
+        ltc_1,
+        ltc_2,
+        sampler,
+      },
     } = self;
 
     let n_dot_v = normal.dot(view_dir).saturate();

@@ -21,6 +21,11 @@ pub const LTC_LUT_VERSION: u64 = 0;
 
 pub struct LTCRectLightingCompute {
   pub light: Node<LTCRectLight>,
+  pub lut: LTCxLUTxInvocation,
+}
+
+#[derive(Clone, Copy)]
+pub struct LTCxLUTxInvocation {
   pub ltc_1: HandleNode<ShaderTexture2D>,
   pub ltc_2: HandleNode<ShaderTexture2D>,
   pub sampler: HandleNode<ShaderSampler>,
@@ -46,9 +51,7 @@ impl LightingComputeInvocation for LTCRectLightingCompute {
       specular_color: shading.f0,              // todo fix
       roughness: shading.perceptual_roughness, // todo check
       geom: *geom_ctx,
-      ltc_1: self.ltc_1,
-      ltc_2: self.ltc_2,
-      sampler: self.sampler,
+      lut: self.lut,
     }
     .eval()
   }
