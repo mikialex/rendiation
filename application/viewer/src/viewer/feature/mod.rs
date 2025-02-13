@@ -8,6 +8,8 @@ mod pick_scene;
 pub use pick_scene::*;
 mod camera_helper;
 pub use camera_helper::*;
+mod light_helper;
+pub use light_helper::*;
 
 use crate::*;
 
