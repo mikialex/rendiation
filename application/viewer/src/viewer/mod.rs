@@ -9,6 +9,9 @@ mod terminal;
 pub use pick::*;
 pub use terminal::*;
 
+mod animation_player;
+pub use animation_player::*;
+
 mod console;
 pub use console::*;
 
