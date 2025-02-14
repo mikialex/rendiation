@@ -112,7 +112,7 @@ pub struct Viewer3dRenderingCtx {
   expect_read_back_for_next_render_result: bool,
   current_camera_view_projection_inv: Mat4<f32>,
   camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
-  picker: GPUxEntityIdMapPicker,
+  pub(crate) picker: GPUxEntityIdMapPicker,
 }
 
 impl Viewer3dRenderingCtx {

@@ -7,6 +7,11 @@ pub struct EntityReader<E: EntitySemantic> {
 }
 
 impl<E: EntitySemantic> EntityReader<E> {
+  pub fn reconstruct_handle_by_idx(&self, idx: usize) -> Option<EntityHandle<E>> {
+    let handle = self.inner._allocator.get_handle(idx);
+    handle.map(|h| unsafe { EntityHandle::from_raw(RawEntityHandle(h)) })
+  }
+
   pub fn read<C>(&self, idx: EntityHandle<C::Entity>) -> C::Data
   where
     C: ComponentSemantic<Entity = E>,

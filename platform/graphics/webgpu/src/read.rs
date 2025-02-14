@@ -11,6 +11,35 @@ pub struct ReadRange {
   pub offset_y: usize,
 }
 
+impl ReadRange {
+  pub fn clamp(self, full_size: Size) -> Option<Self> {
+    let (full_width, full_height) = full_size.into_usize();
+    let (read_width, read_height) = self.size.into_usize();
+
+    if self.offset_x > full_width || self.offset_y > full_height {
+      return None;
+    }
+
+    let max_x = self.offset_x + read_width;
+    let max_y = self.offset_y + read_height;
+
+    let max_x_clamped = max_x.min(full_width);
+    let max_y_clamped = max_y.min(full_height);
+
+    let width_clamped = max_x_clamped.checked_sub(self.offset_x)?;
+    let height_clamped = max_y_clamped.checked_sub(self.offset_y)?;
+
+    let size = Size::from_usize_pair_min_one((width_clamped, height_clamped));
+
+    Self {
+      size,
+      offset_x: self.offset_x,
+      offset_y: self.offset_y,
+    }
+    .into()
+  }
+}
+
 pub struct ReadableTextureBuffer {
   buffer: ReadableBuffer,
   info: TextReadBufferInfo,

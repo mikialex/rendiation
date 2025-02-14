@@ -21,6 +21,8 @@ pub fn core_viewer_features<V: Widget + 'static>(
         .with_child(SceneOrbitCameraControl::default())
         .with_child(PickScene {
           enable_hit_debug_log: false,
+          use_gpu_pick: true,
+          gpu_pick_future: Default::default(),
         })
         .with_child(content_logic(cx)),
     )
