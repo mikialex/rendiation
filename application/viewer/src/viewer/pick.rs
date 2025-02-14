@@ -14,6 +14,7 @@ use crate::*;
 pub struct ViewerPicker {
   current_mouse_ray_in_world: Ray3,
   normalized_position: Vec2<f32>,
+  normalized_position_ndc: Vec2<f32>,
   conf: MeshBufferIntersectConfig,
   camera_view_size: Size,
   scene_model_picker: SceneModelPickerImpl,
@@ -49,7 +50,7 @@ impl ViewerPicker {
     let mouse_position = &input.window_state.mouse_position;
     let window_size = &input.window_state.size;
 
-    let normalized_position =
+    let normalized_position_ndc =
       compute_normalized_position_in_canvas_coordinate(*mouse_position, *window_size);
 
     let projection_inv = dep
@@ -58,7 +59,7 @@ impl ViewerPicker {
       .unwrap()
       .view_projection_inv;
 
-    let current_mouse_ray_in_world = cast_world_ray(projection_inv, normalized_position.into());
+    let current_mouse_ray_in_world = cast_world_ray(projection_inv, normalized_position_ndc.into());
 
     ViewerPicker {
       scene_model_picker,
@@ -68,6 +69,7 @@ impl ViewerPicker {
         mouse_position.0 / window_size.0,
         mouse_position.1 / window_size.1,
       )),
+      normalized_position_ndc: normalized_position_ndc.into(),
       camera_view_size: Size::from_f32_pair_min_one(input.window_state.size),
     }
   }
@@ -76,8 +78,8 @@ impl ViewerPicker {
     self.current_mouse_ray_in_world
   }
 
-  pub fn normalized_position(&self) -> Vec2<f32> {
-    self.normalized_position
+  pub fn normalized_position_ndc(&self) -> Vec2<f32> {
+    self.normalized_position_ndc
   }
 }
 

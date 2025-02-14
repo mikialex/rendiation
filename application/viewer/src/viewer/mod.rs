@@ -90,7 +90,7 @@ impl Widget for Viewer {
             input.window_state.size.1 as u32,
           ),
           camera_world_ray: picker.current_mouse_ray_in_world(),
-          normalized_canvas_position: picker.normalized_position(),
+          normalized_canvas_position: picker.normalized_position_ndc(),
         }) as Box<dyn WidgetEnvAccess>;
 
         let mut interaction_cx = prepare_picking_state(picker, &self.widget_intersection_group);

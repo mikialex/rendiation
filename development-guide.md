@@ -10,14 +10,17 @@ The following things is the current project development direction.
 - disable ssao when channel debug on
 - fix channel debug in defer mode
 - support material emissive larger than one
+  - fix defer channel encode decode
+  - fix gltf loader support
 - fix db multi thead write lock access deadlock
 - fix parallel compute test out of bound shader access
 - fix scene gpu lighting is globally shared
-- fix some mesh can not be picked (maybe related to u16 index format)
-- fix viewer screenshot channel mismatch
+- fix some mesh can not be picked in cpu picking (maybe related to u16 index format)
+- fix viewer screenshot channel mismatch (for example gbra swapchain texture format)
 - fix shader api serialization padding bug
 - fix outline camera shaking
 - fix missing blur pass in ssao
+- fix ao should only shadowing diffuse lighting.
 - ibl brdf lut should use higher precision lut
 
 ### Indirect rendering
@@ -33,11 +36,14 @@ The following things is the current project development direction.
 - gpu driven occlusion culling
 - ltc lighting
 - on_demand_draw
+- lod graph generation
 
 ### New features planed
 
+- hdr rendering
 - visibility rendering
-- cluster lighting
+- cluster lighting optimization
+  - dependency: storagebuffer light resources.
 - ray tracing
   - reference path tracing renderer
 
@@ -61,13 +67,13 @@ cargo run --bin viewer
 cargo run --release --bin viewer # run it in release mode
 ```
 
-generate documents and open it in default browser
+generate documents and open it in default browser (currently the project is extremely lack of documentation)
 
 ```bash
 cargo doc --no-deps --open
 ```
 
-If you're on macos or linux, [the samply profiler](https://github.com/mstange/samply) is recommended to investigate cpu performance issue.  the most used command is:
+ [the samply profiler](https://github.com/mstange/samply) is recommended to investigate cpu performance issue.  the most used command is:
 
 ```bash
 cargo build --release --bin viewer
@@ -85,4 +91,7 @@ The coding style is enforced by rustfmt. Some extra notes are:
 
 ## Version control
 
-- Avoid committing derived data, binary data (including bitmap images) into the repository. We're consider using a separate submodule repository for these types of assets.
+- Avoid committing derived data, binary data (including bitmap images) into the repository,
+  We're consider using a separate submodule repository for these assets.. except:
+  - the file size is relatively small(less than 20kb), and
+  - it's act as the fundamental support for some feature.
