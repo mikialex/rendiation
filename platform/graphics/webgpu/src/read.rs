@@ -17,11 +17,25 @@ pub struct ReadableTextureBuffer {
 }
 
 impl ReadableTextureBuffer {
+  pub fn info(&self) -> TextReadBufferInfo {
+    self.info
+  }
   pub fn read_raw(&self) -> gpu::BufferView {
     self.buffer.read_raw()
   }
-  pub fn info(&self) -> TextReadBufferInfo {
-    self.info
+  pub fn read_raw_unpadded_bytes_slices(&self, reader: &mut impl FnMut(&[u8])) {
+    let padded_buffer = self.read_raw();
+    let info = self.info();
+    for chunk in padded_buffer.chunks(info.padded_bytes_per_row) {
+      reader(&chunk[..info.unpadded_bytes_per_row]);
+    }
+  }
+
+  pub fn read_into_raw_unpadded_buffer(&self) -> Vec<u8> {
+    let info = self.info();
+    let mut buffer = Vec::with_capacity(info.unpadded_bytes_per_row * info.height);
+    self.read_raw_unpadded_bytes_slices(&mut |chunk| buffer.extend_from_slice(chunk));
+    buffer
   }
 }
 

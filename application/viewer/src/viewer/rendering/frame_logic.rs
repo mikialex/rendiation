@@ -45,6 +45,7 @@ impl ViewerFrameLogic {
     post_egui(ui, &self.post);
   }
 
+  #[must_use]
   #[instrument(name = "ViewerRasterizationFrameLogic rendering", skip_all)]
   pub fn render(
     &mut self,
@@ -57,7 +58,7 @@ impl ViewerFrameLogic {
     reversed_depth: bool,
     opaque_lighting: LightingTechniqueKind,
     deferred_mat_supports: &DeferLightingMaterialRegistry,
-  ) {
+  ) -> Attachment {
     self
       .reproject
       .update(ctx, current_camera_view_projection_inv);
@@ -296,6 +297,7 @@ impl ViewerFrameLogic {
     }
 
     compose.by(&mut scene_msaa_widgets);
+    g_buffer.entity_id
   }
 }
 

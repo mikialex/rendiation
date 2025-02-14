@@ -1,4 +1,10 @@
+use std::sync::{
+  atomic::{AtomicI32, Ordering},
+  Arc,
+};
+
 use database::global_entity_component_of;
+use futures::{channel::oneshot::Sender, FutureExt};
 use rendiation_gui_3d::*;
 use rendiation_mesh_core::MeshBufferIntersectConfig;
 use rendiation_scene_geometry_query::*;
@@ -113,4 +119,55 @@ pub fn compute_normalized_position_in_canvas_coordinate(
   size: (f32, f32),
 ) -> (f32, f32) {
   (offset.0 / size.0 * 2. - 1., -(offset.1 / size.1 * 2. - 1.))
+}
+
+#[derive(Default)]
+pub struct GPUxEntityIdMapPicker {
+  wait_to_read_tasks: Vec<(Sender<ReadTextureFromStagingBuffer>, ReadRange)>,
+  unresolved_counter: Arc<AtomicI32>,
+}
+
+impl GPUxEntityIdMapPicker {
+  pub fn read_new_frame_id_buffer(
+    &mut self,
+    texture: &GPU2DTextureView,
+    gpu: &GPU,
+    encoder: &mut GPUCommandEncoder,
+  ) {
+    let tex = GPU2DTexture::try_from(texture.resource.clone()).unwrap();
+    for (sender, range) in self.wait_to_read_tasks.drain(..) {
+      sender
+        .send(encoder.read_texture_2d(&gpu.device, &tex, range))
+        .ok();
+    }
+  }
+
+  pub fn pick_ids(
+    &mut self,
+    range: ReadRange,
+  ) -> Option<Box<dyn Future<Output = Option<Vec<u32>>>>> {
+    if self.unresolved_counter.load(Ordering::Relaxed) > 100 {
+      return None;
+    }
+
+    let counter = self.unresolved_counter.clone();
+    counter.fetch_add(1, Ordering::Relaxed);
+
+    let (sender, receiver) = futures::channel::oneshot::channel();
+    self.wait_to_read_tasks.push((sender, range));
+
+    Some(Box::new(
+      async {
+        let texture_read_future = receiver.await.ok()?;
+        let texture_read_buffer = texture_read_future.await.ok()?;
+        let buffer = texture_read_buffer.read_into_raw_unpadded_buffer();
+        let buffer: &[u32] = bytemuck::cast_slice(&buffer); // todo fix potential alignment issue
+        Some(buffer.to_vec())
+      }
+      .map(move |r| {
+        counter.fetch_sub(1, Ordering::Relaxed);
+        r
+      }),
+    ))
+  }
 }

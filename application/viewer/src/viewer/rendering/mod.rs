@@ -112,6 +112,7 @@ pub struct Viewer3dRenderingCtx {
   expect_read_back_for_next_render_result: bool,
   current_camera_view_projection_inv: Mat4<f32>,
   camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
+  picker: GPUxEntityIdMapPicker,
 }
 
 impl Viewer3dRenderingCtx {
@@ -158,6 +159,7 @@ impl Viewer3dRenderingCtx {
       expect_read_back_for_next_render_result: false,
       current_camera_view_projection_inv: Default::default(),
       camera_source: camera_source_init,
+      picker: Default::default(),
     }
   }
 
@@ -363,7 +365,7 @@ impl Viewer3dRenderingCtx {
         content.scene,
       );
 
-      self.frame_logic.render(
+      let entity_id = self.frame_logic.render(
         &mut ctx,
         renderer.as_ref(),
         &lighting,
@@ -374,6 +376,12 @@ impl Viewer3dRenderingCtx {
         self.opaque_scene_content_lighting_technique,
         &self.material_defer_lighting_supports,
       );
+
+      let entity_id = entity_id.create_default_2d_view();
+      self
+        .picker
+        .read_new_frame_id_buffer(&entity_id, &self.gpu, &mut ctx.encoder);
+      //
     }
 
     // do extra copy to surface texture
