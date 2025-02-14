@@ -140,9 +140,7 @@ impl Widget for Viewer {
         });
       });
 
-      let waker = futures::task::noop_waker_ref();
-      let mut ctx = Context::from_waker(waker);
-      let ctx = &mut ctx;
+      noop_ctx!(ctx);
       self.camera_helpers.prepare_update(ctx);
 
       access_cx!(cx, viewer_scene, Viewer3dSceneCtx);
@@ -449,9 +447,7 @@ pub struct Viewer3dSceneDeriveSource {
 
 impl Viewer3dSceneDeriveSource {
   fn poll_update(&self) -> Viewer3dSceneDerive {
-    let waker = futures::task::noop_waker_ref();
-    let mut cx = Context::from_waker(waker);
-    let cx = &mut cx;
+    noop_ctx!(cx);
 
     let (_, world_mat) = self.world_mat.poll_changes(cx);
     let (_, node_net_visible) = self.node_net_visible.poll_changes(cx);

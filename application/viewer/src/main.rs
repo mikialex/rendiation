@@ -10,6 +10,7 @@ use std::any::Any;
 use std::hash::Hash;
 
 use database::*;
+use futures::FutureExt;
 use reactive::*;
 use rendiation_area_lighting::register_area_lighting_data_model;
 use rendiation_geometry::*;
@@ -73,9 +74,7 @@ where
   });
   let egui_view = EguiContext::new(viewer);
 
-  let app_loop = run_application(egui_view);
-
-  futures::executor::block_on(app_loop)
+  run_application(egui_view);
 }
 
 fn main() {

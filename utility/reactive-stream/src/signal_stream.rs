@@ -367,9 +367,8 @@ fn test_buffer_unbound() {
   send.unbounded_send(3).unwrap();
   send.unbounded_send(31).unwrap();
 
-  let waker = futures::task::noop_waker_ref();
-  let mut cx = Context::from_waker(waker);
-  let r = c.poll_next_unpin(&mut cx);
+  noop_ctx!(ctx);
+  let r = c.poll_next_unpin(ctx);
 
   assert_eq!(r, Poll::Ready(Some(10)));
   assert_eq!(front, 3);

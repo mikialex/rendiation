@@ -36,7 +36,6 @@ The following things is the current project development direction.
 
 ### New features planed
 
-- gpu picking
 - visibility rendering
 - cluster lighting
 - ray tracing

@@ -1,5 +1,3 @@
-use futures::FutureExt;
-
 use crate::*;
 
 pub struct PickSceneBlocked;
@@ -38,12 +36,12 @@ impl PickScene {
 impl Widget for PickScene {
   fn update_state(&mut self, cx: &mut DynCx) {
     if let Some(f) = &mut self.gpu_pick_future {
-      let waker = futures::task::noop_waker_ref();
-      let mut ctx = Context::from_waker(waker);
-      let ctx = &mut ctx;
-
+      noop_ctx!(ctx);
       if let Poll::Ready(r) = f.poll_unpin(ctx) {
-        println!("gpu pick resolved {:?}", r);
+        if self.enable_hit_debug_log {
+          println!("gpu pick resolved {:?}", r);
+        }
+
         if let Some(hit_entity_idx) = r {
           // skip the background
           if hit_entity_idx != u32::MAX {

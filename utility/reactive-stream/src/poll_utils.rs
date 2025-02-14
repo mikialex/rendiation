@@ -1,10 +1,18 @@
 use crate::*;
 
+#[macro_export]
+macro_rules! noop_ctx {
+  ($ctx_name: tt) => {
+    let ___waker = futures::task::noop_waker_ref();
+    let mut $ctx_name = Context::from_waker(___waker);
+    let $ctx_name = &mut $ctx_name;
+  };
+}
+
 /// note, this is just for convenience purpose, please use poll utils
 pub fn do_updates<T: Stream + Unpin>(stream: &mut T, mut on_update: impl FnMut(T::Item)) {
-  let waker = futures::task::noop_waker_ref();
-  let mut cx = Context::from_waker(waker);
-  while let Poll::Ready(Some(update)) = stream.poll_next_unpin(&mut cx) {
+  noop_ctx!(ctx);
+  while let Poll::Ready(Some(update)) = stream.poll_next_unpin(ctx) {
     on_update(update)
   }
 }
@@ -73,9 +81,8 @@ pub trait PollUtils: Stream + Unpin {
   where
     Self: Sized,
   {
-    let waker = futures::task::noop_waker_ref();
-    let mut cx = Context::from_waker(waker);
-    if let Poll::Ready(r) = self.poll_next_unpin(&mut cx) {
+    noop_ctx!(ctx);
+    if let Poll::Ready(r) = self.poll_next_unpin(ctx) {
       r
     } else {
       None
