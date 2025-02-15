@@ -2,61 +2,84 @@ use fast_hash_collection::FastHashMap;
 
 use crate::*;
 
+/// currently we implement per channel standalone looping behavior, i'm not sure how spec say about it
+/// https://github.com/KhronosGroup/glTF/issues/1179
 pub struct SceneAnimationsPlayer {
-  animations: FastHashMap<EntityHandle<SceneAnimationEntity>, AnimationPlayer>,
-  animation_source: BoxedDynReactiveOneToManyRelation<
-    EntityHandle<SceneAnimationEntity>,
+  animation_spline_cache: FastHashMap<EntityHandle<SceneAnimationChannelEntity>, AnimationSpline>,
+  animation_of_scene: BoxedDynReactiveOneToManyRelation<
     EntityHandle<SceneEntity>,
+    EntityHandle<SceneAnimationEntity>,
   >,
+  channel_of_animation: BoxedDynReactiveOneToManyRelation<
+    EntityHandle<SceneAnimationEntity>,
+    EntityHandle<SceneAnimationChannelEntity>,
+  >,
+  max_animation_time_stamp: BoxedDynReactiveQuery<EntityHandle<SceneAnimationChannelEntity>, f32>,
 }
+
+struct AnimationSpline;
 
 impl SceneAnimationsPlayer {
-  pub fn animate_targets(&mut self, scene: &mut SceneWriter, delta_time: f32) {
-    for animation in self.animations.values_mut() {
-      animation.animate_targets(scene, delta_time);
+  pub fn new() -> Self {
+    let animation_of_scene = global_rev_ref().watch_inv_ref::<SceneAnimationBelongsToScene>();
+    let channel_of_animation =
+      global_rev_ref().watch_inv_ref::<SceneAnimationChannelBelongToAnimation>();
+
+    Self {
+      animation_spline_cache: Default::default(),
+      animation_of_scene: Box::new(animation_of_scene),
+      channel_of_animation: Box::new(channel_of_animation),
+      max_animation_time_stamp: todo!(),
     }
   }
 
-  pub fn update(&mut self, cx: &mut Context) {
-    let (_, _, access) = self.animation_source.poll_changes_with_inv_dyn(cx);
-    // access.access_multi(key)
-  }
+  pub fn compute_mutation(
+    &mut self,
+    cx: &mut Context,
+    target_scene: EntityHandle<SceneEntity>,
+    scene: &mut SceneWriter,
+    absolute_world_time_in_sec: f32,
+  ) -> SceneAnimationMutation {
+    let (_, _, animation_of_scene) = self.animation_of_scene.poll_changes_with_inv_dyn(cx);
 
-  pub fn egui(&mut self, ui: &mut egui::Ui) {
-    todo!()
-  }
-}
-
-struct AnimationPlayer {
-  pub enabled: bool,
-  pub current_time_stamp: f32,
-  pub max_time_stamp: f32,
-  pub executor: FastHashMap<EntityHandle<SceneAnimationChannelEntity>, AnimationSamplerExecutor>,
-  pub target: EntityHandle<SceneNodeEntity>,
-}
-
-impl AnimationPlayer {
-  pub fn set_normalized_time_stamp(&mut self, normalized_time_stamp: f32) {
-    self.current_time_stamp = normalized_time_stamp * self.max_time_stamp
-  }
-
-  pub fn animate_targets(&mut self, scene: &mut SceneWriter, delta_time: f32) {
-    if !self.enabled {
-      return;
+    let (animation_channel_changes, _, channel_of_animation) =
+      self.channel_of_animation.poll_changes_with_inv_dyn(cx);
+    // cleanup none existed channel executor
+    for (ani, delta) in animation_channel_changes.iter_key_value() {
+      if delta.is_removed() {
+        self.animation_spline_cache.remove(&ani);
+      }
     }
-    self.current_time_stamp += delta_time;
-    self.current_time_stamp =
-      (self.current_time_stamp / self.max_time_stamp).floor() * self.max_time_stamp;
 
-    // todo update self.animation
+    let mut mutations = Vec::new();
+    let target = global_entity_component_of::<SceneAnimationChannelTargetNode>().read_foreign_key();
+    for animation in animation_of_scene.access_multi(&target_scene).unwrap() {
+      for channel in channel_of_animation.access_multi(&animation).unwrap() {
+        let new_sampler: AnimationSampler = todo!();
+        let target = target.get(channel).unwrap();
+        let action = new_sampler
+          .sample_animation(absolute_world_time_in_sec)
+          .unwrap();
+        mutations.push((action, target))
+      }
+    }
 
-    for sampler in self.executor.values_mut() {
-      let interpolation_info = sampler.sample_animation(self.current_time_stamp).unwrap();
-      match interpolation_info {
+    SceneAnimationMutation(mutations)
+  }
+}
+
+pub struct SceneAnimationMutation(Vec<(InterpolationItem, EntityHandle<SceneNodeEntity>)>);
+
+impl SceneAnimationMutation {
+  pub fn apply(self, scene: &mut SceneWriter) {
+    for (action, target) in self.0 {
+      match action {
         InterpolationItem::Position(vec3) => todo!(),
         InterpolationItem::Scale(vec3) => todo!(),
         InterpolationItem::Quaternion(quat) => todo!(),
-        InterpolationItem::MorphTargetWeights(_) => todo!(),
+        InterpolationItem::MorphTargetWeights(_) => {
+          // not supported yet
+        }
       }
     }
   }

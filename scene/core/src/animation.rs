@@ -1,6 +1,11 @@
 use crate::*;
 
 declare_entity!(SceneAnimationEntity);
+declare_foreign_key!(
+  SceneAnimationBelongsToScene,
+  SceneAnimationEntity,
+  SceneEntity
+);
 
 declare_entity!(SceneAnimationChannelEntity);
 declare_foreign_key!(
@@ -50,7 +55,9 @@ impl SceneBufferView for SceneAnimationChannelInput {}
 impl SceneBufferView for SceneAnimationChannelOutput {}
 
 pub fn register_scene_animation_data_model() {
-  global_database().declare_entity::<SceneAnimationEntity>();
+  global_database()
+    .declare_entity::<SceneAnimationEntity>()
+    .declare_foreign_key::<SceneAnimationBelongsToScene>();
 
   let ecg = global_database()
     .declare_entity::<SceneAnimationChannelEntity>()

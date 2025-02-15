@@ -248,7 +248,12 @@ fn build_model(
 }
 
 fn build_animation(animation: gltf::Animation, ctx: &mut Context) {
-  let animation_handle = ctx.io.animation.new_entity();
+  let animation_handle = ctx
+    .io
+    .animation
+    .component_value_writer::<SceneAnimationBelongsToScene>(ctx.io.scene.some_handle())
+    .new_entity();
+
   animation.channels().for_each(|channel| {
     let target = channel.target();
     let node = *ctx.result.node_map.get(&target.node().index()).unwrap();
