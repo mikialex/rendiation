@@ -1,11 +1,8 @@
-use fast_hash_collection::FastHashMap;
-
 use crate::*;
 
 /// currently we implement per channel standalone looping behavior, i'm not sure how spec say about it
 /// https://github.com/KhronosGroup/glTF/issues/1179
 pub struct SceneAnimationsPlayer {
-  animation_spline_cache: FastHashMap<EntityHandle<SceneAnimationChannelEntity>, AnimationSpline>,
   animation_of_scene: BoxedDynReactiveOneToManyRelation<
     EntityHandle<SceneEntity>,
     EntityHandle<SceneAnimationEntity>,
@@ -16,8 +13,6 @@ pub struct SceneAnimationsPlayer {
   >,
 }
 
-struct AnimationSpline;
-
 impl SceneAnimationsPlayer {
   #[allow(clippy::new_without_default)]
   pub fn new() -> Self {
@@ -26,7 +21,6 @@ impl SceneAnimationsPlayer {
       global_rev_ref().watch_inv_ref::<SceneAnimationChannelBelongToAnimation>();
 
     Self {
-      animation_spline_cache: Default::default(),
       animation_of_scene: Box::new(animation_of_scene),
       channel_of_animation: Box::new(channel_of_animation),
     }
@@ -39,34 +33,41 @@ impl SceneAnimationsPlayer {
     absolute_world_time_in_sec: f32,
   ) -> SceneAnimationMutation {
     let (_, _, animation_of_scene) = self.animation_of_scene.poll_changes_with_inv_dyn(cx);
-
-    let (animation_channel_changes, _, channel_of_animation) =
-      self.channel_of_animation.poll_changes_with_inv_dyn(cx);
-    // cleanup none existed channel executor
-    for (ani, delta) in animation_channel_changes.iter_key_value() {
-      if delta.is_removed() {
-        self.animation_spline_cache.remove(&ani);
-      }
-    }
+    let (_, _, channel_of_animation) = self.channel_of_animation.poll_changes_with_inv_dyn(cx);
 
     let channel_reader = global_entity_of::<SceneAnimationChannelEntity>().entity_reader();
+    let buffer_reader = global_entity_component_of::<BufferEntityData>().read();
+    let input_read = SceneBufferViewReadView::<SceneAnimationChannelInput>::new_from_global();
+    let output_read = SceneBufferViewReadView::<SceneAnimationChannelOutput>::new_from_global();
 
     let mut mutations = Vec::new();
     let target = global_entity_component_of::<SceneAnimationChannelTargetNode>().read_foreign_key();
-    for animation in animation_of_scene.access_multi(&target_scene).unwrap() {
-      for channel in channel_of_animation.access_multi(&animation).unwrap() {
-        let new_sampler = AnimationSampler {
-          interpolation: channel_reader.read::<SceneAnimationChannelInterpolation>(channel),
-          field: channel_reader.read::<SceneAnimationChannelField>(channel),
-          input: read_attribute_accessor::<SceneAnimationChannelInput>(&channel_reader),
-          output: read_attribute_accessor::<SceneAnimationChannelOutput>(&channel_reader),
-        };
+    if let Some(animations_in_scene) = animation_of_scene.access_multi(&target_scene) {
+      for animation in animations_in_scene {
+        if let Some(animation) = channel_of_animation.access_multi(&animation) {
+          for channel in animation {
+            let new_sampler = AnimationSampler {
+              interpolation: channel_reader.read::<SceneAnimationChannelInterpolation>(channel),
+              field: channel_reader.read::<SceneAnimationChannelField>(channel),
+              input: scene_buffer_view_into_attribute(
+                input_read.read_view(channel).unwrap(),
+                &buffer_reader,
+              )
+              .unwrap(),
+              output: scene_buffer_view_into_attribute(
+                output_read.read_view(channel).unwrap(),
+                &buffer_reader,
+              )
+              .unwrap(),
+            };
 
-        let target = target.get(channel).unwrap();
-        let action = new_sampler
-          .sample_animation(absolute_world_time_in_sec)
-          .unwrap();
-        mutations.push((action, target))
+            let target = target.get(channel).unwrap();
+            let action = new_sampler
+              .sample_animation(absolute_world_time_in_sec)
+              .unwrap();
+            mutations.push((action, target))
+          }
+        }
       }
     }
 

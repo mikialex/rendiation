@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use crate::*;
 
 mod feature;
@@ -31,6 +33,8 @@ pub struct Viewer {
   terminal: Terminal,
   background: ViewerBackgroundState,
   camera_helpers: SceneCameraHelper,
+  animation_player: SceneAnimationsPlayer,
+  started_time: Instant,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -146,8 +150,18 @@ impl Widget for Viewer {
       noop_ctx!(ctx);
       self.camera_helpers.prepare_update(ctx);
 
+      let time = Instant::now()
+        .duration_since(self.started_time)
+        .as_secs_f32();
+
       access_cx!(cx, viewer_scene, Viewer3dSceneCtx);
+      let mutation = self
+        .animation_player
+        .compute_mutation(ctx, viewer_scene.scene, time);
+
       let mut writer = SceneWriter::from_global(viewer_scene.scene);
+
+      mutation.apply(&mut writer);
 
       self.camera_helpers.apply_updates(
         &mut writer,
@@ -281,6 +295,8 @@ impl Viewer {
       on_demand_draw: Default::default(),
       egui_db_inspector: Default::default(),
       background,
+      animation_player: SceneAnimationsPlayer::new(),
+      started_time: Instant::now(),
     }
   }
 

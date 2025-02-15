@@ -82,7 +82,10 @@ impl AnimationChannelDataView {
       .animation_channel
       .component_value_writer::<SceneAnimationChannelField>(self.sampler.field)
       .component_value_writer::<SceneAnimationChannelInterpolation>(self.sampler.interpolation)
-      .component_value_writer::<SceneAnimationChannelTargetNode>(self.target_node.some_handle());
+      .component_value_writer::<SceneAnimationChannelTargetNode>(self.target_node.some_handle())
+      .component_value_writer::<SceneAnimationChannelBelongToAnimation>(
+        self.animation.some_handle(),
+      );
 
     let data = self.sampler.input.clone().write(&mut writer.buffer_writer);
     let input = SceneBufferViewDataView {
@@ -116,9 +119,24 @@ pub struct AnimationSampler {
 
 impl AnimationSampler {
   pub fn sample_animation(&self, time: f32) -> Option<InterpolationItem> {
-    let (mut spline, (start_time, end_time)) = InterpolateInstance::try_from_sampler(self, time)?;
-    let normalized_time = (end_time - time) / (end_time - start_time);
+    let sample_time = self.get_looped_sample_time(time);
+    let (mut spline, (start_time, end_time)) =
+      InterpolateInstance::try_from_sampler(self, sample_time)?;
+    let normalized_time = (end_time - sample_time) / (end_time - start_time);
     spline.sample_animation(normalized_time)
+  }
+
+  pub fn get_start_end_time(&self) -> (f32, f32) {
+    let start = self.input.read().get::<f32>(0).unwrap();
+    let end = self.input.read().get::<f32>(self.input.count - 1).unwrap();
+    (start, end)
+  }
+
+  pub fn get_looped_sample_time(&self, abs_time: f32) -> f32 {
+    let (start_time, end_time) = self.get_start_end_time();
+    let length = end_time - start_time;
+    let remind = abs_time - (abs_time / length).floor() * length;
+    start_time + remind
   }
 }
 
