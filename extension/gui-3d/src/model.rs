@@ -107,6 +107,7 @@ impl UIWidgetModel {
     let model = StandardModelDataView {
       material: SceneMaterialDataView::UnlitMaterial(material),
       mesh: mesh.mesh,
+      skin: None,
     }
     .write(&mut v.std_model_writer);
     let node = v.node_writer.new_entity();

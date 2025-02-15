@@ -76,6 +76,7 @@ impl SceneReader {
     StandardModelDataView {
       material: SceneMaterialDataView::PbrMRMaterial(pbr_mr),
       mesh: m.read_expected_foreign_key::<StandardModelRefAttributesMeshEntity>(id),
+      skin: m.read_foreign_key::<StandardModelRefSkin>(id),
     }
   }
 

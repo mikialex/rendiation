@@ -63,6 +63,7 @@ pub fn load_obj_content(
       StandardModelDataView {
         material: SceneMaterialDataView::PbrSGMaterial(material),
         mesh: attribute_mesh,
+        skin: None,
       }
     })
     .collect();

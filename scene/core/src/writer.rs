@@ -92,7 +92,11 @@ impl SceneWriter {
     mesh: EntityHandle<AttributesMeshEntity>,
     node: EntityHandle<SceneNodeEntity>,
   ) -> EntityHandle<SceneModelEntity> {
-    let std_model = StandardModelDataView { material, mesh };
+    let std_model = StandardModelDataView {
+      material,
+      mesh,
+      skin: None,
+    };
     let std_model = std_model.write(&mut self.std_model_writer);
     let sm = SceneModelDataView {
       model: std_model,

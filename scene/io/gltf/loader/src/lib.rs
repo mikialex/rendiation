@@ -231,7 +231,11 @@ fn build_model(
 
   let material = build_material(primitive.material(), ctx);
 
-  let model = StandardModelDataView { material, mesh };
+  let model = StandardModelDataView {
+    material,
+    mesh,
+    skin: None,
+  };
 
   if let Some(_skin) = gltf_node.skin() {
     // let sk = ctx.result.skin_map.get(&skin.index()).unwrap();
@@ -306,13 +310,13 @@ fn build_animation(animation: gltf::Animation, ctx: &mut Context) {
 //   }
 
 //   // https://stackoverflow.com/questions/64734695/what-does-it-mean-when-gltf-does-not-specify-a-skeleton-value-in-a-skin
-//   // let skeleton_root = skin
-//   //   .skeleton()
-//   //   .and_then(|n| ctx.result.node_map.get(&n.index()))
-//   //   .unwrap_or(scene_inner.root());
+//   let skeleton_root = skin
+//     .skeleton()
+//     .and_then(|n| ctx.result.node_map.get(&n.index()))
+//     .unwrap_or(scene_inner.root()); // todo create a new root
 
-//   let skeleton = SkeletonImpl { joints }.into_ptr();
-//   ctx.result.skin_map.insert(skin.index(), skeleton);
+//   // let skeleton = SkeletonImpl { joints }.into_ptr();
+//   // ctx.result.skin_map.insert(skin.index(), skeleton);
 // }
 
 fn build_data_view(view: gltf::buffer::View, ctx: &mut Context) -> UnTypedBufferView {
