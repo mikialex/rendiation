@@ -115,7 +115,7 @@ pub struct AnimationSampler {
 }
 
 impl AnimationSampler {
-  pub fn sample_animation(&mut self, time: f32) -> Option<InterpolationItem> {
+  pub fn sample_animation(&self, time: f32) -> Option<InterpolationItem> {
     let (mut spline, (start_time, end_time)) = InterpolateInstance::try_from_sampler(self, time)?;
     let normalized_time = (end_time - time) / (end_time - start_time);
     spline.sample_animation(normalized_time)

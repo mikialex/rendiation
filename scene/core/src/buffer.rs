@@ -38,6 +38,12 @@ impl EntityCustomWrite<BufferEntity> for AttributeAccessor {
   }
 }
 
+pub fn read_attribute_accessor<C: SceneBufferView>(
+  entity: &EntityReader<C::Entity>,
+) -> AttributeAccessor {
+  todo!()
+}
+
 pub trait SceneBufferView: EntityAssociateSemantic {}
 
 #[derive(Clone)]
