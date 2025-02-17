@@ -3776,6 +3776,7 @@ dependencies = [
  "rendiation-shader-api",
  "rendiation-shader-library",
  "rendiation-texture-core",
+ "rendiation-texture-gpu-base",
  "rendiation-webgpu",
  "rendiation-webgpu-reactive-utils",
  "thiserror 1.0.63",

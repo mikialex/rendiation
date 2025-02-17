@@ -1,3 +1,7 @@
+use fast_hash_collection::FastHashMap;
+use rendiation_texture_core::{GPUBufferImage, Size};
+use rendiation_texture_gpu_base::GPUBufferImageForeignImpl;
+
 use crate::*;
 
 pub trait BoneMatrixAccessInvocation {
@@ -65,4 +69,58 @@ impl GraphicsShaderProvider for SkinVertexTransform {
       }
     })
   }
+}
+
+/// in gles mode we have to use texture to store bone matrix
+pub struct SkinBoneMatrixesDataTextureComputer {
+  offset_mats: BoxedDynReactiveQuery<EntityHandle<SceneJointEntity>, (Mat4<f32>, u32)>,
+  bind_matrixes:
+    FastHashMap<EntityHandle<SceneSkinEntity>, (Vec<Mat4<f32>>, Option<GPU2DTextureView>)>,
+  skins: BoxedDynReactiveQuery<EntityHandle<SceneSkinEntity>, ()>,
+}
+
+impl SkinBoneMatrixesDataTextureComputer {
+  pub fn poll_update(&mut self, cx: &mut Context, gpu: &GPU) {
+    let skin_access = global_database().read_foreign_key::<SceneJointBelongToSkin>();
+    let (mat_changes, _) = self.offset_mats.poll_changes(cx);
+    for (k, change) in mat_changes.iter_key_value() {
+      let skin = skin_access.get(k).unwrap();
+      let (bind_matrixes, gpu) = self.bind_matrixes.entry(skin).or_default();
+      match change {
+        ValueChange::Delta((value, idx), _) => {
+          bind_matrixes.resize(bind_matrixes.len().max(idx as usize), Mat4::identity());
+          bind_matrixes[idx as usize] = value;
+          *gpu = None;
+        }
+        ValueChange::Remove(_) => {} // we not impl shrink for simplicity
+      }
+    }
+    for (k, _) in mat_changes.iter_key_value() {
+      let skin = skin_access.get(k).unwrap();
+      let (bind_matrixes, gpu_textures) = self.bind_matrixes.get_mut(&skin).unwrap();
+      gpu_textures.get_or_insert_with(|| create_data_texture(gpu, bind_matrixes));
+    }
+    let (c, _) = self.skins.poll_changes(cx);
+    for (k, change) in c.iter_key_value() {
+      if change.is_removed() {
+        self.bind_matrixes.remove(&k);
+      }
+    }
+  }
+}
+
+fn create_data_texture(cx: &GPU, bind_matrixes: &[Mat4<f32>]) -> GPU2DTextureView {
+  let pixel_count_required = bind_matrixes.len() * 4;
+  let image = GPUBufferImage {
+    data: cast_slice(bind_matrixes).to_vec(),
+    format: TextureFormat::Rgba32Float,
+    size: Size::from_usize_pair_min_one((pixel_count_required, 1)),
+  };
+  let texture = GPUBufferImageForeignImpl { inner: &image };
+
+  let desc = texture.create_tex2d_desc(MipLevelCount::EmptyMipMap);
+  let gpu_texture = GPUTexture::create(desc, &cx.device);
+  let gpu_texture: GPU2DTexture = gpu_texture.try_into().unwrap();
+  let gpu_texture = gpu_texture.upload_into(&cx.queue, &texture, 0);
+  gpu_texture.create_default_view().try_into().unwrap()
 }
