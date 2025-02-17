@@ -3843,6 +3843,7 @@ dependencies = [
 name = "rendiation-shader-api"
 version = "0.1.0"
 dependencies = [
+ "anymap",
  "bytemuck",
  "fast-hash-collection",
  "once_cell",

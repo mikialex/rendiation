@@ -1,3 +1,5 @@
+use anymap::AnyMap;
+
 use crate::*;
 
 #[derive(Default)]
@@ -7,6 +9,7 @@ pub struct SemanticRegistry {
   /// this is useful if the semantic is dynamic for example the runtime index or enum
   pub dynamic_semantic: FastHashMap<String, NodeUntyped>,
   pub dynamic_tag: FastHashSet<TypeId>,
+  pub any_map: AnyMap,
 }
 
 impl SemanticRegistry {
@@ -119,12 +122,12 @@ impl<const I: usize> SemanticVertexShaderValue for GeometryUVChannel<I> {
 
 pub struct JointIndexChannel<const I: usize>;
 impl<const I: usize> SemanticVertexShaderValue for JointIndexChannel<I> {
-  type ValueType = u32; // todo support u8 u16
+  type ValueType = Vec4<u32>; // todo support u8 u16
 }
 
 pub struct WeightChannel<const I: usize>;
 impl<const I: usize> SemanticVertexShaderValue for WeightChannel<I> {
-  type ValueType = f32;
+  type ValueType = Vec4<f32>;
 }
 
 only_vertex!(GeometryColor, Vec3<f32>);

@@ -13,6 +13,7 @@ rendiation-algebra = { path = "../../math/algebra" }
 rendiation-shader-derives = { path = "../derive" }
 parking_lot = { workspace = true }
 wgpu-types = { workspace = true }
+anymap = { path = "../../utility/anymap" }
 
 [lints]
 workspace = true
