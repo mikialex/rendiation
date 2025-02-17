@@ -107,8 +107,18 @@ pub fn register_default_commands(terminal: &mut Terminal) {
       let mut writer = SceneWriter::from_global(load_target_scene);
 
       if let Some(file_handle) = file_handle {
-        rendiation_scene_gltf_loader::load_gltf(file_handle.path(), load_target_node, &mut writer)
-          .unwrap();
+        let load_result = rendiation_scene_gltf_loader::load_gltf(
+          file_handle.path(),
+          load_target_node,
+          &mut writer,
+        )
+        .unwrap();
+        if !load_result.used_but_not_supported_extensions.is_empty() {
+          println!(
+            "warning: gltf load finished but some used(but not required) extensions are not supported: {:#?}",
+            &load_result.used_but_not_supported_extensions
+          );
+        }
       }
     }
   });

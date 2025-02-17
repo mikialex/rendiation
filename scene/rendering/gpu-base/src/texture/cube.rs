@@ -49,7 +49,7 @@ pub fn create_fallback_empty_cube_texture(device: &GPUDevice) -> GPUCubeTexture 
       dimension: TextureDimension::D2,
       format: TextureFormat::Rgba8UnormSrgb,
       view_formats: &[],
-      usage: TextureUsages::all(),
+      usage: basic_texture_usages(),
     },
     device,
   )

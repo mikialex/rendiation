@@ -10,6 +10,7 @@ pub use wgpu_types::Face;
 pub use wgpu_types::MultisampleState;
 pub use wgpu_types::PrimitiveState;
 pub use wgpu_types::SamplerBindingType;
+pub use wgpu_types::ShaderStages;
 pub use wgpu_types::TextureFormat;
 pub use wgpu_types::TextureSampleType;
 pub use wgpu_types::TextureViewDimension;

@@ -1,3 +1,5 @@
+# Rendiation scene gltf2 loader
+
 ## Implementation Notes
 
 the current gltf loader does not preserve the lossless gltf entities relationship:
@@ -6,8 +8,9 @@ the current gltf loader does not preserve the lossless gltf entities relationshi
 * some shareable entities could be cloned
 * but the largest data part will be correctly shared
 
-lossless means if your load gltf and export, the file content should not change.
+lossless defined as if your load gltf and export, the file content should not change.
 
 ## links
 
-https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html
+<https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html>
+<https://github.com/KhronosGroup/glTF/blob/main/extensions/README.md>

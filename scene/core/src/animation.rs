@@ -1,10 +1,22 @@
 use crate::*;
 
+declare_entity!(SceneAnimationEntity);
+declare_foreign_key!(
+  SceneAnimationBelongsToScene,
+  SceneAnimationEntity,
+  SceneEntity
+);
+
 declare_entity!(SceneAnimationChannelEntity);
 declare_foreign_key!(
   SceneAnimationChannelTargetNode,
   SceneAnimationChannelEntity,
   SceneNodeEntity
+);
+declare_foreign_key!(
+  SceneAnimationChannelBelongToAnimation,
+  SceneAnimationChannelEntity,
+  SceneAnimationEntity
 );
 
 declare_component!(
@@ -43,13 +55,56 @@ impl SceneBufferView for SceneAnimationChannelInput {}
 impl SceneBufferView for SceneAnimationChannelOutput {}
 
 pub fn register_scene_animation_data_model() {
+  global_database()
+    .declare_entity::<SceneAnimationEntity>()
+    .declare_foreign_key::<SceneAnimationBelongsToScene>();
+
   let ecg = global_database()
     .declare_entity::<SceneAnimationChannelEntity>()
+    .declare_foreign_key::<SceneAnimationChannelBelongToAnimation>()
+    .declare_foreign_key::<SceneAnimationChannelTargetNode>()
     .declare_component::<SceneAnimationChannelInterpolation>()
     .declare_component::<SceneAnimationChannelField>();
 
   let ecg = register_scene_buffer_view::<SceneAnimationChannelInput>(ecg);
   let _ = register_scene_buffer_view::<SceneAnimationChannelOutput>(ecg);
+}
+
+pub struct AnimationChannelDataView {
+  pub sampler: AnimationSampler,
+  pub target_node: EntityHandle<SceneNodeEntity>,
+  pub animation: EntityHandle<SceneAnimationEntity>,
+}
+
+impl AnimationChannelDataView {
+  pub fn write(&self, writer: &mut SceneWriter) -> EntityHandle<SceneAnimationChannelEntity> {
+    writer
+      .animation_channel
+      .component_value_writer::<SceneAnimationChannelField>(self.sampler.field)
+      .component_value_writer::<SceneAnimationChannelInterpolation>(self.sampler.interpolation)
+      .component_value_writer::<SceneAnimationChannelTargetNode>(self.target_node.some_handle())
+      .component_value_writer::<SceneAnimationChannelBelongToAnimation>(
+        self.animation.some_handle(),
+      );
+
+    let data = self.sampler.input.clone().write(&mut writer.buffer_writer);
+    let input = SceneBufferViewDataView {
+      data: Some(data),
+      range: None,
+      count: Some(self.sampler.input.count as u32),
+    };
+    let data = self.sampler.output.clone().write(&mut writer.buffer_writer);
+    let output = SceneBufferViewDataView {
+      data: Some(data),
+      range: None,
+      count: Some(self.sampler.output.count as u32),
+    };
+
+    input.write::<SceneAnimationChannelInput>(&mut writer.animation_channel);
+    output.write::<SceneAnimationChannelOutput>(&mut writer.animation_channel);
+
+    writer.animation_channel.new_entity()
+  }
 }
 
 /// An animation sampler combines timestamps with a sequence of
@@ -63,10 +118,25 @@ pub struct AnimationSampler {
 }
 
 impl AnimationSampler {
-  pub fn sample_animation(&mut self, time: f32) -> Option<InterpolationItem> {
-    let (mut spline, (start_time, end_time)) = InterpolateInstance::try_from_sampler(self, time)?;
-    let normalized_time = (end_time - time) / (end_time - start_time);
+  pub fn sample_animation(&self, time: f32) -> Option<InterpolationItem> {
+    let sample_time = self.get_looped_sample_time(time);
+    let (mut spline, (start_time, end_time)) =
+      InterpolateInstance::try_from_sampler(self, sample_time)?;
+    let normalized_time = (end_time - sample_time) / (end_time - start_time);
     spline.sample_animation(normalized_time)
+  }
+
+  pub fn get_start_end_time(&self) -> (f32, f32) {
+    let start = self.input.read().get::<f32>(0).unwrap();
+    let end = self.input.read().get::<f32>(self.input.count - 1).unwrap();
+    (start, end)
+  }
+
+  pub fn get_looped_sample_time(&self, abs_time: f32) -> f32 {
+    let (start_time, end_time) = self.get_start_end_time();
+    let length = end_time - start_time;
+    let remind = abs_time - (abs_time / length).floor() * length;
+    start_time + remind
   }
 }
 

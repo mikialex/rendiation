@@ -111,7 +111,7 @@ impl Attachment {
     &self.des
   }
 
-  fn create_default_2d_view(&self) -> GPU2DTextureView {
+  pub fn create_default_2d_view(&self) -> GPU2DTextureView {
     self
       .texture
       .create_view(Default::default())

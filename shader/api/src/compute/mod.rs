@@ -45,10 +45,10 @@ pub fn workgroup_barrier() {
 }
 
 impl ShaderComputePipelineBuilder {
-  pub fn new(api: &dyn Fn(ShaderStages) -> DynamicShaderAPI) -> Self {
+  pub fn new(api: &dyn Fn(ShaderStage) -> DynamicShaderAPI) -> Self {
     set_build_api_by(api);
 
-    set_current_building(ShaderStages::Compute.into());
+    set_current_building(ShaderStage::Compute.into());
 
     use ShaderBuiltInDecorator::*;
     let r = Self {
@@ -115,7 +115,7 @@ impl ShaderComputePipelineBuilder {
   }
 
   pub fn bind_by<T: ShaderBindingProvider>(&mut self, instance: &T) -> Node<T::Node> {
-    self.bindgroups().bind_by_and_prepare(instance).using()
+    self.bindgroups().bind_by(instance)
   }
 
   pub fn with_log_shader(mut self) -> Self {

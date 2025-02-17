@@ -53,8 +53,9 @@ impl GraphicsShaderProvider for NodeGPUStorage<'_> {
       builder.register::<WorldNormalMatrix>(node.normal_matrix);
       builder.register::<WorldVertexPosition>(position.xyz());
 
-      let normal = builder.query::<GeometryNormal>();
-      builder.register::<WorldVertexNormal>(node.normal_matrix * normal);
+      if let Some(normal) = builder.try_query::<GeometryNormal>() {
+        builder.register::<WorldVertexNormal>(node.normal_matrix * normal);
+      }
     })
   }
 }

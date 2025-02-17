@@ -85,7 +85,6 @@ By leveraging these crates, users can build, assemble and customize their own fe
   - gizmo
   - gui-3d
   - infinity-primitive
-  - scene-debug-helper
   - state-override
   - view-override-model
   - wide-line

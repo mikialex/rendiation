@@ -275,7 +275,7 @@ impl GraphicsShaderProvider for DefaultSceneModelIdInject {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, binding| {
       let buffer = binding.bind_by(&self.id_buffer);
-      let current_id = builder.query::<IndirectSceneModelId>();
+      let current_id = builder.query::<LogicalRenderEntityId>();
       let model = buffer.index(current_id).load().expand();
       builder.register::<IndirectSceneNodeId>(model.node);
       builder.register::<IndirectSceneStdModelId>(model.std_model);

@@ -6,17 +6,20 @@ pub struct SceneWriter {
   pub camera_writer: EntityWriter<SceneCameraEntity>,
   pub mesh_writer: AttributesMeshEntityFromAttributesMeshWriter,
   pub tex_writer: EntityWriter<SceneTexture2dEntity>,
+  pub buffer_writer: EntityWriter<BufferEntity>,
   pub cube_writer: EntityWriter<SceneTextureCubeEntity>,
   pub sampler_writer: EntityWriter<SceneSamplerEntity>,
   pub node_writer: EntityWriter<SceneNodeEntity>,
   pub std_model_writer: EntityWriter<StandardModelEntity>,
   pub model_writer: EntityWriter<SceneModelEntity>,
-  pub flat_mat_writer: EntityWriter<FlatMaterialEntity>,
+  pub unlit_mat_writer: EntityWriter<UnlitMaterialEntity>,
   pub pbr_sg_mat_writer: EntityWriter<PbrSGMaterialEntity>,
   pub pbr_mr_mat_writer: EntityWriter<PbrMRMaterialEntity>,
   pub point_light_writer: EntityWriter<PointLightEntity>,
   pub directional_light_writer: EntityWriter<DirectionalLightEntity>,
   pub spot_light_writer: EntityWriter<SpotLightEntity>,
+  pub animation: EntityWriter<SceneAnimationEntity>,
+  pub animation_channel: EntityWriter<SceneAnimationChannelEntity>,
 }
 
 impl SceneWriter {
@@ -89,7 +92,11 @@ impl SceneWriter {
     mesh: EntityHandle<AttributesMeshEntity>,
     node: EntityHandle<SceneNodeEntity>,
   ) -> EntityHandle<SceneModelEntity> {
-    let std_model = StandardModelDataView { material, mesh };
+    let std_model = StandardModelDataView {
+      material,
+      mesh,
+      skin: None,
+    };
     let std_model = std_model.write(&mut self.std_model_writer);
     let sm = SceneModelDataView {
       model: std_model,
@@ -124,19 +131,19 @@ impl SceneWriter {
       node_writer: global_entity_of().entity_writer(),
       std_model_writer: global_entity_of().entity_writer(),
       model_writer: global_entity_of().entity_writer(),
-      flat_mat_writer: global_entity_of().entity_writer(),
+      unlit_mat_writer: global_entity_of().entity_writer(),
       pbr_sg_mat_writer: global_entity_of().entity_writer(),
       pbr_mr_mat_writer: global_entity_of().entity_writer(),
       point_light_writer: global_entity_of().entity_writer(),
       directional_light_writer: global_entity_of().entity_writer(),
       spot_light_writer: global_entity_of().entity_writer(),
+      animation: global_entity_of().entity_writer(),
+      animation_channel: global_entity_of().entity_writer(),
+      buffer_writer: global_entity_of().entity_writer(),
     }
   }
-  pub fn write_attribute_mesh(
-    &mut self,
-    mesh: AttributesMesh,
-  ) -> EntityHandle<mesh::AttributesMeshEntity> {
-    mesh.write(&mut self.mesh_writer)
+  pub fn write_attribute_mesh(&mut self, mesh: AttributesMesh) -> AttributesMeshEntities {
+    mesh.write(&mut self.mesh_writer, &mut self.buffer_writer)
   }
 
   pub fn texture_sample_pair_writer(&mut self) -> TexSamplerWriter {

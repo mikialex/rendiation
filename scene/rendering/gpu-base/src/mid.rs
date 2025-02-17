@@ -1,7 +1,5 @@
 use crate::*;
 
-only_vertex!(IndirectSceneModelId, u32);
-
 pub trait DrawCommandBuilder: ShaderHashProvider + ShaderPassBuilder + DynClone {
   fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> DrawCommand;
   fn build_invocation(
@@ -48,8 +46,8 @@ impl GraphicsShaderProvider for IndirectDrawProviderAsRenderComponent<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, binder| {
       let invocation = self.0.create_indirect_invocation_source(binder);
-      let scene_id = invocation.current_invocation_scene_model_id(builder);
-      builder.register::<IndirectSceneModelId>(scene_id);
+      let scene_model_id = invocation.current_invocation_scene_model_id(builder);
+      builder.register::<LogicalRenderEntityId>(scene_model_id);
     })
   }
 }

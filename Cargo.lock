@@ -745,16 +745,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "console_error_panic_hook"
-version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a06aeb73f470f66dcdbf7223caeebb85984942f22f1adb2a088cf9668146bbbc"
-dependencies = [
- "cfg-if",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "const_fn"
 version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1048,8 +1038,9 @@ dependencies = [
 
 [[package]]
 name = "ecolor"
-version = "0.30.0"
-source = "git+https://github.com/emilk/egui.git?rev=cf965aaa30987a5b6fa2380f37c0ce8cb869347d#cf965aaa30987a5b6fa2380f37c0ce8cb869347d"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "878e9005799dd739e5d5d89ff7480491c12d0af571d44399bcaefa1ee172dd76"
 dependencies = [
  "bytemuck",
  "emath",
@@ -1057,8 +1048,9 @@ dependencies = [
 
 [[package]]
 name = "egui"
-version = "0.30.0"
-source = "git+https://github.com/emilk/egui.git?rev=cf965aaa30987a5b6fa2380f37c0ce8cb869347d#cf965aaa30987a5b6fa2380f37c0ce8cb869347d"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d2768eaa6d5c80a6e2a008da1f0e062dff3c83eb2b28605ea2d0732d46e74d6"
 dependencies = [
  "ahash",
  "bitflags 2.8.0",
@@ -1071,8 +1063,9 @@ dependencies = [
 
 [[package]]
 name = "egui-wgpu"
-version = "0.30.0"
-source = "git+https://github.com/emilk/egui.git?rev=cf965aaa30987a5b6fa2380f37c0ce8cb869347d#cf965aaa30987a5b6fa2380f37c0ce8cb869347d"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6d8151704bcef6271bec1806c51544d70e79ef20e8616e5eac01facfd9c8c54a"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -1089,8 +1082,9 @@ dependencies = [
 
 [[package]]
 name = "egui-winit"
-version = "0.30.0"
-source = "git+https://github.com/emilk/egui.git?rev=cf965aaa30987a5b6fa2380f37c0ce8cb869347d#cf965aaa30987a5b6fa2380f37c0ce8cb869347d"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ace791b367c1f63e6044aef2f3834904509d1d1a6912fd23ebf3f6a9af92cd84"
 dependencies = [
  "ahash",
  "arboard",
@@ -1107,8 +1101,9 @@ dependencies = [
 
 [[package]]
 name = "egui_extras"
-version = "0.30.0"
-source = "git+https://github.com/emilk/egui.git?rev=cf965aaa30987a5b6fa2380f37c0ce8cb869347d#cf965aaa30987a5b6fa2380f37c0ce8cb869347d"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b5b5cf69510eb3d19211fc0c062fb90524f43fe8e2c012967dcf0e2d81cb040f"
 dependencies = [
  "ahash",
  "egui",
@@ -1126,8 +1121,9 @@ checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
 
 [[package]]
 name = "emath"
-version = "0.30.0"
-source = "git+https://github.com/emilk/egui.git?rev=cf965aaa30987a5b6fa2380f37c0ce8cb869347d#cf965aaa30987a5b6fa2380f37c0ce8cb869347d"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "55b7b6be5ad1d247f11738b0e4699d9c20005ed366f2c29f5ec1f8e1de180bc2"
 dependencies = [
  "bytemuck",
 ]
@@ -1195,8 +1191,9 @@ dependencies = [
 
 [[package]]
 name = "epaint"
-version = "0.30.0"
-source = "git+https://github.com/emilk/egui.git?rev=cf965aaa30987a5b6fa2380f37c0ce8cb869347d#cf965aaa30987a5b6fa2380f37c0ce8cb869347d"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "275b665a7b9611d8317485187e5458750850f9e64604d3c58434bb3fc1d22915"
 dependencies = [
  "ab_glyph",
  "ahash",
@@ -1212,8 +1209,9 @@ dependencies = [
 
 [[package]]
 name = "epaint_default_fonts"
-version = "0.30.0"
-source = "git+https://github.com/emilk/egui.git?rev=cf965aaa30987a5b6fa2380f37c0ce8cb869347d#cf965aaa30987a5b6fa2380f37c0ce8cb869347d"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9343d356d7cac894dacafc161b4654e0881301097bdf32a122ed503d97cb94b6"
 
 [[package]]
 name = "equivalent"
@@ -3305,6 +3303,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-area-lighting"
+version = "0.1.0"
+dependencies = [
+ "database",
+ "png",
+ "reactive",
+ "rendiation-algebra",
+ "rendiation-geometry",
+ "rendiation-lighting-gpu-system",
+ "rendiation-lighting-ltc",
+ "rendiation-lighting-transport",
+ "rendiation-mesh-core",
+ "rendiation-scene-core",
+ "rendiation-scene-rendering-gpu-base",
+ "rendiation-scene-rendering-gpu-gles",
+ "rendiation-shader-api",
+ "rendiation-texture-core",
+ "rendiation-texture-gpu-base",
+ "rendiation-webgpu",
+ "rendiation-webgpu-reactive-utils",
+]
+
+[[package]]
 name = "rendiation-barycentric-solid-line"
 version = "0.1.0"
 dependencies = [
@@ -3451,7 +3472,6 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-scene-core",
  "rendiation-shader-api",
- "rendiation-state-override",
  "rendiation-webgpu",
 ]
 
@@ -3499,6 +3519,8 @@ version = "0.1.0"
 dependencies = [
  "image 0.25.1",
  "rendiation-algebra",
+ "rendiation-lighting-gpu-system",
+ "rendiation-lighting-transport",
  "rendiation-shader-api",
  "rendiation-texture-core",
  "rendiation-texture-loader",
@@ -3653,21 +3675,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rendiation-scene-debug-helper"
-version = "0.1.0"
-dependencies = [
- "database",
- "reactive",
- "rendiation-algebra",
- "rendiation-scene-core",
- "rendiation-scene-rendering-gpu-gles",
- "rendiation-shader-api",
- "rendiation-state-override",
- "rendiation-webgpu",
- "winit",
-]
-
-[[package]]
 name = "rendiation-scene-geometry-query"
 version = "0.1.0"
 dependencies = [
@@ -3769,6 +3776,7 @@ dependencies = [
  "rendiation-shader-api",
  "rendiation-shader-library",
  "rendiation-texture-core",
+ "rendiation-texture-gpu-base",
  "rendiation-webgpu",
  "rendiation-webgpu-reactive-utils",
  "thiserror 1.0.63",
@@ -3836,6 +3844,7 @@ dependencies = [
 name = "rendiation-shader-api"
 version = "0.1.0"
 dependencies = [
+ "anymap",
  "bytemuck",
  "fast-hash-collection",
  "once_cell",
@@ -4846,7 +4855,6 @@ name = "viewer"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "console_error_panic_hook",
  "database",
  "dirs",
  "egui",
@@ -4858,7 +4866,6 @@ dependencies = [
  "futures",
  "heap-tools",
  "image 0.25.1",
- "itertools 0.12.1",
  "log",
  "parking_lot",
  "pin-project",
@@ -4867,6 +4874,7 @@ dependencies = [
  "rayon",
  "reactive",
  "rendiation-algebra",
+ "rendiation-area-lighting",
  "rendiation-controller",
  "rendiation-device-ray-tracing",
  "rendiation-geometry",
@@ -4890,6 +4898,8 @@ dependencies = [
  "rendiation-scene-rendering-gpu-indirect",
  "rendiation-scene-rendering-gpu-ray-tracing",
  "rendiation-shader-api",
+ "rendiation-shader-library",
+ "rendiation-state-override",
  "rendiation-texture-core",
  "rendiation-texture-gpu-base",
  "rendiation-texture-gpu-process",
@@ -4900,7 +4910,6 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "tracing-tracy",
- "wasm-bindgen-futures",
  "winit",
 ]
 

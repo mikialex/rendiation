@@ -123,12 +123,20 @@ pub struct StateCxCreateOnce<T, F> {
 }
 
 impl<T, F: Fn(&mut DynCx) -> T> StateCxCreateOnce<T, F> {
-  pub fn new(f: F) -> Self {
+  pub fn create_at_view(f: F) -> Self {
     Self {
       inner: None,
       f,
       create_at_state: false,
       create_at_view: true,
+    }
+  }
+  pub fn create_at_state(f: F) -> Self {
+    Self {
+      inner: None,
+      f,
+      create_at_state: true,
+      create_at_view: false,
     }
   }
 }

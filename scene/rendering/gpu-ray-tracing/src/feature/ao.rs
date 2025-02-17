@@ -38,7 +38,7 @@ impl AORenderState {
       ao_buffer: create_empty_2d_texture_view(
         gpu,
         size,
-        TextureUsages::all(),
+        basic_texture_usages(),
         TextureFormat::Rgba8Unorm,
       ),
       sample_count_host: Default::default(),
@@ -77,9 +77,13 @@ impl Default for AOShaderHandles {
 }
 
 impl RayTracingAORenderSystem {
-  pub fn new(rtx: &RtxSystemCore, gpu: &GPU, ndc: impl NDCSpaceMapper<f32> + Copy) -> Self {
+  pub fn new(
+    rtx: &RtxSystemCore,
+    gpu: &GPU,
+    camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
+  ) -> Self {
     Self {
-      camera: Box::new(DefaultRtxCameraRenderImplProvider::new(ndc)),
+      camera: Box::new(DefaultRtxCameraRenderImplProvider::new(camera_source)),
       scene_tlas: Default::default(),
       sbt: Default::default(),
       executor: rtx.rtx_device.create_raytracing_pipeline_executor(),
@@ -249,7 +253,7 @@ impl SceneRayTracingAORenderer {
         let previous_sample_count = ao_cx.ao_sample_count.load().x().into_f32();
         let all_sample_count = previous_sample_count + val(1.0);
 
-        let previous_sample_acc = ao_cx.ao_buffer.load_texel(position, val(0)).x();
+        let previous_sample_acc = ao_cx.ao_buffer.load_storage_texture_texel(position).x();
         let new_sample_acc =
           (previous_sample_acc * previous_sample_count + payload) / all_sample_count;
         let new_sample_acc = new_sample_acc.splat::<Vec3<_>>();

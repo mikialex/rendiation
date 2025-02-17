@@ -54,8 +54,10 @@ impl DatabaseMutationWatch {
 
   pub fn watch_entity_set<E: EntitySemantic>(
     &self,
-  ) -> impl ReactiveQuery<Key = RawEntityHandle, Value = ()> {
-    self.watch_entity_set_dyn(E::entity_id())
+  ) -> impl ReactiveQuery<Key = EntityHandle<E>, Value = ()> {
+    self
+      .watch_entity_set_dyn(E::entity_id())
+      .collective_key_dual_map(|k| unsafe { EntityHandle::<E>::from_raw(k) }, |k| k.handle)
   }
 
   pub fn watch_entity_set_untyped_key<E: EntitySemantic>(

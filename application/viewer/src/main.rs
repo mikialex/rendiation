@@ -10,13 +10,16 @@ use std::any::Any;
 use std::hash::Hash;
 
 use database::*;
+use futures::FutureExt;
 use reactive::*;
+use rendiation_area_lighting::register_area_lighting_data_model;
 use rendiation_geometry::*;
 use rendiation_gui_3d::*;
 use rendiation_lighting_gpu_system::*;
 use rendiation_lighting_transport::*;
 use rendiation_scene_rendering_gpu_gles::*;
 use rendiation_shader_api::*;
+use rendiation_texture_gpu_base::SamplerConvertExt;
 use tracing::*;
 use winit::{
   event::{Event, WindowEvent},
@@ -61,18 +64,17 @@ where
   register_scene_core_data_model();
   register_light_shadow_config();
   register_gui3d_extension_data_model();
+  register_area_lighting_data_model();
 
   let content_logic = core_viewer_features(content_logic);
 
-  let viewer = StateCxCreateOnce::new(|cx| {
+  let viewer = StateCxCreateOnce::create_at_view(|cx| {
     access_cx!(cx, gpu, GPU);
     Viewer::new(gpu.clone(), content_logic(cx))
   });
   let egui_view = EguiContext::new(viewer);
 
-  let app_loop = run_application(egui_view);
-
-  futures::executor::block_on(app_loop)
+  run_application(egui_view);
 }
 
 fn main() {

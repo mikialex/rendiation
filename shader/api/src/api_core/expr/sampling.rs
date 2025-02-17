@@ -340,7 +340,7 @@ impl<T: ShaderTextureType> HandleNode<T> {
       .sample()
   }
 
-  pub fn load_texel(&self, position: Node<T::LoadInput>, _level: Node<u32>) -> Node<T::Output>
+  pub fn load_storage_texture_texel(&self, position: Node<T::LoadInput>) -> Node<T::Output>
   where
     T: SingleSampleTarget + SingleLayerTarget + ShaderDirectLoad,
   {
@@ -349,7 +349,21 @@ impl<T: ShaderTextureType> HandleNode<T> {
       position: position.handle(),
       array_index: None,
       sample_index: None,
-      level: None, // level.handle().into(), todo fix naga error
+      level: None,
+    })
+    .insert_api()
+  }
+
+  pub fn load_texel(&self, position: Node<T::LoadInput>, level: Node<u32>) -> Node<T::Output>
+  where
+    T: SingleSampleTarget + SingleLayerTarget + ShaderDirectLoad,
+  {
+    ShaderNodeExpr::TextureLoad(ShaderTextureLoad {
+      texture: self.handle(),
+      position: position.handle(),
+      array_index: None,
+      sample_index: None,
+      level: level.into_i32().handle().into(), // todo, fix naga require i32
     })
     .insert_api()
   }
@@ -770,4 +784,27 @@ where
       })
     })
   }
+}
+
+///// extra
+
+#[derive(Clone, Copy)]
+pub struct ShaderTexture2DUint;
+sg_node_impl!(
+  ShaderTexture2DUint,
+  ShaderValueSingleType::Texture {
+    dimension: TextureViewDimension::D2,
+    sample_type: TextureSampleType::Uint,
+    multi_sampled: false,
+  }
+);
+
+impl SingleSampleTarget for ShaderTexture2DUint {}
+impl SingleLayerTarget for ShaderTexture2DUint {}
+impl ShaderTextureType for ShaderTexture2DUint {
+  type Input = Vec2<u32>;
+  type Output = Vec4<u32>;
+}
+impl ShaderDirectLoad for ShaderTexture2DUint {
+  type LoadInput = Vec2<u32>;
 }

@@ -1,8 +1,15 @@
 use crate::*;
 
+mod axis;
 mod frame_logic;
 mod grid_ground;
 mod lighting;
+mod outline;
+
+mod g_buffer;
+pub use g_buffer::*;
+mod defer_lighting;
+pub use defer_lighting::*;
 
 mod post;
 pub use frame_logic::*;
@@ -22,6 +29,13 @@ use rendiation_webgpu::*;
 enum RasterizationRenderBackendType {
   Gles,
   Indirect,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum LightingTechniqueKind {
+  Forward,
+  DeferLighting,
+  // Visibility,
 }
 
 pub type BoxedSceneRenderImplProvider =
@@ -51,7 +65,8 @@ fn init_renderer(
   updater: &mut ReactiveQueryJoinUpdater,
   ty: RasterizationRenderBackendType,
   gpu: &GPU,
-  ndc: ViewerNDC,
+  camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
+  enable_reverse_z: bool,
 ) -> BoxedSceneRenderImplProvider {
   let prefer_bindless_textures = false;
   let mut renderer_impl = match ty {
@@ -60,8 +75,8 @@ fn init_renderer(
       Box::new(build_default_gles_render_system(
         gpu,
         prefer_bindless_textures,
-        ndc,
-        ndc.enable_reverse_z,
+        camera_source,
+        enable_reverse_z,
       )) as BoxedSceneRenderImplProvider
     }
     RasterizationRenderBackendType::Indirect => {
@@ -69,8 +84,8 @@ fn init_renderer(
       Box::new(build_default_indirect_render_system(
         gpu,
         prefer_bindless_textures,
-        ndc,
-        ndc.enable_reverse_z,
+        camera_source,
+        enable_reverse_z,
       ))
     }
   };
@@ -88,12 +103,16 @@ pub struct Viewer3dRenderingCtx {
   current_renderer_impl_ty: RasterizationRenderBackendType,
   rtx_ao_renderer_impl: Option<RayTracingAORenderSystem>,
   enable_rtx_ao_rendering: bool,
+  opaque_scene_content_lighting_technique: LightingTechniqueKind,
   lighting: LightSystem,
+  material_defer_lighting_supports: DeferLightingMaterialRegistry,
   pool: AttachmentPool,
   gpu: GPU,
   on_encoding_finished: EventSource<ViewRenderedState>,
   expect_read_back_for_next_render_result: bool,
   current_camera_view_projection_inv: Mat4<f32>,
+  camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
+  pub(crate) picker: GPUxEntityIdMapPicker,
 }
 
 impl Viewer3dRenderingCtx {
@@ -101,17 +120,24 @@ impl Viewer3dRenderingCtx {
     &self.gpu
   }
 
-  pub fn new(gpu: GPU, ndc: ViewerNDC) -> Self {
+  pub fn new(
+    gpu: GPU,
+    ndc: ViewerNDC,
+    camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
+  ) -> Self {
     let mut rendering_resource = ReactiveQueryJoinUpdater::default();
 
     let lighting =
       LightSystem::new_and_register(&mut rendering_resource, &gpu, ndc.enable_reverse_z, ndc);
 
+    let camera_source_init = camera_source.clone_as_static();
+
     let renderer_impl = init_renderer(
       &mut rendering_resource,
       RasterizationRenderBackendType::Gles,
       &gpu,
-      ndc,
+      camera_source,
+      ndc.enable_reverse_z,
     );
 
     Self {
@@ -122,13 +148,18 @@ impl Viewer3dRenderingCtx {
       current_renderer_impl_ty: RasterizationRenderBackendType::Gles,
       rtx_ao_renderer_impl: None, // late init
       enable_rtx_ao_rendering: false,
+      opaque_scene_content_lighting_technique: LightingTechniqueKind::Forward,
       frame_logic: ViewerFrameLogic::new(&gpu),
       lighting,
+      material_defer_lighting_supports: DeferLightingMaterialRegistry::default()
+        .register_material_impl::<PbrSurfaceEncodeDecode>(),
       gpu,
       pool: Default::default(),
       on_encoding_finished: Default::default(),
       expect_read_back_for_next_render_result: false,
       current_camera_view_projection_inv: Default::default(),
+      camera_source: camera_source_init,
+      picker: Default::default(),
     }
   }
 
@@ -148,8 +179,11 @@ impl Viewer3dRenderingCtx {
       if self.rtx_ao_renderer_impl.is_none() {
         let rtx_backend_system = GPUWaveFrontComputeRaytracingSystem::new(&self.gpu);
         let rtx_system = RtxSystemCore::new(Box::new(rtx_backend_system));
-        let mut rtx_ao_renderer_impl =
-          RayTracingAORenderSystem::new(&rtx_system, &self.gpu, self.ndc);
+        let mut rtx_ao_renderer_impl = RayTracingAORenderSystem::new(
+          &rtx_system,
+          &self.gpu,
+          self.camera_source.clone_as_static(),
+        );
 
         rtx_ao_renderer_impl.register_resource(&mut self.rendering_resource, &self.gpu);
 
@@ -164,6 +198,12 @@ impl Viewer3dRenderingCtx {
   }
 
   pub fn egui(&mut self, ui: &mut egui::Ui) {
+    let is_target_support_indirect_draw = self
+      .gpu
+      .info
+      .supported_features
+      .contains(Features::MULTI_DRAW_INDIRECT_COUNT);
+
     let old = self.current_renderer_impl_ty;
     egui::ComboBox::from_label("RasterizationRender Backend")
       .selected_text(format!("{:?}", &self.current_renderer_impl_ty))
@@ -173,11 +213,36 @@ impl Viewer3dRenderingCtx {
           RasterizationRenderBackendType::Gles,
           "Gles",
         );
+
+        ui.add_enabled_ui(is_target_support_indirect_draw, |ui| {
+          ui.selectable_value(
+            &mut self.current_renderer_impl_ty,
+            RasterizationRenderBackendType::Indirect,
+            "Indirect",
+          )
+          .on_disabled_hover_text("current platform/gpu does not support indirect rendering");
+        });
+      });
+
+    ui.separator();
+
+    egui::ComboBox::from_label("Lighting technique for opaque objects")
+      .selected_text(format!(
+        "{:?}",
+        &self.opaque_scene_content_lighting_technique
+      ))
+      .show_ui(ui, |ui| {
         ui.selectable_value(
-          &mut self.current_renderer_impl_ty,
-          RasterizationRenderBackendType::Indirect,
-          "Indirect",
+          &mut self.opaque_scene_content_lighting_technique,
+          LightingTechniqueKind::Forward,
+          "Forward",
         );
+
+        ui.selectable_value(
+          &mut self.opaque_scene_content_lighting_technique,
+          LightingTechniqueKind::DeferLighting,
+          "DeferLighting",
+        )
       });
 
     ui.separator();
@@ -190,28 +255,39 @@ impl Viewer3dRenderingCtx {
         &mut self.rendering_resource,
         self.current_renderer_impl_ty,
         &self.gpu,
-        self.ndc,
+        self.camera_source.clone_as_static(),
+        self.ndc.enable_reverse_z,
       );
     }
 
-    let mut indirect_occlusion_culling_impl_exist = self.indirect_occlusion_culling_impl.is_some();
-    ui.checkbox(
-      &mut indirect_occlusion_culling_impl_exist,
-      "occlusion_culling_system_is_ready",
-    );
-    self.set_enable_indirect_occlusion_culling_support(indirect_occlusion_culling_impl_exist);
+    ui.add_enabled_ui(is_target_support_indirect_draw, |ui| {
+      let mut indirect_occlusion_culling_impl_exist =
+        self.indirect_occlusion_culling_impl.is_some();
+      ui.checkbox(
+        &mut indirect_occlusion_culling_impl_exist,
+        "occlusion_culling_system_is_ready",
+      )
+      .on_disabled_hover_text("current platform/gpu does not support gpu driven occlusion culling");
+      self.set_enable_indirect_occlusion_culling_support(indirect_occlusion_culling_impl_exist);
+    });
 
-    let mut rtx_ao_renderer_impl_exist = self.rtx_ao_renderer_impl.is_some();
-    ui.checkbox(&mut rtx_ao_renderer_impl_exist, "rtx_ao_renderer_is_ready");
-    self.set_enable_rtx_ao_rendering_support(rtx_ao_renderer_impl_exist);
+    let is_vulkan = self.gpu.info.adaptor_info.backend == Backend::Vulkan;
+    ui.add_enabled_ui(is_vulkan, |ui| {
+      let mut rtx_ao_renderer_impl_exist = self.rtx_ao_renderer_impl.is_some();
+      ui.checkbox(&mut rtx_ao_renderer_impl_exist, "rtx_ao_renderer_is_ready")
+        .on_disabled_hover_text(
+          "currently the ray tracing related feature only enabled on vulkan backend",
+        );
+      self.set_enable_rtx_ao_rendering_support(rtx_ao_renderer_impl_exist);
 
-    if let Some(ao) = &self.rtx_ao_renderer_impl {
-      ui.checkbox(&mut self.enable_rtx_ao_rendering, "enable_rtx_ao_rendering");
-      // todo, currently the on demand rendering is broken, use this button to workaround.
-      if ui.button("reset ao sample").clicked() {
-        ao.reset_ao_sample(&self.gpu);
+      if let Some(ao) = &self.rtx_ao_renderer_impl {
+        ui.checkbox(&mut self.enable_rtx_ao_rendering, "enable_rtx_ao_rendering");
+        // todo, currently the on demand rendering is broken, use this button to workaround.
+        if ui.button("reset ao sample").clicked() {
+          ao.reset_ao_sample(&self.gpu);
+        }
       }
-    }
+    });
 
     ui.separator();
 
@@ -255,7 +331,7 @@ impl Viewer3dRenderingCtx {
       RenderTargetView::Texture(create_empty_2d_texture_view(
         &self.gpu,
         target.size(),
-        TextureUsages::all(),
+        basic_texture_usages(),
         target.format(),
       ))
     } else {
@@ -289,9 +365,7 @@ impl Viewer3dRenderingCtx {
         content.scene,
       );
 
-      let lighting = lighting.get_scene_lighting(content.scene);
-
-      self.frame_logic.render(
+      let entity_id = self.frame_logic.render(
         &mut ctx,
         renderer.as_ref(),
         &lighting,
@@ -299,7 +373,15 @@ impl Viewer3dRenderingCtx {
         &render_target,
         self.current_camera_view_projection_inv,
         self.ndc.enable_reverse_z,
+        self.opaque_scene_content_lighting_technique,
+        &self.material_defer_lighting_supports,
       );
+
+      let entity_id = entity_id.create_default_2d_view();
+      self
+        .picker
+        .read_new_frame_id_buffer(&entity_id, &self.gpu, &mut ctx.encoder);
+      //
     }
 
     // do extra copy to surface texture

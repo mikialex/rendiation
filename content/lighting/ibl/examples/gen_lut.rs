@@ -12,8 +12,12 @@ pub async fn main() {
 
   let size = Size::from_u32_pair_min_one((64, 64));
 
-  let target =
-    create_empty_2d_texture_view(&gpu, size, TextureUsages::all(), TextureFormat::Rgba8Unorm);
+  let target = create_empty_2d_texture_view(
+    &gpu,
+    size,
+    basic_texture_usages(),
+    TextureFormat::Rgba8Unorm,
+  );
   let target_res = target.resource.clone();
 
   let mut encoder = gpu.create_encoder();
@@ -35,13 +39,7 @@ pub async fn main() {
   gpu.submit_encoder(encoder);
   let result = reader.await.unwrap();
 
-  let padded_buffer = result.read_raw();
-  let info = result.info();
-  let mut buffer = Vec::with_capacity(info.unpadded_bytes_per_row * info.height);
-  for chunk in padded_buffer.chunks(info.padded_bytes_per_row) {
-    buffer.extend_from_slice(&chunk[..info.unpadded_bytes_per_row]);
-  }
-
+  let buffer = result.read_into_raw_unpadded_buffer();
   let image: &[Vec4<u8>] = bytemuck::cast_slice(&buffer);
   let image = Texture2DBuffer {
     data: image.to_vec(),

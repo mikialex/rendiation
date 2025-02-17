@@ -3,6 +3,7 @@ use crate::*;
 pub struct Interaction3dCtx {
   pub picker: Box<dyn Picker3d>,
   pub mouse_world_ray: Ray3,
+  pub normalized_mouse_position: Vec2<f32>, // (0, 1)
   /// return nearest hit point for intersection_group
   pub world_ray_intersected_nearest: Option<(HitPoint3D, EntityHandle<SceneModelEntity>)>,
 }

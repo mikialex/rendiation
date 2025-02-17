@@ -5,16 +5,16 @@ pub struct BrdfEval {
   pub pdf: f32,
 }
 
-pub trait Brdf: Copy {
+pub trait BrdfForLTCxFit: Copy {
   fn eval(&self, v: Vec3<f32>, l: Vec3<f32>, alpha: f32) -> BrdfEval;
   fn sample(&self, v: Vec3<f32>, alpha: f32, u1: f32, u2: f32) -> Vec3<f32>;
 }
 
 #[derive(Clone, Copy)]
 #[allow(clippy::upper_case_acronyms)]
-pub struct GGX;
+pub struct GGXxLTCxFit;
 
-impl Brdf for GGX {
+impl BrdfForLTCxFit for GGXxLTCxFit {
   fn eval(&self, v: Vec3<f32>, l: Vec3<f32>, alpha: f32) -> BrdfEval {
     if v.z <= 0. {
       return BrdfEval { value: 0., pdf: 0. };

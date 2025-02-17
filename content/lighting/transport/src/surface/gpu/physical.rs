@@ -17,11 +17,10 @@ pub fn compute_dielectric_f0(reflectance: Node<f32>) -> Node<f32> {
   val(0.16) * reflectance * reflectance
 }
 
-impl LightableSurfaceShadingProvider for PhysicalShading {
-  fn construct_shading(
-    &self,
+impl PhysicalShading {
+  pub fn construct_shading_impl(
     builder: &mut ShaderFragmentBuilder,
-  ) -> Box<dyn LightableSurfaceShading> {
+  ) -> ENode<ShaderPhysicalShading> {
     let perceptual_roughness = builder
       .try_query::<RoughnessChannel>()
       .or_else(|| {
@@ -60,16 +59,26 @@ impl LightableSurfaceShadingProvider for PhysicalShading {
       .try_query::<EmissiveChannel>()
       .unwrap_or_else(|| val(Vec3::zero()));
 
-    Box::new(ENode::<ShaderPhysicalShading> {
+    ENode::<ShaderPhysicalShading> {
       diffuse,
       f0,
       perceptual_roughness,
       emissive,
-    })
+    }
   }
 }
 
-impl LightableSurfaceShading for ENode<ShaderPhysicalShading> {
+impl LightableSurfaceShadingLogicProvider for PhysicalShading {
+  fn construct_shading(
+    &self,
+    builder: &mut ShaderFragmentBuilder,
+  ) -> Box<dyn LightableSurfaceShading> {
+    Box::new(PhysicalShading::construct_shading_impl(builder))
+  }
+}
+
+/// we have to use the real type name to avoid mysterious impl conflict, what a shame
+impl LightableSurfaceShading for ShaderPhysicalShadingShaderAPIInstance {
   fn compute_lighting_by_incident(
     &self,
     direct_light: &ENode<ShaderIncidentLight>,

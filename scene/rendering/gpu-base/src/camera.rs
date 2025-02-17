@@ -17,8 +17,11 @@ pub trait CameraRenderImpl {
 pub type CameraUniforms =
   UniformUpdateContainer<EntityHandle<SceneCameraEntity>, CameraGPUTransform>;
 
-pub fn camera_gpus(cx: &GPU, ndc: impl NDCSpaceMapper<f32> + Copy) -> CameraUniforms {
-  let source = camera_transforms(ndc)
+pub fn camera_gpus(
+  cx: &GPU,
+  camera_transforms: impl ReactiveQuery<Key = EntityHandle<SceneCameraEntity>, Value = CameraTransform>,
+) -> CameraUniforms {
+  let source = camera_transforms
     // todo, fix jitter override
     .collective_map(CameraGPUTransform::from)
     .into_query_update_uniform(0, cx);
@@ -34,10 +37,10 @@ impl CameraGPU {
   pub fn inject_uniforms(
     &self,
     builder: &mut ShaderRenderPipelineBuilder,
-  ) -> BindingPreparer<ShaderUniformPtr<CameraGPUTransform>> {
+  ) -> GraphicsPairInputNodeAccessor<ShaderUniformPtr<CameraGPUTransform>> {
     builder
       .bind_by_and_prepare(&self.ubo)
-      .using_graphics_pair(builder, |r, camera| {
+      .using_graphics_pair(|r, camera| {
         let camera = camera.load().expand();
         r.register_typed_both_stage::<CameraViewMatrix>(camera.view);
         r.register_typed_both_stage::<CameraProjectionMatrix>(camera.projection);
@@ -66,7 +69,7 @@ impl GraphicsShaderProvider for CameraGPU {
     let camera = self.inject_uniforms(builder);
 
     builder.vertex(|builder, _| {
-      let camera = camera.using().load().expand();
+      let camera = camera.get().load().expand();
       if let Some(position) = builder.try_query::<WorldVertexPosition>() {
         let mut clip_position = camera.view_projection * (position, val(1.)).into();
 
@@ -136,16 +139,16 @@ impl From<CameraTransform> for CameraGPUTransform {
 //   )
 // }
 
-pub struct DefaultGLESCameraRenderImplProvider<T> {
+pub struct DefaultGLESCameraRenderImplProvider {
+  camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
   uniforms: UpdateResultToken,
-  ndc_mapper: T,
 }
 
-impl<T> DefaultGLESCameraRenderImplProvider<T> {
-  pub fn new(ndc_mapper: T) -> Self {
+impl DefaultGLESCameraRenderImplProvider {
+  pub fn new(camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>) -> Self {
     Self {
       uniforms: Default::default(),
-      ndc_mapper,
+      camera_source,
     }
   }
 }
@@ -154,11 +157,9 @@ pub struct DefaultGLESCameraRenderImpl {
   uniforms: LockReadGuardHolder<CameraUniforms>,
 }
 
-impl<T: NDCSpaceMapper<f32> + Copy> RenderImplProvider<Box<dyn CameraRenderImpl>>
-  for DefaultGLESCameraRenderImplProvider<T>
-{
+impl RenderImplProvider<Box<dyn CameraRenderImpl>> for DefaultGLESCameraRenderImplProvider {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    let uniforms = camera_gpus(cx, self.ndc_mapper);
+    let uniforms = camera_gpus(cx, self.camera_source.clone());
     self.uniforms = source.register_multi_updater(uniforms);
   }
   fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {

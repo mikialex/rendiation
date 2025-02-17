@@ -107,15 +107,14 @@ impl GPUDevice {
 
   pub fn create_and_cache_bindgroup_layout<'a>(
     &self,
-    iter: impl Iterator<Item = &'a ShaderBindingDescriptor>,
-    is_compute: bool,
+    iter: impl IntoIterator<Item = (&'a ShaderBindingDescriptor, ShaderStages)> + Clone,
   ) -> GPUBindGroupLayout {
-    let layouts: Vec<_> = iter.cloned().collect();
+    let layouts: Vec<_> = iter.clone().into_iter().map(|v| v.0).cloned().collect();
 
-    let raw_layouts: Vec<_> = layouts
-      .iter()
+    let raw_layouts: Vec<_> = iter
+      .into_iter()
       .enumerate()
-      .map(|(i, ty)| map_shader_value_ty_to_binding_layout_type(ty, i, is_compute))
+      .map(|(i, (ty, vis))| map_shader_value_ty_to_binding_layout_type(ty, i, vis))
       .collect();
 
     let mut hasher = FastHasher::default();

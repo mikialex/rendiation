@@ -31,11 +31,11 @@ pub enum BlockBuildingState {
 const ENTRY_POINT_NAME: &str = "main";
 
 impl ShaderAPINagaImpl {
-  pub fn new(stage: ShaderStages) -> Self {
+  pub fn new(stage: ShaderStage) -> Self {
     let stage = match stage {
-      ShaderStages::Vertex => naga::ShaderStage::Vertex,
-      ShaderStages::Fragment => naga::ShaderStage::Fragment,
-      ShaderStages::Compute => naga::ShaderStage::Compute,
+      ShaderStage::Vertex => naga::ShaderStage::Vertex,
+      ShaderStage::Fragment => naga::ShaderStage::Fragment,
+      ShaderStage::Compute => naga::ShaderStage::Compute,
     };
 
     let mut module = naga::Module::default();
@@ -264,7 +264,9 @@ impl ShaderAPINagaImpl {
           let access = match access {
             StorageTextureAccess::Load => naga::StorageAccess::LOAD,
             StorageTextureAccess::Store => naga::StorageAccess::STORE,
-            StorageTextureAccess::LoadStore => naga::StorageAccess::all(),
+            StorageTextureAccess::LoadStore => {
+              naga::StorageAccess::LOAD | naga::StorageAccess::STORE
+            }
           };
 
           let class = naga::ImageClass::Storage { format, access };
@@ -446,7 +448,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
           AddressSpace::Uniform => naga::AddressSpace::Uniform,
           AddressSpace::Storage { writeable } => naga::AddressSpace::Storage {
             access: if writeable {
-              naga::StorageAccess::all()
+              naga::StorageAccess::LOAD | naga::StorageAccess::STORE
             } else {
               naga::StorageAccess::LOAD
             },
@@ -537,11 +539,10 @@ impl ShaderAPI for ShaderAPINagaImpl {
     }
   }
 
-  fn define_next_frag_out(&mut self) -> ShaderNodeRawHandle {
+  fn define_next_frag_out(&mut self, ty: ShaderSizedValueType) -> ShaderNodeRawHandle {
     assert!(self.block.len() == 1); // we should define input in root scope
     assert!(self.building_fn.len() == 1);
 
-    let ty = ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Vec4Float32);
     self.outputs_define.push(ShaderStructFieldMetaInfo {
       name: format!("frag_out_{}", self.outputs_define.len()),
       ty: ty.clone(),

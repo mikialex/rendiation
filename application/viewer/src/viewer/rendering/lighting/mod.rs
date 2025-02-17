@@ -1,6 +1,8 @@
 use std::num::NonZeroU32;
 
+use rendiation_area_lighting::AreaLightUniformLightList;
 use rendiation_lighting_shadow_map::*;
+use rendiation_texture_gpu_base::create_gpu_texture2d;
 use rendiation_texture_gpu_process::ToneMap;
 
 mod debug_channels;
@@ -14,6 +16,27 @@ use punctual::*;
 pub use shadow::*;
 
 use crate::*;
+
+pub fn create_gpu_tex_from_png_buffer(
+  cx: &GPU,
+  buf: &[u8],
+  format: TextureFormat,
+) -> GPU2DTextureView {
+  let png_decoder = png::Decoder::new(buf);
+  let mut png_reader = png_decoder.read_info().unwrap();
+  let mut buf = vec![0; png_reader.output_buffer_size()];
+  png_reader.next_frame(&mut buf).unwrap();
+
+  let (width, height) = png_reader.info().size();
+  create_gpu_texture2d(
+    cx,
+    &GPUBufferImage {
+      data: buf,
+      format,
+      size: Size::from_u32_pair_min_one((width, height)),
+    },
+  )
+}
 
 pub struct LightSystem {
   reversed_depth: bool,
@@ -121,6 +144,11 @@ impl LightSystem {
       gpu,
     );
 
+    let ltc_1 = include_bytes!("./ltc_1.png");
+    let ltc_1 = create_gpu_tex_from_png_buffer(gpu, ltc_1.as_slice(), TextureFormat::Rgba8Unorm);
+    let ltc_2 = include_bytes!("./ltc_2.png");
+    let ltc_2 = create_gpu_tex_from_png_buffer(gpu, ltc_2.as_slice(), TextureFormat::Rgba8Unorm);
+
     let mut internal = Box::new(
       DifferentLightRenderImplProvider::default()
         .with_light(DirectionalUniformLightList::new(
@@ -136,6 +164,11 @@ impl LightSystem {
           reversed_depth,
         ))
         .with_light(PointLightUniformLightList::default())
+        .with_light(AreaLightUniformLightList {
+          light: Default::default(),
+          ltc_1,
+          ltc_2,
+        })
         .with_light(IBLProvider::new(gpu)),
     );
 
@@ -221,10 +254,23 @@ pub struct SceneLightSystem<'a> {
 }
 
 impl SceneLightSystem<'_> {
-  pub fn get_scene_lighting(
+  pub fn get_scene_forward_lighting_component(
     &self,
     scene: EntityHandle<SceneEntity>,
   ) -> Box<dyn RenderComponent + '_> {
+    self.get_scene_lighting_component(
+      scene,
+      Box::new(DirectGeometryProvider),
+      Box::new(LightableSurfaceShadingLogicProviderAsLightableSurfaceProvider(PhysicalShading)),
+    )
+  }
+
+  pub fn get_scene_lighting_component<'a>(
+    &'a self,
+    scene: EntityHandle<SceneEntity>,
+    geometry_constructor: Box<dyn GeometryCtxProvider + 'a>,
+    surface_constructor: Box<dyn LightableSurfaceProvider + 'a>,
+  ) -> Box<dyn RenderComponent + 'a> {
     let mut light = RenderVec::default();
 
     let system = &self.system;
@@ -237,9 +283,11 @@ impl SceneLightSystem<'_> {
 
     light
       .push(&system.tonemap as &dyn RenderComponent) //
-      .push(LightingComputeComponentAsRenderComponent(
-        self.imp.get_scene_lighting(scene).unwrap(),
-      ));
+      .push(LightingComputeComponentAsRenderComponent {
+        geometry_constructor,
+        surface_constructor,
+        lighting: self.imp.get_scene_lighting(scene).unwrap(),
+      });
 
     Box::new(light)
   }
@@ -256,6 +304,22 @@ impl GraphicsShaderProvider for LDROutput {
     builder.fragment(|builder, _| {
       let l = builder.query::<LDRLightResult>();
       builder.register::<DefaultDisplay>((l, val(1.0)));
+    })
+  }
+}
+
+/// we disable the base dispatch auto write in scene pass content. however in some times
+/// we still need to write to the default display, use this as the outer dispatcher to inject write logic
+pub struct DefaultDisplayWriter;
+impl ShaderHashProvider for DefaultDisplayWriter {
+  shader_hash_type_id! {}
+}
+impl ShaderPassBuilder for DefaultDisplayWriter {}
+impl GraphicsShaderProvider for DefaultDisplayWriter {
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    builder.fragment(|builder, _| {
+      let default = builder.query_or_insert_default::<DefaultDisplay>();
+      builder.store_fragment_out(0, default)
     })
   }
 }

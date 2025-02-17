@@ -76,6 +76,7 @@ impl SceneReader {
     StandardModelDataView {
       material: SceneMaterialDataView::PbrMRMaterial(pbr_mr),
       mesh: m.read_expected_foreign_key::<StandardModelRefAttributesMeshEntity>(id),
+      skin: m.read_foreign_key::<StandardModelRefSkin>(id),
     }
   }
 
@@ -107,7 +108,7 @@ impl SceneReader {
       metallic: m.read::<PbrMRMaterialMetallicComponent>(id),
       emissive: m.read::<PbrMRMaterialEmissiveComponent>(id),
       alpha: AlphaConfigDataView::read::<PbrMRMaterialAlphaConfig, _>(m, id),
-      base_color_texture: Texture2DWithSamplingDataView::read::<PbrMRMaterialBaseColorTex, _>(
+      base_color_texture: Texture2DWithSamplingDataView::read::<PbrMRMaterialBaseColorAlphaTex, _>(
         m, id,
       ),
       metallic_roughness_texture: Texture2DWithSamplingDataView::read::<
@@ -132,11 +133,11 @@ impl SceneReader {
       alpha: AlphaConfigDataView::read::<PbrSGMaterialAlphaConfig, _>(m, id),
       emissive_texture: Texture2DWithSamplingDataView::read::<PbrSGMaterialEmissiveTex, _>(m, id),
       normal_texture: NormalMappingDataView::read::<PbrSGMaterialNormalInfo, _>(m, id),
-      albedo_texture: Texture2DWithSamplingDataView::read::<PbrSGMaterialAlbedoTex, _>(m, id),
-      specular_texture: Texture2DWithSamplingDataView::read::<PbrSGMaterialSpecularTex, _>(m, id),
-      glossiness_texture: Texture2DWithSamplingDataView::read::<PbrSGMaterialGlossinessTex, _>(
-        m, id,
-      ),
+      albedo_texture: Texture2DWithSamplingDataView::read::<PbrSGMaterialAlbedoAlphaTex, _>(m, id),
+      specular_glossiness_texture: Texture2DWithSamplingDataView::read::<
+        PbrSGMaterialSpecularGlossinessTex,
+        _,
+      >(m, id),
     }
   }
 

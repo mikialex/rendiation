@@ -2,8 +2,6 @@
 
 use crate::*;
 
-#[repr(C)]
-#[std140_layout]
 #[derive(Copy, Clone, ShaderStruct, Default)]
 pub struct LTCRectLight {
   /// pre calculated vertex in world space.
@@ -23,60 +21,80 @@ const LUT_SIZE: f32 = 64.;
 const LUT_SCALE: f32 = (LUT_SIZE - 1.) / LUT_SIZE;
 const LUT_BIAS: f32 = 0.5 / LUT_SIZE;
 
-pub fn ltc_light_eval(
-  light: UniformNode<LTCRectLight>,
-  diffuse_color: Node<Vec3<f32>>,
-  specular_color: Node<Vec3<f32>>,
-  roughness: Node<f32>,
-  position: Node<Vec3<f32>>,
-  normal: Node<Vec3<f32>>,
-  view: Node<Vec3<f32>>,
-  ltc_1: HandleNode<ShaderTexture2D>,
-  ltc_2: HandleNode<ShaderTexture2D>,
-  sampler: HandleNode<ShaderSampler>,
-) -> (Node<Vec3<f32>>, Node<Vec3<f32>>) {
-  let light = light.load();
+pub struct LTCxLightEval {
+  pub light: Node<LTCRectLight>,
+  pub diffuse_color: Node<Vec3<f32>>,
+  pub specular_color: Node<Vec3<f32>>,
+  pub roughness: Node<f32>,
+  pub geom: ENode<ShaderLightingGeometricCtx>,
+  pub lut: LTCxLUTxInvocation,
+}
 
-  let n_dot_v = normal.dot(view).saturate();
+impl LTCxLightEval {
+  pub fn eval(self) -> ENode<ShaderLightingResult> {
+    let LTCxLightEval {
+      light,
+      diffuse_color,
+      specular_color,
+      roughness,
+      geom:
+        ENode::<ShaderLightingGeometricCtx> {
+          position,
+          normal,
+          view_dir,
+        },
+      lut: LTCxLUTxInvocation {
+        ltc_1,
+        ltc_2,
+        sampler,
+      },
+    } = self;
 
-  let uv = vec2_node((roughness, (val(1.0) - n_dot_v).sqrt()));
-  let uv = uv * val(LUT_SCALE) + val(LUT_BIAS).splat();
+    let n_dot_v = normal.dot(view_dir).saturate();
 
-  let t1 = ltc_1.sample(sampler, uv);
-  let t2 = ltc_2.sample(sampler, uv);
+    let uv = vec2_node((roughness, (val(1.0) - n_dot_v).sqrt()));
+    let uv = uv * val(LUT_SCALE) + val(LUT_BIAS).splat();
 
-  let min_v = (
-    (t1.x(), val(0.), t1.y()).into(),
-    (val(0.), val(1.), val(0.)).into(),
-    (t1.z(), val(0.), t1.w()).into(),
-  )
-    .into();
+    let t1 = ltc_1.sample(sampler, uv);
+    let t2 = ltc_2.sample(sampler, uv);
 
-  let disk = light.expand().is_disk;
-  let light_color = LTCRectLight::intensity(light);
+    let min_v = (
+      (t1.x(), val(0.), t1.y()).into(),
+      (val(0.), val(1.), val(0.)).into(),
+      (t1.z(), val(0.), t1.w()).into(),
+    )
+      .into();
 
-  let mut spec = disk.into_bool().select_branched(
-    || ltc_evaluate_disk_fn(normal, view, position, min_v, light, ltc_2, sampler),
-    || ltc_evaluate_rect_fn(normal, view, position, min_v, light, ltc_2, sampler),
-  );
+    let l = light.expand();
+    let disk = l.is_disk;
+    let light_color = l.intensity;
 
-  // BRDF shadowing and Fresnel
-  spec *= specular_color * t2.x() + (val(1.0).splat() - diffuse_color) * t2.y();
+    let mut spec = disk.into_bool().select_branched(
+      || ltc_evaluate_disk_fn(normal, view_dir, position, min_v, light, ltc_2, sampler),
+      || ltc_evaluate_rect_fn(normal, view_dir, position, min_v, light, ltc_2, sampler),
+    );
 
-  let identity = (
-    // todo useless?
-    val(vec3(1., 0., 0.)),
-    val(vec3(0., 1., 0.)),
-    val(vec3(0., 0., 1.)),
-  )
-    .into();
+    // BRDF shadowing and Fresnel
+    spec *= specular_color * t2.x() + (val(1.0).splat() - diffuse_color) * t2.y();
 
-  let diff = disk.into_bool().select_branched(
-    || ltc_evaluate_disk_fn(normal, view, position, identity, light, ltc_2, sampler),
-    || ltc_evaluate_rect_fn(normal, view, position, identity, light, ltc_2, sampler),
-  );
+    let identity = (
+      // todo useless?
+      val(vec3(1., 0., 0.)),
+      val(vec3(0., 1., 0.)),
+      val(vec3(0., 0., 1.)),
+    )
+      .into();
 
-  (diff * diffuse_color * light_color, spec * light_color)
+    let diff = disk.into_bool().select_branched(
+      || ltc_evaluate_disk_fn(normal, view_dir, position, identity, light, ltc_2, sampler),
+      || ltc_evaluate_rect_fn(normal, view_dir, position, identity, light, ltc_2, sampler),
+    );
+
+    ENode::<ShaderLightingResult> {
+      diffuse: diff * diffuse_color * light_color,
+      specular: spec * light_color,
+    }
+  }
 }
 
 #[shader_fn]

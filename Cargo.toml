@@ -65,12 +65,12 @@ members = [
   "extension/controller",
   "extension/view-override-model",
   "extension/barycentric-solid-line",
-  "extension/scene-debug-helper",
   "extension/gui-3d",
   "extension/state-override",
   "extension/infinity-primitive",
   "extension/wide-line",
   "extension/gizmo",
+  "extension/area-lighting",
   "application/viewer",
 ]
 
@@ -102,6 +102,9 @@ thiserror = "1.0.43"
 anyhow = "1.0.93"
 parking_lot = { version = "0.12.1", features = ["send_guard"] }
 criterion = { version = "0.5.1", features = ["html_reports"] }
+wgpu-types = "24"
+wgpu = { version = "24", features = ["naga-ir"] }
+naga = { version = "24", features = ["wgsl-out"] }
 
 # https://doc.rust-lang.org/cargo/reference/profiles.html
 
@@ -110,6 +113,12 @@ criterion = { version = "0.5.1", features = ["html_reports"] }
 
 [profile.dev]
 panic = "abort"
+
+[profile.dev.package.zune-jpeg]
+opt-level = 3
+[profile.dev.package.gltf]
+opt-level = 3
+
 
 [profile.release]
 panic = "abort"

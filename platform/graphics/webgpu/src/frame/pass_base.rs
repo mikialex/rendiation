@@ -16,6 +16,13 @@ pub struct DefaultPassDispatcher {
   pub pass_info: UniformBufferCachedDataView<RenderPassGPUInfoData>,
 }
 
+impl DefaultPassDispatcher {
+  pub fn disable_auto_write(mut self) -> Self {
+    self.auto_write = false;
+    self
+  }
+}
+
 impl ShaderHashProvider for DefaultPassDispatcher {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.formats.hash(hasher);
@@ -31,19 +38,15 @@ impl ShaderPassBuilder for DefaultPassDispatcher {
 
 impl GraphicsShaderProvider for DefaultPassDispatcher {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    let pass = builder.bind_by_and_prepare(&self.pass_info);
-
-    builder.vertex(|builder, _| {
-      let pass = pass.using().load().expand();
-      builder.register::<RenderBufferSize>(pass.buffer_size);
-      builder.register::<TexelSize>(pass.texel_size);
-    });
+    builder
+      .bind_by_and_prepare(&self.pass_info)
+      .using_graphics_pair(|r, pass| {
+        let pass = pass.load().expand();
+        r.register_typed_both_stage::<RenderBufferSize>(pass.buffer_size);
+        r.register_typed_both_stage::<TexelSize>(pass.texel_size);
+      });
 
     builder.fragment(|builder, _| {
-      let pass = pass.using().load().expand();
-      builder.register::<RenderBufferSize>(pass.buffer_size);
-      builder.register::<TexelSize>(pass.texel_size);
-
       for &format in &self.formats.color_formats {
         builder.define_out_by(channel(format));
       }
@@ -70,8 +73,14 @@ impl GraphicsShaderProvider for DefaultPassDispatcher {
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, _| {
       if self.auto_write && !self.formats.color_formats.is_empty() {
-        let default = builder.query_or_insert_default::<DefaultDisplay>();
-        builder.store_fragment_out(0, default)
+        if let Some(first) = self.formats.color_formats.first() {
+          if get_suitable_shader_write_ty_from_texture_format(*first).unwrap()
+            == ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Vec4Float32)
+          {
+            let default = builder.query_or_insert_default::<DefaultDisplay>();
+            builder.store_fragment_out(0, default)
+          }
+        }
       }
     })
   }
