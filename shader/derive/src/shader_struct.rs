@@ -52,6 +52,21 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
     quote! { self.#field_name.into_shader_ty().to_value(), }
   });
 
+  // shader ptr part
+  let shader_api_ptr_instance_name = format_ident!("{}ShaderAPIPtrInstance", struct_name);
+  let mut i = 0;
+  let ptr_sub_fields_accessor = s.map_collect_visible_fields(|(field_name, ty)| {
+    i += 1;
+    let idx: usize = i - 1;
+    let fn_name = format_ident!("ptr_{}", field_name);
+    quote! {
+      pub fn #fn_name(&self) -> rendiation_shader_api::ShaderAccessorOf<<#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType, Ptr> {
+        let v = self.0.field_index(#idx);
+        <#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType::create_accessor_from_raw_ptr(v)
+      }
+    }
+  });
+
   quote! {
     #[derive(Copy, Clone)]
     pub struct #shader_api_instance_name {
@@ -68,6 +83,29 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
       fn single_ty() -> rendiation_shader_api::ShaderValueSingleType {
         rendiation_shader_api::ShaderValueSingleType::Sized(Self::sized_ty())
       }
+    }
+
+    pub struct #shader_api_ptr_instance_name<Ptr>(Ptr);
+    impl<Ptr: Clone> Clone for #shader_api_ptr_instance_name<Ptr>{
+      fn clone(&self) -> Self {
+        #shader_api_ptr_instance_name(self.0.clone())
+      }
+    }
+    impl<Ptr: Copy> Copy for #shader_api_ptr_instance_name<Ptr>{}
+    impl<Ptr: rendiation_shader_api::AbstractShaderPtr> rendiation_shader_api::ShaderValueAbstractPtrAccess<Ptr> for #struct_name {
+      type Accessor = #shader_api_ptr_instance_name<Ptr>;
+      fn create_accessor_from_raw_ptr(ptr: Ptr) -> Self::Accessor {
+        #shader_api_ptr_instance_name(ptr)
+      }
+    }
+    impl<Ptr: rendiation_shader_api::AbstractShaderPtr> #shader_api_ptr_instance_name<Ptr> {
+      fn load(&self) -> rendiation_shader_api::Node<#struct_name> {
+        unsafe { self.0.load().into_node() }
+      }
+      fn store(&self, value: rendiation_shader_api::Node<#struct_name>) {
+        self.0.store(value.handle());
+      }
+      #(#ptr_sub_fields_accessor)*
     }
 
     impl #struct_name {

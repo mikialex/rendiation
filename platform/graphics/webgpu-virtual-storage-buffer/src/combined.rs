@@ -48,6 +48,7 @@ impl CombinedStorageBufferAllocator {
     }
   }
 
+  // todo, old data movement
   pub fn rebuild(&mut self, gpu: &GPU) {
     let mut internal = self.internal.write();
     if !internal.buffer_need_rebuild && internal.buffer.is_some() {
@@ -199,7 +200,7 @@ impl AbstractShaderPtr for ShaderStorageVirtualPtrNode {
 impl<T> AbstractStorageBuffer<T> for SubCombinedStorageBuffer<T>
 where
   T: Std430MaybeUnsized
-    + ShaderNodeAbstractAccessSource<ShaderStorageVirtualPtrNode>
+    + ShaderValueAbstractPtrAccess<ShaderStorageVirtualPtrNode>
     + ShaderMaybeUnsizedValueNodeType
     + ?Sized,
 {

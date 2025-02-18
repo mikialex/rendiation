@@ -9,7 +9,7 @@ pub use combined::*;
 
 pub trait AbstractStorageBuffer<T>: Clone
 where
-  T: Std430MaybeUnsized + ShaderNodeAbstractAccessSource<Self::ShaderPtr> + ?Sized,
+  T: Std430MaybeUnsized + ShaderValueAbstractPtrAccess<Self::ShaderPtr> + ?Sized,
 {
   type ShaderPtr: AbstractShaderPtr;
   fn get_gpu_buffer_view(&self) -> &GPUBufferView;
@@ -23,7 +23,7 @@ where
 impl<T> AbstractStorageBuffer<T> for StorageBufferDataView<T>
 where
   T: Std430MaybeUnsized
-    + ShaderNodeAbstractAccessSource<ShaderNodeRawHandle>
+    + ShaderValueAbstractPtrAccess<ShaderNodeRawHandle>
     + ShaderMaybeUnsizedValueNodeType
     + ?Sized,
 {
