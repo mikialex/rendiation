@@ -98,13 +98,16 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
         #shader_api_ptr_instance_name(ptr)
       }
     }
-    impl<Ptr: rendiation_shader_api::AbstractShaderPtr> #shader_api_ptr_instance_name<Ptr> {
-      fn load(&self) -> rendiation_shader_api::Node<#struct_name> {
+    impl<Ptr: rendiation_shader_api::AbstractShaderPtr> rendiation_shader_api::SizedValueShaderPtrAccessor for #shader_api_ptr_instance_name<Ptr> {
+      type Node = #struct_name;
+      fn load(&self) -> Node<#struct_name> {
         unsafe { self.0.load().into_node() }
       }
-      fn store(&self, value: rendiation_shader_api::Node<#struct_name>) {
+      fn store(&self, value: Node<#struct_name>) {
         self.0.store(value.handle());
       }
+    }
+    impl<Ptr: rendiation_shader_api::AbstractShaderPtr> #shader_api_ptr_instance_name<Ptr> {
       #(#ptr_sub_fields_accessor)*
     }
 

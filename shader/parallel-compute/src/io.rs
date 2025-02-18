@@ -223,7 +223,7 @@ impl<T: Std430> ShaderHashProvider for WriteIntoStorageWriter<T> {
 
 impl<T> DeviceInvocationComponent<Node<T>> for WriteIntoStorageWriter<T>
 where
-  T: Std430 + ShaderSizedValueNodeType,
+  T: Std430 + ShaderSizedValueNodeType + SizedShaderValueAbstractPtrAccess<ShaderNodeRawHandle>,
 {
   fn requested_workgroup_size(&self) -> Option<u32> {
     self.inner.requested_workgroup_size()
@@ -262,7 +262,9 @@ where
   }
 }
 
-pub fn custom_write_into_storage_buffer<T: Std430 + ShaderSizedValueNodeType>(
+pub fn custom_write_into_storage_buffer<
+  T: Std430 + ShaderSizedValueNodeType + SizedShaderValueAbstractPtrAccess<ShaderNodeRawHandle>,
+>(
   source: &(impl DeviceParallelComputeIO<T> + ?Sized),
   cx: &mut DeviceParallelComputeCtx,
   write_position_mapper: impl Fn(Node<u32>) -> Node<u32> + 'static,

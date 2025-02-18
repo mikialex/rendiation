@@ -98,6 +98,9 @@ where
   ShaderHandlePtr<BindingArray<T::Node>>: ShaderNodeType,
 {
   type Node = ShaderHandlePtr<BindingArray<T::Node>>;
+  fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {
+    node
+  }
 
   fn binding_desc(&self) -> ShaderBindingDescriptor {
     let mut ty = Self::Node::ty();

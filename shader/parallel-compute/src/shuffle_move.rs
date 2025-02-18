@@ -59,7 +59,7 @@ impl<T: Std430> ShaderHashProvider for ShuffleWrite<T> {
 
 impl<T> DeviceInvocationComponent<Node<T>> for ShuffleWrite<T>
 where
-  T: Std430 + ShaderSizedValueNodeType,
+  T: Std430 + ShaderSizedValueNodeType + SizedShaderValueAbstractPtrAccess<ShaderNodeRawHandle>,
 {
   fn requested_workgroup_size(&self) -> Option<u32> {
     self.input.requested_workgroup_size()
@@ -109,7 +109,7 @@ impl<T: Std430> ShaderHashProvider for ShuffleAccess<T> {
 
 impl<T> DeviceInvocationComponent<Node<T>> for ShuffleAccess<T>
 where
-  T: Std430 + ShaderSizedValueNodeType,
+  T: Std430 + ShaderSizedValueNodeType + SizedShaderValueAbstractPtrAccess<ShaderNodeRawHandle>,
 {
   fn requested_workgroup_size(&self) -> Option<u32> {
     self.shuffle_idx.requested_workgroup_size()

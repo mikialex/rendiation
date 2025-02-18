@@ -1,20 +1,39 @@
 pub use crate::*;
 
-impl<T: ShaderSizedValueNodeType + Std140> ShaderBindingProvider
-  for UniformBufferCachedDataView<T>
+impl<T> ShaderBindingProvider for UniformBufferCachedDataView<T>
+where
+  T: ShaderSizedValueNodeType + Std140 + ShaderValueAbstractPtrAccess<ShaderNodeRawHandle>, /* todo this should be sized */
 {
   type Node = ShaderUniformPtr<T>;
+  type ShaderInstance = ShaderAccessorOf<T, ShaderNodeRawHandle>;
+  fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {
+    T::create_accessor_from_raw_ptr(node.handle())
+  }
 }
 
-impl<T: ShaderSizedValueNodeType + Std140> ShaderBindingProvider for UniformBufferDataView<T> {
+impl<T> ShaderBindingProvider for UniformBufferDataView<T>
+where
+  T: ShaderSizedValueNodeType + Std140 + ShaderValueAbstractPtrAccess<ShaderNodeRawHandle>, /* todo this should be sized */
+{
   type Node = ShaderUniformPtr<T>;
+  type ShaderInstance = ShaderAccessorOf<T, ShaderNodeRawHandle>;
+  fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {
+    T::create_accessor_from_raw_ptr(node.handle())
+  }
 }
 
 impl<T> ShaderBindingProvider for StorageBufferReadOnlyDataView<T>
 where
-  T: ShaderMaybeUnsizedValueNodeType + Std430MaybeUnsized + ?Sized,
+  T: ShaderMaybeUnsizedValueNodeType
+    + Std430MaybeUnsized
+    + ShaderValueAbstractPtrAccess<ShaderNodeRawHandle>
+    + ?Sized,
 {
   type Node = ShaderReadOnlyStoragePtr<T>;
+  type ShaderInstance = ShaderAccessorOf<T, ShaderNodeRawHandle>;
+  fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {
+    T::create_accessor_from_raw_ptr(node.handle())
+  }
 
   fn binding_desc(&self) -> ShaderBindingDescriptor {
     ShaderBindingDescriptor {
@@ -27,9 +46,16 @@ where
 
 impl<T> ShaderBindingProvider for StorageBufferDataView<T>
 where
-  T: ShaderMaybeUnsizedValueNodeType + Std430MaybeUnsized + ?Sized,
+  T: ShaderMaybeUnsizedValueNodeType
+    + Std430MaybeUnsized
+    + ShaderValueAbstractPtrAccess<ShaderNodeRawHandle>
+    + ?Sized,
 {
   type Node = ShaderStoragePtr<T>;
+  type ShaderInstance = ShaderAccessorOf<T, ShaderNodeRawHandle>;
+  fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {
+    T::create_accessor_from_raw_ptr(node.handle())
+  }
 
   fn binding_desc(&self) -> ShaderBindingDescriptor {
     ShaderBindingDescriptor {
@@ -44,6 +70,9 @@ macro_rules! map_shader_ty {
   ($ty: ty, $shader_ty: ty) => {
     impl ShaderBindingProvider for $ty {
       type Node = ShaderHandlePtr<$shader_ty>;
+      fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {
+        node
+      }
     }
   };
 }

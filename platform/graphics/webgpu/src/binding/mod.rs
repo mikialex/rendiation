@@ -243,7 +243,7 @@ pub trait AbstractBindingSource {
 }
 
 impl<T: CacheAbleBindingSource + ShaderBindingProvider> AbstractBindingSource for T {
-  type ShaderBindResult = Node<T::Node>;
+  type ShaderBindResult = T::ShaderInstance;
 
   fn bind_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(self);

@@ -116,6 +116,9 @@ impl<T: CacheAbleBindingSource> CacheAbleBindingSource for StorageTextureViewRea
 
 impl<T: StorageShaderTypeMapping> ShaderBindingProvider for StorageTextureViewReadOnly<T> {
   type Node = ShaderHandlePtr<T::StorageTextureShaderTypeR>;
+  fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {
+    node
+  }
 
   fn binding_desc(&self) -> ShaderBindingDescriptor {
     let mut ty = Self::Node::ty();
@@ -149,6 +152,9 @@ impl<T: CacheAbleBindingSource> CacheAbleBindingSource for StorageTextureViewWri
 
 impl<T: StorageShaderTypeMapping> ShaderBindingProvider for StorageTextureViewWriteOnly<T> {
   type Node = ShaderHandlePtr<T::StorageTextureShaderTypeW>;
+  fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {
+    node
+  }
 
   fn binding_desc(&self) -> ShaderBindingDescriptor {
     let mut ty = Self::Node::ty();
@@ -183,6 +189,9 @@ impl<T: CacheAbleBindingSource> CacheAbleBindingSource for StorageTextureViewRea
 
 impl<T: StorageShaderTypeMapping> ShaderBindingProvider for StorageTextureViewReadWrite<T> {
   type Node = ShaderHandlePtr<T::StorageTextureShaderTypeRW>;
+  fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {
+    node
+  }
 
   fn binding_desc(&self) -> ShaderBindingDescriptor {
     let mut ty = Self::Node::ty();

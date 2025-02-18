@@ -1,4 +1,5 @@
 #![feature(const_type_name)]
+#![feature(associated_type_defaults)]
 #![feature(generic_const_exprs)]
 
 mod abstract_load_store;

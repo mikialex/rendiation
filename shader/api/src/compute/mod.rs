@@ -114,7 +114,7 @@ impl ShaderComputePipelineBuilder {
     &mut self.bindgroups
   }
 
-  pub fn bind_by<T: ShaderBindingProvider>(&mut self, instance: &T) -> Node<T::Node> {
+  pub fn bind_by<T: ShaderBindingProvider>(&mut self, instance: &T) -> T::ShaderInstance {
     self.bindgroups().bind_by(instance)
   }
 
