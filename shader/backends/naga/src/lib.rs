@@ -1106,6 +1106,9 @@ impl ShaderAPI for ShaderAPINagaImpl {
             PrimitiveShaderValue::Mat4Float32(v) => {
               impl_p!(v, f32, 16, F32);
             }
+            PrimitiveShaderValue::Mat4x3Float32(v) => {
+              impl_p!(v, f32, 12, F32);
+            }
           }
         }
         ShaderNodeExpr::RayQueryProceed { ray_query } => {
@@ -1505,7 +1508,7 @@ fn map_primitive_type(t: PrimitiveShaderValueType) -> naga::TypeInner {
   
 
   match t {
-    PrimitiveShaderValueType::Bool => Scalar(naga::Scalar::BOOL),
+    Bool => Scalar(naga::Scalar::BOOL),
     Int32 => Scalar(naga::Scalar::I32),
     Uint32 => Scalar(naga::Scalar::U32),
     Float32 => Scalar(naga::Scalar::F32),
@@ -1524,6 +1527,7 @@ fn map_primitive_type(t: PrimitiveShaderValueType) -> naga::TypeInner {
     Mat2Float32 => Matrix { columns: Bi, rows: Bi, scalar: naga::Scalar::F32 },
     Mat3Float32 => Matrix { columns: Tri, rows: Tri, scalar: naga::Scalar::F32 },
     Mat4Float32 => Matrix { columns: Quad, rows: Quad, scalar: naga::Scalar::F32 },
+    Mat4x3Float32 => Matrix { columns: Quad, rows: Tri, scalar: naga::Scalar::F32 },
   }
 }
 

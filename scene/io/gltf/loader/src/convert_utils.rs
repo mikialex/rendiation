@@ -78,7 +78,7 @@ pub fn map_draw_mode(mode: gltf::mesh::Mode) -> Option<PrimitiveTopology> {
 pub fn map_transform(t: gltf::scene::Transform) -> Mat4<f32> {
   match t {
     gltf::scene::Transform::Matrix { matrix } => {
-      Mat4::new_from_colum(matrix[0], matrix[1], matrix[2], matrix[3])
+      Mat4::new_from_column(matrix[0], matrix[1], matrix[2], matrix[3])
     }
     gltf::scene::Transform::Decomposed {
       translation,

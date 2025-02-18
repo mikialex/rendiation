@@ -1,4 +1,4 @@
-use rendiation_algebra::{Vec2, Vec3};
+use rendiation_algebra::{Mat4x3, Vec2, Vec3};
 
 use crate::{
   call_shader_api, index_access_field, AnyType, HandleNode, Node, ShaderAccelerationStructure,
@@ -99,14 +99,12 @@ impl RayIntersection {
   pub fn front_face(self) -> Node<bool> {
     unsafe { index_access_field(self.raw, 8) }
   }
-  // pub fn object_to_world(self) -> Node<Mat4<f32>> {
-  //   // todo support Mat4x3
-  //   unsafe { index_access_field(self.raw, 9) }
-  // }
-  // pub fn world_to_object(self) -> Node<Mat4<f32>> {
-  //   // todo support Mat4x3
-  //   unsafe { index_access_field(self.raw, 10) }
-  // }
+  pub fn object_to_world(self) -> Node<Mat4x3<f32>> {
+    unsafe { index_access_field(self.raw, 9) }
+  }
+  pub fn world_to_object(self) -> Node<Mat4x3<f32>> {
+    unsafe { index_access_field(self.raw, 10) }
+  }
 }
 
 #[repr(u32)]

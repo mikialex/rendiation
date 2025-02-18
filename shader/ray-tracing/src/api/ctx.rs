@@ -38,10 +38,10 @@ pub struct HitCtxInfo {
   ///
   /// is index in blas geometry list
   pub geometry_id: Node<u32>,
-  // /// gl_ObjectToWorldEXT
-  // pub object_to_world: ReadOnlyStorageNode<Mat4<f32>>,
-  // /// gl_WorldToObjectEXT
-  // pub world_to_object: ReadOnlyStorageNode<Mat4<f32>>,
+  /// gl_ObjectToWorldEXT
+  pub object_to_world: Node<Mat4<f32>>,
+  /// gl_WorldToObjectEXT
+  pub world_to_object: Node<Mat4<f32>>,
   /// gl_ObjectRayOriginEXT and gl_ObjectRayDirectionEXT
   pub object_space_ray: ShaderRay,
 }

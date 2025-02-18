@@ -405,8 +405,8 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NativeInlin
           instance_sbt_offset: intersection.sbt_record_offset(),
           instance_custom_id: intersection.instance_custom_index(),
           geometry_id: intersection.geometry_index(),
-          // object_to_world: (), todo load tlas meta with instance id. see traverse_gpu
-          // world_to_object: (), todo or we reuse ray intersection 4x3 matrices
+          object_to_world: intersection.object_to_world().expand_to_4(),
+          world_to_object: intersection.world_to_object().expand_to_4(),
           object_space_ray: ShaderRay {
             // todo transform ray
             origin: val(vec3(0., 0., 0.)),
