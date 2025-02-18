@@ -3415,6 +3415,7 @@ dependencies = [
  "rendiation-shader-api",
  "rendiation-shader-derives",
  "rendiation-webgpu",
+ "rendiation-webgpu-virtual-storage-buffer",
 ]
 
 [[package]]
@@ -3846,6 +3847,7 @@ version = "0.1.0"
 dependencies = [
  "anymap",
  "bytemuck",
+ "dyn-clone",
  "fast-hash-collection",
  "once_cell",
  "parking_lot",
@@ -4037,6 +4039,7 @@ dependencies = [
 name = "rendiation-webgpu-virtual-storage-buffer"
 version = "0.1.0"
 dependencies = [
+ "dyn-clone",
  "fast-hash-collection",
  "parking_lot",
  "rendiation-shader-api",

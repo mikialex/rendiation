@@ -1,11 +1,5 @@
 use crate::*;
 
-pub trait RawBufferSerialization {
-  fn u32_size_count() -> u32;
-  fn load_from_u32_buffer(target: StorageNode<[u32]>, offset: Node<u32>) -> Self;
-  fn store_into_u32_buffer(self, target: StorageNode<[u32]>, offset: Node<u32>);
-}
-
 impl PrimitiveShaderValueType {
   pub fn channel_ty(&self) -> ValueKind {
     match self {
@@ -234,7 +228,13 @@ impl ShaderSizedValueType {
   }
 }
 
-impl<T: ShaderSizedValueNodeType> RawBufferSerialization for Node<T> {
+pub trait RawBufferSerializationExt {
+  fn u32_size_count() -> u32;
+  fn load_from_u32_buffer(target: StorageNode<[u32]>, offset: Node<u32>) -> Self;
+  fn store_into_u32_buffer(self, target: StorageNode<[u32]>, offset: Node<u32>);
+}
+
+impl<T: ShaderSizedValueNodeType> RawBufferSerializationExt for Node<T> {
   fn u32_size_count() -> u32 {
     T::sized_ty().u32_size_count()
   }

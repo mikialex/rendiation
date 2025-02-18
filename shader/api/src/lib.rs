@@ -2,6 +2,7 @@
 #![feature(generic_const_exprs)]
 
 mod abstract_load_store;
+mod abstract_ptr;
 mod api_core;
 mod binding;
 mod compute;
@@ -21,6 +22,7 @@ use std::{
 };
 
 pub use abstract_load_store::*;
+pub use abstract_ptr::*;
 pub use api_core::*;
 pub use binding::*;
 pub use bytemuck::*;

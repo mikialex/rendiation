@@ -4,10 +4,27 @@ use crate::*;
 pub struct DeviceBumpAllocationInstance<T: Std430 + ShaderSizedValueNodeType> {
   pub storage: StorageBufferDataView<[T]>,
   pub bump_size: StorageBufferDataView<DeviceAtomic<u32>>,
-  pub current_size: StorageBufferDataView<u32>, // todo, merge with bump size
+  pub current_size: StorageBufferDataView<u32>,
+  // pub storage: DynAbstractStorageBuffer<[T]>,
+  // pub bump_size: StorageBufferDataView<DeviceAtomic<u32>>,
+  // pub current_size: DynAbstractStorageBuffer<u32>, // todo, merge with bump size
 }
 
 impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
+  // pub fn new(size: usize, device: &GPUDevice) -> Self {
+  //   Self {
+  //     storage: Box::new(create_gpu_read_write_storage(size, device)),
+  //     current_size: Box::new(create_gpu_read_write_storage(
+  //       StorageBufferInit::WithInit(&0_u32),
+  //       device,
+  //     )),
+  //     bump_size: create_gpu_read_write_storage::<DeviceAtomic<u32>>(
+  //       StorageBufferInit::WithInit(&DeviceAtomic(0)),
+  //       device,
+  //     ),
+  //   }
+  // }
+
   pub fn new(size: usize, device: &GPUDevice) -> Self {
     Self {
       storage: create_gpu_read_write_storage(size, device),

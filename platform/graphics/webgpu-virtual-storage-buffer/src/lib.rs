@@ -1,20 +1,51 @@
 use std::{marker::PhantomData, sync::Arc};
 
+use dyn_clone::DynClone;
 use parking_lot::RwLock;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 
-/// this feature allows user create rw storage buffer from a single buffer pool
-/// to workaround the binding limitation on some platform.
-pub struct StorageBufferMergeAllocator {
-  internal: Arc<RwLock<StorageBufferMergeAllocatorInternal>>,
+pub trait AbstractStorageBuffer<T: Std430MaybeUnsized + ?Sized>: DynClone {
+  fn get_gpu_buffer_view(&self) -> &GPUBufferView;
+  fn bind_shader(
+    &self,
+    bind_builder: &mut ShaderBindGroupBuilder,
+    registry: &mut SemanticRegistry,
+  ) -> Box<dyn AbstractShaderPtr>;
+}
+impl<T: ?Sized> Clone for Box<dyn AbstractStorageBuffer<T>> {
+  fn clone(&self) -> Self {
+    dyn_clone::clone_box(&**self)
+  }
+}
+pub type DynAbstractStorageBuffer<T> = Box<dyn AbstractStorageBuffer<T>>;
+
+impl<T: Std430MaybeUnsized + ?Sized> AbstractStorageBuffer<T> for StorageBufferDataView<T> {
+  fn get_gpu_buffer_view(&self) -> &GPUBufferView {
+    &self.view
+  }
+
+  fn bind_shader(
+    &self,
+    bind_builder: &mut ShaderBindGroupBuilder,
+    _: &mut SemanticRegistry,
+  ) -> Box<dyn AbstractShaderPtr> {
+    // Box::new()
+    todo!()
+  }
 }
 
-impl StorageBufferMergeAllocator {
+/// this feature allows user create rw storage buffer from a single buffer pool
+/// to workaround the binding limitation on some platform.
+pub struct CombinedStorageBufferAllocator {
+  internal: Arc<RwLock<CombinedStorageBufferAllocatorInternal>>,
+}
+
+impl CombinedStorageBufferAllocator {
   /// label must unique
   pub fn new(label: impl Into<String>) -> Self {
     Self {
-      internal: Arc::new(RwLock::new(StorageBufferMergeAllocatorInternal {
+      internal: Arc::new(RwLock::new(CombinedStorageBufferAllocatorInternal {
         label: label.into(),
         buffer: None,
         buffer_need_rebuild: true,
@@ -25,7 +56,7 @@ impl StorageBufferMergeAllocator {
   }
 }
 
-struct StorageBufferMergeAllocatorInternal {
+struct CombinedStorageBufferAllocatorInternal {
   label: String,
   buffer: Option<StorageBufferDataView<[u32]>>,
   buffer_need_rebuild: bool,
@@ -33,11 +64,11 @@ struct StorageBufferMergeAllocatorInternal {
   sub_buffer_u32_size_requirements: Vec<u32>,
 }
 
-impl StorageBufferMergeAllocator {
+impl CombinedStorageBufferAllocator {
   pub fn allocate<T: Std430MaybeUnsized>(
     &mut self,
     sub_buffer_u32_size: u32,
-  ) -> SubMergedStorageBuffer<T> {
+  ) -> SubCombinedStorageBuffer<T> {
     let mut internal = self.internal.write();
     internal.buffer_need_rebuild = true;
     let index = internal.sub_buffer_u32_size_requirements.len() as u32;
@@ -45,7 +76,7 @@ impl StorageBufferMergeAllocator {
       .sub_buffer_u32_size_requirements
       .push(sub_buffer_u32_size);
 
-    SubMergedStorageBuffer {
+    SubCombinedStorageBuffer {
       buffer_index: index,
       phantom: PhantomData,
       internal: self.internal.clone(),
@@ -61,14 +92,24 @@ impl StorageBufferMergeAllocator {
   }
 }
 
-pub struct SubMergedStorageBuffer<T: ?Sized> {
+pub struct SubCombinedStorageBuffer<T: ?Sized> {
   /// user should make sure the index is stable across the binding to avoid hash this index.
   buffer_index: u32,
   phantom: std::marker::PhantomData<T>,
-  internal: Arc<RwLock<StorageBufferMergeAllocatorInternal>>,
+  internal: Arc<RwLock<CombinedStorageBufferAllocatorInternal>>,
 }
 
-impl<T: ?Sized> SubMergedStorageBuffer<T> {
+impl<T: ?Sized> Clone for SubCombinedStorageBuffer<T> {
+  fn clone(&self) -> Self {
+    Self {
+      buffer_index: self.buffer_index,
+      phantom: self.phantom,
+      internal: self.internal.clone(),
+    }
+  }
+}
+
+impl<T: ?Sized> SubCombinedStorageBuffer<T> {
   /// resize the sub buffer to new size, the content will be moved
   ///
   /// once resize, the merged buffer must rebuild;

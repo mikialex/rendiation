@@ -10,6 +10,7 @@ rendiation-shader-api = { path = "../../../shader/api" }
 rendiation-webgpu = { path = "../webgpu" }
 fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 parking_lot = { workspace = true }
+dyn-clone = { workspace = true }
 
 [lints]
 workspace = true

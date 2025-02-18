@@ -13,6 +13,7 @@ use parking_lot::RwLock;
 use rendiation_device_parallel_compute::*;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
+use rendiation_webgpu_virtual_storage_buffer::*;
 
 mod runtime;
 pub use runtime::*;
