@@ -6,29 +6,31 @@ use rendiation_webgpu::*;
 
 /// this feature allows user create rw storage buffer from a single buffer pool
 /// to workaround the binding limitation on some platform.
-#[derive(Default)]
 pub struct StorageBufferMergeAllocator {
   internal: Arc<RwLock<StorageBufferMergeAllocatorInternal>>,
 }
 
+impl StorageBufferMergeAllocator {
+  /// label must unique
+  pub fn new(label: impl Into<String>) -> Self {
+    Self {
+      internal: Arc::new(RwLock::new(StorageBufferMergeAllocatorInternal {
+        label: label.into(),
+        buffer: None,
+        buffer_need_rebuild: true,
+        sub_buffer_allocation_u32_offset: Default::default(),
+        sub_buffer_u32_size_requirements: Default::default(),
+      })),
+    }
+  }
+}
+
 struct StorageBufferMergeAllocatorInternal {
-  binding_epoch: u32,
+  label: String,
   buffer: Option<StorageBufferDataView<[u32]>>,
   buffer_need_rebuild: bool,
   sub_buffer_allocation_u32_offset: Vec<u32>,
   sub_buffer_u32_size_requirements: Vec<u32>,
-}
-
-impl Default for StorageBufferMergeAllocatorInternal {
-  fn default() -> Self {
-    Self {
-      binding_epoch: 0,
-      buffer: None,
-      buffer_need_rebuild: true,
-      sub_buffer_allocation_u32_offset: Default::default(),
-      sub_buffer_u32_size_requirements: Default::default(),
-    }
-  }
 }
 
 impl StorageBufferMergeAllocator {
@@ -94,9 +96,15 @@ impl<T: ?Sized> SubMergedStorageBuffer<T> {
   pub fn bind_shader(
     &self,
     bind_builder: &mut ShaderBindGroupBuilder,
+    registry: &mut SemanticRegistry,
   ) -> ShaderStorageVirtualTypedPtrNode<T> {
-    let buffer = self.expect_buffer();
-    let array = bind_builder.bind_by(&buffer);
+    let label = self.internal.read().label.clone();
+    let array = registry.dynamic_semantic.entry(label).or_insert_with(|| {
+      let buffer = self.expect_buffer();
+      bind_builder.bind_by(&buffer).cast_untyped_node()
+    });
+    let array: StorageNode<[u32]> = unsafe { array.cast_type() };
+
     let base_offset = array.index(self.buffer_index).load();
     let ptr = ShaderStorageVirtualPtrNode {
       array,
@@ -109,14 +117,8 @@ impl<T: ?Sized> SubMergedStorageBuffer<T> {
   }
 
   pub fn bind_pass(&self, bind_builder: &mut BindGroupBuilder) {
-    let mut internal = self.internal.write();
-    if internal.binding_epoch == 0 {
-      // bind_builder.bind(&internal.buffer.expect("merged buffer not yet build"));
-    }
-    internal.binding_epoch += 1;
-    if internal.binding_epoch == internal.sub_buffer_u32_size_requirements.len() as u32 {
-      internal.binding_epoch = 0;
-    }
+    let buffer = self.expect_buffer();
+    bind_builder.bind_if_not_exist_before(buffer.get_binding_build_source());
   }
 }
 

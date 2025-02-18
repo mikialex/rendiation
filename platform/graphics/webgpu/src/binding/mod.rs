@@ -50,6 +50,13 @@ impl BindGroupBuilder {
     self.items.is_empty()
   }
 
+  pub fn bind_if_not_exist_before(&mut self, source: CacheAbleBindingBuildSource) {
+    let has_already_bound = self.items.iter().any(|r| r.view_id == source.view_id);
+    if !has_already_bound {
+      self.bind(source);
+    }
+  }
+
   pub fn bind(&mut self, source: CacheAbleBindingBuildSource) {
     self.items.push(source);
   }
