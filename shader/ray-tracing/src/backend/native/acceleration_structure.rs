@@ -73,7 +73,7 @@ impl DeviceBlas {
             vertex_count: positions.len() as u32,
             index_format: index_len.map(|_| IndexFormat::Uint32),
             index_count: index_len.map(|i| i as u32),
-            // GeometryFlags === AccelerationStructureGeometryFlags
+            // GeometryFlags is AccelerationStructureGeometryFlags
             flags: AccelerationStructureGeometryFlags::from_bits(source.flags as u8).unwrap(),
           };
           size_descriptors.push(size_desc.clone());
@@ -311,7 +311,7 @@ impl GPUAccelerationStructureSystemProvider for NativeInlineSystem {
 }
 
 pub struct NativeInlineInstance {
-  tlas_bindings: Vec<DeviceTlas>,
+  tlas_bindings: Vec<DeviceTlas>, // todo how to hash???
 }
 pub struct NativeInlineInvocation {
   tlas_bindings: Vec<HandleNode<ShaderAccelerationStructure>>,
@@ -345,19 +345,25 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NativeInlin
   fn traverse(
     &self,
     trace_payload: ENode<ShaderRayTraceCallStoragePayload>,
-    _user_defined_payloads: StorageNode<[u32]>,
+    user_defined_payloads: StorageNode<[u32]>,
     _intersect: &dyn Fn(&RayIntersectCtx, &dyn IntersectionReporter),
-    _any_hit: &dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
+    any_hit: &dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
   ) -> ShaderOption<RayClosestHitCtx> {
-    // todo anyhit ctx
-    // let user_defined_payload = U32BufferLoadStoreSource {
-    //   array: user_defined_payloads,
-    //   offset: trace_payload.payload_ref,
-    // };
+    // select tlas_binding
+    assert!(!self.tlas_bindings.is_empty());
+    let selected_tlas = self.tlas_bindings[0].make_local_var();
+    let mut switch = switch_by(trace_payload.tlas_idx);
+    for (idx, tlas_binding) in self.tlas_bindings.iter().enumerate() {
+      switch = switch.case(idx as u32, || {
+        selected_tlas.store(*tlas_binding);
+      });
+    }
+    switch.end_with_default(|| {
+      // todo gpu panic?
+    });
 
-    // let tlas = trace_payload.tlas_idx todo a simple switch case tlas_idx -> tlas_bindings
     let query = Node::<ShaderRayQuery>::initialize(
-      self.tlas_bindings[0], // todo select the first for now
+      selected_tlas.load(),
       trace_payload.ray_flags,
       trace_payload.cull_mask,
       trace_payload.range.x(),
@@ -369,62 +375,95 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NativeInlin
     loop_by(|ctx| {
       let any_candidate = query.proceed();
       if_by(any_candidate, || {
-        // todo call anyhit
+        let intersection = query.get_candidate_intersection();
+        let (launch_info, world_ray, hit_ctx, hit) =
+          hit_ctx_from_native_hit(trace_payload, intersection);
+
+        let user_defined_payload = U32BufferLoadStoreSource {
+          array: user_defined_payloads,
+          offset: trace_payload.payload_ref,
+        };
+
+        let ctx = RayAnyHitCtx {
+          launch_info,
+          world_ray,
+          hit_ctx,
+          hit,
+          payload: user_defined_payload,
+        };
+
+        let behavior = any_hit(&ctx);
+        // todo check end_search
+        // todo check accept
       })
       .else_by(|| ctx.do_break());
     });
 
     let intersection = query.get_commited_intersection();
 
-    // todo support hit generated
     let hit_triangle = intersection
       .kind()
       .equals(val(RayIntersectionKind::Triangle as u32));
 
+    let (launch_info, world_ray, hit_ctx, hit) =
+      hit_ctx_from_native_hit(trace_payload, intersection);
+
     ShaderOption {
       is_some: hit_triangle,
       payload: RayClosestHitCtx {
-        launch_info: RayLaunchInfo {
-          launch_id: trace_payload.launch_id,
-          launch_size: trace_payload.launch_size,
-        },
-        world_ray: WorldRayInfo {
-          world_ray: ShaderRay {
-            origin: trace_payload.ray_origin,
-            direction: trace_payload.ray_direction,
-          },
-          ray_range: ShaderRayRange {
-            min: trace_payload.range.x(),
-            max: trace_payload.range.y(),
-          },
-          ray_flags: trace_payload.ray_flags,
-        },
-        hit_ctx: HitCtxInfo {
-          primitive_id: intersection.primitive_index(),
-          instance_id: intersection.instance_id(),
-          instance_sbt_offset: intersection.sbt_record_offset(),
-          instance_custom_id: intersection.instance_custom_index(),
-          geometry_id: intersection.geometry_index(),
-          object_to_world: intersection.object_to_world().expand_to_4(),
-          world_to_object: intersection.world_to_object().expand_to_4(),
-          object_space_ray: ShaderRay {
-            // todo transform ray
-            origin: val(vec3(0., 0., 0.)),
-            direction: val(vec3(0., 0., 0.)),
-          },
-        },
-        hit: HitInfo {
-          hit_kind: intersection.front_face().select(
-            val(HIT_KIND_FRONT_FACING_TRIANGLE),
-            val(HIT_KIND_BACK_FACING_TRIANGLE),
-          ),
-          hit_distance: intersection.t(),
-          hit_attribute: BuiltInTriangleHitAttributeShaderAPIInstance {
-            bary_coord: intersection.barycentrics(),
-          }
-          .construct(),
-        },
+        launch_info,
+        world_ray,
+        hit_ctx,
+        hit,
       },
     }
   }
+}
+
+fn hit_ctx_from_native_hit(
+  trace_payload: ENode<ShaderRayTraceCallStoragePayload>,
+  intersection: RayIntersection,
+) -> (RayLaunchInfo, WorldRayInfo, HitCtxInfo, HitInfo) {
+  (
+    RayLaunchInfo {
+      launch_id: trace_payload.launch_id,
+      launch_size: trace_payload.launch_size,
+    },
+    WorldRayInfo {
+      world_ray: ShaderRay {
+        origin: trace_payload.ray_origin,
+        direction: trace_payload.ray_direction,
+      },
+      ray_range: ShaderRayRange {
+        min: trace_payload.range.x(),
+        max: trace_payload.range.y(),
+      },
+      ray_flags: trace_payload.ray_flags,
+    },
+    HitCtxInfo {
+      primitive_id: intersection.primitive_index(),
+      instance_id: intersection.instance_id(),
+      instance_sbt_offset: intersection.sbt_record_offset(),
+      instance_custom_id: intersection.instance_custom_index(),
+      geometry_id: intersection.geometry_index(),
+      object_to_world: intersection.object_to_world().expand_to_4(),
+      world_to_object: intersection.world_to_object().expand_to_4(),
+      object_space_ray: ShaderRay {
+        // todo transform ray
+        origin: val(vec3(0., 0., 0.)),
+        direction: val(vec3(0., 0., 0.)),
+      },
+    },
+    HitInfo {
+      hit_kind: intersection.front_face().select(
+        val(HIT_KIND_FRONT_FACING_TRIANGLE),
+        val(HIT_KIND_BACK_FACING_TRIANGLE),
+      ),
+      hit_distance: intersection.t(),
+      hit_attribute: BuiltInTriangleHitAttributeShaderAPIInstance {
+        bary_coord: intersection.barycentrics(),
+      }
+      .construct(),
+    },
+  )
 }
