@@ -276,7 +276,11 @@ impl NativeInlineSystemInner {
 }
 
 impl GPUAccelerationStructureSystemProvider for NativeInlineSystem {
-  fn create_comp_instance(&self) -> Box<dyn GPUAccelerationStructureSystemCompImplInstance> {
+  fn create_comp_instance(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> Box<dyn GPUAccelerationStructureSystemCompImplInstance> {
+    self.maintain(cx.encoder);
     Box::new(self.create_instance())
   }
 

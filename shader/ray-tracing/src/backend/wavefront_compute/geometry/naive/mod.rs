@@ -551,7 +551,10 @@ impl NaiveSahBVHSystemInner {
 }
 
 impl GPUAccelerationStructureSystemProvider for NaiveSahBVHSystem {
-  fn create_comp_instance(&self) -> Box<dyn GPUAccelerationStructureSystemCompImplInstance> {
+  fn create_comp_instance(
+    &self,
+    _cx: &mut DeviceParallelComputeCtx,
+  ) -> Box<dyn GPUAccelerationStructureSystemCompImplInstance> {
     let gpu = self.get_or_build_gpu_data();
     Box::new(gpu.clone())
   }

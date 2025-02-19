@@ -122,10 +122,11 @@ impl RayTracingEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
     let tile_size = 256;
     let required_size = (tile_size * tile_size) as usize;
 
+    let tlas_sys = self.tlas_sys.create_comp_instance(&mut cx);
     let (executor, task_source) = executor.get_or_compile_task_executor_and_task_source(
       &mut cx,
       source,
-      self.tlas_sys.create_comp_instance(),
+      tlas_sys,
       self.sbt_sys.clone(),
       required_size as u32,
     );
