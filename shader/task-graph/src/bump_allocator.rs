@@ -75,7 +75,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
     pass: &mut GPUComputePass,
     device: &GPUDevice,
     workgroup_size: u32,
-  ) -> StorageBufferReadOnlyDataView<DispatchIndirectArgsStorage> {
+  ) -> StorageBufferReadonlyDataView<DispatchIndirectArgsStorage> {
     let size = device.make_indirect_dispatch_size_buffer();
     let hasher = shader_hasher_from_marker_ty!(SizeCompute);
     let workgroup_size = create_gpu_readonly_storage(&workgroup_size, device);
@@ -158,7 +158,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
     the_other: &Self,
     pass: &mut GPUComputePass,
     device: &GPUDevice,
-  ) -> StorageBufferReadOnlyDataView<DispatchIndirectArgsStorage> {
+  ) -> StorageBufferReadonlyDataView<DispatchIndirectArgsStorage> {
     let size = self.prepare_dispatch_size(pass, device, 256);
 
     let hasher = shader_hasher_from_marker_ty!(Drainer);

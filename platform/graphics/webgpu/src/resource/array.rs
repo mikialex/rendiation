@@ -72,7 +72,7 @@ impl<T: ?Sized + Std430MaybeUnsized> CacheAbleBindingSource
 }
 // todo, improve for performance and impl for other strong type
 impl<T: ?Sized + Std430MaybeUnsized> CacheAbleBindingSource
-  for BindingResourceArray<StorageBufferReadOnlyDataView<T>>
+  for BindingResourceArray<StorageBufferReadonlyDataView<T>>
 {
   fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
     let lowered = self.bindings.iter().map(|v| v.gpu.clone()).collect();
@@ -95,9 +95,9 @@ impl<T: 'static> ShaderHashProvider for BindingResourceArray<T> {
 impl<T> ShaderBindingProvider for BindingResourceArray<T>
 where
   T: ShaderBindingProvider,
-  ShaderHandlePtr<BindingArray<T::Node>>: ShaderNodeType,
+  ShaderBinding<BindingArray<T::Node>>: ShaderNodeType,
 {
-  type Node = ShaderHandlePtr<BindingArray<T::Node>>;
+  type Node = ShaderBinding<BindingArray<T::Node>>;
   fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {
     node
   }

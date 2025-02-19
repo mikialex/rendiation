@@ -70,37 +70,51 @@ impl AbstractShaderPtr for ShaderNodeRawHandle {
 /// has type api to constraint valid access.
 pub trait ShaderValueAbstractPtrAccess {
   type Accessor: Clone;
+  type ReadonlyAccessor: Clone;
   // todo, this fn should be unsafe
   fn create_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::Accessor;
+  fn create_readonly_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::ReadonlyAccessor;
 }
 pub type ShaderAccessorOf<T> = <T as ShaderValueAbstractPtrAccess>::Accessor;
+pub type ShaderReadonlyAccessorOf<T> = <T as ShaderValueAbstractPtrAccess>::ReadonlyAccessor;
 
 /// the difference of the trait between the abstract left value is that the abstract
 /// left value's right value is not necessarily one single shader value.
-pub trait SizedValueShaderPtrAccessor: Clone {
+pub trait ReadonlySizedValueShaderPtrAccessor: Clone {
   type Node: ShaderSizedValueNodeType;
   fn load(&self) -> Node<Self::Node>;
+}
+pub trait SizedValueShaderPtrAccessor: ReadonlySizedValueShaderPtrAccessor {
   fn store(&self, value: impl Into<Node<Self::Node>>);
 }
 
 pub trait SizedShaderValueAbstractPtrAccess:
-  ShaderValueAbstractPtrAccess<Accessor: SizedValueShaderPtrAccessor<Node = Self>>
+  ShaderValueAbstractPtrAccess<
+  Accessor: SizedValueShaderPtrAccessor<Node = Self>,
+  ReadonlyAccessor: ReadonlySizedValueShaderPtrAccessor<Node = Self>,
+>
 {
 }
 impl<T> SizedShaderValueAbstractPtrAccess for T
 where
   T: ShaderValueAbstractPtrAccess,
   T::Accessor: SizedValueShaderPtrAccessor<Node = Self>,
+  T::ReadonlyAccessor: ReadonlySizedValueShaderPtrAccessor<Node = Self>,
 {
 }
 
 impl<T> ShaderValueAbstractPtrAccess for [T] {
   type Accessor = DynLengthArrayAccessor<T>;
+  type ReadonlyAccessor = DynLengthArrayAccessor<T>;
   fn create_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::Accessor {
     DynLengthArrayAccessor {
       phantom: PhantomData,
       access: ptr,
     }
+  }
+
+  fn create_readonly_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::Accessor {
+    Self::create_accessor_from_raw_ptr(ptr)
   }
 }
 
@@ -130,16 +144,21 @@ impl<T: SizedShaderValueAbstractPtrAccess> DynLengthArrayAccessor<T> {
 
 impl<T, const N: usize> ShaderValueAbstractPtrAccess for Shader140Array<T, N> {
   type Accessor = StaticLengthArrayAccessor<Self, T>;
+  type ReadonlyAccessor = StaticLengthArrayAccessor<Self, T>;
   fn create_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::Accessor {
     StaticLengthArrayAccessor {
       phantom: PhantomData,
       array: PhantomData,
       access: ptr,
     }
+  }
+  fn create_readonly_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::ReadonlyAccessor {
+    Self::create_accessor_from_raw_ptr(ptr)
   }
 }
 impl<T, const N: usize> ShaderValueAbstractPtrAccess for [T; N] {
   type Accessor = StaticLengthArrayAccessor<Self, T>;
+  type ReadonlyAccessor = StaticLengthArrayAccessor<Self, T>;
   fn create_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::Accessor {
     StaticLengthArrayAccessor {
       phantom: PhantomData,
@@ -147,15 +166,22 @@ impl<T, const N: usize> ShaderValueAbstractPtrAccess for [T; N] {
       access: ptr,
     }
   }
+  fn create_readonly_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::ReadonlyAccessor {
+    Self::create_accessor_from_raw_ptr(ptr)
+  }
 }
 impl<T> ShaderValueAbstractPtrAccess for HostDynSizeArray<T> {
   type Accessor = StaticLengthArrayAccessor<Self, T>;
+  type ReadonlyAccessor = StaticLengthArrayAccessor<Self, T>;
   fn create_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::Accessor {
     StaticLengthArrayAccessor {
       phantom: PhantomData,
       array: PhantomData,
       access: ptr,
     }
+  }
+  fn create_readonly_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::ReadonlyAccessor {
+    Self::create_accessor_from_raw_ptr(ptr)
   }
 }
 
@@ -165,7 +191,7 @@ pub struct StaticLengthArrayAccessor<AT, T> {
   access: BoxedShaderPtr,
 }
 
-impl<AT, T> SizedValueShaderPtrAccessor for StaticLengthArrayAccessor<AT, T>
+impl<AT, T> ReadonlySizedValueShaderPtrAccessor for StaticLengthArrayAccessor<AT, T>
 where
   AT: ShaderSizedValueNodeType,
   T: ShaderSizedValueNodeType,
@@ -174,6 +200,12 @@ where
   fn load(&self) -> Node<Self::Node> {
     unsafe { self.access.load().into_node() }
   }
+}
+impl<AT, T> SizedValueShaderPtrAccessor for StaticLengthArrayAccessor<AT, T>
+where
+  AT: ShaderSizedValueNodeType,
+  T: ShaderSizedValueNodeType,
+{
   fn store(&self, value: impl Into<Node<Self::Node>>) {
     self.access.store(value.into().handle())
   }
@@ -203,8 +235,7 @@ impl<T> Clone for DirectPrimitivePtrAccessor<T> {
     Self(self.0, self.1.clone())
   }
 }
-
-impl<T> SizedValueShaderPtrAccessor for DirectPrimitivePtrAccessor<T>
+impl<T> ReadonlySizedValueShaderPtrAccessor for DirectPrimitivePtrAccessor<T>
 where
   T: ShaderSizedValueNodeType,
 {
@@ -212,8 +243,29 @@ where
   fn load(&self) -> Node<T> {
     unsafe { self.1.load().into_node() }
   }
+}
+impl<T> SizedValueShaderPtrAccessor for DirectPrimitivePtrAccessor<T>
+where
+  T: ShaderSizedValueNodeType,
+{
   fn store(&self, value: impl Into<Node<T>>) {
     self.1.store(value.into().handle());
+  }
+}
+pub struct ReadonlyDirectPrimitivePtrAccessor<T>(PhantomData<T>, BoxedShaderPtr);
+
+impl<T> Clone for ReadonlyDirectPrimitivePtrAccessor<T> {
+  fn clone(&self) -> Self {
+    Self(self.0, self.1.clone())
+  }
+}
+impl<T> ReadonlySizedValueShaderPtrAccessor for ReadonlyDirectPrimitivePtrAccessor<T>
+where
+  T: ShaderSizedValueNodeType,
+{
+  type Node = T;
+  fn load(&self) -> Node<T> {
+    unsafe { self.1.load().into_node() }
   }
 }
 
@@ -238,8 +290,12 @@ macro_rules! impl_primitive_direct {
   ($ty: ty) => {
     impl ShaderValueAbstractPtrAccess for $ty {
       type Accessor = DirectPrimitivePtrAccessor<$ty>;
+      type ReadonlyAccessor = ReadonlyDirectPrimitivePtrAccessor<$ty>;
       fn create_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::Accessor {
         DirectPrimitivePtrAccessor(PhantomData, ptr)
+      }
+      fn create_readonly_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::ReadonlyAccessor {
+        ReadonlyDirectPrimitivePtrAccessor(PhantomData, ptr)
       }
     }
   };
@@ -363,7 +419,7 @@ impl<T: AtomicityShaderNodeType> AtomicPtrAccessor<T> {
     }
   }
 }
-impl<T: AtomicityShaderNodeType + PrimitiveShaderNodeType> SizedValueShaderPtrAccessor
+impl<T: AtomicityShaderNodeType + PrimitiveShaderNodeType> ReadonlySizedValueShaderPtrAccessor
   for AtomicPtrAccessor<T>
 {
   type Node = DeviceAtomic<T>;
@@ -371,7 +427,10 @@ impl<T: AtomicityShaderNodeType + PrimitiveShaderNodeType> SizedValueShaderPtrAc
   fn load(&self) -> Node<Self::Node> {
     unreachable!("atomic is not able to direct load");
   }
-
+}
+impl<T: AtomicityShaderNodeType + PrimitiveShaderNodeType> SizedValueShaderPtrAccessor
+  for AtomicPtrAccessor<T>
+{
   fn store(&self, _value: impl Into<Node<Self::Node>>) {
     unreachable!("atomic is not able to direct store");
   }
@@ -382,8 +441,13 @@ where
   T: AtomicityShaderNodeType + PrimitiveShaderNodeType,
 {
   type Accessor = AtomicPtrAccessor<T>;
+  type ReadonlyAccessor = AtomicPtrAccessor<T>;
 
   fn create_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::Accessor {
+    AtomicPtrAccessor(PhantomData, ptr)
+  }
+
+  fn create_readonly_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::ReadonlyAccessor {
     AtomicPtrAccessor(PhantomData, ptr)
   }
 }
@@ -398,7 +462,6 @@ mod test {
   }
 
   /// auto generated by macro
-  pub struct MyStructShaderPtrInstance(BoxedShaderPtr);
   impl ShaderNodeType for MyStruct {
     fn ty() -> ShaderValueType {
       todo!()
@@ -414,17 +477,21 @@ mod test {
     }
   }
 
+  pub struct MyStructShaderPtrInstance(BoxedShaderPtr);
+
   impl Clone for MyStructShaderPtrInstance {
     fn clone(&self) -> Self {
       Self(self.0.clone())
     }
   }
 
-  impl SizedValueShaderPtrAccessor for MyStructShaderPtrInstance {
+  impl ReadonlySizedValueShaderPtrAccessor for MyStructShaderPtrInstance {
     type Node = MyStruct;
     fn load(&self) -> Node<MyStruct> {
       unsafe { self.0.load().into_node() }
     }
+  }
+  impl SizedValueShaderPtrAccessor for MyStructShaderPtrInstance {
     fn store(&self, value: impl Into<Node<MyStruct>>) {
       self.0.store(value.into().handle());
     }
@@ -432,9 +499,6 @@ mod test {
 
   /// auto generated by macro
   impl MyStructShaderPtrInstance {
-    pub fn load(&self) -> Node<MyStruct> {
-      unsafe { self.0.load().into_node() }
-    }
     pub fn store(&self, value: Node<MyStruct>) {
       self.0.store(value.handle());
     }
@@ -449,10 +513,41 @@ mod test {
     }
   }
 
+  pub struct MyStructShaderReadonlyPtrInstance(BoxedShaderPtr);
+
+  impl Clone for MyStructShaderReadonlyPtrInstance {
+    fn clone(&self) -> Self {
+      Self(self.0.clone())
+    }
+  }
+
+  impl ReadonlySizedValueShaderPtrAccessor for MyStructShaderReadonlyPtrInstance {
+    type Node = MyStruct;
+    fn load(&self) -> Node<MyStruct> {
+      unsafe { self.0.load().into_node() }
+    }
+  }
+
+  /// auto generated by macro
+  impl MyStructShaderReadonlyPtrInstance {
+    pub fn a(&self) -> ShaderAccessorOf<f32> {
+      let v = self.0.field_index(0);
+      f32::create_accessor_from_raw_ptr(v)
+    }
+    pub fn b(&self) -> ShaderAccessorOf<u32> {
+      let v = self.0.field_index(1);
+      u32::create_accessor_from_raw_ptr(v)
+    }
+  }
+
   impl ShaderValueAbstractPtrAccess for MyStruct {
     type Accessor = MyStructShaderPtrInstance;
+    type ReadonlyAccessor = MyStructShaderReadonlyPtrInstance;
     fn create_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::Accessor {
       MyStructShaderPtrInstance(ptr)
+    }
+    fn create_readonly_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::ReadonlyAccessor {
+      MyStructShaderReadonlyPtrInstance(ptr)
     }
   }
 }

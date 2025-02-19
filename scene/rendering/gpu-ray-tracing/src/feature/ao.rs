@@ -405,7 +405,7 @@ impl RayTracingCustomCtxProvider for RayTracingAORayGenCtx {
 #[derive(Clone)]
 struct RayTracingAORayGenCtxInvocation {
   camera: Box<dyn RtxCameraRenderInvocation>,
-  ao_buffer: HandleNode<ShaderStorageTextureRW2D>,
+  ao_buffer: BindingNode<ShaderStorageTextureRW2D>,
   tlas_idx: Node<u32>,
   ao_sample_count: UniformNode<Vec4<u32>>,
 }

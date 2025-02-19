@@ -53,7 +53,7 @@ impl ShaderBindingTableProvider for ShaderBindingTableInfo {
 
 #[repr(C)]
 #[std430_layout]
-#[derive(Clone, Copy, ShaderStruct, PartialEq, StorageNodePtrAccess)]
+#[derive(Clone, Copy, ShaderStruct, PartialEq)]
 pub struct DeviceSBTTableMeta {
   pub hit_group_start: u32,
   pub miss_start: u32,
@@ -62,7 +62,7 @@ pub struct DeviceSBTTableMeta {
 
 #[repr(C)]
 #[std430_layout]
-#[derive(Clone, Copy, ShaderStruct, StorageNodePtrAccess)]
+#[derive(Clone, Copy, ShaderStruct)]
 pub struct DeviceHitGroupShaderRecord {
   pub closest_hit: u32,
   pub any_hit: u32,
@@ -262,7 +262,7 @@ impl ShaderBindingTableDeviceInfoInvocation {
 }
 
 pub type StorageBufferSlabAllocatePoolWithHost<T> =
-  SlabAllocatePoolWithHost<StorageBufferReadOnlyDataView<[T]>>;
+  SlabAllocatePoolWithHost<StorageBufferReadonlyDataView<[T]>>;
 pub type SlabAllocatePoolWithHost<T> =
   GPUSlatAllocateMaintainer<GrowableHostedDirectQueueUpdateBuffer<T>>;
 
@@ -271,7 +271,7 @@ pub fn create_storage_buffer_slab_allocate_pool_with_host<T: Std430>(
   init_size: u32,
   max_size: u32,
 ) -> StorageBufferSlabAllocatePoolWithHost<T> {
-  let buffer = StorageBufferReadOnlyDataView::<[T]>::create_by(
+  let buffer = StorageBufferReadonlyDataView::<[T]>::create_by(
     &gpu.device,
     StorageBufferInit::Zeroed(std::num::NonZeroU64::new(init_size as u64).unwrap()),
   );

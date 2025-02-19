@@ -270,11 +270,11 @@ impl<T: ShaderSizedValueNodeType> IntoShaderIterator for DynLengthArrayAccessor<
 //   }
 // }
 
-// impl<T: ShaderNodeType> IntoShaderIterator for ReadOnlyStorageNode<[T]> {
-//   type ShaderIter = ReadOnlyStorageArrayIter<T>;
+// impl<T: ShaderNodeType> IntoShaderIterator for ReadonlyStorageNode<[T]> {
+//   type ShaderIter = ReadonlyStorageArrayIter<T>;
 
 //   fn into_shader_iter(self) -> Self::ShaderIter {
-//     ReadOnlyStorageArrayIter {
+//     ReadonlyStorageArrayIter {
 //       cursor: val(0).make_local_var(),
 //       array: self,
 //       len: self.array_length(),

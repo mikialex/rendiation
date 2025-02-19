@@ -86,8 +86,8 @@ impl DeviceSceneModelRenderSubBatch {
 }
 
 struct MultiIndirectDrawBatch {
-  draw_command_buffer: StorageBufferReadOnlyDataView<[DrawIndexedIndirect]>,
-  draw_count: StorageBufferReadOnlyDataView<Vec4<u32>>,
+  draw_command_buffer: StorageBufferReadonlyDataView<[DrawIndexedIndirect]>,
+  draw_count: StorageBufferReadonlyDataView<Vec4<u32>>,
 }
 
 impl IndirectDrawProvider for MultiIndirectDrawBatch {

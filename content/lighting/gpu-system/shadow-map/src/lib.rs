@@ -285,8 +285,8 @@ impl AbstractBindingSource for BasicShadowMapComponent {
 
 #[derive(Clone)]
 pub struct BasicShadowMapInvocation {
-  shadow_map_atlas: HandleNode<ShaderDepthTexture2DArray>,
-  sampler: HandleNode<ShaderCompareSampler>,
+  shadow_map_atlas: BindingNode<ShaderDepthTexture2DArray>,
+  sampler: BindingNode<ShaderCompareSampler>,
   info: ShaderAccessorOf<Shader140Array<BasicShadowMapInfo, 8>>,
 }
 
@@ -373,9 +373,9 @@ impl ShadowOcclusionQuery for BasicShadowMapSingleInvocation {
 }
 
 fn sample_shadow_pcf_x36_by_offset(
-  map: HandleNode<ShaderDepthTexture2DArray>,
+  map: BindingNode<ShaderDepthTexture2DArray>,
   shadow_position: Node<Vec3<f32>>,
-  d_sampler: HandleNode<ShaderCompareSampler>,
+  d_sampler: BindingNode<ShaderCompareSampler>,
   info: ENode<ShadowMapAddressInfo>,
 ) -> Node<f32> {
   let uv = shadow_position.xy();

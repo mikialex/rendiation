@@ -3,7 +3,7 @@ use super::*;
 #[derive(Clone)]
 pub struct ActiveTaskCompact {
   pub active_size: StorageBufferDataView<u32>,
-  pub active_tasks: StorageBufferReadOnlyDataView<[u32]>,
+  pub active_tasks: StorageBufferReadonlyDataView<[u32]>,
   pub task_pool: TaskPool,
 }
 

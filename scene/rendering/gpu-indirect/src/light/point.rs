@@ -50,7 +50,7 @@ impl RenderImplProvider<Box<dyn LightingComputeComponent>> for PointStorageLight
 
     let com = ArrayLights(
       buffer,
-      |(_, light): (Node<u32>, ReadOnlyStorageNode<PointLightStorage>)| {
+      |(_, light): (Node<u32>, ReadonlyStorageNode<PointLightStorage>)| {
         let light = light.load().expand();
         ENode::<PointLightShaderInfo> {
           luminance_intensity: light.luminance_intensity,

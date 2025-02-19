@@ -177,7 +177,7 @@ impl<T> CacheAbleBindingSource for AttachmentView<T> {
 }
 
 impl<T> rendiation_shader_api::ShaderBindingProvider for AttachmentView<T> {
-  type Node = ShaderHandlePtr<ShaderTexture2D>;
+  type Node = ShaderBinding<ShaderTexture2D>;
   fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {
     node
   }

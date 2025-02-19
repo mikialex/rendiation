@@ -23,8 +23,8 @@ impl Default for ChromaticAberration {
 pub fn chromatic_aberration(
   uv: Node<Vec2<f32>>,
   config: Node<ChromaticAberration>,
-  color_tex: HandleNode<ShaderTexture2D>,
-  sampler: HandleNode<ShaderSampler>,
+  color_tex: BindingNode<ShaderTexture2D>,
+  sampler: BindingNode<ShaderSampler>,
 ) -> Node<Vec3<f32>> {
   let config = config.expand();
   let direction = uv - config.normalized_screen_focus_point;

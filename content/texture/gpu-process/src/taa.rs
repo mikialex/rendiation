@@ -150,8 +150,8 @@ impl GraphicsShaderProvider for TAAResolver<'_> {
 }
 
 fn clamp_color(
-  tex: HandleNode<ShaderTexture2D>,
-  sp: HandleNode<ShaderSampler>,
+  tex: BindingNode<ShaderTexture2D>,
+  sp: BindingNode<ShaderSampler>,
   texel_size: Node<Vec2<f32>>,
   position: Node<Vec2<f32>>,
   previous: Node<Vec3<f32>>,

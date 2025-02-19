@@ -106,7 +106,7 @@ pub struct AttributeMeshMeta {
 }
 
 pub type CommonStorageBufferImplWithHostBackup<T> =
-  VecWithStorageBuffer<GrowableDirectQueueUpdateBuffer<StorageBufferReadOnlyDataView<[T]>>>;
+  VecWithStorageBuffer<GrowableDirectQueueUpdateBuffer<StorageBufferReadonlyDataView<[T]>>>;
 
 pub fn attribute_buffer_metadata(
   gpu: &GPU,
@@ -157,7 +157,7 @@ impl MeshBindlessGPUSystemSource {
     let indices_init_size = 20 * 1024 * 1024;
     let indices_max_size = 200 * 1024 * 1024;
 
-    let indices = StorageBufferReadOnlyDataView::<[u32]>::create_by_with_extra_usage(
+    let indices = StorageBufferReadonlyDataView::<[u32]>::create_by_with_extra_usage(
       &gpu.device,
       StorageBufferInit::Zeroed(NonZeroU64::new(indices_init_size as u64).unwrap()),
       BufferUsages::INDEX,

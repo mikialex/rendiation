@@ -67,57 +67,14 @@ where
   }
 }
 
-pub struct ShaderLocalPtr<T: ?Sized>(PhantomData<T>);
-pub struct ShaderPrivatePtr<T: ?Sized>(PhantomData<T>);
-pub struct ShaderHandlePtr<T: ?Sized>(PhantomData<T>);
-pub struct ShaderUniformPtr<T: ?Sized>(PhantomData<T>);
-pub struct ShaderReadOnlyStoragePtr<T: ?Sized>(PhantomData<T>);
-pub struct ShaderStoragePtr<T: ?Sized>(PhantomData<T>);
-pub struct ShaderWorkGroupPtr<T: ?Sized>(PhantomData<T>);
-
-impl<T: ShaderNodeType> ShaderNodeType for ShaderLocalPtr<T> {
-  fn ty() -> ShaderValueType {
-    T::ty()
-  }
-}
-impl<T: ShaderNodeType> ShaderNodeType for ShaderPrivatePtr<T> {
-  fn ty() -> ShaderValueType {
-    T::ty()
-  }
-}
-impl<T: ShaderNodeType> ShaderNodeType for ShaderHandlePtr<T> {
-  fn ty() -> ShaderValueType {
-    T::ty()
-  }
-}
-impl<T: ShaderNodeType> ShaderNodeType for ShaderUniformPtr<T> {
-  fn ty() -> ShaderValueType {
-    T::ty()
-  }
-}
-impl<T: ShaderNodeType + ?Sized> ShaderNodeType for ShaderReadOnlyStoragePtr<T> {
-  fn ty() -> ShaderValueType {
-    T::ty()
-  }
-}
-impl<T: ShaderNodeType + ?Sized> ShaderNodeType for ShaderStoragePtr<T> {
-  fn ty() -> ShaderValueType {
-    T::ty()
-  }
-}
-impl<T: ShaderNodeType> ShaderNodeType for ShaderWorkGroupPtr<T> {
+pub struct ShaderBinding<T: ?Sized>(PhantomData<T>);
+impl<T: ShaderNodeType + ?Sized> ShaderNodeType for ShaderBinding<T> {
   fn ty() -> ShaderValueType {
     T::ty()
   }
 }
 
-// pub type GlobalVarNode<T> = Node<ShaderPrivatePtr<T>>;
-// pub type ShaderAccessorOf<T> = Node<ShaderLocalPtr<T>>;
-// pub type WorkGroupSharedNode<T> = Node<ShaderWorkGroupPtr<T>>;
-// pub type UniformNode<T> = Node<ShaderUniformPtr<T>>;
-pub type HandleNode<T> = Node<ShaderHandlePtr<T>>;
-// pub type ReadOnlyStorageNode<T> = Node<ShaderReadOnlyStoragePtr<T>>;
-// pub type StorageNode<T> = Node<ShaderStoragePtr<T>>;
+pub type BindingNode<T> = Node<ShaderBinding<T>>;
 
 #[derive(Clone, Copy)]
 pub struct BindingArray<T: ?Sized>(PhantomData<T>);
@@ -376,25 +333,7 @@ impl<T: ShaderSizedValueNodeType, const N: usize> ShaderSizedValueNodeType
   }
 }
 
-impl<T: ShaderNodeSingleType + ?Sized> ShaderNodeType for BindingArray<ShaderHandlePtr<T>> {
-  fn ty() -> ShaderValueType {
-    ShaderValueType::BindingArray {
-      ty: T::single_ty(),
-      count: 0,
-    }
-  }
-}
-impl<T: ShaderNodeSingleType + ?Sized> ShaderNodeType for BindingArray<ShaderStoragePtr<T>> {
-  fn ty() -> ShaderValueType {
-    ShaderValueType::BindingArray {
-      ty: T::single_ty(),
-      count: 0,
-    }
-  }
-}
-impl<T: ShaderNodeSingleType + ?Sized> ShaderNodeType
-  for BindingArray<ShaderReadOnlyStoragePtr<T>>
-{
+impl<T: ShaderNodeSingleType + ?Sized> ShaderNodeType for BindingArray<ShaderBinding<T>> {
   fn ty() -> ShaderValueType {
     ShaderValueType::BindingArray {
       ty: T::single_ty(),

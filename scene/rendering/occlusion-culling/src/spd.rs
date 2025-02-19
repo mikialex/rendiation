@@ -183,8 +183,8 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
 }
 
 struct MSDepthLoader {
-  mip_0: HandleNode<ShaderStorageTextureW2D>,
-  ms_depth: HandleNode<ShaderMultiSampleDepthTexture2D>,
+  mip_0: BindingNode<ShaderStorageTextureW2D>,
+  ms_depth: BindingNode<ShaderMultiSampleDepthTexture2D>,
   scale: Node<Vec2<f32>>,
 }
 
@@ -213,7 +213,7 @@ impl SourceImageLoader<f32> for MSDepthLoader {
 }
 
 struct LoadFirstChannel {
-  source: HandleNode<ShaderTexture2D>,
+  source: BindingNode<ShaderTexture2D>,
 }
 impl SourceImageLoader<f32> for LoadFirstChannel {
   fn load(&self, coord: Node<Vec2<u32>>) -> Node<f32> {
@@ -222,10 +222,10 @@ impl SourceImageLoader<f32> for LoadFirstChannel {
 }
 
 struct SplatWriter {
-  target: HandleNode<ShaderStorageTextureW2D>,
+  target: BindingNode<ShaderStorageTextureW2D>,
 }
-impl From<HandleNode<ShaderStorageTextureW2D>> for SplatWriter {
-  fn from(target: HandleNode<ShaderStorageTextureW2D>) -> Self {
+impl From<BindingNode<ShaderStorageTextureW2D>> for SplatWriter {
+  fn from(target: BindingNode<ShaderStorageTextureW2D>) -> Self {
     Self { target }
   }
 }
@@ -272,7 +272,7 @@ pub trait SourceImageWriter<V: ShaderNodeType> {
   fn write(&self, coord: Node<Vec2<u32>>, value: Node<V>);
 }
 
-impl<T> SourceImageLoader<T::Output> for HandleNode<T>
+impl<T> SourceImageLoader<T::Output> for BindingNode<T>
 where
   T: ShaderDirectLoad + SingleLayerTarget + SingleSampleTarget,
   Node<T::LoadInput>: From<Node<Vec2<u32>>>,
@@ -282,7 +282,7 @@ where
   }
 }
 
-impl<T> SourceImageWriter<T::Output> for HandleNode<T>
+impl<T> SourceImageWriter<T::Output> for BindingNode<T>
 where
   T: ShaderStorageTextureLike + ShaderDirectLoad + SingleLayerTarget,
   Node<T::LoadInput>: From<Node<Vec2<u32>>>,

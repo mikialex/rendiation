@@ -75,14 +75,14 @@ impl StorageShaderTypeMapping for GPU3DTextureView {
 }
 
 pub trait IntoStorageTextureView: Sized {
-  fn into_storage_texture_view_readonly(self) -> Option<StorageTextureViewReadOnly<Self>>;
+  fn into_storage_texture_view_readonly(self) -> Option<StorageTextureViewReadonly<Self>>;
   fn into_storage_texture_view_writeonly(self) -> Option<StorageTextureViewWriteOnly<Self>>;
   fn into_storage_texture_view_readwrite(self) -> Option<StorageTextureViewReadWrite<Self>>;
 }
 
 impl<T: StorageShaderTypeMapping> IntoStorageTextureView for T {
-  fn into_storage_texture_view_readonly(self) -> Option<StorageTextureViewReadOnly<Self>> {
-    self.downcast().map(|format| StorageTextureViewReadOnly {
+  fn into_storage_texture_view_readonly(self) -> Option<StorageTextureViewReadonly<Self>> {
+    self.downcast().map(|format| StorageTextureViewReadonly {
       texture: self,
       format,
     })
@@ -103,19 +103,19 @@ impl<T: StorageShaderTypeMapping> IntoStorageTextureView for T {
   }
 }
 
-pub struct StorageTextureViewReadOnly<T> {
+pub struct StorageTextureViewReadonly<T> {
   texture: T,
   format: StorageFormat,
 }
 
-impl<T: CacheAbleBindingSource> CacheAbleBindingSource for StorageTextureViewReadOnly<T> {
+impl<T: CacheAbleBindingSource> CacheAbleBindingSource for StorageTextureViewReadonly<T> {
   fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
     self.texture.get_binding_build_source()
   }
 }
 
-impl<T: StorageShaderTypeMapping> ShaderBindingProvider for StorageTextureViewReadOnly<T> {
-  type Node = ShaderHandlePtr<T::StorageTextureShaderTypeR>;
+impl<T: StorageShaderTypeMapping> ShaderBindingProvider for StorageTextureViewReadonly<T> {
+  type Node = ShaderBinding<T::StorageTextureShaderTypeR>;
   fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {
     node
   }
@@ -151,7 +151,7 @@ impl<T: CacheAbleBindingSource> CacheAbleBindingSource for StorageTextureViewWri
 }
 
 impl<T: StorageShaderTypeMapping> ShaderBindingProvider for StorageTextureViewWriteOnly<T> {
-  type Node = ShaderHandlePtr<T::StorageTextureShaderTypeW>;
+  type Node = ShaderBinding<T::StorageTextureShaderTypeW>;
   fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {
     node
   }
@@ -188,7 +188,7 @@ impl<T: CacheAbleBindingSource> CacheAbleBindingSource for StorageTextureViewRea
 }
 
 impl<T: StorageShaderTypeMapping> ShaderBindingProvider for StorageTextureViewReadWrite<T> {
-  type Node = ShaderHandlePtr<T::StorageTextureShaderTypeRW>;
+  type Node = ShaderBinding<T::StorageTextureShaderTypeRW>;
   fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {
     node
   }

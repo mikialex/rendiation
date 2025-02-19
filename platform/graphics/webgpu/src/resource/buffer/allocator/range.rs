@@ -187,7 +187,7 @@ where
   }
 }
 
-pub type StorageBufferRangeAllocatePool<T> = RangeAllocatePool<StorageBufferReadOnlyDataView<[T]>>;
+pub type StorageBufferRangeAllocatePool<T> = RangeAllocatePool<StorageBufferReadonlyDataView<[T]>>;
 pub type RangeAllocatePool<T> = GPURangeAllocateMaintainer<GrowableDirectQueueUpdateBuffer<T>>;
 
 pub fn create_storage_buffer_range_allocate_pool<T: Std430>(
@@ -195,7 +195,7 @@ pub fn create_storage_buffer_range_allocate_pool<T: Std430>(
   init_size: u32,
   max_size: u32,
 ) -> StorageBufferRangeAllocatePool<T> {
-  let buffer = StorageBufferReadOnlyDataView::<[T]>::create_by(
+  let buffer = StorageBufferReadonlyDataView::<[T]>::create_by(
     &gpu.device,
     StorageBufferInit::Zeroed(NonZeroU64::new(init_size as u64).unwrap()),
   );

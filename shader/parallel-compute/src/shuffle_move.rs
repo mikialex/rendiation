@@ -96,7 +96,7 @@ where
 
 pub struct ShuffleAccess<T: Std430> {
   /// shuffle access require reading any position, so we need fully materialized result here
-  pub source: StorageBufferReadOnlyDataView<[T]>,
+  pub source: StorageBufferReadonlyDataView<[T]>,
   pub shuffle_idx: Box<dyn DeviceInvocationComponent<Node<u32>>>,
 }
 

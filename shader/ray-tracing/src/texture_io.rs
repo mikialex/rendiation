@@ -66,7 +66,7 @@ impl RayTracingTextureIO {
 #[derive(Clone)]
 pub struct FrameOutputInvocation {
   // todo, separate read and write capabilities
-  targets: FastHashMap<TypeId, HandleNode<ShaderStorageTextureRW2D>>,
+  targets: FastHashMap<TypeId, BindingNode<ShaderStorageTextureRW2D>>,
 }
 
 impl FrameOutputInvocation {

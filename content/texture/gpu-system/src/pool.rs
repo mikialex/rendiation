@@ -226,18 +226,18 @@ fn copy_tex(
 
 pub struct TexturePool {
   texture: GPU2DArrayTextureView,
-  address: StorageBufferReadOnlyDataView<[TexturePoolAddressInfo]>,
-  samplers: StorageBufferReadOnlyDataView<[TextureSamplerShaderInfo]>,
+  address: StorageBufferReadonlyDataView<[TexturePoolAddressInfo]>,
+  samplers: StorageBufferReadonlyDataView<[TextureSamplerShaderInfo]>,
 }
 
-both!(TexturePoolInShader, ShaderHandlePtr<ShaderTexture2DArray>);
+both!(TexturePoolInShader, ShaderBinding<ShaderTexture2DArray>);
 both!(
   TexturePoolAddressInfoInShader,
-  ShaderReadOnlyStoragePtr<[TexturePoolAddressInfo]>
+  ShaderReadonlyStoragePtr<[TexturePoolAddressInfo]>
 );
 both!(
   SamplerPoolInShader,
-  ShaderReadOnlyStoragePtr<[TextureSamplerShaderInfo]>
+  ShaderReadonlyStoragePtr<[TextureSamplerShaderInfo]>
 );
 
 impl AbstractIndirectGPUTextureSystem for TexturePool {

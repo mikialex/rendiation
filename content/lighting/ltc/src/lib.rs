@@ -26,9 +26,9 @@ pub struct LTCRectLightingCompute {
 
 #[derive(Clone, Copy)]
 pub struct LTCxLUTxInvocation {
-  pub ltc_1: HandleNode<ShaderTexture2D>,
-  pub ltc_2: HandleNode<ShaderTexture2D>,
-  pub sampler: HandleNode<ShaderSampler>,
+  pub ltc_1: BindingNode<ShaderTexture2D>,
+  pub ltc_2: BindingNode<ShaderTexture2D>,
+  pub sampler: BindingNode<ShaderSampler>,
 }
 
 impl LightingComputeInvocation for LTCRectLightingCompute {

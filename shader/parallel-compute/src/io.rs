@@ -28,7 +28,7 @@ impl<T: ShaderSizedValueNodeType> DeviceInvocation<Node<T>>
   }
 }
 
-impl<T> DeviceParallelCompute<Node<T>> for StorageBufferReadOnlyDataView<[T]>
+impl<T> DeviceParallelCompute<Node<T>> for StorageBufferReadonlyDataView<[T]>
 where
   T: Std430 + ShaderSizedValueNodeType,
 {
@@ -46,7 +46,7 @@ where
     self.item_count()
   }
 }
-impl<T> DeviceParallelComputeIO<T> for StorageBufferReadOnlyDataView<[T]>
+impl<T> DeviceParallelComputeIO<T> for StorageBufferReadonlyDataView<[T]>
 where
   T: Std430 + ShaderSizedValueNodeType,
 {
@@ -121,12 +121,12 @@ async fn test_storage_buffer() {
 
 #[derive(Clone)]
 pub struct DeviceMaterializeResult<T: Std430> {
-  pub buffer: StorageBufferReadOnlyDataView<[T]>,
-  pub size: Option<StorageBufferReadOnlyDataView<Vec4<u32>>>,
+  pub buffer: StorageBufferReadonlyDataView<[T]>,
+  pub size: Option<StorageBufferReadonlyDataView<Vec4<u32>>>,
 }
 
 impl<T: Std430> DeviceMaterializeResult<T> {
-  pub fn full_buffer(buffer: StorageBufferReadOnlyDataView<[T]>) -> Self {
+  pub fn full_buffer(buffer: StorageBufferReadonlyDataView<[T]>) -> Self {
     Self { buffer, size: None }
   }
 }

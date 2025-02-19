@@ -427,9 +427,9 @@ impl Node<bool> {
 // sized_array_like_index!(LocalVarNode);
 // sized_array_like_index!(GlobalVarNode);
 // sized_array_like_index!(UniformNode);
-// sized_array_like_index!(HandleNode);
+// sized_array_like_index!(BindingNode);
 // sized_array_like_index!(StorageNode);
-// sized_array_like_index!(ReadOnlyStorageNode);
+// sized_array_like_index!(ReadonlyStorageNode);
 // sized_array_like_index!(WorkGroupSharedNode);
 
 // macro_rules! host_dyn_sized_array_like_index {
@@ -452,9 +452,9 @@ impl Node<bool> {
 // host_dyn_sized_array_like_index!(LocalVarNode);
 // host_dyn_sized_array_like_index!(GlobalVarNode);
 // host_dyn_sized_array_like_index!(UniformNode);
-// host_dyn_sized_array_like_index!(HandleNode);
+// host_dyn_sized_array_like_index!(BindingNode);
 // host_dyn_sized_array_like_index!(StorageNode);
-// host_dyn_sized_array_like_index!(ReadOnlyStorageNode);
+// host_dyn_sized_array_like_index!(ReadonlyStorageNode);
 // host_dyn_sized_array_like_index!(WorkGroupSharedNode);
 
 // macro_rules! storage_array_size {
@@ -470,10 +470,10 @@ impl Node<bool> {
 //   };
 // }
 // storage_array_size!(StorageNode);
-// storage_array_size!(ReadOnlyStorageNode);
+// storage_array_size!(ReadonlyStorageNode);
 
 // // this is a bit special
-// impl<T> HandleNode<BindingArray<T>>
+// impl<T> BindingNode<BindingArray<T>>
 // where
 //   T: ShaderNodeType,
 // {
@@ -512,4 +512,4 @@ impl Node<bool> {
 // }
 
 // index_access_slice_like!(StorageNode);
-// index_access_slice_like!(ReadOnlyStorageNode);
+// index_access_slice_like!(ReadonlyStorageNode);

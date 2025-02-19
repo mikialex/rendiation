@@ -88,7 +88,7 @@ impl AbstractCullerProvider for OcclusionTester {
 }
 
 struct OcclusionTesterInvocation {
-  depth: HandleNode<ShaderDepthTexture2D>,
+  depth: BindingNode<ShaderDepthTexture2D>,
   view_projection: UniformNode<Mat4<f32>>,
   bounding_provider: Box<dyn DrawUnitWorldBoundingInvocationProvider>,
   last_frame_visibility: StorageNode<[Bool]>,

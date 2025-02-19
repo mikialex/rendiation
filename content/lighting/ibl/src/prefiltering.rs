@@ -231,8 +231,8 @@ impl GraphicsShaderProvider for PreFilterSpecularTask {
 }
 
 pub fn prefilter_specular(
-  env: HandleNode<ShaderTextureCube>,
-  sampler: HandleNode<ShaderSampler>,
+  env: BindingNode<ShaderTextureCube>,
+  sampler: BindingNode<ShaderSampler>,
   normal: Node<Vec3<f32>>,
   resolution: Node<f32>,
   roughness: Node<f32>,
@@ -321,8 +321,8 @@ impl GraphicsShaderProvider for PreFilterDiffuseTask {
 }
 
 pub fn prefilter_diffuse(
-  env: HandleNode<ShaderTextureCube>,
-  sampler: HandleNode<ShaderSampler>,
+  env: BindingNode<ShaderTextureCube>,
+  sampler: BindingNode<ShaderSampler>,
   normal: Node<Vec3<f32>>,
   sampler_count: Node<u32>,
 ) -> Node<Vec3<f32>> {

@@ -432,9 +432,10 @@ fn test_gpu_triangle() {
             payload_u32_len: val(1),
           };
 
-          let output = traversable.traverse(payload, payloads, &|_ctx, _reporter| {}, &|_ctx| {
-            val(TEST_ANYHIT_BEHAVIOR)
-          });
+          let output =
+            traversable.traverse(payload, payloads.clone(), &|_ctx, _reporter| {}, &|_ctx| {
+              val(TEST_ANYHIT_BEHAVIOR)
+            });
           (
             output.is_some.into_u32()
               * (output.payload.hit_ctx.primitive_id % val(PRIMITIVE_IDX_MAX) + val(1)),

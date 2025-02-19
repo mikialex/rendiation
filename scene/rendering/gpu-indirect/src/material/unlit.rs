@@ -46,8 +46,8 @@ pub struct UnlitMaterialTextureHandlesStorage {
 
 #[derive(Clone)]
 pub struct UnlitMaterialStorageGPU<'a> {
-  pub buffer: StorageBufferReadOnlyDataView<[UnlitMaterialStorage]>,
-  pub texture_handles: StorageBufferReadOnlyDataView<[UnlitMaterialTextureHandlesStorage]>,
+  pub buffer: StorageBufferReadonlyDataView<[UnlitMaterialStorage]>,
+  pub texture_handles: StorageBufferReadonlyDataView<[UnlitMaterialTextureHandlesStorage]>,
   pub alpha_mode: AlphaMode,
   pub binding_sys: &'a GPUTextureBindingSystem,
 }

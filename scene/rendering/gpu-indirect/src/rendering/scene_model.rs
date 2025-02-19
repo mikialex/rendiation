@@ -237,7 +237,7 @@ pub struct DefaultSceneModelIdProvider {
 
 #[derive(Clone)]
 pub struct DefaultSceneModelIdInject {
-  pub id_buffer: StorageBufferReadOnlyDataView<[SceneModelStorage]>,
+  pub id_buffer: StorageBufferReadonlyDataView<[SceneModelStorage]>,
 }
 
 impl RenderImplProvider<DefaultSceneModelIdInject> for DefaultSceneModelIdProvider {

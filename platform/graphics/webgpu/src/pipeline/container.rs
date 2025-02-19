@@ -2,34 +2,34 @@ pub use crate::*;
 
 impl<T> ShaderBindingProvider for UniformBufferCachedDataView<T>
 where
-  T: ShaderSizedValueNodeType + Std140 + ShaderValueAbstractPtrAccess, /* todo this should be sized */
+  T: ShaderSizedValueNodeType + Std140 + SizedShaderValueAbstractPtrAccess,
 {
-  type Node = ShaderUniformPtr<T>;
-  type ShaderInstance = ShaderAccessorOf<T>;
+  type Node = ShaderBinding<T>;
+  type ShaderInstance = ShaderReadonlyAccessorOf<T>;
   fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {
-    T::create_accessor_from_raw_ptr(Box::new(node.handle()))
+    T::create_readonly_accessor_from_raw_ptr(Box::new(node.handle()))
   }
 }
 
 impl<T> ShaderBindingProvider for UniformBufferDataView<T>
 where
-  T: ShaderSizedValueNodeType + Std140 + ShaderValueAbstractPtrAccess, /* todo this should be sized */
+  T: ShaderSizedValueNodeType + Std140 + SizedShaderValueAbstractPtrAccess,
 {
-  type Node = ShaderUniformPtr<T>;
-  type ShaderInstance = ShaderAccessorOf<T>;
+  type Node = ShaderBinding<T>;
+  type ShaderInstance = ShaderReadonlyAccessorOf<T>;
   fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {
-    T::create_accessor_from_raw_ptr(Box::new(node.handle()))
+    T::create_readonly_accessor_from_raw_ptr(Box::new(node.handle()))
   }
 }
 
-impl<T> ShaderBindingProvider for StorageBufferReadOnlyDataView<T>
+impl<T> ShaderBindingProvider for StorageBufferReadonlyDataView<T>
 where
   T: ShaderMaybeUnsizedValueNodeType + Std430MaybeUnsized + ShaderValueAbstractPtrAccess + ?Sized,
 {
-  type Node = ShaderReadOnlyStoragePtr<T>;
-  type ShaderInstance = ShaderAccessorOf<T>;
+  type Node = ShaderBinding<T>;
+  type ShaderInstance = ShaderReadonlyAccessorOf<T>;
   fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {
-    T::create_accessor_from_raw_ptr(Box::new(node.handle()))
+    T::create_readonly_accessor_from_raw_ptr(Box::new(node.handle()))
   }
 
   fn binding_desc(&self) -> ShaderBindingDescriptor {
@@ -45,7 +45,7 @@ impl<T> ShaderBindingProvider for StorageBufferDataView<T>
 where
   T: ShaderMaybeUnsizedValueNodeType + Std430MaybeUnsized + ShaderValueAbstractPtrAccess + ?Sized,
 {
-  type Node = ShaderStoragePtr<T>;
+  type Node = ShaderBinding<T>;
   type ShaderInstance = ShaderAccessorOf<T>;
   fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {
     T::create_accessor_from_raw_ptr(Box::new(node.handle()))
@@ -63,7 +63,7 @@ where
 macro_rules! map_shader_ty {
   ($ty: ty, $shader_ty: ty) => {
     impl ShaderBindingProvider for $ty {
-      type Node = ShaderHandlePtr<$shader_ty>;
+      type Node = ShaderBinding<$shader_ty>;
       fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {
         node
       }

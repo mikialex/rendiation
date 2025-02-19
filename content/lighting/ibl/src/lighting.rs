@@ -46,11 +46,11 @@ pub struct IblShaderInfo {
 }
 
 pub struct IBLLighting {
-  pub diffuse: HandleNode<ShaderTextureCube>,
-  pub specular: HandleNode<ShaderTextureCube>,
-  pub brdf_lut: HandleNode<ShaderTexture2D>,
-  pub sampler: HandleNode<ShaderSampler>,
-  pub uniform: ShaderAccessorOf<IblShaderInfo>,
+  pub diffuse: BindingNode<ShaderTextureCube>,
+  pub specular: BindingNode<ShaderTextureCube>,
+  pub brdf_lut: BindingNode<ShaderTexture2D>,
+  pub sampler: BindingNode<ShaderSampler>,
+  pub uniform: ShaderReadonlyAccessorOf<IblShaderInfo>,
 }
 
 impl LightingComputeInvocation for IBLLighting {

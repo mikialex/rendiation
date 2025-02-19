@@ -129,7 +129,7 @@ impl TaskParentRef {
 
 impl TaskPoolInvocationInstance {
   pub fn access_item_ptr(&self, idx: Node<u32>) -> BoxedShaderPtr {
-    Box::new(self.pool).field_array_index(idx)
+    self.pool.field_array_index(idx)
   }
 
   pub fn is_task_finished(&self, task_id: Node<u32>) -> Node<bool> {

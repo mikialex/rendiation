@@ -95,8 +95,8 @@ impl<T> GraphicsShaderProvider for HighLightComposeTask<'_, T> {
 #[shader_fn]
 fn edge_intensity(
   uv: Node<Vec2<f32>>,
-  mask: HandleNode<ShaderTexture2D>,
-  sp: HandleNode<ShaderSampler>,
+  mask: BindingNode<ShaderTexture2D>,
+  sp: BindingNode<ShaderSampler>,
   width: Node<f32>,
   buffer_size: Node<Vec2<f32>>,
 ) -> Node<f32> {
