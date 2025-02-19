@@ -37,6 +37,6 @@ where
     bind_builder: &mut ShaderBindGroupBuilder,
     _: &mut SemanticRegistry,
   ) -> ShaderAccessorOf<T, Self::ShaderPtr> {
-    T::create_accessor_from_raw_ptr(bind_builder.bind_by(self).handle())
+    bind_builder.bind_by(self)
   }
 }

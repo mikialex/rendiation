@@ -17,7 +17,7 @@ pub trait AbstractShaderPtr: Clone {
   fn array_length(&self) -> Node<u32>;
   fn load(&self) -> ShaderNodeRawHandle;
   fn store(&self, value: ShaderNodeRawHandle);
-  fn self_node(&self) -> ShaderNodeRawHandle;
+  fn downcast_atomic_ptr(&self) -> ShaderNodeRawHandle;
 }
 
 impl AbstractShaderPtr for ShaderNodeRawHandle {
@@ -50,7 +50,7 @@ impl AbstractShaderPtr for ShaderNodeRawHandle {
   fn store(&self, value: ShaderNodeRawHandle) {
     call_shader_api(|g| g.store(*self, value))
   }
-  fn self_node(&self) -> ShaderNodeRawHandle {
+  fn downcast_atomic_ptr(&self) -> ShaderNodeRawHandle {
     *self
   }
 }
@@ -62,7 +62,9 @@ pub trait ShaderValueAbstractPtrAccess<Ptr: AbstractShaderPtr> {
   fn create_accessor_from_raw_ptr(ptr: Ptr) -> Self::Accessor;
 }
 pub type ShaderAccessorOf<T, Ptr> = <T as ShaderValueAbstractPtrAccess<Ptr>>::Accessor;
+pub type ShaderPtrAccessorOf<T> = ShaderAccessorOf<T, ShaderNodeRawHandle>;
 pub trait SizedValueShaderPtrAccessor: Clone {
+  // todo, why not use abstract left trait?
   type Node: ShaderSizedValueNodeType;
   fn load(&self) -> Node<Self::Node>;
   fn store(&self, value: Node<Self::Node>);
@@ -193,7 +195,7 @@ impl<T, Ptr: Clone> Clone for AtomicPtrAccessor<T, Ptr> {
 
 impl<T, Ptr: AbstractShaderPtr> AtomicPtrAccessor<T, Ptr> {
   pub fn expose(&self) -> StorageNode<DeviceAtomic<T>> {
-    unsafe { self.1.self_node().into_node() }
+    unsafe { self.1.downcast_atomic_ptr().into_node() }
   }
 }
 

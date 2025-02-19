@@ -283,11 +283,11 @@ impl AbstractBindingSource for BasicShadowMapComponent {
   }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct BasicShadowMapInvocation {
   shadow_map_atlas: HandleNode<ShaderDepthTexture2DArray>,
   sampler: HandleNode<ShaderCompareSampler>,
-  info: UniformNode<Shader140Array<BasicShadowMapInfo, 8>>,
+  info: ShaderPtrAccessorOf<Shader140Array<BasicShadowMapInfo, 8>>,
 }
 
 impl BasicShadowMapInvocation {
@@ -354,7 +354,7 @@ impl ShaderIterator for BasicShadowMapInvocationIter {
   }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct BasicShadowMapSingleInvocation {
   sys: BasicShadowMapInvocation,
   index: Node<u32>,

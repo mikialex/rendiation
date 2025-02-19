@@ -122,11 +122,12 @@ impl<T: ?Sized> SubCombinedStorageBuffer<T> {
     registry: &mut SemanticRegistry,
   ) -> ShaderStorageVirtualTypedPtrNode<T> {
     let label = self.internal.read().label.clone();
-    let array = registry.dynamic_semantic.entry(label).or_insert_with(|| {
-      let buffer = self.expect_buffer();
-      bind_builder.bind_by(&buffer).cast_untyped_node()
-    });
-    let array: StorageNode<[u32]> = unsafe { array.cast_type() };
+    // let array = registry.dynamic_semantic.entry(label).or_insert_with(|| {
+    //   let buffer = self.expect_buffer();
+    //   bind_builder.bind_by(&buffer).cast_untyped_node()
+    // });
+    // let array: StorageNode<[u32]> = unsafe { array.cast_type() };
+    let array: StorageNode<[u32]> = todo!();
 
     let base_offset = array.index(self.buffer_index).load();
     let ptr = ShaderStorageVirtualPtrNode {
@@ -193,6 +194,9 @@ impl AbstractShaderPtr for ShaderStorageVirtualPtrNode {
   }
 
   fn store(&self, value: ShaderNodeRawHandle) {
+    todo!()
+  }
+  fn downcast_atomic_ptr(&self) -> ShaderNodeRawHandle {
     todo!()
   }
 }
