@@ -187,7 +187,7 @@ impl TaskPoolInvocationInstance {
     let item_ptr = self.access_item_ptr(task);
     unsafe { index_access_field(item_ptr.handle(), 0) }
   }
-  pub fn rw_payload<T: ShaderSizedValueNodeType>(&self, task: Node<u32>) -> StorageNode<T> {
+  pub fn rw_payload<T: ShaderSizedValueNodeType>(&self, task: Node<u32>) -> ShaderAccessorOf<T> {
     assert_eq!(self.payload_ty, T::sized_ty());
     let item_ptr = self.access_item_ptr(task);
     unsafe { index_access_field(item_ptr.handle(), 1) }

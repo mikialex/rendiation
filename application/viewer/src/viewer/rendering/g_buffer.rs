@@ -99,6 +99,9 @@ impl FrameGeometryBuffer {
 pub struct U32Texture2d;
 impl ShaderBindingProvider for U32Texture2d {
   type Node = ShaderHandlePtr<ShaderTexture2DUint>;
+  fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {
+    node
+  }
 }
 
 pub struct FrameGeometryBufferReadInvocation {

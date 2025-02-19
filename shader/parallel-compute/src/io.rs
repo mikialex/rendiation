@@ -1,8 +1,6 @@
 use crate::*;
 
-impl<T: ShaderSizedValueNodeType> DeviceInvocation<Node<T>>
-  for Node<ShaderReadOnlyStoragePtr<[T]>>
-{
+impl<T: ShaderSizedValueNodeType> DeviceInvocation<Node<T>> for DynLengthArrayAccessor<T> {
   fn invocation_logic(&self, logic_global_id: Node<Vec3<u32>>) -> (Node<T>, Node<bool>) {
     let idx = logic_global_id.x();
     let r = idx.less_than(self.array_length());
@@ -16,7 +14,7 @@ impl<T: ShaderSizedValueNodeType> DeviceInvocation<Node<T>>
 }
 
 impl<T: ShaderSizedValueNodeType> DeviceInvocation<Node<T>>
-  for (Node<ShaderReadOnlyStoragePtr<[T]>>, Node<Vec4<u32>>)
+  for (DynLengthArrayAccessor<T>, Node<Vec4<u32>>)
 {
   fn invocation_logic(&self, logic_global_id: Node<Vec3<u32>>) -> (Node<T>, Node<bool>) {
     let idx = logic_global_id.x();

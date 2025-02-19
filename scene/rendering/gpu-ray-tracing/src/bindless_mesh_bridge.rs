@@ -2,10 +2,10 @@ use crate::*;
 
 #[derive(Clone)]
 pub struct BindlessMeshRtxAccessInvocation {
-  normal: StorageNode<[u32]>,
-  indices: StorageNode<[u32]>,
-  address: StorageNode<[AttributeMeshMeta]>,
-  pub sm_to_mesh: StorageNode<[u32]>,
+  normal: ShaderAccessorOf<[u32]>,
+  indices: ShaderAccessorOf<[u32]>,
+  address: ShaderAccessorOf<[AttributeMeshMeta]>,
+  pub sm_to_mesh: ShaderAccessorOf<[u32]>,
 }
 
 impl BindlessMeshRtxAccessInvocation {
@@ -28,7 +28,7 @@ impl BindlessMeshRtxAccessInvocation {
 
     unsafe {
       Vec3::<f32>::sized_ty()
-        .load_from_u32_buffer(self.normal, normal_offset + index * val(3))
+        .load_from_u32_buffer(&self.normal, normal_offset + index * val(3))
         .cast_type::<Vec3<f32>>()
     }
   }

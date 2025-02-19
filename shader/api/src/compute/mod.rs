@@ -102,9 +102,12 @@ impl ShaderComputePipelineBuilder {
   pub fn define_workgroup_shared_var_host_size_array<T: ShaderSizedValueNodeType>(
     &self,
     len: u32,
-  ) -> WorkGroupSharedNode<HostDynSizeArray<T>> {
+  ) -> ShaderAccessorOf<HostDynSizeArray<T>> {
     let ty = ShaderSizedValueType::FixedSizeArray(Box::new(T::sized_ty()), len as usize);
-    ShaderInputNode::WorkGroupShared { ty }.insert_api()
+    let handle = ShaderInputNode::WorkGroupShared { ty }
+      .insert_api::<AnyType>()
+      .handle();
+    HostDynSizeArray::<T>::create_accessor_from_raw_ptr(Box::new(handle))
   }
   pub fn define_invocation_private_var<T: ShaderSizedValueNodeType>(&self) -> GlobalVarNode<T> {
     ShaderInputNode::Private { ty: T::sized_ty() }.insert_api()

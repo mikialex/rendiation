@@ -50,7 +50,7 @@ pub struct IBLLighting {
   pub specular: HandleNode<ShaderTextureCube>,
   pub brdf_lut: HandleNode<ShaderTexture2D>,
   pub sampler: HandleNode<ShaderSampler>,
-  pub uniform: UniformNode<IblShaderInfo>,
+  pub uniform: ShaderAccessorOf<IblShaderInfo>,
 }
 
 impl LightingComputeInvocation for IBLLighting {

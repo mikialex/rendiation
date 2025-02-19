@@ -141,12 +141,12 @@ impl DeviceTaskSystemPollCtx<'_> {
 }
 
 impl DeviceTaskSystemPollCtx<'_> {
-  pub fn access_self_payload<T: ShaderSizedValueNodeType>(&mut self) -> StorageNode<T> {
+  pub fn access_self_payload<T: ShaderSizedValueNodeType>(&mut self) -> ShaderAccessorOf<T> {
     let current = self.self_task_idx;
     self.self_task.rw_payload(current)
   }
 
-  pub fn access_self_payload_untyped(&mut self) -> StorageNode<AnyType> {
+  pub fn access_self_payload_untyped(&mut self) -> BoxedShaderPtr {
     let current = self.self_task_idx;
     self.self_task.rw_payload_dyn(current)
   }

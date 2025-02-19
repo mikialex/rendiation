@@ -14,18 +14,19 @@ use crate::*;
 ///
 /// todo, separate store ability
 pub trait AbstractShaderPtr: DynClone {
-  fn field_index(&self, field_index: usize) -> Box<dyn AbstractShaderPtr>;
-  fn field_array_index(&self, index: Node<u32>) -> Box<dyn AbstractShaderPtr>;
+  fn field_index(&self, field_index: usize) -> BoxedShaderPtr;
+  fn field_array_index(&self, index: Node<u32>) -> BoxedShaderPtr;
   fn array_length(&self) -> Node<u32>;
   fn load(&self) -> ShaderNodeRawHandle;
   fn store(&self, value: ShaderNodeRawHandle);
   fn downcast_atomic_ptr(&self) -> ShaderNodeRawHandle;
 }
+pub type BoxedShaderPtr = Box<dyn AbstractShaderPtr>;
 
 dyn_clone::clone_trait_object!(AbstractShaderPtr);
 
 impl AbstractShaderPtr for ShaderNodeRawHandle {
-  fn field_index(&self, field_index: usize) -> Box<dyn AbstractShaderPtr> {
+  fn field_index(&self, field_index: usize) -> BoxedShaderPtr {
     let node = ShaderNodeExpr::IndexStatic {
       field_index,
       target: *self,
@@ -36,7 +37,7 @@ impl AbstractShaderPtr for ShaderNodeRawHandle {
     Box::new(node)
   }
 
-  fn field_array_index(&self, index: Node<u32>) -> Box<dyn AbstractShaderPtr> {
+  fn field_array_index(&self, index: Node<u32>) -> BoxedShaderPtr {
     let node = OperatorNode::Index {
       array: *self,
       entry: index.handle(),
@@ -67,7 +68,7 @@ impl AbstractShaderPtr for ShaderNodeRawHandle {
 /// has type api to constraint valid access.
 pub trait ShaderValueAbstractPtrAccess {
   type Accessor: Clone;
-  fn create_accessor_from_raw_ptr(ptr: Box<dyn AbstractShaderPtr>) -> Self::Accessor;
+  fn create_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::Accessor;
 }
 pub type ShaderAccessorOf<T> = <T as ShaderValueAbstractPtrAccess>::Accessor;
 pub trait SizedValueShaderPtrAccessor: Clone {
@@ -78,19 +79,19 @@ pub trait SizedValueShaderPtrAccessor: Clone {
 }
 
 pub trait SizedShaderValueAbstractPtrAccess:
-  ShaderValueAbstractPtrAccess<Accessor: SizedValueShaderPtrAccessor>
+  ShaderValueAbstractPtrAccess<Accessor: SizedValueShaderPtrAccessor<Node = Self>>
 {
 }
 impl<T> SizedShaderValueAbstractPtrAccess for T
 where
   T: ShaderValueAbstractPtrAccess,
-  T::Accessor: SizedValueShaderPtrAccessor,
+  T::Accessor: SizedValueShaderPtrAccessor<Node = Self>,
 {
 }
 
 impl<T> ShaderValueAbstractPtrAccess for [T] {
   type Accessor = DynLengthArrayAccessor<T>;
-  fn create_accessor_from_raw_ptr(ptr: Box<dyn AbstractShaderPtr>) -> Self::Accessor {
+  fn create_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::Accessor {
     DynLengthArrayAccessor {
       phantom: PhantomData,
       access: ptr,
@@ -100,7 +101,7 @@ impl<T> ShaderValueAbstractPtrAccess for [T] {
 
 pub struct DynLengthArrayAccessor<T> {
   phantom: PhantomData<T>,
-  access: Box<dyn AbstractShaderPtr>,
+  access: BoxedShaderPtr,
 }
 
 impl<T> Clone for DynLengthArrayAccessor<T> {
@@ -112,9 +113,9 @@ impl<T> Clone for DynLengthArrayAccessor<T> {
   }
 }
 
-impl<T: ShaderValueAbstractPtrAccess> DynLengthArrayAccessor<T> {
-  pub fn index(&self, index: Node<u32>) -> T::Accessor {
-    let item = self.access.field_array_index(index);
+impl<T: SizedShaderValueAbstractPtrAccess> DynLengthArrayAccessor<T> {
+  pub fn index(&self, index: impl Into<Node<u32>>) -> T::Accessor {
+    let item = self.access.field_array_index(index.into());
     T::create_accessor_from_raw_ptr(item)
   }
   pub fn array_length(&self) -> Node<u32> {
@@ -124,7 +125,7 @@ impl<T: ShaderValueAbstractPtrAccess> DynLengthArrayAccessor<T> {
 
 impl<T, const N: usize> ShaderValueAbstractPtrAccess for Shader140Array<T, N> {
   type Accessor = StaticLengthArrayAccessor<Self, T>;
-  fn create_accessor_from_raw_ptr(ptr: Box<dyn AbstractShaderPtr>) -> Self::Accessor {
+  fn create_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::Accessor {
     StaticLengthArrayAccessor {
       phantom: PhantomData,
       array: PhantomData,
@@ -134,7 +135,17 @@ impl<T, const N: usize> ShaderValueAbstractPtrAccess for Shader140Array<T, N> {
 }
 impl<T, const N: usize> ShaderValueAbstractPtrAccess for [T; N] {
   type Accessor = StaticLengthArrayAccessor<Self, T>;
-  fn create_accessor_from_raw_ptr(ptr: Box<dyn AbstractShaderPtr>) -> Self::Accessor {
+  fn create_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::Accessor {
+    StaticLengthArrayAccessor {
+      phantom: PhantomData,
+      array: PhantomData,
+      access: ptr,
+    }
+  }
+}
+impl<T> ShaderValueAbstractPtrAccess for HostDynSizeArray<T> {
+  type Accessor = StaticLengthArrayAccessor<Self, T>;
+  fn create_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::Accessor {
     StaticLengthArrayAccessor {
       phantom: PhantomData,
       array: PhantomData,
@@ -146,7 +157,7 @@ impl<T, const N: usize> ShaderValueAbstractPtrAccess for [T; N] {
 pub struct StaticLengthArrayAccessor<AT, T> {
   phantom: PhantomData<T>,
   array: PhantomData<AT>,
-  access: Box<dyn AbstractShaderPtr>,
+  access: BoxedShaderPtr,
 }
 
 impl<AT, T> SizedValueShaderPtrAccessor for StaticLengthArrayAccessor<AT, T>
@@ -173,14 +184,14 @@ impl<AT, T> Clone for StaticLengthArrayAccessor<AT, T> {
   }
 }
 
-impl<AT, T: ShaderValueAbstractPtrAccess> StaticLengthArrayAccessor<AT, T> {
-  pub fn index(&self, index: Node<u32>) -> T::Accessor {
-    let item = self.access.field_array_index(index);
+impl<AT, T: SizedShaderValueAbstractPtrAccess> StaticLengthArrayAccessor<AT, T> {
+  pub fn index(&self, index: impl Into<Node<u32>>) -> T::Accessor {
+    let item = self.access.field_array_index(index.into());
     T::create_accessor_from_raw_ptr(item)
   }
 }
 
-pub struct DirectPrimitivePtrAccessor<T>(PhantomData<T>, Box<dyn AbstractShaderPtr>);
+pub struct DirectPrimitivePtrAccessor<T>(PhantomData<T>, BoxedShaderPtr);
 
 impl<T> Clone for DirectPrimitivePtrAccessor<T> {
   fn clone(&self) -> Self {
@@ -222,7 +233,7 @@ macro_rules! impl_primitive_direct {
   ($ty: ty) => {
     impl ShaderValueAbstractPtrAccess for $ty {
       type Accessor = DirectPrimitivePtrAccessor<$ty>;
-      fn create_accessor_from_raw_ptr(ptr: Box<dyn AbstractShaderPtr>) -> Self::Accessor {
+      fn create_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::Accessor {
         DirectPrimitivePtrAccessor(PhantomData, ptr)
       }
     }
@@ -236,7 +247,7 @@ impl_primitive_with_vec_direct!(u32);
 impl_primitive_with_vec_direct!(f32);
 impl_primitive_mat_direct!(f32);
 
-pub struct AtomicPtrAccessor<T>(PhantomData<T>, Box<dyn AbstractShaderPtr>);
+pub struct AtomicPtrAccessor<T>(PhantomData<T>, BoxedShaderPtr);
 
 impl<T> Clone for AtomicPtrAccessor<T> {
   fn clone(&self) -> Self {
@@ -247,6 +258,8 @@ impl<T> Clone for AtomicPtrAccessor<T> {
 impl<T> AtomicPtrAccessor<T> {
   /// more atomic operation is defined on raw node type, so we use this escape hatch
   /// to expose to user
+  ///
+  /// todo, consider implement all atomic fn here
   pub fn expose(&self) -> StorageNode<DeviceAtomic<T>> {
     unsafe { self.1.downcast_atomic_ptr().into_node() }
   }
@@ -254,14 +267,14 @@ impl<T> AtomicPtrAccessor<T> {
 impl<T: AtomicityShaderNodeType + PrimitiveShaderNodeType> SizedValueShaderPtrAccessor
   for AtomicPtrAccessor<T>
 {
-  type Node = T;
+  type Node = DeviceAtomic<T>;
 
   fn load(&self) -> Node<Self::Node> {
-    self.expose().atomic_load()
+    unreachable!("atomic is not able to direct load");
   }
 
-  fn store(&self, value: Node<Self::Node>) {
-    self.expose().atomic_store(value);
+  fn store(&self, _value: Node<Self::Node>) {
+    unreachable!("atomic is not able to direct store");
   }
 }
 
@@ -271,7 +284,7 @@ where
 {
   type Accessor = AtomicPtrAccessor<T>;
 
-  fn create_accessor_from_raw_ptr(ptr: Box<dyn AbstractShaderPtr>) -> Self::Accessor {
+  fn create_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::Accessor {
     AtomicPtrAccessor(PhantomData, ptr)
   }
 }
@@ -286,7 +299,7 @@ mod test {
   }
 
   /// auto generated by macro
-  pub struct MyStructShaderPtrInstance(Box<dyn AbstractShaderPtr>);
+  pub struct MyStructShaderPtrInstance(BoxedShaderPtr);
   impl ShaderNodeType for MyStruct {
     fn ty() -> ShaderValueType {
       todo!()
@@ -339,7 +352,7 @@ mod test {
 
   impl ShaderValueAbstractPtrAccess for MyStruct {
     type Accessor = MyStructShaderPtrInstance;
-    fn create_accessor_from_raw_ptr(ptr: Box<dyn AbstractShaderPtr>) -> Self::Accessor {
+    fn create_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::Accessor {
       MyStructShaderPtrInstance(ptr)
     }
   }

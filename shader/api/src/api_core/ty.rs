@@ -270,12 +270,12 @@ impl<T: ShaderSizedValueNodeType> ShaderMaybeUnsizedValueNodeType for T {
   }
 }
 
-pub trait ShaderMaybeUnsizedValueNodeType: ShaderNodeType {
+pub trait ShaderMaybeUnsizedValueNodeType: ShaderNodeType + ShaderValueAbstractPtrAccess {
   fn maybe_unsized_ty() -> MaybeUnsizedValueType;
 }
 
 pub trait PrimitiveShaderNodeType:
-  ShaderSizedValueNodeType + ShaderValueAbstractPtrAccess + ShaderNodeType + Default
+  ShaderSizedValueNodeType + SizedShaderValueAbstractPtrAccess + ShaderNodeType + Default
 {
   const PRIMITIVE_TYPE: PrimitiveShaderValueType;
   type Shape<T>;

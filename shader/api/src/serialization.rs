@@ -91,7 +91,7 @@ impl ShaderSizedValueType {
 
   pub fn load_from_u32_buffer(
     &self,
-    target: StorageNode<[u32]>,
+    target: &ShaderAccessorOf<[u32]>,
     mut offset: Node<u32>,
   ) -> NodeUntyped {
     match self {
@@ -170,14 +170,14 @@ impl ShaderSizedValueType {
   pub fn store_into_u32_buffer(
     &self,
     source: NodeUntyped,
-    target: StorageNode<[u32]>,
+    target: &ShaderAccessorOf<[u32]>,
     mut offset: Node<u32>,
   ) {
     match self {
       ShaderSizedValueType::Atomic(_) => unreachable!("atomic is not able to store into buffer"),
       ShaderSizedValueType::Primitive(p) => {
         fn index_and_write(
-          target: StorageNode<[u32]>,
+          target: &ShaderAccessorOf<[u32]>,
           offset: Node<u32>,
           source: NodeUntyped,
           idx: Option<u32>,
@@ -230,8 +230,8 @@ impl ShaderSizedValueType {
 
 pub trait RawBufferSerializationExt {
   fn u32_size_count() -> u32;
-  fn load_from_u32_buffer(target: StorageNode<[u32]>, offset: Node<u32>) -> Self;
-  fn store_into_u32_buffer(self, target: StorageNode<[u32]>, offset: Node<u32>);
+  fn load_from_u32_buffer(target: &ShaderAccessorOf<[u32]>, offset: Node<u32>) -> Self;
+  fn store_into_u32_buffer(self, target: &ShaderAccessorOf<[u32]>, offset: Node<u32>);
 }
 
 impl<T: ShaderSizedValueNodeType> RawBufferSerializationExt for Node<T> {
@@ -239,7 +239,7 @@ impl<T: ShaderSizedValueNodeType> RawBufferSerializationExt for Node<T> {
     T::sized_ty().u32_size_count()
   }
 
-  fn load_from_u32_buffer(target: StorageNode<[u32]>, offset: Node<u32>) -> Self {
+  fn load_from_u32_buffer(target: &ShaderAccessorOf<[u32]>, offset: Node<u32>) -> Self {
     unsafe {
       T::sized_ty()
         .load_from_u32_buffer(target, offset)
@@ -247,7 +247,7 @@ impl<T: ShaderSizedValueNodeType> RawBufferSerializationExt for Node<T> {
     }
   }
 
-  fn store_into_u32_buffer(self, target: StorageNode<[u32]>, offset: Node<u32>) {
+  fn store_into_u32_buffer(self, target: &ShaderAccessorOf<[u32]>, offset: Node<u32>) {
     T::sized_ty().store_into_u32_buffer(self.cast_untyped_node(), target, offset)
   }
 }

@@ -99,8 +99,8 @@ impl TaskGroupExecutor {
 
     let self_spawner = resource.build_shader_for_spawner(&mut cx);
 
-    let indices = self_spawner.active_task_idx.storage;
-    let active_task_count = self_spawner.active_task_idx.current_size;
+    let indices = self_spawner.active_task_idx.storage.clone();
+    let active_task_count = self_spawner.active_task_idx.current_size.clone();
     let pool = self_spawner.task_pool.clone();
 
     let active_idx = cx.global_invocation_id().x();

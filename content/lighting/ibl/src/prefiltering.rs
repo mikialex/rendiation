@@ -184,7 +184,7 @@ struct PreFilterSpecularTask {
 #[repr(C)]
 #[std140_layout]
 #[derive(Clone, Copy, ShaderStruct, Default)]
-struct SpecularGenerationConfig {
+pub struct SpecularGenerationConfig {
   pub direction: Mat4<f32>,
   pub sample_count: u32,
   pub roughness: f32,
@@ -283,7 +283,7 @@ struct PreFilterDiffuseTask {
 #[repr(C)]
 #[std140_layout]
 #[derive(Clone, Copy, ShaderStruct, Default)]
-struct DiffuseTaskGenerationConfig {
+pub struct DiffuseTaskGenerationConfig {
   pub direction: Mat4<f32>,
   pub sample_count: u32,
 }

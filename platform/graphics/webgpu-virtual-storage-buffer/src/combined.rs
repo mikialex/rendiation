@@ -127,7 +127,7 @@ impl<T: ?Sized> SubCombinedStorageBuffer<T> {
     //   bind_builder.bind_by(&buffer).cast_untyped_node()
     // });
     // let array: StorageNode<[u32]> = unsafe { array.cast_type() };
-    let array: StorageNode<[u32]> = todo!();
+    let array: ShaderAccessorOf<[u32]> = todo!();
 
     let base_offset = array.index(self.buffer_index).load();
     let ptr = ShaderStorageVirtualPtrNode {
@@ -148,7 +148,8 @@ impl<T: ?Sized> SubCombinedStorageBuffer<T> {
 
 #[derive(Clone)]
 pub struct ShaderStorageVirtualPtrNode {
-  pub array: StorageNode<[u32]>,
+  // todo use U32BufferLoadStoreSource
+  pub array: ShaderAccessorOf<[u32]>,
   pub offset: Node<u32>,
 }
 
@@ -168,20 +169,20 @@ impl<T: ?Sized> Clone for ShaderStorageVirtualTypedPtrNode<T> {
 
 impl<T: ShaderSizedValueNodeType> ShaderStorageVirtualTypedPtrNode<T> {
   pub fn load(&self) -> Node<T> {
-    Node::load_from_u32_buffer(self.ptr.array, self.ptr.offset)
+    Node::load_from_u32_buffer(&self.ptr.array, self.ptr.offset)
   }
 
   pub fn store(&self, node: Node<T>) {
-    node.store_into_u32_buffer(self.ptr.array, self.ptr.offset);
+    node.store_into_u32_buffer(&self.ptr.array, self.ptr.offset);
   }
 }
 
 impl AbstractShaderPtr for ShaderStorageVirtualPtrNode {
-  fn field_index(&self, field_index: usize) -> Self {
+  fn field_index(&self, field_index: usize) -> BoxedShaderPtr {
     todo!()
   }
 
-  fn field_array_index(&self, index: Node<u32>) -> Self {
+  fn field_array_index(&self, index: Node<u32>) -> BoxedShaderPtr {
     todo!()
   }
 
@@ -203,10 +204,7 @@ impl AbstractShaderPtr for ShaderStorageVirtualPtrNode {
 
 impl<T> AbstractStorageBuffer<T> for SubCombinedStorageBuffer<T>
 where
-  T: Std430MaybeUnsized
-    + ShaderValueAbstractPtrAccess<ShaderStorageVirtualPtrNode>
-    + ShaderMaybeUnsizedValueNodeType
-    + ?Sized,
+  T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized,
 {
   type ShaderPtr = ShaderStorageVirtualPtrNode;
   fn get_gpu_buffer_view(&self) -> &GPUBufferView {
@@ -217,7 +215,7 @@ where
     &self,
     bind_builder: &mut ShaderBindGroupBuilder,
     _: &mut SemanticRegistry,
-  ) -> ShaderAccessorOf<T, Self::ShaderPtr> {
+  ) -> ShaderAccessorOf<T> {
     let ptr = todo!();
     T::create_accessor_from_raw_ptr(ptr)
   }

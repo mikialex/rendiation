@@ -378,125 +378,125 @@ impl Node<bool> {
   }
 }
 
-macro_rules! sized_array_like_index {
-  ($NodeType: tt, $ArrayType: tt) => {
-    impl<T, const U: usize> $NodeType<$ArrayType<T, U>>
-    where
-      T: ShaderNodeType,
-    {
-      pub fn index(&self, node: impl Into<Node<u32>>) -> $NodeType<T> {
-        OperatorNode::Index {
-          array: self.handle(),
-          entry: node.into().handle(),
-        }
-        .insert_api()
-      }
-    }
-  };
-  ($NodeType: tt) => {
-    impl<T, const U: usize> $NodeType<[T; U]>
-    where
-      T: ShaderNodeType,
-    {
-      pub fn index(&self, node: impl Into<Node<u32>>) -> $NodeType<T> {
-        OperatorNode::Index {
-          array: self.handle(),
-          entry: node.into().handle(),
-        }
-        .insert_api()
-      }
-    }
-  };
-}
+// macro_rules! sized_array_like_index {
+//   ($NodeType: tt, $ArrayType: tt) => {
+//     impl<T, const U: usize> $NodeType<$ArrayType<T, U>>
+//     where
+//       T: ShaderNodeType,
+//     {
+//       pub fn index(&self, node: impl Into<Node<u32>>) -> $NodeType<T> {
+//         OperatorNode::Index {
+//           array: self.handle(),
+//           entry: node.into().handle(),
+//         }
+//         .insert_api()
+//       }
+//     }
+//   };
+//   ($NodeType: tt) => {
+//     impl<T, const U: usize> $NodeType<[T; U]>
+//     where
+//       T: ShaderNodeType,
+//     {
+//       pub fn index(&self, node: impl Into<Node<u32>>) -> $NodeType<T> {
+//         OperatorNode::Index {
+//           array: self.handle(),
+//           entry: node.into().handle(),
+//         }
+//         .insert_api()
+//       }
+//     }
+//   };
+// }
 
-sized_array_like_index!(UniformNode, Shader140Array);
+// sized_array_like_index!(UniformNode, Shader140Array);
 
-sized_array_like_index!(LocalVarNode);
-sized_array_like_index!(GlobalVarNode);
-sized_array_like_index!(UniformNode);
-sized_array_like_index!(HandleNode);
-sized_array_like_index!(StorageNode);
-sized_array_like_index!(ReadOnlyStorageNode);
-sized_array_like_index!(WorkGroupSharedNode);
+// sized_array_like_index!(LocalVarNode);
+// sized_array_like_index!(GlobalVarNode);
+// sized_array_like_index!(UniformNode);
+// sized_array_like_index!(HandleNode);
+// sized_array_like_index!(StorageNode);
+// sized_array_like_index!(ReadOnlyStorageNode);
+// sized_array_like_index!(WorkGroupSharedNode);
 
-macro_rules! host_dyn_sized_array_like_index {
-  ($NodeType: tt) => {
-    impl<T> $NodeType<HostDynSizeArray<T>>
-    where
-      T: ShaderNodeType,
-    {
-      pub fn index(&self, node: impl Into<Node<u32>>) -> $NodeType<T> {
-        OperatorNode::Index {
-          array: self.handle(),
-          entry: node.into().handle(),
-        }
-        .insert_api()
-      }
-    }
-  };
-}
+// macro_rules! host_dyn_sized_array_like_index {
+//   ($NodeType: tt) => {
+//     impl<T> $NodeType<HostDynSizeArray<T>>
+//     where
+//       T: ShaderNodeType,
+//     {
+//       pub fn index(&self, node: impl Into<Node<u32>>) -> $NodeType<T> {
+//         OperatorNode::Index {
+//           array: self.handle(),
+//           entry: node.into().handle(),
+//         }
+//         .insert_api()
+//       }
+//     }
+//   };
+// }
 
-host_dyn_sized_array_like_index!(LocalVarNode);
-host_dyn_sized_array_like_index!(GlobalVarNode);
-host_dyn_sized_array_like_index!(UniformNode);
-host_dyn_sized_array_like_index!(HandleNode);
-host_dyn_sized_array_like_index!(StorageNode);
-host_dyn_sized_array_like_index!(ReadOnlyStorageNode);
-host_dyn_sized_array_like_index!(WorkGroupSharedNode);
+// host_dyn_sized_array_like_index!(LocalVarNode);
+// host_dyn_sized_array_like_index!(GlobalVarNode);
+// host_dyn_sized_array_like_index!(UniformNode);
+// host_dyn_sized_array_like_index!(HandleNode);
+// host_dyn_sized_array_like_index!(StorageNode);
+// host_dyn_sized_array_like_index!(ReadOnlyStorageNode);
+// host_dyn_sized_array_like_index!(WorkGroupSharedNode);
 
-macro_rules! storage_array_size {
-  ($NodeType: tt) => {
-    impl<T> $NodeType<[T]>
-    where
-      T: ShaderNodeType,
-    {
-      pub fn array_length(&self) -> Node<u32> {
-        make_builtin_call(ShaderBuiltInFunction::ArrayLength, [self.handle()])
-      }
-    }
-  };
-}
-storage_array_size!(StorageNode);
-storage_array_size!(ReadOnlyStorageNode);
+// macro_rules! storage_array_size {
+//   ($NodeType: tt) => {
+//     impl<T> $NodeType<[T]>
+//     where
+//       T: ShaderNodeType,
+//     {
+//       pub fn array_length(&self) -> Node<u32> {
+//         make_builtin_call(ShaderBuiltInFunction::ArrayLength, [self.handle()])
+//       }
+//     }
+//   };
+// }
+// storage_array_size!(StorageNode);
+// storage_array_size!(ReadOnlyStorageNode);
 
-// this is a bit special
-impl<T> HandleNode<BindingArray<T>>
-where
-  T: ShaderNodeType,
-{
-  pub fn index(&self, node: impl Into<Node<u32>>) -> Node<T> {
-    OperatorNode::Index {
-      array: self.handle(),
-      entry: node.into().handle(),
-    }
-    .insert_api()
-  }
-}
+// // this is a bit special
+// impl<T> HandleNode<BindingArray<T>>
+// where
+//   T: ShaderNodeType,
+// {
+//   pub fn index(&self, node: impl Into<Node<u32>>) -> Node<T> {
+//     OperatorNode::Index {
+//       array: self.handle(),
+//       entry: node.into().handle(),
+//     }
+//     .insert_api()
+//   }
+// }
 
-/// enable this when mysterious device lost happens randomly.
-/// check if the crash is due to the out of bound access by crashing the device deterministically
-const ENABLE_STORAGE_BUFFER_BOUND_CHECK: bool = true;
+// /// enable this when mysterious device lost happens randomly.
+// /// check if the crash is due to the out of bound access by crashing the device deterministically
+// const ENABLE_STORAGE_BUFFER_BOUND_CHECK: bool = true;
 
-macro_rules! index_access_slice_like {
-  ($NodeType: tt) => {
-    impl<T> $NodeType<[T]>
-    where
-      T: ShaderNodeType,
-    {
-      pub fn index(&self, node: impl Into<Node<u32>>) -> $NodeType<T> {
-        let idx = node.into();
-        if ENABLE_STORAGE_BUFFER_BOUND_CHECK {
-          shader_assert(idx.less_than(self.array_length()));
-        }
-        OperatorNode::Index {
-          array: self.handle(),
-          entry: idx.handle(),
-        }
-        .insert_api()
-      }
-    }
-  };
-}
+// macro_rules! index_access_slice_like {
+//   ($NodeType: tt) => {
+//     impl<T> $NodeType<[T]>
+//     where
+//       T: ShaderNodeType,
+//     {
+//       pub fn index(&self, node: impl Into<Node<u32>>) -> $NodeType<T> {
+//         let idx = node.into();
+//         if ENABLE_STORAGE_BUFFER_BOUND_CHECK {
+//           shader_assert(idx.less_than(self.array_length()));
+//         }
+//         OperatorNode::Index {
+//           array: self.handle(),
+//           entry: idx.handle(),
+//         }
+//         .insert_api()
+//       }
+//     }
+//   };
+// }
 
-index_access_slice_like!(StorageNode);
-index_access_slice_like!(ReadOnlyStorageNode);
+// index_access_slice_like!(StorageNode);
+// index_access_slice_like!(ReadOnlyStorageNode);

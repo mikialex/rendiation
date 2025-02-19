@@ -4,7 +4,7 @@ use crate::*;
 
 #[repr(C)]
 #[std430_layout]
-#[derive(ShaderStruct, Clone, Copy, StorageNodePtrAccess, Default)]
+#[derive(ShaderStruct, Clone, Copy, Default)]
 pub struct TraceTaskSelfPayload {
   pub sub_task_ty: u32,
   pub sub_task_id: u32,
@@ -13,7 +13,7 @@ pub struct TraceTaskSelfPayload {
 
 #[repr(C)]
 #[std430_layout]
-#[derive(ShaderStruct, Clone, Copy, StorageNodePtrAccess, Default)]
+#[derive(ShaderStruct, Clone, Copy, Default)]
 pub struct ShaderRayTraceCallStoragePayload {
   pub launch_size: Vec3<u32>,
   pub launch_id: Vec3<u32>,
@@ -32,7 +32,7 @@ pub struct ShaderRayTraceCallStoragePayload {
 
 #[repr(C)]
 #[std430_layout]
-#[derive(ShaderStruct, Clone, Copy, StorageNodePtrAccess)]
+#[derive(ShaderStruct, Clone, Copy)]
 pub struct HitStorage {
   /// gl_HitKindEXT
   pub hit_kind: u32,
@@ -45,7 +45,7 @@ pub struct HitStorage {
 
 #[repr(C)]
 #[std430_layout]
-#[derive(ShaderStruct, Clone, Copy, StorageNodePtrAccess)]
+#[derive(ShaderStruct, Clone, Copy)]
 pub struct HitCtxStorage {
   pub primitive_id: u32,
   pub instance_id: u32,
@@ -80,7 +80,7 @@ pub fn hit_ctx_storage_from_hit_ctx(hit_ctx: &HitCtxInfo) -> Node<HitCtxStorage>
 
 #[repr(C)]
 #[std430_layout]
-#[derive(ShaderStruct, Clone, Copy, StorageNodePtrAccess)]
+#[derive(ShaderStruct, Clone, Copy)]
 pub struct RayClosestHitCtxPayload {
   pub ray_info: ShaderRayTraceCallStoragePayload,
   pub hit_ctx: HitCtxStorage,
@@ -89,7 +89,7 @@ pub struct RayClosestHitCtxPayload {
 
 #[repr(C)]
 #[std430_layout]
-#[derive(ShaderStruct, Clone, Copy, StorageNodePtrAccess)]
+#[derive(ShaderStruct, Clone, Copy)]
 pub struct RayMissHitCtxPayload {
   pub ray_info: ShaderRayTraceCallStoragePayload,
 }
@@ -235,7 +235,7 @@ impl ShaderFutureInvocation for TracingCtxProviderFutureInvocation {
       let ray_payload: StorageNode<RayClosestHitCtxPayload> =
         index_access_field(combined_payload.handle(), 0);
 
-      let ctx = RayClosestHitCtxPayload::storage_node_hit_ctx_field_ptr(ray_payload);
+      let ctx = ray_payload.hit_ctx();
       let instance_id = HitCtxStorage::storage_node_instance_id_field_ptr(ctx).load();
       let tlas_sys = self.tlas_sys.as_ref().unwrap();
       let tlas_ptr = tlas_sys.index_tlas(instance_id);

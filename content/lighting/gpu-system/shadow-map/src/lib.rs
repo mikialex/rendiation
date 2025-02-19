@@ -327,8 +327,8 @@ impl IntoShaderIterator for BasicShadowMapInvocation {
 
   fn into_shader_iter(self) -> Self::ShaderIter {
     BasicShadowMapInvocationIter {
+      iter: self.info.clone().into_shader_iter(),
       inner: self,
-      iter: self.info.into_shader_iter(),
     }
   }
 }
@@ -336,7 +336,7 @@ impl IntoShaderIterator for BasicShadowMapInvocation {
 #[derive(Clone)]
 pub struct BasicShadowMapInvocationIter {
   inner: BasicShadowMapInvocation,
-  iter: UniformArrayIter<BasicShadowMapInfo, 8>,
+  iter: ShaderStaticArrayIter<Shader140Array<BasicShadowMapInfo, 8>, BasicShadowMapInfo>,
 }
 
 impl ShaderIterator for BasicShadowMapInvocationIter {
@@ -346,7 +346,7 @@ impl ShaderIterator for BasicShadowMapInvocationIter {
     let (valid, (index, _)) = self.iter.shader_next();
 
     let item = BasicShadowMapSingleInvocation {
-      sys: self.inner,
+      sys: self.inner.clone(),
       index,
     };
 
