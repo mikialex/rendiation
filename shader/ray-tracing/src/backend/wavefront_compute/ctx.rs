@@ -54,6 +54,8 @@ pub struct HitCtxStorage {
   pub geometry_id: u32,
   pub object_space_ray_origin: Vec3<f32>,
   pub object_space_ray_direction: Vec3<f32>,
+  pub object_to_world: Mat4<f32>,
+  pub world_to_object: Mat4<f32>,
 }
 
 pub fn hit_storage_from_hit(hit: &HitInfo) -> Node<HitStorage> {
@@ -74,6 +76,8 @@ pub fn hit_ctx_storage_from_hit_ctx(hit_ctx: &HitCtxInfo) -> Node<HitCtxStorage>
     geometry_id: hit_ctx.geometry_id,
     object_space_ray_origin: hit_ctx.object_space_ray.origin,
     object_space_ray_direction: hit_ctx.object_space_ray.direction,
+    object_to_world: hit_ctx.object_to_world,
+    world_to_object: hit_ctx.world_to_object,
   }
   .construct()
 }
@@ -145,10 +149,6 @@ impl ShaderFutureProvider for TracingCtxProviderTracer {
         .clone(),
       launch_size: ctx.get_mut::<RayLaunchSizeBuffer>().unwrap().clone(),
       base: Default::default(),
-      tlas_sys: ctx
-        .get::<Box<dyn GPUAccelerationStructureSystemTlasCompImplInstance>>()
-        .unwrap()
-        .clone(),
     }
     .into_dyn()
   }
@@ -165,8 +165,6 @@ pub struct TracingCtxProviderFuture {
   ray_spawner: TracingTaskSpawnerImplSource,
   launch_size: RayLaunchSizeBuffer,
   base: BaseShaderFuture<()>,
-  // only effective in closest stage
-  tlas_sys: Box<dyn GPUAccelerationStructureSystemTlasCompImplInstance>,
 }
 
 impl ShaderFuture for TracingCtxProviderFuture {
@@ -185,16 +183,12 @@ impl ShaderFuture for TracingCtxProviderFuture {
       ray_spawner: self.ray_spawner.create_invocation(cx),
       launch_size: self.launch_size.build(cx),
       base: self.base.build_poll(cx),
-      tlas_sys: matches!(self.stage, RayTraceableShaderStage::ClosestHit)
-        .then(|| self.tlas_sys.build_shader(cx.compute_cx)),
     }
   }
 
   fn bind_input(&self, builder: &mut DeviceTaskSystemBindCtx) {
     self.ray_spawner.bind(builder);
     self.launch_size.bind(builder);
-    matches!(self.stage, RayTraceableShaderStage::ClosestHit)
-      .then(|| self.tlas_sys.bind_pass(builder.binder));
   }
 }
 
@@ -204,8 +198,6 @@ pub struct TracingCtxProviderFutureInvocation {
   payload_ty: Option<ShaderSizedValueType>,
   ray_spawner: TracingTaskSpawnerInvocation,
   launch_size: RayLaunchSizeInvocation,
-  // Some in closest stage, None in other stages
-  tlas_sys: Option<Box<dyn GPUAccelerationStructureSystemTlasCompImplInvocation>>,
 }
 impl ShaderFutureInvocation for TracingCtxProviderFutureInvocation {
   type Output = ();
@@ -234,15 +226,7 @@ impl ShaderFutureInvocation for TracingCtxProviderFutureInvocation {
     let closest = matches!(self.stage, RayTraceableShaderStage::ClosestHit).then(|| unsafe {
       let ray_payload: StorageNode<RayClosestHitCtxPayload> =
         index_access_field(combined_payload.handle(), 0);
-
-      let ctx = RayClosestHitCtxPayload::storage_node_hit_ctx_field_ptr(ray_payload);
-      let instance_id = HitCtxStorage::storage_node_instance_id_field_ptr(ctx).load();
-      let tlas_sys = self.tlas_sys.as_ref().unwrap();
-      let tlas_ptr = tlas_sys.index_tlas(instance_id);
-      let ctx = ClosestHitCtx {
-        ctx: ray_payload,
-        tlas_ptr,
-      };
+      let ctx = ClosestHitCtx { ctx: ray_payload };
       Box::new(ctx) as Box<dyn ClosestHitCtxProvider>
     });
 
@@ -307,7 +291,6 @@ impl WorldRayInfoProvider for StorageNode<ShaderRayTraceCallStoragePayload> {
 #[derive(Copy, Clone)]
 struct ClosestHitCtx {
   ctx: StorageNode<RayClosestHitCtxPayload>,
-  tlas_ptr: ReadOnlyStorageNode<TopLevelAccelerationStructureSourceDeviceInstance>,
 }
 
 impl WorldRayInfoProvider for ClosestHitCtx {
@@ -346,17 +329,13 @@ impl ClosestHitCtxProvider for ClosestHitCtx {
   }
 
   fn object_to_world(&self) -> Node<Mat4<f32>> {
-    TopLevelAccelerationStructureSourceDeviceInstance::readonly_storage_node_transform_field_ptr(
-      self.tlas_ptr,
-    )
-    .load()
+    let ctx = RayClosestHitCtxPayload::storage_node_hit_ctx_field_ptr(self.ctx);
+    HitCtxStorage::storage_node_object_to_world_field_ptr(ctx).load()
   }
 
   fn world_to_object(&self) -> Node<Mat4<f32>> {
-    TopLevelAccelerationStructureSourceDeviceInstance::readonly_storage_node_transform_inv_field_ptr(
-      self.tlas_ptr,
-    )
-    .load()
+    let ctx = RayClosestHitCtxPayload::storage_node_hit_ctx_field_ptr(self.ctx);
+    HitCtxStorage::storage_node_world_to_object_field_ptr(ctx).load()
   }
 
   fn object_space_ray(&self) -> ShaderRay {

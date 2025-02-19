@@ -245,6 +245,7 @@ impl NativeInlineSystemInner {
     4
   }
   fn bind_tlas(&mut self, tlas: &[TlasHandle]) {
+    assert!(!tlas.is_empty());
     assert!(tlas.len() <= NativeInlineSystemInner::bind_tlas_max_len() as usize);
     self.tlas_binding = tlas.to_vec();
   }
@@ -336,10 +337,6 @@ impl GPUAccelerationStructureSystemCompImplInstance for NativeInlineInstance {
       tlas.bind(builder);
     }
   }
-
-  fn create_tlas_instance(&self) -> Box<dyn GPUAccelerationStructureSystemTlasCompImplInstance> {
-    todo!()
-  }
 }
 impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NativeInlineInvocation {
   fn traverse(
@@ -393,8 +390,18 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NativeInlin
         };
 
         let behavior = any_hit(&ctx);
-        // todo check end_search
-        // todo check accept
+        if_by(
+          (behavior & val(ANYHIT_BEHAVIOR_ACCEPT_HIT)).greater_than(val(0)),
+          || {
+            // todo call rayQueryConfirmIntersection
+          },
+        );
+        if_by(
+          (behavior & val(ANYHIT_BEHAVIOR_END_SEARCH)).greater_than(val(0)),
+          || {
+            // todo call rayQueryTerminate
+          },
+        );
       })
       .else_by(|| ctx.do_break());
     });
