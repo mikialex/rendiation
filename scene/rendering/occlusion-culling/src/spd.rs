@@ -249,13 +249,13 @@ struct Ctx {
 }
 
 pub trait QuadReducer<T>: Copy + Clone + 'static {
-  fn reduce(&self, v: &ShaderAccessorOf<[T; 4]>) -> Node<T>;
+  fn reduce(&self, v: &ShaderPtrOf<[T; 4]>) -> Node<T>;
 }
 
 #[derive(Clone, Copy)]
 pub struct MaxReducer;
 impl<T: PrimitiveShaderNodeType> QuadReducer<T> for MaxReducer {
-  fn reduce(&self, v: &ShaderAccessorOf<[T; 4]>) -> Node<T> {
+  fn reduce(&self, v: &ShaderPtrOf<[T; 4]>) -> Node<T> {
     let v1 = v.index(0).load();
     let v2 = v.index(1).load();
     let v3 = v.index(2).load();
@@ -309,7 +309,7 @@ fn remap_for_wave_reduction(a: Node<u32>) -> Node<Vec2<u32>> {
 struct SpdImageDownSampler<S, R, N> {
   loader: S,
   reducer: R,
-  quad: ShaderAccessorOf<[N; 4]>,
+  quad: ShaderPtrOf<[N; 4]>,
 }
 
 impl<S, R, N> SpdImageDownSampler<S, R, N>
@@ -343,9 +343,9 @@ where
 }
 
 struct SpdIntermediateDownSampler<T, R> {
-  intermediate: ShaderAccessorOf<IntermediateBuffer<T>>,
+  intermediate: ShaderPtrOf<IntermediateBuffer<T>>,
   reducer: R,
-  quad: ShaderAccessorOf<[T; 4]>,
+  quad: ShaderPtrOf<[T; 4]>,
 }
 
 impl<T, R> SpdIntermediateDownSampler<T, R>
@@ -353,7 +353,7 @@ where
   T: ShaderSizedValueNodeType,
   R: QuadReducer<T>,
 {
-  fn new(intermediate: ShaderAccessorOf<IntermediateBuffer<T>>, reducer: R) -> Self {
+  fn new(intermediate: ShaderPtrOf<IntermediateBuffer<T>>, reducer: R) -> Self {
     Self {
       intermediate,
       reducer,

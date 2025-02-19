@@ -449,8 +449,8 @@ impl ShaderHashProvider for BindlessDrawCreator {
 }
 
 pub struct BindlessDrawCreatorInDevice {
-  node: ShaderReadonlyAccessorOf<[AttributeMeshMeta]>,
-  sm_to_mesh_device: ShaderReadonlyAccessorOf<[u32]>,
+  node: ShaderReadonlyPtrOf<[AttributeMeshMeta]>,
+  sm_to_mesh_device: ShaderReadonlyPtrOf<[u32]>,
 }
 
 impl DrawCommandBuilderInvocation for BindlessDrawCreatorInDevice {

@@ -55,8 +55,7 @@ pub unsafe fn index_access_field(
     field_index,
     target: struct_node,
   }
-  .insert_api::<AnyType>()
-  .handle()
+  .insert_api_raw()
 }
 
 /// # Safety
@@ -72,6 +71,9 @@ pub unsafe fn index_access_field_as_ptr(
 }
 
 impl OperatorNode {
+  pub fn insert_api_raw(self) -> ShaderNodeRawHandle {
+    ShaderNodeExpr::Operator(self).insert_api_raw()
+  }
   pub fn insert_api<T: ShaderNodeType>(self) -> Node<T> {
     ShaderNodeExpr::Operator(self).insert_api()
   }
@@ -390,126 +392,3 @@ impl Node<bool> {
     .insert_api()
   }
 }
-
-// macro_rules! sized_array_like_index {
-//   ($NodeType: tt, $ArrayType: tt) => {
-//     impl<T, const U: usize> $NodeType<$ArrayType<T, U>>
-//     where
-//       T: ShaderNodeType,
-//     {
-//       pub fn index(&self, node: impl Into<Node<u32>>) -> $NodeType<T> {
-//         OperatorNode::Index {
-//           array: self.handle(),
-//           entry: node.into().handle(),
-//         }
-//         .insert_api()
-//       }
-//     }
-//   };
-//   ($NodeType: tt) => {
-//     impl<T, const U: usize> $NodeType<[T; U]>
-//     where
-//       T: ShaderNodeType,
-//     {
-//       pub fn index(&self, node: impl Into<Node<u32>>) -> $NodeType<T> {
-//         OperatorNode::Index {
-//           array: self.handle(),
-//           entry: node.into().handle(),
-//         }
-//         .insert_api()
-//       }
-//     }
-//   };
-// }
-
-// sized_array_like_index!(UniformNode, Shader140Array);
-
-// sized_array_like_index!(LocalVarNode);
-// sized_array_like_index!(GlobalVarNode);
-// sized_array_like_index!(UniformNode);
-// sized_array_like_index!(BindingNode);
-// sized_array_like_index!(StorageNode);
-// sized_array_like_index!(ReadonlyStorageNode);
-// sized_array_like_index!(WorkGroupSharedNode);
-
-// macro_rules! host_dyn_sized_array_like_index {
-//   ($NodeType: tt) => {
-//     impl<T> $NodeType<HostDynSizeArray<T>>
-//     where
-//       T: ShaderNodeType,
-//     {
-//       pub fn index(&self, node: impl Into<Node<u32>>) -> $NodeType<T> {
-//         OperatorNode::Index {
-//           array: self.handle(),
-//           entry: node.into().handle(),
-//         }
-//         .insert_api()
-//       }
-//     }
-//   };
-// }
-
-// host_dyn_sized_array_like_index!(LocalVarNode);
-// host_dyn_sized_array_like_index!(GlobalVarNode);
-// host_dyn_sized_array_like_index!(UniformNode);
-// host_dyn_sized_array_like_index!(BindingNode);
-// host_dyn_sized_array_like_index!(StorageNode);
-// host_dyn_sized_array_like_index!(ReadonlyStorageNode);
-// host_dyn_sized_array_like_index!(WorkGroupSharedNode);
-
-// macro_rules! storage_array_size {
-//   ($NodeType: tt) => {
-//     impl<T> $NodeType<[T]>
-//     where
-//       T: ShaderNodeType,
-//     {
-//       pub fn array_length(&self) -> Node<u32> {
-//         make_builtin_call(ShaderBuiltInFunction::ArrayLength, [self.handle()])
-//       }
-//     }
-//   };
-// }
-// storage_array_size!(StorageNode);
-// storage_array_size!(ReadonlyStorageNode);
-
-// // this is a bit special
-// impl<T> BindingNode<BindingArray<T>>
-// where
-//   T: ShaderNodeType,
-// {
-//   pub fn index(&self, node: impl Into<Node<u32>>) -> Node<T> {
-//     OperatorNode::Index {
-//       array: self.handle(),
-//       entry: node.into().handle(),
-//     }
-//     .insert_api()
-//   }
-// }
-
-// /// enable this when mysterious device lost happens randomly.
-// /// check if the crash is due to the out of bound access by crashing the device deterministically
-// const ENABLE_STORAGE_BUFFER_BOUND_CHECK: bool = true;
-
-// macro_rules! index_access_slice_like {
-//   ($NodeType: tt) => {
-//     impl<T> $NodeType<[T]>
-//     where
-//       T: ShaderNodeType,
-//     {
-//       pub fn index(&self, node: impl Into<Node<u32>>) -> $NodeType<T> {
-//         let idx = node.into();
-//         if ENABLE_STORAGE_BUFFER_BOUND_CHECK {
-//           shader_assert(idx.less_than(self.array_length()));
-//         }
-//         OperatorNode::Index {
-//           array: self.handle(),
-//           entry: idx.handle(),
-//         }
-//         .insert_api()
-//       }
-//     }
-//   };
-// }
-
-// index_access_slice_like!(StorageNode);
-// index_access_slice_like!(ReadonlyStorageNode);

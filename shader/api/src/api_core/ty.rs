@@ -167,7 +167,7 @@ pub trait ShaderNodeSingleType: 'static {
   fn single_ty() -> ShaderValueSingleType;
 }
 
-pub trait ShaderSizedValueNodeType: ShaderNodeType + SizedShaderValueAbstractPtrAccess {
+pub trait ShaderSizedValueNodeType: ShaderNodeType + SizedShaderAbstractPtrAccess {
   fn sized_ty() -> ShaderSizedValueType;
   fn to_value(&self) -> ShaderStructFieldInitValue;
   fn to_shader_node_by_value(&self) -> Node<Self> {
@@ -202,8 +202,7 @@ impl ShaderStructFieldInitValue {
             .map(|(v, ty)| v.to_shader_node_by_value(&ty.ty))
             .collect(),
         }
-        .insert_api::<AnyType>()
-        .handle()
+        .insert_api_raw()
       }
       (
         ShaderStructFieldInitValue::Array(parameters),
@@ -215,14 +214,13 @@ impl ShaderStructFieldInitValue {
           .map(|v| v.to_shader_node_by_value(sty))
           .collect(),
       }
-      .insert_api::<AnyType>()
-      .handle(),
+      .insert_api_raw(),
       _ => panic!("unexpected type miss match"),
     }
   }
 }
 
-pub trait ShaderUnsizedValueNodeType: ShaderNodeType + ShaderValueAbstractPtrAccess {
+pub trait ShaderUnsizedValueNodeType: ShaderNodeType + ShaderAbstractPtrAccess {
   fn unsized_ty() -> ShaderUnSizedValueType;
 }
 
@@ -237,12 +235,12 @@ impl<T: ShaderSizedValueNodeType> ShaderMaybeUnsizedValueNodeType for T {
   }
 }
 
-pub trait ShaderMaybeUnsizedValueNodeType: ShaderNodeType + ShaderValueAbstractPtrAccess {
+pub trait ShaderMaybeUnsizedValueNodeType: ShaderNodeType + ShaderAbstractPtrAccess {
   fn maybe_unsized_ty() -> MaybeUnsizedValueType;
 }
 
 pub trait PrimitiveShaderNodeType:
-  ShaderSizedValueNodeType + SizedShaderValueAbstractPtrAccess + ShaderNodeType + Default
+  ShaderSizedValueNodeType + SizedShaderAbstractPtrAccess + ShaderNodeType + Default
 {
   const PRIMITIVE_TYPE: PrimitiveShaderValueType;
   type Shape<T>;

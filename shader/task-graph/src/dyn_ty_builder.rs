@@ -86,7 +86,7 @@ struct DeferResolvedStorageStructFieldNode<T> {
 }
 
 impl<T: ShaderSizedValueNodeType> DeferResolvedStorageStructFieldNode<T> {
-  fn expect_resolved(&self) -> ShaderAccessorOf<T> {
+  fn expect_resolved(&self) -> ShaderPtrOf<T> {
     let mut resolve = self.resolved_storage_node.write();
     let storage = resolve.get_or_insert_with(|| {
       self
@@ -99,7 +99,7 @@ impl<T: ShaderSizedValueNodeType> DeferResolvedStorageStructFieldNode<T> {
     });
 
     let ptr = storage.field_index(self.field_index);
-    T::create_accessor_from_raw_ptr(ptr)
+    T::create_view_from_raw_ptr(ptr)
   }
 }
 impl<T: ShaderSizedValueNodeType> ShaderAbstractLeftValue

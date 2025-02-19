@@ -39,9 +39,9 @@ pub struct HitCtxInfo {
   /// is index in blas geometry list
   pub geometry_id: Node<u32>,
   /// gl_ObjectToWorldEXT
-  pub object_to_world: ShaderReadonlyAccessorOf<Mat4<f32>>,
+  pub object_to_world: ShaderReadonlyPtrOf<Mat4<f32>>,
   /// gl_WorldToObjectEXT
-  pub world_to_object: ShaderReadonlyAccessorOf<Mat4<f32>>,
+  pub world_to_object: ShaderReadonlyPtrOf<Mat4<f32>>,
   /// gl_ObjectRayOriginEXT and gl_ObjectRayDirectionEXT
   pub object_space_ray: ShaderRay,
 }
@@ -150,12 +150,12 @@ impl TracingCtx {
   }
 
   /// user defined payload may not exist if the current shader stage is ray gen
-  pub fn payload<T: ShaderSizedValueNodeType>(&self) -> Option<ShaderAccessorOf<T>> {
+  pub fn payload<T: ShaderSizedValueNodeType>(&self) -> Option<ShaderPtrOf<T>> {
     let payload = self.payload.as_ref()?;
     assert_eq!(&T::sized_ty(), &payload.1);
-    Some(T::create_accessor_from_raw_ptr(payload.0.clone()))
+    Some(T::create_view_from_raw_ptr(payload.0.clone()))
   }
-  pub fn expect_payload<T: ShaderSizedValueNodeType>(&self) -> ShaderAccessorOf<T> {
+  pub fn expect_payload<T: ShaderSizedValueNodeType>(&self) -> ShaderPtrOf<T> {
     self.payload::<T>().unwrap()
   }
 }

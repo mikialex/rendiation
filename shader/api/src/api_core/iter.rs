@@ -99,7 +99,7 @@ impl<T: ShaderIterator + Sized> ShaderIteratorExt for T {}
 
 pub struct StepTo {
   to: Node<u32>,
-  current: ShaderAccessorOf<u32>,
+  current: ShaderPtrOf<u32>,
 }
 
 impl StepTo {
@@ -187,13 +187,13 @@ impl ShaderAbstractLeftValue for ForRange {
 
 #[derive(Clone)]
 pub struct ShaderStaticArrayIter<AT, T> {
-  cursor: ShaderAccessorOf<u32>,
-  array: StaticLengthArrayAccessor<AT, T>,
+  cursor: ShaderPtrOf<u32>,
+  array: StaticLengthArrayView<AT, T>,
   len: u32,
 }
 
 impl<AT, T: ShaderSizedValueNodeType> ShaderIterator for ShaderStaticArrayIter<AT, T> {
-  type Item = (Node<u32>, ShaderAccessorOf<T>);
+  type Item = (Node<u32>, ShaderPtrOf<T>);
 
   fn shader_next(&self) -> (Node<bool>, Self::Item) {
     let current_next = self.cursor.load();
@@ -209,13 +209,13 @@ impl<AT, T: ShaderSizedValueNodeType> ShaderIterator for ShaderStaticArrayIter<A
 
 #[derive(Clone)]
 pub struct ShaderStaticArrayReadonlyIter<AT, T> {
-  cursor: ShaderAccessorOf<u32>,
-  array: StaticLengthArrayReadonlyAccessor<AT, T>,
+  cursor: ShaderPtrOf<u32>,
+  array: StaticLengthArrayReadonlyView<AT, T>,
   len: u32,
 }
 
 impl<AT, T: ShaderSizedValueNodeType> ShaderIterator for ShaderStaticArrayReadonlyIter<AT, T> {
-  type Item = (Node<u32>, ShaderReadonlyAccessorOf<T>);
+  type Item = (Node<u32>, ShaderReadonlyPtrOf<T>);
 
   fn shader_next(&self) -> (Node<bool>, Self::Item) {
     let current_next = self.cursor.load();
@@ -231,13 +231,13 @@ impl<AT, T: ShaderSizedValueNodeType> ShaderIterator for ShaderStaticArrayReadon
 
 #[derive(Clone)]
 pub struct ShaderDynArrayIter<T> {
-  cursor: ShaderAccessorOf<u32>,
-  array: DynLengthArrayAccessor<T>,
+  cursor: ShaderPtrOf<u32>,
+  array: DynLengthArrayView<T>,
   len: Node<u32>,
 }
 
 impl<T: ShaderSizedValueNodeType> ShaderIterator for ShaderDynArrayIter<T> {
-  type Item = (Node<u32>, ShaderAccessorOf<T>);
+  type Item = (Node<u32>, ShaderPtrOf<T>);
 
   fn shader_next(&self) -> (Node<bool>, Self::Item) {
     let current_next = self.cursor.load();
@@ -250,13 +250,13 @@ impl<T: ShaderSizedValueNodeType> ShaderIterator for ShaderDynArrayIter<T> {
 
 #[derive(Clone)]
 pub struct ShaderDynArrayReadonlyIter<T> {
-  cursor: ShaderAccessorOf<u32>,
-  array: DynLengthArrayReadonlyAccessor<T>,
+  cursor: ShaderPtrOf<u32>,
+  array: DynLengthArrayReadonlyView<T>,
   len: Node<u32>,
 }
 
 impl<T: ShaderSizedValueNodeType> ShaderIterator for ShaderDynArrayReadonlyIter<T> {
-  type Item = (Node<u32>, ShaderReadonlyAccessorOf<T>);
+  type Item = (Node<u32>, ShaderReadonlyPtrOf<T>);
 
   fn shader_next(&self) -> (Node<bool>, Self::Item) {
     let current_next = self.cursor.load();
@@ -283,7 +283,7 @@ impl IntoShaderIterator for Node<u32> {
   }
 }
 
-impl<AT, T: ShaderSizedValueNodeType> IntoShaderIterator for StaticLengthArrayAccessor<AT, T> {
+impl<AT, T: ShaderSizedValueNodeType> IntoShaderIterator for StaticLengthArrayView<AT, T> {
   type ShaderIter = ShaderStaticArrayIter<AT, T>;
 
   fn into_shader_iter(self) -> Self::ShaderIter {
@@ -295,7 +295,7 @@ impl<AT, T: ShaderSizedValueNodeType> IntoShaderIterator for StaticLengthArrayAc
   }
 }
 
-impl<T: ShaderSizedValueNodeType> IntoShaderIterator for DynLengthArrayAccessor<T> {
+impl<T: ShaderSizedValueNodeType> IntoShaderIterator for DynLengthArrayView<T> {
   type ShaderIter = ShaderDynArrayIter<T>;
 
   fn into_shader_iter(self) -> Self::ShaderIter {
@@ -307,9 +307,7 @@ impl<T: ShaderSizedValueNodeType> IntoShaderIterator for DynLengthArrayAccessor<
   }
 }
 
-impl<AT, T: ShaderSizedValueNodeType> IntoShaderIterator
-  for StaticLengthArrayReadonlyAccessor<AT, T>
-{
+impl<AT, T: ShaderSizedValueNodeType> IntoShaderIterator for StaticLengthArrayReadonlyView<AT, T> {
   type ShaderIter = ShaderStaticArrayReadonlyIter<AT, T>;
 
   fn into_shader_iter(self) -> Self::ShaderIter {
@@ -321,7 +319,7 @@ impl<AT, T: ShaderSizedValueNodeType> IntoShaderIterator
   }
 }
 
-impl<T: ShaderSizedValueNodeType> IntoShaderIterator for DynLengthArrayReadonlyAccessor<T> {
+impl<T: ShaderSizedValueNodeType> IntoShaderIterator for DynLengthArrayReadonlyView<T> {
   type ShaderIter = ShaderDynArrayReadonlyIter<T>;
 
   fn into_shader_iter(self) -> Self::ShaderIter {
@@ -449,7 +447,7 @@ where
 
 pub struct ShaderEnumeratorIter<T> {
   iter: T,
-  counter: ShaderAccessorOf<u32>,
+  counter: ShaderPtrOf<u32>,
 }
 
 impl<T: ShaderIterator> ShaderIterator for ShaderEnumeratorIter<T> {

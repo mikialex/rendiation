@@ -94,10 +94,10 @@ impl ShaderFuture for TraceTaskImpl {
 pub struct GPURayTraceTaskInvocationInstance {
   tlas_sys: Box<dyn GPUAccelerationStructureSystemCompImplInvocationTraversable>,
   sbt: ShaderBindingTableDeviceInfoInvocation,
-  current_sbt: ShaderReadonlyAccessorOf<u32>,
-  sbt_task_mapping: ShaderReadonlyAccessorOf<SbtTaskMapping>,
+  current_sbt: ShaderReadonlyPtrOf<u32>,
+  sbt_task_mapping: ShaderReadonlyPtrOf<SbtTaskMapping>,
   info: Arc<TraceTaskMetaInfo>,
-  untyped_payloads: ShaderAccessorOf<[u32]>,
+  untyped_payloads: ShaderPtrOf<[u32]>,
   payload_read_back_bumper: DeviceBumpAllocationInvocationInstance<u32>,
   downstream: AllDownStreamTasks,
   has_terminated: BoxedShaderLoadStore<Node<Bool>>,
@@ -122,7 +122,7 @@ impl RayLaunchSizeBuffer {
 }
 #[derive(Clone)]
 pub struct RayLaunchSizeInvocation {
-  launch_size: ShaderReadonlyAccessorOf<Vec3<u32>>,
+  launch_size: ShaderReadonlyPtrOf<Vec3<u32>>,
 }
 impl RayLaunchSizeInvocation {
   pub fn get(&self) -> Node<Vec3<u32>> {
@@ -377,7 +377,7 @@ fn spawn_dynamic<'a>(
   task_ty: Node<u32>,
   ray_payload: Node<AnyType>,
   ray_payload_desc: &ShaderSizedValueType,
-  untyped_payload_arr: ShaderAccessorOf<[u32]>,
+  untyped_payload_arr: ShaderPtrOf<[u32]>,
   untyped_payload_idx: Node<u32>,
   parent: TaskParentRef,
 ) -> Node<u32> {
@@ -466,7 +466,7 @@ fn poll_dynamic<'a>(
           bumper_read_back // todo, handle bump failed
             .bump_allocate_by(val(payload_ty_desc.u32_size_count()), |target, offset| {
               let user_defined_payload = task_payload_node.field_index(1);
-              payload_ty_desc.store_into_u32_buffer(user_defined_payload.raw_ptr(), &target, offset)
+              payload_ty_desc.store_into_u32_buffer(user_defined_payload.load(), &target, offset)
             });
         bump_read_position.store(idx);
       });

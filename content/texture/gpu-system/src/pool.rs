@@ -231,8 +231,8 @@ pub struct TexturePool {
 }
 
 both!(TexturePoolInShader, ShaderBinding<ShaderTexture2DArray>);
-pub struct TexturePoolAddressInfoInShader(pub ShaderReadonlyAccessorOf<[TexturePoolAddressInfo]>);
-pub struct SamplerPoolInShader(pub ShaderReadonlyAccessorOf<[TextureSamplerShaderInfo]>);
+pub struct TexturePoolAddressInfoInShader(pub ShaderReadonlyPtrOf<[TexturePoolAddressInfo]>);
+pub struct SamplerPoolInShader(pub ShaderReadonlyPtrOf<[TextureSamplerShaderInfo]>);
 
 impl AbstractIndirectGPUTextureSystem for TexturePool {
   fn bind_system_self(&self, collector: &mut BindingBuilder) {

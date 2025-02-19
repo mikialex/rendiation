@@ -97,7 +97,7 @@ clone_trait_object!(RtxCameraRenderInvocation);
 
 #[derive(Clone)]
 pub struct DefaultRtxCameraInvocation {
-  camera: ShaderReadonlyAccessorOf<CameraGPUTransform>,
+  camera: ShaderReadonlyPtrOf<CameraGPUTransform>,
 }
 
 impl RtxCameraRenderInvocation for DefaultRtxCameraInvocation {

@@ -44,7 +44,7 @@ impl TaskGroupDeviceInvocationInstanceLateResolved {
     argument_read_back: impl FnOnce(Node<T>) + Copy,
   ) -> Node<bool> {
     self.poll_task_dyn(task_id, |x| {
-      let argument = T::create_accessor_from_raw_ptr(x).load();
+      let argument = T::create_view_from_raw_ptr(x).load();
       argument_read_back(argument)
     })
   }
@@ -142,7 +142,7 @@ impl DeviceTaskSystemPollCtx<'_> {
 }
 
 impl DeviceTaskSystemPollCtx<'_> {
-  pub fn access_self_payload<T: ShaderSizedValueNodeType>(&mut self) -> ShaderAccessorOf<T> {
+  pub fn access_self_payload<T: ShaderSizedValueNodeType>(&mut self) -> ShaderPtrOf<T> {
     let current = self.self_task_idx;
     self.self_task.rw_payload::<T>(current)
   }

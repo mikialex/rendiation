@@ -9,7 +9,7 @@ pub use task::*;
 
 #[derive(Clone)]
 pub struct ShaderPoll<T> {
-  pub resolved: ShaderAccessorOf<bool>,
+  pub resolved: ShaderPtrOf<bool>,
   pub payload: T,
 }
 
@@ -22,8 +22,8 @@ impl<T> ShaderPoll<T> {
   }
 }
 
-impl<T> From<(ShaderAccessorOf<bool>, T)> for ShaderPoll<T> {
-  fn from((resolved, payload): (ShaderAccessorOf<bool>, T)) -> Self {
+impl<T> From<(ShaderPtrOf<bool>, T)> for ShaderPoll<T> {
+  fn from((resolved, payload): (ShaderPtrOf<bool>, T)) -> Self {
     Self { resolved, payload }
   }
 }

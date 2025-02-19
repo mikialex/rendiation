@@ -226,13 +226,13 @@ impl ShaderFutureInvocation for TracingCtxProviderFutureInvocation {
 
     let missing = matches!(self.stage, RayTraceableShaderStage::Miss).then(|| {
       let ray_payload = combined_payload.field_index(1);
-      let ray_payload = RayMissHitCtxPayload::create_accessor_from_raw_ptr(ray_payload);
+      let ray_payload = RayMissHitCtxPayload::create_view_from_raw_ptr(ray_payload);
       Box::new(ray_payload) as Box<dyn MissingHitCtxProvider>
     });
 
     let closest = matches!(self.stage, RayTraceableShaderStage::ClosestHit).then(|| {
       let ray_payload = combined_payload.field_index(0);
-      let ray_payload = RayClosestHitCtxPayload::create_accessor_from_raw_ptr(ray_payload);
+      let ray_payload = RayClosestHitCtxPayload::create_view_from_raw_ptr(ray_payload);
 
       let ctx = ray_payload.hit_ctx();
       let instance_id = ctx.instance_id().load();
@@ -280,7 +280,7 @@ impl RayLaunchInfoProvider for ClosestHitCtx {
   }
 }
 
-impl WorldRayInfoProvider for ShaderAccessorOf<ShaderRayTraceCallStoragePayload> {
+impl WorldRayInfoProvider for ShaderPtrOf<ShaderRayTraceCallStoragePayload> {
   fn world_ray(&self) -> ShaderRay {
     let origin = self.ray_origin().load();
     let direction = self.ray_direction().load();
@@ -302,8 +302,8 @@ impl WorldRayInfoProvider for ShaderAccessorOf<ShaderRayTraceCallStoragePayload>
 
 #[derive(Clone)]
 struct ClosestHitCtx {
-  ctx: ShaderAccessorOf<RayClosestHitCtxPayload>,
-  tlas_ptr: ShaderReadonlyAccessorOf<TopLevelAccelerationStructureSourceDeviceInstance>,
+  ctx: ShaderPtrOf<RayClosestHitCtxPayload>,
+  tlas_ptr: ShaderReadonlyPtrOf<TopLevelAccelerationStructureSourceDeviceInstance>,
 }
 
 impl WorldRayInfoProvider for ClosestHitCtx {
@@ -365,7 +365,7 @@ impl ClosestHitCtxProvider for ClosestHitCtx {
   }
 }
 
-impl RayLaunchInfoProvider for ShaderAccessorOf<RayMissHitCtxPayload> {
+impl RayLaunchInfoProvider for ShaderPtrOf<RayMissHitCtxPayload> {
   fn launch_id(&self) -> Node<Vec3<u32>> {
     self.ray_info().launch_id().load()
   }
@@ -374,7 +374,7 @@ impl RayLaunchInfoProvider for ShaderAccessorOf<RayMissHitCtxPayload> {
     self.ray_info().launch_size().load()
   }
 }
-impl WorldRayInfoProvider for ShaderAccessorOf<RayMissHitCtxPayload> {
+impl WorldRayInfoProvider for ShaderPtrOf<RayMissHitCtxPayload> {
   fn world_ray(&self) -> ShaderRay {
     self.ray_info().world_ray()
   }
@@ -387,4 +387,4 @@ impl WorldRayInfoProvider for ShaderAccessorOf<RayMissHitCtxPayload> {
     self.ray_info().ray_flags().load()
   }
 }
-impl MissingHitCtxProvider for ShaderAccessorOf<RayMissHitCtxPayload> {}
+impl MissingHitCtxProvider for ShaderPtrOf<RayMissHitCtxPayload> {}

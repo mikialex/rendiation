@@ -2,7 +2,7 @@ use crate::*;
 
 #[derive(Clone)]
 pub struct U32BufferLoadStoreSource {
-  pub array: ShaderAccessorOf<[u32]>,
+  pub array: ShaderPtrOf<[u32]>,
   pub offset: Node<u32>,
 }
 

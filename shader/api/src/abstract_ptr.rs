@@ -25,25 +25,30 @@ pub type BoxedShaderPtr = Box<dyn AbstractShaderPtr>;
 
 dyn_clone::clone_trait_object!(AbstractShaderPtr);
 
+/// enable this when mysterious device lost happens randomly.
+/// check if the crash is due to the out of bound access by crashing the device deterministically
+const ENABLE_STORAGE_BUFFER_BOUND_CHECK: bool = true;
+
 impl AbstractShaderPtr for ShaderNodeRawHandle {
   fn field_index(&self, field_index: usize) -> BoxedShaderPtr {
     let node = ShaderNodeExpr::IndexStatic {
       field_index,
       target: *self,
     }
-    .insert_api::<AnyType>()
-    .handle();
+    .insert_api_raw();
 
     Box::new(node)
   }
 
   fn field_array_index(&self, index: Node<u32>) -> BoxedShaderPtr {
+    if ENABLE_STORAGE_BUFFER_BOUND_CHECK {
+      shader_assert(index.less_than(self.array_length()));
+    }
     let node = OperatorNode::Index {
       array: *self,
       entry: index.handle(),
     }
-    .insert_api::<AnyType>()
-    .handle();
+    .insert_api_raw();
 
     Box::new(node)
   }
@@ -66,64 +71,64 @@ impl AbstractShaderPtr for ShaderNodeRawHandle {
 
 /// this trait is to mapping the `T` to it's typed shader access object. the access object
 /// has type api to constraint valid access.
-pub trait ShaderValueAbstractPtrAccess {
-  type Accessor: Clone;
-  type ReadonlyAccessor: Clone;
+pub trait ShaderAbstractPtrAccess {
+  type PtrView: Clone;
+  type ReadonlyPtrView: Clone;
   // todo, this fn should be unsafe
-  fn create_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::Accessor;
-  fn create_readonly_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::ReadonlyAccessor;
+  fn create_view_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::PtrView;
+  fn create_readonly_view_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::ReadonlyPtrView;
 }
-pub type ShaderAccessorOf<T> = <T as ShaderValueAbstractPtrAccess>::Accessor;
-pub type ShaderReadonlyAccessorOf<T> = <T as ShaderValueAbstractPtrAccess>::ReadonlyAccessor;
+pub type ShaderPtrOf<T> = <T as ShaderAbstractPtrAccess>::PtrView;
+pub type ShaderReadonlyPtrOf<T> = <T as ShaderAbstractPtrAccess>::ReadonlyPtrView;
 
 /// the difference of the trait between the abstract left value is that the abstract
 /// left value's right value is not necessarily one single shader value.
-pub trait ReadonlySizedValueShaderPtrAccessor: Clone {
+pub trait ReadonlySizedShaderPtrView: Clone {
   type Node: ShaderSizedValueNodeType;
   fn load(&self) -> Node<Self::Node>;
 }
-pub trait SizedValueShaderPtrAccessor: ReadonlySizedValueShaderPtrAccessor {
+pub trait SizedShaderPtrView: ReadonlySizedShaderPtrView {
   fn store(&self, value: impl Into<Node<Self::Node>>);
 }
 
-pub trait SizedShaderValueAbstractPtrAccess:
-  ShaderValueAbstractPtrAccess<
-  Accessor: SizedValueShaderPtrAccessor<Node = Self>,
-  ReadonlyAccessor: ReadonlySizedValueShaderPtrAccessor<Node = Self>,
+pub trait SizedShaderAbstractPtrAccess:
+  ShaderAbstractPtrAccess<
+  PtrView: SizedShaderPtrView<Node = Self>,
+  ReadonlyPtrView: ReadonlySizedShaderPtrView<Node = Self>,
 >
 {
 }
-impl<T> SizedShaderValueAbstractPtrAccess for T
+impl<T> SizedShaderAbstractPtrAccess for T
 where
-  T: ShaderValueAbstractPtrAccess,
-  T::Accessor: SizedValueShaderPtrAccessor<Node = Self>,
-  T::ReadonlyAccessor: ReadonlySizedValueShaderPtrAccessor<Node = Self>,
+  T: ShaderAbstractPtrAccess,
+  T::PtrView: SizedShaderPtrView<Node = Self>,
+  T::ReadonlyPtrView: ReadonlySizedShaderPtrView<Node = Self>,
 {
 }
 
-impl<T> ShaderValueAbstractPtrAccess for [T] {
-  type Accessor = DynLengthArrayAccessor<T>;
-  type ReadonlyAccessor = DynLengthArrayReadonlyAccessor<T>;
-  fn create_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::Accessor {
-    DynLengthArrayAccessor {
+impl<T> ShaderAbstractPtrAccess for [T] {
+  type PtrView = DynLengthArrayView<T>;
+  type ReadonlyPtrView = DynLengthArrayReadonlyView<T>;
+  fn create_view_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::PtrView {
+    DynLengthArrayView {
       phantom: PhantomData,
       access: ptr,
     }
   }
 
-  fn create_readonly_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::ReadonlyAccessor {
-    DynLengthArrayReadonlyAccessor {
+  fn create_readonly_view_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::ReadonlyPtrView {
+    DynLengthArrayReadonlyView {
       phantom: PhantomData,
       access: ptr,
     }
   }
 }
 
-pub struct DynLengthArrayAccessor<T> {
+pub struct DynLengthArrayView<T> {
   phantom: PhantomData<T>,
   access: BoxedShaderPtr,
 }
-impl<T> Clone for DynLengthArrayAccessor<T> {
+impl<T> Clone for DynLengthArrayView<T> {
   fn clone(&self) -> Self {
     Self {
       phantom: self.phantom,
@@ -131,21 +136,21 @@ impl<T> Clone for DynLengthArrayAccessor<T> {
     }
   }
 }
-impl<T: SizedShaderValueAbstractPtrAccess> DynLengthArrayAccessor<T> {
-  pub fn index(&self, index: impl Into<Node<u32>>) -> T::Accessor {
+impl<T: SizedShaderAbstractPtrAccess> DynLengthArrayView<T> {
+  pub fn index(&self, index: impl Into<Node<u32>>) -> T::PtrView {
     let item = self.access.field_array_index(index.into());
-    T::create_accessor_from_raw_ptr(item)
+    T::create_view_from_raw_ptr(item)
   }
   pub fn array_length(&self) -> Node<u32> {
     self.access.array_length()
   }
 }
 
-pub struct DynLengthArrayReadonlyAccessor<T> {
+pub struct DynLengthArrayReadonlyView<T> {
   phantom: PhantomData<T>,
   access: BoxedShaderPtr,
 }
-impl<T> Clone for DynLengthArrayReadonlyAccessor<T> {
+impl<T> Clone for DynLengthArrayReadonlyView<T> {
   fn clone(&self) -> Self {
     Self {
       phantom: self.phantom,
@@ -153,49 +158,29 @@ impl<T> Clone for DynLengthArrayReadonlyAccessor<T> {
     }
   }
 }
-impl<T: SizedShaderValueAbstractPtrAccess> DynLengthArrayReadonlyAccessor<T> {
-  pub fn index(&self, index: impl Into<Node<u32>>) -> T::ReadonlyAccessor {
+impl<T: SizedShaderAbstractPtrAccess> DynLengthArrayReadonlyView<T> {
+  pub fn index(&self, index: impl Into<Node<u32>>) -> T::ReadonlyPtrView {
     let item = self.access.field_array_index(index.into());
-    T::create_readonly_accessor_from_raw_ptr(item)
+    T::create_readonly_view_from_raw_ptr(item)
   }
   pub fn array_length(&self) -> Node<u32> {
     self.access.array_length()
   }
 }
 
-impl<T, const N: usize> ShaderValueAbstractPtrAccess for Shader140Array<T, N> {
-  type Accessor = StaticLengthArrayAccessor<Self, T>;
-  type ReadonlyAccessor = StaticLengthArrayReadonlyAccessor<Self, T>;
-  fn create_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::Accessor {
-    StaticLengthArrayAccessor {
+impl<T, const N: usize> ShaderAbstractPtrAccess for Shader140Array<T, N> {
+  type PtrView = StaticLengthArrayView<Self, T>;
+  type ReadonlyPtrView = StaticLengthArrayReadonlyView<Self, T>;
+  fn create_view_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::PtrView {
+    StaticLengthArrayView {
       phantom: PhantomData,
       array: PhantomData,
       access: ptr,
       len: N as u32,
     }
   }
-  fn create_readonly_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::ReadonlyAccessor {
-    StaticLengthArrayReadonlyAccessor {
-      phantom: PhantomData,
-      array: PhantomData,
-      access: ptr,
-      len: N as u32,
-    }
-  }
-}
-impl<T, const N: usize> ShaderValueAbstractPtrAccess for [T; N] {
-  type Accessor = StaticLengthArrayAccessor<Self, T>;
-  type ReadonlyAccessor = StaticLengthArrayReadonlyAccessor<Self, T>;
-  fn create_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::Accessor {
-    StaticLengthArrayAccessor {
-      phantom: PhantomData,
-      array: PhantomData,
-      access: ptr,
-      len: N as u32,
-    }
-  }
-  fn create_readonly_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::ReadonlyAccessor {
-    StaticLengthArrayReadonlyAccessor {
+  fn create_readonly_view_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::ReadonlyPtrView {
+    StaticLengthArrayReadonlyView {
       phantom: PhantomData,
       array: PhantomData,
       access: ptr,
@@ -203,25 +188,45 @@ impl<T, const N: usize> ShaderValueAbstractPtrAccess for [T; N] {
     }
   }
 }
-impl<T> ShaderValueAbstractPtrAccess for HostDynSizeArray<T> {
-  type Accessor = StaticLengthArrayAccessor<Self, T>;
-  type ReadonlyAccessor = StaticLengthArrayReadonlyAccessor<Self, T>;
-  fn create_accessor_from_raw_ptr(_: BoxedShaderPtr) -> Self::Accessor {
+impl<T, const N: usize> ShaderAbstractPtrAccess for [T; N] {
+  type PtrView = StaticLengthArrayView<Self, T>;
+  type ReadonlyPtrView = StaticLengthArrayReadonlyView<Self, T>;
+  fn create_view_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::PtrView {
+    StaticLengthArrayView {
+      phantom: PhantomData,
+      array: PhantomData,
+      access: ptr,
+      len: N as u32,
+    }
+  }
+  fn create_readonly_view_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::ReadonlyPtrView {
+    StaticLengthArrayReadonlyView {
+      phantom: PhantomData,
+      array: PhantomData,
+      access: ptr,
+      len: N as u32,
+    }
+  }
+}
+impl<T> ShaderAbstractPtrAccess for HostDynSizeArray<T> {
+  type PtrView = StaticLengthArrayView<Self, T>;
+  type ReadonlyPtrView = StaticLengthArrayReadonlyView<Self, T>;
+  fn create_view_from_raw_ptr(_: BoxedShaderPtr) -> Self::PtrView {
     panic!("this fn should called from ptr builder side as we don't know the length")
   }
-  fn create_readonly_accessor_from_raw_ptr(_: BoxedShaderPtr) -> Self::ReadonlyAccessor {
+  fn create_readonly_view_from_raw_ptr(_: BoxedShaderPtr) -> Self::ReadonlyPtrView {
     panic!("this fn should called from ptr builder side as we don't know the length")
   }
 }
 
-pub struct StaticLengthArrayAccessor<AT, T> {
+pub struct StaticLengthArrayView<AT, T> {
   pub phantom: PhantomData<T>,
   pub array: PhantomData<AT>,
   pub access: BoxedShaderPtr,
   pub len: u32,
 }
 
-impl<AT, T> ReadonlySizedValueShaderPtrAccessor for StaticLengthArrayAccessor<AT, T>
+impl<AT, T> ReadonlySizedShaderPtrView for StaticLengthArrayView<AT, T>
 where
   AT: ShaderSizedValueNodeType,
   T: ShaderSizedValueNodeType,
@@ -231,7 +236,7 @@ where
     unsafe { self.access.load().into_node() }
   }
 }
-impl<AT, T> SizedValueShaderPtrAccessor for StaticLengthArrayAccessor<AT, T>
+impl<AT, T> SizedShaderPtrView for StaticLengthArrayView<AT, T>
 where
   AT: ShaderSizedValueNodeType,
   T: ShaderSizedValueNodeType,
@@ -240,7 +245,7 @@ where
     self.access.store(value.into().handle())
   }
 }
-impl<AT, T> Clone for StaticLengthArrayAccessor<AT, T> {
+impl<AT, T> Clone for StaticLengthArrayView<AT, T> {
   fn clone(&self) -> Self {
     Self {
       phantom: self.phantom,
@@ -250,21 +255,21 @@ impl<AT, T> Clone for StaticLengthArrayAccessor<AT, T> {
     }
   }
 }
-impl<AT, T: SizedShaderValueAbstractPtrAccess> StaticLengthArrayAccessor<AT, T> {
-  pub fn index(&self, index: impl Into<Node<u32>>) -> T::Accessor {
+impl<AT, T: SizedShaderAbstractPtrAccess> StaticLengthArrayView<AT, T> {
+  pub fn index(&self, index: impl Into<Node<u32>>) -> T::PtrView {
     let item = self.access.field_array_index(index.into());
-    T::create_accessor_from_raw_ptr(item)
+    T::create_view_from_raw_ptr(item)
   }
 }
 
-pub struct StaticLengthArrayReadonlyAccessor<AT, T> {
+pub struct StaticLengthArrayReadonlyView<AT, T> {
   phantom: PhantomData<T>,
   array: PhantomData<AT>,
   access: BoxedShaderPtr,
   pub len: u32,
 }
 
-impl<AT, T> ReadonlySizedValueShaderPtrAccessor for StaticLengthArrayReadonlyAccessor<AT, T>
+impl<AT, T> ReadonlySizedShaderPtrView for StaticLengthArrayReadonlyView<AT, T>
 where
   AT: ShaderSizedValueNodeType,
   T: ShaderSizedValueNodeType,
@@ -274,7 +279,7 @@ where
     unsafe { self.access.load().into_node() }
   }
 }
-impl<AT, T> Clone for StaticLengthArrayReadonlyAccessor<AT, T> {
+impl<AT, T> Clone for StaticLengthArrayReadonlyView<AT, T> {
   fn clone(&self) -> Self {
     Self {
       phantom: self.phantom,
@@ -284,21 +289,21 @@ impl<AT, T> Clone for StaticLengthArrayReadonlyAccessor<AT, T> {
     }
   }
 }
-impl<AT, T: SizedShaderValueAbstractPtrAccess> StaticLengthArrayReadonlyAccessor<AT, T> {
-  pub fn index(&self, index: impl Into<Node<u32>>) -> T::ReadonlyAccessor {
+impl<AT, T: SizedShaderAbstractPtrAccess> StaticLengthArrayReadonlyView<AT, T> {
+  pub fn index(&self, index: impl Into<Node<u32>>) -> T::ReadonlyPtrView {
     let item = self.access.field_array_index(index.into());
-    T::create_readonly_accessor_from_raw_ptr(item)
+    T::create_readonly_view_from_raw_ptr(item)
   }
 }
 
-pub struct DirectPrimitivePtrAccessor<T>(PhantomData<T>, BoxedShaderPtr);
+pub struct DirectPrimitivePtrView<T>(PhantomData<T>, BoxedShaderPtr);
 
-impl<T> Clone for DirectPrimitivePtrAccessor<T> {
+impl<T> Clone for DirectPrimitivePtrView<T> {
   fn clone(&self) -> Self {
     Self(self.0, self.1.clone())
   }
 }
-impl<T> ReadonlySizedValueShaderPtrAccessor for DirectPrimitivePtrAccessor<T>
+impl<T> ReadonlySizedShaderPtrView for DirectPrimitivePtrView<T>
 where
   T: ShaderSizedValueNodeType,
 {
@@ -307,7 +312,7 @@ where
     unsafe { self.1.load().into_node() }
   }
 }
-impl<T> SizedValueShaderPtrAccessor for DirectPrimitivePtrAccessor<T>
+impl<T> SizedShaderPtrView for DirectPrimitivePtrView<T>
 where
   T: ShaderSizedValueNodeType,
 {
@@ -315,14 +320,14 @@ where
     self.1.store(value.into().handle());
   }
 }
-pub struct ReadonlyDirectPrimitivePtrAccessor<T>(PhantomData<T>, BoxedShaderPtr);
+pub struct ReadonlyDirectPrimitivePtrView<T>(PhantomData<T>, BoxedShaderPtr);
 
-impl<T> Clone for ReadonlyDirectPrimitivePtrAccessor<T> {
+impl<T> Clone for ReadonlyDirectPrimitivePtrView<T> {
   fn clone(&self) -> Self {
     Self(self.0, self.1.clone())
   }
 }
-impl<T> ReadonlySizedValueShaderPtrAccessor for ReadonlyDirectPrimitivePtrAccessor<T>
+impl<T> ReadonlySizedShaderPtrView for ReadonlyDirectPrimitivePtrView<T>
 where
   T: ShaderSizedValueNodeType,
 {
@@ -351,14 +356,14 @@ macro_rules! impl_primitive_mat_direct {
 
 macro_rules! impl_primitive_direct {
   ($ty: ty) => {
-    impl ShaderValueAbstractPtrAccess for $ty {
-      type Accessor = DirectPrimitivePtrAccessor<$ty>;
-      type ReadonlyAccessor = ReadonlyDirectPrimitivePtrAccessor<$ty>;
-      fn create_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::Accessor {
-        DirectPrimitivePtrAccessor(PhantomData, ptr)
+    impl ShaderAbstractPtrAccess for $ty {
+      type PtrView = DirectPrimitivePtrView<$ty>;
+      type ReadonlyPtrView = ReadonlyDirectPrimitivePtrView<$ty>;
+      fn create_view_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::PtrView {
+        DirectPrimitivePtrView(PhantomData, ptr)
       }
-      fn create_readonly_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::ReadonlyAccessor {
-        ReadonlyDirectPrimitivePtrAccessor(PhantomData, ptr)
+      fn create_readonly_view_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::ReadonlyPtrView {
+        ReadonlyDirectPrimitivePtrView(PhantomData, ptr)
       }
     }
   };
@@ -371,15 +376,15 @@ impl_primitive_with_vec_direct!(u32);
 impl_primitive_with_vec_direct!(f32);
 impl_primitive_mat_direct!(f32);
 
-pub struct AtomicPtrAccessor<T>(PhantomData<T>, BoxedShaderPtr);
+pub struct AtomicPtrView<T>(PhantomData<T>, BoxedShaderPtr);
 
-impl<T> Clone for AtomicPtrAccessor<T> {
+impl<T> Clone for AtomicPtrView<T> {
   fn clone(&self) -> Self {
     Self(self.0, self.1.clone())
   }
 }
 
-impl<T: AtomicityShaderNodeType> AtomicPtrAccessor<T> {
+impl<T: AtomicityShaderNodeType> AtomicPtrView<T> {
   pub fn atomic_load(&self) -> Node<T> {
     call_shader_api(|g| unsafe { g.load(self.1.raw_ptr()).into_node() })
   }
@@ -472,8 +477,7 @@ impl<T: AtomicityShaderNodeType> AtomicPtrAccessor<T> {
       },
       value: v.handle(),
     }
-    .insert_api::<AnyType>()
-    .handle();
+    .insert_api_raw();
 
     unsafe {
       let old = index_access_field(raw, 0).into_node();
@@ -482,8 +486,8 @@ impl<T: AtomicityShaderNodeType> AtomicPtrAccessor<T> {
     }
   }
 }
-impl<T: AtomicityShaderNodeType + PrimitiveShaderNodeType> ReadonlySizedValueShaderPtrAccessor
-  for AtomicPtrAccessor<T>
+impl<T: AtomicityShaderNodeType + PrimitiveShaderNodeType> ReadonlySizedShaderPtrView
+  for AtomicPtrView<T>
 {
   type Node = DeviceAtomic<T>;
 
@@ -491,126 +495,24 @@ impl<T: AtomicityShaderNodeType + PrimitiveShaderNodeType> ReadonlySizedValueSha
     unreachable!("atomic is not able to direct load");
   }
 }
-impl<T: AtomicityShaderNodeType + PrimitiveShaderNodeType> SizedValueShaderPtrAccessor
-  for AtomicPtrAccessor<T>
-{
+impl<T: AtomicityShaderNodeType + PrimitiveShaderNodeType> SizedShaderPtrView for AtomicPtrView<T> {
   fn store(&self, _value: impl Into<Node<Self::Node>>) {
     unreachable!("atomic is not able to direct store");
   }
 }
 
-impl<T> ShaderValueAbstractPtrAccess for DeviceAtomic<T>
+impl<T> ShaderAbstractPtrAccess for DeviceAtomic<T>
 where
   T: AtomicityShaderNodeType + PrimitiveShaderNodeType,
 {
-  type Accessor = AtomicPtrAccessor<T>;
-  type ReadonlyAccessor = AtomicPtrAccessor<T>;
+  type PtrView = AtomicPtrView<T>;
+  type ReadonlyPtrView = AtomicPtrView<T>;
 
-  fn create_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::Accessor {
-    AtomicPtrAccessor(PhantomData, ptr)
+  fn create_view_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::PtrView {
+    AtomicPtrView(PhantomData, ptr)
   }
 
-  fn create_readonly_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::ReadonlyAccessor {
-    AtomicPtrAccessor(PhantomData, ptr)
-  }
-}
-
-/// the macro expansion result demo:
-#[allow(unused)]
-mod test {
-  use crate::*;
-  pub struct MyStruct {
-    pub a: f32,
-    pub b: u32,
-  }
-
-  /// auto generated by macro
-  impl ShaderNodeType for MyStruct {
-    fn ty() -> ShaderValueType {
-      unimplemented!()
-    }
-  }
-  impl ShaderSizedValueNodeType for MyStruct {
-    fn sized_ty() -> ShaderSizedValueType {
-      unimplemented!()
-    }
-
-    fn to_value(&self) -> ShaderStructFieldInitValue {
-      unimplemented!()
-    }
-  }
-
-  pub struct MyStructShaderPtrInstance(BoxedShaderPtr);
-
-  impl Clone for MyStructShaderPtrInstance {
-    fn clone(&self) -> Self {
-      Self(self.0.clone())
-    }
-  }
-
-  impl ReadonlySizedValueShaderPtrAccessor for MyStructShaderPtrInstance {
-    type Node = MyStruct;
-    fn load(&self) -> Node<MyStruct> {
-      unsafe { self.0.load().into_node() }
-    }
-  }
-  impl SizedValueShaderPtrAccessor for MyStructShaderPtrInstance {
-    fn store(&self, value: impl Into<Node<MyStruct>>) {
-      self.0.store(value.into().handle());
-    }
-  }
-
-  /// auto generated by macro
-  impl MyStructShaderPtrInstance {
-    pub fn store(&self, value: Node<MyStruct>) {
-      self.0.store(value.handle());
-    }
-
-    pub fn a(&self) -> ShaderAccessorOf<f32> {
-      let v = self.0.field_index(0);
-      f32::create_accessor_from_raw_ptr(v)
-    }
-    pub fn b(&self) -> ShaderAccessorOf<u32> {
-      let v = self.0.field_index(1);
-      u32::create_accessor_from_raw_ptr(v)
-    }
-  }
-
-  pub struct MyStructShaderReadonlyPtrInstance(BoxedShaderPtr);
-
-  impl Clone for MyStructShaderReadonlyPtrInstance {
-    fn clone(&self) -> Self {
-      Self(self.0.clone())
-    }
-  }
-
-  impl ReadonlySizedValueShaderPtrAccessor for MyStructShaderReadonlyPtrInstance {
-    type Node = MyStruct;
-    fn load(&self) -> Node<MyStruct> {
-      unsafe { self.0.load().into_node() }
-    }
-  }
-
-  /// auto generated by macro
-  impl MyStructShaderReadonlyPtrInstance {
-    pub fn a(&self) -> ShaderAccessorOf<f32> {
-      let v = self.0.field_index(0);
-      f32::create_accessor_from_raw_ptr(v)
-    }
-    pub fn b(&self) -> ShaderAccessorOf<u32> {
-      let v = self.0.field_index(1);
-      u32::create_accessor_from_raw_ptr(v)
-    }
-  }
-
-  impl ShaderValueAbstractPtrAccess for MyStruct {
-    type Accessor = MyStructShaderPtrInstance;
-    type ReadonlyAccessor = MyStructShaderReadonlyPtrInstance;
-    fn create_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::Accessor {
-      MyStructShaderPtrInstance(ptr)
-    }
-    fn create_readonly_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::ReadonlyAccessor {
-      MyStructShaderReadonlyPtrInstance(ptr)
-    }
+  fn create_readonly_view_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::ReadonlyPtrView {
+    AtomicPtrView(PhantomData, ptr)
   }
 }

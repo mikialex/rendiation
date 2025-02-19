@@ -115,9 +115,9 @@ impl FragmentOutputPort {
     is_shader_ty_blendable(&self.ty)
   }
 
-  pub fn get_output_var<T: ShaderSizedValueNodeType>(&self) -> ShaderAccessorOf<T> {
+  pub fn get_output_var<T: ShaderSizedValueNodeType>(&self) -> ShaderPtrOf<T> {
     assert_eq!(self.ty, T::sized_ty());
-    T::create_accessor_from_raw_ptr(Box::new(self.node))
+    T::create_view_from_raw_ptr(Box::new(self.node))
   }
   pub fn store<T: ShaderSizedValueNodeType>(&self, node: Node<T>) {
     self.get_output_var::<T>().store(node);
@@ -275,7 +275,7 @@ impl ShaderFragmentBuilder {
   fn get_fragment_out_var<T: ShaderSizedValueNodeType>(
     &mut self,
     slot: usize,
-  ) -> Result<ShaderAccessorOf<T>, ShaderBuildError> {
+  ) -> Result<ShaderPtrOf<T>, ShaderBuildError> {
     Ok(
       self
         .frag_output

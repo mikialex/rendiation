@@ -436,7 +436,7 @@ impl TaskGroupDeviceInvocationInstance {
     argument_read_back: impl FnOnce(Node<T>) + Copy,
   ) -> Node<bool> {
     self.poll_task_dyn(task_id, |x| {
-      argument_read_back(T::create_accessor_from_raw_ptr(x).load())
+      argument_read_back(T::create_view_from_raw_ptr(x).load())
     })
   }
 

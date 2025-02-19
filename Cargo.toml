@@ -61,7 +61,6 @@ members = [
   "platform/event-input",
   "platform/graphics/webgpu",
   "platform/graphics/webgpu-reactive-utils",
-  "platform/graphics/webgpu-virtual-storage-buffer",
   "extension/controller",
   "extension/view-override-model",
   "extension/barycentric-solid-line",

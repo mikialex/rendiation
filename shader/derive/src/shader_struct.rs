@@ -59,9 +59,9 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
     i += 1;
     let idx: usize = i - 1;
     quote! {
-      pub fn #field_name(&self) -> rendiation_shader_api::ShaderAccessorOf<<#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType> {
+      pub fn #field_name(&self) -> rendiation_shader_api::ShaderPtrOf<<#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType> {
         let v = self.0.field_index(#idx);
-        <#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType::create_accessor_from_raw_ptr(v)
+        <#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType::create_view_from_raw_ptr(v)
       }
     }
   });
@@ -74,9 +74,9 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
     i += 1;
     let idx: usize = i - 1;
     quote! {
-      pub fn #field_name(&self) -> rendiation_shader_api::ShaderReadonlyAccessorOf<<#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType> {
+      pub fn #field_name(&self) -> rendiation_shader_api::ShaderReadonlyPtrOf<<#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType> {
         let v = self.0.field_index(#idx);
-        <#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType::create_readonly_accessor_from_raw_ptr(v)
+        <#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType::create_readonly_view_from_raw_ptr(v)
       }
     }
   });
@@ -105,29 +105,29 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
     #struct_vis struct #shader_api_ptr_instance_name(BoxedShaderPtr);
     #[derive(Clone)]
     #struct_vis struct #shader_api_readonly_ptr_instance_name(BoxedShaderPtr);
-    impl rendiation_shader_api::ShaderValueAbstractPtrAccess for #struct_name {
-      type Accessor = #shader_api_ptr_instance_name;
-      type ReadonlyAccessor = #shader_api_readonly_ptr_instance_name;
-      fn create_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::Accessor {
+    impl rendiation_shader_api::ShaderAbstractPtrAccess for #struct_name {
+      type PtrView = #shader_api_ptr_instance_name;
+      type ReadonlyPtrView = #shader_api_readonly_ptr_instance_name;
+      fn create_view_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::PtrView {
         #shader_api_ptr_instance_name(ptr)
       }
-      fn create_readonly_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::ReadonlyAccessor {
+      fn create_readonly_view_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::ReadonlyPtrView {
         #shader_api_readonly_ptr_instance_name(ptr)
       }
     }
-    impl rendiation_shader_api::ReadonlySizedValueShaderPtrAccessor for #shader_api_readonly_ptr_instance_name {
+    impl rendiation_shader_api::ReadonlySizedShaderPtrView for #shader_api_readonly_ptr_instance_name {
       type Node = #struct_name;
       fn load(&self) -> Node<#struct_name> {
         unsafe { self.0.load().into_node() }
       }
     }
-    impl rendiation_shader_api::ReadonlySizedValueShaderPtrAccessor for #shader_api_ptr_instance_name {
+    impl rendiation_shader_api::ReadonlySizedShaderPtrView for #shader_api_ptr_instance_name {
       type Node = #struct_name;
       fn load(&self) -> Node<#struct_name> {
         unsafe { self.0.load().into_node() }
       }
     }
-    impl rendiation_shader_api::SizedValueShaderPtrAccessor for #shader_api_ptr_instance_name {
+    impl rendiation_shader_api::SizedShaderPtrView for #shader_api_ptr_instance_name {
       fn store(&self, value: impl Into<Node<#struct_name>>) {
         self.0.store(value.into().handle());
       }

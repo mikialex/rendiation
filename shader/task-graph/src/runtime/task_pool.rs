@@ -181,14 +181,14 @@ impl TaskPoolInvocationInstance {
     }
   }
 
-  pub fn rw_task_state(&self, task: Node<u32>) -> ShaderAccessorOf<u32> {
+  pub fn rw_task_state(&self, task: Node<u32>) -> ShaderPtrOf<u32> {
     let item_ptr = self.access_item_ptr(task);
     let ptr = item_ptr.field_index(0);
-    u32::create_accessor_from_raw_ptr(ptr)
+    u32::create_view_from_raw_ptr(ptr)
   }
-  pub fn rw_payload<T: ShaderSizedValueNodeType>(&self, task: Node<u32>) -> ShaderAccessorOf<T> {
+  pub fn rw_payload<T: ShaderSizedValueNodeType>(&self, task: Node<u32>) -> ShaderPtrOf<T> {
     assert_eq!(self.payload_ty, T::sized_ty());
-    T::create_accessor_from_raw_ptr(self.rw_payload_dyn(task))
+    T::create_view_from_raw_ptr(self.rw_payload_dyn(task))
   }
   pub fn rw_payload_dyn(&self, task: Node<u32>) -> BoxedShaderPtr {
     let item_ptr = self.access_item_ptr(task);
@@ -199,14 +199,14 @@ impl TaskPoolInvocationInstance {
     item_ptr.field_index(2)
   }
 
-  pub fn rw_parent_task_type_id(&self, task: Node<u32>) -> ShaderAccessorOf<u32> {
+  pub fn rw_parent_task_type_id(&self, task: Node<u32>) -> ShaderPtrOf<u32> {
     let item_ptr = self.access_item_ptr(task);
     let ptr = item_ptr.field_index(3);
-    u32::create_accessor_from_raw_ptr(ptr)
+    u32::create_view_from_raw_ptr(ptr)
   }
-  pub fn rw_parent_task_index(&self, task: Node<u32>) -> ShaderAccessorOf<u32> {
+  pub fn rw_parent_task_index(&self, task: Node<u32>) -> ShaderPtrOf<u32> {
     let item_ptr = self.access_item_ptr(task);
     let ptr = item_ptr.field_index(4);
-    u32::create_accessor_from_raw_ptr(ptr)
+    u32::create_view_from_raw_ptr(ptr)
   }
 }

@@ -407,7 +407,7 @@ struct RayTracingAORayGenCtxInvocation {
   camera: Box<dyn RtxCameraRenderInvocation>,
   ao_buffer: BindingNode<ShaderStorageTextureRW2D>,
   tlas_idx: Node<u32>,
-  ao_sample_count: ShaderReadonlyAccessorOf<Vec4<u32>>,
+  ao_sample_count: ShaderReadonlyPtrOf<Vec4<u32>>,
 }
 
 #[derive(Clone)]
@@ -443,5 +443,5 @@ impl RayTracingCustomCtxProvider for RayTracingAORayClosestCtx {
 struct RayTracingAORayClosestCtxInvocation {
   bindless_mesh: BindlessMeshRtxAccessInvocation,
   tlas: Node<u32>,
-  ao_sample_count: ShaderReadonlyAccessorOf<Vec4<u32>>,
+  ao_sample_count: ShaderReadonlyPtrOf<Vec4<u32>>,
 }

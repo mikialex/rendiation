@@ -134,7 +134,7 @@ impl LightingComputeComponent for LTCLightingComputeComponent {
 }
 
 struct LTCLightingComputeInvocation {
-  uniforms: ShaderReadonlyAccessorOf<Shader140Array<LTCAreaLightUniform, 8>>,
+  uniforms: ShaderReadonlyPtrOf<Shader140Array<LTCAreaLightUniform, 8>>,
   lut: LTCxLUTxInvocation,
 }
 
@@ -147,7 +147,7 @@ impl LightingComputeInvocation for LTCLightingComputeInvocation {
     let lut = self.lut;
     IterAsLightInvocation(
       self.uniforms.clone().into_shader_iter(),
-      move |(_, u): (Node<u32>, ShaderReadonlyAccessorOf<LTCAreaLightUniform>)| {
+      move |(_, u): (Node<u32>, ShaderReadonlyPtrOf<LTCAreaLightUniform>)| {
         let u = u.load().expand();
         LTCRectLightingCompute {
           light: ENode::<LTCRectLight> {

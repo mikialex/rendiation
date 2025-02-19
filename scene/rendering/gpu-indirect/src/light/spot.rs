@@ -71,7 +71,7 @@ impl RenderImplProvider<Box<dyn LightingComputeComponent>> for SpotLightStorageL
 
     let com = ArrayLights(
       buffer,
-      |(_, light_buffer): (Node<u32>, ShaderReadonlyAccessorOf<SpotLightStorage>)| {
+      |(_, light_buffer): (Node<u32>, ShaderReadonlyPtrOf<SpotLightStorage>)| {
         let light_buffer = light_buffer.load().expand();
         ENode::<SpotLightShaderInfo> {
           luminance_intensity: light_buffer.luminance_intensity,

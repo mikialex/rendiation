@@ -33,7 +33,7 @@ where
   }
 }
 
-pub struct ShaderAccessorAsAbstractLeftValue<T: ShaderSizedValueNodeType>(pub ShaderAccessorOf<T>);
+pub struct ShaderAccessorAsAbstractLeftValue<T: ShaderSizedValueNodeType>(pub ShaderPtrOf<T>);
 
 impl<T: ShaderSizedValueNodeType> ShaderAbstractLeftValue for ShaderAccessorAsAbstractLeftValue<T> {
   type RightValue = Node<T>;

@@ -41,19 +41,19 @@ where
   }
 }
 
-pub fn make_local_var<T: ShaderSizedValueNodeType>() -> ShaderAccessorOf<T> {
+pub fn make_local_var<T: ShaderSizedValueNodeType>() -> ShaderPtrOf<T> {
   let handle = call_shader_api(|g| g.make_local_var(T::ty()));
-  T::create_accessor_from_raw_ptr(Box::new(handle))
+  T::create_view_from_raw_ptr(Box::new(handle))
 }
 
 impl<T: ShaderSizedValueNodeType> Node<T> {
-  pub fn make_local_var(&self) -> ShaderAccessorOf<T> {
+  pub fn make_local_var(&self) -> ShaderPtrOf<T> {
     let handle = call_shader_api(|g| {
       let v = g.make_local_var(T::ty());
       g.store(self.handle(), v);
       v
     });
-    T::create_accessor_from_raw_ptr(Box::new(handle))
+    T::create_view_from_raw_ptr(Box::new(handle))
   }
 }
 

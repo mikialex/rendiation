@@ -2,10 +2,10 @@ use crate::*;
 
 #[derive(Clone)]
 pub struct BindlessMeshRtxAccessInvocation {
-  normal: ShaderAccessorOf<[u32]>,
-  indices: ShaderAccessorOf<[u32]>,
-  address: ShaderAccessorOf<[AttributeMeshMeta]>,
-  pub sm_to_mesh: ShaderAccessorOf<[u32]>,
+  normal: ShaderPtrOf<[u32]>,
+  indices: ShaderPtrOf<[u32]>,
+  address: ShaderPtrOf<[AttributeMeshMeta]>,
+  pub sm_to_mesh: ShaderPtrOf<[u32]>,
 }
 
 impl BindlessMeshRtxAccessInvocation {

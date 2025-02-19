@@ -244,9 +244,9 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
 
 #[derive(Clone)]
 pub struct DeviceBumpAllocationInvocationInstance<T: Std430> {
-  pub storage: ShaderAccessorOf<[T]>,
-  pub bump_size: ShaderAccessorOf<DeviceAtomic<u32>>,
-  pub current_size: ShaderAccessorOf<u32>,
+  pub storage: ShaderPtrOf<[T]>,
+  pub bump_size: ShaderPtrOf<DeviceAtomic<u32>>,
+  pub current_size: ShaderPtrOf<u32>,
 }
 
 impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInvocationInstance<T> {
@@ -269,7 +269,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInvocationInstanc
   pub fn bump_allocate_by(
     &self,
     count: Node<u32>,
-    on_success_access: impl FnOnce(ShaderAccessorOf<[T]>, Node<u32>),
+    on_success_access: impl FnOnce(ShaderPtrOf<[T]>, Node<u32>),
   ) -> (Node<u32>, Node<bool>) {
     let (write_idx, in_bound) = self.bump_allocate_counts(count);
     if_by(in_bound, || {
@@ -291,9 +291,9 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInvocationInstanc
 
 #[derive(Clone)]
 pub struct DeviceBumpDeAllocationInvocationInstance<T: Std430> {
-  pub storage: ShaderAccessorOf<[T]>,
-  pub bump_size: ShaderAccessorOf<DeviceAtomic<u32>>,
-  pub current_size: ShaderAccessorOf<u32>,
+  pub storage: ShaderPtrOf<[T]>,
+  pub bump_size: ShaderPtrOf<DeviceAtomic<u32>>,
+  pub current_size: ShaderPtrOf<u32>,
 }
 
 impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpDeAllocationInvocationInstance<T> {
