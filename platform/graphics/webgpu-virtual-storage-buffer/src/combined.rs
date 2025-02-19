@@ -197,7 +197,7 @@ impl AbstractShaderPtr for ShaderStorageVirtualPtrNode {
   fn store(&self, value: ShaderNodeRawHandle) {
     todo!()
   }
-  fn downcast_atomic_ptr(&self) -> ShaderNodeRawHandle {
+  fn raw_ptr(&self) -> ShaderNodeRawHandle {
     todo!()
   }
 }

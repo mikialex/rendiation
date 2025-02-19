@@ -465,11 +465,8 @@ fn poll_dynamic<'a>(
         let (idx, _success) =
           bumper_read_back // todo, handle bump failed
             .bump_allocate_by(val(payload_ty_desc.u32_size_count()), |target, offset| {
-              // let user_defined_payload = task_payload_node.field_index(1);
-              let user_defined_payload: StorageNode<AnyType> =
-                unsafe { index_access_field(task_payload_node.handle(), 1) };
-
-              payload_ty_desc.store_into_u32_buffer(user_defined_payload.load(), &target, offset)
+              let user_defined_payload = task_payload_node.field_index(1);
+              payload_ty_desc.store_into_u32_buffer(user_defined_payload.raw_ptr(), &target, offset)
             });
         bump_read_position.store(idx);
       });

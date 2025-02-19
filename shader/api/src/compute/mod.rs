@@ -110,7 +110,12 @@ impl ShaderComputePipelineBuilder {
     let handle = ShaderInputNode::WorkGroupShared { ty }
       .insert_api::<AnyType>()
       .handle();
-    HostDynSizeArray::<T>::create_accessor_from_raw_ptr(Box::new(handle))
+    StaticLengthArrayAccessor {
+      phantom: PhantomData,
+      array: PhantomData,
+      access: Box::new(handle),
+      len,
+    }
   }
   pub fn define_invocation_private_var<T: ShaderSizedValueNodeType>(&self) -> ShaderAccessorOf<T> {
     let handle = ShaderInputNode::Private { ty: T::sized_ty() }

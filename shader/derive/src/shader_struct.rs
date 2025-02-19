@@ -81,9 +81,11 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
     }
   });
 
+  let struct_vis = &s.vis;
+
   quote! {
     #[derive(Copy, Clone)]
-    pub struct #shader_api_instance_name {
+    #struct_vis struct #shader_api_instance_name {
       #(#instance_fields)*
     }
 
@@ -100,9 +102,9 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
     }
 
     #[derive(Clone)]
-    pub struct #shader_api_ptr_instance_name(BoxedShaderPtr);
+    #struct_vis struct #shader_api_ptr_instance_name(BoxedShaderPtr);
     #[derive(Clone)]
-    pub struct #shader_api_readonly_ptr_instance_name(BoxedShaderPtr);
+    #struct_vis struct #shader_api_readonly_ptr_instance_name(BoxedShaderPtr);
     impl rendiation_shader_api::ShaderValueAbstractPtrAccess for #struct_name {
       type Accessor = #shader_api_ptr_instance_name;
       type ReadonlyAccessor = #shader_api_readonly_ptr_instance_name;

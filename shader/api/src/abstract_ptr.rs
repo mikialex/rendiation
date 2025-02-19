@@ -21,7 +21,7 @@ pub trait AbstractShaderPtr: DynClone {
   fn array_length(&self) -> Node<u32>;
   fn load(&self) -> ShaderNodeRawHandle;
   fn store(&self, value: ShaderNodeRawHandle);
-  fn downcast_atomic_ptr(&self) -> ShaderNodeRawHandle;
+  fn raw_ptr(&self) -> ShaderNodeRawHandle;
 }
 pub type BoxedShaderPtr = Box<dyn AbstractShaderPtr>;
 
@@ -61,7 +61,7 @@ impl AbstractShaderPtr for ShaderNodeRawHandle {
   fn store(&self, value: ShaderNodeRawHandle) {
     call_shader_api(|g| g.store(*self, value))
   }
-  fn downcast_atomic_ptr(&self) -> ShaderNodeRawHandle {
+  fn raw_ptr(&self) -> ShaderNodeRawHandle {
     *self
   }
 }
@@ -105,7 +105,7 @@ where
 
 impl<T> ShaderValueAbstractPtrAccess for [T] {
   type Accessor = DynLengthArrayAccessor<T>;
-  type ReadonlyAccessor = DynLengthArrayAccessor<T>;
+  type ReadonlyAccessor = DynLengthArrayReadonlyAccessor<T>;
   fn create_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::Accessor {
     DynLengthArrayAccessor {
       phantom: PhantomData,
@@ -113,8 +113,11 @@ impl<T> ShaderValueAbstractPtrAccess for [T] {
     }
   }
 
-  fn create_readonly_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::Accessor {
-    Self::create_accessor_from_raw_ptr(ptr)
+  fn create_readonly_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::ReadonlyAccessor {
+    DynLengthArrayReadonlyAccessor {
+      phantom: PhantomData,
+      access: ptr,
+    }
   }
 }
 
@@ -122,7 +125,6 @@ pub struct DynLengthArrayAccessor<T> {
   phantom: PhantomData<T>,
   access: BoxedShaderPtr,
 }
-
 impl<T> Clone for DynLengthArrayAccessor<T> {
   fn clone(&self) -> Self {
     Self {
@@ -131,7 +133,6 @@ impl<T> Clone for DynLengthArrayAccessor<T> {
     }
   }
 }
-
 impl<T: SizedShaderValueAbstractPtrAccess> DynLengthArrayAccessor<T> {
   pub fn index(&self, index: impl Into<Node<u32>>) -> T::Accessor {
     let item = self.access.field_array_index(index.into());
@@ -142,53 +143,84 @@ impl<T: SizedShaderValueAbstractPtrAccess> DynLengthArrayAccessor<T> {
   }
 }
 
+pub struct DynLengthArrayReadonlyAccessor<T> {
+  phantom: PhantomData<T>,
+  access: BoxedShaderPtr,
+}
+impl<T> Clone for DynLengthArrayReadonlyAccessor<T> {
+  fn clone(&self) -> Self {
+    Self {
+      phantom: self.phantom,
+      access: self.access.clone(),
+    }
+  }
+}
+impl<T: SizedShaderValueAbstractPtrAccess> DynLengthArrayReadonlyAccessor<T> {
+  pub fn index(&self, index: impl Into<Node<u32>>) -> T::ReadonlyAccessor {
+    let item = self.access.field_array_index(index.into());
+    T::create_readonly_accessor_from_raw_ptr(item)
+  }
+  pub fn array_length(&self) -> Node<u32> {
+    self.access.array_length()
+  }
+}
+
 impl<T, const N: usize> ShaderValueAbstractPtrAccess for Shader140Array<T, N> {
   type Accessor = StaticLengthArrayAccessor<Self, T>;
-  type ReadonlyAccessor = StaticLengthArrayAccessor<Self, T>;
+  type ReadonlyAccessor = StaticLengthArrayReadonlyAccessor<Self, T>;
   fn create_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::Accessor {
     StaticLengthArrayAccessor {
       phantom: PhantomData,
       array: PhantomData,
       access: ptr,
+      len: N as u32,
     }
   }
   fn create_readonly_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::ReadonlyAccessor {
-    Self::create_accessor_from_raw_ptr(ptr)
+    StaticLengthArrayReadonlyAccessor {
+      phantom: PhantomData,
+      array: PhantomData,
+      access: ptr,
+      len: N as u32,
+    }
   }
 }
 impl<T, const N: usize> ShaderValueAbstractPtrAccess for [T; N] {
   type Accessor = StaticLengthArrayAccessor<Self, T>;
-  type ReadonlyAccessor = StaticLengthArrayAccessor<Self, T>;
+  type ReadonlyAccessor = StaticLengthArrayReadonlyAccessor<Self, T>;
   fn create_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::Accessor {
     StaticLengthArrayAccessor {
       phantom: PhantomData,
       array: PhantomData,
       access: ptr,
+      len: N as u32,
     }
   }
   fn create_readonly_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::ReadonlyAccessor {
-    Self::create_accessor_from_raw_ptr(ptr)
+    StaticLengthArrayReadonlyAccessor {
+      phantom: PhantomData,
+      array: PhantomData,
+      access: ptr,
+      len: N as u32,
+    }
   }
 }
 impl<T> ShaderValueAbstractPtrAccess for HostDynSizeArray<T> {
   type Accessor = StaticLengthArrayAccessor<Self, T>;
-  type ReadonlyAccessor = StaticLengthArrayAccessor<Self, T>;
-  fn create_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::Accessor {
-    StaticLengthArrayAccessor {
-      phantom: PhantomData,
-      array: PhantomData,
-      access: ptr,
-    }
+  type ReadonlyAccessor = StaticLengthArrayReadonlyAccessor<Self, T>;
+  fn create_accessor_from_raw_ptr(_: BoxedShaderPtr) -> Self::Accessor {
+    panic!("this fn should called from ptr builder side as we don't know the length")
   }
-  fn create_readonly_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::ReadonlyAccessor {
-    Self::create_accessor_from_raw_ptr(ptr)
+  fn create_readonly_accessor_from_raw_ptr(_: BoxedShaderPtr) -> Self::ReadonlyAccessor {
+    panic!("this fn should called from ptr builder side as we don't know the length")
   }
 }
 
 pub struct StaticLengthArrayAccessor<AT, T> {
-  phantom: PhantomData<T>,
-  array: PhantomData<AT>,
-  access: BoxedShaderPtr,
+  pub phantom: PhantomData<T>,
+  pub array: PhantomData<AT>,
+  pub access: BoxedShaderPtr,
+  pub len: u32,
 }
 
 impl<AT, T> ReadonlySizedValueShaderPtrAccessor for StaticLengthArrayAccessor<AT, T>
@@ -210,21 +242,54 @@ where
     self.access.store(value.into().handle())
   }
 }
-
 impl<AT, T> Clone for StaticLengthArrayAccessor<AT, T> {
   fn clone(&self) -> Self {
     Self {
       phantom: self.phantom,
       array: self.array,
       access: self.access.clone(),
+      len: self.len,
     }
   }
 }
-
 impl<AT, T: SizedShaderValueAbstractPtrAccess> StaticLengthArrayAccessor<AT, T> {
   pub fn index(&self, index: impl Into<Node<u32>>) -> T::Accessor {
     let item = self.access.field_array_index(index.into());
     T::create_accessor_from_raw_ptr(item)
+  }
+}
+
+pub struct StaticLengthArrayReadonlyAccessor<AT, T> {
+  phantom: PhantomData<T>,
+  array: PhantomData<AT>,
+  access: BoxedShaderPtr,
+  pub len: u32,
+}
+
+impl<AT, T> ReadonlySizedValueShaderPtrAccessor for StaticLengthArrayReadonlyAccessor<AT, T>
+where
+  AT: ShaderSizedValueNodeType,
+  T: ShaderSizedValueNodeType,
+{
+  type Node = AT;
+  fn load(&self) -> Node<Self::Node> {
+    unsafe { self.access.load().into_node() }
+  }
+}
+impl<AT, T> Clone for StaticLengthArrayReadonlyAccessor<AT, T> {
+  fn clone(&self) -> Self {
+    Self {
+      phantom: self.phantom,
+      array: self.array,
+      access: self.access.clone(),
+      len: self.len,
+    }
+  }
+}
+impl<AT, T: SizedShaderValueAbstractPtrAccess> StaticLengthArrayReadonlyAccessor<AT, T> {
+  pub fn index(&self, index: impl Into<Node<u32>>) -> T::ReadonlyAccessor {
+    let item = self.access.field_array_index(index.into());
+    T::create_readonly_accessor_from_raw_ptr(item)
   }
 }
 
@@ -318,16 +383,16 @@ impl<T> Clone for AtomicPtrAccessor<T> {
 
 impl<T: AtomicityShaderNodeType> AtomicPtrAccessor<T> {
   pub fn atomic_load(&self) -> Node<T> {
-    call_shader_api(|g| unsafe { g.load(self.1.downcast_atomic_ptr()).into_node() })
+    call_shader_api(|g| unsafe { g.load(self.1.raw_ptr()).into_node() })
   }
   pub fn atomic_store(&self, v: Node<T>) {
-    call_shader_api(|g| g.store(v.handle(), self.1.downcast_atomic_ptr()))
+    call_shader_api(|g| g.store(v.handle(), self.1.raw_ptr()))
   }
 
   pub fn atomic_add(&self, v: Node<T>) -> Node<T> {
     ShaderNodeExpr::AtomicCall {
       ty: T::ATOM,
-      pointer: self.1.downcast_atomic_ptr(),
+      pointer: self.1.raw_ptr(),
       function: AtomicFunction::Add,
       value: v.handle(),
     }
@@ -336,7 +401,7 @@ impl<T: AtomicityShaderNodeType> AtomicPtrAccessor<T> {
   pub fn atomic_sub(&self, v: Node<T>) -> Node<T> {
     ShaderNodeExpr::AtomicCall {
       ty: T::ATOM,
-      pointer: self.1.downcast_atomic_ptr(),
+      pointer: self.1.raw_ptr(),
       function: AtomicFunction::Subtract,
       value: v.handle(),
     }
@@ -345,7 +410,7 @@ impl<T: AtomicityShaderNodeType> AtomicPtrAccessor<T> {
   pub fn atomic_min(&self, v: Node<T>) -> Node<T> {
     ShaderNodeExpr::AtomicCall {
       ty: T::ATOM,
-      pointer: self.1.downcast_atomic_ptr(),
+      pointer: self.1.raw_ptr(),
       function: AtomicFunction::Min,
       value: v.handle(),
     }
@@ -354,7 +419,7 @@ impl<T: AtomicityShaderNodeType> AtomicPtrAccessor<T> {
   pub fn atomic_max(&self, v: Node<T>) -> Node<T> {
     ShaderNodeExpr::AtomicCall {
       ty: T::ATOM,
-      pointer: self.1.downcast_atomic_ptr(),
+      pointer: self.1.raw_ptr(),
       function: AtomicFunction::Max,
       value: v.handle(),
     }
@@ -363,7 +428,7 @@ impl<T: AtomicityShaderNodeType> AtomicPtrAccessor<T> {
   pub fn atomic_and(&self, v: Node<T>) -> Node<T> {
     ShaderNodeExpr::AtomicCall {
       ty: T::ATOM,
-      pointer: self.1.downcast_atomic_ptr(),
+      pointer: self.1.raw_ptr(),
       function: AtomicFunction::And,
       value: v.handle(),
     }
@@ -372,7 +437,7 @@ impl<T: AtomicityShaderNodeType> AtomicPtrAccessor<T> {
   pub fn atomic_or(&self, v: Node<T>) -> Node<T> {
     ShaderNodeExpr::AtomicCall {
       ty: T::ATOM,
-      pointer: self.1.downcast_atomic_ptr(),
+      pointer: self.1.raw_ptr(),
       function: AtomicFunction::InclusiveOr,
       value: v.handle(),
     }
@@ -381,7 +446,7 @@ impl<T: AtomicityShaderNodeType> AtomicPtrAccessor<T> {
   pub fn atomic_xor(&self, v: Node<T>) -> Node<T> {
     ShaderNodeExpr::AtomicCall {
       ty: T::ATOM,
-      pointer: self.1.downcast_atomic_ptr(),
+      pointer: self.1.raw_ptr(),
       function: AtomicFunction::ExclusiveOr,
       value: v.handle(),
     }
@@ -390,7 +455,7 @@ impl<T: AtomicityShaderNodeType> AtomicPtrAccessor<T> {
   pub fn atomic_exchange(&self, v: Node<T>) -> Node<T> {
     ShaderNodeExpr::AtomicCall {
       ty: T::ATOM,
-      pointer: self.1.downcast_atomic_ptr(),
+      pointer: self.1.raw_ptr(),
       function: AtomicFunction::Exchange {
         compare: None,
         weak: false,
@@ -402,7 +467,7 @@ impl<T: AtomicityShaderNodeType> AtomicPtrAccessor<T> {
   pub fn atomic_exchange_weak(&self, v: Node<T>) -> (Node<T>, Node<bool>) {
     let raw = ShaderNodeExpr::AtomicCall {
       ty: T::ATOM,
-      pointer: self.1.downcast_atomic_ptr(),
+      pointer: self.1.raw_ptr(),
       function: AtomicFunction::Exchange {
         compare: None,
         weak: false,
@@ -464,16 +529,16 @@ mod test {
   /// auto generated by macro
   impl ShaderNodeType for MyStruct {
     fn ty() -> ShaderValueType {
-      todo!()
+      unimplemented!()
     }
   }
   impl ShaderSizedValueNodeType for MyStruct {
     fn sized_ty() -> ShaderSizedValueType {
-      todo!()
+      unimplemented!()
     }
 
     fn to_value(&self) -> ShaderStructFieldInitValue {
-      todo!()
+      unimplemented!()
     }
   }
 

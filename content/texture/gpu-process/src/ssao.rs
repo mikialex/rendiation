@@ -136,7 +136,7 @@ impl GraphicsShaderProvider for AOComputer<'_> {
         let occlusion_sum = samples
           .into_shader_iter()
           .clamp_by(parameter.sample_count)
-          .map(|(_, sample): (_, ShaderAccessorOf<Vec4<f32>>)| {
+          .map(|(_, sample): (_, ShaderReadonlyAccessorOf<Vec4<f32>>)| {
             let sample_position_offset = tbn * sample.load().xyz();
             let sample_position_world = position_world + sample_position_offset * parameter.radius;
 

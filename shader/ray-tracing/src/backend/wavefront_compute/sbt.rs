@@ -220,10 +220,10 @@ impl ShaderBindingTableDeviceInfo {
 }
 
 pub struct ShaderBindingTableDeviceInfoInvocation {
-  meta: ShaderAccessorOf<[DeviceSBTTableMeta]>,
-  ray_hit: ShaderAccessorOf<[DeviceHitGroupShaderRecord]>,
-  ray_miss: ShaderAccessorOf<[u32]>,
-  ray_gen: ShaderAccessorOf<[u32]>,
+  meta: ShaderReadonlyAccessorOf<[DeviceSBTTableMeta]>,
+  ray_hit: ShaderReadonlyAccessorOf<[DeviceHitGroupShaderRecord]>,
+  ray_miss: ShaderReadonlyAccessorOf<[u32]>,
+  ray_gen: ShaderReadonlyAccessorOf<[u32]>,
 }
 
 impl ShaderBindingTableDeviceInfoInvocation {
@@ -231,7 +231,7 @@ impl ShaderBindingTableDeviceInfoInvocation {
     &self,
     sbt_id: Node<u32>,
     hit_idx: Node<u32>,
-  ) -> ShaderAccessorOf<DeviceHitGroupShaderRecord> {
+  ) -> ShaderReadonlyAccessorOf<DeviceHitGroupShaderRecord> {
     let meta = self.meta.index(sbt_id);
     let hit_start = meta.hit_group_start().load();
     self.ray_hit.index(hit_idx + hit_start)

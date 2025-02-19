@@ -3,6 +3,7 @@ use syn::{punctuated::Punctuated, spanned::Spanned, Data, Field, Ident, Type, Vi
 #[allow(dead_code)]
 pub struct StructInfo {
   pub struct_name: Ident,
+  pub vis: Visibility,
   pub fields_info: Vec<(Ident, Type)>,
   pub fields_raw: Vec<Field>,
 }
@@ -23,6 +24,7 @@ impl StructInfo {
     let fields_raw = fields.iter().cloned().collect();
 
     StructInfo {
+      vis: input.vis.clone(),
       struct_name,
       fields_info,
       fields_raw,
