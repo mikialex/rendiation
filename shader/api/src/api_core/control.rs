@@ -74,7 +74,7 @@ impl Node<bool> {
     tr: impl FnOnce() -> Node<T>,
     fal: impl FnOnce() -> Node<T>,
   ) -> Node<T> {
-    let re = zeroed_val().make_local_var();
+    let re = zeroed_val::<T>().make_local_var();
     if_by(self, || {
       re.store(tr());
     })

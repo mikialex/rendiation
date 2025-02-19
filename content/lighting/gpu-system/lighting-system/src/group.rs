@@ -49,8 +49,8 @@ impl LightingComputeInvocation for LightingComputeInvocationGroup {
     shading: &dyn LightableSurfaceShading,
     geom_ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> ENode<ShaderLightingResult> {
-    let light_specular_result = val(Vec3::zero()).make_local_var();
-    let light_diffuse_result = val(Vec3::zero()).make_local_var();
+    let light_specular_result = val(Vec3::<f32>::zero()).make_local_var();
+    let light_diffuse_result = val(Vec3::<f32>::zero()).make_local_var();
 
     self.comps.iter().for_each(|light| {
       let r = light.compute_lights(shading, geom_ctx);

@@ -44,8 +44,8 @@ where
     shading: &dyn LightableSurfaceShading,
     geom_ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> ENode<ShaderLightingResult> {
-    let light_specular_result = val(Vec3::zero()).make_local_var();
-    let light_diffuse_result = val(Vec3::zero()).make_local_var();
+    let light_specular_result = val(Vec3::<f32>::zero()).make_local_var();
+    let light_diffuse_result = val(Vec3::<f32>::zero()).make_local_var();
 
     self.0.clone().for_each(|light, _| {
       let light = self.1(light);

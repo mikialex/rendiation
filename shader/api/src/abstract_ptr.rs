@@ -13,6 +13,8 @@ use crate::*;
 /// do anything in silence because validation error will eventually raised in later process.
 ///
 /// todo, separate store ability
+///
+/// todo, mark unsafe fn
 pub trait AbstractShaderPtr: DynClone {
   fn field_index(&self, field_index: usize) -> BoxedShaderPtr;
   fn field_array_index(&self, index: Node<u32>) -> BoxedShaderPtr;
@@ -68,14 +70,17 @@ impl AbstractShaderPtr for ShaderNodeRawHandle {
 /// has type api to constraint valid access.
 pub trait ShaderValueAbstractPtrAccess {
   type Accessor: Clone;
+  // todo, this fn should be unsafe
   fn create_accessor_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::Accessor;
 }
 pub type ShaderAccessorOf<T> = <T as ShaderValueAbstractPtrAccess>::Accessor;
+
+/// the difference of the trait between the abstract left value is that the abstract
+/// left value's right value is not necessarily one single shader value.
 pub trait SizedValueShaderPtrAccessor: Clone {
-  // todo, why not use abstract left trait?
   type Node: ShaderSizedValueNodeType;
   fn load(&self) -> Node<Self::Node>;
-  fn store(&self, value: Node<Self::Node>);
+  fn store(&self, value: impl Into<Node<Self::Node>>);
 }
 
 pub trait SizedShaderValueAbstractPtrAccess:
@@ -169,8 +174,8 @@ where
   fn load(&self) -> Node<Self::Node> {
     unsafe { self.access.load().into_node() }
   }
-  fn store(&self, value: Node<Self::Node>) {
-    self.access.store(value.handle())
+  fn store(&self, value: impl Into<Node<Self::Node>>) {
+    self.access.store(value.into().handle())
   }
 }
 
@@ -207,8 +212,8 @@ where
   fn load(&self) -> Node<T> {
     unsafe { self.1.load().into_node() }
   }
-  fn store(&self, value: Node<T>) {
-    self.1.store(value.handle());
+  fn store(&self, value: impl Into<Node<T>>) {
+    self.1.store(value.into().handle());
   }
 }
 
@@ -255,13 +260,107 @@ impl<T> Clone for AtomicPtrAccessor<T> {
   }
 }
 
-impl<T> AtomicPtrAccessor<T> {
-  /// more atomic operation is defined on raw node type, so we use this escape hatch
-  /// to expose to user
-  ///
-  /// todo, consider implement all atomic fn here
-  pub fn expose(&self) -> StorageNode<DeviceAtomic<T>> {
-    unsafe { self.1.downcast_atomic_ptr().into_node() }
+impl<T: AtomicityShaderNodeType> AtomicPtrAccessor<T> {
+  pub fn atomic_load(&self) -> Node<T> {
+    call_shader_api(|g| unsafe { g.load(self.1.downcast_atomic_ptr()).into_node() })
+  }
+  pub fn atomic_store(&self, v: Node<T>) {
+    call_shader_api(|g| g.store(v.handle(), self.1.downcast_atomic_ptr()))
+  }
+
+  pub fn atomic_add(&self, v: Node<T>) -> Node<T> {
+    ShaderNodeExpr::AtomicCall {
+      ty: T::ATOM,
+      pointer: self.1.downcast_atomic_ptr(),
+      function: AtomicFunction::Add,
+      value: v.handle(),
+    }
+    .insert_api()
+  }
+  pub fn atomic_sub(&self, v: Node<T>) -> Node<T> {
+    ShaderNodeExpr::AtomicCall {
+      ty: T::ATOM,
+      pointer: self.1.downcast_atomic_ptr(),
+      function: AtomicFunction::Subtract,
+      value: v.handle(),
+    }
+    .insert_api()
+  }
+  pub fn atomic_min(&self, v: Node<T>) -> Node<T> {
+    ShaderNodeExpr::AtomicCall {
+      ty: T::ATOM,
+      pointer: self.1.downcast_atomic_ptr(),
+      function: AtomicFunction::Min,
+      value: v.handle(),
+    }
+    .insert_api()
+  }
+  pub fn atomic_max(&self, v: Node<T>) -> Node<T> {
+    ShaderNodeExpr::AtomicCall {
+      ty: T::ATOM,
+      pointer: self.1.downcast_atomic_ptr(),
+      function: AtomicFunction::Max,
+      value: v.handle(),
+    }
+    .insert_api()
+  }
+  pub fn atomic_and(&self, v: Node<T>) -> Node<T> {
+    ShaderNodeExpr::AtomicCall {
+      ty: T::ATOM,
+      pointer: self.1.downcast_atomic_ptr(),
+      function: AtomicFunction::And,
+      value: v.handle(),
+    }
+    .insert_api()
+  }
+  pub fn atomic_or(&self, v: Node<T>) -> Node<T> {
+    ShaderNodeExpr::AtomicCall {
+      ty: T::ATOM,
+      pointer: self.1.downcast_atomic_ptr(),
+      function: AtomicFunction::InclusiveOr,
+      value: v.handle(),
+    }
+    .insert_api()
+  }
+  pub fn atomic_xor(&self, v: Node<T>) -> Node<T> {
+    ShaderNodeExpr::AtomicCall {
+      ty: T::ATOM,
+      pointer: self.1.downcast_atomic_ptr(),
+      function: AtomicFunction::ExclusiveOr,
+      value: v.handle(),
+    }
+    .insert_api()
+  }
+  pub fn atomic_exchange(&self, v: Node<T>) -> Node<T> {
+    ShaderNodeExpr::AtomicCall {
+      ty: T::ATOM,
+      pointer: self.1.downcast_atomic_ptr(),
+      function: AtomicFunction::Exchange {
+        compare: None,
+        weak: false,
+      },
+      value: v.handle(),
+    }
+    .insert_api()
+  }
+  pub fn atomic_exchange_weak(&self, v: Node<T>) -> (Node<T>, Node<bool>) {
+    let raw = ShaderNodeExpr::AtomicCall {
+      ty: T::ATOM,
+      pointer: self.1.downcast_atomic_ptr(),
+      function: AtomicFunction::Exchange {
+        compare: None,
+        weak: false,
+      },
+      value: v.handle(),
+    }
+    .insert_api::<AnyType>()
+    .handle();
+
+    unsafe {
+      let old = index_access_field(raw, 0).into_node();
+      let exchanged = index_access_field(raw, 1).into_node();
+      (old, exchanged)
+    }
   }
 }
 impl<T: AtomicityShaderNodeType + PrimitiveShaderNodeType> SizedValueShaderPtrAccessor
@@ -273,7 +372,7 @@ impl<T: AtomicityShaderNodeType + PrimitiveShaderNodeType> SizedValueShaderPtrAc
     unreachable!("atomic is not able to direct load");
   }
 
-  fn store(&self, _value: Node<Self::Node>) {
+  fn store(&self, _value: impl Into<Node<Self::Node>>) {
     unreachable!("atomic is not able to direct store");
   }
 }
@@ -326,8 +425,8 @@ mod test {
     fn load(&self) -> Node<MyStruct> {
       unsafe { self.0.load().into_node() }
     }
-    fn store(&self, value: Node<MyStruct>) {
-      self.0.store(value.handle());
+    fn store(&self, value: impl Into<Node<MyStruct>>) {
+      self.0.store(value.into().handle());
     }
   }
 

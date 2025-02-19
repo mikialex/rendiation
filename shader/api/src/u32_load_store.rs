@@ -21,7 +21,7 @@ where
     Node::<T>::load_from_u32_buffer(&self.accessor.array, self.accessor.offset)
   }
 
-  fn abstract_store(&self, payload: Self::RightValue) {
+  fn abstract_store(&self, payload: Node<T>) {
     payload.store_into_u32_buffer(&self.accessor.array, self.accessor.offset);
   }
 }

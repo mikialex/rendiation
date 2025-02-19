@@ -7,9 +7,9 @@ pub use map::*;
 mod task;
 pub use task::*;
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct ShaderPoll<T> {
-  pub resolved: LocalVarNode<bool>,
+  pub resolved: ShaderAccessorOf<bool>,
   pub payload: T,
 }
 
@@ -22,8 +22,8 @@ impl<T> ShaderPoll<T> {
   }
 }
 
-impl<T> From<(LocalVarNode<bool>, T)> for ShaderPoll<T> {
-  fn from((resolved, payload): (LocalVarNode<bool>, T)) -> Self {
+impl<T> From<(ShaderAccessorOf<bool>, T)> for ShaderPoll<T> {
+  fn from((resolved, payload): (ShaderAccessorOf<bool>, T)) -> Self {
     Self { resolved, payload }
   }
 }
@@ -53,12 +53,12 @@ impl<T: Copy + 'static> ShaderFutureInvocation for BaseFutureInvocation<T> {
     let flag = val(true).make_local_var();
 
     if_by(self.1.abstract_load().into_bool(), || {
-      flag.abstract_store(val(false));
+      flag.store(val(false));
     });
     self.1.abstract_store(val(true.into()));
 
     if_by(cx.is_fallback_task(), || {
-      flag.abstract_store(val(false));
+      flag.store(val(false));
     });
 
     (flag, self.0).into()

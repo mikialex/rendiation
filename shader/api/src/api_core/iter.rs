@@ -67,7 +67,7 @@ pub trait ShaderIteratorExt: ShaderIterator + Sized {
   fn enumerate(self) -> ShaderEnumeratorIter<Self> {
     ShaderEnumeratorIter {
       iter: self,
-      counter: val(0).make_local_var(),
+      counter: val(0_u32).make_local_var(),
     }
   }
 
@@ -101,14 +101,14 @@ impl<T: ShaderIterator + Sized> ShaderIteratorExt for T {}
 
 pub struct StepTo {
   to: Node<u32>,
-  current: LocalVarNode<u32>,
+  current: ShaderAccessorOf<u32>,
 }
 
 impl StepTo {
   fn new(to: Node<u32>) -> Self {
     Self {
       to,
-      current: val(0).make_local_var(),
+      current: val(0_u32).make_local_var(),
     }
   }
 }
@@ -124,15 +124,17 @@ impl ShaderIterator for StepTo {
 }
 
 pub struct ForRange {
-  to: LocalVarNode<u32>,
-  current: LocalVarNode<u32>,
+  to: ShaderAccessorOf<u32>,
+  current: ShaderAccessorOf<u32>,
 }
 impl Clone for ForRange {
   fn clone(&self) -> Self {
-    *self
+    Self {
+      to: self.to.clone(),
+      current: self.current.clone(),
+    }
   }
 }
-impl Copy for ForRange {}
 
 impl ForRange {
   pub fn new(range: Node<Vec2<u32>>) -> Self {
@@ -151,34 +153,34 @@ impl ShaderIterator for ForRange {
     (current.equals(self.to.load()).not(), current)
   }
 }
-impl ShaderAbstractRightValue for ForRange {
-  type AbstractLeftValue = ForRange;
-  fn create_left_value_from_builder<B: LeftValueBuilder>(
-    _builder: &mut B,
-  ) -> Self::AbstractLeftValue {
-    Self {
-      to: val(0).make_local_var(),
-      current: val(0).make_local_var(),
-    }
-  }
-}
-impl ShaderAbstractLeftValue for ForRange {
-  type RightValue = Self;
-  fn abstract_load(&self) -> Self::RightValue {
-    ForRange {
-      to: self.to,
-      current: self.current,
-    }
-  }
-  fn abstract_store(&self, payload: Self::RightValue) {
-    self.to.store(payload.to.load());
-    self.current.store(payload.current.load());
-  }
-}
+// impl ShaderAbstractRightValue for ForRange {
+//   type AbstractLeftValue = ForRange;
+//   fn create_left_value_from_builder<B: LeftValueBuilder>(
+//     _builder: &mut B,
+//   ) -> Self::AbstractLeftValue {
+//     Self {
+//       to: val(0).make_local_var(),
+//       current: val(0).make_local_var(),
+//     }
+//   }
+// }
+// impl ShaderAbstractLeftValue for ForRange {
+//   type RightValue = Self;
+//   fn abstract_load(&self) -> Self::RightValue {
+//     ForRange {
+//       to: self.to,
+//       current: self.current,
+//     }
+//   }
+//   fn abstract_store(&self, payload: Self::RightValue) {
+//     self.to.store(payload.to.load());
+//     self.current.store(payload.current.load());
+//   }
+// }
 
 #[derive(Clone)]
 pub struct ShaderStaticArrayIter<AT, T> {
-  cursor: LocalVarNode<u32>,
+  cursor: ShaderAccessorOf<u32>,
   array: StaticLengthArrayAccessor<AT, T>,
 }
 
@@ -200,85 +202,22 @@ impl<AT, T: ShaderSizedValueNodeType> ShaderIterator for ShaderStaticArrayIter<A
 
 #[derive(Clone)]
 pub struct ShaderDynArrayIter<T> {
-  cursor: LocalVarNode<u32>,
+  cursor: ShaderAccessorOf<u32>,
   array: DynLengthArrayAccessor<T>,
+  len: Node<u32>,
 }
 
 impl<T: ShaderSizedValueNodeType> ShaderIterator for ShaderDynArrayIter<T> {
   type Item = (Node<u32>, ShaderAccessorOf<T>);
 
   fn shader_next(&self) -> (Node<bool>, Self::Item) {
-    // let current_next = self.cursor.load();
-    // self.cursor.store(current_next + val(1));
-    // let has_next = current_next.less_than(val(U as u32));
-
-    // // should we do the clamp by ourself?
-    // assert!(U >= 1);
-    // let uniform = self.array.index(current_next.min(val(U as u32 - 1)));
-    // (has_next, (current_next, uniform))
-    todo!()
+    let current_next = self.cursor.load();
+    self.cursor.store(current_next + val(1));
+    let has_next = current_next.less_than(self.len);
+    let data = self.array.index(current_next.min(self.len - val(1)));
+    (has_next, (current_next, data))
   }
 }
-
-// #[derive(Clone)]
-// pub struct UniformArrayIter<T, const U: usize> {
-//   cursor: LocalVarNode<u32>,
-//   array: UniformNode<Shader140Array<T, U>>,
-// }
-
-// impl<T: ShaderNodeType, const U: usize> ShaderIterator for UniformArrayIter<T, U> {
-//   type Item = (Node<u32>, UniformNode<T>);
-
-//   fn shader_next(&self) -> (Node<bool>, Self::Item) {
-//     let current_next = self.cursor.load();
-//     self.cursor.store(current_next + val(1));
-//     let has_next = current_next.less_than(val(U as u32));
-
-//     // should we do the clamp by ourself?
-//     assert!(U >= 1);
-//     let uniform = self.array.index(current_next.min(val(U as u32 - 1)));
-//     (has_next, (current_next, uniform))
-//   }
-// }
-
-// #[derive(Clone)]
-// pub struct ReadOnlyStorageArrayIter<T> {
-//   cursor: LocalVarNode<u32>,
-//   array: ReadOnlyStorageNode<[T]>,
-//   len: Node<u32>,
-// }
-
-// impl<T: ShaderNodeType> ShaderIterator for ReadOnlyStorageArrayIter<T> {
-//   type Item = (Node<u32>, ReadOnlyStorageNode<T>);
-
-//   fn shader_next(&self) -> (Node<bool>, Self::Item) {
-//     let current_next = self.cursor.load();
-//     self.cursor.store(current_next + val(1));
-//     let has_next = current_next.less_than(self.len);
-//     let data = self.array.index(current_next.min(self.len - val(1)));
-//     (has_next, (current_next, data))
-//   }
-// }
-
-// #[derive(Clone)]
-// pub struct StorageArrayIter<T> {
-//   cursor: LocalVarNode<u32>,
-//   array: StorageNode<[T]>,
-//   len: Node<u32>,
-// }
-
-// impl<T: ShaderNodeType> ShaderIterator for StorageArrayIter<T> {
-//   type Item = (Node<u32>, StorageNode<T>);
-
-//   fn shader_next(&self) -> (Node<bool>, Self::Item) {
-//     let current_next = self.cursor.load();
-//     self.cursor.store(current_next + val(1));
-//     let has_next = current_next.less_than(self.len);
-
-//     let data = self.array.index(current_next.min(self.len - val(1)));
-//     (has_next, (current_next, data))
-//   }
-// }
 
 impl IntoShaderIterator for u32 {
   type ShaderIter = StepTo;
@@ -301,7 +240,7 @@ impl<AT, T: ShaderSizedValueNodeType> IntoShaderIterator for StaticLengthArrayAc
 
   fn into_shader_iter(self) -> Self::ShaderIter {
     ShaderStaticArrayIter {
-      cursor: val(0).make_local_var(),
+      cursor: val(0_u32).make_local_var(),
       array: self,
     }
   }
@@ -312,7 +251,8 @@ impl<T: ShaderSizedValueNodeType> IntoShaderIterator for DynLengthArrayAccessor<
 
   fn into_shader_iter(self) -> Self::ShaderIter {
     ShaderDynArrayIter {
-      cursor: val(0).make_local_var(),
+      cursor: val(0_u32).make_local_var(),
+      len: self.array_length(),
       array: self,
     }
   }
@@ -364,7 +304,7 @@ where
       if_by(inner_has_next.not(), || {
         cx.do_break();
       });
-      if_by((self.f)(inner), || {
+      if_by((self.f)(inner.clone()), || {
         has_next.store(val(true));
         item.abstract_store(inner);
       });
@@ -390,7 +330,7 @@ where
 
   fn shader_next(&self) -> (Node<bool>, Self::Item) {
     let has_next = val(false).make_local_var();
-    let item = zeroed_val().make_local_var();
+    let item = zeroed_val::<O>().make_local_var();
     loop_by(|cx| {
       let (inner_has_next, inner) = self.iter.shader_next();
       if_by(inner_has_next.not(), || {
@@ -458,7 +398,7 @@ where
 
 pub struct ShaderEnumeratorIter<T> {
   iter: T,
-  counter: LocalVarNode<u32>,
+  counter: ShaderAccessorOf<u32>,
 }
 
 impl<T: ShaderIterator> ShaderIterator for ShaderEnumeratorIter<T> {
@@ -515,7 +455,7 @@ impl<
 
   fn shader_next(&self) -> (Node<bool>, Self::Item) {
     let has_next = val(false).make_local_var();
-    let next = zeroed_val().make_local_var();
+    let next = zeroed_val::<IItem>().make_local_var();
 
     // poll inner first
     let (inner_has_next, inner_next) = self.inner.abstract_load().shader_next();

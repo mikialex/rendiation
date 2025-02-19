@@ -115,16 +115,16 @@ impl FragmentOutputPort {
     is_shader_ty_blendable(&self.ty)
   }
 
-  pub fn get_output_var<T: ShaderSizedValueNodeType>(&self) -> LocalVarNode<T> {
+  pub fn get_output_var<T: ShaderSizedValueNodeType>(&self) -> ShaderAccessorOf<T> {
     assert_eq!(self.ty, T::sized_ty());
-    unsafe { self.node.into_node::<ShaderLocalPtr<T>>() }
+    T::create_accessor_from_raw_ptr(Box::new(self.node))
   }
   pub fn store<T: ShaderSizedValueNodeType>(&self, node: Node<T>) {
-    self.get_output_var().store(node);
+    self.get_output_var::<T>().store(node);
   }
 
   pub fn load<T: ShaderSizedValueNodeType>(&self) -> Node<T> {
-    self.get_output_var().load()
+    self.get_output_var::<T>().load()
   }
 }
 
@@ -248,10 +248,9 @@ impl ShaderFragmentBuilder {
       .expect("invalid attachment texture format");
 
     let slot = self.frag_output.len();
-    let target: LocalVarNode<Vec4<f32>> =
-      call_shader_api(|g| unsafe { g.define_next_frag_out(output_shader_ty.clone()).into_node() });
+    let node = call_shader_api(|g| g.define_next_frag_out(output_shader_ty.clone()));
     self.frag_output.push(FragmentOutputPort {
-      node: target.handle(),
+      node,
       ty: output_shader_ty,
       states,
     });
@@ -265,7 +264,7 @@ impl ShaderFragmentBuilder {
   }
 
   pub fn store_fragment_out<T: ShaderSizedValueNodeType>(&mut self, slot: usize, node: Node<T>) {
-    match self.get_fragment_out_var(slot) {
+    match self.get_fragment_out_var::<T>(slot) {
       Ok(target) => target.store(node),
       Err(err) => {
         self.errors.push(err);
@@ -276,13 +275,13 @@ impl ShaderFragmentBuilder {
   fn get_fragment_out_var<T: ShaderSizedValueNodeType>(
     &mut self,
     slot: usize,
-  ) -> Result<LocalVarNode<T>, ShaderBuildError> {
+  ) -> Result<ShaderAccessorOf<T>, ShaderBuildError> {
     Ok(
       self
         .frag_output
         .get(slot)
         .ok_or(ShaderBuildError::FragmentOutputSlotNotDeclared)?
-        .get_output_var(),
+        .get_output_var::<T>(),
     )
   }
 
@@ -290,7 +289,7 @@ impl ShaderFragmentBuilder {
     &mut self,
     slot: usize,
   ) -> Result<Node<T>, ShaderBuildError> {
-    Ok(self.get_fragment_out_var(slot)?.load())
+    Ok(self.get_fragment_out_var::<T>(slot)?.load())
   }
 
   /// currently we all depend on FragmentDepthOutput in semantic registry to given the final result

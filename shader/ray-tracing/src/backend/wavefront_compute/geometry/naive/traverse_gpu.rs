@@ -136,7 +136,7 @@ impl GPUAccelerationStructureSystemTlasCompImplInvocation for NaiveSahBVHTlasInv
 struct TraverseBvhIteratorGpu {
   bvh: ReadOnlyStorageNode<[DeviceBVHNode]>,
   ray: Node<Ray>,
-  node_idx: LocalVarNode<u32>,
+  node_idx: ShaderAccessorOf<u32>,
   ray_range: RayRange,
 }
 impl ShaderIterator for TraverseBvhIteratorGpu {
@@ -391,7 +391,7 @@ fn resolve_any_hit(
 #[derive(Clone)]
 pub(crate) struct RayRange {
   near: Node<f32>,
-  far: LocalVarNode<f32>,
+  far: ShaderAccessorOf<f32>,
   scaling: Option<Node<f32>>,
 }
 impl RayRange {
@@ -697,13 +697,13 @@ fn intersect_blas_gpu(
 
 #[derive(Copy, Clone)]
 struct HitCtxInfoVar {
-  pub primitive_id: LocalVarNode<u32>,
-  pub instance_id: LocalVarNode<u32>,
-  pub instance_sbt_offset: LocalVarNode<u32>,
-  pub instance_custom_id: LocalVarNode<u32>,
-  pub geometry_id: LocalVarNode<u32>,
-  pub object_space_ray_origin: LocalVarNode<Vec3<f32>>,
-  pub object_space_ray_direction: LocalVarNode<Vec3<f32>>,
+  pub primitive_id: ShaderAccessorOf<u32>,
+  pub instance_id: ShaderAccessorOf<u32>,
+  pub instance_sbt_offset: ShaderAccessorOf<u32>,
+  pub instance_custom_id: ShaderAccessorOf<u32>,
+  pub geometry_id: ShaderAccessorOf<u32>,
+  pub object_space_ray_origin: ShaderAccessorOf<Vec3<f32>>,
+  pub object_space_ray_direction: ShaderAccessorOf<Vec3<f32>>,
 }
 impl Default for HitCtxInfoVar {
   fn default() -> Self {
@@ -760,10 +760,10 @@ impl HitCtxInfoVar {
 }
 #[derive(Clone)]
 struct HitInfoVar {
-  pub any_hit: LocalVarNode<bool>,
-  pub hit_kind: LocalVarNode<u32>,
-  pub hit_distance: LocalVarNode<f32>,
-  pub hit_attribute: LocalVarNode<HitAttribute>,
+  pub any_hit: ShaderAccessorOf<bool>,
+  pub hit_kind: ShaderAccessorOf<u32>,
+  pub hit_distance: ShaderAccessorOf<f32>,
+  pub hit_attribute: ShaderAccessorOf<HitAttribute>,
 }
 impl Default for HitInfoVar {
   fn default() -> Self {

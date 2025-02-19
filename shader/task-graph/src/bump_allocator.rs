@@ -44,7 +44,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
         let current_size = builder.bind_by(&self.current_size);
         let bump_size = builder.bind_by(&self.bump_size);
         current_size.store(val(0));
-        bump_size.expose().atomic_store(val(0));
+        bump_size.atomic_store(val(0));
         builder
       });
 
@@ -122,7 +122,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
       let current_size = builder.bind_by(&self.current_size);
       let array = builder.bind_by(&self.storage);
 
-      let delta = bump_size.expose().atomic_load();
+      let delta = bump_size.atomic_load();
       let current_size_load = current_size.load();
 
       if previous_is_allocate {
@@ -137,7 +137,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
         })
         .else_by(|| current_size.store(current_size_load - delta));
       }
-      bump_size.expose().atomic_store(val(0));
+      bump_size.atomic_store(val(0));
       builder
     });
 
@@ -255,7 +255,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInvocationInstanc
   /// return if success
   #[must_use]
   pub fn bump_allocate_counts(&self, count: Node<u32>) -> (Node<u32>, Node<bool>) {
-    let bumped = self.bump_size.expose().atomic_add(count);
+    let bumped = self.bump_size.atomic_add(count);
     let current_size = self.current_size.load();
     let in_bound = bumped.less_equal_than(self.storage.array_length() - current_size);
     let write_idx = bumped + current_size;
@@ -302,7 +302,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpDeAllocationInvocationInsta
   /// return if success
   #[must_use]
   pub fn bump_deallocate_counts(&self, count: Node<u32>) -> (Node<u32>, Node<bool>) {
-    let bumped = self.bump_size.expose().atomic_add(count);
+    let bumped = self.bump_size.atomic_add(count);
     let current_size = self.current_size.load();
     let in_bound = bumped.less_equal_than(current_size);
     let read_idx = current_size - bumped - count;
@@ -316,7 +316,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpDeAllocationInvocationInsta
   pub fn bump_deallocate(&self) -> (Node<T>, Node<bool>) {
     let (read_idx, in_bound) = self.bump_deallocate_counts(val(1));
 
-    let output = zeroed_val().make_local_var();
+    let output = zeroed_val::<T>().make_local_var();
     if_by(in_bound, || {
       output.store(self.storage.index(read_idx).load())
     });

@@ -133,7 +133,7 @@ impl TraverseFlagsGpu {
     fn if_bit(
       source: Node<u32>,
       bit: u32,
-      flag: LocalVarNode<u32>,
+      flag: ShaderAccessorOf<u32>,
       if_true: impl FnOnce(Node<u32>) -> Node<u32>,
     ) {
       if_by((source & val(bit)).greater_than(val(0)), || {

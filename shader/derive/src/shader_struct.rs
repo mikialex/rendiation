@@ -30,7 +30,7 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
     quote! {
       pub fn #field_name(node: rendiation_shader_api::Node<Self>) -> rendiation_shader_api::Node<<#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType> {
         unsafe {
-          rendiation_shader_api::index_access_field::<<#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType>(node.handle(), #idx)
+          rendiation_shader_api::index_access_field(node.handle(), #idx).into_node()
         }
       }
     }
@@ -97,8 +97,8 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
       fn load(&self) -> Node<#struct_name> {
         unsafe { self.0.load().into_node() }
       }
-      fn store(&self, value: Node<#struct_name>) {
-        self.0.store(value.handle());
+      fn store(&self, value: impl Into<Node<#struct_name>>) {
+        self.0.store(value.into().handle());
       }
     }
     impl #shader_api_ptr_instance_name {

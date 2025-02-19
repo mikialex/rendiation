@@ -44,18 +44,31 @@ pub enum OperatorNode {
 
 /// # Safety
 ///
-/// the field index should be bounded and with correct type
+/// the field index should be bounded
 ///
 /// .
-pub unsafe fn index_access_field<T>(struct_node: ShaderNodeRawHandle, field_index: usize) -> Node<T>
-where
-  T: ShaderNodeType,
-{
+pub unsafe fn index_access_field(
+  struct_node: ShaderNodeRawHandle,
+  field_index: usize,
+) -> ShaderNodeRawHandle {
   ShaderNodeExpr::IndexStatic {
     field_index,
     target: struct_node,
   }
-  .insert_api()
+  .insert_api::<AnyType>()
+  .handle()
+}
+
+/// # Safety
+///
+/// the field index should be bounded and it is a pointer type
+///
+/// .
+pub unsafe fn index_access_field_as_ptr(
+  struct_node: ShaderNodeRawHandle,
+  field_index: usize,
+) -> BoxedShaderPtr {
+  Box::new(index_access_field(struct_node, field_index))
 }
 
 impl OperatorNode {

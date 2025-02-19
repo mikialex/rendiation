@@ -229,8 +229,8 @@ pub fn ltc_evaluate_disk(
           let e_max = (u + v) * (u + v);
           let e_min = (u - v) * (u - v);
 
-          let v1_ = val(Vec3::zero()).make_local_var();
-          let v2_ = val(Vec3::zero()).make_local_var();
+          let v1_ = val(Vec3::<f32>::zero()).make_local_var();
+          let v2_ = val(Vec3::<f32>::zero()).make_local_var();
 
           if_by(d11.greater_than(d22), || {
             v1_.store(d12 * V1.load() + (e_max - d11) * V2.load());

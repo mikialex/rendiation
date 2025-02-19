@@ -96,8 +96,11 @@ impl ShaderComputePipelineBuilder {
     self.workgroup_count
   }
 
-  pub fn define_workgroup_shared_var<T: ShaderSizedValueNodeType>(&self) -> WorkGroupSharedNode<T> {
-    ShaderInputNode::WorkGroupShared { ty: T::sized_ty() }.insert_api()
+  pub fn define_workgroup_shared_var<T: ShaderSizedValueNodeType>(&self) -> ShaderAccessorOf<T> {
+    let handle = ShaderInputNode::WorkGroupShared { ty: T::sized_ty() }
+      .insert_api::<AnyType>()
+      .handle();
+    T::create_accessor_from_raw_ptr(Box::new(handle))
   }
   pub fn define_workgroup_shared_var_host_size_array<T: ShaderSizedValueNodeType>(
     &self,
@@ -109,8 +112,11 @@ impl ShaderComputePipelineBuilder {
       .handle();
     HostDynSizeArray::<T>::create_accessor_from_raw_ptr(Box::new(handle))
   }
-  pub fn define_invocation_private_var<T: ShaderSizedValueNodeType>(&self) -> GlobalVarNode<T> {
-    ShaderInputNode::Private { ty: T::sized_ty() }.insert_api()
+  pub fn define_invocation_private_var<T: ShaderSizedValueNodeType>(&self) -> ShaderAccessorOf<T> {
+    let handle = ShaderInputNode::Private { ty: T::sized_ty() }
+      .insert_api::<AnyType>()
+      .handle();
+    T::create_accessor_from_raw_ptr(Box::new(handle))
   }
 
   pub fn bindgroups(&mut self) -> &mut ShaderBindGroupBuilder {

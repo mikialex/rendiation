@@ -22,7 +22,7 @@ use crate::*;
 
 #[repr(C)]
 #[std430_layout]
-#[derive(Clone, Copy, PartialEq, Debug, ShaderStruct, StorageNodePtrAccess)]
+#[derive(Clone, Copy, PartialEq, Debug, ShaderStruct)]
 pub struct TopLevelAccelerationStructureSourceDeviceInstance {
   pub transform: Mat4<f32>,
   pub transform_inv: Mat4<f32>,

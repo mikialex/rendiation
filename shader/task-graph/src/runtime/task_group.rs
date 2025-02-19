@@ -112,7 +112,7 @@ impl TaskGroupExecutor {
       .select_branched(|| indices.index(active_idx).load(), || val(0));
 
     let item = pool.rw_states(task_index);
-    pre_build.state_to_resolve.resolve(item.cast_untyped_node());
+    pre_build.state_to_resolve.resolve(item);
 
     let mut poll_ctx = DeviceTaskSystemPollCtx {
       self_task_idx: task_index,
@@ -329,7 +329,7 @@ impl TaskGroupExecutorResource {
             ShaderNodeExpr::Zeroed {
               target: payload_ty.clone(),
             }
-            .insert_api(),
+            .insert_api_raw(),
             TaskParentRef::none_parent(),
             &payload_ty,
           );
@@ -391,13 +391,13 @@ impl TaskGroupDeviceInvocationInstance {
     payload: Node<T>,
     parent_ref: TaskParentRef,
   ) -> Option<TaskFutureInvocationRightValue> {
-    self.spawn_new_task_dyn(payload.cast_untyped_node(), parent_ref, &T::sized_ty())
+    self.spawn_new_task_dyn(payload.handle(), parent_ref, &T::sized_ty())
   }
 
   #[must_use]
   pub fn spawn_new_task_dyn(
     &self,
-    payload: Node<AnyType>,
+    payload: ShaderNodeRawHandle,
     parent_ref: TaskParentRef,
     ty: &ShaderSizedValueType,
   ) -> Option<TaskFutureInvocationRightValue> {
@@ -435,8 +435,8 @@ impl TaskGroupDeviceInvocationInstance {
     task_id: Node<u32>,
     argument_read_back: impl FnOnce(Node<T>) + Copy,
   ) -> Node<bool> {
-    self.poll_task_dyn(task_id, |x| unsafe {
-      argument_read_back(x.cast_type::<ShaderStoragePtr<T>>().load())
+    self.poll_task_dyn(task_id, |x| {
+      argument_read_back(T::create_accessor_from_raw_ptr(x).load())
     })
   }
 
@@ -444,7 +444,7 @@ impl TaskGroupDeviceInvocationInstance {
   pub fn poll_task_dyn(
     &self,
     task_id: Node<u32>,
-    argument_read_back: impl FnOnce(StorageNode<AnyType>) + Copy,
+    argument_read_back: impl FnOnce(BoxedShaderPtr) + Copy,
   ) -> Node<bool> {
     let finished = self.is_task_finished(task_id);
     if_by(finished, || {
@@ -469,9 +469,9 @@ impl TaskGroupDeviceInvocationInstance {
   }
 
   pub fn read_back_payload<T: ShaderSizedValueNodeType>(&self, task_id: Node<u32>) -> Node<T> {
-    self.task_pool.rw_payload(task_id).load()
+    self.task_pool.rw_payload::<T>(task_id).load()
   }
-  fn rw_payload_dyn(&self, task_id: Node<u32>) -> StorageNode<AnyType> {
+  fn rw_payload_dyn(&self, task_id: Node<u32>) -> BoxedShaderPtr {
     self.task_pool.rw_payload_dyn(task_id)
   }
 }

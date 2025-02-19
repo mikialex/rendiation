@@ -111,13 +111,13 @@ impl<T: ShaderNodeType> ShaderNodeType for ShaderWorkGroupPtr<T> {
   }
 }
 
-pub type GlobalVarNode<T> = Node<ShaderPrivatePtr<T>>;
-pub type LocalVarNode<T> = Node<ShaderLocalPtr<T>>;
-pub type WorkGroupSharedNode<T> = Node<ShaderWorkGroupPtr<T>>;
-pub type UniformNode<T> = Node<ShaderUniformPtr<T>>;
+// pub type GlobalVarNode<T> = Node<ShaderPrivatePtr<T>>;
+// pub type ShaderAccessorOf<T> = Node<ShaderLocalPtr<T>>;
+// pub type WorkGroupSharedNode<T> = Node<ShaderWorkGroupPtr<T>>;
+// pub type UniformNode<T> = Node<ShaderUniformPtr<T>>;
 pub type HandleNode<T> = Node<ShaderHandlePtr<T>>;
-pub type ReadOnlyStorageNode<T> = Node<ShaderReadOnlyStoragePtr<T>>;
-pub type StorageNode<T> = Node<ShaderStoragePtr<T>>;
+// pub type ReadOnlyStorageNode<T> = Node<ShaderReadOnlyStoragePtr<T>>;
+// pub type StorageNode<T> = Node<ShaderStoragePtr<T>>;
 
 #[derive(Clone, Copy)]
 pub struct BindingArray<T: ?Sized>(PhantomData<T>);

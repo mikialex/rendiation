@@ -169,7 +169,7 @@ impl ShaderSizedValueType {
 
   pub fn store_into_u32_buffer(
     &self,
-    source: NodeUntyped,
+    source: ShaderNodeRawHandle,
     target: &ShaderAccessorOf<[u32]>,
     mut offset: Node<u32>,
   ) {
@@ -179,13 +179,13 @@ impl ShaderSizedValueType {
         fn index_and_write(
           target: &ShaderAccessorOf<[u32]>,
           offset: Node<u32>,
-          source: NodeUntyped,
+          source: ShaderNodeRawHandle,
           idx: Option<u32>,
         ) {
           let channel = if let Some(idx) = idx {
-            unsafe { index_access_field::<AnyType>(source.handle(), idx as usize).handle() }
+            unsafe { index_access_field(source, idx as usize) }
           } else {
-            source.handle()
+            source
           };
 
           let converted = ShaderNodeExpr::Convert {
@@ -205,22 +205,16 @@ impl ShaderSizedValueType {
       }
       ShaderSizedValueType::Struct(f) => {
         for (i, field) in f.fields.iter().enumerate() {
-          field.ty.store_into_u32_buffer(
-            unsafe { index_access_field(source.handle(), i) },
-            target,
-            offset,
-          );
+          field
+            .ty
+            .store_into_u32_buffer(unsafe { index_access_field(source, i) }, target, offset);
           offset += val(field.ty.u32_size_count());
         }
       }
       ShaderSizedValueType::FixedSizeArray(ty, size) => {
         let stride = val(ty.u32_size_count());
         for i in 0..*size {
-          ty.store_into_u32_buffer(
-            unsafe { index_access_field(source.handle(), i) },
-            target,
-            offset,
-          );
+          ty.store_into_u32_buffer(unsafe { index_access_field(source, i) }, target, offset);
           offset += stride;
         }
       }
@@ -248,6 +242,6 @@ impl<T: ShaderSizedValueNodeType> RawBufferSerializationExt for Node<T> {
   }
 
   fn store_into_u32_buffer(self, target: &ShaderAccessorOf<[u32]>, offset: Node<u32>) {
-    T::sized_ty().store_into_u32_buffer(self.cast_untyped_node(), target, offset)
+    T::sized_ty().store_into_u32_buffer(self.handle(), target, offset)
   }
 }

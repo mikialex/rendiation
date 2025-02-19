@@ -30,8 +30,8 @@ pub trait DevicePixelSampleController: Sized {
 /// the naive sampler control with fixed sample count for each pixel
 pub struct FixedSamplesPerPixelInOneTrace {
   target_samples_per_pixel: u32,
-  current_samples: LocalVarNode<u32>,
-  accumulate: LocalVarNode<Vec3<f32>>,
+  current_samples: ShaderAccessorOf<u32>,
+  accumulate: ShaderAccessorOf<Vec3<f32>>,
 }
 
 impl DevicePixelSampleController for FixedSamplesPerPixelInOneTrace {

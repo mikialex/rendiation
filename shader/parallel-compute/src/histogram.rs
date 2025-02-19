@@ -183,7 +183,6 @@ where
 
         result
           .index(histogram_idx)
-          .expose()
           .atomic_store(workgroup_level_histogram.0);
 
         workgroup_level_histogram

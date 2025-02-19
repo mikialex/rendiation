@@ -41,172 +41,21 @@ where
   }
 }
 
-macro_rules! atomic_impls {
-  ($NodeType: tt) => {
-    impl<T: AtomicityShaderNodeType> $NodeType<DeviceAtomic<T>> {
-      pub fn atomic_load(&self) -> Node<T> {
-        call_shader_api(|g| unsafe { g.load(self.handle()).into_node() })
-      }
-      pub fn atomic_store(&self, v: Node<T>) {
-        call_shader_api(|g| g.store(v.handle(), self.handle()))
-      }
-
-      pub fn atomic_add(&self, v: Node<T>) -> Node<T> {
-        ShaderNodeExpr::AtomicCall {
-          ty: T::ATOM,
-          pointer: self.handle(),
-          function: AtomicFunction::Add,
-          value: v.handle(),
-        }
-        .insert_api()
-      }
-      pub fn atomic_sub(&self, v: Node<T>) -> Node<T> {
-        ShaderNodeExpr::AtomicCall {
-          ty: T::ATOM,
-          pointer: self.handle(),
-          function: AtomicFunction::Subtract,
-          value: v.handle(),
-        }
-        .insert_api()
-      }
-      pub fn atomic_min(&self, v: Node<T>) -> Node<T> {
-        ShaderNodeExpr::AtomicCall {
-          ty: T::ATOM,
-          pointer: self.handle(),
-          function: AtomicFunction::Min,
-          value: v.handle(),
-        }
-        .insert_api()
-      }
-      pub fn atomic_max(&self, v: Node<T>) -> Node<T> {
-        ShaderNodeExpr::AtomicCall {
-          ty: T::ATOM,
-          pointer: self.handle(),
-          function: AtomicFunction::Max,
-          value: v.handle(),
-        }
-        .insert_api()
-      }
-      pub fn atomic_and(&self, v: Node<T>) -> Node<T> {
-        ShaderNodeExpr::AtomicCall {
-          ty: T::ATOM,
-          pointer: self.handle(),
-          function: AtomicFunction::And,
-          value: v.handle(),
-        }
-        .insert_api()
-      }
-      pub fn atomic_or(&self, v: Node<T>) -> Node<T> {
-        ShaderNodeExpr::AtomicCall {
-          ty: T::ATOM,
-          pointer: self.handle(),
-          function: AtomicFunction::InclusiveOr,
-          value: v.handle(),
-        }
-        .insert_api()
-      }
-      pub fn atomic_xor(&self, v: Node<T>) -> Node<T> {
-        ShaderNodeExpr::AtomicCall {
-          ty: T::ATOM,
-          pointer: self.handle(),
-          function: AtomicFunction::ExclusiveOr,
-          value: v.handle(),
-        }
-        .insert_api()
-      }
-      pub fn atomic_exchange(&self, v: Node<T>) -> Node<T> {
-        ShaderNodeExpr::AtomicCall {
-          ty: T::ATOM,
-          pointer: self.handle(),
-          function: AtomicFunction::Exchange {
-            compare: None,
-            weak: false,
-          },
-          value: v.handle(),
-        }
-        .insert_api()
-      }
-      pub fn atomic_exchange_weak(&self, v: Node<T>) -> (Node<T>, Node<bool>) {
-        let raw = ShaderNodeExpr::AtomicCall {
-          ty: T::ATOM,
-          pointer: self.handle(),
-          function: AtomicFunction::Exchange {
-            compare: None,
-            weak: false,
-          },
-          value: v.handle(),
-        }
-        .insert_api::<AnyType>()
-        .handle();
-
-        unsafe {
-          let old = index_access_field(raw, 0);
-          let exchanged = index_access_field(raw, 1);
-          (old, exchanged)
-        }
-      }
-    }
-  };
+pub fn make_local_var<T: ShaderSizedValueNodeType>() -> ShaderAccessorOf<T> {
+  let handle = call_shader_api(|g| g.make_local_var(T::ty()));
+  T::create_accessor_from_raw_ptr(Box::new(handle))
 }
 
-atomic_impls!(WorkGroupSharedNode);
-atomic_impls!(StorageNode);
-
-// todo restrict type
-pub fn make_local_var<T: ShaderNodeType>() -> LocalVarNode<T> {
-  call_shader_api(|g| unsafe {
-    let v = g.make_local_var(T::ty());
-    v.into_node()
-  })
-}
-
-// todo restrict type to referable?
-impl<T: ShaderNodeType> Node<T> {
-  pub fn make_local_var(&self) -> LocalVarNode<T> {
-    call_shader_api(|g| unsafe {
+impl<T: ShaderSizedValueNodeType> Node<T> {
+  pub fn make_local_var(&self) -> ShaderAccessorOf<T> {
+    let handle = call_shader_api(|g| {
       let v = g.make_local_var(T::ty());
       g.store(self.handle(), v);
-      v.into_node()
-    })
+      v
+    });
+    T::create_accessor_from_raw_ptr(Box::new(handle))
   }
 }
-
-macro_rules! impl_load {
-  ($Type: tt) => {
-    impl<T> $Type<T> {
-      pub fn load(&self) -> Node<T> {
-        call_shader_api(|g| unsafe { g.load(self.handle()).into_node() })
-      }
-    }
-  };
-}
-macro_rules! impl_store {
-  ($Type: tt) => {
-    impl<T> $Type<T> {
-      pub fn store(&self, source: impl Into<Node<T>>) {
-        let source = source.into();
-        call_shader_api(|g| {
-          g.store(source.handle(), self.handle());
-        })
-      }
-    }
-  };
-}
-
-impl_load!(LocalVarNode);
-impl_store!(LocalVarNode);
-
-impl_load!(GlobalVarNode);
-impl_store!(GlobalVarNode);
-
-impl_load!(StorageNode);
-impl_store!(StorageNode);
-
-impl_load!(WorkGroupSharedNode);
-impl_store!(WorkGroupSharedNode);
-
-impl_load!(ReadOnlyStorageNode);
-impl_load!(UniformNode);
 
 #[derive(Copy, Clone)]
 pub struct AnyType;

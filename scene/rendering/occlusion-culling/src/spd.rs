@@ -249,13 +249,13 @@ struct Ctx {
 }
 
 pub trait QuadReducer<T>: Copy + Clone + 'static {
-  fn reduce(&self, v: LocalVarNode<[T; 4]>) -> Node<T>;
+  fn reduce(&self, v: ShaderAccessorOf<[T; 4]>) -> Node<T>;
 }
 
 #[derive(Clone, Copy)]
 pub struct MaxReducer;
 impl<T: PrimitiveShaderNodeType> QuadReducer<T> for MaxReducer {
-  fn reduce(&self, v: LocalVarNode<[T; 4]>) -> Node<T> {
+  fn reduce(&self, v: ShaderAccessorOf<[T; 4]>) -> Node<T> {
     let v1 = v.index(0).load();
     let v2 = v.index(1).load();
     let v3 = v.index(2).load();
@@ -309,7 +309,7 @@ fn remap_for_wave_reduction(a: Node<u32>) -> Node<Vec2<u32>> {
 struct SpdImageDownSampler<S, R, N> {
   loader: S,
   reducer: R,
-  quad: LocalVarNode<[N; 4]>,
+  quad: ShaderAccessorOf<[N; 4]>,
 }
 
 impl<S, R, N> SpdImageDownSampler<S, R, N>
@@ -345,7 +345,7 @@ where
 struct SpdIntermediateDownSampler<T, R> {
   intermediate: WorkGroupSharedNode<IntermediateBuffer<T>>,
   reducer: R,
-  quad: LocalVarNode<[T; 4]>,
+  quad: ShaderAccessorOf<[T; 4]>,
 }
 
 impl<T, R> SpdIntermediateDownSampler<T, R>
@@ -390,7 +390,7 @@ fn down_sample_mips_0_and_1<S, N, R, T>(
     mip_level_count,
   } = sample_ctx.expand();
 
-  let sub_tile_reduced: LocalVarNode<[N; 4]> = zeroed_val().make_local_var();
+  let sub_tile_reduced: ShaderAccessorOf<[N; 4]> = zeroed_val().make_local_var();
 
   for (i, o) in [vec2(0, 0), vec2(16, 0), vec2(0, 16), vec2(16, 16)]
     .into_iter()
@@ -465,7 +465,7 @@ fn down_sample_mips_6_and_7<S, N, R, T>(
     ..
   } = sample_ctx.expand();
 
-  let l_7_local: LocalVarNode<[N; 4]> = zeroed_val().make_local_var();
+  let l_7_local: ShaderAccessorOf<[N; 4]> = zeroed_val().make_local_var();
 
   for (i, o) in [vec2(0, 0), vec2(1, 0), vec2(0, 1), vec2(1, 1)]
     .into_iter()

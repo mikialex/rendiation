@@ -71,7 +71,7 @@ where
     let r = upstream.device_poll(ctx);
 
     if_by(r.is_resolved(), || {
-      let next = create_then_invocation_instance(r.payload, &self.then, ctx);
+      let next = create_then_invocation_instance(r.payload.clone(), &self.then, ctx);
       then.abstract_store(next);
     });
 

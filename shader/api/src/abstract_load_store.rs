@@ -33,17 +33,19 @@ where
   }
 }
 
-impl<T: ShaderSizedValueNodeType> ShaderAbstractLeftValue for LocalVarNode<T> {
+pub struct ShaderAccessorAsAbstractLeftValue<T: ShaderSizedValueNodeType>(pub ShaderAccessorOf<T>);
+
+impl<T: ShaderSizedValueNodeType> ShaderAbstractLeftValue for ShaderAccessorAsAbstractLeftValue<T> {
   type RightValue = Node<T>;
   fn abstract_load(&self) -> Node<T> {
-    self.load()
+    self.0.load()
   }
   fn abstract_store(&self, payload: Node<T>) {
-    self.store(payload)
+    self.0.store(payload)
   }
 }
 
-pub trait ShaderAbstractRightValue: Copy + 'static {
+pub trait ShaderAbstractRightValue: Clone + 'static {
   type AbstractLeftValue: ShaderAbstractLeftValue<RightValue = Self>;
   /// the value stored in left value can not be assumed uninit or zeroed, and
   /// it should be related to the context of usage
@@ -95,7 +97,9 @@ impl LeftValueBuilder for LocalLeftValueBuilder {
   fn create_single_left_value<T: ShaderSizedValueNodeType>(
     &mut self,
   ) -> BoxedShaderLoadStore<Node<T>> {
-    Box::new(zeroed_val().make_local_var())
+    Box::new(ShaderAccessorAsAbstractLeftValue(
+      zeroed_val::<T>().make_local_var(),
+    ))
   }
 }
 
