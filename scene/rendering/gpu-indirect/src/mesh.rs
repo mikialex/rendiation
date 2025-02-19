@@ -96,7 +96,7 @@ pub fn attribute_vertex(
 
 #[repr(C)]
 #[std430_layout]
-#[derive(Debug, Clone, PartialEq, Copy, ShaderStruct, Default, StorageNodePtrAccess)]
+#[derive(Debug, Clone, PartialEq, Copy, ShaderStruct, Default)]
 pub struct AttributeMeshMeta {
   pub index_offset: u32,
   pub count: u32,
@@ -319,8 +319,8 @@ impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
     // check mesh must have indices.
     let _ = self.indices_checker.get(mesh_id)?;
     Some(Box::new(BindlessDrawCreator {
-      metadata: self.vertex_address_buffer.clone(),
-      sm_to_mesh_device: self.sm_to_mesh_device.clone(),
+      metadata: self.vertex_address_buffer.clone().into_readonly_view(),
+      sm_to_mesh_device: self.sm_to_mesh_device.clone().into_readonly_view(),
       sm_to_mesh: self.sm_to_mesh.clone(),
       vertex_address_buffer_host: self.vertex_address_buffer_host.clone(),
     }))
@@ -371,17 +371,17 @@ impl GraphicsShaderProvider for BindlessMeshDispatcher {
       unsafe {
         let position = Vec3::<f32>::sized_ty()
           .load_from_u32_buffer(
-            position,
+            &position,
             vertex_address.position_offset + vertex_id * val(3),
           )
           .cast_type::<Vec3<f32>>();
 
         let normal = Vec3::<f32>::sized_ty()
-          .load_from_u32_buffer(normal, vertex_address.normal_offset + vertex_id * val(3))
+          .load_from_u32_buffer(&normal, vertex_address.normal_offset + vertex_id * val(3))
           .cast_type::<Vec3<f32>>();
 
         let uv = Vec2::<f32>::sized_ty()
-          .load_from_u32_buffer(uv, vertex_address.uv_offset + vertex_id * val(2))
+          .load_from_u32_buffer(&uv, vertex_address.uv_offset + vertex_id * val(2))
           .cast_type::<Vec2<f32>>();
 
         vertex.register::<GeometryPosition>(position);
@@ -394,9 +394,9 @@ impl GraphicsShaderProvider for BindlessMeshDispatcher {
 
 #[derive(Clone)]
 pub struct BindlessDrawCreator {
-  metadata: StorageBufferDataView<[AttributeMeshMeta]>,
+  metadata: StorageBufferReadonlyDataView<[AttributeMeshMeta]>,
   sm_to_mesh: BoxedDynQuery<EntityHandle<SceneModelEntity>, EntityHandle<AttributesMeshEntity>>,
-  sm_to_mesh_device: StorageBufferDataView<[u32]>,
+  sm_to_mesh_device: StorageBufferReadonlyDataView<[u32]>,
   vertex_address_buffer_host: LockReadGuardHolder<
     MultiUpdateContainer<CommonStorageBufferImplWithHostBackup<AttributeMeshMeta>>,
   >,
@@ -449,8 +449,8 @@ impl ShaderHashProvider for BindlessDrawCreator {
 }
 
 pub struct BindlessDrawCreatorInDevice {
-  node: StorageNode<[AttributeMeshMeta]>,
-  sm_to_mesh_device: StorageNode<[u32]>,
+  node: ShaderReadonlyAccessorOf<[AttributeMeshMeta]>,
+  sm_to_mesh_device: ShaderReadonlyAccessorOf<[u32]>,
 }
 
 impl DrawCommandBuilderInvocation for BindlessDrawCreatorInDevice {

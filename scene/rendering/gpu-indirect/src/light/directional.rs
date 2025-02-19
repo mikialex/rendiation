@@ -45,7 +45,7 @@ impl RenderImplProvider<Box<dyn LightingComputeComponent>> for DirectionalStorag
 
     let com = ArrayLights(
       buffer,
-      |(_, light): (Node<u32>, ReadonlyStorageNode<DirectionalLightStorage>)| {
+      |(_, light): (Node<u32>, ShaderReadonlyAccessorOf<DirectionalLightStorage>)| {
         let light = light.load().expand();
         ENode::<DirectionalShaderInfo> {
           illuminance: light.illuminance,

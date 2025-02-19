@@ -328,7 +328,7 @@ impl SceneRayTracingAORenderer {
 
         (val(true), trace_call, val(1.))
       })
-      .map(|(_, payload), ctx| ctx.expect_payload().store(payload));
+      .map(|(_, payload), ctx| ctx.expect_payload::<f32>().store(payload));
 
     source.max_in_flight_trace_ray(2);
     let handles = AOShaderHandles {
@@ -344,7 +344,7 @@ impl SceneRayTracingAORenderer {
         trace_base_builder
           .create_miss_hit_shader_base::<RayGenTracePayload>()
           .map(|_, cx| {
-            cx.payload().unwrap().store(val(1.0_f32));
+            cx.payload::<f32>().unwrap().store(val(1.0));
           }),
         1,
       ),
@@ -407,7 +407,7 @@ struct RayTracingAORayGenCtxInvocation {
   camera: Box<dyn RtxCameraRenderInvocation>,
   ao_buffer: BindingNode<ShaderStorageTextureRW2D>,
   tlas_idx: Node<u32>,
-  ao_sample_count: UniformNode<Vec4<u32>>,
+  ao_sample_count: ShaderReadonlyAccessorOf<Vec4<u32>>,
 }
 
 #[derive(Clone)]
@@ -443,5 +443,5 @@ impl RayTracingCustomCtxProvider for RayTracingAORayClosestCtx {
 struct RayTracingAORayClosestCtxInvocation {
   bindless_mesh: BindlessMeshRtxAccessInvocation,
   tlas: Node<u32>,
-  ao_sample_count: UniformNode<Vec4<u32>>,
+  ao_sample_count: ShaderReadonlyAccessorOf<Vec4<u32>>,
 }

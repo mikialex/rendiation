@@ -79,6 +79,16 @@ pub type BindingNode<T> = Node<ShaderBinding<T>>;
 #[derive(Clone, Copy)]
 pub struct BindingArray<T: ?Sized>(PhantomData<T>);
 
+impl<T: ShaderNodeType> BindingNode<BindingArray<ShaderBinding<T>>> {
+  pub fn index(&self, index: Node<u32>) -> BindingNode<T> {
+    OperatorNode::Index {
+      array: self.handle(),
+      entry: index.handle(),
+    }
+    .insert_api()
+  }
+}
+
 /// fixed size array in shader compile time, but dyn size in host runtime
 #[derive(Clone, Copy)]
 pub struct HostDynSizeArray<T>(PhantomData<T>);

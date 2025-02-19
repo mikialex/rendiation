@@ -17,7 +17,7 @@ where
   S: ShaderIterator<Item = T> + Clone + 'static,
   F: Fn(T) -> U + Copy + 'static,
   U: LightingComputeInvocation,
-  T: Copy + 'static,
+  T: Clone + 'static,
 {
   fn build_light_compute_invocation(
     &self,

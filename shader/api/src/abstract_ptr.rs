@@ -12,8 +12,6 @@ use crate::*;
 /// it's impossible to array index to a none-array object. when this case happens, the method could
 /// do anything in silence because validation error will eventually raised in later process.
 ///
-/// todo, separate store ability
-///
 /// todo, mark unsafe fn
 pub trait AbstractShaderPtr: DynClone {
   fn field_index(&self, field_index: usize) -> BoxedShaderPtr;
@@ -59,7 +57,7 @@ impl AbstractShaderPtr for ShaderNodeRawHandle {
   }
 
   fn store(&self, value: ShaderNodeRawHandle) {
-    call_shader_api(|g| g.store(*self, value))
+    call_shader_api(|g| g.store(value, *self))
   }
   fn raw_ptr(&self) -> ShaderNodeRawHandle {
     *self

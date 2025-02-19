@@ -123,7 +123,7 @@ impl SceneModelRenderer for IndirectPreferredComOrderRenderer {
         binding: &mut ShaderBindGroupBuilder,
       ) -> Box<dyn IndirectBatchInvocationSource> {
         struct SingleModelImmediateDrawInvocation {
-          scene_model_id: UniformNode<u32>,
+          scene_model_id: ShaderReadonlyAccessorOf<u32>,
         }
 
         impl IndirectBatchInvocationSource for SingleModelImmediateDrawInvocation {

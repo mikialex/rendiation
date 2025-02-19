@@ -231,14 +231,8 @@ pub struct TexturePool {
 }
 
 both!(TexturePoolInShader, ShaderBinding<ShaderTexture2DArray>);
-both!(
-  TexturePoolAddressInfoInShader,
-  ShaderReadonlyStoragePtr<[TexturePoolAddressInfo]>
-);
-both!(
-  SamplerPoolInShader,
-  ShaderReadonlyStoragePtr<[TextureSamplerShaderInfo]>
-);
+pub struct TexturePoolAddressInfoInShader(pub ShaderReadonlyAccessorOf<[TexturePoolAddressInfo]>);
+pub struct SamplerPoolInShader(pub ShaderReadonlyAccessorOf<[TextureSamplerShaderInfo]>);
 
 impl AbstractIndirectGPUTextureSystem for TexturePool {
   fn bind_system_self(&self, collector: &mut BindingBuilder) {
@@ -256,12 +250,12 @@ impl AbstractIndirectGPUTextureSystem for TexturePool {
     builder
       .bind_by_and_prepare(&self.address)
       .using_graphics_pair(|r, address| {
-        r.register_typed_both_stage::<TexturePoolAddressInfoInShader>(address);
+        r.any_map.register(TexturePoolAddressInfoInShader(address));
       });
     builder
       .bind_by_and_prepare(&self.samplers)
       .using_graphics_pair(|r, samplers| {
-        r.register_typed_both_stage::<SamplerPoolInShader>(samplers);
+        r.any_map.register(SamplerPoolInShader(samplers));
       });
   }
 
@@ -274,14 +268,12 @@ impl AbstractIndirectGPUTextureSystem for TexturePool {
     uv: Node<Vec2<f32>>,
   ) -> Node<Vec4<f32>> {
     let texture = reg.query_typed_both_stage::<TexturePoolInShader>().unwrap();
-    let address = reg
-      .query_typed_both_stage::<TexturePoolAddressInfoInShader>()
-      .unwrap();
+    let address = reg.any_map.get::<TexturePoolAddressInfoInShader>().unwrap();
 
-    let samplers = reg.query_typed_both_stage::<SamplerPoolInShader>().unwrap();
+    let samplers = reg.any_map.get::<SamplerPoolInShader>().unwrap();
 
-    let texture_address = address.index(shader_texture_handle).load().expand();
-    let sampler = samplers.index(shader_sampler_handle).load().expand();
+    let texture_address = address.0.index(shader_texture_handle).load().expand();
+    let sampler = samplers.0.index(shader_sampler_handle).load().expand();
 
     let correct_u = shader_address_mode(sampler.address_mode_u, uv.x());
     let correct_v = shader_address_mode(sampler.address_mode_v, uv.y());

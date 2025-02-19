@@ -37,7 +37,7 @@ impl CameraGPU {
   pub fn inject_uniforms(
     &self,
     builder: &mut ShaderRenderPipelineBuilder,
-  ) -> GraphicsPairInputNodeAccessor<ShaderUniformPtr<CameraGPUTransform>> {
+  ) -> GraphicsPairInputNodeAccessor<UniformBufferDataView<CameraGPUTransform>> {
     builder
       .bind_by_and_prepare(&self.ubo)
       .using_graphics_pair(|r, camera| {
@@ -89,7 +89,7 @@ impl GraphicsShaderProvider for CameraGPU {
 
 #[repr(C)]
 #[std140_layout]
-#[derive(Clone, Copy, Default, ShaderStruct, Debug, PartialEq, UniformNodePtrAccess)]
+#[derive(Clone, Copy, Default, ShaderStruct, Debug, PartialEq)]
 pub struct CameraGPUTransform {
   pub projection: Mat4<f32>,
   pub projection_inv: Mat4<f32>,

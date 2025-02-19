@@ -195,7 +195,7 @@ impl DeviceInvocation<Node<DrawIndexedIndirect>> for DrawCommandGeneratorInvocat
   ) -> (Node<DrawIndexedIndirect>, Node<bool>) {
     let (id, valid) = self.scene_models.invocation_logic(logic_global_id);
 
-    let draw_command = make_local_var();
+    let draw_command = make_local_var::<DrawIndexedIndirect>();
     if_by(valid, || {
       draw_command.store(self.generator.generate_draw_command(id));
     });

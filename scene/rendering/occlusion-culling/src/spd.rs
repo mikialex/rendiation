@@ -249,13 +249,13 @@ struct Ctx {
 }
 
 pub trait QuadReducer<T>: Copy + Clone + 'static {
-  fn reduce(&self, v: ShaderAccessorOf<[T; 4]>) -> Node<T>;
+  fn reduce(&self, v: &ShaderAccessorOf<[T; 4]>) -> Node<T>;
 }
 
 #[derive(Clone, Copy)]
 pub struct MaxReducer;
 impl<T: PrimitiveShaderNodeType> QuadReducer<T> for MaxReducer {
-  fn reduce(&self, v: ShaderAccessorOf<[T; 4]>) -> Node<T> {
+  fn reduce(&self, v: &ShaderAccessorOf<[T; 4]>) -> Node<T> {
     let v1 = v.index(0).load();
     let v2 = v.index(1).load();
     let v3 = v.index(2).load();
@@ -322,7 +322,7 @@ where
     Self {
       loader,
       reducer,
-      quad: zeroed_val().make_local_var(),
+      quad: zeroed_val::<[N; 4]>().make_local_var(),
     }
   }
 
@@ -338,12 +338,12 @@ where
       self.quad.index(val(i as u32)).store(v);
     }
     // todo, boundary check?
-    self.reducer.reduce(self.quad)
+    self.reducer.reduce(&self.quad)
   }
 }
 
 struct SpdIntermediateDownSampler<T, R> {
-  intermediate: WorkGroupSharedNode<IntermediateBuffer<T>>,
+  intermediate: ShaderAccessorOf<IntermediateBuffer<T>>,
   reducer: R,
   quad: ShaderAccessorOf<[T; 4]>,
 }
@@ -353,11 +353,11 @@ where
   T: ShaderSizedValueNodeType,
   R: QuadReducer<T>,
 {
-  fn new(intermediate: WorkGroupSharedNode<IntermediateBuffer<T>>, reducer: R) -> Self {
+  fn new(intermediate: ShaderAccessorOf<IntermediateBuffer<T>>, reducer: R) -> Self {
     Self {
       intermediate,
       reducer,
-      quad: zeroed_val().make_local_var(),
+      quad: zeroed_val::<[T; 4]>().make_local_var(),
     }
   }
 
@@ -367,7 +367,7 @@ where
       let v = self.intermediate.index(tex.x()).index(tex.y()).load();
       self.quad.index(val(i as u32)).store(v);
     }
-    self.reducer.reduce(self.quad)
+    self.reducer.reduce(&self.quad)
   }
 }
 
@@ -390,7 +390,7 @@ fn down_sample_mips_0_and_1<S, N, R, T>(
     mip_level_count,
   } = sample_ctx.expand();
 
-  let sub_tile_reduced: ShaderAccessorOf<[N; 4]> = zeroed_val().make_local_var();
+  let sub_tile_reduced = zeroed_val::<[N; 4]>().make_local_var();
 
   for (i, o) in [vec2(0, 0), vec2(16, 0), vec2(0, 16), vec2(16, 16)]
     .into_iter()
@@ -465,7 +465,7 @@ fn down_sample_mips_6_and_7<S, N, R, T>(
     ..
   } = sample_ctx.expand();
 
-  let l_7_local: ShaderAccessorOf<[N; 4]> = zeroed_val().make_local_var();
+  let l_7_local = zeroed_val::<[N; 4]>().make_local_var();
 
   for (i, o) in [vec2(0, 0), vec2(1, 0), vec2(0, 1), vec2(1, 1)]
     .into_iter()
@@ -480,7 +480,7 @@ fn down_sample_mips_6_and_7<S, N, R, T>(
 
   if_by(mip_level_count.less_equal_than(val(7)), do_return);
 
-  let l_8_local = intermediate_sampler.reducer.reduce(l_7_local);
+  let l_8_local = intermediate_sampler.reducer.reduce(&l_7_local);
   l_8.write(coord, l_8_local);
   intermediate_sampler
     .intermediate
