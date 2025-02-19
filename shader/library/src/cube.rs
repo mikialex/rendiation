@@ -8,8 +8,8 @@ pub struct CubeFaceInfo {
 
 #[shader_fn]
 pub fn screen_position_to_cube_face(position: Node<Vec2<f32>>) -> Node<CubeFaceInfo> {
-  let face_id = val(-1).make_local_var();
-  let uv = val(Vec2::zero()).make_local_var();
+  let face_id = val(-1_i32).make_local_var();
+  let uv = val(Vec2::<f32>::zero()).make_local_var();
 
   let x = position.x();
   let y = position.y();
@@ -54,7 +54,7 @@ pub fn screen_position_to_cube_face(position: Node<Vec2<f32>>) -> Node<CubeFaceI
 
 #[shader_fn]
 pub fn direction_for(face: Node<i32>, uv: Node<Vec2<f32>>) -> Node<Vec3<f32>> {
-  let result = val(Vec3::zero()).make_local_var();
+  let result = val(Vec3::<f32>::zero()).make_local_var();
   let uv = val(2.) * uv - val(1.).splat();
 
   switch_by(face)
@@ -88,7 +88,7 @@ pub fn get_cube_face_index_by_dir(dir: Node<Vec3<f32>>) -> Node<i32> {
   let abs_z = dir.z().abs();
   let max = abs_x.max(abs_y).max(abs_z);
 
-  let index = val(0).make_local_var();
+  let index = val(0_i32).make_local_var();
 
   if_by((max - abs_x).abs().less_than(tolerance), || {
     index.store(0);

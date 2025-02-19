@@ -4,10 +4,27 @@ use crate::*;
 pub struct DeviceBumpAllocationInstance<T: Std430 + ShaderSizedValueNodeType> {
   pub storage: StorageBufferDataView<[T]>,
   pub bump_size: StorageBufferDataView<DeviceAtomic<u32>>,
-  pub current_size: StorageBufferDataView<u32>, // todo, merge with bump size
+  pub current_size: StorageBufferDataView<u32>,
+  // pub storage: DynAbstractStorageBuffer<[T]>,
+  // pub bump_size: StorageBufferDataView<DeviceAtomic<u32>>,
+  // pub current_size: DynAbstractStorageBuffer<u32>, // todo, merge with bump size
 }
 
 impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
+  // pub fn new(size: usize, device: &GPUDevice) -> Self {
+  //   Self {
+  //     storage: Box::new(create_gpu_read_write_storage(size, device)),
+  //     current_size: Box::new(create_gpu_read_write_storage(
+  //       StorageBufferInit::WithInit(&0_u32),
+  //       device,
+  //     )),
+  //     bump_size: create_gpu_read_write_storage::<DeviceAtomic<u32>>(
+  //       StorageBufferInit::WithInit(&DeviceAtomic(0)),
+  //       device,
+  //     ),
+  //   }
+  // }
+
   pub fn new(size: usize, device: &GPUDevice) -> Self {
     Self {
       storage: create_gpu_read_write_storage(size, device),
@@ -58,7 +75,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
     pass: &mut GPUComputePass,
     device: &GPUDevice,
     workgroup_size: u32,
-  ) -> StorageBufferReadOnlyDataView<DispatchIndirectArgsStorage> {
+  ) -> StorageBufferReadonlyDataView<DispatchIndirectArgsStorage> {
     let size = device.make_indirect_dispatch_size_buffer();
     let hasher = shader_hasher_from_marker_ty!(SizeCompute);
     let workgroup_size = create_gpu_readonly_storage(&workgroup_size, device);
@@ -116,7 +133,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
         .else_by(|| current_size.store(current_size_load + delta))
       } else {
         if_by(delta.greater_than(current_size_load), || {
-          current_size.store(0)
+          current_size.store(val(0))
         })
         .else_by(|| current_size.store(current_size_load - delta));
       }
@@ -141,7 +158,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
     the_other: &Self,
     pass: &mut GPUComputePass,
     device: &GPUDevice,
-  ) -> StorageBufferReadOnlyDataView<DispatchIndirectArgsStorage> {
+  ) -> StorageBufferReadonlyDataView<DispatchIndirectArgsStorage> {
     let size = self.prepare_dispatch_size(pass, device, 256);
 
     let hasher = shader_hasher_from_marker_ty!(Drainer);
@@ -182,7 +199,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
       if_by(id.equals(0), || {
         let new_size = output_offset + input_current_size.load();
         output_current_size.store(new_size);
-        input_current_size.store(0);
+        input_current_size.store(val(0));
       });
 
       builder
@@ -227,12 +244,12 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
 
 #[derive(Clone)]
 pub struct DeviceBumpAllocationInvocationInstance<T: Std430> {
-  pub storage: StorageNode<[T]>,
-  pub bump_size: StorageNode<DeviceAtomic<u32>>,
-  pub current_size: StorageNode<u32>,
+  pub storage: ShaderPtrOf<[T]>,
+  pub bump_size: ShaderPtrOf<DeviceAtomic<u32>>,
+  pub current_size: ShaderPtrOf<u32>,
 }
 
-impl<T: Std430 + ShaderNodeType> DeviceBumpAllocationInvocationInstance<T> {
+impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInvocationInstance<T> {
   /// can not use with bump_allocate in the same dispatch
   ///
   /// return if success
@@ -252,11 +269,11 @@ impl<T: Std430 + ShaderNodeType> DeviceBumpAllocationInvocationInstance<T> {
   pub fn bump_allocate_by(
     &self,
     count: Node<u32>,
-    on_success_access: impl FnOnce(StorageNode<[T]>, Node<u32>),
+    on_success_access: impl FnOnce(ShaderPtrOf<[T]>, Node<u32>),
   ) -> (Node<u32>, Node<bool>) {
     let (write_idx, in_bound) = self.bump_allocate_counts(count);
     if_by(in_bound, || {
-      on_success_access(self.storage, write_idx);
+      on_success_access(self.storage.clone(), write_idx);
     });
     (write_idx, in_bound)
   }
@@ -274,9 +291,9 @@ impl<T: Std430 + ShaderNodeType> DeviceBumpAllocationInvocationInstance<T> {
 
 #[derive(Clone)]
 pub struct DeviceBumpDeAllocationInvocationInstance<T: Std430> {
-  pub storage: StorageNode<[T]>,
-  pub bump_size: StorageNode<DeviceAtomic<u32>>,
-  pub current_size: StorageNode<u32>,
+  pub storage: ShaderPtrOf<[T]>,
+  pub bump_size: ShaderPtrOf<DeviceAtomic<u32>>,
+  pub current_size: ShaderPtrOf<u32>,
 }
 
 impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpDeAllocationInvocationInstance<T> {
@@ -299,7 +316,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpDeAllocationInvocationInsta
   pub fn bump_deallocate(&self) -> (Node<T>, Node<bool>) {
     let (read_idx, in_bound) = self.bump_deallocate_counts(val(1));
 
-    let output = zeroed_val().make_local_var();
+    let output = zeroed_val::<T>().make_local_var();
     if_by(in_bound, || {
       output.store(self.storage.index(read_idx).load())
     });

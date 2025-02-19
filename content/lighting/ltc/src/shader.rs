@@ -14,8 +14,8 @@ pub struct LTCRectLight {
   pub is_disk: Bool,
 }
 
-only_fragment!(LtcLUT1, ShaderHandlePtr<ShaderTexture2D>);
-only_fragment!(LtcLUT2, ShaderHandlePtr<ShaderTexture2D>);
+only_fragment!(LtcLUT1, ShaderBinding<ShaderTexture2D>);
+only_fragment!(LtcLUT2, ShaderBinding<ShaderTexture2D>);
 
 const LUT_SIZE: f32 = 64.;
 const LUT_SCALE: f32 = (LUT_SIZE - 1.) / LUT_SIZE;
@@ -104,8 +104,8 @@ pub fn ltc_evaluate_rect(
   p: Node<Vec3<f32>>,
   min_v: Node<Mat3<f32>>,
   light: Node<LTCRectLight>,
-  ltc_2: HandleNode<ShaderTexture2D>,
-  sampler: HandleNode<ShaderSampler>,
+  ltc_2: BindingNode<ShaderTexture2D>,
+  sampler: BindingNode<ShaderSampler>,
 ) -> Node<Vec3<f32>> {
   let l = light.expand();
   // construct orthonormal basis around N
@@ -175,8 +175,8 @@ pub fn ltc_evaluate_disk(
   p: Node<Vec3<f32>>,
   min_v: Node<Mat3<f32>>,
   light: Node<LTCRectLight>,
-  ltc_2: HandleNode<ShaderTexture2D>,
-  sampler: HandleNode<ShaderSampler>,
+  ltc_2: BindingNode<ShaderTexture2D>,
+  sampler: BindingNode<ShaderSampler>,
 ) -> Node<Vec3<f32>> {
   let l = light.expand();
   // construct orthonormal basis around N
@@ -229,8 +229,8 @@ pub fn ltc_evaluate_disk(
           let e_max = (u + v) * (u + v);
           let e_min = (u - v) * (u - v);
 
-          let v1_ = val(Vec3::zero()).make_local_var();
-          let v2_ = val(Vec3::zero()).make_local_var();
+          let v1_ = val(Vec3::<f32>::zero()).make_local_var();
+          let v2_ = val(Vec3::<f32>::zero()).make_local_var();
 
           if_by(d11.greater_than(d22), || {
             v1_.store(d12 * V1.load() + (e_max - d11) * V2.load());

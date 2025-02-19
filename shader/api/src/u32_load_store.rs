@@ -1,8 +1,8 @@
 use crate::*;
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct U32BufferLoadStoreSource {
-  pub array: StorageNode<[u32]>,
+  pub array: ShaderPtrOf<[u32]>,
   pub offset: Node<u32>,
 }
 
@@ -18,10 +18,10 @@ where
   type RightValue = Node<T>;
 
   fn abstract_load(&self) -> Self::RightValue {
-    Node::<T>::load_from_u32_buffer(self.accessor.array, self.accessor.offset)
+    Node::<T>::load_from_u32_buffer(&self.accessor.array, self.accessor.offset)
   }
 
-  fn abstract_store(&self, payload: Self::RightValue) {
-    payload.store_into_u32_buffer(self.accessor.array, self.accessor.offset);
+  fn abstract_store(&self, payload: Node<T>) {
+    payload.store_into_u32_buffer(&self.accessor.array, self.accessor.offset);
   }
 }

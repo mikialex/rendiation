@@ -65,7 +65,7 @@ impl GraphicsShaderProvider for InfinityShaderLineEffect<'_> {
       let test_point_in_ndc = test_point_in_ndc.xyz() / test_point_in_ndc.w().splat();
       let direction_in_ndc = (test_point_in_ndc - origin_in_ndc).normalize();
 
-      let position = val(Vec3::zero()).make_local_var();
+      let position = val(Vec3::<f32>::zero()).make_local_var();
       switch_by(vertex_index)
         .case(0, || {
           position.store(origin_in_ndc);

@@ -91,7 +91,7 @@ impl<T: GPULinearStorage> GPULinearStorage for GPUSlatAllocateMaintainer<T> {
   }
 }
 
-pub type StorageBufferSlabAllocatePool<T> = SlabAllocatePool<StorageBufferReadOnlyDataView<[T]>>;
+pub type StorageBufferSlabAllocatePool<T> = SlabAllocatePool<StorageBufferReadonlyDataView<[T]>>;
 pub type SlabAllocatePool<T> = GPUSlatAllocateMaintainer<GrowableDirectQueueUpdateBuffer<T>>;
 
 pub fn create_storage_buffer_slab_allocate_pool<T: Std430>(
@@ -99,7 +99,7 @@ pub fn create_storage_buffer_slab_allocate_pool<T: Std430>(
   init_size: u32,
   max_size: u32,
 ) -> StorageBufferSlabAllocatePool<T> {
-  let buffer = StorageBufferReadOnlyDataView::<[T]>::create_by(
+  let buffer = StorageBufferReadonlyDataView::<[T]>::create_by(
     &gpu.device,
     StorageBufferInit::Zeroed(NonZeroU64::new(init_size as u64).unwrap()),
   );

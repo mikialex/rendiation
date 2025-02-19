@@ -96,25 +96,33 @@ impl ShaderComputePipelineBuilder {
     self.workgroup_count
   }
 
-  pub fn define_workgroup_shared_var<T: ShaderSizedValueNodeType>(&self) -> WorkGroupSharedNode<T> {
-    ShaderInputNode::WorkGroupShared { ty: T::sized_ty() }.insert_api()
+  pub fn define_workgroup_shared_var<T: ShaderSizedValueNodeType>(&self) -> ShaderPtrOf<T> {
+    let handle = ShaderInputNode::WorkGroupShared { ty: T::sized_ty() }.insert_api_raw();
+    T::create_view_from_raw_ptr(Box::new(handle))
   }
   pub fn define_workgroup_shared_var_host_size_array<T: ShaderSizedValueNodeType>(
     &self,
     len: u32,
-  ) -> WorkGroupSharedNode<HostDynSizeArray<T>> {
+  ) -> ShaderPtrOf<HostDynSizeArray<T>> {
     let ty = ShaderSizedValueType::FixedSizeArray(Box::new(T::sized_ty()), len as usize);
-    ShaderInputNode::WorkGroupShared { ty }.insert_api()
+    let handle = ShaderInputNode::WorkGroupShared { ty }.insert_api_raw();
+    StaticLengthArrayView {
+      phantom: PhantomData,
+      array: PhantomData,
+      access: Box::new(handle),
+      len,
+    }
   }
-  pub fn define_invocation_private_var<T: ShaderSizedValueNodeType>(&self) -> GlobalVarNode<T> {
-    ShaderInputNode::Private { ty: T::sized_ty() }.insert_api()
+  pub fn define_invocation_private_var<T: ShaderSizedValueNodeType>(&self) -> ShaderPtrOf<T> {
+    let handle = ShaderInputNode::Private { ty: T::sized_ty() }.insert_api_raw();
+    T::create_view_from_raw_ptr(Box::new(handle))
   }
 
   pub fn bindgroups(&mut self) -> &mut ShaderBindGroupBuilder {
     &mut self.bindgroups
   }
 
-  pub fn bind_by<T: ShaderBindingProvider>(&mut self, instance: &T) -> Node<T::Node> {
+  pub fn bind_by<T: ShaderBindingProvider>(&mut self, instance: &T) -> T::ShaderInstance {
     self.bindgroups().bind_by(instance)
   }
 

@@ -30,7 +30,7 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
     quote! {
       pub fn #field_name(node: rendiation_shader_api::Node<Self>) -> rendiation_shader_api::Node<<#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType> {
         unsafe {
-          rendiation_shader_api::index_access_field::<<#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType>(node.handle(), #idx)
+          rendiation_shader_api::index_access_field(node.handle(), #idx).into_node()
         }
       }
     }
@@ -52,9 +52,40 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
     quote! { self.#field_name.into_shader_ty().to_value(), }
   });
 
+  // shader ptr part
+  let shader_api_ptr_instance_name = format_ident!("{}ShaderAPIPtrInstance", struct_name);
+  let mut i = 0;
+  let ptr_sub_fields_accessor = s.map_collect_visible_fields(|(field_name, ty)| {
+    i += 1;
+    let idx: usize = i - 1;
+    quote! {
+      pub fn #field_name(&self) -> rendiation_shader_api::ShaderPtrOf<<#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType> {
+        let v = self.0.field_index(#idx);
+        <#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType::create_view_from_raw_ptr(v)
+      }
+    }
+  });
+
+  // shader readonly ptr part
+  let shader_api_readonly_ptr_instance_name =
+    format_ident!("{}ShaderAPIReadonlyPtrInstance", struct_name);
+  let mut i = 0;
+  let readonly_ptr_sub_fields_accessor = s.map_collect_visible_fields(|(field_name, ty)| {
+    i += 1;
+    let idx: usize = i - 1;
+    quote! {
+      pub fn #field_name(&self) -> rendiation_shader_api::ShaderReadonlyPtrOf<<#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType> {
+        let v = self.0.field_index(#idx);
+        <#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType::create_readonly_view_from_raw_ptr(v)
+      }
+    }
+  });
+
+  let struct_vis = &s.vis;
+
   quote! {
     #[derive(Copy, Clone)]
-    pub struct #shader_api_instance_name {
+    #struct_vis struct #shader_api_instance_name {
       #(#instance_fields)*
     }
 
@@ -68,6 +99,44 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
       fn single_ty() -> rendiation_shader_api::ShaderValueSingleType {
         rendiation_shader_api::ShaderValueSingleType::Sized(Self::sized_ty())
       }
+    }
+
+    #[derive(Clone)]
+    #struct_vis struct #shader_api_ptr_instance_name(BoxedShaderPtr);
+    #[derive(Clone)]
+    #struct_vis struct #shader_api_readonly_ptr_instance_name(BoxedShaderPtr);
+    impl rendiation_shader_api::ShaderAbstractPtrAccess for #struct_name {
+      type PtrView = #shader_api_ptr_instance_name;
+      type ReadonlyPtrView = #shader_api_readonly_ptr_instance_name;
+      fn create_view_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::PtrView {
+        #shader_api_ptr_instance_name(ptr)
+      }
+      fn create_readonly_view_from_raw_ptr(ptr: BoxedShaderPtr) -> Self::ReadonlyPtrView {
+        #shader_api_readonly_ptr_instance_name(ptr)
+      }
+    }
+    impl rendiation_shader_api::ReadonlySizedShaderPtrView for #shader_api_readonly_ptr_instance_name {
+      type Node = #struct_name;
+      fn load(&self) -> Node<#struct_name> {
+        unsafe { self.0.load().into_node() }
+      }
+    }
+    impl rendiation_shader_api::ReadonlySizedShaderPtrView for #shader_api_ptr_instance_name {
+      type Node = #struct_name;
+      fn load(&self) -> Node<#struct_name> {
+        unsafe { self.0.load().into_node() }
+      }
+    }
+    impl rendiation_shader_api::SizedShaderPtrView for #shader_api_ptr_instance_name {
+      fn store(&self, value: impl Into<Node<#struct_name>>) {
+        self.0.store(value.into().handle());
+      }
+    }
+    impl #shader_api_ptr_instance_name {
+      #(#ptr_sub_fields_accessor)*
+    }
+    impl #shader_api_readonly_ptr_instance_name {
+      #(#readonly_ptr_sub_fields_accessor)*
     }
 
     impl #struct_name {
@@ -125,86 +194,5 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
       }
     }
 
-  }
-}
-
-pub fn derive_shader_struct_storage_ptr_access_impl(
-  input: &syn::DeriveInput,
-) -> proc_macro2::TokenStream {
-  let s = StructInfo::new(input);
-  let mut generated = proc_macro2::TokenStream::new();
-  generated.append_all(derive_shader_struct_storage_ptr_access(&s));
-  generated
-}
-
-fn derive_shader_struct_storage_ptr_access(s: &StructInfo) -> proc_macro2::TokenStream {
-  let struct_name = &s.struct_name;
-
-  let field_ptr_access = s
-    .iter_visible_fields()
-    .enumerate()
-    .map(|(idx, (field_name, ty))| {
-      let fn_name = format_ident!("storage_node_{}_field_ptr", field_name);
-      quote! {
-       pub fn #fn_name(node: rendiation_shader_api::StorageNode<#struct_name>) -> rendiation_shader_api::StorageNode<#ty> {
-          unsafe { rendiation_shader_api::index_access_field(node.handle(), #idx) }
-       }
-      }
-    })
-    .collect::<Vec<_>>();
-
-  let readonly_field_ptr_access = s
-    .iter_visible_fields()
-    .enumerate()
-    .map(|(idx, (field_name, ty))| {
-      let fn_name = format_ident!("readonly_storage_node_{}_field_ptr", field_name);
-      quote! {
-       pub fn #fn_name(node: rendiation_shader_api::ReadOnlyStorageNode<#struct_name>) -> rendiation_shader_api::ReadOnlyStorageNode<#ty> {
-          unsafe { rendiation_shader_api::index_access_field(node.handle(), #idx) }
-       }
-      }
-    })
-    .collect::<Vec<_>>();
-
-  quote! {
-    impl #struct_name {
-      #(#field_ptr_access)*
-    }
-
-    impl #struct_name {
-      #(#readonly_field_ptr_access)*
-    }
-  }
-}
-
-pub fn derive_shader_struct_uniform_ptr_access_impl(
-  input: &syn::DeriveInput,
-) -> proc_macro2::TokenStream {
-  let s = StructInfo::new(input);
-  let mut generated = proc_macro2::TokenStream::new();
-  generated.append_all(derive_shader_struct_uniform_ptr_access(&s));
-  generated
-}
-
-fn derive_shader_struct_uniform_ptr_access(s: &StructInfo) -> proc_macro2::TokenStream {
-  let struct_name = &s.struct_name;
-
-  let field_ptr_access = s
-    .iter_visible_fields()
-    .enumerate()
-    .map(|(idx, (field_name, ty))| {
-      let fn_name = format_ident!("uniform_node_{}_field_ptr", field_name);
-      quote! {
-       pub fn #fn_name(node: rendiation_shader_api::UniformNode<#struct_name>) -> rendiation_shader_api::UniformNode<#ty> {
-          unsafe { rendiation_shader_api::index_access_field(node.handle(), #idx) }
-       }
-      }
-    })
-    .collect::<Vec<_>>();
-
-  quote! {
-    impl #struct_name {
-      #(#field_ptr_access)*
-    }
   }
 }

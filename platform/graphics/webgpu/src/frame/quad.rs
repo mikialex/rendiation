@@ -12,8 +12,8 @@ pub fn generate_quad(vertex_index: Node<u32>, depth: f32) -> Node<QuadVertexOut>
   let top = 1.0;
   let bottom = -1.0;
 
-  let position = val(Vec4::default()).make_local_var();
-  let uv = val(Vec2::default()).make_local_var();
+  let position = val(Vec4::<f32>::default()).make_local_var();
+  let uv = val(Vec2::<f32>::default()).make_local_var();
 
   switch_by(vertex_index)
     .case(0, || {

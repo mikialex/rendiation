@@ -156,10 +156,16 @@ pub struct ImmediateGPUSamplerViewBind;
 
 impl ShaderBindingProvider for ImmediateGPUSamplerViewBind {
   type Node = <GPUSamplerView as ShaderBindingProvider>::Node;
+  fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {
+    node
+  }
 }
 
 pub struct ImmediateGPUCompareSamplerViewBind;
 
 impl ShaderBindingProvider for ImmediateGPUCompareSamplerViewBind {
   type Node = <GPUComparisonSamplerView as ShaderBindingProvider>::Node;
+  fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {
+    node
+  }
 }

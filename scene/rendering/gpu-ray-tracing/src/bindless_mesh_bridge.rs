@@ -2,17 +2,16 @@ use crate::*;
 
 #[derive(Clone)]
 pub struct BindlessMeshRtxAccessInvocation {
-  normal: StorageNode<[u32]>,
-  indices: StorageNode<[u32]>,
-  address: StorageNode<[AttributeMeshMeta]>,
-  pub sm_to_mesh: StorageNode<[u32]>,
+  normal: ShaderPtrOf<[u32]>,
+  indices: ShaderPtrOf<[u32]>,
+  address: ShaderPtrOf<[AttributeMeshMeta]>,
+  pub sm_to_mesh: ShaderPtrOf<[u32]>,
 }
 
 impl BindlessMeshRtxAccessInvocation {
   pub fn get_triangle_idx(&self, primitive_id: Node<u32>, mesh_id: Node<u32>) -> Node<Vec3<u32>> {
     let vertex_id = primitive_id * val(3);
-    let index_offset =
-      AttributeMeshMeta::storage_node_index_offset_field_ptr(self.address.index(mesh_id)).load();
+    let index_offset = self.address.index(mesh_id).index_offset().load();
     let offset = index_offset + vertex_id;
     (
       self.indices.index(offset).load(),
@@ -23,12 +22,11 @@ impl BindlessMeshRtxAccessInvocation {
   }
 
   pub fn get_normal(&self, index: Node<u32>, mesh_id: Node<u32>) -> Node<Vec3<f32>> {
-    let normal_offset =
-      AttributeMeshMeta::storage_node_normal_offset_field_ptr(self.address.index(mesh_id)).load();
+    let normal_offset = self.address.index(mesh_id).normal_offset().load();
 
     unsafe {
       Vec3::<f32>::sized_ty()
-        .load_from_u32_buffer(self.normal, normal_offset + index * val(3))
+        .load_from_u32_buffer(&self.normal, normal_offset + index * val(3))
         .cast_type::<Vec3<f32>>()
     }
   }

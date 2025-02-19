@@ -251,7 +251,7 @@ impl Node<Mat4<f32>> {
     self.nth_colum(3).xyz()
   }
   pub fn nth_colum(self, n: u32) -> Node<Vec4<f32>> {
-    unsafe { index_access_field(self.handle(), n as usize) }
+    unsafe { index_access_field(self.handle(), n as usize).into_node() }
   }
 }
 
@@ -426,8 +426,8 @@ impl<T: ExpDecomposableShaderNodeType> Node<T> {
     .handle();
 
     unsafe {
-      let fr = index_access_field(raw, 0);
-      let exp = index_access_field(raw, 1);
+      let fr = index_access_field(raw, 0).into_node();
+      let exp = index_access_field(raw, 1).into_node();
       (fr, exp)
     }
   }

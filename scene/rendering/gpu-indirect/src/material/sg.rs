@@ -73,12 +73,12 @@ pub fn pbr_sg_material_pipeline_hash(
 }
 
 pub struct PhysicalSpecularGlossinessMaterialGPU<'a> {
-  pub storage: &'a StorageBufferReadOnlyDataView<[PhysicalSpecularGlossinessMaterialStorage]>,
+  pub storage: &'a StorageBufferReadonlyDataView<[PhysicalSpecularGlossinessMaterialStorage]>,
   pub alpha_mode: AlphaMode,
   // no matter if we using indirect texture binding, this storage is required for checking the
   // texture if is exist in shader
   pub texture_storages:
-    &'a StorageBufferReadOnlyDataView<[PhysicalSpecularGlossinessMaterialTextureHandlesStorage]>,
+    &'a StorageBufferReadonlyDataView<[PhysicalSpecularGlossinessMaterialTextureHandlesStorage]>,
   pub binding_sys: &'a GPUTextureBindingSystem,
 }
 

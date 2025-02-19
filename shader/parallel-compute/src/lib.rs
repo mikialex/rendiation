@@ -145,7 +145,7 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
   fn dispatch_compute(
     &self,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> Option<StorageBufferReadOnlyDataView<Vec4<u32>>> {
+  ) -> Option<StorageBufferReadonlyDataView<Vec4<u32>>> {
     if !cx.force_indirect_dispatch
       && let Some(work_size) = self.work_size()
     {

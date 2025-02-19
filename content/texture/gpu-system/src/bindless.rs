@@ -51,11 +51,11 @@ impl BindlessTextureSystemSource {
 
 both!(
   BindlessTexturesInShader,
-  ShaderHandlePtr<BindingArray<ShaderHandlePtr<ShaderTexture2D>>>
+  ShaderBinding<BindingArray<ShaderBinding<ShaderTexture2D>>>
 );
 both!(
   BindlessSamplersInShader,
-  ShaderHandlePtr<BindingArray<ShaderHandlePtr<ShaderSampler>>>
+  ShaderBinding<BindingArray<ShaderBinding<ShaderSampler>>>
 );
 
 impl ReactiveGeneralQuery for BindlessTextureSystemSource {

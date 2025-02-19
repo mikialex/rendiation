@@ -86,8 +86,8 @@ impl DeviceSceneModelRenderSubBatch {
 }
 
 struct MultiIndirectDrawBatch {
-  draw_command_buffer: StorageBufferReadOnlyDataView<[DrawIndexedIndirect]>,
-  draw_count: StorageBufferReadOnlyDataView<Vec4<u32>>,
+  draw_command_buffer: StorageBufferReadonlyDataView<[DrawIndexedIndirect]>,
+  draw_count: StorageBufferReadonlyDataView<Vec4<u32>>,
 }
 
 impl IndirectDrawProvider for MultiIndirectDrawBatch {
@@ -195,7 +195,7 @@ impl DeviceInvocation<Node<DrawIndexedIndirect>> for DrawCommandGeneratorInvocat
   ) -> (Node<DrawIndexedIndirect>, Node<bool>) {
     let (id, valid) = self.scene_models.invocation_logic(logic_global_id);
 
-    let draw_command = make_local_var();
+    let draw_command = make_local_var::<DrawIndexedIndirect>();
     if_by(valid, || {
       draw_command.store(self.generator.generate_draw_command(id));
     });

@@ -246,7 +246,7 @@ impl DeviceTaskGraphExecutor {
         let payload = spawner.spawn_task(id, dispatch_size);
         instance
           .spawn_new_task_dyn(
-            payload.cast_untyped_node(),
+            payload.handle(),
             TaskParentRef::none_parent(),
             &T::sized_ty(),
           )

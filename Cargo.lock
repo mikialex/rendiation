@@ -3846,6 +3846,7 @@ version = "0.1.0"
 dependencies = [
  "anymap",
  "bytemuck",
+ "dyn-clone",
  "fast-hash-collection",
  "once_cell",
  "parking_lot",

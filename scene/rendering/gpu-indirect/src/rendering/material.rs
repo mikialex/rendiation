@@ -96,8 +96,8 @@ impl RenderImplProvider<Box<dyn IndirectModelMaterialRenderImpl>>
 
 struct UnlitMaterialDefaultIndirectRenderImpl {
   material_access: ForeignKeyReadView<StandardModelRefUnlitMaterial>,
-  storages: StorageBufferReadOnlyDataView<[UnlitMaterialStorage]>,
-  texture_handles: StorageBufferReadOnlyDataView<[UnlitMaterialTextureHandlesStorage]>,
+  storages: StorageBufferReadonlyDataView<[UnlitMaterialStorage]>,
+  texture_handles: StorageBufferReadonlyDataView<[UnlitMaterialTextureHandlesStorage]>,
   alpha_mode: ComponentReadView<AlphaModeOf<UnlitMaterialAlphaConfig>>,
 }
 
@@ -159,9 +159,9 @@ impl RenderImplProvider<Box<dyn IndirectModelMaterialRenderImpl>>
 
 struct PbrMRMaterialDefaultIndirectRenderImpl {
   material_access: ForeignKeyReadView<StandardModelRefPbrMRMaterial>,
-  storages: StorageBufferReadOnlyDataView<[PhysicalMetallicRoughnessMaterialStorage]>,
+  storages: StorageBufferReadonlyDataView<[PhysicalMetallicRoughnessMaterialStorage]>,
   tex_storages:
-    StorageBufferReadOnlyDataView<[PhysicalMetallicRoughnessMaterialTextureHandlesStorage]>,
+    StorageBufferReadonlyDataView<[PhysicalMetallicRoughnessMaterialTextureHandlesStorage]>,
   alpha_mode: ComponentReadView<AlphaModeOf<PbrMRMaterialAlphaConfig>>,
 }
 
@@ -248,9 +248,9 @@ impl RenderImplProvider<Box<dyn IndirectModelMaterialRenderImpl>>
 
 struct PbrSGMaterialDefaultIndirectRenderImpl {
   material_access: ForeignKeyReadView<StandardModelRefPbrSGMaterial>,
-  storages: StorageBufferReadOnlyDataView<[PhysicalSpecularGlossinessMaterialStorage]>,
+  storages: StorageBufferReadonlyDataView<[PhysicalSpecularGlossinessMaterialStorage]>,
   tex_storages:
-    StorageBufferReadOnlyDataView<[PhysicalSpecularGlossinessMaterialTextureHandlesStorage]>,
+    StorageBufferReadonlyDataView<[PhysicalSpecularGlossinessMaterialTextureHandlesStorage]>,
   alpha_mode: ComponentReadView<AlphaModeOf<PbrSGMaterialAlphaConfig>>,
 }
 

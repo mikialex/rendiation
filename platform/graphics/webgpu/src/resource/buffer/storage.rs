@@ -1,15 +1,15 @@
 use crate::*;
 
-pub struct StorageBufferReadOnlyDataView<T: Std430MaybeUnsized + ?Sized> {
+pub struct StorageBufferReadonlyDataView<T: Std430MaybeUnsized + ?Sized> {
   pub gpu: GPUBufferResourceView,
   pub(crate) phantom: PhantomData<T>,
 }
 
-impl<T: Std430MaybeUnsized + ?Sized> StorageBufferReadOnlyDataView<T> {
+impl<T: Std430MaybeUnsized + ?Sized> StorageBufferReadonlyDataView<T> {
   pub fn try_from_raw(gpu: GPUBufferResourceView) -> Option<Self> {
     // todo, check if size is correct
     if gpu.resource.desc.usage.contains(gpu::BufferUsages::STORAGE) {
-      Some(StorageBufferReadOnlyDataView {
+      Some(StorageBufferReadonlyDataView {
         gpu,
         phantom: PhantomData,
       })
@@ -25,7 +25,7 @@ impl<T: Std430MaybeUnsized + ?Sized> StorageBufferReadOnlyDataView<T> {
   }
 }
 
-impl<T: Std430> StorageBufferReadOnlyDataView<[T]> {
+impl<T: Std430> StorageBufferReadonlyDataView<[T]> {
   pub fn item_count(&self) -> u32 {
     let size: u64 = self.view_byte_size().into();
     let count = size / std::mem::size_of::<T>() as u64;
@@ -33,7 +33,7 @@ impl<T: Std430> StorageBufferReadOnlyDataView<[T]> {
   }
 }
 
-impl<T: Std430MaybeUnsized + ?Sized> Clone for StorageBufferReadOnlyDataView<T> {
+impl<T: Std430MaybeUnsized + ?Sized> Clone for StorageBufferReadonlyDataView<T> {
   fn clone(&self) -> Self {
     Self {
       gpu: self.gpu.clone(),
@@ -42,7 +42,7 @@ impl<T: Std430MaybeUnsized + ?Sized> Clone for StorageBufferReadOnlyDataView<T> 
   }
 }
 
-impl<T: Std430MaybeUnsized + ?Sized> Deref for StorageBufferReadOnlyDataView<T> {
+impl<T: Std430MaybeUnsized + ?Sized> Deref for StorageBufferReadonlyDataView<T> {
   type Target = GPUBufferResourceView;
 
   fn deref(&self) -> &Self::Target {
@@ -50,23 +50,23 @@ impl<T: Std430MaybeUnsized + ?Sized> Deref for StorageBufferReadOnlyDataView<T> 
   }
 }
 
-impl<T: Std430MaybeUnsized + ?Sized> BindableResourceProvider for StorageBufferReadOnlyDataView<T> {
+impl<T: Std430MaybeUnsized + ?Sized> BindableResourceProvider for StorageBufferReadonlyDataView<T> {
   fn get_bindable(&self) -> BindingResourceOwned {
     self.gpu.get_bindable()
   }
 }
-impl<T: Std430MaybeUnsized + ?Sized> CacheAbleBindingSource for StorageBufferReadOnlyDataView<T> {
+impl<T: Std430MaybeUnsized + ?Sized> CacheAbleBindingSource for StorageBufferReadonlyDataView<T> {
   fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
     self.gpu.get_binding_build_source()
   }
 }
-impl<T: Std430MaybeUnsized + ?Sized> BindableResourceView for StorageBufferReadOnlyDataView<T> {
+impl<T: Std430MaybeUnsized + ?Sized> BindableResourceView for StorageBufferReadonlyDataView<T> {
   fn as_bindable(&self) -> gpu::BindingResource {
     self.gpu.as_bindable()
   }
 }
 
-impl<T: Std430MaybeUnsized + ?Sized> StorageBufferReadOnlyDataView<T> {
+impl<T: Std430MaybeUnsized + ?Sized> StorageBufferReadonlyDataView<T> {
   pub fn create(device: &GPUDevice, data: &T) -> Self {
     Self::create_by(device, StorageBufferInit::WithInit(data))
   }
@@ -110,8 +110,8 @@ impl<T: Std430MaybeUnsized + ?Sized> StorageBufferReadOnlyDataView<T> {
 pub fn create_gpu_readonly_storage<T: Std430MaybeUnsized + ?Sized>(
   data: &T,
   device: impl AsRef<GPUDevice>,
-) -> StorageBufferReadOnlyDataView<T> {
-  StorageBufferReadOnlyDataView::create(device.as_ref(), data)
+) -> StorageBufferReadonlyDataView<T> {
+  StorageBufferReadonlyDataView::create(device.as_ref(), data)
 }
 
 pub struct StorageBufferDataView<T: Std430MaybeUnsized + ?Sized> {
@@ -140,8 +140,8 @@ impl<T: Std430MaybeUnsized + ?Sized> StorageBufferDataView<T> {
       None
     }
   }
-  pub fn into_readonly_view(self) -> StorageBufferReadOnlyDataView<T> {
-    StorageBufferReadOnlyDataView {
+  pub fn into_readonly_view(self) -> StorageBufferReadonlyDataView<T> {
+    StorageBufferReadonlyDataView {
       gpu: self.gpu.clone(),
       phantom: PhantomData,
     }

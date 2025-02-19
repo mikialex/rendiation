@@ -313,11 +313,11 @@ impl<T: ShaderTextureType> TextureSamplingAction<T> {
   }
 }
 
-impl<T: ShaderTextureType> HandleNode<T> {
+impl<T: ShaderTextureType> BindingNode<T> {
   /// just for shortcut
   pub fn sample(
     &self,
-    sampler: HandleNode<ShaderSampler>,
+    sampler: BindingNode<ShaderSampler>,
     position: impl Into<Node<T::Input>>,
   ) -> Node<T::Output>
   where
@@ -328,7 +328,7 @@ impl<T: ShaderTextureType> HandleNode<T> {
   /// just for shortcut
   pub fn sample_zero_level(
     &self,
-    sampler: HandleNode<ShaderSampler>,
+    sampler: BindingNode<ShaderSampler>,
     position: impl Into<Node<T::Input>>,
   ) -> Node<T::Output>
   where
@@ -408,7 +408,7 @@ impl<T: ShaderTextureType> HandleNode<T> {
 
   pub fn build_sample_call(
     &self,
-    sampler: HandleNode<ShaderSampler>,
+    sampler: BindingNode<ShaderSampler>,
     position: impl Into<Node<T::Input>>,
   ) -> TextureSamplingAction<T>
   where
@@ -457,10 +457,10 @@ impl<T> DepthTextureSamplingAction<T> {
   }
 }
 
-impl<T: ShaderTextureType + DepthSampleTarget> HandleNode<T> {
+impl<T: ShaderTextureType + DepthSampleTarget> BindingNode<T> {
   pub fn build_compare_sample_call(
     &self,
-    sampler: HandleNode<ShaderCompareSampler>,
+    sampler: BindingNode<ShaderCompareSampler>,
     position: impl Into<Node<T::Input>>,
     reference: Node<f32>,
   ) -> DepthTextureSamplingAction<T> {
@@ -480,7 +480,7 @@ impl<T: ShaderTextureType + DepthSampleTarget> HandleNode<T> {
   }
 }
 
-impl<T: ShaderTextureType> HandleNode<T> {
+impl<T: ShaderTextureType> BindingNode<T> {
   pub fn texture_number_samples(&self) -> Node<u32>
   where
     T: MultiSampleTarget,
@@ -517,7 +517,7 @@ impl D2LikeTextureType for ShaderMultiSampleDepthTexture2D {}
 pub trait D3TextureType {}
 impl D3TextureType for ShaderTexture3D {}
 
-impl<T: ShaderTextureType> HandleNode<T> {
+impl<T: ShaderTextureType> BindingNode<T> {
   /// using None means base level
   fn texture_dimension(&self, level: Option<Node<u32>>) -> ShaderNodeExpr {
     ShaderNodeExpr::TextureQuery(
@@ -754,7 +754,7 @@ impl SingleSampleTarget for ShaderStorageTextureR2DArray {}
 impl SingleSampleTarget for ShaderStorageTextureRW2DArray {}
 impl SingleSampleTarget for ShaderStorageTextureW2DArray {}
 
-impl<T> HandleNode<T>
+impl<T> BindingNode<T>
 where
   T: ShaderTextureType + ShaderStorageTextureLike + ShaderDirectLoad + SingleLayerTarget,
 {
@@ -770,7 +770,7 @@ where
   }
 }
 
-impl<T> HandleNode<T>
+impl<T> BindingNode<T>
 where
   T: ShaderTextureType + ShaderStorageTextureLike + ShaderDirectLoad + ArrayLayerTarget,
 {

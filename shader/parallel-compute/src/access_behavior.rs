@@ -71,7 +71,7 @@ where
     let current = current.into_i32(); // todo overflow check
     let target = current + val(self.offset);
 
-    let output = zeroed_val().make_local_var();
+    let output = zeroed_val::<T>().make_local_var();
     if_by(target.less_than(val(0)), || {
       output.store(self.ob.sample(source.start_point()));
     })

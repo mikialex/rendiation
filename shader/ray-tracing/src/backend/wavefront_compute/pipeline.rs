@@ -95,9 +95,9 @@ pub struct TraceTaskResource {
   pub payload_bumper: DeviceBumpAllocationInstance<u32>,
   pub payload_read_back_bumper: DeviceBumpAllocationInstance<u32>,
   pub info: Arc<TraceTaskMetaInfo>,
-  pub current_sbt: StorageBufferReadOnlyDataView<u32>,
-  pub sbt_task_mapping: StorageBufferReadOnlyDataView<SbtTaskMapping>,
-  pub launch_size: StorageBufferReadOnlyDataView<Vec3<u32>>,
+  pub current_sbt: StorageBufferReadonlyDataView<u32>,
+  pub sbt_task_mapping: StorageBufferReadonlyDataView<SbtTaskMapping>,
+  pub launch_size: StorageBufferReadonlyDataView<Vec3<u32>>,
 }
 
 fn create_task_graph<'a>(
@@ -113,11 +113,11 @@ fn create_task_graph<'a>(
   let trace_resource = trace_resource.get_or_insert_with(|| {
     let info = source.compute_trace_meta_info();
 
-    let target_sbt_buffer = StorageBufferReadOnlyDataView::create(device, &0);
+    let target_sbt_buffer = StorageBufferReadonlyDataView::create(device, &0);
     let sbt_task_mapping_buffer =
-      StorageBufferReadOnlyDataView::create(device, &info.create_sbt_mapping());
+      StorageBufferReadonlyDataView::create(device, &info.create_sbt_mapping());
     // written in trace_ray. see RayLaunchSizeBuffer
-    let launch_size_buffer = StorageBufferReadOnlyDataView::create(device, &vec3(0, 0, 0));
+    let launch_size_buffer = StorageBufferReadonlyDataView::create(device, &vec3(0, 0, 0));
 
     let payload_u32_len = size as usize * (info.payload_max_u32_count as usize);
     let payload_bumper = DeviceBumpAllocationInstance::new(payload_u32_len, device);

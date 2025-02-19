@@ -184,7 +184,7 @@ struct PreFilterSpecularTask {
 #[repr(C)]
 #[std140_layout]
 #[derive(Clone, Copy, ShaderStruct, Default)]
-struct SpecularGenerationConfig {
+pub struct SpecularGenerationConfig {
   pub direction: Mat4<f32>,
   pub sample_count: u32,
   pub roughness: f32,
@@ -231,8 +231,8 @@ impl GraphicsShaderProvider for PreFilterSpecularTask {
 }
 
 pub fn prefilter_specular(
-  env: HandleNode<ShaderTextureCube>,
-  sampler: HandleNode<ShaderSampler>,
+  env: BindingNode<ShaderTextureCube>,
+  sampler: BindingNode<ShaderSampler>,
   normal: Node<Vec3<f32>>,
   resolution: Node<f32>,
   roughness: Node<f32>,
@@ -283,7 +283,7 @@ struct PreFilterDiffuseTask {
 #[repr(C)]
 #[std140_layout]
 #[derive(Clone, Copy, ShaderStruct, Default)]
-struct DiffuseTaskGenerationConfig {
+pub struct DiffuseTaskGenerationConfig {
   pub direction: Mat4<f32>,
   pub sample_count: u32,
 }
@@ -321,8 +321,8 @@ impl GraphicsShaderProvider for PreFilterDiffuseTask {
 }
 
 pub fn prefilter_diffuse(
-  env: HandleNode<ShaderTextureCube>,
-  sampler: HandleNode<ShaderSampler>,
+  env: BindingNode<ShaderTextureCube>,
+  sampler: BindingNode<ShaderSampler>,
   normal: Node<Vec3<f32>>,
   sampler_count: Node<u32>,
 ) -> Node<Vec3<f32>> {

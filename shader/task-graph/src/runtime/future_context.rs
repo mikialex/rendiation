@@ -43,8 +43,9 @@ impl TaskGroupDeviceInvocationInstanceLateResolved {
     task_id: Node<u32>,
     argument_read_back: impl FnOnce(Node<T>) + Copy,
   ) -> Node<bool> {
-    self.poll_task_dyn(task_id, |x| unsafe {
-      argument_read_back(x.cast_type::<ShaderStoragePtr<T>>().load())
+    self.poll_task_dyn(task_id, |x| {
+      let argument = T::create_view_from_raw_ptr(x).load();
+      argument_read_back(argument)
     })
   }
 
@@ -52,7 +53,7 @@ impl TaskGroupDeviceInvocationInstanceLateResolved {
   pub fn poll_task_dyn(
     &self,
     task_id: Node<u32>,
-    argument_read_back: impl FnOnce(StorageNode<AnyType>) + Copy,
+    argument_read_back: impl FnOnce(BoxedShaderPtr) + Copy,
   ) -> Node<bool> {
     let inner = self.inner.read_recursive();
     inner
@@ -67,13 +68,13 @@ impl TaskGroupDeviceInvocationInstanceLateResolved {
     payload: Node<T>,
     parent_ref: TaskParentRef,
   ) -> Option<TaskFutureInvocationRightValue> {
-    self.spawn_new_task_dyn(payload.cast_untyped_node(), parent_ref, &T::sized_ty())
+    self.spawn_new_task_dyn(payload.handle(), parent_ref, &T::sized_ty())
   }
 
   #[must_use]
   pub fn spawn_new_task_dyn(
     &self,
-    payload: Node<AnyType>,
+    payload: ShaderNodeRawHandle,
     parent_ref: TaskParentRef,
     ty: &ShaderSizedValueType,
   ) -> Option<TaskFutureInvocationRightValue> {
@@ -141,12 +142,12 @@ impl DeviceTaskSystemPollCtx<'_> {
 }
 
 impl DeviceTaskSystemPollCtx<'_> {
-  pub fn access_self_payload<T: ShaderSizedValueNodeType>(&mut self) -> StorageNode<T> {
+  pub fn access_self_payload<T: ShaderSizedValueNodeType>(&mut self) -> ShaderPtrOf<T> {
     let current = self.self_task_idx;
-    self.self_task.rw_payload(current)
+    self.self_task.rw_payload::<T>(current)
   }
 
-  pub fn access_self_payload_untyped(&mut self) -> StorageNode<AnyType> {
+  pub fn access_self_payload_untyped(&mut self) -> BoxedShaderPtr {
     let current = self.self_task_idx;
     self.self_task.rw_payload_dyn(current)
   }

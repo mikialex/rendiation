@@ -70,7 +70,7 @@ impl TaskPool {
     };
     let node = cx.bindgroups().binding_dyn(desc).using();
     TaskPoolInvocationInstance {
-      pool: unsafe { node.into_node() },
+      pool: node,
       state_desc: self.state_desc.clone(),
       payload_ty: self.task_ty_desc.fields[1].ty.clone(),
     }
@@ -83,7 +83,7 @@ impl TaskPool {
 
 #[derive(Clone)]
 pub struct TaskPoolInvocationInstance {
-  pool: StorageNode<[AnyType]>,
+  pool: ShaderNodeRawHandle, // [generated_type]
   state_desc: DynamicTypeMetaInfo,
   payload_ty: ShaderSizedValueType,
 }
@@ -128,8 +128,8 @@ impl TaskParentRef {
 }
 
 impl TaskPoolInvocationInstance {
-  pub fn access_item_ptr(&self, idx: Node<u32>) -> StorageNode<AnyType> {
-    self.pool.index(idx)
+  pub fn access_item_ptr(&self, idx: Node<u32>) -> BoxedShaderPtr {
+    self.pool.field_array_index(idx)
   }
 
   pub fn is_task_finished(&self, task_id: Node<u32>) -> Node<bool> {
@@ -149,7 +149,7 @@ impl TaskPoolInvocationInstance {
   pub fn spawn_new_task_dyn(
     &self,
     at: Node<u32>,
-    payload: Node<AnyType>,
+    payload: ShaderNodeRawHandle,
     parent_ref: TaskParentRef,
     ty: &ShaderSizedValueType,
   ) {
@@ -171,42 +171,42 @@ impl TaskPoolInvocationInstance {
     // write states with given init value
     let state_ptr = self.rw_states(at);
     for (i, v) in self.state_desc.fields_init.iter().enumerate() {
-      unsafe {
-        let state_field: StorageNode<AnyType> = index_access_field(state_ptr.handle(), i);
-        let ty = &self.state_desc.ty.fields[i].ty;
-        if let Some(v) = v {
-          state_field.store(v.to_shader_node_by_value(ty).into_node());
-        } else {
-          state_field.store(ShaderNodeExpr::Zeroed { target: ty.clone() }.insert_api());
-        }
-      };
+      let state_field = state_ptr.field_index(i);
+      let ty = &self.state_desc.ty.fields[i].ty;
+      if let Some(v) = v {
+        state_field.store(v.to_shader_node_by_value(ty));
+      } else {
+        state_field.store(ShaderNodeExpr::Zeroed { target: ty.clone() }.insert_api_raw());
+      }
     }
   }
 
-  pub fn rw_task_state(&self, task: Node<u32>) -> StorageNode<u32> {
+  pub fn rw_task_state(&self, task: Node<u32>) -> ShaderPtrOf<u32> {
     let item_ptr = self.access_item_ptr(task);
-    unsafe { index_access_field(item_ptr.handle(), 0) }
+    let ptr = item_ptr.field_index(0);
+    u32::create_view_from_raw_ptr(ptr)
   }
-  pub fn rw_payload<T: ShaderSizedValueNodeType>(&self, task: Node<u32>) -> StorageNode<T> {
+  pub fn rw_payload<T: ShaderSizedValueNodeType>(&self, task: Node<u32>) -> ShaderPtrOf<T> {
     assert_eq!(self.payload_ty, T::sized_ty());
-    let item_ptr = self.access_item_ptr(task);
-    unsafe { index_access_field(item_ptr.handle(), 1) }
+    T::create_view_from_raw_ptr(self.rw_payload_dyn(task))
   }
-  pub fn rw_payload_dyn(&self, task: Node<u32>) -> StorageNode<AnyType> {
+  pub fn rw_payload_dyn(&self, task: Node<u32>) -> BoxedShaderPtr {
     let item_ptr = self.access_item_ptr(task);
-    unsafe { index_access_field(item_ptr.handle(), 1) }
+    item_ptr.field_index(1)
   }
-  pub fn rw_states(&self, task: Node<u32>) -> StorageNode<AnyType> {
+  pub fn rw_states(&self, task: Node<u32>) -> BoxedShaderPtr {
     let item_ptr = self.access_item_ptr(task);
-    unsafe { index_access_field(item_ptr.handle(), 2) }
+    item_ptr.field_index(2)
   }
 
-  pub fn rw_parent_task_type_id(&self, task: Node<u32>) -> StorageNode<u32> {
+  pub fn rw_parent_task_type_id(&self, task: Node<u32>) -> ShaderPtrOf<u32> {
     let item_ptr = self.access_item_ptr(task);
-    unsafe { index_access_field(item_ptr.handle(), 3) }
+    let ptr = item_ptr.field_index(3);
+    u32::create_view_from_raw_ptr(ptr)
   }
-  pub fn rw_parent_task_index(&self, task: Node<u32>) -> StorageNode<u32> {
+  pub fn rw_parent_task_index(&self, task: Node<u32>) -> ShaderPtrOf<u32> {
     let item_ptr = self.access_item_ptr(task);
-    unsafe { index_access_field(item_ptr.handle(), 4) }
+    let ptr = item_ptr.field_index(4);
+    u32::create_view_from_raw_ptr(ptr)
   }
 }

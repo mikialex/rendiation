@@ -97,14 +97,13 @@ clone_trait_object!(RtxCameraRenderInvocation);
 
 #[derive(Clone)]
 pub struct DefaultRtxCameraInvocation {
-  camera: UniformNode<CameraGPUTransform>,
+  camera: ShaderReadonlyPtrOf<CameraGPUTransform>,
 }
 
 impl RtxCameraRenderInvocation for DefaultRtxCameraInvocation {
   fn generate_ray(&self, uv: Node<Vec2<f32>>) -> ShaderRay {
-    let view_projection_inv =
-      CameraGPUTransform::uniform_node_view_projection_inv_field_ptr(self.camera).load();
-    let world = CameraGPUTransform::uniform_node_world_field_ptr(self.camera).load();
+    let view_projection_inv = self.camera.view_projection_inv().load();
+    let world = self.camera.world().load();
 
     let world_target = shader_uv_space_to_world_space(view_projection_inv, uv, val(1.));
 

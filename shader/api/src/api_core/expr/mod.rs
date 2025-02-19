@@ -217,6 +217,9 @@ pub unsafe fn fake_val<T: ShaderNodeType>() -> Node<T> {
 }
 
 impl ShaderNodeExpr {
+  pub fn insert_api_raw(self) -> ShaderNodeRawHandle {
+    call_shader_api(|api| api.make_expression(self))
+  }
   pub fn insert_api<T: ShaderNodeType>(self) -> Node<T> {
     call_shader_api(|api| unsafe { api.make_expression(self).into_node() })
   }

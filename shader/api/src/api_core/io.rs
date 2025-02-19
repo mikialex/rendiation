@@ -98,6 +98,8 @@ impl ShaderBindEntry {
 /// should impl by user's container ty
 pub trait ShaderBindingProvider {
   type Node: ShaderNodeType;
+  type ShaderInstance: Clone = Node<Self::Node>;
+  fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance;
   fn binding_desc(&self) -> ShaderBindingDescriptor {
     ShaderBindingDescriptor {
       should_as_storage_buffer_if_is_buffer_like: false,
@@ -163,6 +165,11 @@ impl ShaderBindingDescriptor {
 
 impl<T: ShaderBindingProvider> ShaderBindingProvider for &T {
   type Node = T::Node;
+  type ShaderInstance = T::ShaderInstance;
+
+  fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {
+    (*self).create_instance(node)
+  }
 
   fn binding_desc(&self) -> ShaderBindingDescriptor {
     (*self).binding_desc()
@@ -176,6 +183,12 @@ pub struct DisableFiltering<T>(pub T);
 
 impl<T: ShaderBindingProvider> ShaderBindingProvider for DisableFiltering<T> {
   type Node = T::Node;
+  type ShaderInstance = T::ShaderInstance;
+
+  fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {
+    self.0.create_instance(node)
+  }
+
   fn binding_desc(&self) -> ShaderBindingDescriptor {
     let mut ty = self.0.binding_desc();
     ty.ty.mutate_single(|ty| {
