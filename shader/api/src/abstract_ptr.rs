@@ -25,10 +25,6 @@ pub type BoxedShaderPtr = Box<dyn AbstractShaderPtr>;
 
 dyn_clone::clone_trait_object!(AbstractShaderPtr);
 
-/// enable this when mysterious device lost happens randomly.
-/// check if the crash is due to the out of bound access by crashing the device deterministically
-const ENABLE_STORAGE_BUFFER_BOUND_CHECK: bool = true;
-
 impl AbstractShaderPtr for ShaderNodeRawHandle {
   fn field_index(&self, field_index: usize) -> BoxedShaderPtr {
     let node = ShaderNodeExpr::IndexStatic {
@@ -41,9 +37,6 @@ impl AbstractShaderPtr for ShaderNodeRawHandle {
   }
 
   fn field_array_index(&self, index: Node<u32>) -> BoxedShaderPtr {
-    if ENABLE_STORAGE_BUFFER_BOUND_CHECK {
-      shader_assert(index.less_than(self.array_length()));
-    }
     let node = OperatorNode::Index {
       array: *self,
       entry: index.handle(),
@@ -124,6 +117,10 @@ impl<T> ShaderAbstractPtrAccess for [T] {
   }
 }
 
+/// enable this when mysterious device lost happens randomly.
+/// check if the crash is due to the out of bound access by crashing the device deterministically
+const ENABLE_STORAGE_BUFFER_BOUND_CHECK: bool = true;
+
 pub struct DynLengthArrayView<T> {
   phantom: PhantomData<T>,
   access: BoxedShaderPtr,
@@ -138,7 +135,11 @@ impl<T> Clone for DynLengthArrayView<T> {
 }
 impl<T: SizedShaderAbstractPtrAccess> DynLengthArrayView<T> {
   pub fn index(&self, index: impl Into<Node<u32>>) -> T::PtrView {
-    let item = self.access.field_array_index(index.into());
+    let index = index.into();
+    if ENABLE_STORAGE_BUFFER_BOUND_CHECK {
+      shader_assert(index.less_than(self.array_length()));
+    }
+    let item = self.access.field_array_index(index);
     T::create_view_from_raw_ptr(item)
   }
   pub fn array_length(&self) -> Node<u32> {
@@ -160,7 +161,11 @@ impl<T> Clone for DynLengthArrayReadonlyView<T> {
 }
 impl<T: SizedShaderAbstractPtrAccess> DynLengthArrayReadonlyView<T> {
   pub fn index(&self, index: impl Into<Node<u32>>) -> T::ReadonlyPtrView {
-    let item = self.access.field_array_index(index.into());
+    let index = index.into();
+    if ENABLE_STORAGE_BUFFER_BOUND_CHECK {
+      shader_assert(index.less_than(self.array_length()));
+    }
+    let item = self.access.field_array_index(index);
     T::create_readonly_view_from_raw_ptr(item)
   }
   pub fn array_length(&self) -> Node<u32> {
