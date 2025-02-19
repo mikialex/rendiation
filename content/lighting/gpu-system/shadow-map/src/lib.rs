@@ -287,7 +287,7 @@ impl AbstractBindingSource for BasicShadowMapComponent {
 pub struct BasicShadowMapInvocation {
   shadow_map_atlas: HandleNode<ShaderDepthTexture2DArray>,
   sampler: HandleNode<ShaderCompareSampler>,
-  info: ShaderPtrAccessorOf<Shader140Array<BasicShadowMapInfo, 8>>,
+  info: ShaderAccessorOf<Shader140Array<BasicShadowMapInfo, 8>>,
 }
 
 impl BasicShadowMapInvocation {

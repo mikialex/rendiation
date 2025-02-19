@@ -60,7 +60,7 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
     let idx: usize = i - 1;
     let fn_name = format_ident!("ptr_{}", field_name);
     quote! {
-      pub fn #fn_name(&self) -> rendiation_shader_api::ShaderAccessorOf<<#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType, Ptr> {
+      pub fn #fn_name(&self) -> rendiation_shader_api::ShaderAccessorOf<<#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType> {
         let v = self.0.field_index(#idx);
         <#ty as rendiation_shader_api::ShaderFieldTypeMapper>::ShaderType::create_accessor_from_raw_ptr(v)
       }
@@ -85,20 +85,15 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
       }
     }
 
-    pub struct #shader_api_ptr_instance_name<Ptr>(Ptr);
-    impl<Ptr: Clone> Clone for #shader_api_ptr_instance_name<Ptr>{
-      fn clone(&self) -> Self {
-        #shader_api_ptr_instance_name(self.0.clone())
-      }
-    }
-    impl<Ptr: Copy> Copy for #shader_api_ptr_instance_name<Ptr>{}
-    impl<Ptr: rendiation_shader_api::AbstractShaderPtr> rendiation_shader_api::ShaderValueAbstractPtrAccess<Ptr> for #struct_name {
-      type Accessor = #shader_api_ptr_instance_name<Ptr>;
-      fn create_accessor_from_raw_ptr(ptr: Ptr) -> Self::Accessor {
+    #[derive(Clone)]
+    pub struct #shader_api_ptr_instance_name(Box<dyn AbstractShaderPtr>);
+    impl rendiation_shader_api::ShaderValueAbstractPtrAccess for #struct_name {
+      type Accessor = #shader_api_ptr_instance_name;
+      fn create_accessor_from_raw_ptr(ptr: Box<dyn AbstractShaderPtr>) -> Self::Accessor {
         #shader_api_ptr_instance_name(ptr)
       }
     }
-    impl<Ptr: rendiation_shader_api::AbstractShaderPtr> rendiation_shader_api::SizedValueShaderPtrAccessor for #shader_api_ptr_instance_name<Ptr> {
+    impl rendiation_shader_api::SizedValueShaderPtrAccessor for #shader_api_ptr_instance_name {
       type Node = #struct_name;
       fn load(&self) -> Node<#struct_name> {
         unsafe { self.0.load().into_node() }
@@ -107,7 +102,7 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
         self.0.store(value.handle());
       }
     }
-    impl<Ptr: rendiation_shader_api::AbstractShaderPtr> #shader_api_ptr_instance_name<Ptr> {
+    impl #shader_api_ptr_instance_name {
       #(#ptr_sub_fields_accessor)*
     }
 

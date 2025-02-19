@@ -200,7 +200,7 @@ pub trait ShaderNodeSingleType: 'static {
   fn single_ty() -> ShaderValueSingleType;
 }
 
-pub trait ShaderSizedValueNodeType: ShaderNodeType {
+pub trait ShaderSizedValueNodeType: ShaderNodeType + SizedShaderValueAbstractPtrAccess {
   fn sized_ty() -> ShaderSizedValueType;
   fn to_value(&self) -> ShaderStructFieldInitValue;
   fn to_shader_node_by_value(&self) -> Node<Self> {
@@ -255,7 +255,7 @@ impl ShaderStructFieldInitValue {
   }
 }
 
-pub trait ShaderUnsizedValueNodeType: ShaderNodeType {
+pub trait ShaderUnsizedValueNodeType: ShaderNodeType + ShaderValueAbstractPtrAccess {
   fn unsized_ty() -> ShaderUnSizedValueType;
 }
 
@@ -274,7 +274,9 @@ pub trait ShaderMaybeUnsizedValueNodeType: ShaderNodeType {
   fn maybe_unsized_ty() -> MaybeUnsizedValueType;
 }
 
-pub trait PrimitiveShaderNodeType: ShaderNodeType + Default {
+pub trait PrimitiveShaderNodeType:
+  ShaderSizedValueNodeType + ShaderValueAbstractPtrAccess + ShaderNodeType + Default
+{
   const PRIMITIVE_TYPE: PrimitiveShaderValueType;
   type Shape<T>;
   fn to_primitive(&self) -> PrimitiveShaderValue;
