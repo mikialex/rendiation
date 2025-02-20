@@ -1197,12 +1197,11 @@ impl ShaderAPI for ShaderAPINagaImpl {
 
   fn ray_query_initialize(
     &mut self,
+    query: ShaderNodeRawHandle,
     tlas: HandleNode<ShaderAccelerationStructure>,
     ray_desc: ShaderRayDesc,
-  ) -> ShaderNodeRawHandle {
+  ) {
     let ray_desc_type = self.module.generate_ray_desc_type();
-
-    let query = self.make_local_var(ShaderValueType::Single(ShaderValueSingleType::RayQuery));
 
     let ray_desc_raw = self.make_expression_inner(naga::Expression::Compose {
       ty: ray_desc_type,
@@ -1223,8 +1222,6 @@ impl ShaderAPI for ShaderAPINagaImpl {
         descriptor: self.get_expression(ray_desc_raw),
       },
     });
-
-    query
   }
   // todo ray query terminate?
 

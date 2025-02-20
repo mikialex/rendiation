@@ -66,9 +66,10 @@ pub trait ShaderAPI {
   fn texture_store(&mut self, store: ShaderTextureStore);
   fn ray_query_initialize(
     &mut self,
+    query: ShaderNodeRawHandle,
     tlas: HandleNode<ShaderAccelerationStructure>,
     ray_desc: ShaderRayDesc,
-  ) -> ShaderNodeRawHandle;
+  );
 
   fn push_scope(&mut self);
   fn pop_scope(&mut self);

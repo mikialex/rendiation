@@ -2,11 +2,20 @@ use rendiation_algebra::{Mat4x3, Vec2, Vec3};
 
 use crate::{
   call_shader_api, index_access_field, AnyType, HandleNode, Node, ShaderAccelerationStructure,
-  ShaderNodeExpr, ShaderNodeRawHandle, ShaderRayDesc, ShaderRayQuery,
+  ShaderNodeExpr, ShaderNodeRawHandle, ShaderRayDesc, ShaderRayQuery, ShaderValueSingleType,
+  ShaderValueType,
 };
 
 impl Node<ShaderRayQuery> {
+  pub fn new() -> Self {
+    call_shader_api(|api| unsafe {
+      api
+        .make_local_var(ShaderValueType::Single(ShaderValueSingleType::RayQuery))
+        .into_node()
+    })
+  }
   pub fn initialize(
+    self,
     tlas: HandleNode<ShaderAccelerationStructure>,
     flags: Node<u32>,
     cull_mask: Node<u32>,
@@ -14,21 +23,20 @@ impl Node<ShaderRayQuery> {
     t_max: Node<f32>,
     origin: Node<Vec3<f32>>,
     dir: Node<Vec3<f32>>,
-  ) -> Self {
+  ) {
     call_shader_api(|api| unsafe {
-      api
-        .ray_query_initialize(
-          tlas,
-          ShaderRayDesc {
-            flags: flags.handle(),
-            cull_mask: cull_mask.handle(),
-            t_min: t_min.handle(),
-            t_max: t_max.handle(),
-            origin: origin.handle(),
-            dir: dir.handle(),
-          },
-        )
-        .into_node()
+      api.ray_query_initialize(
+        self.handle(),
+        tlas,
+        ShaderRayDesc {
+          flags: flags.handle(),
+          cull_mask: cull_mask.handle(),
+          t_min: t_min.handle(),
+          t_max: t_max.handle(),
+          origin: origin.handle(),
+          dir: dir.handle(),
+        },
+      )
     })
   }
 

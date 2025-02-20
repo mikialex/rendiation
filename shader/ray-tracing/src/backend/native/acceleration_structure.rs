@@ -350,28 +350,25 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NativeInlin
     _intersect: &dyn Fn(&RayIntersectCtx, &dyn IntersectionReporter),
     any_hit: &dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
   ) -> ShaderOption<RayClosestHitCtx> {
+    let query = Node::<ShaderRayQuery>::new();
+
     // select tlas_binding
     assert!(!self.tlas_bindings.is_empty());
-    let selected_tlas = self.tlas_bindings[0].make_local_var();
     let mut switch = switch_by(trace_payload.tlas_idx);
     for (idx, tlas_binding) in self.tlas_bindings.iter().enumerate() {
       switch = switch.case(idx as u32, || {
-        selected_tlas.store(*tlas_binding);
+        query.initialize(
+          *tlas_binding,
+          trace_payload.ray_flags,
+          trace_payload.cull_mask,
+          trace_payload.range.x(),
+          trace_payload.range.y(),
+          trace_payload.ray_origin,
+          trace_payload.ray_direction,
+        );
       });
     }
-    switch.end_with_default(|| {
-      // todo gpu panic?
-    });
-
-    let query = Node::<ShaderRayQuery>::initialize(
-      selected_tlas.load(),
-      trace_payload.ray_flags,
-      trace_payload.cull_mask,
-      trace_payload.range.x(),
-      trace_payload.range.y(),
-      trace_payload.ray_origin,
-      trace_payload.ray_direction,
-    );
+    switch.end_with_default(shader_unreachable);
 
     loop_by(|ctx| {
       let any_candidate = query.proceed();
