@@ -14,6 +14,8 @@ mod combine;
 pub(crate) use combine::*;
 mod storage;
 pub use storage::*;
+mod uniform;
+pub use uniform::*;
 
 pub trait AbstractStorageBuffer<T>: Clone
 where

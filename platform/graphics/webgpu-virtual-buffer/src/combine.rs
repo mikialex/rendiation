@@ -2,7 +2,7 @@ use crate::*;
 
 pub struct CombinedBufferAllocatorInternal {
   label: String,
-  buffer: Option<GPUBuffer>,
+  buffer: Option<GPUBufferResource>,
   usage: BufferUsages,
   buffer_need_rebuild: bool,
   sub_buffer_u32_size_requirements: Vec<u32>,
@@ -23,7 +23,7 @@ impl CombinedBufferAllocatorInternal {
       usage,
     }
   }
-  pub fn expect_buffer(&self) -> &GPUBuffer {
+  pub fn expect_buffer(&self) -> &GPUBufferResource {
     let err = "merged buffer not yet build";
     assert!(!self.buffer_need_rebuild, "{err}");
     self.buffer.as_ref().expect(err)
@@ -69,10 +69,9 @@ impl CombinedBufferAllocatorInternal {
         usage,
       };
 
-      GPUBuffer::create(&gpu.device, init, usage)
+      let buffer = GPUBuffer::create(&gpu.device, init, usage);
+      GPUBufferResource::create_with_raw(buffer, desc, &gpu.device)
     };
-
-    create_gpu_read_write_storage(full_size_requirement_in_u32 as usize, &gpu.device);
 
     // write header
     gpu
@@ -131,10 +130,10 @@ impl CombinedBufferAllocatorInternal {
       size: Some(NonZeroU64::new(size).unwrap()),
     };
 
-    buffer.create_view(&range)
+    buffer.resource.create_view(&range)
   }
 
-  pub fn bind_shader<T: ShaderMaybeUnsizedValueNodeType + ?Sized>(
+  pub fn bind_shader_storage<T: ShaderMaybeUnsizedValueNodeType + ?Sized>(
     &self,
     bind_builder: &mut ShaderBindGroupBuilder,
     registry: &mut SemanticRegistry,
@@ -142,6 +141,16 @@ impl CombinedBufferAllocatorInternal {
   ) -> ShaderPtrOf<T> {
     let ptr = self.bind_shader_impl(bind_builder, registry, index, T::maybe_unsized_ty());
     T::create_view_from_raw_ptr(ptr)
+  }
+
+  pub fn bind_shader_uniform<T: ShaderSizedValueNodeType + Std140>(
+    &self,
+    bind_builder: &mut ShaderBindGroupBuilder,
+    registry: &mut SemanticRegistry,
+    index: usize,
+  ) -> ShaderReadonlyPtrOf<T> {
+    let ptr = self.bind_shader_impl(bind_builder, registry, index, T::maybe_unsized_ty());
+    T::create_readonly_view_from_raw_ptr(ptr)
   }
 
   #[inline(never)]
@@ -165,13 +174,20 @@ impl CombinedBufferAllocatorInternal {
       .raw_entry_mut()
       .from_key(label)
       .or_insert_with(|| {
-        let buffer = self.expect_buffer();
-        let buffer = bind_builder.bind_by(&buffer);
+        let handle = bind_builder
+          .binding_dyn(ShaderBindingDescriptor {
+            should_as_storage_buffer_if_is_buffer_like: true,
+            ty: <[u32]>::ty(),
+            writeable_if_storage: true,
+          })
+          .using();
+        let ptr = Box::new(handle);
+        let array = <[u32]>::create_view_from_raw_ptr(ptr);
         let meta = ShaderMeta {
           meta: Arc::new(RwLock::new(ShaderU32StructMetaData::new(
             VirtualShaderTypeLayout::Std430,
           ))),
-          array: buffer,
+          array,
         };
         (label.to_string(), Box::new(meta))
       });
@@ -191,5 +207,17 @@ impl CombinedBufferAllocatorInternal {
       meta,
     };
     Box::new(ptr)
+  }
+
+  pub fn bind_pass(&self, bind_builder: &mut BindingBuilder) {
+    let buffer = self.expect_buffer();
+    let bounded = bind_builder
+      .iter_groups()
+      .flat_map(|g| g.iter_bounded())
+      .any(|res| res.view_id == buffer.guid);
+
+    if !bounded {
+      bind_builder.bind_dyn(buffer.create_default_view().get_binding_build_source());
+    }
   }
 }

@@ -8,7 +8,10 @@ impl CombinedStorageBufferAllocator {
   /// label must unique across binding
   pub fn new(label: impl Into<String>) -> Self {
     Self {
-      internal: Arc::new(RwLock::new(CombinedBufferAllocatorInternal::new(label))),
+      internal: Arc::new(RwLock::new(CombinedBufferAllocatorInternal::new(
+        label,
+        BufferUsages::STORAGE,
+      ))),
     }
   }
   pub fn allocate<T: Std430MaybeUnsized>(
@@ -72,7 +75,7 @@ impl<T: ShaderMaybeUnsizedValueNodeType + ?Sized> SubCombinedStorageBuffer<T> {
     self
       .internal
       .read()
-      .bind_shader::<T>(bind_builder, registry, self.buffer_index)
+      .bind_shader_storage::<T>(bind_builder, registry, self.buffer_index)
   }
 }
 
@@ -95,7 +98,6 @@ where
 
   fn bind_pass(&self, bind_builder: &mut BindingBuilder) {
     let internal = self.internal.read();
-    let buffer = internal.expect_buffer();
-    bind_builder.bind_if_not_exist_before(buffer);
+    internal.bind_pass(bind_builder);
   }
 }

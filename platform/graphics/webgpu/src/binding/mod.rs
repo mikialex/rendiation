@@ -42,6 +42,10 @@ pub struct BindGroupBuilder {
 }
 
 impl BindGroupBuilder {
+  pub fn iter_bounded(&self) -> impl Iterator<Item = &CacheAbleBindingBuildSource> {
+    self.items.iter()
+  }
+
   pub fn reset(&mut self) {
     self.items.clear();
   }
@@ -88,6 +92,10 @@ pub trait AbstractPassBinding {
 }
 
 impl BindingBuilder {
+  pub fn iter_groups(&self) -> impl Iterator<Item = &BindGroupBuilder> {
+    self.groups.iter()
+  }
+
   pub fn setup_checking_layout(&mut self, layouts: &[GPUBindGroupLayout]) {
     self.checking_layouts = Some(layouts.to_owned());
   }
@@ -106,13 +114,6 @@ impl BindingBuilder {
   {
     self.bind(item);
     self
-  }
-
-  pub fn bind_if_not_exist_before<T>(&mut self, item: &T) -> &mut Self
-  where
-    T: CacheAbleBindingSource + ShaderBindingProvider,
-  {
-    todo!()
   }
 
   pub fn bind<T>(&mut self, item: &T) -> &mut Self
