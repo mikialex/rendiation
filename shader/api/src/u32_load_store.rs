@@ -96,7 +96,7 @@ pub enum VirtualShaderTypeLayout {
 }
 
 impl ShaderU32StructMetaData {
-  fn new(layout: VirtualShaderTypeLayout) -> Self {
+  pub fn new(layout: VirtualShaderTypeLayout) -> Self {
     // todo populate default primitive types
     let mut v = Self {
       types: Default::default(),
