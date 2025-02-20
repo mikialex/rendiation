@@ -304,12 +304,6 @@ impl<AT, T: SizedShaderAbstractPtrAccess> StaticLengthArrayReadonlyView<AT, T> {
 
 pub struct DirectPrimitivePtrView<T>(PhantomData<T>, BoxedShaderPtr);
 
-impl<T> DirectPrimitivePtrView<T> {
-  pub(crate) fn get_raw_ptr(&self) -> BoxedShaderPtr {
-    self.1.clone()
-  }
-}
-
 impl<T> Clone for DirectPrimitivePtrView<T> {
   fn clone(&self) -> Self {
     Self(self.0, self.1.clone())

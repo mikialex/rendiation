@@ -46,15 +46,29 @@ where
 #[derive(Clone)]
 pub struct U32BufferLoadStoreSourceWithType {
   pub ptr: U32BufferLoadStoreSource,
-  pub ty: usize,
+  pub ty: ShaderU32TypeReprMaybeArrayed,
   pub meta: Arc<RwLock<ShaderU32StructMetaData>>,
 }
 
+/// note: we not using enum in core shader-api for performance reason:
+/// clone and copy are cheaper and the struct meta data is referenced and precomputed.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum ShaderU32TypeReprSingle {
   Atomic(ShaderAtomicValueType),
   Primitive(PrimitiveShaderValueType),
   Struct(usize),
+}
+
+impl ShaderU32TypeReprSingle {
+  pub fn u32_count(&self, meta: &ShaderU32StructMetaData) -> u32 {
+    use ShaderU32TypeReprSingle::*;
+    match self {
+      Atomic(shader_atomic_value_type) => todo!(),
+      Primitive(primitive_shader_value_type) => todo!(),
+      Struct(_) => todo!(),
+    }
+    todo!()
+  }
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
@@ -75,11 +89,11 @@ pub struct UnsizedArrayRepr {
 }
 
 pub struct ShaderU32StructMetaData {
-  types: Vec<ShaderU32TypeReprMaybeArrayed>,
   size_and_offsets: Vec<u32>,
-  sub_field_ty: Vec<usize>,
+  sub_field_ty: Vec<ShaderU32TypeReprSingle>,
+  // index to size_offsets and sub_field_ty
   struct_mapping: Vec<(usize, usize)>,
-  ty_mapping: FastHashMap<ShaderSizedValueType, usize>,
+  ty_mapping: FastHashMap<String, usize>,
   layout: VirtualShaderTypeLayout,
 }
 
@@ -98,47 +112,22 @@ pub enum VirtualShaderTypeLayout {
 impl ShaderU32StructMetaData {
   pub fn new(layout: VirtualShaderTypeLayout) -> Self {
     // todo populate default primitive types
-    let mut v = Self {
-      types: Default::default(),
+    Self {
       size_and_offsets: Default::default(),
       sub_field_ty: Default::default(),
       struct_mapping: Default::default(),
       ty_mapping: Default::default(),
       layout,
-    };
-    // v.register_ty(ShaderSizedValueType::Atomic(ShaderAtomicValueType::U32));
-    // v.register_ty(ShaderSizedValueType::Atomic(ShaderAtomicValueType::I32));
-    // v.register_ty(ShaderSizedValueType::Primitive(
-    //   PrimitiveShaderValueType::Bool,
-    // ));
-    // v.register_ty(ShaderSizedValueType::Primitive(
-    //   PrimitiveShaderValueType::Float32,
-    // ));
-    // v.register_ty(ShaderSizedValueType::Primitive(
-    //   PrimitiveShaderValueType::Vec2Float32,
-    // ));
-    // v.register_ty(ShaderSizedValueType::Primitive(
-    //   PrimitiveShaderValueType::Vec3Float32,
-    // ));
-    // v.register_ty(ShaderSizedValueType::Primitive(
-    //   PrimitiveShaderValueType::Vec4Float32,
-    // ));
-    // v.register_ty(ShaderSizedValueType::Primitive(
-    //   PrimitiveShaderValueType::Mat2Float32,
-    // ));
-    // v.register_ty(ShaderSizedValueType::Primitive(
-    //   PrimitiveShaderValueType::Mat3Float32,
-    // ));
-    // v.register_ty(ShaderSizedValueType::Primitive(
-    //   PrimitiveShaderValueType::Mat4Float32,
-    // ));
-
-    v
+    }
   }
 }
 
 impl ShaderU32StructMetaData {
-  pub fn register_ty(&mut self, ty: MaybeUnsizedValueType) -> usize {
+  pub fn register_ty(&mut self, ty: &MaybeUnsizedValueType) -> ShaderU32TypeReprMaybeArrayed {
+    match ty {
+      MaybeUnsizedValueType::Sized(shader_sized_value_type) => todo!(),
+      MaybeUnsizedValueType::Unsized(shader_un_sized_value_type) => todo!(),
+    }
     // self.struct_mapping.en
     todo!()
   }
@@ -150,7 +139,7 @@ impl ShaderU32StructMetaData {
     &self,
     struct_idx: usize,
     field_idx: usize,
-  ) -> (u32, usize) {
+  ) -> (u32, ShaderU32TypeReprSingle) {
     let (start, sub_type_start) = self.struct_mapping[struct_idx];
     let offset = self.size_and_offsets[start + field_idx + 1];
     let sub_type = self.sub_field_ty[sub_type_start + field_idx];
@@ -161,8 +150,7 @@ impl ShaderU32StructMetaData {
 impl AbstractShaderPtr for U32BufferLoadStoreSourceWithType {
   fn field_index(&self, field_index: usize) -> BoxedShaderPtr {
     let meta = self.meta.read();
-    let ty = &meta.types[self.ty];
-    if let ShaderU32TypeReprMaybeArrayed::Single(single) = ty {
+    if let ShaderU32TypeReprMaybeArrayed::Single(single) = &self.ty {
       match single {
         ShaderU32TypeReprSingle::Atomic(_) => unreachable!("atomic does not have fields"),
         ShaderU32TypeReprSingle::Primitive(primitive_shader_value_type) => {
@@ -184,7 +172,7 @@ impl AbstractShaderPtr for U32BufferLoadStoreSourceWithType {
           let (offset, ty) = meta.get_struct_sub_field_u32_offset_ty(*idx, field_index);
           Box::new(Self {
             ptr: self.ptr.advance(offset),
-            ty,
+            ty: ShaderU32TypeReprMaybeArrayed::Single(ty),
             meta: self.meta.clone(),
           })
         }
@@ -196,8 +184,7 @@ impl AbstractShaderPtr for U32BufferLoadStoreSourceWithType {
 
   fn field_array_index(&self, index: Node<u32>) -> BoxedShaderPtr {
     let meta = self.meta.read();
-    let ty = meta.types[self.ty];
-    if let ShaderU32TypeReprMaybeArrayed::UnsizedArray(ty) = ty {
+    if let ShaderU32TypeReprMaybeArrayed::UnsizedArray(ty) = &self.ty {
       // note, the array bound check will be done automatically at outside if enabled.
       let size = meta.get_struct_u32_size(todo!());
       Box::new(Self {
@@ -212,33 +199,80 @@ impl AbstractShaderPtr for U32BufferLoadStoreSourceWithType {
 
   fn array_length(&self) -> Node<u32> {
     let meta = self.meta.read();
-    let ty = &meta.types[self.ty];
-    if let ShaderU32TypeReprMaybeArrayed::UnsizedArray(UnsizedArrayRepr { binding_index, .. }) = ty
+    if let ShaderU32TypeReprMaybeArrayed::UnsizedArray(UnsizedArrayRepr {
+      binding_index,
+      item_ty,
+    }) = &self.ty
     {
       let sub_buffer_u32_length = self.ptr.array.index(*binding_index + 1).load();
-      todo!() // div by ty u32 count
+      let width = item_ty.u32_count(&meta);
+      sub_buffer_u32_length / val(width)
     } else {
       unreachable!("not an runtime-size array type")
     }
   }
 
   fn load(&self) -> ShaderNodeRawHandle {
+    let meta = self.meta.read();
+
+    use ShaderU32TypeReprMaybeArrayed::*;
+    match &self.ty {
+      Single(shader_u32_type_repr_single) => todo!(),
+      FixedSizeArray(shader_u32_type_repr_single, _) => todo!(),
+      UnsizedArray(_) | UnsizedStruct { .. } => {
+        unreachable!("can not load unsized value")
+      }
+    }
+
+    fn load_impl(
+      src: &ShaderPtrOf<[u32]>,
+      offset: Node<u32>,
+      ty: &ShaderU32TypeReprSingle,
+      meta: &ShaderU32StructMetaData,
+    ) -> ShaderNodeRawHandle {
+      todo!()
+      //
+    }
+
     todo!()
   }
 
   fn store(&self, value: ShaderNodeRawHandle) {
+    let meta = self.meta.read();
+
+    use ShaderU32TypeReprMaybeArrayed::*;
+    match &self.ty {
+      Single(shader_u32_type_repr_single) => todo!(),
+      FixedSizeArray(shader_u32_type_repr_single, _) => todo!(),
+      UnsizedArray(_) | UnsizedStruct { .. } => {
+        unreachable!("can not store unsized value")
+      }
+    }
+
+    fn store_impl(
+      src: ShaderNodeRawHandle,
+      dst: &ShaderPtrOf<[u32]>,
+      offset: Node<u32>,
+      ty: &ShaderU32TypeReprSingle,
+      meta: &ShaderU32StructMetaData,
+    ) {
+
+      //
+    }
+
     todo!()
   }
 
   fn get_self_atomic_ptr(&self) -> ShaderNodeRawHandle {
-    let meta = self.meta.read();
-    let ty = &meta.types[self.ty];
-    // todo, assert self array is atomic u32[]
-    if let ShaderU32TypeReprMaybeArrayed::Single(ShaderU32TypeReprSingle::Atomic(_)) = ty {
-      let atomic = self.ptr.array.index(self.ptr.offset);
-      atomic.get_raw_ptr().get_self_atomic_ptr()
-    } else {
-      unreachable!("not an atomic type")
-    }
+    todo!() // consider us dedicate atomic u32 heap.
+
+    // let meta = self.meta.read();
+    // // todo, assert self array is atomic u32[]
+    // if let ShaderU32TypeReprMaybeArrayed::Single(ShaderU32TypeReprSingle::Atomic(_)) = &self.ty {
+    //   let atomic = self.ptr.array.index(self.ptr.offset);
+    //   atomic.get_raw_ptr().get_self_atomic_ptr()
+    // } else {
+    //   unreachable!("not an atomic type")
+    // }
   }
 }
