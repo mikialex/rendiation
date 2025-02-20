@@ -1,3 +1,5 @@
+#![feature(hash_raw_entry)]
+
 use std::{marker::PhantomData, sync::Arc};
 
 use parking_lot::RwLock;

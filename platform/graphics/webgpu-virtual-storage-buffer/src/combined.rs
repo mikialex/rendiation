@@ -7,15 +7,16 @@ pub struct CombinedStorageBufferAllocator {
 }
 
 impl CombinedStorageBufferAllocator {
-  /// label must unique
+  /// label must unique across singe
   pub fn new(label: impl Into<String>) -> Self {
     Self {
       internal: Arc::new(RwLock::new(CombinedStorageBufferAllocatorInternal {
         label: label.into(),
         buffer: None,
         buffer_need_rebuild: true,
-        sub_buffer_allocation_u32_offset: Default::default(),
         sub_buffer_u32_size_requirements: Default::default(),
+        sub_buffer_allocation_u32_offset: Default::default(),
+        header_length: 0,
       })),
     }
   }
@@ -25,8 +26,17 @@ struct CombinedStorageBufferAllocatorInternal {
   label: String,
   buffer: Option<StorageBufferDataView<[u32]>>,
   buffer_need_rebuild: bool,
-  sub_buffer_allocation_u32_offset: Vec<u32>,
   sub_buffer_u32_size_requirements: Vec<u32>,
+  sub_buffer_allocation_u32_offset: Vec<u32>,
+  header_length: u32,
+}
+
+impl CombinedStorageBufferAllocatorInternal {
+  pub fn expect_buffer(&self) -> &StorageBufferDataView<[u32]> {
+    let err = "merged buffer not yet build";
+    assert!(!self.buffer_need_rebuild, "{err}");
+    self.buffer.as_ref().expect(err)
+  }
 }
 
 impl CombinedStorageBufferAllocator {
@@ -36,13 +46,13 @@ impl CombinedStorageBufferAllocator {
   ) -> SubCombinedStorageBuffer<T> {
     let mut internal = self.internal.write();
     internal.buffer_need_rebuild = true;
-    let index = internal.sub_buffer_u32_size_requirements.len() as u32;
+    let buffer_index = internal.sub_buffer_u32_size_requirements.len();
     internal
       .sub_buffer_u32_size_requirements
       .push(sub_buffer_u32_size);
 
     SubCombinedStorageBuffer {
-      buffer_index: index,
+      buffer_index,
       phantom: PhantomData,
       internal: self.internal.clone(),
     }
@@ -65,9 +75,28 @@ impl CombinedStorageBufferAllocator {
       })
       .collect();
 
-    let full_size_requirement: u32 = internal.sub_buffer_u32_size_requirements.iter().sum();
+    let combine_buffer_count = internal.sub_buffer_u32_size_requirements.len() as u32;
+    let header_size = combine_buffer_count + 1;
+    internal.header_length = header_size;
+    let data_size = internal
+      .sub_buffer_u32_size_requirements
+      .iter()
+      .sum::<u32>();
 
-    let buffer = create_gpu_read_write_storage(full_size_requirement as usize, &gpu.device);
+    let full_size_requirement_in_u32 = header_size + data_size;
+
+    let buffer = create_gpu_read_write_storage(full_size_requirement_in_u32 as usize, &gpu.device);
+
+    // write header
+    gpu
+      .queue
+      .write_buffer(buffer.buffer.gpu(), 0, cast_slice(&[combine_buffer_count]));
+    gpu.queue.write_buffer(
+      buffer.buffer.gpu(),
+      4,
+      cast_slice(&internal.sub_buffer_u32_size_requirements),
+    );
+
     internal.buffer = Some(buffer);
 
     internal.buffer_need_rebuild = false;
@@ -76,7 +105,7 @@ impl CombinedStorageBufferAllocator {
 
 pub struct SubCombinedStorageBuffer<T: ?Sized> {
   /// user should make sure the index is stable across the binding to avoid hash this index.
-  buffer_index: u32,
+  buffer_index: usize,
   phantom: std::marker::PhantomData<T>,
   internal: Arc<RwLock<CombinedStorageBufferAllocatorInternal>>,
 }
@@ -91,57 +120,75 @@ impl<T: ?Sized> Clone for SubCombinedStorageBuffer<T> {
   }
 }
 
-impl<T: ?Sized> SubCombinedStorageBuffer<T> {
+impl<T: ShaderMaybeUnsizedValueNodeType + ?Sized> SubCombinedStorageBuffer<T> {
   /// resize the sub buffer to new size, the content will be moved
   ///
   /// once resize, the merged buffer must rebuild;
   pub fn resize(&mut self, new_u32_size: u32) {
     let mut internal = self.internal.write();
-    internal.sub_buffer_u32_size_requirements[self.buffer_index as usize] = new_u32_size;
+    internal.sub_buffer_u32_size_requirements[self.buffer_index] = new_u32_size;
     internal.buffer_need_rebuild = true;
   }
 
   pub fn write_content(&mut self, content: &[u8], queue: &GPUQueue) {
-    let buffer = self.expect_buffer();
-    let offset = self.internal.read().sub_buffer_allocation_u32_offset[self.buffer_index as usize];
+    let internal = self.internal.read();
+    let buffer = internal.expect_buffer();
+    let offset = internal.sub_buffer_allocation_u32_offset[self.buffer_index];
     let offset = (offset * 4) as u64;
     queue.write_buffer(buffer.buffer.gpu(), offset, content);
   }
 
-  pub fn expect_buffer(&self) -> StorageBufferDataView<[u32]> {
-    let err = "merged buffer not yet build";
+  pub fn bind_shader(
+    &self,
+    bind_builder: &mut ShaderBindGroupBuilder,
+    registry: &mut SemanticRegistry,
+  ) -> ShaderPtrOf<T> {
     let internal = self.internal.read();
-    let buffer = internal.buffer.clone();
-    assert!(!internal.buffer_need_rebuild, "{err}");
-    buffer.expect(err)
+    let label = &internal.label;
+
+    #[derive(Clone)]
+    struct ShaderMeta {
+      pub meta: Arc<RwLock<ShaderU32StructMetaData>>,
+      pub array: ShaderPtrOf<[u32]>,
+    }
+
+    let (_, array) = registry
+      .dynamic_anything
+      .raw_entry_mut()
+      .from_key(label)
+      .or_insert_with(|| {
+        let buffer = internal.expect_buffer();
+        let buffer = bind_builder.bind_by(&buffer);
+        let meta = ShaderMeta {
+          meta: todo!(),
+          array: buffer,
+        };
+        (label.to_string(), Box::new(meta))
+      });
+
+    let ShaderMeta { meta, array } = array.downcast_ref::<ShaderMeta>().unwrap().clone();
+
+    let ty = meta.write().register_ty(T::maybe_unsized_ty());
+
+    let base_offset =
+      internal.sub_buffer_allocation_u32_offset[self.buffer_index] + internal.header_length;
+
+    let ptr = U32BufferLoadStoreSourceWithType {
+      ptr: U32BufferLoadStoreSource {
+        array,
+        offset: val(base_offset),
+      },
+      ty,
+      meta,
+    };
+    let ptr = Box::new(ptr);
+
+    T::create_view_from_raw_ptr(ptr)
   }
 
-  // pub fn bind_shader(
-  //   &self,
-  //   bind_builder: &mut ShaderBindGroupBuilder,
-  //   registry: &mut SemanticRegistry,
-  // ) -> ShaderStorageVirtualTypedPtrNode<T> {
-  //   let label = self.internal.read().label.clone();
-  //   // let array = registry.dynamic_semantic.entry(label).or_insert_with(|| {
-  //   //   let buffer = self.expect_buffer();
-  //   //   bind_builder.bind_by(&buffer).cast_untyped_node()
-  //   // });
-  //   // let array: StorageNode<[u32]> = unsafe { array.cast_type() };
-  //   let array: ShaderAccessorOf<[u32]> = todo!();
-
-  //   let base_offset = array.index(self.buffer_index).load();
-  //   let ptr = ShaderStorageVirtualPtrNode {
-  //     array,
-  //     offset: base_offset,
-  //   };
-  //   ShaderStorageVirtualTypedPtrNode {
-  //     ty: PhantomData,
-  //     ptr,
-  //   }
-  // }
-
   pub fn bind_pass(&self, bind_builder: &mut BindGroupBuilder) {
-    let buffer = self.expect_buffer();
+    let internal = self.internal.read();
+    let buffer = internal.expect_buffer();
     bind_builder.bind_if_not_exist_before(buffer.get_binding_build_source());
   }
 }
