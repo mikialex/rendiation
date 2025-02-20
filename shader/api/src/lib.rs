@@ -70,6 +70,7 @@ pub trait ShaderAPI {
     tlas: HandleNode<ShaderAccelerationStructure>,
     ray_desc: ShaderRayDesc,
   );
+  fn ray_query_terminate(&mut self, query: ShaderNodeRawHandle);
 
   fn push_scope(&mut self);
   fn pop_scope(&mut self);

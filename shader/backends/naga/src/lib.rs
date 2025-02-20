@@ -1223,7 +1223,13 @@ impl ShaderAPI for ShaderAPINagaImpl {
       },
     });
   }
-  // todo ray query terminate?
+  fn ray_query_terminate(&mut self, query: ShaderNodeRawHandle) {
+    self.push_top_statement(naga::Statement::RayQuery {
+      query: self.get_expression(query),
+      fun: RayQueryFunction::Terminate,
+    });
+  }
+  // todo ray query confirm hit
 
   fn push_scope(&mut self) {
     self

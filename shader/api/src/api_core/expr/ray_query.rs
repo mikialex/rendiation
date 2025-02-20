@@ -24,7 +24,7 @@ impl Node<ShaderRayQuery> {
     origin: Node<Vec3<f32>>,
     dir: Node<Vec3<f32>>,
   ) {
-    call_shader_api(|api| unsafe {
+    call_shader_api(|api| {
       api.ray_query_initialize(
         self.handle(),
         tlas,
@@ -38,6 +38,9 @@ impl Node<ShaderRayQuery> {
         },
       )
     })
+  }
+  pub fn terminate(self) {
+    call_shader_api(|api| api.ray_query_terminate(self.handle()))
   }
 
   pub fn proceed(self) -> Node<bool> {
@@ -60,6 +63,7 @@ impl Node<ShaderRayQuery> {
     .insert_api();
     RayIntersection { raw: node.handle() }
   }
+  // todo confirm hit
 }
 
 // struct RayIntersection {
