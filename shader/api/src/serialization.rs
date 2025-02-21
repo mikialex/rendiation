@@ -25,7 +25,8 @@ impl PrimitiveShaderValueType {
     }
   }
 
-  pub fn u32_count_of_self(&self) -> usize {
+  pub fn u32_count_of_self(&self, layout: VirtualShaderTypeLayout) -> usize {
+    let is_packed = matches!(layout, VirtualShaderTypeLayout::Packed);
     match self {
       PrimitiveShaderValueType::Bool => 1,
       PrimitiveShaderValueType::Int32 => 1,
@@ -44,13 +45,19 @@ impl PrimitiveShaderValueType {
       PrimitiveShaderValueType::Vec3Int32 => 3,
       PrimitiveShaderValueType::Vec4Int32 => 4,
       PrimitiveShaderValueType::Mat2Float32 => 4,
-      PrimitiveShaderValueType::Mat3Float32 => 9,
+      PrimitiveShaderValueType::Mat3Float32 => {
+        if is_packed {
+          9
+        } else {
+          16
+        }
+      }
       PrimitiveShaderValueType::Mat4Float32 => 16,
     }
   }
 
   pub fn is_single_primitive(&self) -> bool {
-    self.u32_count_of_self() == 1
+    self.u32_count_of_self(VirtualShaderTypeLayout::Packed) == 1
   }
 
   pub fn mat_row_info(&self) -> Option<(usize, ShaderSizedValueType)> {
@@ -77,7 +84,9 @@ impl ShaderSizedValueType {
   pub fn u32_size_count(&self) -> u32 {
     match self {
       ShaderSizedValueType::Atomic(_) => 1,
-      ShaderSizedValueType::Primitive(p) => p.u32_count_of_self() as u32,
+      ShaderSizedValueType::Primitive(p) => {
+        p.u32_count_of_self(VirtualShaderTypeLayout::Packed) as u32
+      }
       ShaderSizedValueType::Struct(s) => {
         let mut size = 0;
         for field in &s.fields {
