@@ -1,16 +1,24 @@
 use crate::*;
 
+#[derive(Clone)]
 pub struct CombinedStorageBufferAllocator {
   internal: Arc<RwLock<CombinedBufferAllocatorInternal>>,
 }
 
 impl CombinedStorageBufferAllocator {
   /// label must unique across binding
-  pub fn new(label: impl Into<String>) -> Self {
+  ///
+  /// using compact_layout could reduce memory usage but unable to share the data with host or other shader easily
+  pub fn new(label: impl Into<String>, use_packed_layout: bool) -> Self {
     Self {
       internal: Arc::new(RwLock::new(CombinedBufferAllocatorInternal::new(
         label,
         BufferUsages::STORAGE,
+        if use_packed_layout {
+          StructLayoutTarget::Packed
+        } else {
+          StructLayoutTarget::Std430
+        },
       ))),
     }
   }

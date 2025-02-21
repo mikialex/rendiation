@@ -1,5 +1,6 @@
 use crate::*;
 
+#[derive(Clone)]
 pub struct CombinedUniformBufferAllocator {
   internal: Arc<RwLock<CombinedBufferAllocatorInternal>>,
 }
@@ -11,6 +12,7 @@ impl CombinedUniformBufferAllocator {
       internal: Arc::new(RwLock::new(CombinedBufferAllocatorInternal::new(
         label,
         BufferUsages::UNIFORM,
+        StructLayoutTarget::Std140,
       ))),
     }
   }

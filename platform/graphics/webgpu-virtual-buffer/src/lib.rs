@@ -6,6 +6,7 @@
 use std::num::NonZeroU64;
 use std::{marker::PhantomData, sync::Arc};
 
+use dyn_clone::DynClone;
 use parking_lot::RwLock;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
@@ -17,7 +18,8 @@ pub use storage::*;
 mod uniform;
 pub use uniform::*;
 
-pub trait AbstractStorageBuffer<T>: Clone
+pub type BoxedAbstractStorageBuffer<T> = Box<dyn AbstractStorageBuffer<T>>;
+pub trait AbstractStorageBuffer<T>: DynClone
 where
   T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized,
 {
@@ -28,6 +30,14 @@ where
     registry: &mut SemanticRegistry,
   ) -> ShaderPtrOf<T>;
   fn bind_pass(&self, bind_builder: &mut BindingBuilder);
+}
+impl<T> Clone for BoxedAbstractStorageBuffer<T>
+where
+  T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized,
+{
+  fn clone(&self) -> Self {
+    dyn_clone::clone_box(&**self)
+  }
 }
 
 impl<T> AbstractStorageBuffer<T> for StorageBufferDataView<T>
@@ -50,7 +60,8 @@ where
   }
 }
 
-pub trait AbstractUniformBuffer<T>: Clone
+pub type BoxedAbstractUniformBuffer<T> = Box<dyn AbstractUniformBuffer<T>>;
+pub trait AbstractUniformBuffer<T>: DynClone
 where
   T: ShaderSizedValueNodeType + Std140,
 {
@@ -61,6 +72,11 @@ where
     registry: &mut SemanticRegistry,
   ) -> ShaderReadonlyPtrOf<T>;
   fn bind_pass(&self, bind_builder: &mut BindingBuilder);
+}
+impl<T> Clone for BoxedAbstractUniformBuffer<T> {
+  fn clone(&self) -> Self {
+    dyn_clone::clone_box(&**self)
+  }
 }
 
 impl<T> AbstractUniformBuffer<T> for UniformBufferDataView<T>

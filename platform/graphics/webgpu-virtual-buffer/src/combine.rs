@@ -8,11 +8,12 @@ pub struct CombinedBufferAllocatorInternal {
   sub_buffer_u32_size_requirements: Vec<u32>,
   sub_buffer_allocation_u32_offset: Vec<u32>,
   header_length: u32,
+  layout: StructLayoutTarget,
 }
 
 impl CombinedBufferAllocatorInternal {
   /// label must unique across binding
-  pub fn new(label: impl Into<String>, usage: BufferUsages) -> Self {
+  pub fn new(label: impl Into<String>, usage: BufferUsages, layout: StructLayoutTarget) -> Self {
     Self {
       label: label.into(),
       buffer: None,
@@ -21,6 +22,7 @@ impl CombinedBufferAllocatorInternal {
       sub_buffer_allocation_u32_offset: Default::default(),
       header_length: 0,
       usage,
+      layout,
     }
   }
   pub fn expect_buffer(&self) -> &GPUBufferResource {
@@ -184,9 +186,7 @@ impl CombinedBufferAllocatorInternal {
         let ptr = Box::new(handle);
         let array = <[u32]>::create_view_from_raw_ptr(ptr);
         let meta = ShaderMeta {
-          meta: Arc::new(RwLock::new(ShaderU32StructMetaData::new(
-            StructLayoutTarget::Std430,
-          ))),
+          meta: Arc::new(RwLock::new(ShaderU32StructMetaData::new(self.layout))),
           array,
         };
         (label.to_string(), Box::new(meta))
