@@ -25,7 +25,8 @@ impl PrimitiveShaderValueType {
     }
   }
 
-  pub fn u32_count_of_self(&self) -> usize {
+  pub fn u32_count_of_self(&self, layout: StructLayoutTarget) -> usize {
+    let is_packed = matches!(layout, StructLayoutTarget::Packed);
     match self {
       PrimitiveShaderValueType::Bool => 1,
       PrimitiveShaderValueType::Int32 => 1,
@@ -44,23 +45,33 @@ impl PrimitiveShaderValueType {
       PrimitiveShaderValueType::Vec3Int32 => 3,
       PrimitiveShaderValueType::Vec4Int32 => 4,
       PrimitiveShaderValueType::Mat2Float32 => 4,
-      PrimitiveShaderValueType::Mat3Float32 => 9,
+      PrimitiveShaderValueType::Mat3Float32 => {
+        if is_packed {
+          9
+        } else {
+          16
+        }
+      }
       PrimitiveShaderValueType::Mat4Float32 => 16,
     }
   }
 
   pub fn is_single_primitive(&self) -> bool {
-    self.u32_count_of_self() == 1
+    self.u32_count_of_self(StructLayoutTarget::Packed) == 1
   }
 
-  pub fn mat_row_info(&self) -> Option<(usize, ShaderSizedValueType)> {
+  pub fn mat_row_info(&self, target: StructLayoutTarget) -> Option<(usize, ShaderSizedValueType)> {
     match self {
       PrimitiveShaderValueType::Mat2Float32 => (
         2,
         ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Vec2Float32),
       ),
       PrimitiveShaderValueType::Mat3Float32 => (
-        3,
+        if target == StructLayoutTarget::Packed {
+          3
+        } else {
+          4
+        },
         ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Vec3Float32),
       ),
       PrimitiveShaderValueType::Mat4Float32 => (
@@ -74,30 +85,20 @@ impl PrimitiveShaderValueType {
 }
 
 impl ShaderSizedValueType {
-  pub fn u32_size_count(&self) -> u32 {
-    match self {
-      ShaderSizedValueType::Atomic(_) => 1,
-      ShaderSizedValueType::Primitive(p) => p.u32_count_of_self() as u32,
-      ShaderSizedValueType::Struct(s) => {
-        let mut size = 0;
-        for field in &s.fields {
-          size += field.ty.u32_size_count();
-        }
-        size
-      }
-      ShaderSizedValueType::FixedSizeArray(ty, size) => ty.u32_size_count() * *size as u32,
-    }
+  pub fn u32_size_count(&self, layout: StructLayoutTarget) -> u32 {
+    self.size_of_self(layout) as u32 / 4
   }
 
   pub fn load_from_u32_buffer(
     &self,
     target: &ShaderPtrOf<[u32]>,
     mut offset: Node<u32>,
-  ) -> NodeUntyped {
+    layout: StructLayoutTarget,
+  ) -> ShaderNodeRawHandle {
     match self {
       ShaderSizedValueType::Atomic(_) => unreachable!("atomic is not able to load from buffer"),
       ShaderSizedValueType::Primitive(p) => {
-        let size = ShaderSizedValueType::Primitive(*p).u32_size_count();
+        let size = ShaderSizedValueType::Primitive(*p).u32_size_count(layout);
         let mut parameters = Vec::new();
         for _ in 0..size {
           let u32_read = target.index(offset).load();
@@ -111,13 +112,17 @@ impl ShaderSizedValueType {
           parameters.push(handle);
         }
 
-        if let Some((mat_row, row_ty)) = p.mat_row_info() {
+        if let Some((mat_row, row_ty)) = p.mat_row_info(layout) {
           let mut parameter_row = Vec::with_capacity(mat_row);
           for sub_parameters in parameters.chunks_exact(mat_row) {
+            let mut sub_parameters = sub_parameters.to_vec();
+            if layout != StructLayoutTarget::Packed {
+              sub_parameters.pop();
+            }
             parameter_row.push(
               ShaderNodeExpr::Compose {
                 target: row_ty.clone(),
-                parameters: sub_parameters.to_vec(),
+                parameters: sub_parameters,
               }
               .insert_api_raw(),
             )
@@ -126,42 +131,53 @@ impl ShaderSizedValueType {
         }
 
         if parameters.len() == 1 {
-          parameters[0].into_node_untyped()
+          parameters[0]
         } else {
           ShaderNodeExpr::Compose {
             target: ShaderSizedValueType::Primitive(*p),
             parameters,
           }
-          .insert_api()
+          .insert_api_raw()
         }
       }
       ShaderSizedValueType::Struct(f) => {
         let mut offset = offset;
         let mut parameters = Vec::new();
-        for field in &f.fields {
-          parameters.push(field.ty.load_from_u32_buffer(target, offset).handle());
-          offset += val(field.ty.u32_size_count());
+        let tail_pad = iter_field_start_offset_in_bytes(&f.fields, layout, &mut |f_offset, fty| {
+          offset += val(f_offset as u32 / 4);
+          parameters.push(fty.ty.load_from_u32_buffer(target, offset, layout));
+        });
+
+        if let Some(TailPaddingInfo {
+          pad_size_in_bytes, ..
+        }) = tail_pad
+        {
+          let pad_count = pad_size_in_bytes / 4;
+          // not using array here because I do not want hit anther strange layout issue!
+          for _ in 0..pad_count {
+            parameters.push(val(0_u32).handle());
+          }
         }
 
         ShaderNodeExpr::Compose {
           target: self.clone(),
           parameters,
         }
-        .insert_api()
+        .insert_api_raw()
       }
       ShaderSizedValueType::FixedSizeArray(ty, size) => {
         let mut offset = offset;
-        let stride = val(ty.u32_size_count());
+        let stride = val(ty.u32_size_count(layout));
         let mut parameters = Vec::new();
         for _ in 0..*size {
-          parameters.push(ty.load_from_u32_buffer(target, offset).handle());
+          parameters.push(ty.load_from_u32_buffer(target, offset, layout));
           offset += stride;
         }
         ShaderNodeExpr::Compose {
           target: self.clone(),
           parameters,
         }
-        .insert_api()
+        .insert_api_raw()
       }
     }
   }
@@ -171,6 +187,7 @@ impl ShaderSizedValueType {
     source: ShaderNodeRawHandle,
     target: &ShaderPtrOf<[u32]>,
     mut offset: Node<u32>,
+    layout: StructLayoutTarget,
   ) {
     match self {
       ShaderSizedValueType::Atomic(_) => unreachable!("atomic is not able to store into buffer"),
@@ -196,24 +213,48 @@ impl ShaderSizedValueType {
           target.index(offset).store(converted);
         }
 
-        for i in 0..ShaderSizedValueType::Primitive(*p).u32_size_count() {
-          let single = p.is_single_primitive();
-          index_and_write(target, offset, source, (!single).then_some(i));
-          offset += val(1);
+        if let PrimitiveShaderValueType::Mat3Float32 = *p {
+          if layout != StructLayoutTarget::Packed {
+            let mut counter = 0;
+            for _ in 0..3 {
+              for _ in 0..3 {
+                index_and_write(target, offset, source, Some(counter));
+                offset += val(1);
+                counter += 1;
+              }
+              offset += val(1);
+              counter += 1;
+            }
+          }
+        } else {
+          for i in 0..ShaderSizedValueType::Primitive(*p).u32_size_count(layout) {
+            let single = p.is_single_primitive();
+            index_and_write(target, offset, source, (!single).then_some(i));
+            offset += val(1);
+          }
         }
       }
       ShaderSizedValueType::Struct(f) => {
-        for (i, field) in f.fields.iter().enumerate() {
-          field
-            .ty
-            .store_into_u32_buffer(unsafe { index_access_field(source, i) }, target, offset);
-          offset += val(field.ty.u32_size_count());
-        }
+        let mut i = 0;
+        iter_field_start_offset_in_bytes(&f.fields, layout, &mut |f_offset, fty| {
+          fty.ty.store_into_u32_buffer(
+            unsafe { index_access_field(source, i) },
+            target,
+            offset + val(f_offset as u32 / 4),
+            layout,
+          );
+          i += 1;
+        });
       }
       ShaderSizedValueType::FixedSizeArray(ty, size) => {
-        let stride = val(ty.u32_size_count());
+        let stride = val(ty.u32_size_count(layout));
         for i in 0..*size {
-          ty.store_into_u32_buffer(unsafe { index_access_field(source, i) }, target, offset);
+          ty.store_into_u32_buffer(
+            unsafe { index_access_field(source, i) },
+            target,
+            offset,
+            layout,
+          );
           offset += stride;
         }
       }
@@ -221,26 +262,29 @@ impl ShaderSizedValueType {
   }
 }
 
-pub trait RawBufferSerializationExt {
-  fn u32_size_count() -> u32;
-  fn load_from_u32_buffer(target: &ShaderPtrOf<[u32]>, offset: Node<u32>) -> Self;
-  fn store_into_u32_buffer(self, target: &ShaderPtrOf<[u32]>, offset: Node<u32>);
-}
-
-impl<T: ShaderSizedValueNodeType> RawBufferSerializationExt for Node<T> {
-  fn u32_size_count() -> u32 {
-    T::sized_ty().u32_size_count()
+impl<T: ShaderSizedValueNodeType> Node<T> {
+  pub fn u32_size_count(layout: StructLayoutTarget) -> u32 {
+    T::sized_ty().u32_size_count(layout)
   }
 
-  fn load_from_u32_buffer(target: &ShaderPtrOf<[u32]>, offset: Node<u32>) -> Self {
+  pub fn load_from_u32_buffer(
+    target: &ShaderPtrOf<[u32]>,
+    offset: Node<u32>,
+    layout: StructLayoutTarget,
+  ) -> Self {
     unsafe {
       T::sized_ty()
-        .load_from_u32_buffer(target, offset)
-        .cast_type()
+        .load_from_u32_buffer(target, offset, layout)
+        .into_node()
     }
   }
 
-  fn store_into_u32_buffer(self, target: &ShaderPtrOf<[u32]>, offset: Node<u32>) {
-    T::sized_ty().store_into_u32_buffer(self.handle(), target, offset)
+  pub fn store_into_u32_buffer(
+    self,
+    target: &ShaderPtrOf<[u32]>,
+    offset: Node<u32>,
+    layout: StructLayoutTarget,
+  ) {
+    T::sized_ty().store_into_u32_buffer(self.handle(), target, offset, layout)
   }
 }

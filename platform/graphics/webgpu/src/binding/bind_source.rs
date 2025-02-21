@@ -18,8 +18,8 @@ where
 }
 
 pub struct CacheAbleBindingBuildSource {
-  pub(crate) source: BindingResourceOwned,
-  pub(crate) view_id: usize,
+  pub source: BindingResourceOwned,
+  pub view_id: usize,
 }
 
 impl CacheAbleBindingBuildSource {

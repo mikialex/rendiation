@@ -8,6 +8,7 @@ pub struct SemanticRegistry {
   /// this map can be used for store any dynamic semantic info.
   /// this is useful if the semantic is dynamic for example the runtime index or enum
   pub dynamic_semantic: FastHashMap<String, NodeUntyped>,
+  pub dynamic_anything: FastHashMap<String, Box<dyn Any>>,
   pub dynamic_tag: FastHashSet<TypeId>,
   pub any_map: AnyMap,
 }

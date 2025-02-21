@@ -42,19 +42,16 @@ pub struct BindGroupBuilder {
 }
 
 impl BindGroupBuilder {
+  pub fn iter_bounded(&self) -> impl Iterator<Item = &CacheAbleBindingBuildSource> {
+    self.items.iter()
+  }
+
   pub fn reset(&mut self) {
     self.items.clear();
   }
 
   pub fn is_empty(&self) -> bool {
     self.items.is_empty()
-  }
-
-  pub fn bind_if_not_exist_before(&mut self, source: CacheAbleBindingBuildSource) {
-    let has_already_bound = self.items.iter().any(|r| r.view_id == source.view_id);
-    if !has_already_bound {
-      self.bind(source);
-    }
   }
 
   pub fn bind(&mut self, source: CacheAbleBindingBuildSource) {
@@ -95,6 +92,10 @@ pub trait AbstractPassBinding {
 }
 
 impl BindingBuilder {
+  pub fn iter_groups(&self) -> impl Iterator<Item = &BindGroupBuilder> {
+    self.groups.iter()
+  }
+
   pub fn setup_checking_layout(&mut self, layouts: &[GPUBindGroupLayout]) {
     self.checking_layouts = Some(layouts.to_owned());
   }

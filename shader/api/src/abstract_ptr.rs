@@ -10,7 +10,8 @@ use crate::*;
 ///
 /// as this trait is untyped, the method may not valid to implement for some type, for example
 /// it's impossible to array index to a none-array object. when this case happens, the method could
-/// do anything in silence because validation error will eventually raised in later process.
+/// do anything(like direct panic) or do nothing in silence because validation error will eventually
+///  raised in later process.
 ///
 /// todo, mark unsafe fn
 pub trait AbstractShaderPtr: DynClone {
@@ -19,7 +20,7 @@ pub trait AbstractShaderPtr: DynClone {
   fn array_length(&self) -> Node<u32>;
   fn load(&self) -> ShaderNodeRawHandle;
   fn store(&self, value: ShaderNodeRawHandle);
-  fn raw_ptr(&self) -> ShaderNodeRawHandle;
+  fn get_self_atomic_ptr(&self) -> ShaderNodeRawHandle;
 }
 pub type BoxedShaderPtr = Box<dyn AbstractShaderPtr>;
 
@@ -57,7 +58,7 @@ impl AbstractShaderPtr for ShaderNodeRawHandle {
   fn store(&self, value: ShaderNodeRawHandle) {
     call_shader_api(|g| g.store(value, *self))
   }
-  fn raw_ptr(&self) -> ShaderNodeRawHandle {
+  fn get_self_atomic_ptr(&self) -> ShaderNodeRawHandle {
     *self
   }
 }
@@ -391,16 +392,16 @@ impl<T> Clone for AtomicPtrView<T> {
 
 impl<T: AtomicityShaderNodeType> AtomicPtrView<T> {
   pub fn atomic_load(&self) -> Node<T> {
-    call_shader_api(|g| unsafe { g.load(self.1.raw_ptr()).into_node() })
+    call_shader_api(|g| unsafe { g.load(self.1.get_self_atomic_ptr()).into_node() })
   }
   pub fn atomic_store(&self, v: Node<T>) {
-    call_shader_api(|g| g.store(v.handle(), self.1.raw_ptr()))
+    call_shader_api(|g| g.store(v.handle(), self.1.get_self_atomic_ptr()))
   }
 
   pub fn atomic_add(&self, v: Node<T>) -> Node<T> {
     ShaderNodeExpr::AtomicCall {
       ty: T::ATOM,
-      pointer: self.1.raw_ptr(),
+      pointer: self.1.get_self_atomic_ptr(),
       function: AtomicFunction::Add,
       value: v.handle(),
     }
@@ -409,7 +410,7 @@ impl<T: AtomicityShaderNodeType> AtomicPtrView<T> {
   pub fn atomic_sub(&self, v: Node<T>) -> Node<T> {
     ShaderNodeExpr::AtomicCall {
       ty: T::ATOM,
-      pointer: self.1.raw_ptr(),
+      pointer: self.1.get_self_atomic_ptr(),
       function: AtomicFunction::Subtract,
       value: v.handle(),
     }
@@ -418,7 +419,7 @@ impl<T: AtomicityShaderNodeType> AtomicPtrView<T> {
   pub fn atomic_min(&self, v: Node<T>) -> Node<T> {
     ShaderNodeExpr::AtomicCall {
       ty: T::ATOM,
-      pointer: self.1.raw_ptr(),
+      pointer: self.1.get_self_atomic_ptr(),
       function: AtomicFunction::Min,
       value: v.handle(),
     }
@@ -427,7 +428,7 @@ impl<T: AtomicityShaderNodeType> AtomicPtrView<T> {
   pub fn atomic_max(&self, v: Node<T>) -> Node<T> {
     ShaderNodeExpr::AtomicCall {
       ty: T::ATOM,
-      pointer: self.1.raw_ptr(),
+      pointer: self.1.get_self_atomic_ptr(),
       function: AtomicFunction::Max,
       value: v.handle(),
     }
@@ -436,7 +437,7 @@ impl<T: AtomicityShaderNodeType> AtomicPtrView<T> {
   pub fn atomic_and(&self, v: Node<T>) -> Node<T> {
     ShaderNodeExpr::AtomicCall {
       ty: T::ATOM,
-      pointer: self.1.raw_ptr(),
+      pointer: self.1.get_self_atomic_ptr(),
       function: AtomicFunction::And,
       value: v.handle(),
     }
@@ -445,7 +446,7 @@ impl<T: AtomicityShaderNodeType> AtomicPtrView<T> {
   pub fn atomic_or(&self, v: Node<T>) -> Node<T> {
     ShaderNodeExpr::AtomicCall {
       ty: T::ATOM,
-      pointer: self.1.raw_ptr(),
+      pointer: self.1.get_self_atomic_ptr(),
       function: AtomicFunction::InclusiveOr,
       value: v.handle(),
     }
@@ -454,7 +455,7 @@ impl<T: AtomicityShaderNodeType> AtomicPtrView<T> {
   pub fn atomic_xor(&self, v: Node<T>) -> Node<T> {
     ShaderNodeExpr::AtomicCall {
       ty: T::ATOM,
-      pointer: self.1.raw_ptr(),
+      pointer: self.1.get_self_atomic_ptr(),
       function: AtomicFunction::ExclusiveOr,
       value: v.handle(),
     }
@@ -463,7 +464,7 @@ impl<T: AtomicityShaderNodeType> AtomicPtrView<T> {
   pub fn atomic_exchange(&self, v: Node<T>) -> Node<T> {
     ShaderNodeExpr::AtomicCall {
       ty: T::ATOM,
-      pointer: self.1.raw_ptr(),
+      pointer: self.1.get_self_atomic_ptr(),
       function: AtomicFunction::Exchange {
         compare: None,
         weak: false,
@@ -475,7 +476,7 @@ impl<T: AtomicityShaderNodeType> AtomicPtrView<T> {
   pub fn atomic_exchange_weak(&self, v: Node<T>) -> (Node<T>, Node<bool>) {
     let raw = ShaderNodeExpr::AtomicCall {
       ty: T::ATOM,
-      pointer: self.1.raw_ptr(),
+      pointer: self.1.get_self_atomic_ptr(),
       function: AtomicFunction::Exchange {
         compare: None,
         weak: false,
