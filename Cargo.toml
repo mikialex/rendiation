@@ -1,5 +1,6 @@
 [workspace]
 members = [
+  "application/placeholder",
   "math/algebra",
   "math/geometry",
   "math/statistics",

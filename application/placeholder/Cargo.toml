@@ -1,0 +1,12 @@
+[package]
+edition = "2021"
+name = "rendiation"
+version = "1.0.0"
+authors = ["mikialex"]
+description = "rendiation project root placeholder crate"
+repository = "https://github.com/mikialex/rendiation"
+keywords = ["graphics", "rendering", "renderer", "webgpu"]
+license = "MIT OR Apache-2.0"
+
+[lints]
+workspace = true
