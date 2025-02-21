@@ -220,7 +220,7 @@ impl GPURaytracingPipelineAndBindingSource {
       .map(|(i, s)| {
         let ty = &s.user_defined_payload_input_ty;
         payload_max_u32_count =
-          payload_max_u32_count.max(ty.u32_size_count(VirtualShaderTypeLayout::Packed));
+          payload_max_u32_count.max(ty.u32_size_count(StructLayoutTarget::Packed));
         ((i + closest_task_range_start) as u32, ty.clone())
       })
       .collect();
@@ -234,7 +234,7 @@ impl GPURaytracingPipelineAndBindingSource {
       .map(|(i, s)| {
         let ty = &s.user_defined_payload_input_ty;
         payload_max_u32_count =
-          payload_max_u32_count.max(ty.u32_size_count(VirtualShaderTypeLayout::Packed));
+          payload_max_u32_count.max(ty.u32_size_count(StructLayoutTarget::Packed));
         ((i + missing_task_start) as u32, ty.clone())
       })
       .collect();

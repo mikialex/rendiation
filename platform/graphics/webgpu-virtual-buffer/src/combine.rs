@@ -185,7 +185,7 @@ impl CombinedBufferAllocatorInternal {
         let array = <[u32]>::create_view_from_raw_ptr(ptr);
         let meta = ShaderMeta {
           meta: Arc::new(RwLock::new(ShaderU32StructMetaData::new(
-            VirtualShaderTypeLayout::Std430,
+            StructLayoutTarget::Std430,
           ))),
           array,
         };

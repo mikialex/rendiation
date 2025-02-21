@@ -25,8 +25,8 @@ impl PrimitiveShaderValueType {
     }
   }
 
-  pub fn u32_count_of_self(&self, layout: VirtualShaderTypeLayout) -> usize {
-    let is_packed = matches!(layout, VirtualShaderTypeLayout::Packed);
+  pub fn u32_count_of_self(&self, layout: StructLayoutTarget) -> usize {
+    let is_packed = matches!(layout, StructLayoutTarget::Packed);
     match self {
       PrimitiveShaderValueType::Bool => 1,
       PrimitiveShaderValueType::Int32 => 1,
@@ -57,17 +57,21 @@ impl PrimitiveShaderValueType {
   }
 
   pub fn is_single_primitive(&self) -> bool {
-    self.u32_count_of_self(VirtualShaderTypeLayout::Packed) == 1
+    self.u32_count_of_self(StructLayoutTarget::Packed) == 1
   }
 
-  pub fn mat_row_info(&self) -> Option<(usize, ShaderSizedValueType)> {
+  pub fn mat_row_info(&self, target: StructLayoutTarget) -> Option<(usize, ShaderSizedValueType)> {
     match self {
       PrimitiveShaderValueType::Mat2Float32 => (
         2,
         ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Vec2Float32),
       ),
       PrimitiveShaderValueType::Mat3Float32 => (
-        3,
+        if target == StructLayoutTarget::Packed {
+          3
+        } else {
+          4
+        },
         ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Vec3Float32),
       ),
       PrimitiveShaderValueType::Mat4Float32 => (
@@ -81,28 +85,15 @@ impl PrimitiveShaderValueType {
 }
 
 impl ShaderSizedValueType {
-  pub fn u32_size_count(&self, layout: VirtualShaderTypeLayout) -> u32 {
-    match self {
-      ShaderSizedValueType::Atomic(_) => 1,
-      ShaderSizedValueType::Primitive(p) => {
-        p.u32_count_of_self(VirtualShaderTypeLayout::Packed) as u32
-      }
-      ShaderSizedValueType::Struct(s) => {
-        let mut size = 0;
-        for field in &s.fields {
-          size += field.ty.u32_size_count(layout);
-        }
-        size
-      }
-      ShaderSizedValueType::FixedSizeArray(ty, size) => ty.u32_size_count(layout) * *size as u32,
-    }
+  pub fn u32_size_count(&self, layout: StructLayoutTarget) -> u32 {
+    self.size_of_self(layout) as u32 / 4
   }
 
   pub fn load_from_u32_buffer(
     &self,
     target: &ShaderPtrOf<[u32]>,
     mut offset: Node<u32>,
-    layout: VirtualShaderTypeLayout,
+    layout: StructLayoutTarget,
   ) -> ShaderNodeRawHandle {
     match self {
       ShaderSizedValueType::Atomic(_) => unreachable!("atomic is not able to load from buffer"),
@@ -121,13 +112,17 @@ impl ShaderSizedValueType {
           parameters.push(handle);
         }
 
-        if let Some((mat_row, row_ty)) = p.mat_row_info() {
+        if let Some((mat_row, row_ty)) = p.mat_row_info(layout) {
           let mut parameter_row = Vec::with_capacity(mat_row);
           for sub_parameters in parameters.chunks_exact(mat_row) {
+            let mut sub_parameters = sub_parameters.to_vec();
+            if layout != StructLayoutTarget::Packed {
+              sub_parameters.pop();
+            }
             parameter_row.push(
               ShaderNodeExpr::Compose {
                 target: row_ty.clone(),
-                parameters: sub_parameters.to_vec(),
+                parameters: sub_parameters,
               }
               .insert_api_raw(),
             )
@@ -148,9 +143,20 @@ impl ShaderSizedValueType {
       ShaderSizedValueType::Struct(f) => {
         let mut offset = offset;
         let mut parameters = Vec::new();
-        for field in &f.fields {
-          parameters.push(field.ty.load_from_u32_buffer(target, offset, layout));
-          offset += val(field.ty.u32_size_count(layout));
+        let tail_pad = iter_field_start_offset_in_bytes(&f.fields, layout, &mut |f_offset, fty| {
+          offset += val(f_offset as u32 / 4);
+          parameters.push(fty.ty.load_from_u32_buffer(target, offset, layout));
+        });
+
+        if let Some(TailPaddingInfo {
+          pad_size_in_bytes, ..
+        }) = tail_pad
+        {
+          let pad_count = pad_size_in_bytes / 4;
+          // not using array here because I do not want hit anther strange layout issue!
+          for _ in 0..pad_count {
+            parameters.push(val(0_u32).handle());
+          }
         }
 
         ShaderNodeExpr::Compose {
@@ -181,7 +187,7 @@ impl ShaderSizedValueType {
     source: ShaderNodeRawHandle,
     target: &ShaderPtrOf<[u32]>,
     mut offset: Node<u32>,
-    layout: VirtualShaderTypeLayout,
+    layout: StructLayoutTarget,
   ) {
     match self {
       ShaderSizedValueType::Atomic(_) => unreachable!("atomic is not able to store into buffer"),
@@ -207,22 +213,38 @@ impl ShaderSizedValueType {
           target.index(offset).store(converted);
         }
 
-        for i in 0..ShaderSizedValueType::Primitive(*p).u32_size_count(layout) {
-          let single = p.is_single_primitive();
-          index_and_write(target, offset, source, (!single).then_some(i));
-          offset += val(1);
+        if let PrimitiveShaderValueType::Mat3Float32 = *p {
+          if layout != StructLayoutTarget::Packed {
+            let mut counter = 0;
+            for _ in 0..3 {
+              for _ in 0..3 {
+                index_and_write(target, offset, source, Some(counter));
+                offset += val(1);
+                counter += 1;
+              }
+              offset += val(1);
+              counter += 1;
+            }
+          }
+        } else {
+          for i in 0..ShaderSizedValueType::Primitive(*p).u32_size_count(layout) {
+            let single = p.is_single_primitive();
+            index_and_write(target, offset, source, (!single).then_some(i));
+            offset += val(1);
+          }
         }
       }
       ShaderSizedValueType::Struct(f) => {
-        for (i, field) in f.fields.iter().enumerate() {
-          field.ty.store_into_u32_buffer(
+        let mut i = 0;
+        iter_field_start_offset_in_bytes(&f.fields, layout, &mut |f_offset, fty| {
+          fty.ty.store_into_u32_buffer(
             unsafe { index_access_field(source, i) },
             target,
-            offset,
+            offset + val(f_offset as u32 / 4),
             layout,
           );
-          offset += val(field.ty.u32_size_count(layout));
-        }
+          i += 1;
+        });
       }
       ShaderSizedValueType::FixedSizeArray(ty, size) => {
         let stride = val(ty.u32_size_count(layout));
@@ -241,14 +263,14 @@ impl ShaderSizedValueType {
 }
 
 impl<T: ShaderSizedValueNodeType> Node<T> {
-  pub fn u32_size_count(layout: VirtualShaderTypeLayout) -> u32 {
+  pub fn u32_size_count(layout: StructLayoutTarget) -> u32 {
     T::sized_ty().u32_size_count(layout)
   }
 
   pub fn load_from_u32_buffer(
     target: &ShaderPtrOf<[u32]>,
     offset: Node<u32>,
-    layout: VirtualShaderTypeLayout,
+    layout: StructLayoutTarget,
   ) -> Self {
     unsafe {
       T::sized_ty()
@@ -261,7 +283,7 @@ impl<T: ShaderSizedValueNodeType> Node<T> {
     self,
     target: &ShaderPtrOf<[u32]>,
     offset: Node<u32>,
-    layout: VirtualShaderTypeLayout,
+    layout: StructLayoutTarget,
   ) {
     T::sized_ty().store_into_u32_buffer(self.handle(), target, offset, layout)
   }

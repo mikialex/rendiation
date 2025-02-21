@@ -1,4 +1,5 @@
 #![feature(const_type_name)]
+#![feature(hash_raw_entry)]
 #![feature(associated_type_defaults)]
 #![feature(generic_const_exprs)]
 
@@ -35,7 +36,6 @@ use parking_lot::RwLock;
 pub use re_export::*;
 pub use rendiation_algebra::*;
 pub use rendiation_shader_derives::*;
-pub use serialization::*;
 pub use u32_load_store::*;
 
 pub type DynamicShaderAPI = Box<dyn ShaderAPI>;

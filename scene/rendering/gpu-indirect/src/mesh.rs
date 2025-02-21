@@ -369,7 +369,7 @@ impl GraphicsShaderProvider for BindlessMeshDispatcher {
       let normal = binding.bind_by(&self.normal);
       let uv = binding.bind_by(&self.uv);
 
-      let layout = VirtualShaderTypeLayout::Packed;
+      let layout = StructLayoutTarget::Packed;
       unsafe {
         let position = Vec3::<f32>::sized_ty()
           .load_from_u32_buffer(

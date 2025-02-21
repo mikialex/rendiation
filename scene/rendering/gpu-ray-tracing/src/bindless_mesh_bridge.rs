@@ -29,7 +29,7 @@ impl BindlessMeshRtxAccessInvocation {
         .load_from_u32_buffer(
           &self.normal,
           normal_offset + index * val(3),
-          VirtualShaderTypeLayout::Packed,
+          StructLayoutTarget::Packed,
         )
         .into_node::<Vec3<f32>>()
     }

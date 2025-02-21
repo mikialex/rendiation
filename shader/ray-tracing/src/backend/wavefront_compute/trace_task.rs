@@ -392,7 +392,7 @@ fn spawn_dynamic<'a>(
       let payload = user_defined_payload_ty_desc.load_from_u32_buffer(
         &untyped_payload_arr,
         untyped_payload_idx,
-        VirtualShaderTypeLayout::Packed,
+        StructLayoutTarget::Packed,
       );
 
       let desc =
@@ -467,14 +467,14 @@ fn poll_dynamic<'a>(
       let if_resolved = cx.poll_task_dyn(*id as usize, task_id, |task_payload_node| {
         let (idx, _success) = bumper_read_back // todo, handle bump failed
           .bump_allocate_by(
-            val(payload_ty_desc.u32_size_count(VirtualShaderTypeLayout::Packed)),
+            val(payload_ty_desc.u32_size_count(StructLayoutTarget::Packed)),
             |target, offset| {
               let user_defined_payload = task_payload_node.field_index(1);
               payload_ty_desc.store_into_u32_buffer(
                 user_defined_payload.load(),
                 &target,
                 offset,
-                VirtualShaderTypeLayout::Packed,
+                StructLayoutTarget::Packed,
               )
             },
           );
@@ -545,7 +545,7 @@ impl TracingTaskSpawnerInvocation {
         unreachable!()
       };
 
-      let payload_size = payload_ty.u32_size_count(VirtualShaderTypeLayout::Packed);
+      let payload_size = payload_ty.u32_size_count(StructLayoutTarget::Packed);
 
       let (write_idx, success) =
         self
@@ -555,7 +555,7 @@ impl TracingTaskSpawnerInvocation {
               payload,
               &storage,
               write_idx,
-              VirtualShaderTypeLayout::Packed,
+              StructLayoutTarget::Packed,
             );
           });
 
@@ -606,7 +606,7 @@ impl TracingTaskSpawnerInvocation {
     payload_ty.load_from_u32_buffer(
       &self.payload_read_back.storage,
       payload_ref,
-      VirtualShaderTypeLayout::Packed,
+      StructLayoutTarget::Packed,
     )
   }
 }

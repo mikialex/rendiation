@@ -762,7 +762,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
                       size,
                       scalar: naga::Scalar {
                         kind: naga::ScalarKind::Float,
-                        width: ty_help_info.size_of_self() as u8,
+                        width: ty_help_info.size_of_self(StructLayoutTarget::Packed) as u8,
                       },
                     });
 
@@ -777,7 +777,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
                       size,
                       scalar: naga::Scalar {
                         kind: naga::ScalarKind::Float,
-                        width: ty_help_info.size_of_self() as u8,
+                        width: ty_help_info.size_of_self(StructLayoutTarget::Packed) as u8,
                       },
                     });
 
@@ -1526,27 +1526,12 @@ fn struct_member(
 ) -> Vec<naga::StructMember> {
   let layout = l.unwrap_or(StructLayoutTarget::Std430); // is this ok??
 
-  let mut extra_explicit_padding_count = 0;
-  let mut current_byte_used = 0;
   let mut members = Vec::new();
-  for (index, ShaderStructFieldMetaInfo { name, ty, ty_deco }) in fields.iter().enumerate() {
-    let next_align_requirement = if index + 1 == fields.len() {
-      align_of_struct_sized_fields(fields, layout)
-    } else {
-      fields[index + 1].ty.align_of_self(layout)
-    };
-
-    let field_offset = current_byte_used;
-    let type_size = ty.size_of_self(layout);
-
-    current_byte_used += type_size;
-    let padding_size = align_offset(current_byte_used, next_align_requirement);
-    current_byte_used += padding_size;
-
-    let ty = ShaderValueType::Single(ShaderValueSingleType::Sized(ty.clone()));
+  let tail_pad = iter_field_start_offset_in_bytes(fields, layout, &mut |field_offset, fty| {
+    let ty = ShaderValueType::Single(ShaderValueSingleType::Sized(fty.ty.clone()));
     let ty = api.register_ty_impl(ty, l);
 
-    let binding = ty_deco.map(|deco| match deco {
+    let binding = fty.ty_deco.map(|deco| match deco {
       ShaderFieldDecorator::BuiltIn(bt) => naga::Binding::BuiltIn(match_built_in(bt)),
       ShaderFieldDecorator::Location(location, interpolation) => naga::Binding::Location {
         location: location as u32,
@@ -1557,36 +1542,34 @@ fn struct_member(
     });
 
     members.push(naga::StructMember {
-      name: name.clone().into(),
+      name: fty.name.clone().into(),
       ty,
       binding,
       offset: field_offset as u32,
     });
+  });
 
-    // 140 struct requires 16 alignment, when the struct used in array, it's size is divisible by
-    // 16 but when use struct in struct it is not necessarily divisible by 16. in upper level api
-    // (our std140 auto padding macro), we always make sure the size is round up to 16, so we
-    // have to solve the struct in struct case.
-    //
-    // I tried set the naga struct span, but has no effect, so here we add padding manually..
-    if l.is_some() && index + 1 == fields.len() && padding_size > 0 {
-      assert!(padding_size % 4 == 0); // we assume the minimal type size is 4 bytes.
-      let pad_byte_start = field_offset + type_size;
-      let pad_count = padding_size / 4;
-      // not using array here because I do not want hit anther strange layout issue!
-      for i in 0..pad_count {
-        let ty = ShaderValueType::Single(ShaderValueSingleType::Sized(
-          ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Uint32),
-        ));
-        let ty = api.register_ty_impl(ty, l);
-        extra_explicit_padding_count += 1;
-        members.push(naga::StructMember {
-          name: format!("tail_padding_{i}").into(),
-          ty,
-          binding: None,
-          offset: (pad_byte_start + i * 4) as u32,
-        });
-      }
+  let mut extra_explicit_padding_count = 0;
+  if let Some(TailPaddingInfo {
+    start_byte_offset,
+    pad_size_in_bytes,
+  }) = tail_pad
+  {
+    assert!(pad_size_in_bytes % 4 == 0); // we assume the minimal type size is 4 bytes.
+    let pad_count = pad_size_in_bytes / 4;
+    // not using array here because I do not want hit anther strange layout issue!
+    for i in 0..pad_count {
+      let ty = ShaderValueType::Single(ShaderValueSingleType::Sized(
+        ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Uint32),
+      ));
+      let ty = api.register_ty_impl(ty, l);
+      extra_explicit_padding_count += 1;
+      members.push(naga::StructMember {
+        name: format!("tail_padding_{i}").into(),
+        ty,
+        binding: None,
+        offset: (start_byte_offset + i * 4) as u32,
+      });
     }
   }
 
