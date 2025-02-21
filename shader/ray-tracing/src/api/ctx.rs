@@ -105,7 +105,7 @@ impl RayAnyHitCtx {
   where
     T: ShaderSizedValueNodeType,
   {
-    Box::new(U32BufferLoadStore {
+    Box::new(U32BufferLoadStorePacked {
       accessor: self.payload.clone(),
       ty: PhantomData,
     })

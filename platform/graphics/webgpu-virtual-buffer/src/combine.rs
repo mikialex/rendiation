@@ -139,7 +139,7 @@ impl CombinedBufferAllocatorInternal {
     registry: &mut SemanticRegistry,
     index: usize,
   ) -> ShaderPtrOf<T> {
-    let ptr = self.bind_shader_impl(bind_builder, registry, index, &T::maybe_unsized_ty());
+    let ptr = self.bind_shader_impl(bind_builder, registry, index, T::maybe_unsized_ty());
     T::create_view_from_raw_ptr(ptr)
   }
 
@@ -149,7 +149,7 @@ impl CombinedBufferAllocatorInternal {
     registry: &mut SemanticRegistry,
     index: usize,
   ) -> ShaderReadonlyPtrOf<T> {
-    let ptr = self.bind_shader_impl(bind_builder, registry, index, &T::maybe_unsized_ty());
+    let ptr = self.bind_shader_impl(bind_builder, registry, index, T::maybe_unsized_ty());
     T::create_readonly_view_from_raw_ptr(ptr)
   }
 
@@ -159,7 +159,7 @@ impl CombinedBufferAllocatorInternal {
     bind_builder: &mut ShaderBindGroupBuilder,
     registry: &mut SemanticRegistry,
     index: usize,
-    ty_desc: &MaybeUnsizedValueType,
+    ty_desc: MaybeUnsizedValueType,
   ) -> BoxedShaderPtr {
     let label = &self.label;
 
@@ -194,7 +194,7 @@ impl CombinedBufferAllocatorInternal {
 
     let ShaderMeta { meta, array } = array.downcast_ref::<ShaderMeta>().unwrap().clone();
 
-    let ty = meta.write().register_ty(ty_desc);
+    meta.write().register_ty(&ty_desc);
 
     let base_offset = self.sub_buffer_allocation_u32_offset[index] + self.header_length;
 
@@ -203,7 +203,8 @@ impl CombinedBufferAllocatorInternal {
         array,
         offset: val(base_offset),
       },
-      ty,
+      ty: ty_desc.into_shader_single_ty(),
+      bind_index: index as u32,
       meta,
     };
     Box::new(ptr)

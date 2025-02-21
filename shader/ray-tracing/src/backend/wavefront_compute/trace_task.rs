@@ -389,15 +389,18 @@ fn spawn_dynamic<'a>(
   for (id, user_defined_payload_ty_desc) in task_range {
     switcher = switcher.case(*id, || {
       // copy untyped payload to typed specific tasks
-      let payload = user_defined_payload_ty_desc
-        .load_from_u32_buffer(&untyped_payload_arr, untyped_payload_idx);
+      let payload = user_defined_payload_ty_desc.load_from_u32_buffer(
+        &untyped_payload_arr,
+        untyped_payload_idx,
+        VirtualShaderTypeLayout::Packed,
+      );
 
       let desc =
         create_composite_task_payload_desc(*id, user_defined_payload_ty_desc, ray_payload_desc);
 
       let combined = ShaderNodeExpr::Compose {
         target: desc.clone(),
-        parameters: vec![ray_payload.handle(), payload.handle()],
+        parameters: vec![ray_payload.handle(), payload],
       }
       .insert_api_raw();
 
@@ -462,12 +465,19 @@ fn poll_dynamic<'a>(
   for (id, payload_ty_desc) in task_range {
     switcher = switcher.case(*id, || {
       let if_resolved = cx.poll_task_dyn(*id as usize, task_id, |task_payload_node| {
-        let (idx, _success) =
-          bumper_read_back // todo, handle bump failed
-            .bump_allocate_by(val(payload_ty_desc.u32_size_count()), |target, offset| {
+        let (idx, _success) = bumper_read_back // todo, handle bump failed
+          .bump_allocate_by(
+            val(payload_ty_desc.u32_size_count(VirtualShaderTypeLayout::Packed)),
+            |target, offset| {
               let user_defined_payload = task_payload_node.field_index(1);
-              payload_ty_desc.store_into_u32_buffer(user_defined_payload.load(), &target, offset)
-            });
+              payload_ty_desc.store_into_u32_buffer(
+                user_defined_payload.load(),
+                &target,
+                offset,
+                VirtualShaderTypeLayout::Packed,
+              )
+            },
+          );
         bump_read_position.store(idx);
       });
 
@@ -535,13 +545,18 @@ impl TracingTaskSpawnerInvocation {
         unreachable!()
       };
 
-      let payload_size = payload_ty.u32_size_count();
+      let payload_size = payload_ty.u32_size_count(VirtualShaderTypeLayout::Packed);
 
       let (write_idx, success) =
         self
           .payload_spawn_bumper
           .bump_allocate_by(val(payload_size), |storage, write_idx| {
-            payload_ty.store_into_u32_buffer(payload, &storage, write_idx);
+            payload_ty.store_into_u32_buffer(
+              payload,
+              &storage,
+              write_idx,
+              VirtualShaderTypeLayout::Packed,
+            );
           });
 
       if_by(success.not(), || {
@@ -588,9 +603,11 @@ impl TracingTaskSpawnerInvocation {
     payload_ty: ShaderSizedValueType,
     payload_ref: Node<u32>,
   ) -> ShaderNodeRawHandle {
-    payload_ty
-      .load_from_u32_buffer(&self.payload_read_back.storage, payload_ref)
-      .handle()
+    payload_ty.load_from_u32_buffer(
+      &self.payload_read_back.storage,
+      payload_ref,
+      VirtualShaderTypeLayout::Packed,
+    )
   }
 }
 

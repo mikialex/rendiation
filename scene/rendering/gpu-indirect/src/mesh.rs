@@ -368,21 +368,28 @@ impl GraphicsShaderProvider for BindlessMeshDispatcher {
       let position = binding.bind_by(&self.position);
       let normal = binding.bind_by(&self.normal);
       let uv = binding.bind_by(&self.uv);
+
+      let layout = VirtualShaderTypeLayout::Packed;
       unsafe {
         let position = Vec3::<f32>::sized_ty()
           .load_from_u32_buffer(
             &position,
             vertex_address.position_offset + vertex_id * val(3),
+            layout,
           )
-          .cast_type::<Vec3<f32>>();
+          .into_node::<Vec3<f32>>();
 
         let normal = Vec3::<f32>::sized_ty()
-          .load_from_u32_buffer(&normal, vertex_address.normal_offset + vertex_id * val(3))
-          .cast_type::<Vec3<f32>>();
+          .load_from_u32_buffer(
+            &normal,
+            vertex_address.normal_offset + vertex_id * val(3),
+            layout,
+          )
+          .into_node::<Vec3<f32>>();
 
         let uv = Vec2::<f32>::sized_ty()
-          .load_from_u32_buffer(&uv, vertex_address.uv_offset + vertex_id * val(2))
-          .cast_type::<Vec2<f32>>();
+          .load_from_u32_buffer(&uv, vertex_address.uv_offset + vertex_id * val(2), layout)
+          .into_node::<Vec2<f32>>();
 
         vertex.register::<GeometryPosition>(position);
         vertex.register::<GeometryNormal>(normal);

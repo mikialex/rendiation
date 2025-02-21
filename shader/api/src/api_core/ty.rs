@@ -229,6 +229,15 @@ pub enum MaybeUnsizedValueType {
   Unsized(ShaderUnSizedValueType),
 }
 
+impl MaybeUnsizedValueType {
+  pub fn into_shader_single_ty(self) -> ShaderValueSingleType {
+    match self {
+      MaybeUnsizedValueType::Sized(ty) => ShaderValueSingleType::Sized(ty),
+      MaybeUnsizedValueType::Unsized(ty) => ShaderValueSingleType::Unsized(ty),
+    }
+  }
+}
+
 impl<T: ShaderSizedValueNodeType> ShaderMaybeUnsizedValueNodeType for T {
   fn maybe_unsized_ty() -> MaybeUnsizedValueType {
     MaybeUnsizedValueType::Sized(Self::sized_ty())
