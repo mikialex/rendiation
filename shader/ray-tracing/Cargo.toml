@@ -15,6 +15,7 @@ rendiation-device-task-graph = { path = "../task-graph" }
 rendiation-device-parallel-compute = { path = "../parallel-compute" }
 rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
 rendiation-space-algorithm = { path = "../../content/space" }
+rendiation-webgpu-virtual-buffer = { path = "../../platform/graphics/webgpu-virtual-buffer" }
 rendiation-texture-core = { path = "../../content/texture/core" }
 fast-hash-collection = { path = "../../utility/fast-hash-collection" }
 parking_lot = { workspace = true }

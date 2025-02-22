@@ -85,7 +85,7 @@ impl<T> AbstractUniformBuffer<T> for SubCombinedUniformBuffer<T>
 where
   T: Std140 + ShaderSizedValueNodeType,
 {
-  fn get_gpu_buffer_view(&self) -> GPUBufferView {
+  fn get_gpu_buffer_view(&self) -> GPUBufferResourceView {
     let internal = self.internal.read();
     internal.get_sub_gpu_buffer_view(self.buffer_index)
   }

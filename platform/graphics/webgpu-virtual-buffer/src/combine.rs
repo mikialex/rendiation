@@ -121,7 +121,7 @@ impl CombinedBufferAllocatorInternal {
     queue.write_buffer(buffer.gpu(), offset, content);
   }
 
-  pub fn get_sub_gpu_buffer_view(&self, index: usize) -> GPUBufferView {
+  pub fn get_sub_gpu_buffer_view(&self, index: usize) -> GPUBufferResourceView {
     let buffer = self.expect_buffer().clone();
 
     let offset = self.sub_buffer_allocation_u32_offset[index];
@@ -132,7 +132,7 @@ impl CombinedBufferAllocatorInternal {
       size: Some(NonZeroU64::new(size).unwrap()),
     };
 
-    buffer.resource.create_view(&range)
+    buffer.create_view(range)
   }
 
   pub fn bind_shader_storage<T: ShaderMaybeUnsizedValueNodeType + ?Sized>(

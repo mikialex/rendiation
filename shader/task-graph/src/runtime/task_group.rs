@@ -218,7 +218,13 @@ impl TaskGroupExecutor {
   fn compact_alive_tasks(&mut self, ctx: &mut DeviceParallelComputeCtx) {
     let imp = &mut self.resource;
     // compact active task buffer
-    let active_tasks = imp.active_task_idx.storage.clone().into_readonly_view();
+    let active_task_idx = imp.active_task_idx.storage.get_gpu_buffer_view();
+    let active_tasks = StorageBufferReadonlyDataView::try_from_raw(active_task_idx).unwrap();
+
+    let active_task_idx_back_buffer = imp.active_task_idx_back_buffer.get_gpu_buffer_view();
+    let active_tasks_back_buffer =
+      StorageBufferDataView::try_from_raw(active_task_idx_back_buffer).unwrap();
+
     let re = active_tasks
       .clone()
       .stream_compaction(ActiveTaskCompact {
@@ -226,7 +232,7 @@ impl TaskGroupExecutor {
         active_tasks: active_tasks.clone(),
         task_pool: imp.task_pool.clone(),
       })
-      .materialize_storage_buffer_into(imp.active_task_idx_back_buffer.clone(), ctx);
+      .materialize_storage_buffer_into(active_tasks_back_buffer, ctx);
 
     std::mem::swap(
       &mut imp.active_task_idx.storage,
@@ -300,7 +306,7 @@ impl TaskGroupExecutorResource {
   ) -> Self {
     let device = &cx.gpu.device;
     let res = Self {
-      active_task_idx_back_buffer: create_gpu_read_write_storage(size, device),
+      active_task_idx_back_buffer: Box::new(create_gpu_read_write_storage(size, device)),
       active_task_idx: DeviceBumpAllocationInstance::new(size, device),
       new_removed_task_idx: DeviceBumpAllocationInstance::new(size, device),
       empty_index_pool: DeviceBumpAllocationInstance::new(size, device),

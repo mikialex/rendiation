@@ -25,7 +25,7 @@ pub trait AbstractStorageBuffer<T>: DynClone
 where
   T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized,
 {
-  fn get_gpu_buffer_view(&self) -> GPUBufferView;
+  fn get_gpu_buffer_view(&self) -> GPUBufferResourceView;
   fn bind_shader(
     &self,
     bind_builder: &mut ShaderBindGroupBuilder,
@@ -45,7 +45,7 @@ impl<T> AbstractStorageBuffer<T> for BoxedAbstractStorageBuffer<T>
 where
   T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized,
 {
-  fn get_gpu_buffer_view(&self) -> GPUBufferView {
+  fn get_gpu_buffer_view(&self) -> GPUBufferResourceView {
     (**self).get_gpu_buffer_view()
   }
 
@@ -66,8 +66,8 @@ impl<T> AbstractStorageBuffer<T> for StorageBufferDataView<T>
 where
   T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized,
 {
-  fn get_gpu_buffer_view(&self) -> GPUBufferView {
-    self.view.clone()
+  fn get_gpu_buffer_view(&self) -> GPUBufferResourceView {
+    self.resource.create_default_view()
   }
 
   fn bind_shader(
@@ -87,7 +87,7 @@ pub trait AbstractUniformBuffer<T>: DynClone
 where
   T: ShaderSizedValueNodeType + Std140,
 {
-  fn get_gpu_buffer_view(&self) -> GPUBufferView;
+  fn get_gpu_buffer_view(&self) -> GPUBufferResourceView;
   fn bind_shader(
     &self,
     bind_builder: &mut ShaderBindGroupBuilder,
@@ -104,7 +104,7 @@ impl<T> AbstractUniformBuffer<T> for BoxedAbstractUniformBuffer<T>
 where
   T: ShaderSizedValueNodeType + Std140,
 {
-  fn get_gpu_buffer_view(&self) -> GPUBufferView {
+  fn get_gpu_buffer_view(&self) -> GPUBufferResourceView {
     (**self).get_gpu_buffer_view()
   }
 
@@ -125,8 +125,8 @@ impl<T> AbstractUniformBuffer<T> for UniformBufferDataView<T>
 where
   T: ShaderSizedValueNodeType + Std140,
 {
-  fn get_gpu_buffer_view(&self) -> GPUBufferView {
-    self.gpu.view.clone()
+  fn get_gpu_buffer_view(&self) -> GPUBufferResourceView {
+    self.gpu.clone()
   }
 
   fn bind_shader(

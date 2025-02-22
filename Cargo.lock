@@ -3401,6 +3401,7 @@ dependencies = [
  "rendiation-space-algorithm",
  "rendiation-texture-core",
  "rendiation-webgpu",
+ "rendiation-webgpu-virtual-buffer",
 ]
 
 [[package]]

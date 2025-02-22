@@ -1,3 +1,5 @@
+use rendiation_webgpu_virtual_buffer::*;
+
 use crate::*;
 
 pub struct TraceTaskImpl {
@@ -67,7 +69,9 @@ impl ShaderFuture for TraceTaskImpl {
     GPURayTraceTaskInvocationInstance {
       tlas_sys: self.tlas_sys.build_shader(ctx.compute_cx),
       sbt: self.sbt_sys.build(ctx.compute_cx),
-      untyped_payloads: ctx.compute_cx.bind_by(&resource.payload_bumper.storage),
+      untyped_payloads: ctx
+        .compute_cx
+        .bind_abstract_storage(&resource.payload_bumper.storage),
       info: resource.info.clone(),
       payload_read_back_bumper: resource
         .payload_read_back_bumper
@@ -84,7 +88,9 @@ impl ShaderFuture for TraceTaskImpl {
     self.sbt_sys.bind(builder);
 
     let resource = &self.shared;
-    builder.bind(&resource.payload_bumper.storage);
+    builder
+      .binder
+      .bind_abstract_storage(&resource.payload_bumper.storage);
     resource.payload_read_back_bumper.bind_allocator(builder);
     builder.bind(&resource.current_sbt);
     builder.bind(&resource.sbt_task_mapping);
