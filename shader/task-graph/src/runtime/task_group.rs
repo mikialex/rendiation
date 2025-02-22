@@ -242,14 +242,14 @@ impl TaskGroupExecutor {
       let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
         builder.config_work_group_size(1);
         let new_size = builder.bind_by(&new_active_task_size);
-        let current_size = builder.bind_by(&imp.active_task_idx.current_size);
+        let current_size = builder.bind_abstract_storage(&imp.active_task_idx.current_size);
         current_size.store(new_size.load().x());
         builder
       });
 
       BindingBuilder::default()
         .with_bind(&new_active_task_size)
-        .with_bind(&imp.active_task_idx.current_size)
+        .with_bind_abstract_storage(&imp.active_task_idx.current_size)
         .setup_compute_pass(pass, device, &pipeline);
 
       pass.dispatch_workgroups(1, 1, 1);
@@ -283,7 +283,7 @@ impl TaskGroupExecutor {
 #[derive(Clone)]
 pub struct TaskGroupExecutorResource {
   /// reused as active task compaction target
-  pub active_task_idx_back_buffer: StorageBufferDataView<[u32]>,
+  pub active_task_idx_back_buffer: BoxedAbstractStorageBuffer<[u32]>,
   pub active_task_idx: DeviceBumpAllocationInstance<u32>,
   pub new_removed_task_idx: DeviceBumpAllocationInstance<u32>,
   pub empty_index_pool: DeviceBumpAllocationInstance<u32>,
@@ -317,8 +317,8 @@ impl TaskGroupExecutorResource {
       let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
         builder.config_work_group_size(workgroup_size);
 
-        let empty_pool = builder.bind_by(&res.empty_index_pool.storage);
-        let empty_pool_size = builder.bind_by(&res.empty_index_pool.current_size);
+        let empty_pool = builder.bind_abstract_storage(&res.empty_index_pool.storage);
+        let empty_pool_size = builder.bind_abstract_storage(&res.empty_index_pool.current_size);
         let task_pool = res.task_pool.build_shader(&mut builder);
         let id = builder.global_invocation_id().x();
 
@@ -343,8 +343,8 @@ impl TaskGroupExecutorResource {
       });
 
       let mut builder = BindingBuilder::default()
-        .with_bind(&res.empty_index_pool.storage)
-        .with_bind(&res.empty_index_pool.current_size);
+        .with_bind_abstract_storage(&res.empty_index_pool.storage)
+        .with_bind_abstract_storage(&res.empty_index_pool.current_size);
 
       res.task_pool.bind(&mut builder);
 

@@ -2,7 +2,7 @@ use super::*;
 
 #[derive(Clone)]
 pub struct ActiveTaskCompact {
-  pub active_size: StorageBufferDataView<u32>,
+  pub active_size: BoxedAbstractStorageBuffer<u32>,
   pub active_tasks: StorageBufferReadonlyDataView<[u32]>,
   pub task_pool: TaskPool,
 }
@@ -34,7 +34,7 @@ impl DeviceInvocationComponent<Node<bool>> for ActiveTaskCompact {
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<Node<bool>>> {
     let active_tasks = builder.bind_by(&self.active_tasks);
-    let size = builder.bind_by(&self.active_size);
+    let size = builder.bind_abstract_storage(&self.active_size);
     let task_pool = self.task_pool.build_shader(builder);
     let inner = (active_tasks, size, task_pool);
 
@@ -69,7 +69,7 @@ impl DeviceInvocationComponent<Node<bool>> for ActiveTaskCompact {
 
   fn bind_input(&self, builder: &mut BindingBuilder) {
     builder.bind(&self.active_tasks);
-    builder.bind(&self.active_size);
+    builder.bind_abstract_storage(&self.active_size);
     self.task_pool.bind(builder);
   }
 

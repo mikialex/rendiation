@@ -22,7 +22,7 @@ impl CombinedStorageBufferAllocator {
       ))),
     }
   }
-  pub fn allocate<T: Std430MaybeUnsized>(
+  pub fn allocate<T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized>(
     &mut self,
     sub_buffer_u32_size: u32,
   ) -> SubCombinedStorageBuffer<T> {

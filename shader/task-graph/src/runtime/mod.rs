@@ -297,16 +297,26 @@ impl DeviceTaskGraphExecutor {
     );
 
     for (i, task) in self.task_groups.iter().enumerate() {
+      let src = task
+        .resource
+        .active_task_idx
+        .current_size
+        .get_gpu_buffer_view();
       cx.encoder.copy_buffer_to_buffer(
-        task.resource.active_task_idx.current_size.buffer.gpu(),
-        0,
+        src.buffer.gpu(),
+        src.range.offset,
         wake_task_counts.buffer.gpu(),
         i as u64 * 4,
         4,
       );
+      let src = task
+        .resource
+        .empty_index_pool
+        .current_size
+        .get_gpu_buffer_view();
       cx.encoder.copy_buffer_to_buffer(
-        task.resource.empty_index_pool.current_size.buffer.gpu(),
-        0,
+        src.buffer.gpu(),
+        src.range.offset,
         empty_task_counts.buffer.gpu(),
         i as u64 * 4,
         4,

@@ -5,7 +5,8 @@ thread_local! {
 }
 
 pub struct ShaderComputePipelineBuilder {
-  bindgroups: ShaderBindGroupBuilder,
+  pub bindgroups: ShaderBindGroupBuilder,
+  pub registry: SemanticRegistry,
   global_invocation_id: Node<Vec3<u32>>,
   local_invocation_id: Node<Vec3<u32>>,
   local_invocation_index: Node<u32>,
@@ -53,6 +54,7 @@ impl ShaderComputePipelineBuilder {
     use ShaderBuiltInDecorator::*;
     let r = Self {
       bindgroups: Default::default(),
+      registry: Default::default(),
       global_invocation_id: ShaderInputNode::BuiltIn(CompGlobalInvocationId).insert_api(),
       local_invocation_id: ShaderInputNode::BuiltIn(CompLocalInvocationId).insert_api(),
       local_invocation_index: ShaderInputNode::BuiltIn(CompLocalInvocationIndex).insert_api(),

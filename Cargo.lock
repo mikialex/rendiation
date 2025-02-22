@@ -3419,6 +3419,7 @@ dependencies = [
  "rendiation-shader-api",
  "rendiation-shader-derives",
  "rendiation-webgpu",
+ "rendiation-webgpu-virtual-buffer",
 ]
 
 [[package]]
@@ -4039,7 +4040,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rendiation-webgpu-virtual-storage-buffer"
+name = "rendiation-webgpu-virtual-buffer"
 version = "0.1.0"
 dependencies = [
  "dyn-clone",

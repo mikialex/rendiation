@@ -17,6 +17,8 @@ mod storage;
 pub use storage::*;
 mod uniform;
 pub use uniform::*;
+mod maybe_combined;
+pub use maybe_combined::*;
 
 pub type BoxedAbstractStorageBuffer<T> = Box<dyn AbstractStorageBuffer<T>>;
 pub trait AbstractStorageBuffer<T>: DynClone
@@ -37,6 +39,26 @@ where
 {
   fn clone(&self) -> Self {
     dyn_clone::clone_box(&**self)
+  }
+}
+impl<T> AbstractStorageBuffer<T> for BoxedAbstractStorageBuffer<T>
+where
+  T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized,
+{
+  fn get_gpu_buffer_view(&self) -> GPUBufferView {
+    (**self).get_gpu_buffer_view()
+  }
+
+  fn bind_shader(
+    &self,
+    bind_builder: &mut ShaderBindGroupBuilder,
+    registry: &mut SemanticRegistry,
+  ) -> ShaderPtrOf<T> {
+    (**self).bind_shader(bind_builder, registry)
+  }
+
+  fn bind_pass(&self, bind_builder: &mut BindingBuilder) {
+    (**self).bind_pass(bind_builder)
   }
 }
 
@@ -78,6 +100,26 @@ impl<T> Clone for BoxedAbstractUniformBuffer<T> {
     dyn_clone::clone_box(&**self)
   }
 }
+impl<T> AbstractUniformBuffer<T> for BoxedAbstractUniformBuffer<T>
+where
+  T: ShaderSizedValueNodeType + Std140,
+{
+  fn get_gpu_buffer_view(&self) -> GPUBufferView {
+    (**self).get_gpu_buffer_view()
+  }
+
+  fn bind_shader(
+    &self,
+    bind_builder: &mut ShaderBindGroupBuilder,
+    registry: &mut SemanticRegistry,
+  ) -> ShaderReadonlyPtrOf<T> {
+    (**self).bind_shader(bind_builder, registry)
+  }
+
+  fn bind_pass(&self, bind_builder: &mut BindingBuilder) {
+    (**self).bind_pass(bind_builder)
+  }
+}
 
 impl<T> AbstractUniformBuffer<T> for UniformBufferDataView<T>
 where
@@ -96,5 +138,73 @@ where
   }
   fn bind_pass(&self, bind_builder: &mut BindingBuilder) {
     bind_builder.bind(self);
+  }
+}
+
+pub trait ComputeShaderBuilderAbstractBufferExt {
+  fn bind_abstract_storage<T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized>(
+    &mut self,
+    buffer: &impl AbstractStorageBuffer<T>,
+  ) -> ShaderPtrOf<T>;
+  fn bind_abstract_uniform<T: ShaderSizedValueNodeType + Std140>(
+    &mut self,
+    buffer: &impl AbstractUniformBuffer<T>,
+  ) -> ShaderReadonlyPtrOf<T>;
+}
+impl ComputeShaderBuilderAbstractBufferExt for ShaderComputePipelineBuilder {
+  fn bind_abstract_storage<T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized>(
+    &mut self,
+    buffer: &impl AbstractStorageBuffer<T>,
+  ) -> ShaderPtrOf<T> {
+    buffer.bind_shader(&mut self.bindgroups, &mut self.registry)
+  }
+
+  fn bind_abstract_uniform<T>(
+    &mut self,
+    buffer: &impl AbstractUniformBuffer<T>,
+  ) -> ShaderReadonlyPtrOf<T>
+  where
+    T: ShaderSizedValueNodeType + Std140,
+  {
+    buffer.bind_shader(&mut self.bindgroups, &mut self.registry)
+  }
+}
+pub trait BindBuilderAbstractBufferExt: Sized {
+  fn bind_abstract_storage<T>(&mut self, buffer: &impl AbstractStorageBuffer<T>) -> &mut Self
+  where
+    T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized;
+  fn with_bind_abstract_storage<T>(mut self, buffer: &impl AbstractStorageBuffer<T>) -> Self
+  where
+    T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized,
+  {
+    self.bind_abstract_storage(buffer);
+    self
+  }
+  fn bind_abstract_uniform<T>(&mut self, buffer: &impl AbstractUniformBuffer<T>) -> &mut Self
+  where
+    T: ShaderSizedValueNodeType + Std140;
+  fn with_bind_abstract_uniform<T>(mut self, buffer: &impl AbstractUniformBuffer<T>) -> Self
+  where
+    T: ShaderSizedValueNodeType + Std140,
+  {
+    self.bind_abstract_uniform(buffer);
+    self
+  }
+}
+impl BindBuilderAbstractBufferExt for BindingBuilder {
+  fn bind_abstract_storage<T>(&mut self, buffer: &impl AbstractStorageBuffer<T>) -> &mut Self
+  where
+    T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized,
+  {
+    buffer.bind_pass(self);
+    self
+  }
+
+  fn bind_abstract_uniform<T: ShaderSizedValueNodeType + Std140>(
+    &mut self,
+    buffer: &impl AbstractUniformBuffer<T>,
+  ) -> &mut Self {
+    buffer.bind_pass(self);
+    self
   }
 }
