@@ -492,16 +492,14 @@ impl<T: AtomicityShaderNodeType> AtomicPtrView<T> {
     }
   }
 }
-impl<T: AtomicityShaderNodeType + PrimitiveShaderNodeType> ReadonlySizedShaderPtrView
-  for AtomicPtrView<T>
-{
+impl<T: AtomicityShaderNodeType> ReadonlySizedShaderPtrView for AtomicPtrView<T> {
   type Node = DeviceAtomic<T>;
 
   fn load(&self) -> Node<Self::Node> {
     unreachable!("atomic is not able to direct load");
   }
 }
-impl<T: AtomicityShaderNodeType + PrimitiveShaderNodeType> SizedShaderPtrView for AtomicPtrView<T> {
+impl<T: AtomicityShaderNodeType> SizedShaderPtrView for AtomicPtrView<T> {
   fn store(&self, _value: impl Into<Node<Self::Node>>) {
     unreachable!("atomic is not able to direct store");
   }
@@ -509,7 +507,7 @@ impl<T: AtomicityShaderNodeType + PrimitiveShaderNodeType> SizedShaderPtrView fo
 
 impl<T> ShaderAbstractPtrAccess for DeviceAtomic<T>
 where
-  T: AtomicityShaderNodeType + PrimitiveShaderNodeType,
+  T: AtomicityShaderNodeType,
 {
   type PtrView = AtomicPtrView<T>;
   type ReadonlyPtrView = AtomicPtrView<T>;

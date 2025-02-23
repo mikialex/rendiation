@@ -5,6 +5,28 @@ pub struct CombinedStorageBufferAllocator {
   internal: Arc<RwLock<CombinedBufferAllocatorInternal>>,
 }
 
+fn rule_out_atomic_types(ty: &MaybeUnsizedValueType) {
+  fn rule_out_for_single(single: &ShaderSizedValueType) {
+    if let ShaderSizedValueType::Atomic(_) = single {
+      panic!("atomic is not able to store into storage buffer allocator, use SubCombinedAtomicArrayStorageBuffer instead");
+    }
+  }
+
+  match ty {
+    MaybeUnsizedValueType::Sized(ty) => rule_out_for_single(ty),
+    MaybeUnsizedValueType::Unsized(ty) => match ty {
+      ShaderUnSizedValueType::UnsizedArray(ty) => rule_out_for_single(ty),
+      ShaderUnSizedValueType::UnsizedStruct(ty) => {
+        ty.sized_fields
+          .iter()
+          .map(|v| &v.ty)
+          .for_each(rule_out_for_single);
+        rule_out_for_single(&ty.last_dynamic_array_field.1)
+      }
+    },
+  }
+}
+
 impl CombinedStorageBufferAllocator {
   /// label must unique across binding
   ///
@@ -26,6 +48,7 @@ impl CombinedStorageBufferAllocator {
     &self,
     byte_size: u64,
   ) -> SubCombinedStorageBuffer<T> {
+    rule_out_atomic_types(&T::maybe_unsized_ty());
     assert!(byte_size % 4 == 0);
     let sub_buffer_u32_size = byte_size / 4;
     let buffer_index = self.internal.write().allocate(sub_buffer_u32_size as u32);
@@ -60,7 +83,7 @@ impl<T: ?Sized> Clone for SubCombinedStorageBuffer<T> {
 }
 
 impl<T: ShaderMaybeUnsizedValueNodeType + ?Sized> SubCombinedStorageBuffer<T> {
-  /// resize the sub buffer to new size, the content will be moved
+  /// resize the sub buffer to new size, the content will be preserved moved to new place
   ///
   /// once resize, the merged buffer must rebuild;
   pub fn resize(&mut self, new_u32_size: u32) {
@@ -75,17 +98,6 @@ impl<T: ShaderMaybeUnsizedValueNodeType + ?Sized> SubCombinedStorageBuffer<T> {
       .internal
       .write()
       .write_content(self.buffer_index, content, queue);
-  }
-
-  pub fn bind_shader_impl(
-    &self,
-    bind_builder: &mut ShaderBindGroupBuilder,
-    registry: &mut SemanticRegistry,
-  ) -> ShaderPtrOf<T> {
-    self
-      .internal
-      .read()
-      .bind_shader_storage::<T>(bind_builder, registry, self.buffer_index)
   }
 }
 
@@ -103,7 +115,10 @@ where
     bind_builder: &mut ShaderBindGroupBuilder,
     reg: &mut SemanticRegistry,
   ) -> ShaderPtrOf<T> {
-    self.bind_shader_impl(bind_builder, reg)
+    self
+      .internal
+      .read()
+      .bind_shader_storage::<T>(bind_builder, reg, self.buffer_index)
   }
 
   fn bind_pass(&self, bind_builder: &mut BindingBuilder) {

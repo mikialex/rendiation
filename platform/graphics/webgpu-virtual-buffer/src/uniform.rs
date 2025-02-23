@@ -34,6 +34,7 @@ impl CombinedUniformBufferAllocator {
   }
 }
 
+#[derive(Clone)]
 pub struct SubCombinedUniformBuffer<T> {
   /// user should make sure the index is stable across the binding to avoid hash this index.
   buffer_index: usize,
@@ -41,18 +42,8 @@ pub struct SubCombinedUniformBuffer<T> {
   internal: Arc<RwLock<CombinedBufferAllocatorInternal>>,
 }
 
-impl<T> Clone for SubCombinedUniformBuffer<T> {
-  fn clone(&self) -> Self {
-    Self {
-      buffer_index: self.buffer_index,
-      phantom: self.phantom,
-      internal: self.internal.clone(),
-    }
-  }
-}
-
 impl<T: Std140 + ShaderSizedValueNodeType> SubCombinedUniformBuffer<T> {
-  /// resize the sub buffer to new size, the content will be moved
+  /// resize the sub buffer to new size, the content will be preserved moved to new place
   ///
   /// once resize, the merged buffer must rebuild;
   pub fn resize(&mut self, new_u32_size: u32) {
@@ -67,17 +58,6 @@ impl<T: Std140 + ShaderSizedValueNodeType> SubCombinedUniformBuffer<T> {
       .internal
       .write()
       .write_content(self.buffer_index, content, queue);
-  }
-
-  pub fn bind_shader_impl(
-    &self,
-    bind_builder: &mut ShaderBindGroupBuilder,
-    registry: &mut SemanticRegistry,
-  ) -> ShaderReadonlyPtrOf<T> {
-    self
-      .internal
-      .read()
-      .bind_shader_uniform::<T>(bind_builder, registry, self.buffer_index)
   }
 }
 
@@ -95,7 +75,10 @@ where
     bind_builder: &mut ShaderBindGroupBuilder,
     reg: &mut SemanticRegistry,
   ) -> ShaderReadonlyPtrOf<T> {
-    self.bind_shader_impl(bind_builder, reg)
+    self
+      .internal
+      .read()
+      .bind_shader_uniform::<T>(bind_builder, reg, self.buffer_index)
   }
 
   fn bind_pass(&self, bind_builder: &mut BindingBuilder) {

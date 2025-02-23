@@ -57,13 +57,13 @@ impl<T: AtomicityShaderNodeType> ShaderNodeType for DeviceAtomic<T> {
 
 impl<T> ShaderSizedValueNodeType for DeviceAtomic<T>
 where
-  T: AtomicityShaderNodeType + PrimitiveShaderNodeType,
+  T: AtomicityShaderNodeType,
 {
   fn sized_ty() -> ShaderSizedValueType {
     ShaderSizedValueType::Atomic(T::ATOM)
   }
   fn to_value(&self) -> ShaderStructFieldInitValue {
-    ShaderStructFieldInitValue::Primitive(self.0.to_primitive())
+    unreachable!("device atomic can not used to construct struct in device");
   }
 }
 
@@ -97,6 +97,10 @@ pub struct HostDynSizeArray<T>(PhantomData<T>);
 pub enum ShaderAtomicValueType {
   I32,
   U32,
+}
+pub enum ShaderAtomicValueTypeInit {
+  I32(i32),
+  U32(u32),
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -256,7 +260,7 @@ pub trait PrimitiveShaderNodeType:
   fn to_primitive(&self) -> PrimitiveShaderValue;
 }
 
-pub trait AtomicityShaderNodeType: ShaderNodeType {
+pub trait AtomicityShaderNodeType: ShaderNodeType + Std430 {
   const ATOM: ShaderAtomicValueType;
 }
 impl AtomicityShaderNodeType for u32 {

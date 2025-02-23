@@ -19,6 +19,8 @@ mod uniform;
 pub use uniform::*;
 mod maybe_combined;
 pub use maybe_combined::*;
+mod storage_atomic_array;
+pub use storage_atomic_array::*;
 
 pub type BoxedAbstractStorageBuffer<T> = Box<dyn AbstractStorageBuffer<T>>;
 pub trait AbstractStorageBuffer<T>: DynClone
