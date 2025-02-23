@@ -295,9 +295,11 @@ pub struct TaskGroupExecutorResource {
   pub empty_index_pool: DeviceBumpAllocationInstance<u32>,
   pub task_pool: TaskPool,
   pub size: usize,
+  payload_ty: ShaderSizedValueType,
 }
 
 impl TaskGroupExecutorResource {
+  /// should call init before actually use this
   pub fn create_with_size(
     size: usize,
     state_desc: DynamicTypeMetaInfo,
@@ -308,7 +310,7 @@ impl TaskGroupExecutorResource {
   ) -> Self {
     let device = &cx.gpu.device;
     let init = ZeroedArrayByArrayLength(size);
-    let res = Self {
+    Self {
       active_task_idx_back_buffer: Box::new(create_gpu_read_write_storage(init, device)),
       active_task_idx: DeviceBumpAllocationInstance::new(size, device, allocator, a_a),
       new_removed_task_idx: DeviceBumpAllocationInstance::new(size, device, allocator, a_a),
@@ -322,8 +324,11 @@ impl TaskGroupExecutorResource {
         allocator,
       ),
       size,
-    };
+      payload_ty,
+    }
+  }
 
+  pub fn init(&self, cx: &mut DeviceParallelComputeCtx) {
     // fill the empty pool, allocate the first default task
     cx.record_pass(|pass, device| {
       let hasher = shader_hasher_from_marker_ty!(PrepareEmptyIndices);
@@ -332,9 +337,9 @@ impl TaskGroupExecutorResource {
       let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
         builder.config_work_group_size(workgroup_size);
 
-        let empty_pool = builder.bind_abstract_storage(&res.empty_index_pool.storage);
-        let empty_pool_size = builder.bind_abstract_storage(&res.empty_index_pool.current_size);
-        let task_pool = res.task_pool.build_shader(&mut builder);
+        let empty_pool = builder.bind_abstract_storage(&self.empty_index_pool.storage);
+        let empty_pool_size = builder.bind_abstract_storage(&self.empty_index_pool.current_size);
+        let task_pool = self.task_pool.build_shader(&mut builder);
         let id = builder.global_invocation_id().x();
 
         if_by(id.equals(0), || {
@@ -342,11 +347,11 @@ impl TaskGroupExecutorResource {
           task_pool.spawn_new_task_dyn(
             val(0),
             ShaderNodeExpr::Zeroed {
-              target: payload_ty.clone(),
+              target: self.payload_ty.clone(),
             }
             .insert_api_raw(),
             TaskParentRef::none_parent(),
-            &payload_ty,
+            &self.payload_ty,
           );
         });
 
@@ -358,17 +363,19 @@ impl TaskGroupExecutorResource {
       });
 
       let mut builder = BindingBuilder::default()
-        .with_bind_abstract_storage(&res.empty_index_pool.storage)
-        .with_bind_abstract_storage(&res.empty_index_pool.current_size);
+        .with_bind_abstract_storage(&self.empty_index_pool.storage)
+        .with_bind_abstract_storage(&self.empty_index_pool.current_size);
 
-      res.task_pool.bind(&mut builder);
+      self.task_pool.bind(&mut builder);
 
       builder.setup_compute_pass(pass, device, &pipeline);
 
-      pass.dispatch_workgroups(compute_dispatch_size(size as u32, workgroup_size), 1, 1);
+      pass.dispatch_workgroups(
+        compute_dispatch_size(self.size as u32, workgroup_size),
+        1,
+        1,
+      );
     });
-
-    res
   }
 
   pub fn build_shader_for_spawner(

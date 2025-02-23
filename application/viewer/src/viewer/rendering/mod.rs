@@ -271,8 +271,8 @@ impl Viewer3dRenderingCtx {
       self.set_enable_indirect_occlusion_culling_support(indirect_occlusion_culling_impl_exist);
     });
 
-    let is_vulkan = self.gpu.info.adaptor_info.backend == Backend::Vulkan;
-    ui.add_enabled_ui(is_vulkan, |ui| {
+    // let is_vulkan = self.gpu.info.adaptor_info.backend == Backend::Vulkan;
+    ui.add_enabled_ui(true, |ui| {
       let mut rtx_ao_renderer_impl_exist = self.rtx_ao_renderer_impl.is_some();
       ui.checkbox(&mut rtx_ao_renderer_impl_exist, "rtx_ao_renderer_is_ready")
         .on_disabled_hover_text(

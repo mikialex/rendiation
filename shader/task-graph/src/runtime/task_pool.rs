@@ -9,7 +9,7 @@ pub struct TaskPool {
   ///   parent_task_type_id: u32,
   ///   parent_task_index: u32,
   /// }
-  pub(crate) tasks: BoxedAbstractStorageBuffer<[u32]>, // this [u32] type is fake
+  pub(crate) tasks: BoxedAbstractStorageBufferDynTyped,
   state_desc: DynamicTypeMetaInfo,
   task_ty_desc: ShaderStructMetaInfo,
 }
@@ -41,7 +41,14 @@ impl TaskPool {
 
     let stride = task_ty_desc.size_of_self(StructLayoutTarget::Std430);
     let byte_size_required = (size * stride) as u64;
-    let tasks = allocator.allocate(byte_size_required, device);
+
+    let tasks = allocator.allocate_dyn_ty(
+      byte_size_required,
+      device,
+      MaybeUnsizedValueType::Unsized(ShaderUnSizedValueType::UnsizedArray(Box::new(
+        ShaderSizedValueType::Struct(task_ty_desc.clone()),
+      ))),
+    );
 
     Self {
       tasks,
@@ -51,31 +58,21 @@ impl TaskPool {
   }
 
   pub fn build_shader(&self, cx: &mut ShaderComputePipelineBuilder) -> TaskPoolInvocationInstance {
-    let desc = ShaderBindingDescriptor {
-      should_as_storage_buffer_if_is_buffer_like: true,
-      ty: ShaderValueType::Single(ShaderValueSingleType::Unsized(
-        ShaderUnSizedValueType::UnsizedArray(Box::new(ShaderSizedValueType::Struct(
-          self.task_ty_desc.clone(),
-        ))),
-      )),
-      writeable_if_storage: true,
-    };
-    let node = cx.bindgroups().binding_dyn(desc).using();
     TaskPoolInvocationInstance {
-      pool: node,
+      pool: cx.bind_abstract_storage_dyn_typed(&self.tasks),
       state_desc: self.state_desc.clone(),
       payload_ty: self.task_ty_desc.fields[1].ty.clone(),
     }
   }
 
   pub fn bind(&self, cx: &mut BindingBuilder) {
-    cx.bind_abstract_storage(&self.tasks);
+    cx.bind_abstract_storage_dyn_typed(&self.tasks);
   }
 }
 
 #[derive(Clone)]
 pub struct TaskPoolInvocationInstance {
-  pool: ShaderNodeRawHandle, // [generated_type]
+  pool: BoxedShaderPtr, // [generated_type]
   state_desc: DynamicTypeMetaInfo,
   payload_ty: ShaderSizedValueType,
 }

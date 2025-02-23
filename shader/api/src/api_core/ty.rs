@@ -228,6 +228,7 @@ pub trait ShaderUnsizedValueNodeType: ShaderNodeType + ShaderAbstractPtrAccess {
   fn unsized_ty() -> ShaderUnSizedValueType;
 }
 
+#[derive(Clone)]
 pub enum MaybeUnsizedValueType {
   Sized(ShaderSizedValueType),
   Unsized(ShaderUnSizedValueType),

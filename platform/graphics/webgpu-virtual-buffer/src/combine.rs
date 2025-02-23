@@ -2,7 +2,7 @@ use crate::*;
 
 pub struct CombinedBufferAllocatorInternal {
   label: String,
-  buffer: Option<GPUBufferResource>,
+  buffer: Option<GPUBufferResourceView>,
   usage: BufferUsages,
   buffer_need_rebuild: bool,
   sub_buffer_u32_size_requirements: Vec<u32>,
@@ -33,7 +33,7 @@ impl CombinedBufferAllocatorInternal {
       atomic,
     }
   }
-  pub fn expect_buffer(&self) -> &GPUBufferResource {
+  pub fn expect_buffer(&self) -> &GPUBufferResourceView {
     let err = "merged buffer not yet build";
     assert!(!self.buffer_need_rebuild, "{err}");
     self.buffer.as_ref().expect(err)
@@ -80,15 +80,18 @@ impl CombinedBufferAllocatorInternal {
       };
 
       let buffer = GPUBuffer::create(&gpu.device, init, usage);
-      GPUBufferResource::create_with_raw(buffer, desc, &gpu.device)
+      let buffer = GPUBufferResource::create_with_raw(buffer, desc, &gpu.device);
+      buffer.create_default_view()
     };
 
     // write header
-    gpu
-      .queue
-      .write_buffer(buffer.gpu(), 0, cast_slice(&[combine_buffer_count]));
     gpu.queue.write_buffer(
-      buffer.gpu(),
+      buffer.resource.gpu(),
+      0,
+      cast_slice(&[combine_buffer_count]),
+    );
+    gpu.queue.write_buffer(
+      buffer.resource.gpu(),
       4,
       cast_slice(&self.sub_buffer_u32_size_requirements),
     );
@@ -101,9 +104,9 @@ impl CombinedBufferAllocatorInternal {
         let new_offset = sub_buffer_allocation_u32_offset[i] + header_size;
         let source_offset = offset + self.header_length;
         encoder.copy_buffer_to_buffer(
-          old_buffer.gpu(),
+          old_buffer.resource.gpu(),
           (source_offset * 4) as u64,
-          buffer.gpu(),
+          buffer.resource.gpu(),
           (new_offset * 4) as u64,
           (size * 4) as u64,
         );
@@ -126,7 +129,7 @@ impl CombinedBufferAllocatorInternal {
     let buffer = self.expect_buffer();
     let offset = self.sub_buffer_allocation_u32_offset[index];
     let offset = (offset * 4) as u64;
-    queue.write_buffer(buffer.gpu(), offset, content);
+    queue.write_buffer(buffer.resource.gpu(), offset, content);
   }
 
   pub fn get_sub_gpu_buffer_view(&self, index: usize) -> GPUBufferResourceView {
@@ -140,7 +143,7 @@ impl CombinedBufferAllocatorInternal {
       size: Some(NonZeroU64::new(size).unwrap()),
     };
 
-    buffer.create_view(range)
+    buffer.resource.create_view(range)
   }
 
   pub fn bind_shader_storage<T: ShaderMaybeUnsizedValueNodeType + ?Sized>(
@@ -184,6 +187,7 @@ impl CombinedBufferAllocatorInternal {
       .raw_entry_mut()
       .from_key(label)
       .or_insert_with(|| {
+        println!("bind shader <{}>", self.label);
         let heap_ty = if let Some(a_ty) = self.atomic {
           match a_ty {
             ShaderAtomicValueType::I32 => <[DeviceAtomic<i32>]>::ty(),
@@ -248,7 +252,8 @@ impl CombinedBufferAllocatorInternal {
       .any(|res| res.view_id == buffer.guid);
 
     if !bounded {
-      bind_builder.bind_dyn(buffer.create_default_view().get_binding_build_source());
+      println!("bind res <{}>", self.label);
+      bind_builder.bind_dyn(buffer.get_binding_build_source());
     }
   }
 }

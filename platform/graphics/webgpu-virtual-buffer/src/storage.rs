@@ -61,8 +61,73 @@ impl CombinedStorageBufferAllocator {
     }
   }
 
+  pub fn allocate_dyn(
+    &self,
+    byte_size: u64,
+    ty_desc: MaybeUnsizedValueType,
+  ) -> SubCombinedStorageBufferDynTyped {
+    rule_out_atomic_types(&ty_desc);
+    assert!(byte_size % 4 == 0);
+    let sub_buffer_u32_size = byte_size / 4;
+    let buffer_index = self.internal.write().allocate(sub_buffer_u32_size as u32);
+
+    SubCombinedStorageBufferDynTyped {
+      buffer_index,
+      ty: ty_desc,
+      internal: self.internal.clone(),
+    }
+  }
+
   pub fn rebuild(&self, gpu: &GPU) {
     self.internal.write().rebuild(gpu);
+  }
+}
+
+#[derive(Clone)]
+pub struct SubCombinedStorageBufferDynTyped {
+  /// user should make sure the index is stable across the binding to avoid hash this index.
+  buffer_index: usize,
+  ty: MaybeUnsizedValueType,
+  internal: Arc<RwLock<CombinedBufferAllocatorInternal>>,
+}
+impl SubCombinedStorageBufferDynTyped {
+  /// resize the sub buffer to new size, the content will be preserved moved to new place
+  ///
+  /// once resize, the merged buffer must rebuild;
+  pub fn resize(&mut self, new_u32_size: u32) {
+    self
+      .internal
+      .write()
+      .resize(self.buffer_index, new_u32_size);
+  }
+
+  pub fn write_content(&mut self, content: &[u8], queue: &GPUQueue) {
+    self
+      .internal
+      .write()
+      .write_content(self.buffer_index, content, queue);
+  }
+}
+impl AbstractStorageBufferDynTyped for SubCombinedStorageBufferDynTyped {
+  fn get_gpu_buffer_view(&self) -> GPUBufferResourceView {
+    let internal = self.internal.read();
+    internal.get_sub_gpu_buffer_view(self.buffer_index)
+  }
+
+  fn bind_shader(
+    &self,
+    bind_builder: &mut ShaderBindGroupBuilder,
+    reg: &mut SemanticRegistry,
+  ) -> BoxedShaderPtr {
+    self
+      .internal
+      .read()
+      .bind_shader_impl(bind_builder, reg, self.buffer_index, self.ty.clone())
+  }
+
+  fn bind_pass(&self, bind_builder: &mut BindingBuilder) {
+    let internal = self.internal.read();
+    internal.bind_pass(bind_builder);
   }
 }
 
