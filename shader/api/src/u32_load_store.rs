@@ -104,6 +104,10 @@ impl ShaderU32StructMetaData {
   }
 
   fn register_struct(&mut self, struct_name: &str, fields: &[ShaderStructFieldMetaInfo]) {
+    fields.iter().for_each(|f| {
+      self.register_sized(&f.ty);
+    });
+
     self
       .ty_mapping
       .raw_entry_mut()

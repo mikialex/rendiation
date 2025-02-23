@@ -395,10 +395,12 @@ impl<T: AtomicityShaderNodeType> AtomicPtrView<T> {
     &self.1
   }
   pub fn atomic_load(&self) -> Node<T> {
-    call_shader_api(|g| unsafe { g.load(self.1.get_self_atomic_ptr()).into_node() })
+    let source = self.1.get_self_atomic_ptr();
+    call_shader_api(|g| unsafe { g.load(source).into_node() })
   }
   pub fn atomic_store(&self, v: Node<T>) {
-    call_shader_api(|g| g.store(v.handle(), self.1.get_self_atomic_ptr()))
+    let target = self.1.get_self_atomic_ptr();
+    call_shader_api(|g| g.store(v.handle(), target))
   }
 
   pub fn atomic_add(&self, v: Node<T>) -> Node<T> {

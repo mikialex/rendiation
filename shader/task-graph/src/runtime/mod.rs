@@ -102,7 +102,7 @@ impl DeviceTaskGraphBuildSource {
     let buffer_allocator =
       MaybeCombinedStorageAllocator::new("task graph execution resources", true, true);
     let atomic_allocator =
-      MaybeCombinedAtomicU32StorageAllocator::new("task graph execution atomic resources", false);
+      MaybeCombinedAtomicU32StorageAllocator::new("task graph execution atomic resources", true);
 
     for (i, task_build_source) in self.tasks.iter().enumerate() {
       let pre_build =

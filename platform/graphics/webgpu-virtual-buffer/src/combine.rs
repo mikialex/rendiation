@@ -7,7 +7,6 @@ pub struct CombinedBufferAllocatorInternal {
   buffer_need_rebuild: bool,
   sub_buffer_u32_size_requirements: Vec<u32>,
   sub_buffer_allocation_u32_offset: Vec<u32>,
-  header_length: u32,
   layout: StructLayoutTarget,
   // use none for none atomic heap
   atomic: Option<ShaderAtomicValueType>,
@@ -27,7 +26,6 @@ impl CombinedBufferAllocatorInternal {
       buffer_need_rebuild: true,
       sub_buffer_u32_size_requirements: Default::default(),
       sub_buffer_allocation_u32_offset: Default::default(),
-      header_length: 0,
       usage,
       layout,
       atomic,
@@ -54,21 +52,32 @@ impl CombinedBufferAllocatorInternal {
       return;
     }
 
-    let sub_buffer_allocation_u32_offset = self
-      .sub_buffer_u32_size_requirements
-      .iter()
-      .scan(0, |offset, size| {
-        let o = *offset;
-        *offset += size;
-        Some(o)
-      })
-      .collect::<Vec<_>>();
+    // the sub buffer must be aligned to device limitation because use may directly
+    // use the sub buffer as the storage/uniform binding
+    let limits = &gpu.info.supported_limits;
+    // for simplicity we use the maximum alignment, they are same on my machine.
+    let bind_alignment_requirement_in_u32 = limits
+      .min_storage_buffer_offset_alignment
+      .max(limits.min_uniform_buffer_offset_alignment)
+      / 4;
 
-    let combine_buffer_count = self.sub_buffer_u32_size_requirements.len() as u32;
-    let header_size = combine_buffer_count + 1;
-    let data_size = self.sub_buffer_u32_size_requirements.iter().sum::<u32>();
+    let sub_buffer_count = self.sub_buffer_u32_size_requirements.len();
+    let header_size = sub_buffer_count + 1;
 
-    let full_size_requirement_in_u32 = header_size + data_size;
+    let mut sub_buffer_allocation_u32_offset = Vec::with_capacity(sub_buffer_count);
+    let mut used_buffer_size_in_u32 = header_size;
+
+    for sub_buffer_size in &self.sub_buffer_u32_size_requirements {
+      // add padding
+      used_buffer_size_in_u32 += align_offset(
+        used_buffer_size_in_u32,
+        bind_alignment_requirement_in_u32 as usize,
+      );
+      sub_buffer_allocation_u32_offset.push(used_buffer_size_in_u32 as u32);
+      used_buffer_size_in_u32 += *sub_buffer_size as usize;
+    }
+
+    let full_size_requirement_in_u32 = used_buffer_size_in_u32;
 
     let buffer = {
       let usage = self.usage | BufferUsages::COPY_DST | BufferUsages::COPY_SRC;
@@ -85,11 +94,9 @@ impl CombinedBufferAllocatorInternal {
     };
 
     // write header
-    gpu.queue.write_buffer(
-      buffer.resource.gpu(),
-      0,
-      cast_slice(&[combine_buffer_count]),
-    );
+    gpu
+      .queue
+      .write_buffer(buffer.resource.gpu(), 0, cast_slice(&[sub_buffer_count]));
     gpu.queue.write_buffer(
       buffer.resource.gpu(),
       4,
@@ -99,10 +106,9 @@ impl CombinedBufferAllocatorInternal {
     // old data movement
     if let Some(old_buffer) = &self.buffer {
       let mut encoder = gpu.create_encoder();
-      for (i, offset) in self.sub_buffer_allocation_u32_offset.iter().enumerate() {
+      for (i, source_offset) in self.sub_buffer_allocation_u32_offset.iter().enumerate() {
         let size = self.sub_buffer_u32_size_requirements[i];
-        let new_offset = sub_buffer_allocation_u32_offset[i] + header_size;
-        let source_offset = offset + self.header_length;
+        let new_offset = sub_buffer_allocation_u32_offset[i];
         encoder.copy_buffer_to_buffer(
           old_buffer.resource.gpu(),
           (source_offset * 4) as u64,
@@ -115,7 +121,6 @@ impl CombinedBufferAllocatorInternal {
     }
 
     self.buffer = Some(buffer);
-    self.header_length = header_size;
     self.sub_buffer_allocation_u32_offset = sub_buffer_allocation_u32_offset;
     self.buffer_need_rebuild = false;
   }
@@ -135,8 +140,8 @@ impl CombinedBufferAllocatorInternal {
   pub fn get_sub_gpu_buffer_view(&self, index: usize) -> GPUBufferResourceView {
     let buffer = self.expect_buffer().clone();
 
-    let offset = self.sub_buffer_allocation_u32_offset[index];
-    let offset = (offset + self.header_length) as u64 * 4;
+    let offset = self.sub_buffer_allocation_u32_offset[index] as u64;
+    let offset = offset * 4;
     let size = self.sub_buffer_u32_size_requirements[index] as u64 * 4;
     let range = GPUBufferViewRange {
       offset,
@@ -230,7 +235,7 @@ impl CombinedBufferAllocatorInternal {
 
     meta.write().register_ty(&ty_desc);
 
-    let base_offset = self.sub_buffer_allocation_u32_offset[index] + self.header_length;
+    let base_offset = self.sub_buffer_allocation_u32_offset[index];
 
     let ptr = U32HeapPtrWithType {
       ptr: U32HeapPtr {
