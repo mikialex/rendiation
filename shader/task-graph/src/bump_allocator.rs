@@ -3,20 +3,22 @@ use crate::*;
 #[derive(Clone)]
 pub struct DeviceBumpAllocationInstance<T: Std430 + ShaderSizedValueNodeType> {
   pub storage: BoxedAbstractStorageBuffer<[T]>,
-  pub bump_size: StorageBufferDataView<DeviceAtomic<u32>>,
+  pub bump_size: BoxedAbstractStorageBuffer<DeviceAtomic<u32>>,
   pub current_size: BoxedAbstractStorageBuffer<u32>,
 }
 
 impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
-  pub fn new(size: usize, device: &GPUDevice, allocator: &MaybeCombinedStorageAllocator) -> Self {
+  pub fn new(
+    size: usize,
+    device: &GPUDevice,
+    allocator: &MaybeCombinedStorageAllocator,
+    atomic_allocator: &MaybeCombinedAtomicU32StorageAllocator,
+  ) -> Self {
     let storage_byte_size = std::mem::size_of::<T>() * size;
     Self {
       storage: allocator.allocate(storage_byte_size as u64, device),
       current_size: allocator.allocate(4, device),
-      bump_size: create_gpu_read_write_storage::<DeviceAtomic<u32>>(
-        StorageBufferInit::WithInit(&DeviceAtomic(0)),
-        device,
-      ),
+      bump_size: atomic_allocator.allocate_single(device),
     }
   }
 
@@ -26,7 +28,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
       let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
         builder.config_work_group_size(1);
         let current_size = builder.bind_abstract_storage(&self.current_size);
-        let bump_size = builder.bind_by(&self.bump_size);
+        let bump_size = builder.bind_abstract_storage(&self.bump_size);
         current_size.store(val(0));
         bump_size.atomic_store(val(0));
         builder
@@ -34,7 +36,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
 
       BindingBuilder::default()
         .with_bind_abstract_storage(&self.current_size)
-        .with_bind(&self.bump_size)
+        .with_bind_abstract_storage(&self.bump_size)
         .setup_compute_pass(pass, device, &pipeline);
 
       pass.dispatch_workgroups(1, 1, 1);
@@ -107,7 +109,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
 
     let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
       builder.config_work_group_size(1);
-      let bump_size = builder.bind_by(&self.bump_size);
+      let bump_size = builder.bind_abstract_storage(&self.bump_size);
       let current_size = builder.bind_abstract_storage(&self.current_size);
       let array = builder.bind_abstract_storage(&self.storage);
 
@@ -131,7 +133,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
     });
 
     BindingBuilder::default()
-      .with_bind(&self.bump_size)
+      .with_bind_abstract_storage(&self.bump_size)
       .with_bind_abstract_storage(&self.current_size)
       .with_bind_abstract_storage(&self.storage)
       .setup_compute_pass(pass, device, &pipeline);

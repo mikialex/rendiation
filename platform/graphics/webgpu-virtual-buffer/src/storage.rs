@@ -41,6 +41,7 @@ impl CombinedStorageBufferAllocator {
         } else {
           StructLayoutTarget::Std430
         },
+        None,
       ))),
     }
   }

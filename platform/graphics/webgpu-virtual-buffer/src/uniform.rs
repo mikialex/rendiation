@@ -13,6 +13,7 @@ impl CombinedUniformBufferAllocator {
         label,
         BufferUsages::UNIFORM,
         StructLayoutTarget::Std140,
+        None,
       ))),
     }
   }

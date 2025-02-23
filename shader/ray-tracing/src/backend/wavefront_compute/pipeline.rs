@@ -118,11 +118,14 @@ fn create_task_graph<'a>(
 
     let buffer_allocator =
       MaybeCombinedStorageAllocator::new("trace_ray user payload buffer", false, true);
+    let a_a =
+      MaybeCombinedAtomicU32StorageAllocator::new("trace_ray user payload atomic buffer", false);
     let payload_bumper =
-      DeviceBumpAllocationInstance::new(payload_u32_len, device, &buffer_allocator);
+      DeviceBumpAllocationInstance::new(payload_u32_len, device, &buffer_allocator, &a_a);
     let payload_read_back_bumper =
-      DeviceBumpAllocationInstance::new(payload_u32_len, device, &buffer_allocator);
+      DeviceBumpAllocationInstance::new(payload_u32_len, device, &buffer_allocator, &a_a);
     buffer_allocator.rebuild(gpu);
+    a_a.rebuild(gpu);
 
     TraceTaskResource {
       payload_bumper,

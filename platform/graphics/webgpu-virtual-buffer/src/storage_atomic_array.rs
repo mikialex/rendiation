@@ -17,6 +17,7 @@ impl<T: AtomicityShaderNodeType> CombinedAtomicArrayStorageBufferAllocator<T> {
         label,
         BufferUsages::STORAGE,
         StructLayoutTarget::Packed,
+        Some(T::ATOM),
       ))),
     }
   }

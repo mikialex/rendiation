@@ -9,11 +9,18 @@ pub struct CombinedBufferAllocatorInternal {
   sub_buffer_allocation_u32_offset: Vec<u32>,
   header_length: u32,
   layout: StructLayoutTarget,
+  // use none for none atomic heap
+  atomic: Option<ShaderAtomicValueType>,
 }
 
 impl CombinedBufferAllocatorInternal {
   /// label must unique across binding
-  pub fn new(label: impl Into<String>, usage: BufferUsages, layout: StructLayoutTarget) -> Self {
+  pub fn new(
+    label: impl Into<String>,
+    usage: BufferUsages,
+    layout: StructLayoutTarget,
+    atomic: Option<ShaderAtomicValueType>,
+  ) -> Self {
     Self {
       label: label.into(),
       buffer: None,
@@ -23,6 +30,7 @@ impl CombinedBufferAllocatorInternal {
       header_length: 0,
       usage,
       layout,
+      atomic,
     }
   }
   pub fn expect_buffer(&self) -> &GPUBufferResource {
@@ -168,7 +176,7 @@ impl CombinedBufferAllocatorInternal {
     #[derive(Clone)]
     struct ShaderMeta {
       pub meta: Arc<RwLock<ShaderU32StructMetaData>>,
-      pub array: ShaderPtrOf<[u32]>,
+      pub array: U32HeapHeapSource,
     }
 
     let (_, array) = registry
@@ -176,15 +184,37 @@ impl CombinedBufferAllocatorInternal {
       .raw_entry_mut()
       .from_key(label)
       .or_insert_with(|| {
+        let heap_ty = if let Some(a_ty) = self.atomic {
+          match a_ty {
+            ShaderAtomicValueType::I32 => <[DeviceAtomic<i32>]>::ty(),
+            ShaderAtomicValueType::U32 => <[DeviceAtomic<u32>]>::ty(),
+          }
+        } else {
+          <[u32]>::ty()
+        };
+
         let handle = bind_builder
           .binding_dyn(ShaderBindingDescriptor {
             should_as_storage_buffer_if_is_buffer_like: true,
-            ty: <[u32]>::ty(),
+            ty: heap_ty,
             writeable_if_storage: true,
           })
           .using();
+
         let ptr = Box::new(handle);
-        let array = <[u32]>::create_view_from_raw_ptr(ptr);
+        let array = if let Some(a_ty) = self.atomic {
+          match a_ty {
+            ShaderAtomicValueType::I32 => {
+              U32HeapHeapSource::AtomicI32(<[DeviceAtomic<i32>]>::create_view_from_raw_ptr(ptr))
+            }
+            ShaderAtomicValueType::U32 => {
+              U32HeapHeapSource::AtomicU32(<[DeviceAtomic<u32>]>::create_view_from_raw_ptr(ptr))
+            }
+          }
+        } else {
+          U32HeapHeapSource::Common(<[u32]>::create_view_from_raw_ptr(ptr))
+        };
+
         let meta = ShaderMeta {
           meta: Arc::new(RwLock::new(ShaderU32StructMetaData::new(self.layout))),
           array,
@@ -198,8 +228,8 @@ impl CombinedBufferAllocatorInternal {
 
     let base_offset = self.sub_buffer_allocation_u32_offset[index] + self.header_length;
 
-    let ptr = U32BufferLoadStoreSourceWithType {
-      ptr: U32BufferLoadStoreSource {
+    let ptr = U32HeapPtrWithType {
+      ptr: U32HeapPtr {
         array,
         offset: val(base_offset),
       },
