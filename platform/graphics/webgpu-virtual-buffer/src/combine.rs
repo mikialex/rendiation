@@ -63,20 +63,20 @@ impl CombinedBufferAllocatorInternal {
       .max(limits.min_uniform_buffer_offset_alignment)
       / 4;
 
-    let sub_buffer_count = self.sub_buffer_u32_size_requirements.len();
+    let sub_buffer_count = self.sub_buffer_u32_size_requirements.len() as u32;
     let header_size = sub_buffer_count + 1;
 
-    let mut sub_buffer_allocation_u32_offset = Vec::with_capacity(sub_buffer_count);
+    let mut sub_buffer_allocation_u32_offset = Vec::with_capacity(sub_buffer_count as usize);
     let mut used_buffer_size_in_u32 = header_size;
 
     for sub_buffer_size in &self.sub_buffer_u32_size_requirements {
       // add padding
       used_buffer_size_in_u32 += align_offset(
-        used_buffer_size_in_u32,
+        used_buffer_size_in_u32 as usize,
         bind_alignment_requirement_in_u32 as usize,
-      );
-      sub_buffer_allocation_u32_offset.push(used_buffer_size_in_u32 as u32);
-      used_buffer_size_in_u32 += *sub_buffer_size as usize;
+      ) as u32;
+      sub_buffer_allocation_u32_offset.push(used_buffer_size_in_u32);
+      used_buffer_size_in_u32 += *sub_buffer_size;
     }
 
     let full_size_requirement_in_u32 = used_buffer_size_in_u32;
@@ -133,6 +133,7 @@ impl CombinedBufferAllocatorInternal {
   }
 
   pub fn write_content(&mut self, index: usize, content: &[u8], queue: &GPUQueue) {
+    assert!(!self.buffer_need_rebuild);
     let buffer = self.expect_buffer();
     let offset = self.sub_buffer_allocation_u32_offset[index];
     let offset = (offset * 4) as u64;
@@ -140,6 +141,7 @@ impl CombinedBufferAllocatorInternal {
   }
 
   pub fn get_sub_gpu_buffer_view(&self, index: usize) -> GPUBufferResourceView {
+    assert!(!self.buffer_need_rebuild);
     let buffer = self.expect_buffer().clone();
 
     let offset = self.sub_buffer_allocation_u32_offset[index] as u64;

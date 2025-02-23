@@ -115,9 +115,11 @@ impl ShaderU32StructMetaData {
       .or_insert_with(|| {
         let mut sub_field_u32_offsets = Vec::with_capacity(fields.len());
         let tail = iter_field_start_offset_in_bytes(fields, self.layout, &mut |byte_offset, _| {
+          assert!(byte_offset % 4 == 0);
           sub_field_u32_offsets.push(byte_offset as u32 / 4);
         });
         let struct_size = size_of_struct_sized_fields(fields, self.layout);
+        assert!(struct_size % 4 == 0);
         assert!(tail.is_none());
         (
           struct_name.to_string(),
@@ -155,16 +157,16 @@ impl AbstractShaderPtr for U32HeapPtrWithType {
           use PrimitiveShaderValueType::*;
           let (offset, fty) = match ty {
             Bool | Int32 | Float32 => unreachable!("single primitive does not have fields"),
-            Mat2Float32 => (2, Vec2Float32),
+            Mat2Float32 => (2 * field_index as u32, Vec2Float32),
             Mat3Float32 => (
               if matches!(meta.layout, StructLayoutTarget::Packed) {
                 3
               } else {
                 4
-              },
+              } * field_index as u32,
               Vec3Float32,
             ),
-            Mat4Float32 => (4, Vec4Float32),
+            Mat4Float32 => (4 * field_index as u32, Vec4Float32),
             _ => (
               field_index as u32,
               match ty {
@@ -192,7 +194,15 @@ impl AbstractShaderPtr for U32HeapPtrWithType {
             bind_index: self.bind_index,
           }
         }
-        ShaderSizedValueType::FixedSizeArray(_, _) => todo!(),
+        ShaderSizedValueType::FixedSizeArray(ty, _) => {
+          let size = ty.u32_size_count(meta.layout);
+          Self {
+            ptr: self.ptr.advance(val(size) * val(field_index as u32)),
+            ty: ShaderValueSingleType::Sized((**ty).clone()),
+            meta: self.meta.clone(),
+            bind_index: self.bind_index,
+          }
+        }
         _ => unreachable!("{err}"),
       },
       ShaderValueSingleType::Unsized(ty) => match ty {
@@ -223,7 +233,7 @@ impl AbstractShaderPtr for U32HeapPtrWithType {
     let meta = self.meta.read();
     if let ShaderValueSingleType::Unsized(ShaderUnSizedValueType::UnsizedArray(ty)) = &self.ty {
       // note, the array bound check will be done automatically at outside if enabled.
-      let size = ty.size_of_self(meta.layout) as u32 / 4;
+      let size = ty.u32_size_count(meta.layout);
       Box::new(Self {
         ptr: self.ptr.advance(val(size) * index),
         ty: ShaderValueSingleType::Sized((**ty).clone()),
