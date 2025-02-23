@@ -203,7 +203,6 @@ impl TaskGroupExecutor {
       }
 
       imp.bind_for_spawner(&mut ctx);
-
       bb.setup_compute_pass(pass, device, &self.polling_pipeline);
       pass.dispatch_workgroups_indirect_by_buffer_resource_view(&active_execution_size);
     });
@@ -218,9 +217,10 @@ impl TaskGroupExecutor {
   fn compact_alive_tasks(&mut self, ctx: &mut DeviceParallelComputeCtx) {
     let imp = &mut self.resource;
     // compact active task buffer
-    let active_task_idx = imp.active_task_idx.storage.get_gpu_buffer_view();
-    let active_tasks = StorageBufferReadonlyDataView::try_from_raw(active_task_idx).unwrap();
+    let active_tasks =
+      ParallelComputeFromAbstractStorageBuffer(imp.active_task_idx.storage.clone());
 
+    // the input and output shares one single binding so it can be aliased
     let active_task_idx_back_buffer = imp.active_task_idx_back_buffer.get_gpu_buffer_view();
     let active_tasks_back_buffer =
       StorageBufferDataView::try_from_raw(active_task_idx_back_buffer).unwrap();
@@ -229,7 +229,7 @@ impl TaskGroupExecutor {
       .clone()
       .stream_compaction(ActiveTaskCompact {
         active_size: imp.active_task_idx.current_size.clone(),
-        active_tasks: active_tasks.clone(),
+        active_tasks: imp.active_task_idx.storage.clone(),
         task_pool: imp.task_pool.clone(),
       })
       .materialize_storage_buffer_into(active_tasks_back_buffer, ctx);
@@ -309,9 +309,8 @@ impl TaskGroupExecutorResource {
     a_a: &MaybeCombinedAtomicU32StorageAllocator,
   ) -> Self {
     let device = &cx.gpu.device;
-    let init = ZeroedArrayByArrayLength(size);
     Self {
-      active_task_idx_back_buffer: Box::new(create_gpu_read_write_storage(init, device)),
+      active_task_idx_back_buffer: allocator.allocate((size * 4) as u64, device),
       active_task_idx: DeviceBumpAllocationInstance::new(size, device, allocator, a_a),
       new_removed_task_idx: DeviceBumpAllocationInstance::new(size, device, allocator, a_a),
       empty_index_pool: DeviceBumpAllocationInstance::new(size, device, allocator, a_a),

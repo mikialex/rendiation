@@ -10,6 +10,7 @@ pub struct CombinedBufferAllocatorInternal {
   layout: StructLayoutTarget,
   // use none for none atomic heap
   atomic: Option<ShaderAtomicValueType>,
+  enable_debug_log: bool,
 }
 
 impl CombinedBufferAllocatorInternal {
@@ -29,6 +30,7 @@ impl CombinedBufferAllocatorInternal {
       usage,
       layout,
       atomic,
+      enable_debug_log: false,
     }
   }
   pub fn expect_buffer(&self) -> &GPUBufferResourceView {
@@ -192,7 +194,10 @@ impl CombinedBufferAllocatorInternal {
       .raw_entry_mut()
       .from_key(label)
       .or_insert_with(|| {
-        println!("bind shader <{}>", self.label);
+        if self.enable_debug_log {
+          println!("bind shader <{}>", self.label);
+        }
+
         let heap_ty = if let Some(a_ty) = self.atomic {
           match a_ty {
             ShaderAtomicValueType::I32 => <[DeviceAtomic<i32>]>::ty(),
@@ -257,7 +262,9 @@ impl CombinedBufferAllocatorInternal {
       .any(|res| res.view_id == buffer.guid);
 
     if !bounded {
-      println!("bind res <{}>", self.label);
+      if self.enable_debug_log {
+        println!("bind res <{}>", self.label);
+      }
       bind_builder.bind_dyn(buffer.get_binding_build_source());
     }
   }
