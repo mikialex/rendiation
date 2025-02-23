@@ -9,7 +9,7 @@ pub struct TaskPool {
   ///   parent_task_type_id: u32,
   ///   parent_task_index: u32,
   /// }
-  pub(crate) tasks: GPUBufferResourceView,
+  pub(crate) tasks: BoxedAbstractStorageBuffer<[u32]>, // this [u32] type is fake
   state_desc: DynamicTypeMetaInfo,
   task_ty_desc: ShaderStructMetaInfo,
 }
@@ -28,9 +28,8 @@ impl TaskPool {
     state_desc: DynamicTypeMetaInfo,
     payload_ty: ShaderSizedValueType,
     device: &GPUDevice,
+    allocator: &MaybeCombinedStorageAllocator,
   ) -> Self {
-    let usage = BufferUsages::STORAGE | BufferUsages::COPY_SRC;
-
     let mut task_ty_desc = ShaderStructMetaInfo::new("TaskType");
     let u32_ty = ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Uint32);
 
@@ -41,18 +40,11 @@ impl TaskPool {
     task_ty_desc.push_field_dyn("parent_task_index", u32_ty);
 
     let stride = task_ty_desc.size_of_self(StructLayoutTarget::Std430);
-
-    let init = BufferInit::Zeroed(NonZeroU64::new((size * stride) as u64).unwrap());
-    let desc = GPUBufferDescriptor {
-      size: init.size(),
-      usage,
-    };
-
-    let gpu = GPUBuffer::create(device, init, usage);
-    let gpu = GPUBufferResource::create_with_raw(gpu, desc, device).create_default_view();
+    let byte_size_required = (size * stride) as u64;
+    let tasks = allocator.allocate(byte_size_required, device);
 
     Self {
-      tasks: gpu,
+      tasks,
       state_desc,
       task_ty_desc,
     }
@@ -77,7 +69,7 @@ impl TaskPool {
   }
 
   pub fn bind(&self, cx: &mut BindingBuilder) {
-    cx.bind_dyn(self.tasks.get_binding_build_source());
+    cx.bind_abstract_storage(&self.tasks);
   }
 }
 

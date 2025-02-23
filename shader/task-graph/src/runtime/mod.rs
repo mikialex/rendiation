@@ -369,7 +369,7 @@ impl DeviceTaskGraphExecutor {
       let active_idx = task.resource.active_task_idx.debug_execution(cx).await;
       let empty_idx = task.resource.empty_index_pool.debug_execution(cx).await;
 
-      let task_states = cx.read_buffer_bytes(&task.resource.task_pool.tasks);
+      let task_states = cx.read_buffer_bytes(&task.resource.task_pool.tasks.get_gpu_buffer_view());
 
       cx.submit_recorded_work_and_continue();
       let task_states = task_states.await.unwrap();

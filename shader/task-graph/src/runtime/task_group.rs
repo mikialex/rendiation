@@ -313,7 +313,13 @@ impl TaskGroupExecutorResource {
       new_removed_task_idx: DeviceBumpAllocationInstance::new(size, device, allocator),
       empty_index_pool: DeviceBumpAllocationInstance::new(size, device, allocator),
       // add one is for the first default task
-      task_pool: TaskPool::create_with_size(size + 1, state_desc, payload_ty.clone(), device),
+      task_pool: TaskPool::create_with_size(
+        size + 1,
+        state_desc,
+        payload_ty.clone(),
+        device,
+        allocator,
+      ),
       size,
     };
 
