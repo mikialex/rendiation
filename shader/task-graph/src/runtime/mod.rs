@@ -99,6 +99,8 @@ impl DeviceTaskGraphBuildSource {
 
     let mut pre_builds = Vec::new();
     let mut task_group_sources = Vec::new();
+    let buffer_allocator =
+      MaybeCombinedStorageAllocator::new("task graph execution resources", false, true);
 
     for (i, task_build_source) in self.tasks.iter().enumerate() {
       let pre_build =
@@ -110,6 +112,7 @@ impl DeviceTaskGraphBuildSource {
         pre_build.state_to_resolve.meta_info(),
         task_build_source.payload_ty.clone(),
         cx,
+        &buffer_allocator,
       );
 
       task_group_sources.push(resource);
@@ -133,6 +136,8 @@ impl DeviceTaskGraphBuildSource {
       );
       task_group_executors.push(exe);
     }
+
+    buffer_allocator.rebuild(&cx.gpu);
 
     DeviceTaskGraphExecutor {
       task_groups: task_group_executors,

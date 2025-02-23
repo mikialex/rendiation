@@ -303,13 +303,15 @@ impl TaskGroupExecutorResource {
     state_desc: DynamicTypeMetaInfo,
     payload_ty: ShaderSizedValueType,
     cx: &mut DeviceParallelComputeCtx,
+    allocator: &MaybeCombinedStorageAllocator,
   ) -> Self {
     let device = &cx.gpu.device;
+    let init = ZeroedArrayByArrayLength(size);
     let res = Self {
-      active_task_idx_back_buffer: Box::new(create_gpu_read_write_storage(size, device)),
-      active_task_idx: DeviceBumpAllocationInstance::new(size, device),
-      new_removed_task_idx: DeviceBumpAllocationInstance::new(size, device),
-      empty_index_pool: DeviceBumpAllocationInstance::new(size, device),
+      active_task_idx_back_buffer: Box::new(create_gpu_read_write_storage(init, device)),
+      active_task_idx: DeviceBumpAllocationInstance::new(size, device, allocator),
+      new_removed_task_idx: DeviceBumpAllocationInstance::new(size, device, allocator),
+      empty_index_pool: DeviceBumpAllocationInstance::new(size, device, allocator),
       // add one is for the first default task
       task_pool: TaskPool::create_with_size(size + 1, state_desc, payload_ty.clone(), device),
       size,

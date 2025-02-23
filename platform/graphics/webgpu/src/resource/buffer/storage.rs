@@ -214,9 +214,11 @@ impl<'a, T: Std430> From<&'a [T]> for StorageBufferInit<'a, [T]> {
   }
 }
 
-impl<T: Std430> From<usize> for StorageBufferInit<'_, [T]> {
-  fn from(len: usize) -> Self {
-    let byte_len = std::mem::size_of::<T>() * len;
+pub struct ZeroedArrayByArrayLength(pub usize);
+
+impl<T: Std430> From<ZeroedArrayByArrayLength> for StorageBufferInit<'_, [T]> {
+  fn from(len: ZeroedArrayByArrayLength) -> Self {
+    let byte_len = std::mem::size_of::<T>() * len.0;
     StorageBufferInit::Zeroed(NonZeroU64::new(byte_len as u64).unwrap())
   }
 }

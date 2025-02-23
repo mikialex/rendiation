@@ -23,10 +23,12 @@ impl CombinedStorageBufferAllocator {
     }
   }
   pub fn allocate<T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized>(
-    &mut self,
-    sub_buffer_u32_size: u32,
+    &self,
+    byte_size: u64,
   ) -> SubCombinedStorageBuffer<T> {
-    let buffer_index = self.internal.write().allocate(sub_buffer_u32_size);
+    assert!(byte_size % 4 == 0);
+    let sub_buffer_u32_size = byte_size / 4;
+    let buffer_index = self.internal.write().allocate(sub_buffer_u32_size as u32);
 
     SubCombinedStorageBuffer {
       buffer_index,

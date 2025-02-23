@@ -8,34 +8,17 @@ pub struct DeviceBumpAllocationInstance<T: Std430 + ShaderSizedValueNodeType> {
 }
 
 impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
-  pub fn new(size: usize, device: &GPUDevice) -> Self {
+  pub fn new(size: usize, device: &GPUDevice, allocator: &MaybeCombinedStorageAllocator) -> Self {
+    let storage_byte_size = std::mem::size_of::<T>() * size;
     Self {
-      storage: Box::new(create_gpu_read_write_storage(size, device)),
-      current_size: Box::new(create_gpu_read_write_storage(
-        StorageBufferInit::WithInit(&0_u32),
-        device,
-      )),
+      storage: allocator.allocate(storage_byte_size as u64, device),
+      current_size: allocator.allocate(4, device),
       bump_size: create_gpu_read_write_storage::<DeviceAtomic<u32>>(
         StorageBufferInit::WithInit(&DeviceAtomic(0)),
         device,
       ),
     }
   }
-
-  // pub fn new(
-  //   size: usize,
-  //   device: &GPUDevice,
-  //   data_allocator: &MaybeCombinedStorageAllocator,
-  // ) -> Self {
-  //   Self {
-  //     storage: create_gpu_read_write_storage(size, device),
-  //     current_size: create_gpu_read_write_storage(StorageBufferInit::WithInit(&0_u32), device),
-  //     bump_size: create_gpu_read_write_storage::<DeviceAtomic<u32>>(
-  //       StorageBufferInit::WithInit(&DeviceAtomic(0)),
-  //       device,
-  //     ),
-  //   }
-  // }
 
   pub fn reset(&self, cx: &mut DeviceParallelComputeCtx) {
     cx.record_pass(|pass, device| {
