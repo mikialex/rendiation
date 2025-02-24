@@ -9,7 +9,6 @@ pub use pipeline::*;
 mod ctx;
 pub use ctx::*;
 
-use crate::backend::native::NativeInlineSystem;
 use crate::*;
 
 #[derive(Clone)]
@@ -23,8 +22,8 @@ impl GPUWaveFrontComputeRaytracingSystem {
   pub fn new(gpu: &GPU) -> Self {
     Self {
       gpu: gpu.clone(),
-      // tlas_sys: Box::new(NaiveSahBVHSystem::new(gpu.clone())),
-      tlas_sys: Box::new(NativeInlineSystem::new(gpu.clone())),
+      tlas_sys: Box::new(NaiveSahBVHSystem::new(gpu.clone())),
+      // tlas_sys: Box::new(NativeInlineSystem::new(gpu.clone())),
       sbt_sys: ShaderBindingTableDeviceInfo::new(gpu),
     }
   }

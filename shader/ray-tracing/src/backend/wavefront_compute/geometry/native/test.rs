@@ -11,11 +11,11 @@ fn test_gpu_triangle() {
     ShaderHashProvider, StorageBufferDataView, GPU,
   };
 
-  use crate::backend::native::acceleration_structure::NativeInlineInstance;
-  use crate::backend::native::acceleration_structure::NativeInlineSystem;
   use crate::backend::{init_default_acceleration_structure, TEST_ANYHIT_BEHAVIOR};
-  use crate::GPUAccelerationStructureSystemCompImplInstance;
-  use crate::{RayFlagConfigRaw, ShaderRayTraceCallStoragePayloadShaderAPIInstance};
+  use crate::{
+    GPUAccelerationStructureSystemCompImplInstance, NativeInlineInstance, NativeInlineSystem,
+    RayFlagConfigRaw, ShaderRayTraceCallStoragePayloadShaderAPIInstance,
+  };
 
   const H: usize = 256;
   const W: usize = 256;
