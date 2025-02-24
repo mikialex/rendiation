@@ -64,7 +64,7 @@ impl CombinedBufferAllocatorInternal {
       / 4;
 
     let sub_buffer_count = self.sub_buffer_u32_size_requirements.len() as u32;
-    let header_size = sub_buffer_count + 1;
+    let header_size = sub_buffer_count * 2 + 1;
 
     let mut sub_buffer_allocation_u32_offset = Vec::with_capacity(sub_buffer_count as usize);
     let mut used_buffer_size_in_u32 = header_size;
@@ -96,14 +96,17 @@ impl CombinedBufferAllocatorInternal {
     };
 
     // write header
+    let new_buffer = buffer.resource.gpu();
     gpu
       .queue
-      .write_buffer(buffer.resource.gpu(), 0, cast_slice(&[sub_buffer_count]));
-    gpu.queue.write_buffer(
-      buffer.resource.gpu(),
-      4,
-      cast_slice(&self.sub_buffer_u32_size_requirements),
-    );
+      .write_buffer(new_buffer, 0, cast_slice(&[sub_buffer_count]));
+
+    let offsets = cast_slice(&self.sub_buffer_allocation_u32_offset);
+    gpu.queue.write_buffer(new_buffer, 4, offsets);
+    let sizes = cast_slice(&self.sub_buffer_u32_size_requirements);
+    gpu
+      .queue
+      .write_buffer(new_buffer, 4 + sizes.len() as u64 * 4, sizes);
 
     // old data movement
     if let Some(old_buffer) = &self.buffer {
@@ -114,7 +117,7 @@ impl CombinedBufferAllocatorInternal {
         encoder.copy_buffer_to_buffer(
           old_buffer.resource.gpu(),
           (source_offset * 4) as u64,
-          buffer.resource.gpu(),
+          new_buffer,
           (new_offset * 4) as u64,
           (size * 4) as u64,
         );
@@ -242,13 +245,10 @@ impl CombinedBufferAllocatorInternal {
 
     meta.write().register_ty(&ty_desc);
 
-    let base_offset = self.sub_buffer_allocation_u32_offset[index];
+    let offset = array.bitcast_read_u32_at(val(index as u32 + 1));
 
     let ptr = U32HeapPtrWithType {
-      ptr: U32HeapPtr {
-        array,
-        offset: val(base_offset),
-      },
+      ptr: U32HeapPtr { array, offset },
       ty: ty_desc.into_shader_single_ty(),
       bind_index: index as u32,
       meta,

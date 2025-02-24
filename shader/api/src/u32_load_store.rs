@@ -5,8 +5,9 @@ pub struct U32BufferLoadStoreSource {
   /// internal structure when used as the implementation of AbstractShaderPtr
   /// ```
   /// [
-  ///   u32: how many unsized array does this combine buffer contains
-  ///   *u32: these unsized array's array length
+  ///   u32: how many subdata does this combine buffer contains
+  ///   *u32: these subdata start offset in u32
+  ///   *u32: these subdata length in u32
   ///   *u32: real data
   /// ]
   /// ```
@@ -249,7 +250,9 @@ impl AbstractShaderPtr for U32HeapPtrWithType {
     let meta = self.meta.read();
     if let ShaderValueSingleType::Unsized(ShaderUnSizedValueType::UnsizedArray(ty)) = &self.ty {
       // we assume the host side will always write length in u32, so we get it from i32 by bitcast if needed
-      let sub_buffer_u32_length = self.ptr.bitcast_read_u32_at(self.bind_index + 1);
+      let sub_buffer_count = self.ptr.array.bitcast_read_u32_at(0);
+      let size_info_position = val(1) + sub_buffer_count + val(self.bind_index);
+      let sub_buffer_u32_length = self.ptr.array.bitcast_read_u32_at(size_info_position);
       let width = ty.u32_size_count(meta.layout);
       sub_buffer_u32_length / val(width)
     } else {
@@ -260,7 +263,7 @@ impl AbstractShaderPtr for U32HeapPtrWithType {
   fn load(&self) -> ShaderNodeRawHandle {
     let meta = self.meta.read();
     if let ShaderValueSingleType::Sized(ty) = &self.ty {
-      let array = self.ptr.downcast_as_common_u32_buffer();
+      let array = self.ptr.array.downcast_as_common_u32_buffer();
       ty.load_from_u32_buffer(array, self.ptr.offset, meta.layout)
     } else {
       unreachable!("can not load unsized ty")
@@ -270,7 +273,7 @@ impl AbstractShaderPtr for U32HeapPtrWithType {
   fn store(&self, value: ShaderNodeRawHandle) {
     let meta = self.meta.read();
     if let ShaderValueSingleType::Sized(ty) = &self.ty {
-      let array = self.ptr.downcast_as_common_u32_buffer();
+      let array = self.ptr.array.downcast_as_common_u32_buffer();
       ty.store_into_u32_buffer(value, array, self.ptr.offset, meta.layout)
     } else {
       unreachable!("can not store unsized ty")
@@ -279,7 +282,7 @@ impl AbstractShaderPtr for U32HeapPtrWithType {
 
   fn get_self_atomic_ptr(&self) -> ShaderNodeRawHandle {
     if let ShaderValueSingleType::Sized(ShaderSizedValueType::Atomic(_)) = &self.ty {
-      self.ptr.get_single_atomic_at(self.ptr.offset)
+      self.ptr.array.get_single_atomic_at(self.ptr.offset)
     } else {
       unreachable!("self is not an atomic type")
     }
@@ -306,8 +309,11 @@ impl U32HeapPtr {
       offset: self.offset + u32_offset.into(),
     }
   }
+}
+
+impl U32HeapHeapSource {
   pub fn downcast_as_common_u32_buffer(&self) -> &ShaderPtrOf<[u32]> {
-    match &self.array {
+    match &self {
       U32HeapHeapSource::Common(ptr) => ptr,
       _ => unreachable!("failed to downcast as common u32 buffer"),
     }
@@ -315,7 +321,7 @@ impl U32HeapPtr {
   /// note, when using atomic i32, the value will be bitcast to u32
   pub fn bitcast_read_u32_at(&self, index: impl Into<Node<u32>>) -> Node<u32> {
     let index = index.into();
-    match &self.array {
+    match &self {
       U32HeapHeapSource::Common(ptr) => ptr.index(index).load(),
       U32HeapHeapSource::AtomicU32(ptr) => ptr.index(index).atomic_load(),
       U32HeapHeapSource::AtomicI32(ptr) => ptr.index(index).atomic_load().bitcast(),
@@ -323,7 +329,7 @@ impl U32HeapPtr {
   }
   pub fn get_single_atomic_at(&self, index: impl Into<Node<u32>>) -> ShaderNodeRawHandle {
     let index = index.into();
-    match &self.array {
+    match &self {
       U32HeapHeapSource::Common(_) => unreachable!("heap is not atomic buffer"),
       U32HeapHeapSource::AtomicU32(ptr) => ptr.index(index).get_raw_ptr().get_self_atomic_ptr(),
       U32HeapHeapSource::AtomicI32(ptr) => ptr.index(index).get_raw_ptr().get_self_atomic_ptr(),
