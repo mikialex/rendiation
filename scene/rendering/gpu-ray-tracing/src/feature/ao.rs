@@ -61,7 +61,7 @@ impl AORenderState {
 struct AOShaderHandles {
   ray_gen: ShaderHandle,
   closest_hit: ShaderHandle,
-  any_hit: ShaderHandle,
+  secondary_closest: ShaderHandle,
   miss: ShaderHandle,
 }
 
@@ -70,7 +70,7 @@ impl Default for AOShaderHandles {
     Self {
       ray_gen: ShaderHandle(0, RayTracingShaderStage::RayGeneration),
       closest_hit: ShaderHandle(0, RayTracingShaderStage::ClosestHit),
-      any_hit: ShaderHandle(0, RayTracingShaderStage::AnyHit),
+      secondary_closest: ShaderHandle(1, RayTracingShaderStage::ClosestHit),
       miss: ShaderHandle(0, RayTracingShaderStage::Miss),
     }
   }
@@ -104,7 +104,7 @@ impl RenderImplProvider<SceneRayTracingAORenderer> for RayTracingAORenderSystem 
         .create_sbt(1, 2000, GLOBAL_TLAS_MAX_RAY_STRIDE),
     );
     let closest_hit = self.shader_handles.closest_hit;
-    let any = self.shader_handles.any_hit;
+    let secondary_closest = self.shader_handles.secondary_closest;
     let sbt = MultiUpdateContainer::new(sbt)
       .with_source(ReactiveQuerySbtUpdater {
         ray_ty_idx: AORayType::Primary as u32,
@@ -121,8 +121,8 @@ impl RenderImplProvider<SceneRayTracingAORenderer> for RayTracingAORenderSystem 
         source: global_watch()
           .watch_entity_set_untyped_key::<SceneModelEntity>()
           .collective_map(move |_| HitGroupShaderRecord {
-            closest_hit: None,
-            any_hit: Some(any),
+            closest_hit: Some(secondary_closest),
+            any_hit: None,
             intersection: None,
           }),
       });
@@ -317,7 +317,7 @@ impl SceneRayTracingAORenderer {
 
         let trace_call = ShaderRayTraceCall {
           tlas_idx: val(0),
-          ray_flags: val(RayFlagConfigRaw::RAY_FLAG_FORCE_NON_OPAQUE as u32), // to allow anyhit
+          ray_flags: val(0), // to allow anyhit
           cull_mask: val(u32::MAX),
           sbt_ray_config: AORayType::AOTest.to_sbt_cfg(),
           miss_index: val(0), // using the sample miss shader as primary ray
@@ -336,12 +336,12 @@ impl SceneRayTracingAORenderer {
     let handles = AOShaderHandles {
       ray_gen: source.register_ray_gen(ray_gen_shader),
       closest_hit: source.register_ray_closest_hit::<RayGenTracePayload>(ao_closest, 1),
-      any_hit: source.register_ray_any_hit(|any_ctx| {
-        any_ctx
-          .payload::<RayGenTracePayload>()
-          .abstract_store(val(0.0));
-        val(ANYHIT_BEHAVIOR_ACCEPT_HIT | ANYHIT_BEHAVIOR_END_SEARCH)
-      }),
+      secondary_closest: source.register_ray_closest_hit::<RayGenTracePayload>(
+        trace_base_builder
+          .create_closest_hit_shader_base::<RayGenTracePayload>()
+          .map(|_, ctx| ctx.expect_payload().store(val(0.))),
+        1,
+      ),
       miss: source.register_ray_miss::<RayGenTracePayload>(
         trace_base_builder
           .create_miss_hit_shader_base::<RayGenTracePayload>()

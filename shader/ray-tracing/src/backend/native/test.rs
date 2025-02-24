@@ -66,7 +66,7 @@ fn test_gpu_triangle() {
   impl GpuTester {
     fn new(upstream: Box<dyn DeviceParallelCompute<Node<u32>>>, gpu: GPU) -> Self {
       let payloads = create_gpu_read_write_storage::<[u32]>(1, &gpu);
-      let system = NativeInlineSystem::new(&gpu.device);
+      let system = NativeInlineSystem::new(gpu.clone());
 
       init_default_acceleration_structure(&system);
       let mut encoder = gpu.create_encoder();

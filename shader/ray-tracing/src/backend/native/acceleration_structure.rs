@@ -176,10 +176,10 @@ pub struct NativeInlineSystem {
   inner: Arc<RwLock<NativeInlineSystemInner>>,
 }
 impl NativeInlineSystem {
-  pub fn new(gpu: &GPUDevice) -> Self {
+  pub fn new(gpu: GPU) -> Self {
     Self {
       inner: Arc::new(RwLock::new(NativeInlineSystemInner {
-        device: gpu.clone(),
+        device: gpu.device.clone(),
         tlas_binding: vec![],
         blas: vec![],
         tlas: vec![],
