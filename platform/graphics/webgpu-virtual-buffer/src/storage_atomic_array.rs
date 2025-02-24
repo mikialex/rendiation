@@ -10,10 +10,11 @@ impl<T: AtomicityShaderNodeType> CombinedAtomicArrayStorageBufferAllocator<T> {
   /// label must unique across binding
   ///
   /// using compact_layout could reduce memory usage but unable to share the data with host or other shader easily
-  pub fn new(label: impl Into<String>) -> Self {
+  pub fn new(gpu: &GPU, label: impl Into<String>) -> Self {
     Self {
       atomic_ty: PhantomData,
       internal: Arc::new(RwLock::new(CombinedBufferAllocatorInternal::new(
+        gpu,
         label,
         BufferUsages::STORAGE,
         StructLayoutTarget::Packed,
@@ -41,8 +42,8 @@ impl<T: AtomicityShaderNodeType> CombinedAtomicArrayStorageBufferAllocator<T> {
     }
   }
 
-  pub fn rebuild(&self, gpu: &GPU) {
-    self.internal.write().rebuild(gpu);
+  pub fn rebuild(&self) {
+    self.internal.write().rebuild();
   }
 }
 
@@ -65,12 +66,12 @@ impl<T: AtomicityShaderNodeType> SubCombinedAtomicArrayStorageBuffer<T> {
       .resize(self.buffer_index, new_u32_size);
   }
 
-  pub fn write_content(&mut self, content: &[u32], queue: &GPUQueue) {
+  pub fn write_content(&mut self, content: &[u32]) {
     let content_in_bytes = cast_slice(content);
     self
       .internal
       .write()
-      .write_content(self.buffer_index, content_in_bytes, queue);
+      .write_content(self.buffer_index, content_in_bytes);
   }
 }
 
@@ -90,13 +91,13 @@ where
   ) -> ShaderPtrOf<[DeviceAtomic<T>]> {
     self
       .internal
-      .read()
+      .write()
       .bind_shader_storage::<[DeviceAtomic<T>]>(bind_builder, reg, self.buffer_index)
   }
 
   fn bind_pass(&self, bind_builder: &mut BindingBuilder) {
-    let internal = self.internal.read();
-    internal.bind_pass(bind_builder);
+    let mut internal = self.internal.write();
+    internal.bind_pass(bind_builder, self.buffer_index);
   }
 }
 
@@ -122,15 +123,14 @@ where
     bind_builder: &mut ShaderBindGroupBuilder,
     reg: &mut SemanticRegistry,
   ) -> ShaderPtrOf<DeviceAtomic<T>> {
-    self.internal.read().bind_shader_storage::<DeviceAtomic<T>>(
-      bind_builder,
-      reg,
-      self.buffer_index,
-    )
+    self
+      .internal
+      .write()
+      .bind_shader_storage::<DeviceAtomic<T>>(bind_builder, reg, self.buffer_index)
   }
 
   fn bind_pass(&self, bind_builder: &mut BindingBuilder) {
-    let internal = self.internal.read();
-    internal.bind_pass(bind_builder);
+    let mut internal = self.internal.write();
+    internal.bind_pass(bind_builder, self.buffer_index);
   }
 }

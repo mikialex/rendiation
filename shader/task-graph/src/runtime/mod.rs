@@ -102,9 +102,12 @@ impl DeviceTaskGraphBuildSource {
     let mut pre_builds = Vec::new();
     let mut task_group_sources = Vec::new();
     let buffer_allocator =
-      MaybeCombinedStorageAllocator::new("task graph execution resources", false, true);
-    let atomic_allocator =
-      MaybeCombinedAtomicU32StorageAllocator::new("task graph execution atomic resources", true);
+      MaybeCombinedStorageAllocator::new(&cx.gpu, "task graph execution resources", false, true);
+    let atomic_allocator = MaybeCombinedAtomicU32StorageAllocator::new(
+      &cx.gpu,
+      "task graph execution atomic resources",
+      true,
+    );
 
     for (i, task_build_source) in self.tasks.iter().enumerate() {
       let pre_build =
@@ -124,8 +127,8 @@ impl DeviceTaskGraphBuildSource {
       pre_builds.push(pre_build);
     }
 
-    buffer_allocator.rebuild(&cx.gpu);
-    atomic_allocator.rebuild(&cx.gpu);
+    buffer_allocator.rebuild();
+    atomic_allocator.rebuild();
 
     for res in &task_group_sources {
       res.init(cx);

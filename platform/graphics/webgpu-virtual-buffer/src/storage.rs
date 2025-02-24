@@ -31,9 +31,10 @@ impl CombinedStorageBufferAllocator {
   /// label must unique across binding
   ///
   /// using compact_layout could reduce memory usage but unable to share the data with host or other shader easily
-  pub fn new(label: impl Into<String>, use_packed_layout: bool) -> Self {
+  pub fn new(gpu: &GPU, label: impl Into<String>, use_packed_layout: bool) -> Self {
     Self {
       internal: Arc::new(RwLock::new(CombinedBufferAllocatorInternal::new(
+        gpu,
         label,
         BufferUsages::STORAGE,
         if use_packed_layout {
@@ -78,8 +79,8 @@ impl CombinedStorageBufferAllocator {
     }
   }
 
-  pub fn rebuild(&self, gpu: &GPU) {
-    self.internal.write().rebuild(gpu);
+  pub fn rebuild(&self) {
+    self.internal.write().rebuild();
   }
 }
 
@@ -101,11 +102,11 @@ impl SubCombinedStorageBufferDynTyped {
       .resize(self.buffer_index, new_u32_size);
   }
 
-  pub fn write_content(&mut self, content: &[u8], queue: &GPUQueue) {
+  pub fn write_content(&mut self, content: &[u8]) {
     self
       .internal
       .write()
-      .write_content(self.buffer_index, content, queue);
+      .write_content(self.buffer_index, content);
   }
 }
 impl AbstractStorageBufferDynTyped for SubCombinedStorageBufferDynTyped {
@@ -121,13 +122,13 @@ impl AbstractStorageBufferDynTyped for SubCombinedStorageBufferDynTyped {
   ) -> BoxedShaderPtr {
     self
       .internal
-      .read()
+      .write()
       .bind_shader_impl(bind_builder, reg, self.buffer_index, self.ty.clone())
   }
 
   fn bind_pass(&self, bind_builder: &mut BindingBuilder) {
-    let internal = self.internal.read();
-    internal.bind_pass(bind_builder);
+    let mut internal = self.internal.write();
+    internal.bind_pass(bind_builder, self.buffer_index);
   }
 }
 
@@ -159,11 +160,11 @@ impl<T: ShaderMaybeUnsizedValueNodeType + ?Sized> SubCombinedStorageBuffer<T> {
       .resize(self.buffer_index, new_u32_size);
   }
 
-  pub fn write_content(&mut self, content: &[u8], queue: &GPUQueue) {
+  pub fn write_content(&mut self, content: &[u8]) {
     self
       .internal
       .write()
-      .write_content(self.buffer_index, content, queue);
+      .write_content(self.buffer_index, content);
   }
 }
 
@@ -183,12 +184,12 @@ where
   ) -> ShaderPtrOf<T> {
     self
       .internal
-      .read()
+      .write()
       .bind_shader_storage::<T>(bind_builder, reg, self.buffer_index)
   }
 
   fn bind_pass(&self, bind_builder: &mut BindingBuilder) {
-    let internal = self.internal.read();
-    internal.bind_pass(bind_builder);
+    let mut internal = self.internal.write();
+    internal.bind_pass(bind_builder, self.buffer_index);
   }
 }

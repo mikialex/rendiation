@@ -7,9 +7,10 @@ pub struct CombinedUniformBufferAllocator {
 
 impl CombinedUniformBufferAllocator {
   /// label must unique across binding
-  pub fn new(label: impl Into<String>) -> Self {
+  pub fn new(gpu: &GPU, label: impl Into<String>) -> Self {
     Self {
       internal: Arc::new(RwLock::new(CombinedBufferAllocatorInternal::new(
+        gpu,
         label,
         BufferUsages::UNIFORM,
         StructLayoutTarget::Std140,
@@ -30,8 +31,8 @@ impl CombinedUniformBufferAllocator {
     }
   }
 
-  pub fn rebuild(&self, gpu: &GPU) {
-    self.internal.write().rebuild(gpu);
+  pub fn rebuild(&self) {
+    self.internal.write().rebuild();
   }
 }
 
@@ -54,11 +55,11 @@ impl<T: Std140 + ShaderSizedValueNodeType> SubCombinedUniformBuffer<T> {
       .resize(self.buffer_index, new_u32_size);
   }
 
-  pub fn write_content(&mut self, content: &[u8], queue: &GPUQueue) {
+  pub fn write_content(&mut self, content: &[u8]) {
     self
       .internal
       .write()
-      .write_content(self.buffer_index, content, queue);
+      .write_content(self.buffer_index, content);
   }
 }
 
@@ -78,12 +79,12 @@ where
   ) -> ShaderReadonlyPtrOf<T> {
     self
       .internal
-      .read()
+      .write()
       .bind_shader_uniform::<T>(bind_builder, reg, self.buffer_index)
   }
 
   fn bind_pass(&self, bind_builder: &mut BindingBuilder) {
-    let internal = self.internal.read();
-    internal.bind_pass(bind_builder);
+    let mut internal = self.internal.write();
+    internal.bind_pass(bind_builder, self.buffer_index);
   }
 }

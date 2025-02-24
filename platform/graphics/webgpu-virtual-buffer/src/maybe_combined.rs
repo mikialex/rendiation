@@ -12,9 +12,15 @@ pub enum MaybeCombinedStorageAllocator {
 
 impl MaybeCombinedStorageAllocator {
   /// label must unique across binding
-  pub fn new(label: impl Into<String>, enable_combine: bool, use_packed_layout: bool) -> Self {
+  pub fn new(
+    gpu: &GPU,
+    label: impl Into<String>,
+    enable_combine: bool,
+    use_packed_layout: bool,
+  ) -> Self {
     if enable_combine {
       Self::Combined(CombinedStorageBufferAllocator::new(
+        gpu,
         label,
         use_packed_layout,
       ))
@@ -92,9 +98,9 @@ impl MaybeCombinedStorageAllocator {
     }
   }
 
-  pub fn rebuild(&self, gpu: &GPU) {
+  pub fn rebuild(&self) {
     if let Self::Combined(combined) = self {
-      combined.rebuild(gpu);
+      combined.rebuild();
     }
   }
 }
@@ -107,9 +113,9 @@ pub enum MaybeCombinedAtomicU32StorageAllocator {
 
 impl MaybeCombinedAtomicU32StorageAllocator {
   /// label must unique across binding
-  pub fn new(label: impl Into<String>, enable_combine: bool) -> Self {
+  pub fn new(gpu: &GPU, label: impl Into<String>, enable_combine: bool) -> Self {
     if enable_combine {
-      Self::Combined(CombinedAtomicArrayStorageBufferAllocator::new(label))
+      Self::Combined(CombinedAtomicArrayStorageBufferAllocator::new(gpu, label))
     } else {
       Self::Default
     }
@@ -129,9 +135,9 @@ impl MaybeCombinedAtomicU32StorageAllocator {
     }
   }
 
-  pub fn rebuild(&self, gpu: &GPU) {
+  pub fn rebuild(&self) {
     if let Self::Combined(combined) = self {
-      combined.rebuild(gpu);
+      combined.rebuild();
     }
   }
 }
