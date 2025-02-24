@@ -61,7 +61,7 @@ where
 pub struct U32HeapPtrWithType {
   pub ptr: U32HeapPtr,
   pub ty: ShaderValueSingleType,
-  pub bind_index: u32,
+  pub bind_index: Node<u32>,
   pub meta: Arc<RwLock<ShaderU32StructMetaData>>,
 }
 
@@ -251,7 +251,7 @@ impl AbstractShaderPtr for U32HeapPtrWithType {
     if let ShaderValueSingleType::Unsized(ShaderUnSizedValueType::UnsizedArray(ty)) = &self.ty {
       // we assume the host side will always write length in u32, so we get it from i32 by bitcast if needed
       let sub_buffer_count = self.ptr.array.bitcast_read_u32_at(0);
-      let size_info_position = val(1) + sub_buffer_count + val(self.bind_index);
+      let size_info_position = val(1) + sub_buffer_count + self.bind_index;
       let sub_buffer_u32_length = self.ptr.array.bitcast_read_u32_at(size_info_position);
       let width = ty.u32_size_count(meta.layout);
       sub_buffer_u32_length / val(width)

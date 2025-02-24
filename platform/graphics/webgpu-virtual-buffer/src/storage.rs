@@ -123,7 +123,7 @@ impl AbstractStorageBufferDynTyped for SubCombinedStorageBufferDynTyped {
     self
       .internal
       .write()
-      .bind_shader_impl(bind_builder, reg, self.buffer_index, self.ty.clone())
+      .bind_shader_impl(bind_builder, reg, self.ty.clone())
   }
 
   fn bind_pass(&self, bind_builder: &mut BindingBuilder) {
@@ -185,7 +185,7 @@ where
     self
       .internal
       .write()
-      .bind_shader_storage::<T>(bind_builder, reg, self.buffer_index)
+      .bind_shader_storage::<T>(bind_builder, reg)
   }
 
   fn bind_pass(&self, bind_builder: &mut BindingBuilder) {

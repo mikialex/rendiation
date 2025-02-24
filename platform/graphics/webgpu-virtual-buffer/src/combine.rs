@@ -180,9 +180,8 @@ impl CombinedBufferAllocatorInternal {
     &mut self,
     bind_builder: &mut ShaderBindGroupBuilder,
     registry: &mut SemanticRegistry,
-    index: usize,
   ) -> ShaderPtrOf<T> {
-    let ptr = self.bind_shader_impl(bind_builder, registry, index, T::maybe_unsized_ty());
+    let ptr = self.bind_shader_impl(bind_builder, registry, T::maybe_unsized_ty());
     T::create_view_from_raw_ptr(ptr)
   }
 
@@ -190,9 +189,8 @@ impl CombinedBufferAllocatorInternal {
     &mut self,
     bind_builder: &mut ShaderBindGroupBuilder,
     registry: &mut SemanticRegistry,
-    index: usize,
   ) -> ShaderReadonlyPtrOf<T> {
-    let ptr = self.bind_shader_impl(bind_builder, registry, index, T::maybe_unsized_ty());
+    let ptr = self.bind_shader_impl(bind_builder, registry, T::maybe_unsized_ty());
     T::create_readonly_view_from_raw_ptr(ptr)
   }
 
@@ -201,7 +199,6 @@ impl CombinedBufferAllocatorInternal {
     &mut self,
     bind_builder: &mut ShaderBindGroupBuilder,
     registry: &mut SemanticRegistry,
-    index: usize,
     ty_desc: MaybeUnsizedValueType,
   ) -> BoxedShaderPtr {
     let label = &self.label;
@@ -282,7 +279,7 @@ impl CombinedBufferAllocatorInternal {
     let ptr = U32HeapPtrWithType {
       ptr: U32HeapPtr { array, offset },
       ty: ty_desc.into_shader_single_ty(),
-      bind_index: index as u32,
+      bind_index: buffer_bind_index,
       meta,
     };
     Box::new(ptr)

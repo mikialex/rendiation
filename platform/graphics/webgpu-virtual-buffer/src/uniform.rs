@@ -80,7 +80,7 @@ where
     self
       .internal
       .write()
-      .bind_shader_uniform::<T>(bind_builder, reg, self.buffer_index)
+      .bind_shader_uniform::<T>(bind_builder, reg)
   }
 
   fn bind_pass(&self, bind_builder: &mut BindingBuilder) {
