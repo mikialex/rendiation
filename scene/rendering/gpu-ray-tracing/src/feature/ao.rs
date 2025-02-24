@@ -6,6 +6,8 @@ use rendiation_texture_core::Size;
 
 use crate::*;
 
+const MAX_SAMPLE: u32 = 256;
+
 pub struct RayTracingAORenderSystem {
   camera: Box<dyn RenderImplProvider<Box<dyn RtxCameraRenderImpl>>>,
   sbt: UpdateResultToken,
@@ -253,7 +255,8 @@ impl SceneRayTracingAORenderer {
         let ao_cx = ctx.expect_custom_cx::<RayTracingAORayGenCtxInvocation>();
         let position = ctx.expect_ray_gen_ctx().launch_id().xy();
 
-        let previous_sample_count = ao_cx.ao_sample_count.load().x().into_f32();
+        let ao_sample_count = ao_cx.ao_sample_count.load().x();
+        let previous_sample_count = ao_sample_count.into_f32();
         let all_sample_count = previous_sample_count + val(1.0);
 
         let previous_sample_acc = ao_cx.ao_buffer.load_texel(position, val(0)).x();
@@ -261,9 +264,17 @@ impl SceneRayTracingAORenderer {
           (previous_sample_acc * previous_sample_count + payload) / all_sample_count;
         let new_sample_acc = new_sample_acc.splat::<Vec3<_>>();
 
-        ao_cx
-          .ao_buffer
-          .write_texel(position, (new_sample_acc, val(1.0)).into());
+        if_by(ao_sample_count.less_than(val(MAX_SAMPLE)), || {
+          ao_cx
+            .ao_buffer
+            .write_texel(position, (new_sample_acc, val(1.0)).into());
+        })
+        .else_by(|| {
+          ao_cx.ao_buffer.write_texel(
+            position,
+            (previous_sample_count.splat::<Vec3<_>>(), val(1.0)).into(),
+          );
+        });
       });
 
     type RayGenTracePayload = f32; // occlusion
@@ -307,7 +318,7 @@ impl SceneRayTracingAORenderer {
         let origin = closest_hit_ctx.world_ray().origin
           + closest_hit_ctx.world_ray().direction * closest_hit_ctx.hit_distance();
 
-        let random = hammersley_2d_fn(ao_cx.ao_sample_count.load().x(), val(256));
+        let random = hammersley_2d_fn(ao_cx.ao_sample_count.load().x(), val(MAX_SAMPLE));
         // let seed = ao_cx.ao_sample_count.load().x().into_f32();
         // let random = random2_fn((seed, (seed + seed).sin().cos()).into());
         let direction = hit_normal_tbn * sample_hemisphere_cos_fn(random);
