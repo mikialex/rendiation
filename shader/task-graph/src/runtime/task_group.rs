@@ -151,7 +151,7 @@ impl TaskGroupExecutor {
       .else_by(|| {
         pool
           .rw_task_state(task_index)
-          .store(TASK_STATUE_FLAG_SLEEPING);
+          .store(TASK_STATUE_FLAG_GO_TO_SLEEP);
       });
     });
 
@@ -439,7 +439,7 @@ impl TaskGroupDeviceInvocationInstance {
       .task_pool
       .rw_task_state(task_id)
       .load()
-      .equals(TASK_STATUE_FLAG_SLEEPING);
+      .equals(TASK_STATUE_FLAG_GO_TO_SLEEP);
     self
       .task_pool
       .rw_task_state(task_id)

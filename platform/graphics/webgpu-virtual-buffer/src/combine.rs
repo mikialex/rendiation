@@ -121,7 +121,7 @@ impl CombinedBufferAllocatorInternal {
     let sizes = cast_slice(&self.sub_buffer_u32_size_requirements);
     gpu
       .queue
-      .write_buffer(new_buffer, 4 + sizes.len() as u64 * 4, sizes);
+      .write_buffer(new_buffer, 4 + sub_buffer_count as u64 * 4, sizes);
 
     // old data movement
     if let Some(old_buffer) = &self.buffer {

@@ -88,10 +88,10 @@ pub const TASK_STATUE_FLAG_NOT_FINISHED_WAKEN: u32 = 1;
 /// subsequent task wake the parent in this task group, it will create duplicate invocation.
 ///
 /// we can not simply clear the alive list because the task could self spawn new tasks.
-/// our solution is to add another task state(this) to mark the task is sleeping but still in alive task.
+/// our solution is to add another task state(this) to mark the task is go to sleep but still in alive task.
 /// the prepare execution will still compact by this flag(and will reset it), but when child task wake parent,
 /// if it see this special flag the alive task index spawn will be skipped.
-pub const TASK_STATUE_FLAG_SLEEPING: u32 = 2;
+pub const TASK_STATUE_FLAG_GO_TO_SLEEP: u32 = 2;
 
 /// state for the sleeping task, the task it self is not in the active-list
 pub const TASK_STATUE_FLAG_NOT_FINISHED_SLEEP: u32 = 3;

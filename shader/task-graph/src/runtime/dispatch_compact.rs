@@ -95,7 +95,7 @@ impl DeviceInvocationComponent<Node<bool>> for ActiveTaskCompact {
         if_by(is_valid, || {
           let task_state = inner.2.rw_task_state(r).load();
 
-          if_by(task_state.equals(TASK_STATUE_FLAG_SLEEPING), || {
+          if_by(task_state.equals(TASK_STATUE_FLAG_GO_TO_SLEEP), || {
             inner
               .2
               .rw_task_state(r)
