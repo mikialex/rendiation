@@ -2,7 +2,7 @@ use crate::*;
 
 pub struct DynamicTypeBuilder {
   meta: DynamicTypeMetaInfo,
-  node_to_resolve: Arc<RwLock<Option<NodeUntyped>>>,
+  node_to_resolve: Arc<RwLock<Option<BoxedShaderPtr>>>,
 }
 
 impl DynamicTypeBuilder {
@@ -23,7 +23,7 @@ impl DynamicTypeBuilder {
   pub fn meta_info(&self) -> DynamicTypeMetaInfo {
     self.meta.clone()
   }
-  pub fn resolve(&mut self, node: NodeUntyped) {
+  pub fn resolve(&mut self, node: BoxedShaderPtr) {
     self.node_to_resolve.write().replace(node);
   }
 }
@@ -79,14 +79,14 @@ impl LeftValueBuilder for DynamicTypeBuilder {
 }
 
 struct DeferResolvedStorageStructFieldNode<T> {
-  node: Weak<RwLock<Option<NodeUntyped>>>,
+  node: Weak<RwLock<Option<BoxedShaderPtr>>>,
   field_index: usize,
-  resolved_storage_node: RwLock<Option<NodeUntyped>>,
+  resolved_storage_node: RwLock<Option<BoxedShaderPtr>>,
   ty: PhantomData<T>,
 }
 
 impl<T: ShaderSizedValueNodeType> DeferResolvedStorageStructFieldNode<T> {
-  fn expect_resolved(&self) -> StorageNode<T> {
+  fn expect_resolved(&self) -> ShaderPtrOf<T> {
     let mut resolve = self.resolved_storage_node.write();
     let storage = resolve.get_or_insert_with(|| {
       self
@@ -94,10 +94,12 @@ impl<T: ShaderSizedValueNodeType> DeferResolvedStorageStructFieldNode<T> {
         .upgrade()
         .expect("dyn type builder lost")
         .read_recursive()
+        .clone()
         .expect("dyn type builder not resolved yet")
     });
 
-    unsafe { index_access_field(storage.handle(), self.field_index) }
+    let ptr = storage.field_index(self.field_index);
+    T::create_view_from_raw_ptr(ptr)
   }
 }
 impl<T: ShaderSizedValueNodeType> ShaderAbstractLeftValue

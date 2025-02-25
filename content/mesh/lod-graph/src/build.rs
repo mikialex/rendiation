@@ -93,7 +93,7 @@ impl MeshLODGraphLevel {
         );
 
         let (meshlets, simplified_mesh) = builder.segment_triangles(simplified.mesh);
-        all_simplified_indices.extend(simplified_mesh.indices);
+        all_simplified_indices.extend(simplified_mesh.indices); // todo fix index not add base index in each group.
         all_simplified_vertices.extend(simplified_mesh.vertices);
         simplification_error.push(simplified.error);
 

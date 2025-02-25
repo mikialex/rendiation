@@ -1,7 +1,5 @@
 use crate::*;
 
-only_vertex!(IndirectSceneModelId, u32);
-
 pub trait DrawCommandBuilder: ShaderHashProvider + ShaderPassBuilder + DynClone {
   fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> DrawCommand;
   fn build_invocation(
@@ -48,8 +46,8 @@ impl GraphicsShaderProvider for IndirectDrawProviderAsRenderComponent<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, binder| {
       let invocation = self.0.create_indirect_invocation_source(binder);
-      let scene_id = invocation.current_invocation_scene_model_id(builder);
-      builder.register::<IndirectSceneModelId>(scene_id);
+      let scene_model_id = invocation.current_invocation_scene_model_id(builder);
+      builder.register::<LogicalRenderEntityId>(scene_model_id);
     })
   }
 }
@@ -70,9 +68,10 @@ impl DeviceSceneModelRenderSubBatch {
     };
     let size = generator.result_size();
 
+    let init = ZeroedArrayByArrayLength(size as usize);
     let draw_command_buffer = StorageBufferDataView::create_by_with_extra_usage(
       cx.gpu.device.as_ref(),
-      StorageBufferInit::<[DrawIndexedIndirect]>::from(size as usize),
+      StorageBufferInit::<[DrawIndexedIndirect]>::from(init),
       BufferUsages::INDIRECT,
     );
 
@@ -88,8 +87,8 @@ impl DeviceSceneModelRenderSubBatch {
 }
 
 struct MultiIndirectDrawBatch {
-  draw_command_buffer: StorageBufferReadOnlyDataView<[DrawIndexedIndirect]>,
-  draw_count: StorageBufferReadOnlyDataView<Vec4<u32>>,
+  draw_command_buffer: StorageBufferReadonlyDataView<[DrawIndexedIndirect]>,
+  draw_count: StorageBufferReadonlyDataView<Vec4<u32>>,
 }
 
 impl IndirectDrawProvider for MultiIndirectDrawBatch {
@@ -197,7 +196,7 @@ impl DeviceInvocation<Node<DrawIndexedIndirect>> for DrawCommandGeneratorInvocat
   ) -> (Node<DrawIndexedIndirect>, Node<bool>) {
     let (id, valid) = self.scene_models.invocation_logic(logic_global_id);
 
-    let draw_command = make_local_var();
+    let draw_command = make_local_var::<DrawIndexedIndirect>();
     if_by(valid, || {
       draw_command.store(self.generator.generate_draw_command(id));
     });

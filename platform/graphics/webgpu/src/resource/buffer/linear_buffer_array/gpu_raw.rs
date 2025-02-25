@@ -69,14 +69,14 @@ impl<T: Std430> GPULinearStorageImpl for StorageBufferDataView<[T]> {
   }
 }
 
-impl<T: Std430> LinearStorageBase for StorageBufferReadOnlyDataView<[T]> {
+impl<T: Std430> LinearStorageBase for StorageBufferReadonlyDataView<[T]> {
   type Item = T;
   fn max_size(&self) -> u32 {
     self.item_count()
   }
 }
 
-impl<T: Std430> GPULinearStorageImpl for StorageBufferReadOnlyDataView<[T]> {
+impl<T: Std430> GPULinearStorageImpl for StorageBufferReadonlyDataView<[T]> {
   fn resize_gpu(&mut self, encoder: &mut GPUCommandEncoder, device: &GPUDevice, new_size: u32) {
     self.gpu = resize_impl(
       &self.gpu,

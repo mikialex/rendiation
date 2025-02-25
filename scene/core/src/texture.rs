@@ -118,11 +118,9 @@ impl Texture2DWithSamplingDataView {
 }
 
 impl Texture2DWithSamplingDataView {
-  pub fn write<C, E>(self, writer: &mut EntityWriter<E>)
+  pub fn write<C>(self, writer: &mut EntityWriter<C::Entity>)
   where
-    E: EntitySemantic,
     C: TextureWithSamplingForeignKeys,
-    C: EntityAssociateSemantic<Entity = E>,
   {
     writer
       .component_value_writer::<SceneTexture2dRefOf<C>>(self.texture.some_handle())

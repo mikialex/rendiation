@@ -18,10 +18,18 @@ pub trait GPUAccelerationStructureSystemCompImplInvocationTraversable {
   fn traverse(
     &self,
     trace_payload: ENode<ShaderRayTraceCallStoragePayload>,
-    user_defined_payloads: StorageNode<[u32]>,
+    user_defined_payloads: ShaderPtrOf<[u32]>,
     intersect: &dyn Fn(&RayIntersectCtx, &dyn IntersectionReporter),
     any_hit: &dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
   ) -> ShaderOption<RayClosestHitCtx>;
+}
+
+// todo merge delete
+pub trait GPUAccelerationStructureSystemTlasCompImplInvocation {
+  fn index_tlas(
+    &self,
+    idx: Node<u32>,
+  ) -> ShaderReadonlyPtrOf<TopLevelAccelerationStructureSourceDeviceInstance>;
 }
 
 #[derive(Clone, Copy)]

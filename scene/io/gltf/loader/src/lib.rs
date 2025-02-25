@@ -3,7 +3,7 @@ use std::path::Path;
 
 use database::*;
 use fast_hash_collection::*;
-use gltf::{Node, Result as GltfResult};
+use gltf::Node;
 use rendiation_algebra::*;
 use rendiation_mesh_core::*;
 use rendiation_scene_core::*;
@@ -11,13 +11,32 @@ mod convert_utils;
 use convert_utils::*;
 use rendiation_texture_core::*;
 
+const SUPPORTED_GLTF_EXTENSIONS: [&str; 3] = [
+  "KHR_materials_pbrSpecularGlossiness",
+  "KHR_lights_punctual",
+  "KHR_materials_unlit",
+];
+
+#[derive(Debug)]
+pub enum GLTFLoaderError {
+  GltfFileLoadError(gltf::Error),
+  UnsupportedGLTFExtension(String),
+}
+
 /// the root of the gltf will be loaded under the target node
 pub fn load_gltf(
   path: impl AsRef<Path>,
   target: EntityHandle<SceneNodeEntity>,
   writer: &mut SceneWriter,
-) -> GltfResult<GltfLoadResult> {
-  let (document, mut buffers, images) = gltf::import(path)?;
+) -> Result<GltfLoadResult, GLTFLoaderError> {
+  let (document, mut buffers, images) =
+    gltf::import(path).map_err(GLTFLoaderError::GltfFileLoadError)?;
+
+  for ext in document.extensions_required() {
+    if !SUPPORTED_GLTF_EXTENSIONS.contains(&ext) {
+      return Err(GLTFLoaderError::UnsupportedGLTFExtension(ext.to_string()));
+    }
+  }
 
   let mut ctx = Context {
     images,
@@ -30,6 +49,15 @@ pub fn load_gltf(
     io: writer,
   };
 
+  for ext in document.extensions_used() {
+    if !SUPPORTED_GLTF_EXTENSIONS.contains(&ext) {
+      ctx
+        .result
+        .used_but_not_supported_extensions
+        .push(ext.to_string());
+    }
+  }
+
   for gltf_scene in document.scenes() {
     for node in gltf_scene.nodes() {
       create_node_recursive(target, &node, &mut ctx);
@@ -40,9 +68,9 @@ pub fn load_gltf(
   //     build_skin(skin, &mut ctx);
   //   }
 
-  //   for animation in document.animations() {
-  //     build_animation(animation, &mut ctx);
-  //   }
+  for animation in document.animations() {
+    build_animation(animation, &mut ctx);
+  }
 
   for gltf_scene in document.scenes() {
     for node in gltf_scene.nodes() {
@@ -67,6 +95,12 @@ pub struct GltfLoadResult {
   pub primitive_map: FastHashMap<usize, EntityHandle<SceneModelEntity>>,
   pub node_map: FastHashMap<usize, EntityHandle<SceneNodeEntity>>,
   pub view_map: FastHashMap<usize, UnTypedBufferView>,
+  // pub skin_map: FastHashMap<usize, EntityHandle<SceneSkinEntity>>,
+  pub animation_map: FastHashMap<usize, EntityHandle<SceneAnimationEntity>>,
+  pub directional_light_map: FastHashMap<usize, EntityHandle<DirectionalLightEntity>>,
+  pub point_light_map: FastHashMap<usize, EntityHandle<PointLightEntity>>,
+  pub spot_light_map: FastHashMap<usize, EntityHandle<SpotLightEntity>>,
+  pub used_but_not_supported_extensions: Vec<String>,
 }
 
 /// https://docs.rs/gltf/latest/gltf/struct.Node.html
@@ -102,6 +136,56 @@ fn create_node_content_recursive(gltf_node: &Node, ctx: &mut Context) {
       let model_handle = build_model(node, primitive, gltf_node, ctx);
 
       ctx.result.primitive_map.insert(index, model_handle);
+    }
+  }
+
+  if let Some(light) = gltf_node.light() {
+    let intensity = light.intensity();
+    let color = light.color();
+    let intensity = Vec3::from(color) * intensity;
+    let cutoff_distance = light.range().unwrap_or(DEFAULT_CUTOFF_DISTANCE);
+    let scene = ctx.io.scene;
+    match light.kind() {
+      gltf::khr_lights_punctual::Kind::Directional => {
+        let scene_light = DirectionalLightDataView {
+          illuminance: intensity,
+          node,
+          scene,
+        }
+        .write(&mut ctx.io.directional_light_writer);
+        ctx
+          .result
+          .directional_light_map
+          .insert(light.index(), scene_light);
+      }
+      gltf::khr_lights_punctual::Kind::Point => {
+        let scene_light = PointLightDataView {
+          intensity,
+          cutoff_distance,
+          node,
+          scene,
+        }
+        .write(&mut ctx.io.point_light_writer);
+        ctx
+          .result
+          .point_light_map
+          .insert(light.index(), scene_light);
+      }
+      gltf::khr_lights_punctual::Kind::Spot {
+        inner_cone_angle,
+        outer_cone_angle,
+      } => {
+        let scene_light = SpotLightDataView {
+          intensity,
+          cutoff_distance,
+          half_cone_angle: outer_cone_angle,
+          half_penumbra_angle: inner_cone_angle,
+          node,
+          scene,
+        }
+        .write(&mut ctx.io.spot_light_writer);
+        ctx.result.spot_light_map.insert(light.index(), scene_light);
+      }
     }
   }
 
@@ -143,13 +227,14 @@ fn build_model(
     mode,
     groups: Default::default(),
   };
-  let mesh = ctx.io.write_attribute_mesh(mesh);
+  let mesh = ctx.io.write_attribute_mesh(mesh).mesh;
 
-  let material = build_pbr_material(primitive.material(), ctx).write(&mut ctx.io.pbr_mr_mat_writer);
+  let material = build_material(primitive.material(), ctx);
 
   let model = StandardModelDataView {
-    material: SceneMaterialDataView::PbrMRMaterial(material),
+    material,
     mesh,
+    skin: None,
   };
 
   if let Some(_skin) = gltf_node.skin() {
@@ -166,36 +251,40 @@ fn build_model(
   sm.write(&mut ctx.io.model_writer)
 }
 
-// fn build_animation(animation: gltf::Animation, ctx: &mut Context) {
-//   let channels = animation
-//     .channels()
-//     .map(|channel| {
-//       let target = channel.target();
-//       let node = ctx
-//         .result
-//         .node_map
-//         .get(&target.node().index())
-//         .unwrap()
-//         .clone();
+fn build_animation(animation: gltf::Animation, ctx: &mut Context) {
+  let animation_handle = ctx
+    .io
+    .animation
+    .component_value_writer::<SceneAnimationBelongsToScene>(ctx.io.scene.some_handle())
+    .new_entity();
 
-//       let field = map_animation_field(target.property());
-//       let gltf_sampler = channel.sampler();
-//       let sampler = AnimationSampler {
-//         interpolation: map_animation_interpolation(gltf_sampler.interpolation()),
-//         field,
-//         input: build_accessor(gltf_sampler.input(), ctx),
-//         output: build_accessor(gltf_sampler.output(), ctx),
-//       };
+  animation.channels().for_each(|channel| {
+    let target = channel.target();
+    let node = *ctx.result.node_map.get(&target.node().index()).unwrap();
 
-//       SceneAnimationChannel {
-//         target_node: node,
-//         sampler,
-//       }
-//     })
-//     .collect();
+    let field = map_animation_field(target.property());
+    let gltf_sampler = channel.sampler();
+    let sampler = AnimationSampler {
+      interpolation: map_animation_interpolation(gltf_sampler.interpolation()),
+      field,
+      input: build_accessor(gltf_sampler.input(), ctx),
+      output: build_accessor(gltf_sampler.output(), ctx),
+    };
 
-//   ctx.result.animations.push(SceneAnimation { channels })
-// }
+    let channel = AnimationChannelDataView {
+      sampler,
+      target_node: node,
+      animation: animation_handle,
+    };
+
+    channel.write(ctx.io);
+  });
+
+  ctx
+    .result
+    .animation_map
+    .insert(animation.index(), animation_handle);
+}
 
 // fn build_skin(skin: gltf::Skin, ctx: &mut Context) {
 //   let mut joints: Vec<_> = skin
@@ -221,13 +310,13 @@ fn build_model(
 //   }
 
 //   // https://stackoverflow.com/questions/64734695/what-does-it-mean-when-gltf-does-not-specify-a-skeleton-value-in-a-skin
-//   // let skeleton_root = skin
-//   //   .skeleton()
-//   //   .and_then(|n| ctx.result.node_map.get(&n.index()))
-//   //   .unwrap_or(scene_inner.root());
+//   let skeleton_root = skin
+//     .skeleton()
+//     .and_then(|n| ctx.result.node_map.get(&n.index()))
+//     .unwrap_or(scene_inner.root()); // todo create a new root
 
-//   let skeleton = SkeletonImpl { joints }.into_ptr();
-//   ctx.result.skin_map.insert(skin.index(), skeleton);
+//   // let skeleton = SkeletonImpl { joints }.into_ptr();
+//   // ctx.result.skin_map.insert(skin.index(), skeleton);
 // }
 
 fn build_data_view(view: gltf::buffer::View, ctx: &mut Context) -> UnTypedBufferView {
@@ -285,19 +374,11 @@ fn build_accessor(accessor: gltf::Accessor, ctx: &mut Context) -> AttributeAcces
 }
 
 /// https://docs.rs/gltf/latest/gltf/struct.Material.html
-fn build_pbr_material(
-  material: gltf::Material,
-  ctx: &mut Context,
-) -> PhysicalMetallicRoughnessMaterialDataView {
+fn build_material(material: gltf::Material, ctx: &mut Context) -> SceneMaterialDataView {
   let pbr = material.pbr_metallic_roughness();
 
-  let base_color_texture = pbr
-    .base_color_texture()
-    .map(|tex| build_texture(tex.texture(), true, ctx));
-
-  let metallic_roughness_texture = pbr
-    .metallic_roughness_texture()
-    .map(|tex| build_texture(tex.texture(), false, ctx));
+  let alpha_mode = map_alpha(material.alpha_mode());
+  let alpha_cut = material.alpha_cutoff().unwrap_or(0.5);
 
   let emissive_texture = material
     .emissive_texture()
@@ -308,32 +389,88 @@ fn build_pbr_material(
     scale: tex.scale(),
   });
 
-  let alpha_mode = map_alpha(material.alpha_mode());
-  let alpha_cut = material.alpha_cutoff().unwrap_or(0.5);
-
-  let color_and_alpha = Vec4::from(pbr.base_color_factor());
-
-  let result = PhysicalMetallicRoughnessMaterialDataView {
-    base_color: color_and_alpha.rgb(),
-    alpha: AlphaConfigDataView {
-      alpha_mode,
-      alpha_cutoff: alpha_cut,
-      alpha: color_and_alpha.a(),
-    },
-    roughness: pbr.roughness_factor(),
-    metallic: pbr.metallic_factor(),
-    emissive: Vec3::from(material.emissive_factor()),
-    base_color_texture,
-    metallic_roughness_texture,
-    emissive_texture,
-    normal_texture,
-    // reflectance: 0.5, // todo from gltf ior extension
-  };
-
-  if material.double_sided() {
-    // result.states.cull_mode = None;
+  if material.unlit() {
+    let color_and_alpha = Vec4::from(pbr.base_color_factor());
+    let base_color_texture = pbr
+      .base_color_texture()
+      .map(|tex| build_texture(tex.texture(), true, ctx));
+    let mat = UnlitMaterialDataView {
+      color: color_and_alpha,
+      color_alpha_tex: base_color_texture,
+      alpha: AlphaConfigDataView {
+        alpha_mode,
+        alpha_cutoff: alpha_cut,
+        alpha: color_and_alpha.a(),
+      },
+    }
+    .write(&mut ctx.io.unlit_mat_writer);
+    return SceneMaterialDataView::UnlitMaterial(mat);
   }
-  result
+
+  if let Some(pbr_specular) = material.pbr_specular_glossiness() {
+    let albedo_texture = pbr_specular
+      .diffuse_texture()
+      .map(|tex| build_texture(tex.texture(), true, ctx));
+
+    let specular_glossiness_texture = pbr_specular
+      .specular_glossiness_texture()
+      .map(|tex| build_texture(tex.texture(), true, ctx));
+
+    let albedo_and_alpha = Vec4::from(pbr_specular.diffuse_factor());
+
+    let result = PhysicalSpecularGlossinessMaterialDataView {
+      albedo: albedo_and_alpha.xyz(),
+      specular: Vec3::from(pbr_specular.specular_factor()),
+      glossiness: pbr_specular.glossiness_factor(),
+      emissive: Vec3::from(material.emissive_factor()),
+      alpha: AlphaConfigDataView {
+        alpha_mode,
+        alpha_cutoff: alpha_cut,
+        alpha: albedo_and_alpha.a(),
+      },
+      albedo_texture,
+      specular_glossiness_texture,
+      emissive_texture,
+      normal_texture,
+    };
+
+    if material.double_sided() {
+      // result.states.cull_mode = None;
+    }
+    SceneMaterialDataView::PbrSGMaterial(result.write(&mut ctx.io.pbr_sg_mat_writer))
+  } else {
+    let base_color_texture = pbr
+      .base_color_texture()
+      .map(|tex| build_texture(tex.texture(), true, ctx));
+
+    let metallic_roughness_texture = pbr
+      .metallic_roughness_texture()
+      .map(|tex| build_texture(tex.texture(), false, ctx));
+
+    let color_and_alpha = Vec4::from(pbr.base_color_factor());
+
+    let result = PhysicalMetallicRoughnessMaterialDataView {
+      base_color: color_and_alpha.rgb(),
+      alpha: AlphaConfigDataView {
+        alpha_mode,
+        alpha_cutoff: alpha_cut,
+        alpha: color_and_alpha.a(),
+      },
+      roughness: pbr.roughness_factor(),
+      metallic: pbr.metallic_factor(),
+      emissive: Vec3::from(material.emissive_factor()),
+      base_color_texture,
+      metallic_roughness_texture,
+      emissive_texture,
+      normal_texture,
+      // reflectance: 0.5, // todo from gltf ior extension
+    };
+
+    if material.double_sided() {
+      // result.states.cull_mode = None;
+    }
+    SceneMaterialDataView::PbrMRMaterial(result.write(&mut ctx.io.pbr_mr_mat_writer))
+  }
 }
 
 // i assume all gpu use little endian?

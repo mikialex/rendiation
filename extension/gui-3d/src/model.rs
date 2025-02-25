@@ -17,8 +17,8 @@ pub struct UIWidgetModel {
   std_model: EntityHandle<StandardModelEntity>,
   model: EntityHandle<SceneModelEntity>,
   pub(crate) node: EntityHandle<SceneNodeEntity>,
-  material: EntityHandle<FlatMaterialEntity>,
-  mesh: EntityHandle<AttributesMeshEntity>,
+  material: EntityHandle<UnlitMaterialEntity>,
+  mesh: AttributesMeshEntities,
 }
 
 impl Widget for UIWidgetModel {
@@ -96,21 +96,18 @@ impl Widget for UIWidgetModel {
   }
   fn clean_up(&mut self, cx: &mut DynCx) {
     access_cx_mut!(cx, scene_cx, SceneWriter);
-    scene_cx.std_model_writer.delete_entity(self.std_model);
-    scene_cx.model_writer.delete_entity(self.model);
-    scene_cx.node_writer.delete_entity(self.node);
-    scene_cx.flat_mat_writer.delete_entity(self.material)
-    // todo mesh
+    self.do_cleanup(scene_cx);
   }
 }
 
 impl UIWidgetModel {
   pub fn new(v: &mut SceneWriter, shape: AttributesMeshData) -> Self {
-    let material = v.flat_mat_writer.new_entity();
+    let material = v.unlit_mat_writer.new_entity();
     let mesh = v.write_attribute_mesh(shape.build());
     let model = StandardModelDataView {
-      material: SceneMaterialDataView::FlatMaterial(material),
-      mesh,
+      material: SceneMaterialDataView::UnlitMaterial(material),
+      mesh: mesh.mesh,
+      skin: None,
     }
     .write(&mut v.std_model_writer);
     let node = v.node_writer.new_entity();
@@ -137,6 +134,17 @@ impl UIWidgetModel {
       material,
       mesh,
     }
+  }
+
+  pub fn do_cleanup(&mut self, scene_cx: &mut SceneWriter) {
+    scene_cx.std_model_writer.delete_entity(self.std_model);
+    scene_cx.model_writer.delete_entity(self.model);
+    scene_cx.node_writer.delete_entity(self.node);
+    scene_cx.unlit_mat_writer.delete_entity(self.material);
+
+    self
+      .mesh
+      .clean_up(&mut scene_cx.mesh_writer, &mut scene_cx.buffer_writer);
   }
 
   fn has_any_mouse_event_handler(&self) -> bool {
@@ -177,8 +185,8 @@ impl UIWidgetModel {
 
   pub fn set_color(&mut self, cx3d: &mut SceneWriter, color: Vec3<f32>) -> &mut Self {
     cx3d
-      .flat_mat_writer
-      .write::<FlatMaterialDisplayColorComponent>(self.material, color.expand_with_one());
+      .unlit_mat_writer
+      .write::<UnlitMaterialColorComponent>(self.material, color.expand_with_one());
     self
   }
   pub fn set_visible(&mut self, cx3d: &mut SceneWriter, v: bool) -> &mut Self {
@@ -200,8 +208,29 @@ impl UIWidgetModel {
     self
   }
 
-  pub fn with_shape(mut self, cx3d: &mut SceneWriter, shape: AttributesMeshData) -> Self {
-    self.mesh = cx3d.write_attribute_mesh(shape.build());
+  /// return previous mesh entity for user decide if they want to delete it
+  pub fn replace_shape(
+    &mut self,
+    cx3d: &mut SceneWriter,
+    shape: AttributesMeshData,
+  ) -> AttributesMeshEntities {
+    let new_mesh = cx3d.write_attribute_mesh(shape.build());
+    cx3d
+      .std_model_writer
+      .write_foreign_key::<StandardModelRefAttributesMeshEntity>(
+        self.std_model,
+        Some(new_mesh.mesh),
+      );
+    std::mem::replace(&mut self.mesh, new_mesh)
+  }
+
+  pub fn replace_new_shape_and_cleanup_old(
+    &mut self,
+    scene_cx: &mut SceneWriter,
+    shape: AttributesMeshData,
+  ) -> &mut Self {
+    let old_mesh = self.replace_shape(scene_cx, shape);
+    old_mesh.clean_up(&mut scene_cx.mesh_writer, &mut scene_cx.buffer_writer);
     self
   }
 

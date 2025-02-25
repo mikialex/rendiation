@@ -54,26 +54,37 @@ impl IndirectModelMaterialRenderImpl for Vec<Box<dyn IndirectModelMaterialRender
 }
 
 #[derive(Default)]
-pub struct FlatMaterialDefaultIndirectRenderImplProvider {
+pub struct UnlitMaterialDefaultIndirectRenderImplProvider {
   storages: UpdateResultToken,
+  tex_storages: UpdateResultToken,
 }
 impl RenderImplProvider<Box<dyn IndirectModelMaterialRenderImpl>>
-  for FlatMaterialDefaultIndirectRenderImplProvider
+  for UnlitMaterialDefaultIndirectRenderImplProvider
 {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    let updater = flat_material_storage_buffer(cx);
+    let updater = unlit_material_storage_buffer(cx);
     self.storages = source.register_multi_updater(updater.inner);
+    self.tex_storages = source.register_multi_updater(unlit_material_texture_storages(cx).inner);
   }
   fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
     source.deregister(&mut self.storages);
+    source.deregister(&mut self.tex_storages);
   }
 
   fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn IndirectModelMaterialRenderImpl> {
-    Box::new(FlatMaterialDefaultIndirectRenderImpl {
-      material_access: global_entity_component_of::<StandardModelRefFlatMaterial>()
+    Box::new(UnlitMaterialDefaultIndirectRenderImpl {
+      material_access: global_entity_component_of::<StandardModelRefUnlitMaterial>()
         .read_foreign_key(),
       storages: res
-        .take_multi_updater_updated::<CommonStorageBufferImpl<FlatMaterialStorage>>(self.storages)
+        .take_multi_updater_updated::<CommonStorageBufferImpl<UnlitMaterialStorage>>(self.storages)
+        .unwrap()
+        .inner
+        .gpu()
+        .clone(),
+      texture_handles: res
+        .take_multi_updater_updated::<CommonStorageBufferImpl<UnlitMaterialTextureHandlesStorage>>(
+          self.tex_storages,
+        )
         .unwrap()
         .inner
         .gpu()
@@ -83,22 +94,25 @@ impl RenderImplProvider<Box<dyn IndirectModelMaterialRenderImpl>>
   }
 }
 
-struct FlatMaterialDefaultIndirectRenderImpl {
-  material_access: ForeignKeyReadView<StandardModelRefFlatMaterial>,
-  storages: StorageBufferReadOnlyDataView<[FlatMaterialStorage]>,
-  alpha_mode: ComponentReadView<AlphaModeOf<FlatMaterialAlphaConfig>>,
+struct UnlitMaterialDefaultIndirectRenderImpl {
+  material_access: ForeignKeyReadView<StandardModelRefUnlitMaterial>,
+  storages: StorageBufferReadonlyDataView<[UnlitMaterialStorage]>,
+  texture_handles: StorageBufferReadonlyDataView<[UnlitMaterialTextureHandlesStorage]>,
+  alpha_mode: ComponentReadView<AlphaModeOf<UnlitMaterialAlphaConfig>>,
 }
 
-impl IndirectModelMaterialRenderImpl for FlatMaterialDefaultIndirectRenderImpl {
+impl IndirectModelMaterialRenderImpl for UnlitMaterialDefaultIndirectRenderImpl {
   fn make_component_indirect<'a>(
     &'a self,
     any_idx: EntityHandle<StandardModelEntity>,
-    _cx: &'a GPUTextureBindingSystem,
+    cx: &'a GPUTextureBindingSystem,
   ) -> Option<Box<dyn RenderComponent + 'a>> {
     let m = self.material_access.get(any_idx)?;
-    Some(Box::new(FlatMaterialStorageGPU {
+    Some(Box::new(UnlitMaterialStorageGPU {
       buffer: self.storages.clone(),
       alpha_mode: self.alpha_mode.get_value(m)?,
+      texture_handles: self.texture_handles.clone(),
+      binding_sys: cx,
     }))
   }
   fn hash_shader_group_key(
@@ -145,9 +159,9 @@ impl RenderImplProvider<Box<dyn IndirectModelMaterialRenderImpl>>
 
 struct PbrMRMaterialDefaultIndirectRenderImpl {
   material_access: ForeignKeyReadView<StandardModelRefPbrMRMaterial>,
-  storages: StorageBufferReadOnlyDataView<[PhysicalMetallicRoughnessMaterialStorage]>,
+  storages: StorageBufferReadonlyDataView<[PhysicalMetallicRoughnessMaterialStorage]>,
   tex_storages:
-    StorageBufferReadOnlyDataView<[PhysicalMetallicRoughnessMaterialTextureHandlesStorage]>,
+    StorageBufferReadonlyDataView<[PhysicalMetallicRoughnessMaterialTextureHandlesStorage]>,
   alpha_mode: ComponentReadView<AlphaModeOf<PbrMRMaterialAlphaConfig>>,
 }
 
@@ -234,9 +248,9 @@ impl RenderImplProvider<Box<dyn IndirectModelMaterialRenderImpl>>
 
 struct PbrSGMaterialDefaultIndirectRenderImpl {
   material_access: ForeignKeyReadView<StandardModelRefPbrSGMaterial>,
-  storages: StorageBufferReadOnlyDataView<[PhysicalSpecularGlossinessMaterialStorage]>,
+  storages: StorageBufferReadonlyDataView<[PhysicalSpecularGlossinessMaterialStorage]>,
   tex_storages:
-    StorageBufferReadOnlyDataView<[PhysicalSpecularGlossinessMaterialTextureHandlesStorage]>,
+    StorageBufferReadonlyDataView<[PhysicalSpecularGlossinessMaterialTextureHandlesStorage]>,
   alpha_mode: ComponentReadView<AlphaModeOf<PbrSGMaterialAlphaConfig>>,
 }
 

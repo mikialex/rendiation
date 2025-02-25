@@ -169,6 +169,8 @@ impl BasicShadowMapSystem {
         .try_into()
         .unwrap();
 
+      let mut scene_content = scene_content(proj, world, frame_ctx);
+
       // todo, consider merge the pass within the same layer
       // custom dispatcher is not required because we only have depth output.
       let mut pass = pass("shadow-map")
@@ -182,7 +184,7 @@ impl BasicShadowMapSystem {
       let h = shadow_view.size.y;
       raw_pass.set_viewport(x, y, w, h, 0., 1.);
 
-      pass.by(&mut scene_content(proj, world, frame_ctx));
+      pass.by(&mut scene_content);
     }
 
     shadow_map_atlas
@@ -281,11 +283,11 @@ impl AbstractBindingSource for BasicShadowMapComponent {
   }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct BasicShadowMapInvocation {
-  shadow_map_atlas: HandleNode<ShaderDepthTexture2DArray>,
-  sampler: HandleNode<ShaderCompareSampler>,
-  info: UniformNode<Shader140Array<BasicShadowMapInfo, 8>>,
+  shadow_map_atlas: BindingNode<ShaderDepthTexture2DArray>,
+  sampler: BindingNode<ShaderCompareSampler>,
+  info: ShaderReadonlyPtrOf<Shader140Array<BasicShadowMapInfo, 8>>,
 }
 
 impl BasicShadowMapInvocation {
@@ -325,8 +327,8 @@ impl IntoShaderIterator for BasicShadowMapInvocation {
 
   fn into_shader_iter(self) -> Self::ShaderIter {
     BasicShadowMapInvocationIter {
+      iter: self.info.clone().into_shader_iter(),
       inner: self,
-      iter: self.info.into_shader_iter(),
     }
   }
 }
@@ -334,7 +336,7 @@ impl IntoShaderIterator for BasicShadowMapInvocation {
 #[derive(Clone)]
 pub struct BasicShadowMapInvocationIter {
   inner: BasicShadowMapInvocation,
-  iter: UniformArrayIter<BasicShadowMapInfo, 8>,
+  iter: ShaderStaticArrayReadonlyIter<Shader140Array<BasicShadowMapInfo, 8>, BasicShadowMapInfo>,
 }
 
 impl ShaderIterator for BasicShadowMapInvocationIter {
@@ -344,7 +346,7 @@ impl ShaderIterator for BasicShadowMapInvocationIter {
     let (valid, (index, _)) = self.iter.shader_next();
 
     let item = BasicShadowMapSingleInvocation {
-      sys: self.inner,
+      sys: self.inner.clone(),
       index,
     };
 
@@ -352,7 +354,7 @@ impl ShaderIterator for BasicShadowMapInvocationIter {
   }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct BasicShadowMapSingleInvocation {
   sys: BasicShadowMapInvocation,
   index: Node<u32>,
@@ -371,9 +373,9 @@ impl ShadowOcclusionQuery for BasicShadowMapSingleInvocation {
 }
 
 fn sample_shadow_pcf_x36_by_offset(
-  map: HandleNode<ShaderDepthTexture2DArray>,
+  map: BindingNode<ShaderDepthTexture2DArray>,
   shadow_position: Node<Vec3<f32>>,
-  d_sampler: HandleNode<ShaderCompareSampler>,
+  d_sampler: BindingNode<ShaderCompareSampler>,
   info: ENode<ShadowMapAddressInfo>,
 ) -> Node<f32> {
   let uv = shadow_position.xy();

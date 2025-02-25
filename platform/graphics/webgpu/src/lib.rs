@@ -291,3 +291,11 @@ impl DrawIndexedIndirect {
     }
   }
 }
+
+/// this fn is to replace the usage of `TextureUsages::all()` because not every fmt support
+/// `TextureUsages::STORAGE_ATOMIC` and this will cause validation error.
+pub fn basic_texture_usages() -> TextureUsages {
+  let mut full = TextureUsages::all();
+  full.remove(TextureUsages::STORAGE_ATOMIC);
+  full
+}

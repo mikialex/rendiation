@@ -15,7 +15,7 @@ impl GraphicsShaderProvider for BrdfLUTGenerator {
       let sample_count = val(128);
       let uv = builder.query::<FragmentUv>();
       let result = integrate_brdf(uv.x(), uv.y(), sample_count);
-      builder.store_fragment_out(0, (result, val(0.), val(1.)))
+      builder.store_fragment_out_vec4f(0, (result, val(0.), val(1.)))
     })
   }
 }
@@ -184,7 +184,7 @@ struct PreFilterSpecularTask {
 #[repr(C)]
 #[std140_layout]
 #[derive(Clone, Copy, ShaderStruct, Default)]
-struct SpecularGenerationConfig {
+pub struct SpecularGenerationConfig {
   pub direction: Mat4<f32>,
   pub sample_count: u32,
   pub roughness: f32,
@@ -225,14 +225,14 @@ impl GraphicsShaderProvider for PreFilterSpecularTask {
         config.sample_count,
       );
 
-      builder.store_fragment_out(0, (specular, val(1.)));
+      builder.store_fragment_out_vec4f(0, (specular, val(1.)));
     });
   }
 }
 
 pub fn prefilter_specular(
-  env: HandleNode<ShaderTextureCube>,
-  sampler: HandleNode<ShaderSampler>,
+  env: BindingNode<ShaderTextureCube>,
+  sampler: BindingNode<ShaderSampler>,
   normal: Node<Vec3<f32>>,
   resolution: Node<f32>,
   roughness: Node<f32>,
@@ -283,7 +283,7 @@ struct PreFilterDiffuseTask {
 #[repr(C)]
 #[std140_layout]
 #[derive(Clone, Copy, ShaderStruct, Default)]
-struct DiffuseTaskGenerationConfig {
+pub struct DiffuseTaskGenerationConfig {
   pub direction: Mat4<f32>,
   pub sample_count: u32,
 }
@@ -315,14 +315,14 @@ impl GraphicsShaderProvider for PreFilterDiffuseTask {
 
       let specular = prefilter_diffuse(input, sampler, pixel_center_direction, config.sample_count);
 
-      builder.store_fragment_out(0, (specular, val(1.)));
+      builder.store_fragment_out_vec4f(0, (specular, val(1.)));
     });
   }
 }
 
 pub fn prefilter_diffuse(
-  env: HandleNode<ShaderTextureCube>,
-  sampler: HandleNode<ShaderSampler>,
+  env: BindingNode<ShaderTextureCube>,
+  sampler: BindingNode<ShaderSampler>,
   normal: Node<Vec3<f32>>,
   sampler_count: Node<u32>,
 ) -> Node<Vec3<f32>> {

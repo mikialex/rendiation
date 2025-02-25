@@ -3,7 +3,7 @@ use rendiation_shader_api::{bytes_of, Pod};
 use crate::*;
 
 pub type CommonStorageBufferImpl<T> =
-  GrowableDirectQueueUpdateBuffer<StorageBufferReadOnlyDataView<[T]>>;
+  GrowableDirectQueueUpdateBuffer<StorageBufferReadonlyDataView<[T]>>;
 
 /// group of(Rxc<id, T fieldChange>) =maintain=> storage buffer <T>
 pub struct ReactiveStorageBufferContainer<T: Std430> {
@@ -20,7 +20,7 @@ impl<T: Std430> ReactiveStorageBufferContainer<T> {
   pub fn new(gpu_ctx: &GPU) -> Self {
     let init_capacity = 128;
     let data =
-      StorageBufferReadOnlyDataView::create_by(&gpu_ctx.device, make_init_size(init_capacity));
+      StorageBufferReadonlyDataView::create_by(&gpu_ctx.device, make_init_size(init_capacity));
     let data = create_growable_buffer(gpu_ctx, data, u32::MAX);
 
     let inner = MultiUpdateContainer::new(data);
@@ -28,7 +28,7 @@ impl<T: Std430> ReactiveStorageBufferContainer<T> {
     Self { inner }
   }
 
-  pub fn poll_update(&mut self, cx: &mut Context) -> StorageBufferReadOnlyDataView<[T]> {
+  pub fn poll_update(&mut self, cx: &mut Context) -> StorageBufferReadonlyDataView<[T]> {
     self.inner.poll_update(cx);
     self.inner.target.gpu().clone()
   }

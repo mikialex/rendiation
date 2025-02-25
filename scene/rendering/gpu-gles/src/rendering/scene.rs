@@ -13,7 +13,7 @@ pub struct GLESRenderSystem {
 pub fn build_default_gles_render_system(
   cx: &GPU,
   prefer_bindless: bool,
-  ndc: impl NDCSpaceMapper<f32> + Copy,
+  camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
   reversed_depth: bool,
 ) -> GLESRenderSystem {
   let tex_sys_ty = get_suitable_texture_system_ty(cx, false, prefer_bindless);
@@ -23,14 +23,15 @@ pub fn build_default_gles_render_system(
     texture_system: TextureGPUSystemSource::new(tex_sys_ty),
     background: SceneBackgroundRendererSource::new(reversed_depth),
     node_net_visible: Default::default(),
-    camera: Box::new(DefaultGLESCameraRenderImplProvider::new(ndc)),
+    camera: Box::new(DefaultGLESCameraRenderImplProvider::new(camera_source)),
     scene_model_impl: vec![Box::new(GLESPreferredComOrderRendererProvider {
+      scene_model_ids: Default::default(),
       node: Box::new(DefaultGLESNodeRenderImplProvider::default()),
       model_impl: vec![Box::new(DefaultSceneStdModelRendererProvider {
         materials: vec![
           Box::new(PbrMRMaterialDefaultRenderImplProvider::default()),
           Box::new(PbrSGMaterialDefaultRenderImplProvider::default()),
-          Box::new(FlatMaterialDefaultRenderImplProvider::default()),
+          Box::new(UnlitMaterialDefaultRenderImplProvider::default()),
         ],
         shapes: vec![Box::new(
           AttributesMeshEntityDefaultRenderImplProvider::default(),
@@ -185,17 +186,20 @@ struct GLESScenePassContent<'a> {
 
 impl PassContent for GLESScenePassContent<'_> {
   fn render(&mut self, pass: &mut FrameRenderPass) {
-    let base = default_dispatcher(pass, self.reversed_depth);
+    let base = default_dispatcher(pass, self.reversed_depth).disable_auto_write();
     let p = RenderArray([&base, self.pass] as [&dyn rendiation_webgpu::RenderComponent; 2]);
 
     for sm in self.batch.iter_scene_models() {
-      let _ = self.renderer.render_scene_model(
+      let r = self.renderer.render_scene_model(
         sm,
         &self.camera,
         &p,
         &mut pass.ctx,
         &self.renderer.texture_system,
       );
+      if let Err(e) = r {
+        println!("Failed to render scene model: {}", e);
+      }
     }
   }
 }

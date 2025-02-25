@@ -45,27 +45,27 @@ rendiation-scene-rendering-gpu-indirect = { path = "../../scene/rendering/gpu-in
 rendiation-scene-rendering-gpu-ray-tracing = { path = "../../scene/rendering/gpu-ray-tracing" }
 rendiation-occlusion-culling = { path = "../../scene/rendering/occlusion-culling" }
 rendiation-shader-api = { path = "../../shader/api" }
+rendiation-shader-library = { path = "../../shader/library" }
 rendiation-texture-core = { path = "../../content/texture/core" }
 rendiation-texture-gpu-base = { path = "../../content/texture/gpu-base" }
 rendiation-texture-gpu-process = { path = "../../content/texture/gpu-process" }
 rendiation-texture-loader = { path = "../../content/texture/loader" }
 rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
+rendiation-state-override = { path = "../../extension/state-override" }
+rendiation-area-lighting = { path = "../../extension/area-lighting" }
 rendiation-webgpu-reactive-utils = { path = "../../platform/graphics/webgpu-reactive-utils" }
 rfd = "0.14.0"
 tracing = { workspace = true }
 tracing-subscriber = "0.3.19"
 tracing-tracy = "0.11.3"
 
-egui = { git = "https://github.com/emilk/egui.git", rev = "cf965aaa30987a5b6fa2380f37c0ce8cb869347d" }
-egui-wgpu = { git = "https://github.com/emilk/egui.git", rev = "cf965aaa30987a5b6fa2380f37c0ce8cb869347d" }
-egui-winit = { git = "https://github.com/emilk/egui.git", rev = "cf965aaa30987a5b6fa2380f37c0ce8cb869347d" }
-egui_extras = { git = "https://github.com/emilk/egui.git", rev = "cf965aaa30987a5b6fa2380f37c0ce8cb869347d" }
-itertools = { version = "*" }
+egui = "0.31"
+egui-wgpu = "0.31"
+egui-winit = "0.31"
+egui_extras = "0.31"
+
 winit = { workspace = true }
 
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-console_error_panic_hook = "0.1.6"
-wasm-bindgen-futures = "0.4.28"
 
 [features]
 default = ["heap-debug"]

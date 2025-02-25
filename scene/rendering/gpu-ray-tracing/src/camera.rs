@@ -2,25 +2,23 @@ use rendiation_shader_library::shader_uv_space_to_world_space;
 
 use crate::*;
 
-pub struct DefaultRtxCameraRenderImplProvider<T> {
+pub struct DefaultRtxCameraRenderImplProvider {
   uniforms: UpdateResultToken,
-  ndc_mapper: T,
+  camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
 }
 
-impl<T> DefaultRtxCameraRenderImplProvider<T> {
-  pub fn new(ndc_mapper: T) -> Self {
+impl DefaultRtxCameraRenderImplProvider {
+  pub fn new(camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>) -> Self {
     Self {
       uniforms: Default::default(),
-      ndc_mapper,
+      camera_source,
     }
   }
 }
 
-impl<T: NDCSpaceMapper<f32> + Copy> RenderImplProvider<Box<dyn RtxCameraRenderImpl>>
-  for DefaultRtxCameraRenderImplProvider<T>
-{
+impl RenderImplProvider<Box<dyn RtxCameraRenderImpl>> for DefaultRtxCameraRenderImplProvider {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    let uniforms = camera_gpus(cx, self.ndc_mapper);
+    let uniforms = camera_gpus(cx, self.camera_source.clone());
     self.uniforms = source.register_multi_updater(uniforms);
   }
 
@@ -99,14 +97,13 @@ clone_trait_object!(RtxCameraRenderInvocation);
 
 #[derive(Clone)]
 pub struct DefaultRtxCameraInvocation {
-  camera: UniformNode<CameraGPUTransform>,
+  camera: ShaderReadonlyPtrOf<CameraGPUTransform>,
 }
 
 impl RtxCameraRenderInvocation for DefaultRtxCameraInvocation {
   fn generate_ray(&self, uv: Node<Vec2<f32>>) -> ShaderRay {
-    let view_projection_inv =
-      CameraGPUTransform::uniform_node_view_projection_inv_field_ptr(self.camera).load();
-    let world = CameraGPUTransform::uniform_node_world_field_ptr(self.camera).load();
+    let view_projection_inv = self.camera.view_projection_inv().load();
+    let world = self.camera.world().load();
 
     let world_target = shader_uv_space_to_world_space(view_projection_inv, uv, val(1.));
 

@@ -123,7 +123,7 @@ impl SceneModelRenderer for IndirectPreferredComOrderRenderer {
         binding: &mut ShaderBindGroupBuilder,
       ) -> Box<dyn IndirectBatchInvocationSource> {
         struct SingleModelImmediateDrawInvocation {
-          scene_model_id: UniformNode<u32>,
+          scene_model_id: ShaderReadonlyPtrOf<u32>,
         }
 
         impl IndirectBatchInvocationSource for SingleModelImmediateDrawInvocation {
@@ -237,7 +237,7 @@ pub struct DefaultSceneModelIdProvider {
 
 #[derive(Clone)]
 pub struct DefaultSceneModelIdInject {
-  pub id_buffer: StorageBufferReadOnlyDataView<[SceneModelStorage]>,
+  pub id_buffer: StorageBufferReadonlyDataView<[SceneModelStorage]>,
 }
 
 impl RenderImplProvider<DefaultSceneModelIdInject> for DefaultSceneModelIdProvider {
@@ -275,7 +275,7 @@ impl GraphicsShaderProvider for DefaultSceneModelIdInject {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, binding| {
       let buffer = binding.bind_by(&self.id_buffer);
-      let current_id = builder.query::<IndirectSceneModelId>();
+      let current_id = builder.query::<LogicalRenderEntityId>();
       let model = buffer.index(current_id).load().expand();
       builder.register::<IndirectSceneNodeId>(model.node);
       builder.register::<IndirectSceneStdModelId>(model.std_model);

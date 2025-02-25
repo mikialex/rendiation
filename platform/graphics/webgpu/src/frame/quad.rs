@@ -12,8 +12,8 @@ pub fn generate_quad(vertex_index: Node<u32>, depth: f32) -> Node<QuadVertexOut>
   let top = 1.0;
   let bottom = -1.0;
 
-  let position = val(Vec4::default()).make_local_var();
-  let uv = val(Vec2::default()).make_local_var();
+  let position = val(Vec4::<f32>::default()).make_local_var();
+  let uv = val(Vec2::<f32>::default()).make_local_var();
 
   switch_by(vertex_index)
     .case(0, || {
@@ -73,8 +73,10 @@ impl GraphicsShaderProvider for FullScreenQuad {
     });
 
     builder.fragment(|builder, _| {
-      builder.frag_output.iter_mut().for_each(|(_, state)| {
-        state.blend = self.blend;
+      builder.frag_output.iter_mut().for_each(|p| {
+        if p.is_blendable() || self.blend.is_none() {
+          p.states.blend = self.blend;
+        }
       });
 
       if let Some(depth) = &mut builder.depth_stencil {

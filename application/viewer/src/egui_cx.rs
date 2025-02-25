@@ -60,7 +60,7 @@ impl<T> EguiContext<T> {
     const BORDER_RADIUS: u8 = 2;
 
     let visuals = Visuals {
-      window_rounding: egui::Rounding::same(BORDER_RADIUS),
+      window_corner_radius: egui::CornerRadius::same(BORDER_RADIUS),
       window_shadow: Shadow::NONE,
       ..Default::default()
     };
@@ -110,8 +110,11 @@ impl<T> EguiContext<T> {
       renderer.update_texture(&gpu.device, &gpu.queue, *id, image_delta);
     }
 
+    // we're not using the window size because it's may reach zero when resizing, the canvas size
+    // has fixed this issue.
+    let (width, height) = target.size().into_u32();
     let screen_descriptor = egui_wgpu::ScreenDescriptor {
-      size_in_pixels: [window.inner_size().width, window.inner_size().height],
+      size_in_pixels: [width, height],
       pixels_per_point: window.scale_factor() as f32,
     };
 

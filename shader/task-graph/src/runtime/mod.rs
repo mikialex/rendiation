@@ -97,8 +97,21 @@ impl DeviceTaskGraphBuildSource {
       task_group_shared_info.push((Default::default(), Default::default()));
     }
 
+    let enable_buffer_combine = false;
+
     let mut pre_builds = Vec::new();
     let mut task_group_sources = Vec::new();
+    let buffer_allocator = MaybeCombinedStorageAllocator::new(
+      &cx.gpu,
+      "task graph execution resources",
+      enable_buffer_combine,
+      true,
+    );
+    let atomic_allocator = MaybeCombinedAtomicU32StorageAllocator::new(
+      &cx.gpu,
+      "task graph execution atomic resources",
+      enable_buffer_combine,
+    );
 
     for (i, task_build_source) in self.tasks.iter().enumerate() {
       let pre_build =
@@ -106,14 +119,24 @@ impl DeviceTaskGraphBuildSource {
 
       let init_size = task_build_source.max_in_flight * self.capacity;
       let resource = TaskGroupExecutorResource::create_with_size(
+        i,
         init_size,
         pre_build.state_to_resolve.meta_info(),
         task_build_source.payload_ty.clone(),
         cx,
+        &buffer_allocator,
+        &atomic_allocator,
       );
 
       task_group_sources.push(resource);
       pre_builds.push(pre_build);
+    }
+
+    buffer_allocator.rebuild();
+    atomic_allocator.rebuild();
+
+    for res in &task_group_sources {
+      res.init(cx);
     }
 
     let mut task_group_executors = Vec::new();
@@ -246,7 +269,7 @@ impl DeviceTaskGraphExecutor {
         let payload = spawner.spawn_task(id, dispatch_size);
         instance
           .spawn_new_task_dyn(
-            payload.cast_untyped_node(),
+            payload.handle(),
             TaskParentRef::none_parent(),
             &T::sized_ty(),
           )
@@ -297,16 +320,26 @@ impl DeviceTaskGraphExecutor {
     );
 
     for (i, task) in self.task_groups.iter().enumerate() {
+      let src = task
+        .resource
+        .active_task_idx
+        .current_size
+        .get_gpu_buffer_view();
       cx.encoder.copy_buffer_to_buffer(
-        task.resource.active_task_idx.current_size.buffer.gpu(),
-        0,
+        src.buffer.gpu(),
+        src.range.offset,
         wake_task_counts.buffer.gpu(),
         i as u64 * 4,
         4,
       );
+      let src = task
+        .resource
+        .empty_index_pool
+        .current_size
+        .get_gpu_buffer_view();
       cx.encoder.copy_buffer_to_buffer(
-        task.resource.empty_index_pool.current_size.buffer.gpu(),
-        0,
+        src.buffer.gpu(),
+        src.range.offset,
         empty_task_counts.buffer.gpu(),
         i as u64 * 4,
         4,
@@ -354,7 +387,7 @@ impl DeviceTaskGraphExecutor {
       let active_idx = task.resource.active_task_idx.debug_execution(cx).await;
       let empty_idx = task.resource.empty_index_pool.debug_execution(cx).await;
 
-      let task_states = cx.read_buffer_bytes(&task.resource.task_pool.tasks);
+      let task_states = cx.read_buffer_bytes(&task.resource.task_pool.tasks.get_gpu_buffer_view());
 
       cx.submit_recorded_work_and_continue();
       let task_states = task_states.await.unwrap();

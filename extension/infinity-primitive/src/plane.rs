@@ -113,18 +113,6 @@ impl GraphicsShaderProvider for InfinityShaderPlaneEffect<'_> {
         previous_display.xyz() * has_hit,
         previous_display.w() * has_hit,
       ));
-
-      MaterialStates {
-        blend: BlendState::ALPHA_BLENDING.into(),
-        depth_write_enabled: false,
-        depth_compare: if self.reversed_depth {
-          CompareFunction::Greater
-        } else {
-          CompareFunction::Less
-        },
-        ..Default::default()
-      }
-      .apply_pipeline_builder(builder);
     })
   }
 }

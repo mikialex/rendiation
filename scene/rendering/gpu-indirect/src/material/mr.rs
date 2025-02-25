@@ -51,7 +51,7 @@ pub fn pbr_mr_material_storages(cx: &GPU) -> PbrMRMaterialStorages {
 #[std430_layout]
 #[derive(Clone, Copy, ShaderStruct, Debug, PartialEq, Default)]
 pub struct PhysicalMetallicRoughnessMaterialTextureHandlesStorage {
-  pub base_color_texture: TextureSamplerHandlePair,
+  pub base_color_alpha_texture: TextureSamplerHandlePair,
   pub emissive_texture: TextureSamplerHandlePair,
   pub metallic_roughness_texture: TextureSamplerHandlePair,
   pub normal_texture: TextureSamplerHandlePair,
@@ -62,11 +62,11 @@ pub type PbrMRMaterialTexStorages = ReactiveStorageBufferContainer<TexStorage>;
 pub fn pbr_mr_material_tex_storages(cx: &GPU) -> PbrMRMaterialTexStorages {
   let c = PbrMRMaterialTexStorages::new(cx);
 
-  let base_color = offset_of!(TexStorage, base_color_texture);
+  let base_color_alpha = offset_of!(TexStorage, base_color_alpha_texture);
   let emissive = offset_of!(TexStorage, emissive_texture);
   let metallic_roughness = offset_of!(TexStorage, metallic_roughness_texture);
   let normal = offset_of!(TexStorage, normal_texture);
-  let c = add_tex_watcher::<PbrMRMaterialBaseColorTex, _>(c, base_color);
+  let c = add_tex_watcher::<PbrMRMaterialBaseColorAlphaTex, _>(c, base_color_alpha);
   let c = add_tex_watcher::<PbrMRMaterialEmissiveTex, _>(c, emissive);
   let c = add_tex_watcher::<PbrMRMaterialMetallicRoughnessTex, _>(c, metallic_roughness);
   add_tex_watcher::<NormalTexSamplerOf<PbrMRMaterialNormalInfo>, _>(c, normal)
@@ -78,12 +78,12 @@ pub fn pbr_mr_material_pipeline_hash(
 }
 
 pub struct PhysicalMetallicRoughnessMaterialIndirectGPU<'a> {
-  pub storage: &'a StorageBufferReadOnlyDataView<[PhysicalMetallicRoughnessMaterialStorage]>,
+  pub storage: &'a StorageBufferReadonlyDataView<[PhysicalMetallicRoughnessMaterialStorage]>,
   pub alpha_mode: AlphaMode,
   // no matter if we using indirect texture binding, this storage is required for checking the
   // texture if is exist in shader
   pub texture_storages:
-    &'a StorageBufferReadOnlyDataView<[PhysicalMetallicRoughnessMaterialTextureHandlesStorage]>,
+    &'a StorageBufferReadonlyDataView<[PhysicalMetallicRoughnessMaterialTextureHandlesStorage]>,
   pub binding_sys: &'a GPUTextureBindingSystem,
 }
 
@@ -117,15 +117,15 @@ impl GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialIndirectGPU<'_>
       let mut alpha = storage.alpha;
       let mut base_color = storage.base_color;
 
-      let base_color_tex = bind_and_sample(
+      let base_color_alpha_tex = bind_and_sample(
         self.binding_sys,
         builder.registry(),
-        tex_storage.base_color_texture,
+        tex_storage.base_color_alpha_texture,
         uv,
         val(Vec4::one()),
       );
-      alpha *= base_color_tex.w();
-      base_color *= base_color_tex.xyz();
+      alpha *= base_color_alpha_tex.w();
+      base_color *= base_color_alpha_tex.xyz();
 
       let mut metallic = storage.metallic;
       let mut roughness = storage.roughness;
@@ -179,6 +179,7 @@ impl GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialIndirectGPU<'_>
       builder.register::<RoughnessChannel>(roughness * roughness);
 
       builder.register::<DefaultDisplay>((base_color, val(1.)));
+      builder.insert_type_tag::<PbrMRMaterialTag>();
     })
   }
 }

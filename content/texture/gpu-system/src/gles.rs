@@ -31,8 +31,8 @@ pub struct TraditionalPerDrawBindingSystem {
 }
 
 impl AbstractGPUTextureSystem for TraditionalPerDrawBindingSystem {
-  type RegisteredShaderTexture = HandleNode<ShaderTexture2D>;
-  type RegisteredShaderSampler = HandleNode<ShaderSampler>;
+  type RegisteredShaderTexture = BindingNode<ShaderTexture2D>;
+  type RegisteredShaderSampler = BindingNode<ShaderSampler>;
 
   fn bind_texture2d(&self, collector: &mut BindingBuilder, handle: Texture2DHandle) {
     let texture = if handle == u32::MAX {
@@ -57,7 +57,7 @@ impl AbstractGPUTextureSystem for TraditionalPerDrawBindingSystem {
     builder: &mut ShaderBindGroupBuilder,
     handle: Texture2DHandle,
     _: Node<Texture2DHandle>,
-  ) -> HandleNode<ShaderTexture2D> {
+  ) -> BindingNode<ShaderTexture2D> {
     let texture = if handle == u32::MAX {
       self.default_tex.clone()
     } else {
@@ -71,7 +71,7 @@ impl AbstractGPUTextureSystem for TraditionalPerDrawBindingSystem {
     builder: &mut ShaderBindGroupBuilder,
     handle: SamplerHandle,
     _: Node<Texture2DHandle>,
-  ) -> HandleNode<ShaderSampler> {
+  ) -> BindingNode<ShaderSampler> {
     let sampler = if handle == u32::MAX {
       self.default_sampler.clone()
     } else {

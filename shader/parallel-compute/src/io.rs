@@ -1,8 +1,19 @@
 use crate::*;
 
-impl<T: ShaderSizedValueNodeType> DeviceInvocation<Node<T>>
-  for Node<ShaderReadOnlyStoragePtr<[T]>>
-{
+impl<T: ShaderSizedValueNodeType> DeviceInvocation<Node<T>> for DynLengthArrayView<T> {
+  fn invocation_logic(&self, logic_global_id: Node<Vec3<u32>>) -> (Node<T>, Node<bool>) {
+    let idx = logic_global_id.x();
+    let r = idx.less_than(self.array_length());
+    let result = r.select_branched(|| self.index(idx).load(), || zeroed_val());
+    (result, r)
+  }
+
+  fn invocation_size(&self) -> Node<Vec3<u32>> {
+    (self.array_length(), val(0), val(0)).into()
+  }
+}
+
+impl<T: ShaderSizedValueNodeType> DeviceInvocation<Node<T>> for DynLengthArrayReadonlyView<T> {
   fn invocation_logic(&self, logic_global_id: Node<Vec3<u32>>) -> (Node<T>, Node<bool>) {
     let idx = logic_global_id.x();
     let r = idx.less_than(self.array_length());
@@ -16,7 +27,7 @@ impl<T: ShaderSizedValueNodeType> DeviceInvocation<Node<T>>
 }
 
 impl<T: ShaderSizedValueNodeType> DeviceInvocation<Node<T>>
-  for (Node<ShaderReadOnlyStoragePtr<[T]>>, Node<Vec4<u32>>)
+  for (DynLengthArrayReadonlyView<T>, Node<Vec4<u32>>)
 {
   fn invocation_logic(&self, logic_global_id: Node<Vec3<u32>>) -> (Node<T>, Node<bool>) {
     let idx = logic_global_id.x();
@@ -30,7 +41,7 @@ impl<T: ShaderSizedValueNodeType> DeviceInvocation<Node<T>>
   }
 }
 
-impl<T> DeviceParallelCompute<Node<T>> for StorageBufferReadOnlyDataView<[T]>
+impl<T> DeviceParallelCompute<Node<T>> for StorageBufferReadonlyDataView<[T]>
 where
   T: Std430 + ShaderSizedValueNodeType,
 {
@@ -48,7 +59,7 @@ where
     self.item_count()
   }
 }
-impl<T> DeviceParallelComputeIO<T> for StorageBufferReadOnlyDataView<[T]>
+impl<T> DeviceParallelComputeIO<T> for StorageBufferReadonlyDataView<[T]>
 where
   T: Std430 + ShaderSizedValueNodeType,
 {
@@ -123,12 +134,12 @@ async fn test_storage_buffer() {
 
 #[derive(Clone)]
 pub struct DeviceMaterializeResult<T: Std430> {
-  pub buffer: StorageBufferReadOnlyDataView<[T]>,
-  pub size: Option<StorageBufferReadOnlyDataView<Vec4<u32>>>,
+  pub buffer: StorageBufferReadonlyDataView<[T]>,
+  pub size: Option<StorageBufferReadonlyDataView<Vec4<u32>>>,
 }
 
 impl<T: Std430> DeviceMaterializeResult<T> {
-  pub fn full_buffer(buffer: StorageBufferReadOnlyDataView<[T]>) -> Self {
+  pub fn full_buffer(buffer: StorageBufferReadonlyDataView<[T]>) -> Self {
     Self { buffer, size: None }
   }
 }

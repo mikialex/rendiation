@@ -53,7 +53,7 @@ impl ShaderBindingTableProvider for ShaderBindingTableInfo {
 
 #[repr(C)]
 #[std430_layout]
-#[derive(Clone, Copy, ShaderStruct, PartialEq, StorageNodePtrAccess)]
+#[derive(Clone, Copy, ShaderStruct, PartialEq)]
 pub struct DeviceSBTTableMeta {
   pub hit_group_start: u32,
   pub miss_start: u32,
@@ -62,7 +62,7 @@ pub struct DeviceSBTTableMeta {
 
 #[repr(C)]
 #[std430_layout]
-#[derive(Clone, Copy, ShaderStruct, StorageNodePtrAccess)]
+#[derive(Clone, Copy, ShaderStruct)]
 pub struct DeviceHitGroupShaderRecord {
   pub closest_hit: u32,
   pub any_hit: u32,
@@ -220,10 +220,10 @@ impl ShaderBindingTableDeviceInfo {
 }
 
 pub struct ShaderBindingTableDeviceInfoInvocation {
-  meta: ReadOnlyStorageNode<[DeviceSBTTableMeta]>,
-  ray_hit: ReadOnlyStorageNode<[DeviceHitGroupShaderRecord]>,
-  ray_miss: ReadOnlyStorageNode<[u32]>,
-  ray_gen: ReadOnlyStorageNode<[u32]>,
+  meta: ShaderReadonlyPtrOf<[DeviceSBTTableMeta]>,
+  ray_hit: ShaderReadonlyPtrOf<[DeviceHitGroupShaderRecord]>,
+  ray_miss: ShaderReadonlyPtrOf<[u32]>,
+  ray_gen: ShaderReadonlyPtrOf<[u32]>,
 }
 
 impl ShaderBindingTableDeviceInfoInvocation {
@@ -231,42 +231,38 @@ impl ShaderBindingTableDeviceInfoInvocation {
     &self,
     sbt_id: Node<u32>,
     hit_idx: Node<u32>,
-  ) -> ReadOnlyStorageNode<DeviceHitGroupShaderRecord> {
+  ) -> ShaderReadonlyPtrOf<DeviceHitGroupShaderRecord> {
     let meta = self.meta.index(sbt_id);
-    let hit_start =
-      DeviceSBTTableMeta::readonly_storage_node_hit_group_start_field_ptr(meta).load();
+    let hit_start = meta.hit_group_start().load();
     self.ray_hit.index(hit_idx + hit_start)
   }
 
   pub fn get_closest_handle(&self, sbt_id: Node<u32>, hit_idx: Node<u32>) -> Node<u32> {
-    let hit_group = self.get_hit_group(sbt_id, hit_idx);
-    DeviceHitGroupShaderRecord::readonly_storage_node_closest_hit_field_ptr(hit_group).load()
+    self.get_hit_group(sbt_id, hit_idx).closest_hit().load()
   }
 
   pub fn get_any_handle(&self, sbt_id: Node<u32>, hit_idx: Node<u32>) -> Node<u32> {
-    let hit_group = self.get_hit_group(sbt_id, hit_idx);
-    DeviceHitGroupShaderRecord::readonly_storage_node_any_hit_field_ptr(hit_group).load()
+    self.get_hit_group(sbt_id, hit_idx).any_hit().load()
   }
 
   pub fn get_intersection_handle(&self, sbt_id: Node<u32>, hit_idx: Node<u32>) -> Node<u32> {
-    let hit_group = self.get_hit_group(sbt_id, hit_idx);
-    DeviceHitGroupShaderRecord::readonly_storage_node_intersection_field_ptr(hit_group).load()
+    self.get_hit_group(sbt_id, hit_idx).intersection().load()
   }
 
   pub fn get_missing_handle(&self, sbt_id: Node<u32>, idx: Node<u32>) -> Node<u32> {
     let meta = self.meta.index(sbt_id);
-    let miss_start = DeviceSBTTableMeta::readonly_storage_node_miss_start_field_ptr(meta);
+    let miss_start = meta.miss_start();
     self.ray_miss.index(miss_start.load() + idx).load()
   }
   pub fn get_ray_gen_handle(&self, sbt_id: Node<u32>) -> Node<u32> {
     let meta = self.meta.index(sbt_id);
-    let ray_gen_start = DeviceSBTTableMeta::readonly_storage_node_gen_start_field_ptr(meta);
+    let ray_gen_start = meta.gen_start();
     self.ray_gen.index(ray_gen_start.load()).load()
   }
 }
 
 pub type StorageBufferSlabAllocatePoolWithHost<T> =
-  SlabAllocatePoolWithHost<StorageBufferReadOnlyDataView<[T]>>;
+  SlabAllocatePoolWithHost<StorageBufferReadonlyDataView<[T]>>;
 pub type SlabAllocatePoolWithHost<T> =
   GPUSlatAllocateMaintainer<GrowableHostedDirectQueueUpdateBuffer<T>>;
 
@@ -275,7 +271,7 @@ pub fn create_storage_buffer_slab_allocate_pool_with_host<T: Std430>(
   init_size: u32,
   max_size: u32,
 ) -> StorageBufferSlabAllocatePoolWithHost<T> {
-  let buffer = StorageBufferReadOnlyDataView::<[T]>::create_by(
+  let buffer = StorageBufferReadonlyDataView::<[T]>::create_by(
     &gpu.device,
     StorageBufferInit::Zeroed(std::num::NonZeroU64::new(init_size as u64).unwrap()),
   );

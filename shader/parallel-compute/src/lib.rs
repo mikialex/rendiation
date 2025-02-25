@@ -145,7 +145,7 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
   fn dispatch_compute(
     &self,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> Option<StorageBufferReadOnlyDataView<Vec4<u32>>> {
+  ) -> Option<StorageBufferReadonlyDataView<Vec4<u32>>> {
     if !cx.force_indirect_dispatch
       && let Some(work_size) = self.work_size()
     {
@@ -291,7 +291,8 @@ pub trait DeviceParallelComputeIO<T>: DeviceParallelCompute<Node<T>> {
   where
     T: Std430 + ShaderSizedValueNodeType,
   {
-    let output = create_gpu_read_write_storage::<[T]>(self.result_size() as usize, &cx.gpu);
+    let init = ZeroedArrayByArrayLength(self.result_size() as usize);
+    let output = create_gpu_read_write_storage::<[T]>(init, &cx.gpu);
     self.materialize_storage_buffer_into(output, cx)
   }
 

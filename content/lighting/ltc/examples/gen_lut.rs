@@ -6,7 +6,7 @@ use rendiation_texture_core::*;
 use rendiation_texture_loader::*;
 
 pub fn main() {
-  let ltc_map = fit(GGX, &LtcFitConfig::default());
+  let ltc_map = fit(GGXxLTCxFit, &LtcFitConfig::default());
 
   write_image(&ltc_map.ltc_lut1, "ltc_1.png");
   write_image(&ltc_map.ltc_lut2, "ltc_2.png");

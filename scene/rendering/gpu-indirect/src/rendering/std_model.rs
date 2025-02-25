@@ -154,7 +154,7 @@ impl RenderImplProvider<Box<dyn IndirectModelRenderImpl>> for DefaultSceneStdMod
 }
 struct SceneStdModelRenderer {
   model: ForeignKeyReadView<SceneModelStdModelRenderPayload>,
-  std_model: StorageBufferReadOnlyDataView<[SceneStdModelStorage]>,
+  std_model: StorageBufferReadonlyDataView<[SceneStdModelStorage]>,
   materials: Vec<Box<dyn IndirectModelMaterialRenderImpl>>,
   shapes: Vec<Box<dyn IndirectModelShapeRenderImpl>>,
 }
@@ -183,7 +183,7 @@ impl IndirectModelRenderImpl for SceneStdModelRenderer {
     _: EntityHandle<SceneModelEntity>,
   ) -> Option<Box<dyn RenderComponent + '_>> {
     struct SceneStdModelIdInjector {
-      std_model: StorageBufferReadOnlyDataView<[SceneStdModelStorage]>,
+      std_model: StorageBufferReadonlyDataView<[SceneStdModelStorage]>,
     }
 
     impl ShaderHashProvider for SceneStdModelIdInjector {

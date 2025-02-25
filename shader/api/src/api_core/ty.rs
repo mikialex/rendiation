@@ -1,7 +1,7 @@
 use crate::*;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub enum ShaderStages {
+pub enum ShaderStage {
   Vertex,
   Fragment,
   Compute,
@@ -57,70 +57,37 @@ impl<T: AtomicityShaderNodeType> ShaderNodeType for DeviceAtomic<T> {
 
 impl<T> ShaderSizedValueNodeType for DeviceAtomic<T>
 where
-  T: AtomicityShaderNodeType + PrimitiveShaderNodeType,
+  T: AtomicityShaderNodeType,
 {
   fn sized_ty() -> ShaderSizedValueType {
     ShaderSizedValueType::Atomic(T::ATOM)
   }
   fn to_value(&self) -> ShaderStructFieldInitValue {
-    ShaderStructFieldInitValue::Primitive(self.0.to_primitive())
+    unreachable!("device atomic can not used to construct struct in device");
   }
 }
 
-pub struct ShaderLocalPtr<T: ?Sized>(PhantomData<T>);
-pub struct ShaderPrivatePtr<T: ?Sized>(PhantomData<T>);
-pub struct ShaderHandlePtr<T: ?Sized>(PhantomData<T>);
-pub struct ShaderUniformPtr<T: ?Sized>(PhantomData<T>);
-pub struct ShaderReadOnlyStoragePtr<T: ?Sized>(PhantomData<T>);
-pub struct ShaderStoragePtr<T: ?Sized>(PhantomData<T>);
-pub struct ShaderWorkGroupPtr<T: ?Sized>(PhantomData<T>);
-
-impl<T: ShaderNodeType> ShaderNodeType for ShaderLocalPtr<T> {
-  fn ty() -> ShaderValueType {
-    T::ty()
-  }
-}
-impl<T: ShaderNodeType> ShaderNodeType for ShaderPrivatePtr<T> {
-  fn ty() -> ShaderValueType {
-    T::ty()
-  }
-}
-impl<T: ShaderNodeType> ShaderNodeType for ShaderHandlePtr<T> {
-  fn ty() -> ShaderValueType {
-    T::ty()
-  }
-}
-impl<T: ShaderNodeType> ShaderNodeType for ShaderUniformPtr<T> {
-  fn ty() -> ShaderValueType {
-    T::ty()
-  }
-}
-impl<T: ShaderNodeType + ?Sized> ShaderNodeType for ShaderReadOnlyStoragePtr<T> {
-  fn ty() -> ShaderValueType {
-    T::ty()
-  }
-}
-impl<T: ShaderNodeType + ?Sized> ShaderNodeType for ShaderStoragePtr<T> {
-  fn ty() -> ShaderValueType {
-    T::ty()
-  }
-}
-impl<T: ShaderNodeType> ShaderNodeType for ShaderWorkGroupPtr<T> {
+pub struct ShaderBinding<T: ?Sized>(PhantomData<T>);
+impl<T: ShaderNodeType + ?Sized> ShaderNodeType for ShaderBinding<T> {
   fn ty() -> ShaderValueType {
     T::ty()
   }
 }
 
-pub type GlobalVarNode<T> = Node<ShaderPrivatePtr<T>>;
-pub type LocalVarNode<T> = Node<ShaderLocalPtr<T>>;
-pub type WorkGroupSharedNode<T> = Node<ShaderWorkGroupPtr<T>>;
-pub type UniformNode<T> = Node<ShaderUniformPtr<T>>;
-pub type HandleNode<T> = Node<ShaderHandlePtr<T>>;
-pub type ReadOnlyStorageNode<T> = Node<ShaderReadOnlyStoragePtr<T>>;
-pub type StorageNode<T> = Node<ShaderStoragePtr<T>>;
+pub type BindingNode<T> = Node<ShaderBinding<T>>;
 
 #[derive(Clone, Copy)]
 pub struct BindingArray<T: ?Sized>(PhantomData<T>);
+
+impl<T: ShaderNodeType> BindingNode<BindingArray<ShaderBinding<T>>> {
+  pub fn index(&self, index: Node<u32>) -> BindingNode<T> {
+    OperatorNode::Index {
+      array: self.handle(),
+      entry: index.handle(),
+    }
+    .insert_api()
+  }
+}
 
 /// fixed size array in shader compile time, but dyn size in host runtime
 #[derive(Clone, Copy)]
@@ -130,6 +97,10 @@ pub struct HostDynSizeArray<T>(PhantomData<T>);
 pub enum ShaderAtomicValueType {
   I32,
   U32,
+}
+pub enum ShaderAtomicValueTypeInit {
+  I32(i32),
+  U32(u32),
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -202,7 +173,7 @@ pub trait ShaderNodeSingleType: 'static {
   fn single_ty() -> ShaderValueSingleType;
 }
 
-pub trait ShaderSizedValueNodeType: ShaderNodeType {
+pub trait ShaderSizedValueNodeType: ShaderNodeType + SizedShaderAbstractPtrAccess {
   fn sized_ty() -> ShaderSizedValueType;
   fn to_value(&self) -> ShaderStructFieldInitValue;
   fn to_shader_node_by_value(&self) -> Node<Self> {
@@ -237,8 +208,7 @@ impl ShaderStructFieldInitValue {
             .map(|(v, ty)| v.to_shader_node_by_value(&ty.ty))
             .collect(),
         }
-        .insert_api::<AnyType>()
-        .handle()
+        .insert_api_raw()
       }
       (
         ShaderStructFieldInitValue::Array(parameters),
@@ -250,20 +220,29 @@ impl ShaderStructFieldInitValue {
           .map(|v| v.to_shader_node_by_value(sty))
           .collect(),
       }
-      .insert_api::<AnyType>()
-      .handle(),
+      .insert_api_raw(),
       _ => panic!("unexpected type miss match"),
     }
   }
 }
 
-pub trait ShaderUnsizedValueNodeType: ShaderNodeType {
+pub trait ShaderUnsizedValueNodeType: ShaderNodeType + ShaderAbstractPtrAccess {
   fn unsized_ty() -> ShaderUnSizedValueType;
 }
 
+#[derive(Clone)]
 pub enum MaybeUnsizedValueType {
   Sized(ShaderSizedValueType),
   Unsized(ShaderUnSizedValueType),
+}
+
+impl MaybeUnsizedValueType {
+  pub fn into_shader_single_ty(self) -> ShaderValueSingleType {
+    match self {
+      MaybeUnsizedValueType::Sized(ty) => ShaderValueSingleType::Sized(ty),
+      MaybeUnsizedValueType::Unsized(ty) => ShaderValueSingleType::Unsized(ty),
+    }
+  }
 }
 
 impl<T: ShaderSizedValueNodeType> ShaderMaybeUnsizedValueNodeType for T {
@@ -272,17 +251,19 @@ impl<T: ShaderSizedValueNodeType> ShaderMaybeUnsizedValueNodeType for T {
   }
 }
 
-pub trait ShaderMaybeUnsizedValueNodeType: ShaderNodeType {
+pub trait ShaderMaybeUnsizedValueNodeType: ShaderNodeType + ShaderAbstractPtrAccess {
   fn maybe_unsized_ty() -> MaybeUnsizedValueType;
 }
 
-pub trait PrimitiveShaderNodeType: ShaderNodeType + Default {
+pub trait PrimitiveShaderNodeType:
+  ShaderSizedValueNodeType + SizedShaderAbstractPtrAccess + ShaderNodeType + Default
+{
   const PRIMITIVE_TYPE: PrimitiveShaderValueType;
   type Shape<T>;
   fn to_primitive(&self) -> PrimitiveShaderValue;
 }
 
-pub trait AtomicityShaderNodeType: ShaderNodeType {
+pub trait AtomicityShaderNodeType: ShaderNodeType + Std430 {
   const ATOM: ShaderAtomicValueType;
 }
 impl AtomicityShaderNodeType for u32 {
@@ -376,25 +357,7 @@ impl<T: ShaderSizedValueNodeType, const N: usize> ShaderSizedValueNodeType
   }
 }
 
-impl<T: ShaderNodeSingleType + ?Sized> ShaderNodeType for BindingArray<ShaderHandlePtr<T>> {
-  fn ty() -> ShaderValueType {
-    ShaderValueType::BindingArray {
-      ty: T::single_ty(),
-      count: 0,
-    }
-  }
-}
-impl<T: ShaderNodeSingleType + ?Sized> ShaderNodeType for BindingArray<ShaderStoragePtr<T>> {
-  fn ty() -> ShaderValueType {
-    ShaderValueType::BindingArray {
-      ty: T::single_ty(),
-      count: 0,
-    }
-  }
-}
-impl<T: ShaderNodeSingleType + ?Sized> ShaderNodeType
-  for BindingArray<ShaderReadOnlyStoragePtr<T>>
-{
+impl<T: ShaderNodeSingleType + ?Sized> ShaderNodeType for BindingArray<ShaderBinding<T>> {
   fn ty() -> ShaderValueType {
     ShaderValueType::BindingArray {
       ty: T::single_ty(),

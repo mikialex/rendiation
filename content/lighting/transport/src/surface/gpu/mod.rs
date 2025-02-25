@@ -35,7 +35,7 @@ pub struct ShaderLightingGeometricCtx {
   pub view_dir: Vec3<f32>,
 }
 
-pub trait LightableSurfaceShadingProvider {
+pub trait LightableSurfaceShadingLogicProvider {
   fn construct_shading(
     &self,
     builder: &mut ShaderFragmentBuilder,

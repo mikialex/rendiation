@@ -78,7 +78,7 @@ impl LightSystemSceneProvider for SceneDirectionalLightingProvider {
     let com = ArrayLights(
       LightAndShadowCombinedSource(self.light.clone(), self.shadow.clone()),
       |((_, light), shadow): (
-        (Node<u32>, UniformNode<DirectionalLightUniform>),
+        (Node<u32>, ShaderReadonlyPtrOf<DirectionalLightUniform>),
         BasicShadowMapSingleInvocation,
       )| {
         let light_uniform = light.load().expand();
@@ -130,7 +130,7 @@ impl LightSystemSceneProvider for ScenePointLightingProvider {
   ) -> Option<Box<dyn LightingComputeComponent>> {
     let com = ArrayLights(
       self.uniform.clone(),
-      |(_, light_uniform): (Node<u32>, UniformNode<PointLightUniform>)| {
+      |(_, light_uniform): (Node<u32>, ShaderReadonlyPtrOf<PointLightUniform>)| {
         let light_uniform = light_uniform.load().expand();
         ENode::<PointLightShaderInfo> {
           luminance_intensity: light_uniform.luminance_intensity,
@@ -209,7 +209,7 @@ impl LightSystemSceneProvider for SceneSpotLightingProvider {
     let com = ArrayLights(
       LightAndShadowCombinedSource(self.light.clone(), self.shadow.clone()),
       |((_, light), shadow): (
-        (Node<u32>, UniformNode<SpotLightUniform>),
+        (Node<u32>, ShaderReadonlyPtrOf<SpotLightUniform>),
         BasicShadowMapSingleInvocation,
       )| {
         let light_uniform = light.load().expand();

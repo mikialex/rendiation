@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use crate::*;
 
 mod feature;
@@ -8,6 +10,9 @@ pub use feature::*;
 mod terminal;
 pub use pick::*;
 pub use terminal::*;
+
+mod animation_player;
+pub use animation_player::*;
 
 mod console;
 pub use console::*;
@@ -27,6 +32,9 @@ pub struct Viewer {
   egui_db_inspector: db_egui_view::DBInspector,
   terminal: Terminal,
   background: ViewerBackgroundState,
+  camera_helpers: SceneCameraHelper,
+  animation_player: SceneAnimationsPlayer,
+  started_time: Instant,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -89,7 +97,7 @@ impl Widget for Viewer {
             input.window_state.size.1 as u32,
           ),
           camera_world_ray: picker.current_mouse_ray_in_world(),
-          normalized_canvas_position: picker.normalized_position(),
+          normalized_canvas_position: picker.normalized_position_ndc(),
         }) as Box<dyn WidgetEnvAccess>;
 
         let mut interaction_cx = prepare_picking_state(picker, &self.widget_intersection_group);
@@ -139,8 +147,27 @@ impl Widget for Viewer {
         });
       });
 
+      noop_ctx!(ctx);
+      self.camera_helpers.prepare_update(ctx);
+
+      let time = Instant::now()
+        .duration_since(self.started_time)
+        .as_secs_f32();
+
       access_cx!(cx, viewer_scene, Viewer3dSceneCtx);
+      let mutation = self
+        .animation_player
+        .compute_mutation(ctx, viewer_scene.scene, time);
+
       let mut writer = SceneWriter::from_global(viewer_scene.scene);
+
+      mutation.apply(&mut writer);
+
+      self.camera_helpers.apply_updates(
+        &mut writer,
+        viewer_scene.widget_scene,
+        viewer_scene.main_camera,
+      );
 
       if size_changed {
         writer
@@ -166,6 +193,7 @@ impl Widget for Viewer {
   fn clean_up(&mut self, cx: &mut DynCx) {
     let mut writer = SceneWriter::from_global(self.scene.scene);
     cx.scoped_cx(&mut writer, |cx| self.content.clean_up(cx));
+    self.camera_helpers.do_cleanup(&mut writer);
   }
 }
 
@@ -228,10 +256,14 @@ impl Viewer {
       enable_reverse_z: true,
     };
 
+    let camera_transforms = camera_transforms(viewer_ndc)
+      .into_boxed()
+      .into_static_forker();
+
     let derives = Viewer3dSceneDeriveSource {
       world_mat: Box::new(scene_node_derive_world_mat()),
       node_net_visible: Box::new(scene_node_derive_visible()),
-      camera_transforms: Box::new(camera_transforms(viewer_ndc)),
+      camera_transforms: camera_transforms.clone().into_boxed(),
       mesh_vertex_ref: Box::new(
         global_rev_ref()
           .watch_inv_ref::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>(),
@@ -240,6 +272,8 @@ impl Viewer {
       mesh_local_bounding: Box::new(attribute_mesh_local_bounding()),
       node_children: Box::new(scene_node_connectivity_many_one_relation()),
     };
+
+    let camera_helpers = SceneCameraHelper::new(scene.scene, camera_transforms.clone());
 
     Self {
       widget_intersection_group: Default::default(),
@@ -253,13 +287,16 @@ impl Viewer {
         show_gpu_info: false,
       },
       content: Box::new(content_logic),
+      camera_helpers,
       scene,
       terminal,
-      rendering: Viewer3dRenderingCtx::new(gpu, viewer_ndc),
+      rendering: Viewer3dRenderingCtx::new(gpu, viewer_ndc, camera_transforms),
       derives,
       on_demand_draw: Default::default(),
       egui_db_inspector: Default::default(),
       background,
+      animation_player: SceneAnimationsPlayer::new(),
+      started_time: Instant::now(),
     }
   }
 
@@ -307,11 +344,6 @@ fn egui(
     .resizable(true)
     .movable(true)
     .show(ui, |ui| {
-      if ui.button("Organize windows").clicked() {
-        ui.ctx().memory_mut(|mem| mem.reset_areas());
-      }
-
-      ui.separator();
       ui.checkbox(on_demand_rendering, "enable on demand rendering");
       ui.separator();
       rendering.egui(ui);
@@ -434,9 +466,7 @@ pub struct Viewer3dSceneDeriveSource {
 
 impl Viewer3dSceneDeriveSource {
   fn poll_update(&self) -> Viewer3dSceneDerive {
-    let waker = futures::task::noop_waker_ref();
-    let mut cx = Context::from_waker(waker);
-    let cx = &mut cx;
+    noop_ctx!(cx);
 
     let (_, world_mat) = self.world_mat.poll_changes(cx);
     let (_, node_net_visible) = self.node_net_visible.poll_changes(cx);

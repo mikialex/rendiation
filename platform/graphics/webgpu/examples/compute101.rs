@@ -9,7 +9,8 @@ pub async fn main() {
 
   let input_data = vec![1_u32; workgroup_size as usize]; // here we only demo workgroup case..
   let input = create_gpu_readonly_storage(input_data.as_slice(), &gpu);
-  let output = create_gpu_read_write_storage::<[u32]>(input_data.len(), &gpu);
+  let init = ZeroedArrayByArrayLength(input_data.len());
+  let output = create_gpu_read_write_storage::<[u32]>(init, &gpu);
 
   let pipeline = {
     let mut cx = compute_shader_builder().with_config_work_group_size(workgroup_size);

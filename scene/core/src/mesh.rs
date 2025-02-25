@@ -26,58 +26,103 @@ declare_foreign_key!(
 );
 
 pub struct AttributesMeshEntityFromAttributesMeshWriter {
-  buffer: EntityWriter<BufferEntity>,
   relation: EntityWriter<AttributesMeshEntityVertexBufferRelation>,
   mesh: EntityWriter<AttributesMeshEntity>,
 }
 
-impl EntityCustomWrite<AttributesMeshEntity> for AttributesMesh {
-  type Writer = AttributesMeshEntityFromAttributesMeshWriter;
+pub trait AttributesMeshWriter {
+  fn create_writer() -> AttributesMeshEntityFromAttributesMeshWriter;
+  fn write(
+    self,
+    writer: &mut AttributesMeshEntityFromAttributesMeshWriter,
+    buffer: &mut EntityWriter<BufferEntity>,
+  ) -> AttributesMeshEntities;
+}
 
-  fn create_writer() -> Self::Writer {
+pub struct AttributesMeshEntities {
+  pub mesh: EntityHandle<AttributesMeshEntity>,
+  pub index: Option<EntityHandle<BufferEntity>>,
+  pub vertices: Vec<(
+    EntityHandle<AttributesMeshEntityVertexBufferRelation>,
+    EntityHandle<BufferEntity>,
+  )>,
+}
+
+impl AttributesMeshEntities {
+  pub fn clean_up(
+    &self,
+    writer: &mut AttributesMeshEntityFromAttributesMeshWriter,
+    buffer: &mut EntityWriter<BufferEntity>,
+  ) {
+    for (r, b) in &self.vertices {
+      writer.relation.delete_entity(*r);
+      buffer.delete_entity(*b);
+    }
+
+    writer.mesh.delete_entity(self.mesh);
+
+    if let Some(index) = self.index {
+      buffer.delete_entity(index);
+    }
+  }
+}
+
+impl AttributesMeshWriter for AttributesMesh {
+  fn create_writer() -> AttributesMeshEntityFromAttributesMeshWriter {
     AttributesMeshEntityFromAttributesMeshWriter {
-      buffer: global_entity_of::<BufferEntity>().entity_writer(),
       relation: global_entity_of::<AttributesMeshEntityVertexBufferRelation>().entity_writer(),
       mesh: global_entity_of::<AttributesMeshEntity>().entity_writer(),
     }
   }
 
-  fn write(self, writer: &mut Self::Writer) -> EntityHandle<AttributesMeshEntity> {
+  fn write(
+    self,
+    writer: &mut AttributesMeshEntityFromAttributesMeshWriter,
+    buffer: &mut EntityWriter<BufferEntity>,
+  ) -> AttributesMeshEntities {
     let count = self.indices.as_ref().map(|(_, data)| data.count as u32);
-    let index = self.indices.map(|(_, data)| data.write(&mut writer.buffer));
+    let index_data = self.indices.map(|(_, data)| data.write(buffer));
 
     let index = SceneBufferViewDataView {
-      data: index,
+      data: index_data,
       range: None,
       count,
     };
 
     let mesh_writer = &mut writer.mesh;
-    index.write::<AttributeIndexRef, _>(mesh_writer);
+    index.write::<AttributeIndexRef>(mesh_writer);
     mesh_writer.component_value_writer::<AttributesMeshEntityTopology>(self.mode);
     let mesh = mesh_writer.new_entity();
 
+    let mut vertices = Vec::with_capacity(self.attributes.len());
+
     for (semantic, vertex) in self.attributes {
       let count = vertex.count;
-      let vertex = vertex.write(&mut writer.buffer);
+      let vertex_data = vertex.write(buffer);
 
       let vertex = SceneBufferViewDataView {
-        data: Some(vertex),
+        data: Some(vertex_data),
         range: None,
         count: Some(count as u32),
       };
 
       let relation_writer = &mut writer.relation;
-      vertex.write::<AttributeVertexRef, _>(relation_writer);
-      relation_writer
+      vertex.write::<AttributeVertexRef>(relation_writer);
+      let vertex = relation_writer
         .component_value_writer::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>(
           mesh.some_handle(),
         )
         .component_value_writer::<AttributesMeshEntityVertexBufferSemantic>(semantic)
         .new_entity();
+
+      vertices.push((vertex, vertex_data));
     }
 
-    mesh
+    AttributesMeshEntities {
+      mesh,
+      index: index_data,
+      vertices,
+    }
   }
 }
 

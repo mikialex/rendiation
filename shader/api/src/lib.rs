@@ -1,7 +1,10 @@
 #![feature(const_type_name)]
+#![feature(hash_raw_entry)]
+#![feature(associated_type_defaults)]
 #![feature(generic_const_exprs)]
 
 mod abstract_load_store;
+mod abstract_ptr;
 mod api_core;
 mod binding;
 mod compute;
@@ -21,6 +24,7 @@ use std::{
 };
 
 pub use abstract_load_store::*;
+pub use abstract_ptr::*;
 pub use api_core::*;
 pub use binding::*;
 pub use bytemuck::*;
@@ -32,7 +36,6 @@ use parking_lot::RwLock;
 pub use re_export::*;
 pub use rendiation_algebra::*;
 pub use rendiation_shader_derives::*;
-pub use serialization::*;
 pub use u32_load_store::*;
 
 pub type DynamicShaderAPI = Box<dyn ShaderAPI>;
@@ -49,7 +52,7 @@ pub trait ShaderAPI {
   fn barrier(&mut self, scope: BarrierScope);
 
   fn define_module_input(&mut self, input: ShaderInputNode) -> ShaderNodeRawHandle;
-  fn define_next_frag_out(&mut self) -> ShaderNodeRawHandle;
+  fn define_next_frag_out(&mut self, ty: ShaderSizedValueType) -> ShaderNodeRawHandle;
   fn define_next_vertex_output(
     &mut self,
     ty: PrimitiveShaderValueType,
@@ -98,7 +101,7 @@ pub struct ShaderBuildingCtx {
   vertex: DynamicShaderAPI,
   fragment: DynamicShaderAPI,
   compute: DynamicShaderAPI,
-  current: Option<ShaderStages>,
+  current: Option<ShaderStage>,
 }
 
 thread_local! {
@@ -109,9 +112,9 @@ pub(crate) fn call_shader_api<T>(modifier: impl FnOnce(&mut dyn ShaderAPI) -> T)
   IN_BUILDING_SHADER_API.with_borrow_mut(|api| {
     let api = api.as_mut().unwrap();
     let api = match api.current.unwrap() {
-      ShaderStages::Vertex => &mut api.vertex,
-      ShaderStages::Fragment => &mut api.fragment,
-      ShaderStages::Compute => &mut api.compute,
+      ShaderStage::Vertex => &mut api.vertex,
+      ShaderStage::Fragment => &mut api.fragment,
+      ShaderStage::Compute => &mut api.compute,
     }
     .as_mut();
 
@@ -119,22 +122,22 @@ pub(crate) fn call_shader_api<T>(modifier: impl FnOnce(&mut dyn ShaderAPI) -> T)
   })
 }
 
-pub(crate) fn set_current_building(current: Option<ShaderStages>) {
+pub(crate) fn set_current_building(current: Option<ShaderStage>) {
   IN_BUILDING_SHADER_API.with_borrow_mut(|api| {
     let api = api.as_mut().unwrap();
     api.current = current
   })
 }
 
-pub(crate) fn get_current_stage() -> Option<ShaderStages> {
+pub(crate) fn get_current_stage() -> Option<ShaderStage> {
   IN_BUILDING_SHADER_API.with_borrow_mut(|api| api.as_mut().unwrap().current)
 }
 
-pub fn set_build_api_by(api_builder: &dyn Fn(ShaderStages) -> DynamicShaderAPI) {
+pub fn set_build_api_by(api_builder: &dyn Fn(ShaderStage) -> DynamicShaderAPI) {
   set_build_api(ShaderBuildingCtx {
-    vertex: api_builder(ShaderStages::Vertex),
-    fragment: api_builder(ShaderStages::Fragment),
-    compute: api_builder(ShaderStages::Compute),
+    vertex: api_builder(ShaderStage::Vertex),
+    fragment: api_builder(ShaderStage::Fragment),
+    compute: api_builder(ShaderStage::Compute),
     current: None,
   });
 }

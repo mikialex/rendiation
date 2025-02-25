@@ -51,7 +51,7 @@ pub fn pbr_sg_material_uniforms(cx: &GPU) -> PbrSGMaterialUniforms {
 #[std140_layout]
 #[derive(Clone, Copy, ShaderStruct, Debug, PartialEq, Default)]
 pub struct PhysicalSpecularGlossinessMaterialTextureHandlesUniform {
-  pub albedo_texture: TextureSamplerHandlePair,
+  pub albedo_alpha_texture: TextureSamplerHandlePair,
   pub specular_texture: TextureSamplerHandlePair,
   pub emissive_texture: TextureSamplerHandlePair,
   pub glossiness_texture: TextureSamplerHandlePair,
@@ -64,15 +64,13 @@ pub type PbrSGMaterialTexUniforms =
 pub fn pbr_sg_material_tex_uniforms(cx: &GPU) -> PbrSGMaterialTexUniforms {
   let c = PbrSGMaterialTexUniforms::default();
 
-  let albedo = offset_of!(TexUniform, albedo_texture);
+  let albedo_alpha = offset_of!(TexUniform, albedo_alpha_texture);
   let emissive = offset_of!(TexUniform, emissive_texture);
   let specular = offset_of!(TexUniform, specular_texture);
-  let glossiness = offset_of!(TexUniform, glossiness_texture);
   let normal = offset_of!(TexUniform, normal_texture);
-  let c = add_tex_watcher::<PbrSGMaterialAlbedoTex, _>(c, albedo, cx);
+  let c = add_tex_watcher::<PbrSGMaterialAlbedoAlphaTex, _>(c, albedo_alpha, cx);
   let c = add_tex_watcher::<PbrSGMaterialEmissiveTex, _>(c, emissive, cx);
-  let c = add_tex_watcher::<PbrSGMaterialSpecularTex, _>(c, specular, cx);
-  let c = add_tex_watcher::<PbrSGMaterialGlossinessTex, _>(c, glossiness, cx);
+  let c = add_tex_watcher::<PbrSGMaterialSpecularGlossinessTex, _>(c, specular, cx);
   add_tex_watcher::<NormalTexSamplerOf<PbrSGMaterialNormalInfo>, _>(c, normal, cx)
 }
 
@@ -85,10 +83,9 @@ pub struct PhysicalSpecularGlossinessMaterialGPU<'a> {
   pub uniform: &'a UniformBufferDataView<PhysicalSpecularGlossinessMaterialUniform>,
   pub alpha_mode: AlphaMode,
   // these idx is only useful in per object binding mode
-  pub albedo_tex_sampler: (u32, u32),
-  pub specular_tex_sampler: (u32, u32),
+  pub albedo_alpha_tex_sampler: (u32, u32),
+  pub specular_glossiness_tex_sampler: (u32, u32),
   pub emissive_tex_sampler: (u32, u32),
-  pub glossiness_tex_sampler: (u32, u32),
   pub normal_tex_sampler: (u32, u32),
   // no matter if we using indirect texture binding, this uniform is required for checking the
   // texture if is exist in shader
@@ -108,9 +105,8 @@ impl ShaderPassBuilder for PhysicalSpecularGlossinessMaterialGPU<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(self.uniform);
     ctx.binding.bind(self.texture_uniforms);
-    setup_tex(ctx, self.binding_sys, self.albedo_tex_sampler);
-    setup_tex(ctx, self.binding_sys, self.specular_tex_sampler);
-    setup_tex(ctx, self.binding_sys, self.glossiness_tex_sampler);
+    setup_tex(ctx, self.binding_sys, self.albedo_alpha_tex_sampler);
+    setup_tex(ctx, self.binding_sys, self.specular_glossiness_tex_sampler);
     setup_tex(ctx, self.binding_sys, self.emissive_tex_sampler);
     setup_tex(ctx, self.binding_sys, self.normal_tex_sampler);
   }
@@ -127,41 +123,30 @@ impl GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU<'_> {
 
       let mut base_color = uniform.albedo;
 
-      let albedo = bind_and_sample(
+      let albedo_alpha = bind_and_sample(
         self.binding_sys,
         binding,
         builder.registry(),
-        self.albedo_tex_sampler,
-        tex_uniform.albedo_texture,
+        self.albedo_alpha_tex_sampler,
+        tex_uniform.albedo_alpha_texture,
         uv,
         val(Vec4::one()),
       );
-      alpha *= albedo.w();
-      base_color *= albedo.xyz();
+      alpha *= albedo_alpha.w();
+      base_color *= albedo_alpha.xyz();
 
       let mut specular = uniform.specular;
-      specular *= bind_and_sample(
+      let specular_glossiness = bind_and_sample(
         self.binding_sys,
         binding,
         builder.registry(),
-        self.specular_tex_sampler,
+        self.specular_glossiness_tex_sampler,
         tex_uniform.specular_texture,
         uv,
         val(Vec4::one()),
-      )
-      .xyz();
-
-      let mut glossiness = uniform.glossiness;
-      glossiness *= bind_and_sample(
-        self.binding_sys,
-        binding,
-        builder.registry(),
-        self.glossiness_tex_sampler,
-        tex_uniform.glossiness_texture,
-        uv,
-        val(Vec4::one()),
-      )
-      .x();
+      );
+      specular *= specular_glossiness.xyz();
+      let glossiness = uniform.glossiness * specular_glossiness.w();
 
       let mut emissive = uniform.emissive;
       emissive *= bind_and_sample(
@@ -204,7 +189,8 @@ impl GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU<'_> {
       builder.register::<EmissiveChannel>(emissive);
       builder.register::<GlossinessChannel>(glossiness);
 
-      builder.register::<DefaultDisplay>((albedo.xyz(), val(1.)));
+      builder.register::<DefaultDisplay>((albedo_alpha.xyz(), val(1.)));
+      builder.insert_type_tag::<PbrSGMaterialTag>();
     })
   }
 }

@@ -83,13 +83,11 @@ impl<T> GraphicsShaderProvider for HighLightComposeTask<'_, T> {
       let uv = builder.query::<FragmentUv>();
       let size = builder.query::<RenderBufferSize>();
 
-      builder.store_fragment_out(
-        0,
-        (
-          highlighter.color.xyz(),
-          edge_intensity_fn(uv, mask, sampler, highlighter.width, size) * highlighter.color.w(),
-        ),
-      )
+      let alpha =
+        edge_intensity_fn(uv, mask, sampler, highlighter.width, size) * highlighter.color.w();
+      let output: Node<Vec4<f32>> = (highlighter.color.xyz(), alpha).into();
+
+      builder.store_fragment_out(0, output)
     })
   }
 }
@@ -97,8 +95,8 @@ impl<T> GraphicsShaderProvider for HighLightComposeTask<'_, T> {
 #[shader_fn]
 fn edge_intensity(
   uv: Node<Vec2<f32>>,
-  mask: HandleNode<ShaderTexture2D>,
-  sp: HandleNode<ShaderSampler>,
+  mask: BindingNode<ShaderTexture2D>,
+  sp: BindingNode<ShaderSampler>,
   width: Node<f32>,
   buffer_size: Node<Vec2<f32>>,
 ) -> Node<f32> {
@@ -126,13 +124,14 @@ impl ShaderPassBuilder for HighLightMaskDispatcher {}
 impl GraphicsShaderProvider for HighLightMaskDispatcher {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, _| {
-      builder.frag_output.first_mut().unwrap().1 = channel(HIGH_LIGHT_MASK_TARGET_FORMAT).into();
+      builder.frag_output.first_mut().unwrap().states =
+        channel(HIGH_LIGHT_MASK_TARGET_FORMAT).into();
     })
   }
 
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, _| {
-      builder.register::<DefaultDisplay>(val(Vec4::one()));
+      builder.store_fragment_out(0, val(1.0));
     })
   }
 }

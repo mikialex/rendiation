@@ -111,7 +111,7 @@ impl Attachment {
     &self.des
   }
 
-  fn create_default_2d_view(&self) -> GPU2DTextureView {
+  pub fn create_default_2d_view(&self) -> GPU2DTextureView {
     self
       .texture
       .create_view(Default::default())
@@ -177,7 +177,10 @@ impl<T> CacheAbleBindingSource for AttachmentView<T> {
 }
 
 impl<T> rendiation_shader_api::ShaderBindingProvider for AttachmentView<T> {
-  type Node = ShaderHandlePtr<ShaderTexture2D>;
+  type Node = ShaderBinding<ShaderTexture2D>;
+  fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {
+    node
+  }
 }
 
 #[derive(Clone)]

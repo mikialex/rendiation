@@ -75,11 +75,17 @@ impl Eq for MaterialStates {}
 
 impl MaterialStates {
   pub fn map_color_states(&self, format: TextureFormat) -> ColorTargetState {
-    ColorTargetState {
+    let mut s = ColorTargetState {
       format,
       blend: self.blend,
       write_mask: self.write_mask,
+    };
+
+    if !is_texture_fmt_blendable(format) {
+      s.blend = None;
     }
+
+    s
   }
   pub fn map_depth_stencil_state(
     &self,
@@ -96,9 +102,9 @@ impl MaterialStates {
 
   pub fn apply_pipeline_builder(&self, builder: &mut ShaderFragmentBuilder) {
     // override all outputs states
-    builder.frag_output.iter_mut().for_each(|(_, state)| {
-      let format = state.format;
-      *state = self.map_color_states(format);
+    builder.frag_output.iter_mut().for_each(|p| {
+      let format = p.states.format;
+      p.states = self.map_color_states(format);
     });
 
     // and depth_stencil if they exist

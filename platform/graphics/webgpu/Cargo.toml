@@ -10,15 +10,15 @@ dyn-downcast = { path = "../../../utility/dyn-downcast" }
 heap-tools = { path = "../../../utility/heap-tools" }
 fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 futures = { workspace = true }
-naga = { version = "24", features = ["wgsl-out"] }
+naga = { workspace = true }
 reactive = { path = "../../../utility/reactive" }
 rendiation-algebra = { path = "../../../math/algebra" }
 rendiation-shader-api = { path = "../../../shader/api" }
 rendiation-shader-backend-naga = { path = "../../../shader/backends/naga" }
 rendiation-texture-types = { path = "../../../content/texture/types" }
 thiserror = { workspace = true }
-wgpu = { version = "24", features = ["naga-ir"] }
-wgpu-types = "24"
+wgpu = { workspace = true }
+wgpu-types = { workspace = true }
 winit = { workspace = true }
 xalloc = "0.2.7"
 slab = "0.4.8"

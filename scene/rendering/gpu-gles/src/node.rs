@@ -22,10 +22,10 @@ impl NodeGPUUniform<'_> {
   pub fn inject_uniforms(
     &self,
     builder: &mut ShaderRenderPipelineBuilder,
-  ) -> BindingPreparer<ShaderUniformPtr<NodeUniform>> {
+  ) -> GraphicsPairInputNodeAccessor<UniformBufferDataView<NodeUniform>> {
     builder
-      .bind_by_and_prepare(&self.ubo)
-      .using_graphics_pair(builder, |r, node| {
+      .bind_by_and_prepare(self.ubo)
+      .using_graphics_pair(|r, node| {
         let node = node.load().expand();
         r.register_typed_both_stage::<WorldMatrix>(node.world_matrix);
         r.register_typed_both_stage::<WorldNormalMatrix>(node.normal_matrix);
@@ -66,8 +66,9 @@ impl GraphicsShaderProvider for NodeGPUUniform<'_> {
       builder.register::<WorldNormalMatrix>(node.normal_matrix);
       builder.register::<WorldVertexPosition>(position.xyz());
 
-      let normal = builder.query::<GeometryNormal>();
-      builder.register::<WorldVertexNormal>(node.normal_matrix * normal);
+      if let Some(normal) = builder.try_query::<GeometryNormal>() {
+        builder.register::<WorldVertexNormal>(node.normal_matrix * normal);
+      }
     })
   }
 }

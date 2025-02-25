@@ -15,7 +15,7 @@ async fn test_wavefront_compute() {
   let debug_output = create_empty_2d_texture_view(
     &gpu,
     Size::from_u32_pair_min_one((canvas_size, canvas_size)),
-    TextureUsages::all() - TextureUsages::STORAGE_ATOMIC,
+    basic_texture_usages(),
     TextureFormat::Rgba8Unorm,
   );
 
@@ -185,18 +185,14 @@ async fn test_wavefront_compute() {
     buffer.await.unwrap()
   };
 
-  let info = buffer.info();
-  let buffer = buffer.read_raw();
   let mut write_buffer = format!("P3\n{} {}\n255\n", canvas_size, canvas_size);
-  buffer
-    .chunks_exact(info.padded_bytes_per_row)
-    .for_each(|line| {
-      let line = &line[0..info.unpadded_bytes_per_row];
-      line.chunks_exact(4).for_each(|pixel| {
-        let (r, g, b, _a) = (pixel[0], pixel[1], pixel[2], pixel[3]);
-        write_buffer.push_str(&format!("{r} {g} {b} "));
-      });
-      write_buffer.push('\n');
+  buffer.read_raw_unpadded_bytes_slices(&mut |line| {
+    line.chunks_exact(4).for_each(|pixel| {
+      let (r, g, b, _a) = (pixel[0], pixel[1], pixel[2], pixel[3]);
+      write_buffer.push_str(&format!("{r} {g} {b} "));
     });
+    write_buffer.push('\n');
+  });
+
   std::fs::write("trace.pbm", write_buffer).unwrap();
 }

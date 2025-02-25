@@ -17,6 +17,8 @@ mod mesh;
 pub use mesh::*;
 mod node;
 pub use node::*;
+mod skin;
+pub use skin::*;
 mod light;
 pub use light::*;
 mod rendering;

@@ -33,7 +33,7 @@ impl AbstractCullerProvider for OnlyLastFrameVisible {
 }
 
 struct OnlyLastFrameVisibleInvocation {
-  last_frame: StorageNode<[Bool]>,
+  last_frame: ShaderPtrOf<[Bool]>,
 }
 
 impl AbstractCullerInvocation for OnlyLastFrameVisibleInvocation {

@@ -28,7 +28,8 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceParallelComputeIO<T> for DataSh
     T: Std430 + ShaderSizedValueNodeType,
   {
     let input = self.source.execute_and_expose(cx);
-    let output = create_gpu_read_write_storage::<[T]>(self.result_size() as usize, &cx.gpu);
+    let init = ZeroedArrayByArrayLength(self.result_size() as usize);
+    let output = create_gpu_read_write_storage::<[T]>(init, &cx.gpu);
 
     let write = ShuffleWrite {
       input,
@@ -96,7 +97,7 @@ where
 
 pub struct ShuffleAccess<T: Std430> {
   /// shuffle access require reading any position, so we need fully materialized result here
-  pub source: StorageBufferReadOnlyDataView<[T]>,
+  pub source: StorageBufferReadonlyDataView<[T]>,
   pub shuffle_idx: Box<dyn DeviceInvocationComponent<Node<u32>>>,
 }
 

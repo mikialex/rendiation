@@ -78,6 +78,7 @@ impl Default for SSAOParameter {
 }
 
 pub struct AOComputer<'a> {
+  reverse_depth: bool,
   depth: AttachmentView<&'a Attachment>,
   parameter: &'a SSAO,
   reproject: &'a UniformBufferCachedDataView<ReprojectInfo>,
@@ -111,46 +112,64 @@ impl GraphicsShaderProvider for AOComputer<'_> {
       let sample_count_f = parameter.sample_count.into_f32();
 
       let depth = depth_tex.sample(sampler, uv).x();
-      let position_world =
-        shader_uv_space_to_world_space(reproject.current_camera_view_projection_inv, uv, depth);
 
-      let normal = compute_normal_by_dxdy(position_world); // wrong, but i do not want pay cost to use normal texture input
+      let is_background = if self.reverse_depth {
+        depth.equals(val(0.))
+      } else {
+        depth.equals(val(1.))
+      };
 
-      let random = random3_fn(uv + parameter.noise_jit.splat()) * val(2.) - val(Vec3::one());
-      let tangent = (random - normal * random.dot(normal)).normalize();
-      let binormal = normal.cross(tangent);
-      let tbn = mat3_node((tangent, binormal, normal));
+      if_by(is_background, || {
+        builder.store_fragment_out_vec4f(0, Vec4::one());
+      })
+      .else_by(|| {
+        let position_world =
+          shader_uv_space_to_world_space(reproject.current_camera_view_projection_inv, uv, depth);
 
-      let occlusion_sum = samples
-        .into_shader_iter()
-        .clamp_by(parameter.sample_count)
-        .map(|(_, sample): (_, UniformNode<Vec4<f32>>)| {
-          let sample_position_offset = tbn * sample.load().xyz();
-          let sample_position_world = position_world + sample_position_offset * parameter.radius;
+        let normal = compute_normal_by_dxdy(position_world); // wrong, but i do not want pay cost to use normal texture input
 
-          let (s_uv, s_depth) = shader_world_space_to_uv_space(
-            reproject.current_camera_view_projection,
-            sample_position_world,
-          );
-          let sample_position_depth = depth_tex.sample_zero_level(sampler, s_uv).x();
+        let random = random3_fn(uv + parameter.noise_jit.splat()) * val(2.) - val(Vec3::one());
+        let tangent = (random - normal * random.dot(normal)).normalize();
+        let binormal = normal.cross(tangent);
+        let tbn = mat3_node((tangent, binormal, normal));
 
-          let occluded = (sample_position_depth + parameter.bias)
-            .less_equal_than(s_depth)
-            .select(0., 1.);
+        let occlusion_sum = samples
+          .into_shader_iter()
+          .clamp_by(parameter.sample_count)
+          .map(|(_, sample): (_, ShaderReadonlyPtrOf<Vec4<f32>>)| {
+            let sample_position_offset = tbn * sample.load().xyz();
+            let sample_position_world = position_world + sample_position_offset * parameter.radius;
 
-          let relative_depth_diff = parameter.radius / (sample_position_depth - s_depth).abs();
-          let intensity = relative_depth_diff.smoothstep(val(0.), val(1.));
+            let (s_uv, s_depth) = shader_world_space_to_uv_space(
+              reproject.current_camera_view_projection,
+              sample_position_world,
+            );
+            let sample_position_depth = depth_tex.sample_zero_level(sampler, s_uv).x();
 
-          occluded * intensity
-        })
-        .sum();
+            let occluded = if self.reverse_depth {
+              (sample_position_depth + parameter.bias)
+                .greater_than(s_depth)
+                .select(0., 1.)
+            } else {
+              (sample_position_depth + parameter.bias)
+                .less_than(s_depth)
+                .select(0., 1.)
+            };
 
-      let occlusion = parameter.sample_count.into_f32() - occlusion_sum;
-      let occlusion = occlusion / sample_count_f;
-      let occlusion = occlusion.pow(parameter.magnitude);
-      let occlusion = parameter.contrast * (occlusion - val(0.5)) + val(0.5);
+            let relative_depth_diff = parameter.radius / (sample_position_depth - s_depth).abs();
+            let intensity = relative_depth_diff.smoothstep(val(0.), val(1.));
 
-      builder.store_fragment_out(0, ((val(1.) - occlusion.saturate()).splat(), val(1.)))
+            occluded * intensity
+          })
+          .sum();
+
+        let occlusion = parameter.sample_count.into_f32() - occlusion_sum;
+        let occlusion = occlusion / sample_count_f;
+        let occlusion = occlusion.pow(parameter.magnitude);
+        let occlusion = parameter.contrast * (occlusion - val(0.5)) + val(0.5);
+
+        builder.store_fragment_out_vec4f(0, ((val(1.) - occlusion.saturate()).splat(), val(1.)))
+      });
     })
   }
 }
@@ -161,6 +180,7 @@ impl SSAO {
     ctx: &mut FrameCtx,
     depth: &Attachment,
     reproject: &UniformBufferCachedDataView<ReprojectInfo>,
+    reverse_depth: bool,
   ) -> Attachment {
     self.parameters.mutate(|p| p.noise_jit = rand());
     self.parameters.upload(&ctx.gpu.queue);
@@ -178,6 +198,7 @@ impl SSAO {
           reproject,
           depth: depth.read(),
           parameter: self,
+          reverse_depth,
         }
         .draw_quad(),
       );

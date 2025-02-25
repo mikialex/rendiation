@@ -9,7 +9,7 @@ pub struct TaskPool {
   ///   parent_task_type_id: u32,
   ///   parent_task_index: u32,
   /// }
-  pub(crate) tasks: GPUBufferResourceView,
+  pub(crate) tasks: BoxedAbstractStorageBufferDynTyped,
   state_desc: DynamicTypeMetaInfo,
   task_ty_desc: ShaderStructMetaInfo,
 }
@@ -24,14 +24,14 @@ impl ShaderHashProvider for TaskPool {
 
 impl TaskPool {
   pub fn create_with_size(
+    index: usize,
     size: usize,
     state_desc: DynamicTypeMetaInfo,
     payload_ty: ShaderSizedValueType,
     device: &GPUDevice,
+    allocator: &MaybeCombinedStorageAllocator,
   ) -> Self {
-    let usage = BufferUsages::STORAGE | BufferUsages::COPY_SRC;
-
-    let mut task_ty_desc = ShaderStructMetaInfo::new("TaskType");
+    let mut task_ty_desc = ShaderStructMetaInfo::new(&format!("TaskType{index}"));
     let u32_ty = ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Uint32);
 
     task_ty_desc.push_field_dyn("is_finished", u32_ty.clone());
@@ -40,50 +40,45 @@ impl TaskPool {
     task_ty_desc.push_field_dyn("parent_task_type_id", u32_ty.clone());
     task_ty_desc.push_field_dyn("parent_task_index", u32_ty);
 
-    let stride = task_ty_desc.size_of_self(StructLayoutTarget::Std430);
-
-    let init = BufferInit::Zeroed(NonZeroU64::new((size * stride) as u64).unwrap());
-    let desc = GPUBufferDescriptor {
-      size: init.size(),
-      usage,
+    let layout = match allocator {
+      MaybeCombinedStorageAllocator::Combined(c) => c.get_layout(),
+      MaybeCombinedStorageAllocator::Default => StructLayoutTarget::Std430,
     };
 
-    let gpu = GPUBuffer::create(device, init, usage);
-    let gpu = GPUBufferResource::create_with_raw(gpu, desc, device).create_default_view();
+    let stride = task_ty_desc.size_of_self(layout);
+    let byte_size_required = (size * stride) as u64;
+
+    let tasks = allocator.allocate_dyn_ty(
+      byte_size_required,
+      device,
+      MaybeUnsizedValueType::Unsized(ShaderUnSizedValueType::UnsizedArray(Box::new(
+        ShaderSizedValueType::Struct(task_ty_desc.clone()),
+      ))),
+    );
 
     Self {
-      tasks: gpu,
+      tasks,
       state_desc,
       task_ty_desc,
     }
   }
 
   pub fn build_shader(&self, cx: &mut ShaderComputePipelineBuilder) -> TaskPoolInvocationInstance {
-    let desc = ShaderBindingDescriptor {
-      should_as_storage_buffer_if_is_buffer_like: true,
-      ty: ShaderValueType::Single(ShaderValueSingleType::Unsized(
-        ShaderUnSizedValueType::UnsizedArray(Box::new(ShaderSizedValueType::Struct(
-          self.task_ty_desc.clone(),
-        ))),
-      )),
-      writeable_if_storage: true,
-    };
-    let node = cx.bindgroups().binding_dyn(desc).compute_node;
     TaskPoolInvocationInstance {
-      pool: unsafe { node.into_node() },
+      pool: cx.bind_abstract_storage_dyn_typed(&self.tasks),
       state_desc: self.state_desc.clone(),
       payload_ty: self.task_ty_desc.fields[1].ty.clone(),
     }
   }
 
   pub fn bind(&self, cx: &mut BindingBuilder) {
-    cx.bind_dyn(self.tasks.get_binding_build_source());
+    cx.bind_abstract_storage_dyn_typed(&self.tasks);
   }
 }
 
 #[derive(Clone)]
 pub struct TaskPoolInvocationInstance {
-  pool: StorageNode<[AnyType]>,
+  pool: BoxedShaderPtr, // [generated_type]
   state_desc: DynamicTypeMetaInfo,
   payload_ty: ShaderSizedValueType,
 }
@@ -99,10 +94,10 @@ pub const TASK_STATUE_FLAG_NOT_FINISHED_WAKEN: u32 = 1;
 /// subsequent task wake the parent in this task group, it will create duplicate invocation.
 ///
 /// we can not simply clear the alive list because the task could self spawn new tasks.
-/// our solution is to add another task state(this) to mark the task is sleeping but still in alive task.
+/// our solution is to add another task state(this) to mark the task is go to sleep but still in alive task.
 /// the prepare execution will still compact by this flag(and will reset it), but when child task wake parent,
 /// if it see this special flag the alive task index spawn will be skipped.
-pub const TASK_STATUE_FLAG_SLEEPING: u32 = 2;
+pub const TASK_STATUE_FLAG_GO_TO_SLEEP: u32 = 2;
 
 /// state for the sleeping task, the task it self is not in the active-list
 pub const TASK_STATUE_FLAG_NOT_FINISHED_SLEEP: u32 = 3;
@@ -128,8 +123,8 @@ impl TaskParentRef {
 }
 
 impl TaskPoolInvocationInstance {
-  pub fn access_item_ptr(&self, idx: Node<u32>) -> StorageNode<AnyType> {
-    self.pool.index(idx)
+  pub fn access_item_ptr(&self, idx: Node<u32>) -> BoxedShaderPtr {
+    self.pool.field_array_index(idx)
   }
 
   pub fn is_task_finished(&self, task_id: Node<u32>) -> Node<bool> {
@@ -149,7 +144,7 @@ impl TaskPoolInvocationInstance {
   pub fn spawn_new_task_dyn(
     &self,
     at: Node<u32>,
-    payload: Node<AnyType>,
+    payload: ShaderNodeRawHandle,
     parent_ref: TaskParentRef,
     ty: &ShaderSizedValueType,
   ) {
@@ -171,42 +166,42 @@ impl TaskPoolInvocationInstance {
     // write states with given init value
     let state_ptr = self.rw_states(at);
     for (i, v) in self.state_desc.fields_init.iter().enumerate() {
-      unsafe {
-        let state_field: StorageNode<AnyType> = index_access_field(state_ptr.handle(), i);
-        let ty = &self.state_desc.ty.fields[i].ty;
-        if let Some(v) = v {
-          state_field.store(v.to_shader_node_by_value(ty).into_node());
-        } else {
-          state_field.store(ShaderNodeExpr::Zeroed { target: ty.clone() }.insert_api());
-        }
-      };
+      let state_field = state_ptr.field_index(i);
+      let ty = &self.state_desc.ty.fields[i].ty;
+      if let Some(v) = v {
+        state_field.store(v.to_shader_node_by_value(ty));
+      } else {
+        state_field.store(ShaderNodeExpr::Zeroed { target: ty.clone() }.insert_api_raw());
+      }
     }
   }
 
-  pub fn rw_task_state(&self, task: Node<u32>) -> StorageNode<u32> {
+  pub fn rw_task_state(&self, task: Node<u32>) -> ShaderPtrOf<u32> {
     let item_ptr = self.access_item_ptr(task);
-    unsafe { index_access_field(item_ptr.handle(), 0) }
+    let ptr = item_ptr.field_index(0);
+    u32::create_view_from_raw_ptr(ptr)
   }
-  pub fn rw_payload<T: ShaderSizedValueNodeType>(&self, task: Node<u32>) -> StorageNode<T> {
+  pub fn rw_payload<T: ShaderSizedValueNodeType>(&self, task: Node<u32>) -> ShaderPtrOf<T> {
     assert_eq!(self.payload_ty, T::sized_ty());
-    let item_ptr = self.access_item_ptr(task);
-    unsafe { index_access_field(item_ptr.handle(), 1) }
+    T::create_view_from_raw_ptr(self.rw_payload_dyn(task))
   }
-  pub fn rw_payload_dyn(&self, task: Node<u32>) -> StorageNode<AnyType> {
+  pub fn rw_payload_dyn(&self, task: Node<u32>) -> BoxedShaderPtr {
     let item_ptr = self.access_item_ptr(task);
-    unsafe { index_access_field(item_ptr.handle(), 1) }
+    item_ptr.field_index(1)
   }
-  pub fn rw_states(&self, task: Node<u32>) -> StorageNode<AnyType> {
+  pub fn rw_states(&self, task: Node<u32>) -> BoxedShaderPtr {
     let item_ptr = self.access_item_ptr(task);
-    unsafe { index_access_field(item_ptr.handle(), 2) }
+    item_ptr.field_index(2)
   }
 
-  pub fn rw_parent_task_type_id(&self, task: Node<u32>) -> StorageNode<u32> {
+  pub fn rw_parent_task_type_id(&self, task: Node<u32>) -> ShaderPtrOf<u32> {
     let item_ptr = self.access_item_ptr(task);
-    unsafe { index_access_field(item_ptr.handle(), 3) }
+    let ptr = item_ptr.field_index(3);
+    u32::create_view_from_raw_ptr(ptr)
   }
-  pub fn rw_parent_task_index(&self, task: Node<u32>) -> StorageNode<u32> {
+  pub fn rw_parent_task_index(&self, task: Node<u32>) -> ShaderPtrOf<u32> {
     let item_ptr = self.access_item_ptr(task);
-    unsafe { index_access_field(item_ptr.handle(), 4) }
+    let ptr = item_ptr.field_index(4);
+    u32::create_view_from_raw_ptr(ptr)
   }
 }

@@ -6,7 +6,7 @@ use crate::*;
 
 #[derive(Clone, Debug)]
 pub struct UniformBufferDataView<T: Std140> {
-  gpu: GPUBufferResourceView,
+  pub gpu: GPUBufferResourceView,
   phantom: PhantomData<T>,
 }
 

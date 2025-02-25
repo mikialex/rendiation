@@ -56,7 +56,7 @@ impl<T> Deref for GPUPipelineImpl<T> {
 pub fn map_shader_value_ty_to_binding_layout_type(
   v: &ShaderBindingDescriptor,
   id: usize,
-  is_compute: bool,
+  visibility: ShaderStages,
 ) -> gpu::BindGroupLayoutEntry {
   use ShaderValueSingleType::*;
   let ty = v
@@ -157,13 +157,15 @@ pub fn map_shader_value_ty_to_binding_layout_type(
     _ => None,
   };
 
+  if visibility == ShaderStages::empty() {
+    dbg!(&v.ty);
+  }
+
+  assert!(visibility != ShaderStages::empty());
+
   gpu::BindGroupLayoutEntry {
     binding: id as u32,
-    visibility: if is_compute {
-      gpu::ShaderStages::COMPUTE
-    } else {
-      gpu::ShaderStages::VERTEX_FRAGMENT
-    },
+    visibility,
     ty,
     count,
   }
@@ -224,7 +226,7 @@ impl GPUDevice {
     //   source: gpu::ShaderSource::Wgsl(Cow::Owned(convert_module_by_wgsl(&naga_fragment))),
     // });
 
-    let (layouts, pipeline_layout) = create_layouts(self, &bindings, false);
+    let (layouts, pipeline_layout) = create_layouts(self, &bindings);
 
     let vertex_buffers: Vec<_> = vertex_layouts.iter().map(convert_vertex_layout).collect();
 
@@ -261,7 +263,6 @@ impl GPUDevice {
 fn create_layouts(
   device: &GPUDevice,
   builder: &ShaderBindGroupBuilder,
-  is_compute: bool,
 ) -> (Vec<GPUBindGroupLayout>, wgpu::PipelineLayout) {
   let binding = &builder.bindings;
   let last_empty_count = binding
@@ -275,7 +276,7 @@ fn create_layouts(
     .unwrap()
     .iter()
     .map(|b| {
-      device.create_and_cache_bindgroup_layout(b.bindings.iter().map(|e| &e.desc), is_compute)
+      device.create_and_cache_bindgroup_layout(b.bindings.iter().map(|e| (&e.desc, e.visibility)))
     })
     .collect();
 
@@ -347,7 +348,7 @@ impl ComputeIntoPipelineExt for ShaderComputePipelineBuilder {
       label: None,
       source: gpu::ShaderSource::Naga(Cow::Owned(*naga_compute)),
     });
-    let (layouts, pipeline_layout) = create_layouts(device, &result.bindings, true);
+    let (layouts, pipeline_layout) = create_layouts(device, &result.bindings);
 
     let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
       label: None,

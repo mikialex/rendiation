@@ -2,7 +2,7 @@ use crate::*;
 
 #[repr(C)]
 #[std430_layout]
-#[derive(Clone, Copy, ShaderStruct, StorageNodePtrAccess)]
+#[derive(Clone, Copy, ShaderStruct)]
 pub struct BuiltInTriangleHitAttribute {
   pub bary_coord: Vec2<f32>,
 }
@@ -20,7 +20,7 @@ pub struct HitInfo {
   pub hit_attribute: Node<HitAttribute>,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct HitCtxInfo {
   /// gl_PrimitiveID
   pub primitive_id: Node<u32>,
@@ -77,7 +77,7 @@ pub struct RayGenShaderCtx {
   pub launch_info: RayLaunchInfo,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct RayClosestHitCtx {
   pub launch_info: RayLaunchInfo,
   pub world_ray: WorldRayInfo,
@@ -105,8 +105,8 @@ impl RayAnyHitCtx {
   where
     T: ShaderSizedValueNodeType,
   {
-    Box::new(U32BufferLoadStore {
-      accessor: self.payload,
+    Box::new(U32BufferLoadStorePacked {
+      accessor: self.payload.clone(),
       ty: PhantomData,
     })
   }
@@ -122,7 +122,7 @@ pub struct TracingCtx {
   pub(crate) ray_gen: Option<Box<dyn RayGenCtxProvider>>,
   pub(crate) missing: Option<Box<dyn MissingHitCtxProvider>>,
   pub(crate) closest: Option<Box<dyn ClosestHitCtxProvider>>,
-  pub(crate) payload: Option<(StorageNode<AnyType>, ShaderSizedValueType)>,
+  pub(crate) payload: Option<(BoxedShaderPtr, ShaderSizedValueType)>,
   pub registry: AnyMap,
 }
 
@@ -150,12 +150,12 @@ impl TracingCtx {
   }
 
   /// user defined payload may not exist if the current shader stage is ray gen
-  pub fn payload<T: ShaderSizedValueNodeType>(&self) -> Option<StorageNode<T>> {
+  pub fn payload<T: ShaderSizedValueNodeType>(&self) -> Option<ShaderPtrOf<T>> {
     let payload = self.payload.as_ref()?;
     assert_eq!(&T::sized_ty(), &payload.1);
-    Some(unsafe { payload.0.cast_type() })
+    Some(T::create_view_from_raw_ptr(payload.0.clone()))
   }
-  pub fn expect_payload<T: ShaderSizedValueNodeType>(&self) -> StorageNode<T> {
+  pub fn expect_payload<T: ShaderSizedValueNodeType>(&self) -> ShaderPtrOf<T> {
     self.payload::<T>().unwrap()
   }
 }

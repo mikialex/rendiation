@@ -51,11 +51,11 @@ impl BindlessTextureSystemSource {
 
 both!(
   BindlessTexturesInShader,
-  ShaderHandlePtr<BindingArray<ShaderHandlePtr<ShaderTexture2D>>>
+  ShaderBinding<BindingArray<ShaderBinding<ShaderTexture2D>>>
 );
 both!(
   BindlessSamplersInShader,
-  ShaderHandlePtr<BindingArray<ShaderHandlePtr<ShaderSampler>>>
+  ShaderBinding<BindingArray<ShaderBinding<ShaderSampler>>>
 );
 
 impl ReactiveGeneralQuery for BindlessTextureSystemSource {
@@ -83,12 +83,12 @@ impl AbstractIndirectGPUTextureSystem for BindlessTextureSystem {
   fn register_system_self(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder
       .bind_by_and_prepare(&self.texture_binding_array)
-      .using_graphics_pair(builder, |r, textures| {
+      .using_graphics_pair(|r, textures| {
         r.register_typed_both_stage::<BindlessTexturesInShader>(textures);
       });
     builder
       .bind_by_and_prepare(&self.sampler_binding_array)
-      .using_graphics_pair(builder, |r, samplers| {
+      .using_graphics_pair(|r, samplers| {
         r.register_typed_both_stage::<BindlessSamplersInShader>(samplers);
       });
   }

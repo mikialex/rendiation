@@ -53,7 +53,7 @@ impl ShaderVertexBuilder {
       errors,
     };
 
-    set_current_building(ShaderStages::Vertex.into());
+    set_current_building(ShaderStage::Vertex.into());
 
     let vertex_index = ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::VertexIndex).insert_api();
     result.register::<VertexIndex>(vertex_index);
@@ -75,7 +75,7 @@ impl ShaderVertexBuilder {
       .for_each(|id| {
         let (VertexIOInfo { ty, location, .. }, interpolation) = *vertex_out.get(&id).unwrap();
 
-        set_current_building(ShaderStages::Fragment.into());
+        set_current_building(ShaderStage::Fragment.into());
         let node = ShaderInputNode::UserDefinedIn {
           ty,
           location,

@@ -42,6 +42,10 @@ pub struct BindGroupBuilder {
 }
 
 impl BindGroupBuilder {
+  pub fn iter_bounded(&self) -> impl Iterator<Item = &CacheAbleBindingBuildSource> {
+    self.items.iter()
+  }
+
   pub fn reset(&mut self) {
     self.items.clear();
   }
@@ -88,6 +92,10 @@ pub trait AbstractPassBinding {
 }
 
 impl BindingBuilder {
+  pub fn iter_groups(&self) -> impl Iterator<Item = &BindGroupBuilder> {
+    self.groups.iter()
+  }
+
   pub fn setup_checking_layout(&mut self, layouts: &[GPUBindGroupLayout]) {
     self.checking_layouts = Some(layouts.to_owned());
   }
@@ -236,7 +244,7 @@ pub trait AbstractBindingSource {
 }
 
 impl<T: CacheAbleBindingSource + ShaderBindingProvider> AbstractBindingSource for T {
-  type ShaderBindResult = Node<T::Node>;
+  type ShaderBindResult = T::ShaderInstance;
 
   fn bind_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(self);

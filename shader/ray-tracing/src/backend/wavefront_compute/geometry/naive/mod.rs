@@ -22,7 +22,7 @@ use crate::*;
 
 #[repr(C)]
 #[std430_layout]
-#[derive(Clone, Copy, PartialEq, Debug, ShaderStruct, StorageNodePtrAccess)]
+#[derive(Clone, Copy, PartialEq, Debug, ShaderStruct)]
 pub struct TopLevelAccelerationStructureSourceDeviceInstance {
   pub transform: Mat4<f32>,
   pub transform_inv: Mat4<f32>,
@@ -395,16 +395,16 @@ impl NaiveSahBvhSource {
     //   box_bvh_forest.extend(nodes);
     // }
 
-    fn create_gpu_buffer<T>(device: &GPUDevice, data: &[T]) -> StorageBufferReadOnlyDataView<[T]>
+    fn create_gpu_buffer<T>(device: &GPUDevice, data: &[T]) -> StorageBufferReadonlyDataView<[T]>
     where
       [T]: Std430MaybeUnsized,
       T: Zeroable,
     {
       if data.is_empty() {
         let data = vec![T::zeroed()];
-        StorageBufferReadOnlyDataView::create(device, &data)
+        StorageBufferReadonlyDataView::create(device, &data)
       } else {
-        StorageBufferReadOnlyDataView::create(device, data)
+        StorageBufferReadonlyDataView::create(device, data)
       }
     }
     // upload blas

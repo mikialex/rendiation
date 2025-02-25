@@ -56,14 +56,8 @@ impl GPUWaveFrontComputeRaytracingExecutorInternal {
       }
     }
 
-    let (task_graph, trace_resource) = create_task_graph(
-      source,
-      tlas_sys,
-      sbt_sys,
-      &mut self.resource,
-      &cx.gpu.device,
-      size,
-    );
+    let (task_graph, trace_resource) =
+      create_task_graph(source, tlas_sys, sbt_sys, &mut self.resource, &cx.gpu, size);
 
     let (_, exe) = self.executor.get_or_insert_with(|| {
       let payload_read_back_bumper = trace_resource.payload_read_back_bumper.clone();
@@ -95,9 +89,9 @@ pub struct TraceTaskResource {
   pub payload_bumper: DeviceBumpAllocationInstance<u32>,
   pub payload_read_back_bumper: DeviceBumpAllocationInstance<u32>,
   pub info: Arc<TraceTaskMetaInfo>,
-  pub current_sbt: StorageBufferReadOnlyDataView<u32>,
-  pub sbt_task_mapping: StorageBufferReadOnlyDataView<SbtTaskMapping>,
-  pub launch_size: StorageBufferReadOnlyDataView<Vec3<u32>>,
+  pub current_sbt: StorageBufferReadonlyDataView<u32>,
+  pub sbt_task_mapping: StorageBufferReadonlyDataView<SbtTaskMapping>,
+  pub launch_size: StorageBufferReadonlyDataView<Vec3<u32>>,
 }
 
 fn create_task_graph<'a>(
@@ -105,24 +99,36 @@ fn create_task_graph<'a>(
   tlas_sys: Box<dyn GPUAccelerationStructureSystemCompImplInstance>,
   sbt_sys: ShaderBindingTableDeviceInfo,
   trace_resource: &'a mut Option<TraceTaskResource>,
-  device: &GPUDevice,
+  gpu: &GPU,
   size: u32,
 ) -> (DeviceTaskGraphBuildSource, &'a TraceTaskResource) {
   let mut graph = DeviceTaskGraphBuildSource::default();
 
+  let device = &gpu.device;
   let trace_resource = trace_resource.get_or_insert_with(|| {
     let info = source.compute_trace_meta_info();
 
-    let target_sbt_buffer = StorageBufferReadOnlyDataView::create(device, &0);
+    let target_sbt_buffer = StorageBufferReadonlyDataView::create(device, &0);
     let sbt_task_mapping_buffer =
-      StorageBufferReadOnlyDataView::create(device, &info.create_sbt_mapping());
+      StorageBufferReadonlyDataView::create(device, &info.create_sbt_mapping());
     // written in trace_ray. see RayLaunchSizeBuffer
-    let launch_size_buffer = StorageBufferReadOnlyDataView::create(device, &vec3(0, 0, 0));
+    let launch_size_buffer = StorageBufferReadonlyDataView::create(device, &vec3(0, 0, 0));
 
     let payload_u32_len = size as usize * (info.payload_max_u32_count as usize);
-    let payload_bumper = DeviceBumpAllocationInstance::new(payload_u32_len, device);
 
-    let payload_read_back_bumper = DeviceBumpAllocationInstance::new(payload_u32_len, device);
+    let buffer_allocator =
+      MaybeCombinedStorageAllocator::new(gpu, "trace_ray user payload buffer", false, true);
+    let a_a = MaybeCombinedAtomicU32StorageAllocator::new(
+      gpu,
+      "trace_ray user payload atomic buffer",
+      false,
+    );
+    let payload_bumper =
+      DeviceBumpAllocationInstance::new(payload_u32_len, device, &buffer_allocator, &a_a);
+    let payload_read_back_bumper =
+      DeviceBumpAllocationInstance::new(payload_u32_len, device, &buffer_allocator, &a_a);
+    buffer_allocator.rebuild();
+    a_a.rebuild();
 
     TraceTaskResource {
       payload_bumper,
@@ -216,7 +222,8 @@ impl GPURaytracingPipelineAndBindingSource {
       .enumerate()
       .map(|(i, s)| {
         let ty = &s.user_defined_payload_input_ty;
-        payload_max_u32_count = payload_max_u32_count.max(ty.u32_size_count());
+        payload_max_u32_count =
+          payload_max_u32_count.max(ty.u32_size_count(StructLayoutTarget::Packed));
         ((i + closest_task_range_start) as u32, ty.clone())
       })
       .collect();
@@ -229,7 +236,8 @@ impl GPURaytracingPipelineAndBindingSource {
       .enumerate()
       .map(|(i, s)| {
         let ty = &s.user_defined_payload_input_ty;
-        payload_max_u32_count = payload_max_u32_count.max(ty.u32_size_count());
+        payload_max_u32_count =
+          payload_max_u32_count.max(ty.u32_size_count(StructLayoutTarget::Packed));
         ((i + missing_task_start) as u32, ty.clone())
       })
       .collect();

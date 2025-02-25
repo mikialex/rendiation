@@ -1,12 +1,25 @@
 use crate::*;
 
 pub struct GLESPreferredComOrderRendererProvider {
+  pub scene_model_ids: UpdateResultToken,
   pub node: Box<dyn RenderImplProvider<Box<dyn GLESNodeRenderImpl>>>,
   pub model_impl: Vec<Box<dyn RenderImplProvider<Box<dyn GLESModelRenderImpl>>>>,
 }
 
+type SceneModelIdUniforms = UniformUpdateContainer<EntityHandle<SceneModelEntity>, Vec4<u32>>;
+
 impl RenderImplProvider<Box<dyn SceneModelRenderer>> for GLESPreferredComOrderRendererProvider {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
+    let ids = global_watch()
+      .watch_entity_set::<SceneModelEntity>()
+      .key_as_value()
+      .collective_map(|v| Vec4::new(v.into_raw().index(), 0, 0, 0))
+      .into_query_update_uniform(0, cx);
+
+    let ids = SceneModelIdUniforms::default().with_source(ids);
+
+    self.scene_model_ids = source.register_multi_updater(ids);
+
     self.node.register_resource(source, cx);
     self
       .model_impl
@@ -15,6 +28,7 @@ impl RenderImplProvider<Box<dyn SceneModelRenderer>> for GLESPreferredComOrderRe
   }
 
   fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
+    source.deregister(&mut self.scene_model_ids);
     self.node.deregister_resource(source);
     self
       .model_impl
@@ -24,6 +38,9 @@ impl RenderImplProvider<Box<dyn SceneModelRenderer>> for GLESPreferredComOrderRe
 
   fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn SceneModelRenderer> {
     Box::new(GLESPreferredComOrderRenderer {
+      scene_model_ids: res
+        .take_multi_updater_updated(self.scene_model_ids)
+        .unwrap(),
       model_impl: self.model_impl.iter().map(|i| i.create_impl(res)).collect(),
       node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
       node_render: self.node.create_impl(res),
@@ -32,9 +49,32 @@ impl RenderImplProvider<Box<dyn SceneModelRenderer>> for GLESPreferredComOrderRe
 }
 
 pub struct GLESPreferredComOrderRenderer {
+  scene_model_ids: LockReadGuardHolder<SceneModelIdUniforms>,
   model_impl: Vec<Box<dyn GLESModelRenderImpl>>,
   node_render: Box<dyn GLESNodeRenderImpl>,
   node: ForeignKeyReadView<SceneModelRefNode>,
+}
+
+struct SceneModelIdWriter<'a> {
+  id: &'a UniformBufferDataView<Vec4<u32>>,
+}
+impl ShaderHashProvider for SceneModelIdWriter<'_> {
+  shader_hash_type_id! {SceneModelIdWriter<'static>}
+}
+
+impl GraphicsShaderProvider for SceneModelIdWriter<'_> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    builder.vertex(|builder, binding| {
+      let id = binding.bind_by(&self.id);
+      builder.register::<LogicalRenderEntityId>(id.load().x());
+    })
+  }
+}
+
+impl ShaderPassBuilder for SceneModelIdWriter<'_> {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx.binding.bind(self.id);
+  }
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -64,6 +104,11 @@ impl SceneModelRenderer for GLESPreferredComOrderRenderer {
     tex: &GPUTextureBindingSystem,
   ) -> Result<(), UnableToRenderSceneModelError> {
     use GLESPreferredComOrderRendererRenderError as E;
+
+    let id = self.scene_model_ids.get(&idx).unwrap();
+    let id = SceneModelIdWriter { id };
+    let id = Box::new(id) as Box<dyn RenderComponent>;
+
     let node = self.node.get(idx).ok_or(E::NodeAccessFailed(idx))?;
     let node = self
       .node_render
@@ -84,9 +129,10 @@ impl SceneModelRenderer for GLESPreferredComOrderRenderer {
     let pass = Box::new(pass) as Box<dyn RenderComponent>;
     let tex = Box::new(GPUTextureSystemAsRenderComponent(tex)) as Box<dyn RenderComponent>;
 
-    let contents: [BindingController<Box<dyn RenderComponent>>; 6] = [
+    let contents: [BindingController<Box<dyn RenderComponent>>; 7] = [
       pass.into_assign_binding_index(0),
       tex.into_assign_binding_index(0),
+      id.into_assign_binding_index(2),
       shape.into_assign_binding_index(2),
       node.into_assign_binding_index(2),
       camera.into_assign_binding_index(1),

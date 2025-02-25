@@ -134,7 +134,7 @@ impl TraverseFlagsGpu {
     fn if_bit(
       source: Node<u32>,
       bit: u32,
-      flag: LocalVarNode<u32>,
+      flag: &ShaderPtrOf<u32>,
       if_true: impl FnOnce(Node<u32>) -> Node<u32>,
     ) {
       if_by((source & val(bit)).greater_than(val(0)), || {
@@ -148,27 +148,27 @@ impl TraverseFlagsGpu {
     if_bit(
       geometry_instance_flag,
       GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE,
-      traverse_flag,
+      &traverse_flag,
       |flag| flag & val(!(CULL_BACK_FACING_TRIANGLES as u32 | CULL_FRONT_FACING_TRIANGLES as u32)),
     );
 
     if_bit(
       geometry_instance_flag,
       GEOMETRY_INSTANCE_TRIANGLE_FLIP_FACING,
-      traverse_flag,
+      &traverse_flag,
       |flag| flag ^ val(TRIANGLE_FLIP_FACING as u32),
     );
 
     if_bit(
       geometry_instance_flag,
       GEOMETRY_INSTANCE_FORCE_OPAQUE,
-      traverse_flag,
+      &traverse_flag,
       |flag| flag | val(FORCE_OPAQUE as u32),
     );
     if_bit(
       geometry_instance_flag,
       GEOMETRY_INSTANCE_FORCE_NO_OPAQUE,
-      traverse_flag,
+      &traverse_flag,
       |flag| flag | val(FORCE_NON_OPAQUE as u32),
     );
 

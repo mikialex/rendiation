@@ -99,8 +99,8 @@ impl TaskGroupExecutor {
 
     let self_spawner = resource.build_shader_for_spawner(&mut cx);
 
-    let indices = self_spawner.active_task_idx.storage;
-    let active_task_count = self_spawner.active_task_idx.current_size;
+    let indices = self_spawner.active_task_idx.storage.clone();
+    let active_task_count = self_spawner.active_task_idx.current_size.clone();
     let pool = self_spawner.task_pool.clone();
 
     let active_idx = cx.global_invocation_id().x();
@@ -112,7 +112,7 @@ impl TaskGroupExecutor {
       .select_branched(|| indices.index(active_idx).load(), || val(0));
 
     let item = pool.rw_states(task_index);
-    pre_build.state_to_resolve.resolve(item.cast_untyped_node());
+    pre_build.state_to_resolve.resolve(item);
 
     let mut poll_ctx = DeviceTaskSystemPollCtx {
       self_task_idx: task_index,
@@ -151,7 +151,7 @@ impl TaskGroupExecutor {
       .else_by(|| {
         pool
           .rw_task_state(task_index)
-          .store(TASK_STATUE_FLAG_SLEEPING);
+          .store(TASK_STATUE_FLAG_GO_TO_SLEEP);
       });
     });
 
@@ -203,7 +203,6 @@ impl TaskGroupExecutor {
       }
 
       imp.bind_for_spawner(&mut ctx);
-
       bb.setup_compute_pass(pass, device, &self.polling_pipeline);
       pass.dispatch_workgroups_indirect_by_buffer_resource_view(&active_execution_size);
     });
@@ -218,15 +217,22 @@ impl TaskGroupExecutor {
   fn compact_alive_tasks(&mut self, ctx: &mut DeviceParallelComputeCtx) {
     let imp = &mut self.resource;
     // compact active task buffer
-    let active_tasks = imp.active_task_idx.storage.clone().into_readonly_view();
+    let active_tasks =
+      ParallelComputeFromAbstractStorageBuffer(imp.active_task_idx.storage.clone());
+
+    // the input and output shares one single binding so it can be aliased
+    let active_task_idx_back_buffer = imp.active_task_idx_back_buffer.get_gpu_buffer_view();
+    let active_tasks_back_buffer =
+      StorageBufferDataView::try_from_raw(active_task_idx_back_buffer).unwrap();
+
     let re = active_tasks
       .clone()
       .stream_compaction(ActiveTaskCompact {
         active_size: imp.active_task_idx.current_size.clone(),
-        active_tasks: active_tasks.clone(),
+        active_tasks: imp.active_task_idx.storage.clone(),
         task_pool: imp.task_pool.clone(),
       })
-      .materialize_storage_buffer_into(imp.active_task_idx_back_buffer.clone(), ctx);
+      .materialize_storage_buffer_into(active_tasks_back_buffer, ctx);
 
     std::mem::swap(
       &mut imp.active_task_idx.storage,
@@ -242,14 +248,14 @@ impl TaskGroupExecutor {
       let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
         builder.config_work_group_size(1);
         let new_size = builder.bind_by(&new_active_task_size);
-        let current_size = builder.bind_by(&imp.active_task_idx.current_size);
+        let current_size = builder.bind_abstract_storage(&imp.active_task_idx.current_size);
         current_size.store(new_size.load().x());
         builder
       });
 
       BindingBuilder::default()
         .with_bind(&new_active_task_size)
-        .with_bind(&imp.active_task_idx.current_size)
+        .with_bind_abstract_storage(&imp.active_task_idx.current_size)
         .setup_compute_pass(pass, device, &pipeline);
 
       pass.dispatch_workgroups(1, 1, 1);
@@ -283,43 +289,62 @@ impl TaskGroupExecutor {
 #[derive(Clone)]
 pub struct TaskGroupExecutorResource {
   /// reused as active task compaction target
-  pub active_task_idx_back_buffer: StorageBufferDataView<[u32]>,
+  pub active_task_idx_back_buffer: BoxedAbstractStorageBuffer<[u32]>,
   pub active_task_idx: DeviceBumpAllocationInstance<u32>,
   pub new_removed_task_idx: DeviceBumpAllocationInstance<u32>,
   pub empty_index_pool: DeviceBumpAllocationInstance<u32>,
   pub task_pool: TaskPool,
   pub size: usize,
+  payload_ty: ShaderSizedValueType,
+  index: usize,
 }
 
 impl TaskGroupExecutorResource {
+  /// should call init before actually use this
   pub fn create_with_size(
+    index: usize,
     size: usize,
     state_desc: DynamicTypeMetaInfo,
     payload_ty: ShaderSizedValueType,
     cx: &mut DeviceParallelComputeCtx,
+    allocator: &MaybeCombinedStorageAllocator,
+    a_a: &MaybeCombinedAtomicU32StorageAllocator,
   ) -> Self {
     let device = &cx.gpu.device;
-    let res = Self {
-      active_task_idx_back_buffer: create_gpu_read_write_storage(size, device),
-      active_task_idx: DeviceBumpAllocationInstance::new(size, device),
-      new_removed_task_idx: DeviceBumpAllocationInstance::new(size, device),
-      empty_index_pool: DeviceBumpAllocationInstance::new(size, device),
+    Self {
+      active_task_idx_back_buffer: allocator.allocate((size * 4) as u64, device),
+      active_task_idx: DeviceBumpAllocationInstance::new(size, device, allocator, a_a),
+      new_removed_task_idx: DeviceBumpAllocationInstance::new(size, device, allocator, a_a),
+      empty_index_pool: DeviceBumpAllocationInstance::new(size, device, allocator, a_a),
       // add one is for the first default task
-      task_pool: TaskPool::create_with_size(size + 1, state_desc, payload_ty.clone(), device),
+      task_pool: TaskPool::create_with_size(
+        index,
+        size + 1,
+        state_desc,
+        payload_ty.clone(),
+        device,
+        allocator,
+      ),
       size,
-    };
+      payload_ty,
+      index,
+    }
+  }
 
+  pub fn init(&self, cx: &mut DeviceParallelComputeCtx) {
     // fill the empty pool, allocate the first default task
     cx.record_pass(|pass, device| {
-      let hasher = shader_hasher_from_marker_ty!(PrepareEmptyIndices);
+      let hasher = shader_hasher_from_marker_ty!(PrepareEmptyIndices)
+        .with_hash(self.index)
+        .with_hash(&self.payload_ty);
 
       let workgroup_size = 256;
       let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
         builder.config_work_group_size(workgroup_size);
 
-        let empty_pool = builder.bind_by(&res.empty_index_pool.storage);
-        let empty_pool_size = builder.bind_by(&res.empty_index_pool.current_size);
-        let task_pool = res.task_pool.build_shader(&mut builder);
+        let empty_pool = builder.bind_abstract_storage(&self.empty_index_pool.storage);
+        let empty_pool_size = builder.bind_abstract_storage(&self.empty_index_pool.current_size);
+        let task_pool = self.task_pool.build_shader(&mut builder);
         let id = builder.global_invocation_id().x();
 
         if_by(id.equals(0), || {
@@ -327,11 +352,11 @@ impl TaskGroupExecutorResource {
           task_pool.spawn_new_task_dyn(
             val(0),
             ShaderNodeExpr::Zeroed {
-              target: payload_ty.clone(),
+              target: self.payload_ty.clone(),
             }
-            .insert_api(),
+            .insert_api_raw(),
             TaskParentRef::none_parent(),
-            &payload_ty,
+            &self.payload_ty,
           );
         });
 
@@ -343,17 +368,19 @@ impl TaskGroupExecutorResource {
       });
 
       let mut builder = BindingBuilder::default()
-        .with_bind(&res.empty_index_pool.storage)
-        .with_bind(&res.empty_index_pool.current_size);
+        .with_bind_abstract_storage(&self.empty_index_pool.storage)
+        .with_bind_abstract_storage(&self.empty_index_pool.current_size);
 
-      res.task_pool.bind(&mut builder);
+      self.task_pool.bind(&mut builder);
 
       builder.setup_compute_pass(pass, device, &pipeline);
 
-      pass.dispatch_workgroups(compute_dispatch_size(size as u32, workgroup_size), 1, 1);
+      pass.dispatch_workgroups(
+        compute_dispatch_size(self.size as u32, workgroup_size),
+        1,
+        1,
+      );
     });
-
-    res
   }
 
   pub fn build_shader_for_spawner(
@@ -391,13 +418,13 @@ impl TaskGroupDeviceInvocationInstance {
     payload: Node<T>,
     parent_ref: TaskParentRef,
   ) -> Option<TaskFutureInvocationRightValue> {
-    self.spawn_new_task_dyn(payload.cast_untyped_node(), parent_ref, &T::sized_ty())
+    self.spawn_new_task_dyn(payload.handle(), parent_ref, &T::sized_ty())
   }
 
   #[must_use]
   pub fn spawn_new_task_dyn(
     &self,
-    payload: Node<AnyType>,
+    payload: ShaderNodeRawHandle,
     parent_ref: TaskParentRef,
     ty: &ShaderSizedValueType,
   ) -> Option<TaskFutureInvocationRightValue> {
@@ -418,7 +445,7 @@ impl TaskGroupDeviceInvocationInstance {
       .task_pool
       .rw_task_state(task_id)
       .load()
-      .equals(TASK_STATUE_FLAG_SLEEPING);
+      .equals(TASK_STATUE_FLAG_GO_TO_SLEEP);
     self
       .task_pool
       .rw_task_state(task_id)
@@ -435,8 +462,8 @@ impl TaskGroupDeviceInvocationInstance {
     task_id: Node<u32>,
     argument_read_back: impl FnOnce(Node<T>) + Copy,
   ) -> Node<bool> {
-    self.poll_task_dyn(task_id, |x| unsafe {
-      argument_read_back(x.cast_type::<ShaderStoragePtr<T>>().load())
+    self.poll_task_dyn(task_id, |x| {
+      argument_read_back(T::create_view_from_raw_ptr(x).load())
     })
   }
 
@@ -444,7 +471,7 @@ impl TaskGroupDeviceInvocationInstance {
   pub fn poll_task_dyn(
     &self,
     task_id: Node<u32>,
-    argument_read_back: impl FnOnce(StorageNode<AnyType>) + Copy,
+    argument_read_back: impl FnOnce(BoxedShaderPtr) + Copy,
   ) -> Node<bool> {
     let finished = self.is_task_finished(task_id);
     if_by(finished, || {
@@ -469,9 +496,9 @@ impl TaskGroupDeviceInvocationInstance {
   }
 
   pub fn read_back_payload<T: ShaderSizedValueNodeType>(&self, task_id: Node<u32>) -> Node<T> {
-    self.task_pool.rw_payload(task_id).load()
+    self.task_pool.rw_payload::<T>(task_id).load()
   }
-  fn rw_payload_dyn(&self, task_id: Node<u32>) -> StorageNode<AnyType> {
+  fn rw_payload_dyn(&self, task_id: Node<u32>) -> BoxedShaderPtr {
     self.task_pool.rw_payload_dyn(task_id)
   }
 }

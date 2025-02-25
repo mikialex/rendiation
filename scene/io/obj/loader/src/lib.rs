@@ -46,7 +46,7 @@ pub fn load_obj_content(
     .iter()
     .map(|m| {
       let attribute_mesh = create_attribute_mesh_from_obj_mesh(&m.mesh);
-      let attribute_mesh = writer.write_attribute_mesh(attribute_mesh);
+      let attribute_mesh = writer.write_attribute_mesh(attribute_mesh).mesh;
 
       let mut material = None;
       if let Some(material_id) = m.mesh.material_id {
@@ -63,6 +63,7 @@ pub fn load_obj_content(
       StandardModelDataView {
         material: SceneMaterialDataView::PbrSGMaterial(material),
         mesh: attribute_mesh,
+        skin: None,
       }
     })
     .collect();
@@ -89,8 +90,9 @@ fn into_rff_material(
       .into();
   }
   if let Some(specular_texture) = &m.specular_texture {
+    // the glossiness channel will default to one and that's ok
     let specular_texture = load_tex(specular_texture);
-    mat.specular_texture = writer
+    mat.specular_glossiness_texture = writer
       .texture_sample_pair_writer()
       .write_tex_with_default_sampler(specular_texture)
       .into();

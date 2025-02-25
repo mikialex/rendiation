@@ -11,8 +11,8 @@ use crate::*;
 pub trait Mipmap2dReducer: Send + Sync {
   fn reduce(
     &self,
-    source: HandleNode<ShaderTexture2D>,
-    sampler: HandleNode<ShaderSampler>,
+    source: BindingNode<ShaderTexture2D>,
+    sampler: BindingNode<ShaderSampler>,
     current: Node<Vec2<f32>>,
     texel_size: Node<Vec2<f32>>,
   ) -> Node<Vec4<f32>>;
@@ -110,8 +110,8 @@ impl Mipmap2dReducer for DefaultMipmapReducer {
   #[rustfmt::skip]
   fn reduce(
     &self,
-    source: HandleNode<ShaderTexture2D>,
-    sampler: HandleNode<ShaderSampler>,
+    source: BindingNode<ShaderTexture2D>,
+    sampler: BindingNode<ShaderSampler>,
     current: Node<Vec2<f32>>,
     texel_size: Node<Vec2<f32>>,
   ) -> Node<Vec4<f32>> {

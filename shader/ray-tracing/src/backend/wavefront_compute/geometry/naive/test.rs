@@ -348,7 +348,8 @@ fn test_gpu_triangle() {
 
   impl GpuTester {
     fn new(upstream: Box<dyn DeviceParallelCompute<Node<u32>>>, gpu: GPU) -> Self {
-      let payloads = create_gpu_read_write_storage::<[u32]>(1, &gpu);
+      let init = ZeroedArrayByArrayLength(1);
+      let payloads = create_gpu_read_write_storage::<[u32]>(init, &gpu);
       let system = NaiveSahBVHSystem::new(gpu);
       init_default_acceleration_structure(&system);
       Self {
@@ -430,9 +431,10 @@ fn test_gpu_triangle() {
             payload_u32_len: val(1),
           };
 
-          let output = traversable.traverse(payload, payloads, &|_ctx, _reporter| {}, &|_ctx| {
-            val(TEST_ANYHIT_BEHAVIOR)
-          });
+          let output =
+            traversable.traverse(payload, payloads.clone(), &|_ctx, _reporter| {}, &|_ctx| {
+              val(TEST_ANYHIT_BEHAVIOR)
+            });
           (
             output.is_some.into_u32()
               * (output.payload.hit_ctx.primitive_id % val(PRIMITIVE_IDX_MAX) + val(1)),

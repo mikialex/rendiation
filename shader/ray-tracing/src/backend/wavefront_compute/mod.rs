@@ -199,7 +199,7 @@ impl TaskSpawner<Vec3<u32>> for RangedTaskSpawner {
   }
 }
 struct RangedTaskSpawnerInvocation {
-  size_offset: UniformNode<Vec4<u32>>,
+  size_offset: ShaderReadonlyPtrOf<Vec4<u32>>,
 }
 
 impl TaskSpawnerInvocation<Vec3<u32>> for RangedTaskSpawnerInvocation {

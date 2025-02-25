@@ -67,7 +67,9 @@ impl ShaderFuture for TraceTaskImpl {
     GPURayTraceTaskInvocationInstance {
       tlas_sys: self.tlas_sys.build_shader(ctx.compute_cx),
       sbt: self.sbt_sys.build(ctx.compute_cx),
-      untyped_payloads: ctx.compute_cx.bind_by(&resource.payload_bumper.storage),
+      untyped_payloads: ctx
+        .compute_cx
+        .bind_abstract_storage(&resource.payload_bumper.storage),
       info: resource.info.clone(),
       payload_read_back_bumper: resource
         .payload_read_back_bumper
@@ -84,7 +86,9 @@ impl ShaderFuture for TraceTaskImpl {
     self.sbt_sys.bind(builder);
 
     let resource = &self.shared;
-    builder.bind(&resource.payload_bumper.storage);
+    builder
+      .binder
+      .bind_abstract_storage(&resource.payload_bumper.storage);
     resource.payload_read_back_bumper.bind_allocator(builder);
     builder.bind(&resource.current_sbt);
     builder.bind(&resource.sbt_task_mapping);
@@ -94,10 +98,10 @@ impl ShaderFuture for TraceTaskImpl {
 pub struct GPURayTraceTaskInvocationInstance {
   tlas_sys: Box<dyn GPUAccelerationStructureSystemCompImplInvocationTraversable>,
   sbt: ShaderBindingTableDeviceInfoInvocation,
-  current_sbt: ReadOnlyStorageNode<u32>,
-  sbt_task_mapping: ReadOnlyStorageNode<SbtTaskMapping>,
+  current_sbt: ShaderReadonlyPtrOf<u32>,
+  sbt_task_mapping: ShaderReadonlyPtrOf<SbtTaskMapping>,
   info: Arc<TraceTaskMetaInfo>,
-  untyped_payloads: StorageNode<[u32]>,
+  untyped_payloads: ShaderPtrOf<[u32]>,
   payload_read_back_bumper: DeviceBumpAllocationInvocationInstance<u32>,
   downstream: AllDownStreamTasks,
   has_terminated: BoxedShaderLoadStore<Node<Bool>>,
@@ -108,7 +112,7 @@ const TASK_SPAWNED_FAILED: u32 = u32::MAX - 1;
 
 #[derive(Clone)]
 pub struct RayLaunchSizeBuffer {
-  pub launch_size: StorageBufferReadOnlyDataView<Vec3<u32>>,
+  pub launch_size: StorageBufferReadonlyDataView<Vec3<u32>>,
 }
 impl RayLaunchSizeBuffer {
   pub fn build(&self, ctx: &mut DeviceTaskSystemBuildCtx) -> RayLaunchSizeInvocation {
@@ -120,9 +124,9 @@ impl RayLaunchSizeBuffer {
     builder.bind(&self.launch_size);
   }
 }
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct RayLaunchSizeInvocation {
-  launch_size: ReadOnlyStorageNode<Vec3<u32>>,
+  launch_size: ShaderReadonlyPtrOf<Vec3<u32>>,
 }
 impl RayLaunchSizeInvocation {
   pub fn get(&self) -> Node<Vec3<u32>> {
@@ -174,7 +178,7 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
 
         let closest_hit = self.tlas_sys.traverse(
           trace_payload,
-          self.untyped_payloads,
+          self.untyped_payloads.clone(),
           &|info, reporter| {
             let hit_group = info.hit_ctx.compute_sbt_hit_group(ray_sbt_config);
             let intersection_shader_index =
@@ -226,14 +230,14 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
                 closest_task_index,
                 closest_payload.cast_untyped_node(),
                 &RayClosestHitCtxPayload::sized_ty(),
-                self.untyped_payloads,
+                self.untyped_payloads.clone(),
                 trace_payload.payload_ref,
                 ctx.generate_self_as_parent(),
               );
 
-              let ty = TraceTaskSelfPayload::storage_node_sub_task_ty_field_ptr(trace_payload_all);
+              let ty = trace_payload_all.sub_task_ty();
               ty.store(closest_task_index);
-              let id = TraceTaskSelfPayload::storage_node_sub_task_id_field_ptr(trace_payload_all);
+              let id = trace_payload_all.sub_task_id();
               id.store(sub_task_id);
             });
           });
@@ -255,14 +259,14 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
               miss_task_index,
               missing_payload.cast_untyped_node(),
               &RayMissHitCtxPayload::sized_ty(),
-              self.untyped_payloads,
+              self.untyped_payloads.clone(),
               trace_payload.payload_ref,
               ctx.generate_self_as_parent(),
             );
 
-            let ty = TraceTaskSelfPayload::storage_node_sub_task_ty_field_ptr(trace_payload_all);
+            let ty = trace_payload_all.sub_task_ty();
             ty.store(miss_task_index);
-            let id = TraceTaskSelfPayload::storage_node_sub_task_id_field_ptr(trace_payload_all);
+            let id = trace_payload_all.sub_task_id();
             id.store(sub_task_id);
           });
         });
@@ -271,8 +275,7 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
 
     // todo, reduce barrier usage;
     storage_barrier();
-    let task_spawn_state =
-      TraceTaskSelfPayload::storage_node_sub_task_id_field_ptr(trace_payload_all).load();
+    let task_spawn_state = trace_payload_all.sub_task_id().load();
     let task_not_spawn = task_spawn_state
       .equals(TASK_SPAWNED_FAILED)
       .or(task_spawn_state.equals(TASK_NOT_SPAWNED));
@@ -285,20 +288,16 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
         self.has_terminated.abstract_load().into_bool().not(),
         || {
           // if nothing to spawn, we copy back the user passed in payload, because the payload may be modified in any hit
-          let trace_payload =
-            TraceTaskSelfPayload::storage_node_trace_call_field_ptr(trace_payload_all);
-          let payload_u32_len =
-            ShaderRayTraceCallStoragePayload::storage_node_payload_u32_len_field_ptr(trace_payload)
-              .load();
-          let trace_payload_idx =
-            ShaderRayTraceCallStoragePayload::storage_node_payload_ref_field_ptr(trace_payload);
+          let trace_payload = trace_payload_all.trace_call();
+          let payload_u32_len = trace_payload.payload_u32_len().load();
+          let trace_payload_idx = trace_payload.payload_ref();
           let current_payload_idx = trace_payload_idx.load();
 
-          let (idx, _success) =
+          let (idx, success) =
             self
               .payload_read_back_bumper
               .bump_allocate_by(payload_u32_len, |target, offset| {
-                let u32_copy_count = val(0).make_local_var();
+                let u32_copy_count = val(0_u32).make_local_var();
                 loop_by(|cx| {
                   let data = self
                     .untyped_payloads
@@ -311,6 +310,8 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
                   });
                 });
               });
+
+          shader_assert(success);
           trace_payload_idx.store(idx);
 
           self.has_terminated.abstract_store(val(true.into()));
@@ -323,13 +324,11 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
     let should_poll = self.has_terminated.abstract_load().into_bool().not();
     if_by(should_poll, || {
       let trace_payload_all = ctx.access_self_payload::<TraceTaskSelfPayload>();
-      let tid = TraceTaskSelfPayload::storage_node_sub_task_ty_field_ptr(trace_payload_all).load();
-      let id = TraceTaskSelfPayload::storage_node_sub_task_id_field_ptr(trace_payload_all).load();
+      let tid = trace_payload_all.sub_task_ty().load();
+      let id = trace_payload_all.sub_task_id().load();
 
-      let trace_payload =
-        TraceTaskSelfPayload::storage_node_trace_call_field_ptr(trace_payload_all);
-      let trace_payload_idx =
-        ShaderRayTraceCallStoragePayload::storage_node_payload_ref_field_ptr(trace_payload);
+      let trace_payload = trace_payload_all.trace_call();
+      let trace_payload_idx = trace_payload.payload_ref();
 
       let (missing_task_resolved, payload_idx) = poll_dynamic(
         &self.info.missing_tasks,
@@ -384,7 +383,7 @@ fn spawn_dynamic<'a>(
   task_ty: Node<u32>,
   ray_payload: Node<AnyType>,
   ray_payload_desc: &ShaderSizedValueType,
-  untyped_payload_arr: StorageNode<[u32]>,
+  untyped_payload_arr: ShaderPtrOf<[u32]>,
   untyped_payload_idx: Node<u32>,
   parent: TaskParentRef,
 ) -> Node<u32> {
@@ -396,17 +395,20 @@ fn spawn_dynamic<'a>(
   for (id, user_defined_payload_ty_desc) in task_range {
     switcher = switcher.case(*id, || {
       // copy untyped payload to typed specific tasks
-      let payload =
-        user_defined_payload_ty_desc.load_from_u32_buffer(untyped_payload_arr, untyped_payload_idx);
+      let payload = user_defined_payload_ty_desc.load_from_u32_buffer(
+        &untyped_payload_arr,
+        untyped_payload_idx,
+        StructLayoutTarget::Packed,
+      );
 
       let desc =
         create_composite_task_payload_desc(*id, user_defined_payload_ty_desc, ray_payload_desc);
 
       let combined = ShaderNodeExpr::Compose {
         target: desc.clone(),
-        parameters: vec![ray_payload.handle(), payload.handle()],
+        parameters: vec![ray_payload.handle(), payload],
       }
-      .insert_api();
+      .insert_api_raw();
 
       let re = cx.spawn_task_dyn(*id as usize, combined, &desc, parent);
 
@@ -427,7 +429,7 @@ impl AllDownStreamTasks {
     &self,
     task_tid: usize,
     task_id_node: Node<u32>,
-    argument_read_back: impl FnOnce(StorageNode<AnyType>) + Copy,
+    argument_read_back: impl FnOnce(BoxedShaderPtr) + Copy,
   ) -> Node<bool> {
     self
       .tasks
@@ -439,7 +441,7 @@ impl AllDownStreamTasks {
   pub fn spawn_task_dyn(
     &self,
     task_tid: usize,
-    payload: Node<AnyType>,
+    payload: ShaderNodeRawHandle,
     ty: &ShaderSizedValueType,
     parent: TaskParentRef,
   ) -> Node<u32> {
@@ -469,14 +471,19 @@ fn poll_dynamic<'a>(
   for (id, payload_ty_desc) in task_range {
     switcher = switcher.case(*id, || {
       let if_resolved = cx.poll_task_dyn(*id as usize, task_id, |task_payload_node| {
-        let (idx, _success) =
-          bumper_read_back // todo, handle bump failed
-            .bump_allocate_by(val(payload_ty_desc.u32_size_count()), |target, offset| {
-              let user_defined_payload: StorageNode<AnyType> =
-                unsafe { index_access_field(task_payload_node.handle(), 1) };
-
-              payload_ty_desc.store_into_u32_buffer(user_defined_payload.load(), target, offset)
-            });
+        let (idx, success) = bumper_read_back.bump_allocate_by(
+          val(payload_ty_desc.u32_size_count(StructLayoutTarget::Packed)),
+          |target, offset| {
+            let user_defined_payload = task_payload_node.field_index(1);
+            payload_ty_desc.store_into_u32_buffer(
+              user_defined_payload.load(),
+              &target,
+              offset,
+              StructLayoutTarget::Packed,
+            )
+          },
+        );
+        shader_assert(success);
         bump_read_position.store(idx);
       });
 
@@ -544,13 +551,18 @@ impl TracingTaskSpawnerInvocation {
         unreachable!()
       };
 
-      let payload_size = payload_ty.u32_size_count();
+      let payload_size = payload_ty.u32_size_count(StructLayoutTarget::Packed);
 
       let (write_idx, success) =
         self
           .payload_spawn_bumper
           .bump_allocate_by(val(payload_size), |storage, write_idx| {
-            payload_ty.store_into_u32_buffer(payload.into_node_untyped(), storage, write_idx);
+            payload_ty.store_into_u32_buffer(
+              payload,
+              &storage,
+              write_idx,
+              StructLayoutTarget::Packed,
+            );
           });
 
       if_by(success.not(), || {
@@ -597,9 +609,11 @@ impl TracingTaskSpawnerInvocation {
     payload_ty: ShaderSizedValueType,
     payload_ref: Node<u32>,
   ) -> ShaderNodeRawHandle {
-    payload_ty
-      .load_from_u32_buffer(self.payload_read_back.storage, payload_ref)
-      .handle()
+    payload_ty.load_from_u32_buffer(
+      &self.payload_read_back.storage,
+      payload_ref,
+      StructLayoutTarget::Packed,
+    )
   }
 }
 
@@ -729,7 +743,7 @@ where
 
   fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<Self::Output> {
     let inner = self.inner_task.device_poll(ctx);
-    let payload = make_local_var();
+    let payload = make_local_var::<T>();
     if_by(inner.is_resolved(), || {
       let user_payload = ctx
         .invocation_registry

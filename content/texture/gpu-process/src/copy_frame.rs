@@ -23,7 +23,10 @@ pub struct ImmediateSampler {
 }
 
 impl ShaderBindingProvider for ImmediateSampler {
-  type Node = ShaderHandlePtr<ShaderSampler>;
+  type Node = ShaderBinding<ShaderSampler>;
+  fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {
+    node
+  }
 }
 
 impl From<ImmediateSampler> for SamplerDescriptor<'static> {

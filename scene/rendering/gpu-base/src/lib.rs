@@ -17,7 +17,7 @@
 //!   }
 //! }
 //! ```
-use std::mem::ManuallyDrop;
+use std::{hash::Hash, mem::ManuallyDrop};
 
 use database::*;
 use dyn_clone::*;
@@ -49,6 +49,11 @@ mod batch;
 pub use batch::*;
 mod mid;
 pub use mid::*;
+
+both!(LogicalRenderEntityId, u32);
+
+pub struct PbrMRMaterialTag;
+pub struct PbrSGMaterialTag;
 
 /// All color in shader should be in linear space, for some scene API that use sRGB color space, use this to convert before upload the
 /// data into the gpu.

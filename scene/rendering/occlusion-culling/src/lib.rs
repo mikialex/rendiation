@@ -87,7 +87,10 @@ impl GPUTwoPassOcclusionCulling {
     let last_frame_visibility = self
       .last_frame_visibility
       .entry(view_key)
-      .or_insert_with(|| create_gpu_read_write_storage(self.max_scene_model_id, frame_ctx.gpu));
+      .or_insert_with(|| {
+        let init = ZeroedArrayByArrayLength(self.max_scene_model_id);
+        create_gpu_read_write_storage(init, frame_ctx.gpu)
+      });
 
     // first pass
     // draw all visible object in last frame culling result as the occluder

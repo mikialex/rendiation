@@ -24,46 +24,58 @@ impl GLESModelMaterialRenderImpl for Vec<Box<dyn GLESModelMaterialRenderImpl>> {
 }
 
 #[derive(Default)]
-pub struct FlatMaterialDefaultRenderImplProvider {
+pub struct UnlitMaterialDefaultRenderImplProvider {
   uniforms: UpdateResultToken,
+  texture_uniforms: UpdateResultToken,
 }
 impl RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>
-  for FlatMaterialDefaultRenderImplProvider
+  for UnlitMaterialDefaultRenderImplProvider
 {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    let updater = flat_material_uniforms(cx);
+    let updater = unlit_material_uniforms(cx);
     self.uniforms = source.register_multi_updater(updater);
+    self.texture_uniforms = source.register_multi_updater(unlit_material_tex_uniforms(cx));
   }
   fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
     source.deregister(&mut self.uniforms);
+    source.deregister(&mut self.texture_uniforms);
   }
 
   fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn GLESModelMaterialRenderImpl> {
-    Box::new(FlatMaterialDefaultRenderImpl {
-      material_access: global_entity_component_of::<StandardModelRefFlatMaterial>()
+    Box::new(UnlitMaterialDefaultRenderImpl {
+      material_access: global_entity_component_of::<StandardModelRefUnlitMaterial>()
         .read_foreign_key(),
       uniforms: res.take_multi_updater_updated(self.uniforms).unwrap(),
       alpha_mode: global_entity_component_of().read(),
+      texture_uniforms: res
+        .take_multi_updater_updated(self.texture_uniforms)
+        .unwrap(),
+      color_tex_sampler: TextureSamplerIdView::read_from_global(),
     })
   }
 }
 
-struct FlatMaterialDefaultRenderImpl {
-  material_access: ForeignKeyReadView<StandardModelRefFlatMaterial>,
-  uniforms: LockReadGuardHolder<FlatMaterialUniforms>,
-  alpha_mode: ComponentReadView<AlphaModeOf<FlatMaterialAlphaConfig>>,
+struct UnlitMaterialDefaultRenderImpl {
+  material_access: ForeignKeyReadView<StandardModelRefUnlitMaterial>,
+  uniforms: LockReadGuardHolder<UnlitMaterialUniforms>,
+  texture_uniforms: LockReadGuardHolder<UnlitMaterialTexUniforms>,
+  color_tex_sampler: TextureSamplerIdView<UnlitMaterialColorAlphaTex>,
+  alpha_mode: ComponentReadView<AlphaModeOf<UnlitMaterialAlphaConfig>>,
 }
 
-impl GLESModelMaterialRenderImpl for FlatMaterialDefaultRenderImpl {
+impl GLESModelMaterialRenderImpl for UnlitMaterialDefaultRenderImpl {
   fn make_component<'a>(
     &'a self,
     idx: EntityHandle<StandardModelEntity>,
-    _cx: &'a GPUTextureBindingSystem,
+    cx: &'a GPUTextureBindingSystem,
   ) -> Option<Box<dyn RenderComponent + 'a>> {
     let idx = self.material_access.get(idx)?;
-    Some(Box::new(FlatMaterialGPU {
+    Some(Box::new(UnlitMaterialGPU {
       uniform: self.uniforms.get(&idx)?,
       alpha_mode: self.alpha_mode.get_value(idx)?,
+      binding_sys: cx,
+      tex_uniform: self.texture_uniforms.get(&idx)?,
+      color_alpha_tex_sampler: self.color_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
     }))
   }
 }
@@ -106,7 +118,7 @@ struct PbrMRMaterialDefaultRenderImpl {
   uniforms: LockReadGuardHolder<PbrMRMaterialUniforms>,
   tex_uniforms: LockReadGuardHolder<PbrMRMaterialTexUniforms>,
   alpha_mode: ComponentReadView<AlphaModeOf<PbrMRMaterialAlphaConfig>>,
-  base_color_tex_sampler: TextureSamplerIdView<PbrMRMaterialBaseColorTex>,
+  base_color_tex_sampler: TextureSamplerIdView<PbrMRMaterialBaseColorAlphaTex>,
   mr_tex_sampler: TextureSamplerIdView<PbrMRMaterialMetallicRoughnessTex>,
   emissive_tex_sampler: TextureSamplerIdView<PbrMRMaterialEmissiveTex>,
   normal_tex_sampler: TextureSamplerIdView<NormalTexSamplerOf<PbrMRMaterialNormalInfo>>,
@@ -146,7 +158,7 @@ impl GLESModelMaterialRenderImpl for PbrMRMaterialDefaultRenderImpl {
     let r = PhysicalMetallicRoughnessMaterialGPU {
       uniform: self.uniforms.get(&idx)?,
       alpha_mode: self.alpha_mode.get_value(idx)?,
-      base_color_tex_sampler: self.base_color_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
+      base_color_alpha_tex_sampler: self.base_color_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
       mr_tex_sampler: self.mr_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
       emissive_tex_sampler: self.emissive_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
       normal_tex_sampler: self.normal_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
@@ -184,8 +196,7 @@ impl RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>
       tex_uniforms: res.take_multi_updater_updated(self.tex_uniforms).unwrap(),
       alpha_mode: global_entity_component_of().read(),
       albedo_tex_sampler: TextureSamplerIdView::read_from_global(),
-      specular_tex_sampler: TextureSamplerIdView::read_from_global(),
-      glossiness_tex_sampler: TextureSamplerIdView::read_from_global(),
+      specular_glossiness_tex_sampler: TextureSamplerIdView::read_from_global(),
       emissive_tex_sampler: TextureSamplerIdView::read_from_global(),
       normal_tex_sampler: TextureSamplerIdView::read_from_global(),
     })
@@ -197,9 +208,8 @@ struct PbrSGMaterialDefaultRenderImpl {
   uniforms: LockReadGuardHolder<PbrSGMaterialUniforms>,
   tex_uniforms: LockReadGuardHolder<PbrSGMaterialTexUniforms>,
   alpha_mode: ComponentReadView<AlphaModeOf<PbrSGMaterialAlphaConfig>>,
-  albedo_tex_sampler: TextureSamplerIdView<PbrSGMaterialAlbedoTex>,
-  specular_tex_sampler: TextureSamplerIdView<PbrSGMaterialSpecularTex>,
-  glossiness_tex_sampler: TextureSamplerIdView<PbrSGMaterialGlossinessTex>,
+  albedo_tex_sampler: TextureSamplerIdView<PbrSGMaterialAlbedoAlphaTex>,
+  specular_glossiness_tex_sampler: TextureSamplerIdView<PbrSGMaterialSpecularGlossinessTex>,
   emissive_tex_sampler: TextureSamplerIdView<PbrSGMaterialEmissiveTex>,
   normal_tex_sampler: TextureSamplerIdView<NormalTexSamplerOf<PbrSGMaterialNormalInfo>>,
 }
@@ -214,9 +224,11 @@ impl GLESModelMaterialRenderImpl for PbrSGMaterialDefaultRenderImpl {
     let r = PhysicalSpecularGlossinessMaterialGPU {
       uniform: self.uniforms.get(&idx)?,
       alpha_mode: self.alpha_mode.get_value(idx)?,
-      albedo_tex_sampler: self.albedo_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
-      specular_tex_sampler: self.specular_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
-      glossiness_tex_sampler: self.glossiness_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
+      albedo_alpha_tex_sampler: self.albedo_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
+      specular_glossiness_tex_sampler: self
+        .specular_glossiness_tex_sampler
+        .get_pair(idx)
+        .unwrap_or(EMPTY_H),
       emissive_tex_sampler: self.emissive_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
       normal_tex_sampler: self.normal_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
       texture_uniforms: self.tex_uniforms.get(&idx)?,
