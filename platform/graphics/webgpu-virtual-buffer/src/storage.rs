@@ -46,6 +46,10 @@ impl CombinedStorageBufferAllocator {
       ))),
     }
   }
+  pub fn get_layout(&self) -> StructLayoutTarget {
+    self.internal.read().layout
+  }
+
   pub fn allocate<T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized>(
     &self,
     byte_size: u64,

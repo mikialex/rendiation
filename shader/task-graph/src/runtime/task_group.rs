@@ -296,6 +296,7 @@ pub struct TaskGroupExecutorResource {
   pub task_pool: TaskPool,
   pub size: usize,
   payload_ty: ShaderSizedValueType,
+  index: usize,
 }
 
 impl TaskGroupExecutorResource {
@@ -326,13 +327,16 @@ impl TaskGroupExecutorResource {
       ),
       size,
       payload_ty,
+      index,
     }
   }
 
   pub fn init(&self, cx: &mut DeviceParallelComputeCtx) {
     // fill the empty pool, allocate the first default task
     cx.record_pass(|pass, device| {
-      let hasher = shader_hasher_from_marker_ty!(PrepareEmptyIndices);
+      let hasher = shader_hasher_from_marker_ty!(PrepareEmptyIndices)
+        .with_hash(self.index)
+        .with_hash(&self.payload_ty);
 
       let workgroup_size = 256;
       let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {

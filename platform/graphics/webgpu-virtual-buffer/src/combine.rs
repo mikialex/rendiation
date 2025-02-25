@@ -11,7 +11,7 @@ pub struct CombinedBufferAllocatorInternal {
   buffer_need_rebuild: bool,
   sub_buffer_u32_size_requirements: Vec<u32>,
   sub_buffer_allocation_u32_offset: Vec<u32>,
-  layout: StructLayoutTarget,
+  pub(crate) layout: StructLayoutTarget,
   // use none for none atomic heap
   atomic: Option<ShaderAtomicValueType>,
   enable_debug_log: bool,

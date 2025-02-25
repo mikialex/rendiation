@@ -40,7 +40,12 @@ impl TaskPool {
     task_ty_desc.push_field_dyn("parent_task_type_id", u32_ty.clone());
     task_ty_desc.push_field_dyn("parent_task_index", u32_ty);
 
-    let stride = task_ty_desc.size_of_self(StructLayoutTarget::Std430);
+    let layout = match allocator {
+      MaybeCombinedStorageAllocator::Combined(c) => c.get_layout(),
+      MaybeCombinedStorageAllocator::Default => StructLayoutTarget::Std430,
+    };
+
+    let stride = task_ty_desc.size_of_self(layout);
     let byte_size_required = (size * stride) as u64;
 
     let tasks = allocator.allocate_dyn_ty(
