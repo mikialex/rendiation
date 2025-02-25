@@ -97,16 +97,20 @@ impl DeviceTaskGraphBuildSource {
       task_group_shared_info.push((Default::default(), Default::default()));
     }
 
-    // let enable_buffer_combine = true;
+    let enable_buffer_combine = false;
 
     let mut pre_builds = Vec::new();
     let mut task_group_sources = Vec::new();
-    let buffer_allocator =
-      MaybeCombinedStorageAllocator::new(&cx.gpu, "task graph execution resources", true, true);
+    let buffer_allocator = MaybeCombinedStorageAllocator::new(
+      &cx.gpu,
+      "task graph execution resources",
+      enable_buffer_combine,
+      true,
+    );
     let atomic_allocator = MaybeCombinedAtomicU32StorageAllocator::new(
       &cx.gpu,
       "task graph execution atomic resources",
-      true,
+      enable_buffer_combine,
     );
 
     for (i, task_build_source) in self.tasks.iter().enumerate() {
