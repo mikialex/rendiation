@@ -301,6 +301,7 @@ pub struct TaskGroupExecutorResource {
 impl TaskGroupExecutorResource {
   /// should call init before actually use this
   pub fn create_with_size(
+    index: usize,
     size: usize,
     state_desc: DynamicTypeMetaInfo,
     payload_ty: ShaderSizedValueType,
@@ -316,6 +317,7 @@ impl TaskGroupExecutorResource {
       empty_index_pool: DeviceBumpAllocationInstance::new(size, device, allocator, a_a),
       // add one is for the first default task
       task_pool: TaskPool::create_with_size(
+        index,
         size + 1,
         state_desc,
         payload_ty.clone(),

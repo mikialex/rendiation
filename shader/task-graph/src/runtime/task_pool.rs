@@ -24,13 +24,14 @@ impl ShaderHashProvider for TaskPool {
 
 impl TaskPool {
   pub fn create_with_size(
+    index: usize,
     size: usize,
     state_desc: DynamicTypeMetaInfo,
     payload_ty: ShaderSizedValueType,
     device: &GPUDevice,
     allocator: &MaybeCombinedStorageAllocator,
   ) -> Self {
-    let mut task_ty_desc = ShaderStructMetaInfo::new("TaskType");
+    let mut task_ty_desc = ShaderStructMetaInfo::new(&format!("TaskType{index}"));
     let u32_ty = ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Uint32);
 
     task_ty_desc.push_field_dyn("is_finished", u32_ty.clone());

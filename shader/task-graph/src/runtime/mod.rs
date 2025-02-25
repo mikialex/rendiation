@@ -115,6 +115,7 @@ impl DeviceTaskGraphBuildSource {
 
       let init_size = task_build_source.max_in_flight * self.capacity;
       let resource = TaskGroupExecutorResource::create_with_size(
+        i,
         init_size,
         pre_build.state_to_resolve.meta_info(),
         task_build_source.payload_ty.clone(),
