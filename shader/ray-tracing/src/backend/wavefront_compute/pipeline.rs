@@ -56,14 +56,8 @@ impl GPUWaveFrontComputeRaytracingExecutorInternal {
       }
     }
 
-    let (task_graph, trace_resource) = create_task_graph(
-      source,
-      tlas_sys,
-      sbt_sys,
-      &mut self.resource,
-      &cx.gpu.device,
-      size,
-    );
+    let (task_graph, trace_resource) =
+      create_task_graph(source, tlas_sys, sbt_sys, &mut self.resource, &cx.gpu, size);
 
     let (_, exe) = self.executor.get_or_insert_with(|| {
       let payload_read_back_bumper = trace_resource.payload_read_back_bumper.clone();
@@ -105,11 +99,12 @@ fn create_task_graph<'a>(
   tlas_sys: Box<dyn GPUAccelerationStructureSystemCompImplInstance>,
   sbt_sys: ShaderBindingTableDeviceInfo,
   trace_resource: &'a mut Option<TraceTaskResource>,
-  device: &GPUDevice,
+  gpu: &GPU,
   size: u32,
 ) -> (DeviceTaskGraphBuildSource, &'a TraceTaskResource) {
   let mut graph = DeviceTaskGraphBuildSource::default();
 
+  let device = &gpu.device;
   let trace_resource = trace_resource.get_or_insert_with(|| {
     let info = source.compute_trace_meta_info();
 
@@ -120,9 +115,20 @@ fn create_task_graph<'a>(
     let launch_size_buffer = StorageBufferReadonlyDataView::create(device, &vec3(0, 0, 0));
 
     let payload_u32_len = size as usize * (info.payload_max_u32_count as usize);
-    let payload_bumper = DeviceBumpAllocationInstance::new(payload_u32_len, device);
 
-    let payload_read_back_bumper = DeviceBumpAllocationInstance::new(payload_u32_len, device);
+    let buffer_allocator =
+      MaybeCombinedStorageAllocator::new(gpu, "trace_ray user payload buffer", false, true);
+    let a_a = MaybeCombinedAtomicU32StorageAllocator::new(
+      gpu,
+      "trace_ray user payload atomic buffer",
+      false,
+    );
+    let payload_bumper =
+      DeviceBumpAllocationInstance::new(payload_u32_len, device, &buffer_allocator, &a_a);
+    let payload_read_back_bumper =
+      DeviceBumpAllocationInstance::new(payload_u32_len, device, &buffer_allocator, &a_a);
+    buffer_allocator.rebuild();
+    a_a.rebuild();
 
     TraceTaskResource {
       payload_bumper,

@@ -9,7 +9,7 @@ pub struct TaskPool {
   ///   parent_task_type_id: u32,
   ///   parent_task_index: u32,
   /// }
-  pub(crate) tasks: GPUBufferResourceView,
+  pub(crate) tasks: BoxedAbstractStorageBufferDynTyped,
   state_desc: DynamicTypeMetaInfo,
   task_ty_desc: ShaderStructMetaInfo,
 }
@@ -24,14 +24,14 @@ impl ShaderHashProvider for TaskPool {
 
 impl TaskPool {
   pub fn create_with_size(
+    index: usize,
     size: usize,
     state_desc: DynamicTypeMetaInfo,
     payload_ty: ShaderSizedValueType,
     device: &GPUDevice,
+    allocator: &MaybeCombinedStorageAllocator,
   ) -> Self {
-    let usage = BufferUsages::STORAGE | BufferUsages::COPY_SRC;
-
-    let mut task_ty_desc = ShaderStructMetaInfo::new("TaskType");
+    let mut task_ty_desc = ShaderStructMetaInfo::new(&format!("TaskType{index}"));
     let u32_ty = ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Uint32);
 
     task_ty_desc.push_field_dyn("is_finished", u32_ty.clone());
@@ -40,50 +40,45 @@ impl TaskPool {
     task_ty_desc.push_field_dyn("parent_task_type_id", u32_ty.clone());
     task_ty_desc.push_field_dyn("parent_task_index", u32_ty);
 
-    let stride = task_ty_desc.size_of_self(StructLayoutTarget::Std430);
-
-    let init = BufferInit::Zeroed(NonZeroU64::new((size * stride) as u64).unwrap());
-    let desc = GPUBufferDescriptor {
-      size: init.size(),
-      usage,
+    let layout = match allocator {
+      MaybeCombinedStorageAllocator::Combined(c) => c.get_layout(),
+      MaybeCombinedStorageAllocator::Default => StructLayoutTarget::Std430,
     };
 
-    let gpu = GPUBuffer::create(device, init, usage);
-    let gpu = GPUBufferResource::create_with_raw(gpu, desc, device).create_default_view();
+    let stride = task_ty_desc.size_of_self(layout);
+    let byte_size_required = (size * stride) as u64;
+
+    let tasks = allocator.allocate_dyn_ty(
+      byte_size_required,
+      device,
+      MaybeUnsizedValueType::Unsized(ShaderUnSizedValueType::UnsizedArray(Box::new(
+        ShaderSizedValueType::Struct(task_ty_desc.clone()),
+      ))),
+    );
 
     Self {
-      tasks: gpu,
+      tasks,
       state_desc,
       task_ty_desc,
     }
   }
 
   pub fn build_shader(&self, cx: &mut ShaderComputePipelineBuilder) -> TaskPoolInvocationInstance {
-    let desc = ShaderBindingDescriptor {
-      should_as_storage_buffer_if_is_buffer_like: true,
-      ty: ShaderValueType::Single(ShaderValueSingleType::Unsized(
-        ShaderUnSizedValueType::UnsizedArray(Box::new(ShaderSizedValueType::Struct(
-          self.task_ty_desc.clone(),
-        ))),
-      )),
-      writeable_if_storage: true,
-    };
-    let node = cx.bindgroups().binding_dyn(desc).using();
     TaskPoolInvocationInstance {
-      pool: node,
+      pool: cx.bind_abstract_storage_dyn_typed(&self.tasks),
       state_desc: self.state_desc.clone(),
       payload_ty: self.task_ty_desc.fields[1].ty.clone(),
     }
   }
 
   pub fn bind(&self, cx: &mut BindingBuilder) {
-    cx.bind_dyn(self.tasks.get_binding_build_source());
+    cx.bind_abstract_storage_dyn_typed(&self.tasks);
   }
 }
 
 #[derive(Clone)]
 pub struct TaskPoolInvocationInstance {
-  pool: ShaderNodeRawHandle, // [generated_type]
+  pool: BoxedShaderPtr, // [generated_type]
   state_desc: DynamicTypeMetaInfo,
   payload_ty: ShaderSizedValueType,
 }
@@ -99,10 +94,10 @@ pub const TASK_STATUE_FLAG_NOT_FINISHED_WAKEN: u32 = 1;
 /// subsequent task wake the parent in this task group, it will create duplicate invocation.
 ///
 /// we can not simply clear the alive list because the task could self spawn new tasks.
-/// our solution is to add another task state(this) to mark the task is sleeping but still in alive task.
+/// our solution is to add another task state(this) to mark the task is go to sleep but still in alive task.
 /// the prepare execution will still compact by this flag(and will reset it), but when child task wake parent,
 /// if it see this special flag the alive task index spawn will be skipped.
-pub const TASK_STATUE_FLAG_SLEEPING: u32 = 2;
+pub const TASK_STATUE_FLAG_GO_TO_SLEEP: u32 = 2;
 
 /// state for the sleeping task, the task it self is not in the active-list
 pub const TASK_STATUE_FLAG_NOT_FINISHED_SLEEP: u32 = 3;

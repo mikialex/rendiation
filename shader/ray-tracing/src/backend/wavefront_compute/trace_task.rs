@@ -67,7 +67,9 @@ impl ShaderFuture for TraceTaskImpl {
     GPURayTraceTaskInvocationInstance {
       tlas_sys: self.tlas_sys.build_shader(ctx.compute_cx),
       sbt: self.sbt_sys.build(ctx.compute_cx),
-      untyped_payloads: ctx.compute_cx.bind_by(&resource.payload_bumper.storage),
+      untyped_payloads: ctx
+        .compute_cx
+        .bind_abstract_storage(&resource.payload_bumper.storage),
       info: resource.info.clone(),
       payload_read_back_bumper: resource
         .payload_read_back_bumper
@@ -84,7 +86,9 @@ impl ShaderFuture for TraceTaskImpl {
     self.sbt_sys.bind(builder);
 
     let resource = &self.shared;
-    builder.bind(&resource.payload_bumper.storage);
+    builder
+      .binder
+      .bind_abstract_storage(&resource.payload_bumper.storage);
     resource.payload_read_back_bumper.bind_allocator(builder);
     builder.bind(&resource.current_sbt);
     builder.bind(&resource.sbt_task_mapping);
@@ -289,7 +293,7 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
           let trace_payload_idx = trace_payload.payload_ref();
           let current_payload_idx = trace_payload_idx.load();
 
-          let (idx, _success) =
+          let (idx, success) =
             self
               .payload_read_back_bumper
               .bump_allocate_by(payload_u32_len, |target, offset| {
@@ -306,6 +310,8 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
                   });
                 });
               });
+
+          shader_assert(success);
           trace_payload_idx.store(idx);
 
           self.has_terminated.abstract_store(val(true.into()));
@@ -465,19 +471,19 @@ fn poll_dynamic<'a>(
   for (id, payload_ty_desc) in task_range {
     switcher = switcher.case(*id, || {
       let if_resolved = cx.poll_task_dyn(*id as usize, task_id, |task_payload_node| {
-        let (idx, _success) = bumper_read_back // todo, handle bump failed
-          .bump_allocate_by(
-            val(payload_ty_desc.u32_size_count(StructLayoutTarget::Packed)),
-            |target, offset| {
-              let user_defined_payload = task_payload_node.field_index(1);
-              payload_ty_desc.store_into_u32_buffer(
-                user_defined_payload.load(),
-                &target,
-                offset,
-                StructLayoutTarget::Packed,
-              )
-            },
-          );
+        let (idx, success) = bumper_read_back.bump_allocate_by(
+          val(payload_ty_desc.u32_size_count(StructLayoutTarget::Packed)),
+          |target, offset| {
+            let user_defined_payload = task_payload_node.field_index(1);
+            payload_ty_desc.store_into_u32_buffer(
+              user_defined_payload.load(),
+              &target,
+              offset,
+              StructLayoutTarget::Packed,
+            )
+          },
+        );
+        shader_assert(success);
         bump_read_position.store(idx);
       });
 

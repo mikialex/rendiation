@@ -1,5 +1,18 @@
 use crate::*;
 
+impl<T: ShaderSizedValueNodeType> DeviceInvocation<Node<T>> for DynLengthArrayView<T> {
+  fn invocation_logic(&self, logic_global_id: Node<Vec3<u32>>) -> (Node<T>, Node<bool>) {
+    let idx = logic_global_id.x();
+    let r = idx.less_than(self.array_length());
+    let result = r.select_branched(|| self.index(idx).load(), || zeroed_val());
+    (result, r)
+  }
+
+  fn invocation_size(&self) -> Node<Vec3<u32>> {
+    (self.array_length(), val(0), val(0)).into()
+  }
+}
+
 impl<T: ShaderSizedValueNodeType> DeviceInvocation<Node<T>> for DynLengthArrayReadonlyView<T> {
   fn invocation_logic(&self, logic_global_id: Node<Vec3<u32>>) -> (Node<T>, Node<bool>) {
     let idx = logic_global_id.x();

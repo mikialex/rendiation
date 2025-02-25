@@ -5,8 +5,9 @@ pub struct U32BufferLoadStoreSource {
   /// internal structure when used as the implementation of AbstractShaderPtr
   /// ```
   /// [
-  ///   u32: how many unsized array does this combine buffer contains
-  ///   *u32: these unsized array's array length
+  ///   u32: how many subdata does this combine buffer contains
+  ///   *u32: these subdata start offset in u32
+  ///   *u32: these subdata length in u32
   ///   *u32: real data
   /// ]
   /// ```
@@ -57,10 +58,10 @@ where
 /// vectorized load to improve performance. to implement this, packed layout will not be supported
 /// because it will require `vec4<f32>` sized alignment.
 #[derive(Clone)]
-pub struct U32BufferLoadStoreSourceWithType {
-  pub ptr: U32BufferLoadStoreSource,
+pub struct U32HeapPtrWithType {
+  pub ptr: U32HeapPtr,
   pub ty: ShaderValueSingleType,
-  pub bind_index: u32,
+  pub bind_index: Node<u32>,
   pub meta: Arc<RwLock<ShaderU32StructMetaData>>,
 }
 
@@ -104,6 +105,10 @@ impl ShaderU32StructMetaData {
   }
 
   fn register_struct(&mut self, struct_name: &str, fields: &[ShaderStructFieldMetaInfo]) {
+    fields.iter().for_each(|f| {
+      self.register_sized(&f.ty);
+    });
+
     self
       .ty_mapping
       .raw_entry_mut()
@@ -111,9 +116,11 @@ impl ShaderU32StructMetaData {
       .or_insert_with(|| {
         let mut sub_field_u32_offsets = Vec::with_capacity(fields.len());
         let tail = iter_field_start_offset_in_bytes(fields, self.layout, &mut |byte_offset, _| {
+          assert!(byte_offset % 4 == 0);
           sub_field_u32_offsets.push(byte_offset as u32 / 4);
         });
         let struct_size = size_of_struct_sized_fields(fields, self.layout);
+        assert!(struct_size % 4 == 0);
         assert!(tail.is_none());
         (
           struct_name.to_string(),
@@ -141,7 +148,7 @@ impl ShaderU32StructMetaData {
   }
 }
 
-impl AbstractShaderPtr for U32BufferLoadStoreSourceWithType {
+impl AbstractShaderPtr for U32HeapPtrWithType {
   fn field_index(&self, field_index: usize) -> BoxedShaderPtr {
     let meta = self.meta.read();
     let err = "unsupported sub field access target";
@@ -151,16 +158,16 @@ impl AbstractShaderPtr for U32BufferLoadStoreSourceWithType {
           use PrimitiveShaderValueType::*;
           let (offset, fty) = match ty {
             Bool | Int32 | Float32 => unreachable!("single primitive does not have fields"),
-            Mat2Float32 => (2, Vec2Float32),
+            Mat2Float32 => (2 * field_index as u32, Vec2Float32),
             Mat3Float32 => (
               if matches!(meta.layout, StructLayoutTarget::Packed) {
                 3
               } else {
                 4
-              },
+              } * field_index as u32,
               Vec3Float32,
             ),
-            Mat4Float32 => (4, Vec4Float32),
+            Mat4Float32 => (4 * field_index as u32, Vec4Float32),
             _ => (
               field_index as u32,
               match ty {
@@ -188,7 +195,15 @@ impl AbstractShaderPtr for U32BufferLoadStoreSourceWithType {
             bind_index: self.bind_index,
           }
         }
-        ShaderSizedValueType::FixedSizeArray(_, _) => todo!(),
+        ShaderSizedValueType::FixedSizeArray(ty, _) => {
+          let size = ty.u32_size_count(meta.layout);
+          Self {
+            ptr: self.ptr.advance(val(size) * val(field_index as u32)),
+            ty: ShaderValueSingleType::Sized((**ty).clone()),
+            meta: self.meta.clone(),
+            bind_index: self.bind_index,
+          }
+        }
         _ => unreachable!("{err}"),
       },
       ShaderValueSingleType::Unsized(ty) => match ty {
@@ -219,7 +234,7 @@ impl AbstractShaderPtr for U32BufferLoadStoreSourceWithType {
     let meta = self.meta.read();
     if let ShaderValueSingleType::Unsized(ShaderUnSizedValueType::UnsizedArray(ty)) = &self.ty {
       // note, the array bound check will be done automatically at outside if enabled.
-      let size = ty.size_of_self(meta.layout) as u32 / 4;
+      let size = ty.u32_size_count(meta.layout);
       Box::new(Self {
         ptr: self.ptr.advance(val(size) * index),
         ty: ShaderValueSingleType::Sized((**ty).clone()),
@@ -234,18 +249,22 @@ impl AbstractShaderPtr for U32BufferLoadStoreSourceWithType {
   fn array_length(&self) -> Node<u32> {
     let meta = self.meta.read();
     if let ShaderValueSingleType::Unsized(ShaderUnSizedValueType::UnsizedArray(ty)) = &self.ty {
-      let sub_buffer_u32_length = self.ptr.array.index(self.bind_index + 1).load();
+      // we assume the host side will always write length in u32, so we get it from i32 by bitcast if needed
+      let sub_buffer_count = self.ptr.array.bitcast_read_u32_at(0);
+      let size_info_position = val(1) + sub_buffer_count + self.bind_index;
+      let sub_buffer_u32_length = self.ptr.array.bitcast_read_u32_at(size_info_position);
       let width = ty.u32_size_count(meta.layout);
       sub_buffer_u32_length / val(width)
     } else {
-      unreachable!("not an runtime-size array type")
+      unreachable!("not an runtime-size array type or unsupported unsized struct")
     }
   }
 
   fn load(&self) -> ShaderNodeRawHandle {
     let meta = self.meta.read();
     if let ShaderValueSingleType::Sized(ty) = &self.ty {
-      ty.load_from_u32_buffer(&self.ptr.array, self.ptr.offset, meta.layout)
+      let array = self.ptr.array.downcast_as_common_u32_buffer();
+      ty.load_from_u32_buffer(array, self.ptr.offset, meta.layout)
     } else {
       unreachable!("can not load unsized ty")
     }
@@ -254,23 +273,66 @@ impl AbstractShaderPtr for U32BufferLoadStoreSourceWithType {
   fn store(&self, value: ShaderNodeRawHandle) {
     let meta = self.meta.read();
     if let ShaderValueSingleType::Sized(ty) = &self.ty {
-      ty.store_into_u32_buffer(value, &self.ptr.array, self.ptr.offset, meta.layout)
+      let array = self.ptr.array.downcast_as_common_u32_buffer();
+      ty.store_into_u32_buffer(value, array, self.ptr.offset, meta.layout)
     } else {
       unreachable!("can not store unsized ty")
     }
   }
 
   fn get_self_atomic_ptr(&self) -> ShaderNodeRawHandle {
-    unreachable!("atomic not supported")
+    if let ShaderValueSingleType::Sized(ShaderSizedValueType::Atomic(_)) = &self.ty {
+      self.ptr.array.get_single_atomic_at(self.ptr.offset)
+    } else {
+      unreachable!("self is not an atomic type")
+    }
+  }
+}
 
-    // consider us dedicate atomic u32 heap.
+#[derive(Clone)]
+pub struct U32HeapPtr {
+  pub array: U32HeapHeapSource,
+  pub offset: Node<u32>,
+}
 
-    // reference impl:
-    // if let ShaderValueSingleType::Sized(ShaderSizedValueType::Atomic(_)) = &self.ty {
-    //   // let atomic = self.ptr.array.index(self.ptr.offset);
-    //   // atomic.get_self_atomic_ptr()
-    // }else{
-    //   unreachable!("not an atomic type")
-    // }
+#[derive(Clone)]
+pub enum U32HeapHeapSource {
+  Common(ShaderPtrOf<[u32]>),
+  AtomicU32(ShaderPtrOf<[DeviceAtomic<u32>]>),
+  AtomicI32(ShaderPtrOf<[DeviceAtomic<i32>]>),
+}
+
+impl U32HeapPtr {
+  pub fn advance(&self, u32_offset: impl Into<Node<u32>>) -> Self {
+    Self {
+      array: self.array.clone(),
+      offset: self.offset + u32_offset.into(),
+    }
+  }
+}
+
+impl U32HeapHeapSource {
+  pub fn downcast_as_common_u32_buffer(&self) -> &ShaderPtrOf<[u32]> {
+    match &self {
+      U32HeapHeapSource::Common(ptr) => ptr,
+      _ => unreachable!("failed to downcast as common u32 buffer"),
+    }
+  }
+  /// note, when using atomic i32, the value will be bitcast to u32
+  pub fn bitcast_read_u32_at(&self, index: impl Into<Node<u32>>) -> Node<u32> {
+    let index = index.into();
+    match &self {
+      U32HeapHeapSource::Common(ptr) => ptr.index(index).load(),
+      U32HeapHeapSource::AtomicU32(ptr) => ptr.index(index).atomic_load(),
+      U32HeapHeapSource::AtomicI32(ptr) => ptr.index(index).atomic_load().bitcast(),
+    }
+  }
+  pub fn get_single_atomic_at(&self, index: impl Into<Node<u32>>) -> ShaderNodeRawHandle {
+    let index = index.into();
+    match &self {
+      U32HeapHeapSource::Common(_) => unreachable!("heap is not atomic buffer"),
+      U32HeapHeapSource::AtomicU32(ptr) => ptr.index(index).get_raw_ptr().get_self_atomic_ptr(),
+      U32HeapHeapSource::AtomicI32(ptr) => ptr.index(index).get_raw_ptr().get_self_atomic_ptr(),
+    }
   }
 }

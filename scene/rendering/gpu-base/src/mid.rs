@@ -68,9 +68,10 @@ impl DeviceSceneModelRenderSubBatch {
     };
     let size = generator.result_size();
 
+    let init = ZeroedArrayByArrayLength(size as usize);
     let draw_command_buffer = StorageBufferDataView::create_by_with_extra_usage(
       cx.gpu.device.as_ref(),
-      StorageBufferInit::<[DrawIndexedIndirect]>::from(size as usize),
+      StorageBufferInit::<[DrawIndexedIndirect]>::from(init),
       BufferUsages::INDIRECT,
     );
 

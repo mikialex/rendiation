@@ -15,6 +15,7 @@ use rendiation_device_parallel_compute::*;
 pub use rendiation_device_task_graph::*;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
+use rendiation_webgpu_virtual_buffer::*;
 
 mod api;
 pub use api::*;

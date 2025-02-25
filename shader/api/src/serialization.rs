@@ -141,10 +141,10 @@ impl ShaderSizedValueType {
         }
       }
       ShaderSizedValueType::Struct(f) => {
-        let mut offset = offset;
+        let offset = offset;
         let mut parameters = Vec::new();
         let tail_pad = iter_field_start_offset_in_bytes(&f.fields, layout, &mut |f_offset, fty| {
-          offset += val(f_offset as u32 / 4);
+          let offset = offset + val(f_offset as u32 / 4);
           parameters.push(fty.ty.load_from_u32_buffer(target, offset, layout));
         });
 
