@@ -424,7 +424,6 @@ fn iterate_tlas_blas_gpu(
     let blas_ray_origin = blas_ray_origin.xyz() / blas_ray_origin.w().splat();
     let blas_ray_direction = tlas_data.transform_inv.shrink_to_3() * ray.direction;
     let distance_scaling = blas_ray_direction.length();
-    // let blas_ray_range = ray_range.clone_with_scaling(distance_scaling);
     let blas_ray_direction = blas_ray_direction.normalize();
 
     let blas_ray = Ray::construct(RayShaderAPIInstance {
@@ -432,7 +431,6 @@ fn iterate_tlas_blas_gpu(
       flags: ray.flags,
       direction: blas_ray_direction,
       mask: ray.mask,
-      // range: val(vec2(0., 0.)), // not used, calculated from
     });
 
     let blas_idx = tlas_data.acceleration_structure_handle;

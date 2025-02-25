@@ -370,7 +370,7 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NativeInlin
     }
     switch.end_with_default(shader_unreachable);
 
-    loop_by(|ctx| {
+    loop_by(|loop_ctx| {
       let any_candidate = query.proceed();
       if_by(any_candidate, || {
         let intersection = query.get_candidate_intersection();
@@ -394,17 +394,18 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NativeInlin
         if_by(
           (behavior & val(ANYHIT_BEHAVIOR_ACCEPT_HIT)).greater_than(val(0)),
           || {
-            // todo call rayQueryConfirmIntersection
+            // todo call rayQueryConfirmIntersection. waiting for https://github.com/gfx-rs/wgpu/pull/7047 to be released
           },
         );
         if_by(
           (behavior & val(ANYHIT_BEHAVIOR_END_SEARCH)).greater_than(val(0)),
           || {
-            // todo call rayQueryTerminate
+            query.terminate(); // then safe to call get_commited_intersection
+            loop_ctx.do_break();
           },
         );
       })
-      .else_by(|| ctx.do_break());
+      .else_by(|| loop_ctx.do_break());
     });
 
     let intersection = query.get_commited_intersection();
@@ -432,6 +433,14 @@ fn hit_ctx_from_native_hit(
   trace_payload: ENode<ShaderRayTraceCallStoragePayload>,
   intersection: RayIntersection,
 ) -> (RayLaunchInfo, WorldRayInfo, HitCtxInfo, HitInfo) {
+  // transform ray to local space
+  let object_to_world = intersection.object_to_world().expand_to_4();
+  let world_to_object = intersection.world_to_object().expand_to_4();
+  let object_ray_origin = world_to_object * (trace_payload.ray_origin, val(1.)).into();
+  let object_ray_origin = object_ray_origin.xyz() / object_ray_origin.w().splat();
+  let object_ray_direction =
+    (world_to_object.shrink_to_3() * trace_payload.ray_direction).normalize();
+
   (
     RayLaunchInfo {
       launch_id: trace_payload.launch_id,
@@ -454,12 +463,11 @@ fn hit_ctx_from_native_hit(
       instance_sbt_offset: intersection.sbt_record_offset(),
       instance_custom_id: intersection.instance_custom_index(),
       geometry_id: intersection.geometry_index(),
-      object_to_world: intersection.object_to_world().expand_to_4(),
-      world_to_object: intersection.world_to_object().expand_to_4(),
+      object_to_world,
+      world_to_object,
       object_space_ray: ShaderRay {
-        // todo transform ray
-        origin: val(vec3(0., 0., 0.)),
-        direction: val(vec3(0., 0., 0.)),
+        origin: object_ray_origin,
+        direction: object_ray_direction,
       },
     },
     HitInfo {

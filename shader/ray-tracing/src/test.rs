@@ -2,7 +2,7 @@
 async fn test_wavefront_compute() {
   use rendiation_texture_core::Size;
 
-  let canvas_size = 64;
+  let canvas_size = 256;
 
   use crate::*;
   let (gpu, _) = GPU::new(Default::default()).await.unwrap();

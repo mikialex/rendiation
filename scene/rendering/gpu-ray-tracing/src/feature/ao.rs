@@ -1,3 +1,4 @@
+use rendiation_device_ray_tracing::RayFlagConfigRaw::RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH;
 #[allow(unused_imports)]
 use rendiation_shader_library::sampling::{
   hammersley_2d_fn, random2_fn, sample_hemisphere_cos_fn, sample_hemisphere_uniform_fn, tbn_fn,
@@ -272,7 +273,7 @@ impl SceneRayTracingAORenderer {
         .else_by(|| {
           ao_cx.ao_buffer.write_texel(
             position,
-            (previous_sample_count.splat::<Vec3<_>>(), val(1.0)).into(),
+            (previous_sample_acc.splat::<Vec3<_>>(), val(1.0)).into(),
           );
         });
       });
@@ -328,14 +329,14 @@ impl SceneRayTracingAORenderer {
 
         let trace_call = ShaderRayTraceCall {
           tlas_idx: val(0),
-          ray_flags: val(0), // to allow anyhit
+          ray_flags: val(RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH as u32),
           cull_mask: val(u32::MAX),
           sbt_ray_config: AORayType::AOTest.to_sbt_cfg(),
           miss_index: val(0), // using the sample miss shader as primary ray
           ray,
           range: ShaderRayRange {
             min: val(0.01),
-            max: val(10.0),
+            max: val(100.0),
           },
         };
 
