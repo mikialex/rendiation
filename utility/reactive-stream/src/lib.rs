@@ -4,7 +4,7 @@ use core::{
   pin::Pin,
   task::{Context, Poll, Waker},
 };
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Weak};
 
 use crossbeam_queue::SegQueue;
 use fast_hash_collection::*;
@@ -12,7 +12,7 @@ use futures::stream::FusedStream;
 use futures::task::AtomicWaker;
 use futures::Stream;
 use futures::StreamExt;
-use parking_lot::RwLock;
+use parking_lot::*;
 use pin_project::pin_project;
 
 mod signal_stream;

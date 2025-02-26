@@ -391,9 +391,7 @@ fn egui(
       ui.separator();
 
       ui.collapsing("Instance Counts", |ui| {
-        let mut counters = heap_tools::HEAP_TOOL_GLOBAL_INSTANCE_COUNTER
-          .write()
-          .unwrap();
+        let mut counters = heap_tools::HEAP_TOOL_GLOBAL_INSTANCE_COUNTER.write();
 
         for (name, r) in counters.report_all_instance_count() {
           ui.label(format!(

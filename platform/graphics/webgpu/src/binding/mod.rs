@@ -196,7 +196,7 @@ impl BindingBuilder {
       let hash = hasher.finish();
 
       let cache = device.get_binding_cache();
-      let mut binding_cache = cache.cache.write().unwrap();
+      let mut binding_cache = cache.cache.write();
 
       let bindgroup = binding_cache.entry(hash).or_insert_with(|| {
         // build bindgroup and cache and return

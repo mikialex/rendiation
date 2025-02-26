@@ -121,7 +121,7 @@ define_static_id_generator!(STATE_ID, MaterialStates);
 
 impl StateGPUImpl {
   pub fn new(states: &MaterialStates) -> Self {
-    let state_id = STATE_ID.lock().unwrap().get_uuid(states);
+    let state_id = STATE_ID.lock().get_uuid(states);
     Self { state_id }
   }
 }
@@ -135,7 +135,7 @@ impl ShaderHashProvider for StateGPUImpl {
 
 impl GraphicsShaderProvider for StateGPUImpl {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    let id = STATE_ID.lock().unwrap();
+    let id = STATE_ID.lock();
 
     let value = id.get_value(self.state_id).unwrap();
 

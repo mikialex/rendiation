@@ -124,24 +124,24 @@ impl<T: Std140> UniformBufferCachedDataView<T> {
   }
 
   pub fn mutate(&self, f: impl FnOnce(&mut T)) -> &Self {
-    let mut state = self.diff.write().unwrap();
+    let mut state = self.diff.write();
     f(&mut state.data);
     state.changed = true;
     self
   }
 
   pub fn get(&self) -> T {
-    self.diff.read().unwrap().data
+    self.diff.read().data
   }
 
   pub fn set(&self, v: T) {
-    let mut state = self.diff.write().unwrap();
+    let mut state = self.diff.write();
     state.data = v;
     state.changed = true;
   }
 
   pub fn upload(&self, queue: &gpu::Queue) {
-    let mut state = self.diff.write().unwrap();
+    let mut state = self.diff.write();
     if state.changed {
       let data = state.data;
       queue.write_buffer(&self.gpu.gpu.resource.gpu, 0, bytemuck::cast_slice(&[data]));
@@ -154,7 +154,7 @@ impl<T: Std140> UniformBufferCachedDataView<T> {
   where
     T: PartialEq,
   {
-    let mut state = self.diff.write().unwrap();
+    let mut state = self.diff.write();
     if state.changed {
       let data = state.data;
       let should_update;

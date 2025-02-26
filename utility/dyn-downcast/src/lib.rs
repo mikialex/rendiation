@@ -1,13 +1,11 @@
 #![feature(downcast_unchecked)]
 
-use std::{
-  any::{Any, TypeId},
-  sync::RwLock,
-};
+use std::any::{Any, TypeId};
 
 use fast_hash_collection::*;
 // for downstream crates use utils macro
 pub use once_cell;
+use parking_lot::*;
 pub use paste;
 
 pub struct DowncasterRegistry<T: ?Sized> {
@@ -26,7 +24,7 @@ impl<T: ?Sized> DowncasterRegistry<T> {
   pub fn register<X: AsRef<T> + AsMut<T> + 'static>(&self) {
     // we could use unchecked downcast here because we could assure the
     // item passed in at downcast method always matches the real type
-    self.downcaster.write().unwrap().insert(
+    self.downcaster.write().insert(
       TypeId::of::<X>(),
       (
         |item| unsafe {
@@ -45,7 +43,6 @@ impl<T: ?Sized> DowncasterRegistry<T> {
     self
       .downcaster
       .read()
-      .unwrap()
       .get(&Any::type_id(item))
       .map(|(f, _)| f(item))
   }
@@ -59,7 +56,6 @@ impl<T: ?Sized> DowncasterRegistry<T> {
     self
       .downcaster
       .read()
-      .unwrap()
       .get(&Any::type_id(item))
       .map(|(_, f)| f(item))
   }

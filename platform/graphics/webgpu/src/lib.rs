@@ -26,7 +26,7 @@ use std::{
   hash::{Hash, Hasher},
   ops::{Deref, DerefMut, Range},
   sync::atomic::{AtomicUsize, Ordering},
-  sync::{Arc, RwLock},
+  sync::Arc,
 };
 
 pub use binding::*;
@@ -51,6 +51,7 @@ pub use gpu::{
 };
 use heap_tools::*;
 use instance_poller::GPUInstance;
+use parking_lot::RwLock;
 pub use pass::*;
 pub use pipeline::*;
 pub use query::*;

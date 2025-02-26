@@ -1,15 +1,11 @@
 [package]
 edition = "2021"
-name = "heap-tools"
+name = "reuse-pool"
 version = "0.0.1"
 
 [dependencies]
 fast-hash-collection = { path = "../fast-hash-collection" }
-once_cell = { workspace = true }
 parking_lot = { workspace = true }
-
-[features]
-enabled = []
 
 [lints]
 workspace = true

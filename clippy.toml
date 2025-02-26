@@ -6,4 +6,6 @@ disallowed-types = [
     { path = "std::collections::BTreeSet", reason = "should use fast hashset if possible for better performance" },
     { path = "std::collections::HashSet", reason = "should use fast hashset if possible for better performance" },
     { path = "std::collections::hash_map::DefaultHasher", reason = "should use fast hasher if possible for better performance" },
+    { path = "std::sync::RwLock", reason = "should use parking_lot::RwLock if possible for better ergonomics" },
+    { path = "std::sync::Mutex", reason = "should use parking_lot::Mutex if possible for better ergonomics" },
 ]

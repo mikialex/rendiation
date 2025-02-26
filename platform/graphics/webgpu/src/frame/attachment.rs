@@ -9,14 +9,10 @@ pub struct AttachmentPool {
 
 impl AttachmentPool {
   pub fn clear(&mut self) {
-    self.inner.write().unwrap().clear()
+    self.inner.write().clear()
   }
   pub fn set_enable_reusing(&mut self, enable_reusing: bool) {
-    self
-      .inner
-      .write()
-      .unwrap()
-      .set_enable_reusing(enable_reusing)
+    self.inner.write().set_enable_reusing(enable_reusing)
   }
 }
 
@@ -95,7 +91,7 @@ impl AsRef<Attachment> for Attachment {
 /// When it drops, return the texture to the reusing pool;
 impl Drop for Attachment {
   fn drop(&mut self) {
-    let mut pool = self.pool.inner.write().unwrap();
+    let mut pool = self.pool.inner.write();
     if pool.enable_reusing {
       let pool = pool
         .attachments
@@ -234,7 +230,7 @@ impl AttachmentDescriptor {
       sample_count: self.sample_count,
     };
 
-    let mut resource = ctx.pool.inner.write().unwrap();
+    let mut resource = ctx.pool.inner.write();
     let cached = resource.attachments.entry(key).or_default();
 
     let texture = cached.cached.pop().unwrap_or_else(|| {

@@ -20,6 +20,7 @@ members = [
   "utility/interning",
   "utility/widget",
   "utility/fast-hash-collection",
+  "utility/reuse-pool",
   "content/animation",
   "content/color",
   "content/mesh/core",

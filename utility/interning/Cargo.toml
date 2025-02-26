@@ -5,6 +5,7 @@ version = "0.0.1"
 
 [dependencies]
 fast-hash-collection = { path = "../fast-hash-collection" }
+parking_lot = { workspace = true }
 
 [lints]
 workspace = true

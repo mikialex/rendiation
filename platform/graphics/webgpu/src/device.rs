@@ -39,16 +39,10 @@ impl GPUDevice {
 
   pub fn create_cache_report(&self) -> GPUResourceCacheSizeReport {
     GPUResourceCacheSizeReport {
-      bindgroup_count: self.inner.bindgroup_cache.cache.read().unwrap().len(),
-      bindgroup_layout_count: self
-        .inner
-        .bindgroup_layout_cache
-        .cache
-        .read()
-        .unwrap()
-        .len(),
-      sampler_count: self.inner.sampler_cache.cache.read().unwrap().len(),
-      pipeline_count: self.inner.render_pipeline_cache.read().unwrap().len(),
+      bindgroup_count: self.inner.bindgroup_cache.cache.read().len(),
+      bindgroup_layout_count: self.inner.bindgroup_layout_cache.cache.read().len(),
+      sampler_count: self.inner.sampler_cache.cache.read().len(),
+      pipeline_count: self.inner.render_pipeline_cache.read().len(),
     }
   }
 
@@ -56,9 +50,9 @@ impl GPUDevice {
     self.inner.bindgroup_cache.clear();
     self.inner.bindgroup_layout_cache.clear();
     self.inner.sampler_cache.clear();
-    let mut cache = self.inner.render_pipeline_cache.write().unwrap();
+    let mut cache = self.inner.render_pipeline_cache.write();
     *cache = Default::default();
-    let mut cache = self.inner.compute_pipeline_cache.write().unwrap();
+    let mut cache = self.inner.compute_pipeline_cache.write();
     *cache = Default::default();
   }
 
@@ -76,7 +70,7 @@ impl GPUDevice {
     hasher: PipelineHasher,
     creator: impl FnOnce(&Self) -> GPURenderPipeline,
   ) -> GPURenderPipeline {
-    let mut cache = self.inner.render_pipeline_cache.write().unwrap();
+    let mut cache = self.inner.render_pipeline_cache.write();
 
     let key = hasher.finish();
     cache.entry(key).or_insert_with(|| creator(self)).clone()
@@ -87,7 +81,7 @@ impl GPUDevice {
     hasher: PipelineHasher,
     creator: impl FnOnce(&Self) -> GPUComputePipeline,
   ) -> GPUComputePipeline {
-    let mut cache = self.inner.compute_pipeline_cache.write().unwrap();
+    let mut cache = self.inner.compute_pipeline_cache.write();
 
     let key = hasher.finish();
     cache.entry(key).or_insert_with(|| creator(self)).clone()
@@ -126,7 +120,6 @@ impl GPUDevice {
       .bindgroup_layout_cache
       .cache
       .write()
-      .unwrap()
       .entry(key)
       .or_insert_with(|| {
         let inner = self.create_bind_group_layout(&gpu::BindGroupLayoutDescriptor {
@@ -215,7 +208,7 @@ impl SamplerCache {
     device: &gpu::Device,
     desc: impl Into<GPUSamplerDescriptor>,
   ) -> RawSampler {
-    let mut map = self.cache.write().unwrap();
+    let mut map = self.cache.write();
     let desc = desc.into();
     map
       .raw_entry_mut()
@@ -230,7 +223,7 @@ impl SamplerCache {
       .clone()
   }
   pub(crate) fn clear(&self) {
-    self.cache.write().unwrap().clear();
+    self.cache.write().clear();
   }
 }
 

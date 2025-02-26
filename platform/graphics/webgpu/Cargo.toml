@@ -11,6 +11,7 @@ heap-tools = { path = "../../../utility/heap-tools" }
 fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 futures = { workspace = true }
 naga = { workspace = true }
+parking_lot = { workspace = true }
 reactive = { path = "../../../utility/reactive" }
 rendiation-algebra = { path = "../../../math/algebra" }
 rendiation-shader-api = { path = "../../../shader/api" }

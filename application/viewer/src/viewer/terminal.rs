@@ -262,9 +262,7 @@ pub fn register_default_commands(terminal: &mut Terminal) {
     });
 
     terminal.register_sync_command("log-all-type-count-stat", |_ctx, _parameters| {
-      let global = heap_tools::HEAP_TOOL_GLOBAL_INSTANCE_COUNTER
-        .read()
-        .unwrap();
+      let global = heap_tools::HEAP_TOOL_GLOBAL_INSTANCE_COUNTER.read();
       for (ty, report) in global.report_all_instance_count() {
         println!(
           "{ty} => current: {}, peak: {}",
@@ -276,7 +274,6 @@ pub fn register_default_commands(terminal: &mut Terminal) {
     terminal.register_sync_command("reset-all-type-count-peak-stat", |_ctx, _parameters| {
       heap_tools::HEAP_TOOL_GLOBAL_INSTANCE_COUNTER
         .write()
-        .unwrap()
         .reset_all_instance_history_peak();
       println!("all type instance counter peak stat has been reset!");
     });
