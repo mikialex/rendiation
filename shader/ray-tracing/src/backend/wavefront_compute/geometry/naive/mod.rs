@@ -395,16 +395,16 @@ impl NaiveSahBvhSource {
     //   box_bvh_forest.extend(nodes);
     // }
 
-    fn create_gpu_buffer<T>(device: &GPUDevice, data: &[T]) -> StorageBufferReadonlyDataView<[T]>
+    fn create_gpu_buffer<T>(device: &GPUDevice, data: &[T]) -> StorageBufferDataView<[T]>
     where
       [T]: Std430MaybeUnsized,
       T: Zeroable,
     {
       if data.is_empty() {
         let data = vec![T::zeroed()];
-        StorageBufferReadonlyDataView::create(device, &data)
+        StorageBufferDataView::create(device, &data)
       } else {
-        StorageBufferReadonlyDataView::create(device, data)
+        StorageBufferDataView::create(device, data)
       }
     }
     // upload blas
