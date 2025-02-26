@@ -8,8 +8,9 @@ fn test_gpu_triangle() {
   use rendiation_shader_api::{val, Node, ShaderComputePipelineBuilder};
   use rendiation_webgpu::{
     create_gpu_read_write_storage, shader_hash_type_id, BindingBuilder, PipelineHasher,
-    ShaderHashProvider, StorageBufferDataView, GPU,
+    ShaderHashProvider, StorageBufferDataView, ZeroedArrayByArrayLength, GPU,
   };
+  use rendiation_webgpu_virtual_buffer::ComputeShaderBuilderAbstractBufferExt;
 
   use crate::backend::{init_default_acceleration_structure, TEST_ANYHIT_BEHAVIOR};
   use crate::{
@@ -65,7 +66,7 @@ fn test_gpu_triangle() {
 
   impl GpuTester {
     fn new(upstream: Box<dyn DeviceParallelCompute<Node<u32>>>, gpu: GPU) -> Self {
-      let payloads = create_gpu_read_write_storage::<[u32]>(1, &gpu);
+      let payloads = create_gpu_read_write_storage::<[u32]>(ZeroedArrayByArrayLength(1), &gpu);
       let system = NativeInlineSystem::new(gpu.clone());
 
       init_default_acceleration_structure(&system);
@@ -116,7 +117,7 @@ fn test_gpu_triangle() {
       let upstream_shader = self.upstream.build_shader(builder);
 
       let traversable = self.system.build_shader(builder);
-      let payloads = builder.bindgroups().bind_by(&self.payloads);
+      let payloads = builder.bind_abstract_storage(&self.payloads);
 
       upstream_shader
         .adhoc_invoke_with_self_size(move |upstream, id| {
@@ -152,9 +153,10 @@ fn test_gpu_triangle() {
             payload_u32_len: val(1),
           };
 
-          let output = traversable.traverse(payload, payloads, &|_ctx, _reporter| {}, &|_ctx| {
-            val(TEST_ANYHIT_BEHAVIOR)
-          });
+          let output =
+            traversable.traverse(payload, payloads.clone(), &|_ctx, _reporter| {}, &|_ctx| {
+              val(TEST_ANYHIT_BEHAVIOR)
+            });
           (
             output.is_some.into_u32()
               * (output.payload.hit_ctx.primitive_id % val(PRIMITIVE_IDX_MAX) + val(1)),

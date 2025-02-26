@@ -24,14 +24,6 @@ pub trait GPUAccelerationStructureSystemCompImplInvocationTraversable {
   ) -> ShaderOption<RayClosestHitCtx>;
 }
 
-// todo merge delete
-pub trait GPUAccelerationStructureSystemTlasCompImplInvocation {
-  fn index_tlas(
-    &self,
-    idx: Node<u32>,
-  ) -> ShaderReadonlyPtrOf<TopLevelAccelerationStructureSourceDeviceInstance>;
-}
-
 #[derive(Clone, Copy)]
 pub struct ShaderOption<T> {
   pub is_some: Node<bool>,

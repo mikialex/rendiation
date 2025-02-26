@@ -1,7 +1,7 @@
 use rendiation_algebra::{Mat4x3, Vec2, Vec3};
 
 use crate::{
-  call_shader_api, index_access_field, AnyType, HandleNode, Node, ShaderAccelerationStructure,
+  call_shader_api, index_access_field, AnyType, BindingNode, Node, ShaderAccelerationStructure,
   ShaderNodeExpr, ShaderNodeRawHandle, ShaderRayDesc, ShaderRayQuery, ShaderValueSingleType,
   ShaderValueType,
 };
@@ -16,7 +16,7 @@ impl Node<ShaderRayQuery> {
   }
   pub fn initialize(
     self,
-    tlas: HandleNode<ShaderAccelerationStructure>,
+    tlas: BindingNode<ShaderAccelerationStructure>,
     flags: Node<u32>,
     cull_mask: Node<u32>,
     t_min: Node<f32>,
@@ -85,37 +85,37 @@ pub struct RayIntersection {
 }
 impl RayIntersection {
   pub fn kind(self) -> Node<u32> {
-    unsafe { index_access_field(self.raw, 0) }
+    unsafe { index_access_field(self.raw, 0).into_node() }
   }
   pub fn t(self) -> Node<f32> {
-    unsafe { index_access_field(self.raw, 1) }
+    unsafe { index_access_field(self.raw, 1).into_node() }
   }
   pub fn instance_custom_index(self) -> Node<u32> {
-    unsafe { index_access_field(self.raw, 2) }
+    unsafe { index_access_field(self.raw, 2).into_node() }
   }
   pub fn instance_id(self) -> Node<u32> {
-    unsafe { index_access_field(self.raw, 3) }
+    unsafe { index_access_field(self.raw, 3).into_node() }
   }
   pub fn sbt_record_offset(self) -> Node<u32> {
-    unsafe { index_access_field(self.raw, 4) }
+    unsafe { index_access_field(self.raw, 4).into_node() }
   }
   pub fn geometry_index(self) -> Node<u32> {
-    unsafe { index_access_field(self.raw, 5) }
+    unsafe { index_access_field(self.raw, 5).into_node() }
   }
   pub fn primitive_index(self) -> Node<u32> {
-    unsafe { index_access_field(self.raw, 6) }
+    unsafe { index_access_field(self.raw, 6).into_node() }
   }
   pub fn barycentrics(self) -> Node<Vec2<f32>> {
-    unsafe { index_access_field(self.raw, 7) }
+    unsafe { index_access_field(self.raw, 7).into_node() }
   }
   pub fn front_face(self) -> Node<bool> {
-    unsafe { index_access_field(self.raw, 8) }
+    unsafe { index_access_field(self.raw, 8).into_node() }
   }
   pub fn object_to_world(self) -> Node<Mat4x3<f32>> {
-    unsafe { index_access_field(self.raw, 9) }
+    unsafe { index_access_field(self.raw, 9).into_node() }
   }
   pub fn world_to_object(self) -> Node<Mat4x3<f32>> {
-    unsafe { index_access_field(self.raw, 10) }
+    unsafe { index_access_field(self.raw, 10).into_node() }
   }
 }
 

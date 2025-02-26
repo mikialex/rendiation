@@ -355,7 +355,7 @@ impl SceneRayTracingAORenderer {
       secondary_closest: source.register_ray_closest_hit::<RayGenTracePayload>(
         trace_base_builder
           .create_closest_hit_shader_base::<RayGenTracePayload>()
-          .map(|_, ctx| ctx.expect_payload().store(val(0.))),
+          .map(|_, ctx| ctx.payload::<f32>().unwrap().store(val(0.))),
         1,
       ),
       miss: source.register_ray_miss::<RayGenTracePayload>(

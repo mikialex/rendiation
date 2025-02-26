@@ -70,7 +70,7 @@ pub trait ShaderAPI {
   fn ray_query_initialize(
     &mut self,
     query: ShaderNodeRawHandle,
-    tlas: HandleNode<ShaderAccelerationStructure>,
+    tlas: BindingNode<ShaderAccelerationStructure>,
     ray_desc: ShaderRayDesc,
   );
   fn ray_query_terminate(&mut self, query: ShaderNodeRawHandle);

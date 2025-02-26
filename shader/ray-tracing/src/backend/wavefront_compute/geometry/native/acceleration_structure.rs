@@ -163,7 +163,7 @@ impl DeviceTlas {
   fn build_shader(
     &self,
     compute_cx: &mut ShaderComputePipelineBuilder,
-  ) -> HandleNode<ShaderAccelerationStructure> {
+  ) -> BindingNode<ShaderAccelerationStructure> {
     compute_cx.bind_by(&self.tlas.create_default_view())
   }
   fn bind(&self, builder: &mut BindingBuilder) {
@@ -242,7 +242,7 @@ impl NativeInlineSystemInner {
   }
 
   fn bind_tlas_max_len() -> u32 {
-    4
+    1
   }
   fn bind_tlas(&mut self, tlas: &[TlasHandle]) {
     assert!(!tlas.is_empty());
@@ -319,7 +319,7 @@ pub struct NativeInlineInstance {
   tlas_bindings: Vec<DeviceTlas>, // todo how to hash???
 }
 pub struct NativeInlineInvocation {
-  tlas_bindings: Vec<HandleNode<ShaderAccelerationStructure>>,
+  tlas_bindings: Vec<BindingNode<ShaderAccelerationStructure>>,
 }
 impl GPUAccelerationStructureSystemCompImplInstance for NativeInlineInstance {
   fn build_shader(
@@ -346,7 +346,7 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NativeInlin
   fn traverse(
     &self,
     trace_payload: ENode<ShaderRayTraceCallStoragePayload>,
-    user_defined_payloads: StorageNode<[u32]>,
+    user_defined_payloads: ShaderPtrOf<[u32]>,
     _intersect: &dyn Fn(&RayIntersectCtx, &dyn IntersectionReporter),
     any_hit: &dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
   ) -> ShaderOption<RayClosestHitCtx> {

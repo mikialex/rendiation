@@ -1197,7 +1197,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
   fn ray_query_initialize(
     &mut self,
     query: ShaderNodeRawHandle,
-    tlas: HandleNode<ShaderAccelerationStructure>,
+    tlas: BindingNode<ShaderAccelerationStructure>,
     ray_desc: ShaderRayDesc,
   ) {
     let ray_desc_type = self.module.generate_ray_desc_type();

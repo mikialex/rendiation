@@ -3,7 +3,7 @@ use crate::backend::wavefront_compute::geometry::naive::*;
 #[derive(Clone)]
 pub(super) struct NaiveSahBvhGpu {
   // maps tlas_idx to tlas_handle: tlas_bvh_root[tlas_binding[tlas_idx]]
-  pub(super) tlas_binding: StorageBufferReadOnlyDataView<[u32]>,
+  pub(super) tlas_binding: StorageBufferReadonlyDataView<[u32]>,
 
   // maps user tlas_id to tlas_bvh root node idx in tlas_bvh_forest
   pub(super) tlas_bvh_root: StorageBufferReadonlyDataView<[u32]>,
@@ -585,45 +585,46 @@ fn intersect_blas_gpu(
               let hit_ctx = hit_ctx_curr.load(tlas_data);
               let end_search_ = end_search.clone();
 
-            let attribute = BuiltInTriangleHitAttributeShaderAPIInstance {
-              bary_coord: result.zw(),
-            }
+              let attribute = BuiltInTriangleHitAttributeShaderAPIInstance {
+                bary_coord: result.zw(),
+              }
               .construct();
 
-            // just to bundle data with no runtime cost. any_hit shader does not run.
-            let any_hit_ctx = RayAnyHitCtx {
-              launch_info,
-              world_ray,
-              hit_ctx: hit_ctx.clone(),
-              hit: HitInfo {
-                hit_kind: hit_kind.load(),
-                hit_distance: world_distance,
-                hit_attribute: attribute,
-              },
-              payload: user_defined_payload.clone(),
-            };
+              // just to bundle data with no runtime cost. any_hit shader does not run.
+              let any_hit_ctx = RayAnyHitCtx {
+                launch_info,
+                world_ray,
+                hit_ctx: hit_ctx.clone(),
+                hit: HitInfo {
+                  hit_kind: hit_kind.load(),
+                  hit_distance: world_distance,
+                  hit_attribute: attribute,
+                },
+                payload: user_defined_payload.clone(),
+              };
 
-            if_by(is_opaque, || {
-              // opaque -> commit
-              closest_hit_var.test_and_store(&any_hit_ctx.hit, || {
-                closest_hit_ctx_var.store(&any_hit_ctx.hit_ctx);
-                local_ray_range.update_world_far(world_distance);
-                if_by(flags.end_search_on_hit(), || end_search.store(true));
-              });
-            }).else_by(|| {
-              // transparent trangle -> anyhit, then commit
-              resolve_any_hit(
-                |_| {
+              if_by(is_opaque, || {
+                // opaque -> commit
+                closest_hit_var.test_and_store(&any_hit_ctx.hit, || {
+                  closest_hit_ctx_var.store(&any_hit_ctx.hit_ctx);
                   local_ray_range.update_world_far(world_distance);
                   if_by(flags.end_search_on_hit(), || end_search.store(true));
-                },
-                || end_search.store(true),
-                any_hit,
-                &any_hit_ctx,
-                closest_hit_ctx_var,
-                closest_hit_var,
-              );
-            });
+                });
+              })
+              .else_by(|| {
+                // transparent trangle -> anyhit, then commit
+                resolve_any_hit(
+                  |_| {
+                    local_ray_range.update_world_far(world_distance);
+                    if_by(flags.end_search_on_hit(), || end_search.store(true));
+                  },
+                  || end_search.store(true),
+                  any_hit,
+                  &any_hit_ctx,
+                  closest_hit_ctx_var,
+                  closest_hit_var,
+                );
+              });
 
               if_by(end_search_.load(), || tri_loop.do_break());
             });

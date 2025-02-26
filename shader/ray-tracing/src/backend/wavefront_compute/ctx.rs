@@ -225,15 +225,7 @@ impl ShaderFutureInvocation for TracingCtxProviderFutureInvocation {
     let closest = matches!(self.stage, RayTraceableShaderStage::ClosestHit).then(|| {
       let ray_payload = combined_payload.field_index(0);
       let ray_payload = RayClosestHitCtxPayload::create_view_from_raw_ptr(ray_payload);
-
-      let ctx = ray_payload.hit_ctx();
-      let instance_id = ctx.instance_id().load();
-      let tlas_sys = self.tlas_sys.as_ref().unwrap();
-      let tlas_ptr = tlas_sys.index_tlas(instance_id);
-      let ctx = ClosestHitCtx {
-        ctx: ray_payload,
-        tlas_ptr,
-      };
+      let ctx = ClosestHitCtx { ctx: ray_payload };
       Box::new(ctx) as Box<dyn ClosestHitCtxProvider>
     });
 
@@ -295,8 +287,6 @@ impl WorldRayInfoProvider for ShaderPtrOf<ShaderRayTraceCallStoragePayload> {
 #[derive(Clone)]
 struct ClosestHitCtx {
   ctx: ShaderPtrOf<RayClosestHitCtxPayload>,
-  // todo merge
-  tlas_ptr: ShaderReadonlyPtrOf<TopLevelAccelerationStructureSourceDeviceInstance>,
 }
 
 impl WorldRayInfoProvider for ClosestHitCtx {
@@ -331,11 +321,11 @@ impl ClosestHitCtxProvider for ClosestHitCtx {
   }
 
   fn object_to_world(&self) -> Node<Mat4<f32>> {
-    self.tlas_ptr.transform().load() // todo merge
+    self.ctx.hit_ctx().object_to_world().load()
   }
 
   fn world_to_object(&self) -> Node<Mat4<f32>> {
-    self.tlas_ptr.transform_inv().load() // todo merge
+    self.ctx.hit_ctx().world_to_object().load()
   }
 
   fn object_space_ray(&self) -> ShaderRay {
