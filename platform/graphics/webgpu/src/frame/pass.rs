@@ -69,9 +69,15 @@ impl RenderPassDescription {
   }
 
   #[must_use]
+  pub fn with_name(mut self, name: &str) -> Self {
+    self.name = name.to_string();
+    self
+  }
+
+  #[must_use]
   pub fn with_color(
     mut self,
-    attachment: impl Into<RenderTargetView>,
+    attachment: &RenderTargetView,
     op: impl Into<gpu::Operations<gpu::Color>>,
   ) -> Self {
     self.push_color(attachment, op);
@@ -80,37 +86,33 @@ impl RenderPassDescription {
 
   pub fn push_color(
     &mut self,
-    attachment: impl Into<RenderTargetView>,
+    attachment: &RenderTargetView,
     op: impl Into<gpu::Operations<gpu::Color>>,
   ) -> usize {
     let idx = self.channels.len();
-    self.channels.push((op.into(), attachment.into()));
+    self.channels.push((op.into(), attachment.clone()));
     idx
   }
 
   #[must_use]
   pub fn with_depth(
     mut self,
-    attachment: impl Into<RenderTargetView>,
+    attachment: &RenderTargetView,
     op: impl Into<gpu::Operations<f32>>,
   ) -> Self {
     self.set_depth(attachment, op);
     self
   }
 
-  pub fn set_depth(
-    &mut self,
-    attachment: impl Into<RenderTargetView>,
-    op: impl Into<gpu::Operations<f32>>,
-  ) {
+  pub fn set_depth(&mut self, attachment: &RenderTargetView, op: impl Into<gpu::Operations<f32>>) {
     self
       .depth_stencil_target
-      .replace((op.into(), attachment.into()));
+      .replace((op.into(), attachment.clone()));
   }
 
   #[must_use]
-  pub fn resolve_to(mut self, attachment: GPU2DTextureView) -> Self {
-    self.resolve_target = Some(RenderTargetView::Texture(attachment));
+  pub fn resolve_to(mut self, attachment: &RenderTargetView) -> Self {
+    self.resolve_target = Some(attachment.clone());
     self
   }
 

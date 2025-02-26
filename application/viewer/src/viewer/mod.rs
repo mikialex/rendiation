@@ -307,7 +307,7 @@ impl Viewer {
 
     self.on_demand_draw.update_once(|cx| {
       // println!("draw");
-      self.rendering.render(canvas.clone(), &self.scene, cx)
+      self.rendering.render(canvas, &self.scene, cx)
     });
   }
 }

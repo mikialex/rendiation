@@ -1,5 +1,12 @@
 pub use crate::*;
 
+impl ShaderBindingProvider for RenderTargetView {
+  type Node = ShaderBinding<ShaderTexture2D>;
+  fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {
+    node
+  }
+}
+
 impl<T> ShaderBindingProvider for UniformBufferCachedDataView<T>
 where
   T: ShaderSizedValueNodeType + Std140 + SizedShaderAbstractPtrAccess,

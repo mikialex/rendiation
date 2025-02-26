@@ -9,7 +9,7 @@ pub struct ReuseKVPoolInternal<K, V> {
   enable_reusing: bool,
   max_live_tick: u32,
   pool: FastHashMap<K, Vec<(V, u32)>>,
-  creator: Box<dyn Fn(&K) -> V>,
+  creator: Box<dyn Fn(&K) -> V + Send + Sync>,
 }
 
 impl<K: Clone + Eq + Hash, V> ReuseKVPoolInternal<K, V> {
@@ -53,7 +53,7 @@ impl<K: Clone + Eq + Hash, V> ReuseKVPool<K, V> {
 }
 
 impl<K, V> ReuseKVPool<K, V> {
-  pub fn new(creator: impl Fn(&K) -> V + 'static) -> Self {
+  pub fn new(creator: impl Fn(&K) -> V + Send + Sync + 'static) -> Self {
     Self {
       internal: Arc::new(RwLock::new(ReuseKVPoolInternal {
         enable_reusing: true,
@@ -120,6 +120,12 @@ pub struct ReuseableItem<K: Eq + Hash + Clone, V> {
   pool: ReuseKVPool<K, V>,
   key: K,
   item: Option<V>,
+}
+
+impl<K: Eq + Hash + Clone, V> ReuseableItem<K, V> {
+  pub fn item(&self) -> &V {
+    self.item.as_ref().unwrap()
+  }
 }
 
 impl<K: Eq + Hash + Clone, V> Drop for ReuseableItem<K, V> {

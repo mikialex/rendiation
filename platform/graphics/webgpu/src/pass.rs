@@ -15,6 +15,7 @@ impl ShaderPassBuilder for () {}
 #[derive(Clone)]
 pub enum RenderTargetView {
   Texture(GPU2DTextureView),
+  ReusedTexture(Arc<Attachment>),
   SurfaceTexture {
     size: Size,
     format: gpu::TextureFormat,
@@ -32,6 +33,7 @@ impl CacheAbleBindingSource for RenderTargetView {
         source: self.get_bindable(),
         view_id: *view_id,
       },
+      RenderTargetView::ReusedTexture(t) => t.item().get_binding_build_source(),
     }
   }
 }
@@ -45,6 +47,7 @@ impl BindableResourceProvider for RenderTargetView {
         bindgroup_holder,
         ..
       } => BindingResourceOwned::RawTextureView(view.clone(), bindgroup_holder.clone()),
+      RenderTargetView::ReusedTexture(t) => t.item().get_bindable(),
     }
   }
 }
@@ -54,19 +57,33 @@ impl From<GPU2DTextureView> for RenderTargetView {
     Self::Texture(view)
   }
 }
+impl From<Attachment> for RenderTargetView {
+  fn from(view: Attachment) -> Self {
+    Self::ReusedTexture(Arc::new(view))
+  }
+}
 
 impl RenderTargetView {
-  pub fn expect_standalone_texture_view(&self) -> &GPU2DTextureView {
-    match self {
-      RenderTargetView::Texture(view) => view,
-      RenderTargetView::SurfaceTexture { .. } => panic!("expect standalone render target"),
-    }
-  }
-
   pub fn as_view(&self) -> &gpu::TextureView {
     match self {
       RenderTargetView::Texture(t) => &t.view,
       RenderTargetView::SurfaceTexture { view, .. } => view.as_ref(),
+      RenderTargetView::ReusedTexture(t) => &t.item().view,
+    }
+  }
+
+  pub fn expect_standalone_texture_view(&self) -> &GPU2DTextureView {
+    match self {
+      RenderTargetView::Texture(t) => t,
+      _ => panic!("expect_standalone_texture_view failed"),
+    }
+  }
+
+  pub fn create_attachment_key(&self) -> PooledTextureKey {
+    PooledTextureKey {
+      size: self.size(),
+      format: self.format(),
+      sample_count: self.sample_count(),
     }
   }
 
@@ -74,6 +91,7 @@ impl RenderTargetView {
     match self {
       RenderTargetView::Texture(t) => t.size(),
       RenderTargetView::SurfaceTexture { size, .. } => *size,
+      RenderTargetView::ReusedTexture(t) => t.item().size(),
     }
   }
 
@@ -81,6 +99,7 @@ impl RenderTargetView {
     match self {
       RenderTargetView::Texture(t) => t.resource.desc.format,
       RenderTargetView::SurfaceTexture { format, .. } => *format,
+      RenderTargetView::ReusedTexture(t) => t.item().resource.desc.format,
     }
   }
 
@@ -88,6 +107,7 @@ impl RenderTargetView {
     match self {
       RenderTargetView::Texture(t) => t.resource.desc.sample_count,
       RenderTargetView::SurfaceTexture { .. } => 1,
+      RenderTargetView::ReusedTexture(t) => t.item().resource.desc.sample_count,
     }
   }
 }

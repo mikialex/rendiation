@@ -3,9 +3,9 @@ use rendiation_shader_library::shader_uv_space_to_world_space;
 use crate::*;
 
 pub struct FrameGeometryBuffer {
-  pub depth: Attachment,
-  pub normal: Attachment,
-  pub entity_id: Attachment,
+  pub depth: RenderTargetView,
+  pub normal: RenderTargetView,
+  pub entity_id: RenderTargetView,
 }
 
 pub const MAX_U32_ID_BACKGROUND: rendiation_webgpu::Color = rendiation_webgpu::Color {
@@ -24,16 +24,16 @@ impl FrameGeometryBuffer {
     }
   }
 
-  pub fn extend_pass_desc<'a>(
-    &'a mut self,
-    desc: &mut PassDescriptor<'a>,
+  pub fn extend_pass_desc(
+    &self,
+    desc: &mut RenderPassDescription,
     depth_op: impl Into<Operations<f32>>,
   ) -> FrameGeometryBufferPassEncoder {
-    desc.set_depth(self.depth.write(), depth_op);
+    desc.set_depth(&self.depth, depth_op);
 
     FrameGeometryBufferPassEncoder {
-      normal: desc.push_color(self.normal.write(), clear(all_zero())),
-      entity_id: desc.push_color(self.entity_id.write(), clear(MAX_U32_ID_BACKGROUND)),
+      normal: desc.push_color(&self.normal, clear(all_zero())),
+      entity_id: desc.push_color(&self.entity_id, clear(MAX_U32_ID_BACKGROUND)),
     }
   }
 }
@@ -70,9 +70,9 @@ impl GraphicsShaderProvider for FrameGeometryBufferPassEncoder {
 
 impl ShaderPassBuilder for FrameGeometryBuffer {
   fn setup_pass(&self, cx: &mut GPURenderPassCtx) {
-    self.normal.read().bind_pass(cx);
-    self.depth.read().bind_pass(cx);
-    self.entity_id.read().bind_pass(cx);
+    self.normal.bind_pass(cx);
+    self.depth.bind_pass(cx);
+    self.entity_id.bind_pass(cx);
     cx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
   }
 }
@@ -82,12 +82,12 @@ impl FrameGeometryBuffer {
     &self,
     binding: &mut ShaderBindGroupBuilder,
   ) -> FrameGeometryBufferReadInvocation {
-    let normal = binding.bind_by(&self.normal.read());
+    let normal = binding.bind_by(&self.normal);
     let input_size = normal.texture_dimension_2d(None).into_f32();
 
     FrameGeometryBufferReadInvocation {
       normal,
-      depth: binding.bind_by(&DisableFiltering(&self.depth.read())),
+      depth: binding.bind_by(&DisableFiltering(&self.depth)),
       ids: binding.bind_by(&U32Texture2d),
       sampler: binding.bind_by(&DisableFiltering(ImmediateGPUSamplerViewBind)),
       input_size,

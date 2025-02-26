@@ -44,24 +44,24 @@ pub fn gaussian(kernel_radius: usize) -> (Shader140Array<Vec4<f32>, 32>, u32) {
   (weights, weight_count as u32)
 }
 
-pub struct LinearBlurTask<'a, T> {
-  input: AttachmentView<T>,
+pub struct LinearBlurTask<'a> {
+  input: &'a RenderTargetView,
   config: &'a UniformBufferCachedDataView<LinearBlurConfig>,
   weights: &'a ShaderSamplingWeights,
 }
 
-impl<T> ShaderHashProvider for LinearBlurTask<'_, T> {
+impl ShaderHashProvider for LinearBlurTask<'_> {
   shader_hash_type_id! {UniformBufferCachedDataView<LinearBlurConfig>}
 }
 
-impl<T> GraphicsShaderProvider for LinearBlurTask<'_, T> {
+impl GraphicsShaderProvider for LinearBlurTask<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let config = binding.bind_by(self.config).load().expand();
       let weights = binding.bind_by(&self.weights.weights);
       let weight_count = binding.bind_by(&self.weights.weight_count).load();
 
-      let input: BindingNode<_> = binding.bind_by(&self.input);
+      let input: BindingNode<_> = binding.bind_by(self.input);
       let sampler = binding.bind_by(&ImmediateGPUSamplerViewBind);
 
       let uv = builder.query::<FragmentUv>();
@@ -83,23 +83,23 @@ impl<T> GraphicsShaderProvider for LinearBlurTask<'_, T> {
     })
   }
 }
-impl<T> ShaderPassBuilder for LinearBlurTask<'_, T> {
+impl ShaderPassBuilder for LinearBlurTask<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(self.config);
     ctx.binding.bind(&self.weights.weights);
     ctx.binding.bind(&self.weights.weight_count);
-    ctx.binding.bind(&self.input);
+    ctx.binding.bind(self.input);
     ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
   }
 }
 
 pub fn draw_cross_blur<T: AsRef<Attachment>>(
   config: &CrossBlurData,
-  input: AttachmentView<T>,
+  input: RenderTargetView,
   ctx: &mut FrameCtx,
-) -> Attachment {
-  let x_result = draw_linear_blur(&config.x, &config.weights, input, ctx);
-  draw_linear_blur(&config.y, &config.weights, x_result.read_into(), ctx)
+) -> RenderTargetView {
+  let x_result = draw_linear_blur(&config.x, &config.weights, &input, ctx);
+  draw_linear_blur(&config.y, &config.weights, &x_result, ctx)
 }
 
 pub struct CrossBlurData {
@@ -136,22 +136,22 @@ impl CrossBlurData {
   }
 }
 
-pub fn draw_linear_blur<'a, T: AsRef<Attachment> + 'a>(
-  config: &'a UniformBufferCachedDataView<LinearBlurConfig>,
-  weights: &'a ShaderSamplingWeights,
-  input: AttachmentView<T>,
+pub fn draw_linear_blur(
+  config: &UniformBufferCachedDataView<LinearBlurConfig>,
+  weights: &ShaderSamplingWeights,
+  input: &RenderTargetView,
   ctx: &mut FrameCtx,
-) -> Attachment {
-  let mut dst = input.resource().as_ref().des().clone().request(ctx);
+) -> RenderTargetView {
+  let dst = input.create_attachment_key().request(ctx);
 
-  let task: LinearBlurTask<'a, T> = LinearBlurTask {
+  let task = LinearBlurTask {
     input,
     config,
     weights,
   };
 
   pass("blur")
-    .with_color(dst.write(), load())
+    .with_color(&dst, load())
     .render_ctx(ctx)
     .by(&mut task.draw_quad());
 

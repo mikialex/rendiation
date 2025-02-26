@@ -13,12 +13,12 @@ pub struct PostEffects {
   pub chromatic_aberration: ChromaticAberration,
 }
 
-pub struct PostProcess<'a, T> {
-  pub input: AttachmentView<T>,
+pub struct PostProcess<'a> {
+  pub input: RenderTargetView,
   pub config: &'a UniformBufferCachedDataView<PostEffects>,
 }
 
-impl<T> ShaderPassBuilder for PostProcess<'_, T> {
+impl ShaderPassBuilder for PostProcess<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.input);
     ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
@@ -26,11 +26,11 @@ impl<T> ShaderPassBuilder for PostProcess<'_, T> {
   }
 }
 
-impl<T> ShaderHashProvider for PostProcess<'_, T> {
-  shader_hash_type_id! {PostProcess< 'static, ()>}
+impl ShaderHashProvider for PostProcess<'_> {
+  shader_hash_type_id! {PostProcess< 'static>}
 }
 
-impl<T> GraphicsShaderProvider for PostProcess<'_, T> {
+impl GraphicsShaderProvider for PostProcess<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let input_tex = binding.bind_by(&self.input);

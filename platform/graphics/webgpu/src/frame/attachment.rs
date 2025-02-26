@@ -5,9 +5,15 @@ pub type Attachment = ReuseableItem<PooledTextureKey, GPU2DTextureView>;
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct PooledTextureKey {
-  size: Size,
-  format: gpu::TextureFormat,
-  sample_count: u32,
+  pub size: Size,
+  pub format: gpu::TextureFormat,
+  pub sample_count: u32,
+}
+
+impl PooledTextureKey {
+  pub fn request(self, ctx: &FrameCtx) -> RenderTargetView {
+    ctx.pool.request(&self).into()
+  }
 }
 
 pub fn attachment() -> AttachmentDescriptor {
@@ -75,17 +81,16 @@ impl AttachmentDescriptor {
 }
 
 impl AttachmentDescriptor {
-  pub fn request(self, ctx: &FrameCtx) -> Attachment {
+  pub fn request(self, ctx: &FrameCtx) -> RenderTargetView {
     let size = ctx.frame_size;
     let size = (self.sizer)(size);
 
-    let key = PooledTextureKey {
+    PooledTextureKey {
       size,
       format: self.format,
       sample_count: self.sample_count,
-    };
-
-    ctx.pool.request(&key)
+    }
+    .request(ctx)
   }
 }
 

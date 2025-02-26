@@ -32,7 +32,7 @@ impl HighLighter {
 
 impl HighLighter {
   /// We expose this function for users could use any input.
-  pub fn draw_result<'a, T: 'a>(&'a self, mask: AttachmentView<T>) -> impl PassContent + 'a {
+  pub fn draw_result(&self, mask: RenderTargetView) -> impl PassContent + '_ {
     HighLightComposeTask {
       mask,
       lighter: self,
@@ -42,25 +42,25 @@ impl HighLighter {
 
   /// scene should masked by `HighLightMaskDispatcher`
   pub fn draw(&self, ctx: &mut FrameCtx, mut content: impl PassContent) -> impl PassContent + '_ {
-    let mut selected_mask = attachment()
+    let selected_mask = attachment()
       .format(HIGH_LIGHT_MASK_TARGET_FORMAT)
       .request(ctx);
 
     pass("highlight-selected-mask")
-      .with_color(selected_mask.write(), clear(color_same(0.)))
+      .with_color(&selected_mask, clear(color_same(0.)))
       .render_ctx(ctx)
       .by(&mut content);
 
-    self.draw_result(selected_mask.read_into())
+    self.draw_result(selected_mask)
   }
 }
 
-pub struct HighLightComposeTask<'a, T> {
-  mask: AttachmentView<T>,
+pub struct HighLightComposeTask<'a> {
+  mask: RenderTargetView,
   lighter: &'a HighLighter,
 }
 
-impl<T> ShaderPassBuilder for HighLightComposeTask<'_, T> {
+impl ShaderPassBuilder for HighLightComposeTask<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.lighter.data);
     ctx.binding.bind(&self.mask);
@@ -68,11 +68,11 @@ impl<T> ShaderPassBuilder for HighLightComposeTask<'_, T> {
   }
 }
 
-impl<T> ShaderHashProvider for HighLightComposeTask<'_, T> {
+impl ShaderHashProvider for HighLightComposeTask<'_> {
   shader_hash_type_id! {HighLighter}
 }
 
-impl<T> GraphicsShaderProvider for HighLightComposeTask<'_, T> {
+impl GraphicsShaderProvider for HighLightComposeTask<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let highlighter = binding.bind_by(&self.lighter.data).load().expand();
