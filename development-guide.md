@@ -63,7 +63,6 @@ The following things is the current project development direction.
 
 - buffer combine with rtao shader breaks on Metal.
 
-
 ## Useful commands
 
 most used testing and developing commands (write it down for convenience)

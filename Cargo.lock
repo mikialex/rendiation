@@ -4024,6 +4024,7 @@ dependencies = [
  "rendiation-shader-api",
  "rendiation-shader-backend-naga",
  "rendiation-texture-types",
+ "reuse-pool",
  "slab",
  "thiserror 1.0.63",
  "wgpu",

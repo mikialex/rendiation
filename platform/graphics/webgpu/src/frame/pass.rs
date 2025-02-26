@@ -1,5 +1,3 @@
-use core::marker::PhantomData;
-
 use rendiation_algebra::*;
 use rendiation_shader_api::{std140_layout, ShaderStruct};
 
@@ -44,39 +42,36 @@ impl RenderPassGPUInfoData {
 
 /// Create a pass descriptor with given name. The provide name is used for debug purpose, not
 /// required to be unique
-pub fn pass(name: impl Into<String>) -> PassDescriptor<'static> {
-  let desc = RenderPassDescriptorOwned {
+pub fn pass(name: impl Into<String>) -> RenderPassDescription {
+  RenderPassDescription {
     name: name.into(),
     ..Default::default()
-  };
-  PassDescriptor {
-    phantom: PhantomData,
-    desc,
   }
 }
 
-pub struct PassDescriptor<'a> {
-  phantom: PhantomData<&'a Attachment>,
-  desc: RenderPassDescriptorOwned,
+#[derive(Default, Clone)]
+pub struct RenderPassDescription {
+  pub name: String,
+  pub channels: Vec<(gpu::Operations<gpu::Color>, RenderTargetView)>,
+  pub depth_stencil_target: Option<(gpu::Operations<f32>, RenderTargetView)>,
+  pub resolve_target: Option<RenderTargetView>,
 }
 
-impl<'a> From<AttachmentView<&'a mut Attachment>> for RenderTargetView {
-  fn from(val: AttachmentView<&'a mut Attachment>) -> Self {
-    val.view
-  }
-}
-
-impl<'a> PassDescriptor<'a> {
-  #[must_use]
-  pub fn with_desc(mut self, desc: RenderPassDescriptorOwned) -> Self {
-    self.desc = desc;
+impl RenderPassDescription {
+  pub fn buffer_size(&self) -> Vec2<f32> {
     self
+      .channels
+      .first()
+      .map(|c| &c.1)
+      .or_else(|| self.depth_stencil_target.as_ref().map(|c| &c.1))
+      .map(|c| Vec2::from(c.size().into_usize()).map(|v| v as f32))
+      .unwrap()
   }
 
   #[must_use]
   pub fn with_color(
     mut self,
-    attachment: impl Into<RenderTargetView> + 'a,
+    attachment: impl Into<RenderTargetView>,
     op: impl Into<gpu::Operations<gpu::Color>>,
   ) -> Self {
     self.push_color(attachment, op);
@@ -85,18 +80,18 @@ impl<'a> PassDescriptor<'a> {
 
   pub fn push_color(
     &mut self,
-    attachment: impl Into<RenderTargetView> + 'a,
+    attachment: impl Into<RenderTargetView>,
     op: impl Into<gpu::Operations<gpu::Color>>,
   ) -> usize {
-    let idx = self.desc.channels.len();
-    self.desc.channels.push((op.into(), attachment.into()));
+    let idx = self.channels.len();
+    self.channels.push((op.into(), attachment.into()));
     idx
   }
 
   #[must_use]
   pub fn with_depth(
     mut self,
-    attachment: impl Into<RenderTargetView> + 'a,
+    attachment: impl Into<RenderTargetView>,
     op: impl Into<gpu::Operations<f32>>,
   ) -> Self {
     self.set_depth(attachment, op);
@@ -105,22 +100,17 @@ impl<'a> PassDescriptor<'a> {
 
   pub fn set_depth(
     &mut self,
-    attachment: impl Into<RenderTargetView> + 'a,
+    attachment: impl Into<RenderTargetView>,
     op: impl Into<gpu::Operations<f32>>,
   ) {
     self
-      .desc
       .depth_stencil_target
       .replace((op.into(), attachment.into()));
   }
 
-  pub fn buffer_size(&self) -> Vec2<f32> {
-    self.desc.buffer_size()
-  }
-
   #[must_use]
-  pub fn resolve_to(mut self, attachment: AttachmentView<&'a mut Attachment>) -> Self {
-    self.desc.resolve_target = attachment.view.into();
+  pub fn resolve_to(mut self, attachment: GPU2DTextureView) -> Self {
+    self.resolve_target = Some(RenderTargetView::Texture(attachment));
     self
   }
 
@@ -131,12 +121,9 @@ impl<'a> PassDescriptor<'a> {
 
   #[must_use]
   pub fn render(self, encoder: &mut GPUCommandEncoder, gpu: &GPU) -> ActiveRenderPass {
-    let pass = encoder.begin_render_pass_with_info(self.desc.clone(), gpu.clone());
+    let pass = encoder.begin_render_pass_with_info(self.clone(), gpu.clone());
 
-    ActiveRenderPass {
-      desc: self.desc,
-      pass,
-    }
+    ActiveRenderPass { desc: self, pass }
   }
 }
 
@@ -159,7 +146,7 @@ impl<T: PassContent> PassContent for Option<T> {
 
 pub struct ActiveRenderPass {
   pub pass: FrameRenderPass,
-  pub desc: RenderPassDescriptorOwned,
+  pub desc: RenderPassDescription,
 }
 
 impl ActiveRenderPass {

@@ -75,7 +75,7 @@ impl GPUTwoPassOcclusionCulling {
     frame_ctx: &mut FrameCtx,
     view_key: u32,
     batch: &DeviceSceneModelRenderBatch,
-    target: RenderPassDescriptorOwned,
+    target: RenderPassDescriptor,
     scene_renderer: &impl SceneRenderer,
     camera: EntityHandle<SceneCameraEntity>,
     camera_view_proj: &UniformBufferDataView<Mat4<f32>>,
