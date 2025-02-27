@@ -35,6 +35,7 @@ The following things is the current project development direction.
 - gpu driven occlusion culling
 - ltc lighting
 - on_demand_draw
+- ssr(super naive)
 - lod graph generation and rendering
 
 ### New features planed
@@ -43,7 +44,7 @@ The following things is the current project development direction.
 - physical camera
 - automatic exposure control
 - oit
-- ssr
+- good ssr
 - visibility rendering
 - cluster lighting optimization
   - dependency: storagebuffer light resources.
