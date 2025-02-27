@@ -6,6 +6,8 @@ The following things is the current project development direction.
 
 ### Basic correctness
 
+- light uniform array not skip none exist light
+- gizmo should not scaled by target scale
 - use view space shading/lighting/postprocess compute to improve precision
 - disable ssao when channel debug on
 - fix channel debug in defer mode

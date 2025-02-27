@@ -38,9 +38,9 @@ pub fn area_light_uniform_array(gpu: &GPU) -> UniformArrayUpdateContainer<LTCAre
       let width = size.x / 2.;
       let height = size.y / 2.;
       let p1 = world_mat * Vec3::new(width, height, 0.);
-      let p2 = world_mat * Vec3::new(width, -height, 0.);
-      let p3 = world_mat * Vec3::new(-width, height, 0.);
-      let p4 = world_mat * Vec3::new(-width, -height, 0.);
+      let p2 = world_mat * Vec3::new(-width, height, 0.);
+      let p3 = world_mat * Vec3::new(-width, -height, 0.);
+      let p4 = world_mat * Vec3::new(width, -height, 0.);
       [p1, p2, p3, p4]
     })
     .into_query_update_uniform_array(offset_of!(LTCAreaLightUniform, p1), gpu);

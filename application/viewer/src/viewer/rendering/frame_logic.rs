@@ -12,6 +12,7 @@ pub struct ViewerFrameLogic {
   highlight: HighLighter,
   reproject: GPUReprojectInfo,
   taa: TAA,
+  enable_ground: bool,
   enable_ssao: bool,
   enable_outline: bool,
   ssao: SSAO,
@@ -29,7 +30,8 @@ impl ViewerFrameLogic {
       _blur: CrossBlurData::new(gpu),
       reproject: GPUReprojectInfo::new(gpu),
       taa: TAA::new(),
-      enable_ssao: true,
+      enable_ground: true,
+      enable_ssao: false,
       enable_outline: false,
       ssao: SSAO::new(gpu),
       ground: UniformBufferCachedDataView::create(&gpu.device, ShaderPlane::ground_like()),
@@ -40,6 +42,7 @@ impl ViewerFrameLogic {
   }
 
   pub fn egui(&mut self, ui: &mut egui::Ui) {
+    ui.checkbox(&mut self.enable_ground, "enable ground");
     ui.checkbox(&mut self.enable_ssao, "enable ssao");
     ui.checkbox(&mut self.enable_outline, "enable outline");
     post_egui(ui, &self.post);
@@ -206,17 +209,19 @@ impl ViewerFrameLogic {
           }
         }
 
-        // this must a separate pass, because the id buffer should not be written.
-        pass("grid_ground")
-          .with_color(&scene_result, load())
-          .with_depth(&g_buffer.depth, load())
-          .render_ctx(ctx)
-          .by(&mut GridGround {
-            plane: &self.ground,
-            shading: &self.grid,
-            camera: main_camera_gpu.as_ref(),
-            reversed_depth,
-          });
+        if self.enable_ground {
+          // this must a separate pass, because the id buffer should not be written.
+          pass("grid_ground")
+            .with_color(&scene_result, load())
+            .with_depth(&g_buffer.depth, load())
+            .render_ctx(ctx)
+            .by(&mut GridGround {
+              plane: &self.ground,
+              shading: &self.grid,
+              camera: main_camera_gpu.as_ref(),
+              reversed_depth,
+            });
+        }
 
         if self.enable_ssao {
           let ao = self.ssao.draw(

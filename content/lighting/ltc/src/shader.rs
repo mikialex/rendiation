@@ -78,7 +78,6 @@ impl LTCxLightEval {
     spec *= specular_color * t2.x() + (val(1.0).splat() - diffuse_color) * t2.y();
 
     let identity = (
-      // todo useless?
       val(vec3(1., 0., 0.)),
       val(vec3(0., 1., 0.)),
       val(vec3(0., 0., 1.)),
@@ -110,6 +109,7 @@ pub fn ltc_evaluate_rect(
   let l = light.expand();
   // construct orthonormal basis around N
   let t1 = v - n * v.dot(n).splat::<Vec3<_>>();
+  let t1 = t1.normalize();
   let t2 = n.cross(t1);
 
   // rotate area light in (T1, T2, N) basis
