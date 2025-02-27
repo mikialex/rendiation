@@ -75,7 +75,7 @@ impl GPUTwoPassOcclusionCulling {
     frame_ctx: &mut FrameCtx,
     view_key: u32,
     batch: &DeviceSceneModelRenderBatch,
-    target: RenderPassDescriptorOwned,
+    target: RenderPassDescription,
     scene_renderer: &impl SceneRenderer,
     camera: EntityHandle<SceneCameraEntity>,
     camera_view_proj: &UniformBufferDataView<Mat4<f32>>,
@@ -102,8 +102,9 @@ impl GPUTwoPassOcclusionCulling {
     let first_pass_batch =
       frame_ctx.access_parallel_compute(|cx| first_pass_batch.flush_culler_into_new(cx));
 
-    pass("occlusion-culling-first-pass")
-      .with_desc(target.clone())
+    target
+      .clone()
+      .with_name("occlusion-culling-first-pass")
       .render_ctx(frame_ctx)
       .by(&mut scene_renderer.make_scene_batch_pass_content(
         SceneModelRenderBatch::Device(first_pass_batch.clone()),
@@ -174,8 +175,8 @@ impl GPUTwoPassOcclusionCulling {
       .shortcut_or(occlusion_culler);
     let second_pass_batch = batch.clone().with_override_culler(second_pass_culler);
 
-    pass("occlusion-culling-second-pass")
-      .with_desc(target.clone())
+    target
+      .with_name("occlusion-culling-second-pass")
       .render_ctx(frame_ctx)
       .by(&mut scene_renderer.make_scene_batch_pass_content(
         SceneModelRenderBatch::Device(second_pass_batch),

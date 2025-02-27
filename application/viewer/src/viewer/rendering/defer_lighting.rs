@@ -4,10 +4,10 @@ use crate::*;
 
 pub struct FrameGeneralMaterialBuffer {
   /// the following channel will be encode/decode by the different material type.
-  pub material_type_id: Attachment,
-  pub channel_a: Attachment,
-  pub channel_b: Attachment,
-  pub channel_c: Attachment,
+  pub material_type_id: RenderTargetView,
+  pub channel_a: RenderTargetView,
+  pub channel_b: RenderTargetView,
+  pub channel_c: RenderTargetView,
 }
 
 impl FrameGeneralMaterialBuffer {
@@ -24,15 +24,15 @@ impl FrameGeneralMaterialBuffer {
     }
   }
 
-  pub fn extend_pass_desc<'a>(
-    &'a mut self,
-    desc: &mut PassDescriptor<'a>,
+  pub fn extend_pass_desc(
+    &mut self,
+    desc: &mut RenderPassDescription,
   ) -> FrameGeneralMaterialChannelIndices {
     FrameGeneralMaterialChannelIndices {
-      material_type_id: desc.push_color(self.material_type_id.write(), clear(MAX_U8_ID_BACKGROUND)),
-      channel_a: desc.push_color(self.channel_a.write(), clear(all_zero())),
-      channel_b: desc.push_color(self.channel_b.write(), clear(all_zero())),
-      channel_c: desc.push_color(self.channel_c.write(), clear(all_zero())),
+      material_type_id: desc.push_color(&self.material_type_id, clear(MAX_U8_ID_BACKGROUND)),
+      channel_a: desc.push_color(&self.channel_a, clear(all_zero())),
+      channel_b: desc.push_color(&self.channel_b, clear(all_zero())),
+      channel_c: desc.push_color(&self.channel_c, clear(all_zero())),
     }
   }
 }
@@ -115,10 +115,10 @@ impl ShaderHashProvider for FrameGeneralMaterialBufferReconstructSurface<'_> {
 }
 impl ShaderPassBuilder for FrameGeneralMaterialBufferReconstructSurface<'_> {
   fn setup_pass(&self, cx: &mut GPURenderPassCtx) {
-    self.m_buffer.material_type_id.read().bind_pass(cx);
-    self.m_buffer.channel_a.read().bind_pass(cx);
-    self.m_buffer.channel_b.read().bind_pass(cx);
-    self.m_buffer.channel_c.read().bind_pass(cx);
+    self.m_buffer.material_type_id.bind_pass(cx);
+    self.m_buffer.channel_a.bind_pass(cx);
+    self.m_buffer.channel_b.bind_pass(cx);
+    self.m_buffer.channel_c.bind_pass(cx);
     cx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
   }
 }
@@ -129,9 +129,9 @@ impl LightableSurfaceProvider for FrameGeneralMaterialBufferReconstructSurface<'
     binding: &mut ShaderBindGroupBuilder,
   ) -> Box<dyn LightableSurfaceShading> {
     let ids = binding.bind_by(&U32Texture2d);
-    let channel_a = binding.bind_by(&self.m_buffer.channel_a.read());
-    let channel_b = binding.bind_by(&self.m_buffer.channel_b.read());
-    let channel_c = binding.bind_by(&self.m_buffer.channel_c.read());
+    let channel_a = binding.bind_by(&self.m_buffer.channel_a);
+    let channel_b = binding.bind_by(&self.m_buffer.channel_b);
+    let channel_c = binding.bind_by(&self.m_buffer.channel_c);
     let sampler = binding.bind_by(&DisableFiltering(ImmediateGPUSamplerViewBind));
 
     let uv = builder.query::<FragmentUv>();

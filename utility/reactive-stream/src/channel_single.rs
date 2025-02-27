@@ -11,20 +11,17 @@ impl<T> Stream for SingleReceiver<T> {
   type Item = T;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    if let Ok(mut inner) = self.inner.lock() {
-      inner.1 = cx.waker().clone().into();
-      // check is_some first to avoid unnecessary move
-      if inner.0.is_some() {
-        let value = inner.0.take().unwrap();
-        Poll::Ready(Some(value))
-        // check if sender has dropped
-      } else if Arc::weak_count(&self.inner) == 0 {
-        Poll::Ready(None)
-      } else {
-        Poll::Pending
-      }
-    } else {
+    let mut inner = self.inner.lock();
+    inner.1 = cx.waker().clone().into();
+    // check is_some first to avoid unnecessary move
+    if inner.0.is_some() {
+      let value = inner.0.take().unwrap();
+      Poll::Ready(Some(value))
+      // check if sender has dropped
+    } else if Arc::weak_count(&self.inner) == 0 {
       Poll::Ready(None)
+    } else {
+      Poll::Pending
     }
   }
 }
@@ -38,7 +35,7 @@ pub struct SingleSender<T> {
 impl<T> Drop for SingleSender<T> {
   fn drop(&mut self) {
     if let Some(inner) = self.inner.upgrade() {
-      let inner = inner.lock().unwrap();
+      let inner = inner.lock();
       if let Some(waker) = &inner.1 {
         waker.wake_by_ref()
       }
@@ -84,7 +81,7 @@ impl<T> SingleSender<T> {
   pub fn update(&self, value: T) -> Result<(), NoReceiverError<T>> {
     match self.inner.upgrade() {
       Some(mutex) => {
-        let inner = &mut mutex.lock().unwrap();
+        let inner = &mut mutex.lock();
         inner.0 = Some(value);
         if let Some(waker) = &inner.1 {
           waker.wake_by_ref()

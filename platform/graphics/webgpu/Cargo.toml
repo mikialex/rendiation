@@ -11,11 +11,13 @@ heap-tools = { path = "../../../utility/heap-tools" }
 fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 futures = { workspace = true }
 naga = { workspace = true }
+parking_lot = { workspace = true }
 reactive = { path = "../../../utility/reactive" }
 rendiation-algebra = { path = "../../../math/algebra" }
 rendiation-shader-api = { path = "../../../shader/api" }
 rendiation-shader-backend-naga = { path = "../../../shader/backends/naga" }
 rendiation-texture-types = { path = "../../../content/texture/types" }
+reuse-pool = { path = "../../../utility/reuse-pool" }
 thiserror = { workspace = true }
 wgpu = { workspace = true }
 wgpu-types = { workspace = true }

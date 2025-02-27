@@ -4,7 +4,7 @@ use crate::*;
 
 pub struct GPUCommandEncoder {
   pub(crate) encoder: gpu::CommandEncoder,
-  active_pass_target_holder: Option<RenderPassDescriptorOwned>,
+  active_pass_target_holder: Option<RenderPassDescription>,
   placeholder_bg: Arc<gpu::BindGroup>,
   deferred_explicit_destroy: CommandBufferDeferExplicitDestroyFlusher,
   pub(crate) on_submit: EventSource<()>,
@@ -69,7 +69,7 @@ impl GPUCommandEncoder {
     }
   }
 
-  pub fn do_u_hear_the_people_sing(&mut self, mut des: RenderPassDescriptorOwned) {
+  pub fn do_u_hear_the_people_sing(&mut self, mut des: RenderPassDescription) {
     des.channels.iter_mut().for_each(|c| {
       c.0 = gpu::Operations {
         load: gpu::LoadOp::Clear(gpu::Color::WHITE),
@@ -81,7 +81,7 @@ impl GPUCommandEncoder {
 
   pub fn begin_render_pass_with_info(
     &mut self,
-    des: RenderPassDescriptorOwned,
+    des: RenderPassDescription,
     gpu: GPU,
   ) -> FrameRenderPass {
     let buffer_size = des.buffer_size();
@@ -95,7 +95,7 @@ impl GPUCommandEncoder {
     FrameRenderPass { ctx: c, pass_info }
   }
 
-  pub fn begin_render_pass(&mut self, des: RenderPassDescriptorOwned) -> GPURenderPass {
+  pub fn begin_render_pass(&mut self, des: RenderPassDescription) -> GPURenderPass {
     self.active_pass_target_holder.replace(des);
     let des = self.active_pass_target_holder.as_ref().unwrap();
     // todo should we do some check here?

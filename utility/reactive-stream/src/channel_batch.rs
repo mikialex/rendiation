@@ -11,20 +11,17 @@ impl<T> Stream for BatchReceiver<T> {
 
   // todo check if we could early drop history if the sender dropped
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-    if let Ok(mut inner) = self.inner.lock() {
-      inner.1 = cx.waker().clone().into();
-      // check is_empty first to avoid unnecessary move
-      if !inner.0.is_empty() {
-        let value = std::mem::take(&mut inner.0);
-        Poll::Ready(Some(value))
-        // check if sender has dropped
-      } else if Arc::weak_count(&self.inner) == 0 {
-        Poll::Ready(None)
-      } else {
-        Poll::Pending
-      }
-    } else {
+    let mut inner = self.inner.lock();
+    inner.1 = cx.waker().clone().into();
+    // check is_empty first to avoid unnecessary move
+    if !inner.0.is_empty() {
+      let value = std::mem::take(&mut inner.0);
+      Poll::Ready(Some(value))
+      // check if sender has dropped
+    } else if Arc::weak_count(&self.inner) == 0 {
       Poll::Ready(None)
+    } else {
+      Poll::Pending
     }
   }
 }
@@ -37,7 +34,7 @@ pub struct BatchSender<T> {
 impl<T> Drop for BatchSender<T> {
   fn drop(&mut self) {
     if let Some(inner) = self.inner.upgrade() {
-      let inner = inner.lock().unwrap();
+      let inner = inner.lock();
       if let Some(waker) = &inner.1 {
         waker.wake_by_ref()
       }
@@ -57,7 +54,7 @@ impl<T> BatchSender<T> {
   pub fn update(&self, value: T) -> Result<(), NoReceiverError<T>> {
     match self.inner.upgrade() {
       Some(mutex) => {
-        let inner = &mut mutex.lock().unwrap();
+        let inner = &mut mutex.lock();
         inner.0.push(value);
         if let Some(waker) = &inner.1 {
           waker.wake_by_ref()

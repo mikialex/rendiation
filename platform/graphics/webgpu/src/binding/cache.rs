@@ -11,7 +11,7 @@ impl BindGroupCache {
     }
   }
   pub(crate) fn clear(&self) {
-    self.cache.write().unwrap().clear();
+    self.cache.write().clear();
   }
 }
 
@@ -37,12 +37,7 @@ impl Drop for BindGroupCacheInvalidation {
     if self.skip_drop {
       return;
     }
-    self
-      .cache
-      .cache
-      .write()
-      .unwrap()
-      .remove(&self.cache_id_to_drop);
+    self.cache.cache.write().remove(&self.cache_id_to_drop);
   }
 }
 
@@ -54,7 +49,7 @@ pub struct BindGroupResourceHolder {
 
 impl BindGroupResourceHolder {
   pub fn increase(&self, record: BindGroupCacheInvalidation) {
-    self.invalidation_tokens.write().unwrap().push(record);
+    self.invalidation_tokens.write().push(record);
   }
 }
 
@@ -65,6 +60,6 @@ pub struct BindGroupLayoutCache {
 
 impl BindGroupLayoutCache {
   pub(crate) fn clear(&self) {
-    self.cache.write().unwrap().clear();
+    self.cache.write().clear();
   }
 }

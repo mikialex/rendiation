@@ -83,17 +83,17 @@ impl<T: 'static> EventSource<T> {
   }
 
   pub fn emit(&self, event: &T) {
-    let mut inner = self.lock.lock().unwrap();
+    let mut inner = self.lock.lock();
     inner.emit(event);
   }
 
   /// return should be removed from source after emitted
   pub fn on(&self, f: impl FnMut(&T) -> bool + Send + Sync + 'static) -> RemoveToken<T> {
-    self.lock.lock().unwrap().on(f)
+    self.lock.lock().on(f)
   }
 
   pub fn off(&self, token: RemoveToken<T>) {
-    self.lock.lock().unwrap().off(token)
+    self.lock.lock().off(token)
   }
 
   pub fn any_triggered(&self) -> impl futures::Stream<Item = ()> {
@@ -187,7 +187,7 @@ impl<T: 'static> EventSource<T> {
   {
     use futures::FutureExt;
     let f = Mutex::new(Some(f));
-    let f = move |p: &_| f.lock().unwrap().take().map(|f| f(p));
+    let f = move |p: &_| f.lock().take().map(|f| f(p));
     let any = self.single_listen_by(f, |_| {});
     any.into_future().map(|(r, _)| r.unwrap().unwrap())
   }
@@ -208,7 +208,7 @@ impl<T> Drop for EventSourceDropper<T> {
   fn drop(&mut self) {
     if let Some(source) = self.weak.inner.upgrade() {
       // it's safe to remove again here (has no effect)
-      source.lock().unwrap().off(self.remove_token)
+      source.lock().off(self.remove_token)
     }
   }
 }
@@ -228,7 +228,7 @@ impl<T> Clone for WeakSource<T> {
 impl<T> WeakSource<T> {
   pub fn emit(&self, event: &T) -> bool {
     if let Some(e) = self.inner.upgrade() {
-      e.lock().unwrap().emit(event);
+      e.lock().emit(event);
       true
     } else {
       false

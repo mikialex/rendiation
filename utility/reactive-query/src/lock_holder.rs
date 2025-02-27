@@ -49,10 +49,10 @@ pub trait MakeMutexHolderRaw<T>: Sized {
   fn make_mutex_write_holder(&self) -> MutexGuardHolder<T>;
 }
 
-impl<T> MakeMutexHolderRaw<T> for Arc<std::sync::Mutex<T>> {
+impl<T> MakeMutexHolderRaw<T> for Arc<parking_lot::Mutex<T>> {
   fn make_mutex_write_holder(&self) -> MutexGuardHolder<T> {
-    let lock = self.lock().unwrap();
-    let lock: std::sync::MutexGuard<'static, T> = unsafe { std::mem::transmute(lock) };
+    let lock = self.lock();
+    let lock: parking_lot::MutexGuard<'static, T> = unsafe { std::mem::transmute(lock) };
     MutexGuardHolder {
       _holder: self.clone(),
       guard: lock,
@@ -62,8 +62,8 @@ impl<T> MakeMutexHolderRaw<T> for Arc<std::sync::Mutex<T>> {
 
 /// Note, the field(drop) order is important
 pub struct MutexGuardHolder<T: 'static> {
-  guard: std::sync::MutexGuard<'static, T>,
-  _holder: Arc<std::sync::Mutex<T>>,
+  guard: parking_lot::MutexGuard<'static, T>,
+  _holder: Arc<parking_lot::Mutex<T>>,
 }
 
 impl<T: 'static> Deref for MutexGuardHolder<T> {

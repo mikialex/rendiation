@@ -8,9 +8,9 @@ mod traverse_cpu;
 mod traverse_gpu;
 
 use std::ops::{BitAnd, Deref};
-use std::sync::{RwLock, RwLockReadGuard};
 
 use flag::*;
+use parking_lot::*;
 use rendiation_geometry::Box3;
 use rendiation_space_algorithm::bvh::*;
 use rendiation_space_algorithm::utils::TreeBuildOption;
@@ -512,17 +512,17 @@ impl NaiveSahBVHSystem {
   }
 
   fn get_or_build_gpu_data(&self) -> impl Deref<Target = NaiveSahBvhGpu> + '_ {
-    let read = self.inner.read().unwrap();
+    let read = self.inner.read();
     if read.gpu_data.is_some() {
       RwLockReadGuard::map(read, |g| g.gpu_data.as_ref().unwrap())
     } else {
       drop(read);
 
-      let mut write = self.inner.write().unwrap();
+      let mut write = self.inner.write();
       write.rebuild_acceleration_structures(&self.device);
       drop(write);
 
-      let read = self.inner.read().unwrap();
+      let read = self.inner.read();
       assert!(read.gpu_data.is_some());
       RwLockReadGuard::map(read, |g| g.gpu_data.as_ref().unwrap())
     }
@@ -572,14 +572,14 @@ impl GPUAccelerationStructureSystemProvider for NaiveSahBVHSystem {
     &self,
     source: &[TopLevelAccelerationStructureSourceInstance],
   ) -> TlasHandle {
-    let mut inner = self.inner.write().unwrap();
+    let mut inner = self.inner.write();
     inner.invalidate();
     let idx = inner.source.create_tlas(source);
     TlasHandle(idx)
   }
 
   fn delete_top_level_acceleration_structure(&self, handle: TlasHandle) {
-    let mut inner = self.inner.write().unwrap();
+    let mut inner = self.inner.write();
     inner.invalidate();
     inner.source.delete_tlas(handle)
   }
@@ -588,14 +588,14 @@ impl GPUAccelerationStructureSystemProvider for NaiveSahBVHSystem {
     &self,
     source: &[BottomLevelAccelerationStructureBuildSource],
   ) -> BlasHandle {
-    let mut inner = self.inner.write().unwrap();
+    let mut inner = self.inner.write();
     inner.invalidate();
     let idx = inner.source.create_blas(source);
     BlasHandle(idx)
   }
 
   fn delete_bottom_level_acceleration_structure(&self, handle: BlasHandle) {
-    let mut inner = self.inner.write().unwrap();
+    let mut inner = self.inner.write();
     inner.invalidate();
     inner.source.delete_blas(handle)
   }

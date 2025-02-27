@@ -1033,6 +1033,7 @@ version = "0.0.1"
 dependencies = [
  "fast-hash-collection",
  "once_cell",
+ "parking_lot",
  "paste",
 ]
 
@@ -1711,6 +1712,7 @@ version = "0.0.1"
 dependencies = [
  "fast-hash-collection",
  "once_cell",
+ "parking_lot",
 ]
 
 [[package]]
@@ -1845,6 +1847,7 @@ name = "interning"
 version = "0.0.1"
 dependencies = [
  "fast-hash-collection",
+ "parking_lot",
 ]
 
 [[package]]
@@ -3907,6 +3910,7 @@ dependencies = [
  "database",
  "interning",
  "once_cell",
+ "parking_lot",
  "reactive",
  "rendiation-algebra",
  "rendiation-scene-core",
@@ -4013,12 +4017,14 @@ dependencies = [
  "futures",
  "heap-tools",
  "naga",
+ "parking_lot",
  "pollster",
  "reactive",
  "rendiation-algebra",
  "rendiation-shader-api",
  "rendiation-shader-backend-naga",
  "rendiation-texture-types",
+ "reuse-pool",
  "slab",
  "thiserror 1.0.63",
  "wgpu",
@@ -4067,6 +4073,14 @@ dependencies = [
  "rendiation-shader-api",
  "rendiation-webgpu",
  "rendiation-webgpu-reactive-utils",
+]
+
+[[package]]
+name = "reuse-pool"
+version = "0.0.1"
+dependencies = [
+ "fast-hash-collection",
+ "parking_lot",
 ]
 
 [[package]]

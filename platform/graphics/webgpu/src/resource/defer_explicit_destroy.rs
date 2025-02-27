@@ -44,7 +44,7 @@ pub struct DeferExplicitDestroy {
 
 impl DeferExplicitDestroy {
   pub fn new_command_buffer(&self) -> CommandBufferDeferExplicitDestroyFlusher {
-    let mut count = self.in_recording_command_buffer_count.write().unwrap();
+    let mut count = self.in_recording_command_buffer_count.write();
     let count: &mut usize = &mut count;
     *count += 1;
     CommandBufferDeferExplicitDestroyFlusher {
@@ -75,20 +75,11 @@ impl<T: ExplicitGPUResourceDestroy> Deref for ResourceExplicitDestroy<T> {
 
 impl<T: ExplicitGPUResourceDestroy> Drop for ResourceExplicitDestroy<T> {
   fn drop(&mut self) {
-    let count = self
-      .defer_drop
-      .in_recording_command_buffer_count
-      .read()
-      .unwrap();
+    let count = self.defer_drop.in_recording_command_buffer_count.read();
     let count: &usize = &count;
     let resource = unsafe { ManuallyDrop::take(&mut self.resource) };
     if *count != 0 {
-      self
-        .defer_drop
-        .to_drop
-        .write()
-        .unwrap()
-        .push(Box::new(resource));
+      self.defer_drop.to_drop.write().push(Box::new(resource));
     } else {
       resource.destroy();
     }
@@ -101,16 +92,12 @@ pub struct CommandBufferDeferExplicitDestroyFlusher {
 
 impl Drop for CommandBufferDeferExplicitDestroyFlusher {
   fn drop(&mut self) {
-    let mut count = self
-      .inner
-      .in_recording_command_buffer_count
-      .write()
-      .unwrap();
+    let mut count = self.inner.in_recording_command_buffer_count.write();
     let count: &mut usize = &mut count;
     *count -= 1;
     if *count == 0 {
       // we can safely flush here because the counter is protected by lock.
-      let mut to_drop = self.inner.to_drop.write().unwrap();
+      let mut to_drop = self.inner.to_drop.write();
       for i in to_drop.drain(..) {
         i.destroy();
       }

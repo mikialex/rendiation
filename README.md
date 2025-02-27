@@ -19,6 +19,7 @@ By leveraging these crates, users can build, assemble and customize their own fe
   - graphics
     - [webgpu](./platform/graphics/webgpu/README.md): the wgpu encapsulation layer
     - webgpu-reactive-utils: reactive webgpu resource management containers base on our reactive infrastructure
+    - webgpu-virtual-buffer: container utils that merge multiple buffer bindings into one to workaround binding count limitations on specific plaftform
 - utility: general purpose data structure and algorithm and utils
   - abstract-graph: data structure independent graph algorithms
   - abstract-tree: data structure independent tree algorithms

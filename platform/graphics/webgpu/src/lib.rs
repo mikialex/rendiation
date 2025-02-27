@@ -26,7 +26,7 @@ use std::{
   hash::{Hash, Hasher},
   ops::{Deref, DerefMut, Range},
   sync::atomic::{AtomicUsize, Ordering},
-  sync::{Arc, RwLock},
+  sync::Arc,
 };
 
 pub use binding::*;
@@ -54,6 +54,7 @@ pub use gpu::{
 };
 use heap_tools::*;
 use instance_poller::GPUInstance;
+use parking_lot::RwLock;
 pub use pass::*;
 pub use pipeline::*;
 pub use query::*;
@@ -64,6 +65,7 @@ use rendiation_shader_api::*;
 use rendiation_shader_api::{Std430, Std430MaybeUnsized};
 use rendiation_texture_types::*;
 pub use resource::*;
+use reuse_pool::*;
 pub use surface::*;
 pub use types::*;
 use wgpu as gpu;

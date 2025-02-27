@@ -6,7 +6,7 @@ The following things is the current project development direction.
 
 ### Basic correctness
 
-- use view space shading compute
+- use view space shading/lighting/postprocess compute to improve precision
 - disable ssao when channel debug on
 - fix channel debug in defer mode
 - support material emissive larger than one
@@ -17,7 +17,6 @@ The following things is the current project development direction.
 - fix scene gpu lighting is globally shared
 - fix some mesh can not be picked in cpu picking (maybe related to u16 index format)
 - fix viewer screenshot channel mismatch (for example gbra swapchain texture format)
-- fix shader api serialization padding bug
 - fix outline camera shaking
 - fix missing blur pass in ssao
 - fix ao should only shadowing diffuse lighting.
@@ -36,11 +35,15 @@ The following things is the current project development direction.
 - gpu driven occlusion culling
 - ltc lighting
 - on_demand_draw
-- lod graph generation
+- lod graph generation and rendering
 
 ### New features planed
 
-- hdr rendering
+- hdr swapchain(use apple device for testing)
+- physical camera
+- automatic exposure control
+- oit
+- ssr
 - visibility rendering
 - cluster lighting optimization
   - dependency: storagebuffer light resources.
@@ -49,12 +52,16 @@ The following things is the current project development direction.
 
 ### Infra and framework improvements planed
 
-- storage buffer virtual merge
 - ray tracing
   - new wavefront geometry backend by wgpu ray query api
   - improve the wavefront dispatch performance
     - let user manual control dispatch rounds
+- support zero sized state in task graph
 - remove per frame large buffer recreation in parallel compute, fix the memory peak.
+
+### Need help issue
+
+- buffer combine with rtao shader breaks on Metal.
 
 ## Useful commands
 

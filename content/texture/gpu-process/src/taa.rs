@@ -10,12 +10,12 @@ const SAMPLE_COUNT: usize = 32;
 pub struct TAA {
   frame_index: usize,
   jitters: Vec<Vec2<f32>>,
-  history: Option<Attachment>,
+  history: Option<RenderTargetView>,
 }
 
 pub struct NewTAAFrameSample {
-  pub new_color: Attachment,
-  pub new_depth: Attachment,
+  pub new_color: RenderTargetView,
+  pub new_depth: RenderTargetView,
 }
 
 pub trait TAAContent<R> {
@@ -38,7 +38,7 @@ impl TAA {
     mut content: impl TAAContent<R>,
     ctx: &mut FrameCtx,
     reproject: &GPUReprojectInfo,
-  ) -> (&Attachment, Attachment, R) {
+  ) -> (&RenderTargetView, RenderTargetView, R) {
     content.set_jitter(self.next_jitter());
 
     let (
@@ -64,11 +64,11 @@ impl TAA {
 
   fn resolve(
     &mut self,
-    new_color: &Attachment,
-    new_depth: &Attachment,
+    new_color: &RenderTargetView,
+    new_depth: &RenderTargetView,
     ctx: &mut FrameCtx,
     reproject: &GPUReprojectInfo,
-  ) -> &Attachment {
+  ) -> &RenderTargetView {
     let mut resolve_target = attachment()
       .format(TextureFormat::Rgba8UnormSrgb)
       .request(ctx);
@@ -80,13 +80,13 @@ impl TAA {
     });
 
     pass("taa-resolve")
-      .with_color(resolve_target.write(), load())
+      .with_color(&resolve_target, load())
       .render_ctx(ctx)
       .by(
         &mut TAAResolver {
-          history: history.read(),
-          new_color: new_color.read(),
-          new_depth: new_depth.read(),
+          history,
+          new_color,
+          new_depth,
           reproject,
         }
         .draw_quad(),
@@ -107,9 +107,9 @@ impl Default for TAA {
 }
 
 struct TAAResolver<'a> {
-  history: AttachmentView<&'a Attachment>,
-  new_color: AttachmentView<&'a Attachment>,
-  new_depth: AttachmentView<&'a Attachment>,
+  history: &'a RenderTargetView,
+  new_color: &'a RenderTargetView,
+  new_depth: &'a RenderTargetView,
   reproject: &'a GPUReprojectInfo,
 }
 
@@ -183,9 +183,9 @@ impl ShaderPassBuilder for TAAResolver<'_> {
       }
       .into_gpu(),
     );
-    ctx.binding.bind(&self.history);
-    ctx.binding.bind(&self.new_color);
-    ctx.binding.bind(&self.new_depth);
+    ctx.binding.bind(self.history);
+    ctx.binding.bind(self.new_color);
+    ctx.binding.bind(self.new_depth);
     ctx.binding.bind(&self.reproject.reproject);
   }
 }

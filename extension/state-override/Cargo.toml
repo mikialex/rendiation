@@ -13,6 +13,7 @@ reactive = { path = "../../utility/reactive" }
 interning = { path = "../../utility/interning" }
 once_cell = { workspace = true }
 rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
+parking_lot = { workspace = true }
 
 [lints]
 workspace = true

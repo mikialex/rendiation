@@ -245,7 +245,7 @@ fn test_cpu_triangle() {
   init_default_acceleration_structure(&system);
 
   let _ = system.get_or_build_gpu_data(); // trigger build
-  let inner = system.inner.read().unwrap();
+  let inner = system.inner.read();
   let cpu_data = inner.cpu_data.as_ref().unwrap();
 
   let mut payload = ShaderRayTraceCallStoragePayload::zeroed();

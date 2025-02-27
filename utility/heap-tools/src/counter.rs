@@ -1,5 +1,3 @@
-#[cfg(feature = "enabled")]
-use std::sync::RwLock;
 use std::{
   any::{Any, TypeId},
   marker::PhantomData,
@@ -8,6 +6,8 @@ use std::{
 use fast_hash_collection::FastHashMap;
 #[cfg(feature = "enabled")]
 use once_cell::sync::Lazy;
+#[cfg(feature = "enabled")]
+use parking_lot::*;
 
 use crate::*;
 
@@ -74,7 +74,6 @@ impl<T: Any> Drop for Counted<T> {
     #[cfg(feature = "enabled")]
     HEAP_TOOL_GLOBAL_INSTANCE_COUNTER
       .write()
-      .unwrap()
       .decrease_instance::<T>();
   }
 }
@@ -90,7 +89,6 @@ impl<T: Any> Default for Counted<T> {
     #[cfg(feature = "enabled")]
     HEAP_TOOL_GLOBAL_INSTANCE_COUNTER
       .write()
-      .unwrap()
       .increase_instance::<T>();
     Self {
       phantom: Default::default(),
@@ -103,7 +101,6 @@ impl<T: Any> Clone for Counted<T> {
     #[cfg(feature = "enabled")]
     HEAP_TOOL_GLOBAL_INSTANCE_COUNTER
       .write()
-      .unwrap()
       .increase_instance::<T>();
     Self {
       phantom: PhantomData,

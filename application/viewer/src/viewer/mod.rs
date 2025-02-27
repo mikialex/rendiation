@@ -188,6 +188,7 @@ impl Widget for Viewer {
 
     access_cx!(cx, draw_target_canvas, RenderTargetView);
     self.draw_canvas(draw_target_canvas);
+    self.rendering.tick_frame();
   }
 
   fn clean_up(&mut self, cx: &mut DynCx) {
@@ -307,7 +308,7 @@ impl Viewer {
 
     self.on_demand_draw.update_once(|cx| {
       // println!("draw");
-      self.rendering.render(canvas.clone(), &self.scene, cx)
+      self.rendering.render(canvas, &self.scene, cx)
     });
   }
 }
@@ -391,9 +392,7 @@ fn egui(
       ui.separator();
 
       ui.collapsing("Instance Counts", |ui| {
-        let mut counters = heap_tools::HEAP_TOOL_GLOBAL_INSTANCE_COUNTER
-          .write()
-          .unwrap();
+        let mut counters = heap_tools::HEAP_TOOL_GLOBAL_INSTANCE_COUNTER.write();
 
         for (name, r) in counters.report_all_instance_count() {
           ui.label(format!(
