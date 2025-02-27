@@ -31,6 +31,11 @@ pub struct ShaderSampler;
 #[derive(Clone, Copy)]
 pub struct ShaderCompareSampler;
 
+#[derive(Clone, Copy)]
+pub struct ShaderAccelerationStructure;
+#[derive(Clone, Copy)]
+pub struct ShaderRayQuery;
+
 sg_node_impl!(
   ShaderSampler,
   ShaderValueSingleType::Sampler(SamplerBindingType::Filtering)
@@ -39,6 +44,12 @@ sg_node_impl!(
   ShaderCompareSampler,
   ShaderValueSingleType::Sampler(SamplerBindingType::Comparison)
 );
+
+sg_node_impl!(
+  ShaderAccelerationStructure,
+  ShaderValueSingleType::AccelerationStructure
+);
+sg_node_impl!(ShaderRayQuery, ShaderValueSingleType::RayQuery);
 
 sg_node_impl!(
   ShaderTexture2D,

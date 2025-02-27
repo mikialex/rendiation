@@ -357,6 +357,7 @@ macro_rules! impl_primitive_mat_direct {
     impl_primitive_direct!(Mat2<$ty>);
     impl_primitive_direct!(Mat3<$ty>);
     impl_primitive_direct!(Mat4<$ty>);
+    impl_primitive_direct!(Mat4x3<$ty>);
   };
 }
 

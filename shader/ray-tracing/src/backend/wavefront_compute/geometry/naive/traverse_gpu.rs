@@ -2,29 +2,31 @@ use crate::backend::wavefront_compute::geometry::naive::*;
 
 #[derive(Clone)]
 pub(super) struct NaiveSahBvhGpu {
+  // maps tlas_idx to tlas_handle: tlas_bvh_root[tlas_binding[tlas_idx]]
+  pub(super) tlas_binding: StorageBufferDataView<[u32]>,
+
   // maps user tlas_id to tlas_bvh root node idx in tlas_bvh_forest
-  pub(super) tlas_bvh_root: StorageBufferReadonlyDataView<[u32]>,
+  pub(super) tlas_bvh_root: StorageBufferDataView<[u32]>,
   // global bvh, root at tlas_bvh_root[tlas_idx], content_range to index tlas_data/tlas_bounding
-  pub(super) tlas_bvh_forest: StorageBufferReadonlyDataView<[DeviceBVHNode]>,
+  pub(super) tlas_bvh_forest: StorageBufferDataView<[DeviceBVHNode]>,
   // acceleration_structure_handle to index blas_meta_info
-  pub(super) tlas_data:
-    StorageBufferReadonlyDataView<[TopLevelAccelerationStructureSourceDeviceInstance]>,
-  pub(super) tlas_bounding: StorageBufferReadonlyDataView<[TlasBounding]>,
+  pub(super) tlas_data: StorageBufferDataView<[TopLevelAccelerationStructureSourceDeviceInstance]>,
+  pub(super) tlas_bounding: StorageBufferDataView<[TlasBounding]>,
 
   // tri_range to index tri_bvh_root, box_range to index box_bvh_root
-  pub(super) blas_meta_info: StorageBufferReadonlyDataView<[BlasMetaInfo]>,
+  pub(super) blas_meta_info: StorageBufferDataView<[BlasMetaInfo]>,
   // tri_bvh_forest root_idx, geometry_idx, primitive_start, geometry_flags
-  pub(super) tri_bvh_root: StorageBufferReadonlyDataView<[GeometryMetaInfo]>,
+  pub(super) tri_bvh_root: StorageBufferDataView<[GeometryMetaInfo]>,
   // // box_bvh_forest root_idx, geometry_idx, primitive_start, geometry_flags
-  // pub(super) box_bvh_root: StorageBufferReadonlyDataView<[GeometryMetaInfo]>,
+  // pub(super) box_bvh_root: StorageBufferDataView<[GeometryMetaInfo]>,
   // content range to index indices
-  pub(super) tri_bvh_forest: StorageBufferReadonlyDataView<[DeviceBVHNode]>,
+  pub(super) tri_bvh_forest: StorageBufferDataView<[DeviceBVHNode]>,
   // // content range to index boxes
-  // pub(super) box_bvh_forest: StorageBufferReadonlyDataView<[DeviceBVHNode]>,
-  pub(super) indices_redirect: StorageBufferReadonlyDataView<[u32]>,
-  pub(super) indices: StorageBufferReadonlyDataView<[u32]>,
-  pub(super) vertices: StorageBufferReadonlyDataView<[f32]>,
-  // pub(super) boxes: StorageBufferReadonlyDataView<[f32]>,
+  // pub(super) box_bvh_forest: StorageBufferDataView<[DeviceBVHNode]>,
+  pub(super) indices_redirect: StorageBufferDataView<[u32]>,
+  pub(super) indices: StorageBufferDataView<[u32]>,
+  pub(super) vertices: StorageBufferDataView<[f32]>,
+  // pub(super) boxes: StorageBufferDataView<[f32]>,
 }
 
 impl GPUAccelerationStructureSystemCompImplInstance for NaiveSahBvhGpu {
@@ -32,21 +34,23 @@ impl GPUAccelerationStructureSystemCompImplInstance for NaiveSahBvhGpu {
     &self,
     compute_cx: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn GPUAccelerationStructureSystemCompImplInvocationTraversable> {
-    let tlas_bvh_root = compute_cx.bind_by(&self.tlas_bvh_root);
-    let tlas_bvh_forest = compute_cx.bind_by(&self.tlas_bvh_forest);
-    let tlas_data = compute_cx.bind_by(&self.tlas_data);
-    let tlas_bounding = compute_cx.bind_by(&self.tlas_bounding);
-    let blas_meta_info = compute_cx.bind_by(&self.blas_meta_info);
-    let tri_bvh_root = compute_cx.bind_by(&self.tri_bvh_root);
-    // let box_bvh_root = compute_cx.bind_by(&self.box_bvh_root);
-    let tri_bvh_forest = compute_cx.bind_by(&self.tri_bvh_forest);
-    // let box_bvh_forest = compute_cx.bind_by(&self.box_bvh_forest);
-    let indices_redirect = compute_cx.bind_by(&self.indices_redirect);
-    let indices = compute_cx.bind_by(&self.indices);
-    let vertices = compute_cx.bind_by(&self.vertices);
-    // let boxes = compute_cx.bind_by(&self.boxes);
+    let tlas_binding = compute_cx.bind_abstract_storage(&self.tlas_binding);
+    let tlas_bvh_root = compute_cx.bind_abstract_storage(&self.tlas_bvh_root);
+    let tlas_bvh_forest = compute_cx.bind_abstract_storage(&self.tlas_bvh_forest);
+    let tlas_data = compute_cx.bind_abstract_storage(&self.tlas_data);
+    let tlas_bounding = compute_cx.bind_abstract_storage(&self.tlas_bounding);
+    let blas_meta_info = compute_cx.bind_abstract_storage(&self.blas_meta_info);
+    let tri_bvh_root = compute_cx.bind_abstract_storage(&self.tri_bvh_root);
+    // let box_bvh_root = compute_cx.bind_abstract_storage(&self.box_bvh_root);
+    let tri_bvh_forest = compute_cx.bind_abstract_storage(&self.tri_bvh_forest);
+    // let box_bvh_forest = compute_cx.bind_abstract_storage(&self.box_bvh_forest);
+    let indices_redirect = compute_cx.bind_abstract_storage(&self.indices_redirect);
+    let indices = compute_cx.bind_abstract_storage(&self.indices);
+    let vertices = compute_cx.bind_abstract_storage(&self.vertices);
+    // let boxes = compute_cx.bind_abstract_storage(&self.boxes);
 
     let instance = NaiveSahBVHInvocationInstance {
+      tlas_binding,
       tlas_bvh_root,
       tlas_bvh_forest,
       tlas_data,
@@ -66,6 +70,7 @@ impl GPUAccelerationStructureSystemCompImplInstance for NaiveSahBvhGpu {
   }
 
   fn bind_pass(&self, builder: &mut BindingBuilder) {
+    builder.bind(&self.tlas_binding);
     builder.bind(&self.tlas_bvh_root);
     builder.bind(&self.tlas_bvh_forest);
     builder.bind(&self.tlas_data);
@@ -80,61 +85,27 @@ impl GPUAccelerationStructureSystemCompImplInstance for NaiveSahBvhGpu {
     builder.bind(&self.vertices);
     // builder.bind(&self.boxes);
   }
-
-  fn create_tlas_instance(&self) -> Box<dyn GPUAccelerationStructureSystemTlasCompImplInstance> {
-    Box::new(NaiveSahBvhGpuTlas {
-      tlas_data: self.tlas_data.clone(),
-    })
-  }
 }
 
 pub struct NaiveSahBVHInvocationInstance {
-  tlas_bvh_root: ShaderReadonlyPtrOf<[u32]>,
-  tlas_bvh_forest: ShaderReadonlyPtrOf<[DeviceBVHNode]>,
-  tlas_data: ShaderReadonlyPtrOf<[TopLevelAccelerationStructureSourceDeviceInstance]>,
-  tlas_bounding: ShaderReadonlyPtrOf<[TlasBounding]>,
-  blas_meta_info: ShaderReadonlyPtrOf<[BlasMetaInfo]>,
-  tri_bvh_root: ShaderReadonlyPtrOf<[GeometryMetaInfo]>,
-  // box_bvh_root: ReadonlyStorageNode<[GeometryMetaInfo]>,
-  tri_bvh_forest: ShaderReadonlyPtrOf<[DeviceBVHNode]>,
-  // box_bvh_forest: ReadonlyStorageNode<[DeviceBVHNode]>,
-  indices_redirect: ShaderReadonlyPtrOf<[u32]>,
-  indices: ShaderReadonlyPtrOf<[u32]>,
-  vertices: ShaderReadonlyPtrOf<[f32]>,
-  // boxes: ReadonlyStorageNode<[f32]>,
-}
-
-#[derive(Clone)]
-pub(super) struct NaiveSahBvhGpuTlas {
-  pub(super) tlas_data:
-    StorageBufferReadonlyDataView<[TopLevelAccelerationStructureSourceDeviceInstance]>,
-}
-impl GPUAccelerationStructureSystemTlasCompImplInstance for NaiveSahBvhGpuTlas {
-  fn build_shader(
-    &self,
-    compute_cx: &mut ShaderComputePipelineBuilder,
-  ) -> Box<dyn GPUAccelerationStructureSystemTlasCompImplInvocation> {
-    let tlas_data = compute_cx.bind_by(&self.tlas_data);
-    Box::new(NaiveSahBVHTlasInvocationInstance { tlas_data })
-  }
-  fn bind_pass(&self, builder: &mut BindingBuilder) {
-    builder.bind(&self.tlas_data);
-  }
-}
-pub struct NaiveSahBVHTlasInvocationInstance {
-  tlas_data: ShaderReadonlyPtrOf<[TopLevelAccelerationStructureSourceDeviceInstance]>,
-}
-impl GPUAccelerationStructureSystemTlasCompImplInvocation for NaiveSahBVHTlasInvocationInstance {
-  fn index_tlas(
-    &self,
-    idx: Node<u32>,
-  ) -> ShaderReadonlyPtrOf<TopLevelAccelerationStructureSourceDeviceInstance> {
-    self.tlas_data.index(idx)
-  }
+  tlas_binding: ShaderPtrOf<[u32]>,
+  tlas_bvh_root: ShaderPtrOf<[u32]>,
+  tlas_bvh_forest: ShaderPtrOf<[DeviceBVHNode]>,
+  tlas_data: ShaderPtrOf<[TopLevelAccelerationStructureSourceDeviceInstance]>,
+  tlas_bounding: ShaderPtrOf<[TlasBounding]>,
+  blas_meta_info: ShaderPtrOf<[BlasMetaInfo]>,
+  tri_bvh_root: ShaderPtrOf<[GeometryMetaInfo]>,
+  // box_bvh_root: ShaderPtrOf<[GeometryMetaInfo]>,
+  tri_bvh_forest: ShaderPtrOf<[DeviceBVHNode]>,
+  // box_bvh_forest: ShaderPtrOf<[DeviceBVHNode]>,
+  indices_redirect: ShaderPtrOf<[u32]>,
+  indices: ShaderPtrOf<[u32]>,
+  vertices: ShaderPtrOf<[f32]>,
+  // boxes: ShaderPtrOf<[f32]>,
 }
 
 struct TraverseBvhIteratorGpu {
-  bvh: ShaderReadonlyPtrOf<[DeviceBVHNode]>,
+  bvh: ShaderPtrOf<[DeviceBVHNode]>,
   ray: Node<Ray>,
   node_idx: ShaderPtrOf<u32>,
   ray_range: RayRange,
@@ -173,8 +144,8 @@ impl ShaderIterator for TraverseBvhIteratorGpu {
 /// returns iterator item = tlas_data idx
 fn traverse_tlas_gpu(
   root: Node<u32>,
-  bvh: ShaderReadonlyPtrOf<[DeviceBVHNode]>,
-  tlas_bounding: ShaderReadonlyPtrOf<[TlasBounding]>,
+  bvh: ShaderPtrOf<[DeviceBVHNode]>,
+  tlas_bounding: ShaderPtrOf<[TlasBounding]>,
   ray: Node<Ray>,
   ray_range: RayRange,
 ) -> impl ShaderIterator<Item = Node<u32>> {
@@ -226,7 +197,8 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
 
     let world_ray_range = RayRange::new(trace_payload.range);
 
-    let tlas_bvh_root = self.tlas_bvh_root.index(trace_payload.tlas_idx).load();
+    let tlas_selected = self.tlas_binding.index(trace_payload.tlas_idx).load();
+    let tlas_bvh_root = self.tlas_bvh_root.index(tlas_selected).load();
 
     let tlas_idx_iter = traverse_tlas_gpu(
       tlas_bvh_root, // tlas_bvh_root == INVALID_NEXT checked inside TraverseBvhIteratorGpu
@@ -309,6 +281,7 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NaiveSahBVH
   }
 }
 
+#[allow(unused)]
 struct NaiveIntersectReporter<'a> {
   launch_info: RayLaunchInfo,
   world_ray: WorldRayInfo,
@@ -439,8 +412,8 @@ struct RayBlas {
 
 fn iterate_tlas_blas_gpu(
   tlas_iter: impl ShaderIterator<Item = Node<u32>>,
-  tlas_data: ShaderReadonlyPtrOf<[TopLevelAccelerationStructureSourceDeviceInstance]>,
-  blas_data: ShaderReadonlyPtrOf<[BlasMetaInfo]>,
+  tlas_data: ShaderPtrOf<[TopLevelAccelerationStructureSourceDeviceInstance]>,
+  blas_data: ShaderPtrOf<[BlasMetaInfo]>,
   ray: Node<Ray>,
 ) -> impl ShaderIterator<Item = Node<RayBlas>> {
   tlas_iter.map(move |idx: Node<u32>| {
@@ -455,7 +428,6 @@ fn iterate_tlas_blas_gpu(
     let blas_ray_origin = blas_ray_origin.xyz() / blas_ray_origin.w().splat();
     let blas_ray_direction = tlas_data.transform_inv.shrink_to_3() * ray.direction;
     let distance_scaling = blas_ray_direction.length();
-    // let blas_ray_range = ray_range.clone_with_scaling(distance_scaling);
     let blas_ray_direction = blas_ray_direction.normalize();
 
     let blas_ray = Ray::construct(RayShaderAPIInstance {
@@ -463,7 +435,6 @@ fn iterate_tlas_blas_gpu(
       flags: ray.flags,
       direction: blas_ray_direction,
       mask: ray.mask,
-      // range: val(vec2(0., 0.)), // not used, calculated from
     });
 
     let blas_idx = tlas_data.acceleration_structure_handle;
@@ -482,16 +453,16 @@ fn iterate_tlas_blas_gpu(
 fn intersect_blas_gpu(
   user_defined_payload: U32BufferLoadStoreSource,
   blas_iter: impl ShaderIterator<Item = Node<RayBlas>>,
-  tlas_data: ShaderReadonlyPtrOf<[TopLevelAccelerationStructureSourceDeviceInstance]>,
-  tri_bvh_root: ShaderReadonlyPtrOf<[GeometryMetaInfo]>,
-  tri_bvh_forest: ShaderReadonlyPtrOf<[DeviceBVHNode]>,
+  tlas_data: ShaderPtrOf<[TopLevelAccelerationStructureSourceDeviceInstance]>,
+  tri_bvh_root: ShaderPtrOf<[GeometryMetaInfo]>,
+  tri_bvh_forest: ShaderPtrOf<[DeviceBVHNode]>,
   // _box_bvh_root: ReadonlyStorageNode<[GeometryMetaInfo]>,
   // _box_bvh_forest: ReadonlyStorageNode<[DeviceBVHNode]>,
-  indices_redirect: ShaderReadonlyPtrOf<[u32]>,
-  indices: ShaderReadonlyPtrOf<[u32]>,
-  vertices: ShaderReadonlyPtrOf<[f32]>,
+  indices_redirect: ShaderPtrOf<[u32]>,
+  indices: ShaderPtrOf<[u32]>,
+  vertices: ShaderPtrOf<[f32]>,
   // _boxes: ReadonlyStorageNode<[f32]>,
-  intersect: &dyn Fn(&RayIntersectCtx, &dyn IntersectionReporter),
+  _intersect: &dyn Fn(&RayIntersectCtx, &dyn IntersectionReporter),
   any_hit: &dyn Fn(&RayAnyHitCtx) -> Node<RayAnyHitBehavior>,
 
   launch_info: RayLaunchInfo,
@@ -541,7 +512,7 @@ fn intersect_blas_gpu(
 
           fn read_vec3<T: ShaderSizedValueNodeType>(
             idx: Node<u32>,
-            array: &ShaderReadonlyPtrOf<[T]>,
+            array: &ShaderPtrOf<[T]>,
           ) -> [Node<T>; 3] {
             let i = idx * val(3);
             let v0 = array.index(i).load();
@@ -613,25 +584,34 @@ fn intersect_blas_gpu(
               let hit_ctx = hit_ctx_curr.load(tlas_data);
               let end_search_ = end_search.clone();
 
+              let attribute = BuiltInTriangleHitAttributeShaderAPIInstance {
+                bary_coord: result.zw(),
+              }
+              .construct();
+
+              // just to bundle data with no runtime cost. any_hit shader does not run.
+              let any_hit_ctx = RayAnyHitCtx {
+                launch_info,
+                world_ray,
+                hit_ctx: hit_ctx.clone(),
+                hit: HitInfo {
+                  hit_kind: hit_kind.load(),
+                  hit_distance: world_distance,
+                  hit_attribute: attribute,
+                },
+                payload: user_defined_payload.clone(),
+              };
+
               if_by(is_opaque, || {
-                // opaque -> invoke any_hit directly
-
-                let attribute = BuiltInTriangleHitAttributeShaderAPIInstance {
-                  bary_coord: result.zw(),
-                }
-                .construct();
-
-                let any_hit_ctx = RayAnyHitCtx {
-                  launch_info,
-                  world_ray,
-                  hit_ctx: hit_ctx.clone(),
-                  hit: HitInfo {
-                    hit_kind: hit_kind.load(),
-                    hit_distance: world_distance,
-                    hit_attribute: attribute,
-                  },
-                  payload: user_defined_payload.clone(),
-                };
+                // opaque -> commit
+                closest_hit_var.test_and_store(&any_hit_ctx.hit, || {
+                  closest_hit_ctx_var.store(&any_hit_ctx.hit_ctx);
+                  local_ray_range.update_world_far(world_distance);
+                  if_by(flags.end_search_on_hit(), || end_search.store(true));
+                });
+              })
+              .else_by(|| {
+                // transparent trangle -> anyhit, then commit
                 resolve_any_hit(
                   |_| {
                     local_ray_range.update_world_far(world_distance);
@@ -643,29 +623,6 @@ fn intersect_blas_gpu(
                   closest_hit_ctx_var,
                   closest_hit_var,
                 );
-              })
-              .else_by(move || {
-                // non-opaque -> invoke intersect
-                let intersect_ctx = RayIntersectCtx {
-                  launch_info,
-                  world_ray,
-                  hit_ctx: hit_ctx.clone(),
-                };
-                // intersect will invoke any_hit and then update closest_hit.
-                intersect(
-                  &intersect_ctx,
-                  &NaiveIntersectReporter {
-                    launch_info,
-                    world_ray,
-                    hit_ctx,
-                    closest_hit_ctx_info: closest_hit_ctx_var,
-                    closest_hit_info: closest_hit_var,
-                    ray_range: local_ray_range.clone(),
-                    any_hit,
-                    on_end_search: Box::new(move || end_search.store(true)),
-                    user_defined_payload,
-                  },
-                );
               });
 
               if_by(end_search_.load(), || tri_loop.do_break());
@@ -675,31 +632,6 @@ fn intersect_blas_gpu(
         });
       },
     );
-
-    // ForRange::new(blas.box_root_range).for_each(|box_root_idx, _cx| {
-    //   let geometry = tri_bvh_root.index(box_root_idx).load().expand();
-    //   let root = geometry.bvh_root_idx;
-    //   let geometry_id = geometry.geometry_idx;
-    //   let primitive_start = geometry.primitive_start;
-    //
-    //   let bvh_iter = TraverseBvhIteratorGpu {
-    //     bvh: box_bvh_forest,
-    //     ray,
-    //     node_idx: root.make_local_var(),
-    //   };
-    //   let iter = bvh_iter.flat_map(ForRange::new); // box index
-    //
-    //   iter.for_each(|box_idx, _cx| {
-    //     let start = box_idx * val(2);
-    //     let min = boxes.index(indices.index(start).load()).load();
-    //     let max = boxes.index(indices.index(start + val(1)).load()).load();
-    //
-    //     let hit = intersect_ray_aabb_gpu(ray, min, max);
-    //     if_by(hit, || {
-    //       // todo call intersection with anyhit, remember distance_scaling
-    //     });
-    //   });
-    // });
 
     if_by(end_search____.load(), || blas_loop.do_break());
   });
@@ -731,7 +663,7 @@ impl Default for HitCtxInfoVar {
 impl HitCtxInfoVar {
   fn load(
     &self,
-    tlas_data: ShaderReadonlyPtrOf<[TopLevelAccelerationStructureSourceDeviceInstance]>,
+    tlas_data: ShaderPtrOf<[TopLevelAccelerationStructureSourceDeviceInstance]>,
   ) -> HitCtxInfo {
     if_by(self.instance_id.load().equals(val(u32::MAX)), || {
       self.instance_id.store(val(0));
@@ -744,8 +676,8 @@ impl HitCtxInfoVar {
       geometry_id: self.geometry_id.load(),
       instance_sbt_offset: self.instance_sbt_offset.load(),
       instance_custom_id: self.instance_custom_id.load(),
-      object_to_world: tlas.transform(),
-      world_to_object: tlas.transform_inv(),
+      object_to_world: tlas.transform().load(),
+      world_to_object: tlas.transform_inv().load(),
       object_space_ray: ShaderRay {
         origin: self.object_space_ray_origin.load(),
         direction: self.object_space_ray_direction.load(),

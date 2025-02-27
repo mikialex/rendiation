@@ -40,14 +40,17 @@ use futures::{Future, FutureExt};
 pub use gpu::Features;
 // note: we can not just use * because it cause core conflict
 pub use gpu::{
-  util, util::DeviceExt, vertex_attr_array, AddressMode, Backends, BindGroup, BindGroupDescriptor,
-  BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindingResource, Buffer,
-  BufferAsyncError, Color, CommandEncoder, CompareFunction, CreateSurfaceError, Device, FilterMode,
-  FragmentState, IndexFormat, Limits, LoadOp, Operations, PipelineLayoutDescriptor,
-  PowerPreference, Queue, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
-  RenderPipelineDescriptor, RequestDeviceError, Sampler, SamplerBorderColor, SamplerDescriptor,
-  ShaderModuleDescriptor, ShaderSource, ShaderStages, StoreOp, TextureView, TextureViewDescriptor,
-  VertexBufferLayout, VertexState,
+  util, util::DeviceExt, vertex_attr_array, AccelerationStructureFlags,
+  AccelerationStructureGeometryFlags, AccelerationStructureUpdateMode, AddressMode, Backends,
+  BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
+  BindingResource, Blas, BlasBuildEntry, BlasGeometries, BlasGeometrySizeDescriptors,
+  BlasTriangleGeometry, BlasTriangleGeometrySizeDescriptor, Buffer, BufferAsyncError, Color,
+  CommandEncoder, CompareFunction, CreateSurfaceError, Device, FilterMode, FragmentState,
+  IndexFormat, Limits, LoadOp, Operations, PipelineLayoutDescriptor, PowerPreference, Queue,
+  RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
+  RequestDeviceError, Sampler, SamplerBorderColor, SamplerDescriptor, ShaderModuleDescriptor,
+  ShaderSource, ShaderStages, StoreOp, TextureView, TextureViewDescriptor, Tlas, TlasBuildEntry,
+  TlasInstance, TlasPackage, VertexBufferLayout, VertexState,
 };
 use heap_tools::*;
 use instance_poller::GPUInstance;

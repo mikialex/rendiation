@@ -22,6 +22,7 @@ impl PrimitiveShaderValueType {
       PrimitiveShaderValueType::Mat2Float32 => ValueKind::Float,
       PrimitiveShaderValueType::Mat3Float32 => ValueKind::Float,
       PrimitiveShaderValueType::Mat4Float32 => ValueKind::Float,
+      PrimitiveShaderValueType::Mat4x3Float32 => ValueKind::Float,
     }
   }
 
@@ -53,6 +54,7 @@ impl PrimitiveShaderValueType {
         }
       }
       PrimitiveShaderValueType::Mat4Float32 => 16,
+      PrimitiveShaderValueType::Mat4x3Float32 => 12,
     }
   }
 
@@ -77,6 +79,10 @@ impl PrimitiveShaderValueType {
       PrimitiveShaderValueType::Mat4Float32 => (
         4,
         ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Vec4Float32),
+      ),
+      PrimitiveShaderValueType::Mat4x3Float32 => (
+        3,
+        ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Vec3Float32),
       ),
       _ => return None,
     }

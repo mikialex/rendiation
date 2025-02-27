@@ -100,3 +100,5 @@ map_shader_ty!(
   GPUMultiSample2DDepthTextureView,
   ShaderMultiSampleDepthTexture2D
 );
+
+map_shader_ty!(GPUTlasView, ShaderAccelerationStructure);

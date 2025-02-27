@@ -21,6 +21,7 @@ pub enum PrimitiveShaderValueType {
   Mat2Float32,
   Mat3Float32,
   Mat4Float32,
+  Mat4x3Float32,
 }
 
 impl PrimitiveShaderValueType {
@@ -56,6 +57,7 @@ pub enum PrimitiveShaderValue {
   Mat2Float32(Mat2<f32>),
   Mat3Float32(Mat3<f32>),
   Mat4Float32(Mat4<f32>),
+  Mat4x3Float32(Mat4x3<f32>),
 }
 
 impl PrimitiveShaderValue {
@@ -80,6 +82,7 @@ impl PrimitiveShaderValue {
       PrimitiveShaderValue::Mat2Float32(v) => val(v).handle(),
       PrimitiveShaderValue::Mat3Float32(v) => val(v).handle(),
       PrimitiveShaderValue::Mat4Float32(v) => val(v).handle(),
+      PrimitiveShaderValue::Mat4x3Float32(v) => val(v).handle(),
     }
   }
 }
@@ -100,6 +103,7 @@ impl From<PrimitiveShaderValue> for PrimitiveShaderValueType {
       PrimitiveShaderValue::Mat2Float32(_) => PrimitiveShaderValueType::Mat2Float32,
       PrimitiveShaderValue::Mat3Float32(_) => PrimitiveShaderValueType::Mat3Float32,
       PrimitiveShaderValue::Mat4Float32(_) => PrimitiveShaderValueType::Mat4Float32,
+      PrimitiveShaderValue::Mat4x3Float32(_) => PrimitiveShaderValueType::Mat4x3Float32,
       PrimitiveShaderValue::Vec2Uint32(_) => PrimitiveShaderValueType::Vec2Uint32,
       PrimitiveShaderValue::Vec3Uint32(_) => PrimitiveShaderValueType::Vec3Uint32,
       PrimitiveShaderValue::Vec4Uint32(_) => PrimitiveShaderValueType::Vec4Uint32,
@@ -197,6 +201,7 @@ mod impls {
   primitive_ty!(Mat2<f32>, PrimitiveShaderValueType::Mat2Float32,  PrimitiveShaderValue::Mat2Float32, Mat2);
   primitive_ty!(Mat3<f32>, PrimitiveShaderValueType::Mat3Float32,  PrimitiveShaderValue::Mat3Float32, Mat3);
   primitive_ty!(Mat4<f32>, PrimitiveShaderValueType::Mat4Float32,  PrimitiveShaderValue::Mat4Float32, Mat4);
+  primitive_ty!(Mat4x3<f32>, PrimitiveShaderValueType::Mat4x3Float32,  PrimitiveShaderValue::Mat4x3Float32, Mat4x3);
 }
 
 sg_node_impl!(
@@ -399,6 +404,11 @@ macro_rules! swizzle_mat {
 
 swizzle_mat!(f32);
 
+swizzle!(Mat4x3<f32>, Vec3<f32>, x);
+swizzle!(Mat4x3<f32>, Vec3<f32>, y);
+swizzle!(Mat4x3<f32>, Vec3<f32>, z);
+swizzle!(Mat4x3<f32>, Vec3<f32>, w);
+
 macro_rules! num_convert {
   ($src: ty, $dst: ty) => {
     paste::item! {
@@ -577,6 +587,23 @@ impl Node<Mat4<f32>> {
     let c3 = self.z();
 
     (c1.xyz(), c2.xyz(), c3.xyz()).into()
+  }
+}
+
+impl Node<Mat4x3<f32>> {
+  pub fn expand_to_4(self) -> Node<Mat4<f32>> {
+    let c1 = self.x();
+    let c2 = self.y();
+    let c3 = self.z();
+    let c4 = self.w();
+
+    (
+      (c1, val(0.)).into(),
+      (c2, val(0.)).into(),
+      (c3, val(0.)).into(),
+      (c4, val(1.)).into(),
+    )
+      .into()
   }
 }
 

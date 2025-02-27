@@ -2,7 +2,7 @@ use core::num::NonZeroU32;
 use std::any::Any;
 
 use fast_hash_collection::*;
-use naga::Span;
+use naga::{RayQueryFunction, Span};
 use rendiation_shader_api::*;
 
 pub struct ShaderAPINagaImpl {
@@ -277,6 +277,8 @@ impl ShaderAPINagaImpl {
             class,
           }
         }
+        &ShaderValueSingleType::AccelerationStructure => naga::TypeInner::AccelerationStructure,
+        &ShaderValueSingleType::RayQuery => naga::TypeInner::RayQuery,
       },
       ShaderValueType::BindingArray { count, ty } => naga::TypeInner::BindingArray {
         base: self.register_ty_impl(ShaderValueType::Single(ty.clone()), layout),
@@ -1103,6 +1105,40 @@ impl ShaderAPI for ShaderAPINagaImpl {
             PrimitiveShaderValue::Mat4Float32(v) => {
               impl_p!(v, f32, 16, F32);
             }
+            PrimitiveShaderValue::Mat4x3Float32(v) => {
+              impl_p!(v, f32, 12, F32);
+            }
+          }
+        }
+        ShaderNodeExpr::RayQueryProceed { ray_query } => {
+          let r = self
+            .building_fn
+            .last_mut()
+            .unwrap()
+            .expressions
+            .append(naga::Expression::RayQueryProceedResult, Span::UNDEFINED);
+          let r_handle = self.make_new_handle();
+          self.expression_mapping.insert(r_handle, r);
+
+          self.push_top_statement(naga::Statement::RayQuery {
+            query: self.get_expression(ray_query),
+            fun: RayQueryFunction::Proceed { result: r },
+          });
+
+          return r_handle;
+        }
+        ShaderNodeExpr::RayQueryGetCandidateIntersection { ray_query } => {
+          self.module.generate_ray_intersection_type();
+          naga::Expression::RayQueryGetIntersection {
+            query: self.get_expression(ray_query),
+            committed: false,
+          }
+        }
+        ShaderNodeExpr::RayQueryGetCommitedIntersection { ray_query } => {
+          self.module.generate_ray_intersection_type();
+          naga::Expression::RayQueryGetIntersection {
+            query: self.get_expression(ray_query),
+            committed: true,
           }
         }
       };
@@ -1141,6 +1177,13 @@ impl ShaderAPI for ShaderAPINagaImpl {
     self.push_top_statement(st);
   }
 
+  fn load(&mut self, source: ShaderNodeRawHandle) -> ShaderNodeRawHandle {
+    let ex = naga::Expression::Load {
+      pointer: self.get_expression(source),
+    };
+    self.make_expression_inner(ex)
+  }
+
   fn texture_store(&mut self, store: ShaderTextureStore) {
     let st = naga::Statement::ImageStore {
       image: self.get_expression(store.image),
@@ -1151,12 +1194,41 @@ impl ShaderAPI for ShaderAPINagaImpl {
     self.push_top_statement(st);
   }
 
-  fn load(&mut self, source: ShaderNodeRawHandle) -> ShaderNodeRawHandle {
-    let ex = naga::Expression::Load {
-      pointer: self.get_expression(source),
-    };
-    self.make_expression_inner(ex)
+  fn ray_query_initialize(
+    &mut self,
+    query: ShaderNodeRawHandle,
+    tlas: BindingNode<ShaderAccelerationStructure>,
+    ray_desc: ShaderRayDesc,
+  ) {
+    let ray_desc_type = self.module.generate_ray_desc_type();
+
+    let ray_desc_raw = self.make_expression_inner(naga::Expression::Compose {
+      ty: ray_desc_type,
+      components: vec![
+        self.get_expression(ray_desc.flags),
+        self.get_expression(ray_desc.cull_mask),
+        self.get_expression(ray_desc.t_min),
+        self.get_expression(ray_desc.t_max),
+        self.get_expression(ray_desc.origin),
+        self.get_expression(ray_desc.dir),
+      ],
+    });
+
+    self.push_top_statement(naga::Statement::RayQuery {
+      query: self.get_expression(query),
+      fun: RayQueryFunction::Initialize {
+        acceleration_structure: self.get_expression(tlas.handle()),
+        descriptor: self.get_expression(ray_desc_raw),
+      },
+    });
   }
+  fn ray_query_terminate(&mut self, query: ShaderNodeRawHandle) {
+    self.push_top_statement(naga::Statement::RayQuery {
+      query: self.get_expression(query),
+      fun: RayQueryFunction::Terminate,
+    });
+  }
+  // todo ray query confirm hit
 
   fn push_scope(&mut self) {
     self
@@ -1438,7 +1510,7 @@ fn map_primitive_type(t: PrimitiveShaderValueType) -> naga::TypeInner {
   
 
   match t {
-    PrimitiveShaderValueType::Bool => Scalar(naga::Scalar::BOOL),
+    Bool => Scalar(naga::Scalar::BOOL),
     Int32 => Scalar(naga::Scalar::I32),
     Uint32 => Scalar(naga::Scalar::U32),
     Float32 => Scalar(naga::Scalar::F32),
@@ -1457,6 +1529,7 @@ fn map_primitive_type(t: PrimitiveShaderValueType) -> naga::TypeInner {
     Mat2Float32 => Matrix { columns: Bi, rows: Bi, scalar: naga::Scalar::F32 },
     Mat3Float32 => Matrix { columns: Tri, rows: Tri, scalar: naga::Scalar::F32 },
     Mat4Float32 => Matrix { columns: Quad, rows: Quad, scalar: naga::Scalar::F32 },
+    Mat4x3Float32 => Matrix { columns: Quad, rows: Tri, scalar: naga::Scalar::F32 },
   }
 }
 

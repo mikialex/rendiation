@@ -227,7 +227,7 @@ impl<T: Sized> Mat4<T> {
 }
 
 impl<T: Copy> Mat4<T> {
-  pub fn new_from_colum(c1: [T; 4], c2: [T; 4], c3: [T; 4], c4: [T; 4]) -> Self {
+  pub fn new_from_column(c1: [T; 4], c2: [T; 4], c3: [T; 4], c4: [T; 4]) -> Self {
     #[rustfmt::skip]
     Self {
       a1: c1[0], a2: c1[1], a3: c1[2], a4: c1[3],
@@ -478,6 +478,18 @@ where
       b1: T::zero(), b2: T::one(),  b3: T::zero(), b4: T::zero(),
       c1: T::zero(), c2: T::zero(), c3: T::one(),  c4: T::zero(),
       d1: T::zero(), d2: T::zero(), d3: T::zero(), d4: T::one(),
+    }
+  }
+}
+
+impl<T: Scalar> From<Mat4x3<T>> for Mat4<T> {
+  fn from(m: Mat4x3<T>) -> Self {
+    #[rustfmt::skip]
+    Self {
+      a1: m.a1, a2: m.a2, a3: m.a3, a4: T::zero(),
+      b1: m.b1, b2: m.b2, b3: m.b3, b4: T::zero(),
+      c1: m.c1, c2: m.c2, c3: m.c3, c4: T::zero(),
+      d1: m.d1, d2: m.d2, d3: m.d3, d4: T::one(),
     }
   }
 }

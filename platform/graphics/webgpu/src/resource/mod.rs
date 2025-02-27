@@ -1,5 +1,5 @@
-pub use texture::*;
 mod texture;
+pub use texture::*;
 
 mod buffer;
 pub use buffer::*;
@@ -9,6 +9,9 @@ pub use array::*;
 
 mod sampler;
 pub use sampler::*;
+
+mod acceleration_structure;
+pub use acceleration_structure::*;
 
 mod defer_explicit_destroy;
 pub use defer_explicit_destroy::*;

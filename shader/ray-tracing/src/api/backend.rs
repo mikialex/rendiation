@@ -125,7 +125,14 @@ pub enum BottomLevelAccelerationStructureBuildBuffer {
 }
 
 pub trait GPUAccelerationStructureSystemProvider: DynClone + Send + Sync {
-  fn create_comp_instance(&self) -> Box<dyn GPUAccelerationStructureSystemCompImplInstance>;
+  fn create_comp_instance(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+  ) -> Box<dyn GPUAccelerationStructureSystemCompImplInstance>;
+
+  fn bind_tlas_max_len(&self) -> u32;
+  fn bind_tlas(&self, tlas: &[TlasHandle]);
+
   fn create_top_level_acceleration_structure(
     &self,
     source: &[TopLevelAccelerationStructureSourceInstance],
@@ -145,6 +152,9 @@ impl Clone for Box<dyn GPUAccelerationStructureSystemProvider> {
     dyn_clone::clone_box(&**self)
   }
 }
+
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub struct TlasIdx(pub u32);
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct TlasHandle(pub u32);

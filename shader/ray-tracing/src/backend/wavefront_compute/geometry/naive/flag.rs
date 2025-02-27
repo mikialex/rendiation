@@ -26,6 +26,7 @@ impl TraverseFlags {
     unsafe { std::mem::transmute(ray_flag) }
   }
 
+  // todo check override priority
   pub fn merge_geometry_instance_flag(
     mut ray_flag: TraverseFlags,
     geometry_instance_flag: GeometryInstanceFlags,
