@@ -188,6 +188,7 @@ impl Widget for Viewer {
 
     access_cx!(cx, draw_target_canvas, RenderTargetView);
     self.draw_canvas(draw_target_canvas);
+    self.rendering.tick_frame();
   }
 
   fn clean_up(&mut self, cx: &mut DynCx) {
@@ -307,7 +308,7 @@ impl Viewer {
 
     self.on_demand_draw.update_once(|cx| {
       // println!("draw");
-      self.rendering.render(canvas.clone(), &self.scene, cx)
+      self.rendering.render(canvas, &self.scene, cx)
     });
   }
 }

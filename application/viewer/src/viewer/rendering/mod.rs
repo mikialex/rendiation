@@ -120,6 +120,10 @@ impl Viewer3dRenderingCtx {
     &self.gpu
   }
 
+  pub fn tick_frame(&mut self) {
+    self.pool.tick();
+  }
+
   pub fn new(
     gpu: GPU,
     ndc: ViewerNDC,
@@ -153,8 +157,8 @@ impl Viewer3dRenderingCtx {
       lighting,
       material_defer_lighting_supports: DeferLightingMaterialRegistry::default()
         .register_material_impl::<PbrSurfaceEncodeDecode>(),
+      pool: init_attachment_pool(&gpu),
       gpu,
-      pool: Default::default(),
       on_encoding_finished: Default::default(),
       expect_read_back_for_next_render_result: false,
       current_camera_view_projection_inv: Default::default(),
@@ -310,7 +314,7 @@ impl Viewer3dRenderingCtx {
   }
 
   pub fn resize_view(&mut self) {
-    self.pool.clear();
+    self.pool.clear_all_cached();
   }
 
   pub fn update_next_render_camera_info(&mut self, camera_view_projection_inv: Mat4<f32>) {
@@ -318,7 +322,12 @@ impl Viewer3dRenderingCtx {
   }
 
   #[instrument(name = "frame rendering", skip_all)]
-  pub fn render(&mut self, target: RenderTargetView, content: &Viewer3dSceneCtx, cx: &mut Context) {
+  pub fn render(
+    &mut self,
+    target: &RenderTargetView,
+    content: &Viewer3dSceneCtx,
+    cx: &mut Context,
+  ) {
     let span = span!(Level::INFO, "update all rendering resource");
     let mut resource = self.rendering_resource.poll_update_all(cx);
     drop(span);
@@ -350,12 +359,9 @@ impl Viewer3dRenderingCtx {
       let ao_result = rtx_ao_renderer.render(&mut ctx, content.scene, content.main_camera);
 
       pass("copy rtx ao into final target")
-        .with_color(target.clone(), load())
+        .with_color(target, load())
         .render_ctx(&mut ctx)
-        .by(&mut copy_frame(
-          AttachmentView::from_any_view(ao_result),
-          None,
-        ));
+        .by(&mut copy_frame(RenderTargetView::Texture(ao_result), None));
     } else {
       let lighting = self.lighting.prepare_and_create_impl(
         &mut resource,
@@ -377,10 +383,10 @@ impl Viewer3dRenderingCtx {
         &self.material_defer_lighting_supports,
       );
 
-      let entity_id = entity_id.create_default_2d_view();
+      let entity_id = entity_id.expect_standalone_texture_view();
       self
         .picker
-        .read_new_frame_id_buffer(&entity_id, &self.gpu, &mut ctx.encoder);
+        .read_new_frame_id_buffer(entity_id, &self.gpu, &mut ctx.encoder);
       //
     }
 
@@ -392,7 +398,7 @@ impl Viewer3dRenderingCtx {
         .with_color(target, load())
         .render_ctx(&mut ctx)
         .by(&mut rendiation_texture_gpu_process::copy_frame(
-          AttachmentView::from_any_view(render_target.clone()),
+          render_target.clone(),
           None,
         ));
     }
@@ -422,37 +428,33 @@ pub enum ViewerRenderResultReadBackErr {
 
 impl ViewRenderedState {
   async fn read(self) -> Result<ReadableTextureBuffer, ViewerRenderResultReadBackErr> {
-    match self.target {
-      RenderTargetView::Texture(tex) => {
-        // I have to write this, because I don't know why compiler can't known the encoder is
-        // dropped and will not across the await point
-        let buffer = {
-          let mut encoder = self.device.create_encoder();
-
-          let buffer = encoder.read_texture_2d(
-            &self.device,
-            &tex.resource.clone().try_into().unwrap(),
-            ReadRange {
-              size: Size::from_u32_pair_min_one((
-                tex.resource.desc.size.width,
-                tex.resource.desc.size.height,
-              )),
-              offset_x: 0,
-              offset_y: 0,
-            },
-          );
-          self.queue.submit_encoder(encoder);
-          buffer
-        };
-
-        buffer.await.map_err(ViewerRenderResultReadBackErr::Gpu)
-      }
+    let tex = match self.target {
+      RenderTargetView::Texture(tex) => tex.clone(),
+      RenderTargetView::ReusedTexture(tex) => tex.item().clone(),
       RenderTargetView::SurfaceTexture { .. } => {
         // note: the usage of surface texture could only contains TEXTURE_BINDING, so it's impossible
         // to do any read back from it. the upper layer should be draw content into temp texture for read back
         // and copy back to surface.
-        Err(ViewerRenderResultReadBackErr::UnableToReadSurfaceTexture)
+        return Err(ViewerRenderResultReadBackErr::UnableToReadSurfaceTexture);
       }
-    }
+    };
+
+    let mut encoder = self.device.create_encoder();
+
+    let buffer = encoder.read_texture_2d(
+      &self.device,
+      &tex.resource.clone().try_into().unwrap(),
+      ReadRange {
+        size: Size::from_u32_pair_min_one((
+          tex.resource.desc.size.width,
+          tex.resource.desc.size.height,
+        )),
+        offset_x: 0,
+        offset_y: 0,
+      },
+    );
+    self.queue.submit_encoder(encoder);
+
+    buffer.await.map_err(ViewerRenderResultReadBackErr::Gpu)
   }
 }

@@ -79,7 +79,7 @@ impl Default for SSAOParameter {
 
 pub struct AOComputer<'a> {
   reverse_depth: bool,
-  depth: AttachmentView<&'a Attachment>,
+  depth: &'a RenderTargetView,
   parameter: &'a SSAO,
   reproject: &'a UniformBufferCachedDataView<ReprojectInfo>,
 }
@@ -90,7 +90,7 @@ impl ShaderHashProvider for AOComputer<'_> {
 
 impl ShaderPassBuilder for AOComputer<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.depth);
+    ctx.binding.bind(self.depth);
     ctx.binding.bind(&self.parameter.parameters);
     ctx.binding.bind(&self.parameter.samples);
     ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
@@ -178,25 +178,25 @@ impl SSAO {
   pub fn draw(
     &self,
     ctx: &mut FrameCtx,
-    depth: &Attachment,
+    depth: &RenderTargetView,
     reproject: &UniformBufferCachedDataView<ReprojectInfo>,
     reverse_depth: bool,
-  ) -> Attachment {
+  ) -> RenderTargetView {
     self.parameters.mutate(|p| p.noise_jit = rand());
     self.parameters.upload(&ctx.gpu.queue);
 
-    let mut ao_result = attachment()
+    let ao_result = attachment()
       .sizer(ratio_sizer(0.5)) // half resolution!
       .format(TextureFormat::Rgba8Unorm) // todo single channel
       .request(ctx);
 
     pass("ssao-compute")
-      .with_color(ao_result.write(), load())
+      .with_color(&ao_result, load())
       .render_ctx(ctx)
       .by(
         &mut AOComputer {
           reproject,
-          depth: depth.read(),
+          depth,
           parameter: self,
           reverse_depth,
         }

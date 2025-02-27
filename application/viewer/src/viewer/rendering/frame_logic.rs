@@ -58,7 +58,7 @@ impl ViewerFrameLogic {
     reversed_depth: bool,
     opaque_lighting: LightingTechniqueKind,
     deferred_mat_supports: &DeferLightingMaterialRegistry,
-  ) -> Attachment {
+  ) -> RenderTargetView {
     self
       .reproject
       .update(ctx, current_camera_view_projection_inv);
@@ -67,9 +67,9 @@ impl ViewerFrameLogic {
 
     let camera = CameraRenderSource::Scene(content.main_camera);
 
-    let mut msaa_color = attachment().sample_count(4).request(ctx);
-    let mut msaa_depth = depth_attachment().sample_count(4).request(ctx);
-    let mut widgets_result = attachment().request(ctx);
+    let msaa_color = attachment().sample_count(4).request(ctx);
+    let msaa_depth = depth_attachment().sample_count(4).request(ctx);
+    let widgets_result = attachment().request(ctx);
 
     let main_camera_gpu = renderer
       .get_camera_gpu()
@@ -85,12 +85,9 @@ impl ViewerFrameLogic {
     );
 
     pass("scene-widgets")
-      .with_color(msaa_color.write(), clear(all_zero()))
-      .with_depth(
-        msaa_depth.write(),
-        clear(if reversed_depth { 0. } else { 1. }),
-      )
-      .resolve_to(widgets_result.write())
+      .with_color(&msaa_color, clear(all_zero()))
+      .with_depth(&msaa_depth, clear(if reversed_depth { 0. } else { 1. }))
+      .resolve_to(&widgets_result)
       .render_ctx(ctx)
       .by(&mut super::axis::DrawWorldAxis {
         data: &self.axis,
@@ -114,8 +111,8 @@ impl ViewerFrameLogic {
       camera: content.main_camera,
       renderer,
       f: |ctx: &mut FrameCtx| {
-        let mut scene_result = attachment().request(ctx);
-        let mut g_buffer = FrameGeometryBuffer::new(ctx);
+        let scene_result = attachment().request(ctx);
+        let g_buffer = FrameGeometryBuffer::new(ctx);
 
         let (color_ops, depth_ops) = renderer.init_clear(content.scene);
         let key = SceneContentKey { transparent: false };
@@ -129,7 +126,7 @@ impl ViewerFrameLogic {
 
         match opaque_lighting {
           LightingTechniqueKind::Forward => {
-            let mut pass_base = pass("scene").with_color(scene_result.write(), color_ops);
+            let mut pass_base = pass("scene").with_color(&scene_result, color_ops);
 
             let g_buffer_base_writer = g_buffer.extend_pass_desc(&mut pass_base, depth_ops);
             let lighting = lighting.get_scene_forward_lighting_component(content.scene);
@@ -202,7 +199,7 @@ impl ViewerFrameLogic {
             ]);
 
             let _ = pass("deferred lighting compute")
-              .with_color(scene_result.write(), color_ops)
+              .with_color(&scene_result, color_ops)
               .render_ctx(ctx)
               .by(&mut background)
               .by(&mut lighting.draw_quad());
@@ -211,8 +208,8 @@ impl ViewerFrameLogic {
 
         // this must a separate pass, because the id buffer should not be written.
         pass("grid_ground")
-          .with_color(scene_result.write(), load())
-          .with_depth(g_buffer.depth.write(), load())
+          .with_color(&scene_result, load())
+          .with_depth(&g_buffer.depth, load())
           .render_ctx(ctx)
           .by(&mut GridGround {
             plane: &self.ground,
@@ -230,10 +227,10 @@ impl ViewerFrameLogic {
           );
 
           pass("ao blend to scene")
-            .with_color(scene_result.write(), load())
+            .with_color(&scene_result, load())
             .render_ctx(ctx)
             .by(&mut copy_frame(
-              ao.read_into(),
+              ao,
               BlendState {
                 color: BlendComponent {
                   src_factor: BlendFactor::Dst,
@@ -267,16 +264,16 @@ impl ViewerFrameLogic {
     };
 
     let mut scene_msaa_widgets = copy_frame(
-      widgets_result.read_into(),
+      widgets_result,
       BlendState::PREMULTIPLIED_ALPHA_BLENDING.into(),
     );
 
     let mut compose = pass("compose-all")
-      .with_color(final_target.clone(), load())
+      .with_color(final_target, load())
       .render_ctx(ctx)
       .by(
         &mut PostProcess {
-          input: taa_result.read(),
+          input: taa_result.clone(),
           config: &self.post,
         }
         .draw_quad(),

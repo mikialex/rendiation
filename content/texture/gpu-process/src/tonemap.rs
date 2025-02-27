@@ -27,7 +27,7 @@ impl ToneMap {
 }
 
 impl ToneMap {
-  pub fn tonemap<'a, T: 'a>(&'a self, hdr: AttachmentView<T>) -> impl PassContent + 'a {
+  pub fn tonemap<'a, T: 'a>(&'a self, hdr: &'a RenderTargetView) -> impl PassContent + 'a {
     ToneMapTask { hdr, config: self }.draw_quad()
   }
 }
@@ -132,26 +132,26 @@ fn aces_filmic_tone_mapping(color: Node<Vec3<f32>>, exposure: Node<f32>) -> Node
   color.saturate()
 }
 
-struct ToneMapTask<'a, T> {
-  hdr: AttachmentView<T>,
+struct ToneMapTask<'a> {
+  hdr: &'a RenderTargetView,
   config: &'a ToneMap,
 }
 
-impl<T> ShaderHashProvider for ToneMapTask<'_, T> {
+impl ShaderHashProvider for ToneMapTask<'_> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.config.hash_pipeline(hasher)
   }
-  shader_hash_type_id! {ToneMapTask<'static, ()>}
+  shader_hash_type_id! {ToneMapTask<'static,>}
 }
-impl<T> ShaderPassBuilder for ToneMapTask<'_, T> {
+impl ShaderPassBuilder for ToneMapTask<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.hdr);
+    ctx.binding.bind(self.hdr);
     ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
     self.config.setup_pass(ctx)
   }
 }
 
-impl<T> GraphicsShaderProvider for ToneMapTask<'_, T> {
+impl GraphicsShaderProvider for ToneMapTask<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let hdr = binding.bind_by(&self.hdr);

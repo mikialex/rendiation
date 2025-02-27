@@ -1,15 +1,15 @@
 use crate::*;
 
-pub struct CopyFrame<T> {
+pub struct CopyFrame {
   sampler: ImmediateSampler,
-  source: AttachmentView<T>,
-}
-struct CopyFrameTypeMark;
-impl<T> ShaderHashProvider for CopyFrame<T> {
-  shader_hash_type_id! {CopyFrameTypeMark}
+  source: RenderTargetView,
 }
 
-pub fn copy_frame<T>(source: AttachmentView<T>, blend: Option<BlendState>) -> impl PassContent {
+impl ShaderHashProvider for CopyFrame {
+  shader_hash_type_id! {}
+}
+
+pub fn copy_frame(source: RenderTargetView, blend: Option<BlendState>) -> impl PassContent {
   CopyFrame {
     source,
     sampler: Default::default(),
@@ -35,14 +35,14 @@ impl From<ImmediateSampler> for SamplerDescriptor<'static> {
   }
 }
 
-impl<T> ShaderPassBuilder for CopyFrame<T> {
+impl ShaderPassBuilder for CopyFrame {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.bind_immediate_sampler(&self.sampler);
     ctx.binding.bind(&self.source);
   }
 }
 
-impl<T> GraphicsShaderProvider for CopyFrame<T> {
+impl GraphicsShaderProvider for CopyFrame {
   fn build(&self, builder: &mut rendiation_shader_api::ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let sampler = binding.bind_by(&self.sampler);
