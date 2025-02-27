@@ -18,6 +18,7 @@ use grid_ground::*;
 pub use lighting::*;
 pub use post::*;
 use reactive::EventSource;
+use rendiation_device_parallel_compute::{init_temp_buffer_reuse_pool, TempBufferReusePool};
 use rendiation_device_ray_tracing::GPUWaveFrontComputeRaytracingSystem;
 use rendiation_occlusion_culling::GPUTwoPassOcclusionCulling;
 use rendiation_scene_rendering_gpu_indirect::build_default_indirect_render_system;
@@ -107,6 +108,7 @@ pub struct Viewer3dRenderingCtx {
   lighting: LightSystem,
   material_defer_lighting_supports: DeferLightingMaterialRegistry,
   pool: AttachmentPool,
+  temp_buffer_pool: TempBufferReusePool,
   gpu: GPU,
   on_encoding_finished: EventSource<ViewRenderedState>,
   expect_read_back_for_next_render_result: bool,
@@ -158,6 +160,7 @@ impl Viewer3dRenderingCtx {
       material_defer_lighting_supports: DeferLightingMaterialRegistry::default()
         .register_material_impl::<PbrSurfaceEncodeDecode>(),
       pool: init_attachment_pool(&gpu),
+      temp_buffer_pool: init_temp_buffer_reuse_pool(&gpu),
       gpu,
       on_encoding_finished: Default::default(),
       expect_read_back_for_next_render_result: false,

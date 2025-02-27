@@ -15,7 +15,7 @@ impl GPURaytracingPipelineExecutorImpl for GPUWaveFrontComputeRaytracingExecutor
     let mut inner = self.inner.write();
     if let Some((_, executor)) = &mut inner.executor {
       let mut encoder = gpu.create_encoder();
-      let mut cx = DeviceParallelComputeCtx::new(gpu, &mut encoder);
+      let mut cx = DeviceParallelComputeCtx::new_and_init_pool(gpu, &mut encoder);
       let states = block_on(executor.graph_executor.read_back_execution_states(&mut cx));
       if !states.is_empty() {
         panic!("pipeline is not empty:\n {:?}", states);

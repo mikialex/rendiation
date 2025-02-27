@@ -10,7 +10,7 @@ async fn test_simple_map() {
   graph.capacity = 12;
 
   let mut encoder = gpu.create_encoder();
-  let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder);
+  let mut cx = DeviceParallelComputeCtx::new_and_init_pool(&gpu, &mut encoder);
   let mut graph_exe = graph.build(&mut cx);
 
   let work_size = 3;
@@ -80,7 +80,7 @@ async fn test_task_graph_then_task_spawn() {
   );
 
   let mut encoder = gpu.create_encoder();
-  let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder);
+  let mut cx = DeviceParallelComputeCtx::new_and_init_pool(&gpu, &mut encoder);
   let mut graph_exe = graph.build(&mut cx);
 
   let work_size = 3;
@@ -167,7 +167,7 @@ async fn test_task_graph_then_task_self_spawn_recursive() {
   );
 
   let mut encoder = gpu.create_encoder();
-  let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder);
+  let mut cx = DeviceParallelComputeCtx::new_and_init_pool(&gpu, &mut encoder);
   let mut graph_exe = graph.build(&mut cx);
 
   let work_size = 3;

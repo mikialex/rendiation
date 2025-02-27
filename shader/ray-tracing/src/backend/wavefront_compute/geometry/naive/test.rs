@@ -313,7 +313,7 @@ fn test_gpu_triangle() {
 
   let (gpu, _) = futures::executor::block_on(GPU::new(Default::default())).unwrap();
   let mut encoder = gpu.create_encoder();
-  let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder);
+  let mut cx = DeviceParallelComputeCtx::new_and_init_pool(&gpu, &mut encoder);
 
   let direction = Box::new(dummy_array) as Box<dyn DeviceParallelCompute<Node<u32>>>;
   let tester = GpuTester::new(direction, gpu);

@@ -1,5 +1,6 @@
 #![feature(let_chains)]
 
+use std::borrow::Cow;
 use std::fmt::Debug;
 use std::future::Future;
 use std::hash::Hash;
@@ -22,6 +23,7 @@ pub use fork::*;
 mod radix_sort;
 pub use radix_sort::*;
 mod stream_compaction;
+use reuse_pool::ReuseKVPool;
 pub use stream_compaction::*;
 mod shuffle_move;
 pub use shuffle_move::*;
@@ -436,7 +438,7 @@ where
   {
     let (gpu, _) = GPU::new(Default::default()).await.unwrap();
     let mut encoder = gpu.create_encoder();
-    let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder);
+    let mut cx = DeviceParallelComputeCtx::new_and_init_pool(&gpu, &mut encoder);
 
     fn check<T: PartialEq + Debug>(expect: &[T], result: &[T]) {
       if expect != result {
@@ -724,9 +726,18 @@ where
 {
 }
 
+pub type TempBufferReusePool = ReuseKVPool<u32, GPUBufferResourceView>;
+pub fn init_temp_buffer_reuse_pool(gpu: &GPU) -> TempBufferReusePool {
+  ReuseKVPool::new(|byte_size| {
+    //
+    todo!()
+  })
+}
+
 pub struct DeviceParallelComputeCtx<'a> {
   pub gpu: GPU,
   pub encoder: &'a mut GPUCommandEncoder,
+  pub temp_buffer_reuse_pool: Cow<'a, TempBufferReusePool>,
   pub pass: Option<GPUComputePass>,
   pub force_indirect_dispatch: bool,
 }
@@ -740,10 +751,30 @@ impl Drop for DeviceParallelComputeCtx<'_> {
 
 impl<'a> DeviceParallelComputeCtx<'a> {
   /// note, the passed in encoder will be automatically been submitted after this ctx drop.
-  pub fn new(gpu: &GPU, encoder: &'a mut GPUCommandEncoder) -> Self {
+  pub fn new(
+    gpu: &GPU,
+    encoder: &'a mut GPUCommandEncoder,
+    buffer_pool: &'a TempBufferReusePool,
+  ) -> Self {
+    Self::new_from_pool(gpu, encoder, Cow::Borrowed(buffer_pool))
+  }
+
+  /// note, the passed in encoder will be automatically been submitted after this ctx drop.
+  pub fn new_and_init_pool(gpu: &GPU, encoder: &'a mut GPUCommandEncoder) -> Self {
+    let pool = init_temp_buffer_reuse_pool(gpu);
+    Self::new_from_pool(gpu, encoder, Cow::Owned(pool))
+  }
+
+  /// note, the passed in encoder will be automatically been submitted after this ctx drop.
+  pub fn new_from_pool(
+    gpu: &GPU,
+    encoder: &'a mut GPUCommandEncoder,
+    temp_buffer_reuse_pool: Cow<'a, TempBufferReusePool>,
+  ) -> Self {
     Self {
       gpu: gpu.clone(),
       encoder,
+      temp_buffer_reuse_pool,
       pass: None,
       force_indirect_dispatch: false,
     }

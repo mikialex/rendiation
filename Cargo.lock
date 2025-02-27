@@ -3378,6 +3378,7 @@ dependencies = [
  "rendiation-shader-api",
  "rendiation-shader-derives",
  "rendiation-webgpu",
+ "reuse-pool",
 ]
 
 [[package]]
@@ -4898,6 +4899,7 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-area-lighting",
  "rendiation-controller",
+ "rendiation-device-parallel-compute",
  "rendiation-device-ray-tracing",
  "rendiation-geometry",
  "rendiation-gizmo",

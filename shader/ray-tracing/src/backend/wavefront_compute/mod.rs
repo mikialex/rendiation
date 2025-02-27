@@ -42,6 +42,7 @@ impl GPURaytracingSystem for GPUWaveFrontComputeRaytracingSystem {
 
   fn create_raytracing_encoder(&self) -> Box<dyn RayTracingEncoderProvider> {
     Box::new(GPUWaveFrontComputeRaytracingEncoder {
+      temp_buffer_pool: init_temp_buffer_reuse_pool(&self.gpu),
       gpu: self.gpu.clone(),
       sbt_sys: self.sbt_sys.clone(),
       tlas_sys: self.tlas_sys.clone(),
@@ -91,6 +92,7 @@ impl GPURayTracingDeviceProvider for GPUWaveFrontComputeRaytracingDevice {
 pub struct GPUWaveFrontComputeRaytracingEncoder {
   gpu: GPU,
   sbt_sys: ShaderBindingTableDeviceInfo,
+  temp_buffer_pool: TempBufferReusePool,
   tlas_sys: Box<dyn GPUAccelerationStructureSystemProvider>,
   #[allow(dead_code)]
   ray_gen_spawner: RangedTaskSpawner,
@@ -117,7 +119,7 @@ impl RayTracingEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
       .unwrap();
 
     let mut encoder = self.gpu.create_encoder();
-    let mut cx = DeviceParallelComputeCtx::new(&self.gpu, &mut encoder);
+    let mut cx = DeviceParallelComputeCtx::new(&self.gpu, &mut encoder, &self.temp_buffer_pool);
 
     let tile_size = 256;
     let required_size = (tile_size * tile_size) as usize;
