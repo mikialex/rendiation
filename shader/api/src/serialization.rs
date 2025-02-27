@@ -213,17 +213,21 @@ impl ShaderSizedValueType {
           target.index(offset).store(converted);
         }
 
-        if let PrimitiveShaderValueType::Mat3Float32 = *p {
-          if layout != StructLayoutTarget::Packed {
-            let mut counter = 0;
-            for _ in 0..3 {
-              for _ in 0..3 {
-                index_and_write(target, offset, source, Some(counter));
-                offset += val(1);
-                counter += 1;
-              }
+        if let Some((row_stride, row_ty)) = p.mat_row_info(layout) {
+          // all matrix types are f32, f32 count === u32 count
+          let f32_size = ShaderSizedValueType::Primitive(*p).u32_size_count(layout);
+          let row_stride = row_stride as u32;
+          let row_count = f32_size / row_stride;
+          let row_pack_size = row_ty.u32_size_count(layout);
+
+          for i in 0..row_count {
+            let row = unsafe { index_access_field(source, i as usize) };
+            for j in 0..row_pack_size {
+              index_and_write(target, offset, row, Some(j));
               offset += val(1);
-              counter += 1;
+            }
+            if row_stride - row_pack_size > 0 {
+              offset += val(row_stride - row_pack_size);
             }
           }
         } else {
