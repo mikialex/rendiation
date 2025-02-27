@@ -564,7 +564,7 @@ impl GPUAccelerationStructureSystemProvider for NaiveSahBVHSystem {
   }
 
   fn bind_tlas(&self, tlas: &[TlasHandle]) {
-    self.inner.write().unwrap().set_binding(tlas);
+    self.inner.write().set_binding(tlas);
   }
 
   // todo return instance ids? then TLAS device should store InstanceId
