@@ -16,6 +16,5 @@ dyn-clone = { workspace = true }
 derivative = { workspace = true }
 futures = { workspace = true }
 pollster = { workspace = true }
-reuse-pool = { path = "../../utility/reuse-pool" }
 [lints]
 workspace = true

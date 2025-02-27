@@ -23,7 +23,6 @@ pub use fork::*;
 mod radix_sort;
 pub use radix_sort::*;
 mod stream_compaction;
-use reuse_pool::ReuseKVPool;
 pub use stream_compaction::*;
 mod shuffle_move;
 pub use shuffle_move::*;
@@ -724,14 +723,6 @@ where
   X: Sized + DeviceParallelComputeIO<T> + 'static,
   T: ShaderSizedValueNodeType + Std430 + Debug,
 {
-}
-
-pub type TempBufferReusePool = ReuseKVPool<u32, GPUBufferResourceView>;
-pub fn init_temp_buffer_reuse_pool(gpu: &GPU) -> TempBufferReusePool {
-  ReuseKVPool::new(|byte_size| {
-    //
-    todo!()
-  })
 }
 
 pub struct DeviceParallelComputeCtx<'a> {

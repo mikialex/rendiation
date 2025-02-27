@@ -18,7 +18,6 @@ use grid_ground::*;
 pub use lighting::*;
 pub use post::*;
 use reactive::EventSource;
-use rendiation_device_parallel_compute::{init_temp_buffer_reuse_pool, TempBufferReusePool};
 use rendiation_device_ray_tracing::GPUWaveFrontComputeRaytracingSystem;
 use rendiation_occlusion_culling::GPUTwoPassOcclusionCulling;
 use rendiation_scene_rendering_gpu_indirect::build_default_indirect_render_system;
@@ -350,7 +349,7 @@ impl Viewer3dRenderingCtx {
       target.clone()
     };
 
-    let mut ctx = FrameCtx::new(&self.gpu, target.size(), &self.pool);
+    let mut ctx = FrameCtx::new(&self.gpu, target.size(), &self.pool, &self.temp_buffer_pool);
 
     if self.enable_rtx_ao_rendering && self.rtx_ao_renderer_impl.is_some() {
       let mut rtx_ao_renderer = self

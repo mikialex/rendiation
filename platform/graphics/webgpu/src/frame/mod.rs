@@ -16,15 +16,22 @@ pub struct FrameCtx<'a> {
   pub gpu: &'a GPU,
   pub encoder: GPUCommandEncoder,
   pool: &'a AttachmentPool,
+  pub buffer_pool: &'a TempBufferReusePool,
   frame_size: Size,
 }
 
 impl<'a> FrameCtx<'a> {
-  pub fn new(gpu: &'a GPU, frame_size: Size, pool: &'a AttachmentPool) -> Self {
+  pub fn new(
+    gpu: &'a GPU,
+    frame_size: Size,
+    pool: &'a AttachmentPool,
+    buffer_pool: &'a TempBufferReusePool,
+  ) -> Self {
     let encoder = gpu.create_encoder();
 
     Self {
       pool,
+      buffer_pool,
       frame_size,
       encoder,
       gpu,
@@ -44,4 +51,12 @@ impl<'a> FrameCtx<'a> {
   pub fn frame_size(&self) -> Size {
     self.frame_size
   }
+}
+
+pub type TempBufferReusePool = ReuseKVPool<u32, GPUBufferResourceView>;
+pub fn init_temp_buffer_reuse_pool(gpu: &GPU) -> TempBufferReusePool {
+  ReuseKVPool::new(|byte_size| {
+    //
+    todo!()
+  })
 }

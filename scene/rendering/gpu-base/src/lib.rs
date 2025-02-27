@@ -221,7 +221,7 @@ impl FrameCtxParallelComputeExt for FrameCtx<'_> {
     &mut self,
     f: impl FnOnce(&mut DeviceParallelComputeCtx) -> R,
   ) -> R {
-    let mut ctx = DeviceParallelComputeCtx::new(self.gpu, &mut self.encoder);
+    let mut ctx = DeviceParallelComputeCtx::new(self.gpu, &mut self.encoder, self.buffer_pool);
     let r = f(&mut ctx);
     ctx.flush_pass();
     let _ = ManuallyDrop::new(ctx); // avoid drop to avoid unnecessary submit
