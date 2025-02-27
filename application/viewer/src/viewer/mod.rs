@@ -188,6 +188,7 @@ impl Widget for Viewer {
 
     access_cx!(cx, draw_target_canvas, RenderTargetView);
     self.draw_canvas(draw_target_canvas);
+    self.rendering.tick_frame();
   }
 
   fn clean_up(&mut self, cx: &mut DynCx) {

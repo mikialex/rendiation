@@ -75,6 +75,7 @@ impl RenderTargetView {
   pub fn expect_standalone_texture_view(&self) -> &GPU2DTextureView {
     match self {
       RenderTargetView::Texture(t) => t,
+      RenderTargetView::ReusedTexture(t) => t.item(),
       _ => panic!("expect_standalone_texture_view failed"),
     }
   }

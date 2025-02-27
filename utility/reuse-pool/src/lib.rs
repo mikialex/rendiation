@@ -105,8 +105,9 @@ impl<K, V> ReuseKVPool<K, V> {
       let mut p = v.len();
       while p > 0 {
         p -= 1;
-        let (_, tick) = v[p];
-        if tick < max_live_tick {
+        let (_, tick) = &mut v[p];
+        if *tick < max_live_tick {
+          *tick += 1;
           continue;
         } else {
           v.swap_remove(p);

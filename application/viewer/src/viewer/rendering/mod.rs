@@ -120,6 +120,10 @@ impl Viewer3dRenderingCtx {
     &self.gpu
   }
 
+  pub fn tick_frame(&mut self) {
+    self.pool.tick();
+  }
+
   pub fn new(
     gpu: GPU,
     ndc: ViewerNDC,
