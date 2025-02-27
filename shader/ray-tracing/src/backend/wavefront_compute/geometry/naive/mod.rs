@@ -488,10 +488,10 @@ impl NaiveSahBvhSource {
 
 #[derive(Clone)]
 pub struct NaiveSahBVHSystem {
-  inner: Arc<RwLock<NaiveSahBVHSystemInner>>,
+  internal: Arc<RwLock<NaiveSahBVHSystemInternal>>,
   device: GPUDevice,
 }
-struct NaiveSahBVHSystemInner {
+struct NaiveSahBVHSystemInternal {
   source: NaiveSahBvhSource,
   tlas_binding: Vec<TlasHandle>,
   cpu_data: Option<NaiveSahBvhCpu>,
@@ -501,7 +501,7 @@ struct NaiveSahBVHSystemInner {
 impl NaiveSahBVHSystem {
   pub(crate) fn new(gpu: GPU) -> Self {
     Self {
-      inner: Arc::new(RwLock::new(NaiveSahBVHSystemInner {
+      internal: Arc::new(RwLock::new(NaiveSahBVHSystemInternal {
         source: Default::default(),
         tlas_binding: vec![],
         cpu_data: None,
@@ -512,23 +512,23 @@ impl NaiveSahBVHSystem {
   }
 
   fn get_or_build_gpu_data(&self) -> impl Deref<Target = NaiveSahBvhGpu> + '_ {
-    let read = self.inner.read();
+    let read = self.internal.read();
     if read.gpu_data.is_some() {
       RwLockReadGuard::map(read, |g| g.gpu_data.as_ref().unwrap())
     } else {
       drop(read);
 
-      let mut write = self.inner.write();
+      let mut write = self.internal.write();
       write.rebuild_acceleration_structures(&self.device);
       drop(write);
 
-      let read = self.inner.read();
+      let read = self.internal.read();
       assert!(read.gpu_data.is_some());
       RwLockReadGuard::map(read, |g| g.gpu_data.as_ref().unwrap())
     }
   }
 }
-impl NaiveSahBVHSystemInner {
+impl NaiveSahBVHSystemInternal {
   fn set_binding(&mut self, tlas: &[TlasHandle]) {
     let new_binding = tlas.to_vec();
     if self.tlas_binding != new_binding {
@@ -564,7 +564,7 @@ impl GPUAccelerationStructureSystemProvider for NaiveSahBVHSystem {
   }
 
   fn bind_tlas(&self, tlas: &[TlasHandle]) {
-    self.inner.write().set_binding(tlas);
+    self.internal.write().set_binding(tlas);
   }
 
   // todo return instance ids? then TLAS device should store InstanceId
@@ -572,14 +572,14 @@ impl GPUAccelerationStructureSystemProvider for NaiveSahBVHSystem {
     &self,
     source: &[TopLevelAccelerationStructureSourceInstance],
   ) -> TlasHandle {
-    let mut inner = self.inner.write();
+    let mut inner = self.internal.write();
     inner.invalidate();
     let idx = inner.source.create_tlas(source);
     TlasHandle(idx)
   }
 
   fn delete_top_level_acceleration_structure(&self, handle: TlasHandle) {
-    let mut inner = self.inner.write();
+    let mut inner = self.internal.write();
     inner.invalidate();
     inner.source.delete_tlas(handle)
   }
@@ -588,14 +588,14 @@ impl GPUAccelerationStructureSystemProvider for NaiveSahBVHSystem {
     &self,
     source: &[BottomLevelAccelerationStructureBuildSource],
   ) -> BlasHandle {
-    let mut inner = self.inner.write();
+    let mut inner = self.internal.write();
     inner.invalidate();
     let idx = inner.source.create_blas(source);
     BlasHandle(idx)
   }
 
   fn delete_bottom_level_acceleration_structure(&self, handle: BlasHandle) {
-    let mut inner = self.inner.write();
+    let mut inner = self.internal.write();
     inner.invalidate();
     inner.source.delete_blas(handle)
   }

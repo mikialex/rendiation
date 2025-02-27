@@ -1134,7 +1134,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
             committed: false,
           }
         }
-        ShaderNodeExpr::RayQueryGetCommitedIntersection { ray_query } => {
+        ShaderNodeExpr::RayQueryGetCommittedIntersection { ray_query } => {
           self.module.generate_ray_intersection_type();
           naga::Expression::RayQueryGetIntersection {
             query: self.get_expression(ray_query),

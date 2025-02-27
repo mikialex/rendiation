@@ -56,8 +56,8 @@ impl Node<ShaderRayQuery> {
     .insert_api();
     RayIntersection { raw: node.handle() }
   }
-  pub fn get_commited_intersection(self) -> RayIntersection {
-    let node: Node<AnyType> = ShaderNodeExpr::RayQueryGetCommitedIntersection {
+  pub fn get_committed_intersection(self) -> RayIntersection {
+    let node: Node<AnyType> = ShaderNodeExpr::RayQueryGetCommittedIntersection {
       ray_query: self.handle(),
     }
     .insert_api();

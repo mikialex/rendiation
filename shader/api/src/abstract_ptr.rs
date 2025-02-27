@@ -120,7 +120,7 @@ impl<T> ShaderAbstractPtrAccess for [T] {
 
 /// enable this when mysterious device lost happens randomly.
 /// check if the crash is due to the out of bound access by crashing the device deterministically
-const ENABLE_STORAGE_BUFFER_BOUND_CHECK: bool = true;
+const ENABLE_STORAGE_BUFFER_BOUND_CHECK: bool = false;
 
 pub struct DynLengthArrayView<T> {
   phantom: PhantomData<T>,

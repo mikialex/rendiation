@@ -1,5 +1,3 @@
-use std::sync::RwLock;
-
 use crate::*;
 
 #[derive(Clone)]
@@ -172,13 +170,13 @@ impl DeviceTlas {
 }
 
 #[derive(Clone)]
-pub struct NativeInlineSystem {
-  inner: Arc<RwLock<NativeInlineSystemInner>>,
+pub struct HardwareInlineRayQuerySystem {
+  internal: Arc<RwLock<HardwareInlineRayQuerySystemInternal>>,
 }
-impl NativeInlineSystem {
+impl HardwareInlineRayQuerySystem {
   pub fn new(gpu: GPU) -> Self {
     Self {
-      inner: Arc::new(RwLock::new(NativeInlineSystemInner {
+      internal: Arc::new(RwLock::new(HardwareInlineRayQuerySystemInternal {
         device: gpu.device.clone(),
         tlas_binding: vec![],
         blas: vec![],
@@ -189,10 +187,10 @@ impl NativeInlineSystem {
     }
   }
   pub fn maintain(&self, encoder: &mut GPUCommandEncoder) {
-    self.inner.write().unwrap().maintain(encoder);
+    self.internal.write().maintain(encoder);
   }
-  pub fn create_instance(&self) -> NativeInlineInstance {
-    let this = self.inner.read().unwrap();
+  pub fn create_instance(&self) -> HardwareInlineRayQueryInstance {
+    let this = self.internal.read();
     let tlas_bindings = this
       .tlas_binding
       .iter()
@@ -202,11 +200,11 @@ impl NativeInlineSystem {
       })
       .collect();
 
-    NativeInlineInstance { tlas_bindings }
+    HardwareInlineRayQueryInstance { tlas_bindings }
   }
 }
 #[derive(Clone)]
-pub struct NativeInlineSystemInner {
+pub struct HardwareInlineRayQuerySystemInternal {
   device: GPUDevice,
   tlas_binding: Vec<TlasHandle>,
 
@@ -218,7 +216,7 @@ pub struct NativeInlineSystemInner {
   tlas_builders: Vec<TlasBuilder>,
 }
 
-impl NativeInlineSystemInner {
+impl HardwareInlineRayQuerySystemInternal {
   fn maintain(&mut self, encoder: &mut GPUCommandEncoder) {
     if self.blas_builders.is_empty() && self.tlas_builders.is_empty() {
       return;
@@ -246,7 +244,7 @@ impl NativeInlineSystemInner {
   }
   fn bind_tlas(&mut self, tlas: &[TlasHandle]) {
     assert!(!tlas.is_empty());
-    assert!(tlas.len() <= NativeInlineSystemInner::bind_tlas_max_len() as usize);
+    assert!(tlas.len() <= HardwareInlineRayQuerySystemInternal::bind_tlas_max_len() as usize);
     self.tlas_binding = tlas.to_vec();
   }
 
@@ -275,7 +273,7 @@ impl NativeInlineSystemInner {
   }
 }
 
-impl GPUAccelerationStructureSystemProvider for NativeInlineSystem {
+impl GPUAccelerationStructureSystemProvider for HardwareInlineRayQuerySystem {
   fn create_comp_instance(
     &self,
     cx: &mut DeviceParallelComputeCtx,
@@ -285,43 +283,43 @@ impl GPUAccelerationStructureSystemProvider for NativeInlineSystem {
   }
 
   fn bind_tlas_max_len(&self) -> u32 {
-    NativeInlineSystemInner::bind_tlas_max_len()
+    HardwareInlineRayQuerySystemInternal::bind_tlas_max_len()
   }
 
   fn bind_tlas(&self, tlas: &[TlasHandle]) {
-    self.inner.write().unwrap().bind_tlas(tlas);
+    self.internal.write().bind_tlas(tlas);
   }
 
   fn create_top_level_acceleration_structure(
     &self,
     source: &[TopLevelAccelerationStructureSourceInstance],
   ) -> TlasHandle {
-    self.inner.write().unwrap().create_tlas(source)
+    self.internal.write().create_tlas(source)
   }
 
   fn delete_top_level_acceleration_structure(&self, id: TlasHandle) {
-    self.inner.write().unwrap().delete_tlas(id)
+    self.internal.write().delete_tlas(id)
   }
 
   fn create_bottom_level_acceleration_structure(
     &self,
     source: &[BottomLevelAccelerationStructureBuildSource],
   ) -> BlasHandle {
-    self.inner.write().unwrap().create_blas(source)
+    self.internal.write().create_blas(source)
   }
 
   fn delete_bottom_level_acceleration_structure(&self, id: BlasHandle) {
-    self.inner.write().unwrap().delete_blas(id)
+    self.internal.write().delete_blas(id)
   }
 }
 
-pub struct NativeInlineInstance {
+pub struct HardwareInlineRayQueryInstance {
   tlas_bindings: Vec<DeviceTlas>, // todo how to hash???
 }
-pub struct NativeInlineInvocation {
+pub struct HardwareInlineRayQueryInvocation {
   tlas_bindings: Vec<BindingNode<ShaderAccelerationStructure>>,
 }
-impl GPUAccelerationStructureSystemCompImplInstance for NativeInlineInstance {
+impl GPUAccelerationStructureSystemCompImplInstance for HardwareInlineRayQueryInstance {
   fn build_shader(
     &self,
     compute_cx: &mut ShaderComputePipelineBuilder,
@@ -331,7 +329,7 @@ impl GPUAccelerationStructureSystemCompImplInstance for NativeInlineInstance {
       .iter()
       .map(|tlas| tlas.build_shader(compute_cx))
       .collect();
-    Box::new(NativeInlineInvocation {
+    Box::new(HardwareInlineRayQueryInvocation {
       tlas_bindings: handle_list,
     })
   }
@@ -342,7 +340,9 @@ impl GPUAccelerationStructureSystemCompImplInstance for NativeInlineInstance {
     }
   }
 }
-impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NativeInlineInvocation {
+impl GPUAccelerationStructureSystemCompImplInvocationTraversable
+  for HardwareInlineRayQueryInvocation
+{
   fn traverse(
     &self,
     trace_payload: ENode<ShaderRayTraceCallStoragePayload>,
@@ -375,7 +375,7 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NativeInlin
       if_by(any_candidate, || {
         let intersection = query.get_candidate_intersection();
         let (launch_info, world_ray, hit_ctx, hit) =
-          hit_ctx_from_native_hit(trace_payload, intersection);
+          hit_ctx_from_ray_query_hit(trace_payload, intersection);
 
         let user_defined_payload = U32BufferLoadStoreSource {
           array: user_defined_payloads,
@@ -400,7 +400,7 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NativeInlin
         if_by(
           (behavior & val(ANYHIT_BEHAVIOR_END_SEARCH)).greater_than(val(0)),
           || {
-            query.terminate(); // then safe to call get_commited_intersection
+            query.terminate(); // then safe to call get_committed_intersection
             loop_ctx.do_break();
           },
         );
@@ -408,14 +408,14 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NativeInlin
       .else_by(|| loop_ctx.do_break());
     });
 
-    let intersection = query.get_commited_intersection();
+    let intersection = query.get_committed_intersection();
 
     let hit_triangle = intersection
       .kind()
       .equals(val(RayIntersectionKind::Triangle as u32));
 
     let (launch_info, world_ray, hit_ctx, hit) =
-      hit_ctx_from_native_hit(trace_payload, intersection);
+      hit_ctx_from_ray_query_hit(trace_payload, intersection);
 
     ShaderOption {
       is_some: hit_triangle,
@@ -429,7 +429,7 @@ impl GPUAccelerationStructureSystemCompImplInvocationTraversable for NativeInlin
   }
 }
 
-fn hit_ctx_from_native_hit(
+fn hit_ctx_from_ray_query_hit(
   trace_payload: ENode<ShaderRayTraceCallStoragePayload>,
   intersection: RayIntersection,
 ) -> (RayLaunchInfo, WorldRayInfo, HitCtxInfo, HitInfo) {

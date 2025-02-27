@@ -1,4 +1,5 @@
 use rendiation_algebra::*;
+use rendiation_area_lighting::*;
 use rendiation_mesh_generator::{
   build_attributes_mesh, CubeMeshParameter, SphereMeshParameter, TessellationConfig,
 };
@@ -298,4 +299,19 @@ pub fn load_example_cube_tex(writer: &mut SceneWriter) -> EntityHandle<SceneText
     tex.clone(),
     tex.clone(),
   )
+}
+
+#[allow(dead_code)]
+pub fn test_ltc_lighting(writer: &mut SceneWriter) {
+  let area_light_writer = global_entity_of::<AreaLightEntity>().entity_writer();
+  let node = writer.create_root_child();
+  writer.set_local_matrix(node, Mat4::translate((1., 1., 1.)));
+
+  area_light_writer
+    .with_component_value_writer::<AreaLightRefNode>(node.some_handle())
+    .with_component_value_writer::<AreaLightRefScene>(writer.scene.some_handle())
+    .with_component_value_writer::<AreaLightIsRound>(true)
+    .with_component_value_writer::<AreaLightIsDoubleSide>(true)
+    .with_component_value_writer::<AreaLightIntensity>(Vec3::splat(100.))
+    .with_component_value_writer::<AreaLightSize>(Vec2::new(1., 1.));
 }

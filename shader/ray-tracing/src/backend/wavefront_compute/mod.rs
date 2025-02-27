@@ -20,10 +20,16 @@ pub struct GPUWaveFrontComputeRaytracingSystem {
 
 impl GPUWaveFrontComputeRaytracingSystem {
   pub fn new(gpu: &GPU) -> Self {
+    let device_support_ray_query = gpu.info.supported_features.contains(
+      Features::EXPERIMENTAL_RAY_QUERY | Features::EXPERIMENTAL_RAY_TRACING_ACCELERATION_STRUCTURE,
+    );
     Self {
       gpu: gpu.clone(),
-      tlas_sys: Box::new(NaiveSahBVHSystem::new(gpu.clone())),
-      // tlas_sys: Box::new(NativeInlineSystem::new(gpu.clone())),
+      tlas_sys: if device_support_ray_query {
+        Box::new(HardwareInlineRayQuerySystem::new(gpu.clone()))
+      } else {
+        Box::new(NaiveSahBVHSystem::new(gpu.clone()))
+      },
       sbt_sys: ShaderBindingTableDeviceInfo::new(gpu),
     }
   }

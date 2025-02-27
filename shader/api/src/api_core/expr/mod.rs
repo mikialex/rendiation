@@ -182,7 +182,7 @@ pub enum ShaderNodeExpr {
   RayQueryGetCandidateIntersection {
     ray_query: ShaderNodeRawHandle,
   },
-  RayQueryGetCommitedIntersection {
+  RayQueryGetCommittedIntersection {
     ray_query: ShaderNodeRawHandle,
   },
 }
