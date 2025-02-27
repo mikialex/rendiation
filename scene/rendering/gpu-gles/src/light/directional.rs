@@ -11,7 +11,7 @@ pub struct DirectionalLightUniform {
 
 pub fn directional_uniform_array(
   gpu: &GPU,
-) -> UniformArrayUpdateContainer<DirectionalLightUniform> {
+) -> UniformArrayUpdateContainer<DirectionalLightUniform, 8> {
   let buffer = UniformBufferDataView::create_default(&gpu.device);
 
   let illuminance = global_watch()

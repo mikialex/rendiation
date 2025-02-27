@@ -2,7 +2,7 @@ use crate::*;
 
 pub type UniformArray<T, const N: usize> = UniformBufferDataView<Shader140Array<T, N>>;
 
-pub type UniformArrayUpdateContainer<T> = MultiUpdateContainer<UniformArray<T, 8>>;
+pub type UniformArrayUpdateContainer<T, const N: usize> = MultiUpdateContainer<UniformArray<T, N>>;
 
 pub struct QueryBasedUniformArrayUpdate<T> {
   field_offset: u32,

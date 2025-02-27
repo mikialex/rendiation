@@ -26,7 +26,7 @@ impl<T> core::fmt::Debug for Texture2DBuffer<T> {
   }
 }
 
-impl<P: Clone> Texture2DBuffer<P> {
+impl<P: bytemuck::Pod> Texture2DBuffer<P> {
   pub fn size(&self) -> Size {
     self.size
   }
@@ -36,7 +36,7 @@ impl<P: Clone> Texture2DBuffer<P> {
   }
 
   pub fn as_byte_buffer(&self) -> &[u8] {
-    unsafe { std::mem::transmute(self.data.as_slice()) }
+    bytemuck::cast_slice(self.as_buffer())
   }
 }
 

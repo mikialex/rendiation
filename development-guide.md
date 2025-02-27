@@ -35,7 +35,6 @@ The following things is the current project development direction.
 - widen line
 - sky shading
 - gpu driven occlusion culling
-- ltc lighting
 - on_demand_draw
 - ssr(super naive)
 - lod graph generation and rendering

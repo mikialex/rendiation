@@ -55,8 +55,8 @@ impl LTCxLightEval {
     let uv = vec2_node((roughness, (val(1.0) - n_dot_v).sqrt()));
     let uv = uv * val(LUT_SCALE) + val(LUT_BIAS).splat();
 
-    let t1 = ltc_1.sample(sampler, uv);
-    let t2 = ltc_2.sample(sampler, uv);
+    let t1 = ltc_1.sample_zero_level(sampler, uv);
+    let t2 = ltc_2.sample_zero_level(sampler, uv);
 
     let min_v = (
       (t1.x(), val(0.), t1.y()).into(),
