@@ -312,14 +312,14 @@ struct SceneCameraTAAContent<'a, F> {
 
 impl<F, R> TAAContent<R> for SceneCameraTAAContent<'_, F>
 where
-  F: FnOnce(&mut FrameCtx) -> (NewTAAFrameSample, R),
+  F: FnMut(&mut FrameCtx) -> (NewTAAFrameSample, R),
 {
   fn set_jitter(&mut self, next_jitter: Vec2<f32>) {
     let cameras = self.renderer.get_camera_gpu();
     cameras.setup_camera_jitter(self.camera, next_jitter, self.queue);
   }
 
-  fn render(self, ctx: &mut FrameCtx) -> (NewTAAFrameSample, R) {
+  fn render(&mut self, ctx: &mut FrameCtx) -> (NewTAAFrameSample, R) {
     (self.f)(ctx)
   }
 }

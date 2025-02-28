@@ -65,6 +65,7 @@ where
   register_light_shadow_config();
   register_gui3d_extension_data_model();
   register_area_lighting_data_model();
+  register_sky_env_data_model();
 
   let content_logic = core_viewer_features(content_logic);
 

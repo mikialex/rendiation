@@ -6,6 +6,8 @@ The following things is the current project development direction.
 
 ### Basic correctness
 
+- env background not support tonemapping
+- alpha blending is not implemnt at all
 - light uniform array not skip none exist light
 - gizmo should not scaled by target scale
 - use view space shading/lighting/postprocess compute to improve precision
@@ -19,7 +21,6 @@ The following things is the current project development direction.
 - fix scene gpu lighting is globally shared
 - fix some mesh can not be picked in cpu picking (maybe related to u16 index format)
 - fix viewer screenshot channel mismatch (for example gbra swapchain texture format)
-- fix outline camera shaking
 - fix missing blur pass in ssao
 - fix ao should only shadowing diffuse lighting.
 - ibl brdf lut should use higher precision lut
