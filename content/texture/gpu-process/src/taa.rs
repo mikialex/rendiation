@@ -73,15 +73,11 @@ impl TAA {
     ctx: &mut FrameCtx,
     reproject: &GPUReprojectInfo,
   ) -> &RenderTargetView {
-    let mut resolve_target = attachment()
-      .format(TextureFormat::Rgba8UnormSrgb)
-      .request(ctx);
+    let mut resolve_target = new_color.create_attachment_key().request(ctx);
 
-    let history = self.history.get_or_insert_with(|| {
-      attachment()
-        .format(TextureFormat::Rgba8UnormSrgb)
-        .request(ctx)
-    });
+    let history = self
+      .history
+      .get_or_insert_with(|| new_color.create_attachment_key().request(ctx));
 
     pass("taa-resolve")
       .with_color(&resolve_target, load())
@@ -140,6 +136,7 @@ impl GraphicsShaderProvider for TAAResolver<'_> {
       let previous = history.sample(color_sampler, reproject_uv);
 
       let texel_size = builder.query::<TexelSize>();
+      // todo, check if the rejection logic support hdr
       let previous_clamped = clamp_color(new, color_sampler, texel_size, uv, previous.xyz());
 
       let new = new.sample(color_sampler, uv).xyz();

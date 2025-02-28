@@ -62,6 +62,8 @@ impl ViewerFrameLogic {
     opaque_lighting: LightingTechniqueKind,
     deferred_mat_supports: &DeferLightingMaterialRegistry,
   ) -> RenderTargetView {
+    let hdr_enabled = final_target.format() == TextureFormat::Rgba16Float;
+
     self
       .reproject
       .update(ctx, current_camera_view_projection_inv);
@@ -104,7 +106,7 @@ impl ViewerFrameLogic {
       camera: content.main_camera,
       renderer,
       f: |ctx: &mut FrameCtx| {
-        let scene_result = attachment().request(ctx);
+        let scene_result = attachment().use_hdr_if_enabled(hdr_enabled).request(ctx);
         let g_buffer = FrameGeometryBuffer::new(ctx);
 
         let (color_ops, depth_ops) = renderer.init_clear(content.scene);

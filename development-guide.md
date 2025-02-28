@@ -43,7 +43,6 @@ The following things is the current project development direction.
 
 ### New features planed
 
-- hdr swapchain(use apple device for testing)
 - physical camera
 - automatic exposure control
 - oit
@@ -66,6 +65,10 @@ The following things is the current project development direction.
 ### Need help issue
 
 - buffer combine with rtao shader breaks on Metal.
+
+### Issues that require future dependency support
+
+- correct hdr rendering, see <https://github.com/gfx-rs/wgpu/issues/2920>;
 
 ## Useful commands
 

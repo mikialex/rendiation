@@ -63,9 +63,9 @@ pub fn depth_stencil_attachment() -> AttachmentDescriptor {
 
 #[derive(Clone)]
 pub struct AttachmentDescriptor {
-  pub(super) format: gpu::TextureFormat,
-  pub(super) sample_count: u32,
-  pub(super) sizer: Arc<dyn Fn(Size) -> Size>,
+  pub format: gpu::TextureFormat,
+  pub sample_count: u32,
+  pub sizer: Arc<dyn Fn(Size) -> Size>,
 }
 
 pub fn default_sizer() -> Arc<dyn Fn(Size) -> Size> {
@@ -82,6 +82,13 @@ pub fn ratio_sizer(ratio: f32) -> impl Fn(Size) -> Size + 'static {
 }
 
 impl AttachmentDescriptor {
+  pub fn use_hdr_if_enabled(mut self, enable_hdr: bool) -> Self {
+    if enable_hdr {
+      self.format = TextureFormat::Rgba16Float
+    }
+    self
+  }
+
   #[must_use]
   pub fn format(mut self, format: gpu::TextureFormat) -> Self {
     self.format = format;
