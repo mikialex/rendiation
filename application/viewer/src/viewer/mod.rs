@@ -190,7 +190,11 @@ impl Widget for Viewer {
 }
 
 impl Viewer {
-  pub fn new(gpu: GPU, content_logic: impl Widget + 'static) -> Self {
+  pub fn new(
+    gpu: GPU,
+    swap_chain: ApplicationWindowSurface,
+    content_logic: impl Widget + 'static,
+  ) -> Self {
     let mut terminal = Terminal::default();
     register_default_commands(&mut terminal);
 
@@ -276,7 +280,7 @@ impl Viewer {
       camera_helpers,
       scene,
       terminal,
-      rendering: Viewer3dRenderingCtx::new(gpu, viewer_ndc, camera_transforms),
+      rendering: Viewer3dRenderingCtx::new(gpu, swap_chain, viewer_ndc, camera_transforms),
       derives,
       on_demand_draw: Default::default(),
       egui_db_inspector: Default::default(),

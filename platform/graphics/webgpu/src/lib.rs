@@ -49,8 +49,9 @@ pub use gpu::{
   IndexFormat, Limits, LoadOp, Operations, PipelineLayoutDescriptor, PowerPreference, Queue,
   RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
   RequestDeviceError, Sampler, SamplerBorderColor, SamplerDescriptor, ShaderModuleDescriptor,
-  ShaderSource, ShaderStages, StoreOp, TextureView, TextureViewDescriptor, Tlas, TlasBuildEntry,
-  TlasInstance, TlasPackage, VertexBufferLayout, VertexState,
+  ShaderSource, ShaderStages, StoreOp, SurfaceError, SurfaceTexture, TextureView,
+  TextureViewDescriptor, Tlas, TlasBuildEntry, TlasInstance, TlasPackage, VertexBufferLayout,
+  VertexState,
 };
 use heap_tools::*;
 use instance_poller::GPUInstance;

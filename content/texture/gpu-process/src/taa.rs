@@ -40,6 +40,7 @@ impl TAA {
     reproject: &GPUReprojectInfo,
   ) -> (&RenderTargetView, RenderTargetView, R) {
     content.set_jitter(self.next_jitter());
+    ctx.make_submit();
 
     let (
       NewTAAFrameSample {
@@ -49,6 +50,7 @@ impl TAA {
       r,
     ) = content.render(ctx);
 
+    ctx.make_submit();
     content.set_jitter(Vec2::zero()); // reset
 
     (

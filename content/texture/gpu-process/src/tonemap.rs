@@ -1,7 +1,7 @@
 use crate::*;
 
 pub struct ToneMap {
-  ty: ToneMapType,
+  pub ty: ToneMapType,
   exposure: UniformBufferCachedDataView<f32>,
 }
 
@@ -32,7 +32,9 @@ impl ToneMap {
   }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ToneMapType {
+  None,
   Linear,
   Reinhard,
   Cineon,
@@ -56,6 +58,7 @@ impl GraphicsShaderProvider for ToneMap {
       let hdr = builder.query::<HDRLightResult>();
 
       let mapped = match self.ty {
+        ToneMapType::None => hdr,
         ToneMapType::Linear => linear_tone_mapping(hdr, exposure),
         ToneMapType::Reinhard => reinhard_tone_mapping(hdr, exposure),
         ToneMapType::Cineon => optimized_cineon_tone_mapping(hdr, exposure),

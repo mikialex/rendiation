@@ -6,6 +6,7 @@ The following things is the current project development direction.
 
 ### Basic correctness
 
+- optimize frame ctx "make_submit" call, use copy buffer to buffer to update.
 - env background not support tonemapping
 - alpha blending is not implemnt at all
 - light uniform array not skip none exist light
@@ -20,10 +21,10 @@ The following things is the current project development direction.
 - fix parallel compute test out of bound shader access
 - fix scene gpu lighting is globally shared
 - fix some mesh can not be picked in cpu picking (maybe related to u16 index format)
-- fix viewer screenshot channel mismatch (for example gbra swapchain texture format)
 - fix missing blur pass in ssao
 - fix ao should only shadowing diffuse lighting.
 - ibl brdf lut should use higher precision lut
+- fix outline shaking
 
 ### Indirect rendering
 

@@ -14,6 +14,27 @@ impl PooledTextureKey {
   pub fn request(self, ctx: &FrameCtx) -> RenderTargetView {
     ctx.pool.request(&self).into()
   }
+  pub fn create_directly(self, gpu: &GPU) -> GPU2DTextureView {
+    let tex: GPU2DTexture = GPUTexture::create(
+      gpu::TextureDescriptor {
+        label: None,
+        size: map_size_gpu(self.size),
+        dimension: gpu::TextureDimension::D2,
+        format: self.format,
+        view_formats: &[],
+        usage: gpu::TextureUsages::TEXTURE_BINDING
+          | gpu::TextureUsages::COPY_DST
+          | gpu::TextureUsages::COPY_SRC
+          | gpu::TextureUsages::RENDER_ATTACHMENT,
+        mip_level_count: 1,
+        sample_count: self.sample_count,
+      },
+      &gpu.device,
+    )
+    .try_into()
+    .unwrap();
+    tex.create_default_view().try_into().unwrap()
+  }
 }
 
 pub fn attachment() -> AttachmentDescriptor {
@@ -96,25 +117,5 @@ impl AttachmentDescriptor {
 
 pub fn init_attachment_pool(gpu: &GPU) -> AttachmentPool {
   let gpu = gpu.clone();
-  ReuseKVPool::new(move |k: &PooledTextureKey| {
-    let tex: GPU2DTexture = GPUTexture::create(
-      gpu::TextureDescriptor {
-        label: None,
-        size: map_size_gpu(k.size),
-        dimension: gpu::TextureDimension::D2,
-        format: k.format,
-        view_formats: &[],
-        usage: gpu::TextureUsages::TEXTURE_BINDING
-          | gpu::TextureUsages::COPY_DST
-          | gpu::TextureUsages::COPY_SRC
-          | gpu::TextureUsages::RENDER_ATTACHMENT,
-        mip_level_count: 1,
-        sample_count: k.sample_count,
-      },
-      &gpu.device,
-    )
-    .try_into()
-    .unwrap();
-    tex.create_default_view().try_into().unwrap()
-  })
+  ReuseKVPool::new(move |k: &PooledTextureKey| k.create_directly(&gpu))
 }

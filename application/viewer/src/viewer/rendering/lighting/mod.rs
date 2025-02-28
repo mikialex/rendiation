@@ -3,7 +3,7 @@ use std::num::NonZeroU32;
 use rendiation_area_lighting::AreaLightUniformLightList;
 use rendiation_lighting_shadow_map::*;
 use rendiation_texture_gpu_base::create_gpu_texture2d;
-use rendiation_texture_gpu_process::ToneMap;
+use rendiation_texture_gpu_process::{ToneMap, ToneMapType};
 
 mod debug_channels;
 mod ibl;
@@ -199,15 +199,33 @@ impl LightSystem {
     }
   }
 
-  pub fn egui(&mut self, ui: &mut egui::Ui) {
+  pub fn egui(&mut self, ui: &mut egui::Ui, is_hdr_rendering: bool) {
     ui.checkbox(&mut self.enable_channel_debugger, "enable channel debug");
-    self.tonemap.mutate_exposure(|e| {
-      ui.add(
-        egui::Slider::new(e, 0.0..=2.0)
-          .step_by(0.05)
-          .text("exposure"),
-      );
-    });
+
+    if is_hdr_rendering {
+      ui.label("tonemap is disabled when hdr display enabled");
+      self.tonemap.ty = ToneMapType::None;
+    } else {
+      if self.tonemap.ty == ToneMapType::None {
+        self.tonemap.ty = ToneMapType::ACESFilmic;
+      }
+      egui::ComboBox::from_label("Tone mapping type")
+        .selected_text(format!("{:?}", &self.tonemap.ty))
+        .show_ui(ui, |ui| {
+          ui.selectable_value(&mut self.tonemap.ty, ToneMapType::Linear, "Linear");
+          ui.selectable_value(&mut self.tonemap.ty, ToneMapType::Cineon, "Cineon");
+          ui.selectable_value(&mut self.tonemap.ty, ToneMapType::Reinhard, "Reinhard");
+          ui.selectable_value(&mut self.tonemap.ty, ToneMapType::ACESFilmic, "ACESFilmic");
+        });
+
+      self.tonemap.mutate_exposure(|e| {
+        ui.add(
+          egui::Slider::new(e, 0.0..=2.0)
+            .step_by(0.05)
+            .text("exposure"),
+        );
+      });
+    }
   }
 
   pub fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {

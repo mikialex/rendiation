@@ -108,6 +108,7 @@ pub struct Viewer3dRenderingCtx {
   material_defer_lighting_supports: DeferLightingMaterialRegistry,
   pool: AttachmentPool,
   gpu: GPU,
+  swap_chain: ApplicationWindowSurface,
   on_encoding_finished: EventSource<ViewRenderedState>,
   expect_read_back_for_next_render_result: bool,
   current_camera_view_projection_inv: Mat4<f32>,
@@ -126,6 +127,7 @@ impl Viewer3dRenderingCtx {
 
   pub fn new(
     gpu: GPU,
+    swap_chain: ApplicationWindowSurface,
     ndc: ViewerNDC,
     camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
   ) -> Self {
@@ -146,6 +148,7 @@ impl Viewer3dRenderingCtx {
 
     Self {
       ndc,
+      swap_chain,
       indirect_occlusion_culling_impl: None,
       rendering_resource,
       renderer_impl,
@@ -202,6 +205,26 @@ impl Viewer3dRenderingCtx {
   }
 
   pub fn egui(&mut self, ui: &mut egui::Ui) {
+    let mut is_hdr = false;
+    self.swap_chain.internal(|surface| {
+      is_hdr = surface.config.format == TextureFormat::Rgba16Float;
+      ui.collapsing("Swapchain config", |ui| {
+        let cap = surface.capabilities();
+        let default_none_hdr_format = get_default_preferred_format(cap);
+        let support_hdr = cap.formats.contains(&TextureFormat::Rgba16Float);
+
+        ui.add_enabled_ui(support_hdr, |ui| {
+          ui.checkbox(&mut is_hdr, "enable hdr rendering")
+            .on_disabled_hover_text("current platform does not support hdr rendering");
+          if is_hdr {
+            surface.config.format = TextureFormat::Rgba16Float;
+          } else {
+            surface.config.format = default_none_hdr_format;
+          }
+        });
+      });
+    });
+
     let is_target_support_indirect_draw = self
       .gpu
       .info
@@ -295,7 +318,7 @@ impl Viewer3dRenderingCtx {
 
     ui.separator();
 
-    self.lighting.egui(ui);
+    self.lighting.egui(ui, is_hdr);
     self.frame_logic.egui(ui);
   }
 
@@ -334,20 +357,15 @@ impl Viewer3dRenderingCtx {
 
     let renderer = self.renderer_impl.create_impl(&mut resource);
 
+    let mut ctx = FrameCtx::new(&self.gpu, target.size(), &self.pool);
+
     let render_target = if self.expect_read_back_for_next_render_result
       && matches!(target, RenderTargetView::SurfaceTexture { .. })
     {
-      RenderTargetView::Texture(create_empty_2d_texture_view(
-        &self.gpu,
-        target.size(),
-        basic_texture_usages(),
-        target.format(),
-      ))
+      target.create_attachment_key().request(&ctx)
     } else {
       target.clone()
     };
-
-    let mut ctx = FrameCtx::new(&self.gpu, target.size(), &self.pool);
 
     if self.enable_rtx_ao_rendering && self.rtx_ao_renderer_impl.is_some() {
       let mut rtx_ao_renderer = self

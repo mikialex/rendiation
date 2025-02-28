@@ -151,7 +151,7 @@ pub struct RenderTargetFormatsInfo {
 }
 
 pub struct GPURenderPass {
-  pub(crate) pass: gpu::RenderPass<'static>,
+  pub pass: gpu::RenderPass<'static>,
   pub(crate) placeholder_bg: Arc<gpu::BindGroup>,
   pub(crate) size: Size,
   pub(crate) formats: RenderTargetFormatsInfo,

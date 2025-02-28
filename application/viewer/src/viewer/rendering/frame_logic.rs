@@ -99,16 +99,6 @@ impl ViewerFrameLogic {
       })
       .by(&mut widget_scene_content);
 
-    let mut highlight_compose = (content.selected_target.is_some()).then(|| {
-      let masked_content = renderer.render_models(
-        Box::new(IteratorAsHostRenderBatch(content.selected_target)),
-        CameraRenderSource::Scene(content.main_camera),
-        &HighLightMaskDispatcher,
-        ctx,
-      );
-      self.highlight.draw(ctx, masked_content)
-    });
-
     let taa_content = SceneCameraTAAContent {
       queue: &ctx.gpu.queue,
       camera: content.main_camera,
@@ -272,6 +262,16 @@ impl ViewerFrameLogic {
       widgets_result,
       BlendState::PREMULTIPLIED_ALPHA_BLENDING.into(),
     );
+
+    let mut highlight_compose = (content.selected_target.is_some()).then(|| {
+      let masked_content = renderer.render_models(
+        Box::new(IteratorAsHostRenderBatch(content.selected_target)),
+        CameraRenderSource::Scene(content.main_camera),
+        &HighLightMaskDispatcher,
+        ctx,
+      );
+      self.highlight.draw(ctx, masked_content)
+    });
 
     let mut compose = pass("compose-all")
       .with_color(final_target, load())

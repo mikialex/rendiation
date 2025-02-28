@@ -1,5 +1,6 @@
 use egui::epaint::Shadow;
 use egui::Visuals;
+use rendiation_texture_gpu_process::copy_frame;
 use winit::window::Window;
 
 use crate::*;
@@ -8,7 +9,7 @@ pub struct EguiContext<T> {
   inner: T,
   context: egui::Context,
   state: Option<egui_winit::State>,
-  renderer: Option<egui_wgpu::Renderer>,
+  renderer: Option<(egui_wgpu::Renderer, TextureFormat)>,
 }
 
 impl<T: Widget> Widget for EguiContext<T> {
@@ -43,9 +44,9 @@ impl<T: Widget> Widget for EguiContext<T> {
     });
 
     access_cx!(cx, window, Window);
-    access_cx!(cx, gpu, GPU);
+    access_cx!(cx, gpu_and_surface, WGPUAndSurface);
     access_cx!(cx, canvas, RenderTargetView);
-    self.end_frame_and_draw(gpu, window, canvas);
+    self.end_frame_and_draw(&gpu_and_surface.gpu, window, canvas);
   }
 
   fn clean_up(&mut self, cx: &mut DynCx) {
@@ -82,7 +83,6 @@ impl<T> EguiContext<T> {
 
   pub fn end_frame_and_draw(&mut self, gpu: &GPU, window: &Window, target: &RenderTargetView) {
     let state = self.state.as_mut().unwrap();
-    let view = target.as_view();
 
     let full_output = self.context.end_pass();
 
@@ -92,18 +92,18 @@ impl<T> EguiContext<T> {
       .context
       .tessellate(full_output.shapes, full_output.pixels_per_point);
 
-    // todo, recreate renderer if target spec changed
-    let renderer = self.renderer.get_or_insert_with(|| {
+    let (renderer, fmt) = self.renderer.get_or_insert_with(|| {
       let output_color_format = target.format();
       let output_depth_format = None;
       let msaa_samples = 1;
-      egui_wgpu::Renderer::new(
+      let renderer = egui_wgpu::Renderer::new(
         &gpu.device,
         output_color_format,
         output_depth_format,
         msaa_samples,
         false,
-      )
+      );
+      (renderer, output_color_format)
     });
 
     for (id, image_delta) in &full_output.textures_delta.set {
@@ -118,12 +118,7 @@ impl<T> EguiContext<T> {
       pixels_per_point: window.scale_factor() as f32,
     };
 
-    let mut encoder =
-      gpu
-        .device
-        .create_command_encoder(&rendiation_webgpu::CommandEncoderDescriptor {
-          label: Some("GUI encoder"),
-        });
+    let mut encoder = gpu.create_encoder();
 
     renderer.update_buffers(
       &gpu.device,
@@ -133,25 +128,33 @@ impl<T> EguiContext<T> {
       &screen_descriptor,
     );
 
-    let rpass = encoder.begin_render_pass(&rendiation_webgpu::RenderPassDescriptor {
-      color_attachments: &[Some(rendiation_webgpu::RenderPassColorAttachment {
-        view,
-        resolve_target: None,
-        ops: rendiation_webgpu::Operations {
-          load: rendiation_webgpu::LoadOp::Load,
-          store: rendiation_webgpu::StoreOp::Store,
-        },
-      })],
-      depth_stencil_attachment: None,
-      label: Some("egui main render pass"),
-      timestamp_writes: None,
-      occlusion_query_set: None,
-    });
-    let mut rpass = rpass.forget_lifetime();
-    renderer.render(&mut rpass, &tris, &screen_descriptor);
+    // egui renderer only support srgb target. this is bad
+    let w_target = if *fmt == target.format() {
+      target.clone()
+    } else {
+      // in other case , we do a custom copy.
+      let mut key = target.create_attachment_key();
+      key.format = *fmt;
+      let tex = key.create_directly(gpu);
+      RenderTargetView::Texture(tex)
+    };
+
+    let mut rpass = encoder.begin_render_pass(
+      RenderPassDescription::default()
+        .with_name("egui main render pass")
+        .with_color(&w_target, load()),
+    );
+    renderer.render(&mut rpass.pass, &tris, &screen_descriptor);
     drop(rpass);
 
-    gpu.queue.submit(std::iter::once(encoder.finish()));
+    if *fmt != target.format() {
+      pass("egui extra copy")
+        .with_color(target, load())
+        .render(&mut encoder, gpu)
+        .by(&mut copy_frame(w_target, Some(BlendState::ALPHA_BLENDING)));
+    }
+
+    gpu.submit_encoder(encoder);
 
     for x in &full_output.textures_delta.free {
       renderer.free_texture(x)
