@@ -40,7 +40,7 @@ pub trait IndirectBatchSceneModelRenderer: SceneModelRenderer {
   fn make_draw_command_builder(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Box<dyn DrawCommandBuilder>>;
+  ) -> Option<DrawCommandBuilder>;
 }
 
 pub struct IndirectPreferredComOrderRendererProvider {
@@ -225,7 +225,7 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
   fn make_draw_command_builder(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Box<dyn DrawCommandBuilder>> {
+  ) -> Option<DrawCommandBuilder> {
     self.model_impl.make_draw_command_builder(any_idx)
   }
 }

@@ -31,7 +31,7 @@ pub trait IndirectModelRenderImpl {
   fn make_draw_command_builder(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Box<dyn DrawCommandBuilder>>;
+  ) -> Option<DrawCommandBuilder>;
 
   fn material_renderable_indirect<'a>(
     &'a self,
@@ -84,7 +84,7 @@ impl IndirectModelRenderImpl for Vec<Box<dyn IndirectModelRenderImpl>> {
   fn make_draw_command_builder(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Box<dyn DrawCommandBuilder>> {
+  ) -> Option<DrawCommandBuilder> {
     for provider in self {
       if let Some(v) = provider.make_draw_command_builder(any_idx) {
         return Some(v);
@@ -225,7 +225,7 @@ impl IndirectModelRenderImpl for SceneStdModelRenderer {
   fn make_draw_command_builder(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
-  ) -> Option<Box<dyn DrawCommandBuilder>> {
+  ) -> Option<DrawCommandBuilder> {
     let model = self.model.get(any_idx)?;
     self.shapes.make_draw_command_builder(model)
   }

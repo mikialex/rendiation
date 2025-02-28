@@ -331,17 +331,25 @@ impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
   fn make_draw_command_builder(
     &self,
     any_idx: EntityHandle<StandardModelEntity>,
-  ) -> Option<Box<dyn DrawCommandBuilder>> {
+  ) -> Option<DrawCommandBuilder> {
     // check the given model has attributes mesh
     let mesh_id = self.checker.get(any_idx)?;
     // check mesh must have indices.
-    let _ = self.indices_checker.get(mesh_id)?;
-    Some(Box::new(BindlessDrawCreator {
+    let is_indexed = self.indices_checker.get(mesh_id).is_some();
+
+    let creator = BindlessDrawCreator {
       metadata: self.vertex_address_buffer.clone().into_readonly_view(),
       sm_to_mesh_device: self.sm_to_mesh_device.clone().into_readonly_view(),
       sm_to_mesh: self.sm_to_mesh.clone(),
       vertex_address_buffer_host: self.vertex_address_buffer_host.clone(),
-    }))
+    };
+
+    if is_indexed {
+      DrawCommandBuilder::Indexed(Box::new(creator))
+    } else {
+      DrawCommandBuilder::NoneIndexed(Box::new(creator))
+    }
+    .into()
   }
 }
 
@@ -426,8 +434,42 @@ pub struct BindlessDrawCreator {
     MultiUpdateContainer<CommonStorageBufferImplWithHostBackup<AttributeMeshMeta>>,
   >,
 }
+impl NoneIndexedDrawCommandBuilder for BindlessDrawCreator {
+  fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> DrawCommand {
+    let mesh_id = self.sm_to_mesh.access(&id).unwrap();
+    let address_info = self
+      .vertex_address_buffer_host
+      .vec
+      .get(mesh_id.alloc_index() as usize)
+      .unwrap();
 
-impl DrawCommandBuilder for BindlessDrawCreator {
+    let start = address_info.position_offset;
+    let end = start + address_info.position_count / 3;
+    DrawCommand::Array {
+      instances: 0..1,
+      vertices: start..end,
+    }
+  }
+
+  fn build_invocation(
+    &self,
+    cx: &mut ShaderComputePipelineBuilder,
+  ) -> Box<dyn NoneIndexedDrawCommandBuilderInvocation> {
+    let node = cx.bind_by(&self.metadata);
+    let sm_to_mesh_device = cx.bind_by(&self.sm_to_mesh_device);
+    Box::new(BindlessDrawCreatorInDevice {
+      node,
+      sm_to_mesh_device,
+    })
+  }
+
+  fn bind(&self, builder: &mut BindingBuilder) {
+    builder.bind(&self.metadata);
+    builder.bind(&self.sm_to_mesh_device);
+  }
+}
+
+impl IndexedDrawCommandBuilder for BindlessDrawCreator {
   fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> DrawCommand {
     let mesh_id = self.sm_to_mesh.access(&id).unwrap();
     let address_info = self
@@ -448,7 +490,7 @@ impl DrawCommandBuilder for BindlessDrawCreator {
   fn build_invocation(
     &self,
     cx: &mut ShaderComputePipelineBuilder,
-  ) -> Box<dyn DrawCommandBuilderInvocation> {
+  ) -> Box<dyn IndexedDrawCommandBuilderInvocation> {
     let node = cx.bind_by(&self.metadata);
     let sm_to_mesh_device = cx.bind_by(&self.sm_to_mesh_device);
     Box::new(BindlessDrawCreatorInDevice {
@@ -478,7 +520,7 @@ pub struct BindlessDrawCreatorInDevice {
   sm_to_mesh_device: ShaderReadonlyPtrOf<[u32]>,
 }
 
-impl DrawCommandBuilderInvocation for BindlessDrawCreatorInDevice {
+impl IndexedDrawCommandBuilderInvocation for BindlessDrawCreatorInDevice {
   fn generate_draw_command(
     &self,
     draw_id: Node<u32>, // aka sm id
@@ -493,6 +535,25 @@ impl DrawCommandBuilderInvocation for BindlessDrawCreatorInDevice {
       base_index: meta.index_offset,
       vertex_offset: val(0),
       base_instance: draw_id,
+    }
+    .construct()
+  }
+}
+
+impl NoneIndexedDrawCommandBuilderInvocation for BindlessDrawCreatorInDevice {
+  fn generate_draw_command(
+    &self,
+    draw_id: Node<u32>, // aka sm id
+  ) -> Node<DrawIndirect> {
+    let mesh_handle: Node<u32> = self.sm_to_mesh_device.index(draw_id).load();
+    // shader_assert(mesh_handle.not_equals(val(u32::MAX)));
+
+    let meta = self.node.index(mesh_handle).load().expand();
+    ENode::<DrawIndirect> {
+      vertex_count: meta.position_count / val(3),
+      instance_count: val(1),
+      first_vertex: meta.position_offset,
+      first_instance: draw_id,
     }
     .construct()
   }
