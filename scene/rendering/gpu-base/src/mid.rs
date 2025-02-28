@@ -79,9 +79,13 @@ impl DeviceSceneModelRenderSubBatch {
 
     Box::new(MultiIndirectDrawBatch {
       draw_command_buffer: r.buffer,
-      draw_count: r
-        .size
-        .unwrap_or_else(|| create_gpu_readonly_storage(&Vec4::new(size, 0, 0, 0), &cx.gpu.device)),
+      draw_count: r.size.unwrap_or_else(|| {
+        StorageBufferReadonlyDataView::create_by_with_extra_usage(
+          &cx.gpu.device,
+          StorageBufferInit::WithInit(&Vec4::new(size, 0, 0, 0)),
+          BufferUsages::INDIRECT,
+        )
+      }),
     })
   }
 }

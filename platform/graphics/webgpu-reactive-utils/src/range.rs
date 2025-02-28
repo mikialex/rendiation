@@ -30,7 +30,7 @@ impl<T: ReactiveQuery<Value = (Arc<Vec<u8>>, Option<GPUBufferViewRange>)>> React
   for ReactiveRangeAllocatePool<T>
 {
   type Key = T::Key;
-  type Value = (u32, u32); // offset count
+  type Value = (u32, u32); // offset count(in u32)
 
   type Changes = impl Query<Key = T::Key, Value = ValueChange<(u32, u32)>>;
   type View = impl Query<Key = T::Key, Value = (u32, u32)>;

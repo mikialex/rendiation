@@ -295,6 +295,22 @@ impl DrawIndexedIndirect {
   }
 }
 
+#[repr(C)]
+#[std430_layout]
+#[derive(Clone, Copy, ShaderStruct, Debug)]
+pub struct DrawIndirect {
+  /// The number of vertices to draw.
+  pub vertex_count: u32,
+  /// The number of instances to draw.
+  pub instance_count: u32,
+  /// The Index of the first vertex to draw.
+  pub first_vertex: u32,
+  /// The instance ID of the first instance to draw.
+  ///
+  /// Has to be 0, INDIRECT_FIRST_INSTANCE is enabled.
+  pub first_instance: u32,
+}
+
 /// this fn is to replace the usage of `TextureUsages::all()` because not every fmt support
 /// `TextureUsages::STORAGE_ATOMIC` and this will cause validation error.
 pub fn basic_texture_usages() -> TextureUsages {

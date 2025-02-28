@@ -8,7 +8,7 @@ only_vertex!(IndirectAbstractMeshId, u32);
 
 use crate::*;
 
-pub fn attribute_indices(
+fn attribute_indices(
   index_pool: &UntypedPool,
   gpu: &GPU,
 ) -> impl ReactiveQuery<Key = EntityHandle<AttributesMeshEntity>, Value = Vec2<u32>> {
@@ -46,6 +46,15 @@ pub fn attribute_indices(
     .collective_map(|(offset, count)| Vec2::new(offset, count))
 }
 
+/// return u32::MAX for all none_indexed mesh
+fn none_attribute_mesh_index_indicator(
+) -> impl ReactiveQuery<Key = EntityHandle<AttributesMeshEntity>, Value = u32> {
+  global_watch()
+    .watch_typed_foreign_key::<SceneBufferViewBufferId<AttributeIndexRef>>()
+    .collective_filter(|v| v.is_none())
+    .collective_map(|_| u32::MAX)
+}
+
 fn range_convert(range: Option<BufferViewRange>) -> Option<GPUBufferViewRange> {
   range.map(|r| GPUBufferViewRange {
     offset: r.offset,
@@ -53,11 +62,11 @@ fn range_convert(range: Option<BufferViewRange>) -> Option<GPUBufferViewRange> {
   })
 }
 
-pub fn attribute_vertex(
+fn attribute_vertex(
   pool: &UntypedPool,
   semantic: AttributeSemantic,
   gpu: &GPU,
-) -> impl ReactiveQuery<Key = EntityHandle<AttributesMeshEntity>, Value = u32> {
+) -> impl ReactiveQuery<Key = EntityHandle<AttributesMeshEntity>, Value = [u32; 2]> {
   let attribute_scope = global_watch()
     .watch::<AttributesMeshEntityVertexBufferSemantic>()
     .collective_filter(move |s| semantic == s)
@@ -90,10 +99,11 @@ pub fn attribute_vertex(
   // we not using intersect here because range may not exist
   // todo, put it into registry
   ReactiveRangeAllocatePool::new(pool, ranged_buffer, gpu)
-    .collective_map(|(offset, _)| offset)
+    .collective_map(|v| [v.0, v.1])
     .one_to_many_fanout(ab_ref_mesh.into_one_to_many_by_hash())
 }
 
+///  note the attribute's count should be same for one mesh, will keep it here for simplicity
 #[repr(C)]
 #[std430_layout]
 #[derive(Debug, Clone, PartialEq, Copy, ShaderStruct, Default)]
@@ -101,8 +111,11 @@ pub struct AttributeMeshMeta {
   pub index_offset: u32,
   pub count: u32,
   pub position_offset: u32,
+  pub position_count: u32,
   pub normal_offset: u32,
+  pub normal_count: u32,
   pub uv_offset: u32,
+  pub uv_count: u32,
 }
 
 pub type CommonStorageBufferImplWithHostBackup<T> =
@@ -127,6 +140,11 @@ pub fn attribute_buffer_metadata(
       // note, the offset and count is update together
       field_offset: offset_of!(AttributeMeshMeta, index_offset) as u32,
       upstream: attribute_indices(index_pool, gpu),
+    })
+    .with_source(QueryBasedStorageBufferUpdate {
+      // note, the offset and count is update together
+      field_offset: offset_of!(AttributeMeshMeta, index_offset) as u32,
+      upstream: none_attribute_mesh_index_indicator(),
     })
     .with_source(QueryBasedStorageBufferUpdate {
       field_offset: offset_of!(AttributeMeshMeta, position_offset) as u32,
@@ -466,7 +484,7 @@ impl DrawCommandBuilderInvocation for BindlessDrawCreatorInDevice {
     draw_id: Node<u32>, // aka sm id
   ) -> Node<DrawIndexedIndirect> {
     let mesh_handle: Node<u32> = self.sm_to_mesh_device.index(draw_id).load();
-    // todo check mesh_handle
+    // shader_assert(mesh_handle.not_equals(val(u32::MAX)));
 
     let meta = self.node.index(mesh_handle).load().expand();
     ENode::<DrawIndexedIndirect> {

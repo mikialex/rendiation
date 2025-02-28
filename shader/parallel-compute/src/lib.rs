@@ -208,7 +208,11 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
 
     // requested_workgroup_size should always be respected
     let workgroup_size = self.requested_workgroup_size().unwrap_or(256);
-    let workgroup_size_buffer = create_gpu_readonly_storage(&workgroup_size, &cx.gpu.device);
+    let workgroup_size_buffer = StorageBufferReadonlyDataView::create_by_with_extra_usage(
+      &cx.gpu.device,
+      StorageBufferInit::WithInit(&workgroup_size),
+      BufferUsages::INDIRECT,
+    );
 
     let pipeline = cx.get_or_create_compute_pipeline(&SizeWriter(self), |cx| {
       cx.config_work_group_size(workgroup_size);
