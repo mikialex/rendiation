@@ -82,7 +82,9 @@ impl ViewerFrameLogic {
       .unwrap();
 
     let mut widget_scene_content = renderer.extract_and_make_pass_content(
-      SceneContentKey { transparent: false },
+      SceneContentKey {
+        only_alpha_blend_objects: None,
+      },
       content.widget_scene,
       camera,
       ctx,
@@ -110,7 +112,9 @@ impl ViewerFrameLogic {
         let g_buffer = FrameGeometryBuffer::new(ctx);
 
         let (color_ops, depth_ops) = renderer.init_clear(content.scene);
-        let key = SceneContentKey { transparent: false };
+        let key = SceneContentKey {
+          only_alpha_blend_objects: None,
+        };
 
         let mut background = renderer.render_background(
           content.scene,

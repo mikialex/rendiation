@@ -242,7 +242,9 @@ impl LightSystem {
   ) -> SceneLightSystem {
     self.tonemap.update(frame_ctx.gpu);
 
-    let key = SceneContentKey { transparent: false };
+    let key = SceneContentKey {
+      only_alpha_blend_objects: None,
+    };
 
     // we could just use empty pass dispatcher, because the color channel not exist at all
     let depth = ();

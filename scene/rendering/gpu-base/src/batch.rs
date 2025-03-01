@@ -31,12 +31,15 @@ impl HostRenderBatch for Vec<EntityHandle<SceneModelEntity>> {
 
 dyn_clone::clone_trait_object!(HostRenderBatch);
 
+// todo, we should make it incremental
 #[derive(Clone)]
 pub struct HostModelLookUp {
   pub v: RevRefOfForeignKey<SceneModelBelongsToScene>,
   pub node_net_visible: BoxedDynQuery<EntityHandle<SceneNodeEntity>, bool>,
+  pub scene_model_use_alpha_blending: BoxedDynQuery<EntityHandle<SceneModelEntity>, bool>,
   pub sm_ref_node: ForeignKeyReadView<SceneModelRefNode>,
   pub scene_id: EntityHandle<SceneEntity>,
+  pub enable_alpha_blending: Option<bool>,
 }
 
 impl HostRenderBatch for HostModelLookUp {
@@ -45,7 +48,19 @@ impl HostRenderBatch for HostModelLookUp {
       let node = self.sm_ref_node.get(*sm).unwrap();
       self.node_net_visible.access(&node).unwrap_or(false)
     });
-    Box::new(iter)
+
+    if let Some(enable_alpha_blending) = self.enable_alpha_blending {
+      let iter = iter.filter(move |sm| {
+        self
+          .scene_model_use_alpha_blending
+          .access(sm)
+          .unwrap_or(false)
+          == enable_alpha_blending
+      });
+      Box::new(iter)
+    } else {
+      Box::new(iter)
+    }
   }
 }
 

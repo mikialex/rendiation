@@ -82,7 +82,7 @@ pub type GPUTextureBindingSystem = Box<dyn DynAbstractGPUTextureSystem>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SceneContentKey {
-  pub transparent: bool,
+  pub only_alpha_blend_objects: Option<bool>,
 }
 
 /// A scene renderer that encapsulate the scene rendering ability.
