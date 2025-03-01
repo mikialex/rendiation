@@ -222,6 +222,37 @@ impl Viewer3dRenderingCtx {
             surface.config.format = default_none_hdr_format;
           }
         });
+
+        egui::ComboBox::from_label("present mode")
+          .selected_text(format!("{:?}", &surface.config.present_mode))
+          .show_ui(ui, |ui| {
+            ui.selectable_value(
+              &mut surface.config.present_mode,
+              PresentMode::AutoVsync,
+              "AutoVsync",
+            );
+            ui.selectable_value(
+              &mut surface.config.present_mode,
+              PresentMode::AutoNoVsync,
+              "AutoNoVsync",
+            );
+            ui.selectable_value(&mut surface.config.present_mode, PresentMode::Fifo, "Fifo");
+            ui.selectable_value(
+              &mut surface.config.present_mode,
+              PresentMode::FifoRelaxed,
+              "FifoRelaxed",
+            );
+            ui.selectable_value(
+              &mut surface.config.present_mode,
+              PresentMode::Immediate,
+              "Immediate",
+            );
+            ui.selectable_value(
+              &mut surface.config.present_mode,
+              PresentMode::Mailbox,
+              "Mailbox",
+            );
+          });
       });
     });
 
