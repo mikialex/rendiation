@@ -153,3 +153,18 @@ impl<T> Vec3<T> {
     Vec4::new(self.x, self.y, self.z, T::one())
   }
 }
+
+impl<T> BitAnd for Vec3<T>
+where
+  T: BitAnd<T, Output = T>,
+{
+  type Output = Self;
+  #[inline]
+  fn bitand(self, rhs: Self) -> Self::Output {
+    Self {
+      x: self.x & rhs.x,
+      y: self.y & rhs.y,
+      z: self.z & rhs.z,
+    }
+  }
+}
