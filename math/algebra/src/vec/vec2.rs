@@ -118,3 +118,17 @@ where
     self.x * b.y - self.y * b.x
   }
 }
+
+impl<T> BitAnd for Vec2<T>
+where
+  T: BitAnd<T, Output = T>,
+{
+  type Output = Self;
+  #[inline]
+  fn bitand(self, rhs: Self) -> Self::Output {
+    Self {
+      x: self.x & rhs.x,
+      y: self.y & rhs.y,
+    }
+  }
+}

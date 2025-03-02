@@ -84,3 +84,19 @@ where
     )
   }
 }
+
+impl<T> BitAnd for Vec4<T>
+where
+  T: BitAnd<T, Output = T>,
+{
+  type Output = Self;
+  #[inline]
+  fn bitand(self, rhs: Self) -> Self::Output {
+    Self {
+      x: self.x & rhs.x,
+      y: self.y & rhs.y,
+      z: self.z & rhs.z,
+      w: self.w & rhs.w,
+    }
+  }
+}
