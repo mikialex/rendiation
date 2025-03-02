@@ -3804,6 +3804,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-lighting-gi-ddgi"
+version = "0.1.0"
+dependencies = [
+ "rendiation-algebra",
+ "rendiation-geometry",
+ "rendiation-lighting-gpu-system",
+ "rendiation-lighting-transport",
+ "rendiation-shader-api",
+ "rendiation-shader-library",
+ "rendiation-webgpu",
+]
+
+[[package]]
 name = "rendiation-lighting-gpu-system"
 version = "0.1.0"
 dependencies = [

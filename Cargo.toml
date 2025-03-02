@@ -41,6 +41,7 @@ members = [
   "content/lighting/punctual",
   "content/lighting/gpu-system/shadow-map",
   "content/lighting/gpu-system/lighting-system",
+  "content/lighting/gi/ddgi",
   "content/space",
   "content/virtualization",
   "shader/api",

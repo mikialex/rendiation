@@ -45,6 +45,7 @@
         "consts",
         "Controllee",
         "dashmap",
+        "ddgi",
         "dealloc",
         "deallocator",
         "Deque",
