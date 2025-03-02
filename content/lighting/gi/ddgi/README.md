@@ -1,7 +1,6 @@
 
-
 # References
 
-https://github.com/NVIDIAGameWorks/RTXGI-DDGI/tree/main
+<https://github.com/NVIDIAGameWorks/RTXGI-DDGI/tree/main>
 
-https://zhuanlan.zhihu.com/p/404520592
+<https://zhuanlan.zhihu.com/p/404520592>
