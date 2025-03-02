@@ -4,7 +4,9 @@ use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 
 mod lighting;
+use lighting::*;
 mod octahedral;
+use octahedral::*;
 
 pub struct ProbeVolume {
   spacing: f32, // in meter, world space
