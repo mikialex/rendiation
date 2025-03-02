@@ -1,6 +1,10 @@
 use rendiation_geometry::*;
 use rendiation_lighting_gpu_system::*;
+use rendiation_shader_api::*;
 use rendiation_webgpu::*;
+
+mod lighting;
+mod octahedral;
 
 pub struct ProbeVolume {
   spacing: f32, // in meter, world space
@@ -34,6 +38,23 @@ impl ProbeVolume {
   }
 }
 
+#[derive(Debug, Clone, ShaderStruct)]
+pub struct ProbeVolumeGPUInfo {
+  /// volume center location in world_space
+  pub origin: Vec3<f32>,
+  /// world-space distance between probes
+  pub spacing: Vec3<f32>,
+  /// number of probes on each axis of the volume
+  pub counts: Vec3<u32>,
+
+  /// grid-space offsets used for scrolling movement
+  pub scroll_offsets: Vec3<i32>,
+  /// whether probes of a plane need to be cleared due to scrolling movement
+  pub scroll_clear: Vec3<u32>, // Vec3<bool>
+  /// direction of scrolling movement (0: negative, 1: positive)
+  pub scroll_direction: Vec3<u32>,
+}
+
 pub struct ProbeVolumeGPUInstance {
   // todo
 }
@@ -42,10 +63,15 @@ pub trait DDGISceneBridge {}
 
 impl ProbeVolumeGPUInstance {
   pub fn update(frame: &mut FrameCtx, scene: &dyn DDGISceneBridge) {
-    // todo
+    // per probe trace new ray to get gbuffer
+
+    // do gbuffer direct lighting use defer pipeline
+
+    // blend the direct lighting result into probe buffer
   }
 
   pub fn create_lighting_component(&self) -> Box<dyn LightingComputeComponent> {
+    // use probe buffer for indirect lighting
     todo!()
   }
 }
