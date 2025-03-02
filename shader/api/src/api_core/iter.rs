@@ -121,6 +121,30 @@ impl ShaderIterator for StepTo {
   }
 }
 
+pub struct StepToI32 {
+  to: Node<i32>,
+  current: ShaderPtrOf<i32>,
+}
+
+impl StepToI32 {
+  fn new(to: Node<i32>) -> Self {
+    Self {
+      to,
+      current: val(0_i32).make_local_var(),
+    }
+  }
+}
+
+impl ShaderIterator for StepToI32 {
+  type Item = Node<i32>;
+
+  fn shader_next(&self) -> (Node<bool>, Self::Item) {
+    let current = self.current.load();
+    self.current.store(current + val(1));
+    (current.equals(self.to).not(), current)
+  }
+}
+
 pub struct ForRange {
   to: BoxedShaderLoadStore<Node<u32>>,
   current: BoxedShaderLoadStore<Node<u32>>,
@@ -280,6 +304,22 @@ impl IntoShaderIterator for Node<u32> {
 
   fn into_shader_iter(self) -> Self::ShaderIter {
     StepTo::new(self)
+  }
+}
+
+impl IntoShaderIterator for i32 {
+  type ShaderIter = StepToI32;
+
+  fn into_shader_iter(self) -> Self::ShaderIter {
+    StepToI32::new(val(self))
+  }
+}
+
+impl IntoShaderIterator for Node<i32> {
+  type ShaderIter = StepToI32;
+
+  fn into_shader_iter(self) -> Self::ShaderIter {
+    StepToI32::new(self)
   }
 }
 
