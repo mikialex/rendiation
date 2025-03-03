@@ -1,6 +1,7 @@
 use crate::*;
 
-pub struct DevicePathTracingRenderer {
+/// the main physical correct gpu ray tracing implementation
+pub struct DeviceReferencePathTracingRenderer {
   // create and maintain rtx pipeline
 }
 

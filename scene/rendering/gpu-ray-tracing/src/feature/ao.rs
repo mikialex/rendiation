@@ -10,11 +10,8 @@ use crate::*;
 const MAX_SAMPLE: u32 = 256;
 
 pub struct RayTracingAORenderSystem {
-  camera: Box<dyn RenderImplProvider<Box<dyn RtxCameraRenderImpl>>>,
   sbt: UpdateResultToken,
   executor: GPURaytracingPipelineExecutor,
-  scene_tlas: UpdateResultToken, // todo, share, unify the share mechanism with the texture
-  mesh: MeshBindlessGPUSystemSource, // todo, share
   system: RtxSystemCore,
   ao_state: Arc<RwLock<Option<AORenderState>>>,
   shader_handles: AOShaderHandles,
@@ -80,29 +77,19 @@ impl Default for AOShaderHandles {
 }
 
 impl RayTracingAORenderSystem {
-  pub fn new(
-    rtx: &RtxSystemCore,
-    gpu: &GPU,
-    camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
-  ) -> Self {
+  pub fn new(rtx: &RtxSystemCore) -> Self {
     Self {
-      camera: Box::new(DefaultRtxCameraRenderImplProvider::new(camera_source)),
-      scene_tlas: Default::default(),
       sbt: Default::default(),
       executor: rtx.rtx_device.create_raytracing_pipeline_executor(),
       system: rtx.clone(),
       ao_state: Default::default(),
-      mesh: MeshBindlessGPUSystemSource::new(gpu),
       shader_handles: Default::default(),
     }
   }
 }
 
 impl RenderImplProvider<SceneRayTracingAORenderer> for RayTracingAORenderSystem {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    self.scene_tlas =
-      source.register_reactive_query(scene_to_tlas(cx, self.system.rtx_acc.clone()));
-
+  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, _: &GPU) {
     // todo support max mesh count grow
     let sbt = GPUSbt::new(
       self
@@ -135,15 +122,10 @@ impl RenderImplProvider<SceneRayTracingAORenderer> for RayTracingAORenderSystem 
       });
 
     self.sbt = source.register_multi_updater(sbt);
-    self.camera.register_resource(source, cx);
-    self.mesh.register_resource(source, cx);
   }
 
   fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.scene_tlas);
     source.deregister(&mut self.sbt);
-    self.camera.deregister_resource(source);
-    self.mesh.deregister_resource(source);
   }
 
   fn create_impl(&self, res: &mut QueryResultCtx) -> SceneRayTracingAORenderer {
@@ -151,24 +133,16 @@ impl RenderImplProvider<SceneRayTracingAORenderer> for RayTracingAORenderSystem 
     SceneRayTracingAORenderer {
       executor: self.executor.clone(),
       sbt: sbt.target.clone(),
-      scene_tlas: res.take_reactive_query_updated(self.scene_tlas).unwrap(),
-      camera: self.camera.create_impl(res),
-      rtx_system: self.system.rtx_system.clone(),
       ao_state: self.ao_state.clone(),
-      mesh: self.mesh.create_impl_internal_impl(res),
       shader_handles: self.shader_handles.clone(),
     }
   }
 }
 
 pub struct SceneRayTracingAORenderer {
-  camera: Box<dyn RtxCameraRenderImpl>,
   executor: GPURaytracingPipelineExecutor,
   sbt: GPUSbt,
-  rtx_system: Box<dyn GPURaytracingSystem>,
-  scene_tlas: BoxedDynQuery<EntityHandle<SceneEntity>, TlASInstance>,
   ao_state: Arc<RwLock<Option<AORenderState>>>,
-  mesh: MeshGPUBindlessImpl,
   shader_handles: AOShaderHandles,
 }
 
@@ -193,10 +167,11 @@ impl SceneRayTracingAORenderer {
   pub fn render(
     &mut self,
     frame: &mut FrameCtx,
+    base: &mut SceneRayTracingRendererBase,
     scene: EntityHandle<SceneEntity>,
     camera: EntityHandle<SceneCameraEntity>,
   ) -> GPU2DTextureView {
-    let scene_tlas = self.scene_tlas.access(&scene).unwrap().clone();
+    let scene_tlas = base.scene_tlas.access(&scene).unwrap().clone();
     let render_size = clamp_size_by_area(frame.frame_size(), 512 * 512);
 
     let mut ao_state = self.ao_state.write();
@@ -218,17 +193,17 @@ impl SceneRayTracingAORenderer {
 
     let mut source = GPURaytracingPipelineAndBindingSource::default();
 
-    let camera = self.camera.get_rtx_camera(camera);
+    let camera = base.camera.get_rtx_camera(camera);
 
-    let trace_base_builder = self.rtx_system.create_tracer_base_builder();
+    let trace_base_builder = base.rtx_system.create_tracer_base_builder();
 
     // bind tlas, see ShaderRayTraceCall::tlas_idx.
-    self
+    base
       .rtx_system
       .create_acceleration_structure_system()
       .bind_tlas(&[scene_tlas.tlas_handle]);
 
-    let mut rtx_encoder = self.rtx_system.create_raytracing_encoder();
+    let mut rtx_encoder = base.rtx_system.create_raytracing_encoder();
 
     let ray_gen_shader = trace_base_builder
       .create_ray_gen_shader_base()
@@ -283,7 +258,7 @@ impl SceneRayTracingAORenderer {
       });
 
     type RayGenTracePayload = f32; // occlusion
-    let bindless_mesh = self.mesh.make_bindless_dispatcher();
+    let bindless_mesh = base.mesh.make_bindless_dispatcher();
     let ao_closest = trace_base_builder
       .create_closest_hit_shader_base::<RayGenTracePayload>()
       .inject_ctx(RayTracingAORayClosestCtx {

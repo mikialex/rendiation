@@ -5,11 +5,13 @@ mod frame_logic;
 mod grid_ground;
 mod lighting;
 mod outline;
+mod ray_tracing;
 
 mod g_buffer;
 pub use g_buffer::*;
 mod defer_lighting;
 pub use defer_lighting::*;
+pub use ray_tracing::*;
 
 mod post;
 pub use frame_logic::*;
@@ -101,8 +103,8 @@ pub struct Viewer3dRenderingCtx {
   renderer_impl: BoxedSceneRenderImplProvider,
   indirect_occlusion_culling_impl: Option<GPUTwoPassOcclusionCulling>,
   current_renderer_impl_ty: RasterizationRenderBackendType,
-  rtx_ao_renderer_impl: Option<RayTracingAORenderSystem>,
-  enable_rtx_ao_rendering: bool,
+  rtx_renderer_impl: Option<RayTracingSystemGroup>,
+  rtx_effect_mode: Option<RayTracingEffectMode>,
   opaque_scene_content_lighting_technique: LightingTechniqueKind,
   lighting: LightSystem,
   material_defer_lighting_supports: DeferLightingMaterialRegistry,
@@ -153,8 +155,8 @@ impl Viewer3dRenderingCtx {
       rendering_resource,
       renderer_impl,
       current_renderer_impl_ty: RasterizationRenderBackendType::Gles,
-      rtx_ao_renderer_impl: None, // late init
-      enable_rtx_ao_rendering: false,
+      rtx_renderer_impl: None, // late init
+      rtx_effect_mode: None,   // default not enabled
       opaque_scene_content_lighting_technique: LightingTechniqueKind::Forward,
       frame_logic: ViewerFrameLogic::new(&gpu),
       lighting,
@@ -183,24 +185,21 @@ impl Viewer3dRenderingCtx {
 
   pub fn set_enable_rtx_ao_rendering_support(&mut self, enable: bool) {
     if enable {
-      if self.rtx_ao_renderer_impl.is_none() {
+      if self.rtx_renderer_impl.is_none() {
         let rtx_backend_system = GPUWaveFrontComputeRaytracingSystem::new(&self.gpu);
         let rtx_system = RtxSystemCore::new(Box::new(rtx_backend_system));
-        let mut rtx_ao_renderer_impl = RayTracingAORenderSystem::new(
-          &rtx_system,
-          &self.gpu,
-          self.camera_source.clone_as_static(),
-        );
+        let mut rtx_renderer_impl =
+          RayTracingSystemGroup::new(&rtx_system, &self.gpu, self.camera_source.clone_as_static());
 
-        rtx_ao_renderer_impl.register_resource(&mut self.rendering_resource, &self.gpu);
+        rtx_renderer_impl.register_resource(&mut self.rendering_resource, &self.gpu);
 
-        self.rtx_ao_renderer_impl = Some(rtx_ao_renderer_impl);
+        self.rtx_renderer_impl = Some(rtx_renderer_impl);
       }
     } else {
-      if let Some(rtx) = &mut self.rtx_ao_renderer_impl {
+      if let Some(rtx) = &mut self.rtx_renderer_impl {
         rtx.deregister_resource(&mut self.rendering_resource);
       }
-      self.rtx_ao_renderer_impl = None;
+      self.rtx_renderer_impl = None;
     }
   }
 
@@ -331,18 +330,33 @@ impl Viewer3dRenderingCtx {
 
     // let is_vulkan = self.gpu.info.adaptor_info.backend == Backend::Vulkan;
     ui.add_enabled_ui(true, |ui| {
-      let mut rtx_ao_renderer_impl_exist = self.rtx_ao_renderer_impl.is_some();
+      let mut rtx_ao_renderer_impl_exist = self.rtx_renderer_impl.is_some();
       ui.checkbox(&mut rtx_ao_renderer_impl_exist, "rtx_ao_renderer_is_ready")
         .on_disabled_hover_text(
           "currently the ray tracing related feature only enabled on vulkan backend",
         );
       self.set_enable_rtx_ao_rendering_support(rtx_ao_renderer_impl_exist);
 
-      if let Some(ao) = &self.rtx_ao_renderer_impl {
-        ui.checkbox(&mut self.enable_rtx_ao_rendering, "enable_rtx_ao_rendering");
+      if let Some(renderer) = &self.rtx_renderer_impl {
+        egui::ComboBox::from_label("ray tracing mode")
+          .selected_text(format!("{:?}", &self.rtx_effect_mode))
+          .show_ui(ui, |ui| {
+            ui.selectable_value(
+              &mut self.rtx_effect_mode,
+              Some(RayTracingEffectMode::ReferenceTracing),
+              "Path tracing",
+            );
+            ui.selectable_value(
+              &mut self.rtx_effect_mode,
+              Some(RayTracingEffectMode::AO),
+              "AO only",
+            );
+            ui.selectable_value(&mut self.rtx_effect_mode, None, "Disabled");
+          });
+
         // todo, currently the on demand rendering is broken, use this button to workaround.
         if ui.button("reset ao sample").clicked() {
-          ao.reset_ao_sample(&self.gpu);
+          renderer.ao.reset_ao_sample(&self.gpu);
         }
       }
     });
@@ -398,19 +412,27 @@ impl Viewer3dRenderingCtx {
       target.clone()
     };
 
-    if self.enable_rtx_ao_rendering && self.rtx_ao_renderer_impl.is_some() {
-      let mut rtx_ao_renderer = self
-        .rtx_ao_renderer_impl
-        .as_ref()
-        .unwrap()
-        .create_impl(&mut resource);
+    if let Some(rtx_effect_mode) = self.rtx_effect_mode {
+      if let Some(rtx_renderer_impl) = &mut self.rtx_renderer_impl {
+        let mut rtx_renderer = rtx_renderer_impl.create_impl(&mut resource);
 
-      let ao_result = rtx_ao_renderer.render(&mut ctx, content.scene, content.main_camera);
+        match rtx_effect_mode {
+          RayTracingEffectMode::AO => {
+            let ao_result = rtx_renderer.ao.render(
+              &mut ctx,
+              &mut rtx_renderer.base,
+              content.scene,
+              content.main_camera,
+            );
 
-      pass("copy rtx ao into final target")
-        .with_color(target, load())
-        .render_ctx(&mut ctx)
-        .by(&mut copy_frame(RenderTargetView::Texture(ao_result), None));
+            pass("copy rtx ao into final target")
+              .with_color(target, load())
+              .render_ctx(&mut ctx)
+              .by(&mut copy_frame(RenderTargetView::Texture(ao_result), None));
+          }
+          RayTracingEffectMode::ReferenceTracing => todo!(),
+        }
+      }
     } else {
       let lighting = self.lighting.prepare_and_create_impl(
         &mut resource,
