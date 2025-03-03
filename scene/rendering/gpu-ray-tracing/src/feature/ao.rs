@@ -328,7 +328,7 @@ impl SceneRayTracingAORenderer {
         trace_base_builder
           .create_miss_hit_shader_base::<RayGenTracePayload>()
           .map(|_, cx| {
-            cx.payload::<f32>().unwrap().store(val(1.0));
+            cx.payload::<RayGenTracePayload>().unwrap().store(val(1.0));
           }),
         1,
       ),
