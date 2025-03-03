@@ -1,10 +1,5 @@
 use crate::*;
 
-/// the main physical correct gpu ray tracing implementation
-pub struct DeviceReferencePathTracingRenderer {
-  // create and maintain rtx pipeline
-}
-
 pub trait DevicePathTracingSceneSource: ShaderHashProvider + ShaderPassBuilder {
   fn sbt(&self) -> Box<dyn Any>;
 

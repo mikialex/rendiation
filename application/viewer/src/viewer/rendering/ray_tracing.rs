@@ -11,6 +11,7 @@ pub enum RayTracingEffectMode {
 pub struct RayTracingSystemGroup {
   pub base: RayTracingSystemBase,
   pub ao: RayTracingAORenderSystem,
+  pub pt: DeviceReferencePathTracingSystem,
 }
 
 impl RayTracingSystemGroup {
@@ -22,6 +23,7 @@ impl RayTracingSystemGroup {
     Self {
       base: RayTracingSystemBase::new(rtx, gpu, camera_source),
       ao: RayTracingAORenderSystem::new(rtx),
+      pt: DeviceReferencePathTracingSystem::new(rtx),
     }
   }
 }
