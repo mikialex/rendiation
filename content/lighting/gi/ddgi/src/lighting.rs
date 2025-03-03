@@ -71,6 +71,42 @@ struct ProbeVolumeDataInvocation {
   data: BindingNode<ShaderTexture2DArray>,
 }
 
+/// Computes the normalized texture UVs within the Probe Irradiance and Probe Distance texture arrays
+/// given the probe index and 2D normalized octant coordinates [-1, 1]. Used when sampling the texture arrays.
+///
+/// When infinite scrolling is enabled, probeIndex is expected to be the scroll adjusted probe index.
+/// Obtain the adjusted index with DDGIGetScrollingProbeIndex().
+fn DDGIGetProbeUV(
+  probeIndex: Node<u32>,
+  octantCoordinates: Node<Vec2<f32>>,
+  numProbeInteriorTexels: Node<u32>,
+  volume: &ShaderPtrOf<ProbeVolumeGPUInfo>,
+) -> Node<Vec3<f32>> {
+  //     // Get the probe's texel coordinates, assuming one texel per probe
+  //     uint3 coords = DDGIGetProbeTexelCoords(probeIndex, volume);
+
+  //     // Add the border texels to get the total texels per probe
+  //     float numProbeTexels = (numProbeInteriorTexels + 2.f);
+
+  // #if RTXGI_COORDINATE_SYSTEM == RTXGI_COORDINATE_SYSTEM_LEFT || RTXGI_COORDINATE_SYSTEM == RTXGI_COORDINATE_SYSTEM_RIGHT
+  //     float textureWidth = numProbeTexels * volume.probeCounts.x;
+  //     float textureHeight = numProbeTexels * volume.probeCounts.z;
+  // #elif RTXGI_COORDINATE_SYSTEM == RTXGI_COORDINATE_SYSTEM_LEFT_Z_UP
+  //     float textureWidth = numProbeTexels * volume.probeCounts.y;
+  //     float textureHeight = numProbeTexels * volume.probeCounts.x;
+  // #elif RTXGI_COORDINATE_SYSTEM == RTXGI_COORDINATE_SYSTEM_RIGHT_Z_UP
+  //     float textureWidth = numProbeTexels * volume.probeCounts.x;
+  //     float textureHeight = numProbeTexels * volume.probeCounts.y;
+  // #endif
+
+  //     // Move to the center of the probe and move to the octant texel before normalizing
+  //     float2 uv = float2(coords.x * numProbeTexels, coords.y * numProbeTexels) + (numProbeTexels * 0.5f);
+  //     uv += octantCoordinates.xy * ((float)numProbeInteriorTexels * 0.5f);
+  //     uv /= float2(textureWidth, textureHeight);
+  //     return float3(uv, coords.z);
+  todo!()
+}
+
 /// Computes irradiance for the given world-position using the given volume, surface bias,
 /// sampling direction, and volume resources.
 fn get_volume_irradiance(
@@ -114,8 +150,8 @@ fn get_volume_irradiance(
       volume_metadata.counts().load().into_i32() - val(Vec3::splat(1_i32)),
     );
 
-    //         // Get the adjacent probe's index, adjusting the adjacent probe index for scrolling offsets (if present)
-    //         int adjacentProbeIndex = DDGIGetScrollingProbeIndex(adjacentProbeCoords, volume);
+    // Get the adjacent probe's index, adjusting the adjacent probe index for scrolling offsets (if present)
+    let adjacentProbeIndex = DDGIGetScrollingProbeIndex(adjacentProbeCoords, volume_metadata);
 
     //         // Early Out: don't allow inactive probes to contribute to irradiance
     //         int probeState = DDGILoadProbeState(adjacentProbeIndex, resources.probeData, volume);
@@ -152,13 +188,13 @@ fn get_volume_irradiance(
     // Compute the octahedral coordinates of the adjacent probe
     let octantCoords = direction_to_octahedral_coordinate(-biasedPosToAdjProbe);
 
-    // // Get the texture array coordinates for the octant of the probe
-    // let probeTextureUV: Node<Vec3<f32>> = DDGIGetProbeUV(
-    //   adjacentProbeIndex,
-    //   octantCoords,
-    //   volume_metadata.probeNumDistanceInteriorTexels,
-    //   volume_metadata,
-    // );
+    // Get the texture array coordinates for the octant of the probe
+    let probeTextureUV: Node<Vec3<f32>> = DDGIGetProbeUV(
+      adjacentProbeIndex.into_u32(),
+      octantCoords,
+      volume_metadata.numDistanceInteriorTexels().load(),
+      volume_metadata,
+    );
 
     // // Sample the probe's distance texture to get the mean distance to nearby surfaces
     // let filteredDistance: Node<Vec2<f32>> = val(Vec2::splat(2.0))
@@ -167,55 +203,62 @@ fn get_volume_irradiance(
     //     .SampleLevel(resources.bilinearSampler, probeTextureUV, 0)
     //     .rg;
 
-    //         // Find the variance of the mean distance
-    //         float variance = abs((filteredDistance.x * filteredDistance.x) - filteredDistance.y);
+    // // Find the variance of the mean distance
+    // let variance = abs((filteredDistance.x * filteredDistance.x) - filteredDistance.y);
 
-    //         // Occlusion test
-    //         float chebyshevWeight = 1.f;
-    //         if(biasedPosToAdjProbeDist > filteredDistance.x) // occluded
-    //         {
-    //             // v must be greater than 0, which is guaranteed by the if condition above.
-    //             float v = biasedPosToAdjProbeDist - filteredDistance.x;
-    //             chebyshevWeight = variance / (variance + (v * v));
+    // // Occlusion test
+    // let chebyshevWeight = val(1.);
+    // if(biasedPosToAdjProbeDist > filteredDistance.x()) // occluded
+    // {
+    //     // v must be greater than 0, which is guaranteed by the if condition above.
+    //     float v = biasedPosToAdjProbeDist - filteredDistance.x;
+    //     chebyshevWeight = variance / (variance + (v * v));
 
-    //             // Increase the contrast in the weight
-    //             chebyshevWeight = max((chebyshevWeight * chebyshevWeight * chebyshevWeight), 0.f);
-    //         }
+    //     // Increase the contrast in the weight
+    //     chebyshevWeight = max((chebyshevWeight * chebyshevWeight * chebyshevWeight), 0.f);
+    // }
 
-    //         // Avoid visibility weights ever going all the way to zero because
-    //         // when *no* probe has visibility we need a fallback value
-    //         weight *= max(0.05f, chebyshevWeight);
+    // // Avoid visibility weights ever going all the way to zero because
+    // // when *no* probe has visibility we need a fallback value
+    // let weight = weight * chebyshevWeight.max(0.05);
 
-    //         // Avoid a weight of zero
-    //         weight = max(0.000001f, weight);
+    // Avoid a weight of zero
+    let weight = weight.max(0.000001);
 
-    //         // A small amount of light is visible due to logarithmic perception, so
-    //         // crush tiny weights but keep the curve continuous
-    //         const float crushThreshold = 0.2f;
-    //         if (weight < crushThreshold)
-    //         {
-    //             weight *= (weight * weight) * (1.f / (crushThreshold * crushThreshold));
-    //         }
+    // A small amount of light is visible due to logarithmic perception, so
+    // crush tiny weights but keep the curve continuous
+    let crushThreshold = 0.2;
+    if_by(weight.less_than(crushThreshold), || {
+      // weight *= (weight * weight) * (1.f / (crushThreshold * crushThreshold));
+    });
 
-    //         // Apply the trilinear weights
-    //         weight *= trilinearWeight;
+    // Apply the trilinear weights
+    let weight = weight * trilinearWeight;
 
-    //         // Get the octahedral coordinates for the sample direction
-    //         octantCoords = DDGIGetOctahedralCoordinates(direction);
+    // Get the octahedral coordinates for the sample direction
+    let octantCoords = direction_to_octahedral_coordinate(direction);
 
-    //         // Get the probe's texture coordinates
-    //         probeTextureUV = DDGIGetProbeUV(adjacentProbeIndex, octantCoords, volume.probeNumIrradianceInteriorTexels, volume);
+    // Get the probe's texture coordinates
+    // probeTextureUV = DDGIGetProbeUV(
+    //   adjacentProbeIndex,
+    //   octantCoords,
+    //   volume.probeNumIrradianceInteriorTexels,
+    //   volume,
+    // );
 
-    //         // Sample the probe's irradiance
-    //         float3 probeIrradiance = resources.probeIrradiance.SampleLevel(resources.bilinearSampler, probeTextureUV, 0).rgb;
+    // // Sample the probe's irradiance
+    // let probeIrradiance = resources
+    //   .probeIrradiance
+    //   .SampleLevel(resources.bilinearSampler, probeTextureUV, 0)
+    //   .rgb;
 
-    //         // Decode the tone curve, but leave a gamma = 2 curve to approximate sRGB blending
-    //         float3 exponent = volume.probeIrradianceEncodingGamma * 0.5f;
-    //         probeIrradiance = pow(probeIrradiance, exponent);
+    // // Decode the tone curve, but leave a gamma = 2 curve to approximate sRGB blending
+    // let exponent = volume.probeIrradianceEncodingGamma * 0.5f;
+    // probeIrradiance = pow(probeIrradiance, exponent);
 
-    //         // Accumulate the weighted irradiance
-    //         irradiance += (weight * probeIrradiance);
-    //         accumulatedWeights += weight;
+    // Accumulate the weighted irradiance
+    // irradiance.store(irradiance.load() + (weight * probeIrradiance));
+    accumulatedWeights.store(accumulatedWeights.load() + weight);
   });
 
   // check to avoid div by 0
@@ -237,3 +280,65 @@ fn get_volume_irradiance(
 
   irradiance.load()
 }
+
+/// Adjusts the probe index for when infinite scrolling is enabled.
+/// This can run when scrolling is disabled since zero offsets result
+/// in the same probe index.
+fn DDGIGetScrollingProbeIndex(
+  probeCoords: Node<Vec3<i32>>,
+  volume: &ShaderPtrOf<ProbeVolumeGPUInfo>,
+) -> Node<i32> {
+  todo!()
+  // return DDGIGetProbeIndex(
+  //   ((probeCoords + volume.scroll_offsets + volume.counts.into_i32()) % volume.counts.into_i32()),
+  //   volume,
+  // );
+}
+
+/// Computes the probe index from 3D grid coordinates.
+/// The opposite of DDGIGetProbeCoords(probeIndex,...).
+fn DDGIGetProbeIndex(
+  probeCoords: Node<Vec3<i32>>,
+  volume: &ENode<ProbeVolumeGPUInfo>,
+) -> Node<i32> {
+  todo!()
+  // int probesPerPlane = DDGIGetProbesPerPlane(volume.probeCounts);
+  // int planeIndex = DDGIGetPlaneIndex(probeCoords);
+  // int probeIndexInPlane = DDGIGetProbeIndexInPlane(probeCoords, volume.probeCounts);
+
+  // return (planeIndex * probesPerPlane) + probeIndexInPlane;
+}
+
+/// Computes the probe index from 3D (Texture2DArray) texture coordinates.
+fn DDGIGetProbeIndex_(
+  probeCoords: Node<Vec3<i32>>,
+  probeNumTexels: Node<i32>,
+  volume: &ENode<ProbeVolumeGPUInfo>,
+) -> Node<i32> {
+  todo!()
+  // int probesPerPlane = DDGIGetProbesPerPlane(volume.probeCounts);
+  // int probeIndexInPlane = DDGIGetProbeIndexInPlane(texCoords, volume.probeCounts, probeNumTexels);
+
+  // return (texCoords.z * probesPerPlane) + probeIndexInPlane;
+}
+
+// /**
+//  * Clears probe irradiance and distance data for a plane of probes that have been scrolled to new positions.
+//  */
+// bool DDGIClearScrolledPlane(int3 probeCoords, int planeIndex, DDGIVolumeDescGPU volume)
+// {
+//     if (volume.probeScrollClear[planeIndex])
+//     {
+//         int offset = volume.probeScrollOffsets[planeIndex];
+//         int probeCount = volume.probeCounts[planeIndex];
+//         int direction = volume.probeScrollDirections[planeIndex];
+
+//         int coord = 0;
+//         if(direction) coord = (probeCount + (offset - 1)) % probeCount; // scrolling in positive direction
+//         else coord = (probeCount + (offset % probeCount)) % probeCount; // scrolling in negative direction
+
+//         // Probe has scrolled and needs to be cleared
+//         if (probeCoords[planeIndex] == coord) return true;
+//     }
+//     return false;
+// }
