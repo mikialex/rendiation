@@ -733,6 +733,9 @@ impl<T> TracingFutureInvocation<T> {
   pub fn task_not_allocated(&self) -> Node<bool> {
     self.inner_task.task_not_allocated()
   }
+  pub fn task_not_exist(&self) -> Node<bool> {
+    self.inner_task.task_not_exist()
+  }
 }
 
 impl<T> ShaderFutureInvocation for TracingFutureInvocation<T>

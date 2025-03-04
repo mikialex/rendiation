@@ -52,6 +52,12 @@ impl<T> TaskFutureInvocation<T> {
   pub fn task_not_allocated(&self) -> Node<bool> {
     self.task_handle.abstract_load().equals(UN_INIT_TASK_HANDLE)
   }
+
+  pub fn task_not_exist(&self) -> Node<bool> {
+    self
+      .task_has_already_resolved()
+      .or(self.task_not_allocated())
+  }
 }
 
 impl<T> ShaderFutureInvocation for TaskFutureInvocation<T>
@@ -67,15 +73,9 @@ where
 
     let r = val(false).make_local_var();
 
-    // this check maybe not needed
-    let task_has_already_resolved = task_handle.equals(RESOLVED_TASK_HANDLE);
-    let task_not_allocated = task_handle.equals(UN_INIT_TASK_HANDLE);
-
     // once task resolved, it can not be polled again because the states is deallocated.
     // also, should skip simply because task not allocated at all.
-    let should_poll = task_has_already_resolved
-      .not()
-      .and(task_not_allocated.not());
+    let should_poll = self.task_not_exist().not();
 
     if_by(should_poll, || {
       let resolved = self.spawner.poll_task::<T>(task_handle, |r| {

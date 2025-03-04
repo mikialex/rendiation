@@ -101,7 +101,10 @@ impl DeviceReferencePathTracingRenderer {
             sampled_radiance: val(Vec3::splat(10.)), // for testing return 10, use real env later
             next_ray_origin: zeroed_val(),
             next_ray_dir: zeroed_val(),
+            pdf: zeroed_val(),
             missed: val(true).into_big_bool(),
+            brdf: zeroed_val(),
+            normal: zeroed_val(),
           }
           .construct(),
         );
@@ -133,6 +136,9 @@ impl DeviceReferencePathTracingRenderer {
 #[derive(Clone, Copy, ShaderStruct, Default)]
 struct CorePathPayload {
   pub sampled_radiance: Vec3<f32>,
+  pub brdf: Vec3<f32>,
+  pub pdf: f32,
+  pub normal: Vec3<f32>,
   pub next_ray_origin: Vec3<f32>,
   pub next_ray_dir: Vec3<f32>,
   pub missed: Bool,
@@ -176,4 +182,18 @@ impl RayTracingCustomCtxProvider for PTRayClosestCtx {
 struct PTClosestCtxInvocation {
   bindless_mesh: BindlessMeshRtxAccessInvocation,
   config: ShaderReadonlyPtrOf<PTConfig>,
+}
+
+#[repr(u32)]
+#[derive(Debug, Clone, Copy)]
+enum PTRayType {
+  Core = 0,
+}
+impl PTRayType {
+  fn to_sbt_cfg(self) -> RaySBTConfig {
+    RaySBTConfig {
+      offset: val(self as u32),
+      stride: val(1),
+    }
+  }
 }
