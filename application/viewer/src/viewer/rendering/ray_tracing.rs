@@ -32,17 +32,20 @@ impl RenderImplProvider<RayTracingFeatureGroup> for RayTracingSystemGroup {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
     self.base.register_resource(source, cx);
     self.ao.register_resource(source, cx);
+    self.pt.register_resource(source, cx);
   }
 
   fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
     self.base.deregister_resource(source);
     self.ao.deregister_resource(source);
+    self.pt.deregister_resource(source);
   }
 
   fn create_impl(&self, res: &mut QueryResultCtx) -> RayTracingFeatureGroup {
     RayTracingFeatureGroup {
       base: self.base.create_impl(res),
       ao: self.ao.create_impl(res),
+      pt: self.pt.create_impl(res),
     }
   }
 }
@@ -50,4 +53,5 @@ impl RenderImplProvider<RayTracingFeatureGroup> for RayTracingSystemGroup {
 pub struct RayTracingFeatureGroup {
   pub base: SceneRayTracingRendererBase,
   pub ao: SceneRayTracingAORenderer,
+  pub pt: DeviceReferencePathTracingRenderer,
 }

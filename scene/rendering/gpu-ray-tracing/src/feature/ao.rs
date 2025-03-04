@@ -84,13 +84,11 @@ impl Default for AOShaderHandles {
 
 impl RenderImplProvider<SceneRayTracingAORenderer> for RayTracingAORenderSystem {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, _: &GPU) {
-    // todo support max mesh count grow
-    let sbt = GPUSbt::new(
-      self
-        .system
-        .rtx_device
-        .create_sbt(1, 2000, GLOBAL_TLAS_MAX_RAY_STRIDE),
-    );
+    let sbt = GPUSbt::new(self.system.rtx_device.create_sbt(
+      1,
+      MAX_MODEL_COUNT_IN_SBT,
+      GLOBAL_TLAS_MAX_RAY_STRIDE,
+    ));
     let closest_hit = self.shader_handles.closest_hit;
     let secondary_closest = self.shader_handles.secondary_closest;
     let sbt = MultiUpdateContainer::new(sbt)
@@ -263,34 +261,10 @@ impl SceneRayTracingAORenderer {
         let ao_cx = ctx.expect_custom_cx::<RayTracingAORayClosestCtxInvocation>();
         let closest_hit_ctx = ctx.expect_closest_hit_ctx();
 
-        let scene_model_id = closest_hit_ctx.instance_custom_id();
-        let mesh_id = ao_cx.bindless_mesh.sm_to_mesh.index(scene_model_id).load();
-        let tri_id = closest_hit_ctx.primitive_id();
-        let tri_idx_s = ao_cx.bindless_mesh.get_triangle_idx(tri_id, mesh_id);
-
-        let tri_a_normal = ao_cx.bindless_mesh.get_normal(tri_idx_s.x(), mesh_id);
-        let tri_b_normal = ao_cx.bindless_mesh.get_normal(tri_idx_s.y(), mesh_id);
-        let tri_c_normal = ao_cx.bindless_mesh.get_normal(tri_idx_s.z(), mesh_id);
-
-        let attribs: Node<Vec2<f32>> = closest_hit_ctx.hit_attribute().expand().bary_coord;
-        let barycentric: Node<Vec3<f32>> = (
-          val(1.0) - attribs.x() - attribs.y(),
-          attribs.x(),
-          attribs.y(),
-        )
-          .into();
-
-        // Computing the normal at hit position
-        let normal = tri_a_normal * barycentric.x()
-          + tri_b_normal * barycentric.y()
-          + tri_c_normal * barycentric.z();
-        // Transforming the normal to world space
-        let normal =
-          (closest_hit_ctx.world_to_object().shrink_to_3().transpose() * normal).normalize();
+        let normal = ao_cx.bindless_mesh.get_world_normal(closest_hit_ctx);
         let hit_normal_tbn = tbn_fn(normal);
 
-        let origin = closest_hit_ctx.world_ray().origin
-          + closest_hit_ctx.world_ray().direction * closest_hit_ctx.hit_distance();
+        let origin = closest_hit_ctx.hit_world_position();
 
         let random = hammersley_2d_fn(ao_cx.ao_sample_count.load().x(), val(MAX_SAMPLE));
         let direction = hit_normal_tbn * sample_hemisphere_cos_fn(random);

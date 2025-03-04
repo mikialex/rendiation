@@ -6,6 +6,9 @@ pub use ao::*;
 
 use crate::*;
 
+// todo support max mesh count grow
+pub const MAX_MODEL_COUNT_IN_SBT: u32 = 2048;
+
 #[derive(Clone)]
 pub struct RtxSystemCore {
   pub rtx_system: Box<dyn GPURaytracingSystem>,

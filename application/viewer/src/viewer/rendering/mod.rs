@@ -355,8 +355,19 @@ impl Viewer3dRenderingCtx {
           });
 
         // todo, currently the on demand rendering is broken, use this button to workaround.
-        if ui.button("reset ao sample").clicked() {
-          renderer.ao.reset_ao_sample(&self.gpu);
+        if let Some(mode) = self.rtx_effect_mode {
+          match mode {
+            RayTracingEffectMode::AO => {
+              if ui.button("reset ao sample").clicked() {
+                renderer.ao.reset_ao_sample(&self.gpu);
+              }
+            }
+            RayTracingEffectMode::ReferenceTracing => {
+              if ui.button("reset pt sample").clicked() {
+                renderer.pt.reset_sample(&self.gpu);
+              }
+            }
+          }
         }
       }
     });
@@ -430,7 +441,18 @@ impl Viewer3dRenderingCtx {
               .render_ctx(&mut ctx)
               .by(&mut copy_frame(RenderTargetView::Texture(ao_result), None));
           }
-          RayTracingEffectMode::ReferenceTracing => todo!(),
+          RayTracingEffectMode::ReferenceTracing => {
+            let result = rtx_renderer.pt.render(
+              &mut ctx,
+              &mut rtx_renderer.base,
+              content.scene,
+              content.main_camera,
+            );
+            pass("copy pt result into final target")
+              .with_color(target, load())
+              .render_ctx(&mut ctx)
+              .by(&mut copy_frame(RenderTargetView::Texture(result), None));
+          }
         }
       }
     } else {
