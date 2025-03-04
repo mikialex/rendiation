@@ -538,7 +538,7 @@ impl TracingTaskSpawnerInvocation {
     parent: TaskParentRef,
     tcx: &TracingCtx,
   ) -> TracingFutureInvocationRightValue {
-    let task_handle = val(u32::MAX).make_local_var();
+    let task_handle = val(UN_INIT_TASK_HANDLE).make_local_var();
 
     if_by(should_trace, || {
       let (launch_id, launch_size) = if let Some(ray_gen) = tcx.ray_gen_ctx() {

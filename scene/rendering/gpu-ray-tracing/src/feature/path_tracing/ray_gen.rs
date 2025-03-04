@@ -63,7 +63,9 @@ impl ShaderFuture for PTRayGenShaderFuture {
       upstream: self.internal.build_poll(ctx),
       current_flying_ray: TracingFuture::default().build_poll(ctx),
       current_depth: ctx.make_state::<Node<u32>>(),
-      current_throughput: ctx.make_state::<Node<Vec3<f32>>>(),
+      current_throughput: ctx
+        .state_builder
+        .create_or_reconstruct_inline_state_with_default(Vec3::one()),
       radiance: ctx.make_state::<Node<Vec3<f32>>>(),
     }
   }
@@ -109,7 +111,6 @@ impl ShaderFutureInvocation for PTRayGenShaderFutureInvocation {
     let radiance = self.radiance.abstract_load().make_local_var();
     let fly_ray = self.current_flying_ray.device_poll(ctx);
     if_by(fly_ray.is_resolved(), || {
-      //
       let ENode::<CorePathPayload> {
         sampled_radiance,
         next_ray_origin,
@@ -148,13 +149,16 @@ impl ShaderFutureInvocation for PTRayGenShaderFutureInvocation {
       });
     });
 
+    storage_barrier();
+
     let current_depth = current_depth.load();
     self.current_depth.abstract_store(current_depth);
     let require_more_tracing = current_depth.less_than(max_depth);
     let should_spawn_ray_now = self
       .current_flying_ray
       .task_not_exist()
-      .and(require_more_tracing);
+      .and(require_more_tracing)
+      .and(ctx.is_fallback_task().not());
 
     let trace_call = ShaderRayTraceCall {
       tlas_idx: val(0), // only one tlas, select first
