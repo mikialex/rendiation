@@ -43,6 +43,7 @@ where
     if !self.buffer.resize(new_size) {
       return false;
     }
+    assert!(self.buffer.max_size() >= new_size);
     let new_gpu_buffer = self.buffer.raw_gpu().clone();
 
     // move the data
