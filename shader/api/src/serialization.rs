@@ -62,6 +62,8 @@ impl PrimitiveShaderValueType {
     self.u32_count_of_self(StructLayoutTarget::Packed) == 1
   }
 
+  /// returns (row stride, row type)
+  /// calculate row count by f32_count / row_stride
   pub fn mat_row_info(&self, target: StructLayoutTarget) -> Option<(usize, ShaderSizedValueType)> {
     match self {
       PrimitiveShaderValueType::Mat2Float32 => (
@@ -118,13 +120,11 @@ impl ShaderSizedValueType {
           parameters.push(handle);
         }
 
-        if let Some((mat_row, row_ty)) = p.mat_row_info(layout) {
-          let mut parameter_row = Vec::with_capacity(mat_row);
-          for sub_parameters in parameters.chunks_exact(mat_row) {
-            let mut sub_parameters = sub_parameters.to_vec();
-            if layout != StructLayoutTarget::Packed {
-              sub_parameters.pop();
-            }
+        if let Some((row_stride, row_ty)) = p.mat_row_info(layout) {
+          let row_size = row_ty.u32_size_count(layout);
+          let mut parameter_row = Vec::with_capacity(row_stride);
+          for sub_parameters in parameters.chunks_exact(row_stride) {
+            let sub_parameters = sub_parameters[0..row_size as usize].to_vec();
             parameter_row.push(
               ShaderNodeExpr::Compose {
                 target: row_ty.clone(),
