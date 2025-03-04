@@ -183,7 +183,7 @@ impl Viewer3dRenderingCtx {
     }
   }
 
-  pub fn set_enable_rtx_ao_rendering_support(&mut self, enable: bool) {
+  pub fn set_enable_rtx_rendering_support(&mut self, enable: bool) {
     if enable {
       if self.rtx_renderer_impl.is_none() {
         let rtx_backend_system = GPUWaveFrontComputeRaytracingSystem::new(&self.gpu);
@@ -330,12 +330,12 @@ impl Viewer3dRenderingCtx {
 
     // let is_vulkan = self.gpu.info.adaptor_info.backend == Backend::Vulkan;
     ui.add_enabled_ui(true, |ui| {
-      let mut rtx_ao_renderer_impl_exist = self.rtx_renderer_impl.is_some();
-      ui.checkbox(&mut rtx_ao_renderer_impl_exist, "rtx_ao_renderer_is_ready")
+      let mut rtx_renderer_impl_exist = self.rtx_renderer_impl.is_some();
+      ui.checkbox(&mut rtx_renderer_impl_exist, "rtx_ao_renderer_is_ready")
         .on_disabled_hover_text(
           "currently the ray tracing related feature only enabled on vulkan backend",
         );
-      self.set_enable_rtx_ao_rendering_support(rtx_ao_renderer_impl_exist);
+      self.set_enable_rtx_rendering_support(rtx_renderer_impl_exist);
 
       if let Some(renderer) = &self.rtx_renderer_impl {
         egui::ComboBox::from_label("ray tracing mode")

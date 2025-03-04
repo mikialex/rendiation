@@ -217,7 +217,7 @@ impl ShaderFutureInvocation for TracingCtxProviderFutureInvocation {
     };
 
     let missing = matches!(self.stage, RayTraceableShaderStage::Miss).then(|| {
-      let ray_payload = combined_payload.field_index(1);
+      let ray_payload = combined_payload.field_index(0);
       let ray_payload = RayMissHitCtxPayload::create_view_from_raw_ptr(ray_payload);
       Box::new(ray_payload) as Box<dyn MissingHitCtxProvider>
     });
