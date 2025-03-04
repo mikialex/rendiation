@@ -3,30 +3,31 @@ use crate::backend::wavefront_compute::geometry::naive::*;
 #[derive(Clone)]
 pub(super) struct NaiveSahBvhGpu {
   // maps tlas_idx to tlas_handle: tlas_bvh_root[tlas_binding[tlas_idx]]
-  pub(super) tlas_binding: StorageBufferDataView<[u32]>,
+  pub(super) tlas_binding: BoxedAbstractStorageBuffer<[u32]>,
 
   // maps user tlas_id to tlas_bvh root node idx in tlas_bvh_forest
-  pub(super) tlas_bvh_root: StorageBufferDataView<[u32]>,
+  pub(super) tlas_bvh_root: BoxedAbstractStorageBuffer<[u32]>,
   // global bvh, root at tlas_bvh_root[tlas_idx], content_range to index tlas_data/tlas_bounding
-  pub(super) tlas_bvh_forest: StorageBufferDataView<[DeviceBVHNode]>,
+  pub(super) tlas_bvh_forest: BoxedAbstractStorageBuffer<[DeviceBVHNode]>,
   // acceleration_structure_handle to index blas_meta_info
-  pub(super) tlas_data: StorageBufferDataView<[TopLevelAccelerationStructureSourceDeviceInstance]>,
-  pub(super) tlas_bounding: StorageBufferDataView<[TlasBounding]>,
+  pub(super) tlas_data:
+    BoxedAbstractStorageBuffer<[TopLevelAccelerationStructureSourceDeviceInstance]>,
+  pub(super) tlas_bounding: BoxedAbstractStorageBuffer<[TlasBounding]>,
 
   // tri_range to index tri_bvh_root, box_range to index box_bvh_root
-  pub(super) blas_meta_info: StorageBufferDataView<[BlasMetaInfo]>,
+  pub(super) blas_meta_info: BoxedAbstractStorageBuffer<[BlasMetaInfo]>,
   // tri_bvh_forest root_idx, geometry_idx, primitive_start, geometry_flags
-  pub(super) tri_bvh_root: StorageBufferDataView<[GeometryMetaInfo]>,
+  pub(super) tri_bvh_root: BoxedAbstractStorageBuffer<[GeometryMetaInfo]>,
   // // box_bvh_forest root_idx, geometry_idx, primitive_start, geometry_flags
-  // pub(super) box_bvh_root: StorageBufferDataView<[GeometryMetaInfo]>,
+  // pub(super) box_bvh_root: BoxedAbstractStorageBuffer<[GeometryMetaInfo]>,
   // content range to index indices
-  pub(super) tri_bvh_forest: StorageBufferDataView<[DeviceBVHNode]>,
+  pub(super) tri_bvh_forest: BoxedAbstractStorageBuffer<[DeviceBVHNode]>,
   // // content range to index boxes
-  // pub(super) box_bvh_forest: StorageBufferDataView<[DeviceBVHNode]>,
-  pub(super) indices_redirect: StorageBufferDataView<[u32]>,
-  pub(super) indices: StorageBufferDataView<[u32]>,
-  pub(super) vertices: StorageBufferDataView<[f32]>,
-  // pub(super) boxes: StorageBufferDataView<[f32]>,
+  // pub(super) box_bvh_forest: BoxedAbstractStorageBuffer<[DeviceBVHNode]>,
+  pub(super) indices_redirect: BoxedAbstractStorageBuffer<[u32]>,
+  pub(super) indices: BoxedAbstractStorageBuffer<[u32]>,
+  pub(super) vertices: BoxedAbstractStorageBuffer<[f32]>,
+  // pub(super) boxes: BoxedAbstractStorageBuffer<[f32]>,
 }
 
 impl GPUAccelerationStructureSystemCompImplInstance for NaiveSahBvhGpu {
@@ -70,20 +71,20 @@ impl GPUAccelerationStructureSystemCompImplInstance for NaiveSahBvhGpu {
   }
 
   fn bind_pass(&self, builder: &mut BindingBuilder) {
-    builder.bind(&self.tlas_binding);
-    builder.bind(&self.tlas_bvh_root);
-    builder.bind(&self.tlas_bvh_forest);
-    builder.bind(&self.tlas_data);
-    builder.bind(&self.tlas_bounding);
-    builder.bind(&self.blas_meta_info);
-    builder.bind(&self.tri_bvh_root);
-    // builder.bind(&self.box_bvh_root);
-    builder.bind(&self.tri_bvh_forest);
-    // builder.bind(&self.box_bvh_forest);
-    builder.bind(&self.indices_redirect);
-    builder.bind(&self.indices);
-    builder.bind(&self.vertices);
-    // builder.bind(&self.boxes);
+    builder.bind_abstract_storage(&self.tlas_binding);
+    builder.bind_abstract_storage(&self.tlas_bvh_root);
+    builder.bind_abstract_storage(&self.tlas_bvh_forest);
+    builder.bind_abstract_storage(&self.tlas_data);
+    builder.bind_abstract_storage(&self.tlas_bounding);
+    builder.bind_abstract_storage(&self.blas_meta_info);
+    builder.bind_abstract_storage(&self.tri_bvh_root);
+    // builder.bind_abstract_storage(&self.box_bvh_root);
+    builder.bind_abstract_storage(&self.tri_bvh_forest);
+    // builder.bind_abstract_storage(&self.box_bvh_forest);
+    builder.bind_abstract_storage(&self.indices_redirect);
+    builder.bind_abstract_storage(&self.indices);
+    builder.bind_abstract_storage(&self.vertices);
+    // builder.bind_abstract_storage(&self.boxes);
   }
 }
 

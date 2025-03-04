@@ -318,7 +318,7 @@ impl NaiveSahBvhSource {
 
   pub fn build(
     &mut self,
-    device: &GPUDevice,
+    gpu: &GPU,
     cpu_data: &mut Option<NaiveSahBvhCpu>,
     gpu_data: &mut Option<NaiveSahBvhGpu>,
     tlas_binding: &[TlasHandle],
@@ -395,29 +395,42 @@ impl NaiveSahBvhSource {
     //   box_bvh_forest.extend(nodes);
     // }
 
-    fn create_gpu_buffer<T>(device: &GPUDevice, data: &[T]) -> StorageBufferDataView<[T]>
+    let enable_buffer_combine = true;
+    let buffer_allocator = MaybeCombinedStorageAllocator::new(
+      gpu,
+      "naive sah bvh resoruces",
+      enable_buffer_combine,
+      false,
+    );
+
+    fn create_gpu_buffer<T>(
+      gpu: &GPU,
+      buffer_allocator: &MaybeCombinedStorageAllocator,
+      data: &[T],
+    ) -> BoxedAbstractStorageBuffer<[T]>
     where
-      [T]: Std430MaybeUnsized,
-      T: Zeroable,
+      T: Zeroable + Std430 + ShaderSizedValueNodeType,
     {
-      if data.is_empty() {
-        let data = vec![T::zeroed()];
-        StorageBufferDataView::create(device, &data)
+      let buffer = if data.is_empty() {
+        buffer_allocator.allocate_init([T::zeroed()].as_slice(), &gpu.device)
       } else {
-        StorageBufferDataView::create(device, data)
-      }
+        buffer_allocator.allocate_init(data, &gpu.device)
+      };
+
+      buffer
     }
+
     // upload blas
     use bytemuck::cast_slice;
-    let gpu_blas_meta_info = create_gpu_buffer(device, &blas_meta_info);
-    let gpu_tri_bvh_root = create_gpu_buffer(device, &tri_bvh_root);
+    let gpu_blas_meta_info = create_gpu_buffer(gpu, &buffer_allocator, &blas_meta_info);
+    let gpu_tri_bvh_root = create_gpu_buffer(gpu, &buffer_allocator, &tri_bvh_root);
     // let gpu_box_bvh_root = create_gpu_buffer(device, &box_bvh_root);
-    let gpu_tri_bvh_forest = create_gpu_buffer(device, &tri_bvh_forest);
-    // let gpu_box_bvh_forest = create_gpu_buffer(device, &box_bvh_forest);
-    let gpu_indices_redirect = create_gpu_buffer(device, &indices_redirect);
-    let gpu_indices = create_gpu_buffer(device, &indices);
-    let gpu_vertices = create_gpu_buffer(device, cast_slice(&vertices));
-    // let gpu_boxes = create_gpu_buffer(device, &cast_slice(&boxes).to_vec());
+    let gpu_tri_bvh_forest = create_gpu_buffer(gpu, &buffer_allocator, &tri_bvh_forest);
+    // let gpu_box_bvh_forest = create_gpu_buffer(gpu, &buffer_allocator, &box_bvh_forest);
+    let gpu_indices_redirect = create_gpu_buffer(gpu, &buffer_allocator, &indices_redirect);
+    let gpu_indices = create_gpu_buffer(gpu, &buffer_allocator, &indices);
+    let gpu_vertices = create_gpu_buffer(gpu, &buffer_allocator, cast_slice(&vertices));
+    // let gpu_boxes = create_gpu_buffer(gpu, &buffer_allocator, &cast_slice(&boxes).to_vec());
 
     // build tlas
     let mut tlas_bvh_root = vec![];
@@ -448,11 +461,11 @@ impl NaiveSahBvhSource {
 
     // upload tlas
     let tlas_binding = tlas_binding.iter().map(|i| i.0).collect::<Vec<_>>();
-    let gpu_tlas_binding = create_gpu_buffer(device, &tlas_binding);
-    let gpu_tlas_bvh_root = create_gpu_buffer(device, &tlas_bvh_root);
-    let gpu_tlas_bvh_forest = create_gpu_buffer(device, &tlas_bvh_forest);
-    let gpu_tlas_data = create_gpu_buffer(device, &tlas_data);
-    let gpu_tlas_bounding = create_gpu_buffer(device, &tlas_bounding);
+    let gpu_tlas_binding = create_gpu_buffer(gpu, &buffer_allocator, &tlas_binding);
+    let gpu_tlas_bvh_root = create_gpu_buffer(gpu, &buffer_allocator, &tlas_bvh_root);
+    let gpu_tlas_bvh_forest = create_gpu_buffer(gpu, &buffer_allocator, &tlas_bvh_forest);
+    let gpu_tlas_data = create_gpu_buffer(gpu, &buffer_allocator, &tlas_data);
+    let gpu_tlas_bounding = create_gpu_buffer(gpu, &buffer_allocator, &tlas_bounding);
 
     let cpu = NaiveSahBvhCpu {
       tlas_binding,
@@ -469,6 +482,8 @@ impl NaiveSahBvhSource {
     };
     // println!("{cpu:#?}");
     *cpu_data = Some(cpu);
+
+    buffer_allocator.rebuild();
 
     *gpu_data = Some(NaiveSahBvhGpu {
       tlas_binding: gpu_tlas_binding,
@@ -489,8 +504,11 @@ impl NaiveSahBvhSource {
 #[derive(Clone)]
 pub struct NaiveSahBVHSystem {
   inner: Arc<RwLock<NaiveSahBVHSystemInner>>,
-  device: GPUDevice,
+  gpu: GPU,
 }
+unsafe impl Send for NaiveSahBVHSystem {}
+unsafe impl Sync for NaiveSahBVHSystem {}
+
 struct NaiveSahBVHSystemInner {
   source: NaiveSahBvhSource,
   tlas_binding: Vec<TlasHandle>,
@@ -507,7 +525,7 @@ impl NaiveSahBVHSystem {
         cpu_data: None,
         gpu_data: None,
       })),
-      device: gpu.device.clone(),
+      gpu,
     }
   }
 
@@ -519,7 +537,7 @@ impl NaiveSahBVHSystem {
       drop(read);
 
       let mut write = self.inner.write();
-      write.rebuild_acceleration_structures(&self.device);
+      write.rebuild_acceleration_structures(&self.gpu);
       drop(write);
 
       let read = self.inner.read();
@@ -540,9 +558,9 @@ impl NaiveSahBVHSystemInner {
     self.cpu_data = None;
     self.gpu_data = None;
   }
-  fn rebuild_acceleration_structures(&mut self, device: &GPUDevice) {
+  fn rebuild_acceleration_structures(&mut self, gpu: &GPU) {
     self.source.build(
-      device,
+      gpu,
       &mut self.cpu_data,
       &mut self.gpu_data,
       self.tlas_binding.as_slice(),

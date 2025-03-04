@@ -66,6 +66,20 @@ impl CombinedStorageBufferAllocator {
     }
   }
 
+  pub fn allocate_init<T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized>(
+    &self,
+    data: &T,
+  ) -> SubCombinedStorageBuffer<T> {
+    rule_out_atomic_types(&T::maybe_unsized_ty());
+    let buffer_index = self.internal.write().allocate_init(data);
+
+    SubCombinedStorageBuffer {
+      buffer_index,
+      phantom: PhantomData,
+      internal: self.internal.clone(),
+    }
+  }
+
   pub fn allocate_dyn(
     &self,
     byte_size: u64,

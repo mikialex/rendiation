@@ -15,6 +15,7 @@ pub struct CombinedBufferAllocatorInternal {
   // use none for none atomic heap
   atomic: Option<ShaderAtomicValueType>,
   enable_debug_log: bool,
+  init: Vec<(usize, Vec<u8>)>,
 }
 
 const MAX_BINDING_COUNT: usize = 1024;
@@ -45,6 +46,7 @@ impl CombinedBufferAllocatorInternal {
       layout,
       atomic,
       enable_debug_log: false,
+      init: vec![],
     }
   }
   pub fn expect_buffer(&self) -> &GPUBufferResourceView {
@@ -61,6 +63,15 @@ impl CombinedBufferAllocatorInternal {
       .push(sub_buffer_u32_size);
 
     buffer_index
+  }
+
+  pub fn allocate_init<T: Std430MaybeUnsized + ?Sized>(&mut self, data: &T) -> usize {
+    let len = data.bytes().len();
+    assert_eq!(len % 4, 0);
+    let index = self.allocate((len / 4) as u32);
+    println!("buffer index {index} {len}");
+    self.init.push((index, data.bytes().to_vec()));
+    index
   }
 
   pub fn rebuild(&mut self) {
@@ -138,6 +149,15 @@ impl CombinedBufferAllocatorInternal {
         );
       }
       gpu.submit_encoder(encoder);
+    }
+
+    // init
+    for (index, data) in std::mem::take(&mut self.init) {
+      let offset = sub_buffer_allocation_u32_offset[index];
+      println!("init {} {}", offset * 4, data.len());
+      gpu
+        .queue
+        .write_buffer(new_buffer, (offset * 4) as u64, &data);
     }
 
     self.buffer = Some(buffer);

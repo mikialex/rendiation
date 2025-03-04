@@ -44,6 +44,21 @@ impl MaybeCombinedStorageAllocator {
     }
   }
 
+  pub fn allocate_init<T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized>(
+    &self,
+    data: &T,
+    device: &GPUDevice,
+  ) -> BoxedAbstractStorageBuffer<T> {
+    if let Self::Combined(combined) = self {
+      Box::new(combined.allocate_init(data))
+    } else {
+      Box::new(create_gpu_read_write_storage::<T>(
+        StorageBufferInit::WithInit(data),
+        &device,
+      ))
+    }
+  }
+
   pub fn allocate_dyn_ty(
     &self,
     byte_size: u64,
