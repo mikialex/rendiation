@@ -1,7 +1,7 @@
 mod naive;
 pub use naive::*;
-mod native;
-pub use native::*;
+mod hardware_ray_query;
+pub use hardware_ray_query::*;
 
 use crate::*;
 

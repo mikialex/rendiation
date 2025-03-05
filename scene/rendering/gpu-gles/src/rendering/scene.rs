@@ -3,6 +3,7 @@ use crate::*;
 pub struct GLESRenderSystem {
   pub model_lookup: UpdateResultToken,
   pub node_net_visible: UpdateResultToken,
+  pub model_alpha_blend: UpdateResultToken,
   pub texture_system: TextureGPUSystemSource,
   pub background: SceneBackgroundRendererSource,
   pub camera: Box<dyn RenderImplProvider<Box<dyn CameraRenderImpl>>>,
@@ -20,6 +21,7 @@ pub fn build_default_gles_render_system(
   GLESRenderSystem {
     reversed_depth,
     model_lookup: Default::default(),
+    model_alpha_blend: Default::default(),
     texture_system: TextureGPUSystemSource::new(tex_sys_ty),
     background: SceneBackgroundRendererSource::new(reversed_depth),
     node_net_visible: Default::default(),
@@ -52,6 +54,8 @@ impl RenderImplProvider<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>> fo
       imp.register_resource(source, cx);
     }
     self.node_net_visible = source.register_reactive_query(scene_node_derive_visible());
+    self.model_alpha_blend =
+      source.register_reactive_query(all_kinds_of_materials_enabled_alpha_blending());
   }
 
   fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
@@ -63,6 +67,7 @@ impl RenderImplProvider<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>> fo
     }
     source.deregister(&mut self.model_lookup);
     source.deregister(&mut self.node_net_visible);
+    source.deregister(&mut self.model_alpha_blend);
   }
 
   fn create_impl(
@@ -86,6 +91,9 @@ impl RenderImplProvider<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>> fo
         .unwrap(),
       sm_ref_node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
       reversed_depth: self.reversed_depth,
+      alpha_blend: res
+        .take_reactive_query_updated(self.model_alpha_blend)
+        .unwrap(),
     })
   }
 }
@@ -97,6 +105,7 @@ struct GLESSceneRenderer {
   background: SceneBackgroundRenderer,
   model_lookup: RevRefOfForeignKey<SceneModelBelongsToScene>,
   node_net_visible: BoxedDynQuery<EntityHandle<SceneNodeEntity>, bool>,
+  alpha_blend: BoxedDynQuery<EntityHandle<SceneModelEntity>, bool>,
   sm_ref_node: ForeignKeyReadView<SceneModelRefNode>,
   reversed_depth: bool,
 }
@@ -122,7 +131,7 @@ impl SceneRenderer for GLESSceneRenderer {
   fn extract_scene_batch(
     &self,
     scene: EntityHandle<SceneEntity>,
-    _semantic: Self::ContentKey, // todo
+    semantic: Self::ContentKey,
     _ctx: &mut FrameCtx,
   ) -> SceneModelRenderBatch {
     SceneModelRenderBatch::Host(Box::new(HostModelLookUp {
@@ -130,6 +139,8 @@ impl SceneRenderer for GLESSceneRenderer {
       node_net_visible: self.node_net_visible.clone(),
       sm_ref_node: self.sm_ref_node.clone(),
       scene_id: scene,
+      scene_model_use_alpha_blending: self.alpha_blend.clone(),
+      enable_alpha_blending: semantic.only_alpha_blend_objects,
     }))
   }
 

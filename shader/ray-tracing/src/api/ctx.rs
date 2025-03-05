@@ -205,4 +205,8 @@ pub trait ClosestHitCtxProvider: WorldRayInfoProvider + RayLaunchInfoProvider {
   fn hit_distance(&self) -> Node<f32>;
   /// gl_HitAttributeEXT
   fn hit_attribute(&self) -> Node<HitAttribute>;
+
+  fn hit_world_position(&self) -> Node<Vec3<f32>> {
+    self.world_ray().origin + self.world_ray().direction * self.hit_distance()
+  }
 }

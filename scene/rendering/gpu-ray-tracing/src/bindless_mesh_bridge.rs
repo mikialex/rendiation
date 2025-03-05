@@ -34,6 +34,32 @@ impl BindlessMeshRtxAccessInvocation {
         .into_node::<Vec3<f32>>()
     }
   }
+
+  pub fn get_world_normal(&self, closest_hit_ctx: &dyn ClosestHitCtxProvider) -> Node<Vec3<f32>> {
+    let scene_model_id = closest_hit_ctx.instance_custom_id();
+    let mesh_id = self.sm_to_mesh.index(scene_model_id).load();
+    let tri_id = closest_hit_ctx.primitive_id();
+    let tri_idx_s = self.get_triangle_idx(tri_id, mesh_id);
+
+    let tri_a_normal = self.get_normal(tri_idx_s.x(), mesh_id);
+    let tri_b_normal = self.get_normal(tri_idx_s.y(), mesh_id);
+    let tri_c_normal = self.get_normal(tri_idx_s.z(), mesh_id);
+
+    let attribs: Node<Vec2<f32>> = closest_hit_ctx.hit_attribute().expand().bary_coord;
+    let barycentric: Node<Vec3<f32>> = (
+      val(1.0) - attribs.x() - attribs.y(),
+      attribs.x(),
+      attribs.y(),
+    )
+      .into();
+
+    // Computing the normal at hit position
+    let normal = tri_a_normal * barycentric.x()
+      + tri_b_normal * barycentric.y()
+      + tri_c_normal * barycentric.z();
+    // Transforming the normal to world space
+    (closest_hit_ctx.world_to_object().shrink_to_3().transpose() * normal).normalize()
+  }
 }
 
 pub trait BindlessMeshDispatcherRtxEXT {

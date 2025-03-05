@@ -59,7 +59,7 @@ impl<T: Std430> GPULinearStorageImpl for StorageBufferDataView<[T]> {
       &self.gpu,
       encoder,
       device,
-      new_size * std::mem::size_of::<u32>() as u32,
+      new_size * std::mem::size_of::<T>() as u32,
     );
   }
   fn update_gpu(&mut self, _: &mut GPUCommandEncoder) {}
@@ -82,7 +82,7 @@ impl<T: Std430> GPULinearStorageImpl for StorageBufferReadonlyDataView<[T]> {
       &self.gpu,
       encoder,
       device,
-      new_size * std::mem::size_of::<u32>() as u32,
+      new_size * std::mem::size_of::<T>() as u32,
     );
   }
   fn update_gpu(&mut self, _: &mut GPUCommandEncoder) {}
@@ -136,10 +136,11 @@ fn resize_impl(
   buffer: &GPUBufferResourceView,
   encoder: &mut GPUCommandEncoder,
   device: &GPUDevice,
-  new_size: u32,
+  byte_new_size: u32,
 ) -> GPUBufferResourceView {
   let usage = buffer.resource.desc.usage;
-  let new_buffer = create_gpu_buffer_zeroed(new_size as u64, usage, device).create_default_view();
+  let new_buffer =
+    create_gpu_buffer_zeroed(byte_new_size as u64, usage, device).create_default_view();
 
   encoder.copy_buffer_to_buffer(
     &buffer.resource.gpu,

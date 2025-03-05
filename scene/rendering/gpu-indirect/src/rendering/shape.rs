@@ -26,7 +26,7 @@ pub trait IndirectModelShapeRenderImpl {
   fn make_draw_command_builder(
     &self,
     any_idx: EntityHandle<StandardModelEntity>,
-  ) -> Option<Box<dyn DrawCommandBuilder>>;
+  ) -> Option<DrawCommandBuilder>;
 }
 
 impl IndirectModelShapeRenderImpl for Vec<Box<dyn IndirectModelShapeRenderImpl>> {
@@ -61,7 +61,7 @@ impl IndirectModelShapeRenderImpl for Vec<Box<dyn IndirectModelShapeRenderImpl>>
   fn make_draw_command_builder(
     &self,
     any_idx: EntityHandle<StandardModelEntity>,
-  ) -> Option<Box<dyn DrawCommandBuilder>> {
+  ) -> Option<DrawCommandBuilder> {
     for provider in self {
       if let Some(builder) = provider.make_draw_command_builder(any_idx) {
         return Some(builder);

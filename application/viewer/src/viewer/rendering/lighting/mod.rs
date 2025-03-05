@@ -3,7 +3,7 @@ use std::num::NonZeroU32;
 use rendiation_area_lighting::AreaLightUniformLightList;
 use rendiation_lighting_shadow_map::*;
 use rendiation_texture_gpu_base::create_gpu_texture2d;
-use rendiation_texture_gpu_process::ToneMap;
+use rendiation_texture_gpu_process::{ToneMap, ToneMapType};
 
 mod debug_channels;
 mod ibl;
@@ -144,10 +144,24 @@ impl LightSystem {
       gpu,
     );
 
-    let ltc_1 = include_bytes!("./ltc_1.png");
-    let ltc_1 = create_gpu_tex_from_png_buffer(gpu, ltc_1.as_slice(), TextureFormat::Rgba8Unorm);
-    let ltc_2 = include_bytes!("./ltc_2.png");
-    let ltc_2 = create_gpu_tex_from_png_buffer(gpu, ltc_2.as_slice(), TextureFormat::Rgba8Unorm);
+    let ltc_1 = include_bytes!("./ltc_1.bin");
+    let ltc_1 = create_gpu_texture2d(
+      gpu,
+      &GPUBufferImage {
+        data: ltc_1.as_slice().to_vec(),
+        format: TextureFormat::Rgba16Float,
+        size: Size::from_u32_pair_min_one((64, 64)),
+      },
+    );
+    let ltc_2 = include_bytes!("./ltc_2.bin");
+    let ltc_2 = create_gpu_texture2d(
+      gpu,
+      &GPUBufferImage {
+        data: ltc_2.as_slice().to_vec(),
+        format: TextureFormat::Rgba16Float,
+        size: Size::from_u32_pair_min_one((64, 64)),
+      },
+    );
 
     let mut internal = Box::new(
       DifferentLightRenderImplProvider::default()
@@ -185,15 +199,33 @@ impl LightSystem {
     }
   }
 
-  pub fn egui(&mut self, ui: &mut egui::Ui) {
+  pub fn egui(&mut self, ui: &mut egui::Ui, is_hdr_rendering: bool) {
     ui.checkbox(&mut self.enable_channel_debugger, "enable channel debug");
-    self.tonemap.mutate_exposure(|e| {
-      ui.add(
-        egui::Slider::new(e, 0.0..=2.0)
-          .step_by(0.05)
-          .text("exposure"),
-      );
-    });
+
+    if is_hdr_rendering {
+      ui.label("tonemap is disabled when hdr display enabled");
+      self.tonemap.ty = ToneMapType::None;
+    } else {
+      if self.tonemap.ty == ToneMapType::None {
+        self.tonemap.ty = ToneMapType::ACESFilmic;
+      }
+      egui::ComboBox::from_label("Tone mapping type")
+        .selected_text(format!("{:?}", &self.tonemap.ty))
+        .show_ui(ui, |ui| {
+          ui.selectable_value(&mut self.tonemap.ty, ToneMapType::Linear, "Linear");
+          ui.selectable_value(&mut self.tonemap.ty, ToneMapType::Cineon, "Cineon");
+          ui.selectable_value(&mut self.tonemap.ty, ToneMapType::Reinhard, "Reinhard");
+          ui.selectable_value(&mut self.tonemap.ty, ToneMapType::ACESFilmic, "ACESFilmic");
+        });
+
+      self.tonemap.mutate_exposure(|e| {
+        ui.add(
+          egui::Slider::new(e, 0.0..=2.0)
+            .step_by(0.05)
+            .text("exposure"),
+        );
+      });
+    }
   }
 
   pub fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
@@ -210,7 +242,9 @@ impl LightSystem {
   ) -> SceneLightSystem {
     self.tonemap.update(frame_ctx.gpu);
 
-    let key = SceneContentKey { transparent: false };
+    let key = SceneContentKey {
+      only_alpha_blend_objects: None,
+    };
 
     // we could just use empty pass dispatcher, because the color channel not exist at all
     let depth = ();

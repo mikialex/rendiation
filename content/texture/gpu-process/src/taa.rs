@@ -21,7 +21,7 @@ pub struct NewTAAFrameSample {
 pub trait TAAContent<R> {
   fn set_jitter(&mut self, next_jitter: Vec2<f32>);
   // the reproject info maybe useful in
-  fn render(self, ctx: &mut FrameCtx) -> (NewTAAFrameSample, R);
+  fn render(&mut self, ctx: &mut FrameCtx) -> (NewTAAFrameSample, R);
 }
 
 impl TAA {
@@ -40,6 +40,7 @@ impl TAA {
     reproject: &GPUReprojectInfo,
   ) -> (&RenderTargetView, RenderTargetView, R) {
     content.set_jitter(self.next_jitter());
+    ctx.make_submit();
 
     let (
       NewTAAFrameSample {
@@ -48,6 +49,9 @@ impl TAA {
       },
       r,
     ) = content.render(ctx);
+
+    ctx.make_submit();
+    content.set_jitter(Vec2::zero()); // reset
 
     (
       self.resolve(&new_color, &new_depth, ctx, reproject),
@@ -69,15 +73,11 @@ impl TAA {
     ctx: &mut FrameCtx,
     reproject: &GPUReprojectInfo,
   ) -> &RenderTargetView {
-    let mut resolve_target = attachment()
-      .format(TextureFormat::Rgba8UnormSrgb)
-      .request(ctx);
+    let mut resolve_target = new_color.create_attachment_key().request(ctx);
 
-    let history = self.history.get_or_insert_with(|| {
-      attachment()
-        .format(TextureFormat::Rgba8UnormSrgb)
-        .request(ctx)
-    });
+    let history = self
+      .history
+      .get_or_insert_with(|| new_color.create_attachment_key().request(ctx));
 
     pass("taa-resolve")
       .with_color(&resolve_target, load())
@@ -136,6 +136,7 @@ impl GraphicsShaderProvider for TAAResolver<'_> {
       let previous = history.sample(color_sampler, reproject_uv);
 
       let texel_size = builder.query::<TexelSize>();
+      // todo, check if the rejection logic support hdr
       let previous_clamped = clamp_color(new, color_sampler, texel_size, uv, previous.xyz());
 
       let new = new.sample(color_sampler, uv).xyz();

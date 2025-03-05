@@ -55,8 +55,8 @@ impl LTCxLightEval {
     let uv = vec2_node((roughness, (val(1.0) - n_dot_v).sqrt()));
     let uv = uv * val(LUT_SCALE) + val(LUT_BIAS).splat();
 
-    let t1 = ltc_1.sample(sampler, uv);
-    let t2 = ltc_2.sample(sampler, uv);
+    let t1 = ltc_1.sample_zero_level(sampler, uv);
+    let t2 = ltc_2.sample_zero_level(sampler, uv);
 
     let min_v = (
       (t1.x(), val(0.), t1.y()).into(),
@@ -78,7 +78,6 @@ impl LTCxLightEval {
     spec *= specular_color * t2.x() + (val(1.0).splat() - diffuse_color) * t2.y();
 
     let identity = (
-      // todo useless?
       val(vec3(1., 0., 0.)),
       val(vec3(0., 1., 0.)),
       val(vec3(0., 0., 1.)),
@@ -110,6 +109,7 @@ pub fn ltc_evaluate_rect(
   let l = light.expand();
   // construct orthonormal basis around N
   let t1 = v - n * v.dot(n).splat::<Vec3<_>>();
+  let t1 = t1.normalize();
   let t2 = n.cross(t1);
 
   // rotate area light in (T1, T2, N) basis

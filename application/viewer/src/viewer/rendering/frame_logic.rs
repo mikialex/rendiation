@@ -12,6 +12,7 @@ pub struct ViewerFrameLogic {
   highlight: HighLighter,
   reproject: GPUReprojectInfo,
   taa: TAA,
+  enable_ground: bool,
   enable_ssao: bool,
   enable_outline: bool,
   ssao: SSAO,
@@ -29,7 +30,8 @@ impl ViewerFrameLogic {
       _blur: CrossBlurData::new(gpu),
       reproject: GPUReprojectInfo::new(gpu),
       taa: TAA::new(),
-      enable_ssao: true,
+      enable_ground: true,
+      enable_ssao: false,
       enable_outline: false,
       ssao: SSAO::new(gpu),
       ground: UniformBufferCachedDataView::create(&gpu.device, ShaderPlane::ground_like()),
@@ -40,6 +42,7 @@ impl ViewerFrameLogic {
   }
 
   pub fn egui(&mut self, ui: &mut egui::Ui) {
+    ui.checkbox(&mut self.enable_ground, "enable ground");
     ui.checkbox(&mut self.enable_ssao, "enable ssao");
     ui.checkbox(&mut self.enable_outline, "enable outline");
     post_egui(ui, &self.post);
@@ -59,6 +62,8 @@ impl ViewerFrameLogic {
     opaque_lighting: LightingTechniqueKind,
     deferred_mat_supports: &DeferLightingMaterialRegistry,
   ) -> RenderTargetView {
+    let hdr_enabled = final_target.format() == TextureFormat::Rgba16Float;
+
     self
       .reproject
       .update(ctx, current_camera_view_projection_inv);
@@ -77,7 +82,9 @@ impl ViewerFrameLogic {
       .unwrap();
 
     let mut widget_scene_content = renderer.extract_and_make_pass_content(
-      SceneContentKey { transparent: false },
+      SceneContentKey {
+        only_alpha_blend_objects: None,
+      },
       content.widget_scene,
       camera,
       ctx,
@@ -96,26 +103,18 @@ impl ViewerFrameLogic {
       })
       .by(&mut widget_scene_content);
 
-    let mut highlight_compose = (content.selected_target.is_some()).then(|| {
-      let masked_content = renderer.render_models(
-        Box::new(IteratorAsHostRenderBatch(content.selected_target)),
-        CameraRenderSource::Scene(content.main_camera),
-        &HighLightMaskDispatcher,
-        ctx,
-      );
-      self.highlight.draw(ctx, masked_content)
-    });
-
     let taa_content = SceneCameraTAAContent {
       queue: &ctx.gpu.queue,
       camera: content.main_camera,
       renderer,
       f: |ctx: &mut FrameCtx| {
-        let scene_result = attachment().request(ctx);
+        let scene_result = attachment().use_hdr_if_enabled(hdr_enabled).request(ctx);
         let g_buffer = FrameGeometryBuffer::new(ctx);
 
         let (color_ops, depth_ops) = renderer.init_clear(content.scene);
-        let key = SceneContentKey { transparent: false };
+        let key = SceneContentKey {
+          only_alpha_blend_objects: None,
+        };
 
         let mut background = renderer.render_background(
           content.scene,
@@ -206,17 +205,19 @@ impl ViewerFrameLogic {
           }
         }
 
-        // this must a separate pass, because the id buffer should not be written.
-        pass("grid_ground")
-          .with_color(&scene_result, load())
-          .with_depth(&g_buffer.depth, load())
-          .render_ctx(ctx)
-          .by(&mut GridGround {
-            plane: &self.ground,
-            shading: &self.grid,
-            camera: main_camera_gpu.as_ref(),
-            reversed_depth,
-          });
+        if self.enable_ground {
+          // this must a separate pass, because the id buffer should not be written.
+          pass("grid_ground")
+            .with_color(&scene_result, load())
+            .with_depth(&g_buffer.depth, load())
+            .render_ctx(ctx)
+            .by(&mut GridGround {
+              plane: &self.ground,
+              shading: &self.grid,
+              camera: main_camera_gpu.as_ref(),
+              reversed_depth,
+            });
+        }
 
         if self.enable_ssao {
           let ao = self.ssao.draw(
@@ -268,6 +269,16 @@ impl ViewerFrameLogic {
       BlendState::PREMULTIPLIED_ALPHA_BLENDING.into(),
     );
 
+    let mut highlight_compose = (content.selected_target.is_some()).then(|| {
+      let masked_content = renderer.render_models(
+        Box::new(IteratorAsHostRenderBatch(content.selected_target)),
+        CameraRenderSource::Scene(content.main_camera),
+        &HighLightMaskDispatcher,
+        ctx,
+      );
+      self.highlight.draw(ctx, masked_content)
+    });
+
     let mut compose = pass("compose-all")
       .with_color(final_target, load())
       .render_ctx(ctx)
@@ -307,14 +318,14 @@ struct SceneCameraTAAContent<'a, F> {
 
 impl<F, R> TAAContent<R> for SceneCameraTAAContent<'_, F>
 where
-  F: FnOnce(&mut FrameCtx) -> (NewTAAFrameSample, R),
+  F: FnMut(&mut FrameCtx) -> (NewTAAFrameSample, R),
 {
   fn set_jitter(&mut self, next_jitter: Vec2<f32>) {
     let cameras = self.renderer.get_camera_gpu();
     cameras.setup_camera_jitter(self.camera, next_jitter, self.queue);
   }
 
-  fn render(self, ctx: &mut FrameCtx) -> (NewTAAFrameSample, R) {
+  fn render(&mut self, ctx: &mut FrameCtx) -> (NewTAAFrameSample, R) {
     (self.f)(ctx)
   }
 }

@@ -1686,6 +1686,9 @@ name = "half"
 version = "1.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62aca2aba2d62b4a7f5b33f3712cb1b0692779a56fb510499d5c0aa594daeaf3"
+dependencies = [
+ "bytemuck",
+]
 
 [[package]]
 name = "half"
@@ -3526,13 +3529,13 @@ dependencies = [
 name = "rendiation-lighting-ltc"
 version = "0.1.0"
 dependencies = [
- "image 0.25.1",
+ "bytemuck",
+ "half 1.7.1",
  "rendiation-algebra",
  "rendiation-lighting-gpu-system",
  "rendiation-lighting-transport",
  "rendiation-shader-api",
  "rendiation-texture-core",
- "rendiation-texture-loader",
 ]
 
 [[package]]
@@ -3822,6 +3825,7 @@ dependencies = [
 name = "rendiation-scene-rendering-gpu-ray-tracing"
 version = "0.1.0"
 dependencies = [
+ "anymap",
  "bytemuck",
  "database",
  "dyn-clone",
@@ -3930,6 +3934,7 @@ dependencies = [
 name = "rendiation-texture-core"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
  "fast-hash-collection",
  "rendiation-algebra",
  "rendiation-geometry",

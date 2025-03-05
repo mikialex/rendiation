@@ -4,7 +4,7 @@ use crate::*;
 
 mod feature;
 mod pick;
-use default_scene::{load_default_scene, load_example_cube_tex};
+use default_scene::load_default_scene;
 pub use feature::*;
 
 mod terminal;
@@ -13,6 +13,9 @@ pub use terminal::*;
 
 mod animation_player;
 pub use animation_player::*;
+
+mod background;
+pub use background::*;
 
 mod console;
 pub use console::*;
@@ -35,18 +38,6 @@ pub struct Viewer {
   camera_helpers: SceneCameraHelper,
   animation_player: SceneAnimationsPlayer,
   started_time: Instant,
-}
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-enum ViewerBackgroundType {
-  Color,
-  Environment,
-}
-
-struct ViewerBackgroundState {
-  current: ViewerBackgroundType,
-  default_env_background: EntityHandle<SceneTextureCubeEntity>,
-  solid_background_color: [f32; 3],
 }
 
 struct ViewerUIState {
@@ -199,7 +190,11 @@ impl Widget for Viewer {
 }
 
 impl Viewer {
-  pub fn new(gpu: GPU, content_logic: impl Widget + 'static) -> Self {
+  pub fn new(
+    gpu: GPU,
+    swap_chain: ApplicationWindowSurface,
+    content_logic: impl Widget + 'static,
+  ) -> Self {
     let mut terminal = Terminal::default();
     register_default_commands(&mut terminal);
 
@@ -244,13 +239,7 @@ impl Viewer {
       let mut writer = SceneWriter::from_global(scene.scene);
       load_default_scene(&mut writer, &scene);
 
-      writer.set_solid_background(Vec3::new(0.1, 0.1, 0.1));
-      let default_env_background = load_example_cube_tex(&mut writer);
-      ViewerBackgroundState {
-        current: ViewerBackgroundType::Color,
-        default_env_background,
-        solid_background_color: [0.1, 0.1, 0.1],
-      }
+      ViewerBackgroundState::init(&mut writer)
     };
 
     let viewer_ndc = ViewerNDC {
@@ -291,7 +280,7 @@ impl Viewer {
       camera_helpers,
       scene,
       terminal,
-      rendering: Viewer3dRenderingCtx::new(gpu, viewer_ndc, camera_transforms),
+      rendering: Viewer3dRenderingCtx::new(gpu, swap_chain, viewer_ndc, camera_transforms),
       derives,
       on_demand_draw: Default::default(),
       egui_db_inspector: Default::default(),
@@ -350,44 +339,7 @@ fn egui(
       rendering.egui(ui);
       ui.separator();
 
-      ui.collapsing("Background", |ui| {
-        let previous = background.current;
-        egui::ComboBox::from_label("background type")
-          .selected_text(format!("{:?}", &background.current))
-          .show_ui(ui, |ui| {
-            ui.selectable_value(
-              &mut background.current,
-              ViewerBackgroundType::Color,
-              "Solid Color",
-            );
-            ui.selectable_value(
-              &mut background.current,
-              ViewerBackgroundType::Environment,
-              "EnvBackground",
-            );
-          });
-
-        {
-          let mut writer = SceneWriter::from_global(scene);
-          match background.current {
-            ViewerBackgroundType::Color => {
-              ui.color_edit_button_rgb(&mut background.solid_background_color);
-              writer.set_solid_background(Vec3::from(background.solid_background_color))
-            }
-            ViewerBackgroundType::Environment => {}
-          }
-          if background.current != previous {
-            match background.current {
-              ViewerBackgroundType::Color => {
-                writer.set_solid_background(Vec3::from(background.solid_background_color));
-              }
-              ViewerBackgroundType::Environment => {
-                writer.set_hdr_env_background(background.default_env_background, 1.);
-              }
-            }
-          }
-        }
-      });
+      background.egui(ui, scene);
 
       ui.separator();
 

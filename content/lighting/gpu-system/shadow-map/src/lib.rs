@@ -30,7 +30,7 @@ pub fn basic_shadow_map_uniform(
   gpu_ctx: &GPU,
 ) -> (
   BasicShadowMapSystem,
-  UniformArrayUpdateContainer<BasicShadowMapInfo>,
+  UniformArrayUpdateContainer<BasicShadowMapInfo, 8>,
 ) {
   let source_world = inputs.source_world.into_forker();
 
@@ -62,7 +62,7 @@ pub fn basic_shadow_map_uniform(
   );
 
   let uniforms = UniformBufferDataView::create_default(&gpu_ctx.device);
-  let uniforms = UniformArrayUpdateContainer::<BasicShadowMapInfo>::new(uniforms)
+  let uniforms = UniformArrayUpdateContainer::<BasicShadowMapInfo, 8>::new(uniforms)
     .with_source(map_info)
     .with_source(shadow_camera_view_proj)
     .with_source(bias);

@@ -2,7 +2,7 @@ use crate::*;
 
 pub type UniformArray<T, const N: usize> = UniformBufferDataView<Shader140Array<T, N>>;
 
-pub type UniformArrayUpdateContainer<T> = MultiUpdateContainer<UniformArray<T, 8>>;
+pub type UniformArrayUpdateContainer<T, const N: usize> = MultiUpdateContainer<UniformArray<T, N>>;
 
 pub struct QueryBasedUniformArrayUpdate<T> {
   field_offset: u32,
@@ -34,14 +34,14 @@ where
   }
 }
 
-impl<T, C> QueryBasedUpdate<UniformArray<T, 8>> for QueryBasedUniformArrayUpdate<C>
+impl<T, C, const N: usize> QueryBasedUpdate<UniformArray<T, N>> for QueryBasedUniformArrayUpdate<C>
 where
   T: Std140 + Default,
   C: ReactiveQuery,
   C::Key: LinearIdentified,
   C::Value: Pod,
 {
-  fn update_target(&mut self, target: &mut UniformArray<T, 8>, cx: &mut Context) {
+  fn update_target(&mut self, target: &mut UniformArray<T, N>, cx: &mut Context) {
     let (changes, _) = self.upstream.poll_changes(cx);
     for (k, v) in changes.iter_key_value() {
       let index = k.alloc_index();

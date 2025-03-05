@@ -139,6 +139,13 @@ where
     )
   }
 
+  pub fn reflect(self, other: impl Into<Self>) -> Self {
+    make_builtin_call(
+      ShaderBuiltInFunction::Reflect,
+      [self.handle(), other.into().handle()],
+    )
+  }
+
   pub fn cross(self, other: impl Into<Self>) -> Node<Vec3<f32>> {
     make_builtin_call(
       ShaderBuiltInFunction::Cross,

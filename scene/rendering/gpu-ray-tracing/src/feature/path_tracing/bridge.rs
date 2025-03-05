@@ -1,9 +1,5 @@
 use crate::*;
 
-pub struct DevicePathTracingRenderer {
-  // create and maintain rtx pipeline
-}
-
 pub trait DevicePathTracingSceneSource: ShaderHashProvider + ShaderPassBuilder {
   fn sbt(&self) -> Box<dyn Any>;
 

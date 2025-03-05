@@ -239,7 +239,7 @@ impl Node<Bool> {
 
 impl Node<bool> {
   pub fn into_big_bool(&self) -> Node<Bool> {
-    unsafe { self.select(val(1), val(0)).cast_type() }
+    unsafe { self.select(val(1_u32), val(0_u32)).cast_type() }
   }
 }
 

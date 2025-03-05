@@ -129,7 +129,7 @@ impl ShaderBindingTableDeviceInfo {
       max_geometry_count_in_blas * max_tlas_offset * ray_type_count,
       &mut |r| unsafe {
         let meta = inner.hit_offset_map.remove(&r.previous_offset).unwrap();
-        inner.hit_offset_map.insert(r.new_offset, meta).unwrap();
+        inner.hit_offset_map.insert(r.new_offset, meta);
         inner
           .meta
           .set_value_sub_bytes(
@@ -144,7 +144,7 @@ impl ShaderBindingTableDeviceInfo {
       .ray_miss
       .allocate_range(ray_type_count, &mut |r| unsafe {
         let meta = inner.miss_offset_map.remove(&r.previous_offset).unwrap();
-        inner.miss_offset_map.insert(r.new_offset, meta).unwrap();
+        inner.miss_offset_map.insert(r.new_offset, meta);
         inner
           .meta
           .set_value_sub_bytes(
@@ -158,7 +158,7 @@ impl ShaderBindingTableDeviceInfo {
       .ray_gen
       .allocate_range(ray_type_count, &mut |r| unsafe {
         let meta = inner.gen_offset_map.remove(&r.previous_offset).unwrap();
-        inner.gen_offset_map.insert(r.new_offset, meta).unwrap();
+        inner.gen_offset_map.insert(r.new_offset, meta);
         inner
           .meta
           .set_value_sub_bytes(

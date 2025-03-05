@@ -1,4 +1,5 @@
 #![feature(impl_trait_in_assoc_type)]
+#![feature(array_chunks)]
 #![feature(stmt_expr_attributes)]
 #![feature(type_alias_impl_trait)]
 #![feature(hash_raw_entry)]
@@ -65,12 +66,17 @@ where
   register_light_shadow_config();
   register_gui3d_extension_data_model();
   register_area_lighting_data_model();
+  register_sky_env_data_model();
 
   let content_logic = core_viewer_features(content_logic);
 
   let viewer = StateCxCreateOnce::create_at_view(|cx| {
-    access_cx!(cx, gpu, GPU);
-    Viewer::new(gpu.clone(), content_logic(cx))
+    access_cx!(cx, gpu_and_surface, WGPUAndSurface);
+    Viewer::new(
+      gpu_and_surface.gpu.clone(),
+      gpu_and_surface.surface.clone(),
+      content_logic(cx),
+    )
   });
   let egui_view = EguiContext::new(viewer);
 

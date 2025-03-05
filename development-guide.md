@@ -6,6 +6,11 @@ The following things is the current project development direction.
 
 ### Basic correctness
 
+- optimize frame ctx "make_submit" call, use copy buffer to buffer to update.
+- env background not support tonemapping
+- alpha blending is not implemnt at all
+- light uniform array not skip none exist light
+- gizmo should not scaled by target scale
 - use view space shading/lighting/postprocess compute to improve precision
 - disable ssao when channel debug on
 - fix channel debug in defer mode
@@ -16,11 +21,10 @@ The following things is the current project development direction.
 - fix parallel compute test out of bound shader access
 - fix scene gpu lighting is globally shared
 - fix some mesh can not be picked in cpu picking (maybe related to u16 index format)
-- fix viewer screenshot channel mismatch (for example gbra swapchain texture format)
-- fix outline camera shaking
 - fix missing blur pass in ssao
 - fix ao should only shadowing diffuse lighting.
 - ibl brdf lut should use higher precision lut
+- fix outline shaking
 
 ### Indirect rendering
 
@@ -33,17 +37,16 @@ The following things is the current project development direction.
 - widen line
 - sky shading
 - gpu driven occlusion culling
-- ltc lighting
 - on_demand_draw
+- ssr(super naive)
 - lod graph generation and rendering
 
 ### New features planed
 
-- hdr swapchain(use apple device for testing)
 - physical camera
 - automatic exposure control
 - oit
-- ssr
+- good ssr
 - visibility rendering
 - cluster lighting optimization
   - dependency: storagebuffer light resources.
@@ -62,6 +65,10 @@ The following things is the current project development direction.
 ### Need help issue
 
 - buffer combine with rtao shader breaks on Metal.
+
+### Issues that require future dependency support
+
+- correct hdr rendering, see <https://github.com/gfx-rs/wgpu/issues/2920>;
 
 ## Useful commands
 

@@ -6,6 +6,7 @@ use crate::*;
 
 pub struct IndirectRenderSystem {
   pub model_lookup: UpdateResultToken,
+  pub model_alpha_blend: UpdateResultToken,
   pub node_net_visible: UpdateResultToken,
   pub texture_system: TextureGPUSystemSource,
   pub background: SceneBackgroundRendererSource,
@@ -25,6 +26,7 @@ pub fn build_default_indirect_render_system(
     reversed_depth,
     model_lookup: Default::default(),
     node_net_visible: Default::default(),
+    model_alpha_blend: Default::default(),
     background: SceneBackgroundRendererSource::new(reversed_depth),
     texture_system: TextureGPUSystemSource::new(tex_sys_ty),
     camera: Box::new(DefaultGLESCameraRenderImplProvider::new(camera_source)),
@@ -56,6 +58,8 @@ impl RenderImplProvider<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>>
     self.camera.register_resource(source, cx);
     self.scene_model_impl.register_resource(source, cx);
     self.node_net_visible = source.register_reactive_query(scene_node_derive_visible());
+    self.model_alpha_blend =
+      source.register_reactive_query(all_kinds_of_materials_enabled_alpha_blending());
   }
 
   fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
@@ -65,6 +69,7 @@ impl RenderImplProvider<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>>
     self.scene_model_impl.deregister_resource(source);
     source.deregister(&mut self.model_lookup);
     source.deregister(&mut self.node_net_visible);
+    source.deregister(&mut self.model_alpha_blend);
   }
 
   fn create_impl(
@@ -84,6 +89,9 @@ impl RenderImplProvider<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>>
         .take_reactive_multi_query_updated(self.model_lookup)
         .unwrap(),
       reversed_depth: self.reversed_depth,
+      alpha_blend: res
+        .take_reactive_query_updated(self.model_alpha_blend)
+        .unwrap(),
     })
   }
 }
@@ -95,6 +103,7 @@ struct IndirectSceneRenderer {
   renderer: Box<dyn IndirectBatchSceneModelRenderer>,
   model_lookup: RevRefOfForeignKey<SceneModelBelongsToScene>,
   node_net_visible: BoxedDynQuery<EntityHandle<SceneNodeEntity>, bool>,
+  alpha_blend: BoxedDynQuery<EntityHandle<SceneModelEntity>, bool>,
   sm_ref_node: ForeignKeyReadView<SceneModelRefNode>,
   reversed_depth: bool,
 }
@@ -155,7 +164,7 @@ impl SceneRenderer for IndirectSceneRenderer {
   fn extract_scene_batch(
     &self,
     scene: EntityHandle<SceneEntity>,
-    _semantic: Self::ContentKey, // todo
+    semantic: Self::ContentKey,
     _ctx: &mut FrameCtx,
   ) -> SceneModelRenderBatch {
     let iter = HostModelLookUp {
@@ -163,6 +172,8 @@ impl SceneRenderer for IndirectSceneRenderer {
       node_net_visible: self.node_net_visible.clone(),
       sm_ref_node: self.sm_ref_node.clone(),
       scene_id: scene,
+      scene_model_use_alpha_blending: self.alpha_blend.clone(),
+      enable_alpha_blending: semantic.only_alpha_blend_objects,
     };
 
     self.create_batch_from_iter(iter.iter_scene_models())

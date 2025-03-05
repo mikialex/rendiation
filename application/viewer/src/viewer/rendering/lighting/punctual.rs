@@ -16,8 +16,8 @@ pub struct DirectionalUniformLightList {
 impl DirectionalUniformLightList {
   pub fn new(
     source: &mut ReactiveQueryJoinUpdater,
-    light: UniformArrayUpdateContainer<DirectionalLightUniform>,
-    shadow: UniformArrayUpdateContainer<BasicShadowMapInfo>,
+    light: UniformArrayUpdateContainer<DirectionalLightUniform, 8>,
+    shadow: UniformArrayUpdateContainer<BasicShadowMapInfo, 8>,
     reversed_depth: bool,
   ) -> Self {
     Self {
@@ -153,8 +153,8 @@ pub struct SpotLightUniformLightList {
 impl SpotLightUniformLightList {
   pub fn new(
     source: &mut ReactiveQueryJoinUpdater,
-    light: UniformArrayUpdateContainer<SpotLightUniform>,
-    shadow: UniformArrayUpdateContainer<BasicShadowMapInfo>,
+    light: UniformArrayUpdateContainer<SpotLightUniform, 8>,
+    shadow: UniformArrayUpdateContainer<BasicShadowMapInfo, 8>,
     reversed_depth: bool,
   ) -> Self {
     Self {
