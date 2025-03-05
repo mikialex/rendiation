@@ -69,7 +69,7 @@ impl CombinedBufferAllocatorInternal {
     let len = data.bytes().len();
     assert_eq!(len % 4, 0);
     let index = self.allocate((len / 4) as u32);
-    println!("buffer index {index} {len}");
+    // println!("buffer index {index} {len}");
     self.init.push((index, data.bytes().to_vec()));
     index
   }
@@ -154,7 +154,7 @@ impl CombinedBufferAllocatorInternal {
     // init
     for (index, data) in std::mem::take(&mut self.init) {
       let offset = sub_buffer_allocation_u32_offset[index];
-      println!("init {} {}", offset * 4, data.len());
+      // println!("init {} {}", offset * 4, data.len());
       gpu
         .queue
         .write_buffer(new_buffer, (offset * 4) as u64, &data);

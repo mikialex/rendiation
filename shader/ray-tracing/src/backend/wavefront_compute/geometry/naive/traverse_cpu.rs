@@ -80,7 +80,7 @@ impl NaiveSahBvhCpu {
         if !intersect_ray_aabb_cpu(
           ray.ray_origin,
           ray.ray_direction,
-          ray.range,
+          ray_range.get(),
           tlas_bounding.world_min,
           tlas_bounding.world_max,
         ) {
