@@ -215,6 +215,12 @@ impl TaskGroupExecutor {
   }
 
   fn compact_alive_tasks(&mut self, ctx: &mut DeviceParallelComputeCtx) {
+    // this is required because the task may spawn it self
+    ctx.record_pass(|pass, device| {
+      let imp = &self.resource;
+      imp.active_task_idx.commit_size(pass, device, true);
+    });
+
     let imp = &mut self.resource;
     // compact active task buffer
     let active_tasks =
