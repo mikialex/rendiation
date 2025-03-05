@@ -39,7 +39,7 @@ pub fn std_model_data(cx: &GPU) -> SceneStdModelStorageBuffer {
 #[std430_layout]
 #[derive(Clone, Copy, Default, PartialEq, ShaderStruct, Debug)]
 pub struct SceneStdModelStorage {
-  pub mesh: u32,
+  pub mesh: u32, // todo, improve: this data is duplicate with the mesh dispatcher sm-ref-mesh data
   pub material: u32,
 }
 

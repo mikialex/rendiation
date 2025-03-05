@@ -370,15 +370,85 @@ impl ShaderHashProvider for BindlessMeshDispatcher {
 
 impl ShaderPassBuilder for BindlessMeshDispatcher {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.vertex_address_buffer);
-
     ctx
       .pass
       .set_index_buffer_by_buffer_resource_view(&self.index_pool, IndexFormat::Uint32);
 
-    ctx.binding.bind(&self.position);
-    ctx.binding.bind(&self.normal);
-    ctx.binding.bind(&self.uv);
+    self.bind_base_invocation(&mut ctx.binding);
+  }
+}
+
+#[derive(Clone)]
+pub struct BindlessMeshDispatcherBaseInvocation {
+  pub vertex_address_buffer: ShaderPtrOf<[AttributeMeshMeta]>,
+  pub position: ShaderPtrOf<[u32]>,
+  pub normal: ShaderPtrOf<[u32]>,
+  pub uv: ShaderPtrOf<[u32]>,
+}
+
+impl BindlessMeshDispatcherBaseInvocation {
+  pub fn get_position_normal_uv(
+    &self,
+    mesh_handle: Node<u32>,
+    vertex_id: Node<u32>,
+  ) -> (Node<Vec3<f32>>, Node<Vec3<f32>>, Node<Vec2<f32>>) {
+    let position = self.get_position(mesh_handle, vertex_id);
+    let normal = self.get_normal(mesh_handle, vertex_id);
+    let uv = self.get_uv(mesh_handle, vertex_id);
+    (position, normal, uv)
+  }
+
+  pub fn get_normal(&self, mesh_handle: Node<u32>, vertex_id: Node<u32>) -> Node<Vec3<f32>> {
+    let meta = self.vertex_address_buffer.index(mesh_handle);
+    let normal_offset = meta.normal_offset().load();
+    let layout = StructLayoutTarget::Packed;
+    unsafe {
+      Vec3::<f32>::sized_ty()
+        .load_from_u32_buffer(&self.normal, normal_offset + vertex_id * val(3), layout)
+        .into_node::<Vec3<f32>>()
+    }
+  }
+
+  pub fn get_position(&self, mesh_handle: Node<u32>, vertex_id: Node<u32>) -> Node<Vec3<f32>> {
+    let meta = self.vertex_address_buffer.index(mesh_handle);
+    let position_offset = meta.position_offset().load();
+    let layout = StructLayoutTarget::Packed;
+    unsafe {
+      Vec3::<f32>::sized_ty()
+        .load_from_u32_buffer(&self.position, position_offset + vertex_id * val(3), layout)
+        .into_node::<Vec3<f32>>()
+    }
+  }
+
+  pub fn get_uv(&self, mesh_handle: Node<u32>, vertex_id: Node<u32>) -> Node<Vec2<f32>> {
+    let meta = self.vertex_address_buffer.index(mesh_handle);
+    let uv_offset = meta.uv_offset().load();
+    let layout = StructLayoutTarget::Packed;
+    unsafe {
+      Vec2::<f32>::sized_ty()
+        .load_from_u32_buffer(&self.uv, uv_offset + vertex_id * val(2), layout)
+        .into_node::<Vec2<f32>>()
+    }
+  }
+}
+
+impl BindlessMeshDispatcher {
+  pub fn build_base_invocation(
+    &self,
+    cx: &mut ShaderBindGroupBuilder,
+  ) -> BindlessMeshDispatcherBaseInvocation {
+    BindlessMeshDispatcherBaseInvocation {
+      vertex_address_buffer: cx.bind_by(&self.vertex_address_buffer),
+      position: cx.bind_by(&self.position),
+      normal: cx.bind_by(&self.position),
+      uv: cx.bind_by(&self.position),
+    }
+  }
+  pub fn bind_base_invocation(&self, cx: &mut BindingBuilder) {
+    cx.bind(&self.vertex_address_buffer);
+    cx.bind(&self.position);
+    cx.bind(&self.normal);
+    cx.bind(&self.uv);
   }
 }
 
@@ -388,39 +458,12 @@ impl GraphicsShaderProvider for BindlessMeshDispatcher {
       let mesh_handle = vertex.query::<IndirectAbstractMeshId>();
       let vertex_id = vertex.query::<VertexIndex>();
 
-      let vertex_addresses = binding.bind_by(&self.vertex_address_buffer);
-      let vertex_address = vertex_addresses.index(mesh_handle).load().expand();
+      let mesh_sys = self.build_base_invocation(binding);
+      let (position, normal, uv) = mesh_sys.get_position_normal_uv(mesh_handle, vertex_id);
 
-      let position = binding.bind_by(&self.position);
-      let normal = binding.bind_by(&self.normal);
-      let uv = binding.bind_by(&self.uv);
-
-      let layout = StructLayoutTarget::Packed;
-      unsafe {
-        let position = Vec3::<f32>::sized_ty()
-          .load_from_u32_buffer(
-            &position,
-            vertex_address.position_offset + vertex_id * val(3),
-            layout,
-          )
-          .into_node::<Vec3<f32>>();
-
-        let normal = Vec3::<f32>::sized_ty()
-          .load_from_u32_buffer(
-            &normal,
-            vertex_address.normal_offset + vertex_id * val(3),
-            layout,
-          )
-          .into_node::<Vec3<f32>>();
-
-        let uv = Vec2::<f32>::sized_ty()
-          .load_from_u32_buffer(&uv, vertex_address.uv_offset + vertex_id * val(2), layout)
-          .into_node::<Vec2<f32>>();
-
-        vertex.register::<GeometryPosition>(position);
-        vertex.register::<GeometryNormal>(normal);
-        vertex.register::<GeometryUV>(uv);
-      }
+      vertex.register::<GeometryPosition>(position);
+      vertex.register::<GeometryNormal>(normal);
+      vertex.register::<GeometryUV>(uv);
     })
   }
 }
