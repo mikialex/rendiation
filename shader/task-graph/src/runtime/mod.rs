@@ -406,13 +406,17 @@ impl DeviceTaskGraphExecutor {
     TaskGraphExecutionDebugInfo { info }
   }
 
-  // todo, dispatch should in reverse order
   pub fn execute(
     &mut self,
     cx: &mut DeviceParallelComputeCtx,
     dispatch_round_count: usize,
     source: &DeviceTaskGraphBuildSource,
   ) {
+    // enable this to debug execution issues that related to unexpected residue task
+    // we have to check inside the tiling loop
+    let enable_empty_assert = false;
+    let mut states_history_for_debugging = Vec::with_capacity(0);
+
     let self_task_groups: &[TaskGroupExecutor] = &self.task_groups;
     // todo, this is unsound
     let self_task_groups: &'static [TaskGroupExecutor] =
@@ -422,6 +426,19 @@ impl DeviceTaskGraphExecutor {
       for (idx, task) in self.task_groups.iter_mut().enumerate() {
         let source = &source.tasks[idx];
         task.execute(cx, self_task_groups, source);
+      }
+
+      if enable_empty_assert {
+        let states = pollster::block_on(self.read_back_execution_states(cx));
+        states_history_for_debugging.push(states)
+      }
+    }
+
+    if enable_empty_assert {
+      let states = states_history_for_debugging.last().unwrap();
+      if !states.is_empty() {
+        println!("state_history: \n{:#?}", states_history_for_debugging);
+        panic!("pipeline is not empty:\n {:?}", states,);
       }
     }
   }

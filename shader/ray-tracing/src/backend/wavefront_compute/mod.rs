@@ -180,20 +180,6 @@ impl RayTracingEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
       );
 
       graph_executor.execute(&mut cx, source.execution_round_hint as usize, &task_source);
-
-      // enable this to debug execution issues that related to unexpected residue task
-      // we have to check inside the tiling loop
-      let enable_empty_assert = false;
-      if enable_empty_assert {
-        let states = pollster::block_on(graph_executor.read_back_execution_states(&mut cx));
-        if !states.is_empty() {
-          panic!(
-            "pipeline is not empty:\n {:?}, \n {:?}",
-            states,
-            RectRange { offset, size }
-          );
-        }
-      }
     }
   }
 }

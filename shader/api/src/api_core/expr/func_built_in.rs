@@ -139,10 +139,11 @@ where
     )
   }
 
-  pub fn reflect(self, other: impl Into<Self>) -> Self {
+  /// note, self is normal
+  pub fn reflect(self, incident_direction: impl Into<Self>) -> Self {
     make_builtin_call(
       ShaderBuiltInFunction::Reflect,
-      [self.handle(), other.into().handle()],
+      [incident_direction.into().handle(), self.handle()],
     )
   }
 
