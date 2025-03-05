@@ -180,6 +180,20 @@ impl RayTracingEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
       );
 
       graph_executor.execute(&mut cx, source.execution_round_hint as usize, &task_source);
+
+      // enable this to debug execution issues that related to unexpected residue task
+      // we have to check inside the tiling loop
+      let enable_empty_assert = false;
+      if enable_empty_assert {
+        let states = pollster::block_on(graph_executor.read_back_execution_states(&mut cx));
+        if !states.is_empty() {
+          panic!(
+            "pipeline is not empty:\n {:?}, \n {:?}",
+            states,
+            RectRange { offset, size }
+          );
+        }
+      }
     }
   }
 }
@@ -252,6 +266,7 @@ pub fn tiling_iter(full_size: (u32, u32), tile_size: u32) -> impl Iterator<Item 
     })
 }
 
+#[derive(Debug)]
 pub struct RectRange {
   pub offset: (u32, u32),
   pub size: (u32, u32), // size may smaller than tile_size
