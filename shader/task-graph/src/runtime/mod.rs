@@ -248,8 +248,12 @@ impl DeviceTaskGraphExecutor {
     task_id: u32,
     task_spawner: &dyn TaskSpawner<T>,
   ) {
+    let task_group = &mut self.task_groups[task_id as usize];
+
+    // this is necessary, because the empty bumper may not ready
+    task_group.prepare_execution(cx);
+
     let device = &cx.gpu.device;
-    let task_group = &self.task_groups[task_id as usize];
 
     let dispatch_size_buffer = create_gpu_readonly_storage(&task_count, device);
 
