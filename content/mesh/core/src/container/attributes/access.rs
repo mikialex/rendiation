@@ -29,8 +29,8 @@ impl UnTypedBufferViewReadView<'_> {
     let offset = self.range.offset as usize + view_byte_offset;
 
     if let Some(byte_size) = self.range.size {
-      let byte_size = Into::<u64>::into(byte_size) as usize;
-      byte_slice.get(offset..offset + byte_size)
+      let end = self.range.offset + byte_size.get();
+      byte_slice.get(offset..end as usize)
     } else {
       byte_slice.get(offset..)
     }
