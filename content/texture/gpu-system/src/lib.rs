@@ -1,6 +1,7 @@
 // This crate is to provide an abstraction over different global gpu texture management
 // strategy and implementation.
 
+use dyn_clone::DynClone;
 use rendiation_shader_api::*;
 use rendiation_texture_gpu_base::*;
 use rendiation_webgpu::*;
@@ -22,6 +23,7 @@ use rendiation_webgpu_reactive_utils::BindingArrayMaintainer;
 pub trait AbstractIndirectGPUTextureSystem {
   fn bind_system_self(&self, collector: &mut BindingBuilder);
   fn register_system_self(&self, builder: &mut ShaderRenderPipelineBuilder);
+  fn register_system_self_for_compute(&self, builder: &mut ShaderBindGroupBuilder);
   /// caller must ensure the texture and sample handle are valid
   fn sample_texture2d_indirect(
     &self,
@@ -32,7 +34,7 @@ pub trait AbstractIndirectGPUTextureSystem {
   ) -> Node<Vec4<f32>>;
 }
 
-pub trait AbstractGPUTextureSystem {
+pub trait AbstractGPUTextureSystem: Clone {
   type RegisteredShaderTexture: Copy + 'static;
   type RegisteredShaderSampler: Copy + 'static;
 
@@ -41,6 +43,7 @@ pub trait AbstractGPUTextureSystem {
   fn bind_sampler(&self, collector: &mut BindingBuilder, handle: SamplerHandle);
 
   fn register_system_self(&self, builder: &mut ShaderRenderPipelineBuilder);
+  fn register_system_self_for_compute(&self, builder: &mut ShaderBindGroupBuilder);
   fn register_shader_texture2d(
     &self,
     builder: &mut ShaderBindGroupBuilder,
@@ -79,7 +82,7 @@ pub trait AbstractGPUTextureSystem {
   fn as_indirect_system(&self) -> Option<&dyn AbstractIndirectGPUTextureSystem>;
 }
 
-impl<T: AbstractIndirectGPUTextureSystem> AbstractGPUTextureSystem for T {
+impl<T: AbstractIndirectGPUTextureSystem + Clone> AbstractGPUTextureSystem for T {
   type RegisteredShaderTexture = Node<Texture2DHandle>;
   type RegisteredShaderSampler = Node<SamplerHandle>;
 
@@ -92,6 +95,9 @@ impl<T: AbstractIndirectGPUTextureSystem> AbstractGPUTextureSystem for T {
 
   fn register_system_self(&self, builder: &mut ShaderRenderPipelineBuilder) {
     self.register_system_self(builder)
+  }
+  fn register_system_self_for_compute(&self, builder: &mut ShaderBindGroupBuilder) {
+    self.register_system_self_for_compute(builder)
   }
 
   fn register_shader_texture2d(
@@ -128,12 +134,13 @@ impl<T: AbstractIndirectGPUTextureSystem> AbstractGPUTextureSystem for T {
 }
 
 /// the object safe version of [[AbstractGPUTextureSystem]]
-pub trait DynAbstractGPUTextureSystem: Any {
+pub trait DynAbstractGPUTextureSystem: Any + DynClone {
   fn bind_system_self(&self, collector: &mut BindingBuilder);
   fn bind_texture2d(&self, collector: &mut BindingBuilder, handle: Texture2DHandle);
   fn bind_sampler(&self, collector: &mut BindingBuilder, handle: SamplerHandle);
 
   fn register_system_self(&self, builder: &mut ShaderRenderPipelineBuilder);
+  fn register_system_self_for_compute(&self, builder: &mut ShaderBindGroupBuilder);
   fn register_shader_texture2d(
     &self,
     builder: &mut ShaderBindGroupBuilder,
@@ -169,6 +176,7 @@ pub trait DynAbstractGPUTextureSystem: Any {
   }
   fn as_indirect_system(&self) -> Option<&dyn AbstractIndirectGPUTextureSystem>;
 }
+dyn_clone::clone_trait_object!(DynAbstractGPUTextureSystem);
 
 impl<T: AbstractGPUTextureSystem + Any> DynAbstractGPUTextureSystem for T {
   fn bind_system_self(&self, collector: &mut BindingBuilder) {
@@ -182,6 +190,9 @@ impl<T: AbstractGPUTextureSystem + Any> DynAbstractGPUTextureSystem for T {
   }
   fn register_system_self(&self, builder: &mut ShaderRenderPipelineBuilder) {
     self.register_system_self(builder)
+  }
+  fn register_system_self_for_compute(&self, builder: &mut ShaderBindGroupBuilder) {
+    self.register_system_self_for_compute(builder)
   }
 
   fn register_shader_texture2d(

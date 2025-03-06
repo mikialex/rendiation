@@ -67,14 +67,19 @@ pub trait SceneMaterialSurfaceSupport {
 }
 
 pub trait SceneMaterialSurfaceSupportInvocation {
-  fn inject_material_info(&self, reg: &mut SemanticRegistry, uv: Node<Vec2<f32>>);
+  fn inject_material_info(
+    &self,
+    reg: &mut SemanticRegistry,
+    uv: Node<Vec2<f32>>,
+    textures: &GPUTextureBindingSystem,
+  );
 }
 
 #[derive(Clone)]
-struct SceneSurfaceSupport {
-  textures: Arc<GPUTextureBindingSystem>,
-  sm_to_material_type: StorageBufferDataView<[u32]>,
-  material_accessor: Arc<Vec<Box<dyn SceneMaterialSurfaceSupport>>>,
+pub struct SceneSurfaceSupport {
+  pub textures: GPUTextureBindingSystem,
+  pub sm_to_material_type: StorageBufferDataView<[u32]>,
+  pub material_accessor: Arc<Vec<Box<dyn SceneMaterialSurfaceSupport>>>,
 }
 
 impl ShaderHashProvider for SceneSurfaceSupport {
@@ -87,7 +92,7 @@ impl ShaderHashProvider for SceneSurfaceSupport {
 
 impl DevicePathTracingSurface for SceneSurfaceSupport {
   fn build(&self, cx: &mut ShaderBindGroupBuilder) -> Box<dyn DevicePathTracingSurfaceInvocation> {
-    self.textures.register_system_self(todo!());
+    self.textures.register_system_self_for_compute(cx);
     Box::new(SceneSurfaceSupportInvocation {
       textures: self.textures.clone(),
       sm_to_material_type: cx.bind_by(&self.sm_to_material_type),
@@ -106,7 +111,7 @@ impl DevicePathTracingSurface for SceneSurfaceSupport {
 
 #[derive(Clone)]
 struct SceneSurfaceSupportInvocation {
-  textures: Arc<GPUTextureBindingSystem>,
+  textures: GPUTextureBindingSystem,
   sm_to_material_type: ShaderPtrOf<[u32]>,
   material_accessor: Arc<Vec<Box<dyn SceneMaterialSurfaceSupportInvocation>>>,
 }
@@ -128,7 +133,7 @@ impl DevicePathTracingSurfaceInvocation for SceneSurfaceSupportInvocation {
     for (i, m) in self.material_accessor.iter().enumerate() {
       switch = switch.case(i as u32, || {
         let mut registry = SemanticRegistry::default();
-        m.inject_material_info(&mut registry, uv);
+        m.inject_material_info(&mut registry, uv, &self.textures);
         let s = PhysicalShading::construct_shading_impl(todo!());
         surface.store(s.construct());
       });
@@ -141,6 +146,7 @@ impl DevicePathTracingSurfaceInvocation for SceneSurfaceSupportInvocation {
     });
 
     // todo, surface sample and compute brdf
+    let surface = surface.load();
 
     RTSurfaceInteraction {
       sampling_dir: normal.reflect(incident_dir),

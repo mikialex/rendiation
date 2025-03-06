@@ -3969,6 +3969,7 @@ dependencies = [
 name = "rendiation-texture-gpu-system"
 version = "0.1.0"
 dependencies = [
+ "dyn-clone",
  "reactive",
  "rendiation-shader-api",
  "rendiation-texture-core",

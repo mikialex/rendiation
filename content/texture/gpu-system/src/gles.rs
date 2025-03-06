@@ -23,6 +23,7 @@ impl ReactiveGeneralQuery for TraditionalPerDrawBindingSystemSource {
   }
 }
 
+#[derive(Clone)]
 pub struct TraditionalPerDrawBindingSystem {
   pub default_tex: GPU2DTextureView,
   pub default_sampler: GPUSamplerView,
@@ -81,6 +82,7 @@ impl AbstractGPUTextureSystem for TraditionalPerDrawBindingSystem {
   }
 
   fn register_system_self(&self, _: &mut ShaderRenderPipelineBuilder) {}
+  fn register_system_self_for_compute(&self, _: &mut ShaderBindGroupBuilder) {}
 
   fn sample_texture2d(
     &self,

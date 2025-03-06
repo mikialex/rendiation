@@ -12,6 +12,7 @@ rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
 rendiation-texture-packer = { path = "../packer" }
 rendiation-texture-core = { path = "../core" }
 rendiation-texture-gpu-base = { path = "../gpu-base" }
+dyn-clone = { workspace = true }
 
 [lints]
 workspace = true

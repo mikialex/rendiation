@@ -224,6 +224,7 @@ fn copy_tex(
   encoder.copy_texture_to_texture(source, dst, src.resource.desc.size);
 }
 
+#[derive(Clone)]
 pub struct TexturePool {
   texture: GPU2DArrayTextureView,
   address: StorageBufferReadonlyDataView<[TexturePoolAddressInfo]>,
@@ -257,6 +258,11 @@ impl AbstractIndirectGPUTextureSystem for TexturePool {
       .using_graphics_pair(|r, samplers| {
         r.any_map.register(SamplerPoolInShader(samplers));
       });
+  }
+  fn register_system_self_for_compute(&self, builder: &mut ShaderBindGroupBuilder) {
+    builder.bind_by(&self.texture);
+    builder.bind_by(&self.address);
+    builder.bind_by(&self.samplers);
   }
 
   /// todo, mipmap

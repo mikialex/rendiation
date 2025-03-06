@@ -69,6 +69,7 @@ impl ReactiveGeneralQuery for BindlessTextureSystemSource {
   }
 }
 
+#[derive(Clone)]
 pub struct BindlessTextureSystem {
   texture_binding_array: BindingResourceArray<GPU2DTextureView>,
   sampler_binding_array: BindingResourceArray<GPUSamplerView>,
@@ -91,6 +92,10 @@ impl AbstractIndirectGPUTextureSystem for BindlessTextureSystem {
       .using_graphics_pair(|r, samplers| {
         r.register_typed_both_stage::<BindlessSamplersInShader>(samplers);
       });
+  }
+  fn register_system_self_for_compute(&self, builder: &mut ShaderBindGroupBuilder) {
+    builder.bind_by(&self.texture_binding_array);
+    builder.bind_by(&self.sampler_binding_array);
   }
 
   fn sample_texture2d_indirect(
