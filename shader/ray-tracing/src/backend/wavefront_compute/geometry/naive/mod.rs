@@ -14,10 +14,11 @@ use parking_lot::*;
 use rendiation_geometry::Box3;
 use rendiation_space_algorithm::bvh::*;
 use rendiation_space_algorithm::utils::TreeBuildOption;
+use storage::IndexReusedVec;
 use traverse_cpu::*;
 use traverse_gpu::*;
 
-use crate::backend::wavefront_compute::geometry::{intersect_ray_triangle_gpu, Pool, Ray};
+use crate::backend::wavefront_compute::geometry::{intersect_ray_triangle_gpu, Ray};
 use crate::*;
 
 #[repr(C)]
@@ -72,8 +73,8 @@ struct GeometryMetaInfo {
 
 #[derive(Default)]
 struct NaiveSahBvhSource {
-  blas_data: Pool<Vec<BottomLevelAccelerationStructureBuildSource>>,
-  tlas_data: Pool<Vec<TopLevelAccelerationStructureSourceInstance>>,
+  blas_data: IndexReusedVec<Vec<BottomLevelAccelerationStructureBuildSource>>,
+  tlas_data: IndexReusedVec<Vec<TopLevelAccelerationStructureSourceInstance>>,
 }
 
 struct BuiltBlas {
@@ -96,21 +97,21 @@ struct BuiltBlas {
 
 impl NaiveSahBvhSource {
   pub fn create_blas(&mut self, source: &[BottomLevelAccelerationStructureBuildSource]) -> u32 {
-    self.blas_data.alloc(source.to_vec())
+    self.blas_data.insert(source.to_vec())
   }
   pub fn create_tlas(&mut self, source: &[TopLevelAccelerationStructureSourceInstance]) -> u32 {
-    self.tlas_data.alloc(source.to_vec())
+    self.tlas_data.insert(source.to_vec())
   }
   pub fn delete_blas(&mut self, handle: BlasHandle) {
-    self.blas_data.free(handle.0);
+    self.blas_data.remove(handle.0);
   }
   pub fn delete_tlas(&mut self, handle: TlasHandle) {
-    self.tlas_data.free(handle.0);
+    self.tlas_data.remove(handle.0);
   }
 
   // todo incremental change
   fn build_blas(
-    blas_data: &[Option<Vec<BottomLevelAccelerationStructureBuildSource>>],
+    blas_data: &IndexReusedVec<Vec<BottomLevelAccelerationStructureBuildSource>>,
   ) -> BuiltBlas {
     let mut geometry_indices_redirect = vec![];
     let mut geometry_indices = vec![];
@@ -123,7 +124,7 @@ impl NaiveSahBvhSource {
     let mut tri_bvh = vec![];
     // let mut box_bvh = vec![];
 
-    for blas in blas_data {
+    for blas in blas_data.iter_option() {
       if blas.is_none() {
         blas_meta_info.push(BlasMetaInfo::zeroed());
         continue;
@@ -428,7 +429,7 @@ impl NaiveSahBvhSource {
     let mut tlas_data = vec![];
     let mut tlas_bounding = vec![];
 
-    for tlas in &*self.tlas_data {
+    for tlas in self.tlas_data.iter_option() {
       if let Some(tlas) = tlas {
         let bvh_start = tlas_bvh_forest.len() as u32;
         let primitive_start = tlas_data.len() as u32;
@@ -474,8 +475,8 @@ impl NaiveSahBvhSource {
     *cpu_data = Some(cpu);
 
     buffer_allocator.rebuild();
-    self.tlas_data.shrink();
-    self.blas_data.shrink();
+    self.tlas_data.shrink_to_fit();
+    self.blas_data.shrink_to_fit();
 
     *gpu_data = Some(NaiveSahBvhGpu {
       tlas_binding: gpu_tlas_binding,
@@ -577,7 +578,6 @@ impl GPUAccelerationStructureSystemProvider for NaiveSahBVHSystem {
     self.internal.write().set_binding(tlas);
   }
 
-  // todo return instance ids? then TLAS device should store InstanceId
   fn create_top_level_acceleration_structure(
     &self,
     source: &[TopLevelAccelerationStructureSourceInstance],

@@ -1,4 +1,5 @@
-use crate::backend::wavefront_compute::geometry::Pool;
+use storage::IndexReusedVec;
+
 use crate::*;
 
 #[derive(Clone)]
@@ -121,31 +122,28 @@ impl DeviceTlas {
   fn create(
     device: &GPUDevice,
     sources: &[TopLevelAccelerationStructureSourceInstance],
-    blas_list: &[Option<DeviceBlas>],
+    blas_list: &IndexReusedVec<DeviceBlas>,
   ) -> (Self, TlasBuilder) {
     let source = GPUTlasSource {
       instances: sources
         .iter()
         .map(|source| {
-          let blas = &blas_list[source.acceleration_structure_handle.0 as usize];
-          assert!(blas.is_some());
-          blas.as_ref().map(|blas| {
-            let blas = &blas.blas;
-            let right = source.transform.right();
-            let up = source.transform.up();
-            let forward = source.transform.forward();
-            let position = source.transform.position();
-            let transform = [
-              right.x, up.x, forward.x, position.x, right.y, up.y, forward.y, position.y, right.z,
-              up.z, forward.z, position.z,
-            ];
-            TlasInstance::new(
-              blas,
-              transform,
-              source.instance_custom_index,
-              source.mask as u8,
-            )
-          })
+          let blas = blas_list.get(source.acceleration_structure_handle.0);
+          let blas = &blas.blas;
+          let right = source.transform.right();
+          let up = source.transform.up();
+          let forward = source.transform.forward();
+          let position = source.transform.position();
+          let transform = [
+            right.x, up.x, forward.x, position.x, right.y, up.y, forward.y, position.y, right.z,
+            up.z, forward.z, position.z,
+          ];
+          Some(TlasInstance::new(
+            blas,
+            transform,
+            source.instance_custom_index,
+            source.mask as u8,
+          ))
         })
         .collect(),
       flags: AccelerationStructureFlags::PREFER_FAST_TRACE,
@@ -180,8 +178,8 @@ impl HardwareInlineRayQuerySystem {
       internal: Arc::new(RwLock::new(HardwareInlineRayQuerySystemInternal {
         device: gpu.device.clone(),
         tlas_binding: vec![],
-        blas: Pool::default(),
-        tlas: Pool::default(),
+        blas: IndexReusedVec::default(),
+        tlas: IndexReusedVec::default(),
         blas_builders: vec![],
         tlas_builders: vec![],
       })),
@@ -196,7 +194,7 @@ impl HardwareInlineRayQuerySystem {
       .tlas_binding
       .iter()
       .map(|i| {
-        let tlas = this.tlas[i.0 as usize].as_ref().unwrap();
+        let tlas = this.tlas.get(i.0);
         tlas.clone()
       })
       .collect();
@@ -209,8 +207,8 @@ pub struct HardwareInlineRayQuerySystemInternal {
   device: GPUDevice,
   tlas_binding: Vec<TlasHandle>,
 
-  blas: Pool<DeviceBlas>,
-  tlas: Pool<DeviceTlas>,
+  blas: IndexReusedVec<DeviceBlas>,
+  tlas: IndexReusedVec<DeviceTlas>,
   blas_builders: Vec<BlasBuilder>,
   tlas_builders: Vec<TlasBuilder>,
 }
@@ -236,8 +234,8 @@ impl HardwareInlineRayQuerySystemInternal {
 
     self.blas_builders.clear();
     self.tlas_builders.clear();
-    self.tlas.shrink();
-    self.blas.shrink();
+    self.blas.shrink_to_fit();
+    self.tlas.shrink_to_fit();
   }
 
   fn bind_tlas_max_len() -> u32 {
@@ -252,21 +250,21 @@ impl HardwareInlineRayQuerySystemInternal {
   fn create_tlas(&mut self, source: &[TopLevelAccelerationStructureSourceInstance]) -> TlasHandle {
     let (tlas, builder) = DeviceTlas::create(&self.device, source, &self.blas);
     self.tlas_builders.push(builder);
-    TlasHandle(self.tlas.alloc(tlas))
+    TlasHandle(self.tlas.insert(tlas))
   }
 
   fn delete_tlas(&mut self, id: TlasHandle) {
-    self.tlas.free(id.0);
+    self.tlas.remove(id.0);
   }
 
   fn create_blas(&mut self, source: &[BottomLevelAccelerationStructureBuildSource]) -> BlasHandle {
     let (blas, builder) = DeviceBlas::create(&self.device, source);
     self.blas_builders.push(builder);
-    BlasHandle(self.blas.alloc(blas))
+    BlasHandle(self.blas.insert(blas))
   }
 
   fn delete_blas(&mut self, id: BlasHandle) {
-    self.blas.free(id.0);
+    self.blas.remove(id.0);
   }
 }
 

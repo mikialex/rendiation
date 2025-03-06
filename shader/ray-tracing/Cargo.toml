@@ -18,6 +18,7 @@ rendiation-space-algorithm = { path = "../../content/space" }
 rendiation-webgpu-virtual-buffer = { path = "../../platform/graphics/webgpu-virtual-buffer" }
 rendiation-texture-core = { path = "../../content/texture/core" }
 fast-hash-collection = { path = "../../utility/fast-hash-collection" }
+storage = { path = "../../utility/storage" }
 parking_lot = { workspace = true }
 dyn-clone = { workspace = true }
 derivative = { workspace = true }

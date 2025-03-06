@@ -54,6 +54,10 @@ impl<T> IndexReusedVec<T> {
       .filter_map(|(index, v)| Some((index as u32, v.as_ref()?)))
   }
 
+  pub fn iter_option(&self) -> impl Iterator<Item = Option<&T>> {
+    self.storage.iter().map(|v| v.as_ref())
+  }
+
   pub fn remove(&mut self, idx: u32) -> T {
     self.empty_list.push(idx);
     let idx = idx as usize;

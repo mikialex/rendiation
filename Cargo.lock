@@ -3408,6 +3408,7 @@ dependencies = [
  "rendiation-texture-core",
  "rendiation-webgpu",
  "rendiation-webgpu-virtual-buffer",
+ "storage",
 ]
 
 [[package]]
