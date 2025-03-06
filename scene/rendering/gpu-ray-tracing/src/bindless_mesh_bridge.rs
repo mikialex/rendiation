@@ -23,15 +23,14 @@ impl BindlessMeshRtxAccessInvocation {
       .into()
   }
 
-  pub fn get_world_normal(&self, closest_hit_ctx: &dyn ClosestHitCtxProvider) -> Node<Vec3<f32>> {
+  fn get_data_accessor(
+    &self,
+    closest_hit_ctx: &dyn ClosestHitCtxProvider,
+  ) -> (Node<Vec3<u32>>, Node<Vec3<f32>>, Node<u32>) {
     let scene_model_id = closest_hit_ctx.instance_custom_id();
     let mesh_id = self.sm_to_mesh.index(scene_model_id).load();
     let tri_id = closest_hit_ctx.primitive_id();
     let tri_idx_s = self.get_triangle_idx(tri_id, mesh_id);
-
-    let tri_a_normal = self.base.get_normal(mesh_id, tri_idx_s.x());
-    let tri_b_normal = self.base.get_normal(mesh_id, tri_idx_s.y());
-    let tri_c_normal = self.base.get_normal(mesh_id, tri_idx_s.z());
 
     let attribs: Node<Vec2<f32>> = closest_hit_ctx.hit_attribute().expand().bary_coord;
     let barycentric: Node<Vec3<f32>> = (
@@ -41,12 +40,53 @@ impl BindlessMeshRtxAccessInvocation {
     )
       .into();
 
+    (tri_idx_s, barycentric, mesh_id)
+  }
+
+  pub fn get_uv(&self, closest_hit_ctx: &dyn ClosestHitCtxProvider) -> Node<Vec2<f32>> {
+    self.get_uv_impl(self.get_data_accessor(closest_hit_ctx))
+  }
+
+  pub fn get_uv_impl(
+    &self,
+    (tri_idx_s, barycentric, mesh_id): (Node<Vec3<u32>>, Node<Vec3<f32>>, Node<u32>),
+  ) -> Node<Vec2<f32>> {
+    let tri_a_uv = self.base.get_uv(mesh_id, tri_idx_s.x());
+    let tri_b_uv = self.base.get_uv(mesh_id, tri_idx_s.y());
+    let tri_c_uv = self.base.get_uv(mesh_id, tri_idx_s.z());
+
+    tri_a_uv * barycentric.x() + tri_b_uv * barycentric.y() + tri_c_uv * barycentric.z()
+  }
+
+  pub fn get_world_normal(&self, closest_hit_ctx: &dyn ClosestHitCtxProvider) -> Node<Vec3<f32>> {
+    self.get_world_normal_impl(closest_hit_ctx, self.get_data_accessor(closest_hit_ctx))
+  }
+
+  pub fn get_world_normal_impl(
+    &self,
+    closest_hit_ctx: &dyn ClosestHitCtxProvider,
+    (tri_idx_s, barycentric, mesh_id): (Node<Vec3<u32>>, Node<Vec3<f32>>, Node<u32>),
+  ) -> Node<Vec3<f32>> {
+    let tri_a_normal = self.base.get_normal(mesh_id, tri_idx_s.x());
+    let tri_b_normal = self.base.get_normal(mesh_id, tri_idx_s.y());
+    let tri_c_normal = self.base.get_normal(mesh_id, tri_idx_s.z());
+
     // Computing the normal at hit position
     let normal = tri_a_normal * barycentric.x()
       + tri_b_normal * barycentric.y()
       + tri_c_normal * barycentric.z();
     // Transforming the normal to world space
     (closest_hit_ctx.world_to_object().shrink_to_3().transpose() * normal).normalize()
+  }
+
+  pub fn get_world_normal_and_uv(
+    &self,
+    closest_hit_ctx: &dyn ClosestHitCtxProvider,
+  ) -> (Node<Vec3<f32>>, Node<Vec2<f32>>) {
+    let acc = self.get_data_accessor(closest_hit_ctx);
+    let uv = self.get_uv_impl(acc);
+    let normal = self.get_world_normal_impl(closest_hit_ctx, acc);
+    (normal, uv)
   }
 }
 

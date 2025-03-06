@@ -1,7 +1,7 @@
 use crate::*;
 
-mod bridge;
-pub use bridge::*;
+mod surface_bridge;
+pub use surface_bridge::*;
 
 mod ray_gen;
 use ray_gen::*;
@@ -123,8 +123,8 @@ impl DeviceReferencePathTracingRenderer {
 
     let mut state = self.frame_state.write();
     let state = state.deref_mut();
-    if let Some(ao) = &state {
-      if ao.radiance_buffer.size() != render_size {
+    if let Some(s) = &state {
+      if s.radiance_buffer.size() != render_size {
         *state = None;
       }
     }
@@ -152,23 +152,31 @@ impl DeviceReferencePathTracingRenderer {
       .create_closest_hit_shader_base::<CorePathPayload>()
       .inject_ctx(PTRayClosestCtx {
         bindless_mesh: base.mesh.make_bindless_dispatcher(),
+        surface: Box::new(TestingMirrorSurface),
       })
       .map(|_, ctx| {
-        let ao_cx = ctx.expect_custom_cx::<PTClosestCtxInvocation>();
+        let pt_cx = ctx.expect_custom_cx::<PTClosestCtxInvocation>();
         let closest_hit_ctx = ctx.expect_closest_hit_ctx();
 
-        let normal = ao_cx.bindless_mesh.get_world_normal(closest_hit_ctx);
-        let out_ray_origin = closest_hit_ctx.hit_world_position();
+        let (normal, uv) = pt_cx.bindless_mesh.get_world_normal_and_uv(closest_hit_ctx);
+        let sm_id = closest_hit_ctx.instance_custom_id();
+        let in_dir = closest_hit_ctx.world_ray().direction;
+        let RTSurfaceInteraction {
+          sampling_dir,
+          brdf,
+          pdf,
+        } = pt_cx
+          .surface
+          .importance_sampling_brdf(sm_id, in_dir, normal, uv);
 
-        // todo, impl material brdf model
-        let out_ray_dir = normal.reflect(closest_hit_ctx.world_ray().direction);
+        let out_ray_origin = closest_hit_ctx.hit_world_position();
 
         let payload = ctx.expect_payload::<CorePathPayload>();
         payload.next_ray_origin().store(out_ray_origin);
-        payload.next_ray_dir().store(out_ray_dir);
+        payload.next_ray_dir().store(sampling_dir);
         payload.normal().store(normal);
-        payload.brdf().store(Vec3::splat(0.5));
-        payload.pdf().store(1.);
+        payload.brdf().store(brdf);
+        payload.pdf().store(pdf);
         payload.missed().store(val(false).into_big_bool());
         //
       });
@@ -247,6 +255,7 @@ impl PTConfig {
 #[derive(Clone)]
 struct PTRayClosestCtx {
   bindless_mesh: BindlessMeshDispatcher,
+  surface: Box<dyn DevicePathTracingSurface>,
 }
 
 impl ShaderHashProvider for PTRayClosestCtx {
@@ -259,6 +268,7 @@ impl RayTracingCustomCtxProvider for PTRayClosestCtx {
   fn build_invocation(&self, cx: &mut ShaderBindGroupBuilder) -> Self::Invocation {
     PTClosestCtxInvocation {
       bindless_mesh: self.bindless_mesh.build_bindless_mesh_rtx_access(cx),
+      surface: self.surface.build(cx),
     }
   }
 
@@ -270,6 +280,7 @@ impl RayTracingCustomCtxProvider for PTRayClosestCtx {
 #[derive(Clone)]
 struct PTClosestCtxInvocation {
   bindless_mesh: BindlessMeshRtxAccessInvocation,
+  surface: Box<dyn DevicePathTracingSurfaceInvocation>,
 }
 
 #[repr(u32)]

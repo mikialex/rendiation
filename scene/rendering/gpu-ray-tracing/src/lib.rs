@@ -1,6 +1,5 @@
 #![feature(impl_trait_in_assoc_type)]
 
-use std::any::Any;
 use std::{ops::DerefMut, sync::Arc};
 
 use database::*;
