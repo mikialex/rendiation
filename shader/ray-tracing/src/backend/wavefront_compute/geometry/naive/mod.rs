@@ -17,7 +17,7 @@ use rendiation_space_algorithm::utils::TreeBuildOption;
 use traverse_cpu::*;
 use traverse_gpu::*;
 
-use crate::backend::wavefront_compute::geometry::{intersect_ray_triangle_gpu, Ray};
+use crate::backend::wavefront_compute::geometry::{intersect_ray_triangle_gpu, Pool, Ray};
 use crate::*;
 
 #[repr(C)]
@@ -72,8 +72,8 @@ struct GeometryMetaInfo {
 
 #[derive(Default)]
 struct NaiveSahBvhSource {
-  blas_data: Vec<Option<Vec<BottomLevelAccelerationStructureBuildSource>>>,
-  tlas_data: Vec<Option<Vec<TopLevelAccelerationStructureSourceInstance>>>,
+  blas_data: Pool<Vec<BottomLevelAccelerationStructureBuildSource>>,
+  tlas_data: Pool<Vec<TopLevelAccelerationStructureSourceInstance>>,
 }
 
 struct BuiltBlas {
@@ -96,26 +96,16 @@ struct BuiltBlas {
 
 impl NaiveSahBvhSource {
   pub fn create_blas(&mut self, source: &[BottomLevelAccelerationStructureBuildSource]) -> u32 {
-    // todo freelist
-    let index = self.blas_data.len();
-    self.blas_data.push(Some(source.to_vec()));
-    index as u32
+    self.blas_data.alloc(source.to_vec())
   }
   pub fn create_tlas(&mut self, source: &[TopLevelAccelerationStructureSourceInstance]) -> u32 {
-    // todo freelist
-    let start_index = self.tlas_data.len();
-    self.tlas_data.push(Some(source.to_vec()));
-    start_index as u32
+    self.tlas_data.alloc(source.to_vec())
   }
   pub fn delete_blas(&mut self, handle: BlasHandle) {
-    // todo freelist
-    let idx = handle.0;
-    self.blas_data[idx as usize] = None;
+    self.blas_data.free(handle.0);
   }
   pub fn delete_tlas(&mut self, handle: TlasHandle) {
-    // todo freelist
-    let idx = handle.0;
-    self.tlas_data[idx as usize] = None;
+    self.tlas_data.free(handle.0);
   }
 
   // todo incremental change
@@ -438,7 +428,7 @@ impl NaiveSahBvhSource {
     let mut tlas_data = vec![];
     let mut tlas_bounding = vec![];
 
-    for tlas in &self.tlas_data {
+    for tlas in &*self.tlas_data {
       if let Some(tlas) = tlas {
         let bvh_start = tlas_bvh_forest.len() as u32;
         let primitive_start = tlas_data.len() as u32;
@@ -484,6 +474,8 @@ impl NaiveSahBvhSource {
     *cpu_data = Some(cpu);
 
     buffer_allocator.rebuild();
+    self.tlas_data.shrink();
+    self.blas_data.shrink();
 
     *gpu_data = Some(NaiveSahBvhGpu {
       tlas_binding: gpu_tlas_binding,

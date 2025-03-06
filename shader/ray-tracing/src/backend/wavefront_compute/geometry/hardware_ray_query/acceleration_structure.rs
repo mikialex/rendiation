@@ -1,3 +1,4 @@
+use crate::backend::wavefront_compute::geometry::Pool;
 use crate::*;
 
 #[derive(Clone)]
@@ -179,8 +180,8 @@ impl HardwareInlineRayQuerySystem {
       internal: Arc::new(RwLock::new(HardwareInlineRayQuerySystemInternal {
         device: gpu.device.clone(),
         tlas_binding: vec![],
-        blas: vec![],
-        tlas: vec![],
+        blas: Pool::default(),
+        tlas: Pool::default(),
         blas_builders: vec![],
         tlas_builders: vec![],
       })),
@@ -208,10 +209,8 @@ pub struct HardwareInlineRayQuerySystemInternal {
   device: GPUDevice,
   tlas_binding: Vec<TlasHandle>,
 
-  blas: Vec<Option<DeviceBlas>>,
-  // blas_freelist: Vec<BlasHandle>,
-  tlas: Vec<Option<DeviceTlas>>,
-  // tlas_freelist: Vec<TlasHandle>,
+  blas: Pool<DeviceBlas>,
+  tlas: Pool<DeviceTlas>,
   blas_builders: Vec<BlasBuilder>,
   tlas_builders: Vec<TlasBuilder>,
 }
@@ -237,6 +236,8 @@ impl HardwareInlineRayQuerySystemInternal {
 
     self.blas_builders.clear();
     self.tlas_builders.clear();
+    self.tlas.shrink();
+    self.blas.shrink();
   }
 
   fn bind_tlas_max_len() -> u32 {
@@ -250,26 +251,22 @@ impl HardwareInlineRayQuerySystemInternal {
 
   fn create_tlas(&mut self, source: &[TopLevelAccelerationStructureSourceInstance]) -> TlasHandle {
     let (tlas, builder) = DeviceTlas::create(&self.device, source, &self.blas);
-    let handle = TlasHandle(self.tlas.len() as u32);
-    self.tlas.push(Some(tlas));
     self.tlas_builders.push(builder);
-    handle
+    TlasHandle(self.tlas.alloc(tlas))
   }
 
   fn delete_tlas(&mut self, id: TlasHandle) {
-    self.tlas[id.0 as usize] = None;
+    self.tlas.free(id.0);
   }
 
   fn create_blas(&mut self, source: &[BottomLevelAccelerationStructureBuildSource]) -> BlasHandle {
     let (blas, builder) = DeviceBlas::create(&self.device, source);
-    let handle = BlasHandle(self.blas.len() as u32);
-    self.blas.push(Some(blas));
     self.blas_builders.push(builder);
-    handle
+    BlasHandle(self.blas.alloc(blas))
   }
 
   fn delete_blas(&mut self, id: BlasHandle) {
-    self.blas[id.0 as usize] = None;
+    self.blas.free(id.0);
   }
 }
 
