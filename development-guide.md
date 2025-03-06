@@ -6,6 +6,7 @@ The following things is the current project development direction.
 
 ### Basic correctness
 
+- mipmap and multi format support in texture pool system
 - bindless mesh does not support optional uv and normal attributes
 - optimize frame ctx "make_submit" call, use copy buffer to buffer to update.
 - env background not support tonemapping
