@@ -1,3 +1,5 @@
+use rendiation_lighting_transport::*;
+
 use crate::*;
 
 impl RenderImplProvider<Box<dyn SceneMaterialSurfaceSupport>>
@@ -46,9 +48,53 @@ impl SceneMaterialSurfaceSupportInvocation for PbrMRMaterialRtxInvocation {
   fn inject_material_info(
     &self,
     reg: &mut SemanticRegistry,
+    id: Node<u32>,
     uv: Node<Vec2<f32>>,
     textures: &GPUTextureBindingSystem,
   ) {
-    todo!()
+    let storage = self.storage.index(id).load().expand();
+    let tex_storage = self.texture_storages.index(id).load().expand();
+
+    let mut alpha = storage.alpha;
+    let mut base_color = storage.base_color;
+
+    let base_color_alpha_tex = bind_and_sample(
+      textures,
+      reg,
+      tex_storage.base_color_alpha_texture,
+      uv,
+      val(Vec4::one()),
+    );
+    alpha *= base_color_alpha_tex.w();
+    base_color *= base_color_alpha_tex.xyz();
+
+    let mut metallic = storage.metallic;
+    let mut roughness = storage.roughness;
+
+    let metallic_roughness_tex = bind_and_sample(
+      textures,
+      reg,
+      tex_storage.metallic_roughness_texture,
+      uv,
+      val(Vec4::one()),
+    );
+
+    metallic *= metallic_roughness_tex.x();
+    roughness *= metallic_roughness_tex.y();
+
+    let mut emissive = storage.emissive;
+    emissive *= bind_and_sample(
+      textures,
+      reg,
+      tex_storage.emissive_texture,
+      uv,
+      val(Vec4::one()),
+    )
+    .xyz();
+
+    reg.register_fragment_stage::<ColorChannel>(base_color);
+    reg.register_fragment_stage::<EmissiveChannel>(emissive);
+    reg.register_fragment_stage::<MetallicChannel>(metallic);
+    reg.register_fragment_stage::<RoughnessChannel>(roughness * roughness);
   }
 }

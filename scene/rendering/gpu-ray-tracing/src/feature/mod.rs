@@ -69,6 +69,7 @@ impl RenderImplProvider<SceneRayTracingRendererBase> for RayTracingSystemBase {
       source.register_reactive_query(scene_to_tlas(cx, self.system.rtx_acc.clone()));
     self.camera.register_resource(source, cx);
     self.mesh.register_resource(source, cx);
+    self.material.register_resource(source, cx);
     self.texture_system.register_resource(source, cx);
   }
 
@@ -76,6 +77,7 @@ impl RenderImplProvider<SceneRayTracingRendererBase> for RayTracingSystemBase {
     source.deregister(&mut self.scene_tlas);
     self.camera.deregister_resource(source);
     self.mesh.deregister_resource(source);
+    self.material.deregister_resource(source);
     self.texture_system.deregister_resource(source);
   }
 

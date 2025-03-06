@@ -82,7 +82,7 @@ impl ShaderVertexBuilder {
           interpolation: Some(interpolation),
         }
         .insert_api();
-        fragment.registry.register(id, node);
+        fragment.registry.register_raw(id, node);
         set_current_building(None);
 
         fragment
@@ -134,9 +134,7 @@ impl ShaderVertexBuilder {
   }
 
   pub fn register<T: SemanticVertexShaderValue>(&mut self, node: impl Into<Node<T::ValueType>>) {
-    self
-      .registry
-      .register(TypeId::of::<T>(), node.into().cast_untyped_node());
+    self.registry.register_vertex_stage::<T>(node);
   }
 
   /// return registered location
@@ -157,7 +155,7 @@ impl ShaderVertexBuilder {
       interpolation: None,
     }
     .insert_api();
-    self.registry.register(ty_id, node);
+    self.registry.register_raw(ty_id, node);
 
     self.vertex_in.entry(ty_id).or_insert_with(|| VertexIOInfo {
       node: node.handle(),

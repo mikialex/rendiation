@@ -19,7 +19,7 @@ pub struct TextureSamplerHandlePair {
   pub sampler_handle: u32,
 }
 
-pub(super) fn bind_and_sample(
+pub fn bind_and_sample(
   binding: &GPUTextureBindingSystem,
   reg: &SemanticRegistry,
   handles: Node<TextureSamplerHandlePair>,

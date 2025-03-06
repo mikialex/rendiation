@@ -49,7 +49,21 @@ impl SemanticRegistry {
     &mut self,
     node: impl Into<Node<<T as SemanticVertexShaderValue>::ValueType>>,
   ) {
-    self.register(TypeId::of::<T>(), node.into().cast_untyped_node());
+    self.register_raw(TypeId::of::<T>(), node.into().cast_untyped_node());
+  }
+
+  pub fn register_vertex_stage<T: SemanticVertexShaderValue>(
+    &mut self,
+    node: impl Into<Node<T::ValueType>>,
+  ) {
+    self.register_raw(TypeId::of::<T>(), node.into().cast_untyped_node());
+  }
+
+  pub fn register_fragment_stage<T: SemanticFragmentShaderValue>(
+    &mut self,
+    node: impl Into<Node<T::ValueType>>,
+  ) {
+    self.register_raw(TypeId::of::<T>(), node.into().cast_untyped_node());
   }
 
   pub fn try_query_raw(
@@ -64,7 +78,7 @@ impl SemanticRegistry {
       .ok_or(ShaderBuildError::MissingRequiredDependency(name))
   }
 
-  pub fn register(&mut self, id: TypeId, node: NodeUntyped) {
+  pub fn register_raw(&mut self, id: TypeId, node: NodeUntyped) {
     self.static_semantic.insert(id, node);
   }
 }

@@ -212,9 +212,7 @@ impl ShaderFragmentBuilder {
   }
 
   pub fn register<T: SemanticFragmentShaderValue>(&mut self, node: impl Into<Node<T::ValueType>>) {
-    self
-      .registry
-      .register(TypeId::of::<T>(), node.into().cast_untyped_node());
+    self.registry.register_fragment_stage::<T>(node);
   }
 
   pub fn get_fragment_in<T>(

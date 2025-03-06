@@ -60,7 +60,8 @@ impl DevicePathTracingSurfaceInvocation for TestingMirrorSurfaceInvocation {
 #[derive(Clone)]
 pub struct SceneSurfaceSupport {
   pub textures: GPUTextureBindingSystem,
-  pub sm_to_material_type: StorageBufferDataView<[u32]>,
+  pub sm_to_material_type: StorageBufferReadonlyDataView<[u32]>,
+  pub sm_to_material_id: StorageBufferReadonlyDataView<[u32]>,
   pub material_accessor: Arc<Vec<Box<dyn SceneMaterialSurfaceSupport>>>,
 }
 
@@ -78,6 +79,7 @@ impl DevicePathTracingSurface for SceneSurfaceSupport {
     Box::new(SceneSurfaceSupportInvocation {
       textures: self.textures.clone(),
       sm_to_material_type: cx.bind_by(&self.sm_to_material_type),
+      sm_to_material_id: cx.bind_by(&self.sm_to_material_id),
       material_accessor: Arc::new(self.material_accessor.iter().map(|m| m.build(cx)).collect()),
     })
   }
@@ -85,6 +87,7 @@ impl DevicePathTracingSurface for SceneSurfaceSupport {
   fn bind(&self, cx: &mut BindingBuilder) {
     self.textures.bind_system_self(cx);
     cx.bind(&self.sm_to_material_type);
+    cx.bind(&self.sm_to_material_id);
     for m in self.material_accessor.iter() {
       m.bind(cx);
     }
@@ -94,7 +97,8 @@ impl DevicePathTracingSurface for SceneSurfaceSupport {
 #[derive(Clone)]
 struct SceneSurfaceSupportInvocation {
   textures: GPUTextureBindingSystem,
-  sm_to_material_type: ShaderPtrOf<[u32]>,
+  sm_to_material_type: ShaderReadonlyPtrOf<[u32]>,
+  sm_to_material_id: ShaderReadonlyPtrOf<[u32]>,
   material_accessor: Arc<Vec<Box<dyn SceneMaterialSurfaceSupportInvocation>>>,
 }
 
@@ -107,6 +111,7 @@ impl DevicePathTracingSurfaceInvocation for SceneSurfaceSupportInvocation {
     uv: Node<Vec2<f32>>,
   ) -> RTSurfaceInteraction {
     let material_ty = self.sm_to_material_type.index(sm_id).load();
+    let material_id = self.sm_to_material_id.index(sm_id).load();
 
     let surface = zeroed_val::<ShaderPhysicalShading>().make_local_var();
 
@@ -115,7 +120,7 @@ impl DevicePathTracingSurfaceInvocation for SceneSurfaceSupportInvocation {
     for (i, m) in self.material_accessor.iter().enumerate() {
       switch = switch.case(i as u32, || {
         let mut registry = SemanticRegistry::default();
-        m.inject_material_info(&mut registry, uv, &self.textures);
+        m.inject_material_info(&mut registry, material_id, uv, &self.textures);
         let s = PhysicalShading::construct_shading_impl(&registry);
         surface.store(s.construct());
       });
