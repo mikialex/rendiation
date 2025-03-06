@@ -1,3 +1,7 @@
+use std::hash::Hash;
+
+use rendiation_lighting_transport::{PhysicalShading, ShaderPhysicalShading};
+
 use crate::*;
 
 pub trait DevicePathTracingSurface: ShaderHashProvider + DynClone {
@@ -53,8 +57,95 @@ impl DevicePathTracingSurfaceInvocation for TestingMirrorSurfaceInvocation {
   }
 }
 
-// struct SceneSurfaceSupport {
-//   textures: GPUTextureBindingSystem,
-//   material_type: ShaderPtrOf<[u32]>,
-//   material_accessor: Vec<u32>,
-// }
+/// for simplicity we not expect shader variant, so skip shader hashing
+pub trait SceneMaterialSurfaceSupport {
+  fn build(
+    &self,
+    cx: &mut ShaderBindGroupBuilder,
+  ) -> Box<dyn SceneMaterialSurfaceSupportInvocation>;
+  fn bind(&self, cx: &mut BindingBuilder);
+}
+
+pub trait SceneMaterialSurfaceSupportInvocation {
+  fn inject_material_info(&self, reg: &mut SemanticRegistry, uv: Node<Vec2<f32>>);
+}
+
+#[derive(Clone)]
+struct SceneSurfaceSupport {
+  textures: Arc<GPUTextureBindingSystem>,
+  sm_to_material_type: StorageBufferDataView<[u32]>,
+  material_accessor: Arc<Vec<Box<dyn SceneMaterialSurfaceSupport>>>,
+}
+
+impl ShaderHashProvider for SceneSurfaceSupport {
+  shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.textures.hash_pipeline(hasher);
+    self.material_accessor.len().hash(hasher);
+  }
+}
+
+impl DevicePathTracingSurface for SceneSurfaceSupport {
+  fn build(&self, cx: &mut ShaderBindGroupBuilder) -> Box<dyn DevicePathTracingSurfaceInvocation> {
+    self.textures.register_system_self(todo!());
+    Box::new(SceneSurfaceSupportInvocation {
+      textures: self.textures.clone(),
+      sm_to_material_type: cx.bind_by(&self.sm_to_material_type),
+      material_accessor: Arc::new(self.material_accessor.iter().map(|m| m.build(cx)).collect()),
+    })
+  }
+
+  fn bind(&self, cx: &mut BindingBuilder) {
+    self.textures.bind_system_self(cx);
+    cx.bind(&self.sm_to_material_type);
+    for m in self.material_accessor.iter() {
+      m.bind(cx);
+    }
+  }
+}
+
+#[derive(Clone)]
+struct SceneSurfaceSupportInvocation {
+  textures: Arc<GPUTextureBindingSystem>,
+  sm_to_material_type: ShaderPtrOf<[u32]>,
+  material_accessor: Arc<Vec<Box<dyn SceneMaterialSurfaceSupportInvocation>>>,
+}
+
+impl DevicePathTracingSurfaceInvocation for SceneSurfaceSupportInvocation {
+  fn importance_sampling_brdf(
+    &self,
+    sm_id: Node<u32>,
+    incident_dir: Node<Vec3<f32>>,
+    normal: Node<Vec3<f32>>,
+    uv: Node<Vec2<f32>>,
+  ) -> RTSurfaceInteraction {
+    let material_ty = self.sm_to_material_type.index(sm_id).load();
+
+    let surface = zeroed_val::<ShaderPhysicalShading>().make_local_var();
+
+    // find material impl by id, and construct surface
+    let mut switch = switch_by(material_ty);
+    for (i, m) in self.material_accessor.iter().enumerate() {
+      switch = switch.case(i as u32, || {
+        let mut registry = SemanticRegistry::default();
+        m.inject_material_info(&mut registry, uv);
+        let s = PhysicalShading::construct_shading_impl(todo!());
+        surface.store(s.construct());
+      });
+    }
+
+    switch.end_with_default(|| {
+      let mut registry = SemanticRegistry::default();
+      let s = PhysicalShading::construct_shading_impl(todo!());
+      surface.store(s.construct());
+    });
+
+    // todo, surface sample and compute brdf
+
+    RTSurfaceInteraction {
+      sampling_dir: normal.reflect(incident_dir),
+      brdf: val(Vec3::splat(0.5)),
+      pdf: val(1.),
+    }
+  }
+}
