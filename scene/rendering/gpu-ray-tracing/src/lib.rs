@@ -21,6 +21,9 @@ use tracing::*;
 mod acceleration_structure;
 pub use acceleration_structure::*;
 
+mod material;
+pub use material::*;
+
 mod feature;
 pub use feature::*;
 

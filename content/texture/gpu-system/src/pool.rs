@@ -273,7 +273,9 @@ impl AbstractIndirectGPUTextureSystem for TexturePool {
     shader_sampler_handle: Node<SamplerHandle>,
     uv: Node<Vec2<f32>>,
   ) -> Node<Vec4<f32>> {
-    let texture = reg.query_typed_both_stage::<TexturePoolInShader>().unwrap();
+    let texture = reg
+      .try_query_typed_both_stage::<TexturePoolInShader>()
+      .unwrap();
     let address = reg.any_map.get::<TexturePoolAddressInfoInShader>().unwrap();
 
     let samplers = reg.any_map.get::<SamplerPoolInShader>().unwrap();

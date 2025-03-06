@@ -98,8 +98,7 @@ impl ShaderVertexBuilder {
   pub fn query<T: SemanticVertexShaderValue>(&self) -> Node<T::ValueType> {
     self
       .registry
-      .query(TypeId::of::<T>(), T::NAME)
-      .map(|n| unsafe { std::mem::transmute(n) })
+      .try_query_vertex_stage::<T>()
       .unwrap_or_else(|_| unsafe {
         self
           .errors
@@ -109,11 +108,7 @@ impl ShaderVertexBuilder {
   }
 
   pub fn try_query<T: SemanticVertexShaderValue>(&self) -> Option<Node<T::ValueType>> {
-    self
-      .registry
-      .query(TypeId::of::<T>(), T::NAME)
-      .map(|n| unsafe { std::mem::transmute(n) })
-      .ok()
+    self.registry.try_query_vertex_stage::<T>().ok()
   }
 
   pub fn query_or_insert_default<T>(&mut self) -> Node<T::ValueType>
@@ -129,8 +124,8 @@ impl ShaderVertexBuilder {
     T: SemanticVertexShaderValue,
     T::ValueType: PrimitiveShaderNodeType,
   {
-    if let Ok(n) = self.registry.query(TypeId::of::<T>(), T::NAME) {
-      unsafe { n.cast_type() }
+    if let Ok(n) = self.registry.try_query_vertex_stage::<T>() {
+      n
     } else {
       let default: T::ValueType = by();
       self.register::<T>(default);

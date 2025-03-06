@@ -57,24 +57,6 @@ impl DevicePathTracingSurfaceInvocation for TestingMirrorSurfaceInvocation {
   }
 }
 
-/// for simplicity we not expect shader variant, so skip shader hashing
-pub trait SceneMaterialSurfaceSupport {
-  fn build(
-    &self,
-    cx: &mut ShaderBindGroupBuilder,
-  ) -> Box<dyn SceneMaterialSurfaceSupportInvocation>;
-  fn bind(&self, cx: &mut BindingBuilder);
-}
-
-pub trait SceneMaterialSurfaceSupportInvocation {
-  fn inject_material_info(
-    &self,
-    reg: &mut SemanticRegistry,
-    uv: Node<Vec2<f32>>,
-    textures: &GPUTextureBindingSystem,
-  );
-}
-
 #[derive(Clone)]
 pub struct SceneSurfaceSupport {
   pub textures: GPUTextureBindingSystem,
@@ -134,19 +116,20 @@ impl DevicePathTracingSurfaceInvocation for SceneSurfaceSupportInvocation {
       switch = switch.case(i as u32, || {
         let mut registry = SemanticRegistry::default();
         m.inject_material_info(&mut registry, uv, &self.textures);
-        let s = PhysicalShading::construct_shading_impl(todo!());
+        let s = PhysicalShading::construct_shading_impl(&registry);
         surface.store(s.construct());
       });
     }
 
     switch.end_with_default(|| {
-      let mut registry = SemanticRegistry::default();
-      let s = PhysicalShading::construct_shading_impl(todo!());
+      let registry = SemanticRegistry::default();
+      // just create from an empty registry to get default value.
+      let s = PhysicalShading::construct_shading_impl(&registry);
       surface.store(s.construct());
     });
 
     // todo, surface sample and compute brdf
-    let surface = surface.load();
+    let _surface = surface.load();
 
     RTSurfaceInteraction {
       sampling_dir: normal.reflect(incident_dir),

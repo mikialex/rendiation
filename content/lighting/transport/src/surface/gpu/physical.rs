@@ -18,35 +18,34 @@ pub fn compute_dielectric_f0(reflectance: Node<f32>) -> Node<f32> {
 }
 
 impl PhysicalShading {
-  pub fn construct_shading_impl(
-    builder: &mut ShaderFragmentBuilder,
-  ) -> ENode<ShaderPhysicalShading> {
+  pub fn construct_shading_impl(builder: &SemanticRegistry) -> ENode<ShaderPhysicalShading> {
     let perceptual_roughness = builder
-      .try_query::<RoughnessChannel>()
-      .or_else(|| {
+      .try_query_fragment_stage::<RoughnessChannel>()
+      .or_else(|_| {
         builder
-          .try_query::<GlossinessChannel>()
+          .try_query_fragment_stage::<GlossinessChannel>()
           .map(|v| val(1.0) - v)
       })
-      .unwrap_or_else(|| val(0.3));
+      .unwrap_or_else(|_| val(0.3));
 
     let base_color = builder
-      .try_query::<ColorChannel>()
-      .unwrap_or_else(|| val(Vec3::splat(0.5)));
+      .try_query_fragment_stage::<ColorChannel>()
+      .unwrap_or_else(|_| val(Vec3::splat(0.5)));
 
     // assume specular workflow
-    let (diffuse, f0) = if let Some(specular) = builder.try_query::<SpecularChannel>() {
+    let (diffuse, f0) = if let Ok(specular) = builder.try_query_fragment_stage::<SpecularChannel>()
+    {
       let metallic = specular.max_channel();
       (base_color * (val(1.) - metallic), specular)
     } else {
       // assume metallic workflow
       let metallic = builder
-        .try_query::<MetallicChannel>()
-        .unwrap_or_else(|| val(0.0));
+        .try_query_fragment_stage::<MetallicChannel>()
+        .unwrap_or_else(|_| val(0.0));
 
       let reflectance = builder
-        .try_query::<ReflectanceChannel>()
-        .unwrap_or_else(|| val(0.5));
+        .try_query_fragment_stage::<ReflectanceChannel>()
+        .unwrap_or_else(|_| val(0.5));
 
       let dielectric_f0 = compute_dielectric_f0(reflectance);
 
@@ -56,8 +55,8 @@ impl PhysicalShading {
     };
 
     let emissive = builder
-      .try_query::<EmissiveChannel>()
-      .unwrap_or_else(|| val(Vec3::zero()));
+      .try_query_fragment_stage::<EmissiveChannel>()
+      .unwrap_or_else(|_| val(Vec3::zero()));
 
     ENode::<ShaderPhysicalShading> {
       diffuse,
@@ -73,7 +72,7 @@ impl LightableSurfaceShadingLogicProvider for PhysicalShading {
     &self,
     builder: &mut ShaderFragmentBuilder,
   ) -> Box<dyn LightableSurfaceShading> {
-    Box::new(PhysicalShading::construct_shading_impl(builder))
+    Box::new(PhysicalShading::construct_shading_impl(builder.registry()))
   }
 }
 

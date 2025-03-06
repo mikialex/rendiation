@@ -106,11 +106,11 @@ impl AbstractIndirectGPUTextureSystem for BindlessTextureSystem {
     uv: Node<Vec2<f32>>,
   ) -> Node<Vec4<f32>> {
     let textures = reg
-      .query_typed_both_stage::<BindlessTexturesInShader>()
+      .try_query_typed_both_stage::<BindlessTexturesInShader>()
       .unwrap();
 
     let samplers = reg
-      .query_typed_both_stage::<BindlessSamplersInShader>()
+      .try_query_typed_both_stage::<BindlessSamplersInShader>()
       .unwrap();
 
     let texture = textures.index(shader_texture_handle);

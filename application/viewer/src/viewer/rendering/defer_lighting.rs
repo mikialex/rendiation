@@ -211,7 +211,7 @@ impl DeferLightingMaterialBufferReadWrite for PbrSurfaceEncodeDecode {
         perceptual_roughness,
         f0,
         emissive,
-      } = PhysicalShading::construct_shading_impl(builder);
+      } = PhysicalShading::construct_shading_impl(builder.registry());
 
       let diffuse_roughness: Node<Vec4<_>> = (diffuse, perceptual_roughness).into();
       let f0_emissive_x: Node<Vec4<_>> = (f0, emissive.x()).into();
