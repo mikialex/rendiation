@@ -7,6 +7,7 @@ both!(SpecularChannel, Vec3<f32>);
 // (perceptual roughness is artist friendly so usually used in material parameters)
 both!(RoughnessChannel, f32);
 both!(MetallicChannel, f32);
+// This is the inverse alpha, also linear
 both!(GlossinessChannel, f32);
 both!(ReflectanceChannel, f32);
 
@@ -18,7 +19,7 @@ pub fn compute_dielectric_f0(reflectance: Node<f32>) -> Node<f32> {
 
 impl PhysicalShading {
   pub fn construct_shading_impl(builder: &SemanticRegistry) -> ENode<ShaderPhysicalShading> {
-    let perceptual_roughness = builder
+    let linear_roughness = builder
       .try_query_fragment_stage::<RoughnessChannel>()
       .or_else(|_| {
         builder
@@ -32,8 +33,7 @@ impl PhysicalShading {
       .unwrap_or_else(|_| val(Vec3::splat(0.5)));
 
     // assume specular workflow
-    let (diffuse, f0) = if let Ok(specular) = builder.try_query_fragment_stage::<SpecularChannel>()
-    {
+    let (albedo, f0) = if let Ok(specular) = builder.try_query_fragment_stage::<SpecularChannel>() {
       let metallic = specular.max_channel();
       (base_color * (val(1.) - metallic), specular)
     } else {
@@ -58,9 +58,9 @@ impl PhysicalShading {
       .unwrap_or_else(|_| val(Vec3::zero()));
 
     ENode::<ShaderPhysicalShading> {
-      diffuse,
+      albedo,
       f0,
-      perceptual_roughness,
+      linear_roughness,
       emissive,
     }
   }
@@ -110,7 +110,7 @@ fn physical_shading_fn(
         })
       });
 
-      let direct_diffuse_brdf = evaluate_brdf_diffuse(shading.diffuse);
+      let direct_diffuse_brdf = evaluate_brdf_diffuse(shading.albedo);
       let direct_specular_brdf = evaluate_brdf_specular(
         shading,
         geometry.view_dir,
@@ -130,43 +130,16 @@ fn physical_shading_fn(
     .call()
 }
 
-#[repr(C)]
-#[std140_layout]
 #[derive(Copy, Clone, ShaderStruct)]
 pub struct ShaderPhysicalShading {
-  pub diffuse: Vec3<f32>,
-  pub perceptual_roughness: f32,
+  pub albedo: Vec3<f32>,
+  pub linear_roughness: f32,
   pub f0: Vec3<f32>,
   pub emissive: Vec3<f32>,
 }
 
 pub fn bias_n_dot_l(n_dot_l: Node<f32>) -> Node<f32> {
   (n_dot_l * val(1.08) - val(0.08)).saturate()
-}
-
-/// Microfacet Models for Refraction through Rough Surfaces - equation (33)
-/// http://graphicrants.blogspot.com/2013/08/specular-brdf-reference.html
-pub fn d_ggx(n_o_h: Node<f32>, roughness4: Node<f32>) -> Node<f32> {
-  let d = (n_o_h * roughness4 - n_o_h) * n_o_h + val(1.0);
-  roughness4 / (val(f32::PI()) * d * d)
-}
-
-// NOTE: Basically same as
-// https://de45xmedrsdbp.cloudfront.net/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
-// However, calculate a F90 instead of using 1.0 directly
-#[shader_fn]
-fn fresnel(v_dot_h: Node<f32>, f0: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
-  let fc = (val(1.0) - v_dot_h).pow(5.0);
-  let f90 = (f0 * val(50.0)).clamp(Vec3::zero(), Vec3::one());
-  f90 * fc + f0 * (val(1.0) - fc)
-}
-
-/// Moving Frostbite to Physically Based Rendering 3.0 - page 12, listing 2
-/// https://seblagarde.files.wordpress.com/2015/07/course_notes_moving_frostbite_to_pbr_v32.pdf
-fn v_smith_correlated(n_dot_l: Node<f32>, n_dot_v: Node<f32>, roughness4: Node<f32>) -> Node<f32> {
-  let vis_smith_v = n_dot_v * (n_dot_v * (n_dot_v - n_dot_v * roughness4) + roughness4).sqrt();
-  let vis_smith_l = n_dot_l * (n_dot_l * (n_dot_l - n_dot_l * roughness4) + roughness4).sqrt();
-  val(0.5) / (vis_smith_v + vis_smith_l)
 }
 
 pub fn evaluate_brdf_diffuse(diffuse_color: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
@@ -179,22 +152,14 @@ pub fn evaluate_brdf_specular(
   l: Node<Vec3<f32>>,
   n: Node<Vec3<f32>>,
 ) -> Node<Vec3<f32>> {
-  const EPSILON_SHADING: f32 = 0.0001;
-
-  let h = (l + v).normalize();
-  let n_dot_l = l.dot(n).max(0.0);
-  let n_dot_v = n.dot(v).max(EPSILON_SHADING);
-  let n_dot_h = n.dot(h).max(EPSILON_SHADING);
-  let v_hot_h = v.dot(h).max(EPSILON_SHADING);
-
-  let roughness2 = shading.perceptual_roughness;
-  let roughness4 = roughness2 * roughness2;
-
-  let f = fresnel(v_hot_h, shading.f0);
-  let d = d_ggx(n_dot_h, roughness4).max(0.0);
-  let g = v_smith_correlated(n_dot_l, n_dot_v, roughness4).max(0.0);
-
-  d * g * f
+  let roughness = shading.linear_roughness;
+  ShaderSpecular {
+    f0: shading.f0,
+    normal_distribution_model: ShaderGGX { roughness },
+    geometric_shadow_model: ShaderSmithGGXCorrelatedGeometryShadow { roughness },
+    fresnel_model: ShaderSchlick,
+  }
+  .bsdf(v, l, n)
 }
 
 use rendiation_shader_library::sampling::hammersley_2d_fn;

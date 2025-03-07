@@ -252,7 +252,7 @@ pub fn prefilter_specular(
 
       n_dot_l.greater_than(0.).select_branched(
         || {
-          let pdf = d_ggx(n_dot_h, roughness2) / val(4.) + val(0.0001);
+          let pdf = ShaderGGX { roughness }.d(normal, half) / val(4.) + val(0.0001);
           // solid angle by this sample
           let omega_s = val(1.0) / (sampler_count.into_f32() * pdf);
           // solid angle covered by one pixel

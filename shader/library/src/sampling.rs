@@ -81,3 +81,39 @@ pub fn tbn(normal: Node<Vec3<f32>>) -> Node<Mat3<f32>> {
   let bi_tangent = vec3_node((b, sign + normal.y() * normal.y() * a, -normal.y()));
   (tangent.normalize(), bi_tangent.normalize(), normal).into()
 }
+
+const PI_OVER_4: f32 = std::f32::consts::PI / 4.0;
+const PI_OVER_2: f32 = std::f32::consts::PI / 2.0;
+
+/// http://l2program.co.uk/900/concentric-disk-sampling
+/// Uniformly distribute samples over a unit disk.
+#[shader_fn]
+pub fn concentric_sample_disk_device(sample: Node<Vec2<f32>>) -> Node<Vec2<f32>> {
+  // map uniform random numbers to $[-1,1]^2$s
+  let u_offset = sample * val(2.0) - val(Vec2::new(1.0, 1.0));
+  // handle degeneracy at the origin
+  let re = zeroed_val::<Vec2<f32>>().make_local_var();
+  if_by(u_offset.equals(Vec2::zero()).all(), || {
+    re.store(Vec2::new(0.0, 0.0));
+  })
+  .else_by(|| {
+    // apply concentric mapping to point
+    let theta = zeroed_val::<f32>().make_local_var();
+    let r = zeroed_val::<f32>().make_local_var();
+    if_by(u_offset.x().abs().greater_than(u_offset.y().abs()), || {
+      r.store(u_offset.x());
+      theta.store(val(PI_OVER_4) * (u_offset.y() / u_offset.x()));
+    })
+    .else_by(|| {
+      r.store(u_offset.y());
+      theta.store(val(PI_OVER_2) - val(PI_OVER_4) * (u_offset.x() / u_offset.y()));
+    });
+
+    let r = r.load();
+    let theta = theta.load();
+    let ree = (theta.cos() * r, theta.sin() * r);
+
+    re.store(ree);
+  });
+  re.load()
+}

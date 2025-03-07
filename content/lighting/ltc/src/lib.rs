@@ -40,9 +40,9 @@ impl LightingComputeInvocation for LTCRectLightingCompute {
 
     LTCxLightEval {
       light: self.light,
-      diffuse_color: shading.diffuse,
-      specular_color: shading.f0,              // todo fix
-      roughness: shading.perceptual_roughness, // todo check
+      diffuse_color: shading.albedo,
+      specular_color: shading.f0, // todo fix
+      roughness: shading.linear_roughness,
       geom: *geom_ctx,
       lut: self.lut,
     }

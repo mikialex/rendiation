@@ -198,27 +198,38 @@ pub struct GGX {
 impl MicroFacetNormalDistribution for GGX {
   fn d(&self, n: NormalizedVec3<f32>, h: NormalizedVec3<f32>) -> f32 {
     let n_o_h = n.dot(h);
-    // this roughness is linear roughness
     let roughness2 = self.roughness * self.roughness;
     let d = (n_o_h * roughness2 - n_o_h) * n_o_h + 1.0;
     roughness2 / (f32::PI() * d * d)
   }
 
   // https://schuttejoe.github.io/post/ggximportancesamplingpart1/
+  // https://agraphicsguynotes.com/posts/sample_microfacet_brdf/
   fn sample_micro_surface_normal(
     &self,
-    _normal: NormalizedVec3<f32>,
-    _sampler: &mut dyn Sampler,
+    normal: NormalizedVec3<f32>,
+    sampler: &mut dyn Sampler,
   ) -> NormalizedVec3<f32> {
-    todo!()
+    let sample = sampler.next();
+    let theta = (self.roughness * (sample / (1.0 - sample)).sqrt()).atan();
+
+    let (sin_t, cos_t) = theta.sin_cos();
+    // Generate halfway vector by sampling azimuth uniformly
+    let sample = concentric_sample_disk(sampler.next_vec2());
+    let x = sample.x;
+    let y = sample.y;
+    let h = Vec3::new(x * sin_t, y * sin_t, cos_t);
+    (normal.local_to_world() * h).into_normalized()
   }
 
   fn surface_normal_pdf(
     &self,
-    _normal: NormalizedVec3<f32>,
-    _sampled_normal: NormalizedVec3<f32>,
+    normal: NormalizedVec3<f32>,
+    sampled_normal: NormalizedVec3<f32>,
   ) -> f32 {
-    todo!()
+    let cos = normal.dot(sampled_normal);
+    let sin = (1.0 - cos * cos).sqrt();
+    sin * cos * self.d(normal, sampled_normal)
   }
 }
 

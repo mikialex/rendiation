@@ -207,31 +207,31 @@ impl DeferLightingMaterialBufferReadWrite for PbrSurfaceEncodeDecode {
       || builder.contains_type_tag::<PbrSGMaterialTag>()
     {
       let ENode::<ShaderPhysicalShading> {
-        diffuse,
-        perceptual_roughness,
+        albedo,
+        linear_roughness,
         f0,
         emissive,
       } = PhysicalShading::construct_shading_impl(builder.registry());
 
-      let diffuse_roughness: Node<Vec4<_>> = (diffuse, perceptual_roughness).into();
+      let albedo_roughness: Node<Vec4<_>> = (albedo, linear_roughness).into();
       let f0_emissive_x: Node<Vec4<_>> = (f0, emissive.x()).into();
 
-      builder.frag_output[indices.channel_a].store(diffuse_roughness);
+      builder.frag_output[indices.channel_a].store(albedo_roughness);
       builder.frag_output[indices.channel_b].store(f0_emissive_x);
       builder.frag_output[indices.channel_c].store(emissive.yz());
     }
   }
 
   fn decode(instance: &FrameGeneralMaterialBufferReadValue) -> Box<dyn LightableSurfaceShading> {
-    let diffuse_roughness = instance.channel_a;
+    let albedo_roughness = instance.channel_a;
     let f0_emissive_x = instance.channel_b;
     let emissive_yz = instance.channel_c;
 
     let emissive = vec3_node((f0_emissive_x.w(), emissive_yz.x(), emissive_yz.y()));
 
     Box::new(ENode::<ShaderPhysicalShading> {
-      diffuse: diffuse_roughness.xyz(),
-      perceptual_roughness: diffuse_roughness.w(),
+      albedo: albedo_roughness.xyz(),
+      linear_roughness: albedo_roughness.w(),
       f0: f0_emissive_x.xyz(),
       emissive,
     })
