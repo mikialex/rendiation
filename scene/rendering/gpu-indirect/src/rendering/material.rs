@@ -242,7 +242,7 @@ pub struct PbrSGMaterialDefaultIndirectRenderImplProvider {
   tex_storages: UpdateResultToken,
 }
 
-impl RenderImplProvider<Box<dyn IndirectModelMaterialRenderImpl>>
+impl RenderImplProvider<PbrSGMaterialDefaultIndirectRenderImpl>
   for PbrSGMaterialDefaultIndirectRenderImplProvider
 {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
@@ -254,23 +254,42 @@ impl RenderImplProvider<Box<dyn IndirectModelMaterialRenderImpl>>
     source.deregister(&mut self.tex_storages);
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn IndirectModelMaterialRenderImpl> {
-    Box::new(PbrSGMaterialDefaultIndirectRenderImpl {
+  fn create_impl(&self, res: &mut QueryResultCtx) -> PbrSGMaterialDefaultIndirectRenderImpl {
+    PbrSGMaterialDefaultIndirectRenderImpl {
       material_access: global_entity_component_of::<StandardModelRefPbrSGMaterial>()
         .read_foreign_key(),
       storages: res.take_multi_updater_updated::<CommonStorageBufferImpl<PhysicalSpecularGlossinessMaterialStorage>>(self.storages).unwrap().target.gpu().clone(),
       tex_storages: res.take_multi_updater_updated::<CommonStorageBufferImpl<PhysicalSpecularGlossinessMaterialTextureHandlesStorage>>(self.tex_storages).unwrap().target.gpu().clone(),
       alpha_mode: global_entity_component_of().read(),
-    })
+    }
   }
 }
 
-struct PbrSGMaterialDefaultIndirectRenderImpl {
-  material_access: ForeignKeyReadView<StandardModelRefPbrSGMaterial>,
-  storages: StorageBufferReadonlyDataView<[PhysicalSpecularGlossinessMaterialStorage]>,
-  tex_storages:
+impl RenderImplProvider<Box<dyn IndirectModelMaterialRenderImpl>>
+  for PbrSGMaterialDefaultIndirectRenderImplProvider
+{
+  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
+    (self as &mut dyn RenderImplProvider<PbrSGMaterialDefaultIndirectRenderImpl>)
+      .register_resource(source, cx);
+  }
+  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
+    (self as &mut dyn RenderImplProvider<PbrSGMaterialDefaultIndirectRenderImpl>)
+      .deregister_resource(source);
+  }
+
+  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn IndirectModelMaterialRenderImpl> {
+    Box::new(
+      (self as &dyn RenderImplProvider<PbrSGMaterialDefaultIndirectRenderImpl>).create_impl(res),
+    )
+  }
+}
+
+pub struct PbrSGMaterialDefaultIndirectRenderImpl {
+  pub material_access: ForeignKeyReadView<StandardModelRefPbrSGMaterial>,
+  pub storages: StorageBufferReadonlyDataView<[PhysicalSpecularGlossinessMaterialStorage]>,
+  pub tex_storages:
     StorageBufferReadonlyDataView<[PhysicalSpecularGlossinessMaterialTextureHandlesStorage]>,
-  alpha_mode: ComponentReadView<AlphaModeOf<PbrSGMaterialAlphaConfig>>,
+  pub alpha_mode: ComponentReadView<AlphaModeOf<PbrSGMaterialAlphaConfig>>,
 }
 
 impl IndirectModelMaterialRenderImpl for PbrSGMaterialDefaultIndirectRenderImpl {

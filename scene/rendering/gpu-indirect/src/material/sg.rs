@@ -109,7 +109,6 @@ impl GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU<'_> {
       let uv = builder.query_or_interpolate_by::<FragmentUv, GeometryUV>();
 
       let mut alpha = storage.alpha;
-
       let mut base_color = storage.albedo;
 
       let albedo = bind_and_sample(

@@ -3,6 +3,7 @@ use rendiation_webgpu_reactive_utils::{CommonStorageBufferImpl, ReactiveStorageB
 use crate::*;
 
 mod mr;
+mod sg;
 
 /// for simplicity we not expect shader variant, so skip shader hashing
 pub trait SceneMaterialSurfaceSupport {
@@ -42,25 +43,36 @@ impl RtxSceneMaterialSource {
 
     let material_id = ReactiveStorageBufferContainer::<u32>::new(cx).with_source(sm_to_mr, 0);
 
-    let material_ty_base = global_watch()
-      .watch::<SceneModelStdModelRenderPayload>()
-      .collective_map(|_| u32::MAX);
+    let material_ty_base = global_watch().watch_entity_set::<SceneModelEntity>();
 
-    let material_ty = global_watch()
+    let mr_material_ty = global_watch()
       .watch::<StandardModelRefPbrMRMaterial>()
       .collective_map(|_| 0)
       .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelStdModelRenderPayload>());
 
+    let sg_material_ty = global_watch()
+      .watch::<StandardModelRefPbrSGMaterial>()
+      .collective_map(|_| 1)
+      .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelStdModelRenderPayload>());
+
+    let material_ty = mr_material_ty.collective_select(sg_material_ty);
+
     let material_ty =
-      material_ty_base.collective_union(material_ty, |(a, b)| a.map(|a| b.unwrap_or(a)));
+      material_ty_base.collective_union(material_ty, |(a, b)| a.map(|_| b.unwrap_or(u32::MAX)));
 
     let material_ty = ReactiveStorageBufferContainer::<u32>::new(cx).with_source(material_ty, 0);
     self.material_id = source.register_multi_updater(material_id.inner);
     self.material_ty = source.register_multi_updater(material_ty.inner);
+    for m in &mut self.materials {
+      m.register_resource(source, cx);
+    }
   }
   pub fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
     source.deregister(&mut self.material_ty);
     source.deregister(&mut self.material_id);
+    for m in &mut self.materials {
+      m.deregister_resource(source);
+    }
   }
   pub fn create_impl(
     &self,

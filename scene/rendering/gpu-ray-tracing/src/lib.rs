@@ -39,9 +39,6 @@ pub use ray_util::*;
 mod camera;
 pub use camera::*;
 
-mod pixel_sampling;
-pub use pixel_sampling::*;
-
 pub fn clamp_size_by_area(size: Size, area: usize) -> Size {
   assert!(area >= 1);
   let (width, height) = size.into_usize();

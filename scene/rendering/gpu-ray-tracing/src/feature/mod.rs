@@ -50,7 +50,8 @@ impl RayTracingSystemBase {
       system: rtx.clone(),
       mesh: MeshBindlessGPUSystemSource::new(gpu),
       material: RtxSceneMaterialSource::default()
-        .with_material_support(PbrMRMaterialDefaultIndirectRenderImplProvider::default()),
+        .with_material_support(PbrMRMaterialDefaultIndirectRenderImplProvider::default())
+        .with_material_support(PbrSGMaterialDefaultIndirectRenderImplProvider::default()),
     }
   }
 }
