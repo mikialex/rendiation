@@ -5,19 +5,21 @@ pub trait PhysicalDiffuse: Clone {
 }
 
 #[derive(Clone)]
-pub struct Diffuse<T> {
+pub struct Lambertian {
   pub albedo: Vec3<f32>,
-  pub diffuse_model: T,
+}
+impl PhysicalDiffuse for Lambertian {
+  fn albedo(&self) -> Vec3<f32> {
+    self.albedo
+  }
 }
 
-#[derive(Clone)]
-pub struct Lambertian;
-impl<C: IntersectionCtxBase> LightTransportSurface<C> for Diffuse<Lambertian> {
+impl LightTransportSurface for Lambertian {
   fn bsdf(
     &self,
     _view_dir: NormalizedVec3<f32>,
     _light_dir: NormalizedVec3<f32>,
-    _intersection: &C,
+    _normal: NormalizedVec3<f32>,
   ) -> Vec3<f32> {
     PhysicalDiffuse::albedo(self) / Vec3::splat(PI)
   }
@@ -25,7 +27,7 @@ impl<C: IntersectionCtxBase> LightTransportSurface<C> for Diffuse<Lambertian> {
   fn sample_light_dir_use_bsdf_importance_impl(
     &self,
     _view_dir: NormalizedVec3<f32>,
-    intersection: &C,
+    normal: NormalizedVec3<f32>,
     sampler: &mut dyn Sampler,
   ) -> NormalizedVec3<f32> {
     // Simple cosine-sampling using Malley's method
@@ -33,22 +35,16 @@ impl<C: IntersectionCtxBase> LightTransportSurface<C> for Diffuse<Lambertian> {
     let x = sample.x;
     let y = sample.y;
     let z = (1.0 - x * x - y * y).sqrt();
-    (intersection.shading_normal().local_to_world() * Vec3::new(x, y, z)).into_normalized()
+    (normal.local_to_world() * Vec3::new(x, y, z)).into_normalized()
   }
 
   fn pdf(
     &self,
     _view_dir: NormalizedVec3<f32>,
     light_dir: NormalizedVec3<f32>,
-    intersection: &C,
+    normal: NormalizedVec3<f32>,
   ) -> f32 {
-    light_dir.dot(intersection.shading_normal()).max(0.0) * INV_PI
-  }
-}
-
-impl PhysicalDiffuse for Diffuse<Lambertian> {
-  fn albedo(&self) -> Vec3<f32> {
-    self.albedo
+    light_dir.dot(normal).max(0.0) * INV_PI
   }
 }
 
@@ -60,6 +56,11 @@ pub struct OrenNayar {
   pub albedo: Vec3<f32>,
   pub a: f32,
   pub b: f32,
+}
+impl PhysicalDiffuse for OrenNayar {
+  fn albedo(&self) -> Vec3<f32> {
+    self.albedo
+  }
 }
 
 impl OrenNayar {
