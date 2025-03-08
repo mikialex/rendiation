@@ -13,10 +13,6 @@ both!(ReflectanceChannel, f32);
 
 pub struct PhysicalShading;
 
-pub fn compute_dielectric_f0(reflectance: Node<f32>) -> Node<f32> {
-  val(0.16) * reflectance * reflectance
-}
-
 impl PhysicalShading {
   pub fn construct_shading_impl(builder: &SemanticRegistry) -> ENode<ShaderPhysicalShading> {
     let linear_roughness = builder
@@ -66,6 +62,10 @@ impl PhysicalShading {
   }
 }
 
+pub fn compute_dielectric_f0(reflectance: Node<f32>) -> Node<f32> {
+  val(0.16) * reflectance * reflectance
+}
+
 impl LightableSurfaceShadingLogicProvider for PhysicalShading {
   fn construct_shading(
     &self,
@@ -110,13 +110,19 @@ fn physical_shading_fn(
         })
       });
 
-      let direct_diffuse_brdf = evaluate_brdf_diffuse(shading.albedo);
-      let direct_specular_brdf = evaluate_brdf_specular(
-        shading,
-        geometry.view_dir,
-        -light.direction,
-        geometry.normal,
-      );
+      let direct_diffuse_brdf = ShaderLambertian {
+        albedo: shading.albedo,
+      }
+      .bsdf(geometry.view_dir, -light.direction, geometry.normal);
+
+      let roughness = shading.linear_roughness;
+      let direct_specular_brdf = ShaderSpecular {
+        f0: shading.f0,
+        normal_distribution_model: ShaderGGX { roughness },
+        geometric_shadow_model: ShaderSmithGGXCorrelatedGeometryShadow { roughness },
+        fresnel_model: ShaderSchlick,
+      }
+      .bsdf(geometry.view_dir, -light.direction, geometry.normal);
 
       cx.do_return(ENode::<ShaderLightingResult> {
         diffuse: light.color * direct_diffuse_brdf * n_dot_l + shading.emissive,
@@ -140,26 +146,6 @@ pub struct ShaderPhysicalShading {
 
 pub fn bias_n_dot_l(n_dot_l: Node<f32>) -> Node<f32> {
   (n_dot_l * val(1.08) - val(0.08)).saturate()
-}
-
-pub fn evaluate_brdf_diffuse(diffuse_color: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
-  val(1. / f32::PI()) * diffuse_color
-}
-
-pub fn evaluate_brdf_specular(
-  shading: ENode<ShaderPhysicalShading>,
-  v: Node<Vec3<f32>>,
-  l: Node<Vec3<f32>>,
-  n: Node<Vec3<f32>>,
-) -> Node<Vec3<f32>> {
-  let roughness = shading.linear_roughness;
-  ShaderSpecular {
-    f0: shading.f0,
-    normal_distribution_model: ShaderGGX { roughness },
-    geometric_shadow_model: ShaderSmithGGXCorrelatedGeometryShadow { roughness },
-    fresnel_model: ShaderSchlick,
-  }
-  .bsdf(v, l, n)
 }
 
 use rendiation_shader_library::sampling::hammersley_2d_fn;

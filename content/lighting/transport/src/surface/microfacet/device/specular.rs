@@ -15,6 +15,11 @@ where
   G: ShaderMicroFacetGeometricShadow,
   F: ShaderMicroFacetFresnel,
 {
+  pub fn specular_estimate(&self) -> Node<f32> {
+    let f0 = self.f0.x().max(self.f0.y()).max(self.f0.z());
+    f0.mix(0.2, 1.0)
+  }
+
   pub fn bsdf(
     &self,
     view_dir: Node<Vec3<f32>>,
@@ -42,7 +47,7 @@ where
     &self,
     view_dir: Node<Vec3<f32>>,
     normal: Node<Vec3<f32>>,
-    sampler: &mut dyn DeviceSampler,
+    sampler: &dyn DeviceSampler,
   ) -> Node<Vec3<f32>> {
     let micro_surface_normal = self
       .normal_distribution_model
@@ -72,7 +77,7 @@ pub trait ShaderMicroFacetNormalDistribution {
   fn sample_micro_surface_normal(
     &self,
     normal: Node<Vec3<f32>>,
-    sampler: &mut dyn DeviceSampler,
+    sampler: &dyn DeviceSampler,
   ) -> Node<Vec3<f32>>;
   fn surface_normal_pdf(
     &self,
@@ -107,7 +112,7 @@ impl ShaderMicroFacetNormalDistribution for ShaderGGX {
   fn sample_micro_surface_normal(
     &self,
     normal: Node<Vec3<f32>>,
-    sampler: &mut dyn DeviceSampler,
+    sampler: &dyn DeviceSampler,
   ) -> Node<Vec3<f32>> {
     let sample = sampler.next();
     let theta = (self.roughness * (sample / (val(1.0) - sample)).sqrt()).atan();

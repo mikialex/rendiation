@@ -47,12 +47,12 @@ impl RtxSceneMaterialSource {
 
     let mr_material_ty = global_watch()
       .watch::<StandardModelRefPbrMRMaterial>()
-      .collective_map(|_| 0)
+      .collective_filter_map(|v| v.map(|_| 0))
       .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelStdModelRenderPayload>());
 
     let sg_material_ty = global_watch()
       .watch::<StandardModelRefPbrSGMaterial>()
-      .collective_map(|_| 1)
+      .collective_filter_map(|v| v.map(|_| 1))
       .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelStdModelRenderPayload>());
 
     let material_ty = mr_material_ty.collective_select(sg_material_ty);

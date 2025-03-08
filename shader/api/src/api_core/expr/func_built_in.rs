@@ -237,10 +237,14 @@ where
 
 // todo fix bound
 impl<T: PrimitiveShaderNodeType> Node<T> {
-  pub fn mix<V: PrimitiveShaderNodeType>(self, low: Node<V>, high: Node<V>) -> Node<V> {
+  pub fn mix<V: PrimitiveShaderNodeType>(
+    self,
+    low: impl Into<Node<V>>,
+    high: impl Into<Node<V>>,
+  ) -> Node<V> {
     make_builtin_call(
       ShaderBuiltInFunction::Mix,
-      [low.handle(), high.handle(), self.handle()],
+      [low.into().handle(), high.into().handle(), self.handle()],
     )
   }
 }

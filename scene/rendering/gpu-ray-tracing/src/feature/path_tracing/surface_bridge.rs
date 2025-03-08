@@ -1,6 +1,6 @@
 use std::hash::Hash;
 
-use rendiation_lighting_transport::{PhysicalShading, ShaderPhysicalShading};
+use rendiation_lighting_transport::*;
 
 use crate::*;
 
@@ -17,6 +17,7 @@ pub trait DevicePathTracingSurfaceInvocation: DynClone {
     incident_dir: Node<Vec3<f32>>,
     normal: Node<Vec3<f32>>,
     uv: Node<Vec2<f32>>,
+    sampler: &dyn DeviceSampler,
   ) -> RTSurfaceInteraction;
 }
 dyn_clone::clone_trait_object!(DevicePathTracingSurfaceInvocation);
@@ -48,6 +49,7 @@ impl DevicePathTracingSurfaceInvocation for TestingMirrorSurfaceInvocation {
     incident_dir: Node<Vec3<f32>>,
     normal: Node<Vec3<f32>>,
     _: Node<Vec2<f32>>,
+    _: &dyn DeviceSampler,
   ) -> RTSurfaceInteraction {
     RTSurfaceInteraction {
       sampling_dir: normal.reflect(incident_dir),
@@ -109,6 +111,7 @@ impl DevicePathTracingSurfaceInvocation for SceneSurfaceSupportInvocation {
     incident_dir: Node<Vec3<f32>>,
     normal: Node<Vec3<f32>>,
     uv: Node<Vec2<f32>>,
+    sampler: &dyn DeviceSampler,
   ) -> RTSurfaceInteraction {
     let material_ty = self.sm_to_material_type.index(sm_id).load();
     let material_id = self.sm_to_material_id.index(sm_id).load();
@@ -133,13 +136,35 @@ impl DevicePathTracingSurfaceInvocation for SceneSurfaceSupportInvocation {
       surface.store(s.construct());
     });
 
-    // todo, surface sample and compute brdf
-    let _surface = surface.load();
+    let surface = surface.load().expand();
+
+    let roughness = surface.linear_roughness;
+    let specular = ShaderSpecular {
+      f0: surface.f0,
+      normal_distribution_model: ShaderGGX { roughness },
+      geometric_shadow_model: ShaderSmithGGXCorrelatedGeometryShadow { roughness },
+      fresnel_model: ShaderSchlick,
+    };
+
+    let surface = ShaderRtxPhysicalMaterial {
+      diffuse: ShaderLambertian {
+        albedo: surface.albedo,
+      },
+      specular,
+    };
+
+    let view_dir = -incident_dir;
+
+    let ShaderBRDFImportantSampled {
+      sample: light_dir,
+      pdf,
+      importance: brdf,
+    } = surface.sample_light_dir_use_bsdf_importance(view_dir, normal, sampler);
 
     RTSurfaceInteraction {
-      sampling_dir: normal.reflect(incident_dir),
-      brdf: val(Vec3::splat(0.5)),
-      pdf: val(1.),
+      sampling_dir: light_dir,
+      brdf,
+      pdf,
     }
   }
 }

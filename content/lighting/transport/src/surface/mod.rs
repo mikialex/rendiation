@@ -87,12 +87,18 @@ pub trait DeviceSampler {
 }
 
 pub trait ShaderLightTransportSurface {
-  fn bsdf(&self, cx: ENode<ShaderLightingGeometricCtx>) -> Node<Vec3<f32>>;
+  fn bsdf(
+    &self,
+    view_dir: Node<Vec3<f32>>,
+    light_dir: Node<Vec3<f32>>,
+    normal: Node<Vec3<f32>>,
+  ) -> Node<Vec3<f32>>;
 
   fn sample_light_dir_use_bsdf_importance_impl(
     &self,
-    cx: ENode<ShaderLightingGeometricCtx>,
-    sampler: &mut dyn DeviceSampler,
+    view_dir: Node<Vec3<f32>>,
+    normal: Node<Vec3<f32>>,
+    sampler: &dyn DeviceSampler,
   ) -> Node<Vec3<f32>>;
 
   fn pdf(
@@ -104,14 +110,15 @@ pub trait ShaderLightTransportSurface {
 
   fn sample_light_dir_use_bsdf_importance(
     &self,
-    cx: ENode<ShaderLightingGeometricCtx>,
-    sampler: &mut dyn DeviceSampler,
+    view_dir: Node<Vec3<f32>>,
+    normal: Node<Vec3<f32>>,
+    sampler: &dyn DeviceSampler,
   ) -> ShaderBRDFImportantSampled {
-    let light_dir = self.sample_light_dir_use_bsdf_importance_impl(cx, sampler);
+    let light_dir = self.sample_light_dir_use_bsdf_importance_impl(view_dir, normal, sampler);
     ShaderImportanceSampled {
       sample: light_dir,
-      pdf: self.pdf(cx.view_dir, light_dir, cx.normal),
-      importance: self.bsdf(cx),
+      pdf: self.pdf(view_dir, light_dir, normal),
+      importance: self.bsdf(view_dir, light_dir, normal),
     }
   }
 }

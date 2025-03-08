@@ -25,12 +25,10 @@ where
     light_dir: NormalizedVec3<f32>,
     normal: NormalizedVec3<f32>,
   ) -> Vec3<f32> {
-    let specular = self
-      .specular
-      .bsdf(view_dir, light_dir, normal, self.diffuse.albedo());
+    let specular = self.specular.bsdf(view_dir, light_dir, normal);
     let diffuse = self.diffuse.bsdf(view_dir, light_dir, normal);
 
-    let estimate = self.specular.specular_estimate(self.diffuse.albedo());
+    let estimate = self.specular.specular_estimate();
     specular + (1.0 - estimate) * diffuse
   }
 
@@ -40,7 +38,7 @@ where
     normal: NormalizedVec3<f32>,
     sampler: &mut dyn Sampler,
   ) -> NormalizedVec3<f32> {
-    if sampler.next() < self.specular.specular_estimate(self.diffuse.albedo()) {
+    if sampler.next() < self.specular.specular_estimate() {
       self
         .specular
         .sample_light_dir_use_bsdf_importance_impl(view_dir, normal, sampler)
@@ -57,7 +55,7 @@ where
     light_dir: NormalizedVec3<f32>,
     normal: NormalizedVec3<f32>,
   ) -> f32 {
-    let specular_estimate = self.specular.specular_estimate(self.diffuse.albedo());
+    let specular_estimate = self.specular.specular_estimate();
     let spec = self.specular.pdf(view_dir, light_dir, normal);
     let diff = self.diffuse.pdf(view_dir, light_dir, normal);
     diff.lerp(spec, specular_estimate)

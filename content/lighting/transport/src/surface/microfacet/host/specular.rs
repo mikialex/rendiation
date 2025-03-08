@@ -2,8 +2,7 @@ use crate::*;
 
 #[derive(Clone)]
 pub struct Specular<D, G, F> {
-  pub metallic: f32,
-  pub ior: f32,
+  pub f0: Vec3<f32>,
   pub normal_distribution_model: D,
   pub geometric_shadow_model: G,
   pub fresnel_model: F,
@@ -24,14 +23,13 @@ where
     view_dir: NormalizedVec3<f32>,
     light_dir: NormalizedVec3<f32>,
     normal: NormalizedVec3<f32>,
-    albedo: Vec3<f32>,
   ) -> Vec3<f32> {
     let l = light_dir;
     let v = view_dir;
     let n = normal;
     let h = (l + v).into_normalized();
 
-    let f = self.fresnel_model.f(v, h, self.f0(albedo));
+    let f = self.fresnel_model.f(v, h, self.f0);
 
     let g = self.geometric_shadow_model.g(l, v, n);
 
@@ -65,18 +63,13 @@ where
     normal_pdf / (4.0 * micro_surface_normal.dot(view_dir).abs())
   }
 
-  pub fn f0(&self, albedo: Vec3<f32>) -> Vec3<f32> {
-    let f0 = ((self.ior - 1.0) / (self.ior + 1.0)).powi(2);
-    Vec3::splat(f0).lerp(albedo, self.metallic)
-  }
-
-  pub fn specular_estimate(&self, albedo: Vec3<f32>) -> f32 {
+  pub fn specular_estimate(&self) -> f32 {
     // Estimate specular contribution using Fresnel term
     fn mix_scalar<N: Scalar>(x: N, y: N, a: N) -> N {
       x * (N::one() - a) + y * a
     }
-    let f0 = self.f0(albedo).max_channel();
-    mix_scalar(f0, 1.0, 0.2)
+    let f0 = self.f0.max_channel();
+    mix_scalar(0.2, 1.0, f0)
   }
 }
 

@@ -1,6 +1,7 @@
 use crate::*;
 
 mod surface_bridge;
+use rendiation_shader_library::sampling::random_fn;
 pub use surface_bridge::*;
 
 mod ray_gen;
@@ -161,13 +162,37 @@ impl DeviceReferencePathTracingRenderer {
         let (normal, uv) = pt_cx.bindless_mesh.get_world_normal_and_uv(closest_hit_ctx);
         let sm_id = closest_hit_ctx.instance_custom_id();
         let in_dir = closest_hit_ctx.world_ray().direction;
+
+        struct UniformRangeSampler {
+          seed: ShaderPtrOf<Vec2<f32>>,
+          origin: Node<Vec2<f32>>,
+        }
+        impl UniformRangeSampler {
+          fn new(seed: Node<Vec2<f32>>) -> Self {
+            Self {
+              seed: seed.make_local_var(),
+              origin: seed,
+            }
+          }
+        }
+        impl rendiation_lighting_transport::DeviceSampler for UniformRangeSampler {
+          fn reset(&self, _: Node<u32>) {
+            self.seed.store(self.origin);
+          }
+          fn next(&self) -> Node<f32> {
+            self.seed.store(self.seed.load() + val(Vec2::new(1., 0.)));
+            random_fn(self.seed.load())
+          }
+        }
+        let sampler = &UniformRangeSampler::new(closest_hit_ctx.launch_id().xy().into_f32());
+
         let RTSurfaceInteraction {
           sampling_dir,
           brdf,
           pdf,
         } = pt_cx
           .surface
-          .importance_sampling_brdf(sm_id, in_dir, normal, uv);
+          .importance_sampling_brdf(sm_id, in_dir, normal, uv, sampler);
 
         let out_ray_origin = closest_hit_ctx.hit_world_position();
 

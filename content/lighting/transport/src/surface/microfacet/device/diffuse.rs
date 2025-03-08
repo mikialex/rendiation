@@ -17,21 +17,22 @@ impl ShaderPhysicalDiffuse for ShaderLambertian {
 }
 
 impl ShaderLightTransportSurface for ShaderLambertian {
-  fn bsdf(&self, _: ENode<ShaderLightingGeometricCtx>) -> Node<Vec3<f32>> {
+  fn bsdf(&self, _: Node<Vec3<f32>>, _: Node<Vec3<f32>>, _: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
     self.albedo / val(Vec3::splat(PI))
   }
 
   fn sample_light_dir_use_bsdf_importance_impl(
     &self,
-    cx: ENode<ShaderLightingGeometricCtx>,
-    sampler: &mut dyn DeviceSampler,
+    _: Node<Vec3<f32>>,
+    normal: Node<Vec3<f32>>,
+    sampler: &dyn DeviceSampler,
   ) -> Node<Vec3<f32>> {
     // // Simple cosine-sampling using Malley's method
     let sample = concentric_sample_disk_device_fn(sampler.next_2d());
     let x = sample.x();
     let y = sample.y();
     let z = (val(1.0) - x * x - y * y).sqrt();
-    tbn_fn(cx.normal) * (x, y, z).into()
+    tbn_fn(normal) * (x, y, z).into()
   }
 
   fn pdf(
