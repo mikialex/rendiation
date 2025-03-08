@@ -77,8 +77,10 @@ impl ShaderHashProvider for SceneSurfaceSupport {
 
 impl DevicePathTracingSurface for SceneSurfaceSupport {
   fn build(&self, cx: &mut ShaderBindGroupBuilder) -> Box<dyn DevicePathTracingSurfaceInvocation> {
-    self.textures.register_system_self_for_compute(cx);
+    let mut reg = SemanticRegistry::default();
+    self.textures.register_system_self_for_compute(cx, &mut reg);
     Box::new(SceneSurfaceSupportInvocation {
+      reg: Arc::new(RwLock::new(reg)),
       textures: self.textures.clone(),
       sm_to_material_type: cx.bind_by(&self.sm_to_material_type),
       sm_to_material_id: cx.bind_by(&self.sm_to_material_id),
@@ -98,6 +100,7 @@ impl DevicePathTracingSurface for SceneSurfaceSupport {
 
 #[derive(Clone)]
 struct SceneSurfaceSupportInvocation {
+  reg: Arc<RwLock<SemanticRegistry>>,
   textures: GPUTextureBindingSystem,
   sm_to_material_type: ShaderReadonlyPtrOf<[u32]>,
   sm_to_material_id: ShaderReadonlyPtrOf<[u32]>,
@@ -119,12 +122,12 @@ impl DevicePathTracingSurfaceInvocation for SceneSurfaceSupportInvocation {
     let surface = zeroed_val::<ShaderPhysicalShading>().make_local_var();
 
     // find material impl by id, and construct surface
+    let mut reg = self.reg.write();
     let mut switch = switch_by(material_ty);
     for (i, m) in self.material_accessor.iter().enumerate() {
       switch = switch.case(i as u32, || {
-        let mut registry = SemanticRegistry::default();
-        m.inject_material_info(&mut registry, material_id, uv, &self.textures);
-        let s = PhysicalShading::construct_shading_impl(&registry);
+        m.inject_material_info(&mut reg, material_id, uv, &self.textures);
+        let s = PhysicalShading::construct_shading_impl(&reg);
         surface.store(s.construct());
       });
     }

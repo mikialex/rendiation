@@ -153,7 +153,7 @@ impl DeviceReferencePathTracingRenderer {
       .create_closest_hit_shader_base::<CorePathPayload>()
       .inject_ctx(PTRayClosestCtx {
         bindless_mesh: base.mesh.make_bindless_dispatcher(),
-        surface: Box::new(TestingMirrorSurface),
+        surface: Box::new(base.material.clone()),
       })
       .map(|_, ctx| {
         let pt_cx = ctx.expect_custom_cx::<PTClosestCtxInvocation>();

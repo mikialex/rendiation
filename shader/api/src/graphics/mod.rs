@@ -28,9 +28,6 @@ pub struct ShaderRenderPipelineBuilder {
   /// Log the shader build result when building shader, for debug purpose.
   pub log_result: bool,
 
-  /// todo use upstream any map
-  pub context: FastHashMap<TypeId, Box<dyn Any>>,
-
   errors: ErrorSink,
   pub debugger: ShaderBuilderDebugger,
 }
@@ -44,7 +41,6 @@ impl ShaderRenderPipelineBuilder {
       vertex: ShaderVertexBuilder::new(errors.clone()),
       fragment: ShaderFragmentBuilder::new(errors.clone()),
       log_result: false,
-      context: Default::default(),
       debugger: Default::default(),
       errors,
     }

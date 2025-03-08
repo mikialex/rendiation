@@ -259,10 +259,19 @@ impl AbstractIndirectGPUTextureSystem for TexturePool {
         r.any_map.register(SamplerPoolInShader(samplers));
       });
   }
-  fn register_system_self_for_compute(&self, builder: &mut ShaderBindGroupBuilder) {
-    builder.bind_by(&self.texture);
-    builder.bind_by(&self.address);
-    builder.bind_by(&self.samplers);
+  fn register_system_self_for_compute(
+    &self,
+    builder: &mut ShaderBindGroupBuilder,
+    reg: &mut SemanticRegistry,
+  ) {
+    let pool = builder.bind_by(&self.texture);
+    reg.register_typed_both_stage::<TexturePoolInShader>(pool);
+    let address = builder.bind_by(&self.address);
+    reg
+      .any_map
+      .register(TexturePoolAddressInfoInShader(address));
+    let samplers = builder.bind_by(&self.samplers);
+    reg.any_map.register(SamplerPoolInShader(samplers));
   }
 
   /// todo, mipmap

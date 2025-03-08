@@ -23,7 +23,11 @@ use rendiation_webgpu_reactive_utils::BindingArrayMaintainer;
 pub trait AbstractIndirectGPUTextureSystem {
   fn bind_system_self(&self, collector: &mut BindingBuilder);
   fn register_system_self(&self, builder: &mut ShaderRenderPipelineBuilder);
-  fn register_system_self_for_compute(&self, builder: &mut ShaderBindGroupBuilder);
+  fn register_system_self_for_compute(
+    &self,
+    builder: &mut ShaderBindGroupBuilder,
+    reg: &mut SemanticRegistry,
+  );
   /// caller must ensure the texture and sample handle are valid
   fn sample_texture2d_indirect(
     &self,
@@ -43,7 +47,11 @@ pub trait AbstractGPUTextureSystem: Clone {
   fn bind_sampler(&self, collector: &mut BindingBuilder, handle: SamplerHandle);
 
   fn register_system_self(&self, builder: &mut ShaderRenderPipelineBuilder);
-  fn register_system_self_for_compute(&self, builder: &mut ShaderBindGroupBuilder);
+  fn register_system_self_for_compute(
+    &self,
+    builder: &mut ShaderBindGroupBuilder,
+    reg: &mut SemanticRegistry,
+  );
   fn register_shader_texture2d(
     &self,
     builder: &mut ShaderBindGroupBuilder,
@@ -96,8 +104,12 @@ impl<T: AbstractIndirectGPUTextureSystem + Clone> AbstractGPUTextureSystem for T
   fn register_system_self(&self, builder: &mut ShaderRenderPipelineBuilder) {
     self.register_system_self(builder)
   }
-  fn register_system_self_for_compute(&self, builder: &mut ShaderBindGroupBuilder) {
-    self.register_system_self_for_compute(builder)
+  fn register_system_self_for_compute(
+    &self,
+    builder: &mut ShaderBindGroupBuilder,
+    reg: &mut SemanticRegistry,
+  ) {
+    self.register_system_self_for_compute(builder, reg)
   }
 
   fn register_shader_texture2d(
@@ -140,7 +152,11 @@ pub trait DynAbstractGPUTextureSystem: Any + DynClone {
   fn bind_sampler(&self, collector: &mut BindingBuilder, handle: SamplerHandle);
 
   fn register_system_self(&self, builder: &mut ShaderRenderPipelineBuilder);
-  fn register_system_self_for_compute(&self, builder: &mut ShaderBindGroupBuilder);
+  fn register_system_self_for_compute(
+    &self,
+    builder: &mut ShaderBindGroupBuilder,
+    reg: &mut SemanticRegistry,
+  );
   fn register_shader_texture2d(
     &self,
     builder: &mut ShaderBindGroupBuilder,
@@ -191,8 +207,12 @@ impl<T: AbstractGPUTextureSystem + Any> DynAbstractGPUTextureSystem for T {
   fn register_system_self(&self, builder: &mut ShaderRenderPipelineBuilder) {
     self.register_system_self(builder)
   }
-  fn register_system_self_for_compute(&self, builder: &mut ShaderBindGroupBuilder) {
-    self.register_system_self_for_compute(builder)
+  fn register_system_self_for_compute(
+    &self,
+    builder: &mut ShaderBindGroupBuilder,
+    reg: &mut SemanticRegistry,
+  ) {
+    self.register_system_self_for_compute(builder, reg)
   }
 
   fn register_shader_texture2d(

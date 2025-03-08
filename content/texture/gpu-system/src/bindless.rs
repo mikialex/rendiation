@@ -93,9 +93,15 @@ impl AbstractIndirectGPUTextureSystem for BindlessTextureSystem {
         r.register_typed_both_stage::<BindlessSamplersInShader>(samplers);
       });
   }
-  fn register_system_self_for_compute(&self, builder: &mut ShaderBindGroupBuilder) {
-    builder.bind_by(&self.texture_binding_array);
-    builder.bind_by(&self.sampler_binding_array);
+  fn register_system_self_for_compute(
+    &self,
+    builder: &mut ShaderBindGroupBuilder,
+    reg: &mut SemanticRegistry,
+  ) {
+    let textures = builder.bind_by(&self.texture_binding_array);
+    reg.register_typed_both_stage::<BindlessTexturesInShader>(textures);
+    let samplers = builder.bind_by(&self.sampler_binding_array);
+    reg.register_typed_both_stage::<BindlessSamplersInShader>(samplers);
   }
 
   fn sample_texture2d_indirect(

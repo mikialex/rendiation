@@ -82,7 +82,12 @@ impl AbstractGPUTextureSystem for TraditionalPerDrawBindingSystem {
   }
 
   fn register_system_self(&self, _: &mut ShaderRenderPipelineBuilder) {}
-  fn register_system_self_for_compute(&self, _: &mut ShaderBindGroupBuilder) {}
+  fn register_system_self_for_compute(
+    &self,
+    _: &mut ShaderBindGroupBuilder,
+    _: &mut SemanticRegistry,
+  ) {
+  }
 
   fn sample_texture2d(
     &self,
