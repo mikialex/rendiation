@@ -1,7 +1,6 @@
 use crate::*;
 
 mod surface_bridge;
-use rendiation_shader_library::sampling::random_fn;
 pub use surface_bridge::*;
 
 mod ray_gen;
@@ -154,6 +153,7 @@ impl DeviceReferencePathTracingRenderer {
       .inject_ctx(PTRayClosestCtx {
         bindless_mesh: base.mesh.make_bindless_dispatcher(),
         surface: Box::new(base.material.clone()),
+        config: state.config.clone(),
       })
       .map(|_, ctx| {
         let pt_cx = ctx.expect_custom_cx::<PTClosestCtxInvocation>();
@@ -164,27 +164,36 @@ impl DeviceReferencePathTracingRenderer {
         let in_dir = closest_hit_ctx.world_ray().direction;
 
         struct UniformRangeSampler {
-          seed: ShaderPtrOf<Vec2<f32>>,
-          origin: Node<Vec2<f32>>,
+          state: ShaderPtrOf<u32>,
+          seed: Node<u32>,
         }
         impl UniformRangeSampler {
-          fn new(seed: Node<Vec2<f32>>) -> Self {
+          fn new(seed: Node<u32>) -> Self {
             Self {
-              seed: seed.make_local_var(),
-              origin: seed,
+              state: seed.make_local_var(),
+              seed,
             }
           }
         }
         impl rendiation_lighting_transport::DeviceSampler for UniformRangeSampler {
           fn reset(&self, _: Node<u32>) {
-            self.seed.store(self.origin);
+            self.state.store(self.seed);
           }
+          /// https://github.com/JMS55/bevy/blob/solari3/crates/bevy_pbr/src/solari/global_illumination/utils.wgsl#L8-L36
           fn next(&self) -> Node<f32> {
-            self.seed.store(self.seed.load() + val(Vec2::new(1., 0.)));
-            random_fn(self.seed.load())
+            self
+              .state
+              .store(self.state.load() * val(0x7477964_u32) + val(2891336453_u32));
+            let state = self.state.load();
+            let word =
+              ((state >> ((state >> val(28_u32)) + val(4_u32))) ^ state) * val(277803737_u32);
+            ((word >> val(22_u32)) ^ word).bitcast::<f32>() * val(0x2f800004_u32).bitcast::<f32>()
           }
         }
-        let sampler = &UniformRangeSampler::new(closest_hit_ctx.launch_id().xy().into_f32());
+        let seed = closest_hit_ctx.launch_id().xy();
+        let sampler = &UniformRangeSampler::new(
+          seed.x() * seed.y() + pt_cx.config.current_sample_count().load(),
+        );
 
         let RTSurfaceInteraction {
           sampling_dir,
@@ -281,6 +290,7 @@ impl PTConfig {
 struct PTRayClosestCtx {
   bindless_mesh: BindlessMeshDispatcher,
   surface: Box<dyn DevicePathTracingSurface>,
+  config: UniformBufferDataView<PTConfig>,
 }
 
 impl ShaderHashProvider for PTRayClosestCtx {
@@ -294,12 +304,14 @@ impl RayTracingCustomCtxProvider for PTRayClosestCtx {
     PTClosestCtxInvocation {
       bindless_mesh: self.bindless_mesh.build_bindless_mesh_rtx_access(cx),
       surface: self.surface.build(cx),
+      config: cx.bind_by(&self.config),
     }
   }
 
   fn bind(&self, builder: &mut BindingBuilder) {
     self.bindless_mesh.bind_bindless_mesh_rtx_access(builder);
     self.surface.bind(builder);
+    builder.bind(&self.config);
   }
 }
 
@@ -307,6 +319,7 @@ impl RayTracingCustomCtxProvider for PTRayClosestCtx {
 struct PTClosestCtxInvocation {
   bindless_mesh: BindlessMeshRtxAccessInvocation,
   surface: Box<dyn DevicePathTracingSurfaceInvocation>,
+  config: ShaderReadonlyPtrOf<PTConfig>,
 }
 
 #[repr(u32)]
