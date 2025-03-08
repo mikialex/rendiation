@@ -111,7 +111,7 @@ impl GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU<'_> {
       let mut alpha = storage.alpha;
       let mut base_color = storage.albedo;
 
-      let albedo = bind_and_sample(
+      let albedo = indirect_sample(
         self.binding_sys,
         builder.registry(),
         tex_storage.albedo_texture,
@@ -122,7 +122,7 @@ impl GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU<'_> {
       base_color *= albedo.xyz();
 
       let mut specular = storage.specular;
-      let specular_glossiness = bind_and_sample(
+      let specular_glossiness = indirect_sample(
         self.binding_sys,
         builder.registry(),
         tex_storage.specular_glossiness_texture,
@@ -134,7 +134,7 @@ impl GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU<'_> {
       let glossiness = storage.glossiness * specular_glossiness.w();
 
       let mut emissive = storage.emissive;
-      emissive *= bind_and_sample(
+      emissive *= indirect_sample(
         self.binding_sys,
         builder.registry(),
         tex_storage.emissive_texture,
@@ -143,7 +143,7 @@ impl GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU<'_> {
       )
       .xyz();
 
-      let (normal_sample, enabled) = bind_and_sample_enabled(
+      let (normal_sample, enabled) = indirect_sample_enabled(
         self.binding_sys,
         builder.registry(),
         tex_storage.normal_texture,

@@ -299,6 +299,7 @@ impl RayTracingCustomCtxProvider for PTRayClosestCtx {
 
   fn bind(&self, builder: &mut BindingBuilder) {
     self.bindless_mesh.bind_bindless_mesh_rtx_access(builder);
+    self.surface.bind(builder);
   }
 }
 

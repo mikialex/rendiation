@@ -34,7 +34,7 @@ impl SceneMaterialSurfaceSupport for PbrSGMaterialDefaultIndirectRenderImpl {
 
   fn bind(&self, cx: &mut BindingBuilder) {
     cx.bind(&self.storages);
-    cx.bind(&self.storages);
+    cx.bind(&self.tex_storages);
   }
 }
 
@@ -58,7 +58,7 @@ impl SceneMaterialSurfaceSupportInvocation for PbrSGMaterialRtxInvocation {
     let mut alpha = storage.alpha;
     let mut base_color = storage.albedo;
 
-    let albedo = bind_and_sample(
+    let albedo = indirect_sample(
       textures,
       reg,
       tex_storage.albedo_texture,
@@ -69,7 +69,7 @@ impl SceneMaterialSurfaceSupportInvocation for PbrSGMaterialRtxInvocation {
     base_color *= albedo.xyz();
 
     let mut specular = storage.specular;
-    let specular_glossiness = bind_and_sample(
+    let specular_glossiness = indirect_sample(
       textures,
       reg,
       tex_storage.specular_glossiness_texture,
@@ -81,7 +81,7 @@ impl SceneMaterialSurfaceSupportInvocation for PbrSGMaterialRtxInvocation {
     let glossiness = storage.glossiness * specular_glossiness.w();
 
     let mut emissive = storage.emissive;
-    emissive *= bind_and_sample(
+    emissive *= indirect_sample(
       textures,
       reg,
       tex_storage.emissive_texture,

@@ -19,24 +19,24 @@ pub struct TextureSamplerHandlePair {
   pub sampler_handle: u32,
 }
 
-pub fn bind_and_sample(
-  binding: &GPUTextureBindingSystem,
+pub fn indirect_sample(
+  system: &GPUTextureBindingSystem,
   reg: &SemanticRegistry,
   handles: Node<TextureSamplerHandlePair>,
   uv: Node<Vec2<f32>>,
   default_value: Node<Vec4<f32>>,
 ) -> Node<Vec4<f32>> {
-  let (r, has_texture) = bind_and_sample_enabled(binding, reg, handles, uv);
+  let (r, has_texture) = indirect_sample_enabled(system, reg, handles, uv);
   has_texture.select(r, default_value)
 }
 
-pub(super) fn bind_and_sample_enabled(
-  binding: &GPUTextureBindingSystem,
+pub(super) fn indirect_sample_enabled(
+  system: &GPUTextureBindingSystem,
   reg: &SemanticRegistry,
   handles: Node<TextureSamplerHandlePair>,
   uv: Node<Vec2<f32>>,
 ) -> (Node<Vec4<f32>>, Node<bool>) {
-  let binding = binding
+  let binding = system
     .as_indirect_system()
     .expect("indirect texture rendering requires indirect binding system");
 

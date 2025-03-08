@@ -117,7 +117,7 @@ impl GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialIndirectGPU<'_>
       let mut alpha = storage.alpha;
       let mut base_color = storage.base_color;
 
-      let base_color_alpha_tex = bind_and_sample(
+      let base_color_alpha_tex = indirect_sample(
         self.binding_sys,
         builder.registry(),
         tex_storage.base_color_alpha_texture,
@@ -130,7 +130,7 @@ impl GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialIndirectGPU<'_>
       let mut metallic = storage.metallic;
       let mut roughness = storage.roughness;
 
-      let metallic_roughness_tex = bind_and_sample(
+      let metallic_roughness_tex = indirect_sample(
         self.binding_sys,
         builder.registry(),
         tex_storage.metallic_roughness_texture,
@@ -142,7 +142,7 @@ impl GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialIndirectGPU<'_>
       roughness *= metallic_roughness_tex.y();
 
       let mut emissive = storage.emissive;
-      emissive *= bind_and_sample(
+      emissive *= indirect_sample(
         self.binding_sys,
         builder.registry(),
         tex_storage.emissive_texture,
@@ -151,7 +151,7 @@ impl GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialIndirectGPU<'_>
       )
       .xyz();
 
-      let (normal_sample, enabled) = bind_and_sample_enabled(
+      let (normal_sample, enabled) = indirect_sample_enabled(
         self.binding_sys,
         builder.registry(),
         tex_storage.normal_texture,

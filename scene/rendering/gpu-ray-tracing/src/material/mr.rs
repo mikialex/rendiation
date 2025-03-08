@@ -34,7 +34,7 @@ impl SceneMaterialSurfaceSupport for PbrMRMaterialDefaultIndirectRenderImpl {
 
   fn bind(&self, cx: &mut BindingBuilder) {
     cx.bind(&self.storages);
-    cx.bind(&self.storages);
+    cx.bind(&self.tex_storages);
   }
 }
 
@@ -58,7 +58,7 @@ impl SceneMaterialSurfaceSupportInvocation for PbrMRMaterialRtxInvocation {
     let mut alpha = storage.alpha;
     let mut base_color = storage.base_color;
 
-    let base_color_alpha_tex = bind_and_sample(
+    let base_color_alpha_tex = indirect_sample(
       textures,
       reg,
       tex_storage.base_color_alpha_texture,
@@ -71,7 +71,7 @@ impl SceneMaterialSurfaceSupportInvocation for PbrMRMaterialRtxInvocation {
     let mut metallic = storage.metallic;
     let mut roughness = storage.roughness;
 
-    let metallic_roughness_tex = bind_and_sample(
+    let metallic_roughness_tex = indirect_sample(
       textures,
       reg,
       tex_storage.metallic_roughness_texture,
@@ -83,7 +83,7 @@ impl SceneMaterialSurfaceSupportInvocation for PbrMRMaterialRtxInvocation {
     roughness *= metallic_roughness_tex.y();
 
     let mut emissive = storage.emissive;
-    emissive *= bind_and_sample(
+    emissive *= indirect_sample(
       textures,
       reg,
       tex_storage.emissive_texture,
