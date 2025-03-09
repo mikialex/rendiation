@@ -91,13 +91,15 @@ impl DeviceTaskGraphBuildSource {
     task_type as u32
   }
 
-  pub fn build(&self, cx: &mut DeviceParallelComputeCtx) -> DeviceTaskGraphExecutor {
+  pub fn build(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+    enable_buffer_combine: bool,
+  ) -> DeviceTaskGraphExecutor {
     let mut task_group_shared_info = Vec::new();
     for _ in 0..self.tasks.len() {
       task_group_shared_info.push((Default::default(), Default::default()));
     }
-
-    let enable_buffer_combine = false;
 
     let mut pre_builds = Vec::new();
     let mut task_group_sources = Vec::new();

@@ -96,6 +96,12 @@ cargo build --release --bin viewer
 samply record ./target/debug/viewer
 ```
 
+run given test when debugging
+
+```bash
+cargo t --package package_name test_name -- --nocapture
+```
+
 For GPU debugging and profiling, the metal gpu capture is recommended to investigate gpu workload on macos. On the other platform that using Nvidia graphics card, the Nsight is recommended. If the webgpu backend switched to Dx12, the Pixi debugger is another good choice.
 
 ## Coding style

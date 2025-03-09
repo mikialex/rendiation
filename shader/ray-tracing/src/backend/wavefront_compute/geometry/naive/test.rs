@@ -227,7 +227,7 @@ pub(crate) fn init_default_acceleration_structure(
 
 #[test]
 fn test_both_triangle() {
-  test_gpu_triangle();
+  test_gpu_triangle_naive();
   test_cpu_triangle();
 }
 
@@ -299,7 +299,7 @@ fn test_cpu_triangle() {
 }
 
 #[test]
-fn test_gpu_triangle() {
+fn test_gpu_triangle_naive() {
   const H: usize = 256;
   const W: usize = 256;
   const FAR: f32 = 100.;

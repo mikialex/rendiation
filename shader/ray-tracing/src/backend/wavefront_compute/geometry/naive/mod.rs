@@ -50,6 +50,7 @@ struct DeviceBVHNode {
   pub aabb_max: Vec3<f32>,
   pub miss_next: u32,
   pub content_range: Vec2<u32>,
+  pub tail: Vec2<u32>, // todo, we add this for running on metal, check wgpu metal backend impl
 }
 
 #[repr(C)]

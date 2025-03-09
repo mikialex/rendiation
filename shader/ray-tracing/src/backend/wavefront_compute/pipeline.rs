@@ -50,7 +50,13 @@ impl GPUWaveFrontComputeRaytracingExecutorInternal {
       let payload_read_back_bumper = trace_resource.payload_read_back_bumper.clone();
       let payload_bumper = trace_resource.payload_bumper.clone();
 
-      let mut exe = task_graph.build(cx);
+      let poor_support = cx
+        .gpu
+        .info
+        .supported_limits
+        .max_storage_buffers_per_shader_stage
+        <= 256;
+      let mut exe = task_graph.build(cx, poor_support);
 
       exe.set_task_before_execution_hook(TRACING_TASK_INDEX, move |cx, _| {
         payload_read_back_bumper.reset(cx);
