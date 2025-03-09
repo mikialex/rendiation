@@ -183,11 +183,14 @@ impl DeviceReferencePathTracingRenderer {
           fn next(&self) -> Node<f32> {
             self
               .state
-              .store(self.state.load() * val(0x7477964_u32) + val(2891336453_u32));
+              .store(self.state.load() * val(747796405_u32) + val(2891336453_u32));
             let state = self.state.load();
             let word =
               ((state >> ((state >> val(28_u32)) + val(4_u32))) ^ state) * val(277803737_u32);
-            ((word >> val(22_u32)) ^ word).bitcast::<f32>() * val(0x2f800004_u32).bitcast::<f32>()
+            let r = ((word >> val(22_u32)) ^ word).bitcast::<f32>()
+              * val(0x2f800004_u32).bitcast::<f32>();
+            // shader_assert(r.less_equal_than(val(1.0)));
+            r.fract().abs()
           }
         }
         let seed = closest_hit_ctx.launch_id().xy();

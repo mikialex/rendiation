@@ -138,6 +138,51 @@ impl ShaderMicroFacetNormalDistribution for ShaderGGX {
   }
 }
 
+pub struct ShaderBeckmann {
+  pub roughness: Node<f32>,
+}
+
+impl ShaderMicroFacetNormalDistribution for ShaderBeckmann {
+  fn d(&self, n: Node<Vec3<f32>>, h: Node<Vec3<f32>>) -> Node<f32> {
+    let cos_theta = n.dot(h).max(EPSILON_SHADING);
+    let nh2 = cos_theta * cos_theta;
+    let m2 = self.roughness * self.roughness;
+    ((nh2 - val(1.0)) / (m2 * nh2)).exp() / (m2 * val(f32::PI()) * nh2 * nh2)
+  }
+
+  fn sample_micro_surface_normal(
+    &self,
+    normal: Node<Vec3<f32>>,
+    sampler: &dyn DeviceSampler,
+  ) -> Node<Vec3<f32>> {
+    // PIT for Beckmann distribution microfacet normal
+    // θ = arctan √(-m^2 ln U)
+    let m2 = self.roughness * self.roughness;
+    let theta = (m2 * -sampler.next().ln()).sqrt().atan();
+
+    let sin_t = theta.sin();
+    let cos_t = theta.cos();
+    // Generate halfway vector by sampling azimuth uniformly
+    let sample = concentric_sample_disk_device_fn(sampler.next_2d());
+    let x = sample.x();
+    let y = sample.y();
+    let h = (x * sin_t, y * sin_t, cos_t).into();
+    tbn_fn(normal) * h
+  }
+
+  fn surface_normal_pdf(
+    &self,
+    normal: Node<Vec3<f32>>,
+    sampled_normal: Node<Vec3<f32>>,
+  ) -> Node<f32> {
+    // p = 1 / (πm^2 cos^3 θ) * e^(-tan^2(θ) / m^2)
+    let m2 = self.roughness * self.roughness;
+    let cos_t = sampled_normal.dot(normal).abs();
+    let sin_t = (val(1.0) - cos_t * cos_t).sqrt();
+    (-(sin_t / cos_t).pow(2.) / m2).exp() / (val(f32::PI()) * m2 * cos_t.pow(3.))
+  }
+}
+
 /// https://de45xmedrsdbp.cloudfront.net/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
 #[derive(Clone)]
 pub struct ShaderSchlick;

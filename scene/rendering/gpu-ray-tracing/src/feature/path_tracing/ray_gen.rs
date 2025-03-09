@@ -187,8 +187,17 @@ impl ShaderFutureInvocation for PTRayGenShaderFutureInvocation {
         .load_storage_texture_texel(image_position)
         .xyz();
 
+      let sample_result = radiance.load();
+
+      let is_nan = sample_result
+        .x()
+        .is_nan()
+        .or(sample_result.y().is_nan())
+        .or(sample_result.z().is_nan());
+      let sample_result = is_nan.select(average_radiance, sample_result);
+
       let updated_average =
-        (average_radiance * sample_count + radiance.load()) / (sample_count + val(1.)).splat();
+        (average_radiance * sample_count + sample_result) / (sample_count + val(1.)).splat();
 
       radiance_buffer.write_texel(image_position, (updated_average, val(1.)).into());
     });

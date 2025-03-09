@@ -119,6 +119,11 @@ pub fn make_builtin_call_with_ty_helper<T: ShaderNodeType>(
   }
   .insert_api()
 }
+impl Node<f32> {
+  pub fn is_nan(&self) -> Node<bool> {
+    make_builtin_call(ShaderBuiltInFunction::IsNan, [self.handle()])
+  }
+}
 
 impl<T> Node<T>
 where
@@ -201,8 +206,8 @@ where
   pub fn exp2(self) -> Self {
     make_builtin_call(ShaderBuiltInFunction::Exp2, [self.handle()])
   }
-  /// e based, ln(self)
-  pub fn log(self) -> Self {
+  /// e based
+  pub fn ln(self) -> Self {
     make_builtin_call(ShaderBuiltInFunction::Log, [self.handle()])
   }
   /// 2 based, log(2, self)
