@@ -26,6 +26,7 @@ pub fn load_default_scene(writer: &mut SceneWriter, _viewer_scene: &Viewer3dScen
     let material = PhysicalMetallicRoughnessMaterialDataView {
       base_color: Vec3::splat(1.),
       base_color_texture: Some(texture),
+      roughness: 0.1,
       ..Default::default()
     }
     .write(&mut writer.pbr_mr_mat_writer);

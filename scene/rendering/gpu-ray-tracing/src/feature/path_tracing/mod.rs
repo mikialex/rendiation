@@ -163,40 +163,13 @@ impl DeviceReferencePathTracingRenderer {
         let sm_id = closest_hit_ctx.instance_custom_id();
         let in_dir = closest_hit_ctx.world_ray().direction;
 
-        struct UniformRangeSampler {
-          state: ShaderPtrOf<u32>,
-          seed: Node<u32>,
-        }
-        impl UniformRangeSampler {
-          fn new(seed: Node<u32>) -> Self {
-            Self {
-              state: seed.make_local_var(),
-              seed,
-            }
-          }
-        }
-        impl rendiation_lighting_transport::DeviceSampler for UniformRangeSampler {
-          fn reset(&self, _: Node<u32>) {
-            self.state.store(self.seed);
-          }
-          /// https://github.com/JMS55/bevy/blob/solari3/crates/bevy_pbr/src/solari/global_illumination/utils.wgsl#L8-L36
-          fn next(&self) -> Node<f32> {
-            self
-              .state
-              .store(self.state.load() * val(747796405_u32) + val(2891336453_u32));
-            let state = self.state.load();
-            let word =
-              ((state >> ((state >> val(28_u32)) + val(4_u32))) ^ state) * val(277803737_u32);
-            let r = ((word >> val(22_u32)) ^ word).bitcast::<f32>()
-              * val(0x2f800004_u32).bitcast::<f32>();
-            // shader_assert(r.less_equal_than(val(1.0)));
-            r.fract().abs()
-          }
-        }
         let seed = closest_hit_ctx.launch_id().xy();
-        let sampler = &UniformRangeSampler::new(
-          seed.x() * seed.y() + pt_cx.config.current_sample_count().load(),
-        );
+        // let sampler = &UniformRangeSampler::new(
+        //   seed.x() * seed.y() + pt_cx.config.current_sample_count().load(),
+        // );
+        let sampler = &TestSampler {
+          sample_count: pt_cx.config.current_sample_count().load(),
+        };
 
         let RTSurfaceInteraction {
           sampling_dir,
@@ -207,6 +180,7 @@ impl DeviceReferencePathTracingRenderer {
           .importance_sampling_brdf(sm_id, in_dir, normal, uv, sampler);
 
         let out_ray_origin = closest_hit_ctx.hit_world_position();
+        // let out_ray_origin = offset_ray_hit_fn(out_ray_origin, normal);
 
         let payload = ctx.expect_payload::<CorePathPayload>();
         payload.next_ray_origin().store(out_ray_origin);
@@ -223,7 +197,7 @@ impl DeviceReferencePathTracingRenderer {
       .map(|_, cx| {
         cx.payload::<CorePathPayload>().unwrap().store(
           ENode::<CorePathPayload> {
-            sampled_radiance: val(Vec3::splat(1.)), // for testing return 10, use real env later
+            sampled_radiance: val(Vec3::splat(0.7)), // for testing, use real env later
             next_ray_origin: zeroed_val(),
             next_ray_dir: zeroed_val(),
             pdf: zeroed_val(),

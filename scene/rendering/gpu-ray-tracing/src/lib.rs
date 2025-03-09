@@ -30,6 +30,9 @@ pub use feature::*;
 mod bindless_mesh_bridge;
 pub use bindless_mesh_bridge::*;
 
+mod sampler;
+pub use sampler::*;
+
 mod sbt_util;
 pub use sbt_util::*;
 

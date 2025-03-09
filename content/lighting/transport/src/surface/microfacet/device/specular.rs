@@ -9,18 +9,13 @@ pub struct ShaderSpecular<D, G, F> {
   pub fresnel_model: F,
 }
 
-impl<D, G, F> ShaderSpecular<D, G, F>
+impl<D, G, F> ShaderLightTransportSurface for ShaderSpecular<D, G, F>
 where
   D: ShaderMicroFacetNormalDistribution,
   G: ShaderMicroFacetGeometricShadow,
   F: ShaderMicroFacetFresnel,
 {
-  pub fn specular_estimate(&self) -> Node<f32> {
-    let f0 = self.f0.x().max(self.f0.y()).max(self.f0.z());
-    f0.mix(0.2, 1.0)
-  }
-
-  pub fn bsdf(
+  fn bsdf(
     &self,
     view_dir: Node<Vec3<f32>>,
     light_dir: Node<Vec3<f32>>,
@@ -43,7 +38,7 @@ where
     (d * g * f) / (val(4.0) * n_dot_l * n_dot_v).splat()
   }
 
-  pub fn sample_light_dir_use_bsdf_importance_impl(
+  fn sample_light_dir_use_bsdf_importance_impl(
     &self,
     view_dir: Node<Vec3<f32>>,
     normal: Node<Vec3<f32>>,
@@ -55,7 +50,7 @@ where
     micro_surface_normal.reflect(-view_dir)
   }
 
-  pub fn pdf(
+  fn pdf(
     &self,
     view_dir: Node<Vec3<f32>>,
     light_dir: Node<Vec3<f32>>,
@@ -66,6 +61,13 @@ where
       .normal_distribution_model
       .surface_normal_pdf(normal, micro_surface_normal);
     normal_pdf / (val(4.0) * micro_surface_normal.dot(view_dir).abs())
+  }
+}
+
+impl<D, G, F> ShaderSpecular<D, G, F> {
+  pub fn specular_estimate(&self) -> Node<f32> {
+    let f0 = self.f0.x().max(self.f0.y()).max(self.f0.z());
+    f0.mix(0.2, 1.0)
   }
 }
 
