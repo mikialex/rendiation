@@ -261,8 +261,8 @@ impl SceneRayTracingAORenderer {
         let ao_cx = ctx.expect_custom_cx::<RayTracingAORayClosestCtxInvocation>();
         let closest_hit_ctx = ctx.expect_closest_hit_ctx();
 
-        let normal = ao_cx.bindless_mesh.get_world_normal(closest_hit_ctx);
-        let hit_normal_tbn = tbn_fn(normal);
+        let (shading_normal, _) = ao_cx.bindless_mesh.get_world_normal(closest_hit_ctx);
+        let hit_normal_tbn = tbn_fn(shading_normal);
 
         let origin = closest_hit_ctx.hit_world_position();
 

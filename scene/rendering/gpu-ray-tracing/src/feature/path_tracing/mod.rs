@@ -159,7 +159,8 @@ impl DeviceReferencePathTracingRenderer {
         let pt_cx = ctx.expect_custom_cx::<PTClosestCtxInvocation>();
         let closest_hit_ctx = ctx.expect_closest_hit_ctx();
 
-        let (normal, uv) = pt_cx.bindless_mesh.get_world_normal_and_uv(closest_hit_ctx);
+        let (shading_normal, geometry_normal, uv) =
+          pt_cx.bindless_mesh.get_world_normal_and_uv(closest_hit_ctx);
         let sm_id = closest_hit_ctx.instance_custom_id();
         let in_dir = closest_hit_ctx.world_ray().direction;
 
@@ -177,15 +178,15 @@ impl DeviceReferencePathTracingRenderer {
           pdf,
         } = pt_cx
           .surface
-          .importance_sampling_brdf(sm_id, in_dir, normal, uv, sampler);
+          .importance_sampling_brdf(sm_id, in_dir, shading_normal, uv, sampler);
 
         let out_ray_origin = closest_hit_ctx.hit_world_position();
-        // let out_ray_origin = offset_ray_hit_fn(out_ray_origin, normal);
+        let out_ray_origin = offset_ray_hit_fn(out_ray_origin, -geometry_normal);
 
         let payload = ctx.expect_payload::<CorePathPayload>();
         payload.next_ray_origin().store(out_ray_origin);
         payload.next_ray_dir().store(sampling_dir);
-        payload.normal().store(normal);
+        payload.normal().store(shading_normal);
         payload.brdf().store(brdf);
         payload.pdf().store(pdf);
         payload.missed().store(val(false).into_big_bool());
@@ -195,9 +196,17 @@ impl DeviceReferencePathTracingRenderer {
     let miss = trace_base_builder
       .create_miss_hit_shader_base::<CorePathPayload>()
       .map(|_, cx| {
+        let miss_cx = cx.expect_miss_hit_ctx();
+        let radiance = miss_cx
+          .world_ray()
+          .direction
+          .y()
+          .greater_than(0.)
+          .select(Vec3::splat(0.7), Vec3::splat(0.3));
+
         cx.payload::<CorePathPayload>().unwrap().store(
           ENode::<CorePathPayload> {
-            sampled_radiance: val(Vec3::splat(0.7)), // for testing, use real env later
+            sampled_radiance: radiance, // for testing, use real env later
             next_ray_origin: zeroed_val(),
             next_ray_dir: zeroed_val(),
             pdf: zeroed_val(),

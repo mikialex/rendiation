@@ -58,7 +58,11 @@ impl BindlessMeshRtxAccessInvocation {
     tri_a_uv * barycentric.x() + tri_b_uv * barycentric.y() + tri_c_uv * barycentric.z()
   }
 
-  pub fn get_world_normal(&self, closest_hit_ctx: &dyn ClosestHitCtxProvider) -> Node<Vec3<f32>> {
+  /// return (shading, geom)
+  pub fn get_world_normal(
+    &self,
+    closest_hit_ctx: &dyn ClosestHitCtxProvider,
+  ) -> (Node<Vec3<f32>>, Node<Vec3<f32>>) {
     self.get_world_normal_impl(closest_hit_ctx, self.get_data_accessor(closest_hit_ctx))
   }
 
@@ -66,7 +70,7 @@ impl BindlessMeshRtxAccessInvocation {
     &self,
     closest_hit_ctx: &dyn ClosestHitCtxProvider,
     (tri_idx_s, barycentric, mesh_id): (Node<Vec3<u32>>, Node<Vec3<f32>>, Node<u32>),
-  ) -> Node<Vec3<f32>> {
+  ) -> (Node<Vec3<f32>>, Node<Vec3<f32>>) {
     let tri_a_normal = self.base.get_normal(mesh_id, tri_idx_s.x());
     let tri_b_normal = self.base.get_normal(mesh_id, tri_idx_s.y());
     let tri_c_normal = self.base.get_normal(mesh_id, tri_idx_s.z());
@@ -76,17 +80,40 @@ impl BindlessMeshRtxAccessInvocation {
       + tri_b_normal * barycentric.y()
       + tri_c_normal * barycentric.z();
     // Transforming the normal to world space
-    (closest_hit_ctx.world_to_object().shrink_to_3().transpose() * normal).normalize()
+    let shading_normal =
+      (closest_hit_ctx.world_to_object().shrink_to_3().transpose() * normal).normalize();
+
+    let p_a = self.base.get_position(mesh_id, tri_idx_s.x());
+    let p_b = self.base.get_position(mesh_id, tri_idx_s.y());
+    let p_c = self.base.get_position(mesh_id, tri_idx_s.z());
+
+    let geom_normal = (p_a - p_b).cross(p_a - p_c).normalize();
+
+    // make sure the normal is towards the incoming ray
+    let hit_to_origin = closest_hit_ctx.world_ray().origin - closest_hit_ctx.hit_world_position();
+    let geom_normal = hit_to_origin
+      .dot(geom_normal)
+      .less_than(0.)
+      .select(-geom_normal, geom_normal);
+
+    // if the shading normal direction is different from the geometry normal, reverse the shading normal
+    let shading_normal = geom_normal
+      .dot(shading_normal)
+      .less_than(0.)
+      .select(-shading_normal, shading_normal);
+
+    (shading_normal, geom_normal)
   }
 
+  /// return (shading, geom, uv)
   pub fn get_world_normal_and_uv(
     &self,
     closest_hit_ctx: &dyn ClosestHitCtxProvider,
-  ) -> (Node<Vec3<f32>>, Node<Vec2<f32>>) {
+  ) -> (Node<Vec3<f32>>, Node<Vec3<f32>>, Node<Vec2<f32>>) {
     let acc = self.get_data_accessor(closest_hit_ctx);
     let uv = self.get_uv_impl(acc);
-    let normal = self.get_world_normal_impl(closest_hit_ctx, acc);
-    (normal, uv)
+    let (s, g) = self.get_world_normal_impl(closest_hit_ctx, acc);
+    (s, g, uv)
   }
 }
 
