@@ -97,7 +97,7 @@ impl TextureGPUSystemSource {
           })
           .into_boxed();
 
-        let size = Size::from_u32_pair_min_one((2048, 2048));
+        let size = Size::from_u32_pair_min_one((4096, 4096));
 
         let texture_system = TexturePoolSource::new(
           cx,

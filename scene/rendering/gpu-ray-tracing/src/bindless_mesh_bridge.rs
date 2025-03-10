@@ -75,19 +75,19 @@ impl BindlessMeshRtxAccessInvocation {
     let tri_b_normal = self.base.get_normal(mesh_id, tri_idx_s.y());
     let tri_c_normal = self.base.get_normal(mesh_id, tri_idx_s.z());
 
+    let normal_mat = closest_hit_ctx.world_to_object().shrink_to_3().transpose();
+
     // Computing the normal at hit position
     let normal = tri_a_normal * barycentric.x()
       + tri_b_normal * barycentric.y()
       + tri_c_normal * barycentric.z();
-    // Transforming the normal to world space
-    let shading_normal =
-      (closest_hit_ctx.world_to_object().shrink_to_3().transpose() * normal).normalize();
+    let shading_normal = (normal_mat * normal).normalize();
 
     let p_a = self.base.get_position(mesh_id, tri_idx_s.x());
     let p_b = self.base.get_position(mesh_id, tri_idx_s.y());
     let p_c = self.base.get_position(mesh_id, tri_idx_s.z());
 
-    let geom_normal = (p_a - p_b).cross(p_a - p_c).normalize();
+    let geom_normal = (normal_mat * (p_a - p_b).cross(p_a - p_c)).normalize();
 
     // make sure the normal is towards the incoming ray
     let hit_to_origin = closest_hit_ctx.world_ray().origin - closest_hit_ctx.hit_world_position();
