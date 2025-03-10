@@ -135,7 +135,10 @@ impl ShaderMicroFacetNormalDistribution for ShaderGGX {
     sampled_normal: Node<Vec3<f32>>,
   ) -> Node<f32> {
     let cos = normal.dot(sampled_normal);
-    cos * self.d(normal, sampled_normal)
+    let r = cos * self.d(normal, sampled_normal);
+    // todo, fixme, shouldn't be nan, but remove this cause miss compile on nvidia gpu
+    shader_assert(r.is_nan().not());
+    r
   }
 }
 

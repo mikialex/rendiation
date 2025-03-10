@@ -181,7 +181,7 @@ impl DeviceReferencePathTracingRenderer {
           .importance_sampling_brdf(sm_id, in_dir, shading_normal, uv, sampler);
 
         let out_ray_origin = closest_hit_ctx.hit_world_position();
-        let out_ray_origin = offset_ray_hit_fn(out_ray_origin, -geometry_normal);
+        let out_ray_origin = offset_ray_hit_fn(out_ray_origin, geometry_normal);
 
         let payload = ctx.expect_payload::<CorePathPayload>();
         payload.next_ray_origin().store(out_ray_origin);
