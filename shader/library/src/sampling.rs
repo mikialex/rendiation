@@ -74,7 +74,7 @@ pub fn tbn(normal: Node<Vec3<f32>>) -> Node<Mat3<f32>> {
   let a = val(-1.) / (sign + normal.z());
   let b = normal.x() * normal.y() * a;
   let tangent = vec3_node((
-    val(1.) + sign * normal.x() * normal.y() * a,
+    val(1.) + sign * normal.x() * normal.x() * a,
     sign * b,
     -sign * normal.x(),
   ));

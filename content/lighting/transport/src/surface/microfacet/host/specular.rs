@@ -221,8 +221,7 @@ impl MicroFacetNormalDistribution for GGX {
     sampled_normal: NormalizedVec3<f32>,
   ) -> f32 {
     let cos = normal.dot(sampled_normal);
-    let sin = (1.0 - cos * cos).sqrt();
-    sin * cos * self.d(normal, sampled_normal)
+    cos * self.d(normal, sampled_normal)
   }
 }
 

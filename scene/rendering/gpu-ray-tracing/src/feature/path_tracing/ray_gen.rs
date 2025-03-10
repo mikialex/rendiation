@@ -140,6 +140,7 @@ impl ShaderFutureInvocation for PTRayGenShaderFutureInvocation {
         ray_dir.store(next_ray_dir);
 
         let cos = next_ray_dir.dot(normal);
+        let pdf = pdf.max(0.0001);
         let throughput = throughput * cos * brdf / pdf.splat();
         self.current_throughput.abstract_store(throughput);
 
@@ -189,12 +190,13 @@ impl ShaderFutureInvocation for PTRayGenShaderFutureInvocation {
 
       let sample_result = radiance.load();
 
-      let is_nan = sample_result
-        .x()
-        .is_nan()
-        .or(sample_result.y().is_nan())
-        .or(sample_result.z().is_nan());
-      let sample_result = is_nan.select(average_radiance, sample_result);
+      // we not enable this is to see if anything cause nan besides for 0 pdf
+      // let is_nan = sample_result
+      //   .x()
+      //   .is_nan()
+      //   .or(sample_result.y().is_nan())
+      //   .or(sample_result.z().is_nan());
+      // let sample_result = is_nan.select(average_radiance, sample_result);
 
       let updated_average =
         (average_radiance * sample_count + sample_result) / (sample_count + val(1.)).splat();

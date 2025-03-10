@@ -144,7 +144,7 @@ impl DevicePathTracingSurfaceInvocation for SceneSurfaceSupportInvocation {
     let roughness = surface.linear_roughness;
     let specular = ShaderSpecular {
       f0: surface.f0,
-      normal_distribution_model: ShaderBeckmann { roughness }, // todo, fix ggx version
+      normal_distribution_model: ShaderGGX { roughness },
       geometric_shadow_model: ShaderSmithGGXCorrelatedGeometryShadow { roughness },
       fresnel_model: ShaderSchlick,
     };
