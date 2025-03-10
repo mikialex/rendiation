@@ -144,7 +144,7 @@ impl DevicePathTracingSurfaceInvocation for SceneSurfaceSupportInvocation {
     let roughness = surface.linear_roughness;
     let specular = ShaderSpecular {
       f0: surface.f0,
-      normal_distribution_model: ShaderBeckmann { roughness },
+      normal_distribution_model: ShaderBeckmann { roughness }, // todo, fix ggx version
       geometric_shadow_model: ShaderSmithGGXCorrelatedGeometryShadow { roughness },
       fresnel_model: ShaderSchlick,
     };
@@ -155,10 +155,14 @@ impl DevicePathTracingSurfaceInvocation for SceneSurfaceSupportInvocation {
       },
       specular,
     };
+    // let surface = specular;
+    // let surface = ShaderLambertian {
+    //   albedo: surface.albedo,
+    // };
 
     let view_dir = -incident_dir;
 
-    let ShaderBRDFImportantSampled {
+    let ShaderBRDFImportanceSampled {
       sample: light_dir,
       pdf,
       importance: brdf,

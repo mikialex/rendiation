@@ -62,7 +62,7 @@ pub struct ShaderImportanceSampled<T, U> {
   pub importance: U,
 }
 
-pub type ShaderBRDFImportantSampled = ShaderImportanceSampled<Node<Vec3<f32>>, Node<Vec3<f32>>>;
+pub type ShaderBRDFImportanceSampled = ShaderImportanceSampled<Node<Vec3<f32>>, Node<Vec3<f32>>>;
 
 /// https://www.pbr-book.org/3ed-2018/Sampling_and_Reconstruction/Sampling_Interface#fragment-SamplerInterface-2
 ///
@@ -113,7 +113,7 @@ pub trait ShaderLightTransportSurface {
     view_dir: Node<Vec3<f32>>,
     normal: Node<Vec3<f32>>,
     sampler: &dyn DeviceSampler,
-  ) -> ShaderBRDFImportantSampled {
+  ) -> ShaderBRDFImportanceSampled {
     let light_dir = self.sample_light_dir_use_bsdf_importance_impl(view_dir, normal, sampler);
     ShaderImportanceSampled {
       sample: light_dir,

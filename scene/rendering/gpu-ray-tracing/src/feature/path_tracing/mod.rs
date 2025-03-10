@@ -164,13 +164,13 @@ impl DeviceReferencePathTracingRenderer {
         let sm_id = closest_hit_ctx.instance_custom_id();
         let in_dir = closest_hit_ctx.world_ray().direction;
 
-        // let seed = closest_hit_ctx.launch_id().xy();
-        // let sampler = &UniformRangeSampler::new(
-        //   seed.x() * seed.y() + pt_cx.config.current_sample_count().load(),
-        // );
-        let sampler = &TestSampler {
-          sample_count: pt_cx.config.current_sample_count().load(),
-        };
+        let seed = closest_hit_ctx.launch_id().xy();
+        let seed = (
+          seed.x(),
+          seed.y(),
+          pt_cx.config.current_sample_count().load(),
+        );
+        let sampler = &PCGRandomSampler::new(xxhash32(seed.into()));
 
         let RTSurfaceInteraction {
           sampling_dir,
