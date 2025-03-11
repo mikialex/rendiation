@@ -45,7 +45,7 @@ pub struct LightSystem {
   spot_light_shadow: BasicShadowMapSystem,
   enable_channel_debugger: bool,
   channel_debugger: ScreenChannelDebugger,
-  tonemap: ToneMap,
+  pub tonemap: ToneMap,
 }
 
 impl LightSystem {

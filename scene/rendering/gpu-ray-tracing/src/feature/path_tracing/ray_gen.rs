@@ -1,4 +1,5 @@
 use anymap::AnyMap;
+use rendiation_texture_gpu_process::ToneMapInvocation;
 
 use super::*;
 
@@ -95,7 +96,8 @@ impl ShaderFutureInvocation for PTRayGenShaderFutureInvocation {
     let image_position = rg_cx.launch_id().xy();
     let image_size = rg_cx.launch_size().xy();
     let cx = rt_ctx.expect_custom_cx::<PTRayGenCtxInvocation>();
-    let radiance_buffer = cx.radiance_buffer;
+    let result_buffer = cx.result_buffer;
+    let tonemap = cx.tonemap.clone();
     let sample_count = cx.config.current_sample_count().load().into_f32();
 
     if_by(r.is_resolved(), || {
@@ -184,11 +186,12 @@ impl ShaderFutureInvocation for PTRayGenShaderFutureInvocation {
 
     let final_resolved = require_more_tracing.not();
     if_by(final_resolved, || {
-      let average_radiance = radiance_buffer
+      let averaged_result = result_buffer
         .load_storage_texture_texel(image_position)
         .xyz();
 
-      let sample_result = radiance.load();
+      let sample_radiance = radiance.load();
+      let ldr_result = tonemap.compute_ldr(sample_radiance);
 
       // we not enable this is to see if anything cause nan besides for 0 pdf
       // let is_nan = sample_result
@@ -196,12 +199,12 @@ impl ShaderFutureInvocation for PTRayGenShaderFutureInvocation {
       //   .is_nan()
       //   .or(sample_result.y().is_nan())
       //   .or(sample_result.z().is_nan());
-      // let sample_result = is_nan.select(average_radiance, sample_result);
+      // let sample_result = is_nan.select(averaged_result, ldr_result);
 
       let updated_average =
-        (average_radiance * sample_count + sample_result) / (sample_count + val(1.)).splat();
+        (averaged_result * sample_count + ldr_result) / (sample_count + val(1.)).splat();
 
-      radiance_buffer.write_texel(image_position, (updated_average, val(1.)).into());
+      result_buffer.write_texel(image_position, (updated_average, val(1.)).into());
     });
 
     r.resolved.store(final_resolved);
@@ -212,13 +215,15 @@ impl ShaderFutureInvocation for PTRayGenShaderFutureInvocation {
 #[derive(Clone)]
 pub struct PTRayGenCtx {
   pub camera: Box<dyn RtxCameraRenderComponent>,
-  pub radiance_buffer: StorageTextureViewReadWrite<GPU2DTextureView>,
+  pub result_buffer: StorageTextureViewReadWrite<GPU2DTextureView>,
   pub config: UniformBufferDataView<PTConfig>,
+  pub tonemap: ToneMap,
 }
 impl ShaderHashProvider for PTRayGenCtx {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.camera.hash_pipeline(hasher);
+    self.tonemap.hash_pipeline(hasher);
   }
 }
 impl RayTracingCustomCtxProvider for PTRayGenCtx {
@@ -227,21 +232,24 @@ impl RayTracingCustomCtxProvider for PTRayGenCtx {
   fn build_invocation(&self, cx: &mut ShaderBindGroupBuilder) -> Self::Invocation {
     PTRayGenCtxInvocation {
       camera: self.camera.build_invocation(cx),
-      radiance_buffer: cx.bind_by(&self.radiance_buffer),
+      result_buffer: cx.bind_by(&self.result_buffer),
       config: cx.bind_by(&self.config),
+      tonemap: self.tonemap.build(cx),
     }
   }
 
   fn bind(&self, builder: &mut BindingBuilder) {
     self.camera.bind(builder);
-    builder.bind(&self.radiance_buffer);
+    builder.bind(&self.result_buffer);
     builder.bind(&self.config);
+    self.tonemap.bind(builder);
   }
 }
 
 #[derive(Clone)]
 pub struct PTRayGenCtxInvocation {
   camera: Box<dyn RtxCameraRenderInvocation>,
-  radiance_buffer: BindingNode<ShaderStorageTextureRW2D>,
+  result_buffer: BindingNode<ShaderStorageTextureRW2D>,
   config: ShaderReadonlyPtrOf<PTConfig>,
+  tonemap: ToneMapInvocation,
 }

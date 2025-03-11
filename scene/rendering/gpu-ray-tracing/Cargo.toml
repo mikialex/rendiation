@@ -30,6 +30,7 @@ rendiation-shader-library = { path = "../../../shader/library" }
 rendiation-texture-core = { path = "../../../content/texture/core" }
 rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
 rendiation-webgpu-reactive-utils = { path = "../../../platform/graphics/webgpu-reactive-utils" }
+rendiation-texture-gpu-process = { path = "../../../content/texture/gpu-process" }
 tracing = { workspace = true }
 
 [lints]

@@ -15,7 +15,7 @@ impl PTRenderState {
         gpu,
         size,
         basic_texture_usages(),
-        TextureFormat::Rgba32Float,
+        TextureFormat::Rgba8Unorm,
       ),
       sample_count_host: Default::default(),
       config: create_uniform(PTConfig::new(max_path_depth), gpu),

@@ -1,3 +1,5 @@
+use rendiation_texture_gpu_process::ToneMap;
+
 use crate::*;
 
 mod surface_bridge;
@@ -106,6 +108,7 @@ impl DeviceReferencePathTracingRenderer {
     base: &mut SceneRayTracingRendererBase,
     scene: EntityHandle<SceneEntity>,
     camera: EntityHandle<SceneCameraEntity>,
+    tonemap: &ToneMap,
   ) -> GPU2DTextureView {
     let scene_tlas = base.scene_tlas.access(&scene).unwrap().clone();
     // bind tlas, see ShaderRayTraceCall::tlas_idx.
@@ -142,8 +145,9 @@ impl DeviceReferencePathTracingRenderer {
       &trace_base_builder,
       PTRayGenCtx {
         camera,
-        radiance_buffer,
+        result_buffer: radiance_buffer,
         config: state.config.clone(),
+        tonemap: tonemap.clone(),
       },
       MAX_RAY_DEPTH as usize,
     );

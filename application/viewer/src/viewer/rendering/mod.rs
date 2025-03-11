@@ -443,6 +443,7 @@ impl Viewer3dRenderingCtx {
               &mut rtx_renderer.base,
               content.scene,
               content.main_camera,
+              &self.lighting.tonemap,
             );
             pass("copy pt result into final target")
               .with_color(target, load())

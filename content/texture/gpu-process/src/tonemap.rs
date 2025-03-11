@@ -1,5 +1,6 @@
 use crate::*;
 
+#[derive(Clone)]
 pub struct ToneMap {
   pub ty: ToneMapType,
   exposure: UniformBufferCachedDataView<f32>,
@@ -46,26 +47,49 @@ impl ShaderHashProvider for ToneMap {
   }
   shader_hash_type_id! {}
 }
+
+#[derive(Clone)]
+pub struct ToneMapInvocation {
+  exposure: ShaderReadonlyPtrOf<f32>,
+  ty: ToneMapType,
+}
+
+impl ToneMapInvocation {
+  pub fn compute_ldr(&self, hdr: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
+    let exposure = self.exposure.load();
+    match self.ty {
+      ToneMapType::None => hdr,
+      ToneMapType::Linear => linear_tone_mapping(hdr, exposure),
+      ToneMapType::Reinhard => reinhard_tone_mapping(hdr, exposure),
+      ToneMapType::Cineon => optimized_cineon_tone_mapping(hdr, exposure),
+      ToneMapType::ACESFilmic => aces_filmic_tone_mapping(hdr, exposure),
+    }
+  }
+}
+
+impl ToneMap {
+  pub fn build(&self, builder: &mut ShaderBindGroupBuilder) -> ToneMapInvocation {
+    ToneMapInvocation {
+      exposure: builder.bind_by(&self.exposure),
+      ty: self.ty,
+    }
+  }
+  pub fn bind(&self, builder: &mut BindingBuilder) {
+    builder.bind(&self.exposure);
+  }
+}
+
 impl ShaderPassBuilder for ToneMap {
   fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.exposure);
+    self.bind(&mut ctx.binding);
   }
 }
 impl GraphicsShaderProvider for ToneMap {
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
-      let exposure = binding.bind_by(&self.exposure).load();
+      let tonemap = self.build(binding);
       let hdr = builder.query::<HDRLightResult>();
-
-      let mapped = match self.ty {
-        ToneMapType::None => hdr,
-        ToneMapType::Linear => linear_tone_mapping(hdr, exposure),
-        ToneMapType::Reinhard => reinhard_tone_mapping(hdr, exposure),
-        ToneMapType::Cineon => optimized_cineon_tone_mapping(hdr, exposure),
-        ToneMapType::ACESFilmic => aces_filmic_tone_mapping(hdr, exposure),
-      };
-
-      builder.register::<LDRLightResult>(mapped);
+      builder.register::<LDRLightResult>(tonemap.compute_ldr(hdr));
     })
   }
 }

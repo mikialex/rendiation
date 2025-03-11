@@ -3848,6 +3848,7 @@ dependencies = [
  "rendiation-shader-api",
  "rendiation-shader-library",
  "rendiation-texture-core",
+ "rendiation-texture-gpu-process",
  "rendiation-webgpu",
  "rendiation-webgpu-reactive-utils",
  "tracing",
