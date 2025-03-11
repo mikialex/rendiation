@@ -408,10 +408,14 @@ impl DeviceTaskGraphExecutor {
     TaskGraphExecutionDebugInfo { info }
   }
 
+  pub fn make_round_execute_sequence(&self) -> impl Iterator<Item = usize> + Clone {
+    0..self.task_groups.len()
+  }
+
   pub fn execute(
     &mut self,
     cx: &mut DeviceParallelComputeCtx,
-    dispatch_round_count: usize,
+    dispatch_sequence: &mut dyn Iterator<Item = usize>,
     source: &DeviceTaskGraphBuildSource,
   ) {
     // enable this to debug execution issues that related to unexpected residue task
@@ -424,11 +428,10 @@ impl DeviceTaskGraphExecutor {
     let self_task_groups: &'static [TaskGroupExecutor] =
       unsafe { std::mem::transmute(self_task_groups) };
 
-    for _ in 0..dispatch_round_count {
-      for (idx, task) in self.task_groups.iter_mut().enumerate() {
-        let source = &source.tasks[idx];
-        task.execute(cx, self_task_groups, source);
-      }
+    for execute_index in dispatch_sequence {
+      let task = &mut self.task_groups[execute_index];
+      let source = &source.tasks[execute_index];
+      task.execute(cx, self_task_groups, source);
 
       if enable_empty_assert {
         let states = pollster::block_on(self.read_back_execution_states(cx));

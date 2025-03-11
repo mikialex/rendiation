@@ -9,7 +9,7 @@ pub struct RayTracingShaderStageDefine {
 
 #[derive(Clone)]
 pub struct GPURaytracingPipelineAndBindingSource {
-  pub execution_round_hint: u32,
+  pub execution_seq: Option<Arc<dyn Fn() -> Box<dyn Iterator<Item = usize>>>>,
   pub ray_gen: Vec<RayTracingShaderStageDefine>,
   pub miss_hit: Vec<RayTracingShaderStageDefine>,
   pub closest_hit: Vec<RayTracingShaderStageDefine>,
@@ -48,7 +48,7 @@ impl Default for GPURaytracingPipelineAndBindingSource {
   fn default() -> Self {
     Self {
       max_in_flight_trace_ray: 1,
-      execution_round_hint: 4,
+      execution_seq: None,
       ray_gen: Default::default(),
       closest_hit: Default::default(),
       miss_hit: Default::default(),
@@ -62,8 +62,11 @@ impl Default for GPURaytracingPipelineAndBindingSource {
 pub struct ShaderHandle(pub u32, pub RayTracingShaderStage);
 
 impl GPURaytracingPipelineAndBindingSource {
-  pub fn set_execution_round_hint(&mut self, execution_round_hint: u32) -> &mut Self {
-    self.execution_round_hint = execution_round_hint;
+  pub fn set_execution_seq<I>(&mut self, f: impl Fn() -> I + 'static) -> &mut Self
+  where
+    I: Iterator<Item = usize> + 'static,
+  {
+    self.execution_seq = Some(Arc::new(move || Box::new(f())));
     self
   }
 

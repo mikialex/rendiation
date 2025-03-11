@@ -183,7 +183,8 @@ impl RayTracingEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
         &ray_gen_spawner,
       );
 
-      graph_executor.execute(&mut cx, source.execution_round_hint as usize, &task_source);
+      let mut seq = source.execution_seq.as_ref().unwrap()();
+      graph_executor.execute(&mut cx, &mut seq, &task_source);
     }
     drop(cx);
     self.gpu.submit_encoder(encoder);
