@@ -107,7 +107,8 @@ fn create_task_graph<'a>(
     // written in trace_ray. see RayLaunchSizeBuffer
     let launch_size_buffer = StorageBufferReadonlyDataView::create(device, &vec3(0, 0, 0));
 
-    let payload_u32_len = size as usize * (info.payload_max_u32_count as usize);
+    let payload_u32_len =
+      size as usize * info.payload_max_u32_count as usize * source.max_in_flight_trace_ray as usize;
 
     let buffer_allocator =
       MaybeCombinedStorageAllocator::new(gpu, "trace_ray user payload buffer", false, true);
