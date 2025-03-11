@@ -328,7 +328,7 @@ impl SceneRayTracingAORenderer {
       ),
     };
     assert_eq!(handles, self.shader_handles);
-    source.set_execution_seq(|| [1, 0, 4, 2, 0, 3, 4, 0, 2, 1].into_iter());
+    source.set_execution_seq(|| [1, 0, 4, 2, 0, 3, 4, 0, 2, 0, 1].into_iter());
 
     let sbt = self.sbt.inner.read();
     rtx_encoder.trace_ray(
