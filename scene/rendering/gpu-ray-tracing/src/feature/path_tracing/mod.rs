@@ -8,6 +8,9 @@ pub use surface_bridge::*;
 mod lighting_bridge;
 pub use lighting_bridge::*;
 
+mod lighting_sampler;
+pub use lighting_sampler::*;
+
 mod ray_gen;
 use ray_gen::*;
 
