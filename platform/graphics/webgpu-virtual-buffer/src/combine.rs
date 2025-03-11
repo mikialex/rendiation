@@ -257,7 +257,7 @@ impl CombinedBufferAllocatorInternal {
         };
         self.current_shader_recording_count = 0;
 
-        (label.to_string(), Box::new(meta))
+        (label.to_string(), Arc::new(meta))
       });
 
     let ShaderMeta {

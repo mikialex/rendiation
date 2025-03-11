@@ -41,7 +41,17 @@ impl RtxSceneMaterialSource {
     let sm_to_mr = material_pbr_mr
       .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelStdModelRenderPayload>());
 
-    let material_id = ReactiveStorageBufferContainer::<u32>::new(cx).with_source(sm_to_mr, 0);
+    let material_pbr_sg = global_watch()
+      .watch::<StandardModelRefPbrSGMaterial>()
+      .collective_filter_map(|id| id.map(|v| v.index()))
+      .into_boxed();
+
+    let sm_to_sg = material_pbr_sg
+      .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelStdModelRenderPayload>());
+
+    let material_id = ReactiveStorageBufferContainer::<u32>::new(cx)
+      .with_source(sm_to_mr, 0)
+      .with_source(sm_to_sg, 0);
 
     let material_ty_base = global_watch().watch_entity_set::<SceneModelEntity>();
 

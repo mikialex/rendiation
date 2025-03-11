@@ -122,10 +122,12 @@ impl DevicePathTracingSurfaceInvocation for SceneSurfaceSupportInvocation {
     let surface = zeroed_val::<ShaderPhysicalShading>().make_local_var();
 
     // find material impl by id, and construct surface
-    let mut reg = self.reg.write();
+    let reg = self.reg.read();
     let mut switch = switch_by(material_ty);
     for (i, m) in self.material_accessor.iter().enumerate() {
       switch = switch.case(i as u32, || {
+        // we deep clone this to avoid variable wrongly reused between different case scope.
+        let mut reg = (*reg).clone();
         m.inject_material_info(&mut reg, material_id, uv, &self.textures);
         let s = PhysicalShading::construct_shading_impl(&reg);
         surface.store(s.construct());

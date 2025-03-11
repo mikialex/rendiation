@@ -1,16 +1,16 @@
-use anymap::AnyMap;
+use anymap::ImmutableAnyMap;
 
 use crate::*;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct SemanticRegistry {
-  static_semantic: FastHashMap<TypeId, NodeUntyped>,
+  pub static_semantic: FastHashMap<TypeId, NodeUntyped>,
   /// this map can be used for store any dynamic semantic info.
   /// this is useful if the semantic is dynamic for example the runtime index or enum
   pub dynamic_semantic: FastHashMap<String, NodeUntyped>,
-  pub dynamic_anything: FastHashMap<String, Box<dyn Any>>,
+  pub dynamic_anything: FastHashMap<String, Arc<dyn Any>>,
   pub dynamic_tag: FastHashSet<TypeId>,
-  pub any_map: AnyMap,
+  pub any_map: ImmutableAnyMap,
 }
 
 impl SemanticRegistry {
