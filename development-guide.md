@@ -6,6 +6,8 @@ The following things is the current project development direction.
 
 ### Basic correctness
 
+- emmisive has black shadow on default scene
+- fix multiple taskgraph exist togther, ShaderFuture should impl shaderhashprovider
 - fix texture pool grow
 - mipmap and multi format support in texture pool system
 - bindless mesh does not support optional uv and normal attributes

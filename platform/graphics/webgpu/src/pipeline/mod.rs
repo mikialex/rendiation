@@ -172,6 +172,28 @@ pub fn map_shader_value_ty_to_binding_layout_type(
 }
 
 impl GPUDevice {
+  pub fn create_shader_module_by_shader_api(
+    &self,
+    naga_module: naga::Module,
+    log_result: bool,
+  ) -> wgpu::ShaderModule {
+    if log_result {
+      println!();
+      println!("=== rendiation_shader_api build result ===");
+
+      println!("compute shader: ");
+      let comp = convert_module_by_wgsl(&naga_module, naga::valid::ValidationFlags::empty());
+      println!("{comp}",);
+
+      println!("=== result output finished ===");
+    }
+
+    self.create_shader_module(gpu::ShaderModuleDescriptor {
+      label: None,
+      source: gpu::ShaderSource::Naga(Cow::Owned(naga_module)),
+    })
+  }
+
   pub fn build_pipeline_by_shader_api(
     &self,
     builder: ShaderRenderPipelineBuilder,
@@ -193,38 +215,8 @@ impl GPUDevice {
     let naga_vertex = *vertex_shader.downcast::<naga::Module>().unwrap();
     let naga_fragment = *frag_shader.downcast::<naga::Module>().unwrap();
 
-    if log_result {
-      println!();
-      println!("=== rendiation_shader_api build result ===");
-
-      println!("vertex shader: ");
-      let vert = convert_module_by_wgsl(&naga_vertex, naga::valid::ValidationFlags::empty());
-      println!("{vert}",);
-
-      println!("fragment shader: ");
-      let frag = convert_module_by_wgsl(&naga_fragment, naga::valid::ValidationFlags::empty());
-      println!("{frag}");
-
-      println!("=== result output finished ===");
-    }
-
-    let vertex = self.create_shader_module(gpu::ShaderModuleDescriptor {
-      label: None,
-      source: gpu::ShaderSource::Naga(Cow::Owned(naga_vertex)),
-    });
-    let fragment = self.create_shader_module(gpu::ShaderModuleDescriptor {
-      label: None,
-      source: gpu::ShaderSource::Naga(Cow::Owned(naga_fragment)),
-    });
-
-    // let vertex = self.create_shader_module(gpu::ShaderModuleDescriptor {
-    //   label: None,
-    //   source: gpu::ShaderSource::Wgsl(Cow::Owned(convert_module_by_wgsl(&naga_vertex))),
-    // });
-    // let fragment = self.create_shader_module(gpu::ShaderModuleDescriptor {
-    //   label: None,
-    //   source: gpu::ShaderSource::Wgsl(Cow::Owned(convert_module_by_wgsl(&naga_fragment))),
-    // });
+    let vertex = self.create_shader_module_by_shader_api(naga_vertex, log_result);
+    let fragment = self.create_shader_module_by_shader_api(naga_fragment, log_result);
 
     let (layouts, pipeline_layout) = create_layouts(self, &bindings);
 
@@ -332,22 +324,8 @@ impl ComputeIntoPipelineExt for ShaderComputePipelineBuilder {
     let (entry, shader) = result.shader;
 
     let naga_compute = shader.downcast::<naga::Module>().unwrap();
+    let module = device.create_shader_module_by_shader_api(*naga_compute, log_result);
 
-    if log_result {
-      println!();
-      println!("=== rendiation_shader_api build result ===");
-
-      println!("compute shader: ");
-      let comp = convert_module_by_wgsl(&naga_compute, naga::valid::ValidationFlags::empty());
-      println!("{comp}",);
-
-      println!("=== result output finished ===");
-    }
-
-    let module = device.create_shader_module(gpu::ShaderModuleDescriptor {
-      label: None,
-      source: gpu::ShaderSource::Naga(Cow::Owned(*naga_compute)),
-    });
     let (layouts, pipeline_layout) = create_layouts(device, &result.bindings);
 
     let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {

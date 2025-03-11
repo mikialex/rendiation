@@ -180,6 +180,7 @@ impl DeviceReferencePathTracingRenderer {
           sampling_dir,
           brdf,
           pdf,
+          surface_radiance,
         } = pt_cx
           .surface
           .importance_sampling_brdf(sm_id, in_dir, shading_normal, uv, sampler);
@@ -193,6 +194,7 @@ impl DeviceReferencePathTracingRenderer {
         payload.normal().store(shading_normal);
         payload.brdf().store(brdf);
         payload.pdf().store(pdf);
+        payload.sampled_radiance().store(surface_radiance);
         payload.missed().store(val(false).into_big_bool());
         //
       });

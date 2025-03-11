@@ -26,6 +26,7 @@ pub struct RTSurfaceInteraction {
   pub sampling_dir: Node<Vec3<f32>>,
   pub brdf: Node<Vec3<f32>>,
   pub pdf: Node<f32>,
+  pub surface_radiance: Node<Vec3<f32>>,
 }
 
 #[derive(Clone)]
@@ -55,6 +56,7 @@ impl DevicePathTracingSurfaceInvocation for TestingMirrorSurfaceInvocation {
       sampling_dir: normal.reflect(incident_dir),
       brdf: val(Vec3::splat(0.5)),
       pdf: val(1.),
+      surface_radiance: val(Vec3::zero()),
     }
   }
 }
@@ -119,7 +121,7 @@ impl DevicePathTracingSurfaceInvocation for SceneSurfaceSupportInvocation {
     let material_ty = self.sm_to_material_type.index(sm_id).load();
     let material_id = self.sm_to_material_id.index(sm_id).load();
 
-    let surface = zeroed_val::<ShaderPhysicalShading>().make_local_var();
+    let physical_desc = zeroed_val::<ShaderPhysicalShading>().make_local_var();
 
     // find material impl by id, and construct surface
     let reg = self.reg.read();
@@ -130,7 +132,7 @@ impl DevicePathTracingSurfaceInvocation for SceneSurfaceSupportInvocation {
         let mut reg = (*reg).clone();
         m.inject_material_info(&mut reg, material_id, uv, &self.textures);
         let s = PhysicalShading::construct_shading_impl(&reg);
-        surface.store(s.construct());
+        physical_desc.store(s.construct());
       });
     }
 
@@ -138,14 +140,14 @@ impl DevicePathTracingSurfaceInvocation for SceneSurfaceSupportInvocation {
       let registry = SemanticRegistry::default();
       // just create from an empty registry to get default value.
       let s = PhysicalShading::construct_shading_impl(&registry);
-      surface.store(s.construct());
+      physical_desc.store(s.construct());
     });
 
-    let surface = surface.load().expand();
+    let physical_desc = physical_desc.load().expand();
 
-    let roughness = surface.linear_roughness;
+    let roughness = physical_desc.linear_roughness;
     let specular = ShaderSpecular {
-      f0: surface.f0,
+      f0: physical_desc.f0,
       normal_distribution_model: ShaderGGX { roughness },
       geometric_shadow_model: ShaderSmithGGXCorrelatedGeometryShadow { roughness },
       fresnel_model: ShaderSchlick,
@@ -153,7 +155,7 @@ impl DevicePathTracingSurfaceInvocation for SceneSurfaceSupportInvocation {
 
     let surface = ShaderRtxPhysicalMaterial {
       diffuse: ShaderLambertian {
-        albedo: surface.albedo,
+        albedo: physical_desc.albedo,
       },
       specular,
     };
@@ -174,6 +176,7 @@ impl DevicePathTracingSurfaceInvocation for SceneSurfaceSupportInvocation {
       sampling_dir: light_dir,
       brdf,
       pdf,
+      surface_radiance: physical_desc.emissive,
     }
   }
 }
