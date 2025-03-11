@@ -1,4 +1,3 @@
-use rendiation_lighting_transport::DeviceSampler;
 use rendiation_shader_library::sampling::hammersley_2d_fn;
 
 use crate::*;

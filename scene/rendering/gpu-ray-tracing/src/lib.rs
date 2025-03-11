@@ -9,6 +9,7 @@ use parking_lot::RwLock;
 use reactive::*;
 use rendiation_algebra::*;
 use rendiation_device_ray_tracing::*;
+use rendiation_lighting_transport::DeviceSampler;
 use rendiation_mesh_core::*;
 use rendiation_scene_core::*;
 use rendiation_scene_rendering_gpu_base::*;
