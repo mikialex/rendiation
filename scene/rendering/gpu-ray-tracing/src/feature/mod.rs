@@ -32,6 +32,7 @@ pub struct RayTracingSystemBase {
   scene_tlas: UpdateResultToken,
   mesh: MeshBindlessGPUSystemSource,
   material: RtxSceneMaterialSource,
+  lighting: ScenePTLightingSource,
   texture_system: TextureGPUSystemSource,
   system: RtxSystemCore,
 }
@@ -49,6 +50,7 @@ impl RayTracingSystemBase {
       scene_tlas: Default::default(),
       system: rtx.clone(),
       mesh: MeshBindlessGPUSystemSource::new(gpu),
+      lighting: ScenePTLightingSource::default(),
       material: RtxSceneMaterialSource::default()
         .with_material_support(PbrMRMaterialDefaultIndirectRenderImplProvider::default())
         .with_material_support(PbrSGMaterialDefaultIndirectRenderImplProvider::default()),
@@ -62,6 +64,7 @@ pub struct SceneRayTracingRendererBase {
   pub scene_tlas: BoxedDynQuery<EntityHandle<SceneEntity>, TlASInstance>,
   pub mesh: MeshGPUBindlessImpl,
   pub material: SceneSurfaceSupport,
+  pub lighting: ScenePTLighting,
 }
 
 impl RenderImplProvider<SceneRayTracingRendererBase> for RayTracingSystemBase {
@@ -72,6 +75,7 @@ impl RenderImplProvider<SceneRayTracingRendererBase> for RayTracingSystemBase {
     self.mesh.register_resource(source, cx);
     self.material.register_resource(source, cx);
     self.texture_system.register_resource(source, cx);
+    self.lighting.register_resource(source, cx);
   }
 
   fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
@@ -80,6 +84,7 @@ impl RenderImplProvider<SceneRayTracingRendererBase> for RayTracingSystemBase {
     self.mesh.deregister_resource(source);
     self.material.deregister_resource(source);
     self.texture_system.deregister_resource(source);
+    self.lighting.deregister_resource(source);
   }
 
   fn create_impl(&self, res: &mut QueryResultCtx) -> SceneRayTracingRendererBase {
@@ -90,6 +95,7 @@ impl RenderImplProvider<SceneRayTracingRendererBase> for RayTracingSystemBase {
       rtx_system: self.system.rtx_system.clone(),
       mesh: self.mesh.create_impl_internal_impl(res),
       material: self.material.create_impl(res, &tex),
+      lighting: self.lighting.create_impl(res),
     }
   }
 }

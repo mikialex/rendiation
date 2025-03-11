@@ -9,11 +9,12 @@ pub trait DevicePathTracingLighting: ShaderHashProvider + DynClone {
 dyn_clone::clone_trait_object!(DevicePathTracingLighting);
 
 pub trait DevicePathTracingLightingInvocation: DynClone {
+  // also return if light sample success/valid, when there is no lighting, return false
   fn importance_sampling_light(
     &self,
     world_position: Node<Vec3<f32>>,
     sampler: &dyn DeviceSampler,
-  ) -> RTLightSampling;
+  ) -> (RTLightSampling, Node<bool>);
 }
 dyn_clone::clone_trait_object!(DevicePathTracingLightingInvocation);
 
@@ -57,6 +58,17 @@ pub trait ShaderLightSource {
     }
   }
 }
+
+// impl DevicePathTracingLightingInvocation for ENode<PointLightShaderInfo> {
+//   fn importance_sampling_light(
+//     &self,
+//     world_position: Node<Vec3<f32>>,
+//     sampler: &dyn DeviceSampler,
+//   ) -> (RTLightSampling, Node<bool>) {
+//     let s = (self as &dyn ShaderLightSource).importance_sampling_light(world_position, sampler);
+//     (s, val(true))
+//   }
+// }
 
 impl ShaderLightSource for ENode<PointLightShaderInfo> {
   fn radiant_power(&self) -> Node<Vec3<f32>> {

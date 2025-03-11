@@ -10,7 +10,7 @@ pub struct PointLightStorage {
   pub cutoff_distance: f32,
 }
 
-fn point_storage(gpu: &GPU) -> ReactiveStorageBufferContainer<PointLightStorage> {
+pub fn point_storage(gpu: &GPU) -> ReactiveStorageBufferContainer<PointLightStorage> {
   let luminance_intensity = global_watch().watch::<PointLightIntensity>();
   let luminance_intensity_offset = offset_of!(PointLightStorage, luminance_intensity);
 
@@ -27,6 +27,7 @@ fn point_storage(gpu: &GPU) -> ReactiveStorageBufferContainer<PointLightStorage>
     .with_source(position, offset_of!(PointLightStorage, position))
 }
 
+#[derive(Default)]
 pub struct PointStorageLightList {
   token: UpdateResultToken,
 }

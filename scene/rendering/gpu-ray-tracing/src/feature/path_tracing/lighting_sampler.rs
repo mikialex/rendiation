@@ -1,25 +1,26 @@
 use crate::*;
 
 pub trait AbstractLightSamplingStrategy {
+  // return if light sample success/valid, when there is no lighting, return false
   fn sample_light_index_impl(
     &self,
     world_position: Node<Vec3<f32>>,
     sampler: &dyn DeviceSampler,
-  ) -> Node<u32>;
+  ) -> (Node<u32>, Node<bool>);
   fn pmf(&self, world_position: Node<Vec3<f32>>, light_idx: Node<u32>) -> Node<f32>;
   fn sample_light_index(
     &self,
     world_position: Node<Vec3<f32>>,
     sampler: &dyn DeviceSampler,
-  ) -> (Node<f32>, Node<u32>) {
-    let r = self.sample_light_index_impl(world_position, sampler);
-    (self.pmf(world_position, r), r)
+  ) -> (Node<f32>, Node<u32>, Node<bool>) {
+    let (r, valid) = self.sample_light_index_impl(world_position, sampler);
+    (self.pmf(world_position, r), r, valid)
   }
 }
 
-pub struct LightingGroup<T: ShaderSizedValueNodeType> {
-  strategy: Arc<dyn AbstractLightSamplingStrategy>,
-  lights: ShaderReadonlyPtrOf<[T]>,
+pub struct LightingGroup<T> {
+  pub strategy: Arc<dyn AbstractLightSamplingStrategy>,
+  pub lights: ShaderReadonlyPtrOf<[T]>,
 }
 
 impl<T: ShaderSizedValueNodeType> Clone for LightingGroup<T> {
@@ -33,24 +34,29 @@ impl<T: ShaderSizedValueNodeType> Clone for LightingGroup<T> {
 
 impl<T> DevicePathTracingLightingInvocation for LightingGroup<T>
 where
-  T: ShaderSizedValueNodeType,
-  Node<T>: DevicePathTracingLightingInvocation,
+  T: ShaderSizedValueNodeType + ShaderStructuralNodeType,
+  ENode<T>: DevicePathTracingLightingInvocation,
 {
   fn importance_sampling_light(
     &self,
     world_position: Node<Vec3<f32>>,
     sampler: &dyn DeviceSampler,
-  ) -> RTLightSampling {
-    let (pmf, light_idx) = self.strategy.sample_light_index(world_position, sampler);
-    let light = self.lights.index(light_idx).load();
+  ) -> (RTLightSampling, Node<bool>) {
+    let (pmf, light_idx, valid) = self.strategy.sample_light_index(world_position, sampler);
+    let light = valid.select_branched(|| self.lights.index(light_idx).load(), zeroed_val);
 
-    let result = light.importance_sampling_light(world_position, sampler);
+    let (result, inner_valid) = light
+      .expand()
+      .importance_sampling_light(world_position, sampler);
 
-    RTLightSampling {
-      sampling_dir: result.sampling_dir,
-      pdf: result.pdf * pmf,
-      radiance: result.radiance,
-    }
+    (
+      RTLightSampling {
+        sampling_dir: result.sampling_dir,
+        pdf: result.pdf * pmf,
+        radiance: result.radiance,
+      },
+      valid.and(inner_valid),
+    )
   }
 }
 
@@ -63,16 +69,15 @@ pub struct UniformLightSamplingStrategy {
 }
 
 impl AbstractLightSamplingStrategy for UniformLightSamplingStrategy {
-  /// if return u32::MAX, then no light is picked
   fn sample_light_index_impl(
     &self,
     _world_position: Node<Vec3<f32>>,
     sampler: &dyn DeviceSampler,
-  ) -> Node<u32> {
+  ) -> (Node<u32>, Node<bool>) {
     let light_idx = (sampler.next() * self.light_count.into_f32())
       .min(self.light_count.into_f32() - val(1.))
       .into_u32();
-    self.light_count.equals(0).select(val(u32::MAX), light_idx)
+    (light_idx, self.light_count.not_equals(0))
   }
 
   fn pmf(&self, _world_position: Node<Vec3<f32>>, _light_idx: Node<u32>) -> Node<f32> {

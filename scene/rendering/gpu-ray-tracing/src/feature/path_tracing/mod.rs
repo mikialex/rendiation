@@ -11,6 +11,9 @@ pub use lighting_bridge::*;
 mod lighting_sampler;
 pub use lighting_sampler::*;
 
+mod lighting_source;
+pub use lighting_source::*;
+
 mod ray_gen;
 use ray_gen::*;
 
@@ -167,6 +170,7 @@ impl DeviceReferencePathTracingRenderer {
         bindless_mesh: base.mesh.make_bindless_dispatcher(),
         surface: Box::new(base.material.clone()),
         config: state.config.clone(),
+        lighting: Box::new(base.lighting.clone()),
       },
     );
 

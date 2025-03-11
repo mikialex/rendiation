@@ -48,6 +48,7 @@ pub fn spot_storage(gpu: &GPU) -> ReactiveStorageBufferContainer<SpotLightStorag
     .with_source(direction, direction_offset)
 }
 
+#[derive(Default)]
 pub struct SpotLightStorageLightList {
   token: UpdateResultToken,
 }

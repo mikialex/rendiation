@@ -52,11 +52,18 @@ pub fn build_ray_hit_shader(
 pub struct PTRayClosestCtx {
   pub bindless_mesh: BindlessMeshDispatcher,
   pub surface: Box<dyn DevicePathTracingSurface>,
+  pub lighting: Box<dyn DevicePathTracingLighting>,
   pub config: UniformBufferDataView<PTConfig>,
 }
 
 impl ShaderHashProvider for PTRayClosestCtx {
   shader_hash_type_id! {}
+
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.bindless_mesh.hash_pipeline(hasher);
+    self.surface.hash_pipeline_with_type_info(hasher);
+    self.lighting.hash_pipeline_with_type_info(hasher);
+  }
 }
 
 impl RayTracingCustomCtxProvider for PTRayClosestCtx {
@@ -66,6 +73,7 @@ impl RayTracingCustomCtxProvider for PTRayClosestCtx {
     PTClosestCtxInvocation {
       bindless_mesh: self.bindless_mesh.build_bindless_mesh_rtx_access(cx),
       surface: self.surface.build(cx),
+      lighting: self.lighting.build(cx),
       config: cx.bind_by(&self.config),
     }
   }
@@ -73,6 +81,7 @@ impl RayTracingCustomCtxProvider for PTRayClosestCtx {
   fn bind(&self, builder: &mut BindingBuilder) {
     self.bindless_mesh.bind_bindless_mesh_rtx_access(builder);
     self.surface.bind(builder);
+    self.lighting.bind(builder);
     builder.bind(&self.config);
   }
 }
@@ -81,5 +90,6 @@ impl RayTracingCustomCtxProvider for PTRayClosestCtx {
 pub struct PTClosestCtxInvocation {
   bindless_mesh: BindlessMeshRtxAccessInvocation,
   surface: Box<dyn DevicePathTracingSurfaceInvocation>,
+  lighting: Box<dyn DevicePathTracingLightingInvocation>,
   config: ShaderReadonlyPtrOf<PTConfig>,
 }

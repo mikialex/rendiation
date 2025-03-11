@@ -22,6 +22,7 @@ pub fn directional_storage(gpu: &GPU) -> ReactiveStorageBufferContainer<Directio
     .with_source(direction, offset_of!(DirectionalLightStorage, direction))
 }
 
+#[derive(Default)]
 pub struct DirectionalStorageLightList {
   token: UpdateResultToken,
 }
