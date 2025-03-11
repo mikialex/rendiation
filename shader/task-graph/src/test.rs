@@ -24,7 +24,8 @@ async fn test_simple_map() {
   assert_eq!(info.wake_counts[test_task as usize], work_size);
   assert_eq!(info.wake_counts[test_task2 as usize], work_size2);
 
-  graph_exe.execute(&mut cx, 1, &graph);
+  let mut seq = graph_exe.make_round_execute_sequence();
+  graph_exe.execute(&mut cx, &mut seq, &graph);
 
   let info = graph_exe.read_back_execution_states(&mut cx).await;
   assert_eq!(info.wake_counts[test_task as usize], 0);
@@ -110,7 +111,8 @@ async fn test_task_graph_then_task_spawn() {
     assert_eq!(info.wake_counts[test_task as usize], 0);
     assert_eq!(info.wake_counts[test_task2 as usize], work_size);
 
-    graph_exe.execute(&mut cx, 1, &graph);
+    let mut seq = graph_exe.make_round_execute_sequence();
+    graph_exe.execute(&mut cx, &mut seq, &graph);
 
     let debug_info = graph_exe.debug_execution(&mut cx).await;
     println!("{:?}", debug_info);
@@ -125,7 +127,8 @@ async fn test_task_graph_then_task_spawn() {
       work_size
     );
 
-    graph_exe.execute(&mut cx, 1, &graph);
+    let mut seq = graph_exe.make_round_execute_sequence();
+    graph_exe.execute(&mut cx, &mut seq, &graph);
 
     let debug_info = graph_exe.debug_execution(&mut cx).await;
     println!("{:?}", debug_info);
@@ -178,13 +181,15 @@ async fn test_task_graph_then_task_self_spawn_recursive() {
   let info = graph_exe.read_back_execution_states(&mut cx).await;
   assert_eq!(info.wake_counts[test_task as usize], work_size);
 
-  graph_exe.execute(&mut cx, 1, &graph);
+  let mut seq = graph_exe.make_round_execute_sequence();
+  graph_exe.execute(&mut cx, &mut seq, &graph);
 
   let info = graph_exe.read_back_execution_states(&mut cx).await;
   assert_eq!(info.wake_counts[test_task as usize], work_size);
   assert_eq!(info.sleep_or_finished_counts[test_task as usize], work_size);
 
-  graph_exe.execute(&mut cx, 1, &graph);
+  let mut seq = graph_exe.make_round_execute_sequence();
+  graph_exe.execute(&mut cx, &mut seq, &graph);
 
   let info = graph_exe.read_back_execution_states(&mut cx).await;
   assert_eq!(info.wake_counts[test_task as usize], work_size);
@@ -193,7 +198,8 @@ async fn test_task_graph_then_task_self_spawn_recursive() {
     work_size * 2
   );
 
-  graph_exe.execute(&mut cx, 1, &graph);
+  let mut seq = graph_exe.make_round_execute_sequence();
+  graph_exe.execute(&mut cx, &mut seq, &graph);
 
   let info = graph_exe.read_back_execution_states(&mut cx).await;
   assert_eq!(info.wake_counts[test_task as usize], work_size);
