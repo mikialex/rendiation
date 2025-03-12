@@ -273,12 +273,41 @@ impl TaskGroupExecutor {
     self.compact_alive_tasks(ctx);
   }
 
+  // pub fn update_new_waked(&mut self, ctx: &mut DeviceParallelComputeCtx) {
+  //   ctx.record_pass(|pass, device| {
+  //     let imp = &self.resource;
+  //     // the other task may wake self task, which means the active_task_idx bumper will increase
+  //     imp.active_task_idx.commit_size(pass, device, true);
+  //   });
+  // }
+  // pub fn update_new_spawned(&mut self, ctx: &mut DeviceParallelComputeCtx) {
+  //   ctx.record_pass(|pass, device| {
+  //     let imp = &self.resource;
+  //     // the other task may spawn self task, which means the empty_index_pool bumper will decrease
+  //     imp.empty_index_pool.commit_size(pass, device, false);
+  //   });
+  // }
+  // pub fn update_deallocated(&mut self, ctx: &mut DeviceParallelComputeCtx) {
+  //   ctx.record_pass(|pass, device| {
+  //     let imp = &self.resource;
+  //     // the other task may cleanup self task, which means the new_removed_task_idx bumper will increase
+  //     imp.new_removed_task_idx.commit_size(pass, device, true);
+  //     // drain empty to empty pool
+  //     imp
+  //       .new_removed_task_idx
+  //       .drain_self_into_the_other(&imp.empty_index_pool, pass, device);
+  //   });
+  // }
+
   pub fn prepare_execution(&mut self, ctx: &mut DeviceParallelComputeCtx) {
     // commit bumpers
     ctx.record_pass(|pass, device| {
       let imp = &self.resource;
+      // the other task may wake self task, which means the active_task_idx bumper will increase
       imp.active_task_idx.commit_size(pass, device, true);
+      // the other task may spawn self task, which means the empty_index_pool bumper will decrease
       imp.empty_index_pool.commit_size(pass, device, false);
+      // the other task may cleanup self task, which means the new_removed_task_idx bumper will increase
       imp.new_removed_task_idx.commit_size(pass, device, true);
     });
 

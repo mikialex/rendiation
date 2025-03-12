@@ -345,7 +345,7 @@ impl SceneRayTracingAORenderer {
         0, // exe 0, cleanup 3, 4, wake 2
         3, // update 3 bumper
         4, // update 4 bumper
-        2, // exe2, cleanup 0, wake 0,
+        2, // exe 2, cleanup 0, wake 0,
         0, // exe 0, wake1, cleanup 2,
         2, // update 2 bumper,
         1, // exe 1, cleanup 0, 1
