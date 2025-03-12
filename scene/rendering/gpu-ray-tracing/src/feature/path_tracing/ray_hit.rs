@@ -1,3 +1,5 @@
+use core::f32;
+
 use rendiation_device_ray_tracing::RayFlagConfigRaw::RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH;
 
 use super::*;
@@ -38,11 +40,17 @@ pub fn build_ray_hit_shader(
         sbt_ray_config: PTRayType::ShadowTest.to_sbt_cfg(),
         miss_index: val(1),
         ray,
-        range: ShaderRayRange::default(),
+        range: ShaderRayRange {
+          min: val(f32::EPSILON),
+          max: light_sample.distance,
+        },
       };
 
       let payload = ENode::<ShaderTestPayload> {
-        radiance: should_sample.select(light_sample.radiance, zeroed_val()),
+        radiance: should_sample.select(
+          light_sample.radiance / light_sample.pdf.splat(),
+          zeroed_val(),
+        ),
       }
       .construct();
 

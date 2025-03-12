@@ -18,6 +18,7 @@ dyn_clone::clone_trait_object!(DevicePathTracingLightingInvocation);
 
 pub struct RTLightSampling {
   pub sampling_dir: Node<Vec3<f32>>,
+  pub distance: Node<f32>,
   pub pdf: Node<f32>,
   pub radiance: Node<Vec3<f32>>,
 }
@@ -33,7 +34,7 @@ pub trait ShaderLightSource {
     &self,
     surface_position: Node<Vec3<f32>>,
     sampler: &dyn DeviceSampler,
-  ) -> Node<Vec3<f32>>;
+  ) -> (Node<Vec3<f32>>, Node<f32>);
 
   fn compute_sample_radiance(
     &self,
@@ -46,13 +47,14 @@ pub trait ShaderLightSource {
     surface_position: Node<Vec3<f32>>,
     sampler: &dyn DeviceSampler,
   ) -> RTLightSampling {
-    let sampling_dir = self.importance_sampling_light_impl(surface_position, sampler);
+    let (sampling_dir, distance) = self.importance_sampling_light_impl(surface_position, sampler);
     let radiance = self.compute_sample_radiance(surface_position, sampling_dir);
     let pdf = self.pdf(sampling_dir);
     RTLightSampling {
       sampling_dir,
       pdf,
       radiance,
+      distance,
     }
   }
 }
@@ -81,8 +83,10 @@ impl ShaderLightSource for PointLightStorageShaderAPIInstance {
     &self,
     surface_position: Node<Vec3<f32>>,
     _: &dyn DeviceSampler,
-  ) -> Node<Vec3<f32>> {
-    (self.position - surface_position).normalize()
+  ) -> (Node<Vec3<f32>>, Node<f32>) {
+    let position_to_light = self.position - surface_position;
+    let distance = position_to_light.length();
+    (position_to_light / distance.splat(), distance)
   }
 
   /// this function should never be called other than importance_sampling_light, because it's
@@ -103,13 +107,14 @@ impl ShaderLightSource for PointLightStorageShaderAPIInstance {
     surface_position: Node<Vec3<f32>>,
     sampler: &dyn DeviceSampler,
   ) -> RTLightSampling {
-    let sampling_dir = self.importance_sampling_light_impl(surface_position, sampler);
+    let (sampling_dir, distance) = self.importance_sampling_light_impl(surface_position, sampler);
     let radiance = self.compute_sample_radiance(surface_position, sampling_dir);
 
     RTLightSampling {
       sampling_dir,
       pdf: val(1.), // override because it's a dirac distribution
       radiance,
+      distance,
     }
   }
 }

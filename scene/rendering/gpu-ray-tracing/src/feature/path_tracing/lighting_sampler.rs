@@ -54,6 +54,7 @@ where
         sampling_dir: result.sampling_dir,
         pdf: result.pdf * pmf,
         radiance: result.radiance,
+        distance: result.distance,
       },
       valid.and(inner_valid),
     )
