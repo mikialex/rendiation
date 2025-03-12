@@ -24,12 +24,15 @@ pub fn build_ray_hit_shader(
       );
       let sampler = &PCGRandomSampler::new(xxhash32(seed.into()));
 
-      let (light_sample, should_sample) = pt_cx
-        .lighting
-        .importance_sampling_light(closest_hit_ctx.hit_world_position(), sampler);
+      let origin = closest_hit_ctx.hit_world_position();
+
+      let (light_sample, should_sample) = pt_cx.lighting.importance_sampling_light(origin, sampler);
+
+      let (_, geometry_normal, _) = pt_cx.bindless_mesh.get_world_normal_and_uv(closest_hit_ctx);
+      let out_ray_origin = offset_ray_hit_fn(origin, geometry_normal);
 
       let ray = ShaderRay {
-        origin: closest_hit_ctx.hit_world_position(),
+        origin: out_ray_origin,
         direction: light_sample.sampling_dir,
       };
 
@@ -51,6 +54,7 @@ pub fn build_ray_hit_shader(
           light_sample.radiance / light_sample.pdf.splat(),
           zeroed_val(),
         ),
+        light_sample_dir: out_ray_origin,
       }
       .construct();
 
@@ -63,7 +67,7 @@ pub fn build_ray_hit_shader(
       let (shading_normal, geometry_normal, uv) =
         pt_cx.bindless_mesh.get_world_normal_and_uv(closest_hit_ctx);
       let sm_id = closest_hit_ctx.instance_custom_id();
-      let in_dir = closest_hit_ctx.world_ray().direction;
+      let view_dir = -closest_hit_ctx.world_ray().direction;
 
       let seed = closest_hit_ctx.launch_id().xy();
       let seed = (
@@ -73,20 +77,28 @@ pub fn build_ray_hit_shader(
       );
       let sampler = &PCGRandomSampler::new(xxhash32(seed.into()));
 
+      let surface = pt_cx
+        .surface
+        .construct_shading_point(sm_id, shading_normal, uv);
+
       let RTSurfaceInteraction {
         sampling_dir,
         brdf,
         pdf,
         surface_radiance,
-      } = pt_cx
-        .surface
-        .importance_sampling_brdf(sm_id, in_dir, shading_normal, uv, sampler);
+      } = surface.importance_sampling_brdf(view_dir, sampler);
 
       let out_ray_origin = closest_hit_ctx.hit_world_position();
       let out_ray_origin = offset_ray_hit_fn(out_ray_origin, geometry_normal);
 
       let light_sample_result = light_sample_result.expand();
-      let sampled_radiance = light_sample_result.radiance;
+      let direct_light_sample_brdf =
+        surface.eval_brdf(view_dir, light_sample_result.light_sample_dir);
+      let light_dot = shading_normal
+        .dot(light_sample_result.light_sample_dir)
+        .abs();
+      // note, the lighting pdf has already applied in radiance
+      let sampled_radiance = light_dot * direct_light_sample_brdf * light_sample_result.radiance;
 
       let payload = ctx.expect_payload::<CorePathPayload>();
       payload.next_ray_origin().store(out_ray_origin);

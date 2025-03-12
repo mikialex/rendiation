@@ -271,6 +271,7 @@ struct CorePathPayload {
 #[derive(Clone, Copy, ShaderStruct, Default)]
 struct ShaderTestPayload {
   pub radiance: Vec3<f32>,
+  pub light_sample_dir: Vec3<f32>,
 }
 
 #[std140_layout]

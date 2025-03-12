@@ -11,16 +11,23 @@ pub trait DevicePathTracingSurface: ShaderHashProvider + DynClone {
 dyn_clone::clone_trait_object!(DevicePathTracingSurface);
 
 pub trait DevicePathTracingSurfaceInvocation: DynClone {
-  fn importance_sampling_brdf(
+  fn construct_shading_point(
     &self,
-    scene_model_id: Node<u32>,
-    incident_dir: Node<Vec3<f32>>,
+    sm_id: Node<u32>,
     normal: Node<Vec3<f32>>,
     uv: Node<Vec2<f32>>,
-    sampler: &dyn DeviceSampler,
-  ) -> RTSurfaceInteraction;
+  ) -> Box<dyn DevicePathTracingSurfacePointInvocation>;
 }
 dyn_clone::clone_trait_object!(DevicePathTracingSurfaceInvocation);
+
+pub trait DevicePathTracingSurfacePointInvocation {
+  fn importance_sampling_brdf(
+    &self,
+    view_dir: Node<Vec3<f32>>,
+    sampler: &dyn DeviceSampler,
+  ) -> RTSurfaceInteraction;
+  fn eval_brdf(&self, view_dir: Node<Vec3<f32>>, light_dir: Node<Vec3<f32>>) -> Node<Vec3<f32>>;
+}
 
 pub struct RTSurfaceInteraction {
   pub sampling_dir: Node<Vec3<f32>>,
@@ -42,22 +49,38 @@ impl DevicePathTracingSurface for TestingMirrorSurface {
 }
 #[derive(Clone)]
 pub struct TestingMirrorSurfaceInvocation;
+pub struct TestingMirrorSurfaceInvocationPoint {
+  normal: Node<Vec3<f32>>,
+}
 
 impl DevicePathTracingSurfaceInvocation for TestingMirrorSurfaceInvocation {
+  fn construct_shading_point(
+    &self,
+    _sm_id: Node<u32>,
+    normal: Node<Vec3<f32>>,
+    _uv: Node<Vec2<f32>>,
+  ) -> Box<dyn DevicePathTracingSurfacePointInvocation> {
+    Box::new(TestingMirrorSurfaceInvocationPoint { normal })
+  }
+}
+
+impl DevicePathTracingSurfacePointInvocation for TestingMirrorSurfaceInvocationPoint {
   fn importance_sampling_brdf(
     &self,
-    _: Node<u32>,
-    incident_dir: Node<Vec3<f32>>,
-    normal: Node<Vec3<f32>>,
-    _: Node<Vec2<f32>>,
-    _: &dyn DeviceSampler,
+    view_dir: Node<Vec3<f32>>,
+    _sampler: &dyn DeviceSampler,
   ) -> RTSurfaceInteraction {
     RTSurfaceInteraction {
-      sampling_dir: normal.reflect(incident_dir),
+      sampling_dir: self.normal.reflect(-view_dir),
       brdf: val(Vec3::splat(0.5)),
       pdf: val(1.),
       surface_radiance: val(Vec3::zero()),
     }
+  }
+
+  // dirac dist
+  fn eval_brdf(&self, _view_dir: Node<Vec3<f32>>, _light_dir: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
+    unreachable!()
   }
 }
 
@@ -109,15 +132,51 @@ struct SceneSurfaceSupportInvocation {
   material_accessor: Arc<Vec<Box<dyn SceneMaterialSurfaceSupportInvocation>>>,
 }
 
-impl DevicePathTracingSurfaceInvocation for SceneSurfaceSupportInvocation {
+struct SceneSurfaceSupportInvocationPoint {
+  normal: Node<Vec3<f32>>,
+  surface: ShaderRtxPhysicalMaterial<
+    ShaderLambertian,
+    ShaderGGX,
+    ShaderSmithGGXCorrelatedGeometryShadow,
+    ShaderSchlick,
+  >,
+  emissive: Node<Vec3<f32>>,
+}
+
+impl DevicePathTracingSurfacePointInvocation for SceneSurfaceSupportInvocationPoint {
   fn importance_sampling_brdf(
     &self,
-    sm_id: Node<u32>,
-    incident_dir: Node<Vec3<f32>>,
-    normal: Node<Vec3<f32>>,
-    uv: Node<Vec2<f32>>,
+    view_dir: Node<Vec3<f32>>,
     sampler: &dyn DeviceSampler,
   ) -> RTSurfaceInteraction {
+    let ShaderBRDFImportanceSampled {
+      sample: light_dir,
+      pdf,
+      importance: brdf,
+    } = self
+      .surface
+      .sample_light_dir_use_bsdf_importance(view_dir, self.normal, sampler);
+
+    RTSurfaceInteraction {
+      sampling_dir: light_dir,
+      brdf,
+      pdf,
+      surface_radiance: self.emissive,
+    }
+  }
+
+  fn eval_brdf(&self, view_dir: Node<Vec3<f32>>, light_dir: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
+    self.surface.bsdf(view_dir, light_dir, self.normal)
+  }
+}
+
+impl DevicePathTracingSurfaceInvocation for SceneSurfaceSupportInvocation {
+  fn construct_shading_point(
+    &self,
+    sm_id: Node<u32>,
+    normal: Node<Vec3<f32>>,
+    uv: Node<Vec2<f32>>,
+  ) -> Box<dyn DevicePathTracingSurfacePointInvocation> {
     let material_ty = self.sm_to_material_type.index(sm_id).load();
     let material_id = self.sm_to_material_id.index(sm_id).load();
 
@@ -159,24 +218,11 @@ impl DevicePathTracingSurfaceInvocation for SceneSurfaceSupportInvocation {
       },
       specular,
     };
-    // let surface = specular;
-    // let surface = ShaderLambertian {
-    //   albedo: surface.albedo,
-    // };
 
-    let view_dir = -incident_dir;
-
-    let ShaderBRDFImportanceSampled {
-      sample: light_dir,
-      pdf,
-      importance: brdf,
-    } = surface.sample_light_dir_use_bsdf_importance(view_dir, normal, sampler);
-
-    RTSurfaceInteraction {
-      sampling_dir: light_dir,
-      brdf,
-      pdf,
-      surface_radiance: physical_desc.emissive,
-    }
+    Box::new(SceneSurfaceSupportInvocationPoint {
+      normal,
+      surface,
+      emissive: physical_desc.emissive,
+    })
   }
 }
