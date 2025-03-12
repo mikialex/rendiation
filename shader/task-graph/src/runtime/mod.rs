@@ -444,6 +444,8 @@ impl DeviceTaskGraphExecutor {
       if !states.is_empty() {
         println!("state_history: \n{:#?}", states_history_for_debugging);
         panic!("pipeline is not empty:\n {:?}", states,);
+      } else {
+        println!("state clean assertion passed");
       }
     }
   }
