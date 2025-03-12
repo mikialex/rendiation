@@ -53,11 +53,17 @@ impl DeviceReferencePathTracingSystem {
 
 impl RenderImplProvider<DeviceReferencePathTracingRenderer> for DeviceReferencePathTracingSystem {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, _: &GPU) {
-    let sbt = GPUSbt::new(self.system.rtx_device.create_sbt(
-      1,
-      MAX_MODEL_COUNT_IN_SBT,
-      GLOBAL_TLAS_MAX_RAY_STRIDE,
-    ));
+    let handles = PathTracingShaderHandles::default();
+    let mut sbt =
+      self
+        .system
+        .rtx_device
+        .create_sbt(1, MAX_MODEL_COUNT_IN_SBT, GLOBAL_TLAS_MAX_RAY_STRIDE);
+
+    sbt.config_ray_generation(handles.ray_gen);
+    sbt.config_missing(PTRayType::Core as u32, handles.miss);
+    sbt.config_missing(PTRayType::ShadowTest as u32, handles.shadow_test_miss);
+    let sbt = GPUSbt::new(sbt);
     let core_closest_hit = self.shader_handles.closest_hit;
     let shadow_closest_hit = self.shader_handles.shadow_test_hit;
     let sbt = MultiUpdateContainer::new(sbt)
@@ -116,7 +122,7 @@ impl Default for PathTracingShaderHandles {
       closest_hit: ShaderHandle(0, RayTracingShaderStage::ClosestHit),
       shadow_test_hit: ShaderHandle(1, RayTracingShaderStage::ClosestHit),
       miss: ShaderHandle(0, RayTracingShaderStage::Miss),
-      shadow_test_miss: ShaderHandle(0, RayTracingShaderStage::Miss),
+      shadow_test_miss: ShaderHandle(1, RayTracingShaderStage::Miss),
     }
   }
 }
@@ -233,7 +239,7 @@ impl DeviceReferencePathTracingRenderer {
     };
     assert_eq!(handles, self.shader_handles);
 
-    source.set_execution_round_hint(self.max_ray_depth * 3);
+    source.set_execution_round_hint(self.max_ray_depth * 5);
     // this is 2 because when previous ray is reading back, their is no empty space for allocate new ray
     source.max_in_flight_trace_ray = 2;
 
@@ -295,7 +301,7 @@ impl PTRayType {
   fn to_sbt_cfg(self) -> RaySBTConfig {
     RaySBTConfig {
       offset: val(self as u32),
-      stride: val(1),
+      stride: val(2),
     }
   }
 }
