@@ -328,7 +328,32 @@ impl SceneRayTracingAORenderer {
       ),
     };
     assert_eq!(handles, self.shader_handles);
-    source.set_execution_seq(|| [1, 0, 4, 2, 0, 3, 4, 0, 2, 0, 1].into_iter());
+    source.set_execution_seq(|| {
+      [
+        1, // exe 1, spawn 0
+        0, // exe 0, spawn 2, 4
+        4, // exe 4, wake 0,
+        0, // exe 0, cleanup 4, wake 1
+        4, // update 4 bumper
+        1, // exe 1, cleanup 0, 1
+        0, // update 0 bumper
+        1, // update 1 bumper
+        2, // exe 2, spawn 0
+        0, // exe 0, spawn 3, 4
+        3, // exe 3, wake 0,
+        4, // exe 4, wake 0,
+        0, // exe 0, cleanup 3, 4, wake 2
+        3, // update 3 bumper
+        4, // update 4 bumper
+        2, // exe2, cleanup 0, wake 0,
+        0, // exe 0, wake1, cleanup 2,
+        2, // update 2 bumper,
+        1, // exe 1, cleanup 0, 1
+        0, // update 0 bumper
+        1, // update 1 bumper
+      ]
+      .into_iter()
+    });
 
     let sbt = self.sbt.inner.read();
     rtx_encoder.trace_ray(
