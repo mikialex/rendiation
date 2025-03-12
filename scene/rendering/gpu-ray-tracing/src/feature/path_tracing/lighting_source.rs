@@ -66,9 +66,8 @@ impl DevicePathTracingLightingInvocation for ScenePTLightingInvocation {
     world_position: Node<Vec3<f32>>,
     sampler: &dyn DeviceSampler,
   ) -> (RTLightSampling, Node<bool>) {
-    // self
-    //   .point_lights
-    //   .importance_sampling_light(world_position, sampler)
-    todo!()
+    self
+      .point_lights
+      .importance_sampling_light(world_position, sampler)
   }
 }

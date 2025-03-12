@@ -1,5 +1,3 @@
-use rendiation_lighting_punctual::PointLightShaderInfo;
-
 use crate::*;
 
 pub trait DevicePathTracingLighting: ShaderHashProvider + DynClone {
@@ -59,18 +57,18 @@ pub trait ShaderLightSource {
   }
 }
 
-// impl DevicePathTracingLightingInvocation for ENode<PointLightShaderInfo> {
-//   fn importance_sampling_light(
-//     &self,
-//     world_position: Node<Vec3<f32>>,
-//     sampler: &dyn DeviceSampler,
-//   ) -> (RTLightSampling, Node<bool>) {
-//     let s = (self as &dyn ShaderLightSource).importance_sampling_light(world_position, sampler);
-//     (s, val(true))
-//   }
-// }
+impl DevicePathTracingLightingInvocation for PointLightStorageShaderAPIInstance {
+  fn importance_sampling_light(
+    &self,
+    world_position: Node<Vec3<f32>>,
+    sampler: &dyn DeviceSampler,
+  ) -> (RTLightSampling, Node<bool>) {
+    let s = (self as &dyn ShaderLightSource).importance_sampling_light(world_position, sampler);
+    (s, val(true))
+  }
+}
 
-impl ShaderLightSource for ENode<PointLightShaderInfo> {
+impl ShaderLightSource for PointLightStorageShaderAPIInstance {
   fn radiant_power(&self) -> Node<Vec3<f32>> {
     val(4. * f32::PI()) * self.luminance_intensity
   }
