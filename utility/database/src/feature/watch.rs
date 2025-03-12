@@ -83,7 +83,10 @@ impl DatabaseMutationWatch {
     }
 
     let (rev, full) = self.db.access_ecg_dyn(e_id, move |e| {
-      let rev = add_listen(&e.inner.entity_watchers);
+      let rev = add_listen(
+        ArenaAccessProvider(e.inner.allocator.clone()),
+        &e.inner.entity_watchers,
+      );
       let full = e.inner.allocator.clone();
       (rev, full)
     });
@@ -159,13 +162,19 @@ impl DatabaseMutationWatch {
           .get_event_source()
           .downcast::<EventSource<ScopedValueChange<T>>>()
           .unwrap();
-        let rev = add_listen(&event_source);
-
         let original = *c
           .inner
           .get_data()
           .downcast::<Arc<dyn ComponentStorage<T>>>()
           .unwrap();
+
+        let rev = add_listen(
+          ComponentAccess {
+            ecg: e.clone(),
+            original: original.clone(),
+          },
+          &event_source,
+        );
 
         (original, rev)
       })
@@ -193,9 +202,19 @@ impl DatabaseMutationWatch {
 }
 
 fn add_listen<T: CValue>(
+  query: impl QueryProvider<RawEntityHandle, T>,
   source: &EventSource<ScopedValueChange<T>>,
 ) -> CollectiveMutationReceiver<RawEntityHandle, T> {
   let (sender, receiver) = collective_channel::<RawEntityHandle, T>();
+  // expand initial value while first listen.
+  unsafe {
+    sender.lock();
+    for (idx, v) in query.access().iter_key_value() {
+      sender.send(idx, ValueChange::Delta(v, None));
+    }
+    sender.unlock();
+  }
+
   source.on(move |change| unsafe {
     match change {
       ScopedMessage::Start => {
