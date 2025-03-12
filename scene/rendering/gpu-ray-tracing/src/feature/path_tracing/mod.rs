@@ -53,22 +53,40 @@ impl DeviceReferencePathTracingSystem {
 
 impl RenderImplProvider<DeviceReferencePathTracingRenderer> for DeviceReferencePathTracingSystem {
   fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, _: &GPU) {
-    let sbt = GPUSbt::new(self.system.rtx_device.create_sbt(
-      1,
-      MAX_MODEL_COUNT_IN_SBT,
-      GLOBAL_TLAS_MAX_RAY_STRIDE,
-    ));
-    let closest_hit = self.shader_handles.closest_hit;
-    let sbt = MultiUpdateContainer::new(sbt).with_source(ReactiveQuerySbtUpdater {
-      ray_ty_idx: PTRayType::Core as u32,
-      source: global_watch()
-        .watch_entity_set_untyped_key::<SceneModelEntity>()
-        .collective_map(move |_| HitGroupShaderRecord {
-          closest_hit: Some(closest_hit),
-          any_hit: None,
-          intersection: None,
-        }),
-    });
+    let handles = PathTracingShaderHandles::default();
+    let mut sbt =
+      self
+        .system
+        .rtx_device
+        .create_sbt(1, MAX_MODEL_COUNT_IN_SBT, GLOBAL_TLAS_MAX_RAY_STRIDE);
+
+    sbt.config_ray_generation(handles.ray_gen);
+    sbt.config_missing(PTRayType::Core as u32, handles.miss);
+    sbt.config_missing(PTRayType::ShadowTest as u32, handles.shadow_test_miss);
+    let sbt = GPUSbt::new(sbt);
+    let core_closest_hit = self.shader_handles.closest_hit;
+    let shadow_closest_hit = self.shader_handles.shadow_test_hit;
+    let sbt = MultiUpdateContainer::new(sbt)
+      .with_source(ReactiveQuerySbtUpdater {
+        ray_ty_idx: PTRayType::Core as u32,
+        source: global_watch()
+          .watch_entity_set_untyped_key::<SceneModelEntity>()
+          .collective_map(move |_| HitGroupShaderRecord {
+            closest_hit: Some(core_closest_hit),
+            any_hit: None,
+            intersection: None,
+          }),
+      })
+      .with_source(ReactiveQuerySbtUpdater {
+        ray_ty_idx: PTRayType::ShadowTest as u32,
+        source: global_watch()
+          .watch_entity_set_untyped_key::<SceneModelEntity>()
+          .collective_map(move |_| HitGroupShaderRecord {
+            closest_hit: Some(shadow_closest_hit),
+            any_hit: None,
+            intersection: None,
+          }),
+      });
 
     self.sbt = source.register_multi_updater(sbt);
   }
@@ -93,14 +111,18 @@ impl RenderImplProvider<DeviceReferencePathTracingRenderer> for DeviceReferenceP
 struct PathTracingShaderHandles {
   ray_gen: ShaderHandle,
   closest_hit: ShaderHandle,
+  shadow_test_hit: ShaderHandle,
   miss: ShaderHandle,
+  shadow_test_miss: ShaderHandle,
 }
 impl Default for PathTracingShaderHandles {
   fn default() -> Self {
     Self {
       ray_gen: ShaderHandle(0, RayTracingShaderStage::RayGeneration),
       closest_hit: ShaderHandle(0, RayTracingShaderStage::ClosestHit),
+      shadow_test_hit: ShaderHandle(1, RayTracingShaderStage::ClosestHit),
       miss: ShaderHandle(0, RayTracingShaderStage::Miss),
+      shadow_test_miss: ShaderHandle(1, RayTracingShaderStage::Miss),
     }
   }
 }
@@ -185,29 +207,39 @@ impl DeviceReferencePathTracingRenderer {
           .greater_than(0.)
           .select(Vec3::splat(0.7), Vec3::splat(0.3));
 
-        cx.payload::<CorePathPayload>().unwrap().store(
-          ENode::<CorePathPayload> {
-            sampled_radiance: radiance, // for testing, use real env later
-            next_ray_origin: zeroed_val(),
-            next_ray_dir: zeroed_val(),
-            pdf: zeroed_val(),
-            missed: val(true).into_big_bool(),
-            brdf: zeroed_val(),
-            normal: zeroed_val(),
-          }
-          .construct(),
-        );
+        cx.expect_payload::<CorePathPayload>()
+          .sampled_radiance()
+          .store(radiance);
+        cx.expect_payload::<CorePathPayload>()
+          .missed()
+          .store(val(true).into_big_bool());
+      });
+
+    let shadow_test_closest = trace_base_builder
+      .create_closest_hit_shader_base::<ShaderTestPayload>()
+      .map(|_, cx| {
+        cx.expect_payload::<ShaderTestPayload>()
+          .radiance()
+          .store(Vec3::zero());
+      });
+
+    let shadow_miss = trace_base_builder
+      .create_miss_hit_shader_base::<ShaderTestPayload>()
+      .map(|_, _| {
+        // do nothing
       });
 
     let mut source = GPURaytracingPipelineAndBindingSource::default();
     let handles = PathTracingShaderHandles {
       ray_gen: source.register_ray_gen(ray_gen),
       closest_hit: source.register_ray_closest_hit::<CorePathPayload>(closest, 1),
+      shadow_test_hit: source.register_ray_closest_hit::<ShaderTestPayload>(shadow_test_closest, 1),
       miss: source.register_ray_miss::<CorePathPayload>(miss, 1),
+      shadow_test_miss: source.register_ray_miss::<ShaderTestPayload>(shadow_miss, 1),
     };
     assert_eq!(handles, self.shader_handles);
 
-    source.set_execution_round_hint(self.max_ray_depth * 3);
+    source.set_execution_round_hint(self.max_ray_depth * 5);
     // this is 2 because when previous ray is reading back, their is no empty space for allocate new ray
     source.max_in_flight_trace_ray = 2;
 
@@ -227,12 +259,19 @@ impl DeviceReferencePathTracingRenderer {
 #[derive(Clone, Copy, ShaderStruct, Default)]
 struct CorePathPayload {
   pub sampled_radiance: Vec3<f32>,
+  pub surface_radiance: Vec3<f32>,
   pub brdf: Vec3<f32>,
   pub pdf: f32,
   pub normal: Vec3<f32>,
   pub next_ray_origin: Vec3<f32>,
   pub next_ray_dir: Vec3<f32>,
   pub missed: Bool,
+}
+
+#[derive(Clone, Copy, ShaderStruct, Default)]
+struct ShaderTestPayload {
+  pub radiance: Vec3<f32>,
+  pub light_sample_dir: Vec3<f32>,
 }
 
 #[std140_layout]
@@ -257,12 +296,13 @@ impl PTConfig {
 #[derive(Debug, Clone, Copy)]
 enum PTRayType {
   Core = 0,
+  ShadowTest = 1,
 }
 impl PTRayType {
   fn to_sbt_cfg(self) -> RaySBTConfig {
     RaySBTConfig {
       offset: val(self as u32),
-      stride: val(1),
+      stride: val(2),
     }
   }
 }

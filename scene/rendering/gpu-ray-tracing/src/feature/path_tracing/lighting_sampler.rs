@@ -54,6 +54,7 @@ where
         sampling_dir: result.sampling_dir,
         pdf: result.pdf * pmf,
         radiance: result.radiance,
+        distance: result.distance,
       },
       valid.and(inner_valid),
     )
@@ -72,12 +73,19 @@ impl AbstractLightSamplingStrategy for UniformLightSamplingStrategy {
   fn sample_light_index_impl(
     &self,
     _world_position: Node<Vec3<f32>>,
-    sampler: &dyn DeviceSampler,
+    _sampler: &dyn DeviceSampler,
   ) -> (Node<u32>, Node<bool>) {
-    let light_idx = (sampler.next() * self.light_count.into_f32())
-      .min(self.light_count.into_f32() - val(1.))
-      .into_u32();
-    (light_idx, self.light_count.not_equals(0))
+    // shader_assert(self.light_count.equals(val(1)));
+    // let light_idx = (sampler.next() * self.light_count.into_f32())
+    //   .floor()
+    //   .into_u32();
+
+    // let light_idx = light_idx
+    //   .equals(self.light_count)
+    //   .select(light_idx - val(1), light_idx);
+
+    // todo, fix light count
+    (val(0), self.light_count.not_equals(0))
   }
 
   fn pmf(&self, _world_position: Node<Vec3<f32>>, _light_idx: Node<u32>) -> Node<f32> {

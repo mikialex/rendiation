@@ -146,9 +146,9 @@ pub fn load_default_scene(writer: &mut SceneWriter, _viewer_scene: &Viewer3dScen
 
   {
     let point_light_node = writer.create_root_child();
-    writer.set_local_matrix(point_light_node, Mat4::translate((2., 2., 2.)));
+    writer.set_local_matrix(point_light_node, Mat4::translate((5., 10., 2.)));
     PointLightDataView {
-      intensity: Vec3::new(5., 3., 2.) * 5.,
+      intensity: Vec3::new(1., 1., 1.) * 1.,
       cutoff_distance: 40.,
       node: point_light_node,
       scene: writer.scene,
