@@ -1,3 +1,5 @@
+use rendiation_device_ray_tracing::RayFlagConfigRaw::RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH;
+
 use super::*;
 
 pub fn build_ray_hit_shader(
@@ -7,7 +9,46 @@ pub fn build_ray_hit_shader(
   trace_base_builder
     .create_closest_hit_shader_base::<CorePathPayload>()
     .inject_ctx(ctx)
-    .map(|_, ctx| {
+    .then_trace(|_, ctx| {
+      // do light sampling and test shadow ray
+      let pt_cx = ctx.expect_custom_cx::<PTClosestCtxInvocation>();
+      let closest_hit_ctx = ctx.expect_closest_hit_ctx();
+
+      let seed = closest_hit_ctx.launch_id().xy();
+      let seed = (
+        seed.x(),
+        seed.y(),
+        pt_cx.config.current_sample_count().load(),
+      );
+      let sampler = &PCGRandomSampler::new(xxhash32(seed.into()));
+
+      let (light_sample, should_sample) = pt_cx
+        .lighting
+        .importance_sampling_light(closest_hit_ctx.hit_world_position(), sampler);
+
+      let ray = ShaderRay {
+        origin: closest_hit_ctx.hit_world_position(),
+        direction: light_sample.sampling_dir,
+      };
+
+      let trace_call = ShaderRayTraceCall {
+        tlas_idx: val(0),
+        ray_flags: val(RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH as u32),
+        cull_mask: val(u32::MAX),
+        sbt_ray_config: PTRayType::ShadowTest.to_sbt_cfg(),
+        miss_index: val(1),
+        ray,
+        range: ShaderRayRange::default(),
+      };
+
+      let payload = ENode::<ShaderTestPayload> {
+        radiance: should_sample.select(light_sample.radiance, zeroed_val()),
+      }
+      .construct();
+
+      (should_sample, trace_call, payload)
+    })
+    .map(|(_, light_sample_result), ctx| {
       let pt_cx = ctx.expect_custom_cx::<PTClosestCtxInvocation>();
       let closest_hit_ctx = ctx.expect_closest_hit_ctx();
 
@@ -36,13 +77,17 @@ pub fn build_ray_hit_shader(
       let out_ray_origin = closest_hit_ctx.hit_world_position();
       let out_ray_origin = offset_ray_hit_fn(out_ray_origin, geometry_normal);
 
+      let light_sample_result = light_sample_result.expand();
+      let sampled_radiance = light_sample_result.radiance;
+
       let payload = ctx.expect_payload::<CorePathPayload>();
       payload.next_ray_origin().store(out_ray_origin);
       payload.next_ray_dir().store(sampling_dir);
       payload.normal().store(shading_normal);
       payload.brdf().store(brdf);
       payload.pdf().store(pdf);
-      payload.sampled_radiance().store(surface_radiance);
+      payload.sampled_radiance().store(sampled_radiance);
+      payload.surface_radiance().store(surface_radiance);
       payload.missed().store(val(false).into_big_bool());
       //
     })

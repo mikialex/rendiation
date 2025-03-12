@@ -115,6 +115,7 @@ impl ShaderFutureInvocation for PTRayGenShaderFutureInvocation {
     if_by(fly_ray.is_resolved(), || {
       let ENode::<CorePathPayload> {
         sampled_radiance,
+        surface_radiance,
         next_ray_origin,
         next_ray_dir,
         missed,
@@ -132,7 +133,7 @@ impl ShaderFutureInvocation for PTRayGenShaderFutureInvocation {
       if_by(missed.into_bool(), || {
         // mark this path as terminated
         current_depth.store(max_depth);
-        let output_radiance = throughput * sampled_radiance + radiance.load();
+        let output_radiance = throughput * sampled_radiance + surface_radiance + radiance.load();
         radiance.store(output_radiance);
         self.radiance.abstract_store(output_radiance);
       })
