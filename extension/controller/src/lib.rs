@@ -48,6 +48,7 @@ pub trait ControllerWinitEventSupport: Controller {
     state: &mut Self::State,
     event: &winit::event::Event<T>,
     bound: InputBound,
+    pause: bool,
   );
 }
 
@@ -89,7 +90,7 @@ impl<T: ControllerWinitEventSupport> ControllerWinitAdapter<T> {
     changed
   }
 
-  pub fn event<E>(&mut self, event: &winit::event::Event<E>, bound: InputBound) {
-    self.controller.event(&mut self.state, event, bound)
+  pub fn event<E>(&mut self, event: &winit::event::Event<E>, bound: InputBound, pause: bool) {
+    self.controller.event(&mut self.state, event, bound, pause)
   }
 }

@@ -13,9 +13,7 @@ pub struct CameraControlBlocked;
 
 impl Widget for SceneOrbitCameraControl {
   fn update_state(&mut self, cx: &mut DynCx) {
-    if cx.message.take::<CameraControlBlocked>().is_some() {
-      return;
-    }
+    let pause = cx.message.take::<CameraControlBlocked>().is_some();
 
     access_cx!(cx, p, PlatformEventInput);
 
@@ -25,7 +23,7 @@ impl Widget for SceneOrbitCameraControl {
     };
 
     for e in &p.accumulate_events {
-      self.controller.event(e, bound)
+      self.controller.event(e, bound, pause);
     }
   }
 

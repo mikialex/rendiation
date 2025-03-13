@@ -150,7 +150,18 @@ pub struct OrbitWinitWindowState {
 use winit::event::*;
 impl ControllerWinitEventSupport for OrbitController {
   type State = OrbitWinitWindowState;
-  fn event<T>(&mut self, s: &mut Self::State, event: &winit::event::Event<T>, bound: InputBound) {
+  fn event<T>(
+    &mut self,
+    s: &mut Self::State,
+    event: &winit::event::Event<T>,
+    bound: InputBound,
+    pause: bool,
+  ) {
+    if pause {
+      s.is_left_mouse_down = false;
+      s.is_right_mouse_down = false;
+      return;
+    }
     match event {
       Event::WindowEvent { event, .. } => match event {
         WindowEvent::MouseInput { button, state, .. } => {

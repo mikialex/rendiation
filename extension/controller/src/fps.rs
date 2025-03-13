@@ -119,7 +119,16 @@ use winit::{
 };
 impl ControllerWinitEventSupport for FPSController {
   type State = ();
-  fn event<T>(&mut self, _: &mut Self::State, event: &winit::event::Event<T>, _bound: InputBound) {
+  fn event<T>(
+    &mut self,
+    _: &mut Self::State,
+    event: &winit::event::Event<T>,
+    _bound: InputBound,
+    pause: bool,
+  ) {
+    if pause {
+      return;
+    }
     match event {
       Event::WindowEvent { event, .. } => match event {
         WindowEvent::KeyboardInput { event, .. } => {
