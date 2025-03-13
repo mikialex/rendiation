@@ -45,6 +45,7 @@ struct ViewerUIState {
   show_viewer_config_panel: bool,
   show_terminal: bool,
   show_gpu_info: bool,
+  show_memory_stat: bool,
 }
 
 impl Widget for Viewer {
@@ -275,6 +276,7 @@ impl Viewer {
         show_viewer_config_panel: true,
         show_terminal: true,
         show_gpu_info: false,
+        show_memory_stat: false,
       },
       content: Box::new(content_logic),
       camera_helpers,
@@ -319,9 +321,25 @@ fn egui(
       ui.checkbox(&mut ui_state.show_db_inspector, "database inspector");
       ui.checkbox(&mut ui_state.show_viewer_config_panel, "viewer config");
       ui.checkbox(&mut ui_state.show_terminal, "terminal");
-      ui.checkbox(&mut ui_state.show_gpu_info, "gpu info")
+      ui.checkbox(&mut ui_state.show_gpu_info, "gpu info");
+      ui.checkbox(&mut ui_state.show_memory_stat, "heap stat");
     });
   });
+
+  egui::Window::new("Memory")
+    .vscroll(true)
+    .open(&mut ui_state.show_memory_stat)
+    .show(ui, |ui| {
+      if cfg!(feature = "heap-debug") {
+        if ui.button("reset heap peak stat").clicked() {
+          GLOBAL_ALLOCATOR.reset_history_peak();
+        }
+        let stat = GLOBAL_ALLOCATOR.report();
+        ui.label(format!("{:#?}", stat));
+      } else {
+        ui.label("heap stat is not enabled in this build");
+      }
+    });
 
   egui::Window::new("Viewer")
     .vscroll(true)

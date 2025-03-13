@@ -65,7 +65,6 @@ The following things is the current project development direction.
   - improve the wavefront dispatch performance
     - let user manual control dispatch rounds
 - support zero sized state in task graph
-- remove per frame large buffer recreation in parallel compute, fix the memory peak.
 
 ### Need help issue
 
@@ -86,6 +85,12 @@ cargo run --bin viewer
 cargo run --release --bin viewer # run it in release mode
 ```
 
+run given test when debugging. this is useful to fast relanch same test in terminal.
+
+```bash
+cargo t --package package_name test_name -- --nocapture
+```
+
 generate documents and open it in default browser (currently the project is extremely lack of documentation)
 
 ```bash
@@ -96,23 +101,19 @@ cargo doc --no-deps --open
 
 ```bash
 cargo build --release --bin viewer
-samply record ./target/debug/viewer
-```
-
-run given test when debugging
-
-```bash
-cargo t --package package_name test_name -- --nocapture
+samply record ./target/release/viewer
 ```
 
 For GPU debugging and profiling, the metal gpu capture is recommended to investigate gpu workload on macos. On the other platform that using Nvidia graphics card, the Nsight is recommended. If the webgpu backend switched to Dx12, the Pixi debugger is another good choice.
 
+When using Xcode & Instrument to debug memory usage, your binary should manually signed or you will get "required kernel recording resources" error. see <https://github.com/rust-lang/rust/issues/107033>. Restart the profiler after signing.
+
 ## Coding style
 
-The coding style is enforced by rustfmt. Some extra notes are:
+The basic coding style is enforced by rustfmt. Some extra notes are:
 
 - If the name of the struct or type contains multiple terminology nouns in sequence, for example "GPU" and "NDC" in "WebGPUNDC", use the "WebGPUxNDC" instead.
-- Make sure the code looks comfortable visually, adjust the line break and insert empty row in pair with how logic and data flows. Rustfmt can not do that for you.
+- Make sure the code looks visually comfortable, adjust the line break and insert empty row in pair with how logic and data flows. Rustfmt can not do that for you.
 
 ## Version control
 
@@ -120,3 +121,5 @@ The coding style is enforced by rustfmt. Some extra notes are:
   We're consider using a separate submodule repository for these assets.. except:
   - the file size is relatively small(less than 20kb), and
   - it's act as the fundamental support for some feature.
+  
+  For example the LUT texture used in rendering
