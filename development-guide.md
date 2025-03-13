@@ -4,17 +4,19 @@
 
 The following things is the current project development direction.
 
-### Basic correctness
+### Correctness issues
 
 - fix memory leak in reactive fork message queue in viewer application
-- emmisive has black shadow on default scene
-- fix multiple taskgraph exist togther, ShaderFuture should impl shaderhashprovider
+- emissive has black shadow on default scene
+- fix multiple taskgraph exist together, ShaderFuture should impl shaderhashprovider
 - fix texture pool grow
 - mipmap and multi format support in texture pool system
 - bindless mesh does not support optional uv and normal attributes
 - optimize frame ctx "make_submit" call, use copy buffer to buffer to update.
-- env background not support tonemapping
-- alpha blending is not implemnt at all
+- alpha blending is not implement at all
+- support per material custom state control
+  - support double side config in gltf loader
+  - fix gizmo plane move only one side is visible
 - light uniform array not skip none exist light
 - gizmo should not scaled by target scale
 - use view space shading/lighting/postprocess compute to improve precision
@@ -31,6 +33,7 @@ The following things is the current project development direction.
 - fix ao should only shadowing diffuse lighting.
 - ibl brdf lut should use higher precision lut
 - fix outline shaking
+- integrate_brdf and ibl lighting shader code should reuse the std micro surface shading code
 
 ### Indirect rendering
 
@@ -62,10 +65,11 @@ The following things is the current project development direction.
 ### Infra and framework improvements planed
 
 - ray tracing
-  - new wavefront geometry backend by wgpu ray query api
   - improve the wavefront dispatch performance
     - let user manual control dispatch rounds
 - support zero sized state in task graph
+- parallel compute support buffer reuse pool
+- reactive query support parallel updates
 
 ### Need help issue
 

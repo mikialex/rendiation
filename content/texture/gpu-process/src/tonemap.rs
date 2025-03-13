@@ -27,12 +27,6 @@ impl ToneMap {
   }
 }
 
-impl ToneMap {
-  pub fn tonemap<'a, T: 'a>(&'a self, hdr: &'a RenderTargetView) -> impl PassContent + 'a {
-    ToneMapTask { hdr, config: self }.draw_quad()
-  }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ToneMapType {
   None,
@@ -157,44 +151,4 @@ fn aces_filmic_tone_mapping(color: Node<Vec3<f32>>, exposure: Node<f32>) -> Node
   color = aces_output_mat * color;
 
   color.saturate()
-}
-
-struct ToneMapTask<'a> {
-  hdr: &'a RenderTargetView,
-  config: &'a ToneMap,
-}
-
-impl ShaderHashProvider for ToneMapTask<'_> {
-  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.config.hash_pipeline(hasher)
-  }
-  shader_hash_type_id! {ToneMapTask<'static,>}
-}
-impl ShaderPassBuilder for ToneMapTask<'_> {
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(self.hdr);
-    ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
-    self.config.setup_pass(ctx)
-  }
-}
-
-impl GraphicsShaderProvider for ToneMapTask<'_> {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    builder.fragment(|builder, binding| {
-      let hdr = binding.bind_by(&self.hdr);
-      let sampler = binding.bind_by(&ImmediateGPUSamplerViewBind);
-
-      let uv = builder.query::<FragmentUv>();
-      let hdr = hdr.sample(sampler, uv).xyz();
-
-      builder.register::<HDRLightResult>(hdr);
-    });
-
-    self.config.build(builder);
-
-    builder.fragment(|builder, _| {
-      let ldr = builder.query::<LDRLightResult>();
-      builder.store_fragment_out_vec4f(0, (ldr, val(1.)))
-    })
-  }
 }

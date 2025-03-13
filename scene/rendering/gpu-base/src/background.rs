@@ -87,6 +87,7 @@ impl SceneBackgroundRenderer {
     &'a self,
     scene: EntityHandle<SceneEntity>,
     camera: Box<dyn RenderComponent + 'a>,
+    tonemap: &'a dyn RenderComponent,
   ) -> impl PassContent + 'a {
     if let Some(env) = self.env_background_map.get(scene) {
       BackGroundDrawPassContent::CubeEnv(
@@ -94,6 +95,7 @@ impl SceneBackgroundRenderer {
           map: self.env_background_map_gpu.access(&env).unwrap().clone(),
           intensity: self.env_background_intensity.access(&scene).unwrap(),
           camera,
+          tonemap,
         }
         .draw_quad(),
       )
@@ -121,10 +123,15 @@ struct CubeEnvComponent<'a> {
   map: GPUCubeTextureView,
   intensity: UniformBufferDataView<Vec4<f32>>,
   camera: Box<dyn RenderComponent + 'a>,
+  tonemap: &'a dyn RenderComponent,
 }
 
 impl ShaderHashProvider for CubeEnvComponent<'_> {
   shader_hash_type_id! {CubeEnvComponent<'static>}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.camera.hash_pipeline_with_type_info(hasher);
+    self.tonemap.hash_pipeline_with_type_info(hasher);
+  }
 }
 impl ShaderPassBuilder for CubeEnvComponent<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
@@ -132,6 +139,7 @@ impl ShaderPassBuilder for CubeEnvComponent<'_> {
     ctx.binding.bind(&self.map);
     ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
     ctx.binding.bind(&self.intensity);
+    self.tonemap.post_setup_pass(ctx);
   }
 }
 
@@ -160,10 +168,18 @@ impl GraphicsShaderProvider for CubeEnvComponent<'_> {
 
       let cube = binding.bind_by(&self.map);
       let sampler = binding.bind_by(&ImmediateGPUSamplerViewBind);
-      let _intensity = binding.bind_by(&self.intensity).load().x(); // todo tonemap
-      let result = cube.sample_zero_level(sampler, direction);
+      let intensity = binding.bind_by(&self.intensity).load().x();
+      let result = cube.sample_zero_level(sampler, direction).xyz();
 
-      builder.store_fragment_out(0, result);
+      builder.register::<HDRLightResult>(result * intensity);
     });
+
+    self.tonemap.post_build(builder);
+
+    builder.fragment(|builder, _| {
+      let ldr = builder.query::<LDRLightResult>();
+      let ldr: Node<Vec4<_>> = (ldr, val(1.)).into();
+      builder.store_fragment_out(0, ldr);
+    })
   }
 }

@@ -239,7 +239,7 @@ impl LightSystem {
     cx: &mut Context,
     renderer: &dyn SceneRenderer<ContentKey = SceneContentKey>,
     target_scene: EntityHandle<SceneEntity>,
-  ) -> SceneLightSystem {
+  ) -> (SceneLightSystem, &ToneMap) {
     self.tonemap.update(frame_ctx.gpu);
 
     let key = SceneContentKey {
@@ -275,10 +275,11 @@ impl LightSystem {
     res.type_based_result.register(DirectionalShaderAtlas(ds));
     res.type_based_result.register(SpotShaderAtlas(ss));
 
-    SceneLightSystem {
+    let sys = SceneLightSystem {
       system: self,
       imp: self.internal.create_impl(res),
-    }
+    };
+    (sys, &self.tonemap)
   }
 }
 

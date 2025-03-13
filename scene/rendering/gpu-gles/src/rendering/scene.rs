@@ -170,16 +170,17 @@ impl SceneRenderer for GLESSceneRenderer {
   ) -> (Operations<rendiation_webgpu::Color>, Operations<f32>) {
     self.background.init_clear(scene)
   }
-  fn render_background(
-    &self,
+  fn render_background<'a>(
+    &'a self,
     scene: EntityHandle<SceneEntity>,
     camera: CameraRenderSource,
-  ) -> Box<dyn PassContent + '_> {
+    tonemap: &'a dyn RenderComponent,
+  ) -> Box<dyn PassContent + 'a> {
     let camera = match camera {
       CameraRenderSource::Scene(camera) => self.get_camera_gpu().make_component(camera).unwrap(),
       CameraRenderSource::External(camera) => camera,
     };
-    Box::new(self.background.draw(scene, camera))
+    Box::new(self.background.draw(scene, camera, tonemap))
   }
 
   fn get_camera_gpu(&self) -> &dyn CameraRenderImpl {

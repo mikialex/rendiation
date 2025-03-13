@@ -453,7 +453,7 @@ impl Viewer3dRenderingCtx {
         }
       }
     } else {
-      let lighting = self.lighting.prepare_and_create_impl(
+      let (lighting, tonemap) = self.lighting.prepare_and_create_impl(
         &mut resource,
         &mut ctx,
         cx,
@@ -465,6 +465,7 @@ impl Viewer3dRenderingCtx {
         &mut ctx,
         renderer.as_ref(),
         &lighting,
+        tonemap,
         content,
         &render_target,
         self.current_camera_view_projection_inv,

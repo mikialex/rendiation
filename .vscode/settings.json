@@ -173,6 +173,7 @@
         "structor",
         "Subpixel",
         "swapchain",
+        "taskgraph",
         "Tessellatable",
         "Tessellator",
         "texcoords",

@@ -55,6 +55,7 @@ impl ViewerFrameLogic {
     ctx: &mut FrameCtx,
     renderer: &dyn SceneRenderer<ContentKey = SceneContentKey>,
     lighting: &SceneLightSystem,
+    tonemap: &ToneMap,
     content: &Viewer3dSceneCtx,
     final_target: &RenderTargetView,
     current_camera_view_projection_inv: Mat4<f32>,
@@ -119,6 +120,7 @@ impl ViewerFrameLogic {
         let mut background = renderer.render_background(
           content.scene,
           CameraRenderSource::Scene(content.main_camera),
+          tonemap,
         );
 
         let _span = span!(Level::INFO, "main scene content encode pass");
