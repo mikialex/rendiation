@@ -94,7 +94,15 @@ where
   }
 }
 
-const ENABLE_MESSAGE_LEAK_WARNING: bool = true;
+const ENABLE_MESSAGE_LEAK_WARNING: bool = false; // todo, fix leak
+fn check_sender_has_leak<T>(sender: &UnboundedSender<T>) {
+  if ENABLE_MESSAGE_LEAK_WARNING && sender.len() > 50 {
+    println!(
+      "potential reactive query fork message leak:, current sender buffered message count: {}",
+      sender.len()
+    );
+  }
+}
 
 impl<Map> ReactiveKVMapFork<Map>
 where
@@ -121,12 +129,7 @@ where
     let d = d.materialize();
     for (_, info) in downstream.iter() {
       if info.should_send {
-        if ENABLE_MESSAGE_LEAK_WARNING && info.sender.len() > 50 {
-          println!(
-            "potential reactive query fork message leak:, current sender buffered message count: {}",
-            info.sender.len()
-          );
-        }
+        check_sender_has_leak(&info.sender);
         info.sender.unbounded_send(d.clone()).ok();
       }
     }
@@ -144,6 +147,7 @@ where
       .collect::<FastHashMap<_, _>>();
     let current = Arc::new(current);
     if !current.is_empty() {
+      check_sender_has_leak(&sender);
       sender.unbounded_send(current).ok();
     }
 
@@ -277,6 +281,7 @@ where
         // receivers
         for (id, downstream) in downstream.iter() {
           if *id != self.id && downstream.should_send {
+            check_sender_has_leak(&downstream.sender);
             downstream.sender.unbounded_send(d.clone()).ok();
           }
         }

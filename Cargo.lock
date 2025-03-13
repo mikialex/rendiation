@@ -1686,9 +1686,6 @@ name = "half"
 version = "1.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62aca2aba2d62b4a7f5b33f3712cb1b0692779a56fb510499d5c0aa594daeaf3"
-dependencies = [
- "bytemuck",
-]
 
 [[package]]
 name = "half"
@@ -1696,6 +1693,7 @@ version = "2.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "02b4af3693f1b705df946e9fe5631932443781d0aabb423b62fcd4d73f6d2fd0"
 dependencies = [
+ "bytemuck",
  "crunchy",
 ]
 
@@ -3530,7 +3528,7 @@ name = "rendiation-lighting-ltc"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "half 1.7.1",
+ "half 2.2.1",
  "rendiation-algebra",
  "rendiation-lighting-gpu-system",
  "rendiation-lighting-transport",
@@ -4713,9 +4711,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-tracy"
-version = "0.11.3"
+version = "0.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc775fdaf33c3dfd19dc354729e65e87914bc67dcdc390ca1210807b8bee5902"
+checksum = "0eaa1852afa96e0fe9e44caa53dc0bd2d9d05e0f2611ce09f97f8677af56e4ba"
 dependencies = [
  "tracing-core",
  "tracing-subscriber",

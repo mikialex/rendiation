@@ -6,7 +6,7 @@ The following things is the current project development direction.
 
 ### Basic correctness
 
-- viewer huge memory leak
+- fix memory leak in reactive fork message queue in viewer application
 - emmisive has black shadow on default scene
 - fix multiple taskgraph exist togther, ShaderFuture should impl shaderhashprovider
 - fix texture pool grow
@@ -108,6 +108,15 @@ samply record ./target/release/viewer
 For GPU debugging and profiling, the metal gpu capture is recommended to investigate gpu workload on macos. On the other platform that using Nvidia graphics card, the Nsight is recommended. If the webgpu backend switched to Dx12, the Pixi debugger is another good choice.
 
 When using Xcode & Instrument to debug memory usage, your binary should manually signed or you will get "required kernel recording resources" error. see <https://github.com/rust-lang/rust/issues/107033>. Restart the profiler after signing.
+
+## Tracy profiler
+
+[tracy](https://github.com/wolfpld/tracy) is a useful tool to investigate memory and performance issues. Tracy has already integrated into viewer application. It is disabled by default behind the `tracy` feature flag because it will using and buffering a lot of memory when enabled. The current integration should use tracy 0.11.1 client to connect.
+
+```bash
+cargo run --bin viewer --features "tracy" # run viewer enable tracy
+cargo run --bin viewer --features "tracy-heap-debug" # run viewer enable tracy and tracy-heap-debug
+```
 
 ## Coding style
 

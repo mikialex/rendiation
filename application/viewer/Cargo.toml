@@ -57,7 +57,7 @@ rendiation-webgpu-reactive-utils = { path = "../../platform/graphics/webgpu-reac
 rfd = "0.14.0"
 tracing = { workspace = true }
 tracing-subscriber = "0.3.19"
-tracing-tracy = "0.11.3"
+tracing-tracy = { version = "0.11.4", optional = true }
 
 egui = "0.31"
 egui-wgpu = "0.31"
@@ -71,6 +71,8 @@ winit = { workspace = true }
 default = ["heap-debug"]
 heap-debug = ["heap-tools/enabled"]
 webgl = ["rendiation-webgpu/webgl"]
+tracy = ["dep:tracing-tracy"]
+tracy-heap-debug = ["tracy"]
 
 [lints]
 workspace = true

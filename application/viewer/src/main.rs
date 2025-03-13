@@ -44,6 +44,13 @@ use rendiation_webgpu::*;
 use util::*;
 pub use viewer::*;
 
+#[cfg(feature = "tracy-heap-debug")]
+#[global_allocator]
+static GLOBAL_ALLOCATOR: PreciseAllocationStatistics<
+  tracing_tracy::client::ProfiledAllocator<System>,
+> = PreciseAllocationStatistics::new(tracing_tracy::client::ProfiledAllocator::new(System, 64));
+
+#[cfg(not(feature = "tracy-heap-debug"))]
 #[global_allocator]
 static GLOBAL_ALLOCATOR: PreciseAllocationStatistics<System> =
   PreciseAllocationStatistics::new(System);
@@ -84,11 +91,14 @@ where
 }
 
 fn main() {
-  use tracing_subscriber::prelude::*;
-  tracing::subscriber::set_global_default(
-    tracing_subscriber::registry().with(tracing_tracy::TracyLayer::default()),
-  )
-  .expect("setting tracing default failed");
+  #[cfg(feature = "tracy")]
+  {
+    use tracing_subscriber::prelude::*;
+    tracing::subscriber::set_global_default(
+      tracing_subscriber::registry().with(tracing_tracy::TracyLayer::default()),
+    )
+    .expect("setting tracing default failed");
+  }
 
   run_viewer_app(|_| {});
 }
