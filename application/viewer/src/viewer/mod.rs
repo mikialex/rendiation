@@ -330,13 +330,28 @@ fn egui(
     .vscroll(true)
     .open(&mut ui_state.show_memory_stat)
     .show(ui, |ui| {
-      if cfg!(feature = "heap-debug") {
+      #[cfg(feature = "heap-debug")]
+      {
         if ui.button("reset heap peak stat").clicked() {
           GLOBAL_ALLOCATOR.reset_history_peak();
         }
         let stat = GLOBAL_ALLOCATOR.report();
         ui.label(format!("{:#?}", stat));
-      } else {
+        if ui.button("reset counter peak stat").clicked() {
+          heap_tools::HEAP_TOOL_GLOBAL_INSTANCE_COUNTER
+            .write()
+            .reset_all_instance_history_peak();
+        }
+        let global = heap_tools::HEAP_TOOL_GLOBAL_INSTANCE_COUNTER.read();
+        for (ty, report) in global.report_all_instance_count() {
+          ui.label(format!(
+            "{ty} => current: {}, peak: {}",
+            report.current, report.history_peak,
+          ));
+        }
+      }
+      #[cfg(not(feature = "heap-debug"))]
+      {
         ui.label("heap stat is not enabled in this build");
       }
     });

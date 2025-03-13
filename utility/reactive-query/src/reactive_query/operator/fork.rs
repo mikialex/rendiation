@@ -94,6 +94,8 @@ where
   }
 }
 
+const ENABLE_MESSAGE_LEAK_WARNING: bool = true;
+
 impl<Map> ReactiveKVMapFork<Map>
 where
   Map: ReactiveQuery,
@@ -119,6 +121,12 @@ where
     let d = d.materialize();
     for (_, info) in downstream.iter() {
       if info.should_send {
+        if ENABLE_MESSAGE_LEAK_WARNING && info.sender.len() > 50 {
+          println!(
+            "potential reactive query fork message leak:, current sender buffered message count: {}",
+            info.sender.len()
+          );
+        }
         info.sender.unbounded_send(d.clone()).ok();
       }
     }

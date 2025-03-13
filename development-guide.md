@@ -6,6 +6,7 @@ The following things is the current project development direction.
 
 ### Basic correctness
 
+- viewer huge memory leak
 - emmisive has black shadow on default scene
 - fix multiple taskgraph exist togther, ShaderFuture should impl shaderhashprovider
 - fix texture pool grow
