@@ -24,21 +24,22 @@ pub fn directional_storage(gpu: &GPU) -> ReactiveStorageBufferContainer<Directio
 
 #[derive(Default)]
 pub struct DirectionalStorageLightList {
-  token: UpdateResultToken,
+  token: QueryToken,
 }
 
-impl RenderImplProvider<Box<dyn LightingComputeComponent>> for DirectionalStorageLightList {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
+impl QueryBasedFeature<Box<dyn LightingComputeComponent>> for DirectionalStorageLightList {
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
     let data = directional_storage(cx);
-    self.token = source.register_multi_updater(data.inner);
+    self.token = qcx.register_multi_updater(data.inner);
   }
 
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.token);
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.token);
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn LightingComputeComponent> {
-    let buffer = res
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn LightingComputeComponent> {
+    let buffer = cx
       .take_multi_updater_updated::<CommonStorageBufferImpl<DirectionalLightStorage>>(self.token)
       .unwrap()
       .gpu()

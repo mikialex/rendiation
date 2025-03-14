@@ -26,25 +26,26 @@ pub trait IndirectNodeRenderImpl {
 
 #[derive(Default)]
 pub struct DefaultIndirectNodeRenderImplProvider {
-  storage: UpdateResultToken,
+  storage: QueryToken,
 }
 pub struct DefaultIndirectNodeRenderImpl {
   node_gpu: LockReadGuardHolder<MultiUpdateContainer<CommonStorageBufferImpl<NodeStorage>>>,
 }
 
-impl RenderImplProvider<Box<dyn IndirectNodeRenderImpl>> for DefaultIndirectNodeRenderImplProvider {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
+impl QueryBasedFeature<Box<dyn IndirectNodeRenderImpl>> for DefaultIndirectNodeRenderImplProvider {
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
     let storage = node_storages(cx);
-    self.storage = source.register_multi_updater(storage.inner);
+    self.storage = qcx.register_multi_updater(storage.inner);
   }
 
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.storage);
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.storage);
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn IndirectNodeRenderImpl> {
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn IndirectNodeRenderImpl> {
     Box::new(DefaultIndirectNodeRenderImpl {
-      node_gpu: res.take_multi_updater_updated(self.storage).unwrap(),
+      node_gpu: cx.take_multi_updater_updated(self.storage).unwrap(),
     })
   }
 }

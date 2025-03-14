@@ -161,9 +161,9 @@ pub fn attribute_buffer_metadata(
 }
 
 pub struct MeshBindlessGPUSystemSource {
-  attribute_buffer_metadata: UpdateResultToken,
-  sm_to_mesh: UpdateResultToken,
-  sm_to_mesh_device: UpdateResultToken,
+  attribute_buffer_metadata: QueryToken,
+  sm_to_mesh: QueryToken,
+  sm_to_mesh_device: QueryToken,
   indices: UntypedPool,
   position: UntypedPool, // using untyped to avoid padding waste
   normal: UntypedPool,
@@ -201,8 +201,8 @@ impl MeshBindlessGPUSystemSource {
     }
   }
 
-  pub fn create_impl_internal_impl(&self, res: &mut QueryResultCtx) -> MeshGPUBindlessImpl {
-    let vertex_address_buffer = res
+  pub fn create_impl_internal_impl(&self, cx: &mut QueryResultCtx) -> MeshGPUBindlessImpl {
+    let vertex_address_buffer = cx
       .take_multi_updater_updated::<CommonStorageBufferImplWithHostBackup<AttributeMeshMeta>>(
         self.attribute_buffer_metadata,
       )
@@ -219,20 +219,21 @@ impl MeshBindlessGPUSystemSource {
         .read_foreign_key(),
       vertex_address_buffer: vertex_address_buffer.gpu().clone().into_rw_view(),
       vertex_address_buffer_host: vertex_address_buffer.clone(),
-      sm_to_mesh_device: res
+      sm_to_mesh_device: cx
         .take_multi_updater_updated::<CommonStorageBufferImpl<u32>>(self.sm_to_mesh_device)
         .unwrap()
         .gpu()
         .clone()
         .into_rw_view(),
-      sm_to_mesh: res.take_reactive_query_updated(self.sm_to_mesh).unwrap(),
+      sm_to_mesh: cx.take_reactive_query_updated(self.sm_to_mesh).unwrap(),
     }
   }
 }
 
-impl RenderImplProvider<Box<dyn IndirectModelShapeRenderImpl>> for MeshBindlessGPUSystemSource {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    self.attribute_buffer_metadata = source.register_multi_updater(attribute_buffer_metadata(
+impl QueryBasedFeature<Box<dyn IndirectModelShapeRenderImpl>> for MeshBindlessGPUSystemSource {
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
+    self.attribute_buffer_metadata = qcx.register_multi_updater(attribute_buffer_metadata(
       cx,
       &self.indices,
       &self.position,
@@ -252,19 +253,19 @@ impl RenderImplProvider<Box<dyn IndirectModelShapeRenderImpl>> for MeshBindlessG
     let sm_to_mesh_device =
       ReactiveStorageBufferContainer::<u32>::new(cx).with_source(sm_to_mesh_device_source, 0);
 
-    self.sm_to_mesh_device = source.register_multi_updater(sm_to_mesh_device.inner);
+    self.sm_to_mesh_device = qcx.register_multi_updater(sm_to_mesh_device.inner);
     let sm_to_mesh = sm_to_mesh.collective_filter_map(|v| v);
-    self.sm_to_mesh = source.register_reactive_query(sm_to_mesh);
+    self.sm_to_mesh = qcx.register_reactive_query(sm_to_mesh);
   }
 
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.attribute_buffer_metadata);
-    source.deregister(&mut self.sm_to_mesh_device);
-    source.deregister(&mut self.sm_to_mesh);
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.attribute_buffer_metadata);
+    qcx.deregister(&mut self.sm_to_mesh_device);
+    qcx.deregister(&mut self.sm_to_mesh);
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn IndirectModelShapeRenderImpl> {
-    Box::new(self.create_impl_internal_impl(res))
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn IndirectModelShapeRenderImpl> {
+    Box::new(self.create_impl_internal_impl(cx))
   }
 }
 

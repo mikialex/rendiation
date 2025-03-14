@@ -29,21 +29,22 @@ pub fn point_storage(gpu: &GPU) -> ReactiveStorageBufferContainer<PointLightStor
 
 #[derive(Default)]
 pub struct PointStorageLightList {
-  token: UpdateResultToken,
+  token: QueryToken,
 }
 
-impl RenderImplProvider<Box<dyn LightingComputeComponent>> for PointStorageLightList {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
+impl QueryBasedFeature<Box<dyn LightingComputeComponent>> for PointStorageLightList {
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
     let data = point_storage(cx);
-    self.token = source.register_multi_updater(data.inner);
+    self.token = qcx.register_multi_updater(data.inner);
   }
 
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.token);
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.token);
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn LightingComputeComponent> {
-    let buffer = res
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn LightingComputeComponent> {
+    let buffer = cx
       .take_multi_updater_updated::<CommonStorageBufferImpl<PointLightStorage>>(self.token)
       .unwrap()
       .gpu()

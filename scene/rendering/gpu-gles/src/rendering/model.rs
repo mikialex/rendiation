@@ -39,38 +39,27 @@ impl GLESModelRenderImpl for Vec<Box<dyn GLESModelRenderImpl>> {
   }
 }
 pub struct DefaultSceneStdModelRendererProvider {
-  pub materials: Vec<Box<dyn RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>>>,
-  pub shapes: Vec<Box<dyn RenderImplProvider<Box<dyn GLESModelShapeRenderImpl>>>>,
+  pub materials: Vec<BoxedQueryBasedGPUFeature<Box<dyn GLESModelMaterialRenderImpl>>>,
+  pub shapes: Vec<BoxedQueryBasedGPUFeature<Box<dyn GLESModelShapeRenderImpl>>>,
 }
 
-impl RenderImplProvider<Box<dyn GLESModelRenderImpl>> for DefaultSceneStdModelRendererProvider {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    self
-      .materials
-      .iter_mut()
-      .for_each(|p| p.register_resource(source, cx));
-    self
-      .shapes
-      .iter_mut()
-      .for_each(|p| p.register_resource(source, cx));
+impl QueryBasedFeature<Box<dyn GLESModelRenderImpl>> for DefaultSceneStdModelRendererProvider {
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
+    self.materials.iter_mut().for_each(|p| p.register(qcx, cx));
+    self.shapes.iter_mut().for_each(|p| p.register(qcx, cx));
   }
 
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    self
-      .materials
-      .iter_mut()
-      .for_each(|p| p.deregister_resource(source));
-    self
-      .shapes
-      .iter_mut()
-      .for_each(|p| p.deregister_resource(source));
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    self.materials.iter_mut().for_each(|p| p.deregister(qcx));
+    self.shapes.iter_mut().for_each(|p| p.deregister(qcx));
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn GLESModelRenderImpl> {
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn GLESModelRenderImpl> {
     Box::new(SceneStdModelRenderer {
       model: global_entity_component_of::<SceneModelStdModelRenderPayload>().read_foreign_key(),
-      materials: self.materials.iter().map(|v| v.create_impl(res)).collect(),
-      shapes: self.shapes.iter().map(|v| v.create_impl(res)).collect(),
+      materials: self.materials.iter().map(|v| v.create_impl(cx)).collect(),
+      shapes: self.shapes.iter().map(|v| v.create_impl(cx)).collect(),
     })
   }
 }

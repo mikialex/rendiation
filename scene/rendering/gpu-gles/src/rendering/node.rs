@@ -9,25 +9,26 @@ pub trait GLESNodeRenderImpl {
 
 #[derive(Default)]
 pub struct DefaultGLESNodeRenderImplProvider {
-  uniforms: UpdateResultToken,
+  uniforms: QueryToken,
 }
 pub struct DefaultGLESNodeRenderImpl {
   node_gpu: LockReadGuardHolder<SceneNodeUniforms>,
 }
 
-impl RenderImplProvider<Box<dyn GLESNodeRenderImpl>> for DefaultGLESNodeRenderImplProvider {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
+impl QueryBasedFeature<Box<dyn GLESNodeRenderImpl>> for DefaultGLESNodeRenderImplProvider {
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
     let uniforms = node_uniforms(cx);
-    self.uniforms = source.register_multi_updater(uniforms);
+    self.uniforms = qcx.register_multi_updater(uniforms);
   }
 
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.uniforms);
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.uniforms);
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn GLESNodeRenderImpl> {
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn GLESNodeRenderImpl> {
     Box::new(DefaultGLESNodeRenderImpl {
-      node_gpu: res.take_multi_updater_updated(self.uniforms).unwrap(),
+      node_gpu: cx.take_multi_updater_updated(self.uniforms).unwrap(),
     })
   }
 }

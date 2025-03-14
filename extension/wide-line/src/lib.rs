@@ -42,8 +42,8 @@ pub struct WideLineMeshDataView {
 pub type WideLineMeshInternal = NoneIndexedMesh<LineList, Vec<WideLineVertex>>;
 
 pub struct WideLineModelRendererProvider {
-  uniform: UpdateResultToken,
-  mesh: UpdateResultToken,
+  uniform: QueryToken,
+  mesh: QueryToken,
   vertex_buffer: GPUBufferResourceView,
   index_buffer: GPUBufferResourceView,
 }
@@ -60,24 +60,23 @@ impl WideLineModelRendererProvider {
   }
 }
 
-impl RenderImplProvider<Box<dyn GLESModelRenderImpl>> for WideLineModelRendererProvider {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    self.uniform = source.register_multi_updater(wide_line_uniforms(cx));
-    self.mesh = source.register_val_refed_reactive_query(wide_line_instance_buffers(cx));
+impl QueryBasedFeature<Box<dyn GLESModelRenderImpl>> for WideLineModelRendererProvider {
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
+    self.uniform = qcx.register_multi_updater(wide_line_uniforms(cx));
+    self.mesh = qcx.register_val_refed_reactive_query(wide_line_instance_buffers(cx));
   }
 
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.uniform);
-    source.deregister(&mut self.mesh);
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.uniform);
+    qcx.deregister(&mut self.mesh);
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn GLESModelRenderImpl> {
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn GLESModelRenderImpl> {
     Box::new(WideLineModelRenderer {
       model_access: global_database().read_foreign_key::<SceneModelWideLineRenderPayload>(),
-      uniforms: res.take_multi_updater_updated(self.uniform).unwrap(),
-      instance_buffers: res
-        .take_val_refed_reactive_query_updated(self.mesh)
-        .unwrap(),
+      uniforms: cx.take_multi_updater_updated(self.uniform).unwrap(),
+      instance_buffers: cx.take_val_refed_reactive_query_updated(self.mesh).unwrap(),
       index_buffer: self.index_buffer.clone(),
       vertex_buffer: self.vertex_buffer.clone(),
     })

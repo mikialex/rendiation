@@ -41,7 +41,7 @@ pub enum LightingTechniqueKind {
 }
 
 pub type BoxedSceneRenderImplProvider =
-  Box<dyn RenderImplProvider<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>>>;
+  BoxedQueryBasedGPUFeature<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>>;
 
 #[derive(Clone, Copy)]
 pub struct ViewerNDC {
@@ -64,7 +64,7 @@ impl<T: Scalar> NDCSpaceMapper<T> for ViewerNDC {
 }
 
 fn init_renderer(
-  updater: &mut ReactiveQueryJoinUpdater,
+  updater: &mut ReactiveQueryCtx,
   ty: RasterizationRenderBackendType,
   gpu: &GPU,
   camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
@@ -92,19 +92,20 @@ fn init_renderer(
     }
   };
 
-  renderer_impl.register_resource(updater, gpu);
+  renderer_impl.register(updater, gpu);
   renderer_impl
 }
 
 pub struct Viewer3dRenderingCtx {
   ndc: ViewerNDC,
   frame_logic: ViewerFrameLogic,
-  rendering_resource: ReactiveQueryJoinUpdater,
+  rendering_resource: ReactiveQueryCtx,
   renderer_impl: BoxedSceneRenderImplProvider,
   indirect_occlusion_culling_impl: Option<GPUTwoPassOcclusionCulling>,
   current_renderer_impl_ty: RasterizationRenderBackendType,
   rtx_renderer_impl: Option<RayTracingSystemGroup>,
-  rtx_effect_mode: Option<RayTracingEffectMode>,
+  rtx_effect_mode: RayTracingEffectMode,
+  rtx_rendering_enabled: bool,
   opaque_scene_content_lighting_technique: LightingTechniqueKind,
   lighting: LightSystem,
   material_defer_lighting_supports: DeferLightingMaterialRegistry,
@@ -133,7 +134,7 @@ impl Viewer3dRenderingCtx {
     ndc: ViewerNDC,
     camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
   ) -> Self {
-    let mut rendering_resource = ReactiveQueryJoinUpdater::default();
+    let mut rendering_resource = ReactiveQueryCtx::default();
 
     let lighting =
       LightSystem::new_and_register(&mut rendering_resource, &gpu, ndc.enable_reverse_z, ndc);
@@ -156,7 +157,8 @@ impl Viewer3dRenderingCtx {
       renderer_impl,
       current_renderer_impl_ty: RasterizationRenderBackendType::Gles,
       rtx_renderer_impl: None, // late init
-      rtx_effect_mode: None,   // default not enabled
+      rtx_effect_mode: RayTracingEffectMode::ReferenceTracing,
+      rtx_rendering_enabled: false,
       opaque_scene_content_lighting_technique: LightingTechniqueKind::Forward,
       frame_logic: ViewerFrameLogic::new(&gpu),
       lighting,
@@ -191,13 +193,13 @@ impl Viewer3dRenderingCtx {
         let mut rtx_renderer_impl =
           RayTracingSystemGroup::new(&rtx_system, &self.gpu, self.camera_source.clone_as_static());
 
-        rtx_renderer_impl.register_resource(&mut self.rendering_resource, &self.gpu);
+        rtx_renderer_impl.register(&mut self.rendering_resource, &self.gpu);
 
         self.rtx_renderer_impl = Some(rtx_renderer_impl);
       }
     } else {
       if let Some(rtx) = &mut self.rtx_renderer_impl {
-        rtx.deregister_resource(&mut self.rendering_resource);
+        rtx.deregister(&mut self.rendering_resource);
       }
       self.rtx_renderer_impl = None;
     }
@@ -305,9 +307,7 @@ impl Viewer3dRenderingCtx {
     ui.separator();
 
     if old != self.current_renderer_impl_ty {
-      self
-        .renderer_impl
-        .deregister_resource(&mut self.rendering_resource);
+      self.renderer_impl.deregister(&mut self.rendering_resource);
       self.renderer_impl = init_renderer(
         &mut self.rendering_resource,
         self.current_renderer_impl_ty,
@@ -334,34 +334,32 @@ impl Viewer3dRenderingCtx {
       self.set_enable_rtx_rendering_support(rtx_renderer_impl_exist);
 
       if let Some(renderer) = &self.rtx_renderer_impl {
+        ui.checkbox(&mut self.rtx_rendering_enabled, "enable ray tracing");
         egui::ComboBox::from_label("ray tracing mode")
           .selected_text(format!("{:?}", &self.rtx_effect_mode))
           .show_ui(ui, |ui| {
             ui.selectable_value(
               &mut self.rtx_effect_mode,
-              Some(RayTracingEffectMode::ReferenceTracing),
+              RayTracingEffectMode::ReferenceTracing,
               "Path tracing",
             );
             ui.selectable_value(
               &mut self.rtx_effect_mode,
-              Some(RayTracingEffectMode::AO),
+              RayTracingEffectMode::AO,
               "AO only",
             );
-            ui.selectable_value(&mut self.rtx_effect_mode, None, "Disabled");
           });
 
         // todo, currently the on demand rendering is broken, use this button to workaround.
-        if let Some(mode) = self.rtx_effect_mode {
-          match mode {
-            RayTracingEffectMode::AO => {
-              if ui.button("reset ao sample").clicked() {
-                renderer.ao.reset_ao_sample(&self.gpu);
-              }
+        match self.rtx_effect_mode {
+          RayTracingEffectMode::AO => {
+            if ui.button("reset ao sample").clicked() {
+              renderer.ao.reset_ao_sample(&self.gpu);
             }
-            RayTracingEffectMode::ReferenceTracing => {
-              if ui.button("reset pt sample").clicked() {
-                renderer.pt.reset_sample(&self.gpu);
-              }
+          }
+          RayTracingEffectMode::ReferenceTracing => {
+            if ui.button("reset pt sample").clicked() {
+              renderer.pt.reset_sample(&self.gpu);
             }
           }
         }
@@ -419,11 +417,11 @@ impl Viewer3dRenderingCtx {
       target.clone()
     };
 
-    if let Some(rtx_effect_mode) = self.rtx_effect_mode {
+    if self.rtx_rendering_enabled {
       if let Some(rtx_renderer_impl) = &mut self.rtx_renderer_impl {
         let mut rtx_renderer = rtx_renderer_impl.create_impl(&mut resource);
 
-        match rtx_effect_mode {
+        match self.rtx_effect_mode {
           RayTracingEffectMode::AO => {
             let ao_result = rtx_renderer.ao.render(
               &mut ctx,

@@ -11,36 +11,31 @@ pub trait LightSystemSceneProvider {
 
 #[derive(Default)]
 pub struct DifferentLightRenderImplProvider {
-  lights: Vec<Box<dyn RenderImplProvider<Box<dyn LightSystemSceneProvider>>>>,
+  lights: Vec<BoxedQueryBasedGPUFeature<Box<dyn LightSystemSceneProvider>>>,
 }
 
 impl DifferentLightRenderImplProvider {
   pub fn with_light(
     mut self,
-    impls: impl RenderImplProvider<Box<dyn LightSystemSceneProvider>> + 'static,
+    impls: impl QueryBasedFeature<Box<dyn LightSystemSceneProvider>, Context = GPU> + 'static,
   ) -> Self {
     self.lights.push(Box::new(impls));
     self
   }
 }
 
-impl RenderImplProvider<Box<dyn LightSystemSceneProvider>> for DifferentLightRenderImplProvider {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    self
-      .lights
-      .iter_mut()
-      .for_each(|l| l.register_resource(source, cx));
+impl QueryBasedFeature<Box<dyn LightSystemSceneProvider>> for DifferentLightRenderImplProvider {
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
+    self.lights.iter_mut().for_each(|l| l.register(qcx, cx));
   }
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    self
-      .lights
-      .iter_mut()
-      .for_each(|l| l.deregister_resource(source));
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    self.lights.iter_mut().for_each(|l| l.deregister(qcx));
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn LightSystemSceneProvider> {
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn LightSystemSceneProvider> {
     Box::new(LightingComputeComponentGroupProvider {
-      lights: self.lights.iter().map(|i| i.create_impl(res)).collect(),
+      lights: self.lights.iter().map(|i| i.create_impl(cx)).collect(),
     })
   }
 }

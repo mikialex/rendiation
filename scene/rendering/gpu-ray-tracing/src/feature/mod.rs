@@ -28,8 +28,8 @@ impl RtxSystemCore {
 
 // todo, share resource with the indirect renderer if possible
 pub struct RayTracingSystemBase {
-  camera: Box<dyn RenderImplProvider<Box<dyn RtxCameraRenderImpl>>>,
-  scene_tlas: UpdateResultToken,
+  camera: BoxedQueryBasedGPUFeature<Box<dyn RtxCameraRenderImpl>>,
+  scene_tlas: QueryToken,
   mesh: MeshBindlessGPUSystemSource,
   material: RtxSceneMaterialSource,
   lighting: ScenePTLightingSource,
@@ -67,35 +67,35 @@ pub struct SceneRayTracingRendererBase {
   pub lighting: ScenePTLighting,
 }
 
-impl RenderImplProvider<SceneRayTracingRendererBase> for RayTracingSystemBase {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    self.scene_tlas =
-      source.register_reactive_query(scene_to_tlas(cx, self.system.rtx_acc.clone()));
-    self.camera.register_resource(source, cx);
-    self.mesh.register_resource(source, cx);
-    self.material.register_resource(source, cx);
-    self.texture_system.register_resource(source, cx);
-    self.lighting.register_resource(source, cx);
+impl QueryBasedFeature<SceneRayTracingRendererBase> for RayTracingSystemBase {
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
+    self.scene_tlas = qcx.register_reactive_query(scene_to_tlas(cx, self.system.rtx_acc.clone()));
+    self.camera.register(qcx, cx);
+    self.mesh.register(qcx, cx);
+    self.material.register_resource(qcx, cx);
+    self.texture_system.register_resource(qcx, cx);
+    self.lighting.register_resource(qcx, cx);
   }
 
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.scene_tlas);
-    self.camera.deregister_resource(source);
-    self.mesh.deregister_resource(source);
-    self.material.deregister_resource(source);
-    self.texture_system.deregister_resource(source);
-    self.lighting.deregister_resource(source);
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.scene_tlas);
+    self.camera.deregister(qcx);
+    self.mesh.deregister(qcx);
+    self.material.deregister_resource(qcx);
+    self.texture_system.deregister_resource(qcx);
+    self.lighting.deregister_resource(qcx);
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> SceneRayTracingRendererBase {
-    let tex = self.texture_system.create_impl(res);
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> SceneRayTracingRendererBase {
+    let tex = self.texture_system.create_impl(cx);
     SceneRayTracingRendererBase {
-      scene_tlas: res.take_reactive_query_updated(self.scene_tlas).unwrap(),
-      camera: self.camera.create_impl(res),
+      scene_tlas: cx.take_reactive_query_updated(self.scene_tlas).unwrap(),
+      camera: self.camera.create_impl(cx),
       rtx_system: self.system.rtx_system.clone(),
-      mesh: self.mesh.create_impl_internal_impl(res),
-      material: self.material.create_impl(res, &tex),
-      lighting: self.lighting.create_impl(res),
+      mesh: self.mesh.create_impl_internal_impl(cx),
+      material: self.material.create_impl(cx, &tex),
+      lighting: self.lighting.create_impl(cx),
     }
   }
 }

@@ -108,42 +108,31 @@ impl IndirectModelRenderImpl for Vec<Box<dyn IndirectModelRenderImpl>> {
 }
 
 pub struct DefaultSceneStdModelRendererProvider {
-  pub std_model: UpdateResultToken,
-  pub materials: Vec<Box<dyn RenderImplProvider<Box<dyn IndirectModelMaterialRenderImpl>>>>,
-  pub shapes: Vec<Box<dyn RenderImplProvider<Box<dyn IndirectModelShapeRenderImpl>>>>,
+  pub std_model: QueryToken,
+  pub materials: Vec<BoxedQueryBasedGPUFeature<Box<dyn IndirectModelMaterialRenderImpl>>>,
+  pub shapes: Vec<BoxedQueryBasedGPUFeature<Box<dyn IndirectModelShapeRenderImpl>>>,
 }
 
-impl RenderImplProvider<Box<dyn IndirectModelRenderImpl>> for DefaultSceneStdModelRendererProvider {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    self.std_model = source.register_multi_updater(std_model_data(cx).inner);
-    self
-      .materials
-      .iter_mut()
-      .for_each(|p| p.register_resource(source, cx));
-    self
-      .shapes
-      .iter_mut()
-      .for_each(|p| p.register_resource(source, cx));
+impl QueryBasedFeature<Box<dyn IndirectModelRenderImpl>> for DefaultSceneStdModelRendererProvider {
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
+    self.std_model = qcx.register_multi_updater(std_model_data(cx).inner);
+    self.materials.iter_mut().for_each(|p| p.register(qcx, cx));
+    self.shapes.iter_mut().for_each(|p| p.register(qcx, cx));
   }
 
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.std_model);
-    self
-      .materials
-      .iter_mut()
-      .for_each(|p| p.deregister_resource(source));
-    self
-      .shapes
-      .iter_mut()
-      .for_each(|p| p.deregister_resource(source));
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.std_model);
+    self.materials.iter_mut().for_each(|p| p.deregister(qcx));
+    self.shapes.iter_mut().for_each(|p| p.deregister(qcx));
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn IndirectModelRenderImpl> {
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn IndirectModelRenderImpl> {
     Box::new(SceneStdModelRenderer {
       model: global_entity_component_of::<SceneModelStdModelRenderPayload>().read_foreign_key(),
-      materials: self.materials.iter().map(|v| v.create_impl(res)).collect(),
-      shapes: self.shapes.iter().map(|v| v.create_impl(res)).collect(),
-      std_model: res
+      materials: self.materials.iter().map(|v| v.create_impl(cx)).collect(),
+      shapes: self.shapes.iter().map(|v| v.create_impl(cx)).collect(),
+      std_model: cx
         .take_multi_updater_updated::<CommonStorageBufferImpl<SceneStdModelStorage>>(self.std_model)
         .unwrap()
         .inner

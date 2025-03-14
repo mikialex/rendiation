@@ -5,32 +5,32 @@ use crate::*;
 pub type BoxedAnyReactiveQuery = Box<dyn ReactiveGeneralQuery<Output = Box<dyn Any>>>;
 
 #[derive(Default)]
-pub struct ReactiveQueryJoinUpdater {
-  update_logic: FastHashMap<u32, BoxedAnyReactiveQuery>,
+pub struct ReactiveQueryCtx {
+  registry: FastHashMap<u32, BoxedAnyReactiveQuery>,
   next: u32,
 }
 
-impl ReactiveQueryJoinUpdater {
-  pub fn register(&mut self, update: BoxedAnyReactiveQuery) -> UpdateResultToken {
-    self.update_logic.insert(self.next, update);
+impl ReactiveQueryCtx {
+  pub fn register(&mut self, update: BoxedAnyReactiveQuery) -> QueryToken {
+    self.registry.insert(self.next, update);
     let token = self.next;
     self.next += 1;
-    UpdateResultToken(token)
+    QueryToken(token)
   }
 
-  pub fn deregister(&mut self, token: &mut UpdateResultToken) {
-    self.update_logic.remove(&std::mem::take(token).0);
+  pub fn deregister(&mut self, token: &mut QueryToken) {
+    self.registry.remove(&std::mem::take(token).0);
   }
 
   pub fn register_multi_updater<T: 'static>(
     &mut self,
     updater: MultiUpdateContainer<T>,
-  ) -> UpdateResultToken {
+  ) -> QueryToken {
     let updater = Box::new(SharedMultiUpdateContainer::new(updater)) as BoxedAnyReactiveQuery;
     self.register(updater)
   }
 
-  pub fn register_reactive_query<C>(&mut self, c: C) -> UpdateResultToken
+  pub fn register_reactive_query<C>(&mut self, c: C) -> QueryToken
   where
     C: ReactiveQuery + Unpin,
   {
@@ -38,7 +38,7 @@ impl ReactiveQueryJoinUpdater {
     self.register(c)
   }
 
-  pub fn register_val_refed_reactive_query<C>(&mut self, c: C) -> UpdateResultToken
+  pub fn register_val_refed_reactive_query<C>(&mut self, c: C) -> QueryToken
   where
     C: ReactiveValueRefQuery,
   {
@@ -46,7 +46,7 @@ impl ReactiveQueryJoinUpdater {
     self.register(c)
   }
 
-  pub fn register_multi_reactive_query<C>(&mut self, c: C) -> UpdateResultToken
+  pub fn register_multi_reactive_query<C>(&mut self, c: C) -> QueryToken
   where
     C: ReactiveOneToManyRelation,
   {
@@ -57,7 +57,7 @@ impl ReactiveQueryJoinUpdater {
   pub fn poll_update_all(&mut self, cx: &mut Context) -> QueryResultCtx {
     QueryResultCtx {
       token_based_result: self
-        .update_logic
+        .registry
         .iter_mut()
         .map(|(k, v)| (*k, v.poll_query(cx)))
         .collect(),
@@ -67,9 +67,9 @@ impl ReactiveQueryJoinUpdater {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct UpdateResultToken(u32);
+pub struct QueryToken(u32);
 
-impl Default for UpdateResultToken {
+impl Default for QueryToken {
   fn default() -> Self {
     Self(u32::MAX)
   }
@@ -82,13 +82,13 @@ pub struct QueryResultCtx {
 }
 
 impl QueryResultCtx {
-  pub fn take_result(&mut self, token: UpdateResultToken) -> Option<Box<dyn Any>> {
+  pub fn take_result(&mut self, token: QueryToken) -> Option<Box<dyn Any>> {
     self.token_based_result.remove(&token.0)
   }
 
   pub fn take_reactive_query_updated<K: CKey, V: CValue>(
     &mut self,
-    token: UpdateResultToken,
+    token: QueryToken,
   ) -> Option<BoxedDynQuery<K, V>> {
     self
       .take_result(token)?
@@ -99,7 +99,7 @@ impl QueryResultCtx {
 
   pub fn take_reactive_multi_query_updated<K: CKey, V: CKey>(
     &mut self,
-    token: UpdateResultToken,
+    token: QueryToken,
   ) -> Option<BoxedDynMultiQuery<K, V>> {
     self
       .take_result(token)?
@@ -107,9 +107,10 @@ impl QueryResultCtx {
       .ok()
       .map(|v| *v)
   }
+
   pub fn take_val_refed_reactive_query_updated<K: CKey, V: CValue>(
     &mut self,
-    token: UpdateResultToken,
+    token: QueryToken,
   ) -> Option<BoxedDynValueRefQuery<K, V>> {
     self
       .take_result(token)?
@@ -120,7 +121,7 @@ impl QueryResultCtx {
 
   pub fn take_multi_updater_updated<T>(
     &mut self,
-    token: UpdateResultToken,
+    token: QueryToken,
   ) -> Option<LockReadGuardHolder<MultiUpdateContainer<T>>> {
     self
       .take_result(token)?

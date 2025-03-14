@@ -59,22 +59,23 @@ pub fn area_light_uniform_array(gpu: &GPU) -> UniformArrayUpdateContainer<LTCAre
 }
 
 pub struct AreaLightUniformLightList {
-  pub light: UpdateResultToken,
+  pub light: QueryToken,
   pub ltc_1: GPU2DTextureView,
   pub ltc_2: GPU2DTextureView,
 }
 
-impl RenderImplProvider<Box<dyn LightSystemSceneProvider>> for AreaLightUniformLightList {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
+impl QueryBasedFeature<Box<dyn LightSystemSceneProvider>> for AreaLightUniformLightList {
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
     let uniform = area_light_uniform_array(cx);
-    self.light = source.register_multi_updater(uniform);
+    self.light = qcx.register_multi_updater(uniform);
   }
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.light);
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.light);
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn LightSystemSceneProvider> {
-    let uniform = res
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn LightSystemSceneProvider> {
+    let uniform = cx
       .take_multi_updater_updated::<UniformArray<LTCAreaLightUniform, 8>>(self.light)
       .unwrap()
       .target

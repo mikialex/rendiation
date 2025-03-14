@@ -141,7 +141,7 @@ impl From<CameraTransform> for CameraGPUTransform {
 
 pub struct DefaultGLESCameraRenderImplProvider {
   camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
-  uniforms: UpdateResultToken,
+  uniforms: QueryToken,
 }
 
 impl DefaultGLESCameraRenderImplProvider {
@@ -157,18 +157,19 @@ pub struct DefaultGLESCameraRenderImpl {
   uniforms: LockReadGuardHolder<CameraUniforms>,
 }
 
-impl RenderImplProvider<Box<dyn CameraRenderImpl>> for DefaultGLESCameraRenderImplProvider {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    let uniforms = camera_gpus(cx, self.camera_source.clone());
-    self.uniforms = source.register_multi_updater(uniforms);
+impl QueryBasedFeature<Box<dyn CameraRenderImpl>> for DefaultGLESCameraRenderImplProvider {
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, gpu: &GPU) {
+    let uniforms = camera_gpus(gpu, self.camera_source.clone());
+    self.uniforms = qcx.register_multi_updater(uniforms);
   }
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.uniforms);
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.uniforms);
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn CameraRenderImpl> {
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn CameraRenderImpl> {
     Box::new(DefaultGLESCameraRenderImpl {
-      uniforms: res.take_multi_updater_updated(self.uniforms).unwrap(),
+      uniforms: cx.take_multi_updater_updated(self.uniforms).unwrap(),
     })
   }
 }

@@ -7,7 +7,7 @@ use crate::*;
 const MAX_SAMPLE: u32 = 256;
 
 pub struct RayTracingAORenderSystem {
-  sbt: UpdateResultToken,
+  sbt: QueryToken,
   executor: GPURaytracingPipelineExecutor,
   system: RtxSystemCore,
   shader_handles: AOShaderHandles,
@@ -82,8 +82,9 @@ impl Default for AOShaderHandles {
   }
 }
 
-impl RenderImplProvider<SceneRayTracingAORenderer> for RayTracingAORenderSystem {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, _: &GPU) {
+impl QueryBasedFeature<SceneRayTracingAORenderer> for RayTracingAORenderSystem {
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, _: &GPU) {
     let handles = AOShaderHandles::default();
     let mut sbt =
       self
@@ -120,15 +121,15 @@ impl RenderImplProvider<SceneRayTracingAORenderer> for RayTracingAORenderSystem 
           }),
       });
 
-    self.sbt = source.register_multi_updater(sbt);
+    self.sbt = qcx.register_multi_updater(sbt);
   }
 
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.sbt);
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.sbt);
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> SceneRayTracingAORenderer {
-    let sbt = res.take_multi_updater_updated::<GPUSbt>(self.sbt).unwrap();
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> SceneRayTracingAORenderer {
+    let sbt = cx.take_multi_updater_updated::<GPUSbt>(self.sbt).unwrap();
     SceneRayTracingAORenderer {
       executor: self.executor.clone(),
       sbt: sbt.target.clone(),

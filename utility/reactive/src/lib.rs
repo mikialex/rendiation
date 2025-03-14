@@ -9,5 +9,5 @@ pub use futures::{Future, Stream, StreamExt};
 pub use reactive_query::*;
 pub use reactive_stream::*;
 
-mod util;
-pub use util::*;
+mod query_ctx;
+pub use query_ctx::*;

@@ -31,7 +31,7 @@ pub enum GPUTextureBindingSystemType {
 }
 
 pub struct TextureGPUSystemSource {
-  pub token: UpdateResultToken,
+  pub token: QueryToken,
   pub ty: GPUTextureBindingSystemType,
 }
 
@@ -45,7 +45,7 @@ impl TextureGPUSystemSource {
 }
 
 impl TextureGPUSystemSource {
-  pub fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
+  pub fn register_resource(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
     match self.ty {
       GPUTextureBindingSystemType::GlesSingleBinding => {
         let default_2d: GPU2DTextureView = create_fallback_empty_texture(&cx.device)
@@ -63,7 +63,7 @@ impl TextureGPUSystemSource {
           textures: Box::new(texture_2d),
           samplers: Box::new(samplers),
         };
-        self.token = source.register(Box::new(ReactiveQueryBoxAnyResult(texture_system)));
+        self.token = qcx.register(Box::new(ReactiveQueryBoxAnyResult(texture_system)));
       }
       GPUTextureBindingSystemType::Bindless => {
         let default_2d: GPU2DTextureView = create_fallback_empty_texture(&cx.device)
@@ -84,7 +84,7 @@ impl TextureGPUSystemSource {
           bindless_minimal_effective_count,
         );
 
-        self.token = source.register(Box::new(ReactiveQueryBoxAnyResult(texture_system)));
+        self.token = qcx.register(Box::new(ReactiveQueryBoxAnyResult(texture_system)));
       }
       GPUTextureBindingSystemType::TexturePool => {
         let samplers = global_watch().watch_untyped_key::<SceneSamplerInfo>();
@@ -116,17 +116,17 @@ impl TextureGPUSystemSource {
           TextureFormat::Rgba8Unorm,
         );
 
-        self.token = source.register(Box::new(ReactiveQueryBoxAnyResult(texture_system)));
+        self.token = qcx.register(Box::new(ReactiveQueryBoxAnyResult(texture_system)));
       }
     }
   }
 
-  pub fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.token);
+  pub fn deregister_resource(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.token);
   }
 
-  pub fn create_impl(&self, res: &mut QueryResultCtx) -> GPUTextureBindingSystem {
-    *res
+  pub fn create_impl(&self, cx: &mut QueryResultCtx) -> GPUTextureBindingSystem {
+    *cx
       .take_result(self.token)
       .unwrap()
       .downcast::<GPUTextureBindingSystem>()

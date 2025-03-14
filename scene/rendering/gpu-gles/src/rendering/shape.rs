@@ -25,49 +25,50 @@ impl GLESModelShapeRenderImpl for Vec<Box<dyn GLESModelShapeRenderImpl>> {
 
 #[derive(Default)]
 pub struct AttributesMeshEntityDefaultRenderImplProvider {
-  multi_access: UpdateResultToken,
-  vertex: UpdateResultToken,
-  index: UpdateResultToken,
+  multi_access: QueryToken,
+  vertex: QueryToken,
+  index: QueryToken,
 }
 
-impl RenderImplProvider<Box<dyn GLESModelShapeRenderImpl>>
+impl QueryBasedFeature<Box<dyn GLESModelShapeRenderImpl>>
   for AttributesMeshEntityDefaultRenderImplProvider
 {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
     let multi_access = global_rev_ref()
       .watch_inv_ref::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>(
     );
-    self.multi_access = source.register_multi_reactive_query(multi_access);
+    self.multi_access = qcx.register_multi_reactive_query(multi_access);
 
     let index = attribute_mesh_index_buffers(cx);
-    self.index = source.register_val_refed_reactive_query(index);
+    self.index = qcx.register_val_refed_reactive_query(index);
 
     let vertex = attribute_mesh_vertex_buffer_views(cx);
-    self.vertex = source.register_val_refed_reactive_query(vertex);
+    self.vertex = qcx.register_val_refed_reactive_query(vertex);
   }
 
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.multi_access);
-    source.deregister(&mut self.index);
-    source.deregister(&mut self.vertex);
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.multi_access);
+    qcx.deregister(&mut self.index);
+    qcx.deregister(&mut self.vertex);
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn GLESModelShapeRenderImpl> {
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn GLESModelShapeRenderImpl> {
     Box::new(AttributesMeshEntityDefaultRenderImpl {
       mesh_access: global_entity_component_of::<StandardModelRefAttributesMeshEntity>()
         .read_foreign_key(),
       mode: global_entity_component_of::<AttributesMeshEntityTopology>().read(),
-      index: res
+      index: cx
         .take_val_refed_reactive_query_updated(self.index)
         .unwrap(),
       vertex: AttributesMeshEntityVertexAccessView {
         semantics: global_entity_component_of::<AttributesMeshEntityVertexBufferSemantic>().read(),
         count: global_entity_component_of::<SceneBufferViewBufferItemCount<AttributeVertexRef>>()
           .read(),
-        multi_access: res
+        multi_access: cx
           .take_reactive_multi_query_updated(self.multi_access)
           .unwrap(),
-        vertex: res
+        vertex: cx
           .take_val_refed_reactive_query_updated(self.vertex)
           .unwrap(),
       },

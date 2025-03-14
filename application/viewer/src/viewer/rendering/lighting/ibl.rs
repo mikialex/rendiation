@@ -9,10 +9,10 @@ use crate::*;
 
 pub struct IBLProvider {
   brdf_lut: GPU2DTextureView,
-  intensity: UpdateResultToken,
+  intensity: QueryToken,
   // todo
   // note, currently the cube map is standalone maintained, this is wasteful if user shared it elsewhere
-  cube_map: UpdateResultToken,
+  cube_map: QueryToken,
 }
 
 impl IBLProvider {
@@ -31,8 +31,9 @@ impl IBLProvider {
   }
 }
 
-impl RenderImplProvider<Box<dyn LightSystemSceneProvider>> for IBLProvider {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
+impl QueryBasedFeature<Box<dyn LightSystemSceneProvider>> for IBLProvider {
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
     let diffuse_illuminance = global_watch()
       .watch::<SceneHDRxEnvBackgroundIntensity>()
       .collective_filter_map(|v| v)
@@ -46,7 +47,7 @@ impl RenderImplProvider<Box<dyn LightSystemSceneProvider>> for IBLProvider {
       .with_source(specular_illuminance)
       .with_source(diffuse_illuminance);
 
-    self.intensity = source.register_multi_updater(intensity);
+    self.intensity = qcx.register_multi_updater(intensity);
 
     let cube_prefilter = CubeMapWithPrefilter {
       inner: RwLock::new(gpu_texture_cubes(cx, Default::default())),
@@ -54,16 +55,16 @@ impl RenderImplProvider<Box<dyn LightSystemSceneProvider>> for IBLProvider {
       gpu: cx.clone(),
     };
 
-    self.cube_map = source.register(Box::new(cube_prefilter));
+    self.cube_map = qcx.register(Box::new(cube_prefilter));
   }
 
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.intensity);
-    source.deregister(&mut self.cube_map);
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.intensity);
+    qcx.deregister(&mut self.cube_map);
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn LightSystemSceneProvider> {
-    let prefiltered = res
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn LightSystemSceneProvider> {
+    let prefiltered = cx
       .take_result(self.cube_map)
       .unwrap()
       .downcast::<LockReadGuardHolder<
@@ -71,7 +72,7 @@ impl RenderImplProvider<Box<dyn LightSystemSceneProvider>> for IBLProvider {
       >>()
       .unwrap();
 
-    let intensity = res.take_multi_updater_updated(self.intensity).unwrap();
+    let intensity = cx.take_multi_updater_updated(self.intensity).unwrap();
 
     Box::new(IBLLightingComponentProvider {
       prefiltered: *prefiltered,

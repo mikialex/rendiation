@@ -3,7 +3,7 @@ use rendiation_shader_library::shader_uv_space_to_world_space;
 use crate::*;
 
 pub struct DefaultRtxCameraRenderImplProvider {
-  uniforms: UpdateResultToken,
+  uniforms: QueryToken,
   camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
 }
 
@@ -16,19 +16,20 @@ impl DefaultRtxCameraRenderImplProvider {
   }
 }
 
-impl RenderImplProvider<Box<dyn RtxCameraRenderImpl>> for DefaultRtxCameraRenderImplProvider {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
+impl QueryBasedFeature<Box<dyn RtxCameraRenderImpl>> for DefaultRtxCameraRenderImplProvider {
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
     let uniforms = camera_gpus(cx, self.camera_source.clone());
-    self.uniforms = source.register_multi_updater(uniforms);
+    self.uniforms = qcx.register_multi_updater(uniforms);
   }
 
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.uniforms);
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.uniforms);
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn RtxCameraRenderImpl> {
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn RtxCameraRenderImpl> {
     Box::new(DefaultRtxCameraRenderImpl {
-      uniforms: res.take_multi_updater_updated(self.uniforms).unwrap(),
+      uniforms: cx.take_multi_updater_updated(self.uniforms).unwrap(),
     })
   }
 }

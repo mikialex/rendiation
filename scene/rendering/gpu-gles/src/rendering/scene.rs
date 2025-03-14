@@ -1,13 +1,13 @@
 use crate::*;
 
 pub struct GLESRenderSystem {
-  pub model_lookup: UpdateResultToken,
-  pub node_net_visible: UpdateResultToken,
-  pub model_alpha_blend: UpdateResultToken,
+  pub model_lookup: QueryToken,
+  pub node_net_visible: QueryToken,
+  pub model_alpha_blend: QueryToken,
   pub texture_system: TextureGPUSystemSource,
   pub background: SceneBackgroundRendererSource,
-  pub camera: Box<dyn RenderImplProvider<Box<dyn CameraRenderImpl>>>,
-  pub scene_model_impl: Vec<Box<dyn RenderImplProvider<Box<dyn SceneModelRenderer>>>>,
+  pub camera: BoxedQueryBasedGPUFeature<Box<dyn CameraRenderImpl>>,
+  pub scene_model_impl: Vec<BoxedQueryBasedGPUFeature<Box<dyn SceneModelRenderer>>>,
   pub reversed_depth: bool,
 }
 
@@ -43,55 +43,56 @@ pub fn build_default_gles_render_system(
   }
 }
 
-impl RenderImplProvider<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>> for GLESRenderSystem {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    self.texture_system.register_resource(source, cx);
-    self.background.register_resource(source, cx);
+impl QueryBasedFeature<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>> for GLESRenderSystem {
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
+    self.texture_system.register_resource(qcx, cx);
+    self.background.register(qcx, cx);
     let model_lookup = global_rev_ref().watch_inv_ref::<SceneModelBelongsToScene>();
-    self.model_lookup = source.register_multi_reactive_query(model_lookup);
-    self.camera.register_resource(source, cx);
+    self.model_lookup = qcx.register_multi_reactive_query(model_lookup);
+    self.camera.register(qcx, cx);
     for imp in &mut self.scene_model_impl {
-      imp.register_resource(source, cx);
+      imp.register(qcx, cx);
     }
-    self.node_net_visible = source.register_reactive_query(scene_node_derive_visible());
+    self.node_net_visible = qcx.register_reactive_query(scene_node_derive_visible());
     self.model_alpha_blend =
-      source.register_reactive_query(all_kinds_of_materials_enabled_alpha_blending());
+      qcx.register_reactive_query(all_kinds_of_materials_enabled_alpha_blending());
   }
 
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    self.texture_system.deregister_resource(source);
-    self.background.deregister_resource(source);
-    self.camera.deregister_resource(source);
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    self.texture_system.deregister_resource(qcx);
+    self.background.deregister(qcx);
+    self.camera.deregister(qcx);
     for imp in &mut self.scene_model_impl {
-      imp.deregister_resource(source);
+      imp.deregister(qcx);
     }
-    source.deregister(&mut self.model_lookup);
-    source.deregister(&mut self.node_net_visible);
-    source.deregister(&mut self.model_alpha_blend);
+    qcx.deregister(&mut self.model_lookup);
+    qcx.deregister(&mut self.node_net_visible);
+    qcx.deregister(&mut self.model_alpha_blend);
   }
 
   fn create_impl(
     &self,
-    res: &mut QueryResultCtx,
+    cx: &mut QueryResultCtx,
   ) -> Box<dyn SceneRenderer<ContentKey = SceneContentKey>> {
     Box::new(GLESSceneRenderer {
       scene_model_renderer: self
         .scene_model_impl
         .iter()
-        .map(|imp| imp.create_impl(res))
+        .map(|imp| imp.create_impl(cx))
         .collect(),
-      background: self.background.create_impl(res),
-      model_lookup: res
+      background: self.background.create_impl(cx),
+      model_lookup: cx
         .take_reactive_multi_query_updated(self.model_lookup)
         .unwrap(),
-      texture_system: self.texture_system.create_impl(res),
-      camera: self.camera.create_impl(res),
-      node_net_visible: res
+      texture_system: self.texture_system.create_impl(cx),
+      camera: self.camera.create_impl(cx),
+      node_net_visible: cx
         .take_reactive_query_updated(self.node_net_visible)
         .unwrap(),
       sm_ref_node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
       reversed_depth: self.reversed_depth,
-      alpha_blend: res
+      alpha_blend: cx
         .take_reactive_query_updated(self.model_alpha_blend)
         .unwrap(),
     })

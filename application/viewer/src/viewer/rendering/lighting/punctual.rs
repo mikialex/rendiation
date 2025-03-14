@@ -8,48 +8,49 @@ pub struct DirectionalShaderAtlas(pub GPU2DArrayDepthTextureView);
 pub struct SpotShaderAtlas(pub GPU2DArrayDepthTextureView);
 
 pub struct DirectionalUniformLightList {
-  light: UpdateResultToken,
-  shadow: UpdateResultToken,
+  light: QueryToken,
+  shadow: QueryToken,
   reversed_depth: bool,
 }
 
 impl DirectionalUniformLightList {
   pub fn new(
-    source: &mut ReactiveQueryJoinUpdater,
+    qcx: &mut ReactiveQueryCtx,
     light: UniformArrayUpdateContainer<DirectionalLightUniform, 8>,
     shadow: UniformArrayUpdateContainer<BasicShadowMapInfo, 8>,
     reversed_depth: bool,
   ) -> Self {
     Self {
-      light: source.register_multi_updater(light),
-      shadow: source.register_multi_updater(shadow),
+      light: qcx.register_multi_updater(light),
+      shadow: qcx.register_multi_updater(shadow),
       reversed_depth,
     }
   }
 }
 
-impl RenderImplProvider<Box<dyn LightSystemSceneProvider>> for DirectionalUniformLightList {
-  // registered in constructor
-  fn register_resource(&mut self, _: &mut ReactiveQueryJoinUpdater, _: &GPU) {}
+impl QueryBasedFeature<Box<dyn LightSystemSceneProvider>> for DirectionalUniformLightList {
+  type Context = GPU;
+  // already registered in constructor
+  fn register(&mut self, _: &mut ReactiveQueryCtx, _: &GPU) {}
 
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.light);
-    source.deregister(&mut self.shadow);
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.light);
+    qcx.deregister(&mut self.shadow);
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn LightSystemSceneProvider> {
-    let light = res
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn LightSystemSceneProvider> {
+    let light = cx
       .take_multi_updater_updated::<UniformArray<DirectionalLightUniform, 8>>(self.light)
       .unwrap()
       .target
       .clone();
 
-    let info = res
+    let info = cx
       .take_multi_updater_updated::<UniformArray<BasicShadowMapInfo, 8>>(self.shadow)
       .unwrap()
       .target
       .clone();
-    let shadow_map_atlas = res
+    let shadow_map_atlas = cx
       .type_based_result
       .take::<DirectionalShaderAtlas>()
       .unwrap()
@@ -96,20 +97,21 @@ impl LightSystemSceneProvider for SceneDirectionalLightingProvider {
 
 #[derive(Default)]
 pub struct PointLightUniformLightList {
-  light: UpdateResultToken,
+  light: QueryToken,
 }
 
-impl RenderImplProvider<Box<dyn LightSystemSceneProvider>> for PointLightUniformLightList {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
+impl QueryBasedFeature<Box<dyn LightSystemSceneProvider>> for PointLightUniformLightList {
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
     let uniform = point_uniform_array(cx);
-    self.light = source.register_multi_updater(uniform);
+    self.light = qcx.register_multi_updater(uniform);
   }
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.light);
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.light);
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn LightSystemSceneProvider> {
-    let uniform = res
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn LightSystemSceneProvider> {
+    let uniform = cx
       .take_multi_updater_updated::<UniformArray<PointLightUniform, 8>>(self.light)
       .unwrap()
       .target
@@ -145,46 +147,47 @@ impl LightSystemSceneProvider for ScenePointLightingProvider {
 }
 
 pub struct SpotLightUniformLightList {
-  light: UpdateResultToken,
-  shadow: UpdateResultToken,
+  light: QueryToken,
+  shadow: QueryToken,
   reversed_depth: bool,
 }
 
 impl SpotLightUniformLightList {
   pub fn new(
-    source: &mut ReactiveQueryJoinUpdater,
+    qcx: &mut ReactiveQueryCtx,
     light: UniformArrayUpdateContainer<SpotLightUniform, 8>,
     shadow: UniformArrayUpdateContainer<BasicShadowMapInfo, 8>,
     reversed_depth: bool,
   ) -> Self {
     Self {
-      light: source.register_multi_updater(light),
-      shadow: source.register_multi_updater(shadow),
+      light: qcx.register_multi_updater(light),
+      shadow: qcx.register_multi_updater(shadow),
       reversed_depth,
     }
   }
 }
 
-impl RenderImplProvider<Box<dyn LightSystemSceneProvider>> for SpotLightUniformLightList {
+impl QueryBasedFeature<Box<dyn LightSystemSceneProvider>> for SpotLightUniformLightList {
+  type Context = GPU;
   // registered in constructor
-  fn register_resource(&mut self, _source: &mut ReactiveQueryJoinUpdater, _cx: &GPU) {}
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.light);
-    source.deregister(&mut self.shadow);
+  fn register(&mut self, _qcx: &mut ReactiveQueryCtx, _cx: &GPU) {}
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.light);
+    qcx.deregister(&mut self.shadow);
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn LightSystemSceneProvider> {
-    let light = res
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn LightSystemSceneProvider> {
+    let light = cx
       .take_multi_updater_updated::<UniformArray<SpotLightUniform, 8>>(self.light)
       .unwrap()
       .target
       .clone();
-    let info = res
+    let info = cx
       .take_multi_updater_updated::<UniformArray<BasicShadowMapInfo, 8>>(self.shadow)
       .unwrap()
       .target
       .clone();
-    let shadow_map_atlas = res.type_based_result.take::<SpotShaderAtlas>().unwrap().0;
+    let shadow_map_atlas = cx.type_based_result.take::<SpotShaderAtlas>().unwrap().0;
     Box::new(SceneSpotLightingProvider {
       light,
       shadow: BasicShadowMapComponent {

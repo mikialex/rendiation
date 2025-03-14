@@ -3,10 +3,10 @@ use fast_hash_collection::FastHashMap;
 use crate::*;
 
 pub struct SceneBackgroundRendererSource {
-  env_background_intensity_uniform: UpdateResultToken,
+  env_background_intensity_uniform: QueryToken,
   // todo
   // note, currently the cube map is standalone maintained, this is wasteful if user shared it elsewhere
-  cube_map: UpdateResultToken,
+  cube_map: QueryToken,
   reversed_depth: bool,
 }
 
@@ -20,33 +20,34 @@ impl SceneBackgroundRendererSource {
   }
 }
 
-impl RenderImplProvider<SceneBackgroundRenderer> for SceneBackgroundRendererSource {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    self.cube_map = source.register_multi_updater(gpu_texture_cubes(cx, FastHashMap::default()));
-    let cx = cx.clone();
+impl QueryBasedFeature<SceneBackgroundRenderer> for SceneBackgroundRendererSource {
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, gpu: &GPU) {
+    self.cube_map = qcx.register_multi_updater(gpu_texture_cubes(gpu, FastHashMap::default()));
+    let gpu = gpu.clone();
     let intensity = global_watch()
       .watch::<SceneHDRxEnvBackgroundIntensity>()
       .collective_filter_map(|v| v)
       .collective_execute_map_by(move || {
-        let cx = cx.clone();
-        move |_, intensity| create_uniform(Vec4::new(intensity, 0., 0., 0.), &cx.device)
+        let gpu = gpu.clone();
+        move |_, intensity| create_uniform(Vec4::new(intensity, 0., 0., 0.), &gpu.device)
       })
       .materialize_unordered();
-    self.env_background_intensity_uniform = source.register_reactive_query(intensity);
+    self.env_background_intensity_uniform = qcx.register_reactive_query(intensity);
   }
 
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.env_background_intensity_uniform);
-    source.deregister(&mut self.cube_map);
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.env_background_intensity_uniform);
+    qcx.deregister(&mut self.cube_map);
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> SceneBackgroundRenderer {
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> SceneBackgroundRenderer {
     SceneBackgroundRenderer {
       solid_background: global_entity_component_of::<SceneSolidBackground>().read(),
       env_background_map: global_entity_component_of::<SceneHDRxEnvBackgroundCubeMap>()
         .read_foreign_key(),
-      env_background_map_gpu: res.take_multi_updater_updated(self.cube_map).unwrap(),
-      env_background_intensity: res
+      env_background_map_gpu: cx.take_multi_updater_updated(self.cube_map).unwrap(),
+      env_background_intensity: cx
         .take_reactive_query_updated(self.env_background_intensity_uniform)
         .unwrap(),
       reversed_depth: self.reversed_depth,

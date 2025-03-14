@@ -2,21 +2,23 @@ use rendiation_lighting_transport::*;
 
 use crate::*;
 
-impl RenderImplProvider<Box<dyn SceneMaterialSurfaceSupport>>
+impl QueryBasedFeature<Box<dyn SceneMaterialSurfaceSupport>>
   for PbrSGMaterialDefaultIndirectRenderImplProvider
 {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    (self as &mut dyn RenderImplProvider<PbrSGMaterialDefaultIndirectRenderImpl>)
-      .register_resource(source, cx);
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
+    (self as &mut dyn QueryBasedFeature<PbrSGMaterialDefaultIndirectRenderImpl, Context = GPU>)
+      .register(qcx, cx);
   }
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    (self as &mut dyn RenderImplProvider<PbrSGMaterialDefaultIndirectRenderImpl>)
-      .deregister_resource(source);
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    (self as &mut dyn QueryBasedFeature<PbrSGMaterialDefaultIndirectRenderImpl, Context = GPU>)
+      .deregister(qcx);
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn SceneMaterialSurfaceSupport> {
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn SceneMaterialSurfaceSupport> {
     Box::new(
-      (self as &dyn RenderImplProvider<PbrSGMaterialDefaultIndirectRenderImpl>).create_impl(res),
+      (self as &dyn QueryBasedFeature<PbrSGMaterialDefaultIndirectRenderImpl, Context = GPU>)
+        .create_impl(cx),
     )
   }
 }

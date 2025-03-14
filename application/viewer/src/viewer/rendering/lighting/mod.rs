@@ -40,7 +40,7 @@ pub fn create_gpu_tex_from_png_buffer(
 
 pub struct LightSystem {
   reversed_depth: bool,
-  internal: Box<dyn RenderImplProvider<Box<dyn LightSystemSceneProvider>>>,
+  internal: BoxedQueryBasedGPUFeature<Box<dyn LightSystemSceneProvider>>,
   directional_light_shadow: BasicShadowMapSystem,
   spot_light_shadow: BasicShadowMapSystem,
   enable_channel_debugger: bool,
@@ -50,7 +50,7 @@ pub struct LightSystem {
 
 impl LightSystem {
   pub fn new_and_register(
-    source: &mut ReactiveQueryJoinUpdater,
+    qcx: &mut ReactiveQueryCtx,
     gpu: &GPU,
     reversed_depth: bool,
     ndc: impl NDCSpaceMapper<f32> + Copy,
@@ -166,13 +166,13 @@ impl LightSystem {
     let mut internal = Box::new(
       DifferentLightRenderImplProvider::default()
         .with_light(DirectionalUniformLightList::new(
-          source,
+          qcx,
           directional_uniform_array(gpu),
           directional_light_shadow_address,
           reversed_depth,
         ))
         .with_light(SpotLightUniformLightList::new(
-          source,
+          qcx,
           spot_uniform_array(gpu),
           spot_light_shadow_address,
           reversed_depth,
@@ -186,7 +186,7 @@ impl LightSystem {
         .with_light(IBLProvider::new(gpu)),
     );
 
-    internal.register_resource(source, gpu);
+    internal.register(qcx, gpu);
 
     Self {
       directional_light_shadow,
@@ -228,13 +228,13 @@ impl LightSystem {
     }
   }
 
-  pub fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    self.internal.deregister_resource(source);
+  pub fn deregister_resource(&mut self, qcx: &mut ReactiveQueryCtx) {
+    self.internal.deregister(qcx);
   }
 
   pub fn prepare_and_create_impl(
     &mut self,
-    res: &mut QueryResultCtx,
+    rcx: &mut QueryResultCtx,
     frame_ctx: &mut FrameCtx,
     cx: &mut Context,
     renderer: &dyn SceneRenderer<ContentKey = SceneContentKey>,
@@ -272,12 +272,12 @@ impl LightSystem {
         .spot_light_shadow
         .update_shadow_maps(cx, frame_ctx, &content, self.reversed_depth);
 
-    res.type_based_result.register(DirectionalShaderAtlas(ds));
-    res.type_based_result.register(SpotShaderAtlas(ss));
+    rcx.type_based_result.register(DirectionalShaderAtlas(ds));
+    rcx.type_based_result.register(SpotShaderAtlas(ss));
 
     let sys = SceneLightSystem {
       system: self,
-      imp: self.internal.create_impl(res),
+      imp: self.internal.create_impl(rcx),
     };
     (sys, &self.tonemap)
   }

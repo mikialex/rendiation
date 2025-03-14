@@ -25,7 +25,7 @@ use frame_state::*;
 
 /// the main physical correct gpu ray tracing implementation
 pub struct DeviceReferencePathTracingSystem {
-  sbt: UpdateResultToken,
+  sbt: QueryToken,
   executor: GPURaytracingPipelineExecutor,
   system: RtxSystemCore,
   shader_handles: PathTracingShaderHandles,
@@ -51,8 +51,9 @@ impl DeviceReferencePathTracingSystem {
   }
 }
 
-impl RenderImplProvider<DeviceReferencePathTracingRenderer> for DeviceReferencePathTracingSystem {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, _: &GPU) {
+impl QueryBasedFeature<DeviceReferencePathTracingRenderer> for DeviceReferencePathTracingSystem {
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, _: &GPU) {
     let handles = PathTracingShaderHandles::default();
     let mut sbt =
       self
@@ -88,15 +89,15 @@ impl RenderImplProvider<DeviceReferencePathTracingRenderer> for DeviceReferenceP
           }),
       });
 
-    self.sbt = source.register_multi_updater(sbt);
+    self.sbt = qcx.register_multi_updater(sbt);
   }
 
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.sbt);
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.sbt);
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> DeviceReferencePathTracingRenderer {
-    let sbt = res.take_multi_updater_updated::<GPUSbt>(self.sbt).unwrap();
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> DeviceReferencePathTracingRenderer {
+    let sbt = cx.take_multi_updater_updated::<GPUSbt>(self.sbt).unwrap();
     DeviceReferencePathTracingRenderer {
       shader_handles: self.shader_handles.clone(),
       max_ray_depth: MAX_RAY_DEPTH,

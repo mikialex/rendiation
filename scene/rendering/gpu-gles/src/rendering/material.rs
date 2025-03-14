@@ -25,29 +25,30 @@ impl GLESModelMaterialRenderImpl for Vec<Box<dyn GLESModelMaterialRenderImpl>> {
 
 #[derive(Default)]
 pub struct UnlitMaterialDefaultRenderImplProvider {
-  uniforms: UpdateResultToken,
-  texture_uniforms: UpdateResultToken,
+  uniforms: QueryToken,
+  texture_uniforms: QueryToken,
 }
-impl RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>
+impl QueryBasedFeature<Box<dyn GLESModelMaterialRenderImpl>>
   for UnlitMaterialDefaultRenderImplProvider
 {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    let updater = unlit_material_uniforms(cx);
-    self.uniforms = source.register_multi_updater(updater);
-    self.texture_uniforms = source.register_multi_updater(unlit_material_tex_uniforms(cx));
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, gpu: &GPU) {
+    let updater = unlit_material_uniforms(gpu);
+    self.uniforms = qcx.register_multi_updater(updater);
+    self.texture_uniforms = qcx.register_multi_updater(unlit_material_tex_uniforms(gpu));
   }
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.uniforms);
-    source.deregister(&mut self.texture_uniforms);
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.uniforms);
+    qcx.deregister(&mut self.texture_uniforms);
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn GLESModelMaterialRenderImpl> {
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn GLESModelMaterialRenderImpl> {
     Box::new(UnlitMaterialDefaultRenderImpl {
       material_access: global_entity_component_of::<StandardModelRefUnlitMaterial>()
         .read_foreign_key(),
-      uniforms: res.take_multi_updater_updated(self.uniforms).unwrap(),
+      uniforms: cx.take_multi_updater_updated(self.uniforms).unwrap(),
       alpha_mode: global_entity_component_of().read(),
-      texture_uniforms: res
+      texture_uniforms: cx
         .take_multi_updater_updated(self.texture_uniforms)
         .unwrap(),
       color_tex_sampler: TextureSamplerIdView::read_from_global(),
@@ -82,28 +83,29 @@ impl GLESModelMaterialRenderImpl for UnlitMaterialDefaultRenderImpl {
 
 #[derive(Default)]
 pub struct PbrMRMaterialDefaultRenderImplProvider {
-  uniforms: UpdateResultToken,
-  tex_uniforms: UpdateResultToken,
+  uniforms: QueryToken,
+  tex_uniforms: QueryToken,
 }
 
-impl RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>
+impl QueryBasedFeature<Box<dyn GLESModelMaterialRenderImpl>>
   for PbrMRMaterialDefaultRenderImplProvider
 {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    self.uniforms = source.register_multi_updater(pbr_mr_material_uniforms(cx));
-    self.tex_uniforms = source.register_multi_updater(pbr_mr_material_tex_uniforms(cx));
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, gpu: &GPU) {
+    self.uniforms = qcx.register_multi_updater(pbr_mr_material_uniforms(gpu));
+    self.tex_uniforms = qcx.register_multi_updater(pbr_mr_material_tex_uniforms(gpu));
   }
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.uniforms);
-    source.deregister(&mut self.tex_uniforms);
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.uniforms);
+    qcx.deregister(&mut self.tex_uniforms);
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn GLESModelMaterialRenderImpl> {
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn GLESModelMaterialRenderImpl> {
     Box::new(PbrMRMaterialDefaultRenderImpl {
       material_access: global_entity_component_of::<StandardModelRefPbrMRMaterial>()
         .read_foreign_key(),
-      uniforms: res.take_multi_updater_updated(self.uniforms).unwrap(),
-      tex_uniforms: res.take_multi_updater_updated(self.tex_uniforms).unwrap(),
+      uniforms: cx.take_multi_updater_updated(self.uniforms).unwrap(),
+      tex_uniforms: cx.take_multi_updater_updated(self.tex_uniforms).unwrap(),
       alpha_mode: global_entity_component_of().read(),
       base_color_tex_sampler: TextureSamplerIdView::read_from_global(),
       mr_tex_sampler: TextureSamplerIdView::read_from_global(),
@@ -172,28 +174,29 @@ impl GLESModelMaterialRenderImpl for PbrMRMaterialDefaultRenderImpl {
 
 #[derive(Default)]
 pub struct PbrSGMaterialDefaultRenderImplProvider {
-  uniforms: UpdateResultToken,
-  tex_uniforms: UpdateResultToken,
+  uniforms: QueryToken,
+  tex_uniforms: QueryToken,
 }
 
-impl RenderImplProvider<Box<dyn GLESModelMaterialRenderImpl>>
+impl QueryBasedFeature<Box<dyn GLESModelMaterialRenderImpl>>
   for PbrSGMaterialDefaultRenderImplProvider
 {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    self.uniforms = source.register_multi_updater(pbr_sg_material_uniforms(cx));
-    self.tex_uniforms = source.register_multi_updater(pbr_sg_material_tex_uniforms(cx));
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
+    self.uniforms = qcx.register_multi_updater(pbr_sg_material_uniforms(cx));
+    self.tex_uniforms = qcx.register_multi_updater(pbr_sg_material_tex_uniforms(cx));
   }
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.uniforms);
-    source.deregister(&mut self.tex_uniforms);
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.uniforms);
+    qcx.deregister(&mut self.tex_uniforms);
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn GLESModelMaterialRenderImpl> {
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn GLESModelMaterialRenderImpl> {
     Box::new(PbrSGMaterialDefaultRenderImpl {
       material_access: global_entity_component_of::<StandardModelRefPbrSGMaterial>()
         .read_foreign_key(),
-      uniforms: res.take_multi_updater_updated(self.uniforms).unwrap(),
-      tex_uniforms: res.take_multi_updater_updated(self.tex_uniforms).unwrap(),
+      uniforms: cx.take_multi_updater_updated(self.uniforms).unwrap(),
+      tex_uniforms: cx.take_multi_updater_updated(self.tex_uniforms).unwrap(),
       alpha_mode: global_entity_component_of().read(),
       albedo_tex_sampler: TextureSamplerIdView::read_from_global(),
       specular_glossiness_tex_sampler: TextureSamplerIdView::read_from_global(),

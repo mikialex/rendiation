@@ -1,15 +1,16 @@
 use crate::*;
 
 pub struct GLESPreferredComOrderRendererProvider {
-  pub scene_model_ids: UpdateResultToken,
-  pub node: Box<dyn RenderImplProvider<Box<dyn GLESNodeRenderImpl>>>,
-  pub model_impl: Vec<Box<dyn RenderImplProvider<Box<dyn GLESModelRenderImpl>>>>,
+  pub scene_model_ids: QueryToken,
+  pub node: BoxedQueryBasedGPUFeature<Box<dyn GLESNodeRenderImpl>>,
+  pub model_impl: Vec<BoxedQueryBasedGPUFeature<Box<dyn GLESModelRenderImpl>>>,
 }
 
 type SceneModelIdUniforms = UniformUpdateContainer<EntityHandle<SceneModelEntity>, Vec4<u32>>;
 
-impl RenderImplProvider<Box<dyn SceneModelRenderer>> for GLESPreferredComOrderRendererProvider {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
+impl QueryBasedFeature<Box<dyn SceneModelRenderer>> for GLESPreferredComOrderRendererProvider {
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
     let ids = global_watch()
       .watch_entity_set::<SceneModelEntity>()
       .key_as_value()
@@ -18,32 +19,24 @@ impl RenderImplProvider<Box<dyn SceneModelRenderer>> for GLESPreferredComOrderRe
 
     let ids = SceneModelIdUniforms::default().with_source(ids);
 
-    self.scene_model_ids = source.register_multi_updater(ids);
+    self.scene_model_ids = qcx.register_multi_updater(ids);
 
-    self.node.register_resource(source, cx);
-    self
-      .model_impl
-      .iter_mut()
-      .for_each(|i| i.register_resource(source, cx));
+    self.node.register(qcx, cx);
+    self.model_impl.iter_mut().for_each(|i| i.register(qcx, cx));
   }
 
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.scene_model_ids);
-    self.node.deregister_resource(source);
-    self
-      .model_impl
-      .iter_mut()
-      .for_each(|i| i.deregister_resource(source));
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.scene_model_ids);
+    self.node.deregister(qcx);
+    self.model_impl.iter_mut().for_each(|i| i.deregister(qcx));
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn SceneModelRenderer> {
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn SceneModelRenderer> {
     Box::new(GLESPreferredComOrderRenderer {
-      scene_model_ids: res
-        .take_multi_updater_updated(self.scene_model_ids)
-        .unwrap(),
-      model_impl: self.model_impl.iter().map(|i| i.create_impl(res)).collect(),
+      scene_model_ids: cx.take_multi_updater_updated(self.scene_model_ids).unwrap(),
+      model_impl: self.model_impl.iter().map(|i| i.create_impl(cx)).collect(),
       node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
-      node_render: self.node.create_impl(res),
+      node_render: self.node.create_impl(cx),
     })
   }
 }

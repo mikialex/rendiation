@@ -4,22 +4,22 @@ use crate::*;
 
 #[derive(Default)]
 pub struct ScenePTLightingSource {
-  point_lights: UpdateResultToken,
+  point_lights: QueryToken,
 }
 
 impl ScenePTLightingSource {
-  pub fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
+  pub fn register_resource(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
     let data = point_storage(cx);
-    self.point_lights = source.register_multi_updater(data.inner);
+    self.point_lights = qcx.register_multi_updater(data.inner);
   }
 
-  pub fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.point_lights);
+  pub fn deregister_resource(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.point_lights);
   }
 
-  pub fn create_impl(&self, res: &mut QueryResultCtx) -> ScenePTLighting {
+  pub fn create_impl(&self, cx: &mut QueryResultCtx) -> ScenePTLighting {
     ScenePTLighting {
-      point_lights: res
+      point_lights: cx
         .take_multi_updater_updated::<CommonStorageBufferImpl<PointLightStorage>>(self.point_lights)
         .unwrap()
         .gpu()

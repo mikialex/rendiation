@@ -55,33 +55,34 @@ impl IndirectModelMaterialRenderImpl for Vec<Box<dyn IndirectModelMaterialRender
 
 #[derive(Default)]
 pub struct UnlitMaterialDefaultIndirectRenderImplProvider {
-  storages: UpdateResultToken,
-  tex_storages: UpdateResultToken,
+  storages: QueryToken,
+  tex_storages: QueryToken,
 }
-impl RenderImplProvider<Box<dyn IndirectModelMaterialRenderImpl>>
+impl QueryBasedFeature<Box<dyn IndirectModelMaterialRenderImpl>>
   for UnlitMaterialDefaultIndirectRenderImplProvider
 {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
     let updater = unlit_material_storage_buffer(cx);
-    self.storages = source.register_multi_updater(updater.inner);
-    self.tex_storages = source.register_multi_updater(unlit_material_texture_storages(cx).inner);
+    self.storages = qcx.register_multi_updater(updater.inner);
+    self.tex_storages = qcx.register_multi_updater(unlit_material_texture_storages(cx).inner);
   }
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.storages);
-    source.deregister(&mut self.tex_storages);
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.storages);
+    qcx.deregister(&mut self.tex_storages);
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn IndirectModelMaterialRenderImpl> {
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn IndirectModelMaterialRenderImpl> {
     Box::new(UnlitMaterialDefaultIndirectRenderImpl {
       material_access: global_entity_component_of::<StandardModelRefUnlitMaterial>()
         .read_foreign_key(),
-      storages: res
+      storages: cx
         .take_multi_updater_updated::<CommonStorageBufferImpl<UnlitMaterialStorage>>(self.storages)
         .unwrap()
         .inner
         .gpu()
         .clone(),
-      texture_handles: res
+      texture_handles: cx
         .take_multi_updater_updated::<CommonStorageBufferImpl<UnlitMaterialTextureHandlesStorage>>(
           self.tex_storages,
         )
@@ -130,48 +131,51 @@ impl IndirectModelMaterialRenderImpl for UnlitMaterialDefaultIndirectRenderImpl 
 
 #[derive(Default)]
 pub struct PbrMRMaterialDefaultIndirectRenderImplProvider {
-  storages: UpdateResultToken,
-  tex_storages: UpdateResultToken,
+  storages: QueryToken,
+  tex_storages: QueryToken,
 }
 
-impl RenderImplProvider<PbrMRMaterialDefaultIndirectRenderImpl>
+impl QueryBasedFeature<PbrMRMaterialDefaultIndirectRenderImpl>
   for PbrMRMaterialDefaultIndirectRenderImplProvider
 {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    self.storages = source.register_multi_updater(pbr_mr_material_storages(cx).inner);
-    self.tex_storages = source.register_multi_updater(pbr_mr_material_tex_storages(cx).inner);
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
+    self.storages = qcx.register_multi_updater(pbr_mr_material_storages(cx).inner);
+    self.tex_storages = qcx.register_multi_updater(pbr_mr_material_tex_storages(cx).inner);
   }
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.storages);
-    source.deregister(&mut self.tex_storages);
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.storages);
+    qcx.deregister(&mut self.tex_storages);
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> PbrMRMaterialDefaultIndirectRenderImpl {
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> PbrMRMaterialDefaultIndirectRenderImpl {
     PbrMRMaterialDefaultIndirectRenderImpl {
       material_access: global_entity_component_of::<StandardModelRefPbrMRMaterial>()
         .read_foreign_key(),
-      storages: res.take_multi_updater_updated::<CommonStorageBufferImpl<PhysicalMetallicRoughnessMaterialStorage>>(self.storages).unwrap().target.gpu().clone(),
-      tex_storages: res.take_multi_updater_updated::<CommonStorageBufferImpl<PhysicalMetallicRoughnessMaterialTextureHandlesStorage>>(self.tex_storages).unwrap().target.gpu().clone(),
+      storages: cx.take_multi_updater_updated::<CommonStorageBufferImpl<PhysicalMetallicRoughnessMaterialStorage>>(self.storages).unwrap().target.gpu().clone(),
+      tex_storages: cx.take_multi_updater_updated::<CommonStorageBufferImpl<PhysicalMetallicRoughnessMaterialTextureHandlesStorage>>(self.tex_storages).unwrap().target.gpu().clone(),
       alpha_mode: global_entity_component_of().read(),
     }
   }
 }
 
-impl RenderImplProvider<Box<dyn IndirectModelMaterialRenderImpl>>
+impl QueryBasedFeature<Box<dyn IndirectModelMaterialRenderImpl>>
   for PbrMRMaterialDefaultIndirectRenderImplProvider
 {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    (self as &mut dyn RenderImplProvider<PbrMRMaterialDefaultIndirectRenderImpl>)
-      .register_resource(source, cx);
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
+    (self as &mut dyn QueryBasedFeature<PbrMRMaterialDefaultIndirectRenderImpl, Context = GPU>)
+      .register(qcx, cx);
   }
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    (self as &mut dyn RenderImplProvider<PbrMRMaterialDefaultIndirectRenderImpl>)
-      .deregister_resource(source);
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    (self as &mut dyn QueryBasedFeature<PbrMRMaterialDefaultIndirectRenderImpl, Context = GPU>)
+      .deregister(qcx);
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn IndirectModelMaterialRenderImpl> {
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn IndirectModelMaterialRenderImpl> {
     Box::new(
-      (self as &dyn RenderImplProvider<PbrMRMaterialDefaultIndirectRenderImpl>).create_impl(res),
+      (self as &dyn QueryBasedFeature<PbrMRMaterialDefaultIndirectRenderImpl, Context = GPU>)
+        .create_impl(cx),
     )
   }
 }
@@ -238,48 +242,51 @@ impl IndirectModelMaterialRenderImpl for PbrMRMaterialDefaultIndirectRenderImpl 
 
 #[derive(Default)]
 pub struct PbrSGMaterialDefaultIndirectRenderImplProvider {
-  storages: UpdateResultToken,
-  tex_storages: UpdateResultToken,
+  storages: QueryToken,
+  tex_storages: QueryToken,
 }
 
-impl RenderImplProvider<PbrSGMaterialDefaultIndirectRenderImpl>
+impl QueryBasedFeature<PbrSGMaterialDefaultIndirectRenderImpl>
   for PbrSGMaterialDefaultIndirectRenderImplProvider
 {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    self.storages = source.register_multi_updater(pbr_sg_material_storages(cx).inner);
-    self.tex_storages = source.register_multi_updater(pbr_sg_material_tex_storages(cx).inner);
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
+    self.storages = qcx.register_multi_updater(pbr_sg_material_storages(cx).inner);
+    self.tex_storages = qcx.register_multi_updater(pbr_sg_material_tex_storages(cx).inner);
   }
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.storages);
-    source.deregister(&mut self.tex_storages);
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.storages);
+    qcx.deregister(&mut self.tex_storages);
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> PbrSGMaterialDefaultIndirectRenderImpl {
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> PbrSGMaterialDefaultIndirectRenderImpl {
     PbrSGMaterialDefaultIndirectRenderImpl {
       material_access: global_entity_component_of::<StandardModelRefPbrSGMaterial>()
         .read_foreign_key(),
-      storages: res.take_multi_updater_updated::<CommonStorageBufferImpl<PhysicalSpecularGlossinessMaterialStorage>>(self.storages).unwrap().target.gpu().clone(),
-      tex_storages: res.take_multi_updater_updated::<CommonStorageBufferImpl<PhysicalSpecularGlossinessMaterialTextureHandlesStorage>>(self.tex_storages).unwrap().target.gpu().clone(),
+      storages: cx.take_multi_updater_updated::<CommonStorageBufferImpl<PhysicalSpecularGlossinessMaterialStorage>>(self.storages).unwrap().target.gpu().clone(),
+      tex_storages: cx.take_multi_updater_updated::<CommonStorageBufferImpl<PhysicalSpecularGlossinessMaterialTextureHandlesStorage>>(self.tex_storages).unwrap().target.gpu().clone(),
       alpha_mode: global_entity_component_of().read(),
     }
   }
 }
 
-impl RenderImplProvider<Box<dyn IndirectModelMaterialRenderImpl>>
+impl QueryBasedFeature<Box<dyn IndirectModelMaterialRenderImpl>>
   for PbrSGMaterialDefaultIndirectRenderImplProvider
 {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    (self as &mut dyn RenderImplProvider<PbrSGMaterialDefaultIndirectRenderImpl>)
-      .register_resource(source, cx);
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
+    (self as &mut dyn QueryBasedFeature<PbrSGMaterialDefaultIndirectRenderImpl, Context = GPU>)
+      .register(qcx, cx);
   }
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    (self as &mut dyn RenderImplProvider<PbrSGMaterialDefaultIndirectRenderImpl>)
-      .deregister_resource(source);
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    (self as &mut dyn QueryBasedFeature<PbrSGMaterialDefaultIndirectRenderImpl, Context = GPU>)
+      .deregister(qcx);
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn IndirectModelMaterialRenderImpl> {
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn IndirectModelMaterialRenderImpl> {
     Box::new(
-      (self as &dyn RenderImplProvider<PbrSGMaterialDefaultIndirectRenderImpl>).create_impl(res),
+      (self as &dyn QueryBasedFeature<PbrSGMaterialDefaultIndirectRenderImpl, Context = GPU>)
+        .create_impl(cx),
     )
   }
 }

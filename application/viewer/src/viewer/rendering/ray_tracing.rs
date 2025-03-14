@@ -28,24 +28,25 @@ impl RayTracingSystemGroup {
   }
 }
 
-impl RenderImplProvider<RayTracingFeatureGroup> for RayTracingSystemGroup {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    self.base.register_resource(source, cx);
-    self.ao.register_resource(source, cx);
-    self.pt.register_resource(source, cx);
+impl QueryBasedFeature<RayTracingFeatureGroup> for RayTracingSystemGroup {
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, gpu: &GPU) {
+    self.base.register(qcx, gpu);
+    self.ao.register(qcx, gpu);
+    self.pt.register(qcx, gpu);
   }
 
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    self.base.deregister_resource(source);
-    self.ao.deregister_resource(source);
-    self.pt.deregister_resource(source);
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    self.base.deregister(qcx);
+    self.ao.deregister(qcx);
+    self.pt.deregister(qcx);
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> RayTracingFeatureGroup {
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> RayTracingFeatureGroup {
     RayTracingFeatureGroup {
-      base: self.base.create_impl(res),
-      ao: self.ao.create_impl(res),
-      pt: self.pt.create_impl(res),
+      base: self.base.create_impl(cx),
+      ao: self.ao.create_impl(cx),
+      pt: self.pt.create_impl(cx),
     }
   }
 }

@@ -45,37 +45,32 @@ pub trait IndirectBatchSceneModelRenderer: SceneModelRenderer {
 
 pub struct IndirectPreferredComOrderRendererProvider {
   pub ids: DefaultSceneModelIdProvider,
-  pub node: Box<dyn RenderImplProvider<Box<dyn IndirectNodeRenderImpl>>>,
-  pub model_impl: Vec<Box<dyn RenderImplProvider<Box<dyn IndirectModelRenderImpl>>>>,
+  pub node: BoxedQueryBasedGPUFeature<Box<dyn IndirectNodeRenderImpl>>,
+  pub model_impl: Vec<BoxedQueryBasedGPUFeature<Box<dyn IndirectModelRenderImpl>>>,
 }
 
-impl RenderImplProvider<Box<dyn IndirectBatchSceneModelRenderer>>
+impl QueryBasedFeature<Box<dyn IndirectBatchSceneModelRenderer>>
   for IndirectPreferredComOrderRendererProvider
 {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    self.node.register_resource(source, cx);
-    self.ids.register_resource(source, cx);
-    self
-      .model_impl
-      .iter_mut()
-      .for_each(|i| i.register_resource(source, cx));
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
+    self.node.register(qcx, cx);
+    self.ids.register(qcx, cx);
+    self.model_impl.iter_mut().for_each(|i| i.register(qcx, cx));
   }
 
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    self.node.deregister_resource(source);
-    self.ids.deregister_resource(source);
-    self
-      .model_impl
-      .iter_mut()
-      .for_each(|i| i.deregister_resource(source));
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    self.node.deregister(qcx);
+    self.ids.deregister(qcx);
+    self.model_impl.iter_mut().for_each(|i| i.deregister(qcx));
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> Box<dyn IndirectBatchSceneModelRenderer> {
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn IndirectBatchSceneModelRenderer> {
     Box::new(IndirectPreferredComOrderRenderer {
-      model_impl: self.model_impl.iter().map(|i| i.create_impl(res)).collect(),
+      model_impl: self.model_impl.iter().map(|i| i.create_impl(cx)).collect(),
       node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
-      node_render: self.node.create_impl(res),
-      id_inject: self.ids.create_impl(res),
+      node_render: self.node.create_impl(cx),
+      id_inject: self.ids.create_impl(cx),
     })
   }
 }
@@ -232,7 +227,7 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
 
 #[derive(Default)]
 pub struct DefaultSceneModelIdProvider {
-  pub id_buffer: UpdateResultToken,
+  pub id_buffer: QueryToken,
 }
 
 #[derive(Clone)]
@@ -240,18 +235,19 @@ pub struct DefaultSceneModelIdInject {
   pub id_buffer: StorageBufferReadonlyDataView<[SceneModelStorage]>,
 }
 
-impl RenderImplProvider<DefaultSceneModelIdInject> for DefaultSceneModelIdProvider {
-  fn register_resource(&mut self, source: &mut ReactiveQueryJoinUpdater, cx: &GPU) {
-    self.id_buffer = source.register_multi_updater(scene_model_data(cx).inner);
+impl QueryBasedFeature<DefaultSceneModelIdInject> for DefaultSceneModelIdProvider {
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
+    self.id_buffer = qcx.register_multi_updater(scene_model_data(cx).inner);
   }
 
-  fn deregister_resource(&mut self, source: &mut ReactiveQueryJoinUpdater) {
-    source.deregister(&mut self.id_buffer);
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.id_buffer);
   }
 
-  fn create_impl(&self, res: &mut QueryResultCtx) -> DefaultSceneModelIdInject {
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> DefaultSceneModelIdInject {
     DefaultSceneModelIdInject {
-      id_buffer: res
+      id_buffer: cx
         .take_multi_updater_updated::<CommonStorageBufferImpl<SceneModelStorage>>(self.id_buffer)
         .unwrap()
         .inner
