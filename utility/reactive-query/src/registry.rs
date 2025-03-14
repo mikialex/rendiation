@@ -128,7 +128,7 @@ impl ReactiveQueryRegistry {
       drop(registry);
       let query = inserter();
       let boxed: BoxedDynReactiveQuery<R::Key, R::Value> = Box::new(query);
-      let forker = boxed.into_forker();
+      let forker = boxed.into_static_forker();
 
       let boxed = Box::new(forker) as Box<dyn ShrinkableAny>;
       let mut registry = self.registry.write();

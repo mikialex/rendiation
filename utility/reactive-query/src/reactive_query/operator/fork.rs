@@ -1,4 +1,4 @@
-use std::sync::Weak;
+use std::{panic::Location, sync::Weak};
 
 use futures::channel::mpsc::*;
 
@@ -15,6 +15,7 @@ struct DownStreamInfo<K, V> {
   /// some fork never receive message just act as a static forker, in this case the message should
   /// not send to it to avoid memory leak.
   should_send: bool,
+  create_location: Location<'static>,
 }
 
 pub struct ReactiveKVMapFork<Map: ReactiveQuery> {
@@ -29,6 +30,7 @@ pub struct ReactiveKVMapFork<Map: ReactiveQuery> {
 }
 
 impl<Map: ReactiveQuery> ReactiveKVMapFork<Map> {
+  #[track_caller]
   pub fn new(upstream: Map, as_static_forker: bool) -> Self {
     let (sender, rev) = unbounded();
     let mut init = FastHashMap::default();
@@ -38,6 +40,7 @@ impl<Map: ReactiveQuery> ReactiveKVMapFork<Map> {
       waker: waker.clone(),
       sender,
       should_send: !as_static_forker,
+      create_location: *Location::caller(),
     };
     init.insert(id, info);
     ReactiveKVMapFork {
@@ -94,12 +97,13 @@ where
   }
 }
 
-const ENABLE_MESSAGE_LEAK_WARNING: bool = false; // todo, fix leak
-fn check_sender_has_leak<T>(sender: &UnboundedSender<T>) {
-  if ENABLE_MESSAGE_LEAK_WARNING && sender.len() > 50 {
-    println!(
-      "potential reactive query fork message leak:, current sender buffered message count: {}",
-      sender.len()
+const ENABLE_MESSAGE_LEAK_ASSERT: bool = false;
+fn check_sender_has_leak<T>(sender: &UnboundedSender<T>, loc: &Location<'static>) {
+  if ENABLE_MESSAGE_LEAK_ASSERT && sender.len() > 50 {
+    panic!(
+      "potential reactive query fork message leak:,\n current sender buffered message count: {},\n create_location: {}",
+      sender.len(),
+      loc,
     );
   }
 }
@@ -108,10 +112,12 @@ impl<Map> ReactiveKVMapFork<Map>
 where
   Map: ReactiveQuery,
 {
+  #[track_caller]
   pub fn clone_as_static(&self) -> Self {
     self.clone_impl(true)
   }
 
+  #[track_caller]
   fn clone_impl(&self, as_static_forker: bool) -> Self {
     // get updated current view and delta; this is necessary, because we require
     // current view as init delta for new forked downstream
@@ -129,7 +135,7 @@ where
     let d = d.materialize();
     for (_, info) in downstream.iter() {
       if info.should_send {
-        check_sender_has_leak(&info.sender);
+        check_sender_has_leak(&info.sender, &info.create_location);
         info.sender.unbounded_send(d.clone()).ok();
       }
     }
@@ -147,7 +153,7 @@ where
       .collect::<FastHashMap<_, _>>();
     let current = Arc::new(current);
     if !current.is_empty() {
-      check_sender_has_leak(&sender);
+      // we do not check unbound leak here because the sender is created here.
       sender.unbounded_send(current).ok();
     }
 
@@ -155,7 +161,8 @@ where
     let info = DownStreamInfo {
       waker: waker.clone(),
       sender,
-      should_send: true,
+      should_send: !as_static_forker,
+      create_location: *Location::caller(),
     };
 
     downstream.insert(id, info);
@@ -281,7 +288,7 @@ where
         // receivers
         for (id, downstream) in downstream.iter() {
           if *id != self.id && downstream.should_send {
-            check_sender_has_leak(&downstream.sender);
+            check_sender_has_leak(&downstream.sender, &downstream.create_location);
             downstream.sender.unbounded_send(d.clone()).ok();
           }
         }

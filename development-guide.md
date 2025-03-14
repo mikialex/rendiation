@@ -6,7 +6,6 @@ The following things is the current project development direction.
 
 ### Correctness issues
 
-- fix memory leak in reactive fork message queue in viewer application
 - emissive has black shadow on default scene
 - fix multiple taskgraph exist together, ShaderFuture should impl shaderhashprovider
 - fix texture pool grow
