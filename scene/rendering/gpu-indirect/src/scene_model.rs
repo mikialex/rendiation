@@ -5,18 +5,17 @@ pub type SceneModelStorageBuffer = ReactiveStorageBufferContainer<SceneModelStor
 pub fn scene_model_data(cx: &GPU) -> SceneModelStorageBuffer {
   let std_model = global_watch()
     .watch::<SceneModelStdModelRenderPayload>()
-    .collective_map(|id| id.map(|v| v.index()).unwrap_or(u32::MAX));
-  let std_model_offset = offset_of!(SceneModelStorage, std_model);
+    .collective_map(|id| id.map(|v| v.index()).unwrap_or(u32::MAX))
+    .into_query_update_storage(offset_of!(SceneModelStorage, std_model));
 
   let node = global_watch()
     .watch::<SceneModelRefNode>()
     .collective_filter_map(|id| id.map(|v| v.index()))
-    .into_boxed();
-  let node_offset = offset_of!(SceneModelStorage, node);
+    .into_query_update_storage(offset_of!(SceneModelStorage, node));
 
-  ReactiveStorageBufferContainer::new(cx)
-    .with_source(std_model, std_model_offset)
-    .with_source(node, node_offset)
+  create_reactive_storage_buffer_container(cx)
+    .with_source(std_model)
+    .with_source(node)
 }
 
 #[repr(C)]

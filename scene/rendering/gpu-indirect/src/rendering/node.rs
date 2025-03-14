@@ -36,7 +36,7 @@ impl QueryBasedFeature<Box<dyn IndirectNodeRenderImpl>> for DefaultIndirectNodeR
   type Context = GPU;
   fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
     let storage = node_storages(cx);
-    self.storage = qcx.register_multi_updater(storage.inner);
+    self.storage = qcx.register_multi_updater(storage);
   }
 
   fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {

@@ -6,8 +6,8 @@ pub type SceneStdModelStorageBuffer = ReactiveStorageBufferContainer<SceneStdMod
 pub fn std_model_data(cx: &GPU) -> SceneStdModelStorageBuffer {
   let mesh = global_watch()
     .watch::<StandardModelRefAttributesMeshEntity>()
-    .collective_map(|id| id.map(|v| v.index()).unwrap_or(u32::MAX));
-  let mesh_offset = offset_of!(SceneStdModelStorage, mesh);
+    .collective_map(|id| id.map(|v| v.index()).unwrap_or(u32::MAX))
+    .into_query_update_storage(offset_of!(SceneStdModelStorage, mesh));
 
   let material_flat = global_watch()
     .watch::<StandardModelRefUnlitMaterial>()
@@ -26,13 +26,12 @@ pub fn std_model_data(cx: &GPU) -> SceneStdModelStorageBuffer {
 
   let material = material_flat
     .collective_select(material_pbr_mr)
-    .collective_select(material_pbr_sg);
+    .collective_select(material_pbr_sg)
+    .into_query_update_storage(offset_of!(SceneStdModelStorage, material));
 
-  let material_offset = offset_of!(SceneStdModelStorage, material);
-
-  ReactiveStorageBufferContainer::new(cx)
-    .with_source(mesh, mesh_offset)
-    .with_source(material, material_offset)
+  create_reactive_storage_buffer_container(cx)
+    .with_source(mesh)
+    .with_source(material)
 }
 
 #[repr(C)]

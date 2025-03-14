@@ -5,25 +5,27 @@ pub type UnlitMaterialStorageBuffer = ReactiveStorageBufferContainer<UnlitMateri
 pub fn unlit_material_storage_buffer(cx: &GPU) -> UnlitMaterialStorageBuffer {
   let color = global_watch()
     .watch::<UnlitMaterialColorComponent>()
-    .collective_map(srgb4_to_linear4);
-  let color_offset = offset_of!(UnlitMaterialStorage, color);
+    .collective_map(srgb4_to_linear4)
+    .into_query_update_storage(offset_of!(UnlitMaterialStorage, color));
 
-  let alpha = global_watch().watch::<AlphaOf<UnlitMaterialAlphaConfig>>();
-  let alpha_offset = offset_of!(UnlitMaterialStorage, alpha);
+  let alpha = global_watch()
+    .watch::<AlphaOf<UnlitMaterialAlphaConfig>>()
+    .into_query_update_storage(offset_of!(UnlitMaterialStorage, alpha));
 
-  let alpha_cutoff = global_watch().watch::<AlphaCutoffOf<UnlitMaterialAlphaConfig>>();
-  let alpha_cutoff_offset = offset_of!(UnlitMaterialStorage, alpha_cutoff);
+  let alpha_cutoff = global_watch()
+    .watch::<AlphaCutoffOf<UnlitMaterialAlphaConfig>>()
+    .into_query_update_storage(offset_of!(UnlitMaterialStorage, alpha_cutoff));
 
-  ReactiveStorageBufferContainer::new(cx)
-    .with_source(color, color_offset)
-    .with_source(alpha, alpha_offset)
-    .with_source(alpha_cutoff, alpha_cutoff_offset)
+  create_reactive_storage_buffer_container(cx)
+    .with_source(color)
+    .with_source(alpha)
+    .with_source(alpha_cutoff)
 }
 
 type TexStorage = UnlitMaterialTextureHandlesStorage;
 pub type UnlitMaterialTexStorages = ReactiveStorageBufferContainer<TexStorage>;
 pub fn unlit_material_texture_storages(cx: &GPU) -> UnlitMaterialTexStorages {
-  let c = UnlitMaterialTexStorages::new(cx);
+  let c = create_reactive_storage_buffer_container(cx);
   let base_color_alpha = offset_of!(TexStorage, color_alpha_texture);
   add_tex_watcher::<UnlitMaterialColorAlphaTex, _>(c, base_color_alpha)
 }

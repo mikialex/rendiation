@@ -2,7 +2,7 @@
 
 RRF is a rendering framework focusing on performance and maintainability. "Rendiation" represents the concept of "rendering innovation".
 
-For performance, RFF combines the ideas of incremental computation and relational reactive programming, creating an innovative incremental compute solution: the reactive query graph. Leveraging this, RFF manages every derived data, internal state, caches, and GPU resources in the renderer. RFF also implements a state-of-the-art GPU driven rendering pipeline, utilizing hardware advantage, approaching zero driver overhead and minimizing GPU workload.
+For performance, RFF combines the ideas of incremental computation and relational reactive programming, creating an innovative incremental compute solution: the reactive query graph. Leveraging this, RFF reactively manages every derived data, internal state, caches, and GPU resources in the renderer in incremental cost. RFF also implements a state-of-the-art GPU driven rendering pipeline, utilizing hardware advantage, approaching zero driver overhead and minimizing GPU workload.
 
 Maintainability comes from simplicity and coherence, revealed as extendability and composability. RRF uses an in-memory relational database to manage source of truth states, combined with the incremental system, reducing accidental complexity to a minimal level. RFF carefully designs and composes axiom-level concepts, resulting in a tower of abstractions that correctly models and solves modern rendering architecture engineering challenges.
 

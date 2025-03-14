@@ -66,13 +66,13 @@ where
 
   let tex = global_watch()
     .watch::<SceneTexture2dRefOf<T>>()
-    .collective_map(|id| id.map(|v| v.index()).unwrap_or(u32::MAX));
+    .collective_map(|id| id.map(|v| v.index()).unwrap_or(u32::MAX))
+    .into_query_update_storage(offset + tex_offset);
 
   let sampler = global_watch()
     .watch::<SceneSamplerRefOf<T>>()
-    .collective_map(|id| id.map(|v| v.index()).unwrap_or(u32::MAX));
+    .collective_map(|id| id.map(|v| v.index()).unwrap_or(u32::MAX))
+    .into_query_update_storage(offset + sam_offset);
 
-  storage
-    .with_source(tex, offset + tex_offset)
-    .with_source(sampler, offset + sam_offset)
+  storage.with_source(tex).with_source(sampler)
 }

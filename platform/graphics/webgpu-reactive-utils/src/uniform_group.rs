@@ -69,7 +69,3 @@ where
     }
   }
 }
-
-// rxc<k, v> to map<k, target>
-// rxc<k, (fk, v)> to map<fk, target>
-// rxc<k, v> to target

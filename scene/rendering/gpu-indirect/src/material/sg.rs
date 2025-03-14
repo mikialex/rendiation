@@ -19,27 +19,32 @@ type Storage = PhysicalSpecularGlossinessMaterialStorage;
 
 pub type PbrSGMaterialStorages = ReactiveStorageBufferContainer<Storage>;
 pub fn pbr_sg_material_storages(cx: &GPU) -> PbrSGMaterialStorages {
-  let albedo = global_watch().watch::<PbrSGMaterialAlbedoComponent>();
-  let albedo_offset = offset_of!(Storage, albedo);
+  let albedo = global_watch()
+    .watch::<PbrSGMaterialAlbedoComponent>()
+    .into_query_update_storage(offset_of!(Storage, albedo));
 
-  let emissive = global_watch().watch::<PbrSGMaterialEmissiveComponent>();
-  let emissive_offset = offset_of!(Storage, emissive);
+  let emissive = global_watch()
+    .watch::<PbrSGMaterialEmissiveComponent>()
+    .into_query_update_storage(offset_of!(Storage, emissive));
 
-  let normal_mapping_scale = global_watch().watch::<NormalScaleOf<PbrSGMaterialNormalInfo>>();
-  let normal_mapping_scale_offset = offset_of!(Storage, normal_mapping_scale);
+  let normal_mapping_scale = global_watch()
+    .watch::<NormalScaleOf<PbrSGMaterialNormalInfo>>()
+    .into_query_update_storage(offset_of!(Storage, normal_mapping_scale));
 
-  let glossiness = global_watch().watch::<PbrSGMaterialGlossinessComponent>();
-  let glossiness_offset = offset_of!(Storage, glossiness);
+  let glossiness = global_watch()
+    .watch::<PbrSGMaterialGlossinessComponent>()
+    .into_query_update_storage(offset_of!(Storage, glossiness));
 
-  let alpha = global_watch().watch::<AlphaOf<PbrSGMaterialAlphaConfig>>();
-  let alpha_offset = offset_of!(Storage, alpha);
+  let alpha = global_watch()
+    .watch::<AlphaOf<PbrSGMaterialAlphaConfig>>()
+    .into_query_update_storage(offset_of!(Storage, alpha));
 
-  PbrSGMaterialStorages::new(cx)
-    .with_source(albedo, albedo_offset)
-    .with_source(emissive, emissive_offset)
-    .with_source(normal_mapping_scale, normal_mapping_scale_offset)
-    .with_source(glossiness, glossiness_offset)
-    .with_source(alpha, alpha_offset)
+  create_reactive_storage_buffer_container(cx)
+    .with_source(albedo)
+    .with_source(emissive)
+    .with_source(normal_mapping_scale)
+    .with_source(glossiness)
+    .with_source(alpha)
 }
 
 #[repr(C)]
@@ -55,7 +60,7 @@ type TexStorage = PhysicalSpecularGlossinessMaterialTextureHandlesStorage;
 
 pub type PbrSGMaterialTexStorages = ReactiveStorageBufferContainer<TexStorage>;
 pub fn pbr_sg_material_tex_storages(cx: &GPU) -> PbrSGMaterialTexStorages {
-  let c = PbrSGMaterialTexStorages::new(cx);
+  let c = create_reactive_storage_buffer_container(cx);
 
   let albedo = offset_of!(TexStorage, albedo_texture);
   let emissive = offset_of!(TexStorage, emissive_texture);

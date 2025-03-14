@@ -1,7 +1,7 @@
 use rendiation_texture_core::*;
 pub use rendiation_texture_packer::pack_2d_to_3d::MultiLayerTexturePackerConfig;
 use rendiation_texture_packer::pack_2d_to_3d::*;
-use rendiation_webgpu_reactive_utils::ReactiveStorageBufferContainer;
+use rendiation_webgpu_reactive_utils::*;
 
 use crate::*;
 
@@ -86,19 +86,24 @@ impl TexturePoolSource {
 
     let (packing, atlas_resize) = reactive_pack_2d_to_3d(config, Box::new(size));
     let packing = packing.into_forker();
-    let p = packing.clone().collective_map(|v| TexturePoolAddressInfo {
-      layer_index: v.depth,
-      size: v.result.range.size.into_f32().into(),
-      offset: Vec2::new(
-        v.result.range.origin.x as f32,
-        v.result.range.origin.y as f32,
-      ),
-      ..Default::default()
-    });
+    let add_info = packing
+      .clone()
+      .collective_map(|v| TexturePoolAddressInfo {
+        layer_index: v.depth,
+        size: v.result.range.size.into_f32().into(),
+        offset: Vec2::new(
+          v.result.range.origin.x as f32,
+          v.result.range.origin.y as f32,
+        ),
+        ..Default::default()
+      })
+      .into_query_update_storage(0);
 
-    let address = ReactiveStorageBufferContainer::new(gpu).with_source(p, 0);
-    let samplers = sampler_input.collective_map(TextureSamplerShaderInfo::from);
-    let samplers = ReactiveStorageBufferContainer::new(gpu).with_source(samplers, 0);
+    let address = create_reactive_storage_buffer_container(gpu).with_source(add_info);
+    let samplers = sampler_input
+      .collective_map(TextureSamplerShaderInfo::from)
+      .into_query_update_storage(0);
+    let samplers = create_reactive_storage_buffer_container(gpu).with_source(samplers);
 
     Self {
       tex_input,
@@ -187,13 +192,13 @@ impl ReactiveGeneralQuery for TexturePoolSource {
       .try_into()
       .unwrap();
 
-    let address = self.address.poll_update(cx);
-    let samplers = self.samplers.poll_update(cx);
+    self.address.poll_update(cx);
+    self.samplers.poll_update(cx);
 
     Box::new(TexturePool {
       texture,
-      address,
-      samplers,
+      address: self.address.target.gpu().clone(),
+      samplers: self.samplers.target.gpu().clone(),
     })
   }
 }

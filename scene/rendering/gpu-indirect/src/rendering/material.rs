@@ -64,8 +64,8 @@ impl QueryBasedFeature<Box<dyn IndirectModelMaterialRenderImpl>>
   type Context = GPU;
   fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
     let updater = unlit_material_storage_buffer(cx);
-    self.storages = qcx.register_multi_updater(updater.inner);
-    self.tex_storages = qcx.register_multi_updater(unlit_material_texture_storages(cx).inner);
+    self.storages = qcx.register_multi_updater(updater);
+    self.tex_storages = qcx.register_multi_updater(unlit_material_texture_storages(cx));
   }
   fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
     qcx.deregister(&mut self.storages);
@@ -140,8 +140,8 @@ impl QueryBasedFeature<PbrMRMaterialDefaultIndirectRenderImpl>
 {
   type Context = GPU;
   fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
-    self.storages = qcx.register_multi_updater(pbr_mr_material_storages(cx).inner);
-    self.tex_storages = qcx.register_multi_updater(pbr_mr_material_tex_storages(cx).inner);
+    self.storages = qcx.register_multi_updater(pbr_mr_material_storages(cx));
+    self.tex_storages = qcx.register_multi_updater(pbr_mr_material_tex_storages(cx));
   }
   fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
     qcx.deregister(&mut self.storages);
@@ -251,8 +251,8 @@ impl QueryBasedFeature<PbrSGMaterialDefaultIndirectRenderImpl>
 {
   type Context = GPU;
   fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
-    self.storages = qcx.register_multi_updater(pbr_sg_material_storages(cx).inner);
-    self.tex_storages = qcx.register_multi_updater(pbr_sg_material_tex_storages(cx).inner);
+    self.storages = qcx.register_multi_updater(pbr_sg_material_storages(cx));
+    self.tex_storages = qcx.register_multi_updater(pbr_sg_material_tex_storages(cx));
   }
   fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
     qcx.deregister(&mut self.storages);

@@ -67,13 +67,6 @@ pub fn srgb3_to_linear3(color: Vec3<f32>) -> Vec3<f32> {
 }
 
 pub type BoxedQueryBasedGPUFeature<T> = Box<dyn QueryBasedFeature<T, Context = GPU>>;
-pub trait QueryBasedFeature<T> {
-  type Context;
-  /// this will be called once when application init
-  fn register(&mut self, qcx: &mut ReactiveQueryCtx, ctx: &Self::Context);
-  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx);
-  fn create_impl(&self, cx: &mut QueryResultCtx) -> T;
-}
 
 pub enum CameraRenderSource {
   Scene(EntityHandle<SceneCameraEntity>),

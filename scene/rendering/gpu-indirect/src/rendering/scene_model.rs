@@ -238,7 +238,7 @@ pub struct DefaultSceneModelIdInject {
 impl QueryBasedFeature<DefaultSceneModelIdInject> for DefaultSceneModelIdProvider {
   type Context = GPU;
   fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
-    self.id_buffer = qcx.register_multi_updater(scene_model_data(cx).inner);
+    self.id_buffer = qcx.register_multi_updater(scene_model_data(cx));
   }
 
   fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {

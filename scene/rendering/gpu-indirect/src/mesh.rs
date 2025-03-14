@@ -128,9 +128,8 @@ pub fn attribute_buffer_metadata(
   normal_pool: &UntypedPool,
   uv_pool: &UntypedPool,
 ) -> MultiUpdateContainer<CommonStorageBufferImplWithHostBackup<AttributeMeshMeta>> {
-  let base = ReactiveStorageBufferContainer::<AttributeMeshMeta>::new(gpu);
+  let base = create_reactive_storage_buffer_container(gpu);
   let new_base = base
-    .inner
     .target
     .with_vec_backup(AttributeMeshMeta::default(), false);
   let data = MultiUpdateContainer::new(new_base);
@@ -248,12 +247,13 @@ impl QueryBasedFeature<Box<dyn IndirectModelShapeRenderImpl>> for MeshBindlessGP
 
     let sm_to_mesh_device_source = sm_to_mesh
       .clone()
-      .collective_map(|v| v.map(|v| v.alloc_index()).unwrap_or(u32::MAX));
+      .collective_map(|v| v.map(|v| v.alloc_index()).unwrap_or(u32::MAX))
+      .into_query_update_storage(0);
 
     let sm_to_mesh_device =
-      ReactiveStorageBufferContainer::<u32>::new(cx).with_source(sm_to_mesh_device_source, 0);
+      create_reactive_storage_buffer_container::<u32>(cx).with_source(sm_to_mesh_device_source);
 
-    self.sm_to_mesh_device = qcx.register_multi_updater(sm_to_mesh_device.inner);
+    self.sm_to_mesh_device = qcx.register_multi_updater(sm_to_mesh_device);
     let sm_to_mesh = sm_to_mesh.collective_filter_map(|v| v);
     self.sm_to_mesh = qcx.register_reactive_query(sm_to_mesh);
   }

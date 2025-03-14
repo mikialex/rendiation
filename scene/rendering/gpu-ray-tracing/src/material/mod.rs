@@ -1,4 +1,4 @@
-use rendiation_webgpu_reactive_utils::{CommonStorageBufferImpl, ReactiveStorageBufferContainer};
+use rendiation_webgpu_reactive_utils::*;
 
 use crate::*;
 
@@ -39,7 +39,8 @@ impl RtxSceneMaterialSource {
       .into_boxed();
 
     let sm_to_mr = material_pbr_mr
-      .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelStdModelRenderPayload>());
+      .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelStdModelRenderPayload>())
+      .into_query_update_storage(0);
 
     let material_pbr_sg = global_watch()
       .watch::<StandardModelRefPbrSGMaterial>()
@@ -47,11 +48,12 @@ impl RtxSceneMaterialSource {
       .into_boxed();
 
     let sm_to_sg = material_pbr_sg
-      .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelStdModelRenderPayload>());
+      .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelStdModelRenderPayload>())
+      .into_query_update_storage(0);
 
-    let material_id = ReactiveStorageBufferContainer::<u32>::new(cx)
-      .with_source(sm_to_mr, 0)
-      .with_source(sm_to_sg, 0);
+    let material_id = create_reactive_storage_buffer_container::<u32>(cx)
+      .with_source(sm_to_mr)
+      .with_source(sm_to_sg);
 
     let material_ty_base = global_watch().watch_entity_set::<SceneModelEntity>();
 
@@ -67,12 +69,13 @@ impl RtxSceneMaterialSource {
 
     let material_ty = mr_material_ty.collective_select(sg_material_ty);
 
-    let material_ty =
-      material_ty_base.collective_union(material_ty, |(a, b)| a.map(|_| b.unwrap_or(u32::MAX)));
+    let material_ty = material_ty_base
+      .collective_union(material_ty, |(a, b)| a.map(|_| b.unwrap_or(u32::MAX)))
+      .into_query_update_storage(0);
 
-    let material_ty = ReactiveStorageBufferContainer::<u32>::new(cx).with_source(material_ty, 0);
-    self.material_id = qcx.register_multi_updater(material_id.inner);
-    self.material_ty = qcx.register_multi_updater(material_ty.inner);
+    let material_ty = create_reactive_storage_buffer_container::<u32>(cx).with_source(material_ty);
+    self.material_id = qcx.register_multi_updater(material_id);
+    self.material_ty = qcx.register_multi_updater(material_ty);
     for m in &mut self.materials {
       m.register(qcx, cx);
     }

@@ -10,7 +10,7 @@ pub struct ScenePTLightingSource {
 impl ScenePTLightingSource {
   pub fn register_resource(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
     let data = point_storage(cx);
-    self.point_lights = qcx.register_multi_updater(data.inner);
+    self.point_lights = qcx.register_multi_updater(data);
   }
 
   pub fn deregister_resource(&mut self, qcx: &mut ReactiveQueryCtx) {

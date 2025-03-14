@@ -1,16 +1,17 @@
 use crate::*;
 
 only_vertex!(IndirectSceneNodeId, u32);
-pub type SceneNodeStorages = ReactiveStorageBufferContainer<NodeStorage>;
 
-pub fn node_storages(cx: &GPU) -> SceneNodeStorages {
-  let source = scene_node_derive_world_mat().collective_map(|mat| NodeStorage {
-    world_matrix: mat,
-    normal_matrix: mat.to_normal_matrix().into(),
-    ..Zeroable::zeroed()
-  });
+pub fn node_storages(cx: &GPU) -> ReactiveStorageBufferContainer<NodeStorage> {
+  let source = scene_node_derive_world_mat()
+    .collective_map(|mat| NodeStorage {
+      world_matrix: mat,
+      normal_matrix: mat.to_normal_matrix().into(),
+      ..Zeroable::zeroed()
+    })
+    .into_query_update_storage(0);
 
-  SceneNodeStorages::new(cx).with_source(source, 0)
+  create_reactive_storage_buffer_container(cx).with_source(source)
 }
 
 pub struct NodeGPUStorage<'a> {

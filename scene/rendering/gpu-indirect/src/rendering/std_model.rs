@@ -116,7 +116,7 @@ pub struct DefaultSceneStdModelRendererProvider {
 impl QueryBasedFeature<Box<dyn IndirectModelRenderImpl>> for DefaultSceneStdModelRendererProvider {
   type Context = GPU;
   fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
-    self.std_model = qcx.register_multi_updater(std_model_data(cx).inner);
+    self.std_model = qcx.register_multi_updater(std_model_data(cx));
     self.materials.iter_mut().for_each(|p| p.register(qcx, cx));
     self.shapes.iter_mut().for_each(|p| p.register(qcx, cx));
   }

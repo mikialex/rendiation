@@ -11,20 +11,25 @@ pub struct PointLightStorage {
 }
 
 pub fn point_storage(gpu: &GPU) -> ReactiveStorageBufferContainer<PointLightStorage> {
-  let luminance_intensity = global_watch().watch::<PointLightIntensity>();
   let luminance_intensity_offset = offset_of!(PointLightStorage, luminance_intensity);
+  let luminance_intensity = global_watch()
+    .watch::<PointLightIntensity>()
+    .into_query_update_storage(luminance_intensity_offset);
 
-  let cutoff_distance = global_watch().watch::<PointLightCutOffDistance>();
   let cutoff_distance_offset = offset_of!(PointLightStorage, cutoff_distance);
+  let cutoff_distance = global_watch()
+    .watch::<PointLightCutOffDistance>()
+    .into_query_update_storage(cutoff_distance_offset);
 
   let position = scene_node_derive_world_mat()
     .one_to_many_fanout(global_rev_ref().watch_inv_ref::<PointLightRefNode>())
-    .collective_map(|mat| mat.position());
+    .collective_map(|mat| mat.position())
+    .into_query_update_storage(offset_of!(PointLightStorage, position));
 
-  ReactiveStorageBufferContainer::new(gpu)
-    .with_source(luminance_intensity, luminance_intensity_offset)
-    .with_source(cutoff_distance, cutoff_distance_offset)
-    .with_source(position, offset_of!(PointLightStorage, position))
+  create_reactive_storage_buffer_container(gpu)
+    .with_source(luminance_intensity)
+    .with_source(cutoff_distance)
+    .with_source(position)
 }
 
 #[derive(Default)]
@@ -36,7 +41,7 @@ impl QueryBasedFeature<Box<dyn LightingComputeComponent>> for PointStorageLightL
   type Context = GPU;
   fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
     let data = point_storage(cx);
-    self.token = qcx.register_multi_updater(data.inner);
+    self.token = qcx.register_multi_updater(data);
   }
 
   fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {

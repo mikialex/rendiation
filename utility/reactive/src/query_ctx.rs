@@ -2,6 +2,14 @@ use anymap::AnyMap;
 
 use crate::*;
 
+pub trait QueryBasedFeature<T> {
+  type Context;
+  /// this will be called once when application init
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, ctx: &Self::Context);
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx);
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> T;
+}
+
 pub type BoxedAnyReactiveQuery = Box<dyn ReactiveGeneralQuery<Output = Box<dyn Any>>>;
 
 #[derive(Default)]

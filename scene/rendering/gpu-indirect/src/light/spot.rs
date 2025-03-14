@@ -13,39 +13,44 @@ pub struct SpotLightStorage {
 }
 
 pub fn spot_storage(gpu: &GPU) -> ReactiveStorageBufferContainer<SpotLightStorage> {
-  let luminance_intensity = global_watch().watch::<SplitLightIntensity>();
-  let luminance_intensity_offset = offset_of!(SpotLightStorage, luminance_intensity);
+  let luminance_intensity = global_watch()
+    .watch::<SplitLightIntensity>()
+    .into_query_update_storage(offset_of!(SpotLightStorage, luminance_intensity));
 
-  let cutoff_distance = global_watch().watch::<SpotLightCutOffDistance>();
-  let cutoff_distance_offset = offset_of!(SpotLightStorage, cutoff_distance);
+  let cutoff_distance = global_watch()
+    .watch::<SpotLightCutOffDistance>()
+    .into_query_update_storage(offset_of!(SpotLightStorage, cutoff_distance));
 
   let half_cone_cos = global_watch()
     .watch::<SpotLightHalfConeAngle>()
-    .collective_map(|rad| rad.cos());
-  let half_cone_cos_offset = offset_of!(SpotLightStorage, half_cone_cos);
+    .collective_map(|rad| rad.cos())
+    .into_query_update_storage(offset_of!(SpotLightStorage, half_cone_cos));
 
   let half_penumbra_cos = global_watch()
     .watch::<SpotLightHalfPenumbraAngle>()
-    .collective_map(|rad| rad.cos());
-  let half_penumbra_cos_offset = offset_of!(SpotLightStorage, half_penumbra_cos);
+    .collective_map(|rad| rad.cos())
+    .into_query_update_storage(offset_of!(SpotLightStorage, half_penumbra_cos));
 
   let world = scene_node_derive_world_mat()
     .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SpotLightRefNode>())
     .into_forker();
 
-  let position = world.clone().collective_map(|mat| mat.position());
-  let position_offset = offset_of!(SpotLightStorage, position);
+  let position = world
+    .clone()
+    .collective_map(|mat| mat.position())
+    .into_query_update_storage(offset_of!(SpotLightStorage, position));
 
-  let direction = world.collective_map(|mat| mat.forward().reverse().normalize());
-  let direction_offset = offset_of!(SpotLightStorage, direction);
+  let direction = world
+    .collective_map(|mat| mat.forward().reverse().normalize())
+    .into_query_update_storage(offset_of!(SpotLightStorage, direction));
 
-  ReactiveStorageBufferContainer::new(gpu)
-    .with_source(luminance_intensity, luminance_intensity_offset)
-    .with_source(cutoff_distance, cutoff_distance_offset)
-    .with_source(half_cone_cos, half_cone_cos_offset)
-    .with_source(half_penumbra_cos, half_penumbra_cos_offset)
-    .with_source(position, position_offset)
-    .with_source(direction, direction_offset)
+  create_reactive_storage_buffer_container(gpu)
+    .with_source(luminance_intensity)
+    .with_source(cutoff_distance)
+    .with_source(half_cone_cos)
+    .with_source(half_penumbra_cos)
+    .with_source(position)
+    .with_source(direction)
 }
 
 #[derive(Default)]
@@ -57,7 +62,7 @@ impl QueryBasedFeature<Box<dyn LightingComputeComponent>> for SpotLightStorageLi
   type Context = GPU;
   fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
     let buffer = spot_storage(cx);
-    self.token = qcx.register_multi_updater(buffer.inner);
+    self.token = qcx.register_multi_updater(buffer);
   }
 
   fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {

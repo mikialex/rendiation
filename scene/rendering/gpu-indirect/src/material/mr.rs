@@ -20,31 +20,37 @@ type Storage = PhysicalMetallicRoughnessMaterialStorage;
 
 pub type PbrMRMaterialStorages = ReactiveStorageBufferContainer<Storage>;
 pub fn pbr_mr_material_storages(cx: &GPU) -> PbrMRMaterialStorages {
-  let base_color = global_watch().watch::<PbrMRMaterialBaseColorComponent>();
-  let base_color_offset = offset_of!(Storage, base_color);
+  let base_color = global_watch()
+    .watch::<PbrMRMaterialBaseColorComponent>()
+    .into_query_update_storage(offset_of!(Storage, base_color));
 
-  let emissive = global_watch().watch::<PbrMRMaterialEmissiveComponent>();
-  let emissive_offset = offset_of!(Storage, emissive);
+  let emissive = global_watch()
+    .watch::<PbrMRMaterialEmissiveComponent>()
+    .into_query_update_storage(offset_of!(Storage, emissive));
 
-  let normal_mapping_scale = global_watch().watch::<NormalScaleOf<PbrMRMaterialNormalInfo>>();
-  let normal_mapping_scale_offset = offset_of!(Storage, normal_mapping_scale);
+  let normal_mapping_scale = global_watch()
+    .watch::<NormalScaleOf<PbrMRMaterialNormalInfo>>()
+    .into_query_update_storage(offset_of!(Storage, normal_mapping_scale));
 
-  let roughness = global_watch().watch::<PbrMRMaterialRoughnessComponent>();
-  let roughness_offset = offset_of!(Storage, roughness);
+  let roughness = global_watch()
+    .watch::<PbrMRMaterialRoughnessComponent>()
+    .into_query_update_storage(offset_of!(Storage, roughness));
 
-  let metallic = global_watch().watch::<PbrMRMaterialMetallicComponent>();
-  let metallic_offset = offset_of!(Storage, metallic);
+  let metallic = global_watch()
+    .watch::<PbrMRMaterialMetallicComponent>()
+    .into_query_update_storage(offset_of!(Storage, metallic));
 
-  let alpha = global_watch().watch::<AlphaOf<PbrMRMaterialAlphaConfig>>();
-  let alpha_offset = offset_of!(Storage, alpha);
+  let alpha = global_watch()
+    .watch::<AlphaOf<PbrMRMaterialAlphaConfig>>()
+    .into_query_update_storage(offset_of!(Storage, alpha));
 
-  PbrMRMaterialStorages::new(cx)
-    .with_source(base_color, base_color_offset)
-    .with_source(emissive, emissive_offset)
-    .with_source(normal_mapping_scale, normal_mapping_scale_offset)
-    .with_source(roughness, roughness_offset)
-    .with_source(metallic, metallic_offset)
-    .with_source(alpha, alpha_offset)
+  create_reactive_storage_buffer_container(cx)
+    .with_source(base_color)
+    .with_source(emissive)
+    .with_source(normal_mapping_scale)
+    .with_source(roughness)
+    .with_source(metallic)
+    .with_source(alpha)
 }
 
 #[repr(C)]
@@ -60,7 +66,7 @@ type TexStorage = PhysicalMetallicRoughnessMaterialTextureHandlesStorage;
 
 pub type PbrMRMaterialTexStorages = ReactiveStorageBufferContainer<TexStorage>;
 pub fn pbr_mr_material_tex_storages(cx: &GPU) -> PbrMRMaterialTexStorages {
-  let c = PbrMRMaterialTexStorages::new(cx);
+  let c = create_reactive_storage_buffer_container(cx);
 
   let base_color_alpha = offset_of!(TexStorage, base_color_alpha_texture);
   let emissive = offset_of!(TexStorage, emissive_texture);
