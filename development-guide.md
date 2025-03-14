@@ -6,7 +6,6 @@ The following things is the current project development direction.
 
 ### Correctness issues
 
-- emissive has black shadow on default scene
 - fix multiple taskgraph exist together, ShaderFuture should impl shaderhashprovider
 - fix texture pool grow
 - mipmap and multi format support in texture pool system

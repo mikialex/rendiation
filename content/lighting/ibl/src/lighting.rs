@@ -96,6 +96,9 @@ impl LightingComputeInvocation for IBLLighting {
     let specular =
       (f0 * brdf_lut.x() + brdf_lut.y().splat()) * specular.xyz() * uniform.specular_illuminance;
 
-    ENode::<ShaderLightingResult> { diffuse, specular }
+    ENode::<ShaderLightingResult> {
+      diffuse,
+      specular_and_emissive: specular,
+    }
   }
 }

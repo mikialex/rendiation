@@ -112,7 +112,7 @@ impl GraphicsShaderProvider for LightingComputeComponentAsRenderComponent<'_> {
       let shading = self.surface_constructor.construct_shading(builder, binder);
 
       let hdr = invocation.compute_lights(shading.as_ref(), &geom_ctx);
-      builder.register::<HDRLightResult>(hdr.diffuse + hdr.specular);
+      builder.register::<HDRLightResult>(hdr.diffuse + hdr.specular_and_emissive);
     })
   }
 }
