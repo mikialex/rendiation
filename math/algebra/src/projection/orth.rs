@@ -36,8 +36,8 @@ impl<T: Scalar> Projection<T> for OrthographicProjection<T> {
     )
   }
 
-  fn pixels_per_unit(&self, _distance: T, view_height: T) -> T {
-    view_height / (self.top - self.bottom).abs()
+  fn pixels_per_unit(&self, _distance: T, view_height_in_pixel: T) -> T {
+    view_height_in_pixel / (self.top - self.bottom).abs()
   }
 }
 
@@ -91,8 +91,8 @@ impl<T: Scalar> Projection<T> for ViewFrustumOrthographicProjection<T> {
     self.orth.compute_projection_mat(mapper)
   }
 
-  fn pixels_per_unit(&self, distance: T, view_height: T) -> T {
-    self.orth.pixels_per_unit(distance, view_height)
+  fn pixels_per_unit(&self, distance: T, view_height_in_pixel: T) -> T {
+    self.orth.pixels_per_unit(distance, view_height_in_pixel)
   }
 }
 

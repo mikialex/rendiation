@@ -25,7 +25,7 @@ pub fn gizmo(v: &mut SceneWriter) -> impl Widget {
   UINode::new(v)
     .with_child(v, translation_gizmo_view)
     .with_child(v, rotation_gizmo_view)
-    .into_view_independent_root(100.0)
+    .into_view_independent_root(50.0)
     .with_view_update(|node, cx| {
       access_cx!(cx, target, Option::<GizmoControlTargetState>);
       let visible = target.is_some();
@@ -35,7 +35,9 @@ pub fn gizmo(v: &mut SceneWriter) -> impl Widget {
 
       access_cx_mut!(cx, w, SceneWriter);
       node.set_visible(w, visible);
-      node.set_matrix(w, mat); // assuming our world mat is identity
+      let (t, r, _s) = mat.decompose();
+      let mat_with_out_scale = Mat4::translate(t) * Mat4::from(r);
+      node.set_matrix(w, mat_with_out_scale); // assuming our parent world mat is identity
     })
     .with_state_update(|cx| {
       access_cx!(cx, start_states, Option::<DragStartState>);

@@ -19,7 +19,7 @@ impl Widget for SceneOrbitCameraControl {
 
     let bound = InputBound {
       origin: Vec2::zero(),
-      size: p.window_state.size.into(),
+      size: p.window_state.physical_size.into(),
     };
 
     for e in &p.accumulate_events {

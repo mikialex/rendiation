@@ -25,9 +25,9 @@ impl<T: Scalar> Projection<T> for PerspectiveProjection<T> {
     Mat4::perspective_fov_aspect(self.fov.to_rad(), self.aspect, self.near, self.far, mapper)
   }
 
-  fn pixels_per_unit(&self, distance: T, view_height: T) -> T {
+  fn pixels_per_unit(&self, distance: T, view_height_in_pixel: T) -> T {
     let pixels_of_dist_one = T::two() * (self.fov.to_rad() / T::two()).tan();
-    let distance_when_each_world_unit_match_screen_unit = view_height / pixels_of_dist_one;
+    let distance_when_each_world_unit_match_screen_unit = view_height_in_pixel / pixels_of_dist_one;
     distance_when_each_world_unit_match_screen_unit / distance
   }
 }

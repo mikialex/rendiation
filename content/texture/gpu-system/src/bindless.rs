@@ -1,17 +1,13 @@
 use crate::*;
 
 pub fn is_bindless_supported_on_this_gpu(info: &GPUInfo, max_binding_length: u32) -> bool {
-  let mut bindless_effectively_supported = info
-    .supported_features
-    .contains(Features::TEXTURE_BINDING_ARRAY)
-    && info
-      .supported_features
-      .contains(Features::PARTIALLY_BOUND_BINDING_ARRAY)
-    && info
-      .supported_features
-      .contains(Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING);
+  let required_features = Features::TEXTURE_BINDING_ARRAY
+    | Features::PARTIALLY_BOUND_BINDING_ARRAY
+    | Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING;
 
-  // we estimate that the texture used except under the binding system will not exceed 128 per
+  let mut bindless_effectively_supported = info.supported_features.contains(required_features);
+
+  // we estimate that the texture used in shader that outside of bindless system will not exceed 128 per
   // shader stage
   if info.supported_limits.max_sampled_textures_per_shader_stage <= max_binding_length + 128
     || info.supported_limits.max_samplers_per_shader_stage <= max_binding_length + 128

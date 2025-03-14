@@ -48,7 +48,7 @@ impl ViewerPicker {
     };
 
     let mouse_position = &input.window_state.mouse_position;
-    let window_size = &input.window_state.size;
+    let window_size = &input.window_state.physical_size;
 
     let normalized_position_ndc =
       compute_normalized_position_in_canvas_coordinate(*mouse_position, *window_size);
@@ -70,7 +70,7 @@ impl ViewerPicker {
         mouse_position.1 / window_size.1,
       )),
       normalized_position_ndc: normalized_position_ndc.into(),
-      camera_view_size: Size::from_f32_pair_min_one(input.window_state.size),
+      camera_view_size: Size::from_f32_pair_min_one(input.window_state.physical_size),
     }
   }
 

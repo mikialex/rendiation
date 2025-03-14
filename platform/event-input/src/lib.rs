@@ -31,7 +31,9 @@ impl PlatformEventInput {
 
 #[derive(Clone)]
 pub struct WindowState {
-  pub size: (f32, f32),
+  /// size in real pixel unit
+  pub physical_size: (f32, f32),
+  pub device_pixel_ratio: f32,
   pub has_any_mouse_event: bool,
   pub mouse_position: (f32, f32),
   pub left_mouse_state: ElementState,
@@ -52,7 +54,7 @@ impl WindowState {
     }
 
     WindowStateChange {
-      size_change: self.size != old.size,
+      size_change: self.physical_size != old.physical_size,
       mouse_position_change: self.mouse_position != old.mouse_position,
       left_mouse_action: compare_button_state(old.left_mouse_state, self.left_mouse_state),
       right_mouse_action: compare_button_state(old.right_mouse_state, self.right_mouse_state),
@@ -101,8 +103,8 @@ impl WindowState {
     match event {
       winit::event::Event::WindowEvent { event, .. } => match event {
         WindowEvent::Resized(size) => {
-          self.size.0 = size.width as f32;
-          self.size.1 = size.height as f32;
+          self.physical_size.0 = size.width as f32;
+          self.physical_size.1 = size.height as f32;
         }
         WindowEvent::MouseInput { button, state, .. } => {
           match button {
@@ -117,6 +119,9 @@ impl WindowState {
           self.mouse_position.1 = position.y as f32;
           self.has_any_mouse_event = true
         }
+        WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
+          self.device_pixel_ratio = *scale_factor as f32;
+        }
         _ => (),
       },
       _ => {}
@@ -127,7 +132,8 @@ impl WindowState {
 impl Default for WindowState {
   fn default() -> Self {
     Self {
-      size: (0.0, 0.0),
+      physical_size: (0.0, 0.0),
+      device_pixel_ratio: 1.0,
       mouse_position: (0.0, 0.0),
       left_mouse_state: ElementState::Released,
       right_mouse_state: ElementState::Released,

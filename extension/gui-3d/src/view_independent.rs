@@ -32,7 +32,7 @@ impl Widget for ViewIndependentWidgetModel {
       origin_world,
       config.override_position,
       config.camera_world,
-      config.camera_view_height,
+      config.view_height_in_pixel,
       config.camera_proj,
     );
 
@@ -69,7 +69,7 @@ pub struct ViewIndependentComputer {
   override_position: Vec3<f32>,
   scale: ViewAutoScalable,
   camera_world: Mat4<f32>,
-  camera_view_height: f32,
+  view_height_in_pixel: f32,
   camera_proj: PerspectiveProjection<f32>,
 }
 
@@ -99,7 +99,7 @@ impl Widget for ViewIndependentRoot {
       override_position: access.get_world_mat(self.node()).unwrap().position(),
       scale: self.config,
       camera_world: access.get_camera_world_mat(),
-      camera_view_height: access.get_view_resolution().y as f32,
+      view_height_in_pixel: access.get_view_resolution().y as f32,
       camera_proj: access.get_camera_perspective_proj(),
     };
 

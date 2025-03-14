@@ -77,6 +77,13 @@ impl Widget for Viewer {
           derived.node_children.clone(),
           derived.sm_to_s.clone(),
         );
+        // todo, fix , this should use actual render resolution instead of full window size
+        let canvas_resolution = Vec2::new(
+          input.window_state.physical_size.0 / input.window_state.device_pixel_ratio,
+          input.window_state.physical_size.1 / input.window_state.device_pixel_ratio,
+        )
+        .map(|v| v.ceil() as u32);
+
         let mut widget_derive_access = Box::new(WidgetEnvAccessImpl {
           world_mat: derived.world_mat.clone(),
           camera_node: viewer_scene.camera_node,
@@ -84,10 +91,7 @@ impl Widget for Viewer {
             .camera
             .read::<SceneCameraPerspective>(viewer_scene.main_camera)
             .unwrap(),
-          canvas_resolution: Vec2::new(
-            input.window_state.size.0 as u32, //todo, fix , this should use render resolution instead of window size
-            input.window_state.size.1 as u32,
-          ),
+          canvas_resolution,
           camera_world_ray: picker.current_mouse_ray_in_world(),
           normalized_canvas_position: picker.normalized_position_ndc(),
         }) as Box<dyn WidgetEnvAccess>;
@@ -111,7 +115,7 @@ impl Widget for Viewer {
   #[instrument(name = "viewer update view", skip_all)]
   fn update_view(&mut self, cx: &mut DynCx) {
     access_cx!(cx, platform, PlatformEventInput);
-    let size = platform.window_state.size;
+    let size = platform.window_state.physical_size;
     let size_changed = platform.state_delta.size_change;
     if size_changed {
       self.rendering.resize_view()

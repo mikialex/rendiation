@@ -59,7 +59,10 @@ pub fn load_default_scene(writer: &mut SceneWriter, _viewer_scene: &Viewer3dScen
     let material = SceneMaterialDataView::PbrSGMaterial(material);
 
     let child = writer.create_root_child();
-    writer.set_local_matrix(child, Mat4::translate((2., 0., 3.)));
+    writer.set_local_matrix(
+      child,
+      Mat4::translate((2., 0., 3.)) * Mat4::scale((1., 2., 1.)),
+    );
 
     writer.create_scene_model(material, attribute_mesh, child);
   }
