@@ -3,12 +3,15 @@ use std::time::Instant;
 use crate::*;
 
 mod feature;
-mod pick;
-use default_scene::load_default_scene;
 pub use feature::*;
 
-mod terminal;
+mod default_scene;
+pub use default_scene::*;
+
+mod pick;
 pub use pick::*;
+
+mod terminal;
 pub use terminal::*;
 
 mod animation_player;
@@ -17,11 +20,16 @@ pub use animation_player::*;
 mod background;
 pub use background::*;
 
+mod test_content;
+pub use test_content::*;
+
 mod console;
 pub use console::*;
 
 mod rendering;
 pub use rendering::*;
+
+pub const UP: Vec3<f32> = Vec3::new(0., 1., 0.);
 
 pub struct Viewer {
   widget_intersection_group: WidgetSceneModelIntersectionGroupConfig,
@@ -46,6 +54,18 @@ struct ViewerUIState {
   show_terminal: bool,
   show_gpu_info: bool,
   show_memory_stat: bool,
+}
+
+impl Default for ViewerUIState {
+  fn default() -> Self {
+    Self {
+      show_db_inspector: false,
+      show_viewer_config_panel: true,
+      show_terminal: false,
+      show_gpu_info: false,
+      show_memory_stat: false,
+    }
+  }
 }
 
 impl Widget for Viewer {
@@ -275,13 +295,7 @@ impl Viewer {
       // todo, we current disable the on demand draw
       // because we not cache the rendering result yet
       on_demand_rendering: false,
-      ui_state: ViewerUIState {
-        show_db_inspector: false,
-        show_viewer_config_panel: true,
-        show_terminal: true,
-        show_gpu_info: false,
-        show_memory_stat: false,
-      },
+      ui_state: ViewerUIState::default(),
       content: Box::new(content_logic),
       camera_helpers,
       scene,

@@ -1,5 +1,5 @@
 use egui::epaint::Shadow;
-use egui::Visuals;
+use egui::{ThemePreference, Visuals};
 use rendiation_texture_gpu_process::copy_frame;
 use winit::window::Window;
 

@@ -1,4 +1,4 @@
-use crate::{default_scene::load_example_cube_tex, *};
+use crate::*;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 enum ViewerBackgroundType {

@@ -6,6 +6,8 @@ The following things is the current project development direction.
 
 ### Correctness issues
 
+important issue is in bold style.
+
 - fix multiple taskgraph exist together, ShaderFuture should impl shaderhashprovider
 - fix texture pool grow
 - mipmap and multi format support in texture pool system
@@ -15,14 +17,15 @@ The following things is the current project development direction.
 - support per material custom state control
   - support double side config in gltf loader
   - fix gizmo plane move only one side is visible
-- light uniform array not skip none exist light
+- light uniform array and storage not skip none exist light
+  - missing length info, breaks path tracing light sampling impl
 - use view space shading/lighting/postprocess compute to improve precision
 - disable ssao when channel debug on
 - fix channel debug in defer mode
 - support material emissive larger than one
   - fix defer channel encode decode
   - fix gltf loader support
-- fix db multi thead write lock access deadlock
+- **fix db multi thead write lock access deadlock**
 - fix parallel compute test out of bound shader access
 - fix scene gpu lighting is globally shared
 - fix some mesh can not be picked in cpu picking (maybe related to u16 index format)
@@ -31,12 +34,13 @@ The following things is the current project development direction.
 - ibl brdf lut should use higher precision lut
 - fix outline shaking
 - integrate_brdf and ibl lighting shader code should reuse the std micro surface shading code
+- indirect rendering
+  - missing none index mesh, and line mesh draw support (camera helper not show)
+  - lighting is not correct.
 
-### Indirect rendering
+### Performance issues
 
-- fix mid count buffer missing indirect buffer usage flag
-- implement basic indirect rendering capability
-  - investigate current bindless texture performance issue(create binding group).
+- create binding group with any bindless texture is super slow. maybe upstream bug
 
 ### Not yet integrated(tested) features
 
@@ -57,7 +61,8 @@ The following things is the current project development direction.
 - cluster lighting optimization
   - dependency: storagebuffer light resources.
 - ray tracing
-  - reference path tracing renderer
+  - support light and material MIS
+  - support new high quality sampler
 
 ### Infra and framework improvements planed
 
@@ -70,11 +75,14 @@ The following things is the current project development direction.
 
 ### Need help issue
 
-- buffer combine with rtao shader breaks on Metal.
+(empty)
 
-### Issues that require future dependency support
+### Upstream issue
 
-- correct hdr rendering, see <https://github.com/gfx-rs/wgpu/issues/2920>;
+- not reported or further investigate
+  - naga metal backend has layout bug, (buffer combine with rtao shader breaks on Metal, workaound by adding manual padding in struct end).
+- known but not fixed yet
+  - correct hdr rendering, see <https://github.com/gfx-rs/wgpu/issues/2920>;
 
 ## Useful commands
 
