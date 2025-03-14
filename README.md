@@ -1,14 +1,16 @@
 # Rendiation Rendering Framework
 
-RRF is a structured and comprehensive graphics framework. "Rendiation" represents the concept of "rendering innovation".
+RRF is a rendering framework focusing on performance and maintainability. "Rendiation" represents the concept of "rendering innovation".
 
-The core of the framework consists of a gltf like scene api and a shader EDSL implementation. Many innovative rendering engine architecture design ideas are explored and implemented. For example, the composability of complex effects or optimization behaviors, the parallel reactive incremental systems, and the extensibility of the scene content representation.
+For performance, RFF combines the ideas of incremental computation and relational reactive programming, creating an innovative incremental compute solution: the reactive query graph. Leveraging this, RFF manages every derived data, internal state, caches, and GPU resources in the renderer. RFF also implements a state-of-the-art GPU driven rendering pipeline, utilizing hardware advantage, approaching zero driver overhead and minimizing GPU workload.
 
-Many handcrafted libraries of basic concepts in the graphics realm support the above center crates. Data structures, algorithms, and common operations in different graphics domains like mesh, texture, lighting, animation, and space partitions. Under these crates, there are foundational supports like mathematics, reactive primitives, generic data containers, and platform graphics API abstractions(here we directly embrace and encapsulate wgpu).
+Maintainability comes from simplicity and coherence, revealed as extendability and composability. RRF uses an in-memory relational database to manage source of truth states, combined with the incremental system, reducing accidental complexity to a minimal level. RFF carefully designs and composes axiom-level concepts, resulting in a tower of abstractions that correctly models and solves modern rendering architecture engineering challenges.
 
-By leveraging these crates, users can build, assemble and customize their own featured high-performance viewers, offline data assets pipelines, or any other highly demanded graphics-related tasks in a well-organized way with ease.
+RRF uses EDSL shader for any device logic, which forms the foundation of how we abstract logic on the GPU. Based on this, many powerful and even magical features or middleware solutions are implemented, such as GPU parallel compute, GPU state machine, GPU reactive compute graph, GPU ray tracing, GPU virtual type system, GPU error handling, and the composability of visual effects. The RRF itself well demonstrates this engineering lost art of shader programming.
 
 ## Project crates structure and scope
+
+RRF is highly modulized, layered, decoupled and well-structured. Users can build, assemble and customize their own featured high-performance viewers, offline data assets pipelines, or any other highly demanded graphics-related tasks. Here is the entry map of the project:
 
 - math: foundational math libraries.
   - [algebra](./math/algebra/README.md): vectors, matrixes, transformations, projections, coordinate system definitions and abstract traits like vector space, inner product space.
