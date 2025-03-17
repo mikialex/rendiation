@@ -44,7 +44,7 @@ pub fn spot_storage(gpu: &GPU) -> ReactiveStorageBufferContainer<SpotLightStorag
     .collective_map(|mat| mat.forward().reverse().normalize())
     .into_query_update_storage(offset_of!(SpotLightStorage, direction));
 
-  create_reactive_storage_buffer_container(gpu)
+  create_reactive_storage_buffer_container(128, u32::MAX, gpu)
     .with_source(luminance_intensity)
     .with_source(cutoff_distance)
     .with_source(half_cone_cos)

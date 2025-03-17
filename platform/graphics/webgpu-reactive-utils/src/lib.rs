@@ -10,6 +10,8 @@ use rendiation_webgpu::*;
 
 mod storage;
 pub use storage::*;
+mod multi_access;
+pub use multi_access::*;
 mod uniform_group;
 pub use uniform_group::*;
 mod uniform_array;

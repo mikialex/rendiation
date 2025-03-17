@@ -29,7 +29,7 @@ pub fn std_model_data(cx: &GPU) -> SceneStdModelStorageBuffer {
     .collective_select(material_pbr_sg)
     .into_query_update_storage(offset_of!(SceneStdModelStorage, material));
 
-  create_reactive_storage_buffer_container(cx)
+  create_reactive_storage_buffer_container(128, u32::MAX, cx)
     .with_source(mesh)
     .with_source(material)
 }

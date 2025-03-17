@@ -8,19 +8,43 @@ pub type CommonStorageBufferImpl<T> =
 /// group of(Rxc<id, T fieldChange>) =maintain=> storage buffer <T>
 pub type ReactiveStorageBufferContainer<T> = MultiUpdateContainer<CommonStorageBufferImpl<T>>;
 
-pub fn create_reactive_storage_buffer_container<T: Std430>(
+pub fn create_common_storage_buffer_container<T: Std430>(
+  init_capacity_item_count: u32,
+  max_item_count: u32,
   gpu_ctx: &GPU,
-) -> ReactiveStorageBufferContainer<T> {
-  let init_capacity = 128;
-  let data =
-    StorageBufferReadonlyDataView::create_by(&gpu_ctx.device, make_init_size(init_capacity));
-  let data = create_growable_buffer(gpu_ctx, data, u32::MAX);
-
-  MultiUpdateContainer::new(data)
+) -> CommonStorageBufferImpl<T> {
+  let init = make_init_size(init_capacity_item_count);
+  let data = StorageBufferReadonlyDataView::create_by(&gpu_ctx.device, init);
+  create_growable_buffer(gpu_ctx, data, max_item_count)
 }
 
-fn make_init_size<T: Std430>(size: usize) -> StorageBufferInit<'static, [T]> {
-  let bytes = size * std::mem::size_of::<T>();
+pub fn create_reactive_storage_buffer_container<T: Std430>(
+  init_capacity_item_count: u32,
+  max_item_count: u32,
+  gpu_ctx: &GPU,
+) -> ReactiveStorageBufferContainer<T> {
+  MultiUpdateContainer::new(create_common_storage_buffer_container(
+    init_capacity_item_count,
+    max_item_count,
+    gpu_ctx,
+  ))
+}
+
+pub type CommonStorageBufferImplWithHostBackup<T> =
+  VecWithStorageBuffer<CommonStorageBufferImpl<T>>;
+
+pub fn create_common_storage_buffer_with_host_backup_container<T: Std430 + Default>(
+  init_capacity_item_count: u32,
+  max_item_count: u32,
+  gpu_ctx: &GPU,
+) -> CommonStorageBufferImplWithHostBackup<T> {
+  let init = make_init_size(init_capacity_item_count);
+  let data = StorageBufferReadonlyDataView::create_by(&gpu_ctx.device, init);
+  create_growable_buffer(gpu_ctx, data, max_item_count).with_vec_backup(T::default(), false)
+}
+
+fn make_init_size<T: Std430>(size: u32) -> StorageBufferInit<'static, [T]> {
+  let bytes = (size as usize) * std::mem::size_of::<T>();
   let bytes = std::num::NonZeroU64::new(bytes as u64).unwrap();
   StorageBufferInit::<[T]>::Zeroed(bytes)
 }

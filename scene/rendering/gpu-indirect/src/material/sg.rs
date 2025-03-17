@@ -39,7 +39,7 @@ pub fn pbr_sg_material_storages(cx: &GPU) -> PbrSGMaterialStorages {
     .watch::<AlphaOf<PbrSGMaterialAlphaConfig>>()
     .into_query_update_storage(offset_of!(Storage, alpha));
 
-  create_reactive_storage_buffer_container(cx)
+  create_reactive_storage_buffer_container(128, u32::MAX, cx)
     .with_source(albedo)
     .with_source(emissive)
     .with_source(normal_mapping_scale)
@@ -60,7 +60,7 @@ type TexStorage = PhysicalSpecularGlossinessMaterialTextureHandlesStorage;
 
 pub type PbrSGMaterialTexStorages = ReactiveStorageBufferContainer<TexStorage>;
 pub fn pbr_sg_material_tex_storages(cx: &GPU) -> PbrSGMaterialTexStorages {
-  let c = create_reactive_storage_buffer_container(cx);
+  let c = create_reactive_storage_buffer_container(128, u32::MAX, cx);
 
   let albedo = offset_of!(TexStorage, albedo_texture);
   let emissive = offset_of!(TexStorage, emissive_texture);

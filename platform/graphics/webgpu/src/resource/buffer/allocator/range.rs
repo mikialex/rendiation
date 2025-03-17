@@ -193,14 +193,16 @@ pub type RangeAllocatePool<T> = GPURangeAllocateMaintainer<GrowableDirectQueueUp
 
 pub fn create_storage_buffer_range_allocate_pool<T: Std430>(
   gpu: &GPU,
-  init_size: u32,
-  max_size: u32,
+  init_item_count: u32,
+  max_item_count: u32,
 ) -> StorageBufferRangeAllocatePool<T> {
+  assert!(max_item_count >= init_item_count);
+  let init_byte_count = init_item_count as usize * std::mem::size_of::<T>();
   let buffer = StorageBufferReadonlyDataView::<[T]>::create_by(
     &gpu.device,
-    StorageBufferInit::Zeroed(NonZeroU64::new(init_size as u64).unwrap()),
+    StorageBufferInit::Zeroed(NonZeroU64::new(init_byte_count as u64).unwrap()),
   );
 
-  let buffer = create_growable_buffer(gpu, buffer, max_size);
+  let buffer = create_growable_buffer(gpu, buffer, max_item_count);
   GPURangeAllocateMaintainer::new(gpu, buffer)
 }

@@ -51,7 +51,7 @@ impl RtxSceneMaterialSource {
       .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelStdModelRenderPayload>())
       .into_query_update_storage(0);
 
-    let material_id = create_reactive_storage_buffer_container::<u32>(cx)
+    let material_id = create_reactive_storage_buffer_container::<u32>(128, u32::MAX, cx)
       .with_source(sm_to_mr)
       .with_source(sm_to_sg);
 
@@ -73,7 +73,8 @@ impl RtxSceneMaterialSource {
       .collective_union(material_ty, |(a, b)| a.map(|_| b.unwrap_or(u32::MAX)))
       .into_query_update_storage(0);
 
-    let material_ty = create_reactive_storage_buffer_container::<u32>(cx).with_source(material_ty);
+    let material_ty =
+      create_reactive_storage_buffer_container::<u32>(128, u32::MAX, cx).with_source(material_ty);
     self.material_id = qcx.register_multi_updater(material_id);
     self.material_ty = qcx.register_multi_updater(material_ty);
     for m in &mut self.materials {

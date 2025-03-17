@@ -13,7 +13,7 @@ pub fn scene_model_data(cx: &GPU) -> SceneModelStorageBuffer {
     .collective_filter_map(|id| id.map(|v| v.index()))
     .into_query_update_storage(offset_of!(SceneModelStorage, node));
 
-  create_reactive_storage_buffer_container(cx)
+  create_reactive_storage_buffer_container(128, u32::MAX, cx)
     .with_source(std_model)
     .with_source(node)
 }

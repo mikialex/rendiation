@@ -74,6 +74,11 @@ pub struct TexturePoolSource {
   gpu: GPU,
 }
 
+pub struct TexturePoolSourceInit {
+  pub init_sampler_count_capacity: u32,
+  pub init_texture_count_capacity: u32,
+}
+
 impl TexturePoolSource {
   pub fn new(
     gpu: &GPU,
@@ -81,6 +86,7 @@ impl TexturePoolSource {
     tex_input: RQForker<Texture2DHandle, TexturePool2dSource>,
     sampler_input: BoxedDynReactiveQuery<SamplerHandle, TextureSampler>,
     format: TextureFormat,
+    init: TexturePoolSourceInit,
   ) -> Self {
     let size = tex_input.clone().collective_map(|tex| tex.inner.size);
 
@@ -99,11 +105,17 @@ impl TexturePoolSource {
       })
       .into_query_update_storage(0);
 
-    let address = create_reactive_storage_buffer_container(gpu).with_source(add_info);
+    let address =
+      create_reactive_storage_buffer_container(init.init_texture_count_capacity, u32::MAX, gpu)
+        .with_source(add_info);
+
     let samplers = sampler_input
       .collective_map(TextureSamplerShaderInfo::from)
       .into_query_update_storage(0);
-    let samplers = create_reactive_storage_buffer_container(gpu).with_source(samplers);
+
+    let samplers =
+      create_reactive_storage_buffer_container(init.init_sampler_count_capacity, u32::MAX, gpu)
+        .with_source(samplers);
 
     Self {
       tex_input,

@@ -26,7 +26,7 @@ pub fn point_storage(gpu: &GPU) -> ReactiveStorageBufferContainer<PointLightStor
     .collective_map(|mat| mat.position())
     .into_query_update_storage(offset_of!(PointLightStorage, position));
 
-  create_reactive_storage_buffer_container(gpu)
+  create_reactive_storage_buffer_container(128, u32::MAX, gpu)
     .with_source(luminance_intensity)
     .with_source(cutoff_distance)
     .with_source(position)

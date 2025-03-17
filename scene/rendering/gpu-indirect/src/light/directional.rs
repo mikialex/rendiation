@@ -20,7 +20,7 @@ pub fn directional_storage(gpu: &GPU) -> ReactiveStorageBufferContainer<Directio
     .collective_map(|mat| mat.forward().reverse().normalize())
     .into_query_update_storage(offset_of!(DirectionalLightStorage, direction));
 
-  create_reactive_storage_buffer_container(gpu)
+  create_reactive_storage_buffer_container(128, u32::MAX, gpu)
     .with_source(illuminance)
     .with_source(direction)
 }

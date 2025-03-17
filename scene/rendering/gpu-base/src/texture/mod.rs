@@ -114,6 +114,10 @@ impl TextureGPUSystemSource {
           texture_2d.into_forker(),
           Box::new(samplers),
           TextureFormat::Rgba8Unorm,
+          TexturePoolSourceInit {
+            init_texture_count_capacity: 128,
+            init_sampler_count_capacity: 128,
+          },
         );
 
         self.token = qcx.register(Box::new(ReactiveQueryBoxAnyResult(texture_system)));
