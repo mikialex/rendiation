@@ -15,11 +15,6 @@ impl<T> ShaderIterator for Box<dyn ShaderIterator<Item = T>> {
   }
 }
 
-pub trait IntoShaderIterator {
-  type ShaderIter: ShaderIterator;
-  fn into_shader_iter(self) -> Self::ShaderIter;
-}
-
 pub trait ShaderIteratorExt: ShaderIterator + Sized {
   fn for_each(self, visitor: impl FnOnce(Self::Item, &LoopCtx)) {
     loop_by(|cx| {
@@ -103,7 +98,7 @@ pub struct StepTo {
 }
 
 impl StepTo {
-  fn new(to: Node<u32>) -> Self {
+  pub fn new(to: Node<u32>) -> Self {
     Self {
       to,
       current: val(0_u32).make_local_var(),
@@ -187,9 +182,9 @@ impl ShaderAbstractLeftValue for ForRange {
 
 #[derive(Clone)]
 pub struct ShaderStaticArrayIter<AT, T> {
-  cursor: ShaderPtrOf<u32>,
-  array: StaticLengthArrayView<AT, T>,
-  len: u32,
+  pub(crate) cursor: ShaderPtrOf<u32>,
+  pub(crate) array: StaticLengthArrayView<AT, T>,
+  pub(crate) len: u32,
 }
 
 impl<AT, T: ShaderSizedValueNodeType> ShaderIterator for ShaderStaticArrayIter<AT, T> {
@@ -209,9 +204,9 @@ impl<AT, T: ShaderSizedValueNodeType> ShaderIterator for ShaderStaticArrayIter<A
 
 #[derive(Clone)]
 pub struct ShaderStaticArrayReadonlyIter<AT, T> {
-  cursor: ShaderPtrOf<u32>,
-  array: StaticLengthArrayReadonlyView<AT, T>,
-  len: u32,
+  pub(crate) cursor: ShaderPtrOf<u32>,
+  pub(crate) array: StaticLengthArrayReadonlyView<AT, T>,
+  pub(crate) len: u32,
 }
 
 impl<AT, T: ShaderSizedValueNodeType> ShaderIterator for ShaderStaticArrayReadonlyIter<AT, T> {
@@ -231,9 +226,9 @@ impl<AT, T: ShaderSizedValueNodeType> ShaderIterator for ShaderStaticArrayReadon
 
 #[derive(Clone)]
 pub struct ShaderDynArrayIter<T> {
-  cursor: ShaderPtrOf<u32>,
-  array: DynLengthArrayView<T>,
-  len: Node<u32>,
+  pub(crate) cursor: ShaderPtrOf<u32>,
+  pub(crate) array: DynLengthArrayView<T>,
+  pub(crate) len: Node<u32>,
 }
 
 impl<T: ShaderSizedValueNodeType> ShaderIterator for ShaderDynArrayIter<T> {
@@ -250,9 +245,9 @@ impl<T: ShaderSizedValueNodeType> ShaderIterator for ShaderDynArrayIter<T> {
 
 #[derive(Clone)]
 pub struct ShaderDynArrayReadonlyIter<T> {
-  cursor: ShaderPtrOf<u32>,
-  array: DynLengthArrayReadonlyView<T>,
-  len: Node<u32>,
+  pub(crate) cursor: ShaderPtrOf<u32>,
+  pub(crate) array: DynLengthArrayReadonlyView<T>,
+  pub(crate) len: Node<u32>,
 }
 
 impl<T: ShaderSizedValueNodeType> ShaderIterator for ShaderDynArrayReadonlyIter<T> {
@@ -264,70 +259,6 @@ impl<T: ShaderSizedValueNodeType> ShaderIterator for ShaderDynArrayReadonlyIter<
     let has_next = current_next.less_than(self.len);
     let data = self.array.index(current_next.min(self.len - val(1)));
     (has_next, (current_next, data))
-  }
-}
-
-impl IntoShaderIterator for u32 {
-  type ShaderIter = StepTo;
-
-  fn into_shader_iter(self) -> Self::ShaderIter {
-    StepTo::new(val(self))
-  }
-}
-
-impl IntoShaderIterator for Node<u32> {
-  type ShaderIter = StepTo;
-
-  fn into_shader_iter(self) -> Self::ShaderIter {
-    StepTo::new(self)
-  }
-}
-
-impl<AT, T: ShaderSizedValueNodeType> IntoShaderIterator for StaticLengthArrayView<AT, T> {
-  type ShaderIter = ShaderStaticArrayIter<AT, T>;
-
-  fn into_shader_iter(self) -> Self::ShaderIter {
-    ShaderStaticArrayIter {
-      cursor: val(0_u32).make_local_var(),
-      len: self.len,
-      array: self,
-    }
-  }
-}
-
-impl<T: ShaderSizedValueNodeType> IntoShaderIterator for DynLengthArrayView<T> {
-  type ShaderIter = ShaderDynArrayIter<T>;
-
-  fn into_shader_iter(self) -> Self::ShaderIter {
-    ShaderDynArrayIter {
-      cursor: val(0_u32).make_local_var(),
-      len: self.array_length(),
-      array: self,
-    }
-  }
-}
-
-impl<AT, T: ShaderSizedValueNodeType> IntoShaderIterator for StaticLengthArrayReadonlyView<AT, T> {
-  type ShaderIter = ShaderStaticArrayReadonlyIter<AT, T>;
-
-  fn into_shader_iter(self) -> Self::ShaderIter {
-    ShaderStaticArrayReadonlyIter {
-      cursor: val(0_u32).make_local_var(),
-      len: self.len,
-      array: self,
-    }
-  }
-}
-
-impl<T: ShaderSizedValueNodeType> IntoShaderIterator for DynLengthArrayReadonlyView<T> {
-  type ShaderIter = ShaderDynArrayReadonlyIter<T>;
-
-  fn into_shader_iter(self) -> Self::ShaderIter {
-    ShaderDynArrayReadonlyIter {
-      cursor: val(0_u32).make_local_var(),
-      len: self.array_length(),
-      array: self,
-    }
   }
 }
 
@@ -406,18 +337,14 @@ impl<T, F, TT> ShaderIterator for ShaderMapIter<T, F>
 where
   T: ShaderIterator,
   T::Item: Clone,
-  TT: ShaderAbstractRightValue + Default,
   F: Fn(T::Item) -> TT,
 {
   type Item = TT;
 
   fn shader_next(&self) -> (Node<bool>, Self::Item) {
     let (inner_has_next, inner) = self.iter.shader_next();
-    let item = LocalLeftValueBuilder.create_left_value(TT::default());
-    if_by(inner_has_next, || {
-      item.abstract_store((self.f)(inner));
-    });
-    (inner_has_next, item.abstract_load())
+    let mapped = (self.f)(inner);
+    (inner_has_next, mapped)
   }
 }
 

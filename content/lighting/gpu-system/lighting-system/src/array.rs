@@ -24,7 +24,8 @@ where
     binding: &mut ShaderBindGroupBuilder,
   ) -> Box<dyn LightingComputeInvocation> {
     let node = self.0.bind_shader(binding);
-    Box::new(ShaderIntoIterAsLightInvocation(node, self.1))
+    let light = node.map(self.1);
+    Box::new(ShaderIntoIterAsLightInvocation(light))
   }
 
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
@@ -32,12 +33,11 @@ where
   }
 }
 
-pub struct ShaderIntoIterAsLightInvocation<T, F>(pub T, pub F);
-impl<T, F, U> LightingComputeInvocation for ShaderIntoIterAsLightInvocation<T, F>
+pub struct ShaderIntoIterAsLightInvocation<T>(pub T);
+impl<T> LightingComputeInvocation for ShaderIntoIterAsLightInvocation<T>
 where
   T: IntoShaderIterator + Clone,
-  F: Fn(<T::ShaderIter as ShaderIterator>::Item) -> U + Copy + 'static,
-  U: LightingComputeInvocation,
+  <T::ShaderIter as ShaderIterator>::Item: LightingComputeInvocation,
 {
   fn compute_lights(
     &self,
@@ -48,7 +48,6 @@ where
     let light_diffuse_result = val(Vec3::<f32>::zero()).make_local_var();
 
     self.0.clone().into_shader_iter().for_each(|light, _| {
-      let light = self.1(light);
       let r = light.compute_lights(shading, geom_ctx);
       light_specular_and_emissive_result
         .store(light_specular_and_emissive_result.load() + r.specular_and_emissive);

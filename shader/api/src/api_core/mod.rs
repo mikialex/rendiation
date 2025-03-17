@@ -16,6 +16,9 @@ pub use control::*;
 mod iter;
 pub use iter::*;
 
+mod into_iter;
+pub use into_iter::*;
+
 const ENABLE_SHADER_ASSERTION: bool = true;
 
 /// Assert unreachable execution states reached in shader by triggering an infinite loop.

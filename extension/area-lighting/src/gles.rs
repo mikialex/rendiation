@@ -146,8 +146,7 @@ impl LightingComputeInvocation for LTCLightingComputeInvocation {
     geom_ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> ENode<ShaderLightingResult> {
     let lut = self.lut;
-    ShaderIntoIterAsLightInvocation(
-      self.uniforms.clone(),
+    let lights = self.uniforms.clone().map(
       move |(_, u): (Node<u32>, ShaderReadonlyPtrOf<LTCAreaLightUniform>)| {
         let u = u.load().expand();
         LTCRectLightingCompute {
@@ -164,7 +163,8 @@ impl LightingComputeInvocation for LTCLightingComputeInvocation {
           lut,
         }
       },
-    )
-    .compute_lights(shading, geom_ctx)
+    );
+
+    ShaderIntoIterAsLightInvocation(lights).compute_lights(shading, geom_ctx)
   }
 }
