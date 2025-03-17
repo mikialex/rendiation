@@ -72,6 +72,7 @@ important issue is in bold style.
 - support zero sized state in task graph
 - parallel compute support buffer reuse pool
 - reactive query support parallel updates
+- shader ptr should support rw convert to readonly
 
 ### Need help issue
 
