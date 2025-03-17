@@ -1,6 +1,6 @@
 use rendiation_lighting_punctual::*;
 use rendiation_lighting_shadow_map::*;
-use rendiation_webgpu_reactive_utils::{UniformArray, UniformArrayUpdateContainer};
+use rendiation_webgpu_reactive_utils::*;
 
 use crate::*;
 
@@ -39,17 +39,8 @@ impl QueryBasedFeature<Box<dyn LightSystemSceneProvider>> for DirectionalUniform
   }
 
   fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn LightSystemSceneProvider> {
-    let light = cx
-      .take_multi_updater_updated::<UniformArray<DirectionalLightUniform, 8>>(self.light)
-      .unwrap()
-      .target
-      .clone();
-
-    let info = cx
-      .take_multi_updater_updated::<UniformArray<BasicShadowMapInfo, 8>>(self.shadow)
-      .unwrap()
-      .target
-      .clone();
+    let light = cx.take_uniform_array_buffer(self.light).unwrap();
+    let info = cx.take_uniform_array_buffer(self.shadow).unwrap();
     let shadow_map_atlas = cx
       .type_based_result
       .take::<DirectionalShaderAtlas>()
@@ -111,12 +102,7 @@ impl QueryBasedFeature<Box<dyn LightSystemSceneProvider>> for PointLightUniformL
   }
 
   fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn LightSystemSceneProvider> {
-    let uniform = cx
-      .take_multi_updater_updated::<UniformArray<PointLightUniform, 8>>(self.light)
-      .unwrap()
-      .target
-      .clone();
-
+    let uniform = cx.take_uniform_array_buffer(self.light).unwrap();
     Box::new(ScenePointLightingProvider { uniform })
   }
 }
@@ -177,16 +163,8 @@ impl QueryBasedFeature<Box<dyn LightSystemSceneProvider>> for SpotLightUniformLi
   }
 
   fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn LightSystemSceneProvider> {
-    let light = cx
-      .take_multi_updater_updated::<UniformArray<SpotLightUniform, 8>>(self.light)
-      .unwrap()
-      .target
-      .clone();
-    let info = cx
-      .take_multi_updater_updated::<UniformArray<BasicShadowMapInfo, 8>>(self.shadow)
-      .unwrap()
-      .target
-      .clone();
+    let light = cx.take_uniform_array_buffer(self.light).unwrap();
+    let info = cx.take_uniform_array_buffer(self.shadow).unwrap();
     let shadow_map_atlas = cx.type_based_result.take::<SpotShaderAtlas>().unwrap().0;
     Box::new(SceneSpotLightingProvider {
       light,

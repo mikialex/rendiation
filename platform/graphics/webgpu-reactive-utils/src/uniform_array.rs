@@ -60,3 +60,23 @@ where
     }
   }
 }
+
+pub trait UniformArrayQueryResultCtxExt {
+  fn take_uniform_array_buffer<T: Std140, const N: usize>(
+    &mut self,
+    token: QueryToken,
+  ) -> Option<UniformArray<T, N>>;
+}
+
+impl UniformArrayQueryResultCtxExt for QueryResultCtx {
+  fn take_uniform_array_buffer<T: Std140, const N: usize>(
+    &mut self,
+    token: QueryToken,
+  ) -> Option<UniformArray<T, N>> {
+    self
+      .take_multi_updater_updated::<UniformArray<T, N>>(token)?
+      .target
+      .clone()
+      .into()
+  }
+}

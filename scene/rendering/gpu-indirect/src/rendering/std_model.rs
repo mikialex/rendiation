@@ -132,12 +132,7 @@ impl QueryBasedFeature<Box<dyn IndirectModelRenderImpl>> for DefaultSceneStdMode
       model: global_entity_component_of::<SceneModelStdModelRenderPayload>().read_foreign_key(),
       materials: self.materials.iter().map(|v| v.create_impl(cx)).collect(),
       shapes: self.shapes.iter().map(|v| v.create_impl(cx)).collect(),
-      std_model: cx
-        .take_multi_updater_updated::<CommonStorageBufferImpl<SceneStdModelStorage>>(self.std_model)
-        .unwrap()
-        .inner
-        .gpu()
-        .clone(),
+      std_model: cx.take_storage_array_buffer(self.std_model).unwrap(),
     })
   }
 }

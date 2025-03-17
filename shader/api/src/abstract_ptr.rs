@@ -135,6 +135,14 @@ impl<T> Clone for DynLengthArrayView<T> {
   }
 }
 impl<T: SizedShaderAbstractPtrAccess> DynLengthArrayView<T> {
+  // todo, impl this for every view pair
+  pub fn into_readonly_view(self) -> DynLengthArrayReadonlyView<T> {
+    DynLengthArrayReadonlyView {
+      phantom: self.phantom,
+      access: self.access,
+    }
+  }
+
   pub fn index(&self, index: impl Into<Node<u32>>) -> T::PtrView {
     let index = index.into();
     if ENABLE_STORAGE_BUFFER_BOUND_CHECK {

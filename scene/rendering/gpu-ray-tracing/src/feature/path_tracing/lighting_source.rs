@@ -1,5 +1,3 @@
-use rendiation_webgpu_reactive_utils::CommonStorageBufferImpl;
-
 use crate::*;
 
 #[derive(Default)]
@@ -19,11 +17,7 @@ impl ScenePTLightingSource {
 
   pub fn create_impl(&self, cx: &mut QueryResultCtx) -> ScenePTLighting {
     ScenePTLighting {
-      point_lights: cx
-        .take_multi_updater_updated::<CommonStorageBufferImpl<PointLightStorage>>(self.point_lights)
-        .unwrap()
-        .gpu()
-        .clone(),
+      point_lights: cx.take_storage_array_buffer(self.point_lights).unwrap(),
     }
   }
 }

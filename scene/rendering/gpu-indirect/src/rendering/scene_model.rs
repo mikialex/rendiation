@@ -247,12 +247,7 @@ impl QueryBasedFeature<DefaultSceneModelIdInject> for DefaultSceneModelIdProvide
 
   fn create_impl(&self, cx: &mut QueryResultCtx) -> DefaultSceneModelIdInject {
     DefaultSceneModelIdInject {
-      id_buffer: cx
-        .take_multi_updater_updated::<CommonStorageBufferImpl<SceneModelStorage>>(self.id_buffer)
-        .unwrap()
-        .inner
-        .gpu()
-        .clone(),
+      id_buffer: cx.take_storage_array_buffer(self.id_buffer).unwrap(),
     }
   }
 }

@@ -71,10 +71,8 @@ impl QueryBasedFeature<Box<dyn LightingComputeComponent>> for SpotLightStorageLi
 
   fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn LightingComputeComponent> {
     let buffer = cx
-      .take_multi_updater_updated::<CommonStorageBufferImpl<SpotLightStorage>>(self.token)
-      .unwrap()
-      .gpu()
-      .clone();
+      .take_storage_array_buffer::<SpotLightStorage>(self.token)
+      .unwrap();
 
     let com = ArrayLights(
       buffer,

@@ -70,3 +70,24 @@ where
     }
   }
 }
+
+pub trait StorageQueryResultCtxExt {
+  fn take_storage_array_buffer<T: Std430>(
+    &mut self,
+    token: QueryToken,
+  ) -> Option<StorageBufferReadonlyDataView<[T]>>;
+}
+
+impl StorageQueryResultCtxExt for QueryResultCtx {
+  fn take_storage_array_buffer<T: Std430>(
+    &mut self,
+    token: QueryToken,
+  ) -> Option<StorageBufferReadonlyDataView<[T]>> {
+    self
+      .take_multi_updater_updated::<CommonStorageBufferImpl<T>>(token)?
+      .inner
+      .gpu()
+      .clone()
+      .into()
+  }
+}

@@ -37,7 +37,7 @@ where
 
   fn abstract_load(&self) -> Self::RightValue {
     Node::<T>::load_from_u32_buffer(
-      &self.accessor.array,
+      &self.accessor.array.clone().into_readonly_view(),
       self.accessor.offset,
       StructLayoutTarget::Packed,
     )
@@ -264,7 +264,11 @@ impl AbstractShaderPtr for U32HeapPtrWithType {
     let meta = self.meta.read();
     if let ShaderValueSingleType::Sized(ty) = &self.ty {
       let array = self.ptr.array.downcast_as_common_u32_buffer();
-      ty.load_from_u32_buffer(array, self.ptr.offset, meta.layout)
+      ty.load_from_u32_buffer(
+        &array.clone().into_readonly_view(),
+        self.ptr.offset,
+        meta.layout,
+      )
     } else {
       unreachable!("can not load unsized ty")
     }

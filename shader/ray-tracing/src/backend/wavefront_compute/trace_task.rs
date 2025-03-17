@@ -230,7 +230,7 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
                 closest_task_index,
                 closest_payload.cast_untyped_node(),
                 &RayClosestHitCtxPayload::sized_ty(),
-                self.untyped_payloads.clone(),
+                self.untyped_payloads.clone().into_readonly_view(),
                 trace_payload.payload_ref,
                 ctx.generate_self_as_parent(),
               );
@@ -259,7 +259,7 @@ impl ShaderFutureInvocation for GPURayTraceTaskInvocationInstance {
               miss_task_index,
               missing_payload.cast_untyped_node(),
               &RayMissHitCtxPayload::sized_ty(),
-              self.untyped_payloads.clone(),
+              self.untyped_payloads.clone().into_readonly_view(),
               trace_payload.payload_ref,
               ctx.generate_self_as_parent(),
             );
@@ -383,7 +383,7 @@ fn spawn_dynamic<'a>(
   task_ty: Node<u32>,
   ray_payload: Node<AnyType>,
   ray_payload_desc: &ShaderSizedValueType,
-  untyped_payload_arr: ShaderPtrOf<[u32]>,
+  untyped_payload_arr: ShaderReadonlyPtrOf<[u32]>,
   untyped_payload_idx: Node<u32>,
   parent: TaskParentRef,
 ) -> Node<u32> {
@@ -610,7 +610,7 @@ impl TracingTaskSpawnerInvocation {
     payload_ref: Node<u32>,
   ) -> ShaderNodeRawHandle {
     payload_ty.load_from_u32_buffer(
-      &self.payload_read_back.storage,
+      &self.payload_read_back.storage.clone().into_readonly_view(),
       payload_ref,
       StructLayoutTarget::Packed,
     )

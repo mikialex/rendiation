@@ -2,16 +2,10 @@ use anymap::AnyMap;
 
 use crate::*;
 
-pub trait QueryBasedFeature<T> {
-  type Context;
-  /// this will be called once when application init
-  fn register(&mut self, qcx: &mut ReactiveQueryCtx, ctx: &Self::Context);
-  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx);
-  fn create_impl(&self, cx: &mut QueryResultCtx) -> T;
-}
-
-pub type BoxedAnyReactiveQuery = Box<dyn ReactiveGeneralQuery<Output = Box<dyn Any>>>;
-
+/// This is a container to hold reactive query or general query like object.
+/// Using a container instead of maintain the query at each business logic site is
+/// to enable the concurrent execution of the registered queries. This container
+/// can be seen as a dynamic sized join operator.
 #[derive(Default)]
 pub struct ReactiveQueryCtx {
   registry: FastHashMap<u32, BoxedAnyReactiveQuery>,
@@ -74,15 +68,22 @@ impl ReactiveQueryCtx {
   }
 }
 
+/// A token to identify the registered query
 #[derive(Clone, Copy, Debug)]
 pub struct QueryToken(u32);
 
+/// We do not impose RAII like ownership on query token. This allows the user to
+/// register and deregister/ reregister the query at any time.
+///
+/// the default value for query token is an invalid empty token.
+/// This is by design to facilitate the user to easily derive their default impl
 impl Default for QueryToken {
   fn default() -> Self {
     Self(u32::MAX)
   }
 }
 
+/// The joined update result of [[ReactiveQueryCtx]], accessed by [[QueryToken]]
 pub struct QueryResultCtx {
   pub token_based_result: FastHashMap<u32, Box<dyn Any>>,
   /// this field provides convenient way to inject any adhoc result for parameter passing
@@ -138,3 +139,16 @@ impl QueryResultCtx {
       .map(|v| *v)
   }
 }
+
+/// This trait abstract the general pattern of the [[ReactiveQueryCtx]] usage
+pub trait QueryBasedFeature<T> {
+  type Context;
+  /// register queries in qcx
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, ctx: &Self::Context);
+  /// deregister queries in qcx
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx);
+  /// access the ctx's update result, and create the required feature
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> T;
+}
+
+pub type BoxedAnyReactiveQuery = Box<dyn ReactiveGeneralQuery<Output = Box<dyn Any>>>;

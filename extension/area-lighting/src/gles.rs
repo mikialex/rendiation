@@ -75,14 +75,8 @@ impl QueryBasedFeature<Box<dyn LightSystemSceneProvider>> for AreaLightUniformLi
   }
 
   fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn LightSystemSceneProvider> {
-    let uniform = cx
-      .take_multi_updater_updated::<UniformArray<LTCAreaLightUniform, 8>>(self.light)
-      .unwrap()
-      .target
-      .clone();
-
     Box::new(SceneAreaLightingProvider {
-      uniform,
+      uniform: cx.take_uniform_array_buffer(self.light).unwrap(),
       ltc_1: self.ltc_1.clone(),
       ltc_2: self.ltc_2.clone(),
     })

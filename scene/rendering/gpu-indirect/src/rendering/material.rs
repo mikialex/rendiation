@@ -76,20 +76,8 @@ impl QueryBasedFeature<Box<dyn IndirectModelMaterialRenderImpl>>
     Box::new(UnlitMaterialDefaultIndirectRenderImpl {
       material_access: global_entity_component_of::<StandardModelRefUnlitMaterial>()
         .read_foreign_key(),
-      storages: cx
-        .take_multi_updater_updated::<CommonStorageBufferImpl<UnlitMaterialStorage>>(self.storages)
-        .unwrap()
-        .inner
-        .gpu()
-        .clone(),
-      texture_handles: cx
-        .take_multi_updater_updated::<CommonStorageBufferImpl<UnlitMaterialTextureHandlesStorage>>(
-          self.tex_storages,
-        )
-        .unwrap()
-        .inner
-        .gpu()
-        .clone(),
+      storages: cx.take_storage_array_buffer(self.storages).unwrap(),
+      texture_handles: cx.take_storage_array_buffer(self.tex_storages).unwrap(),
       alpha_mode: global_entity_component_of().read(),
     })
   }
@@ -152,8 +140,8 @@ impl QueryBasedFeature<PbrMRMaterialDefaultIndirectRenderImpl>
     PbrMRMaterialDefaultIndirectRenderImpl {
       material_access: global_entity_component_of::<StandardModelRefPbrMRMaterial>()
         .read_foreign_key(),
-      storages: cx.take_multi_updater_updated::<CommonStorageBufferImpl<PhysicalMetallicRoughnessMaterialStorage>>(self.storages).unwrap().target.gpu().clone(),
-      tex_storages: cx.take_multi_updater_updated::<CommonStorageBufferImpl<PhysicalMetallicRoughnessMaterialTextureHandlesStorage>>(self.tex_storages).unwrap().target.gpu().clone(),
+      storages: cx.take_storage_array_buffer(self.storages).unwrap(),
+      tex_storages: cx.take_storage_array_buffer(self.tex_storages).unwrap(),
       alpha_mode: global_entity_component_of().read(),
     }
   }
@@ -263,8 +251,8 @@ impl QueryBasedFeature<PbrSGMaterialDefaultIndirectRenderImpl>
     PbrSGMaterialDefaultIndirectRenderImpl {
       material_access: global_entity_component_of::<StandardModelRefPbrSGMaterial>()
         .read_foreign_key(),
-      storages: cx.take_multi_updater_updated::<CommonStorageBufferImpl<PhysicalSpecularGlossinessMaterialStorage>>(self.storages).unwrap().target.gpu().clone(),
-      tex_storages: cx.take_multi_updater_updated::<CommonStorageBufferImpl<PhysicalSpecularGlossinessMaterialTextureHandlesStorage>>(self.tex_storages).unwrap().target.gpu().clone(),
+      storages: cx.take_storage_array_buffer(self.storages).unwrap(),
+      tex_storages: cx.take_storage_array_buffer(self.tex_storages).unwrap(),
       alpha_mode: global_entity_component_of().read(),
     }
   }

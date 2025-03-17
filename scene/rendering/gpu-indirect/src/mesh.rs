@@ -216,14 +216,11 @@ impl MeshBindlessGPUSystemSource {
         .read_foreign_key(),
       indices_checker: global_entity_component_of::<SceneBufferViewBufferId<AttributeIndexRef>>()
         .read_foreign_key(),
-      vertex_address_buffer: vertex_address_buffer.gpu().clone().into_rw_view(),
+      vertex_address_buffer: vertex_address_buffer.gpu().clone(),
       vertex_address_buffer_host: vertex_address_buffer.clone(),
       sm_to_mesh_device: cx
-        .take_multi_updater_updated::<CommonStorageBufferImpl<u32>>(self.sm_to_mesh_device)
-        .unwrap()
-        .gpu()
-        .clone()
-        .into_rw_view(),
+        .take_storage_array_buffer(self.sm_to_mesh_device)
+        .unwrap(),
       sm_to_mesh: cx.take_reactive_query_updated(self.sm_to_mesh).unwrap(),
     }
   }
@@ -274,11 +271,11 @@ pub struct MeshGPUBindlessImpl {
   position: UntypedPool,
   normal: UntypedPool,
   uv: UntypedPool,
-  vertex_address_buffer: StorageBufferDataView<[AttributeMeshMeta]>,
+  vertex_address_buffer: StorageBufferReadonlyDataView<[AttributeMeshMeta]>,
   vertex_address_buffer_host: LockReadGuardHolder<
     MultiUpdateContainer<CommonStorageBufferImplWithHostBackup<AttributeMeshMeta>>,
   >,
-  sm_to_mesh_device: StorageBufferDataView<[u32]>,
+  sm_to_mesh_device: StorageBufferReadonlyDataView<[u32]>,
   sm_to_mesh: BoxedDynQuery<EntityHandle<SceneModelEntity>, EntityHandle<AttributesMeshEntity>>,
   checker: ForeignKeyReadView<StandardModelRefAttributesMeshEntity>,
   indices_checker: ForeignKeyReadView<SceneBufferViewBufferId<AttributeIndexRef>>,
@@ -287,12 +284,13 @@ pub struct MeshGPUBindlessImpl {
 impl MeshGPUBindlessImpl {
   pub fn make_bindless_dispatcher(&self) -> BindlessMeshDispatcher {
     let position =
-      StorageBufferDataView::try_from_raw(self.position.read().raw_gpu().clone()).unwrap();
-    let normal = StorageBufferDataView::try_from_raw(self.normal.read().raw_gpu().clone()).unwrap();
-    let uv = StorageBufferDataView::try_from_raw(self.uv.read().raw_gpu().clone()).unwrap();
+      StorageBufferReadonlyDataView::try_from_raw(self.position.read().raw_gpu().clone()).unwrap();
+    let normal =
+      StorageBufferReadonlyDataView::try_from_raw(self.normal.read().raw_gpu().clone()).unwrap();
+    let uv = StorageBufferReadonlyDataView::try_from_raw(self.uv.read().raw_gpu().clone()).unwrap();
 
     let index_pool =
-      StorageBufferDataView::try_from_raw(self.indices.read().raw_gpu().clone()).unwrap();
+      StorageBufferReadonlyDataView::try_from_raw(self.indices.read().raw_gpu().clone()).unwrap();
 
     BindlessMeshDispatcher {
       sm_to_mesh: self.sm_to_mesh_device.clone(),
@@ -339,8 +337,8 @@ impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
     let is_indexed = self.indices_checker.get(mesh_id).is_some();
 
     let creator = BindlessDrawCreator {
-      metadata: self.vertex_address_buffer.clone().into_readonly_view(),
-      sm_to_mesh_device: self.sm_to_mesh_device.clone().into_readonly_view(),
+      metadata: self.vertex_address_buffer.clone(),
+      sm_to_mesh_device: self.sm_to_mesh_device.clone(),
       sm_to_mesh: self.sm_to_mesh.clone(),
       vertex_address_buffer_host: self.vertex_address_buffer_host.clone(),
     };
@@ -356,13 +354,12 @@ impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
 
 #[derive(Clone)]
 pub struct BindlessMeshDispatcher {
-  // todo, use readonly
-  pub sm_to_mesh: StorageBufferDataView<[u32]>,
-  pub vertex_address_buffer: StorageBufferDataView<[AttributeMeshMeta]>,
-  pub index_pool: StorageBufferDataView<[u32]>,
-  pub position: StorageBufferDataView<[u32]>,
-  pub normal: StorageBufferDataView<[u32]>,
-  pub uv: StorageBufferDataView<[u32]>,
+  pub sm_to_mesh: StorageBufferReadonlyDataView<[u32]>,
+  pub vertex_address_buffer: StorageBufferReadonlyDataView<[AttributeMeshMeta]>,
+  pub index_pool: StorageBufferReadonlyDataView<[u32]>,
+  pub position: StorageBufferReadonlyDataView<[u32]>,
+  pub normal: StorageBufferReadonlyDataView<[u32]>,
+  pub uv: StorageBufferReadonlyDataView<[u32]>,
 }
 
 impl ShaderHashProvider for BindlessMeshDispatcher {
@@ -381,10 +378,10 @@ impl ShaderPassBuilder for BindlessMeshDispatcher {
 
 #[derive(Clone)]
 pub struct BindlessMeshDispatcherBaseInvocation {
-  pub vertex_address_buffer: ShaderPtrOf<[AttributeMeshMeta]>,
-  pub position: ShaderPtrOf<[u32]>,
-  pub normal: ShaderPtrOf<[u32]>,
-  pub uv: ShaderPtrOf<[u32]>,
+  pub vertex_address_buffer: ShaderReadonlyPtrOf<[AttributeMeshMeta]>,
+  pub position: ShaderReadonlyPtrOf<[u32]>,
+  pub normal: ShaderReadonlyPtrOf<[u32]>,
+  pub uv: ShaderReadonlyPtrOf<[u32]>,
 }
 
 impl BindlessMeshDispatcherBaseInvocation {

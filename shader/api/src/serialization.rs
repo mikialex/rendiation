@@ -99,7 +99,7 @@ impl ShaderSizedValueType {
 
   pub fn load_from_u32_buffer(
     &self,
-    target: &ShaderPtrOf<[u32]>,
+    target: &ShaderReadonlyPtrOf<[u32]>,
     mut offset: Node<u32>,
     layout: StructLayoutTarget,
   ) -> ShaderNodeRawHandle {
@@ -278,7 +278,7 @@ impl<T: ShaderSizedValueNodeType> Node<T> {
   }
 
   pub fn load_from_u32_buffer(
-    target: &ShaderPtrOf<[u32]>,
+    target: &ShaderReadonlyPtrOf<[u32]>,
     offset: Node<u32>,
     layout: StructLayoutTarget,
   ) -> Self {

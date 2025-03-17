@@ -92,24 +92,10 @@ impl RtxSceneMaterialSource {
     cx: &mut QueryResultCtx,
     tex: &GPUTextureBindingSystem,
   ) -> SceneSurfaceSupport {
-    let sm_to_material_type = cx
-      .take_multi_updater_updated::<CommonStorageBufferImpl<u32>>(self.material_ty)
-      .unwrap()
-      .inner
-      .gpu()
-      .clone();
-
-    let sm_to_material_id = cx
-      .take_multi_updater_updated::<CommonStorageBufferImpl<u32>>(self.material_id)
-      .unwrap()
-      .inner
-      .gpu()
-      .clone();
-
     SceneSurfaceSupport {
       textures: tex.clone(),
-      sm_to_material_type,
-      sm_to_material_id,
+      sm_to_material_type: cx.take_storage_array_buffer(self.material_ty).unwrap(),
+      sm_to_material_id: cx.take_storage_array_buffer(self.material_id).unwrap(),
       material_accessor: Arc::new(
         self
           .materials

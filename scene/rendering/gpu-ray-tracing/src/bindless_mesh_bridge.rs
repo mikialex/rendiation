@@ -3,8 +3,8 @@ use crate::*;
 #[derive(Clone)]
 pub struct BindlessMeshRtxAccessInvocation {
   base: BindlessMeshDispatcherBaseInvocation,
-  sm_to_mesh: ShaderPtrOf<[u32]>,
-  indices: ShaderPtrOf<[u32]>,
+  sm_to_mesh: ShaderReadonlyPtrOf<[u32]>,
+  indices: ShaderReadonlyPtrOf<[u32]>,
 }
 
 impl BindlessMeshRtxAccessInvocation {
