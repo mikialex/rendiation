@@ -67,7 +67,7 @@ async fn test_task_graph_then_task_spawn() {
   let test_task2 = graph.define_task::<u32, _>(
     BaseShaderFuture::default()
       .then(
-        |_: (), then, cx| {
+        |_: &(), then, cx| {
           then
             .spawner
             .spawn_new_task(val(0_u32), cx.generate_self_as_parent())
@@ -154,7 +154,7 @@ async fn test_task_graph_then_task_self_spawn_recursive() {
   let test_task = graph.define_task::<u32, _>(
     BaseShaderFuture::default()
       .then(
-        |_: (), then, cx| {
+        |_: &(), then, cx| {
           then
             .spawner
             .spawn_new_task(val(0_u32), cx.generate_self_as_parent())

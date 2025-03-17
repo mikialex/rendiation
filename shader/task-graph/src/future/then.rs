@@ -10,9 +10,8 @@ pub struct ShaderFutureThen<U, F, T> {
 impl<U, F, T> ShaderFuture for ShaderFutureThen<U, F, T>
 where
   U: ShaderFuture,
-  U::Output: ShaderAbstractRightValue,
   F: Fn(
-      U::Output,
+      &U::Output,
       &T::Invocation,
       &mut DeviceTaskSystemPollCtx,
     ) -> <T::Invocation as ShaderAbstractLeftValue>::RightValue
@@ -43,10 +42,7 @@ where
 }
 
 /// the uninitialized then instance must return pending result when polling
-pub struct ShaderFutureThenInstance<U: ShaderFutureInvocation, F, T>
-where
-  U::Output: ShaderAbstractRightValue,
-{
+pub struct ShaderFutureThenInstance<U: ShaderFutureInvocation, F, T> {
   upstream: U,
   create_then_invocation_instance: F,
   then: T,
@@ -55,10 +51,9 @@ where
 impl<U, F, T> ShaderFutureInvocation for ShaderFutureThenInstance<U, F, T>
 where
   U: ShaderFutureInvocation,
-  U::Output: ShaderAbstractRightValue,
   T: ShaderFutureInvocation,
   T: ShaderAbstractLeftValue,
-  F: Fn(U::Output, &T, &mut DeviceTaskSystemPollCtx) -> T::RightValue,
+  F: Fn(&U::Output, &T, &mut DeviceTaskSystemPollCtx) -> T::RightValue,
 {
   type Output = (U::Output, T::Output);
   fn device_poll(&self, ctx: &mut DeviceTaskSystemPollCtx) -> ShaderPoll<Self::Output> {
@@ -71,7 +66,7 @@ where
     let r = upstream.device_poll(ctx);
 
     if_by(r.is_resolved(), || {
-      let next = create_then_invocation_instance(r.payload.clone(), &self.then, ctx);
+      let next = create_then_invocation_instance(&r.payload, &self.then, ctx);
       then.abstract_store(next);
     });
 

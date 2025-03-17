@@ -46,7 +46,7 @@ pub trait TraceOperatorExt<T>: TraceOperator<T> + Sized + Clone {
   fn map<F, T2>(self, map: F) -> TraceOutputMap<F, Self, T>
   where
     F: FnOnce(T, &mut TracingCtx) -> T2 + 'static + Copy,
-    T2: Default + ShaderAbstractRightValue,
+    T2: ShaderAbstractRightValue + Default,
     T: 'static,
   {
     TraceOutputMap {
@@ -59,8 +59,7 @@ pub trait TraceOperatorExt<T>: TraceOperator<T> + Sized + Clone {
   fn then_trace<F, P>(self, then: F) -> TraceNextRay<F, Self>
   where
     F: FnOnce(&T, &mut TracingCtx) -> (Node<bool>, ShaderRayTraceCall, Node<P>) + Copy + 'static,
-    T: ShaderAbstractRightValue + Default,
-    P: ShaderSizedValueNodeType + Default + Copy,
+    P: ShaderSizedValueNodeType,
   {
     TraceNextRay {
       upstream: self,

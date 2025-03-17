@@ -119,16 +119,14 @@ pub trait ShaderFutureExt: Sized + ShaderFuture + 'static {
   fn then<F, T>(self, then_f: F, then: T) -> ShaderFutureThen<Self, F, T>
   where
     F: Fn(
-        Self::Output,
+        &Self::Output,
         &T::Invocation,
         &mut DeviceTaskSystemPollCtx,
       ) -> <T::Invocation as ShaderAbstractLeftValue>::RightValue
       + Copy
       + 'static,
-    Self::Output: ShaderAbstractRightValue,
     T: ShaderFuture,
     T::Invocation: ShaderAbstractLeftValue,
-    T::Output: Default + ShaderAbstractRightValue,
   {
     ShaderFutureThen {
       upstream: self,

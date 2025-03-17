@@ -623,8 +623,8 @@ impl<F, T, O, P> ShaderFutureProvider for TraceNextRay<F, T>
 where
   T: ShaderFutureProvider<Output = O>,
   F: FnOnce(&O, &mut TracingCtx) -> (Node<bool>, ShaderRayTraceCall, Node<P>) + Copy + 'static,
-  P: ShaderSizedValueNodeType + Default + Copy,
-  O: ShaderAbstractRightValue + Default,
+  P: ShaderSizedValueNodeType + Copy,
+  O: 'static,
 {
   type Output = (O, Node<P>);
   fn build_device_future(&self, ctx: &mut AnyMap) -> DynShaderFuture<(O, Node<P>)> {
@@ -635,7 +635,7 @@ where
       .then(
         move |o, then_invocation, cx| {
           let ctx = cx.invocation_registry.get_mut::<TracingCtx>().unwrap();
-          let (should_trace, trace_call, payload) = next_trace_logic(&o, ctx);
+          let (should_trace, trace_call, payload) = next_trace_logic(o, ctx);
           cx.spawn_new_tracing_task(should_trace, trace_call, payload, then_invocation)
         },
         TracingFuture::default(),
@@ -698,7 +698,7 @@ impl<T> Default for TracingFuture<T> {
 
 impl<T> ShaderFuture for TracingFuture<T>
 where
-  T: ShaderSizedValueNodeType + Default + Copy,
+  T: ShaderSizedValueNodeType,
 {
   type Output = Node<T>;
 
@@ -740,7 +740,7 @@ impl<T> TracingFutureInvocation<T> {
 
 impl<T> ShaderFutureInvocation for TracingFutureInvocation<T>
 where
-  T: ShaderSizedValueNodeType + Default + Copy,
+  T: ShaderSizedValueNodeType,
 {
   type Output = Node<T>;
 
