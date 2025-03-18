@@ -17,7 +17,7 @@ important issue is in bold style.
 - support per material custom state control
   - support double side config in gltf loader
   - fix gizmo plane move only one side is visible
-- light uniform array and storage not skip none exist light
+- light uniform array not skip none exist light
   - missing length info, breaks path tracing light sampling impl
 - use view space shading/lighting/postprocess compute to improve precision
 - disable ssao when channel debug on
@@ -27,7 +27,7 @@ important issue is in bold style.
   - fix gltf loader support
 - **fix db multi thead write lock access deadlock**
 - fix parallel compute test out of bound shader access
-- fix scene gpu lighting is globally shared
+- fix scene gpu lighting is globally shared in gles mode
 - fix some mesh can not be picked in cpu picking (maybe related to u16 index format)
 - fix missing blur pass in ssao
 - fix ao should only shadowing diffuse lighting.

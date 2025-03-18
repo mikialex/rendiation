@@ -7,7 +7,7 @@ pub use spot::*;
 
 use crate::*;
 
-pub(crate) fn light_multi_access_config() -> MultiAccessGPUDataBuilderInit {
+pub fn light_multi_access_config() -> MultiAccessGPUDataBuilderInit {
   MultiAccessGPUDataBuilderInit {
     max_possible_many_count: u32::MAX,
     max_possible_one_count: u32::MAX,
