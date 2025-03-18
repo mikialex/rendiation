@@ -21,6 +21,7 @@ use std::{hash::Hash, mem::ManuallyDrop};
 
 use database::*;
 use dyn_clone::*;
+use fast_hash_collection::*;
 use reactive::*;
 use rendiation_algebra::*;
 use rendiation_color::*;
@@ -33,6 +34,8 @@ use rendiation_texture_gpu_system::*;
 use rendiation_webgpu::*;
 use rendiation_webgpu_reactive_utils::*;
 
+mod scene_id;
+pub use scene_id::*;
 mod alpha;
 pub use alpha::*;
 mod device_culling;

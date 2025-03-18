@@ -36,7 +36,7 @@ impl MultiAccessGPUDataBuilder {
 }
 
 impl ReactiveGeneralQuery for MultiAccessGPUDataBuilder {
-  type Output = MultiAccessGPUData;
+  type Output = Box<dyn std::any::Any>;
 
   fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
     let (changes, _, multi_access) = self.source.poll_changes_with_inv_dyn(cx);
@@ -82,10 +82,10 @@ impl ReactiveGeneralQuery for MultiAccessGPUDataBuilder {
       }
     }
 
-    MultiAccessGPUData {
+    Box::new(MultiAccessGPUData {
       meta: self.meta.gpu().clone(),
       indices: self.allocator.gpu().clone(),
-    }
+    })
   }
 }
 

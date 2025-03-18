@@ -41,6 +41,7 @@ pub fn create_gpu_tex_from_png_buffer(
 pub struct LightSystem {
   reversed_depth: bool,
   internal: BoxedQueryBasedGPUFeature<Box<dyn LightSystemSceneProvider>>,
+  scene_ids: SceneIdProvider,
   directional_light_shadow: BasicShadowMapSystem,
   spot_light_shadow: BasicShadowMapSystem,
   enable_channel_debugger: bool,
@@ -187,12 +188,15 @@ impl LightSystem {
     );
 
     internal.register(qcx, gpu);
+    let mut scene_ids = SceneIdProvider::default();
+    scene_ids.deregister(qcx);
 
     Self {
       directional_light_shadow,
       spot_light_shadow,
       internal,
       enable_channel_debugger: false,
+      scene_ids,
       channel_debugger: ScreenChannelDebugger::default_useful(),
       tonemap: ToneMap::new(gpu),
       reversed_depth,
@@ -230,6 +234,7 @@ impl LightSystem {
 
   pub fn deregister_resource(&mut self, qcx: &mut ReactiveQueryCtx) {
     self.internal.deregister(qcx);
+    self.scene_ids.deregister(qcx);
   }
 
   pub fn prepare_and_create_impl(
@@ -276,6 +281,7 @@ impl LightSystem {
     rcx.type_based_result.register(SpotShaderAtlas(ss));
 
     let sys = SceneLightSystem {
+      scene_ids: self.scene_ids.create_impl(rcx),
       system: self,
       imp: self.internal.create_impl(rcx),
     };
@@ -285,6 +291,7 @@ impl LightSystem {
 
 pub struct SceneLightSystem<'a> {
   system: &'a LightSystem,
+  scene_ids: SceneIdUniformBufferAccess,
   imp: Box<dyn LightSystemSceneProvider>,
 }
 
@@ -316,9 +323,12 @@ impl SceneLightSystem<'_> {
       light.push(LDROutput);
     }
 
+    let scene_id = self.scene_ids.get(&scene).unwrap().clone();
+
     light
       .push(&system.tonemap as &dyn RenderComponent) //
       .push(LightingComputeComponentAsRenderComponent {
+        scene_id,
         geometry_constructor,
         surface_constructor,
         lighting: self.imp.get_scene_lighting(scene).unwrap(),

@@ -11,7 +11,6 @@ pub struct AllInstanceOfGivenTypeLightInScene<T>
 where
   T: Std430 + ShaderSizedValueNodeType,
 {
-  pub scene_id: UniformBufferDataView<Vec4<u32>>,
   pub light_accessor: MultiAccessGPUData,
   pub light_data: StorageBufferReadonlyDataView<[T]>,
   pub create_per_light_compute:
@@ -33,10 +32,11 @@ impl<T: Std430 + ShaderSizedValueNodeType> LightingComputeComponent
   fn build_light_compute_invocation(
     &self,
     binding: &mut ShaderBindGroupBuilder,
+    scene_id: Node<u32>,
   ) -> Box<dyn LightingComputeInvocation> {
     let compute = self.create_per_light_compute.clone();
     let lighting = AllInstanceOfGivenTypeLightInSceneInvocation {
-      scene_id: binding.bind_by(&self.scene_id).load().x(),
+      scene_id,
       light_accessor: self.light_accessor.build(binding),
       light_data: binding.bind_by(&self.light_data),
     }
@@ -46,7 +46,6 @@ impl<T: Std430 + ShaderSizedValueNodeType> LightingComputeComponent
   }
 
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.scene_id);
     self.light_accessor.bind(&mut ctx.binding);
     ctx.binding.bind(&self.light_data);
   }

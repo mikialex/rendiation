@@ -22,6 +22,7 @@ where
   fn build_light_compute_invocation(
     &self,
     binding: &mut ShaderBindGroupBuilder,
+    scene_id: Node<u32>,
   ) -> Box<dyn LightingComputeInvocation> {
     let node = self.0.bind_shader(binding);
     let light = node.map(self.1);
