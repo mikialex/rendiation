@@ -125,6 +125,16 @@ pub trait LightingComputeInvocation {
   ) -> ENode<ShaderLightingResult>;
 }
 
+impl LightingComputeInvocation for Box<dyn LightingComputeInvocation> {
+  fn compute_lights(
+    &self,
+    shading: &dyn LightableSurfaceShading,
+    geom_ctx: &ENode<ShaderLightingGeometricCtx>,
+  ) -> ENode<ShaderLightingResult> {
+    self.as_ref().compute_lights(shading, geom_ctx)
+  }
+}
+
 impl<T> LightingComputeInvocation for Node<T>
 where
   Node<T>: PunctualShaderLight,

@@ -116,6 +116,7 @@ pub struct GPURangeInfo {
   pub len: u32,
 }
 
+#[derive(Clone)]
 pub struct MultiAccessGPUInvocation {
   meta: ShaderReadonlyPtrOf<[GPURangeInfo]>,
   indices: ShaderReadonlyPtrOf<[u32]>,

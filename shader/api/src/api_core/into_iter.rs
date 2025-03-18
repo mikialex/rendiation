@@ -24,8 +24,7 @@ pub struct ShaderIntoIterMap<T, F> {
 impl<T, F, U> IntoShaderIterator for ShaderIntoIterMap<T, F>
 where
   T: IntoShaderIterator,
-  <T::ShaderIter as ShaderIterator>::Item: Clone,
-  F: Fn(<T::ShaderIter as ShaderIterator>::Item) -> U + Copy + 'static,
+  F: Fn(<T::ShaderIter as ShaderIterator>::Item) -> U + 'static,
 {
   type ShaderIter = impl ShaderIterator<Item = U>;
 

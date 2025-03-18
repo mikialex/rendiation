@@ -1,4 +1,5 @@
 #![feature(stmt_expr_attributes)]
+#![feature(impl_trait_in_assoc_type)]
 
 use std::any::Any;
 use std::hash::Hash;

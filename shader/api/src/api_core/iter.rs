@@ -336,7 +336,6 @@ pub struct ShaderMapIter<T, F> {
 impl<T, F, TT> ShaderIterator for ShaderMapIter<T, F>
 where
   T: ShaderIterator,
-  T::Item: Clone,
   F: Fn(T::Item) -> TT,
 {
   type Item = TT;
