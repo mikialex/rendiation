@@ -14,6 +14,7 @@ pub trait LightingComputeComponent: ShaderHashProvider {
   fn build_light_compute_invocation(
     &self,
     binding: &mut ShaderBindGroupBuilder,
+    scene_id: Node<u32>,
   ) -> Box<dyn LightingComputeInvocation>;
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx);
 }
@@ -79,6 +80,7 @@ impl GeometryCtxProvider for DirectGeometryProvider {
 }
 
 pub struct LightingComputeComponentAsRenderComponent<'a> {
+  pub scene_id: UniformBufferDataView<Vec4<u32>>,
   pub geometry_constructor: Box<dyn GeometryCtxProvider + 'a>,
   pub lighting: Box<dyn LightingComputeComponent + 'a>,
   pub surface_constructor: Box<dyn LightableSurfaceProvider + 'a>,
@@ -98,6 +100,7 @@ impl ShaderHashProvider for LightingComputeComponentAsRenderComponent<'_> {
 }
 impl ShaderPassBuilder for LightingComputeComponentAsRenderComponent<'_> {
   fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx.binding.bind(&self.scene_id);
     self.geometry_constructor.setup_pass(ctx);
     self.lighting.setup_pass(ctx);
     self.surface_constructor.setup_pass(ctx);
@@ -108,7 +111,10 @@ impl GraphicsShaderProvider for LightingComputeComponentAsRenderComponent<'_> {
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     let geom_ctx = self.geometry_constructor.construct_ctx(builder);
     builder.fragment(|builder, binder| {
-      let invocation = self.lighting.build_light_compute_invocation(binder);
+      let scene_id = binder.bind_by(&self.scene_id).load().x();
+      let invocation = self
+        .lighting
+        .build_light_compute_invocation(binder, scene_id);
       let shading = self.surface_constructor.construct_shading(builder, binder);
 
       let hdr = invocation.compute_lights(shading.as_ref(), &geom_ctx);

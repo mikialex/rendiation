@@ -33,6 +33,8 @@ use rendiation_texture_gpu_system::*;
 use rendiation_webgpu::*;
 use rendiation_webgpu_reactive_utils::*;
 
+mod scene_id;
+pub use scene_id::*;
 mod alpha;
 pub use alpha::*;
 mod device_culling;

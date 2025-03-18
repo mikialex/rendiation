@@ -32,6 +32,7 @@ pub struct RayTracingSystemBase {
   scene_tlas: QueryToken,
   mesh: MeshBindlessGPUSystemSource,
   material: RtxSceneMaterialSource,
+  scene_ids: SceneIdProvider,
   lighting: ScenePTLightingSource,
   texture_system: TextureGPUSystemSource,
   system: RtxSystemCore,
@@ -45,6 +46,7 @@ impl RayTracingSystemBase {
   ) -> Self {
     let tex_sys_ty = get_suitable_texture_system_ty(gpu, true, false);
     Self {
+      scene_ids: Default::default(),
       texture_system: TextureGPUSystemSource::new(tex_sys_ty),
       camera: Box::new(DefaultRtxCameraRenderImplProvider::new(camera_source)),
       scene_tlas: Default::default(),
@@ -64,7 +66,8 @@ pub struct SceneRayTracingRendererBase {
   pub scene_tlas: BoxedDynQuery<EntityHandle<SceneEntity>, TlASInstance>,
   pub mesh: MeshGPUBindlessImpl,
   pub material: SceneSurfaceSupport,
-  pub lighting: ScenePTLighting,
+  pub lighting: ScenePTLightingSceneData,
+  pub scene_ids: SceneIdUniformBufferAccess,
 }
 
 impl QueryBasedFeature<SceneRayTracingRendererBase> for RayTracingSystemBase {
@@ -76,6 +79,7 @@ impl QueryBasedFeature<SceneRayTracingRendererBase> for RayTracingSystemBase {
     self.material.register_resource(qcx, cx);
     self.texture_system.register_resource(qcx, cx);
     self.lighting.register_resource(qcx, cx);
+    self.scene_ids.register(qcx, cx);
   }
 
   fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
@@ -85,6 +89,7 @@ impl QueryBasedFeature<SceneRayTracingRendererBase> for RayTracingSystemBase {
     self.material.deregister_resource(qcx);
     self.texture_system.deregister_resource(qcx);
     self.lighting.deregister_resource(qcx);
+    self.scene_ids.deregister(qcx);
   }
 
   fn create_impl(&self, cx: &mut QueryResultCtx) -> SceneRayTracingRendererBase {
@@ -96,6 +101,7 @@ impl QueryBasedFeature<SceneRayTracingRendererBase> for RayTracingSystemBase {
       mesh: self.mesh.create_impl_internal_impl(cx),
       material: self.material.create_impl(cx, &tex),
       lighting: self.lighting.create_impl(cx),
+      scene_ids: self.scene_ids.create_impl(cx),
     }
   }
 }

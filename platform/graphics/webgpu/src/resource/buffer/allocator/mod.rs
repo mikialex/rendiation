@@ -41,6 +41,7 @@ pub trait LinearAllocatorStorage: AllocatorStorageBase {
 
 pub trait RangeAllocatorStorage: AllocatorStorageBase {
   fn deallocate(&mut self, idx: u32);
+  #[must_use]
   fn allocate_values(
     &mut self,
     v: &[Self::Item],
@@ -48,6 +49,7 @@ pub trait RangeAllocatorStorage: AllocatorStorageBase {
   ) -> Option<u32>;
 
   /// LinearStorageDirectAccess bound is required or this method will be useless
+  #[must_use]
   fn allocate_range(
     &mut self,
     count: u32,

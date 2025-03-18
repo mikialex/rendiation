@@ -14,13 +14,16 @@ pub trait AbstractLightSamplingStrategy {
     sampler: &dyn DeviceSampler,
   ) -> (Node<f32>, Node<u32>, Node<bool>) {
     let (r, valid) = self.sample_light_index_impl(world_position, sampler);
-    (self.pmf(world_position, r), r, valid)
+    let pmf = valid.select_branched(|| self.pmf(world_position, r), || val(0.));
+    (pmf, r, valid)
   }
 }
 
 pub struct LightingGroup<T> {
   pub strategy: Arc<dyn AbstractLightSamplingStrategy>,
   pub lights: ShaderReadonlyPtrOf<[T]>,
+  pub light_access: MultiAccessGPUInvocation,
+  pub scene_id: Node<u32>,
 }
 
 impl<T: ShaderSizedValueNodeType> Clone for LightingGroup<T> {
@@ -28,6 +31,8 @@ impl<T: ShaderSizedValueNodeType> Clone for LightingGroup<T> {
     Self {
       strategy: self.strategy.clone(),
       lights: self.lights.clone(),
+      light_access: self.light_access.clone(),
+      scene_id: self.scene_id,
     }
   }
 }
@@ -43,7 +48,14 @@ where
     sampler: &dyn DeviceSampler,
   ) -> (RTLightSampling, Node<bool>) {
     let (pmf, light_idx, valid) = self.strategy.sample_light_index(world_position, sampler);
-    let light = valid.select_branched(|| self.lights.index(light_idx).load(), zeroed_val);
+    let light = valid.select_branched(
+      || {
+        let base_offset = self.light_access.meta.index(self.scene_id).start().load();
+        let light_index = base_offset + light_idx;
+        self.lights.index(light_index).load()
+      },
+      zeroed_val,
+    );
 
     let (result, inner_valid) = light
       .expand()
@@ -73,19 +85,20 @@ impl AbstractLightSamplingStrategy for UniformLightSamplingStrategy {
   fn sample_light_index_impl(
     &self,
     _world_position: Node<Vec3<f32>>,
-    _sampler: &dyn DeviceSampler,
+    sampler: &dyn DeviceSampler,
   ) -> (Node<u32>, Node<bool>) {
-    // shader_assert(self.light_count.equals(val(1)));
-    // let light_idx = (sampler.next() * self.light_count.into_f32())
-    //   .floor()
-    //   .into_u32();
+    let light_idx = (sampler.next() * self.light_count.into_f32())
+      .floor()
+      .into_u32();
 
-    // let light_idx = light_idx
-    //   .equals(self.light_count)
-    //   .select(light_idx - val(1), light_idx);
+    let valid = self.light_count.not_equals(0);
 
-    // todo, fix light count
-    (val(0), self.light_count.not_equals(0))
+    let light_idx = light_idx
+      .equals(self.light_count)
+      .and(valid)
+      .select(light_idx - val(1), light_idx);
+
+    (light_idx, valid)
   }
 
   fn pmf(&self, _world_position: Node<Vec3<f32>>, _light_idx: Node<u32>) -> Node<f32> {

@@ -36,7 +36,7 @@ impl MultiAccessGPUDataBuilder {
 }
 
 impl ReactiveGeneralQuery for MultiAccessGPUDataBuilder {
-  type Output = MultiAccessGPUData;
+  type Output = Box<dyn std::any::Any>;
 
   fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
     let (changes, _, multi_access) = self.source.poll_changes_with_inv_dyn(cx);
@@ -61,7 +61,10 @@ impl ReactiveGeneralQuery for MultiAccessGPUDataBuilder {
     // do all cleanup first to release empty space
     for changed_one in dirtied_one.iter() {
       let meta = self.meta.get(*changed_one).unwrap();
-      self.allocator.deallocate(meta.start);
+      if meta.start != u32::MAX {
+        self.allocator.deallocate(meta.start);
+      }
+
       self
         .meta
         .set_value(*changed_one, Default::default())
@@ -72,23 +75,30 @@ impl ReactiveGeneralQuery for MultiAccessGPUDataBuilder {
     for changed_one in dirtied_one.iter() {
       if let Some(many_iter) = multi_access.access_multi(changed_one) {
         let many_idx = many_iter.collect::<Vec<_>>();
-        self
+        let offset = self
           .allocator
           .allocate_values(&many_idx, &mut |relocation| {
             let mut meta = *self.meta.get(*changed_one).unwrap();
             meta.start = relocation.new_offset;
             self.meta.set_value(*changed_one, meta).unwrap();
-          });
+          })
+          .unwrap();
+
+        let mut meta = *self.meta.get(*changed_one).unwrap();
+        meta.start = offset;
+        meta.len = many_idx.len() as u32;
+        self.meta.set_value(*changed_one, meta).unwrap();
       }
     }
 
-    MultiAccessGPUData {
+    Box::new(MultiAccessGPUData {
       meta: self.meta.gpu().clone(),
       indices: self.allocator.gpu().clone(),
-    }
+    })
   }
 }
 
+#[derive(Clone)]
 pub struct MultiAccessGPUData {
   meta: StorageBufferReadonlyDataView<[GPURangeInfo]>,
   indices: StorageBufferReadonlyDataView<[u32]>,
@@ -108,18 +118,42 @@ impl MultiAccessGPUData {
   }
 }
 
+pub trait MultiAccessGPUQueryResultCtxExt {
+  fn take_multi_access_gpu(&mut self, token: QueryToken) -> Option<MultiAccessGPUData>;
+}
+
+impl MultiAccessGPUQueryResultCtxExt for QueryResultCtx {
+  fn take_multi_access_gpu(&mut self, token: QueryToken) -> Option<MultiAccessGPUData> {
+    self
+      .take_result(token)?
+      .downcast::<MultiAccessGPUData>()
+      .map(|v| *v)
+      .ok()
+  }
+}
+
 #[repr(C)]
 #[std430_layout]
-#[derive(Copy, Clone, ShaderStruct, Default, PartialEq)]
+#[derive(Copy, Clone, ShaderStruct, PartialEq)]
 pub struct GPURangeInfo {
   pub start: u32,
   pub len: u32,
 }
 
+impl Default for GPURangeInfo {
+  fn default() -> Self {
+    Self {
+      start: u32::MAX, // we use max as empty hint
+      len: Default::default(),
+      ..Zeroable::zeroed()
+    }
+  }
+}
+
 #[derive(Clone)]
 pub struct MultiAccessGPUInvocation {
-  meta: ShaderReadonlyPtrOf<[GPURangeInfo]>,
-  indices: ShaderReadonlyPtrOf<[u32]>,
+  pub meta: ShaderReadonlyPtrOf<[GPURangeInfo]>,
+  pub indices: ShaderReadonlyPtrOf<[u32]>,
 }
 
 impl MultiAccessGPUInvocation {

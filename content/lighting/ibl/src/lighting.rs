@@ -18,6 +18,7 @@ impl LightingComputeComponent for IBLLightingComponent {
   fn build_light_compute_invocation(
     &self,
     binding: &mut ShaderBindGroupBuilder,
+    _scene_id: Node<u32>, // the resource is select at host side
   ) -> Box<dyn LightingComputeInvocation> {
     Box::new(IBLLighting {
       diffuse: binding.bind_by(&self.prefiltered.diffuse),

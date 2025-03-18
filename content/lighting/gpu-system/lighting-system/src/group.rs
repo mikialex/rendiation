@@ -25,12 +25,13 @@ impl LightingComputeComponent for LightingComputeComponentGroup {
   fn build_light_compute_invocation(
     &self,
     binding: &mut ShaderBindGroupBuilder,
+    scene_id: Node<u32>,
   ) -> Box<dyn LightingComputeInvocation> {
     Box::new(LightingComputeInvocationGroup {
       comps: self
         .comps
         .iter()
-        .map(|c| c.build_light_compute_invocation(binding))
+        .map(|c| c.build_light_compute_invocation(binding, scene_id))
         .collect(),
     })
   }

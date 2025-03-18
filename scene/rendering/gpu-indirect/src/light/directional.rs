@@ -27,36 +27,45 @@ pub fn directional_storage(gpu: &GPU) -> ReactiveStorageBufferContainer<Directio
 
 #[derive(Default)]
 pub struct DirectionalStorageLightList {
-  token: QueryToken,
+  light_data: QueryToken,
+  multi_access: QueryToken,
 }
 
 impl QueryBasedFeature<Box<dyn LightingComputeComponent>> for DirectionalStorageLightList {
   type Context = GPU;
   fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
     let data = directional_storage(cx);
-    self.token = qcx.register_multi_updater(data);
+    self.light_data = qcx.register_multi_updater(data);
+
+    let multi_access = MultiAccessGPUDataBuilder::new(
+      cx,
+      global_rev_ref().watch_inv_ref_untyped::<DirectionalRefScene>(),
+      light_multi_access_config(),
+    );
+    self.multi_access = qcx.register(Box::new(multi_access));
   }
 
   fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
-    qcx.deregister(&mut self.token);
+    qcx.deregister(&mut self.light_data);
+    qcx.deregister(&mut self.multi_access);
   }
 
   fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn LightingComputeComponent> {
-    let buffer = cx
-      .take_storage_array_buffer::<DirectionalLightStorage>(self.token)
+    let light_data = cx
+      .take_storage_array_buffer::<DirectionalLightStorage>(self.light_data)
       .unwrap();
 
-    let com = ArrayLights(
-      buffer,
-      |(_, light): (Node<u32>, ShaderReadonlyPtrOf<DirectionalLightStorage>)| {
-        let light = light.load().expand();
-        ENode::<DirectionalShaderInfo> {
-          illuminance: light.illuminance,
-          direction: light.direction,
-        }
-        .construct()
-      },
-    );
-    Box::new(com)
+    let light_accessor = cx.take_multi_access_gpu(self.multi_access).unwrap();
+
+    let lighting = AllInstanceOfGivenTypeLightInScene::new(light_accessor, light_data, |light| {
+      let light = light.load().expand();
+      ENode::<DirectionalShaderInfo> {
+        illuminance: light.illuminance,
+        direction: light.direction,
+      }
+      .construct()
+    });
+
+    Box::new(lighting)
   }
 }
