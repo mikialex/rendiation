@@ -5,12 +5,17 @@ pub trait IntoShaderIterator {
   fn into_shader_iter(self) -> Self::ShaderIter;
 }
 
+pub type ItemOfIntoShaderIter<T> = <<T as IntoShaderIterator>::ShaderIter as ShaderIterator>::Item;
+
 pub trait IntoShaderIteratorExt: IntoShaderIterator + Sized {
   fn map<F>(self, map: F) -> ShaderIntoIterMap<Self, F> {
     ShaderIntoIterMap {
       internal: self,
       map,
     }
+  }
+  fn zip<U>(self, other: U) -> ShaderIntoIterZip<Self, U> {
+    ShaderIntoIterZip { a: self, b: other }
   }
 }
 impl<T: IntoShaderIterator> IntoShaderIteratorExt for T {}
@@ -24,12 +29,28 @@ pub struct ShaderIntoIterMap<T, F> {
 impl<T, F, U> IntoShaderIterator for ShaderIntoIterMap<T, F>
 where
   T: IntoShaderIterator,
-  F: Fn(<T::ShaderIter as ShaderIterator>::Item) -> U + 'static,
+  F: Fn(ItemOfIntoShaderIter<T>) -> U + 'static,
 {
   type ShaderIter = impl ShaderIterator<Item = U>;
-
   fn into_shader_iter(self) -> Self::ShaderIter {
     self.internal.into_shader_iter().map(self.map)
+  }
+}
+
+#[derive(Clone)]
+pub struct ShaderIntoIterZip<T, U> {
+  a: T,
+  b: U,
+}
+
+impl<T, U> IntoShaderIterator for ShaderIntoIterZip<T, U>
+where
+  T: IntoShaderIterator,
+  U: IntoShaderIterator,
+{
+  type ShaderIter = impl ShaderIterator<Item = (ItemOfIntoShaderIter<T>, ItemOfIntoShaderIter<U>)>;
+  fn into_shader_iter(self) -> Self::ShaderIter {
+    self.a.into_shader_iter().zip(self.b.into_shader_iter())
   }
 }
 

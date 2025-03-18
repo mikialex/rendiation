@@ -38,7 +38,7 @@ pub struct ShaderIntoIterAsLightInvocation<T>(pub T);
 impl<T> LightingComputeInvocation for ShaderIntoIterAsLightInvocation<T>
 where
   T: IntoShaderIterator + Clone,
-  <T::ShaderIter as ShaderIterator>::Item: LightingComputeInvocation,
+  ItemOfIntoShaderIter<T>: LightingComputeInvocation,
 {
   fn compute_lights(
     &self,
@@ -64,11 +64,14 @@ where
 
 pub struct LightAndShadowCombinedSource<L, S>(pub L, pub S);
 
-impl<L: AbstractBindingSource, S: AbstractBindingSource> AbstractBindingSource
-  for LightAndShadowCombinedSource<L, S>
+impl<L, S> AbstractBindingSource for LightAndShadowCombinedSource<L, S>
+where
+  L: AbstractBindingSource,
+  L::ShaderBindResult: IntoShaderIterator,
+  S: AbstractBindingSource,
+  S::ShaderBindResult: IntoShaderIterator,
 {
-  type ShaderBindResult =
-    LightAndShadowCombinedShaderInput<L::ShaderBindResult, S::ShaderBindResult>;
+  type ShaderBindResult = ShaderIntoIterZip<L::ShaderBindResult, S::ShaderBindResult>;
 
   fn bind_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.0.bind_pass(ctx);
@@ -76,19 +79,6 @@ impl<L: AbstractBindingSource, S: AbstractBindingSource> AbstractBindingSource
   }
 
   fn bind_shader(&self, ctx: &mut ShaderBindGroupBuilder) -> Self::ShaderBindResult {
-    LightAndShadowCombinedShaderInput(self.0.bind_shader(ctx), self.1.bind_shader(ctx))
-  }
-}
-
-#[derive(Clone, Copy)]
-pub struct LightAndShadowCombinedShaderInput<L, S>(L, S);
-
-impl<L: IntoShaderIterator, S: IntoShaderIterator> IntoShaderIterator
-  for LightAndShadowCombinedShaderInput<L, S>
-{
-  type ShaderIter = ShaderZipIter<L::ShaderIter, S::ShaderIter>;
-
-  fn into_shader_iter(self) -> Self::ShaderIter {
-    self.0.into_shader_iter().zip(self.1.into_shader_iter())
+    self.0.bind_shader(ctx).zip(self.1.bind_shader(ctx))
   }
 }
