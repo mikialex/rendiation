@@ -15,16 +15,22 @@ impl ScenePTLightingSource {
     qcx.deregister(&mut self.point_lights);
   }
 
-  pub fn create_impl(&self, cx: &mut QueryResultCtx) -> ScenePTLighting {
-    ScenePTLighting {
+  pub fn create_impl(&self, cx: &mut QueryResultCtx) -> ScenePTLightingSceneData {
+    ScenePTLightingSceneData {
       point_lights: cx.take_storage_array_buffer(self.point_lights).unwrap(),
     }
   }
 }
 
 #[derive(Clone)]
-pub struct ScenePTLighting {
+pub struct ScenePTLightingSceneData {
   point_lights: StorageBufferReadonlyDataView<[PointLightStorage]>,
+}
+
+#[derive(Clone)]
+pub struct ScenePTLighting {
+  pub scene_id: UniformBufferDataView<Vec4<u32>>,
+  pub scene_data: ScenePTLightingSceneData,
 }
 
 impl ShaderHashProvider for ScenePTLighting {
@@ -33,7 +39,7 @@ impl ShaderHashProvider for ScenePTLighting {
 
 impl DevicePathTracingLighting for ScenePTLighting {
   fn build(&self, cx: &mut ShaderBindGroupBuilder) -> Box<dyn DevicePathTracingLightingInvocation> {
-    let points = cx.bind_by(&self.point_lights);
+    let points = cx.bind_by(&self.scene_data.point_lights);
     Box::new(ScenePTLightingInvocation {
       point_lights: LightingGroup {
         strategy: Arc::new(UniformLightSamplingStrategy {
@@ -45,7 +51,7 @@ impl DevicePathTracingLighting for ScenePTLighting {
   }
 
   fn bind(&self, cx: &mut BindingBuilder) {
-    cx.bind(&self.point_lights);
+    cx.bind(&self.scene_data.point_lights);
   }
 }
 

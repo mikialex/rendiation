@@ -189,7 +189,7 @@ impl LightSystem {
 
     internal.register(qcx, gpu);
     let mut scene_ids = SceneIdProvider::default();
-    scene_ids.deregister(qcx);
+    scene_ids.register(qcx, gpu);
 
     Self {
       directional_light_shadow,

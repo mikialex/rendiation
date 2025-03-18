@@ -31,15 +31,6 @@ pub struct DirectionalStorageLightList {
   multi_access: QueryToken,
 }
 
-pub(crate) fn light_multi_access_config() -> MultiAccessGPUDataBuilderInit {
-  MultiAccessGPUDataBuilderInit {
-    max_possible_many_count: u32::MAX,
-    max_possible_one_count: u32::MAX,
-    init_many_count_capacity: 128,
-    init_one_count_capacity: 128,
-  }
-}
-
 impl QueryBasedFeature<Box<dyn LightingComputeComponent>> for DirectionalStorageLightList {
   type Context = GPU;
   fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
@@ -64,28 +55,16 @@ impl QueryBasedFeature<Box<dyn LightingComputeComponent>> for DirectionalStorage
       .take_storage_array_buffer::<DirectionalLightStorage>(self.light_data)
       .unwrap();
 
-    let light_accessor = *cx
-      .take_result(self.multi_access)
-      .unwrap()
-      .downcast::<MultiAccessGPUData>()
-      .unwrap();
+    let light_accessor = cx.take_multi_access_gpu(self.multi_access).unwrap();
 
-    let lighting = AllInstanceOfGivenTypeLightInScene {
-      light_accessor,
-      light_data,
-      create_per_light_compute: std::sync::Arc::new(
-        |light: ShaderReadonlyPtrOf<DirectionalLightStorage>| {
-          let light = light.load().expand();
-          Box::new(
-            ENode::<DirectionalShaderInfo> {
-              illuminance: light.illuminance,
-              direction: light.direction,
-            }
-            .construct(),
-          )
-        },
-      ),
-    };
+    let lighting = AllInstanceOfGivenTypeLightInScene::new(light_accessor, light_data, |light| {
+      let light = light.load().expand();
+      ENode::<DirectionalShaderInfo> {
+        illuminance: light.illuminance,
+        direction: light.direction,
+      }
+      .construct()
+    });
 
     Box::new(lighting)
   }

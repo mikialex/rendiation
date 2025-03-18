@@ -187,13 +187,18 @@ impl DeviceReferencePathTracingRenderer {
       MAX_RAY_DEPTH as usize,
     );
 
+    let lighting = ScenePTLighting {
+      scene_data: base.lighting.clone(),
+      scene_id: base.scene_ids.get(&scene).unwrap().clone(),
+    };
+
     let closest = build_ray_hit_shader(
       &trace_base_builder,
       PTRayClosestCtx {
         bindless_mesh: base.mesh.make_bindless_dispatcher(),
         surface: Box::new(base.material.clone()),
         config: state.config.clone(),
-        lighting: Box::new(base.lighting.clone()),
+        lighting: Box::new(lighting),
       },
     );
 

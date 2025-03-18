@@ -7,6 +7,15 @@ pub use spot::*;
 
 use crate::*;
 
+pub(crate) fn light_multi_access_config() -> MultiAccessGPUDataBuilderInit {
+  MultiAccessGPUDataBuilderInit {
+    max_possible_many_count: u32::MAX,
+    max_possible_one_count: u32::MAX,
+    init_many_count_capacity: 128,
+    init_one_count_capacity: 128,
+  }
+}
+
 pub struct AllInstanceOfGivenTypeLightInScene<T>
 where
   T: Std430 + ShaderSizedValueNodeType,
@@ -15,6 +24,25 @@ where
   pub light_data: StorageBufferReadonlyDataView<[T]>,
   pub create_per_light_compute:
     std::sync::Arc<dyn Fn(ShaderReadonlyPtrOf<T>) -> Box<dyn LightingComputeInvocation>>,
+}
+
+impl<T> AllInstanceOfGivenTypeLightInScene<T>
+where
+  T: Std430 + ShaderSizedValueNodeType,
+{
+  pub fn new<X: LightingComputeInvocation + 'static>(
+    light_accessor: MultiAccessGPUData,
+    light_data: StorageBufferReadonlyDataView<[T]>,
+    create_per_light_compute: impl Fn(ShaderReadonlyPtrOf<T>) -> X + 'static,
+  ) -> Self {
+    Self {
+      light_accessor,
+      light_data,
+      create_per_light_compute: std::sync::Arc::new(move |ptr| {
+        Box::new(create_per_light_compute(ptr))
+      }),
+    }
+  }
 }
 
 /// create_per_light_compute is not hashed because we assume the implementation only

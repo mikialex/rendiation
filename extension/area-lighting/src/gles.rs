@@ -115,7 +115,7 @@ impl LightingComputeComponent for LTCLightingComputeComponent {
   fn build_light_compute_invocation(
     &self,
     binding: &mut ShaderBindGroupBuilder,
-    scene_id: Node<u32>,
+    _scene_id: Node<u32>, // todo
   ) -> Box<dyn LightingComputeInvocation> {
     Box::new(LTCLightingComputeInvocation {
       uniforms: binding.bind_by(&self.uniforms),

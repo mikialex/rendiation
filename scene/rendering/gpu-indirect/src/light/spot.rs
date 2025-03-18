@@ -55,40 +55,48 @@ pub fn spot_storage(gpu: &GPU) -> ReactiveStorageBufferContainer<SpotLightStorag
 
 #[derive(Default)]
 pub struct SpotLightStorageLightList {
-  token: QueryToken,
+  light_data: QueryToken,
+  multi_access: QueryToken,
 }
 
 impl QueryBasedFeature<Box<dyn LightingComputeComponent>> for SpotLightStorageLightList {
   type Context = GPU;
   fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
     let buffer = spot_storage(cx);
-    self.token = qcx.register_multi_updater(buffer);
+    self.light_data = qcx.register_multi_updater(buffer);
+
+    let multi_access = MultiAccessGPUDataBuilder::new(
+      cx,
+      global_rev_ref().watch_inv_ref_untyped::<SpotLightRefScene>(),
+      light_multi_access_config(),
+    );
+    self.multi_access = qcx.register(Box::new(multi_access));
   }
 
   fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
-    qcx.deregister(&mut self.token);
+    qcx.deregister(&mut self.light_data);
+    qcx.deregister(&mut self.multi_access);
   }
 
   fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn LightingComputeComponent> {
-    let buffer = cx
-      .take_storage_array_buffer::<SpotLightStorage>(self.token)
+    let light_data = cx
+      .take_storage_array_buffer::<SpotLightStorage>(self.light_data)
       .unwrap();
+    let light_accessor = cx.take_multi_access_gpu(self.multi_access).unwrap();
 
-    let com = ArrayLights(
-      buffer,
-      |(_, light_buffer): (Node<u32>, ShaderReadonlyPtrOf<SpotLightStorage>)| {
-        let light_buffer = light_buffer.load().expand();
-        ENode::<SpotLightShaderInfo> {
-          luminance_intensity: light_buffer.luminance_intensity,
-          position: light_buffer.position,
-          direction: light_buffer.direction,
-          cutoff_distance: light_buffer.cutoff_distance,
-          half_cone_cos: light_buffer.half_cone_cos,
-          half_penumbra_cos: light_buffer.half_penumbra_cos,
-        }
-        .construct()
-      },
-    );
-    Box::new(com)
+    let lighting = AllInstanceOfGivenTypeLightInScene::new(light_accessor, light_data, |light| {
+      let light = light.load().expand();
+      ENode::<SpotLightShaderInfo> {
+        luminance_intensity: light.luminance_intensity,
+        position: light.position,
+        direction: light.direction,
+        cutoff_distance: light.cutoff_distance,
+        half_cone_cos: light.half_cone_cos,
+        half_penumbra_cos: light.half_penumbra_cos,
+      }
+      .construct()
+    });
+
+    Box::new(lighting)
   }
 }
