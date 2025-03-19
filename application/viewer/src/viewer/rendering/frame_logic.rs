@@ -20,7 +20,7 @@ pub struct ViewerFrameLogic {
   ground: UniformBufferCachedDataView<ShaderPlane>,
   grid: UniformBufferCachedDataView<GridEffect>,
   post: UniformBufferCachedDataView<PostEffects>,
-  axis: WorldCoordinateAxis,
+  pub axis: WorldCoordinateAxis,
 }
 
 impl ViewerFrameLogic {
@@ -71,38 +71,10 @@ impl ViewerFrameLogic {
 
     self.post.upload_with_diff(&ctx.gpu.queue);
 
-    let camera = CameraRenderSource::Scene(content.main_camera);
-
-    let msaa_color = attachment().sample_count(4).request(ctx);
-    let msaa_depth = depth_attachment().sample_count(4).request(ctx);
-    let widgets_result = attachment().request(ctx);
-
     let main_camera_gpu = renderer
       .get_camera_gpu()
       .make_component(content.main_camera)
       .unwrap();
-
-    let mut widget_scene_content = renderer.extract_and_make_pass_content(
-      SceneContentKey {
-        only_alpha_blend_objects: None,
-      },
-      content.widget_scene,
-      camera,
-      ctx,
-      &DefaultDisplayWriter,
-    );
-
-    pass("scene-widgets")
-      .with_color(&msaa_color, clear(all_zero()))
-      .with_depth(&msaa_depth, clear(if reversed_depth { 0. } else { 1. }))
-      .resolve_to(&widgets_result)
-      .render_ctx(ctx)
-      .by(&mut super::axis::DrawWorldAxis {
-        data: &self.axis,
-        reversed_depth,
-        camera: main_camera_gpu.as_ref(),
-      })
-      .by(&mut widget_scene_content);
 
     let taa_content = SceneCameraTAAContent {
       queue: &ctx.gpu.queue,
@@ -266,11 +238,6 @@ impl ViewerFrameLogic {
       entity_id: id_buffer,
     };
 
-    let mut scene_msaa_widgets = copy_frame(
-      widgets_result,
-      BlendState::PREMULTIPLIED_ALPHA_BLENDING.into(),
-    );
-
     let mut highlight_compose = (content.selected_target.is_some()).then(|| {
       let masked_content = renderer.render_models(
         Box::new(IteratorAsHostRenderBatch(content.selected_target)),
@@ -281,7 +248,7 @@ impl ViewerFrameLogic {
       self.highlight.draw(ctx, masked_content)
     });
 
-    let mut compose = pass("compose-all")
+    let compose = pass("compose-all")
       .with_color(final_target, load())
       .render_ctx(ctx)
       .by(
@@ -295,7 +262,7 @@ impl ViewerFrameLogic {
 
     if self.enable_outline {
       // should we draw outline on taa buffer?
-      compose = compose.by(
+      compose.by(
         &mut OutlineComputer {
           source: &ViewerOutlineSourceProvider {
             g_buffer: &g_buffer,
@@ -306,7 +273,6 @@ impl ViewerFrameLogic {
       );
     }
 
-    compose.by(&mut scene_msaa_widgets);
     g_buffer.entity_id
   }
 }

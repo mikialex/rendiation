@@ -6,6 +6,7 @@ mod grid_ground;
 mod lighting;
 mod outline;
 mod ray_tracing;
+mod widget;
 
 mod g_buffer;
 pub use g_buffer::*;
@@ -26,6 +27,7 @@ use rendiation_scene_rendering_gpu_indirect::build_default_indirect_render_syste
 use rendiation_scene_rendering_gpu_ray_tracing::*;
 use rendiation_texture_gpu_process::copy_frame;
 use rendiation_webgpu::*;
+use widget::*;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 enum RasterizationRenderBackendType {
@@ -457,6 +459,8 @@ impl Viewer3dRenderingCtx {
               .by(&mut copy_frame(RenderTargetView::Texture(result), None));
           }
         }
+
+        self.picker.notify_frame_id_buffer_not_available();
       }
     } else {
       let (lighting, tonemap) = self.lighting.prepare_and_create_impl(
@@ -485,6 +489,23 @@ impl Viewer3dRenderingCtx {
         .picker
         .read_new_frame_id_buffer(entity_id, &self.gpu, &mut ctx.encoder);
       //
+    }
+
+    {
+      let widgets_result = draw_widgets(
+        &mut ctx,
+        renderer.as_ref(),
+        content.widget_scene,
+        self.ndc.enable_reverse_z,
+        content.main_camera,
+        &self.frame_logic.axis,
+      );
+      let mut copy_scene_msaa_widgets =
+        copy_frame(widgets_result, BlendState::ALPHA_BLENDING.into());
+      pass("copy_scene_msaa_widgets")
+        .with_color(&render_target, load())
+        .render_ctx(&mut ctx)
+        .by(&mut copy_scene_msaa_widgets);
     }
 
     // do extra copy to surface texture

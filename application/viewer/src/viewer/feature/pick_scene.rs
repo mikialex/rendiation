@@ -4,7 +4,7 @@ pub struct PickSceneBlocked;
 
 pub struct PickScene {
   pub enable_hit_debug_log: bool,
-  pub use_gpu_pick: bool,
+  pub prefer_gpu_pick: bool,
   pub gpu_pick_future: Option<Box<dyn Future<Output = Option<u32>> + Unpin>>,
 }
 
@@ -72,7 +72,8 @@ impl Widget for PickScene {
     let normalized_mouse_position = picker.normalized_mouse_position;
 
     let mut hit = None;
-    if self.use_gpu_pick && self.gpu_pick_future.is_none() {
+    let mut fallback_to_cpu = false;
+    if self.prefer_gpu_pick && self.gpu_pick_future.is_none() {
       access_cx_mut!(cx, renderer, Viewer3dRenderingCtx);
       if let Some(render_size) = renderer.picker.last_id_buffer_size() {
         let point = normalized_mouse_position * Vec2::from(render_size.into_f32());
@@ -80,8 +81,13 @@ impl Widget for PickScene {
         if let Some(f) = renderer.picker.pick_point_at((point.x, point.y)) {
           self.gpu_pick_future = Some(f);
         }
+      } else {
+        fallback_to_cpu = true;
       }
     } else {
+      fallback_to_cpu = true;
+    }
+    if fallback_to_cpu {
       access_cx!(cx, picker, Interaction3dCtx);
       access_cx!(cx, derive, Viewer3dSceneDerive);
       hit = self.pick_impl_cpu(derive, scene, picker);

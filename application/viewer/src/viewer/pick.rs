@@ -156,6 +156,11 @@ impl GPUxEntityIdMapPicker {
     }
   }
 
+  pub fn notify_frame_id_buffer_not_available(&mut self) {
+    self.wait_to_read_tasks.clear();
+    self.last_id_buffer_size = None;
+  }
+
   pub fn pick_point_at(
     &mut self,
     pixel_position: (usize, usize),
