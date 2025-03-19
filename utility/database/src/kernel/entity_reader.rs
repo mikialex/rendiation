@@ -30,6 +30,7 @@ impl<E: EntitySemantic> EntityReader<E> {
           let target = &mut target as *mut Option<C::Data> as *mut ();
           view.read_component(idx.handle, target);
         }
+        break;
       }
     }
     target
@@ -49,6 +50,7 @@ impl<E: EntitySemantic> EntityReader<E> {
           let target = &mut target as *mut Option<ForeignKeyComponentData> as *mut ();
           view.read_component(idx.handle, target);
         }
+        break;
       }
     }
     target.map(|v| v.map(|v| unsafe { EntityHandle::from_raw(v) }))

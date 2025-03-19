@@ -133,6 +133,7 @@ impl<E: EntitySemantic> EntityWriter<E> {
             &data as *const ManuallyDrop<C::Data> as *const (),
           );
         }
+        break;
       }
     }
     self
@@ -160,6 +161,7 @@ impl<E: EntitySemantic> EntityWriter<E> {
           let target = &mut target as *mut Option<C::Data> as *mut ();
           view.read_component(idx.handle, target);
         }
+        break;
       }
     }
     target
