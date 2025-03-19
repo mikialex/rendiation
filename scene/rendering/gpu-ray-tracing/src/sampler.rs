@@ -45,6 +45,15 @@ pub struct PCGRandomSampler {
   seed: Node<u32>,
 }
 impl PCGRandomSampler {
+  pub fn from_ray_ctx_and_sample_index(
+    ctx: &dyn RayLaunchInfoProvider,
+    sample_index: Node<u32>,
+  ) -> Self {
+    let seed = ctx.launch_id().xy();
+    let seed = (seed.x(), seed.y(), sample_index);
+    PCGRandomSampler::new(xxhash32(seed.into()))
+  }
+
   pub fn new(seed: Node<u32>) -> Self {
     Self {
       state: seed.make_local_var(),

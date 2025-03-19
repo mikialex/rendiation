@@ -234,9 +234,12 @@ impl SceneRayTracingAORenderer {
       .then_trace(|_, ctx| {
         let rg_cx = ctx.expect_ray_gen_ctx();
         let ao_cx = ctx.expect_custom_cx::<RayTracingAORayGenCtxInvocation>();
-        let normalized_position =
-          rg_cx.launch_id().into_f32().xy() / rg_cx.launch_size().into_f32().xy();
-        let ray = ao_cx.camera.generate_ray(normalized_position);
+        let sampler =
+          &PCGRandomSampler::from_ray_ctx_and_sample_index(rg_cx, ao_cx.ao_sample_count.load().x());
+        let ray =
+          ao_cx
+            .camera
+            .generate_ray(rg_cx.launch_id().xy(), rg_cx.launch_size().xy(), sampler);
 
         let trace_call = ShaderRayTraceCall {
           tlas_idx: val(0), // only one tlas, select first

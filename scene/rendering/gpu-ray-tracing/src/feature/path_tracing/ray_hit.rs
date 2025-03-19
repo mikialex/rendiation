@@ -16,13 +16,9 @@ pub fn build_ray_hit_shader(
       let pt_cx = ctx.expect_custom_cx::<PTClosestCtxInvocation>();
       let closest_hit_ctx = ctx.expect_closest_hit_ctx();
 
-      let seed = closest_hit_ctx.launch_id().xy();
-      let seed = (
-        seed.x(),
-        seed.y(),
-        pt_cx.config.current_sample_count().load(),
-      );
-      let sampler = &PCGRandomSampler::new(xxhash32(seed.into()));
+      let sample_count = pt_cx.config.current_sample_count().load();
+      let sampler =
+        &PCGRandomSampler::from_ray_ctx_and_sample_index(closest_hit_ctx, sample_count * val(2));
 
       let origin = closest_hit_ctx.hit_world_position();
 
@@ -69,13 +65,9 @@ pub fn build_ray_hit_shader(
       let sm_id = closest_hit_ctx.instance_custom_id();
       let view_dir = -closest_hit_ctx.world_ray().direction;
 
-      let seed = closest_hit_ctx.launch_id().xy();
-      let seed = (
-        seed.x(),
-        seed.y(),
-        pt_cx.config.current_sample_count().load(),
-      );
-      let sampler = &PCGRandomSampler::new(xxhash32(seed.into()));
+      let sample_count = pt_cx.config.current_sample_count().load();
+      let sampler =
+        &PCGRandomSampler::from_ray_ctx_and_sample_index(closest_hit_ctx, sample_count * val(3));
 
       let surface = pt_cx
         .surface

@@ -98,12 +98,13 @@ impl ShaderFutureInvocation for PTRayGenShaderFutureInvocation {
     let cx = rt_ctx.expect_custom_cx::<PTRayGenCtxInvocation>();
     let result_buffer = cx.result_buffer;
     let tonemap = cx.tonemap.clone();
-    let sample_count = cx.config.current_sample_count().load().into_f32();
+    let sample_count = cx.config.current_sample_count().load();
 
     if_by(r.is_resolved(), || {
       // generate primary ray
-      let normalized_position = image_position.into_f32() / image_size.into_f32();
-      let ray = cx.camera.generate_ray(normalized_position);
+      let sampler = &PCGRandomSampler::from_ray_ctx_and_sample_index(rg_cx, sample_count);
+
+      let ray = cx.camera.generate_ray(image_position, image_size, sampler);
       ray_origin.store(ray.origin);
       ray_dir.store(ray.direction);
     });
@@ -202,6 +203,7 @@ impl ShaderFutureInvocation for PTRayGenShaderFutureInvocation {
       //   .or(sample_result.z().is_nan());
       // let sample_result = is_nan.select(averaged_result, ldr_result);
 
+      let sample_count = sample_count.into_f32();
       let updated_average =
         (averaged_result * sample_count + ldr_result) / (sample_count + val(1.)).splat();
 

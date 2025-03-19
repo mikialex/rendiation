@@ -500,8 +500,10 @@ impl Viewer3dRenderingCtx {
         content.main_camera,
         &self.frame_logic.axis,
       );
-      let mut copy_scene_msaa_widgets =
-        copy_frame(widgets_result, BlendState::ALPHA_BLENDING.into());
+      let mut copy_scene_msaa_widgets = copy_frame(
+        widgets_result,
+        BlendState::PREMULTIPLIED_ALPHA_BLENDING.into(),
+      );
       pass("copy_scene_msaa_widgets")
         .with_color(&render_target, load())
         .render_ctx(&mut ctx)

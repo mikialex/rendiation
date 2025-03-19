@@ -22,6 +22,15 @@ pub struct ShaderRay {
   pub direction: Node<Vec3<f32>>,
 }
 
+impl ShaderRay {
+  pub fn transform(self, affine: Node<Mat4<f32>>) -> Self {
+    Self {
+      origin: (affine * (self.origin, val(1.)).into()).xyz(),
+      direction: affine.shrink_to_3() * self.direction,
+    }
+  }
+}
+
 #[derive(Clone, Copy)]
 pub struct ShaderRayRange {
   /// minimal distance for a ray hit
