@@ -12,6 +12,15 @@ struct NotifyScopeImpl {
   upstream: AtomicWaker,
 }
 
+impl futures::task::ArcWake for NotifyScopeImpl {
+  fn wake_by_ref(arc_self: &Arc<Self>) {
+    arc_self
+      .waked
+      .fetch_or(true, std::sync::atomic::Ordering::SeqCst);
+    arc_self.upstream.wake()
+  }
+}
+
 impl Default for NotifyScopeImpl {
   fn default() -> Self {
     Self {
@@ -22,37 +31,17 @@ impl Default for NotifyScopeImpl {
 }
 
 impl NotifyScope {
-  pub fn setup_waker(&self, upstream: Option<&mut Context>) {
-    if let Some(cx) = upstream {
-      self.inner.upstream.register(cx.waker());
-    }
-  }
-
+  /// trigger the waker manually
   pub fn wake(&self) {
     futures::task::ArcWake::wake_by_ref(&self.inner);
   }
-  pub fn update_once(&self, update: impl FnOnce(&mut Context)) -> bool {
-    self.poll_changed_update(update)
-  }
 
-  pub fn update_total(&self, mut update: impl FnMut(&mut Context)) -> bool {
-    let mut any_change = false;
-    loop {
-      if !self.poll_changed_update(&mut update) {
-        return any_change;
-      } else {
-        any_change = true
-      }
-    }
-  }
-
-  pub fn notify_by(&self, logic: impl FnOnce(&mut Context)) {
-    let waker = futures::task::waker_ref(&self.inner);
-    let mut cx = Context::from_waker(&waker);
-    logic(&mut cx)
-  }
-
-  fn poll_changed_update(&self, update: impl FnOnce(&mut Context)) -> bool {
+  pub fn run_if_previous_waked<R>(
+    &self,
+    cx: &mut Context,
+    logic: impl FnOnce(&mut Context) -> R,
+  ) -> Option<R> {
+    self.inner.upstream.register(cx.waker());
     if self
       .inner
       .waked
@@ -66,19 +55,32 @@ impl NotifyScope {
     {
       let waker = futures::task::waker_ref(&self.inner);
       let mut cx = Context::from_waker(&waker);
-      update(&mut cx);
-      true
+      Some(logic(&mut cx))
     } else {
-      false
+      None
     }
   }
-}
 
-impl futures::task::ArcWake for NotifyScopeImpl {
-  fn wake_by_ref(arc_self: &Arc<Self>) {
-    arc_self
+  pub fn run_and_return_previous_waked<R>(
+    &self,
+    cx: &mut Context,
+    logic: impl FnOnce(&mut Context) -> R,
+  ) -> (bool, R) {
+    self.inner.upstream.register(cx.waker());
+    let waked_before = self
+      .inner
       .waked
-      .fetch_or(true, std::sync::atomic::Ordering::SeqCst);
-    arc_self.upstream.wake()
+      .compare_exchange(
+        true,
+        false,
+        std::sync::atomic::Ordering::SeqCst,
+        std::sync::atomic::Ordering::SeqCst,
+      )
+      .is_ok();
+
+    let waker = futures::task::waker_ref(&self.inner);
+    let mut cx = Context::from_waker(&waker);
+    let r = logic(&mut cx);
+    (waked_before, r)
   }
 }

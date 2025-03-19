@@ -315,7 +315,8 @@ impl Viewer {
       self.on_demand_draw.wake();
     }
 
-    self.on_demand_draw.update_once(|cx| {
+    noop_ctx!(cx);
+    self.on_demand_draw.run_if_previous_waked(cx, |cx| {
       // println!("draw");
       self.rendering.render(canvas, &self.scene, cx)
     });

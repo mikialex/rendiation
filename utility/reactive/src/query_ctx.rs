@@ -8,13 +8,15 @@ use crate::*;
 /// can be seen as a dynamic sized join operator.
 #[derive(Default)]
 pub struct ReactiveQueryCtx {
-  registry: FastHashMap<u32, BoxedAnyReactiveQuery>,
+  registry: FastHashMap<u32, (BoxedAnyReactiveQuery, NotifyScope)>,
   next: u32,
 }
 
 impl ReactiveQueryCtx {
   pub fn register(&mut self, update: BoxedAnyReactiveQuery) -> QueryToken {
-    self.registry.insert(self.next, update);
+    self
+      .registry
+      .insert(self.next, (update, Default::default()));
     let token = self.next;
     self.next += 1;
     QueryToken(token)
@@ -57,12 +59,21 @@ impl ReactiveQueryCtx {
   }
 
   pub fn poll_update_all(&mut self, cx: &mut Context) -> QueryResultCtx {
+    let mut token_based_waked = FastHashMap::default();
+    let token_based_result = self
+      .registry
+      .iter_mut()
+      .map(|(k, v)| {
+        let (waked, result) = v
+          .1
+          .run_and_return_previous_waked(cx, |cx| v.0.poll_query(cx));
+        token_based_waked.insert(*k, waked);
+        (*k, result)
+      })
+      .collect();
     QueryResultCtx {
-      token_based_result: self
-        .registry
-        .iter_mut()
-        .map(|(k, v)| (*k, v.poll_query(cx)))
-        .collect(),
+      token_based_result,
+      token_based_waked,
       type_based_result: Default::default(),
     }
   }
@@ -86,6 +97,7 @@ impl Default for QueryToken {
 /// The joined update result of [[ReactiveQueryCtx]], accessed by [[QueryToken]]
 pub struct QueryResultCtx {
   pub token_based_result: FastHashMap<u32, Box<dyn Any>>,
+  pub token_based_waked: FastHashMap<u32, bool>,
   /// this field provides convenient way to inject any adhoc result for parameter passing
   pub type_based_result: AnyMap,
 }
@@ -93,6 +105,9 @@ pub struct QueryResultCtx {
 impl QueryResultCtx {
   pub fn take_result(&mut self, token: QueryToken) -> Option<Box<dyn Any>> {
     self.token_based_result.remove(&token.0)
+  }
+  pub fn check_token_waked(&self, token: QueryToken) -> Option<bool> {
+    self.token_based_waked.get(&token.0).copied()
   }
 
   pub fn take_reactive_query_updated<K: CKey, V: CValue>(
