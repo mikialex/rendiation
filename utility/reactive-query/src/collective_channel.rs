@@ -38,7 +38,10 @@ impl<K: CKey, T: CValue> CollectiveMutationSender<K, T> {
   ///
   /// this should be called after send
   pub unsafe fn unlock(&self) {
-    self.inner.1.wake();
+    let mutations = &mut *self.inner.0.data_ptr();
+    if !mutations.is_empty() {
+      self.inner.1.wake();
+    }
     self.inner.0.raw().unlock_exclusive()
   }
   /// # Safety

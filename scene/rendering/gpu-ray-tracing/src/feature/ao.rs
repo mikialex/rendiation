@@ -12,21 +12,25 @@ pub struct RayTracingAORenderSystem {
   system: RtxSystemCore,
   shader_handles: AOShaderHandles,
   ao_state: Arc<RwLock<Option<AORenderState>>>,
+  gpu: GPU,
+  source_set: QueryCtxSetInfo,
 }
 
 impl RayTracingAORenderSystem {
-  pub fn new(rtx: &RtxSystemCore) -> Self {
+  pub fn new(rtx: &RtxSystemCore, gpu: &GPU) -> Self {
     Self {
       sbt: Default::default(),
       executor: rtx.rtx_device.create_raytracing_pipeline_executor(),
       system: rtx.clone(),
       ao_state: Default::default(),
       shader_handles: Default::default(),
+      source_set: Default::default(),
+      gpu: gpu.clone(),
     }
   }
-  pub fn reset_ao_sample(&self, gpu: &GPU) {
+  pub fn reset_ao_sample(&self) {
     if let Some(state) = self.ao_state.write().as_mut() {
-      state.reset(gpu);
+      state.reset(&self.gpu);
     }
   }
 }
@@ -85,6 +89,7 @@ impl Default for AOShaderHandles {
 impl QueryBasedFeature<SceneRayTracingAORenderer> for RayTracingAORenderSystem {
   type Context = GPU;
   fn register(&mut self, qcx: &mut ReactiveQueryCtx, _: &GPU) {
+    qcx.record_new_registered(&mut self.source_set);
     let handles = AOShaderHandles::default();
     let mut sbt =
       self
@@ -122,6 +127,7 @@ impl QueryBasedFeature<SceneRayTracingAORenderer> for RayTracingAORenderSystem {
       });
 
     self.sbt = qcx.register_multi_updater(sbt);
+    qcx.end_record(&mut self.source_set);
   }
 
   fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
@@ -130,12 +136,18 @@ impl QueryBasedFeature<SceneRayTracingAORenderer> for RayTracingAORenderSystem {
 
   fn create_impl(&self, cx: &mut QueryResultCtx) -> SceneRayTracingAORenderer {
     let sbt = cx.take_multi_updater_updated::<GPUSbt>(self.sbt).unwrap();
-    SceneRayTracingAORenderer {
+    let r = SceneRayTracingAORenderer {
       executor: self.executor.clone(),
       sbt: sbt.target.clone(),
       ao_state: self.ao_state.clone(),
       shader_handles: self.shader_handles.clone(),
+      gpu: self.gpu.clone(),
+    };
+
+    if cx.has_any_changed_in_set(&self.source_set) {
+      r.reset_sample();
     }
+    r
   }
 }
 
@@ -144,6 +156,7 @@ pub struct SceneRayTracingAORenderer {
   sbt: GPUSbt,
   ao_state: Arc<RwLock<Option<AORenderState>>>,
   shader_handles: AOShaderHandles,
+  gpu: GPU,
 }
 
 #[repr(u32)]
@@ -163,6 +176,12 @@ impl AORayType {
 }
 
 impl SceneRayTracingAORenderer {
+  pub fn reset_sample(&self) {
+    if let Some(state) = self.ao_state.write().as_mut() {
+      state.reset(&self.gpu);
+    }
+  }
+
   #[instrument(name = "SceneRayTracingAORenderer rendering", skip_all)]
   pub fn render(
     &mut self,

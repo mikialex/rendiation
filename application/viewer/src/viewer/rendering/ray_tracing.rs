@@ -22,8 +22,8 @@ impl RayTracingSystemGroup {
   ) -> Self {
     Self {
       base: RayTracingSystemBase::new(rtx, gpu, camera_source),
-      ao: RayTracingAORenderSystem::new(rtx),
-      pt: DeviceReferencePathTracingSystem::new(rtx),
+      ao: RayTracingAORenderSystem::new(rtx, gpu),
+      pt: DeviceReferencePathTracingSystem::new(rtx, gpu),
     }
   }
 }

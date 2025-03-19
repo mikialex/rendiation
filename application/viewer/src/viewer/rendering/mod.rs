@@ -354,12 +354,12 @@ impl Viewer3dRenderingCtx {
         match self.rtx_effect_mode {
           RayTracingEffectMode::AO => {
             if ui.button("reset ao sample").clicked() {
-              renderer.ao.reset_ao_sample(&self.gpu);
+              renderer.ao.reset_ao_sample();
             }
           }
           RayTracingEffectMode::ReferenceTracing => {
             if ui.button("reset pt sample").clicked() {
-              renderer.pt.reset_sample(&self.gpu);
+              renderer.pt.reset_sample();
             }
           }
         }
@@ -423,6 +423,10 @@ impl Viewer3dRenderingCtx {
 
         match self.rtx_effect_mode {
           RayTracingEffectMode::AO => {
+            if rtx_renderer.base.any_changed {
+              rtx_renderer.ao.reset_sample();
+            }
+
             let ao_result = rtx_renderer.ao.render(
               &mut ctx,
               &mut rtx_renderer.base,
@@ -436,6 +440,10 @@ impl Viewer3dRenderingCtx {
               .by(&mut copy_frame(RenderTargetView::Texture(ao_result), None));
           }
           RayTracingEffectMode::ReferenceTracing => {
+            if rtx_renderer.base.any_changed {
+              rtx_renderer.pt.reset_sample();
+            }
+
             let result = rtx_renderer.pt.render(
               &mut ctx,
               &mut rtx_renderer.base,

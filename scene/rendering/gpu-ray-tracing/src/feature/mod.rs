@@ -36,6 +36,7 @@ pub struct RayTracingSystemBase {
   lighting: ScenePTLightingSource,
   texture_system: TextureGPUSystemSource,
   system: RtxSystemCore,
+  source_set: QueryCtxSetInfo,
 }
 
 impl RayTracingSystemBase {
@@ -56,6 +57,7 @@ impl RayTracingSystemBase {
       material: RtxSceneMaterialSource::default()
         .with_material_support(PbrMRMaterialDefaultIndirectRenderImplProvider::default())
         .with_material_support(PbrSGMaterialDefaultIndirectRenderImplProvider::default()),
+      source_set: Default::default(),
     }
   }
 }
@@ -68,11 +70,13 @@ pub struct SceneRayTracingRendererBase {
   pub material: SceneSurfaceSupport,
   pub lighting: ScenePTLightingSceneData,
   pub scene_ids: SceneIdUniformBufferAccess,
+  pub any_changed: bool,
 }
 
 impl QueryBasedFeature<SceneRayTracingRendererBase> for RayTracingSystemBase {
   type Context = GPU;
   fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
+    qcx.record_new_registered(&mut self.source_set);
     self.scene_tlas = qcx.register_reactive_query(scene_to_tlas(cx, self.system.rtx_acc.clone()));
     self.camera.register(qcx, cx);
     self.mesh.register(qcx, cx);
@@ -80,6 +84,7 @@ impl QueryBasedFeature<SceneRayTracingRendererBase> for RayTracingSystemBase {
     self.texture_system.register_resource(qcx, cx);
     self.lighting.register_resource(qcx, cx);
     self.scene_ids.register(qcx, cx);
+    qcx.end_record(&mut self.source_set);
   }
 
   fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
@@ -94,6 +99,7 @@ impl QueryBasedFeature<SceneRayTracingRendererBase> for RayTracingSystemBase {
 
   fn create_impl(&self, cx: &mut QueryResultCtx) -> SceneRayTracingRendererBase {
     let tex = self.texture_system.create_impl(cx);
+    let any_changed = cx.has_any_changed_in_set(&self.source_set);
     SceneRayTracingRendererBase {
       scene_tlas: cx.take_reactive_query_updated(self.scene_tlas).unwrap(),
       camera: self.camera.create_impl(cx),
@@ -102,6 +108,7 @@ impl QueryBasedFeature<SceneRayTracingRendererBase> for RayTracingSystemBase {
       material: self.material.create_impl(cx, &tex),
       lighting: self.lighting.create_impl(cx),
       scene_ids: self.scene_ids.create_impl(cx),
+      any_changed,
     }
   }
 }
