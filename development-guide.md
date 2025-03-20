@@ -37,6 +37,7 @@ important issue is in bold style.
 - indirect rendering
   - missing none index mesh, and line mesh draw support (camera helper not show)
   - lighting is not correct.
+- alpha cut is not discard
 
 ### Performance issues
 

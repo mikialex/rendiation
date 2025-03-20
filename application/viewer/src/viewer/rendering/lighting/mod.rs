@@ -348,7 +348,8 @@ impl GraphicsShaderProvider for LDROutput {
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, _| {
       let l = builder.query::<LDRLightResult>();
-      builder.register::<DefaultDisplay>((l, val(1.0)));
+      let alpha = builder.try_query::<AlphaChannel>().unwrap_or(val(1.0));
+      builder.register::<DefaultDisplay>((l, alpha));
     })
   }
 }

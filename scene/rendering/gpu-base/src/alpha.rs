@@ -16,7 +16,7 @@ impl ShaderAlphaConfig {
         let alpha = self
           .alpha
           .less_than(self.alpha_cutoff)
-          .select(val(0.), self.alpha);
+          .select(val(0.), self.alpha); // todo, impl correct discard alpha cut
         builder.register::<AlphaChannel>(alpha);
         builder.register::<AlphaCutChannel>(self.alpha_cutoff);
       }
@@ -76,7 +76,7 @@ impl TransparentHostOrderer {
         (distance, sm)
       })
       .collect::<Vec<_>>();
-    content.sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+    content.sort_unstable_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
 
     Box::new(DistanceReorderedHostRenderBatch {
       internal: Arc::new(content),
