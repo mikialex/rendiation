@@ -203,7 +203,8 @@ impl Widget for Viewer {
     });
 
     access_cx!(cx, draw_target_canvas, RenderTargetView);
-    self.draw_canvas(draw_target_canvas);
+    let derived = self.derives.poll_update();
+    self.draw_canvas(draw_target_canvas, &derived);
     self.rendering.tick_frame();
   }
 
@@ -310,7 +311,7 @@ impl Viewer {
     }
   }
 
-  pub fn draw_canvas(&mut self, canvas: &RenderTargetView) {
+  pub fn draw_canvas(&mut self, canvas: &RenderTargetView, scene_derive: &Viewer3dSceneDerive) {
     if !self.on_demand_rendering {
       self.on_demand_draw.wake();
     }
@@ -318,7 +319,7 @@ impl Viewer {
     noop_ctx!(cx);
     self.on_demand_draw.run_if_previous_waked(cx, |cx| {
       // println!("draw");
-      self.rendering.render(canvas, &self.scene, cx)
+      self.rendering.render(canvas, &self.scene, scene_derive, cx)
     });
   }
 }

@@ -54,6 +54,7 @@ impl ViewerFrameLogic {
     &mut self,
     ctx: &mut FrameCtx,
     renderer: &dyn SceneRenderer<ContentKey = SceneContentKey>,
+    scene_derive: &Viewer3dSceneDerive,
     lighting: &SceneLightSystem,
     tonemap: &ToneMap,
     content: &Viewer3dSceneCtx,
@@ -115,12 +116,37 @@ impl ViewerFrameLogic {
               scene_pass_dispatcher,
             );
 
-            let mut all_transparent_object = renderer.extract_and_make_pass_content(
-              SceneContentKey::only_alpha_blend_objects(),
+            let all_transparent_object = renderer.extract_scene_batch(
               content.scene,
-              CameraRenderSource::Scene(content.main_camera),
+              SceneContentKey::only_alpha_blend_objects(),
               ctx,
+            );
+
+            let all_transparent_object = if let SceneModelRenderBatch::Host(
+              all_transparent_object,
+            ) = &all_transparent_object
+            {
+              let camera_position = scene_derive
+                .camera_transforms
+                .access(&content.main_camera)
+                .unwrap()
+                .world
+                .position();
+              let all_transparent_object = TransparentHostOrderer {
+                world_bounding: scene_derive.sm_world_bounding.clone(),
+              }
+              .reorder_content(all_transparent_object.as_ref(), camera_position);
+
+              SceneModelRenderBatch::Host(all_transparent_object)
+            } else {
+              all_transparent_object
+            };
+
+            let mut all_transparent_object = renderer.make_scene_batch_pass_content(
+              all_transparent_object,
+              CameraRenderSource::Scene(content.main_camera),
               scene_pass_dispatcher,
+              ctx,
             );
 
             pass_base

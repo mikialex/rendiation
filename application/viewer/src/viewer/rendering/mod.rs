@@ -401,6 +401,7 @@ impl Viewer3dRenderingCtx {
     &mut self,
     target: &RenderTargetView,
     content: &Viewer3dSceneCtx,
+    scene_derive: &Viewer3dSceneDerive,
     cx: &mut Context,
   ) {
     let span = span!(Level::INFO, "update all rendering resource");
@@ -474,6 +475,7 @@ impl Viewer3dRenderingCtx {
       let entity_id = self.frame_logic.render(
         &mut ctx,
         renderer.as_ref(),
+        scene_derive,
         &lighting,
         tonemap,
         content,

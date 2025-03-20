@@ -56,7 +56,7 @@ pub fn all_kinds_of_materials_enabled_alpha_blending(
 }
 
 pub struct TransparentHostOrderer {
-  world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3>,
+  pub world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3>,
 }
 
 impl TransparentHostOrderer {
