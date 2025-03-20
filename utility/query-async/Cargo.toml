@@ -1,0 +1,19 @@
+[package]
+edition = "2021"
+name = "query-async"
+version = "0.0.1"
+
+[dependencies]
+dyn-downcast = { path = "../dyn-downcast" }
+fast-hash-collection = { path = "../fast-hash-collection" }
+dyn-clone = { workspace = true }
+dashmap = { workspace = true }
+storage = { path = "../storage" }
+futures = { workspace = true }
+query = { path = "../query" }
+
+# we use it's rwlock to avoid recursive read deadlock
+parking_lot = { workspace = true }
+
+[lints]
+workspace = true

@@ -21,3 +21,16 @@ pub trait CKey: Eq + Hash + CValue {}
 impl<T> CKey for T where T: Eq + Hash + CValue {}
 pub trait CValue: Clone + Send + Sync + std::fmt::Debug + PartialEq + 'static {}
 impl<T> CValue for T where T: Clone + Send + Sync + std::fmt::Debug + PartialEq + 'static {}
+
+#[inline(always)]
+pub fn avoid_huge_debug_symbols_by_boxing_iter<'a, T: 'a>(
+  iter: impl Iterator<Item = T> + 'a,
+) -> impl Iterator<Item = T> + 'a {
+  #[cfg(debug_assertions)]
+  {
+    Box::new(iter) as Box<dyn Iterator<Item = T>>
+  }
+
+  #[cfg(not(debug_assertions))]
+  iter
+}

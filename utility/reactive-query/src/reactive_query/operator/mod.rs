@@ -160,7 +160,6 @@ where
       b: other,
       f,
     }
-    .into_boxed() // todo, remove this in release build
   }
 
   /// K should not overlap

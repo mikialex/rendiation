@@ -14,14 +14,13 @@ where
   type Key = T::Key;
   type Value = V2;
   type Changes = impl Query<Key = Self::Key, Value = ValueChange<V2>>;
-  type View = impl Query<Key = Self::Key, Value = V2>;
+  type View = MappedQuery<F, T::View>;
 
   #[tracing::instrument(skip_all, name = "ReactiveKVMap")]
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let (d, v) = self.inner.poll_changes(cx);
     let map = self.map;
     let d = d.map(move |k, v| v.map(|v| map(k, v)));
-
     let v = v.map(self.map);
 
     (d, v)

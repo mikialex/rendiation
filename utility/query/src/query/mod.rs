@@ -9,6 +9,8 @@ pub use operator::*;
 mod self_contain;
 pub use self_contain::*;
 
+pub type QueryMaterialized<K, V> = FastHashMap<K, V>;
+
 pub trait Query: Send + Sync + Clone {
   type Key: CKey;
   type Value: CValue;
@@ -18,10 +20,10 @@ pub trait Query: Send + Sync + Clone {
     self.access(key).is_some()
   }
 
-  fn materialize(&self) -> Arc<FastHashMap<Self::Key, Self::Value>> {
+  fn materialize(&self) -> Arc<QueryMaterialized<Self::Key, Self::Value>> {
     Arc::new(self.iter_key_value().collect())
   }
-  fn materialize_hashmap_maybe_cloned(&self) -> FastHashMap<Self::Key, Self::Value> {
+  fn materialize_hashmap_maybe_cloned(&self) -> QueryMaterialized<Self::Key, Self::Value> {
     Arc::try_unwrap(self.materialize()).unwrap_or_else(|m| m.deref().clone())
   }
 }
