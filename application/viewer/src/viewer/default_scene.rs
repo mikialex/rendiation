@@ -5,6 +5,7 @@ use crate::*;
 
 pub fn load_default_scene(writer: &mut SceneWriter, _viewer_scene: &Viewer3dSceneCtx) {
   // test_ltc_lighting(writer);
+  load_transparent_test(writer);
 
   // textured ball
   {

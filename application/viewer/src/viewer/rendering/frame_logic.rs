@@ -85,9 +85,6 @@ impl ViewerFrameLogic {
         let g_buffer = FrameGeometryBuffer::new(ctx);
 
         let (color_ops, depth_ops) = renderer.init_clear(content.scene);
-        let key = SceneContentKey {
-          only_alpha_blend_objects: None,
-        };
 
         let mut background = renderer.render_background(
           content.scene,
@@ -110,8 +107,16 @@ impl ViewerFrameLogic {
               lighting.as_ref(),
             ]) as &dyn RenderComponent;
 
-            let mut main_scene_content = renderer.extract_and_make_pass_content(
-              key,
+            let mut all_opaque_object = renderer.extract_and_make_pass_content(
+              SceneContentKey::only_opaque_objects(),
+              content.scene,
+              CameraRenderSource::Scene(content.main_camera),
+              ctx,
+              scene_pass_dispatcher,
+            );
+
+            let mut all_transparent_object = renderer.extract_and_make_pass_content(
+              SceneContentKey::only_alpha_blend_objects(),
               content.scene,
               CameraRenderSource::Scene(content.main_camera),
               ctx,
@@ -123,7 +128,8 @@ impl ViewerFrameLogic {
               // the following pass will check depth to decide if pixel is background,
               // so miss overwrite other channel is not a problem here
               .by(&mut background)
-              .by(&mut main_scene_content);
+              .by(&mut all_opaque_object)
+              .by(&mut all_transparent_object);
           }
           LightingTechniqueKind::DeferLighting => {
             let mut pass_base = pass("scene");
@@ -143,7 +149,7 @@ impl ViewerFrameLogic {
             ]) as &dyn RenderComponent;
 
             let mut main_scene_content = renderer.extract_and_make_pass_content(
-              key,
+              SceneContentKey::default(),
               content.scene,
               CameraRenderSource::Scene(content.main_camera),
               ctx,

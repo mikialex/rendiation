@@ -77,9 +77,22 @@ pub enum CameraRenderSource {
 
 pub type GPUTextureBindingSystem = Box<dyn DynAbstractGPUTextureSystem>;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct SceneContentKey {
   pub only_alpha_blend_objects: Option<bool>,
+}
+
+impl SceneContentKey {
+  pub fn only_opaque_objects() -> Self {
+    Self {
+      only_alpha_blend_objects: Some(false),
+    }
+  }
+  pub fn only_alpha_blend_objects() -> Self {
+    Self {
+      only_alpha_blend_objects: Some(true),
+    }
+  }
 }
 
 /// A scene renderer that encapsulate the scene rendering ability.
