@@ -418,7 +418,14 @@ fn egui(
     .open(&mut ui_state.show_gpu_info)
     .vscroll(true)
     .show(ui, |ui| {
-      let info = &rendering.gpu().info;
+      let gpu = rendering.gpu();
+      let info = &gpu.info;
+
+      let mut enable_bind_check = gpu.device.get_binding_ty_check_enabled();
+      ui.checkbox(&mut enable_bind_check, "enable bind type check");
+      gpu.device.set_binding_ty_check_enabled(enable_bind_check);
+
+      ui.separator();
 
       ui.collapsing("adaptor info", |ui| {
         ui.label(format!("{:#?}", info.adaptor_info));

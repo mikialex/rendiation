@@ -7,6 +7,8 @@ Contents and Responsibility:
 * Provide bindgroup cache and binding encapsulation, user could not care bindgroup management at all.
 * Provide async functions for resource async read.
 * Using stricter and polished api surface to reduce runtime exception.
+* Moving forward some validation check at first error commit site, make it easy to debug issue.
+* Enable more advance validation check, such as check if buffer binding has same data type.
 * ~~Workaround annoying wgpu lifetime limitations, but also expose raw api for performance.~~
   * this issue is fixed upstream at wgpu version 22. however wgpu::RenderPass<'static> is ugly to use and some kind of the encapsulation still preferred.
 * Bridge the shader and pipeline infrastructure to RRF shader api system.

@@ -13,8 +13,7 @@ important issue is in bold style.
 - mipmap and multi format support in texture pool system
 - bindless mesh does not support optional uv and normal attributes
 - optimize frame ctx "make_submit" call, use copy buffer to buffer to update.
-- alpha blending is not implement at all
-- support per material custom state control
+- support face side control
   - support double side config in gltf loader
   - fix gizmo plane move only one side is visible
 - light uniform array not skip none exist light
@@ -37,6 +36,7 @@ important issue is in bold style.
 - indirect rendering
   - missing none index mesh, and line mesh draw support (camera helper not show)
   - lighting is not correct.
+    - because texture pool is using none srgb texture fmt
 - alpha cut is not discard
 
 ### Performance issues
@@ -83,6 +83,7 @@ important issue is in bold style.
 
 - not reported or further investigate
   - naga metal backend has layout bug, (buffer combine with rtao shader breaks on Metal, workaound by adding manual padding in struct end).
+  - draw on TextureFormat::R8Unorm when enable blend cause strange effect
 - known but not fixed yet
   - correct hdr rendering, see <https://github.com/gfx-rs/wgpu/issues/2920>;
 

@@ -119,12 +119,14 @@ pub struct GPURenderPassCtx {
   pub gpu: GPU,
   pub binding: BindingBuilder,
   incremental_vertex_binding_index: u32,
+  pub enable_bind_check: bool,
 }
 
 impl GPURenderPassCtx {
   pub fn new(pass: GPURenderPass, gpu: GPU) -> Self {
     Self {
       pass,
+      enable_bind_check: gpu.device.get_binding_ty_check_enabled(),
       gpu,
       binding: Default::default(),
       incremental_vertex_binding_index: 0,

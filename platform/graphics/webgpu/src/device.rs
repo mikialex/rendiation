@@ -30,11 +30,20 @@ impl GPUDevice {
       compute_pipeline_cache: Default::default(),
       placeholder_bg: Arc::new(placeholder_bg),
       deferred_explicit_destroy: Default::default(),
+      enable_binding_ty_check: Arc::new(RwLock::new(false)),
     };
 
     Self {
       inner: Arc::new(inner),
     }
+  }
+
+  pub fn set_binding_ty_check_enabled(&self, v: bool) {
+    *self.inner.enable_binding_ty_check.write() = v;
+  }
+
+  pub fn get_binding_ty_check_enabled(&self) -> bool {
+    *self.inner.enable_binding_ty_check.read()
   }
 
   pub fn create_cache_report(&self) -> GPUResourceCacheSizeReport {
@@ -103,8 +112,6 @@ impl GPUDevice {
     &self,
     iter: impl IntoIterator<Item = (&'a ShaderBindingDescriptor, ShaderStages)> + Clone,
   ) -> GPUBindGroupLayout {
-    let layouts: Vec<_> = iter.clone().into_iter().map(|v| v.0).cloned().collect();
-
     let raw_layouts: Vec<_> = iter
       .into_iter()
       .enumerate()
@@ -127,9 +134,8 @@ impl GPUDevice {
           entries: &raw_layouts,
         });
         GPUBindGroupLayout {
-          inner: Arc::new(inner),
+          inner,
           cache_id: key,
-          layouts,
         }
       })
       .clone()
@@ -187,6 +193,7 @@ pub(crate) struct GPUDeviceImpl {
   compute_pipeline_cache: RwLock<FastHashMap<u64, GPUComputePipeline>>,
   pub(crate) deferred_explicit_destroy: DeferExplicitDestroy,
   pub(crate) placeholder_bg: Arc<gpu::BindGroup>,
+  pub(crate) enable_binding_ty_check: Arc<RwLock<bool>>,
 }
 
 impl Deref for GPUDevice {

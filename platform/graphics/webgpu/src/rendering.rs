@@ -26,7 +26,7 @@ pub trait RenderComponent: ShaderHashProvider + GraphicsShaderProvider + ShaderP
     ctx.binding.reset();
     ctx.reset_vertex_binding_index();
 
-    if ENABLE_BINDING_TYPE_MATCH_CHECKING {
+    if ctx.enable_bind_check {
       ctx.binding.setup_checking_layout(&pipeline.bg_layouts);
     }
 

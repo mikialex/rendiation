@@ -29,10 +29,15 @@ impl<T> Clone for GPUPipeline<T> {
 }
 
 impl<T> GPUPipeline<T> {
-  fn new(pipeline: T, bg_layouts: Vec<GPUBindGroupLayout>) -> Self {
+  fn new(
+    pipeline: T,
+    raw_bg_layouts: Vec<GPUBindGroupLayout>,
+    bg_layouts: Vec<Vec<ShaderBindingDescriptor>>,
+  ) -> Self {
     let inner = GPUPipelineImpl {
       pipeline,
       bg_layouts,
+      raw_bg_layouts,
     };
     Self {
       inner: Arc::new(inner),
@@ -42,7 +47,8 @@ impl<T> GPUPipeline<T> {
 
 pub struct GPUPipelineImpl<T> {
   pub pipeline: T,
-  pub bg_layouts: Vec<GPUBindGroupLayout>,
+  pub raw_bg_layouts: Vec<GPUBindGroupLayout>,
+  pub bg_layouts: Vec<Vec<ShaderBindingDescriptor>>,
 }
 
 impl<T> Deref for GPUPipelineImpl<T> {
@@ -218,7 +224,7 @@ impl GPUDevice {
     let vertex = self.create_shader_module_by_shader_api(naga_vertex, log_result);
     let fragment = self.create_shader_module_by_shader_api(naga_fragment, log_result);
 
-    let (layouts, pipeline_layout) = create_layouts(self, &bindings);
+    let (raw_layouts, layouts, pipeline_layout) = create_layouts(self, &bindings);
 
     let vertex_buffers: Vec<_> = vertex_layouts.iter().map(convert_vertex_layout).collect();
 
@@ -248,14 +254,18 @@ impl GPUDevice {
       cache: None,
     });
 
-    Ok(GPUPipeline::new(pipeline, layouts))
+    Ok(GPUPipeline::new(pipeline, raw_layouts, layouts))
   }
 }
 
 fn create_layouts(
   device: &GPUDevice,
   builder: &ShaderBindGroupBuilder,
-) -> (Vec<GPUBindGroupLayout>, wgpu::PipelineLayout) {
+) -> (
+  Vec<GPUBindGroupLayout>,
+  Vec<Vec<ShaderBindingDescriptor>>,
+  wgpu::PipelineLayout,
+) {
   let binding = &builder.bindings;
   let last_empty_count = binding
     .iter()
@@ -263,7 +273,7 @@ fn create_layouts(
     .take_while(|l| l.bindings.is_empty())
     .count();
 
-  let layouts: Vec<_> = binding
+  let raw_layouts: Vec<_> = binding
     .get(0..binding.len() - last_empty_count)
     .unwrap()
     .iter()
@@ -272,14 +282,21 @@ fn create_layouts(
     })
     .collect();
 
-  let layouts_ref: Vec<_> = layouts.iter().map(|l| l.inner.as_ref()).collect();
+  let layouts: Vec<_> = binding
+    .get(0..binding.len() - last_empty_count)
+    .unwrap()
+    .iter()
+    .map(|b| b.bindings.iter().map(|e| e.desc.clone()).collect())
+    .collect();
+
+  let layouts_ref: Vec<_> = raw_layouts.iter().map(|l| &l.inner).collect();
 
   let pipeline_layout = device.create_pipeline_layout(&gpu::PipelineLayoutDescriptor {
     label: None,
     bind_group_layouts: layouts_ref.as_slice(),
     push_constant_ranges: &[],
   });
-  (layouts, pipeline_layout)
+  (raw_layouts, layouts, pipeline_layout)
 }
 
 fn convert_module_by_wgsl(module: &naga::Module, v: naga::valid::ValidationFlags) -> String {
@@ -326,7 +343,7 @@ impl ComputeIntoPipelineExt for ShaderComputePipelineBuilder {
     let naga_compute = shader.downcast::<naga::Module>().unwrap();
     let module = device.create_shader_module_by_shader_api(*naga_compute, log_result);
 
-    let (layouts, pipeline_layout) = create_layouts(device, &result.bindings);
+    let (raw_layouts, layouts, pipeline_layout) = create_layouts(device, &result.bindings);
 
     let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
       label: None,
@@ -337,6 +354,6 @@ impl ComputeIntoPipelineExt for ShaderComputePipelineBuilder {
       cache: None,
     });
 
-    Ok(GPUPipeline::new(pipeline, layouts))
+    Ok(GPUPipeline::new(pipeline, raw_layouts, layouts))
   }
 }

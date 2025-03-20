@@ -131,6 +131,10 @@ impl GraphicsShaderProvider for HighLightMaskDispatcher {
 
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, _| {
+      builder
+        .frag_output
+        .iter_mut()
+        .for_each(|p| p.states.blend = None);
       builder.store_fragment_out(0, val(1.0));
     })
   }

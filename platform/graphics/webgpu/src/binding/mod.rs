@@ -11,8 +11,6 @@ pub use bind_source::*;
 mod owned;
 pub use owned::*;
 
-pub const ENABLE_BINDING_TYPE_MATCH_CHECKING: bool = false;
-
 pub trait BindableResourceProvider {
   fn get_bindable(&self) -> BindingResourceOwned;
 }
@@ -23,8 +21,7 @@ pub trait BindableResourceView {
 
 #[derive(Clone)]
 pub struct GPUBindGroupLayout {
-  pub(crate) inner: Arc<gpu::BindGroupLayout>,
-  pub(crate) layouts: Vec<ShaderBindingDescriptor>,
+  pub(crate) inner: gpu::BindGroupLayout,
   pub(crate) cache_id: u64,
 }
 
@@ -72,7 +69,7 @@ impl BindGroupBuilder {
 
 pub struct BindingBuilder {
   groups: [BindGroupBuilder; 5],
-  checking_layouts: Option<Vec<GPUBindGroupLayout>>,
+  checking_layouts: Option<Vec<Vec<ShaderBindingDescriptor>>>,
   current_index: usize,
 }
 
@@ -96,7 +93,7 @@ impl BindingBuilder {
     self.groups.iter()
   }
 
-  pub fn setup_checking_layout(&mut self, layouts: &[GPUBindGroupLayout]) {
+  pub fn setup_checking_layout(&mut self, layouts: &[Vec<ShaderBindingDescriptor>]) {
     self.checking_layouts = Some(layouts.to_owned());
   }
 
@@ -106,6 +103,7 @@ impl BindingBuilder {
 
   pub fn reset(&mut self) {
     self.groups.iter_mut().for_each(|item| item.reset());
+    self.checking_layouts = None;
   }
 
   pub fn with_bind<T>(mut self, item: &T) -> Self
@@ -155,10 +153,10 @@ impl BindingBuilder {
         same
       }
 
-      if !is_layout_match(&desc, &layout.layouts[target_idx]) {
+      if !is_layout_match(&desc, &layout[target_idx]) {
         panic!(
           "binding mismatch: \n binding is: \n {:#?}, \n pipeline expect: \n {:#?}",
-          &desc, &layout.layouts[target_idx]
+          &desc, &layout[target_idx]
         );
       }
     }
@@ -222,7 +220,7 @@ impl BindingBuilder {
     device: &GPUDevice,
     pipeline: &GPUComputePipeline,
   ) {
-    self.setup_binding(pass, device, &pipeline.bg_layouts);
+    self.setup_binding(pass, device, &pipeline.raw_bg_layouts);
     pass.set_gpu_pipeline(pipeline);
   }
 
@@ -232,7 +230,7 @@ impl BindingBuilder {
     device: &GPUDevice,
     pipeline: &GPURenderPipeline,
   ) {
-    self.setup_binding(pass, device, &pipeline.bg_layouts);
+    self.setup_binding(pass, device, &pipeline.raw_bg_layouts);
     pass.set_gpu_pipeline(pipeline);
   }
 }
