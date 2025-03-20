@@ -25,6 +25,7 @@ use reactive::*;
 use rendiation_algebra::*;
 use rendiation_color::*;
 use rendiation_device_parallel_compute::*;
+use rendiation_geometry::*;
 use rendiation_scene_core::*;
 use rendiation_shader_api::*;
 use rendiation_texture_core::*;

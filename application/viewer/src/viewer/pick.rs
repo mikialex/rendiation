@@ -27,7 +27,7 @@ impl ViewerPicker {
     camera_id: EntityHandle<SceneCameraEntity>,
   ) -> Self {
     let scene_model_picker = SceneModelPickerImpl {
-      mesh_bounding: dep.mesh_local_bounding.clone(),
+      sm_bounding: dep.sm_world_bounding.clone(),
       scene_model_node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
       model_access_std_model: global_entity_component_of::<SceneModelStdModelRenderPayload>()
         .read_foreign_key(),

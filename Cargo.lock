@@ -3757,6 +3757,7 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-color",
  "rendiation-device-parallel-compute",
+ "rendiation-geometry",
  "rendiation-lighting-gpu-system",
  "rendiation-scene-core",
  "rendiation-shader-api",

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::*;
 
 pub struct ShaderAlphaConfig {
@@ -51,4 +53,44 @@ pub fn all_kinds_of_materials_enabled_alpha_blending(
   sg.collective_select(mr)
     .collective_select(unlit)
     .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelStdModelRenderPayload>())
+}
+
+pub struct TransparentHostOrderer {
+  world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3>,
+}
+
+impl TransparentHostOrderer {
+  pub fn reorder_content(
+    &self,
+    content: &dyn HostRenderBatch,
+    camera_position: Vec3<f32>,
+  ) -> Box<dyn HostRenderBatch> {
+    let mut content = content
+      .iter_scene_models()
+      .map(|sm| {
+        let distance = if let Some(bounding) = self.world_bounding.access(&sm) {
+          bounding.center().distance2_to(camera_position)
+        } else {
+          0.
+        };
+        (distance, sm)
+      })
+      .collect::<Vec<_>>();
+    content.sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+
+    Box::new(DistanceReorderedHostRenderBatch {
+      internal: Arc::new(content),
+    })
+  }
+}
+
+#[derive(Clone)]
+struct DistanceReorderedHostRenderBatch {
+  internal: Arc<Vec<(f32, EntityHandle<SceneModelEntity>)>>,
+}
+
+impl HostRenderBatch for DistanceReorderedHostRenderBatch {
+  fn iter_scene_models(&self) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + '_> {
+    Box::new(self.internal.as_slice().iter().map(|(_, sm)| *sm))
+  }
 }

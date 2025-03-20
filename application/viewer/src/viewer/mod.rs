@@ -284,7 +284,7 @@ impl Viewer {
           .watch_inv_ref::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>(),
       ),
       sm_to_s: Box::new(global_rev_ref().watch_inv_ref::<SceneModelBelongsToScene>()),
-      mesh_local_bounding: Box::new(attribute_mesh_local_bounding()),
+      sm_world_bounding: Box::new(scene_model_world_bounding()),
       node_children: Box::new(scene_node_connectivity_many_one_relation()),
     };
 
@@ -462,7 +462,7 @@ pub struct Viewer3dSceneDeriveSource {
   pub mesh_vertex_ref:
     RevRefOfForeignKeyWatch<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>,
   pub sm_to_s: RevRefOfForeignKeyWatch<SceneModelBelongsToScene>,
-  pub mesh_local_bounding: BoxedDynReactiveQuery<EntityHandle<AttributesMeshEntity>, Box3<f32>>,
+  pub sm_world_bounding: BoxedDynReactiveQuery<EntityHandle<SceneModelEntity>, Box3<f32>>,
   pub node_children:
     BoxedDynReactiveOneToManyRelation<EntityHandle<SceneNodeEntity>, EntityHandle<SceneNodeEntity>>,
 }
@@ -476,14 +476,14 @@ impl Viewer3dSceneDeriveSource {
     let (_, camera_transforms) = self.camera_transforms.poll_changes(cx);
     let (_, _, mesh_vertex_ref) = self.mesh_vertex_ref.poll_changes_with_inv_dyn(cx);
     let (_, _, sm_to_s) = self.sm_to_s.poll_changes_with_inv_dyn(cx);
-    let (_, mesh_local_bounding) = self.mesh_local_bounding.poll_changes(cx);
+    let (_, sm_world_bounding) = self.sm_world_bounding.poll_changes(cx);
     let (_, _, node_children) = self.node_children.poll_changes_with_inv_dyn(cx);
     Viewer3dSceneDerive {
       world_mat,
       camera_transforms,
       mesh_vertex_ref,
       node_net_visible,
-      mesh_local_bounding,
+      sm_world_bounding,
       node_children,
       sm_to_s,
     }
@@ -500,7 +500,7 @@ pub struct Viewer3dSceneDerive {
   pub camera_transforms: BoxedDynQuery<EntityHandle<SceneCameraEntity>, CameraTransform>,
   pub mesh_vertex_ref:
     RevRefOfForeignKey<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>,
-  pub mesh_local_bounding: BoxedDynQuery<EntityHandle<AttributesMeshEntity>, Box3<f32>>,
+  pub sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f32>>,
   pub sm_to_s: RevRefOfForeignKey<SceneModelBelongsToScene>,
 }
 

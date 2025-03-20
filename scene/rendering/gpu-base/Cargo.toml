@@ -9,6 +9,7 @@ version = "0.1.0"
 dyn-clone = { workspace = true }
 rendiation-color = { path = "../../../content/color" }
 rendiation-algebra = { path = "../../../math/algebra" }
+rendiation-geometry = { path = "../../../math/geometry" }
 fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 rendiation-scene-core = { path = "../../core" }
 reactive = { path = "../../../utility/reactive" }

@@ -11,6 +11,9 @@ pub enum SceneModelRenderBatch {
 
 pub trait HostRenderBatch: DynClone {
   fn iter_scene_models(&self) -> Box<dyn Iterator<Item = EntityHandle<SceneModelEntity>> + '_>;
+  fn materialize(&self) -> Vec<EntityHandle<SceneModelEntity>> {
+    self.iter_scene_models().collect()
+  }
 }
 #[derive(Clone)]
 pub struct IteratorAsHostRenderBatch<T>(pub T);
