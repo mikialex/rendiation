@@ -9,7 +9,7 @@ where
 {
   type Key = T1::Key;
   type Value = O;
-  type Changes = impl Query<Key = T1::Key, Value = ValueChange<O>>;
+  type Changes = UnionValueChange<T1::View, T2::View, T1::Changes, T2::Changes, F>;
   type View = UnionQuery<T1::View, T2::View, F>;
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let (t1, a_access) = self.a.poll_changes(cx);
@@ -41,12 +41,12 @@ where
 }
 
 #[derive(Clone)]
-struct UnionValueChange<A, B, AD, BD, F> {
-  a: AD,
-  b: BD,
-  a_current: A,
-  b_current: B,
-  f: F,
+pub struct UnionValueChange<A, B, AD, BD, F> {
+  pub a: AD,
+  pub b: BD,
+  pub a_current: A,
+  pub b_current: B,
+  pub f: F,
 }
 
 impl<A, B, AD, BD, K, V1, V2, F, O> Query for UnionValueChange<A, B, AD, BD, F>

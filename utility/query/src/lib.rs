@@ -20,8 +20,11 @@ pub use query::*;
 mod multi_query;
 pub use multi_query::*;
 
+/// common key that could be used in query system
 pub trait CKey: Eq + Hash + CValue {}
 impl<T> CKey for T where T: Eq + Hash + CValue {}
+
+/// common value that could be used in query system
 pub trait CValue: Clone + Send + Sync + std::fmt::Debug + PartialEq + 'static {}
 impl<T> CValue for T where T: Clone + Send + Sync + std::fmt::Debug + PartialEq + 'static {}
 

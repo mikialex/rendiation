@@ -51,9 +51,8 @@ where
   type Key = T::Key;
   type Value = T::Value;
 
-  type Changes = impl Query<Key = T::Key, Value = ValueChange<T::Value>>;
-  type View =
-    impl MultiQuery<Key = T::Value, Value = T::Key> + Query<Key = T::Key, Value = T::Value>;
+  type Changes = T::Changes;
+  type View = OneToManyRefHashBookKeepingCurrentView<T::View>;
 
   #[tracing::instrument(skip_all, name = "OneToManyRefHashBookKeeping")]
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {

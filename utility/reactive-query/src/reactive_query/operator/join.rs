@@ -7,8 +7,8 @@ where
 {
   type Key = (A::Key, B::Key);
   type Value = (A::Value, B::Value);
-  type Changes = impl Query<Key = Self::Key, Value = ValueChange<Self::Value>>;
-  type View = impl Query<Key = Self::Key, Value = Self::Value>;
+  type Changes = CrossJoinValueChange<A::View, B::View, A::Changes, B::Changes>;
+  type View = CrossJoinQuery<A::View, B::View>;
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let (t1, a_access) = self.a.poll_changes(cx);
     let (t2, b_access) = self.b.poll_changes(cx);
@@ -38,27 +38,23 @@ where
 }
 
 #[derive(Clone)]
-struct CrossJoinValueChange<A, B, DA, DB> {
-  a: DA,
-  b: DB,
-  a_current: A,
-  b_current: B,
+pub struct CrossJoinValueChange<A, B, DA, DB> {
+  pub a: DA,
+  pub b: DB,
+  pub a_current: A,
+  pub b_current: B,
 }
 
-impl<A, B, DA, DB, K1, K2, V1, V2> Query for CrossJoinValueChange<A, B, DA, DB>
+impl<A, B, DA, DB> Query for CrossJoinValueChange<A, B, DA, DB>
 where
-  K1: CKey,
-  K2: CKey,
-  V1: CValue,
-  V2: CValue,
-  DA: Query<Key = K1, Value = ValueChange<V1>>,
-  DB: Query<Key = K2, Value = ValueChange<V2>>,
-  A: Query<Key = K1, Value = V1>,
-  B: Query<Key = K2, Value = V2>,
+  DA: Query<Key = A::Key, Value = ValueChange<A::Value>>,
+  DB: Query<Key = B::Key, Value = ValueChange<B::Value>>,
+  A: Query,
+  B: Query,
 {
-  type Key = (K1, K2);
-  type Value = ValueChange<(V1, V2)>;
-  fn iter_key_value(&self) -> impl Iterator<Item = ((K1, K2), ValueChange<(V1, V2)>)> + '_ {
+  type Key = (A::Key, B::Key);
+  type Value = ValueChange<(A::Value, B::Value)>;
+  fn iter_key_value(&self) -> impl Iterator<Item = (Self::Key, Self::Value)> + '_ {
     let cross_section = self.a.iter_key_value().flat_map(move |(k1, v1_change)| {
       self.b.iter_key_value().map(move |(k2, v2_change)| {
         join_change(
@@ -117,7 +113,7 @@ where
       .chain(b_side_change_with_a)
   }
 
-  fn access(&self, (k1, k2): &(K1, K2)) -> Option<ValueChange<(V1, V2)>> {
+  fn access(&self, (k1, k2): &(A::Key, B::Key)) -> Option<Self::Value> {
     join_change(
       &k1,
       &k2,

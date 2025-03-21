@@ -10,7 +10,6 @@ mod map;
 pub use map::*;
 
 mod filter;
-pub use filter::*;
 
 mod join;
 pub use join::*;
@@ -252,11 +251,7 @@ where
     ReactiveQueryDiff { inner: self }
   }
 
-  fn debug(
-    self,
-    label: &'static str,
-    log_change: bool,
-  ) -> impl ReactiveQuery<Key = Self::Key, Value = Self::Value> {
+  fn debug(self, label: &'static str, log_change: bool) -> ReactiveQueryDebug<Self> {
     ReactiveQueryDebug {
       inner: self,
       state: Default::default(),

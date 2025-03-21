@@ -1,33 +1,5 @@
 use crate::*;
 
-pub fn make_checker<V, V2>(
-  checker: impl Fn(V) -> Option<V2> + Clone + Send + Sync + 'static,
-) -> impl Fn(ValueChange<V>) -> Option<ValueChange<V2>> + Clone + Send + Sync + 'static {
-  move |delta| {
-    match delta {
-      ValueChange::Delta(v, pre_v) => {
-        let new_map = checker(v);
-        let pre_map = pre_v.and_then(checker.clone());
-        match (new_map, pre_map) {
-          (Some(v), Some(pre_v)) => ValueChange::Delta(v, Some(pre_v)),
-          (Some(v), None) => ValueChange::Delta(v, None),
-          (None, Some(pre_v)) => ValueChange::Remove(pre_v),
-          (None, None) => return None,
-        }
-        .into()
-      }
-      // the Remove variant maybe called many times for given k
-      ValueChange::Remove(pre_v) => {
-        let pre_map = checker(pre_v);
-        match pre_map {
-          Some(pre) => ValueChange::Remove(pre).into(),
-          None => None,
-        }
-      }
-    }
-  }
-}
-
 impl<T, F, V2> ReactiveQuery for FilterMapQuery<T, F>
 where
   F: Fn(T::Value) -> Option<V2> + Clone + Send + Sync + 'static,
