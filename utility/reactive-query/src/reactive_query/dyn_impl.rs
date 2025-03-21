@@ -6,12 +6,12 @@ pub type DynReactiveQueryPoll<K, V> = (BoxedDynQuery<K, ValueChange<V>>, BoxedDy
 pub trait DynReactiveQueryCompute: Sync + Send + 'static {
   type Key: CKey;
   type Value: CValue;
-  fn resolve_dyn(&self) -> DynReactiveQueryPoll<Self::Key, Self::Value>;
+  fn resolve_dyn(self) -> DynReactiveQueryPoll<Self::Key, Self::Value>;
 }
 impl<T: ReactiveQueryCompute> DynReactiveQueryCompute for T {
   type Key = T::Key;
   type Value = T::Value;
-  fn resolve_dyn(&self) -> DynReactiveQueryPoll<Self::Key, Self::Value> {
+  fn resolve_dyn(self) -> DynReactiveQueryPoll<Self::Key, Self::Value> {
     let (d, v) = self.resolve();
     (Box::new(d), Box::new(v))
   }
@@ -51,8 +51,8 @@ impl<K: CKey, V: CValue> ReactiveQueryCompute for BoxedDynDynReactiveQueryComput
   type Changes = BoxedDynQuery<K, ValueChange<V>>;
   type View = BoxedDynQuery<K, V>;
 
-  fn resolve(&self) -> (Self::Changes, Self::View) {
-    self.deref().resolve_dyn()
+  fn resolve(self) -> (Self::Changes, Self::View) {
+    self.resolve_dyn()
   }
 }
 

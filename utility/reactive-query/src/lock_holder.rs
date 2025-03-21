@@ -119,6 +119,12 @@ impl<T: 'static> LockWriteGuardHolder<T> {
   pub fn get_lock(&self) -> Arc<RwLock<T>> {
     self.holder.clone()
   }
+  pub fn downgrade_to_read(self) -> LockReadGuardHolder<T> {
+    LockReadGuardHolder {
+      guard: Arc::new(RwLockWriteGuard::downgrade(self.guard)),
+      holder: self.holder,
+    }
+  }
 }
 
 impl<T: 'static> Deref for LockWriteGuardHolder<T> {

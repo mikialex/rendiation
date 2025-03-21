@@ -16,14 +16,41 @@ where
   type Compute = impl ReactiveQueryCompute<Key = Self::Key, Value = Self::Value>;
 
   fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
-    let (d, _) = self.upstream.poll_changes(cx).resolve();
+    let mapping = self.mapping.make_write_holder();
 
-    let mut mapping = self.mapping.write();
+    OneToOneRefHashBookKeepingCompute {
+      upstream: self.upstream.poll_changes(cx),
+      mapping,
+    }
+  }
 
+  fn request(&mut self, request: &mut ReactiveQueryRequest) {
+    match request {
+      ReactiveQueryRequest::MemoryShrinkToFit => self.mapping.write().shrink_to_fit(),
+    }
+    self.upstream.request(request);
+  }
+}
+
+pub struct OneToOneRefHashBookKeepingCompute<T: ReactiveQueryCompute> {
+  pub upstream: T,
+  pub mapping: LockWriteGuardHolder<FastHashMap<T::Value, T::Key>>,
+}
+
+impl<T: ReactiveQueryCompute<Value: CKey>> ReactiveQueryCompute
+  for OneToOneRefHashBookKeepingCompute<T>
+{
+  type Key = T::Value;
+  type Value = T::Key;
+  type Changes = impl Query<Key = Self::Key, Value = ValueChange<Self::Value>> + 'static;
+  type View = LockReadGuardHolder<FastHashMap<Self::Key, Self::Value>>;
+
+  fn resolve(mut self) -> (Self::Changes, Self::View) {
+    let (d, _) = self.upstream.resolve();
     let mut mutations = FastHashMap::<T::Value, ValueChange<T::Key>>::default();
     let mut mutator = QueryMutationCollector {
       delta: &mut mutations,
-      target: mapping.deref_mut(),
+      target: self.mapping.deref_mut(),
     };
 
     for (k, change) in d.iter_key_value() {
@@ -42,15 +69,6 @@ where
       }
     }
 
-    drop(mapping);
-
-    (mutations, self.mapping.make_read_holder())
-  }
-
-  fn request(&mut self, request: &mut ReactiveQueryRequest) {
-    match request {
-      ReactiveQueryRequest::MemoryShrinkToFit => self.mapping.write().shrink_to_fit(),
-    }
-    self.upstream.request(request);
+    (mutations, self.mapping.downgrade_to_read())
   }
 }
