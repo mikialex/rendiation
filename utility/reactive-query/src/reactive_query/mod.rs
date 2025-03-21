@@ -29,7 +29,7 @@ pub trait ReactiveQueryCompute: Sync + Send + 'static {
   type Changes: Query<Key = Self::Key, Value = ValueChange<Self::Value>> + 'static;
   type View: Query<Key = Self::Key, Value = Self::Value> + 'static;
 
-  fn resolve(self) -> (Self::Changes, Self::View);
+  fn resolve(&mut self) -> (Self::Changes, Self::View);
 }
 
 impl<K, V, Change, View> ReactiveQueryCompute for (Change, View)
@@ -43,7 +43,7 @@ where
   type Value = V;
   type Changes = Change;
   type View = View;
-  fn resolve(self) -> (Self::Changes, Self::View) {
+  fn resolve(&mut self) -> (Self::Changes, Self::View) {
     (self.0.clone(), self.1.clone())
   }
 }

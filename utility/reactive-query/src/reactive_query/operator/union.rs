@@ -37,7 +37,7 @@ where
   type Changes = UnionValueChange<T1::View, T2::View, T1::Changes, T2::Changes, F>;
   type View = UnionQuery<T1::View, T2::View, F>;
 
-  fn resolve(self) -> (Self::Changes, Self::View) {
+  fn resolve(&mut self) -> (Self::Changes, Self::View) {
     let (t1, a_access) = self.a.resolve();
     let (t2, b_access) = self.b.resolve();
     let a_access = a_access;

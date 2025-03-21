@@ -34,7 +34,7 @@ where
   type Changes = impl Query<Key = Self::Key, Value = ValueChange<V2>> + 'static;
   type View = MappedQuery<T::View, F>;
 
-  fn resolve(self) -> (Self::Changes, Self::View) {
+  fn resolve(&mut self) -> (Self::Changes, Self::View) {
     let (d, v) = self.base.resolve();
     let mapper = self.mapper.clone();
     let d = d.map(move |k, v| v.map(|v| mapper(k, v)));
@@ -81,7 +81,7 @@ where
   type Changes = KeyDualMappedQuery<T::Changes, F1, AutoSomeFnResult<F2>>;
   type View = KeyDualMappedQuery<T::View, F1, AutoSomeFnResult<F2>>;
 
-  fn resolve(self) -> (Self::Changes, Self::View) {
+  fn resolve(&mut self) -> (Self::Changes, Self::View) {
     let (d, v) = self.base.resolve();
     let d = d.key_dual_map(self.f1, self.f2);
     let v = v.key_dual_map(self.f1, self.f2);

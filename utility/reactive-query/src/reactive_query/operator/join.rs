@@ -31,7 +31,7 @@ where
   type Changes = CrossJoinValueChange<A::View, B::View, A::Changes, B::Changes>;
   type View = CrossJoinQuery<A::View, B::View>;
 
-  fn resolve(self) -> (Self::Changes, Self::View) {
+  fn resolve(&mut self) -> (Self::Changes, Self::View) {
     let (t1, a_access) = self.a.resolve();
     let (t2, b_access) = self.b.resolve();
 

@@ -35,7 +35,7 @@ where
   type Changes = impl Query<Key = Self::Key, Value = ValueChange<V2>> + 'static;
   type View = FilterMapQuery<T::View, F>;
 
-  fn resolve(self) -> (Self::Changes, Self::View) {
+  fn resolve(&mut self) -> (Self::Changes, Self::View) {
     let (d, v) = self.base.resolve();
 
     let checker = make_checker(self.mapper.clone());

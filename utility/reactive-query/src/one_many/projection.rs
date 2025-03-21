@@ -33,7 +33,7 @@ where
   type View = impl Query<Key = Self::Key, Value = Self::Value> + 'static;
 
   #[allow(clippy::collapsible_else_if)]
-  fn resolve(self) -> (Self::Changes, Self::View) {
+  fn resolve(&mut self) -> (Self::Changes, Self::View) {
     let (relational_changes, relation_access) = self.relations.resolve();
     let (upstream_changes, getter) = self.upstream.resolve();
 
@@ -184,7 +184,7 @@ where
 {
   pub upstream: Upstream,
   pub relations: Relation,
-  pub ref_count: LockWriteGuardHolder<FastHashMap<Relation::Value, u32>>,
+  pub ref_count: Option<LockWriteGuardHolder<FastHashMap<Relation::Value, u32>>>,
 }
 
 impl<Upstream, Relation> ReactiveQuery for ManyToOneReduce<Upstream, Relation>
@@ -201,7 +201,7 @@ where
     ManyToOneReduceCompute {
       upstream: self.upstream.poll_changes(cx),
       relations: self.relations.poll_changes(cx),
-      ref_count: self.ref_count.make_write_holder(),
+      ref_count: Some(self.ref_count.make_write_holder()),
     }
   }
 
@@ -228,14 +228,14 @@ where
   type Changes = impl Query<Key = Self::Key, Value = ValueChange<Self::Value>> + 'static;
   type View = impl Query<Key = Self::Key, Value = Self::Value> + 'static;
 
-  fn resolve(mut self) -> (Self::Changes, Self::View) {
+  fn resolve(&mut self) -> (Self::Changes, Self::View) {
     let (relational_changes, one_acc) = self.relations.resolve();
     let (upstream_changes, getter) = self.upstream.resolve();
 
     let getter_previous = make_previous(&getter, &upstream_changes);
 
     let mut output = FastHashMap::default();
-    let ref_counts = &mut self.ref_count;
+    let mut ref_counts = self.ref_count.take().unwrap();
 
     {
       let relational_changes = relational_changes.materialize();
@@ -317,7 +317,7 @@ where
 
     let d = Arc::new(output);
     let v = ManyToOneReduceCurrentView {
-      ref_count: self.ref_count.downgrade_to_read(),
+      ref_count: ref_counts.downgrade_to_read(),
     };
 
     (d, v)

@@ -93,7 +93,7 @@ where
   type Changes = QueryDiff<T::Changes>;
   type View = T::View;
 
-  fn resolve(self) -> (Self::Changes, Self::View) {
+  fn resolve(&mut self) -> (Self::Changes, Self::View) {
     let (d, v) = self.inner.resolve();
     let d = QueryDiff { inner: d };
     (d, v)
