@@ -12,8 +12,34 @@ where
   type Compute = impl ReactiveQueryCompute<Key = Self::Key, Value = Self::Value>;
 
   fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
-    let (t1, a_access) = self.a.poll_changes(cx).resolve();
-    let (t2, b_access) = self.b.poll_changes(cx).resolve();
+    UnionQuery {
+      a: self.a.poll_changes(cx),
+      b: self.b.poll_changes(cx),
+      f: self.f,
+    }
+  }
+
+  fn request(&mut self, request: &mut ReactiveQueryRequest) {
+    self.a.request(request);
+    self.b.request(request);
+  }
+}
+
+impl<T1, T2, F, O> ReactiveQueryCompute for UnionQuery<T1, T2, F>
+where
+  T1: ReactiveQueryCompute,
+  T2: ReactiveQueryCompute<Key = T1::Key>,
+  F: Fn((Option<T1::Value>, Option<T2::Value>)) -> Option<O> + Send + Sync + Copy + 'static,
+  O: CValue,
+{
+  type Key = T1::Key;
+  type Value = O;
+  type Changes = UnionValueChange<T1::View, T2::View, T1::Changes, T2::Changes, F>;
+  type View = UnionQuery<T1::View, T2::View, F>;
+
+  fn resolve(&self) -> (Self::Changes, Self::View) {
+    let (t1, a_access) = self.a.resolve();
+    let (t2, b_access) = self.b.resolve();
     let a_access = a_access;
     let b_access = b_access;
 
@@ -32,11 +58,6 @@ where
     };
 
     (d, v)
-  }
-
-  fn request(&mut self, request: &mut ReactiveQueryRequest) {
-    self.a.request(request);
-    self.b.request(request);
   }
 }
 

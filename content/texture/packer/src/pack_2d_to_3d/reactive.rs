@@ -83,7 +83,7 @@ impl ReactiveQuery for Packer {
     PackerCurrentView,
   );
   fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
-    let (d, _) = self.size_source.poll_changes(cx);
+    let (d, _) = self.size_source.poll_changes(cx).resolve();
 
     {
       unsafe {

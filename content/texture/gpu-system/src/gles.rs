@@ -12,8 +12,8 @@ impl ReactiveGeneralQuery for TraditionalPerDrawBindingSystemSource {
   type Output = Box<dyn DynAbstractGPUTextureSystem>;
 
   fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
-    let (_, textures) = self.textures.poll_changes(cx);
-    let (_, samplers) = self.samplers.poll_changes(cx);
+    let (_, textures) = self.textures.poll_changes(cx).resolve();
+    let (_, samplers) = self.samplers.poll_changes(cx).resolve();
     Box::new(TraditionalPerDrawBindingSystem {
       textures,
       samplers,

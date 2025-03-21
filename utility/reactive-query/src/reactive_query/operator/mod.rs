@@ -57,16 +57,16 @@ where
     }
   }
 
-  fn collective_key_dual_map<K2, F1, F2>(self, f: F1, f2: F2) -> ReactiveKeyDualMap<F1, F2, Self>
+  fn collective_key_dual_map<K2, F1, F2>(self, f: F1, f2: F2) -> KeyDualMappedQuery<Self, F1, F2>
   where
     K2: CKey,
     F1: Fn(Self::Key) -> K2 + Copy + 'static + Send + Sync,
     F2: Fn(K2) -> Self::Key + Copy + 'static + Send + Sync,
   {
-    ReactiveKeyDualMap {
+    KeyDualMappedQuery {
       f1: f,
       f2,
-      inner: self,
+      base: self,
     }
   }
 

@@ -23,7 +23,7 @@ pub trait ReactiveQuery: Sync + Send + 'static {
   fn request(&mut self, request: &mut ReactiveQueryRequest);
 }
 
-pub trait ReactiveQueryCompute {
+pub trait ReactiveQueryCompute: Sync + Send + 'static {
   type Key: CKey;
   type Value: CValue;
   type Changes: Query<Key = Self::Key, Value = ValueChange<Self::Value>> + 'static;

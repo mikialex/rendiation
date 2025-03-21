@@ -7,13 +7,33 @@ where
 {
   type Key = (A::Key, B::Key);
   type Value = (A::Value, B::Value);
-  type Compute = impl ReactiveQueryCompute<Key = Self::Key, Value = Self::Value>;
+  type Compute = CrossJoinQuery<A::Compute, B::Compute>;
   fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
-    let (t1, a_access) = self.a.poll_changes(cx).resolve();
-    let (t2, b_access) = self.b.poll_changes(cx).resolve();
+    CrossJoinQuery {
+      a: self.a.poll_changes(cx),
+      b: self.b.poll_changes(cx),
+    }
+  }
 
-    let a_access = a_access;
-    let b_access = b_access;
+  fn request(&mut self, request: &mut ReactiveQueryRequest) {
+    self.a.request(request);
+    self.b.request(request);
+  }
+}
+
+impl<A, B> ReactiveQueryCompute for CrossJoinQuery<A, B>
+where
+  A: ReactiveQueryCompute,
+  B: ReactiveQueryCompute,
+{
+  type Key = (A::Key, B::Key);
+  type Value = (A::Value, B::Value);
+  type Changes = CrossJoinValueChange<A::View, B::View, A::Changes, B::Changes>;
+  type View = CrossJoinQuery<A::View, B::View>;
+
+  fn resolve(&self) -> (Self::Changes, Self::View) {
+    let (t1, a_access) = self.a.resolve();
+    let (t2, b_access) = self.b.resolve();
 
     let d = CrossJoinValueChange {
       a: t1,
@@ -28,11 +48,6 @@ where
     };
 
     (d, v)
-  }
-
-  fn request(&mut self, request: &mut ReactiveQueryRequest) {
-    self.a.request(request);
-    self.b.request(request);
   }
 }
 

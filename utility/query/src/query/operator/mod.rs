@@ -28,7 +28,7 @@ pub trait QueryExt: Query + Sized + 'static {
     FilterMapQuery { base: self, mapper }
   }
 
-  fn key_dual_map_partial<K2, F1, F2>(self, f1: F1, f2: F2) -> KeyDualMappedQuery<F1, F2, Self>
+  fn key_dual_map_partial<K2, F1, F2>(self, f1: F1, f2: F2) -> KeyDualMappedQuery<Self, F1, F2>
   where
     F1: Fn(Self::Key) -> K2,
     F2: Fn(K2) -> Option<Self::Key>,
@@ -40,7 +40,7 @@ pub trait QueryExt: Query + Sized + 'static {
     self,
     f1: F1,
     f2: F2,
-  ) -> KeyDualMappedQuery<F1, AutoSomeFnResult<F2>, Self>
+  ) -> KeyDualMappedQuery<Self, F1, AutoSomeFnResult<F2>>
   where
     K2: CKey,
     F1: Fn(Self::Key) -> K2,

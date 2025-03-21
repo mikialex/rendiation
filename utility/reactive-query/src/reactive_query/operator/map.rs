@@ -44,13 +44,7 @@ where
   }
 }
 
-pub struct ReactiveKeyDualMap<F1, F2, T> {
-  pub f1: F1,
-  pub f2: F2,
-  pub inner: T,
-}
-
-impl<F1, F2, T, K2> ReactiveQuery for ReactiveKeyDualMap<F1, F2, T>
+impl<F1, F2, T, K2> ReactiveQuery for KeyDualMappedQuery<T, F1, F2>
 where
   K2: CKey,
   F1: Fn(T::Key) -> K2 + Copy + Send + Sync + 'static,
@@ -62,14 +56,36 @@ where
   type Compute = impl ReactiveQueryCompute<Key = Self::Key, Value = Self::Value>;
 
   fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
-    let (d, v) = self.inner.poll_changes(cx).resolve();
-    let d = d.key_dual_map(self.f1, self.f2);
-    let v = v.key_dual_map(self.f1, self.f2);
-    (d, v)
+    KeyDualMappedQuery {
+      f1: self.f1,
+      f2: self.f2,
+      base: self.base.poll_changes(cx),
+    }
   }
 
   fn request(&mut self, request: &mut ReactiveQueryRequest) {
-    self.inner.request(request)
+    self.base.request(request)
+  }
+}
+
+impl<F1, F2, T, K2> ReactiveQueryCompute for KeyDualMappedQuery<T, F1, F2>
+where
+  K2: CKey,
+  F1: Fn(T::Key) -> K2 + Copy + Send + Sync + 'static,
+  F2: Fn(K2) -> T::Key + Copy + Send + Sync + 'static,
+  T: ReactiveQueryCompute,
+{
+  type Key = K2;
+  type Value = T::Value;
+
+  type Changes = KeyDualMappedQuery<T::Changes, F1, AutoSomeFnResult<F2>>;
+  type View = KeyDualMappedQuery<T::View, F1, AutoSomeFnResult<F2>>;
+
+  fn resolve(&self) -> (Self::Changes, Self::View) {
+    let (d, v) = self.base.resolve();
+    let d = d.key_dual_map(self.f1, self.f2);
+    let v = v.key_dual_map(self.f1, self.f2);
+    (d, v)
   }
 }
 

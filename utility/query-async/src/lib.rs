@@ -84,7 +84,7 @@ where
   }
 }
 
-impl<K2, F1, F2, T> AsyncQuery for KeyDualMappedQuery<F1, F2, T>
+impl<K2, F1, F2, T> AsyncQuery for KeyDualMappedQuery<T, F1, F2>
 where
   K2: CKey,
   F1: Fn(T::Key) -> K2 + Clone + Send + Sync + 'static,
@@ -94,7 +94,7 @@ where
   type Key = K2;
   type Value = T::Value;
 
-  type Query = KeyDualMappedQuery<F1, F2, T::Query>;
+  type Query = KeyDualMappedQuery<T::Query, F1, F2>;
   type Task = impl Future<Output = Self::Query>;
 
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {

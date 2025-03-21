@@ -109,7 +109,7 @@ impl BasicShadowMapSystem {
     scene_content: &impl Fn(Mat4<f32>, Mat4<f32>, &mut FrameCtx) -> Box<dyn PassContent + 'a>,
     reversed_depth: bool,
   ) -> GPU2DArrayDepthTextureView {
-    let (_, current_layouts) = self.packing.poll_changes(cx); // incremental detail is useless here
+    let (_, current_layouts) = self.packing.poll_changes(cx).resolve(); // incremental detail is useless here
     while let Poll::Ready(Some(new_size)) = self.atlas_resize.poll_next_unpin(cx) {
       // if we do shadow cache, we should also do content copy
       self.current_size = Some(new_size);
@@ -132,8 +132,8 @@ impl BasicShadowMapSystem {
       )
     });
 
-    let (_, world) = self.source_world.poll_changes(cx);
-    let (_, proj) = self.source_proj.poll_changes(cx);
+    let (_, world) = self.source_world.poll_changes(cx).resolve();
+    let (_, proj) = self.source_proj.poll_changes(cx).resolve();
 
     for layer in 0..u32::from(self.current_size.unwrap().depth) {
       // clear all

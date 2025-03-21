@@ -38,7 +38,7 @@ impl SceneCameraHelper {
   }
 
   pub fn prepare_update(&mut self, cx: &mut Context) {
-    let (changes, _) = self.camera_changes.poll_changes(cx);
+    let (changes, _) = self.camera_changes.poll_changes(cx).resolve();
     self.pending_updates = changes.materialize().into()
   }
 

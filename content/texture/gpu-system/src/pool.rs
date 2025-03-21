@@ -156,7 +156,7 @@ impl ReactiveGeneralQuery for TexturePoolSource {
 
     let mut encoder = self.gpu.device.create_encoder();
 
-    let (packing_change, current_pack) = self.packing.poll_changes(cx);
+    let (packing_change, current_pack) = self.packing.poll_changes(cx).resolve();
 
     let (tex_source_change, tex_input_current) = self.tex_input.poll_changes(cx);
     for (id, change) in tex_source_change.iter_key_value() {

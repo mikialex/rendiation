@@ -82,7 +82,7 @@ pub struct SkinBoneMatrixesDataTextureComputer {
 impl SkinBoneMatrixesDataTextureComputer {
   pub fn poll_update(&mut self, cx: &mut Context, gpu: &GPU) {
     let skin_access = global_database().read_foreign_key::<SceneJointBelongToSkin>();
-    let (mat_changes, _) = self.offset_mats.poll_changes(cx);
+    let (mat_changes, _) = self.offset_mats.poll_changes(cx).resolve();
     for (k, change) in mat_changes.iter_key_value() {
       let skin = skin_access.get(k).unwrap();
       let (bind_matrixes, gpu) = self.bind_matrixes.entry(skin).or_default();
@@ -100,7 +100,7 @@ impl SkinBoneMatrixesDataTextureComputer {
       let (bind_matrixes, gpu_textures) = self.bind_matrixes.get_mut(&skin).unwrap();
       gpu_textures.get_or_insert_with(|| create_data_texture(gpu, bind_matrixes));
     }
-    let (c, _) = self.skins.poll_changes(cx);
+    let (c, _) = self.skins.poll_changes(cx).resolve();
     for (k, change) in c.iter_key_value() {
       if change.is_removed() {
         self.bind_matrixes.remove(&k);
