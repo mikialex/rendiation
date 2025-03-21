@@ -31,7 +31,7 @@ where
     &self,
     cx: &mut Context,
   ) -> BoxedDynReactiveOneToManyRelationPoll<Self::One, Self::Many> {
-    let (d, v) = self.poll_changes(cx);
+    let (d, v) = self.poll_changes(cx).resolve();
     (Box::new(d), Box::new(v.clone()), Box::new(v))
   }
 
@@ -47,9 +47,11 @@ where
 {
   type Key = M;
   type Value = O;
-  type Changes = impl Query<Key = M, Value = ValueChange<O>>;
-  type View = impl Query<Key = M, Value = O> + MultiQuery<Key = O, Value = M>;
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
+  type Compute = (
+    impl Query<Key = M, Value = ValueChange<O>>,
+    impl Query<Key = M, Value = O> + MultiQuery<Key = O, Value = M>,
+  );
+  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
     let (d, v, v2) = (**self).poll_changes_with_inv_dyn(cx);
     let v = OneManyRelationDualAccess {
       many_access_one: v,

@@ -16,20 +16,43 @@ pub enum ReactiveQueryRequest {
 pub trait ReactiveQuery: Sync + Send + 'static {
   type Key: CKey;
   type Value: CValue;
-  type Changes: Query<Key = Self::Key, Value = ValueChange<Self::Value>>;
-  type View: Query<Key = Self::Key, Value = Self::Value>;
+  type Compute: ReactiveQueryCompute<Key = Self::Key, Value = Self::Value>;
 
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View);
+  fn poll_changes(&self, cx: &mut Context) -> Self::Compute;
 
   fn request(&mut self, request: &mut ReactiveQueryRequest);
+}
+
+pub trait ReactiveQueryCompute {
+  type Key: CKey;
+  type Value: CValue;
+  type Changes: Query<Key = Self::Key, Value = ValueChange<Self::Value>> + 'static;
+  type View: Query<Key = Self::Key, Value = Self::Value> + 'static;
+
+  fn resolve(&self) -> (Self::Changes, Self::View);
+}
+
+impl<K, V, Change, View> ReactiveQueryCompute for (Change, View)
+where
+  K: CKey,
+  V: CValue,
+  Change: Query<Key = K, Value = ValueChange<V>> + 'static,
+  View: Query<Key = K, Value = V> + 'static,
+{
+  type Key = K;
+  type Value = V;
+  type Changes = Change;
+  type View = View;
+  fn resolve(&self) -> (Self::Changes, Self::View) {
+    (self.0.clone(), self.1.clone())
+  }
 }
 
 impl<K: CKey, V: CValue> ReactiveQuery for EmptyQuery<K, V> {
   type Key = K;
   type Value = V;
-  type Changes = EmptyQuery<K, ValueChange<V>>;
-  type View = EmptyQuery<K, V>;
-  fn poll_changes(&self, _: &mut Context) -> (Self::Changes, Self::View) {
+  type Compute = (EmptyQuery<K, ValueChange<V>>, EmptyQuery<K, V>);
+  fn poll_changes(&self, _: &mut Context) -> Self::Compute {
     (Default::default(), Default::default())
   }
   fn request(&mut self, _: &mut ReactiveQueryRequest) {}
@@ -58,10 +81,9 @@ where
 {
   type Key = u32;
   type Value = V;
-  type Changes = IdenticalDeltaCollection<Self::Value>;
-  type View = IdenticalCollection<Self::Value>;
+  type Compute = (IdenticalDeltaCollection<V>, IdenticalCollection<V>);
 
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
+  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
     let new_size = self.size.write().poll_next_unpin(cx);
     let previous_size = self.previous_size.read().unwrap_or(0);
     let new_size = match new_size {

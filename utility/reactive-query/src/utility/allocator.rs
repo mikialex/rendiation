@@ -131,12 +131,12 @@ where
 {
   type Key = u32;
   type Value = u32;
-  type Changes = impl Query<Key = u32, Value = ValueChange<u32>>;
-  type View = impl Query<Key = u32, Value = u32>;
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
+  type Compute = impl ReactiveQueryCompute<Key = Self::Key, Value = Self::Value>;
+
+  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
     let mut allocator = self.allocator.write();
 
-    let (d, _) = self.source.poll_changes(cx);
+    let (d, _) = self.source.poll_changes(cx).resolve();
 
     unsafe {
       self.sender.lock();

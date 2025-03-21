@@ -9,11 +9,11 @@ where
 {
   type Key = T1::Key;
   type Value = O;
-  type Changes = UnionValueChange<T1::View, T2::View, T1::Changes, T2::Changes, F>;
-  type View = UnionQuery<T1::View, T2::View, F>;
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (t1, a_access) = self.a.poll_changes(cx);
-    let (t2, b_access) = self.b.poll_changes(cx);
+  type Compute = impl ReactiveQueryCompute<Key = Self::Key, Value = Self::Value>;
+
+  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
+    let (t1, a_access) = self.a.poll_changes(cx).resolve();
+    let (t2, b_access) = self.b.poll_changes(cx).resolve();
     let a_access = a_access;
     let b_access = b_access;
 

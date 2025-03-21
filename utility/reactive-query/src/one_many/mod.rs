@@ -15,7 +15,7 @@ pub trait ReactiveOneToManyRelation:
   ReactiveQuery<
   Key = Self::Many,
   Value = Self::One,
-  View: MultiQuery<Key = Self::One, Value = Self::Many>,
+  Compute: ReactiveQueryCompute<View: MultiQuery<Key = Self::One, Value = Self::Many>>,
 >
 {
   type One: CKey;
@@ -24,7 +24,7 @@ pub trait ReactiveOneToManyRelation:
 
 impl<T> ReactiveOneToManyRelation for T
 where
-  T: ReactiveQuery<View: MultiQuery<Key = T::Value, Value = T::Key>>,
+  T: ReactiveQuery<Compute: ReactiveQueryCompute<View: MultiQuery<Key = T::Value, Value = T::Key>>>,
   T::Value: CKey,
 {
   type One = T::Value;

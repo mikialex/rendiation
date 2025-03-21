@@ -77,9 +77,12 @@ impl Query for PackerCurrentView {
 impl ReactiveQuery for Packer {
   type Key = u32;
   type Value = PackResult2dWithDepth;
-  type Changes = BoxedDynQuery<u32, ValueChange<PackResult2dWithDepth>>;
-  type View = PackerCurrentView;
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
+
+  type Compute = (
+    BoxedDynQuery<u32, ValueChange<PackResult2dWithDepth>>,
+    PackerCurrentView,
+  );
+  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
     let (d, _) = self.size_source.poll_changes(cx);
 
     {

@@ -119,10 +119,12 @@ where
 {
   type Key = u32;
   type Value = u32;
-  type Changes = impl Query<Key = u32, Value = ValueChange<u32>>;
-  type View = impl Query<Key = u32, Value = u32> + MultiQuery<Key = u32, Value = u32>;
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (d, v) = self.inner.poll_changes(cx);
+  type Compute = (
+    impl Query<Key = u32, Value = ValueChange<u32>>,
+    impl Query<Key = u32, Value = u32> + MultiQuery<Key = u32, Value = u32>,
+  );
+  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
+    let (d, v) = self.inner.poll_changes(cx).resolve();
 
     let allocator = self.foreign_allocator.make_read_holder();
     let d = d

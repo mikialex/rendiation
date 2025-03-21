@@ -7,11 +7,10 @@ where
 {
   type Key = (A::Key, B::Key);
   type Value = (A::Value, B::Value);
-  type Changes = CrossJoinValueChange<A::View, B::View, A::Changes, B::Changes>;
-  type View = CrossJoinQuery<A::View, B::View>;
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (t1, a_access) = self.a.poll_changes(cx);
-    let (t2, b_access) = self.b.poll_changes(cx);
+  type Compute = impl ReactiveQueryCompute<Key = Self::Key, Value = Self::Value>;
+  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
+    let (t1, a_access) = self.a.poll_changes(cx).resolve();
+    let (t2, b_access) = self.b.poll_changes(cx).resolve();
 
     let a_access = a_access;
     let b_access = b_access;

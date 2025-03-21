@@ -13,10 +13,10 @@ where
 {
   type Key = T::Key;
   type Value = T::Value;
-  type Changes = T::Changes;
-  type View = T::View;
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (d, v) = self.inner.poll_changes(cx);
+  type Compute = impl ReactiveQueryCompute<Key = Self::Key, Value = Self::Value>;
+
+  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
+    let (d, v) = self.inner.poll_changes(cx).resolve();
 
     // validation
     let changes = d.materialize();
@@ -94,11 +94,10 @@ where
 {
   type Key = T::Key;
   type Value = T::Value;
-  type Changes = impl Query<Key = Self::Key, Value = ValueChange<Self::Value>>;
-  type View = impl Query<Key = Self::Key, Value = Self::Value>;
+  type Compute = impl ReactiveQueryCompute<Key = Self::Key, Value = Self::Value>;
 
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (d, v) = self.inner.poll_changes(cx);
+  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
+    let (d, v) = self.inner.poll_changes(cx).resolve();
 
     let d = DiffChangedView { inner: d };
     (d, v)
@@ -123,7 +122,7 @@ where
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
-    let r = this.inner.poll_changes(cx).0.materialize();
+    let r = this.inner.poll_changes(cx).resolve().0.materialize();
 
     if r.is_empty() {
       Poll::Pending

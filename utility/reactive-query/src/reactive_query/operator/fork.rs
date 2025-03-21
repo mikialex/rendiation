@@ -64,8 +64,8 @@ impl<K: CKey, V: CValue> RQForker<K, V> {
     });
     let waker = futures::task::waker_ref(&waker);
     let mut cx = Context::from_waker(&waker);
-    let (_, v) = self.upstream.read().poll_changes(&mut cx);
-    v
+    let (_, v) = self.upstream.read().poll_changes(&mut cx).resolve();
+    Box::new(v)
   }
 }
 
@@ -128,7 +128,7 @@ where
     });
     let waker = futures::task::waker_ref(&waker);
     let mut cx = Context::from_waker(&waker);
-    let (d, v) = self.upstream.read().poll_changes(&mut cx);
+    let (d, v) = self.upstream.read().poll_changes(&mut cx).resolve();
 
     // delta should also dispatch to downstream to keep message integrity
     let downstream = self.downstream.read_recursive();
@@ -243,9 +243,11 @@ where
 {
   type Key = Map::Key;
   type Value = Map::Value;
-  type Changes = impl Query<Key = Self::Key, Value = ValueChange<Self::Value>>;
-  type View = ForkedView<Map::View>;
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
+  type Compute = (
+    impl Query<Key = Self::Key, Value = ValueChange<Self::Value>>,
+    ForkedView<<Map::Compute as ReactiveQueryCompute>::View>,
+  );
+  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
     // install new waker, this waker is shared by arc within the downstream info
     self.waker.register(cx.waker());
 
@@ -263,7 +265,9 @@ where
       if let Some(view) = resolved {
         if let Some(view) = view.upgrade() {
           let v = ForkedView {
-            inner: view.downcast::<Map::View>().unwrap(),
+            inner: view
+              .downcast::<<Map::Compute as ReactiveQueryCompute>::View>()
+              .unwrap(),
           };
           return (finalize_buffered_changes(buffered), v);
         }
@@ -277,7 +281,7 @@ where
     });
     let waker = futures::task::waker_ref(&waker);
     let mut cx_2 = Context::from_waker(&waker);
-    let (d, v) = upstream.poll_changes(&mut cx_2);
+    let (d, v) = upstream.poll_changes(&mut cx_2).resolve();
 
     let d = {
       let downstream = self.downstream.write();
@@ -305,7 +309,9 @@ where
     *self.resolved.write() = Some(Arc::downgrade(&v));
 
     let v = ForkedView {
-      inner: view.downcast::<Map::View>().unwrap(),
+      inner: view
+        .downcast::<<Map::Compute as ReactiveQueryCompute>::View>()
+        .unwrap(),
     };
 
     (d, v)

@@ -51,12 +51,13 @@ where
   type Key = T::Key;
   type Value = T::Value;
 
-  type Changes = T::Changes;
-  type View = OneToManyRefHashBookKeepingCurrentView<T::View>;
+  type Compute = (
+    <T::Compute as ReactiveQueryCompute>::Changes,
+    OneToManyRefHashBookKeepingCurrentView<<T::Compute as ReactiveQueryCompute>::View>,
+  );
 
-  #[tracing::instrument(skip_all, name = "OneToManyRefHashBookKeeping")]
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (r, r_view) = self.upstream.poll_changes(cx);
+  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
+    let (r, r_view) = self.upstream.poll_changes(cx).resolve();
 
     {
       let mut mapping = self.mapping.write();
@@ -170,13 +171,13 @@ where
 {
   type Key = T::Key;
   type Value = T::Value;
-  type Changes = impl Query<Key = T::Key, Value = ValueChange<T::Value>>;
-  type View =
-    impl MultiQuery<Key = T::Value, Value = T::Key> + Query<Key = T::Key, Value = T::Value>;
+  type Compute = (
+    impl Query<Key = T::Key, Value = ValueChange<T::Value>>,
+    impl MultiQuery<Key = T::Value, Value = T::Key> + Query<Key = T::Key, Value = T::Value>,
+  );
 
-  #[tracing::instrument(skip_all, name = "OneToManyRefDenseBookKeeping")]
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (r, r_view) = self.upstream.poll_changes(cx);
+  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
+    let (r, r_view) = self.upstream.poll_changes(cx).resolve();
 
     {
       let mut mapping = self.mapping.write();

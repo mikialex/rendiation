@@ -16,14 +16,13 @@ where
 {
   type Key = Relation::Many;
   type Value = Upstream::Value;
-  type Changes = impl Query<Key = Relation::Many, Value = ValueChange<Upstream::Value>>;
-  type View = impl Query<Key = Relation::Many, Value = Upstream::Value>;
 
-  #[tracing::instrument(skip_all, name = "OneToManyFanout")]
+  type Compute = impl ReactiveQueryCompute<Key = Self::Key, Value = Self::Value>;
+
   #[allow(clippy::collapsible_else_if)]
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (relational_changes, relation_access) = self.relations.poll_changes(cx);
-    let (upstream_changes, getter) = self.upstream.poll_changes(cx);
+  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
+    let (relational_changes, relation_access) = self.relations.poll_changes(cx).resolve();
+    let (upstream_changes, getter) = self.upstream.poll_changes(cx).resolve();
 
     let getter_previous = make_previous(&getter, &upstream_changes);
     let one_acc_previous = make_previous(&relation_access, &relational_changes);
@@ -156,13 +155,11 @@ where
 {
   type Key = Relation::Value;
   type Value = ();
-  type Changes = impl Query<Key = Relation::Value, Value = ValueChange<()>>;
-  type View = impl Query<Key = Relation::Value, Value = ()>;
+  type Compute = impl ReactiveQueryCompute<Key = Self::Key, Value = Self::Value>;
 
-  #[tracing::instrument(skip_all, name = "ManyToOneReduce")]
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (relational_changes, one_acc) = self.relations.poll_changes(cx);
-    let (upstream_changes, getter) = self.upstream.poll_changes(cx);
+  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
+    let (relational_changes, one_acc) = self.relations.poll_changes(cx).resolve();
+    let (upstream_changes, getter) = self.upstream.poll_changes(cx).resolve();
 
     let getter_previous = make_previous(&getter, &upstream_changes);
 

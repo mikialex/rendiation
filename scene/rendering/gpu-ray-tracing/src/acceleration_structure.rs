@@ -175,10 +175,9 @@ struct SceneTlasMaintainer {
 impl ReactiveQuery for SceneTlasMaintainer {
   type Key = EntityHandle<SceneEntity>;
   type Value = TlasHandle;
-  type Changes = impl Query<Key = Self::Key, Value = ValueChange<Self::Value>>;
-  type View = impl Query<Key = Self::Key, Value = Self::Value>;
+  type Compute = impl ReactiveQueryCompute<Key = Self::Key, Value = Self::Value>;
 
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
+  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
     let mut tlas = self.tlas.write();
 
     let mut mutations =

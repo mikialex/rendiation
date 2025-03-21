@@ -3,26 +3,44 @@ use crate::*;
 impl<T, F, V2> ReactiveQuery for MappedQuery<T, F>
 where
   V2: CValue,
-  F: Fn(&T::Key, T::Value) -> V2 + Copy + Send + Sync + 'static,
+  F: Fn(&T::Key, T::Value) -> V2 + Clone + Send + Sync + 'static,
   T: ReactiveQuery,
 {
   type Key = T::Key;
   type Value = V2;
-  type Changes = impl Query<Key = Self::Key, Value = ValueChange<V2>>;
-  type View = MappedQuery<T::View, F>;
+  type Compute = MappedQuery<T::Compute, F>;
 
-  #[tracing::instrument(skip_all, name = "ReactiveKVMap")]
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (d, v) = self.base.poll_changes(cx);
-    let mapper = self.mapper;
-    let d = d.map(move |k, v| v.map(|v| mapper(k, v)));
-    let v = v.map(self.mapper);
-
-    (d, v)
+  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
+    MappedQuery {
+      base: self.base.poll_changes(cx),
+      mapper: self.mapper.clone(),
+    }
   }
 
   fn request(&mut self, request: &mut ReactiveQueryRequest) {
     self.base.request(request)
+  }
+}
+
+impl<T, F, V2> ReactiveQueryCompute for MappedQuery<T, F>
+where
+  V2: CValue,
+  F: Fn(&T::Key, T::Value) -> V2 + Clone + Send + Sync + 'static,
+  T: ReactiveQueryCompute,
+{
+  type Key = T::Key;
+  type Value = V2;
+
+  type Changes = impl Query<Key = Self::Key, Value = ValueChange<V2>> + 'static;
+  type View = MappedQuery<T::View, F>;
+
+  fn resolve(&self) -> (Self::Changes, Self::View) {
+    let (d, v) = self.base.resolve();
+    let mapper = self.mapper.clone();
+    let d = d.map(move |k, v| v.map(|v| mapper(k, v)));
+    let v = v.map(self.mapper.clone());
+
+    (d, v)
   }
 }
 
@@ -41,11 +59,10 @@ where
 {
   type Key = K2;
   type Value = T::Value;
-  type Changes = impl Query<Key = K2, Value = ValueChange<T::Value>>;
-  type View = impl Query<Key = K2, Value = T::Value>;
+  type Compute = impl ReactiveQueryCompute<Key = Self::Key, Value = Self::Value>;
 
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (d, v) = self.inner.poll_changes(cx);
+  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
+    let (d, v) = self.inner.poll_changes(cx).resolve();
     let d = d.key_dual_map(self.f1, self.f2);
     let v = v.key_dual_map(self.f1, self.f2);
     (d, v)
@@ -72,12 +89,11 @@ where
 {
   type Key = T::Key;
   type Value = V2;
-  type Changes = impl Query<Key = Self::Key, Value = ValueChange<V2>>;
-  type View = impl Query<Key = Self::Key, Value = V2>;
+  type Compute = impl ReactiveQueryCompute<Key = Self::Key, Value = Self::Value>;
 
   #[tracing::instrument(skip_all, name = "ReactiveKVExecuteMap")]
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (d, _) = self.inner.poll_changes(cx);
+  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
+    let (d, _) = self.inner.poll_changes(cx).resolve();
 
     let mut mapper = (self.map_creator)();
     let materialized = d.iter_key_value().collect::<Vec<_>>();
