@@ -62,11 +62,11 @@ impl<K, K2, F: FnOnce(K) -> K2> FnOnce<(K,)> for AutoSomeFnResult<F> {
 }
 impl<K, K2, F: FnMut(K) -> K2> FnMut<(K,)> for AutoSomeFnResult<F> {
   extern "rust-call" fn call_mut(&mut self, args: (K,)) -> Self::Output {
-    self.call_once(args)
+    Some(self.0(args.0))
   }
 }
 impl<K, K2, F: Fn(K) -> K2> Fn<(K,)> for AutoSomeFnResult<F> {
   extern "rust-call" fn call(&self, args: (K,)) -> Self::Output {
-    self.call_once(args)
+    Some(self.0(args.0))
   }
 }
