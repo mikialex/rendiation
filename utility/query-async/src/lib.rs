@@ -43,7 +43,7 @@ impl<T: Query + 'static> AsyncQuery for MaterializeQueryAsync<T> {
   }
 }
 
-impl<F, T> AsyncQuery for MappedQuery<F, T>
+impl<F, T> AsyncQuery for MappedQuery<T, F>
 where
   F: Clone,
   T: AsyncQuery,
@@ -51,7 +51,7 @@ where
   type Key = T::Key;
   type Value = T::Value;
 
-  type Query = MappedQuery<F, T::Query>;
+  type Query = MappedQuery<T::Query, F>;
   type Task = impl Future<Output = Self::Query>;
 
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
@@ -63,7 +63,7 @@ where
   }
 }
 
-impl<F, V2, T> AsyncQuery for FilterMapQuery<F, T>
+impl<F, V2, T> AsyncQuery for FilterMapQuery<T, F>
 where
   F: Fn(T::Value) -> Option<V2> + Sync + Send + Clone + 'static,
   V2: CValue,
@@ -72,7 +72,7 @@ where
   type Key = T::Key;
   type Value = V2;
 
-  type Query = FilterMapQuery<F, T::Query>;
+  type Query = FilterMapQuery<T::Query, F>;
   type Task = impl Future<Output = Self::Query>;
 
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {

@@ -1,12 +1,6 @@
 use crate::*;
 
-pub struct ReactiveKVUnion<T1, T2, F> {
-  pub a: T1,
-  pub b: T2,
-  pub f: F,
-}
-
-impl<T1, T2, F, O> ReactiveQuery for ReactiveKVUnion<T1, T2, F>
+impl<T1, T2, F, O> ReactiveQuery for UnionQuery<T1, T2, F>
 where
   T1: ReactiveQuery,
   T2: ReactiveQuery<Key = T1::Key>,

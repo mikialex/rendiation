@@ -2,7 +2,6 @@ mod fork;
 pub use fork::*;
 
 mod union;
-pub use union::*;
 
 mod cache;
 pub use cache::*;
@@ -49,7 +48,7 @@ where
     self.collective_kv_map(|k, _| k.clone())
   }
 
-  fn hash_reverse_assume_one_one(self) -> impl ReactiveQuery<Key = Self::Value, Value = Self::Key>
+  fn hash_reverse_assume_one_one(self) -> OneToOneRefHashBookKeeping<Self>
   where
     Self::Value: CKey,
   {
@@ -59,11 +58,12 @@ where
     }
   }
 
-  fn collective_key_dual_map<K2: CKey>(
-    self,
-    f: impl Fn(Self::Key) -> K2 + Copy + 'static + Send + Sync,
-    f2: impl Fn(K2) -> Self::Key + Copy + 'static + Send + Sync,
-  ) -> impl ReactiveQuery<Key = K2, Value = Self::Value> {
+  fn collective_key_dual_map<K2, F1, F2>(self, f: F1, f2: F2) -> ReactiveKeyDualMap<F1, F2, Self>
+  where
+    K2: CKey,
+    F1: Fn(Self::Key) -> K2 + Copy + 'static + Send + Sync,
+    F2: Fn(K2) -> Self::Key + Copy + 'static + Send + Sync,
+  {
     ReactiveKeyDualMap {
       f1: f,
       f2,
@@ -72,14 +72,14 @@ where
   }
 
   /// map map<k, v> to map<k, v2>
-  fn collective_kv_map<V2, F>(self, f: F) -> impl ReactiveQuery<Key = Self::Key, Value = V2>
+  fn collective_kv_map<V2, F>(self, f: F) -> MappedQuery<Self, F>
   where
     F: Fn(&Self::Key, Self::Value) -> V2 + Copy + Send + Sync + 'static,
     V2: CValue,
   {
-    ReactiveKVMap {
-      inner: self,
-      map: f,
+    MappedQuery {
+      base: self,
+      mapper: f,
     }
   }
 
@@ -89,9 +89,9 @@ where
     F: Fn(Self::Value) -> V2 + Copy + Send + Sync + 'static,
     V2: CValue,
   {
-    ReactiveKVMap {
-      inner: self,
-      map: move |_: &_, v| f(v),
+    MappedQuery {
+      base: self,
+      mapper: move |_: &_, v| f(v),
     }
   }
 
@@ -117,45 +117,38 @@ where
   where
     F: Fn(Self::Value) -> bool + Clone + Send + Sync + 'static,
   {
-    ReactiveKVFilter {
-      inner: self,
-      checker: move |v: Self::Value| if f(v.clone()) { Some(v) } else { None }, // todo remove clone
+    FilterMapQuery {
+      base: self,
+      mapper: move |v: Self::Value| if f(v.clone()) { Some(v) } else { None }, // todo remove clone
     }
   }
 
   /// filter map<k, v> by v
-  fn collective_filter_map<V2, F>(self, f: F) -> impl ReactiveQuery<Key = Self::Key, Value = V2>
+  fn collective_filter_map<V2, F>(self, f: F) -> FilterMapQuery<Self, F>
   where
     F: Fn(Self::Value) -> Option<V2> + Copy + Send + Sync + 'static,
     V2: CValue,
   {
-    ReactiveKVFilter {
-      inner: self,
-      checker: f,
+    FilterMapQuery {
+      base: self,
+      mapper: f,
     }
   }
 
-  fn collective_cross_join<O>(
-    self,
-    other: O,
-  ) -> impl ReactiveQuery<Key = (Self::Key, O::Key), Value = (Self::Value, O::Value)>
+  fn collective_cross_join<O>(self, other: O) -> CrossJoinQuery<Self, O>
   where
     O: ReactiveQuery,
   {
-    ReactiveCrossJoin { a: self, b: other }
+    CrossJoinQuery { a: self, b: other }
   }
 
-  fn collective_union<Other, F, O>(
-    self,
-    other: Other,
-    f: F,
-  ) -> impl ReactiveQuery<Key = Self::Key, Value = O>
+  fn collective_union<Other, F, O>(self, other: Other, f: F) -> UnionQuery<Self, Other, F>
   where
     Other: ReactiveQuery<Key = Self::Key>,
     O: CValue,
     F: Fn((Option<Self::Value>, Option<Other::Value>)) -> Option<O> + Send + Sync + Copy + 'static,
   {
-    ReactiveKVUnion {
+    UnionQuery {
       a: self,
       b: other,
       f,
@@ -229,10 +222,7 @@ where
   }
 
   /// project map<O, V> -> map<M, V> when we have O - M one to many
-  fn one_to_many_fanout<Relation>(
-    self,
-    relations: Relation,
-  ) -> impl ReactiveQuery<Key = Relation::Many, Value = Self::Value>
+  fn one_to_many_fanout<Relation>(self, relations: Relation) -> OneToManyFanout<Self, Relation>
   where
     Relation: ReactiveOneToManyRelation<One = Self::Key> + 'static,
   {
@@ -258,7 +248,7 @@ where
     }
   }
 
-  fn diff_change(self) -> impl ReactiveQuery<Key = Self::Key, Value = Self::Value> {
+  fn diff_change(self) -> ReactiveQueryDiff<Self> {
     ReactiveQueryDiff { inner: self }
   }
 

@@ -12,8 +12,8 @@ where
 {
   type Key = T::Value;
   type Value = T::Key;
-  type Changes = impl Query<Key = Self::Key, Value = ValueChange<Self::Value>>;
-  type View = impl Query<Key = Self::Key, Value = Self::Value>;
+  type Changes = FastHashMap<T::Value, ValueChange<T::Key>>;
+  type View = LockReadGuardHolder<FastHashMap<T::Value, T::Key>>;
 
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let (d, _) = self.upstream.poll_changes(cx);

@@ -1,11 +1,6 @@
 use crate::*;
 
-pub struct ReactiveCrossJoin<A, B> {
-  pub a: A,
-  pub b: B,
-}
-
-impl<A, B> ReactiveQuery for ReactiveCrossJoin<A, B>
+impl<A, B> ReactiveQuery for CrossJoinQuery<A, B>
 where
   A: ReactiveQuery,
   B: ReactiveQuery,

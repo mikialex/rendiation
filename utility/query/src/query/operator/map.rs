@@ -1,12 +1,12 @@
 use crate::*;
 
 #[derive(Clone)]
-pub struct MappedQuery<F, T> {
+pub struct MappedQuery<T, F> {
   pub base: T,
   pub mapper: F,
 }
 
-impl<V2, F, T> Query for MappedQuery<F, T>
+impl<V2, F, T> Query for MappedQuery<T, F>
 where
   V2: CValue,
   F: Fn(&T::Key, T::Value) -> V2 + Clone + Send + Sync + 'static,

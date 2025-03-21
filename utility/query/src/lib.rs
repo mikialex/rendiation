@@ -1,3 +1,6 @@
+#![feature(fn_traits)]
+#![feature(unboxed_closures)]
+
 use std::marker::PhantomData;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;

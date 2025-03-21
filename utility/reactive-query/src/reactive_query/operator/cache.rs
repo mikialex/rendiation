@@ -11,7 +11,7 @@ where
 {
   type Key = Map::Key;
   type Value = Map::Value;
-  type Changes = impl Query<Key = Self::Key, Value = ValueChange<Self::Value>>;
+  type Changes = Map::Changes;
   type View = LockReadGuardHolder<FastHashMap<Self::Key, Self::Value>>;
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let (d, _) = self.inner.poll_changes(cx);
@@ -86,7 +86,7 @@ where
 {
   type Key = Map::Key;
   type Value = Map::Value;
-  type Changes = impl Query<Key = Self::Key, Value = ValueChange<Self::Value>>;
+  type Changes = Map::Changes;
   type View = LockReadGuardHolder<IndexReusedVecAccess<Self::Key, Self::Value>>;
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
     let (d, _) = self.inner.poll_changes(cx);

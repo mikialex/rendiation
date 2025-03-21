@@ -1,12 +1,12 @@
 use crate::*;
 
 #[derive(Clone)]
-pub struct FilterMapQuery<F, T> {
+pub struct FilterMapQuery<T, F> {
   pub base: T,
   pub mapper: F,
 }
 
-impl<F, V2, T> Query for FilterMapQuery<F, T>
+impl<F, V2, T> Query for FilterMapQuery<T, F>
 where
   F: Fn(T::Value) -> Option<V2> + Sync + Send + Clone + 'static,
   V2: CValue,

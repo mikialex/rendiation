@@ -1,11 +1,6 @@
 use crate::*;
 
-pub struct ReactiveKVMap<T, F> {
-  pub inner: T,
-  pub map: F,
-}
-
-impl<T, F, V2> ReactiveQuery for ReactiveKVMap<T, F>
+impl<T, F, V2> ReactiveQuery for MappedQuery<T, F>
 where
   V2: CValue,
   F: Fn(&T::Key, T::Value) -> V2 + Copy + Send + Sync + 'static,
@@ -14,20 +9,20 @@ where
   type Key = T::Key;
   type Value = V2;
   type Changes = impl Query<Key = Self::Key, Value = ValueChange<V2>>;
-  type View = MappedQuery<F, T::View>;
+  type View = MappedQuery<T::View, F>;
 
   #[tracing::instrument(skip_all, name = "ReactiveKVMap")]
   fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (d, v) = self.inner.poll_changes(cx);
-    let map = self.map;
-    let d = d.map(move |k, v| v.map(|v| map(k, v)));
-    let v = v.map(self.map);
+    let (d, v) = self.base.poll_changes(cx);
+    let mapper = self.mapper;
+    let d = d.map(move |k, v| v.map(|v| mapper(k, v)));
+    let v = v.map(self.mapper);
 
     (d, v)
   }
 
   fn request(&mut self, request: &mut ReactiveQueryRequest) {
-    self.inner.request(request)
+    self.base.request(request)
   }
 }
 

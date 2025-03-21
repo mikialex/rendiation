@@ -30,7 +30,7 @@ pub trait MultiQueryExt: MultiQuery + Sized + 'static {
 }
 impl<T: ?Sized> MultiQueryExt for T where Self: MultiQuery + Sized + 'static {}
 
-impl<V2, F, T> MultiQuery for MappedQuery<F, T>
+impl<V2, F, T> MultiQuery for MappedQuery<T, F>
 where
   V2: CValue,
   F: Fn(&T::Key, T::Value) -> V2 + Clone + Send + Sync + 'static,
