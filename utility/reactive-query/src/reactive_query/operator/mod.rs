@@ -247,8 +247,8 @@ where
     }
   }
 
-  fn diff_change(self) -> ReactiveQueryDiff<Self> {
-    ReactiveQueryDiff { inner: self }
+  fn diff_change(self) -> QueryDiff<Self> {
+    QueryDiff { inner: self }
   }
 
   fn debug(self, label: &'static str, log_change: bool) -> ReactiveQueryDebug<Self> {

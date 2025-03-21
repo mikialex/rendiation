@@ -9,20 +9,33 @@ where
   pub relations: Relation,
 }
 
-impl<Upstream, Relation> ReactiveQuery for OneToManyFanout<Upstream, Relation>
+pub struct OneToManyFanoutCompute<Upstream, Relation>
 where
-  Upstream: ReactiveQuery<Key = Relation::One>,
-  Relation: ReactiveOneToManyRelation + 'static,
+  Upstream: ReactiveQueryCompute,
+  Relation: ReactiveQueryCompute<Value: CKey>,
 {
-  type Key = Relation::Many;
+  pub upstream: Upstream,
+  pub relations: Relation,
+}
+
+impl<Upstream, Relation> ReactiveQueryCompute for OneToManyFanoutCompute<Upstream, Relation>
+where
+  Upstream: ReactiveQueryCompute<Key = Relation::Value>,
+  Relation: ReactiveQueryCompute<
+    Value: CKey,
+    View: MultiQuery<Key = Relation::Value, Value = Relation::Key>,
+  >,
+{
+  type Key = Relation::Key;
   type Value = Upstream::Value;
 
-  type Compute = impl ReactiveQueryCompute<Key = Self::Key, Value = Self::Value>;
+  type Changes = impl Query<Key = Self::Key, Value = ValueChange<Self::Value>> + 'static;
+  type View = impl Query<Key = Self::Key, Value = Self::Value> + 'static;
 
   #[allow(clippy::collapsible_else_if)]
-  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
-    let (relational_changes, relation_access) = self.relations.poll_changes(cx).resolve();
-    let (upstream_changes, getter) = self.upstream.poll_changes(cx).resolve();
+  fn resolve(self) -> (Self::Changes, Self::View) {
+    let (relational_changes, relation_access) = self.relations.resolve();
+    let (upstream_changes, getter) = self.upstream.resolve();
 
     let getter_previous = make_previous(&getter, &upstream_changes);
     let one_acc_previous = make_previous(&relation_access, &relational_changes);
@@ -100,6 +113,24 @@ where
 
     (d, v)
   }
+}
+
+impl<Upstream, Relation> ReactiveQuery for OneToManyFanout<Upstream, Relation>
+where
+  Upstream: ReactiveQuery<Key = Relation::One>,
+  Relation: ReactiveOneToManyRelation + 'static,
+{
+  type Key = Relation::Many;
+  type Value = Upstream::Value;
+
+  type Compute = OneToManyFanoutCompute<Upstream::Compute, Relation::Compute>;
+
+  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
+    OneToManyFanoutCompute {
+      upstream: self.upstream.poll_changes(cx),
+      relations: self.relations.poll_changes(cx),
+    }
+  }
 
   fn request(&mut self, request: &mut ReactiveQueryRequest) {
     self.upstream.request(request);
@@ -147,6 +178,15 @@ where
   pub ref_count: Arc<RwLock<FastHashMap<Relation::Value, u32>>>,
 }
 
+pub struct ManyToOneReduceCompute<Upstream, Relation>
+where
+  Relation: ReactiveQueryCompute<Value: CKey>,
+{
+  pub upstream: Upstream,
+  pub relations: Relation,
+  pub ref_count: LockWriteGuardHolder<FastHashMap<Relation::Value, u32>>,
+}
+
 impl<Upstream, Relation> ReactiveQuery for ManyToOneReduce<Upstream, Relation>
 where
   Upstream: ReactiveQuery<Value = ()>,
@@ -155,16 +195,47 @@ where
 {
   type Key = Relation::Value;
   type Value = ();
-  type Compute = impl ReactiveQueryCompute<Key = Self::Key, Value = Self::Value>;
+  type Compute = ManyToOneReduceCompute<Upstream::Compute, Relation::Compute>;
 
   fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
-    let (relational_changes, one_acc) = self.relations.poll_changes(cx).resolve();
-    let (upstream_changes, getter) = self.upstream.poll_changes(cx).resolve();
+    ManyToOneReduceCompute {
+      upstream: self.upstream.poll_changes(cx),
+      relations: self.relations.poll_changes(cx),
+      ref_count: self.ref_count.make_write_holder(),
+    }
+  }
+
+  fn request(&mut self, request: &mut ReactiveQueryRequest) {
+    self.upstream.request(request);
+    self.relations.request(request);
+    match request {
+      ReactiveQueryRequest::MemoryShrinkToFit => {
+        self.ref_count.write().shrink_to_fit();
+      }
+    }
+  }
+}
+
+impl<Upstream, Relation> ReactiveQueryCompute for ManyToOneReduceCompute<Upstream, Relation>
+where
+  Upstream: ReactiveQueryCompute<Value = ()>,
+  Relation: ReactiveQueryCompute<Key = Upstream::Key>,
+  Relation::Value: CKey,
+{
+  type Key = Relation::Value;
+  type Value = ();
+
+  type Changes = impl Query<Key = Self::Key, Value = ValueChange<Self::Value>> + 'static;
+  type View = impl Query<Key = Self::Key, Value = Self::Value> + 'static;
+
+  fn resolve(mut self) -> (Self::Changes, Self::View) {
+    let (relational_changes, one_acc) = self.relations.resolve();
+    let (upstream_changes, getter) = self.upstream.resolve();
 
     let getter_previous = make_previous(&getter, &upstream_changes);
 
     let mut output = FastHashMap::default();
-    let mut ref_counts = self.ref_count.write();
+    let ref_counts = &mut self.ref_count;
 
     {
       let relational_changes = relational_changes.materialize();
@@ -246,20 +317,10 @@ where
 
     let d = Arc::new(output);
     let v = ManyToOneReduceCurrentView {
-      ref_count: self.ref_count.make_read_holder(),
+      ref_count: self.ref_count.downgrade_to_read(),
     };
 
     (d, v)
-  }
-
-  fn request(&mut self, request: &mut ReactiveQueryRequest) {
-    self.upstream.request(request);
-    self.relations.request(request);
-    match request {
-      ReactiveQueryRequest::MemoryShrinkToFit => {
-        self.ref_count.write().shrink_to_fit();
-      }
-    }
   }
 }
 

@@ -54,16 +54,12 @@ where
   }
 }
 
-pub struct ReactiveQueryDiff<T> {
+#[derive(Clone)]
+pub struct QueryDiff<T> {
   pub inner: T,
 }
 
-#[derive(Clone)]
-pub struct DiffChangedView<T> {
-  inner: T,
-}
-
-impl<T, V> Query for DiffChangedView<T>
+impl<T, V> Query for QueryDiff<T>
 where
   T: Query<Value = ValueChange<V>>,
   V: CValue,
@@ -87,20 +83,36 @@ where
   }
 }
 
-impl<T> ReactiveQuery for ReactiveQueryDiff<T>
+impl<T> ReactiveQueryCompute for QueryDiff<T>
+where
+  T: ReactiveQueryCompute,
+  T::Value: PartialEq,
+{
+  type Key = T::Key;
+  type Value = T::Value;
+  type Changes = QueryDiff<T::Changes>;
+  type View = T::View;
+
+  fn resolve(self) -> (Self::Changes, Self::View) {
+    let (d, v) = self.inner.resolve();
+    let d = QueryDiff { inner: d };
+    (d, v)
+  }
+}
+
+impl<T> ReactiveQuery for QueryDiff<T>
 where
   T: ReactiveQuery,
   T::Value: PartialEq,
 {
   type Key = T::Key;
   type Value = T::Value;
-  type Compute = impl ReactiveQueryCompute<Key = Self::Key, Value = Self::Value>;
+  type Compute = QueryDiff<T::Compute>;
 
   fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
-    let (d, v) = self.inner.poll_changes(cx).resolve();
-
-    let d = DiffChangedView { inner: d };
-    (d, v)
+    QueryDiff {
+      inner: self.inner.poll_changes(cx),
+    }
   }
 
   fn request(&mut self, request: &mut ReactiveQueryRequest) {
