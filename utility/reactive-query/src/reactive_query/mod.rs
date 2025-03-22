@@ -45,6 +45,8 @@ impl AsyncQueryCtx {
 }
 
 pub trait AsyncQueryCompute: QueryCompute {
+  // type Task: Future<Output = (Self::Changes, Self::View)>; // todo, should use this
+
   type Task: Future<Output = Self>;
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task;
 }

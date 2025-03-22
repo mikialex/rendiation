@@ -5,35 +5,65 @@ pub struct UnorderedMaterializedReactiveQuery<Map: ReactiveQuery> {
   pub cache: Arc<RwLock<FastHashMap<Map::Key, Map::Value>>>,
 }
 
+pub struct UnorderedMaterializeCompute<T, K: CKey, V: CValue> {
+  pub inner: T,
+  pub cache: Option<LockWriteGuardHolder<FastHashMap<K, V>>>,
+}
+
+impl<T: QueryCompute> QueryCompute for UnorderedMaterializeCompute<T, T::Key, T::Value> {
+  type Key = T::Key;
+  type Value = T::Value;
+  type Changes = impl Query<Key = T::Key, Value = ValueChange<T::Value>> + 'static;
+  type View = impl Query<Key = T::Key, Value = T::Value> + 'static;
+
+  fn resolve(&mut self) -> (Self::Changes, Self::View) {
+    let (d, _) = self.inner.resolve();
+    let mut cache = self.cache.take().unwrap();
+
+    for (k, change) in d.iter_key_value() {
+      match change.clone() {
+        ValueChange::Delta(v, _) => {
+          cache.insert(k, v);
+        }
+        ValueChange::Remove(_) => {
+          cache.remove(&k);
+        }
+      }
+    }
+
+    let v = cache.downgrade_to_read();
+    (d, v)
+  }
+}
+
+// impl<T: AsyncQueryCompute> AsyncQueryCompute for UnorderedMaterializeCompute<T, T::Key, T::Value> {
+//   type Task = impl Future<Output = (Self::Changes, Self::View)>;
+
+//   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+//     self.inner.create_task(cx).then(|inner| {
+//       cx.spawn_task(|| {
+//         UnorderedMaterializeCompute {
+//           inner,
+//           cache: self.cache.take(),
+//         }
+//         .resolve()
+//       })
+//     })
+//   }
+// }
+
 impl<Map> ReactiveQuery for UnorderedMaterializedReactiveQuery<Map>
 where
   Map: ReactiveQuery,
 {
   type Key = Map::Key;
   type Value = Map::Value;
-  type Compute = (
-    <Map::Compute as QueryCompute>::Changes,
-    LockReadGuardHolder<FastHashMap<Self::Key, Self::Value>>,
-  );
+  type Compute = UnorderedMaterializeCompute<Map::Compute, Self::Key, Self::Value>;
   fn describe(&self, cx: &mut Context) -> Self::Compute {
-    let (d, _) = self.inner.describe(cx).resolve();
-    {
-      let mut cache = self.cache.write();
-      for (k, change) in d.iter_key_value() {
-        match change.clone() {
-          ValueChange::Delta(v, _) => {
-            cache.insert(k, v);
-          }
-          ValueChange::Remove(_) => {
-            cache.remove(&k);
-          }
-        }
-      }
+    UnorderedMaterializeCompute {
+      inner: self.inner.describe(cx),
+      cache: Some(self.cache.make_write_holder()),
     }
-
-    let v = self.cache.make_read_holder();
-
-    (d, v)
   }
 
   fn request(&mut self, request: &mut ReactiveQueryRequest) {
