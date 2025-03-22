@@ -13,13 +13,13 @@ where
   type Key = T::Value;
   type Value = T::Key;
 
-  type Compute = impl ReactiveQueryCompute<Key = Self::Key, Value = Self::Value>;
+  type Compute = impl QueryCompute<Key = Self::Key, Value = Self::Value>;
 
-  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
     let mapping = self.mapping.make_write_holder();
 
     OneToOneRefHashBookKeepingCompute {
-      upstream: self.upstream.poll_changes(cx),
+      upstream: self.upstream.describe(cx),
       mapping: Some(mapping),
     }
   }
@@ -32,14 +32,12 @@ where
   }
 }
 
-pub struct OneToOneRefHashBookKeepingCompute<T: ReactiveQueryCompute> {
+pub struct OneToOneRefHashBookKeepingCompute<T: QueryCompute> {
   pub upstream: T,
   pub mapping: Option<LockWriteGuardHolder<FastHashMap<T::Value, T::Key>>>,
 }
 
-impl<T: ReactiveQueryCompute<Value: CKey>> ReactiveQueryCompute
-  for OneToOneRefHashBookKeepingCompute<T>
-{
+impl<T: QueryCompute<Value: CKey>> QueryCompute for OneToOneRefHashBookKeepingCompute<T> {
   type Key = T::Value;
   type Value = T::Key;
   type Changes = impl Query<Key = Self::Key, Value = ValueChange<Self::Value>> + 'static;

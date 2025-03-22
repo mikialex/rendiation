@@ -8,10 +8,10 @@ where
   type Key = (A::Key, B::Key);
   type Value = (A::Value, B::Value);
   type Compute = CrossJoinQuery<A::Compute, B::Compute>;
-  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
     CrossJoinQuery {
-      a: self.a.poll_changes(cx),
-      b: self.b.poll_changes(cx),
+      a: self.a.describe(cx),
+      b: self.b.describe(cx),
     }
   }
 
@@ -21,10 +21,10 @@ where
   }
 }
 
-impl<A, B> ReactiveQueryCompute for CrossJoinQuery<A, B>
+impl<A, B> QueryCompute for CrossJoinQuery<A, B>
 where
-  A: ReactiveQueryCompute,
-  B: ReactiveQueryCompute,
+  A: QueryCompute,
+  B: QueryCompute,
 {
   type Key = (A::Key, B::Key);
   type Value = (A::Value, B::Value);

@@ -39,7 +39,7 @@ where
     target: &mut Box<dyn QueryLikeMutateTarget<T::Key, TV>>,
     cx: &mut Context,
   ) {
-    let (d, _) = self.query.poll_changes(cx).resolve();
+    let (d, _) = self.query.describe(cx).resolve();
     for (k, v) in d.iter_key_value() {
       match v {
         ValueChange::Delta(v, _) => {

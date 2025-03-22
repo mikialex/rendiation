@@ -175,9 +175,9 @@ struct SceneTlasMaintainer {
 impl ReactiveQuery for SceneTlasMaintainer {
   type Key = EntityHandle<SceneEntity>;
   type Value = TlasHandle;
-  type Compute = impl ReactiveQueryCompute<Key = Self::Key, Value = Self::Value>;
+  type Compute = impl QueryCompute<Key = Self::Key, Value = Self::Value>;
 
-  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
     let mut tlas = self.tlas.write();
 
     let mut mutations =
@@ -199,7 +199,7 @@ impl ReactiveQuery for SceneTlasMaintainer {
       }
     }
 
-    let (sm_blas_change, current_sm_blas) = self.source.poll_changes(cx).resolve();
+    let (sm_blas_change, current_sm_blas) = self.source.describe(cx).resolve();
     for (k, _) in sm_blas_change.iter_key_value() {
       if let Some(scene) = current_sm_acc_scene.access(&k) {
         regenerate_scene.insert(scene);

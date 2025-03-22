@@ -304,9 +304,9 @@ impl<T: Query<Key = RawEntityHandle> + Clone> Query for GenerationHelperViewAcce
 impl<T: ReactiveQuery<Key = RawEntityHandle>> ReactiveQuery for GenerationHelperView<T> {
   type Key = u32;
   type Value = T::Value;
-  type Compute = impl ReactiveQueryCompute<Key = Self::Key, Value = Self::Value>;
-  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
-    let (inner, inner_access) = self.inner.poll_changes(cx).resolve();
+  type Compute = impl QueryCompute<Key = Self::Key, Value = Self::Value>;
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
+    let (inner, inner_access) = self.inner.describe(cx).resolve();
 
     let delta = GenerationHelperViewAccess {
       inner,

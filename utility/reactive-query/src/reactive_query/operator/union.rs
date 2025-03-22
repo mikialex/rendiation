@@ -9,12 +9,12 @@ where
 {
   type Key = T1::Key;
   type Value = O;
-  type Compute = impl ReactiveQueryCompute<Key = Self::Key, Value = Self::Value>;
+  type Compute = impl QueryCompute<Key = Self::Key, Value = Self::Value>;
 
-  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
     UnionQuery {
-      a: self.a.poll_changes(cx),
-      b: self.b.poll_changes(cx),
+      a: self.a.describe(cx),
+      b: self.b.describe(cx),
       f: self.f,
     }
   }
@@ -25,10 +25,10 @@ where
   }
 }
 
-impl<T1, T2, F, O> ReactiveQueryCompute for UnionQuery<T1, T2, F>
+impl<T1, T2, F, O> QueryCompute for UnionQuery<T1, T2, F>
 where
-  T1: ReactiveQueryCompute,
-  T2: ReactiveQueryCompute<Key = T1::Key>,
+  T1: QueryCompute,
+  T2: QueryCompute<Key = T1::Key>,
   F: Fn((Option<T1::Value>, Option<T2::Value>)) -> Option<O> + Send + Sync + Copy + 'static,
   O: CValue,
 {

@@ -16,14 +16,14 @@ pub enum ReactiveQueryRequest {
 pub trait ReactiveQuery: Sync + Send + 'static {
   type Key: CKey;
   type Value: CValue;
-  type Compute: ReactiveQueryCompute<Key = Self::Key, Value = Self::Value>;
+  type Compute: QueryCompute<Key = Self::Key, Value = Self::Value>;
 
-  fn poll_changes(&self, cx: &mut Context) -> Self::Compute;
+  fn describe(&self, cx: &mut Context) -> Self::Compute;
 
   fn request(&mut self, request: &mut ReactiveQueryRequest);
 }
 
-pub trait ReactiveQueryCompute: Sync + Send + 'static {
+pub trait QueryCompute: Sync + Send + 'static {
   type Key: CKey;
   type Value: CValue;
   type Changes: Query<Key = Self::Key, Value = ValueChange<Self::Value>> + 'static;
@@ -32,7 +32,7 @@ pub trait ReactiveQueryCompute: Sync + Send + 'static {
   fn resolve(&mut self) -> (Self::Changes, Self::View);
 }
 
-impl<K, V, Change, View> ReactiveQueryCompute for (Change, View)
+impl<K, V, Change, View> QueryCompute for (Change, View)
 where
   K: CKey,
   V: CValue,
@@ -52,7 +52,7 @@ impl<K: CKey, V: CValue> ReactiveQuery for EmptyQuery<K, V> {
   type Key = K;
   type Value = V;
   type Compute = (EmptyQuery<K, ValueChange<V>>, EmptyQuery<K, V>);
-  fn poll_changes(&self, _: &mut Context) -> Self::Compute {
+  fn describe(&self, _: &mut Context) -> Self::Compute {
     (Default::default(), Default::default())
   }
   fn request(&mut self, _: &mut ReactiveQueryRequest) {}

@@ -32,13 +32,13 @@ impl<T: ReactiveQuery<Value = (Arc<Vec<u8>>, Option<GPUBufferViewRange>)>> React
   type Key = T::Key;
   type Value = (u32, u32); // offset count(in u32)
 
-  type Compute = impl ReactiveQueryCompute<Key = Self::Key, Value = Self::Value>;
+  type Compute = impl QueryCompute<Key = Self::Key, Value = Self::Value>;
 
-  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
     let mut record = self.record.write();
     let mut buffer = self.buffer.write();
     let mut rev = self.rev_map.write();
-    let (d, _) = self.upstream.poll_changes(cx).resolve();
+    let (d, _) = self.upstream.describe(cx).resolve();
 
     let mut mutations = FastHashMap::<T::Key, ValueChange<(u32, u32)>>::default();
     let mut mutator = QueryMutationCollector {

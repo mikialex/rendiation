@@ -52,12 +52,12 @@ where
   type Value = T::Value;
 
   type Compute = (
-    <T::Compute as ReactiveQueryCompute>::Changes,
-    OneToManyRefHashBookKeepingCurrentView<<T::Compute as ReactiveQueryCompute>::View>,
+    <T::Compute as QueryCompute>::Changes,
+    OneToManyRefHashBookKeepingCurrentView<<T::Compute as QueryCompute>::View>,
   );
 
-  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
-    let (r, r_view) = self.upstream.poll_changes(cx).resolve();
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
+    let (r, r_view) = self.upstream.describe(cx).resolve();
 
     {
       let mut mapping = self.mapping.write();
@@ -176,8 +176,8 @@ where
     impl MultiQuery<Key = T::Value, Value = T::Key> + Query<Key = T::Key, Value = T::Value>,
   );
 
-  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
-    let (r, r_view) = self.upstream.poll_changes(cx).resolve();
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
+    let (r, r_view) = self.upstream.describe(cx).resolve();
 
     {
       let mut mapping = self.mapping.write();

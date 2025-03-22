@@ -11,20 +11,18 @@ where
 
 pub struct OneToManyFanoutCompute<Upstream, Relation>
 where
-  Upstream: ReactiveQueryCompute,
-  Relation: ReactiveQueryCompute<Value: CKey>,
+  Upstream: QueryCompute,
+  Relation: QueryCompute<Value: CKey>,
 {
   pub upstream: Upstream,
   pub relations: Relation,
 }
 
-impl<Upstream, Relation> ReactiveQueryCompute for OneToManyFanoutCompute<Upstream, Relation>
+impl<Upstream, Relation> QueryCompute for OneToManyFanoutCompute<Upstream, Relation>
 where
-  Upstream: ReactiveQueryCompute<Key = Relation::Value>,
-  Relation: ReactiveQueryCompute<
-    Value: CKey,
-    View: MultiQuery<Key = Relation::Value, Value = Relation::Key>,
-  >,
+  Upstream: QueryCompute<Key = Relation::Value>,
+  Relation:
+    QueryCompute<Value: CKey, View: MultiQuery<Key = Relation::Value, Value = Relation::Key>>,
 {
   type Key = Relation::Key;
   type Value = Upstream::Value;
@@ -125,10 +123,10 @@ where
 
   type Compute = OneToManyFanoutCompute<Upstream::Compute, Relation::Compute>;
 
-  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
     OneToManyFanoutCompute {
-      upstream: self.upstream.poll_changes(cx),
-      relations: self.relations.poll_changes(cx),
+      upstream: self.upstream.describe(cx),
+      relations: self.relations.describe(cx),
     }
   }
 
@@ -180,7 +178,7 @@ where
 
 pub struct ManyToOneReduceCompute<Upstream, Relation>
 where
-  Relation: ReactiveQueryCompute<Value: CKey>,
+  Relation: QueryCompute<Value: CKey>,
 {
   pub upstream: Upstream,
   pub relations: Relation,
@@ -197,10 +195,10 @@ where
   type Value = ();
   type Compute = ManyToOneReduceCompute<Upstream::Compute, Relation::Compute>;
 
-  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
     ManyToOneReduceCompute {
-      upstream: self.upstream.poll_changes(cx),
-      relations: self.relations.poll_changes(cx),
+      upstream: self.upstream.describe(cx),
+      relations: self.relations.describe(cx),
       ref_count: Some(self.ref_count.make_write_holder()),
     }
   }
@@ -216,10 +214,10 @@ where
   }
 }
 
-impl<Upstream, Relation> ReactiveQueryCompute for ManyToOneReduceCompute<Upstream, Relation>
+impl<Upstream, Relation> QueryCompute for ManyToOneReduceCompute<Upstream, Relation>
 where
-  Upstream: ReactiveQueryCompute<Value = ()>,
-  Relation: ReactiveQueryCompute<Key = Upstream::Key>,
+  Upstream: QueryCompute<Value = ()>,
+  Relation: QueryCompute<Key = Upstream::Key>,
   Relation::Value: CKey,
 {
   type Key = Relation::Value;

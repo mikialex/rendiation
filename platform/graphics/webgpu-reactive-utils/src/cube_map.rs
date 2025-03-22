@@ -49,7 +49,7 @@ where
   T: QueryLikeMutateTarget<C::Key, GPUCubeTextureView>,
 {
   fn update_target(&mut self, target: &mut T, cx: &mut Context) {
-    let (changes, _) = self.upstream.poll_changes(cx).resolve();
+    let (changes, _) = self.upstream.describe(cx).resolve();
 
     for (k, v) in changes.iter_key_value() {
       let index = k;

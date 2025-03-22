@@ -10,9 +10,9 @@ where
   type Value = V2;
   type Compute = MappedQuery<T::Compute, F>;
 
-  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
     MappedQuery {
-      base: self.base.poll_changes(cx),
+      base: self.base.describe(cx),
       mapper: self.mapper.clone(),
     }
   }
@@ -22,11 +22,11 @@ where
   }
 }
 
-impl<T, F, V2> ReactiveQueryCompute for MappedQuery<T, F>
+impl<T, F, V2> QueryCompute for MappedQuery<T, F>
 where
   V2: CValue,
   F: Fn(&T::Key, T::Value) -> V2 + Clone + Send + Sync + 'static,
-  T: ReactiveQueryCompute,
+  T: QueryCompute,
 {
   type Key = T::Key;
   type Value = V2;
@@ -53,13 +53,13 @@ where
 {
   type Key = K2;
   type Value = T::Value;
-  type Compute = impl ReactiveQueryCompute<Key = Self::Key, Value = Self::Value>;
+  type Compute = impl QueryCompute<Key = Self::Key, Value = Self::Value>;
 
-  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
     KeyDualMappedQuery {
       f1: self.f1,
       f2: self.f2,
-      base: self.base.poll_changes(cx),
+      base: self.base.describe(cx),
     }
   }
 
@@ -68,12 +68,12 @@ where
   }
 }
 
-impl<F1, F2, T, K2> ReactiveQueryCompute for KeyDualMappedQuery<T, F1, F2>
+impl<F1, F2, T, K2> QueryCompute for KeyDualMappedQuery<T, F1, F2>
 where
   K2: CKey,
   F1: Fn(T::Key) -> K2 + Copy + Send + Sync + 'static,
   F2: Fn(K2) -> T::Key + Copy + Send + Sync + 'static,
-  T: ReactiveQueryCompute,
+  T: QueryCompute,
 {
   type Key = K2;
   type Value = T::Value;
@@ -105,11 +105,11 @@ where
 {
   type Key = T::Key;
   type Value = V2;
-  type Compute = impl ReactiveQueryCompute<Key = Self::Key, Value = Self::Value>;
+  type Compute = impl QueryCompute<Key = Self::Key, Value = Self::Value>;
 
   #[tracing::instrument(skip_all, name = "ReactiveKVExecuteMap")]
-  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
-    let (d, _) = self.inner.poll_changes(cx).resolve();
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
+    let (d, _) = self.inner.describe(cx).resolve();
 
     let mut mapper = (self.map_creator)();
     let materialized = d.iter_key_value().collect::<Vec<_>>();

@@ -18,14 +18,14 @@ where
   type Key = T::Many;
   type Value = V2;
 
-  type Compute = impl ReactiveQueryCompute<
+  type Compute = impl QueryCompute<
     Key = Self::Key,
     Value = Self::Value,
     View: MultiQuery<Key = V2, Value = T::Many>,
   >;
 
-  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
-    let (d, v) = self.inner.poll_changes(cx).resolve();
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
+    let (d, v) = self.inner.describe(cx).resolve();
     let map = self.map;
     let d = d.map(move |k, v| v.map(|v| map(k, v)));
 
@@ -60,14 +60,14 @@ where
   type Key = K2;
   type Value = T::One;
 
-  type Compute = impl ReactiveQueryCompute<
+  type Compute = impl QueryCompute<
     Key = Self::Key,
     Value = Self::Value,
     View: MultiQuery<Key = T::One, Value = K2>,
   >;
 
-  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
-    let (d, v) = self.inner.poll_changes(cx).resolve();
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
+    let (d, v) = self.inner.describe(cx).resolve();
     let d = d.key_dual_map(self.f1, self.f2);
     let f1_ = self.f1;
     let v_inv = v.clone().multi_map(move |_, v| f1_(v));

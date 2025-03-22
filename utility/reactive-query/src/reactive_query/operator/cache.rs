@@ -12,11 +12,11 @@ where
   type Key = Map::Key;
   type Value = Map::Value;
   type Compute = (
-    <Map::Compute as ReactiveQueryCompute>::Changes,
+    <Map::Compute as QueryCompute>::Changes,
     LockReadGuardHolder<FastHashMap<Self::Key, Self::Value>>,
   );
-  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
-    let (d, _) = self.inner.poll_changes(cx).resolve();
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
+    let (d, _) = self.inner.describe(cx).resolve();
     {
       let mut cache = self.cache.write();
       for (k, change) in d.iter_key_value() {
@@ -88,10 +88,10 @@ where
 {
   type Key = Map::Key;
   type Value = Map::Value;
-  type Compute = impl ReactiveQueryCompute<Key = Self::Key, Value = Self::Value>;
+  type Compute = impl QueryCompute<Key = Self::Key, Value = Self::Value>;
 
-  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
-    let (d, _) = self.inner.poll_changes(cx).resolve();
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
+    let (d, _) = self.inner.describe(cx).resolve();
     {
       let mut cache = self.cache.write();
       for (k, change) in d.iter_key_value() {

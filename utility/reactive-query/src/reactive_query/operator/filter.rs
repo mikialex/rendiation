@@ -10,8 +10,8 @@ where
   type Value = V2;
   type Compute = FilterMapQuery<T::Compute, F>;
 
-  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
-    let base = self.base.poll_changes(cx);
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
+    let base = self.base.describe(cx);
 
     FilterMapQuery {
       base,
@@ -24,10 +24,10 @@ where
   }
 }
 
-impl<T, F, V2> ReactiveQueryCompute for FilterMapQuery<T, F>
+impl<T, F, V2> QueryCompute for FilterMapQuery<T, F>
 where
   F: Fn(T::Value) -> Option<V2> + Clone + Send + Sync + 'static,
-  T: ReactiveQueryCompute,
+  T: QueryCompute,
   V2: CValue,
 {
   type Key = T::Key;

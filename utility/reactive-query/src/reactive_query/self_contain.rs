@@ -1,9 +1,7 @@
 use crate::*;
 
 pub trait ReactiveValueRefQuery:
-  ReactiveQuery<
-  Compute: ReactiveQueryCompute<View: DynValueRefQuery<Key = Self::Key, Value = Self::Value>>,
->
+  ReactiveQuery<Compute: QueryCompute<View: DynValueRefQuery<Key = Self::Key, Value = Self::Value>>>
 {
   fn into_reactive_state_self_contained(
     self,
@@ -24,7 +22,7 @@ pub trait ReactiveValueRefQuery:
 impl<T> ReactiveValueRefQuery for T
 where
   T: ReactiveQuery,
-  <T::Compute as ReactiveQueryCompute>::View: DynValueRefQuery<Key = T::Key, Value = T::Value>,
+  <T::Compute as QueryCompute>::View: DynValueRefQuery<Key = T::Key, Value = T::Value>,
 {
 }
 
@@ -56,7 +54,7 @@ where
     &self,
     cx: &mut Context,
   ) -> DynReactiveValueRefQueryPoll<Self::Key, Self::Value> {
-    let (d, v) = self.poll_changes(cx).resolve();
+    let (d, v) = self.describe(cx).resolve();
     (Box::new(d), Box::new(v))
   }
 

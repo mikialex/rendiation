@@ -38,10 +38,10 @@ where
 {
   type Key = K;
   type Value = T;
-  type Compute = impl ReactiveQueryCompute<Key = Self::Key, Value = Self::Value>;
+  type Compute = impl QueryCompute<Key = Self::Key, Value = Self::Value>;
 
-  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
-    let (payload_change, current_source) = self.payload_source.poll_changes(cx).resolve();
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
+    let (payload_change, current_source) = self.payload_source.describe(cx).resolve();
     let (connectivity_change, current_connectivity, current_inv_connectivity) =
       self.connectivity_source.poll_changes_with_inv_dyn(cx);
 

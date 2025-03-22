@@ -123,8 +123,8 @@ where
     impl Query<Key = u32, Value = ValueChange<u32>>,
     impl Query<Key = u32, Value = u32> + MultiQuery<Key = u32, Value = u32>,
   );
-  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
-    let (d, v) = self.inner.poll_changes(cx).resolve();
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
+    let (d, v) = self.inner.describe(cx).resolve();
 
     let allocator = self.foreign_allocator.make_read_holder();
     let d = d

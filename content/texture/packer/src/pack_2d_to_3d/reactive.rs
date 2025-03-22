@@ -82,8 +82,8 @@ impl ReactiveQuery for Packer {
     BoxedDynQuery<u32, ValueChange<PackResult2dWithDepth>>,
     PackerCurrentView,
   );
-  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
-    let (d, _) = self.size_source.poll_changes(cx).resolve();
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
+    let (d, _) = self.size_source.describe(cx).resolve();
 
     {
       unsafe {

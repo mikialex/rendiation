@@ -64,7 +64,7 @@ impl<K: CKey, V: CValue> RQForker<K, V> {
     });
     let waker = futures::task::waker_ref(&waker);
     let mut cx = Context::from_waker(&waker);
-    let (_, v) = self.upstream.read().poll_changes(&mut cx).resolve();
+    let (_, v) = self.upstream.read().describe(&mut cx).resolve();
     Box::new(v)
   }
 }
@@ -128,7 +128,7 @@ where
     });
     let waker = futures::task::waker_ref(&waker);
     let mut cx = Context::from_waker(&waker);
-    let (d, v) = self.upstream.read().poll_changes(&mut cx).resolve();
+    let (d, v) = self.upstream.read().describe(&mut cx).resolve();
 
     // delta should also dispatch to downstream to keep message integrity
     let downstream = self.downstream.read_recursive();
@@ -245,9 +245,9 @@ where
   type Value = Map::Value;
   type Compute = (
     impl Query<Key = Self::Key, Value = ValueChange<Self::Value>>,
-    ForkedView<<Map::Compute as ReactiveQueryCompute>::View>,
+    ForkedView<<Map::Compute as QueryCompute>::View>,
   );
-  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
     // install new waker, this waker is shared by arc within the downstream info
     self.waker.register(cx.waker());
 
@@ -266,7 +266,7 @@ where
         if let Some(view) = view.upgrade() {
           let v = ForkedView {
             inner: view
-              .downcast::<<Map::Compute as ReactiveQueryCompute>::View>()
+              .downcast::<<Map::Compute as QueryCompute>::View>()
               .unwrap(),
           };
           return (finalize_buffered_changes(buffered), v);
@@ -281,7 +281,7 @@ where
     });
     let waker = futures::task::waker_ref(&waker);
     let mut cx_2 = Context::from_waker(&waker);
-    let (d, v) = upstream.poll_changes(&mut cx_2).resolve();
+    let (d, v) = upstream.describe(&mut cx_2).resolve();
 
     let d = {
       let downstream = self.downstream.write();
@@ -310,7 +310,7 @@ where
 
     let v = ForkedView {
       inner: view
-        .downcast::<<Map::Compute as ReactiveQueryCompute>::View>()
+        .downcast::<<Map::Compute as QueryCompute>::View>()
         .unwrap(),
     };
 

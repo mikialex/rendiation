@@ -1,5 +1,5 @@
 use futures::Stream;
-use reactive_stream::{single_value_channel, SingleSender};
+use reactive_stream::{noop_ctx, single_value_channel, SingleSender};
 
 use crate::*;
 
@@ -14,7 +14,6 @@ pub fn reactive_linear_allocation(
 ) {
   assert!(init_count <= max_count);
 
-  let (sender, rev) = collective_channel::<u32, u32>();
   let (size_sender, size_rev) = single_value_channel();
 
   let allocator = xalloc::SysTlsf::new(init_count);
@@ -29,8 +28,6 @@ pub fn reactive_linear_allocation(
     source: input,
     allocator: Arc::new(RwLock::new(allocator)),
     all_size_sender: size_sender,
-    sender,
-    accumulated_mutations: rev,
   };
 
   (allocator, size_rev)
@@ -42,8 +39,6 @@ struct ReactiveAllocator<T> {
   source: T,
   allocator: Arc<RwLock<Allocator>>,
   all_size_sender: SingleSender<u32>,
-  sender: CollectiveMutationSender<u32, u32>,
-  accumulated_mutations: CollectiveMutationReceiver<u32, u32>,
 }
 
 struct Allocator {
@@ -125,18 +120,28 @@ impl Allocator {
   }
 }
 
-impl<T> ReactiveQuery for ReactiveAllocator<T>
+struct ReactiveAllocatorCompute<T> {
+  allocator: Option<LockWriteGuardHolder<Allocator>>,
+  source: T,
+  all_size_sender: SingleSender<u32>,
+  sender: CollectiveMutationSender<u32, u32>,
+  accumulated_mutations: CollectiveMutationReceiver<u32, u32>,
+}
+
+impl<T: QueryCompute> QueryCompute for ReactiveAllocatorCompute<T>
 where
-  T: ReactiveQuery<Key = u32, Value = u32>,
+  T: QueryCompute<Key = u32, Value = u32>,
 {
   type Key = u32;
   type Value = u32;
-  type Compute = impl ReactiveQueryCompute<Key = Self::Key, Value = Self::Value>;
 
-  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
-    let mut allocator = self.allocator.write();
+  type Changes = impl Query<Key = u32, Value = ValueChange<u32>>;
+  type View = impl Query<Key = u32, Value = u32>;
 
-    let (d, _) = self.source.poll_changes(cx).resolve();
+  fn resolve(&mut self) -> (Self::Changes, Self::View) {
+    let mut allocator = self.allocator.take().unwrap();
+
+    let (d, _) = self.source.resolve();
 
     unsafe {
       self.sender.lock();
@@ -173,15 +178,39 @@ where
       self.sender.unlock();
     }
 
+    noop_ctx!(cx);
     let d = if let Poll::Ready(Some(r)) = self.accumulated_mutations.poll_impl(cx) {
       r
     } else {
       QueryExt::into_boxed(EmptyQuery::default())
     };
 
-    let v = self.allocator.make_read_holder();
+    let v = allocator.downgrade_to_read();
 
     (d, v)
+  }
+}
+
+impl<T> ReactiveQuery for ReactiveAllocator<T>
+where
+  T: ReactiveQuery<Key = u32, Value = u32>,
+{
+  type Key = u32;
+  type Value = u32;
+  type Compute = ReactiveAllocatorCompute<T::Compute>;
+
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
+    let source = self.source.describe(cx);
+
+    let (sender, accumulated_mutations) = collective_channel::<u32, u32>();
+
+    ReactiveAllocatorCompute {
+      allocator: Some(self.allocator.make_write_holder()),
+      source,
+      all_size_sender: self.all_size_sender.clone(),
+      sender,
+      accumulated_mutations,
+    }
   }
 
   fn request(&mut self, request: &mut ReactiveQueryRequest) {

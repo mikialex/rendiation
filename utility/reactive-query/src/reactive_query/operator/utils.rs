@@ -13,10 +13,10 @@ where
 {
   type Key = T::Key;
   type Value = T::Value;
-  type Compute = impl ReactiveQueryCompute<Key = Self::Key, Value = Self::Value>;
+  type Compute = impl QueryCompute<Key = Self::Key, Value = Self::Value>;
 
-  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
-    let (d, v) = self.inner.poll_changes(cx).resolve();
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
+    let (d, v) = self.inner.describe(cx).resolve();
 
     // validation
     let changes = d.materialize();
@@ -83,9 +83,9 @@ where
   }
 }
 
-impl<T> ReactiveQueryCompute for QueryDiff<T>
+impl<T> QueryCompute for QueryDiff<T>
 where
-  T: ReactiveQueryCompute,
+  T: QueryCompute,
   T::Value: PartialEq,
 {
   type Key = T::Key;
@@ -109,9 +109,9 @@ where
   type Value = T::Value;
   type Compute = QueryDiff<T::Compute>;
 
-  fn poll_changes(&self, cx: &mut Context) -> Self::Compute {
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
     QueryDiff {
-      inner: self.inner.poll_changes(cx),
+      inner: self.inner.describe(cx),
     }
   }
 
@@ -134,7 +134,7 @@ where
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
-    let r = this.inner.poll_changes(cx).resolve().0.materialize();
+    let r = this.inner.describe(cx).resolve().0.materialize();
 
     if r.is_empty() {
       Poll::Pending
