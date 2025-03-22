@@ -2,25 +2,30 @@ use crate::*;
 
 pub struct ReactiveQueryDebug<T: ReactiveQuery> {
   pub inner: T,
-  pub state: RwLock<FastHashMap<T::Key, T::Value>>,
+  pub state: Arc<RwLock<FastHashMap<T::Key, T::Value>>>,
   pub label: &'static str,
   pub log_change: bool,
 }
 
-impl<T> ReactiveQuery for ReactiveQueryDebug<T>
-where
-  T: ReactiveQuery,
-{
+pub struct ReactiveQueryDebugCompute<T, K: CKey, V: CValue> {
+  pub inner: T,
+  pub state: LockWriteGuardHolder<FastHashMap<K, V>>,
+  pub label: &'static str,
+  pub log_change: bool,
+}
+
+impl<T: QueryCompute> QueryCompute for ReactiveQueryDebugCompute<T, T::Key, T::Value> {
   type Key = T::Key;
   type Value = T::Value;
-  type Compute = impl QueryCompute<Key = Self::Key, Value = Self::Value>;
+  type Changes = T::Changes;
+  type View = T::View;
 
-  fn describe(&self, cx: &mut Context) -> Self::Compute {
-    let (d, v) = self.inner.describe(cx).resolve();
+  fn resolve(&mut self) -> (Self::Changes, Self::View) {
+    let (d, v) = self.inner.resolve();
 
     // validation
     let changes = d.materialize();
-    let mut state = self.state.write();
+    let state = &mut self.state;
 
     if !changes.is_empty() && self.log_change {
       println!("change details for <{}>:", self.label);
@@ -47,6 +52,24 @@ where
     }
 
     (d, v)
+  }
+}
+
+impl<T> ReactiveQuery for ReactiveQueryDebug<T>
+where
+  T: ReactiveQuery,
+{
+  type Key = T::Key;
+  type Value = T::Value;
+  type Compute = ReactiveQueryDebugCompute<T::Compute, T::Key, T::Value>;
+
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
+    ReactiveQueryDebugCompute {
+      inner: self.inner.describe(cx),
+      state: self.state.make_write_holder(),
+      label: self.label,
+      log_change: self.log_change,
+    }
   }
 
   fn request(&mut self, request: &mut ReactiveQueryRequest) {

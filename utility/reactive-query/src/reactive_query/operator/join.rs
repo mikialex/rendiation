@@ -51,6 +51,20 @@ where
   }
 }
 
+impl<A, B> AsyncQueryCompute for CrossJoinQuery<A, B>
+where
+  A: AsyncQueryCompute,
+  B: AsyncQueryCompute,
+{
+  type Task = impl Future<Output = Self>;
+
+  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+    let a = self.a.create_task(cx);
+    let b = self.b.create_task(cx);
+    futures::future::join(a, b).map(|(a, b)| CrossJoinQuery { a, b })
+  }
+}
+
 #[derive(Clone)]
 pub struct CrossJoinValueChange<A, B, DA, DB> {
   pub a: DA,

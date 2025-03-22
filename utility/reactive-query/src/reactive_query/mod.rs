@@ -32,6 +32,23 @@ pub trait QueryCompute: Sync + Send + 'static {
   fn resolve(&mut self) -> (Self::Changes, Self::View);
 }
 
+pub struct AsyncQueryCtx;
+
+impl AsyncQueryCtx {
+  pub fn spawn_task<R>(
+    &mut self,
+    f: impl Fn() -> R + 'static,
+  ) -> impl Future<Output = R> + 'static {
+    // todo, use some thread pool impl
+    async move { f() }
+  }
+}
+
+pub trait AsyncQueryCompute: QueryCompute {
+  type Task: Future<Output = Self>;
+  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task;
+}
+
 impl<K, V, Change, View> QueryCompute for (Change, View)
 where
   K: CKey,

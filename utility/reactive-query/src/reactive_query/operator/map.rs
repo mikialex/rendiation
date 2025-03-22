@@ -44,6 +44,23 @@ where
   }
 }
 
+impl<T, F, V2> AsyncQueryCompute for MappedQuery<T, F>
+where
+  V2: CValue,
+  F: Fn(&T::Key, T::Value) -> V2 + Clone + Send + Sync + 'static,
+  T: AsyncQueryCompute,
+{
+  type Task = impl Future<Output = Self>;
+
+  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+    let mapper = self.mapper.clone();
+    self
+      .base
+      .create_task(cx)
+      .map(|base| MappedQuery { base, mapper })
+  }
+}
+
 impl<F1, F2, T, K2> ReactiveQuery for KeyDualMappedQuery<T, F1, F2>
 where
   K2: CKey,
@@ -53,7 +70,7 @@ where
 {
   type Key = K2;
   type Value = T::Value;
-  type Compute = impl QueryCompute<Key = Self::Key, Value = Self::Value>;
+  type Compute = KeyDualMappedQuery<T::Compute, F1, F2>;
 
   fn describe(&self, cx: &mut Context) -> Self::Compute {
     KeyDualMappedQuery {

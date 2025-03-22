@@ -6,6 +6,7 @@ use core::{
 };
 use std::any::Any;
 use std::any::TypeId;
+use std::future::Future;
 use std::ops::DerefMut;
 use std::sync::Arc;
 use std::{marker::PhantomData, ops::Deref};
@@ -13,6 +14,7 @@ use std::{marker::PhantomData, ops::Deref};
 use fast_hash_collection::FastHashMap;
 use fast_hash_collection::*;
 use futures::task::AtomicWaker;
+use futures::FutureExt;
 use futures::{Stream, StreamExt};
 use parking_lot::lock_api::RawRwLock;
 use parking_lot::RwLock;

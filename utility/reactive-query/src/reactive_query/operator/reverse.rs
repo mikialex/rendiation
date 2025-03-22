@@ -13,7 +13,7 @@ where
   type Key = T::Value;
   type Value = T::Key;
 
-  type Compute = impl QueryCompute<Key = Self::Key, Value = Self::Value>;
+  type Compute = OneToOneRefHashBookKeepingCompute<T::Compute, T::Key, T::Value>;
 
   fn describe(&self, cx: &mut Context) -> Self::Compute {
     let mapping = self.mapping.make_write_holder();
@@ -32,12 +32,14 @@ where
   }
 }
 
-pub struct OneToOneRefHashBookKeepingCompute<T: QueryCompute> {
+pub struct OneToOneRefHashBookKeepingCompute<T, K: CKey, V: CValue> {
   pub upstream: T,
-  pub mapping: Option<LockWriteGuardHolder<FastHashMap<T::Value, T::Key>>>,
+  pub mapping: Option<LockWriteGuardHolder<FastHashMap<V, K>>>,
 }
 
-impl<T: QueryCompute<Value: CKey>> QueryCompute for OneToOneRefHashBookKeepingCompute<T> {
+impl<T: QueryCompute<Value: CKey>> QueryCompute
+  for OneToOneRefHashBookKeepingCompute<T, T::Key, T::Value>
+{
   type Key = T::Value;
   type Value = T::Key;
   type Changes = impl Query<Key = Self::Key, Value = ValueChange<Self::Value>> + 'static;

@@ -22,6 +22,7 @@ pub trait ReactiveValueRefQuery:
 impl<T> ReactiveValueRefQuery for T
 where
   T: ReactiveQuery,
+  T::Compute: QueryCompute,
   <T::Compute as QueryCompute>::View: DynValueRefQuery<Key = T::Key, Value = T::Value>,
 {
 }
