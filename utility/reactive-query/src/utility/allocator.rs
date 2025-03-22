@@ -54,15 +54,20 @@ struct Allocator {
   allocated: FastHashMap<u32, (AllocationHandle, u32, u32)>,
 }
 
-impl Query for LockReadGuardHolder<Allocator> {
+#[derive(Clone)]
+struct AllocatorView {
+  internal: LockReadGuardHolder<Allocator>,
+}
+
+impl Query for AllocatorView {
   type Key = u32;
   type Value = u32;
   fn iter_key_value(&self) -> impl Iterator<Item = (u32, u32)> + '_ {
-    self.allocated.iter().map(|(k, v)| (*k, v.1))
+    self.internal.allocated.iter().map(|(k, v)| (*k, v.1))
   }
 
   fn access(&self, key: &u32) -> Option<u32> {
-    self.allocated.get(key).map(|v| v.1)
+    self.internal.allocated.get(key).map(|v| v.1)
   }
 }
 
@@ -187,7 +192,7 @@ where
 
     let v = allocator.downgrade_to_read();
 
-    (d, v)
+    (d, AllocatorView { internal: v })
   }
 }
 

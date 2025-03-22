@@ -16,7 +16,6 @@ use futures::task::AtomicWaker;
 use futures::{Stream, StreamExt};
 use parking_lot::lock_api::RawRwLock;
 use parking_lot::RwLock;
-use parking_lot::{RwLockReadGuard, RwLockWriteGuard};
 pub use query::*;
 use storage::IndexKeptVec;
 
@@ -43,9 +42,6 @@ pub use collective_channel::*;
 
 mod registry;
 pub use registry::*;
-
-mod lock_holder;
-pub use lock_holder::*;
 
 mod mutate_target;
 pub use mutate_target::*;

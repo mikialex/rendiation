@@ -1,3 +1,7 @@
+use std::ops::DerefMut;
+
+use parking_lot::*;
+
 use crate::*;
 
 impl<T: Query> Query for LockReadGuardHolder<T> {

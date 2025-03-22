@@ -7,41 +7,12 @@ pub struct OneToManyRefHashBookKeeping<T: ReactiveQuery> {
   pub mapping: Arc<RwLock<FastHashMap<T::Value, FastHashSet<T::Key>>>>,
 }
 
-#[derive(Clone)]
-pub struct OneToManyRefHashBookKeepingCurrentView<T: Query> {
-  upstream: T,
-  mapping: LockReadGuardHolder<FastHashMap<T::Value, FastHashSet<T::Key>>>,
-}
-
-impl<T> Query for OneToManyRefHashBookKeepingCurrentView<T>
-where
-  T: Query,
-{
-  type Key = T::Key;
-  type Value = T::Value;
-  fn access(&self, m: &T::Key) -> Option<T::Value> {
-    self.upstream.access(m)
-  }
-
-  fn iter_key_value(&self) -> impl Iterator<Item = (T::Key, T::Value)> + '_ {
-    self.upstream.iter_key_value()
-  }
-}
-
-impl<T> MultiQuery for OneToManyRefHashBookKeepingCurrentView<T>
-where
-  T: Query<Value: CKey>,
-{
-  type Key = T::Value;
-  type Value = T::Key;
-  fn iter_keys(&self) -> impl Iterator<Item = T::Value> + '_ {
-    self.mapping.keys().cloned()
-  }
-
-  fn access_multi(&self, o: &T::Value) -> Option<impl Iterator<Item = T::Key> + '_> {
-    self.mapping.get(o).map(|set| set.iter().cloned())
-  }
-}
+pub type OneToManyRefHashBookKeepingCurrentView<T> = QueryAndMultiQuery<
+  <T as QueryCompute>::View,
+  LockReadGuardHolder<
+    FastHashMap<<T as QueryCompute>::Value, FastHashSet<<T as QueryCompute>::Key>>,
+  >,
+>;
 
 impl<T> ReactiveQuery for OneToManyRefHashBookKeeping<T>
 where
@@ -53,7 +24,7 @@ where
 
   type Compute = (
     <T::Compute as QueryCompute>::Changes,
-    OneToManyRefHashBookKeepingCurrentView<<T::Compute as QueryCompute>::View>,
+    OneToManyRefHashBookKeepingCurrentView<T::Compute>,
   );
 
   fn describe(&self, cx: &mut Context) -> Self::Compute {
@@ -83,9 +54,9 @@ where
       }
     }
 
-    let v = OneToManyRefHashBookKeepingCurrentView {
-      upstream: r_view,
-      mapping: self.mapping.make_read_holder(),
+    let v = QueryAndMultiQuery {
+      query: r_view,
+      multi_query: self.mapping.make_read_holder(),
     };
 
     (r, v)

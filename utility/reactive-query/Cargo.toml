@@ -18,8 +18,6 @@ dyn-clone = { workspace = true }
 rendiation-abstract-tree = { path = "../abstract-tree" }
 xalloc = "0.2.7"
 reactive-stream = { path = "../reactive-stream" }
-
-# we use it's rwlock to avoid recursive read deadlock
 parking_lot = { workspace = true }
 
 [lints]

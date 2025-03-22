@@ -20,6 +20,12 @@ pub use query::*;
 mod multi_query;
 pub use multi_query::*;
 
+mod combined;
+pub use combined::*;
+
+mod lock_holder;
+pub use lock_holder::*;
+
 /// common key that could be used in query system
 pub trait CKey: Eq + Hash + CValue {}
 impl<T> CKey for T where T: Eq + Hash + CValue {}
