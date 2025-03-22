@@ -14,7 +14,7 @@ impl<T: QueryCompute> QueryCompute for UnorderedMaterializeCompute<T, T::Key, T:
   type Key = T::Key;
   type Value = T::Value;
   type Changes = impl Query<Key = T::Key, Value = ValueChange<T::Value>> + 'static;
-  type View = impl Query<Key = T::Key, Value = T::Value> + 'static;
+  type View = LockReadGuardHolder<FastHashMap<T::Key, T::Value>>;
 
   fn resolve(&mut self) -> (Self::Changes, Self::View) {
     let (d, _) = self.inner.resolve();

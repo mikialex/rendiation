@@ -34,10 +34,24 @@ pub trait QueryCompute: Sync + Send + 'static {
 
 pub struct AsyncQueryCtx;
 
-impl AsyncQueryCtx {
+pub struct AsyncQuerySpawner;
+impl AsyncQuerySpawner {
   pub fn spawn_task<R>(
-    &mut self,
-    f: impl Fn() -> R + 'static,
+    &self,
+    f: impl FnOnce() -> R + 'static,
+  ) -> impl Future<Output = R> + 'static {
+    // todo, use some thread pool impl
+    async move { f() }
+  }
+}
+
+impl AsyncQueryCtx {
+  pub fn make_spawner(&self) -> AsyncQuerySpawner {
+    AsyncQuerySpawner
+  }
+  pub fn spawn_task<R>(
+    &self,
+    f: impl FnOnce() -> R + 'static,
   ) -> impl Future<Output = R> + 'static {
     // todo, use some thread pool impl
     async move { f() }
@@ -45,9 +59,13 @@ impl AsyncQueryCtx {
 }
 
 pub trait AsyncQueryCompute: QueryCompute {
-  // type Task: Future<Output = (Self::Changes, Self::View)>; // todo, should use this
-
   type Task: Future<Output = Self>;
+  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task;
+}
+
+pub trait AsyncQueryCompute2: QueryCompute {
+  // this is correct version
+  type Task: Future<Output = (Self::Changes, Self::View)> + 'static;
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task;
 }
 
