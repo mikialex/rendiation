@@ -117,6 +117,8 @@ where
         })
     });
 
+    let a_side_change_with_b = avoid_huge_debug_symbols_by_boxing_iter(a_side_change_with_b);
+
     let b_side_change_with_a = self.b.iter_key_value().flat_map(move |(k2, v2_change)| {
       self
         .a_current
@@ -135,6 +137,8 @@ where
           .unwrap()
         })
     });
+
+    let b_side_change_with_a = avoid_huge_debug_symbols_by_boxing_iter(b_side_change_with_a);
 
     cross_section
       .chain(a_side_change_with_b)

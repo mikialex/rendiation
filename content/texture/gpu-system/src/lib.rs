@@ -145,7 +145,7 @@ impl<T: AbstractIndirectGPUTextureSystem + Clone> AbstractGPUTextureSystem for T
   }
 }
 
-/// the object safe version of [[AbstractGPUTextureSystem]]
+/// the object safe version of [AbstractGPUTextureSystem]
 pub trait DynAbstractGPUTextureSystem: Any + DynClone {
   fn bind_system_self(&self, collector: &mut BindingBuilder);
   fn bind_texture2d(&self, collector: &mut BindingBuilder, handle: Texture2DHandle);

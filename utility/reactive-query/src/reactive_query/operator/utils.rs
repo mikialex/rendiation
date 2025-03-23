@@ -9,7 +9,7 @@ pub struct ReactiveQueryDebug<T: ReactiveQuery> {
 
 pub struct ReactiveQueryDebugCompute<T, K: CKey, V: CValue> {
   pub inner: T,
-  pub state: LockWriteGuardHolder<FastHashMap<K, V>>,
+  pub state: Option<LockWriteGuardHolder<FastHashMap<K, V>>>,
   pub label: &'static str,
   pub log_change: bool,
 }
@@ -25,7 +25,7 @@ impl<T: QueryCompute> QueryCompute for ReactiveQueryDebugCompute<T, T::Key, T::V
 
     // validation
     let changes = d.materialize();
-    let state = &mut self.state;
+    let mut state = self.state.take().unwrap();
 
     if !changes.is_empty() && self.log_change {
       println!("change details for <{}>:", self.label);
@@ -55,6 +55,27 @@ impl<T: QueryCompute> QueryCompute for ReactiveQueryDebugCompute<T, T::Key, T::V
   }
 }
 
+impl<T: AsyncQueryCompute> AsyncQueryCompute for ReactiveQueryDebugCompute<T, T::Key, T::Value> {
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
+  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+    let sp = cx.make_spawner();
+    let state = self.state.take();
+    let label = self.label;
+    let log_change = self.log_change;
+    self.inner.create_task(cx).then(move |inner| {
+      sp.spawn_task(move || {
+        ReactiveQueryDebugCompute {
+          inner,
+          state,
+          label,
+          log_change,
+        }
+        .resolve()
+      })
+    })
+  }
+}
+
 impl<T> ReactiveQuery for ReactiveQueryDebug<T>
 where
   T: ReactiveQuery,
@@ -66,7 +87,7 @@ where
   fn describe(&self, cx: &mut Context) -> Self::Compute {
     ReactiveQueryDebugCompute {
       inner: self.inner.describe(cx),
-      state: self.state.make_write_holder(),
+      state: self.state.make_write_holder().into(),
       label: self.label,
       log_change: self.log_change,
     }

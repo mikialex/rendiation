@@ -128,7 +128,13 @@ where
   }
 }
 
-/// compare to ReactiveKVMap, this execute immediately and not impose too many bounds on mapper
+/// A map operator that internal contains a materialization and a mapper creator logic.
+///
+/// Compare to [MappedQuery], this map will not compute previous delta to improve performance
+/// at cost of memory usage. Use this if your mapper fn is expensive to run.
+///
+/// The mapper creator will create the mapper at the computation start time, collecting some expensive
+/// operations such as lock access or context creation in advance to improve mapping performance.
 pub struct ReactiveKVExecuteMap<T: ReactiveQuery, F, V2> {
   pub inner: T,
   pub map_creator: F,
@@ -137,22 +143,57 @@ pub struct ReactiveKVExecuteMap<T: ReactiveQuery, F, V2> {
 
 impl<T, F, V2, FF> ReactiveQuery for ReactiveKVExecuteMap<T, F, V2>
 where
-  F: Fn() -> FF + Send + Sync + 'static,
+  F: Fn() -> FF + Send + Sync + Clone + 'static,
   FF: FnMut(&T::Key, T::Value) -> V2 + Send + Sync + 'static,
   V2: CValue,
   T: ReactiveQuery,
 {
   type Key = T::Key;
   type Value = V2;
-  type Compute = impl QueryCompute<Key = Self::Key, Value = Self::Value>;
+  type Compute = KVExecuteMap<T::Compute, F, T::Key, V2>;
 
   #[tracing::instrument(skip_all, name = "ReactiveKVExecuteMap")]
   fn describe(&self, cx: &mut Context) -> Self::Compute {
-    let (d, _) = self.inner.describe(cx).resolve();
+    KVExecuteMap {
+      inner: self.inner.describe(cx),
+      map_creator: self.map_creator.clone(),
+      cache: self.cache.make_write_holder().into(),
+    }
+  }
+
+  fn request(&mut self, request: &mut ReactiveQueryRequest) {
+    match request {
+      ReactiveQueryRequest::MemoryShrinkToFit => self.cache.write().shrink_to_fit(),
+    }
+    self.inner.request(request)
+  }
+}
+
+pub struct KVExecuteMap<T, F, K: CKey, V2: CValue> {
+  pub inner: T,
+  pub map_creator: F,
+  pub cache: Option<LockWriteGuardHolder<FastHashMap<K, V2>>>,
+}
+
+impl<T, F, V2, FF> QueryCompute for KVExecuteMap<T, F, T::Key, V2>
+where
+  F: Fn() -> FF + Send + Sync + 'static,
+  FF: FnMut(&T::Key, T::Value) -> V2 + Send + Sync + 'static,
+  V2: CValue,
+  T: QueryCompute,
+{
+  type Key = T::Key;
+  type Value = V2;
+
+  type Changes = Arc<FastHashMap<T::Key, ValueChange<V2>>>;
+  type View = LockReadGuardHolder<FastHashMap<T::Key, V2>>;
+
+  fn resolve(&mut self) -> (Self::Changes, Self::View) {
+    let (d, _) = self.inner.resolve();
 
     let mut mapper = (self.map_creator)();
     let materialized = d.iter_key_value().collect::<Vec<_>>();
-    let mut cache = self.cache.write();
+    let mut cache = self.cache.take().unwrap();
     let materialized: FastHashMap<T::Key, ValueChange<V2>> = materialized
       .into_iter()
       .map(|(k, delta)| match delta {
@@ -168,16 +209,34 @@ where
       })
       .collect();
     let d = Arc::new(materialized);
-    drop(cache);
 
-    let v = self.cache.make_read_holder();
+    let v = cache.downgrade_to_read();
     (d, v)
   }
+}
 
-  fn request(&mut self, request: &mut ReactiveQueryRequest) {
-    match request {
-      ReactiveQueryRequest::MemoryShrinkToFit => self.cache.write().shrink_to_fit(),
-    }
-    self.inner.request(request)
+impl<T, F, V2, FF> AsyncQueryCompute for KVExecuteMap<T, F, T::Key, V2>
+where
+  F: Fn() -> FF + Clone + Send + Sync + 'static,
+  FF: FnMut(&T::Key, T::Value) -> V2 + Send + Sync + 'static,
+  V2: CValue,
+  T: AsyncQueryCompute,
+{
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
+
+  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+    let spawner = cx.make_spawner();
+    let map_creator = self.map_creator.clone();
+    let cache = self.cache.take();
+    self.inner.create_task(cx).then(move |inner| {
+      spawner.spawn_task(move || {
+        KVExecuteMap {
+          inner,
+          map_creator,
+          cache,
+        }
+        .resolve()
+      })
+    })
   }
 }

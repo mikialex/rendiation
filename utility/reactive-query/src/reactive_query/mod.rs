@@ -53,8 +53,7 @@ impl AsyncQueryCtx {
     &self,
     f: impl FnOnce() -> R + 'static,
   ) -> impl Future<Output = R> + 'static {
-    // todo, use some thread pool impl
-    async move { f() }
+    self.make_spawner().spawn_task(f)
   }
 }
 

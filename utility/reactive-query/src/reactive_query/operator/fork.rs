@@ -59,7 +59,7 @@ impl<Map: ReactiveQuery> ReactiveKVMapFork<Map> {
 impl<K: CKey, V: CValue> RQForker<K, V> {
   pub fn update_and_read(&self) -> BoxedDynQuery<K, V> {
     assert!(self.as_static_forker);
-    let waker = Arc::new(BroadCast {
+    let waker = Arc::new(Broadcast {
       inner: self.downstream.clone(),
     });
     let waker = futures::task::waker_ref(&waker);
@@ -72,7 +72,7 @@ impl<K: CKey, V: CValue> RQForker<K, V> {
 impl<K: CKey, V: CKey> OneManyRelationForker<K, V> {
   pub fn update_and_read(&self) -> BoxedDynMultiQuery<K, V> {
     assert!(self.as_static_forker);
-    let waker = Arc::new(BroadCast {
+    let waker = Arc::new(Broadcast {
       inner: self.downstream.clone(),
     });
     let waker = futures::task::waker_ref(&waker);
@@ -123,7 +123,7 @@ where
     // current view as init delta for new forked downstream
     //
     // update should use downstream registered waker
-    let waker = Arc::new(BroadCast {
+    let waker = Arc::new(Broadcast {
       inner: self.downstream.clone(),
     });
     let waker = futures::task::waker_ref(&waker);
@@ -276,7 +276,7 @@ where
 
     // poll upstream
     let upstream = self.upstream.write();
-    let waker = Arc::new(BroadCast {
+    let waker = Arc::new(Broadcast {
       inner: self.downstream.clone(),
     });
     let waker = futures::task::waker_ref(&waker);
@@ -323,11 +323,11 @@ where
 }
 
 /// notify all downstream proactively
-struct BroadCast<K, V> {
+struct Broadcast<K, V> {
   inner: Arc<RwLock<FastHashMap<u64, DownStreamInfo<K, V>>>>,
 }
 
-impl<K: CKey, V: CValue> futures::task::ArcWake for BroadCast<K, V> {
+impl<K: CKey, V: CValue> futures::task::ArcWake for Broadcast<K, V> {
   fn wake_by_ref(arc_self: &Arc<Self>) {
     let all = arc_self.inner.write();
     for v in all.values() {

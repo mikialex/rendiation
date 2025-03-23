@@ -100,7 +100,7 @@ where
     f: F,
   ) -> impl ReactiveQuery<Key = Self::Key, Value = V2>
   where
-    F: Fn() -> FF + Send + Sync + 'static,
+    F: Fn() -> FF + Clone + Send + Sync + 'static,
     FF: FnMut(&Self::Key, Self::Value) -> V2 + Send + Sync + 'static,
     V2: CValue,
   {

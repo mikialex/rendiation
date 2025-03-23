@@ -120,7 +120,7 @@ impl Default for QueryToken {
   }
 }
 
-/// The joined update result of [[ReactiveQueryCtx]], accessed by [[QueryToken]]
+/// The joined update result of [ReactiveQueryCtx], accessed by [QueryToken]
 pub struct QueryResultCtx {
   pub token_based_result: FastHashMap<u32, Box<dyn Any>>,
   pub token_based_waked: FastHashSet<u32>,
@@ -190,7 +190,7 @@ impl QueryResultCtx {
   }
 }
 
-/// This trait abstract the general pattern of the [[ReactiveQueryCtx]] usage
+/// This trait abstract the general pattern of the [ReactiveQueryCtx] usage
 pub trait QueryBasedFeature<T> {
   type Context;
   /// register queries in qcx
