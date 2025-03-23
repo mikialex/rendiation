@@ -135,13 +135,13 @@ where
 ///
 /// The mapper creator will create the mapper at the computation start time, collecting some expensive
 /// operations such as lock access or context creation in advance to improve mapping performance.
-pub struct ReactiveKVExecuteMap<T: ReactiveQuery, F, V2> {
+pub struct MapExecution<T, K, F, V2> {
   pub inner: T,
   pub map_creator: F,
-  pub cache: Arc<RwLock<FastHashMap<T::Key, V2>>>,
+  pub cache: Arc<RwLock<FastHashMap<K, V2>>>,
 }
 
-impl<T, F, V2, FF> ReactiveQuery for ReactiveKVExecuteMap<T, F, V2>
+impl<T, F, V2, FF> ReactiveQuery for MapExecution<T, T::Key, F, V2>
 where
   F: Fn() -> FF + Send + Sync + Clone + 'static,
   FF: FnMut(&T::Key, T::Value) -> V2 + Send + Sync + 'static,
@@ -150,14 +150,14 @@ where
 {
   type Key = T::Key;
   type Value = V2;
-  type Compute = KVExecuteMap<T::Compute, F, T::Key, V2>;
+  type Compute = MapExecution<T::Compute, T::Key, F, V2>;
 
   #[tracing::instrument(skip_all, name = "ReactiveKVExecuteMap")]
   fn describe(&self, cx: &mut Context) -> Self::Compute {
-    KVExecuteMap {
+    MapExecution {
       inner: self.inner.describe(cx),
       map_creator: self.map_creator.clone(),
-      cache: self.cache.make_write_holder().into(),
+      cache: self.cache.clone(),
     }
   }
 
@@ -169,13 +169,7 @@ where
   }
 }
 
-pub struct KVExecuteMap<T, F, K: CKey, V2: CValue> {
-  pub inner: T,
-  pub map_creator: F,
-  pub cache: Option<LockWriteGuardHolder<FastHashMap<K, V2>>>,
-}
-
-impl<T, F, V2, FF> QueryCompute for KVExecuteMap<T, F, T::Key, V2>
+impl<T, F, V2, FF> QueryCompute for MapExecution<T, T::Key, F, V2>
 where
   F: Fn() -> FF + Send + Sync + 'static,
   FF: FnMut(&T::Key, T::Value) -> V2 + Send + Sync + 'static,
@@ -193,7 +187,7 @@ where
 
     let mut mapper = (self.map_creator)();
     let materialized = d.iter_key_value().collect::<Vec<_>>();
-    let mut cache = self.cache.take().unwrap();
+    let mut cache = self.cache.write();
     let materialized: FastHashMap<T::Key, ValueChange<V2>> = materialized
       .into_iter()
       .map(|(k, delta)| match delta {
@@ -209,13 +203,14 @@ where
       })
       .collect();
     let d = Arc::new(materialized);
+    drop(cache);
 
-    let v = cache.downgrade_to_read();
+    let v = self.cache.make_read_holder();
     (d, v)
   }
 }
 
-impl<T, F, V2, FF> AsyncQueryCompute for KVExecuteMap<T, F, T::Key, V2>
+impl<T, F, V2, FF> AsyncQueryCompute for MapExecution<T, T::Key, F, V2>
 where
   F: Fn() -> FF + Clone + Send + Sync + 'static,
   FF: FnMut(&T::Key, T::Value) -> V2 + Send + Sync + 'static,
@@ -227,10 +222,10 @@ where
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
     let spawner = cx.make_spawner();
     let map_creator = self.map_creator.clone();
-    let cache = self.cache.take();
+    let cache = self.cache.clone();
     self.inner.create_task(cx).then(move |inner| {
       spawner.spawn_task(move || {
-        KVExecuteMap {
+        MapExecution {
           inner,
           map_creator,
           cache,

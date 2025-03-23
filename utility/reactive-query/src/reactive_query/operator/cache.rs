@@ -1,16 +1,11 @@
 use crate::*;
 
-pub struct UnorderedMaterializedReactiveQuery<Map: ReactiveQuery> {
-  pub inner: Map,
-  pub cache: Arc<RwLock<FastHashMap<Map::Key, Map::Value>>>,
-}
-
-pub struct UnorderedMaterializeCompute<T, K: CKey, V: CValue> {
+pub struct UnorderedMaterializedViewCache<T, K: CKey, V: CValue> {
   pub inner: T,
-  pub cache: Option<LockWriteGuardHolder<FastHashMap<K, V>>>,
+  pub cache: Arc<RwLock<FastHashMap<K, V>>>,
 }
 
-impl<T: QueryCompute> QueryCompute for UnorderedMaterializeCompute<T, T::Key, T::Value> {
+impl<T: QueryCompute> QueryCompute for UnorderedMaterializedViewCache<T, T::Key, T::Value> {
   type Key = T::Key;
   type Value = T::Value;
   type Changes = T::Changes;
@@ -18,7 +13,7 @@ impl<T: QueryCompute> QueryCompute for UnorderedMaterializeCompute<T, T::Key, T:
 
   fn resolve(&mut self) -> (Self::Changes, Self::View) {
     let (d, _) = self.inner.resolve();
-    let mut cache = self.cache.take().unwrap();
+    let mut cache = self.cache.write();
 
     for (k, change) in d.iter_key_value() {
       match change.clone() {
@@ -30,35 +25,38 @@ impl<T: QueryCompute> QueryCompute for UnorderedMaterializeCompute<T, T::Key, T:
         }
       }
     }
+    drop(cache);
 
-    let v = cache.downgrade_to_read();
+    let v = self.cache.make_read_holder();
     (d, v)
   }
 }
 
-impl<T: AsyncQueryCompute> AsyncQueryCompute for UnorderedMaterializeCompute<T, T::Key, T::Value> {
+impl<T: AsyncQueryCompute> AsyncQueryCompute
+  for UnorderedMaterializedViewCache<T, T::Key, T::Value>
+{
   type Task = impl Future<Output = (Self::Changes, Self::View)>;
 
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
     let spawner = cx.make_spawner();
-    let cache = self.cache.take();
+    let cache = self.cache.clone();
     self.inner.create_task(cx).then(move |inner| {
-      spawner.spawn_task(|| UnorderedMaterializeCompute { inner, cache }.resolve())
+      spawner.spawn_task(|| UnorderedMaterializedViewCache { inner, cache }.resolve())
     })
   }
 }
 
-impl<Map> ReactiveQuery for UnorderedMaterializedReactiveQuery<Map>
+impl<Map> ReactiveQuery for UnorderedMaterializedViewCache<Map, Map::Key, Map::Value>
 where
   Map: ReactiveQuery,
 {
   type Key = Map::Key;
   type Value = Map::Value;
-  type Compute = UnorderedMaterializeCompute<Map::Compute, Self::Key, Self::Value>;
+  type Compute = UnorderedMaterializedViewCache<Map::Compute, Self::Key, Self::Value>;
   fn describe(&self, cx: &mut Context) -> Self::Compute {
-    UnorderedMaterializeCompute {
+    UnorderedMaterializedViewCache {
       inner: self.inner.describe(cx),
-      cache: Some(self.cache.make_write_holder()),
+      cache: self.cache.clone(),
     }
   }
 

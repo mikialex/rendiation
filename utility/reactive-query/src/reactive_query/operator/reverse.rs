@@ -1,11 +1,11 @@
 use crate::*;
 
-pub struct OneToOneRefHashBookKeeping<T: ReactiveQuery> {
+pub struct OneToOneRefHashBookKeeping<T, K: CKey, V: CValue> {
   pub upstream: T,
-  pub mapping: Arc<RwLock<FastHashMap<T::Value, T::Key>>>,
+  pub mapping: Arc<RwLock<FastHashMap<V, K>>>,
 }
 
-impl<T> ReactiveQuery for OneToOneRefHashBookKeeping<T>
+impl<T> ReactiveQuery for OneToOneRefHashBookKeeping<T, T::Key, T::Value>
 where
   T: ReactiveQuery,
   T::Value: CKey,
@@ -13,14 +13,12 @@ where
   type Key = T::Value;
   type Value = T::Key;
 
-  type Compute = OneToOneRefHashBookKeepingCompute<T::Compute, T::Key, T::Value>;
+  type Compute = OneToOneRefHashBookKeeping<T::Compute, T::Key, T::Value>;
 
   fn describe(&self, cx: &mut Context) -> Self::Compute {
-    let mapping = self.mapping.make_write_holder();
-
-    OneToOneRefHashBookKeepingCompute {
+    OneToOneRefHashBookKeeping {
       upstream: self.upstream.describe(cx),
-      mapping: Some(mapping),
+      mapping: self.mapping.clone(),
     }
   }
 
@@ -32,22 +30,17 @@ where
   }
 }
 
-pub struct OneToOneRefHashBookKeepingCompute<T, K: CKey, V: CValue> {
-  pub upstream: T,
-  pub mapping: Option<LockWriteGuardHolder<FastHashMap<V, K>>>,
-}
-
 impl<T: QueryCompute<Value: CKey>> QueryCompute
-  for OneToOneRefHashBookKeepingCompute<T, T::Key, T::Value>
+  for OneToOneRefHashBookKeeping<T, T::Key, T::Value>
 {
   type Key = T::Value;
   type Value = T::Key;
-  type Changes = impl Query<Key = Self::Key, Value = ValueChange<Self::Value>> + 'static;
+  type Changes = Arc<FastHashMap<Self::Key, ValueChange<Self::Value>>>;
   type View = LockReadGuardHolder<FastHashMap<Self::Key, Self::Value>>;
 
   fn resolve(&mut self) -> (Self::Changes, Self::View) {
     let (d, _) = self.upstream.resolve();
-    let mut mapping = self.mapping.take().expect("query has already resolved");
+    let mut mapping = self.mapping.write();
     let mut mutations = FastHashMap::<T::Value, ValueChange<T::Key>>::default();
     let mut mutator = QueryMutationCollector {
       delta: &mut mutations,
@@ -69,7 +62,22 @@ impl<T: QueryCompute<Value: CKey>> QueryCompute
         }
       }
     }
+    drop(mapping);
 
-    (mutations, mapping.downgrade_to_read())
+    (Arc::new(mutations), self.mapping.make_read_holder())
+  }
+}
+
+impl<T: AsyncQueryCompute<Value: CKey>> AsyncQueryCompute
+  for OneToOneRefHashBookKeeping<T, T::Key, T::Value>
+{
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
+
+  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+    let sp = cx.make_spawner();
+    let mapping = self.mapping.clone();
+    self.upstream.create_task(cx).then(move |upstream| {
+      sp.spawn_task(move || OneToOneRefHashBookKeeping { upstream, mapping }.resolve())
+    })
   }
 }

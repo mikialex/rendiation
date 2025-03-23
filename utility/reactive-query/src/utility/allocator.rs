@@ -125,20 +125,14 @@ impl Allocator {
   }
 }
 
-struct ReactiveAllocatorCompute<T> {
-  allocator: Option<LockWriteGuardHolder<Allocator>>,
-  source: T,
-  all_size_sender: SingleSender<u32>,
-}
-
-impl<T> AsyncQueryCompute for ReactiveAllocatorCompute<T>
+impl<T> AsyncQueryCompute for ReactiveAllocator<T>
 where
   T: AsyncQueryCompute<Key = u32, Value = u32>,
 {
   type Task = impl Future<Output = (Self::Changes, Self::View)> + 'static;
 
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
-    let allocator = self.allocator.take();
+    let allocator = self.allocator.clone();
     let all_size_sender = self.all_size_sender.clone();
     let spawner = cx.make_spawner();
 
@@ -146,7 +140,7 @@ where
       let allocator = allocator;
       let all_size_sender = all_size_sender;
       spawner.spawn_task(move || {
-        ReactiveAllocatorCompute {
+        ReactiveAllocator {
           allocator,
           source,
           all_size_sender,
@@ -157,7 +151,7 @@ where
   }
 }
 
-impl<T: QueryCompute> QueryCompute for ReactiveAllocatorCompute<T>
+impl<T: QueryCompute> QueryCompute for ReactiveAllocator<T>
 where
   T: QueryCompute<Key = u32, Value = u32>,
 {
@@ -168,7 +162,7 @@ where
   type View = AllocatorView;
 
   fn resolve(&mut self) -> (Self::Changes, Self::View) {
-    let mut allocator = self.allocator.take().unwrap();
+    let mut allocator = self.allocator.write();
 
     let (d, _) = self.source.resolve();
 
@@ -209,6 +203,8 @@ where
       sender.unlock();
     }
 
+    drop(allocator);
+
     noop_ctx!(cx);
     let d = if let Poll::Ready(Some(r)) = accumulated_mutations.poll_impl(cx) {
       r
@@ -216,7 +212,7 @@ where
       QueryExt::into_boxed(EmptyQuery::default())
     };
 
-    let v = allocator.downgrade_to_read();
+    let v = self.allocator.make_read_holder();
 
     (d, AllocatorView { internal: v })
   }
@@ -228,13 +224,13 @@ where
 {
   type Key = u32;
   type Value = u32;
-  type Compute = ReactiveAllocatorCompute<T::Compute>;
+  type Compute = ReactiveAllocator<T::Compute>;
 
   fn describe(&self, cx: &mut Context) -> Self::Compute {
     let source = self.source.describe(cx);
 
-    ReactiveAllocatorCompute {
-      allocator: Some(self.allocator.make_write_holder()),
+    ReactiveAllocator {
+      allocator: self.allocator.clone(),
       source,
       all_size_sender: self.all_size_sender.clone(),
     }

@@ -1,13 +1,15 @@
 mod bookkeeping;
 pub use bookkeeping::*;
 
+mod fanout;
 mod map;
-mod projection;
+mod reduce;
 
 mod dyn_impl;
 pub use dyn_impl::*;
+pub use fanout::*;
 pub use map::*;
-pub use projection::*;
+pub use reduce::*;
 
 use crate::*;
 
@@ -87,7 +89,9 @@ pub trait ReactiveQueryOneToManyRelationExt: Sized + ReactiveQuery<Value: CKey> 
     }
   }
 
-  fn into_one_to_many_by_hash_expose_type(self) -> OneToManyRefHashBookKeeping<Self> {
+  fn into_one_to_many_by_hash_expose_type(
+    self,
+  ) -> OneToManyRefHashBookKeeping<Self, Self::Key, Self::Value> {
     OneToManyRefHashBookKeeping {
       upstream: self,
       mapping: Default::default(),

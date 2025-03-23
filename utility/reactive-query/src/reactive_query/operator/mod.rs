@@ -47,7 +47,7 @@ where
     self.collective_kv_map(|k, _| k.clone())
   }
 
-  fn hash_reverse_assume_one_one(self) -> OneToOneRefHashBookKeeping<Self>
+  fn hash_reverse_assume_one_one(self) -> OneToOneRefHashBookKeeping<Self, Self::Key, Self::Value>
   where
     Self::Value: CKey,
   {
@@ -104,7 +104,7 @@ where
     FF: FnMut(&Self::Key, Self::Value) -> V2 + Send + Sync + 'static,
     V2: CValue,
   {
-    ReactiveKVExecuteMap {
+    MapExecution {
       inner: self,
       map_creator: f,
       cache: Default::default(),
@@ -231,8 +231,8 @@ where
     }
   }
 
-  fn materialize_unordered(self) -> UnorderedMaterializedReactiveQuery<Self> {
-    UnorderedMaterializedReactiveQuery {
+  fn materialize_unordered(self) -> UnorderedMaterializedViewCache<Self, Self::Key, Self::Value> {
+    UnorderedMaterializedViewCache {
       inner: self,
       cache: Default::default(),
     }
@@ -251,7 +251,11 @@ where
     QueryDiff { inner: self }
   }
 
-  fn debug(self, label: &'static str, log_change: bool) -> ReactiveQueryDebug<Self> {
+  fn debug(
+    self,
+    label: &'static str,
+    log_change: bool,
+  ) -> ReactiveQueryDebug<Self, Self::Key, Self::Value> {
     ReactiveQueryDebug {
       inner: self,
       state: Default::default(),

@@ -1,20 +1,13 @@
 use crate::*;
 
-pub struct ReactiveQueryDebug<T: ReactiveQuery> {
+pub struct ReactiveQueryDebug<T, K: CKey, V: CValue> {
   pub inner: T,
-  pub state: Arc<RwLock<FastHashMap<T::Key, T::Value>>>,
+  pub state: Arc<RwLock<FastHashMap<K, V>>>,
   pub label: &'static str,
   pub log_change: bool,
 }
 
-pub struct ReactiveQueryDebugCompute<T, K: CKey, V: CValue> {
-  pub inner: T,
-  pub state: Option<LockWriteGuardHolder<FastHashMap<K, V>>>,
-  pub label: &'static str,
-  pub log_change: bool,
-}
-
-impl<T: QueryCompute> QueryCompute for ReactiveQueryDebugCompute<T, T::Key, T::Value> {
+impl<T: QueryCompute> QueryCompute for ReactiveQueryDebug<T, T::Key, T::Value> {
   type Key = T::Key;
   type Value = T::Value;
   type Changes = T::Changes;
@@ -25,7 +18,7 @@ impl<T: QueryCompute> QueryCompute for ReactiveQueryDebugCompute<T, T::Key, T::V
 
     // validation
     let changes = d.materialize();
-    let mut state = self.state.take().unwrap();
+    let mut state = self.state.write();
 
     if !changes.is_empty() && self.log_change {
       println!("change details for <{}>:", self.label);
@@ -55,16 +48,16 @@ impl<T: QueryCompute> QueryCompute for ReactiveQueryDebugCompute<T, T::Key, T::V
   }
 }
 
-impl<T: AsyncQueryCompute> AsyncQueryCompute for ReactiveQueryDebugCompute<T, T::Key, T::Value> {
+impl<T: AsyncQueryCompute> AsyncQueryCompute for ReactiveQueryDebug<T, T::Key, T::Value> {
   type Task = impl Future<Output = (Self::Changes, Self::View)>;
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
     let sp = cx.make_spawner();
-    let state = self.state.take();
+    let state = self.state.clone();
     let label = self.label;
     let log_change = self.log_change;
     self.inner.create_task(cx).then(move |inner| {
       sp.spawn_task(move || {
-        ReactiveQueryDebugCompute {
+        ReactiveQueryDebug {
           inner,
           state,
           label,
@@ -76,18 +69,18 @@ impl<T: AsyncQueryCompute> AsyncQueryCompute for ReactiveQueryDebugCompute<T, T:
   }
 }
 
-impl<T> ReactiveQuery for ReactiveQueryDebug<T>
+impl<T> ReactiveQuery for ReactiveQueryDebug<T, T::Key, T::Value>
 where
   T: ReactiveQuery,
 {
   type Key = T::Key;
   type Value = T::Value;
-  type Compute = ReactiveQueryDebugCompute<T::Compute, T::Key, T::Value>;
+  type Compute = ReactiveQueryDebug<T::Compute, T::Key, T::Value>;
 
   fn describe(&self, cx: &mut Context) -> Self::Compute {
-    ReactiveQueryDebugCompute {
+    ReactiveQueryDebug {
       inner: self.inner.describe(cx),
-      state: self.state.make_write_holder().into(),
+      state: self.state.clone(),
       label: self.label,
       log_change: self.log_change,
     }
