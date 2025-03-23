@@ -59,11 +59,6 @@ impl AsyncQueryCtx {
 }
 
 pub trait AsyncQueryCompute: QueryCompute {
-  type Task: Future<Output = Self>;
-  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task;
-}
-
-pub trait AsyncQueryCompute2: QueryCompute {
   // this is correct version
   type Task: Future<Output = (Self::Changes, Self::View)> + 'static;
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task;

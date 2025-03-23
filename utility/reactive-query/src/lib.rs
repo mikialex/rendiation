@@ -1,4 +1,6 @@
 #![feature(impl_trait_in_assoc_type)]
+#![feature(fn_traits)]
+#![feature(unboxed_closures)]
 
 use core::{
   pin::Pin,

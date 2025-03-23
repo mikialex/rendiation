@@ -131,9 +131,9 @@ struct ReactiveAllocatorCompute<T> {
   all_size_sender: SingleSender<u32>,
 }
 
-impl<T> AsyncQueryCompute2 for ReactiveAllocatorCompute<T>
+impl<T> AsyncQueryCompute for ReactiveAllocatorCompute<T>
 where
-  T: AsyncQueryCompute2<Key = u32, Value = u32>,
+  T: AsyncQueryCompute<Key = u32, Value = u32>,
 {
   type Task = impl Future<Output = (Self::Changes, Self::View)> + 'static;
 

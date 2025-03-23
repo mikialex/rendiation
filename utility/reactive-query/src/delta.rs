@@ -8,7 +8,7 @@ pub enum ValueChange<V> {
   Remove(V),
 }
 
-impl<V: CValue> ValueChange<V> {
+impl<V> ValueChange<V> {
   pub fn map<R>(self, mapper: impl Fn(V) -> R) -> ValueChange<R> {
     type Rt<R> = ValueChange<R>;
     match self {
@@ -65,7 +65,10 @@ impl<V: CValue> ValueChange<V> {
   }
 
   /// return if exist after merge
-  pub fn merge(&mut self, new: &Self) -> bool {
+  pub fn merge(&mut self, new: &Self) -> bool
+  where
+    V: Clone,
+  {
     use ValueChange::*;
     *self = match (self.clone(), new.clone()) {
       (Delta(_d1, p1), Delta(d2, _p2)) => {

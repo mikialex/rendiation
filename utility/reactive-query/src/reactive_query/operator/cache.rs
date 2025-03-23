@@ -13,7 +13,7 @@ pub struct UnorderedMaterializeCompute<T, K: CKey, V: CValue> {
 impl<T: QueryCompute> QueryCompute for UnorderedMaterializeCompute<T, T::Key, T::Value> {
   type Key = T::Key;
   type Value = T::Value;
-  type Changes = impl Query<Key = T::Key, Value = ValueChange<T::Value>> + 'static;
+  type Changes = T::Changes;
   type View = LockReadGuardHolder<FastHashMap<T::Key, T::Value>>;
 
   fn resolve(&mut self) -> (Self::Changes, Self::View) {
@@ -36,21 +36,17 @@ impl<T: QueryCompute> QueryCompute for UnorderedMaterializeCompute<T, T::Key, T:
   }
 }
 
-// impl<T: AsyncQueryCompute> AsyncQueryCompute for UnorderedMaterializeCompute<T, T::Key, T::Value> {
-//   type Task = impl Future<Output = (Self::Changes, Self::View)>;
+impl<T: AsyncQueryCompute> AsyncQueryCompute for UnorderedMaterializeCompute<T, T::Key, T::Value> {
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
 
-//   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
-//     self.inner.create_task(cx).then(|inner| {
-//       cx.spawn_task(|| {
-//         UnorderedMaterializeCompute {
-//           inner,
-//           cache: self.cache.take(),
-//         }
-//         .resolve()
-//       })
-//     })
-//   }
-// }
+  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+    let spawner = cx.make_spawner();
+    let cache = self.cache.take();
+    self.inner.create_task(cx).then(move |inner| {
+      spawner.spawn_task(|| UnorderedMaterializeCompute { inner, cache }.resolve())
+    })
+  }
+}
 
 impl<Map> ReactiveQuery for UnorderedMaterializedReactiveQuery<Map>
 where

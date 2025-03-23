@@ -68,12 +68,12 @@ where
   F: Fn((Option<T1::Value>, Option<T2::Value>)) -> Option<O> + Send + Sync + Copy + 'static,
   O: CValue,
 {
-  type Task = impl Future<Output = Self>;
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
 
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
     let f = self.f;
     futures::future::join(self.a.create_task(cx), self.b.create_task(cx))
-      .map(move |(a, b)| UnionQuery { a, b, f })
+      .map(move |(a, b)| UnionQuery { a, b, f }.resolve())
   }
 }
 

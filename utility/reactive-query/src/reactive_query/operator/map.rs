@@ -31,16 +31,38 @@ where
   type Key = T::Key;
   type Value = V2;
 
-  type Changes = impl Query<Key = Self::Key, Value = ValueChange<V2>> + 'static;
+  type Changes = MappedQuery<T::Changes, ValueChangeMapper<F>>;
   type View = MappedQuery<T::View, F>;
 
   fn resolve(&mut self) -> (Self::Changes, Self::View) {
     let (d, v) = self.base.resolve();
     let mapper = self.mapper.clone();
-    let d = d.map(move |k, v| v.map(|v| mapper(k, v)));
+    let d = d.map(ValueChangeMapper(mapper));
     let v = v.map(self.mapper.clone());
 
     (d, v)
+  }
+}
+
+#[derive(Clone, Copy)]
+pub struct ValueChangeMapper<F>(F);
+impl<K, V, V2, F: Fn(&K, V) -> V2 + Clone> FnOnce<(&K, ValueChange<V>)> for ValueChangeMapper<F> {
+  type Output = ValueChange<V2>;
+
+  extern "rust-call" fn call_once(self, args: (&K, ValueChange<V>)) -> Self::Output {
+    self.call(args)
+  }
+}
+
+impl<K, V, V2, F: Fn(&K, V) -> V2 + Clone> FnMut<(&K, ValueChange<V>)> for ValueChangeMapper<F> {
+  extern "rust-call" fn call_mut(&mut self, args: (&K, ValueChange<V>)) -> Self::Output {
+    self.call(args)
+  }
+}
+
+impl<K, V, V2, F: Fn(&K, V) -> V2 + Clone> Fn<(&K, ValueChange<V>)> for ValueChangeMapper<F> {
+  extern "rust-call" fn call(&self, (k, v): (&K, ValueChange<V>)) -> Self::Output {
+    v.map(|v| (self.0.clone())(k, v))
   }
 }
 
@@ -50,14 +72,14 @@ where
   F: Fn(&T::Key, T::Value) -> V2 + Clone + Send + Sync + 'static,
   T: AsyncQueryCompute,
 {
-  type Task = impl Future<Output = Self>;
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
 
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
     let mapper = self.mapper.clone();
     self
       .base
       .create_task(cx)
-      .map(|base| MappedQuery { base, mapper })
+      .map(|base| MappedQuery { base, mapper }.resolve())
   }
 }
 
