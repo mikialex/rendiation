@@ -43,7 +43,7 @@ impl DatabaseEntityReverseReference {
     view
       .multi_key_dual_map(|k| unsafe { EntityHandle::from_raw(k) }, |k| k.handle)
       .multi_map(|_, v| unsafe { EntityHandle::from_raw(v) })
-      .into_boxed()
+      .into_boxed_multi()
   }
 
   pub fn watch_inv_ref<S: ForeignKeySemantic>(

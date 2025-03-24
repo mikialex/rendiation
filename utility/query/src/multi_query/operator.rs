@@ -1,7 +1,7 @@
 use crate::*;
 
 pub trait MultiQueryExt: MultiQuery + Sized + 'static {
-  fn into_boxed(self) -> BoxedDynMultiQuery<Self::Key, Self::Value> {
+  fn into_boxed_multi(self) -> BoxedDynMultiQuery<Self::Key, Self::Value> {
     Box::new(self)
   }
 
