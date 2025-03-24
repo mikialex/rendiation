@@ -33,9 +33,9 @@ impl<Map: AsyncQueryCompute> ForkComputeView<Map> {
 
     let downstream = self.downstream.clone();
     let resolved = self.resolved.clone();
-    let future = self.upstream.create_task(cx).map(|upstream| {
+    let future = self.upstream.write().create_task(cx).map(|upstream| {
       ForkComputeView {
-        upstream,
+        upstream: Arc::new(RwLock::new(upstream)),
         downstream,
         resolved,
         future_forker: Default::default(),

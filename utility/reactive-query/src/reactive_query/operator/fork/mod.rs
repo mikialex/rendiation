@@ -1,4 +1,4 @@
-mod async_impl;
+// mod async_impl;
 mod helper;
 mod internal;
 
@@ -72,7 +72,7 @@ where
     self.fork.update_waker(cx);
 
     ReactiveQueryForkCompute {
-      view: self.internal.poll_and_broadcast(),
+      view: self.internal.describe_view(),
       changes: self.fork.drain_changes(),
     }
   }
@@ -106,16 +106,12 @@ where
 
 impl<K: CKey, V: CValue> RQForker<K, V> {
   pub fn update_and_read(&self) -> BoxedDynQuery<K, V> {
-    self.internal.poll_and_broadcast().resolve().into_boxed()
+    self.internal.describe_view().resolve().into_boxed()
   }
 }
 
 impl<K: CKey, V: CKey> OneManyRelationForker<K, V> {
   pub fn update_and_read(&self) -> BoxedDynMultiQuery<K, V> {
-    self
-      .internal
-      .poll_and_broadcast()
-      .resolve()
-      .into_boxed_multi()
+    self.internal.describe_view().resolve().into_boxed_multi()
   }
 }
