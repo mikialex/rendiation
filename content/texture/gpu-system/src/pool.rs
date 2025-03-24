@@ -158,7 +158,7 @@ impl ReactiveGeneralQuery for TexturePoolSource {
 
     let (packing_change, current_pack) = self.packing.describe(cx).resolve();
 
-    let (tex_source_change, tex_input_current) = self.tex_input.describe(cx);
+    let (tex_source_change, tex_input_current) = self.tex_input.describe(cx).resolve();
     for (id, change) in tex_source_change.iter_key_value() {
       match change {
         ValueChange::Delta(new_tex, _) => {

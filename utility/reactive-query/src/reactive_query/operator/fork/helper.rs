@@ -29,6 +29,21 @@ pub fn finalize_buffered_changes<K: CKey, V: CValue>(
   }
 }
 
+fn merge_into_hashmap<K: CKey, V: CValue>(
+  map: &mut FastHashMap<K, ValueChange<V>>,
+  iter: impl Iterator<Item = (K, ValueChange<V>)>,
+) {
+  iter.for_each(|(k, v)| {
+    if let Some(current) = map.get_mut(&k) {
+      if !current.merge(&v) {
+        map.remove(&k);
+      }
+    } else {
+      map.insert(k, v.clone());
+    }
+  })
+}
+
 #[derive(Clone)]
 pub struct ForkedView<T> {
   pub inner: Arc<T>,

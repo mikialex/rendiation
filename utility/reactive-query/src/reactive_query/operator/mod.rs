@@ -212,12 +212,12 @@ where
     })
   }
 
-  fn into_forker(self) -> ReactiveKVMapFork<Self> {
-    ReactiveKVMapFork::new(self, false)
+  fn into_forker(self) -> ReactiveQueryFork<Self> {
+    ReactiveQueryFork::new(self, false)
   }
 
-  fn into_static_forker(self) -> ReactiveKVMapFork<Self> {
-    ReactiveKVMapFork::new(self, true)
+  fn into_static_forker(self) -> ReactiveQueryFork<Self> {
+    ReactiveQueryFork::new(self, true)
   }
 
   /// project map<O, V> -> map<M, V> when we have O - M one to many

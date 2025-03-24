@@ -1,6 +1,6 @@
 use std::{panic::Location, sync::Weak};
 
-use futures::channel::mpsc::*;
+use futures::{channel::mpsc::*, task::noop_waker};
 
 use super::helper::{finalize_buffered_changes, ForkedView};
 use crate::*;
@@ -10,7 +10,7 @@ type ForkMessage<K, V> = Arc<FastHashMap<K, ValueChange<V>>>;
 type Sender<K, V> = UnboundedSender<ForkMessage<K, V>>;
 type Receiver<K, V> = UnboundedReceiver<ForkMessage<K, V>>;
 
-struct DownStreamInfo<K, V> {
+pub struct DownStreamInfo<K, V> {
   waker: Arc<AtomicWaker>,
   sender: Sender<K, V>,
   /// some fork never receive message just act as a static forker, in this case the message should
@@ -21,7 +21,7 @@ struct DownStreamInfo<K, V> {
 }
 
 pub struct DownStreamFork<K, V> {
-  rev: RwLock<Receiver<K, V>>,
+  rev: Arc<RwLock<Receiver<K, V>>>,
   id: u64,
   pub as_static_forker: bool,
   waker: Arc<AtomicWaker>,
@@ -32,9 +32,31 @@ impl<K: CKey, V: CValue> DownStreamFork<K, V> {
     self.waker.register(cx.waker());
   }
 
-  pub fn drain_changes(&self, cx: &mut Context) -> BoxedDynQuery<K, ValueChange<V>> {
+  pub fn drain_changes(&self) -> DrainChange<K, V> {
+    DrainChange {
+      waker: self.waker.clone(),
+      rev: self.rev.clone(),
+    }
+  }
+}
+
+pub struct DrainChange<K, V> {
+  waker: Arc<AtomicWaker>,
+  rev: Arc<RwLock<Receiver<K, V>>>,
+}
+
+impl<K: CKey, V: CValue> DrainChange<K, V> {
+  pub fn resolve(&mut self) -> BoxedDynQuery<K, ValueChange<V>> {
+    // i think this is bad, why atomic waker not impl arc_wake?
+    let waker = if let Some(waker) = self.waker.take() {
+      self.waker.register(&waker);
+      waker
+    } else {
+      noop_waker()
+    };
+    let mut cx = Context::from_waker(&waker);
     let mut buffered = Vec::new();
-    while let Poll::Ready(Some(changes)) = self.rev.write().poll_next_unpin(cx) {
+    while let Poll::Ready(Some(changes)) = self.rev.write().poll_next_unpin(&mut cx) {
       buffered.push(changes);
     }
     finalize_buffered_changes(buffered)
@@ -93,14 +115,14 @@ impl<Map: ReactiveQuery> ReactiveKVMapForkInternal<Map> {
     *self.resolved.write() = None;
 
     DownStreamFork {
-      rev: RwLock::new(rev),
+      rev: Arc::new(RwLock::new(rev)),
       id,
       as_static_forker,
       waker,
     }
   }
 
-  pub fn poll_and_broadcast(&self) -> ForkedView<<Map::Compute as QueryCompute>::View> {
+  pub fn poll_and_broadcast(&self) -> ForkComputeView<Map> {
     // if weak view cache exist, so that the view is not dropped and the upstream is locked
     // so that their can be any mutations in the upstream, so that we can directly return the view
     {
@@ -108,50 +130,19 @@ impl<Map: ReactiveQuery> ReactiveKVMapForkInternal<Map> {
       let resolved: &Option<Weak<dyn Any + Send + Sync>> = &resolved;
       if let Some(view) = resolved {
         if let Some(view) = view.upgrade() {
-          return ForkedView {
+          return ForkComputeView::Resolved(ForkedView {
             inner: view
               .downcast::<<Map::Compute as QueryCompute>::View>()
               .unwrap(),
-          };
+          });
         }
       }
-    }
 
-    let (d, v) = self.poll_upstream_compute().resolve();
-    let d = d.materialize();
-
-    let mut downstream = self.downstream.write();
-    for (_, info) in downstream.iter_mut() {
-      if info.should_send {
-        // when use full table as incremental table, we should only send full table.
-        if info.is_new_created {
-          let current = v
-            .iter_key_value()
-            .map(|(k, v)| (k, ValueChange::Delta(v, None)))
-            .collect::<FastHashMap<_, _>>(); // todo, this should be shared if multiple downstream is new created
-          let current = Arc::new(current);
-
-          if !current.is_empty() {
-            // we do not check unbound leak here because the sender is created here.
-            info.sender.unbounded_send(current).ok();
-          }
-          info.is_new_created = false;
-        } else {
-          check_sender_has_leak(&info.sender, &info.create_location);
-          info.sender.unbounded_send(d.clone()).ok();
-        }
+      ForkComputeView::Unresolved {
+        upstream: self.poll_upstream_compute(),
+        downstream: self.downstream.clone(),
+        resolved: self.resolved.clone(),
       }
-    }
-
-    // setup weak full view
-    let v = Arc::new(v) as Arc<dyn Any + Send + Sync>;
-    let view = v.clone();
-    *self.resolved.write() = Some(Arc::downgrade(&v));
-
-    ForkedView {
-      inner: view
-        .downcast::<<Map::Compute as QueryCompute>::View>()
-        .unwrap(),
     }
   }
 
@@ -176,6 +167,66 @@ impl<Map: ReactiveQuery> ReactiveKVMapForkInternal<Map> {
     let waker = futures::task::waker_ref(&waker);
     let mut cx = Context::from_waker(&waker);
     self.upstream.write().describe(&mut cx)
+  }
+}
+
+pub enum ForkComputeView<Map: ReactiveQuery> {
+  Resolved(ForkedView<<Map::Compute as QueryCompute>::View>),
+  Unresolved {
+    upstream: Map::Compute,
+    downstream: Arc<RwLock<FastHashMap<u64, DownStreamInfo<Map::Key, Map::Value>>>>,
+    resolved: Arc<RwLock<Option<Weak<dyn Any + Send + Sync>>>>,
+  },
+}
+
+impl<Map: ReactiveQuery> ForkComputeView<Map> {
+  pub fn resolve(&mut self) -> ForkedView<<Map::Compute as QueryCompute>::View> {
+    match self {
+      ForkComputeView::Resolved(forked_view) => forked_view.clone(),
+      ForkComputeView::Unresolved {
+        upstream,
+        downstream,
+        resolved,
+      } => {
+        let (d, v) = upstream.resolve();
+        let d = d.materialize();
+
+        let mut downstream = downstream.write();
+        for (_, info) in downstream.iter_mut() {
+          if info.should_send {
+            // when use full table as incremental table, we should only send full table.
+            if info.is_new_created {
+              // todo, this compute should be shared if multiple downstream is new created
+              let current = v
+                .iter_key_value()
+                .map(|(k, v)| (k, ValueChange::Delta(v, None)))
+                .collect::<FastHashMap<_, _>>();
+              let current = Arc::new(current);
+
+              if !current.is_empty() {
+                // we do not check unbound leak here because the sender is created here.
+                info.sender.unbounded_send(current).ok();
+              }
+              info.is_new_created = false;
+            } else {
+              check_sender_has_leak(&info.sender, &info.create_location);
+              info.sender.unbounded_send(d.clone()).ok();
+            }
+          }
+        }
+
+        // setup weak full view
+        let v = Arc::new(v) as Arc<dyn Any + Send + Sync>;
+        let view = v.clone();
+        *resolved.write() = Some(Arc::downgrade(&v));
+
+        ForkedView {
+          inner: view
+            .downcast::<<Map::Compute as QueryCompute>::View>()
+            .unwrap(),
+        }
+      }
+    }
   }
 }
 
