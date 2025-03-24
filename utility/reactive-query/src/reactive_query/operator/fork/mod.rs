@@ -1,17 +1,19 @@
+mod async_impl;
 mod helper;
 mod internal;
 
+use async_impl::*;
 use helper::*;
 use internal::*;
 
 use crate::*;
 
-pub struct ReactiveQueryFork<Map: ReactiveQuery> {
-  internal: ReactiveKVMapForkInternal<Map>,
-  fork: DownStreamFork<Map::Key, Map::Value>,
+pub struct ReactiveQueryFork<Map, K, V> {
+  internal: ReactiveKVMapForkInternal<Map, K, V>,
+  fork: DownStreamFork<K, V>,
 }
 
-impl<Map: ReactiveQuery> ReactiveQueryFork<Map> {
+impl<Map: ReactiveQuery> ReactiveQueryFork<Map, Map::Key, Map::Value> {
   #[track_caller]
   pub fn new(upstream: Map, as_static_forker: bool) -> Self {
     let internal = ReactiveKVMapForkInternal::new(upstream);
@@ -25,13 +27,13 @@ impl<Map: ReactiveQuery> ReactiveQueryFork<Map> {
   }
 }
 
-impl<Map: ReactiveQuery> Drop for ReactiveQueryFork<Map> {
+impl<Map, K, V> Drop for ReactiveQueryFork<Map, K, V> {
   fn drop(&mut self) {
     self.internal.remove_child(&self.fork);
   }
 }
 
-impl<Map> Clone for ReactiveQueryFork<Map>
+impl<Map> Clone for ReactiveQueryFork<Map, Map::Key, Map::Value>
 where
   Map: ReactiveQuery,
 {
@@ -40,7 +42,7 @@ where
   }
 }
 
-impl<Map> ReactiveQueryFork<Map>
+impl<Map> ReactiveQueryFork<Map, Map::Key, Map::Value>
 where
   Map: ReactiveQuery,
 {
@@ -59,13 +61,13 @@ where
   }
 }
 
-impl<Map> ReactiveQuery for ReactiveQueryFork<Map>
+impl<Map> ReactiveQuery for ReactiveQueryFork<Map, Map::Key, Map::Value>
 where
   Map: ReactiveQuery,
 {
   type Key = Map::Key;
   type Value = Map::Value;
-  type Compute = ReactiveQueryForkCompute<Map>;
+  type Compute = ReactiveQueryForkCompute<Map::Compute>;
   fn describe(&self, cx: &mut Context) -> Self::Compute {
     // install new waker, this waker is shared by arc within the downstream info
     self.fork.update_waker(cx);
@@ -81,20 +83,20 @@ where
   }
 }
 
-pub struct ReactiveQueryForkCompute<M: ReactiveQuery> {
+pub struct ReactiveQueryForkCompute<M: QueryCompute> {
   view: ForkComputeView<M>,
   changes: DrainChange<M::Key, M::Value>,
 }
 
 impl<Map> QueryCompute for ReactiveQueryForkCompute<Map>
 where
-  Map: ReactiveQuery,
+  Map: QueryCompute,
 {
   type Key = Map::Key;
   type Value = Map::Value;
 
   type Changes = BoxedDynQuery<Map::Key, ValueChange<Map::Value>>;
-  type View = ForkedView<<Map::Compute as QueryCompute>::View>;
+  type View = ForkedView<Map::View>;
 
   fn resolve(&mut self) -> (Self::Changes, Self::View) {
     let view = self.view.resolve();

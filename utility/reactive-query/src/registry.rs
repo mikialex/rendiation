@@ -5,9 +5,10 @@ pub(crate) trait ShrinkableAny: Any + Send + Sync {
   fn shrink_to_fit(&mut self);
 }
 
-pub type RQForker<K, V> = ReactiveQueryFork<BoxedDynReactiveQuery<K, V>>;
+pub type RQForker<K, V> = ReactiveQueryFork<BoxedDynReactiveQuery<K, V>, K, V>;
 
-pub type OneManyRelationForker<O, M> = ReactiveQueryFork<BoxedDynReactiveOneToManyRelation<O, M>>;
+pub type OneManyRelationForker<O, M> =
+  ReactiveQueryFork<BoxedDynReactiveOneToManyRelation<O, M>, M, O>;
 
 impl<K, V> ShrinkableAny for RQForker<K, V>
 where

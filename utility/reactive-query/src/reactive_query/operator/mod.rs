@@ -212,11 +212,11 @@ where
     })
   }
 
-  fn into_forker(self) -> ReactiveQueryFork<Self> {
+  fn into_forker(self) -> ReactiveQueryFork<Self, Self::Key, Self::Value> {
     ReactiveQueryFork::new(self, false)
   }
 
-  fn into_static_forker(self) -> ReactiveQueryFork<Self> {
+  fn into_static_forker(self) -> ReactiveQueryFork<Self, Self::Key, Self::Value> {
     ReactiveQueryFork::new(self, true)
   }
 
