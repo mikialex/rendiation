@@ -68,6 +68,7 @@ pub struct ReactiveKVMapForkInternal<Map, K, V> {
   upstream: Arc<RwLock<Map>>,
   downstream: Arc<RwLock<FastHashMap<u64, DownStreamInfo<K, V>>>>,
   resolved: Arc<RwLock<Option<Weak<dyn Any + Send + Sync>>>>,
+  future_forker: Arc<RwLock<Option<Weak<dyn Any + Send + Sync>>>>,
 }
 
 impl<Map: ReactiveQuery> Clone for ReactiveKVMapForkInternal<Map, Map::Key, Map::Value> {
@@ -76,6 +77,7 @@ impl<Map: ReactiveQuery> Clone for ReactiveKVMapForkInternal<Map, Map::Key, Map:
       upstream: self.upstream.clone(),
       downstream: self.downstream.clone(),
       resolved: self.resolved.clone(),
+      future_forker: self.future_forker.clone(),
     }
   }
 }
@@ -86,6 +88,7 @@ impl<Map, K, V> ReactiveKVMapForkInternal<Map, K, V> {
       upstream: Arc::new(RwLock::new(upstream)),
       downstream: Default::default(),
       resolved: Default::default(),
+      future_forker: Default::default(),
     }
   }
 
@@ -130,6 +133,7 @@ impl<Map: ReactiveQuery> ReactiveKVMapForkInternal<Map, Map::Key, Map::Value> {
       upstream: self.poll_upstream_compute(),
       downstream: self.downstream.clone(),
       resolved: self.resolved.clone(),
+      future_forker: self.future_forker.clone(),
     }
   }
 
@@ -158,9 +162,10 @@ impl<Map: ReactiveQuery> ReactiveKVMapForkInternal<Map, Map::Key, Map::Value> {
 }
 
 pub struct ForkComputeView<T: QueryCompute> {
-  upstream: T,
-  downstream: Arc<RwLock<FastHashMap<u64, DownStreamInfo<T::Key, T::Value>>>>,
-  resolved: Arc<RwLock<Option<Weak<dyn Any + Send + Sync>>>>,
+  pub(super) upstream: T,
+  pub(super) downstream: Arc<RwLock<FastHashMap<u64, DownStreamInfo<T::Key, T::Value>>>>,
+  pub(super) resolved: Arc<RwLock<Option<Weak<dyn Any + Send + Sync>>>>,
+  pub(super) future_forker: Arc<RwLock<Option<Weak<dyn Any + Send + Sync>>>>,
 }
 
 impl<Map: QueryCompute> ForkComputeView<Map> {
