@@ -2,6 +2,9 @@
 mod helper;
 mod internal;
 
+#[cfg(test)]
+mod test;
+
 use helper::*;
 use internal::*;
 
@@ -19,6 +22,10 @@ impl<Map: ReactiveQuery> ReactiveQueryFork<Map, Map::Key, Map::Value> {
     let fork = internal.create_child(as_static_forker);
 
     ReactiveQueryFork { internal, fork }
+  }
+
+  pub fn downstream_count(&self) -> usize {
+    self.internal.downstream.read().len()
   }
 
   pub fn is_static_forker(&self) -> bool {

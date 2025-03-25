@@ -66,7 +66,7 @@ impl<K: CKey, V: CValue> DrainChange<K, V> {
 
 pub struct ReactiveKVMapForkInternal<Map, K, V> {
   upstream: Arc<RwLock<Map>>,
-  downstream: Arc<RwLock<FastHashMap<u64, DownStreamInfo<K, V>>>>,
+  pub(super) downstream: Arc<RwLock<FastHashMap<u64, DownStreamInfo<K, V>>>>,
   described: Arc<RwLock<Option<Weak<dyn Any + Send + Sync>>>>,
   resolved: Arc<RwLock<Option<Weak<dyn Any + Send + Sync>>>>,
   future_forker: Arc<RwLock<Option<Weak<dyn Any + Send + Sync>>>>,
@@ -194,7 +194,7 @@ impl<Map: ReactiveQuery> ReactiveKVMapForkInternal<Map, Map::Key, Map::Value> {
     let rd = d.clone();
 
     let d = d as Arc<dyn Any + Send + Sync>;
-    self.described.write().replace(Arc::downgrade(&d));
+    *self.described.write() = Some(Arc::downgrade(&d));
 
     rd
   }
@@ -251,7 +251,7 @@ impl<Map: QueryCompute> ForkComputeView<Map> {
                 info.sender.unbounded_send(current).ok();
               }
               info.is_new_created = false;
-            } else {
+            } else if !d.is_empty() {
               check_sender_has_leak(&info.sender, &info.create_location);
               info.sender.unbounded_send(d.clone()).ok();
             }

@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Hash, Eq)]
 pub enum ValueChange<V> {
   // k, new_v, pre_v
   Delta(V, Option<V>),
