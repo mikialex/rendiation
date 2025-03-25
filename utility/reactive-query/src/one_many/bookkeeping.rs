@@ -88,9 +88,9 @@ where
 
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
     let mapping = self.mapping.clone();
-    let sp = cx.make_spawner();
-    self.upstream.create_task(cx).then(move |upstream| {
-      sp.spawn_task(move || OneToManyRefHashBookKeeping { upstream, mapping }.resolve())
+    let upstream = self.upstream.create_task(cx);
+    cx.then_spawn(upstream, |upstream| {
+      OneToManyRefHashBookKeeping { upstream, mapping }.resolve()
     })
   }
 }
@@ -262,9 +262,9 @@ where
 
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
     let mapping = self.mapping.clone();
-    let sp = cx.make_spawner();
-    self.upstream.create_task(cx).then(move |upstream| {
-      sp.spawn_task(move || OneToManyRefDenseBookKeeping { upstream, mapping }.resolve())
+    let upstream = self.upstream.create_task(cx);
+    cx.then_spawn(upstream, |upstream| {
+      OneToManyRefDenseBookKeeping { upstream, mapping }.resolve()
     })
   }
 }

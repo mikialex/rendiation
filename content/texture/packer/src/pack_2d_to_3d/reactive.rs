@@ -1,3 +1,4 @@
+use futures::FutureExt;
 use rendiation_texture_core::SizeWithDepth;
 
 use self::{
@@ -17,7 +18,6 @@ pub fn reactive_pack_2d_to_3d(
 
   let (size_sender, size_rev) = single_value_channel();
   size_sender.update(config.init_size).unwrap();
-  let (sender, rev) = collective_channel::<u32, PackResult2dWithDepth>();
 
   let packer: PackerImpl = GrowablePacker::new(config.init_size);
 
@@ -27,8 +27,6 @@ pub fn reactive_pack_2d_to_3d(
     size_source: size,
     mapping: Default::default(),
     rev_mapping: Default::default(),
-    accumulated_mutations: rev,
-    sender,
     all_size_sender: size_sender,
   };
 
@@ -46,8 +44,6 @@ struct Packer {
   mapping: Arc<RwLock<FastHashMap<PackId, u32>>>,
   rev_mapping: Arc<RwLock<FastHashMap<u32, PackId>>>,
 
-  sender: CollectiveMutationSender<u32, PackResult2dWithDepth>,
-  accumulated_mutations: CollectiveMutationReceiver<u32, PackResult2dWithDepth>,
   all_size_sender: SingleSender<SizeWithDepth>,
 }
 
@@ -78,12 +74,76 @@ impl ReactiveQuery for Packer {
   type Key = u32;
   type Value = PackResult2dWithDepth;
 
-  type Compute = (
-    BoxedDynQuery<u32, ValueChange<PackResult2dWithDepth>>,
-    PackerCurrentView,
-  );
+  type Compute = PackerCompute<BoxedDynQueryCompute<u32, Size>>;
   fn describe(&self, cx: &mut Context) -> Self::Compute {
-    let (d, _) = self.size_source.describe(cx).resolve();
+    let (sender, rev) = collective_channel::<u32, PackResult2dWithDepth>();
+    PackerCompute {
+      size_source: self.size_source.poll_changes_dyn(cx),
+      max_size: self.max_size,
+      packer: self.packer.clone(),
+      mapping: self.mapping.clone(),
+      rev_mapping: self.rev_mapping.clone(),
+      sender,
+      accumulated_mutations: rev,
+      all_size_sender: self.all_size_sender.clone(),
+    }
+  }
+
+  fn request(&mut self, request: &mut ReactiveQueryRequest) {
+    // consider trigger packer shrink logic here?
+    self.size_source.request(request);
+  }
+}
+
+struct PackerCompute<T> {
+  size_source: T,
+  max_size: SizeWithDepth,
+
+  packer: Arc<RwLock<PackerImpl>>,
+  // todo, i think this is not necessary if the packer lib not generate id
+  mapping: Arc<RwLock<FastHashMap<PackId, u32>>>,
+  rev_mapping: Arc<RwLock<FastHashMap<u32, PackId>>>,
+
+  sender: CollectiveMutationSender<u32, PackResult2dWithDepth>,
+  accumulated_mutations: CollectiveMutationReceiver<u32, PackResult2dWithDepth>,
+  all_size_sender: SingleSender<SizeWithDepth>,
+}
+
+impl<T: AsyncQueryCompute<Key = u32, Value = Size>> AsyncQueryCompute for PackerCompute<T> {
+  type Task = impl Future<Output = (Self::Changes, Self::View)> + 'static;
+
+  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+    let max_size = self.max_size;
+    let packer = self.packer.clone();
+    let mapping = self.mapping.clone();
+    let rev_mapping = self.rev_mapping.clone();
+    let all_size_sender = self.all_size_sender.clone();
+    self.size_source.create_task(cx).map(move |size_source| {
+      let (sender, rev) = collective_channel::<u32, PackResult2dWithDepth>();
+      PackerCompute {
+        size_source,
+        max_size,
+        packer,
+        mapping,
+        rev_mapping,
+        sender,
+        accumulated_mutations: rev,
+        all_size_sender,
+      }
+      .resolve()
+    })
+  }
+}
+
+impl<T: QueryCompute<Key = u32, Value = Size>> QueryCompute for PackerCompute<T> {
+  type Key = u32;
+  type Value = PackResult2dWithDepth;
+
+  type Changes = BoxedDynQuery<u32, ValueChange<PackResult2dWithDepth>>;
+  type View = PackerCurrentView;
+
+  fn resolve(&mut self) -> (Self::Changes, Self::View) {
+    let (d, _) = self.size_source.resolve();
 
     {
       unsafe {
@@ -173,6 +233,7 @@ impl ReactiveQuery for Packer {
       packer: self.packer.make_read_holder(),
     };
 
+    noop_ctx!(cx);
     let d = if let Poll::Ready(Some(r)) = self.accumulated_mutations.poll_impl(cx) {
       r
     } else {
@@ -180,10 +241,5 @@ impl ReactiveQuery for Packer {
     };
 
     (d, v)
-  }
-
-  fn request(&mut self, request: &mut ReactiveQueryRequest) {
-    // consider trigger packer shrink logic here?
-    self.size_source.request(request);
   }
 }

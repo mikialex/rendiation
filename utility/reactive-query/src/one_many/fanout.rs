@@ -123,15 +123,13 @@ where
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
     let upstream = self.upstream.create_task(cx);
     let relations = self.relations.create_task(cx);
-    let sp = cx.make_spawner();
-    futures::future::join(upstream, relations).then(move |(upstream, relations)| {
-      sp.spawn_task(move || {
-        OneToManyFanoutCompute {
-          upstream,
-          relations,
-        }
-        .resolve()
-      })
+    let parents = futures::future::join(upstream, relations);
+    cx.then_spawn(parents, |(upstream, relations)| {
+      OneToManyFanoutCompute {
+        upstream,
+        relations,
+      }
+      .resolve()
     })
   }
 }

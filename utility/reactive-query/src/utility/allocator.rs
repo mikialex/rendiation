@@ -134,19 +134,15 @@ where
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
     let allocator = self.allocator.clone();
     let all_size_sender = self.all_size_sender.clone();
-    let spawner = cx.make_spawner();
 
-    self.source.create_task(cx).then(move |source| {
-      let allocator = allocator;
-      let all_size_sender = all_size_sender;
-      spawner.spawn_task(move || {
-        ReactiveAllocator {
-          allocator,
-          source,
-          all_size_sender,
-        }
-        .resolve()
-      })
+    let source = self.source.create_task(cx);
+    cx.then_spawn(source, |source| {
+      ReactiveAllocator {
+        allocator,
+        source,
+        all_size_sender,
+      }
+      .resolve()
     })
   }
 }

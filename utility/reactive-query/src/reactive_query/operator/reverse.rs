@@ -74,10 +74,11 @@ impl<T: AsyncQueryCompute<Value: CKey>> AsyncQueryCompute
   type Task = impl Future<Output = (Self::Changes, Self::View)>;
 
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
-    let sp = cx.make_spawner();
     let mapping = self.mapping.clone();
-    self.upstream.create_task(cx).then(move |upstream| {
-      sp.spawn_task(move || OneToOneRefHashBookKeeping { upstream, mapping }.resolve())
+    let upstream = self.upstream.create_task(cx);
+
+    cx.then_spawn(upstream, move |upstream| {
+      OneToOneRefHashBookKeeping { upstream, mapping }.resolve()
     })
   }
 }

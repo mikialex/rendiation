@@ -157,16 +157,15 @@ where
     let upstream = self.upstream.create_task(cx);
     let relations = self.relations.create_task(cx);
     let ref_count = self.ref_count.clone();
-    let sp = cx.make_spawner();
-    futures::future::join(upstream, relations).then(move |(upstream, relations)| {
-      sp.spawn_task(move || {
-        ManyToOneReduce {
-          upstream,
-          relations,
-          ref_count,
-        }
-        .resolve()
-      })
+
+    let parents = futures::future::join(upstream, relations);
+    cx.then_spawn(parents, |(upstream, relations)| {
+      ManyToOneReduce {
+        upstream,
+        relations,
+        ref_count,
+      }
+      .resolve()
     })
   }
 }

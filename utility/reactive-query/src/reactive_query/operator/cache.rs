@@ -38,10 +38,10 @@ impl<T: AsyncQueryCompute> AsyncQueryCompute
   type Task = impl Future<Output = (Self::Changes, Self::View)>;
 
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
-    let spawner = cx.make_spawner();
     let cache = self.cache.clone();
-    self.inner.create_task(cx).then(move |inner| {
-      spawner.spawn_task(|| UnorderedMaterializedViewCache { inner, cache }.resolve())
+    let inner = self.inner.create_task(cx);
+    cx.then_spawn(inner, |inner| {
+      UnorderedMaterializedViewCache { inner, cache }.resolve()
     })
   }
 }

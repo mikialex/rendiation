@@ -1,3 +1,5 @@
+#![feature(impl_trait_in_assoc_type)]
+
 use std::{num::NonZeroU32, sync::Arc};
 
 use fast_hash_collection::*;

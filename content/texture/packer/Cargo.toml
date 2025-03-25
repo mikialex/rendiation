@@ -11,6 +11,7 @@ linked-hash-map = "0.5.4"
 etagere = "0.2.6"
 parking_lot = { workspace = true }
 reactive = { path = "../../../utility/reactive" }
+futures = { workspace = true }
 
 [lints]
 workspace = true

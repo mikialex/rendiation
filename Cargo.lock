@@ -3995,6 +3995,7 @@ version = "0.1.0"
 dependencies = [
  "etagere",
  "fast-hash-collection",
+ "futures",
  "linked-hash-map",
  "parking_lot",
  "reactive",

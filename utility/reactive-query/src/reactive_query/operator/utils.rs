@@ -63,20 +63,19 @@ impl<T: QueryCompute> QueryCompute for ReactiveQueryDebug<T, T::Key, T::Value> {
 impl<T: AsyncQueryCompute> AsyncQueryCompute for ReactiveQueryDebug<T, T::Key, T::Value> {
   type Task = impl Future<Output = (Self::Changes, Self::View)>;
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
-    let sp = cx.make_spawner();
     let state = self.state.clone();
     let label = self.label;
     let log_change = self.log_change;
-    self.inner.create_task(cx).then(move |inner| {
-      sp.spawn_task(move || {
-        ReactiveQueryDebug {
-          inner,
-          state,
-          label,
-          log_change,
-        }
-        .resolve()
-      })
+
+    let inner = self.inner.create_task(cx);
+    cx.then_spawn(inner, move |inner| {
+      ReactiveQueryDebug {
+        inner,
+        state,
+        label,
+        log_change,
+      }
+      .resolve()
     })
   }
 }
