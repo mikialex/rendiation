@@ -122,6 +122,7 @@ impl<Map: ReactiveQuery> ReactiveKVMapForkInternal<Map, Map::Key, Map::Value> {
     // we early return the view if the upstream is already resolved, however when new child
     // created, the full view will be send and delta view. so this is required to reset
     *self.resolved.write() = None;
+    *self.described.write() = None;
 
     DownStreamFork {
       rev: Arc::new(RwLock::new(rev)),
@@ -132,8 +133,8 @@ impl<Map: ReactiveQuery> ReactiveKVMapForkInternal<Map, Map::Key, Map::Value> {
   }
 
   pub fn describe_view(&self) -> ForkComputeView<Map::Compute> {
-    // if weak view cache exist, so that the view is not dropped and the upstream is locked
-    // so that their can be any mutations in the upstream, so that we can directly return the view
+    // if weak view cache exist, so the view is not dropped and the upstream is locked
+    // so their can be any mutations in the upstream, so we can directly return the view
     {
       let resolved = self.resolved.read();
       let resolved: &Option<Weak<dyn Any + Send + Sync>> = &resolved;
@@ -148,21 +149,21 @@ impl<Map: ReactiveQuery> ReactiveKVMapForkInternal<Map, Map::Key, Map::Value> {
       }
     }
 
-    {
-      let described = self.described.read();
-      let described: &Option<Weak<dyn Any + Send + Sync>> = &described;
-      if let Some(compute) = described {
-        if let Some(compute) = compute.upgrade() {
-          return ForkComputeView::ComputeDescribed {
-            compute: compute.downcast::<RwLock<Map::Compute>>().unwrap(),
-            downstream: self.downstream.clone(),
-            view_resolve: self.resolved.clone(),
-          };
-        }
-      }
-    }
+    // {
+    //   let described = self.described.read();
+    //   let described: &Option<Weak<dyn Any + Send + Sync>> = &described;
+    //   if let Some(compute) = described {
+    //     if let Some(compute) = compute.upgrade() {
+    //       return ForkComputeView::ViewToCompute {
+    //         compute: compute.downcast::<RwLock<Map::Compute>>().unwrap(),
+    //         downstream: self.downstream.clone(),
+    //         view_resolve: self.resolved.clone(),
+    //       };
+    //     }
+    //   }
+    // }
 
-    ForkComputeView::ComputeDescribed {
+    ForkComputeView::ViewToCompute {
       compute: self.describe_upstream_view(),
       downstream: self.downstream.clone(),
       view_resolve: self.resolved.clone(),
@@ -201,7 +202,7 @@ impl<Map: ReactiveQuery> ReactiveKVMapForkInternal<Map, Map::Key, Map::Value> {
 
 pub enum ForkComputeView<T: QueryCompute> {
   ViewComputed(ForkedView<T::View>),
-  ComputeDescribed {
+  ViewToCompute {
     compute: Arc<RwLock<T>>,
     downstream: Arc<RwLock<FastHashMap<u64, DownStreamInfo<T::Key, T::Value>>>>,
     view_resolve: Arc<RwLock<Option<Weak<dyn Any + Send + Sync>>>>,
@@ -212,11 +213,24 @@ impl<Map: QueryCompute> ForkComputeView<Map> {
   pub fn resolve(&mut self) -> ForkedView<Map::View> {
     match self {
       ForkComputeView::ViewComputed(forked_view) => forked_view.clone(),
-      ForkComputeView::ComputeDescribed {
+      ForkComputeView::ViewToCompute {
         compute,
         downstream,
         view_resolve,
       } => {
+        // early return if view has already computed
+        {
+          let resolved = view_resolve.read();
+          let resolved: &Option<Weak<dyn Any + Send + Sync>> = &resolved;
+          if let Some(view) = resolved {
+            if let Some(view) = view.upgrade() {
+              return ForkedView {
+                inner: view.downcast::<Map::View>().unwrap(),
+              };
+            }
+          }
+        }
+
         let (d, v) = compute.write().resolve();
         let d = d.materialize();
 
