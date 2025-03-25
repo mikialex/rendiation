@@ -67,7 +67,7 @@ fn test_fork_basic() {
   let (map, query) = create_test_map::<u32, u32>();
 
   let a = query.into_forker();
-  let b = a.clone();
+  let b = a.clone().debug("a", false);
 
   map.insert(1, 1);
   map.insert(2, 1);
@@ -192,6 +192,23 @@ fn test_fork_basic() {
     let c_view = c_v.iter_key_value().collect::<Vec<_>>();
     assert_vec_content_equal(&c_view, &view);
   }
+
+  map.insert(4, 1);
+  // resolve order must match describe order.
+  {
+    let mut a_des = a.describe(cx);
+    let mut a_des2 = a.describe(cx);
+    let mut b_des = b.describe(cx);
+
+    let (a_d, _a_v) = a_des.resolve();
+    assert_eq!(a_d.iter_key_value().count(), 1);
+
+    let (a_d, _a_v) = a_des2.resolve();
+    assert_eq!(a_d.iter_key_value().count(), 0);
+
+    let (b_d, _b_v) = b_des.resolve();
+    assert_eq!(b_d.iter_key_value().count(), 1);
+  }
 }
 
 #[test]
@@ -224,6 +241,77 @@ fn test_fork_diamond() {
     let view = vec![(1, (1, 1))];
     let c_view = c_v.iter_key_value().collect::<Vec<_>>();
     assert_vec_content_equal(&c_view, &view);
+    let d_view = d_v.iter_key_value().collect::<Vec<_>>();
+    assert_vec_content_equal(&d_view, &view);
+  };
+  {
+    let mut c_des = c.describe(cx);
+    let (d_d, d_v) = d.describe(cx).resolve();
+    let (c_d, c_v) = c_des.resolve();
+
+    let delta = vec![];
+    let c_delta = c_d.iter_key_value().collect::<Vec<_>>();
+    assert_vec_content_equal(&c_delta, &delta);
+    let d_delta = d_d.iter_key_value().collect::<Vec<_>>();
+    assert_vec_content_equal(&d_delta, &delta);
+
+    let view = vec![(1, (1, 1))];
+    let c_view = c_v.iter_key_value().collect::<Vec<_>>();
+    assert_vec_content_equal(&c_view, &view);
+    let d_view = d_v.iter_key_value().collect::<Vec<_>>();
+    assert_vec_content_equal(&d_view, &view);
+  };
+}
+
+#[test]
+fn test_fork_diamond2() {
+  let (map1, query1) = create_test_map::<u32, u32>();
+  let a = query1.into_forker();
+  let (map2, query2) = create_test_map::<u32, u32>();
+  let b = query2.into_forker();
+
+  let c = a.collective_zip(b).collective_execute_map_by(|| |_, v| v);
+  let c = c.into_forker();
+
+  let d = c.clone();
+
+  map1.insert(1, 1);
+  map2.insert(1, 1);
+
+  noop_ctx!(cx);
+
+  {
+    let mut c_des = c.describe(cx);
+    let (c_d, c_v) = c_des.resolve();
+
+    let delta = vec![(1, ValueChange::Delta((1, 1), None))];
+    let c_delta = c_d.iter_key_value().collect::<Vec<_>>();
+    assert_vec_content_equal(&c_delta, &delta);
+    let view = vec![(1, (1, 1))];
+    let c_view = c_v.iter_key_value().collect::<Vec<_>>();
+    assert_vec_content_equal(&c_view, &view);
+
+    let (d_d, d_v) = d.describe(cx).resolve();
+    let d_delta = d_d.iter_key_value().collect::<Vec<_>>();
+    assert_vec_content_equal(&d_delta, &delta);
+    let d_view = d_v.iter_key_value().collect::<Vec<_>>();
+    assert_vec_content_equal(&d_view, &view);
+  };
+
+  {
+    let mut c_des = c.describe(cx);
+    let (c_d, c_v) = c_des.resolve();
+
+    let delta = vec![];
+    let c_delta = c_d.iter_key_value().collect::<Vec<_>>();
+    assert_vec_content_equal(&c_delta, &delta);
+    let view = vec![(1, (1, 1))];
+    let c_view = c_v.iter_key_value().collect::<Vec<_>>();
+    assert_vec_content_equal(&c_view, &view);
+
+    let (d_d, d_v) = d.describe(cx).resolve();
+    let d_delta = d_d.iter_key_value().collect::<Vec<_>>();
+    assert_vec_content_equal(&d_delta, &delta);
     let d_view = d_v.iter_key_value().collect::<Vec<_>>();
     assert_vec_content_equal(&d_view, &view);
   };

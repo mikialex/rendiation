@@ -155,6 +155,7 @@ where
   }
 
   /// K should not overlap
+  #[track_caller]
   fn collective_select<Other>(
     self,
     other: Other,
@@ -162,8 +163,9 @@ where
   where
     Other: ReactiveQuery<Key = Self::Key, Value = Self::Value>,
   {
-    self.collective_union(other, |(a, b)| match (a, b) {
-      (Some(_), Some(_)) => unreachable!("key set should not overlap"),
+    let location = std::panic::Location::caller();
+    self.collective_union(other, move |(a, b)| match (a, b) {
+      (Some(_), Some(_)) => unreachable!("key set should not overlap, select: {}", location),
       (Some(a), None) => a.into(),
       (None, Some(b)) => b.into(),
       (None, None) => None,
@@ -171,6 +173,7 @@ where
   }
 
   /// K should fully overlap
+  #[track_caller]
   fn collective_zip<Other>(
     self,
     other: Other,
@@ -178,11 +181,12 @@ where
   where
     Other: ReactiveQuery<Key = Self::Key>,
   {
-    self.collective_union(other, |(a, b)| match (a, b) {
+    let location = std::panic::Location::caller();
+    self.collective_union(other, move |(a, b)| match (a, b) {
       (Some(a), Some(b)) => Some((a, b)),
       (None, None) => None,
-      (None, Some(_)) => unreachable!("zip missing left side"),
-      (Some(_), None) => unreachable!("zip missing right side"),
+      (None, Some(_)) => unreachable!("zip missing left side, zip: {}", location),
+      (Some(_), None) => unreachable!("zip missing right side, zip: {}", location),
     })
   }
 

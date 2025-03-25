@@ -325,3 +325,107 @@ impl<T: ReactiveQuery<Key = RawEntityHandle>> ReactiveQuery for GenerationHelper
     self.inner.request(request)
   }
 }
+
+#[test]
+fn test_watch() {
+  setup_global_database(Default::default());
+  setup_active_reactive_query_registry(Default::default());
+
+  let watch = DatabaseMutationWatch::new(&global_database());
+  register_global_database_feature(watch);
+
+  declare_entity!(TestEntity);
+  declare_component!(TestComponent, TestEntity, u32);
+
+  global_database()
+    .declare_entity::<TestEntity>()
+    .declare_component::<TestComponent>();
+
+  let watcher = global_watch()
+    .watch::<TestComponent>()
+    .debug("watch", false);
+
+  let watcher2 = global_watch()
+    .watch::<TestComponent>()
+    .debug("watch2", false);
+
+  let a = global_database()
+    .entity_writer::<TestEntity>()
+    .with_component_value_writer::<TestComponent>(1)
+    .new_entity();
+  let b = global_database()
+    .entity_writer::<TestEntity>()
+    .with_component_value_writer::<TestComponent>(2)
+    .new_entity();
+
+  noop_ctx!(cx);
+
+  {
+    let mut des1 = watcher.describe(cx);
+    let mut des2 = watcher2.describe(cx);
+    let (d1, v1) = des1.resolve();
+    assert_eq!(v1.iter_key_value().count(), 2);
+    assert_eq!(d1.iter_key_value().count(), 2);
+
+    let (d2, v2) = des2.resolve();
+    assert_eq!(v2.iter_key_value().count(), 2);
+    assert_eq!(d2.iter_key_value().count(), 2);
+  }
+
+  {
+    let watcher3 = global_watch()
+      .watch::<TestComponent>()
+      .debug("watch3", false)
+      .into_forker();
+
+    let (d, v) = watcher3.poll_changes_dyn(cx).resolve();
+    assert_eq!(v.iter_key_value().count(), 2);
+    assert_eq!(d.iter_key_value().count(), 2);
+  }
+
+  {
+    let (d, v) = watcher.poll_changes_dyn(cx).resolve();
+    assert_eq!(v.iter_key_value().count(), 2);
+    assert_eq!(d.iter_key_value().count(), 0);
+    let (d, v) = watcher2.poll_changes_dyn(cx).resolve();
+    assert_eq!(v.iter_key_value().count(), 2);
+    assert_eq!(d.iter_key_value().count(), 0);
+  }
+
+  global_database()
+    .entity_writer::<TestEntity>()
+    .delete_entity(b);
+
+  {
+    let (d, v) = watcher.poll_changes_dyn(cx).resolve();
+    assert_eq!(v.iter_key_value().count(), 1);
+    assert_eq!(d.iter_key_value().count(), 1);
+  };
+
+  {
+    let (d, v) = watcher.poll_changes_dyn(cx).resolve();
+    assert_eq!(v.iter_key_value().count(), 1);
+    assert_eq!(d.iter_key_value().count(), 0);
+  }
+
+  {
+    let (d, v) = watcher2.poll_changes_dyn(cx).resolve();
+    assert_eq!(v.iter_key_value().count(), 1);
+    assert_eq!(d.iter_key_value().count(), 1);
+  }
+  {
+    let (d, v) = watcher2.poll_changes_dyn(cx).resolve();
+    assert_eq!(v.iter_key_value().count(), 1);
+    assert_eq!(d.iter_key_value().count(), 0);
+  }
+
+  global_database()
+    .entity_writer::<TestEntity>()
+    .write::<TestComponent>(a, 2);
+
+  {
+    let (d, v) = watcher.poll_changes_dyn(cx).resolve();
+    assert_eq!(v.iter_key_value().count(), 1);
+    assert_eq!(d.iter_key_value().count(), 1);
+  }
+}

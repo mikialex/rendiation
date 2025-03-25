@@ -1,3 +1,5 @@
+use core::panic;
+
 use crate::*;
 
 pub struct ReactiveQueryDebug<T, K: CKey, V: CValue> {
@@ -30,16 +32,26 @@ impl<T: QueryCompute> QueryCompute for ReactiveQueryDebug<T, T::Key, T::Value> {
       match change {
         ValueChange::Delta(n, p) => {
           if let Some(removed) = state.remove(k) {
-            let p = p.as_ref().expect("previous value should exist");
-            assert_eq!(&removed, p);
+            let p = p.as_ref();
+
+            if p.is_none() {
+              panic!("previous value should exist, {}", self.label);
+            }
+
+            assert_eq!(&removed, p.unwrap(), "{}", self.label);
           } else {
             assert!(p.is_none());
           }
           state.insert(k.clone(), n.clone());
         }
         ValueChange::Remove(p) => {
-          let removed = state.remove(k).expect("remove none exist value");
-          assert_eq!(&removed, p);
+          let removed = state.remove(k);
+
+          if removed.is_none() {
+            panic!("remove none exist value, {}", self.label);
+          }
+
+          assert_eq!(&removed.unwrap(), p, "{}", self.label);
         }
       }
     }
