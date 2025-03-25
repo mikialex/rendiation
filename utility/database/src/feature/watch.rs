@@ -363,6 +363,7 @@ fn test_watch() {
   {
     let mut des1 = watcher.describe(cx);
     let mut des2 = watcher2.describe(cx);
+    let mut des2_d = watcher2.describe(cx);
     let (d1, v1) = des1.resolve();
     assert_eq!(v1.iter_key_value().count(), 2);
     assert_eq!(d1.iter_key_value().count(), 2);
@@ -370,6 +371,10 @@ fn test_watch() {
     let (d2, v2) = des2.resolve();
     assert_eq!(v2.iter_key_value().count(), 2);
     assert_eq!(d2.iter_key_value().count(), 2);
+
+    let (d2, v2) = des2_d.resolve();
+    assert_eq!(v2.iter_key_value().count(), 2);
+    assert_eq!(d2.iter_key_value().count(), 0);
   }
 
   {

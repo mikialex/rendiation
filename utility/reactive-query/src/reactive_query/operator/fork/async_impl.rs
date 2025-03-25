@@ -1,5 +1,7 @@
 use std::sync::Weak;
 
+use futures::future::ready;
+
 use super::{helper::ForkedView, internal::*};
 use crate::*;
 
@@ -32,18 +34,25 @@ impl<Map: AsyncQueryCompute> ForkComputeView<Map> {
     }
 
     let downstream = self.downstream.clone();
-    let resolved = self.resolved.clone();
-    let future = self.upstream.write().create_task(cx).map(|upstream| {
-      ForkComputeView {
-        upstream: Arc::new(RwLock::new(upstream)),
-        downstream,
-        resolved,
-        future_forker: Default::default(),
-      }
-      .resolve()
-    });
-    let future = Box::new(Box::pin(future))
-      as Box<dyn Unpin + Send + Sync + Future<Output = ForkedView<Map::View>>>;
+    let _already_resolved_view = self._already_resolved_view.clone();
+
+    let future = if let Some(view) = self._already_resolved_view {
+      let future = ready(view.clone());
+      Box::new(Box::pin(future))
+        as Box<dyn Unpin + Send + Sync + Future<Output = ForkedView<Map::View>>>
+    } else {
+      let future = self.upstream.write().create_task(cx).map(|upstream| {
+        ForkComputeView {
+          upstream: Arc::new(RwLock::new(upstream)),
+          downstream,
+          _already_resolved_view,
+          future_forker: Default::default(),
+        }
+        .resolve()
+      });
+      Box::new(Box::pin(future))
+        as Box<dyn Unpin + Send + Sync + Future<Output = ForkedView<Map::View>>>
+    };
 
     let future = FutureForker::init(future);
     let future_return = future.fork();

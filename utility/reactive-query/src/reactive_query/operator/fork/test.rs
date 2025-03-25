@@ -98,7 +98,7 @@ fn test_fork_basic() {
 
   // later forked query should has init messages
   {
-    let c = a.clone();
+    let c = a.clone().debug("c", false);
     let (c_d, c_v) = c.describe(cx).resolve();
     let delta = vec![(1, ValueChange::Delta(1, None))];
     let c_delta = c_d.iter_key_value().collect::<Vec<_>>();
@@ -107,6 +107,11 @@ fn test_fork_basic() {
     let view = vec![(1, 1)];
     let c_view = c_v.iter_key_value().collect::<Vec<_>>();
     assert_vec_content_equal(&c_view, &view);
+
+    let (c_d, c_v) = c.describe(cx).resolve();
+    assert_eq!(c_d.iter_key_value().count(), 0);
+    assert_eq!(c_v.iter_key_value().count(), 1);
+
     drop(c);
     // raii should clean up downstream
     assert_eq!(a.downstream_count(), 2);
