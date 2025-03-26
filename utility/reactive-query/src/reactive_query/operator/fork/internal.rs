@@ -226,7 +226,7 @@ pub struct ForkComputeView<T: QueryCompute> {
 }
 
 impl<Map: QueryCompute> ForkComputeView<Map> {
-  pub fn resolve(&mut self) -> ForkedView<Map::View> {
+  pub fn resolve(&mut self, cx: &QueryResolveCtx) -> ForkedView<Map::View> {
     // early return if view has already computed
     {
       let resolved = self.view_resolve.read();
@@ -240,7 +240,7 @@ impl<Map: QueryCompute> ForkComputeView<Map> {
       }
     }
 
-    let (d, v) = self.compute.as_ref().unwrap().write().resolve();
+    let (d, v) = self.compute.as_ref().unwrap().write().resolve(cx);
     let d = d.materialize();
 
     let mut downstream = self.downstream.write();

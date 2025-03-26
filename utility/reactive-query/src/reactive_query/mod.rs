@@ -1,6 +1,7 @@
 use crate::*;
 
 mod self_contain;
+use reactive_stream::DefaultBatchChannel;
 pub use self_contain::*;
 
 mod dyn_impl;
@@ -23,16 +24,35 @@ pub trait ReactiveQuery: Sync + Send + 'static {
   fn request(&mut self, request: &mut ReactiveQueryRequest);
 }
 
+#[derive(Clone, Default)]
+pub struct QueryResolveCtx {
+  kept_view: Arc<RwLock<Vec<Box<dyn Any + Send + Sync>>>>,
+}
+
+impl QueryResolveCtx {
+  pub fn keep_view_alive(&self, view: impl Any + Send + Sync) {
+    self.kept_view.write().push(Box::new(view));
+  }
+}
+
 pub trait QueryCompute: Sync + Send + 'static {
   type Key: CKey;
   type Value: CValue;
   type Changes: Query<Key = Self::Key, Value = ValueChange<Self::Value>> + 'static;
   type View: Query<Key = Self::Key, Value = Self::Value> + 'static;
 
-  fn resolve(&mut self) -> (Self::Changes, Self::View);
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View);
+
+  fn resolve_with_cx(&mut self) -> ((Self::Changes, Self::View), QueryResolveCtx) {
+    let cx = Default::default();
+    let r = self.resolve(&cx);
+    (r, cx)
+  }
 }
 
-pub struct AsyncQueryCtx;
+pub struct AsyncQueryCtx {
+  resolve_cx: QueryResolveCtx,
+}
 
 pub struct AsyncQuerySpawner;
 impl AsyncQuerySpawner {
@@ -66,6 +86,9 @@ impl AsyncQuerySpawner {
 // }
 
 impl AsyncQueryCtx {
+  pub fn resolve_cx(&self) -> &QueryResolveCtx {
+    &self.resolve_cx
+  }
   pub fn make_spawner(&self) -> AsyncQuerySpawner {
     AsyncQuerySpawner
   }
@@ -79,10 +102,11 @@ impl AsyncQueryCtx {
   pub fn then_spawn<T: 'static, R>(
     &self,
     f: impl Future<Output = T> + 'static,
-    then: impl FnOnce(T) -> R + 'static,
+    then: impl FnOnce(T, &QueryResolveCtx) -> R + 'static,
   ) -> impl Future<Output = R> + 'static {
     let sp = self.make_spawner();
-    f.then(move |s| sp.spawn_task(move || then(s)))
+    let cx = self.resolve_cx.clone();
+    f.then(move |s| sp.spawn_task(move || then(s, &cx)))
   }
 }
 
@@ -103,7 +127,7 @@ where
   type Value = V;
   type Changes = Change;
   type View = View;
-  fn resolve(&mut self) -> (Self::Changes, Self::View) {
+  fn resolve(&mut self, _cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
     (self.0.clone(), self.1.clone())
   }
 }
@@ -116,8 +140,8 @@ where
 {
   type Task = impl Future<Output = (Self::Changes, Self::View)> + 'static;
 
-  fn create_task(&mut self, _cx: &mut AsyncQueryCtx) -> Self::Task {
-    futures::future::ready(self.resolve())
+  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+    futures::future::ready(self.resolve(cx.resolve_cx()))
   }
 }
 

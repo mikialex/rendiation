@@ -15,8 +15,8 @@ impl<T: QueryCompute> QueryCompute for ReactiveQueryDebug<T, T::Key, T::Value> {
   type Changes = T::Changes;
   type View = T::View;
 
-  fn resolve(&mut self) -> (Self::Changes, Self::View) {
-    let (d, v) = self.inner.resolve();
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
+    let (d, v) = self.inner.resolve(cx);
 
     // validation
     let changes = d.materialize();
@@ -68,14 +68,14 @@ impl<T: AsyncQueryCompute> AsyncQueryCompute for ReactiveQueryDebug<T, T::Key, T
     let log_change = self.log_change;
 
     let inner = self.inner.create_task(cx);
-    cx.then_spawn(inner, move |inner| {
+    cx.then_spawn(inner, move |inner, cx| {
       ReactiveQueryDebug {
         inner,
         state,
         label,
         log_change,
       }
-      .resolve()
+      .resolve(cx)
     })
   }
 }
@@ -140,8 +140,8 @@ where
   type Changes = QueryDiff<T::Changes>;
   type View = T::View;
 
-  fn resolve(&mut self) -> (Self::Changes, Self::View) {
-    let (d, v) = self.inner.resolve();
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
+    let (d, v) = self.inner.resolve(cx);
     let d = QueryDiff { inner: d };
     (d, v)
   }
@@ -153,10 +153,11 @@ where
   type Task = impl Future<Output = (Self::Changes, Self::View)>;
 
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+    let c = cx.resolve_cx().clone();
     self
       .inner
       .create_task(cx)
-      .map(|inner| QueryDiff { inner }.resolve())
+      .map(move |inner| QueryDiff { inner }.resolve(&c))
   }
 }
 
@@ -189,7 +190,7 @@ impl<T> futures::Stream for ReactiveQueryAsStream<T>
 where
   T: ReactiveQuery + Unpin,
 {
-  type Item = Arc<FastHashMap<T::Key, ValueChange<T::Value>>>;
+  type Item = ReactiveQueryStreamItem<T::Key, T::Value>;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
@@ -201,4 +202,9 @@ where
       Poll::Ready(Some(r))
     }
   }
+}
+
+pub struct ReactiveQueryStreamItem<K, V> {
+  changes: Arc<FastHashMap<K, ValueChange<V>>>,
+  view_holder: Box<dyn Any + Send + Sync>,
 }

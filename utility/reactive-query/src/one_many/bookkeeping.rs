@@ -44,8 +44,8 @@ where
   type View =
     QueryAndMultiQuery<T::View, LockReadGuardHolder<FastHashMap<T::Value, FastHashSet<T::Key>>>>;
 
-  fn resolve(&mut self) -> (Self::Changes, Self::View) {
-    let (r, r_view) = self.upstream.resolve();
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
+    let (r, r_view) = self.upstream.resolve(cx);
 
     {
       let mut mapping = self.mapping.write();
@@ -89,8 +89,8 @@ where
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
     let mapping = self.mapping.clone();
     let upstream = self.upstream.create_task(cx);
-    cx.then_spawn(upstream, |upstream| {
-      OneToManyRefHashBookKeeping { upstream, mapping }.resolve()
+    cx.then_spawn(upstream, |upstream, cx| {
+      OneToManyRefHashBookKeeping { upstream, mapping }.resolve(cx)
     })
   }
 }
@@ -200,8 +200,8 @@ where
   type Changes = T::Changes;
   type View = OneToManyRefDenseBookKeepingCurrentView<T::View>;
 
-  fn resolve(&mut self) -> (Self::Changes, Self::View) {
-    let (r, r_view) = self.upstream.resolve();
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
+    let (r, r_view) = self.upstream.resolve(cx);
 
     {
       let mut mapping = self.mapping.write();
@@ -263,8 +263,8 @@ where
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
     let mapping = self.mapping.clone();
     let upstream = self.upstream.create_task(cx);
-    cx.then_spawn(upstream, |upstream| {
-      OneToManyRefDenseBookKeeping { upstream, mapping }.resolve()
+    cx.then_spawn(upstream, |upstream, cx| {
+      OneToManyRefDenseBookKeeping { upstream, mapping }.resolve(cx)
     })
   }
 }

@@ -47,9 +47,9 @@ where
   type Changes = Arc<FastHashMap<Self::Key, ValueChange<()>>>;
   type View = ManyToOneReduceCurrentView<Self::Key>;
 
-  fn resolve(&mut self) -> (Self::Changes, Self::View) {
-    let (relational_changes, one_acc) = self.relations.resolve();
-    let (upstream_changes, getter) = self.upstream.resolve();
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
+    let (relational_changes, one_acc) = self.relations.resolve(cx);
+    let (upstream_changes, getter) = self.upstream.resolve(cx);
 
     let getter_previous = make_previous(&getter, &upstream_changes);
 
@@ -159,13 +159,13 @@ where
     let ref_count = self.ref_count.clone();
 
     let parents = futures::future::join(upstream, relations);
-    cx.then_spawn(parents, |(upstream, relations)| {
+    cx.then_spawn(parents, |(upstream, relations), cx| {
       ManyToOneReduce {
         upstream,
         relations,
         ref_count,
       }
-      .resolve()
+      .resolve(cx)
     })
   }
 }

@@ -31,9 +31,9 @@ where
   type View = OneToManyFanoutCurrentView<Upstream::View, Relation::View>;
 
   #[allow(clippy::collapsible_else_if)]
-  fn resolve(&mut self) -> (Self::Changes, Self::View) {
-    let (relational_changes, relation_access) = self.relations.resolve();
-    let (upstream_changes, getter) = self.upstream.resolve();
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
+    let (relational_changes, relation_access) = self.relations.resolve(cx);
+    let (upstream_changes, getter) = self.upstream.resolve(cx);
 
     let getter_previous = make_previous(&getter, &upstream_changes);
     let one_acc_previous = make_previous(&relation_access, &relational_changes);
@@ -124,12 +124,12 @@ where
     let upstream = self.upstream.create_task(cx);
     let relations = self.relations.create_task(cx);
     let parents = futures::future::join(upstream, relations);
-    cx.then_spawn(parents, |(upstream, relations)| {
+    cx.then_spawn(parents, |(upstream, relations), cx| {
       OneToManyFanoutCompute {
         upstream,
         relations,
       }
-      .resolve()
+      .resolve(cx)
     })
   }
 }

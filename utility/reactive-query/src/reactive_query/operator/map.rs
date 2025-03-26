@@ -34,8 +34,8 @@ where
   type Changes = MappedQuery<T::Changes, ValueChangeMapper<F>>;
   type View = MappedQuery<T::View, F>;
 
-  fn resolve(&mut self) -> (Self::Changes, Self::View) {
-    let (d, v) = self.base.resolve();
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
+    let (d, v) = self.base.resolve(cx);
     let mapper = self.mapper.clone();
     let d = d.map(ValueChangeMapper(mapper));
     let v = v.map(self.mapper.clone());
@@ -76,10 +76,11 @@ where
 
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
     let mapper = self.mapper.clone();
+    let c = cx.resolve_cx().clone();
     self
       .base
       .create_task(cx)
-      .map(|base| MappedQuery { base, mapper }.resolve())
+      .map(move |base| MappedQuery { base, mapper }.resolve(&c))
   }
 }
 
@@ -120,8 +121,8 @@ where
   type Changes = KeyDualMappedQuery<T::Changes, F1, AutoSomeFnResult<F2>>;
   type View = KeyDualMappedQuery<T::View, F1, AutoSomeFnResult<F2>>;
 
-  fn resolve(&mut self) -> (Self::Changes, Self::View) {
-    let (d, v) = self.base.resolve();
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
+    let (d, v) = self.base.resolve(cx);
     let d = d.key_dual_map(self.f1, self.f2);
     let v = v.key_dual_map(self.f1, self.f2);
     (d, v)
@@ -139,10 +140,11 @@ where
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
     let f1 = self.f1;
     let f2 = self.f2;
+    let c = cx.resolve_cx().clone();
     self
       .base
       .create_task(cx)
-      .map(move |base| KeyDualMappedQuery { base, f1, f2 }.resolve())
+      .map(move |base| KeyDualMappedQuery { base, f1, f2 }.resolve(&c))
   }
 }
 
@@ -200,8 +202,8 @@ where
   type Changes = Arc<FastHashMap<T::Key, ValueChange<V2>>>;
   type View = LockReadGuardHolder<FastHashMap<T::Key, V2>>;
 
-  fn resolve(&mut self) -> (Self::Changes, Self::View) {
-    let (d, _) = self.inner.resolve();
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
+    let (d, _) = self.inner.resolve(cx);
 
     let mut mapper = (self.map_creator)();
     let materialized = d.iter_key_value().collect::<Vec<_>>();
@@ -243,13 +245,13 @@ where
 
     let inner = self.inner.create_task(cx);
 
-    cx.then_spawn(inner, move |inner| {
+    cx.then_spawn(inner, move |inner, cx| {
       MapExecution {
         inner,
         map_creator,
         cache,
       }
-      .resolve()
+      .resolve(cx)
     })
   }
 }

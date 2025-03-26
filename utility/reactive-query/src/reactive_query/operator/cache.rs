@@ -11,8 +11,8 @@ impl<T: QueryCompute> QueryCompute for UnorderedMaterializedViewCache<T, T::Key,
   type Changes = T::Changes;
   type View = LockReadGuardHolder<FastHashMap<T::Key, T::Value>>;
 
-  fn resolve(&mut self) -> (Self::Changes, Self::View) {
-    let (d, _) = self.inner.resolve();
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
+    let (d, _) = self.inner.resolve(cx);
     let mut cache = self.cache.write();
 
     for (k, change) in d.iter_key_value() {
@@ -40,8 +40,8 @@ impl<T: AsyncQueryCompute> AsyncQueryCompute
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
     let cache = self.cache.clone();
     let inner = self.inner.create_task(cx);
-    cx.then_spawn(inner, |inner| {
-      UnorderedMaterializedViewCache { inner, cache }.resolve()
+    cx.then_spawn(inner, |inner, cx| {
+      UnorderedMaterializedViewCache { inner, cache }.resolve(cx)
     })
   }
 }

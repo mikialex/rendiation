@@ -52,14 +52,14 @@ where
     let payload_source = self.payload_source.create_task(cx);
     let connectivity_source = self.connectivity_source.create_task(cx);
     let joined = futures::future::join(payload_source, connectivity_source);
-    cx.then_spawn(joined, move |(payload_source, connectivity_source)| {
+    cx.then_spawn(joined, move |(payload_source, connectivity_source), cx| {
       TreeDerivedDataCompute {
         data: data.clone(),
         derive_logic,
         payload_source,
         connectivity_source,
       }
-      .resolve()
+      .resolve(cx)
     })
   }
 }
@@ -77,9 +77,9 @@ where
   type Changes = Arc<FastHashMap<K, ValueChange<T>>>;
   type View = LockReadGuardHolder<FastHashMap<K, T>>;
 
-  fn resolve(&mut self) -> (Self::Changes, Self::View) {
-    let (payload_change, current_source) = self.payload_source.resolve();
-    let (connectivity_change, current_connectivity) = self.connectivity_source.resolve();
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
+    let (payload_change, current_source) = self.payload_source.resolve(cx);
+    let (connectivity_change, current_connectivity) = self.connectivity_source.resolve(cx);
     let current_inv_connectivity = current_connectivity.clone();
 
     // step1: find the update root

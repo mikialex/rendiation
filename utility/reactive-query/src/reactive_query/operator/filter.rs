@@ -64,8 +64,8 @@ where
   type Changes = FilterMapQueryChange<T::Changes, F>;
   type View = FilterMapQuery<T::View, F>;
 
-  fn resolve(&mut self) -> (Self::Changes, Self::View) {
-    let (d, v) = self.base.resolve();
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
+    let (d, v) = self.base.resolve(cx);
 
     let d = FilterMapQueryChange {
       base: d,
@@ -87,9 +87,10 @@ where
 
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
     let mapper = self.mapper.clone();
+    let c = cx.resolve_cx().clone();
     self
       .base
       .create_task(cx)
-      .map(move |base| FilterMapQuery { base, mapper }.resolve())
+      .map(move |base| FilterMapQuery { base, mapper }.resolve(&c))
   }
 }

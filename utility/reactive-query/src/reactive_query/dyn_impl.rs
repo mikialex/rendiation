@@ -6,7 +6,7 @@ pub type DynReactiveQueryPoll<K, V> = (BoxedDynQuery<K, ValueChange<V>>, BoxedDy
 pub trait DynQueryCompute: Sync + Send + 'static {
   type Key: CKey;
   type Value: CValue;
-  fn resolve_dyn(&mut self) -> DynReactiveQueryPoll<Self::Key, Self::Value>;
+  fn resolve_dyn(&mut self, cx: &QueryResolveCtx) -> DynReactiveQueryPoll<Self::Key, Self::Value>;
   fn create_task_dyn(
     &mut self,
     cx: &mut AsyncQueryCtx,
@@ -15,8 +15,8 @@ pub trait DynQueryCompute: Sync + Send + 'static {
 impl<T: QueryCompute> DynQueryCompute for T {
   type Key = T::Key;
   type Value = T::Value;
-  fn resolve_dyn(&mut self) -> DynReactiveQueryPoll<Self::Key, Self::Value> {
-    let (d, v) = self.resolve();
+  fn resolve_dyn(&mut self, cx: &QueryResolveCtx) -> DynReactiveQueryPoll<Self::Key, Self::Value> {
+    let (d, v) = self.resolve(cx);
     (Box::new(d), Box::new(v))
   }
   fn create_task_dyn(
@@ -55,8 +55,8 @@ impl<K: CKey, V: CValue> QueryCompute for BoxedDynQueryCompute<K, V> {
   type Changes = BoxedDynQuery<K, ValueChange<V>>;
   type View = BoxedDynQuery<K, V>;
 
-  fn resolve(&mut self) -> (Self::Changes, Self::View) {
-    self.deref_mut().resolve_dyn()
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
+    self.deref_mut().resolve_dyn(cx)
   }
 }
 impl<K: CKey, V: CValue> AsyncQueryCompute for BoxedDynQueryCompute<K, V> {

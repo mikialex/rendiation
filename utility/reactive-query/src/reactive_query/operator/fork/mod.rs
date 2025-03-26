@@ -104,21 +104,21 @@ where
   type Changes = BoxedDynQuery<Map::Key, ValueChange<Map::Value>>;
   type View = ForkedView<Map::View>;
 
-  fn resolve(&mut self) -> (Self::Changes, Self::View) {
-    let view = self.view.resolve();
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
+    let view = self.view.resolve(cx);
     let changes = self.changes.resolve(); // this must been called after view resolve.
     (changes, view)
   }
 }
 
 impl<K: CKey, V: CValue> RQForker<K, V> {
-  pub fn update_and_read(&self) -> BoxedDynQuery<K, V> {
-    self.internal.describe_view().resolve().into_boxed()
+  pub fn update_and_read(&self, cx: &QueryResolveCtx) -> BoxedDynQuery<K, V> {
+    self.internal.describe_view().resolve(cx).into_boxed()
   }
 }
 
 impl<K: CKey, V: CKey> OneManyRelationForker<K, V> {
-  pub fn update_and_read(&self) -> BoxedDynMultiQuery<K, V> {
-    self.internal.describe_view().resolve().into_boxed_multi()
+  pub fn update_and_read(&self, cx: &QueryResolveCtx) -> BoxedDynMultiQuery<K, V> {
+    self.internal.describe_view().resolve(cx).into_boxed_multi()
   }
 }

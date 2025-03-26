@@ -37,9 +37,9 @@ where
   type Changes = UnionValueChange<T1::View, T2::View, T1::Changes, T2::Changes, F>;
   type View = UnionQuery<T1::View, T2::View, F>;
 
-  fn resolve(&mut self) -> (Self::Changes, Self::View) {
-    let (t1, a_access) = self.a.resolve();
-    let (t2, b_access) = self.b.resolve();
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
+    let (t1, a_access) = self.a.resolve(cx);
+    let (t2, b_access) = self.b.resolve(cx);
     let a_access = a_access;
     let b_access = b_access;
 
@@ -72,8 +72,9 @@ where
 
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
     let f = self.f;
+    let c = cx.resolve_cx().clone();
     futures::future::join(self.a.create_task(cx), self.b.create_task(cx))
-      .map(move |(a, b)| UnionQuery { a, b, f }.resolve())
+      .map(move |(a, b)| UnionQuery { a, b, f }.resolve(&c))
   }
 }
 

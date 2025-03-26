@@ -136,13 +136,13 @@ where
     let all_size_sender = self.all_size_sender.clone();
 
     let source = self.source.create_task(cx);
-    cx.then_spawn(source, |source| {
+    cx.then_spawn(source, |source, cx| {
       ReactiveAllocator {
         allocator,
         source,
         all_size_sender,
       }
-      .resolve()
+      .resolve(cx)
     })
   }
 }
@@ -157,10 +157,10 @@ where
   type Changes = BoxedDynQuery<u32, ValueChange<u32>>;
   type View = AllocatorView;
 
-  fn resolve(&mut self) -> (Self::Changes, Self::View) {
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
     let mut allocator = self.allocator.write();
 
-    let (d, _) = self.source.resolve();
+    let (d, _) = self.source.resolve(cx);
 
     let (sender, accumulated_mutations) = collective_channel::<u32, u32>();
 

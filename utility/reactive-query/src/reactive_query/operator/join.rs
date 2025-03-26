@@ -31,9 +31,9 @@ where
   type Changes = CrossJoinValueChange<A::View, B::View, A::Changes, B::Changes>;
   type View = CrossJoinQuery<A::View, B::View>;
 
-  fn resolve(&mut self) -> (Self::Changes, Self::View) {
-    let (t1, a_access) = self.a.resolve();
-    let (t2, b_access) = self.b.resolve();
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
+    let (t1, a_access) = self.a.resolve(cx);
+    let (t2, b_access) = self.b.resolve(cx);
 
     let d = CrossJoinValueChange {
       a: t1,
@@ -61,7 +61,8 @@ where
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
     let a = self.a.create_task(cx);
     let b = self.b.create_task(cx);
-    futures::future::join(a, b).map(|(a, b)| CrossJoinQuery { a, b }.resolve())
+    let c = cx.resolve_cx().clone();
+    futures::future::join(a, b).map(move |(a, b)| CrossJoinQuery { a, b }.resolve(&c))
   }
 }
 

@@ -38,8 +38,8 @@ impl<T: QueryCompute<Value: CKey>> QueryCompute
   type Changes = Arc<FastHashMap<Self::Key, ValueChange<Self::Value>>>;
   type View = LockReadGuardHolder<FastHashMap<Self::Key, Self::Value>>;
 
-  fn resolve(&mut self) -> (Self::Changes, Self::View) {
-    let (d, _) = self.upstream.resolve();
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
+    let (d, _) = self.upstream.resolve(cx);
     let mut mapping = self.mapping.write();
     let mut mutations = FastHashMap::<T::Value, ValueChange<T::Key>>::default();
     let mut mutator = QueryMutationCollector {
@@ -77,8 +77,8 @@ impl<T: AsyncQueryCompute<Value: CKey>> AsyncQueryCompute
     let mapping = self.mapping.clone();
     let upstream = self.upstream.create_task(cx);
 
-    cx.then_spawn(upstream, move |upstream| {
-      OneToOneRefHashBookKeeping { upstream, mapping }.resolve()
+    cx.then_spawn(upstream, move |upstream, cx| {
+      OneToOneRefHashBookKeeping { upstream, mapping }.resolve(cx)
     })
   }
 }
