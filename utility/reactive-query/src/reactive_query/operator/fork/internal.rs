@@ -152,6 +152,8 @@ impl<Map: ReactiveQuery> ReactiveKVMapForkInternal<Map, Map::Key, Map::Value> {
 
     // this optimization is not valid for now, todo, fix any implementation that drop the full view.
     // tip, search "let (d, _) ="
+    // once view dropped, the compute will re resolve. but if we enable compute desc reuse(down here)
+    // the compute will resolve same message again.
     // {
     //   let described = self.described.read();
     //   let described: &Option<Weak<dyn Any + Send + Sync>> = &described;

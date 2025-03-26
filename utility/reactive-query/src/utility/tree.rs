@@ -30,20 +30,57 @@ struct TreeDerivedData<K, T, F> {
   derive_logic: F,
 }
 
-impl<K, T, F> ReactiveQuery for TreeDerivedData<K, T, F>
+struct TreeDerivedDataCompute<K, T, F, S, C> {
+  data: Arc<RwLock<FastHashMap<K, T>>>,
+  derive_logic: F,
+  payload_source: S,
+  connectivity_source: C,
+}
+
+impl<K, T, F, S, C> AsyncQueryCompute for TreeDerivedDataCompute<K, T, F, S, C>
 where
   K: CKey,
   T: CValue,
+  S: AsyncQueryCompute<Key = K, Value = T>,
+  C: AsyncQueryCompute<Key = K, Value = K, View: MultiQuery<Key = K, Value = K>>,
+  F: Fn(&T, Option<&T>) -> T + Send + Sync + 'static + Copy,
+{
+  type Task = impl Future<Output = (Self::Changes, Self::View)> + 'static;
+  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+    let derive_logic = self.derive_logic;
+    let data = self.data.clone();
+    let payload_source = self.payload_source.create_task(cx);
+    let connectivity_source = self.connectivity_source.create_task(cx);
+    let joined = futures::future::join(payload_source, connectivity_source);
+    cx.then_spawn(joined, move |(payload_source, connectivity_source)| {
+      TreeDerivedDataCompute {
+        data: data.clone(),
+        derive_logic,
+        payload_source,
+        connectivity_source,
+      }
+      .resolve()
+    })
+  }
+}
+
+impl<K, T, F, S, C> QueryCompute for TreeDerivedDataCompute<K, T, F, S, C>
+where
+  K: CKey,
+  T: CValue,
+  S: QueryCompute<Key = K, Value = T>,
+  C: QueryCompute<Key = K, Value = K, View: MultiQuery<Key = K, Value = K>>,
   F: Fn(&T, Option<&T>) -> T + Send + Sync + 'static + Copy,
 {
   type Key = K;
   type Value = T;
-  type Compute = impl QueryCompute<Key = Self::Key, Value = Self::Value>;
+  type Changes = Arc<FastHashMap<K, ValueChange<T>>>;
+  type View = LockReadGuardHolder<FastHashMap<K, T>>;
 
-  fn describe(&self, cx: &mut Context) -> Self::Compute {
-    let (payload_change, current_source) = self.payload_source.describe(cx).resolve();
-    let (connectivity_change, current_connectivity, current_inv_connectivity) =
-      self.connectivity_source.poll_changes_with_inv_dyn(cx);
+  fn resolve(&mut self) -> (Self::Changes, Self::View) {
+    let (payload_change, current_source) = self.payload_source.resolve();
+    let (connectivity_change, current_connectivity) = self.connectivity_source.resolve();
+    let current_inv_connectivity = current_connectivity.clone();
 
     // step1: find the update root
     // we have a change set as input. change set is the composition of the connectivity change
@@ -92,9 +129,9 @@ where
 
     let ctx = Ctx {
       derive: collector,
-      source: current_source.as_ref(),
-      connectivity: current_inv_connectivity.as_ref(),
-      parent_connectivity: current_connectivity.as_ref(),
+      source: &current_source,
+      connectivity: &current_inv_connectivity,
+      parent_connectivity: &current_connectivity,
       derive_logic: self.derive_logic,
     };
     for root in update_roots {
@@ -116,6 +153,26 @@ where
     let d = Arc::new(derive_changes);
     let v = self.data.make_read_holder();
     (d, v)
+  }
+}
+
+impl<K, T, F> ReactiveQuery for TreeDerivedData<K, T, F>
+where
+  K: CKey,
+  T: CValue,
+  F: Fn(&T, Option<&T>) -> T + Send + Sync + 'static + Copy,
+{
+  type Key = K;
+  type Value = T;
+  type Compute = impl QueryCompute<Key = Self::Key, Value = Self::Value>;
+
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
+    TreeDerivedDataCompute {
+      data: self.data.clone(),
+      derive_logic: self.derive_logic,
+      payload_source: self.payload_source.describe(cx),
+      connectivity_source: self.connectivity_source.describe(cx),
+    }
   }
 
   fn request(&mut self, request: &mut ReactiveQueryRequest) {

@@ -76,15 +76,12 @@ impl ReactiveQuery for Packer {
 
   type Compute = PackerCompute<BoxedDynQueryCompute<u32, Size>>;
   fn describe(&self, cx: &mut Context) -> Self::Compute {
-    let (sender, rev) = collective_channel::<u32, PackResult2dWithDepth>();
     PackerCompute {
       size_source: self.size_source.poll_changes_dyn(cx),
       max_size: self.max_size,
       packer: self.packer.clone(),
       mapping: self.mapping.clone(),
       rev_mapping: self.rev_mapping.clone(),
-      sender,
-      accumulated_mutations: rev,
       all_size_sender: self.all_size_sender.clone(),
     }
   }
@@ -103,9 +100,6 @@ struct PackerCompute<T> {
   // todo, i think this is not necessary if the packer lib not generate id
   mapping: Arc<RwLock<FastHashMap<PackId, u32>>>,
   rev_mapping: Arc<RwLock<FastHashMap<u32, PackId>>>,
-
-  sender: CollectiveMutationSender<u32, PackResult2dWithDepth>,
-  accumulated_mutations: CollectiveMutationReceiver<u32, PackResult2dWithDepth>,
   all_size_sender: SingleSender<SizeWithDepth>,
 }
 
@@ -119,15 +113,12 @@ impl<T: AsyncQueryCompute<Key = u32, Value = Size>> AsyncQueryCompute for Packer
     let rev_mapping = self.rev_mapping.clone();
     let all_size_sender = self.all_size_sender.clone();
     self.size_source.create_task(cx).map(move |size_source| {
-      let (sender, rev) = collective_channel::<u32, PackResult2dWithDepth>();
       PackerCompute {
         size_source,
         max_size,
         packer,
         mapping,
         rev_mapping,
-        sender,
-        accumulated_mutations: rev,
         all_size_sender,
       }
       .resolve()
@@ -144,10 +135,11 @@ impl<T: QueryCompute<Key = u32, Value = Size>> QueryCompute for PackerCompute<T>
 
   fn resolve(&mut self) -> (Self::Changes, Self::View) {
     let (d, _) = self.size_source.resolve();
+    let (sender, rev) = collective_channel::<u32, PackResult2dWithDepth>();
 
     {
       unsafe {
-        self.sender.lock();
+        sender.lock();
         let mut mapping = self.mapping.write();
         let mut rev_mapping = self.rev_mapping.write();
         let packer = &mut self.packer.write();
@@ -189,17 +181,17 @@ impl<T: QueryCompute<Key = u32, Value = Size>> QueryCompute for PackerCompute<T>
                 mapping.remove(&pack_id);
                 let previous = packer.unpack(pack_id).unwrap();
                 let delta = ValueChange::Remove(previous);
-                self.sender.send(id, delta);
+                sender.send(id, delta);
               }
 
               let mut relocate = |relocation: PackResultRelocation<PackResult2dWithDepth>| {
                 let idx = mapping.remove(&relocation.previous.id).unwrap();
                 let previous = relocation.previous.result;
-                self.sender.send(idx, ValueChange::Remove(previous));
+                sender.send(idx, ValueChange::Remove(previous));
 
                 mapping.insert(relocation.new.id, idx);
                 let current = relocation.new.result;
-                self.sender.send(idx, ValueChange::Delta(current, None));
+                sender.send(idx, ValueChange::Delta(current, None));
 
                 rev_mapping.insert(idx, relocation.new.id);
               };
@@ -211,7 +203,7 @@ impl<T: QueryCompute<Key = u32, Value = Size>> QueryCompute for PackerCompute<T>
                 mapping.insert(pack_result.id, id);
                 let delta = ValueChange::Delta(pack_result.result, None);
 
-                self.sender.send(id, delta);
+                sender.send(id, delta);
               }
             }
             ValueChange::Remove(_) => {
@@ -219,12 +211,12 @@ impl<T: QueryCompute<Key = u32, Value = Size>> QueryCompute for PackerCompute<T>
               mapping.remove(&pack_id);
               let previous = packer.unpack(pack_id).unwrap();
               let delta = ValueChange::Remove(previous);
-              self.sender.send(id, delta);
+              sender.send(id, delta);
             }
           }
         }
 
-        self.sender.unlock();
+        sender.unlock();
       }
     }
 
@@ -234,7 +226,7 @@ impl<T: QueryCompute<Key = u32, Value = Size>> QueryCompute for PackerCompute<T>
     };
 
     noop_ctx!(cx);
-    let d = if let Poll::Ready(Some(r)) = self.accumulated_mutations.poll_impl(cx) {
+    let d = if let Poll::Ready(Some(r)) = rev.poll_impl(cx) {
       r
     } else {
       Box::new(EmptyQuery::default())
