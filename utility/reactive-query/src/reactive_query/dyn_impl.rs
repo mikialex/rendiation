@@ -7,6 +7,10 @@ pub trait DynQueryCompute: Sync + Send + 'static {
   type Key: CKey;
   type Value: CValue;
   fn resolve_dyn(&mut self) -> DynReactiveQueryPoll<Self::Key, Self::Value>;
+  fn create_task_dyn(
+    &mut self,
+    cx: &mut AsyncQueryCtx,
+  ) -> Box<dyn Send + Sync + Unpin + Future<Output = DynReactiveQueryPoll<Self::Key, Self::Value>>>;
 }
 impl<T: QueryCompute> DynQueryCompute for T {
   type Key = T::Key;
@@ -14,6 +18,13 @@ impl<T: QueryCompute> DynQueryCompute for T {
   fn resolve_dyn(&mut self) -> DynReactiveQueryPoll<Self::Key, Self::Value> {
     let (d, v) = self.resolve();
     (Box::new(d), Box::new(v))
+  }
+  fn create_task_dyn(
+    &mut self,
+    _cx: &mut AsyncQueryCtx,
+  ) -> Box<dyn Send + Sync + Unpin + Future<Output = DynReactiveQueryPoll<Self::Key, Self::Value>>>
+  {
+    todo!()
   }
 }
 pub type BoxedDynQueryCompute<K, V> = Box<dyn DynQueryCompute<Key = K, Value = V>>;
@@ -46,6 +57,13 @@ impl<K: CKey, V: CValue> QueryCompute for BoxedDynQueryCompute<K, V> {
 
   fn resolve(&mut self) -> (Self::Changes, Self::View) {
     self.deref_mut().resolve_dyn()
+  }
+}
+impl<K: CKey, V: CValue> AsyncQueryCompute for BoxedDynQueryCompute<K, V> {
+  type Task = impl Future<Output = (Self::Changes, Self::View)> + 'static;
+
+  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+    self.create_task_dyn(cx)
   }
 }
 

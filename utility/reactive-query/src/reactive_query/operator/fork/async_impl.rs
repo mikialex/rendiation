@@ -33,23 +33,32 @@ impl<Map: AsyncQueryCompute> ForkComputeView<Map> {
       }
     }
 
-    let downstream = self.downstream.clone();
-    let _already_resolved_view = self._already_resolved_view.clone();
-
-    let future = if let Some(view) = self._already_resolved_view {
-      let future = ready(view.clone());
+    let future = if let Some(view) = &self._already_resolved_view {
+      let future = ready(ForkedView {
+        inner: view.clone(),
+      });
       Box::new(Box::pin(future))
         as Box<dyn Unpin + Send + Sync + Future<Output = ForkedView<Map::View>>>
     } else {
-      let future = self.upstream.write().create_task(cx).map(|upstream| {
-        ForkComputeView {
-          upstream: Arc::new(RwLock::new(upstream)),
-          downstream,
-          _already_resolved_view,
-          future_forker: Default::default(),
-        }
-        .resolve()
-      });
+      let downstream = self.downstream.clone();
+      let _already_resolved_view = self._already_resolved_view.clone();
+      let view_resolve = self.view_resolve.clone();
+      let future = self
+        .compute
+        .as_ref()
+        .unwrap()
+        .write()
+        .create_task(cx)
+        .map(|upstream| {
+          ForkComputeView {
+            compute: Arc::new(RwLock::new(upstream)).into(),
+            downstream,
+            _already_resolved_view,
+            future_forker: Default::default(),
+            view_resolve,
+          }
+          .resolve()
+        });
       Box::new(Box::pin(future))
         as Box<dyn Unpin + Send + Sync + Future<Output = ForkedView<Map::View>>>
     };
