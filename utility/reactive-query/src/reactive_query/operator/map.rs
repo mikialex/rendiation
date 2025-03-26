@@ -127,6 +127,24 @@ where
     (d, v)
   }
 }
+impl<F1, F2, T, K2> AsyncQueryCompute for KeyDualMappedQuery<T, F1, F2>
+where
+  K2: CKey,
+  F1: Fn(T::Key) -> K2 + Copy + Send + Sync + 'static,
+  F2: Fn(K2) -> T::Key + Copy + Send + Sync + 'static,
+  T: AsyncQueryCompute,
+{
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
+
+  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+    let f1 = self.f1;
+    let f2 = self.f2;
+    self
+      .base
+      .create_task(cx)
+      .map(move |base| KeyDualMappedQuery { base, f1, f2 }.resolve())
+  }
+}
 
 /// A map operator that internal contains a materialization and a mapper creator logic.
 ///

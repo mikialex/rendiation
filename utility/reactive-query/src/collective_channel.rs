@@ -119,7 +119,7 @@ pub struct ReactiveQueryFromCollectiveMutation<K, T> {
 impl<K: CKey, T: CValue> ReactiveQuery for ReactiveQueryFromCollectiveMutation<K, T> {
   type Key = K;
   type Value = T;
-  type Compute = impl QueryCompute<Key = Self::Key, Value = Self::Value>;
+  type Compute = (BoxedDynQuery<K, ValueChange<T>>, BoxedDynQuery<K, T>);
 
   fn describe(&self, cx: &mut Context) -> Self::Compute {
     let d = match self.mutation.write().poll_next_unpin(cx) {

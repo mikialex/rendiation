@@ -24,6 +24,35 @@ where
   }
 }
 
+#[derive(Clone)]
+pub struct FilterMapQueryChange<T, F> {
+  pub base: T,
+  pub mapper: F,
+}
+
+impl<F, V, V2, T> Query for FilterMapQueryChange<T, F>
+where
+  F: Fn(V) -> Option<V2> + Sync + Send + Clone + 'static,
+  V2: CValue,
+  T: Query<Value = ValueChange<V>>,
+{
+  type Key = T::Key;
+  type Value = ValueChange<V2>;
+  fn iter_key_value(&self) -> impl Iterator<Item = (T::Key, ValueChange<V2>)> + '_ {
+    let checker = make_checker(self.mapper.clone());
+    self
+      .base
+      .iter_key_value()
+      .filter_map(move |(k, v)| (checker)(v).map(|v| (k, v)))
+  }
+
+  fn access(&self, key: &T::Key) -> Option<ValueChange<V2>> {
+    let checker = make_checker(self.mapper.clone());
+    let base = self.base.access(key)?;
+    (checker)(base)
+  }
+}
+
 impl<T, F, V2> QueryCompute for FilterMapQuery<T, F>
 where
   F: Fn(T::Value) -> Option<V2> + Clone + Send + Sync + 'static,
@@ -32,16 +61,35 @@ where
 {
   type Key = T::Key;
   type Value = V2;
-  type Changes = impl Query<Key = Self::Key, Value = ValueChange<V2>> + 'static;
+  type Changes = FilterMapQueryChange<T::Changes, F>;
   type View = FilterMapQuery<T::View, F>;
 
   fn resolve(&mut self) -> (Self::Changes, Self::View) {
     let (d, v) = self.base.resolve();
 
-    let checker = make_checker(self.mapper.clone());
-    let d = d.filter_map(checker);
+    let d = FilterMapQueryChange {
+      base: d,
+      mapper: self.mapper.clone(),
+    };
     let v = v.filter_map(self.mapper.clone());
 
     (d, v)
+  }
+}
+
+impl<T, F, V2> AsyncQueryCompute for FilterMapQuery<T, F>
+where
+  F: Fn(T::Value) -> Option<V2> + Clone + Send + Sync + 'static,
+  T: AsyncQueryCompute,
+  V2: CValue,
+{
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
+
+  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+    let mapper = self.mapper.clone();
+    self
+      .base
+      .create_task(cx)
+      .map(move |base| FilterMapQuery { base, mapper }.resolve())
   }
 }

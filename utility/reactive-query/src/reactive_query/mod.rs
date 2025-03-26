@@ -107,6 +107,19 @@ where
     (self.0.clone(), self.1.clone())
   }
 }
+impl<K, V, Change, View> AsyncQueryCompute for (Change, View)
+where
+  K: CKey,
+  V: CValue,
+  Change: Query<Key = K, Value = ValueChange<V>> + 'static,
+  View: Query<Key = K, Value = V> + 'static,
+{
+  type Task = impl Future<Output = (Self::Changes, Self::View)> + 'static;
+
+  fn create_task(&mut self, _cx: &mut AsyncQueryCtx) -> Self::Task {
+    futures::future::ready(self.resolve())
+  }
+}
 
 impl<K: CKey, V: CValue> ReactiveQuery for EmptyQuery<K, V> {
   type Key = K;

@@ -134,7 +134,6 @@ where
 impl<T> QueryCompute for QueryDiff<T>
 where
   T: QueryCompute,
-  T::Value: PartialEq,
 {
   type Key = T::Key;
   type Value = T::Value;
@@ -147,11 +146,23 @@ where
     (d, v)
   }
 }
+impl<T> AsyncQueryCompute for QueryDiff<T>
+where
+  T: AsyncQueryCompute,
+{
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
+
+  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+    self
+      .inner
+      .create_task(cx)
+      .map(|inner| QueryDiff { inner }.resolve())
+  }
+}
 
 impl<T> ReactiveQuery for QueryDiff<T>
 where
   T: ReactiveQuery,
-  T::Value: PartialEq,
 {
   type Key = T::Key;
   type Value = T::Value;
