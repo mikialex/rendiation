@@ -194,12 +194,16 @@ where
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
-    let r = this.inner.describe(cx).resolve().0.materialize();
+    let (r, cx) = this.inner.describe(cx).resolve_with_cx();
+    let r = r.0.materialize();
 
     if r.is_empty() {
       Poll::Pending
     } else {
-      Poll::Ready(Some(r))
+      Poll::Ready(Some(ReactiveQueryStreamItem {
+        changes: r,
+        view_holder: Box::new(cx),
+      }))
     }
   }
 }

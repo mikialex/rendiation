@@ -1,7 +1,6 @@
 use crate::*;
 
 mod self_contain;
-use reactive_stream::DefaultBatchChannel;
 pub use self_contain::*;
 
 mod dyn_impl;

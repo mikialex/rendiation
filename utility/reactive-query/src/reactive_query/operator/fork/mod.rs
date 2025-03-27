@@ -112,13 +112,17 @@ where
 }
 
 impl<K: CKey, V: CValue> RQForker<K, V> {
-  pub fn update_and_read(&self, cx: &QueryResolveCtx) -> BoxedDynQuery<K, V> {
-    self.internal.describe_view().resolve(cx).into_boxed()
+  pub fn update_and_read(&self) -> BoxedDynQuery<K, V> {
+    let cx = Default::default();
+    let v = self.internal.describe_view().resolve(&cx);
+    v.keep_sth(cx).into_boxed()
   }
 }
 
 impl<K: CKey, V: CKey> OneManyRelationForker<K, V> {
-  pub fn update_and_read(&self, cx: &QueryResolveCtx) -> BoxedDynMultiQuery<K, V> {
-    self.internal.describe_view().resolve(cx).into_boxed_multi()
+  pub fn update_and_read(&self) -> BoxedDynMultiQuery<K, V> {
+    let cx = Default::default();
+    let v = self.internal.describe_view().resolve(&cx);
+    v.keep_sth(cx).into_boxed_multi()
   }
 }

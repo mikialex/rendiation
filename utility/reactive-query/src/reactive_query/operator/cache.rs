@@ -68,9 +68,9 @@ where
   }
 }
 
-pub struct LinearMaterializedReactiveQuery<Map: ReactiveQuery> {
+pub struct LinearMaterializedReactiveQuery<Map, K, V> {
   pub inner: Map,
-  pub cache: Arc<RwLock<IndexReusedVecAccess<Map::Key, Map::Value>>>,
+  pub cache: Arc<RwLock<IndexReusedVecAccess<K, V>>>,
 }
 
 #[derive(Clone)]
@@ -104,18 +104,20 @@ impl<K: CKey + LinearIdentification, V: CValue> Query for IndexReusedVecAccess<K
   }
 }
 
-impl<Map> ReactiveQuery for LinearMaterializedReactiveQuery<Map>
+impl<Map> QueryCompute for LinearMaterializedReactiveQuery<Map, Map::Key, Map::Value>
 where
-  Map: ReactiveQuery + Sync,
+  Map: QueryCompute,
   Map::Key: LinearIdentification + CKey,
   Map::Value: CValue,
 {
   type Key = Map::Key;
   type Value = Map::Value;
-  type Compute = impl QueryCompute<Key = Self::Key, Value = Self::Value>;
 
-  fn describe(&self, cx: &mut Context) -> Self::Compute {
-    let (d, _) = self.inner.describe(cx).resolve();
+  type Changes = Map::Changes;
+  type View = LockReadGuardHolder<IndexReusedVecAccess<Map::Key, Map::Value>>;
+
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
+    let (d, _) = self.inner.resolve(cx);
     {
       let mut cache = self.cache.write();
       for (k, change) in d.iter_key_value() {
@@ -133,6 +135,24 @@ where
     let v = self.cache.make_read_holder();
 
     (d, v)
+  }
+}
+
+impl<Map> ReactiveQuery for LinearMaterializedReactiveQuery<Map, Map::Key, Map::Value>
+where
+  Map: ReactiveQuery + Sync,
+  Map::Key: LinearIdentification + CKey,
+  Map::Value: CValue,
+{
+  type Key = Map::Key;
+  type Value = Map::Value;
+  type Compute = LinearMaterializedReactiveQuery<Map::Compute, Map::Key, Map::Value>;
+
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
+    LinearMaterializedReactiveQuery {
+      inner: self.inner.describe(cx),
+      cache: self.cache.clone(),
+    }
   }
 
   fn request(&mut self, request: &mut ReactiveQueryRequest) {

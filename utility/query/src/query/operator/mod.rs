@@ -1,3 +1,5 @@
+use std::any::Any;
+
 use crate::*;
 
 mod map;
@@ -12,6 +14,13 @@ pub use union::*;
 pub trait QueryExt: Query + Sized + 'static {
   fn into_boxed(self) -> BoxedDynQuery<Self::Key, Self::Value> {
     Box::new(self)
+  }
+
+  fn keep_sth<X: Any + Send + Sync>(self, sth: X) -> KeptQuery<Self> {
+    KeptQuery {
+      query: self,
+      holder: Arc::new(sth),
+    }
   }
 
   fn map<V2, F>(self, mapper: F) -> MappedQuery<Self, F>

@@ -36,7 +36,7 @@ where
 
   fn into_change_stream(
     self,
-  ) -> impl futures::Stream<Item = Arc<FastHashMap<Self::Key, ValueChange<Self::Value>>>>
+  ) -> impl futures::Stream<Item = ReactiveQueryStreamItem<Self::Key, Self::Value>>
   where
     Self: Unpin,
   {
@@ -241,7 +241,7 @@ where
       cache: Default::default(),
     }
   }
-  fn materialize_linear(self) -> LinearMaterializedReactiveQuery<Self>
+  fn materialize_linear(self) -> LinearMaterializedReactiveQuery<Self, Self::Key, Self::Value>
   where
     Self::Key: LinearIdentification,
   {

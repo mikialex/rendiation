@@ -32,8 +32,10 @@ where
     &self,
     cx: &mut Context,
   ) -> BoxedDynReactiveOneToManyRelationPoll<Self::One, Self::Many> {
-    let (d, v) = self.describe(cx).resolve();
-    (Box::new(d), Box::new(v.clone()), Box::new(v))
+    let ((d, v), cx) = self.describe(cx).resolve_with_cx();
+    let full = v.clone().keep_sth(cx.clone());
+    let multi_full = v.keep_sth(cx);
+    (Box::new(d), Box::new(full), Box::new(multi_full))
   }
 
   fn extra_request_dyn(&mut self, request: &mut ReactiveQueryRequest) {
