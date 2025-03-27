@@ -39,7 +39,8 @@ impl<T: QueryCompute<Value: CKey>> QueryCompute
   type View = LockReadGuardHolder<FastHashMap<Self::Key, Self::Value>>;
 
   fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
-    let (d, _) = self.upstream.resolve(cx);
+    let (d, v) = self.upstream.resolve(cx);
+    cx.keep_view_alive(v);
     let mut mapping = self.mapping.write();
     let mut mutations = FastHashMap::<T::Value, ValueChange<T::Key>>::default();
     let mut mutator = QueryMutationCollector {

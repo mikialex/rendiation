@@ -71,7 +71,8 @@ impl<T: QueryCompute<Value = (Arc<Vec<u8>>, Option<GPUBufferViewRange>)>> QueryC
     let mut record = self.record.write();
     let mut buffer = self.buffer.write();
     let mut rev = self.rev_map.write();
-    let (d, _) = self.upstream.resolve(cx);
+    let (d, v) = self.upstream.resolve(cx);
+    cx.keep_view_alive(v);
 
     let mut mutations = FastHashMap::<T::Key, ValueChange<(u32, u32)>>::default();
     let mut mutator = QueryMutationCollector {

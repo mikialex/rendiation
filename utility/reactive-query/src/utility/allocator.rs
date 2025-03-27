@@ -27,7 +27,7 @@ pub fn reactive_linear_allocation(
   let allocator = ReactiveAllocator {
     source: input,
     allocator: Arc::new(RwLock::new(allocator)),
-    all_size_sender: size_sender,
+    all_size_sender: Arc::new(size_sender),
   };
 
   (allocator, size_rev)
@@ -38,7 +38,7 @@ type AllocationHandle = xalloc::tlsf::TlsfRegion<xalloc::arena::sys::Ptr>;
 struct ReactiveAllocator<T> {
   source: T,
   allocator: Arc<RwLock<Allocator>>,
-  all_size_sender: SingleSender<u32>,
+  all_size_sender: Arc<SingleSender<u32>>,
 }
 
 struct Allocator {
@@ -160,7 +160,8 @@ where
   fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
     let mut allocator = self.allocator.write();
 
-    let (d, _) = self.source.resolve(cx);
+    let (d, v) = self.source.resolve(cx);
+    cx.keep_view_alive(v);
 
     let (sender, accumulated_mutations) = collective_channel::<u32, u32>();
 

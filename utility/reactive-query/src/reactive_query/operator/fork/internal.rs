@@ -150,28 +150,20 @@ impl<Map: ReactiveQuery> ReactiveKVMapForkInternal<Map, Map::Key, Map::Value> {
       }
     }
 
-    // this optimization is not valid for now, todo, fix any implementation that drop the full view.
-    // tip, search "let (d, _) ="
-    // once view dropped, the compute will re resolve. but if we enable compute desc reuse(down here)
-    // the compute will resolve same message again.
-    // {
-    //   let described = self.described.read();
-    //   let described: &Option<Weak<dyn Any + Send + Sync>> = &described;
-    //   if let Some(compute) = described {
-    //     if let Some(compute) = compute.upgrade() {
-    //       return ForkComputeView::ViewToCompute {
-    //         compute: compute.downcast::<RwLock<Map::Compute>>().unwrap(),
-    //         downstream: self.downstream.clone(),
-    //         view_resolve: self.resolved.clone(),
-    //       };
-    //     }
-    //   }
-    // }
-
     // do not create compute instance when view is ready because the implementation of the
     // compute might contains exclusive lock access, which cause dead lock.
     let compute = if already_resolved_view.is_none() {
-      self.describe_upstream_view().into()
+      let mut c = None;
+      {
+        let described = self.described.read();
+        let described: &Option<Weak<dyn Any + Send + Sync>> = &described;
+        if let Some(compute) = described {
+          if let Some(compute) = compute.upgrade() {
+            c = compute.downcast::<RwLock<Map::Compute>>().unwrap().into();
+          }
+        }
+      }
+      c.unwrap_or_else(|| self.describe_upstream_view()).into()
     } else {
       None
     };

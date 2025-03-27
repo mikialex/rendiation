@@ -43,14 +43,6 @@ impl<T> Drop for SingleSender<T> {
   }
 }
 
-impl<T> Clone for SingleSender<T> {
-  fn clone(&self) -> Self {
-    SingleSender {
-      inner: Weak::clone(&self.inner),
-    }
-  }
-}
-
 /// An error returned from the [`Updater::update`](struct.Updater.html#method.update) function.
 /// Indicates that the paired [`Receiver`](struct.Receiver.html) has been dropped.
 ///

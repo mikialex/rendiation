@@ -195,7 +195,8 @@ where
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
     let ccx = Default::default();
-    let (d, _) = this.inner.describe(cx).resolve(&ccx);
+    let (d, v) = this.inner.describe(cx).resolve(&ccx);
+    ccx.keep_view_alive(v);
     let r = d.materialize();
 
     if r.is_empty() {

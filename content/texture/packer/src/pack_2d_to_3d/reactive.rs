@@ -26,7 +26,7 @@ pub fn reactive_pack_2d_to_3d(
     size_source: size,
     mapping: Default::default(),
     rev_mapping: Default::default(),
-    all_size_sender: size_sender,
+    all_size_sender: Arc::new(size_sender),
   };
 
   (packer, size_rev)
@@ -43,7 +43,7 @@ struct Packer {
   mapping: Arc<RwLock<FastHashMap<PackId, u32>>>,
   rev_mapping: Arc<RwLock<FastHashMap<u32, PackId>>>,
 
-  all_size_sender: SingleSender<SizeWithDepth>,
+  all_size_sender: Arc<SingleSender<SizeWithDepth>>,
 }
 
 #[derive(Clone)]
@@ -99,7 +99,7 @@ struct PackerCompute<T> {
   // todo, i think this is not necessary if the packer lib not generate id
   mapping: Arc<RwLock<FastHashMap<PackId, u32>>>,
   rev_mapping: Arc<RwLock<FastHashMap<u32, PackId>>>,
-  all_size_sender: SingleSender<SizeWithDepth>,
+  all_size_sender: Arc<SingleSender<SizeWithDepth>>,
 }
 
 impl<T: AsyncQueryCompute<Key = u32, Value = Size>> AsyncQueryCompute for PackerCompute<T> {
@@ -134,7 +134,8 @@ impl<T: QueryCompute<Key = u32, Value = Size>> QueryCompute for PackerCompute<T>
   type View = PackerCurrentView;
 
   fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
-    let (d, _) = self.size_source.resolve(cx);
+    let (d, v) = self.size_source.resolve(cx);
+    cx.keep_view_alive(v);
     let (sender, rev) = collective_channel::<u32, PackResult2dWithDepth>();
 
     {

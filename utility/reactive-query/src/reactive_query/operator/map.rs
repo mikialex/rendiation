@@ -203,7 +203,8 @@ where
   type View = LockReadGuardHolder<FastHashMap<T::Key, V2>>;
 
   fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
-    let (d, _) = self.inner.resolve(cx);
+    let (d, v) = self.inner.resolve(cx);
+    cx.keep_view_alive(v);
 
     let mut mapper = (self.map_creator)();
     let materialized = d.iter_key_value().collect::<Vec<_>>();

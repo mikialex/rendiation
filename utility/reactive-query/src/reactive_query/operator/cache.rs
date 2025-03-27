@@ -12,7 +12,8 @@ impl<T: QueryCompute> QueryCompute for UnorderedMaterializedViewCache<T, T::Key,
   type View = LockReadGuardHolder<FastHashMap<T::Key, T::Value>>;
 
   fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
-    let (d, _) = self.inner.resolve(cx);
+    let (d, v) = self.inner.resolve(cx);
+    cx.keep_view_alive(v);
     let mut cache = self.cache.write();
 
     for (k, change) in d.iter_key_value() {
@@ -117,7 +118,8 @@ where
   type View = LockReadGuardHolder<IndexReusedVecAccess<Map::Key, Map::Value>>;
 
   fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
-    let (d, _) = self.inner.resolve(cx);
+    let (d, v) = self.inner.resolve(cx);
+    cx.keep_view_alive(v);
     {
       let mut cache = self.cache.write();
       for (k, change) in d.iter_key_value() {
