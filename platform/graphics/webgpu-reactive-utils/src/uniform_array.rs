@@ -42,7 +42,7 @@ where
   C::Value: Pod,
 {
   fn update_target(&mut self, target: &mut UniformArray<T, N>, cx: &mut Context) {
-    let (changes, _) = self.upstream.describe(cx).resolve();
+    let (changes, _) = self.upstream.describe(cx).resolve_kept();
     for (k, v) in changes.iter_key_value() {
       let index = k.alloc_index();
 

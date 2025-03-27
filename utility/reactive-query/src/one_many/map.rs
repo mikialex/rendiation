@@ -25,7 +25,7 @@ where
   >;
 
   fn describe(&self, cx: &mut Context) -> Self::Compute {
-    let (d, v) = self.inner.describe(cx).resolve();
+    let (d, v) = self.inner.describe(cx).resolve_kept();
     let map = self.map;
     let d = d.map(move |k, v| v.map(|v| map(k, v)));
 
@@ -67,7 +67,7 @@ where
   >;
 
   fn describe(&self, cx: &mut Context) -> Self::Compute {
-    let (d, v) = self.inner.describe(cx).resolve();
+    let (d, v) = self.inner.describe(cx).resolve_kept();
     let d = d.key_dual_map(self.f1, self.f2);
     let f1_ = self.f1;
     let v_inv = v.clone().multi_map(move |_, v| f1_(v));

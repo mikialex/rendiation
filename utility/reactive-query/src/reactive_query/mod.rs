@@ -42,10 +42,10 @@ pub trait QueryCompute: Sync + Send + 'static {
 
   fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View);
 
-  fn resolve_with_cx(&mut self) -> ((Self::Changes, Self::View), QueryResolveCtx) {
+  fn resolve_kept(&mut self) -> (Self::Changes, KeptQuery<Self::View>) {
     let cx = Default::default();
     let r = self.resolve(&cx);
-    (r, cx)
+    (r.0, r.1.keep_sth(cx))
   }
 }
 

@@ -45,7 +45,7 @@ impl<T: AsyncQueryCompute<Value = (Arc<Vec<u8>>, Option<GPUBufferViewRange>)>> A
     let gpu = self.gpu.clone();
     let rev_map = self.rev_map.clone();
     let upstream = self.upstream.create_task(cx);
-    cx.then_spawn(upstream, |upstream| {
+    cx.then_spawn(upstream, |upstream, cx| {
       ReactiveRangeAllocatePoolCompute {
         buffer,
         record,
@@ -53,7 +53,7 @@ impl<T: AsyncQueryCompute<Value = (Arc<Vec<u8>>, Option<GPUBufferViewRange>)>> A
         gpu,
         upstream,
       }
-      .resolve()
+      .resolve(cx)
     })
   }
 }
@@ -67,11 +67,11 @@ impl<T: QueryCompute<Value = (Arc<Vec<u8>>, Option<GPUBufferViewRange>)>> QueryC
   type Changes = Arc<FastHashMap<T::Key, ValueChange<(u32, u32)>>>;
   type View = LockReadGuardHolder<FastHashMap<T::Key, (u32, u32)>>;
 
-  fn resolve(&mut self) -> (Self::Changes, Self::View) {
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
     let mut record = self.record.write();
     let mut buffer = self.buffer.write();
     let mut rev = self.rev_map.write();
-    let (d, _) = self.upstream.resolve();
+    let (d, _) = self.upstream.resolve(cx);
 
     let mut mutations = FastHashMap::<T::Key, ValueChange<(u32, u32)>>::default();
     let mut mutator = QueryMutationCollector {

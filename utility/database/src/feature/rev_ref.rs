@@ -124,7 +124,7 @@ where
     impl Query<Key = u32, Value = u32> + MultiQuery<Key = u32, Value = u32>,
   );
   fn describe(&self, cx: &mut Context) -> Self::Compute {
-    let (d, v) = self.inner.describe(cx).resolve();
+    let (d, v) = self.inner.describe(cx).resolve_kept();
 
     let allocator = self.foreign_allocator.make_read_holder();
     let d = d

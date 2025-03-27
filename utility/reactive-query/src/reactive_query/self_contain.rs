@@ -55,8 +55,8 @@ where
     &self,
     cx: &mut Context,
   ) -> DynReactiveValueRefQueryPoll<Self::Key, Self::Value> {
-    let ((d, v), cx) = self.describe(cx).resolve_with_cx();
-    (Box::new(d), Box::new(v.keep_sth(cx)))
+    let (d, v) = self.describe(cx).resolve_kept();
+    (Box::new(d), Box::new(v))
   }
 
   fn extra_request_dyn(&mut self, request: &mut ReactiveQueryRequest) {

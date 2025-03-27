@@ -76,8 +76,8 @@ fn test_fork_basic() {
   noop_ctx!(cx);
   // test basic function
   {
-    let (a_d, a_v) = a.describe(cx).resolve();
-    let (b_d, b_v) = b.describe(cx).resolve();
+    let (a_d, a_v) = a.describe(cx).resolve_kept();
+    let (b_d, b_v) = b.describe(cx).resolve_kept();
 
     let delta = vec![(1, ValueChange::Delta(1, None))];
 
@@ -99,7 +99,7 @@ fn test_fork_basic() {
   // later forked query should has init messages
   {
     let c = a.clone().debug("c", false);
-    let (c_d, c_v) = c.describe(cx).resolve();
+    let (c_d, c_v) = c.describe(cx).resolve_kept();
     let delta = vec![(1, ValueChange::Delta(1, None))];
     let c_delta = c_d.iter_key_value().collect::<Vec<_>>();
     assert_vec_content_equal(&c_delta, &delta);
@@ -108,7 +108,7 @@ fn test_fork_basic() {
     let c_view = c_v.iter_key_value().collect::<Vec<_>>();
     assert_vec_content_equal(&c_view, &view);
 
-    let (c_d, c_v) = c.describe(cx).resolve();
+    let (c_d, c_v) = c.describe(cx).resolve_kept();
     assert_eq!(c_d.iter_key_value().count(), 0);
     assert_eq!(c_v.iter_key_value().count(), 1);
 
@@ -119,11 +119,11 @@ fn test_fork_basic() {
 
   // once we polled change, change should be empty
   {
-    let (a_d, a_v) = a.describe(cx).resolve();
+    let (a_d, a_v) = a.describe(cx).resolve_kept();
     assert_eq!(a_d.iter_key_value().count(), 0);
     assert_eq!(a_v.iter_key_value().count(), 1);
 
-    let (b_d, b_v) = b.describe(cx).resolve();
+    let (b_d, b_v) = b.describe(cx).resolve_kept();
     assert_eq!(b_d.iter_key_value().count(), 0);
     assert_eq!(b_v.iter_key_value().count(), 1);
   }
@@ -135,8 +135,8 @@ fn test_fork_basic() {
   {
     let mut a_des = a.describe(cx);
     let mut b_des = b.describe(cx);
-    let (a_d, a_v) = a_des.resolve();
-    let (b_d, b_v) = b_des.resolve();
+    let (a_d, a_v) = a_des.resolve_kept();
+    let (b_d, b_v) = b_des.resolve_kept();
 
     let delta = vec![(2, ValueChange::Delta(1, None))];
 
@@ -162,11 +162,11 @@ fn test_fork_basic() {
   // polled result can coexist with described computes
   // and also test new message can be received
   {
-    let (a_d, a_v) = a.describe(cx).resolve();
+    let (a_d, a_v) = a.describe(cx).resolve_kept();
     let mut b_des = b.describe(cx);
-    let (b_d, b_v) = b_des.resolve();
+    let (b_d, b_v) = b_des.resolve_kept();
     let mut c_des = c.describe(cx);
-    let (c_d, c_v) = c_des.resolve();
+    let (c_d, c_v) = c_des.resolve_kept();
 
     let delta = vec![(3, ValueChange::Delta(1, None))];
 
@@ -205,13 +205,13 @@ fn test_fork_basic() {
     let mut a_des2 = a.describe(cx);
     let mut b_des = b.describe(cx);
 
-    let (a_d, _a_v) = a_des.resolve();
+    let (a_d, _a_v) = a_des.resolve_kept();
     assert_eq!(a_d.iter_key_value().count(), 1);
 
-    let (a_d, _a_v) = a_des2.resolve();
+    let (a_d, _a_v) = a_des2.resolve_kept();
     assert_eq!(a_d.iter_key_value().count(), 0);
 
-    let (b_d, _b_v) = b_des.resolve();
+    let (b_d, _b_v) = b_des.resolve_kept();
     assert_eq!(b_d.iter_key_value().count(), 1);
   }
 }
@@ -234,8 +234,8 @@ fn test_fork_diamond() {
 
   {
     let mut c_des = c.describe(cx);
-    let (d_d, d_v) = d.describe(cx).resolve();
-    let (c_d, c_v) = c_des.resolve();
+    let (d_d, d_v) = d.describe(cx).resolve_kept();
+    let (c_d, c_v) = c_des.resolve_kept();
 
     let delta = vec![(1, ValueChange::Delta((1, 1), None))];
     let c_delta = c_d.iter_key_value().collect::<Vec<_>>();
@@ -251,8 +251,8 @@ fn test_fork_diamond() {
   };
   {
     let mut c_des = c.describe(cx);
-    let (d_d, d_v) = d.describe(cx).resolve();
-    let (c_d, c_v) = c_des.resolve();
+    let (d_d, d_v) = d.describe(cx).resolve_kept();
+    let (c_d, c_v) = c_des.resolve_kept();
 
     let delta = vec![];
     let c_delta = c_d.iter_key_value().collect::<Vec<_>>();
@@ -287,7 +287,7 @@ fn test_fork_diamond2() {
 
   {
     let mut c_des = c.describe(cx);
-    let (c_d, c_v) = c_des.resolve();
+    let (c_d, c_v) = c_des.resolve_kept();
 
     let delta = vec![(1, ValueChange::Delta((1, 1), None))];
     let c_delta = c_d.iter_key_value().collect::<Vec<_>>();
@@ -296,7 +296,7 @@ fn test_fork_diamond2() {
     let c_view = c_v.iter_key_value().collect::<Vec<_>>();
     assert_vec_content_equal(&c_view, &view);
 
-    let (d_d, d_v) = d.describe(cx).resolve();
+    let (d_d, d_v) = d.describe(cx).resolve_kept();
     let d_delta = d_d.iter_key_value().collect::<Vec<_>>();
     assert_vec_content_equal(&d_delta, &delta);
     let d_view = d_v.iter_key_value().collect::<Vec<_>>();
@@ -305,7 +305,7 @@ fn test_fork_diamond2() {
 
   {
     let mut c_des = c.describe(cx);
-    let (c_d, c_v) = c_des.resolve();
+    let (c_d, c_v) = c_des.resolve_kept();
 
     let delta = vec![];
     let c_delta = c_d.iter_key_value().collect::<Vec<_>>();
@@ -314,7 +314,7 @@ fn test_fork_diamond2() {
     let c_view = c_v.iter_key_value().collect::<Vec<_>>();
     assert_vec_content_equal(&c_view, &view);
 
-    let (d_d, d_v) = d.describe(cx).resolve();
+    let (d_d, d_v) = d.describe(cx).resolve_kept();
     let d_delta = d_d.iter_key_value().collect::<Vec<_>>();
     assert_vec_content_equal(&d_delta, &delta);
     let d_view = d_v.iter_key_value().collect::<Vec<_>>();

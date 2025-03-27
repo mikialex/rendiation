@@ -1,4 +1,3 @@
-use futures::FutureExt;
 use rendiation_texture_core::SizeWithDepth;
 
 use self::{
@@ -112,7 +111,8 @@ impl<T: AsyncQueryCompute<Key = u32, Value = Size>> AsyncQueryCompute for Packer
     let mapping = self.mapping.clone();
     let rev_mapping = self.rev_mapping.clone();
     let all_size_sender = self.all_size_sender.clone();
-    self.size_source.create_task(cx).map(move |size_source| {
+    let size_source = self.size_source.create_task(cx);
+    cx.then_spawn(size_source, move |size_source, cx| {
       PackerCompute {
         size_source,
         max_size,
@@ -121,7 +121,7 @@ impl<T: AsyncQueryCompute<Key = u32, Value = Size>> AsyncQueryCompute for Packer
         rev_mapping,
         all_size_sender,
       }
-      .resolve()
+      .resolve(cx)
     })
   }
 }
@@ -133,8 +133,8 @@ impl<T: QueryCompute<Key = u32, Value = Size>> QueryCompute for PackerCompute<T>
   type Changes = BoxedDynQuery<u32, ValueChange<PackResult2dWithDepth>>;
   type View = PackerCurrentView;
 
-  fn resolve(&mut self) -> (Self::Changes, Self::View) {
-    let (d, _) = self.size_source.resolve();
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
+    let (d, _) = self.size_source.resolve(cx);
     let (sender, rev) = collective_channel::<u32, PackResult2dWithDepth>();
 
     {

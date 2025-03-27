@@ -199,7 +199,7 @@ impl ReactiveQuery for SceneTlasMaintainer {
       }
     }
 
-    let (sm_blas_change, current_sm_blas) = self.source.describe(cx).resolve();
+    let (sm_blas_change, current_sm_blas) = self.source.describe(cx).resolve_kept();
     for (k, _) in sm_blas_change.iter_key_value() {
       if let Some(scene) = current_sm_acc_scene.access(&k) {
         regenerate_scene.insert(scene);

@@ -25,7 +25,7 @@ where
 {
   fn update_target(&mut self, target: &mut GPUSbt, cx: &mut Context) {
     let mut target = target.inner.write();
-    let (change, _) = self.source.describe(cx).resolve();
+    let (change, _) = self.source.describe(cx).resolve_kept();
 
     for (tlas_idx, change) in change.iter_key_value() {
       match change {

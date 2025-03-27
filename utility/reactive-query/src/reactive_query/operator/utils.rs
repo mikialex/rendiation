@@ -194,21 +194,22 @@ where
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     let this = self.project();
-    let (r, cx) = this.inner.describe(cx).resolve_with_cx();
-    let r = r.0.materialize();
+    let ccx = Default::default();
+    let (d, _) = this.inner.describe(cx).resolve(&ccx);
+    let r = d.materialize();
 
     if r.is_empty() {
       Poll::Pending
     } else {
       Poll::Ready(Some(ReactiveQueryStreamItem {
         changes: r,
-        view_holder: Box::new(cx),
+        view_holder: Box::new(ccx),
       }))
     }
   }
 }
 
 pub struct ReactiveQueryStreamItem<K, V> {
-  changes: Arc<FastHashMap<K, ValueChange<V>>>,
-  view_holder: Box<dyn Any + Send + Sync>,
+  pub changes: Arc<FastHashMap<K, ValueChange<V>>>,
+  pub view_holder: Box<dyn Any + Send + Sync>,
 }

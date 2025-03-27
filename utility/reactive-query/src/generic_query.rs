@@ -22,9 +22,8 @@ where
   type Output = Box<dyn std::any::Any>;
 
   fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
-    let ((_, v), cx) = self.inner.poll_changes_dyn(cx).resolve_with_cx();
-    let v = v.keep_sth(cx).into_boxed();
-    Box::new(v)
+    let (_, v) = self.inner.poll_changes_dyn(cx).resolve_kept();
+    Box::new(v.into_boxed())
   }
 }
 
