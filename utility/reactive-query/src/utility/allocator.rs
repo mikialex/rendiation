@@ -1,5 +1,5 @@
 use futures::Stream;
-use reactive_stream::{single_value_channel, SingleSender};
+use reactive_stream::{noop_ctx, single_value_channel, SingleSender};
 
 use crate::*;
 
@@ -14,7 +14,6 @@ pub fn reactive_linear_allocation(
 ) {
   assert!(init_count <= max_count);
 
-  let (sender, rev) = collective_channel::<u32, u32>();
   let (size_sender, size_rev) = single_value_channel();
 
   let allocator = xalloc::SysTlsf::new(init_count);
@@ -28,9 +27,7 @@ pub fn reactive_linear_allocation(
   let allocator = ReactiveAllocator {
     source: input,
     allocator: Arc::new(RwLock::new(allocator)),
-    all_size_sender: size_sender,
-    sender,
-    accumulated_mutations: rev,
+    all_size_sender: Arc::new(size_sender),
   };
 
   (allocator, size_rev)
@@ -41,9 +38,7 @@ type AllocationHandle = xalloc::tlsf::TlsfRegion<xalloc::arena::sys::Ptr>;
 struct ReactiveAllocator<T> {
   source: T,
   allocator: Arc<RwLock<Allocator>>,
-  all_size_sender: SingleSender<u32>,
-  sender: CollectiveMutationSender<u32, u32>,
-  accumulated_mutations: CollectiveMutationReceiver<u32, u32>,
+  all_size_sender: Arc<SingleSender<u32>>,
 }
 
 struct Allocator {
@@ -59,15 +54,20 @@ struct Allocator {
   allocated: FastHashMap<u32, (AllocationHandle, u32, u32)>,
 }
 
-impl Query for LockReadGuardHolder<Allocator> {
+#[derive(Clone)]
+struct AllocatorView {
+  internal: LockReadGuardHolder<Allocator>,
+}
+
+impl Query for AllocatorView {
   type Key = u32;
   type Value = u32;
   fn iter_key_value(&self) -> impl Iterator<Item = (u32, u32)> + '_ {
-    self.allocated.iter().map(|(k, v)| (*k, v.1))
+    self.internal.allocated.iter().map(|(k, v)| (*k, v.1))
   }
 
   fn access(&self, key: &u32) -> Option<u32> {
-    self.allocated.get(key).map(|v| v.1)
+    self.internal.allocated.get(key).map(|v| v.1)
   }
 }
 
@@ -125,21 +125,48 @@ impl Allocator {
   }
 }
 
-impl<T> ReactiveQuery for ReactiveAllocator<T>
+impl<T> AsyncQueryCompute for ReactiveAllocator<T>
 where
-  T: ReactiveQuery<Key = u32, Value = u32>,
+  T: AsyncQueryCompute<Key = u32, Value = u32>,
+{
+  type Task = impl Future<Output = (Self::Changes, Self::View)> + 'static;
+
+  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+    let allocator = self.allocator.clone();
+    let all_size_sender = self.all_size_sender.clone();
+
+    let source = self.source.create_task(cx);
+    cx.then_spawn(source, |source, cx| {
+      ReactiveAllocator {
+        allocator,
+        source,
+        all_size_sender,
+      }
+      .resolve(cx)
+    })
+  }
+}
+
+impl<T: QueryCompute> QueryCompute for ReactiveAllocator<T>
+where
+  T: QueryCompute<Key = u32, Value = u32>,
 {
   type Key = u32;
   type Value = u32;
-  type Changes = impl Query<Key = u32, Value = ValueChange<u32>>;
-  type View = impl Query<Key = u32, Value = u32>;
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
+
+  type Changes = BoxedDynQuery<u32, ValueChange<u32>>;
+  type View = AllocatorView;
+
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
     let mut allocator = self.allocator.write();
 
-    let (d, _) = self.source.poll_changes(cx);
+    let (d, v) = self.source.resolve(cx);
+    cx.keep_view_alive(v);
+
+    let (sender, accumulated_mutations) = collective_channel::<u32, u32>();
 
     unsafe {
-      self.sender.lock();
+      sender.lock();
 
       for (idx, size_change) in d.iter_key_value() {
         match size_change {
@@ -154,26 +181,29 @@ where
               },
               |relocation| {
                 let delta = ValueChange::Delta(relocation.new, relocation.previous.into());
-                self.sender.send(relocation.idx, delta);
+                sender.send(relocation.idx, delta);
               },
             ) {
               let delta = ValueChange::Delta(new_alloc, previous_offset);
-              self.sender.send(idx, delta);
+              sender.send(idx, delta);
             } else if let Some(previous_offset) = previous_offset {
-              self.sender.send(idx, ValueChange::Remove(previous_offset));
+              sender.send(idx, ValueChange::Remove(previous_offset));
             }
           }
           ValueChange::Remove(_) => {
             let offset = allocator.dealloc(idx);
-            self.sender.send(idx, ValueChange::Remove(offset));
+            sender.send(idx, ValueChange::Remove(offset));
           }
         }
       }
 
-      self.sender.unlock();
+      sender.unlock();
     }
 
-    let d = if let Poll::Ready(Some(r)) = self.accumulated_mutations.poll_impl(cx) {
+    drop(allocator);
+
+    noop_ctx!(cx);
+    let d = if let Poll::Ready(Some(r)) = accumulated_mutations.poll_impl(cx) {
       r
     } else {
       QueryExt::into_boxed(EmptyQuery::default())
@@ -181,7 +211,26 @@ where
 
     let v = self.allocator.make_read_holder();
 
-    (d, v)
+    (d, AllocatorView { internal: v })
+  }
+}
+
+impl<T> ReactiveQuery for ReactiveAllocator<T>
+where
+  T: ReactiveQuery<Key = u32, Value = u32>,
+{
+  type Key = u32;
+  type Value = u32;
+  type Compute = ReactiveAllocator<T::Compute>;
+
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
+    let source = self.source.describe(cx);
+
+    ReactiveAllocator {
+      allocator: self.allocator.clone(),
+      source,
+      all_size_sender: self.all_size_sender.clone(),
+    }
   }
 
   fn request(&mut self, request: &mut ReactiveQueryRequest) {

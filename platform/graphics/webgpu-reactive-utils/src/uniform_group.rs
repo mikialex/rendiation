@@ -49,7 +49,7 @@ where
     target: &mut FastHashMap<C::Key, UniformBufferDataView<T>>,
     cx: &mut Context,
   ) {
-    let (changes, _) = self.upstream.poll_changes(cx);
+    let (changes, _) = self.upstream.describe(cx).resolve_kept();
     for (k, v) in changes.iter_key_value() {
       let index = k;
 

@@ -1,6 +1,4 @@
-use crate::*;
-
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Hash, Eq)]
 pub enum ValueChange<V> {
   // k, new_v, pre_v
   Delta(V, Option<V>),
@@ -8,7 +6,7 @@ pub enum ValueChange<V> {
   Remove(V),
 }
 
-impl<V: CValue> ValueChange<V> {
+impl<V> ValueChange<V> {
   pub fn map<R>(self, mapper: impl Fn(V) -> R) -> ValueChange<R> {
     type Rt<R> = ValueChange<R>;
     match self {
@@ -65,7 +63,10 @@ impl<V: CValue> ValueChange<V> {
   }
 
   /// return if exist after merge
-  pub fn merge(&mut self, new: &Self) -> bool {
+  pub fn merge(&mut self, new: &Self) -> bool
+  where
+    V: Clone,
+  {
     use ValueChange::*;
     *self = match (self.clone(), new.clone()) {
       (Delta(_d1, p1), Delta(d2, _p2)) => {
@@ -91,21 +92,6 @@ impl<V: CValue> ValueChange<V> {
 
     true
   }
-}
-
-pub fn merge_into_hashmap<K: CKey, V: CValue>(
-  map: &mut FastHashMap<K, ValueChange<V>>,
-  iter: impl Iterator<Item = (K, ValueChange<V>)>,
-) {
-  iter.for_each(|(k, v)| {
-    if let Some(current) = map.get_mut(&k) {
-      if !current.merge(&v) {
-        map.remove(&k);
-      }
-    } else {
-      map.insert(k, v.clone());
-    }
-  })
 }
 
 pub fn make_checker<V, V2>(

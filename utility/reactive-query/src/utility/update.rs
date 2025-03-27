@@ -15,6 +15,7 @@ pub trait QueryBasedUpdaterExt: ReactiveQuery {
 impl<T> QueryBasedUpdaterExt for T
 where
   T: ReactiveQuery,
+  T::Compute: QueryCompute<Key = T::Key, Value = T::Value>,
 {
   fn into_collective_updater<TV: Default + CValue>(
     self,
@@ -32,6 +33,7 @@ impl<T, TV, F> QueryBasedUpdate<Box<dyn QueryLikeMutateTarget<T::Key, TV>>>
 where
   F: FnOnce(T::Value, &mut TV) + Copy,
   T: ReactiveQuery,
+  T::Compute: QueryCompute<Key = T::Key, Value = T::Value>,
   TV: Default + CValue,
 {
   fn update_target(
@@ -39,7 +41,7 @@ where
     target: &mut Box<dyn QueryLikeMutateTarget<T::Key, TV>>,
     cx: &mut Context,
   ) {
-    let (d, _) = self.query.poll_changes(cx);
+    let (d, _) = self.query.describe(cx).resolve_kept();
     for (k, v) in d.iter_key_value() {
       match v {
         ValueChange::Delta(v, _) => {

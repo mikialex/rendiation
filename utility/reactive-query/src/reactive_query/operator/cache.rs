@@ -1,37 +1,64 @@
 use crate::*;
 
-pub struct UnorderedMaterializedReactiveQuery<Map: ReactiveQuery> {
-  pub inner: Map,
-  pub cache: Arc<RwLock<FastHashMap<Map::Key, Map::Value>>>,
+pub struct UnorderedMaterializedViewCache<T, K: CKey, V: CValue> {
+  pub inner: T,
+  pub cache: Arc<RwLock<FastHashMap<K, V>>>,
 }
 
-impl<Map> ReactiveQuery for UnorderedMaterializedReactiveQuery<Map>
+impl<T: QueryCompute> QueryCompute for UnorderedMaterializedViewCache<T, T::Key, T::Value> {
+  type Key = T::Key;
+  type Value = T::Value;
+  type Changes = T::Changes;
+  type View = LockReadGuardHolder<FastHashMap<T::Key, T::Value>>;
+
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
+    let (d, v) = self.inner.resolve(cx);
+    cx.keep_view_alive(v);
+    let mut cache = self.cache.write();
+
+    for (k, change) in d.iter_key_value() {
+      match change.clone() {
+        ValueChange::Delta(v, _) => {
+          cache.insert(k, v);
+        }
+        ValueChange::Remove(_) => {
+          cache.remove(&k);
+        }
+      }
+    }
+    drop(cache);
+
+    let v = self.cache.make_read_holder();
+    (d, v)
+  }
+}
+
+impl<T: AsyncQueryCompute> AsyncQueryCompute
+  for UnorderedMaterializedViewCache<T, T::Key, T::Value>
+{
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
+
+  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+    let cache = self.cache.clone();
+    let inner = self.inner.create_task(cx);
+    cx.then_spawn(inner, |inner, cx| {
+      UnorderedMaterializedViewCache { inner, cache }.resolve(cx)
+    })
+  }
+}
+
+impl<Map> ReactiveQuery for UnorderedMaterializedViewCache<Map, Map::Key, Map::Value>
 where
   Map: ReactiveQuery,
 {
   type Key = Map::Key;
   type Value = Map::Value;
-  type Changes = Map::Changes;
-  type View = LockReadGuardHolder<FastHashMap<Self::Key, Self::Value>>;
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (d, _) = self.inner.poll_changes(cx);
-    {
-      let mut cache = self.cache.write();
-      for (k, change) in d.iter_key_value() {
-        match change.clone() {
-          ValueChange::Delta(v, _) => {
-            cache.insert(k, v);
-          }
-          ValueChange::Remove(_) => {
-            cache.remove(&k);
-          }
-        }
-      }
+  type Compute = UnorderedMaterializedViewCache<Map::Compute, Self::Key, Self::Value>;
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
+    UnorderedMaterializedViewCache {
+      inner: self.inner.describe(cx),
+      cache: self.cache.clone(),
     }
-
-    let v = self.cache.make_read_holder();
-
-    (d, v)
   }
 
   fn request(&mut self, request: &mut ReactiveQueryRequest) {
@@ -42,9 +69,9 @@ where
   }
 }
 
-pub struct LinearMaterializedReactiveQuery<Map: ReactiveQuery> {
+pub struct LinearMaterializedReactiveQuery<Map, K, V> {
   pub inner: Map,
-  pub cache: Arc<RwLock<IndexReusedVecAccess<Map::Key, Map::Value>>>,
+  pub cache: Arc<RwLock<IndexReusedVecAccess<K, V>>>,
 }
 
 #[derive(Clone)]
@@ -78,18 +105,21 @@ impl<K: CKey + LinearIdentification, V: CValue> Query for IndexReusedVecAccess<K
   }
 }
 
-impl<Map> ReactiveQuery for LinearMaterializedReactiveQuery<Map>
+impl<Map> QueryCompute for LinearMaterializedReactiveQuery<Map, Map::Key, Map::Value>
 where
-  Map: ReactiveQuery + Sync,
+  Map: QueryCompute,
   Map::Key: LinearIdentification + CKey,
   Map::Value: CValue,
 {
   type Key = Map::Key;
   type Value = Map::Value;
+
   type Changes = Map::Changes;
-  type View = LockReadGuardHolder<IndexReusedVecAccess<Self::Key, Self::Value>>;
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (d, _) = self.inner.poll_changes(cx);
+  type View = LockReadGuardHolder<IndexReusedVecAccess<Map::Key, Map::Value>>;
+
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
+    let (d, v) = self.inner.resolve(cx);
+    cx.keep_view_alive(v);
     {
       let mut cache = self.cache.write();
       for (k, change) in d.iter_key_value() {
@@ -107,6 +137,24 @@ where
     let v = self.cache.make_read_holder();
 
     (d, v)
+  }
+}
+
+impl<Map> ReactiveQuery for LinearMaterializedReactiveQuery<Map, Map::Key, Map::Value>
+where
+  Map: ReactiveQuery + Sync,
+  Map::Key: LinearIdentification + CKey,
+  Map::Value: CValue,
+{
+  type Key = Map::Key;
+  type Value = Map::Value;
+  type Compute = LinearMaterializedReactiveQuery<Map::Compute, Map::Key, Map::Value>;
+
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
+    LinearMaterializedReactiveQuery {
+      inner: self.inner.describe(cx),
+      cache: self.cache.clone(),
+    }
   }
 
   fn request(&mut self, request: &mut ReactiveQueryRequest) {

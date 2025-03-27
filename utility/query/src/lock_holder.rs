@@ -1,3 +1,7 @@
+use std::ops::DerefMut;
+
+use parking_lot::*;
+
 use crate::*;
 
 impl<T: Query> Query for LockReadGuardHolder<T> {
@@ -21,11 +25,11 @@ where
   }
 }
 
-pub trait MakeLockResultHolderRaw<T>: Sized {
+pub trait MakeLockResultHolder<T>: Sized {
   fn make_read_holder(&self) -> LockReadGuardHolder<T>;
   fn make_write_holder(&self) -> LockWriteGuardHolder<T>;
 }
-impl<T> MakeLockResultHolderRaw<T> for Arc<RwLock<T>> {
+impl<T> MakeLockResultHolder<T> for Arc<RwLock<T>> {
   fn make_read_holder(&self) -> LockReadGuardHolder<T> {
     let lock = self.read_recursive();
     let lock: RwLockReadGuard<'static, T> = unsafe { std::mem::transmute(lock) };
@@ -45,11 +49,11 @@ impl<T> MakeLockResultHolderRaw<T> for Arc<RwLock<T>> {
   }
 }
 
-pub trait MakeMutexHolderRaw<T>: Sized {
+pub trait MakeMutexHolder<T>: Sized {
   fn make_mutex_write_holder(&self) -> MutexGuardHolder<T>;
 }
 
-impl<T> MakeMutexHolderRaw<T> for Arc<parking_lot::Mutex<T>> {
+impl<T> MakeMutexHolder<T> for Arc<parking_lot::Mutex<T>> {
   fn make_mutex_write_holder(&self) -> MutexGuardHolder<T> {
     let lock = self.lock();
     let lock: parking_lot::MutexGuard<'static, T> = unsafe { std::mem::transmute(lock) };
@@ -118,6 +122,12 @@ pub struct LockWriteGuardHolder<T: 'static> {
 impl<T: 'static> LockWriteGuardHolder<T> {
   pub fn get_lock(&self) -> Arc<RwLock<T>> {
     self.holder.clone()
+  }
+  pub fn downgrade_to_read(self) -> LockReadGuardHolder<T> {
+    LockReadGuardHolder {
+      guard: Arc::new(RwLockWriteGuard::downgrade(self.guard)),
+      holder: self.holder,
+    }
   }
 }
 

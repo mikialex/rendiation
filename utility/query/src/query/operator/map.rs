@@ -27,13 +27,13 @@ where
 }
 
 #[derive(Clone)]
-pub struct KeyDualMappedQuery<F1, F2, T> {
+pub struct KeyDualMappedQuery<T, F1, F2> {
   pub base: T,
   pub f1: F1,
   pub f2: F2,
 }
 
-impl<K2, F1, F2, T> Query for KeyDualMappedQuery<F1, F2, T>
+impl<K2, F1, F2, T> Query for KeyDualMappedQuery<T, F1, F2>
 where
   K2: CKey,
   F1: Fn(T::Key) -> K2 + Clone + Send + Sync + 'static,

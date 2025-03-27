@@ -16,114 +16,140 @@ pub enum ReactiveQueryRequest {
 pub trait ReactiveQuery: Sync + Send + 'static {
   type Key: CKey;
   type Value: CValue;
-  type Changes: Query<Key = Self::Key, Value = ValueChange<Self::Value>>;
-  type View: Query<Key = Self::Key, Value = Self::Value>;
+  type Compute: QueryCompute<Key = Self::Key, Value = Self::Value>;
 
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View);
+  fn describe(&self, cx: &mut Context) -> Self::Compute;
 
   fn request(&mut self, request: &mut ReactiveQueryRequest);
+}
+
+#[derive(Clone, Default)]
+pub struct QueryResolveCtx {
+  kept_view: Arc<RwLock<Vec<Box<dyn Any + Send + Sync>>>>,
+}
+
+impl QueryResolveCtx {
+  pub fn keep_view_alive(&self, view: impl Any + Send + Sync) {
+    self.kept_view.write().push(Box::new(view));
+  }
+}
+
+pub trait QueryCompute: Sync + Send + 'static {
+  type Key: CKey;
+  type Value: CValue;
+  type Changes: Query<Key = Self::Key, Value = ValueChange<Self::Value>> + 'static;
+  type View: Query<Key = Self::Key, Value = Self::Value> + 'static;
+
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View);
+
+  fn resolve_kept(&mut self) -> (Self::Changes, KeptQuery<Self::View>) {
+    let cx = Default::default();
+    let r = self.resolve(&cx);
+    (r.0, r.1.keep_sth(cx))
+  }
+}
+
+pub struct AsyncQueryCtx {
+  resolve_cx: QueryResolveCtx,
+}
+
+pub struct AsyncQuerySpawner;
+impl AsyncQuerySpawner {
+  pub fn spawn_task<R>(
+    &self,
+    f: impl FnOnce() -> R + 'static,
+  ) -> impl Future<Output = R> + 'static {
+    // todo, use some thread pool impl
+    async move { f() }
+  }
+}
+
+// compiler not ready for this.
+// pub trait AsyncQueryFutureExt: Future + 'static {
+//   fn then_spawn<R: 'static>(
+//     self,
+//     cx: &mut AsyncQueryCtx,
+//     then: impl FnOnce(Self::Output) -> R + 'static,
+//   ) -> impl Future<Output = R> + use<>;
+// }
+
+// impl<T: Future + 'static> AsyncQueryFutureExt for T {
+//   fn then_spawn<R: 'static>(
+//     self,
+//     cx: &mut AsyncQueryCtx,
+//     then: impl FnOnce(Self::Output) -> R + 'static,
+//   ) -> impl Future<Output = R> + use<> {
+//     let sp = cx.make_spawner();
+//     self.then(move |s| sp.spawn_task(move || then(s)))
+//   }
+// }
+
+impl AsyncQueryCtx {
+  pub fn resolve_cx(&self) -> &QueryResolveCtx {
+    &self.resolve_cx
+  }
+  pub fn make_spawner(&self) -> AsyncQuerySpawner {
+    AsyncQuerySpawner
+  }
+  pub fn spawn_task<R>(
+    &self,
+    f: impl FnOnce() -> R + 'static,
+  ) -> impl Future<Output = R> + 'static {
+    self.make_spawner().spawn_task(f)
+  }
+
+  pub fn then_spawn<T: 'static, R>(
+    &self,
+    f: impl Future<Output = T> + 'static,
+    then: impl FnOnce(T, &QueryResolveCtx) -> R + 'static,
+  ) -> impl Future<Output = R> + 'static {
+    let sp = self.make_spawner();
+    let cx = self.resolve_cx.clone();
+    f.then(move |s| sp.spawn_task(move || then(s, &cx)))
+  }
+}
+
+pub trait AsyncQueryCompute: QueryCompute {
+  // this is correct version
+  type Task: Future<Output = (Self::Changes, Self::View)> + Send + Sync + 'static;
+  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task;
+}
+
+impl<K, V, Change, View> QueryCompute for (Change, View)
+where
+  K: CKey,
+  V: CValue,
+  Change: Query<Key = K, Value = ValueChange<V>> + 'static,
+  View: Query<Key = K, Value = V> + 'static,
+{
+  type Key = K;
+  type Value = V;
+  type Changes = Change;
+  type View = View;
+  fn resolve(&mut self, _cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
+    (self.0.clone(), self.1.clone())
+  }
+}
+impl<K, V, Change, View> AsyncQueryCompute for (Change, View)
+where
+  K: CKey,
+  V: CValue,
+  Change: Query<Key = K, Value = ValueChange<V>> + 'static,
+  View: Query<Key = K, Value = V> + 'static,
+{
+  type Task = impl Future<Output = (Self::Changes, Self::View)> + 'static;
+
+  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+    futures::future::ready(self.resolve(cx.resolve_cx()))
+  }
 }
 
 impl<K: CKey, V: CValue> ReactiveQuery for EmptyQuery<K, V> {
   type Key = K;
   type Value = V;
-  type Changes = EmptyQuery<K, ValueChange<V>>;
-  type View = EmptyQuery<K, V>;
-  fn poll_changes(&self, _: &mut Context) -> (Self::Changes, Self::View) {
+  type Compute = (EmptyQuery<K, ValueChange<V>>, EmptyQuery<K, V>);
+  fn describe(&self, _: &mut Context) -> Self::Compute {
     (Default::default(), Default::default())
   }
   fn request(&mut self, _: &mut ReactiveQueryRequest) {}
-}
-
-pub struct IdenticalChangingCollection<T, V> {
-  value: V,
-  size: RwLock<T>, // todo, we should use signal like trait
-  previous_size: RwLock<Option<u32>>,
-}
-
-impl<T, V> IdenticalChangingCollection<T, V> {
-  pub fn new(value: V, size: T) -> Self {
-    Self {
-      value,
-      size: RwLock::new(size),
-      previous_size: RwLock::new(None),
-    }
-  }
-}
-
-impl<T, V> ReactiveQuery for IdenticalChangingCollection<T, V>
-where
-  T: Stream<Item = u32> + Send + Sync + Unpin + 'static,
-  V: CValue,
-{
-  type Key = u32;
-  type Value = V;
-  type Changes = IdenticalDeltaCollection<Self::Value>;
-  type View = IdenticalCollection<Self::Value>;
-
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let new_size = self.size.write().poll_next_unpin(cx);
-    let previous_size = self.previous_size.read().unwrap_or(0);
-    let new_size = match new_size {
-      Poll::Ready(new_size) => new_size.unwrap_or(0),
-      Poll::Pending => previous_size,
-    };
-
-    let delta = IdenticalDeltaCollection {
-      value: self.value.clone(),
-      previous_size,
-      new_size,
-    };
-
-    let current = IdenticalCollection {
-      value: self.value.clone(),
-      size: new_size,
-    };
-
-    *self.previous_size.write() = Some(new_size);
-
-    (delta, current)
-  }
-
-  fn request(&mut self, _: &mut ReactiveQueryRequest) {}
-}
-
-#[derive(Clone)]
-pub struct IdenticalDeltaCollection<V> {
-  pub value: V,
-  pub previous_size: u32,
-  pub new_size: u32,
-}
-
-impl<V: CValue> IdenticalDeltaCollection<V> {
-  pub fn get_change_value(&self) -> ValueChange<V> {
-    if self.new_size > self.previous_size {
-      ValueChange::Delta(self.value.clone(), None)
-    } else {
-      ValueChange::Remove(self.value.clone())
-    }
-  }
-}
-
-impl<V: CValue> Query for IdenticalDeltaCollection<V> {
-  type Key = u32;
-  type Value = ValueChange<V>;
-
-  fn iter_key_value(&self) -> impl Iterator<Item = (Self::Key, Self::Value)> + '_ {
-    let range = if self.new_size > self.previous_size {
-      self.previous_size..self.new_size
-    } else {
-      self.new_size..self.previous_size
-    };
-    let value = self.get_change_value();
-    range.map(move |k| (k, value.clone()))
-  }
-
-  fn access(&self, key: &Self::Key) -> Option<Self::Value> {
-    if key >= &self.previous_size && key < &self.new_size {
-      Some(self.get_change_value())
-    } else {
-      None
-    }
-  }
 }

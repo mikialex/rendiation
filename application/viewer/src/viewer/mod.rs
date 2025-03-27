@@ -479,19 +479,19 @@ impl Viewer3dSceneDeriveSource {
   fn poll_update(&self) -> Viewer3dSceneDerive {
     noop_ctx!(cx);
 
-    let (_, world_mat) = self.world_mat.poll_changes(cx);
-    let (_, node_net_visible) = self.node_net_visible.poll_changes(cx);
-    let (_, camera_transforms) = self.camera_transforms.poll_changes(cx);
+    let (_, world_mat) = self.world_mat.describe(cx).resolve_kept();
+    let (_, node_net_visible) = self.node_net_visible.describe(cx).resolve_kept();
+    let (_, camera_transforms) = self.camera_transforms.describe(cx).resolve_kept();
     let (_, _, mesh_vertex_ref) = self.mesh_vertex_ref.poll_changes_with_inv_dyn(cx);
     let (_, _, sm_to_s) = self.sm_to_s.poll_changes_with_inv_dyn(cx);
-    let (_, sm_world_bounding) = self.sm_world_bounding.poll_changes(cx);
+    let (_, sm_world_bounding) = self.sm_world_bounding.describe(cx).resolve_kept();
     let (_, _, node_children) = self.node_children.poll_changes_with_inv_dyn(cx);
     Viewer3dSceneDerive {
-      world_mat,
-      camera_transforms,
+      world_mat: world_mat.into_boxed(),
+      camera_transforms: camera_transforms.into_boxed(),
       mesh_vertex_ref,
-      node_net_visible,
-      sm_world_bounding,
+      node_net_visible: node_net_visible.into_boxed(),
+      sm_world_bounding: sm_world_bounding.into_boxed(),
       node_children,
       sm_to_s,
     }

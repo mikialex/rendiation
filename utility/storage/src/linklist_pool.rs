@@ -1,5 +1,6 @@
 use crate::*;
 
+#[derive(Clone)]
 pub struct LinkListPool<T> {
   pool: IndexReusedVec<LinkListNode<T>>,
 }
@@ -139,6 +140,7 @@ impl Default for ListHandle {
   }
 }
 
+#[derive(Clone)]
 struct LinkListNode<T> {
   next: IndexPtr,
   data: T,

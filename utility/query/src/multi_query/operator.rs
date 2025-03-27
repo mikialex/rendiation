@@ -1,7 +1,7 @@
 use crate::*;
 
 pub trait MultiQueryExt: MultiQuery + Sized + 'static {
-  fn into_boxed(self) -> BoxedDynMultiQuery<Self::Key, Self::Value> {
+  fn into_boxed_multi(self) -> BoxedDynMultiQuery<Self::Key, Self::Value> {
     Box::new(self)
   }
 
@@ -53,7 +53,7 @@ where
   }
 }
 
-impl<K2, F1, F2, T> MultiQuery for KeyDualMappedQuery<F1, F2, T>
+impl<K2, F1, F2, T> MultiQuery for KeyDualMappedQuery<T, F1, F2>
 where
   K2: CKey,
   F1: Fn(T::Key) -> K2 + Clone + Send + Sync + 'static,

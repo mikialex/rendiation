@@ -9,11 +9,37 @@ where
 {
   type Key = T1::Key;
   type Value = O;
+  type Compute = UnionQuery<T1::Compute, T2::Compute, F>;
+
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
+    UnionQuery {
+      a: self.a.describe(cx),
+      b: self.b.describe(cx),
+      f: self.f,
+    }
+  }
+
+  fn request(&mut self, request: &mut ReactiveQueryRequest) {
+    self.a.request(request);
+    self.b.request(request);
+  }
+}
+
+impl<T1, T2, F, O> QueryCompute for UnionQuery<T1, T2, F>
+where
+  T1: QueryCompute,
+  T2: QueryCompute<Key = T1::Key>,
+  F: Fn((Option<T1::Value>, Option<T2::Value>)) -> Option<O> + Send + Sync + Copy + 'static,
+  O: CValue,
+{
+  type Key = T1::Key;
+  type Value = O;
   type Changes = UnionValueChange<T1::View, T2::View, T1::Changes, T2::Changes, F>;
   type View = UnionQuery<T1::View, T2::View, F>;
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (t1, a_access) = self.a.poll_changes(cx);
-    let (t2, b_access) = self.b.poll_changes(cx);
+
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
+    let (t1, a_access) = self.a.resolve(cx);
+    let (t2, b_access) = self.b.resolve(cx);
     let a_access = a_access;
     let b_access = b_access;
 
@@ -33,10 +59,22 @@ where
 
     (d, v)
   }
+}
 
-  fn request(&mut self, request: &mut ReactiveQueryRequest) {
-    self.a.request(request);
-    self.b.request(request);
+impl<T1, T2, F, O> AsyncQueryCompute for UnionQuery<T1, T2, F>
+where
+  T1: AsyncQueryCompute,
+  T2: AsyncQueryCompute<Key = T1::Key>,
+  F: Fn((Option<T1::Value>, Option<T2::Value>)) -> Option<O> + Send + Sync + Copy + 'static,
+  O: CValue,
+{
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
+
+  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+    let f = self.f;
+    let c = cx.resolve_cx().clone();
+    futures::future::join(self.a.create_task(cx), self.b.create_task(cx))
+      .map(move |(a, b)| UnionQuery { a, b, f }.resolve(&c))
   }
 }
 

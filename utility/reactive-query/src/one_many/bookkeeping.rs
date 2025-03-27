@@ -2,48 +2,12 @@ use storage::{LinkListPool, ListHandle};
 
 use crate::*;
 
-pub struct OneToManyRefHashBookKeeping<T: ReactiveQuery> {
+pub struct OneToManyRefHashBookKeeping<T, K, V> {
   pub upstream: T,
-  pub mapping: Arc<RwLock<FastHashMap<T::Value, FastHashSet<T::Key>>>>,
+  pub mapping: Arc<RwLock<FastHashMap<V, FastHashSet<K>>>>,
 }
 
-#[derive(Clone)]
-pub struct OneToManyRefHashBookKeepingCurrentView<T: Query> {
-  upstream: T,
-  mapping: LockReadGuardHolder<FastHashMap<T::Value, FastHashSet<T::Key>>>,
-}
-
-impl<T> Query for OneToManyRefHashBookKeepingCurrentView<T>
-where
-  T: Query,
-{
-  type Key = T::Key;
-  type Value = T::Value;
-  fn access(&self, m: &T::Key) -> Option<T::Value> {
-    self.upstream.access(m)
-  }
-
-  fn iter_key_value(&self) -> impl Iterator<Item = (T::Key, T::Value)> + '_ {
-    self.upstream.iter_key_value()
-  }
-}
-
-impl<T> MultiQuery for OneToManyRefHashBookKeepingCurrentView<T>
-where
-  T: Query<Value: CKey>,
-{
-  type Key = T::Value;
-  type Value = T::Key;
-  fn iter_keys(&self) -> impl Iterator<Item = T::Value> + '_ {
-    self.mapping.keys().cloned()
-  }
-
-  fn access_multi(&self, o: &T::Value) -> Option<impl Iterator<Item = T::Key> + '_> {
-    self.mapping.get(o).map(|set| set.iter().cloned())
-  }
-}
-
-impl<T> ReactiveQuery for OneToManyRefHashBookKeeping<T>
+impl<T> ReactiveQuery for OneToManyRefHashBookKeeping<T, T::Key, T::Value>
 where
   T: ReactiveQuery,
   T::Value: CKey,
@@ -51,12 +15,37 @@ where
   type Key = T::Key;
   type Value = T::Value;
 
-  type Changes = T::Changes;
-  type View = OneToManyRefHashBookKeepingCurrentView<T::View>;
+  type Compute = OneToManyRefHashBookKeeping<T::Compute, T::Key, T::Value>;
 
-  #[tracing::instrument(skip_all, name = "OneToManyRefHashBookKeeping")]
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (r, r_view) = self.upstream.poll_changes(cx);
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
+    OneToManyRefHashBookKeeping {
+      upstream: self.upstream.describe(cx),
+      mapping: self.mapping.clone(),
+    }
+  }
+
+  fn request(&mut self, request: &mut ReactiveQueryRequest) {
+    self.upstream.request(request);
+    match request {
+      ReactiveQueryRequest::MemoryShrinkToFit => self.mapping.write().shrink_to_fit(),
+    }
+  }
+}
+
+impl<T> QueryCompute for OneToManyRefHashBookKeeping<T, T::Key, T::Value>
+where
+  T: QueryCompute,
+  T::Value: CKey,
+{
+  type Key = T::Key;
+  type Value = T::Value;
+
+  type Changes = T::Changes;
+  type View =
+    QueryAndMultiQuery<T::View, LockReadGuardHolder<FastHashMap<T::Value, FastHashSet<T::Key>>>>;
+
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
+    let (r, r_view) = self.upstream.resolve(cx);
 
     {
       let mut mapping = self.mapping.write();
@@ -82,19 +71,27 @@ where
       }
     }
 
-    let v = OneToManyRefHashBookKeepingCurrentView {
-      upstream: r_view,
-      mapping: self.mapping.make_read_holder(),
+    let v = QueryAndMultiQuery {
+      query: r_view,
+      multi_query: self.mapping.make_read_holder(),
     };
 
     (r, v)
   }
+}
+impl<T> AsyncQueryCompute for OneToManyRefHashBookKeeping<T, T::Key, T::Value>
+where
+  T: AsyncQueryCompute,
+  T::Value: CKey,
+{
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
 
-  fn request(&mut self, request: &mut ReactiveQueryRequest) {
-    self.upstream.request(request);
-    match request {
-      ReactiveQueryRequest::MemoryShrinkToFit => self.mapping.write().shrink_to_fit(),
-    }
+  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+    let mapping = self.mapping.clone();
+    let upstream = self.upstream.create_task(cx);
+    cx.then_spawn(upstream, |upstream, cx| {
+      OneToManyRefHashBookKeeping { upstream, mapping }.resolve(cx)
+    })
   }
 }
 
@@ -170,13 +167,41 @@ where
 {
   type Key = T::Key;
   type Value = T::Value;
-  type Changes = impl Query<Key = T::Key, Value = ValueChange<T::Value>>;
-  type View =
-    impl MultiQuery<Key = T::Value, Value = T::Key> + Query<Key = T::Key, Value = T::Value>;
+  type Compute = OneToManyRefDenseBookKeeping<T::Compute>;
 
-  #[tracing::instrument(skip_all, name = "OneToManyRefDenseBookKeeping")]
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (r, r_view) = self.upstream.poll_changes(cx);
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
+    OneToManyRefDenseBookKeeping {
+      upstream: self.upstream.describe(cx),
+      mapping: self.mapping.clone(),
+    }
+  }
+
+  fn request(&mut self, request: &mut ReactiveQueryRequest) {
+    self.upstream.request(request);
+    match request {
+      ReactiveQueryRequest::MemoryShrinkToFit => {
+        let mut mapping = self.mapping.write();
+        mapping.mapping.shrink_to_fit();
+        mapping.mapping_buffer.shrink_to_fit();
+      }
+    }
+  }
+}
+
+impl<T> QueryCompute for OneToManyRefDenseBookKeeping<T>
+where
+  T: QueryCompute,
+  T::Value: LinearIdentification + CKey,
+  T::Key: LinearIdentification + CKey,
+{
+  type Key = T::Key;
+  type Value = T::Value;
+
+  type Changes = T::Changes;
+  type View = OneToManyRefDenseBookKeepingCurrentView<T::View>;
+
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
+    let (r, r_view) = self.upstream.resolve(cx);
 
     {
       let mut mapping = self.mapping.write();
@@ -225,15 +250,21 @@ where
 
     (r, v)
   }
+}
 
-  fn request(&mut self, request: &mut ReactiveQueryRequest) {
-    self.upstream.request(request);
-    match request {
-      ReactiveQueryRequest::MemoryShrinkToFit => {
-        let mut mapping = self.mapping.write();
-        mapping.mapping.shrink_to_fit();
-        mapping.mapping_buffer.shrink_to_fit();
-      }
-    }
+impl<T> AsyncQueryCompute for OneToManyRefDenseBookKeeping<T>
+where
+  T: AsyncQueryCompute,
+  T::Value: LinearIdentification + CKey,
+  T::Key: LinearIdentification + CKey,
+{
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
+
+  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+    let mapping = self.mapping.clone();
+    let upstream = self.upstream.create_task(cx);
+    cx.then_spawn(upstream, |upstream, cx| {
+      OneToManyRefDenseBookKeeping { upstream, mapping }.resolve(cx)
+    })
   }
 }

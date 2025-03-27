@@ -3008,20 +3008,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "query-async"
-version = "0.0.1"
-dependencies = [
- "dashmap",
- "dyn-clone",
- "dyn-downcast",
- "fast-hash-collection",
- "futures",
- "parking_lot",
- "query",
- "storage",
-]
-
-[[package]]
 name = "quick-error"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4009,6 +3995,7 @@ version = "0.1.0"
 dependencies = [
  "etagere",
  "fast-hash-collection",
+ "futures",
  "linked-hash-map",
  "parking_lot",
  "reactive",

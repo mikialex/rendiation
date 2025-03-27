@@ -26,20 +26,53 @@ impl<T: ReactiveQuery> ReactiveRangeAllocatePool<T> {
   }
 }
 
-impl<T: ReactiveQuery<Value = (Arc<Vec<u8>>, Option<GPUBufferViewRange>)>> ReactiveQuery
-  for ReactiveRangeAllocatePool<T>
+pub struct ReactiveRangeAllocatePoolCompute<T: QueryCompute> {
+  buffer: UntypedPool,
+  record: Arc<RwLock<FastHashMap<T::Key, (u32, u32)>>>,
+  rev_map: Arc<RwLock<FastHashMap<u32, T::Key>>>,
+  gpu: GPU,
+  upstream: T,
+}
+
+impl<T: AsyncQueryCompute<Value = (Arc<Vec<u8>>, Option<GPUBufferViewRange>)>> AsyncQueryCompute
+  for ReactiveRangeAllocatePoolCompute<T>
+{
+  type Task = impl Future<Output = (Self::Changes, Self::View)> + 'static;
+
+  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+    let buffer = self.buffer.clone();
+    let record = self.record.clone();
+    let gpu = self.gpu.clone();
+    let rev_map = self.rev_map.clone();
+    let upstream = self.upstream.create_task(cx);
+    cx.then_spawn(upstream, |upstream, cx| {
+      ReactiveRangeAllocatePoolCompute {
+        buffer,
+        record,
+        rev_map,
+        gpu,
+        upstream,
+      }
+      .resolve(cx)
+    })
+  }
+}
+
+impl<T: QueryCompute<Value = (Arc<Vec<u8>>, Option<GPUBufferViewRange>)>> QueryCompute
+  for ReactiveRangeAllocatePoolCompute<T>
 {
   type Key = T::Key;
   type Value = (u32, u32); // offset count(in u32)
 
-  type Changes = impl Query<Key = T::Key, Value = ValueChange<(u32, u32)>>;
-  type View = impl Query<Key = T::Key, Value = (u32, u32)>;
+  type Changes = Arc<FastHashMap<T::Key, ValueChange<(u32, u32)>>>;
+  type View = LockReadGuardHolder<FastHashMap<T::Key, (u32, u32)>>;
 
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
     let mut record = self.record.write();
     let mut buffer = self.buffer.write();
     let mut rev = self.rev_map.write();
-    let (d, _) = self.upstream.poll_changes(cx);
+    let (d, v) = self.upstream.resolve(cx);
+    cx.keep_view_alive(v);
 
     let mut mutations = FastHashMap::<T::Key, ValueChange<(u32, u32)>>::default();
     let mut mutator = QueryMutationCollector {
@@ -108,7 +141,26 @@ impl<T: ReactiveQuery<Value = (Arc<Vec<u8>>, Option<GPUBufferViewRange>)>> React
     }
 
     drop(record);
-    (mutations, self.record.make_read_holder())
+    (Arc::new(mutations), self.record.make_read_holder())
+  }
+}
+
+impl<T: ReactiveQuery<Value = (Arc<Vec<u8>>, Option<GPUBufferViewRange>)>> ReactiveQuery
+  for ReactiveRangeAllocatePool<T>
+{
+  type Key = T::Key;
+  type Value = (u32, u32); // offset count(in u32)
+
+  type Compute = impl QueryCompute<Key = Self::Key, Value = Self::Value>;
+
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
+    ReactiveRangeAllocatePoolCompute {
+      buffer: self.buffer.clone(),
+      record: self.record.clone(),
+      rev_map: self.rev_map.clone(),
+      gpu: self.gpu.clone(),
+      upstream: self.upstream.describe(cx),
+    }
   }
 
   fn request(&mut self, request: &mut ReactiveQueryRequest) {

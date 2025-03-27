@@ -43,7 +43,7 @@ pub trait RayTracingOutputTargetSemantic: 'static {}
 
 impl RayTracingTextureIO {
   /// before each time rendering is triggered, any texture io resource should be installed into system.
-  /// and the target should be taken out by [[take_output_target]] as soon as rendering is done.
+  /// and the target should be taken out by [take_output_target] as soon as rendering is done.
   ///
   /// todo, support different output target type
   pub fn install_output_target<T: RayTracingOutputTargetSemantic>(&self, target: GPU2DTextureView) {

@@ -5,9 +5,10 @@ pub(crate) trait ShrinkableAny: Any + Send + Sync {
   fn shrink_to_fit(&mut self);
 }
 
-pub type RQForker<K, V> = ReactiveKVMapFork<BoxedDynReactiveQuery<K, V>>;
+pub type RQForker<K, V> = ReactiveQueryFork<BoxedDynReactiveQuery<K, V>, K, V>;
 
-pub type OneManyRelationForker<O, M> = ReactiveKVMapFork<BoxedDynReactiveOneToManyRelation<O, M>>;
+pub type OneManyRelationForker<O, M> =
+  ReactiveQueryFork<BoxedDynReactiveOneToManyRelation<O, M>, M, O>;
 
 impl<K, V> ShrinkableAny for RQForker<K, V>
 where
@@ -168,7 +169,7 @@ impl ReactiveQueryRegistry {
       let upstream = self.fork_or_insert_with_inner(typeid, inserter);
       let relation = upstream.into_one_to_many_by_idx_expose_type();
       let relation = Box::new(relation) as BoxedDynReactiveOneToManyRelation<R::Value, R::Key>;
-      let relation = ReactiveKVMapFork::new(relation, true);
+      let relation = ReactiveQueryFork::new(relation, true);
 
       let boxed = Box::new(relation) as Box<dyn ShrinkableAny>;
       let mut relations = self.index_relation.write();
@@ -207,7 +208,7 @@ impl ReactiveQueryRegistry {
       let upstream = self.fork_or_insert_with_inner(typeid, inserter);
       let relation = upstream.into_one_to_many_by_hash_expose_type();
       let relation = Box::new(relation) as BoxedDynReactiveOneToManyRelation<R::Value, R::Key>;
-      let relation = ReactiveKVMapFork::new(relation, true);
+      let relation = ReactiveQueryFork::new(relation, true);
 
       let boxed = Box::new(relation) as Box<dyn ShrinkableAny>;
       let mut relations = self.hash_relation.write();

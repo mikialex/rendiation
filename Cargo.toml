@@ -9,7 +9,6 @@ members = [
   "utility/reactive-stream",
   "utility/reactive-query",
   "utility/query",
-  "utility/query-async",
   "utility/arena",
   "utility/anymap",
   "utility/dyn-downcast",

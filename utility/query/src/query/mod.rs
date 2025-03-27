@@ -1,3 +1,5 @@
+use std::any::Any;
+
 use crate::*;
 
 mod dyn_impl;
@@ -169,5 +171,46 @@ impl<V: CValue> Query for IdenticalCollection<V> {
     } else {
       None
     }
+  }
+}
+
+#[derive(Clone)]
+pub struct KeptQuery<T> {
+  pub query: T,
+  pub holder: Arc<dyn Any + Send + Sync>,
+}
+
+impl<T: Query> Query for KeptQuery<T> {
+  type Key = T::Key;
+  type Value = T::Value;
+
+  fn iter_key_value(&self) -> impl Iterator<Item = (Self::Key, Self::Value)> + '_ {
+    self.query.iter_key_value()
+  }
+
+  fn access(&self, key: &Self::Key) -> Option<Self::Value> {
+    self.query.access(key)
+  }
+}
+
+impl<T: DynValueRefQuery> DynValueRefQuery for KeptQuery<T>
+where
+  Self: DynQuery<Key = T::Key, Value = T::Value>,
+{
+  fn access_ref(&self, key: &Self::Key) -> Option<&Self::Value> {
+    self.query.access_ref(key)
+  }
+}
+
+impl<T: MultiQuery> MultiQuery for KeptQuery<T> {
+  type Key = T::Key;
+  type Value = T::Value;
+
+  fn iter_keys(&self) -> impl Iterator<Item = Self::Key> + '_ {
+    self.query.iter_keys()
+  }
+
+  fn access_multi(&self, key: &Self::Key) -> Option<impl Iterator<Item = Self::Value> + '_> {
+    self.query.access_multi(key)
   }
 }

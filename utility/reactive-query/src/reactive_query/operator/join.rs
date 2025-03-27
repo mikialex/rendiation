@@ -7,14 +7,33 @@ where
 {
   type Key = (A::Key, B::Key);
   type Value = (A::Value, B::Value);
+  type Compute = CrossJoinQuery<A::Compute, B::Compute>;
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
+    CrossJoinQuery {
+      a: self.a.describe(cx),
+      b: self.b.describe(cx),
+    }
+  }
+
+  fn request(&mut self, request: &mut ReactiveQueryRequest) {
+    self.a.request(request);
+    self.b.request(request);
+  }
+}
+
+impl<A, B> QueryCompute for CrossJoinQuery<A, B>
+where
+  A: QueryCompute,
+  B: QueryCompute,
+{
+  type Key = (A::Key, B::Key);
+  type Value = (A::Value, B::Value);
   type Changes = CrossJoinValueChange<A::View, B::View, A::Changes, B::Changes>;
   type View = CrossJoinQuery<A::View, B::View>;
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (t1, a_access) = self.a.poll_changes(cx);
-    let (t2, b_access) = self.b.poll_changes(cx);
 
-    let a_access = a_access;
-    let b_access = b_access;
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
+    let (t1, a_access) = self.a.resolve(cx);
+    let (t2, b_access) = self.b.resolve(cx);
 
     let d = CrossJoinValueChange {
       a: t1,
@@ -30,10 +49,20 @@ where
 
     (d, v)
   }
+}
 
-  fn request(&mut self, request: &mut ReactiveQueryRequest) {
-    self.a.request(request);
-    self.b.request(request);
+impl<A, B> AsyncQueryCompute for CrossJoinQuery<A, B>
+where
+  A: AsyncQueryCompute,
+  B: AsyncQueryCompute,
+{
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
+
+  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+    let a = self.a.create_task(cx);
+    let b = self.b.create_task(cx);
+    let c = cx.resolve_cx().clone();
+    futures::future::join(a, b).map(move |(a, b)| CrossJoinQuery { a, b }.resolve(&c))
   }
 }
 
@@ -89,6 +118,8 @@ where
         })
     });
 
+    let a_side_change_with_b = avoid_huge_debug_symbols_by_boxing_iter(a_side_change_with_b);
+
     let b_side_change_with_a = self.b.iter_key_value().flat_map(move |(k2, v2_change)| {
       self
         .a_current
@@ -107,6 +138,8 @@ where
           .unwrap()
         })
     });
+
+    let b_side_change_with_a = avoid_huge_debug_symbols_by_boxing_iter(b_side_change_with_a);
 
     cross_section
       .chain(a_side_change_with_b)

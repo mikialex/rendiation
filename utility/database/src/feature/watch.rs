@@ -304,10 +304,9 @@ impl<T: Query<Key = RawEntityHandle> + Clone> Query for GenerationHelperViewAcce
 impl<T: ReactiveQuery<Key = RawEntityHandle>> ReactiveQuery for GenerationHelperView<T> {
   type Key = u32;
   type Value = T::Value;
-  type Changes = impl Query<Key = u32, Value = ValueChange<T::Value>>;
-  type View = impl Query<Key = u32, Value = T::Value>;
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (inner, inner_access) = self.inner.poll_changes(cx);
+  type Compute = impl QueryCompute<Key = Self::Key, Value = Self::Value>;
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
+    let (inner, inner_access) = self.inner.describe(cx).resolve_kept();
 
     let delta = GenerationHelperViewAccess {
       inner,
@@ -324,5 +323,114 @@ impl<T: ReactiveQuery<Key = RawEntityHandle>> ReactiveQuery for GenerationHelper
 
   fn request(&mut self, request: &mut ReactiveQueryRequest) {
     self.inner.request(request)
+  }
+}
+
+#[test]
+fn test_watch() {
+  setup_global_database(Default::default());
+  setup_active_reactive_query_registry(Default::default());
+
+  let watch = DatabaseMutationWatch::new(&global_database());
+  register_global_database_feature(watch);
+
+  declare_entity!(TestEntity);
+  declare_component!(TestComponent, TestEntity, u32);
+
+  global_database()
+    .declare_entity::<TestEntity>()
+    .declare_component::<TestComponent>();
+
+  let watcher = global_watch()
+    .watch::<TestComponent>()
+    .debug("watch", false);
+
+  let watcher2 = global_watch()
+    .watch::<TestComponent>()
+    .debug("watch2", false);
+
+  let a = global_database()
+    .entity_writer::<TestEntity>()
+    .with_component_value_writer::<TestComponent>(1)
+    .new_entity();
+  let b = global_database()
+    .entity_writer::<TestEntity>()
+    .with_component_value_writer::<TestComponent>(2)
+    .new_entity();
+
+  noop_ctx!(cx);
+
+  {
+    let mut des1 = watcher.describe(cx);
+    let mut des2 = watcher2.describe(cx);
+    let mut des2_d = watcher2.describe(cx);
+    let (d1, v1) = des1.resolve_kept();
+    assert_eq!(v1.iter_key_value().count(), 2);
+    assert_eq!(d1.iter_key_value().count(), 2);
+
+    let (d2, v2) = des2.resolve_kept();
+    assert_eq!(v2.iter_key_value().count(), 2);
+    assert_eq!(d2.iter_key_value().count(), 2);
+
+    let (d2, v2) = des2_d.resolve_kept();
+    assert_eq!(v2.iter_key_value().count(), 2);
+    assert_eq!(d2.iter_key_value().count(), 0);
+  }
+
+  {
+    let watcher3 = global_watch()
+      .watch::<TestComponent>()
+      .debug("watch3", false)
+      .into_forker();
+
+    let (d, v) = watcher3.poll_changes_dyn(cx).resolve_kept();
+    assert_eq!(v.iter_key_value().count(), 2);
+    assert_eq!(d.iter_key_value().count(), 2);
+  }
+
+  {
+    let (d, v) = watcher.poll_changes_dyn(cx).resolve_kept();
+    assert_eq!(v.iter_key_value().count(), 2);
+    assert_eq!(d.iter_key_value().count(), 0);
+    let (d, v) = watcher2.poll_changes_dyn(cx).resolve_kept();
+    assert_eq!(v.iter_key_value().count(), 2);
+    assert_eq!(d.iter_key_value().count(), 0);
+  }
+
+  global_database()
+    .entity_writer::<TestEntity>()
+    .delete_entity(b);
+
+  {
+    let (d, v) = watcher.poll_changes_dyn(cx).resolve_kept();
+    assert_eq!(v.iter_key_value().count(), 1);
+    assert_eq!(d.iter_key_value().count(), 1);
+  };
+
+  {
+    let (d, v) = watcher.poll_changes_dyn(cx).resolve_kept();
+    assert_eq!(v.iter_key_value().count(), 1);
+    assert_eq!(d.iter_key_value().count(), 0);
+  }
+
+  {
+    let (d, v) = watcher2.poll_changes_dyn(cx).resolve_kept();
+    assert_eq!(v.iter_key_value().count(), 1);
+    assert_eq!(d.iter_key_value().count(), 1);
+  }
+  {
+    let (d, v) = watcher2.poll_changes_dyn(cx).resolve_kept();
+    assert_eq!(v.iter_key_value().count(), 1);
+    assert_eq!(d.iter_key_value().count(), 0);
+  }
+
+  global_database()
+    .entity_writer::<TestEntity>()
+    .write::<TestComponent>(a, 2);
+
+  {
+    let (d, v) = watcher.poll_changes_dyn(cx).resolve_kept();
+    assert_eq!(v.iter_key_value().count(), 1);
+    assert_eq!(d.iter_key_value().count(), 1);
   }
 }

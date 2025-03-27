@@ -40,3 +40,29 @@ impl<K: CKey, V: CKey> MultiQuery for EmptyQuery<K, V> {
     None::<std::iter::Empty<V>>
   }
 }
+
+impl<K: CKey, V: CValue> MultiQuery for FastHashMap<K, FastHashSet<V>> {
+  type Key = K;
+  type Value = V;
+
+  fn iter_keys(&self) -> impl Iterator<Item = Self::Key> + '_ {
+    self.keys().cloned()
+  }
+
+  fn access_multi(&self, key: &Self::Key) -> Option<impl Iterator<Item = Self::Value> + '_> {
+    self.get(key).map(|set| set.iter().cloned())
+  }
+}
+
+impl<T: MultiQuery> MultiQuery for LockReadGuardHolder<T> {
+  type Key = T::Key;
+  type Value = T::Value;
+
+  fn iter_keys(&self) -> impl Iterator<Item = Self::Key> + '_ {
+    (**self).iter_keys()
+  }
+
+  fn access_multi(&self, key: &Self::Key) -> Option<impl Iterator<Item = Self::Value> + '_> {
+    (**self).access_multi(key)
+  }
+}

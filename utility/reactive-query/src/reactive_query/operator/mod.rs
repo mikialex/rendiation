@@ -36,7 +36,7 @@ where
 
   fn into_change_stream(
     self,
-  ) -> impl futures::Stream<Item = Arc<FastHashMap<Self::Key, ValueChange<Self::Value>>>>
+  ) -> impl futures::Stream<Item = ReactiveQueryStreamItem<Self::Key, Self::Value>>
   where
     Self: Unpin,
   {
@@ -47,7 +47,7 @@ where
     self.collective_kv_map(|k, _| k.clone())
   }
 
-  fn hash_reverse_assume_one_one(self) -> OneToOneRefHashBookKeeping<Self>
+  fn hash_reverse_assume_one_one(self) -> OneToOneRefHashBookKeeping<Self, Self::Key, Self::Value>
   where
     Self::Value: CKey,
   {
@@ -57,16 +57,16 @@ where
     }
   }
 
-  fn collective_key_dual_map<K2, F1, F2>(self, f: F1, f2: F2) -> ReactiveKeyDualMap<F1, F2, Self>
+  fn collective_key_dual_map<K2, F1, F2>(self, f: F1, f2: F2) -> KeyDualMappedQuery<Self, F1, F2>
   where
     K2: CKey,
     F1: Fn(Self::Key) -> K2 + Copy + 'static + Send + Sync,
     F2: Fn(K2) -> Self::Key + Copy + 'static + Send + Sync,
   {
-    ReactiveKeyDualMap {
+    KeyDualMappedQuery {
       f1: f,
       f2,
-      inner: self,
+      base: self,
     }
   }
 
@@ -100,11 +100,11 @@ where
     f: F,
   ) -> impl ReactiveQuery<Key = Self::Key, Value = V2>
   where
-    F: Fn() -> FF + Send + Sync + 'static,
+    F: Fn() -> FF + Clone + Send + Sync + 'static,
     FF: FnMut(&Self::Key, Self::Value) -> V2 + Send + Sync + 'static,
     V2: CValue,
   {
-    ReactiveKVExecuteMap {
+    MapExecution {
       inner: self,
       map_creator: f,
       cache: Default::default(),
@@ -155,6 +155,7 @@ where
   }
 
   /// K should not overlap
+  #[track_caller]
   fn collective_select<Other>(
     self,
     other: Other,
@@ -162,8 +163,9 @@ where
   where
     Other: ReactiveQuery<Key = Self::Key, Value = Self::Value>,
   {
-    self.collective_union(other, |(a, b)| match (a, b) {
-      (Some(_), Some(_)) => unreachable!("key set should not overlap"),
+    let location = std::panic::Location::caller();
+    self.collective_union(other, move |(a, b)| match (a, b) {
+      (Some(_), Some(_)) => unreachable!("key set should not overlap, select: {}", location),
       (Some(a), None) => a.into(),
       (None, Some(b)) => b.into(),
       (None, None) => None,
@@ -171,6 +173,7 @@ where
   }
 
   /// K should fully overlap
+  #[track_caller]
   fn collective_zip<Other>(
     self,
     other: Other,
@@ -178,11 +181,12 @@ where
   where
     Other: ReactiveQuery<Key = Self::Key>,
   {
-    self.collective_union(other, |(a, b)| match (a, b) {
+    let location = std::panic::Location::caller();
+    self.collective_union(other, move |(a, b)| match (a, b) {
       (Some(a), Some(b)) => Some((a, b)),
       (None, None) => None,
-      (None, Some(_)) => unreachable!("zip missing left side"),
-      (Some(_), None) => unreachable!("zip missing right side"),
+      (None, Some(_)) => unreachable!("zip missing left side, zip: {}", location),
+      (Some(_), None) => unreachable!("zip missing right side, zip: {}", location),
     })
   }
 
@@ -212,12 +216,12 @@ where
     })
   }
 
-  fn into_forker(self) -> ReactiveKVMapFork<Self> {
-    ReactiveKVMapFork::new(self, false)
+  fn into_forker(self) -> ReactiveQueryFork<Self, Self::Key, Self::Value> {
+    ReactiveQueryFork::new(self, false)
   }
 
-  fn into_static_forker(self) -> ReactiveKVMapFork<Self> {
-    ReactiveKVMapFork::new(self, true)
+  fn into_static_forker(self) -> ReactiveQueryFork<Self, Self::Key, Self::Value> {
+    ReactiveQueryFork::new(self, true)
   }
 
   /// project map<O, V> -> map<M, V> when we have O - M one to many
@@ -231,13 +235,13 @@ where
     }
   }
 
-  fn materialize_unordered(self) -> UnorderedMaterializedReactiveQuery<Self> {
-    UnorderedMaterializedReactiveQuery {
+  fn materialize_unordered(self) -> UnorderedMaterializedViewCache<Self, Self::Key, Self::Value> {
+    UnorderedMaterializedViewCache {
       inner: self,
       cache: Default::default(),
     }
   }
-  fn materialize_linear(self) -> LinearMaterializedReactiveQuery<Self>
+  fn materialize_linear(self) -> LinearMaterializedReactiveQuery<Self, Self::Key, Self::Value>
   where
     Self::Key: LinearIdentification,
   {
@@ -247,11 +251,15 @@ where
     }
   }
 
-  fn diff_change(self) -> ReactiveQueryDiff<Self> {
-    ReactiveQueryDiff { inner: self }
+  fn diff_change(self) -> QueryDiff<Self> {
+    QueryDiff { inner: self }
   }
 
-  fn debug(self, label: &'static str, log_change: bool) -> ReactiveQueryDebug<Self> {
+  fn debug(
+    self,
+    label: &'static str,
+    log_change: bool,
+  ) -> ReactiveQueryDebug<Self, Self::Key, Self::Value> {
     ReactiveQueryDebug {
       inner: self,
       state: Default::default(),

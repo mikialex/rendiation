@@ -43,7 +43,7 @@ impl DatabaseEntityReverseReference {
     view
       .multi_key_dual_map(|k| unsafe { EntityHandle::from_raw(k) }, |k| k.handle)
       .multi_map(|_, v| unsafe { EntityHandle::from_raw(v) })
-      .into_boxed()
+      .into_boxed_multi()
   }
 
   pub fn watch_inv_ref<S: ForeignKeySemantic>(
@@ -119,10 +119,12 @@ where
 {
   type Key = u32;
   type Value = u32;
-  type Changes = impl Query<Key = u32, Value = ValueChange<u32>>;
-  type View = impl Query<Key = u32, Value = u32> + MultiQuery<Key = u32, Value = u32>;
-  fn poll_changes(&self, cx: &mut Context) -> (Self::Changes, Self::View) {
-    let (d, v) = self.inner.poll_changes(cx);
+  type Compute = (
+    impl Query<Key = u32, Value = ValueChange<u32>>,
+    impl Query<Key = u32, Value = u32> + MultiQuery<Key = u32, Value = u32>,
+  );
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
+    let (d, v) = self.inner.describe(cx).resolve_kept();
 
     let allocator = self.foreign_allocator.make_read_holder();
     let d = d

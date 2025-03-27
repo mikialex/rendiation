@@ -1,4 +1,6 @@
 #![feature(impl_trait_in_assoc_type)]
+#![feature(fn_traits)]
+#![feature(unboxed_closures)]
 
 use core::{
   pin::Pin,
@@ -6,6 +8,7 @@ use core::{
 };
 use std::any::Any;
 use std::any::TypeId;
+use std::future::Future;
 use std::ops::DerefMut;
 use std::sync::Arc;
 use std::{marker::PhantomData, ops::Deref};
@@ -13,10 +16,10 @@ use std::{marker::PhantomData, ops::Deref};
 use fast_hash_collection::FastHashMap;
 use fast_hash_collection::*;
 use futures::task::AtomicWaker;
+use futures::FutureExt;
 use futures::{Stream, StreamExt};
 use parking_lot::lock_api::RawRwLock;
 use parking_lot::RwLock;
-use parking_lot::{RwLockReadGuard, RwLockWriteGuard};
 pub use query::*;
 use storage::IndexKeptVec;
 
@@ -43,9 +46,6 @@ pub use collective_channel::*;
 
 mod registry;
 pub use registry::*;
-
-mod lock_holder;
-pub use lock_holder::*;
 
 mod mutate_target;
 pub use mutate_target::*;
