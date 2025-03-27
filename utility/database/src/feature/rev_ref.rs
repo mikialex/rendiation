@@ -42,7 +42,7 @@ impl DatabaseEntityReverseReference {
 
     view
       .multi_key_dual_map(|k| unsafe { EntityHandle::from_raw(k) }, |k| k.handle)
-      .multi_map(|_, v| unsafe { EntityHandle::from_raw(v) })
+      .multi_map(|v| unsafe { EntityHandle::from_raw(v) })
       .into_boxed_multi()
   }
 
@@ -152,7 +152,7 @@ where
       f1: |k: RawEntityHandle| k.index(),
       f2: move |k| RawEntityHandle(allocator.get_handle(k as usize)?).into(),
     };
-    let inv = MultiQueryExt::multi_map(inv, |_: &u32, v: RawEntityHandle| v.index());
+    let inv = MultiQueryExt::multi_map(inv, |v: RawEntityHandle| v.index());
 
     let v = OneManyRelationDualAccess {
       many_access_one: f_v,

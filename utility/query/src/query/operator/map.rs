@@ -27,6 +27,32 @@ where
 }
 
 #[derive(Clone)]
+pub struct MappedValueQuery<T, F> {
+  pub base: T,
+  pub mapper: F,
+}
+
+impl<V2, F, T> Query for MappedValueQuery<T, F>
+where
+  V2: CValue,
+  F: Fn(T::Value) -> V2 + Clone + Send + Sync + 'static,
+  T: Query,
+{
+  type Key = T::Key;
+  type Value = V2;
+  fn iter_key_value(&self) -> impl Iterator<Item = (T::Key, V2)> + '_ {
+    self.base.iter_key_value().map(|(k, v)| {
+      let v = (self.mapper)(v);
+      (k, v)
+    })
+  }
+
+  fn access(&self, key: &T::Key) -> Option<V2> {
+    self.base.access(key).map(|v| (self.mapper)(v))
+  }
+}
+
+#[derive(Clone)]
 pub struct KeyDualMappedQuery<T, F1, F2> {
   pub base: T,
   pub f1: F1,

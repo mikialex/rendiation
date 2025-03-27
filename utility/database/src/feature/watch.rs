@@ -1,3 +1,5 @@
+use futures::FutureExt;
+
 use crate::*;
 
 #[derive(Clone)]
@@ -283,7 +285,7 @@ pub(crate) struct GenerationHelperView<T> {
 }
 
 #[derive(Clone)]
-struct GenerationHelperViewAccess<T> {
+pub struct GenerationHelperViewAccess<T> {
   inner: T,
   allocator: LockReadGuardHolder<Arena<()>>,
 }
@@ -301,12 +303,17 @@ impl<T: Query<Key = RawEntityHandle> + Clone> Query for GenerationHelperViewAcce
   }
 }
 
-impl<T: ReactiveQuery<Key = RawEntityHandle>> ReactiveQuery for GenerationHelperView<T> {
+impl<T> QueryCompute for GenerationHelperView<T>
+where
+  T: QueryCompute<Key = RawEntityHandle>,
+{
   type Key = u32;
   type Value = T::Value;
-  type Compute = impl QueryCompute<Key = Self::Key, Value = Self::Value>;
-  fn describe(&self, cx: &mut Context) -> Self::Compute {
-    let (inner, inner_access) = self.inner.describe(cx).resolve_kept();
+  type Changes = GenerationHelperViewAccess<T::Changes>;
+  type View = GenerationHelperViewAccess<T::View>;
+
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
+    let (inner, inner_access) = self.inner.resolve(cx);
 
     let delta = GenerationHelperViewAccess {
       inner,
@@ -319,6 +326,34 @@ impl<T: ReactiveQuery<Key = RawEntityHandle>> ReactiveQuery for GenerationHelper
     };
 
     (delta, access)
+  }
+}
+
+impl<T> AsyncQueryCompute for GenerationHelperView<T>
+where
+  T: AsyncQueryCompute<Key = RawEntityHandle>,
+{
+  type Task = impl Future<Output = (Self::Changes, Self::View)> + 'static;
+
+  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+    let allocator = self.allocator.clone();
+    let c = cx.resolve_cx().clone();
+    self
+      .inner
+      .create_task(cx)
+      .map(move |inner| GenerationHelperView { inner, allocator }.resolve(&c))
+  }
+}
+
+impl<T: ReactiveQuery<Key = RawEntityHandle>> ReactiveQuery for GenerationHelperView<T> {
+  type Key = u32;
+  type Value = T::Value;
+  type Compute = GenerationHelperView<T::Compute>;
+  fn describe(&self, cx: &mut Context) -> Self::Compute {
+    GenerationHelperView {
+      inner: self.inner.describe(cx),
+      allocator: self.allocator.clone(),
+    }
   }
 
   fn request(&mut self, request: &mut ReactiveQueryRequest) {

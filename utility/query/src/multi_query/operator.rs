@@ -5,12 +5,12 @@ pub trait MultiQueryExt: MultiQuery + Sized + 'static {
     Box::new(self)
   }
 
-  fn multi_map<V2, F>(self, mapper: F) -> MappedQuery<Self, F>
+  fn multi_map<V2, F>(self, mapper: F) -> MappedValueQuery<Self, F>
   where
     V2: CValue,
-    F: Fn(&Self::Key, Self::Value) -> V2 + Clone + Send + Sync + 'static,
+    F: Fn(Self::Value) -> V2 + Clone + Send + Sync + 'static,
   {
-    MappedQuery { base: self, mapper }
+    MappedValueQuery { base: self, mapper }
   }
 
   fn multi_key_dual_map<K2, F1, F2>(
@@ -41,10 +41,10 @@ pub trait MultiQueryExt: MultiQuery + Sized + 'static {
 }
 impl<T: ?Sized> MultiQueryExt for T where Self: MultiQuery + Sized + 'static {}
 
-impl<V2, F, T> MultiQuery for MappedQuery<T, F>
+impl<V2, F, T> MultiQuery for MappedValueQuery<T, F>
 where
   V2: CValue,
-  F: Fn(&T::Key, T::Value) -> V2 + Clone + Send + Sync + 'static,
+  F: Fn(T::Value) -> V2 + Clone + Send + Sync + 'static,
   T: MultiQuery,
 {
   type Key = T::Key;
@@ -54,13 +54,7 @@ where
   }
 
   fn access_multi(&self, key: &T::Key) -> Option<impl Iterator<Item = V2> + '_> {
-    let k = key.clone();
-    Some(Box::new(
-      self
-        .base
-        .access_multi(key)?
-        .map(move |v| (self.mapper)(&k, v)),
-    ))
+    Some(self.base.access_multi(key)?.map(move |v| (self.mapper)(v)))
   }
 }
 

@@ -169,7 +169,7 @@ impl<Map: ReactiveQuery> ReactiveKVMapForkInternal<Map, Map::Key, Map::Value> {
     };
 
     ForkComputeView {
-      _already_resolved_view: already_resolved_view,
+      already_resolved_view,
       compute,
       downstream: self.downstream.clone(),
       view_resolve: self.resolved.clone(),
@@ -209,11 +209,10 @@ impl<Map: ReactiveQuery> ReactiveKVMapForkInternal<Map, Map::Key, Map::Value> {
 
 pub struct ForkComputeView<T: QueryCompute> {
   // we must keep resolved view here because the view might be dropped
-  pub(super) _already_resolved_view: Option<Arc<T::View>>,
+  pub(super) already_resolved_view: Option<Arc<T::View>>,
   pub(super) compute: Option<Arc<RwLock<T>>>,
   pub(super) downstream: Arc<RwLock<FastHashMap<u64, DownStreamInfo<T::Key, T::Value>>>>,
   pub(super) view_resolve: Arc<RwLock<Option<Weak<dyn Any + Send + Sync>>>>,
-  #[allow(dead_code)]
   pub(super) future_forker: Arc<RwLock<Option<Weak<dyn Any + Send + Sync>>>>,
 }
 
@@ -261,7 +260,7 @@ impl<Map: QueryCompute> ForkComputeView<Map> {
 
     // setup weak full view
     let arc_view = Arc::new(v);
-    self._already_resolved_view = Some(arc_view.clone());
+    self.already_resolved_view = Some(arc_view.clone());
     let v = arc_view.clone() as Arc<dyn Any + Send + Sync>;
     *self.view_resolve.write() = Some(Arc::downgrade(&v));
 

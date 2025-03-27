@@ -175,7 +175,10 @@ struct SceneTlasMaintainer {
 impl ReactiveQuery for SceneTlasMaintainer {
   type Key = EntityHandle<SceneEntity>;
   type Value = TlasHandle;
-  type Compute = impl QueryCompute<Key = Self::Key, Value = Self::Value>;
+  type Compute = (
+    FastHashMap<EntityHandle<SceneEntity>, ValueChange<TlasHandle>>,
+    LockReadGuardHolder<FastHashMap<EntityHandle<SceneEntity>, TlasHandle>>,
+  );
 
   fn describe(&self, cx: &mut Context) -> Self::Compute {
     let mut tlas = self.tlas.write();

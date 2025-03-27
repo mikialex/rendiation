@@ -16,7 +16,7 @@ pub enum ReactiveQueryRequest {
 pub trait ReactiveQuery: Sync + Send + 'static {
   type Key: CKey;
   type Value: CValue;
-  type Compute: QueryCompute<Key = Self::Key, Value = Self::Value>;
+  type Compute: AsyncQueryCompute<Key = Self::Key, Value = Self::Value>;
 
   fn describe(&self, cx: &mut Context) -> Self::Compute;
 

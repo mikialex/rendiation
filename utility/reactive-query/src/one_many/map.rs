@@ -105,17 +105,40 @@ where
   type Key = K2;
   type Value = T::One;
 
-  type Compute = impl QueryCompute<
-    Key = Self::Key,
-    Value = Self::Value,
-    View: MultiQuery<Key = T::One, Value = K2>,
-  >;
+  type Compute = ReactiveKeyDualMapRelation<F1, F2, T::Compute>;
 
   fn describe(&self, cx: &mut Context) -> Self::Compute {
-    let (d, v) = self.inner.describe(cx).resolve_kept();
+    ReactiveKeyDualMapRelation {
+      inner: self.inner.describe(cx),
+      f1: self.f1,
+      f2: self.f2,
+    }
+  }
+
+  fn request(&mut self, request: &mut ReactiveQueryRequest) {
+    self.inner.request(request)
+  }
+}
+
+impl<F1, F2, T, K2> QueryCompute for ReactiveKeyDualMapRelation<F1, F2, T>
+where
+  K2: CKey,
+  F1: Fn(T::Many) -> K2 + Copy + Send + Sync + 'static,
+  F2: Fn(K2) -> T::Many + Copy + Send + Sync + 'static,
+  T: ReactiveOneToManyRelationCompute,
+{
+  type Key = K2;
+  type Value = T::One;
+  type Changes = KeyDualMappedQuery<T::Changes, F1, AutoSomeFnResult<F2>>;
+  type View = OneManyRelationDualAccess<
+    KeyDualMappedQuery<T::View, F1, AutoSomeFnResult<F2>>,
+    MappedValueQuery<T::View, F1>,
+  >;
+
+  fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
+    let (d, v) = self.inner.resolve(cx);
     let d = d.key_dual_map(self.f1, self.f2);
-    let f1_ = self.f1;
-    let v_inv = v.clone().multi_map(move |_, v| f1_(v));
+    let v_inv = v.clone().multi_map(self.f1);
     let v = v.key_dual_map(self.f1, self.f2);
     let v = OneManyRelationDualAccess {
       many_access_one: v,
@@ -123,8 +146,24 @@ where
     };
     (d, v)
   }
+}
 
-  fn request(&mut self, request: &mut ReactiveQueryRequest) {
-    self.inner.request(request)
+impl<F1, F2, T, K2> AsyncQueryCompute for ReactiveKeyDualMapRelation<F1, F2, T>
+where
+  K2: CKey,
+  F1: Fn(T::Many) -> K2 + Copy + Send + Sync + 'static,
+  F2: Fn(K2) -> T::Many + Copy + Send + Sync + 'static,
+  T: ReactiveOneToManyRelationCompute + AsyncQueryCompute,
+{
+  type Task = impl Future<Output = (Self::Changes, Self::View)>;
+
+  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+    let f1 = self.f1;
+    let f2 = self.f2;
+    let c = cx.resolve_cx().clone();
+    self
+      .inner
+      .create_task(cx)
+      .map(move |inner| ReactiveKeyDualMapRelation { inner, f1, f2 }.resolve(&c))
   }
 }

@@ -164,7 +164,17 @@ where
 {
   type Key = K;
   type Value = T;
-  type Compute = impl QueryCompute<Key = Self::Key, Value = Self::Value>;
+  // how can we improve this??
+  type Compute = TreeDerivedDataCompute<
+    K,
+    T,
+    F,
+    BoxedDynQueryCompute<K, T>,
+    (
+      BoxedDynQuery<K, ValueChange<K>>,
+      OneManyRelationDualAccess<BoxedDynQuery<K, K>, BoxedDynMultiQuery<K, K>>,
+    ),
+  >;
 
   fn describe(&self, cx: &mut Context) -> Self::Compute {
     TreeDerivedDataCompute {

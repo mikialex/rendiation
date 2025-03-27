@@ -33,7 +33,7 @@ impl<Map: AsyncQueryCompute> ForkComputeView<Map> {
       }
     }
 
-    let future = if let Some(view) = &self._already_resolved_view {
+    let future = if let Some(view) = &self.already_resolved_view {
       let future = ready(ForkedView {
         inner: view.clone(),
       });
@@ -41,7 +41,7 @@ impl<Map: AsyncQueryCompute> ForkComputeView<Map> {
         as Box<dyn Unpin + Send + Sync + Future<Output = ForkedView<Map::View>>>
     } else {
       let downstream = self.downstream.clone();
-      let _already_resolved_view = self._already_resolved_view.clone();
+      let _already_resolved_view = self.already_resolved_view.clone();
       let view_resolve = self.view_resolve.clone();
       let c = cx.resolve_cx().clone();
       let future = self
@@ -54,7 +54,7 @@ impl<Map: AsyncQueryCompute> ForkComputeView<Map> {
           ForkComputeView {
             compute: Arc::new(RwLock::new(upstream)).into(),
             downstream,
-            _already_resolved_view,
+            already_resolved_view: _already_resolved_view,
             future_forker: Default::default(),
             view_resolve,
           }
@@ -79,6 +79,8 @@ struct FutureForkerInternal<T: Future> {
   resolve: Option<T::Output>,
 }
 
+// todo, this is actually wrong, because forker maybe polled in different ctx
+// so we should have array of waker like downstream info in forker
 #[pin_project::pin_project]
 pub struct FutureForker<T: Future> {
   internal: Arc<RwLock<FutureForkerInternal<T>>>,

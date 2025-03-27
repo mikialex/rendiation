@@ -151,7 +151,7 @@ impl<T: ReactiveQuery<Value = (Arc<Vec<u8>>, Option<GPUBufferViewRange>)>> React
   type Key = T::Key;
   type Value = (u32, u32); // offset count(in u32)
 
-  type Compute = impl QueryCompute<Key = Self::Key, Value = Self::Value>;
+  type Compute = ReactiveRangeAllocatePoolCompute<T::Compute>;
 
   fn describe(&self, cx: &mut Context) -> Self::Compute {
     ReactiveRangeAllocatePoolCompute {
