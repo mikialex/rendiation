@@ -45,7 +45,7 @@ where
 }
 
 #[derive(Clone, Copy)]
-pub struct ValueChangeMapper<F>(F);
+pub struct ValueChangeMapper<F>(pub F);
 impl<K, V, V2, F: Fn(&K, V) -> V2 + Clone> FnOnce<(&K, ValueChange<V>)> for ValueChangeMapper<F> {
   type Output = ValueChange<V2>;
 
@@ -172,7 +172,6 @@ where
   type Value = V2;
   type Compute = MapExecution<T::Compute, T::Key, F, V2>;
 
-  #[tracing::instrument(skip_all, name = "ReactiveKVExecuteMap")]
   fn describe(&self, cx: &mut Context) -> Self::Compute {
     MapExecution {
       inner: self.inner.describe(cx),

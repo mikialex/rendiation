@@ -140,6 +140,23 @@ where
   }
 }
 
+impl<Map> AsyncQueryCompute for LinearMaterializedReactiveQuery<Map, Map::Key, Map::Value>
+where
+  Map: AsyncQueryCompute,
+  Map::Key: LinearIdentification + CKey,
+  Map::Value: CValue,
+{
+  type Task = impl Future<Output = (Self::Changes, Self::View)> + 'static;
+
+  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+    let cache = self.cache.clone();
+    let inner = self.inner.create_task(cx);
+    cx.then_spawn(inner, |inner, cx| {
+      LinearMaterializedReactiveQuery { inner, cache }.resolve(cx)
+    })
+  }
+}
+
 impl<Map> ReactiveQuery for LinearMaterializedReactiveQuery<Map, Map::Key, Map::Value>
 where
   Map: ReactiveQuery + Sync,

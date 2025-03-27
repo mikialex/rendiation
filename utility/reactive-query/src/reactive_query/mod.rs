@@ -64,26 +64,6 @@ impl AsyncQuerySpawner {
   }
 }
 
-// compiler not ready for this.
-// pub trait AsyncQueryFutureExt: Future + 'static {
-//   fn then_spawn<R: 'static>(
-//     self,
-//     cx: &mut AsyncQueryCtx,
-//     then: impl FnOnce(Self::Output) -> R + 'static,
-//   ) -> impl Future<Output = R> + use<>;
-// }
-
-// impl<T: Future + 'static> AsyncQueryFutureExt for T {
-//   fn then_spawn<R: 'static>(
-//     self,
-//     cx: &mut AsyncQueryCtx,
-//     then: impl FnOnce(Self::Output) -> R + 'static,
-//   ) -> impl Future<Output = R> + use<> {
-//     let sp = cx.make_spawner();
-//     self.then(move |s| sp.spawn_task(move || then(s)))
-//   }
-// }
-
 impl AsyncQueryCtx {
   pub fn resolve_cx(&self) -> &QueryResolveCtx {
     &self.resolve_cx

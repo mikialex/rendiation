@@ -5,26 +5,37 @@ pub trait MultiQueryExt: MultiQuery + Sized + 'static {
     Box::new(self)
   }
 
-  fn multi_map<V2: CValue>(
-    self,
-    mapper: impl Fn(&Self::Key, Self::Value) -> V2 + Clone + Send + Sync + 'static,
-  ) -> impl MultiQuery<Key = Self::Key, Value = V2> {
+  fn multi_map<V2, F>(self, mapper: F) -> MappedQuery<Self, F>
+  where
+    V2: CValue,
+    F: Fn(&Self::Key, Self::Value) -> V2 + Clone + Send + Sync + 'static,
+  {
     MappedQuery { base: self, mapper }
   }
 
-  fn multi_key_dual_map<K2: CKey>(
+  fn multi_key_dual_map<K2, F1, F2>(
     self,
-    f1: impl Fn(Self::Key) -> K2 + Clone + Send + Sync + 'static,
-    f2: impl Fn(K2) -> Self::Key + Clone + Send + Sync + 'static,
-  ) -> impl MultiQuery<Key = K2, Value = Self::Value> {
-    self.multi_key_dual_map_partial(f1, move |k| Some(f2(k)))
+    f1: F1,
+    f2: F2,
+  ) -> KeyDualMappedQuery<Self, F1, AutoSomeFnResult<F2>>
+  where
+    K2: CKey,
+    F1: Fn(Self::Key) -> K2 + Clone + Send + Sync + 'static,
+    F2: Fn(K2) -> Self::Key + Clone + Send + Sync + 'static,
+  {
+    self.multi_key_dual_map_partial(f1, AutoSomeFnResult(f2))
   }
 
-  fn multi_key_dual_map_partial<K2: CKey>(
+  fn multi_key_dual_map_partial<K2, F1, F2>(
     self,
-    f1: impl Fn(Self::Key) -> K2 + Clone + Send + Sync + 'static,
-    f2: impl Fn(K2) -> Option<Self::Key> + Clone + Send + Sync + 'static,
-  ) -> impl MultiQuery<Key = K2, Value = Self::Value> {
+    f1: F1,
+    f2: F2,
+  ) -> KeyDualMappedQuery<Self, F1, F2>
+  where
+    K2: CKey,
+    F1: Fn(Self::Key) -> K2 + Clone + Send + Sync + 'static,
+    F2: Fn(K2) -> Option<Self::Key> + Clone + Send + Sync + 'static,
+  {
     KeyDualMappedQuery { base: self, f1, f2 }
   }
 }

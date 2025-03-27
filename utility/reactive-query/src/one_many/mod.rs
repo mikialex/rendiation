@@ -13,11 +13,32 @@ pub use reduce::*;
 
 use crate::*;
 
+/// this is just a helper trait to facilitate bound expression
+pub trait ReactiveOneToManyRelationCompute:
+  QueryCompute<
+  Key = Self::Many,
+  Value = Self::One,
+  View: MultiQuery<Key = Self::One, Value = Self::Many>,
+>
+{
+  type One: CKey;
+  type Many: CKey;
+}
+impl<T> ReactiveOneToManyRelationCompute for T
+where
+  T: QueryCompute<View: MultiQuery<Key = T::Value, Value = T::Key>>,
+  T::Value: CKey,
+{
+  type One = T::Value;
+  type Many = T::Key;
+}
+
+/// this is just a helper trait to facilitate bound expression
 pub trait ReactiveOneToManyRelation:
   ReactiveQuery<
   Key = Self::Many,
   Value = Self::One,
-  Compute: QueryCompute<View: MultiQuery<Key = Self::One, Value = Self::Many>>,
+  Compute: ReactiveOneToManyRelationCompute<One = Self::One, Many = Self::Many>,
 >
 {
   type One: CKey;
@@ -34,9 +55,7 @@ where
 }
 
 pub trait ReactiveOneToManyRelationExt: ReactiveOneToManyRelation {
-  fn into_reactive_state_many_one(
-    self,
-  ) -> impl ReactiveGeneralQuery<Output = Box<dyn std::any::Any>>
+  fn into_reactive_state_many_one(self) -> ReactiveManyOneRelationAsReactiveQuery<Self>
   where
     Self: Sized,
   {
@@ -80,38 +99,14 @@ pub trait ReactiveOneToManyRelationExt: ReactiveOneToManyRelation {
 impl<T: ReactiveOneToManyRelation> ReactiveOneToManyRelationExt for T {}
 
 pub trait ReactiveQueryOneToManyRelationExt: Sized + ReactiveQuery<Value: CKey> {
-  fn into_one_to_many_by_hash(
-    self,
-  ) -> impl ReactiveOneToManyRelation<One = Self::Value, Many = Self::Key> {
+  fn into_one_to_many_by_hash(self) -> OneToManyRefHashBookKeeping<Self, Self::Key, Self::Value> {
     OneToManyRefHashBookKeeping {
       upstream: self,
       mapping: Default::default(),
     }
   }
 
-  fn into_one_to_many_by_hash_expose_type(
-    self,
-  ) -> OneToManyRefHashBookKeeping<Self, Self::Key, Self::Value> {
-    OneToManyRefHashBookKeeping {
-      upstream: self,
-      mapping: Default::default(),
-    }
-  }
-
-  fn into_one_to_many_by_idx(
-    self,
-  ) -> impl ReactiveOneToManyRelation<One = Self::Value, Many = Self::Key>
-  where
-    Self::Key: LinearIdentification,
-    Self::Value: LinearIdentification,
-  {
-    OneToManyRefDenseBookKeeping {
-      upstream: self,
-      mapping: Default::default(),
-    }
-  }
-
-  fn into_one_to_many_by_idx_expose_type(self) -> OneToManyRefDenseBookKeeping<Self>
+  fn into_one_to_many_by_idx(self) -> OneToManyRefDenseBookKeeping<Self>
   where
     Self::Key: LinearIdentification,
     Self::Value: LinearIdentification,
@@ -125,13 +120,13 @@ pub trait ReactiveQueryOneToManyRelationExt: Sized + ReactiveQuery<Value: CKey> 
 impl<T> ReactiveQueryOneToManyRelationExt for T where T: Sized + ReactiveQuery<Value: CKey> {}
 
 pub trait ReactiveQueryRelationReduceExt: Sized + ReactiveQuery<Value = ()> {
-  fn many_to_one_reduce_key<SK, Relation>(
+  fn many_to_one_reduce_key<Relation>(
     self,
     relations: Relation,
-  ) -> impl ReactiveQuery<Key = SK, Value = ()>
+  ) -> ManyToOneReduce<Self, Relation, Relation::Value>
   where
-    SK: CKey,
-    Relation: ReactiveQuery<Key = Self::Key, Value = SK>,
+    Relation::Value: CKey,
+    Relation: ReactiveQuery<Key = Self::Key>,
   {
     ManyToOneReduce {
       upstream: self,

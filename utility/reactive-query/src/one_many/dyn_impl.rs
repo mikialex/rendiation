@@ -49,8 +49,8 @@ where
   type Key = M;
   type Value = O;
   type Compute = (
-    impl Query<Key = M, Value = ValueChange<O>>,
-    impl Query<Key = M, Value = O> + MultiQuery<Key = O, Value = M>,
+    BoxedDynQuery<M, ValueChange<O>>,
+    OneManyRelationDualAccess<BoxedDynQuery<M, O>, BoxedDynMultiQuery<O, M>>,
   );
   fn describe(&self, cx: &mut Context) -> Self::Compute {
     let (d, v, v2) = (**self).poll_changes_with_inv_dyn(cx);

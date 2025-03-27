@@ -61,7 +61,7 @@ pub trait QueryExt: Query + Sized + 'static {
 impl<T: ?Sized> QueryExt for T where Self: Query + Sized + 'static {}
 
 #[derive(Clone, Copy)]
-pub struct AutoSomeFnResult<F>(F);
+pub struct AutoSomeFnResult<F>(pub F);
 impl<K, K2, F: FnOnce(K) -> K2> FnOnce<(K,)> for AutoSomeFnResult<F> {
   type Output = Option<K2>;
 

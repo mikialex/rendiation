@@ -21,10 +21,16 @@ impl<T: QueryCompute> DynQueryCompute for T {
   }
   fn create_task_dyn(
     &mut self,
-    _cx: &mut AsyncQueryCtx,
+    cx: &mut AsyncQueryCtx,
   ) -> Box<dyn Send + Sync + Unpin + Future<Output = DynReactiveQueryPoll<Self::Key, Self::Value>>>
   {
-    todo!()
+    // use this in future
+    // let c = cx.resolve_cx().clone();
+    // Box::new(Box::pin(
+    //   self.create_task(cx).map(move |mut r| r.resolve_dyn(&c)),
+    // ))
+    let f = std::future::ready(self.resolve_dyn(cx.resolve_cx()));
+    Box::new(f)
   }
 }
 pub type BoxedDynQueryCompute<K, V> = Box<dyn DynQueryCompute<Key = K, Value = V>>;

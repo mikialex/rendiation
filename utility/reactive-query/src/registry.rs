@@ -167,7 +167,7 @@ impl ReactiveQueryRegistry {
     } else {
       drop(relations);
       let upstream = self.fork_or_insert_with_inner(typeid, inserter);
-      let relation = upstream.into_one_to_many_by_idx_expose_type();
+      let relation = upstream.into_one_to_many_by_idx();
       let relation = Box::new(relation) as BoxedDynReactiveOneToManyRelation<R::Value, R::Key>;
       let relation = ReactiveQueryFork::new(relation, true);
 
@@ -206,7 +206,7 @@ impl ReactiveQueryRegistry {
     } else {
       drop(relations);
       let upstream = self.fork_or_insert_with_inner(typeid, inserter);
-      let relation = upstream.into_one_to_many_by_hash_expose_type();
+      let relation = upstream.into_one_to_many_by_hash();
       let relation = Box::new(relation) as BoxedDynReactiveOneToManyRelation<R::Value, R::Key>;
       let relation = ReactiveQueryFork::new(relation, true);
 
