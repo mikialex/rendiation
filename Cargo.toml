@@ -50,6 +50,7 @@ members = [
   "shader/task-graph",
   "shader/ray-tracing",
   "shader/fast-down-sampling-2d",
+  "shader/mpmc",
   "scene/core",
   "scene/rendering/gpu-base",
   "scene/rendering/gpu-gles",

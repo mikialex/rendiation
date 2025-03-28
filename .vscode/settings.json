@@ -112,6 +112,7 @@
         "miri",
         "Monoid",
         "monoids",
+        "mpmc",
         "msaa",
         "multisample",
         "multisampled",

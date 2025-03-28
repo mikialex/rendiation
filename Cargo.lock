@@ -3629,6 +3629,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-device-mpmc"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "derivative",
+ "dyn-clone",
+ "fast-hash-collection",
+ "futures",
+ "parking_lot",
+ "pollster",
+ "rendiation-device-parallel-compute",
+ "rendiation-shader-api",
+ "rendiation-webgpu",
+ "rendiation-webgpu-virtual-buffer",
+]
+
+[[package]]
 name = "rendiation-device-parallel-compute"
 version = "0.1.0"
 dependencies = [
