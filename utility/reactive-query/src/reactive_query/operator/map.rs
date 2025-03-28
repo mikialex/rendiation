@@ -245,13 +245,15 @@ where
 
     let inner = self.inner.create_task(cx);
 
-    cx.then_spawn(inner, move |inner, cx| {
+    let f = cx.then_spawn(inner, move |inner, cx| {
       MapExecution {
         inner,
         map_creator,
         cache,
       }
       .resolve(cx)
-    })
+    });
+
+    avoid_huge_debug_symbols_by_boxing_future(f)
   }
 }

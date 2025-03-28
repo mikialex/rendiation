@@ -12,7 +12,7 @@ pub trait DynQueryCompute: Sync + Send + 'static {
     cx: &mut AsyncQueryCtx,
   ) -> Box<dyn Send + Sync + Unpin + Future<Output = DynReactiveQueryPoll<Self::Key, Self::Value>>>;
 }
-impl<T: QueryCompute> DynQueryCompute for T {
+impl<T: AsyncQueryCompute> DynQueryCompute for T {
   type Key = T::Key;
   type Value = T::Value;
   fn resolve_dyn(&mut self, cx: &QueryResolveCtx) -> DynReactiveQueryPoll<Self::Key, Self::Value> {
@@ -24,7 +24,6 @@ impl<T: QueryCompute> DynQueryCompute for T {
     cx: &mut AsyncQueryCtx,
   ) -> Box<dyn Send + Sync + Unpin + Future<Output = DynReactiveQueryPoll<Self::Key, Self::Value>>>
   {
-    // use this in future
     // let c = cx.resolve_cx().clone();
     // Box::new(Box::pin(
     //   self.create_task(cx).map(move |mut r| r.resolve_dyn(&c)),

@@ -263,8 +263,10 @@ where
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
     let mapping = self.mapping.clone();
     let upstream = self.upstream.create_task(cx);
-    cx.then_spawn(upstream, |upstream, cx| {
+    let f = cx.then_spawn(upstream, |upstream, cx| {
       OneToManyRefDenseBookKeeping { upstream, mapping }.resolve(cx)
-    })
+    });
+
+    avoid_huge_debug_symbols_by_boxing_future(f)
   }
 }

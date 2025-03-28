@@ -88,9 +88,11 @@ where
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
     let mapper = self.mapper.clone();
     let c = cx.resolve_cx().clone();
-    self
+    let f = self
       .base
       .create_task(cx)
-      .map(move |base| FilterMapQuery { base, mapper }.resolve(&c))
+      .map(move |base| FilterMapQuery { base, mapper }.resolve(&c));
+
+    avoid_huge_debug_symbols_by_boxing_future(f)
   }
 }

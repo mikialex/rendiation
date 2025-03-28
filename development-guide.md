@@ -86,6 +86,9 @@ important issue is in bold style.
   - draw on TextureFormat::R8Unorm when enable blend cause strange effect
 - known but not fixed yet
   - correct hdr rendering, see <https://github.com/gfx-rs/wgpu/issues/2920>;
+  - huge rust debug symbol cause link or compile failed in reative query(currently workaround by boxing). see:
+    - <https://github.com/rust-lang/rust/issues/130729>
+    - <https://github.com/rust-lang/rust/issues/135849>
 
 ## Useful commands
 

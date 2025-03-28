@@ -62,7 +62,9 @@ where
     let a = self.a.create_task(cx);
     let b = self.b.create_task(cx);
     let c = cx.resolve_cx().clone();
-    futures::future::join(a, b).map(move |(a, b)| CrossJoinQuery { a, b }.resolve(&c))
+    let f = futures::future::join(a, b).map(move |(a, b)| CrossJoinQuery { a, b }.resolve(&c));
+
+    avoid_huge_debug_symbols_by_boxing_future(f)
   }
 }
 

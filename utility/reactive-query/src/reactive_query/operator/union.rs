@@ -73,8 +73,10 @@ where
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
     let f = self.f;
     let c = cx.resolve_cx().clone();
-    futures::future::join(self.a.create_task(cx), self.b.create_task(cx))
-      .map(move |(a, b)| UnionQuery { a, b, f }.resolve(&c))
+    let f = futures::future::join(self.a.create_task(cx), self.b.create_task(cx))
+      .map(move |(a, b)| UnionQuery { a, b, f }.resolve(&c));
+
+    avoid_huge_debug_symbols_by_boxing_future(f)
   }
 }
 
