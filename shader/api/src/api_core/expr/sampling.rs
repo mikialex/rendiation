@@ -482,7 +482,7 @@ impl<T: ShaderTextureType + DepthSampleTarget> BindingNode<T> {
         sampler: sampler.handle(),
         position: position.into().handle(),
         array_index: None,
-        level: SampleLevel::Auto,
+        level: SampleLevel::Zero,
         reference: reference.handle().into(),
         offset: None,
         gather_channel: None,
