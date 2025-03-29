@@ -154,7 +154,7 @@ where
   type Key = u32;
   type Value = u32;
 
-  type Changes = BoxedDynQuery<u32, ValueChange<u32>>;
+  type Changes = Option<FastHashMap<u32, ValueChange<u32>>>;
   type View = AllocatorView;
 
   fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
@@ -163,7 +163,7 @@ where
     let (d, v) = self.source.resolve(cx);
     cx.keep_view_alive(v);
 
-    let (sender, accumulated_mutations) = collective_channel::<u32, u32>();
+    let (sender, mut accumulated_mutations) = collective_channel::<u32, u32>();
 
     unsafe {
       sender.lock();
@@ -203,11 +203,10 @@ where
     drop(allocator);
 
     noop_ctx!(cx);
-    let d = if let Poll::Ready(Some(r)) = accumulated_mutations.poll_impl(cx) {
-      r
-    } else {
-      QueryExt::into_boxed(EmptyQuery::default())
-    };
+    let mut d = None;
+    if let Poll::Ready(Some(r)) = accumulated_mutations.poll_next_unpin(cx) {
+      d = Some(r);
+    }
 
     let v = self.allocator.make_read_holder();
 

@@ -127,6 +127,8 @@ where
         if previous_delta.merge(&new_delta) {
           self.delta.set_value(k, previous_delta.clone());
         }
+      } else {
+        self.delta.set_value(k, new_delta);
       }
     }
 

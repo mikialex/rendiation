@@ -42,6 +42,17 @@ impl<T: Query> Query for &T {
   }
 }
 
+impl<T: Query> Query for Option<T> {
+  type Key = T::Key;
+  type Value = T::Value;
+  fn iter_key_value(&self) -> impl Iterator<Item = (Self::Key, Self::Value)> + '_ {
+    self.iter().flat_map(|v| v.iter_key_value())
+  }
+  fn access(&self, key: &Self::Key) -> Option<Self::Value> {
+    self.as_ref().and_then(|v| v.access(key))
+  }
+}
+
 pub struct EmptyQuery<K, V>(PhantomData<(K, V)>);
 
 impl<K, V> Clone for EmptyQuery<K, V> {
