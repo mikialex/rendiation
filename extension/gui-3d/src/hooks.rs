@@ -6,6 +6,14 @@ pub struct UICx<'a> {
   writer: &'a mut SceneWriter,
   scope: Vec<&'static Location<'static>>,
   memory: Vec<Box<dyn Any>>,
+  pub event: Option<UIEventStageCx<'a>>,
+  pub view_writer: Option<&'a mut SceneWriter>,
+  pub dyn_cx: &'a mut DynCx,
+}
+
+pub struct UIEventStageCx<'a> {
+  pub platform_event: &'a PlatformEventInput,
+  pub interaction_cx: &'a Interaction3dCtx,
 }
 
 impl UICx<'_> {
