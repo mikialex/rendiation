@@ -41,6 +41,49 @@ pub fn rotation_gizmo_view(
     .with_local_state_inject(Option::<RotateState>::default())
 }
 
+#[track_caller]
+pub fn rotation_gizmo_view2(cx: &mut UICx) -> Option<GizmoUpdateTargetLocal> {
+  cx.scoped(|cx| {
+    let rotate_state = cx.use_state::<Option<RotateState>>();
+    let axis_active_state = cx.use_state::<AxisActiveState>();
+
+    rotator_view(cx, AxisType::X, axis_active_state);
+    rotator_view(cx, AxisType::Y, axis_active_state);
+    rotator_view(cx, AxisType::Z, axis_active_state);
+    None
+  })
+}
+
+#[track_caller]
+pub fn rotator_view(cx: &mut UICx, axis: AxisType, gizmo: &mut AxisActiveState) {
+  cx.scoped(|cx| {
+    let axis_state: &mut ItemState = todo!();
+
+    let rotator: &mut UIWidgetModel = cx.use_state_init(|cx| {
+      //
+      build_rotator(todo!(), axis, todo!());
+    });
+
+    if let Some(response) = rotator.event(cx) {
+      // todo handle response to item state
+    }
+
+    if let Some(cx) = cx.view_update() {
+      // todo handle response to item state
+      access_cx!(cx, style, GlobalUIStyle);
+      let color = style.get_axis_primary_color(axis);
+
+      let self_active = axis_state.active;
+      let visible = !gizmo.has_any_active() || self_active;
+      let color = map_color(color, *axis_state);
+
+      access_cx_mut!(cx, cx3d, SceneWriter);
+      rotator.set_visible(cx3d, visible);
+      rotator.set_color(cx3d, color);
+    }
+  })
+}
+
 pub fn build_rotator(
   v: &mut SceneWriter,
   axis: AxisType,
