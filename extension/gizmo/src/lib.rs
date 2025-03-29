@@ -191,11 +191,11 @@ struct DragStartState {
   start_hit_world_position: Vec3<f32>,
 }
 
-#[derive(Copy, Clone)]
 pub struct GizmoControlTargetState {
   pub target_local_mat: Mat4<f32>,
   pub target_parent_world_mat: Mat4<f32>,
   pub target_world_mat: Mat4<f32>,
+  pub drag_start: Option<DragStartState>,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -227,6 +227,14 @@ struct DragTargetAction {
 
 pub fn axis_lens(axis: AxisType) -> impl Fn(&mut AxisActiveState) -> &mut ItemState {
   move |s| match axis {
+    AxisType::X => &mut s.x,
+    AxisType::Y => &mut s.y,
+    AxisType::Z => &mut s.z,
+  }
+}
+
+pub fn axis_to_item(axis: AxisType, s: &mut AxisActiveState) -> &mut ItemState {
+  match axis {
     AxisType::X => &mut s.x,
     AxisType::Y => &mut s.y,
     AxisType::Z => &mut s.z,
