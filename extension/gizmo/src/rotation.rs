@@ -69,8 +69,12 @@ pub fn rotator_view(
     let axis_state = axis_to_item(axis, gizmo);
 
     let rotator: &mut UIWidgetModel = cx.use_state_init(|cx| {
-      // cx.view_writer.unwrap();
-      build_rotator(todo!(), axis, todo!());
+      let w = cx.view_writer.as_mut().unwrap();
+      let parent = cx.current_parent.unwrap();
+      let r = build_rotator2(w, axis, parent);
+      (r, |r, cx| {
+        r.do_cleanup(cx.view_writer.as_mut().unwrap());
+      })
     });
 
     if let Some(event) = &cx.event {
@@ -106,6 +110,38 @@ pub fn rotator_view(
 
     r
   })
+}
+
+pub fn build_rotator2(
+  v: &mut SceneWriter,
+  axis: AxisType,
+  parent: EntityHandle<SceneNodeEntity>,
+) -> UIWidgetModel {
+  let mesh = build_attributes_mesh(|builder| {
+    builder.triangulate_parametric(
+      &TorusMeshParameter {
+        radius: 1.5,
+        tube_radius: 0.03,
+      }
+      .make_surface(),
+      TessellationConfig { u: 36, v: 4 },
+      true,
+    );
+  });
+
+  let degree_90 = f32::PI() / 2.;
+  let mat = match axis {
+    AxisType::X => Mat4::rotate_y(degree_90),
+    AxisType::Y => Mat4::rotate_x(degree_90),
+    AxisType::Z => Mat4::identity(),
+  };
+
+  UIWidgetModel::new(v, mesh)
+    .with_parent(v, parent)
+    .with_on_mouse_down(start_drag)
+    .with_on_mouse_hovering(hovering)
+    .with_on_mouse_out(stop_hovering)
+  // .into_view_independent(mat)
 }
 
 pub fn build_rotator(
