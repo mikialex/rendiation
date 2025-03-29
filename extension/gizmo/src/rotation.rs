@@ -42,45 +42,69 @@ pub fn rotation_gizmo_view(
 }
 
 #[track_caller]
-pub fn rotation_gizmo_view2(cx: &mut UICx) -> Option<GizmoUpdateTargetLocal> {
+pub fn rotation_gizmo_view2(
+  cx: &mut UICx,
+  target: &mut Option<GizmoControlTargetState>,
+) -> Option<GizmoUpdateTargetLocal> {
   cx.scoped(|cx| {
     let rotate_state = cx.use_state::<Option<RotateState>>();
     let axis_active_state = cx.use_state::<AxisActiveState>();
 
-    rotator_view(cx, AxisType::X, axis_active_state);
-    rotator_view(cx, AxisType::Y, axis_active_state);
-    rotator_view(cx, AxisType::Z, axis_active_state);
+    rotator_view(cx, AxisType::X, axis_active_state, target);
+    rotator_view(cx, AxisType::Y, axis_active_state, target);
+    rotator_view(cx, AxisType::Z, axis_active_state, target);
     None
   })
 }
 
 #[track_caller]
-pub fn rotator_view(cx: &mut UICx, axis: AxisType, gizmo: &mut AxisActiveState) {
+pub fn rotator_view(
+  cx: &mut UICx,
+  axis: AxisType,
+  gizmo: &mut AxisActiveState,
+  target: &mut Option<GizmoControlTargetState>,
+) -> Option<GizmoInControl> {
   cx.scoped(|cx| {
-    let axis_state: &mut ItemState = todo!();
+    let mut r = None;
+    let axis_state = axis_to_item(axis, gizmo);
 
     let rotator: &mut UIWidgetModel = cx.use_state_init(|cx| {
-      //
+      // cx.view_writer.unwrap();
       build_rotator(todo!(), axis, todo!());
     });
 
-    if let Some(response) = rotator.event(cx) {
-      // todo handle response to item state
+    if let Some(event) = &cx.event {
+      if let Some(response) = rotator.event(event) {
+        // todo handle response to item state
+        if response.mouse_hovering {
+          axis_state.hovering = true;
+        }
+        if let Some(pick_position) = response.mouse_down {
+          axis_state.active = true;
+
+          if let Some(target) = target {
+            let drag_start_info = target.start_drag(pick_position.position);
+            debug_print("start drag");
+            target.drag_start = Some(drag_start_info);
+            r = Some(GizmoInControl);
+          }
+        }
+      }
     }
 
-    if let Some(cx) = cx.view_update() {
-      // todo handle response to item state
-      access_cx!(cx, style, GlobalUIStyle);
+    if let Some(w) = &mut cx.view_writer {
+      access_cx!(cx.dyn_cx, style, GlobalUIStyle);
       let color = style.get_axis_primary_color(axis);
 
       let self_active = axis_state.active;
-      let visible = !gizmo.has_any_active() || self_active;
       let color = map_color(color, *axis_state);
+      let visible = !gizmo.has_any_active() || self_active;
 
-      access_cx_mut!(cx, cx3d, SceneWriter);
-      rotator.set_visible(cx3d, visible);
-      rotator.set_color(cx3d, color);
+      rotator.set_visible(w, visible);
+      rotator.set_color(w, color);
     }
+
+    r
   })
 }
 
