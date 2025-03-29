@@ -130,13 +130,13 @@ impl<T: QueryCompute<Key = u32, Value = Size>> QueryCompute for PackerCompute<T>
   type Key = u32;
   type Value = PackResult2dWithDepth;
 
-  type Changes = BoxedDynQuery<u32, ValueChange<PackResult2dWithDepth>>;
+  type Changes = Option<FastHashMap<u32, ValueChange<PackResult2dWithDepth>>>;
   type View = PackerCurrentView;
 
   fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
     let (d, v) = self.size_source.resolve(cx);
     cx.keep_view_alive(v);
-    let (sender, rev) = collective_channel::<u32, PackResult2dWithDepth>();
+    let (sender, mut rev) = collective_channel::<u32, PackResult2dWithDepth>();
 
     {
       unsafe {
@@ -227,11 +227,10 @@ impl<T: QueryCompute<Key = u32, Value = Size>> QueryCompute for PackerCompute<T>
     };
 
     noop_ctx!(cx);
-    let d = if let Poll::Ready(Some(r)) = rev.poll_impl(cx) {
-      r
-    } else {
-      Box::new(EmptyQuery::default())
-    };
+    let mut d = None;
+    if let Poll::Ready(Some(r)) = rev.poll_next_unpin(cx) {
+      d = Some(r);
+    }
 
     (d, v)
   }

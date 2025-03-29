@@ -76,14 +76,14 @@ pub struct CollectiveMutationReceiver<K, T> {
 }
 
 impl<K: CKey, T: CValue> CollectiveMutationReceiver<K, T> {
-  pub fn poll_impl(&self, cx: &mut Context) -> Poll<Option<BoxedDynQuery<K, ValueChange<T>>>> {
+  pub fn poll_impl(&self, cx: &mut Context) -> Poll<Option<MutationData<K, T>>> {
     self.inner.1.register(cx.waker());
     let mut changes = self.inner.0.write();
     let changes: &mut MutationData<K, T> = &mut changes;
 
     let changes = std::mem::take(changes);
     if !changes.is_empty() {
-      Poll::Ready(Some(Box::new(changes)))
+      Poll::Ready(Some(changes))
       // check if the sender has been dropped
     } else if Arc::strong_count(&self.inner) == 1 {
       Poll::Ready(None)
@@ -94,7 +94,7 @@ impl<K: CKey, T: CValue> CollectiveMutationReceiver<K, T> {
 }
 
 impl<K: CKey, T: CValue> Stream for CollectiveMutationReceiver<K, T> {
-  type Item = BoxedDynQuery<K, ValueChange<T>>;
+  type Item = MutationData<K, T>;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
     self.poll_impl(cx)
@@ -119,13 +119,14 @@ pub struct ReactiveQueryFromCollectiveMutation<K, T> {
 impl<K: CKey, T: CValue> ReactiveQuery for ReactiveQueryFromCollectiveMutation<K, T> {
   type Key = K;
   type Value = T;
-  type Compute = (BoxedDynQuery<K, ValueChange<T>>, BoxedDynQuery<K, T>);
+  type Compute = (Option<MutationData<K, T>>, BoxedDynQuery<K, T>);
 
   fn describe(&self, cx: &mut Context) -> Self::Compute {
-    let d = match self.mutation.write().poll_next_unpin(cx) {
-      Poll::Ready(Some(r)) => r,
-      _ => Box::new(EmptyQuery::default()) as BoxedDynQuery<K, ValueChange<T>>,
-    };
+    let mut d = None;
+    if let Poll::Ready(Some(r)) = self.mutation.write().poll_next_unpin(cx) {
+      d = Some(r);
+    }
+
     let v = self.full.access();
     (d, v)
   }
