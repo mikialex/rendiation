@@ -3,10 +3,73 @@ use crate::*;
 pub trait ShaderTextureDimension: 'static {
   const DIMENSION: TextureViewDimension;
 }
+macro_rules! texture_dimension_impl {
+  ($ty: tt, $ty_value: expr) => {
+    pub struct $ty;
+    impl ShaderTextureDimension for $ty {
+      const DIMENSION: TextureViewDimension = $ty_value;
+    }
+  };
+}
+
+pub trait ArrayLayerTarget {}
+pub trait SingleLayerTarget {}
+
+texture_dimension_impl!(TextureDimension1, TextureViewDimension::D1);
+impl SingleLayerTarget for TextureDimension1 {}
+texture_dimension_impl!(TextureDimension2, TextureViewDimension::D2);
+impl SingleLayerTarget for TextureDimension2 {}
+texture_dimension_impl!(TextureDimension2Array, TextureViewDimension::D2Array);
+impl ArrayLayerTarget for TextureDimension2Array {}
+texture_dimension_impl!(TextureDimensionCube, TextureViewDimension::Cube);
+impl SingleLayerTarget for TextureDimensionCube {}
+texture_dimension_impl!(TextureDimensionCubeArray, TextureViewDimension::CubeArray);
+impl ArrayLayerTarget for TextureDimensionCubeArray {}
+texture_dimension_impl!(TextureDimension3, TextureViewDimension::D3);
+impl SingleLayerTarget for TextureDimension3 {}
+
 pub trait ShaderTextureKind: 'static {
   const SAMPLING_TYPE: TextureSampleType;
   const IS_MULTI_SAMPLE: bool;
 }
+pub trait SingleSampleTarget {}
+pub trait MultiSampleTarget {}
+
+macro_rules! texture_single_sample_kind_impl {
+  ($ty: tt, $ty_value: expr) => {
+    pub struct $ty;
+    impl ShaderTextureKind for $ty {
+      const SAMPLING_TYPE: TextureSampleType = $ty_value;
+      const IS_MULTI_SAMPLE: bool = false;
+    }
+    impl SingleSampleTarget for $ty {}
+  };
+  (builtin, $ty: tt, $ty_value: expr) => {
+    impl ShaderTextureKind for $ty {
+      const SAMPLING_TYPE: TextureSampleType = $ty_value;
+      const IS_MULTI_SAMPLE: bool = false;
+    }
+    impl SingleSampleTarget for $ty {}
+  };
+}
+
+texture_single_sample_kind_impl!(TextureSampleFloat, TextureSampleType::Depth);
+texture_single_sample_kind_impl!(builtin, f32, TextureSampleType::Float { filterable: true });
+texture_single_sample_kind_impl!(builtin, u32, TextureSampleType::Uint);
+texture_single_sample_kind_impl!(builtin, i32, TextureSampleType::Sint);
+
+pub struct TextureSampleDepth;
+impl ShaderTextureKind for TextureSampleDepth {
+  const SAMPLING_TYPE: TextureSampleType = TextureSampleType::Depth;
+  const IS_MULTI_SAMPLE: bool = false;
+}
+
+pub struct MultiSampleOf<T>(T);
+impl<T: ShaderTextureKind> ShaderTextureKind for MultiSampleOf<T> {
+  const SAMPLING_TYPE: TextureSampleType = T::SAMPLING_TYPE;
+  const IS_MULTI_SAMPLE: bool = true;
+}
+impl<T> MultiSampleTarget for MultiSampleOf<T> {}
 
 pub struct ShaderTexture<D, F>(pub D, pub F);
 impl<D, F> ShaderNodeSingleType for ShaderTexture<D, F>
@@ -32,31 +95,26 @@ where
   }
 }
 
-#[derive(Clone, Copy)]
-pub struct ShaderTexture1D;
-#[derive(Clone, Copy)]
-pub struct ShaderTexture2D;
-#[derive(Clone, Copy)]
-pub struct ShaderTexture3D;
-#[derive(Clone, Copy)]
-pub struct ShaderTextureCube;
-#[derive(Clone, Copy)]
-pub struct ShaderTexture2DArray;
-#[derive(Clone, Copy)]
-pub struct ShaderTextureCubeArray;
-#[derive(Clone, Copy)]
-pub struct ShaderDepthTexture2D;
-#[derive(Clone, Copy)]
-pub struct ShaderDepthTextureCube;
-#[derive(Clone, Copy)]
-pub struct ShaderDepthTexture2DArray;
-#[derive(Clone, Copy)]
-pub struct ShaderDepthTextureCubeArray;
+// these are commonly used type
 
-#[derive(Clone, Copy)]
-pub struct ShaderMultiSampleTexture2D;
-#[derive(Clone, Copy)]
-pub struct ShaderMultiSampleDepthTexture2D;
+pub type ShaderTexture1D = ShaderTexture<TextureDimension1, f32>;
+pub type ShaderTexture2D = ShaderTexture<TextureDimension2, f32>;
+pub type ShaderTexture3D = ShaderTexture<TextureDimension3, f32>;
+
+pub type ShaderTexture2DUint = ShaderTexture<TextureDimension2, u32>;
+
+pub type ShaderTextureCube = ShaderTexture<TextureDimensionCube, f32>;
+pub type ShaderTexture2DArray = ShaderTexture<TextureDimension2Array, f32>;
+pub type ShaderTextureCubeArray = ShaderTexture<TextureDimensionCubeArray, f32>;
+
+pub type ShaderDepthTexture2D = ShaderTexture<TextureDimension2, TextureSampleDepth>;
+pub type ShaderDepthTextureCube = ShaderTexture<TextureDimensionCube, TextureSampleDepth>;
+pub type ShaderDepthTexture2DArray = ShaderTexture<TextureDimension2Array, TextureSampleDepth>;
+pub type ShaderDepthTextureCubeArray = ShaderTexture<TextureDimensionCubeArray, TextureSampleDepth>;
+
+pub type ShaderMultiSampleTexture2D = ShaderTexture<TextureDimension2, MultiSampleOf<f32>>;
+pub type ShaderMultiSampleDepthTexture2D =
+  ShaderTexture<TextureDimension2, MultiSampleOf<TextureSampleDepth>>;
 
 #[derive(Clone, Copy)]
 pub struct ShaderSampler;
@@ -82,104 +140,6 @@ sg_node_impl!(
   ShaderValueSingleType::AccelerationStructure
 );
 sg_node_impl!(ShaderRayQuery, ShaderValueSingleType::RayQuery);
-
-sg_node_impl!(
-  ShaderTexture2D,
-  ShaderValueSingleType::Texture {
-    dimension: TextureViewDimension::D2,
-    sample_type: TextureSampleType::Float { filterable: true },
-    multi_sampled: false,
-  }
-);
-sg_node_impl!(
-  ShaderTextureCube,
-  ShaderValueSingleType::Texture {
-    dimension: TextureViewDimension::Cube,
-    sample_type: TextureSampleType::Float { filterable: true },
-    multi_sampled: false,
-  }
-);
-sg_node_impl!(
-  ShaderTexture1D,
-  ShaderValueSingleType::Texture {
-    dimension: TextureViewDimension::D1,
-    sample_type: TextureSampleType::Float { filterable: true },
-    multi_sampled: false,
-  }
-);
-sg_node_impl!(
-  ShaderTexture3D,
-  ShaderValueSingleType::Texture {
-    dimension: TextureViewDimension::D3,
-    sample_type: TextureSampleType::Float { filterable: true },
-    multi_sampled: false,
-  }
-);
-sg_node_impl!(
-  ShaderTexture2DArray,
-  ShaderValueSingleType::Texture {
-    dimension: TextureViewDimension::D2Array,
-    sample_type: TextureSampleType::Float { filterable: true },
-    multi_sampled: false,
-  }
-);
-sg_node_impl!(
-  ShaderTextureCubeArray,
-  ShaderValueSingleType::Texture {
-    dimension: TextureViewDimension::CubeArray,
-    sample_type: TextureSampleType::Float { filterable: true },
-    multi_sampled: false,
-  }
-);
-sg_node_impl!(
-  ShaderDepthTexture2D,
-  ShaderValueSingleType::Texture {
-    dimension: TextureViewDimension::D2,
-    sample_type: TextureSampleType::Depth,
-    multi_sampled: false,
-  }
-);
-sg_node_impl!(
-  ShaderDepthTexture2DArray,
-  ShaderValueSingleType::Texture {
-    dimension: TextureViewDimension::D2Array,
-    sample_type: TextureSampleType::Depth,
-    multi_sampled: false,
-  }
-);
-sg_node_impl!(
-  ShaderDepthTextureCube,
-  ShaderValueSingleType::Texture {
-    dimension: TextureViewDimension::Cube,
-    sample_type: TextureSampleType::Depth,
-    multi_sampled: false,
-  }
-);
-sg_node_impl!(
-  ShaderDepthTextureCubeArray,
-  ShaderValueSingleType::Texture {
-    dimension: TextureViewDimension::CubeArray,
-    sample_type: TextureSampleType::Depth,
-    multi_sampled: false,
-  }
-);
-sg_node_impl!(
-  ShaderMultiSampleTexture2D,
-  ShaderValueSingleType::Texture {
-    dimension: TextureViewDimension::D2,
-    sample_type: TextureSampleType::Float { filterable: true },
-    multi_sampled: true,
-  }
-);
-
-sg_node_impl!(
-  ShaderMultiSampleDepthTexture2D,
-  ShaderValueSingleType::Texture {
-    dimension: TextureViewDimension::D2,
-    sample_type: TextureSampleType::Depth,
-    multi_sampled: true,
-  }
-);
 
 /// https://www.w3.org/TR/WGSL/#texturesample
 pub trait ShaderTextureType {
@@ -270,36 +230,6 @@ impl ShaderTextureType for ShaderMultiSampleDepthTexture2D {
 impl ShaderDirectLoad for ShaderMultiSampleDepthTexture2D {
   type LoadInput = Vec2<u32>;
 }
-
-pub trait ArrayLayerTarget {}
-impl ArrayLayerTarget for ShaderTexture2DArray {}
-impl ArrayLayerTarget for ShaderTextureCubeArray {}
-impl ArrayLayerTarget for ShaderDepthTexture2DArray {}
-impl ArrayLayerTarget for ShaderDepthTextureCubeArray {}
-
-pub trait SingleLayerTarget {}
-impl SingleLayerTarget for ShaderTexture1D {}
-impl SingleLayerTarget for ShaderTexture2D {}
-impl SingleLayerTarget for ShaderTexture3D {}
-impl SingleLayerTarget for ShaderTextureCube {}
-impl SingleLayerTarget for ShaderDepthTexture2D {}
-impl SingleLayerTarget for ShaderDepthTextureCube {}
-
-pub trait SingleSampleTarget {}
-impl SingleSampleTarget for ShaderTexture1D {}
-impl SingleSampleTarget for ShaderTexture2D {}
-impl SingleSampleTarget for ShaderTexture3D {}
-impl SingleSampleTarget for ShaderTextureCube {}
-impl SingleSampleTarget for ShaderTexture2DArray {}
-impl SingleSampleTarget for ShaderTextureCubeArray {}
-impl SingleSampleTarget for ShaderDepthTexture2D {}
-impl SingleSampleTarget for ShaderDepthTextureCube {}
-impl SingleSampleTarget for ShaderDepthTexture2DArray {}
-impl SingleSampleTarget for ShaderDepthTextureCubeArray {}
-
-pub trait MultiSampleTarget {}
-impl MultiSampleTarget for ShaderMultiSampleTexture2D {}
-impl MultiSampleTarget for ShaderMultiSampleDepthTexture2D {}
 
 pub trait ShaderArrayTextureSampleIndexType: ShaderNodeType {}
 impl ShaderArrayTextureSampleIndexType for u32 {}
@@ -827,27 +757,4 @@ where
       })
     })
   }
-}
-
-///// extra
-
-#[derive(Clone, Copy)]
-pub struct ShaderTexture2DUint;
-sg_node_impl!(
-  ShaderTexture2DUint,
-  ShaderValueSingleType::Texture {
-    dimension: TextureViewDimension::D2,
-    sample_type: TextureSampleType::Uint,
-    multi_sampled: false,
-  }
-);
-
-impl SingleSampleTarget for ShaderTexture2DUint {}
-impl SingleLayerTarget for ShaderTexture2DUint {}
-impl ShaderTextureType for ShaderTexture2DUint {
-  type Input = Vec2<u32>;
-  type Output = Vec4<u32>;
-}
-impl ShaderDirectLoad for ShaderTexture2DUint {
-  type LoadInput = Vec2<u32>;
 }
