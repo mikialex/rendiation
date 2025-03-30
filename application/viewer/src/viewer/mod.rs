@@ -427,6 +427,30 @@ fn egui(
 
       ui.separator();
 
+      ui.collapsing("wgpu encapsulation layer info", |ui| {
+        let cache_info = gpu.create_cache_report();
+
+        ui.label(format!("{:#?}", cache_info));
+        if ui.button("clear cache").clicked() {
+          gpu.clear_resource_cache();
+        }
+      });
+
+      ui.collapsing("wgpu internal info", |ui| {
+        let storage_info = gpu.device.generate_allocator_report();
+        if let Some(storage_info) = storage_info {
+          ui.label(format!("{:#?}", storage_info));
+        } else {
+          ui.label("Backends that do not support producing these reports");
+        }
+
+        // let counter_info = gpu.device.get_internal_counters();
+        // ui.label(format!(
+        //   "note: wgpu compile-feature is required or counters info are all zero"
+        // ));
+        // ui.label(format!("{:?}", counter_info.hal)); // todo wgpu not impl Debug for this
+      });
+
       ui.collapsing("adaptor info", |ui| {
         ui.label(format!("{:#?}", info.adaptor_info));
         ui.label(format!("power preference: {:?}", info.power_preference));
