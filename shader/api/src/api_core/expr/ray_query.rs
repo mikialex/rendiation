@@ -1,10 +1,16 @@
-use rendiation_algebra::{Mat4x3, Vec2, Vec3};
+use crate::*;
 
-use crate::{
-  call_shader_api, index_access_field, AnyType, BindingNode, Node, ShaderAccelerationStructure,
-  ShaderNodeExpr, ShaderNodeRawHandle, ShaderRayDesc, ShaderRayQuery, ShaderValueSingleType,
-  ShaderValueType,
-};
+#[derive(Clone, Copy)]
+pub struct ShaderAccelerationStructure;
+#[derive(Clone, Copy)]
+pub struct ShaderRayQuery;
+
+sg_node_impl!(
+  ShaderAccelerationStructure,
+  ShaderValueSingleType::AccelerationStructure
+);
+
+sg_node_impl!(ShaderRayQuery, ShaderValueSingleType::RayQuery);
 
 impl Node<ShaderRayQuery> {
   pub fn new() -> Self {
