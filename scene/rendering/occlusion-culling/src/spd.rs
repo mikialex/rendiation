@@ -272,22 +272,24 @@ pub trait SourceImageWriter<V: ShaderNodeType> {
   fn write(&self, coord: Node<Vec2<u32>>, value: Node<V>);
 }
 
-impl<T> SourceImageLoader<T::Output> for BindingNode<T>
+impl<D, F> SourceImageLoader<ChannelOutputOf<F>> for BindingNode<ShaderTexture<D, F>>
 where
-  T: ShaderDirectLoad + SingleLayerTarget + SingleSampleTarget,
-  Node<T::LoadInput>: From<Node<Vec2<u32>>>,
+  D: ShaderTextureDimension + SingleLayerTarget,
+  F: ShaderTextureKind + SingleSampleTarget,
+  Node<TextureSampleInputOf<D, u32>>: From<Node<Vec2<u32>>>,
 {
-  fn load(&self, coord: Node<Vec2<u32>>) -> Node<T::Output> {
+  fn load(&self, coord: Node<Vec2<u32>>) -> Node<ChannelOutputOf<F>> {
     self.load_texel(coord.into(), val(0))
   }
 }
 
-impl<T> SourceImageWriter<T::Output> for BindingNode<T>
+impl<A, D> SourceImageWriter<Vec4<f32>> for BindingNode<ShaderStorageTexture<A, D>>
 where
-  T: ShaderStorageTextureLike + ShaderDirectLoad + SingleLayerTarget,
-  Node<T::LoadInput>: From<Node<Vec2<u32>>>,
+  D: ShaderTextureDimension + SingleLayerTarget,
+  A: StorageTextureWriteable,
+  Node<TextureSampleInputOf<D, u32>>: From<Node<Vec2<u32>>>,
 {
-  fn write(&self, coord: Node<Vec2<u32>>, value: Node<T::Output>) {
+  fn write(&self, coord: Node<Vec2<u32>>, value: Node<Vec4<f32>>) {
     self.write_texel(coord.into(), value);
   }
 }

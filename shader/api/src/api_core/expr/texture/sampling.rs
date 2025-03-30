@@ -100,24 +100,6 @@ impl<D: ShaderTextureDimension, F: ShaderTextureKind> BindingNode<ShaderTexture<
       .sample()
   }
 
-  pub fn load_storage_texture_texel(
-    &self,
-    position: Node<TextureSampleInputOf<D, u32>>,
-  ) -> Node<ChannelOutputOf<F>>
-  where
-    F: SingleSampleTarget,
-    D: SingleLayerTarget,
-  {
-    ShaderNodeExpr::TextureLoad(ShaderTextureLoad {
-      texture: self.handle(),
-      position: position.handle(),
-      array_index: None,
-      sample_index: None,
-      level: None,
-    })
-    .insert_api()
-  }
-
   pub fn load_texel(
     &self,
     position: Node<TextureSampleInputOf<D, u32>>,
@@ -250,28 +232,26 @@ impl<D: ShaderTextureDimension, F: ShaderTextureKind> BindingNode<ShaderTexture<
   }
 }
 
-impl<T> BindingNode<T> {
+impl<D: ShaderTextureDimension, F> BindingNode<ShaderTexture<D, F>> {
   pub fn texture_number_samples(&self) -> Node<u32>
   where
-    T: MultiSampleTarget,
+    F: MultiSampleTarget,
   {
     ShaderNodeExpr::TextureQuery(self.handle(), TextureQuery::NumSamples).insert_api()
   }
   pub fn texture_number_layers(&self) -> Node<u32>
   where
-    T: ArrayLayerTarget + SingleSampleTarget,
+    D: ArrayLayerTarget + SingleSampleTarget,
   {
     ShaderNodeExpr::TextureQuery(self.handle(), TextureQuery::NumLayers).insert_api()
   }
   pub fn texture_number_levels(&self) -> Node<u32>
   where
-    T: SingleSampleTarget,
+    F: SingleSampleTarget,
   {
     ShaderNodeExpr::TextureQuery(self.handle(), TextureQuery::NumLevels).insert_api()
   }
-}
 
-impl<T> BindingNode<T> {
   /// using None means base level
   fn texture_dimension(&self, level: Option<Node<u32>>) -> ShaderNodeExpr {
     ShaderNodeExpr::TextureQuery(
@@ -285,7 +265,7 @@ impl<T> BindingNode<T> {
   /// using None means base level
   pub fn texture_dimension_1d(&self, level: Option<Node<u32>>) -> Node<u32>
   where
-    T: D1TextureType,
+    D: D1LikeTextureType,
   {
     self.texture_dimension(level).insert_api()
   }
@@ -293,7 +273,7 @@ impl<T> BindingNode<T> {
   /// using None means base level
   pub fn texture_dimension_2d(&self, level: Option<Node<u32>>) -> Node<Vec2<u32>>
   where
-    T: D2LikeTextureType,
+    D: D2LikeTextureType,
   {
     self.texture_dimension(level).insert_api()
   }
@@ -301,7 +281,7 @@ impl<T> BindingNode<T> {
   /// using None means base level
   pub fn texture_dimension_3d(&self, level: Option<Node<u32>>) -> Node<Vec3<u32>>
   where
-    T: D3TextureType,
+    D: D3LikeTextureType,
   {
     self.texture_dimension(level).insert_api()
   }

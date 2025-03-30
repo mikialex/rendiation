@@ -188,9 +188,7 @@ impl ShaderFutureInvocation for PTRayGenShaderFutureInvocation {
 
     let final_resolved = require_more_tracing.not();
     if_by(final_resolved, || {
-      let averaged_result = result_buffer
-        .load_storage_texture_texel(image_position)
-        .xyz();
+      let averaged_result = result_buffer.load_texel(image_position).xyz();
 
       let sample_radiance = radiance.load();
       let ldr_result = tonemap.compute_ldr(sample_radiance);

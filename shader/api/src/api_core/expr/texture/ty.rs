@@ -36,7 +36,7 @@ macro_rules! texture_dimension_impl {
 
 texture_dimension_impl!(TextureDimension1, TextureViewDimension::D1, Vec2);
 impl SingleLayerTarget for TextureDimension1 {}
-impl D1TextureType for TextureDimension1 {}
+impl D1LikeTextureType for TextureDimension1 {}
 
 texture_dimension_impl!(TextureDimension2, TextureViewDimension::D2, Vec2);
 impl SingleLayerTarget for TextureDimension2 {}
@@ -60,7 +60,7 @@ impl D2LikeTextureType for TextureDimensionCubeArray {}
 
 texture_dimension_impl!(TextureDimension3, TextureViewDimension::D3, Vec3);
 impl SingleLayerTarget for TextureDimension3 {}
-impl D3TextureType for TextureDimension3 {}
+impl D3LikeTextureType for TextureDimension3 {}
 
 impl ShaderTextureKind for f32 {
   const SAMPLING_TYPE: TextureSampleType = TextureSampleType::Float { filterable: true };
@@ -90,6 +90,7 @@ impl ShaderTextureKind for TextureSampleDepth {
   type ChannelOutput = f32;
 }
 impl DepthSampleTarget for TextureSampleDepth {}
+impl SingleSampleTarget for TextureSampleDepth {}
 
 pub struct MultiSampleOf<T>(T);
 impl<T: ShaderTextureKind> ShaderTextureKind for MultiSampleOf<T> {

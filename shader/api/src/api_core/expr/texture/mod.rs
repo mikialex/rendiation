@@ -19,17 +19,17 @@ pub trait ShaderTextureDimension: 'static {
 
 pub type TextureSampleInputOf<T, U> = <T as ShaderTextureDimension>::Input<U>;
 
-pub trait ArrayLayerTarget {}
-pub trait SingleLayerTarget {}
+pub trait ArrayLayerTarget: ShaderTextureDimension {}
+pub trait SingleLayerTarget: ShaderTextureDimension {}
 
-pub trait D1TextureType {}
-pub trait D2LikeTextureType {}
-pub trait D3TextureType {}
+pub trait D1LikeTextureType: ShaderTextureDimension {}
+pub trait D2LikeTextureType: ShaderTextureDimension {}
+pub trait D3LikeTextureType: ShaderTextureDimension {}
 
 pub trait ShaderTextureKind: 'static {
   const SAMPLING_TYPE: TextureSampleType;
   const IS_MULTI_SAMPLE: bool;
-  type ChannelOutput;
+  type ChannelOutput: ShaderNodeType;
 }
 
 pub type ChannelOutputOf<T> = <T as ShaderTextureKind>::ChannelOutput;

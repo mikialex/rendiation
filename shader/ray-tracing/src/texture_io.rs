@@ -78,7 +78,7 @@ impl FrameOutputInvocation {
       .targets
       .get(&TypeId::of::<T>())
       .unwrap()
-      .load_storage_texture_texel(position)
+      .load_texel(position)
   }
 
   pub fn write_output<T: RayTracingOutputTargetSemantic>(
