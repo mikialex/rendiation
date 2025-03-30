@@ -219,16 +219,10 @@ pub struct ForkComputeView<T: QueryCompute> {
 impl<Map: QueryCompute> ForkComputeView<Map> {
   pub fn resolve(&mut self, cx: &QueryResolveCtx) -> ForkedView<Map::View> {
     // early return if view has already computed
-    {
-      let resolved = self.view_resolve.read();
-      let resolved: &Option<Weak<dyn Any + Send + Sync>> = &resolved;
-      if let Some(view) = resolved {
-        if let Some(view) = view.upgrade() {
-          return ForkedView {
-            inner: view.downcast::<Map::View>().unwrap(),
-          };
-        }
-      }
+    if let Some(view) = self.already_resolved_view.as_ref() {
+      return ForkedView {
+        inner: view.clone(),
+      };
     }
 
     let (d, v) = self.compute.as_ref().unwrap().write().resolve(cx);
