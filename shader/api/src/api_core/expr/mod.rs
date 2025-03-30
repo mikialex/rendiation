@@ -6,8 +6,8 @@ pub use operator::*;
 mod structor;
 pub use structor::*;
 
-mod sampling;
-pub use sampling::*;
+mod texture;
+pub use texture::*;
 
 mod primitive;
 pub use primitive::*;
