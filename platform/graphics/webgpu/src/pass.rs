@@ -14,7 +14,7 @@ impl ShaderPassBuilder for () {}
 
 #[derive(Clone)]
 pub enum RenderTargetView {
-  Texture(GPU2DTextureView),
+  Texture(GPUTextureView),
   ReusedTexture(Arc<Attachment>),
   SurfaceTexture {
     size: Size,
@@ -54,7 +54,7 @@ impl BindableResourceProvider for RenderTargetView {
 
 impl From<GPU2DTextureView> for RenderTargetView {
   fn from(view: GPU2DTextureView) -> Self {
-    Self::Texture(view)
+    Self::Texture(view.texture)
   }
 }
 impl From<Attachment> for RenderTargetView {
@@ -66,13 +66,13 @@ impl From<Attachment> for RenderTargetView {
 impl RenderTargetView {
   pub fn as_view(&self) -> &gpu::TextureView {
     match self {
-      RenderTargetView::Texture(t) => &t.view,
+      RenderTargetView::Texture(t) => t,
       RenderTargetView::SurfaceTexture { view, .. } => view.as_ref(),
-      RenderTargetView::ReusedTexture(t) => &t.item().view,
+      RenderTargetView::ReusedTexture(t) => t.item(),
     }
   }
 
-  pub fn expect_standalone_texture_view(&self) -> &GPU2DTextureView {
+  pub fn expect_standalone_common_texture_view(&self) -> &GPUTextureView {
     match self {
       RenderTargetView::Texture(t) => t,
       RenderTargetView::ReusedTexture(t) => t.item(),
@@ -90,9 +90,9 @@ impl RenderTargetView {
 
   pub fn size(&self) -> Size {
     match self {
-      RenderTargetView::Texture(t) => t.size(),
+      RenderTargetView::Texture(t) => t.size_assume_2d(),
       RenderTargetView::SurfaceTexture { size, .. } => *size,
-      RenderTargetView::ReusedTexture(t) => t.item().size(),
+      RenderTargetView::ReusedTexture(t) => t.item().size_assume_2d(),
     }
   }
 

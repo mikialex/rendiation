@@ -209,14 +209,14 @@ impl GPUCommandEncoder {
       .map(|buffer| buffer.map(|buffer| T::from_bytes(&buffer.read_raw())))
   }
 
-  pub fn read_texture_2d(
+  pub fn read_texture_2d<F>(
     &mut self,
     device: &GPUDevice,
-    texture: &GPU2DTexture,
+    texture: &GPUTypedTextureView<TextureDimension2, F>,
     range: ReadRange,
   ) -> ReadTextureFromStagingBuffer {
     let (width, height) = range.size.into_usize();
-    let buffer_dimensions = TextReadBufferInfo::new(width, height, texture.texture.desc.format);
+    let buffer_dimensions = TextReadBufferInfo::new(width, height, texture.resource.desc.format);
 
     let output_buffer = device.create_buffer(&gpu::BufferDescriptor {
       label: None,
@@ -227,12 +227,12 @@ impl GPUCommandEncoder {
 
     self.copy_texture_to_buffer(
       gpu::TexelCopyTextureInfo {
-        texture,
-        mip_level: 0,
+        texture: texture.resource.gpu_resource(),
+        mip_level: texture.desc.mip_level_count.unwrap_or(0),
         origin: gpu::Origin3d {
           x: range.offset_x as u32,
           y: range.offset_y as u32,
-          z: 0,
+          z: texture.desc.base_array_layer,
         },
         aspect: gpu::TextureAspect::All,
       },
@@ -247,19 +247,24 @@ impl GPUCommandEncoder {
       range.size.into_gpu_size(),
     );
 
-    self.on_submit.once_future(|_| {}).then(move |_| {
+    Box::new(self.on_submit.once_future(|_| {}).then(move |_| {
       ReadBufferTask::new(output_buffer, ..).map(move |r| {
         r.map(|buffer| ReadableTextureBuffer {
           info: buffer_dimensions,
           buffer,
         })
       })
-    })
+    }))
   }
 }
 
-pub type ReadTextureFromStagingBuffer =
-  impl Future<Output = Result<ReadableTextureBuffer, gpu::BufferAsyncError>> + 'static;
+pub type ReadTextureFromStagingBuffer = Box<
+  dyn Future<Output = Result<ReadableTextureBuffer, gpu::BufferAsyncError>>
+    + Send
+    + Sync
+    + Unpin
+    + 'static,
+>;
 
 pub type ReadBufferFromStagingBuffer =
   impl Future<Output = Result<ReadableBuffer, gpu::BufferAsyncError>> + 'static;

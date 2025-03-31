@@ -6,7 +6,7 @@ use crate::*;
 ///
 /// todo, error handling for too large input
 pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
-  ms_depth: &GPUMultiSample2DDepthTextureView,
+  ms_depth: &GPU2DMultiSampleDepthTextureView,
   target: &GPU2DTexture,
   pass: &mut GPUComputePass,
   device: &GPUDevice,

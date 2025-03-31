@@ -50,7 +50,7 @@ pub trait Mipmap2dReducerImpl: Mipmap2dReducer + Sized {
       .draw_quad();
 
       pass("mip-gen-2d")
-        .with_color(&RenderTargetView::Texture(write_view), load())
+        .with_color(&RenderTargetView::from(write_view), load())
         .render(encoder, ctx)
         .by(&mut task);
     }
@@ -96,7 +96,7 @@ pub trait Mipmap2dReducerImpl: Mipmap2dReducer + Sized {
         .draw_quad();
 
         pass("mip-gen-cube-face")
-          .with_color(&RenderTargetView::Texture(write_view), load())
+          .with_color(&RenderTargetView::from(write_view), load())
           .render(encoder, ctx)
           .by(&mut task);
       }

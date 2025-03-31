@@ -124,14 +124,13 @@ where
       return Err("texture dimension mismatch");
     }
 
-    // todo, fix
-    // if !F::check(
-    //   &texture.desc.format.unwrap_or(texture.resource.desc.format),
-    //   texture.desc.aspect,
-    //   texture.resource.desc.sample_count,
-    // ) {
-    //   return Err("texture format mismatch");
-    // }
+    if !F::check(
+      &texture.desc.format.unwrap_or(texture.resource.desc.format),
+      texture.desc.aspect,
+      texture.resource.desc.sample_count,
+    ) {
+      return Err("texture format mismatch");
+    }
 
     Ok(Self {
       typed_desc: PhantomData,
@@ -169,17 +168,22 @@ pub type GPUCubeArrayDepthTextureView =
   GPUTypedTextureView<TextureDimensionCubeArray, TextureSampleDepth>;
 
 pub type GPU2DMultiSampleTextureView = GPUTypedTextureView<TextureDimension2, MultiSampleOf<f32>>;
-pub type GPUMultiSample2DDepthTextureView =
+pub type GPU2DMultiSampleDepthTextureView =
   GPUTypedTextureView<TextureDimension2, MultiSampleOf<TextureSampleDepth>>;
 
 impl<F> GPUTypedTextureView<TextureDimension2, F> {
   pub fn size(&self) -> Size {
+    self.texture.size_assume_2d()
+  }
+}
+
+impl GPUTextureView {
+  pub fn size_assume_2d(&self) -> Size {
     let size = self
-      .texture
       .resource
       .desc
       .size
-      .mip_level_size(self.texture.desc.base_mip_level, gpu::TextureDimension::D2);
+      .mip_level_size(self.desc.base_mip_level, gpu::TextureDimension::D2);
     GPUTextureSize::from_gpu_size(size)
   }
 }

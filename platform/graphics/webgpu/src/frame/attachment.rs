@@ -1,7 +1,7 @@
 use crate::*;
 
-pub type AttachmentPool = ReuseKVPool<PooledTextureKey, GPU2DTextureView>;
-pub type Attachment = ReuseableItem<PooledTextureKey, GPU2DTextureView>;
+pub type AttachmentPool = ReuseKVPool<PooledTextureKey, GPUTextureView>;
+pub type Attachment = ReuseableItem<PooledTextureKey, GPUTextureView>;
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct PooledTextureKey {
@@ -14,8 +14,8 @@ impl PooledTextureKey {
   pub fn request(self, ctx: &FrameCtx) -> RenderTargetView {
     ctx.pool.request(&self).into()
   }
-  pub fn create_directly(self, gpu: &GPU) -> GPU2DTextureView {
-    let tex: GPU2DTexture = GPUTexture::create(
+  pub fn create_directly(self, gpu: &GPU) -> GPUTextureView {
+    GPUTexture::create(
       gpu::TextureDescriptor {
         label: None,
         size: map_size_gpu(self.size),
@@ -31,9 +31,7 @@ impl PooledTextureKey {
       },
       &gpu.device,
     )
-    .try_into()
-    .unwrap();
-    tex.create_default_view().try_into().unwrap()
+    .create_default_view()
   }
 }
 

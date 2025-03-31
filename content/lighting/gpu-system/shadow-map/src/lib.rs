@@ -137,16 +137,13 @@ impl BasicShadowMapSystem {
 
     for layer in 0..u32::from(self.current_size.unwrap().depth) {
       // clear all
-      let write_view: GPU2DTextureView = shadow_map_atlas
-        .create_view(TextureViewDescriptor {
-          label: Some("shadowmap-clear-view"),
-          dimension: Some(TextureViewDimension::D2),
-          base_array_layer: layer,
-          array_layer_count: Some(1),
-          ..Default::default()
-        })
-        .try_into()
-        .unwrap();
+      let write_view = shadow_map_atlas.create_view(TextureViewDescriptor {
+        label: Some("shadowmap-clear-view"),
+        dimension: Some(TextureViewDimension::D2),
+        base_array_layer: layer,
+        array_layer_count: Some(1),
+        ..Default::default()
+      });
 
       let _ = pass("shadow-map-clear")
         .with_depth(
@@ -161,16 +158,13 @@ impl BasicShadowMapSystem {
       let world = world.access(&idx).unwrap();
       let proj = proj.access(&idx).unwrap();
 
-      let write_view: GPU2DTextureView = shadow_map_atlas
-        .create_view(TextureViewDescriptor {
-          label: Some("shadowmap-write-view"),
-          dimension: Some(TextureViewDimension::D2),
-          base_array_layer: shadow_view.layer_index as u32,
-          array_layer_count: Some(1),
-          ..Default::default()
-        })
-        .try_into()
-        .unwrap();
+      let write_view = shadow_map_atlas.create_view(TextureViewDescriptor {
+        label: Some("shadowmap-write-view"),
+        dimension: Some(TextureViewDimension::D2),
+        base_array_layer: shadow_view.layer_index as u32,
+        array_layer_count: Some(1),
+        ..Default::default()
+      });
 
       let mut scene_content = scene_content(proj, world, frame_ctx);
 

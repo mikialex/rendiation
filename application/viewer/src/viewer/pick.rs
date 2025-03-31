@@ -140,17 +140,16 @@ impl GPUxEntityIdMapPicker {
   }
   pub fn read_new_frame_id_buffer(
     &mut self,
-    texture: &GPU2DTextureView,
+    texture: &GPUTypedTextureView<TextureDimension2, u32>,
     gpu: &GPU,
     encoder: &mut GPUCommandEncoder,
   ) {
-    let tex = GPU2DTexture::try_from(texture.resource.clone()).unwrap();
     let full_size = texture.size();
     self.last_id_buffer_size = Some(full_size);
     for (sender, range) in self.wait_to_read_tasks.drain(..) {
       if let Some(range) = range.clamp(full_size) {
         sender
-          .send(encoder.read_texture_2d(&gpu.device, &tex, range))
+          .send(encoder.read_texture_2d(&gpu.device, texture, range))
           .ok();
       } // else the sender will drop, and receiver will resolved
     }

@@ -18,7 +18,7 @@ pub async fn main() {
     basic_texture_usages(),
     TextureFormat::Rgba8Unorm,
   );
-  let target_res = target.resource.clone();
+  let target_res = target.resource.clone().create_default_view();
 
   let mut encoder = gpu.create_encoder();
 
@@ -29,7 +29,7 @@ pub async fn main() {
   let mut encoder = gpu.device.create_encoder();
   let reader = encoder.read_texture_2d(
     &gpu.device,
-    &GPU2DTexture::try_from(target_res).unwrap(),
+    &GPU2DTextureView::try_from(target_res).unwrap(),
     ReadRange {
       size,
       offset_x: 0,

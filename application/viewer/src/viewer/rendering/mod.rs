@@ -440,7 +440,7 @@ impl Viewer3dRenderingCtx {
             pass("copy rtx ao into final target")
               .with_color(target, load())
               .render_ctx(&mut ctx)
-              .by(&mut copy_frame(RenderTargetView::Texture(ao_result), None));
+              .by(&mut copy_frame(RenderTargetView::from(ao_result), None));
           }
           RayTracingEffectMode::ReferenceTracing => {
             if rtx_renderer.base.any_changed {
@@ -457,7 +457,7 @@ impl Viewer3dRenderingCtx {
             pass("copy pt result into final target")
               .with_color(target, load())
               .render_ctx(&mut ctx)
-              .by(&mut copy_frame(RenderTargetView::Texture(result), None));
+              .by(&mut copy_frame(RenderTargetView::from(result), None));
           }
         }
 
@@ -486,10 +486,12 @@ impl Viewer3dRenderingCtx {
         &self.material_defer_lighting_supports,
       );
 
-      let entity_id = entity_id.expect_standalone_texture_view();
-      self
-        .picker
-        .read_new_frame_id_buffer(entity_id, &self.gpu, &mut ctx.encoder);
+      let entity_id = entity_id.expect_standalone_common_texture_view();
+      self.picker.read_new_frame_id_buffer(
+        &GPUTypedTextureView::<TextureDimension2, u32>::try_from(entity_id.clone()).unwrap(),
+        &self.gpu,
+        &mut ctx.encoder,
+      );
       //
     }
 
@@ -563,14 +565,13 @@ impl ViewRenderedState {
 
     let mut encoder = self.device.create_encoder();
 
-    let buffer = encoder.read_texture_2d(
+    let tex = GPU2DTextureView::try_from(tex).unwrap();
+
+    let buffer = encoder.read_texture_2d::<f32>(
       &self.device,
-      &tex.resource.clone().try_into().unwrap(),
+      &tex,
       ReadRange {
-        size: Size::from_u32_pair_min_one((
-          tex.resource.desc.size.width,
-          tex.resource.desc.size.height,
-        )),
+        size: tex.size(),
         offset_x: 0,
         offset_y: 0,
       },
