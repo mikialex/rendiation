@@ -4,7 +4,7 @@ use crate::*;
 
 #[derive(Default, Clone)]
 pub struct RayTracingTextureIO {
-  targets: Arc<RwLock<FastHashMap<TypeId, StorageTextureViewReadWrite<GPU2DTextureView>>>>,
+  targets: Arc<RwLock<FastHashMap<TypeId, StorageTextureViewReadWrite2D>>>,
 }
 
 impl ShaderHashProvider for RayTracingTextureIO {
@@ -49,7 +49,9 @@ impl RayTracingTextureIO {
   pub fn install_output_target<T: RayTracingOutputTargetSemantic>(&self, target: GPU2DTextureView) {
     self.targets.write().insert(
       TypeId::of::<T>(),
-      target.into_storage_texture_view_readwrite().unwrap(),
+      target
+        .into_storage_texture_view::<StorageTextureAccessReadWrite>()
+        .unwrap(),
     );
   }
 

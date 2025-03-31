@@ -441,7 +441,7 @@ fn egui(
         if let Some(storage_info) = storage_info {
           ui.label(format!("{:#?}", storage_info));
         } else {
-          ui.label("Backends that do not support producing these reports");
+          ui.label("The current backend do not support producing this report");
         }
 
         // let counter_info = gpu.device.get_internal_counters();

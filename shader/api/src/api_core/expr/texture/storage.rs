@@ -1,26 +1,30 @@
 use crate::*;
 
-pub trait StorageTextureReadable {}
-pub trait StorageTextureWriteable {}
+pub trait StorageTextureAccessMarker: 'static {
+  const ACCESS: StorageTextureAccess;
+}
 
-pub struct ShaderStorageTexture<A, T>(A, T);
-impl<A, T> ShaderNodeSingleType for ShaderStorageTexture<A, T>
+pub trait StorageTextureReadable: StorageTextureAccessMarker {}
+pub trait StorageTextureWriteable: StorageTextureAccessMarker {}
+
+pub struct ShaderStorageTexture<A, D>(A, D);
+impl<A, D> ShaderNodeSingleType for ShaderStorageTexture<A, D>
 where
-  T: ShaderTextureDimension,
+  D: ShaderTextureDimension,
   A: 'static,
 {
   fn single_ty() -> ShaderValueSingleType {
     ShaderValueSingleType::StorageTexture {
-      dimension: T::DIMENSION,
+      dimension: D::DIMENSION,
       format: StorageFormat::R8Unorm, // this will be override by container instance.
       access: StorageTextureAccess::Load, // this will be override by container instance.
     }
   }
 }
 
-impl<A, T> ShaderNodeType for ShaderStorageTexture<A, T>
+impl<A, D> ShaderNodeType for ShaderStorageTexture<A, D>
 where
-  T: ShaderTextureDimension,
+  D: ShaderTextureDimension,
   A: 'static,
 {
   fn ty() -> ShaderValueType {
@@ -29,10 +33,19 @@ where
 }
 
 pub struct StorageTextureAccessReadonly;
+impl StorageTextureAccessMarker for StorageTextureAccessReadonly {
+  const ACCESS: StorageTextureAccess = StorageTextureAccess::Load;
+}
 impl StorageTextureReadable for StorageTextureAccessReadonly {}
 pub struct StorageTextureAccessWriteonly;
+impl StorageTextureAccessMarker for StorageTextureAccessWriteonly {
+  const ACCESS: StorageTextureAccess = StorageTextureAccess::Store;
+}
 impl StorageTextureWriteable for StorageTextureAccessWriteonly {}
 pub struct StorageTextureAccessReadWrite;
+impl StorageTextureAccessMarker for StorageTextureAccessReadWrite {
+  const ACCESS: StorageTextureAccess = StorageTextureAccess::LoadStore;
+}
 impl StorageTextureReadable for StorageTextureAccessReadWrite {}
 impl StorageTextureWriteable for StorageTextureAccessReadWrite {}
 

@@ -171,10 +171,9 @@ async fn test_wavefront_compute() {
 
   let buffer = {
     let mut encoder = gpu.device.create_encoder();
-    let texture = view.resource.clone().try_into();
     let buffer = encoder.read_texture_2d(
       &gpu.device,
-      &texture.unwrap(),
+      &view,
       ReadRange {
         size: Size::from_u32_pair_min_one((canvas_size, canvas_size)),
         offset_x: 0,

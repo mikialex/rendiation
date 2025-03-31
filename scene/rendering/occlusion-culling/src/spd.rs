@@ -33,7 +33,7 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
     .into_storage_texture_view_writeonly()
     .unwrap();
   let mip_count_buffer = create_uniform(Vec4::new(mip_level_count, 0, 0, 0), device);
-  let level_1_6: [StorageTextureViewWriteOnly<GPU2DTextureView>; 6] = std::array::from_fn(|i| {
+  let level_1_6: [StorageTextureViewWriteonly2D; 6] = std::array::from_fn(|i| {
     mips[i + 1]
       .clone()
       .into_storage_texture_view_writeonly()
@@ -112,7 +112,7 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
   }
 
   let l_6 = mips[6].clone();
-  let l_7_12: [StorageTextureViewWriteOnly<GPU2DTextureView>; 6] = std::array::from_fn(|i| {
+  let l_7_12: [StorageTextureViewWriteonly2D; 6] = std::array::from_fn(|i| {
     mips[i + 7]
       .clone()
       .into_storage_texture_view_writeonly()

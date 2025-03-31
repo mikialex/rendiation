@@ -216,7 +216,7 @@ impl ShaderFutureInvocation for PTRayGenShaderFutureInvocation {
 #[derive(Clone)]
 pub struct PTRayGenCtx {
   pub camera: Box<dyn RtxCameraRenderComponent>,
-  pub result_buffer: StorageTextureViewReadWrite<GPU2DTextureView>,
+  pub result_buffer: StorageTextureViewReadWrite2D,
   pub config: UniformBufferDataView<PTConfig>,
   pub tonemap: ToneMap,
 }
