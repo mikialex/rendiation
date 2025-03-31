@@ -1,8 +1,10 @@
 mod d2;
+use check::*;
 pub use d2::*;
 mod cube;
 mod storage;
 pub use storage::*;
+mod check;
 
 use crate::*;
 
@@ -38,236 +40,146 @@ impl BindableResourceView for gpu::TextureView {
   }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct GPU1DTexture(pub GPUTexture);
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct GPU2DTexture(pub GPUTexture);
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct GPU3DTexture(pub GPUTexture);
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct GPUCubeTexture(pub GPUTexture);
-
-macro_rules! texture_inner {
-  ($ty: ty) => {
-    impl Deref for $ty {
-      type Target = GPUTexture;
-
-      fn deref(&self) -> &Self::Target {
-        &self.0
-      }
-    }
-  };
+#[derive(Debug)]
+pub struct GPUTypedTexture<D, F> {
+  pub typed_desc: PhantomData<(D, F)>,
+  pub texture: GPUTexture,
 }
 
-texture_inner!(GPU1DTexture);
-texture_inner!(GPU2DTexture);
-texture_inner!(GPU3DTexture);
-texture_inner!(GPUCubeTexture);
+impl<D, F> TryFrom<GPUTexture> for GPUTypedTexture<D, F> {
+  type Error = &'static str;
 
-macro_rules! texture_downcast {
-  ($ty: ty, $var:tt, $check: expr, $err: tt) => {
-    impl TryFrom<GPUTexture> for $ty {
-      type Error = &'static str;
-
-      fn try_from($var: GPUTexture) -> Result<Self, Self::Error> {
-        if $check {
-          Ok(Self($var))
-        } else {
-          Err("raw texture not a 1d")
-        }
-      }
-    }
-  };
-}
-
-texture_downcast!(
-  GPU1DTexture,
-  value,
-  value.desc.dimension == gpu::TextureDimension::D1,
-  "raw texture not a 1d"
-);
-texture_downcast!(
-  GPU2DTexture,
-  value,
-  value.desc.dimension == gpu::TextureDimension::D2,
-  "raw texture not a 2d"
-);
-texture_downcast!(
-  GPU3DTexture,
-  value,
-  value.desc.dimension == gpu::TextureDimension::D3,
-  "raw texture not a 3d"
-);
-texture_downcast!(
-  GPUCubeTexture,
-  value,
-  value.desc.dimension == gpu::TextureDimension::D2 && value.desc.array_layer_count() == 6,
-  "raw texture not a cube"
-);
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct GPU1DTextureView(pub GPUTextureView);
-#[derive(Clone, Debug, PartialEq)]
-pub struct GPU2DTextureView(pub GPUTextureView);
-
-impl GPU2DTextureView {
-  pub fn size(&self) -> Size {
-    let size = self
-      .resource
-      .desc
-      .size
-      .mip_level_size(self.desc.base_mip_level, gpu::TextureDimension::D2);
-    GPUTextureSize::from_gpu_size(size)
+  fn try_from(texture: GPUTexture) -> Result<Self, Self::Error> {
+    // if $check {
+    //   Ok(Self($var))
+    // } else {
+    //   Err("raw texture not a 1d")
+    // }
+    Ok(Self {
+      typed_desc: PhantomData,
+      texture,
+    })
   }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct GPU2DArrayTextureView(pub GPUTextureView);
-#[derive(Clone, Debug, PartialEq)]
-pub struct GPUCubeTextureView(pub GPUTextureView);
-#[derive(Clone, Debug, PartialEq)]
-pub struct GPUCubeArrayTextureView(pub GPUTextureView);
-#[derive(Clone, Debug, PartialEq)]
-pub struct GPU3DTextureView(pub GPUTextureView);
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct GPU2DDepthTextureView(pub GPUTextureView);
-#[derive(Clone, Debug, PartialEq)]
-pub struct GPU2DArrayDepthTextureView(pub GPUTextureView);
-#[derive(Clone, Debug, PartialEq)]
-pub struct GPUCubeDepthTextureView(pub GPUTextureView);
-#[derive(Clone, Debug, PartialEq)]
-pub struct GPUCubeArrayDepthTextureView(pub GPUTextureView);
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct GPUMultiSample2DTextureView(pub GPUTextureView);
-#[derive(Clone, Debug, PartialEq)]
-pub struct GPUMultiSample2DDepthTextureView(pub GPUTextureView);
-
-macro_rules! texture_view_inner {
-  ($ty: ty) => {
-    impl CacheAbleBindingSource for $ty {
-      fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
-        self.0.get_binding_build_source()
-      }
+impl<D, F> Clone for GPUTypedTexture<D, F> {
+  fn clone(&self) -> Self {
+    Self {
+      typed_desc: self.typed_desc,
+      texture: self.texture.clone(),
     }
-
-    impl Deref for $ty {
-      type Target = GPUTextureView;
-
-      fn deref(&self) -> &Self::Target {
-        &self.0
-      }
-    }
-  };
+  }
 }
 
-texture_view_inner!(GPU1DTextureView);
-texture_view_inner!(GPU2DTextureView);
-texture_view_inner!(GPU2DArrayTextureView);
-texture_view_inner!(GPUCubeTextureView);
-texture_view_inner!(GPUCubeArrayTextureView);
-texture_view_inner!(GPU3DTextureView);
-
-texture_view_inner!(GPU2DDepthTextureView);
-texture_view_inner!(GPU2DArrayDepthTextureView);
-texture_view_inner!(GPUCubeDepthTextureView);
-texture_view_inner!(GPUCubeArrayDepthTextureView);
-
-texture_view_inner!(GPUMultiSample2DTextureView);
-texture_view_inner!(GPUMultiSample2DDepthTextureView);
-
-macro_rules! texture_view_downcast {
-  ($ty: ty, $var:tt, $check: expr, $err: tt) => {
-    impl TryFrom<GPUTextureView> for $ty {
-      type Error = &'static str;
-
-      fn try_from($var: GPUTextureView) -> Result<Self, Self::Error> {
-        if $check {
-          Ok(Self($var))
-        } else {
-          Err("raw texture not a 1d")
-        }
-      }
-    }
-  };
+impl<D, F> PartialEq for GPUTypedTexture<D, F> {
+  fn eq(&self, other: &Self) -> bool {
+    self.texture == other.texture
+  }
 }
 
-// todo check view desc dimension
-texture_view_downcast!(
-  GPU1DTextureView,
-  value,
-  value.resource.desc.dimension == gpu::TextureDimension::D1,
-  "raw texture view not a 1d"
-);
-texture_view_downcast!(
-  GPU2DTextureView,
-  value,
-  value.resource.desc.dimension == gpu::TextureDimension::D2,
-  "raw texture view not a 2d"
-);
-texture_view_downcast!(
-  GPU2DArrayTextureView,
-  value,
-  value.resource.desc.dimension == gpu::TextureDimension::D2,
-  "raw texture view not a 2d array"
-);
-texture_view_downcast!(
-  GPU3DTextureView,
-  value,
-  value.resource.desc.dimension == gpu::TextureDimension::D3,
-  "raw texture view not a 3d"
-);
-texture_view_downcast!(
-  GPUCubeTextureView,
-  value,
-  value.resource.desc.dimension == gpu::TextureDimension::D2
-    && value.resource.desc.array_layer_count() == 6,
-  "raw texture view not a cube"
-);
-texture_view_downcast!(
-  GPUCubeArrayTextureView,
-  value,
-  value.resource.desc.dimension == gpu::TextureDimension::D2
-    && value.resource.desc.array_layer_count() == 6,
-  "raw texture view not a cube array"
-);
+impl<D, F> Deref for GPUTypedTexture<D, F> {
+  type Target = GPUTexture;
 
-// todo check depth format
-// todo check view desc dimension
-texture_view_downcast!(
-  GPU2DDepthTextureView,
-  value,
-  value.resource.desc.dimension == gpu::TextureDimension::D2,
-  "raw texture view not a 2d depth"
-);
-texture_view_downcast!(
-  GPUMultiSample2DDepthTextureView,
-  value,
-  value.resource.desc.dimension == gpu::TextureDimension::D2
-    && value.resource.desc.sample_count > 1,
-  "raw texture view not a 2d depth"
-);
-texture_view_downcast!(
-  GPU2DArrayDepthTextureView,
-  value,
-  value.resource.desc.dimension == gpu::TextureDimension::D2,
-  "raw texture view not a 2d array depth"
-);
-texture_view_downcast!(
-  GPUCubeDepthTextureView,
-  value,
-  value.resource.desc.dimension == gpu::TextureDimension::D2
-    && value.resource.desc.array_layer_count() == 6,
-  "raw texture view not a cube"
-);
-texture_view_downcast!(
-  GPUCubeArrayDepthTextureView,
-  value,
-  value.resource.desc.dimension == gpu::TextureDimension::D2
-    && value.resource.desc.array_layer_count() == 6,
-  "raw texture view not a cube array"
-);
+  fn deref(&self) -> &Self::Target {
+    &self.texture
+  }
+}
+
+pub type GPU1DTexture = GPUTypedTexture<TextureDimension1, f32>;
+pub type GPU2DTexture = GPUTypedTexture<TextureDimension2, f32>;
+pub type GPU3DTexture = GPUTypedTexture<TextureDimension3, f32>;
+
+pub type GPUCubeTexture = GPUTypedTexture<TextureDimensionCube, f32>;
+
+#[derive(Debug)]
+pub struct GPUTypedTextureView<D, F> {
+  pub typed_desc: PhantomData<(D, F)>,
+  pub texture: GPUTextureView,
+}
+
+impl<D, F> Clone for GPUTypedTextureView<D, F> {
+  fn clone(&self) -> Self {
+    Self {
+      typed_desc: self.typed_desc,
+      texture: self.texture.clone(),
+    }
+  }
+}
+
+impl<D, F> PartialEq for GPUTypedTextureView<D, F> {
+  fn eq(&self, other: &Self) -> bool {
+    self.texture == other.texture
+  }
+}
+
+impl<D, F> TryFrom<GPUTextureView> for GPUTypedTextureView<D, F>
+where
+  D: DimensionDynamicViewCheck,
+  F: TextureFormatDynamicCheck,
+{
+  type Error = &'static str; // todo, improve error report
+
+  fn try_from(texture: GPUTextureView) -> Result<Self, Self::Error> {
+    if !D::check(&texture.desc, &texture.resource.desc) {
+      return Err("texture dimension mismatch");
+    }
+
+    // todo, fix
+    // if !F::check(
+    //   &texture.desc.format.unwrap_or(texture.resource.desc.format),
+    //   texture.desc.aspect,
+    //   texture.resource.desc.sample_count,
+    // ) {
+    //   return Err("texture format mismatch");
+    // }
+
+    Ok(Self {
+      typed_desc: PhantomData,
+      texture,
+    })
+  }
+}
+
+impl<D, F> Deref for GPUTypedTextureView<D, F> {
+  type Target = GPUTextureView;
+
+  fn deref(&self) -> &Self::Target {
+    &self.texture
+  }
+}
+
+impl<D, F> CacheAbleBindingSource for GPUTypedTextureView<D, F> {
+  fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
+    self.texture.get_binding_build_source()
+  }
+}
+
+pub type GPU1DTextureView = GPUTypedTextureView<TextureDimension1, f32>;
+pub type GPU2DTextureView = GPUTypedTextureView<TextureDimension2, f32>;
+pub type GPU2DArrayTextureView = GPUTypedTextureView<TextureDimension2Array, f32>;
+pub type GPUCubeTextureView = GPUTypedTextureView<TextureDimensionCube, f32>;
+pub type GPUCubeArrayTextureView = GPUTypedTextureView<TextureDimensionCubeArray, f32>;
+pub type GPU3DTextureView = GPUTypedTextureView<TextureDimension3, f32>;
+
+pub type GPU2DDepthTextureView = GPUTypedTextureView<TextureDimension2, TextureSampleDepth>;
+pub type GPU2DArrayDepthTextureView =
+  GPUTypedTextureView<TextureDimension2Array, TextureSampleDepth>;
+pub type GPUCubeDepthTextureView = GPUTypedTextureView<TextureDimensionCube, TextureSampleDepth>;
+pub type GPUCubeArrayDepthTextureView =
+  GPUTypedTextureView<TextureDimensionCubeArray, TextureSampleDepth>;
+
+pub type GPU2DMultiSampleTextureView = GPUTypedTextureView<TextureDimension2, MultiSampleOf<f32>>;
+pub type GPUMultiSample2DDepthTextureView =
+  GPUTypedTextureView<TextureDimension2, MultiSampleOf<TextureSampleDepth>>;
+
+impl<F> GPUTypedTextureView<TextureDimension2, F> {
+  pub fn size(&self) -> Size {
+    let size = self
+      .texture
+      .resource
+      .desc
+      .size
+      .mip_level_size(self.texture.desc.base_mip_level, gpu::TextureDimension::D2);
+    GPUTextureSize::from_gpu_size(size)
+  }
+}

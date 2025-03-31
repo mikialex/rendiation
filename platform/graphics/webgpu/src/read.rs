@@ -216,7 +216,7 @@ impl GPUCommandEncoder {
     range: ReadRange,
   ) -> ReadTextureFromStagingBuffer {
     let (width, height) = range.size.into_usize();
-    let buffer_dimensions = TextReadBufferInfo::new(width, height, texture.desc.format);
+    let buffer_dimensions = TextReadBufferInfo::new(width, height, texture.texture.desc.format);
 
     let output_buffer = device.create_buffer(&gpu::BufferDescriptor {
       label: None,

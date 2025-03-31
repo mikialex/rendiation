@@ -113,7 +113,7 @@ pub fn generate_pre_filter_map(
 }
 
 fn cube_face_view(cube: &GPUCubeTextureView, face_idx: u32, level: u32) -> GPU2DTextureView {
-  let view = cube.0.resource.create_view(TextureViewDescriptor {
+  let view = cube.resource.create_view(TextureViewDescriptor {
     label: None,
     format: None,
     dimension: Some(TextureViewDimension::D2),

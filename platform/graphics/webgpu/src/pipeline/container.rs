@@ -67,6 +67,17 @@ where
   }
 }
 
+impl<D, F> ShaderBindingProvider for GPUTypedTextureView<D, F>
+where
+  D: ShaderTextureDimension,
+  F: ShaderTextureKind,
+{
+  type Node = ShaderBinding<ShaderTexture<D, F>>;
+  fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {
+    node
+  }
+}
+
 macro_rules! map_shader_ty {
   ($ty: ty, $shader_ty: ty) => {
     impl ShaderBindingProvider for $ty {
@@ -77,28 +88,7 @@ macro_rules! map_shader_ty {
     }
   };
 }
-map_shader_ty!(GPU1DTextureView, ShaderTexture1D);
-
-map_shader_ty!(GPU2DTextureView, ShaderTexture2D);
-map_shader_ty!(GPU2DArrayTextureView, ShaderTexture2DArray);
-
-map_shader_ty!(GPUCubeTextureView, ShaderTextureCube);
-map_shader_ty!(GPUCubeArrayTextureView, ShaderTextureCubeArray);
-
-map_shader_ty!(GPU3DTextureView, ShaderTexture3D);
-
-map_shader_ty!(GPU2DDepthTextureView, ShaderDepthTexture2D);
-map_shader_ty!(GPU2DArrayDepthTextureView, ShaderDepthTexture2DArray);
-map_shader_ty!(GPUCubeDepthTextureView, ShaderDepthTextureCube);
-map_shader_ty!(GPUCubeArrayDepthTextureView, ShaderDepthTextureCubeArray);
 
 map_shader_ty!(GPUSamplerView, ShaderSampler);
 map_shader_ty!(GPUComparisonSamplerView, ShaderCompareSampler);
-
-map_shader_ty!(GPUMultiSample2DTextureView, ShaderMultiSampleTexture2D);
-map_shader_ty!(
-  GPUMultiSample2DDepthTextureView,
-  ShaderMultiSampleDepthTexture2D
-);
-
 map_shader_ty!(GPUTlasView, ShaderAccelerationStructure);

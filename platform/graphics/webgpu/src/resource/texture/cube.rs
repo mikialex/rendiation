@@ -24,7 +24,7 @@ impl GPUCubeTexture {
     // validation
     queue.write_texture(
       gpu::TexelCopyTextureInfo {
-        texture: &self.0,
+        texture: &self.texture,
         mip_level: mip_level as u32,
         origin: gpu::Origin3d {
           x: origin.0 as u32,

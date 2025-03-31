@@ -26,6 +26,7 @@ where
 
 macro_rules! texture_dimension_impl {
   ($ty: tt, $ty_value: expr, $input_ty: tt) => {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
     pub struct $ty;
     impl ShaderTextureDimension for $ty {
       const DIMENSION: TextureViewDimension = $ty_value;
@@ -83,6 +84,7 @@ impl ShaderTextureKind for i32 {
 }
 impl SingleSampleTarget for i32 {}
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct TextureSampleDepth;
 impl ShaderTextureKind for TextureSampleDepth {
   const SAMPLING_TYPE: TextureSampleType = TextureSampleType::Depth;

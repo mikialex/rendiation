@@ -38,10 +38,10 @@ impl CacheAbleBindingSource for BindingResourceArray<GPUTextureView> {
   }
 }
 
-// todo, improve for performance and impl for other strong typed texture type
-impl CacheAbleBindingSource for BindingResourceArray<GPU2DTextureView> {
+// todo, improve for performance
+impl<D, F> CacheAbleBindingSource for BindingResourceArray<GPUTypedTextureView<D, F>> {
   fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
-    let lowered = self.bindings.iter().map(|v| v.0.clone()).collect();
+    let lowered = self.bindings.iter().map(|v| v.texture.clone()).collect();
     CacheAbleBindingBuildSource {
       source: BindingResourceOwned::TextureViewArray(Arc::new(lowered)),
       view_id: self.resource_id,
@@ -58,7 +58,7 @@ impl CacheAbleBindingSource for BindingResourceArray<GPUSamplerView> {
   }
 }
 
-// todo, improve for performance and impl for other strong type
+// todo, improve for performance
 impl<T: ?Sized + Std430MaybeUnsized> CacheAbleBindingSource
   for BindingResourceArray<StorageBufferDataView<T>>
 {
@@ -70,7 +70,7 @@ impl<T: ?Sized + Std430MaybeUnsized> CacheAbleBindingSource
     }
   }
 }
-// todo, improve for performance and impl for other strong type
+// todo, improve for performance
 impl<T: ?Sized + Std430MaybeUnsized> CacheAbleBindingSource
   for BindingResourceArray<StorageBufferReadonlyDataView<T>>
 {

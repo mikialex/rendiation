@@ -175,7 +175,7 @@ impl GPUCommandEncoder {
         },
       },
       gpu::TexelCopyTextureInfo {
-        texture: &target.0,
+        texture: &target.texture,
         mip_level: 0,
         origin: gpu::Origin3d {
           x: origin.0,

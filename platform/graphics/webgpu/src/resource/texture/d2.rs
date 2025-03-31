@@ -62,7 +62,7 @@ impl GPU2DTexture {
   ) -> &Self {
     queue.write_texture(
       gpu::TexelCopyTextureInfo {
-        texture: &self.0.inner.resource,
+        texture: &self.texture.inner.resource,
         mip_level: mip_level as u32,
         origin: gpu::Origin3d {
           x: origin.x as u32,

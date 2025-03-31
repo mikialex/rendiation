@@ -117,7 +117,7 @@ impl GPUTwoPassOcclusionCulling {
     let (_, depth) = target.depth_stencil_target.clone().unwrap();
     let size = depth.size();
 
-    let depth = depth.expect_standalone_texture_view().0.clone();
+    let depth = depth.expect_standalone_texture_view().texture.clone();
     let depth = GPUMultiSample2DDepthTextureView::try_from(depth).unwrap();
 
     let required_mip_level_count = MipLevelCount::BySize.get_level_count_wgpu(size);
