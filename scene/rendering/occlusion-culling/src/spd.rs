@@ -283,7 +283,7 @@ where
   }
 }
 
-impl<A, D> SourceImageWriter<Vec4<f32>> for BindingNode<ShaderStorageTexture<A, D>>
+impl<A, D> SourceImageWriter<Vec4<f32>> for BindingNode<ShaderStorageTexture<A, D, f32>>
 where
   D: ShaderTextureDimension + SingleLayerTarget,
   A: StorageTextureWriteable,

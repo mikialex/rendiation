@@ -7,25 +7,27 @@ pub trait StorageTextureAccessMarker: 'static {
 pub trait StorageTextureReadable: StorageTextureAccessMarker {}
 pub trait StorageTextureWriteable: StorageTextureAccessMarker {}
 
-pub struct ShaderStorageTexture<A, D>(A, D);
-impl<A, D> ShaderNodeSingleType for ShaderStorageTexture<A, D>
+pub struct ShaderStorageTexture<A, D, F>(A, D, F);
+impl<A, D, F> ShaderNodeSingleType for ShaderStorageTexture<A, D, F>
 where
   D: ShaderTextureDimension,
-  A: 'static,
+  A: StorageTextureAccessMarker,
+  F: 'static,
 {
   fn single_ty() -> ShaderValueSingleType {
     ShaderValueSingleType::StorageTexture {
       dimension: D::DIMENSION,
       format: StorageFormat::R8Unorm, // this will be override by container instance.
-      access: StorageTextureAccess::Load, // this will be override by container instance.
+      access: A::ACCESS,
     }
   }
 }
 
-impl<A, D> ShaderNodeType for ShaderStorageTexture<A, D>
+impl<A, D, F> ShaderNodeType for ShaderStorageTexture<A, D, F>
 where
   D: ShaderTextureDimension,
-  A: 'static,
+  A: StorageTextureAccessMarker,
+  F: 'static,
 {
   fn ty() -> ShaderValueType {
     ShaderValueType::Single(Self::single_ty())
@@ -49,39 +51,21 @@ impl StorageTextureAccessMarker for StorageTextureAccessReadWrite {
 impl StorageTextureReadable for StorageTextureAccessReadWrite {}
 impl StorageTextureWriteable for StorageTextureAccessReadWrite {}
 
-pub type ShaderStorageTextureR1D =
-  ShaderStorageTexture<StorageTextureAccessReadonly, TextureDimension1>;
-pub type ShaderStorageTextureRW1D =
-  ShaderStorageTexture<StorageTextureAccessReadWrite, TextureDimension1>;
-pub type ShaderStorageTextureW1D =
-  ShaderStorageTexture<StorageTextureAccessWriteonly, TextureDimension1>;
+// most used types:
 
 pub type ShaderStorageTextureR2D =
-  ShaderStorageTexture<StorageTextureAccessReadonly, TextureDimension2>;
+  ShaderStorageTexture<StorageTextureAccessReadonly, TextureDimension2, f32>;
 pub type ShaderStorageTextureRW2D =
-  ShaderStorageTexture<StorageTextureAccessReadWrite, TextureDimension2>;
+  ShaderStorageTexture<StorageTextureAccessReadWrite, TextureDimension2, f32>;
 pub type ShaderStorageTextureW2D =
-  ShaderStorageTexture<StorageTextureAccessWriteonly, TextureDimension2>;
+  ShaderStorageTexture<StorageTextureAccessWriteonly, TextureDimension2, f32>;
 
-pub type ShaderStorageTextureR3D =
-  ShaderStorageTexture<StorageTextureAccessReadonly, TextureDimension3>;
-pub type ShaderStorageTextureRW3D =
-  ShaderStorageTexture<StorageTextureAccessReadWrite, TextureDimension3>;
-pub type ShaderStorageTextureW3D =
-  ShaderStorageTexture<StorageTextureAccessWriteonly, TextureDimension3>;
-
-pub type ShaderStorageTextureR2DArray =
-  ShaderStorageTexture<StorageTextureAccessReadonly, TextureDimension2Array>;
-pub type ShaderStorageTextureRW2DArray =
-  ShaderStorageTexture<StorageTextureAccessReadWrite, TextureDimension2Array>;
-pub type ShaderStorageTextureW2DArray =
-  ShaderStorageTexture<StorageTextureAccessWriteonly, TextureDimension2Array>;
-
-impl<A, D> BindingNode<ShaderStorageTexture<A, D>>
+impl<A, D, F> BindingNode<ShaderStorageTexture<A, D, F>>
 where
   D: ShaderTextureDimension,
+  Vec4<F>: ShaderNodeType,
 {
-  pub fn load_texel(&self, position: Node<TextureSampleInputOf<D, u32>>) -> Node<Vec4<f32>>
+  pub fn load_texel(&self, position: Node<TextureSampleInputOf<D, u32>>) -> Node<Vec4<F>>
   where
     D: SingleLayerTarget,
     A: StorageTextureReadable,
@@ -100,7 +84,7 @@ where
     &self,
     position: Node<TextureSampleInputOf<D, u32>>,
     layer: Node<u32>,
-  ) -> Node<Vec4<f32>>
+  ) -> Node<Vec4<F>>
   where
     D: ArrayLayerTarget,
     A: StorageTextureReadable,
@@ -115,7 +99,7 @@ where
     .insert_api()
   }
 
-  pub fn write_texel(&self, at: Node<TextureSampleInputOf<D, u32>>, tex: Node<Vec4<f32>>)
+  pub fn write_texel(&self, at: Node<TextureSampleInputOf<D, u32>>, tex: Node<Vec4<F>>)
   where
     D: SingleLayerTarget,
     A: StorageTextureWriteable,
@@ -134,7 +118,7 @@ where
     &self,
     at: Node<TextureSampleInputOf<D, u32>>,
     index: Node<u32>,
-    tex: Node<Vec4<f32>>,
+    tex: Node<Vec4<F>>,
   ) where
     D: ArrayLayerTarget,
     A: StorageTextureWriteable,
@@ -150,7 +134,7 @@ where
   }
 }
 
-impl<A, D> BindingNode<ShaderStorageTexture<A, D>>
+impl<A, D, F> BindingNode<ShaderStorageTexture<A, D, F>>
 where
   D: ShaderTextureDimension,
 {

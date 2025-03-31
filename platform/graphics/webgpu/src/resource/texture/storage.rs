@@ -10,6 +10,11 @@ impl<D, F> GPUTypedTextureView<D, F> {
     {
       return None;
     }
+
+    if self.resource.desc.sample_count > 1 {
+      return None;
+    }
+
     StorageFormat::try_from(self.resource.desc.format)
       .ok()
       .map(|format| StorageTextureView {
@@ -68,8 +73,11 @@ impl<A, D, F> ShaderBindingProvider for StorageTextureView<A, D, F>
 where
   A: StorageTextureAccessMarker,
   D: ShaderTextureDimension,
+  F: ShaderTextureKind,
 {
-  type Node = ShaderBinding<ShaderStorageTexture<A, D>>;
+  /// note: multi sampled F is not valid, but we have already rejected at runtime.
+  /// so this is sound.
+  type Node = ShaderBinding<ShaderStorageTexture<A, D, F>>;
   fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {
     node
   }
@@ -77,12 +85,8 @@ where
   fn binding_desc(&self) -> ShaderBindingDescriptor {
     let mut ty = Self::Node::ty();
 
-    if let ShaderValueType::Single(ShaderValueSingleType::StorageTexture {
-      format, access, ..
-    }) = &mut ty
-    {
+    if let ShaderValueType::Single(ShaderValueSingleType::StorageTexture { format, .. }) = &mut ty {
       *format = self.format;
-      *access = A::ACCESS;
     }
 
     ShaderBindingDescriptor {
