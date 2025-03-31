@@ -261,7 +261,7 @@ impl SceneRayTracingAORenderer {
         let previous_sample_count = ao_sample_count.into_f32();
         let all_sample_count = previous_sample_count + val(1.0);
 
-        let previous_sample_acc = ao_cx.ao_buffer.load_storage_texture_texel(position).x();
+        let previous_sample_acc = ao_cx.ao_buffer.load_texel(position).x();
         let new_sample_acc =
           (previous_sample_acc * previous_sample_count + payload) / all_sample_count;
         let new_sample_acc = new_sample_acc.splat::<Vec3<_>>();
