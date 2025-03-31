@@ -41,8 +41,25 @@ pub fn storage_barrier() {
   call_shader_api(|api| api.barrier(BarrierScope::Storage))
 }
 
+pub fn texture_barrier() {
+  // call_shader_api(|api| api.barrier(BarrierScope::Storage))
+  todo!()
+}
+
 pub fn workgroup_barrier() {
   call_shader_api(|api| api.barrier(BarrierScope::WorkGroup))
+}
+
+pub fn subgroup_barrier() {
+  todo!()
+}
+
+/// Returns the value pointed to by p to all invocations in the workgroup.
+/// The return value is uniform. p must be a uniform value.
+///
+/// User must ensure the underlayer memory space is workgroup.
+pub fn workgroup_uniform_load<T: ShaderSizedValueNodeType>(_p: ShaderPtrOf<T>) -> Node<T> {
+  todo!()
 }
 
 impl ShaderComputePipelineBuilder {
