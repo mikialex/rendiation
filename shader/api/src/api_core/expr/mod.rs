@@ -6,6 +6,9 @@ pub use operator::*;
 mod structor;
 pub use structor::*;
 
+mod subgroup;
+pub use subgroup::*;
+
 mod texture;
 pub use texture::*;
 
