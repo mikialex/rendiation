@@ -5,6 +5,7 @@ use crate::*;
 pub trait DeviceHistogramMappingLogic {
   type Data: ShaderSizedValueNodeType;
   const MAX: u32;
+  // if the output index larger than MAX, the index will be clamped
   fn map(data: Node<Self::Data>) -> Node<u32>;
 }
 
@@ -44,8 +45,7 @@ where
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<Node<u32>>> {
     let local_id = builder.local_invocation_id().x();
-    let shared =
-      builder.define_workgroup_shared_var_host_size_array::<DeviceAtomic<u32>>(self.workgroup_size);
+    let shared = builder.define_workgroup_shared_var_host_size_array::<DeviceAtomic<u32>>(S::MAX);
 
     self
       .upstream
@@ -55,6 +55,8 @@ where
 
         if_by(valid, || {
           let target = S::map(input);
+          // clamp the write index if the map function produce invalid result
+          let target = target.min(val(S::MAX - 1));
           shared.index(target).atomic_add(val(1));
         });
 
@@ -111,7 +113,7 @@ where
   }
 
   fn result_size(&self) -> u32 {
-    self.upstream.result_size() / self.workgroup_size * S::MAX
+    self.upstream.result_size().div_ceil(self.workgroup_size) * S::MAX
   }
 }
 impl<T, S> DeviceParallelComputeIO<u32> for WorkGroupHistogram<T, S>
@@ -126,10 +128,11 @@ where
   ) -> DeviceMaterializeResult<u32> {
     let workgroup_size = self.workgroup_size;
 
-    struct HistogramWrite(u32);
+    struct HistogramWrite(u32, u32);
     impl ShaderHashProvider for HistogramWrite {
       fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
         self.0.hash(hasher);
+        self.1.hash(hasher);
       }
       shader_hash_type_id! {}
     }
@@ -137,8 +140,14 @@ where
     custom_write_into_storage_buffer(
       self,
       cx,
-      move |global_id| global_id / val(workgroup_size * S::MAX) + global_id % val(workgroup_size),
-      Box::new(HistogramWrite(workgroup_size)),
+      move |global_id| {
+        let workgroup_index = global_id / val(workgroup_size);
+        let local_index = global_id % val(workgroup_size);
+        let valid = local_index.less_than(S::MAX);
+        let idx = val(S::MAX) * workgroup_index + local_index;
+        (idx, valid)
+      },
+      Box::new(HistogramWrite(workgroup_size, S::MAX)),
       target,
     )
   }
@@ -181,9 +190,11 @@ where
         let workgroup_level_histogram = workgroup_level.invocation_logic(id);
         let histogram_idx = local_id;
 
-        result
-          .index(histogram_idx)
-          .atomic_store(workgroup_level_histogram.0);
+        if_by(workgroup_level_histogram.1, || {
+          result
+            .index(histogram_idx)
+            .atomic_store(workgroup_level_histogram.0);
+        });
 
         workgroup_level_histogram
       })
@@ -267,7 +278,29 @@ where
 }
 
 #[pollster::test]
-async fn test() {
+async fn test_histogram_workgroup() {
+  struct TestRangedU32;
+  impl DeviceHistogramMappingLogic for TestRangedU32 {
+    type Data = u32;
+
+    const MAX: u32 = 4;
+
+    fn map(data: Node<Self::Data>) -> Node<u32> {
+      data
+    }
+  }
+
+  let input = [0, 0, 1, 2, 3, 2, 1].to_vec();
+  let expect = [2, 1, 1, 0, 0, 1, 1, 1].to_vec();
+
+  input
+    .workgroup_histogram::<TestRangedU32>(4)
+    .run_test(&expect)
+    .await
+}
+
+#[pollster::test]
+async fn test_histogram() {
   struct TestRangedU32;
   impl DeviceHistogramMappingLogic for TestRangedU32 {
     type Data = u32;
@@ -281,6 +314,25 @@ async fn test() {
 
   let input = [0, 0, 1, 2, 3, 4, 5].to_vec();
   let expect = [2, 1, 1, 1, 1, 1].to_vec();
+
+  input.histogram::<TestRangedU32>(32).run_test(&expect).await
+}
+
+#[pollster::test]
+async fn test_histogram_clamp_behavior() {
+  struct TestRangedU32;
+  impl DeviceHistogramMappingLogic for TestRangedU32 {
+    type Data = u32;
+
+    const MAX: u32 = 4;
+
+    fn map(data: Node<Self::Data>) -> Node<u32> {
+      data
+    }
+  }
+
+  let input = [0, 0, 1, 2, 3, 4, 5].to_vec();
+  let expect = [2, 1, 1, 3].to_vec();
 
   input.histogram::<TestRangedU32>(32).run_test(&expect).await
 }

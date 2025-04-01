@@ -121,7 +121,7 @@ where
     custom_write_into_storage_buffer(
       self,
       cx,
-      move |global_id| global_id,
+      move |global_id| (global_id, val(true)),
       Box::new(LinearWriterHash),
       target,
     )
