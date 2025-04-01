@@ -12,6 +12,11 @@ pub struct ShaderComputePipelineBuilder {
   local_invocation_index: Node<u32>,
   workgroup_id: Node<Vec3<u32>>,
   workgroup_count: Node<Vec3<u32>>,
+  // not init these by default because not available on some platform
+  // todo, consider late init other struct as well as graphics part(and unify cache mechanism)
+  subgroup_id: RwLock<Option<Node<u32>>>,
+  subgroup_invocation_id: RwLock<Option<Node<u32>>>,
+  subgroup_size: RwLock<Option<Node<u32>>>,
   pub log_result: bool,
 }
 
@@ -61,9 +66,10 @@ pub fn subgroup_barrier() {
 /// User must ensure the underlayer memory space is workgroup.
 pub fn workgroup_uniform_load<T: ShaderSizedValueNodeType>(p: ShaderPtrOf<T>) -> Node<T> {
   call_shader_api(|api| unsafe {
+    let pointer = p.raw().get_raw_ptr();
     api
       .make_expression(ShaderNodeExpr::WorkGroupUniformLoad {
-        pointer: todo!(),
+        pointer,
         ty: T::sized_ty(),
       })
       .into_node()
@@ -85,6 +91,9 @@ impl ShaderComputePipelineBuilder {
       local_invocation_index: ShaderInputNode::BuiltIn(CompLocalInvocationIndex).insert_api(),
       workgroup_id: ShaderInputNode::BuiltIn(CompWorkgroupId).insert_api(),
       workgroup_count: ShaderInputNode::BuiltIn(CompNumWorkgroup).insert_api(),
+      subgroup_id: Default::default(),
+      subgroup_invocation_id: Default::default(),
+      subgroup_size: Default::default(),
       log_result: false,
     };
 
@@ -121,6 +130,22 @@ impl ShaderComputePipelineBuilder {
 
   pub fn workgroup_count(&self) -> Node<Vec3<u32>> {
     self.workgroup_count
+  }
+
+  pub fn subgroup_invocation_id(&self) -> Node<u32> {
+    *self.subgroup_invocation_id.write().get_or_insert_with(|| {
+      ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::CompSubgroupInvocationId).insert_api()
+    })
+  }
+  pub fn subgroup_id(&self) -> Node<u32> {
+    *self.subgroup_id.write().get_or_insert_with(|| {
+      ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::CompSubgroupId).insert_api()
+    })
+  }
+  pub fn subgroup_size(&self) -> Node<u32> {
+    *self.subgroup_size.write().get_or_insert_with(|| {
+      ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::CompSubgroupSize).insert_api()
+    })
   }
 
   pub fn define_workgroup_shared_var<T: ShaderSizedValueNodeType>(&self) -> ShaderPtrOf<T> {

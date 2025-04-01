@@ -42,11 +42,14 @@ pub enum ShaderBuiltInDecorator {
   FragDepth,
   FragSampleIndex,
   FragSampleMask,
+  CompSubgroupInvocationId,
   CompLocalInvocationId,
   CompGlobalInvocationId,
   CompLocalInvocationIndex,
+  CompSubgroupId,
   CompWorkgroupId,
   CompNumWorkgroup,
+  CompSubgroupSize,
 }
 
 #[derive(Default, Clone)]

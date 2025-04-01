@@ -15,22 +15,6 @@ impl NumericScalarOrVector for Vec2<i32> {}
 impl NumericScalarOrVector for Vec3<i32> {}
 impl NumericScalarOrVector for Vec4<i32> {}
 
-fn make_subgroup_collective_op<T>(
-  operation: SubgroupOperation,
-  collective_operation: SubgroupCollectiveOperation,
-  argument: ShaderNodeRawHandle,
-) -> Node<T> {
-  call_shader_api(|api| unsafe {
-    api
-      .make_expression(ShaderNodeExpr::SubgroupCollectiveOperation {
-        operation,
-        collective_operation,
-        argument,
-      })
-      .into_node()
-  })
-}
-
 impl<T: NumericScalarOrVector> Node<T> {
   /// Returns the sum of self among all active invocations in the subgroup
   pub fn subgroup_add(&self) -> Self {
@@ -103,24 +87,33 @@ impl<T: NumericScalarOrVector> Node<T> {
   ///
   /// id must in the range [0, 128).
   pub fn subgroup_broadcast(&self, id: u32) -> Self {
-    todo!()
+    make_subgroup_gather_op(
+      SubgroupGatherMode::Broadcast(val(id).handle()),
+      self.handle(),
+    )
   }
   /// Returns the value of e from the invocation that has the lowest subgroup invocation
   /// ID among active invocations in the subgroup to all active invocations in the subgroup.
   pub fn subgroup_broadcast_first(&self) -> Self {
-    todo!()
+    make_subgroup_gather_op(SubgroupGatherMode::BroadcastFirst, self.handle())
   }
   /// Returns self from the invocation whose subgroup invocation ID matches id.
   /// id should inside the range [0, 128)
   pub fn subgroup_shuffle(&self, id: impl Into<Node<u32>>) -> Self {
-    todo!()
+    make_subgroup_gather_op(
+      SubgroupGatherMode::Shuffle(id.into().handle()),
+      self.handle(),
+    )
   }
   /// Returns self from the invocation whose subgroup invocation ID
   /// matches subgroup_invocation_id - delta for the current invocation.
   ///
   /// delta should be in the range [0, 128), and uniform
   pub fn subgroup_shuffle_up(&self, delta: impl Into<Node<u32>>) -> Self {
-    todo!()
+    make_subgroup_gather_op(
+      SubgroupGatherMode::ShuffleUp(delta.into().handle()),
+      self.handle(),
+    )
   }
 
   /// Returns self from the invocation whose subgroup invocation ID
@@ -128,7 +121,10 @@ impl<T: NumericScalarOrVector> Node<T> {
   ///
   /// delta should be in the range [0, 128), and uniform
   pub fn subgroup_shuffle_down(&self, delta: impl Into<Node<u32>>) -> Self {
-    todo!()
+    make_subgroup_gather_op(
+      SubgroupGatherMode::ShuffleDown(delta.into().handle()),
+      self.handle(),
+    )
   }
 
   /// Returns the maximum value of self among all active invocations in the subgroup.
@@ -179,7 +175,13 @@ impl Node<bool> {
   /// Within each component, the IDs are in ascending order by bit position
   /// (e.g. ID 32 is at bit position 0 in the y component).
   pub fn subgroup_ballot(&self) -> Node<u32> {
-    todo!()
+    call_shader_api(|api| unsafe {
+      api
+        .make_expression(ShaderNodeExpr::SubgroupBallot {
+          predicate: self.handle(),
+        })
+        .into_node()
+    })
   }
 }
 
@@ -227,10 +229,6 @@ pub fn subgroup_elect() -> Node<bool> {
   unimplemented!()
 }
 
-pub fn subgroup_invocation_id() -> Node<u32> {
-  todo!()
-}
-
 #[repr(u32)]
 pub enum SubgroupOperation {
   All = 0,
@@ -258,4 +256,28 @@ pub enum SubgroupCollectiveOperation {
   Reduce = 0,
   InclusiveScan = 1,
   ExclusiveScan = 2,
+}
+
+fn make_subgroup_collective_op<T>(
+  operation: SubgroupOperation,
+  collective_operation: SubgroupCollectiveOperation,
+  argument: ShaderNodeRawHandle,
+) -> Node<T> {
+  call_shader_api(|api| unsafe {
+    api
+      .make_expression(ShaderNodeExpr::SubgroupCollectiveOperation {
+        operation,
+        collective_operation,
+        argument,
+      })
+      .into_node()
+  })
+}
+
+fn make_subgroup_gather_op<T>(mode: SubgroupGatherMode, argument: ShaderNodeRawHandle) -> Node<T> {
+  call_shader_api(|api| unsafe {
+    api
+      .make_expression(ShaderNodeExpr::SubgroupGather { mode, argument })
+      .into_node()
+  })
 }

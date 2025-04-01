@@ -423,6 +423,20 @@ impl ShaderAPI for ShaderAPINagaImpl {
               width: 4,
             },
           },
+          ShaderBuiltInDecorator::CompSubgroupInvocationId => {
+            naga::TypeInner::Scalar(naga::Scalar {
+              kind: naga::ScalarKind::Uint,
+              width: 4,
+            })
+          }
+          ShaderBuiltInDecorator::CompSubgroupId => naga::TypeInner::Scalar(naga::Scalar {
+            kind: naga::ScalarKind::Uint,
+            width: 4,
+          }),
+          ShaderBuiltInDecorator::CompSubgroupSize => naga::TypeInner::Scalar(naga::Scalar {
+            kind: naga::ScalarKind::Uint,
+            width: 4,
+          }),
         };
         let ty = naga::Type {
           name: None,
@@ -1700,5 +1714,8 @@ fn match_built_in(bt: ShaderBuiltInDecorator) -> naga::BuiltIn {
     ShaderBuiltInDecorator::CompLocalInvocationIndex => naga::BuiltIn::LocalInvocationIndex,
     ShaderBuiltInDecorator::CompWorkgroupId => naga::BuiltIn::WorkGroupId,
     ShaderBuiltInDecorator::CompNumWorkgroup => naga::BuiltIn::NumWorkGroups,
+    ShaderBuiltInDecorator::CompSubgroupInvocationId => naga::BuiltIn::SubgroupInvocationId,
+    ShaderBuiltInDecorator::CompSubgroupId => naga::BuiltIn::SubgroupId,
+    ShaderBuiltInDecorator::CompSubgroupSize => naga::BuiltIn::SubgroupSize,
   }
 }
