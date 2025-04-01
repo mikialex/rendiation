@@ -120,11 +120,17 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
       fn load(&self) -> Node<#struct_name> {
         unsafe { self.0.load().into_node() }
       }
+      fn raw(&self) -> &BoxedShaderPtr {
+        &self.0
+      }
     }
     impl rendiation_shader_api::ReadonlySizedShaderPtrView for #shader_api_ptr_instance_name {
       type Node = #struct_name;
       fn load(&self) -> Node<#struct_name> {
         unsafe { self.0.load().into_node() }
+      }
+      fn raw(&self) -> &BoxedShaderPtr {
+        &self.0
       }
     }
     impl rendiation_shader_api::SizedShaderPtrView for #shader_api_ptr_instance_name {

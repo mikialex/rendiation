@@ -291,6 +291,9 @@ impl AbstractShaderPtr for U32HeapPtrWithType {
       unreachable!("self is not an atomic type")
     }
   }
+  fn get_raw_ptr(&self) -> ShaderNodeRawHandle {
+    unreachable!("can not get raw ptr of u32 heap ptr")
+  }
 }
 
 #[derive(Clone)]

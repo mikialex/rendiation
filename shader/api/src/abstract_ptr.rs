@@ -21,6 +21,7 @@ pub trait AbstractShaderPtr: DynClone {
   fn load(&self) -> ShaderNodeRawHandle;
   fn store(&self, value: ShaderNodeRawHandle);
   fn get_self_atomic_ptr(&self) -> ShaderNodeRawHandle;
+  fn get_raw_ptr(&self) -> ShaderNodeRawHandle;
 }
 pub type BoxedShaderPtr = Box<dyn AbstractShaderPtr>;
 
@@ -61,6 +62,9 @@ impl AbstractShaderPtr for ShaderNodeRawHandle {
   fn get_self_atomic_ptr(&self) -> ShaderNodeRawHandle {
     *self
   }
+  fn get_raw_ptr(&self) -> ShaderNodeRawHandle {
+    *self
+  }
 }
 
 /// this trait is to mapping the `T` to it's typed shader access object. the access object
@@ -80,6 +84,7 @@ pub type ShaderReadonlyPtrOf<T> = <T as ShaderAbstractPtrAccess>::ReadonlyPtrVie
 pub trait ReadonlySizedShaderPtrView: Clone {
   type Node: ShaderSizedValueNodeType;
   fn load(&self) -> Node<Self::Node>;
+  fn raw(&self) -> &BoxedShaderPtr;
 }
 pub trait SizedShaderPtrView: ReadonlySizedShaderPtrView {
   fn store(&self, value: impl Into<Node<Self::Node>>);
@@ -249,6 +254,9 @@ where
   fn load(&self) -> Node<Self::Node> {
     unsafe { self.access.load().into_node() }
   }
+  fn raw(&self) -> &BoxedShaderPtr {
+    &self.access
+  }
 }
 impl<AT, T> SizedShaderPtrView for StaticLengthArrayView<AT, T>
 where
@@ -292,6 +300,9 @@ where
   fn load(&self) -> Node<Self::Node> {
     unsafe { self.access.load().into_node() }
   }
+  fn raw(&self) -> &BoxedShaderPtr {
+    &self.access
+  }
 }
 impl<AT, T> Clone for StaticLengthArrayReadonlyView<AT, T> {
   fn clone(&self) -> Self {
@@ -325,6 +336,9 @@ where
   fn load(&self) -> Node<T> {
     unsafe { self.1.load().into_node() }
   }
+  fn raw(&self) -> &BoxedShaderPtr {
+    &self.1
+  }
 }
 impl<T> SizedShaderPtrView for DirectPrimitivePtrView<T>
 where
@@ -348,6 +362,9 @@ where
   type Node = T;
   fn load(&self) -> Node<T> {
     unsafe { self.1.load().into_node() }
+  }
+  fn raw(&self) -> &BoxedShaderPtr {
+    &self.1
   }
 }
 
@@ -511,6 +528,9 @@ impl<T: AtomicityShaderNodeType> ReadonlySizedShaderPtrView for AtomicPtrView<T>
 
   fn load(&self) -> Node<Self::Node> {
     unreachable!("atomic is not able to direct load");
+  }
+  fn raw(&self) -> &BoxedShaderPtr {
+    &self.1
   }
 }
 impl<T: AtomicityShaderNodeType> SizedShaderPtrView for AtomicPtrView<T> {
