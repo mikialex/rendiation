@@ -1176,17 +1176,104 @@ impl ShaderAPI for ShaderAPINagaImpl {
           return r_handle;
         }
         ShaderNodeExpr::SubgroupBallot { predicate } => {
-          todo!()
+          let r = self
+            .building_fn
+            .last_mut()
+            .unwrap()
+            .expressions
+            .append(naga::Expression::SubgroupBallotResult, Span::UNDEFINED);
+          let r_handle = self.make_new_handle();
+          self.expression_mapping.insert(r_handle, r);
+
+          self.push_top_statement(naga::Statement::SubgroupBallot {
+            predicate: Some(self.get_expression(predicate)),
+            result: r,
+          });
+
+          return r_handle;
         }
         ShaderNodeExpr::SubgroupCollectiveOperation {
           operation,
           collective_operation,
           argument,
+          ty,
         } => {
-          todo!()
+          let ty = self.register_ty_impl(
+            ShaderValueType::Single(ShaderValueSingleType::Sized(
+              ShaderSizedValueType::Primitive(ty),
+            )),
+            None,
+          );
+          let r = self.building_fn.last_mut().unwrap().expressions.append(
+            naga::Expression::SubgroupOperationResult { ty },
+            Span::UNDEFINED,
+          );
+          let r_handle = self.make_new_handle();
+          self.expression_mapping.insert(r_handle, r);
+
+          self.push_top_statement(naga::Statement::SubgroupCollectiveOperation {
+            op: match operation {
+              SubgroupOperation::All => naga::SubgroupOperation::All,
+              SubgroupOperation::Any => naga::SubgroupOperation::Any,
+              SubgroupOperation::Add => naga::SubgroupOperation::Add,
+              SubgroupOperation::Mul => naga::SubgroupOperation::Mul,
+              SubgroupOperation::Min => naga::SubgroupOperation::Min,
+              SubgroupOperation::Max => naga::SubgroupOperation::Max,
+              SubgroupOperation::And => naga::SubgroupOperation::And,
+              SubgroupOperation::Or => naga::SubgroupOperation::Or,
+              SubgroupOperation::Xor => naga::SubgroupOperation::Xor,
+            },
+            collective_op: match collective_operation {
+              SubgroupCollectiveOperation::Reduce => naga::CollectiveOperation::Reduce,
+              SubgroupCollectiveOperation::InclusiveScan => {
+                naga::CollectiveOperation::InclusiveScan
+              }
+              SubgroupCollectiveOperation::ExclusiveScan => {
+                naga::CollectiveOperation::ExclusiveScan
+              }
+            },
+            argument: self.get_expression(argument),
+            result: r,
+          });
+
+          return r_handle;
         }
-        ShaderNodeExpr::SubgroupGather { mode, argument } => {
-          todo!()
+        ShaderNodeExpr::SubgroupGather { mode, argument, ty } => {
+          let ty = self.register_ty_impl(
+            ShaderValueType::Single(ShaderValueSingleType::Sized(
+              ShaderSizedValueType::Primitive(ty),
+            )),
+            None,
+          );
+          let r = self.building_fn.last_mut().unwrap().expressions.append(
+            naga::Expression::SubgroupOperationResult { ty },
+            Span::UNDEFINED,
+          );
+          let r_handle = self.make_new_handle();
+          self.expression_mapping.insert(r_handle, r);
+
+          self.push_top_statement(naga::Statement::SubgroupGather {
+            mode: match mode {
+              SubgroupGatherMode::BroadcastFirst => naga::GatherMode::BroadcastFirst,
+              SubgroupGatherMode::Broadcast(h) => {
+                naga::GatherMode::Broadcast(self.get_expression(h))
+              }
+              SubgroupGatherMode::Shuffle(h) => naga::GatherMode::Shuffle(self.get_expression(h)),
+              SubgroupGatherMode::ShuffleDown(h) => {
+                naga::GatherMode::ShuffleDown(self.get_expression(h))
+              }
+              SubgroupGatherMode::ShuffleUp(h) => {
+                naga::GatherMode::ShuffleUp(self.get_expression(h))
+              }
+              SubgroupGatherMode::ShuffleXor(h) => {
+                naga::GatherMode::ShuffleXor(self.get_expression(h))
+              }
+            },
+            argument: self.get_expression(argument),
+            result: r,
+          });
+
+          return r_handle;
         }
       };
     };

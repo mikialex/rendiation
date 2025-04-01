@@ -198,11 +198,13 @@ pub enum ShaderNodeExpr {
   SubgroupGather {
     mode: SubgroupGatherMode,
     argument: ShaderNodeRawHandle,
+    ty: PrimitiveShaderValueType,
   },
   SubgroupCollectiveOperation {
     operation: SubgroupOperation,
     collective_operation: SubgroupCollectiveOperation,
     argument: ShaderNodeRawHandle,
+    ty: PrimitiveShaderValueType,
   },
 }
 
