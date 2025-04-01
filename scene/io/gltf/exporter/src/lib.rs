@@ -71,26 +71,6 @@ pub fn build_scene_to_gltf(
     node.mesh = ctx.build_model(model)
   }
 
-  // for (_, light) in &scene.lights {
-  //   let light = light.read();
-  //   match light.light {
-  //     SceneLightKind::PointLight(_) => todo!(),
-  //     SceneLightKind::SpotLight(_) => todo!(),
-  //     SceneLightKind::DirectionalLight(_) => todo!(),
-  //     _ => todo!(),
-  //   }
-  // }
-
-  // for (_, camera) in &scene.cameras {
-  //   let camera = camera.read();
-  //   match camera.projection {
-  //     CameraProjector::Perspective(_) => todo!(),
-  //     CameraProjector::ViewOrthographic(_) => todo!(),
-  //     CameraProjector::Orthographic(_) => todo!(),
-  //     _ => todo!(),
-  //   }
-  // }
-
   let scene = gltf_json::Scene {
     nodes: scene_node_ids,
     extensions: Default::default(),

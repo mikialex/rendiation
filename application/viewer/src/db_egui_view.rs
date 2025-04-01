@@ -66,7 +66,7 @@ impl DBInspector {
   }
 }
 
-pub fn egui_db_gui(ui: &mut egui::Context, state: &mut DBInspector, opened: &mut bool) {
+pub fn egui_db_gui(ui: &egui::Context, state: &mut DBInspector, opened: &mut bool) {
   egui::Window::new("Database Inspector")
     .open(opened)
     .min_width(500.0)

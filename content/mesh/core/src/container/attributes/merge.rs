@@ -121,7 +121,6 @@ pub fn merge_attribute_accessor<T: bytemuck::Pod>(
   inputs: &[&AttributeAccessor],
   mut mapper: impl FnMut(usize, &T) -> T,
 ) -> Option<Vec<u8>> {
-  // todo stride support
   let count = inputs.iter().map(|v| v.count).sum();
 
   let mut merged = Vec::with_capacity(count);
