@@ -44,6 +44,7 @@ pub type DynamicShaderAPI = Box<dyn ShaderAPI>;
 pub enum BarrierScope {
   Storage,
   WorkGroup,
+  SubGroup,
 }
 
 /// In current design, the implementation should not panic when the shader is building
