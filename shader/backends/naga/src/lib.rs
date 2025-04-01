@@ -339,6 +339,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
     let b = match scope {
       BarrierScope::Storage => naga::Barrier::STORAGE,
       BarrierScope::WorkGroup => naga::Barrier::WORK_GROUP,
+      BarrierScope::SubGroup => naga::Barrier::SUB_GROUP,
     };
     self.push_top_statement(naga::Statement::Barrier(b));
   }
@@ -1140,6 +1141,38 @@ impl ShaderAPI for ShaderAPINagaImpl {
             query: self.get_expression(ray_query),
             committed: true,
           }
+        }
+        ShaderNodeExpr::WorkGroupUniformLoad { pointer, ty } => {
+          let ty = self.register_ty_impl(
+            ShaderValueType::Single(ShaderValueSingleType::Sized(ty)),
+            None,
+          );
+          let r = self.building_fn.last_mut().unwrap().expressions.append(
+            naga::Expression::WorkGroupUniformLoadResult { ty },
+            Span::UNDEFINED,
+          );
+          let r_handle = self.make_new_handle();
+          self.expression_mapping.insert(r_handle, r);
+
+          self.push_top_statement(naga::Statement::WorkGroupUniformLoad {
+            pointer: self.get_expression(pointer),
+            result: r,
+          });
+
+          return r_handle;
+        }
+        ShaderNodeExpr::SubgroupBallot { predicate } => {
+          todo!()
+        }
+        ShaderNodeExpr::SubgroupCollectiveOperation {
+          operation,
+          collective_operation,
+          argument,
+        } => {
+          todo!()
+        }
+        ShaderNodeExpr::SubgroupGather { mode, argument } => {
+          todo!()
         }
       };
     };

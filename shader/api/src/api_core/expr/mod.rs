@@ -188,6 +188,22 @@ pub enum ShaderNodeExpr {
   RayQueryGetCommittedIntersection {
     ray_query: ShaderNodeRawHandle,
   },
+  WorkGroupUniformLoad {
+    pointer: ShaderNodeRawHandle,
+    ty: ShaderSizedValueType,
+  },
+  SubgroupBallot {
+    predicate: ShaderNodeRawHandle,
+  },
+  SubgroupGather {
+    mode: SubgroupGatherMode,
+    argument: ShaderNodeRawHandle,
+  },
+  SubgroupCollectiveOperation {
+    operation: SubgroupOperation,
+    collective_operation: SubgroupCollectiveOperation,
+    argument: ShaderNodeRawHandle,
+  },
 }
 
 /// Hint at which precision to compute a derivative.

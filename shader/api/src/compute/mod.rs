@@ -43,23 +43,31 @@ pub fn storage_barrier() {
 
 pub fn texture_barrier() {
   // call_shader_api(|api| api.barrier(BarrierScope::Storage))
-  todo!()
+  println!("warning: texture_barrier is not implemented yet, such call will be ignored");
 }
 
 pub fn workgroup_barrier() {
   call_shader_api(|api| api.barrier(BarrierScope::WorkGroup))
 }
 
+/// Calling this function requires SUBGROUP_BARRIER feature.
 pub fn subgroup_barrier() {
-  todo!()
+  call_shader_api(|api| api.barrier(BarrierScope::SubGroup))
 }
 
 /// Returns the value pointed to by p to all invocations in the workgroup.
 /// The return value is uniform. p must be a uniform value.
 ///
 /// User must ensure the underlayer memory space is workgroup.
-pub fn workgroup_uniform_load<T: ShaderSizedValueNodeType>(_p: ShaderPtrOf<T>) -> Node<T> {
-  todo!()
+pub fn workgroup_uniform_load<T: ShaderSizedValueNodeType>(p: ShaderPtrOf<T>) -> Node<T> {
+  call_shader_api(|api| unsafe {
+    api
+      .make_expression(ShaderNodeExpr::WorkGroupUniformLoad {
+        pointer: todo!(),
+        ty: T::sized_ty(),
+      })
+      .into_node()
+  })
 }
 
 impl ShaderComputePipelineBuilder {
