@@ -25,7 +25,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
   pub fn reset(&self, cx: &mut DeviceParallelComputeCtx) {
     cx.record_pass(|pass, device| {
       let hasher = shader_hasher_from_marker_ty!(SizeClear);
-      let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
+      let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
         builder.config_work_group_size(1);
         let current_size = builder.bind_abstract_storage(&self.current_size);
         let bump_size = builder.bind_abstract_storage(&self.bump_size);
@@ -71,7 +71,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
     let hasher = shader_hasher_from_marker_ty!(SizeCompute);
     let workgroup_size = create_gpu_readonly_storage(&workgroup_size, device);
 
-    let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
+    let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
       let input_current_size = builder.bind_abstract_storage(&self.current_size);
       let output = builder.bind_by(&size);
       let workgroup_size = builder.bind_by(&workgroup_size);
@@ -107,7 +107,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
   ) {
     let hasher = shader_hasher_from_marker_ty!(SizeCommitter).with_hash(previous_is_allocate);
 
-    let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
+    let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
       builder.config_work_group_size(1);
       let bump_size = builder.bind_abstract_storage(&self.bump_size);
       let current_size = builder.bind_abstract_storage(&self.current_size);
@@ -153,7 +153,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
     let size = self.prepare_dispatch_size(pass, device, 256);
 
     let hasher = shader_hasher_from_marker_ty!(Drainer);
-    let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
+    let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
       let input = builder.bind_abstract_storage(&self.storage);
       let input_current_size = builder.bind_abstract_storage(&self.current_size);
       let output = builder.bind_abstract_storage(&the_other.storage);
@@ -180,7 +180,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
     pass.dispatch_workgroups_indirect_by_buffer_resource_view(&size);
 
     let hasher = shader_hasher_from_marker_ty!(DrainerSizeSet);
-    let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
+    let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
       builder.config_work_group_size(1);
       let input_current_size = builder.bind_abstract_storage(&self.current_size);
       let output_current_size = builder.bind_abstract_storage(&the_other.current_size);

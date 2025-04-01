@@ -100,8 +100,8 @@ impl ShaderHashProvider for LightingComputeComponentAsRenderComponent<'_> {
 }
 impl ShaderPassBuilder for LightingComputeComponentAsRenderComponent<'_> {
   fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.scene_id);
     self.geometry_constructor.setup_pass(ctx);
+    ctx.binding.bind(&self.scene_id);
     self.lighting.setup_pass(ctx);
     self.surface_constructor.setup_pass(ctx);
   }

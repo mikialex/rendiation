@@ -197,7 +197,6 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
       }
 
       fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-        0.hash(hasher);
         self.0.hash_pipeline(hasher)
       }
     }
@@ -811,7 +810,7 @@ impl<'a> DeviceParallelComputeCtx<'a> {
     self
       .gpu
       .device
-      .get_or_cache_create_compute_pipeline(hasher, |mut builder| {
+      .get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
         creator(&mut builder);
         builder
       })

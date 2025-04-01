@@ -262,7 +262,7 @@ impl DeviceTaskGraphExecutor {
     let mut hasher = PipelineHasher::default();
     task_spawner.hash_pipeline_with_type_info(&mut hasher);
     let workgroup_size = 256;
-    let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
+    let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
       builder.config_work_group_size(workgroup_size);
 
       let dispatch_size = builder.bind_by(&dispatch_size_buffer);

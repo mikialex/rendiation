@@ -74,6 +74,7 @@ important issue is in bold style.
 - parallel compute support buffer reuse pool
 - reactive query support parallel updates
 - shader ptr should support rw convert to readonly
+- impl bind check for compute pass
 
 ### Need help issue
 

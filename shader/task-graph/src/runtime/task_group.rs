@@ -251,7 +251,7 @@ impl TaskGroupExecutor {
       // manually update the alive task bumper's current size
       let imp = &mut self.resource;
       let hasher = shader_hasher_from_marker_ty!(SizeUpdate);
-      let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
+      let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
         builder.config_work_group_size(1);
         let new_size = builder.bind_by(&new_active_task_size);
         let current_size = builder.bind_abstract_storage(&imp.active_task_idx.current_size);
@@ -345,7 +345,7 @@ impl TaskGroupExecutorResource {
         .with_hash(&self.payload_ty);
 
       let workgroup_size = 256;
-      let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut builder| {
+      let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
         builder.config_work_group_size(workgroup_size);
 
         let empty_pool = builder.bind_abstract_storage(&self.empty_index_pool.storage);

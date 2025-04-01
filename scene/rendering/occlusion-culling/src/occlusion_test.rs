@@ -27,7 +27,7 @@ pub fn test_and_update_last_frame_visibility_use_all_passed_batch_and_return_cul
     let scene_models = sub_batch.scene_models.execute_and_expose(cx);
     // update the occluder's visibility for the occluder
     let hasher = shader_hasher_from_marker_ty!(OcclusionLastFrameVisibleUpdater);
-    let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut ctx| {
+    let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut ctx| {
       let scene_models = scene_models.build_shader(&mut ctx);
       let culler = tester.create_invocation(ctx.bindgroups());
 

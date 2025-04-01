@@ -41,7 +41,7 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
   });
 
   let hasher = shader_hasher_from_marker_ty!(SPDxFirstPass);
-  let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut ctx| {
+  let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut ctx| {
     ctx.config_work_group_size(256);
     let shared = ctx.define_workgroup_shared_var::<IntermediateBuffer<f32>>();
     let group_id = ctx.workgroup_id().xy();
@@ -120,7 +120,7 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
   });
 
   let hasher = shader_hasher_from_marker_ty!(SPDxSecondPass);
-  let pipeline = device.get_or_cache_create_compute_pipeline(hasher, |mut ctx| {
+  let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut ctx| {
     ctx.config_work_group_size(256);
     let shared = ctx.define_workgroup_shared_var::<IntermediateBuffer<f32>>();
     let group_id = ctx.workgroup_id().xy();
