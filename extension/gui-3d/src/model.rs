@@ -21,6 +21,14 @@ pub struct UIWidgetModel {
   mesh: AttributesMeshEntities,
 }
 
+pub struct UiWidgetModelResponse {
+  pub mouse_entering: bool,
+  pub mouse_leave: bool,
+  pub mouse_hovering: Option<HitPoint3D>,
+  pub mouse_down: Option<HitPoint3D>,
+  pub mouse_click: Option<HitPoint3D>,
+}
+
 impl Widget for UIWidgetModel {
   fn update_view(&mut self, _: &mut DynCx) {}
   fn update_state(&mut self, cx: &mut DynCx) {
@@ -42,54 +50,30 @@ impl Widget for UIWidgetModel {
     access_cx!(cx, platform_event, PlatformEventInput);
     access_cx!(cx, interaction_cx, Interaction3dCtx);
 
-    #[allow(unused_variables)]
-    fn debug(label: &str) {
-      // println!("{}", label);
-    }
-
-    if platform_event.window_state.has_any_mouse_event
-      && self.mouse_interactive
-      && self.has_any_mouse_event_handler()
-    {
-      let is_pressing = platform_event.state_delta.is_left_mouse_pressing();
-      let is_releasing = platform_event.state_delta.is_left_mouse_releasing();
-
-      let mut current_frame_hitting = None;
-      if let Some((hit, model)) = interaction_cx.world_ray_intersected_nearest {
-        current_frame_hitting = (model == self.model).then_some(hit);
+    if let Some(response) = self.event(platform_event, interaction_cx) {
+      if let Some(f) = self.on_mouse_click.as_mut() {
+        if let Some(hit) = response.mouse_click {
+          f(cx, hit);
+        }
       }
-
-      if let Some(hitting) = current_frame_hitting {
-        if !self.is_mouse_in {
-          debug("mouse in");
-          self.is_mouse_in = true;
-          if let Some(on_mouse_in) = &mut self.on_mouse_in {
-            on_mouse_in(cx);
-          }
+      if let Some(f) = self.on_mouse_hovering.as_mut() {
+        if let Some(hit) = response.mouse_hovering {
+          f(cx, hit);
         }
-        debug("mouse hovering");
-        if let Some(on_mouse_hovering) = &mut self.on_mouse_hovering {
-          on_mouse_hovering(cx, hitting);
+      }
+      if let Some(f) = self.on_mouse_in.as_mut() {
+        if response.mouse_entering {
+          f(cx);
         }
-        if is_pressing {
-          debug("mouse down");
-          if let Some(on_mouse_down) = &mut self.on_mouse_down {
-            on_mouse_down(cx, current_frame_hitting.unwrap());
-          }
-          self.is_mouse_down_in_history = true;
+      }
+      if let Some(f) = self.on_mouse_out.as_mut() {
+        if response.mouse_leave {
+          f(cx);
         }
-        if is_releasing && self.is_mouse_down_in_history {
-          debug("click");
-          if let Some(on_mouse_click) = &mut self.on_mouse_click {
-            on_mouse_click(cx, current_frame_hitting.unwrap());
-          }
-          self.is_mouse_down_in_history = false;
-        }
-      } else if self.is_mouse_in {
-        debug("mouse out");
-        self.is_mouse_in = false;
-        if let Some(on_mouse_out) = &mut self.on_mouse_out {
-          on_mouse_out(cx);
+      }
+      if let Some(f) = self.on_mouse_down.as_mut() {
+        if let Some(hit) = response.mouse_down {
+          f(cx, hit);
         }
       }
     }
@@ -136,6 +120,68 @@ impl UIWidgetModel {
     }
   }
 
+  pub fn event(
+    &mut self,
+    platform_event: &PlatformEventInput,
+    interaction_cx: &Interaction3dCtx,
+  ) -> Option<UiWidgetModelResponse> {
+    #[allow(unused_variables)]
+    fn debug(label: &str) {
+      // println!("{}", label);
+    }
+
+    if platform_event.window_state.has_any_mouse_event && self.mouse_interactive {
+      let mut mouse_entering = false;
+      let mut mouse_leave = false;
+      let mut mouse_hovering = None;
+      let mut mouse_down = None;
+      let mut mouse_click = None;
+
+      let is_pressing = platform_event.state_delta.is_left_mouse_pressing();
+      let is_releasing = platform_event.state_delta.is_left_mouse_releasing();
+
+      let mut current_frame_hitting = None;
+      if let Some((hit, model)) = interaction_cx.world_ray_intersected_nearest {
+        current_frame_hitting = (model == self.model).then_some(hit);
+      }
+
+      if let Some(hitting) = current_frame_hitting {
+        if !self.is_mouse_in {
+          debug("mouse in");
+          self.is_mouse_in = true;
+          mouse_entering = true;
+        }
+        debug("mouse hovering");
+        mouse_hovering = hitting.into();
+        if is_pressing {
+          debug("mouse down");
+          mouse_down = hitting.into();
+          self.is_mouse_down_in_history = true;
+        }
+        if is_releasing && self.is_mouse_down_in_history {
+          debug("click");
+          mouse_click = hitting.into();
+          self.is_mouse_down_in_history = false;
+        }
+      } else if self.is_mouse_in {
+        debug("mouse out");
+        mouse_leave = true;
+        self.is_mouse_in = false;
+      }
+
+      UiWidgetModelResponse {
+        mouse_entering,
+        mouse_leave,
+        mouse_hovering,
+        mouse_down,
+        mouse_click,
+      }
+      .into()
+    } else {
+      None
+    }
+  }
+
   pub fn do_cleanup(&mut self, scene_cx: &mut SceneWriter) {
     scene_cx.std_model_writer.delete_entity(self.std_model);
     scene_cx.model_writer.delete_entity(self.model);
@@ -145,12 +191,6 @@ impl UIWidgetModel {
     self
       .mesh
       .clean_up(&mut scene_cx.mesh_writer, &mut scene_cx.buffer_writer);
-  }
-
-  fn has_any_mouse_event_handler(&self) -> bool {
-    self.on_mouse_click.is_some()
-      || self.on_mouse_hovering.is_some()
-      || self.on_mouse_down.is_some()
   }
 
   pub fn set_mouse_interactive(&mut self, v: bool) -> &mut Self {

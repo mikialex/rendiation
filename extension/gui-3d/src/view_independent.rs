@@ -13,15 +13,19 @@ pub struct ViewIndependentWidgetModel {
   local_mat_to_sync: Option<Mat4<f32>>,
 }
 
-impl Widget for ViewIndependentWidgetModel {
-  fn update_state(&mut self, cx: &mut DynCx) {
-    self.model.update_state(cx);
-    access_cx!(cx, config, ViewIndependentComputer);
-    access_cx!(cx, world_mat_access, Box<dyn WidgetEnvAccess>);
-    access_cx!(cx, reader, SceneReader);
+impl ViewIndependentWidgetModel {
+  #[allow(clippy::borrowed_box)]
+  pub fn prepare_update(
+    &mut self,
+    config: &ViewIndependentComputer,
+    world_mat_access: &Box<dyn WidgetEnvAccess>,
+    reader: &SceneReader,
+  ) {
     let parent_world =
       if let Some(parent_node) = reader.node_reader.read::<SceneNodeParentIdx>(self.node) {
         let parent_node = unsafe { EntityHandle::from_raw(parent_node) };
+        // todo, now we can only get last frame world matrix, so
+        // we can only do view independent stuff in next frame.
         world_mat_access.get_world_mat(parent_node).unwrap()
       } else {
         Mat4::identity()
@@ -39,12 +43,26 @@ impl Widget for ViewIndependentWidgetModel {
     self.local_mat_to_sync = Some(parent_world.inverse_or_identity() * override_world_mat);
   }
 
+  pub fn update(&mut self, w: &mut SceneWriter) {
+    if let Some(mat) = self.local_mat_to_sync.take() {
+      w.set_local_matrix(self.node, mat);
+    }
+  }
+}
+
+impl Widget for ViewIndependentWidgetModel {
+  fn update_state(&mut self, cx: &mut DynCx) {
+    self.model.update_state(cx);
+    access_cx!(cx, config, ViewIndependentComputer);
+    access_cx!(cx, world_mat_access, Box<dyn WidgetEnvAccess>);
+    access_cx!(cx, reader, SceneReader);
+    self.prepare_update(config, world_mat_access, reader);
+  }
+
   fn update_view(&mut self, cx: &mut DynCx) {
     self.model.update_view(cx);
     access_cx_mut!(cx, writer, SceneWriter);
-    if let Some(mat) = self.local_mat_to_sync.take() {
-      writer.set_local_matrix(self.node, mat);
-    }
+    self.update(writer);
   }
 
   fn clean_up(&mut self, cx: &mut DynCx) {
