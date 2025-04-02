@@ -122,7 +122,7 @@ pub struct StepToI32 {
 }
 
 impl StepToI32 {
-  fn new(to: Node<i32>) -> Self {
+  pub fn new(to: Node<i32>) -> Self {
     Self {
       to,
       current: val(0_i32).make_local_var(),
@@ -286,86 +286,6 @@ impl<T: ShaderSizedValueNodeType> ShaderIterator for ShaderDynArrayReadonlyIter<
     let has_next = current_next.less_than(self.len);
     let data = self.array.index(current_next.min(self.len - val(1)));
     (has_next, (current_next, data))
-  }
-}
-
-impl IntoShaderIterator for u32 {
-  type ShaderIter = StepTo;
-
-  fn into_shader_iter(self) -> Self::ShaderIter {
-    StepTo::new(val(self))
-  }
-}
-
-impl IntoShaderIterator for Node<u32> {
-  type ShaderIter = StepTo;
-
-  fn into_shader_iter(self) -> Self::ShaderIter {
-    StepTo::new(self)
-  }
-}
-
-impl IntoShaderIterator for i32 {
-  type ShaderIter = StepToI32;
-
-  fn into_shader_iter(self) -> Self::ShaderIter {
-    StepToI32::new(val(self))
-  }
-}
-
-impl IntoShaderIterator for Node<i32> {
-  type ShaderIter = StepToI32;
-
-  fn into_shader_iter(self) -> Self::ShaderIter {
-    StepToI32::new(self)
-  }
-}
-
-impl<AT, T: ShaderSizedValueNodeType> IntoShaderIterator for StaticLengthArrayView<AT, T> {
-  type ShaderIter = ShaderStaticArrayIter<AT, T>;
-
-  fn into_shader_iter(self) -> Self::ShaderIter {
-    ShaderStaticArrayIter {
-      cursor: val(0_u32).make_local_var(),
-      len: self.len,
-      array: self,
-    }
-  }
-}
-
-impl<T: ShaderSizedValueNodeType> IntoShaderIterator for DynLengthArrayView<T> {
-  type ShaderIter = ShaderDynArrayIter<T>;
-
-  fn into_shader_iter(self) -> Self::ShaderIter {
-    ShaderDynArrayIter {
-      cursor: val(0_u32).make_local_var(),
-      len: self.array_length(),
-      array: self,
-    }
-  }
-}
-
-impl<AT, T: ShaderSizedValueNodeType> IntoShaderIterator for StaticLengthArrayReadonlyView<AT, T> {
-  type ShaderIter = ShaderStaticArrayReadonlyIter<AT, T>;
-
-  fn into_shader_iter(self) -> Self::ShaderIter {
-    ShaderStaticArrayReadonlyIter {
-      cursor: val(0_u32).make_local_var(),
-      len: self.len,
-      array: self,
-    }
-  }
-}
-
-impl<T: ShaderSizedValueNodeType> IntoShaderIterator for DynLengthArrayReadonlyView<T> {
-  type ShaderIter = ShaderDynArrayReadonlyIter<T>;
-
-  fn into_shader_iter(self) -> Self::ShaderIter {
-    ShaderDynArrayReadonlyIter {
-      cursor: val(0_u32).make_local_var(),
-      len: self.array_length(),
-      array: self,
-    }
   }
 }
 

@@ -106,6 +106,22 @@ impl IntoShaderIterator for Node<Vec2<u32>> {
   }
 }
 
+impl IntoShaderIterator for i32 {
+  type ShaderIter = StepTo;
+
+  fn into_shader_iter(self) -> Self::ShaderIter {
+    StepTo::new(val(self as u32))
+  }
+}
+
+impl IntoShaderIterator for Node<i32> {
+  type ShaderIter = StepToI32;
+
+  fn into_shader_iter(self) -> Self::ShaderIter {
+    StepToI32::new(self)
+  }
+}
+
 impl<AT, T: ShaderSizedValueNodeType> IntoShaderIterator for StaticLengthArrayView<AT, T> {
   type ShaderIter = ShaderStaticArrayIter<AT, T>;
 
