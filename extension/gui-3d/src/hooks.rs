@@ -1,18 +1,64 @@
 use std::{any::Any, panic::Location};
 
+use fast_hash_collection::FastHashMap;
+
 use crate::*;
 
 pub struct UICx<'a> {
   writer: &'a mut SceneWriter,
-  scope: Vec<&'static Location<'static>>,
-  memory: StateMemory,
-  memory_visit_stack: Vec<usize>,
+  memory: &'a mut FunctionMemory,
   pub event: Option<UIEventStageCx<'a>>,
   pub view_writer: Option<&'a mut SceneWriter>,
   pub current_parent: Option<EntityHandle<SceneNodeEntity>>,
   pub dyn_cx: &'a mut DynCx,
 }
 
+impl<'a> UICx<'a> {
+  pub fn sub_function<R>(
+    &'a mut self,
+    location: &Location<'static>,
+    inner: impl FnOnce(&mut Self) -> R,
+  ) -> R {
+    let mut sub = self.memory.sub_function(location);
+    self.memory = sub;
+    // std::mem::swap(&mut sub, &mut self.memory);
+    let r = inner(self);
+
+    self.memory.flush();
+    // std::mem::swap(&mut sub, &mut self.memory);
+    // todo fix
+    r
+  }
+}
+
+#[derive(Default)]
+struct FunctionMemory {
+  states: Vec<Box<dyn Any>>,
+  sub_functions: FastHashMap<Location<'static>, Self>,
+  sub_functions_next: FastHashMap<Location<'static>, Self>,
+}
+
+impl FunctionMemory {
+  pub fn sub_function(&mut self, location: &Location<'static>) -> &mut Self {
+    if let Some(previous_memory) = self.sub_functions.remove(location) {
+      self
+        .sub_functions_next
+        .entry(*location)
+        .or_insert(previous_memory)
+    } else {
+      self.sub_functions_next.entry(*location).or_default()
+    }
+  }
+
+  pub fn flush(&mut self) {
+    for state in self.sub_functions.drain() {
+      // cleanup state
+    }
+    std::mem::swap(&mut self.sub_functions, &mut self.sub_functions_next);
+  }
+}
+
+#[derive(Copy, Clone)]
 pub struct UIEventStageCx<'a> {
   pub platform_event: &'a PlatformEventInput,
   pub interaction_cx: &'a Interaction3dCtx,
@@ -64,14 +110,15 @@ impl UICx<'_> {
 
   #[track_caller]
   pub fn scoped<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
-    self.scope.push(Location::caller());
+    // self.scope.push(Location::caller());
 
-    let next_memory = self.get_next_memory();
+    // let next_memory = self.get_next_memory();
 
-    self.memory_visit_stack.push(0);
-    let r = f(self);
-    self.scope.pop();
-    r
+    // self.memory_visit_stack.push(0);
+    // let r = f(self);
+    // self.scope.pop();
+    // r
+    todo!()
   }
 
   pub fn use_state<'a, T: Sized>(&mut self) -> &'a mut T {
