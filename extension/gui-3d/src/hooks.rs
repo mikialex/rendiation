@@ -13,33 +13,26 @@ pub struct UICx<'a> {
   pub dyn_cx: &'a mut DynCx,
 }
 
-impl<'a> UICx<'a> {
-  pub fn sub_function<R>(
-    &'a mut self,
-    location: &Location<'static>,
-    inner: impl FnOnce(&mut Self) -> R,
-  ) -> R {
-    let mut sub = self.memory.sub_function(location);
-    self.memory = sub;
-    // std::mem::swap(&mut sub, &mut self.memory);
-    let r = inner(self);
-
-    self.memory.flush();
-    // std::mem::swap(&mut sub, &mut self.memory);
-    // todo fix
-    r
-  }
-}
-
 #[derive(Default)]
 struct FunctionMemory {
   states: Vec<Box<dyn Any>>,
+  current_cursor: usize,
   sub_functions: FastHashMap<Location<'static>, Self>,
   sub_functions_next: FastHashMap<Location<'static>, Self>,
 }
 
 impl FunctionMemory {
+  pub fn expect_state_init<T: Any>(&mut self, init: impl FnOnce() -> T) -> &mut T {
+    if self.states.len() == self.current_cursor {
+      self.states.push(Box::new(init()));
+    }
+    let r = self.states[self.current_cursor].downcast_mut().unwrap();
+    self.current_cursor += 1;
+    r
+  }
+
   pub fn sub_function(&mut self, location: &Location<'static>) -> &mut Self {
+    self.current_cursor = 0;
     if let Some(previous_memory) = self.sub_functions.remove(location) {
       self
         .sub_functions_next
@@ -50,11 +43,18 @@ impl FunctionMemory {
     }
   }
 
-  pub fn flush(&mut self) {
-    for state in self.sub_functions.drain() {
-      // cleanup state
+  pub fn flush(&mut self, drop_state_cb: &mut impl FnMut(Box<dyn Any>)) {
+    for (_, mut sub_function) in self.sub_functions.drain() {
+      sub_function.cleanup(drop_state_cb);
     }
     std::mem::swap(&mut self.sub_functions, &mut self.sub_functions_next);
+  }
+
+  pub fn cleanup(&mut self, mut drop_state_cb: &mut impl FnMut(Box<dyn Any>)) {
+    self.states.drain(..).for_each(&mut drop_state_cb);
+    self.sub_functions.drain().for_each(|(_, mut f)| {
+      f.cleanup(drop_state_cb);
+    })
   }
 }
 
@@ -64,76 +64,32 @@ pub struct UIEventStageCx<'a> {
   pub interaction_cx: &'a Interaction3dCtx,
 }
 
-struct StateCache<T> {
-  state: T,
-  cleanup: Option<fn(&mut T, &mut UICx)>,
-}
-
-struct StateMemory {
-  location: &'static Location<'static>,
-  memories: Vec<SubState>,
-}
-
-impl StateMemory {
-  pub fn clean_up(&mut self, cx: &mut UICx) {
-    for m in &mut self.memories {
-      match m {
-        SubState::State(s) => {
-          todo!()
-          //     let s = s.downcast_mut().unwrap();
-          //   if let Some(f) = &s.cleanup {
-          //     f(s.downcast_mut().unwrap(), cx)
-          //   }
-        }
-        SubState::SubTree(m) => {
-          m.clean_up(cx);
-        }
-      }
-    }
-  }
-}
-
-enum SubState {
-  State(Box<dyn Any>),
-  SubTree(StateMemory),
-}
-
 impl UICx<'_> {
-  fn get_next_memory(&mut self) -> Option<&mut SubState> {
-    let mut m = None;
-    // for i in 0..self.memory_visit_stack.len() {
-
-    //   m = Some(&mut m.memories[self.memory_visit_stack[i]]);
-    // }
-    m
-  }
-
   #[track_caller]
-  pub fn scoped<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
-    // self.scope.push(Location::caller());
+  pub fn scoped<R>(&mut self, f: impl FnOnce(&mut UICx) -> R) -> R {
+    let location = Location::caller();
+    let mut sub = self.memory.sub_function(location);
+    // self.memory = sub;
+    // std::mem::swap(&mut sub, &mut self.memory);
+    let r = f(self);
 
-    // let next_memory = self.get_next_memory();
-
-    // self.memory_visit_stack.push(0);
-    // let r = f(self);
-    // self.scope.pop();
-    // r
-    todo!()
+    self.memory.flush(&mut |_| {
+      // todo
+    });
+    // std::mem::swap(&mut sub, &mut self.memory);
+    // todo fix
+    r
   }
 
-  pub fn use_state<'a, T: Sized>(&mut self) -> &'a mut T {
-    todo!()
-  }
-
-  pub fn use_state_by<'a, T: Sized>(&mut self, default: T) -> &'a mut T {
-    todo!()
+  pub fn use_state<'a, T: Any + Default + CxStateDrop<Self>>(&mut self) -> &'a mut T {
+    self.use_state_init(|_| T::default())
   }
 
   pub fn use_state_init<'a, T>(&mut self, init: impl FnOnce(&mut Self) -> T) -> &'a mut T
   where
-    T: Sized + CxStateDrop<Self>,
+    T: Any + CxStateDrop<Self>,
   {
-    // let current_memory =
+    // self.memory.expect_state_init(|| init(self));
     todo!()
   }
 }
@@ -150,6 +106,13 @@ pub trait CxStateDrop<T> {
   fn drop_from_cx(&mut self, cx: &mut T);
 }
 
+impl<T, X: CxStateDrop<T>> CxStateDrop<T> for Option<X> {
+  fn drop_from_cx(&mut self, cx: &mut T) {
+    if let Some(x) = self {
+      x.drop_from_cx(cx);
+    }
+  }
+}
 pub struct SceneNodeUIProxy {
   node: EntityHandle<SceneNodeEntity>,
 }
@@ -191,7 +154,7 @@ impl CxStateDrop<UICx<'_>> for AttributesMeshEntities {
   }
 }
 
-pub fn use_mesh_entities<'a, S: Clone + Into<AttributesMeshData>>(
+pub fn use_mesh_entities<'a, S: Clone + CxStateDrop<UICx> + Into<AttributesMeshData>>(
   cx: &'a mut UICx,
   shape: S,
 ) -> &'a mut AttributesMeshEntities {
