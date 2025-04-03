@@ -71,10 +71,7 @@ pub fn rotator_view(
     let rotator: &mut UIWidgetModel = cx.use_state_init(|cx| {
       let w = cx.view_writer.as_mut().unwrap();
       let parent = cx.current_parent.unwrap();
-      let r = build_rotator2(w, axis, parent);
-      (r, |r, cx| {
-        r.do_cleanup(cx.view_writer.as_mut().unwrap());
-      })
+      build_rotator2(w, axis, parent)
     });
 
     if let Some(event) = &cx.event {
