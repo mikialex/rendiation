@@ -82,21 +82,117 @@ impl UICx<'_> {
     todo!()
   }
 
-  pub fn use_state_init<'a, T: Sized, D: FnOnce(&mut T, &mut Self)>(
-    &mut self,
-    init: impl FnOnce(&mut Self) -> (T, D),
-  ) -> &'a mut T {
+  pub fn use_state_init<'a, T>(&mut self, init: impl FnOnce(&mut Self) -> T) -> &'a mut T
+  where
+    T: Sized + CxStateDrop<Self>,
+  {
     // let current_memory =
     todo!()
   }
 }
 
 #[track_caller]
-pub fn group(cx: &mut UICx, children: impl FnOnce(&mut UICx)) {
+pub fn group(cx: &mut UICx, children: impl FnOnce(&mut UICx, EntityHandle<SceneNodeEntity>)) {
   cx.scoped(|cx| {
-    let a = cx.use_state::<u32>();
-    let b = cx.use_state::<u32>();
-    // let node = use_effect(cx, |cx| cx.writer.node_writer.new_entity());
-    //
+    let node = use_node_entity(cx).node;
+    children(cx, node);
   });
+}
+
+pub trait CxStateDrop<T> {
+  fn drop_from_cx(&mut self, cx: &mut T);
+}
+
+pub struct SceneNodeUIProxy {
+  node: EntityHandle<SceneNodeEntity>,
+}
+
+pub fn use_node_only_visible<'a>(cx: &'a mut UICx, visible: bool) -> &'a mut SceneNodeUIProxy {
+  let node = use_node_entity(cx);
+
+  // todo, set local matrix
+  node
+}
+
+pub fn use_node<'a>(
+  cx: &'a mut UICx,
+  local_mat: Mat4<f32>,
+  visible: bool,
+) -> &'a mut SceneNodeUIProxy {
+  let node = use_node_entity(cx);
+
+  // todo, set local matrix and visible
+  node
+}
+
+pub fn use_node_entity<'a>(cx: &'a mut UICx) -> &'a mut SceneNodeUIProxy {
+  cx.use_state_init(|cx| {
+    let node = cx.writer.node_writer.new_entity();
+    SceneNodeUIProxy { node }
+  })
+}
+
+impl CxStateDrop<UICx<'_>> for SceneNodeUIProxy {
+  fn drop_from_cx(&mut self, cx: &mut UICx) {
+    cx.writer.node_writer.delete_entity(self.node);
+  }
+}
+
+impl CxStateDrop<UICx<'_>> for AttributesMeshEntities {
+  fn drop_from_cx(&mut self, cx: &mut UICx<'_>) {
+    todo!()
+  }
+}
+
+pub fn use_mesh_entities<'a, S: Clone + Into<AttributesMeshData>>(
+  cx: &'a mut UICx,
+  shape: S,
+) -> &'a mut AttributesMeshEntities {
+  let previous_create_shape = cx.use_state::<Option<S>>();
+  let mesh = cx.use_state_init(|cx| {
+    let mesh = shape.clone().into();
+    *previous_create_shape = Some(shape);
+    cx.writer.write_attribute_mesh(mesh.build())
+  });
+
+  // if previous_create_shape != Some(shape) {
+  //   todo!()
+  // }
+  mesh
+}
+
+pub fn use_ball_mesh<'a>(cx: &'a mut UICx, radius: f32) -> &'a mut AttributesMeshEntities {
+  // use_mesh_entities(cx, radius)
+  todo!()
+}
+
+pub fn use_model<'a>(
+  cx: &'a mut UICx,
+  node: SceneNodeUIProxy,
+  parent: Option<EntityHandle<SceneNodeEntity>>,
+  mesh_entities: &AttributesMeshEntities,
+  mouse_interactive: bool,
+) -> &'a mut UIWidgetModelProxy {
+  cx.use_state_init(|cx| {
+    //
+    todo!()
+  })
+}
+
+pub struct UIWidgetModelProxy {
+  is_mouse_in: bool,
+  is_mouse_down_in_history: bool,
+
+  /// indicate if this widget is interactive to mouse event
+  mouse_interactive: bool,
+
+  std_model: EntityHandle<StandardModelEntity>,
+  model: EntityHandle<SceneModelEntity>,
+  material: EntityHandle<UnlitMaterialEntity>,
+}
+
+impl CxStateDrop<UICx<'_>> for UIWidgetModelProxy {
+  fn drop_from_cx(&mut self, cx: &mut UICx<'_>) {
+    todo!()
+  }
 }
