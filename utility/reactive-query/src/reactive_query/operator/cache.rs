@@ -41,8 +41,9 @@ impl<T: AsyncQueryCompute> AsyncQueryCompute
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
     let cache = self.cache.clone();
     let inner = self.inner.create_task(cx);
-    cx.then_spawn(inner, |inner, cx| {
-      UnorderedMaterializedViewCache { inner, cache }.resolve(cx)
+    cx.then_spawn_compute(inner, |inner| UnorderedMaterializedViewCache {
+      inner,
+      cache,
     })
   }
 }
@@ -151,8 +152,9 @@ where
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
     let cache = self.cache.clone();
     let inner = self.inner.create_task(cx);
-    cx.then_spawn(inner, |inner, cx| {
-      LinearMaterializedReactiveQuery { inner, cache }.resolve(cx)
+    cx.then_spawn_compute(inner, |inner| LinearMaterializedReactiveQuery {
+      inner,
+      cache,
     })
   }
 }

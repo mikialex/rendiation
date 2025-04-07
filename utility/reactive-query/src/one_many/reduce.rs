@@ -159,13 +159,10 @@ where
     let ref_count = self.ref_count.clone();
 
     let parents = futures::future::join(upstream, relations);
-    cx.then_spawn(parents, |(upstream, relations), cx| {
-      ManyToOneReduce {
-        upstream,
-        relations,
-        ref_count,
-      }
-      .resolve(cx)
+    cx.then_spawn_compute(parents, |(upstream, relations)| ManyToOneReduce {
+      upstream,
+      relations,
+      ref_count,
     })
   }
 }

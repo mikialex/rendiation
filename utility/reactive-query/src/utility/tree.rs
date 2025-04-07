@@ -52,14 +52,13 @@ where
     let payload_source = self.payload_source.create_task(cx);
     let connectivity_source = self.connectivity_source.create_task(cx);
     let joined = futures::future::join(payload_source, connectivity_source);
-    cx.then_spawn(joined, move |(payload_source, connectivity_source), cx| {
+    cx.then_spawn_compute(joined, move |(payload_source, connectivity_source)| {
       TreeDerivedDataCompute {
         data: data.clone(),
         derive_logic,
         payload_source,
         connectivity_source,
       }
-      .resolve(cx)
     })
   }
 }

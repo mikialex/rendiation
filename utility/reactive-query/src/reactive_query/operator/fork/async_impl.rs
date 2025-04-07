@@ -95,6 +95,7 @@ impl<T: Future<Output: Clone> + Unpin> Future for FutureForker<T> {
     if let Some(f) = &mut internal.upstream {
       if let Poll::Ready(v) = f.poll_unpin(cx) {
         internal.resolve = Some(v.clone());
+        internal.upstream = None;
         Poll::Ready(v)
       } else {
         Poll::Pending

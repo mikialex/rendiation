@@ -112,16 +112,13 @@ impl<T: AsyncQueryCompute<Key = u32, Value = Size>> AsyncQueryCompute for Packer
     let rev_mapping = self.rev_mapping.clone();
     let all_size_sender = self.all_size_sender.clone();
     let size_source = self.size_source.create_task(cx);
-    cx.then_spawn(size_source, move |size_source, cx| {
-      PackerCompute {
-        size_source,
-        max_size,
-        packer,
-        mapping,
-        rev_mapping,
-        all_size_sender,
-      }
-      .resolve(cx)
+    cx.then_spawn_compute(size_source, move |size_source| PackerCompute {
+      size_source,
+      max_size,
+      packer,
+      mapping,
+      rev_mapping,
+      all_size_sender,
     })
   }
 }

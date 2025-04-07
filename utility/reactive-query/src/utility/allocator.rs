@@ -136,13 +136,10 @@ where
     let all_size_sender = self.all_size_sender.clone();
 
     let source = self.source.create_task(cx);
-    cx.then_spawn(source, |source, cx| {
-      ReactiveAllocator {
-        allocator,
-        source,
-        all_size_sender,
-      }
-      .resolve(cx)
+    cx.then_spawn_compute(source, |source| ReactiveAllocator {
+      allocator,
+      source,
+      all_size_sender,
     })
   }
 }

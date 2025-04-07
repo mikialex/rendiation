@@ -45,15 +45,12 @@ impl<T: AsyncQueryCompute<Value = (Arc<Vec<u8>>, Option<GPUBufferViewRange>)>> A
     let gpu = self.gpu.clone();
     let rev_map = self.rev_map.clone();
     let upstream = self.upstream.create_task(cx);
-    cx.then_spawn(upstream, |upstream, cx| {
-      ReactiveRangeAllocatePoolCompute {
-        buffer,
-        record,
-        rev_map,
-        gpu,
-        upstream,
-      }
-      .resolve(cx)
+    cx.then_spawn_compute(upstream, |upstream| ReactiveRangeAllocatePoolCompute {
+      buffer,
+      record,
+      rev_map,
+      gpu,
+      upstream,
     })
   }
 }

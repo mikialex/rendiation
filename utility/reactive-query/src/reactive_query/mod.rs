@@ -78,6 +78,7 @@ impl AsyncQueryCtx {
     self.make_spawner().spawn_task(f)
   }
 
+  #[inline(always)]
   pub fn then_spawn<T: 'static, R>(
     &self,
     f: impl Future<Output = T> + 'static,
@@ -86,6 +87,18 @@ impl AsyncQueryCtx {
     let sp = self.make_spawner();
     let cx = self.resolve_cx.clone();
     f.then(move |s| sp.spawn_task(move || then(s, &cx)))
+  }
+
+  #[inline(always)]
+  pub fn then_spawn_compute<T: 'static, R: QueryCompute>(
+    &self,
+    f: impl Future<Output = T> + 'static,
+    then: impl FnOnce(T) -> R + 'static,
+  ) -> impl Future<Output = (R::Changes, R::View)> + 'static {
+    self.then_spawn(f, |inner, cx| {
+      let mut r = then(inner);
+      r.resolve(cx)
+    })
   }
 }
 

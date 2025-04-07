@@ -68,14 +68,11 @@ impl<T: AsyncQueryCompute> AsyncQueryCompute for ReactiveQueryDebug<T, T::Key, T
     let log_change = self.log_change;
 
     let inner = self.inner.create_task(cx);
-    cx.then_spawn(inner, move |inner, cx| {
-      ReactiveQueryDebug {
-        inner,
-        state,
-        label,
-        log_change,
-      }
-      .resolve(cx)
+    cx.then_spawn_compute(inner, move |inner| ReactiveQueryDebug {
+      inner,
+      state,
+      label,
+      log_change,
     })
   }
 }

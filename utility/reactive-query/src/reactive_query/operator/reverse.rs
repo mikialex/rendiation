@@ -78,8 +78,9 @@ impl<T: AsyncQueryCompute<Value: CKey>> AsyncQueryCompute
     let mapping = self.mapping.clone();
     let upstream = self.upstream.create_task(cx);
 
-    cx.then_spawn(upstream, move |upstream, cx| {
-      OneToOneRefHashBookKeeping { upstream, mapping }.resolve(cx)
+    cx.then_spawn_compute(upstream, move |upstream| OneToOneRefHashBookKeeping {
+      upstream,
+      mapping,
     })
   }
 }

@@ -124,12 +124,9 @@ where
     let upstream = self.upstream.create_task(cx);
     let relations = self.relations.create_task(cx);
     let parents = futures::future::join(upstream, relations);
-    let f = cx.then_spawn(parents, |(upstream, relations), cx| {
-      OneToManyFanoutCompute {
-        upstream,
-        relations,
-      }
-      .resolve(cx)
+    let f = cx.then_spawn_compute(parents, |(upstream, relations)| OneToManyFanoutCompute {
+      upstream,
+      relations,
     });
     avoid_huge_debug_symbols_by_boxing_future(f)
   }
