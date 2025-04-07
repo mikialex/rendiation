@@ -1,7 +1,7 @@
 use crate::*;
 
 #[track_caller]
-pub fn ui_widget_model(cx: &mut UICx, visible: bool, color: Vec3<f32>) {
+pub fn ui_widget_model(cx: &mut UI3dCx, visible: bool, color: Vec3<f32>) {
   cx.scoped(|cx| {
     let is_mouse_in = cx.use_state_by(false);
     let is_mouse_down_in_history = cx.use_state_by(false);
