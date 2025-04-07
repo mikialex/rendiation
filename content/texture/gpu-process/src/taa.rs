@@ -176,14 +176,7 @@ fn clamp_color(
 impl ShaderPassBuilder for TAAResolver<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
-    ctx.bind_immediate_sampler(
-      &TextureSampler {
-        min_filter: rendiation_texture_core::FilterMode::Linear,
-        mag_filter: rendiation_texture_core::FilterMode::Linear,
-        ..Default::default()
-      }
-      .into_gpu(),
-    );
+    ctx.bind_immediate_sampler(&TextureSampler::default().with_double_linear().into_gpu());
     ctx.binding.bind(self.history);
     ctx.binding.bind(self.new_color);
     ctx.binding.bind(self.new_depth);

@@ -225,7 +225,7 @@ impl DeviceReferencePathTracingRenderer {
       },
     );
 
-    let miss_ctx = PTRayMissCtx::new(&base.background, scene);
+    let miss_ctx = PTRayMissCtx::new(&base.background, scene, frame.gpu);
     let miss = build_ray_miss_shader(&trace_base_builder, miss_ctx);
 
     let shadow_test_closest = trace_base_builder

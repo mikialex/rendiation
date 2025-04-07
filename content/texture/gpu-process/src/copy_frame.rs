@@ -1,7 +1,6 @@
 use crate::*;
 
 pub struct CopyFrame {
-  sampler: ImmediateSampler,
   source: RenderTargetView,
 }
 
@@ -10,34 +9,12 @@ impl ShaderHashProvider for CopyFrame {
 }
 
 pub fn copy_frame(source: RenderTargetView, blend: Option<BlendState>) -> impl PassContent {
-  CopyFrame {
-    source,
-    sampler: Default::default(),
-  }
-  .draw_quad_with_blend(blend)
-}
-
-#[derive(Default, Clone)]
-pub struct ImmediateSampler {
-  inner: TextureSampler,
-}
-
-impl ShaderBindingProvider for ImmediateSampler {
-  type Node = ShaderBinding<ShaderSampler>;
-  fn create_instance(&self, node: Node<Self::Node>) -> Self::ShaderInstance {
-    node
-  }
-}
-
-impl From<ImmediateSampler> for SamplerDescriptor<'static> {
-  fn from(val: ImmediateSampler) -> Self {
-    val.inner.into_gpu()
-  }
+  CopyFrame { source }.draw_quad_with_blend(blend)
 }
 
 impl ShaderPassBuilder for CopyFrame {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.bind_immediate_sampler(&self.sampler);
+    ctx.bind_immediate_sampler(&TextureSampler::default().with_double_linear().into_gpu());
     ctx.binding.bind(&self.source);
   }
 }
@@ -45,7 +22,7 @@ impl ShaderPassBuilder for CopyFrame {
 impl GraphicsShaderProvider for CopyFrame {
   fn build(&self, builder: &mut rendiation_shader_api::ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
-      let sampler = binding.bind_by(&self.sampler);
+      let sampler = binding.bind_by(&ImmediateGPUSamplerViewBind);
       let source = binding.bind_by(&self.source);
 
       let uv = builder.query::<FragmentUv>();

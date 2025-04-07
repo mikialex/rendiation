@@ -1,5 +1,8 @@
 use std::hash::Hash;
 
+use rendiation_texture_core::TextureSampler;
+use rendiation_texture_gpu_base::SamplerConvertExt;
+
 use super::*;
 
 pub fn build_ray_miss_shader(
@@ -29,6 +32,7 @@ pub fn build_ray_miss_shader(
 pub enum PTRayMissCtx {
   EnvCube {
     map: GPUCubeTextureView,
+    sampler: GPUSamplerView,
     intensity: UniformBufferDataView<Vec4<f32>>,
   },
   Solid {
@@ -38,8 +42,16 @@ pub enum PTRayMissCtx {
 }
 
 impl PTRayMissCtx {
-  pub fn new(renderer: &SceneBackgroundRenderer, scene: EntityHandle<SceneEntity>) -> Self {
+  pub fn new(
+    renderer: &SceneBackgroundRenderer,
+    scene: EntityHandle<SceneEntity>,
+    gpu: &GPU,
+  ) -> Self {
     if let Some(env) = renderer.env_background_map.get(scene) {
+      let sampler_desc = TextureSampler::default().with_double_linear().into_gpu();
+      let sampler = GPUSampler::create(sampler_desc, &gpu.device);
+      let sampler = sampler.create_default_view();
+
       PTRayMissCtx::EnvCube {
         map: renderer
           .env_background_map_gpu
@@ -47,6 +59,7 @@ impl PTRayMissCtx {
           .unwrap()
           .clone(),
         intensity: renderer.env_background_intensity.access(&scene).unwrap(),
+        sampler,
       }
     } else if let Some(color) = renderer.solid_background_uniform.access(&scene) {
       PTRayMissCtx::Solid { color }
@@ -68,10 +81,14 @@ impl RayTracingCustomCtxProvider for PTRayMissCtx {
 
   fn build_invocation(&self, cx: &mut ShaderBindGroupBuilder) -> Self::Invocation {
     match self {
-      Self::EnvCube { map, intensity } => PTRayMissCtxInvocation::EnvCube {
+      Self::EnvCube {
+        map,
+        intensity,
+        sampler,
+      } => PTRayMissCtxInvocation::EnvCube {
         map: cx.bind_by(map),
         intensity: cx.bind_by(intensity),
-        sampler: todo!(),
+        sampler: cx.bind_by(sampler),
       },
       Self::Solid { color } => PTRayMissCtxInvocation::Solid(cx.bind_by(color)),
       Self::Test => PTRayMissCtxInvocation::Test,
@@ -80,9 +97,14 @@ impl RayTracingCustomCtxProvider for PTRayMissCtx {
 
   fn bind(&self, builder: &mut BindingBuilder) {
     match self {
-      Self::EnvCube { map, intensity } => {
+      Self::EnvCube {
+        map,
+        intensity,
+        sampler,
+      } => {
         builder.bind(map);
         builder.bind(intensity);
+        builder.bind(sampler);
       }
       Self::Solid { color } => {
         builder.bind(color);
@@ -111,7 +133,7 @@ impl PTRayMissCtxInvocation {
         map,
         intensity,
         sampler,
-      } => map.sample_zero_level(*sampler, world_ray_direction).xyz() * intensity.load().xyz(),
+      } => map.sample_zero_level(*sampler, world_ray_direction).xyz() * intensity.load().x(),
       Self::Test => world_ray_direction
         .y()
         .greater_than(0.)

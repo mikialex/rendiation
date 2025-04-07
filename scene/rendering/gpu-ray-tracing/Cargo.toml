@@ -21,6 +21,7 @@ rendiation-geometry = { path = "../../../math/geometry" }
 rendiation-lighting-gpu-system = { path = "../../../content/lighting/gpu-system/lighting-system" }
 rendiation-lighting-punctual = { path = "../../../content/lighting/punctual" }
 rendiation-lighting-transport = { path = "../../../content/lighting/transport" }
+rendiation-texture-gpu-base = { path = "../../../content/texture/gpu-base" }
 rendiation-mesh-core = { path = "../../../content/mesh/core" }
 rendiation-scene-core = { path = "../../core" }
 rendiation-scene-rendering-gpu-base = { path = "../../rendering/gpu-base" }
