@@ -37,6 +37,7 @@ pub struct RayTracingSystemBase {
   texture_system: TextureGPUSystemSource,
   system: RtxSystemCore,
   source_set: QueryCtxSetInfo,
+  background: SceneBackgroundRendererSource,
 }
 
 impl RayTracingSystemBase {
@@ -58,6 +59,7 @@ impl RayTracingSystemBase {
         .with_material_support(PbrMRMaterialDefaultIndirectRenderImplProvider::default())
         .with_material_support(PbrSGMaterialDefaultIndirectRenderImplProvider::default()),
       source_set: Default::default(),
+      background: Default::default(),
     }
   }
 }
@@ -70,6 +72,7 @@ pub struct SceneRayTracingRendererBase {
   pub material: SceneSurfaceSupport,
   pub lighting: ScenePTLightingSceneData,
   pub scene_ids: SceneIdUniformBufferAccess,
+  pub background: SceneBackgroundRenderer,
   pub any_changed: bool,
 }
 
@@ -108,6 +111,7 @@ impl QueryBasedFeature<SceneRayTracingRendererBase> for RayTracingSystemBase {
       material: self.material.create_impl(cx, &tex),
       lighting: self.lighting.create_impl(cx),
       scene_ids: self.scene_ids.create_impl(cx),
+      background: self.background.create_impl(cx),
       any_changed,
     }
   }

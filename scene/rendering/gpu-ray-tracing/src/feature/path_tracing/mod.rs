@@ -20,6 +20,9 @@ use ray_gen::*;
 mod ray_hit;
 use ray_hit::*;
 
+mod ray_miss;
+use ray_miss::*;
+
 mod frame_state;
 use frame_state::*;
 
@@ -222,24 +225,8 @@ impl DeviceReferencePathTracingRenderer {
       },
     );
 
-    let miss = trace_base_builder
-      .create_miss_hit_shader_base::<CorePathPayload>()
-      .map(|_, cx| {
-        let miss_cx = cx.expect_miss_hit_ctx();
-        let radiance = miss_cx
-          .world_ray()
-          .direction
-          .y()
-          .greater_than(0.)
-          .select(Vec3::splat(0.7), Vec3::splat(0.3));
-
-        cx.expect_payload::<CorePathPayload>()
-          .sampled_radiance()
-          .store(radiance);
-        cx.expect_payload::<CorePathPayload>()
-          .missed()
-          .store(val(true).into_big_bool());
-      });
+    let miss_ctx = PTRayMissCtx::new(&base.background, scene);
+    let miss = build_ray_miss_shader(&trace_base_builder, miss_ctx);
 
     let shadow_test_closest = trace_base_builder
       .create_closest_hit_shader_base::<ShaderTestPayload>()

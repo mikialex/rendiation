@@ -23,7 +23,7 @@ pub fn build_default_gles_render_system(
     model_lookup: Default::default(),
     model_alpha_blend: Default::default(),
     texture_system: TextureGPUSystemSource::new(tex_sys_ty),
-    background: SceneBackgroundRendererSource::new(reversed_depth),
+    background: Default::default(),
     node_net_visible: Default::default(),
     camera: Box::new(DefaultGLESCameraRenderImplProvider::new(camera_source)),
     scene_model_impl: vec![Box::new(GLESPreferredComOrderRendererProvider {
@@ -169,7 +169,7 @@ impl SceneRenderer for GLESSceneRenderer {
     &self,
     scene: EntityHandle<SceneEntity>,
   ) -> (Operations<rendiation_webgpu::Color>, Operations<f32>) {
-    self.background.init_clear(scene)
+    self.background.init_clear(scene, self.reversed_depth)
   }
   fn render_background<'a>(
     &'a self,

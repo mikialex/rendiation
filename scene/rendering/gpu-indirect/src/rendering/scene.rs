@@ -27,7 +27,7 @@ pub fn build_default_indirect_render_system(
     model_lookup: Default::default(),
     node_net_visible: Default::default(),
     model_alpha_blend: Default::default(),
-    background: SceneBackgroundRendererSource::new(reversed_depth),
+    background: Default::default(),
     texture_system: TextureGPUSystemSource::new(tex_sys_ty),
     camera: Box::new(DefaultGLESCameraRenderImplProvider::new(camera_source)),
     scene_model_impl: Box::new(IndirectPreferredComOrderRendererProvider {
@@ -236,7 +236,7 @@ impl SceneRenderer for IndirectSceneRenderer {
     &self,
     scene: EntityHandle<SceneEntity>,
   ) -> (Operations<rendiation_webgpu::Color>, Operations<f32>) {
-    self.background.init_clear(scene)
+    self.background.init_clear(scene, self.reversed_depth)
   }
   fn render_background<'a>(
     &'a self,

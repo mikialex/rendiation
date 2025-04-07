@@ -38,14 +38,17 @@ macro_rules! texture_dimension_impl {
 texture_dimension_impl!(TextureDimension1, TextureViewDimension::D1, Vec2);
 impl SingleLayerTarget for TextureDimension1 {}
 impl D1LikeTextureType for TextureDimension1 {}
+impl DirectAccessTarget for TextureDimension1 {}
 
 texture_dimension_impl!(TextureDimension2, TextureViewDimension::D2, Vec2);
 impl SingleLayerTarget for TextureDimension2 {}
 impl D2LikeTextureType for TextureDimension2 {}
+impl DirectAccessTarget for TextureDimension2 {}
 
 texture_dimension_impl!(TextureDimension2Array, TextureViewDimension::D2Array, Vec2);
 impl ArrayLayerTarget for TextureDimension2Array {}
 impl D2LikeTextureType for TextureDimension2Array {}
+impl DirectAccessTarget for TextureDimension2Array {}
 
 texture_dimension_impl!(TextureDimensionCube, TextureViewDimension::Cube, Vec3);
 impl SingleLayerTarget for TextureDimensionCube {}
@@ -62,6 +65,7 @@ impl D2LikeTextureType for TextureDimensionCubeArray {}
 texture_dimension_impl!(TextureDimension3, TextureViewDimension::D3, Vec3);
 impl SingleLayerTarget for TextureDimension3 {}
 impl D3LikeTextureType for TextureDimension3 {}
+impl DirectAccessTarget for TextureDimension3 {}
 
 impl ShaderTextureKind for f32 {
   const SAMPLING_TYPE: TextureSampleType = TextureSampleType::Float { filterable: true };

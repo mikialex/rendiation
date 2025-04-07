@@ -2,22 +2,12 @@ use fast_hash_collection::FastHashMap;
 
 use crate::*;
 
+#[derive(Default)]
 pub struct SceneBackgroundRendererSource {
   env_background_intensity_uniform: QueryToken,
   // todo
   // note, currently the cube map is standalone maintained, this is wasteful if user shared it elsewhere
   cube_map: QueryToken,
-  reversed_depth: bool,
-}
-
-impl SceneBackgroundRendererSource {
-  pub fn new(reversed_depth: bool) -> Self {
-    Self {
-      env_background_intensity_uniform: Default::default(),
-      cube_map: Default::default(),
-      reversed_depth,
-    }
-  }
 }
 
 impl QueryBasedFeature<SceneBackgroundRenderer> for SceneBackgroundRendererSource {
@@ -50,25 +40,24 @@ impl QueryBasedFeature<SceneBackgroundRenderer> for SceneBackgroundRendererSourc
       env_background_intensity: cx
         .take_reactive_query_updated(self.env_background_intensity_uniform)
         .unwrap(),
-      reversed_depth: self.reversed_depth,
     }
   }
 }
 
 pub struct SceneBackgroundRenderer {
-  solid_background: ComponentReadView<SceneSolidBackground>,
-  env_background_map: ForeignKeyReadView<SceneHDRxEnvBackgroundCubeMap>,
-  env_background_map_gpu:
+  pub solid_background: ComponentReadView<SceneSolidBackground>,
+  pub env_background_map: ForeignKeyReadView<SceneHDRxEnvBackgroundCubeMap>,
+  pub env_background_map_gpu:
     LockReadGuardHolder<CubeMapUpdateContainer<EntityHandle<SceneTextureCubeEntity>>>,
-  env_background_intensity:
+  pub env_background_intensity:
     BoxedDynQuery<EntityHandle<SceneEntity>, UniformBufferDataView<Vec4<f32>>>,
-  reversed_depth: bool,
 }
 
 impl SceneBackgroundRenderer {
   pub fn init_clear(
     &self,
     scene: EntityHandle<SceneEntity>,
+    reversed_depth: bool,
   ) -> (Operations<rendiation_webgpu::Color>, Operations<f32>) {
     let color = self.solid_background.get_value(scene).unwrap();
     let color = color.unwrap_or(Vec3::splat(0.9));
@@ -78,10 +67,7 @@ impl SceneBackgroundRenderer {
       b: color.z as f64,
       a: 1.,
     };
-    (
-      clear(color),
-      clear(if self.reversed_depth { 0. } else { 1. }),
-    )
+    (clear(color), clear(if reversed_depth { 0. } else { 1. }))
   }
 
   pub fn draw<'a>(
@@ -138,7 +124,7 @@ impl ShaderPassBuilder for CubeEnvComponent<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.camera.setup_pass(ctx);
     ctx.binding.bind(&self.map);
-    ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
+    ctx.bind_immediate_sampler(&TextureSampler::default().with_double_linear().into_gpu());
     ctx.binding.bind(&self.intensity);
     self.tonemap.post_setup_pass(ctx);
   }

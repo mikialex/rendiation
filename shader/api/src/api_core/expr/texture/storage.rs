@@ -67,7 +67,7 @@ where
 {
   pub fn load_texel(&self, position: Node<TextureSampleInputOf<D, u32>>) -> Node<Vec4<F>>
   where
-    D: SingleLayerTarget,
+    D: SingleLayerTarget + DirectAccessTarget,
     A: StorageTextureReadable,
   {
     ShaderNodeExpr::TextureLoad(ShaderTextureLoad {
@@ -86,7 +86,7 @@ where
     layer: Node<u32>,
   ) -> Node<Vec4<F>>
   where
-    D: ArrayLayerTarget,
+    D: ArrayLayerTarget + DirectAccessTarget,
     A: StorageTextureReadable,
   {
     ShaderNodeExpr::TextureLoad(ShaderTextureLoad {
@@ -101,7 +101,7 @@ where
 
   pub fn write_texel(&self, at: Node<TextureSampleInputOf<D, u32>>, tex: Node<Vec4<F>>)
   where
-    D: SingleLayerTarget,
+    D: SingleLayerTarget + DirectAccessTarget,
     A: StorageTextureWriteable,
   {
     call_shader_api(|api| {
@@ -120,7 +120,7 @@ where
     index: Node<u32>,
     tex: Node<Vec4<F>>,
   ) where
-    D: ArrayLayerTarget,
+    D: ArrayLayerTarget + DirectAccessTarget,
     A: StorageTextureWriteable,
   {
     call_shader_api(|api| {

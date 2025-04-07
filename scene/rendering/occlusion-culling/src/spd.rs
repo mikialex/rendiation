@@ -274,7 +274,7 @@ pub trait SourceImageWriter<V: ShaderNodeType> {
 
 impl<D, F> SourceImageLoader<ChannelOutputOf<F>> for BindingNode<ShaderTexture<D, F>>
 where
-  D: ShaderTextureDimension + SingleLayerTarget,
+  D: ShaderTextureDimension + SingleLayerTarget + DirectAccessTarget,
   F: ShaderTextureKind + SingleSampleTarget,
   Node<TextureSampleInputOf<D, u32>>: From<Node<Vec2<u32>>>,
 {
@@ -285,7 +285,7 @@ where
 
 impl<A, D> SourceImageWriter<Vec4<f32>> for BindingNode<ShaderStorageTexture<A, D, f32>>
 where
-  D: ShaderTextureDimension + SingleLayerTarget,
+  D: ShaderTextureDimension + SingleLayerTarget + DirectAccessTarget,
   A: StorageTextureWriteable,
   Node<TextureSampleInputOf<D, u32>>: From<Node<Vec2<u32>>>,
 {

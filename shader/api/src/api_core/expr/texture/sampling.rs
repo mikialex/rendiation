@@ -107,7 +107,7 @@ impl<D: ShaderTextureDimension, F: ShaderTextureKind> BindingNode<ShaderTexture<
   ) -> Node<ChannelOutputOf<F>>
   where
     F: SingleSampleTarget,
-    D: SingleLayerTarget,
+    D: SingleLayerTarget + DirectAccessTarget,
   {
     ShaderNodeExpr::TextureLoad(ShaderTextureLoad {
       texture: self.handle(),
@@ -126,7 +126,7 @@ impl<D: ShaderTextureDimension, F: ShaderTextureKind> BindingNode<ShaderTexture<
     level: Node<u32>,
   ) -> Node<ChannelOutputOf<F>>
   where
-    D: ArrayLayerTarget,
+    D: ArrayLayerTarget + DirectAccessTarget,
     F: SingleSampleTarget,
   {
     ShaderNodeExpr::TextureLoad(ShaderTextureLoad {
@@ -146,7 +146,7 @@ impl<D: ShaderTextureDimension, F: ShaderTextureKind> BindingNode<ShaderTexture<
   ) -> Node<ChannelOutputOf<F>>
   where
     F: MultiSampleTarget,
-    D: SingleLayerTarget,
+    D: SingleLayerTarget + DirectAccessTarget,
   {
     ShaderNodeExpr::TextureLoad(ShaderTextureLoad {
       texture: self.handle(),

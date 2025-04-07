@@ -34,6 +34,7 @@ pub trait ShaderTextureKind: 'static {
 
 pub type ChannelOutputOf<T> = <T as ShaderTextureKind>::ChannelOutput;
 
+pub trait DirectAccessTarget {}
 pub trait SingleSampleTarget {}
 pub trait MultiSampleTarget {}
 
