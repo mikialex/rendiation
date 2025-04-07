@@ -13,14 +13,16 @@ pub struct ViewerBackgroundState {
   solid_background_color: [f32; 3],
 }
 
+const DEFAULT_BACKGROUND: Vec3<f32> = Vec3::new(0.8, 0.8, 0.8);
+
 impl ViewerBackgroundState {
   pub fn init(writer: &mut SceneWriter) -> Self {
-    writer.set_solid_background(Vec3::new(0.1, 0.1, 0.1));
+    writer.set_solid_background(DEFAULT_BACKGROUND);
     let default_env_background = load_example_cube_tex(writer);
     Self {
       current: ViewerBackgroundType::Color,
       default_env_background,
-      solid_background_color: [0.1, 0.1, 0.1],
+      solid_background_color: DEFAULT_BACKGROUND.into(),
     }
   }
 

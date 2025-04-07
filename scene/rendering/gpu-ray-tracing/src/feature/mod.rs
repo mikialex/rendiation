@@ -87,6 +87,7 @@ impl QueryBasedFeature<SceneRayTracingRendererBase> for RayTracingSystemBase {
     self.texture_system.register_resource(qcx, cx);
     self.lighting.register_resource(qcx, cx);
     self.scene_ids.register(qcx, cx);
+    self.background.register(qcx, cx);
     qcx.end_record(&mut self.source_set);
   }
 
@@ -98,6 +99,7 @@ impl QueryBasedFeature<SceneRayTracingRendererBase> for RayTracingSystemBase {
     self.texture_system.deregister_resource(qcx);
     self.lighting.deregister_resource(qcx);
     self.scene_ids.deregister(qcx);
+    self.background.deregister(qcx);
   }
 
   fn create_impl(&self, cx: &mut QueryResultCtx) -> SceneRayTracingRendererBase {

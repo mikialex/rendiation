@@ -4,6 +4,8 @@ use crate::*;
 
 #[derive(Default)]
 pub struct SceneBackgroundRendererSource {
+  /// this is mainly use in path tracing renderer
+  solid_background_color: QueryToken,
   env_background_intensity_uniform: QueryToken,
   // todo
   // note, currently the cube map is standalone maintained, this is wasteful if user shared it elsewhere
@@ -15,6 +17,7 @@ impl QueryBasedFeature<SceneBackgroundRenderer> for SceneBackgroundRendererSourc
   fn register(&mut self, qcx: &mut ReactiveQueryCtx, gpu: &GPU) {
     self.cube_map = qcx.register_multi_updater(gpu_texture_cubes(gpu, FastHashMap::default()));
     let gpu = gpu.clone();
+    let gpu2 = gpu.clone();
     let intensity = global_watch()
       .watch::<SceneHDRxEnvBackgroundIntensity>()
       .collective_filter_map(|v| v)
@@ -24,11 +27,22 @@ impl QueryBasedFeature<SceneBackgroundRenderer> for SceneBackgroundRendererSourc
       })
       .materialize_unordered();
     self.env_background_intensity_uniform = qcx.register_reactive_query(intensity);
+
+    let solid_background_color = global_watch()
+      .watch::<SceneSolidBackground>()
+      .collective_map(|v| v.map(srgb3_to_linear3).unwrap_or(Vec3::splat(0.)))
+      .collective_execute_map_by(move || {
+        let gpu = gpu2.clone();
+        move |_, intensity| create_uniform(intensity.expand_with_one(), &gpu.device)
+      })
+      .materialize_unordered();
+    self.solid_background_color = qcx.register_reactive_query(solid_background_color);
   }
 
   fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
     qcx.deregister(&mut self.env_background_intensity_uniform);
     qcx.deregister(&mut self.cube_map);
+    qcx.deregister(&mut self.solid_background_color);
   }
 
   fn create_impl(&self, cx: &mut QueryResultCtx) -> SceneBackgroundRenderer {
@@ -40,6 +54,9 @@ impl QueryBasedFeature<SceneBackgroundRenderer> for SceneBackgroundRendererSourc
       env_background_intensity: cx
         .take_reactive_query_updated(self.env_background_intensity_uniform)
         .unwrap(),
+      solid_background_uniform: cx
+        .take_reactive_query_updated(self.solid_background_color)
+        .unwrap(),
     }
   }
 }
@@ -50,6 +67,8 @@ pub struct SceneBackgroundRenderer {
   pub env_background_map_gpu:
     LockReadGuardHolder<CubeMapUpdateContainer<EntityHandle<SceneTextureCubeEntity>>>,
   pub env_background_intensity:
+    BoxedDynQuery<EntityHandle<SceneEntity>, UniformBufferDataView<Vec4<f32>>>,
+  pub solid_background_uniform:
     BoxedDynQuery<EntityHandle<SceneEntity>, UniformBufferDataView<Vec4<f32>>>,
 }
 

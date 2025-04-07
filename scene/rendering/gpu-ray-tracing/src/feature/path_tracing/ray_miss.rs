@@ -34,7 +34,6 @@ pub enum PTRayMissCtx {
   Solid {
     color: UniformBufferDataView<Vec4<f32>>,
   },
-  #[allow(dead_code)]
   Test,
 }
 
@@ -49,8 +48,10 @@ impl PTRayMissCtx {
           .clone(),
         intensity: renderer.env_background_intensity.access(&scene).unwrap(),
       }
+    } else if let Some(color) = renderer.solid_background_uniform.access(&scene) {
+      PTRayMissCtx::Solid { color }
     } else {
-      PTRayMissCtx::Solid { color: todo!() }
+      PTRayMissCtx::Test
     }
   }
 }
