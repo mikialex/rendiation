@@ -215,8 +215,6 @@ impl TaskSpawnerInvocation<Vec3<u32>> for RangedTaskSpawnerInvocation {
     let offset = size_offset.zw();
     let x = global_id % width;
     let y = global_id / width;
-    // shader_assert(y.less_than(size_offset.y()));
-    // shader_assert(_count.equals(size_offset.x() * size_offset.y()));
     (x + offset.x(), y + offset.y(), val(0)).into()
   }
 }

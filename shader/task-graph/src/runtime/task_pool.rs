@@ -11,7 +11,7 @@ pub struct TaskPool {
   /// }
   pub(crate) tasks: BoxedAbstractStorageBufferDynTyped,
   state_desc: DynamicTypeMetaInfo,
-  task_ty_desc: ShaderStructMetaInfo,
+  pub(crate) task_ty_desc: ShaderStructMetaInfo,
 }
 
 impl ShaderHashProvider for TaskPool {
