@@ -324,18 +324,21 @@ impl Viewer3dSceneDeriveSource {
     let (_, world_mat) = self.world_mat.describe(cx).resolve_kept();
     let (_, node_net_visible) = self.node_net_visible.describe(cx).resolve_kept();
     let (_, camera_transforms) = self.camera_transforms.describe(cx).resolve_kept();
-    let (_, _, mesh_vertex_ref) = self.mesh_vertex_ref.describe_with_inv_dyn(cx);
-    let (_, _, sm_to_s) = self.sm_to_s.describe_with_inv_dyn(cx);
+    let (_, mesh_vertex_ref) = self
+      .mesh_vertex_ref
+      .describe_with_inv_dyn(cx)
+      .resolve_kept();
+    let (_, sm_to_s) = self.sm_to_s.describe_with_inv_dyn(cx).resolve_kept();
     let (_, sm_world_bounding) = self.sm_world_bounding.describe(cx).resolve_kept();
-    let (_, _, node_children) = self.node_children.describe_with_inv_dyn(cx);
+    let (_, node_children) = self.node_children.describe_with_inv_dyn(cx).resolve_kept();
     Viewer3dSceneDerive {
       world_mat: world_mat.into_boxed(),
       camera_transforms: camera_transforms.into_boxed(),
-      mesh_vertex_ref,
+      mesh_vertex_ref: mesh_vertex_ref.into_boxed_multi(),
       node_net_visible: node_net_visible.into_boxed(),
       sm_world_bounding: sm_world_bounding.into_boxed(),
-      node_children,
-      sm_to_s,
+      node_children: node_children.into_boxed_multi(),
+      sm_to_s: sm_to_s.into_boxed_multi(),
     }
   }
 }

@@ -54,8 +54,8 @@ where
   type Output = Box<dyn std::any::Any>;
 
   fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
-    let (_, _, m) = self.inner.describe_with_inv_dyn(cx);
-    Box::new(m)
+    let (_, m) = self.inner.describe_with_inv_dyn(cx).resolve_kept();
+    Box::new(Box::new(m) as BoxedDynMultiQuery<T::One, T::Many>)
   }
 }
 

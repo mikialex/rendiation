@@ -191,8 +191,8 @@ impl ReactiveQuery for SceneTlasMaintainer {
     };
 
     let mut regenerate_scene = FastHashSet::<EntityHandle<SceneEntity>>::default();
-    let (scene_ref_sm_change, current_sm_acc_scene, current_scene_ref_sm) =
-      self.scene_sm.describe_with_inv_dyn(cx);
+    let (scene_ref_sm_change, current_sm_acc_scene) =
+      self.scene_sm.describe_with_inv_dyn(cx).resolve_kept();
     for (_, change) in scene_ref_sm_change.iter_key_value() {
       if let Some(new_scene) = change.new_value() {
         regenerate_scene.insert(*new_scene);
@@ -213,7 +213,7 @@ impl ReactiveQuery for SceneTlasMaintainer {
       if let Some(tlas) = mutator.remove(scene) {
         self.acc_sys.delete_top_level_acceleration_structure(tlas);
       }
-      let source = current_scene_ref_sm
+      let source = current_sm_acc_scene
         .access_multi(&scene)
         .unwrap()
         .filter_map(|sm| {

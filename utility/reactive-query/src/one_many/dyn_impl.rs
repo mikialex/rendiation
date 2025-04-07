@@ -43,7 +43,7 @@ where
   type Value = O;
   type Compute = BoxedDynOneToManyQueryCompute<M, O>;
   fn describe(&self, cx: &mut Context) -> Self::Compute {
-    self.describe_with_inv_dyn(cx)
+    self.deref().describe_with_inv_dyn(cx)
   }
   fn request(&mut self, request: &mut ReactiveQueryRequest) {
     self.deref_mut().extra_request_dyn(request)
@@ -77,7 +77,11 @@ where
     cx: &QueryResolveCtx,
   ) -> DynOneToManyQueryComputePoll<Self::Many, Self::One> {
     let (d, v) = self.resolve(cx);
-    (Box::new(d), Box::new(v.clone()), Box::new(v))
+    let v = OneManyRelationDualAccess {
+      many_access_one: Box::new(v.clone()) as BoxedDynQuery<Self::Many, Self::One>,
+      one_access_many: Box::new(v) as BoxedDynMultiQuery<Self::One, Self::Many>,
+    };
+    (Box::new(d), v)
   }
   fn create_one_many_task_dyn(
     &mut self,
@@ -98,25 +102,23 @@ impl<M: CKey, O: CKey> QueryCompute for BoxedDynOneToManyQueryCompute<M, O> {
   type Key = M;
   type Value = O;
   type Changes = BoxedDynQuery<M, ValueChange<O>>;
-  type View = BoxedDynQuery<M, O>;
+  type View = OneManyRelationDualAccess<BoxedDynQuery<M, O>, BoxedDynMultiQuery<O, M>>;
 
   fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
-    let (d, v, _) = self.deref_mut().resolve_one_many_dyn(cx);
-    (d, v)
+    self.deref_mut().resolve_one_many_dyn(cx)
   }
 }
 impl<M: CKey, O: CKey> AsyncQueryCompute for BoxedDynOneToManyQueryCompute<M, O> {
   type Task = impl Future<Output = (Self::Changes, Self::View)> + 'static;
 
   fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
-    self.create_task_dyn(cx)
+    self.deref_mut().create_one_many_task_dyn(cx)
   }
 }
 
 type DynOneToManyQueryComputePoll<M, O> = (
   BoxedDynQuery<M, ValueChange<O>>,
-  BoxedDynQuery<M, O>,
-  BoxedDynMultiQuery<O, M>,
+  OneManyRelationDualAccess<BoxedDynQuery<M, O>, BoxedDynMultiQuery<O, M>>,
 );
 
 #[derive(Clone)]

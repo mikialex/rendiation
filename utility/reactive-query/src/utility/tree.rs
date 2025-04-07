@@ -170,10 +170,7 @@ where
     T,
     F,
     BoxedDynQueryCompute<K, T>,
-    (
-      BoxedDynQuery<K, ValueChange<K>>,
-      OneManyRelationDualAccess<BoxedDynQuery<K, K>, BoxedDynMultiQuery<K, K>>,
-    ),
+    BoxedDynOneToManyQueryCompute<K, K>,
   >;
 
   fn describe(&self, cx: &mut Context) -> Self::Compute {
