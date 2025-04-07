@@ -192,7 +192,7 @@ impl ReactiveQuery for SceneTlasMaintainer {
 
     let mut regenerate_scene = FastHashSet::<EntityHandle<SceneEntity>>::default();
     let (scene_ref_sm_change, current_sm_acc_scene, current_scene_ref_sm) =
-      self.scene_sm.poll_changes_with_inv_dyn(cx);
+      self.scene_sm.describe_with_inv_dyn(cx);
     for (_, change) in scene_ref_sm_change.iter_key_value() {
       if let Some(new_scene) = change.new_value() {
         regenerate_scene.insert(*new_scene);

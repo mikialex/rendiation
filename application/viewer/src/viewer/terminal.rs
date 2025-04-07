@@ -177,10 +177,7 @@ pub fn register_default_commands(terminal: &mut Terminal) {
         )
         .unwrap();
       } else {
-        log::error!(
-          "failed to locate the system's default download directory to write file
-  output"
-        )
+        log::error!("failed to locate the system's default download directory to write file output")
       }
     }
   });

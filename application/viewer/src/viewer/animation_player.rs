@@ -32,8 +32,8 @@ impl SceneAnimationsPlayer {
     target_scene: EntityHandle<SceneEntity>,
     absolute_world_time_in_sec: f32,
   ) -> SceneAnimationMutation {
-    let (_, _, animation_of_scene) = self.animation_of_scene.poll_changes_with_inv_dyn(cx);
-    let (_, _, channel_of_animation) = self.channel_of_animation.poll_changes_with_inv_dyn(cx);
+    let (_, _, animation_of_scene) = self.animation_of_scene.describe_with_inv_dyn(cx);
+    let (_, _, channel_of_animation) = self.channel_of_animation.describe_with_inv_dyn(cx);
 
     let channel_reader = global_entity_of::<SceneAnimationChannelEntity>().entity_reader();
     let buffer_reader = global_entity_component_of::<BufferEntityData>().read();

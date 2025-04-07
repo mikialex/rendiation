@@ -39,7 +39,7 @@ impl ReactiveGeneralQuery for MultiAccessGPUDataBuilder {
   type Output = Box<dyn std::any::Any>;
 
   fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
-    let (changes, _, multi_access) = self.source.poll_changes_with_inv_dyn(cx);
+    let (changes, _, multi_access) = self.source.describe_with_inv_dyn(cx);
 
     // collect all changed one.
     // for simplicity, we do full update for each "one"s data
