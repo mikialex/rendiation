@@ -43,7 +43,7 @@ pub fn rotation_gizmo_view(
 
 #[track_caller]
 pub fn rotation_gizmo_view2(
-  cx: &mut UICx,
+  cx: &mut UI3dCx,
   target: &mut Option<GizmoControlTargetState>,
 ) -> Option<GizmoUpdateTargetLocal> {
   cx.scoped(|cx| {
@@ -59,7 +59,7 @@ pub fn rotation_gizmo_view2(
 
 #[track_caller]
 pub fn rotator_view(
-  cx: &mut UICx,
+  cx: &mut UI3dCx,
   axis: AxisType,
   gizmo: &mut AxisActiveState,
   target: &mut Option<GizmoControlTargetState>,
