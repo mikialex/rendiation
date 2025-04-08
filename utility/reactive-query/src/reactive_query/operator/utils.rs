@@ -61,8 +61,10 @@ impl<T: QueryCompute> QueryCompute for ReactiveQueryDebug<T, T::Key, T::Value> {
 }
 
 impl<T: AsyncQueryCompute> AsyncQueryCompute for ReactiveQueryDebug<T, T::Key, T::Value> {
-  type Task = impl Future<Output = (Self::Changes, Self::View)>;
-  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+  fn create_task(
+    &mut self,
+    cx: &mut AsyncQueryCtx,
+  ) -> QueryComputeTask<(Self::Changes, Self::View)> {
     let state = self.state.clone();
     let label = self.label;
     let log_change = self.log_change;
@@ -74,6 +76,7 @@ impl<T: AsyncQueryCompute> AsyncQueryCompute for ReactiveQueryDebug<T, T::Key, T
       label,
       log_change,
     })
+    .into_boxed_future()
   }
 }
 
@@ -147,14 +150,16 @@ impl<T> AsyncQueryCompute for QueryDiff<T>
 where
   T: AsyncQueryCompute,
 {
-  type Task = impl Future<Output = (Self::Changes, Self::View)>;
-
-  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+  fn create_task(
+    &mut self,
+    cx: &mut AsyncQueryCtx,
+  ) -> QueryComputeTask<(Self::Changes, Self::View)> {
     let c = cx.resolve_cx().clone();
     self
       .inner
       .create_task(cx)
       .map(move |inner| QueryDiff { inner }.resolve(&c))
+      .into_boxed_future()
   }
 }
 

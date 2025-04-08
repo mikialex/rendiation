@@ -48,9 +48,10 @@ where
   F2: Fn(V2) -> T::One + Copy + Send + Sync + 'static,
   T: ReactiveOneToManyRelationCompute + AsyncQueryCompute,
 {
-  type Task = impl Future<Output = (Self::Changes, Self::View)>;
-
-  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+  fn create_task(
+    &mut self,
+    cx: &mut AsyncQueryCtx,
+  ) -> QueryComputeTask<(Self::Changes, Self::View)> {
     let map = self.map;
     let f1 = self.f1;
     let f2 = self.f2;
@@ -59,6 +60,7 @@ where
       .inner
       .create_task(cx)
       .map(move |inner| ReactiveKVMapRelation { inner, map, f1, f2 }.resolve(&c))
+      .into_boxed_future()
   }
 }
 
@@ -155,9 +157,10 @@ where
   F2: Fn(K2) -> T::Many + Copy + Send + Sync + 'static,
   T: ReactiveOneToManyRelationCompute + AsyncQueryCompute,
 {
-  type Task = impl Future<Output = (Self::Changes, Self::View)>;
-
-  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+  fn create_task(
+    &mut self,
+    cx: &mut AsyncQueryCtx,
+  ) -> QueryComputeTask<(Self::Changes, Self::View)> {
     let f1 = self.f1;
     let f2 = self.f2;
     let c = cx.resolve_cx().clone();
@@ -165,5 +168,6 @@ where
       .inner
       .create_task(cx)
       .map(move |inner| ReactiveKeyDualMapRelation { inner, f1, f2 }.resolve(&c))
+      .into_boxed_future()
   }
 }

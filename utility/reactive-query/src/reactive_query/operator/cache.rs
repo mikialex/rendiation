@@ -36,15 +36,17 @@ impl<T: QueryCompute> QueryCompute for UnorderedMaterializedViewCache<T, T::Key,
 impl<T: AsyncQueryCompute> AsyncQueryCompute
   for UnorderedMaterializedViewCache<T, T::Key, T::Value>
 {
-  type Task = impl Future<Output = (Self::Changes, Self::View)>;
-
-  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+  fn create_task(
+    &mut self,
+    cx: &mut AsyncQueryCtx,
+  ) -> QueryComputeTask<(Self::Changes, Self::View)> {
     let cache = self.cache.clone();
     let inner = self.inner.create_task(cx);
     cx.then_spawn_compute(inner, |inner| UnorderedMaterializedViewCache {
       inner,
       cache,
     })
+    .into_boxed_future()
   }
 }
 
@@ -147,15 +149,17 @@ where
   Map::Key: LinearIdentification + CKey,
   Map::Value: CValue,
 {
-  type Task = impl Future<Output = (Self::Changes, Self::View)> + 'static;
-
-  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+  fn create_task(
+    &mut self,
+    cx: &mut AsyncQueryCtx,
+  ) -> QueryComputeTask<(Self::Changes, Self::View)> {
     let cache = self.cache.clone();
     let inner = self.inner.create_task(cx);
     cx.then_spawn_compute(inner, |inner| LinearMaterializedReactiveQuery {
       inner,
       cache,
     })
+    .into_boxed_future()
   }
 }
 

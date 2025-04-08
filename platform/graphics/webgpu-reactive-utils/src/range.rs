@@ -37,9 +37,10 @@ pub struct ReactiveRangeAllocatePoolCompute<T: QueryCompute> {
 impl<T: AsyncQueryCompute<Value = (Arc<Vec<u8>>, Option<GPUBufferViewRange>)>> AsyncQueryCompute
   for ReactiveRangeAllocatePoolCompute<T>
 {
-  type Task = impl Future<Output = (Self::Changes, Self::View)> + 'static;
-
-  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+  fn create_task(
+    &mut self,
+    cx: &mut AsyncQueryCtx,
+  ) -> QueryComputeTask<(Self::Changes, Self::View)> {
     let buffer = self.buffer.clone();
     let record = self.record.clone();
     let gpu = self.gpu.clone();
@@ -52,6 +53,7 @@ impl<T: AsyncQueryCompute<Value = (Arc<Vec<u8>>, Option<GPUBufferViewRange>)>> A
       gpu,
       upstream,
     })
+    .into_boxed_future()
   }
 }
 

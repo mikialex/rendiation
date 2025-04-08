@@ -336,15 +336,17 @@ impl<T> AsyncQueryCompute for GenerationHelperView<T>
 where
   T: AsyncQueryCompute<Key = RawEntityHandle>,
 {
-  type Task = impl Future<Output = (Self::Changes, Self::View)> + 'static;
-
-  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+  fn create_task(
+    &mut self,
+    cx: &mut AsyncQueryCtx,
+  ) -> QueryComputeTask<(Self::Changes, Self::View)> {
     let allocator = self.allocator.clone();
     let c = cx.resolve_cx().clone();
     self
       .inner
       .create_task(cx)
       .map(move |inner| GenerationHelperView { inner, allocator }.resolve(&c))
+      .into_boxed_future()
   }
 }
 

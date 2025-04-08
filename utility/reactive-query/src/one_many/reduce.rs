@@ -151,9 +151,10 @@ where
   Relation: AsyncQueryCompute<Key = Upstream::Key>,
   Relation::Value: CKey,
 {
-  type Task = impl Future<Output = (Self::Changes, Self::View)>;
-
-  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+  fn create_task(
+    &mut self,
+    cx: &mut AsyncQueryCtx,
+  ) -> QueryComputeTask<(Self::Changes, Self::View)> {
     let upstream = self.upstream.create_task(cx);
     let relations = self.relations.create_task(cx);
     let ref_count = self.ref_count.clone();
@@ -164,6 +165,7 @@ where
       relations,
       ref_count,
     })
+    .into_boxed_future()
   }
 }
 

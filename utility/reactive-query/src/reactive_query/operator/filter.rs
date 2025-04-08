@@ -83,16 +83,16 @@ where
   T: AsyncQueryCompute,
   V2: CValue,
 {
-  type Task = impl Future<Output = (Self::Changes, Self::View)>;
-
-  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+  fn create_task(
+    &mut self,
+    cx: &mut AsyncQueryCtx,
+  ) -> QueryComputeTask<(Self::Changes, Self::View)> {
     let mapper = self.mapper.clone();
     let c = cx.resolve_cx().clone();
-    let f = self
+    self
       .base
       .create_task(cx)
-      .map(move |base| FilterMapQuery { base, mapper }.resolve(&c));
-
-    avoid_huge_debug_symbols_by_boxing_future(f)
+      .map(move |base| FilterMapQuery { base, mapper }.resolve(&c))
+      .into_boxed_future()
   }
 }

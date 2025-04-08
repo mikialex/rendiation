@@ -33,12 +33,14 @@ where
   fn into_boxed_debug_large_symbol_workaround(
     self,
   ) -> impl ReactiveQuery<Key = Self::Key, Value = Self::Value> {
-    #[cfg(debug_assertions)]
+    // we have to enable this on mac, because even in release build, the link will failed
+    // due to huge debug symbol
+    #[cfg(any(debug_assertions, target_os = "macos"))]
     {
       self.into_boxed()
     }
 
-    #[cfg(not(debug_assertions))]
+    #[cfg(all(not(debug_assertions), not(target_os = "macos")))]
     {
       self
     }

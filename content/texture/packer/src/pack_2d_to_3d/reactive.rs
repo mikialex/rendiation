@@ -103,9 +103,10 @@ struct PackerCompute<T> {
 }
 
 impl<T: AsyncQueryCompute<Key = u32, Value = Size>> AsyncQueryCompute for PackerCompute<T> {
-  type Task = impl Future<Output = (Self::Changes, Self::View)> + 'static;
-
-  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+  fn create_task(
+    &mut self,
+    cx: &mut AsyncQueryCtx,
+  ) -> QueryComputeTask<(Self::Changes, Self::View)> {
     let max_size = self.max_size;
     let packer = self.packer.clone();
     let mapping = self.mapping.clone();
@@ -120,6 +121,7 @@ impl<T: AsyncQueryCompute<Key = u32, Value = Size>> AsyncQueryCompute for Packer
       rev_mapping,
       all_size_sender,
     })
+    .into_boxed_future()
   }
 }
 

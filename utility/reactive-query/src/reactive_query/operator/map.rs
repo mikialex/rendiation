@@ -72,15 +72,17 @@ where
   F: Fn(&T::Key, T::Value) -> V2 + Clone + Send + Sync + 'static,
   T: AsyncQueryCompute,
 {
-  type Task = impl Future<Output = (Self::Changes, Self::View)>;
-
-  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+  fn create_task(
+    &mut self,
+    cx: &mut AsyncQueryCtx,
+  ) -> QueryComputeTask<(Self::Changes, Self::View)> {
     let mapper = self.mapper.clone();
     let c = cx.resolve_cx().clone();
     self
       .base
       .create_task(cx)
       .map(move |base| MappedQuery { base, mapper }.resolve(&c))
+      .into_boxed_future()
   }
 }
 
@@ -135,9 +137,10 @@ where
   F2: Fn(K2) -> T::Key + Copy + Send + Sync + 'static,
   T: AsyncQueryCompute,
 {
-  type Task = impl Future<Output = (Self::Changes, Self::View)>;
-
-  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+  fn create_task(
+    &mut self,
+    cx: &mut AsyncQueryCtx,
+  ) -> QueryComputeTask<(Self::Changes, Self::View)> {
     let f1 = self.f1;
     let f2 = self.f2;
     let c = cx.resolve_cx().clone();
@@ -145,6 +148,7 @@ where
       .base
       .create_task(cx)
       .map(move |base| KeyDualMappedQuery { base, f1, f2 }.resolve(&c))
+      .into_boxed_future()
   }
 }
 
@@ -237,20 +241,20 @@ where
   V2: CValue,
   T: AsyncQueryCompute,
 {
-  type Task = impl Future<Output = (Self::Changes, Self::View)>;
-
-  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+  fn create_task(
+    &mut self,
+    cx: &mut AsyncQueryCtx,
+  ) -> QueryComputeTask<(Self::Changes, Self::View)> {
     let map_creator = self.map_creator.clone();
     let cache = self.cache.clone();
 
     let inner = self.inner.create_task(cx);
 
-    let f = cx.then_spawn_compute(inner, move |inner| MapExecution {
+    cx.then_spawn_compute(inner, move |inner| MapExecution {
       inner,
       map_creator,
       cache,
-    });
-
-    avoid_huge_debug_symbols_by_boxing_future(f)
+    })
+    .into_boxed_future()
   }
 }

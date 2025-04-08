@@ -84,15 +84,17 @@ where
   T: AsyncQueryCompute,
   T::Value: CKey,
 {
-  type Task = impl Future<Output = (Self::Changes, Self::View)>;
-
-  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+  fn create_task(
+    &mut self,
+    cx: &mut AsyncQueryCtx,
+  ) -> QueryComputeTask<(Self::Changes, Self::View)> {
     let mapping = self.mapping.clone();
     let upstream = self.upstream.create_task(cx);
     cx.then_spawn_compute(upstream, |upstream| OneToManyRefHashBookKeeping {
       upstream,
       mapping,
     })
+    .into_boxed_future()
   }
 }
 
@@ -259,16 +261,16 @@ where
   T::Value: LinearIdentification + CKey,
   T::Key: LinearIdentification + CKey,
 {
-  type Task = impl Future<Output = (Self::Changes, Self::View)>;
-
-  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+  fn create_task(
+    &mut self,
+    cx: &mut AsyncQueryCtx,
+  ) -> QueryComputeTask<(Self::Changes, Self::View)> {
     let mapping = self.mapping.clone();
     let upstream = self.upstream.create_task(cx);
-    let f = cx.then_spawn_compute(upstream, |upstream| OneToManyRefDenseBookKeeping {
+    cx.then_spawn_compute(upstream, |upstream| OneToManyRefDenseBookKeeping {
       upstream,
       mapping,
-    });
-
-    avoid_huge_debug_symbols_by_boxing_future(f)
+    })
+    .into_boxed_future()
   }
 }

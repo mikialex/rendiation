@@ -15,7 +15,7 @@ use crate::*;
 
 /// this is just a helper trait to facilitate bound expression
 pub trait ReactiveOneToManyRelationCompute:
-  QueryCompute<
+  AsyncQueryCompute<
   Key = Self::Many,
   Value = Self::One,
   View: MultiQuery<Key = Self::One, Value = Self::Many>,
@@ -26,7 +26,7 @@ pub trait ReactiveOneToManyRelationCompute:
 }
 impl<T> ReactiveOneToManyRelationCompute for T
 where
-  T: QueryCompute<View: MultiQuery<Key = T::Value, Value = T::Key>>,
+  T: AsyncQueryCompute<View: MultiQuery<Key = T::Value, Value = T::Key>>,
   T::Value: CKey,
 {
   type One = T::Value;
