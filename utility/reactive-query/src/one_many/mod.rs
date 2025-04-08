@@ -54,11 +54,22 @@ where
   type Many = T::Key;
 }
 
-pub trait ReactiveOneToManyRelationExt: ReactiveOneToManyRelation {
-  fn into_reactive_state_many_one(self) -> ReactiveManyOneRelationAsReactiveQuery<Self>
-  where
-    Self: Sized,
-  {
+pub trait ReactiveOneToManyRelationExt: ReactiveOneToManyRelation + Sized {
+  fn into_boxed_many_one_debug_large_symbol_workaround(
+    self,
+  ) -> impl ReactiveOneToManyRelation<One = Self::One, Many = Self::Many> {
+    #[cfg(debug_assertions)]
+    {
+      Box::new(self) as BoxedDynReactiveOneToManyRelation<Self::One, Self::Many>
+    }
+
+    #[cfg(not(debug_assertions))]
+    {
+      self
+    }
+  }
+
+  fn into_reactive_state_many_one(self) -> ReactiveManyOneRelationAsReactiveQuery<Self> {
     ReactiveManyOneRelationAsReactiveQuery { inner: self }
   }
 
@@ -71,7 +82,6 @@ pub trait ReactiveOneToManyRelationExt: ReactiveOneToManyRelation {
     F: Fn(Self::One) -> O2 + Copy + Send + Sync + 'static,
     F2: Fn(O2) -> Self::One + Copy + Send + Sync + 'static,
     O2: CKey,
-    Self: Sized,
   {
     ReactiveKVMapRelation {
       inner: self,
@@ -85,10 +95,7 @@ pub trait ReactiveOneToManyRelationExt: ReactiveOneToManyRelation {
     self,
     f: impl Fn(Self::Many) -> M2 + Copy + 'static + Send + Sync,
     f_v: impl Fn(M2) -> Self::Many + Copy + 'static + Send + Sync,
-  ) -> impl ReactiveOneToManyRelation<One = Self::One, Many = M2>
-  where
-    Self: Sized,
-  {
+  ) -> impl ReactiveOneToManyRelation<One = Self::One, Many = M2> {
     ReactiveKeyDualMapRelation {
       inner: self,
       f1: f,

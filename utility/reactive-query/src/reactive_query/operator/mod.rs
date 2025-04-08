@@ -30,6 +30,20 @@ where
     Box::new(self)
   }
 
+  fn into_boxed_debug_large_symbol_workaround(
+    self,
+  ) -> impl ReactiveQuery<Key = Self::Key, Value = Self::Value> {
+    #[cfg(debug_assertions)]
+    {
+      self.into_boxed()
+    }
+
+    #[cfg(not(debug_assertions))]
+    {
+      self
+    }
+  }
+
   fn into_reactive_state(self) -> impl ReactiveGeneralQuery<Output = Box<dyn std::any::Any>> {
     ReactiveQueryAsReactiveGeneralQuery { inner: self }
   }
@@ -164,12 +178,14 @@ where
     Other: ReactiveQuery<Key = Self::Key, Value = Self::Value>,
   {
     let location = std::panic::Location::caller();
-    self.collective_union(other, move |(a, b)| match (a, b) {
-      (Some(_), Some(_)) => unreachable!("key set should not overlap, select: {}", location),
-      (Some(a), None) => a.into(),
-      (None, Some(b)) => b.into(),
-      (None, None) => None,
-    })
+    self
+      .collective_union(other, move |(a, b)| match (a, b) {
+        (Some(_), Some(_)) => unreachable!("key set should not overlap, select: {}", location),
+        (Some(a), None) => a.into(),
+        (None, Some(b)) => b.into(),
+        (None, None) => None,
+      })
+      .into_boxed_debug_large_symbol_workaround()
   }
 
   /// K should fully overlap
@@ -182,12 +198,14 @@ where
     Other: ReactiveQuery<Key = Self::Key>,
   {
     let location = std::panic::Location::caller();
-    self.collective_union(other, move |(a, b)| match (a, b) {
-      (Some(a), Some(b)) => Some((a, b)),
-      (None, None) => None,
-      (None, Some(_)) => unreachable!("zip missing left side, zip: {}", location),
-      (Some(_), None) => unreachable!("zip missing right side, zip: {}", location),
-    })
+    self
+      .collective_union(other, move |(a, b)| match (a, b) {
+        (Some(a), Some(b)) => Some((a, b)),
+        (None, None) => None,
+        (None, Some(_)) => unreachable!("zip missing left side, zip: {}", location),
+        (Some(_), None) => unreachable!("zip missing right side, zip: {}", location),
+      })
+      .into_boxed_debug_large_symbol_workaround()
   }
 
   /// only return overlapped part
@@ -198,10 +216,12 @@ where
   where
     Other: ReactiveQuery<Key = Self::Key>,
   {
-    self.collective_union(other, |(a, b)| match (a, b) {
-      (Some(a), Some(b)) => Some((a, b)),
-      _ => None,
-    })
+    self
+      .collective_union(other, |(a, b)| match (a, b) {
+        (Some(a), Some(b)) => Some((a, b)),
+        _ => None,
+      })
+      .into_boxed_debug_large_symbol_workaround()
   }
 
   /// filter map<k, v> by reactive set<k>
@@ -210,10 +230,12 @@ where
   where
     S: ReactiveQuery<Key = Self::Key, Value = ()>,
   {
-    self.collective_union(set, |(a, b)| match (a, b) {
-      (Some(a), Some(_)) => Some(a),
-      _ => None,
-    })
+    self
+      .collective_union(set, |(a, b)| match (a, b) {
+        (Some(a), Some(_)) => Some(a),
+        _ => None,
+      })
+      .into_boxed_debug_large_symbol_workaround()
   }
 
   fn into_forker(self) -> ReactiveQueryFork<Self, Self::Key, Self::Value> {
