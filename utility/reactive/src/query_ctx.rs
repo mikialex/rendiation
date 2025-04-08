@@ -1,4 +1,5 @@
 use anymap::AnyMap;
+use futures::{executor::block_on, future::ready, stream::FuturesUnordered};
 
 use crate::*;
 
@@ -79,29 +80,32 @@ impl ReactiveQueryCtx {
     self.register(c)
   }
 
-  pub fn poll_update_all(&mut self, cx: &mut Context) -> QueryResultCtx {
-    let mut token_based_waked = FastHashSet::default();
-    let token_based_result = self
-      .registry
-      .iter_mut()
-      .map(|(k, v)| {
-        let (waked, result) = v
-          .1
-          .run_and_return_previous_waked(cx, |cx| v.0.poll_query(cx));
+  pub fn poll_update_all_block(&mut self, cx: &mut Context) -> QueryResultCtx {
+    let mut async_cx = Default::default();
+    block_on(self.poll_update_all_async(cx, &mut async_cx))
+  }
 
+  pub fn poll_update_all_async(
+    &mut self,
+    cx: &mut Context,
+    acx: &mut AsyncQueryCtx,
+  ) -> impl Future<Output = QueryResultCtx> + use<'_> {
+    FuturesUnordered::from_iter(self.registry.iter().map(|(k, source)| {
+      let (waked, future) = source
+        .1
+        .run_and_return_previous_waked(cx, || source.0.poll_query(cx, acx));
+      ready((k, future, waked))
+    }))
+    .fold(
+      QueryResultCtx::default(),
+      |mut results, (k, result, waked)| async move {
         if waked {
-          token_based_waked.insert(*k);
+          results.token_based_waked.insert(*k);
         }
-
-        (*k, result)
-      })
-      .collect();
-
-    QueryResultCtx {
-      token_based_result,
-      token_based_waked,
-      type_based_result: Default::default(),
-    }
+        results.token_based_result.insert(*k, result);
+        results
+      },
+    )
   }
 }
 
@@ -121,6 +125,7 @@ impl Default for QueryToken {
 }
 
 /// The joined update result of [ReactiveQueryCtx], accessed by [QueryToken]
+#[derive(Default)]
 pub struct QueryResultCtx {
   pub token_based_result: FastHashMap<u32, Box<dyn Any>>,
   pub token_based_waked: FastHashSet<u32>,

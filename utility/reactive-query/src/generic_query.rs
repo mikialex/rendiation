@@ -2,13 +2,13 @@
 
 use crate::*;
 
-/// the difference between this and the Stream is that:
-/// - the output will always available when the query is polled instead of return pending or termination
-///   - of course, the pending or termination info could be included in the output depend on the user's demands
-/// - self parameter is not required to be pinned for sake of simplicity
 pub trait ReactiveGeneralQuery {
   type Output;
-  fn poll_query(&mut self, cx: &mut Context) -> Self::Output;
+  fn poll_query(
+    &mut self,
+    cx: &mut Context,
+    acx: &mut AsyncQueryCtx,
+  ) -> Pin<Box<dyn Future<Output = Self::Output>>>;
 }
 
 pub struct ReactiveQueryAsReactiveGeneralQuery<T> {
@@ -21,9 +21,17 @@ where
 {
   type Output = Box<dyn std::any::Any>;
 
-  fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
-    let (_, v) = self.inner.describe_dyn(cx).resolve_kept();
-    Box::new(v.into_boxed())
+  fn poll_query(
+    &mut self,
+    cx: &mut Context,
+    acx: &mut AsyncQueryCtx,
+  ) -> Pin<Box<dyn Future<Output = Self::Output>>> {
+    let f = self
+      .inner
+      .describe_dyn(cx)
+      .create_task(acx)
+      .map(|(_, v)| Box::new(v.into_boxed()) as Box<dyn std::any::Any>);
+    Box::pin(f)
   }
 }
 
@@ -37,9 +45,17 @@ where
 {
   type Output = Box<dyn std::any::Any>;
 
-  fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
-    let (_, v) = self.inner.poll_changes_self_contained_dyn(cx);
-    Box::new(v)
+  fn poll_query(
+    &mut self,
+    cx: &mut Context,
+    acx: &mut AsyncQueryCtx,
+  ) -> Pin<Box<dyn Future<Output = Self::Output>>> {
+    let f = self
+      .inner
+      .describe_dyn(cx)
+      .create_task(acx)
+      .map(|(_, v)| Box::new(v) as Box<dyn std::any::Any>);
+    Box::pin(f)
   }
 }
 
@@ -53,9 +69,19 @@ where
 {
   type Output = Box<dyn std::any::Any>;
 
-  fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
-    let (_, m) = self.inner.describe_with_inv_dyn(cx).resolve_kept();
-    Box::new(Box::new(m) as BoxedDynMultiQuery<T::One, T::Many>)
+  fn poll_query(
+    &mut self,
+    cx: &mut Context,
+    acx: &mut AsyncQueryCtx,
+  ) -> Pin<Box<dyn Future<Output = Self::Output>>> {
+    let f = self
+      .inner
+      .describe_with_inv_dyn(cx)
+      .create_task(acx)
+      .map(|(_, v)| {
+        Box::new(Box::new(v) as BoxedDynMultiQuery<T::One, T::Many>) as Box<dyn std::any::Any>
+      });
+    Box::pin(f)
   }
 }
 
@@ -68,7 +94,16 @@ where
 {
   type Output = Box<dyn std::any::Any>;
 
-  fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
-    Box::new(self.0.poll_query(cx))
+  fn poll_query(
+    &mut self,
+    cx: &mut Context,
+    acx: &mut AsyncQueryCtx,
+  ) -> Pin<Box<dyn Future<Output = Self::Output>>> {
+    let f = self
+      .0
+      .poll_query(cx, acx)
+      .map(|v| Box::new(v) as Box<dyn std::any::Any>);
+
+    Box::pin(f)
   }
 }

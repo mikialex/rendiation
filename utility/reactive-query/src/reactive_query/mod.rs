@@ -49,6 +49,7 @@ pub trait QueryCompute: Sync + Send + 'static {
   }
 }
 
+#[derive(Default)]
 pub struct AsyncQueryCtx {
   resolve_cx: QueryResolveCtx,
 }
