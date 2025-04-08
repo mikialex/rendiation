@@ -10,18 +10,48 @@ pub struct Terminal {
   console: Console,
   pub command_registry: FastHashMap<String, TerminalCommandCb>,
   pub executor: ThreadPool,
+  /// some task may only run on main thread
+  pub main_thread_tasks: futures::channel::mpsc::UnboundedReceiver<Box<dyn FnOnce() + Send + Sync>>,
+  pub ctx: TerminalCtx,
+}
+
+#[derive(Clone)]
+pub struct TerminalCtx {
+  channel: futures::channel::mpsc::UnboundedSender<Box<dyn FnOnce() + Send + Sync>>,
+}
+
+impl TerminalCtx {
+  pub fn spawn_main_thread<R: 'static + Send + Sync>(
+    &self,
+    task: impl FnOnce() -> R + Send + Sync + 'static,
+  ) -> impl Future<Output = Option<R>> {
+    let (s, r) = futures::channel::oneshot::channel();
+    self
+      .channel
+      .unbounded_send(Box::new(|| {
+        let result = task();
+        s.send(result).ok();
+      }))
+      .ok();
+    r.map(|v| v.ok())
+  }
 }
 
 impl Default for Terminal {
   fn default() -> Self {
+    let (s, r) = futures::channel::mpsc::unbounded();
+    let ctx = TerminalCtx { channel: s };
+
     Self {
       console: Console::new(),
       command_registry: Default::default(),
       executor: futures::executor::ThreadPool::builder()
-        .name_prefix("viewer_io_threads")
+        .name_prefix("viewer_terminal_task_thread")
         .pool_size(1)
         .create()
         .unwrap(),
+      main_thread_tasks: r,
+      ctx,
     }
   }
 }
@@ -35,16 +65,22 @@ impl Terminal {
     if let Some(command) = console_response {
       self.execute_current(command, cx);
     }
+
+    noop_ctx!(ctx);
+    self
+      .main_thread_tasks
+      .poll_until_pending(ctx, |task| task());
   }
 
   pub fn register_command<F, FR>(&mut self, name: impl AsRef<str>, f: F) -> &mut Self
   where
     FR: Future<Output = ()> + Send + 'static,
-    F: Fn(&mut DynCx, &Vec<String>) -> FR + 'static,
+    F: Fn(&mut DynCx, &Vec<String>, &TerminalCtx) -> FR + 'static,
   {
+    let cx = self.ctx.clone();
     self.command_registry.insert(
       name.as_ref().to_owned(),
-      Box::new(move |c, p| Box::new(Box::pin(f(c, p)))),
+      Box::new(move |c, p| Box::new(Box::pin(f(c, p, &cx)))),
     );
     self
   }
@@ -53,7 +89,7 @@ impl Terminal {
   where
     F: Fn(&mut DynCx, &Vec<String>) + 'static + Send + Sync,
   {
-    self.register_command(name, move |c, p| {
+    self.register_command(name, move |c, p, _| {
       f(c, p);
       async {}
     });
@@ -91,10 +127,11 @@ pub fn register_default_commands(terminal: &mut Terminal) {
     gpu.clear_resource_cache();
   });
 
-  terminal.register_command("load-gltf", |ctx, _parameters| {
+  terminal.register_command("load-gltf", |ctx, _parameters, tcx| {
     access_cx!(ctx, scene_cx, Viewer3dSceneCtx);
     let load_target_node = scene_cx.root;
     let load_target_scene = scene_cx.scene;
+    let tcx = tcx.clone();
 
     async move {
       use rfd::AsyncFileDialog;
@@ -104,29 +141,34 @@ pub fn register_default_commands(terminal: &mut Terminal) {
         .pick_file()
         .await;
 
-      let mut writer = SceneWriter::from_global(load_target_scene);
-
       if let Some(file_handle) = file_handle {
-        let load_result = rendiation_scene_gltf_loader::load_gltf(
-          file_handle.path(),
-          load_target_node,
-          &mut writer,
-        )
-        .unwrap();
-        if !load_result.used_but_not_supported_extensions.is_empty() {
-          println!(
-            "warning: gltf load finished but some used(but not required) extensions are not supported: {:#?}",
-            &load_result.used_but_not_supported_extensions
-          );
-        }
+        tcx
+          .spawn_main_thread(move || {
+            let mut writer = SceneWriter::from_global(load_target_scene);
+
+            let load_result = rendiation_scene_gltf_loader::load_gltf(
+              file_handle.path(),
+              load_target_node,
+              &mut writer,
+            )
+            .unwrap();
+            if !load_result.used_but_not_supported_extensions.is_empty() {
+              println!(
+                "warning: gltf load finished but some used(but not required) extensions are not supported: {:#?}",
+                &load_result.used_but_not_supported_extensions
+              );
+            }
+          })
+          .await;
       }
     }
   });
 
-  terminal.register_command("load-obj", |ctx, _parameters| {
+  terminal.register_command("load-obj", |ctx, _parameters, tcx| {
     access_cx!(ctx, scene_cx, Viewer3dSceneCtx);
     let load_target_node = scene_cx.root;
     let load_target_scene = scene_cx.scene;
+    let tcx = tcx.clone();
 
     async move {
       use rfd::AsyncFileDialog;
@@ -136,22 +178,26 @@ pub fn register_default_commands(terminal: &mut Terminal) {
         .pick_file()
         .await;
 
-      let mut writer = SceneWriter::from_global(load_target_scene);
-      let default_mat = writer.pbr_sg_mat_writer.new_entity();
-
       if let Some(file_handle) = file_handle {
-        rendiation_scene_obj_loader::load_obj(
-          file_handle.path(),
-          load_target_node,
-          default_mat,
-          &mut writer,
-        )
-        .unwrap();
+        tcx
+          .spawn_main_thread(move || {
+            let mut writer = SceneWriter::from_global(load_target_scene);
+            let default_mat = writer.pbr_sg_mat_writer.new_entity();
+
+            rendiation_scene_obj_loader::load_obj(
+              file_handle.path(),
+              load_target_node,
+              default_mat,
+              &mut writer,
+            )
+            .unwrap();
+          })
+          .await;
       }
     }
   });
 
-  terminal.register_command("export-gltf", |ctx, _parameters| {
+  terminal.register_command("export-gltf", |ctx, _parameters, tcx| {
     access_cx!(ctx, scene_cx, Viewer3dSceneCtx);
     access_cx!(ctx, derive_source, Viewer3dSceneDeriveSource);
     let derive_update = derive_source.poll_update();
@@ -162,27 +208,33 @@ pub fn register_default_commands(terminal: &mut Terminal) {
     let export_root_node = scene_cx.root;
     let export_scene = scene_cx.scene;
 
+    let tcx = tcx.clone();
+
     async move {
       if let Some(mut dir) = dirs::download_dir() {
         dir.push("gltf_export");
 
-        let reader =
-          SceneReader::new_from_global(export_scene, mesh_ref_vertex, node_children, sm_ref_s);
+        tcx
+          .spawn_main_thread(move || {
+            let reader =
+              SceneReader::new_from_global(export_scene, mesh_ref_vertex, node_children, sm_ref_s);
 
-        rendiation_scene_gltf_exporter::build_scene_to_gltf(
-          reader,
-          export_root_node,
-          &dir,
-          "scene",
-        )
-        .unwrap();
+            rendiation_scene_gltf_exporter::build_scene_to_gltf(
+              reader,
+              export_root_node,
+              &dir,
+              "scene",
+            )
+            .unwrap();
+          })
+          .await;
       } else {
         log::error!("failed to locate the system's default download directory to write file output")
       }
     }
   });
 
-  terminal.register_command("screenshot", |ctx, _parameters| {
+  terminal.register_command("screenshot", |ctx, _parameters, _| {
     access_cx_mut!(ctx, r, Viewer3dRenderingCtx);
     let result = r.read_next_render_result();
 

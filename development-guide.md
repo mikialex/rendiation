@@ -24,7 +24,6 @@ important issue is in bold style.
 - support material emissive larger than one
   - fix defer channel encode decode
   - fix gltf loader support
-- fix async scene mutation deadlock
 - fix parallel compute hash issue(disable the clear cache in test runner)
 - fix scene gpu lighting is globally shared in gles mode
 - fix some mesh can not be picked in cpu picking (maybe related to u16 index format)
