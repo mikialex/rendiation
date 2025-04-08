@@ -131,7 +131,11 @@ impl<T> SharedMultiUpdateContainer<T> {
 impl<T: 'static> ReactiveGeneralQuery for SharedMultiUpdateContainer<T> {
   type Output = Box<dyn Any>;
 
-  fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
+  fn poll_query(
+    &mut self,
+    cx: &mut Context,
+    acx: &mut AsyncQueryCtx,
+  ) -> Pin<Box<dyn Future<Output = Self::Output>>> {
     self.inner.write().poll_update(cx);
     Box::new(self.inner.make_read_holder())
   }
