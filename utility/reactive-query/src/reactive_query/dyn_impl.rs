@@ -44,7 +44,7 @@ pub type BoxedDynQueryCompute<K, V> = Box<dyn DynQueryCompute<Key = K, Value = V
 pub trait DynReactiveQuery: Sync + Send + 'static {
   type Key: CKey;
   type Value: CValue;
-  fn poll_changes_dyn(&self, cx: &mut Context) -> BoxedDynQueryCompute<Self::Key, Self::Value>;
+  fn describe_dyn(&self, cx: &mut Context) -> BoxedDynQueryCompute<Self::Key, Self::Value>;
 
   fn extra_request_dyn(&mut self, request: &mut ReactiveQueryRequest);
 }
@@ -52,7 +52,7 @@ pub trait DynReactiveQuery: Sync + Send + 'static {
 impl<T: ReactiveQuery> DynReactiveQuery for T {
   type Key = T::Key;
   type Value = T::Value;
-  fn poll_changes_dyn(&self, cx: &mut Context) -> BoxedDynQueryCompute<Self::Key, Self::Value> {
+  fn describe_dyn(&self, cx: &mut Context) -> BoxedDynQueryCompute<Self::Key, Self::Value> {
     Box::new(self.describe(cx))
   }
 
@@ -86,7 +86,7 @@ impl<K: CKey, V: CValue> ReactiveQuery for BoxedDynReactiveQuery<K, V> {
   type Compute = BoxedDynQueryCompute<K, V>;
 
   fn describe(&self, cx: &mut Context) -> Self::Compute {
-    self.deref().poll_changes_dyn(cx)
+    self.deref().describe_dyn(cx)
   }
   fn request(&mut self, request: &mut ReactiveQueryRequest) {
     self.deref_mut().extra_request_dyn(request)

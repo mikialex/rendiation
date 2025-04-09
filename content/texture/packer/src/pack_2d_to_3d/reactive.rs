@@ -76,7 +76,7 @@ impl ReactiveQuery for Packer {
   type Compute = PackerCompute<BoxedDynQueryCompute<u32, Size>>;
   fn describe(&self, cx: &mut Context) -> Self::Compute {
     PackerCompute {
-      size_source: self.size_source.poll_changes_dyn(cx),
+      size_source: self.size_source.describe_dyn(cx),
       max_size: self.max_size,
       packer: self.packer.clone(),
       mapping: self.mapping.clone(),

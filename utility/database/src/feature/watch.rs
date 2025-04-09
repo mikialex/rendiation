@@ -423,16 +423,16 @@ fn test_watch() {
       .debug("watch3", false)
       .into_forker();
 
-    let (d, v) = watcher3.poll_changes_dyn(cx).resolve_kept();
+    let (d, v) = watcher3.describe_dyn(cx).resolve_kept();
     assert_eq!(v.iter_key_value().count(), 2);
     assert_eq!(d.iter_key_value().count(), 2);
   }
 
   {
-    let (d, v) = watcher.poll_changes_dyn(cx).resolve_kept();
+    let (d, v) = watcher.describe_dyn(cx).resolve_kept();
     assert_eq!(v.iter_key_value().count(), 2);
     assert_eq!(d.iter_key_value().count(), 0);
-    let (d, v) = watcher2.poll_changes_dyn(cx).resolve_kept();
+    let (d, v) = watcher2.describe_dyn(cx).resolve_kept();
     assert_eq!(v.iter_key_value().count(), 2);
     assert_eq!(d.iter_key_value().count(), 0);
   }
@@ -442,24 +442,24 @@ fn test_watch() {
     .delete_entity(b);
 
   {
-    let (d, v) = watcher.poll_changes_dyn(cx).resolve_kept();
+    let (d, v) = watcher.describe_dyn(cx).resolve_kept();
     assert_eq!(v.iter_key_value().count(), 1);
     assert_eq!(d.iter_key_value().count(), 1);
   };
 
   {
-    let (d, v) = watcher.poll_changes_dyn(cx).resolve_kept();
+    let (d, v) = watcher.describe_dyn(cx).resolve_kept();
     assert_eq!(v.iter_key_value().count(), 1);
     assert_eq!(d.iter_key_value().count(), 0);
   }
 
   {
-    let (d, v) = watcher2.poll_changes_dyn(cx).resolve_kept();
+    let (d, v) = watcher2.describe_dyn(cx).resolve_kept();
     assert_eq!(v.iter_key_value().count(), 1);
     assert_eq!(d.iter_key_value().count(), 1);
   }
   {
-    let (d, v) = watcher2.poll_changes_dyn(cx).resolve_kept();
+    let (d, v) = watcher2.describe_dyn(cx).resolve_kept();
     assert_eq!(v.iter_key_value().count(), 1);
     assert_eq!(d.iter_key_value().count(), 0);
   }
@@ -469,7 +469,7 @@ fn test_watch() {
     .write::<TestComponent>(a, 2);
 
   {
-    let (d, v) = watcher.poll_changes_dyn(cx).resolve_kept();
+    let (d, v) = watcher.describe_dyn(cx).resolve_kept();
     assert_eq!(v.iter_key_value().count(), 1);
     assert_eq!(d.iter_key_value().count(), 1);
   }
