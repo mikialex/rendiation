@@ -23,11 +23,20 @@ impl<T: AsyncQueryCompute> DynQueryCompute for T {
     &mut self,
     cx: &mut AsyncQueryCtx,
   ) -> Pin<Box<dyn Send + Sync + Future<Output = DynReactiveQueryPoll<Self::Key, Self::Value>>>> {
-    let c = cx.resolve_cx().clone();
-    self
-      .create_task(cx)
-      .map(move |mut r| r.resolve_dyn(&c))
-      .into_boxed_future()
+    #[cfg(not(debug_assertions))]
+    {
+      let c = cx.resolve_cx().clone();
+      self
+        .create_task(cx)
+        .map(move |mut r| r.resolve_dyn(&c))
+        .into_boxed_future()
+    }
+
+    // disable async support in debug mode, to avoid huge debug symbol
+    #[cfg(debug_assertions)]
+    {
+      std::future::ready(self.resolve_dyn(cx.resolve_cx())).into_boxed_future()
+    }
   }
 }
 pub type BoxedDynQueryCompute<K, V> = Box<dyn DynQueryCompute<Key = K, Value = V>>;
