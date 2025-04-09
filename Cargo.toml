@@ -120,6 +120,12 @@ panic = "abort"
 opt-level = 3
 [profile.dev.package.gltf]
 opt-level = 3
+[profile.dev.package.rendiation-scene-core]
+debug = false
+[profile.dev.package.rendiation-scene-rendering-indirect]
+debug = false
+[profile.dev.package.rendiation-scene-rendering-gles]
+debug = false
 
 
 [profile.release]
