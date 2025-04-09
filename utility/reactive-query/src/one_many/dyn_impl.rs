@@ -61,8 +61,8 @@ pub trait DynOneToManyQueryCompute: Sync + Send + 'static {
   fn create_one_many_task_dyn(
     &mut self,
     cx: &mut AsyncQueryCtx,
-  ) -> Box<
-    dyn Send + Sync + Unpin + Future<Output = DynOneToManyQueryComputePoll<Self::Many, Self::One>>,
+  ) -> Pin<
+    Box<dyn Send + Sync + Future<Output = DynOneToManyQueryComputePoll<Self::Many, Self::One>>>,
   >;
 }
 
@@ -86,15 +86,23 @@ where
   fn create_one_many_task_dyn(
     &mut self,
     cx: &mut AsyncQueryCtx,
-  ) -> Box<
-    dyn Send + Sync + Unpin + Future<Output = DynOneToManyQueryComputePoll<Self::Many, Self::One>>,
+  ) -> Pin<
+    Box<dyn Send + Sync + Future<Output = DynOneToManyQueryComputePoll<Self::Many, Self::One>>>,
   > {
-    // let c = cx.resolve_cx().clone();
-    // Box::new(Box::pin(
-    //   self.create_task(cx).map(move |mut r| r.resolve_dyn(&c)),
-    // ))
-    let f = std::future::ready(self.resolve_one_many_dyn(cx.resolve_cx()));
-    Box::new(f)
+    #[cfg(not(debug_assertions))]
+    {
+      let c = cx.resolve_cx().clone();
+      self
+        .create_task(cx)
+        .map(move |mut r| r.resolve_one_many_dyn(&c))
+        .into_boxed_future()
+    }
+
+    // disable async support in debug mode, to avoid huge debug symbol
+    #[cfg(debug_assertions)]
+    {
+      std::future::ready(self.resolve_one_many_dyn(cx.resolve_cx())).into_boxed_future()
+    }
   }
 }
 
@@ -109,9 +117,10 @@ impl<M: CKey, O: CKey> QueryCompute for BoxedDynOneToManyQueryCompute<M, O> {
   }
 }
 impl<M: CKey, O: CKey> AsyncQueryCompute for BoxedDynOneToManyQueryCompute<M, O> {
-  type Task = impl Future<Output = (Self::Changes, Self::View)> + 'static;
-
-  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+  fn create_task(
+    &mut self,
+    cx: &mut AsyncQueryCtx,
+  ) -> QueryComputeTask<(Self::Changes, Self::View)> {
     self.deref_mut().create_one_many_task_dyn(cx)
   }
 }

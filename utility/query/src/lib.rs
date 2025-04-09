@@ -1,7 +1,6 @@
 #![feature(fn_traits)]
 #![feature(unboxed_closures)]
 
-use std::future::Future;
 use std::marker::PhantomData;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -46,14 +45,4 @@ pub fn avoid_huge_debug_symbols_by_boxing_iter<'a, T: 'a>(
 
   #[cfg(not(debug_assertions))]
   iter
-}
-
-/// we always box future, because
-///  - not affect performance too much
-///  - if we not boxing at all, even release build fails on some platform
-#[inline(always)]
-pub fn avoid_huge_debug_symbols_by_boxing_future<T>(
-  f: impl Future<Output = T> + Send + Sync + 'static,
-) -> impl Future<Output = T> + Send + Sync {
-  Box::new(Box::pin(f)) as Box<dyn Future<Output = T> + Unpin + Send + Sync>
 }

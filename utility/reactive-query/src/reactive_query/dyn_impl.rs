@@ -10,7 +10,7 @@ pub trait DynQueryCompute: Sync + Send + 'static {
   fn create_task_dyn(
     &mut self,
     cx: &mut AsyncQueryCtx,
-  ) -> Box<dyn Send + Sync + Unpin + Future<Output = DynReactiveQueryPoll<Self::Key, Self::Value>>>;
+  ) -> Pin<Box<dyn Send + Sync + Future<Output = DynReactiveQueryPoll<Self::Key, Self::Value>>>>;
 }
 impl<T: AsyncQueryCompute> DynQueryCompute for T {
   type Key = T::Key;
@@ -22,14 +22,21 @@ impl<T: AsyncQueryCompute> DynQueryCompute for T {
   fn create_task_dyn(
     &mut self,
     cx: &mut AsyncQueryCtx,
-  ) -> Box<dyn Send + Sync + Unpin + Future<Output = DynReactiveQueryPoll<Self::Key, Self::Value>>>
-  {
-    // let c = cx.resolve_cx().clone();
-    // Box::new(Box::pin(
-    //   self.create_task(cx).map(move |mut r| r.resolve_dyn(&c)),
-    // ))
-    let f = std::future::ready(self.resolve_dyn(cx.resolve_cx()));
-    Box::new(f)
+  ) -> Pin<Box<dyn Send + Sync + Future<Output = DynReactiveQueryPoll<Self::Key, Self::Value>>>> {
+    #[cfg(not(debug_assertions))]
+    {
+      let c = cx.resolve_cx().clone();
+      self
+        .create_task(cx)
+        .map(move |mut r| r.resolve_dyn(&c))
+        .into_boxed_future()
+    }
+
+    // disable async support in debug mode, to avoid huge debug symbol
+    #[cfg(debug_assertions)]
+    {
+      std::future::ready(self.resolve_dyn(cx.resolve_cx())).into_boxed_future()
+    }
   }
 }
 pub type BoxedDynQueryCompute<K, V> = Box<dyn DynQueryCompute<Key = K, Value = V>>;
@@ -65,9 +72,10 @@ impl<K: CKey, V: CValue> QueryCompute for BoxedDynQueryCompute<K, V> {
   }
 }
 impl<K: CKey, V: CValue> AsyncQueryCompute for BoxedDynQueryCompute<K, V> {
-  type Task = impl Future<Output = (Self::Changes, Self::View)> + 'static;
-
-  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+  fn create_task(
+    &mut self,
+    cx: &mut AsyncQueryCtx,
+  ) -> QueryComputeTask<(Self::Changes, Self::View)> {
     self.create_task_dyn(cx)
   }
 }

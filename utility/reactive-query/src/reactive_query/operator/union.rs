@@ -68,15 +68,15 @@ where
   F: Fn((Option<T1::Value>, Option<T2::Value>)) -> Option<O> + Send + Sync + Copy + 'static,
   O: CValue,
 {
-  type Task = impl Future<Output = (Self::Changes, Self::View)>;
-
-  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+  fn create_task(
+    &mut self,
+    cx: &mut AsyncQueryCtx,
+  ) -> QueryComputeTask<(Self::Changes, Self::View)> {
     let f = self.f;
     let c = cx.resolve_cx().clone();
-    let f = futures::future::join(self.a.create_task(cx), self.b.create_task(cx))
-      .map(move |(a, b)| UnionQuery { a, b, f }.resolve(&c));
-
-    avoid_huge_debug_symbols_by_boxing_future(f)
+    futures::future::join(self.a.create_task(cx), self.b.create_task(cx))
+      .map(move |(a, b)| UnionQuery { a, b, f }.resolve(&c))
+      .into_boxed_future()
   }
 }
 

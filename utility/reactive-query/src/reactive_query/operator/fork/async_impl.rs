@@ -6,14 +6,19 @@ use super::{helper::ForkedView, internal::*};
 use crate::*;
 
 impl<Map: AsyncQueryCompute> AsyncQueryCompute for ReactiveQueryForkCompute<Map> {
-  type Task = impl Future<Output = (Self::Changes, Self::View)>;
-
-  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+  fn create_task(
+    &mut self,
+    cx: &mut AsyncQueryCtx,
+  ) -> QueryComputeTask<(Self::Changes, Self::View)> {
     let mut changes = self.changes.clone();
-    self.view.create_upstream_view_future(cx).map(move |v| {
-      let d = changes.resolve();
-      (d, v)
-    })
+    self
+      .view
+      .create_upstream_view_future(cx)
+      .map(move |v| {
+        let d = changes.resolve();
+        (d, v)
+      })
+      .into_boxed_future()
   }
 }
 

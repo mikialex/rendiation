@@ -45,8 +45,10 @@ where
   C: AsyncQueryCompute<Key = K, Value = K, View: MultiQuery<Key = K, Value = K>>,
   F: Fn(&T, Option<&T>) -> T + Send + Sync + 'static + Copy,
 {
-  type Task = impl Future<Output = (Self::Changes, Self::View)> + 'static;
-  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+  fn create_task(
+    &mut self,
+    cx: &mut AsyncQueryCtx,
+  ) -> QueryComputeTask<(Self::Changes, Self::View)> {
     let derive_logic = self.derive_logic;
     let data = self.data.clone();
     let payload_source = self.payload_source.create_task(cx);
@@ -60,6 +62,7 @@ where
         connectivity_source,
       }
     })
+    .into_boxed_future()
   }
 }
 

@@ -60,6 +60,7 @@ impl DatabaseMutationWatch {
     self
       .watch_entity_set_dyn(E::entity_id())
       .collective_key_dual_map(|k| unsafe { EntityHandle::<E>::from_raw(k) }, |k| k.handle)
+      .into_boxed_debug_large_symbol_workaround()
   }
 
   pub fn watch_entity_set_untyped_key<E: EntitySemantic>(
@@ -126,6 +127,7 @@ impl DatabaseMutationWatch {
         |k| unsafe { EntityHandle::<C::Entity>::from_raw(k) },
         |k| k.handle,
       )
+      .into_boxed_debug_large_symbol_workaround()
   }
 
   pub fn watch_typed_foreign_key<C: ForeignKeySemantic>(
@@ -135,6 +137,7 @@ impl DatabaseMutationWatch {
     self
       .watch::<C>()
       .collective_map(|v| v.map(|v| unsafe { EntityHandle::<C::ForeignEntity>::from_raw(v) }))
+      .into_boxed_debug_large_symbol_workaround()
   }
 
   pub fn watch_dyn_foreign_key(
@@ -333,15 +336,17 @@ impl<T> AsyncQueryCompute for GenerationHelperView<T>
 where
   T: AsyncQueryCompute<Key = RawEntityHandle>,
 {
-  type Task = impl Future<Output = (Self::Changes, Self::View)> + 'static;
-
-  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+  fn create_task(
+    &mut self,
+    cx: &mut AsyncQueryCtx,
+  ) -> QueryComputeTask<(Self::Changes, Self::View)> {
     let allocator = self.allocator.clone();
     let c = cx.resolve_cx().clone();
     self
       .inner
       .create_task(cx)
       .map(move |inner| GenerationHelperView { inner, allocator }.resolve(&c))
+      .into_boxed_future()
   }
 }
 

@@ -72,9 +72,10 @@ impl<T: QueryCompute<Value: CKey>> QueryCompute
 impl<T: AsyncQueryCompute<Value: CKey>> AsyncQueryCompute
   for OneToOneRefHashBookKeeping<T, T::Key, T::Value>
 {
-  type Task = impl Future<Output = (Self::Changes, Self::View)>;
-
-  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+  fn create_task(
+    &mut self,
+    cx: &mut AsyncQueryCtx,
+  ) -> QueryComputeTask<(Self::Changes, Self::View)> {
     let mapping = self.mapping.clone();
     let upstream = self.upstream.create_task(cx);
 
@@ -82,5 +83,6 @@ impl<T: AsyncQueryCompute<Value: CKey>> AsyncQueryCompute
       upstream,
       mapping,
     })
+    .into_boxed_future()
   }
 }

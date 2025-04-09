@@ -102,10 +102,25 @@ impl AsyncQueryCtx {
   }
 }
 
+/// note, we have to use boxed type to avoid huge debug symbol.
+/// this is not good for performance, but we will take it.
+pub type QueryComputeTask<T> = Pin<Box<dyn Future<Output = T> + Sync + Send + 'static>>;
+
+// todo, remove this, remove sync bound
+pub trait FutureBoxExt<T> {
+  fn into_boxed_future(self) -> Pin<Box<dyn Future<Output = T> + Sync + Send + 'static>>;
+}
+impl<T, X: Future<Output = T> + Send + Sync + 'static> FutureBoxExt<T> for X {
+  fn into_boxed_future(self) -> Pin<Box<dyn Future<Output = T> + Sync + Send + 'static>> {
+    Box::pin(self)
+  }
+}
+
 pub trait AsyncQueryCompute: QueryCompute {
-  // this is correct version
-  type Task: Future<Output = (Self::Changes, Self::View)> + Send + Sync + 'static;
-  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task;
+  fn create_task(
+    &mut self,
+    cx: &mut AsyncQueryCtx,
+  ) -> QueryComputeTask<(Self::Changes, Self::View)>;
 }
 
 impl<K, V, Change, View> QueryCompute for (Change, View)
@@ -130,10 +145,11 @@ where
   Change: Query<Key = K, Value = ValueChange<V>> + 'static,
   View: Query<Key = K, Value = V> + 'static,
 {
-  type Task = impl Future<Output = (Self::Changes, Self::View)> + 'static;
-
-  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
-    futures::future::ready(self.resolve(cx.resolve_cx()))
+  fn create_task(
+    &mut self,
+    cx: &mut AsyncQueryCtx,
+  ) -> QueryComputeTask<(Self::Changes, Self::View)> {
+    futures::future::ready(self.resolve(cx.resolve_cx())).into_boxed_future()
   }
 }
 

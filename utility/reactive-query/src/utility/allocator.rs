@@ -129,9 +129,10 @@ impl<T> AsyncQueryCompute for ReactiveAllocator<T>
 where
   T: AsyncQueryCompute<Key = u32, Value = u32>,
 {
-  type Task = impl Future<Output = (Self::Changes, Self::View)> + 'static;
-
-  fn create_task(&mut self, cx: &mut AsyncQueryCtx) -> Self::Task {
+  fn create_task(
+    &mut self,
+    cx: &mut AsyncQueryCtx,
+  ) -> QueryComputeTask<(Self::Changes, Self::View)> {
     let allocator = self.allocator.clone();
     let all_size_sender = self.all_size_sender.clone();
 
@@ -141,6 +142,7 @@ where
       source,
       all_size_sender,
     })
+    .into_boxed_future()
   }
 }
 

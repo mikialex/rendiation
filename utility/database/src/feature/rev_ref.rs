@@ -54,6 +54,7 @@ impl DatabaseEntityReverseReference {
       .watch_inv_ref_dyn(S::component_id(), S::Entity::entity_id())
       .collective_map_key_one_many(|v| unsafe { EntityHandle::from_raw(v) }, |k| k.handle)
       .collective_dual_map_one_many(|k| unsafe { EntityHandle::from_raw(k) }, |k| k.handle)
+      .into_boxed_many_one_debug_large_symbol_workaround()
   }
 
   pub fn watch_inv_ref_untyped<S: ForeignKeySemantic>(
