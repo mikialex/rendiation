@@ -200,7 +200,7 @@ pub fn attribute_mesh_local_bounding(
           let index: &[u32] = cast_slice(index);
           DynIndexRef::Uint32(index)
         } else {
-          unreachable!("index count must be 2 or 4")
+          unreachable!("index count must be 2 or 4 bytes")
         };
 
         let position = buffer_access.get(position.unwrap()).unwrap();

@@ -163,7 +163,9 @@ mod sg_material {
         t.write::<PbrSGMaterialEmissiveTex>(writer)
       }
 
-      // todo normal map
+      if let Some(normal) = self.normal_texture {
+        normal.write::<PbrSGMaterialNormalInfo>(writer);
+      }
 
       writer.new_entity()
     }
@@ -285,7 +287,9 @@ mod mr_material {
         t.write::<PbrMRMaterialEmissiveTex>(writer)
       }
 
-      // todo normal map
+      if let Some(normal) = self.normal_texture {
+        normal.write::<PbrMRMaterialNormalInfo>(writer);
+      }
 
       writer.new_entity()
     }
@@ -325,6 +329,14 @@ pub struct NormalMappingDataView {
 }
 
 impl NormalMappingDataView {
+  pub fn write<C>(self, writer: &mut EntityWriter<C::Entity>)
+  where
+    C: NormalInfoSemantic,
+  {
+    self.content.write::<NormalTexSamplerOf<C>>(writer);
+    writer.component_value_writer::<NormalScaleOf<C>>(self.scale);
+  }
+
   pub fn read<T, E>(reader: &EntityReader<E>, id: EntityHandle<E>) -> Option<Self>
   where
     T: NormalInfoSemantic<Entity = E>,
