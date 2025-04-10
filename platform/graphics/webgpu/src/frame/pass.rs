@@ -125,7 +125,11 @@ impl RenderPassDescription {
   pub fn render(self, encoder: &mut GPUCommandEncoder, gpu: &GPU) -> ActiveRenderPass {
     let pass = encoder.begin_render_pass_with_info(self.clone(), gpu.clone());
 
-    ActiveRenderPass { desc: self, pass }
+    ActiveRenderPass {
+      desc: self,
+      pass,
+      measuring: false,
+    }
   }
 }
 
@@ -149,6 +153,7 @@ impl<T: PassContent> PassContent for Option<T> {
 pub struct ActiveRenderPass {
   pub pass: FrameRenderPass,
   pub desc: RenderPassDescription,
+  pub measuring: bool,
 }
 
 impl ActiveRenderPass {

@@ -100,6 +100,7 @@ pub fn init_renderer(
 }
 
 pub struct Viewer3dRenderingCtx {
+  frame_index: u64,
   ndc: ViewerNDC,
   frame_logic: ViewerFrameLogic,
   rendering_resource: ReactiveQueryCtx,
@@ -153,6 +154,7 @@ impl Viewer3dRenderingCtx {
     );
 
     Self {
+      frame_index: 0,
       ndc,
       swap_chain,
       indirect_occlusion_culling_impl: None,
@@ -244,7 +246,7 @@ impl Viewer3dRenderingCtx {
 
     let renderer = self.renderer_impl.create_impl(&mut resource);
 
-    let mut ctx = FrameCtx::new(&self.gpu, target.size(), &self.pool);
+    let mut ctx = FrameCtx::new(&self.gpu, target.size(), &self.pool, self.frame_index);
 
     let render_target = if self.expect_read_back_for_next_render_result
       && matches!(target, RenderTargetView::SurfaceTexture { .. })
