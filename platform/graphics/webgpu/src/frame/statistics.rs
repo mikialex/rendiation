@@ -4,10 +4,14 @@ use std::task::Poll;
 
 use futures::channel::mpsc::*;
 use futures::StreamExt;
+use reactive::noop_ctx;
 
 use crate::*;
+type StatisticTaskPreOutput = (String, PipelineQueryResult, u64);
 type StatisticTaskOutput = (String, Option<DeviceDrawStatistics>, u64);
 type StatisticTask = Pin<Box<dyn Future<Output = StatisticTaskOutput> + Send>>;
+pub type StatisticTaskPreSender = UnboundedSender<StatisticTaskPreOutput>;
+pub type StatisticTaskPreReceiver = UnboundedReceiver<StatisticTaskPreOutput>;
 pub type StatisticTaskSender = UnboundedSender<StatisticTask>;
 type StatisticTaskReceiver = Pin<Box<dyn futures::Stream<Item = StatisticTaskOutput>>>;
 
@@ -82,5 +86,34 @@ impl FramePassStatistics {
   pub fn clear_history(&mut self, max_history: usize) {
     self.pipeline_statistics.clear();
     self.max_history = max_history;
+  }
+
+  pub fn create_resolver(&mut self) -> FrameStaticInfoResolver {
+    let (sub_pass_info_sender, sub_pass_info_receiver) = unbounded();
+    FrameStaticInfoResolver {
+      sub_pass_info_sender,
+      sub_pass_info_receiver,
+      static_output_sender: self.statics_task_sender.clone(),
+    }
+  }
+}
+
+pub struct FrameStaticInfoResolver {
+  pub(crate) sub_pass_info_sender: StatisticTaskPreSender,
+  sub_pass_info_receiver: StatisticTaskPreReceiver,
+  static_output_sender: StatisticTaskSender,
+}
+
+impl FrameStaticInfoResolver {
+  pub fn resolve(&mut self, gpu: &GPU, encoder: &mut GPUCommandEncoder) {
+    noop_ctx!(cx);
+    while let Poll::Ready(Some((name, result, idx))) =
+      self.sub_pass_info_receiver.poll_next_unpin(cx)
+    {
+      let f = result.read_back(&gpu.device, encoder);
+      let f = f.map(move |r| (name, r, idx));
+      let f = Box::pin(f);
+      self.static_output_sender.unbounded_send(f).ok();
+    }
   }
 }

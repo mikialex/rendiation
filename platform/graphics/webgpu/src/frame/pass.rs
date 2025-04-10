@@ -118,17 +118,31 @@ impl RenderPassDescription {
 
   #[must_use]
   pub fn render_ctx(self, ctx: &mut FrameCtx) -> ActiveRenderPass {
-    self.render(&mut ctx.encoder, ctx.gpu)
+    let measure_sender = ctx
+      .statistics
+      .as_ref()
+      .map(|m| (m.sub_pass_info_sender.clone(), ctx.frame_index));
+    self.render(&mut ctx.encoder, ctx.gpu, measure_sender)
   }
 
   #[must_use]
-  pub fn render(self, encoder: &mut GPUCommandEncoder, gpu: &GPU) -> ActiveRenderPass {
-    let pass = encoder.begin_render_pass_with_info(self.clone(), gpu.clone());
+  pub fn render(
+    self,
+    encoder: &mut GPUCommandEncoder,
+    gpu: &GPU,
+    measure_sender: Option<(StatisticTaskPreSender, u64)>,
+  ) -> ActiveRenderPass {
+    let mut pass = encoder.begin_render_pass_with_info(self.clone(), gpu.clone());
+
+    let measurement = measure_sender.map(|(sender, frame_idx)| {
+      let query = PipelineQuery::start(&gpu.device, &mut pass);
+      (sender, query, frame_idx)
+    });
 
     ActiveRenderPass {
       desc: self,
       pass,
-      measuring: false,
+      measurement,
     }
   }
 }
@@ -153,7 +167,18 @@ impl<T: PassContent> PassContent for Option<T> {
 pub struct ActiveRenderPass {
   pub pass: FrameRenderPass,
   pub desc: RenderPassDescription,
-  pub measuring: bool,
+  pub measurement: Option<(StatisticTaskPreSender, PipelineQuery, u64)>,
+}
+
+impl Drop for ActiveRenderPass {
+  fn drop(&mut self) {
+    if let Some((sender, query, frame_idx)) = self.measurement.take() {
+      let r = query.end(&mut self.pass);
+      sender
+        .unbounded_send((self.desc.name.clone(), r, frame_idx))
+        .ok();
+    }
+  }
 }
 
 impl ActiveRenderPass {

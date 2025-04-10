@@ -51,7 +51,7 @@ pub trait Mipmap2dReducerImpl: Mipmap2dReducer + Sized {
 
       pass("mip-gen-2d")
         .with_color(&RenderTargetView::from(write_view), load())
-        .render(encoder, ctx)
+        .render(encoder, ctx, None)
         .by(&mut task);
     }
   }
@@ -97,7 +97,7 @@ pub trait Mipmap2dReducerImpl: Mipmap2dReducer + Sized {
 
         pass("mip-gen-cube-face")
           .with_color(&RenderTargetView::from(write_view), load())
-          .render(encoder, ctx)
+          .render(encoder, ctx, None)
           .by(&mut task);
       }
     }

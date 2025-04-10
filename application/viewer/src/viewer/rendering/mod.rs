@@ -363,7 +363,7 @@ impl Viewer3dRenderingCtx {
         ));
     }
     self.expect_read_back_for_next_render_result = false;
-    ctx.final_submit();
+    drop(ctx);
 
     self.on_encoding_finished.emit(&ViewRenderedState {
       target: render_target,
