@@ -20,6 +20,7 @@ use core::fmt::Debug;
 use core::num::NonZeroUsize;
 use core::{marker::PhantomData, num::NonZeroU64};
 use std::sync::atomic::AtomicBool;
+use std::sync::atomic::AtomicU32;
 use std::{
   any::*,
   borrow::Cow,
@@ -74,7 +75,7 @@ pub use wgpu_types::*;
 
 #[derive(Clone)]
 pub struct GPU {
-  _instance: GPUInstance,
+  pub instance: GPUInstance,
   _adaptor: Arc<gpu::Adapter>,
   pub info: GPUInfo,
   pub device: GPUDevice,
@@ -133,7 +134,7 @@ impl GPU {
   pub async fn new(
     config: GPUCreateConfig<'_>,
   ) -> Result<(Self, Option<GPUSurface>), GPUCreateFailure> {
-    let _instance = gpu::Instance::new(&gpu::InstanceDescriptor {
+    let instance = gpu::Instance::new(&gpu::InstanceDescriptor {
       backends: config.backends,
       flags: Default::default(),
       backend_options: Default::default(),
@@ -142,10 +143,10 @@ impl GPU {
 
     let init_surface = config
       .surface_for_compatible_check_init
-      .map(|s| s.0.create_surface(&_instance))
+      .map(|s| s.0.create_surface(&instance))
       .transpose()?;
 
-    let _adaptor = _instance
+    let _adaptor = instance
       .request_adapter(&gpu::RequestAdapterOptions {
         power_preference,
         compatible_surface: init_surface.as_ref(),
@@ -203,10 +204,10 @@ impl GPU {
       )
     });
 
-    let _instance = GPUInstance::new(_instance);
+    let instance = GPUInstance::new(instance);
 
     let gpu = Self {
-      _instance,
+      instance,
       _adaptor: Arc::new(_adaptor),
       info,
       device,
@@ -217,7 +218,7 @@ impl GPU {
   }
 
   pub fn poll(&self, force_wait: bool) {
-    self._instance.poll_all(force_wait);
+    self.instance.poll_all(force_wait);
   }
 
   pub fn create_cache_report(&self) -> GPUResourceCacheSizeReport {
@@ -235,7 +236,7 @@ impl GPU {
     provider: &'a dyn SurfaceProvider,
     init_resolution: Size,
   ) -> Result<GPUSurface<'a>, CreateSurfaceError> {
-    let surface = provider.create_surface(&self._instance)?;
+    let surface = provider.create_surface(&self.instance)?;
     Ok(GPUSurface::new(
       &self._adaptor,
       &self.device,
