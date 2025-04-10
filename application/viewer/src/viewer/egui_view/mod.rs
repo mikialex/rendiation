@@ -131,44 +131,50 @@ impl ViewerUIState {
       .show(ui, |ui| {
         ui.label("frame pass pipeline statistics:");
         ui.separator();
-        let info = &rendering.statistics.pipeline_statistics;
 
-        if info.is_empty() {
+        let statistics = &mut rendering.statistics;
+
+        if statistics.pipeline_statistics.is_empty() {
           ui.label(
             "no pipeline statistics info available(maybe feature not supported on this platform)",
           );
+        } else if ui.button("clear").clicked() {
+          statistics.clear_history(statistics.max_history);
         }
 
-        info.iter().for_each(|(name, info)| {
-          if let Some(info) = &info.latest_resolved {
-            #[allow(dead_code)]
-            #[derive(Debug)] // just to impl Debug
-            struct DeviceDrawStatistics2 {
-              pub vertex_shader_invocations: u64,
-              pub clipper_invocations: u64,
-              pub clipper_primitives_out: u64,
-              pub fragment_shader_invocations: u64,
-              pub compute_shader_invocations: u64,
-            }
+        statistics
+          .pipeline_statistics
+          .iter()
+          .for_each(|(name, info)| {
+            if let Some(info) = &info.latest_resolved {
+              #[allow(dead_code)]
+              #[derive(Debug)] // just to impl Debug
+              struct DeviceDrawStatistics2 {
+                pub vertex_shader_invocations: u64,
+                pub clipper_invocations: u64,
+                pub clipper_primitives_out: u64,
+                pub fragment_shader_invocations: u64,
+                pub compute_shader_invocations: u64,
+              }
 
-            impl From<DeviceDrawStatistics> for DeviceDrawStatistics2 {
-              fn from(value: DeviceDrawStatistics) -> Self {
-                Self {
-                  vertex_shader_invocations: value.vertex_shader_invocations,
-                  clipper_invocations: value.clipper_invocations,
-                  clipper_primitives_out: value.clipper_primitives_out,
-                  fragment_shader_invocations: value.fragment_shader_invocations,
-                  compute_shader_invocations: value.compute_shader_invocations,
+              impl From<DeviceDrawStatistics> for DeviceDrawStatistics2 {
+                fn from(value: DeviceDrawStatistics) -> Self {
+                  Self {
+                    vertex_shader_invocations: value.vertex_shader_invocations,
+                    clipper_invocations: value.clipper_invocations,
+                    clipper_primitives_out: value.clipper_primitives_out,
+                    fragment_shader_invocations: value.fragment_shader_invocations,
+                    compute_shader_invocations: value.compute_shader_invocations,
+                  }
                 }
               }
-            }
 
-            ui.collapsing(name, |ui| {
-              ui.label(format!("frame index: {:?}", info.1));
-              ui.label(format!("{:?}", DeviceDrawStatistics2::from(info.0)));
-            });
-          }
-        })
+              ui.collapsing(name, |ui| {
+                ui.label(format!("frame index: {:?}", info.1));
+                ui.label(format!("{:#?}", DeviceDrawStatistics2::from(info.0)));
+              });
+            }
+          })
         //
       });
 

@@ -247,6 +247,7 @@ impl Viewer3dRenderingCtx {
     scene_derive: &Viewer3dSceneDerive,
     cx: &mut Context,
   ) {
+    self.frame_index += 1;
     let span = span!(Level::INFO, "update all rendering resource");
     let mut resource = self.rendering_resource.poll_update_all(cx);
     drop(span);
@@ -381,6 +382,9 @@ impl Viewer3dRenderingCtx {
     }
     self.expect_read_back_for_next_render_result = false;
     drop(ctx);
+
+    noop_ctx!(cx);
+    self.statistics.poll(cx);
 
     self.on_encoding_finished.emit(&ViewRenderedState {
       target: render_target,
