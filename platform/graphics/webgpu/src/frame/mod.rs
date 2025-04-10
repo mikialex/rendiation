@@ -37,14 +37,20 @@ impl Drop for FrameCtx<'_> {
 }
 
 impl<'a> FrameCtx<'a> {
-  pub fn new(gpu: &'a GPU, frame_size: Size, pool: &'a AttachmentPool, frame_index: u64) -> Self {
+  pub fn new(
+    gpu: &'a GPU,
+    frame_size: Size,
+    pool: &'a AttachmentPool,
+    frame_index: u64,
+    statistics: Option<FrameStaticInfoResolver>,
+  ) -> Self {
     let encoder = ManuallyDrop::new(gpu.create_encoder());
 
     Self {
       pool,
       frame_size,
       frame_index,
-      statistics: None,
+      statistics,
       encoder,
       gpu,
     }

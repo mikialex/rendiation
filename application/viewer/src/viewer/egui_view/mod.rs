@@ -1,7 +1,10 @@
 use crate::*;
 
 mod console;
+mod db_view;
+
 pub use console::*;
+use db_view::*;
 
 pub struct ViewerUIState {
   show_db_inspector: bool,
@@ -9,8 +12,9 @@ pub struct ViewerUIState {
   show_terminal: bool,
   show_gpu_info: bool,
   show_memory_stat: bool,
+  show_frame_info: bool,
   object_inspection: bool,
-  egui_db_inspector: db_egui_view::DBInspector,
+  egui_db_inspector: DBInspector,
 }
 
 impl Default for ViewerUIState {
@@ -19,6 +23,7 @@ impl Default for ViewerUIState {
       show_db_inspector: false,
       show_viewer_config_panel: true,
       show_terminal: false,
+      show_frame_info: false,
       show_gpu_info: false,
       show_memory_stat: false,
       object_inspection: false,
@@ -47,6 +52,7 @@ impl ViewerUIState {
         ui.checkbox(&mut self.object_inspection, "object panel");
         ui.checkbox(&mut self.show_terminal, "terminal");
         ui.checkbox(&mut self.show_gpu_info, "gpu info");
+        ui.checkbox(&mut self.show_frame_info, "frame info");
         ui.checkbox(&mut self.show_memory_stat, "heap stat");
       });
     });
@@ -117,6 +123,53 @@ impl ViewerUIState {
             counters.reset_all_instance_history_peak();
           }
         });
+      });
+
+    egui::Window::new("Frame Rendering Info")
+      .open(&mut self.show_frame_info)
+      .vscroll(true)
+      .show(ui, |ui| {
+        ui.label("frame pass pipeline statistics:");
+        ui.separator();
+        let info = &rendering.statistics.pipeline_statistics;
+
+        if info.is_empty() {
+          ui.label(
+            "no pipeline statistics info available(maybe feature not supported on this platform)",
+          );
+        }
+
+        info.iter().for_each(|(name, info)| {
+          if let Some(info) = &info.latest_resolved {
+            #[allow(dead_code)]
+            #[derive(Debug)] // just to impl Debug
+            struct DeviceDrawStatistics2 {
+              pub vertex_shader_invocations: u64,
+              pub clipper_invocations: u64,
+              pub clipper_primitives_out: u64,
+              pub fragment_shader_invocations: u64,
+              pub compute_shader_invocations: u64,
+            }
+
+            impl From<DeviceDrawStatistics> for DeviceDrawStatistics2 {
+              fn from(value: DeviceDrawStatistics) -> Self {
+                Self {
+                  vertex_shader_invocations: value.vertex_shader_invocations,
+                  clipper_invocations: value.clipper_invocations,
+                  clipper_primitives_out: value.clipper_primitives_out,
+                  fragment_shader_invocations: value.fragment_shader_invocations,
+                  compute_shader_invocations: value.compute_shader_invocations,
+                }
+              }
+            }
+
+            ui.collapsing(name, |ui| {
+              ui.label(format!("frame index: {:?}", info.1));
+              ui.label(format!("{:?}", DeviceDrawStatistics2::from(info.0)));
+            });
+          }
+        })
+        //
       });
 
     egui::Window::new("GPU Info")
@@ -191,6 +244,6 @@ impl ViewerUIState {
         });
     }
 
-    crate::db_egui_view::egui_db_gui(ui, &mut self.egui_db_inspector, &mut self.show_db_inspector);
+    egui_db_gui(ui, &mut self.egui_db_inspector, &mut self.show_db_inspector);
   }
 }

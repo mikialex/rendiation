@@ -25,7 +25,6 @@ pub struct FramePassStatistics {
 pub struct StatisticComputer {
   /// currently we only store the history but not do any analysis
   pub history: Vec<Option<(DeviceDrawStatistics, u64)>>,
-  pub average: DeviceDrawStatistics,
   pub latest_resolved: Option<(DeviceDrawStatistics, u64)>,
 }
 
@@ -33,13 +32,6 @@ impl StatisticComputer {
   fn new(max_history: usize) -> Self {
     StatisticComputer {
       history: vec![None; max_history],
-      average: DeviceDrawStatistics {
-        vertex_shader_invocations: 0,
-        clipper_invocations: 0,
-        clipper_primitives_out: 0,
-        fragment_shader_invocations: 0,
-        compute_shader_invocations: 0,
-      },
       latest_resolved: None,
     }
   }

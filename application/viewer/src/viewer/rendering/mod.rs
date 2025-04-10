@@ -121,6 +121,8 @@ pub struct Viewer3dRenderingCtx {
   current_camera_view_projection_inv: Mat4<f32>,
   camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
   pub(crate) picker: GPUxEntityIdMapPicker,
+  pub(crate) statistics: FramePassStatistics,
+  enable_statistic_collect: bool,
 }
 
 impl Viewer3dRenderingCtx {
@@ -154,6 +156,10 @@ impl Viewer3dRenderingCtx {
     );
 
     Self {
+      enable_statistic_collect: gpu
+        .info
+        .supported_features
+        .contains(Features::PIPELINE_STATISTICS_QUERY),
       frame_index: 0,
       ndc,
       swap_chain,
@@ -176,6 +182,7 @@ impl Viewer3dRenderingCtx {
       current_camera_view_projection_inv: Default::default(),
       camera_source: camera_source_init,
       picker: Default::default(),
+      statistics: FramePassStatistics::new(64),
     }
   }
 
@@ -246,7 +253,17 @@ impl Viewer3dRenderingCtx {
 
     let renderer = self.renderer_impl.create_impl(&mut resource);
 
-    let mut ctx = FrameCtx::new(&self.gpu, target.size(), &self.pool, self.frame_index);
+    let statistics = self
+      .enable_statistic_collect
+      .then(|| self.statistics.create_resolver());
+
+    let mut ctx = FrameCtx::new(
+      &self.gpu,
+      target.size(),
+      &self.pool,
+      self.frame_index,
+      statistics,
+    );
 
     let render_target = if self.expect_read_back_for_next_render_result
       && matches!(target, RenderTargetView::SurfaceTexture { .. })

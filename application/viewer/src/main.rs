@@ -29,7 +29,6 @@ use winit::{
 };
 
 mod app_loop;
-mod db_egui_view;
 mod egui_cx;
 mod util;
 mod viewer;
