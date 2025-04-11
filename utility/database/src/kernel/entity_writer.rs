@@ -86,13 +86,12 @@ impl<E: EntitySemantic> EntityWriter<E> {
     self
   }
 
-  pub fn component_writer<C, W>(
+  pub fn component_writer<C>(
     &mut self,
-    writer_maker: impl FnOnce(ComponentWriteView<C>) -> W,
+    writer_maker: impl FnOnce(ComponentWriteView<C>),
   ) -> &mut Self
   where
     C: ComponentSemantic<Entity = E>,
-    W: EntityComponentWriter + 'static,
   {
     for (id, view) in &mut self.inner.components {
       if *id == C::component_id() {
@@ -185,7 +184,7 @@ pub struct EntityWriterUntyped {
   type_id: EntityId,
   allocator: LockWriteGuardHolder<Arena<()>>,
   entity_watchers: EventSource<EntityRangeChange>,
-  components: smallvec::SmallVec<[(ComponentId, Box<dyn EntityComponentWriter>); 6]>,
+  components: smallvec::SmallVec<[(ComponentId, EntityComponentWriterImpl); 6]>,
 }
 
 impl Drop for EntityWriterUntyped {
@@ -257,20 +256,20 @@ impl EntityWriterUntyped {
   }
 }
 
-pub trait EntityComponentWriter: EntityComponentReader {
-  /// # Safety
-  /// src's type is T, the implementation should cast the target and
-  /// write the value.
-  unsafe fn write_component(&mut self, idx: RawEntityHandle, src: *const ());
-  fn write_init_component_value(&mut self, idx: RawEntityHandle);
-  fn clone_component_value(&mut self, src: RawEntityHandle, dst: RawEntityHandle);
-  fn delete_component(&mut self, idx: RawEntityHandle);
-  fn take_write_view(&mut self) -> Box<dyn Any>;
-}
+// pub trait EntityComponentWriter: EntityComponentReader {
+//   /// # Safety
+//   /// src's type is T, the implementation should cast the target and
+//   /// write the value.
+//   unsafe fn write_component(&mut self, idx: RawEntityHandle, src: *const ());
+//   fn write_init_component_value(&mut self, idx: RawEntityHandle);
+//   fn clone_component_value(&mut self, src: RawEntityHandle, dst: RawEntityHandle);
+//   fn delete_component(&mut self, idx: RawEntityHandle);
+//   fn take_write_view(&mut self) -> Box<dyn Any>;
+// }
 
-pub struct EntityComponentWriterImpl<T: ComponentSemantic, F> {
-  pub(crate) component: Option<ComponentWriteView<T>>,
-  pub(crate) default_value: F,
+pub struct EntityComponentWriterImpl {
+  pub(crate) component: Option<ComponentWriteView>,
+  pub(crate) default_value: Option<Box<dyn Any>>,
 }
 
 impl<T, F> EntityComponentReader for EntityComponentWriterImpl<T, F>

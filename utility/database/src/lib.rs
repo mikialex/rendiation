@@ -10,6 +10,7 @@ use std::{
 };
 
 use arena::*;
+use dyn_clone::*;
 use fast_hash_collection::*;
 use parking_lot::RwLock;
 use reactive::*;

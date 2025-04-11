@@ -1,22 +1,24 @@
-mod interleave;
-pub use interleave::*;
-
 use crate::*;
 mod default;
 
-pub trait ComponentStorage<T>: Send + Sync {
-  fn create_read_view(&self) -> Box<dyn ComponentStorageReadView<T>>;
-  fn create_read_write_view(&self) -> Box<dyn ComponentStorageReadWriteView<T>>;
-}
+pub type DataPtr = *const ();
+pub type DataMutPtr = *const ();
 
-pub trait ComponentStorageReadView<T>: Send + Sync {
-  fn get(&self, idx: RawEntityHandle) -> Option<&T>;
-  fn get_without_generation_check(&self, idx: u32) -> Option<&T>;
-  fn clone_read_view(&self) -> Box<dyn ComponentStorageReadView<T>>;
+pub trait ComponentStorage: Send + Sync + DynClone {
+  fn create_read_view(&self) -> Box<dyn ComponentStorageReadView>;
+  fn create_read_write_view(&self) -> Box<dyn ComponentStorageReadWriteView>;
 }
-pub trait ComponentStorageReadWriteView<T> {
-  fn get(&self, idx: RawEntityHandle) -> Option<&T>;
-  fn get_mut(&mut self, idx: RawEntityHandle) -> Option<&mut T>;
+dyn_clone::clone_trait_object!(ComponentStorage);
+
+pub trait ComponentStorageReadView: Send + Sync + DynClone {
+  fn get(&self, idx: u32) -> Option<DataPtr>;
+  fn read_component_into_boxed(&self, idx: u32) -> Option<Box<dyn Any>>;
+}
+dyn_clone::clone_trait_object!(ComponentStorageReadView);
+
+pub trait ComponentStorageReadWriteView {
+  fn get(&self, idx: u32) -> Option<DataPtr>;
+  fn get_mut(&mut self, idx: u32) -> Option<DataMutPtr>;
   /// # Safety
   ///
   /// this method should not called by user, but should only called in entity writer

@@ -19,20 +19,22 @@ impl<E: EntitySemantic> EntityReader<E> {
     self.try_read::<C>(idx).unwrap()
   }
 
-  pub fn try_read<C>(&self, idx: EntityHandle<C::Entity>) -> Option<C::Data>
+  pub fn try_read<C>(&self, idx: EntityHandle<C::Entity>) -> Option<&C::Data>
   where
     C: ComponentSemantic<Entity = E>,
   {
-    let mut target = None;
+    todo!();
+    // todo generation
+    let mut target: Option<DataPtr> = None;
     for (id, view) in &self.inner.components {
       if *id == C::component_id() {
         unsafe {
-          let target = &mut target as *mut Option<C::Data> as *mut ();
-          view.read_component(idx.handle, target);
+          target = view.get(idx.index);
         }
         break;
       }
     }
+    let target: Option<&C::Data> = target.map(|data| unsafe { std::mem::transmute(data) });
     target
   }
 
@@ -43,16 +45,20 @@ impl<E: EntitySemantic> EntityReader<E> {
   where
     C: ForeignKeySemantic<Entity = E>,
   {
-    let mut target: Option<ForeignKeyComponentData> = None;
+    todo!();
+    // todo generation
+    let mut target: Option<DataPtr> = None;
     for (id, view) in &self.inner.components {
       if *id == C::component_id() {
         unsafe {
-          let target = &mut target as *mut Option<ForeignKeyComponentData> as *mut ();
-          view.read_component(idx.handle, target);
+          target = view.get(idx.index);
         }
         break;
       }
     }
+    let target: Option<&ForeignKeyComponentData> =
+      target.map(|data| unsafe { std::mem::transmute(data) });
+
     target.map(|v| v.map(|v| unsafe { EntityHandle::from_raw(v) }))
   }
 
@@ -102,7 +108,7 @@ pub struct EntityReaderUntyped {
   type_id: EntityId,
   /// just to hold this lock to prevent any entity creation or deletion
   _allocator: LockReadGuardHolder<Arena<()>>,
-  components: smallvec::SmallVec<[(ComponentId, Box<dyn EntityComponentReader>); 6]>,
+  components: smallvec::SmallVec<[(ComponentId, Box<dyn ComponentStorageReadView>); 6]>,
 }
 
 impl EntityReaderUntyped {
@@ -116,12 +122,4 @@ impl EntityReaderUntyped {
     }
     .into()
   }
-}
-
-pub trait EntityComponentReader {
-  /// # Safety
-  /// target's type is Option<T>, if read success, the implementation should cast the target and
-  /// set the read value.
-  unsafe fn read_component(&self, idx: RawEntityHandle, target: *mut ());
-  fn read_component_into_boxed(&self, idx: RawEntityHandle) -> Option<Box<dyn Any>>;
 }

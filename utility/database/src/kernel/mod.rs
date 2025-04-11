@@ -50,7 +50,9 @@ pub struct IndexValueChange<T> {
   pub change: ValueChange<T>,
 }
 
-use std::sync::Arc;
+/// This struct use ptr equality as PartialEq impl compare to Arc
+///
+/// User should use this instead of Arc to ensure good performance in delta propagation
 #[derive(Default)]
 pub struct ExternalRefPtr<T> {
   pub ptr: Arc<T>,
