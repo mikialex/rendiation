@@ -23,19 +23,20 @@ impl<E: EntitySemantic> EntityReader<E> {
   where
     C: ComponentSemantic<Entity = E>,
   {
-    todo!();
-    // todo generation
-    let mut target: Option<DataPtr> = None;
+    if self.inner._allocator.get(idx.handle.0).is_none() {
+      return None;
+    }
     for (id, view) in &self.inner.components {
       if *id == C::component_id() {
         unsafe {
-          target = view.get(idx.index);
+          let data_ptr = view.get_unchecked(idx.index);
+          let data_ptr: &C::Data = unsafe { std::mem::transmute(data_ptr) };
+          return Some(data_ptr);
         }
         break;
       }
     }
-    let target: Option<&C::Data> = target.map(|data| unsafe { std::mem::transmute(data) });
-    target
+    None
   }
 
   pub fn try_read_foreign_key<C>(
@@ -45,21 +46,9 @@ impl<E: EntitySemantic> EntityReader<E> {
   where
     C: ForeignKeySemantic<Entity = E>,
   {
-    todo!();
-    // todo generation
-    let mut target: Option<DataPtr> = None;
-    for (id, view) in &self.inner.components {
-      if *id == C::component_id() {
-        unsafe {
-          target = view.get(idx.index);
-        }
-        break;
-      }
-    }
-    let target: Option<&ForeignKeyComponentData> =
-      target.map(|data| unsafe { std::mem::transmute(data) });
-
-    target.map(|v| v.map(|v| unsafe { EntityHandle::from_raw(v) }))
+    self
+      .try_read(idx)
+      .map(|v| v.map(|v| unsafe { EntityHandle::from_raw(v) }))
   }
 
   pub fn read_foreign_key<C>(

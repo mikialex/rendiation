@@ -215,14 +215,15 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
     self,
     as_foreign_key: Option<EntityId>,
   ) -> Self {
-    let com = ComponentCollection::<S>::default();
     let com = ComponentCollectionUntyped {
       name: S::display_name().to_string(),
-      inner: Box::new(com),
       as_foreign_key,
       data_typeid: TypeId::of::<S::Data>(),
       entity_type_id: S::Entity::entity_id(),
       component_type_id: S::component_id(),
+      data: Arc::new(Vec::new()),
+      arena: self.inner.inner.allocator.clone(),
+      group_watchers: todo!(),
     };
     self.inner.declare_component_dyn(S::component_id(), com);
     self
@@ -236,7 +237,7 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
   }
   pub fn access_component<S: ComponentSemantic, R>(
     &self,
-    f: impl FnOnce(&ComponentCollection<S>) -> R,
+    f: impl FnOnce(&ComponentCollectionUntyped) -> R,
   ) -> R {
     if let Some(r) = self.inner.access_component(S::component_id(), |c| {
       f(c.inner.as_any().downcast_ref().unwrap())
