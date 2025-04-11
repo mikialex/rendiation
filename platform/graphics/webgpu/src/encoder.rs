@@ -76,16 +76,21 @@ impl GPUCommandEncoder {
         store: gpu::StoreOp::Store,
       }
     });
-    self.begin_render_pass(des);
+    self.begin_render_pass(des, None);
   }
 
   pub fn begin_render_pass_with_info(
     &mut self,
     des: RenderPassDescription,
     gpu: GPU,
+    enable_time_measuring: bool,
   ) -> FrameRenderPass {
     let buffer_size = des.buffer_size();
-    let ctx = self.begin_render_pass(des);
+
+    let time_query =
+      enable_time_measuring.then(|| TimeQuery::create_query_without_start(&gpu.device));
+
+    let ctx = self.begin_render_pass(des, time_query);
 
     let pass_info = RenderPassGPUInfoData::new(buffer_size.map(|v| 1.0 / v), buffer_size);
     let pass_info = create_uniform_with_cache(pass_info, &gpu);
@@ -95,7 +100,11 @@ impl GPUCommandEncoder {
     FrameRenderPass { ctx: c, pass_info }
   }
 
-  pub fn begin_render_pass(&mut self, des: RenderPassDescription) -> GPURenderPass {
+  pub fn begin_render_pass(
+    &mut self,
+    des: RenderPassDescription,
+    start_time_query: Option<TimeQuery>,
+  ) -> GPURenderPass {
     self.active_pass_target_holder.replace(des);
     let des = self.active_pass_target_holder.as_ref().unwrap();
     // todo should we do some check here?
@@ -124,11 +133,19 @@ impl GPUCommandEncoder {
           stencil_ops: None,
         });
 
+    let timestamp_writes = start_time_query
+      .as_ref()
+      .map(|t| RenderPassTimestampWrites {
+        query_set: &t.query_set,
+        beginning_of_pass_write_index: Some(0),
+        end_of_pass_write_index: Some(1),
+      });
+
     let desc = gpu::RenderPassDescriptor {
       label: des.name.as_str().into(),
       color_attachments: color_attachments.as_slice(),
       depth_stencil_attachment,
-      timestamp_writes: None,
+      timestamp_writes,
       occlusion_query_set: None,
     };
 
@@ -153,6 +170,7 @@ impl GPUCommandEncoder {
       placeholder_bg: self.placeholder_bg.clone(),
       size,
       formats,
+      time_measuring: start_time_query,
     }
   }
 

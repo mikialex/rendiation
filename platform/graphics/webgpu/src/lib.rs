@@ -38,7 +38,7 @@ pub use encoder::*;
 use fast_hash_collection::*;
 pub use frame::*;
 use futures::{Future, FutureExt};
-pub use gpu::Features;
+use gpu::RenderPassTimestampWrites;
 // note: we can not just use * because it cause core conflict
 pub use gpu::{
   util, util::DeviceExt, vertex_attr_array, AccelerationStructureFlags,
@@ -46,7 +46,7 @@ pub use gpu::{
   BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
   BindingResource, Blas, BlasBuildEntry, BlasGeometries, BlasGeometrySizeDescriptors,
   BlasTriangleGeometry, BlasTriangleGeometrySizeDescriptor, Buffer, BufferAsyncError, Color,
-  CommandEncoder, CompareFunction, CreateSurfaceError, Device, FilterMode, FragmentState,
+  CommandEncoder, CompareFunction, CreateSurfaceError, Device, Features, FilterMode, FragmentState,
   IndexFormat, Limits, LoadOp, Operations, PipelineLayoutDescriptor, PowerPreference, Queue,
   RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
   RequestDeviceError, Sampler, SamplerBorderColor, SamplerDescriptor, ShaderModuleDescriptor,

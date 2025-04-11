@@ -1,3 +1,5 @@
+use std::mem::ManuallyDrop;
+
 use rendiation_algebra::*;
 use rendiation_shader_api::{std140_layout, ShaderStruct};
 
@@ -118,11 +120,7 @@ impl RenderPassDescription {
 
   #[must_use]
   pub fn render_ctx(self, ctx: &mut FrameCtx) -> ActiveRenderPass {
-    let measure_sender = ctx
-      .statistics
-      .as_ref()
-      .map(|m| (m.sub_pass_info_sender.clone(), ctx.frame_index));
-    self.render(&mut ctx.encoder, ctx.gpu, measure_sender)
+    self.render(&mut ctx.encoder, ctx.gpu, ctx.statistics.as_ref())
   }
 
   #[must_use]
@@ -130,18 +128,21 @@ impl RenderPassDescription {
     self,
     encoder: &mut GPUCommandEncoder,
     gpu: &GPU,
-    measure_sender: Option<(StatisticTaskPreSender, u64)>,
+    measurement_resolver: Option<&FrameStaticInfoResolver>,
   ) -> ActiveRenderPass {
-    let mut pass = encoder.begin_render_pass_with_info(self.clone(), gpu.clone());
+    let mut pass = encoder.begin_render_pass_with_info(
+      self.clone(),
+      gpu.clone(),
+      measurement_resolver
+        .and_then(|r| r.time_query_supported.then_some(()))
+        .is_some(),
+    );
 
-    let measurement = measure_sender.map(|(sender, frame_idx)| {
-      let query = PipelineQuery::start(&gpu.device, &mut pass);
-      (sender, query, frame_idx)
-    });
+    let measurement = measurement_resolver.map(|m| m.create_defer_logic(&mut pass, gpu));
 
     ActiveRenderPass {
       desc: self,
-      pass,
+      pass: ManuallyDrop::new(pass),
       measurement,
     }
   }
@@ -165,18 +166,20 @@ impl<T: PassContent> PassContent for Option<T> {
 }
 
 pub struct ActiveRenderPass {
-  pub pass: FrameRenderPass,
+  pub pass: ManuallyDrop<FrameRenderPass>,
   pub desc: RenderPassDescription,
-  pub measurement: Option<(StatisticTaskPreSender, PipelineQuery, u64)>,
+  pub measurement: Option<PassMeasurementDeferLogic>,
 }
 
 impl Drop for ActiveRenderPass {
   fn drop(&mut self) {
-    if let Some((sender, query, frame_idx)) = self.measurement.take() {
-      let r = query.end(&mut self.pass);
-      sender
-        .unbounded_send((self.desc.name.clone(), r, frame_idx))
-        .ok();
+    if let Some(measurement) = self.measurement.as_mut() {
+      measurement.resolve_pipeline_stat(&mut self.pass, &self.desc);
+    }
+    let time = self.pass.time_measuring.take();
+    unsafe { ManuallyDrop::drop(&mut self.pass) };
+    if let Some(measurement) = self.measurement.as_mut() {
+      measurement.resolve_pass_timing(time, &self.desc);
     }
   }
 }

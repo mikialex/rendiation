@@ -132,50 +132,73 @@ impl ViewerUIState {
         ui.label("frame pass pipeline statistics:");
         ui.separator();
 
-        let statistics = &mut rendering.statistics;
+        ui.checkbox(
+          &mut rendering.enable_statistic_collect,
+          "enable_statistic_collect",
+        );
 
-        if statistics.pipeline_statistics.is_empty() {
-          ui.label(
-            "no pipeline statistics info available(maybe feature not supported on this platform)",
-          );
-        } else if ui.button("clear").clicked() {
-          statistics.clear_history(statistics.max_history);
-        }
+        if rendering.enable_statistic_collect {
+          if rendering.statistics.collected.is_empty() {
+            ui.label("no statistics info available");
+          } else {
+            if !rendering.statistics.pipeline_query_supported {
+              ui.label("note: pipeline query not supported on this platform");
+            } else {
+              let statistics = &mut rendering.statistics;
+              ui.collapsing("pipeline_info", |ui| {
+                statistics.collected.iter().for_each(|(name, info)| {
+                  if let Some(info) = &info.pipeline.latest_resolved {
+                    #[allow(dead_code)]
+                    #[derive(Debug)] // just to impl Debug
+                    struct DeviceDrawStatistics2 {
+                      pub vertex_shader_invocations: u64,
+                      pub clipper_invocations: u64,
+                      pub clipper_primitives_out: u64,
+                      pub fragment_shader_invocations: u64,
+                      pub compute_shader_invocations: u64,
+                    }
 
-        statistics
-          .pipeline_statistics
-          .iter()
-          .for_each(|(name, info)| {
-            if let Some(info) = &info.latest_resolved {
-              #[allow(dead_code)]
-              #[derive(Debug)] // just to impl Debug
-              struct DeviceDrawStatistics2 {
-                pub vertex_shader_invocations: u64,
-                pub clipper_invocations: u64,
-                pub clipper_primitives_out: u64,
-                pub fragment_shader_invocations: u64,
-                pub compute_shader_invocations: u64,
-              }
+                    impl From<DeviceDrawStatistics> for DeviceDrawStatistics2 {
+                      fn from(value: DeviceDrawStatistics) -> Self {
+                        Self {
+                          vertex_shader_invocations: value.vertex_shader_invocations,
+                          clipper_invocations: value.clipper_invocations,
+                          clipper_primitives_out: value.clipper_primitives_out,
+                          fragment_shader_invocations: value.fragment_shader_invocations,
+                          compute_shader_invocations: value.compute_shader_invocations,
+                        }
+                      }
+                    }
 
-              impl From<DeviceDrawStatistics> for DeviceDrawStatistics2 {
-                fn from(value: DeviceDrawStatistics) -> Self {
-                  Self {
-                    vertex_shader_invocations: value.vertex_shader_invocations,
-                    clipper_invocations: value.clipper_invocations,
-                    clipper_primitives_out: value.clipper_primitives_out,
-                    fragment_shader_invocations: value.fragment_shader_invocations,
-                    compute_shader_invocations: value.compute_shader_invocations,
+                    ui.collapsing(name, |ui| {
+                      ui.label(format!("frame index: {:?}", info.1));
+                      ui.label(format!("{:#?}", DeviceDrawStatistics2::from(info.0)));
+                    });
                   }
-                }
-              }
-
-              ui.collapsing(name, |ui| {
-                ui.label(format!("frame index: {:?}", info.1));
-                ui.label(format!("{:#?}", DeviceDrawStatistics2::from(info.0)));
+                });
               });
             }
-          })
-        //
+            if !rendering.statistics.time_query_supported {
+              ui.label("warning: time query not supported");
+            } else {
+              let statistics = &mut rendering.statistics;
+              ui.collapsing("time_info", |ui| {
+                statistics.collected.iter().for_each(|(name, info)| {
+                  if let Some(info) = &info.time.latest_resolved {
+                    let name = format!("{}: {:.2}ms", name, info.0);
+                    ui.label(name);
+                  }
+                });
+              });
+            }
+
+            if ui.button("clear").clicked() {
+              rendering
+                .statistics
+                .clear_history(rendering.statistics.max_history);
+            }
+          }
+        }
       });
 
     egui::Window::new("GPU Info")

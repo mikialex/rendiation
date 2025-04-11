@@ -143,6 +143,7 @@ impl<T> EguiContext<T> {
       RenderPassDescription::default()
         .with_name("egui main render pass")
         .with_color(&w_target, load()),
+      None,
     );
     renderer.render(&mut rpass.pass, &tris, &screen_descriptor);
     drop(rpass);

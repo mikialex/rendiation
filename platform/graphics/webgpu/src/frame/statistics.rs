@@ -6,106 +6,279 @@ use futures::channel::mpsc::*;
 use futures::StreamExt;
 use reactive::noop_ctx;
 
+pub struct FramePassMeasure<T> {
+  pub info: T,
+  pub pass_name: String,
+  pub frame_index: u64,
+}
+
 use crate::*;
-type StatisticTaskPreOutput = (String, PipelineQueryResult, u64);
-type StatisticTaskOutput = (String, Option<DeviceDrawStatistics>, u64);
+type StatisticTaskOutput = Option<FramePassMeasure<DeviceDrawStatistics>>;
+type TimeTaskOutput = Option<FramePassMeasure<TimestampPair>>;
+
 type StatisticTask = Pin<Box<dyn Future<Output = StatisticTaskOutput> + Send>>;
-pub type StatisticTaskPreSender = UnboundedSender<StatisticTaskPreOutput>;
-pub type StatisticTaskPreReceiver = UnboundedReceiver<StatisticTaskPreOutput>;
-pub type StatisticTaskSender = UnboundedSender<StatisticTask>;
+type TimeTask = Pin<Box<dyn Future<Output = TimeTaskOutput> + Send>>;
+
 type StatisticTaskReceiver = Pin<Box<dyn futures::Stream<Item = StatisticTaskOutput>>>;
+type TimeTaskReceiver = Pin<Box<dyn futures::Stream<Item = TimeTaskOutput>>>;
 
 pub struct FramePassStatistics {
-  pub statics_task_sender: StatisticTaskSender,
+  pub statistic_task_sender: UnboundedSender<StatisticTask>,
+  pub time_output_sender: UnboundedSender<TimeTask>,
   pipeline_statistics_pending: StatisticTaskReceiver,
-  pub pipeline_statistics: FastHashMap<String, StatisticComputer>,
+  time_statistics_pending: TimeTaskReceiver,
+  time_unit_in_nanoseconds: f32,
+  pub collected: FastHashMap<String, PassRenderStatistics>,
   pub max_history: usize,
+  pub time_query_supported: bool,
+  pub pipeline_query_supported: bool,
 }
 
-pub struct StatisticComputer {
-  /// currently we only store the history but not do any analysis
-  pub history: Vec<Option<(DeviceDrawStatistics, u64)>>,
-  pub latest_resolved: Option<(DeviceDrawStatistics, u64)>,
+pub struct PassRenderStatistics {
+  pub pipeline: StatisticStore<DeviceDrawStatistics>,
+  pub time: StatisticStore<f64>,
 }
 
-impl StatisticComputer {
-  fn new(max_history: usize) -> Self {
-    StatisticComputer {
-      history: vec![None; max_history],
-      latest_resolved: None,
-    }
-  }
-  fn insert(&mut self, value: DeviceDrawStatistics, idx: u64) {
-    let write_idx = idx as usize % self.history.len();
-    self.history[write_idx] = Some((value, idx));
-    if let Some(l) = self.latest_resolved {
-      if l.1 < idx {
-        self.latest_resolved = Some((value, idx));
-      }
-    } else {
-      self.latest_resolved = Some((value, idx));
+impl PassRenderStatistics {
+  pub fn new(max_history: usize) -> Self {
+    Self {
+      pipeline: StatisticStore::new(max_history),
+      time: StatisticStore::new(max_history),
     }
   }
 }
 
 impl FramePassStatistics {
-  pub fn new(max_history: usize) -> Self {
+  pub fn new(max_history: usize, gpu: &GPU) -> Self {
     let (sender, receiver) = unbounded();
     let receiver = receiver.buffer_unordered(64).boxed();
 
+    let (t_sender, t_receiver) = unbounded();
+    let t_receiver = t_receiver.buffer_unordered(64).boxed();
+
     Self {
-      statics_task_sender: sender,
+      time_unit_in_nanoseconds: gpu.queue.get_timestamp_period(),
+      statistic_task_sender: sender,
       pipeline_statistics_pending: receiver,
-      pipeline_statistics: FastHashMap::default(),
+      time_statistics_pending: t_receiver,
+      collected: FastHashMap::default(),
       max_history,
+      time_output_sender: t_sender,
+      time_query_supported: gpu
+        .info
+        .supported_features
+        .contains(Features::TIMESTAMP_QUERY),
+      pipeline_query_supported: gpu
+        .info
+        .supported_features
+        .contains(Features::PIPELINE_STATISTICS_QUERY),
     }
   }
 
   pub fn poll(&mut self, cx: &mut Context) {
-    while let Poll::Ready(Some((name, Some(result), idx))) =
-      self.pipeline_statistics_pending.poll_next_unpin(cx)
+    while let Poll::Ready(Some(Some(FramePassMeasure {
+      info,
+      pass_name,
+      frame_index,
+    }))) = self.pipeline_statistics_pending.poll_next_unpin(cx)
     {
       self
-        .pipeline_statistics
+        .collected
         .raw_entry_mut()
-        .from_key(&name)
-        .or_insert_with(|| (name.clone(), StatisticComputer::new(self.max_history)))
+        .from_key(&pass_name)
+        .or_insert_with(|| {
+          (
+            pass_name.clone(),
+            PassRenderStatistics::new(self.max_history),
+          )
+        })
         .1
-        .insert(result, idx);
+        .pipeline
+        .insert(info, frame_index);
+    }
+
+    while let Poll::Ready(Some(Some(FramePassMeasure {
+      info,
+      pass_name,
+      frame_index,
+    }))) = self.time_statistics_pending.poll_next_unpin(cx)
+    {
+      self
+        .collected
+        .raw_entry_mut()
+        .from_key(&pass_name)
+        .or_insert_with(|| {
+          (
+            pass_name.clone(),
+            PassRenderStatistics::new(self.max_history),
+          )
+        })
+        .1
+        .time
+        .insert(
+          info.duration_in_ms(self.time_unit_in_nanoseconds),
+          frame_index,
+        );
     }
   }
 
   pub fn clear_history(&mut self, max_history: usize) {
-    self.pipeline_statistics.clear();
+    self.collected.clear();
     self.max_history = max_history;
   }
 
-  pub fn create_resolver(&mut self) -> FrameStaticInfoResolver {
+  pub fn create_resolver(&mut self, frame_index: u64) -> FrameStaticInfoResolver {
     let (sub_pass_info_sender, sub_pass_info_receiver) = unbounded();
+    let (sub_pass_time_sender, sub_pass_time_receiver) = unbounded();
     FrameStaticInfoResolver {
       sub_pass_info_sender,
       sub_pass_info_receiver,
-      static_output_sender: self.statics_task_sender.clone(),
+      sub_pass_time_sender,
+      sub_pass_time_receiver,
+      statistic_output_sender: self.statistic_task_sender.clone(),
+      time_output_sender: self.time_output_sender.clone(),
+      frame_index,
+      time_query_supported: self.time_query_supported,
+      pipeline_query_supported: self.pipeline_query_supported,
     }
   }
 }
 
 pub struct FrameStaticInfoResolver {
-  pub(crate) sub_pass_info_sender: StatisticTaskPreSender,
-  sub_pass_info_receiver: StatisticTaskPreReceiver,
-  static_output_sender: StatisticTaskSender,
+  pub(crate) sub_pass_info_sender: UnboundedSender<FramePassMeasure<PipelineQueryResult>>,
+  sub_pass_info_receiver: UnboundedReceiver<FramePassMeasure<PipelineQueryResult>>,
+
+  pub(crate) sub_pass_time_sender: UnboundedSender<FramePassMeasure<TimeQuery>>,
+  sub_pass_time_receiver: UnboundedReceiver<FramePassMeasure<TimeQuery>>,
+
+  statistic_output_sender: UnboundedSender<StatisticTask>,
+  time_output_sender: UnboundedSender<TimeTask>,
+  frame_index: u64,
+
+  pub time_query_supported: bool,
+  pub pipeline_query_supported: bool,
 }
 
 impl FrameStaticInfoResolver {
+  pub fn create_defer_logic(
+    &self,
+    pass: &mut GPURenderPass,
+    gpu: &GPU,
+  ) -> PassMeasurementDeferLogic {
+    let pipeline_query = self
+      .pipeline_query_supported
+      .then(|| PipelineQuery::start(&gpu.device, pass));
+
+    PassMeasurementDeferLogic {
+      frame_index: self.frame_index,
+      pipeline_query,
+      pipeline_query_sender: self.sub_pass_info_sender.clone(),
+      time_query_sender: self.sub_pass_time_sender.clone(),
+    }
+  }
+
   pub fn resolve(&mut self, gpu: &GPU, encoder: &mut GPUCommandEncoder) {
     noop_ctx!(cx);
-    while let Poll::Ready(Some((name, result, idx))) =
-      self.sub_pass_info_receiver.poll_next_unpin(cx)
+    while let Poll::Ready(Some(FramePassMeasure {
+      info,
+      pass_name,
+      frame_index,
+    })) = self.sub_pass_info_receiver.poll_next_unpin(cx)
     {
-      let f = result.read_back(&gpu.device, encoder);
-      let f = f.map(move |r| (name, r, idx));
+      let f = info.read_back(&gpu.device, encoder);
+      let f = f.map(move |r| {
+        r.map(|info| FramePassMeasure {
+          pass_name,
+          info,
+          frame_index,
+        })
+      });
       let f = Box::pin(f);
-      self.static_output_sender.unbounded_send(f).ok();
+      self.statistic_output_sender.unbounded_send(f).ok();
+    }
+
+    while let Poll::Ready(Some(FramePassMeasure {
+      info,
+      pass_name,
+      frame_index,
+    })) = self.sub_pass_time_receiver.poll_next_unpin(cx)
+    {
+      let f = info.read_back(&gpu.device, encoder);
+      let f = f.map(move |r| {
+        r.map(|info| FramePassMeasure {
+          pass_name,
+          info,
+          frame_index,
+        })
+      });
+      let f = Box::pin(f);
+      self.time_output_sender.unbounded_send(f).ok();
+    }
+  }
+}
+
+pub struct PassMeasurementDeferLogic {
+  frame_index: u64,
+  pipeline_query: Option<PipelineQuery>,
+  pipeline_query_sender: UnboundedSender<FramePassMeasure<PipelineQueryResult>>,
+  time_query_sender: UnboundedSender<FramePassMeasure<TimeQuery>>,
+}
+
+impl PassMeasurementDeferLogic {
+  pub fn resolve_pipeline_stat(&mut self, pass: &mut GPURenderPass, desc: &RenderPassDescription) {
+    if let Some(q) = self.pipeline_query.take() {
+      let info = q.end(pass);
+      self
+        .pipeline_query_sender
+        .unbounded_send(FramePassMeasure {
+          pass_name: desc.name.clone(),
+          info,
+          frame_index: self.frame_index,
+        })
+        .ok();
+    }
+  }
+  // split this to make sure the pass has already dropped
+  pub fn resolve_pass_timing(
+    &mut self,
+    time_measuring: Option<TimeQuery>,
+    desc: &RenderPassDescription,
+  ) {
+    if let Some(q) = time_measuring {
+      self
+        .time_query_sender
+        .unbounded_send(FramePassMeasure {
+          pass_name: desc.name.clone(),
+          info: q,
+          frame_index: self.frame_index,
+        })
+        .ok();
+    }
+  }
+}
+
+pub struct StatisticStore<T> {
+  /// currently we only store the history but not do any analysis
+  pub history: Vec<Option<(T, u64)>>,
+  pub latest_resolved: Option<(T, u64)>,
+}
+
+impl<T: Clone> StatisticStore<T> {
+  fn new(max_history: usize) -> Self {
+    StatisticStore {
+      history: vec![None; max_history],
+      latest_resolved: None,
+    }
+  }
+  fn insert(&mut self, value: T, idx: u64) {
+    let write_idx = idx as usize % self.history.len();
+    self.history[write_idx] = Some((value.clone(), idx));
+    if let Some(l) = &self.latest_resolved {
+      if l.1 < idx {
+        self.latest_resolved = Some((value, idx));
+      }
+    } else {
+      self.latest_resolved = Some((value, idx));
     }
   }
 }

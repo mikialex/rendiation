@@ -157,6 +157,7 @@ pub struct GPURenderPass {
   pub(crate) placeholder_bg: Arc<gpu::BindGroup>,
   pub(crate) size: Size,
   pub(crate) formats: RenderTargetFormatsInfo,
+  pub(crate) time_measuring: Option<TimeQuery>,
 }
 
 impl AbstractPassBinding for GPURenderPass {
