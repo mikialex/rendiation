@@ -27,11 +27,13 @@ impl<T: CValue> ComponentStorageReadView for LockReadGuardHolder<Vec<T>> {
 
 impl<T: CValue + Default> ComponentStorageReadWriteView for LockWriteGuardHolder<Vec<T>> {
   fn notify_start_mutation(&mut self, event: &mut Source<ChangePtr>) {
-    let message = ScopedMessage::<T>::Start;
-    event.emit(&(&message as *const _ as ChangePtr));
+    let message = ScopedValueChange::<T>::Start;
+    let message_ref = &message;
+    let message_ptr = message_ref as *const _ as ChangePtr;
+    event.emit(&message_ptr);
   }
   fn notify_end_mutation(&mut self, event: &mut Source<ChangePtr>) {
-    let message = ScopedMessage::<T>::End;
+    let message = ScopedValueChange::<T>::End;
     event.emit(&(&message as *const _ as ChangePtr));
   }
 
@@ -65,7 +67,7 @@ impl<T: CValue + Default> ComponentStorageReadWriteView for LockWriteGuardHolder
         *target = (*source).clone();
 
         let change = IndexValueChange { idx, change };
-        let msg = ScopedMessage::Message(change);
+        let msg = ScopedValueChange::Message(change);
         event.emit(&(&msg as *const _ as ChangePtr));
       }
 
@@ -90,11 +92,11 @@ impl<T: CValue + Default> ComponentStorageReadWriteView for LockWriteGuardHolder
     let previous: T = unsafe { (*(previous as *const T)).clone() };
     let change = ValueChange::Remove(previous);
     let change = IndexValueChange { idx, change };
-    let msg = ScopedMessage::Message(change);
+    let msg = ScopedValueChange::Message(change);
     event.emit(&(&msg as *const _ as ChangePtr));
   }
 
-  unsafe fn grow_at_least(&mut self, max: usize) {
+  unsafe fn grow(&mut self, max: usize) {
     let data: &mut Vec<T> = self;
     if data.len() <= max {
       data.resize(max + 1, T::default());

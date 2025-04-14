@@ -36,6 +36,7 @@ impl<C: ComponentSemantic> ComponentCollection<C> {
     ComponentWriteView {
       phantom: PhantomData,
       inner: self.inner.write_untyped(),
+      allocator: self.inner.allocator.make_read_holder(),
     }
   }
 }
@@ -126,13 +127,14 @@ impl<T: ForeignKeySemantic> Clone for ForeignKeyReadView<T> {
 pub struct ComponentWriteView<T: ComponentSemantic> {
   phantom: PhantomData<T>,
   inner: ComponentWriteViewUntyped,
+  allocator: LockReadGuardHolder<Arena<()>>,
 }
 
 impl<T: ComponentSemantic> ComponentWriteView<T> {
   pub fn get(&self, idx: EntityHandle<T::Entity>) -> Option<&T::Data> {
     self
       .inner
-      .get(idx.handle)
+      .get(idx.handle, &self.allocator)
       .map(|v| unsafe { &*(v as *const T::Data) })
   }
 

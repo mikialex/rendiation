@@ -49,9 +49,9 @@ pub trait ComponentStorageReadWriteView {
 
   /// # Safety
   ///
-  /// This method should not called by user, but should only called in entity
-  /// writer when create new entity.
-  unsafe fn grow_at_least(&mut self, max: usize);
+  /// This method should only be called in entity writer when create new entity.
+  unsafe fn grow(&mut self, max: usize);
+
   fn debug_value(&self, idx: u32) -> Option<String>;
   fn type_id(&self) -> TypeId;
 }

@@ -75,7 +75,6 @@ impl<T: CValue> Query for IterableComponentReadViewChecked<T> {
   }
 
   fn access(&self, key: &RawEntityHandle) -> Option<T> {
-    // todo, this is risky, we can not guarantee the handle type is valid
     unsafe { self.read_view.get(*key).map(|v| &*(v as *const T)).cloned() }
   }
 }

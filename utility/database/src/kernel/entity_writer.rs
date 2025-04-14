@@ -1,5 +1,3 @@
-use std::mem::ManuallyDrop;
-
 use crate::*;
 
 /// Holder the all components write lock, optimized for batch entity creation and modification
@@ -74,7 +72,7 @@ impl EntityComponentGroup {
       })
       .collect();
 
-    let change = ScopedMessage::<()>::Start;
+    let change = ScopedValueChange::<()>::Start;
     self
       .inner
       .entity_watchers
@@ -161,11 +159,7 @@ impl<E: EntitySemantic> EntityWriter<E> {
       .get_component_by_id_mut(C::component_id())
       .unwrap();
 
-    let data = ManuallyDrop::new(data.clone());
-    view.write_component(
-      idx.handle,
-      &data as *const ManuallyDrop<C::Data> as *const (),
-    );
+    view.write_component(idx.handle, &data as *const C::Data as *const ());
 
     self
   }
@@ -187,7 +181,7 @@ impl<E: EntitySemantic> EntityWriter<E> {
   {
     let view = self.inner.get_component_by_id(C::component_id()).unwrap();
     view
-      .get(idx.handle)
+      .get(idx.handle, &self.inner.allocator)
       .map(|d| unsafe { &*(d as *const C::Data) })
       .cloned()
   }
@@ -209,14 +203,14 @@ impl<E: EntitySemantic> EntityWriter<E> {
 pub struct EntityWriterUntyped {
   type_id: EntityId,
   allocator: LockWriteGuardHolder<Arena<()>>,
-  /// this change ptr type is ScopedMessage<()>
+  /// this change ptr type is ScopedValueChange<()>
   entity_watchers: EventSource<ChangePtr>,
   components: smallvec::SmallVec<[(ComponentId, EntityComponentWriterImpl); 6]>,
 }
 
 impl Drop for EntityWriterUntyped {
   fn drop(&mut self) {
-    let change = ScopedMessage::<()>::End;
+    let change = ScopedValueChange::<()>::End;
     self
       .entity_watchers
       .emit(&(&change as *const _ as ChangePtr));
@@ -264,7 +258,7 @@ impl EntityWriterUntyped {
       change: ValueChange::Delta((), None),
     };
 
-    let change = ScopedMessage::Message(change);
+    let change = ScopedValueChange::Message(change);
     self
       .entity_watchers
       .emit(&(&change as *const _ as ChangePtr));
@@ -276,13 +270,13 @@ impl EntityWriterUntyped {
     let handle = RawEntityHandle(handle);
     assert!(self.allocator.contains(src.0));
     for com in &mut self.components {
-      com.1.clone_component_value(src, handle);
+      com.1.clone_component_value(src, handle, &self.allocator);
     }
     let change = IndexValueChange {
       idx: handle,
       change: ValueChange::Delta((), None),
     };
-    let change = ScopedMessage::Message(change);
+    let change = ScopedValueChange::Message(change);
     self
       .entity_watchers
       .emit(&(&change as *const _ as ChangePtr));
@@ -300,7 +294,7 @@ impl EntityWriterUntyped {
       idx: handle,
       change: ValueChange::Remove(()),
     };
-    let change = ScopedMessage::Message(change);
+    let change = ScopedValueChange::Message(change);
     self
       .entity_watchers
       .emit(&(&change as *const _ as ChangePtr));
@@ -320,8 +314,8 @@ pub struct EntityComponentWriterImpl {
 }
 
 impl EntityComponentWriterImpl {
-  fn get(&self, idx: RawEntityHandle) -> Option<DataPtr> {
-    self.component.get(idx)
+  fn get(&self, idx: RawEntityHandle, allocator: &Arena<()>) -> Option<DataPtr> {
+    self.component.get(idx, allocator)
   }
 
   fn write_component(&mut self, idx: RawEntityHandle, src: DataPtr) {
@@ -339,8 +333,13 @@ impl EntityComponentWriterImpl {
       self.component.write_default(idx);
     }
   }
-  fn clone_component_value(&mut self, src: RawEntityHandle, dst: RawEntityHandle) {
-    let src = self.get(src).unwrap();
+  fn clone_component_value(
+    &mut self,
+    src: RawEntityHandle,
+    dst: RawEntityHandle,
+    allocator: &Arena<()>,
+  ) {
+    let src = self.get(src, allocator).unwrap();
     self.write_component(dst, src);
   }
 

@@ -13,7 +13,7 @@ pub struct ComponentCollectionUntyped {
 
   /// watch this component all change with idx
   ///
-  /// the type of `ChangePtr` is `ScopedMessage<DataType>`
+  /// the type of `ChangePtr` is `ScopedValueChange<DataType>`
   pub(crate) data_watchers: EventSource<ChangePtr>,
 
   pub allocator: Arc<RwLock<Arena<()>>>,
@@ -35,7 +35,6 @@ impl ComponentCollectionUntyped {
     let mut view = ComponentWriteViewUntyped {
       data: self.data.create_read_write_view(),
       events: self.data_watchers.lock.make_mutex_write_holder(),
-      allocator: self.allocator.make_read_holder(),
     };
 
     view.data.notify_start_mutation(&mut view.events);
@@ -65,7 +64,6 @@ impl ComponentReadViewUntyped {
 pub struct ComponentWriteViewUntyped {
   data: Box<dyn ComponentStorageReadWriteView>,
   events: MutexGuardHolder<Source<ChangePtr>>,
-  allocator: LockReadGuardHolder<Arena<()>>,
 }
 
 impl ComponentWriteViewUntyped {}
@@ -77,15 +75,13 @@ impl Drop for ComponentWriteViewUntyped {
 }
 
 impl ComponentWriteViewUntyped {
-  pub fn get(&self, idx: RawEntityHandle) -> Option<DataPtr> {
-    let _ = self.allocator.get(idx.0)?;
+  pub fn get(&self, idx: RawEntityHandle, allocator: &Arena<()>) -> Option<DataPtr> {
+    let _ = allocator.get(idx.0)?;
     self.data.get(idx.alloc_index())
   }
 
   pub fn write(&mut self, idx: RawEntityHandle, new: DataPtr) -> bool {
-    self
-      .data
-      .set_value(idx, &new as *const _ as DataPtr, false, &mut self.events)
+    self.data.set_value(idx, new, false, &mut self.events)
   }
   pub fn write_default(&mut self, idx: RawEntityHandle) -> bool {
     self.data.set_default_value(idx, false, &mut self.events)
