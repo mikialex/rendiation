@@ -215,15 +215,16 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
     self,
     as_foreign_key: Option<EntityId>,
   ) -> Self {
+    let data = Arc::new(RwLock::new(Vec::<S::Data>::new()));
     let com = ComponentCollectionUntyped {
       name: S::display_name().to_string(),
       as_foreign_key,
       data_typeid: TypeId::of::<S::Data>(),
       entity_type_id: S::Entity::entity_id(),
       component_type_id: S::component_id(),
-      data: Arc::new(Vec::new()),
-      arena: self.inner.inner.allocator.clone(),
-      group_watchers: todo!(),
+      data: Arc::new(data),
+      allocator: self.inner.inner.allocator.clone(),
+      group_watchers: Default::default(),
     };
     self.inner.declare_component_dyn(S::component_id(), com);
     self
@@ -237,12 +238,13 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
   }
   pub fn access_component<S: ComponentSemantic, R>(
     &self,
-    f: impl FnOnce(&ComponentCollectionUntyped) -> R,
+    f: impl FnOnce(ComponentCollection<S>) -> R,
   ) -> R {
-    if let Some(r) = self.inner.access_component(S::component_id(), |c| {
-      f(c.inner.as_any().downcast_ref().unwrap())
-    }) {
-      r
+    if let Some(r) = self
+      .inner
+      .access_component(S::component_id(), |s| unsafe { s.clone().into_typed() })
+    {
+      f(r)
     } else {
       panic!(
         "access not exist component {}, make sure declared before use",

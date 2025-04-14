@@ -1,18 +1,22 @@
 mod component;
+mod component_typed;
 mod ecg;
 mod entity_reader;
 mod entity_writer;
 mod entry;
 mod lock;
+mod query;
 
 use std::marker::PhantomData;
 
 pub use component::*;
+pub use component_typed::*;
 pub use ecg::*;
 pub use entity_reader::*;
 pub use entity_writer::*;
 pub use entry::*;
 pub use lock::*;
+pub use query::*;
 
 use crate::*;
 

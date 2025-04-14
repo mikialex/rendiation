@@ -1,5 +1,29 @@
 use crate::*;
 
+pub struct EntityReaderUntyped {
+  type_id: EntityId,
+  components: smallvec::SmallVec<[(ComponentId, ComponentReadViewUntyped); 6]>,
+  allocator: LockReadGuardHolder<Arena<()>>,
+}
+
+impl EntityReaderUntyped {
+  pub fn into_typed<E: EntitySemantic>(self) -> Option<EntityReader<E>> {
+    if self.type_id != E::entity_id() {
+      return None;
+    }
+    EntityReader {
+      _phantom: Default::default(),
+      inner: self,
+    }
+    .into()
+  }
+
+  pub fn reconstruct_handle_by_idx(&self, idx: usize) -> Option<RawEntityHandle> {
+    let handle = self.allocator.get_handle(idx);
+    handle.map(|h| RawEntityHandle(h))
+  }
+}
+
 /// Holder the all components write lock, optimized for batch entity creation and modification
 pub struct EntityReader<E: EntitySemantic> {
   _phantom: SendSyncPhantomData<E>, //
@@ -8,11 +32,13 @@ pub struct EntityReader<E: EntitySemantic> {
 
 impl<E: EntitySemantic> EntityReader<E> {
   pub fn reconstruct_handle_by_idx(&self, idx: usize) -> Option<EntityHandle<E>> {
-    let handle = self.inner._allocator.get_handle(idx);
-    handle.map(|h| unsafe { EntityHandle::from_raw(RawEntityHandle(h)) })
+    self
+      .inner
+      .reconstruct_handle_by_idx(idx)
+      .map(|h| unsafe { EntityHandle::from_raw(h) })
   }
 
-  pub fn read<C>(&self, idx: EntityHandle<C::Entity>) -> C::Data
+  pub fn read<C>(&self, idx: EntityHandle<C::Entity>) -> &C::Data
   where
     C: ComponentSemantic<Entity = E>,
   {
@@ -23,17 +49,13 @@ impl<E: EntitySemantic> EntityReader<E> {
   where
     C: ComponentSemantic<Entity = E>,
   {
-    if self.inner._allocator.get(idx.handle.0).is_none() {
-      return None;
-    }
     for (id, view) in &self.inner.components {
       if *id == C::component_id() {
         unsafe {
-          let data_ptr = view.get_unchecked(idx.index);
-          let data_ptr: &C::Data = unsafe { std::mem::transmute(data_ptr) };
+          let data_ptr = view.get(idx.handle)?;
+          let data_ptr: &C::Data = std::mem::transmute(data_ptr);
           return Some(data_ptr);
         }
-        break;
       }
     }
     None
@@ -47,7 +69,7 @@ impl<E: EntitySemantic> EntityReader<E> {
     C: ForeignKeySemantic<Entity = E>,
   {
     self
-      .try_read(idx)
+      .try_read::<C>(idx)
       .map(|v| v.map(|v| unsafe { EntityHandle::from_raw(v) }))
   }
 
@@ -60,6 +82,7 @@ impl<E: EntitySemantic> EntityReader<E> {
   {
     self.try_read_foreign_key::<C>(idx).unwrap()
   }
+
   pub fn read_expected_foreign_key<C>(
     &self,
     idx: EntityHandle<C::Entity>,
@@ -82,33 +105,13 @@ impl EntityComponentGroup {
     let components = self.inner.components.read_recursive();
     let components = components
       .iter()
-      .map(|(id, c)| (*id, c.inner.create_dyn_reader()))
+      .map(|(id, c)| (*id, c.read_untyped()))
       .collect();
 
     EntityReaderUntyped {
       type_id: self.inner.type_id,
       components,
-      _allocator: self.inner.allocator.make_read_holder(),
+      allocator: self.inner.allocator.make_read_holder(),
     }
-  }
-}
-
-pub struct EntityReaderUntyped {
-  type_id: EntityId,
-  /// just to hold this lock to prevent any entity creation or deletion
-  _allocator: LockReadGuardHolder<Arena<()>>,
-  components: smallvec::SmallVec<[(ComponentId, Box<dyn ComponentStorageReadView>); 6]>,
-}
-
-impl EntityReaderUntyped {
-  pub fn into_typed<E: EntitySemantic>(self) -> Option<EntityReader<E>> {
-    if self.type_id != E::entity_id() {
-      return None;
-    }
-    EntityReader {
-      _phantom: Default::default(),
-      inner: self,
-    }
-    .into()
   }
 }

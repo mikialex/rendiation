@@ -12,12 +12,6 @@ dyn_clone::clone_trait_object!(ComponentStorage);
 
 pub trait ComponentStorageReadView: Send + Sync + DynClone {
   fn get(&self, idx: u32) -> Option<DataPtr>;
-  /// # Safety
-  ///
-  /// caller must ensure the idx is inbound
-  unsafe fn get_unchecked(&self, idx: u32) -> DataPtr {
-    self.get(idx).unwrap_unchecked()
-  }
   fn read_component_into_boxed(&self, idx: u32) -> Option<Box<dyn Any>>;
 }
 dyn_clone::clone_trait_object!(ComponentStorageReadView);
