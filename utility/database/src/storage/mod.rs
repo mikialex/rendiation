@@ -17,11 +17,34 @@ dyn_clone::clone_trait_object!(ComponentStorageReadView);
 
 pub trait ComponentStorageReadWriteView {
   fn get(&self, idx: u32) -> Option<DataPtr>;
-  fn get_mut(&mut self, idx: u32) -> Option<DataMutPtr>;
+
   /// return if success
-  fn set_value(&mut self, idx: u32, v: DataPtr) -> bool;
+  ///
+  /// the idx is handle, but only used for emit message, should not do generation check
+  fn set_value(
+    &mut self,
+    idx: RawEntityHandle,
+    v: DataPtr,
+    is_create: bool,
+    event: &mut Source<ChangePtr>,
+  ) -> bool;
+
   /// return if success
-  fn set_default_value(&mut self, idx: u32) -> bool;
+  ///
+  /// the idx is handle, but only used for emit message, should not do generation check
+  fn set_default_value(
+    &mut self,
+    idx: RawEntityHandle,
+    is_create: bool,
+    event: &mut Source<ChangePtr>,
+  ) -> bool;
+
+  /// the idx is handle, but only used for emit message, should not do generation check
+  fn delete(&mut self, idx: RawEntityHandle, event: &mut Source<ChangePtr>);
+
+  fn notify_start_mutation(&mut self, event: &mut Source<ChangePtr>);
+  fn notify_end_mutation(&mut self, event: &mut Source<ChangePtr>);
+
   /// # Safety
   ///
   /// This method should not called by user, but should only called in entity

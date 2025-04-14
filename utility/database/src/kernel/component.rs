@@ -14,7 +14,7 @@ pub struct ComponentCollectionUntyped {
   /// watch this component all change with idx
   ///
   /// the type of `ChangePtr` is `ScopedMessage<DataType>`
-  pub(crate) group_watchers: EventSource<ChangePtr>,
+  pub(crate) data_watchers: EventSource<ChangePtr>,
 
   pub allocator: Arc<RwLock<Arena<()>>>,
 
@@ -31,17 +31,16 @@ impl ComponentCollectionUntyped {
     }
   }
 
-  pub fn write<C: ComponentSemantic>(&self) -> ComponentWriteView<C> {
-    let message = ScopedMessage::<C::Data>::Start;
-    self
-      .group_watchers
-      .emit(&(&message as *const _ as ChangePtr));
-    ComponentWriteView {
+  pub fn write_untyped(&self) -> ComponentWriteViewUntyped {
+    let mut view = ComponentWriteViewUntyped {
       data: self.data.create_read_write_view(),
-      events: self.group_watchers.lock.make_mutex_write_holder(),
+      events: self.data_watchers.lock.make_mutex_write_holder(),
       allocator: self.allocator.make_read_holder(),
-      phantom: PhantomData,
-    }
+    };
+
+    view.data.notify_start_mutation(&mut view.events);
+
+    view
   }
 }
 
@@ -63,68 +62,36 @@ impl ComponentReadViewUntyped {
   }
 }
 
-pub struct ComponentWriteView<T: ComponentSemantic> {
-  phantom: PhantomData<T>,
-  pub(crate) data: Box<dyn ComponentStorageReadWriteView>,
-  pub(crate) events: MutexGuardHolder<Source<ChangePtr>>,
+pub struct ComponentWriteViewUntyped {
+  data: Box<dyn ComponentStorageReadWriteView>,
+  events: MutexGuardHolder<Source<ChangePtr>>,
   allocator: LockReadGuardHolder<Arena<()>>,
 }
 
-impl<T: ComponentSemantic> Drop for ComponentWriteView<T> {
+impl ComponentWriteViewUntyped {}
+
+impl Drop for ComponentWriteViewUntyped {
   fn drop(&mut self) {
-    let message = ScopedMessage::<T::Data>::End;
-    self.events.emit(&(&message as *const _ as ChangePtr));
+    self.data.notify_end_mutation(&mut self.events);
   }
 }
 
-impl<T: ComponentSemantic> ComponentWriteView<T> {
-  pub fn get(&self, idx: EntityHandle<T::Entity>) -> Option<&T::Data> {
-    let _ = self.allocator.get(idx.handle.0)?;
+impl ComponentWriteViewUntyped {
+  pub fn get(&self, idx: RawEntityHandle) -> Option<DataPtr> {
+    let _ = self.allocator.get(idx.0)?;
+    self.data.get(idx.alloc_index())
+  }
+
+  pub fn write(&mut self, idx: RawEntityHandle, new: DataPtr) -> bool {
     self
       .data
-      .get(idx.alloc_index())
-      .map(|v| unsafe { std::mem::transmute(v) })
+      .set_value(idx, &new as *const _ as DataPtr, false, &mut self.events)
+  }
+  pub fn write_default(&mut self, idx: RawEntityHandle) -> bool {
+    self.data.set_default_value(idx, false, &mut self.events)
   }
 
-  pub fn read(&self, idx: EntityHandle<T::Entity>) -> Option<T::Data> {
-    self.get(idx).cloned()
-  }
-
-  pub fn write(&mut self, idx: EntityHandle<T::Entity>, new: T::Data) {
-    self.write_impl(idx, new, false);
-  }
-
-  pub(crate) fn write_impl(
-    &mut self,
-    index: EntityHandle<T::Entity>,
-    new: T::Data,
-    is_create: bool,
-  ) {
-    let idx = index.alloc_index();
-    let com = self
-      .data
-      .get_mut(idx)
-      .map(|v| unsafe { std::mem::transmute(v) })
-      .unwrap();
-    let previous = std::mem::replace(com, new.clone());
-
-    let idx = index.handle;
-
-    if is_create {
-      let change = ValueChange::Delta(new, None);
-      let change = IndexValueChange { idx, change };
-      let msg = ScopedMessage::Message(change);
-      self.events.emit(&(&msg as *const _ as ChangePtr));
-      return;
-    }
-
-    if previous == new {
-      return;
-    }
-
-    let change = ValueChange::Delta(new, Some(previous));
-    let change = IndexValueChange { idx, change };
-    let msg = ScopedMessage::Message(change);
-    self.events.emit(&(&msg as *const _ as ChangePtr));
+  pub fn delete(&mut self, idx: RawEntityHandle) {
+    self.data.delete(idx, &mut self.events);
   }
 }

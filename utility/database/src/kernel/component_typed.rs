@@ -104,3 +104,25 @@ impl<T: ForeignKeySemantic> Clone for ForeignKeyReadView<T> {
     }
   }
 }
+
+pub struct ComponentWriteView<T: ComponentSemantic> {
+  phantom: PhantomData<T>,
+  inner: ComponentWriteViewUntyped,
+}
+
+impl<T: ComponentSemantic> ComponentWriteView<T> {
+  pub fn get(&self, idx: EntityHandle<T::Entity>) -> Option<&T::Data> {
+    self
+      .inner
+      .get(idx.handle)
+      .map(|v| unsafe { std::mem::transmute(v) })
+  }
+
+  pub fn read(&self, idx: EntityHandle<T::Entity>) -> Option<T::Data> {
+    self.get(idx).cloned()
+  }
+
+  pub fn write(&mut self, idx: EntityHandle<T::Entity>, new: T::Data) -> bool {
+    self.inner.write(idx.handle, &new as *const _ as DataPtr)
+  }
+}

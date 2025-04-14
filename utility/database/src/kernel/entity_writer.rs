@@ -67,7 +67,7 @@ impl EntityComponentGroup {
         (
           *id,
           EntityComponentWriterImpl {
-            component: c.data.create_read_write_view(),
+            component: c.write_untyped(),
             next_value: None,
           },
         )
@@ -296,17 +296,17 @@ impl EntityWriterUntyped {
 }
 
 pub struct EntityComponentWriterImpl {
-  pub(crate) component: Box<dyn ComponentStorageReadWriteView>,
+  pub(crate) component: ComponentWriteViewUntyped,
   pub(crate) next_value: Option<Box<dyn UntypedComponentInitValueProvider>>,
 }
 
 impl EntityComponentWriterImpl {
   fn get(&self, idx: RawEntityHandle) -> Option<DataPtr> {
-    self.component.get(idx.index())
+    self.component.get(idx)
   }
 
   fn write_component(&mut self, idx: RawEntityHandle, src: DataPtr) {
-    self.component.set_value(idx.index(), src);
+    self.component.write(idx, src);
   }
 
   fn write_init_component_value(&mut self, idx: RawEntityHandle) {
@@ -314,10 +314,10 @@ impl EntityComponentWriterImpl {
       if let Some(next) = next_value_maker.next_value() {
         self.write_component(idx, next);
       } else {
-        self.component.set_default_value(idx.index());
+        self.component.write_default(idx);
       }
     } else {
-      self.component.set_default_value(idx.index());
+      self.component.write_default(idx);
     }
   }
   fn clone_component_value(&mut self, src: RawEntityHandle, dst: RawEntityHandle) {
@@ -326,6 +326,6 @@ impl EntityComponentWriterImpl {
   }
 
   fn delete_component(&mut self, idx: RawEntityHandle) {
-    todo!()
+    self.component.delete(idx);
   }
 }

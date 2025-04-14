@@ -224,7 +224,7 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
       component_type_id: S::component_id(),
       data: Arc::new(data),
       allocator: self.inner.inner.allocator.clone(),
-      group_watchers: Default::default(),
+      data_watchers: Default::default(),
     };
     self.inner.declare_component_dyn(S::component_id(), com);
     self

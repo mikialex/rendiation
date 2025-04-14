@@ -162,23 +162,14 @@ impl DatabaseMutationWatch {
 
     let (original, receiver) = self.db.access_ecg_dyn(entity_id, move |e| {
       e.access_component(component_id, move |c| {
-        let event_source = c
-          .inner
-          .get_event_source()
-          .downcast::<EventSource<ScopedValueChange<T>>>()
-          .unwrap();
-        let original = *c
-          .inner
-          .get_data()
-          .downcast::<Arc<dyn ComponentStorage<T>>>()
-          .unwrap();
+        let original = unsafe { c.into_typed() };
 
         let rev = add_listen(
           ComponentAccess {
             ecg: e.clone(),
             original: original.clone(),
           },
-          &event_source,
+          &c.data_watchers,
         );
 
         (original, rev)
@@ -208,7 +199,7 @@ impl DatabaseMutationWatch {
 
 fn add_listen<T: CValue>(
   query: impl QueryProvider<RawEntityHandle, T>,
-  source: &EventSource<ScopedValueChange<T>>,
+  source: &EventSource<ChangePtr>,
 ) -> CollectiveMutationReceiver<RawEntityHandle, T> {
   let (sender, receiver) = collective_channel::<RawEntityHandle, T>();
   // expand initial value while first listen.
@@ -221,6 +212,8 @@ fn add_listen<T: CValue>(
   }
 
   source.on(move |change| unsafe {
+    let change = (*change) as *const ScopedValueChange<T>;
+    let change = &*change as &ScopedValueChange<T>;
     match change {
       ScopedMessage::Start => {
         sender.lock();
@@ -241,24 +234,24 @@ fn add_listen<T: CValue>(
 
 struct ComponentAccess<T> {
   ecg: EntityComponentGroup,
-  original: Arc<dyn ComponentStorage<T>>,
+  original: ComponentCollection<T>,
 }
 
-impl<T: CValue> QueryProvider<u32, T> for ComponentAccess<T> {
-  fn access(&self) -> BoxedDynQuery<u32, T> {
+impl<T: ComponentSemantic> QueryProvider<u32, T::Data> for ComponentAccess<T> {
+  fn access(&self) -> BoxedDynQuery<u32, T::Data> {
     IterableComponentReadView::<T> {
       ecg: self.ecg.clone(),
-      read_view: self.original.create_read_view(),
+      read_view: self.original.read(),
     }
     .into_boxed()
   }
 }
 
-impl<T: CValue> QueryProvider<RawEntityHandle, T> for ComponentAccess<T> {
-  fn access(&self) -> BoxedDynQuery<RawEntityHandle, T> {
+impl<T: ComponentSemantic> QueryProvider<RawEntityHandle, T::Data> for ComponentAccess<T> {
+  fn access(&self) -> BoxedDynQuery<RawEntityHandle, T::Data> {
     IterableComponentReadViewChecked::<T> {
       ecg: self.ecg.clone(),
-      read_view: self.original.create_read_view(),
+      read_view: self.original.read(),
     }
     .into_boxed()
   }

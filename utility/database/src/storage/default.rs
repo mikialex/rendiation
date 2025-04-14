@@ -20,11 +20,13 @@ impl<T: CValue> ComponentStorageReadView for LockReadGuardHolder<Vec<T>> {
 }
 
 impl<T: CValue + Default> ComponentStorageReadWriteView for LockWriteGuardHolder<Vec<T>> {
-  fn get_mut(&mut self, idx: u32) -> Option<DataMutPtr> {
-    let data: &mut Vec<T> = self;
-    data
-      .get_mut(idx as usize)
-      .map(|r| r as *const _ as DataMutPtr)
+  fn notify_start_mutation(&mut self, event: &mut Source<ChangePtr>) {
+    let message = ScopedMessage::<T>::Start;
+    event.emit(&(&message as *const _ as ChangePtr));
+  }
+  fn notify_end_mutation(&mut self, event: &mut Source<ChangePtr>) {
+    let message = ScopedMessage::<T>::End;
+    event.emit(&(&message as *const _ as ChangePtr));
   }
 
   fn get(&self, idx: u32) -> Option<DataPtr> {
@@ -32,12 +34,33 @@ impl<T: CValue + Default> ComponentStorageReadWriteView for LockWriteGuardHolder
     data.get(idx as usize).map(|r| r as *const _ as DataPtr)
   }
 
-  fn set_value(&mut self, idx: u32, v: DataPtr) -> bool {
-    if let Some(target) = self.get_mut(idx) {
-      unsafe {
+  fn set_value(
+    &mut self,
+    idx: RawEntityHandle,
+    v: DataPtr,
+    is_create: bool,
+    event: &mut Source<ChangePtr>,
+  ) -> bool {
+    if let Some(target) = self.get_mut(idx.index() as usize) {
+      let (target, source) = unsafe {
         let target = &mut *(target as *mut T);
         let source = &*(v as *const T);
-        *target = (*source).clone()
+        (target, source)
+      };
+
+      if target != source {
+        let change = if is_create {
+          ValueChange::Delta(source.clone(), None)
+        } else {
+          let previous = target.clone();
+          ValueChange::Delta(source.clone(), Some(previous))
+        };
+
+        *target = (*source).clone();
+
+        let change = IndexValueChange { idx, change };
+        let msg = ScopedMessage::Message(change);
+        event.emit(&(&msg as *const _ as ChangePtr));
       }
 
       true
@@ -46,9 +69,23 @@ impl<T: CValue + Default> ComponentStorageReadWriteView for LockWriteGuardHolder
     }
   }
 
-  fn set_default_value(&mut self, idx: u32) -> bool {
+  fn set_default_value(
+    &mut self,
+    idx: RawEntityHandle,
+    is_create: bool,
+    event: &mut Source<ChangePtr>,
+  ) -> bool {
     let value = T::default();
-    self.set_value(idx, &value as *const _ as DataPtr)
+    self.set_value(idx, &value as *const _ as DataPtr, is_create, event)
+  }
+
+  fn delete(&mut self, idx: RawEntityHandle, event: &mut Source<ChangePtr>) {
+    let previous = self.get(idx.index()).unwrap();
+    let previous: T = unsafe { (*(previous as *const T)).clone() };
+    let change = ValueChange::Remove(previous);
+    let change = IndexValueChange { idx, change };
+    let msg = ScopedMessage::Message(change);
+    event.emit(&(&msg as *const _ as ChangePtr));
   }
 
   unsafe fn grow_at_least(&mut self, max: usize) {
