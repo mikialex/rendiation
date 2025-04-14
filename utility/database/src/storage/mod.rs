@@ -12,6 +12,8 @@ dyn_clone::clone_trait_object!(ComponentStorage);
 
 pub trait ComponentStorageReadView: Send + Sync + DynClone {
   fn get(&self, idx: u32) -> Option<DataPtr>;
+  fn debug_value(&self, idx: u32) -> Option<String>;
+  fn type_id(&self) -> TypeId;
 }
 dyn_clone::clone_trait_object!(ComponentStorageReadView);
 
@@ -50,4 +52,6 @@ pub trait ComponentStorageReadWriteView {
   /// This method should not called by user, but should only called in entity
   /// writer when create new entity.
   unsafe fn grow_at_least(&mut self, max: usize);
+  fn debug_value(&self, idx: u32) -> Option<String>;
+  fn type_id(&self) -> TypeId;
 }

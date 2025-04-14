@@ -8,7 +8,7 @@ pub struct ComponentCollection<C> {
 impl<C> Clone for ComponentCollection<C> {
   fn clone(&self) -> Self {
     Self {
-      phantom: self.phantom.clone(),
+      phantom: PhantomData,
       inner: self.inner.clone(),
     }
   }
@@ -16,22 +16,34 @@ impl<C> Clone for ComponentCollection<C> {
 
 impl<C: ComponentSemantic> ComponentCollection<C> {
   pub fn read(&self) -> ComponentReadView<C> {
-    todo!()
+    ComponentReadView {
+      phantom: PhantomData,
+      inner: self.inner.read_untyped(),
+    }
   }
 
   pub fn read_foreign_key(&self) -> ForeignKeyReadView<C>
   where
     C: ForeignKeySemantic,
   {
-    todo!()
+    ForeignKeyReadView {
+      phantom: PhantomData,
+      data: self.read(),
+    }
   }
 
   pub fn write(&self) -> ComponentWriteView<C> {
-    todo!()
+    ComponentWriteView {
+      phantom: PhantomData,
+      inner: self.inner.write_untyped(),
+    }
   }
 }
 
 impl ComponentCollectionUntyped {
+  /// # Safety
+  ///
+  /// The C must match the real component semantic
   pub unsafe fn into_typed<C>(self) -> ComponentCollection<C> {
     ComponentCollection {
       phantom: Default::default(),
@@ -46,11 +58,14 @@ pub struct ComponentReadView<T: ComponentSemantic> {
 }
 
 impl<T: ComponentSemantic> ComponentReadView<T> {
+  /// # Safety
+  ///
+  /// The idx must match the real component semantic
   pub unsafe fn get_by_untyped_handle(&self, idx: RawEntityHandle) -> Option<&T::Data> {
     self
       .inner
       .get(idx)
-      .map(|v| unsafe { std::mem::transmute(v) })
+      .map(|v| unsafe { &*(v as *const T::Data) })
   }
 
   pub fn get(&self, idx: EntityHandle<T::Entity>) -> Option<&T::Data> {
@@ -60,7 +75,7 @@ impl<T: ComponentSemantic> ComponentReadView<T> {
     self
       .inner
       .get_without_generation_check(idx.alloc_index())
-      .map(|v| unsafe { std::mem::transmute(v) })
+      .map(|v| unsafe { &*(v as *const T::Data) })
   }
   pub fn get_value(&self, idx: EntityHandle<T::Entity>) -> Option<T::Data> {
     self.get(idx).cloned()
@@ -85,7 +100,10 @@ pub struct ForeignKeyReadView<T: ForeignKeySemantic> {
 }
 
 impl<T: ForeignKeySemantic> ForeignKeyReadView<T> {
-  pub fn get(
+  pub fn get(&self, idx: EntityHandle<T::Entity>) -> Option<EntityHandle<T::ForeignEntity>> {
+    self.try_get(idx).unwrap()
+  }
+  pub fn try_get(
     &self,
     idx: EntityHandle<T::Entity>,
   ) -> Option<Option<EntityHandle<T::ForeignEntity>>> {
@@ -115,7 +133,7 @@ impl<T: ComponentSemantic> ComponentWriteView<T> {
     self
       .inner
       .get(idx.handle)
-      .map(|v| unsafe { std::mem::transmute(v) })
+      .map(|v| unsafe { &*(v as *const T::Data) })
   }
 
   pub fn read(&self, idx: EntityHandle<T::Entity>) -> Option<T::Data> {

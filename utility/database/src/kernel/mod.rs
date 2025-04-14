@@ -47,7 +47,6 @@ pub enum ScopedMessage<T> {
 }
 
 pub type ScopedValueChange<T> = ScopedMessage<IndexValueChange<T>>;
-pub type EntityRangeChange = ScopedValueChange<()>;
 
 pub struct IndexValueChange<T> {
   pub idx: RawEntityHandle,

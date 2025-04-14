@@ -17,6 +17,12 @@ impl<T: CValue> ComponentStorageReadView for LockReadGuardHolder<Vec<T>> {
       .get(idx as usize)
       .map(|r| r as *const _ as DataPtr)
   }
+  fn debug_value(&self, idx: u32) -> Option<String> {
+    format!("{:#?}", self.get(idx)?).into()
+  }
+  fn type_id(&self) -> TypeId {
+    TypeId::of::<T>()
+  }
 }
 
 impl<T: CValue + Default> ComponentStorageReadWriteView for LockWriteGuardHolder<Vec<T>> {
@@ -93,5 +99,12 @@ impl<T: CValue + Default> ComponentStorageReadWriteView for LockWriteGuardHolder
     if data.len() <= max {
       data.resize(max + 1, T::default());
     }
+  }
+
+  fn debug_value(&self, idx: u32) -> Option<String> {
+    format!("{:#?}", self.get(idx)?).into()
+  }
+  fn type_id(&self) -> TypeId {
+    TypeId::of::<T>()
   }
 }

@@ -43,7 +43,7 @@ impl<T> ComponentInitValueProvider for ValueAsInitValueProviderOnce<T> {
 }
 
 /// just the helper trait for [ComponentInitValueProvider]
-trait UntypedComponentInitValueProvider {
+pub trait UntypedComponentInitValueProvider {
   fn next_value(&mut self) -> Option<DataPtr>;
 }
 
@@ -74,7 +74,11 @@ impl EntityComponentGroup {
       })
       .collect();
 
-    self.inner.entity_watchers.emit(&ScopedMessage::Start);
+    let change = ScopedMessage::<()>::Start;
+    self
+      .inner
+      .entity_watchers
+      .emit(&(&change as *const _ as ChangePtr));
 
     EntityWriterUntyped {
       type_id: self.inner.type_id,
@@ -177,14 +181,15 @@ impl<E: EntitySemantic> EntityWriter<E> {
     self.write::<C>(idx, data.map(|d| d.handle))
   }
 
-  pub fn try_read<C>(&self, idx: EntityHandle<C::Entity>) -> Option<&C::Data>
+  pub fn try_read<C>(&self, idx: EntityHandle<C::Entity>) -> Option<C::Data>
   where
     C: ComponentSemantic<Entity = E>,
   {
     let view = self.inner.get_component_by_id(C::component_id()).unwrap();
     view
       .get(idx.handle)
-      .map(|d| unsafe { std::mem::transmute(d) })
+      .map(|d| unsafe { &*(d as *const C::Data) })
+      .cloned()
   }
 
   pub fn new_entity(&mut self) -> EntityHandle<E> {
@@ -204,13 +209,17 @@ impl<E: EntitySemantic> EntityWriter<E> {
 pub struct EntityWriterUntyped {
   type_id: EntityId,
   allocator: LockWriteGuardHolder<Arena<()>>,
-  entity_watchers: EventSource<EntityRangeChange>,
+  /// this change ptr type is ScopedMessage<()>
+  entity_watchers: EventSource<ChangePtr>,
   components: smallvec::SmallVec<[(ComponentId, EntityComponentWriterImpl); 6]>,
 }
 
 impl Drop for EntityWriterUntyped {
   fn drop(&mut self) {
-    self.entity_watchers.emit(&ScopedMessage::End)
+    let change = ScopedMessage::<()>::End;
+    self
+      .entity_watchers
+      .emit(&(&change as *const _ as ChangePtr));
   }
 }
 
@@ -254,7 +263,11 @@ impl EntityWriterUntyped {
       idx: handle,
       change: ValueChange::Delta((), None),
     };
-    self.entity_watchers.emit(&ScopedMessage::Message(change));
+
+    let change = ScopedMessage::Message(change);
+    self
+      .entity_watchers
+      .emit(&(&change as *const _ as ChangePtr));
     handle
   }
 
@@ -269,7 +282,10 @@ impl EntityWriterUntyped {
       idx: handle,
       change: ValueChange::Delta((), None),
     };
-    self.entity_watchers.emit(&ScopedMessage::Message(change));
+    let change = ScopedMessage::Message(change);
+    self
+      .entity_watchers
+      .emit(&(&change as *const _ as ChangePtr));
     handle
   }
 
@@ -284,7 +300,10 @@ impl EntityWriterUntyped {
       idx: handle,
       change: ValueChange::Remove(()),
     };
-    self.entity_watchers.emit(&ScopedMessage::Message(change));
+    let change = ScopedMessage::Message(change);
+    self
+      .entity_watchers
+      .emit(&(&change as *const _ as ChangePtr));
   }
 
   /// note, the referential integrity is not guaranteed and should be guaranteed by the upper level

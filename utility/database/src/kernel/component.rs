@@ -9,7 +9,7 @@ pub struct ComponentCollectionUntyped {
   pub as_foreign_key: Option<EntityId>,
 
   /// the real data stored here
-  pub(crate) data: Arc<dyn ComponentStorage>,
+  pub data: Arc<dyn ComponentStorage>,
 
   /// watch this component all change with idx
   ///

@@ -20,7 +20,7 @@ impl EntityReaderUntyped {
 
   pub fn reconstruct_handle_by_idx(&self, idx: usize) -> Option<RawEntityHandle> {
     let handle = self.allocator.get_handle(idx);
-    handle.map(|h| RawEntityHandle(h))
+    handle.map(RawEntityHandle)
   }
 }
 
@@ -38,14 +38,14 @@ impl<E: EntitySemantic> EntityReader<E> {
       .map(|h| unsafe { EntityHandle::from_raw(h) })
   }
 
-  pub fn read<C>(&self, idx: EntityHandle<C::Entity>) -> &C::Data
+  pub fn read<C>(&self, idx: EntityHandle<C::Entity>) -> C::Data
   where
     C: ComponentSemantic<Entity = E>,
   {
     self.try_read::<C>(idx).unwrap()
   }
 
-  pub fn try_read<C>(&self, idx: EntityHandle<C::Entity>) -> Option<&C::Data>
+  pub fn try_read<C>(&self, idx: EntityHandle<C::Entity>) -> Option<C::Data>
   where
     C: ComponentSemantic<Entity = E>,
   {
@@ -53,8 +53,8 @@ impl<E: EntitySemantic> EntityReader<E> {
       if *id == C::component_id() {
         unsafe {
           let data_ptr = view.get(idx.handle)?;
-          let data_ptr: &C::Data = std::mem::transmute(data_ptr);
-          return Some(data_ptr);
+          let data_ptr: &C::Data = &*(data_ptr as *const C::Data);
+          return Some(data_ptr.clone());
         }
       }
     }

@@ -162,17 +162,16 @@ impl DatabaseMutationWatch {
 
     let (original, receiver) = self.db.access_ecg_dyn(entity_id, move |e| {
       e.access_component(component_id, move |c| {
-        let original = unsafe { c.into_typed() };
-
         let rev = add_listen(
           ComponentAccess {
             ecg: e.clone(),
-            original: original.clone(),
+            original: c.clone(),
+            phantom: PhantomData::<T>,
           },
           &c.data_watchers,
         );
 
-        (original, rev)
+        (c.clone(), rev)
       })
       .unwrap()
     });
@@ -180,7 +179,8 @@ impl DatabaseMutationWatch {
     let rxc = ReactiveQueryFromCollectiveMutation {
       full: Box::new(ComponentAccess {
         ecg: self.db.access_ecg_dyn(entity_id, |ecg| ecg.clone()),
-        original,
+        original: original.clone(),
+        phantom: PhantomData,
       }),
       mutation: RwLock::new(receiver),
     };
@@ -234,24 +234,27 @@ fn add_listen<T: CValue>(
 
 struct ComponentAccess<T> {
   ecg: EntityComponentGroup,
-  original: ComponentCollection<T>,
+  original: ComponentCollectionUntyped,
+  phantom: PhantomData<T>,
 }
 
-impl<T: ComponentSemantic> QueryProvider<u32, T::Data> for ComponentAccess<T> {
-  fn access(&self) -> BoxedDynQuery<u32, T::Data> {
+impl<T: CValue> QueryProvider<u32, T> for ComponentAccess<T> {
+  fn access(&self) -> BoxedDynQuery<u32, T> {
     IterableComponentReadView::<T> {
       ecg: self.ecg.clone(),
-      read_view: self.original.read(),
+      read_view: self.original.read_untyped(),
+      phantom: PhantomData,
     }
     .into_boxed()
   }
 }
 
-impl<T: ComponentSemantic> QueryProvider<RawEntityHandle, T::Data> for ComponentAccess<T> {
-  fn access(&self) -> BoxedDynQuery<RawEntityHandle, T::Data> {
+impl<T: CValue> QueryProvider<RawEntityHandle, T> for ComponentAccess<T> {
+  fn access(&self) -> BoxedDynQuery<RawEntityHandle, T> {
     IterableComponentReadViewChecked::<T> {
       ecg: self.ecg.clone(),
-      read_view: self.original.read(),
+      read_view: self.original.read_untyped(),
+      phantom: PhantomData,
     }
     .into_boxed()
   }

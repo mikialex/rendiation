@@ -179,7 +179,7 @@ pub(crate) struct EntityComponentGroupImpl {
   pub(crate) components_meta_watchers: EventSource<ComponentCollectionUntyped>,
   pub(crate) foreign_key_meta_watchers: EventSource<(ComponentId, EntityId)>,
 
-  pub(crate) entity_watchers: EventSource<EntityRangeChange>,
+  pub(crate) entity_watchers: EventSource<ChangePtr>,
 }
 
 impl EntityComponentGroupImpl {
