@@ -1,6 +1,11 @@
 use crate::*;
 
-impl<T: CValue + Default> ComponentStorage for Arc<RwLock<Vec<T>>> {
+pub struct DBDefaultLinearStorage<T> {
+  pub data: Vec<T>,
+  pub default_value: T,
+}
+
+impl<T: CValue + Default> ComponentStorage for Arc<RwLock<DBDefaultLinearStorage<T>>> {
   fn create_read_view(&self) -> Box<dyn ComponentStorageReadView> {
     Box::new(self.make_read_holder())
   }
@@ -10,22 +15,27 @@ impl<T: CValue + Default> ComponentStorage for Arc<RwLock<Vec<T>>> {
   }
 }
 
-impl<T: CValue> ComponentStorageReadView for LockReadGuardHolder<Vec<T>> {
+impl<T: CValue> ComponentStorageReadView for LockReadGuardHolder<DBDefaultLinearStorage<T>> {
   fn get(&self, idx: u32) -> Option<DataPtr> {
     self
       .deref()
+      .data
       .get(idx as usize)
       .map(|r| r as *const _ as DataPtr)
   }
   fn debug_value(&self, idx: u32) -> Option<String> {
-    format!("{:#?}", self.get(idx)?).into()
+    let data = self.get(idx)?;
+    let data = unsafe { &*(data as *const T) };
+    format!("{:#?}", data).into()
   }
   fn type_id(&self) -> TypeId {
     TypeId::of::<T>()
   }
 }
 
-impl<T: CValue + Default> ComponentStorageReadWriteView for LockWriteGuardHolder<Vec<T>> {
+impl<T: CValue + Default> ComponentStorageReadWriteView
+  for LockWriteGuardHolder<DBDefaultLinearStorage<T>>
+{
   fn notify_start_mutation(&mut self, event: &mut Source<ChangePtr>) {
     let message = ScopedValueChange::<T>::Start;
     event.emit(&(&message as *const _ as ChangePtr));
@@ -36,7 +46,7 @@ impl<T: CValue + Default> ComponentStorageReadWriteView for LockWriteGuardHolder
   }
 
   fn get(&self, idx: u32) -> Option<DataPtr> {
-    let data: &Vec<T> = self;
+    let data: &Vec<T> = &self.data;
     data.get(idx as usize).map(|r| r as *const _ as DataPtr)
   }
 
@@ -47,7 +57,7 @@ impl<T: CValue + Default> ComponentStorageReadWriteView for LockWriteGuardHolder
     is_create: bool,
     event: &mut Source<ChangePtr>,
   ) -> bool {
-    if let Some(target) = self.get_mut(idx.index() as usize) {
+    if let Some(target) = self.data.get_mut(idx.index() as usize) {
       let (target, source) = unsafe {
         let target = &mut *(target as *mut T);
         let source = &*(v as *const T);
@@ -83,8 +93,12 @@ impl<T: CValue + Default> ComponentStorageReadWriteView for LockWriteGuardHolder
     is_create: bool,
     event: &mut Source<ChangePtr>,
   ) -> bool {
-    let value = T::default();
-    self.set_value(idx, &value as *const _ as DataPtr, is_create, event)
+    self.set_value(
+      idx,
+      &self.default_value as *const _ as DataPtr,
+      is_create,
+      event,
+    )
   }
 
   fn delete(&mut self, idx: RawEntityHandle, event: &mut Source<ChangePtr>) {
@@ -98,14 +112,16 @@ impl<T: CValue + Default> ComponentStorageReadWriteView for LockWriteGuardHolder
 
   fn grow(&mut self, max: u32) {
     let max = max as usize;
-    let data: &mut Vec<T> = self;
+    let data: &mut Vec<T> = &mut self.data;
     if data.len() <= max {
       data.resize(max + 1, T::default());
     }
   }
 
   fn debug_value(&self, idx: u32) -> Option<String> {
-    format!("{:#?}", self.get(idx)?).into()
+    let data = self.get(idx)?;
+    let data = unsafe { &*(data as *const T) };
+    format!("{:#?}", data).into()
   }
   fn type_id(&self) -> TypeId {
     TypeId::of::<T>()

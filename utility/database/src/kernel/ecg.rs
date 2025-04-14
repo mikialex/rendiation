@@ -215,7 +215,10 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
     self,
     as_foreign_key: Option<EntityId>,
   ) -> Self {
-    let data = Arc::new(RwLock::new(Vec::<S::Data>::new()));
+    let data = Arc::new(RwLock::new(DBDefaultLinearStorage::<S::Data> {
+      data: Default::default(),
+      default_value: S::default_override(),
+    }));
     let com = ComponentCollectionUntyped {
       name: S::display_name().to_string(),
       as_foreign_key,
