@@ -32,8 +32,7 @@ pub fn global_entity_of<E: EntitySemantic>() -> EntityComponentGroupTyped<E> {
 }
 
 pub fn global_entity_component_of<S: ComponentSemantic>() -> ComponentCollection<S> {
-  global_entity_of::<S::Entity>()
-    .access_component::<S, _>(|c| unsafe { c.clone().into_typed::<S>() })
+  global_entity_of::<S::Entity>().access_component::<S, _>(|c| c.clone())
 }
 
 pub fn global_watch() -> DatabaseMutationWatch {

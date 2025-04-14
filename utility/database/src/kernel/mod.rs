@@ -100,3 +100,9 @@ impl<T> std::fmt::Debug for ExternalRefPtr<T> {
       .finish()
   }
 }
+
+pub trait EntityCustomWrite<E: EntitySemantic> {
+  type Writer;
+  fn create_writer() -> Self::Writer;
+  fn write(self, writer: &mut Self::Writer) -> EntityHandle<E>;
+}

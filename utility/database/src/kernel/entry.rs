@@ -94,9 +94,7 @@ fn demo_how_to_use_database_generally() {
 
   let ptr = global_entity_of::<MyTestEntity2>()
     .entity_writer()
-    .with_component_writer::<TestEntity2ReferenceEntity1, _>(move |w| {
-      w.with_writer(move || Some(ptr.into()))
-    })
+    .with_component_value_writer::<TestEntity2ReferenceEntity1>(Some(ptr.into()))
     .new_entity();
 
   //   let single_com_read = ptr.read().read_component::<TestEntity2FieldA>();

@@ -5,6 +5,15 @@ pub struct ComponentCollection<C> {
   inner: ComponentCollectionUntyped,
 }
 
+impl<C> Clone for ComponentCollection<C> {
+  fn clone(&self) -> Self {
+    Self {
+      phantom: self.phantom.clone(),
+      inner: self.inner.clone(),
+    }
+  }
+}
+
 impl<C: ComponentSemantic> ComponentCollection<C> {
   pub fn read(&self) -> ComponentReadView<C> {
     todo!()
@@ -14,6 +23,10 @@ impl<C: ComponentSemantic> ComponentCollection<C> {
   where
     C: ForeignKeySemantic,
   {
+    todo!()
+  }
+
+  pub fn write(&self) -> ComponentWriteView<C> {
     todo!()
   }
 }

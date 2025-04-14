@@ -78,26 +78,6 @@ impl<T: ComponentSemantic> Drop for ComponentWriteView<T> {
 }
 
 impl<T: ComponentSemantic> ComponentWriteView<T> {
-  // pub fn with_write_value_persist(self, v: T::Data) -> impl EntityComponentWriter {
-  //   EntityComponentWriterImpl {
-  //     component: Some(self),
-  //     default_value: move || v.clone(),
-  //   }
-  // }
-  // pub fn with_write_value(self, v: T::Data) -> impl EntityComponentWriter {
-  //   let mut v = Some(v);
-  //   EntityComponentWriterImpl {
-  //     component: Some(self),
-  //     default_value: move || v.take().unwrap_or_default(),
-  //   }
-  // }
-  // pub fn with_writer(self, f: impl FnMut() -> T::Data + 'static) -> impl EntityComponentWriter {
-  //   EntityComponentWriterImpl {
-  //     component: Some(self),
-  //     default_value: f,
-  //   }
-  // }
-
   pub fn get(&self, idx: EntityHandle<T::Entity>) -> Option<&T::Data> {
     let _ = self.allocator.get(idx.handle.0)?;
     self

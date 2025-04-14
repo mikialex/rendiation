@@ -159,7 +159,7 @@ fn selected_table(ui: &mut egui::Ui, state: &mut DBInspector, e_id: EntityId) {
                 if let Some(idx_handle) = ecg.get_handle_at(idx) {
                   let data = com
                     .inner
-                    .create_dyn_reader()
+                    .read()
                     .read_component_into_boxed(idx_handle)
                     .unwrap();
 

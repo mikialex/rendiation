@@ -2,12 +2,6 @@ use std::mem::ManuallyDrop;
 
 use crate::*;
 
-pub trait EntityCustomWrite<E: EntitySemantic> {
-  type Writer;
-  fn create_writer() -> Self::Writer;
-  fn write(self, writer: &mut Self::Writer) -> EntityHandle<E>;
-}
-
 /// Holder the all components write lock, optimized for batch entity creation and modification
 pub struct EntityWriter<E: EntitySemantic> {
   _phantom: SendSyncPhantomData<E>, //
@@ -20,6 +14,50 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
   }
 }
 
+// https://users.rust-lang.org/t/why-closure-cannot-return-a-reference-to-data-moved-into-closure/72655/6
+pub trait ComponentInitValueProvider {
+  type Value;
+  fn next_value(&mut self) -> Option<&Self::Value>;
+}
+
+struct ValueAsInitValueProviderPersist<T>(T);
+
+impl<T> ComponentInitValueProvider for ValueAsInitValueProviderPersist<T> {
+  type Value = T;
+  fn next_value(&mut self) -> Option<&Self::Value> {
+    Some(&self.0)
+  }
+}
+struct ValueAsInitValueProviderOnce<T>(T, bool);
+
+impl<T> ComponentInitValueProvider for ValueAsInitValueProviderOnce<T> {
+  type Value = T;
+  fn next_value(&mut self) -> Option<&Self::Value> {
+    if self.1 {
+      None
+    } else {
+      self.1 = true;
+      Some(&self.0)
+    }
+  }
+}
+
+/// just the helper trait for [ComponentInitValueProvider]
+trait UntypedComponentInitValueProvider {
+  fn next_value(&mut self) -> Option<DataPtr>;
+}
+
+struct UntypedComponentInitValueProviderImpl<T>(T);
+
+impl<T: ComponentInitValueProvider> UntypedComponentInitValueProvider
+  for UntypedComponentInitValueProviderImpl<T>
+{
+  fn next_value(&mut self) -> Option<DataPtr> {
+    let next = self.0.next_value();
+    next.map(|next| next as *const <T as ComponentInitValueProvider>::Value as DataPtr)
+  }
+}
+
 impl EntityComponentGroup {
   pub fn entity_writer_dyn(&self) -> EntityWriterUntyped {
     let components = self.inner.components.read_recursive();
@@ -29,8 +67,8 @@ impl EntityComponentGroup {
         (
           *id,
           EntityComponentWriterImpl {
-            component: c.write(),
-            next_value_writer: None,
+            component: c.data.create_read_write_view(),
+            next_value: None,
           },
         )
       })
@@ -64,12 +102,12 @@ impl<E: EntitySemantic> EntityWriter<E> {
   where
     C: ComponentSemantic<Entity = E>,
   {
-    self.component_writer::<C, _>(|v| v.with_write_value(value))
+    self.component_writer::<C>(ValueAsInitValueProviderOnce(value, false))
   }
 
   pub fn with_component_writer<C>(
     mut self,
-    writer_maker: impl for<'a> FnMut() -> &'a C::Data,
+    writer_maker: impl ComponentInitValueProvider<Value = C::Data> + 'static,
   ) -> Self
   where
     C: ComponentSemantic<Entity = E>,
@@ -80,17 +118,17 @@ impl<E: EntitySemantic> EntityWriter<E> {
 
   pub fn component_writer<C>(
     &mut self,
-    writer_maker: impl for<'a> FnMut() -> &'a C::Data,
+    writer_maker: impl ComponentInitValueProvider<Value = C::Data> + 'static,
   ) -> &mut Self
   where
     C: ComponentSemantic<Entity = E>,
   {
-    for (id, view) in &mut self.inner.components {
-      if *id == C::component_id() {
-        view.next_value_writer = Some(todo!());
-        return self;
-      }
-    }
+    let view = self
+      .inner
+      .get_component_by_id_mut(C::component_id())
+      .unwrap();
+    let maker = UntypedComponentInitValueProviderImpl(writer_maker);
+    view.next_value = Some(Box::new(maker));
     self
   }
 
@@ -102,7 +140,8 @@ impl<E: EntitySemantic> EntityWriter<E> {
   where
     C: ComponentSemantic<Entity = E>,
   {
-    if let Some(mut data) = self.try_read::<C>(idx) {
+    if let Some(data) = self.try_read::<C>(idx) {
+      let mut data = data.clone();
       writer(&mut data);
       self.write::<C>(idx, data);
     }
@@ -113,18 +152,17 @@ impl<E: EntitySemantic> EntityWriter<E> {
   where
     C: ComponentSemantic<Entity = E>,
   {
-    for (id, view) in &mut self.inner.components {
-      if *id == C::component_id() {
-        unsafe {
-          let data = ManuallyDrop::new(data.clone());
-          view.write_component(
-            idx.handle,
-            &data as *const ManuallyDrop<C::Data> as *const (),
-          );
-        }
-        break;
-      }
-    }
+    let view = self
+      .inner
+      .get_component_by_id_mut(C::component_id())
+      .unwrap();
+
+    let data = ManuallyDrop::new(data.clone());
+    view.write_component(
+      idx.handle,
+      &data as *const ManuallyDrop<C::Data> as *const (),
+    );
+
     self
   }
 
@@ -139,21 +177,14 @@ impl<E: EntitySemantic> EntityWriter<E> {
     self.write::<C>(idx, data.map(|d| d.handle))
   }
 
-  pub fn try_read<C>(&self, idx: EntityHandle<C::Entity>) -> Option<C::Data>
+  pub fn try_read<C>(&self, idx: EntityHandle<C::Entity>) -> Option<&C::Data>
   where
     C: ComponentSemantic<Entity = E>,
   {
-    let mut target = None;
-    for (id, view) in &self.inner.components {
-      if *id == C::component_id() {
-        unsafe {
-          let target = &mut target as *mut Option<C::Data> as *mut ();
-          view.read_component(idx.handle, target);
-        }
-        break;
-      }
-    }
-    target
+    let view = self.inner.get_component_by_id(C::component_id()).unwrap();
+    view
+      .get(idx.handle)
+      .map(|d| unsafe { std::mem::transmute(d) })
   }
 
   pub fn new_entity(&mut self) -> EntityHandle<E> {
@@ -195,6 +226,24 @@ impl EntityWriterUntyped {
     .into()
   }
 
+  pub fn get_component_by_id_mut(
+    &mut self,
+    id: ComponentId,
+  ) -> Option<&mut EntityComponentWriterImpl> {
+    self
+      .components
+      .iter_mut()
+      .find(|(i, _)| *i == id)
+      .map(|(_, v)| v)
+  }
+  pub fn get_component_by_id(&self, id: ComponentId) -> Option<&EntityComponentWriterImpl> {
+    self
+      .components
+      .iter()
+      .find(|(i, _)| *i == id)
+      .map(|(_, v)| v)
+  }
+
   pub fn new_entity(&mut self) -> RawEntityHandle {
     let handle = self.allocator.insert(());
     let handle = RawEntityHandle(handle);
@@ -214,16 +263,7 @@ impl EntityWriterUntyped {
     let handle = RawEntityHandle(handle);
     assert!(self.allocator.contains(src.0));
     for com in &mut self.components {
-      com.1.clone_component_value(src, handle)
-
-      //     unsafe {
-      //       com.data.grow_at_least(dst.index() as usize);
-      //       let src = EntityHandle::from_raw(src);
-      //       let dst = EntityHandle::from_raw(dst);
-
-      //       let src_com = com.get(src).unwrap().clone();
-      //       com.write_impl(dst, src_com, true)
-      //     }
+      com.1.clone_component_value(src, handle);
     }
     let change = IndexValueChange {
       idx: handle,
@@ -255,72 +295,37 @@ impl EntityWriterUntyped {
   }
 }
 
-// pub trait ComponentInitValueProvider {
-//   fn next_init(&mut self) -> DataPtr;
-// }
-
 pub struct EntityComponentWriterImpl {
   pub(crate) component: Box<dyn ComponentStorageReadWriteView>,
-  pub(crate) next_value_writer: Option<Box<dyn FnMut() -> DataPtr>>,
+  pub(crate) next_value: Option<Box<dyn UntypedComponentInitValueProvider>>,
 }
 
-// impl<T, F> EntityComponentReader for EntityComponentWriterImpl<T, F>
-// where
-//   T: ComponentSemantic,
-// {
-//   unsafe fn read_component(&self, idx: RawEntityHandle, target: *mut ()) {
-//     let target = &mut *(target as *mut Option<T::Data>);
-//     let idx = EntityHandle::from_raw(idx);
-//     if let Some(data) = self.component.as_ref().unwrap().read(idx) {
-//       *target = Some(data);
-//     }
-//   }
-//   fn read_component_into_boxed(&self, idx: RawEntityHandle) -> Option<Box<dyn Any>> {
-//     let idx = unsafe { EntityHandle::from_raw(idx) };
-//     self
-//       .component
-//       .as_ref()
-//       .unwrap()
-//       .read(idx)
-//       .map(|v| Box::new(v) as Box<dyn Any>)
-//   }
-// }
+impl EntityComponentWriterImpl {
+  fn get(&self, idx: RawEntityHandle) -> Option<DataPtr> {
+    self.component.get(idx.index())
+  }
 
-// impl<T, F> EntityComponentWriter for EntityComponentWriterImpl<T, F>
-// where
-//   T: ComponentSemantic,
-//   F: FnMut() -> T::Data,
-// {
-//   unsafe fn write_component(&mut self, idx: RawEntityHandle, src: *const ()) {
-//     let src = &*(src as *const T::Data);
-//     let src = std::ptr::read(src);
-//     let idx = EntityHandle::from_raw(idx);
-//     self.component.as_mut().unwrap().write(idx, src);
-//   }
+  fn write_component(&mut self, idx: RawEntityHandle, src: DataPtr) {
+    self.component.set_value(idx.index(), src);
+  }
 
-//   fn write_init_component_value(&mut self, idx: RawEntityHandle) {
-//     let com = self.component.as_mut().unwrap();
+  fn write_init_component_value(&mut self, idx: RawEntityHandle) {
+    if let Some(next_value_maker) = self.next_value.as_mut() {
+      if let Some(next) = next_value_maker.next_value() {
+        self.write_component(idx, next);
+      } else {
+        self.component.set_default_value(idx.index());
+      }
+    } else {
+      self.component.set_default_value(idx.index());
+    }
+  }
+  fn clone_component_value(&mut self, src: RawEntityHandle, dst: RawEntityHandle) {
+    let src = self.get(src).unwrap();
+    self.write_component(dst, src);
+  }
 
-//     unsafe {
-//       com.data.grow_at_least(idx.index() as usize);
-//       let idx = EntityHandle::from_raw(idx);
-//       com.write_impl(idx, (self.default_value)(), true);
-//     }
-//   }
-//   fn clone_component_value(&mut self, src: RawEntityHandle, dst: RawEntityHandle) {
-//     let com = self.component.as_mut().unwrap();
-
-//     unsafe {
-//       com.data.grow_at_least(dst.index() as usize);
-//       let src = EntityHandle::from_raw(src);
-//       let dst = EntityHandle::from_raw(dst);
-
-//       let src_com = com.get(src).unwrap().clone();
-//       com.write_impl(dst, src_com, true)
-//     }
-//   }
-
-//   fn take_write_view(&mut self) -> Box<dyn Any> {
-//     Box::new(self.component.take().unwrap())
-//   }
-// }
+  fn delete_component(&mut self, idx: RawEntityHandle) {
+    todo!()
+  }
+}
