@@ -52,7 +52,7 @@ impl<T: ComponentInitValueProvider> UntypedComponentInitValueProvider
 {
   fn next_value(&mut self) -> Option<DataPtr> {
     let next = self.0.next_value();
-    next.map(|next| next as *const <T as ComponentInitValueProvider>::Value as DataPtr)
+    next.map(|next| next as *const T::Value as DataPtr)
   }
 }
 
@@ -105,6 +105,13 @@ impl<E: EntitySemantic> EntityWriter<E> {
     C: ComponentSemantic<Entity = E>,
   {
     self.component_writer::<C>(ValueAsInitValueProviderOnce(value, false))
+  }
+
+  pub fn component_value_persist_writer<C>(&mut self, value: C::Data) -> &mut Self
+  where
+    C: ComponentSemantic<Entity = E>,
+  {
+    self.component_writer::<C>(ValueAsInitValueProviderPersist(value))
   }
 
   pub fn with_component_writer<C>(
@@ -319,18 +326,19 @@ impl EntityComponentWriterImpl {
   }
 
   fn write_component(&mut self, idx: RawEntityHandle, src: DataPtr) {
-    self.component.write(idx, src);
+    self.component.write(idx, false, src);
   }
 
   fn write_init_component_value(&mut self, idx: RawEntityHandle) {
+    self.component.data.grow(idx.index());
     if let Some(next_value_maker) = self.next_value.as_mut() {
       if let Some(next) = next_value_maker.next_value() {
-        self.write_component(idx, next);
+        self.component.write(idx, true, next);
       } else {
-        self.component.write_default(idx);
+        self.component.write_default(idx, true);
       }
     } else {
-      self.component.write_default(idx);
+      self.component.write_default(idx, true);
     }
   }
   fn clone_component_value(

@@ -62,7 +62,7 @@ impl ComponentReadViewUntyped {
 }
 
 pub struct ComponentWriteViewUntyped {
-  data: Box<dyn ComponentStorageReadWriteView>,
+  pub(crate) data: Box<dyn ComponentStorageReadWriteView>,
   events: MutexGuardHolder<Source<ChangePtr>>,
 }
 
@@ -80,11 +80,11 @@ impl ComponentWriteViewUntyped {
     self.data.get(idx.alloc_index())
   }
 
-  pub fn write(&mut self, idx: RawEntityHandle, new: DataPtr) -> bool {
-    self.data.set_value(idx, new, false, &mut self.events)
+  pub fn write(&mut self, idx: RawEntityHandle, init: bool, new: DataPtr) -> bool {
+    self.data.set_value(idx, new, init, &mut self.events)
   }
-  pub fn write_default(&mut self, idx: RawEntityHandle) -> bool {
-    self.data.set_default_value(idx, false, &mut self.events)
+  pub fn write_default(&mut self, idx: RawEntityHandle, init: bool) -> bool {
+    self.data.set_default_value(idx, init, &mut self.events)
   }
 
   pub fn delete(&mut self, idx: RawEntityHandle) {

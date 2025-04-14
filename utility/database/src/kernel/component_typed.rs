@@ -143,6 +143,8 @@ impl<T: ComponentSemantic> ComponentWriteView<T> {
   }
 
   pub fn write(&mut self, idx: EntityHandle<T::Entity>, new: T::Data) -> bool {
-    self.inner.write(idx.handle, &new as *const _ as DataPtr)
+    self
+      .inner
+      .write(idx.handle, false, &new as *const _ as DataPtr)
   }
 }

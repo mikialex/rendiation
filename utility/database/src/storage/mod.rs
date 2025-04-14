@@ -47,10 +47,7 @@ pub trait ComponentStorageReadWriteView {
   fn notify_start_mutation(&mut self, event: &mut Source<ChangePtr>);
   fn notify_end_mutation(&mut self, event: &mut Source<ChangePtr>);
 
-  /// # Safety
-  ///
-  /// This method should only be called in entity writer when create new entity.
-  unsafe fn grow(&mut self, max: usize);
+  fn grow(&mut self, max: u32);
 
   fn debug_value(&self, idx: u32) -> Option<String>;
   fn type_id(&self) -> TypeId;
