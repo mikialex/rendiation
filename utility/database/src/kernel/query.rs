@@ -26,9 +26,9 @@ impl<T: CValue> Query for IterableComponentReadView<T> {
         self
           .read_view
           .get_without_generation_check(id.alloc_index())
-          .map(|v| &*(v as *const T))
-          .cloned()
-          .unwrap(),
+          .map(|v| (*(v as *const T)).clone())
+          .unwrap_unchecked(), /* as we iterated from the correct index set,
+                                * this unwrap should be safe */
       )
     })
   }
@@ -62,19 +62,23 @@ impl<T: CValue> Query for IterableComponentReadViewChecked<T> {
   type Key = RawEntityHandle;
   type Value = T;
   fn iter_key_value(&self) -> impl Iterator<Item = (RawEntityHandle, T)> + '_ {
-    self.ecg.iter_entity_idx().map(|id| {
+    self.ecg.iter_entity_idx().map(|id| unsafe {
       (
         id,
         self
           .read_view
           .get_without_generation_check(id.index())
-          .map(|v| unsafe { (*(v as *const T)).clone() })
-          .unwrap(),
+          .map(|v| (*(v as *const T)).clone())
+          .unwrap_unchecked(), // ditto
       )
     })
   }
 
   fn access(&self, key: &RawEntityHandle) -> Option<T> {
-    unsafe { self.read_view.get(*key).map(|v| &*(v as *const T)).cloned() }
+    self
+      .read_view
+      .get(*key)
+      .map(|v| unsafe { &*(v as *const T) })
+      .cloned()
   }
 }

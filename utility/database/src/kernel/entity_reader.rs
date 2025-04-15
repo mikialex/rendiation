@@ -12,7 +12,7 @@ impl EntityReaderUntyped {
       return None;
     }
     EntityReader {
-      _phantom: Default::default(),
+      phantom: Default::default(),
       inner: self,
     }
     .into()
@@ -26,7 +26,7 @@ impl EntityReaderUntyped {
 
 /// Holder the all components write lock, optimized for batch entity creation and modification
 pub struct EntityReader<E: EntitySemantic> {
-  _phantom: SendSyncPhantomData<E>, //
+  phantom: PhantomData<E>, //
   inner: EntityReaderUntyped,
 }
 

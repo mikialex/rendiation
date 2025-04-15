@@ -1,17 +1,22 @@
 use crate::*;
 
+/// The most common storage type that use a vec as the container.
+/// Expecting dense distributed component data
 pub struct DBDefaultLinearStorage<T> {
   pub data: Vec<T>,
   pub default_value: T,
 }
 
-impl<T: CValue + Default> ComponentStorage for Arc<RwLock<DBDefaultLinearStorage<T>>> {
+impl<T: CValue> ComponentStorage for Arc<RwLock<DBDefaultLinearStorage<T>>> {
   fn create_read_view(&self) -> Box<dyn ComponentStorageReadView> {
     Box::new(self.make_read_holder())
   }
 
   fn create_read_write_view(&self) -> Box<dyn ComponentStorageReadWriteView> {
     Box::new(self.make_write_holder())
+  }
+  fn type_id(&self) -> TypeId {
+    TypeId::of::<T>()
   }
 }
 
@@ -28,14 +33,9 @@ impl<T: CValue> ComponentStorageReadView for LockReadGuardHolder<DBDefaultLinear
     let data = unsafe { &*(data as *const T) };
     format!("{:#?}", data).into()
   }
-  fn type_id(&self) -> TypeId {
-    TypeId::of::<T>()
-  }
 }
 
-impl<T: CValue + Default> ComponentStorageReadWriteView
-  for LockWriteGuardHolder<DBDefaultLinearStorage<T>>
-{
+impl<T: CValue> ComponentStorageReadWriteView for LockWriteGuardHolder<DBDefaultLinearStorage<T>> {
   fn notify_start_mutation(&mut self, event: &mut Source<ChangePtr>) {
     let message = ScopedValueChange::<T>::Start;
     event.emit(&(&message as *const _ as ChangePtr));
@@ -112,9 +112,9 @@ impl<T: CValue + Default> ComponentStorageReadWriteView
 
   fn grow(&mut self, max: u32) {
     let max = max as usize;
-    let data: &mut Vec<T> = &mut self.data;
-    if data.len() <= max {
-      data.resize(max + 1, T::default());
+    if self.data.len() <= max {
+      let default = self.default_value.clone();
+      self.data.resize(max + 1, default);
     }
   }
 
@@ -122,8 +122,5 @@ impl<T: CValue + Default> ComponentStorageReadWriteView
     let data = self.get(idx)?;
     let data = unsafe { &*(data as *const T) };
     format!("{:#?}", data).into()
-  }
-  fn type_id(&self) -> TypeId {
-    TypeId::of::<T>()
   }
 }

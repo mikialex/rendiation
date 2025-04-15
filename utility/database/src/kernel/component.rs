@@ -3,7 +3,7 @@ use crate::*;
 #[derive(Clone)]
 pub struct ComponentCollectionUntyped {
   /// the name of this component, only for display purpose
-  pub name: String,
+  pub name: Arc<String>,
 
   /// mark if this component is a foreign key
   pub as_foreign_key: Option<EntityId>,
@@ -13,7 +13,8 @@ pub struct ComponentCollectionUntyped {
 
   /// watch this component all change with idx
   ///
-  /// the type of `ChangePtr` is `ScopedValueChange<DataType>`
+  /// the type of `ChangePtr` is `ScopedValueChange<DataType>`, the lifetime of the ptr is only valid
+  /// in the callback scope.
   pub(crate) data_watchers: EventSource<ChangePtr>,
 
   pub allocator: Arc<RwLock<Arena<()>>>,
@@ -57,6 +58,9 @@ impl ComponentReadViewUntyped {
     self.get_without_generation_check(idx.alloc_index())
   }
   pub fn get_without_generation_check(&self, idx: u32) -> Option<DataPtr> {
+    // note, this is required, because the storage it self
+    // do not has any information about if an idx has deleted before
+    self.allocator.get_handle(idx as usize)?;
     self.data.get(idx)
   }
 }

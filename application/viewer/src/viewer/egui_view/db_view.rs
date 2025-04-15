@@ -135,7 +135,7 @@ fn selected_table(ui: &mut egui::Ui, state: &mut DBInspector, e_id: EntityId) {
           });
           coms.values().for_each(|com| {
             header.col(|ui| {
-              let label = ui.strong(com.name.clone());
+              let label = ui.strong(com.name.as_str());
 
               if let Some(f) = com.as_foreign_key {
                 label.highlight().on_hover_ui(|ui| {
@@ -162,7 +162,7 @@ fn selected_table(ui: &mut egui::Ui, state: &mut DBInspector, e_id: EntityId) {
 
                   let fallback_debug = read_view.debug_value(idx_handle.index()).unwrap();
 
-                  let tid = read_view.deref().type_id();
+                  let tid = com.data.deref().type_id();
                   assert_eq!(tid, com.data_typeid);
                   state
                     .inspector

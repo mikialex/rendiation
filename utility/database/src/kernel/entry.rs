@@ -111,39 +111,3 @@ fn demo_how_to_use_database_generally() {
   // batch write
   // let write_view =  global_entity_component_of::<TestEntityFieldA>().write().write(idx, new)
 }
-
-#[test]
-fn test_entity_writer_init_works() {
-  setup_global_database(Default::default());
-
-  declare_entity!(MyTestEntity);
-  declare_component!(TestEntityFieldA, MyTestEntity, u32);
-  declare_component!(TestEntityFieldB, MyTestEntity, f32);
-
-  global_database()
-    .declare_entity::<MyTestEntity>()
-    .declare_component::<TestEntityFieldA>()
-    .declare_component::<TestEntityFieldB>();
-
-  {
-    let ptr = global_entity_of::<MyTestEntity>()
-      .entity_writer()
-      .with_component_value_writer::<TestEntityFieldA>(2)
-      .new_entity();
-
-    let read_view = global_entity_component_of::<TestEntityFieldA>().read();
-    assert_eq!(read_view.get(ptr), Some(&2_u32));
-  }
-
-  let mut writer = global_entity_of::<MyTestEntity>().entity_writer();
-  writer.component_value_persist_writer::<TestEntityFieldA>(4);
-
-  let ptr2 = writer.new_entity();
-  let ptr3 = writer.new_entity();
-
-  drop(writer);
-
-  let read_view = global_entity_component_of::<TestEntityFieldA>().read();
-  assert_eq!(read_view.get(ptr2), Some(&4_u32));
-  assert_eq!(read_view.get(ptr3), Some(&4_u32));
-}

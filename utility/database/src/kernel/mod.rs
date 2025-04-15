@@ -3,43 +3,30 @@ mod component_typed;
 mod ecg;
 mod entity_reader;
 mod entity_writer;
+mod entity_writer_typed;
 mod entry;
+mod handle;
 mod lock;
 mod query;
-
-use std::marker::PhantomData;
+mod writer_value_init;
 
 pub use component::*;
 pub use component_typed::*;
 pub use ecg::*;
 pub use entity_reader::*;
 pub use entity_writer::*;
+pub use entity_writer_typed::*;
 pub use entry::*;
+pub use handle::*;
 pub use lock::*;
 pub use query::*;
+pub use writer_value_init::*;
 
 use crate::*;
 
-pub struct SendSyncPhantomData<T> {
-  phantom: PhantomData<T>,
-}
-unsafe impl<T> Send for SendSyncPhantomData<T> {}
-unsafe impl<T> Sync for SendSyncPhantomData<T> {}
-
-impl<T> Clone for SendSyncPhantomData<T> {
-  fn clone(&self) -> Self {
-    *self
-  }
-}
-impl<T> Copy for SendSyncPhantomData<T> {}
-impl<T> Default for SendSyncPhantomData<T> {
-  fn default() -> Self {
-    Self {
-      phantom: Default::default(),
-    }
-  }
-}
-
+/// The message event sequence is scoped inside the pair of `Start` and `End`
+/// to provide additional information to the observer of the change. So that the
+/// observer may optimize performance by skipping the lock accessing inside the pair.
 pub enum ScopedMessage<T> {
   Start,
   End,

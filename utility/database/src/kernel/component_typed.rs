@@ -72,15 +72,18 @@ impl<T: ComponentSemantic> ComponentReadView<T> {
   pub fn get(&self, idx: EntityHandle<T::Entity>) -> Option<&T::Data> {
     unsafe { self.get_by_untyped_handle(idx.handle) }
   }
+
   pub fn get_without_generation_check(&self, idx: u32) -> Option<&T::Data> {
     self
       .inner
       .get_without_generation_check(idx.alloc_index())
       .map(|v| unsafe { &*(v as *const T::Data) })
   }
+
   pub fn get_value(&self, idx: EntityHandle<T::Entity>) -> Option<T::Data> {
     self.get(idx).cloned()
   }
+
   pub fn get_value_without_generation_check(&self, idx: u32) -> Option<T::Data> {
     self.get_without_generation_check(idx).cloned()
   }
