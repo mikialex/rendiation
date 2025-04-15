@@ -162,26 +162,16 @@ impl DatabaseMutationWatch {
 
     let (original, receiver) = self.db.access_ecg_dyn(entity_id, move |e| {
       e.access_component(component_id, move |c| {
-        let event_source = c
-          .inner
-          .get_event_source()
-          .downcast::<EventSource<ScopedValueChange<T>>>()
-          .unwrap();
-        let original = *c
-          .inner
-          .get_data()
-          .downcast::<Arc<dyn ComponentStorage<T>>>()
-          .unwrap();
-
         let rev = add_listen(
           ComponentAccess {
             ecg: e.clone(),
-            original: original.clone(),
+            original: c.clone(),
+            phantom: PhantomData::<T>,
           },
-          &event_source,
+          &c.data_watchers,
         );
 
-        (original, rev)
+        (c.clone(), rev)
       })
       .unwrap()
     });
@@ -189,7 +179,8 @@ impl DatabaseMutationWatch {
     let rxc = ReactiveQueryFromCollectiveMutation {
       full: Box::new(ComponentAccess {
         ecg: self.db.access_ecg_dyn(entity_id, |ecg| ecg.clone()),
-        original,
+        original: original.clone(),
+        phantom: PhantomData,
       }),
       mutation: RwLock::new(receiver),
     };
@@ -208,7 +199,7 @@ impl DatabaseMutationWatch {
 
 fn add_listen<T: CValue>(
   query: impl QueryProvider<RawEntityHandle, T>,
-  source: &EventSource<ScopedValueChange<T>>,
+  source: &EventSource<ChangePtr>,
 ) -> CollectiveMutationReceiver<RawEntityHandle, T> {
   let (sender, receiver) = collective_channel::<RawEntityHandle, T>();
   // expand initial value while first listen.
@@ -221,6 +212,8 @@ fn add_listen<T: CValue>(
   }
 
   source.on(move |change| unsafe {
+    let change = (*change) as *const ScopedValueChange<T>;
+    let change = &*change as &ScopedValueChange<T>;
     match change {
       ScopedMessage::Start => {
         sender.lock();
@@ -241,14 +234,16 @@ fn add_listen<T: CValue>(
 
 struct ComponentAccess<T> {
   ecg: EntityComponentGroup,
-  original: Arc<dyn ComponentStorage<T>>,
+  original: ComponentCollectionUntyped,
+  phantom: PhantomData<T>,
 }
 
 impl<T: CValue> QueryProvider<u32, T> for ComponentAccess<T> {
   fn access(&self) -> BoxedDynQuery<u32, T> {
     IterableComponentReadView::<T> {
       ecg: self.ecg.clone(),
-      read_view: self.original.create_read_view(),
+      read_view: self.original.read_untyped(),
+      phantom: PhantomData,
     }
     .into_boxed()
   }
@@ -258,7 +253,8 @@ impl<T: CValue> QueryProvider<RawEntityHandle, T> for ComponentAccess<T> {
   fn access(&self) -> BoxedDynQuery<RawEntityHandle, T> {
     IterableComponentReadViewChecked::<T> {
       ecg: self.ecg.clone(),
-      read_view: self.original.create_read_view(),
+      read_view: self.original.read_untyped(),
+      phantom: PhantomData,
     }
     .into_boxed()
   }
@@ -376,10 +372,12 @@ fn test_watch() {
 
   declare_entity!(TestEntity);
   declare_component!(TestComponent, TestEntity, u32);
+  declare_component!(TestComponent2, TestEntity, u32);
 
   global_database()
     .declare_entity::<TestEntity>()
-    .declare_component::<TestComponent>();
+    .declare_component::<TestComponent>()
+    .declare_component::<TestComponent2>();
 
   let watcher = global_watch()
     .watch::<TestComponent>()
@@ -388,6 +386,12 @@ fn test_watch() {
   let watcher2 = global_watch()
     .watch::<TestComponent>()
     .debug("watch2", false);
+
+  let watcher3 = global_watch().watch_entity_set::<TestEntity>();
+
+  let watcher4 = global_watch()
+    .watch::<TestComponent2>()
+    .debug("watch4", false);
 
   let a = global_database()
     .entity_writer::<TestEntity>()
@@ -404,6 +408,8 @@ fn test_watch() {
     let mut des1 = watcher.describe(cx);
     let mut des2 = watcher2.describe(cx);
     let mut des2_d = watcher2.describe(cx);
+    let mut des3 = watcher4.describe(cx);
+    let mut set = watcher3.describe(cx);
     let (d1, v1) = des1.resolve_kept();
     assert_eq!(v1.iter_key_value().count(), 2);
     assert_eq!(d1.iter_key_value().count(), 2);
@@ -415,6 +421,14 @@ fn test_watch() {
     let (d2, v2) = des2_d.resolve_kept();
     assert_eq!(v2.iter_key_value().count(), 2);
     assert_eq!(d2.iter_key_value().count(), 0);
+
+    let (d3, v3) = des3.resolve_kept();
+    assert_eq!(v3.iter_key_value().count(), 2);
+    assert_eq!(d3.iter_key_value().count(), 2);
+
+    let (ds, sv) = set.resolve_kept();
+    assert_eq!(sv.iter_key_value().count(), 2);
+    assert_eq!(ds.iter_key_value().count(), 2);
   }
 
   {
@@ -445,6 +459,14 @@ fn test_watch() {
     let (d, v) = watcher.describe_dyn(cx).resolve_kept();
     assert_eq!(v.iter_key_value().count(), 1);
     assert_eq!(d.iter_key_value().count(), 1);
+
+    let (d, v) = watcher3.describe_dyn(cx).resolve_kept();
+    assert_eq!(v.iter_key_value().count(), 1);
+    assert_eq!(d.iter_key_value().count(), 1);
+
+    let (d, v) = watcher4.describe_dyn(cx).resolve_kept();
+    assert_eq!(v.iter_key_value().count(), 1);
+    assert_eq!(d.iter_key_value().count(), 1);
   };
 
   {
@@ -472,5 +494,83 @@ fn test_watch() {
     let (d, v) = watcher.describe_dyn(cx).resolve_kept();
     assert_eq!(v.iter_key_value().count(), 1);
     assert_eq!(d.iter_key_value().count(), 1);
+  }
+}
+
+#[test]
+fn test_watch_zip() {
+  setup_global_database(Default::default());
+  setup_active_reactive_query_registry(Default::default());
+
+  let watch = DatabaseMutationWatch::new(&global_database());
+  register_global_database_feature(watch);
+
+  declare_entity!(TestEntity);
+  declare_component!(TestComponent, TestEntity, u32);
+  declare_component!(TestComponent2, TestEntity, u32);
+
+  global_database()
+    .declare_entity::<TestEntity>()
+    .declare_component::<TestComponent>()
+    .declare_component::<TestComponent2>();
+
+  let watcher = global_watch().watch::<TestComponent>();
+
+  let watcher2 = global_watch().watch::<TestComponent2>();
+
+  let zipped = watcher.collective_zip(watcher2).debug("zipped", true);
+
+  let a = global_database()
+    .entity_writer::<TestEntity>()
+    .with_component_value_writer::<TestComponent>(1)
+    .with_component_value_writer::<TestComponent2>(9)
+    .new_entity();
+  let _b = global_database()
+    .entity_writer::<TestEntity>()
+    .with_component_value_writer::<TestComponent>(2)
+    .new_entity();
+
+  noop_ctx!(cx);
+
+  {
+    let (d, v) = zipped.describe_dyn(cx).resolve_kept();
+    assert_eq!(v.iter_key_value().count(), 2);
+    assert_eq!(d.iter_key_value().count(), 2);
+  }
+
+  global_entity_component_of::<TestComponent>()
+    .write()
+    .write(a, 99);
+
+  {
+    let (d, v) = zipped.describe_dyn(cx).resolve_kept();
+    assert_eq!(v.iter_key_value().count(), 2);
+    assert_eq!(d.iter_key_value().count(), 1);
+  }
+
+  global_database()
+    .entity_writer::<TestEntity>()
+    .delete_entity(a);
+
+  {
+    let (d, v) = zipped.describe_dyn(cx).resolve_kept();
+    assert_eq!(v.iter_key_value().count(), 1);
+    assert_eq!(d.iter_key_value().count(), 1);
+  }
+
+  let _c = global_database()
+    .entity_writer::<TestEntity>()
+    .with_component_value_writer::<TestComponent>(1)
+    .with_component_value_writer::<TestComponent2>(9)
+    .new_entity();
+  let _f = global_database()
+    .entity_writer::<TestEntity>()
+    .with_component_value_writer::<TestComponent>(2)
+    .new_entity();
+
+  {
+    let (d, v) = zipped.describe_dyn(cx).resolve_kept();
+    assert_eq!(v.iter_key_value().count(), 3);
+    assert_eq!(d.iter_key_value().count(), 2);
   }
 }

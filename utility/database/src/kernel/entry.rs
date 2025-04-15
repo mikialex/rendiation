@@ -92,11 +92,9 @@ fn demo_how_to_use_database_generally() {
     .with_component_value_writer::<TestEntityFieldB>(1.)
     .new_entity();
 
-  let ptr = global_entity_of::<MyTestEntity2>()
+  let ptr2 = global_entity_of::<MyTestEntity2>()
     .entity_writer()
-    .with_component_writer::<TestEntity2ReferenceEntity1, _>(move |w| {
-      w.with_writer(move || Some(ptr.into()))
-    })
+    .with_component_value_writer::<TestEntity2ReferenceEntity1>(Some(ptr.into()))
     .new_entity();
 
   //   let single_com_read = ptr.read().read_component::<TestEntity2FieldA>();
@@ -104,8 +102,11 @@ fn demo_how_to_use_database_generally() {
 
   // batch read
   let read_view = global_entity_component_of::<TestEntity2FieldA>().read();
-  read_view.get(ptr);
-  read_view.get(ptr);
+  assert_eq!(read_view.get(ptr2), Some(&u32::default()));
+  read_view.get(ptr2);
+
+  let read_view2 = global_entity_component_of::<TestEntity2ReferenceEntity1>().read_foreign_key();
+  assert_eq!(read_view2.get(ptr2), Some(ptr));
 
   // batch write
   // let write_view =  global_entity_component_of::<TestEntityFieldA>().write().write(idx, new)

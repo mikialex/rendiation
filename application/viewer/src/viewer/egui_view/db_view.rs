@@ -135,7 +135,7 @@ fn selected_table(ui: &mut egui::Ui, state: &mut DBInspector, e_id: EntityId) {
           });
           coms.values().for_each(|com| {
             header.col(|ui| {
-              let label = ui.strong(com.name.clone());
+              let label = ui.strong(com.name.as_str());
 
               if let Some(f) = com.as_foreign_key {
                 label.highlight().on_hover_ui(|ui| {
@@ -157,20 +157,16 @@ fn selected_table(ui: &mut egui::Ui, state: &mut DBInspector, e_id: EntityId) {
             coms.values().for_each(|com| {
               row.col(|ui| {
                 if let Some(idx_handle) = ecg.get_handle_at(idx) {
-                  let data = com
-                    .inner
-                    .create_dyn_reader()
-                    .read_component_into_boxed(idx_handle)
-                    .unwrap();
+                  let read_view = com.data.create_read_view(); // keep read view alive!
+                  let data_ptr = read_view.get(idx_handle.index()).unwrap();
 
-                  let fallback_debug = com.inner.debug_value(idx).unwrap();
+                  let fallback_debug = read_view.debug_value(idx_handle.index()).unwrap();
 
-                  let tid = (*data).type_id();
+                  let tid = com.data.deref().type_id();
                   assert_eq!(tid, com.data_typeid);
-                  let (raw_ptr, _) = (data.deref() as *const dyn Any).to_raw_parts();
                   state
                     .inspector
-                    .ui(&com.data_typeid, raw_ptr, ui, fallback_debug);
+                    .ui(&com.data_typeid, data_ptr, ui, fallback_debug);
                 } else {
                   ui.weak("not exist");
                 }

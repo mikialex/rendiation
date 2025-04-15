@@ -1,34 +1,26 @@
-use std::mem::ManuallyDrop;
-
 use crate::*;
-
-pub trait EntityCustomWrite<E: EntitySemantic> {
-  type Writer;
-  fn create_writer() -> Self::Writer;
-  fn write(self, writer: &mut Self::Writer) -> EntityHandle<E>;
-}
-
-/// Holder the all components write lock, optimized for batch entity creation and modification
-pub struct EntityWriter<E: EntitySemantic> {
-  _phantom: SendSyncPhantomData<E>, //
-  inner: EntityWriterUntyped,
-}
-
-impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
-  pub fn entity_writer(&self) -> EntityWriter<E> {
-    self.inner.entity_writer_dyn().into_typed().unwrap()
-  }
-}
 
 impl EntityComponentGroup {
   pub fn entity_writer_dyn(&self) -> EntityWriterUntyped {
     let components = self.inner.components.read_recursive();
     let components = components
       .iter()
-      .map(|(id, c)| (*id, c.inner.create_dyn_writer_default()))
+      .map(|(id, c)| {
+        (
+          *id,
+          EntityComponentWriterImpl {
+            component: c.write_untyped(),
+            next_value: None,
+          },
+        )
+      })
       .collect();
 
-    self.inner.entity_watchers.emit(&ScopedMessage::Start);
+    let change = ScopedValueChange::<()>::Start;
+    self
+      .inner
+      .entity_watchers
+      .emit(&(&change as *const _ as ChangePtr));
 
     EntityWriterUntyped {
       type_id: self.inner.type_id,
@@ -39,171 +31,41 @@ impl EntityComponentGroup {
   }
 }
 
-impl<E: EntitySemantic> EntityWriter<E> {
-  pub fn into_untyped(self) -> EntityWriterUntyped {
-    self.inner
-  }
-
-  pub fn with_component_value_writer<C>(mut self, value: C::Data) -> Self
-  where
-    C: ComponentSemantic<Entity = E>,
-  {
-    self.component_value_writer::<C>(value);
-    self
-  }
-
-  pub fn with_component_value_persist_writer<C>(mut self, value: C::Data) -> Self
-  where
-    C: ComponentSemantic<Entity = E>,
-  {
-    self.component_value_persist_writer::<C>(value);
-    self
-  }
-
-  pub fn component_value_writer<C>(&mut self, value: C::Data) -> &mut Self
-  where
-    C: ComponentSemantic<Entity = E>,
-  {
-    self.component_writer::<C, _>(|v| v.with_write_value(value))
-  }
-
-  pub fn component_value_persist_writer<C>(&mut self, value: C::Data) -> &mut Self
-  where
-    C: ComponentSemantic<Entity = E>,
-  {
-    self.component_writer::<C, _>(|v| v.with_write_value_persist(value))
-  }
-
-  pub fn with_component_writer<C, W>(
-    mut self,
-    writer_maker: impl FnOnce(ComponentWriteView<C>) -> W,
-  ) -> Self
-  where
-    C: ComponentSemantic<Entity = E>,
-    W: EntityComponentWriter + 'static,
-  {
-    self.component_writer::<C, W>(writer_maker);
-    self
-  }
-
-  pub fn component_writer<C, W>(
-    &mut self,
-    writer_maker: impl FnOnce(ComponentWriteView<C>) -> W,
-  ) -> &mut Self
-  where
-    C: ComponentSemantic<Entity = E>,
-    W: EntityComponentWriter + 'static,
-  {
-    for (id, view) in &mut self.inner.components {
-      if *id == C::component_id() {
-        let v = view.take_write_view();
-        let v = v.downcast::<ComponentWriteView<C>>().unwrap();
-        *view = Box::new(writer_maker(*v));
-        return self;
-      }
-    }
-    self
-  }
-
-  pub fn mutate_component_data<C>(
-    &mut self,
-    idx: EntityHandle<C::Entity>,
-    writer: impl FnOnce(&mut C::Data),
-  ) -> &mut Self
-  where
-    C: ComponentSemantic<Entity = E>,
-  {
-    if let Some(mut data) = self.try_read::<C>(idx) {
-      writer(&mut data);
-      self.write::<C>(idx, data);
-    }
-    self
-  }
-
-  pub fn write<C>(&mut self, idx: EntityHandle<C::Entity>, data: C::Data) -> &mut Self
-  where
-    C: ComponentSemantic<Entity = E>,
-  {
-    for (id, view) in &mut self.inner.components {
-      if *id == C::component_id() {
-        unsafe {
-          let data = ManuallyDrop::new(data.clone());
-          view.write_component(
-            idx.handle,
-            &data as *const ManuallyDrop<C::Data> as *const (),
-          );
-        }
-        break;
-      }
-    }
-    self
-  }
-
-  pub fn write_foreign_key<C>(
-    &mut self,
-    idx: EntityHandle<C::Entity>,
-    data: Option<EntityHandle<C::ForeignEntity>>,
-  ) -> &mut Self
-  where
-    C: ForeignKeySemantic<Entity = E>,
-  {
-    self.write::<C>(idx, data.map(|d| d.handle))
-  }
-
-  pub fn try_read<C>(&self, idx: EntityHandle<C::Entity>) -> Option<C::Data>
-  where
-    C: ComponentSemantic<Entity = E>,
-  {
-    let mut target = None;
-    for (id, view) in &self.inner.components {
-      if *id == C::component_id() {
-        unsafe {
-          let target = &mut target as *mut Option<C::Data> as *mut ();
-          view.read_component(idx.handle, target);
-        }
-        break;
-      }
-    }
-    target
-  }
-
-  pub fn new_entity(&mut self) -> EntityHandle<E> {
-    EntityHandle {
-      handle: self.inner.new_entity(),
-      ty: PhantomData,
-    }
-  }
-
-  /// note, the referential integrity is not guaranteed and should be guaranteed by the upper level
-  /// implementations
-  pub fn delete_entity(&mut self, handle: EntityHandle<E>) {
-    self.inner.delete_entity(handle.handle)
-  }
-}
-
 pub struct EntityWriterUntyped {
-  type_id: EntityId,
-  allocator: LockWriteGuardHolder<Arena<()>>,
-  entity_watchers: EventSource<EntityRangeChange>,
-  components: smallvec::SmallVec<[(ComponentId, Box<dyn EntityComponentWriter>); 6]>,
+  pub(crate) type_id: EntityId,
+  pub(crate) allocator: LockWriteGuardHolder<Arena<()>>,
+  /// this change ptr type is ScopedValueChange<()>, the lifetime of the ptr is only valid
+  /// in the callback scope.
+  entity_watchers: EventSource<ChangePtr>,
+  components: smallvec::SmallVec<[(ComponentId, EntityComponentWriterImpl); 6]>,
 }
 
 impl Drop for EntityWriterUntyped {
   fn drop(&mut self) {
-    self.entity_watchers.emit(&ScopedMessage::End)
+    let change = ScopedValueChange::<()>::End;
+    self
+      .entity_watchers
+      .emit(&(&change as *const _ as ChangePtr));
   }
 }
 
 impl EntityWriterUntyped {
-  pub fn into_typed<E: EntitySemantic>(self) -> Option<EntityWriter<E>> {
-    if self.type_id != E::entity_id() {
-      return None;
-    }
-    EntityWriter {
-      _phantom: Default::default(),
-      inner: self,
-    }
-    .into()
+  pub fn get_component_by_id_mut(
+    &mut self,
+    id: ComponentId,
+  ) -> Option<&mut EntityComponentWriterImpl> {
+    self
+      .components
+      .iter_mut()
+      .find(|(i, _)| *i == id)
+      .map(|(_, v)| v)
+  }
+  pub fn get_component_by_id(&self, id: ComponentId) -> Option<&EntityComponentWriterImpl> {
+    self
+      .components
+      .iter()
+      .find(|(i, _)| *i == id)
+      .map(|(_, v)| v)
   }
 
   pub fn new_entity(&mut self) -> RawEntityHandle {
@@ -216,7 +78,11 @@ impl EntityWriterUntyped {
       idx: handle,
       change: ValueChange::Delta((), None),
     };
-    self.entity_watchers.emit(&ScopedMessage::Message(change));
+
+    let change = ScopedValueChange::Message(change);
+    self
+      .entity_watchers
+      .emit(&(&change as *const _ as ChangePtr));
     handle
   }
 
@@ -225,13 +91,16 @@ impl EntityWriterUntyped {
     let handle = RawEntityHandle(handle);
     assert!(self.allocator.contains(src.0));
     for com in &mut self.components {
-      com.1.clone_component_value(src, handle)
+      com.1.clone_component_value(src, handle, &self.allocator);
     }
     let change = IndexValueChange {
       idx: handle,
       change: ValueChange::Delta((), None),
     };
-    self.entity_watchers.emit(&ScopedMessage::Message(change));
+    let change = ScopedValueChange::Message(change);
+    self
+      .entity_watchers
+      .emit(&(&change as *const _ as ChangePtr));
     handle
   }
 
@@ -246,7 +115,10 @@ impl EntityWriterUntyped {
       idx: handle,
       change: ValueChange::Remove(()),
     };
-    self.entity_watchers.emit(&ScopedMessage::Message(change));
+    let change = ScopedValueChange::Message(change);
+    self
+      .entity_watchers
+      .emit(&(&change as *const _ as ChangePtr));
   }
 
   /// note, the referential integrity is not guaranteed and should be guaranteed by the upper level
@@ -257,85 +129,43 @@ impl EntityWriterUntyped {
   }
 }
 
-pub trait EntityComponentWriter: EntityComponentReader {
-  /// # Safety
-  /// src's type is T, the implementation should cast the target and
-  /// write the value.
-  unsafe fn write_component(&mut self, idx: RawEntityHandle, src: *const ());
-  fn write_init_component_value(&mut self, idx: RawEntityHandle);
-  fn clone_component_value(&mut self, src: RawEntityHandle, dst: RawEntityHandle);
-  fn delete_component(&mut self, idx: RawEntityHandle);
-  fn take_write_view(&mut self) -> Box<dyn Any>;
+pub struct EntityComponentWriterImpl {
+  pub(crate) component: ComponentWriteViewUntyped,
+  pub(crate) next_value: Option<Box<dyn UntypedComponentInitValueProvider>>,
 }
 
-pub struct EntityComponentWriterImpl<T: ComponentSemantic, F> {
-  pub(crate) component: Option<ComponentWriteView<T>>,
-  pub(crate) default_value: F,
-}
+impl EntityComponentWriterImpl {
+  pub fn get(&self, idx: RawEntityHandle, allocator: &Arena<()>) -> Option<DataPtr> {
+    self.component.get(idx, allocator)
+  }
 
-impl<T, F> EntityComponentReader for EntityComponentWriterImpl<T, F>
-where
-  T: ComponentSemantic,
-{
-  unsafe fn read_component(&self, idx: RawEntityHandle, target: *mut ()) {
-    let target = &mut *(target as *mut Option<T::Data>);
-    let idx = EntityHandle::from_raw(idx);
-    if let Some(data) = self.component.as_ref().unwrap().read(idx) {
-      *target = Some(data);
+  pub fn write_component(&mut self, idx: RawEntityHandle, src: DataPtr) {
+    self.component.write(idx, false, src);
+  }
+
+  pub fn write_init_component_value(&mut self, idx: RawEntityHandle) {
+    self.component.data.grow(idx.index());
+    if let Some(next_value_maker) = self.next_value.as_mut() {
+      if let Some(next) = next_value_maker.next_value() {
+        self.component.write(idx, true, next);
+      } else {
+        self.component.write_default(idx, true);
+      }
+    } else {
+      self.component.write_default(idx, true);
     }
   }
-  fn read_component_into_boxed(&self, idx: RawEntityHandle) -> Option<Box<dyn Any>> {
-    let idx = unsafe { EntityHandle::from_raw(idx) };
-    self
-      .component
-      .as_ref()
-      .unwrap()
-      .read(idx)
-      .map(|v| Box::new(v) as Box<dyn Any>)
-  }
-}
-
-impl<T, F> EntityComponentWriter for EntityComponentWriterImpl<T, F>
-where
-  T: ComponentSemantic,
-  F: FnMut() -> T::Data,
-{
-  unsafe fn write_component(&mut self, idx: RawEntityHandle, src: *const ()) {
-    let src = &*(src as *const T::Data);
-    let src = std::ptr::read(src);
-    let idx = EntityHandle::from_raw(idx);
-    self.component.as_mut().unwrap().write(idx, src);
-  }
-
-  fn write_init_component_value(&mut self, idx: RawEntityHandle) {
-    let com = self.component.as_mut().unwrap();
-
-    unsafe {
-      com.data.grow_at_least(idx.index() as usize);
-      let idx = EntityHandle::from_raw(idx);
-      com.write_impl(idx, (self.default_value)(), true);
-    }
-  }
-  fn clone_component_value(&mut self, src: RawEntityHandle, dst: RawEntityHandle) {
-    let com = self.component.as_mut().unwrap();
-
-    unsafe {
-      com.data.grow_at_least(dst.index() as usize);
-      let src = EntityHandle::from_raw(src);
-      let dst = EntityHandle::from_raw(dst);
-
-      let src_com = com.get(src).unwrap().clone();
-      com.write_impl(dst, src_com, true)
-    }
+  pub fn clone_component_value(
+    &mut self,
+    src: RawEntityHandle,
+    dst: RawEntityHandle,
+    allocator: &Arena<()>,
+  ) {
+    let src = self.get(src, allocator).unwrap();
+    self.write_component(dst, src);
   }
 
   fn delete_component(&mut self, idx: RawEntityHandle) {
-    unsafe {
-      let idx = EntityHandle::from_raw(idx);
-      self.component.as_mut().unwrap().delete(idx)
-    }
-  }
-  fn take_write_view(&mut self) -> Box<dyn Any> {
-    Box::new(self.component.take().unwrap())
+    self.component.delete(idx);
   }
 }

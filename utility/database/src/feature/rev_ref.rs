@@ -167,3 +167,59 @@ where
     self.inner.request(request)
   }
 }
+
+#[test]
+fn test_rev_ref() {
+  setup_global_database(Default::default());
+  setup_active_reactive_query_registry(Default::default());
+  let watch = DatabaseMutationWatch::new(&global_database());
+  let rev_watch = DatabaseEntityReverseReference::new(watch.clone());
+  register_global_database_feature(watch);
+  register_global_database_feature(rev_watch);
+
+  declare_entity!(MyTestEntity);
+
+  global_database().declare_entity::<MyTestEntity>();
+
+  declare_entity!(MyTestEntity2);
+  declare_foreign_key!(TestEntity2ReferenceEntity1, MyTestEntity2, MyTestEntity);
+
+  global_database()
+    .declare_entity::<MyTestEntity2>()
+    .declare_foreign_key::<TestEntity2ReferenceEntity1>();
+
+  let ptr = global_entity_of::<MyTestEntity>()
+    .entity_writer()
+    .new_entity();
+
+  let _ptr2 = global_entity_of::<MyTestEntity2>()
+    .entity_writer()
+    .with_component_value_writer::<TestEntity2ReferenceEntity1>(Some(ptr.into()))
+    .new_entity();
+
+  let _ptr3 = global_entity_of::<MyTestEntity2>()
+    .entity_writer()
+    .with_component_value_writer::<TestEntity2ReferenceEntity1>(Some(ptr.into()))
+    .new_entity();
+
+  let rev_ref_watch = global_rev_ref().watch_inv_ref::<TestEntity2ReferenceEntity1>();
+
+  noop_ctx!(cx);
+
+  {
+    let qcx = QueryResolveCtx::default();
+    let (change, dual_access) = rev_ref_watch
+      .describe_with_inv_dyn(cx)
+      .resolve_one_many_dyn(&qcx);
+
+    assert_eq!(change.iter_key_value().count(), 2);
+
+    let rev_count = dual_access
+      .one_access_many
+      .access_multi(&ptr)
+      .unwrap()
+      .count();
+
+    assert_eq!(rev_count, 2);
+  }
+}

@@ -936,6 +936,7 @@ name = "database"
 version = "0.0.1"
 dependencies = [
  "arena",
+ "dyn-clone",
  "fast-hash-collection",
  "futures",
  "parking_lot",
