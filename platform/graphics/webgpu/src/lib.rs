@@ -110,8 +110,8 @@ pub struct GPUInfo {
 
 #[derive(thiserror::Error, Debug)]
 pub enum GPUCreateFailure {
-  #[error("Failed to request adapter, reasons unknown")]
-  AdapterRequestFailed,
+  #[error("Failed to request adapter")]
+  AdapterRequestFailed(#[from] RequestAdapterError),
   #[error("Failed to request adapter, because failed to create test compatible surface")]
   AdapterRequestFailedByUnableCreateTestCompatibleSurface(#[from] CreateSurfaceError),
   #[error(
@@ -144,17 +144,16 @@ impl GPU {
       .map(|s| s.0.create_surface(&instance))
       .transpose()?;
 
-    let _adaptor = instance
+    let adaptor = instance
       .request_adapter(&gpu::RequestAdapterOptions {
         power_preference,
         compatible_surface: init_surface.as_ref(),
         force_fallback_adapter: false,
       })
-      .await
-      .ok_or(GPUCreateFailure::AdapterRequestFailed)?;
+      .await?;
 
-    let supported_features = _adaptor.features();
-    let supported_limits = _adaptor.limits();
+    let supported_features = adaptor.features();
+    let supported_limits = adaptor.limits();
 
     if !config
       .minimal_required_limits
@@ -171,23 +170,21 @@ impl GPU {
       ));
     }
 
-    let (device, queue) = _adaptor
-      .request_device(
-        &gpu::DeviceDescriptor {
-          label: None,
-          required_features: supported_features,
-          required_limits: supported_limits.clone(),
-          memory_hints: MemoryHints::Performance,
-        },
-        None,
-      )
+    let (device, queue) = adaptor
+      .request_device(&gpu::DeviceDescriptor {
+        label: None,
+        required_features: supported_features,
+        required_limits: supported_limits.clone(),
+        memory_hints: MemoryHints::Performance,
+        trace: wgpu_types::Trace::Off,
+      })
       .await?;
 
     let device = GPUDevice::new(device);
     let queue = GPUQueue::new(queue);
 
     let info = GPUInfo {
-      adaptor_info: _adaptor.get_info(),
+      adaptor_info: adaptor.get_info(),
       power_preference: config.power_preference,
       supported_features,
       supported_limits,
@@ -195,7 +192,7 @@ impl GPU {
 
     let surface = init_surface.map(|init_surface| {
       GPUSurface::new(
-        &_adaptor,
+        &adaptor,
         &device,
         init_surface,
         config.surface_for_compatible_check_init.as_ref().unwrap().1,
@@ -206,7 +203,7 @@ impl GPU {
 
     let gpu = Self {
       instance,
-      _adaptor: Arc::new(_adaptor),
+      _adaptor: Arc::new(adaptor),
       info,
       device,
       queue,
