@@ -113,8 +113,8 @@ pub struct GPUInfo {
 
 #[derive(thiserror::Error, Debug)]
 pub enum GPUCreateFailure {
-  #[error("Failed to request adapter, reasons unknown")]
-  AdapterRequestFailed,
+  #[error("Failed to request adapter")]
+  AdapterRequestFailed(#[from] RequestAdapterError),
   #[error("Failed to request adapter, because failed to create test compatible surface")]
   AdapterRequestFailedByUnableCreateTestCompatibleSurface(#[from] CreateSurfaceError),
   #[error(
@@ -153,8 +153,7 @@ impl GPU {
         compatible_surface: init_surface.as_ref(),
         force_fallback_adapter: false,
       })
-      .await
-      .ok_or(GPUCreateFailure::AdapterRequestFailed)?;
+      .await?;
 
     let supported_features = adaptor.features();
     let supported_limits = adaptor.limits();
@@ -175,15 +174,13 @@ impl GPU {
     }
 
     let (device, queue) = adaptor
-      .request_device(
-        &gpu::DeviceDescriptor {
-          label: None,
-          required_features: supported_features,
-          required_limits: supported_limits.clone(),
-          memory_hints: MemoryHints::Performance,
-        },
-        None,
-      )
+      .request_device(&gpu::DeviceDescriptor {
+        label: None,
+        required_features: supported_features,
+        required_limits: supported_limits.clone(),
+        memory_hints: MemoryHints::Performance,
+        trace: wgpu_types::Trace::Off,
+      })
       .await?;
 
     let device = GPUDevice::new(device);
