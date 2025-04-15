@@ -11,6 +11,8 @@ mod meta;
 use meta::*;
 mod draw;
 use draw::*;
+mod expand;
+use expand::*;
 
 pub struct MeshLODGraphRenderer {
   pub mesh_src_data: StorageBufferReadonlyDataView<[MeshletMeshMetaData]>,
@@ -73,10 +75,9 @@ impl IndexedDrawCommandBuilder for MeshletDrawCommandBuilder {
 struct MeshletDrawCommandInvocation {}
 
 impl IndexedDrawCommandBuilderInvocation for MeshletDrawCommandInvocation {
-  fn generate_draw_command(
-    &self,
-    draw_id: Node<u32>, // aka sm id
-  ) -> Node<DrawIndexedIndirect> {
+  fn generate_draw_command(&self, draw_id: Node<u32>) -> Node<DrawIndexedIndirect> {
+    let sm_id: Node<u32> = todo!(); // extract from packed draw_id;
+    let meshlet_id: Node<u32> = todo!();
     todo!()
   }
 }

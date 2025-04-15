@@ -1,6 +1,7 @@
 use crate::*;
 
 pub struct MeshletGPUDraw {
+  // source: IndirectDrawProvider,
   pub mesh_src_data: StorageBufferReadonlyDataView<[MeshletMeshMetaData]>,
   pub position_buffer: StorageBufferReadonlyDataView<[u32]>,
   // _meshlet_buffer: StorageBufferReadonlyDataView<[u32]>, /* todo, debug visualization for level, group and meshlet */
