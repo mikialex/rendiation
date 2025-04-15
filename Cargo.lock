@@ -3613,6 +3613,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-mesh-lod-graph-rendering"
+version = "0.1.0"
+dependencies = [
+ "database",
+ "fast-hash-collection",
+ "log",
+ "reactive",
+ "rendiation-algebra",
+ "rendiation-device-parallel-compute",
+ "rendiation-geometry",
+ "rendiation-scene-core",
+ "rendiation-scene-rendering-gpu-base",
+ "rendiation-shader-api",
+ "rendiation-webgpu",
+]
+
+[[package]]
 name = "rendiation-mesh-segmentation"
 version = "0.1.0"
 dependencies = [

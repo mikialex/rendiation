@@ -267,6 +267,12 @@ impl Node<Mat4<f32>> {
   pub fn position(self) -> Node<Vec3<f32>> {
     self.nth_colum(3).xyz()
   }
+  pub fn scale(self) -> Node<Vec3<f32>> {
+    let x = self.nth_colum(0).length();
+    let y = self.nth_colum(1).length();
+    let z = self.nth_colum(2).length();
+    (x, y, z).into()
+  }
   pub fn nth_colum(self, n: u32) -> Node<Vec4<f32>> {
     unsafe { index_access_field(self.handle(), n as usize).into_node() }
   }
