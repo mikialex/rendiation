@@ -11,7 +11,7 @@ gltf = { version = "1.2.0", features = [
     "KHR_lights_punctual",
     "KHR_materials_unlit",
 ] }
-half = "*"
+half = { version = "2.6" }
 database = { path = "../../../../utility/database" }
 rendiation-algebra = { path = "../../../../math/algebra" }
 rendiation-geometry = { path = "../../../../math/geometry" }

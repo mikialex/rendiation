@@ -153,7 +153,9 @@ pub fn map_shader_value_ty_to_binding_layout_type(
         },
         view_dimension: dimension,
       },
-      AccelerationStructure => gpu::BindingType::AccelerationStructure,
+      AccelerationStructure => gpu::BindingType::AccelerationStructure {
+        vertex_return: true,
+      },
       RayQuery => unreachable!(),
     })
     .unwrap();

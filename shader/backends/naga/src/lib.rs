@@ -277,8 +277,12 @@ impl ShaderAPINagaImpl {
             class,
           }
         }
-        &ShaderValueSingleType::AccelerationStructure => naga::TypeInner::AccelerationStructure,
-        &ShaderValueSingleType::RayQuery => naga::TypeInner::RayQuery,
+        &ShaderValueSingleType::AccelerationStructure => naga::TypeInner::AccelerationStructure {
+          vertex_return: true,
+        },
+        &ShaderValueSingleType::RayQuery => naga::TypeInner::RayQuery {
+          vertex_return: true,
+        },
       },
       ShaderValueType::BindingArray { count, ty } => naga::TypeInner::BindingArray {
         base: self.register_ty_impl(ShaderValueType::Single(ty.clone()), layout),
@@ -510,7 +514,7 @@ impl ShaderAPI for ShaderAPINagaImpl {
             location: location as u32,
             interpolation: interpolation.map(map_interpolation),
             sampling: None,
-            second_blend_source: false,
+            blend_src: None,
           }
           .into(),
         })
@@ -1744,7 +1748,7 @@ fn struct_member(
         location: location as u32,
         interpolation: interpolation.map(map_interpolation),
         sampling: None,
-        second_blend_source: false,
+        blend_src: None,
       },
     });
 
