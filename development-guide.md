@@ -42,7 +42,7 @@ important issue is in bold style.
 
 - create binding group with any bindless texture is super slow. maybe upstream bug
 
-### Not yet integrated(tested) features
+### Implemented but not yet integrated(tested) features
 
 - widen line
 - sky shading

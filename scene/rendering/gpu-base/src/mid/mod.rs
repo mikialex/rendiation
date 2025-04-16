@@ -30,6 +30,7 @@ pub trait IndirectDrawProvider: ShaderHashProvider + ShaderPassBuilder {
 
 pub trait IndirectBatchInvocationSource {
   fn current_invocation_scene_model_id(&self, builder: &ShaderVertexBuilder) -> Node<u32>;
+  fn extra_register(&self, _builder: &mut ShaderVertexBuilder) {}
 }
 
 pub struct IndirectDrawProviderAsRenderComponent<'a>(pub &'a dyn IndirectDrawProvider);
@@ -54,12 +55,13 @@ impl GraphicsShaderProvider for IndirectDrawProviderAsRenderComponent<'_> {
       let invocation = self.0.create_indirect_invocation_source(binder);
       let scene_model_id = invocation.current_invocation_scene_model_id(builder);
       builder.register::<LogicalRenderEntityId>(scene_model_id);
+      invocation.extra_register(builder);
     })
   }
 }
 
 impl DeviceSceneModelRenderSubBatch {
-  pub fn create_indirect_draw_provider(
+  pub fn create_default_indirect_draw_provider(
     &self,
     draw_command_builder: DrawCommandBuilder,
     cx: &mut DeviceParallelComputeCtx,

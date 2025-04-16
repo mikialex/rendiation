@@ -121,7 +121,10 @@ pub struct ForRange {
   current: BoxedShaderLoadStore<Node<u32>>,
 }
 impl ForRange {
-  pub fn ranged(range: Node<Vec2<u32>>, builder: &mut impl LeftValueBuilder) -> Self {
+  pub fn ranged(range: Node<Vec2<u32>>) -> Self {
+    Self::ranged_from(range, &mut LocalLeftValueBuilder)
+  }
+  pub fn ranged_from(range: Node<Vec2<u32>>, builder: &mut impl LeftValueBuilder) -> Self {
     Self {
       to: builder.create_left_value(range.y()),
       current: builder.create_left_value(range.x()),

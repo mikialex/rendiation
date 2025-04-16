@@ -1,5 +1,3 @@
-use std::num::NonZeroU64;
-
 use crate::*;
 
 pub trait DeviceHistogramMappingLogic {
@@ -228,8 +226,8 @@ where
   ) -> DeviceHistogramCompute<T, S> {
     let workgroup_level = self.workgroup_level.compute_result_typed(cx);
 
-    let size = NonZeroU64::new(S::MAX as u64 * std::mem::size_of::<T>() as u64).unwrap();
-    let result = create_gpu_read_write_storage(StorageBufferInit::Zeroed(size), &cx.gpu.device);
+    let init = ZeroedArrayByArrayLength(S::MAX as usize);
+    let result = create_gpu_read_write_storage(init, &cx.gpu.device);
 
     DeviceHistogramCompute::<T, S> {
       workgroup_level,

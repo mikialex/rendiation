@@ -273,7 +273,7 @@ pub fn create_storage_buffer_slab_allocate_pool_with_host<T: Std430>(
 ) -> StorageBufferSlabAllocatePoolWithHost<T> {
   let buffer = StorageBufferReadonlyDataView::<[T]>::create_by(
     &gpu.device,
-    StorageBufferInit::Zeroed(std::num::NonZeroU64::new(init_size as u64).unwrap()),
+    ZeroedArrayByArrayLength(init_size as usize).into(),
   );
 
   let buffer = create_growable_buffer_with_host_back(gpu, buffer, max_size, true);

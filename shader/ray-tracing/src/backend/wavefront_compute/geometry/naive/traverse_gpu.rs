@@ -484,154 +484,152 @@ fn intersect_blas_gpu(
     let distance_scaling = ray_blas.distance_scaling;
     let local_ray_range = world_ray_range.clone_with_scaling(distance_scaling);
 
-    ForRange::ranged(blas.tri_root_range, &mut LocalLeftValueBuilder).for_each(
-      move |tri_root_idx, mesh_loop| {
-        let geometry = tri_bvh_root.index(tri_root_idx).load().expand();
-        let root = geometry.bvh_root_idx;
-        let geometry_id = geometry.geometry_idx;
-        let primitive_start = geometry.primitive_start;
-        let geometry_flags = geometry.geometry_flags;
+    ForRange::ranged(blas.tri_root_range).for_each(move |tri_root_idx, mesh_loop| {
+      let geometry = tri_bvh_root.index(tri_root_idx).load().expand();
+      let root = geometry.bvh_root_idx;
+      let geometry_id = geometry.geometry_idx;
+      let primitive_start = geometry.primitive_start;
+      let geometry_flags = geometry.geometry_flags;
 
-        let (pass, is_opaque) = flags.cull_geometry(geometry_flags);
-        if_by(pass.not(), || {
-          mesh_loop.do_continue();
-        });
-        let (cull_enable, cull_back) = flags.cull_triangle();
+      let (pass, is_opaque) = flags.cull_geometry(geometry_flags);
+      if_by(pass.not(), || {
+        mesh_loop.do_continue();
+      });
+      let (cull_enable, cull_back) = flags.cull_triangle();
 
-        let local_ray_range = local_ray_range.clone();
-        if_by(flags.visit_triangles(), move || {
-          let bvh_iter = TraverseBvhIteratorGpu {
-            bvh: tri_bvh_forest,
-            ray,
-            node_idx: root.make_local_var(),
-            ray_range: local_ray_range.clone(),
-          };
-          let tri_idx_iter = bvh_iter.flat_map(ForRangeState::from_range); // triangle index
+      let local_ray_range = local_ray_range.clone();
+      if_by(flags.visit_triangles(), move || {
+        let bvh_iter = TraverseBvhIteratorGpu {
+          bvh: tri_bvh_forest,
+          ray,
+          node_idx: root.make_local_var(),
+          ray_range: local_ray_range.clone(),
+        };
+        let tri_idx_iter = bvh_iter.flat_map(ForRangeState::from_range); // triangle index
 
-          let ray = ray.expand();
+        let ray = ray.expand();
 
-          fn read_vec3<T: ShaderSizedValueNodeType>(
-            idx: Node<u32>,
-            array: &ShaderPtrOf<[T]>,
-          ) -> [Node<T>; 3] {
-            let i = idx * val(3);
-            let v0 = array.index(i).load();
-            let v1 = array.index(i + val(1)).load();
-            let v2 = array.index(i + val(2)).load();
-            [v0, v1, v2]
-          }
+        fn read_vec3<T: ShaderSizedValueNodeType>(
+          idx: Node<u32>,
+          array: &ShaderPtrOf<[T]>,
+        ) -> [Node<T>; 3] {
+          let i = idx * val(3);
+          let v0 = array.index(i).load();
+          let v1 = array.index(i + val(1)).load();
+          let v2 = array.index(i + val(2)).load();
+          [v0, v1, v2]
+        }
 
-          let end_search__ = end_search.clone();
+        let end_search__ = end_search.clone();
 
-          tri_idx_iter.for_each(move |tri_idx, tri_loop| {
-            let tri_idx = indices_redirect.index(tri_idx).load();
-            let [i0, i1, i2] = read_vec3(tri_idx, &indices);
-            let [v0x, v0y, v0z] = read_vec3(i0, &vertices);
-            let [v1x, v1y, v1z] = read_vec3(i1, &vertices);
-            let [v2x, v2y, v2z] = read_vec3(i2, &vertices);
-            let v0 = Node::<Vec3<f32>>::from((v0x, v0y, v0z));
-            let v1 = Node::<Vec3<f32>>::from((v1x, v1y, v1z));
-            let v2 = Node::<Vec3<f32>>::from((v2x, v2y, v2z));
+        tri_idx_iter.for_each(move |tri_idx, tri_loop| {
+          let tri_idx = indices_redirect.index(tri_idx).load();
+          let [i0, i1, i2] = read_vec3(tri_idx, &indices);
+          let [v0x, v0y, v0z] = read_vec3(i0, &vertices);
+          let [v1x, v1y, v1z] = read_vec3(i1, &vertices);
+          let [v2x, v2y, v2z] = read_vec3(i2, &vertices);
+          let v0 = Node::<Vec3<f32>>::from((v0x, v0y, v0z));
+          let v1 = Node::<Vec3<f32>>::from((v1x, v1y, v1z));
+          let v2 = Node::<Vec3<f32>>::from((v2x, v2y, v2z));
 
-            let (near, far) = local_ray_range.get();
-            // returns (hit, distance, u, v), hit = front hit -> 1, back hit -> -1, miss -> 0
-            let result = intersect_ray_triangle_gpu(
-              ray.origin,
-              ray.direction,
-              near,
-              far,
-              v0,
-              v1,
-              v2,
-              cull_enable,
-              cull_back,
-            );
-            let hit_face = result.x();
-            let hit = hit_face.not_equals(val(0.));
-            let local_ray_range = local_ray_range.clone();
-            if_by(hit, move || {
-              let world_distance = result.y() / distance_scaling;
+          let (near, far) = local_ray_range.get();
+          // returns (hit, distance, u, v), hit = front hit -> 1, back hit -> -1, miss -> 0
+          let result = intersect_ray_triangle_gpu(
+            ray.origin,
+            ray.direction,
+            near,
+            far,
+            v0,
+            v1,
+            v2,
+            cull_enable,
+            cull_back,
+          );
+          let hit_face = result.x();
+          let hit = hit_face.not_equals(val(0.));
+          let local_ray_range = local_ray_range.clone();
+          if_by(hit, move || {
+            let world_distance = result.y() / distance_scaling;
 
-              let hit_kind = val(HIT_KIND_FRONT_FACING_TRIANGLE).make_local_var();
-              if_by(hit_face.less_than(val(0.)), || {
-                hit_kind.store(val(HIT_KIND_BACK_FACING_TRIANGLE));
-              });
+            let hit_kind = val(HIT_KIND_FRONT_FACING_TRIANGLE).make_local_var();
+            if_by(hit_face.less_than(val(0.)), || {
+              hit_kind.store(val(HIT_KIND_BACK_FACING_TRIANGLE));
+            });
 
-              // load tlas, write to hit ctx
-              if_by(
+            // load tlas, write to hit ctx
+            if_by(
+              hit_ctx_curr
+                .instance_id
+                .load()
+                .not_equals(ray_blas.tlas_idx),
+              || {
+                let ptr = tlas_data.index(ray_blas.tlas_idx);
+                let instance_shader_binding_table_record_offset =
+                  ptr.instance_shader_binding_table_record_offset().load();
+                let instance_custom_index = ptr.instance_custom_index().load();
+                hit_ctx_curr.instance_id.store(ray_blas.tlas_idx);
                 hit_ctx_curr
-                  .instance_id
-                  .load()
-                  .not_equals(ray_blas.tlas_idx),
-                || {
-                  let ptr = tlas_data.index(ray_blas.tlas_idx);
-                  let instance_shader_binding_table_record_offset =
-                    ptr.instance_shader_binding_table_record_offset().load();
-                  let instance_custom_index = ptr.instance_custom_index().load();
-                  hit_ctx_curr.instance_id.store(ray_blas.tlas_idx);
-                  hit_ctx_curr
-                    .instance_sbt_offset
-                    .store(instance_shader_binding_table_record_offset);
-                  hit_ctx_curr.instance_custom_id.store(instance_custom_index);
-                },
-              );
+                  .instance_sbt_offset
+                  .store(instance_shader_binding_table_record_offset);
+                hit_ctx_curr.instance_custom_id.store(instance_custom_index);
+              },
+            );
 
-              hit_ctx_curr.primitive_id.store(tri_idx - primitive_start);
-              hit_ctx_curr.geometry_id.store(geometry_id);
-              hit_ctx_curr.object_space_ray_origin.store(ray.origin);
-              hit_ctx_curr.object_space_ray_direction.store(ray.direction);
+            hit_ctx_curr.primitive_id.store(tri_idx - primitive_start);
+            hit_ctx_curr.geometry_id.store(geometry_id);
+            hit_ctx_curr.object_space_ray_origin.store(ray.origin);
+            hit_ctx_curr.object_space_ray_direction.store(ray.direction);
 
-              let hit_ctx = hit_ctx_curr.load(tlas_data);
-              let end_search_ = end_search.clone();
+            let hit_ctx = hit_ctx_curr.load(tlas_data);
+            let end_search_ = end_search.clone();
 
-              let attribute = BuiltInTriangleHitAttributeShaderAPIInstance {
-                bary_coord: result.zw(),
-              }
-              .construct();
+            let attribute = BuiltInTriangleHitAttributeShaderAPIInstance {
+              bary_coord: result.zw(),
+            }
+            .construct();
 
-              // just to bundle data with no runtime cost. any_hit shader does not run.
-              let any_hit_ctx = RayAnyHitCtx {
-                launch_info,
-                world_ray,
-                hit_ctx: hit_ctx.clone(),
-                hit: HitInfo {
-                  hit_kind: hit_kind.load(),
-                  hit_distance: world_distance,
-                  hit_attribute: attribute,
-                },
-                payload: user_defined_payload.clone(),
-              };
+            // just to bundle data with no runtime cost. any_hit shader does not run.
+            let any_hit_ctx = RayAnyHitCtx {
+              launch_info,
+              world_ray,
+              hit_ctx: hit_ctx.clone(),
+              hit: HitInfo {
+                hit_kind: hit_kind.load(),
+                hit_distance: world_distance,
+                hit_attribute: attribute,
+              },
+              payload: user_defined_payload.clone(),
+            };
 
-              if_by(is_opaque, || {
-                // opaque -> commit
-                closest_hit_var.test_and_store(&any_hit_ctx.hit, || {
-                  closest_hit_ctx_var.store(&any_hit_ctx.hit_ctx);
+            if_by(is_opaque, || {
+              // opaque -> commit
+              closest_hit_var.test_and_store(&any_hit_ctx.hit, || {
+                closest_hit_ctx_var.store(&any_hit_ctx.hit_ctx);
+                local_ray_range.update_world_far(world_distance);
+                if_by(flags.end_search_on_hit(), || end_search.store(true));
+              });
+            })
+            .else_by(|| {
+              // transparent trangle -> anyhit, then commit
+              resolve_any_hit(
+                |_| {
                   local_ray_range.update_world_far(world_distance);
                   if_by(flags.end_search_on_hit(), || end_search.store(true));
-                });
-              })
-              .else_by(|| {
-                // transparent trangle -> anyhit, then commit
-                resolve_any_hit(
-                  |_| {
-                    local_ray_range.update_world_far(world_distance);
-                    if_by(flags.end_search_on_hit(), || end_search.store(true));
-                  },
-                  || end_search.store(true),
-                  any_hit,
-                  &any_hit_ctx,
-                  closest_hit_ctx_var,
-                  closest_hit_var,
-                );
-              });
-
-              if_by(end_search_.load(), || tri_loop.do_break());
+                },
+                || end_search.store(true),
+                any_hit,
+                &any_hit_ctx,
+                closest_hit_ctx_var,
+                closest_hit_var,
+              );
             });
+
+            if_by(end_search_.load(), || tri_loop.do_break());
           });
-          if_by(end_search__.load(), || mesh_loop.do_break());
         });
-      },
-    );
+        if_by(end_search__.load(), || mesh_loop.do_break());
+      });
+    });
 
     if_by(end_search____.load(), || blas_loop.do_break());
   });

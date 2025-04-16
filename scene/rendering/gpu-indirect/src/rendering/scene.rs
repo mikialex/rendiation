@@ -204,17 +204,8 @@ impl SceneRenderer for IndirectSceneRenderer {
       .sub_batches
       .iter()
       .map(|batch| {
-        let any_scene_model = batch.impl_select_id;
-        let draw_command_builder = self
-          .renderer
-          .make_draw_command_builder(batch.impl_select_id)
-          .unwrap();
-
-        let provider = ctx.access_parallel_compute(|cx| {
-          batch.create_indirect_draw_provider(draw_command_builder, cx)
-        });
-
-        (provider, any_scene_model)
+        let provider = self.renderer.generate_indirect_draw_provider(batch, ctx);
+        (provider, batch.impl_select_id)
       })
       .collect();
 

@@ -316,14 +316,12 @@ impl DeviceTaskGraphExecutor {
     });
     cx.flush_pass();
 
-    let result_size = self.task_groups.len() * 4;
-    let result_size = NonZeroU64::new(result_size as u64).unwrap();
     let wake_task_counts = create_gpu_read_write_storage::<[u32]>(
-      StorageBufferInit::Zeroed(result_size),
+      ZeroedArrayByArrayLength(self.task_groups.len()),
       &cx.gpu.device,
     );
     let empty_task_counts = create_gpu_read_write_storage::<[u32]>(
-      StorageBufferInit::Zeroed(result_size),
+      ZeroedArrayByArrayLength(self.task_groups.len()),
       &cx.gpu.device,
     );
 

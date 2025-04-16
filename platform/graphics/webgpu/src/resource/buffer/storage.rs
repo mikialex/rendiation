@@ -214,6 +214,7 @@ impl<'a, T: Std430> From<&'a [T]> for StorageBufferInit<'a, [T]> {
   }
 }
 
+#[derive(Clone, Copy)]
 pub struct ZeroedArrayByArrayLength(pub usize);
 
 impl<T: Std430> From<ZeroedArrayByArrayLength> for StorageBufferInit<'_, [T]> {
@@ -229,6 +230,19 @@ pub fn create_gpu_read_write_storage<'a, T: Std430MaybeUnsized + ?Sized + 'stati
   device: impl AsRef<GPUDevice>,
 ) -> StorageBufferDataView<T> {
   StorageBufferDataView::create_by(device.as_ref(), data.into())
+}
+
+pub struct StorageBufferSizedZeroed<T>(PhantomData<T>);
+impl<T> Default for StorageBufferSizedZeroed<T> {
+  fn default() -> Self {
+    Self(Default::default())
+  }
+}
+impl<T: Std430> From<StorageBufferSizedZeroed<T>> for StorageBufferInit<'_, T> {
+  fn from(_: StorageBufferSizedZeroed<T>) -> Self {
+    let byte_len = std::mem::size_of::<T>();
+    StorageBufferInit::Zeroed(NonZeroU64::new(byte_len as u64).unwrap())
+  }
 }
 
 pub enum StorageBufferInit<'a, T: Std430MaybeUnsized + ?Sized> {
