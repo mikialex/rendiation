@@ -100,10 +100,9 @@ pub fn create_storage_buffer_slab_allocate_pool<T: Std430>(
   max_item_count: u32,
 ) -> StorageBufferSlabAllocatePool<T> {
   assert!(max_item_count >= init_item_count);
-  let init_byte_count = init_item_count as usize * std::mem::size_of::<T>();
   let buffer = StorageBufferReadonlyDataView::<[T]>::create_by(
     &gpu.device,
-    StorageBufferInit::Zeroed(NonZeroU64::new(init_byte_count as u64).unwrap()),
+    ZeroedArrayByArrayLength(init_item_count as usize).into(),
   );
 
   let buffer = create_growable_buffer(gpu, buffer, max_item_count);

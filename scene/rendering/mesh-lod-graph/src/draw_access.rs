@@ -3,7 +3,8 @@ use crate::*;
 only_vertex!(DrawMeshletIndex, u32);
 
 pub struct MeshletBatchDrawData {
-  pub meshlets_idx: StorageBufferDataView<[u32]>,
+  pub meshlets_idx: StorageBufferReadonlyDataView<[u32]>,
+  pub scene_model_idx: StorageBufferReadonlyDataView<[u32]>,
   pub command: DrawCommand,
 }
 
@@ -24,21 +25,25 @@ impl IndirectDrawProvider for MeshletBatchDrawData {
   ) -> Box<dyn IndirectBatchInvocationSource> {
     struct MeshletBatchDrawInvocation {
       meshlet_idx: ShaderReadonlyPtrOf<[u32]>,
+      scene_model_idx: ShaderReadonlyPtrOf<[u32]>,
     }
 
     impl IndirectBatchInvocationSource for MeshletBatchDrawInvocation {
       fn current_invocation_scene_model_id(&self, builder: &ShaderVertexBuilder) -> Node<u32> {
-        builder.query::<VertexInstanceIndex>()
+        let draw_id = builder.query::<VertexInstanceIndex>();
+        self.scene_model_idx.index(draw_id).load()
       }
 
       fn extra_register(&self, builder: &mut ShaderVertexBuilder) {
-        // todo, inject meshlet index
-        todo!()
+        let draw_id = builder.query::<VertexInstanceIndex>();
+        let meshlet_idx = self.meshlet_idx.index(draw_id).load();
+        builder.register::<DrawMeshletIndex>(meshlet_idx);
       }
     }
 
     Box::new(MeshletBatchDrawInvocation {
-      meshlet_idx: binding.bind_by(&self.meshlets_idx.clone().into_readonly_view()),
+      meshlet_idx: binding.bind_by(&self.meshlets_idx),
+      scene_model_idx: binding.bind_by(&self.scene_model_idx),
     })
   }
 

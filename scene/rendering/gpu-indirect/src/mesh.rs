@@ -1,4 +1,4 @@
-use std::{mem::offset_of, num::NonZeroU64, sync::Arc};
+use std::{mem::offset_of, sync::Arc};
 
 use parking_lot::RwLock;
 use rendiation_mesh_core::{AttributeSemantic, BufferViewRange};
@@ -173,7 +173,7 @@ impl MeshBindlessGPUSystemSource {
 
     let indices = StorageBufferReadonlyDataView::<[u32]>::create_by_with_extra_usage(
       &gpu.device,
-      StorageBufferInit::Zeroed(NonZeroU64::new(indices_init_size as u64).unwrap()),
+      ZeroedArrayByArrayLength(indices_init_size as usize).into(),
       BufferUsages::INDEX,
     );
 

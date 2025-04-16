@@ -70,6 +70,14 @@ impl IntoShaderIterator for Node<u32> {
   }
 }
 
+impl IntoShaderIterator for Node<Vec2<u32>> {
+  type ShaderIter = ForRange;
+
+  fn into_shader_iter(self) -> Self::ShaderIter {
+    ForRange::ranged(self)
+  }
+}
+
 impl<AT, T: ShaderSizedValueNodeType> IntoShaderIterator for StaticLengthArrayView<AT, T> {
   type ShaderIter = ShaderStaticArrayIter<AT, T>;
 

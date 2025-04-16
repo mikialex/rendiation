@@ -1,6 +1,4 @@
-use database::EntityHandle;
 use rendiation_device_parallel_compute::DeviceParallelComputeCtx;
-use rendiation_scene_core::*;
 use rendiation_scene_rendering_gpu_base::*;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
@@ -33,8 +31,8 @@ impl Default for MeshletMetaData {
 }
 
 pub struct MeshLODGraphRenderer {
-  pub mesh_src_data: StorageBufferReadonlyDataView<[MeshletMetaData]>,
-  pub scene_model_meshlet_range: StorageBufferDataView<[Vec2<u32>]>,
+  pub meshlet_metadata: StorageBufferReadonlyDataView<[MeshletMetaData]>,
+  pub scene_model_meshlet_range: StorageBufferReadonlyDataView<[Vec2<u32>]>,
   pub position_buffer: StorageBufferReadonlyDataView<[u32]>,
   pub meshlet_buffer: StorageBufferReadonlyDataView<[u32]>,
   pub index_buffer: StorageBufferReadonlyDataView<[u32]>,
@@ -43,63 +41,28 @@ pub struct MeshLODGraphRenderer {
 impl MeshLODGraphRenderer {
   pub fn prepare_draw(
     &self,
-    batch: &SceneModelRenderBatch,
+    batch: &DeviceSceneModelRenderSubBatch,
     cx: &mut DeviceParallelComputeCtx,
     lod_decider: LODDecider,
-  ) -> Vec<Box<dyn IndirectDrawProvider>> {
-    let device_batch = batch.get_device_batch(None).unwrap();
-
+    scene_model_matrix: &dyn SceneModelWorldMatrixProvider,
+    max_meshlet_count: u32,
+  ) -> Box<dyn IndirectDrawProvider> {
     let lod_decider = create_uniform(lod_decider, &cx.gpu.device);
 
-    device_batch
-      .sub_batches
-      .iter()
-      .map(|batch| {
-        let builder = DrawCommandBuilder::Indexed(Box::new(MeshletDrawCommandBuilder {}));
+    let expander = MeshLODExpander {
+      meshlet_metadata: self.meshlet_metadata.clone(),
+      scene_model_meshlet_range: self.scene_model_meshlet_range.clone(),
+      lod_decider,
+    };
 
-        // let drawer = Box::new(MeshletGPUDraw {
-        //   position_buffer: self.position_buffer.clone(),
-        //   mesh_src_data: self.mesh_src_data.clone(),
-        //   index_buffer: self.index_buffer.clone(),
-        // });
-
-        batch.create_default_indirect_draw_provider(builder, cx)
-      })
-      .collect()
-  }
-}
-
-#[derive(Clone)]
-struct MeshletDrawCommandBuilder {}
-
-impl ShaderHashProvider for MeshletDrawCommandBuilder {
-  shader_hash_type_id! {}
-}
-impl ShaderPassBuilder for MeshletDrawCommandBuilder {}
-
-impl IndexedDrawCommandBuilder for MeshletDrawCommandBuilder {
-  fn draw_command_host_access(&self, _id: EntityHandle<SceneModelEntity>) -> DrawCommand {
-    unimplemented!("host access is not supported")
+    Box::new(expander.expand(batch, scene_model_matrix, cx, max_meshlet_count))
   }
 
-  fn build_invocation(
-    &self,
-    cx: &mut ShaderComputePipelineBuilder,
-  ) -> Box<dyn IndexedDrawCommandBuilderInvocation> {
-    Box::new(MeshletDrawCommandInvocation {})
-  }
-
-  fn bind(&self, builder: &mut BindingBuilder) {
-    todo!()
-  }
-}
-
-struct MeshletDrawCommandInvocation {}
-
-impl IndexedDrawCommandBuilderInvocation for MeshletDrawCommandInvocation {
-  fn generate_draw_command(&self, draw_id: Node<u32>) -> Node<DrawIndexedIndirect> {
-    let sm_id: Node<u32> = todo!(); // extract from packed draw_id;
-    let meshlet_id: Node<u32> = todo!();
-    todo!()
+  pub fn create_mesh_accessor(&self) -> Box<dyn RenderComponent> {
+    Box::new(MeshletGPURenderData {
+      meshlet_metadata: self.meshlet_metadata.clone(),
+      position_buffer: self.position_buffer.clone(),
+      index_buffer: self.index_buffer.clone(),
+    })
   }
 }
