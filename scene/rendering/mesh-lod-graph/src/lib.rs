@@ -7,15 +7,34 @@ use rendiation_webgpu::*;
 
 mod lod;
 use lod::*;
-mod meta;
-use meta::*;
-mod draw;
-use draw::*;
-mod expand;
-use expand::*;
+mod draw_access;
+use draw_access::*;
+mod draw_prepare;
+use draw_prepare::*;
+
+#[repr(C)]
+#[std430_layout]
+#[derive(Debug, Clone, Copy, ShaderStruct, PartialEq)]
+pub struct MeshletMetaData {
+  pub index_offset: u32,
+  pub index_count: u32,
+  pub position_offset: u32,
+  pub bounds: LODBoundPair,
+}
+
+impl Default for MeshletMetaData {
+  fn default() -> Self {
+    Self {
+      index_offset: u32::MAX,
+      position_offset: u32::MAX,
+      ..Zeroable::zeroed()
+    }
+  }
+}
 
 pub struct MeshLODGraphRenderer {
-  pub mesh_src_data: StorageBufferReadonlyDataView<[MeshletMeshMetaData]>,
+  pub mesh_src_data: StorageBufferReadonlyDataView<[MeshletMetaData]>,
+  pub scene_model_meshlet_range: StorageBufferDataView<[Vec2<u32>]>,
   pub position_buffer: StorageBufferReadonlyDataView<[u32]>,
   pub meshlet_buffer: StorageBufferReadonlyDataView<[u32]>,
   pub index_buffer: StorageBufferReadonlyDataView<[u32]>,
@@ -26,8 +45,11 @@ impl MeshLODGraphRenderer {
     &self,
     batch: &SceneModelRenderBatch,
     cx: &mut DeviceParallelComputeCtx,
+    lod_decider: LODDecider,
   ) -> Vec<Box<dyn IndirectDrawProvider>> {
     let device_batch = batch.get_device_batch(None).unwrap();
+
+    let lod_decider = create_uniform(lod_decider, &cx.gpu.device);
 
     device_batch
       .sub_batches

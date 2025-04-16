@@ -44,14 +44,17 @@ impl LODBoundPair {
   }
 }
 
-struct LODDecideCameraInfo {
-  camera_world_position: Node<Vec3<f32>>,
-  camera_near: Node<f32>,
-  camera_projection: Node<Mat4<f32>>,
-  view_size: Node<Vec2<f32>>,
+#[repr(C)]
+#[std140_layout]
+#[derive(Debug, Clone, Copy, ShaderStruct)]
+pub struct LODDecider {
+  pub camera_world_position: Vec3<f32>,
+  pub camera_near: f32,
+  pub camera_projection: Mat4<f32>,
+  pub view_size: Vec2<f32>,
 }
 
-impl LODDecideCameraInfo {
+impl LODDeciderShaderAPIInstance {
   pub fn exact_lod_cut(
     &self,
     self_lod: Node<LODBound>,

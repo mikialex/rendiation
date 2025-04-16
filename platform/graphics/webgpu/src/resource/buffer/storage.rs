@@ -214,6 +214,7 @@ impl<'a, T: Std430> From<&'a [T]> for StorageBufferInit<'a, [T]> {
   }
 }
 
+#[derive(Clone, Copy)]
 pub struct ZeroedArrayByArrayLength(pub usize);
 
 impl<T: Std430> From<ZeroedArrayByArrayLength> for StorageBufferInit<'_, [T]> {
@@ -231,6 +232,7 @@ pub fn create_gpu_read_write_storage<'a, T: Std430MaybeUnsized + ?Sized + 'stati
   StorageBufferDataView::create_by(device.as_ref(), data.into())
 }
 
+// todo, support static size zeroed init conveniently
 pub enum StorageBufferInit<'a, T: Std430MaybeUnsized + ?Sized> {
   WithInit(&'a T),
   Zeroed(std::num::NonZeroU64),
