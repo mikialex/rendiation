@@ -1,6 +1,15 @@
 use crate::*;
 
 pub trait IndirectBatchSceneModelRenderer: SceneModelRenderer {
+  /// note, this interface can not be merged with [IndirectBatchSceneModelRenderer::render_indirect_batch_models]
+  /// because render_indirect_batch_models will be called inside active renderpass, at that time,
+  /// the encoder will be used by the renderpass exclusively.
+  fn generate_indirect_draw_provider(
+    &self,
+    batch: &DeviceSceneModelRenderSubBatch,
+    ctx: &mut FrameCtx,
+  ) -> Box<dyn IndirectDrawProvider>;
+
   /// the caller must guarantee the batch source can be drawn by the implementation selected by any_id
   fn render_indirect_batch_models(
     &self,
@@ -83,6 +92,17 @@ pub struct IndirectPreferredComOrderRenderer {
 }
 
 impl SceneModelRenderer for IndirectPreferredComOrderRenderer {
+  /// The implementation will try directly create a single draw
+  /// For some advance implementation, this may failed because it requires
+  /// extra compute shader prepare logic, which is impossible to placed here
+  /// because the render pass is active.
+  ///
+  /// If we invent something like preflight encoder, and submit prepare work
+  /// on it, this is possible, but from the perspective of performance, this is
+  /// meaningless. so the current behavior is we will always failed on some advance
+  /// implementation here.
+  ///
+  /// todo, consider buffer the call and submit later?
   fn render_scene_model(
     &self,
     idx: EntityHandle<SceneModelEntity>,
@@ -156,9 +176,20 @@ impl SceneModelRenderer for IndirectPreferredComOrderRenderer {
 }
 
 impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
-  fn as_any(&self) -> &dyn Any {
-    self
+  fn generate_indirect_draw_provider(
+    &self,
+    batch: &DeviceSceneModelRenderSubBatch,
+    ctx: &mut FrameCtx,
+  ) -> Box<dyn IndirectDrawProvider> {
+    let draw_command_builder = self
+      .make_draw_command_builder(batch.impl_select_id)
+      .unwrap();
+
+    ctx.access_parallel_compute(|cx| {
+      batch.create_default_indirect_draw_provider(draw_command_builder, cx)
+    })
   }
+
   fn render_indirect_batch_models(
     &self,
     models: &dyn IndirectDrawProvider,
@@ -222,6 +253,10 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
     any_idx: EntityHandle<SceneModelEntity>,
   ) -> Option<DrawCommandBuilder> {
     self.model_impl.make_draw_command_builder(any_idx)
+  }
+
+  fn as_any(&self) -> &dyn Any {
+    self
   }
 }
 

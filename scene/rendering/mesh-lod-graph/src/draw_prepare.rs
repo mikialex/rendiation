@@ -69,8 +69,3 @@ impl MeshLODExpander {
     }
   }
 }
-
-pub struct MeshletBatchDrawData {
-  pub meshlets_idx: StorageBufferDataView<[u32]>,
-  pub command: DrawCommand,
-}

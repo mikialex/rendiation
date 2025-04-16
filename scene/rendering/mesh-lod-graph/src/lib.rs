@@ -63,7 +63,7 @@ impl MeshLODGraphRenderer {
         //   index_buffer: self.index_buffer.clone(),
         // });
 
-        batch.create_indirect_draw_provider(builder, cx)
+        batch.create_default_indirect_draw_provider(builder, cx)
       })
       .collect()
   }
