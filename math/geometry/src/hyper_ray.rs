@@ -1,6 +1,6 @@
 use crate::*;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Facet)]
 pub struct HyperRay<T: Scalar, V> {
   pub origin: V,
   pub direction: NormalizedVector<T, V>,

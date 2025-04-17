@@ -8,6 +8,7 @@ bytemuck = { workspace = true, features = ["derive"] }
 num-traits = "0.2"
 dyn-clone = { workspace = true }
 paste = { workspace = true }
+facet = { workspace = true }
 
 
 [dev-dependencies]

@@ -1,5 +1,6 @@
 use crate::*;
 
+#[derive(Clone, Copy, Debug, Facet)]
 pub struct Spherical<T = f32> {
   pub center: Vec3<T>,
   pub radius: T,

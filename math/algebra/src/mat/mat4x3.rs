@@ -3,7 +3,7 @@ use std::ops::{Add, Div, Mul};
 use crate::*;
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq, Facet)]
 #[rustfmt::skip]
 pub struct Mat4x3<T> {
   pub a1: T, pub a2: T, pub a3: T,

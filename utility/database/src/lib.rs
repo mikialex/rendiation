@@ -11,6 +11,7 @@ use std::{
 
 use arena::*;
 use dyn_clone::*;
+pub use facet::*;
 use fast_hash_collection::*;
 use parking_lot::RwLock;
 use reactive::*;

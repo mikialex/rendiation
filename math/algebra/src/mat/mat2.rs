@@ -1,10 +1,12 @@
 use std::ops::{Add, Mul};
 
+use facet::Facet;
+
 use crate::*;
 
 #[repr(C)]
 #[rustfmt::skip]
-#[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq, Facet)]
 pub struct Mat2<T> {
   pub a1: T, pub a2: T,
   pub b1: T, pub b2: T,

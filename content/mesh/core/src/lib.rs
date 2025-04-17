@@ -20,6 +20,7 @@ use std::{
 pub use common_vertex::*;
 pub use container::*;
 use dyn_downcast::*;
+use facet::*;
 use fast_hash_collection::*;
 pub use feature::*;
 pub use group::*;

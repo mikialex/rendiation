@@ -1,6 +1,6 @@
 use crate::*;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Facet)]
 pub struct HyperPlane<T: Scalar, V> {
   /// face normal
   pub normal: NormalizedVector<T, V>,

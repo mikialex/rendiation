@@ -5,26 +5,18 @@ use std::{
   marker::PhantomData,
 };
 
+use facet::*;
+
 use crate::{Arena, Entry};
 
-/// An handle (and generation) into an `Arena`.
-///
-/// To get an `Handle`, insert an element into an `Arena`, and the `Handle` for
-/// that element will be returned.
-///
-/// # Examples
-///
-/// ```
-/// use arena::Arena;
-///
-/// let mut arena = Arena::new();
-/// let idx = arena.insert(123);
-/// assert_eq!(arena[idx], 123);
-/// ```
 pub struct Handle<T> {
   pub(crate) handle: usize,
   pub(crate) generation: u64,
   pub(crate) phantom: PhantomData<T>,
+}
+
+unsafe impl<T> Facet for Handle<T> {
+  const SHAPE: &'static Shape = &Shape::builder().build();
 }
 
 unsafe impl<T> Send for Handle<T> {}

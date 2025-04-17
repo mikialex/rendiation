@@ -7,3 +7,6 @@ version = "0.0.1"
 
 [lints]
 workspace = true
+
+[dependencies]
+facet = { workspace = true }
