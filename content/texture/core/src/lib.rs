@@ -15,6 +15,7 @@ mod util;
 pub use container::*;
 pub use util::*;
 mod container;
+use facet::*;
 use rendiation_algebra::{Lerp, Scalar, Vec2};
 pub use rendiation_texture_types::*;
 pub use wgpu_types::TextureFormat;

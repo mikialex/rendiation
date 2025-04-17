@@ -6,7 +6,7 @@ pub type NormalizedVec2<T> = NormalizedVector<T, Vec2<T>>;
 pub type NormalizedVec3<T> = NormalizedVector<T, Vec3<T>>;
 pub type NormalizedVec4<T> = NormalizedVector<T, Vec4<T>>;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Facet)]
 #[repr(transparent)]
 pub struct NormalizedVector<T, V> {
   pub value: V,

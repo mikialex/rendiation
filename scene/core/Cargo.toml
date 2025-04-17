@@ -23,6 +23,7 @@ smallvec = { workspace = true }
 database = { path = "../../utility/database" }
 reactive-derive = { path = "../../utility/reactive-derive" }
 parking_lot = { workspace = true }
+facet = { workspace = true }
 
 [lints]
 workspace = true

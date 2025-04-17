@@ -10,7 +10,7 @@ pub use merge::*;
 pub use picking::*;
 pub use semantic::*;
 
-#[derive(Debug, Copy, Clone, Default, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, Default, PartialEq, Eq, Hash, Facet)]
 pub struct BufferViewRange {
   /// in bytes
   pub offset: u64,

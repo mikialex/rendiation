@@ -65,7 +65,7 @@ impl<T> std::fmt::Debug for EntityHandle<T> {
   }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Facet)]
 pub struct RawEntityHandle(pub(crate) Handle<()>);
 
 impl Display for RawEntityHandle {

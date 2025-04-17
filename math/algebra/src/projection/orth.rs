@@ -1,6 +1,6 @@
 use crate::*;
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Facet)]
 pub struct OrthographicProjection<T> {
   pub left: T,
   pub right: T,
@@ -41,7 +41,7 @@ impl<T: Scalar> Projection<T> for OrthographicProjection<T> {
   }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Facet)]
 pub struct ViewFrustumOrthographicProjection<T> {
   orth: OrthographicProjection<T>,
   aspect: T,

@@ -2,7 +2,7 @@ use rendiation_algebra::Vec2;
 use rendiation_texture_types::Size;
 use wgpu_types::TextureFormat;
 
-use crate::{Texture2D, Texture2dInitAble};
+use crate::*;
 
 #[derive(Clone)]
 pub struct Texture2DBuffer<P> {

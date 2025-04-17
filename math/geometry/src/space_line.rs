@@ -1,7 +1,7 @@
 use crate::*;
 
 #[repr(C)]
-#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Facet)]
 pub struct SpaceLineSegment<U, X> {
   pub start: U,
   pub end: U,

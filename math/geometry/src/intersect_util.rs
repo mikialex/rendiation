@@ -5,7 +5,7 @@ pub trait HitDistanceCompareAble {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Facet)]
 pub struct HitPoint<T: Scalar, V> {
   pub position: V,
   pub distance: T,

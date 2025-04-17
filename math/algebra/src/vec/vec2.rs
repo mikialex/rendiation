@@ -4,7 +4,7 @@ use std::{fmt, ops::*};
 use crate::*;
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq, Facet)]
 pub struct Vec2<T> {
   pub x: T,
   pub y: T,

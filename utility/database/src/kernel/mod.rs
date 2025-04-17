@@ -43,7 +43,7 @@ pub struct IndexValueChange<T> {
 /// This struct use ptr equality as PartialEq impl compare to Arc
 ///
 /// User should use this instead of Arc to ensure good performance in delta propagation
-#[derive(Default)]
+#[derive(Default, Facet)]
 pub struct ExternalRefPtr<T> {
   pub ptr: Arc<T>,
 }

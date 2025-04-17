@@ -1,6 +1,6 @@
 use crate::*;
 
-#[derive(Copy, Clone, PartialEq, Eq, std::hash::Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, std::hash::Hash, Facet)]
 pub struct StraitLine<U> {
   phantom: PhantomData<U>,
 }

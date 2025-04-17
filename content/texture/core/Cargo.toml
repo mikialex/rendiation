@@ -11,6 +11,7 @@ rendiation-geometry = { path = "../../../math/geometry" }
 rendiation-texture-types = { path = "../types" }
 wgpu-types = { workspace = true }
 bytemuck = { workspace = true, features = ["derive"] }
+facet = { workspace = true }
 
 [lints]
 workspace = true

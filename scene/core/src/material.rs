@@ -435,7 +435,8 @@ pub fn register_alpha_config<T: AlphaInfoSemantic>(
 }
 
 /// The alpha rendering mode of a material.
-#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug)]
+#[repr(u8)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug, Facet)]
 pub enum AlphaMode {
   /// The alpha value is ignored and the rendered output is fully opaque.
   Opaque,
