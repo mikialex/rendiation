@@ -127,6 +127,7 @@ opt-level = 3
 
 [profile.release]
 panic = "abort"
+strip = "symbols" # see https://github.com/rust-lang/rust/issues/139950
 
 # used when you are profiling in release but want debug symbol enabled
 [profile.profiling]
