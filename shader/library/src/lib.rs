@@ -2,6 +2,7 @@ use rendiation_shader_api::*;
 
 pub mod cube;
 pub mod normal_mapping;
+pub mod plane;
 pub mod sampling;
 pub mod sky;
 pub mod z_order;

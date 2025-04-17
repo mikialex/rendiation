@@ -1,5 +1,4 @@
 use database::*;
-use dyn_clone::*;
 use fast_hash_collection::*;
 use rendiation_algebra::*;
 use rendiation_device_parallel_compute::*;
@@ -16,27 +15,6 @@ use filter::*;
 
 mod occlusion_test;
 use occlusion_test::*;
-
-pub struct TargetWorldBounding {
-  pub min: Node<Vec3<f32>>,
-  pub max: Node<Vec3<f32>>,
-}
-
-pub trait DrawUnitWorldBoundingProvider: ShaderHashProvider + DynClone {
-  fn create_invocation(
-    &self,
-    cx: &mut ShaderBindGroupBuilder,
-  ) -> Box<dyn DrawUnitWorldBoundingInvocationProvider>;
-  fn bind(&self, cx: &mut BindingBuilder);
-}
-dyn_clone::clone_trait_object!(DrawUnitWorldBoundingProvider);
-
-pub trait DrawUnitWorldBoundingInvocationProvider {
-  fn get_world_bounding(&self, id: Node<u32>) -> TargetWorldBounding;
-  fn should_not_as_occluder(&self, _id: Node<u32>) -> Node<bool> {
-    val(false)
-  }
-}
 
 pub struct GPUTwoPassOcclusionCulling {
   max_scene_model_id: usize,

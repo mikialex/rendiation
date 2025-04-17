@@ -46,7 +46,7 @@ important issue is in bold style.
 
 - widen line
 - sky shading
-- gpu driven occlusion culling
+- gpu driven occlusion culling, frustum culling
 - on_demand_draw
 - ssr(super naive)
 - lod graph generation and rendering

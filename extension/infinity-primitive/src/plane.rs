@@ -4,22 +4,8 @@ use crate::*;
 
 pub const PLANE_DRAW_CMD: DrawCommand = QUAD_DRAW_CMD;
 
-#[repr(C)]
-#[std140_layout]
-#[derive(Copy, Clone, ShaderStruct)]
-pub struct ShaderPlane {
-  pub normal: Vec3<f32>,
-  pub constant: f32,
-}
-
-impl ShaderPlane {
-  pub fn ground_like() -> Self {
-    ShaderPlane {
-      normal: Vec3::new(0., 1., 0.),
-      constant: 0.,
-      ..Zeroable::zeroed()
-    }
-  }
+pub fn ground_like_shader_plane() -> ShaderPlane {
+  ShaderPlane::new(Vec3::new(0., 1., 0.), 0.)
 }
 
 pub struct InfinityShaderPlaneEffect<'a> {
@@ -118,16 +104,3 @@ impl GraphicsShaderProvider for InfinityShaderPlaneEffect<'_> {
 }
 
 both!(IsHitInfinityPlane, f32);
-
-pub fn ray_plane_intersect(
-  origin: Node<Vec3<f32>>,
-  direction: Node<Vec3<f32>>,
-  plane: ENode<ShaderPlane>,
-) -> Node<Vec4<f32>> {
-  let denominator = plane.normal.dot(direction); // I don't care if it's zero!
-
-  let t = -(plane.normal.dot(origin) + plane.constant) / denominator;
-
-  t.greater_equal_than(0.)
-    .select((origin + direction * t, val(1.0)), Vec4::zero())
-}

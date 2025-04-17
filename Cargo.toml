@@ -55,6 +55,7 @@ members = [
   "scene/rendering/gpu-gles",
   "scene/rendering/gpu-indirect",
   "scene/rendering/occlusion-culling",
+  "scene/rendering/frustum-culling",
   "scene/rendering/gpu-ray-tracing",
   "scene/rendering/mesh-lod-graph",
   "scene/io/obj/loader",

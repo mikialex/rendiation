@@ -34,7 +34,7 @@ impl ViewerFrameLogic {
       enable_ssao: false,
       enable_outline: false,
       ssao: SSAO::new(gpu),
-      ground: UniformBufferCachedDataView::create(&gpu.device, ShaderPlane::ground_like()),
+      ground: UniformBufferCachedDataView::create(&gpu.device, ground_like_shader_plane()),
       grid: UniformBufferCachedDataView::create_default(&gpu.device),
       post: UniformBufferCachedDataView::create_default(&gpu.device),
       axis: WorldCoordinateAxis::new(gpu),

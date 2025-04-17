@@ -3429,6 +3429,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-frustum-culling"
+version = "0.1.0"
+dependencies = [
+ "database",
+ "fast-hash-collection",
+ "log",
+ "reactive",
+ "rendiation-algebra",
+ "rendiation-device-parallel-compute",
+ "rendiation-geometry",
+ "rendiation-scene-core",
+ "rendiation-scene-rendering-gpu-base",
+ "rendiation-shader-api",
+ "rendiation-shader-library",
+ "rendiation-texture-core",
+ "rendiation-webgpu",
+]
+
+[[package]]
 name = "rendiation-geometry"
 version = "0.1.0"
 dependencies = [
@@ -3483,6 +3502,7 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-scene-core",
  "rendiation-shader-api",
+ "rendiation-shader-library",
  "rendiation-webgpu",
 ]
 
@@ -3655,8 +3675,6 @@ name = "rendiation-occlusion-culling"
 version = "0.1.0"
 dependencies = [
  "database",
- "dyn-clone",
- "dyn-downcast",
  "fast-hash-collection",
  "log",
  "reactive",
