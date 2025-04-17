@@ -78,9 +78,12 @@ impl<V: Copy> Triangle<V> {
 }
 
 pub type TrianglePointIter<V> = impl Iterator<Item = V>;
+
 impl<U> IntoIterator for Triangle<U> {
   type Item = U;
   type IntoIter = TrianglePointIter<U>;
+
+  #[define_opaque(TrianglePointIter)]
   fn into_iter(self) -> TrianglePointIter<U> {
     once(self.a).chain(once(self.b)).chain(once(self.c))
   }

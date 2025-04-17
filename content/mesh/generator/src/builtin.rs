@@ -137,7 +137,9 @@ impl Default for CylinderMeshParameter {
 }
 
 pub type CylinderSurface = impl ParametricSurface;
+pub type CylinderCapSurface = impl ParametricSurface;
 impl CylinderMeshParameter {
+  #[define_opaque(CylinderSurface)]
   pub fn body_surface(&self) -> CylinderSurface {
     let Self {
       radius_top,
@@ -158,7 +160,8 @@ impl CylinderMeshParameter {
     .map_range(0.0..1.0, range)
   }
 
-  pub fn cap_surface(&self, top: bool) -> Option<CylinderSurface> {
+  #[define_opaque(CylinderCapSurface)]
+  pub fn cap_surface(&self, top: bool) -> Option<CylinderCapSurface> {
     let Self {
       radius_top,
       radius_bottom,

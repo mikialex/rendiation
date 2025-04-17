@@ -1,5 +1,4 @@
 #![feature(const_type_name)]
-#![feature(hash_raw_entry)]
 #![feature(associated_type_defaults)]
 #![feature(generic_const_exprs)]
 #![feature(impl_trait_in_assoc_type)]

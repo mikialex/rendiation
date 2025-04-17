@@ -61,9 +61,12 @@ impl<V> LineSegment<V> {
 }
 
 pub type LineSegmentPointIter<V> = impl Iterator<Item = V>;
+
 impl<U> IntoIterator for LineSegment<U> {
   type Item = U;
   type IntoIter = LineSegmentPointIter<U>;
+
+  #[define_opaque(LineSegmentPointIter)]
   fn into_iter(self) -> LineSegmentPointIter<U> {
     once(self.start).chain(once(self.end))
   }

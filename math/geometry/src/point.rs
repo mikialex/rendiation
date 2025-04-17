@@ -10,9 +10,12 @@ impl<U> Point<U> {
 }
 
 pub type PointPointIter<V> = impl Iterator<Item = V>;
+
 impl<U> IntoIterator for Point<U> {
   type Item = U;
   type IntoIter = PointPointIter<U>;
+
+  #[define_opaque(PointPointIter)]
   fn into_iter(self) -> PointPointIter<U> {
     std::iter::once(self.0)
   }

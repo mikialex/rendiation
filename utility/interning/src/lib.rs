@@ -1,5 +1,3 @@
-#![feature(hash_raw_entry)]
-
 use std::hash::Hash;
 use std::marker::PhantomData;
 

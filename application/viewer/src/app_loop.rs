@@ -51,6 +51,7 @@ impl ApplicationWindowSurface {
 }
 
 /// we use this to avoid block_on, which is not allowed in wasm
+#[allow(clippy::large_enum_variant)]
 enum GPUOrGPUCreateFuture {
   Created(WGPUAndSurface),
   Creating(Box<dyn Future<Output = WGPUAndSurface> + Unpin>),

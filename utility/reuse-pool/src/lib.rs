@@ -1,5 +1,3 @@
-#![feature(hash_raw_entry)]
-
 use std::{hash::Hash, sync::Arc};
 
 use fast_hash_collection::FastHashMap;

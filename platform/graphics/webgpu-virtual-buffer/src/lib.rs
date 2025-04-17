@@ -1,8 +1,6 @@
 //! this crate's feature allows user create rw storage buffer from a single buffer pool
 //! to workaround the binding limitation on some platform.
 
-#![feature(hash_raw_entry)]
-
 use std::num::NonZeroU64;
 use std::{marker::PhantomData, sync::Arc};
 

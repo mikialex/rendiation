@@ -5,6 +5,9 @@ version = "0.0.1"
 
 [dependencies]
 rustc-hash = "1.1.0"
+# we have to use maps from this because they remove raw entry api
+# see https://github.com/rust-lang/rust/issues/56167
+hashbrown = "0.15.2"
 
 [lints]
 workspace = true

@@ -101,10 +101,9 @@ async fn test_reduce() {
 
 #[pollster::test]
 async fn test_expand() {
-  use std::iter;
   let input: Vec<_> = (0..6).collect();
   let expect = (0..6)
-    .flat_map(|v| iter::repeat(v).take(6))
+    .flat_map(|v| std::iter::repeat_n(v, 6))
     .collect::<Vec<_>>();
 
   input.stride_expand_result(6).run_test(&expect).await

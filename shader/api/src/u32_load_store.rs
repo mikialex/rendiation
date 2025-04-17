@@ -109,27 +109,20 @@ impl ShaderU32StructMetaData {
       self.register_sized(&f.ty);
     });
 
-    self
-      .ty_mapping
-      .raw_entry_mut()
-      .from_key(struct_name)
-      .or_insert_with(|| {
-        let mut sub_field_u32_offsets = Vec::with_capacity(fields.len());
-        let tail = iter_field_start_offset_in_bytes(fields, self.layout, &mut |byte_offset, _| {
-          assert!(byte_offset % 4 == 0);
-          sub_field_u32_offsets.push(byte_offset as u32 / 4);
-        });
-        let struct_size = size_of_struct_sized_fields(fields, self.layout);
-        assert!(struct_size % 4 == 0);
-        assert!(tail.is_none());
-        (
-          struct_name.to_string(),
-          StructPrecomputeOffsetMetaData {
-            u32_count: struct_size as u32 / 4,
-            sub_field_u32_offsets,
-          },
-        )
+    self.ty_mapping.entry_ref(struct_name).or_insert_with(|| {
+      let mut sub_field_u32_offsets = Vec::with_capacity(fields.len());
+      let tail = iter_field_start_offset_in_bytes(fields, self.layout, &mut |byte_offset, _| {
+        assert!(byte_offset % 4 == 0);
+        sub_field_u32_offsets.push(byte_offset as u32 / 4);
       });
+      let struct_size = size_of_struct_sized_fields(fields, self.layout);
+      assert!(struct_size % 4 == 0);
+      assert!(tail.is_none());
+      StructPrecomputeOffsetMetaData {
+        u32_count: struct_size as u32 / 4,
+        sub_field_u32_offsets,
+      }
+    });
   }
 
   pub fn get_struct_u32_size(&self, struct_name: &str) -> u32 {

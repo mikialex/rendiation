@@ -151,6 +151,7 @@ impl TextReadBufferInfo {
 }
 
 impl GPUCommandEncoder {
+  #[define_opaque(ReadBufferFromStagingBuffer)]
   pub fn read_buffer(
     &mut self,
     device: &GPUDevice,
