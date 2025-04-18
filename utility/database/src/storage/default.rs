@@ -7,7 +7,7 @@ pub struct DBDefaultLinearStorage<T> {
   pub default_value: T,
 }
 
-impl<T: CValue + Facet> ComponentStorage for Arc<RwLock<DBDefaultLinearStorage<T>>> {
+impl<T: CValue> ComponentStorage for Arc<RwLock<DBDefaultLinearStorage<T>>> {
   fn create_read_view(&self) -> Box<dyn ComponentStorageReadView> {
     Box::new(self.make_read_holder())
   }
@@ -19,7 +19,8 @@ impl<T: CValue + Facet> ComponentStorage for Arc<RwLock<DBDefaultLinearStorage<T
     TypeId::of::<T>()
   }
   fn data_shape(&self) -> &'static Shape {
-    T::SHAPE
+    // T::SHAPE
+    unimplemented!()
   }
 }
 

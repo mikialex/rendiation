@@ -7,16 +7,14 @@ use std::{
 
 use facet::*;
 
+// use facet::*;
 use crate::{Arena, Entry};
 
+#[derive(Facet)]
 pub struct Handle<T> {
   pub(crate) handle: usize,
   pub(crate) generation: u64,
   pub(crate) phantom: PhantomData<T>,
-}
-
-unsafe impl<T> Facet for Handle<T> {
-  const SHAPE: &'static Shape = &Shape::builder().build();
 }
 
 unsafe impl<T> Send for Handle<T> {}
