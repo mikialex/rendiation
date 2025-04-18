@@ -7,22 +7,48 @@ pub type DataPtr = *const ();
 pub type DataMutPtr = *const ();
 
 pub trait DataBaseDataType: CValue + Default {
-  fn fast_serialize(&self, target: &mut impl std::io::Write);
-  fn fast_deserialize(&mut self, source: &mut impl std::io::Read);
+  fn fast_serialize(&self, target: &mut (impl std::io::Write + ?Sized));
+  fn fast_deserialize(&mut self, source: &mut (impl std::io::Read + ?Sized));
   fn shape() -> &'static facet::Shape;
+}
+
+pub trait DataBaseDataTypeDyn {
+  fn fast_serialize_dyn(&self, target: &mut dyn std::io::Write);
+  fn fast_deserialize_dyn(&mut self, source: &mut dyn std::io::Read);
+  fn shape(&self) -> &'static facet::Shape;
+  /// this function will be removed in future.
+  fn debug_value(&self) -> String;
+}
+
+impl<T: DataBaseDataType> DataBaseDataTypeDyn for T {
+  fn fast_serialize_dyn(&self, target: &mut dyn std::io::Write) {
+    self.fast_serialize(target);
+  }
+
+  fn fast_deserialize_dyn(&mut self, source: &mut dyn std::io::Read) {
+    self.fast_deserialize(source);
+  }
+
+  fn shape(&self) -> &'static facet::Shape {
+    T::shape()
+  }
+
+  fn debug_value(&self) -> String {
+    format!("{:#?}", self)
+  }
 }
 
 impl<T> DataBaseDataType for T
 where
   T: CValue + Default,
   // T: Facet,
-  // T: Serialize + for<'a> Deserialize<'a>,
+  T: Serialize + for<'a> Deserialize<'a>,
 {
-  fn fast_serialize(&self, _: &mut impl std::io::Write) {
+  fn fast_serialize(&self, _: &mut (impl std::io::Write + ?Sized)) {
     unimplemented!()
   }
 
-  fn fast_deserialize(&mut self, _: &mut impl std::io::Read) {
+  fn fast_deserialize(&mut self, _: &mut (impl std::io::Read + ?Sized)) {
     unimplemented!()
   }
 
@@ -49,8 +75,7 @@ dyn_clone::clone_trait_object!(ComponentStorage);
 pub trait ComponentStorageReadView: Send + Sync + DynClone {
   /// get the data located in idx, return None if out of bound.
   fn get(&self, idx: u32) -> Option<DataPtr>;
-  /// this function will be removed in future.
-  fn debug_value(&self, idx: u32) -> Option<String>;
+  fn get_as_dyn_storage(&self, idx: u32) -> Option<&dyn DataBaseDataTypeDyn>;
   fn fast_serialize_all(&self) -> Vec<u8>;
 }
 dyn_clone::clone_trait_object!(ComponentStorageReadView);
@@ -58,6 +83,7 @@ dyn_clone::clone_trait_object!(ComponentStorageReadView);
 pub trait ComponentStorageReadWriteView {
   /// get the data located in idx.
   fn get(&self, idx: u32) -> Option<DataPtr>;
+  fn get_as_dyn_storage(&self, idx: u32) -> Option<&dyn DataBaseDataTypeDyn>;
   /// this function will be removed in future.
   fn debug_value(&self, idx: u32) -> Option<String>;
 

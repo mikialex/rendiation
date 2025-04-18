@@ -227,6 +227,16 @@ pub struct ShadowBias {
   pub normal_bias: f32,
 }
 
+impl ShadowBias {
+  pub fn new(bias: f32, normal_bias: f32) -> Self {
+    Self {
+      bias,
+      normal_bias,
+      ..Zeroable::zeroed()
+    }
+  }
+}
+
 #[repr(C)]
 #[std140_layout]
 #[derive(Clone, Copy, Default, ShaderStruct, Debug, PartialEq)]

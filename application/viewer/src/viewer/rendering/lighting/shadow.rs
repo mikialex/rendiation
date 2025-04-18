@@ -1,4 +1,5 @@
-use rendiation_lighting_shadow_map::ShadowBias;
+use facet::*;
+use serde::*;
 
 use crate::*;
 
@@ -16,12 +17,26 @@ impl<T: BasicShadowMapConfigurable> ComponentSemantic for BasicShadowMapResoluti
   }
 }
 
+#[derive(Serialize, Deserialize)]
+#[derive(Clone, Copy, Default, Debug, PartialEq, Facet)]
+pub struct ShadowBiasConfig {
+  pub bias: f32,
+  pub normal_bias: f32,
+}
+
+use rendiation_lighting_shadow_map::ShadowBias;
+impl From<ShadowBiasConfig> for ShadowBias {
+  fn from(value: ShadowBiasConfig) -> Self {
+    ShadowBias::new(value.bias, value.normal_bias)
+  }
+}
+
 pub struct BasicShadowMapBiasOf<T>(T);
 impl<T: BasicShadowMapConfigurable> EntityAssociateSemantic for BasicShadowMapBiasOf<T> {
   type Entity = T::Entity;
 }
 impl<T: BasicShadowMapConfigurable> ComponentSemantic for BasicShadowMapBiasOf<T> {
-  type Data = ShadowBias;
+  type Data = ShadowBiasConfig;
 }
 
 pub struct BasicShadowMapEnabledOf<T>(T);
