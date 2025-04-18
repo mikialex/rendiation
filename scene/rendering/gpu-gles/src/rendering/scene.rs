@@ -16,6 +16,7 @@ pub fn build_default_gles_render_system(
   prefer_bindless: bool,
   camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
   reversed_depth: bool,
+  attribute_mesh_custom_key: std::sync::Arc<dyn Fn(u32, &mut ShaderVertexBuilder)>,
 ) -> GLESRenderSystem {
   let tex_sys_ty = get_suitable_texture_system_ty(cx, false, prefer_bindless);
   GLESRenderSystem {
@@ -36,7 +37,7 @@ pub fn build_default_gles_render_system(
           Box::new(UnlitMaterialDefaultRenderImplProvider::default()),
         ],
         shapes: vec![Box::new(
-          AttributesMeshEntityDefaultRenderImplProvider::default(),
+          AttributesMeshEntityDefaultRenderImplProvider::new(attribute_mesh_custom_key),
         )],
       })],
     })],

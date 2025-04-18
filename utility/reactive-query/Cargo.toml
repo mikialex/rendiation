@@ -4,7 +4,6 @@ name = "reactive-query"
 version = "0.0.1"
 
 [dependencies]
-dyn-downcast = { path = "../dyn-downcast" }
 query = { path = "../query" }
 fast-hash-collection = { path = "../fast-hash-collection" }
 futures = { workspace = true }

@@ -12,7 +12,6 @@ pub fn alloc_global_res_id() -> u64 {
 pub trait GlobalIdentified {
   fn guid(&self) -> u64;
 }
-define_dyn_trait_downcaster_static!(GlobalIdentified);
 
 /// indicate this type is allocate in arena style, which could be linearly addressed
 /// (efficient random accessible)
@@ -24,7 +23,6 @@ define_dyn_trait_downcaster_static!(GlobalIdentified);
 pub trait LinearIdentified {
   fn alloc_index(&self) -> u32;
 }
-define_dyn_trait_downcaster_static!(LinearIdentified);
 
 pub trait LinearIdentification: LinearIdentified + Copy {
   fn into_alloc_index(self) -> u32 {

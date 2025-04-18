@@ -28,13 +28,15 @@ pub enum AttributeSemantic {
   /// Joint weights.
   Weights(u32),
 
-  Foreign(ForeignAttributeKey),
+  Foreign {
+    implementation_id: u32,
+    item_byte_size: u32,
+  },
 }
 
 pub trait AttributeReadSchema {
   fn item_byte_size(&self) -> usize;
 }
-define_dyn_trait_downcaster_static!(AttributeReadSchema);
 
 impl AttributeReadSchema for AttributeSemantic {
   fn item_byte_size(&self) -> usize {
@@ -46,10 +48,7 @@ impl AttributeReadSchema for AttributeSemantic {
       AttributeSemantic::TexCoords(_) => 2 * 4,
       AttributeSemantic::Joints(_) => 4 * 2,
       AttributeSemantic::Weights(_) => 4 * 4,
-      AttributeSemantic::Foreign(key) => get_dyn_trait_downcaster_static!(AttributeReadSchema)
-        .downcast_ref(key.implementation.as_ref())
-        .unwrap() // this is safe to unwrap, because it's bounded in ForeignAttributeKey new method
-        .item_byte_size(),
+      AttributeSemantic::Foreign { item_byte_size, .. } => *item_byte_size as usize,
     }
   }
 }
@@ -70,7 +69,6 @@ impl ForeignAttributeKey {
       + AsRef<dyn AttributeReadSchema>
       + AsMut<dyn AttributeReadSchema>,
   {
-    get_dyn_trait_downcaster_static!(AttributeReadSchema).register::<T>();
     Self {
       id: implementation.type_id(),
       implementation: Arc::new(implementation),

@@ -35,7 +35,6 @@ RRF is highly modulized, layered, decoupled and well-structured. Users can build
   - fast-hash-collection: just type exports, std-hash hash containers with a fast hash
   - storage: useful vector based util containers.
   - interning: type interning util
-  - dyn-downcast: a util to impl runtime virtual table
   - arena: a strong type generational arena
   - anymap: a simple type id keyed un-type value map container
   - widget: an simple widget definition with a view-state update cycle

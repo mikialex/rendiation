@@ -1035,16 +1035,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "21e50f3adc76d6a43f5ed73b698a87d0760ca74617f60f7c3b879003536fdd28"
 
 [[package]]
-name = "dyn-downcast"
-version = "0.0.1"
-dependencies = [
- "fast-hash-collection",
- "once_cell",
- "parking_lot",
- "paste",
-]
-
-[[package]]
 name = "ecolor"
 version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3086,7 +3076,6 @@ version = "0.0.1"
 dependencies = [
  "dashmap",
  "dyn-clone",
- "dyn-downcast",
  "fast-hash-collection",
  "parking_lot",
  "storage",
@@ -3236,7 +3225,6 @@ version = "0.0.1"
 dependencies = [
  "anymap",
  "dyn-clone",
- "dyn-downcast",
  "fast-hash-collection",
  "futures",
  "heap-tools",
@@ -3263,7 +3251,6 @@ version = "0.0.1"
 dependencies = [
  "dashmap",
  "dyn-clone",
- "dyn-downcast",
  "fast-hash-collection",
  "futures",
  "heap-tools",
@@ -3426,7 +3413,6 @@ name = "rendiation-barycentric-solid-line"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "dyn-downcast",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-mesh-core",
@@ -3689,7 +3675,6 @@ name = "rendiation-mesh-core"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "dyn-downcast",
  "facet",
  "fast-hash-collection",
  "reactive",
@@ -3794,7 +3779,6 @@ dependencies = [
  "bytemuck",
  "database",
  "dyn-clone",
- "dyn-downcast",
  "facet",
  "fast-hash-collection",
  "futures",
@@ -3903,7 +3887,6 @@ name = "rendiation-scene-rendering-gpu-gles"
 version = "0.1.0"
 dependencies = [
  "database",
- "dyn-downcast",
  "fast-hash-collection",
  "log",
  "reactive",
@@ -3929,7 +3912,6 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "database",
- "dyn-downcast",
  "fast-hash-collection",
  "log",
  "parking_lot",
@@ -3957,7 +3939,6 @@ dependencies = [
  "bytemuck",
  "database",
  "dyn-clone",
- "dyn-downcast",
  "fast-hash-collection",
  "log",
  "parking_lot",
@@ -4155,7 +4136,6 @@ name = "rendiation-webgpu"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "dyn-downcast",
  "fast-hash-collection",
  "futures",
  "heap-tools",

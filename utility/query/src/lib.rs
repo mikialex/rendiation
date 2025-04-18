@@ -7,7 +7,6 @@ use std::sync::Arc;
 use std::{hash::Hash, ops::Deref};
 
 use dyn_clone::DynClone;
-use dyn_downcast::*;
 use fast_hash_collection::*;
 use storage::{Arena, IndexKeptVec, IndexReusedVec};
 

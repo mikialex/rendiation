@@ -12,7 +12,6 @@ rendiation-geometry = { path = "../../../math/geometry" }
 
 rendiation-space-algorithm = { path = "../../space" }
 
-dyn-downcast = { path = "../../../utility/dyn-downcast" }
 fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 reactive = { path = "../../../utility/reactive" }
 rendiation-shader-api = { path = "../../../shader/api" }

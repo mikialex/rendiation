@@ -79,8 +79,8 @@ impl DatabaseMutationTracingController {
 
     let ecg = self
       .ecg
-      .iter()
-      .map(|(k, v)| (*k, v.end_tracing()))
+      .into_iter()
+      .map(|(k, v)| (k, v.end_tracing()))
       .collect();
 
     drop(guard);
@@ -110,12 +110,12 @@ pub struct DatabaseTraceECGController {
 }
 
 impl DatabaseTraceECGController {
-  pub fn end_tracing(&self) -> DatabaseTraceECGResult {
+  pub fn end_tracing(self) -> DatabaseTraceECGResult {
     DatabaseTraceECGResult {
       components: self
         .components
-        .iter()
-        .map(|(k, v)| (*k, v.end_tracing()))
+        .into_iter()
+        .map(|(k, v)| (k, v.end_tracing()))
         .collect(),
     }
   }
@@ -136,17 +136,46 @@ impl EntityComponentGroup {
 }
 
 pub struct DatabaseTraceComponentController {
-  pub data: Vec<u8>,
+  data: Arc<RwLock<Vec<u8>>>,
+  event_remover: RemoveToken<ChangePtr>,
+  event: EventSource<ChangePtr>,
 }
 
 impl ComponentCollectionUntyped {
   pub fn start_tracing(&self) -> DatabaseTraceComponentController {
-    todo!()
+    let event_remover = self.data_watchers.on(move |_change| {
+      // let change = (*change) as *const ScopedValueChange<T>;
+      // let change = &*change as &ScopedValueChange<T>;
+      // match change {
+      //   ScopedMessage::Start => {
+      //     sender.lock();
+      //     false
+      //   }
+      //   ScopedMessage::End => {
+      //     sender.unlock();
+      //     sender.is_closed()
+      //   }
+      //   ScopedMessage::Message(write) => {
+      //     sender.send(write.idx, write.change.clone());
+      //     false
+      //   }
+      // }
+
+      false
+    });
+    DatabaseTraceComponentController {
+      data: Default::default(),
+      event_remover,
+      event: self.data_watchers.clone(),
+    }
   }
 }
 
 impl DatabaseTraceComponentController {
-  pub fn end_tracing(&self) -> DatabaseTraceComponentResult {
-    todo!()
+  pub fn end_tracing(self) -> DatabaseTraceComponentResult {
+    self.event.off(self.event_remover);
+    let data = Arc::try_unwrap(self.data).unwrap();
+    let data = data.into_inner();
+    DatabaseTraceComponentResult { data }
   }
 }

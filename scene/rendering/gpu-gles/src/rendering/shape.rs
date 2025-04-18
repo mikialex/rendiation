@@ -23,11 +23,24 @@ impl GLESModelShapeRenderImpl for Vec<Box<dyn GLESModelShapeRenderImpl>> {
   }
 }
 
-#[derive(Default)]
 pub struct AttributesMeshEntityDefaultRenderImplProvider {
   multi_access: QueryToken,
   vertex: QueryToken,
   index: QueryToken,
+  foreign_implementation_semantics: std::sync::Arc<dyn Fn(u32, &mut ShaderVertexBuilder)>,
+}
+
+impl AttributesMeshEntityDefaultRenderImplProvider {
+  pub fn new(
+    foreign_implementation_semantics: std::sync::Arc<dyn Fn(u32, &mut ShaderVertexBuilder)>,
+  ) -> Self {
+    Self {
+      foreign_implementation_semantics,
+      multi_access: Default::default(),
+      vertex: Default::default(),
+      index: Default::default(),
+    }
+  }
 }
 
 impl QueryBasedFeature<Box<dyn GLESModelShapeRenderImpl>>
@@ -74,6 +87,7 @@ impl QueryBasedFeature<Box<dyn GLESModelShapeRenderImpl>>
       },
       count: global_entity_component_of::<SceneBufferViewBufferItemCount<AttributeIndexRef>>()
         .read(),
+      foreign_implementation_semantics: self.foreign_implementation_semantics.clone(),
     })
   }
 }
@@ -84,6 +98,7 @@ pub struct AttributesMeshEntityDefaultRenderImpl {
   count: ComponentReadView<SceneBufferViewBufferItemCount<AttributeIndexRef>>,
   index: BoxedDynValueRefQuery<EntityHandle<AttributesMeshEntity>, GPUBufferResourceView>,
   vertex: AttributesMeshEntityVertexAccessView,
+  foreign_implementation_semantics: std::sync::Arc<dyn Fn(u32, &mut ShaderVertexBuilder)>,
 }
 
 impl GLESModelShapeRenderImpl for AttributesMeshEntityDefaultRenderImpl {
@@ -111,6 +126,7 @@ impl GLESModelShapeRenderImpl for AttributesMeshEntityDefaultRenderImpl {
       index,
       mesh_id,
       vertex: &self.vertex,
+      foreign_implementation_semantics: self.foreign_implementation_semantics.clone(),
     };
 
     let cmd = gpu.draw_command();

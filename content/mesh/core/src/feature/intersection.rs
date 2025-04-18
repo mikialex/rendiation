@@ -103,8 +103,6 @@ pub trait IntersectAbleGroupedMesh {
   ) -> OptionalNearest<MeshBufferHitPoint>;
 }
 
-define_dyn_trait_downcaster_static!(IntersectAbleGroupedMesh);
-
 impl<T> IntersectAbleGroupedMesh for GroupedMesh<T>
 where
   T: IntersectAbleAbstractMesh + AbstractMesh + GPUConsumableMeshBuffer,

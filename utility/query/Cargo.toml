@@ -4,7 +4,6 @@ name = "query"
 version = "0.0.1"
 
 [dependencies]
-dyn-downcast = { path = "../dyn-downcast" }
 fast-hash-collection = { path = "../fast-hash-collection" }
 dyn-clone = { workspace = true }
 dashmap = { workspace = true }
