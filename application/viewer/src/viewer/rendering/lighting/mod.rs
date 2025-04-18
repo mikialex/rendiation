@@ -99,6 +99,7 @@ impl LightSystem {
           .into_boxed(),
         bias: global_watch()
           .watch_untyped_key::<BasicShadowMapBiasOf<DirectionLightBasicShadowInfo>>()
+          .collective_map(|v| v.into())
           .into_boxed(),
         enabled: global_watch()
           .watch_untyped_key::<BasicShadowMapEnabledOf<DirectionLightBasicShadowInfo>>()
@@ -136,6 +137,7 @@ impl LightSystem {
           .into_boxed(),
         bias: global_watch()
           .watch_untyped_key::<BasicShadowMapBiasOf<SpotLightBasicShadowInfo>>()
+          .collective_map(|v| v.into())
           .into_boxed(),
         enabled: global_watch()
           .watch_untyped_key::<BasicShadowMapEnabledOf<SpotLightBasicShadowInfo>>()

@@ -35,10 +35,12 @@ where
       .get(idx as usize)
       .map(|r| r as *const _ as DataPtr)
   }
-  fn debug_value(&self, idx: u32) -> Option<String> {
-    let data = self.get(idx)?;
-    let data = unsafe { &*(data as *const T) };
-    format!("{:#?}", data).into()
+  fn get_as_dyn_storage(&self, idx: u32) -> Option<&dyn DataBaseDataTypeDyn> {
+    self
+      .deref()
+      .data
+      .get(idx as usize)
+      .map(|r| r as &dyn DataBaseDataTypeDyn)
   }
 
   fn fast_serialize_all(&self) -> Vec<u8> {
@@ -50,7 +52,10 @@ where
   }
 }
 
-impl<T: CValue> ComponentStorageReadWriteView for LockWriteGuardHolder<DBDefaultLinearStorage<T>> {
+impl<T> ComponentStorageReadWriteView for LockWriteGuardHolder<DBDefaultLinearStorage<T>>
+where
+  T: DataBaseDataType,
+{
   fn notify_start_mutation(&mut self, event: &mut Source<ChangePtr>) {
     let message = ScopedValueChange::<T>::Start;
     event.emit(&(&message as *const _ as ChangePtr));
@@ -63,6 +68,13 @@ impl<T: CValue> ComponentStorageReadWriteView for LockWriteGuardHolder<DBDefault
   fn get(&self, idx: u32) -> Option<DataPtr> {
     let data: &Vec<T> = &self.data;
     data.get(idx as usize).map(|r| r as *const _ as DataPtr)
+  }
+
+  fn get_as_dyn_storage(&self, idx: u32) -> Option<&dyn DataBaseDataTypeDyn> {
+    let data: &Vec<T> = &self.data;
+    data
+      .get(idx as usize)
+      .map(|r| r as &dyn DataBaseDataTypeDyn)
   }
 
   fn set_value(
