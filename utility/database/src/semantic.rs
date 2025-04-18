@@ -20,7 +20,7 @@ pub trait EntityAssociateSemantic: Any + Send + Sync {
 
 /// Statically associate entity semantic, component semantic and component type
 pub trait ComponentSemantic: EntityAssociateSemantic {
-  type Data: CValue + Default + Facet;
+  type Data: CValue + Default;
 
   /// Even if the Data has Default bound, user may still define custom default value
   /// for each different component type.

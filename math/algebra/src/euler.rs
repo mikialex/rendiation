@@ -9,7 +9,7 @@ pub struct Euler<T> {
   order: EulerOrder,
 }
 
-#[repr(u8)]
+#[repr(C)]
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Facet)]
 pub enum EulerOrder {
   XYZ,

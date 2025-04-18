@@ -31,7 +31,7 @@ declare_component!(
   SceneAnimationField
 );
 
-#[repr(u8)]
+#[repr(C)]
 #[derive(Clone, Copy, PartialEq, Debug, Default, Facet)]
 pub enum InterpolationStyle {
   #[default]
@@ -40,7 +40,7 @@ pub enum InterpolationStyle {
   Cubic,
 }
 
-#[repr(u8)]
+#[repr(C)]
 #[derive(Clone, Copy, PartialEq, Debug, Default, Facet)]
 pub enum SceneAnimationField {
   #[default]
