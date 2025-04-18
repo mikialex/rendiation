@@ -24,6 +24,7 @@ pub use mat::*;
 pub use num_traits::Zero;
 use num_traits::*;
 pub use projection::*;
+use serde::*;
 pub use shader_aligned::*;
 pub use vec::*;
 

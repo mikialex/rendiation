@@ -7,10 +7,12 @@ use std::{
 
 use facet::*;
 
+use crate::*;
 // use facet::*;
 use crate::{Arena, Entry};
 
 #[derive(Facet)]
+#[derive(Serialize, Deserialize)]
 pub struct Handle<T> {
   pub(crate) handle: usize,
   pub(crate) generation: u64,

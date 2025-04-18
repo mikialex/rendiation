@@ -9,6 +9,7 @@ num-traits = "0.2"
 dyn-clone = { workspace = true }
 paste = { workspace = true }
 facet = { workspace = true }
+serde = { workspace = true }
 
 
 [dev-dependencies]

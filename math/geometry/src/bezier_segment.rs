@@ -4,6 +4,7 @@ pub type QuadraticBezierSegment<V> = SpaceLineSegment<V, QuadraticBezierShape<V>
 pub type QuadraticBezierSegment2D<T> = QuadraticBezierSegment<Vec2<T>>;
 
 #[derive(Facet)]
+#[derive(Serialize, Deserialize)]
 pub struct QuadraticBezierShape<V> {
   pub ctrl: V,
 }

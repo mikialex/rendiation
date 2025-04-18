@@ -1,5 +1,6 @@
 use crate::*;
 
+#[derive(Serialize, Deserialize)]
 #[derive(Copy, Clone, Facet)]
 pub struct Frustum<T: Scalar = f32> {
   planes: [Plane<T>; 6],

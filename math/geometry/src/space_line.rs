@@ -1,6 +1,7 @@
 use crate::*;
 
 #[repr(C)]
+#[derive(Serialize, Deserialize)]
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Facet)]
 pub struct SpaceLineSegment<U, X> {
   pub start: U,

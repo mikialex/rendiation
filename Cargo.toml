@@ -83,6 +83,7 @@ resolver = "2"
 
 # https://rust-lang.github.io/rfcs/2906-cargo-workspace-deduplicate.html
 [workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
 facet = "0.9"
 rayon = "1.7.0"
 bitflags = "2.2"
@@ -107,7 +108,7 @@ thiserror = "1.0.43"
 anyhow = "1.0.93"
 parking_lot = { version = "0.12.1", features = ["send_guard"] }
 criterion = { version = "0.5.1", features = ["html_reports"] }
-wgpu-types = "24"
+wgpu-types = { version = "24", features = ["serde"] }
 wgpu = { version = "24", features = ["naga-ir"] }
 naga = { version = "24", features = ["wgsl-out"] }
 

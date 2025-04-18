@@ -1,5 +1,6 @@
 use crate::*;
 
+#[derive(Serialize, Deserialize)]
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Facet)]
 pub struct Point<U>(pub U);
 

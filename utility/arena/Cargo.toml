@@ -10,3 +10,4 @@ workspace = true
 
 [dependencies]
 facet = { workspace = true }
+serde = { workspace = true }

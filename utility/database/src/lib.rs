@@ -15,6 +15,7 @@ pub use facet::*;
 use fast_hash_collection::*;
 use parking_lot::RwLock;
 use reactive::*;
+use serde::*;
 
 mod global;
 pub use global::*;

@@ -10,6 +10,7 @@ pub use merge::*;
 pub use picking::*;
 pub use semantic::*;
 
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Copy, Clone, Default, PartialEq, Eq, Hash, Facet)]
 pub struct BufferViewRange {
   /// in bytes

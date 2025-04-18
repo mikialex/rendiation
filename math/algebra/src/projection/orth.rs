@@ -1,5 +1,6 @@
 use crate::*;
 
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Copy, Clone, PartialEq, Facet)]
 pub struct OrthographicProjection<T> {
   pub left: T,
@@ -41,6 +42,7 @@ impl<T: Scalar> Projection<T> for OrthographicProjection<T> {
   }
 }
 
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Copy, Clone, Facet)]
 pub struct ViewFrustumOrthographicProjection<T> {
   orth: OrthographicProjection<T>,

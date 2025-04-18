@@ -1,11 +1,14 @@
 use crate::*;
 
+#[repr(C)]
+#[derive(Serialize, Deserialize, Facet)]
 pub enum FaceSide {
   Front,
   Back,
   Double,
 }
 
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Facet)]
 pub struct Triangle<V = Vec3<f32>> {
   pub a: V,

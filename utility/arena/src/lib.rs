@@ -4,6 +4,8 @@ use core::ops;
 use core::slice;
 use std::{marker::PhantomData, vec};
 
+use serde::*;
+
 mod handle;
 pub use handle::*;
 mod iter;

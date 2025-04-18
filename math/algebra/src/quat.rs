@@ -4,6 +4,7 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 use crate::*;
 
 #[repr(C)]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq, Facet)]
 pub struct Quat<T> {
   pub x: T,

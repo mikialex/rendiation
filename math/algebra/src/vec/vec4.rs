@@ -4,6 +4,7 @@ use std::{fmt::Debug, ops::*};
 use crate::*;
 
 #[repr(C)]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq, Facet)]
 pub struct Vec4<T> {
   pub x: T,

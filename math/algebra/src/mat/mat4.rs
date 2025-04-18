@@ -3,6 +3,7 @@ use std::ops::{Add, Div, Mul};
 use crate::*;
 
 #[repr(C)]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq, Facet)]
 #[rustfmt::skip]
 pub struct Mat4<T> {

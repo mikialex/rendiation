@@ -3,6 +3,7 @@ use bytemuck::*;
 use crate::*;
 
 /// A host shareable(32 bits) `bool` type used in shader code. aka "Big Bool"
+#[derive(Serialize, Deserialize)]
 #[derive(Clone, Copy, Eq, PartialEq, Zeroable, Pod, Default, Hash, Facet)]
 #[repr(transparent)]
 pub struct Bool(pub u32);
@@ -29,6 +30,7 @@ impl Debug for Bool {
 
 #[repr(C)]
 #[rustfmt::skip]
+#[derive(Serialize, Deserialize)]
 #[derive(Clone, Copy, Zeroable, Pod, PartialEq, Default, Debug, Facet)]
 pub struct Shader16PaddedMat3 {
   pub a1: f32, pub a2: f32, pub a3: f32, _pad1: f32,
@@ -61,6 +63,7 @@ impl From<Shader16PaddedMat3> for Mat3<f32> {
 
 #[repr(C)]
 #[rustfmt::skip]
+#[derive(Serialize, Deserialize)]
 #[derive(Clone, Copy, Zeroable, Pod, PartialEq, Default, Debug, Facet)]
 pub struct Shader16PaddedMat2 {
   pub a1:f32, pub a2:f32, _pad1: [f32; 2],
