@@ -38,6 +38,29 @@ impl<E: EntitySemantic> EntityReader<E> {
       .map(|h| unsafe { EntityHandle::from_raw(h) })
   }
 
+  pub fn get<C>(&self, idx: EntityHandle<C::Entity>) -> &C::Data
+  where
+    C: ComponentSemantic<Entity = E>,
+  {
+    self.try_get::<C>(idx).unwrap()
+  }
+
+  pub fn try_get<C>(&self, idx: EntityHandle<C::Entity>) -> Option<&C::Data>
+  where
+    C: ComponentSemantic<Entity = E>,
+  {
+    for (id, view) in &self.inner.components {
+      if *id == C::component_id() {
+        unsafe {
+          let data_ptr = view.get(idx.handle)?;
+          let data_ptr: &C::Data = &*(data_ptr as *const C::Data);
+          return Some(data_ptr);
+        }
+      }
+    }
+    None
+  }
+
   pub fn read<C>(&self, idx: EntityHandle<C::Entity>) -> C::Data
   where
     C: ComponentSemantic<Entity = E>,
@@ -49,16 +72,7 @@ impl<E: EntitySemantic> EntityReader<E> {
   where
     C: ComponentSemantic<Entity = E>,
   {
-    for (id, view) in &self.inner.components {
-      if *id == C::component_id() {
-        unsafe {
-          let data_ptr = view.get(idx.handle)?;
-          let data_ptr: &C::Data = &*(data_ptr as *const C::Data);
-          return Some(data_ptr.clone());
-        }
-      }
-    }
-    None
+    self.try_get::<C>(idx).cloned()
   }
 
   pub fn try_read_foreign_key<C>(

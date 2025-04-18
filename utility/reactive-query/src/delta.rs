@@ -1,3 +1,6 @@
+use crate::*;
+
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Clone, Copy, PartialEq, Hash, Eq)]
 pub enum ValueChange<V> {
   // k, new_v, pre_v

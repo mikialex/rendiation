@@ -15,7 +15,7 @@ rendiation-lighting-transport = { path = "../transport" }
 rendiation-lighting-gpu-system = { path = "../gpu-system/lighting-system" }
 
 [dev-dependencies]
-bytemuck = { workspace = true, features = ["derive"] }
+bytemuck = { workspace = true }
 pollster = { workspace = true }
 rendiation-texture-loader = { path = "../../texture/loader" }
 image = "*"

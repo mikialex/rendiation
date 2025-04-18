@@ -4,7 +4,7 @@ name = "rendiation-geometry"
 version = "0.1.0"
 
 [dependencies]
-bytemuck = { workspace = true, features = ["derive"] }
+bytemuck = { workspace = true }
 rendiation-algebra = { path = "../algebra" }
 facet = { workspace = true }
 serde = { workspace = true }

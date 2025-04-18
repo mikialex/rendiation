@@ -5,7 +5,7 @@ name = "viewer"
 version = "0.1.0"
 
 [dependencies]
-bytemuck = { workspace = true, features = ["derive"] }
+bytemuck = { workspace = true }
 env_logger = "0.8.4"
 futures = { workspace = true, features = ["thread-pool"] }
 

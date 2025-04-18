@@ -3272,6 +3272,7 @@ dependencies = [
  "query",
  "reactive-stream",
  "rendiation-abstract-tree",
+ "serde",
  "smallvec",
  "storage",
  "tracing",
@@ -4136,6 +4137,10 @@ dependencies = [
 [[package]]
 name = "rendiation-texture-types"
 version = "0.1.0"
+dependencies = [
+ "facet",
+ "serde",
+]
 
 [[package]]
 name = "rendiation-view-override-model"

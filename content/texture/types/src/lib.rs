@@ -3,8 +3,12 @@ use std::{
   ops::Mul,
 };
 
+use facet::*;
+use serde::*;
+
 /// Represent a none zero size(width/height)
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[derive(Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Facet)]
 pub struct Size {
   pub width: NonZeroUsize,
   pub height: NonZeroUsize,

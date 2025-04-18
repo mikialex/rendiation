@@ -13,7 +13,7 @@ pub struct ComponentCollectionUntyped {
 
   /// watch this component all change with idx
   ///
-  /// the type of `ChangePtr` is `ScopedValueChange<DataType>`, the lifetime of the ptr is only valid
+  /// the type of [ChangePtr] is [ScopedValueChange<DataType>], the lifetime of the ptr is only valid
   /// in the callback scope.
   pub(crate) data_watchers: EventSource<ChangePtr>,
 

@@ -10,7 +10,7 @@ rendiation-algebra = { path = "../../../math/algebra" }
 rendiation-geometry = { path = "../../../math/geometry" }
 rendiation-texture-types = { path = "../types" }
 wgpu-types = { workspace = true }
-bytemuck = { workspace = true, features = ["derive"] }
+bytemuck = { workspace = true }
 facet = { workspace = true }
 serde = { workspace = true }
 

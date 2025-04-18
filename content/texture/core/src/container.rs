@@ -75,7 +75,8 @@ impl<P: Copy + Default> Texture2dInitAble for Texture2DBuffer<P> {
   }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct GPUBufferImage {
   pub data: Vec<u8>,
   pub format: TextureFormat,
