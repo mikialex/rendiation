@@ -1,7 +1,8 @@
-use rendiation_algebra::Scalar;
+use crate::*;
 
 /// How edges should be handled in texture addressing.
 #[repr(C)]
+#[derive(Serialize, Deserialize)]
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub enum AddressMode {
   /// Clamp the value to the edge of the texture

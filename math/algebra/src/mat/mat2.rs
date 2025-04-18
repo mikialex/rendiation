@@ -6,6 +6,7 @@ use crate::*;
 
 #[repr(C)]
 #[rustfmt::skip]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq, Facet)]
 pub struct Mat2<T> {
   pub a1: T, pub a2: T,

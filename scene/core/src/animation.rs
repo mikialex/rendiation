@@ -32,6 +32,7 @@ declare_component!(
 );
 
 #[repr(C)]
+#[derive(Serialize, Deserialize)]
 #[derive(Clone, Copy, PartialEq, Debug, Default, Facet)]
 pub enum InterpolationStyle {
   #[default]
@@ -41,6 +42,7 @@ pub enum InterpolationStyle {
 }
 
 #[repr(C)]
+#[derive(Serialize, Deserialize)]
 #[derive(Clone, Copy, PartialEq, Debug, Default, Facet)]
 pub enum SceneAnimationField {
   #[default]

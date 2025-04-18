@@ -158,6 +158,7 @@ name = "arena"
 version = "0.0.1"
 dependencies = [
  "facet",
+ "serde",
 ]
 
 [[package]]
@@ -945,6 +946,7 @@ dependencies = [
  "futures",
  "parking_lot",
  "reactive",
+ "serde",
  "smallvec",
  "storage",
 ]
@@ -3385,6 +3387,7 @@ dependencies = [
  "facet",
  "num-traits",
  "paste",
+ "serde",
 ]
 
 [[package]]
@@ -3537,6 +3540,7 @@ dependencies = [
  "bytemuck",
  "facet",
  "rendiation-algebra",
+ "serde",
 ]
 
 [[package]]
@@ -3692,6 +3696,7 @@ dependencies = [
  "rendiation-geometry",
  "rendiation-shader-api",
  "rendiation-space-algorithm",
+ "serde",
  "smallvec",
 ]
 
@@ -3803,6 +3808,7 @@ dependencies = [
  "rendiation-geometry",
  "rendiation-mesh-core",
  "rendiation-texture-core",
+ "serde",
  "smallvec",
 ]
 
@@ -4063,6 +4069,7 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-texture-types",
+ "serde",
  "wgpu-types",
 ]
 
@@ -5436,6 +5443,7 @@ dependencies = [
  "bitflags 2.8.0",
  "js-sys",
  "log",
+ "serde",
  "web-sys",
 ]
 

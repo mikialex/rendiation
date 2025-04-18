@@ -24,6 +24,7 @@ database = { path = "../../utility/database" }
 reactive-derive = { path = "../../utility/reactive-derive" }
 parking_lot = { workspace = true }
 facet = { workspace = true }
+serde = { workspace = true }
 
 [lints]
 workspace = true

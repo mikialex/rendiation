@@ -1,5 +1,6 @@
 use crate::*;
 
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Copy, Clone, PartialEq, Facet)]
 pub struct PerspectiveProjection<T> {
   pub near: T,

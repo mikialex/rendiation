@@ -1,4 +1,4 @@
-use rendiation_algebra::{Lerp, Scalar};
+use crate::*;
 
 /// Texel mixing mode when sampling between texels.
 pub trait TextureFilterMode<T: Scalar, P> {
@@ -6,6 +6,7 @@ pub trait TextureFilterMode<T: Scalar, P> {
   fn interpolate(t: T, one: P, other: P) -> P;
 }
 
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum FilterMode {
   Nearest,

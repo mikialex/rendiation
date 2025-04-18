@@ -1,5 +1,6 @@
 use crate::*;
 
+#[derive(Serialize, Deserialize)]
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Facet)]
 pub struct HyperAABB<V> {
   pub min: V,

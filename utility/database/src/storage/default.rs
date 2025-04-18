@@ -7,7 +7,7 @@ pub struct DBDefaultLinearStorage<T> {
   pub default_value: T,
 }
 
-impl<T: CValue> ComponentStorage for Arc<RwLock<DBDefaultLinearStorage<T>>> {
+impl<T: DataBaseDataType> ComponentStorage for Arc<RwLock<DBDefaultLinearStorage<T>>> {
   fn create_read_view(&self) -> Box<dyn ComponentStorageReadView> {
     Box::new(self.make_read_holder())
   }

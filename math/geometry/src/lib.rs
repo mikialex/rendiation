@@ -8,6 +8,7 @@ use std::ops::{Deref, DerefMut};
 
 use facet::*;
 use rendiation_algebra::*;
+use serde::*;
 
 mod dimension3;
 pub use dimension3::*;

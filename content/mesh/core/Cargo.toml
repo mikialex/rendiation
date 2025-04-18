@@ -18,6 +18,7 @@ reactive = { path = "../../../utility/reactive" }
 rendiation-shader-api = { path = "../../../shader/api" }
 smallvec = { workspace = true }
 facet = { workspace = true }
+serde = { workspace = true }
 
 [lints]
 workspace = true

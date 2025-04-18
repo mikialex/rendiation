@@ -27,5 +27,6 @@ pub use group::*;
 pub use primitive::*;
 use rendiation_algebra::*;
 use rendiation_geometry::*;
+use serde::*;
 use smallvec::SmallVec;
 pub use utils::*;

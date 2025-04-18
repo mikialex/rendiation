@@ -1,6 +1,7 @@
 use crate::*;
 
 #[repr(C)]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq, Facet)]
 pub struct Euler<T> {
   x: T,
@@ -10,6 +11,7 @@ pub struct Euler<T> {
 }
 
 #[repr(C)]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Facet)]
 pub enum EulerOrder {
   XYZ,

@@ -1,5 +1,6 @@
 use crate::*;
 
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Facet)]
 pub struct HyperRay<T: Scalar, V> {
   pub origin: V,

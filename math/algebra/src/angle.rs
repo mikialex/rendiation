@@ -5,6 +5,7 @@ use crate::*;
 ///
 /// We do not impl any function on it, especially trigonometric function which is only
 /// meaningful for rad unit, and we consider the common scalar angle unit type is rad.
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq, Facet)]
 pub struct Deg<T> {
   pub value: T,

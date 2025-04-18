@@ -6,6 +6,31 @@ pub use default::*;
 pub type DataPtr = *const ();
 pub type DataMutPtr = *const ();
 
+pub trait DataBaseDataType: CValue + Default {
+  fn fast_serialize(&self, target: &mut dyn std::io::Write);
+  fn fast_deserialize(&mut self, source: &mut dyn std::io::Read);
+  fn shape() -> &'static facet::Shape;
+}
+
+impl<T> DataBaseDataType for T
+where
+  T: CValue + Default,
+  // T: Facet,
+  // T: Serialize + for<'a> Deserialize<'a>,
+{
+  fn fast_serialize(&self, _: &mut dyn std::io::Write) {
+    unimplemented!()
+  }
+
+  fn fast_deserialize(&mut self, _: &mut dyn std::io::Read) {
+    unimplemented!()
+  }
+
+  fn shape() -> &'static facet::Shape {
+    unimplemented!()
+  }
+}
+
 /// This trait encapsulate the implementation of component storage.
 /// For different kinds of component, we can have different storage implementation.
 /// For example. If the component data is sparse, we could using hashmap as the storage

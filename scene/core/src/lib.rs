@@ -6,6 +6,7 @@ use rendiation_algebra::*;
 use rendiation_geometry::*;
 use rendiation_mesh_core::*;
 use rendiation_texture_core::*;
+use serde::*;
 
 mod animation;
 mod buffer;

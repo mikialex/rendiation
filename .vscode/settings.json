@@ -157,6 +157,7 @@
         "scenegraph",
         "sceno",
         "schlick",
+        "serde",
         "shadergraph",
         "shadowmap",
         "sinc",
