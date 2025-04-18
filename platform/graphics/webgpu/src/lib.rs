@@ -32,7 +32,6 @@ use std::{
 pub use binding::*;
 use bytemuck::*;
 pub use device::*;
-use dyn_downcast::*;
 pub use encoder::*;
 use fast_hash_collection::*;
 pub use frame::*;

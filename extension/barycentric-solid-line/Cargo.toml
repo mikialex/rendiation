@@ -12,7 +12,6 @@ rendiation-shader-api = { path = "../../shader/api" }
 rendiation-mesh-core = { path = "../../content/mesh/core" }
 rendiation-scene-rendering-gpu-gles = { path = "../../scene/rendering/gpu-gles" }
 bytemuck = { workspace = true }
-dyn-downcast = { path = "../../utility/dyn-downcast" }
 
 [lints]
 workspace = true

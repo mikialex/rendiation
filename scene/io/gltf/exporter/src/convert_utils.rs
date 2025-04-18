@@ -69,6 +69,6 @@ pub fn map_semantic_att(att: &AttributeSemantic) -> Option<(gltf_json::mesh::Sem
     AttributeSemantic::TexCoords(v) => (gltf_json::mesh::Semantic::TexCoords(*v), gltf_json::accessor::ComponentType::F32, gltf_json::accessor::Type::Vec2),
     AttributeSemantic::Joints(v) => (gltf_json::mesh::Semantic::Joints(*v), gltf_json::accessor::ComponentType::F32, gltf_json::accessor::Type::Scalar), // todo check spec
     AttributeSemantic::Weights(v) => (gltf_json::mesh::Semantic::Weights(*v), gltf_json::accessor::ComponentType::F32, gltf_json::accessor::Type::Vec4), // todo check spec
-    AttributeSemantic::Foreign(_) => return None, 
+    AttributeSemantic::Foreign{..} => return None, 
   }.into()
 }

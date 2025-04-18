@@ -1,6 +1,5 @@
 use core::hash::{Hash, Hasher};
 
-use dyn_downcast::*;
 use rendiation_algebra::*;
 use rendiation_geometry::*;
 use rendiation_mesh_core::*;
@@ -35,16 +34,22 @@ impl Hash for FullReaderReadWithBarycentric<'_> {
   }
 }
 
+pub const BARYCENTRIC_COORD_SEMANTIC_ID: u32 = 100;
+
+pub fn barycentric_shader_inject(id: u32, vertex: &mut ShaderVertexBuilder) {
+  if id == BARYCENTRIC_COORD_SEMANTIC_ID {
+    vertex.push_single_vertex_layout::<BarycentricCoord>(VertexStepMode::Vertex);
+  }
+}
+
 impl AttributeVertex for FullReaderReadWithBarycentric<'_> {
   fn layout(&self) -> Vec<AttributeSemantic> {
     let mut inner = self.inner.layout();
 
-    get_dyn_trait_downcaster_static!(CustomAttributeKeyGPU)
-      .register::<BarycentricCoordAttributeKey>();
-
-    inner.push(AttributeSemantic::Foreign(ForeignAttributeKey::new(
-      BarycentricCoordAttributeKey,
-    )));
+    inner.push(AttributeSemantic::Foreign {
+      implementation_id: BARYCENTRIC_COORD_SEMANTIC_ID,
+      item_byte_size: 3 * 4,
+    });
     inner
   }
 
@@ -86,23 +91,6 @@ pub fn generate_barycentric_buffer_and_expanded_mesh(mesh: AttributesMesh) -> At
       )
     })
     .collect()
-}
-
-#[derive(Clone, Copy)]
-struct BarycentricCoordAttributeKey;
-
-type_as_dyn_trait!(BarycentricCoordAttributeKey, AttributeReadSchema);
-impl AttributeReadSchema for BarycentricCoordAttributeKey {
-  fn item_byte_size(&self) -> usize {
-    3 * 4
-  }
-}
-
-type_as_dyn_trait!(BarycentricCoordAttributeKey, CustomAttributeKeyGPU);
-impl CustomAttributeKeyGPU for BarycentricCoordAttributeKey {
-  fn inject_shader(&self, builder: &mut ShaderVertexBuilder) {
-    builder.push_single_vertex_layout::<BarycentricCoord>(VertexStepMode::Vertex);
-  }
 }
 
 pub struct SolidLinedMeshGPU<'a> {

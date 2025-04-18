@@ -7,7 +7,6 @@ version = "0.1.0"
 [dependencies]
 rendiation-geometry = { path = "../../../math/geometry" }
 database = { path = "../../../utility/database" }
-dyn-downcast = { path = "../../../utility/dyn-downcast" }
 fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 log = { workspace = true }
 rendiation-algebra = { path = "../../../math/algebra" }

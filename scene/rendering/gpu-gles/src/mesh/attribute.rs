@@ -1,4 +1,3 @@
-use dyn_downcast::*;
 use rendiation_mesh_core::*;
 
 use crate::*;
@@ -82,6 +81,7 @@ pub struct AttributesMeshGPU<'a> {
   pub index: Option<(AttributeIndexFormat, u32, &'a GPUBufferResourceView)>,
   pub mesh_id: EntityHandle<AttributesMeshEntity>,
   pub vertex: &'a AttributesMeshEntityVertexAccessView,
+  pub foreign_implementation_semantics: std::sync::Arc<dyn Fn(u32, &mut ShaderVertexBuilder)>,
 }
 
 impl ShaderPassBuilder for AttributesMeshGPU<'_> {
@@ -97,11 +97,6 @@ impl ShaderPassBuilder for AttributesMeshGPU<'_> {
     }
   }
 }
-
-pub trait CustomAttributeKeyGPU {
-  fn inject_shader(&self, builder: &mut ShaderVertexBuilder);
-}
-define_dyn_trait_downcaster_static!(CustomAttributeKeyGPU);
 
 impl ShaderHashProvider for AttributesMeshGPU<'_> {
   shader_hash_type_id! {AttributesMeshGPU<'static>}
@@ -150,14 +145,10 @@ impl GraphicsShaderProvider for AttributesMeshGPU<'_> {
             3 => builder.push_single_vertex_layout::<WeightChannel<3>>(mode),
             _ => builder.error(ShaderBuildError::SemanticNotSupported),
           },
-          AttributeSemantic::Foreign(key) => {
-            if let Some(v) = get_dyn_trait_downcaster_static!(CustomAttributeKeyGPU)
-              .downcast_ref(key.implementation.as_ref())
-            {
-              v.inject_shader(builder)
-            } else {
-              builder.error(ShaderBuildError::SemanticNotSupported)
-            }
+          AttributeSemantic::Foreign {
+            implementation_id, ..
+          } => {
+            (self.foreign_implementation_semantics)(*implementation_id, builder);
           }
         }
       }

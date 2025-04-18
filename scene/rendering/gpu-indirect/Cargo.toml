@@ -6,7 +6,6 @@ version = "0.1.0"
 
 [dependencies]
 fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
-dyn-downcast = { path = "../../../utility/dyn-downcast" }
 database = { path = "../../../utility/database" }
 log = { workspace = true }
 parking_lot = { workspace = true }

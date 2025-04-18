@@ -82,6 +82,7 @@ pub fn init_renderer(
         prefer_bindless_textures,
         camera_source,
         enable_reverse_z,
+        std::sync::Arc::new(|_, _| {}),
       )) as BoxedSceneRenderImplProvider
     }
     RasterizationRenderBackendType::Indirect => {
