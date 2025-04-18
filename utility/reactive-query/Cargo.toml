@@ -19,6 +19,7 @@ rendiation-abstract-tree = { path = "../abstract-tree" }
 xalloc = "0.2.7"
 reactive-stream = { path = "../reactive-stream" }
 parking_lot = { workspace = true }
+serde = { workspace = true }
 
 [lints]
 workspace = true

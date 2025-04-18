@@ -35,14 +35,29 @@ pub enum ScopedMessage<T> {
 
 pub type ScopedValueChange<T> = ScopedMessage<IndexValueChange<T>>;
 
+#[derive(Serialize, Deserialize)]
 pub struct IndexValueChange<T> {
   pub idx: RawEntityHandle,
   pub change: ValueChange<T>,
 }
 
-/// This struct use ptr equality as PartialEq impl compare to Arc
+/// This struct servers two purposes:
 ///
-/// User should use this instead of Arc to ensure good performance in delta propagation
+/// 1. use ptr equality as PartialEq impl compare to Arc to ensure good performance
+///    in delta propagation
+/// 2. enable user to get a shared reference to the data inside the db, so that
+///    user can share the arc data between the db and their arc's structure.
+///    This is necessary because the existing api is not related and should not to the
+///    db view. for example the attribute mesh view can be cheaply constructed from
+///    the db view.
+///
+/// Importance notice: User should not share the data using this arc ptr, the data will
+/// be get cloned after serialization and deserialization. Currently we do not impose
+/// any checking for this. User should assume the different ptr inside the db is always
+/// different.
+///
+/// todo, implement some kind of version token to check the quality
+#[derive(Serialize, Deserialize)]
 #[derive(Default, Facet)]
 pub struct ExternalRefPtr<T> {
   pub ptr: Arc<T>,

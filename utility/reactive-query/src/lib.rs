@@ -21,6 +21,7 @@ use futures::{Stream, StreamExt};
 use parking_lot::lock_api::RawRwLock;
 use parking_lot::RwLock;
 pub use query::*;
+use serde::*;
 use storage::IndexKeptVec;
 
 mod generic_query;

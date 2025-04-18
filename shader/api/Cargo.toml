@@ -5,7 +5,7 @@ name = "rendiation-shader-api"
 version = "0.1.0"
 
 [dependencies]
-bytemuck = { workspace = true, features = ["derive"] }
+bytemuck = { workspace = true }
 fast-hash-collection = { path = "../../utility/fast-hash-collection" }
 once_cell = { workspace = true }
 paste = { workspace = true }

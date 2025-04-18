@@ -4,7 +4,7 @@ name = "rendiation-scene-gltf-loader"
 version = "0.0.1"
 
 [dependencies]
-bytemuck = { workspace = true, features = ["derive"] }
+bytemuck = { workspace = true }
 fast-hash-collection = { path = "../../../../utility/fast-hash-collection" }
 gltf = { version = "1.2.0", features = [
     "KHR_materials_pbrSpecularGlossiness",

@@ -40,12 +40,12 @@ impl EntityComponentGroup {
 
 pub struct DatabaseSerializationComponentResult {
   pub data: Vec<u8>,
-  pub index: Vec<Option<usize>>,
 }
 
 impl ComponentCollectionUntyped {
   pub fn serialize(&self) -> DatabaseSerializationComponentResult {
-    todo!()
+    let data = self.read_untyped().data.fast_serialize_all();
+    DatabaseSerializationComponentResult { data }
   }
 }
 

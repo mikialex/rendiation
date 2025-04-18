@@ -4,7 +4,7 @@ name = "rendiation-algebra"
 version = "1.0.0"
 
 [dependencies]
-bytemuck = { workspace = true, features = ["derive"] }
+bytemuck = { workspace = true }
 num-traits = "0.2"
 dyn-clone = { workspace = true }
 paste = { workspace = true }

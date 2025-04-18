@@ -24,7 +24,10 @@ impl<T: DataBaseDataType> ComponentStorage for Arc<RwLock<DBDefaultLinearStorage
   }
 }
 
-impl<T: CValue> ComponentStorageReadView for LockReadGuardHolder<DBDefaultLinearStorage<T>> {
+impl<T> ComponentStorageReadView for LockReadGuardHolder<DBDefaultLinearStorage<T>>
+where
+  T: DataBaseDataType,
+{
   fn get(&self, idx: u32) -> Option<DataPtr> {
     self
       .deref()
@@ -36,6 +39,14 @@ impl<T: CValue> ComponentStorageReadView for LockReadGuardHolder<DBDefaultLinear
     let data = self.get(idx)?;
     let data = unsafe { &*(data as *const T) };
     format!("{:#?}", data).into()
+  }
+
+  fn fast_serialize_all(&self) -> Vec<u8> {
+    let mut init = Vec::<u8>::with_capacity(self.data.len() * std::mem::size_of::<T>());
+    self.data.iter().for_each(|data| {
+      data.fast_serialize(&mut init);
+    });
+    init
   }
 }
 
@@ -126,5 +137,9 @@ impl<T: CValue> ComponentStorageReadWriteView for LockWriteGuardHolder<DBDefault
     let data = self.get(idx)?;
     let data = unsafe { &*(data as *const T) };
     format!("{:#?}", data).into()
+  }
+
+  fn fast_deserialize_all(&mut self, _: &[u8], _: usize) {
+    //
   }
 }

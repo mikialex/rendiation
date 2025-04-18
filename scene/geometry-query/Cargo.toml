@@ -12,7 +12,7 @@ rendiation-texture-core = { path = "../../content/texture/core" }
 rendiation-scene-core = { path = "../core" }
 reactive = { path = "../../utility/reactive" }
 database = { path = "../../utility/database" }
-bytemuck = { workspace = true, features = ["derive"] }
+bytemuck = { workspace = true }
 
 [lints]
 workspace = true

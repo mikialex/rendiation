@@ -13,7 +13,7 @@ rendiation-lighting-transport = { path = "../transport" }
 
 [dev-dependencies]
 half = { version = "*", features = ["bytemuck"] }
-bytemuck = { workspace = true, features = ["derive"] }
+bytemuck = { workspace = true }
 
 [lints]
 workspace = true

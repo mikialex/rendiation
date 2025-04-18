@@ -7,8 +7,8 @@ pub type DataPtr = *const ();
 pub type DataMutPtr = *const ();
 
 pub trait DataBaseDataType: CValue + Default {
-  fn fast_serialize(&self, target: &mut dyn std::io::Write);
-  fn fast_deserialize(&mut self, source: &mut dyn std::io::Read);
+  fn fast_serialize(&self, target: &mut impl std::io::Write);
+  fn fast_deserialize(&mut self, source: &mut impl std::io::Read);
   fn shape() -> &'static facet::Shape;
 }
 
@@ -18,11 +18,11 @@ where
   // T: Facet,
   // T: Serialize + for<'a> Deserialize<'a>,
 {
-  fn fast_serialize(&self, _: &mut dyn std::io::Write) {
+  fn fast_serialize(&self, _: &mut impl std::io::Write) {
     unimplemented!()
   }
 
-  fn fast_deserialize(&mut self, _: &mut dyn std::io::Read) {
+  fn fast_deserialize(&mut self, _: &mut impl std::io::Read) {
     unimplemented!()
   }
 
@@ -51,6 +51,7 @@ pub trait ComponentStorageReadView: Send + Sync + DynClone {
   fn get(&self, idx: u32) -> Option<DataPtr>;
   /// this function will be removed in future.
   fn debug_value(&self, idx: u32) -> Option<String>;
+  fn fast_serialize_all(&self) -> Vec<u8>;
 }
 dyn_clone::clone_trait_object!(ComponentStorageReadView);
 
@@ -100,4 +101,6 @@ pub trait ComponentStorageReadWriteView {
 
   /// grow the storage to allow more data to stored below the max size address.
   fn grow(&mut self, max: u32);
+
+  fn fast_deserialize_all(&mut self, source: &[u8], count: usize);
 }

@@ -5,7 +5,7 @@ name = "rendiation-scene-rendering-gpu-ray-tracing"
 version = "0.1.0"
 
 [dependencies]
-bytemuck = { workspace = true, features = ["derive"] }
+bytemuck = { workspace = true }
 database = { path = "../../../utility/database" }
 dyn-clone = { workspace = true }
 dyn-downcast = { path = "../../../utility/dyn-downcast" }
