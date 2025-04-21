@@ -73,7 +73,7 @@ where
     data.get_unchecked(idx as usize) as *const _ as DataPtr
   }
 
-  unsafe fn set_value(&mut self, idx: u32, new_value: Option<DataPtr>) -> (DataPtr, DataPtr) {
+  unsafe fn set_value(&mut self, idx: u32, new_value: Option<DataPtr>) -> (DataPtr, DataPtr, bool) {
     let self_ = self.deref_mut();
     let target = self_.data.get_unchecked_mut(idx as usize);
     let source = if let Some(new_value) = new_value {
@@ -85,9 +85,11 @@ where
     self_.old_value_out = target.clone();
     *target = (*source).clone();
 
+    let diff = &self_.old_value_out != target;
+
     let new = target as *const _ as DataPtr;
     let old = &self.old_value_out as *const _ as DataPtr;
-    (new, old)
+    (new, old, diff)
   }
 
   unsafe fn delete(&mut self, idx: u32) -> DataPtr {

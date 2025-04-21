@@ -118,10 +118,10 @@ pub trait ComponentStorageReadWriteView {
 
   /// # Safety
   /// The index must point to living data if old_value_out is Some, otherwise it must be pointer to
-  /// an allocate but not used location. Return (new_value_ptr, old_value_ptr)
+  /// an allocate but not used location. Return (new_value_ptr, old_value_ptr, changed_if_not_init)
   ///
   /// if new_value is None, then, new value should use default value
-  unsafe fn set_value(&mut self, idx: u32, new_value: Option<DataPtr>) -> (DataPtr, DataPtr);
+  unsafe fn set_value(&mut self, idx: u32, new_value: Option<DataPtr>) -> (DataPtr, DataPtr, bool);
 
   /// # Safety
   /// the idx must point to living location, return old value ptr
