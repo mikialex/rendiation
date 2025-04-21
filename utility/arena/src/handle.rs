@@ -21,6 +21,8 @@ pub struct Handle<T> {
 
 unsafe impl<T> Send for Handle<T> {}
 unsafe impl<T> Sync for Handle<T> {}
+unsafe impl<T> bytemuck::Zeroable for Handle<T> {}
+unsafe impl<T: 'static> bytemuck::Pod for Handle<T> {}
 
 impl<T> Display for Handle<T> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

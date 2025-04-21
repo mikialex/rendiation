@@ -157,6 +157,7 @@ dependencies = [
 name = "arena"
 version = "0.0.1"
 dependencies = [
+ "bytemuck",
  "facet",
  "serde",
 ]
@@ -940,6 +941,7 @@ name = "database"
 version = "0.0.1"
 dependencies = [
  "arena",
+ "bytemuck",
  "dyn-clone",
  "facet",
  "fast-hash-collection",

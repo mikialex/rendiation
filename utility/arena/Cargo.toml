@@ -11,3 +11,4 @@ workspace = true
 [dependencies]
 facet = { workspace = true }
 serde = { workspace = true }
+bytemuck = { workspace = true }

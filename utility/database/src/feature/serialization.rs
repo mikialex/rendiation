@@ -1,3 +1,5 @@
+use parking_lot::lock_api::RawRwLock;
+
 use crate::*;
 
 impl Database {
@@ -143,23 +145,34 @@ pub struct DatabaseTraceComponentController {
 
 impl ComponentCollectionUntyped {
   pub fn start_tracing(&self) -> DatabaseTraceComponentController {
-    let event_remover = self.data_watchers.on(move |_change| {
-      // let change = (*change) as *const ScopedValueChange<T>;
-      // let change = &*change as &ScopedValueChange<T>;
-      // match change {
-      //   ScopedMessage::Start => {
-      //     sender.lock();
-      //     false
-      //   }
-      //   ScopedMessage::End => {
-      //     sender.unlock();
-      //     sender.is_closed()
-      //   }
-      //   ScopedMessage::Message(write) => {
-      //     sender.send(write.idx, write.change.clone());
-      //     false
-      //   }
-      // }
+    let data: Arc<RwLock<Vec<u8>>> = Default::default();
+    let event_remover = self.data_watchers.on(move |change| unsafe {
+      match change {
+        ScopedMessage::Start => {
+          data.raw().lock_exclusive();
+        }
+        ScopedMessage::End => {
+          data.raw().unlock_exclusive();
+        }
+        ScopedMessage::Message(write) => {
+          let data = &mut *data.data_ptr();
+          match &write.change {
+            ValueChange::Delta(new, old) => {
+              if old.is_none() {
+                data.push(1);
+              } else {
+                data.push(2);
+              }
+              data.extend_from_slice(bytes_of(&write.idx));
+              (*new.1).fast_serialize_dyn(data);
+            }
+            ValueChange::Remove(_) => {
+              data.push(0);
+              data.extend_from_slice(bytes_of(&write.idx))
+            }
+          }
+        }
+      }
 
       false
     });

@@ -10,6 +10,7 @@ use std::{
 };
 
 use arena::*;
+use bytemuck::*;
 use dyn_clone::*;
 pub use facet::*;
 use fast_hash_collection::*;

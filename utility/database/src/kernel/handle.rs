@@ -65,8 +65,9 @@ impl<T> std::fmt::Debug for EntityHandle<T> {
   }
 }
 
+#[repr(transparent)]
 #[derive(Serialize, Deserialize)]
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Facet)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Facet, Zeroable, Pod)]
 pub struct RawEntityHandle(pub(crate) Handle<()>);
 
 impl Display for RawEntityHandle {

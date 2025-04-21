@@ -14,6 +14,7 @@ parking_lot = { workspace = true }
 dyn-clone = { workspace = true }
 facet = { workspace = true }
 serde = { workspace = true }
+bytemuck = { workspace = true }
 
 [lints]
 workspace = true
