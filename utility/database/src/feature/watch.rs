@@ -212,8 +212,6 @@ fn add_listen<T: CValue>(
   }
 
   source.on(move |change| unsafe {
-    let change = (*change) as *const ScopedValueChange<T>;
-    let change = &*change as &ScopedValueChange<T>;
     match change {
       ScopedMessage::Start => {
         sender.lock();
@@ -224,7 +222,8 @@ fn add_listen<T: CValue>(
         sender.is_closed()
       }
       ScopedMessage::Message(write) => {
-        sender.send(write.idx, write.change.clone());
+        let change = write.change.map(|v| (*(v.0 as *const T)).clone());
+        sender.send(write.idx, change);
         false
       }
     }

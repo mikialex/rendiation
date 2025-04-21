@@ -100,12 +100,17 @@ impl<E: EntitySemantic> EntityWriter<E> {
   where
     C: ComponentSemantic<Entity = E>,
   {
+    let _ = self.inner.allocator.get(idx.handle.0).expect("bad handle");
+
     let view = self
       .inner
       .get_component_by_id_mut(C::component_id())
-      .unwrap();
+      .expect("unknown component");
 
-    view.write_component(idx.handle, &data as *const C::Data as *const ());
+    unsafe {
+      // safety, we have checked handle validity above
+      view.write_component(idx.handle, &data as *const C::Data as *const ());
+    }
 
     self
   }

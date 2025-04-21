@@ -170,6 +170,7 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
     let data = Arc::new(RwLock::new(DBDefaultLinearStorage::<S::Data> {
       data: Default::default(),
       default_value: S::default_override(),
+      old_value_out: Default::default(),
     }));
     let com = ComponentCollectionUntyped {
       name: Arc::new(S::display_name().to_string()),

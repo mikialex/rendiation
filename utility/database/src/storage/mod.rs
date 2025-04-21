@@ -75,57 +75,59 @@ dyn_clone::clone_trait_object!(ComponentStorage);
 pub trait ComponentStorageReadView: Send + Sync + DynClone {
   /// get the data located in idx, return None if out of bound.
   fn get(&self, idx: u32) -> Option<DataPtr>;
-  fn get_as_dyn_storage(&self, idx: u32) -> Option<&dyn DataBaseDataTypeDyn>;
+
+  /// # Safety
+  /// ptr must be the correct data type.
+  unsafe fn construct_dyn_datatype_from_raw_ptr<'a>(
+    &self,
+    ptr: DataPtr,
+  ) -> &'a dyn DataBaseDataTypeDyn;
+
+  fn get_as_dyn_storage(&self, idx: u32) -> Option<&dyn DataBaseDataTypeDyn> {
+    self
+      .get(idx)
+      .map(|ptr| unsafe { self.construct_dyn_datatype_from_raw_ptr(ptr) })
+  }
   fn fast_serialize_all(&self) -> Vec<u8>;
 }
 dyn_clone::clone_trait_object!(ComponentStorageReadView);
 
 pub trait ComponentStorageReadWriteView {
+  /// # Safety
+  /// ptr must be the correct data type.
+  unsafe fn construct_dyn_datatype_from_raw_ptr<'a>(
+    &self,
+    ptr: DataPtr,
+  ) -> &'a dyn DataBaseDataTypeDyn;
+
+  /// # Safety
+  ///
+  /// idx must point to living data
+  ///
   /// get the data located in idx.
-  fn get(&self, idx: u32) -> Option<DataPtr>;
-  fn get_as_dyn_storage(&self, idx: u32) -> Option<&dyn DataBaseDataTypeDyn>;
-  /// this function will be removed in future.
-  fn debug_value(&self, idx: u32) -> Option<String>;
+  unsafe fn get(&self, idx: u32) -> DataPtr;
 
-  /// return if success
+  /// # Safety
   ///
-  /// the idx is handle, but only used for emit message, generation check
-  /// should have been done outside
+  /// idx must point to living data
   ///
-  /// The index must in bounded with the max grow size. [ComponentStorageReadWriteView::grow]
-  fn set_value(
-    &mut self,
-    idx: RawEntityHandle,
-    v: DataPtr,
-    is_create: bool,
-    event: &mut Source<ChangePtr>,
-  ) -> bool;
+  /// get the data in dynamic form located in idx.
+  unsafe fn get_as_dyn_storage(&self, idx: u32) -> &dyn DataBaseDataTypeDyn {
+    self.construct_dyn_datatype_from_raw_ptr(self.get(idx))
+  }
 
-  /// return if success
+  /// # Safety
+  /// The index must point to living data if old_value_out is Some, otherwise it must be pointer to
+  /// an allocate but not used location. Return (new_value_ptr, old_value_ptr)
   ///
-  /// the idx is handle, but only used for emit message, generation check
-  /// should have been done outside.
-  ///
-  /// The implementation should emit the proper event on event dispatcher
-  fn set_default_value(
-    &mut self,
-    idx: RawEntityHandle,
-    is_create: bool,
-    event: &mut Source<ChangePtr>,
-  ) -> bool;
+  /// if new_value is None, then, new value should use default value
+  unsafe fn set_value(&mut self, idx: u32, new_value: Option<DataPtr>) -> (DataPtr, DataPtr);
 
-  /// the idx is handle, but only used for emit message, generation check
-  /// should have been done outside
-  ///
-  /// The implementation should emit the proper event on event dispatcher
-  fn delete(&mut self, idx: RawEntityHandle, event: &mut Source<ChangePtr>);
+  /// # Safety
+  /// the idx must point to living location, return old value ptr
+  unsafe fn delete(&mut self, idx: u32) -> DataPtr;
 
-  /// The implementation should emit the proper event on event dispatcher
-  fn notify_start_mutation(&mut self, event: &mut Source<ChangePtr>);
-  /// The implementation should emit the proper event on event dispatcher
-  fn notify_end_mutation(&mut self, event: &mut Source<ChangePtr>);
-
-  /// grow the storage to allow more data to stored below the max size address.
+  /// grow the storage to allow more data to stored at the bound of the max size address.
   fn grow(&mut self, max: u32);
 
   fn fast_deserialize_all(&mut self, source: &[u8], count: usize);

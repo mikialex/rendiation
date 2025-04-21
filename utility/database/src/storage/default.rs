@@ -1,3 +1,5 @@
+use std::ops::DerefMut;
+
 use crate::*;
 
 /// The most common storage type that use a vec as the container.
@@ -5,6 +7,7 @@ use crate::*;
 pub struct DBDefaultLinearStorage<T> {
   pub data: Vec<T>,
   pub default_value: T,
+  pub old_value_out: T, // todo, this value is leaked here, we should cleanup explicitly?
 }
 
 impl<T: DataBaseDataType> ComponentStorage for Arc<RwLock<DBDefaultLinearStorage<T>>> {
@@ -35,12 +38,13 @@ where
       .get(idx as usize)
       .map(|r| r as *const _ as DataPtr)
   }
-  fn get_as_dyn_storage(&self, idx: u32) -> Option<&dyn DataBaseDataTypeDyn> {
-    self
-      .deref()
-      .data
-      .get(idx as usize)
-      .map(|r| r as &dyn DataBaseDataTypeDyn)
+
+  unsafe fn construct_dyn_datatype_from_raw_ptr<'a>(
+    &self,
+    ptr: DataPtr,
+  ) -> &'a dyn DataBaseDataTypeDyn {
+    let source = &*(ptr as *const T);
+    source as &dyn DataBaseDataTypeDyn
   }
 
   fn fast_serialize_all(&self) -> Vec<u8> {
@@ -56,85 +60,40 @@ impl<T> ComponentStorageReadWriteView for LockWriteGuardHolder<DBDefaultLinearSt
 where
   T: DataBaseDataType,
 {
-  fn notify_start_mutation(&mut self, event: &mut Source<ChangePtr>) {
-    let message = ScopedValueChange::<T>::Start;
-    event.emit(&(&message as *const _ as ChangePtr));
-  }
-  fn notify_end_mutation(&mut self, event: &mut Source<ChangePtr>) {
-    let message = ScopedValueChange::<T>::End;
-    event.emit(&(&message as *const _ as ChangePtr));
+  unsafe fn construct_dyn_datatype_from_raw_ptr<'a>(
+    &self,
+    ptr: DataPtr,
+  ) -> &'a dyn DataBaseDataTypeDyn {
+    let source = &*(ptr as *const T);
+    source as &dyn DataBaseDataTypeDyn
   }
 
-  fn get(&self, idx: u32) -> Option<DataPtr> {
+  unsafe fn get(&self, idx: u32) -> DataPtr {
     let data: &Vec<T> = &self.data;
-    data.get(idx as usize).map(|r| r as *const _ as DataPtr)
+    data.get_unchecked(idx as usize) as *const _ as DataPtr
   }
 
-  fn get_as_dyn_storage(&self, idx: u32) -> Option<&dyn DataBaseDataTypeDyn> {
-    let data: &Vec<T> = &self.data;
-    data
-      .get(idx as usize)
-      .map(|r| r as &dyn DataBaseDataTypeDyn)
-  }
-
-  fn set_value(
-    &mut self,
-    idx: RawEntityHandle,
-    v: DataPtr,
-    is_create: bool,
-    event: &mut Source<ChangePtr>,
-  ) -> bool {
-    if let Some(target) = self.data.get_mut(idx.index() as usize) {
-      let (target, source) = unsafe {
-        let target = &mut *(target as *mut T);
-        let source = &*(v as *const T);
-        (target, source)
-      };
-
-      if is_create {
-        *target = (*source).clone();
-
-        let change = ValueChange::Delta(source.clone(), None);
-        let change = IndexValueChange { idx, change };
-        let msg = ScopedValueChange::Message(change);
-        event.emit(&(&msg as *const _ as ChangePtr));
-      } else if target != source {
-        let previous = target.clone();
-        let change = ValueChange::Delta(source.clone(), Some(previous));
-        *target = (*source).clone();
-
-        let change = IndexValueChange { idx, change };
-        let msg = ScopedValueChange::Message(change);
-        event.emit(&(&msg as *const _ as ChangePtr));
-      }
-
-      true
+  unsafe fn set_value(&mut self, idx: u32, new_value: Option<DataPtr>) -> (DataPtr, DataPtr) {
+    let self_ = self.deref_mut();
+    let target = self_.data.get_unchecked_mut(idx as usize);
+    let source = if let Some(new_value) = new_value {
+      &*(new_value as *const T)
     } else {
-      false
-    }
+      &self_.default_value
+    };
+
+    self_.old_value_out = target.clone();
+    *target = (*source).clone();
+
+    let new = target as *const _ as DataPtr;
+    let old = &self.old_value_out as *const _ as DataPtr;
+    (new, old)
   }
 
-  fn set_default_value(
-    &mut self,
-    idx: RawEntityHandle,
-    is_create: bool,
-    event: &mut Source<ChangePtr>,
-  ) -> bool {
-    self.set_value(
-      idx,
-      &self.default_value as *const _ as DataPtr,
-      is_create,
-      event,
-    )
-  }
-
-  fn delete(&mut self, idx: RawEntityHandle, event: &mut Source<ChangePtr>) {
-    let previous = self.get(idx.index()).unwrap();
-    let previous: T = unsafe { (*(previous as *const T)).clone() };
-    let change = ValueChange::Remove(previous);
-    let change = IndexValueChange { idx, change };
-    let msg = ScopedValueChange::Message(change);
-    event.emit(&(&msg as *const _ as ChangePtr));
+  unsafe fn delete(&mut self, idx: u32) -> DataPtr {
+    let target = self.data.get_unchecked_mut(idx as usize);
+    self.old_value_out = target.clone();
+    &self.old_value_out as *const _ as DataPtr
   }
 
   fn grow(&mut self, max: u32) {
@@ -143,12 +102,6 @@ where
       let default = self.default_value.clone();
       self.data.resize(max + 1, default);
     }
-  }
-
-  fn debug_value(&self, idx: u32) -> Option<String> {
-    let data = self.get(idx)?;
-    let data = unsafe { &*(data as *const T) };
-    format!("{:#?}", data).into()
   }
 
   fn fast_deserialize_all(&mut self, _: &[u8], _: usize) {

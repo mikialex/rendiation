@@ -16,11 +16,8 @@ impl EntityComponentGroup {
       })
       .collect();
 
-    let change = ScopedValueChange::<()>::Start;
-    self
-      .inner
-      .entity_watchers
-      .emit(&(&change as *const _ as ChangePtr));
+    let change: ChangePtr = ScopedValueChange::Start;
+    self.inner.entity_watchers.emit(&change);
 
     EntityWriterUntyped {
       type_id: self.inner.type_id,
@@ -42,10 +39,8 @@ pub struct EntityWriterUntyped {
 
 impl Drop for EntityWriterUntyped {
   fn drop(&mut self) {
-    let change = ScopedValueChange::<()>::End;
-    self
-      .entity_watchers
-      .emit(&(&change as *const _ as ChangePtr));
+    let change: ChangePtr = ScopedValueChange::End;
+    self.entity_watchers.emit(&change);
   }
 }
 
@@ -72,17 +67,20 @@ impl EntityWriterUntyped {
     let handle = self.allocator.insert(());
     let handle = RawEntityHandle(handle);
     for com in &mut self.components {
-      com.1.write_init_component_value(handle)
+      unsafe {
+        // safety, the handle is just created.
+        com.1.write_init_component_value(handle);
+      }
     }
+
+    let new_pair = (&() as DataPtr, &() as &dyn DataBaseDataTypeDyn as *const _);
+    let change = ValueChange::Delta(new_pair, None);
     let change = IndexValueChange {
       idx: handle,
-      change: ValueChange::Delta((), None),
+      change,
     };
-
     let change = ScopedValueChange::Message(change);
-    self
-      .entity_watchers
-      .emit(&(&change as *const _ as ChangePtr));
+    self.entity_watchers.emit(&change);
     handle
   }
 
@@ -91,16 +89,19 @@ impl EntityWriterUntyped {
     let handle = RawEntityHandle(handle);
     assert!(self.allocator.contains(src.0));
     for com in &mut self.components {
-      com.1.clone_component_value(src, handle, &self.allocator);
+      unsafe {
+        // safety, the handle is just created.
+        com.1.clone_component_value(src, handle);
+      }
     }
+    let new_pair = (&() as DataPtr, &() as &dyn DataBaseDataTypeDyn as *const _);
+    let change = ValueChange::Delta(new_pair, None);
     let change = IndexValueChange {
       idx: handle,
-      change: ValueChange::Delta((), None),
+      change,
     };
     let change = ScopedValueChange::Message(change);
-    self
-      .entity_watchers
-      .emit(&(&change as *const _ as ChangePtr));
+    self.entity_watchers.emit(&change);
     handle
   }
 
@@ -109,23 +110,20 @@ impl EntityWriterUntyped {
   pub fn delete_entity(&mut self, handle: RawEntityHandle) {
     self.allocator.remove(handle.0).unwrap();
     for com in &mut self.components {
-      com.1.delete_component(handle)
+      unsafe {
+        // safety, the handle is just got removed, so it's valid for components.
+        com.1.delete_component(handle)
+      }
     }
+
+    let pair = (&() as DataPtr, &() as &dyn DataBaseDataTypeDyn as *const _);
+    let change = ValueChange::Remove(pair);
     let change = IndexValueChange {
       idx: handle,
-      change: ValueChange::Remove(()),
+      change,
     };
     let change = ScopedValueChange::Message(change);
-    self
-      .entity_watchers
-      .emit(&(&change as *const _ as ChangePtr));
-  }
-
-  /// note, the referential integrity is not guaranteed and should be guaranteed by the upper level
-  /// implementations
-  pub fn uncheck_handle_delete_entity(&mut self, handle: u32) {
-    let handle = self.allocator.get_handle(handle as usize).unwrap();
-    self.delete_entity(RawEntityHandle(handle));
+    self.entity_watchers.emit(&change);
   }
 }
 
@@ -139,33 +137,31 @@ impl EntityComponentWriterImpl {
     self.component.get(idx, allocator)
   }
 
-  pub fn write_component(&mut self, idx: RawEntityHandle, src: DataPtr) {
-    self.component.write(idx, false, src);
+  /// # Safety
+  ///
+  /// idx must point to living data
+  pub unsafe fn write_component(&mut self, idx: RawEntityHandle, src: DataPtr) {
+    self.component.write(idx, false, Some(src));
   }
 
-  pub fn write_init_component_value(&mut self, idx: RawEntityHandle) {
+  /// # Safety
+  ///
+  /// idx must point to living data
+  pub unsafe fn write_init_component_value(&mut self, idx: RawEntityHandle) {
     self.component.data.grow(idx.index());
-    if let Some(next_value_maker) = self.next_value.as_mut() {
-      if let Some(next) = next_value_maker.next_value() {
-        self.component.write(idx, true, next);
-      } else {
-        self.component.write_default(idx, true);
-      }
-    } else {
-      self.component.write_default(idx, true);
-    }
+    let next_value = self.next_value.as_mut().and_then(|v| v.next_value());
+    self.component.write(idx, true, next_value);
   }
-  pub fn clone_component_value(
-    &mut self,
-    src: RawEntityHandle,
-    dst: RawEntityHandle,
-    allocator: &Arena<()>,
-  ) {
-    let src = self.get(src, allocator).unwrap();
+
+  /// # Safety
+  ///
+  /// idx must point to living data
+  pub unsafe fn clone_component_value(&mut self, src: RawEntityHandle, dst: RawEntityHandle) {
+    let src = self.component.get_unchecked(src);
     self.write_component(dst, src);
   }
 
-  fn delete_component(&mut self, idx: RawEntityHandle) {
+  unsafe fn delete_component(&mut self, idx: RawEntityHandle) {
     self.component.delete(idx);
   }
 }

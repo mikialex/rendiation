@@ -145,9 +145,16 @@ impl<T: ComponentSemantic> ComponentWriteView<T> {
     self.get(idx).cloned()
   }
 
+  /// return if write is valid
   pub fn write(&mut self, idx: EntityHandle<T::Entity>, new: T::Data) -> bool {
-    self
-      .inner
-      .write(idx.handle, false, &new as *const _ as DataPtr)
+    let valid = self.allocator.get(idx.handle.0).is_some();
+    unsafe {
+      if valid {
+        self
+          .inner
+          .write(idx.handle, false, Some(&new as *const _ as DataPtr))
+      }
+    }
+    valid
   }
 }
