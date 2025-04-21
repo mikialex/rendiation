@@ -22,8 +22,7 @@ impl<T: DataBaseDataType> ComponentStorage for Arc<RwLock<DBDefaultLinearStorage
     TypeId::of::<T>()
   }
   fn data_shape(&self) -> &'static Shape {
-    // T::SHAPE
-    unimplemented!()
+    T::shape()
   }
 }
 

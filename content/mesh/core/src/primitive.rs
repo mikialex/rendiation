@@ -155,7 +155,7 @@ pub trait PrimitiveTopologyMeta: 'static {
 /// Primitive type the input mesh is composed of.
 #[repr(C)]
 #[derive(Serialize, Deserialize)]
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Default)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Default, Facet)]
 pub enum PrimitiveTopology {
   /// Vertex data is a list of points. Each vertex is a new point.
   PointList = 0,

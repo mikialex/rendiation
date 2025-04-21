@@ -83,6 +83,28 @@ pub struct GPUBufferImage {
   pub size: Size,
 }
 
+// use facet::*;
+// #[derive(Serialize, Deserialize)]
+// #[derive(Debug, Clone, PartialEq)]
+// pub struct TextureFormatFaceWarper(pub TextureFormat);
+// unsafe impl facet::Facet for TextureFormatFaceWarper {
+//   const SHAPE: &'static facet::Shape = &facet::Shape::builder()
+//     .layout(std::alloc::Layout::new::<Self>())
+//     .def(facet::Def::Enum(
+//       EnumDef::builder()
+//         .repr(facet::EnumRepr::USize)
+//         .variants(&[])
+//         .build(),
+//     ))
+//     .vtable(
+//       &facet::ValueVTableBuilder::new()
+//         .type_name(|_, _| Ok(()))
+//         .build(),
+//     )
+//     .id(facet::ConstTypeId::of::<TextureFormat>())
+//     .build();
+// }
+
 pub fn create_padding_buffer(
   input: &[u8],
   step_read_byte_count: usize,
