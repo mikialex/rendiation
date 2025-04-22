@@ -33,8 +33,11 @@ impl<T: Scalar> Frustum<T> {
 impl<T: Scalar> SpaceEntity<T, 3> for Frustum<T> {
   type Matrix = Mat4<T>;
 
-  fn apply_matrix(&mut self, _mat: Self::Matrix) -> &mut Self {
-    todo!()
+  fn apply_matrix(&mut self, mat: Self::Matrix) -> &mut Self {
+    self.planes.iter_mut().for_each(|p| {
+      p.apply_matrix(mat);
+    });
+    self
   }
 }
 

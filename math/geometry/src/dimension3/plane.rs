@@ -10,16 +10,33 @@ impl<T: Scalar> DistanceTo<Vec3<T>, T> for Plane<T> {
   }
 }
 
+impl<T: Scalar> SpaceEntity<T, 3> for Plane<T> {
+  type Matrix = Mat4<T>;
+
+  fn apply_matrix(&mut self, mat: Self::Matrix) -> &mut Self {
+    let v = Vec4::new(self.normal.x, self.normal.y, self.normal.z, self.constant);
+    let v = mat.inverse_or_identity().transpose() * v;
+    self.set_components(v.x, v.y, v.z, v.w);
+    self
+  }
+}
+
 impl<T: Scalar> Plane<T> {
   pub fn project_point(&self, point: Vec3<T>) -> Vec3<T> {
     self.normal * (-self.distance_to(&point)) + point
   }
 
-  pub fn set_components(&mut self, x: T, y: T, z: T, w: T) -> &mut Self {
-    let normal = Vec3::new(x, y, z);
+  pub fn from_components(x: T, y: T, z: T, w: T) -> Self {
+    let normal = Vec3::new(x, y, z).into_normalized();
     let inverse_normal_length = T::one() / normal.length();
-    self.normal = normal.into_normalized();
-    self.constant = w * inverse_normal_length;
+    Self {
+      normal,
+      constant: w * inverse_normal_length,
+    }
+  }
+
+  pub fn set_components(&mut self, x: T, y: T, z: T, w: T) -> &mut Self {
+    *self = Self::from_components(x, y, z, w);
     self
   }
 }
