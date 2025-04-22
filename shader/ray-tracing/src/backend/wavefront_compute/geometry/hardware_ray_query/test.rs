@@ -13,6 +13,7 @@ fn test_gpu_triangle() {
   use rendiation_webgpu_virtual_buffer::ComputeShaderBuilderAbstractBufferExt;
 
   use crate::backend::{init_default_acceleration_structure, TEST_ANYHIT_BEHAVIOR};
+  use crate::INLINE_RAY_TRACING_REQUIRED_FEATURES;
   use crate::{
     GPUAccelerationStructureSystemCompImplInstance, HardwareInlineRayQueryInstance,
     HardwareInlineRayQuerySystem, RayFlagConfigRaw,
@@ -29,6 +30,16 @@ fn test_gpu_triangle() {
   let dummy_array = vec![0u32; H * W];
 
   let (gpu, _) = futures::executor::block_on(GPU::new(Default::default())).unwrap();
+
+  if !gpu
+    .info
+    .supported_features
+    .contains(INLINE_RAY_TRACING_REQUIRED_FEATURES)
+  {
+    println!("test is skipped because ray query is not supported");
+    return;
+  }
+
   let mut encoder = gpu.create_encoder();
   let mut cx = DeviceParallelComputeCtx::new(&gpu, &mut encoder);
 

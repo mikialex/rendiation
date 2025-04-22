@@ -18,11 +18,15 @@ pub struct GPUWaveFrontComputeRaytracingSystem {
   sbt_sys: ShaderBindingTableDeviceInfo,
 }
 
+pub const INLINE_RAY_TRACING_REQUIRED_FEATURES: Features =
+  Features::EXPERIMENTAL_RAY_QUERY.union(Features::EXPERIMENTAL_RAY_TRACING_ACCELERATION_STRUCTURE);
+
 impl GPUWaveFrontComputeRaytracingSystem {
   pub fn new(gpu: &GPU) -> Self {
-    let device_support_ray_query = gpu.info.supported_features.contains(
-      Features::EXPERIMENTAL_RAY_QUERY | Features::EXPERIMENTAL_RAY_TRACING_ACCELERATION_STRUCTURE,
-    );
+    let device_support_ray_query = gpu
+      .info
+      .supported_features
+      .contains(INLINE_RAY_TRACING_REQUIRED_FEATURES);
     Self {
       gpu: gpu.clone(),
       tlas_sys: if device_support_ray_query {

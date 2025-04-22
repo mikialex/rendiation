@@ -133,6 +133,16 @@ cargo run --bin viewer --features "tracy" # run viewer enable tracy
 cargo run --bin viewer --features "tracy-heap-debug" # run viewer enable tracy and tracy-heap-debug
 ```
 
+## Testing
+
+Runing test requires [cargo-nextest](https://nexte.st/). We rely on this because some test case modify global variables which disable the mutli-thread test runner. Nestext is multi process so it can simply avoid this issue. Also, Nestest has better user experience.
+
+run all test to see if something failed
+
+``` bash
+cargo nextest run --no-fail-fast
+```
+
 ## Coding style
 
 The basic coding style is enforced by rustfmt. Some extra notes are:

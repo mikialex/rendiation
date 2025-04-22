@@ -131,7 +131,7 @@ fn should_drain() {
   stream.insert(0, Some(r));
 
   let mut c = 0;
-  crate::do_updates(&mut stream, |_| c += 1);
+  crate::do_updates(&mut stream, |change| c += change.len());
   assert_eq!(c, 2);
 }
 

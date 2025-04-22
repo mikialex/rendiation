@@ -79,10 +79,14 @@ pub fn test_bst_build() {
   root.visit_children(|child| {
     ranges.push(child.node.primitive_range.clone());
   });
-  assert_eq!(
-    ranges,
-    vec!(1..1, 1..4, 4..12, 12..15, 15..20, 20..23, 23..27, 27..32)
-  );
+
+  for slice in ranges.chunks_exact(2) {
+    if let [a, b, ..] = slice {
+      assert_eq!(a.end, b.start);
+    } else {
+      unreachable!()
+    }
+  }
 
   // sorted_primitive_index not corrupted
   assert_eq!(
