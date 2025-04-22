@@ -91,7 +91,7 @@ pub trait ComponentStorageReadView: Send + Sync + DynClone {
       .get(idx)
       .map(|ptr| unsafe { self.construct_dyn_datatype_from_raw_ptr(ptr) })
   }
-  fn fast_serialize_all(&self) -> Option<Vec<u8>>;
+  fn fast_serialize_all(&self) -> Vec<u8>;
 }
 dyn_clone::clone_trait_object!(ComponentStorageReadView);
 

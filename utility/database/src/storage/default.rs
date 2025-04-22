@@ -49,7 +49,7 @@ where
   fn fast_serialize_all(&self) -> Vec<u8> {
     let mut init = Vec::<u8>::with_capacity(self.data.len() * std::mem::size_of::<T>());
     self.data.iter().for_each(|data| {
-      data.fast_serialize(&mut init);
+      data.fast_serialize(&mut init).unwrap();
     });
     init
   }

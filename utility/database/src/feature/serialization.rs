@@ -23,12 +23,14 @@ pub struct DatabaseSerializationResult {
 }
 
 pub struct DatabaseSerializationECGResult {
+  pub allocator: Arena<()>,
   pub components: FastHashMap<ComponentId, DatabaseSerializationComponentResult>,
 }
 
 impl EntityComponentGroup {
   pub fn serialize(&self) -> DatabaseSerializationECGResult {
     DatabaseSerializationECGResult {
+      allocator: self.inner.allocator.read().clone(),
       components: self
         .inner
         .components
