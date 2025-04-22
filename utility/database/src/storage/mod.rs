@@ -7,26 +7,28 @@ pub type DataPtr = *const ();
 pub type DataMutPtr = *const ();
 
 pub trait DataBaseDataType: CValue + Default {
-  fn fast_serialize(&self, target: &mut (impl std::io::Write + ?Sized));
-  fn fast_deserialize(&mut self, source: &mut (impl std::io::Read + ?Sized));
+  #[must_use]
+  fn fast_serialize(&self, target: &mut (impl std::io::Write + ?Sized)) -> Option<()>;
+  #[must_use]
+  fn fast_deserialize(&mut self, source: &mut (impl std::io::Read + ?Sized)) -> Option<()>;
   fn shape() -> &'static facet::Shape;
 }
 
 pub trait DataBaseDataTypeDyn {
-  fn fast_serialize_dyn(&self, target: &mut dyn std::io::Write);
-  fn fast_deserialize_dyn(&mut self, source: &mut dyn std::io::Read);
+  fn fast_serialize_dyn(&self, target: &mut dyn std::io::Write) -> Option<()>;
+  fn fast_deserialize_dyn(&mut self, source: &mut dyn std::io::Read) -> Option<()>;
   fn shape(&self) -> &'static facet::Shape;
   /// this function will be removed in future.
   fn debug_value(&self) -> String;
 }
 
 impl<T: DataBaseDataType> DataBaseDataTypeDyn for T {
-  fn fast_serialize_dyn(&self, target: &mut dyn std::io::Write) {
-    self.fast_serialize(target);
+  fn fast_serialize_dyn(&self, target: &mut dyn std::io::Write) -> Option<()> {
+    self.fast_serialize(target)
   }
 
-  fn fast_deserialize_dyn(&mut self, source: &mut dyn std::io::Read) {
-    self.fast_deserialize(source);
+  fn fast_deserialize_dyn(&mut self, source: &mut dyn std::io::Read) -> Option<()> {
+    self.fast_deserialize(source)
   }
 
   fn shape(&self) -> &'static facet::Shape {
@@ -44,12 +46,13 @@ where
   // T: Facet,
   T: Serialize + for<'a> Deserialize<'a>,
 {
-  fn fast_serialize(&self, _: &mut (impl std::io::Write + ?Sized)) {
-    unimplemented!()
+  fn fast_serialize(&self, writer: &mut (impl std::io::Write + ?Sized)) -> Option<()> {
+    rmp_serde::encode::write(writer, self).ok()
   }
 
-  fn fast_deserialize(&mut self, _: &mut (impl std::io::Read + ?Sized)) {
-    unimplemented!()
+  fn fast_deserialize(&mut self, reader: &mut (impl std::io::Read + ?Sized)) -> Option<()> {
+    *self = rmp_serde::from_read(reader).ok()?;
+    Some(())
   }
 
   fn shape() -> &'static facet::Shape {
@@ -88,7 +91,7 @@ pub trait ComponentStorageReadView: Send + Sync + DynClone {
       .get(idx)
       .map(|ptr| unsafe { self.construct_dyn_datatype_from_raw_ptr(ptr) })
   }
-  fn fast_serialize_all(&self) -> Vec<u8>;
+  fn fast_serialize_all(&self) -> Option<Vec<u8>>;
 }
 dyn_clone::clone_trait_object!(ComponentStorageReadView);
 

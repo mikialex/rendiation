@@ -15,6 +15,7 @@ dyn-clone = { workspace = true }
 facet = { workspace = true }
 serde = { workspace = true }
 bytemuck = { workspace = true }
+rmp-serde = "1.3.0"
 
 [lints]
 workspace = true
