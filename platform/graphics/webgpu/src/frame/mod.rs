@@ -19,6 +19,7 @@ use crate::*;
 
 pub struct FrameCtx<'a> {
   pub gpu: &'a GPU,
+  /// note, wrap in manually drop enable us do submitting in drop fn
   pub encoder: ManuallyDrop<GPUCommandEncoder>,
   pool: &'a AttachmentPool,
   statistics: Option<FrameStaticInfoResolver>,

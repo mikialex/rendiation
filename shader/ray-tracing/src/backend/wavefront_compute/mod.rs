@@ -181,6 +181,8 @@ impl RayTracingEncoderProvider for GPUWaveFrontComputeRaytracingEncoder {
 
       graph_executor.execute(&mut cx, source.execution_round_hint as usize, &task_source);
     }
+    drop(cx);
+    self.gpu.submit_encoder(encoder);
   }
 }
 

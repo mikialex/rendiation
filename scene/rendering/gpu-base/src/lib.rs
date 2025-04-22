@@ -17,7 +17,7 @@
 //!   }
 //! }
 //! ```
-use std::{hash::Hash, mem::ManuallyDrop};
+use std::hash::Hash;
 
 use database::*;
 use dyn_clone::*;
@@ -236,7 +236,6 @@ impl FrameCtxParallelComputeExt for FrameCtx<'_> {
     let mut ctx = DeviceParallelComputeCtx::new(self.gpu, &mut self.encoder);
     let r = f(&mut ctx);
     ctx.flush_pass();
-    let _ = ManuallyDrop::new(ctx); // avoid drop to avoid unnecessary submit
     r
   }
 }

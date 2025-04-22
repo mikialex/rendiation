@@ -66,6 +66,7 @@ important issue is in bold style.
 
 ### Infra and framework improvements planed
 
+- improve bindgroup cache implementation
 - ray tracing
   - improve the wavefront dispatch performance
     - let user manual control dispatch rounds
