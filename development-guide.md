@@ -78,7 +78,8 @@ important issue is in bold style.
 
 ### Need help issue
 
-(empty)
+- enable frame time query on metal in release mode may panic when load large models
+  Device::create_query_set failed
 
 ### Upstream issue
 

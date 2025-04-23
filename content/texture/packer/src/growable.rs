@@ -32,7 +32,8 @@ impl<P: RePackablePacker + TexturePackerInit> GrowablePacker<P> {
       } else if let Some(new_config) = on_grow(self.current_config.clone()) {
         // todo, should we expose the current allocation info to avoid loop grow?
         // todo, we should support batch allocation to further avoid loop grow!
-        self.packer = P::init_by_config(new_config);
+        self.packer = P::init_by_config(new_config.clone());
+        self.current_config = new_config;
 
         // do repack previous all packed
         let previous = std::mem::take(&mut self.result);
