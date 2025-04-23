@@ -125,6 +125,8 @@ impl<T: AsyncQueryCompute<Key = u32, Value = Size>> AsyncQueryCompute for Packer
   }
 }
 
+const ENABLE_DEBUG_LOG: bool = false;
+
 impl<T: QueryCompute<Key = u32, Value = Size>> QueryCompute for PackerCompute<T> {
   type Key = u32;
   type Value = PackResult2dWithDepth;
@@ -151,6 +153,10 @@ impl<T: QueryCompute<Key = u32, Value = Size>> QueryCompute for PackerCompute<T>
           let depth_capacity = u32::from(max.depth) - u32::from(config.depth);
 
           if depth_capacity == 0 && height_capacity == 0 && width_capacity == 0 {
+            if ENABLE_DEBUG_LOG {
+              println!("grow failed, current_size: {config:?}, max_size: {max:?}");
+            }
+
             return None;
           }
 
@@ -169,6 +175,9 @@ impl<T: QueryCompute<Key = u32, Value = Size>> QueryCompute for PackerCompute<T>
             }
           };
 
+          if ENABLE_DEBUG_LOG {
+            println!("grow success, current_size: {target_config:?}, max_size: {max:?}");
+          }
           self.all_size_sender.update(target_config).ok();
 
           Some(target_config)
@@ -184,12 +193,19 @@ impl<T: QueryCompute<Key = u32, Value = Size>> QueryCompute for PackerCompute<T>
                 sender.send(id, delta);
               }
 
+              let mut staging_mapping = FastHashMap::default();
               let mut relocate = |relocation: PackResultRelocation<PackResult2dWithDepth>| {
-                let idx = mapping.remove(&relocation.previous.id).unwrap();
+                let idx = staging_mapping
+                  .remove(&relocation.previous.id)
+                  .or_else(|| mapping.remove(&relocation.previous.id).unwrap().into())
+                  .unwrap();
+
                 let previous = relocation.previous.result;
                 sender.send(idx, ValueChange::Remove(previous));
 
-                mapping.insert(relocation.new.id, idx);
+                if let Some(overridden) = mapping.insert(relocation.new.id, idx) {
+                  staging_mapping.insert(relocation.new.id, overridden);
+                }
                 let current = relocation.new.result;
                 sender.send(idx, ValueChange::Delta(current, None));
 
@@ -204,6 +220,8 @@ impl<T: QueryCompute<Key = u32, Value = Size>> QueryCompute for PackerCompute<T>
                 let delta = ValueChange::Delta(pack_result.result, None);
 
                 sender.send(id, delta);
+              } else {
+                println!("warning, texture allocation failed for {id}, try increase the max size")
               }
             }
             ValueChange::Remove(_) => {

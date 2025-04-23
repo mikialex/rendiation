@@ -48,10 +48,7 @@ impl<P: RePackablePacker + TexturePackerInit> GrowablePacker<P> {
             .insert(new_result.id, (input, new_result.result.clone()));
 
           let previous = PackResultWithId { result, id };
-          let new = PackResultWithId {
-            result: new_result.result,
-            id: new_result.id,
-          };
+          let new = new_result;
           relocation_callback(PackResultRelocation { previous, new });
         }
       } else {

@@ -14,6 +14,17 @@ pub struct TexturePoolAddressInfo {
   pub offset: Vec2<f32>,
 }
 
+impl TexturePoolAddressInfo {
+  pub fn none() -> Self {
+    TexturePoolAddressInfo {
+      layer_index: u32::MAX,
+      size: Vec2::zero(),
+      offset: Vec2::zero(),
+      ..Zeroable::zeroed()
+    }
+  }
+}
+
 #[repr(C)]
 #[std430_layout]
 #[derive(Clone, Copy, Default, ShaderStruct, Debug, PartialEq)]
@@ -89,6 +100,7 @@ impl TexturePoolSource {
     init: TexturePoolSourceInit,
   ) -> Self {
     let size = tex_input.clone().collective_map(|tex| tex.inner.size);
+    let full_scope = tex_input.clone().collective_map(|_| {});
 
     let (packing, atlas_resize) = reactive_pack_2d_to_3d(config, Box::new(size));
     let packing = packing.into_forker();
@@ -102,6 +114,15 @@ impl TexturePoolSource {
           v.result.range.origin.y as f32,
         ),
         ..Default::default()
+      })
+      .collective_union(full_scope, |(a, b)| {
+        b.map(|_| {
+          if let Some(a) = a {
+            a
+          } else {
+            TexturePoolAddressInfo::none()
+          }
+        })
       })
       .into_query_update_storage(0);
 
@@ -162,9 +183,11 @@ impl ReactiveGeneralQuery for TexturePoolSource {
     for (id, change) in tex_source_change.iter_key_value() {
       match change {
         ValueChange::Delta(new_tex, _) => {
-          let current_pack = current_pack.access(&id).unwrap();
-          let tex = create_gpu_texture2d(&self.gpu, &new_tex.inner);
-          copy_tex(&mut encoder, tex, target, &current_pack);
+          if let Some(current_pack) = current_pack.access(&id) {
+            // pack may failed, in this case we do nothing
+            let tex = create_gpu_texture2d(&self.gpu, &new_tex.inner);
+            copy_tex(&mut encoder, tex, target, &current_pack);
+          }
         }
         ValueChange::Remove(_) => {}
       }
@@ -307,21 +330,30 @@ impl AbstractIndirectGPUTextureSystem for TexturePool {
     let samplers = reg.any_map.get::<SamplerPoolInShader>().unwrap();
 
     let texture_address = address.0.index(shader_texture_handle).load().expand();
-    let sampler = samplers.0.index(shader_sampler_handle).load().expand();
 
-    let correct_u = shader_address_mode(sampler.address_mode_u, uv.x());
-    let correct_v = shader_address_mode(sampler.address_mode_v, uv.y());
-    let uv: Node<Vec2<_>> = (correct_u, correct_v).into();
+    texture_address
+      .layer_index
+      .equals(u32::MAX) // check if the texture is failed to allocate
+      .select_branched(
+        || val(Vec4::zero()),
+        || {
+          let sampler = samplers.0.index(shader_sampler_handle).load().expand();
 
-    let load_position = texture_address.offset + texture_address.size * uv;
-    let load_position_x = load_position.x().floor().into_u32();
-    let load_position_y = load_position.y().floor().into_u32();
+          let correct_u = shader_address_mode(sampler.address_mode_u, uv.x());
+          let correct_v = shader_address_mode(sampler.address_mode_v, uv.y());
+          let uv: Node<Vec2<_>> = (correct_u, correct_v).into();
 
-    texture.load_texel_layer(
-      (load_position_x, load_position_y).into(),
-      texture_address.layer_index,
-      val(0),
-    )
+          let load_position = texture_address.offset + texture_address.size * uv;
+          let load_position_x = load_position.x().floor().into_u32();
+          let load_position_y = load_position.y().floor().into_u32();
+
+          texture.load_texel_layer(
+            (load_position_x, load_position_y).into(),
+            texture_address.layer_index,
+            val(0),
+          )
+        },
+      )
   }
 }
 

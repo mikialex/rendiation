@@ -157,7 +157,7 @@ impl Viewer3dRenderingCtx {
     );
 
     Self {
-      enable_statistic_collect: true,
+      enable_statistic_collect: false,
       frame_index: 0,
       ndc,
       swap_chain,
