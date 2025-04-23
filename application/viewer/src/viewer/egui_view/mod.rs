@@ -266,7 +266,7 @@ impl ViewerUIState {
 
     if self.object_inspection {
       egui::Window::new("Object Inspection")
-        .open(&mut self.show_gpu_info)
+        .open(&mut self.object_inspection)
         .vscroll(true)
         .show(ui, |_ui| {
           //

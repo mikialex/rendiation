@@ -134,6 +134,8 @@ impl ReactiveGeneralQuery for TexturePoolSource {
   type Output = Box<dyn DynAbstractGPUTextureSystem>;
 
   fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
+    let (packing_change, current_pack) = self.packing.describe(cx).resolve_kept();
+
     if let Poll::Ready(Some(size)) = self.atlas_resize.poll_next_unpin(cx) {
       let size = size.into_gpu_size();
       self.texture = Some(GPUTexture::create(
@@ -155,8 +157,6 @@ impl ReactiveGeneralQuery for TexturePoolSource {
     let target = self.texture.as_ref().unwrap();
 
     let mut encoder = self.gpu.device.create_encoder();
-
-    let (packing_change, current_pack) = self.packing.describe(cx).resolve_kept();
 
     let (tex_source_change, tex_input_current) = self.tex_input.describe(cx).resolve_kept();
     for (id, change) in tex_source_change.iter_key_value() {
