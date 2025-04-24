@@ -275,6 +275,7 @@ impl ViewerUIState {
             let mut scene_writer = SceneWriter::from_global(viewer_scene.scene);
 
             ui.label(format!("SceneModel id: {:?}", target.into_raw()));
+            show_entity_label(&scene_writer.model_writer, target, ui);
 
             ui.separator();
             let node = scene_writer
@@ -283,6 +284,7 @@ impl ViewerUIState {
               .unwrap();
 
             ui.label(format!("referenced node id: {:?}", node.into_raw()));
+            show_entity_label(&scene_writer.node_writer, node, ui);
 
             let parent = scene_writer.node_writer.read::<SceneNodeParentIdx>(node);
             ui.label(format!("parent node id: {:?}", parent));
@@ -304,6 +306,7 @@ impl ViewerUIState {
               "referenced std_model id: {:?}",
               std_model.into_raw()
             ));
+            show_entity_label(&scene_writer.std_model_writer, std_model, ui);
 
             ui.separator();
 
@@ -311,6 +314,9 @@ impl ViewerUIState {
               .std_model_writer
               .read_foreign_key::<StandardModelRefPbrMRMaterial>(std_model)
             {
+              ui.label("pbr mr material");
+              ui.label(format!("material id: {:?}", mat.into_raw()));
+              show_entity_label(&scene_writer.pbr_mr_mat_writer, mat, ui);
               modify_color_like_com::<PbrMRMaterialBaseColorComponent>(
                 ui,
                 &mut scene_writer.pbr_mr_mat_writer,
@@ -332,6 +338,9 @@ impl ViewerUIState {
               .std_model_writer
               .read_foreign_key::<StandardModelRefPbrSGMaterial>(std_model)
             {
+              ui.label("pbr sg material");
+              ui.label(format!("material id: {:?}", mat.into_raw()));
+              show_entity_label(&scene_writer.pbr_sg_mat_writer, mat, ui);
               modify_color_like_com::<PbrSGMaterialAlbedoComponent>(
                 ui,
                 &mut scene_writer.pbr_sg_mat_writer,
@@ -347,10 +356,13 @@ impl ViewerUIState {
                 &mut scene_writer.pbr_sg_mat_writer,
                 mat,
               );
-            } else if let Some(_mat) = scene_writer
+            } else if let Some(mat) = scene_writer
               .std_model_writer
               .read_foreign_key::<StandardModelRefUnlitMaterial>(std_model)
             {
+              ui.label("unlit material");
+              ui.label(format!("material id: {:?}", mat.into_raw()));
+              show_entity_label(&scene_writer.unlit_mat_writer, mat, ui);
               //
             } else {
               ui.label("unknown material type");
@@ -393,4 +405,15 @@ fn modify_normalized_value_like_com<C: ComponentSemantic<Data = f32>>(
   ui.add(egui::Slider::new(&mut v, 0.0..=1.0).step_by(0.05));
 
   writer.write::<C>(id, v);
+}
+
+fn show_entity_label<E: EntitySemantic>(
+  writer: &EntityWriter<E>,
+  target: EntityHandle<E>,
+  ui: &mut egui::Ui,
+) {
+  let label = writer.read::<LabelOf<E>>(target);
+  if !label.is_empty() {
+    ui.label(format!("label: {}", label));
+  }
 }

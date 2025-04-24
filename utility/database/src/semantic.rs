@@ -29,11 +29,14 @@ pub trait ComponentSemantic: EntityAssociateSemantic {
   }
 
   fn component_id() -> ComponentId {
-    ComponentId(TypeId::of::<Self>())
+    ComponentId::TypeId(TypeId::of::<Self>())
   }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ComponentId(pub TypeId);
+pub enum ComponentId {
+  TypeId(TypeId),
+  Hash(u64),
+}
 
 pub type ForeignKeyComponentData = Option<RawEntityHandle>;
 pub trait ForeignKeySemantic: ComponentSemantic<Data = ForeignKeyComponentData> {

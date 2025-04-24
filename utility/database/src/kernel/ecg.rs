@@ -13,10 +13,7 @@ impl EntityComponentGroup {
   }
 
   pub fn declare_component_dyn(&self, semantic: ComponentId, com: ComponentCollectionUntyped) {
-    let mut components = self.inner.components.write();
-    self.inner.components_meta_watchers.emit(&com);
-    let previous = components.insert(semantic, com);
-    assert!(previous.is_none());
+    self.inner.declare_component_dyn(semantic, com);
   }
 
   pub fn declare_foreign_key_dyn(&self, semantic: ComponentId, foreign_entity_type_id: EntityId) {
@@ -130,6 +127,13 @@ impl EntityComponentGroupImpl {
       foreign_key_meta_watchers: Default::default(),
       entity_watchers: Default::default(),
     }
+  }
+
+  pub fn declare_component_dyn(&self, semantic: ComponentId, com: ComponentCollectionUntyped) {
+    let mut components = self.components.write();
+    self.components_meta_watchers.emit(&com);
+    let previous = components.insert(semantic, com);
+    assert!(previous.is_none());
   }
 }
 

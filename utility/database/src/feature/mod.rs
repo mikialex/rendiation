@@ -1,7 +1,9 @@
+mod label;
 mod rev_ref;
 mod serialization;
 mod watch;
 
+pub use label::*;
 pub use rev_ref::*;
 pub use serialization::*;
 pub use watch::*;

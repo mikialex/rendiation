@@ -60,6 +60,7 @@ where
 
   setup_global_database(Default::default());
   setup_active_reactive_query_registry(Default::default());
+  global_database().enable_label_for_all_entity();
 
   let watch = DatabaseMutationWatch::new(&global_database());
   let rev_watch = DatabaseEntityReverseReference::new(watch.clone());

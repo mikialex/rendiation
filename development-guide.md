@@ -8,8 +8,6 @@ The following things is the current project development direction.
 
 important issue is in bold style.
 
-- fix multiple taskgraph exist together, ShaderFuture should impl shaderhashprovider
-- fix texture pool grow
 - mipmap and multi format support in texture pool system
 - bindless mesh does not support optional uv and normal attributes
 - optimize frame ctx "make_submit" call, use copy buffer to buffer to update.

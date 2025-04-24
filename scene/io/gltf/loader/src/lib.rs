@@ -103,6 +103,16 @@ pub struct GltfLoadResult {
   pub used_but_not_supported_extensions: Vec<String>,
 }
 
+fn write_label<E: EntitySemantic>(
+  writer: &mut EntityWriter<E>,
+  id: EntityHandle<E>,
+  label: Option<&str>,
+) {
+  if let Some(name) = label {
+    writer.write::<LabelOf<E>>(id, name.to_owned());
+  }
+}
+
 /// https://docs.rs/gltf/latest/gltf/struct.Node.html
 fn create_node_recursive(
   parent_to_attach: EntityHandle<SceneNodeEntity>,
@@ -121,6 +131,7 @@ fn create_node_recursive(
   ctx
     .io
     .set_local_matrix(node, map_transform(gltf_node.transform()));
+  write_label(&mut ctx.io.node_writer, node, gltf_node.name());
 
   for gltf_node in gltf_node.children() {
     create_node_recursive(node, &gltf_node, ctx)
@@ -131,9 +142,9 @@ fn create_node_content_recursive(gltf_node: &Node, ctx: &mut Context) {
   let node = *ctx.result.node_map.get(&gltf_node.index()).unwrap();
 
   if let Some(mesh) = gltf_node.mesh() {
-    for primitive in mesh.primitives() {
+    for (idx, primitive) in mesh.primitives().enumerate() {
       let index = primitive.index();
-      let model_handle = build_model(node, primitive, gltf_node, ctx);
+      let model_handle = build_model(node, primitive, gltf_node, ctx, mesh.name(), idx);
 
       ctx.result.primitive_map.insert(index, model_handle);
     }
@@ -199,6 +210,8 @@ fn build_model(
   primitive: gltf::Primitive,
   gltf_node: &gltf::Node,
   ctx: &mut Context,
+  name: Option<&str>,
+  idx: usize,
 ) -> EntityHandle<SceneModelEntity> {
   let attributes = primitive
     .attributes()
@@ -248,7 +261,11 @@ fn build_model(
     node,
   };
 
-  sm.write(&mut ctx.io.model_writer)
+  let sm = sm.write(&mut ctx.io.model_writer);
+  let name = name.map(|n| format!("{}-{}", n, idx));
+  write_label(&mut ctx.io.model_writer, sm, name.as_deref());
+
+  sm
 }
 
 fn build_animation(animation: gltf::Animation, ctx: &mut Context) {
@@ -257,6 +274,8 @@ fn build_animation(animation: gltf::Animation, ctx: &mut Context) {
     .animation
     .component_value_writer::<SceneAnimationBelongsToScene>(ctx.io.scene.some_handle())
     .new_entity();
+
+  write_label(&mut ctx.io.animation, animation_handle, animation.name());
 
   animation.channels().for_each(|channel| {
     let target = channel.target();
@@ -404,6 +423,8 @@ fn build_material(material: gltf::Material, ctx: &mut Context) -> SceneMaterialD
       },
     }
     .write(&mut ctx.io.unlit_mat_writer);
+
+    write_label(&mut ctx.io.unlit_mat_writer, mat, material.name());
     return SceneMaterialDataView::UnlitMaterial(mat);
   }
 
@@ -437,7 +458,9 @@ fn build_material(material: gltf::Material, ctx: &mut Context) -> SceneMaterialD
     if material.double_sided() {
       // result.states.cull_mode = None;
     }
-    SceneMaterialDataView::PbrSGMaterial(result.write(&mut ctx.io.pbr_sg_mat_writer))
+    let mat = result.write(&mut ctx.io.pbr_sg_mat_writer);
+    write_label(&mut ctx.io.pbr_sg_mat_writer, mat, material.name());
+    SceneMaterialDataView::PbrSGMaterial(mat)
   } else {
     let base_color_texture = pbr
       .base_color_texture()
@@ -469,7 +492,9 @@ fn build_material(material: gltf::Material, ctx: &mut Context) -> SceneMaterialD
     if material.double_sided() {
       // result.states.cull_mode = None;
     }
-    SceneMaterialDataView::PbrMRMaterial(result.write(&mut ctx.io.pbr_mr_mat_writer))
+    let mat = result.write(&mut ctx.io.pbr_mr_mat_writer);
+    write_label(&mut ctx.io.pbr_mr_mat_writer, mat, material.name());
+    SceneMaterialDataView::PbrMRMaterial(mat)
   }
 }
 
