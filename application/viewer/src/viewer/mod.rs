@@ -120,7 +120,6 @@ impl Widget for Viewer {
       self.rendering.resize_view()
     }
 
-    let scene = self.scene.scene;
     cx.scoped_cx(&mut self.scene, |cx| {
       cx.scoped_cx(&mut self.derives, |cx| {
         cx.split_cx::<egui::Context>(|egui_cx, cx| {
@@ -129,7 +128,6 @@ impl Widget for Viewer {
             &mut self.background,
             &mut self.on_demand_rendering,
             &mut self.rendering,
-            scene,
             egui_cx,
             cx,
           );

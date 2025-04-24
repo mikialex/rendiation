@@ -137,6 +137,35 @@ impl<E: EntitySemantic> EntityWriter<E> {
       .cloned()
   }
 
+  pub fn try_read_foreign_key<C>(
+    &self,
+    idx: EntityHandle<C::Entity>,
+  ) -> Option<Option<EntityHandle<C::ForeignEntity>>>
+  where
+    C: ForeignKeySemantic<Entity = E>,
+  {
+    self
+      .try_read::<C>(idx)
+      .map(|idx| idx.map(|idx| unsafe { EntityHandle::from_raw(idx) }))
+  }
+
+  pub fn read<C>(&self, idx: EntityHandle<C::Entity>) -> C::Data
+  where
+    C: ComponentSemantic<Entity = E>,
+  {
+    self.try_read::<C>(idx).unwrap()
+  }
+
+  pub fn read_foreign_key<C>(
+    &self,
+    idx: EntityHandle<C::Entity>,
+  ) -> Option<EntityHandle<C::ForeignEntity>>
+  where
+    C: ForeignKeySemantic<Entity = E>,
+  {
+    self.try_read_foreign_key::<C>(idx).unwrap()
+  }
+
   pub fn new_entity(&mut self) -> EntityHandle<E> {
     EntityHandle {
       handle: self.inner.new_entity(),

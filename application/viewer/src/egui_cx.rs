@@ -16,6 +16,7 @@ impl<T: Widget> Widget for EguiContext<T> {
   fn update_state(&mut self, cx: &mut DynCx) {
     if self.context.is_pointer_over_area() {
       cx.message.put(CameraControlBlocked);
+      cx.message.put(PickSceneBlocked);
     }
 
     access_cx!(cx, window, Window);

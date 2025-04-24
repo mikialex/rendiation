@@ -39,7 +39,6 @@ impl ViewerUIState {
     background: &mut ViewerBackgroundState,
     on_demand_rendering: &mut bool,
     rendering: &mut Viewer3dRenderingCtx,
-    scene: EntityHandle<SceneEntity>,
     ui: &egui::Context,
     cx: &mut DynCx,
   ) {
@@ -103,7 +102,8 @@ impl ViewerUIState {
         rendering.egui(ui);
         ui.separator();
 
-        background.egui(ui, scene);
+        access_cx_mut!(cx, viewer_scene, Viewer3dSceneCtx);
+        background.egui(ui, viewer_scene.scene);
 
         ui.separator();
 
@@ -268,11 +268,129 @@ impl ViewerUIState {
       egui::Window::new("Object Inspection")
         .open(&mut self.object_inspection)
         .vscroll(true)
-        .show(ui, |_ui| {
-          //
+        .show(ui, |ui| {
+          access_cx_mut!(cx, viewer_scene, Viewer3dSceneCtx);
+
+          if let Some(target) = viewer_scene.selected_target {
+            let mut scene_writer = SceneWriter::from_global(viewer_scene.scene);
+
+            ui.label(format!("SceneModel id: {:?}", target.into_raw()));
+
+            ui.separator();
+            let node = scene_writer
+              .model_writer
+              .read_foreign_key::<SceneModelRefNode>(target)
+              .unwrap();
+
+            ui.label(format!("referenced node id: {:?}", node.into_raw()));
+
+            let parent = scene_writer.node_writer.read::<SceneNodeParentIdx>(node);
+            ui.label(format!("parent node id: {:?}", parent));
+
+            let local_mat = scene_writer
+              .node_writer
+              .read::<SceneNodeLocalMatrixComponent>(node);
+
+            ui.label("local matrix:");
+            local_mat.hover_detail_view(ui);
+
+            ui.separator();
+
+            let std_model = scene_writer
+              .model_writer
+              .read_foreign_key::<SceneModelStdModelRenderPayload>(target)
+              .unwrap();
+            ui.label(format!(
+              "referenced std_model id: {:?}",
+              std_model.into_raw()
+            ));
+
+            ui.separator();
+
+            if let Some(mat) = scene_writer
+              .std_model_writer
+              .read_foreign_key::<StandardModelRefPbrMRMaterial>(std_model)
+            {
+              modify_color_like_com::<PbrMRMaterialBaseColorComponent>(
+                ui,
+                &mut scene_writer.pbr_mr_mat_writer,
+                mat,
+              );
+              modify_normalized_value_like_com::<PbrMRMaterialRoughnessComponent>(
+                ui,
+                &mut scene_writer.pbr_mr_mat_writer,
+                mat,
+              );
+              modify_normalized_value_like_com::<PbrMRMaterialMetallicComponent>(
+                ui,
+                &mut scene_writer.pbr_mr_mat_writer,
+                mat,
+              );
+
+              //
+            } else if let Some(mat) = scene_writer
+              .std_model_writer
+              .read_foreign_key::<StandardModelRefPbrSGMaterial>(std_model)
+            {
+              modify_color_like_com::<PbrSGMaterialAlbedoComponent>(
+                ui,
+                &mut scene_writer.pbr_sg_mat_writer,
+                mat,
+              );
+              modify_normalized_value_like_com::<PbrSGMaterialGlossinessComponent>(
+                ui,
+                &mut scene_writer.pbr_sg_mat_writer,
+                mat,
+              );
+              modify_color_like_com::<PbrSGMaterialSpecularComponent>(
+                ui,
+                &mut scene_writer.pbr_sg_mat_writer,
+                mat,
+              );
+            } else if let Some(_mat) = scene_writer
+              .std_model_writer
+              .read_foreign_key::<StandardModelRefUnlitMaterial>(std_model)
+            {
+              //
+            } else {
+              ui.label("unknown material type");
+            }
+
+            //
+          } else {
+            ui.label("No target selected");
+          }
         });
     }
 
     egui_db_gui(ui, &mut self.egui_db_inspector, &mut self.show_db_inspector);
   }
+}
+
+fn modify_color(ui: &mut egui::Ui, c: &mut Vec3<f32>) {
+  let mut color: [f32; 3] = (*c).into();
+  ui.color_edit_button_rgb(&mut color);
+  *c = color.into();
+}
+
+fn modify_color_like_com<C: ComponentSemantic<Data = Vec3<f32>>>(
+  ui: &mut egui::Ui,
+  writer: &mut EntityWriter<C::Entity>,
+  id: EntityHandle<C::Entity>,
+) {
+  let mut color = writer.read::<C>(id);
+  modify_color(ui, &mut color);
+  writer.write::<C>(id, color);
+}
+
+fn modify_normalized_value_like_com<C: ComponentSemantic<Data = f32>>(
+  ui: &mut egui::Ui,
+  writer: &mut EntityWriter<C::Entity>,
+  id: EntityHandle<C::Entity>,
+) {
+  let mut v = writer.read::<C>(id);
+
+  ui.add(egui::Slider::new(&mut v, 0.0..=1.0).step_by(0.05));
+
+  writer.write::<C>(id, v);
 }
