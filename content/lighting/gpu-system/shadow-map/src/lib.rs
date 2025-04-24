@@ -11,6 +11,9 @@ pub use rendiation_texture_packer::pack_2d_to_3d::{
 use rendiation_webgpu::*;
 use rendiation_webgpu_reactive_utils::*;
 
+mod cascade;
+pub use cascade::*;
+
 pub struct BasicShadowMapSystemInputs {
   /// alloc_id => shadow map world
   pub source_world: BoxedDynReactiveQuery<u32, Mat4<f32>>,
