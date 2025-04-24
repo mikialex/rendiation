@@ -79,7 +79,7 @@ struct NaiveSahBvhSource {
 
 struct BuiltBlas {
   blas_meta_info: Vec<BlasMetaInfo>,
-  blas_box: Vec<Box3>,
+  blas_box: Vec<Option<Box3>>,
 
   // (tri_bvh, hit miss, primitive_offset, geometry_idx, geometry_flags)
   tri_bvh: Vec<(FlattenBVH<Box3>, Vec<(u32, u32)>, u32, u32, u32)>,
@@ -137,6 +137,7 @@ impl NaiveSahBvhSource {
     for blas in blas_data {
       if blas.is_none() {
         blas_meta_info.push(BlasMetaInfo::zeroed());
+        blas_box.push(None);
         continue;
       }
       let blas = blas.as_ref().unwrap();
@@ -236,7 +237,7 @@ impl NaiveSahBvhSource {
             // ));
           }
         }
-        blas_box.push(root_box);
+        blas_box.push(Some(root_box));
       }
 
       let tri_end = tri_bvh.len();
@@ -261,7 +262,7 @@ impl NaiveSahBvhSource {
 
   fn build_tlas(
     tlas_data: &[TopLevelAccelerationStructureSourceInstance],
-    blas_box: &[Box3],
+    blas_box: &[Option<Box3>],
     tlas_items_out: &mut Vec<TopLevelAccelerationStructureSourceDeviceInstance>,
     tlas_boundings_out: &mut Vec<TlasBounding>,
   ) -> (FlattenBVH<Box3>, Vec<(u32, u32)>) {
@@ -270,7 +271,9 @@ impl NaiveSahBvhSource {
 
     for (idx, source) in tlas_data.iter().enumerate() {
       let blas_idx = source.acceleration_structure_handle.0 as usize;
-      let aabb = blas_box[blas_idx].apply_matrix_into(source.transform);
+      let aabb = blas_box[blas_idx]
+        .unwrap()
+        .apply_matrix_into(source.transform);
       index_mapping.push(idx);
       tlas_bvh_aabb.push(aabb);
     }
