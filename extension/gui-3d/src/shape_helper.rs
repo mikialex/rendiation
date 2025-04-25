@@ -49,7 +49,7 @@ impl ArrowShape {
             ..Default::default()
           }
           .body_surface()
-          .transform_by(Mat4::translate((0., self.body_height, 0.))),
+          .transform3d_by(Mat4::translate((0., self.body_height, 0.))),
           config,
           true,
         );

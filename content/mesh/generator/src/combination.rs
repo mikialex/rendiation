@@ -227,8 +227,18 @@ impl<T: ParametricSurface> ParametricSurface for Transformed3D<T> {
   }
 }
 
-pub trait IntoTransformed3D: ParametricSurface + Sized {
-  fn transform_by(self, mat: Mat4<f32>) -> Transformed3D<Self> {
+impl<T: ParametricCurve3D> ParametricCurve3D for Transformed3D<T> {
+  fn position(&self, position: f32) -> Vec3<f32> {
+    self.mat * self.surface.position(position)
+  }
+
+  fn normal(&self, position: f32) -> Vec3<f32> {
+    self.normal_mat * self.surface.normal(position)
+  }
+}
+
+pub trait IntoTransformed3D: Sized {
+  fn transform3d_by(self, mat: Mat4<f32>) -> Transformed3D<Self> {
     Transformed3D {
       surface: self,
       mat,
@@ -236,4 +246,4 @@ pub trait IntoTransformed3D: ParametricSurface + Sized {
     }
   }
 }
-impl<T> IntoTransformed3D for T where T: ParametricSurface + Sized {}
+impl<T> IntoTransformed3D for T where T: Sized {}

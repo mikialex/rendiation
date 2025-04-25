@@ -57,7 +57,7 @@ fn plane(
 ) -> impl Widget {
   let mesh = build_attributes_mesh(|builder| {
     builder.triangulate_parametric(
-      &ParametricPlane.transform_by(Mat4::translate((-0.5, -0.5, 0.))),
+      &ParametricPlane.transform3d_by(Mat4::translate((-0.5, -0.5, 0.))),
       TessellationConfig { u: 1, v: 1 },
       true,
     );

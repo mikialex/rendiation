@@ -59,12 +59,12 @@ impl CubeMeshParameter {
     };
 
     [
-      ParametricPlane.transform_by(mat((1., 0., 0.), Mat4::rotate_y(f32::PI() / 2.))),
-      ParametricPlane.transform_by(mat((-1., 0., 0.), Mat4::rotate_y(-f32::PI() / 2.))),
-      ParametricPlane.transform_by(mat((0., 1., 0.), Mat4::rotate_x(-f32::PI() / 2.))),
-      ParametricPlane.transform_by(mat((0., -1., 0.), Mat4::rotate_x(f32::PI() / 2.))),
-      ParametricPlane.transform_by(mat((0., 0., 1.), Mat4::identity())),
-      ParametricPlane.transform_by(mat((0., 0., -1.), Mat4::rotate_y(f32::PI()))),
+      ParametricPlane.transform3d_by(mat((1., 0., 0.), Mat4::rotate_y(f32::PI() / 2.))),
+      ParametricPlane.transform3d_by(mat((-1., 0., 0.), Mat4::rotate_y(-f32::PI() / 2.))),
+      ParametricPlane.transform3d_by(mat((0., 1., 0.), Mat4::rotate_x(-f32::PI() / 2.))),
+      ParametricPlane.transform3d_by(mat((0., -1., 0.), Mat4::rotate_x(f32::PI() / 2.))),
+      ParametricPlane.transform3d_by(mat((0., 0., 1.), Mat4::identity())),
+      ParametricPlane.transform3d_by(mat((0., 0., -1.), Mat4::rotate_y(f32::PI()))),
     ]
   }
 }
@@ -110,7 +110,7 @@ impl SphereMeshParameter {
     let v_range = theta_start * to_normalized_v..(theta_start + theta_length) * to_normalized_v;
 
     UVSphere
-      .transform_by(Mat4::scale(Vec3::splat(radius)))
+      .transform3d_by(Mat4::scale(Vec3::splat(radius)))
       .map_range(u_range, v_range)
   }
 }

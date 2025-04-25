@@ -43,6 +43,7 @@ pub struct Viewer {
   terminal: Terminal,
   background: ViewerBackgroundState,
   camera_helpers: SceneCameraHelper,
+  spot_light_helpers: SceneSpotLightHelper,
   animation_player: SceneAnimationsPlayer,
   started_time: Instant,
 }
@@ -136,6 +137,7 @@ impl Widget for Viewer {
 
       noop_ctx!(ctx);
       self.camera_helpers.prepare_update(ctx);
+      self.spot_light_helpers.prepare_update(ctx);
 
       let time = Instant::now()
         .duration_since(self.started_time)
@@ -155,6 +157,9 @@ impl Widget for Viewer {
         viewer_scene.widget_scene,
         viewer_scene.main_camera,
       );
+      self
+        .spot_light_helpers
+        .apply_updates(&mut writer, viewer_scene.widget_scene);
 
       if size_changed {
         writer
@@ -261,6 +266,8 @@ impl Viewer {
     };
 
     let camera_helpers = SceneCameraHelper::new(scene.scene, camera_transforms.clone());
+    let spot_light_helpers =
+      SceneSpotLightHelper::new(scene.scene, scene_node_derive_world_mat().into_boxed());
 
     Self {
       widget_intersection_group: Default::default(),
@@ -270,6 +277,7 @@ impl Viewer {
       ui_state: ViewerUIState::default(),
       content: Box::new(content_logic),
       camera_helpers,
+      spot_light_helpers,
       scene,
       terminal,
       rendering: Viewer3dRenderingCtx::new(gpu, swap_chain, viewer_ndc, camera_transforms),

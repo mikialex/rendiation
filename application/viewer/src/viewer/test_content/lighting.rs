@@ -46,12 +46,13 @@ pub fn load_default_scene_lighting_test(writer: &mut SceneWriter) {
 
   {
     let spot_light_node = writer.create_root_child();
-    writer.set_local_matrix(spot_light_node, Mat4::translate((2., 2., 2.)));
+    let spot_lookat = Mat4::lookat(Vec3::new(5., 5., -5.), Vec3::splat(0.), UP);
+    writer.set_local_matrix(spot_light_node, spot_lookat);
     SpotLightDataView {
-      intensity: Vec3::new(1., 0., 0.) * 180.,
-      cutoff_distance: 40.,
-      half_cone_angle: Deg::by(5. / 2.).to_rad(),
-      half_penumbra_angle: Deg::by(5. / 2.).to_rad(),
+      intensity: Vec3::new(1., 0., 0.) * 1800.,
+      cutoff_distance: 10.,
+      half_cone_angle: Deg::by(60. / 2.).to_rad(),
+      half_penumbra_angle: Deg::by(50. / 2.).to_rad(),
       node: spot_light_node,
       scene: writer.scene,
     }
@@ -64,7 +65,7 @@ pub fn load_ltc_lighting_test(writer: &mut SceneWriter) {
   {
     let mesh = build_attributes_mesh(|builder| {
       builder.triangulate_parametric(
-        &ParametricPlane.transform_by(Mat4::scale((20., 20., 20.))),
+        &ParametricPlane.transform3d_by(Mat4::scale((20., 20., 20.))),
         TessellationConfig { u: 1, v: 1 },
         true,
       );
