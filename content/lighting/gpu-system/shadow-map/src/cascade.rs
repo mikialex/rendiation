@@ -20,12 +20,12 @@ pub struct SingleShadowMapInfo {
 }
 
 pub fn compute_directional_light_cascade_info(
-  near: f32,
-  far: f32,
   camera_world: Mat4<f32>,
   camera_projection: Mat4<f32>,
   world_to_light: Mat4<f32>,
 ) -> [(Vec3<f32>, Vec3<f32>); CASCADE_SHADOW_SPLIT_COUNT] {
+  let (near, far) = camera_projection.get_near_far_assume_is_common_projection();
+
   let world_to_clip = camera_projection * camera_world;
   let clip_to_world = world_to_clip.inverse_or_identity();
   let frustum_corners = [

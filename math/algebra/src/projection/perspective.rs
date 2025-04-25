@@ -63,4 +63,21 @@ impl<T: Scalar> Mat4<T> {
 
     mapper.transform_from_opengl_standard_ndc() * mat
   }
+
+  pub fn get_near_far_assume_perspective(&self) -> (T, T) {
+    let q = self.d3;
+    let c = self.c3;
+    let f = q / (c + T::one());
+    let n = q / (c - T::one());
+    (n, f)
+  }
+}
+
+#[test]
+fn test_near_far() {
+  let p = PerspectiveProjection::<f32>::default();
+  let mat = p.compute_projection_mat(&OpenGLxNDC);
+  let (n, f) = mat.get_near_far_assume_perspective();
+  assert!(n - p.near < 0.001);
+  assert!(f - p.far < 0.1);
 }

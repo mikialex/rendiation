@@ -132,4 +132,19 @@ impl<T: Scalar> Mat4<T> {
 
     mapper.transform_from_opengl_standard_ndc() * mat
   }
+
+  pub fn get_near_far_assume_orthographic(&self) -> (T, T) {
+    let near = (T::one() + self.d3) / self.c3;
+    let far = -(T::one() - self.d3) / self.c3;
+    (near, far)
+  }
+}
+
+#[test]
+fn test_near_far() {
+  let p = OrthographicProjection::<f32>::default();
+  let mat = p.compute_projection_mat(&OpenGLxNDC);
+  let (n, f) = mat.get_near_far_assume_orthographic();
+  assert!(n - p.near < 0.001);
+  assert!(f - p.far < 0.1);
 }
