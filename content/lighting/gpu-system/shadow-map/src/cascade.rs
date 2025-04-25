@@ -1,5 +1,112 @@
 use crate::*;
 
+pub fn cascade_shadow_map_uniform(
+  inputs: ShadowMapSystemInputs,
+  main_view_render_camera_info: impl Stream<Item = (Mat4<f32>, Mat4<f32>)>, // (proj, world)
+  config: MultiLayerTexturePackerConfig,
+  gpu_ctx: &GPU,
+) -> (
+  CascadeShadowMapSystem,
+  UniformArrayUpdateContainer<CascadeShadowMapInfo, 8>,
+) {
+  let source_world = inputs.source_world.into_forker();
+
+  let source_proj = inputs.source_proj.into_forker();
+
+  let source_view_proj = source_world
+    .clone()
+    .collective_zip(source_proj.clone())
+    .collective_map(|(w, p)| p * w.inverse_or_identity())
+    .into_boxed();
+
+  let (sys, address) = CascadeShadowMapSystem::new(
+    config,
+    source_world.into_boxed(),
+    source_proj.into_boxed(),
+    inputs.size,
+    main_view_render_camera_info,
+  );
+
+  let base_offset = offset_of!(CascadeShadowMapInfo, base);
+  let enabled = inputs
+    .enabled
+    .collective_map(|v| if v { 1 } else { 0 })
+    .into_query_update_uniform_array(
+      base_offset + offset_of!(BasicShadowMapInfo, enabled),
+      gpu_ctx,
+    );
+
+  // let map_info = address.into_query_update_uniform_array(
+  //   base_offset + offset_of!(BasicShadowMapInfo, map_info),
+  //   gpu_ctx,
+  // );
+
+  let bias = inputs
+    .bias
+    .into_query_update_uniform_array(base_offset + offset_of!(BasicShadowMapInfo, bias), gpu_ctx);
+
+  // let shadow_camera_view_proj = source_view_proj.into_query_update_uniform_array(
+  //   base_offset + offset_of!(BasicShadowMapInfo, shadow_camera_full_view_proj),
+  //   gpu_ctx,
+  // );
+
+  let uniforms = UniformBufferDataView::create_default(&gpu_ctx.device);
+  let uniforms = UniformArrayUpdateContainer::<CascadeShadowMapInfo, 8>::new(uniforms)
+    .with_source(enabled)
+    // .with_source(map_info)
+    // .with_source(shadow_camera_view_proj)
+    .with_source(bias);
+
+  (sys, uniforms)
+}
+
+pub struct CascadeShadowMapSystem {
+  shadow_map_atlas: Option<GPUTexture>,
+  packing: BoxedDynReactiveQuery<u32, [ShadowMapAddressInfo; CASCADE_SHADOW_SPLIT_COUNT]>,
+  atlas_resize: Box<dyn Stream<Item = SizeWithDepth> + Unpin>,
+  current_size: Option<SizeWithDepth>,
+  source_world: BoxedDynReactiveQuery<u32, Mat4<f32>>,
+  source_proj: BoxedDynReactiveQuery<u32, [Mat4<f32>; CASCADE_SHADOW_SPLIT_COUNT]>,
+}
+
+impl CascadeShadowMapSystem {
+  pub fn new(
+    config: MultiLayerTexturePackerConfig,
+    source_world: BoxedDynReactiveQuery<u32, Mat4<f32>>,
+    source_proj: BoxedDynReactiveQuery<u32, Mat4<f32>>,
+    size: BoxedDynReactiveQuery<u32, Size>,
+    main_view_render_camera_info: impl Stream<Item = (Mat4<f32>, Mat4<f32>)>, // (proj, world)
+  ) -> (
+    Self,
+    BoxedDynReactiveQuery<u32, [SingleShadowMapInfo; CASCADE_SHADOW_SPLIT_COUNT]>,
+  ) {
+    let (packing, atlas_resize) = reactive_pack_2d_to_3d(config, size);
+    let packing = packing.collective_map(convert_pack_result).into_forker();
+
+    let sys = Self {
+      shadow_map_atlas: None,
+      current_size: None,
+      packing: todo!(),
+      atlas_resize: Box::new(atlas_resize),
+      source_world,
+      source_proj: todo!(),
+    };
+    (sys, todo!())
+  }
+
+  #[must_use]
+  pub fn update_shadow_maps<'a>(
+    &mut self,
+    cx: &mut Context,
+    frame_ctx: &mut FrameCtx,
+    // proj, world
+    scene_content: &impl Fn(Mat4<f32>, Mat4<f32>, &mut FrameCtx) -> Box<dyn PassContent + 'a>,
+    reversed_depth: bool,
+  ) -> GPU2DArrayDepthTextureView {
+    todo!()
+  }
+}
+
 const CASCADE_SHADOW_SPLIT_COUNT: usize = 4;
 
 #[repr(C)]
