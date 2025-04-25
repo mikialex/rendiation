@@ -9,6 +9,7 @@ pub struct CascadeShadowMapInfo {
   pub enabled: u32,
   pub bias: ShadowBias,
   pub map_info: Shader140Array<SingleShadowMapInfo, CASCADE_SHADOW_SPLIT_COUNT>,
+  pub splits: Vec4<f32>,
 }
 
 #[repr(C)]
@@ -19,11 +20,34 @@ pub struct SingleShadowMapInfo {
   pub map_info: ShadowMapAddressInfo,
 }
 
+/// return per sub frustum light shadow camera projection mat and split distance
 pub fn compute_directional_light_cascade_info(
   camera_world: Mat4<f32>,
   camera_projection: Mat4<f32>,
   world_to_light: Mat4<f32>,
-) -> [(Vec3<f32>, Vec3<f32>); CASCADE_SHADOW_SPLIT_COUNT] {
+) -> [(OrthographicProjection<f32>, f32); CASCADE_SHADOW_SPLIT_COUNT] {
+  let (near, far) = camera_projection.get_near_far_assume_orthographic();
+  compute_light_cascade_info(camera_world, camera_projection, world_to_light).map(
+    |(min, max, split)| {
+      let proj = OrthographicProjection {
+        left: min.x,
+        right: max.x,
+        top: max.y,
+        bottom: min.y,
+        near,
+        far,
+      };
+      (proj, split)
+    },
+  )
+}
+
+/// return per sub frustum min max point and split distance in light space
+pub fn compute_light_cascade_info(
+  camera_world: Mat4<f32>,
+  camera_projection: Mat4<f32>,
+  world_to_light: Mat4<f32>,
+) -> [(Vec3<f32>, Vec3<f32>, f32); CASCADE_SHADOW_SPLIT_COUNT] {
   let (near, far) = camera_projection.get_near_far_assume_is_common_projection();
 
   let world_to_clip = camera_projection * camera_world;
@@ -45,7 +69,7 @@ pub fn compute_directional_light_cascade_info(
     let p = (i as f32 + 1.0) / (CASCADE_SHADOW_SPLIT_COUNT as f32);
     let log = near.powf(1.0 - p) * far.powf(p);
     let linear = near + p * (far - near);
-    ratio * log + (1.0 - ratio) * linear
+    linear.lerp(log, ratio)
   });
 
   let mut idx = 0;
@@ -77,6 +101,41 @@ pub fn compute_directional_light_cascade_info(
       max = max.max(corner_position_in_light);
     }
     idx += 1;
-    (min, max)
+    (min, max, split_distance)
   })
+}
+
+/// compute the current shading point in which sub frustum
+#[shader_fn]
+pub fn compute_cascade_index(
+  fragment_world_position: Node<Vec3<f32>>,
+  camera_world_mat: Node<Mat4<f32>>,
+  splits: Node<Vec4<f32>>,
+) -> Node<u32> {
+  let camera_position = camera_world_mat.position();
+  let camera_forward_dir = camera_world_mat.forward().normalize();
+
+  let diff = fragment_world_position - camera_position;
+  let distance = diff.dot(camera_forward_dir);
+
+  let x = splits.x();
+  let y = splits.y();
+  let z = splits.z();
+
+  let offset = val(0_u32).make_local_var();
+
+  if_by(distance.less_than(x), || {
+    offset.store(val(0_u32));
+  })
+  .else_if(distance.less_than(y), || {
+    offset.store(val(1_u32));
+  })
+  .else_if(distance.less_than(z), || {
+    offset.store(val(2_u32));
+  })
+  .else_by(|| {
+    offset.store(val(3_u32));
+  });
+
+  offset.load()
 }

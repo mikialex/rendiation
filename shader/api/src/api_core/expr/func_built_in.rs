@@ -267,6 +267,9 @@ impl Node<Mat4<f32>> {
   pub fn position(self) -> Node<Vec3<f32>> {
     self.nth_colum(3).xyz()
   }
+  pub fn forward(self) -> Node<Vec3<f32>> {
+    self.nth_colum(2).xyz()
+  }
   pub fn scale(self) -> Node<Vec3<f32>> {
     let x = self.nth_colum(0).length();
     let y = self.nth_colum(1).length();
