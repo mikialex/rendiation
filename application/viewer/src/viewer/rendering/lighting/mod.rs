@@ -90,7 +90,7 @@ impl LightSystem {
       .into_boxed();
 
     let (directional_light_shadow, directional_light_shadow_address) = basic_shadow_map_uniform(
-      BasicShadowMapSystemInputs {
+      ShadowMapSystemInputs {
         source_world,
         source_proj,
         size: global_watch()
@@ -128,7 +128,7 @@ impl LightSystem {
       .into_boxed();
 
     let (spot_light_shadow, spot_light_shadow_address) = basic_shadow_map_uniform(
-      BasicShadowMapSystemInputs {
+      ShadowMapSystemInputs {
         source_proj,
         source_world,
         size: global_watch()

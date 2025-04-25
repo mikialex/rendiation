@@ -6,10 +6,8 @@ const CASCADE_SHADOW_SPLIT_COUNT: usize = 4;
 #[std140_layout]
 #[derive(Clone, Copy, Default, ShaderStruct, Debug)]
 pub struct CascadeShadowMapInfo {
-  pub enabled: u32,
-  pub bias: ShadowBias,
+  pub base: BasicShadowMapInfo,
   pub map_info: Shader140Array<SingleShadowMapInfo, CASCADE_SHADOW_SPLIT_COUNT>,
-  pub splits: Vec4<f32>,
 }
 
 #[repr(C)]
@@ -18,6 +16,7 @@ pub struct CascadeShadowMapInfo {
 pub struct SingleShadowMapInfo {
   pub shadow_camera_view_proj: Mat4<f32>,
   pub map_info: ShadowMapAddressInfo,
+  pub split_distance: f32,
 }
 
 /// return per sub frustum light shadow camera projection mat and split distance

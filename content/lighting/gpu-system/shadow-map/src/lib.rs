@@ -1,3 +1,4 @@
+use std::mem::offset_of;
 use std::task::{Context, Poll};
 
 use reactive::*;
@@ -14,7 +15,7 @@ use rendiation_webgpu_reactive_utils::*;
 mod cascade;
 pub use cascade::*;
 
-pub struct BasicShadowMapSystemInputs {
+pub struct ShadowMapSystemInputs {
   /// alloc_id => shadow map world
   pub source_world: BoxedDynReactiveQuery<u32, Mat4<f32>>,
   /// alloc_id => shadow map proj
@@ -28,7 +29,7 @@ pub struct BasicShadowMapSystemInputs {
 }
 
 pub fn basic_shadow_map_uniform(
-  inputs: BasicShadowMapSystemInputs,
+  inputs: ShadowMapSystemInputs,
   config: MultiLayerTexturePackerConfig,
   gpu_ctx: &GPU,
 ) -> (
@@ -52,20 +53,26 @@ pub fn basic_shadow_map_uniform(
     inputs.size,
   );
 
-  let map_info = address
-    .into_query_update_uniform_array(std::mem::offset_of!(BasicShadowMapInfo, map_info), gpu_ctx);
+  let enabled = inputs
+    .enabled
+    .collective_map(|v| if v { 1 } else { 0 })
+    .into_query_update_uniform_array(offset_of!(BasicShadowMapInfo, enabled), gpu_ctx);
+
+  let map_info =
+    address.into_query_update_uniform_array(offset_of!(BasicShadowMapInfo, map_info), gpu_ctx);
 
   let bias = inputs
     .bias
-    .into_query_update_uniform_array(std::mem::offset_of!(BasicShadowMapInfo, bias), gpu_ctx);
+    .into_query_update_uniform_array(offset_of!(BasicShadowMapInfo, bias), gpu_ctx);
 
   let shadow_camera_view_proj = source_view_proj.into_query_update_uniform_array(
-    std::mem::offset_of!(BasicShadowMapInfo, shadow_camera_view_proj),
+    offset_of!(BasicShadowMapInfo, shadow_camera_view_proj),
     gpu_ctx,
   );
 
   let uniforms = UniformBufferDataView::create_default(&gpu_ctx.device);
   let uniforms = UniformArrayUpdateContainer::<BasicShadowMapInfo, 8>::new(uniforms)
+    .with_source(enabled)
     .with_source(map_info)
     .with_source(shadow_camera_view_proj)
     .with_source(bias);
