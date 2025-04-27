@@ -70,7 +70,7 @@ pub struct SceneRayTracingRendererBase {
   pub scene_tlas: BoxedDynQuery<EntityHandle<SceneEntity>, TlASInstance>,
   pub mesh: MeshGPUBindlessImpl,
   pub material: SceneSurfaceSupport,
-  pub lighting: ScenePTLightingSceneData,
+  pub lighting: ScenePTLightingSceneDataGroup,
   pub scene_ids: SceneIdUniformBufferAccess,
   pub background: SceneBackgroundRenderer,
   pub any_changed: bool,
