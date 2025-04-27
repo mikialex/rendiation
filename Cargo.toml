@@ -49,6 +49,7 @@ members = [
   "shader/parallel-compute",
   "shader/task-graph",
   "shader/ray-tracing",
+  "shader/spd",
   "scene/core",
   "scene/rendering/gpu-base",
   "scene/rendering/gpu-gles",

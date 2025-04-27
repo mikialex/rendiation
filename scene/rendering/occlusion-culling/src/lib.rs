@@ -5,10 +5,8 @@ use rendiation_device_parallel_compute::*;
 use rendiation_scene_core::*;
 use rendiation_scene_rendering_gpu_base::*;
 use rendiation_shader_api::*;
+use rendiation_spd::*;
 use rendiation_webgpu::*;
-
-mod spd;
-use spd::*;
 
 mod filter;
 use filter::*;

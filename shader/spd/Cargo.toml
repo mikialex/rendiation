@@ -1,0 +1,14 @@
+[package]
+authors = ["mikialex <18516340862@163.com>"]
+edition = "2021"
+name = "rendiation-spd"
+version = "0.1.0"
+
+[dependencies]
+rendiation-shader-api = { path = "../api" }
+rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
+
+pollster = { workspace = true } # used in examples
+
+[lints]
+workspace = true

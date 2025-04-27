@@ -1,6 +1,5 @@
 use rendiation_shader_api::*;
-
-use crate::*;
+use rendiation_webgpu::*;
 
 /// the target is a h depth texture, user should guarantee it has correct size and format.
 ///
