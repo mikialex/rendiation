@@ -63,7 +63,7 @@ pub use read::*;
 pub use rendering::*;
 use rendiation_shader_api::*;
 use rendiation_shader_api::{Std430, Std430MaybeUnsized};
-use rendiation_texture_types::*;
+pub use rendiation_texture_types::*;
 pub use resource::*;
 use reuse_pool::*;
 pub use surface::*;
