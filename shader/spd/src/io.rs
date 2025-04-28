@@ -49,12 +49,10 @@ impl SourceImageLoader<f32> for MSDepthLoader {
   }
 }
 
-pub struct LoadFirstChannel {
-  pub source: BindingNode<ShaderTexture2D>,
-}
-impl SourceImageLoader<f32> for LoadFirstChannel {
+pub struct FirstChannelLoader(pub BindingNode<ShaderTexture2D>);
+impl SourceImageLoader<f32> for FirstChannelLoader {
   fn load(&self, coord: Node<Vec2<u32>>) -> Node<f32> {
-    self.source.load(coord).x()
+    self.0.load(coord).x()
   }
 }
 

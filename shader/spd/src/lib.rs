@@ -21,8 +21,6 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
   assert!(input_size.width <= MAX_INPUT_SIZE);
   assert!(input_size.height <= MAX_INPUT_SIZE);
 
-  let x = output_target.desc.size.width.div_ceil(64);
-  let y = output_target.desc.size.height.div_ceil(64);
   let mip_level_count = output_target.desc.mip_level_count;
 
   let reducer = MaxReducer;
@@ -40,169 +38,175 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
       .unwrap()
   });
 
-  let level_0 = mips[0]
-    .clone()
-    .into_storage_texture_view_writeonly()
-    .unwrap();
+  // we can not read from the texture meta in shader, because we want
+  // the mip_count for full texture size
   let mip_count_buffer = create_uniform(Vec4::new(mip_level_count, 0, 0, 0), device);
-  let level_1_6: [StorageTextureViewWriteonly2D; 6] = std::array::from_fn(|i| {
-    mips[i + 1]
+
+  // first pass
+  {
+    let level_0 = mips[0]
       .clone()
       .into_storage_texture_view_writeonly()
-      .unwrap()
-  });
+      .unwrap();
+    let level_1_6: [StorageTextureViewWriteonly2D; 6] = std::array::from_fn(|i| {
+      mips[i + 1]
+        .clone()
+        .into_storage_texture_view_writeonly()
+        .unwrap()
+    });
 
-  let hasher = shader_hasher_from_marker_ty!(SPDxFirstPass);
-  let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut ctx| {
-    ctx.config_work_group_size(256);
-    let shared = ctx.define_workgroup_shared_var::<IntermediateBuffer<f32>>();
-    let group_id = ctx.workgroup_id().xy();
-    let local_id = ctx.local_invocation_index();
-    let coord = remap_for_wave_reduction_fn(local_id % val(64));
+    let hasher = shader_hasher_from_marker_ty!(SPDxFirstPass);
+    let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut ctx| {
+      ctx.config_work_group_size(16 * 16);
+      let shared = ctx.define_workgroup_shared_var::<SharedMemory<f32>>();
+      let group_id = ctx.workgroup_id().xy();
+      let local_id = ctx.local_invocation_index();
+      let coord = remap_for_wave_reduction_fn(local_id % val(64));
 
-    // map to 16 * 16 grid
-    let x = coord.x() + ((local_id >> val(6)) % val(2)) * val(8);
-    let y = coord.y() + (local_id >> val(7)) * val(8);
-    let coord = (x, y).into();
+      // map to 16 * 16 grid
+      let x = coord.x() + ((local_id >> val(6)) % val(2)) * val(8);
+      let y = coord.y() + (local_id >> val(7)) * val(8);
+      let coord = (x, y).into();
 
-    let ms_depth = ctx.bind_by(&input_multi_sampled_depth);
-    let mip_0 = ctx.bind_by(&level_0);
-    let mip_level_count = ctx.bind_by(&mip_count_buffer).load().x();
+      let ms_depth = ctx.bind_by(&input_multi_sampled_depth);
+      let mip_0 = ctx.bind_by(&level_0);
+      let mip_level_count = ctx.bind_by(&mip_count_buffer).load().x();
 
-    let scale =
-      ms_depth.texture_dimension_2d(None).into_f32() / mip_0.texture_dimension_2d(None).into_f32();
+      let image_loader = MSDepthLoader {
+        ms_depth,
+        mip_0,
+        scale: ms_depth.texture_dimension_2d(None).into_f32()
+          / mip_0.texture_dimension_2d(None).into_f32(),
+      };
 
-    let image_loader = MSDepthLoader {
-      ms_depth,
-      mip_0,
-      scale,
-    };
+      let image_sampler = SpdImageDownSampler::new(image_loader);
+      let intermediate_sampler = SharedMemoryDownSampler::new(shared);
 
-    let image_sampler = SpdImageDownSampler::new(image_loader);
-    let intermediate_sampler = SpdIntermediateDownSampler::new(shared);
+      let sample_ctx = ENode::<SampleCtx> {
+        coord,
+        group_id,
+        local_invocation_index: local_id,
+        mip_level_count,
+      };
 
-    let sample_ctx = ENode::<SampleCtx> {
-      coord,
-      group_id,
-      local_invocation_index: local_id,
-      mip_level_count,
-    };
+      down_sample_mips_0_and_1(
+        &image_sampler,
+        &intermediate_sampler,
+        SplatWriter(ctx.bind_by(&level_1_6[0])),
+        SplatWriter(ctx.bind_by(&level_1_6[1])),
+        sample_ctx,
+        reducer,
+      );
 
-    down_sample_mips_0_and_1(
-      &image_sampler,
-      &intermediate_sampler,
-      SplatWriter(ctx.bind_by(&level_1_6[0])),
-      SplatWriter(ctx.bind_by(&level_1_6[1])),
-      sample_ctx,
-      reducer,
-    );
+      down_sample_next_four(
+        &intermediate_sampler,
+        SplatWriter(ctx.bind_by(&level_1_6[2])),
+        SplatWriter(ctx.bind_by(&level_1_6[3])),
+        SplatWriter(ctx.bind_by(&level_1_6[4])),
+        SplatWriter(ctx.bind_by(&level_1_6[5])),
+        sample_ctx,
+        val(2),
+        reducer,
+      );
 
-    down_sample_next_four(
-      &intermediate_sampler,
-      SplatWriter(ctx.bind_by(&level_1_6[2])),
-      SplatWriter(ctx.bind_by(&level_1_6[3])),
-      SplatWriter(ctx.bind_by(&level_1_6[4])),
-      SplatWriter(ctx.bind_by(&level_1_6[5])),
-      sample_ctx,
-      val(2),
-      reducer,
-    );
+      ctx
+    });
 
-    ctx
-  });
+    BindingBuilder::default()
+      .with_bind(input_multi_sampled_depth)
+      .with_bind(&level_0)
+      .with_fn(|bb| {
+        for v in level_1_6.iter() {
+          bb.bind(v);
+        }
+      })
+      .setup_compute_pass(pass, device, &pipeline);
 
-  BindingBuilder::default()
-    .with_bind(input_multi_sampled_depth)
-    .with_bind(&level_0)
-    .with_fn(|bb| {
-      for v in level_1_6.iter() {
-        bb.bind(v);
-      }
-    })
-    .setup_compute_pass(pass, device, &pipeline);
-
-  pass.dispatch_workgroups(x, y, 1);
+    let x_workgroup_required = output_target.desc.size.width.div_ceil(64);
+    let y_workgroup_required = output_target.desc.size.height.div_ceil(64);
+    pass.dispatch_workgroups(x_workgroup_required, y_workgroup_required, 1);
+  }
 
   if mip_level_count < 7 {
     return;
   }
 
-  let l_6 = mips[6].clone();
-  let l_7_12: [StorageTextureViewWriteonly2D; 6] = std::array::from_fn(|i| {
-    mips[i + 7]
-      .clone()
-      .into_storage_texture_view_writeonly()
-      .unwrap()
-  });
-
-  let hasher = shader_hasher_from_marker_ty!(SPDxSecondPass);
-  let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut ctx| {
-    ctx.config_work_group_size(256);
-    let shared = ctx.define_workgroup_shared_var::<IntermediateBuffer<f32>>();
-    let group_id = ctx.workgroup_id().xy();
-    let local_id = ctx.local_invocation_index();
-
-    let coord = remap_for_wave_reduction_fn(local_id % val(64));
-
-    // map to 16 * 16 grid
-    let x = coord.x() + ((local_id >> val(6)) % val(2)) * val(8);
-    let y = coord.y() + (local_id >> val(7)) * val(8);
-    let coord = (x, y).into();
-
-    let mip_level_count = ctx.bind_by(&mip_count_buffer).load().x();
-
-    let image_sampler = SpdImageDownSampler::new(LoadFirstChannel {
-      source: ctx.bind_by(&l_6),
+  // second pass
+  {
+    let l_6 = mips[6].clone();
+    let l_7_12: [StorageTextureViewWriteonly2D; 6] = std::array::from_fn(|i| {
+      mips[i + 7]
+        .clone()
+        .into_storage_texture_view_writeonly()
+        .unwrap()
     });
-    let intermediate_sampler = SpdIntermediateDownSampler::new(shared);
 
-    let sample_ctx = ENode::<SampleCtx> {
-      coord,
-      group_id,
-      local_invocation_index: local_id,
-      mip_level_count,
-    };
+    let hasher = shader_hasher_from_marker_ty!(SPDxSecondPass);
+    let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut ctx| {
+      ctx.config_work_group_size(16 * 16);
+      let shared = ctx.define_workgroup_shared_var::<SharedMemory<f32>>();
+      let group_id = ctx.workgroup_id().xy();
+      let local_id = ctx.local_invocation_index();
 
-    down_sample_mips_6_and_7(
-      &image_sampler,
-      &intermediate_sampler,
-      SplatWriter(ctx.bind_by(&l_7_12[0])),
-      SplatWriter(ctx.bind_by(&l_7_12[1])),
-      sample_ctx,
-      reducer,
-    );
+      let coord = remap_for_wave_reduction_fn(local_id % val(64));
 
-    down_sample_next_four(
-      &intermediate_sampler,
-      SplatWriter(ctx.bind_by(&l_7_12[2])),
-      SplatWriter(ctx.bind_by(&l_7_12[3])),
-      SplatWriter(ctx.bind_by(&l_7_12[4])),
-      SplatWriter(ctx.bind_by(&l_7_12[5])),
-      sample_ctx,
-      val(8),
-      reducer,
-    );
+      // map to 16 * 16 grid
+      let x = coord.x() + ((local_id >> val(6)) % val(2)) * val(8);
+      let y = coord.y() + (local_id >> val(7)) * val(8);
+      let coord = (x, y).into();
 
-    ctx
-  });
+      let mip_level_count = ctx.bind_by(&mip_count_buffer).load().x();
 
-  BindingBuilder::default()
-    .with_bind(&mip_count_buffer)
-    .with_bind(&l_6)
-    .with_fn(|bb| {
-      for v in l_7_12.iter() {
-        bb.bind(v);
-      }
-    })
-    .setup_compute_pass(pass, device, &pipeline);
+      let image_sampler = SpdImageDownSampler::new(FirstChannelLoader(ctx.bind_by(&l_6)));
+      let shared_sampler = SharedMemoryDownSampler::new(shared);
 
-  pass.dispatch_workgroups(1, 1, 1);
+      let sample_ctx = ENode::<SampleCtx> {
+        coord,
+        group_id,
+        local_invocation_index: local_id,
+        mip_level_count,
+      };
+
+      down_sample_mips_6_and_7(
+        &image_sampler,
+        &shared_sampler,
+        SplatWriter(ctx.bind_by(&l_7_12[0])),
+        SplatWriter(ctx.bind_by(&l_7_12[1])),
+        sample_ctx,
+        reducer,
+      );
+
+      down_sample_next_four(
+        &shared_sampler,
+        SplatWriter(ctx.bind_by(&l_7_12[2])),
+        SplatWriter(ctx.bind_by(&l_7_12[3])),
+        SplatWriter(ctx.bind_by(&l_7_12[4])),
+        SplatWriter(ctx.bind_by(&l_7_12[5])),
+        sample_ctx,
+        val(8),
+        reducer,
+      );
+
+      ctx
+    });
+
+    BindingBuilder::default()
+      .with_bind(&mip_count_buffer)
+      .with_bind(&l_6)
+      .with_fn(|bb| {
+        for v in l_7_12.iter() {
+          bb.bind(v);
+        }
+      })
+      .setup_compute_pass(pass, device, &pipeline);
+
+    pass.dispatch_workgroups(1, 1, 1);
+  }
 }
 
 const TILE_SIZE: u32 = 64;
 const INTERMEDIATE_SIZE: usize = 16;
-
-type IntermediateBuffer<T> = [[T; INTERMEDIATE_SIZE]; INTERMEDIATE_SIZE];
+type SharedMemory<T> = [[T; INTERMEDIATE_SIZE]; INTERMEDIATE_SIZE];
 
 #[derive(Clone, Copy, ShaderStruct)]
 struct SampleCtx {
@@ -226,53 +230,44 @@ fn remap_for_wave_reduction(a: Node<u32>) -> Node<Vec2<u32>> {
   (x, y).into()
 }
 
-struct SpdImageDownSampler<S, N> {
+struct SpdImageDownSampler<S> {
   loader: S,
-  quad: ShaderPtrOf<[N; 4]>,
 }
 
-impl<S, N> SpdImageDownSampler<S, N>
-where
-  S: SourceImageLoader<N>,
-  N: ShaderSizedValueNodeType,
-{
+impl<S> SpdImageDownSampler<S> {
   fn new(loader: S) -> Self {
-    Self {
-      loader,
-      quad: zeroed_val::<[N; 4]>().make_local_var(),
-    }
+    Self { loader }
   }
 
-  fn down_sample(&self, tex: Node<Vec2<u32>>, reducer: impl QuadReducer<N>) -> Node<N> {
-    let offsets = [
-      vec2(0_u32, 0_u32),
-      vec2(0_u32, 1_u32),
-      vec2(1_u32, 0_u32),
-      vec2(1_u32, 1_u32),
-    ];
-    for (i, o) in offsets.into_iter().enumerate() {
-      let v = self.loader.load(tex + val(o));
-      self.quad.index(val(i as u32)).store(v);
-    }
-    // todo, boundary check?
-    reducer.reduce(&self.quad)
+  fn down_sample<N>(&self, coord: Node<Vec2<u32>>, reducer: impl QuadReducer<N>) -> Node<N>
+  where
+    S: SourceImageLoader<N>,
+    N: ShaderSizedValueNodeType,
+  {
+    let loads = [vec2(0, 0), vec2(0, 1), vec2(1, 0), vec2(1, 1)].map(|offset| {
+      // todo, boundary check?
+      self.loader.load(coord + val(offset))
+    });
+    reducer.reduce(loads)
   }
 }
 
-struct SpdIntermediateDownSampler<T> {
-  intermediate: ShaderPtrOf<IntermediateBuffer<T>>,
-  quad: ShaderPtrOf<[T; 4]>,
+struct SharedMemoryDownSampler<T> {
+  shared: ShaderPtrOf<SharedMemory<T>>,
 }
 
-impl<T> SpdIntermediateDownSampler<T>
+impl<T> SharedMemoryDownSampler<T>
 where
   T: ShaderSizedValueNodeType,
 {
-  fn new(intermediate: ShaderPtrOf<IntermediateBuffer<T>>) -> Self {
+  fn new(intermediate: ShaderPtrOf<SharedMemory<T>>) -> Self {
     Self {
-      intermediate,
-      quad: zeroed_val::<[T; 4]>().make_local_var(),
+      shared: intermediate,
     }
+  }
+
+  fn store(&self, coord: Node<Vec2<u32>>, value: Node<T>) {
+    self.shared.index(coord.x()).index(coord.y()).store(value);
   }
 
   fn down_sample(
@@ -280,18 +275,17 @@ where
     coords: [impl Into<Node<Vec2<u32>>>; 4],
     reducer: impl QuadReducer<T>,
   ) -> Node<T> {
-    for (i, coord) in coords.into_iter().enumerate() {
+    let loads = coords.map(|coord| {
       let coord = coord.into();
-      let v = self.intermediate.index(coord.x()).index(coord.y()).load();
-      self.quad.index(val(i as u32)).store(v);
-    }
-    reducer.reduce(&self.quad)
+      self.shared.index(coord.x()).index(coord.y()).load()
+    });
+    reducer.reduce(loads)
   }
 }
 
 fn down_sample_mips_0_and_1<S, N, T>(
-  image_sampler: &SpdImageDownSampler<S, N>,
-  intermediate_sampler: &SpdIntermediateDownSampler<N>,
+  image_sampler: &SpdImageDownSampler<S>,
+  shared_sampler: &SharedMemoryDownSampler<N>,
   l_1: T,
   l_2: T,
   sample_ctx: ENode<SampleCtx>,
@@ -323,18 +317,14 @@ fn down_sample_mips_0_and_1<S, N, T>(
 
   if_by(mip_level_count.less_equal_than(val(1)), do_return);
 
-  4_u32.into_shader_iter().for_each(|i, _| {
-    intermediate_sampler
-      .intermediate
-      .index(coord.x())
-      .index(coord.y())
-      .store(sub_tile_reduced.index(i).load());
+  4.into_shader_iter().for_each(|i, _| {
+    shared_sampler.store(coord, sub_tile_reduced.index(i).load());
 
     workgroup_barrier();
 
     if_by(local_invocation_index.less_equal_than(val(64)), || {
       let scaled = coord * val(2);
-      let reduced = intermediate_sampler.down_sample(
+      let reduced = shared_sampler.down_sample(
         [
           scaled + val(vec2(0, 0)),
           scaled + val(vec2(1, 0)),
@@ -359,18 +349,14 @@ fn down_sample_mips_0_and_1<S, N, T>(
       .enumerate()
     {
       let coord = coord + val(o);
-      intermediate_sampler
-        .intermediate
-        .index(coord.x())
-        .index(coord.y())
-        .store(sub_tile_reduced.index(i as u32).load())
+      shared_sampler.store(coord, sub_tile_reduced.index(i as u32).load());
     }
   });
 }
 
 fn down_sample_mips_6_and_7<S, N, T>(
-  image_sampler: &SpdImageDownSampler<S, N>,
-  intermediate_sampler: &SpdIntermediateDownSampler<N>,
+  image_sampler: &SpdImageDownSampler<S>,
+  shared_sampler: &SharedMemoryDownSampler<N>,
   l_7: T,
   l_8: T,
   sample_ctx: ENode<SampleCtx>,
@@ -386,32 +372,23 @@ fn down_sample_mips_6_and_7<S, N, T>(
     ..
   } = sample_ctx;
 
-  let l_7_local = zeroed_val::<[N; 4]>().make_local_var();
-
-  for (i, o) in [vec2(0, 0), vec2(1, 0), vec2(0, 1), vec2(1, 1)]
-    .into_iter()
-    .enumerate()
-  {
-    let pix = coord * val(2) + val(o);
-    let tex = pix * val(2);
-    let reduced = image_sampler.down_sample(tex, reducer);
-    l_7_local.index(val(i as u32)).store(reduced);
+  let reduced = [vec2(0, 0), vec2(1, 0), vec2(0, 1), vec2(1, 1)].map(|offset| {
+    let pix = coord * val(2) + val(offset);
+    let coord = pix * val(2);
+    let reduced = image_sampler.down_sample(coord, reducer);
     l_7.write(pix, reduced);
-  }
+    reduced
+  });
 
   if_by(mip_level_count.less_equal_than(val(7)), do_return);
 
-  let l_8_local = reducer.reduce(&l_7_local);
+  let l_8_local = reducer.reduce(reduced);
   l_8.write(coord, l_8_local);
-  intermediate_sampler
-    .intermediate
-    .index(coord.x())
-    .index(coord.y())
-    .store(l_8_local);
+  shared_sampler.store(coord, l_8_local);
 }
 
 fn down_sample_next_four<N, T>(
-  sampler: &SpdIntermediateDownSampler<N>,
+  sampler: &SharedMemoryDownSampler<N>,
   l_3: T,
   l_4: T,
   l_5: T,
@@ -447,7 +424,7 @@ fn down_sample_next_four<N, T>(
 
     let x = coord.x() * val(2) + coord.y() % val(2);
     let y = coord.y() * val(2);
-    sampler.intermediate.index(x).index(y).store(reduced);
+    sampler.shared.index(x).index(y).store(reduced);
     l_3.write(group_id * val(TILE_SIZE / 8) + coord, reduced);
   });
   if_by(
@@ -472,7 +449,7 @@ fn down_sample_next_four<N, T>(
 
       let x = coord.x() * val(4) + coord.y(); // checked, not required % val(4)
       let y = coord.y() * val(4);
-      sampler.intermediate.index(x).index(y).store(reduced);
+      sampler.shared.index(x).index(y).store(reduced);
       l_4.write(group_id * val(TILE_SIZE / 16) + coord, reduced);
     },
   );
@@ -497,7 +474,7 @@ fn down_sample_next_four<N, T>(
       );
 
       let x = coord.x() + coord.y() * val(2);
-      sampler.intermediate.index(x).index(0).store(reduced);
+      sampler.shared.index(x).index(0).store(reduced);
       l_5.write(group_id * val(TILE_SIZE / 32) + coord, reduced);
     },
   );
