@@ -96,6 +96,24 @@ impl<T: ShaderSizedValueNodeType + Clone, const U: usize> ShaderFieldTypeMapper 
   }
 }
 
+impl<T: PrimitiveShaderNodeType + Clone, const U: usize> Node<[T; U]> {
+  pub fn from_array(v: [T; U]) -> Self {
+    ShaderNodeExpr::Compose {
+      target: <[T; U]>::sized_ty(),
+      parameters: v.into_iter().map(|v| val(v).handle()).collect(),
+    }
+    .insert_api()
+  }
+
+  pub fn index(self, index: Node<u32>) -> Node<T> {
+    OperatorNode::Index {
+      array: self.handle(),
+      entry: index.handle(),
+    }
+    .insert_api()
+  }
+}
+
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub struct ShaderStructFieldMetaInfo {
   pub name: String,

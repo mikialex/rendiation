@@ -47,6 +47,7 @@ important issue is in bold style.
 - gpu driven occlusion culling, frustum culling
 - on_demand_draw
 - ssr(super naive)
+- fxaa
 - lod graph generation and rendering
 
 ### New features planed

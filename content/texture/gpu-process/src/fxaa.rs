@@ -215,8 +215,10 @@ fn determine_edge_blend_factor(
   let p_luminance_delta = p_luminance_delta.make_local_var();
   let i = val(1_u32).make_local_var();
 
+  let edge_steps = Node::<[f32; 6]>::from_array(EDGE_STEPS);
+
   loop_by(|cx| {
-    puv.store(puv.load() + edge_step * val(EDGE_STEPS[i.load()]));
+    puv.store(puv.load() + edge_step * edge_steps.index(i.load()));
     p_luminance_delta.store(sample_luminance(input, sampler, puv.load()) - edge_luminance);
 
     p_at_end.store(
@@ -255,7 +257,7 @@ fn determine_edge_blend_factor(
   let i = val(1_u32).make_local_var();
 
   loop_by(|cx| {
-    nuv.store(nuv.load() - edge_step * val(EDGE_STEPS[i.load()]));
+    nuv.store(nuv.load() - edge_step * edge_steps.index(i.load()));
     n_luminance_delta.store(sample_luminance(input, sampler, nuv.load()) - edge_luminance);
 
     n_at_end.store(
