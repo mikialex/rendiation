@@ -58,7 +58,6 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
     let hasher = shader_hasher_from_marker_ty!(SPDxFirstPass);
     let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut ctx| {
       ctx.config_work_group_size(16 * 16);
-      let shared = ctx.define_workgroup_shared_var::<SharedMemory<f32>>();
       let group_id = ctx.workgroup_id().xy();
       let local_id = ctx.local_invocation_index();
       let coord = remap_for_wave_reduction_fn(local_id % val(64));
@@ -79,8 +78,7 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
           / mip_0.texture_dimension_2d(None).into_f32(),
       };
 
-      let image_sampler = SpdImageDownSampler::new(image_loader);
-      let intermediate_sampler = SharedMemoryDownSampler::new(shared);
+      let shared = SharedMemoryDownSampler::new(&ctx);
 
       let sample_ctx = ENode::<SampleCtx> {
         coord,
@@ -90,8 +88,8 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
       };
 
       down_sample_mips_0_and_1(
-        &image_sampler,
-        &intermediate_sampler,
+        &image_loader,
+        &shared,
         SplatWriter(ctx.bind_by(&level_1_6[0])),
         SplatWriter(ctx.bind_by(&level_1_6[1])),
         sample_ctx,
@@ -99,7 +97,7 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
       );
 
       down_sample_next_four(
-        &intermediate_sampler,
+        &shared,
         SplatWriter(ctx.bind_by(&level_1_6[2])),
         SplatWriter(ctx.bind_by(&level_1_6[3])),
         SplatWriter(ctx.bind_by(&level_1_6[4])),
@@ -144,7 +142,6 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
     let hasher = shader_hasher_from_marker_ty!(SPDxSecondPass);
     let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut ctx| {
       ctx.config_work_group_size(16 * 16);
-      let shared = ctx.define_workgroup_shared_var::<SharedMemory<f32>>();
       let group_id = ctx.workgroup_id().xy();
       let local_id = ctx.local_invocation_index();
 
@@ -157,8 +154,8 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
 
       let mip_level_count = ctx.bind_by(&mip_count_buffer).load().x();
 
-      let image_sampler = SpdImageDownSampler::new(FirstChannelLoader(ctx.bind_by(&l_6)));
-      let shared_sampler = SharedMemoryDownSampler::new(shared);
+      let image_sampler = FirstChannelLoader(ctx.bind_by(&l_6));
+      let shared_sampler = SharedMemoryDownSampler::new(&ctx);
 
       let sample_ctx = ENode::<SampleCtx> {
         coord,
@@ -205,8 +202,8 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
 }
 
 const TILE_SIZE: u32 = 64;
-const INTERMEDIATE_SIZE: usize = 16;
-type SharedMemory<T> = [[T; INTERMEDIATE_SIZE]; INTERMEDIATE_SIZE];
+const SHARED_SIZE: usize = 16;
+type SharedMemory<T> = [[T; SHARED_SIZE]; SHARED_SIZE];
 
 #[derive(Clone, Copy, ShaderStruct)]
 struct SampleCtx {
@@ -230,28 +227,6 @@ fn remap_for_wave_reduction(a: Node<u32>) -> Node<Vec2<u32>> {
   (x, y).into()
 }
 
-struct SpdImageDownSampler<S> {
-  loader: S,
-}
-
-impl<S> SpdImageDownSampler<S> {
-  fn new(loader: S) -> Self {
-    Self { loader }
-  }
-
-  fn down_sample<N>(&self, coord: Node<Vec2<u32>>, reducer: impl QuadReducer<N>) -> Node<N>
-  where
-    S: SourceImageLoader<N>,
-    N: ShaderSizedValueNodeType,
-  {
-    let loads = [vec2(0, 0), vec2(0, 1), vec2(1, 0), vec2(1, 1)].map(|offset| {
-      // todo, boundary check?
-      self.loader.load(coord + val(offset))
-    });
-    reducer.reduce(loads)
-  }
-}
-
 struct SharedMemoryDownSampler<T> {
   shared: ShaderPtrOf<SharedMemory<T>>,
 }
@@ -260,9 +235,9 @@ impl<T> SharedMemoryDownSampler<T>
 where
   T: ShaderSizedValueNodeType,
 {
-  fn new(intermediate: ShaderPtrOf<SharedMemory<T>>) -> Self {
+  fn new(ctx: &ShaderComputePipelineBuilder) -> Self {
     Self {
-      shared: intermediate,
+      shared: ctx.define_workgroup_shared_var::<SharedMemory<T>>(),
     }
   }
 
@@ -283,15 +258,14 @@ where
   }
 }
 
-fn down_sample_mips_0_and_1<S, N, T>(
-  image_sampler: &SpdImageDownSampler<S>,
+fn down_sample_mips_0_and_1<N, T>(
+  image_sampler: &impl SourceImageLoader<N>,
   shared_sampler: &SharedMemoryDownSampler<N>,
   l_1: T,
   l_2: T,
   sample_ctx: ENode<SampleCtx>,
   reducer: impl QuadReducer<N>,
 ) where
-  S: SourceImageLoader<N>,
   T: SourceImageWriter<N>,
   N: ShaderSizedValueNodeType,
 {
@@ -310,7 +284,7 @@ fn down_sample_mips_0_and_1<S, N, T>(
   {
     let pix = group_id * val(TILE_SIZE / 2) + coord + val(o);
     let tex = pix * val(2);
-    let reduced = image_sampler.down_sample(tex, reducer);
+    let reduced = image_sampler.down_sample_quad(tex, reducer);
     sub_tile_reduced.index(val(i as u32)).store(reduced);
     l_1.write(pix, reduced);
   }
@@ -354,15 +328,14 @@ fn down_sample_mips_0_and_1<S, N, T>(
   });
 }
 
-fn down_sample_mips_6_and_7<S, N, T>(
-  image_sampler: &SpdImageDownSampler<S>,
+fn down_sample_mips_6_and_7<N, T>(
+  image_sampler: &impl SourceImageLoader<N>,
   shared_sampler: &SharedMemoryDownSampler<N>,
   l_7: T,
   l_8: T,
   sample_ctx: ENode<SampleCtx>,
   reducer: impl QuadReducer<N>,
 ) where
-  S: SourceImageLoader<N>,
   T: SourceImageWriter<N>,
   N: ShaderSizedValueNodeType,
 {
@@ -375,7 +348,7 @@ fn down_sample_mips_6_and_7<S, N, T>(
   let reduced = [vec2(0, 0), vec2(1, 0), vec2(0, 1), vec2(1, 1)].map(|offset| {
     let pix = coord * val(2) + val(offset);
     let coord = pix * val(2);
-    let reduced = image_sampler.down_sample(coord, reducer);
+    let reduced = image_sampler.down_sample_quad(coord, reducer);
     l_7.write(pix, reduced);
     reduced
   });

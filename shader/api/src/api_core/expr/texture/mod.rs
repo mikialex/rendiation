@@ -29,7 +29,7 @@ pub trait D3LikeTextureType: ShaderTextureDimension {}
 pub trait ShaderTextureKind: 'static {
   const SAMPLING_TYPE: TextureSampleType;
   const IS_MULTI_SAMPLE: bool;
-  type ChannelOutput: ShaderNodeType;
+  type ChannelOutput: ShaderSizedValueNodeType;
 }
 
 pub type ChannelOutputOf<T> = <T as ShaderTextureKind>::ChannelOutput;

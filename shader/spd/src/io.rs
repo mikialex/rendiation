@@ -1,10 +1,18 @@
 use crate::*;
 
-pub trait SourceImageLoader<V: ShaderNodeType> {
-  fn load(&self, coord: Node<Vec2<u32>>) -> Node<V>;
+pub trait SourceImageLoader<V: ShaderSizedValueNodeType> {
+  fn load_tex(&self, coord: Node<Vec2<u32>>) -> Node<V>;
+
+  fn down_sample_quad(&self, coord: Node<Vec2<u32>>, reducer: impl QuadReducer<V>) -> Node<V> {
+    let loads = [vec2(0, 0), vec2(0, 1), vec2(1, 0), vec2(1, 1)].map(|offset| {
+      // todo, boundary check?
+      self.load_tex(coord + val(offset))
+    });
+    reducer.reduce(loads)
+  }
 }
 
-pub trait SourceImageWriter<V: ShaderNodeType> {
+pub trait SourceImageWriter<V: ShaderSizedValueNodeType> {
   fn write(&self, coord: Node<Vec2<u32>>, value: Node<V>);
 }
 
@@ -14,7 +22,7 @@ where
   F: ShaderTextureKind + SingleSampleTarget,
   Node<TextureSampleInputOf<D, u32>>: From<Node<Vec2<u32>>>,
 {
-  fn load(&self, coord: Node<Vec2<u32>>) -> Node<ChannelOutputOf<F>> {
+  fn load_tex(&self, coord: Node<Vec2<u32>>) -> Node<ChannelOutputOf<F>> {
     self.load_texel(coord.into(), val(0))
   }
 }
@@ -26,7 +34,7 @@ pub struct MSDepthLoader {
 }
 
 impl SourceImageLoader<f32> for MSDepthLoader {
-  fn load(&self, coord: Node<Vec2<u32>>) -> Node<f32> {
+  fn load_tex(&self, coord: Node<Vec2<u32>>) -> Node<f32> {
     let depth_coord = coord.into_f32() * self.scale;
     let depth_coord = depth_coord.round().into_u32();
 
@@ -51,8 +59,8 @@ impl SourceImageLoader<f32> for MSDepthLoader {
 
 pub struct FirstChannelLoader(pub BindingNode<ShaderTexture2D>);
 impl SourceImageLoader<f32> for FirstChannelLoader {
-  fn load(&self, coord: Node<Vec2<u32>>) -> Node<f32> {
-    self.0.load(coord).x()
+  fn load_tex(&self, coord: Node<Vec2<u32>>) -> Node<f32> {
+    self.0.load_tex(coord).x()
   }
 }
 
