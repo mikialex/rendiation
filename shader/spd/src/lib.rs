@@ -4,24 +4,32 @@ use rendiation_webgpu::*;
 mod reducer;
 pub use reducer::*;
 
-/// the target is a h depth texture, user should guarantee it has correct size and format.
-///
-/// todo, error handling for too large input
+mod io;
+pub use io::*;
+
+pub const MAX_INPUT_SIZE: u32 = 2_u32.pow(12); // 4096
+
+/// the target is a h depth texture, the size must under MAX_INPUT_SIZE.
 pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
-  ms_depth: &GPU2DMultiSampleDepthTextureView,
-  target: &GPU2DTexture,
+  input_multi_sampled_depth: &GPU2DMultiSampleDepthTextureView,
+  output_target: &GPU2DTexture,
   pass: &mut GPUComputePass,
   device: &GPUDevice,
 ) {
-  let x = target.desc.size.width.div_ceil(64);
-  let y = target.desc.size.height.div_ceil(64);
-  let mip_level_count = target.desc.mip_level_count;
+  // check input
+  let input_size = input_multi_sampled_depth.resource.desc.size;
+  assert!(input_size.width <= MAX_INPUT_SIZE);
+  assert!(input_size.height <= MAX_INPUT_SIZE);
+
+  let x = output_target.desc.size.width.div_ceil(64);
+  let y = output_target.desc.size.height.div_ceil(64);
+  let mip_level_count = output_target.desc.mip_level_count;
 
   let reducer = MaxReducer;
 
   // level that exceeds will be clamped to max level
   let mips: [GPU2DTextureView; 13] = std::array::from_fn(|index| {
-    target
+    output_target
       .create_view(TextureViewDescriptor {
         base_mip_level: (index as u32).clamp(0, mip_level_count - 1),
         mip_level_count: Some(1),
@@ -57,7 +65,7 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
     let y = coord.y() + (local_id >> val(7)) * val(8);
     let coord = (x, y).into();
 
-    let ms_depth = ctx.bind_by(&ms_depth);
+    let ms_depth = ctx.bind_by(&input_multi_sampled_depth);
     let mip_0 = ctx.bind_by(&level_0);
     let mip_level_count = ctx.bind_by(&mip_count_buffer).load().x();
 
@@ -73,29 +81,28 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
     let image_sampler = SpdImageDownSampler::new(image_loader);
     let intermediate_sampler = SpdIntermediateDownSampler::new(shared);
 
-    let sample_ctx = ENode::<Ctx> {
+    let sample_ctx = ENode::<SampleCtx> {
       coord,
       group_id,
       local_invocation_index: local_id,
       mip_level_count,
-    }
-    .construct();
+    };
 
-    down_sample_mips_0_and_1::<_, _, SplatWriter>(
+    down_sample_mips_0_and_1(
       &image_sampler,
       &intermediate_sampler,
-      ctx.bind_by(&level_1_6[0]).into(),
-      ctx.bind_by(&level_1_6[1]).into(),
+      SplatWriter(ctx.bind_by(&level_1_6[0])),
+      SplatWriter(ctx.bind_by(&level_1_6[1])),
       sample_ctx,
       reducer,
     );
 
-    down_sample_next_four::<_, SplatWriter>(
+    down_sample_next_four(
       &intermediate_sampler,
-      ctx.bind_by(&level_1_6[2]).into(),
-      ctx.bind_by(&level_1_6[3]).into(),
-      ctx.bind_by(&level_1_6[4]).into(),
-      ctx.bind_by(&level_1_6[5]).into(),
+      SplatWriter(ctx.bind_by(&level_1_6[2])),
+      SplatWriter(ctx.bind_by(&level_1_6[3])),
+      SplatWriter(ctx.bind_by(&level_1_6[4])),
+      SplatWriter(ctx.bind_by(&level_1_6[5])),
       sample_ctx,
       val(2),
       reducer,
@@ -104,13 +111,16 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
     ctx
   });
 
-  let mut bb = BindingBuilder::default()
-    .with_bind(ms_depth)
-    .with_bind(&level_0);
-  for v in level_1_6.iter() {
-    bb.bind(v);
-  }
-  bb.setup_compute_pass(pass, device, &pipeline);
+  BindingBuilder::default()
+    .with_bind(input_multi_sampled_depth)
+    .with_bind(&level_0)
+    .with_fn(|bb| {
+      for v in level_1_6.iter() {
+        bb.bind(v);
+      }
+    })
+    .setup_compute_pass(pass, device, &pipeline);
+
   pass.dispatch_workgroups(x, y, 1);
 
   if mip_level_count < 7 {
@@ -146,29 +156,28 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
     });
     let intermediate_sampler = SpdIntermediateDownSampler::new(shared);
 
-    let sample_ctx = ENode::<Ctx> {
+    let sample_ctx = ENode::<SampleCtx> {
       coord,
       group_id,
       local_invocation_index: local_id,
       mip_level_count,
-    }
-    .construct();
+    };
 
-    down_sample_mips_6_and_7::<_, _, SplatWriter>(
+    down_sample_mips_6_and_7(
       &image_sampler,
       &intermediate_sampler,
-      ctx.bind_by(&l_7_12[0]).into(),
-      ctx.bind_by(&l_7_12[1]).into(),
+      SplatWriter(ctx.bind_by(&l_7_12[0])),
+      SplatWriter(ctx.bind_by(&l_7_12[1])),
       sample_ctx,
       reducer,
     );
 
-    down_sample_next_four::<_, SplatWriter>(
+    down_sample_next_four(
       &intermediate_sampler,
-      ctx.bind_by(&l_7_12[2]).into(),
-      ctx.bind_by(&l_7_12[3]).into(),
-      ctx.bind_by(&l_7_12[4]).into(),
-      ctx.bind_by(&l_7_12[5]).into(),
+      SplatWriter(ctx.bind_by(&l_7_12[2])),
+      SplatWriter(ctx.bind_by(&l_7_12[3])),
+      SplatWriter(ctx.bind_by(&l_7_12[4])),
+      SplatWriter(ctx.bind_by(&l_7_12[5])),
       sample_ctx,
       val(8),
       reducer,
@@ -177,67 +186,17 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
     ctx
   });
 
-  let mut bb = BindingBuilder::default()
+  BindingBuilder::default()
     .with_bind(&mip_count_buffer)
-    .with_bind(&l_6);
-  for v in l_7_12.iter() {
-    bb.bind(v);
-  }
-  bb.setup_compute_pass(pass, device, &pipeline);
+    .with_bind(&l_6)
+    .with_fn(|bb| {
+      for v in l_7_12.iter() {
+        bb.bind(v);
+      }
+    })
+    .setup_compute_pass(pass, device, &pipeline);
+
   pass.dispatch_workgroups(1, 1, 1);
-}
-
-struct MSDepthLoader {
-  mip_0: BindingNode<ShaderStorageTextureW2D>,
-  ms_depth: BindingNode<ShaderMultiSampleDepthTexture2D>,
-  scale: Node<Vec2<f32>>,
-}
-
-impl SourceImageLoader<f32> for MSDepthLoader {
-  fn load(&self, coord: Node<Vec2<u32>>) -> Node<f32> {
-    let depth_coord = coord.into_f32() * self.scale;
-    let depth_coord = depth_coord.round().into_u32();
-
-    let d1 = self
-      .ms_depth
-      .load_texel_multi_sample_index(depth_coord, val(0));
-    let d2 = self
-      .ms_depth
-      .load_texel_multi_sample_index(depth_coord, val(1));
-    let d3 = self
-      .ms_depth
-      .load_texel_multi_sample_index(depth_coord, val(2));
-    let d4 = self
-      .ms_depth
-      .load_texel_multi_sample_index(depth_coord, val(3));
-
-    let v = (d1 + d2 + d3 + d4) / val(4.); // todo fix me, this is wrong!
-    self.mip_0.write_texel(coord, v.splat());
-    v
-  }
-}
-
-struct LoadFirstChannel {
-  source: BindingNode<ShaderTexture2D>,
-}
-impl SourceImageLoader<f32> for LoadFirstChannel {
-  fn load(&self, coord: Node<Vec2<u32>>) -> Node<f32> {
-    self.source.load(coord).x()
-  }
-}
-
-struct SplatWriter {
-  target: BindingNode<ShaderStorageTextureW2D>,
-}
-impl From<BindingNode<ShaderStorageTextureW2D>> for SplatWriter {
-  fn from(target: BindingNode<ShaderStorageTextureW2D>) -> Self {
-    Self { target }
-  }
-}
-impl SourceImageWriter<f32> for SplatWriter {
-  fn write(&self, coord: Node<Vec2<u32>>, value: Node<f32>) {
-    self.target.write(coord, value.splat());
-  }
 }
 
 const TILE_SIZE: u32 = 64;
@@ -246,41 +205,11 @@ const INTERMEDIATE_SIZE: usize = 16;
 type IntermediateBuffer<T> = [[T; INTERMEDIATE_SIZE]; INTERMEDIATE_SIZE];
 
 #[derive(Clone, Copy, ShaderStruct)]
-struct Ctx {
+struct SampleCtx {
   pub coord: Vec2<u32>,
   pub group_id: Vec2<u32>,
   pub local_invocation_index: u32,
   pub mip_level_count: u32,
-}
-
-pub trait SourceImageLoader<V: ShaderNodeType> {
-  fn load(&self, coord: Node<Vec2<u32>>) -> Node<V>;
-}
-
-pub trait SourceImageWriter<V: ShaderNodeType> {
-  fn write(&self, coord: Node<Vec2<u32>>, value: Node<V>);
-}
-
-impl<D, F> SourceImageLoader<ChannelOutputOf<F>> for BindingNode<ShaderTexture<D, F>>
-where
-  D: ShaderTextureDimension + SingleLayerTarget + DirectAccessTarget,
-  F: ShaderTextureKind + SingleSampleTarget,
-  Node<TextureSampleInputOf<D, u32>>: From<Node<Vec2<u32>>>,
-{
-  fn load(&self, coord: Node<Vec2<u32>>) -> Node<ChannelOutputOf<F>> {
-    self.load_texel(coord.into(), val(0))
-  }
-}
-
-impl<A, D> SourceImageWriter<Vec4<f32>> for BindingNode<ShaderStorageTexture<A, D, f32>>
-where
-  D: ShaderTextureDimension + SingleLayerTarget + DirectAccessTarget,
-  A: StorageTextureWriteable,
-  Node<TextureSampleInputOf<D, u32>>: From<Node<Vec2<u32>>>,
-{
-  fn write(&self, coord: Node<Vec2<u32>>, value: Node<Vec4<f32>>) {
-    self.write_texel(coord.into(), value);
-  }
 }
 
 /// remap to 8 x 8 grid point
@@ -365,19 +294,19 @@ fn down_sample_mips_0_and_1<S, N, T>(
   intermediate_sampler: &SpdIntermediateDownSampler<N>,
   l_1: T,
   l_2: T,
-  sample_ctx: Node<Ctx>,
+  sample_ctx: ENode<SampleCtx>,
   reducer: impl QuadReducer<N>,
 ) where
   S: SourceImageLoader<N>,
   T: SourceImageWriter<N>,
   N: ShaderSizedValueNodeType,
 {
-  let ENode::<Ctx> {
+  let ENode::<SampleCtx> {
     coord,
     group_id,
     local_invocation_index,
     mip_level_count,
-  } = sample_ctx.expand();
+  } = sample_ctx;
 
   let sub_tile_reduced = zeroed_val::<[N; 4]>().make_local_var();
 
@@ -444,18 +373,18 @@ fn down_sample_mips_6_and_7<S, N, T>(
   intermediate_sampler: &SpdIntermediateDownSampler<N>,
   l_7: T,
   l_8: T,
-  sample_ctx: Node<Ctx>,
+  sample_ctx: ENode<SampleCtx>,
   reducer: impl QuadReducer<N>,
 ) where
   S: SourceImageLoader<N>,
   T: SourceImageWriter<N>,
   N: ShaderSizedValueNodeType,
 {
-  let ENode::<Ctx> {
+  let ENode::<SampleCtx> {
     coord,
     mip_level_count,
     ..
-  } = sample_ctx.expand();
+  } = sample_ctx;
 
   let l_7_local = zeroed_val::<[N; 4]>().make_local_var();
 
@@ -487,19 +416,19 @@ fn down_sample_next_four<N, T>(
   l_4: T,
   l_5: T,
   l_6: T,
-  sample_ctx: Node<Ctx>,
+  sample_ctx: ENode<SampleCtx>,
   base_mip: Node<u32>,
   reducer: impl QuadReducer<N>,
 ) where
   N: ShaderSizedValueNodeType,
   T: SourceImageWriter<N>,
 {
-  let ENode::<Ctx> {
+  let ENode::<SampleCtx> {
     coord,
     group_id,
     local_invocation_index,
     mip_level_count,
-  } = sample_ctx.expand();
+  } = sample_ctx;
 
   if_by(mip_level_count.less_equal_than(base_mip), do_return);
   workgroup_barrier();

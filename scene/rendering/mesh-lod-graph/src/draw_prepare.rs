@@ -100,19 +100,20 @@ impl MeshLODExpander {
         ctx
       });
 
-      let mut bb = BindingBuilder::default()
+      BindingBuilder::default()
         .with_bind(&bumper)
         .with_bind(&meshlet_idx_output)
         .with_bind(&scene_model_idx_output)
         .with_bind(&draw_command_output)
         .with_bind(&self.meshlet_metadata)
         .with_bind(&self.scene_model_meshlet_range)
-        .with_bind(&self.lod_decider);
+        .with_bind(&self.lod_decider)
+        .with_fn(|bb| {
+          scene_model_matrix.bind(bb);
+          scene_models.bind_input(bb);
+        })
+        .setup_compute_pass(pass, device, &pipeline);
 
-      scene_model_matrix.bind(&mut bb);
-      scene_models.bind_input(&mut bb);
-
-      bb.setup_compute_pass(pass, device, &pipeline);
       pass.dispatch_workgroups_indirect_by_buffer_resource_view(&scene_model_size_indirect.0);
     });
 

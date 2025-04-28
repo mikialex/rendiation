@@ -114,6 +114,11 @@ impl BindingBuilder {
     self
   }
 
+  pub fn with_fn(mut self, f: impl FnOnce(&mut Self)) -> Self {
+    f(&mut self);
+    self
+  }
+
   pub fn bind<T>(&mut self, item: &T) -> &mut Self
   where
     T: CacheAbleBindingSource + ShaderBindingProvider,

@@ -236,13 +236,12 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
     });
 
     cx.record_pass(|pass, device| {
-      let mut bb = BindingBuilder::default()
+      BindingBuilder::default()
         .with_bind(&size_output)
         .with_bind(&work_size_output)
-        .with_bind(&workgroup_size_buffer);
-      self.bind_input(&mut bb);
-
-      bb.setup_compute_pass(pass, device, &pipeline);
+        .with_bind(&workgroup_size_buffer)
+        .with_fn(|bb| self.bind_input(bb))
+        .setup_compute_pass(pass, device, &pipeline);
       pass.dispatch_workgroups(1, 1, 1);
     });
 
