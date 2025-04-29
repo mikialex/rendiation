@@ -215,6 +215,10 @@ impl GPU {
     Ok((gpu, surface))
   }
 
+  pub fn info(&self) -> &GPUInfo {
+    &self.info
+  }
+
   pub fn poll(&self, force_wait: bool) {
     self.instance.poll_all(force_wait);
   }
