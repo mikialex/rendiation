@@ -209,25 +209,31 @@ where
     let (d, v) = self.inner.resolve(cx);
     cx.keep_view_alive(v);
 
-    let mut mapper = (self.map_creator)();
     let materialized = d.iter_key_value().collect::<Vec<_>>();
-    let mut cache = self.cache.write();
-    let materialized: FastHashMap<T::Key, ValueChange<V2>> = materialized
-      .into_iter()
-      .map(|(k, delta)| match delta {
-        ValueChange::Delta(d, _p) => {
-          let new_value = mapper(&k, d);
-          let p = cache.insert(k.clone(), new_value.clone());
-          (k, ValueChange::Delta(new_value, p))
-        }
-        ValueChange::Remove(_p) => {
-          let p = cache.remove(&k).unwrap();
-          (k, ValueChange::Remove(p))
-        }
-      })
-      .collect();
-    let d = Arc::new(materialized);
-    drop(cache);
+
+    // map_creator call or drop may have significant cost, so we only create mapper
+    // if we have actual delta processing to do.
+    let d = if !materialized.is_empty() {
+      let mut mapper = (self.map_creator)();
+      let mut cache = self.cache.write();
+      let materialized: FastHashMap<T::Key, ValueChange<V2>> = materialized
+        .into_iter()
+        .map(|(k, delta)| match delta {
+          ValueChange::Delta(d, _p) => {
+            let new_value = mapper(&k, d);
+            let p = cache.insert(k.clone(), new_value.clone());
+            (k, ValueChange::Delta(new_value, p))
+          }
+          ValueChange::Remove(_p) => {
+            let p = cache.remove(&k).unwrap();
+            (k, ValueChange::Remove(p))
+          }
+        })
+        .collect();
+      Arc::new(materialized)
+    } else {
+      Default::default()
+    };
 
     let v = self.cache.make_read_holder();
     (d, v)
