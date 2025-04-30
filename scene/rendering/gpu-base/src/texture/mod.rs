@@ -90,7 +90,7 @@ impl TextureGPUSystemSource {
         let samplers = global_watch().watch_untyped_key::<SceneSamplerInfo>();
         let texture_2d = global_watch()
           .watch_untyped_key::<SceneTexture2dEntityDirectContent>()
-          .collective_filter_map(|v| {
+          .collective_map(|v| {
             v.map(|v| TexturePool2dSource {
               inner: v.ptr.clone(),
             })
@@ -111,7 +111,7 @@ impl TextureGPUSystemSource {
               size,
             },
           },
-          texture_2d.into_forker(),
+          texture_2d,
           Box::new(samplers),
           TextureFormat::Rgba8Unorm,
           TexturePoolSourceInit {

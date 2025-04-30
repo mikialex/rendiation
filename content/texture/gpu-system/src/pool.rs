@@ -8,15 +8,16 @@ use crate::*;
 #[repr(C)]
 #[std430_layout]
 #[derive(Clone, Copy, Default, ShaderStruct, Debug, PartialEq)]
-pub struct TexturePoolAddressInfo {
+pub struct TexturePoolTextureMeta {
   pub layer_index: u32,
   pub size: Vec2<f32>,
   pub offset: Vec2<f32>,
+  pub require_srgb_to_linear_convert: Bool,
 }
 
-impl TexturePoolAddressInfo {
+impl TexturePoolTextureMeta {
   pub fn none() -> Self {
-    TexturePoolAddressInfo {
+    TexturePoolTextureMeta {
       layer_index: u32::MAX,
       size: Vec2::zero(),
       offset: Vec2::zero(),
@@ -76,7 +77,7 @@ impl PartialEq for TexturePool2dSource {
 
 pub struct TexturePoolSource {
   texture: Option<GPUTexture>,
-  address: ReactiveStorageBufferContainer<TexturePoolAddressInfo>,
+  address: ReactiveStorageBufferContainer<TexturePoolTextureMeta>,
   samplers: ReactiveStorageBufferContainer<TextureSamplerShaderInfo>,
   tex_input: RQForker<Texture2DHandle, TexturePool2dSource>,
   packing: BoxedDynReactiveQuery<Texture2DHandle, PackResult2dWithDepth>,
@@ -91,14 +92,26 @@ pub struct TexturePoolSourceInit {
 }
 
 impl TexturePoolSource {
+  /// the tex input must cover the full linear global scope, so that we can setup the none exist texture info
   pub fn new(
     gpu: &GPU,
     config: MultiLayerTexturePackerConfig,
-    tex_input: RQForker<Texture2DHandle, TexturePool2dSource>,
+    tex_input: BoxedDynReactiveQuery<Texture2DHandle, Option<TexturePool2dSource>>,
     sampler_input: BoxedDynReactiveQuery<SamplerHandle, TextureSampler>,
     format: TextureFormat,
     init: TexturePoolSourceInit,
   ) -> Self {
+    let tex_input = tex_input
+      .collective_filter_map(move |tex| {
+        let tex = tex?;
+        if tex.inner.format != format && tex.inner.format.remove_srgb_suffix() != format {
+          return None;
+        }
+        tex.into()
+      })
+      .into_boxed()
+      .into_forker();
+
     let size = tex_input.clone().collective_map(|tex| tex.inner.size);
     let full_scope = tex_input.clone().collective_map(|_| {});
 
@@ -106,7 +119,7 @@ impl TexturePoolSource {
     let packing = packing.into_forker();
     let add_info = packing
       .clone()
-      .collective_map(|v| TexturePoolAddressInfo {
+      .collective_map(|v| TexturePoolTextureMeta {
         layer_index: v.depth,
         size: v.result.range.size.into_f32().into(),
         offset: Vec2::new(
@@ -120,15 +133,24 @@ impl TexturePoolSource {
           if let Some(a) = a {
             a
           } else {
-            TexturePoolAddressInfo::none()
+            TexturePoolTextureMeta::none()
           }
         })
       })
       .into_query_update_storage(0);
 
+    let srgb_convert_info = tex_input
+      .clone()
+      .collective_map(|v| Bool::from(v.inner.format.is_srgb()))
+      .into_query_update_storage(std::mem::offset_of!(
+        TexturePoolTextureMeta,
+        require_srgb_to_linear_convert,
+      ));
+
     let address =
       create_reactive_storage_buffer_container(init.init_texture_count_capacity, u32::MAX, gpu)
-        .with_source(add_info);
+        .with_source(add_info)
+        .with_source(srgb_convert_info);
 
     let samplers = sampler_input
       .collective_map(TextureSamplerShaderInfo::from)
@@ -267,12 +289,12 @@ fn copy_tex(
 #[derive(Clone)]
 pub struct TexturePool {
   texture: GPU2DArrayTextureView,
-  address: StorageBufferReadonlyDataView<[TexturePoolAddressInfo]>,
+  address: StorageBufferReadonlyDataView<[TexturePoolTextureMeta]>,
   samplers: StorageBufferReadonlyDataView<[TextureSamplerShaderInfo]>,
 }
 
 both!(TexturePoolInShader, ShaderBinding<ShaderTexture2DArray>);
-pub struct TexturePoolAddressInfoInShader(pub ShaderReadonlyPtrOf<[TexturePoolAddressInfo]>);
+pub struct TexturePoolTextureMetaInShader(pub ShaderReadonlyPtrOf<[TexturePoolTextureMeta]>);
 pub struct SamplerPoolInShader(pub ShaderReadonlyPtrOf<[TextureSamplerShaderInfo]>);
 
 impl AbstractIndirectGPUTextureSystem for TexturePool {
@@ -291,7 +313,7 @@ impl AbstractIndirectGPUTextureSystem for TexturePool {
     builder
       .bind_by_and_prepare(&self.address)
       .using_graphics_pair(|r, address| {
-        r.any_map.register(TexturePoolAddressInfoInShader(address));
+        r.any_map.register(TexturePoolTextureMetaInShader(address));
       });
     builder
       .bind_by_and_prepare(&self.samplers)
@@ -309,7 +331,7 @@ impl AbstractIndirectGPUTextureSystem for TexturePool {
     let address = builder.bind_by(&self.address);
     reg
       .any_map
-      .register(TexturePoolAddressInfoInShader(address));
+      .register(TexturePoolTextureMetaInShader(address));
     let samplers = builder.bind_by(&self.samplers);
     reg.any_map.register(SamplerPoolInShader(samplers));
   }
@@ -325,13 +347,13 @@ impl AbstractIndirectGPUTextureSystem for TexturePool {
     let texture = reg
       .try_query_typed_both_stage::<TexturePoolInShader>()
       .unwrap();
-    let address = reg.any_map.get::<TexturePoolAddressInfoInShader>().unwrap();
+    let textures_meta = reg.any_map.get::<TexturePoolTextureMetaInShader>().unwrap();
 
     let samplers = reg.any_map.get::<SamplerPoolInShader>().unwrap();
 
-    let texture_address = address.0.index(shader_texture_handle).load().expand();
+    let texture_meta = textures_meta.0.index(shader_texture_handle).load().expand();
 
-    texture_address
+    let tex = texture_meta
       .layer_index
       .equals(u32::MAX) // check if the texture is failed to allocate
       .select_branched(
@@ -343,18 +365,49 @@ impl AbstractIndirectGPUTextureSystem for TexturePool {
           let correct_v = shader_address_mode(sampler.address_mode_v, uv.y());
           let uv: Node<Vec2<_>> = (correct_u, correct_v).into();
 
-          let load_position = texture_address.offset + texture_address.size * uv;
+          let load_position = texture_meta.offset + texture_meta.size * uv;
           let load_position_x = load_position.x().floor().into_u32();
           let load_position_y = load_position.y().floor().into_u32();
 
           texture.load_texel_layer(
             (load_position_x, load_position_y).into(),
-            texture_address.layer_index,
+            texture_meta.layer_index,
             val(0),
           )
         },
+      );
+
+    texture_meta
+      .require_srgb_to_linear_convert
+      .into_bool()
+      .select_branched(
+        || {
+          let a = tex.w();
+          let rgb = tex.xyz();
+          let linear = shader_srgb_to_linear_convert_fn(rgb);
+          (linear, a).into()
+        },
+        || tex,
       )
   }
+}
+
+#[shader_fn]
+fn shader_srgb_to_linear_convert(srgb: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
+  (
+    shader_srgb_to_linear_convert_per_channel(srgb.x()),
+    shader_srgb_to_linear_convert_per_channel(srgb.y()),
+    shader_srgb_to_linear_convert_per_channel(srgb.z()),
+  )
+    .into()
+}
+
+#[shader_fn]
+fn shader_srgb_to_linear_convert_per_channel(c: Node<f32>) -> Node<f32> {
+  c.less_than(0.04045).select_branched(
+    || c * val(0.0773993808),
+    || (c * val(0.9478672986) + val(0.0521327014)).pow(2.4),
+  )
 }
 
 #[shader_fn]
