@@ -7,6 +7,9 @@ use rendiation_mesh_generator::*;
 use rendiation_scene_core::*;
 pub use widget::*;
 
+mod hooks;
+pub use hooks::*;
+
 mod ty;
 pub use ty::*;
 mod group;
