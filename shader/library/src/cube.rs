@@ -81,6 +81,7 @@ pub fn direction_for(face: Node<i32>, uv: Node<Vec2<f32>>) -> Node<Vec3<f32>> {
   result.load()
 }
 
+#[shader_fn]
 pub fn get_cube_face_index_by_dir(dir: Node<Vec3<f32>>) -> Node<i32> {
   let tolerance = 0.0001;
   let abs_x = dir.x().abs();
