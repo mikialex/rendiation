@@ -10,6 +10,8 @@ use rendiation_scene_core::*;
 pub use rotation::*;
 pub use translation::*;
 
+mod hooks;
+
 pub struct GizmoInControl;
 pub struct GizmoOutControl;
 

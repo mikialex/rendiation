@@ -1,5 +1,5 @@
 /// https://github.com/raphlinus/crochet
-use std::{any::Any, panic::Location};
+use std::{any::Any, marker::PhantomData, panic::Location};
 
 use fast_hash_collection::FastHashMap;
 use rendiation_view_override_model::ViewAutoScalable;
@@ -31,6 +31,8 @@ pub struct UI3dCx<'a> {
   memory: &'a mut FunctionMemory<Box<dyn UI3dState>>,
   pub event: Option<UIEventStageCx<'a>>,
   pub dyn_cx: &'a mut DynCx,
+  pub current_parent: EntityHandle<SceneNodeEntity>,
+  pub current_sub_memory_new_created: bool,
 }
 
 #[derive(Copy, Clone)]
@@ -79,17 +81,21 @@ impl<T> FunctionMemory<T> {
     r
   }
 
+  // return if new created
   #[track_caller]
-  pub fn sub_function(&mut self) -> &mut Self {
+  pub fn sub_function(&mut self) -> (&mut Self, bool) {
     let location = Location::caller();
     self.current_cursor = 0;
     if let Some(previous_memory) = self.sub_functions.remove(location) {
-      self
-        .sub_functions_next
-        .entry(*location)
-        .or_insert(previous_memory)
+      (
+        self
+          .sub_functions_next
+          .entry(*location)
+          .or_insert(previous_memory),
+        false,
+      )
     } else {
-      self.sub_functions_next.entry(*location).or_default()
+      (self.sub_functions_next.entry(*location).or_default(), true)
     }
   }
 
@@ -109,14 +115,20 @@ impl<T> FunctionMemory<T> {
 }
 
 impl UI3dCx<'_> {
+  pub fn is_mounted(&self) -> bool {
+    self.current_sub_memory_new_created
+  }
+
   #[track_caller]
   pub fn scoped<R>(&mut self, f: impl FnOnce(&mut UI3dCx) -> R) -> R {
-    let sub = self.memory.sub_function();
+    let (sub, new_created) = self.memory.sub_function();
     let mut sub_cx = UI3dCx {
       writer: self.writer,
       memory: sub,
       event: self.event,
       dyn_cx: self.dyn_cx,
+      current_parent: self.current_parent,
+      current_sub_memory_new_created: new_created,
     };
     let r = f(&mut sub_cx);
 
@@ -130,18 +142,24 @@ impl UI3dCx<'_> {
     r
   }
 
-  pub fn use_state<T>(&mut self) -> &mut T
+  pub fn use_state<T>(&mut self) -> (&mut Self, &mut T)
   where
     T: Any + Default + for<'x> CxStateDrop<UI3dBuildCx<'x>>,
   {
     self.use_state_init(|_| T::default())
   }
 
-  pub fn use_state_init<T>(&mut self, init: impl FnOnce(&mut UI3dBuildCx) -> T) -> &mut T
+  pub fn use_state_init<T>(
+    &mut self,
+    init: impl FnOnce(&mut UI3dBuildCx) -> T,
+  ) -> (&mut Self, &mut T)
   where
     T: Any + for<'x> CxStateDrop<UI3dBuildCx<'x>>,
   {
-    self
+    // this is safe because user can not access previous retrieved state through returned self.
+    let s = unsafe { std::mem::transmute_copy(self) };
+
+    let state = self
       .memory
       .expect_state_init(|| {
         let mut cx = UI3dBuildCx {
@@ -152,9 +170,39 @@ impl UI3dCx<'_> {
       .as_mut()
       .as_any_mut()
       .downcast_mut::<T>()
-      .unwrap()
+      .unwrap();
+
+    (s, state)
   }
 }
+
+// struct StateCell<'a, T> {
+//   ptr: *mut T,
+//   _marker: PhantomData<fn(&'a ()) -> &'a ()>,
+// }
+
+// fn a<'x>(mut x: StateCell<'x, usize>) {
+//   struct Cx {}
+//   impl Cx {
+//     fn next_state(&mut self) -> StateCell<'_, usize> {
+//       todo!()
+//     }
+//   }
+
+//   let mut cx = Cx {};
+//   let a = cx.next_state();
+//   let mut b = cx.next_state();
+
+//   // drop(cx);
+
+//   // let mut cx2 = Cx {};
+//   // let c = cx2.next_state();
+//   // // x = c;
+//   // b = c;
+//   // unsafe { &*b.ptr };
+//   // drop(cx2);
+//   // b.ptr;
+// }
 
 #[track_caller]
 pub fn group<R>(
@@ -162,7 +210,8 @@ pub fn group<R>(
   children: impl FnOnce(&mut UI3dCx, EntityHandle<SceneNodeEntity>) -> R,
 ) -> GroupResponse<R> {
   cx.scoped(|cx| {
-    let node = *use_node_entity(cx);
+    let (cx, node) = cx.use_node_entity();
+    let node = *node;
     let response = children(cx, node);
     GroupResponse { node, response }
   })
@@ -176,22 +225,31 @@ pub struct GroupResponse<R> {
 pub fn node_entity_ui(cx: &mut UI3dBuildCx) -> EntityHandle<SceneNodeEntity> {
   cx.writer.node_writer.new_entity()
 }
-pub fn use_node_entity<'a>(cx: &'a mut UI3dCx) -> &'a mut EntityHandle<SceneNodeEntity> {
-  cx.use_state_init(node_entity_ui)
-}
 
-pub fn use_mesh_entity<'a>(
-  cx: &'a mut UI3dCx,
-  mesh_creator: impl Fn() -> AttributesMeshData,
-) -> &'a mut AttributesMeshEntities {
-  cx.use_state_init(|cx| cx.writer.write_attribute_mesh(mesh_creator().build()))
-}
+impl UI3dCx<'_> {
+  pub fn use_node_entity(&mut self) -> (&mut Self, &mut EntityHandle<SceneNodeEntity>) {
+    self.use_state_init(node_entity_ui)
+  }
+  pub fn use_mesh_entity(
+    &mut self,
+    mesh_creator: impl Fn() -> AttributesMeshData,
+  ) -> (&mut Self, &mut AttributesMeshEntities) {
+    self.use_state_init(|cx| cx.writer.write_attribute_mesh(mesh_creator().build()))
+  }
 
-pub fn use_unlit_material_entity<'a>(
-  cx: &'a mut UI3dCx,
-  create: impl Fn() -> UnlitMaterialDataView,
-) -> &'a mut EntityHandle<UnlitMaterialEntity> {
-  cx.use_state_init(|cx| create().write(&mut cx.writer.unlit_mat_writer))
+  pub fn use_unlit_material_entity(
+    &mut self,
+    create: impl Fn() -> UnlitMaterialDataView,
+  ) -> (&mut Self, &mut EntityHandle<UnlitMaterialEntity>) {
+    self.use_state_init(|cx| create().write(&mut cx.writer.unlit_mat_writer))
+  }
+
+  pub fn use_scene_model_entity(
+    &mut self,
+    create: impl Fn(&mut SceneWriter) -> UIWidgetModelProxy,
+  ) -> (&mut Self, &mut UIWidgetModelProxy) {
+    self.use_state_init(|cx| create(cx.writer))
+  }
 }
 
 impl CxStateDrop<UI3dBuildCx<'_>> for EntityHandle<UnlitMaterialEntity> {
@@ -244,13 +302,9 @@ impl UIWidgetModelProxy {
       model: scene_model,
     }
   }
-}
-
-pub fn use_scene_model_entity<'a>(
-  cx: &'a mut UI3dCx,
-  create: impl Fn(&mut SceneWriter) -> UIWidgetModelProxy,
-) -> &'a mut UIWidgetModelProxy {
-  cx.use_state_init(|cx| create(cx.writer))
+  pub fn event(&mut self, cx: &UIEventStageCx) -> Option<UiWidgetModelResponse> {
+    todo!()
+  }
 }
 
 impl CxStateDrop<UI3dBuildCx<'_>> for UIWidgetModelProxy {
@@ -258,53 +312,4 @@ impl CxStateDrop<UI3dBuildCx<'_>> for UIWidgetModelProxy {
     cx.writer.std_model_writer.delete_entity(self.std_model);
     cx.writer.model_writer.delete_entity(self.model);
   }
-}
-
-impl CxStateDrop<UI3dBuildCx<'_>> for ViewIndependentRoot {
-  fn drop_from_cx(&mut self, cx: &mut UI3dBuildCx<'_>) {
-    todo!()
-  }
-}
-
-pub fn gizmo_build(cx: &mut UI3dCx) {
-  let mesh = use_mesh_entity(cx, || todo!());
-}
-
-pub fn gizmo_hook(cx: &mut UI3dCx) {
-  cx.next_state();
-
-  let root = *use_node_entity(cx);
-  let auto_scale = ViewAutoScalable {
-    independent_scale_factor: 50.,
-  };
-
-  translation_gizmo(cx, root);
-}
-
-fn translation_gizmo_builder(cx: &mut UI3dCx, root: EntityHandle<SceneNodeEntity>) {
-  cx.use_state_init(|bcx| {
-    //
-  });
-  //
-}
-
-fn translation_gizmo(cx: &mut UI3dCx) {
-  cx.use_state_init(|bcx| {
-    //
-  });
-  //
-}
-
-fn arrow_builder(
-  cx: &mut UI3dCx,
-  axis: AxisType,
-  parent: EntityHandle<SceneNodeEntity>,
-  mesh: &AttributesMeshEntities,
-) {
-  let node = create_node_entity(cx);
-  // node. set ... /
-}
-
-fn arrow(cx: &mut UI3dCx) {
-  let node = use_node_entity(cx);
 }
