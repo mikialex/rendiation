@@ -1,6 +1,6 @@
 use std::ops::{Deref, DerefMut};
 
-use rendiation_view_override_model::ViewAutoScalable;
+pub use rendiation_view_override_model::ViewAutoScalable;
 
 use crate::*;
 
