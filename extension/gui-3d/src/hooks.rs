@@ -1,5 +1,5 @@
 /// https://github.com/raphlinus/crochet
-use std::{any::Any, marker::PhantomData, panic::Location};
+use std::{any::Any, panic::Location};
 
 use fast_hash_collection::FastHashMap;
 use rendiation_view_override_model::ViewAutoScalable;
@@ -27,12 +27,12 @@ pub struct UI3dBuildCx<'a> {
 }
 
 pub struct UI3dCx<'a> {
-  writer: &'a mut SceneWriter,
+  writer: Option<&'a mut SceneWriter>,
   memory: &'a mut FunctionMemory<Box<dyn UI3dState>>,
   pub event: Option<UIEventStageCx<'a>>,
+  pub pick_testing: Option<usize>,
   pub dyn_cx: &'a mut DynCx,
-  pub current_parent: EntityHandle<SceneNodeEntity>,
-  pub current_sub_memory_new_created: bool,
+  pub current_parent: Option<EntityHandle<SceneNodeEntity>>,
 }
 
 #[derive(Copy, Clone)]
@@ -53,7 +53,8 @@ impl<T, X: CxStateDrop<T>> CxStateDrop<T> for Option<X> {
   }
 }
 
-struct FunctionMemory<T> {
+pub struct FunctionMemory<T> {
+  created: bool,
   states: Vec<T>,
   current_cursor: usize,
   sub_functions: FastHashMap<Location<'static>, Self>,
@@ -63,6 +64,7 @@ struct FunctionMemory<T> {
 impl<T> Default for FunctionMemory<T> {
   fn default() -> Self {
     Self {
+      created: false,
       states: Default::default(),
       current_cursor: Default::default(),
       sub_functions: Default::default(),
@@ -81,21 +83,17 @@ impl<T> FunctionMemory<T> {
     r
   }
 
-  // return if new created
   #[track_caller]
-  pub fn sub_function(&mut self) -> (&mut Self, bool) {
+  pub fn sub_function(&mut self) -> &mut Self {
     let location = Location::caller();
     self.current_cursor = 0;
     if let Some(previous_memory) = self.sub_functions.remove(location) {
-      (
-        self
-          .sub_functions_next
-          .entry(*location)
-          .or_insert(previous_memory),
-        false,
-      )
+      self
+        .sub_functions_next
+        .entry(*location)
+        .or_insert(previous_memory)
     } else {
-      (self.sub_functions_next.entry(*location).or_default(), true)
+      self.sub_functions_next.entry(*location).or_default()
     }
   }
 
@@ -114,31 +112,58 @@ impl<T> FunctionMemory<T> {
   }
 }
 
+// impl UI3dCx<'_> {
+//   pub fn new_event_stage(
+//     root_memory: &mut FunctionMemory<Box<dyn UI3dState>>,
+//     event: UIEventStageCx,
+//     dyn_cx: &mut DynCx,
+//   ) -> Self {
+//     Self {
+//       writer: None,
+//       memory: root_memory,
+//       event: Some(event),
+//       pick_testing: None,
+//       dyn_cx,
+//       current_parent: None,
+//     }
+//   }
+// }
+
 impl UI3dCx<'_> {
-  pub fn is_mounted(&self) -> bool {
-    self.current_sub_memory_new_created
+  pub fn view_update(&mut self, updater: impl FnOnce(&mut SceneWriter)) {
+    // if self.current_sub_memory_new_created || true {
+    //   // updater()
+    // }
+    //
+  }
+
+  pub fn is_new_create(&self) -> bool {
+    !self.memory.created
   }
 
   #[track_caller]
   pub fn scoped<R>(&mut self, f: impl FnOnce(&mut UI3dCx) -> R) -> R {
-    let (sub, new_created) = self.memory.sub_function();
-    let mut sub_cx = UI3dCx {
-      writer: self.writer,
-      memory: sub,
-      event: self.event,
-      dyn_cx: self.dyn_cx,
-      current_parent: self.current_parent,
-      current_sub_memory_new_created: new_created,
-    };
-    let r = f(&mut sub_cx);
+    let sub_memory = self.memory.sub_function() as *mut _;
 
-    let mut drop_cx = UI3dBuildCx {
-      writer: self.writer,
+    let self_memory = self.memory as *mut _;
+
+    let r = unsafe {
+      self.memory = &mut *sub_memory;
+      let r = f(self);
+      (*sub_memory).created = true;
+      self.memory = &mut *self_memory;
+      r
     };
 
-    self
-      .memory
-      .flush(&mut |mut state| state.do_clean_up(&mut drop_cx));
+    let mut drop_cx = self.writer.as_mut().map(|writer| UI3dBuildCx { writer });
+
+    self.memory.flush(&mut |mut state| {
+      if let Some(drop_cx) = &mut drop_cx {
+        state.do_clean_up(drop_cx)
+      } else {
+        panic!("unable to drop")
+      }
+    });
     r
   }
 
@@ -163,7 +188,7 @@ impl UI3dCx<'_> {
       .memory
       .expect_state_init(|| {
         let mut cx = UI3dBuildCx {
-          writer: self.writer,
+          writer: self.writer.as_mut().expect("unable to build"),
         };
         Box::new(init(&mut cx))
       })
@@ -176,59 +201,25 @@ impl UI3dCx<'_> {
   }
 }
 
-// struct StateCell<'a, T> {
-//   ptr: *mut T,
-//   _marker: PhantomData<fn(&'a ()) -> &'a ()>,
-// }
-
-// fn a<'x>(mut x: StateCell<'x, usize>) {
-//   struct Cx {}
-//   impl Cx {
-//     fn next_state(&mut self) -> StateCell<'_, usize> {
-//       todo!()
-//     }
-//   }
-
-//   let mut cx = Cx {};
-//   let a = cx.next_state();
-//   let mut b = cx.next_state();
-
-//   // drop(cx);
-
-//   // let mut cx2 = Cx {};
-//   // let c = cx2.next_state();
-//   // // x = c;
-//   // b = c;
-//   // unsafe { &*b.ptr };
-//   // drop(cx2);
-//   // b.ptr;
-// }
-
 #[track_caller]
 pub fn group<R>(
   cx: &mut UI3dCx,
   children: impl FnOnce(&mut UI3dCx, EntityHandle<SceneNodeEntity>) -> R,
-) -> GroupResponse<R> {
+) -> R {
   cx.scoped(|cx| {
     let (cx, node) = cx.use_node_entity();
     let node = *node;
+    let current_parent_backup = cx.current_parent;
+    cx.current_parent = Some(node);
     let response = children(cx, node);
-    GroupResponse { node, response }
+    cx.current_parent = current_parent_backup;
+    response
   })
-}
-
-pub struct GroupResponse<R> {
-  pub node: EntityHandle<SceneNodeEntity>,
-  pub response: R,
-}
-
-pub fn node_entity_ui(cx: &mut UI3dBuildCx) -> EntityHandle<SceneNodeEntity> {
-  cx.writer.node_writer.new_entity()
 }
 
 impl UI3dCx<'_> {
   pub fn use_node_entity(&mut self) -> (&mut Self, &mut EntityHandle<SceneNodeEntity>) {
-    self.use_state_init(node_entity_ui)
+    self.use_state_init(|cx| cx.writer.node_writer.new_entity())
   }
   pub fn use_mesh_entity(
     &mut self,
