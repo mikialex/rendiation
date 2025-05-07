@@ -1,45 +1,100 @@
 use crate::*;
 
-pub fn gizmo_hook(cx: &mut UI3dCx, target: &mut Option<GizmoControlTargetState>) {
+pub fn use_gizmo(
+  cx: &mut UI3dCx,
+  target: &mut Option<GizmoControlTargetState>,
+) -> Option<GizmoInControl> {
+  let mut style = GlobalUIStyle::default();
+  //   cx.dyn_cx.scoped_cx(&mut style, |cx| {});
+
   let (cx, root) = cx.use_node_entity();
   let auto_scale = ViewAutoScalable {
     independent_scale_factor: 50.,
   };
 
-  translation_gizmo(cx);
+  //   use_translation_gizmo(cx);
+
+  None
 }
 
-fn translation_gizmo(cx: &mut UI3dCx) {
-  let mesh = todo!();
+pub enum GizmoControlResult {
+  Update(GizmoUpdateTargetLocal),
+  StartControl,
+}
+
+fn use_translation_gizmo(
+  cx: &mut UI3dCx,
+  drag_start: &DragStartState,
+  target: &mut GizmoControlTargetState,
+) -> Option<GizmoControlResult> {
+  let arrow_mesh = todo!();
 
   //   let (cx, active_state) = cx.use_state::<AxisActiveState>();
   let active_state: AxisActiveState = todo!();
 
-  let x = arrow(cx, AxisType::X, &mut active_state.x, mesh);
-  let y = arrow(cx, AxisType::Y, &mut active_state.y, mesh);
-  let z = arrow(cx, AxisType::Z, &mut active_state.z, mesh);
+  let x = use_arrow_model(cx, AxisType::X, &mut active_state.x);
+  let y = use_arrow_model(cx, AxisType::Y, &mut active_state.y);
+  let z = use_arrow_model(cx, AxisType::Z, &mut active_state.z);
+
+  x.or(y).or(z).and_then(|res| match *res {
+    TranslateDrag::StartDrag(start) => Some(GizmoControlResult::StartControl),
+    TranslateDrag::Dragging(action) => {
+      handle_translating(drag_start, target, &active_state, &action)
+        .map(|action| GizmoControlResult::Update(GizmoUpdateTargetLocal(action)))
+    }
+  })
 }
 
-fn arrow(
+enum TranslateDrag {
+  StartDrag(DragStartState),
+  Dragging(DragTargetAction),
+}
+
+fn use_arrow_model(
   cx: &mut UI3dCx,
   axis: AxisType,
   axis_state: &mut ItemState,
-  arrow_mesh: &AttributesMeshEntities,
-) -> Option<DragStartState> {
+) -> Option<Box<TranslateDrag>> {
+  use_axis_interactive_model(cx, axis, axis_state, todo!())
+}
+
+fn use_axis_interactive_model(
+  cx: &mut UI3dCx,
+  axis: AxisType,
+  axis_state: &mut ItemState,
+  init_mesh: &AttributesMeshEntities,
+) -> Option<Box<TranslateDrag>> {
+  access_cx!(cx.dyn_cx, style, GlobalUIStyle);
+  let color = style.get_axis_primary_color(axis);
+  let color = map_color(color, *axis_state);
+
+  use_widget_model(cx, color, axis_state, init_mesh).map(|res| {
+    //
+    todo!()
+  })
+}
+
+fn use_widget_model(
+  cx: &mut UI3dCx,
+  color: Vec3<f32>,
+  axis_state: &mut ItemState,
+  init_mesh: &AttributesMeshEntities,
+) -> Option<UiWidgetModelResponse> {
   let (cx, node) = cx.use_node_entity(); // todo setup parent
-
   let (cx, material) = cx.use_unlit_material_entity(|| todo!());
-
   let (cx, model) =
-    cx.use_scene_model_entity(|w| UIWidgetModelProxy::new(w, node, material, arrow_mesh));
+    cx.use_scene_model_entity(|w| UIWidgetModelProxy::new(w, node, material, init_mesh));
 
   // let is_hovering
 
-  if let Some(event) = &cx.event {
-    if let Some(response) = model.event(event) {
-      //
-    }
+  if let Some(picker) = &cx.pick_testing {
+    //
   }
 
-  None
+  cx.view_update(|w| {
+    w.unlit_mat_writer
+      .write::<UnlitMaterialColorComponent>(*material, color.expand_with_one());
+  });
+
+  cx.event.as_ref().and_then(|event| model.event(event))
 }
