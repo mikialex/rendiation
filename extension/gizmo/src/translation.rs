@@ -133,7 +133,7 @@ impl<T: Widget> Widget for PlaneStateLens<T> {
   }
 }
 
-fn handle_translating(
+pub fn handle_translating(
   states: &DragStartState,
   target: &GizmoControlTargetState,
   axis: &AxisActiveState,
