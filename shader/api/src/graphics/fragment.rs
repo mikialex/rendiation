@@ -130,32 +130,14 @@ impl FragmentOutputPort {
 
 impl ShaderFragmentBuilder {
   pub(crate) fn new(errors: ErrorSink) -> Self {
-    let mut result = Self {
+    Self {
       fragment_in: Default::default(),
       registry: Default::default(),
       frag_output: Default::default(),
       multisample: Default::default(),
       depth_stencil: Default::default(),
       errors,
-    };
-
-    set_current_building(ShaderStage::Fragment.into());
-
-    let frag_ndc = ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::FragPositionIn).insert_api();
-    result.register::<FragmentPosition>(frag_ndc);
-
-    let facing = ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::FragFrontFacing).insert_api();
-    result.register::<FragmentFrontFacing>(facing);
-
-    let index = ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::FragSampleIndex).insert_api();
-    result.register::<FragmentSampleIndex>(index);
-
-    let mask = ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::FragSampleMask).insert_api();
-    result.register::<FragmentSampleMaskInput>(mask);
-
-    set_current_building(None);
-
-    result
+    }
   }
 
   pub fn registry(&self) -> &SemanticRegistry {
@@ -173,19 +155,38 @@ impl ShaderFragmentBuilder {
     call_shader_api(|g| g.discard())
   }
 
-  pub fn query<T: SemanticFragmentShaderValue>(&self) -> Node<T::ValueType> {
-    self
-      .registry
-      .try_query_fragment_stage::<T>()
-      .unwrap_or_else(|_| unsafe {
-        self
-          .errors
-          .push(ShaderBuildError::MissingRequiredDependency(T::NAME));
-        fake_val()
-      })
+  pub fn query<T: SemanticFragmentShaderValue>(&mut self) -> Node<T::ValueType> {
+    self.try_query::<T>().unwrap_or_else(|| unsafe {
+      self
+        .errors
+        .push(ShaderBuildError::MissingRequiredDependency(T::NAME));
+      fake_val()
+    })
   }
 
-  pub fn try_query<T: SemanticFragmentShaderValue>(&self) -> Option<Node<T::ValueType>> {
+  pub fn try_query<T: SemanticFragmentShaderValue>(&mut self) -> Option<Node<T::ValueType>> {
+    let id = TypeId::of::<T>();
+
+    if id == TypeId::of::<FragmentPosition>() {
+      let frag_ndc = ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::FragPositionIn).insert_api();
+      self.register::<FragmentPosition>(frag_ndc);
+    }
+
+    if id == TypeId::of::<FragmentFrontFacing>() {
+      let facing = ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::FragFrontFacing).insert_api();
+      self.register::<FragmentFrontFacing>(facing);
+    }
+
+    if id == TypeId::of::<FragmentSampleIndex>() {
+      let index = ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::FragSampleIndex).insert_api();
+      self.register::<FragmentSampleIndex>(index);
+    }
+
+    if id == TypeId::of::<FragmentSampleMaskInput>() {
+      let mask = ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::FragSampleMask).insert_api();
+      self.register::<FragmentSampleMaskInput>(mask);
+    }
+
     self.registry.try_query_fragment_stage::<T>().ok()
   }
 
@@ -202,7 +203,7 @@ impl ShaderFragmentBuilder {
     T: SemanticFragmentShaderValue,
     T::ValueType: PrimitiveShaderNodeType,
   {
-    if let Ok(n) = self.registry.try_query_fragment_stage::<T>() {
+    if let Some(n) = self.try_query::<T>() {
       n
     } else {
       let default: T::ValueType = by();

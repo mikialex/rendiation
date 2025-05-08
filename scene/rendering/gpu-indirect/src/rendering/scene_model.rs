@@ -142,7 +142,7 @@ impl SceneModelRenderer for IndirectPreferredComOrderRenderer {
         }
 
         impl IndirectBatchInvocationSource for SingleModelImmediateDrawInvocation {
-          fn current_invocation_scene_model_id(&self, _: &ShaderVertexBuilder) -> Node<u32> {
+          fn current_invocation_scene_model_id(&self, _: &mut ShaderVertexBuilder) -> Node<u32> {
             self.scene_model_id.load()
           }
         }

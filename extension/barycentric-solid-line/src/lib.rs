@@ -103,7 +103,8 @@ impl GraphicsShaderProvider for SolidLinedMeshGPU<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     self.inner.build(builder);
     builder.vertex(|builder, _| {
-      builder.set_vertex_out::<BarycentricCoord>(builder.query::<BarycentricCoord>());
+      let b = builder.query::<BarycentricCoord>();
+      builder.set_vertex_out::<BarycentricCoord>(b);
     })
   }
 

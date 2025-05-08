@@ -29,7 +29,7 @@ impl IndirectDrawProvider for MeshletBatchDrawData {
     }
 
     impl IndirectBatchInvocationSource for MeshletBatchDrawInvocation {
-      fn current_invocation_scene_model_id(&self, builder: &ShaderVertexBuilder) -> Node<u32> {
+      fn current_invocation_scene_model_id(&self, builder: &mut ShaderVertexBuilder) -> Node<u32> {
         let draw_id = builder.query::<VertexInstanceIndex>();
         self.scene_model_idx.index(draw_id).load()
       }

@@ -29,7 +29,7 @@ pub trait IndirectDrawProvider: ShaderHashProvider + ShaderPassBuilder {
 }
 
 pub trait IndirectBatchInvocationSource {
-  fn current_invocation_scene_model_id(&self, builder: &ShaderVertexBuilder) -> Node<u32>;
+  fn current_invocation_scene_model_id(&self, builder: &mut ShaderVertexBuilder) -> Node<u32>;
   fn extra_register(&self, _builder: &mut ShaderVertexBuilder) {}
 }
 
@@ -158,7 +158,7 @@ impl IndirectDrawProvider for MultiIndirectDrawBatch {
     struct MultiIndirectDrawBatchInvocation;
 
     impl IndirectBatchInvocationSource for MultiIndirectDrawBatchInvocation {
-      fn current_invocation_scene_model_id(&self, builder: &ShaderVertexBuilder) -> Node<u32> {
+      fn current_invocation_scene_model_id(&self, builder: &mut ShaderVertexBuilder) -> Node<u32> {
         builder.query::<VertexInstanceIndex>()
       }
     }

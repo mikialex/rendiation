@@ -40,7 +40,7 @@ pub struct VertexIOInfo {
 
 impl ShaderVertexBuilder {
   pub(crate) fn new(errors: ErrorSink) -> Self {
-    let mut result = Self {
+    Self {
       vertex_in: Default::default(),
       registry: Default::default(),
       vertex_out: Default::default(),
@@ -51,20 +51,7 @@ impl ShaderVertexBuilder {
       },
       vertex_out_not_synced_to_fragment: Default::default(),
       errors,
-    };
-
-    set_current_building(ShaderStage::Vertex.into());
-
-    let vertex_index = ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::VertexIndex).insert_api();
-    result.register::<VertexIndex>(vertex_index);
-
-    let instance_index =
-      ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::VertexInstanceIndex).insert_api();
-    result.register::<VertexInstanceIndex>(instance_index);
-
-    set_current_building(None);
-
-    result
+    }
   }
 
   pub fn sync_fragment_out(&mut self, fragment: &mut ShaderFragmentBuilder) {
@@ -95,19 +82,29 @@ impl ShaderVertexBuilder {
     &self.registry
   }
 
-  pub fn query<T: SemanticVertexShaderValue>(&self) -> Node<T::ValueType> {
-    self
-      .registry
-      .try_query_vertex_stage::<T>()
-      .unwrap_or_else(|_| unsafe {
-        self
-          .errors
-          .push(ShaderBuildError::MissingRequiredDependency(T::NAME));
-        fake_val()
-      })
+  pub fn query<T: SemanticVertexShaderValue>(&mut self) -> Node<T::ValueType> {
+    self.try_query::<T>().unwrap_or_else(|| unsafe {
+      self
+        .errors
+        .push(ShaderBuildError::MissingRequiredDependency(T::NAME));
+      fake_val()
+    })
   }
 
-  pub fn try_query<T: SemanticVertexShaderValue>(&self) -> Option<Node<T::ValueType>> {
+  pub fn try_query<T: SemanticVertexShaderValue>(&mut self) -> Option<Node<T::ValueType>> {
+    let id = TypeId::of::<T>();
+
+    if id == TypeId::of::<VertexIndex>() {
+      let vertex_index = ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::VertexIndex).insert_api();
+      self.register::<VertexIndex>(vertex_index);
+    }
+
+    if id == TypeId::of::<VertexInstanceIndex>() {
+      let instance_index =
+        ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::VertexInstanceIndex).insert_api();
+      self.register::<VertexInstanceIndex>(instance_index);
+    }
+
     self.registry.try_query_vertex_stage::<T>().ok()
   }
 
@@ -124,7 +121,7 @@ impl ShaderVertexBuilder {
     T: SemanticVertexShaderValue,
     T::ValueType: PrimitiveShaderNodeType,
   {
-    if let Ok(n) = self.registry.try_query_vertex_stage::<T>() {
+    if let Some(n) = self.try_query::<T>() {
       n
     } else {
       let default: T::ValueType = by();
