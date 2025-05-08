@@ -85,6 +85,24 @@ impl RenderTargetView {
       size: self.size(),
       format: self.format(),
       sample_count: self.sample_count(),
+      require_mipmaps: self.has_mipmaps(),
+      usage: self.usage(),
+    }
+  }
+
+  pub fn has_mipmaps(&self) -> bool {
+    match self {
+      RenderTargetView::Texture(t) => t.resource.desc.mip_level_count > 1,
+      RenderTargetView::ReusedTexture(t) => t.item().resource.desc.mip_level_count > 1,
+      RenderTargetView::SurfaceTexture { .. } => false,
+    }
+  }
+
+  pub fn usage(&self) -> TextureUsages {
+    match self {
+      RenderTargetView::Texture(t) => t.resource.desc.usage,
+      RenderTargetView::ReusedTexture(t) => t.item().resource.desc.usage,
+      RenderTargetView::SurfaceTexture { .. } => TextureUsages::RENDER_ATTACHMENT,
     }
   }
 
