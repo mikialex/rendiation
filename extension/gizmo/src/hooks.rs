@@ -68,18 +68,6 @@ fn use_axis_interactive_model(
   let color = style.get_axis_primary_color(axis);
   let color = map_color(color, *axis_state);
 
-  use_widget_model(cx, color, axis_state, init_mesh).map(|res| {
-    //
-    todo!()
-  })
-}
-
-fn use_widget_model(
-  cx: &mut UI3dCx,
-  color: Vec3<f32>,
-  axis_state: &mut ItemState,
-  init_mesh: &AttributesMeshEntities,
-) -> Option<UiWidgetModelResponse> {
   let (cx, node) = cx.use_node_entity(); // todo setup parent
   let (cx, material) = cx.use_unlit_material_entity(|| todo!());
   let (cx, model) =
@@ -91,10 +79,17 @@ fn use_widget_model(
     //
   }
 
+  cx.view_mounting(|w| {
+    // setup init mat,
+  });
+
   cx.view_update(|w| {
     w.unlit_mat_writer
       .write::<UnlitMaterialColorComponent>(*material, color.expand_with_one());
   });
 
-  cx.event.as_ref().and_then(|event| model.event(event))
+  cx.event
+    .as_ref()
+    .and_then(|event| model.event(event))
+    .map(|_| todo!())
 }
