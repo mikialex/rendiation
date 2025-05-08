@@ -1,8 +1,6 @@
-/// https://github.com/raphlinus/crochet
 use std::{any::Any, panic::Location};
 
 use fast_hash_collection::FastHashMap;
-use rendiation_view_override_model::ViewAutoScalable;
 
 use crate::*;
 
@@ -74,6 +72,9 @@ impl<T> Default for FunctionMemory<T> {
 }
 
 impl<T> FunctionMemory<T> {
+  pub fn reset_cursor(&mut self) {
+    self.current_cursor = 0;
+  }
   pub fn expect_state_init(&mut self, init: impl FnOnce() -> T) -> &mut T {
     if self.states.len() == self.current_cursor {
       self.states.push(init());
@@ -112,33 +113,74 @@ impl<T> FunctionMemory<T> {
   }
 }
 
-// impl UI3dCx<'_> {
-//   pub fn new_event_stage(
-//     root_memory: &mut FunctionMemory<Box<dyn UI3dState>>,
-//     event: UIEventStageCx,
-//     dyn_cx: &mut DynCx,
-//   ) -> Self {
-//     Self {
-//       writer: None,
-//       memory: root_memory,
-//       event: Some(event),
-//       pick_testing: None,
-//       dyn_cx,
-//       current_parent: None,
-//     }
-//   }
-// }
+impl<'a> UI3dCx<'a> {
+  pub fn new_event_stage(
+    root_memory: &'a mut FunctionMemory<Box<dyn UI3dState>>,
+    event: UIEventStageCx<'a>,
+    dyn_cx: &'a mut DynCx,
+  ) -> Self {
+    Self {
+      writer: None,
+      memory: root_memory,
+      event: Some(event),
+      pick_testing: None,
+      dyn_cx,
+      current_parent: None,
+    }
+  }
+
+  pub fn new_update_stage(
+    root_memory: &'a mut FunctionMemory<Box<dyn UI3dState>>,
+    dyn_cx: &'a mut DynCx,
+    writer: &'a mut SceneWriter,
+  ) -> Self {
+    Self {
+      writer: Some(writer),
+      memory: root_memory,
+      event: None,
+      pick_testing: None,
+      dyn_cx,
+      current_parent: None,
+    }
+  }
+}
 
 impl UI3dCx<'_> {
   pub fn view_update(&mut self, updater: impl FnOnce(&mut SceneWriter)) {
-    // if self.current_sub_memory_new_created || true {
-    //   // updater()
-    // }
-    //
+    if let Some(w) = &mut self.writer {
+      updater(w)
+    }
+  }
+  pub fn view_mounting(&mut self, updater: impl FnOnce(&mut SceneWriter)) {
+    let is_new_create = self.is_new_create();
+    if let Some(w) = &mut self.writer {
+      if is_new_create {
+        updater(w)
+      }
+    }
   }
 
   pub fn is_new_create(&self) -> bool {
     !self.memory.created
+  }
+
+  pub fn execute_as_roo<R>(&mut self, f: impl FnOnce(&mut UI3dCx) -> R) -> R {
+    self.memory.reset_cursor();
+    let r = f(self);
+    self.cleanup_after_execute();
+    r
+  }
+
+  fn cleanup_after_execute(&mut self) {
+    let mut drop_cx = self.writer.as_mut().map(|writer| UI3dBuildCx { writer });
+
+    self.memory.flush(&mut |mut state| {
+      if let Some(drop_cx) = &mut drop_cx {
+        state.do_clean_up(drop_cx)
+      } else {
+        panic!("unable to drop")
+      }
+    });
   }
 
   #[track_caller]
@@ -149,21 +191,14 @@ impl UI3dCx<'_> {
 
     let r = unsafe {
       self.memory = &mut *sub_memory;
+      self.memory.reset_cursor();
       let r = f(self);
       (*sub_memory).created = true;
       self.memory = &mut *self_memory;
       r
     };
 
-    let mut drop_cx = self.writer.as_mut().map(|writer| UI3dBuildCx { writer });
-
-    self.memory.flush(&mut |mut state| {
-      if let Some(drop_cx) = &mut drop_cx {
-        state.do_clean_up(drop_cx)
-      } else {
-        panic!("unable to drop")
-      }
-    });
+    self.cleanup_after_execute();
     r
   }
 
