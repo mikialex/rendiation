@@ -190,7 +190,9 @@ impl ShaderAPINagaImpl {
               kind: naga::ScalarKind::Float,
               multi: *multi_sampled,
             },
-            TextureSampleType::Depth => naga::ImageClass::Depth { multi: false },
+            TextureSampleType::Depth => naga::ImageClass::Depth {
+              multi: *multi_sampled,
+            },
             TextureSampleType::Sint => naga::ImageClass::Sampled {
               kind: naga::ScalarKind::Sint,
               multi: *multi_sampled,
