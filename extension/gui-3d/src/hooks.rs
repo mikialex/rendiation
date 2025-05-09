@@ -21,7 +21,8 @@ where
 }
 
 pub struct UI3dBuildCx<'a> {
-  writer: &'a mut SceneWriter,
+  pub writer: &'a mut SceneWriter,
+  pub cx: &'a mut DynCx,
 }
 
 pub struct UI3dCx<'a> {
@@ -148,12 +149,12 @@ impl<'a> UI3dCx<'a> {
 
 impl UI3dCx<'_> {
   /// this updater will also be called when mounting
-  pub fn on_update(&mut self, updater: impl FnOnce(&mut SceneWriter, &DynCx)) {
+  pub fn on_update(&mut self, updater: impl FnOnce(&mut SceneWriter, &mut DynCx)) {
     if let Some(w) = &mut self.writer {
       updater(w, self.dyn_cx)
     }
   }
-  pub fn on_mounting(&mut self, updater: impl FnOnce(&mut SceneWriter, &DynCx)) {
+  pub fn on_mounting(&mut self, updater: impl FnOnce(&mut SceneWriter, &mut DynCx)) {
     let is_new_create = self.is_new_create();
     if let Some(w) = &mut self.writer {
       if is_new_create {
@@ -189,7 +190,10 @@ impl UI3dCx<'_> {
   }
 
   fn cleanup_after_execute(&mut self) {
-    let mut drop_cx = self.writer.as_mut().map(|writer| UI3dBuildCx { writer });
+    let mut drop_cx = self.writer.as_mut().map(|writer| UI3dBuildCx {
+      writer,
+      cx: self.dyn_cx,
+    });
 
     self.memory.flush(&mut |mut state| {
       if let Some(drop_cx) = &mut drop_cx {
@@ -265,6 +269,7 @@ impl UI3dCx<'_> {
       .expect_state_init(|| {
         let mut cx = UI3dBuildCx {
           writer: self.writer.as_mut().expect("unable to build"),
+          cx: self.dyn_cx,
         };
         Box::new(init(&mut cx))
       })
@@ -376,6 +381,29 @@ impl CxStateDrop<UI3dBuildCx<'_>> for UIWidgetModelProxy {
     cx.writer.std_model_writer.delete_entity(self.std_model);
     cx.writer.model_writer.delete_entity(self.model);
   }
+}
+
+pub fn use_state_cx_in_mounting<T, R>(
+  cx: &mut UI3dCx,
+  init: impl FnOnce(&mut UI3dBuildCx) -> T,
+  inner: impl FnOnce(&mut UI3dCx) -> R,
+) -> R
+where
+  T: Any + for<'x> CxStateDrop<UI3dBuildCx<'x>>,
+{
+  let (cx, state) = cx.use_state_init(init);
+
+  cx.on_mounting(|_, cx| unsafe {
+    cx.register_cx(state);
+  });
+
+  let r = inner(cx);
+
+  cx.on_mounting(|_, cx| unsafe {
+    cx.unregister_cx::<T>();
+  });
+
+  r
 }
 
 pub fn use_view_dependent_root<R>(
