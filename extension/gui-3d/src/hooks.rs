@@ -26,9 +26,9 @@ pub struct UI3dBuildCx<'a> {
 
 pub struct UI3dCx<'a> {
   writer: Option<&'a mut SceneWriter>,
+  reader: Option<&'a SceneReader>,
   memory: &'a mut FunctionMemory<Box<dyn UI3dState>>,
   pub event: Option<UIEventStageCx<'a>>,
-  pub pick_testing: Option<usize>,
   pub dyn_cx: &'a mut DynCx,
   pub current_parent: Option<EntityHandle<SceneNodeEntity>>,
 }
@@ -117,13 +117,14 @@ impl<'a> UI3dCx<'a> {
   pub fn new_event_stage(
     root_memory: &'a mut FunctionMemory<Box<dyn UI3dState>>,
     event: UIEventStageCx<'a>,
+    reader: &'a SceneReader,
     dyn_cx: &'a mut DynCx,
   ) -> Self {
     Self {
       writer: None,
+      reader: Some(reader),
       memory: root_memory,
       event: Some(event),
-      pick_testing: None,
       dyn_cx,
       current_parent: None,
     }
@@ -136,9 +137,9 @@ impl<'a> UI3dCx<'a> {
   ) -> Self {
     Self {
       writer: Some(writer),
+      reader: None,
       memory: root_memory,
       event: None,
-      pick_testing: None,
       dyn_cx,
       current_parent: None,
     }
@@ -146,25 +147,41 @@ impl<'a> UI3dCx<'a> {
 }
 
 impl UI3dCx<'_> {
-  pub fn view_update(&mut self, updater: impl FnOnce(&mut SceneWriter)) {
+  /// this updater will also be called when mounting
+  pub fn on_update(&mut self, updater: impl FnOnce(&mut SceneWriter, &DynCx)) {
     if let Some(w) = &mut self.writer {
-      updater(w)
+      updater(w, self.dyn_cx)
     }
   }
-  pub fn view_mounting(&mut self, updater: impl FnOnce(&mut SceneWriter)) {
+  pub fn on_mounting(&mut self, updater: impl FnOnce(&mut SceneWriter, &DynCx)) {
     let is_new_create = self.is_new_create();
     if let Some(w) = &mut self.writer {
       if is_new_create {
-        updater(w)
+        updater(w, self.dyn_cx)
       }
     }
+  }
+  pub fn on_event<R>(
+    &mut self,
+    updater: impl FnOnce(&UIEventStageCx, &SceneReader, &mut DynCx) -> R,
+  ) -> Option<R> {
+    let is_new_create = self.is_new_create();
+    let mut re = None;
+    if let Some(r) = self.reader {
+      if let Some(e) = &self.event {
+        if is_new_create {
+          re = updater(e, r, self.dyn_cx).into();
+        }
+      }
+    }
+    re
   }
 
   pub fn is_new_create(&self) -> bool {
     !self.memory.created
   }
 
-  pub fn execute_as_roo<R>(&mut self, f: impl FnOnce(&mut UI3dCx) -> R) -> R {
+  pub fn execute_as_root<R>(&mut self, f: impl FnOnce(&mut UI3dCx) -> R) -> R {
     self.memory.reset_cursor();
     let r = f(self);
     self.cleanup_after_execute();
@@ -207,6 +224,30 @@ impl UI3dCx<'_> {
     T: Any + Default + for<'x> CxStateDrop<UI3dBuildCx<'x>>,
   {
     self.use_state_init(|_| T::default())
+  }
+
+  pub fn use_plain_state<T>(&mut self) -> (&mut Self, &mut T)
+  where
+    T: Any + Default,
+  {
+    self.use_plain_state_init(|_| T::default())
+  }
+
+  pub fn use_plain_state_init<T>(
+    &mut self,
+    init: impl FnOnce(&mut UI3dBuildCx) -> T,
+  ) -> (&mut Self, &mut T)
+  where
+    T: Any,
+  {
+    #[derive(Default)]
+    struct PlainState<T>(T);
+    impl<T> CxStateDrop<UI3dBuildCx<'_>> for PlainState<T> {
+      fn drop_from_cx(&mut self, _: &mut UI3dBuildCx<'_>) {}
+    }
+
+    let (cx, s) = self.use_state_init(|cx| PlainState(init(cx)));
+    (cx, &mut s.0)
   }
 
   pub fn use_state_init<T>(
@@ -328,9 +369,6 @@ impl UIWidgetModelProxy {
       model: scene_model,
     }
   }
-  pub fn event(&mut self, cx: &UIEventStageCx) -> Option<UiWidgetModelResponse> {
-    todo!()
-  }
 }
 
 impl CxStateDrop<UI3dBuildCx<'_>> for UIWidgetModelProxy {
@@ -340,31 +378,148 @@ impl CxStateDrop<UI3dBuildCx<'_>> for UIWidgetModelProxy {
   }
 }
 
+pub fn use_view_dependent_root<R>(
+  cx: &mut UI3dCx,
+  node: &EntityHandle<SceneNodeEntity>,
+  config: ViewAutoScalable,
+  inner: impl Fn(&mut UI3dCx) -> R,
+) -> R {
+  cx.on_event(|_, _, cx| unsafe {
+    access_cx!(cx, access, Box<dyn WidgetEnvAccess>);
+
+    let mut computer = ViewIndependentComputer {
+      override_position: access.get_world_mat(*node).unwrap().position(),
+      scale: config,
+      camera_world: access.get_camera_world_mat(),
+      view_height_in_pixel: access.get_view_resolution().y as f32,
+      camera_proj: access.get_camera_perspective_proj(),
+    };
+    cx.register_cx(&mut computer);
+  });
+
+  let r = inner(cx);
+
+  cx.on_event(|_, _, cx| unsafe {
+    cx.unregister_cx::<ViewIndependentComputer>();
+  });
+
+  r
+}
+
 pub fn use_view_independent_node(
   cx: &mut UI3dCx,
   node: &EntityHandle<SceneNodeEntity>,
-  mat: impl Fn() -> Mat4<f32>,
+  mat: impl FnOnce() -> Mat4<f32> + 'static,
 ) {
-  let (cx, view_dep) = cx.use_state_init(|_| ViewIndependentModelControl::new(mat()));
-  view_dep.update(cx, node);
+  let (cx, origin_local_mat) = cx.use_plain_state_init(|_| mat());
+  let (cx, local_mat_to_sync) = cx.use_plain_state::<Option<Mat4<f32>>>();
+
+  cx.on_event(|_, reader, cx| {
+    access_cx!(cx, config, ViewIndependentComputer);
+    access_cx!(cx, world_mat_access, Box<dyn WidgetEnvAccess>);
+
+    // let mut computer = ViewIndependentComputer {
+    //   override_position: access.get_world_mat(*node).unwrap().position(),
+    //   scale: self.config,
+    //   camera_world: access.get_camera_world_mat(),
+    //   view_height_in_pixel: access.get_view_resolution().y as f32,
+    //   camera_proj: access.get_camera_perspective_proj(),
+    // };
+
+    let parent_world =
+      if let Some(parent_node) = reader.node_reader.read::<SceneNodeParentIdx>(*node) {
+        let parent_node = unsafe { EntityHandle::from_raw(parent_node) };
+        // todo, now we can only get last frame world matrix, so
+        // we can only do view independent stuff in next frame.
+        world_mat_access.get_world_mat(parent_node).unwrap()
+      } else {
+        Mat4::identity()
+      };
+
+    let origin_world = parent_world * *origin_local_mat;
+    let override_world_mat = config.scale.override_mat(
+      origin_world,
+      config.override_position,
+      config.camera_world,
+      config.view_height_in_pixel,
+      config.camera_proj,
+    );
+
+    *local_mat_to_sync = Some(parent_world.inverse_or_identity() * override_world_mat);
+  });
+
+  cx.on_update(|w, _| {
+    if let Some(mat) = local_mat_to_sync.take() {
+      w.set_local_matrix(*node, mat);
+    }
+  });
 }
 
-pub struct ViewIndependentModelControl {
-  origin_local_mat: Mat4<f32>,
-  local_mat_to_sync: Option<Mat4<f32>>,
-}
+pub fn use_interactive_ui_widget_model(
+  cx: &mut UI3dCx,
+  target: &UIWidgetModelProxy,
+) -> Option<UiWidgetModelResponse> {
+  let (cx, is_mouse_in) = cx.use_plain_state::<bool>();
+  let (cx, is_mouse_down_in_history) = cx.use_plain_state::<bool>();
 
-impl ViewIndependentModelControl {
-  pub fn new(origin_local_mat: Mat4<f32>) -> Self {
-    todo!()
-  }
+  cx.on_event(|event, _, _| {
+    #[allow(unused_variables)]
+    fn debug(label: &str) {
+      // println!("{}", label);
+    }
 
-  pub fn update(&mut self, cx: &mut UI3dCx, node: &EntityHandle<SceneNodeEntity>) {
-    // if let Some(mat) = self.local_mat_to_sync.take() {
-    //   w.set_local_matrix(self.node, mat);
-    // }
-  }
-}
-impl CxStateDrop<UI3dBuildCx<'_>> for ViewIndependentModelControl {
-  fn drop_from_cx(&mut self, _: &mut UI3dBuildCx<'_>) {}
+    let platform_event = event.platform_event;
+
+    if platform_event.window_state.has_any_mouse_event {
+      let mut mouse_entering = false;
+      let mut mouse_leave = false;
+      let mut mouse_hovering = None;
+      let mut mouse_down = None;
+      let mut mouse_click = None;
+
+      let is_pressing = platform_event.state_delta.is_left_mouse_pressing();
+      let is_releasing = platform_event.state_delta.is_left_mouse_releasing();
+
+      let mut current_frame_hitting = None;
+      if let Some((hit, model)) = event.interaction_cx.world_ray_intersected_nearest {
+        current_frame_hitting = (model == target.model).then_some(hit);
+      }
+
+      if let Some(hitting) = current_frame_hitting {
+        if !*is_mouse_in {
+          debug("mouse in");
+          *is_mouse_in = true;
+          mouse_entering = true;
+        }
+        debug("mouse hovering");
+        mouse_hovering = hitting.into();
+        if is_pressing {
+          debug("mouse down");
+          mouse_down = hitting.into();
+          *is_mouse_down_in_history = true;
+        }
+        if is_releasing && *is_mouse_down_in_history {
+          debug("click");
+          mouse_click = hitting.into();
+          *is_mouse_down_in_history = false;
+        }
+      } else if *is_mouse_in {
+        debug("mouse out");
+        mouse_leave = true;
+        *is_mouse_in = false;
+      }
+
+      UiWidgetModelResponse {
+        mouse_entering,
+        mouse_leave,
+        mouse_hovering,
+        mouse_down,
+        mouse_click,
+      }
+      .into()
+    } else {
+      None
+    }
+  })
+  .flatten()
 }
