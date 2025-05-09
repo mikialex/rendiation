@@ -75,13 +75,11 @@ fn use_axis_interactive_model(
 
   // let is_hovering
 
+  use_view_independent_node(cx, node, || axis.mat());
+
   if let Some(picker) = &cx.pick_testing {
     //
   }
-
-  cx.view_mounting(|w| {
-    // setup init mat,
-  });
 
   cx.view_update(|w| {
     w.unlit_mat_writer
