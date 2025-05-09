@@ -107,13 +107,33 @@ impl IndirectModelRenderImpl for Vec<Box<dyn IndirectModelRenderImpl>> {
   }
 }
 
-pub struct DefaultSceneStdModelRendererProvider {
+#[derive(Default)]
+pub struct DefaultSceneStdModelIndirectRendererProvider {
   pub std_model: QueryToken,
   pub materials: Vec<BoxedQueryBasedGPUFeature<Box<dyn IndirectModelMaterialRenderImpl>>>,
   pub shapes: Vec<BoxedQueryBasedGPUFeature<Box<dyn IndirectModelShapeRenderImpl>>>,
 }
 
-impl QueryBasedFeature<Box<dyn IndirectModelRenderImpl>> for DefaultSceneStdModelRendererProvider {
+impl DefaultSceneStdModelIndirectRendererProvider {
+  pub fn register_material_impl(
+    mut self,
+    imp: impl QueryBasedFeature<Box<dyn IndirectModelMaterialRenderImpl>, Context = GPU> + 'static,
+  ) -> Self {
+    self.materials.push(Box::new(imp));
+    self
+  }
+  pub fn register_shape_impl(
+    mut self,
+    imp: impl QueryBasedFeature<Box<dyn IndirectModelShapeRenderImpl>, Context = GPU> + 'static,
+  ) -> Self {
+    self.shapes.push(Box::new(imp));
+    self
+  }
+}
+
+impl QueryBasedFeature<Box<dyn IndirectModelRenderImpl>>
+  for DefaultSceneStdModelIndirectRendererProvider
+{
   type Context = GPU;
   fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
     self.std_model = qcx.register_multi_updater(std_model_data(cx));

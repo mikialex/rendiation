@@ -11,6 +11,33 @@ pub struct GLESRenderSystem {
   pub reversed_depth: bool,
 }
 
+impl GLESRenderSystem {
+  pub fn new(
+    texture_impl_ty: GPUTextureBindingSystemType,
+    reversed_depth: bool,
+    camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
+  ) -> Self {
+    Self {
+      reversed_depth,
+      model_lookup: Default::default(),
+      model_alpha_blend: Default::default(),
+      texture_system: TextureGPUSystemSource::new(texture_impl_ty),
+      background: Default::default(),
+      node_net_visible: Default::default(),
+      camera: Box::new(DefaultGLESCameraRenderImplProvider::new(camera_source)),
+      scene_model_impl: Default::default(),
+    }
+  }
+
+  pub fn register_scene_model_impl(
+    mut self,
+    imp: impl QueryBasedFeature<Box<dyn SceneModelRenderer>, Context = GPU> + 'static,
+  ) -> Self {
+    self.scene_model_impl.push(Box::new(imp));
+    self
+  }
+}
+
 pub fn build_default_gles_render_system(
   cx: &GPU,
   prefer_bindless: bool,
@@ -19,29 +46,17 @@ pub fn build_default_gles_render_system(
   attribute_mesh_custom_key: std::sync::Arc<dyn Fn(u32, &mut ShaderVertexBuilder)>,
 ) -> GLESRenderSystem {
   let tex_sys_ty = get_suitable_texture_system_ty(cx, false, prefer_bindless);
-  GLESRenderSystem {
-    reversed_depth,
-    model_lookup: Default::default(),
-    model_alpha_blend: Default::default(),
-    texture_system: TextureGPUSystemSource::new(tex_sys_ty),
-    background: Default::default(),
-    node_net_visible: Default::default(),
-    camera: Box::new(DefaultGLESCameraRenderImplProvider::new(camera_source)),
-    scene_model_impl: vec![Box::new(GLESPreferredComOrderRendererProvider {
-      scene_model_ids: Default::default(),
-      node: Box::new(DefaultGLESNodeRenderImplProvider::default()),
-      model_impl: vec![Box::new(DefaultSceneStdModelRendererProvider {
-        materials: vec![
-          Box::new(PbrMRMaterialDefaultRenderImplProvider::default()),
-          Box::new(PbrSGMaterialDefaultRenderImplProvider::default()),
-          Box::new(UnlitMaterialDefaultRenderImplProvider::default()),
-        ],
-        shapes: vec![Box::new(
-          AttributesMeshEntityDefaultRenderImplProvider::new(attribute_mesh_custom_key),
-        )],
-      })],
-    })],
-  }
+  GLESRenderSystem::new(tex_sys_ty, reversed_depth, camera_source).register_scene_model_impl(
+    GLESPreferredComOrderRendererProvider::default().register_std_model_impl(
+      DefaultSceneStdModelRendererProvider::default()
+        .register_material_impl(PbrMRMaterialDefaultRenderImplProvider::default())
+        .register_material_impl(PbrSGMaterialDefaultRenderImplProvider::default())
+        .register_material_impl(UnlitMaterialDefaultRenderImplProvider::default())
+        .register_shape_impl(AttributesMeshEntityDefaultRenderImplProvider::new(
+          attribute_mesh_custom_key,
+        )),
+    ),
+  )
 }
 
 impl QueryBasedFeature<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>> for GLESRenderSystem {

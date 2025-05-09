@@ -6,6 +6,26 @@ pub struct GLESPreferredComOrderRendererProvider {
   pub model_impl: Vec<BoxedQueryBasedGPUFeature<Box<dyn GLESModelRenderImpl>>>,
 }
 
+impl GLESPreferredComOrderRendererProvider {
+  pub fn register_std_model_impl(
+    mut self,
+    imp: impl QueryBasedFeature<Box<dyn GLESModelRenderImpl>, Context = GPU> + 'static,
+  ) -> Self {
+    self.model_impl.push(Box::new(imp));
+    self
+  }
+}
+
+impl Default for GLESPreferredComOrderRendererProvider {
+  fn default() -> Self {
+    Self {
+      scene_model_ids: Default::default(),
+      node: Box::new(DefaultGLESNodeRenderImplProvider::default()),
+      model_impl: Default::default(),
+    }
+  }
+}
+
 type SceneModelIdUniforms = UniformUpdateContainer<EntityHandle<SceneModelEntity>, Vec4<u32>>;
 
 impl QueryBasedFeature<Box<dyn SceneModelRenderer>> for GLESPreferredComOrderRendererProvider {

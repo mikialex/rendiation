@@ -11,8 +11,28 @@ pub struct IndirectRenderSystem {
   pub texture_system: TextureGPUSystemSource,
   pub background: SceneBackgroundRendererSource,
   pub camera: BoxedQueryBasedGPUFeature<Box<dyn CameraRenderImpl>>,
-  pub scene_model_impl: BoxedQueryBasedGPUFeature<Box<dyn IndirectBatchSceneModelRenderer>>,
+  pub scene_model_impl: IndirectPreferredComOrderRendererProvider,
   pub reversed_depth: bool,
+}
+
+impl IndirectRenderSystem {
+  pub fn new(
+    texture_impl_ty: GPUTextureBindingSystemType,
+    reversed_depth: bool,
+    camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
+    scene_model_impl: IndirectPreferredComOrderRendererProvider,
+  ) -> Self {
+    IndirectRenderSystem {
+      reversed_depth,
+      model_lookup: Default::default(),
+      node_net_visible: Default::default(),
+      model_alpha_blend: Default::default(),
+      background: Default::default(),
+      texture_system: TextureGPUSystemSource::new(texture_impl_ty),
+      camera: Box::new(DefaultGLESCameraRenderImplProvider::new(camera_source)),
+      scene_model_impl,
+    }
+  }
 }
 
 pub fn build_default_indirect_render_system(
@@ -22,28 +42,18 @@ pub fn build_default_indirect_render_system(
   reversed_depth: bool,
 ) -> IndirectRenderSystem {
   let tex_sys_ty = get_suitable_texture_system_ty(gpu, true, prefer_bindless);
-  IndirectRenderSystem {
+  IndirectRenderSystem::new(
+    tex_sys_ty,
     reversed_depth,
-    model_lookup: Default::default(),
-    node_net_visible: Default::default(),
-    model_alpha_blend: Default::default(),
-    background: Default::default(),
-    texture_system: TextureGPUSystemSource::new(tex_sys_ty),
-    camera: Box::new(DefaultGLESCameraRenderImplProvider::new(camera_source)),
-    scene_model_impl: Box::new(IndirectPreferredComOrderRendererProvider {
-      ids: Default::default(),
-      node: Box::new(DefaultIndirectNodeRenderImplProvider::default()),
-      model_impl: vec![Box::new(DefaultSceneStdModelRendererProvider {
-        std_model: Default::default(),
-        materials: vec![
-          Box::new(UnlitMaterialDefaultIndirectRenderImplProvider::default()),
-          Box::new(PbrMRMaterialDefaultIndirectRenderImplProvider::default()),
-          Box::new(PbrSGMaterialDefaultIndirectRenderImplProvider::default()),
-        ],
-        shapes: vec![Box::new(MeshBindlessGPUSystemSource::new(gpu))],
-      })],
-    }),
-  }
+    camera_source,
+    IndirectPreferredComOrderRendererProvider::default().register_std_model_impl(
+      DefaultSceneStdModelIndirectRendererProvider::default()
+        .register_material_impl(UnlitMaterialDefaultIndirectRenderImplProvider::default())
+        .register_material_impl(PbrMRMaterialDefaultIndirectRenderImplProvider::default())
+        .register_material_impl(PbrSGMaterialDefaultIndirectRenderImplProvider::default())
+        .register_shape_impl(MeshBindlessGPUSystemSource::new(gpu)),
+    ),
+  )
 }
 
 impl QueryBasedFeature<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>>

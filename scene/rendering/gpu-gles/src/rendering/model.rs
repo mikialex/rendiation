@@ -38,9 +38,28 @@ impl GLESModelRenderImpl for Vec<Box<dyn GLESModelRenderImpl>> {
     None
   }
 }
+
+#[derive(Default)]
 pub struct DefaultSceneStdModelRendererProvider {
   pub materials: Vec<BoxedQueryBasedGPUFeature<Box<dyn GLESModelMaterialRenderImpl>>>,
   pub shapes: Vec<BoxedQueryBasedGPUFeature<Box<dyn GLESModelShapeRenderImpl>>>,
+}
+
+impl DefaultSceneStdModelRendererProvider {
+  pub fn register_material_impl(
+    mut self,
+    imp: impl QueryBasedFeature<Box<dyn GLESModelMaterialRenderImpl>, Context = GPU> + 'static,
+  ) -> Self {
+    self.materials.push(Box::new(imp));
+    self
+  }
+  pub fn register_shape_impl(
+    mut self,
+    imp: impl QueryBasedFeature<Box<dyn GLESModelShapeRenderImpl>, Context = GPU> + 'static,
+  ) -> Self {
+    self.shapes.push(Box::new(imp));
+    self
+  }
 }
 
 impl QueryBasedFeature<Box<dyn GLESModelRenderImpl>> for DefaultSceneStdModelRendererProvider {

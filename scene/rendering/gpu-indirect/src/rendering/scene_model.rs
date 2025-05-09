@@ -58,6 +58,26 @@ pub struct IndirectPreferredComOrderRendererProvider {
   pub model_impl: Vec<BoxedQueryBasedGPUFeature<Box<dyn IndirectModelRenderImpl>>>,
 }
 
+impl IndirectPreferredComOrderRendererProvider {
+  pub fn register_std_model_impl(
+    mut self,
+    imp: impl QueryBasedFeature<Box<dyn IndirectModelRenderImpl>, Context = GPU> + 'static,
+  ) -> Self {
+    self.model_impl.push(Box::new(imp));
+    self
+  }
+}
+
+impl Default for IndirectPreferredComOrderRendererProvider {
+  fn default() -> Self {
+    Self {
+      ids: Default::default(),
+      node: Box::new(DefaultIndirectNodeRenderImplProvider::default()),
+      model_impl: Default::default(),
+    }
+  }
+}
+
 impl QueryBasedFeature<Box<dyn IndirectBatchSceneModelRenderer>>
   for IndirectPreferredComOrderRendererProvider
 {
