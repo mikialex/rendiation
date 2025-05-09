@@ -12,7 +12,10 @@ pub fn use_gizmo(
     independent_scale_factor: 50.,
   };
 
-  //   use_translation_gizmo(cx);
+  use_view_dependent_root(cx, root, auto_scale, |cx| {
+
+    //   use_translation_gizmo(cx);
+  });
 
   None
 }
@@ -37,7 +40,10 @@ fn use_translation_gizmo(
   let z = use_arrow_model(cx, AxisType::Z, &mut active_state.z);
 
   x.or(y).or(z).and_then(|res| match *res {
-    TranslateDrag::StartDrag(start) => Some(GizmoControlResult::StartControl),
+    TranslateDrag::StartDrag(start) => {
+      //
+      Some(GizmoControlResult::StartControl)
+    }
     TranslateDrag::Dragging(action) => {
       handle_translating(drag_start, target, &active_state, &action)
         .map(|action| GizmoControlResult::Update(GizmoUpdateTargetLocal(action)))
@@ -55,39 +61,32 @@ fn use_arrow_model(
   axis: AxisType,
   axis_state: &mut ItemState,
 ) -> Option<Box<TranslateDrag>> {
-  use_axis_interactive_model(cx, axis, axis_state, todo!())
+  use_axis_interactive_model(cx, axis, axis_state)
 }
 
 fn use_axis_interactive_model(
   cx: &mut UI3dCx,
   axis: AxisType,
   axis_state: &mut ItemState,
-  init_mesh: &AttributesMeshEntities,
 ) -> Option<Box<TranslateDrag>> {
-  access_cx!(cx.dyn_cx, style, GlobalUIStyle);
-  let color = style.get_axis_primary_color(axis);
-  let color = map_color(color, *axis_state);
-
   let (cx, node) = cx.use_node_entity(); // todo setup parent
+  use_view_independent_node(cx, node, move || axis.mat());
+
   let (cx, material) = cx.use_unlit_material_entity(|| todo!());
   let (cx, model) =
-    cx.use_scene_model_entity(|w| UIWidgetModelProxy::new(w, node, material, init_mesh));
+    cx.use_scene_model_entity(|w| UIWidgetModelProxy::new(w, node, material, todo!()));
 
-  // let is_hovering
+  cx.on_update(|w, dcx| {
+    access_cx!(dcx, style, GlobalUIStyle);
+    let color = style.get_axis_primary_color(axis);
+    let color = map_color(color, *axis_state);
 
-  use_view_independent_node(cx, node, || axis.mat());
-
-  if let Some(picker) = &cx.pick_testing {
-    //
-  }
-
-  cx.view_update(|w| {
     w.unlit_mat_writer
       .write::<UnlitMaterialColorComponent>(*material, color.expand_with_one());
   });
 
-  cx.event
-    .as_ref()
-    .and_then(|event| model.event(event))
-    .map(|_| todo!())
+  use_interactive_ui_widget_model(cx, model).map(|res| {
+    //
+    todo!()
+  })
 }
