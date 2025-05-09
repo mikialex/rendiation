@@ -339,3 +339,32 @@ impl CxStateDrop<UI3dBuildCx<'_>> for UIWidgetModelProxy {
     cx.writer.model_writer.delete_entity(self.model);
   }
 }
+
+pub fn use_view_independent_node(
+  cx: &mut UI3dCx,
+  node: &EntityHandle<SceneNodeEntity>,
+  mat: impl Fn() -> Mat4<f32>,
+) {
+  let (cx, view_dep) = cx.use_state_init(|_| ViewIndependentModelControl::new(mat()));
+  view_dep.update(cx, node);
+}
+
+pub struct ViewIndependentModelControl {
+  origin_local_mat: Mat4<f32>,
+  local_mat_to_sync: Option<Mat4<f32>>,
+}
+
+impl ViewIndependentModelControl {
+  pub fn new(origin_local_mat: Mat4<f32>) -> Self {
+    todo!()
+  }
+
+  pub fn update(&mut self, cx: &mut UI3dCx, node: &EntityHandle<SceneNodeEntity>) {
+    // if let Some(mat) = self.local_mat_to_sync.take() {
+    //   w.set_local_matrix(self.node, mat);
+    // }
+  }
+}
+impl CxStateDrop<UI3dBuildCx<'_>> for ViewIndependentModelControl {
+  fn drop_from_cx(&mut self, _: &mut UI3dBuildCx<'_>) {}
+}
