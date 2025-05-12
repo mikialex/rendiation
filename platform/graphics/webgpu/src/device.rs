@@ -293,6 +293,15 @@ macro_rules! shader_hash_type_id {
 impl ShaderHashProvider for () {
   shader_hash_type_id! {}
 }
+impl<T: ShaderHashProvider> ShaderHashProvider for &T {
+  fn hash_type_info(&self, hasher: &mut PipelineHasher) {
+    (*self).hash_type_info(hasher);
+  }
+
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    (*self).hash_pipeline(hasher);
+  }
+}
 
 /// User could use this to debug if the hashing logic issue
 pub struct DebugHasher<T> {

@@ -155,6 +155,15 @@ pub trait GraphicsShaderProvider {
 }
 
 impl GraphicsShaderProvider for () {}
+impl<T: GraphicsShaderProvider> GraphicsShaderProvider for &T {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    (*self).build(builder);
+  }
+
+  fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    (*self).post_build(builder);
+  }
+}
 
 pub struct GraphicsShaderCompileResult {
   pub vertex_shader: (String, Box<dyn Any>),

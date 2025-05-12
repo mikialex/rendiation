@@ -219,24 +219,29 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
     pass: &dyn RenderComponent,
     cx: &mut GPURenderPassCtx,
   ) -> Option<()> {
-    let id_inject = Box::new(self.id_inject.clone()) as Box<dyn RenderComponent>;
+    let id_inject = &self.id_inject as &dyn RenderComponent;
 
     let node = self.node.get(any_id)?;
     let node = self.node_render.make_component_indirect(node)?;
+    let node = node.as_ref();
 
     let sub_id_injector = self.model_impl.device_id_injector(any_id)?;
-    let shape = self.model_impl.shape_renderable_indirect(any_id)?;
-    let material = self.model_impl.material_renderable_indirect(any_id, tex)?;
+    let sub_id_injector = sub_id_injector.as_ref();
 
-    let camera = Box::new(camera) as Box<dyn RenderComponent>;
-    let pass = Box::new(pass) as Box<dyn RenderComponent>;
-    let tex = Box::new(GPUTextureSystemAsRenderComponent(tex)) as Box<dyn RenderComponent>;
-    let draw_source =
-      Box::new(IndirectDrawProviderAsRenderComponent(models)) as Box<dyn RenderComponent>;
+    let shape = self.model_impl.shape_renderable_indirect(any_id)?;
+    let shape = shape.as_ref();
+
+    let material = self.model_impl.material_renderable_indirect(any_id, tex)?;
+    let material = material.as_ref();
+
+    let camera = camera as &dyn RenderComponent;
+    let pass = pass as &dyn RenderComponent;
+    let tex = &GPUTextureSystemAsRenderComponent(tex) as &dyn RenderComponent;
+    let draw_source = &IndirectDrawProviderAsRenderComponent(models) as &dyn RenderComponent;
 
     let command = models.draw_command();
 
-    let contents: [BindingController<Box<dyn RenderComponent>>; 9] = [
+    let contents: [BindingController<&dyn RenderComponent>; 9] = [
       draw_source.into_assign_binding_index(0),
       tex.into_assign_binding_index(0),
       pass.into_assign_binding_index(0),

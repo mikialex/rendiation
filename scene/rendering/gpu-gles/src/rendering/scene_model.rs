@@ -120,29 +120,33 @@ impl SceneModelRenderer for GLESPreferredComOrderRenderer {
 
     let id = self.scene_model_ids.get(&idx).unwrap();
     let id = SceneModelIdWriter { id };
-    let id = Box::new(id) as Box<dyn RenderComponent>;
+    let id = &id as &dyn RenderComponent;
 
     let node = self.node.get(idx).ok_or(E::NodeAccessFailed(idx))?;
     let node = self
       .node_render
       .make_component(node)
       .ok_or(E::NodeGPUAccessFailed(node))?;
+    let node = node.as_ref();
 
-    let camera = Box::new(camera) as Box<dyn RenderComponent>;
+    let camera = &camera as &dyn RenderComponent;
 
     let (shape, draw) = self
       .model_impl
       .shape_renderable(idx)
       .ok_or(E::ShapeGPUAccessFailed(idx))?;
+    let shape = shape.as_ref();
+
     let material = self
       .model_impl
       .material_renderable(idx, tex)
       .ok_or(E::MaterialGPUAccessFailed(idx))?;
+    let material = material.as_ref();
 
-    let pass = Box::new(pass) as Box<dyn RenderComponent>;
-    let tex = Box::new(GPUTextureSystemAsRenderComponent(tex)) as Box<dyn RenderComponent>;
+    let pass = pass as &dyn RenderComponent;
+    let tex = &GPUTextureSystemAsRenderComponent(tex) as &dyn RenderComponent;
 
-    let contents: [BindingController<Box<dyn RenderComponent>>; 7] = [
+    let contents: [BindingController<&dyn RenderComponent>; 7] = [
       pass.into_assign_binding_index(0),
       tex.into_assign_binding_index(0),
       id.into_assign_binding_index(2),

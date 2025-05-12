@@ -11,6 +11,15 @@ pub trait ShaderPassBuilder {
 }
 
 impl ShaderPassBuilder for () {}
+impl<T: ShaderPassBuilder> ShaderPassBuilder for &T {
+  fn setup_pass(&self, builder: &mut GPURenderPassCtx) {
+    (*self).setup_pass(builder);
+  }
+
+  fn post_setup_pass(&self, builder: &mut GPURenderPassCtx) {
+    (*self).post_setup_pass(builder);
+  }
+}
 
 #[derive(Clone)]
 pub enum RenderTargetView {
