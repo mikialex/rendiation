@@ -569,3 +569,47 @@ pub fn use_interactive_ui_widget_model(
   })
   .flatten()
 }
+
+pub fn use_inject_cx<T: Default + 'static>(cx: &mut UI3dCx, f: impl FnOnce(&mut UI3dCx)) {
+  let (cx, state) = cx.use_plain_state::<T>();
+  inject_cx(cx, state, f);
+}
+
+pub fn state_pick<T1: 'static, T2: 'static>(
+  cx: &mut UI3dCx,
+  picker: impl FnOnce(&mut T1) -> &mut T2,
+  f: impl FnOnce(&mut UI3dCx),
+) {
+  let s = cx.dyn_cx.get_cx_ptr::<T1>().unwrap();
+  unsafe {
+    let picked = picker(&mut *s);
+    inject_cx(cx, picked, f)
+  }
+}
+
+pub fn inject_cx<T: 'static>(cx: &mut UI3dCx, state: &mut T, f: impl FnOnce(&mut UI3dCx)) {
+  cx.on_event(|_, _, cx| unsafe {
+    cx.register_cx(state);
+  });
+  cx.on_update(|_, cx| unsafe {
+    cx.register_cx(state);
+  });
+
+  f(cx);
+
+  cx.on_event(|_, _, cx| unsafe {
+    cx.unregister_cx::<T>();
+  });
+  cx.on_update(|_, cx| unsafe {
+    cx.unregister_cx::<T>();
+  });
+}
+
+pub fn build_attributes_mesh_by(
+  mesh_builder: impl FnOnce(&mut AttributesMeshBuilder),
+) -> impl FnOnce(&mut UI3dBuildCx) -> AttributesMeshEntities {
+  |cx| {
+    let mesh = build_attributes_mesh(|builder| mesh_builder(builder));
+    cx.writer.write_attribute_mesh(mesh.build())
+  }
+}
