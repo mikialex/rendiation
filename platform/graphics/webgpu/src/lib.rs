@@ -100,7 +100,7 @@ impl Default for GPUCreateConfig<'_> {
   }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GPUInfo {
   pub adaptor_info: AdapterInfo,
   pub power_preference: PowerPreference,

@@ -188,6 +188,7 @@ impl Widget for Viewer {
     let mut writer = SceneWriter::from_global(self.scene.scene);
     cx.scoped_cx(&mut writer, |cx| self.content.clean_up(cx));
     self.camera_helpers.do_cleanup(&mut writer);
+    self.spot_light_helpers.do_cleanup(&mut writer);
   }
 }
 
