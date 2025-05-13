@@ -229,10 +229,6 @@ impl Viewer3dRenderingCtx {
       .flatten()
   }
 
-  pub fn resize_view(&mut self) {
-    self.pool.clear_all_cached();
-  }
-
   pub fn update_next_render_camera_info(&mut self, camera_view_projection_inv: Mat4<f32>) {
     self.current_camera_view_projection_inv = camera_view_projection_inv;
   }

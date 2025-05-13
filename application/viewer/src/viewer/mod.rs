@@ -31,104 +31,100 @@ pub use rendering::*;
 
 pub const UP: Vec3<f32> = Vec3::new(0., 1., 0.);
 
-pub struct Viewer {
-  widget_intersection_group: WidgetSceneModelIntersectionGroupConfig,
-  on_demand_rendering: bool,
-  on_demand_draw: NotifyScope,
-  scene: Viewer3dSceneCtx,
-  rendering: Viewer3dRenderingCtx,
-  derives: Viewer3dSceneDeriveSource,
-  content: Box<dyn Widget>,
-  ui_state: ViewerUIState,
-  terminal: Terminal,
-  background: ViewerBackgroundState,
-  camera_helpers: SceneCameraHelper,
-  spot_light_helpers: SceneSpotLightHelper,
-  animation_player: SceneAnimationsPlayer,
-  started_time: Instant,
+pub struct ViewerCx<'a> {
+  memory: &'a mut FunctionMemory,
+  pub dyn_cx: &'a mut DynCx,
+  writer: Option<&'a mut SceneWriter>,
+  reader: Option<&'a SceneReader>,
 }
 
-impl Widget for Viewer {
-  #[instrument(name = "viewer update state", skip_all)]
-  fn update_state(&mut self, cx: &mut DynCx) {
-    let mut derived = self.derives.poll_update();
+pub enum ViewerCxStage<'a> {
+  EventHandling {
+    reader: &'a SceneReader,
+    interaction: &'a Interaction3dCtx,
+    input: &'a PlatformEventInput,
+    derived: &'a Viewer3dSceneDerive,
+    viewer_scene: &'a Viewer3dSceneCtx,
+  },
+  SceneContentUpdate {
+    writer: &'a mut SceneWriter,
+    intersection_group: &'a mut WidgetSceneModelIntersectionGroupConfig,
+  },
+}
 
-    cx.scoped_cx(&mut derived, |cx| {
-      cx.scoped_cx(&mut self.scene, |cx| {
-        access_cx!(cx, input, PlatformEventInput);
-        access_cx!(cx, derived, Viewer3dSceneDerive);
-        access_cx!(cx, viewer_scene, Viewer3dSceneCtx);
+pub fn use_viewer(acx: &mut ApplicationCx, f: impl FnOnce(&mut ViewerCx)) {
+  let (acx, viewer) = acx.use_state_init(|cx| {
+    access_cx!(cx, gpu_and_surface, WGPUAndSurface);
+    Viewer::new(gpu_and_surface.gpu.clone(), gpu_and_surface.surface.clone())
+  });
 
-        let main_camera_handle = viewer_scene.main_camera;
+  if acx.processing_event {
+    let mut derived = viewer.derives.poll_update();
 
-        self.rendering.update_next_render_camera_info(
-          derived
-            .camera_transforms
-            .access(&main_camera_handle)
-            .unwrap()
-            .view_projection_inv,
-        );
+    let main_camera_handle = viewer.scene.main_camera;
 
-        let picker = ViewerPicker::new(derived, input, main_camera_handle);
+    viewer.rendering.update_next_render_camera_info(
+      derived
+        .camera_transforms
+        .access(&main_camera_handle)
+        .unwrap()
+        .view_projection_inv,
+    );
 
-        let mut scene_reader = SceneReader::new_from_global(
-          viewer_scene.scene,
-          derived.mesh_vertex_ref.clone(),
-          derived.node_children.clone(),
-          derived.sm_to_s.clone(),
-        );
-        // todo, fix , this should use actual render resolution instead of full window size
-        let canvas_resolution = Vec2::new(
-          input.window_state.physical_size.0 / input.window_state.device_pixel_ratio,
-          input.window_state.physical_size.1 / input.window_state.device_pixel_ratio,
-        )
-        .map(|v| v.ceil() as u32);
+    let picker = ViewerPicker::new(&derived, acx.input, main_camera_handle);
 
-        let mut widget_derive_access = Box::new(WidgetEnvAccessImpl {
-          world_mat: derived.world_mat.clone(),
-          camera_node: viewer_scene.camera_node,
-          camera_proj: scene_reader
-            .camera
-            .read::<SceneCameraPerspective>(viewer_scene.main_camera)
-            .unwrap(),
-          canvas_resolution,
-          camera_world_ray: picker.current_mouse_ray_in_world(),
-          normalized_canvas_position: picker.normalized_position_ndc(),
-        }) as Box<dyn WidgetEnvAccess>;
+    let scene_reader = SceneReader::new_from_global(
+      viewer.scene.scene,
+      derived.mesh_vertex_ref.clone(),
+      derived.node_children.clone(),
+      derived.sm_to_s.clone(),
+    );
+    // todo, fix , this should use actual render resolution instead of full window size
+    let canvas_resolution = Vec2::new(
+      acx.input.window_state.physical_size.0 / acx.input.window_state.device_pixel_ratio,
+      acx.input.window_state.physical_size.1 / acx.input.window_state.device_pixel_ratio,
+    )
+    .map(|v| v.ceil() as u32);
 
-        let mut interaction_cx = prepare_picking_state(picker, &self.widget_intersection_group);
+    let mut widget_env = create_widget_cx(
+      &derived,
+      &scene_reader,
+      &viewer.scene,
+      &picker,
+      canvas_resolution,
+    );
 
-        cx.scoped_cx(&mut widget_derive_access, |cx| {
-          cx.scoped_cx(&mut scene_reader, |cx| {
-            cx.scoped_cx(&mut self.widget_intersection_group, |cx| {
-              cx.scoped_cx(&mut interaction_cx, |cx| {
-                cx.scoped_cx(&mut self.rendering, |cx| {
-                  self.content.update_state(cx);
-                });
-              });
-            });
+    let mut interaction_cx = prepare_picking_state(picker, &viewer.widget_intersection_group);
+
+    cx.scoped_cx(&mut widget_env, |cx| {
+      cx.scoped_cx(&mut viewer.widget_intersection_group, |cx| {
+        cx.scoped_cx(&mut interaction_cx, |cx| {
+          cx.scoped_cx(&mut viewer.rendering, |cx| {
+            let sub_memory = acx.memory.sub_function();
+
+            let mut vcx = ViewerCx {
+              memory: sub_memory,
+              dyn_cx: cx,
+              writer: None,
+              reader: Some(&scene_reader),
+            };
+            f(&mut vcx)
           });
         });
       });
     });
-  }
-  #[instrument(name = "viewer update view", skip_all)]
-  fn update_view(&mut self, cx: &mut DynCx) {
-    access_cx!(cx, platform, PlatformEventInput);
-    let size = platform.window_state.physical_size;
-    let size_changed = platform.state_delta.size_change;
-    if size_changed {
-      self.rendering.resize_view()
-    }
+  } else {
+    let size = acx.input.window_state.physical_size;
+    let size_changed = acx.input.state_delta.size_change;
 
-    cx.scoped_cx(&mut self.scene, |cx| {
-      cx.scoped_cx(&mut self.derives, |cx| {
+    acx.dyn_cx.scoped_cx(&mut viewer.scene, |cx| {
+      cx.scoped_cx(&mut viewer.derives, |cx| {
         cx.split_cx::<egui::Context>(|egui_cx, cx| {
-          self.ui_state.egui(
-            &mut self.terminal,
-            &mut self.background,
-            &mut self.on_demand_rendering,
-            &mut self.rendering,
+          viewer.ui_state.egui(
+            &mut viewer.terminal,
+            &mut viewer.background,
+            &mut viewer.on_demand_rendering,
+            &mut viewer.rendering,
             egui_cx,
             cx,
           );
@@ -136,15 +132,15 @@ impl Widget for Viewer {
       });
 
       noop_ctx!(ctx);
-      self.camera_helpers.prepare_update(ctx);
-      self.spot_light_helpers.prepare_update(ctx);
+      viewer.camera_helpers.prepare_update(ctx);
+      viewer.spot_light_helpers.prepare_update(ctx);
 
       let time = Instant::now()
-        .duration_since(self.started_time)
+        .duration_since(viewer.started_time)
         .as_secs_f32();
 
       access_cx!(cx, viewer_scene, Viewer3dSceneCtx);
-      let mutation = self
+      let mutation = viewer
         .animation_player
         .compute_mutation(ctx, viewer_scene.scene, time);
 
@@ -152,12 +148,12 @@ impl Widget for Viewer {
 
       mutation.apply(&mut writer);
 
-      self.camera_helpers.apply_updates(
+      viewer.camera_helpers.apply_updates(
         &mut writer,
         viewer_scene.widget_scene,
         viewer_scene.main_camera,
       );
-      self
+      viewer
         .spot_light_helpers
         .apply_updates(&mut writer, viewer_scene.widget_scene);
 
@@ -171,33 +167,53 @@ impl Widget for Viewer {
           });
       }
 
-      cx.scoped_cx(&mut writer, |cx| {
-        cx.scoped_cx(&mut self.rendering, |cx| {
-          self.content.update_view(cx);
-        });
+      cx.scoped_cx(&mut viewer.rendering, |cx| {
+        let sub_memory = acx.memory.sub_function();
+
+        let mut vcx = ViewerCx {
+          memory: sub_memory,
+          dyn_cx: cx,
+          writer: Some(&mut writer),
+          reader: None,
+        };
+        f(&mut vcx)
       });
     });
 
-    access_cx!(cx, draw_target_canvas, RenderTargetView);
-    let derived = self.derives.poll_update();
-    self.draw_canvas(draw_target_canvas, &derived);
-    self.rendering.tick_frame();
+    if let Some(canvas) = &acx.draw_target_canvas {
+      let derived = viewer.derives.poll_update();
+      viewer.draw_canvas(canvas, &derived);
+      viewer.rendering.tick_frame();
+    }
   }
+}
 
-  fn clean_up(&mut self, cx: &mut DynCx) {
+pub struct Viewer {
+  widget_intersection_group: WidgetSceneModelIntersectionGroupConfig,
+  on_demand_rendering: bool,
+  on_demand_draw: NotifyScope,
+  scene: Viewer3dSceneCtx,
+  rendering: Viewer3dRenderingCtx,
+  derives: Viewer3dSceneDeriveSource,
+  ui_state: ViewerUIState,
+  terminal: Terminal,
+  background: ViewerBackgroundState,
+  camera_helpers: SceneCameraHelper,
+  spot_light_helpers: SceneSpotLightHelper,
+  animation_player: SceneAnimationsPlayer,
+  started_time: Instant,
+}
+
+impl CxStateDrop<DynCx> for Viewer {
+  fn drop_from_cx(&mut self, _: &mut DynCx) {
     let mut writer = SceneWriter::from_global(self.scene.scene);
-    cx.scoped_cx(&mut writer, |cx| self.content.clean_up(cx));
     self.camera_helpers.do_cleanup(&mut writer);
     self.spot_light_helpers.do_cleanup(&mut writer);
   }
 }
 
 impl Viewer {
-  pub fn new(
-    gpu: GPU,
-    swap_chain: ApplicationWindowSurface,
-    content_logic: impl Widget + 'static,
-  ) -> Self {
+  pub fn new(gpu: GPU, swap_chain: ApplicationWindowSurface) -> Self {
     let mut terminal = Terminal::default();
     register_default_commands(&mut terminal);
 
@@ -276,7 +292,6 @@ impl Viewer {
       // because we not cache the rendering result yet
       on_demand_rendering: false,
       ui_state: ViewerUIState::default(),
-      content: Box::new(content_logic),
       camera_helpers,
       spot_light_helpers,
       scene,
@@ -362,6 +377,26 @@ pub struct Viewer3dSceneDerive {
     RevRefOfForeignKey<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>,
   pub sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f32>>,
   pub sm_to_s: RevRefOfForeignKey<SceneModelBelongsToScene>,
+}
+
+pub fn create_widget_cx(
+  derived: &Viewer3dSceneDerive,
+  scene_reader: &SceneReader,
+  viewer_scene: &Viewer3dSceneCtx,
+  picker: &ViewerPicker,
+  canvas_resolution: Vec2<u32>,
+) -> Box<dyn WidgetEnvAccess> {
+  Box::new(WidgetEnvAccessImpl {
+    world_mat: derived.world_mat.clone(),
+    camera_node: viewer_scene.camera_node,
+    camera_proj: scene_reader
+      .camera
+      .read::<SceneCameraPerspective>(viewer_scene.main_camera)
+      .unwrap(),
+    canvas_resolution,
+    camera_world_ray: picker.current_mouse_ray_in_world(),
+    normalized_canvas_position: picker.normalized_position_ndc(),
+  }) as Box<dyn WidgetEnvAccess>
 }
 
 struct WidgetEnvAccessImpl {

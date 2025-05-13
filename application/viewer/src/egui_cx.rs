@@ -5,26 +5,27 @@ use winit::window::Window;
 
 use crate::*;
 
-pub struct EguiContext<T> {
-  inner: T,
+pub struct EguiContext {
   context: egui::Context,
   state: Option<egui_winit::State>,
   renderer: Option<(egui_wgpu::Renderer, TextureFormat)>,
 }
 
-impl<T: Widget> Widget for EguiContext<T> {
-  fn update_state(&mut self, cx: &mut DynCx) {
-    if self.context.is_pointer_over_area() {
-      cx.message.put(CameraControlBlocked);
-      cx.message.put(PickSceneBlocked);
+pub fn use_egui_cx(cx: &mut ApplicationCx, f: impl FnOnce(&mut ApplicationCx)) {
+  let (cx, egui_cx) = cx.use_plain_state::<EguiContext>();
+
+  if cx.processing_event {
+    if egui_cx.context.is_pointer_over_area() {
+      cx.dyn_cx.message.put(CameraControlBlocked);
+      cx.dyn_cx.message.put(PickSceneBlocked);
     }
 
-    access_cx!(cx, window, Window);
-    access_cx!(cx, platform_event, PlatformEventInput);
+    access_cx!(cx.dyn_cx, window, Window);
+    access_cx!(cx.dyn_cx, platform_event, PlatformEventInput);
 
-    let state = self.state.get_or_insert_with(|| {
-      let id = self.context.viewport_id();
-      egui_winit::State::new(self.context.clone(), id, &window, None, None, None)
+    let state = egui_cx.state.get_or_insert_with(|| {
+      let id = egui_cx.context.viewport_id();
+      egui_winit::State::new(egui_cx.context.clone(), id, &window, None, None, None)
     });
 
     for event in &platform_event.accumulate_events {
@@ -32,31 +33,24 @@ impl<T: Widget> Widget for EguiContext<T> {
         let _ = state.on_window_event(window, event);
       }
     }
-
-    self.inner.update_state(cx);
+  } else {
+    access_cx!(cx.dyn_cx, window, Window);
+    egui_cx.begin_frame(window);
   }
 
-  fn update_view(&mut self, cx: &mut DynCx) {
-    access_cx!(cx, window, Window);
-    self.begin_frame(window);
+  // inject_cx(cx, egui_cx, |cx| f(cx)); todo
+  f(cx);
 
-    cx.scoped_cx(&mut self.context, |cx| {
-      self.inner.update_view(cx);
-    });
-
-    access_cx!(cx, window, Window);
-    access_cx!(cx, gpu_and_surface, WGPUAndSurface);
-    access_cx!(cx, canvas, RenderTargetView);
-    self.end_frame_and_draw(&gpu_and_surface.gpu, window, canvas);
-  }
-
-  fn clean_up(&mut self, cx: &mut DynCx) {
-    self.inner.clean_up(cx)
+  if !cx.processing_event {
+    access_cx!(cx.dyn_cx, window, Window);
+    access_cx!(cx.dyn_cx, gpu_and_surface, WGPUAndSurface);
+    access_cx!(cx.dyn_cx, canvas, RenderTargetView);
+    egui_cx.end_frame_and_draw(&gpu_and_surface.gpu, window, canvas);
   }
 }
 
-impl<T> EguiContext<T> {
-  pub fn new(inner: T) -> EguiContext<T> {
+impl Default for EguiContext {
+  fn default() -> EguiContext {
     let egui_context = egui::Context::default();
 
     const BORDER_RADIUS: u8 = 2;
@@ -70,13 +64,14 @@ impl<T> EguiContext<T> {
     egui_context.set_visuals(visuals);
 
     EguiContext {
-      inner,
       context: egui_context,
       state: None,
       renderer: None,
     }
   }
+}
 
+impl EguiContext {
   pub fn begin_frame(&mut self, window: &Window) {
     let state = self.state.as_mut().unwrap();
     self.context.begin_pass(state.take_egui_input(window));
