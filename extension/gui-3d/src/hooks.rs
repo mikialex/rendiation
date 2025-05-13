@@ -1,5 +1,9 @@
-use std::{any::Any, panic::Location};
+use std::{
+  any::{Any, TypeId},
+  panic::Location,
+};
 
+use bumpalo::Bump;
 use fast_hash_collection::FastHashMap;
 
 use crate::*;
@@ -28,7 +32,7 @@ pub struct UI3dBuildCx<'a> {
 pub struct UI3dCx<'a> {
   writer: Option<&'a mut SceneWriter>,
   reader: Option<&'a SceneReader>,
-  memory: &'a mut FunctionMemory<Box<dyn UI3dState>>,
+  memory: &'a mut FunctionMemory,
   pub event: Option<UIEventStageCx<'a>>,
   pub dyn_cx: &'a mut DynCx,
   pub current_parent: Option<EntityHandle<SceneNodeEntity>>,
@@ -52,37 +56,52 @@ impl<T, X: CxStateDrop<T>> CxStateDrop<T> for Option<X> {
   }
 }
 
-pub struct FunctionMemory<T> {
+struct FunctionMemoryState {
+  ptr: *mut (),
+  type_id: TypeId,
+  cleanup_fn: &'static fn(*mut (), *mut ()),
+}
+
+#[derive(Default)]
+pub struct FunctionMemory {
   created: bool,
-  states: Vec<T>,
+  states: Bump,
+  states_meta: Vec<FunctionMemoryState>,
   current_cursor: usize,
   sub_functions: FastHashMap<Location<'static>, Self>,
   sub_functions_next: FastHashMap<Location<'static>, Self>,
 }
 
-impl<T> Default for FunctionMemory<T> {
-  fn default() -> Self {
-    Self {
-      created: false,
-      states: Default::default(),
-      current_cursor: Default::default(),
-      sub_functions: Default::default(),
-      sub_functions_next: Default::default(),
-    }
-  }
-}
-
-impl<T> FunctionMemory<T> {
+impl FunctionMemory {
   pub fn reset_cursor(&mut self) {
     self.current_cursor = 0;
   }
-  pub fn expect_state_init(&mut self, init: impl FnOnce() -> T) -> &mut T {
-    if self.states.len() == self.current_cursor {
-      self.states.push(init());
+  pub fn expect_state_init<T: Any, DropCx>(
+    &mut self,
+    init: impl FnOnce() -> T,
+    cleanup: fn(&mut T, &mut DropCx),
+  ) -> &mut T {
+    unsafe {
+      if self.states_meta.len() == self.current_cursor {
+        let init = self.states.alloc_with(init);
+
+        self.states_meta.push(FunctionMemoryState {
+          ptr: init as *mut T as *mut (),
+          type_id: TypeId::of::<T>(),
+          cleanup_fn: todo!(),
+          // cleanup_fn: cleanup as fn(*mut (), *mut ()),
+        });
+      }
+      let FunctionMemoryState { type_id, ptr, .. } = &mut self.states_meta[self.current_cursor];
+
+      let validate_state_access = true;
+      if validate_state_access {
+        assert_eq!(*type_id, TypeId::of::<T>());
+      }
+
+      self.current_cursor += 1;
+      &mut *(*ptr as *mut T)
     }
-    let r = &mut self.states[self.current_cursor];
-    self.current_cursor += 1;
-    r
   }
 
   #[track_caller]
@@ -99,24 +118,26 @@ impl<T> FunctionMemory<T> {
     }
   }
 
-  pub fn flush(&mut self, drop_state_cb: &mut impl FnMut(T)) {
+  pub fn flush(&mut self, drop_cx: *mut ()) {
     for (_, mut sub_function) in self.sub_functions.drain() {
-      sub_function.cleanup(drop_state_cb);
+      sub_function.cleanup(drop_cx);
     }
     std::mem::swap(&mut self.sub_functions, &mut self.sub_functions_next);
   }
 
-  pub fn cleanup(&mut self, mut drop_state_cb: &mut impl FnMut(T)) {
-    self.states.drain(..).for_each(&mut drop_state_cb);
+  pub fn cleanup(&mut self, drop_cx: *mut ()) {
+    self.states_meta.drain(..).for_each(|meta| {
+      (meta.cleanup_fn)(meta.ptr, drop_cx);
+    });
     self.sub_functions.drain().for_each(|(_, mut f)| {
-      f.cleanup(drop_state_cb);
+      f.cleanup(drop_cx);
     })
   }
 }
 
 impl<'a> UI3dCx<'a> {
   pub fn new_event_stage(
-    root_memory: &'a mut FunctionMemory<Box<dyn UI3dState>>,
+    root_memory: &'a mut FunctionMemory,
     event: UIEventStageCx<'a>,
     reader: &'a SceneReader,
     dyn_cx: &'a mut DynCx,
@@ -132,7 +153,7 @@ impl<'a> UI3dCx<'a> {
   }
 
   pub fn new_update_stage(
-    root_memory: &'a mut FunctionMemory<Box<dyn UI3dState>>,
+    root_memory: &'a mut FunctionMemory,
     dyn_cx: &'a mut DynCx,
     writer: &'a mut SceneWriter,
   ) -> Self {
@@ -190,18 +211,15 @@ impl UI3dCx<'_> {
   }
 
   fn cleanup_after_execute(&mut self) {
-    let mut drop_cx = self.writer.as_mut().map(|writer| UI3dBuildCx {
-      writer,
-      cx: self.dyn_cx,
-    });
-
-    self.memory.flush(&mut |mut state| {
-      if let Some(drop_cx) = &mut drop_cx {
-        state.do_clean_up(drop_cx)
-      } else {
-        panic!("unable to drop")
-      }
-    });
+    if let Some(writer) = &mut self.writer {
+      let mut drop_cx = UI3dBuildCx {
+        writer,
+        cx: self.dyn_cx,
+      };
+      self
+        .memory
+        .flush(&mut drop_cx as *mut UI3dBuildCx as *mut ());
+    }
   }
 
   #[track_caller]
@@ -264,19 +282,19 @@ impl UI3dCx<'_> {
     // this is safe because user can not access previous retrieved state through returned self.
     let s = unsafe { std::mem::transmute_copy(self) };
 
-    let state = self
-      .memory
-      .expect_state_init(|| {
+    let state = self.memory.expect_state_init(
+      || {
         let mut cx = UI3dBuildCx {
           writer: self.writer.as_mut().expect("unable to build"),
           cx: self.dyn_cx,
         };
-        Box::new(init(&mut cx))
-      })
-      .as_mut()
-      .as_any_mut()
-      .downcast_mut::<T>()
-      .unwrap();
+        init(&mut cx)
+      },
+      |state: &mut T, dcx: &mut UI3dBuildCx| unsafe {
+        state.do_clean_up(dcx);
+        core::ptr::drop_in_place(state);
+      },
+    );
 
     (s, state)
   }
