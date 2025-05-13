@@ -74,13 +74,66 @@ impl GPUOrGPUCreateFuture {
   }
 }
 
-struct WinitAppImpl<T> {
+pub struct ApplicationCx<'a> {
+  pub memory: &'a mut FunctionMemory,
+  pub dyn_cx: &'a mut DynCx,
+  pub processing_event: bool,
+  pub input: &'a PlatformEventInput,
+  pub draw_target_canvas: Option<RenderTargetView>,
+}
+
+impl<'a> ApplicationCx<'a> {
+  pub fn use_plain_state<T>(&mut self) -> (&mut Self, &mut T)
+  where
+    T: Any + Default,
+  {
+    self.use_plain_state_init(|_| T::default())
+  }
+
+  pub fn use_plain_state_init<T>(
+    &mut self,
+    init: impl FnOnce(&mut DynCx) -> T,
+  ) -> (&mut Self, &mut T)
+  where
+    T: Any,
+  {
+    #[derive(Default)]
+    struct PlainState<T>(T);
+    impl<T> CxStateDrop<DynCx> for PlainState<T> {
+      fn drop_from_cx(&mut self, _: &mut DynCx) {}
+    }
+
+    let (cx, s) = self.use_state_init(|cx| PlainState(init(cx)));
+    (cx, &mut s.0)
+  }
+
+  pub fn use_state_init<T>(&mut self, init: impl FnOnce(&mut DynCx) -> T) -> (&mut Self, &mut T)
+  where
+    T: Any + CxStateDrop<DynCx>,
+  {
+    // this is safe because user can not access previous retrieved state through returned self.
+    let s = unsafe { std::mem::transmute_copy(self) };
+
+    let state = self.memory.expect_state_init(
+      || init(self.dyn_cx),
+      |state: &mut T, dcx: &mut DynCx| unsafe {
+        state.drop_from_cx(dcx);
+        core::ptr::drop_in_place(state);
+      },
+    );
+
+    (s, state)
+  }
+}
+
+struct WinitAppImpl {
   window: Option<WindowWithWGPUSurface>,
-  root: T,
+  memory: FunctionMemory,
+  app_logic: Box<dyn Fn(&mut ApplicationCx)>,
   title: String,
 }
 
-impl<T: Widget> winit::application::ApplicationHandler for WinitAppImpl<T> {
+impl winit::application::ApplicationHandler for WinitAppImpl {
   fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
     self.window.get_or_insert_with(|| {
       let window = event_loop
@@ -171,23 +224,27 @@ impl<T: Widget> winit::application::ApplicationHandler for WinitAppImpl<T> {
 
               event_state.begin_frame();
               cx.scoped_cx(window, |cx| {
-                cx.scoped_cx(event_state, |cx| {
-                  cx.scoped_cx(gpu_and_surface, |cx| {
-                    cx.scoped_cx(&mut canvas, |cx| {
-                      self.root.update_state(cx);
-                    });
-                  });
+                cx.scoped_cx(gpu_and_surface, |cx| {
+                  (self.app_logic)(&mut ApplicationCx {
+                    memory: &mut self.memory,
+                    dyn_cx: cx,
+                    processing_event: true,
+                    input: event_state,
+                    draw_target_canvas: None,
+                  })
                 });
               });
 
               event_state.end_frame();
               cx.scoped_cx(window, |cx| {
-                cx.scoped_cx(event_state, |cx| {
-                  cx.scoped_cx(gpu_and_surface, |cx| {
-                    cx.scoped_cx(&mut canvas, |cx| {
-                      self.root.update_view(cx);
-                    });
-                  });
+                cx.scoped_cx(gpu_and_surface, |cx| {
+                  (self.app_logic)(&mut ApplicationCx {
+                    memory: &mut self.memory,
+                    dyn_cx: cx,
+                    processing_event: false,
+                    input: event_state,
+                    draw_target_canvas: Some(canvas.clone()),
+                  })
                 });
               });
 
@@ -203,7 +260,7 @@ impl<T: Widget> winit::application::ApplicationHandler for WinitAppImpl<T> {
   }
 }
 
-pub fn run_application<T: Widget>(app: T) {
+pub fn run_application(app_logic: impl Fn(&mut ApplicationCx) + 'static) {
   let event_loop = EventLoop::new().unwrap();
 
   // ControlFlow::Poll continuously runs the event loop, even if the OS hasn't
@@ -212,7 +269,8 @@ pub fn run_application<T: Widget>(app: T) {
 
   let mut app = WinitAppImpl {
     window: None,
-    root: app,
+    memory: Default::default(),
+    app_logic: Box::new(app_logic),
     title: "Rendiation Viewer".to_string(),
   };
 
