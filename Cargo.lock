@@ -3552,6 +3552,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-gizmo2"
+version = "0.1.0"
+dependencies = [
+ "rendiation-algebra",
+ "rendiation-geometry",
+ "rendiation-gui-3d",
+ "rendiation-mesh-generator",
+ "rendiation-scene-core",
+]
+
+[[package]]
 name = "rendiation-gui-3d"
 version = "0.1.0"
 dependencies = [
