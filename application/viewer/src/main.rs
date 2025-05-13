@@ -29,12 +29,14 @@ use winit::{
 
 mod app_loop;
 mod egui_cx;
+mod hooks;
 mod util;
 mod viewer;
 
 use app_loop::*;
 use egui_cx::EguiContext;
 use heap_tools::*;
+use hooks::*;
 use rendiation_scene_core::*;
 use rendiation_texture_core::*;
 use rendiation_webgpu::*;

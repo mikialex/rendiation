@@ -117,8 +117,9 @@ fn use_axis_interactive_model(
   mat_init: impl FnOnce(&AxisType) -> Mat4<f32> + 'static,
 ) {
   let (cx, node) = cx.use_node_entity();
-  cx.on_mounting(|w, _| {
-    // todo setup parent
+  cx.on_mounting(|w, _, parent| {
+    w.node_writer
+      .write::<SceneNodeParentIdx>(*node, parent.map(|v| v.into_raw()));
   });
   use_view_independent_node(cx, node, move || mat_init(&axis));
 
@@ -127,6 +128,8 @@ fn use_axis_interactive_model(
     access_cx!(cx.cx, mesh, AttributesMeshEntities);
     UIWidgetModelProxy::new(cx.writer, node, material, mesh)
   });
+
+  use_pickable_model(cx, model);
 
   if let Some(res) = use_interactive_ui_widget_model(cx, model) {
     if res.mouse_entering {

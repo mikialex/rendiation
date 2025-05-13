@@ -59,7 +59,7 @@ impl<T, X: CxStateDrop<T>> CxStateDrop<T> for Option<X> {
 struct FunctionMemoryState {
   ptr: *mut (),
   type_id: TypeId,
-  cleanup_fn: &'static fn(*mut (), *mut ()),
+  cleanup_fn: fn(*mut (), *mut ()),
 }
 
 #[derive(Default)]
@@ -85,11 +85,13 @@ impl FunctionMemory {
       if self.states_meta.len() == self.current_cursor {
         let init = self.states.alloc_with(init);
 
+        let cleanup_fn =
+          std::mem::transmute::<fn(&mut T, &mut DropCx), fn(*mut (), *mut ())>(cleanup);
+
         self.states_meta.push(FunctionMemoryState {
           ptr: init as *mut T as *mut (),
           type_id: TypeId::of::<T>(),
-          cleanup_fn: todo!(),
-          // cleanup_fn: cleanup as fn(*mut (), *mut ()),
+          cleanup_fn,
         });
       }
       let FunctionMemoryState { type_id, ptr, .. } = &mut self.states_meta[self.current_cursor];
@@ -175,11 +177,14 @@ impl UI3dCx<'_> {
       updater(w, self.dyn_cx)
     }
   }
-  pub fn on_mounting(&mut self, updater: impl FnOnce(&mut SceneWriter, &mut DynCx)) {
+  pub fn on_mounting(
+    &mut self,
+    updater: impl FnOnce(&mut SceneWriter, &mut DynCx, &Option<EntityHandle<SceneNodeEntity>>),
+  ) {
     let is_new_create = self.is_new_create();
     if let Some(w) = &mut self.writer {
       if is_new_create {
-        updater(w, self.dyn_cx)
+        updater(w, self.dyn_cx, &self.current_parent)
       }
     }
   }
@@ -366,6 +371,29 @@ pub struct UIWidgetModelProxy {
   model: EntityHandle<SceneModelEntity>,
 }
 
+pub fn use_pickable_model(cx: &mut UI3dCx, model: &UIWidgetModelProxy) {
+  struct Remove(EntityHandle<SceneModelEntity>);
+  impl CxStateDrop<UI3dBuildCx<'_>> for Remove {
+    fn drop_from_cx(&mut self, cx: &mut UI3dBuildCx<'_>) {
+      access_cx_mut!(
+        cx.cx,
+        sm_intersection_gp,
+        WidgetSceneModelIntersectionGroupConfig
+      );
+      sm_intersection_gp.group.remove(&self.0);
+    }
+  }
+  cx.use_state_init(|cx| {
+    access_cx_mut!(
+      cx.cx,
+      sm_intersection_gp,
+      WidgetSceneModelIntersectionGroupConfig
+    );
+    sm_intersection_gp.group.insert(model.model);
+    Remove(model.model)
+  });
+}
+
 impl UIWidgetModelProxy {
   pub fn new(
     cx: &mut SceneWriter,
@@ -411,13 +439,13 @@ where
 {
   let (cx, state) = cx.use_state_init(init);
 
-  cx.on_mounting(|_, cx| unsafe {
+  cx.on_mounting(|_, cx, _| unsafe {
     cx.register_cx(state);
   });
 
   let r = inner(cx);
 
-  cx.on_mounting(|_, cx| unsafe {
+  cx.on_mounting(|_, cx, _| unsafe {
     cx.unregister_cx::<T>();
   });
 
@@ -463,14 +491,6 @@ pub fn use_view_independent_node(
   cx.on_event(|_, reader, cx| {
     access_cx!(cx, config, ViewIndependentComputer);
     access_cx!(cx, world_mat_access, Box<dyn WidgetEnvAccess>);
-
-    // let mut computer = ViewIndependentComputer {
-    //   override_position: access.get_world_mat(*node).unwrap().position(),
-    //   scale: self.config,
-    //   camera_world: access.get_camera_world_mat(),
-    //   view_height_in_pixel: access.get_view_resolution().y as f32,
-    //   camera_proj: access.get_camera_perspective_proj(),
-    // };
 
     let parent_world =
       if let Some(parent_node) = reader.node_reader.read::<SceneNodeParentIdx>(*node) {
