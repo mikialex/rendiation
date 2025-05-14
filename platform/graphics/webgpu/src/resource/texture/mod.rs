@@ -91,6 +91,13 @@ pub type GPU3DTexture = GPUTypedTexture<TextureDimension3, f32>;
 
 pub type GPUCubeTexture = GPUTypedTexture<TextureDimensionCube, f32>;
 
+impl GPU2DTexture {
+  pub fn size_2d(&self) -> Size {
+    let size = self.size();
+    Size::from_u32_pair_min_one((size.width, size.height))
+  }
+}
+
 #[derive(Debug)]
 pub struct GPUTypedTextureView<D, F> {
   pub typed_desc: PhantomData<(D, F)>,

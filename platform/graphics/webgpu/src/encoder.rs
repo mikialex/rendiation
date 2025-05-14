@@ -107,14 +107,13 @@ impl GPUCommandEncoder {
   ) -> GPURenderPass {
     self.active_pass_target_holder.replace(des);
     let des = self.active_pass_target_holder.as_ref().unwrap();
-    // todo should we do some check here?
-    let mut size = Size::from_u32_pair_min_one((100, 100));
+    let mut size = None;
 
     let color_attachments: Vec<_> = des
       .channels
       .iter()
       .map(|(ops, view)| {
-        size = view.size();
+        size = Some(view.size());
         Some(gpu::RenderPassColorAttachment {
           view: view.as_view(),
           resolve_target: des.resolve_target.as_ref().map(|t| t.as_view()),
@@ -123,15 +122,14 @@ impl GPUCommandEncoder {
       })
       .collect();
 
-    let depth_stencil_attachment =
-      des
-        .depth_stencil_target
-        .as_ref()
-        .map(|(ops, view)| gpu::RenderPassDepthStencilAttachment {
-          view: view.as_view(),
-          depth_ops: (*ops).into(),
-          stencil_ops: None,
-        });
+    let depth_stencil_attachment = des.depth_stencil_target.as_ref().map(|(ops, view)| {
+      size = Some(view.size());
+      gpu::RenderPassDepthStencilAttachment {
+        view: view.as_view(),
+        depth_ops: (*ops).into(),
+        stencil_ops: None,
+      }
+    });
 
     let timestamp_writes = start_time_query
       .as_ref()
@@ -168,7 +166,7 @@ impl GPUCommandEncoder {
     GPURenderPass {
       pass,
       placeholder_bg: self.placeholder_bg.clone(),
-      size,
+      size: size.expect("attachment should exists"),
       formats,
       time_measuring: start_time_query,
     }
