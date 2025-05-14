@@ -74,7 +74,6 @@ members = [
   "extension/infinity-primitive",
   "extension/wide-line",
   "extension/gizmo",
-  "extension/gizmo2",
   "extension/area-lighting",
   "application/viewer",
 ]

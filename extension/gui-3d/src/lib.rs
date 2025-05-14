@@ -12,10 +12,6 @@ pub use hooks::*;
 
 mod ty;
 pub use ty::*;
-mod group;
-pub use group::*;
-mod view_independent;
-pub use view_independent::*;
 mod model;
 pub use model::*;
 mod shape_helper;

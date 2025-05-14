@@ -93,5 +93,9 @@ fn main() {
     .expect("setting tracing default failed");
   }
 
-  run_viewer_app(|_| {});
+  run_viewer_app(|cx| {
+    use_viewer_gizmo(cx);
+    use_camera_orbit_control(cx);
+    use_pick_scene(cx);
+  });
 }

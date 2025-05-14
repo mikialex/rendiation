@@ -5,6 +5,7 @@ use std::{
 
 use bumpalo::Bump;
 use fast_hash_collection::FastHashMap;
+pub use rendiation_view_override_model::*;
 
 use crate::*;
 
@@ -450,6 +451,14 @@ where
   });
 
   r
+}
+
+pub struct ViewIndependentComputer {
+  pub override_position: Vec3<f32>,
+  pub scale: ViewAutoScalable,
+  pub camera_world: Mat4<f32>,
+  pub view_height_in_pixel: f32,
+  pub camera_proj: PerspectiveProjection<f32>,
 }
 
 pub fn use_view_dependent_root<R>(
