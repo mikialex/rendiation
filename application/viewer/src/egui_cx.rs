@@ -11,7 +11,10 @@ pub struct EguiContext {
   renderer: Option<(egui_wgpu::Renderer, TextureFormat)>,
 }
 
-pub fn use_egui_cx(cx: &mut ApplicationCx, f: impl FnOnce(&mut ApplicationCx)) {
+pub fn use_egui_cx(
+  cx: &mut ApplicationCx,
+  f: impl FnOnce(&mut ApplicationCx, Option<&mut egui::Context>),
+) {
   let (cx, egui_cx) = cx.use_plain_state::<EguiContext>();
 
   if cx.processing_event {
@@ -20,32 +23,27 @@ pub fn use_egui_cx(cx: &mut ApplicationCx, f: impl FnOnce(&mut ApplicationCx)) {
       cx.dyn_cx.message.put(PickSceneBlocked);
     }
 
-    access_cx!(cx.dyn_cx, window, Window);
-    access_cx!(cx.dyn_cx, platform_event, PlatformEventInput);
-
     let state = egui_cx.state.get_or_insert_with(|| {
       let id = egui_cx.context.viewport_id();
-      egui_winit::State::new(egui_cx.context.clone(), id, &window, None, None, None)
+      egui_winit::State::new(egui_cx.context.clone(), id, &cx.window, None, None, None)
     });
 
-    for event in &platform_event.accumulate_events {
+    for event in &cx.input.accumulate_events {
       if let Event::WindowEvent { event, .. } = event {
-        let _ = state.on_window_event(window, event);
+        let _ = state.on_window_event(cx.window, event);
       }
     }
   } else {
-    access_cx!(cx.dyn_cx, window, Window);
-    egui_cx.begin_frame(window);
+    egui_cx.begin_frame(cx.window);
   }
 
-  // inject_cx(cx, egui_cx, |cx| f(cx)); todo
-  f(cx);
+  // only expose when allowed to build ui: in update cycle
+  let egui_cx_expose = (!cx.processing_event).then_some(&mut egui_cx.context);
 
-  if !cx.processing_event {
-    access_cx!(cx.dyn_cx, window, Window);
-    access_cx!(cx.dyn_cx, gpu_and_surface, WGPUAndSurface);
-    access_cx!(cx.dyn_cx, canvas, RenderTargetView);
-    egui_cx.end_frame_and_draw(&gpu_and_surface.gpu, window, canvas);
+  f(cx, egui_cx_expose);
+
+  if let Some(canvas) = &cx.draw_target_canvas {
+    egui_cx.end_frame_and_draw(&cx.gpu_and_surface.gpu, cx.window, canvas);
   }
 }
 
