@@ -182,3 +182,32 @@ impl DynCx {
     }
   }
 }
+
+#[test]
+fn test_state_cx() {
+  let mut cx = DynCx::default();
+
+  let mut a: usize = 1;
+  let mut b: usize = 2;
+
+  unsafe {
+    cx.register_cx(&mut a);
+    assert_eq!(*cx.get_cx_ref::<usize>(), 1);
+
+    cx.register_cx(&mut b);
+    assert_eq!(*cx.get_cx_ref::<usize>(), 2);
+
+    *cx.get_cx_mut::<usize>() = 3;
+    assert_eq!(*cx.get_cx_ref::<usize>(), 3);
+
+    cx.unregister_cx::<usize>();
+    assert_eq!(*cx.get_cx_ref::<usize>(), 1);
+
+    cx.unregister_cx::<usize>();
+    assert!(cx.get_cx_ptr::<usize>().is_none());
+
+    cx.message.put(a);
+    assert_eq!(cx.message.take::<usize>(), Some(1));
+    assert!(cx.message.take::<usize>().is_none());
+  }
+}

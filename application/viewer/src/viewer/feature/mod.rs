@@ -11,22 +11,22 @@ pub use camera_helper::*;
 mod light_helper;
 pub use light_helper::*;
 
-use crate::*;
+// use crate::*;
 
-pub fn core_viewer_features<V: Widget + 'static>(
-  content_logic: impl Fn(&mut DynCx) -> V + 'static,
-) -> impl Fn(&mut DynCx) -> Box<dyn Widget> {
-  move |cx| {
-    Box::new(
-      WidgetGroup::default()
-        .with_child(StateCxCreateOnce::create_at_view(GizmoBridge::new))
-        .with_child(SceneOrbitCameraControl::default())
-        .with_child(PickScene {
-          enable_hit_debug_log: false,
-          prefer_gpu_pick: true,
-          gpu_pick_future: Default::default(),
-        })
-        .with_child(content_logic(cx)),
-    )
-  }
-}
+// pub fn core_viewer_features<V: Widget + 'static>(
+//   content_logic: impl Fn(&mut DynCx) -> V + 'static,
+// ) -> impl Fn(&mut DynCx) -> Box<dyn Widget> {
+//   move |cx| {
+//     Box::new(
+//       WidgetGroup::default()
+//         .with_child(StateCxCreateOnce::create_at_view(GizmoBridge::new))
+//         .with_child(SceneOrbitCameraControl::default())
+//         .with_child(PickScene {
+//           enable_hit_debug_log: false,
+//           prefer_gpu_pick: true,
+//           gpu_pick_future: Default::default(),
+//         })
+//         .with_child(content_logic(cx)),
+//     )
+//   }
+// }
