@@ -32,10 +32,23 @@ pub use rendering::*;
 pub const UP: Vec3<f32> = Vec3::new(0., 1., 0.);
 
 pub struct ViewerCx<'a> {
+  pub viewer: &'a mut Viewer,
   memory: &'a mut FunctionMemory,
   pub dyn_cx: &'a mut DynCx,
-  writer: Option<&'a mut SceneWriter>,
-  reader: Option<&'a SceneReader>,
+  stage: ViewerCxStage<'a>,
+}
+
+impl<'a> ViewerCx<'a> {
+  pub fn egui(&mut self, egui_cx: &mut egui::Context) {
+    self.viewer.ui_state.egui(
+      &mut self.viewer.terminal,
+      &mut self.viewer.background,
+      &mut self.viewer.on_demand_rendering,
+      &mut self.viewer.rendering,
+      egui_cx,
+      self.dyn_cx,
+    );
+  }
 }
 
 pub enum ViewerCxStage<'a> {
@@ -44,22 +57,22 @@ pub enum ViewerCxStage<'a> {
     interaction: &'a Interaction3dCtx,
     input: &'a PlatformEventInput,
     derived: &'a Viewer3dSceneDerive,
-    viewer_scene: &'a Viewer3dSceneCtx,
   },
   SceneContentUpdate {
     writer: &'a mut SceneWriter,
-    intersection_group: &'a mut WidgetSceneModelIntersectionGroupConfig,
   },
 }
 
 pub fn use_viewer(acx: &mut ApplicationCx, f: impl FnOnce(&mut ViewerCx)) {
-  let (acx, viewer) = acx.use_state_init(|cx| {
-    access_cx!(cx, gpu_and_surface, WGPUAndSurface);
-    Viewer::new(gpu_and_surface.gpu.clone(), gpu_and_surface.surface.clone())
+  let (acx, viewer) = acx.use_state_init(|_| {
+    Viewer::new(
+      acx.gpu_and_surface.gpu.clone(),
+      acx.gpu_and_surface.surface.clone(),
+    )
   });
 
   if acx.processing_event {
-    let mut derived = viewer.derives.poll_update();
+    let derived = viewer.derives.poll_update();
 
     let main_camera_handle = viewer.scene.main_camera;
 
@@ -86,7 +99,7 @@ pub fn use_viewer(acx: &mut ApplicationCx, f: impl FnOnce(&mut ViewerCx)) {
     )
     .map(|v| v.ceil() as u32);
 
-    let mut widget_env = create_widget_cx(
+    let widget_env = create_widget_cx(
       &derived,
       &scene_reader,
       &viewer.scene,
@@ -94,91 +107,73 @@ pub fn use_viewer(acx: &mut ApplicationCx, f: impl FnOnce(&mut ViewerCx)) {
       canvas_resolution,
     );
 
-    let mut interaction_cx = prepare_picking_state(picker, &viewer.widget_intersection_group);
+    let interaction_cx = prepare_picking_state(picker, &viewer.widget_intersection_group);
 
-    cx.scoped_cx(&mut widget_env, |cx| {
-      cx.scoped_cx(&mut viewer.widget_intersection_group, |cx| {
-        cx.scoped_cx(&mut interaction_cx, |cx| {
-          cx.scoped_cx(&mut viewer.rendering, |cx| {
-            let sub_memory = acx.memory.sub_function();
+    let sub_memory = acx.memory.sub_function();
 
-            let mut vcx = ViewerCx {
-              memory: sub_memory,
-              dyn_cx: cx,
-              writer: None,
-              reader: Some(&scene_reader),
-            };
-            f(&mut vcx)
-          });
-        });
-      });
-    });
+    let mut vcx = ViewerCx {
+      viewer,
+      memory: sub_memory,
+      dyn_cx: acx.dyn_cx,
+      stage: ViewerCxStage::EventHandling {
+        reader: &scene_reader,
+        interaction: &interaction_cx,
+        input: acx.input,
+        derived: &derived,
+      },
+    };
+
+    f(&mut vcx)
   } else {
     let size = acx.input.window_state.physical_size;
     let size_changed = acx.input.state_delta.size_change;
 
-    acx.dyn_cx.scoped_cx(&mut viewer.scene, |cx| {
-      cx.scoped_cx(&mut viewer.derives, |cx| {
-        cx.split_cx::<egui::Context>(|egui_cx, cx| {
-          viewer.ui_state.egui(
-            &mut viewer.terminal,
-            &mut viewer.background,
-            &mut viewer.on_demand_rendering,
-            &mut viewer.rendering,
-            egui_cx,
-            cx,
-          );
+    noop_ctx!(ctx);
+    viewer.camera_helpers.prepare_update(ctx);
+    viewer.spot_light_helpers.prepare_update(ctx);
+
+    let time = Instant::now()
+      .duration_since(viewer.started_time)
+      .as_secs_f32();
+
+    let mutation = viewer
+      .animation_player
+      .compute_mutation(ctx, viewer.scene.scene, time);
+
+    let mut writer = SceneWriter::from_global(viewer.scene.scene);
+
+    mutation.apply(&mut writer);
+
+    viewer.camera_helpers.apply_updates(
+      &mut writer,
+      viewer.scene.widget_scene,
+      viewer.scene.main_camera,
+    );
+    viewer
+      .spot_light_helpers
+      .apply_updates(&mut writer, viewer.scene.widget_scene);
+
+    if size_changed {
+      writer
+        .camera_writer
+        .mutate_component_data::<SceneCameraPerspective>(viewer.scene.main_camera, |p| {
+          if let Some(p) = p.as_mut() {
+            p.resize(size)
+          }
         });
-      });
+    }
 
-      noop_ctx!(ctx);
-      viewer.camera_helpers.prepare_update(ctx);
-      viewer.spot_light_helpers.prepare_update(ctx);
+    let sub_memory = acx.memory.sub_function();
 
-      let time = Instant::now()
-        .duration_since(viewer.started_time)
-        .as_secs_f32();
-
-      access_cx!(cx, viewer_scene, Viewer3dSceneCtx);
-      let mutation = viewer
-        .animation_player
-        .compute_mutation(ctx, viewer_scene.scene, time);
-
-      let mut writer = SceneWriter::from_global(viewer_scene.scene);
-
-      mutation.apply(&mut writer);
-
-      viewer.camera_helpers.apply_updates(
-        &mut writer,
-        viewer_scene.widget_scene,
-        viewer_scene.main_camera,
-      );
-      viewer
-        .spot_light_helpers
-        .apply_updates(&mut writer, viewer_scene.widget_scene);
-
-      if size_changed {
-        writer
-          .camera_writer
-          .mutate_component_data::<SceneCameraPerspective>(viewer_scene.main_camera, |p| {
-            if let Some(p) = p.as_mut() {
-              p.resize(size)
-            }
-          });
-      }
-
-      cx.scoped_cx(&mut viewer.rendering, |cx| {
-        let sub_memory = acx.memory.sub_function();
-
-        let mut vcx = ViewerCx {
-          memory: sub_memory,
-          dyn_cx: cx,
-          writer: Some(&mut writer),
-          reader: None,
-        };
-        f(&mut vcx)
-      });
-    });
+    let mut vcx = ViewerCx {
+      viewer,
+      memory: sub_memory,
+      dyn_cx: acx.dyn_cx,
+      stage: ViewerCxStage::SceneContentUpdate {
+        writer: &mut writer,
+      },
+    };
+    f(&mut vcx);
 
     if let Some(canvas) = &acx.draw_target_canvas {
       let derived = viewer.derives.poll_update();

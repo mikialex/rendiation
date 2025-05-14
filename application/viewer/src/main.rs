@@ -29,14 +29,12 @@ use winit::{
 
 mod app_loop;
 mod egui_cx;
-mod hooks;
 mod util;
 mod viewer;
 
 use app_loop::*;
-use egui_cx::{use_egui_cx, EguiContext};
+use egui_cx::use_egui_cx;
 use heap_tools::*;
-use hooks::*;
 use rendiation_scene_core::*;
 use rendiation_texture_core::*;
 use rendiation_webgpu::*;
@@ -54,10 +52,7 @@ static GLOBAL_ALLOCATOR: PreciseAllocationStatistics<
 static GLOBAL_ALLOCATOR: PreciseAllocationStatistics<System> =
   PreciseAllocationStatistics::new(System);
 
-pub fn run_viewer_app<V>(content_logic: impl Fn(&mut DynCx) -> V + 'static)
-where
-  V: Widget + 'static,
-{
+pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
   env_logger::builder().init();
 
   setup_global_database(Default::default());
@@ -75,20 +70,14 @@ where
   register_area_lighting_data_model();
   register_sky_env_data_model();
 
-  let content_logic = core_viewer_features(content_logic);
-
-  // let viewer = StateCxCreateOnce::create_at_view(|cx| {
-  //   access_cx!(cx, gpu_and_surface, WGPUAndSurface);
-  // Viewer::new(
-  //   gpu_and_surface.gpu.clone(),
-  //   gpu_and_surface.surface.clone(),
-  // )
-  // });
-
-  run_application(|cx| {
-    use_egui_cx(cx, |cx| {
+  run_application(move |cx| {
+    use_egui_cx(cx, |cx, egui_cx| {
       use_viewer(cx, |cx| {
-        //
+        content_logic(cx);
+
+        if let Some(egui_cx) = egui_cx {
+          cx.egui(egui_cx)
+        }
       });
     });
   });

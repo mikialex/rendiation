@@ -78,7 +78,9 @@ pub struct ApplicationCx<'a> {
   pub memory: &'a mut FunctionMemory,
   pub dyn_cx: &'a mut DynCx,
   pub processing_event: bool,
+  pub window: &'a mut Window,
   pub input: &'a PlatformEventInput,
+  pub gpu_and_surface: &'a WGPUAndSurface,
   pub draw_target_canvas: Option<RenderTargetView>,
 }
 
@@ -219,33 +221,29 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
             surface.re_config_if_changed(&gpu.device);
             // when window resize to zero, the surface will be outdated.
             // but when should we deal with the surface lost case?
-            if let Ok((output, mut canvas)) = surface.get_current_frame_with_render_target_view() {
+            if let Ok((output, canvas)) = surface.get_current_frame_with_render_target_view() {
               let mut cx = DynCx::default();
 
               event_state.begin_frame();
-              cx.scoped_cx(window, |cx| {
-                cx.scoped_cx(gpu_and_surface, |cx| {
-                  (self.app_logic)(&mut ApplicationCx {
-                    memory: &mut self.memory,
-                    dyn_cx: cx,
-                    processing_event: true,
-                    input: event_state,
-                    draw_target_canvas: None,
-                  })
-                });
+              (self.app_logic)(&mut ApplicationCx {
+                window,
+                memory: &mut self.memory,
+                dyn_cx: &mut cx,
+                processing_event: true,
+                input: event_state,
+                draw_target_canvas: None,
+                gpu_and_surface,
               });
-
               event_state.end_frame();
-              cx.scoped_cx(window, |cx| {
-                cx.scoped_cx(gpu_and_surface, |cx| {
-                  (self.app_logic)(&mut ApplicationCx {
-                    memory: &mut self.memory,
-                    dyn_cx: cx,
-                    processing_event: false,
-                    input: event_state,
-                    draw_target_canvas: Some(canvas.clone()),
-                  })
-                });
+
+              (self.app_logic)(&mut ApplicationCx {
+                window,
+                memory: &mut self.memory,
+                dyn_cx: &mut cx,
+                processing_event: false,
+                input: event_state,
+                draw_target_canvas: Some(canvas.clone()),
+                gpu_and_surface,
               });
 
               output.present();
