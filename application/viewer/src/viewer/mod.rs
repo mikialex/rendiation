@@ -38,6 +38,50 @@ pub struct ViewerCx<'a> {
   stage: ViewerCxStage<'a>,
 }
 
+impl<'a> ViewerCx<'a> {
+  pub fn use_plain_state<T>(&mut self) -> (&mut Self, &mut T)
+  where
+    T: Any + Default,
+  {
+    self.use_plain_state_init(|_| T::default())
+  }
+
+  pub fn use_plain_state_init<T>(
+    &mut self,
+    init: impl FnOnce(&mut DynCx) -> T,
+  ) -> (&mut Self, &mut T)
+  where
+    T: Any,
+  {
+    #[derive(Default)]
+    struct PlainState<T>(T);
+    impl<T> CxStateDrop<DynCx> for PlainState<T> {
+      fn drop_from_cx(&mut self, _: &mut DynCx) {}
+    }
+
+    let (cx, s) = self.use_state_init(|cx| PlainState(init(cx)));
+    (cx, &mut s.0)
+  }
+
+  pub fn use_state_init<T>(&mut self, init: impl FnOnce(&mut DynCx) -> T) -> (&mut Self, &mut T)
+  where
+    T: Any + CxStateDrop<DynCx>,
+  {
+    // this is safe because user can not access previous retrieved state through returned self.
+    let s = unsafe { std::mem::transmute_copy(self) };
+
+    let state = self.memory.expect_state_init(
+      || init(self.dyn_cx),
+      |state: &mut T, dcx: &mut DynCx| unsafe {
+        state.drop_from_cx(dcx);
+        core::ptr::drop_in_place(state);
+      },
+    );
+
+    (s, state)
+  }
+}
+
 pub enum ViewerCxStage<'a> {
   EventHandling {
     reader: &'a SceneReader,

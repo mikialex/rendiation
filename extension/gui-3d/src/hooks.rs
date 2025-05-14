@@ -376,6 +376,12 @@ impl CxStateDrop<UI3dBuildCx<'_>> for AttributesMeshEntities {
   }
 }
 
+impl CxStateDrop<UI3dBuildCx<'_>> for EntityHandle<SceneEntity> {
+  fn drop_from_cx(&mut self, cx: &mut UI3dBuildCx) {
+    cx.writer.scene_writer.delete_entity(*self);
+  }
+}
+
 pub struct UIWidgetModelProxy {
   std_model: EntityHandle<StandardModelEntity>,
   model: EntityHandle<SceneModelEntity>,

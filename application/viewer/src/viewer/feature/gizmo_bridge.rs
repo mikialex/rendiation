@@ -3,9 +3,6 @@ use rendiation_gizmo::*;
 use crate::*;
 
 pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
-  // let widget_scene_handle = // todo
-  // let scene = w.replace_target_scene(self.widget_scene);
-
   let mut cx = match &mut viewer_cx.stage {
     ViewerCxStage::EventHandling {
       reader,
@@ -24,29 +21,36 @@ pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
       viewer_cx.dyn_cx,
       &mut viewer_cx.viewer.widget_intersection_group,
     ),
-    ViewerCxStage::SceneContentUpdate { writer } => {
-      // writer.scene =  // todo
-      UI3dCx::new_update_stage(
-        viewer_cx.memory,
-        viewer_cx.dyn_cx,
-        writer,
-        &mut viewer_cx.viewer.widget_intersection_group,
-      )
-    }
+    ViewerCxStage::SceneContentUpdate { writer } => UI3dCx::new_update_stage(
+      viewer_cx.memory,
+      viewer_cx.dyn_cx,
+      writer,
+      &mut viewer_cx.viewer.widget_intersection_group,
+    ),
   };
 
-  f(&mut cx);
+  let (cx, widget_scene_handle) = cx.use_state_init(|cx| cx.writer.scene_writer.new_entity());
+
+  let mut scene_old = None;
+
+  cx.on_update(|w, _| {
+    scene_old = w.replace_target_scene(*widget_scene_handle).into();
+  });
+
+  f(cx);
 
   if let ViewerCxStage::SceneContentUpdate { writer } = &mut viewer_cx.stage {
-    // writer.scene =  // todo
+    if let Some(scene) = scene_old.take() {
+      writer.scene = scene
+    }
   }
 }
 
 pub fn use_viewer_gizmo(cx: &mut ViewerCx) {
-  // let state = cx.use_plain_state::<Option<GizmoControlTargetState>>();  todo
-  let state: &mut Option<GizmoControlTargetState> = &mut None;
-  let is_in_control: &mut bool = &mut false;
-  let view_update: &mut Option<(EntityHandle<SceneNodeEntity>, GizmoUpdateTargetLocal)> = &mut None;
+  let (cx, state) = cx.use_plain_state::<Option<GizmoControlTargetState>>();
+  let (cx, is_in_control) = cx.use_plain_state::<bool>();
+  let (cx, view_update) =
+    cx.use_plain_state::<Option<(EntityHandle<SceneNodeEntity>, GizmoUpdateTargetLocal)>>();
 
   let mut node = None;
   if let ViewerCxStage::EventHandling {

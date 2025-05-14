@@ -76,7 +76,7 @@ pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
         content_logic(cx);
 
         if let Some(egui_cx) = egui_cx {
-          cx.viewer.egui(egui_cx, cx.dyn_cx)
+          cx.viewer.egui(egui_cx)
         }
       });
     });
