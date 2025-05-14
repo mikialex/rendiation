@@ -12,7 +12,7 @@ pub struct SceneOrbitCameraControl {
 pub struct CameraControlBlocked;
 
 pub fn use_camera_orbit_control(cx: &mut ViewerCx) {
-  let controller: &mut ControllerWinitAdapter<OrbitController> = &mut Default::default(); // todo
+  let (cx, controller) = cx.use_plain_state::<ControllerWinitAdapter<OrbitController>>();
 
   match &mut cx.stage {
     ViewerCxStage::EventHandling { input, .. } => {

@@ -33,7 +33,7 @@ impl Default for ViewerUIState {
 }
 
 impl Viewer {
-  pub fn egui(&mut self, ui: &egui::Context, cx: &mut DynCx) {
+  pub fn egui(&mut self, ui: &egui::Context) {
     let ui_state = &mut self.ui_state;
     egui::TopBottomPanel::top("view top menu").show(ui, |ui| {
       ui.horizontal_wrapped(|ui| {

@@ -5,8 +5,9 @@ pub struct PickSceneBlocked;
 pub fn use_pick_scene(cx: &mut ViewerCx) {
   let enable_hit_debug_log = false;
   let prefer_gpu_pick = true;
-  let gpu_pick_future: &mut Option<Box<dyn Future<Output = Option<u32>> + Unpin>> = &mut None;
-  // todo
+
+  let (cx, gpu_pick_future) =
+    cx.use_plain_state::<Option<Box<dyn Future<Output = Option<u32>> + Unpin>>>();
 
   if let ViewerCxStage::EventHandling {
     interaction,
