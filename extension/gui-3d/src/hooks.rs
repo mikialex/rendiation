@@ -28,6 +28,7 @@ where
 pub struct UI3dBuildCx<'a> {
   pub writer: &'a mut SceneWriter,
   pub cx: &'a mut DynCx,
+  pub pick_group: &'a mut WidgetSceneModelIntersectionGroupConfig,
 }
 
 pub struct UI3dCx<'a> {
@@ -37,12 +38,14 @@ pub struct UI3dCx<'a> {
   pub event: Option<UIEventStageCx<'a>>,
   pub dyn_cx: &'a mut DynCx,
   pub current_parent: Option<EntityHandle<SceneNodeEntity>>,
+  pub pick_group: &'a mut WidgetSceneModelIntersectionGroupConfig,
 }
 
 #[derive(Copy, Clone)]
 pub struct UIEventStageCx<'a> {
   pub platform_event: &'a PlatformEventInput,
   pub interaction_cx: &'a Interaction3dCtx,
+  pub widget_env: &'a dyn WidgetEnvAccess,
 }
 
 pub trait CxStateDrop<T> {
@@ -144,6 +147,7 @@ impl<'a> UI3dCx<'a> {
     event: UIEventStageCx<'a>,
     reader: &'a SceneReader,
     dyn_cx: &'a mut DynCx,
+    pick_group: &'a mut WidgetSceneModelIntersectionGroupConfig,
   ) -> Self {
     Self {
       writer: None,
@@ -152,6 +156,7 @@ impl<'a> UI3dCx<'a> {
       event: Some(event),
       dyn_cx,
       current_parent: None,
+      pick_group,
     }
   }
 
@@ -159,6 +164,7 @@ impl<'a> UI3dCx<'a> {
     root_memory: &'a mut FunctionMemory,
     dyn_cx: &'a mut DynCx,
     writer: &'a mut SceneWriter,
+    pick_group: &'a mut WidgetSceneModelIntersectionGroupConfig,
   ) -> Self {
     Self {
       writer: Some(writer),
@@ -167,6 +173,7 @@ impl<'a> UI3dCx<'a> {
       event: None,
       dyn_cx,
       current_parent: None,
+      pick_group,
     }
   }
 }
@@ -221,6 +228,7 @@ impl UI3dCx<'_> {
       let mut drop_cx = UI3dBuildCx {
         writer,
         cx: self.dyn_cx,
+        pick_group: self.pick_group,
       };
       self
         .memory
@@ -293,6 +301,7 @@ impl UI3dCx<'_> {
         let mut cx = UI3dBuildCx {
           writer: self.writer.as_mut().expect("unable to build"),
           cx: self.dyn_cx,
+          pick_group: self.pick_group,
         };
         init(&mut cx)
       },
@@ -376,21 +385,11 @@ pub fn use_pickable_model(cx: &mut UI3dCx, model: &UIWidgetModelProxy) {
   struct Remove(EntityHandle<SceneModelEntity>);
   impl CxStateDrop<UI3dBuildCx<'_>> for Remove {
     fn drop_from_cx(&mut self, cx: &mut UI3dBuildCx<'_>) {
-      access_cx_mut!(
-        cx.cx,
-        sm_intersection_gp,
-        WidgetSceneModelIntersectionGroupConfig
-      );
-      sm_intersection_gp.group.remove(&self.0);
+      cx.pick_group.group.remove(&self.0);
     }
   }
   cx.use_state_init(|cx| {
-    access_cx_mut!(
-      cx.cx,
-      sm_intersection_gp,
-      WidgetSceneModelIntersectionGroupConfig
-    );
-    sm_intersection_gp.group.insert(model.model);
+    cx.pick_group.group.insert(model.model);
     Remove(model.model)
   });
 }
@@ -467,15 +466,13 @@ pub fn use_view_dependent_root<R>(
   config: ViewAutoScalable,
   inner: impl Fn(&mut UI3dCx) -> R,
 ) -> R {
-  cx.on_event(|_, _, cx| unsafe {
-    access_cx!(cx, access, Box<dyn WidgetEnvAccess>);
-
+  cx.on_event(|e, _, cx| unsafe {
     let mut computer = ViewIndependentComputer {
-      override_position: access.get_world_mat(*node).unwrap().position(),
+      override_position: e.widget_env.get_world_mat(*node).unwrap().position(),
       scale: config,
-      camera_world: access.get_camera_world_mat(),
-      view_height_in_pixel: access.get_view_resolution().y as f32,
-      camera_proj: access.get_camera_perspective_proj(),
+      camera_world: e.widget_env.get_camera_world_mat(),
+      view_height_in_pixel: e.widget_env.get_view_resolution().y as f32,
+      camera_proj: e.widget_env.get_camera_perspective_proj(),
     };
     cx.register_cx(&mut computer);
   });
@@ -497,16 +494,15 @@ pub fn use_view_independent_node(
   let (cx, origin_local_mat) = cx.use_plain_state_init(|_| mat());
   let (cx, local_mat_to_sync) = cx.use_plain_state::<Option<Mat4<f32>>>();
 
-  cx.on_event(|_, reader, cx| {
+  cx.on_event(|e, reader, cx| {
     access_cx!(cx, config, ViewIndependentComputer);
-    access_cx!(cx, world_mat_access, Box<dyn WidgetEnvAccess>);
 
     let parent_world =
       if let Some(parent_node) = reader.node_reader.read::<SceneNodeParentIdx>(*node) {
         let parent_node = unsafe { EntityHandle::from_raw(parent_node) };
         // todo, now we can only get last frame world matrix, so
         // we can only do view independent stuff in next frame.
-        world_mat_access.get_world_mat(parent_node).unwrap()
+        e.widget_env.get_world_mat(parent_node).unwrap()
       } else {
         Mat4::identity()
       };
