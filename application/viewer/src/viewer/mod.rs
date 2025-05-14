@@ -38,25 +38,13 @@ pub struct ViewerCx<'a> {
   stage: ViewerCxStage<'a>,
 }
 
-impl<'a> ViewerCx<'a> {
-  pub fn egui(&mut self, egui_cx: &mut egui::Context) {
-    self.viewer.ui_state.egui(
-      &mut self.viewer.terminal,
-      &mut self.viewer.background,
-      &mut self.viewer.on_demand_rendering,
-      &mut self.viewer.rendering,
-      egui_cx,
-      self.dyn_cx,
-    );
-  }
-}
-
 pub enum ViewerCxStage<'a> {
   EventHandling {
     reader: &'a SceneReader,
     interaction: &'a Interaction3dCtx,
     input: &'a PlatformEventInput,
     derived: &'a Viewer3dSceneDerive,
+    widget_cx: &'a dyn WidgetEnvAccess,
   },
   SceneContentUpdate {
     writer: &'a mut SceneWriter,
@@ -120,6 +108,7 @@ pub fn use_viewer(acx: &mut ApplicationCx, f: impl FnOnce(&mut ViewerCx)) {
         interaction: &interaction_cx,
         input: acx.input,
         derived: &derived,
+        widget_cx: widget_env.as_ref(),
       },
     };
 

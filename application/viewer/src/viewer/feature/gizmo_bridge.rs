@@ -11,19 +11,27 @@ pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
       reader,
       interaction,
       input,
+      widget_cx,
       ..
     } => UI3dCx::new_event_stage(
       viewer_cx.memory,
       UIEventStageCx {
         platform_event: input,
         interaction_cx: interaction,
+        widget_env: *widget_cx,
       },
       reader,
       viewer_cx.dyn_cx,
+      &mut viewer_cx.viewer.widget_intersection_group,
     ),
     ViewerCxStage::SceneContentUpdate { writer } => {
       // writer.scene =  // todo
-      UI3dCx::new_update_stage(viewer_cx.memory, viewer_cx.dyn_cx, writer)
+      UI3dCx::new_update_stage(
+        viewer_cx.memory,
+        viewer_cx.dyn_cx,
+        writer,
+        &mut viewer_cx.viewer.widget_intersection_group,
+      )
     }
   };
 
