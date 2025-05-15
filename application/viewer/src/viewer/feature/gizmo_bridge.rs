@@ -2,7 +2,23 @@ use rendiation_gizmo::*;
 
 use crate::*;
 
+#[derive(Default)]
+struct UI3DMemory {
+  memory: FunctionMemory,
+}
+
+impl CanCleanUpFrom<ViewerDropCx<'_>> for UI3DMemory {
+  fn drop_from_cx(&mut self, cx: &mut ViewerDropCx) {
+    self.memory.cleanup(&mut UI3dBuildCx {
+      writer: cx.writer,
+      cx: cx.dyn_cx,
+      pick_group: cx.pick_group,
+    } as *mut _ as *mut ());
+  }
+}
+
 pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
+  let (viewer_cx, memory) = viewer_cx.use_state_init(|_| UI3DMemory::default());
   let mut cx = match &mut viewer_cx.stage {
     ViewerCxStage::EventHandling {
       reader,
@@ -11,7 +27,7 @@ pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
       widget_cx,
       ..
     } => UI3dCx::new_event_stage(
-      viewer_cx.memory,
+      &mut memory.memory,
       UIEventStageCx {
         platform_event: input,
         interaction_cx: interaction,
@@ -19,25 +35,27 @@ pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
       },
       reader,
       viewer_cx.dyn_cx,
-      &mut viewer_cx.viewer.widget_intersection_group,
+      &mut viewer_cx.viewer.intersection_group,
     ),
     ViewerCxStage::SceneContentUpdate { writer } => UI3dCx::new_update_stage(
-      viewer_cx.memory,
+      &mut memory.memory,
       viewer_cx.dyn_cx,
       writer,
-      &mut viewer_cx.viewer.widget_intersection_group,
+      &mut viewer_cx.viewer.intersection_group,
     ),
   };
 
-  let (cx, widget_scene_handle) = cx.use_state_init(|cx| cx.writer.scene_writer.new_entity());
-
   let mut scene_old = None;
 
-  cx.on_update(|w, _| {
-    scene_old = w.replace_target_scene(*widget_scene_handle).into();
-  });
+  cx.execute(|cx| {
+    let (cx, widget_scene_handle) = cx.use_state_init(|cx| cx.writer.scene_writer.new_entity());
 
-  f(cx);
+    cx.on_update(|w, _| {
+      scene_old = w.replace_target_scene(*widget_scene_handle).into();
+    });
+
+    f(cx);
+  });
 
   if let ViewerCxStage::SceneContentUpdate { writer } = &mut viewer_cx.stage {
     if let Some(scene) = scene_old.take() {

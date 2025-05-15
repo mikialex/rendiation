@@ -84,47 +84,40 @@ pub struct ApplicationCx<'a> {
   pub draw_target_canvas: Option<RenderTargetView>,
 }
 
+pub type ApplicationDropCx = DynCx;
+
 impl<'a> ApplicationCx<'a> {
   pub fn use_plain_state<T>(&mut self) -> (&mut Self, &mut T)
   where
     T: Any + Default,
   {
-    self.use_plain_state_init(|_| T::default())
+    self.use_plain_state_init(|| T::default())
   }
 
-  pub fn use_plain_state_init<T>(
-    &mut self,
-    init: impl FnOnce(&mut DynCx) -> T,
-  ) -> (&mut Self, &mut T)
+  pub fn use_plain_state_init<T>(&mut self, init: impl FnOnce() -> T) -> (&mut Self, &mut T)
   where
     T: Any,
-  {
-    #[derive(Default)]
-    struct PlainState<T>(T);
-    impl<T> CxStateDrop<DynCx> for PlainState<T> {
-      fn drop_from_cx(&mut self, _: &mut DynCx) {}
-    }
-
-    let (cx, s) = self.use_state_init(|cx| PlainState(init(cx)));
-    (cx, &mut s.0)
-  }
-
-  pub fn use_state_init<T>(&mut self, init: impl FnOnce(&mut DynCx) -> T) -> (&mut Self, &mut T)
-  where
-    T: Any + CxStateDrop<DynCx>,
   {
     // this is safe because user can not access previous retrieved state through returned self.
     let s = unsafe { std::mem::transmute_copy(self) };
 
-    let state = self.memory.expect_state_init(
-      || init(self.dyn_cx),
-      |state: &mut T, dcx: &mut DynCx| unsafe {
-        state.drop_from_cx(dcx);
-        core::ptr::drop_in_place(state);
-      },
-    );
+    let state =
+      self
+        .memory
+        .expect_state_init(init, |state: &mut T, _: &mut ApplicationDropCx| unsafe {
+          core::ptr::drop_in_place(state);
+        });
 
     (s, state)
+  }
+}
+
+unsafe impl HooksCxLike for ApplicationCx<'_> {
+  fn memory(&mut self) -> &mut FunctionMemory {
+    self.memory
+  }
+  fn flush(&mut self) {
+    self.memory.flush(&mut () as *mut _)
   }
 }
 
@@ -211,6 +204,8 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
         });
         match event {
           WindowEvent::CloseRequested => {
+            let mut cx = DynCx::default();
+            self.memory.cleanup(&mut cx as *mut _ as *mut ());
             target.exit();
           }
           WindowEvent::Resized(physical_size) => surface.set_size(Size::from_u32_pair_min_one((
@@ -225,7 +220,7 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
               let mut cx = DynCx::default();
 
               event_state.begin_frame();
-              (self.app_logic)(&mut ApplicationCx {
+              ApplicationCx {
                 window,
                 memory: &mut self.memory,
                 dyn_cx: &mut cx,
@@ -233,10 +228,11 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
                 input: event_state,
                 draw_target_canvas: None,
                 gpu_and_surface,
-              });
+              }
+              .execute(|cx| (self.app_logic)(cx));
               event_state.end_frame();
 
-              (self.app_logic)(&mut ApplicationCx {
+              ApplicationCx {
                 window,
                 memory: &mut self.memory,
                 dyn_cx: &mut cx,
@@ -244,7 +240,8 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
                 input: event_state,
                 draw_target_canvas: Some(canvas.clone()),
                 gpu_and_surface,
-              });
+              }
+              .execute(|cx| (self.app_logic)(cx));
 
               output.present();
             }

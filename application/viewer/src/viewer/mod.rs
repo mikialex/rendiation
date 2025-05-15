@@ -33,9 +33,23 @@ pub const UP: Vec3<f32> = Vec3::new(0., 1., 0.);
 
 pub struct ViewerCx<'a> {
   pub viewer: &'a mut Viewer,
-  memory: &'a mut FunctionMemory,
   pub dyn_cx: &'a mut DynCx,
   stage: ViewerCxStage<'a>,
+}
+
+pub struct ViewerDropCx<'a> {
+  pub dyn_cx: &'a mut DynCx,
+  pub writer: &'a mut SceneWriter,
+  pub pick_group: &'a mut WidgetSceneModelIntersectionGroupConfig,
+}
+
+unsafe impl HooksCxLike for ViewerCx<'_> {
+  fn memory(&mut self) -> &mut FunctionMemory {
+    &mut self.viewer.memory
+  }
+  fn flush(&mut self) {
+    self.viewer.memory.flush(self.dyn_cx as *mut _ as *mut ())
+  }
 }
 
 impl<'a> ViewerCx<'a> {
@@ -55,8 +69,8 @@ impl<'a> ViewerCx<'a> {
   {
     #[derive(Default)]
     struct PlainState<T>(T);
-    impl<T> CxStateDrop<DynCx> for PlainState<T> {
-      fn drop_from_cx(&mut self, _: &mut DynCx) {}
+    impl<T> CanCleanUpFrom<ViewerDropCx<'_>> for PlainState<T> {
+      fn drop_from_cx(&mut self, _: &mut ViewerDropCx) {}
     }
 
     let (cx, s) = self.use_state_init(|cx| PlainState(init(cx)));
@@ -65,14 +79,14 @@ impl<'a> ViewerCx<'a> {
 
   pub fn use_state_init<T>(&mut self, init: impl FnOnce(&mut DynCx) -> T) -> (&mut Self, &mut T)
   where
-    T: Any + CxStateDrop<DynCx>,
+    T: Any + for<'x> CanCleanUpFrom<ViewerDropCx<'x>>,
   {
     // this is safe because user can not access previous retrieved state through returned self.
     let s = unsafe { std::mem::transmute_copy(self) };
 
-    let state = self.memory.expect_state_init(
+    let state = self.viewer.memory.expect_state_init(
       || init(self.dyn_cx),
-      |state: &mut T, dcx: &mut DynCx| unsafe {
+      |state: &mut T, dcx: &mut ViewerDropCx| unsafe {
         state.drop_from_cx(dcx);
         core::ptr::drop_in_place(state);
       },
@@ -95,8 +109,9 @@ pub enum ViewerCxStage<'a> {
   },
 }
 
+#[track_caller]
 pub fn use_viewer(acx: &mut ApplicationCx, f: impl FnOnce(&mut ViewerCx)) {
-  let (acx, viewer) = acx.use_state_init(|_| {
+  let (acx, viewer) = acx.use_plain_state_init(|| {
     Viewer::new(
       acx.gpu_and_surface.gpu.clone(),
       acx.gpu_and_surface.surface.clone(),
@@ -139,13 +154,10 @@ pub fn use_viewer(acx: &mut ApplicationCx, f: impl FnOnce(&mut ViewerCx)) {
       canvas_resolution,
     );
 
-    let interaction_cx = prepare_picking_state(picker, &viewer.widget_intersection_group);
+    let interaction_cx = prepare_picking_state(picker, &viewer.intersection_group);
 
-    let sub_memory = acx.memory.sub_function();
-
-    let mut vcx = ViewerCx {
+    ViewerCx {
       viewer,
-      memory: sub_memory,
       dyn_cx: acx.dyn_cx,
       stage: ViewerCxStage::EventHandling {
         reader: &scene_reader,
@@ -154,9 +166,8 @@ pub fn use_viewer(acx: &mut ApplicationCx, f: impl FnOnce(&mut ViewerCx)) {
         derived: &derived,
         widget_cx: widget_env.as_ref(),
       },
-    };
-
-    f(&mut vcx)
+    }
+    .execute(|viewer| f(viewer));
   } else {
     let size = acx.input.window_state.physical_size;
     let size_changed = acx.input.state_delta.size_change;
@@ -196,17 +207,14 @@ pub fn use_viewer(acx: &mut ApplicationCx, f: impl FnOnce(&mut ViewerCx)) {
         });
     }
 
-    let sub_memory = acx.memory.sub_function();
-
-    let mut vcx = ViewerCx {
+    ViewerCx {
       viewer,
-      memory: sub_memory,
       dyn_cx: acx.dyn_cx,
       stage: ViewerCxStage::SceneContentUpdate {
         writer: &mut writer,
       },
-    };
-    f(&mut vcx);
+    }
+    .execute(|viewer| f(viewer));
 
     if let Some(canvas) = &acx.draw_target_canvas {
       let derived = viewer.derives.poll_update();
@@ -217,7 +225,7 @@ pub fn use_viewer(acx: &mut ApplicationCx, f: impl FnOnce(&mut ViewerCx)) {
 }
 
 pub struct Viewer {
-  widget_intersection_group: WidgetSceneModelIntersectionGroupConfig,
+  intersection_group: WidgetSceneModelIntersectionGroupConfig,
   on_demand_rendering: bool,
   on_demand_draw: NotifyScope,
   scene: Viewer3dSceneCtx,
@@ -230,13 +238,21 @@ pub struct Viewer {
   spot_light_helpers: SceneSpotLightHelper,
   animation_player: SceneAnimationsPlayer,
   started_time: Instant,
+  memory: FunctionMemory,
 }
 
-impl CxStateDrop<DynCx> for Viewer {
-  fn drop_from_cx(&mut self, _: &mut DynCx) {
+impl CanCleanUpFrom<ApplicationDropCx> for Viewer {
+  fn drop_from_cx(&mut self, cx: &mut ApplicationDropCx) {
     let mut writer = SceneWriter::from_global(self.scene.scene);
     self.camera_helpers.do_cleanup(&mut writer);
     self.spot_light_helpers.do_cleanup(&mut writer);
+
+    let mut dcx = ViewerDropCx {
+      dyn_cx: cx,
+      writer: &mut writer,
+      pick_group: &mut self.intersection_group,
+    };
+    self.memory.cleanup(&mut dcx as *mut _ as *mut ());
   }
 }
 
@@ -315,7 +331,7 @@ impl Viewer {
       SceneSpotLightHelper::new(scene.scene, scene_node_derive_world_mat().into_boxed());
 
     Self {
-      widget_intersection_group: Default::default(),
+      intersection_group: Default::default(),
       // todo, we current disable the on demand draw
       // because we not cache the rendering result yet
       on_demand_rendering: false,
@@ -330,6 +346,7 @@ impl Viewer {
       background,
       animation_player: SceneAnimationsPlayer::new(),
       started_time: Instant::now(),
+      memory: Default::default(),
     }
   }
 

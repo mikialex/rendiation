@@ -6,11 +6,42 @@ use std::{
 use bumpalo::Bump;
 use fast_hash_collection::FastHashMap;
 
-pub trait CxStateDrop<T> {
+#[allow(clippy::missing_safety_doc)]
+pub unsafe trait HooksCxLike {
+  fn memory(&mut self) -> &mut FunctionMemory;
+  fn flush(&mut self);
+
+  fn execute(&mut self, f: impl FnOnce(&mut Self)) {
+    self.memory().reset_cursor();
+    f(self);
+    self.memory().created = false;
+    self.flush();
+  }
+
+  #[track_caller]
+  fn raw_scope(&mut self, f: impl FnOnce(&mut Self)) {
+    let sub_memory = self.memory().sub_function() as *mut _;
+
+    unsafe {
+      core::ptr::swap(self.memory(), sub_memory);
+      f(self);
+      core::ptr::swap(self.memory(), sub_memory);
+    };
+  }
+
+  #[track_caller]
+  fn scope(&mut self, f: impl FnOnce(&mut Self)) {
+    self.raw_scope(|cx| {
+      cx.execute(|cx| f(cx));
+    });
+  }
+}
+
+pub trait CanCleanUpFrom<T> {
   fn drop_from_cx(&mut self, cx: &mut T);
 }
 
-impl<T, X: CxStateDrop<T>> CxStateDrop<T> for Option<X> {
+impl<T, X: CanCleanUpFrom<T>> CanCleanUpFrom<T> for Option<X> {
   fn drop_from_cx(&mut self, cx: &mut T) {
     if let Some(x) = self {
       x.drop_from_cx(cx);
@@ -71,7 +102,6 @@ impl FunctionMemory {
   #[track_caller]
   pub fn sub_function(&mut self) -> &mut Self {
     let location = Location::caller();
-    self.current_cursor = 0;
     if let Some(previous_memory) = self.sub_functions.remove(location) {
       self
         .sub_functions_next
