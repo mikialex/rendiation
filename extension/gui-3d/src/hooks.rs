@@ -81,7 +81,10 @@ impl<'a> UI3dCx<'a> {
 }
 
 unsafe impl HooksCxLike for UI3dCx<'_> {
-  fn memory(&mut self) -> &mut FunctionMemory {
+  fn memory_mut(&mut self) -> &mut FunctionMemory {
+    self.memory
+  }
+  fn memory_ref(&self) -> &FunctionMemory {
     self.memory
   }
 
@@ -110,9 +113,9 @@ impl UI3dCx<'_> {
     &mut self,
     updater: impl FnOnce(&mut SceneWriter, &mut DynCx, &Option<EntityHandle<SceneNodeEntity>>),
   ) {
-    let is_new_create = self.is_new_create();
+    let is_creating = self.is_creating();
     if let Some(w) = &mut self.writer {
-      if is_new_create {
+      if is_creating {
         updater(w, self.dyn_cx, &self.current_parent)
       }
     }
@@ -121,20 +124,13 @@ impl UI3dCx<'_> {
     &mut self,
     updater: impl FnOnce(&UIEventStageCx, &SceneReader, &mut DynCx) -> R,
   ) -> Option<R> {
-    let is_new_create = self.is_new_create();
     let mut re = None;
     if let Some(r) = self.reader {
       if let Some(e) = &self.event {
-        if is_new_create {
-          re = updater(e, r, self.dyn_cx).into();
-        }
+        re = updater(e, r, self.dyn_cx).into();
       }
     }
     re
-  }
-
-  pub fn is_new_create(&self) -> bool {
-    !self.memory.created
   }
 
   pub fn use_state<T>(&mut self) -> (&mut Self, &mut T)
@@ -176,7 +172,7 @@ impl UI3dCx<'_> {
     T: Any + for<'x> CanCleanUpFrom<UI3dBuildCx<'x>>,
   {
     // this is safe because user can not access previous retrieved state through returned self.
-    let s = unsafe { std::mem::transmute_copy(self) };
+    let s = unsafe { std::mem::transmute_copy(&self) };
 
     let state = self.memory.expect_state_init(
       || {
@@ -354,21 +350,23 @@ pub fn use_view_dependent_root<R>(
   config: ViewAutoScalable,
   inner: impl Fn(&mut UI3dCx) -> R,
 ) -> R {
+  let mut computer = None;
   cx.on_event(|e, _, cx| unsafe {
-    let mut computer = ViewIndependentComputer {
+    computer = ViewIndependentComputer {
       override_position: e.widget_env.get_world_mat(*node).unwrap().position(),
       scale: config,
       camera_world: e.widget_env.get_camera_world_mat(),
       view_height_in_pixel: e.widget_env.get_view_resolution().y as f32,
       camera_proj: e.widget_env.get_camera_perspective_proj(),
-    };
+    }
+    .into();
     cx.register_cx(&mut computer);
   });
 
   let r = inner(cx);
 
   cx.on_event(|_, _, cx| unsafe {
-    cx.unregister_cx::<ViewIndependentComputer>();
+    cx.unregister_cx::<Option<ViewIndependentComputer>>();
   });
 
   r
@@ -383,7 +381,8 @@ pub fn use_view_independent_node(
   let (cx, local_mat_to_sync) = cx.use_plain_state::<Option<Mat4<f32>>>();
 
   cx.on_event(|e, reader, cx| {
-    access_cx!(cx, config, ViewIndependentComputer);
+    access_cx!(cx, config, Option<ViewIndependentComputer>);
+    let config = config.as_ref().unwrap();
 
     let parent_world =
       if let Some(parent_node) = reader.node_reader.read::<SceneNodeParentIdx>(*node) {

@@ -72,13 +72,13 @@ pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
 
   run_application(move |cx| {
     use_egui_cx(cx, |cx, egui_cx| {
-      use_viewer(cx, |cx| {
+      let viewer = use_viewer(cx, |cx| {
         content_logic(cx);
-
-        if let Some(egui_cx) = egui_cx {
-          cx.viewer.egui(egui_cx)
-        }
       });
+
+      if let Some(egui_cx) = egui_cx {
+        viewer.egui(egui_cx)
+      }
     });
   });
 }

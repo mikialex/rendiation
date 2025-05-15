@@ -47,6 +47,11 @@ pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
 
   let mut scene_old = None;
 
+  if cx.is_creating() && cx.event.is_some() {
+    // skip the first event stage when first time init
+    return;
+  }
+
   cx.execute(|cx| {
     let (cx, widget_scene_handle) = cx.use_state_init(|cx| cx.writer.scene_writer.new_entity());
 
@@ -66,7 +71,6 @@ pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
 
 pub fn use_viewer_gizmo(cx: &mut ViewerCx) {
   let (cx, state) = cx.use_plain_state::<Option<GizmoControlTargetState>>();
-  let (cx, is_in_control) = cx.use_plain_state::<bool>();
   let (cx, view_update) =
     cx.use_plain_state::<Option<(EntityHandle<SceneNodeEntity>, GizmoUpdateTargetLocal)>>();
 
@@ -103,7 +107,9 @@ pub fn use_viewer_gizmo(cx: &mut ViewerCx) {
   }
 
   widget_root(cx, |cx| {
-    use_gizmo(cx);
+    inject_cx(cx, state, |cx| {
+      use_gizmo(cx);
+    });
   });
 
   match &mut cx.stage {
@@ -115,14 +121,6 @@ pub fn use_viewer_gizmo(cx: &mut ViewerCx) {
         .map(|a| (node.unwrap(), a));
 
       if cx.message.take::<GizmoInControl>().is_some() {
-        *is_in_control = true;
-      }
-
-      if cx.message.take::<GizmoOutControl>().is_some() {
-        *is_in_control = false;
-      }
-
-      if *is_in_control {
         cx.message.put(CameraControlBlocked);
         cx.message.put(PickSceneBlocked);
       }

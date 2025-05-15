@@ -34,6 +34,44 @@ pub fn use_gizmo(cx: &mut UI3dCx) {
         use_translation_gizmo(cx);
         use_rotation_gizmo(cx);
       });
+
+      cx.on_event(|cx, _, dcx| {
+        access_cx!(dcx, start_states, Option::<DragStartState>);
+        if start_states.is_some() && cx.platform_event.state_delta.mouse_position_change {
+          let action = DragTargetAction {
+            camera_world: cx.widget_env.get_camera_world_mat(),
+            camera_projection: cx.widget_env.get_camera_proj_mat(),
+            world_ray: cx.widget_env.get_camera_world_ray(),
+            normalized_screen_position: cx.widget_env.get_normalized_canvas_position(),
+          };
+          dcx.message.put(action);
+          debug_print("dragging");
+        }
+
+        if cx.platform_event.state_delta.is_left_mouse_releasing() {
+          access_cx_mut!(dcx, start_states, Option::<DragStartState>);
+          debug_print("stop drag");
+          *start_states = None;
+          dcx.message.put(GizmoOutControl);
+        }
+      });
+
+      cx.on_update(|w, cx| {
+        access_cx!(cx, target, Option::<GizmoControlTargetState>);
+        let visible = target.is_some();
+        let mat = target
+          .map(|v| v.target_world_mat)
+          .unwrap_or(Mat4::identity());
+
+        w.node_writer
+          .write::<SceneNodeVisibleComponent>(*root, visible);
+        let (t, r, _s) = mat.decompose();
+        let mat_with_out_scale = Mat4::translate(t) * Mat4::from(r);
+        // assuming our parent world mat is identity
+
+        w.node_writer
+          .write::<SceneNodeLocalMatrixComponent>(*root, mat_with_out_scale);
+      });
     });
   });
 }
@@ -123,7 +161,11 @@ fn use_axis_interactive_model(
   });
   use_view_independent_node(cx, node, move || mat_init(&axis));
 
-  let (cx, material) = cx.use_unlit_material_entity(|| todo!());
+  let (cx, material) = cx.use_unlit_material_entity(|| UnlitMaterialDataView {
+    color: Vec4::new(1., 1., 1., 1.),
+    color_alpha_tex: None,
+    alpha: Default::default(),
+  });
   let (cx, model) = cx.use_state_init(|cx| {
     access_cx!(cx.cx, mesh, AttributesMeshEntities);
     UIWidgetModelProxy::new(cx.writer, node, material, mesh)
