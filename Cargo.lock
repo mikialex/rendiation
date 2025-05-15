@@ -524,9 +524,9 @@ checksum = "41bfbdb21256b87a8b5e80fab81a8eed158178e812fd7ba451907518b2742f16"
 
 [[package]]
 name = "bumpalo"
-version = "3.16.0"
+version = "3.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79296716171880943b8470b5f8d03aa55eb2e645a4874bdbb28adb49162e012c"
+checksum = "1628fb46dfa0b37568d12e5edd512553eccf6a22a78e8bde00bb4aed84d5bdbf"
 
 [[package]]
 name = "bytemuck"
@@ -1822,6 +1822,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3d1354bf6b7235cb4a0576c2619fd4ed18183f689b12b006a0ee7329eeff9a5"
 dependencies = [
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "hook"
+version = "0.0.1"
+dependencies = [
+ "bumpalo",
+ "fast-hash-collection",
+ "smallvec",
 ]
 
 [[package]]
@@ -3537,18 +3546,11 @@ dependencies = [
 name = "rendiation-gizmo"
 version = "0.1.0"
 dependencies = [
- "database",
- "reactive",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-gui-3d",
  "rendiation-mesh-generator",
  "rendiation-scene-core",
- "rendiation-scene-rendering-gpu-gles",
- "rendiation-shader-api",
- "rendiation-state-override",
- "rendiation-webgpu",
- "winit",
 ]
 
 [[package]]
@@ -3557,6 +3559,7 @@ version = "0.1.0"
 dependencies = [
  "database",
  "fast-hash-collection",
+ "hook",
  "reactive",
  "rendiation-algebra",
  "rendiation-geometry",
@@ -3568,7 +3571,6 @@ dependencies = [
  "rendiation-state-override",
  "rendiation-view-override-model",
  "rendiation-wide-line",
- "widget",
 ]
 
 [[package]]
@@ -5467,14 +5469,6 @@ dependencies = [
  "log",
  "serde",
  "web-sys",
-]
-
-[[package]]
-name = "widget"
-version = "0.0.1"
-dependencies = [
- "fast-hash-collection",
- "smallvec",
 ]
 
 [[package]]

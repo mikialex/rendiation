@@ -74,13 +74,64 @@ impl GPUOrGPUCreateFuture {
   }
 }
 
-struct WinitAppImpl<T> {
+pub struct ApplicationCx<'a> {
+  pub memory: &'a mut FunctionMemory,
+  pub dyn_cx: &'a mut DynCx,
+  pub processing_event: bool,
+  pub window: &'a mut Window,
+  pub input: &'a PlatformEventInput,
+  pub gpu_and_surface: &'a WGPUAndSurface,
+  pub draw_target_canvas: Option<RenderTargetView>,
+}
+
+pub type ApplicationDropCx = DynCx;
+
+impl<'a> ApplicationCx<'a> {
+  pub fn use_plain_state<T>(&mut self) -> (&mut Self, &mut T)
+  where
+    T: Any + Default,
+  {
+    self.use_plain_state_init(|| T::default())
+  }
+
+  pub fn use_plain_state_init<T>(&mut self, init: impl FnOnce() -> T) -> (&mut Self, &mut T)
+  where
+    T: Any,
+  {
+    // this is safe because user can not access previous retrieved state through returned self.
+    let s = unsafe { std::mem::transmute_copy(&self) };
+
+    let state =
+      self
+        .memory
+        .expect_state_init(init, |state: &mut T, _: &mut ApplicationDropCx| unsafe {
+          core::ptr::drop_in_place(state);
+        });
+
+    (s, state)
+  }
+}
+
+unsafe impl HooksCxLike for ApplicationCx<'_> {
+  fn memory_mut(&mut self) -> &mut FunctionMemory {
+    self.memory
+  }
+  fn memory_ref(&self) -> &FunctionMemory {
+    self.memory
+  }
+  fn flush(&mut self) {
+    self.memory.flush(&mut () as *mut _)
+  }
+}
+
+struct WinitAppImpl {
   window: Option<WindowWithWGPUSurface>,
-  root: T,
+  memory: FunctionMemory,
+  app_logic: Box<dyn Fn(&mut ApplicationCx)>,
   title: String,
 }
 
-impl<T: Widget> winit::application::ApplicationHandler for WinitAppImpl<T> {
+impl winit::application::ApplicationHandler for WinitAppImpl {
   fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
     self.window.get_or_insert_with(|| {
       let window = event_loop
@@ -156,6 +207,8 @@ impl<T: Widget> winit::application::ApplicationHandler for WinitAppImpl<T> {
         });
         match event {
           WindowEvent::CloseRequested => {
+            let mut cx = DynCx::default();
+            self.memory.cleanup(&mut cx as *mut _ as *mut ());
             target.exit();
           }
           WindowEvent::Resized(physical_size) => surface.set_size(Size::from_u32_pair_min_one((
@@ -166,30 +219,32 @@ impl<T: Widget> winit::application::ApplicationHandler for WinitAppImpl<T> {
             surface.re_config_if_changed(&gpu.device);
             // when window resize to zero, the surface will be outdated.
             // but when should we deal with the surface lost case?
-            if let Ok((output, mut canvas)) = surface.get_current_frame_with_render_target_view() {
+            if let Ok((output, canvas)) = surface.get_current_frame_with_render_target_view() {
               let mut cx = DynCx::default();
 
               event_state.begin_frame();
-              cx.scoped_cx(window, |cx| {
-                cx.scoped_cx(event_state, |cx| {
-                  cx.scoped_cx(gpu_and_surface, |cx| {
-                    cx.scoped_cx(&mut canvas, |cx| {
-                      self.root.update_state(cx);
-                    });
-                  });
-                });
-              });
-
+              ApplicationCx {
+                window,
+                memory: &mut self.memory,
+                dyn_cx: &mut cx,
+                processing_event: true,
+                input: event_state,
+                draw_target_canvas: None,
+                gpu_and_surface,
+              }
+              .execute(|cx| (self.app_logic)(cx));
               event_state.end_frame();
-              cx.scoped_cx(window, |cx| {
-                cx.scoped_cx(event_state, |cx| {
-                  cx.scoped_cx(gpu_and_surface, |cx| {
-                    cx.scoped_cx(&mut canvas, |cx| {
-                      self.root.update_view(cx);
-                    });
-                  });
-                });
-              });
+
+              ApplicationCx {
+                window,
+                memory: &mut self.memory,
+                dyn_cx: &mut cx,
+                processing_event: false,
+                input: event_state,
+                draw_target_canvas: Some(canvas.clone()),
+                gpu_and_surface,
+              }
+              .execute(|cx| (self.app_logic)(cx));
 
               output.present();
             }
@@ -203,7 +258,7 @@ impl<T: Widget> winit::application::ApplicationHandler for WinitAppImpl<T> {
   }
 }
 
-pub fn run_application<T: Widget>(app: T) {
+pub fn run_application(app_logic: impl Fn(&mut ApplicationCx) + 'static) {
   let event_loop = EventLoop::new().unwrap();
 
   // ControlFlow::Poll continuously runs the event loop, even if the OS hasn't
@@ -212,7 +267,8 @@ pub fn run_application<T: Widget>(app: T) {
 
   let mut app = WinitAppImpl {
     window: None,
-    root: app,
+    memory: Default::default(),
+    app_logic: Box::new(app_logic),
     title: "Rendiation Viewer".to_string(),
   };
 

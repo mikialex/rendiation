@@ -1,11 +1,12 @@
 [package]
 edition = "2021"
-name = "widget"
+name = "hook"
 version = "0.0.1"
 
 [dependencies]
 fast-hash-collection = { path = "../fast-hash-collection" }
 smallvec = { workspace = true }
+bumpalo = { workspace = true }
 
 [lints]
 workspace = true

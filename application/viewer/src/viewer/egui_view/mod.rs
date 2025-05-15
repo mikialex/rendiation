@@ -32,33 +32,26 @@ impl Default for ViewerUIState {
   }
 }
 
-impl ViewerUIState {
-  pub fn egui(
-    &mut self,
-    terminal: &mut Terminal,
-    background: &mut ViewerBackgroundState,
-    on_demand_rendering: &mut bool,
-    rendering: &mut Viewer3dRenderingCtx,
-    ui: &egui::Context,
-    cx: &mut DynCx,
-  ) {
+impl Viewer {
+  pub fn egui(&mut self, ui: &egui::Context) {
+    let ui_state = &mut self.ui_state;
     egui::TopBottomPanel::top("view top menu").show(ui, |ui| {
       ui.horizontal_wrapped(|ui| {
         egui::widgets::global_theme_preference_switch(ui);
         ui.separator();
-        ui.checkbox(&mut self.show_db_inspector, "database inspector");
-        ui.checkbox(&mut self.show_viewer_config_panel, "viewer config");
-        ui.checkbox(&mut self.object_inspection, "object panel");
-        ui.checkbox(&mut self.show_terminal, "terminal");
-        ui.checkbox(&mut self.show_gpu_info, "gpu info");
-        ui.checkbox(&mut self.show_frame_info, "frame info");
-        ui.checkbox(&mut self.show_memory_stat, "heap stat");
+        ui.checkbox(&mut ui_state.show_db_inspector, "database inspector");
+        ui.checkbox(&mut ui_state.show_viewer_config_panel, "viewer config");
+        ui.checkbox(&mut ui_state.object_inspection, "object panel");
+        ui.checkbox(&mut ui_state.show_terminal, "terminal");
+        ui.checkbox(&mut ui_state.show_gpu_info, "gpu info");
+        ui.checkbox(&mut ui_state.show_frame_info, "frame info");
+        ui.checkbox(&mut ui_state.show_memory_stat, "heap stat");
       });
     });
 
     egui::Window::new("Memory")
       .vscroll(true)
-      .open(&mut self.show_memory_stat)
+      .open(&mut ui_state.show_memory_stat)
       .show(ui, |ui| {
         #[cfg(feature = "heap-debug")]
         {
@@ -88,7 +81,7 @@ impl ViewerUIState {
 
     egui::Window::new("Viewer")
       .vscroll(true)
-      .open(&mut self.show_viewer_config_panel)
+      .open(&mut ui_state.show_viewer_config_panel)
       .default_pos([10., 60.])
       .max_width(1000.0)
       .max_height(800.0)
@@ -97,13 +90,12 @@ impl ViewerUIState {
       .resizable(true)
       .movable(true)
       .show(ui, |ui| {
-        ui.checkbox(on_demand_rendering, "enable on demand rendering");
+        ui.checkbox(&mut self.on_demand_rendering, "enable on demand rendering");
         ui.separator();
-        rendering.egui(ui);
+        self.rendering.egui(ui);
         ui.separator();
 
-        access_cx_mut!(cx, viewer_scene, Viewer3dSceneCtx);
-        background.egui(ui, viewer_scene.scene);
+        self.background.egui(ui, self.scene.scene);
 
         ui.separator();
 
@@ -126,25 +118,25 @@ impl ViewerUIState {
       });
 
     egui::Window::new("Frame Rendering Info")
-      .open(&mut self.show_frame_info)
+      .open(&mut ui_state.show_frame_info)
       .vscroll(true)
       .show(ui, |ui| {
         ui.label("frame pass pipeline statistics:");
         ui.separator();
 
         ui.checkbox(
-          &mut rendering.enable_statistic_collect,
+          &mut self.rendering.enable_statistic_collect,
           "enable_statistic_collect",
         );
 
-        if rendering.enable_statistic_collect {
-          if rendering.statistics.collected.is_empty() {
+        if self.rendering.enable_statistic_collect {
+          if self.rendering.statistics.collected.is_empty() {
             ui.label("no statistics info available");
           } else {
-            if !rendering.statistics.pipeline_query_supported {
+            if !self.rendering.statistics.pipeline_query_supported {
               ui.label("note: pipeline query not supported on this platform");
             } else {
-              let statistics = &mut rendering.statistics;
+              let statistics = &mut self.rendering.statistics;
               ui.collapsing("pipeline_info", |ui| {
                 statistics.collected.iter().for_each(|(name, info)| {
                   if let Some(info) = &info.pipeline.latest_resolved {
@@ -178,10 +170,10 @@ impl ViewerUIState {
                 });
               });
             }
-            if !rendering.statistics.time_query_supported {
+            if !self.rendering.statistics.time_query_supported {
               ui.label("warning: time query not supported");
             } else {
-              let statistics = &mut rendering.statistics;
+              let statistics = &mut self.rendering.statistics;
               ui.collapsing("time_info", |ui| {
                 statistics.collected.iter().for_each(|(name, info)| {
                   if let Some(info) = &info.time.latest_resolved {
@@ -193,19 +185,20 @@ impl ViewerUIState {
             }
 
             if ui.button("clear").clicked() {
-              rendering
+              self
+                .rendering
                 .statistics
-                .clear_history(rendering.statistics.max_history);
+                .clear_history(self.rendering.statistics.max_history);
             }
           }
         }
       });
 
     egui::Window::new("GPU Info")
-      .open(&mut self.show_gpu_info)
+      .open(&mut ui_state.show_gpu_info)
       .vscroll(true)
       .show(ui, |ui| {
-        let gpu = rendering.gpu();
+        let gpu = self.rendering.gpu();
         let info = &gpu.info;
 
         let mut enable_bind_check = gpu.device.get_binding_ty_check_enabled();
@@ -254,25 +247,28 @@ impl ViewerUIState {
         });
       });
 
-    if self.show_terminal {
+    if ui_state.show_terminal {
       egui::TopBottomPanel::bottom("view bottom terminal")
         .resizable(true)
         .show(ui, |ui| {
-          cx.scoped_cx(rendering, |cx| {
-            terminal.egui(ui, cx);
-          });
+          self.terminal.egui(
+            ui,
+            &mut TerminalInitExecuteCx {
+              derive: &self.derives,
+              scene: &self.scene,
+              renderer: &mut self.rendering,
+            },
+          );
         });
     }
 
-    if self.object_inspection {
+    if ui_state.object_inspection {
       egui::Window::new("Object Inspection")
-        .open(&mut self.object_inspection)
+        .open(&mut ui_state.object_inspection)
         .vscroll(true)
         .show(ui, |ui| {
-          access_cx_mut!(cx, viewer_scene, Viewer3dSceneCtx);
-
-          if let Some(target) = viewer_scene.selected_target {
-            let mut scene_writer = SceneWriter::from_global(viewer_scene.scene);
+          if let Some(target) = self.scene.selected_target {
+            let mut scene_writer = SceneWriter::from_global(self.scene.scene);
 
             ui.label(format!("SceneModel id: {:?}", target.into_raw()));
             show_entity_label(&scene_writer.model_writer, target, ui);
@@ -375,7 +371,11 @@ impl ViewerUIState {
         });
     }
 
-    egui_db_gui(ui, &mut self.egui_db_inspector, &mut self.show_db_inspector);
+    egui_db_gui(
+      ui,
+      &mut ui_state.egui_db_inspector,
+      &mut ui_state.show_db_inspector,
+    );
   }
 }
 

@@ -11,7 +11,7 @@ rendiation-scene-core = { path = "../../scene/core" }
 rendiation-shader-api = { path = "../../shader/api" }
 rendiation-mesh-core = { path = "../../content/mesh/core" }
 rendiation-mesh-generator = { path = "../../content/mesh/generator" }
-widget = { path = "../../utility/widget" }
+hook = { path = "../../utility/hook" }
 database = { path = "../../utility/database" }
 reactive = { path = "../../utility/reactive" }
 rendiation-state-override = { path = "../state-override" }

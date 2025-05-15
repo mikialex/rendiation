@@ -1,14 +1,13 @@
 mod rotation;
 mod translation;
 
-use database::*;
 use rendiation_algebra::*;
 use rendiation_geometry::*;
 use rendiation_gui_3d::*;
 use rendiation_mesh_generator::*;
 use rendiation_scene_core::*;
-pub use rotation::*;
-pub use translation::*;
+use rotation::*;
+use translation::*;
 
 pub struct GizmoInControl;
 pub struct GizmoOutControl;
@@ -21,49 +20,61 @@ fn debug_print(msg: &str) {
 /// the user should provide Option::<GizmoControlTargetState> for target selecting,
 /// and should apply change GizmoUpdateTargetLocal to source object, the applied change should sync
 /// back to GizmoControlTargetState
-pub fn gizmo(v: &mut SceneWriter) -> impl Widget {
-  UINode::new(v)
-    .with_child(v, translation_gizmo_view)
-    .with_child(v, rotation_gizmo_view)
-    .into_view_independent_root(50.0)
-    .with_view_update(|node, cx| {
-      access_cx!(cx, target, Option::<GizmoControlTargetState>);
-      let visible = target.is_some();
-      let mat = target
-        .map(|v| v.target_world_mat)
-        .unwrap_or(Mat4::identity());
-
-      access_cx_mut!(cx, w, SceneWriter);
-      node.set_visible(w, visible);
-      let (t, r, _s) = mat.decompose();
-      let mat_with_out_scale = Mat4::translate(t) * Mat4::from(r);
-      node.set_matrix(w, mat_with_out_scale); // assuming our parent world mat is identity
-    })
-    .with_state_update(|cx| {
-      access_cx!(cx, start_states, Option::<DragStartState>);
-      access_cx!(cx, platform_event, PlatformEventInput);
-      if start_states.is_some() && platform_event.state_delta.mouse_position_change {
-        access_cx!(cx, w_env, Box<dyn WidgetEnvAccess>);
-        let action = DragTargetAction {
-          camera_world: w_env.get_camera_world_mat(),
-          camera_projection: w_env.get_camera_proj_mat(),
-          world_ray: w_env.get_camera_world_ray(),
-          normalized_screen_position: w_env.get_normalized_canvas_position(),
+///
+/// expect `Option<GizmoControlTargetState>` in ctx
+pub fn use_gizmo(cx: &mut UI3dCx) {
+  use_inject_cx::<GlobalUIStyle>(cx, |cx| {
+    use_inject_cx::<Option<DragStartState>>(cx, |cx| {
+      use_group(cx, |cx, root| {
+        let auto_scale = ViewAutoScalable {
+          independent_scale_factor: 50.,
         };
-        cx.message.put(action);
-        debug_print("dragging");
-      }
 
-      access_cx!(cx, platform_event, PlatformEventInput);
-      if platform_event.state_delta.is_left_mouse_releasing() {
-        access_cx_mut!(cx, start_states, Option::<DragStartState>);
-        debug_print("stop drag");
-        *start_states = None;
-        cx.message.put(GizmoOutControl);
-      }
-    })
-    .with_local_state_inject(Option::<DragStartState>::default())
-    .with_local_state_inject(GlobalUIStyle::default())
+        cx.on_event(|cx, _, dcx| {
+          access_cx!(dcx, start_states, Option::<DragStartState>);
+          if start_states.is_some() && cx.platform_event.state_delta.mouse_position_change {
+            let action = DragTargetAction {
+              camera_world: cx.widget_env.get_camera_world_mat(),
+              camera_projection: cx.widget_env.get_camera_proj_mat(),
+              world_ray: cx.widget_env.get_camera_world_ray(),
+              normalized_screen_position: cx.widget_env.get_normalized_canvas_position(),
+            };
+            dcx.message.put(action);
+            debug_print("dragging");
+          }
+
+          if cx.platform_event.state_delta.is_left_mouse_releasing() {
+            access_cx_mut!(dcx, start_states, Option::<DragStartState>);
+            debug_print("stop drag");
+            *start_states = None;
+            dcx.message.put(GizmoOutControl);
+          }
+        });
+
+        use_view_dependent_root(cx, &root, auto_scale, |cx| {
+          use_translation_gizmo(cx);
+          use_rotation_gizmo(cx);
+        });
+
+        cx.on_update(|w, cx| {
+          access_cx!(cx, target, Option::<GizmoControlTargetState>);
+          let visible = target.is_some();
+          let mat = target
+            .map(|v| v.target_world_mat)
+            .unwrap_or(Mat4::identity());
+
+          w.node_writer
+            .write::<SceneNodeVisibleComponent>(root, visible);
+          let (t, r, _s) = mat.decompose();
+          let mat_with_out_scale = Mat4::translate(t) * Mat4::from(r);
+          // assuming our parent world mat is identity
+
+          w.node_writer
+            .write::<SceneNodeLocalMatrixComponent>(root, mat_with_out_scale);
+        });
+      });
+    });
+  });
 }
 
 #[derive(Copy, Clone, Default, Debug)]
@@ -96,25 +107,6 @@ impl AxisActiveState {
       AxisType::Y => (&mut self.x, &mut self.z),
       AxisType::Z => (&mut self.x, &mut self.y),
     }
-  }
-}
-
-pub fn update_per_axis_model(
-  axis: AxisType,
-) -> impl FnMut(&mut ViewIndependentWidgetModel, &mut DynCx) + 'static {
-  move |view, cx| {
-    access_cx!(cx, style, GlobalUIStyle);
-    let color = style.get_axis_primary_color(axis);
-
-    access_cx!(cx, gizmo, AxisActiveState);
-    access_cx!(cx, axis_state, ItemState);
-    let self_active = axis_state.active;
-    let visible = !gizmo.has_any_active() || self_active;
-    let color = map_color(color, *axis_state);
-
-    access_cx_mut!(cx, cx3d, SceneWriter);
-    view.set_visible(cx3d, visible);
-    view.set_color(cx3d, color);
   }
 }
 
@@ -158,28 +150,70 @@ fn map_color(color: Vec3<f32>, state: ItemState) -> Vec3<f32> {
   }
 }
 
-fn start_drag(cx: &mut DynCx, pick_position: HitPoint3D) {
-  access_cx_mut!(cx, state, ItemState);
-  state.active = true;
+fn use_axis_interactive_model(
+  cx: &mut UI3dCx,
+  axis: AxisType,
+  mat_init: impl FnOnce(&AxisType) -> Mat4<f32> + 'static,
+) {
+  let (cx, node) = cx.use_node_entity();
+  cx.on_mounting(|w, _, parent| {
+    w.node_writer
+      .write::<SceneNodeParentIdx>(*node, parent.map(|v| v.into_raw()));
+  });
+  use_view_independent_node(cx, node, move || mat_init(&axis));
 
-  access_cx!(cx, target, Option::<GizmoControlTargetState>);
-  if let Some(target) = target {
-    let drag_start_info = target.start_drag(pick_position.position);
-    access_cx_mut!(cx, drag_start, Option::<DragStartState>);
-    debug_print("start drag");
-    *drag_start = Some(drag_start_info);
-    cx.message.put(GizmoInControl);
-  }
-}
+  let (cx, material) = cx.use_unlit_material_entity(|| UnlitMaterialDataView {
+    color: Vec4::new(1., 1., 1., 1.),
+    color_alpha_tex: None,
+    alpha: Default::default(),
+  });
+  let (cx, model) = cx.use_state_init(|cx| {
+    access_cx!(cx.cx, mesh, AttributesMeshEntities);
+    UIWidgetModelProxy::new(cx.writer, node, material, mesh)
+  });
 
-fn hovering(cx: &mut DynCx, _: HitPoint3D) {
-  access_cx_mut!(cx, state, ItemState);
-  state.hovering = true;
-}
+  use_pickable_model(cx, model);
 
-fn stop_hovering(cx: &mut DynCx) {
-  access_cx_mut!(cx, state, ItemState);
-  state.hovering = false;
+  if let Some(res) = use_interactive_ui_widget_model(cx, model) {
+    if res.mouse_entering {
+      access_cx_mut!(cx.dyn_cx, item_state, ItemState);
+      item_state.hovering = true;
+    }
+    if res.mouse_leave {
+      access_cx_mut!(cx.dyn_cx, item_state, ItemState);
+      item_state.hovering = false;
+    }
+    if let Some(point) = res.mouse_down {
+      access_cx_mut!(cx.dyn_cx, item_state, ItemState);
+      item_state.active = true;
+
+      access_cx!(cx.dyn_cx, target, Option::<GizmoControlTargetState>);
+      if let Some(target) = target {
+        let drag_start_info = target.start_drag(point.position);
+        access_cx_mut!(cx.dyn_cx, drag_start, Option::<DragStartState>);
+        debug_print("start drag");
+        *drag_start = Some(drag_start_info);
+        cx.dyn_cx.message.put(GizmoInControl);
+      }
+    };
+  };
+
+  cx.on_update(|w, dcx| {
+    access_cx!(dcx, style, GlobalUIStyle);
+    access_cx!(dcx, axis_state, AxisActiveState);
+    access_cx!(dcx, item_state, ItemState);
+
+    let color = style.get_axis_primary_color(axis);
+    let color = map_color(color, *item_state);
+    let self_active = item_state.active;
+    let visible = !axis_state.has_any_active() || self_active;
+    let color = map_color(color, *item_state);
+
+    w.unlit_mat_writer
+      .write::<UnlitMaterialColorComponent>(*material, color.expand_with_one());
+    w.node_writer
+      .write::<SceneNodeVisibleComponent>(*node, visible);
+  });
 }
 
 struct DragStartState {

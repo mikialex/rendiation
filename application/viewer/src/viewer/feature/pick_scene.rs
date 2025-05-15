@@ -2,43 +2,24 @@ use crate::*;
 
 pub struct PickSceneBlocked;
 
-pub struct PickScene {
-  pub enable_hit_debug_log: bool,
-  pub prefer_gpu_pick: bool,
-  pub gpu_pick_future: Option<Box<dyn Future<Output = Option<u32>> + Unpin>>,
-}
+pub fn use_pick_scene(cx: &mut ViewerCx) {
+  let enable_hit_debug_log = false;
+  let prefer_gpu_pick = true;
 
-impl PickScene {
-  fn pick_impl_cpu(
-    &mut self,
-    derive: &Viewer3dSceneDerive,
-    scene: EntityHandle<SceneEntity>,
-    picker: &Interaction3dCtx,
-  ) -> Option<EntityHandle<SceneModelEntity>> {
-    let sms = &derive.sm_to_s;
-    let mut main_scene_models = sms.access_multi(&scene).unwrap();
-    let hit = picker
-      .picker
-      .pick_models_nearest(&mut main_scene_models, picker.mouse_world_ray);
-    drop(main_scene_models);
+  let (cx, gpu_pick_future) =
+    cx.use_plain_state::<Option<Box<dyn Future<Output = Option<u32>> + Unpin>>>();
 
-    if let Some(hit) = hit {
-      if self.enable_hit_debug_log {
-        dbg!(hit);
-      }
-      hit.1.into()
-    } else {
-      None
-    }
-  }
-}
-
-impl Widget for PickScene {
-  fn update_state(&mut self, cx: &mut DynCx) {
-    if let Some(f) = &mut self.gpu_pick_future {
+  if let ViewerCxStage::EventHandling {
+    interaction,
+    input,
+    derived,
+    ..
+  } = &mut cx.stage
+  {
+    if let Some(f) = gpu_pick_future {
       noop_ctx!(ctx);
       if let Poll::Ready(r) = f.poll_unpin(ctx) {
-        if self.enable_hit_debug_log {
+        if enable_hit_debug_log {
           println!("gpu pick resolved {:?}", r);
         }
 
@@ -49,37 +30,34 @@ impl Widget for PickScene {
               .entity_reader()
               .reconstruct_handle_by_idx(hit_entity_idx as usize);
 
-            access_cx_mut!(cx, viewer_scene, Viewer3dSceneCtx);
-            viewer_scene.selected_target = hit;
+            cx.viewer.scene.selected_target = hit;
           }
         }
 
-        self.gpu_pick_future = None;
+        *gpu_pick_future = None;
       }
     }
 
-    if cx.message.take::<PickSceneBlocked>().is_some() {
+    if cx.dyn_cx.message.take::<PickSceneBlocked>().is_some() {
       return;
     }
-    access_cx!(cx, input, PlatformEventInput);
+
     if !input.state_delta.is_left_mouse_pressing() {
       return;
     }
-    access_cx!(cx, viewer_scene, Viewer3dSceneCtx);
-    let scene = viewer_scene.scene;
 
-    access_cx!(cx, picker, Interaction3dCtx);
-    let normalized_mouse_position = picker.normalized_mouse_position;
+    let scene = cx.viewer.scene.scene;
+
+    let normalized_mouse_position = interaction.normalized_mouse_position;
 
     let mut hit = None;
     let mut fallback_to_cpu = false;
-    if self.prefer_gpu_pick && self.gpu_pick_future.is_none() {
-      access_cx_mut!(cx, renderer, Viewer3dRenderingCtx);
-      if let Some(render_size) = renderer.picker.last_id_buffer_size() {
+    if prefer_gpu_pick && gpu_pick_future.is_none() {
+      if let Some(render_size) = cx.viewer.rendering.picker.last_id_buffer_size() {
         let point = normalized_mouse_position * Vec2::from(render_size.into_f32());
         let point = point.map(|v| v.floor() as usize);
-        if let Some(f) = renderer.picker.pick_point_at((point.x, point.y)) {
-          self.gpu_pick_future = Some(f);
+        if let Some(f) = cx.viewer.rendering.picker.pick_point_at((point.x, point.y)) {
+          *gpu_pick_future = Some(f);
         }
       } else {
         fallback_to_cpu = true;
@@ -87,16 +65,25 @@ impl Widget for PickScene {
     } else {
       fallback_to_cpu = true;
     }
+
     if fallback_to_cpu {
-      access_cx!(cx, picker, Interaction3dCtx);
-      access_cx!(cx, derive, Viewer3dSceneDerive);
-      hit = self.pick_impl_cpu(derive, scene, picker);
+      let sms = &derived.sm_to_s;
+      let mut main_scene_models = sms.access_multi(&scene).unwrap();
+      let _hit = interaction
+        .picker
+        .pick_models_nearest(&mut main_scene_models, interaction.mouse_world_ray);
+      drop(main_scene_models);
+
+      hit = if let Some(hit) = _hit {
+        if enable_hit_debug_log {
+          dbg!(hit);
+        }
+        hit.1.into()
+      } else {
+        None
+      }
     }
 
-    access_cx_mut!(cx, viewer_scene, Viewer3dSceneCtx);
-    viewer_scene.selected_target = hit;
+    cx.viewer.scene.selected_target = hit;
   }
-
-  fn update_view(&mut self, _cx: &mut DynCx) {}
-  fn clean_up(&mut self, _cx: &mut DynCx) {}
 }

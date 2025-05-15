@@ -1,17 +1,19 @@
 use crate::*;
 
-pub fn translation_gizmo_view(
-  parent: EntityHandle<SceneNodeEntity>,
-  v: &mut SceneWriter,
-) -> impl Widget {
-  WidgetGroup::default()
-    .with_child(arrow(v, AxisType::X, parent))
-    .with_child(arrow(v, AxisType::Y, parent))
-    .with_child(arrow(v, AxisType::Z, parent))
-    .with_child(plane(v, AxisType::X, parent))
-    .with_child(plane(v, AxisType::Y, parent))
-    .with_child(plane(v, AxisType::Z, parent))
-    .with_state_post_update(|cx| {
+pub fn use_translation_gizmo(cx: &mut UI3dCx) {
+  use_inject_cx::<AxisActiveState>(cx, |cx| {
+    use_provide_arrow_mesh_init(cx, |cx| {
+      use_arrow_model(cx, AxisType::X);
+      use_arrow_model(cx, AxisType::Y);
+      use_arrow_model(cx, AxisType::Z);
+    });
+    use_provide_plane_mesh_init(cx, |cx| {
+      use_plane_model(cx, AxisType::X);
+      use_plane_model(cx, AxisType::Y);
+      use_plane_model(cx, AxisType::Z);
+    });
+
+    cx.on_event(|_, _, cx| {
       if cx.message.get::<GizmoOutControl>().is_some() {
         access_cx_mut!(cx, axis, AxisActiveState);
         *axis = AxisActiveState::default()
@@ -31,83 +33,61 @@ pub fn translation_gizmo_view(
           }
         }
       }
-    })
-    .with_local_state_inject(AxisActiveState::default())
+    });
+  })
 }
 
-fn arrow(
-  v: &mut SceneWriter,
-  axis: AxisType,
-  parent: EntityHandle<SceneNodeEntity>,
-) -> impl Widget {
-  UIWidgetModel::new(v, ArrowShape::default().build())
-    .with_parent(v, parent)
-    .with_on_mouse_down(start_drag)
-    .with_on_mouse_hovering(hovering)
-    .with_on_mouse_out(stop_hovering)
-    .into_view_independent(axis.mat())
-    .with_view_update(update_per_axis_model(axis))
-    .with_state_pick(axis_lens(axis))
+fn use_provide_arrow_mesh_init(cx: &mut UI3dCx, f: impl FnOnce(&mut UI3dCx)) {
+  fn create_arrow_mesh(cx: &mut UI3dBuildCx) -> AttributesMeshEntities {
+    cx.writer
+      .write_attribute_mesh(ArrowShape::default().build().build())
+  }
+  use_state_cx_in_mounting(cx, create_arrow_mesh, f)
 }
 
-fn plane(
-  v: &mut SceneWriter,
-  axis: AxisType,
-  parent: EntityHandle<SceneNodeEntity>,
-) -> impl Widget {
-  let mesh = build_attributes_mesh(|builder| {
+fn use_arrow_model(cx: &mut UI3dCx, axis: AxisType) {
+  state_pick(cx, axis_lens(axis), |cx| {
+    use_axis_interactive_model(cx, axis, AxisType::mat)
+  })
+}
+
+fn use_provide_plane_mesh_init(cx: &mut UI3dCx, f: impl FnOnce(&mut UI3dCx)) {
+  let create_plane_mesh = build_attributes_mesh_by(|builder| {
     builder.triangulate_parametric(
       &ParametricPlane.transform3d_by(Mat4::translate((-0.5, -0.5, 0.))),
       TessellationConfig { u: 1, v: 1 },
       true,
     );
   });
-
-  let plane_scale = Mat4::scale(Vec3::splat(0.4));
-  let plane_move = Vec3::splat(1.3);
-  let degree_90 = f32::PI() / 2.;
-
-  let move_dir = Vec3::one() - axis.dir();
-  let move_mat = Mat4::translate(move_dir * plane_move);
-  let rotate = match axis {
-    AxisType::X => Mat4::rotate_y(degree_90),
-    AxisType::Y => Mat4::rotate_x(-degree_90),
-    AxisType::Z => Mat4::identity(),
-  };
-  let mat = move_mat * rotate * plane_scale;
-
-  plane_state_len(
-    axis,
-    UIWidgetModel::new(v, mesh)
-      .with_parent(v, parent)
-      .with_on_mouse_down(start_drag)
-      .with_on_mouse_hovering(hovering)
-      .with_on_mouse_out(stop_hovering)
-      .into_view_independent(mat)
-      .with_view_update(update_per_axis_model(axis)),
-  )
+  use_state_cx_in_mounting(cx, create_plane_mesh, f)
 }
 
-struct PlaneStateLens<T> {
-  inner: T,
-  axis: AxisType,
-}
-
-fn plane_state_len(axis: AxisType, inner: impl Widget) -> PlaneStateLens<impl Widget> {
-  PlaneStateLens { inner, axis }
-}
-
-fn plane_state_len_impl(axis: AxisType, f: impl FnOnce(&mut DynCx), cx: &mut DynCx) {
-  access_cx!(cx, gizmo, AxisActiveState);
+fn use_plane_model(cx: &mut UI3dCx, axis: AxisType) {
+  access_cx!(cx.dyn_cx, gizmo, AxisActiveState);
   let (a, b) = gizmo.get_rest_axis(axis);
   let mut axis_state = ItemState {
     hovering: a.hovering && b.hovering,
     active: a.active && b.active,
   };
 
-  cx.scoped_cx(&mut axis_state, f);
+  inject_cx(cx, &mut axis_state, |cx| {
+    use_axis_interactive_model(cx, axis, |axis| {
+      let plane_scale = Mat4::scale(Vec3::splat(0.4));
+      let plane_move = Vec3::splat(1.3);
+      let degree_90 = f32::PI() / 2.;
 
-  access_cx_mut!(cx, gizmo, AxisActiveState);
+      let move_dir = Vec3::one() - axis.dir();
+      let move_mat = Mat4::translate(move_dir * plane_move);
+      let rotate = match axis {
+        AxisType::X => Mat4::rotate_y(degree_90),
+        AxisType::Y => Mat4::rotate_x(-degree_90),
+        AxisType::Z => Mat4::identity(),
+      };
+      move_mat * rotate * plane_scale
+    });
+  });
+
+  access_cx_mut!(cx.dyn_cx, gizmo, AxisActiveState);
   let (a, b) = gizmo.get_rest_axis_mut(axis);
   // if the hovering state is not decided by one axis, then we override it
   // i think there is a better way to express this
@@ -117,20 +97,6 @@ fn plane_state_len_impl(axis: AxisType, f: impl FnOnce(&mut DynCx), cx: &mut Dyn
   }
   a.active |= axis_state.active; // the active will be correctly reset by stop dragging
   b.active |= axis_state.active;
-}
-
-impl<T: Widget> Widget for PlaneStateLens<T> {
-  fn update_state(&mut self, cx: &mut DynCx) {
-    plane_state_len_impl(self.axis, move |cx| self.inner.update_state(cx), cx);
-  }
-
-  fn update_view(&mut self, cx: &mut DynCx) {
-    plane_state_len_impl(self.axis, move |cx| self.inner.update_view(cx), cx);
-  }
-
-  fn clean_up(&mut self, cx: &mut DynCx) {
-    self.inner.clean_up(cx);
-  }
 }
 
 fn handle_translating(

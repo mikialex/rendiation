@@ -1,19 +1,20 @@
 use crate::*;
 
-pub fn rotation_gizmo_view(
-  parent: EntityHandle<SceneNodeEntity>,
-  v: &mut SceneWriter,
-) -> impl Widget {
-  let mut rotate_state = Option::<RotateState>::default();
-  WidgetGroup::default()
-    .with_child(build_rotator(v, AxisType::X, parent))
-    .with_child(build_rotator(v, AxisType::Y, parent))
-    .with_child(build_rotator(v, AxisType::Z, parent))
-    .with_state_post_update(move |cx| {
+pub fn use_rotation_gizmo(cx: &mut UI3dCx) {
+  use_inject_cx::<AxisActiveState>(cx, |cx| {
+    let (cx, rotate_state) = cx.use_plain_state::<Option<RotateState>>();
+
+    use_provide_rotator_mesh_init(cx, |cx| {
+      use_rotator_model(cx, AxisType::X);
+      use_rotator_model(cx, AxisType::Y);
+      use_rotator_model(cx, AxisType::Z);
+    });
+
+    cx.on_event(|_, _, cx| {
       if cx.message.get::<GizmoOutControl>().is_some() {
         access_cx_mut!(cx, axis, AxisActiveState);
         *axis = AxisActiveState::default();
-        rotate_state = None;
+        *rotate_state = None;
       }
 
       if let Some(drag_action) = cx.message.get::<DragTargetAction>() {
@@ -24,29 +25,20 @@ pub fn rotation_gizmo_view(
         if let Some(start_states) = start_states {
           if let Some(target) = target {
             debug_print("handle rotation");
-            if let Some(action) = handle_rotating(
-              start_states,
-              target,
-              &mut rotate_state,
-              rotate_view,
-              drag_action,
-            ) {
+            if let Some(action) =
+              handle_rotating(start_states, target, rotate_state, rotate_view, drag_action)
+            {
               cx.message.put(GizmoUpdateTargetLocal(action))
             }
           }
         }
       }
-    })
-    .with_local_state_inject(AxisActiveState::default())
-    .with_local_state_inject(Option::<RotateState>::default())
+    });
+  })
 }
 
-pub fn build_rotator(
-  v: &mut SceneWriter,
-  axis: AxisType,
-  parent: EntityHandle<SceneNodeEntity>,
-) -> impl Widget {
-  let mesh = build_attributes_mesh(|builder| {
+fn use_provide_rotator_mesh_init(cx: &mut UI3dCx, f: impl FnOnce(&mut UI3dCx)) {
+  let create_rotator_mesh = build_attributes_mesh_by(|builder| {
     builder.triangulate_parametric(
       &TorusMeshParameter {
         radius: 1.5,
@@ -57,22 +49,20 @@ pub fn build_rotator(
       true,
     );
   });
+  use_state_cx_in_mounting(cx, create_rotator_mesh, f)
+}
 
-  let degree_90 = f32::PI() / 2.;
-  let mat = match axis {
-    AxisType::X => Mat4::rotate_y(degree_90),
-    AxisType::Y => Mat4::rotate_x(degree_90),
-    AxisType::Z => Mat4::identity(),
-  };
-
-  UIWidgetModel::new(v, mesh)
-    .with_parent(v, parent)
-    .with_on_mouse_down(start_drag)
-    .with_on_mouse_hovering(hovering)
-    .with_on_mouse_out(stop_hovering)
-    .into_view_independent(mat)
-    .with_view_update(update_per_axis_model(axis))
-    .with_state_pick(axis_lens(axis))
+fn use_rotator_model(cx: &mut UI3dCx, axis: AxisType) {
+  state_pick(cx, axis_lens(axis), |cx| {
+    use_axis_interactive_model(cx, axis, |axis| {
+      let degree_90 = f32::PI() / 2.;
+      match axis {
+        AxisType::X => Mat4::rotate_y(degree_90),
+        AxisType::Y => Mat4::rotate_x(degree_90),
+        AxisType::Z => Mat4::identity(),
+      }
+    })
+  })
 }
 
 struct RotateState {

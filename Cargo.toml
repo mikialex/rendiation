@@ -17,7 +17,7 @@ members = [
   "utility/database",
   "utility/heap-tools",
   "utility/interning",
-  "utility/widget",
+  "utility/hook",
   "utility/fast-hash-collection",
   "utility/reuse-pool",
   "content/animation",
@@ -87,6 +87,7 @@ serde = { version = "1", features = ["derive", "rc"] }
 facet = "0.9.6"
 rayon = "1.7.0"
 bitflags = "2.2"
+bumpalo = "3.17.0"
 bytemuck = { version = "1.4.1", features = ["derive"] }
 dyn-clone = "1.0.5"
 dashmap = { version = "5.5.3", features = ["rayon"] }

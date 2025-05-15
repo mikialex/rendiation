@@ -11,32 +11,27 @@ pub struct SceneOrbitCameraControl {
 
 pub struct CameraControlBlocked;
 
-impl Widget for SceneOrbitCameraControl {
-  fn update_state(&mut self, cx: &mut DynCx) {
-    let pause = cx.message.take::<CameraControlBlocked>().is_some();
+pub fn use_camera_orbit_control(cx: &mut ViewerCx) {
+  let (cx, controller) = cx.use_plain_state::<ControllerWinitAdapter<OrbitController>>();
 
-    access_cx!(cx, p, PlatformEventInput);
+  match &mut cx.stage {
+    ViewerCxStage::EventHandling { input, .. } => {
+      let pause = cx.dyn_cx.message.take::<CameraControlBlocked>().is_some();
 
-    let bound = InputBound {
-      origin: Vec2::zero(),
-      size: p.window_state.physical_size.into(),
-    };
+      let bound = InputBound {
+        origin: Vec2::zero(),
+        size: input.window_state.physical_size.into(),
+      };
 
-    for e in &p.accumulate_events {
-      self.controller.event(e, bound, pause);
+      for e in &input.accumulate_events {
+        controller.event(e, bound, pause);
+      }
+    }
+    ViewerCxStage::SceneContentUpdate { writer } => {
+      let controllee = cx.viewer.scene.camera_node;
+      controller.update(&mut ControlleeWrapper { controllee, writer });
     }
   }
-
-  fn update_view(&mut self, cx: &mut DynCx) {
-    access_cx!(cx, scene_cx, Viewer3dSceneCtx);
-    let controllee = scene_cx.camera_node;
-    access_cx_mut!(cx, writer, SceneWriter);
-
-    self
-      .controller
-      .update(&mut ControlleeWrapper { controllee, writer });
-  }
-  fn clean_up(&mut self, _: &mut DynCx) {}
 }
 
 struct ControlleeWrapper<'a> {

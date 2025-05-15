@@ -56,11 +56,18 @@ impl Default for Terminal {
   }
 }
 
-type TerminalCommandCb =
-  Box<dyn Fn(&mut DynCx, &Vec<String>) -> Box<dyn Future<Output = ()> + Send + Unpin>>;
+type TerminalCommandCb = Box<
+  dyn Fn(&mut TerminalInitExecuteCx, &Vec<String>) -> Box<dyn Future<Output = ()> + Send + Unpin>,
+>;
+
+pub struct TerminalInitExecuteCx<'a> {
+  pub derive: &'a Viewer3dSceneDeriveSource,
+  pub scene: &'a Viewer3dSceneCtx,
+  pub renderer: &'a mut Viewer3dRenderingCtx,
+}
 
 impl Terminal {
-  pub fn egui(&mut self, ui: &mut egui::Ui, cx: &mut DynCx) {
+  pub fn egui(&mut self, ui: &mut egui::Ui, cx: &mut TerminalInitExecuteCx) {
     let console_response = self.console.ui(ui);
     if let Some(command) = console_response {
       self.execute_current(command, cx);
@@ -75,7 +82,7 @@ impl Terminal {
   pub fn register_command<F, FR>(&mut self, name: impl AsRef<str>, f: F) -> &mut Self
   where
     FR: Future<Output = ()> + Send + 'static,
-    F: Fn(&mut DynCx, &Vec<String>, &TerminalCtx) -> FR + 'static,
+    F: Fn(&mut TerminalInitExecuteCx, &Vec<String>, &TerminalCtx) -> FR + 'static,
   {
     let cx = self.ctx.clone();
     self.command_registry.insert(
@@ -87,7 +94,7 @@ impl Terminal {
 
   pub fn register_sync_command<F>(&mut self, name: impl AsRef<str>, f: F) -> &mut Self
   where
-    F: Fn(&mut DynCx, &Vec<String>) + 'static + Send + Sync,
+    F: Fn(&mut TerminalInitExecuteCx, &Vec<String>) + 'static + Send + Sync,
   {
     self.register_command(name, move |c, p, _| {
       f(c, p);
@@ -96,7 +103,7 @@ impl Terminal {
     self
   }
 
-  pub fn execute_current(&mut self, command: String, ctx: &mut DynCx) {
+  pub fn execute_current(&mut self, command: String, ctx: &mut TerminalInitExecuteCx) {
     let parameters: Vec<String> = command
       .split_ascii_whitespace()
       .map(|s| s.to_owned())
@@ -118,8 +125,7 @@ impl Terminal {
 pub fn register_default_commands(terminal: &mut Terminal) {
   // this mainly to do test
   terminal.register_sync_command("clear-gpu-resource-cache", |ctx, _parameters| {
-    access_cx!(ctx, gpu, GPU);
-
+    let gpu = ctx.renderer.gpu();
     println!(
       "current gpu resource cache details: {:?}",
       gpu.create_cache_report()
@@ -128,9 +134,8 @@ pub fn register_default_commands(terminal: &mut Terminal) {
   });
 
   terminal.register_command("load-gltf", |ctx, _parameters, tcx| {
-    access_cx!(ctx, scene_cx, Viewer3dSceneCtx);
-    let load_target_node = scene_cx.root;
-    let load_target_scene = scene_cx.scene;
+    let load_target_node = ctx.scene.root;
+    let load_target_scene = ctx.scene.scene;
     let tcx = tcx.clone();
 
     async move {
@@ -165,9 +170,8 @@ pub fn register_default_commands(terminal: &mut Terminal) {
   });
 
   terminal.register_command("load-obj", |ctx, _parameters, tcx| {
-    access_cx!(ctx, scene_cx, Viewer3dSceneCtx);
-    let load_target_node = scene_cx.root;
-    let load_target_scene = scene_cx.scene;
+    let load_target_node = ctx.scene.root;
+    let load_target_scene = ctx.scene.scene;
     let tcx = tcx.clone();
 
     async move {
@@ -198,15 +202,13 @@ pub fn register_default_commands(terminal: &mut Terminal) {
   });
 
   terminal.register_command("export-gltf", |ctx, _parameters, tcx| {
-    access_cx!(ctx, scene_cx, Viewer3dSceneCtx);
-    access_cx!(ctx, derive_source, Viewer3dSceneDeriveSource);
-    let derive_update = derive_source.poll_update();
+    let derive_update = ctx.derive.poll_update();
     let node_children = derive_update.node_children;
     let mesh_ref_vertex = derive_update.mesh_vertex_ref;
     let sm_ref_s = derive_update.sm_to_s;
 
-    let export_root_node = scene_cx.root;
-    let export_scene = scene_cx.scene;
+    let export_root_node = ctx.scene.root;
+    let export_scene = ctx.scene.scene;
 
     let tcx = tcx.clone();
 
@@ -235,8 +237,7 @@ pub fn register_default_commands(terminal: &mut Terminal) {
   });
 
   terminal.register_command("screenshot", |ctx, _parameters, _| {
-    access_cx_mut!(ctx, r, Viewer3dRenderingCtx);
-    let result = r.read_next_render_result();
+    let result = ctx.renderer.read_next_render_result();
 
     async {
       match result.await {
@@ -254,21 +255,19 @@ pub fn register_default_commands(terminal: &mut Terminal) {
   });
 
   terminal.register_sync_command("fit-camera-view", |ctx, _parameters| {
-    access_cx!(ctx, scene_cx, Viewer3dSceneCtx);
-    access_cx!(ctx, derived, Viewer3dSceneDeriveSource);
-    let derived = derived.poll_update();
-    if let Some(selected) = &scene_cx.selected_target {
-      let camera_world = derived.world_mat.access(&scene_cx.camera_node).unwrap();
+    let derived = ctx.derive.poll_update();
+    if let Some(selected) = &ctx.scene.selected_target {
+      let camera_world = derived.world_mat.access(&ctx.scene.camera_node).unwrap();
       let camera_reader = global_entity_component_of::<SceneCameraPerspective>().read();
 
       let target_world_aabb = derived.sm_world_bounding.access(selected).unwrap();
-      let proj = camera_reader.get(scene_cx.main_camera).unwrap().unwrap();
+      let proj = camera_reader.get(ctx.scene.main_camera).unwrap().unwrap();
 
       let camera_world = fit_camera_view(&proj, camera_world, target_world_aabb);
       // todo fix camera has parent mat
       global_entity_component_of::<SceneNodeLocalMatrixComponent>()
         .write()
-        .write(scene_cx.camera_node, camera_world);
+        .write(ctx.scene.camera_node, camera_world);
     }
   });
 
