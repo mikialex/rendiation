@@ -17,7 +17,7 @@ members = [
   "utility/database",
   "utility/heap-tools",
   "utility/interning",
-  "utility/widget",
+  "utility/hook",
   "utility/fast-hash-collection",
   "utility/reuse-pool",
   "content/animation",

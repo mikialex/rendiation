@@ -1825,6 +1825,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hook"
+version = "0.0.1"
+dependencies = [
+ "bumpalo",
+ "fast-hash-collection",
+ "smallvec",
+]
+
+[[package]]
 name = "humantime"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3548,9 +3557,9 @@ dependencies = [
 name = "rendiation-gui-3d"
 version = "0.1.0"
 dependencies = [
- "bumpalo",
  "database",
  "fast-hash-collection",
+ "hook",
  "reactive",
  "rendiation-algebra",
  "rendiation-geometry",
@@ -3562,7 +3571,6 @@ dependencies = [
  "rendiation-state-override",
  "rendiation-view-override-model",
  "rendiation-wide-line",
- "widget",
 ]
 
 [[package]]
@@ -5461,14 +5469,6 @@ dependencies = [
  "log",
  "serde",
  "web-sys",
-]
-
-[[package]]
-name = "widget"
-version = "0.0.1"
-dependencies = [
- "fast-hash-collection",
- "smallvec",
 ]
 
 [[package]]
