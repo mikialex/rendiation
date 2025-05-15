@@ -5,13 +5,39 @@ use rendiation_mesh_core::{AttributeSemantic, AttributesMeshData};
 
 use crate::*;
 
+pub fn use_scene_camera_helper(cx: &mut ViewerCx) {
+  let (cx, helpers) = cx.use_state_init(|cx| {
+    SceneCameraHelper::new(cx.scene.scene, cx.derive.camera_transforms.clone())
+  });
+
+  match &mut cx.stage {
+    ViewerCxStage::EventHandling { .. } => {
+      noop_ctx!(ccx);
+      helpers.prepare_update(ccx);
+    }
+    ViewerCxStage::SceneContentUpdate { writer } => {
+      helpers.apply_updates(
+        writer,
+        cx.viewer.scene.widget_scene,
+        cx.viewer.scene.main_camera,
+      );
+    }
+  }
+}
+
 /// query all camera in scene and maintain the helper models in scene
-pub struct SceneCameraHelper {
+struct SceneCameraHelper {
   helper_models: FastHashMap<EntityHandle<SceneCameraEntity>, UIWidgetModel>,
   camera_changes: BoxedDynReactiveQuery<EntityHandle<SceneCameraEntity>, Mat4<f32>>,
   self_hidden_camera: Option<EntityHandle<SceneCameraEntity>>,
   pending_updates:
     Option<Arc<FastHashMap<EntityHandle<SceneCameraEntity>, ValueChange<Mat4<f32>>>>>,
+}
+
+impl CanCleanUpFrom<ViewerDropCx<'_>> for SceneCameraHelper {
+  fn drop_from_cx(&mut self, cx: &mut ViewerDropCx) {
+    self.do_cleanup(cx.writer);
+  }
 }
 
 impl SceneCameraHelper {

@@ -4,7 +4,22 @@ use rendiation_mesh_generator::*;
 
 use crate::*;
 
-pub struct SceneSpotLightHelper {
+pub fn use_scene_spotlight_helper(cx: &mut ViewerCx) {
+  let (cx, helpers) =
+    cx.use_state_init(|cx| SceneSpotLightHelper::new(cx.scene.scene, cx.derive.world_mat.clone()));
+
+  match &mut cx.stage {
+    ViewerCxStage::EventHandling { .. } => {
+      noop_ctx!(ccx);
+      helpers.prepare_update(ccx);
+    }
+    ViewerCxStage::SceneContentUpdate { writer } => {
+      helpers.apply_updates(writer, cx.viewer.scene.widget_scene);
+    }
+  }
+}
+
+struct SceneSpotLightHelper {
   helper_models: FastHashMap<EntityHandle<SpotLightEntity>, UIWidgetModel>,
 
   world_mat: BoxedDynReactiveQuery<EntityHandle<SpotLightEntity>, Mat4<f32>>,
@@ -14,6 +29,12 @@ pub struct SceneSpotLightHelper {
 
   pending_updates: FastHashMap<EntityHandle<SpotLightEntity>, AttributesMeshData>,
   pending_remove: FastHashSet<EntityHandle<SpotLightEntity>>,
+}
+
+impl CanCleanUpFrom<ViewerDropCx<'_>> for SceneSpotLightHelper {
+  fn drop_from_cx(&mut self, cx: &mut ViewerDropCx) {
+    self.do_cleanup(cx.writer);
+  }
 }
 
 struct FindChangedKey<T> {
@@ -48,7 +69,7 @@ impl<T> FindChangedKey<T> {
 impl SceneSpotLightHelper {
   pub fn new(
     _scene: EntityHandle<SceneEntity>,
-    world_mats: BoxedDynReactiveQuery<EntityHandle<SceneNodeEntity>, Mat4<f32>>,
+    world_mats: RQForker<EntityHandle<SceneNodeEntity>, Mat4<f32>>,
   ) -> Self {
     // let set = global_watch()
     //   .watch::<SpotLightRefScene>()

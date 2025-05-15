@@ -46,6 +46,12 @@ pub struct ViewerDropCx<'a> {
   pub pick_group: &'a mut WidgetSceneModelIntersectionGroupConfig,
 }
 
+pub struct ViewerInitCx<'a> {
+  pub dyn_cx: &'a mut DynCx,
+  pub scene: &'a Viewer3dSceneCtx,
+  pub derive: &'a Viewer3dSceneDeriveSource,
+}
+
 unsafe impl HooksCxLike for ViewerCx<'_> {
   fn memory_mut(&mut self) -> &mut FunctionMemory {
     &mut self.viewer.memory
@@ -68,7 +74,7 @@ impl<'a> ViewerCx<'a> {
 
   pub fn use_plain_state_init<T>(
     &mut self,
-    init: impl FnOnce(&mut DynCx) -> T,
+    init: impl FnOnce(&mut ViewerInitCx) -> T,
   ) -> (&mut Self, &mut T)
   where
     T: Any,
@@ -83,7 +89,10 @@ impl<'a> ViewerCx<'a> {
     (cx, &mut s.0)
   }
 
-  pub fn use_state_init<T>(&mut self, init: impl FnOnce(&mut DynCx) -> T) -> (&mut Self, &mut T)
+  pub fn use_state_init<T>(
+    &mut self,
+    init: impl FnOnce(&mut ViewerInitCx) -> T,
+  ) -> (&mut Self, &mut T)
   where
     T: Any + for<'x> CanCleanUpFrom<ViewerDropCx<'x>>,
   {
@@ -91,7 +100,13 @@ impl<'a> ViewerCx<'a> {
     let s = unsafe { std::mem::transmute_copy(&self) };
 
     let state = self.viewer.memory.expect_state_init(
-      || init(self.dyn_cx),
+      || {
+        init(&mut ViewerInitCx {
+          dyn_cx: self.dyn_cx,
+          scene: &self.viewer.scene,
+          derive: &self.viewer.derives,
+        })
+      },
       |state: &mut T, dcx: &mut ViewerDropCx| unsafe {
         state.drop_from_cx(dcx);
         core::ptr::drop_in_place(state);
@@ -178,14 +193,11 @@ pub fn use_viewer<'a>(acx: &'a mut ApplicationCx, f: impl FnOnce(&mut ViewerCx))
     let size = acx.input.window_state.physical_size;
     let size_changed = acx.input.state_delta.size_change;
 
-    noop_ctx!(ctx);
-    viewer.camera_helpers.prepare_update(ctx);
-    viewer.spot_light_helpers.prepare_update(ctx);
-
     let time = Instant::now()
       .duration_since(viewer.started_time)
       .as_secs_f32();
 
+    noop_ctx!(ctx);
     let mutation = viewer
       .animation_player
       .compute_mutation(ctx, viewer.scene.scene, time);
@@ -193,15 +205,6 @@ pub fn use_viewer<'a>(acx: &'a mut ApplicationCx, f: impl FnOnce(&mut ViewerCx))
     let mut writer = SceneWriter::from_global(viewer.scene.scene);
 
     mutation.apply(&mut writer);
-
-    viewer.camera_helpers.apply_updates(
-      &mut writer,
-      viewer.scene.widget_scene,
-      viewer.scene.main_camera,
-    );
-    viewer
-      .spot_light_helpers
-      .apply_updates(&mut writer, viewer.scene.widget_scene);
 
     if size_changed {
       writer
@@ -243,8 +246,6 @@ pub struct Viewer {
   ui_state: ViewerUIState,
   terminal: Terminal,
   background: ViewerBackgroundState,
-  camera_helpers: SceneCameraHelper,
-  spot_light_helpers: SceneSpotLightHelper,
   animation_player: SceneAnimationsPlayer,
   started_time: Instant,
   memory: FunctionMemory,
@@ -253,8 +254,6 @@ pub struct Viewer {
 impl CanCleanUpFrom<ApplicationDropCx> for Viewer {
   fn drop_from_cx(&mut self, cx: &mut ApplicationDropCx) {
     let mut writer = SceneWriter::from_global(self.scene.scene);
-    self.camera_helpers.do_cleanup(&mut writer);
-    self.spot_light_helpers.do_cleanup(&mut writer);
 
     let mut dcx = ViewerDropCx {
       dyn_cx: cx,
@@ -323,9 +322,9 @@ impl Viewer {
       .into_static_forker();
 
     let derives = Viewer3dSceneDeriveSource {
-      world_mat: Box::new(scene_node_derive_world_mat()),
+      world_mat: scene_node_derive_world_mat().into_boxed().into_forker(),
       node_net_visible: Box::new(scene_node_derive_visible()),
-      camera_transforms: camera_transforms.clone().into_boxed(),
+      camera_transforms: camera_transforms.clone(),
       mesh_vertex_ref: Box::new(
         global_rev_ref()
           .watch_inv_ref::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>(),
@@ -335,18 +334,12 @@ impl Viewer {
       node_children: Box::new(scene_node_connectivity_many_one_relation()),
     };
 
-    let camera_helpers = SceneCameraHelper::new(scene.scene, camera_transforms.clone());
-    let spot_light_helpers =
-      SceneSpotLightHelper::new(scene.scene, scene_node_derive_world_mat().into_boxed());
-
     Self {
       intersection_group: Default::default(),
       // todo, we current disable the on demand draw
       // because we not cache the rendering result yet
       on_demand_rendering: false,
       ui_state: ViewerUIState::default(),
-      camera_helpers,
-      spot_light_helpers,
       scene,
       terminal,
       rendering: Viewer3dRenderingCtx::new(gpu, swap_chain, viewer_ndc, camera_transforms),
@@ -382,9 +375,9 @@ pub struct Viewer3dSceneCtx {
 }
 
 pub struct Viewer3dSceneDeriveSource {
-  pub world_mat: BoxedDynReactiveQuery<EntityHandle<SceneNodeEntity>, Mat4<f32>>,
+  pub world_mat: RQForker<EntityHandle<SceneNodeEntity>, Mat4<f32>>,
   pub node_net_visible: BoxedDynReactiveQuery<EntityHandle<SceneNodeEntity>, bool>,
-  pub camera_transforms: BoxedDynReactiveQuery<EntityHandle<SceneCameraEntity>, CameraTransform>,
+  pub camera_transforms: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
   pub mesh_vertex_ref:
     RevRefOfForeignKeyWatch<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>,
   pub sm_to_s: RevRefOfForeignKeyWatch<SceneModelBelongsToScene>,

@@ -97,5 +97,7 @@ fn main() {
     use_viewer_gizmo(cx);
     use_camera_orbit_control(cx);
     use_pick_scene(cx);
+    use_scene_camera_helper(cx);
+    use_scene_spotlight_helper(cx);
   });
 }
