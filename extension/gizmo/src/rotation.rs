@@ -11,6 +11,12 @@ pub fn use_rotation_gizmo(cx: &mut UI3dCx) {
     });
 
     cx.on_event(|_, _, cx| {
+      if cx.message.get::<GizmoOutControl>().is_some() {
+        access_cx_mut!(cx, axis, AxisActiveState);
+        *axis = AxisActiveState::default();
+        *rotate_state = None;
+      }
+
       if let Some(drag_action) = cx.message.get::<DragTargetAction>() {
         access_cx!(cx, target, Option::<GizmoControlTargetState>);
         access_cx!(cx, rotate_view, AxisActiveState);

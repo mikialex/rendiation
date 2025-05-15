@@ -20,6 +20,9 @@ pub use animation_player::*;
 mod background;
 pub use background::*;
 
+mod widget_bridge;
+pub use widget_bridge::*;
+
 mod test_content;
 pub use test_content::*;
 

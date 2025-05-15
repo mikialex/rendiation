@@ -25,52 +25,53 @@ fn debug_print(msg: &str) {
 pub fn use_gizmo(cx: &mut UI3dCx) {
   use_inject_cx::<GlobalUIStyle>(cx, |cx| {
     use_inject_cx::<Option<DragStartState>>(cx, |cx| {
-      let (cx, root) = cx.use_node_entity();
-      let auto_scale = ViewAutoScalable {
-        independent_scale_factor: 50.,
-      };
+      use_group(cx, |cx, root| {
+        let auto_scale = ViewAutoScalable {
+          independent_scale_factor: 50.,
+        };
 
-      use_view_dependent_root(cx, root, auto_scale, |cx| {
-        use_translation_gizmo(cx);
-        use_rotation_gizmo(cx);
-      });
+        cx.on_event(|cx, _, dcx| {
+          access_cx!(dcx, start_states, Option::<DragStartState>);
+          if start_states.is_some() && cx.platform_event.state_delta.mouse_position_change {
+            let action = DragTargetAction {
+              camera_world: cx.widget_env.get_camera_world_mat(),
+              camera_projection: cx.widget_env.get_camera_proj_mat(),
+              world_ray: cx.widget_env.get_camera_world_ray(),
+              normalized_screen_position: cx.widget_env.get_normalized_canvas_position(),
+            };
+            dcx.message.put(action);
+            debug_print("dragging");
+          }
 
-      cx.on_event(|cx, _, dcx| {
-        access_cx!(dcx, start_states, Option::<DragStartState>);
-        if start_states.is_some() && cx.platform_event.state_delta.mouse_position_change {
-          let action = DragTargetAction {
-            camera_world: cx.widget_env.get_camera_world_mat(),
-            camera_projection: cx.widget_env.get_camera_proj_mat(),
-            world_ray: cx.widget_env.get_camera_world_ray(),
-            normalized_screen_position: cx.widget_env.get_normalized_canvas_position(),
-          };
-          dcx.message.put(action);
-          debug_print("dragging");
-        }
+          if cx.platform_event.state_delta.is_left_mouse_releasing() {
+            access_cx_mut!(dcx, start_states, Option::<DragStartState>);
+            debug_print("stop drag");
+            *start_states = None;
+            dcx.message.put(GizmoOutControl);
+          }
+        });
 
-        if cx.platform_event.state_delta.is_left_mouse_releasing() {
-          access_cx_mut!(dcx, start_states, Option::<DragStartState>);
-          debug_print("stop drag");
-          *start_states = None;
-          dcx.message.put(GizmoOutControl);
-        }
-      });
+        use_view_dependent_root(cx, &root, auto_scale, |cx| {
+          use_translation_gizmo(cx);
+          use_rotation_gizmo(cx);
+        });
 
-      cx.on_update(|w, cx| {
-        access_cx!(cx, target, Option::<GizmoControlTargetState>);
-        let visible = target.is_some();
-        let mat = target
-          .map(|v| v.target_world_mat)
-          .unwrap_or(Mat4::identity());
+        cx.on_update(|w, cx| {
+          access_cx!(cx, target, Option::<GizmoControlTargetState>);
+          let visible = target.is_some();
+          let mat = target
+            .map(|v| v.target_world_mat)
+            .unwrap_or(Mat4::identity());
 
-        w.node_writer
-          .write::<SceneNodeVisibleComponent>(*root, visible);
-        let (t, r, _s) = mat.decompose();
-        let mat_with_out_scale = Mat4::translate(t) * Mat4::from(r);
-        // assuming our parent world mat is identity
+          w.node_writer
+            .write::<SceneNodeVisibleComponent>(root, visible);
+          let (t, r, _s) = mat.decompose();
+          let mat_with_out_scale = Mat4::translate(t) * Mat4::from(r);
+          // assuming our parent world mat is identity
 
-        w.node_writer
-          .write::<SceneNodeLocalMatrixComponent>(*root, mat_with_out_scale);
+          w.node_writer
+            .write::<SceneNodeLocalMatrixComponent>(root, mat_with_out_scale);
+        });
       });
     });
   });
