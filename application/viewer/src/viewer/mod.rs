@@ -44,8 +44,11 @@ pub struct ViewerDropCx<'a> {
 }
 
 unsafe impl HooksCxLike for ViewerCx<'_> {
-  fn memory(&mut self) -> &mut FunctionMemory {
+  fn memory_mut(&mut self) -> &mut FunctionMemory {
     &mut self.viewer.memory
+  }
+  fn memory_ref(&self) -> &FunctionMemory {
+    &self.viewer.memory
   }
   fn flush(&mut self) {
     self.viewer.memory.flush(self.dyn_cx as *mut _ as *mut ())
@@ -82,7 +85,7 @@ impl<'a> ViewerCx<'a> {
     T: Any + for<'x> CanCleanUpFrom<ViewerDropCx<'x>>,
   {
     // this is safe because user can not access previous retrieved state through returned self.
-    let s = unsafe { std::mem::transmute_copy(self) };
+    let s = unsafe { std::mem::transmute_copy(&self) };
 
     let state = self.viewer.memory.expect_state_init(
       || init(self.dyn_cx),
@@ -110,7 +113,7 @@ pub enum ViewerCxStage<'a> {
 }
 
 #[track_caller]
-pub fn use_viewer(acx: &mut ApplicationCx, f: impl FnOnce(&mut ViewerCx)) {
+pub fn use_viewer<'a>(acx: &'a mut ApplicationCx, f: impl FnOnce(&mut ViewerCx)) -> &'a mut Viewer {
   let (acx, viewer) = acx.use_plain_state_init(|| {
     Viewer::new(
       acx.gpu_and_surface.gpu.clone(),
@@ -216,12 +219,15 @@ pub fn use_viewer(acx: &mut ApplicationCx, f: impl FnOnce(&mut ViewerCx)) {
     }
     .execute(|viewer| f(viewer));
 
+    drop(writer);
+
     if let Some(canvas) = &acx.draw_target_canvas {
       let derived = viewer.derives.poll_update();
       viewer.draw_canvas(canvas, &derived);
       viewer.rendering.tick_frame();
     }
   }
+  viewer
 }
 
 pub struct Viewer {

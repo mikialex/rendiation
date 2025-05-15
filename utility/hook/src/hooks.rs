@@ -8,24 +8,29 @@ use fast_hash_collection::FastHashMap;
 
 #[allow(clippy::missing_safety_doc)]
 pub unsafe trait HooksCxLike {
-  fn memory(&mut self) -> &mut FunctionMemory;
+  fn memory_mut(&mut self) -> &mut FunctionMemory;
+  fn memory_ref(&self) -> &FunctionMemory;
   fn flush(&mut self);
 
+  fn is_creating(&self) -> bool {
+    !self.memory_ref().created
+  }
+
   fn execute(&mut self, f: impl FnOnce(&mut Self)) {
-    self.memory().reset_cursor();
+    self.memory_mut().reset_cursor();
     f(self);
-    self.memory().created = false;
+    self.memory_mut().created = true;
     self.flush();
   }
 
   #[track_caller]
   fn raw_scope(&mut self, f: impl FnOnce(&mut Self)) {
-    let sub_memory = self.memory().sub_function() as *mut _;
+    let sub_memory = self.memory_mut().sub_function() as *mut _;
 
     unsafe {
-      core::ptr::swap(self.memory(), sub_memory);
+      core::ptr::swap(self.memory_mut(), sub_memory);
       f(self);
-      core::ptr::swap(self.memory(), sub_memory);
+      core::ptr::swap(self.memory_mut(), sub_memory);
     };
   }
 
@@ -57,7 +62,7 @@ struct FunctionMemoryState {
 
 #[derive(Default)]
 pub struct FunctionMemory {
-  pub created: bool,
+  created: bool,
   states: Bump,
   states_meta: Vec<FunctionMemoryState>,
   current_cursor: usize,

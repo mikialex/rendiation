@@ -99,7 +99,7 @@ impl<'a> ApplicationCx<'a> {
     T: Any,
   {
     // this is safe because user can not access previous retrieved state through returned self.
-    let s = unsafe { std::mem::transmute_copy(self) };
+    let s = unsafe { std::mem::transmute_copy(&self) };
 
     let state =
       self
@@ -113,7 +113,10 @@ impl<'a> ApplicationCx<'a> {
 }
 
 unsafe impl HooksCxLike for ApplicationCx<'_> {
-  fn memory(&mut self) -> &mut FunctionMemory {
+  fn memory_mut(&mut self) -> &mut FunctionMemory {
+    self.memory
+  }
+  fn memory_ref(&self) -> &FunctionMemory {
     self.memory
   }
   fn flush(&mut self) {
