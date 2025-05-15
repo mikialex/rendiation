@@ -4,13 +4,13 @@ pub use rendiation_view_override_model::*;
 
 use crate::*;
 
-pub trait UI3dState: Any + for<'a> CxStateDrop<UI3dBuildCx<'a>> {
+pub trait UI3dState: Any + for<'a> CanCleanUpFrom<UI3dBuildCx<'a>> {
   fn as_any_mut(&mut self) -> &mut dyn Any;
   fn do_clean_up(&mut self, cx: &mut UI3dBuildCx);
 }
 impl<T> UI3dState for T
 where
-  T: Any + for<'a> CxStateDrop<UI3dBuildCx<'a>>,
+  T: Any + for<'a> CanCleanUpFrom<UI3dBuildCx<'a>>,
 {
   fn as_any_mut(&mut self) -> &mut dyn Any {
     self
@@ -80,6 +80,25 @@ impl<'a> UI3dCx<'a> {
   }
 }
 
+unsafe impl HooksCxLike for UI3dCx<'_> {
+  fn memory(&mut self) -> &mut FunctionMemory {
+    self.memory
+  }
+
+  fn flush(&mut self) {
+    if let Some(writer) = &mut self.writer {
+      let mut drop_cx = UI3dBuildCx {
+        writer,
+        cx: self.dyn_cx,
+        pick_group: self.pick_group,
+      };
+      self
+        .memory
+        .flush(&mut drop_cx as *mut UI3dBuildCx as *mut ());
+    }
+  }
+}
+
 impl UI3dCx<'_> {
   /// this updater will also be called when mounting
   pub fn on_update(&mut self, updater: impl FnOnce(&mut SceneWriter, &mut DynCx)) {
@@ -118,48 +137,9 @@ impl UI3dCx<'_> {
     !self.memory.created
   }
 
-  pub fn execute_as_root<R>(&mut self, f: impl FnOnce(&mut UI3dCx) -> R) -> R {
-    self.memory.reset_cursor();
-    let r = f(self);
-    self.cleanup_after_execute();
-    r
-  }
-
-  fn cleanup_after_execute(&mut self) {
-    if let Some(writer) = &mut self.writer {
-      let mut drop_cx = UI3dBuildCx {
-        writer,
-        cx: self.dyn_cx,
-        pick_group: self.pick_group,
-      };
-      self
-        .memory
-        .flush(&mut drop_cx as *mut UI3dBuildCx as *mut ());
-    }
-  }
-
-  #[track_caller]
-  pub fn scoped<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
-    let sub_memory = self.memory.sub_function() as *mut _;
-
-    let self_memory = self.memory as *mut _;
-
-    let r = unsafe {
-      self.memory = &mut *sub_memory;
-      self.memory.reset_cursor();
-      let r = f(self);
-      (*sub_memory).created = true;
-      self.memory = &mut *self_memory;
-      r
-    };
-
-    self.cleanup_after_execute();
-    r
-  }
-
   pub fn use_state<T>(&mut self) -> (&mut Self, &mut T)
   where
-    T: Any + Default + for<'x> CxStateDrop<UI3dBuildCx<'x>>,
+    T: Any + Default + for<'x> CanCleanUpFrom<UI3dBuildCx<'x>>,
   {
     self.use_state_init(|_| T::default())
   }
@@ -180,7 +160,7 @@ impl UI3dCx<'_> {
   {
     #[derive(Default)]
     struct PlainState<T>(T);
-    impl<T> CxStateDrop<UI3dBuildCx<'_>> for PlainState<T> {
+    impl<T> CanCleanUpFrom<UI3dBuildCx<'_>> for PlainState<T> {
       fn drop_from_cx(&mut self, _: &mut UI3dBuildCx<'_>) {}
     }
 
@@ -193,7 +173,7 @@ impl UI3dCx<'_> {
     init: impl FnOnce(&mut UI3dBuildCx) -> T,
   ) -> (&mut Self, &mut T)
   where
-    T: Any + for<'x> CxStateDrop<UI3dBuildCx<'x>>,
+    T: Any + for<'x> CanCleanUpFrom<UI3dBuildCx<'x>>,
   {
     // this is safe because user can not access previous retrieved state through returned self.
     let s = unsafe { std::mem::transmute_copy(self) };
@@ -217,21 +197,21 @@ impl UI3dCx<'_> {
   }
 }
 
-#[track_caller]
-pub fn group<R>(
-  cx: &mut UI3dCx,
-  children: impl FnOnce(&mut UI3dCx, EntityHandle<SceneNodeEntity>) -> R,
-) -> R {
-  cx.scoped(|cx| {
-    let (cx, node) = cx.use_node_entity();
-    let node = *node;
-    let current_parent_backup = cx.current_parent;
-    cx.current_parent = Some(node);
-    let response = children(cx, node);
-    cx.current_parent = current_parent_backup;
-    response
-  })
-}
+// #[track_caller]
+// pub fn group<R>(
+//   cx: &mut UI3dCx,
+//   children: impl FnOnce(&mut UI3dCx, EntityHandle<SceneNodeEntity>) -> R,
+// ) -> R {
+//   cx.scope(|cx| {
+//     let (cx, node) = cx.use_node_entity();
+//     let node = *node;
+//     let current_parent_backup = cx.current_parent;
+//     cx.current_parent = Some(node);
+//     let response = children(cx, node);
+//     cx.current_parent = current_parent_backup;
+//     response
+//   })
+// }
 
 impl UI3dCx<'_> {
   pub fn use_node_entity(&mut self) -> (&mut Self, &mut EntityHandle<SceneNodeEntity>) {
@@ -259,26 +239,26 @@ impl UI3dCx<'_> {
   }
 }
 
-impl CxStateDrop<UI3dBuildCx<'_>> for EntityHandle<UnlitMaterialEntity> {
+impl CanCleanUpFrom<UI3dBuildCx<'_>> for EntityHandle<UnlitMaterialEntity> {
   fn drop_from_cx(&mut self, cx: &mut UI3dBuildCx) {
     cx.writer.unlit_mat_writer.delete_entity(*self);
   }
 }
 
-impl CxStateDrop<UI3dBuildCx<'_>> for EntityHandle<SceneNodeEntity> {
+impl CanCleanUpFrom<UI3dBuildCx<'_>> for EntityHandle<SceneNodeEntity> {
   fn drop_from_cx(&mut self, cx: &mut UI3dBuildCx) {
     cx.writer.node_writer.delete_entity(*self);
   }
 }
 
-impl CxStateDrop<UI3dBuildCx<'_>> for AttributesMeshEntities {
+impl CanCleanUpFrom<UI3dBuildCx<'_>> for AttributesMeshEntities {
   fn drop_from_cx(&mut self, cx: &mut UI3dBuildCx<'_>) {
     let w = &mut cx.writer;
     self.clean_up(&mut w.mesh_writer, &mut w.buffer_writer);
   }
 }
 
-impl CxStateDrop<UI3dBuildCx<'_>> for EntityHandle<SceneEntity> {
+impl CanCleanUpFrom<UI3dBuildCx<'_>> for EntityHandle<SceneEntity> {
   fn drop_from_cx(&mut self, cx: &mut UI3dBuildCx) {
     cx.writer.scene_writer.delete_entity(*self);
   }
@@ -291,7 +271,7 @@ pub struct UIWidgetModelProxy {
 
 pub fn use_pickable_model(cx: &mut UI3dCx, model: &UIWidgetModelProxy) {
   struct Remove(EntityHandle<SceneModelEntity>);
-  impl CxStateDrop<UI3dBuildCx<'_>> for Remove {
+  impl CanCleanUpFrom<UI3dBuildCx<'_>> for Remove {
     fn drop_from_cx(&mut self, cx: &mut UI3dBuildCx<'_>) {
       cx.pick_group.group.remove(&self.0);
     }
@@ -330,7 +310,7 @@ impl UIWidgetModelProxy {
   }
 }
 
-impl CxStateDrop<UI3dBuildCx<'_>> for UIWidgetModelProxy {
+impl CanCleanUpFrom<UI3dBuildCx<'_>> for UIWidgetModelProxy {
   fn drop_from_cx(&mut self, cx: &mut UI3dBuildCx<'_>) {
     cx.writer.std_model_writer.delete_entity(self.std_model);
     cx.writer.model_writer.delete_entity(self.model);
@@ -343,7 +323,7 @@ pub fn use_state_cx_in_mounting<T, R>(
   inner: impl FnOnce(&mut UI3dCx) -> R,
 ) -> R
 where
-  T: Any + for<'x> CxStateDrop<UI3dBuildCx<'x>>,
+  T: Any + for<'x> CanCleanUpFrom<UI3dBuildCx<'x>>,
 {
   let (cx, state) = cx.use_state_init(init);
 
