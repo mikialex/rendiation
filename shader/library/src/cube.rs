@@ -62,7 +62,7 @@ pub fn direction_for(face: Node<i32>, uv: Node<Vec2<f32>>) -> Node<Vec3<f32>> {
       result.store((val(1.0), -uv.y(), -uv.x()));
     })
     .case(1, || {
-      result.store((val(-1.0), -uv.y(), -uv.x()));
+      result.store((val(-1.0), -uv.y(), uv.x()));
     })
     .case(2, || {
       result.store((uv.x(), val(1.0), uv.y()));
