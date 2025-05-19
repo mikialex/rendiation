@@ -94,6 +94,7 @@ fn main() {
   }
 
   run_viewer_app(|cx| {
+    use_animation_player(cx);
     use_viewer_gizmo(cx);
     use_camera_orbit_control(cx);
     use_pick_scene(cx);

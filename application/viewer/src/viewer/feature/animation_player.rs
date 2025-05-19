@@ -1,5 +1,26 @@
 use crate::*;
 
+pub fn use_animation_player(cx: &mut ViewerCx) {
+  let (cx, player) = cx.use_plain_state_init(|_| SceneAnimationsPlayer::new());
+  let (cx, mutation) = cx.use_plain_state::<Option<SceneAnimationMutation>>();
+
+  match &mut cx.stage {
+    ViewerCxStage::EventHandling {
+      absolute_seconds_from_start,
+      ..
+    } => {
+      noop_ctx!(ctx);
+      let m = player.compute_mutation(ctx, cx.viewer.scene.scene, *absolute_seconds_from_start);
+      *mutation = Some(m);
+    }
+    ViewerCxStage::SceneContentUpdate { writer } => {
+      if let Some(m) = mutation.take() {
+        m.apply(writer);
+      }
+    }
+  }
+}
+
 /// currently we implement per channel standalone looping behavior, i'm not sure how spec say about it
 /// https://github.com/KhronosGroup/glTF/issues/1179
 pub struct SceneAnimationsPlayer {

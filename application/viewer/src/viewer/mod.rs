@@ -14,9 +14,6 @@ pub use pick::*;
 mod terminal;
 pub use terminal::*;
 
-mod animation_player;
-pub use animation_player::*;
-
 mod background;
 pub use background::*;
 
@@ -124,6 +121,7 @@ pub enum ViewerCxStage<'a> {
     input: &'a PlatformEventInput,
     derived: &'a Viewer3dSceneDerive,
     widget_cx: &'a dyn WidgetEnvAccess,
+    absolute_seconds_from_start: f32,
   },
   SceneContentUpdate {
     writer: &'a mut SceneWriter,
@@ -176,6 +174,9 @@ pub fn use_viewer<'a>(acx: &'a mut ApplicationCx, f: impl FnOnce(&mut ViewerCx))
     );
 
     let interaction_cx = prepare_picking_state(picker, &viewer.intersection_group);
+    let absolute_seconds_from_start = Instant::now()
+      .duration_since(viewer.started_time)
+      .as_secs_f32();
 
     ViewerCx {
       viewer,
@@ -186,6 +187,7 @@ pub fn use_viewer<'a>(acx: &'a mut ApplicationCx, f: impl FnOnce(&mut ViewerCx))
         input: acx.input,
         derived: &derived,
         widget_cx: widget_env.as_ref(),
+        absolute_seconds_from_start,
       },
     }
     .execute(|viewer| f(viewer));
@@ -193,18 +195,7 @@ pub fn use_viewer<'a>(acx: &'a mut ApplicationCx, f: impl FnOnce(&mut ViewerCx))
     let size = acx.input.window_state.physical_size;
     let size_changed = acx.input.state_delta.size_change;
 
-    let time = Instant::now()
-      .duration_since(viewer.started_time)
-      .as_secs_f32();
-
-    noop_ctx!(ctx);
-    let mutation = viewer
-      .animation_player
-      .compute_mutation(ctx, viewer.scene.scene, time);
-
     let mut writer = SceneWriter::from_global(viewer.scene.scene);
-
-    mutation.apply(&mut writer);
 
     if size_changed {
       writer
@@ -246,7 +237,6 @@ pub struct Viewer {
   ui_state: ViewerUIState,
   terminal: Terminal,
   background: ViewerBackgroundState,
-  animation_player: SceneAnimationsPlayer,
   started_time: Instant,
   memory: FunctionMemory,
 }
@@ -346,7 +336,6 @@ impl Viewer {
       derives,
       on_demand_draw: Default::default(),
       background,
-      animation_player: SceneAnimationsPlayer::new(),
       started_time: Instant::now(),
       memory: Default::default(),
     }

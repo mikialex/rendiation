@@ -10,3 +10,5 @@ mod camera_helper;
 pub use camera_helper::*;
 mod light_helper;
 pub use light_helper::*;
+mod animation_player;
+pub use animation_player::*;
