@@ -10,7 +10,7 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
     cx.use_plain_state::<Option<Box<dyn Future<Output = Option<u32>> + Unpin>>>();
 
   if let ViewerCxStage::EventHandling {
-    interaction,
+    picker,
     input,
     derived,
     ..
@@ -48,13 +48,11 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
 
     let scene = cx.viewer.scene.scene;
 
-    let normalized_mouse_position = interaction.normalized_mouse_position;
-
     let mut hit = None;
     let mut fallback_to_cpu = false;
     if prefer_gpu_pick && gpu_pick_future.is_none() {
       if let Some(render_size) = cx.viewer.rendering.picker.last_id_buffer_size() {
-        let point = normalized_mouse_position * Vec2::from(render_size.into_f32());
+        let point = picker.normalized_position() * Vec2::from(render_size.into_f32());
         let point = point.map(|v| v.floor() as usize);
         if let Some(f) = cx.viewer.rendering.picker.pick_point_at((point.x, point.y)) {
           *gpu_pick_future = Some(f);
@@ -69,9 +67,8 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
     if fallback_to_cpu {
       let sms = &derived.sm_to_s;
       let mut main_scene_models = sms.access_multi(&scene).unwrap();
-      let _hit = interaction
-        .picker
-        .pick_models_nearest(&mut main_scene_models, interaction.mouse_world_ray);
+      let _hit =
+        picker.pick_models_nearest(&mut main_scene_models, picker.current_mouse_ray_in_world());
       drop(main_scene_models);
 
       hit = if let Some(hit) = _hit {

@@ -40,7 +40,6 @@ pub struct ViewerCx<'a> {
 pub struct ViewerDropCx<'a> {
   pub dyn_cx: &'a mut DynCx,
   pub writer: &'a mut SceneWriter,
-  pub pick_group: &'a mut WidgetSceneModelIntersectionGroupConfig,
 }
 
 pub struct ViewerInitCx<'a> {
@@ -117,7 +116,7 @@ impl<'a> ViewerCx<'a> {
 pub enum ViewerCxStage<'a> {
   EventHandling {
     reader: &'a SceneReader,
-    interaction: &'a Interaction3dCtx,
+    picker: &'a ViewerPicker,
     input: &'a PlatformEventInput,
     derived: &'a Viewer3dSceneDerive,
     widget_cx: &'a dyn WidgetEnvAccess,
@@ -173,7 +172,6 @@ pub fn use_viewer<'a>(acx: &'a mut ApplicationCx, f: impl FnOnce(&mut ViewerCx))
       canvas_resolution,
     );
 
-    let interaction_cx = prepare_picking_state(picker, &viewer.intersection_group);
     let absolute_seconds_from_start = Instant::now()
       .duration_since(viewer.started_time)
       .as_secs_f32();
@@ -183,7 +181,7 @@ pub fn use_viewer<'a>(acx: &'a mut ApplicationCx, f: impl FnOnce(&mut ViewerCx))
       dyn_cx: acx.dyn_cx,
       stage: ViewerCxStage::EventHandling {
         reader: &scene_reader,
-        interaction: &interaction_cx,
+        picker: &picker,
         input: acx.input,
         derived: &derived,
         widget_cx: widget_env.as_ref(),
@@ -228,7 +226,6 @@ pub fn use_viewer<'a>(acx: &'a mut ApplicationCx, f: impl FnOnce(&mut ViewerCx))
 }
 
 pub struct Viewer {
-  intersection_group: WidgetSceneModelIntersectionGroupConfig,
   on_demand_rendering: bool,
   on_demand_draw: NotifyScope,
   scene: Viewer3dSceneCtx,
@@ -248,7 +245,6 @@ impl CanCleanUpFrom<ApplicationDropCx> for Viewer {
     let mut dcx = ViewerDropCx {
       dyn_cx: cx,
       writer: &mut writer,
-      pick_group: &mut self.intersection_group,
     };
     self.memory.cleanup(&mut dcx as *mut _ as *mut ());
   }
@@ -325,7 +321,6 @@ impl Viewer {
     };
 
     Self {
-      intersection_group: Default::default(),
       // todo, we current disable the on demand draw
       // because we not cache the rendering result yet
       on_demand_rendering: false,

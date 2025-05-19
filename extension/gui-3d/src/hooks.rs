@@ -39,7 +39,7 @@ pub struct UI3dCx<'a> {
 #[derive(Copy, Clone)]
 pub struct UIEventStageCx<'a> {
   pub platform_event: &'a PlatformEventInput,
-  pub interaction_cx: &'a Interaction3dCtx,
+  pub interaction_cx: &'a Interaction3dCtx<'a>,
   pub widget_env: &'a dyn WidgetEnvAccess,
 }
 

@@ -81,6 +81,10 @@ impl ViewerPicker {
   pub fn normalized_position_ndc(&self) -> Vec2<f32> {
     self.normalized_position_ndc
   }
+
+  pub fn normalized_position(&self) -> Vec2<f32> {
+    self.normalized_position
+  }
 }
 
 impl Picker3d for ViewerPicker {
@@ -103,10 +107,10 @@ impl Picker3d for ViewerPicker {
   }
 }
 
-pub fn prepare_picking_state(
-  picker: ViewerPicker,
+pub fn prepare_picking_state<'a>(
+  picker: &'a ViewerPicker,
   g: &WidgetSceneModelIntersectionGroupConfig,
-) -> Interaction3dCtx {
+) -> Interaction3dCtx<'a> {
   let world_ray_intersected_nearest = picker.pick_models_nearest(
     &mut g.group.iter().copied(),
     picker.current_mouse_ray_in_world,
@@ -115,7 +119,7 @@ pub fn prepare_picking_state(
   Interaction3dCtx {
     normalized_mouse_position: picker.normalized_position,
     mouse_world_ray: picker.current_mouse_ray_in_world,
-    picker: Box::new(picker),
+    picker: picker as &dyn Picker3d,
     world_ray_intersected_nearest,
   }
 }

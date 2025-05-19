@@ -3,6 +3,7 @@ use crate::*;
 #[derive(Default)]
 struct UI3DMemory {
   memory: FunctionMemory,
+  pick_group: WidgetSceneModelIntersectionGroupConfig,
 }
 
 impl CanCleanUpFrom<ViewerDropCx<'_>> for UI3DMemory {
@@ -10,7 +11,7 @@ impl CanCleanUpFrom<ViewerDropCx<'_>> for UI3DMemory {
     self.memory.cleanup(&mut UI3dBuildCx {
       writer: cx.writer,
       cx: cx.dyn_cx,
-      pick_group: cx.pick_group,
+      pick_group: &mut self.pick_group,
     } as *mut _ as *mut ());
   }
 }
@@ -18,29 +19,36 @@ impl CanCleanUpFrom<ViewerDropCx<'_>> for UI3DMemory {
 pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
   let (viewer_cx, memory) = viewer_cx.use_state_init(|_| UI3DMemory::default());
   let widget_scene = viewer_cx.viewer.scene.widget_scene;
+
+  #[allow(unused_assignments)] // false positive?
+  let mut interaction = None;
+
   let mut cx = match &mut viewer_cx.stage {
     ViewerCxStage::EventHandling {
       reader,
-      interaction,
+      picker,
       input,
       widget_cx,
       ..
-    } => UI3dCx::new_event_stage(
-      &mut memory.memory,
-      UIEventStageCx {
-        platform_event: input,
-        interaction_cx: interaction,
-        widget_env: *widget_cx,
-      },
-      reader,
-      viewer_cx.dyn_cx,
-      &mut viewer_cx.viewer.intersection_group,
-    ),
+    } => {
+      interaction = Some(prepare_picking_state(picker, &memory.pick_group));
+      UI3dCx::new_event_stage(
+        &mut memory.memory,
+        UIEventStageCx {
+          platform_event: input,
+          interaction_cx: interaction.as_ref().unwrap(),
+          widget_env: *widget_cx,
+        },
+        reader,
+        viewer_cx.dyn_cx,
+        &mut memory.pick_group,
+      )
+    }
     ViewerCxStage::SceneContentUpdate { writer } => UI3dCx::new_update_stage(
       &mut memory.memory,
       viewer_cx.dyn_cx,
       writer,
-      &mut viewer_cx.viewer.intersection_group,
+      &mut memory.pick_group,
     ),
   };
 
