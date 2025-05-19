@@ -1,3 +1,5 @@
+use winit::event::ElementState;
+
 use crate::*;
 
 pub fn use_fit_camera_view(cx: &mut ViewerCx) {
@@ -5,22 +7,53 @@ pub fn use_fit_camera_view(cx: &mut ViewerCx) {
     cx.terminal
       .register_sync_command("fit-camera-view", |ctx, _parameters| {
         let derived = ctx.derive.poll_update();
-        if let Some(selected) = &ctx.scene.selected_target {
-          let camera_world = derived.world_mat.access(&ctx.scene.camera_node).unwrap();
-          let camera_reader = global_entity_component_of::<SceneCameraPerspective>().read();
 
-          let target_world_aabb = derived.sm_world_bounding.access(selected).unwrap();
-          let proj = camera_reader.get(ctx.scene.main_camera).unwrap().unwrap();
-
-          let camera_world = fit_camera_view(&proj, camera_world, target_world_aabb);
-          // todo fix camera has parent mat
+        if let Some((node, mat)) = fit_camera_view_for_viewer(ctx.scene, &derived) {
           global_entity_component_of::<SceneNodeLocalMatrixComponent>()
             .write()
-            .write(ctx.scene.camera_node, camera_world);
+            .write(mat, node);
         }
       });
     FitCameraViewForViewer
   });
+
+  let (cx, mat_to_sync) =
+    cx.use_plain_state::<Option<(Mat4<f32>, EntityHandle<SceneNodeEntity>)>>();
+
+  if let ViewerCxStage::EventHandling { derived, input, .. } = &mut cx.stage {
+    if let Some(ElementState::Pressed) = input
+      .state_delta
+      .key_state_changes
+      .get(&winit::keyboard::KeyCode::KeyF)
+    {
+      *mat_to_sync = fit_camera_view_for_viewer(&cx.viewer.scene, derived);
+    }
+  }
+
+  if let ViewerCxStage::SceneContentUpdate { writer } = &mut cx.stage {
+    if let Some((mat, node)) = mat_to_sync.take() {
+      writer.set_local_matrix(node, mat);
+    }
+  }
+}
+
+fn fit_camera_view_for_viewer(
+  scene_info: &Viewer3dSceneCtx,
+  derived: &Viewer3dSceneDerive,
+) -> Option<(Mat4<f32>, EntityHandle<SceneNodeEntity>)> {
+  if let Some(selected) = &scene_info.selected_target {
+    let camera_world = derived.world_mat.access(&scene_info.camera_node).unwrap();
+    let camera_reader = global_entity_component_of::<SceneCameraPerspective>().read();
+
+    let target_world_aabb = derived.sm_world_bounding.access(selected).unwrap();
+    let proj = camera_reader.get(scene_info.main_camera).unwrap().unwrap();
+
+    let camera_world = fit_camera_view(&proj, camera_world, target_world_aabb);
+    // todo fix camera has parent mat
+    (camera_world, scene_info.camera_node).into()
+  } else {
+    None
+  }
 }
 
 struct FitCameraViewForViewer;

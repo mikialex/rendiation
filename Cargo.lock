@@ -3775,6 +3775,7 @@ dependencies = [
 name = "rendiation-platform-event-input"
 version = "0.1.0"
 dependencies = [
+ "fast-hash-collection",
  "winit",
 ]
 

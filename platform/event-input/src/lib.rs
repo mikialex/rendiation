@@ -1,3 +1,4 @@
+use fast_hash_collection::*;
 use winit::{
   event::*,
   keyboard::{KeyCode, PhysicalKey},
@@ -38,6 +39,7 @@ pub struct WindowState {
   pub mouse_position: (f32, f32),
   pub left_mouse_state: ElementState,
   pub right_mouse_state: ElementState,
+  pub pressed_keys: FastHashSet<KeyCode>,
 }
 
 impl WindowState {
@@ -53,11 +55,26 @@ impl WindowState {
       }
     }
 
+    let mut key_state_changes = FastHashMap::<KeyCode, ElementState>::default();
+
+    for key in &self.pressed_keys {
+      if !old.pressed_keys.contains(key) {
+        key_state_changes.insert(*key, ElementState::Pressed);
+      }
+    }
+
+    for key in &old.pressed_keys {
+      if !self.pressed_keys.contains(key) {
+        key_state_changes.insert(*key, ElementState::Released);
+      }
+    }
+
     WindowStateChange {
       size_change: self.physical_size != old.physical_size,
       mouse_position_change: self.mouse_position != old.mouse_position,
       left_mouse_action: compare_button_state(old.left_mouse_state, self.left_mouse_state),
       right_mouse_action: compare_button_state(old.right_mouse_state, self.right_mouse_state),
+      key_state_changes,
     }
   }
   pub fn is_left_mouse_pressed(&self) -> bool {
@@ -80,6 +97,8 @@ pub struct WindowStateChange {
   pub mouse_position_change: bool,
   pub left_mouse_action: Option<ElementState>,
   pub right_mouse_action: Option<ElementState>,
+  /// if the ElementState::Release, the key will not inside the pressed_keys
+  pub key_state_changes: FastHashMap<KeyCode, ElementState>,
 }
 
 impl WindowStateChange {
@@ -114,6 +133,18 @@ impl WindowState {
           }
           self.has_any_mouse_event = true
         }
+        WindowEvent::KeyboardInput { event, .. } => {
+          if let winit::keyboard::PhysicalKey::Code(key) = event.physical_key {
+            match event.state {
+              ElementState::Pressed => {
+                self.pressed_keys.insert(key);
+              }
+              ElementState::Released => {
+                self.pressed_keys.remove(&key);
+              }
+            }
+          }
+        }
         WindowEvent::CursorMoved { position, .. } => {
           self.mouse_position.0 = position.x as f32;
           self.mouse_position.1 = position.y as f32;
@@ -138,6 +169,7 @@ impl Default for WindowState {
       left_mouse_state: ElementState::Released,
       right_mouse_state: ElementState::Released,
       has_any_mouse_event: false,
+      pressed_keys: Default::default(),
     }
   }
 }
