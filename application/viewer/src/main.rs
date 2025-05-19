@@ -94,7 +94,12 @@ fn main() {
   }
 
   run_viewer_app(|cx| {
+    use_enable_gltf_io(cx);
+    use_enable_obj_io(cx);
     use_animation_player(cx);
+    use_fit_camera_view(cx);
+    use_enable_screenshot(cx);
+
     use_viewer_gizmo(cx);
     use_camera_orbit_control(cx);
     use_pick_scene(cx);

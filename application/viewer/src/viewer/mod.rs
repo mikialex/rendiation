@@ -40,12 +40,14 @@ pub struct ViewerCx<'a> {
 pub struct ViewerDropCx<'a> {
   pub dyn_cx: &'a mut DynCx,
   pub writer: &'a mut SceneWriter,
+  pub terminal: &'a mut Terminal,
 }
 
 pub struct ViewerInitCx<'a> {
   pub dyn_cx: &'a mut DynCx,
   pub scene: &'a Viewer3dSceneCtx,
   pub derive: &'a Viewer3dSceneDeriveSource,
+  pub terminal: &'a mut Terminal,
 }
 
 unsafe impl HooksCxLike for ViewerCx<'_> {
@@ -101,6 +103,7 @@ impl<'a> ViewerCx<'a> {
           dyn_cx: self.dyn_cx,
           scene: &self.viewer.scene,
           derive: &self.viewer.derives,
+          terminal: &mut self.viewer.terminal,
         })
       },
       |state: &mut T, dcx: &mut ViewerDropCx| unsafe {
@@ -245,6 +248,7 @@ impl CanCleanUpFrom<ApplicationDropCx> for Viewer {
     let mut dcx = ViewerDropCx {
       dyn_cx: cx,
       writer: &mut writer,
+      terminal: &mut self.terminal,
     };
     self.memory.cleanup(&mut dcx as *mut _ as *mut ());
   }

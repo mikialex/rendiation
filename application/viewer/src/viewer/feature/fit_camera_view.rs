@@ -1,8 +1,38 @@
 use crate::*;
 
+pub fn use_fit_camera_view(cx: &mut ViewerCx) {
+  cx.use_state_init(|cx| {
+    cx.terminal
+      .register_sync_command("fit-camera-view", |ctx, _parameters| {
+        let derived = ctx.derive.poll_update();
+        if let Some(selected) = &ctx.scene.selected_target {
+          let camera_world = derived.world_mat.access(&ctx.scene.camera_node).unwrap();
+          let camera_reader = global_entity_component_of::<SceneCameraPerspective>().read();
+
+          let target_world_aabb = derived.sm_world_bounding.access(selected).unwrap();
+          let proj = camera_reader.get(ctx.scene.main_camera).unwrap().unwrap();
+
+          let camera_world = fit_camera_view(&proj, camera_world, target_world_aabb);
+          // todo fix camera has parent mat
+          global_entity_component_of::<SceneNodeLocalMatrixComponent>()
+            .write()
+            .write(ctx.scene.camera_node, camera_world);
+        }
+      });
+    FitCameraViewForViewer
+  });
+}
+
+struct FitCameraViewForViewer;
+impl CanCleanUpFrom<ViewerDropCx<'_>> for FitCameraViewForViewer {
+  fn drop_from_cx(&mut self, cx: &mut ViewerDropCx) {
+    cx.terminal.unregister_command("fit-camera-view");
+  }
+}
+
 /// Target_world_aabb should not empty. If the target is unbound, should give a box that the center point
 /// is the logical target center. Return desired camera world matrix
-pub fn fit_camera_view(
+fn fit_camera_view(
   proj: &PerspectiveProjection<f32>,
   camera_world: Mat4<f32>,
   target_world_aabb: Box3<f32>,
