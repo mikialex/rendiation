@@ -28,13 +28,20 @@ impl GPUInstance {
 }
 
 impl GPUInstance {
+  // wasm can not spawn thread, add the gpu will be automatically polled by runtime(browser)
+  #[cfg(target_family = "wasm")]
+  pub fn new(instance: gpu::Instance) -> Self {
+    Self {
+      instance: Arc::new(GPUInstanceInner { instance }),
+    }
+  }
+
+  #[cfg(not(target_family = "wasm"))]
   pub fn new(instance: gpu::Instance) -> Self {
     let instance = Arc::new(instance);
     let polling_frequency = Arc::new(AtomicU32::new(16));
     let dropped = Arc::new(AtomicBool::new(false));
 
-    // wasm can not spawn thread, add the gpu will be automatically polled by runtime(browser)
-    #[cfg(not(target_family = "wasm"))]
     {
       let instance_clone = instance.clone();
       let dropped_clone = dropped.clone();
@@ -66,6 +73,7 @@ impl GPUInstance {
 
 pub struct GPUInstanceInner {
   instance: Arc<gpu::Instance>,
+  #[cfg(not(target_family = "wasm"))]
   is_dropped: Arc<AtomicBool>,
   #[cfg(not(target_family = "wasm"))]
   polling_frequency: Arc<AtomicU32>,

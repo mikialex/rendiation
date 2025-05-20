@@ -119,7 +119,7 @@ naga = { version = "24", features = ["wgsl-out"] }
 # https://doc.rust-lang.org/cargo/reference/profiles.html
 
 # currently our implementation not provide panic safety and panic recovery
-# and also, enable unwinding support is bad for performance and binary size
+# and also, enable unwinding affect performance and bloat binary.
 
 [profile.dev]
 panic = "abort"

@@ -105,6 +105,7 @@ impl AttachmentDescriptor {
     self
   }
 
+  /// enable the mipmap, mipmap is disabled by default.
   #[must_use]
   pub fn require_mipmaps(mut self) -> Self {
     self.require_mipmaps = true;
