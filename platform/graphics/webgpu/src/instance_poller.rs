@@ -13,6 +13,7 @@ impl Deref for GPUInstance {
   }
 }
 
+#[cfg(not(target_family = "wasm"))]
 impl GPUInstance {
   pub fn enable_spin_polling(&self) {
     self.set_polling_frequency(0);
@@ -24,29 +25,34 @@ impl GPUInstance {
   pub fn get_polling_frequency(&self) -> u32 {
     self.instance.polling_frequency.load(Ordering::Relaxed)
   }
+}
 
+impl GPUInstance {
   pub fn new(instance: gpu::Instance) -> Self {
     let instance = Arc::new(instance);
-    let instance_clone = instance.clone();
-
     let polling_frequency = Arc::new(AtomicU32::new(16));
     let dropped = Arc::new(AtomicBool::new(false));
-    let dropped_clone = dropped.clone();
-    let polling_frequency_clone = polling_frequency.clone();
+
     // wasm can not spawn thread, add the gpu will be automatically polled by runtime(browser)
     #[cfg(not(target_family = "wasm"))]
-    std::thread::spawn(move || loop {
-      if dropped_clone.load(Ordering::Relaxed) {
-        break;
-      }
-      let polling_frequency = polling_frequency_clone.load(Ordering::Relaxed);
-      if polling_frequency == 0 {
-        instance_clone.poll_all(false);
-      } else {
-        std::thread::sleep(std::time::Duration::from_millis(polling_frequency as u64));
-        instance_clone.poll_all(false);
-      }
-    });
+    {
+      let instance_clone = instance.clone();
+      let dropped_clone = dropped.clone();
+      let polling_frequency_clone = polling_frequency.clone();
+
+      std::thread::spawn(move || loop {
+        if dropped_clone.load(Ordering::Relaxed) {
+          break;
+        }
+        let polling_frequency = polling_frequency_clone.load(Ordering::Relaxed);
+        if polling_frequency == 0 {
+          instance_clone.poll_all(false);
+        } else {
+          std::thread::sleep(std::time::Duration::from_millis(polling_frequency as u64));
+          instance_clone.poll_all(false);
+        }
+      });
+    }
 
     Self {
       instance: Arc::new(GPUInstanceInner {
@@ -61,6 +67,7 @@ impl GPUInstance {
 pub struct GPUInstanceInner {
   instance: Arc<gpu::Instance>,
   is_dropped: Arc<AtomicBool>,
+  #[cfg(not(target_family = "wasm"))]
   polling_frequency: Arc<AtomicU32>,
 }
 

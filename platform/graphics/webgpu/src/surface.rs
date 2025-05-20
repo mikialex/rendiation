@@ -22,6 +22,21 @@ impl SurfaceProvider for winit::window::Window {
   }
 }
 
+#[cfg(target_arch = "wasm32")]
+impl SurfaceProvider for web_sys::HtmlCanvasElement {
+  fn create_surface<'a>(
+    &'a self,
+    instance: &wgpu::Instance,
+  ) -> Result<wgpu::Surface<'a>, CreateSurfaceError> {
+    let surface_target = wgpu::SurfaceTarget::Canvas(self.clone());
+    instance.create_surface(surface_target)
+  }
+
+  fn size(&self) -> Size {
+    Size::from_u32_pair_min_one((self.width(), self.height()))
+  }
+}
+
 pub struct GPUSurface<'a> {
   surface: gpu::Surface<'a>,
   synced_config: gpu::SurfaceConfiguration,

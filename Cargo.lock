@@ -4166,6 +4166,7 @@ dependencies = [
  "reuse-pool",
  "slab",
  "thiserror 1.0.63",
+ "web-sys",
  "wgpu",
  "wgpu-types",
  "winit",

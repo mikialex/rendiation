@@ -110,7 +110,10 @@ anyhow = "1.0.93"
 parking_lot = { version = "0.12.1", features = ["send_guard"] }
 criterion = { version = "0.5.1", features = ["html_reports"] }
 wgpu-types = { version = "24", features = ["serde"] }
-wgpu = { version = "24", features = ["naga-ir"] }
+wgpu = { version = "24", features = [
+  "naga-ir",
+  "fragile-send-sync-non-atomic-wasm",
+] }
 naga = { version = "24", features = ["wgsl-out"] }
 
 # https://doc.rust-lang.org/cargo/reference/profiles.html

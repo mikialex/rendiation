@@ -23,12 +23,14 @@ wgpu-types = { workspace = true }
 winit = { workspace = true }
 xalloc = "0.2.7"
 slab = "0.4.8"
-
-
-pollster = { workspace = true } # used in examples
+pollster = { workspace = true }                                             # used in examples
 
 [features]
 webgl = ["wgpu/webgl"]
+
+[target.'cfg(target_arch= "wasm32")'.dependencies]
+web-sys = "0.3"
+
 
 [lints]
 workspace = true
