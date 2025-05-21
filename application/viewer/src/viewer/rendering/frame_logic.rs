@@ -12,6 +12,7 @@ pub struct ViewerFrameLogic {
   highlight: HighLighter,
   reproject: GPUReprojectInfo,
   taa: TAA,
+  enable_taa: bool,
   enable_ground: bool,
   enable_ssao: bool,
   enable_outline: bool,
@@ -30,6 +31,7 @@ impl ViewerFrameLogic {
       _blur: CrossBlurData::new(gpu),
       reproject: GPUReprojectInfo::new(gpu),
       taa: TAA::new(),
+      enable_taa: true,
       enable_ground: true,
       enable_ssao: false,
       enable_outline: false,
@@ -42,6 +44,7 @@ impl ViewerFrameLogic {
   }
 
   pub fn egui(&mut self, ui: &mut egui::Ui) {
+    ui.checkbox(&mut self.enable_taa, "enable taa");
     ui.checkbox(&mut self.enable_ground, "enable ground");
     ui.checkbox(&mut self.enable_ssao, "enable ssao");
     ui.checkbox(&mut self.enable_outline, "enable outline");
@@ -74,7 +77,7 @@ impl ViewerFrameLogic {
       .make_component(content.main_camera)
       .unwrap();
 
-    let taa_content = SceneCameraTAAContent {
+    let mut taa_content = SceneCameraTAAContent {
       queue: &ctx.gpu.queue,
       camera: content.main_camera,
       renderer,
@@ -135,19 +138,29 @@ impl ViewerFrameLogic {
         }
 
         (
-          NewTAAFrameSample {
-            new_color: scene_result,
-            new_depth: g_buffer.depth,
+          TAAFrame {
+            color: scene_result,
+            depth: g_buffer.depth,
           },
           (g_buffer.entity_id, g_buffer.normal),
         )
       },
     };
 
-    let (taa_result, scene_depth, (id_buffer, normal_buffer)) =
+    let (
+      TAAFrame {
+        color: taa_result,
+        depth: scene_depth,
+      },
+      (id_buffer, normal_buffer),
+    ) = if self.enable_taa {
       self
         .taa
-        .render_aa_content(taa_content, ctx, &self.reproject);
+        .render_aa_content(taa_content, ctx, &self.reproject)
+    } else {
+      taa_content.render(ctx)
+    };
+
     let g_buffer = FrameGeometryBuffer {
       depth: scene_depth,
       normal: normal_buffer,
@@ -202,14 +215,14 @@ struct SceneCameraTAAContent<'a, F> {
 
 impl<F, R> TAAContent<R> for SceneCameraTAAContent<'_, F>
 where
-  F: FnMut(&mut FrameCtx) -> (NewTAAFrameSample, R),
+  F: FnMut(&mut FrameCtx) -> (TAAFrame, R),
 {
   fn set_jitter(&mut self, next_jitter: Vec2<f32>) {
     let cameras = self.renderer.get_camera_gpu();
     cameras.setup_camera_jitter(self.camera, next_jitter, self.queue);
   }
 
-  fn render(&mut self, ctx: &mut FrameCtx) -> (NewTAAFrameSample, R) {
+  fn render(&mut self, ctx: &mut FrameCtx) -> (TAAFrame, R) {
     (self.f)(ctx)
   }
 }

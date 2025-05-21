@@ -13,15 +13,16 @@ pub struct TAA {
   history: Option<RenderTargetView>,
 }
 
-pub struct NewTAAFrameSample {
-  pub new_color: RenderTargetView,
-  pub new_depth: RenderTargetView,
+pub struct TAAFrame {
+  pub color: RenderTargetView,
+  pub depth: RenderTargetView,
 }
 
 pub trait TAAContent<R> {
   fn set_jitter(&mut self, next_jitter: Vec2<f32>);
-  // the reproject info maybe useful in
-  fn render(&mut self, ctx: &mut FrameCtx) -> (NewTAAFrameSample, R);
+  /// jitter will exist in this render call, implementation
+  /// should provide new taa frame sample.
+  fn render(&mut self, ctx: &mut FrameCtx) -> (TAAFrame, R);
 }
 
 impl TAA {
@@ -38,14 +39,14 @@ impl TAA {
     mut content: impl TAAContent<R>,
     ctx: &mut FrameCtx,
     reproject: &GPUReprojectInfo,
-  ) -> (&RenderTargetView, RenderTargetView, R) {
+  ) -> (TAAFrame, R) {
     content.set_jitter(self.next_jitter());
     ctx.make_submit();
 
     let (
-      NewTAAFrameSample {
-        new_color,
-        new_depth,
+      TAAFrame {
+        color: new_color,
+        depth: new_depth,
       },
       r,
     ) = content.render(ctx);
@@ -54,8 +55,10 @@ impl TAA {
     content.set_jitter(Vec2::zero()); // reset
 
     (
-      self.resolve(&new_color, &new_depth, ctx, reproject),
-      new_depth,
+      TAAFrame {
+        color: self.resolve(&new_color, &new_depth, ctx, reproject).clone(),
+        depth: new_depth,
+      },
       r,
     )
   }
