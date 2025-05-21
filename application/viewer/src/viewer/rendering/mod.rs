@@ -1,6 +1,5 @@
 use crate::*;
 
-mod axis;
 mod egui;
 mod frame_logic;
 mod grid_ground;
@@ -11,8 +10,6 @@ mod widget;
 
 mod g_buffer;
 pub use g_buffer::*;
-mod defer_lighting;
-pub use defer_lighting::*;
 pub use ray_tracing::*;
 
 mod post;
@@ -34,13 +31,6 @@ use widget::*;
 pub enum RasterizationRenderBackendType {
   Gles,
   Indirect,
-}
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum LightingTechniqueKind {
-  Forward,
-  DeferLighting,
-  // Visibility,
 }
 
 pub type BoxedSceneRenderImplProvider =
@@ -111,15 +101,12 @@ pub struct Viewer3dRenderingCtx {
   rtx_renderer_impl: Option<RayTracingSystemGroup>,
   rtx_effect_mode: RayTracingEffectMode,
   rtx_rendering_enabled: bool,
-  opaque_scene_content_lighting_technique: LightingTechniqueKind,
   lighting: LightSystem,
-  material_defer_lighting_supports: DeferLightingMaterialRegistry,
   pool: AttachmentPool,
   gpu: GPU,
   swap_chain: ApplicationWindowSurface,
   on_encoding_finished: EventSource<ViewRenderedState>,
   expect_read_back_for_next_render_result: bool,
-  current_camera_view_projection_inv: Mat4<f32>,
   camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
   pub(crate) picker: GPUxEntityIdMapPicker,
   pub(crate) statistics: FramePassStatistics,
@@ -168,17 +155,13 @@ impl Viewer3dRenderingCtx {
       rtx_renderer_impl: None, // late init
       rtx_effect_mode: RayTracingEffectMode::ReferenceTracing,
       rtx_rendering_enabled: false,
-      opaque_scene_content_lighting_technique: LightingTechniqueKind::Forward,
       frame_logic: ViewerFrameLogic::new(&gpu),
       lighting,
-      material_defer_lighting_supports: DeferLightingMaterialRegistry::default()
-        .register_material_impl::<PbrSurfaceEncodeDecode>(),
       pool: init_attachment_pool(&gpu),
       statistics: FramePassStatistics::new(64, &gpu),
       gpu,
       on_encoding_finished: Default::default(),
       expect_read_back_for_next_render_result: false,
-      current_camera_view_projection_inv: Default::default(),
       camera_source: camera_source_init,
       picker: Default::default(),
     }
@@ -227,10 +210,6 @@ impl Viewer3dRenderingCtx {
       .on_encoding_finished
       .once_future(|result| result.clone().read())
       .flatten()
-  }
-
-  pub fn update_next_render_camera_info(&mut self, camera_view_projection_inv: Mat4<f32>) {
-    self.current_camera_view_projection_inv = camera_view_projection_inv;
   }
 
   #[instrument(name = "frame rendering", skip_all)]
@@ -306,7 +285,7 @@ impl Viewer3dRenderingCtx {
         self.picker.notify_frame_id_buffer_not_available();
       }
     } else {
-      let (lighting, tonemap) = self.lighting.prepare_and_create_impl(
+      let lighting_cx = self.lighting.prepare_and_create_impl(
         &mut resource,
         &mut ctx,
         cx,
@@ -314,18 +293,21 @@ impl Viewer3dRenderingCtx {
         content.scene,
       );
 
+      let current_view_projection_inv = scene_derive
+        .camera_transforms
+        .access(&content.main_camera)
+        .unwrap()
+        .view_projection_inv;
+
       let entity_id = self.frame_logic.render(
         &mut ctx,
         renderer.as_ref(),
         scene_derive,
-        &lighting,
-        tonemap,
+        &lighting_cx,
         content,
         &render_target,
-        self.current_camera_view_projection_inv,
+        current_view_projection_inv,
         self.ndc.enable_reverse_z,
-        self.opaque_scene_content_lighting_technique,
-        &self.material_defer_lighting_supports,
       );
 
       let entity_id = entity_id.expect_standalone_common_texture_view();

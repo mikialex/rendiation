@@ -4,7 +4,7 @@ use rendiation_texture_gpu_process::*;
 use rendiation_webgpu::*;
 
 use super::{
-  axis::WorldCoordinateAxis, outline::ViewerOutlineSourceProvider, GridEffect, GridGround,
+  outline::ViewerOutlineSourceProvider, widget::WorldCoordinateAxis, GridEffect, GridGround,
 };
 use crate::*;
 
@@ -55,14 +55,11 @@ impl ViewerFrameLogic {
     ctx: &mut FrameCtx,
     renderer: &dyn SceneRenderer<ContentKey = SceneContentKey>,
     scene_derive: &Viewer3dSceneDerive,
-    lighting: &SceneLightSystem,
-    tonemap: &ToneMap,
+    lighting: &LightingRenderingCx,
     content: &Viewer3dSceneCtx,
     final_target: &RenderTargetView,
     current_camera_view_projection_inv: Mat4<f32>,
     reversed_depth: bool,
-    opaque_lighting: LightingTechniqueKind,
-    deferred_mat_supports: &DeferLightingMaterialRegistry,
   ) -> RenderTargetView {
     let hdr_enabled = final_target.format() == TextureFormat::Rgba16Float;
 
@@ -85,131 +82,18 @@ impl ViewerFrameLogic {
         let scene_result = attachment().use_hdr_if_enabled(hdr_enabled).request(ctx);
         let g_buffer = FrameGeometryBuffer::new(ctx);
 
-        let (color_ops, depth_ops) = renderer.init_clear(content.scene);
-
-        let mut background = renderer.render_background(
-          content.scene,
-          CameraRenderSource::Scene(content.main_camera),
-          tonemap,
-        );
-
         let _span = span!(Level::INFO, "main scene content encode pass");
 
-        match opaque_lighting {
-          LightingTechniqueKind::Forward => {
-            let mut pass_base = pass("scene").with_color(&scene_result, color_ops);
-
-            let g_buffer_base_writer = g_buffer.extend_pass_desc(&mut pass_base, depth_ops);
-            let lighting = lighting.get_scene_forward_lighting_component(content.scene);
-
-            let scene_pass_dispatcher = &RenderArray([
-              &DefaultDisplayWriter as &dyn RenderComponent,
-              &g_buffer_base_writer as &dyn RenderComponent,
-              lighting.as_ref(),
-            ]) as &dyn RenderComponent;
-
-            let mut all_opaque_object = renderer.extract_and_make_pass_content(
-              SceneContentKey::only_opaque_objects(),
-              content.scene,
-              CameraRenderSource::Scene(content.main_camera),
-              ctx,
-              scene_pass_dispatcher,
-            );
-
-            let all_transparent_object = renderer.extract_scene_batch(
-              content.scene,
-              SceneContentKey::only_alpha_blend_objects(),
-              ctx,
-            );
-
-            let all_transparent_object = if let SceneModelRenderBatch::Host(
-              all_transparent_object,
-            ) = &all_transparent_object
-            {
-              let camera_position = scene_derive
-                .camera_transforms
-                .access(&content.main_camera)
-                .unwrap()
-                .world
-                .position();
-              let all_transparent_object = TransparentHostOrderer {
-                world_bounding: scene_derive.sm_world_bounding.clone(),
-              }
-              .reorder_content(all_transparent_object.as_ref(), camera_position);
-
-              SceneModelRenderBatch::Host(all_transparent_object)
-            } else {
-              all_transparent_object
-            };
-
-            let mut all_transparent_object = renderer.make_scene_batch_pass_content(
-              all_transparent_object,
-              CameraRenderSource::Scene(content.main_camera),
-              scene_pass_dispatcher,
-              ctx,
-            );
-
-            pass_base
-              .render_ctx(ctx)
-              // the following pass will check depth to decide if pixel is background,
-              // so miss overwrite other channel is not a problem here
-              .by(&mut background)
-              .by(&mut all_opaque_object)
-              .by(&mut all_transparent_object);
-          }
-          LightingTechniqueKind::DeferLighting => {
-            let mut pass_base = pass("scene");
-
-            let g_buffer_base_writer = g_buffer.extend_pass_desc(&mut pass_base, depth_ops);
-            let mut m_buffer = FrameGeneralMaterialBuffer::new(ctx);
-
-            let indices = m_buffer.extend_pass_desc(&mut pass_base);
-            let material_writer = FrameGeneralMaterialBufferEncoder {
-              indices,
-              materials: deferred_mat_supports,
-            };
-
-            let scene_pass_dispatcher = &RenderArray([
-              &g_buffer_base_writer as &dyn RenderComponent,
-              &material_writer,
-            ]) as &dyn RenderComponent;
-
-            let mut main_scene_content = renderer.extract_and_make_pass_content(
-              SceneContentKey::default(),
-              content.scene,
-              CameraRenderSource::Scene(content.main_camera),
-              ctx,
-              scene_pass_dispatcher,
-            );
-
-            pass_base.render_ctx(ctx).by(&mut main_scene_content);
-
-            let geometry_from_g_buffer = Box::new(FrameGeometryBufferReconstructGeometryCtx {
-              camera: &main_camera_gpu,
-              g_buffer: &g_buffer,
-            }) as Box<dyn GeometryCtxProvider>;
-            let surface_from_m_buffer = Box::new(FrameGeneralMaterialBufferReconstructSurface {
-              m_buffer: &m_buffer,
-              registry: deferred_mat_supports,
-            });
-            let lighting = lighting.get_scene_lighting_component(
-              content.scene,
-              geometry_from_g_buffer,
-              surface_from_m_buffer,
-            );
-
-            let lighting = RenderArray([
-              &DefaultDisplayWriter as &dyn RenderComponent,
-              lighting.as_ref(),
-            ]);
-
-            let _ = pass("deferred lighting compute")
-              .with_color(&scene_result, color_ops)
-              .render_ctx(ctx)
-              .by(&mut background)
-              .by(&mut lighting.draw_quad());
-          }
-        }
+        render_lighting_scene_content(
+          ctx,
+          lighting,
+          renderer,
+          content,
+          scene_derive,
+          &scene_result,
+          &g_buffer,
+          &main_camera_gpu,
+        );
 
         if self.enable_ground {
           // this must a separate pass, because the id buffer should not be written.

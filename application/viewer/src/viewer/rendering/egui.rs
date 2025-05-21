@@ -84,17 +84,17 @@ impl Viewer3dRenderingCtx {
     egui::ComboBox::from_label("Lighting technique for opaque objects")
       .selected_text(format!(
         "{:?}",
-        &self.opaque_scene_content_lighting_technique
+        &self.lighting.opaque_scene_content_lighting_technique
       ))
       .show_ui(ui, |ui| {
         ui.selectable_value(
-          &mut self.opaque_scene_content_lighting_technique,
+          &mut self.lighting.opaque_scene_content_lighting_technique,
           LightingTechniqueKind::Forward,
           "Forward",
         );
 
         ui.selectable_value(
-          &mut self.opaque_scene_content_lighting_technique,
+          &mut self.lighting.opaque_scene_content_lighting_technique,
           LightingTechniqueKind::DeferLighting,
           "DeferLighting",
         )

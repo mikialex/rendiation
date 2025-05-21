@@ -139,18 +139,10 @@ pub fn use_viewer<'a>(acx: &'a mut ApplicationCx, f: impl FnOnce(&mut ViewerCx))
     )
   });
 
+  let main_camera_handle = viewer.scene.main_camera;
+
   if acx.processing_event {
     let derived = viewer.derives.poll_update();
-
-    let main_camera_handle = viewer.scene.main_camera;
-
-    viewer.rendering.update_next_render_camera_info(
-      derived
-        .camera_transforms
-        .access(&main_camera_handle)
-        .unwrap()
-        .view_projection_inv,
-    );
 
     let picker = ViewerPicker::new(&derived, acx.input, main_camera_handle);
 

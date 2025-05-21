@@ -1,5 +1,7 @@
-use super::axis::WorldCoordinateAxis;
 use crate::*;
+
+mod axis;
+pub use axis::*;
 
 pub fn draw_widgets(
   ctx: &mut FrameCtx,
@@ -31,7 +33,7 @@ pub fn draw_widgets(
     .with_depth(&msaa_depth, clear(if reversed_depth { 0. } else { 1. }))
     .resolve_to(&widgets_result)
     .render_ctx(ctx)
-    .by(&mut super::axis::DrawWorldAxis {
+    .by(&mut DrawWorldAxis {
       data: axis,
       reversed_depth,
       camera: main_camera_gpu.as_ref(),

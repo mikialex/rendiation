@@ -7,36 +7,17 @@ use rendiation_texture_gpu_process::{ToneMap, ToneMapType};
 
 mod debug_channels;
 mod ibl;
+mod light_pass;
 mod punctual;
 mod shadow;
 
 use debug_channels::*;
 use ibl::*;
+pub use light_pass::*;
 use punctual::*;
 pub use shadow::*;
 
 use crate::*;
-
-pub fn create_gpu_tex_from_png_buffer(
-  cx: &GPU,
-  buf: &[u8],
-  format: TextureFormat,
-) -> GPU2DTextureView {
-  let png_decoder = png::Decoder::new(buf);
-  let mut png_reader = png_decoder.read_info().unwrap();
-  let mut buf = vec![0; png_reader.output_buffer_size()];
-  png_reader.next_frame(&mut buf).unwrap();
-
-  let (width, height) = png_reader.info().size();
-  create_gpu_texture2d(
-    cx,
-    &GPUBufferImage {
-      data: buf,
-      format,
-      size: Size::from_u32_pair_min_one((width, height)),
-    },
-  )
-}
 
 pub struct LightSystem {
   reversed_depth: bool,
@@ -47,6 +28,8 @@ pub struct LightSystem {
   enable_channel_debugger: bool,
   channel_debugger: ScreenChannelDebugger,
   pub tonemap: ToneMap,
+  material_defer_lighting_supports: DeferLightingMaterialRegistry,
+  pub opaque_scene_content_lighting_technique: LightingTechniqueKind,
 }
 
 impl LightSystem {
@@ -202,6 +185,9 @@ impl LightSystem {
       channel_debugger: ScreenChannelDebugger::default_useful(),
       tonemap: ToneMap::new(gpu),
       reversed_depth,
+      material_defer_lighting_supports: DeferLightingMaterialRegistry::default()
+        .register_material_impl::<PbrSurfaceEncodeDecode>(),
+      opaque_scene_content_lighting_technique: LightingTechniqueKind::Forward,
     }
   }
 
@@ -246,7 +232,7 @@ impl LightSystem {
     cx: &mut Context,
     renderer: &dyn SceneRenderer<ContentKey = SceneContentKey>,
     target_scene: EntityHandle<SceneEntity>,
-  ) -> (SceneLightSystem, &ToneMap) {
+  ) -> LightingRenderingCx {
     self.tonemap.update(frame_ctx.gpu);
 
     let key = SceneContentKey {
@@ -287,7 +273,13 @@ impl LightSystem {
       system: self,
       imp: self.internal.create_impl(rcx),
     };
-    (sys, &self.tonemap)
+
+    LightingRenderingCx {
+      lighting: sys,
+      tonemap: &self.tonemap,
+      deferred_mat_supports: &self.material_defer_lighting_supports,
+      lighting_method: self.opaque_scene_content_lighting_technique,
+    }
   }
 }
 
