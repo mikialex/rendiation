@@ -13,6 +13,7 @@ pub struct ViewerFrameLogic {
   reproject: GPUReprojectInfo,
   taa: TAA,
   enable_taa: bool,
+  enable_fxaa: bool,
   enable_ground: bool,
   enable_ssao: bool,
   enable_outline: bool,
@@ -32,6 +33,7 @@ impl ViewerFrameLogic {
       reproject: GPUReprojectInfo::new(gpu),
       taa: TAA::new(),
       enable_taa: true,
+      enable_fxaa: false,
       enable_ground: true,
       enable_ssao: false,
       enable_outline: false,
@@ -45,6 +47,10 @@ impl ViewerFrameLogic {
 
   pub fn egui(&mut self, ui: &mut egui::Ui) {
     ui.checkbox(&mut self.enable_taa, "enable taa");
+    ui.checkbox(&mut self.enable_fxaa, "enable fxaa");
+    if self.enable_fxaa && self.enable_taa {
+      ui.label("enable fxaa with other aa method is allowed, but may have undesirable result");
+    }
     ui.checkbox(&mut self.enable_ground, "enable ground");
     ui.checkbox(&mut self.enable_ssao, "enable ssao");
     ui.checkbox(&mut self.enable_outline, "enable outline");
@@ -149,7 +155,7 @@ impl ViewerFrameLogic {
 
     let (
       TAAFrame {
-        color: taa_result,
+        color: maybe_aa_result,
         depth: scene_depth,
       },
       (id_buffer, normal_buffer),
@@ -159,6 +165,24 @@ impl ViewerFrameLogic {
         .render_aa_content(taa_content, ctx, &self.reproject)
     } else {
       taa_content.render(ctx)
+    };
+
+    let maybe_aa_result = if self.enable_fxaa {
+      let fxaa_target = maybe_aa_result.create_attachment_key().request(ctx);
+
+      pass("fxaa")
+        .with_color(&fxaa_target, load())
+        .render_ctx(ctx)
+        .by(
+          &mut FXAA {
+            source: &maybe_aa_result,
+          }
+          .draw_quad(),
+        );
+
+      fxaa_target
+    } else {
+      maybe_aa_result
     };
 
     let g_buffer = FrameGeometryBuffer {
@@ -182,7 +206,7 @@ impl ViewerFrameLogic {
       .render_ctx(ctx)
       .by(
         &mut PostProcess {
-          input: taa_result.clone(),
+          input: maybe_aa_result.clone(),
           config: &self.post,
         }
         .draw_quad(),

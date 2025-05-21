@@ -1,5 +1,34 @@
 use crate::*;
 
+pub struct FXAA<'a> {
+  pub source: &'a RenderTargetView,
+}
+
+impl ShaderHashProvider for FXAA<'_> {
+  shader_hash_type_id! {FXAA<'static>}
+}
+impl GraphicsShaderProvider for FXAA<'_> {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    builder.fragment(|builder, binding| {
+      let source = binding.bind_by(&self.source);
+      let sampler = binding.bind_by(&ImmediateGPUSamplerViewBind);
+
+      let uv = builder.query::<FragmentUv>();
+      let texel_size = builder.query::<TexelSize>();
+
+      let output = fxaa(source, sampler, uv, texel_size);
+
+      builder.store_fragment_out_vec4f(0, (output, val(1.)));
+    })
+  }
+}
+impl ShaderPassBuilder for FXAA<'_> {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx.binding.bind(self.source);
+    ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
+  }
+}
+
 /// FXAA algorithm from NVIDIA, C# implementation by Jasper Flick, GLSL port by Dave Hoskins
 /// http://developer.download.nvidia.com/assets/gamedev/files/sdk/11/FXAA_WhitePaper.pdf
 /// https://catlikecoding.com/unity/tutorials/advanced-rendering/fxaa/
@@ -218,6 +247,15 @@ fn determine_edge_blend_factor(
   let edge_steps = Node::<[f32; 6]>::from_array(EDGE_STEPS);
 
   loop_by(|cx| {
+    let should_break = i
+      .load()
+      .greater_equal_than(val(EDGE_STEP_COUNT))
+      .or(p_at_end.load());
+
+    if_by(should_break, || {
+      cx.do_break();
+    });
+
     puv.store(puv.load() + edge_step * edge_steps.index(i.load()));
     p_luminance_delta.store(sample_luminance(input, sampler, puv.load()) - edge_luminance);
 
@@ -228,19 +266,10 @@ fn determine_edge_blend_factor(
         .greater_equal_than(gradient_threshold),
     );
 
-    let should_break = i
-      .load()
-      .greater_equal_than(val(EDGE_STEP_COUNT))
-      .or(p_at_end.load());
-
-    if_by(should_break, || {
-      cx.do_break();
-    });
-
     i.store(i.load() + val(1));
   });
 
-  if_by(p_at_end.load(), || {
+  if_by(p_at_end.load().not(), || {
     puv.store(puv.load() + edge_step * val(EDGE_GUESS));
   });
 
@@ -257,6 +286,15 @@ fn determine_edge_blend_factor(
   let i = val(1_u32).make_local_var();
 
   loop_by(|cx| {
+    let should_break = i
+      .load()
+      .greater_equal_than(val(EDGE_STEP_COUNT))
+      .or(n_at_end.load());
+
+    if_by(should_break, || {
+      cx.do_break();
+    });
+
     nuv.store(nuv.load() - edge_step * edge_steps.index(i.load()));
     n_luminance_delta.store(sample_luminance(input, sampler, nuv.load()) - edge_luminance);
 
@@ -267,20 +305,11 @@ fn determine_edge_blend_factor(
         .greater_equal_than(gradient_threshold),
     );
 
-    let should_break = i
-      .load()
-      .greater_equal_than(val(EDGE_STEP_COUNT))
-      .or(n_at_end.load());
-
-    if_by(should_break, || {
-      cx.do_break();
-    });
-
     i.store(i.load() + val(1));
   });
 
-  if_by(n_at_end.load(), || {
-    nuv.store(nuv.load() + edge_step * val(EDGE_GUESS));
+  if_by(n_at_end.load().not(), || {
+    nuv.store(nuv.load() - edge_step * val(EDGE_GUESS));
   });
 
   let puv = puv.load();
