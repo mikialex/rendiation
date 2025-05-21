@@ -187,9 +187,8 @@ impl GPUDevice {
       println!();
       println!("=== rendiation_shader_api build result ===");
 
-      println!("compute shader: ");
-      let comp = convert_module_by_wgsl(&naga_module, naga::valid::ValidationFlags::empty());
-      println!("{comp}",);
+      let shader_str = convert_module_by_wgsl(&naga_module, naga::valid::ValidationFlags::all());
+      println!("{shader_str}",);
 
       println!("=== result output finished ===");
     }
