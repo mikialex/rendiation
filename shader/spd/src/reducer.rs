@@ -1,6 +1,6 @@
 use crate::*;
 
-pub trait QuadReducer<T>: Copy + Clone + 'static {
+pub trait QuadReducer<T> {
   fn reduce(&self, v: [Node<T>; 4]) -> Node<T>;
 }
 

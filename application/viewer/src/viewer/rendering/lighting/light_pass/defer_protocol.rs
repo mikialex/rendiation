@@ -218,7 +218,7 @@ impl DeferLightingMaterialBufferReadWrite for PbrSurfaceEncodeDecode {
 
       builder.frag_output[indices.channel_a].store(albedo_roughness);
       builder.frag_output[indices.channel_b].store(f0_emissive_x);
-      builder.frag_output[indices.channel_c].store(emissive.yz());
+      builder.frag_output[indices.channel_c].store((emissive.yz(), val(0.), val(1.)).into());
     }
   }
 

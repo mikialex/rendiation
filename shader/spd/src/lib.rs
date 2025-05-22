@@ -4,39 +4,37 @@ use rendiation_webgpu::*;
 mod reducer;
 pub use reducer::*;
 
+mod entry;
+pub use entry::*;
+
 mod io;
 pub use io::*;
 
 pub const MAX_INPUT_SIZE: u32 = 2_u32.pow(12); // 4096
 
-/// the target is a h depth texture, the size must under MAX_INPUT_SIZE.
-pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
-  input_multi_sampled_depth: &GPU2DMultiSampleDepthTextureView,
-  output_target: &GPU2DTexture,
+pub fn fast_down_sampling<FO, V>(
+  reducer: &dyn QuadReducer<V>,
+  root_level_dispatcher: &dyn RootLevelDispatcher<FO, V>,
+  (width, height): (u32, u32),
+  mip_level_count: u32,
+  outputs: &[GPUTypedTextureView<TextureDimension2, FO>; 13],
+  level_loader_creator: impl Fn(
+    BindingNode<ShaderStorageTexture<StorageTextureAccessReadonly, TextureDimension2, FO>>,
+  ) -> Box<dyn SourceImageLoader<V>>,
+  level_writer_creator: impl Fn(
+    BindingNode<ShaderStorageTexture<StorageTextureAccessWriteonly, TextureDimension2, FO>>,
+  ) -> Box<dyn SourceImageWriter<V>>,
   pass: &mut GPUComputePass,
   device: &GPUDevice,
-) {
+) where
+  FO: ShaderTextureKind,
+  V: ShaderSizedValueNodeType,
+{
   // check input
-  let input_size = input_multi_sampled_depth.resource.desc.size;
-  assert!(input_size.width <= MAX_INPUT_SIZE);
-  assert!(input_size.height <= MAX_INPUT_SIZE);
+  assert!(width <= MAX_INPUT_SIZE);
+  assert!(height <= MAX_INPUT_SIZE);
 
-  let mip_level_count = output_target.desc.mip_level_count;
-
-  let reducer = MaxReducer;
-
-  // level that exceeds will be clamped to max level
-  let mips: [GPU2DTextureView; 13] = std::array::from_fn(|index| {
-    output_target
-      .create_view(TextureViewDescriptor {
-        base_mip_level: (index as u32).clamp(0, mip_level_count - 1),
-        mip_level_count: Some(1),
-        base_array_layer: 0,
-        ..Default::default()
-      })
-      .try_into()
-      .unwrap()
-  });
+  let mips = outputs;
 
   // we can not read from the texture meta in shader, because we want
   // the mip_count for full texture size
@@ -48,12 +46,13 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
       .clone()
       .into_storage_texture_view_writeonly()
       .unwrap();
-    let level_1_6: [StorageTextureViewWriteonly2D; 6] = std::array::from_fn(|i| {
-      mips[i + 1]
-        .clone()
-        .into_storage_texture_view_writeonly()
-        .unwrap()
-    });
+    let level_1_6: [StorageTextureView<StorageTextureAccessWriteonly, TextureDimension2, FO>; 6] =
+      std::array::from_fn(|i| {
+        mips[i + 1]
+          .clone()
+          .into_storage_texture_view_writeonly()
+          .unwrap()
+      });
 
     let hasher = shader_hasher_from_marker_ty!(SPDxFirstPass);
     let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut ctx| {
@@ -67,16 +66,12 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
       let y = coord.y() + (local_id >> val(7)) * val(8);
       let coord = (x, y).into();
 
-      let ms_depth = ctx.bind_by(&input_multi_sampled_depth);
       let mip_0 = ctx.bind_by(&level_0);
+
       let mip_level_count = ctx.bind_by(&mip_count_buffer).load().x();
 
-      let image_loader = MSDepthLoader {
-        ms_depth,
-        mip_0,
-        scale: ms_depth.texture_dimension_2d(None).into_f32()
-          / mip_0.texture_dimension_2d(None).into_f32(),
-      };
+      let root_loader =
+        root_level_dispatcher.create_root_loader_with_possible_write(&mut ctx, mip_0);
 
       let shared = SharedMemoryDownSampler::new(&ctx);
 
@@ -88,20 +83,20 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
       };
 
       down_sample_mips_0_and_1(
-        &image_loader,
+        root_loader.as_ref(),
         &shared,
-        SplatWriter(ctx.bind_by(&level_1_6[0])),
-        SplatWriter(ctx.bind_by(&level_1_6[1])),
+        level_writer_creator(ctx.bind_by(&level_1_6[0])).as_ref(),
+        level_writer_creator(ctx.bind_by(&level_1_6[1])).as_ref(),
         sample_ctx,
         reducer,
       );
 
       down_sample_next_four(
         &shared,
-        SplatWriter(ctx.bind_by(&level_1_6[2])),
-        SplatWriter(ctx.bind_by(&level_1_6[3])),
-        SplatWriter(ctx.bind_by(&level_1_6[4])),
-        SplatWriter(ctx.bind_by(&level_1_6[5])),
+        level_writer_creator(ctx.bind_by(&level_1_6[2])).as_ref(),
+        level_writer_creator(ctx.bind_by(&level_1_6[3])).as_ref(),
+        level_writer_creator(ctx.bind_by(&level_1_6[4])).as_ref(),
+        level_writer_creator(ctx.bind_by(&level_1_6[5])).as_ref(),
         sample_ctx,
         val(2),
         reducer,
@@ -111,8 +106,10 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
     });
 
     BindingBuilder::default()
-      .with_bind(input_multi_sampled_depth)
       .with_bind(&level_0)
+      .with_fn(|b| {
+        root_level_dispatcher.bind_root_input(b);
+      })
       .with_fn(|bb| {
         for v in level_1_6.iter() {
           bb.bind(v);
@@ -120,8 +117,8 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
       })
       .setup_compute_pass(pass, device, &pipeline);
 
-    let x_workgroup_required = output_target.desc.size.width.div_ceil(64);
-    let y_workgroup_required = output_target.desc.size.height.div_ceil(64);
+    let x_workgroup_required = width.div_ceil(64);
+    let y_workgroup_required = height.div_ceil(64);
     pass.dispatch_workgroups(x_workgroup_required, y_workgroup_required, 1);
   }
 
@@ -131,13 +128,17 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
 
   // second pass
   {
-    let l_6 = mips[6].clone();
-    let l_7_12: [StorageTextureViewWriteonly2D; 6] = std::array::from_fn(|i| {
-      mips[i + 7]
-        .clone()
-        .into_storage_texture_view_writeonly()
-        .unwrap()
-    });
+    let l_6 = mips[6]
+      .clone()
+      .into_storage_texture_view_readonly()
+      .unwrap();
+    let l_7_12: [StorageTextureView<StorageTextureAccessWriteonly, TextureDimension2, FO>; 6] =
+      std::array::from_fn(|i| {
+        mips[i + 7]
+          .clone()
+          .into_storage_texture_view_writeonly()
+          .unwrap()
+      });
 
     let hasher = shader_hasher_from_marker_ty!(SPDxSecondPass);
     let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut ctx| {
@@ -154,7 +155,7 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
 
       let mip_level_count = ctx.bind_by(&mip_count_buffer).load().x();
 
-      let image_sampler = FirstChannelLoader(ctx.bind_by(&l_6));
+      let image_sampler = level_loader_creator(ctx.bind_by(&l_6));
       let shared_sampler = SharedMemoryDownSampler::new(&ctx);
 
       let sample_ctx = ENode::<SampleCtx> {
@@ -165,20 +166,20 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
       };
 
       down_sample_mips_6_and_7(
-        &image_sampler,
+        image_sampler.as_ref(),
         &shared_sampler,
-        SplatWriter(ctx.bind_by(&l_7_12[0])),
-        SplatWriter(ctx.bind_by(&l_7_12[1])),
+        level_writer_creator(ctx.bind_by(&l_7_12[0])).as_ref(),
+        level_writer_creator(ctx.bind_by(&l_7_12[1])).as_ref(),
         sample_ctx,
         reducer,
       );
 
       down_sample_next_four(
         &shared_sampler,
-        SplatWriter(ctx.bind_by(&l_7_12[2])),
-        SplatWriter(ctx.bind_by(&l_7_12[3])),
-        SplatWriter(ctx.bind_by(&l_7_12[4])),
-        SplatWriter(ctx.bind_by(&l_7_12[5])),
+        level_writer_creator(ctx.bind_by(&l_7_12[2])).as_ref(),
+        level_writer_creator(ctx.bind_by(&l_7_12[3])).as_ref(),
+        level_writer_creator(ctx.bind_by(&l_7_12[4])).as_ref(),
+        level_writer_creator(ctx.bind_by(&l_7_12[5])).as_ref(),
         sample_ctx,
         val(8),
         reducer,
@@ -248,7 +249,7 @@ where
   fn down_sample(
     &self,
     coords: [impl Into<Node<Vec2<u32>>>; 4],
-    reducer: impl QuadReducer<T>,
+    reducer: &dyn QuadReducer<T>,
   ) -> Node<T> {
     let loads = coords.map(|coord| {
       let coord = coord.into();
@@ -258,15 +259,14 @@ where
   }
 }
 
-fn down_sample_mips_0_and_1<N, T>(
-  image_sampler: &impl SourceImageLoader<N>,
+fn down_sample_mips_0_and_1<N>(
+  image_sampler: &dyn SourceImageLoader<N>,
   shared_sampler: &SharedMemoryDownSampler<N>,
-  l_1: T,
-  l_2: T,
+  l_1: &dyn SourceImageWriter<N>,
+  l_2: &dyn SourceImageWriter<N>,
   sample_ctx: ENode<SampleCtx>,
-  reducer: impl QuadReducer<N>,
+  reducer: &dyn QuadReducer<N>,
 ) where
-  T: SourceImageWriter<N>,
   N: ShaderSizedValueNodeType,
 {
   let ENode::<SampleCtx> {
@@ -328,15 +328,14 @@ fn down_sample_mips_0_and_1<N, T>(
   });
 }
 
-fn down_sample_mips_6_and_7<N, T>(
-  image_sampler: &impl SourceImageLoader<N>,
+fn down_sample_mips_6_and_7<N>(
+  image_sampler: &dyn SourceImageLoader<N>,
   shared_sampler: &SharedMemoryDownSampler<N>,
-  l_7: T,
-  l_8: T,
+  l_7: &dyn SourceImageWriter<N>,
+  l_8: &dyn SourceImageWriter<N>,
   sample_ctx: ENode<SampleCtx>,
-  reducer: impl QuadReducer<N>,
+  reducer: &dyn QuadReducer<N>,
 ) where
-  T: SourceImageWriter<N>,
   N: ShaderSizedValueNodeType,
 {
   let ENode::<SampleCtx> {
@@ -360,18 +359,17 @@ fn down_sample_mips_6_and_7<N, T>(
   shared_sampler.store(coord, l_8_local);
 }
 
-fn down_sample_next_four<N, T>(
+fn down_sample_next_four<N>(
   sampler: &SharedMemoryDownSampler<N>,
-  l_3: T,
-  l_4: T,
-  l_5: T,
-  l_6: T,
+  l_3: &dyn SourceImageWriter<N>,
+  l_4: &dyn SourceImageWriter<N>,
+  l_5: &dyn SourceImageWriter<N>,
+  l_6: &dyn SourceImageWriter<N>,
   sample_ctx: ENode<SampleCtx>,
   base_mip: Node<u32>,
-  reducer: impl QuadReducer<N>,
+  reducer: &dyn QuadReducer<N>,
 ) where
   N: ShaderSizedValueNodeType,
-  T: SourceImageWriter<N>,
 {
   let ENode::<SampleCtx> {
     coord,
