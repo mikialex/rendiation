@@ -107,3 +107,20 @@ pub fn get_cube_face_index_by_dir(dir: Node<Vec3<f32>>) -> Node<i32> {
 
   index.load()
 }
+
+#[shader_fn]
+pub fn equirectangular_uv_to_direction(uv: Node<Vec2<f32>>) -> Node<Vec3<f32>> {
+  let theta = val(2. * f32::PI()) * uv.x();
+  let phi = val(f32::PI()) * uv.y() - val(0.5 * f32::PI());
+
+  (phi.cos() * theta.cos(), phi.cos() * theta.sin(), phi.sin()).into()
+}
+
+#[shader_fn]
+pub fn direction_to_equirectangular_uv(direction: Node<Vec3<f32>>) -> Node<Vec2<f32>> {
+  (
+    direction.y().atan2(direction.x()) * val(1. / f32::PI() * 0.5) + val(0.5),
+    (-direction.z()).acos() * val(1. / f32::PI()),
+  )
+    .into()
+}

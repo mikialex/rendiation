@@ -59,6 +59,7 @@
         "dxdy",
         "Egui",
         "Encodable",
+        "equirectangular",
         "eval",
         "evaluatable",
         "eventable",

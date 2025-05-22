@@ -25,7 +25,7 @@ impl GraphicsShaderProvider for FXAA<'_> {
 impl ShaderPassBuilder for FXAA<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(self.source);
-    ctx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
+    ctx.bind_immediate_sampler(&TextureSampler::default().with_double_linear().into_gpu());
   }
 }
 
@@ -163,12 +163,32 @@ fn should_skip_pixel(l: &ENode<LuminanceData>) -> Node<bool> {
 
 fn determine_pixel_blend_factor(l: &ENode<LuminanceData>) -> Node<f32> {
   let subpixel_blending = val(1.0);
+
+  // determine the average luminance of all adjacent neighbors. But because the diagonal neighbors
+  // are spatially further away from the middle, they should matter less. We factor this into our
+  // average by doubling the weights of the NESW neighbors, dividing the total by twelve instead of
+  // eight. The result is akin to a tent filter and acts as a low-pass filter.
+  //
+  // neighbor weights:
+  //
+  // 1 2 1
+  // 2 x 2
+  // 1 2 1
   let f = val(2.0) * (l.n + l.e + l.s + l.w);
   let f = f + l.ne + l.nw + l.se + l.sw;
   let f = f * val(1.0 / 12.0);
+
+  // find the contrast between the middle and this average, via their absolute difference.
+  // The result has now become a high-pass filter.
   let f = (f - l.m).abs();
+
+  // filter is normalized relative to the contrast of the NESW cross, via a division.
+  // Clamp the result to a maximum of 1, as we might end up with larger values thanks
+  // to the filter covering more pixels than the cross
   let f = (f / l.contrast).saturate();
 
+  // The result is a rather harsh transition to use as a blend factor. Use the smoothstep
+  // function to smooth it out, then square the result of that to slow it down.
   let blend_factor = f.smoothstep(0.0, 1.0);
   blend_factor * blend_factor * subpixel_blending
 }
