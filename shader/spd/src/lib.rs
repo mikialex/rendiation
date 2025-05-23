@@ -12,29 +12,19 @@ pub use io::*;
 
 pub const MAX_INPUT_SIZE: u32 = 2_u32.pow(12); // 4096
 
-pub fn fast_down_sampling<FO, V>(
+pub fn fast_down_sampling<V>(
   reducer: &dyn QuadReducer<V>,
-  root_level_dispatcher: &dyn RootLevelDispatcher<FO, V>,
-  (width, height): (u32, u32),
-  mip_level_count: u32,
-  outputs: &[GPUTypedTextureView<TextureDimension2, FO>; 13],
-  level_loader_creator: impl Fn(
-    BindingNode<ShaderStorageTexture<StorageTextureAccessReadonly, TextureDimension2, FO>>,
-  ) -> Box<dyn SourceImageLoader<V>>,
-  level_writer_creator: impl Fn(
-    BindingNode<ShaderStorageTexture<StorageTextureAccessWriteonly, TextureDimension2, FO>>,
-  ) -> Box<dyn SourceImageWriter<V>>,
+  io: &dyn FastDownSamplingIO<V>,
   pass: &mut GPUComputePass,
   device: &GPUDevice,
 ) where
-  FO: ShaderTextureKind,
   V: ShaderSizedValueNodeType,
 {
+  let (width, height) = io.root_size();
+  let mip_level_count = io.mip_level_count();
   // check input
   assert!(width <= MAX_INPUT_SIZE);
   assert!(height <= MAX_INPUT_SIZE);
-
-  let mips = outputs;
 
   // we can not read from the texture meta in shader, because we want
   // the mip_count for full texture size
@@ -42,18 +32,6 @@ pub fn fast_down_sampling<FO, V>(
 
   // first pass
   {
-    let level_0 = mips[0]
-      .clone()
-      .into_storage_texture_view_writeonly()
-      .unwrap();
-    let level_1_6: [StorageTextureView<StorageTextureAccessWriteonly, TextureDimension2, FO>; 6] =
-      std::array::from_fn(|i| {
-        mips[i + 1]
-          .clone()
-          .into_storage_texture_view_writeonly()
-          .unwrap()
-      });
-
     let hasher = shader_hasher_from_marker_ty!(SPDxFirstPass);
     let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut ctx| {
       ctx.config_work_group_size(16 * 16);
@@ -66,12 +44,9 @@ pub fn fast_down_sampling<FO, V>(
       let y = coord.y() + (local_id >> val(7)) * val(8);
       let coord = (x, y).into();
 
-      let mip_0 = ctx.bind_by(&level_0);
-
       let mip_level_count = ctx.bind_by(&mip_count_buffer).load().x();
 
-      let root_loader =
-        root_level_dispatcher.create_root_loader_with_possible_write(&mut ctx, mip_0);
+      let stage_one_io = io.bind_first_stage_shader(&mut ctx);
 
       let shared = SharedMemoryDownSampler::new(&ctx);
 
@@ -83,20 +58,20 @@ pub fn fast_down_sampling<FO, V>(
       };
 
       down_sample_mips_0_and_1(
-        root_loader.as_ref(),
+        stage_one_io.get_root_loader_with_possible_write().as_ref(),
         &shared,
-        level_writer_creator(ctx.bind_by(&level_1_6[0])).as_ref(),
-        level_writer_creator(ctx.bind_by(&level_1_6[1])).as_ref(),
+        stage_one_io.get_1_6_level_writer(1).as_ref(),
+        stage_one_io.get_1_6_level_writer(2).as_ref(),
         sample_ctx,
         reducer,
       );
 
       down_sample_next_four(
         &shared,
-        level_writer_creator(ctx.bind_by(&level_1_6[2])).as_ref(),
-        level_writer_creator(ctx.bind_by(&level_1_6[3])).as_ref(),
-        level_writer_creator(ctx.bind_by(&level_1_6[4])).as_ref(),
-        level_writer_creator(ctx.bind_by(&level_1_6[5])).as_ref(),
+        stage_one_io.get_1_6_level_writer(3).as_ref(),
+        stage_one_io.get_1_6_level_writer(4).as_ref(),
+        stage_one_io.get_1_6_level_writer(5).as_ref(),
+        stage_one_io.get_1_6_level_writer(6).as_ref(),
         sample_ctx,
         val(2),
         reducer,
@@ -106,14 +81,9 @@ pub fn fast_down_sampling<FO, V>(
     });
 
     BindingBuilder::default()
-      .with_bind(&level_0)
+      .with_bind(&mip_count_buffer)
       .with_fn(|b| {
-        root_level_dispatcher.bind_root_input(b);
-      })
-      .with_fn(|bb| {
-        for v in level_1_6.iter() {
-          bb.bind(v);
-        }
+        io.bind_first_stage_pass(b);
       })
       .setup_compute_pass(pass, device, &pipeline);
 
@@ -128,18 +98,6 @@ pub fn fast_down_sampling<FO, V>(
 
   // second pass
   {
-    let l_6 = mips[6]
-      .clone()
-      .into_storage_texture_view_readonly()
-      .unwrap();
-    let l_7_12: [StorageTextureView<StorageTextureAccessWriteonly, TextureDimension2, FO>; 6] =
-      std::array::from_fn(|i| {
-        mips[i + 7]
-          .clone()
-          .into_storage_texture_view_writeonly()
-          .unwrap()
-      });
-
     let hasher = shader_hasher_from_marker_ty!(SPDxSecondPass);
     let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut ctx| {
       ctx.config_work_group_size(16 * 16);
@@ -155,7 +113,8 @@ pub fn fast_down_sampling<FO, V>(
 
       let mip_level_count = ctx.bind_by(&mip_count_buffer).load().x();
 
-      let image_sampler = level_loader_creator(ctx.bind_by(&l_6));
+      let stage_two_io = io.bind_second_stage_shader(&mut ctx);
+
       let shared_sampler = SharedMemoryDownSampler::new(&ctx);
 
       let sample_ctx = ENode::<SampleCtx> {
@@ -166,20 +125,20 @@ pub fn fast_down_sampling<FO, V>(
       };
 
       down_sample_mips_6_and_7(
-        image_sampler.as_ref(),
+        stage_two_io.get_level_6_loader().as_ref(),
         &shared_sampler,
-        level_writer_creator(ctx.bind_by(&l_7_12[0])).as_ref(),
-        level_writer_creator(ctx.bind_by(&l_7_12[1])).as_ref(),
+        stage_two_io.get_7_12_level_writer(7).as_ref(),
+        stage_two_io.get_7_12_level_writer(8).as_ref(),
         sample_ctx,
         reducer,
       );
 
       down_sample_next_four(
         &shared_sampler,
-        level_writer_creator(ctx.bind_by(&l_7_12[2])).as_ref(),
-        level_writer_creator(ctx.bind_by(&l_7_12[3])).as_ref(),
-        level_writer_creator(ctx.bind_by(&l_7_12[4])).as_ref(),
-        level_writer_creator(ctx.bind_by(&l_7_12[5])).as_ref(),
+        stage_two_io.get_7_12_level_writer(9).as_ref(),
+        stage_two_io.get_7_12_level_writer(10).as_ref(),
+        stage_two_io.get_7_12_level_writer(11).as_ref(),
+        stage_two_io.get_7_12_level_writer(12).as_ref(),
         sample_ctx,
         val(8),
         reducer,
@@ -190,11 +149,8 @@ pub fn fast_down_sampling<FO, V>(
 
     BindingBuilder::default()
       .with_bind(&mip_count_buffer)
-      .with_bind(&l_6)
       .with_fn(|bb| {
-        for v in l_7_12.iter() {
-          bb.bind(v);
-        }
+        io.bind_second_stage_pass(bb);
       })
       .setup_compute_pass(pass, device, &pipeline);
 

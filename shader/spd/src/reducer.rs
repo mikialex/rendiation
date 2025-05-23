@@ -12,3 +12,11 @@ impl<T: PrimitiveShaderNodeType> QuadReducer<T> for MaxReducer {
     v1.max(v2).max(v3).max(v4)
   }
 }
+
+#[derive(Clone, Copy)]
+pub struct MipMapReducer;
+impl QuadReducer<Vec4<f32>> for MipMapReducer {
+  fn reduce(&self, v: [Node<Vec4<f32>>; 4]) -> Node<Vec4<f32>> {
+    (v[0] + v[1] + v[2] + v[3]) * val(0.25)
+  }
+}
