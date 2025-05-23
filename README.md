@@ -45,6 +45,7 @@ RRF is highly modulized, layered, decoupled and well-structured. Users can build
   - derive: macro implementation for shader-api
   - library: useful graphics shader logic collection
   - parallel-compute: express parallel computation in monad-like high level api
+  - fast-down-sampling-2d: optimized mipmaps genenration using shared memory
   - task-graph: a on-device task-graph runtime to support massively stateful computation in gpu.
   - [ray-tracing](./shader/ray-tracing/README.md): a monad-like high level api for gpu ray tracing with the same capabilities as the native hardware rtx. and a wavefront tracing executor based on task-graph.
 - content: graphics related data structure and algorithm for domain related problem

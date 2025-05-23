@@ -3514,6 +3514,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-fast-down-sampling-2d"
+version = "0.1.0"
+dependencies = [
+ "pollster",
+ "rendiation-shader-api",
+ "rendiation-webgpu",
+]
+
+[[package]]
 name = "rendiation-frustum-culling"
 version = "0.1.0"
 dependencies = [
@@ -3761,12 +3770,12 @@ dependencies = [
  "reactive",
  "rendiation-algebra",
  "rendiation-device-parallel-compute",
+ "rendiation-fast-down-sampling-2d",
  "rendiation-geometry",
  "rendiation-scene-core",
  "rendiation-scene-rendering-gpu-base",
  "rendiation-shader-api",
  "rendiation-shader-library",
- "rendiation-spd",
  "rendiation-texture-core",
  "rendiation-webgpu",
 ]
@@ -4023,15 +4032,6 @@ dependencies = [
  "rendiation-abstract-tree",
  "rendiation-algebra",
  "rendiation-geometry",
-]
-
-[[package]]
-name = "rendiation-spd"
-version = "0.1.0"
-dependencies = [
- "pollster",
- "rendiation-shader-api",
- "rendiation-webgpu",
 ]
 
 [[package]]

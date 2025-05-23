@@ -1,7 +1,7 @@
 [package]
 authors = ["mikialex <18516340862@163.com>"]
 edition = "2021"
-name = "rendiation-spd"
+name = "rendiation-fast-down-sampling-2d"
 version = "0.1.0"
 
 [dependencies]

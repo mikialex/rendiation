@@ -15,7 +15,7 @@ rendiation-scene-rendering-gpu-base = { path = "../../rendering/gpu-base" }
 rendiation-shader-api = { path = "../../../shader/api" }
 rendiation-device-parallel-compute = { path = "../../../shader/parallel-compute" }
 rendiation-shader-library = { path = "../../../shader/library" }
-rendiation-spd = { path = "../../../shader/spd" }
+rendiation-fast-down-sampling-2d = { path = "../../../shader/fast-down-sampling-2d" }
 rendiation-texture-core = { path = "../../../content/texture/core" }
 reactive = { path = "../../../utility/reactive" }
 rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
