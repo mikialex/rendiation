@@ -40,12 +40,12 @@ impl<D, F> GPUTypedTextureView<D, F> {
   }
 }
 
-pub type StorageTextureViewReadWrite2D =
-  StorageTextureView<StorageTextureAccessReadWrite, TextureDimension2, f32>;
-pub type StorageTextureViewReadonly2D =
-  StorageTextureView<StorageTextureAccessReadonly, TextureDimension2, f32>;
-pub type StorageTextureViewWriteonly2D =
-  StorageTextureView<StorageTextureAccessWriteonly, TextureDimension2, f32>;
+pub type StorageTextureViewReadWrite2D<F = f32> =
+  StorageTextureView<StorageTextureAccessReadWrite, TextureDimension2, F>;
+pub type StorageTextureViewReadonly2D<F = f32> =
+  StorageTextureView<StorageTextureAccessReadonly, TextureDimension2, F>;
+pub type StorageTextureViewWriteonly2D<F = f32> =
+  StorageTextureView<StorageTextureAccessWriteonly, TextureDimension2, F>;
 
 pub struct StorageTextureView<A, D, F> {
   pub texture: GPUTypedTextureView<D, F>,

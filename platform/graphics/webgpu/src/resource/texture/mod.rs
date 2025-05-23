@@ -1,5 +1,5 @@
 mod d2;
-use check::*;
+pub use check::*;
 pub use d2::*;
 mod cube;
 mod storage;

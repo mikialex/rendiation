@@ -1,4 +1,4 @@
-use std::{any::TypeId, array, hash::Hash};
+use std::{any::TypeId, hash::Hash};
 
 use crate::*;
 
@@ -34,13 +34,75 @@ pub trait FastDownSamplingIOSecondStageInvocation<V> {
 
 pub struct CommonTextureFastDownSamplingSource<F: 'static, V: 'static> {
   pub target: GPUTypedTexture<TextureDimension2, F>,
-  pub levels: [GPUTypedTextureView<TextureDimension2, F>; 13],
-  pub texel_to_reduce_unit: fn(
-    BindingNode<ShaderStorageTexture<StorageTextureAccessReadonly, TextureDimension2, F>>,
-  ) -> Box<dyn SourceImageLoader<V>>,
-  pub reduce_unit_to_texel: fn(
-    BindingNode<ShaderStorageTexture<StorageTextureAccessWriteonly, TextureDimension2, F>>,
-  ) -> Box<dyn SourceImageWriter<V>>,
+
+  pub base: StorageTextureViewReadonly2D<F>,
+  pub first_pass_writes: [StorageTextureViewWriteonly2D<F>; 6],
+  pub second_pass_read: StorageTextureViewReadonly2D<F>,
+  pub second_pass_writes: [StorageTextureViewWriteonly2D<F>; 5],
+
+  pub texel_to_reduce_unit:
+    fn(BindingNode<ShaderStorageTextureR2D<F>>) -> Box<dyn SourceImageLoader<V>>,
+  pub reduce_unit_to_texel:
+    fn(BindingNode<ShaderStorageTextureW2D<F>>) -> Box<dyn SourceImageWriter<V>>,
+}
+
+impl<F: TextureFormatDynamicCheck + 'static, V: 'static> CommonTextureFastDownSamplingSource<F, V> {
+  pub fn new(
+    target: &GPUTypedTexture<TextureDimension2, F>,
+    texel_to_reduce_unit: fn(
+      BindingNode<ShaderStorageTextureR2D<F>>,
+    ) -> Box<dyn SourceImageLoader<V>>,
+    reduce_unit_to_texel: fn(
+      BindingNode<ShaderStorageTextureW2D<F>>,
+    ) -> Box<dyn SourceImageWriter<V>>,
+  ) -> Self {
+    // level that exceeds will be clamped to max level
+    let mipmaps: [GPUTypedTextureView<TextureDimension2, F>; 13] = std::array::from_fn(|index| {
+      target
+        .create_view(TextureViewDescriptor {
+          base_mip_level: (index as u32).clamp(0, target.mip_level_count() - 1),
+          mip_level_count: Some(1),
+          base_array_layer: 0,
+          ..Default::default()
+        })
+        .try_into()
+        .unwrap()
+    });
+
+    let base = mipmaps[0]
+      .clone()
+      .into_storage_texture_view_readonly()
+      .unwrap();
+
+    let first_pass_writes = std::array::from_fn(|index| {
+      mipmaps[index + 1]
+        .clone()
+        .into_storage_texture_view_writeonly()
+        .unwrap()
+    });
+
+    let second_pass_read = mipmaps[6]
+      .clone()
+      .into_storage_texture_view_readonly()
+      .unwrap();
+
+    let second_pass_write = std::array::from_fn(|index| {
+      mipmaps[index + 7]
+        .clone()
+        .into_storage_texture_view_writeonly()
+        .unwrap()
+    });
+
+    Self {
+      target: target.clone(),
+      base,
+      first_pass_writes,
+      second_pass_read,
+      second_pass_writes: second_pass_write,
+      texel_to_reduce_unit,
+      reduce_unit_to_texel,
+    }
+  }
 }
 
 impl<F: 'static, V: 'static> ShaderHashProvider for CommonTextureFastDownSamplingSource<F, V> {
@@ -66,27 +128,15 @@ impl<V, F: ShaderTextureKind> FastDownSamplingIO<V> for CommonTextureFastDownSam
     cx: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn FastDownSamplingIOFirstStageInvocation<V>> {
     Box::new(CommonTextureFastDownSamplingFirstStage {
-      base_level: cx.bind_by(
-        &self.levels[0]
-          .clone()
-          .into_storage_texture_view_readonly()
-          .unwrap(),
-      ),
-      levels: array::from_fn(|i| {
-        cx.bind_by(
-          &self.levels[i + 1]
-            .clone()
-            .into_storage_texture_view_writeonly()
-            .unwrap(),
-        )
-      }),
+      base_level: cx.bind_by(&self.base),
+      levels: self.first_pass_writes.clone().map(|v| cx.bind_by(&v)),
       texel_to_reduce_unit: self.texel_to_reduce_unit,
       reduce_unit_to_texel: self.reduce_unit_to_texel,
     })
   }
 
   fn bind_first_stage_pass(&self, cx: &mut BindingBuilder) {
-    for level in self.levels.get(0..6).unwrap().iter() {
+    for level in self.first_pass_writes.iter() {
       cx.bind(level);
     }
   }
@@ -96,42 +146,27 @@ impl<V, F: ShaderTextureKind> FastDownSamplingIO<V> for CommonTextureFastDownSam
     cx: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn FastDownSamplingIOSecondStageInvocation<V>> {
     Box::new(CommonTextureFastDownSamplingSecondStage {
-      base_level: cx.bind_by(
-        &self.levels[7]
-          .clone()
-          .into_storage_texture_view_readonly()
-          .unwrap(),
-      ),
-      levels: array::from_fn(|i| {
-        cx.bind_by(
-          &self.levels[i + 6]
-            .clone()
-            .into_storage_texture_view_writeonly()
-            .unwrap(),
-        )
-      }),
+      base_level: cx.bind_by(&self.second_pass_read),
+      levels: self.second_pass_writes.clone().map(|v| cx.bind_by(&v)),
       texel_to_reduce_unit: self.texel_to_reduce_unit,
       reduce_unit_to_texel: self.reduce_unit_to_texel,
     })
   }
 
   fn bind_second_stage_pass(&self, cx: &mut BindingBuilder) {
-    for level in self.levels.get(6..=13).unwrap().iter() {
+    for level in self.second_pass_writes.iter() {
       cx.bind(level);
     }
   }
 }
 
 pub struct CommonTextureFastDownSamplingFirstStage<F: 'static, V: 'static> {
-  base_level: BindingNode<ShaderStorageTexture<StorageTextureAccessReadonly, TextureDimension2, F>>,
-  levels:
-    [BindingNode<ShaderStorageTexture<StorageTextureAccessWriteonly, TextureDimension2, F>>; 6],
-  texel_to_reduce_unit: fn(
-    BindingNode<ShaderStorageTexture<StorageTextureAccessReadonly, TextureDimension2, F>>,
-  ) -> Box<dyn SourceImageLoader<V>>,
-  reduce_unit_to_texel: fn(
-    BindingNode<ShaderStorageTexture<StorageTextureAccessWriteonly, TextureDimension2, F>>,
-  ) -> Box<dyn SourceImageWriter<V>>,
+  base_level: BindingNode<ShaderStorageTextureR2D<F>>,
+  levels: [BindingNode<ShaderStorageTextureW2D<F>>; 6],
+  pub texel_to_reduce_unit:
+    fn(BindingNode<ShaderStorageTextureR2D<F>>) -> Box<dyn SourceImageLoader<V>>,
+  pub reduce_unit_to_texel:
+    fn(BindingNode<ShaderStorageTextureW2D<F>>) -> Box<dyn SourceImageWriter<V>>,
 }
 
 impl<V, F> FastDownSamplingIOFirstStageInvocation<V>
@@ -147,15 +182,12 @@ impl<V, F> FastDownSamplingIOFirstStageInvocation<V>
 }
 
 pub struct CommonTextureFastDownSamplingSecondStage<F: 'static, V: 'static> {
-  base_level: BindingNode<ShaderStorageTexture<StorageTextureAccessReadonly, TextureDimension2, F>>,
-  levels:
-    [BindingNode<ShaderStorageTexture<StorageTextureAccessWriteonly, TextureDimension2, F>>; 5],
-  texel_to_reduce_unit: fn(
-    BindingNode<ShaderStorageTexture<StorageTextureAccessReadonly, TextureDimension2, F>>,
-  ) -> Box<dyn SourceImageLoader<V>>,
-  reduce_unit_to_texel: fn(
-    BindingNode<ShaderStorageTexture<StorageTextureAccessWriteonly, TextureDimension2, F>>,
-  ) -> Box<dyn SourceImageWriter<V>>,
+  base_level: BindingNode<ShaderStorageTextureR2D<F>>,
+  levels: [BindingNode<ShaderStorageTextureW2D<F>>; 5],
+  pub texel_to_reduce_unit:
+    fn(BindingNode<ShaderStorageTextureR2D<F>>) -> Box<dyn SourceImageLoader<V>>,
+  pub reduce_unit_to_texel:
+    fn(BindingNode<ShaderStorageTextureW2D<F>>) -> Box<dyn SourceImageWriter<V>>,
 }
 
 impl<V, F> FastDownSamplingIOSecondStageInvocation<V>
@@ -197,48 +229,6 @@ where
   }
 }
 
-pub struct MSDepthLoader {
-  pub mip_0: BindingNode<ShaderStorageTextureW2D>,
-  pub ms_depth: BindingNode<ShaderMultiSampleDepthTexture2D>,
-  pub scale: Node<Vec2<f32>>,
-}
-
-impl SourceImageLoader<f32> for MSDepthLoader {
-  fn load_tex(&self, coord: Node<Vec2<u32>>) -> Node<f32> {
-    let depth_coord = coord.into_f32() * self.scale;
-    let depth_coord = depth_coord.round().into_u32();
-
-    let d1 = self
-      .ms_depth
-      .load_texel_multi_sample_index(depth_coord, val(0));
-    let d2 = self
-      .ms_depth
-      .load_texel_multi_sample_index(depth_coord, val(1));
-    let d3 = self
-      .ms_depth
-      .load_texel_multi_sample_index(depth_coord, val(2));
-    let d4 = self
-      .ms_depth
-      .load_texel_multi_sample_index(depth_coord, val(3));
-
-    let v = (d1 + d2 + d3 + d4) / val(4.); // todo fix me, this is wrong!
-    self.mip_0.write_texel(coord, v.splat());
-    v
-  }
-}
-
-pub struct FirstChannelLoader(pub BindingNode<ShaderStorageTextureR2D>);
-impl SourceImageLoader<f32> for FirstChannelLoader {
-  fn load_tex(&self, coord: Node<Vec2<u32>>) -> Node<f32> {
-    self.0.load_texel(coord).x()
-  }
-}
-
-pub fn read_all(
-  tex: BindingNode<ShaderStorageTexture<StorageTextureAccessReadonly, TextureDimension2, f32>>,
-) -> Box<dyn SourceImageLoader<Vec4<f32>>> {
-  Box::new(tex)
-}
 impl<A, D> SourceImageLoader<Vec4<f32>> for BindingNode<ShaderStorageTexture<A, D, f32>>
 where
   D: ShaderTextureDimension + SingleLayerTarget + DirectAccessTarget,
@@ -250,11 +240,6 @@ where
   }
 }
 
-pub fn write_all(
-  tex: BindingNode<ShaderStorageTexture<StorageTextureAccessWriteonly, TextureDimension2, f32>>,
-) -> Box<dyn SourceImageWriter<Vec4<f32>>> {
-  Box::new(tex)
-}
 impl<A, D> SourceImageWriter<Vec4<f32>> for BindingNode<ShaderStorageTexture<A, D, f32>>
 where
   D: ShaderTextureDimension + SingleLayerTarget + DirectAccessTarget,
@@ -263,6 +248,13 @@ where
 {
   fn write(&self, coord: Node<Vec2<u32>>, value: Node<Vec4<f32>>) {
     self.write_texel(coord.into(), value);
+  }
+}
+
+pub struct FirstChannelLoader(pub BindingNode<ShaderStorageTextureR2D>);
+impl SourceImageLoader<f32> for FirstChannelLoader {
+  fn load_tex(&self, coord: Node<Vec2<u32>>) -> Node<f32> {
+    self.0.load_texel(coord).x()
   }
 }
 

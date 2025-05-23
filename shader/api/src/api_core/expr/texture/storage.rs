@@ -53,12 +53,12 @@ impl StorageTextureWriteable for StorageTextureAccessReadWrite {}
 
 // most used types:
 
-pub type ShaderStorageTextureR2D =
-  ShaderStorageTexture<StorageTextureAccessReadonly, TextureDimension2, f32>;
-pub type ShaderStorageTextureRW2D =
-  ShaderStorageTexture<StorageTextureAccessReadWrite, TextureDimension2, f32>;
-pub type ShaderStorageTextureW2D =
-  ShaderStorageTexture<StorageTextureAccessWriteonly, TextureDimension2, f32>;
+pub type ShaderStorageTextureR2D<F = f32> =
+  ShaderStorageTexture<StorageTextureAccessReadonly, TextureDimension2, F>;
+pub type ShaderStorageTextureRW2D<F = f32> =
+  ShaderStorageTexture<StorageTextureAccessReadWrite, TextureDimension2, F>;
+pub type ShaderStorageTextureW2D<F = f32> =
+  ShaderStorageTexture<StorageTextureAccessWriteonly, TextureDimension2, F>;
 
 impl<A, D, F> BindingNode<ShaderStorageTexture<A, D, F>>
 where

@@ -142,7 +142,7 @@ impl<D: ShaderTextureDimension, F: ShaderTextureKind> BindingNode<ShaderTexture<
   pub fn load_texel_multi_sample_index(
     &self,
     position: Node<TextureSampleInputOf<D, u32>>,
-    sample_index: Node<u32>,
+    sample_index: impl Into<Node<u32>>,
   ) -> Node<ChannelOutputOf<F>>
   where
     F: MultiSampleTarget,
@@ -152,7 +152,7 @@ impl<D: ShaderTextureDimension, F: ShaderTextureKind> BindingNode<ShaderTexture<
       texture: self.handle(),
       position: position.handle(),
       array_index: None,
-      sample_index: sample_index.handle().into(),
+      sample_index: sample_index.into().handle().into(),
       level: None,
     })
     .insert_api()
