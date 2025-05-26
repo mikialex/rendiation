@@ -22,6 +22,7 @@ pub fn use_scene_camera_helper(cx: &mut ViewerCx) {
         cx.viewer.scene.main_camera,
       );
     }
+    _ => {}
   }
 }
 

@@ -32,9 +32,12 @@ impl Default for ViewerUIState {
   }
 }
 
-impl Viewer {
-  pub fn egui(&mut self, ui: &egui::Context) {
-    let ui_state = &mut self.ui_state;
+pub fn use_viewer_egui(cx: &mut ViewerCx) {
+  let (cx, ui_state) = cx.use_plain_state::<ViewerUIState>();
+
+  if let ViewerCxStage::Gui { egui_ctx: ui } = &mut cx.stage {
+    let viewer = &mut cx.viewer;
+
     egui::TopBottomPanel::top("view top menu").show(ui, |ui| {
       ui.horizontal_wrapped(|ui| {
         egui::widgets::global_theme_preference_switch(ui);
@@ -90,12 +93,15 @@ impl Viewer {
       .resizable(true)
       .movable(true)
       .show(ui, |ui| {
-        ui.checkbox(&mut self.on_demand_rendering, "enable on demand rendering");
+        ui.checkbox(
+          &mut viewer.on_demand_rendering,
+          "enable on demand rendering",
+        );
         ui.separator();
-        self.rendering.egui(ui);
+        viewer.rendering.egui(ui);
         ui.separator();
 
-        self.background.egui(ui, self.scene.scene);
+        viewer.background.egui(ui, viewer.scene.scene);
 
         ui.separator();
 
@@ -125,21 +131,21 @@ impl Viewer {
         ui.separator();
 
         ui.checkbox(
-          &mut self.rendering.enable_statistic_collect,
+          &mut viewer.rendering.enable_statistic_collect,
           "enable_statistic_collect",
         );
 
-        if self.rendering.enable_statistic_collect {
-          if self.rendering.statistics.collected.is_empty() {
+        if viewer.rendering.enable_statistic_collect {
+          if viewer.rendering.statistics.collected.is_empty() {
             ui.label("no statistics info available");
           } else {
-            if !self.rendering.statistics.pipeline_query_supported {
+            if !viewer.rendering.statistics.pipeline_query_supported {
               ui.label("note: pipeline query not supported on this platform");
             } else {
-              let statistics = &mut self.rendering.statistics;
+              let statistics = &mut viewer.rendering.statistics;
               ui.collapsing("pipeline_info", |ui| {
                 statistics.collected.iter().for_each(|(name, info)| {
-                  if let Some(info) = &info.pipeline.latest_resolved {
+                  if let Some((value, index)) = &info.pipeline.get_latest() {
                     #[allow(dead_code)]
                     #[derive(Debug)] // just to impl Debug
                     struct DeviceDrawStatistics2 {
@@ -163,21 +169,21 @@ impl Viewer {
                     }
 
                     ui.collapsing(name, |ui| {
-                      ui.label(format!("frame index: {:?}", info.1));
-                      ui.label(format!("{:#?}", DeviceDrawStatistics2::from(info.0)));
+                      ui.label(format!("frame index: {:?}", index));
+                      ui.label(format!("{:#?}", DeviceDrawStatistics2::from(*value)));
                     });
                   }
                 });
               });
             }
-            if !self.rendering.statistics.time_query_supported {
+            if !viewer.rendering.statistics.time_query_supported {
               ui.label("warning: time query not supported");
             } else {
-              let statistics = &mut self.rendering.statistics;
+              let statistics = &mut viewer.rendering.statistics;
               ui.collapsing("time_info", |ui| {
                 statistics.collected.iter().for_each(|(name, info)| {
-                  if let Some(info) = &info.time.latest_resolved {
-                    let name = format!("{}: {:.2}ms", name, info.0);
+                  if let Some((value, _)) = &info.time.get_latest() {
+                    let name = format!("{}: {:.2}ms", name, value);
                     ui.label(name);
                   }
                 });
@@ -185,10 +191,10 @@ impl Viewer {
             }
 
             if ui.button("clear").clicked() {
-              self
+              viewer
                 .rendering
                 .statistics
-                .clear_history(self.rendering.statistics.max_history);
+                .clear_history(viewer.rendering.statistics.max_history);
             }
           }
         }
@@ -198,7 +204,7 @@ impl Viewer {
       .open(&mut ui_state.show_gpu_info)
       .vscroll(true)
       .show(ui, |ui| {
-        let gpu = self.rendering.gpu();
+        let gpu = viewer.rendering.gpu();
         let info = &gpu.info;
 
         let mut enable_bind_check = gpu.device.get_binding_ty_check_enabled();
@@ -251,12 +257,12 @@ impl Viewer {
       egui::TopBottomPanel::bottom("view bottom terminal")
         .resizable(true)
         .show(ui, |ui| {
-          self.terminal.egui(
+          viewer.terminal.egui(
             ui,
             &mut TerminalInitExecuteCx {
-              derive: &self.derives,
-              scene: &self.scene,
-              renderer: &mut self.rendering,
+              derive: &viewer.derives,
+              scene: &viewer.scene,
+              renderer: &mut viewer.rendering,
             },
           );
         });
@@ -267,8 +273,8 @@ impl Viewer {
         .open(&mut ui_state.object_inspection)
         .vscroll(true)
         .show(ui, |ui| {
-          if let Some(target) = self.scene.selected_target {
-            let mut scene_writer = SceneWriter::from_global(self.scene.scene);
+          if let Some(target) = viewer.scene.selected_target {
+            let mut scene_writer = SceneWriter::from_global(viewer.scene.scene);
 
             ui.label(format!("SceneModel id: {:?}", target.into_raw()));
             show_entity_label(&scene_writer.model_writer, target, ui);

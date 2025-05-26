@@ -23,7 +23,7 @@ pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
   #[allow(unused_assignments)] // false positive?
   let mut interaction = None;
 
-  let mut cx = match &mut viewer_cx.stage {
+  let cx = match &mut viewer_cx.stage {
     ViewerCxStage::EventHandling {
       reader,
       picker,
@@ -32,7 +32,7 @@ pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
       ..
     } => {
       interaction = Some(prepare_picking_state(picker, &memory.pick_group));
-      UI3dCx::new_event_stage(
+      Some(UI3dCx::new_event_stage(
         &mut memory.memory,
         UIEventStageCx {
           platform_event: input,
@@ -42,34 +42,37 @@ pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
         reader,
         viewer_cx.dyn_cx,
         &mut memory.pick_group,
-      )
+      ))
     }
-    ViewerCxStage::SceneContentUpdate { writer } => UI3dCx::new_update_stage(
+    ViewerCxStage::SceneContentUpdate { writer } => Some(UI3dCx::new_update_stage(
       &mut memory.memory,
       viewer_cx.dyn_cx,
       writer,
       &mut memory.pick_group,
-    ),
+    )),
+    _ => None,
   };
 
-  if cx.is_creating() && cx.event.is_some() {
-    // skip the first event stage when first time init
-    return;
-  }
+  if let Some(mut cx) = cx {
+    if cx.is_creating() && cx.event.is_some() {
+      // skip the first event stage when first time init
+      return;
+    }
 
-  let mut scene_old = None;
+    let mut scene_old = None;
 
-  cx.execute(|cx| {
-    cx.on_update(|w, _| {
-      scene_old = w.replace_target_scene(widget_scene).into();
+    cx.execute(|cx| {
+      cx.on_update(|w, _| {
+        scene_old = w.replace_target_scene(widget_scene).into();
+      });
+
+      f(cx);
     });
 
-    f(cx);
-  });
-
-  if let ViewerCxStage::SceneContentUpdate { writer } = &mut viewer_cx.stage {
-    if let Some(scene) = scene_old.take() {
-      writer.scene = scene
+    if let ViewerCxStage::SceneContentUpdate { writer } = &mut viewer_cx.stage {
+      if let Some(scene) = scene_old.take() {
+        writer.scene = scene
+      }
     }
   }
 }

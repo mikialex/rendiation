@@ -23,9 +23,6 @@ pub use widget_bridge::*;
 mod test_content;
 pub use test_content::*;
 
-mod egui_view;
-pub use egui_view::*;
-
 mod rendering;
 pub use rendering::*;
 
@@ -116,6 +113,7 @@ impl<'a> ViewerCx<'a> {
   }
 }
 
+#[non_exhaustive]
 pub enum ViewerCxStage<'a> {
   EventHandling {
     reader: &'a SceneReader,
@@ -128,10 +126,17 @@ pub enum ViewerCxStage<'a> {
   SceneContentUpdate {
     writer: &'a mut SceneWriter,
   },
+  Gui {
+    egui_ctx: &'a mut egui::Context,
+  },
 }
 
 #[track_caller]
-pub fn use_viewer<'a>(acx: &'a mut ApplicationCx, f: impl FnOnce(&mut ViewerCx)) -> &'a mut Viewer {
+pub fn use_viewer<'a>(
+  acx: &'a mut ApplicationCx,
+  egui: Option<&mut egui::Context>,
+  f: impl Fn(&mut ViewerCx),
+) -> &'a mut Viewer {
   let (acx, viewer) = acx.use_plain_state_init(|| {
     Viewer::new(
       acx.gpu_and_surface.gpu.clone(),
@@ -216,6 +221,15 @@ pub fn use_viewer<'a>(acx: &'a mut ApplicationCx, f: impl FnOnce(&mut ViewerCx))
       viewer.draw_canvas(canvas, &derived);
       viewer.rendering.tick_frame();
     }
+
+    if let Some(egui_ctx) = egui {
+      ViewerCx {
+        viewer,
+        dyn_cx: acx.dyn_cx,
+        stage: ViewerCxStage::Gui { egui_ctx },
+      }
+      .execute(|viewer| f(viewer));
+    }
   }
   viewer
 }
@@ -226,7 +240,6 @@ pub struct Viewer {
   scene: Viewer3dSceneCtx,
   rendering: Viewer3dRenderingCtx,
   derives: Viewer3dSceneDeriveSource,
-  ui_state: ViewerUIState,
   terminal: Terminal,
   background: ViewerBackgroundState,
   started_time: Instant,
@@ -320,7 +333,6 @@ impl Viewer {
       // todo, we current disable the on demand draw
       // because we not cache the rendering result yet
       on_demand_rendering: false,
-      ui_state: ViewerUIState::default(),
       scene,
       terminal,
       rendering: Viewer3dRenderingCtx::new(gpu, swap_chain, viewer_ndc, camera_transforms),

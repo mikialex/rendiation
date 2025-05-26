@@ -63,5 +63,6 @@ pub fn use_viewer_gizmo(cx: &mut ViewerCx) {
         writer.set_local_matrix(node, update.0);
       }
     }
+    _ => {}
   }
 }

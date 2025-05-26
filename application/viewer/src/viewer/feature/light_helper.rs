@@ -16,6 +16,7 @@ pub fn use_scene_spotlight_helper(cx: &mut ViewerCx) {
     ViewerCxStage::SceneContentUpdate { writer } => {
       helpers.apply_updates(writer, cx.viewer.scene.widget_scene);
     }
+    _ => {}
   }
 }
 

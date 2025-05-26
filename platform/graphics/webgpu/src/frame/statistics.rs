@@ -259,18 +259,55 @@ impl PassMeasurementDeferLogic {
 
 pub struct StatisticStore<T> {
   /// currently we only store the history but not do any analysis
-  pub history: Vec<Option<(T, u64)>>,
-  pub latest_resolved: Option<(T, u64)>,
+  history: Vec<Option<(T, u64)>>,
+  latest_resolved: Option<(T, u64)>,
 }
 
 impl<T: Clone> StatisticStore<T> {
-  fn new(max_history: usize) -> Self {
+  pub fn new(max_history: usize) -> Self {
     StatisticStore {
       history: vec![None; max_history],
       latest_resolved: None,
     }
   }
-  fn insert(&mut self, value: T, idx: u64) {
+  pub fn clear(&mut self) {
+    self.history.clear();
+    self.latest_resolved = None;
+  }
+
+  pub fn get_latest(&self) -> Option<&(T, u64)> {
+    self.latest_resolved.as_ref()
+  }
+
+  pub fn history_size(&self) -> usize {
+    self.history.len()
+  }
+
+  pub fn history_max(&self) -> Option<&T>
+  where
+    T: PartialOrd,
+  {
+    self
+      .history
+      .iter()
+      .filter_map(|v| v.as_ref().map(|v| &v.0))
+      .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+  }
+
+  pub fn iter_history_from_oldest_latest(&self) -> Option<impl Iterator<Item = Option<&T>>> {
+    self.latest_resolved.as_ref().map(|(_, index)| {
+      (0..self.history.len() as u64).map(move |offset| {
+        if *index > offset {
+          let access_index = (index - offset) % self.history.len() as u64;
+          self.history[access_index as usize].as_ref().map(|v| &v.0)
+        } else {
+          None
+        }
+      })
+    })
+  }
+
+  pub fn insert(&mut self, value: T, idx: u64) {
     let write_idx = idx as usize % self.history.len();
     self.history[write_idx] = Some((value.clone(), idx));
     if let Some(l) = &self.latest_resolved {

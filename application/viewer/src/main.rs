@@ -8,6 +8,7 @@
 use std::alloc::System;
 use std::any::Any;
 use std::hash::Hash;
+use std::time::Instant;
 
 use database::*;
 use futures::FutureExt;
@@ -72,13 +73,9 @@ pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
 
   run_application(move |cx| {
     use_egui_cx(cx, |cx, egui_cx| {
-      let viewer = use_viewer(cx, |cx| {
+      use_viewer(cx, egui_cx, |cx| {
         content_logic(cx);
       });
-
-      if let Some(egui_cx) = egui_cx {
-        viewer.egui(egui_cx)
-      }
     });
   });
 }
@@ -94,6 +91,7 @@ fn main() {
   }
 
   run_viewer_app(|cx| {
+    use_viewer_egui(cx);
     use_enable_gltf_io(cx);
     use_enable_obj_io(cx);
     use_animation_player(cx);

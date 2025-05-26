@@ -31,6 +31,7 @@ pub fn use_camera_orbit_control(cx: &mut ViewerCx) {
       let controllee = cx.viewer.scene.camera_node;
       controller.update(&mut ControlleeWrapper { controllee, writer });
     }
+    _ => {}
   }
 }
 

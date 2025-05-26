@@ -163,6 +163,65 @@ impl Viewer3dRenderingCtx {
 
     ui.separator();
 
+    ui.collapsing("time graph", |ui| {
+      if let Some((t, _)) = self.stat_frame_time_in_ms.get_latest() {
+        ui.label(format!(
+          "last frame time: {:.2} ms, fps: {:.2}",
+          t,
+          1000. / t
+        ));
+      }
+      if let Some(times) = self.stat_frame_time_in_ms.iter_history_from_oldest_latest() {
+        let graph_height = 200.;
+        let graph_width = 300.;
+        let (res, painter) = ui.allocate_painter(
+          egui::Vec2 {
+            x: graph_width,
+            y: graph_height,
+          },
+          egui::Sense::empty(),
+        );
+        // let center = res.rect.center();
+        // painter.circle_filled(center, 50., egui::Color32::BLACK);
+        let x_start = res.rect.left();
+        let y_start = res.rect.top();
+        let x_step = graph_width / self.stat_frame_time_in_ms.history_size() as f32;
+
+        let warning_time_threshold = 1000. / 60.;
+        let serious_warning_time_threshold = 1000. / 15.;
+        let max_time = self
+          .stat_frame_time_in_ms
+          .history_max()
+          .copied()
+          .unwrap_or(warning_time_threshold);
+        for (idx, t) in times.enumerate() {
+          if let Some(&t) = t {
+            let height = t / max_time * graph_height;
+            let color = if t >= serious_warning_time_threshold {
+              egui::Color32::RED
+            } else if t >= warning_time_threshold {
+              egui::Color32::YELLOW
+            } else {
+              egui::Color32::WHITE
+            };
+            painter.rect_filled(
+              egui::Rect {
+                min: egui::pos2(
+                  x_start + idx as f32 * x_step,
+                  y_start + (graph_height - height),
+                ),
+                max: egui::pos2(x_start + (idx + 1) as f32 * x_step, y_start + graph_height),
+              },
+              0.,
+              color,
+            );
+          }
+        }
+      } else {
+        ui.label("frame time graph not available");
+      }
+    });
+
     self.lighting.egui(ui, is_hdr);
     self.frame_logic.egui(ui);
   }

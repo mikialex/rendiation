@@ -18,3 +18,5 @@ mod obj_io;
 pub use obj_io::*;
 mod screenshot;
 pub use screenshot::*;
+mod egui_view;
+pub use egui_view::*;

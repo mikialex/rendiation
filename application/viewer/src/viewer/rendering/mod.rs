@@ -111,6 +111,9 @@ pub struct Viewer3dRenderingCtx {
   pub(crate) picker: GPUxEntityIdMapPicker,
   pub(crate) statistics: FramePassStatistics,
   pub enable_statistic_collect: bool,
+
+  stat_frame_time_in_ms: StatisticStore<f32>,
+  last_render_timestamp: Option<Instant>,
 }
 
 impl Viewer3dRenderingCtx {
@@ -164,6 +167,8 @@ impl Viewer3dRenderingCtx {
       expect_read_back_for_next_render_result: false,
       camera_source: camera_source_init,
       picker: Default::default(),
+      stat_frame_time_in_ms: StatisticStore::new(200),
+      last_render_timestamp: Default::default(),
     }
   }
 
@@ -221,6 +226,15 @@ impl Viewer3dRenderingCtx {
     cx: &mut Context,
   ) {
     self.frame_index += 1;
+    let now = Instant::now();
+    if let Some(last_frame_time) = self.last_render_timestamp.take() {
+      self.stat_frame_time_in_ms.insert(
+        now.duration_since(last_frame_time).as_secs_f32() * 1000.,
+        self.frame_index,
+      );
+    }
+    self.last_render_timestamp = Some(now);
+
     let span = span!(Level::INFO, "update all rendering resource");
     let mut resource = self.rendering_resource.poll_update_all(cx);
     drop(span);

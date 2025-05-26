@@ -18,6 +18,7 @@ pub fn use_animation_player(cx: &mut ViewerCx) {
         m.apply(writer);
       }
     }
+    _ => {}
   }
 }
 
