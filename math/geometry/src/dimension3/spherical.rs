@@ -45,11 +45,15 @@ impl<T: Scalar> Spherical<T> {
     let dir = forward.reverse();
 
     let radius = dir.length();
-    let polar = (dir.y / radius).max(T::zero()).min(T::one()).acos();
-    let azim = (dir.x / (polar.sin() * radius))
+    let polar = (dir.y / radius).max(-T::one()).min(T::one()).acos();
+    let mut azim = (dir.x / (polar.sin() * radius))
       .max(T::zero())
       .min(T::one())
       .acos();
+
+    if dir.z < T::zero() {
+      azim = -azim;
+    }
 
     Self {
       radius,
