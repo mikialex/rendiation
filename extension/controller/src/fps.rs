@@ -1,7 +1,7 @@
 use rendiation_algebra::*;
 use rendiation_geometry::Spherical;
 
-use crate::{Controller, ControllerWinitEventSupport, InputBound, Transformed3DControllee};
+use crate::*;
 
 pub struct FPSController {
   pub spherical: Spherical,
@@ -62,12 +62,8 @@ impl FPSController {
   }
 }
 
-impl Controller for FPSController {
-  fn sync(&mut self, _target: &dyn Transformed3DControllee) {
-    self.spherical.reset_pose();
-  }
-
-  fn update(&mut self, target: &mut dyn Transformed3DControllee) -> bool {
+impl FPSController {
+  pub fn update(&mut self, target_mat: Mat4<f32>) -> Mat4<f32> {
     let mut move_dir = Vec3::new(0.0, 0.0, 0.0);
 
     if self.forward_active {
@@ -89,7 +85,7 @@ impl Controller for FPSController {
       move_dir.y -= 1.0;
     }
 
-    let mut mat = target.get_matrix();
+    let mut mat = target_mat;
     if move_dir.length() > 0.01 {
       let position_new = mat * move_dir;
       let position_dir = (position_new - mat.position()).normalize();
@@ -107,9 +103,7 @@ impl Controller for FPSController {
         Vec3::new(0.0, 1.0, 0.0),
       );
     }
-    target.set_matrix(mat);
-
-    true
+    mat
   }
 }
 
@@ -117,15 +111,9 @@ use winit::{
   event::*,
   keyboard::{KeyCode, PhysicalKey},
 };
-impl ControllerWinitEventSupport for FPSController {
-  type State = ();
-  fn event<T>(
-    &mut self,
-    _: &mut Self::State,
-    event: &winit::event::Event<T>,
-    _bound: InputBound,
-    pause: bool,
-  ) {
+
+impl FPSController {
+  pub fn event<T>(&mut self, event: &winit::event::Event<T>, _bound: InputBound, pause: bool) {
     if pause {
       return;
     }

@@ -2,7 +2,7 @@ use rendiation_algebra::Vec2;
 use rendiation_algebra::*;
 use rendiation_geometry::Spherical;
 
-use crate::{Controller, ControllerWinitEventSupport, InputBound, Transformed3DControllee};
+use crate::*;
 
 pub struct OrbitController {
   pub spherical: Spherical,
@@ -92,23 +92,20 @@ impl OrbitController {
   }
 }
 
-impl Controller for OrbitController {
-  fn sync(&mut self, target: &dyn Transformed3DControllee) {
-    let mat = target.get_matrix();
-    let position_new = mat * Vec3::new(0., 0., -1.);
-    let origin = mat.position();
-    let position_dir = position_new - origin;
-    self.spherical = Spherical::from_sphere_point_and_center(position_dir, origin);
+impl OrbitController {
+  pub fn update_target_and_position(&mut self, target: Vec3<f32>, position: Vec3<f32>) {
+    self.spherical =
+      Spherical::from_sphere_point_and_center((target - position).normalize(), position);
     self.reset_damping()
   }
 
-  fn update(&mut self, target: &mut dyn Transformed3DControllee) -> bool {
+  pub fn update(&mut self) -> Option<Mat4<f32>> {
     if self.spherical_delta.azim.abs() < 0.0001
       && self.spherical_delta.polar.abs() < 0.0001
       && (self.zooming - 1.).abs() < 0.0001
       && self.pan_offset.length2() < 0.000_000_1
     {
-      return false;
+      return None;
     }
 
     self.spherical.radius *= self.zooming;
@@ -121,11 +118,6 @@ impl Controller for OrbitController {
     self.spherical.center += self.pan_offset;
 
     let eye = self.spherical.to_sphere_point();
-    target.set_matrix(Mat4::lookat(
-      eye,
-      self.spherical.center,
-      Vec3::new(0.0, 1.0, 0.0),
-    ));
 
     // update damping effect
     if self.enable_damping {
@@ -136,7 +128,7 @@ impl Controller for OrbitController {
     } else {
       self.reset_damping();
     }
-    true
+    Mat4::lookat(eye, self.spherical.center, Vec3::new(0.0, 1.0, 0.0)).into()
   }
 }
 
@@ -148,11 +140,10 @@ pub struct OrbitWinitWindowState {
 }
 
 use winit::event::*;
-impl ControllerWinitEventSupport for OrbitController {
-  type State = OrbitWinitWindowState;
-  fn event<T>(
+impl OrbitController {
+  pub fn event<T>(
     &mut self,
-    s: &mut Self::State,
+    s: &mut OrbitWinitWindowState,
     event: &winit::event::Event<T>,
     bound: InputBound,
     pause: bool,

@@ -96,14 +96,14 @@ fn main() {
     use_enable_obj_io(cx);
     use_animation_player(cx);
 
-    use_smooth_camera_motion(cx, |cx| {
-      use_fit_camera_view(cx);
-    });
+    // use_smooth_camera_motion(cx, |cx| {
+    //   use_fit_camera_view(cx);
+    // });
 
     use_enable_screenshot(cx);
 
     use_viewer_gizmo(cx);
-    use_camera_orbit_control(cx);
+    use_camera_control(cx);
     use_pick_scene(cx);
     use_scene_camera_helper(cx);
     use_scene_spotlight_helper(cx);
