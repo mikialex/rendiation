@@ -1,18 +1,17 @@
-use rendiation_controller::{
-  ControllerWinitAdapter, InputBound, OrbitController, Transformed3DControllee,
-};
+use rendiation_controller::*;
 
 use crate::*;
 
 #[derive(Default)]
-pub struct SceneOrbitCameraControl {
-  pub controller: ControllerWinitAdapter<OrbitController>,
+pub struct SceneCameraControl {
+  pub controller: OrbitController,
+  pub winit_state: OrbitWinitWindowState,
 }
 
 pub struct CameraControlBlocked;
 
-pub fn use_camera_orbit_control(cx: &mut ViewerCx) {
-  let (cx, controller) = cx.use_plain_state::<ControllerWinitAdapter<OrbitController>>();
+pub fn use_camera_control(cx: &mut ViewerCx) {
+  let (cx, controller) = cx.use_plain_state::<SceneCameraControl>();
 
   match &mut cx.stage {
     ViewerCxStage::EventHandling { input, .. } => {
@@ -24,28 +23,17 @@ pub fn use_camera_orbit_control(cx: &mut ViewerCx) {
       };
 
       for e in &input.accumulate_events {
-        controller.event(e, bound, pause);
+        controller
+          .controller
+          .event(&mut controller.winit_state, e, bound, pause);
       }
     }
     ViewerCxStage::SceneContentUpdate { writer, .. } => {
-      let controllee = cx.viewer.scene.camera_node;
-      controller.update(&mut ControlleeWrapper { controllee, writer });
+      let camera = cx.viewer.scene.camera_node;
+      if let Some(mat) = controller.controller.update() {
+        writer.set_local_matrix(camera, mat)
+      }
     }
     _ => {}
-  }
-}
-
-struct ControlleeWrapper<'a> {
-  controllee: EntityHandle<SceneNodeEntity>,
-  writer: &'a mut SceneWriter,
-}
-
-impl Transformed3DControllee for ControlleeWrapper<'_> {
-  fn get_matrix(&self) -> Mat4<f32> {
-    self.writer.get_local_mat(self.controllee).unwrap()
-  }
-
-  fn set_matrix(&mut self, m: Mat4<f32>) {
-    self.writer.set_local_matrix(self.controllee, m)
   }
 }
