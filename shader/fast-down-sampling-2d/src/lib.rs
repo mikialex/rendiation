@@ -25,6 +25,10 @@ pub fn fast_down_sampling<V>(
   // check input
   assert!(width <= MAX_INPUT_SIZE);
   assert!(height <= MAX_INPUT_SIZE);
+  assert_eq!(
+    mip_level_count,
+    MipLevelCount::BySize.get_level_count_wgpu(Size::from_u32_pair_min_one((width, height)))
+  );
 
   // we can not read from the texture meta in shader, because we want
   // the mip_count for full texture size

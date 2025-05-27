@@ -229,7 +229,7 @@ impl GPUCommandEncoder {
     self.copy_texture_to_buffer(
       gpu::TexelCopyTextureInfo {
         texture: texture.resource.gpu_resource(),
-        mip_level: texture.desc.mip_level_count.unwrap_or(0),
+        mip_level: texture.desc.base_mip_level,
         origin: gpu::Origin3d {
           x: range.offset_x as u32,
           y: range.offset_y as u32,

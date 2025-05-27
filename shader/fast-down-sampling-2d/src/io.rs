@@ -38,7 +38,7 @@ pub struct CommonTextureFastDownSamplingSource<F: 'static, V: 'static> {
   pub base: StorageTextureViewReadonly2D<F>,
   pub first_pass_writes: [StorageTextureViewWriteonly2D<F>; 6],
   pub second_pass_read: StorageTextureViewReadonly2D<F>,
-  pub second_pass_writes: [StorageTextureViewWriteonly2D<F>; 5],
+  pub second_pass_writes: [StorageTextureViewWriteonly2D<F>; 6],
 
   pub texel_to_reduce_unit:
     fn(BindingNode<ShaderStorageTextureR2D<F>>) -> Box<dyn SourceImageLoader<V>>,
@@ -86,7 +86,7 @@ impl<F: TextureFormatDynamicCheck + 'static, V: 'static> CommonTextureFastDownSa
       .into_storage_texture_view_readonly()
       .unwrap();
 
-    let second_pass_write = std::array::from_fn(|index| {
+    let second_pass_writes = std::array::from_fn(|index| {
       mipmaps[index + 7]
         .clone()
         .into_storage_texture_view_writeonly()
@@ -98,7 +98,7 @@ impl<F: TextureFormatDynamicCheck + 'static, V: 'static> CommonTextureFastDownSa
       base,
       first_pass_writes,
       second_pass_read,
-      second_pass_writes: second_pass_write,
+      second_pass_writes,
       texel_to_reduce_unit,
       reduce_unit_to_texel,
     }
@@ -155,6 +155,7 @@ impl<V, F: ShaderTextureKind> FastDownSamplingIO<V> for CommonTextureFastDownSam
   }
 
   fn bind_second_stage_pass(&self, cx: &mut BindingBuilder) {
+    cx.bind(&self.second_pass_read);
     for level in self.second_pass_writes.iter() {
       cx.bind(level);
     }
@@ -184,7 +185,7 @@ impl<V, F> FastDownSamplingIOFirstStageInvocation<V>
 
 pub struct CommonTextureFastDownSamplingSecondStage<F: 'static, V: 'static> {
   base_level: BindingNode<ShaderStorageTextureR2D<F>>,
-  levels: [BindingNode<ShaderStorageTextureW2D<F>>; 5],
+  levels: [BindingNode<ShaderStorageTextureW2D<F>>; 6],
   pub texel_to_reduce_unit:
     fn(BindingNode<ShaderStorageTextureR2D<F>>) -> Box<dyn SourceImageLoader<V>>,
   pub reduce_unit_to_texel:
@@ -199,7 +200,7 @@ impl<V, F> FastDownSamplingIOSecondStageInvocation<V>
   }
 
   fn get_7_12_level_writer(&self, absolute_index: usize) -> Box<dyn SourceImageWriter<V>> {
-    (self.reduce_unit_to_texel)(self.levels[absolute_index - 1 - 6 - 1])
+    (self.reduce_unit_to_texel)(self.levels[absolute_index - 6 - 1])
   }
 }
 

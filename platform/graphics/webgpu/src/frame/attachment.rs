@@ -22,6 +22,11 @@ impl PooledTextureKey {
     ctx.pool.request(&self).into()
   }
   pub fn create_directly(self, gpu: &GPU) -> GPUTextureView {
+    let mip_level_count = if self.require_mipmaps {
+      MipLevelCount::BySize.get_level_count_wgpu(self.size)
+    } else {
+      1
+    };
     GPUTexture::create(
       gpu::TextureDescriptor {
         label: None,
@@ -30,12 +35,16 @@ impl PooledTextureKey {
         format: self.format,
         view_formats: &[],
         usage: self.usage,
-        mip_level_count: 1,
+        mip_level_count,
         sample_count: self.sample_count,
       },
       &gpu.device,
     )
-    .create_default_view()
+    .create_view(gpu::TextureViewDescriptor {
+      base_mip_level: 0,
+      mip_level_count: Some(1),
+      ..Default::default()
+    })
   }
 }
 
