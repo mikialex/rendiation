@@ -5076,6 +5076,7 @@ dependencies = [
  "rayon",
  "reactive",
  "rendiation-algebra",
+ "rendiation-animation",
  "rendiation-area-lighting",
  "rendiation-controller",
  "rendiation-device-ray-tracing",

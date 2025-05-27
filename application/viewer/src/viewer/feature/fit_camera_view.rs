@@ -1,6 +1,46 @@
+use rendiation_animation::*;
 use winit::event::ElementState;
 
 use crate::*;
+
+pub struct CameraMoveAction {
+  pub position: Vec3<f32>,
+  pub look_at: Vec3<f32>,
+}
+
+pub fn use_smooth_camera_motion(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut ViewerCx)) {
+  f(viewer_cx);
+
+  let config = SpringConfig {
+    frequency: 1.,
+    damping: 2.,
+    initial_response: 0.5,
+  };
+
+  let (cx, springed_position) = viewer_cx.use_plain_state_init(|_| {
+    let init = Vec3::splat(3.);
+    SpringSystem::new(config, init, Vec3::zero())
+  });
+
+  let (cx, springed_target) = viewer_cx.use_plain_state_init(|_| {
+    let init = Vec3::splat(0.);
+    SpringSystem::new(config, init, Vec3::zero())
+  });
+
+  let (cx, action_todo) = cx.use_plain_state::<Option<CameraMoveAction>>();
+
+  if let Some(action) = cx.dyn_cx.message.take::<CameraMoveAction>() {
+    *action_todo = Some(action);
+  }
+
+  if let ViewerCxStage::SceneContentUpdate { writer } = &mut cx.stage {
+    if let Some(CameraMoveAction { position, look_at }) = action_todo.take() {
+      let mat = Mat4::lookat(position, look_at, Vec3::new(0., 1., 0.));
+      let node = cx.viewer.scene.camera_node;
+      writer.set_local_matrix(node, mat);
+    }
+  }
+}
 
 pub fn use_fit_camera_view(cx: &mut ViewerCx) {
   cx.use_state_init(|cx| {
@@ -8,17 +48,20 @@ pub fn use_fit_camera_view(cx: &mut ViewerCx) {
       .register_sync_command("fit-camera-view", |ctx, _parameters| {
         let derived = ctx.derive.poll_update();
 
-        if let Some((node, mat)) = fit_camera_view_for_viewer(ctx.scene, &derived) {
-          global_entity_component_of::<SceneNodeLocalMatrixComponent>()
-            .write()
-            .write(mat, node);
+        if let Some(action) = fit_camera_view_for_viewer(ctx.scene, &derived) {
+          ctx.dyn_cx.message.put(action);
         }
       });
+
+    struct FitCameraViewForViewer;
+    impl CanCleanUpFrom<ViewerDropCx<'_>> for FitCameraViewForViewer {
+      fn drop_from_cx(&mut self, cx: &mut ViewerDropCx) {
+        cx.terminal.unregister_command("fit-camera-view");
+      }
+    }
+
     FitCameraViewForViewer
   });
-
-  let (cx, mat_to_sync) =
-    cx.use_plain_state::<Option<(Mat4<f32>, EntityHandle<SceneNodeEntity>)>>();
 
   if let ViewerCxStage::EventHandling { derived, input, .. } = &mut cx.stage {
     if let Some(ElementState::Pressed) = input
@@ -26,13 +69,9 @@ pub fn use_fit_camera_view(cx: &mut ViewerCx) {
       .key_state_changes
       .get(&winit::keyboard::KeyCode::KeyF)
     {
-      *mat_to_sync = fit_camera_view_for_viewer(&cx.viewer.scene, derived);
-    }
-  }
-
-  if let ViewerCxStage::SceneContentUpdate { writer } = &mut cx.stage {
-    if let Some((mat, node)) = mat_to_sync.take() {
-      writer.set_local_matrix(node, mat);
+      if let Some(action) = fit_camera_view_for_viewer(&cx.viewer.scene, derived) {
+        cx.dyn_cx.message.put(action);
+      }
     }
   }
 }
@@ -40,7 +79,7 @@ pub fn use_fit_camera_view(cx: &mut ViewerCx) {
 fn fit_camera_view_for_viewer(
   scene_info: &Viewer3dSceneCtx,
   derived: &Viewer3dSceneDerive,
-) -> Option<(Mat4<f32>, EntityHandle<SceneNodeEntity>)> {
+) -> Option<CameraMoveAction> {
   if let Some(selected) = &scene_info.selected_target {
     let camera_world = derived.world_mat.access(&scene_info.camera_node).unwrap();
     let camera_reader = global_entity_component_of::<SceneCameraPerspective>().read();
@@ -48,18 +87,9 @@ fn fit_camera_view_for_viewer(
     let target_world_aabb = derived.sm_world_bounding.access(selected).unwrap();
     let proj = camera_reader.get(scene_info.main_camera).unwrap().unwrap();
 
-    let camera_world = fit_camera_view(&proj, camera_world, target_world_aabb);
-    // todo fix camera has parent mat
-    (camera_world, scene_info.camera_node).into()
+    fit_camera_view(&proj, camera_world, target_world_aabb).into()
   } else {
     None
-  }
-}
-
-struct FitCameraViewForViewer;
-impl CanCleanUpFrom<ViewerDropCx<'_>> for FitCameraViewForViewer {
-  fn drop_from_cx(&mut self, cx: &mut ViewerDropCx) {
-    cx.terminal.unregister_command("fit-camera-view");
   }
 }
 
@@ -69,7 +99,7 @@ fn fit_camera_view(
   proj: &PerspectiveProjection<f32>,
   camera_world: Mat4<f32>,
   target_world_aabb: Box3<f32>,
-) -> Mat4<f32> {
+) -> CameraMoveAction {
   assert!(!target_world_aabb.is_empty());
 
   let padding_ratio = 0.1;
@@ -91,5 +121,8 @@ fn fit_camera_view(
     look_at_dir_rev * desired_distance + target_center
   };
 
-  Mat4::lookat(desired_camera_center, target_center, Vec3::new(0., 1., 0.))
+  CameraMoveAction {
+    position: desired_camera_center,
+    look_at: target_center,
+  }
 }

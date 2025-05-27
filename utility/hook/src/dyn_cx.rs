@@ -9,11 +9,11 @@ use crate::*;
 
 #[derive(Default)]
 pub struct MessageStore {
-  messages: FastHashMap<TypeId, Box<dyn Any>>,
+  messages: FastHashMap<TypeId, Box<dyn Any + Send + Sync>>,
 }
 
 impl MessageStore {
-  pub fn put(&mut self, msg: impl Any) {
+  pub fn put(&mut self, msg: impl Any + Send + Sync) {
     self.messages.insert(msg.type_id(), Box::new(msg));
   }
   pub fn get<T: Any>(&self) -> Option<&T> {

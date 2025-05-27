@@ -263,6 +263,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
               derive: &viewer.derives,
               scene: &viewer.scene,
               renderer: &mut viewer.rendering,
+              dyn_cx: cx.dyn_cx,
             },
           );
         });

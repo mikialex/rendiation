@@ -2,9 +2,10 @@ use std::ops::{Add, AddAssign, Div, Mul, Sub};
 
 use rendiation_algebra::*;
 
-// https://www.youtube.com/watch?v=KPoeNZZ6H4s
+/// https://www.youtube.com/watch?v=KPoeNZZ6H4s
 
-pub struct SpringConfig<T> {
+#[derive(Clone, Copy, Debug)]
+pub struct SpringConfig<T = f32> {
   /// `f`, the natural frequency
   ///
   /// Corresponds to:
