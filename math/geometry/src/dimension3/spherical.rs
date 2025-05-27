@@ -35,9 +35,9 @@ impl<T: Scalar> Spherical<T> {
   pub fn to_sphere_point(&self) -> Vec3<T> {
     let sin_radius = self.polar.sin() * self.radius;
     Vec3::new(
-      sin_radius * self.azim.sin(),
-      self.radius * self.polar.cos(),
       sin_radius * self.azim.cos(),
+      self.radius * self.polar.cos(),
+      sin_radius * self.azim.sin(),
     ) + self.center
   }
 
@@ -45,8 +45,11 @@ impl<T: Scalar> Spherical<T> {
     let dir = forward.reverse();
 
     let radius = dir.length();
-    let polar = (dir.y / radius).acos();
-    let azim = (dir.x / polar.sin() * radius).asin();
+    let polar = (dir.y / radius).max(T::zero()).min(T::one()).acos();
+    let azim = (dir.x / (polar.sin() * radius))
+      .max(T::zero())
+      .min(T::one())
+      .acos();
 
     Self {
       radius,

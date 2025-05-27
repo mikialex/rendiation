@@ -12,9 +12,9 @@ pub fn use_smooth_camera_motion(cx: &mut ViewerCx, f: impl FnOnce(&mut ViewerCx)
   f(cx);
 
   let config = SpringConfig {
-    frequency: 1.,
-    damping: 2.,
-    initial_response: 0.5,
+    frequency: 3.,
+    damping: 1.0,
+    initial_response: 0.9,
   };
 
   let (cx, target_position) = cx.use_plain_state_init(|_| Vec3::splat(3.));
@@ -27,7 +27,6 @@ pub fn use_smooth_camera_motion(cx: &mut ViewerCx, f: impl FnOnce(&mut ViewerCx)
 
   if let Some(CameraMoveAction { position, look_at }) = cx.dyn_cx.message.take::<CameraMoveAction>()
   {
-    dbg!(look_at);
     *target_position = position;
     *target_target = look_at;
   }
@@ -39,8 +38,6 @@ pub fn use_smooth_camera_motion(cx: &mut ViewerCx, f: impl FnOnce(&mut ViewerCx)
   {
     let position = springed_position.step_clamped(*time_delta_seconds, *target_position);
     let look_at = springed_target.step_clamped(*time_delta_seconds, *target_target);
-
-    dbg!(target_target);
 
     let mat = Mat4::lookat(position, look_at, Vec3::new(0., 1., 0.));
     let node = cx.viewer.scene.camera_node;
@@ -99,8 +96,8 @@ fn fit_camera_view_for_viewer(
   }
 }
 
-/// Target_world_aabb should not empty. If the target is unbound, should give a box that the center point
-/// is the logical target center. Return desired camera world matrix
+/// Target_world_aabb should not empty. If the target is unbound, the center point of the passed box
+/// should be logical target center. Return desired camera world matrix
 fn fit_camera_view(
   proj: &PerspectiveProjection<f32>,
   camera_world: Mat4<f32>,

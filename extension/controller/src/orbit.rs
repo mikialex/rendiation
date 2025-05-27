@@ -15,15 +15,9 @@ pub struct OrbitController {
   pub max_polar_angle: f32,
   pub min_polar_angle: f32,
 
-  // damping
   pub spherical_delta: Spherical,
   pub zooming: f32,
   pub pan_offset: Vec3<f32>,
-
-  pub enable_damping: bool,
-  pub zooming_damping_factor: f32,
-  pub rotate_damping_factor: f32,
-  pub pan_damping_factor: f32,
 
   pub view_width: f32,
   pub view_height: f32,
@@ -40,8 +34,8 @@ impl OrbitController {
     Self {
       spherical: Spherical::new(),
 
-      rotate_angle_factor: 0.2,
-      pan_factor: 0.0002,
+      rotate_angle_factor: 2.,
+      pan_factor: 0.02,
       zoom_factor: 0.3,
 
       // restriction over how down you can look,
@@ -52,15 +46,10 @@ impl OrbitController {
       // should strictly greater than 0 and less than [`max_polar_angle`]
       min_polar_angle: 0.001,
 
-      // damping
+      // motion
       spherical_delta: Spherical::new(),
       zooming: 1.0,
       pan_offset: Vec3::new(0.0, 0.0, 0.0),
-
-      enable_damping: true,
-      zooming_damping_factor: 0.1,
-      rotate_damping_factor: 0.1,
-      pan_damping_factor: 0.1,
 
       view_width: 1000.,
       view_height: 1000.,
@@ -81,11 +70,11 @@ impl OrbitController {
   pub fn rotate(&mut self, offset: Vec2<f32>) {
     self.spherical_delta.polar +=
       offset.y / self.view_height * std::f32::consts::PI * self.rotate_angle_factor;
-    self.spherical_delta.azim +=
+    self.spherical_delta.azim -=
       offset.x / self.view_width * std::f32::consts::PI * self.rotate_angle_factor;
   }
 
-  fn reset_damping(&mut self) {
+  fn reset_delta(&mut self) {
     self.spherical_delta.reset_pose();
     self.zooming = 1.0;
     self.pan_offset = Vec3::new(0.0, 0.0, 0.0);
@@ -94,12 +83,11 @@ impl OrbitController {
 
 impl OrbitController {
   pub fn update_target_and_position(&mut self, target: Vec3<f32>, position: Vec3<f32>) {
-    self.spherical =
-      Spherical::from_sphere_point_and_center((target - position).normalize(), position);
-    self.reset_damping()
+    self.spherical = Spherical::from_sphere_point_and_center(target - position, position);
+    self.reset_delta()
   }
 
-  pub fn update(&mut self) -> Option<Mat4<f32>> {
+  pub fn update(&mut self) -> Option<(Vec3<f32>, Vec3<f32>)> {
     if self.spherical_delta.azim.abs() < 0.0001
       && self.spherical_delta.polar.abs() < 0.0001
       && (self.zooming - 1.).abs() < 0.0001
@@ -119,16 +107,9 @@ impl OrbitController {
 
     let eye = self.spherical.to_sphere_point();
 
-    // update damping effect
-    if self.enable_damping {
-      self.spherical_delta.azim *= 1. - self.rotate_damping_factor;
-      self.spherical_delta.polar *= 1. - self.rotate_damping_factor;
-      self.zooming += (1. - self.zooming) * self.zooming_damping_factor;
-      self.pan_offset *= 1. - self.pan_damping_factor;
-    } else {
-      self.reset_damping();
-    }
-    Mat4::lookat(eye, self.spherical.center, Vec3::new(0.0, 1.0, 0.0)).into()
+    self.reset_delta();
+
+    (eye, self.spherical.center).into()
   }
 }
 
