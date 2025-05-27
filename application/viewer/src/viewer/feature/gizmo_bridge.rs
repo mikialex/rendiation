@@ -58,7 +58,7 @@ pub fn use_viewer_gizmo(cx: &mut ViewerCx) {
         cx.message.put(PickSceneBlocked);
       }
     }
-    ViewerCxStage::SceneContentUpdate { writer } => {
+    ViewerCxStage::SceneContentUpdate { writer, .. } => {
       if let Some((node, update)) = view_update.take() {
         writer.set_local_matrix(node, update.0);
       }

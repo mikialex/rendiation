@@ -44,7 +44,7 @@ pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
         &mut memory.pick_group,
       ))
     }
-    ViewerCxStage::SceneContentUpdate { writer } => Some(UI3dCx::new_update_stage(
+    ViewerCxStage::SceneContentUpdate { writer, .. } => Some(UI3dCx::new_update_stage(
       &mut memory.memory,
       viewer_cx.dyn_cx,
       writer,
@@ -69,7 +69,7 @@ pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
       f(cx);
     });
 
-    if let ViewerCxStage::SceneContentUpdate { writer } = &mut viewer_cx.stage {
+    if let ViewerCxStage::SceneContentUpdate { writer, .. } = &mut viewer_cx.stage {
       if let Some(scene) = scene_old.take() {
         writer.scene = scene
       }

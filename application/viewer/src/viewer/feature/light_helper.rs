@@ -13,7 +13,7 @@ pub fn use_scene_spotlight_helper(cx: &mut ViewerCx) {
       noop_ctx!(ccx);
       helpers.prepare_update(ccx);
     }
-    ViewerCxStage::SceneContentUpdate { writer } => {
+    ViewerCxStage::SceneContentUpdate { writer, .. } => {
       helpers.apply_updates(writer, cx.viewer.scene.widget_scene);
     }
     _ => {}
