@@ -125,7 +125,7 @@ impl<T: TextureFormatDynamicCheck> TextureFormatDynamicCheck for MultiSampleOf<T
 
 impl TextureFormatDynamicCheck for f32 {
   fn check_impl(ty: TextureSampleType) -> bool {
-    matches!(ty, gpu::TextureSampleType::Float { .. })
+    matches!(ty, gpu::TextureSampleType::Float { .. }) | matches!(ty, gpu::TextureSampleType::Depth)
   }
 }
 impl TextureFormatDynamicCheck for u32 {

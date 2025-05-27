@@ -17,6 +17,23 @@ pub fn fast_down_sampling_generate_mipmap(
   );
 }
 
+pub fn compute_hierarchy_depth_from_depth_texture(
+  pass: &mut GPUComputePass,
+  device: &GPUDevice,
+  texture: &GPU2DTexture,
+) {
+  fast_down_sampling::<f32>(
+    &MaxReducer,
+    &CommonTextureFastDownSamplingSource::<f32, f32>::new(
+      texture,
+      |tex| Box::new(FirstChannelLoader(tex)),
+      |tex| Box::new(SplatWriter(tex)),
+    ),
+    pass,
+    device,
+  );
+}
+
 pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
   input_multi_sampled_depth: &GPU2DMultiSampleDepthTextureView,
   output_target: &GPU2DTexture,

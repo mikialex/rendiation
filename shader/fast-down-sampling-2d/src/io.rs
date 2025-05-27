@@ -136,6 +136,7 @@ impl<V, F: ShaderTextureKind> FastDownSamplingIO<V> for CommonTextureFastDownSam
   }
 
   fn bind_first_stage_pass(&self, cx: &mut BindingBuilder) {
+    cx.bind(&self.base);
     for level in self.first_pass_writes.iter() {
       cx.bind(level);
     }

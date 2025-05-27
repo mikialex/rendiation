@@ -45,7 +45,7 @@ pub fn attachment() -> AttachmentDescriptor {
     sample_count: 1,
     sizer: default_sizer(),
     require_mipmaps: false,
-    extra_usage: BASIC_TEXTURE_USAGE_FOR_TEXTURE_POOL,
+    usage: BASIC_TEXTURE_USAGE_FOR_TEXTURE_POOL,
   }
 }
 
@@ -55,7 +55,7 @@ pub fn depth_attachment() -> AttachmentDescriptor {
     sample_count: 1,
     sizer: default_sizer(),
     require_mipmaps: false,
-    extra_usage: BASIC_TEXTURE_USAGE_FOR_TEXTURE_POOL,
+    usage: BASIC_TEXTURE_USAGE_FOR_TEXTURE_POOL,
   }
 }
 
@@ -65,7 +65,7 @@ pub fn depth_stencil_attachment() -> AttachmentDescriptor {
     sample_count: 1,
     sizer: default_sizer(),
     require_mipmaps: false,
-    extra_usage: BASIC_TEXTURE_USAGE_FOR_TEXTURE_POOL,
+    usage: BASIC_TEXTURE_USAGE_FOR_TEXTURE_POOL,
   }
 }
 
@@ -75,7 +75,7 @@ pub struct AttachmentDescriptor {
   pub sample_count: u32,
   pub sizer: Arc<dyn Fn(Size) -> Size>,
   pub require_mipmaps: bool,
-  pub extra_usage: TextureUsages,
+  pub usage: TextureUsages,
 }
 
 pub fn default_sizer() -> Arc<dyn Fn(Size) -> Size> {
@@ -114,7 +114,7 @@ impl AttachmentDescriptor {
 
   #[must_use]
   pub fn extra_usage(mut self, flag: TextureUsages) -> Self {
-    self.extra_usage |= flag;
+    self.usage |= flag;
     self
   }
 
@@ -141,7 +141,7 @@ impl AttachmentDescriptor {
       format: self.format,
       sample_count: self.sample_count,
       require_mipmaps: self.require_mipmaps,
-      usage: self.extra_usage,
+      usage: self.usage,
     }
     .request(ctx)
   }

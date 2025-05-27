@@ -32,8 +32,6 @@ important issue is in bold style.
 - integrate_brdf and ibl lighting shader code should reuse the std micro surface shading code
 - indirect rendering
   - missing none index mesh, and line mesh draw support (camera helper not show)
-  - lighting is not correct.
-    - because texture pool is using none srgb texture fmt
 - alpha cut is not discard
 
 ### Performance issues
@@ -87,6 +85,7 @@ important issue is in bold style.
   - draw on TextureFormat::R8Unorm when enable blend cause strange effect
 - known but not fixed yet
   - correct hdr rendering, see <https://github.com/gfx-rs/wgpu/issues/2920>;
+  - fxaa crashes on vulkan and dx12 see <https://github.com/gfx-rs/wgpu/issues/7713>
   - huge rust debug symbol cause link or compile failed in reative query(currently workaround by boxing). see:
     - <https://github.com/rust-lang/rust/issues/130729>
     - <https://github.com/rust-lang/rust/issues/135849>
