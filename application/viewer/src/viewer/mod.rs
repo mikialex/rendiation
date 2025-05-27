@@ -126,6 +126,8 @@ pub enum ViewerCxStage<'a> {
   SceneContentUpdate {
     writer: &'a mut SceneWriter,
   },
+  /// this stage is standalone but not merged with SceneContentUpdate because
+  /// user may read write scene freely
   Gui {
     egui_ctx: &'a mut egui::Context,
   },

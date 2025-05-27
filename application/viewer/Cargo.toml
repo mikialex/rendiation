@@ -23,6 +23,7 @@ png = "*"
 pollster = { workspace = true }
 rayon = { workspace = true }
 reactive = { path = "../../utility/reactive" }
+rendiation-animation = { path = "../../content/animation" }
 rendiation-algebra = { path = "../../math/algebra" }
 rendiation-controller = { path = "../../extension/controller" }
 rendiation-device-ray-tracing = { path = "../../shader/ray-tracing" }

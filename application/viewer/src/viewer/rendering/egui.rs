@@ -200,9 +200,11 @@ impl Viewer3dRenderingCtx {
             let color = if t >= serious_warning_time_threshold {
               egui::Color32::RED
             } else if t >= warning_time_threshold {
-              egui::Color32::YELLOW
-            } else {
+              egui::Color32::ORANGE
+            } else if ui.visuals().dark_mode {
               egui::Color32::WHITE
+            } else {
+              egui::Color32::BLACK
             };
             painter.rect_filled(
               egui::Rect {
