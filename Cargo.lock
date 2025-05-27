@@ -5080,6 +5080,7 @@ dependencies = [
  "rendiation-area-lighting",
  "rendiation-controller",
  "rendiation-device-ray-tracing",
+ "rendiation-fast-down-sampling-2d",
  "rendiation-geometry",
  "rendiation-gizmo",
  "rendiation-gui-3d",
