@@ -8,8 +8,8 @@ pub struct CameraMoveAction {
   pub look_at: Vec3<f32>,
 }
 
-pub fn use_smooth_camera_motion(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut ViewerCx)) {
-  f(viewer_cx);
+pub fn use_smooth_camera_motion(cx: &mut ViewerCx, f: impl FnOnce(&mut ViewerCx)) {
+  f(cx);
 
   let config = SpringConfig {
     frequency: 1.,
@@ -17,28 +17,34 @@ pub fn use_smooth_camera_motion(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut Vi
     initial_response: 0.5,
   };
 
-  let (cx, springed_position) = viewer_cx.use_plain_state_init(|_| {
-    let init = Vec3::splat(3.);
-    SpringSystem::new(config, init, Vec3::zero())
-  });
+  let (cx, target_position) = cx.use_plain_state_init(|_| Vec3::splat(3.));
+  let (cx, springed_position) =
+    cx.use_plain_state_init(|_| SpringSystem::new(config, *target_position, Vec3::zero()));
 
-  let (cx, springed_target) = viewer_cx.use_plain_state_init(|_| {
-    let init = Vec3::splat(0.);
-    SpringSystem::new(config, init, Vec3::zero())
-  });
+  let (cx, target_target) = cx.use_plain_state_init(|_| Vec3::splat(0.));
+  let (cx, springed_target) =
+    cx.use_plain_state_init(|_| SpringSystem::new(config, *target_target, Vec3::zero()));
 
-  let (cx, action_todo) = cx.use_plain_state::<Option<CameraMoveAction>>();
-
-  if let Some(action) = cx.dyn_cx.message.take::<CameraMoveAction>() {
-    *action_todo = Some(action);
+  if let Some(CameraMoveAction { position, look_at }) = cx.dyn_cx.message.take::<CameraMoveAction>()
+  {
+    dbg!(look_at);
+    *target_position = position;
+    *target_target = look_at;
   }
 
-  if let ViewerCxStage::SceneContentUpdate { writer } = &mut cx.stage {
-    if let Some(CameraMoveAction { position, look_at }) = action_todo.take() {
-      let mat = Mat4::lookat(position, look_at, Vec3::new(0., 1., 0.));
-      let node = cx.viewer.scene.camera_node;
-      writer.set_local_matrix(node, mat);
-    }
+  if let ViewerCxStage::SceneContentUpdate {
+    writer,
+    time_delta_seconds,
+  } = &mut cx.stage
+  {
+    let position = springed_position.step_clamped(*time_delta_seconds, *target_position);
+    let look_at = springed_target.step_clamped(*time_delta_seconds, *target_target);
+
+    dbg!(target_target);
+
+    let mat = Mat4::lookat(position, look_at, Vec3::new(0., 1., 0.));
+    let node = cx.viewer.scene.camera_node;
+    writer.set_local_matrix(node, mat);
   }
 }
 

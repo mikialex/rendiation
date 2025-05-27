@@ -115,6 +115,7 @@ impl<'a> ViewerCx<'a> {
 
 #[non_exhaustive]
 pub enum ViewerCxStage<'a> {
+  #[non_exhaustive]
   EventHandling {
     reader: &'a SceneReader,
     picker: &'a ViewerPicker,
@@ -122,15 +123,17 @@ pub enum ViewerCxStage<'a> {
     derived: &'a Viewer3dSceneDerive,
     widget_cx: &'a dyn WidgetEnvAccess,
     absolute_seconds_from_start: f32,
+    time_delta_seconds: f32,
   },
+  #[non_exhaustive]
   SceneContentUpdate {
     writer: &'a mut SceneWriter,
+    time_delta_seconds: f32,
   },
   /// this stage is standalone but not merged with SceneContentUpdate because
   /// user may read write scene freely
-  Gui {
-    egui_ctx: &'a mut egui::Context,
-  },
+  #[non_exhaustive]
+  Gui { egui_ctx: &'a mut egui::Context },
 }
 
 #[track_caller]
@@ -146,9 +149,16 @@ pub fn use_viewer<'a>(
     )
   });
 
+  let (acx, tick_timestamp) = acx.use_plain_state_init(Instant::now);
+  let (acx, frame_time_delta_in_seconds) = acx.use_plain_state_init(|| 0.0);
+
   let main_camera_handle = viewer.scene.main_camera;
 
   if acx.processing_event {
+    let now = Instant::now();
+    *frame_time_delta_in_seconds = now.duration_since(*tick_timestamp).as_secs_f32();
+    *tick_timestamp = now;
+
     let derived = viewer.derives.poll_update();
 
     let picker = ViewerPicker::new(&derived, acx.input, main_camera_handle);
@@ -188,6 +198,7 @@ pub fn use_viewer<'a>(
         derived: &derived,
         widget_cx: widget_env.as_ref(),
         absolute_seconds_from_start,
+        time_delta_seconds: *frame_time_delta_in_seconds,
       },
     }
     .execute(|viewer| f(viewer));
@@ -212,6 +223,7 @@ pub fn use_viewer<'a>(
       dyn_cx: acx.dyn_cx,
       stage: ViewerCxStage::SceneContentUpdate {
         writer: &mut writer,
+        time_delta_seconds: *frame_time_delta_in_seconds,
       },
     }
     .execute(|viewer| f(viewer));

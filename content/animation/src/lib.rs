@@ -44,12 +44,7 @@ where
     let k_1 = z / (S::PI() * f);
     let k_2 = S::one() / (two_pi_f * two_pi_f);
     let k_3 = r * z / two_pi_f;
-    Self {
-      k_1,
-      k_2,
-      k_3,
-      max_safe_time_delta: (S::eval::<4>() * k_2 + k_1 * k_1).sqrt() - k_1,
-    }
+    Self { k_1, k_2, k_3 }
   }
 }
 
@@ -57,7 +52,6 @@ struct SpringParameters<T> {
   k_1: T,
   k_2: T,
   k_3: T,
-  max_safe_time_delta: T,
 }
 
 struct SpringState<T> {
@@ -69,7 +63,6 @@ struct SpringState<T> {
 pub struct SpringSystem<T = f32, Scalar = f32> {
   parameters: SpringParameters<Scalar>,
   state: SpringState<T>,
-  previous_target_position: T,
 }
 
 impl<T: Copy, S: Scalar> SpringSystem<T, S> {
@@ -78,7 +71,6 @@ impl<T: Copy, S: Scalar> SpringSystem<T, S> {
     Self {
       parameters: parameters.into(),
       state: SpringState { position, velocity },
-      previous_target_position: position,
     }
   }
 }
@@ -99,17 +91,16 @@ where
     + Mul<S, Output = T>
     + Div<S, Output = T>
     + AddAssign<T>,
-  S: Copy + PartialOrd,
+  S: Scalar,
 {
   /// Perform a step of the simulation and return the new position
   ///
   /// If the `time_delta` is too large to safely use without losing stability, it will be clamped to a safe maximum value
   pub fn step_clamped(&mut self, time_delta: S, target: T) -> T {
-    let estimated_velocity = target - self.previous_target_position;
-    let clamped_delta = partial_min(time_delta, self.parameters.max_safe_time_delta);
+    let estimated_velocity = target - self.state.position;
+    let clamped_delta = partial_min(time_delta, S::one());
 
     self.step_with_target_velocity(clamped_delta, target, estimated_velocity);
-    self.previous_target_position = target;
 
     self.state.position
   }

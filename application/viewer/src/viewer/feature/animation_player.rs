@@ -13,7 +13,7 @@ pub fn use_animation_player(cx: &mut ViewerCx) {
       let m = player.compute_mutation(ctx, cx.viewer.scene.scene, *absolute_seconds_from_start);
       *mutation = Some(m);
     }
-    ViewerCxStage::SceneContentUpdate { writer } => {
+    ViewerCxStage::SceneContentUpdate { writer, .. } => {
       if let Some(m) = mutation.take() {
         m.apply(writer);
       }
