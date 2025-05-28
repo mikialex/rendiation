@@ -83,7 +83,7 @@ impl TAA {
       .get_or_insert_with(|| new_color.create_attachment_key().request(ctx));
 
     pass("taa-resolve")
-      .with_color(&resolve_target, load())
+      .with_color(&resolve_target, store_full_frame())
       .render_ctx(ctx)
       .by(
         &mut TAAResolver {

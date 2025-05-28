@@ -86,7 +86,10 @@ impl SceneBackgroundRenderer {
       b: color.z as f64,
       a: 1.,
     };
-    (clear(color), clear(if reversed_depth { 0. } else { 1. }))
+    (
+      clear_and_store(color),
+      clear_and_store(if reversed_depth { 0. } else { 1. }),
+    )
   }
 
   pub fn draw<'a>(

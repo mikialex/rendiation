@@ -22,7 +22,7 @@ impl GraphicsShaderProvider for BrdfLUTGenerator {
 
 pub fn generate_brdf_lut(encoder: &mut GPUCommandEncoder, gpu: &GPU, target: GPU2DTextureView) {
   pass("brdf lut generate")
-    .with_color(&RenderTargetView::from(target), load())
+    .with_color(&RenderTargetView::from(target), store_full_frame())
     .render(encoder, gpu, None)
     .by(&mut BrdfLUTGenerator.draw_quad());
 }
@@ -63,7 +63,7 @@ pub fn generate_pre_filter_map(
     );
 
     pass("prefilter diffuse env map")
-      .with_color(&RenderTargetView::from(target), load())
+      .with_color(&RenderTargetView::from(target), store_full_frame())
       .render(encoder, gpu, None)
       .by(
         &mut PreFilterDiffuseTask {
@@ -97,7 +97,7 @@ pub fn generate_pre_filter_map(
       );
 
       pass("prefilter specular env map")
-        .with_color(&RenderTargetView::from(target), load())
+        .with_color(&RenderTargetView::from(target), store_full_frame())
         .render(encoder, gpu, None)
         .by(
           &mut PreFilterSpecularTask {

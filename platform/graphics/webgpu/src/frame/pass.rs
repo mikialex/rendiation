@@ -191,38 +191,48 @@ impl ActiveRenderPass {
   }
 }
 
-pub fn color(r: f64, g: f64, b: f64) -> gpu::Color {
-  gpu::Color { r, g, b, a: 1. }
+pub fn color(r: f64, g: f64, b: f64, a: f64) -> gpu::Color {
+  gpu::Color { r, g, b, a }
+}
+pub fn color_same(r: f64) -> gpu::Color {
+  color(r, r, r, r)
 }
 
 pub fn all_zero() -> gpu::Color {
-  gpu::Color {
-    r: 0.,
-    g: 0.,
-    b: 0.,
-    a: 0.,
-  }
+  color_same(0.)
 }
 
-pub fn color_same(r: f64) -> gpu::Color {
-  gpu::Color {
-    r,
-    g: r,
-    b: r,
-    a: 1.,
-  }
-}
-
-pub fn clear<V>(v: V) -> gpu::Operations<V> {
+pub fn clear_and_store<V>(v: V) -> gpu::Operations<V> {
   gpu::Operations {
     load: gpu::LoadOp::Clear(v),
     store: gpu::StoreOp::Store,
   }
 }
 
-pub fn load<V>() -> gpu::Operations<V> {
+/// implementation is same as [clear_and_store] but use the default all zero clear value.
+///
+/// user should use this if the writes guarantee cover the full frame
+pub fn store_full_frame<V: Default>() -> gpu::Operations<V> {
+  gpu::Operations {
+    load: gpu::LoadOp::Clear(V::default()),
+    store: gpu::StoreOp::Store,
+  }
+}
+
+pub fn load_and_store<V>() -> gpu::Operations<V> {
   gpu::Operations {
     load: gpu::LoadOp::Load,
     store: gpu::StoreOp::Store,
+  }
+}
+
+/// if attachment result is not read by subsequent passes use this can optimize performance in TBDR arch
+/// The write result is persist between the drawcall in this pass, but not available to subsequent passes
+///
+/// It's relatively rare to use
+pub fn load_once_and_discard<V>() -> gpu::Operations<V> {
+  gpu::Operations {
+    load: gpu::LoadOp::Load,
+    store: gpu::StoreOp::Discard,
   }
 }

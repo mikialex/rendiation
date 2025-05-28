@@ -14,6 +14,14 @@ use filter::*;
 mod occlusion_test;
 use occlusion_test::*;
 
+// todo, use it to enlarge the output depth texture to make sure no depth info is discard.
+pub fn next_pot_sizer(size: Size) -> Size {
+  let (width, height) = size.into_usize();
+  let width = width.next_power_of_two();
+  let height = height.next_power_of_two();
+  Size::from_usize_pair_min_one((width, height))
+}
+
 pub struct GPUTwoPassOcclusionCulling {
   max_scene_model_id: usize,
   last_frame_visibility: FastHashMap<u32, StorageBufferDataView<[Bool]>>,

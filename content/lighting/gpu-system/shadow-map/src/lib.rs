@@ -158,7 +158,7 @@ impl BasicShadowMapSystem {
       let _ = pass("shadow-map-clear")
         .with_depth(
           &RenderTargetView::Texture(write_view),
-          clear(if reversed_depth { 0. } else { 1. }),
+          clear_and_store(if reversed_depth { 0. } else { 1. }),
         )
         .render_ctx(frame_ctx);
     }
@@ -181,7 +181,7 @@ impl BasicShadowMapSystem {
       // todo, consider merge the pass within the same layer
       // custom dispatcher is not required because we only have depth output.
       let mut pass = pass("shadow-map")
-        .with_depth(&RenderTargetView::Texture(write_view), load())
+        .with_depth(&RenderTargetView::Texture(write_view), load_and_store())
         .render_ctx(frame_ctx);
 
       let raw_pass = &mut pass.pass.ctx.pass;

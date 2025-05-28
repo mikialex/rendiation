@@ -107,8 +107,8 @@ impl ViewerFrameLogic {
         if self.enable_ground {
           // this must a separate pass, because the id buffer should not be written.
           pass("grid_ground")
-            .with_color(&scene_result, load())
-            .with_depth(&g_buffer.depth, load())
+            .with_color(&scene_result, load_and_store())
+            .with_depth(&g_buffer.depth, load_and_store())
             .render_ctx(ctx)
             .by(&mut GridGround {
               plane: &self.ground,
@@ -127,7 +127,7 @@ impl ViewerFrameLogic {
           );
 
           pass("ao blend to scene")
-            .with_color(&scene_result, load())
+            .with_color(&scene_result, load_and_store())
             .render_ctx(ctx)
             .by(&mut copy_frame(
               ao,
@@ -242,7 +242,7 @@ impl ViewerFrameLogic {
       let fxaa_target = maybe_aa_result.create_attachment_key().request(ctx);
 
       pass("fxaa")
-        .with_color(&fxaa_target, load())
+        .with_color(&fxaa_target, store_full_frame())
         .render_ctx(ctx)
         .by(
           &mut FXAA {
@@ -273,7 +273,7 @@ impl ViewerFrameLogic {
     });
 
     let compose = pass("compose-all")
-      .with_color(final_target, load())
+      .with_color(final_target, store_full_frame())
       .render_ctx(ctx)
       .by(
         &mut PostProcess {

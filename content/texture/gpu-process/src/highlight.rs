@@ -47,7 +47,7 @@ impl HighLighter {
       .request(ctx);
 
     pass("highlight-selected-mask")
-      .with_color(&selected_mask, clear(color_same(0.)))
+      .with_color(&selected_mask, clear_and_store(color_same(0.)))
       .render_ctx(ctx)
       .by(&mut content);
 
