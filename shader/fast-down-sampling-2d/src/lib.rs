@@ -371,30 +371,29 @@ fn down_sample_next_four<N>(
   );
   workgroup_barrier();
 
-  if_by(
-    local_invocation_index.less_than(val(TILE_SIZE / 16)),
-    || {
-      let scaled = coord * val(4);
-      let reduced = sampler.down_sample(
-        [
-          scaled + val(vec2(0, 0)),
-          scaled + val(vec2(2, 0)),
-          scaled + val(vec2(0, 2)),
-          scaled + val(vec2(1, 2)),
-        ],
-        reducer,
-      );
+  if_by(local_invocation_index.less_than(val(TILE_SIZE / 4)), || {
+    let scaled = coord * val(4);
+    let reduced = sampler.down_sample(
+      [
+        scaled + val(vec2(0, 0)),
+        scaled + val(vec2(2, 0)),
+        scaled + val(vec2(1, 2)),
+        scaled + val(vec2(3, 2)),
+      ],
+      reducer,
+    );
 
-      let x = coord.x() * val(4) + coord.y(); // checked, not required % val(4)
-      let y = coord.y() * val(4);
-      sampler.shared.index(x).index(y).store(reduced);
-      l_4.write(group_id * val(TILE_SIZE / 16) + coord, reduced);
-    },
-  );
+    let x = coord.x() * val(4) + coord.y(); // checked, not required % val(4)
+    let y = coord.y() * val(4);
+    sampler.shared.index(x).index(y).store(reduced);
+    l_4.write(group_id * val(TILE_SIZE / 16) + coord, reduced);
+  });
+
   if_by(
     mip_level_count.less_equal_than(base_mip + val(2)),
     do_return,
   );
+
   workgroup_barrier();
 
   if_by(
