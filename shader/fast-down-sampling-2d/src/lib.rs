@@ -12,13 +12,6 @@ pub use io::*;
 
 pub const MAX_INPUT_SIZE: u32 = 2_u32.pow(12); // 4096
 
-pub fn next_pot_sizer(size: Size) -> Size {
-  let (width, height) = size.into_usize();
-  let width = width.next_power_of_two();
-  let height = height.next_power_of_two();
-  Size::from_usize_pair_min_one((width, height))
-}
-
 pub fn fast_down_sampling<V>(
   reducer: &dyn QuadReducer<V>,
   io: &dyn FastDownSamplingIO<V>,

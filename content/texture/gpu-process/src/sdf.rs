@@ -18,7 +18,10 @@ pub fn compute_sdf(
   let mut target = create_empty_2d_texture_view(frame_cx.gpu, size, usage, fmt);
 
   pass("jump flooding sdf compute init")
-    .with_color(&RenderTargetView::Texture(source.clone().texture), load())
+    .with_color(
+      &RenderTargetView::Texture(source.clone().texture),
+      store_full_frame(),
+    )
     .render_ctx(frame_cx)
     .by(
       &mut JumpFloodingInit {
@@ -34,7 +37,10 @@ pub fn compute_sdf(
     );
 
     pass("jump flooding sdf compute iteration")
-      .with_color(&RenderTargetView::Texture(target.clone().texture), load())
+      .with_color(
+        &RenderTargetView::Texture(target.clone().texture),
+        store_full_frame(),
+      )
       .render_ctx(frame_cx)
       .by(
         &mut JumpFlooding {

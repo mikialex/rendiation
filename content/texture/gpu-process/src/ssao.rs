@@ -191,7 +191,7 @@ impl SSAO {
       .request(ctx);
 
     pass("ssao-compute")
-      .with_color(&ao_result, load())
+      .with_color(&ao_result, store_full_frame())
       .render_ctx(ctx)
       .by(
         &mut AOComputer {

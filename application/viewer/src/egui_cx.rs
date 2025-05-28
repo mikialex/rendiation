@@ -136,7 +136,7 @@ impl EguiContext {
     let mut rpass = encoder.begin_render_pass(
       RenderPassDescription::default()
         .with_name("egui main render pass")
-        .with_color(&w_target, load()),
+        .with_color(&w_target, load_and_store()),
       None,
     );
     renderer.render(&mut rpass.pass, &tris, &screen_descriptor);
@@ -144,7 +144,7 @@ impl EguiContext {
 
     if *fmt != target.format() {
       pass("egui extra copy")
-        .with_color(target, load())
+        .with_color(target, store_full_frame())
         .render(&mut encoder, gpu, None)
         .by(&mut copy_frame(w_target, Some(BlendState::ALPHA_BLENDING)));
     }

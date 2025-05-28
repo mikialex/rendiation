@@ -273,7 +273,7 @@ impl Viewer3dRenderingCtx {
             );
 
             pass("copy rtx ao into final target")
-              .with_color(target, load())
+              .with_color(target, store_full_frame())
               .render_ctx(&mut ctx)
               .by(&mut copy_frame(RenderTargetView::from(ao_result), None));
           }
@@ -290,7 +290,7 @@ impl Viewer3dRenderingCtx {
               &self.lighting.tonemap,
             );
             pass("copy pt result into final target")
-              .with_color(target, load())
+              .with_color(target, store_full_frame())
               .render_ctx(&mut ctx)
               .by(&mut copy_frame(RenderTargetView::from(result), None));
           }
@@ -347,7 +347,7 @@ impl Viewer3dRenderingCtx {
         BlendState::PREMULTIPLIED_ALPHA_BLENDING.into(),
       );
       pass("copy_scene_msaa_widgets")
-        .with_color(&render_target, load())
+        .with_color(&render_target, load_and_store())
         .render_ctx(&mut ctx)
         .by(&mut copy_scene_msaa_widgets);
     }
@@ -357,7 +357,7 @@ impl Viewer3dRenderingCtx {
       && matches!(target, RenderTargetView::SurfaceTexture { .. })
     {
       pass("extra final copy to surface")
-        .with_color(target, load())
+        .with_color(target, store_full_frame())
         .render_ctx(&mut ctx)
         .by(&mut rendiation_texture_gpu_process::copy_frame(
           render_target.clone(),

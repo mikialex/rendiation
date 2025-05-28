@@ -29,10 +29,13 @@ impl FrameGeneralMaterialBuffer {
     desc: &mut RenderPassDescription,
   ) -> FrameGeneralMaterialChannelIndices {
     FrameGeneralMaterialChannelIndices {
-      material_type_id: desc.push_color(&self.material_type_id, clear(MAX_U8_ID_BACKGROUND)),
-      channel_a: desc.push_color(&self.channel_a, clear(all_zero())),
-      channel_b: desc.push_color(&self.channel_b, clear(all_zero())),
-      channel_c: desc.push_color(&self.channel_c, clear(all_zero())),
+      material_type_id: desc.push_color(
+        &self.material_type_id,
+        clear_and_store(MAX_U8_ID_BACKGROUND),
+      ),
+      channel_a: desc.push_color(&self.channel_a, clear_and_store(all_zero())),
+      channel_b: desc.push_color(&self.channel_b, clear_and_store(all_zero())),
+      channel_c: desc.push_color(&self.channel_c, clear_and_store(all_zero())),
     }
   }
 }
