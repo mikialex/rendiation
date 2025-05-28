@@ -191,30 +191,16 @@ impl ActiveRenderPass {
   }
 }
 
-pub fn color(r: f64, g: f64, b: f64) -> gpu::Color {
-  gpu::Color { r, g, b, a: 1. }
+pub fn color(r: f64, g: f64, b: f64, a: f64) -> gpu::Color {
+  gpu::Color { r, g, b, a }
 }
 pub fn color_same(r: f64) -> gpu::Color {
-  color(r, r, r)
+  color(r, r, r, r)
 }
 
 pub fn all_zero() -> gpu::Color {
   color_same(0.)
 }
-
-// pub fn clear<V>(v: V) -> gpu::Operations<V> {
-//   gpu::Operations {
-//     load: gpu::LoadOp::Clear(v),
-//     store: gpu::StoreOp::Store,
-//   }
-// }
-
-// pub fn load<V>() -> gpu::Operations<V> {
-//   gpu::Operations {
-//     load: gpu::LoadOp::Load,
-//     store: gpu::StoreOp::Store,
-//   }
-// }
 
 pub fn clear_and_store<V>(v: V) -> gpu::Operations<V> {
   gpu::Operations {
