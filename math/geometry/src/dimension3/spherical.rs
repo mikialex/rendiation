@@ -47,7 +47,7 @@ impl<T: Scalar> Spherical<T> {
     let radius = dir.length();
     let polar = (dir.y / radius).max(-T::one()).min(T::one()).acos();
     let mut azim = (dir.x / (polar.sin() * radius))
-      .max(T::zero())
+      .max(-T::one())
       .min(T::one())
       .acos();
 
