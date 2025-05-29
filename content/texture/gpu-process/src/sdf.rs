@@ -118,8 +118,8 @@ impl GraphicsShaderProvider for JumpFlooding {
       let closest_positions = val(Vec2::splat(f32::MAX)).make_local_var();
       let closest_distance_sq_a = val(f32::MAX).make_local_var();
 
-      for i in -1..1 {
-        for j in -1..1 {
+      for i in -1..=1 {
+        for j in -1..=1 {
           let texcoord = uv + val(Vec2::new(i as f32, j as f32)) * pixel_step;
           let position = source.sample_zero_level(sampler, texcoord).xy();
           if_by(position.equals(Vec2::splat(f32::MAX)).all().not(), || {

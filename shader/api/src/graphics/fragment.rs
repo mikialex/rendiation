@@ -116,7 +116,13 @@ impl FragmentOutputPort {
   }
 
   pub fn get_output_var<T: ShaderSizedValueNodeType>(&self) -> ShaderPtrOf<T> {
-    assert_eq!(self.ty, T::sized_ty());
+    assert_eq!(
+      self.ty,
+      T::sized_ty(),
+      "attachment expect ty:{:?}, but shader builder write in ty:{:?}",
+      self.ty,
+      T::sized_ty()
+    );
     T::create_view_from_raw_ptr(Box::new(self.node))
   }
   pub fn store<T: ShaderSizedValueNodeType>(&self, node: Node<T>) {
@@ -165,26 +171,28 @@ impl ShaderFragmentBuilder {
   }
 
   pub fn try_query<T: SemanticFragmentShaderValue>(&mut self) -> Option<Node<T::ValueType>> {
-    let id = TypeId::of::<T>();
+    if self.registry.try_query_fragment_stage::<T>().is_err() {
+      let id = TypeId::of::<T>();
+      if id == TypeId::of::<FragmentPosition>() {
+        let frag_ndc =
+          ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::FragPositionIn).insert_api();
+        self.register::<FragmentPosition>(frag_ndc);
+      }
 
-    if id == TypeId::of::<FragmentPosition>() {
-      let frag_ndc = ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::FragPositionIn).insert_api();
-      self.register::<FragmentPosition>(frag_ndc);
-    }
+      if id == TypeId::of::<FragmentFrontFacing>() {
+        let facing = ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::FragFrontFacing).insert_api();
+        self.register::<FragmentFrontFacing>(facing);
+      }
 
-    if id == TypeId::of::<FragmentFrontFacing>() {
-      let facing = ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::FragFrontFacing).insert_api();
-      self.register::<FragmentFrontFacing>(facing);
-    }
+      if id == TypeId::of::<FragmentSampleIndex>() {
+        let index = ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::FragSampleIndex).insert_api();
+        self.register::<FragmentSampleIndex>(index);
+      }
 
-    if id == TypeId::of::<FragmentSampleIndex>() {
-      let index = ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::FragSampleIndex).insert_api();
-      self.register::<FragmentSampleIndex>(index);
-    }
-
-    if id == TypeId::of::<FragmentSampleMaskInput>() {
-      let mask = ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::FragSampleMask).insert_api();
-      self.register::<FragmentSampleMaskInput>(mask);
+      if id == TypeId::of::<FragmentSampleMaskInput>() {
+        let mask = ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::FragSampleMask).insert_api();
+        self.register::<FragmentSampleMaskInput>(mask);
+      }
     }
 
     self.registry.try_query_fragment_stage::<T>().ok()
@@ -373,7 +381,7 @@ pub fn get_suitable_shader_write_ty_from_texture_format(
     TextureFormat::R64Uint => return None,
     TextureFormat::Rg32Uint => PrimitiveShaderValueType::Vec2Uint32,
     TextureFormat::Rg32Sint => PrimitiveShaderValueType::Vec2Int32,
-    TextureFormat::Rg32Float => PrimitiveShaderValueType::Vec2Float32,
+    TextureFormat::Rg32Float => PrimitiveShaderValueType::Vec4Float32, /* https://github.com/gfx-rs/wgpu/issues/7702 */
     TextureFormat::Rgba16Uint => PrimitiveShaderValueType::Vec4Uint32,
     TextureFormat::Rgba16Sint => PrimitiveShaderValueType::Vec4Int32,
     TextureFormat::Rgba16Unorm => PrimitiveShaderValueType::Vec4Float32,

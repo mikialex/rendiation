@@ -92,17 +92,19 @@ impl ShaderVertexBuilder {
   }
 
   pub fn try_query<T: SemanticVertexShaderValue>(&mut self) -> Option<Node<T::ValueType>> {
-    let id = TypeId::of::<T>();
+    if self.registry.try_query_vertex_stage::<T>().is_err() {
+      let id = TypeId::of::<T>();
+      if id == TypeId::of::<VertexIndex>() {
+        let vertex_index =
+          ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::VertexIndex).insert_api();
+        self.register::<VertexIndex>(vertex_index);
+      }
 
-    if id == TypeId::of::<VertexIndex>() {
-      let vertex_index = ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::VertexIndex).insert_api();
-      self.register::<VertexIndex>(vertex_index);
-    }
-
-    if id == TypeId::of::<VertexInstanceIndex>() {
-      let instance_index =
-        ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::VertexInstanceIndex).insert_api();
-      self.register::<VertexInstanceIndex>(instance_index);
+      if id == TypeId::of::<VertexInstanceIndex>() {
+        let instance_index =
+          ShaderInputNode::BuiltIn(ShaderBuiltInDecorator::VertexInstanceIndex).insert_api();
+        self.register::<VertexInstanceIndex>(instance_index);
+      }
     }
 
     self.registry.try_query_vertex_stage::<T>().ok()
