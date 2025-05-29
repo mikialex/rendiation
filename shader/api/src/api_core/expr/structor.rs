@@ -105,10 +105,10 @@ impl<T: PrimitiveShaderNodeType + Clone, const U: usize> Node<[T; U]> {
     .insert_api()
   }
 
-  pub fn index(self, index: Node<u32>) -> Node<T> {
+  pub fn index(self, index: impl Into<Node<u32>>) -> Node<T> {
     OperatorNode::Index {
       array: self.handle(),
-      entry: index.handle(),
+      entry: index.into().handle(),
     }
     .insert_api()
   }

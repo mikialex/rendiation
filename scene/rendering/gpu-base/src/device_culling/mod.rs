@@ -73,3 +73,73 @@ pub struct TargetWorldBounding {
   pub min: Node<Vec3<f32>>,
   pub max: Node<Vec3<f32>>,
 }
+
+#[derive(Default)]
+pub struct SceneDrawUnitWorldBoundingProviderDefaultImplSource {
+  storage: QueryToken,
+}
+
+impl QueryBasedFeature<SceneDrawUnitWorldBoundingProviderDefaultImpl>
+  for SceneDrawUnitWorldBoundingProviderDefaultImplSource
+{
+  type Context = GPU;
+
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, ctx: &Self::Context) {
+    let source = scene_model_world_bounding()
+      .collective_map(|b| [b.min, b.max])
+      .into_query_update_storage(0);
+    let buffer =
+      create_reactive_storage_buffer_container::<[f32; 6]>(128, u32::MAX, ctx).with_source(source);
+
+    self.storage = qcx.register_multi_updater(buffer);
+  }
+
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.storage);
+  }
+
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> SceneDrawUnitWorldBoundingProviderDefaultImpl {
+    SceneDrawUnitWorldBoundingProviderDefaultImpl {
+      bounding_storage: cx.take_storage_array_buffer(self.storage).unwrap(),
+    }
+  }
+}
+
+#[derive(Clone)]
+struct SceneDrawUnitWorldBoundingProviderDefaultImpl {
+  bounding_storage: StorageBufferReadonlyDataView<[[f32; 6]]>,
+}
+
+impl ShaderHashProvider for SceneDrawUnitWorldBoundingProviderDefaultImpl {
+  shader_hash_type_id! {}
+}
+impl DrawUnitWorldBoundingProvider for SceneDrawUnitWorldBoundingProviderDefaultImpl {
+  fn create_invocation(
+    &self,
+    cx: &mut ShaderBindGroupBuilder,
+  ) -> Box<dyn DrawUnitWorldBoundingInvocationProvider> {
+    Box::new(SceneDrawUnitWorldBoundingInvocationProviderDefaultImpl {
+      bounding_storage: cx.bind_by(&self.bounding_storage),
+    })
+  }
+
+  fn bind(&self, cx: &mut BindingBuilder) {
+    cx.bind(&self.bounding_storage);
+  }
+}
+
+struct SceneDrawUnitWorldBoundingInvocationProviderDefaultImpl {
+  bounding_storage: ShaderReadonlyPtrOf<[[f32; 6]]>,
+}
+
+impl DrawUnitWorldBoundingInvocationProvider
+  for SceneDrawUnitWorldBoundingInvocationProviderDefaultImpl
+{
+  fn get_world_bounding(&self, id: Node<u32>) -> TargetWorldBounding {
+    let b = self.bounding_storage.index(id).load();
+    TargetWorldBounding {
+      min: (b.index(0), b.index(1), b.index(2)).into(),
+      max: (b.index(0), b.index(1), b.index(2)).into(),
+    }
+  }
+}
