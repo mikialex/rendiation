@@ -18,8 +18,11 @@ mod shape_helper;
 pub use shape_helper::*;
 mod interaction;
 pub use interaction::*;
+mod view_dependent_node;
 /// reexport
 pub use rendiation_platform_event_input::*;
+pub use rendiation_view_override_model::*;
+pub use view_dependent_node::*;
 
 pub trait WidgetEnvAccess {
   fn get_world_mat(&self, sm: EntityHandle<SceneNodeEntity>) -> Option<Mat4<f32>>;

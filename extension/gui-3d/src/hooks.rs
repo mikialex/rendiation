@@ -1,7 +1,5 @@
 use std::any::Any;
 
-pub use rendiation_view_override_model::*;
-
 use crate::*;
 
 pub trait UI3dState: Any + for<'a> CanCleanUpFrom<UI3dBuildCx<'a>> {
@@ -332,83 +330,6 @@ where
   });
 
   r
-}
-
-pub struct ViewIndependentComputer {
-  pub override_position: Vec3<f32>,
-  pub scale: ViewAutoScalable,
-  pub camera_world: Mat4<f32>,
-  pub view_height_in_pixel: f32,
-  pub camera_proj: PerspectiveProjection<f32>,
-}
-
-pub fn use_view_dependent_root<R>(
-  cx: &mut UI3dCx,
-  node: &EntityHandle<SceneNodeEntity>,
-  config: ViewAutoScalable,
-  inner: impl Fn(&mut UI3dCx) -> R,
-) -> R {
-  let mut computer = None;
-  cx.on_event(|e, _, cx| unsafe {
-    computer = ViewIndependentComputer {
-      override_position: e.widget_env.get_world_mat(*node).unwrap().position(),
-      scale: config,
-      camera_world: e.widget_env.get_camera_world_mat(),
-      view_height_in_pixel: e.widget_env.get_view_resolution().y as f32,
-      camera_proj: e.widget_env.get_camera_perspective_proj(),
-    }
-    .into();
-    cx.register_cx(&mut computer);
-  });
-
-  let r = inner(cx);
-
-  cx.on_event(|_, _, cx| unsafe {
-    cx.unregister_cx::<Option<ViewIndependentComputer>>();
-  });
-
-  r
-}
-
-pub fn use_view_independent_node(
-  cx: &mut UI3dCx,
-  node: &EntityHandle<SceneNodeEntity>,
-  mat: impl FnOnce() -> Mat4<f32> + 'static,
-) {
-  let (cx, origin_local_mat) = cx.use_plain_state_init(|_| mat());
-  let (cx, local_mat_to_sync) = cx.use_plain_state::<Option<Mat4<f32>>>();
-
-  cx.on_event(|e, reader, cx| {
-    access_cx!(cx, config, Option<ViewIndependentComputer>);
-    let config = config.as_ref().unwrap();
-
-    let parent_world =
-      if let Some(parent_node) = reader.node_reader.read::<SceneNodeParentIdx>(*node) {
-        let parent_node = unsafe { EntityHandle::from_raw(parent_node) };
-        // todo, now we can only get last frame world matrix, so
-        // we can only do view independent stuff in next frame.
-        e.widget_env.get_world_mat(parent_node).unwrap()
-      } else {
-        Mat4::identity()
-      };
-
-    let origin_world = parent_world * *origin_local_mat;
-    let override_world_mat = config.scale.override_mat(
-      origin_world,
-      config.override_position,
-      config.camera_world,
-      config.view_height_in_pixel,
-      config.camera_proj,
-    );
-
-    *local_mat_to_sync = Some(parent_world.inverse_or_identity() * override_world_mat);
-  });
-
-  cx.on_update(|w, _| {
-    if let Some(mat) = local_mat_to_sync.take() {
-      w.set_local_matrix(*node, mat);
-    }
-  });
 }
 
 pub fn use_interactive_ui_widget_model(

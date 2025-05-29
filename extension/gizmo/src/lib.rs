@@ -51,7 +51,7 @@ pub fn use_gizmo(cx: &mut UI3dCx) {
           }
         });
 
-        use_view_dependent_root(cx, &root, auto_scale, |cx| {
+        use_view_independent_scale_root(cx, &root, auto_scale, |cx| {
           use_translation_gizmo(cx);
           use_rotation_gizmo(cx);
         });
@@ -160,7 +160,7 @@ fn use_axis_interactive_model(
     w.node_writer
       .write::<SceneNodeParentIdx>(*node, parent.map(|v| v.into_raw()));
   });
-  use_view_independent_node(cx, node, move || mat_init(&axis));
+  use_view_independent_scale_node(cx, node, move || mat_init(&axis));
 
   let (cx, material) = cx.use_unlit_material_entity(|| UnlitMaterialDataView {
     color: Vec4::new(1., 1., 1., 1.),
