@@ -32,3 +32,5 @@ mod fxaa;
 pub use fxaa::*;
 mod sdf;
 pub use sdf::*;
+mod hierarchy_depth_raymarching;
+pub use hierarchy_depth_raymarching::*;

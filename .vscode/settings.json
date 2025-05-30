@@ -137,6 +137,8 @@
         "Rasterized",
         "Raycastable",
         "Raycaster",
+        "raymarch",
+        "raymarching",
         "raytracing",
         "readwrite",
         "Rebuilder",
