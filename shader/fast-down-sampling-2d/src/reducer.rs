@@ -1,6 +1,6 @@
 use crate::*;
 
-pub trait QuadReducer<T> {
+pub trait QuadReducer<T>: std::any::Any {
   fn reduce(&self, v: [Node<T>; 4]) -> Node<T>;
 }
 
@@ -10,6 +10,15 @@ impl<T: PrimitiveShaderNodeType> QuadReducer<T> for MaxReducer {
   fn reduce(&self, v: [Node<T>; 4]) -> Node<T> {
     let [v1, v2, v3, v4] = v;
     v1.max(v2).max(v3).max(v4)
+  }
+}
+
+#[derive(Clone, Copy)]
+pub struct MinReducer;
+impl<T: PrimitiveShaderNodeType> QuadReducer<T> for MinReducer {
+  fn reduce(&self, v: [Node<T>; 4]) -> Node<T> {
+    let [v1, v2, v3, v4] = v;
+    v1.min(v2).min(v3).min(v4)
   }
 }
 

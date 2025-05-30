@@ -17,13 +17,22 @@ pub fn fast_down_sampling_generate_mipmap(
   );
 }
 
+fn depth_reducer(reverse_depth: bool) -> &'static dyn QuadReducer<f32> {
+  if reverse_depth {
+    &MaxReducer as &dyn QuadReducer<f32>
+  } else {
+    &MinReducer
+  }
+}
+
 pub fn compute_hierarchy_depth_from_depth_texture(
   pass: &mut GPUComputePass,
   device: &GPUDevice,
   texture: &GPU2DTexture,
+  reverse_depth: bool,
 ) {
   fast_down_sampling::<f32>(
-    &MaxReducer,
+    depth_reducer(reverse_depth),
     &CommonTextureFastDownSamplingSource::<f32, f32>::new(
       texture,
       |tex| Box::new(FirstChannelLoader(tex)),
@@ -39,6 +48,7 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
   output_target: &GPU2DTexture,
   pass: &mut GPUComputePass,
   device: &GPUDevice,
+  reverse_depth: bool,
 ) {
   let internal = CommonTextureFastDownSamplingSource::new(
     output_target,
@@ -47,7 +57,7 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
   );
 
   fast_down_sampling(
-    &MaxReducer,
+    depth_reducer(reverse_depth),
     &MsaaDepthFastDownSamplingSource {
       source: input_multi_sampled_depth.clone(),
       first_pass_base_write: internal
@@ -57,6 +67,7 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
         .into_storage_texture_view_writeonly()
         .unwrap(),
       internal,
+      reverse_depth,
     },
     pass,
     device,
@@ -66,6 +77,7 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
     source: GPU2DMultiSampleDepthTextureView,
     first_pass_base_write: StorageTextureViewWriteonly2D,
     internal: CommonTextureFastDownSamplingSource<f32, f32>,
+    reverse_depth: bool,
   }
 
   impl ShaderHashProvider for MsaaDepthFastDownSamplingSource {
@@ -93,6 +105,7 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
           .first_pass_writes
           .clone()
           .map(|v| cx.bind_by(&v)),
+        reverse_depth: self.reverse_depth,
       })
     }
 
@@ -120,6 +133,7 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
     msaa_input: BindingNode<ShaderMultiSampleDepthTexture2D>,
     base_level: BindingNode<ShaderStorageTextureW2D>,
     levels: [BindingNode<ShaderStorageTextureW2D>; 6],
+    reverse_depth: bool,
   }
 
   impl FastDownSamplingIOFirstStageInvocation<f32> for MsaaDownSampleFirstPass {
@@ -129,6 +143,7 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
         mip_0: self.base_level,
         scale: self.msaa_input.texture_dimension_2d(None).into_f32()
           / self.base_level.texture_dimension_2d(None).into_f32(),
+        reducer: depth_reducer(self.reverse_depth),
       })
     }
 
@@ -141,6 +156,7 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
     mip_0: BindingNode<ShaderStorageTextureW2D>,
     ms_depth: BindingNode<ShaderMultiSampleDepthTexture2D>,
     scale: Node<Vec2<f32>>,
+    reducer: &'static dyn QuadReducer<f32>,
   }
 
   impl SourceImageLoader<f32> for MultisampleDepthInitLoader {
@@ -153,7 +169,7 @@ pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
       let d3 = self.ms_depth.load_texel_multi_sample_index(depth_coord, 2);
       let d4 = self.ms_depth.load_texel_multi_sample_index(depth_coord, 3);
 
-      let v = MaxReducer.reduce([d1, d2, d3, d4]);
+      let v = self.reducer.reduce([d1, d2, d3, d4]);
       self.mip_0.write_texel(coord, v.splat());
       v
     }
