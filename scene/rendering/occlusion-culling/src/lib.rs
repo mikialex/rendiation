@@ -65,6 +65,7 @@ impl GPUTwoPassOcclusionCulling {
     camera_view_proj: &UniformBufferDataView<Mat4<f32>>,
     pass_com: &dyn RenderComponent,
     bounding_provider: Box<dyn DrawUnitWorldBoundingProvider>,
+    reverse_depth: bool,
   ) {
     let pre_culler = batch.stash_culler.clone().unwrap_or(Box::new(NoopCuller));
 
@@ -136,6 +137,7 @@ impl GPUTwoPassOcclusionCulling {
       pyramid,
       &mut compute_pass,
       &frame_ctx.gpu.device,
+      reverse_depth,
     );
 
     let pyramid = pyramid.create_default_view();
