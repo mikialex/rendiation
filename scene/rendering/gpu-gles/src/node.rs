@@ -2,18 +2,6 @@ use crate::*;
 
 pub type SceneNodeUniforms = UniformUpdateContainer<EntityHandle<SceneNodeEntity>, NodeUniform>;
 
-pub fn node_uniforms(cx: &GPU) -> SceneNodeUniforms {
-  let source = scene_node_derive_world_mat()
-    .collective_map(|mat| NodeUniform {
-      world_matrix: mat,
-      normal_matrix: mat.to_normal_matrix().into(),
-      ..Zeroable::zeroed()
-    })
-    .into_query_update_uniform(0, cx);
-
-  SceneNodeUniforms::default().with_source(source)
-}
-
 pub struct NodeGPUUniform<'a> {
   pub ubo: &'a UniformBufferDataView<NodeUniform>,
 }

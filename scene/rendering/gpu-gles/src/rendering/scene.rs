@@ -38,6 +38,25 @@ impl GLESRenderSystem {
   }
 }
 
+pub fn use_gles_scene_renderer(cx: &mut QueryGPUHookCx) -> Option<GLESSceneRenderer> {
+  let flat_mat = use_unlit_material_uniforms(cx);
+
+  let std_model = std_model_renderer(cx, todo!(), todo!());
+
+  let scene_model = use_gles_scene_model_renderer(cx);
+
+  cx.when_create_impl(|| GLESRenderSystem {
+    model_lookup: todo!(),
+    node_net_visible: todo!(),
+    model_alpha_blend: todo!(),
+    texture_system: todo!(),
+    background: todo!(),
+    camera: todo!(),
+    scene_model_impl: todo!(),
+    reversed_depth: todo!(),
+  })
+}
+
 pub fn build_default_gles_render_system(
   cx: &GPU,
   prefer_bindless: bool,

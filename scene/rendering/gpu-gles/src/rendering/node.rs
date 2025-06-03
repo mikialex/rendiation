@@ -7,30 +7,19 @@ pub trait GLESNodeRenderImpl {
   ) -> Option<Box<dyn RenderComponent + '_>>;
 }
 
-#[derive(Default)]
-pub struct DefaultGLESNodeRenderImplProvider {
-  uniforms: QueryToken,
+pub fn use_node_uniforms(cx: &mut QueryGPUHookCx) -> Option<DefaultGLESNodeRenderImpl> {
+  cx.use_uniform_buffers(|source, cx| {
+    source.with_source(
+      scene_node_derive_world_mat()
+        .collective_map(|mat| NodeUniform::from_world_mat(mat))
+        .into_query_update_uniform(0, cx),
+    )
+  })
+  .map(|node_gpu| DefaultGLESNodeRenderImpl { node_gpu })
 }
+
 pub struct DefaultGLESNodeRenderImpl {
   node_gpu: LockReadGuardHolder<SceneNodeUniforms>,
-}
-
-impl QueryBasedFeature<Box<dyn GLESNodeRenderImpl>> for DefaultGLESNodeRenderImplProvider {
-  type Context = GPU;
-  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
-    let uniforms = node_uniforms(cx);
-    self.uniforms = qcx.register_multi_updater(uniforms);
-  }
-
-  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
-    qcx.deregister(&mut self.uniforms);
-  }
-
-  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn GLESNodeRenderImpl> {
-    Box::new(DefaultGLESNodeRenderImpl {
-      node_gpu: cx.take_multi_updater_updated(self.uniforms).unwrap(),
-    })
-  }
 }
 
 impl GLESNodeRenderImpl for DefaultGLESNodeRenderImpl {

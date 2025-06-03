@@ -4178,6 +4178,7 @@ name = "rendiation-webgpu-reactive-utils"
 version = "0.1.0"
 dependencies = [
  "fast-hash-collection",
+ "hook",
  "parking_lot",
  "reactive",
  "rendiation-shader-api",

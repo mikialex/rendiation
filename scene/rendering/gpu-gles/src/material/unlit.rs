@@ -3,35 +3,9 @@ use crate::*;
 pub type UnlitMaterialUniforms =
   UniformUpdateContainer<EntityHandle<UnlitMaterialEntity>, UnlitMaterialUniform>;
 
-pub fn unlit_material_uniforms(cx: &GPU) -> UnlitMaterialUniforms {
-  let color = global_watch()
-    .watch::<UnlitMaterialColorComponent>()
-    .collective_map(srgb4_to_linear4)
-    .into_query_update_uniform(offset_of!(UnlitMaterialUniform, color), cx);
-
-  let alpha = global_watch()
-    .watch::<AlphaOf<UnlitMaterialAlphaConfig>>()
-    .into_query_update_uniform(offset_of!(UnlitMaterialUniform, alpha), cx);
-
-  let alpha_cutoff = global_watch()
-    .watch::<AlphaCutoffOf<UnlitMaterialAlphaConfig>>()
-    .into_query_update_uniform(offset_of!(UnlitMaterialUniform, alpha_cutoff), cx);
-
-  UnlitMaterialUniforms::default()
-    .with_source(color)
-    .with_source(alpha)
-    .with_source(alpha_cutoff)
-}
-
 type TexUniform = UnlitMaterialTextureHandlesUniform;
 pub type UnlitMaterialTexUniforms =
   UniformUpdateContainer<EntityHandle<UnlitMaterialEntity>, TexUniform>;
-pub fn unlit_material_tex_uniforms(cx: &GPU) -> UnlitMaterialTexUniforms {
-  let c = UnlitMaterialTexUniforms::default();
-
-  let color_alpha_texture = offset_of!(TexUniform, color_alpha_texture);
-  add_tex_watcher::<UnlitMaterialColorAlphaTex, _>(c, color_alpha_texture, cx)
-}
 
 #[repr(C)]
 #[std140_layout]

@@ -23,37 +23,48 @@ impl GLESModelMaterialRenderImpl for Vec<Box<dyn GLESModelMaterialRenderImpl>> {
   }
 }
 
-#[derive(Default)]
-pub struct UnlitMaterialDefaultRenderImplProvider {
-  uniforms: QueryToken,
-  texture_uniforms: QueryToken,
-}
-impl QueryBasedFeature<Box<dyn GLESModelMaterialRenderImpl>>
-  for UnlitMaterialDefaultRenderImplProvider
-{
-  type Context = GPU;
-  fn register(&mut self, qcx: &mut ReactiveQueryCtx, gpu: &GPU) {
-    let updater = unlit_material_uniforms(gpu);
-    self.uniforms = qcx.register_multi_updater(updater);
-    self.texture_uniforms = qcx.register_multi_updater(unlit_material_tex_uniforms(gpu));
-  }
-  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
-    qcx.deregister(&mut self.uniforms);
-    qcx.deregister(&mut self.texture_uniforms);
-  }
+pub fn use_unlit_material_uniforms(
+  cx: &mut QueryGPUHookCx,
+) -> Option<UnlitMaterialDefaultRenderImpl> {
+  let uniform = cx.use_uniform_buffers::<EntityHandle<UnlitMaterialEntity>, UnlitMaterialUniform>(
+    |source, cx| {
+      let color = global_watch()
+        .watch::<UnlitMaterialColorComponent>()
+        .collective_map(srgb4_to_linear4)
+        .into_query_update_uniform(offset_of!(UnlitMaterialUniform, color), cx);
 
-  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn GLESModelMaterialRenderImpl> {
-    Box::new(UnlitMaterialDefaultRenderImpl {
-      material_access: global_entity_component_of::<StandardModelRefUnlitMaterial>()
-        .read_foreign_key(),
-      uniforms: cx.take_multi_updater_updated(self.uniforms).unwrap(),
-      alpha_mode: global_entity_component_of().read(),
-      texture_uniforms: cx
-        .take_multi_updater_updated(self.texture_uniforms)
-        .unwrap(),
-      color_tex_sampler: TextureSamplerIdView::read_from_global(),
-    })
-  }
+      let alpha = global_watch()
+        .watch::<AlphaOf<UnlitMaterialAlphaConfig>>()
+        .into_query_update_uniform(offset_of!(UnlitMaterialUniform, alpha), cx);
+
+      let alpha_cutoff = global_watch()
+        .watch::<AlphaCutoffOf<UnlitMaterialAlphaConfig>>()
+        .into_query_update_uniform(offset_of!(UnlitMaterialUniform, alpha_cutoff), cx);
+
+      source
+        .with_source(color)
+        .with_source(alpha)
+        .with_source(alpha_cutoff)
+    },
+  );
+
+  let tex_uniform = cx
+    .use_uniform_buffers::<EntityHandle<UnlitMaterialEntity>, UnlitMaterialTextureHandlesUniform>(
+      |source, cx| {
+        let color_alpha_texture =
+          offset_of!(UnlitMaterialTextureHandlesUniform, color_alpha_texture);
+        add_tex_watcher::<UnlitMaterialColorAlphaTex, _>(source, color_alpha_texture, cx)
+      },
+    );
+
+  cx.when_create_impl(|| UnlitMaterialDefaultRenderImpl {
+    material_access: global_entity_component_of::<StandardModelRefUnlitMaterial>()
+      .read_foreign_key(),
+    uniforms: uniform.unwrap(),
+    texture_uniforms: tex_uniform.unwrap(),
+    color_tex_sampler: TextureSamplerIdView::read_from_global(),
+    alpha_mode: global_entity_component_of().read(),
+  })
 }
 
 struct UnlitMaterialDefaultRenderImpl {

@@ -13,6 +13,7 @@ rendiation-texture-gpu-base = { path = "../../../content/texture/gpu-base" }
 rendiation-webgpu = { path = "../webgpu" }
 fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 parking_lot = { workspace = true }
+hook = { path = "../../../utility/hook" }
 
 [lints]
 workspace = true

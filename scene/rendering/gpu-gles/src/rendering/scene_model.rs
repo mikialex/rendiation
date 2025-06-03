@@ -1,65 +1,33 @@
 use crate::*;
 
-pub struct GLESPreferredComOrderRendererProvider {
-  pub scene_model_ids: QueryToken,
-  pub node: BoxedQueryBasedGPUFeature<Box<dyn GLESNodeRenderImpl>>,
-  pub model_impl: Vec<BoxedQueryBasedGPUFeature<Box<dyn GLESModelRenderImpl>>>,
-}
+pub fn use_gles_scene_model_renderer(
+  cx: &mut QueryGPUHookCx,
+  std_model: Option<Box<dyn GLESModelRenderImpl>>,
+) -> Option<Box<dyn SceneModelRenderer>> {
+  let node = use_node_uniforms(cx);
 
-impl GLESPreferredComOrderRendererProvider {
-  pub fn register_std_model_impl(
-    mut self,
-    imp: impl QueryBasedFeature<Box<dyn GLESModelRenderImpl>, Context = GPU> + 'static,
-  ) -> Self {
-    self.model_impl.push(Box::new(imp));
-    self
-  }
-}
+  let scene_model_ids =
+    cx.use_uniform_buffers::<EntityHandle<SceneModelEntity>, Vec4<u32>>(|source, cx| {
+      source.with_source(
+        global_watch()
+          .watch_entity_set::<SceneModelEntity>()
+          .key_as_value()
+          .collective_map(|v| Vec4::new(v.into_raw().index(), 0, 0, 0))
+          .into_query_update_uniform(0, cx),
+      )
+    });
 
-impl Default for GLESPreferredComOrderRendererProvider {
-  fn default() -> Self {
-    Self {
-      scene_model_ids: Default::default(),
-      node: Box::new(DefaultGLESNodeRenderImplProvider::default()),
-      model_impl: Default::default(),
-    }
-  }
+  cx.when_create_impl(|| {
+    Box::new(GLESPreferredComOrderRenderer {
+      scene_model_ids: scene_model_ids.unwrap(),
+      model_impl: todo!(),
+      node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
+      node_render: todo!(),
+    }) as Box<_>
+  })
 }
 
 type SceneModelIdUniforms = UniformUpdateContainer<EntityHandle<SceneModelEntity>, Vec4<u32>>;
-
-impl QueryBasedFeature<Box<dyn SceneModelRenderer>> for GLESPreferredComOrderRendererProvider {
-  type Context = GPU;
-  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
-    let ids = global_watch()
-      .watch_entity_set::<SceneModelEntity>()
-      .key_as_value()
-      .collective_map(|v| Vec4::new(v.into_raw().index(), 0, 0, 0))
-      .into_query_update_uniform(0, cx);
-
-    let ids = SceneModelIdUniforms::default().with_source(ids);
-
-    self.scene_model_ids = qcx.register_multi_updater(ids);
-
-    self.node.register(qcx, cx);
-    self.model_impl.iter_mut().for_each(|i| i.register(qcx, cx));
-  }
-
-  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
-    qcx.deregister(&mut self.scene_model_ids);
-    self.node.deregister(qcx);
-    self.model_impl.iter_mut().for_each(|i| i.deregister(qcx));
-  }
-
-  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn SceneModelRenderer> {
-    Box::new(GLESPreferredComOrderRenderer {
-      scene_model_ids: cx.take_multi_updater_updated(self.scene_model_ids).unwrap(),
-      model_impl: self.model_impl.iter().map(|i| i.create_impl(cx)).collect(),
-      node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
-      node_render: self.node.create_impl(cx),
-    })
-  }
-}
 
 pub struct GLESPreferredComOrderRenderer {
   scene_model_ids: LockReadGuardHolder<SceneModelIdUniforms>,
