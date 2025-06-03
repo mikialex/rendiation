@@ -1,5 +1,6 @@
 use crate::*;
 
+mod culling;
 mod egui;
 mod frame_logic;
 mod grid_ground;
@@ -9,6 +10,7 @@ mod ray_tracing;
 mod widget;
 
 mod g_buffer;
+pub use culling::*;
 pub use g_buffer::*;
 pub use ray_tracing::*;
 

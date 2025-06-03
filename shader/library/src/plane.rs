@@ -31,7 +31,7 @@ pub fn ray_plane_intersect(
     .select((origin + direction * t, val(1.0)), Vec4::zero())
 }
 
-pub fn ray_aabb_intersect(
+pub fn aabb_plane_intersect(
   min: Node<Vec3<f32>>,
   max: Node<Vec3<f32>>,
   plane: ENode<ShaderPlane>,

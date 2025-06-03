@@ -1,12 +1,12 @@
 use crate::*;
 
 #[derive(Serialize, Deserialize)]
-#[derive(Copy, Clone, Facet)]
+#[derive(Copy, Clone, Debug, PartialEq, Facet)]
 pub struct Frustum<T: Scalar = f32> {
-  planes: [Plane<T>; 6],
+  pub planes: [Plane<T>; 6],
 }
 
-impl Default for Frustum {
+impl<T: Scalar> Default for Frustum<T> {
   fn default() -> Self {
     Self::new()
   }
@@ -17,6 +17,11 @@ impl<T: Scalar> Frustum<T> {
     Self {
       planes: [Plane::new(Vec3::splat(T::one()).into_normalized(), T::one()); 6],
     }
+  }
+  pub fn new_from_matrix(m: Mat4<T>) -> Self {
+    let mut f = Frustum::<T>::default();
+    f.set_from_matrix(m);
+    f
   }
 
   #[rustfmt::skip]

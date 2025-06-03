@@ -41,16 +41,16 @@ impl AbstractCullerInvocation for GPUFrustumCullingInvocation {
   fn cull(&self, id: Node<u32>) -> Node<bool> {
     let bounding = self.bounding_provider.get_world_bounding(id);
 
-    let visible = val(true).make_local_var();
+    let visible = val(false).make_local_var();
     self
       .frustum
       .clone()
       .into_shader_iter()
       .for_each(|(_, plane), cx| {
         let plane = plane.load().expand();
-        let intersect = ray_aabb_intersect(bounding.min, bounding.max, plane);
+        let intersect = aabb_plane_intersect(bounding.min, bounding.max, plane);
         if_by(intersect, || {
-          visible.store(false);
+          visible.store(true);
           cx.do_break();
         });
       });
