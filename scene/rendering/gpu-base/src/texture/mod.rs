@@ -8,6 +8,10 @@ pub use d2_and_sampler::*;
 
 use crate::*;
 
+pub fn use_texture_system(cx: &mut QueryGPUHookCx) -> Option<GPUTextureBindingSystem> {
+  todo!()
+}
+
 const BINDLESS_EFFECTIVE_COUNT: u32 = 8192;
 
 pub fn get_suitable_texture_system_ty(

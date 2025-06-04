@@ -9,7 +9,6 @@ pub struct IndirectRenderSystem {
   pub model_alpha_blend: QueryToken,
   pub node_net_visible: QueryToken,
   pub texture_system: TextureGPUSystemSource,
-  pub background: SceneBackgroundRendererSource,
   pub scene_model_impl: IndirectPreferredComOrderRendererProvider,
   pub reversed_depth: bool,
 }
@@ -25,7 +24,6 @@ impl IndirectRenderSystem {
       model_lookup: Default::default(),
       node_net_visible: Default::default(),
       model_alpha_blend: Default::default(),
-      background: Default::default(),
       texture_system: TextureGPUSystemSource::new(texture_impl_ty),
       scene_model_impl,
     }
@@ -102,7 +100,7 @@ impl IndirectRenderSystem {
 //   }
 // }
 
-struct IndirectSceneRenderer {
+pub struct IndirectSceneRenderer {
   texture_system: GPUTextureBindingSystem,
   renderer: Box<dyn IndirectBatchSceneModelRenderer>,
   model_lookup: RevRefOfForeignKey<SceneModelBelongsToScene>,

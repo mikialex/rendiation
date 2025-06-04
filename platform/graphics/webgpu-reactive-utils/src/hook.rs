@@ -11,10 +11,31 @@ pub struct QueryGPUHookCx<'a> {
 }
 
 impl<'a> QueryGPUHookCx<'a> {
+  pub fn use_multi_updater<T>(
+    &mut self,
+    f: impl FnOnce() -> MultiUpdateContainer<T>,
+  ) -> Option<LockReadGuardHolder<MultiUpdateContainer<T>>> {
+    todo!()
+  }
+
   pub fn use_uniform_buffers<K, V: Std140>(
     &mut self,
     source: impl FnOnce(UniformUpdateContainer<K, V>, &GPU) -> UniformUpdateContainer<K, V>,
   ) -> Option<LockReadGuardHolder<UniformUpdateContainer<K, V>>> {
+    todo!()
+  }
+
+  pub fn use_multi_updater_ref<T>(
+    &mut self,
+    f: impl FnOnce(&GPU) -> MultiUpdateContainer<T>,
+  ) -> (&mut Self, Option<&T>) {
+    todo!()
+  }
+
+  pub fn use_uniform_buffers_ref<K, V: Std140>(
+    &mut self,
+    source: impl FnOnce(UniformUpdateContainer<K, V>, &GPU) -> UniformUpdateContainer<K, V>,
+  ) -> (&mut Self, Option<&FastHashMap<K, UniformBufferDataView<V>>>) {
     todo!()
   }
 

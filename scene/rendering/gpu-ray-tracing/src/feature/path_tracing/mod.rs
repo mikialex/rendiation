@@ -167,6 +167,7 @@ impl DeviceReferencePathTracingRenderer {
     scene: EntityHandle<SceneEntity>,
     camera: EntityHandle<SceneCameraEntity>,
     tonemap: &ToneMap,
+    background: &SceneBackgroundRenderer,
   ) -> GPU2DTextureView {
     let scene_tlas = base.scene_tlas.access(&scene).unwrap().clone();
     // bind tlas, see ShaderRayTraceCall::tlas_idx.
@@ -225,7 +226,7 @@ impl DeviceReferencePathTracingRenderer {
       },
     );
 
-    let miss_ctx = PTRayMissCtx::new(&base.background, scene, frame.gpu);
+    let miss_ctx = PTRayMissCtx::new(background, scene, frame.gpu);
     let miss = build_ray_miss_shader(&trace_base_builder, miss_ctx);
 
     let shadow_test_closest = trace_base_builder

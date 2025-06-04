@@ -1,16 +1,85 @@
 use crate::*;
 
-pub type UnlitMaterialUniforms =
+pub fn use_unlit_material_uniforms(
+  cx: &mut QueryGPUHookCx,
+) -> Option<UnlitMaterialDefaultRenderImpl> {
+  let uniform = cx.use_uniform_buffers::<EntityHandle<UnlitMaterialEntity>, UnlitMaterialUniform>(
+    |source, cx| {
+      let color = global_watch()
+        .watch::<UnlitMaterialColorComponent>()
+        .collective_map(srgb4_to_linear4)
+        .into_query_update_uniform(offset_of!(UnlitMaterialUniform, color), cx);
+
+      let alpha = global_watch()
+        .watch::<AlphaOf<UnlitMaterialAlphaConfig>>()
+        .into_query_update_uniform(offset_of!(UnlitMaterialUniform, alpha), cx);
+
+      let alpha_cutoff = global_watch()
+        .watch::<AlphaCutoffOf<UnlitMaterialAlphaConfig>>()
+        .into_query_update_uniform(offset_of!(UnlitMaterialUniform, alpha_cutoff), cx);
+
+      source
+        .with_source(color)
+        .with_source(alpha)
+        .with_source(alpha_cutoff)
+    },
+  );
+
+  let tex_uniform = cx
+    .use_uniform_buffers::<EntityHandle<UnlitMaterialEntity>, UnlitMaterialTextureHandlesUniform>(
+      |source, cx| {
+        let color_alpha_texture =
+          offset_of!(UnlitMaterialTextureHandlesUniform, color_alpha_texture);
+        add_tex_watcher::<UnlitMaterialColorAlphaTex, _>(source, color_alpha_texture, cx)
+      },
+    );
+
+  cx.when_create_impl(|| UnlitMaterialDefaultRenderImpl {
+    material_access: global_entity_component_of::<StandardModelRefUnlitMaterial>()
+      .read_foreign_key(),
+    uniforms: uniform.unwrap(),
+    texture_uniforms: tex_uniform.unwrap(),
+    color_tex_sampler: TextureSamplerIdView::read_from_global(),
+    alpha_mode: global_entity_component_of().read(),
+  })
+}
+
+pub struct UnlitMaterialDefaultRenderImpl {
+  material_access: ForeignKeyReadView<StandardModelRefUnlitMaterial>,
+  uniforms: LockReadGuardHolder<UnlitMaterialUniforms>,
+  texture_uniforms: LockReadGuardHolder<UnlitMaterialTexUniforms>,
+  color_tex_sampler: TextureSamplerIdView<UnlitMaterialColorAlphaTex>,
+  alpha_mode: ComponentReadView<AlphaModeOf<UnlitMaterialAlphaConfig>>,
+}
+
+impl GLESModelMaterialRenderImpl for UnlitMaterialDefaultRenderImpl {
+  fn make_component<'a>(
+    &'a self,
+    idx: EntityHandle<StandardModelEntity>,
+    cx: &'a GPUTextureBindingSystem,
+  ) -> Option<Box<dyn RenderComponent + 'a>> {
+    let idx = self.material_access.get(idx)?;
+    Some(Box::new(UnlitMaterialGPU {
+      uniform: self.uniforms.get(&idx)?,
+      alpha_mode: self.alpha_mode.get_value(idx)?,
+      binding_sys: cx,
+      tex_uniform: self.texture_uniforms.get(&idx)?,
+      color_alpha_tex_sampler: self.color_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
+    }))
+  }
+}
+
+type UnlitMaterialUniforms =
   UniformUpdateContainer<EntityHandle<UnlitMaterialEntity>, UnlitMaterialUniform>;
 
 type TexUniform = UnlitMaterialTextureHandlesUniform;
-pub type UnlitMaterialTexUniforms =
+type UnlitMaterialTexUniforms =
   UniformUpdateContainer<EntityHandle<UnlitMaterialEntity>, TexUniform>;
 
 #[repr(C)]
 #[std140_layout]
 #[derive(Clone, Copy, ShaderStruct, Default)]
-pub struct UnlitMaterialUniform {
+struct UnlitMaterialUniform {
   pub color: Vec4<f32>,
   pub alpha_cutoff: f32,
   pub alpha: f32,
@@ -18,7 +87,7 @@ pub struct UnlitMaterialUniform {
 #[repr(C)]
 #[std140_layout]
 #[derive(Clone, Copy, ShaderStruct, Debug, PartialEq, Default)]
-pub struct UnlitMaterialTextureHandlesUniform {
+struct UnlitMaterialTextureHandlesUniform {
   pub color_alpha_texture: TextureSamplerHandlePair,
 }
 
@@ -29,11 +98,11 @@ pub fn unlit_material_pipeline_hash(
 
 #[derive(Clone)]
 pub struct UnlitMaterialGPU<'a> {
-  pub uniform: &'a UniformBufferDataView<UnlitMaterialUniform>,
-  pub tex_uniform: &'a UniformBufferDataView<UnlitMaterialTextureHandlesUniform>,
-  pub alpha_mode: AlphaMode,
-  pub color_alpha_tex_sampler: (u32, u32),
-  pub binding_sys: &'a GPUTextureBindingSystem,
+  uniform: &'a UniformBufferDataView<UnlitMaterialUniform>,
+  tex_uniform: &'a UniformBufferDataView<UnlitMaterialTextureHandlesUniform>,
+  alpha_mode: AlphaMode,
+  color_alpha_tex_sampler: (u32, u32),
+  binding_sys: &'a GPUTextureBindingSystem,
 }
 
 impl ShaderHashProvider for UnlitMaterialGPU<'_> {

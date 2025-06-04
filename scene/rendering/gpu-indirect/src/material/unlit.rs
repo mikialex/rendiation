@@ -1,5 +1,69 @@
 use crate::*;
 
+#[derive(Default)]
+pub struct UnlitMaterialDefaultIndirectRenderImplProvider {
+  storages: QueryToken,
+  tex_storages: QueryToken,
+}
+impl QueryBasedFeature<Box<dyn IndirectModelMaterialRenderImpl>>
+  for UnlitMaterialDefaultIndirectRenderImplProvider
+{
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
+    let updater = unlit_material_storage_buffer(cx);
+    self.storages = qcx.register_multi_updater(updater);
+    self.tex_storages = qcx.register_multi_updater(unlit_material_texture_storages(cx));
+  }
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.storages);
+    qcx.deregister(&mut self.tex_storages);
+  }
+
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn IndirectModelMaterialRenderImpl> {
+    Box::new(UnlitMaterialDefaultIndirectRenderImpl {
+      material_access: global_entity_component_of::<StandardModelRefUnlitMaterial>()
+        .read_foreign_key(),
+      storages: cx.take_storage_array_buffer(self.storages).unwrap(),
+      texture_handles: cx.take_storage_array_buffer(self.tex_storages).unwrap(),
+      alpha_mode: global_entity_component_of().read(),
+    })
+  }
+}
+
+struct UnlitMaterialDefaultIndirectRenderImpl {
+  material_access: ForeignKeyReadView<StandardModelRefUnlitMaterial>,
+  storages: StorageBufferReadonlyDataView<[UnlitMaterialStorage]>,
+  texture_handles: StorageBufferReadonlyDataView<[UnlitMaterialTextureHandlesStorage]>,
+  alpha_mode: ComponentReadView<AlphaModeOf<UnlitMaterialAlphaConfig>>,
+}
+
+impl IndirectModelMaterialRenderImpl for UnlitMaterialDefaultIndirectRenderImpl {
+  fn make_component_indirect<'a>(
+    &'a self,
+    any_idx: EntityHandle<StandardModelEntity>,
+    cx: &'a GPUTextureBindingSystem,
+  ) -> Option<Box<dyn RenderComponent + 'a>> {
+    let m = self.material_access.get(any_idx)?;
+    Some(Box::new(UnlitMaterialStorageGPU {
+      buffer: self.storages.clone(),
+      alpha_mode: self.alpha_mode.get_value(m)?,
+      texture_handles: self.texture_handles.clone(),
+      binding_sys: cx,
+    }))
+  }
+  fn hash_shader_group_key(
+    &self,
+    any_idx: EntityHandle<StandardModelEntity>,
+    _: &mut PipelineHasher,
+  ) -> Option<()> {
+    self.material_access.get(any_idx)?;
+    Some(())
+  }
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
+}
+
 pub type UnlitMaterialStorageBuffer = ReactiveStorageBufferContainer<UnlitMaterialStorage>;
 
 pub fn unlit_material_storage_buffer(cx: &GPU) -> UnlitMaterialStorageBuffer {

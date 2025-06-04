@@ -3,6 +3,100 @@ use rendiation_shader_library::normal_mapping::apply_normal_mapping_conditional;
 
 use crate::*;
 
+#[derive(Default)]
+pub struct PbrMRMaterialDefaultIndirectRenderImplProvider {
+  storages: QueryToken,
+  tex_storages: QueryToken,
+}
+
+impl QueryBasedFeature<PbrMRMaterialDefaultIndirectRenderImpl>
+  for PbrMRMaterialDefaultIndirectRenderImplProvider
+{
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
+    self.storages = qcx.register_multi_updater(pbr_mr_material_storages(cx));
+    self.tex_storages = qcx.register_multi_updater(pbr_mr_material_tex_storages(cx));
+  }
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.storages);
+    qcx.deregister(&mut self.tex_storages);
+  }
+
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> PbrMRMaterialDefaultIndirectRenderImpl {
+    PbrMRMaterialDefaultIndirectRenderImpl {
+      material_access: global_entity_component_of::<StandardModelRefPbrMRMaterial>()
+        .read_foreign_key(),
+      storages: cx.take_storage_array_buffer(self.storages).unwrap(),
+      tex_storages: cx.take_storage_array_buffer(self.tex_storages).unwrap(),
+      alpha_mode: global_entity_component_of().read(),
+    }
+  }
+}
+
+impl QueryBasedFeature<Box<dyn IndirectModelMaterialRenderImpl>>
+  for PbrMRMaterialDefaultIndirectRenderImplProvider
+{
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
+    (self as &mut dyn QueryBasedFeature<PbrMRMaterialDefaultIndirectRenderImpl, Context = GPU>)
+      .register(qcx, cx);
+  }
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    (self as &mut dyn QueryBasedFeature<PbrMRMaterialDefaultIndirectRenderImpl, Context = GPU>)
+      .deregister(qcx);
+  }
+
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn IndirectModelMaterialRenderImpl> {
+    Box::new(
+      (self as &dyn QueryBasedFeature<PbrMRMaterialDefaultIndirectRenderImpl, Context = GPU>)
+        .create_impl(cx),
+    )
+  }
+}
+
+pub struct PbrMRMaterialDefaultIndirectRenderImpl {
+  pub material_access: ForeignKeyReadView<StandardModelRefPbrMRMaterial>,
+  pub storages: StorageBufferReadonlyDataView<[PhysicalMetallicRoughnessMaterialStorage]>,
+  pub tex_storages:
+    StorageBufferReadonlyDataView<[PhysicalMetallicRoughnessMaterialTextureHandlesStorage]>,
+  pub alpha_mode: ComponentReadView<AlphaModeOf<PbrMRMaterialAlphaConfig>>,
+}
+
+pub struct TextureSamplerIdView<T: TextureWithSamplingForeignKeys> {
+  pub texture: ForeignKeyReadView<SceneTexture2dRefOf<T>>,
+  pub sampler: ForeignKeyReadView<SceneSamplerRefOf<T>>,
+}
+
+impl IndirectModelMaterialRenderImpl for PbrMRMaterialDefaultIndirectRenderImpl {
+  fn make_component_indirect<'a>(
+    &'a self,
+    any_idx: EntityHandle<StandardModelEntity>,
+    cx: &'a GPUTextureBindingSystem,
+  ) -> Option<Box<dyn RenderComponent + 'a>> {
+    let idx = self.material_access.get(any_idx)?;
+    let r = PhysicalMetallicRoughnessMaterialIndirectGPU {
+      storage: &self.storages,
+      alpha_mode: self.alpha_mode.get_value(idx)?,
+      texture_storages: &self.tex_storages,
+      binding_sys: cx,
+    };
+    let r = Box::new(r) as Box<dyn RenderComponent + '_>;
+    Some(r)
+  }
+  fn hash_shader_group_key(
+    &self,
+    idx: EntityHandle<StandardModelEntity>,
+    hasher: &mut PipelineHasher,
+  ) -> Option<()> {
+    let idx = self.material_access.get(idx)?;
+    self.alpha_mode.get_value(idx)?.hash(hasher);
+    Some(())
+  }
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
+}
+
 #[repr(C)]
 #[std430_layout]
 #[derive(Clone, Copy, ShaderStruct, Debug, PartialEq, Default)]

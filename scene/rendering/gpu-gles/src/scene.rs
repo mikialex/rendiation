@@ -1,9 +1,5 @@
 use crate::*;
 
-pub fn use_texture_system(cx: &mut QueryGPUHookCx) -> Option<GPUTextureBindingSystem> {
-  todo!()
-}
-
 pub fn use_gles_scene_renderer(
   cx: &mut QueryGPUHookCx,
   reversed_depth: bool,

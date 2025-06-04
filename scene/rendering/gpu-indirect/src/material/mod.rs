@@ -76,3 +76,73 @@ where
 
   storage.with_source(tex).with_source(sampler)
 }
+
+pub trait IndirectModelMaterialRenderImpl: Any {
+  fn make_component_indirect<'a>(
+    &'a self,
+    any_idx: EntityHandle<StandardModelEntity>,
+    cx: &'a GPUTextureBindingSystem,
+  ) -> Option<Box<dyn RenderComponent + 'a>>;
+  fn hash_shader_group_key(
+    &self,
+    any_id: EntityHandle<StandardModelEntity>,
+    hasher: &mut PipelineHasher,
+  ) -> Option<()>;
+  fn as_any(&self) -> &dyn Any;
+  fn hash_shader_group_key_with_self_type_info(
+    &self,
+    any_id: EntityHandle<StandardModelEntity>,
+    hasher: &mut PipelineHasher,
+  ) -> Option<()> {
+    self.hash_shader_group_key(any_id, hasher).map(|_| {
+      self.as_any().type_id().hash(hasher);
+    })
+  }
+}
+
+impl IndirectModelMaterialRenderImpl for Vec<Box<dyn IndirectModelMaterialRenderImpl>> {
+  fn make_component_indirect<'a>(
+    &'a self,
+    any_idx: EntityHandle<StandardModelEntity>,
+    cx: &'a GPUTextureBindingSystem,
+  ) -> Option<Box<dyn RenderComponent + 'a>> {
+    for provider in self {
+      if let Some(com) = provider.make_component_indirect(any_idx, cx) {
+        return Some(com);
+      }
+    }
+    None
+  }
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
+  fn hash_shader_group_key(
+    &self,
+    any_id: EntityHandle<StandardModelEntity>,
+    hasher: &mut PipelineHasher,
+  ) -> Option<()> {
+    for provider in self {
+      if let Some(v) = provider.hash_shader_group_key_with_self_type_info(any_id, hasher) {
+        return Some(v);
+      }
+    }
+    None
+  }
+}
+
+impl<T: TextureWithSamplingForeignKeys> TextureSamplerIdView<T> {
+  pub fn read_from_global() -> Self {
+    Self {
+      texture: global_entity_component_of().read_foreign_key(),
+      sampler: global_entity_component_of().read_foreign_key(),
+    }
+  }
+
+  pub fn get_pair(&self, id: EntityHandle<T::Entity>) -> Option<(u32, u32)> {
+    let tex = self.texture.get(id)?;
+    let tex = tex.alloc_index();
+    let sampler = self.sampler.get(id)?;
+    let sampler = sampler.alloc_index();
+    Some((tex, sampler))
+  }
+}

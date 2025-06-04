@@ -47,16 +47,16 @@ pub fn std_model_renderer(
   cx.when_create_impl(|| {
     Box::new(SceneStdModelRenderer {
       model: global_entity_component_of::<SceneModelStdModelRenderPayload>().read_foreign_key(),
-      materials: todo!(),
-      shapes: todo!(),
+      materials: materials.unwrap(),
+      shapes: shapes.unwrap(),
     }) as Box<dyn GLESModelRenderImpl>
   })
 }
 
 struct SceneStdModelRenderer {
   model: ForeignKeyReadView<SceneModelStdModelRenderPayload>,
-  materials: Vec<Box<dyn GLESModelMaterialRenderImpl>>,
-  shapes: Vec<Box<dyn GLESModelShapeRenderImpl>>,
+  materials: Box<dyn GLESModelMaterialRenderImpl>,
+  shapes: Box<dyn GLESModelShapeRenderImpl>,
 }
 
 impl GLESModelRenderImpl for SceneStdModelRenderer {

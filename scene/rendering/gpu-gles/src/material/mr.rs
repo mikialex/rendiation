@@ -3,6 +3,73 @@ use rendiation_shader_library::normal_mapping::apply_normal_mapping_conditional;
 
 use crate::*;
 
+#[derive(Default)]
+pub struct PbrMRMaterialDefaultRenderImplProvider {
+  uniforms: QueryToken,
+  tex_uniforms: QueryToken,
+}
+
+impl QueryBasedFeature<Box<dyn GLESModelMaterialRenderImpl>>
+  for PbrMRMaterialDefaultRenderImplProvider
+{
+  type Context = GPU;
+  fn register(&mut self, qcx: &mut ReactiveQueryCtx, gpu: &GPU) {
+    self.uniforms = qcx.register_multi_updater(pbr_mr_material_uniforms(gpu));
+    self.tex_uniforms = qcx.register_multi_updater(pbr_mr_material_tex_uniforms(gpu));
+  }
+  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+    qcx.deregister(&mut self.uniforms);
+    qcx.deregister(&mut self.tex_uniforms);
+  }
+
+  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn GLESModelMaterialRenderImpl> {
+    Box::new(PbrMRMaterialDefaultRenderImpl {
+      material_access: global_entity_component_of::<StandardModelRefPbrMRMaterial>()
+        .read_foreign_key(),
+      uniforms: cx.take_multi_updater_updated(self.uniforms).unwrap(),
+      tex_uniforms: cx.take_multi_updater_updated(self.tex_uniforms).unwrap(),
+      alpha_mode: global_entity_component_of().read(),
+      base_color_tex_sampler: TextureSamplerIdView::read_from_global(),
+      mr_tex_sampler: TextureSamplerIdView::read_from_global(),
+      emissive_tex_sampler: TextureSamplerIdView::read_from_global(),
+      normal_tex_sampler: TextureSamplerIdView::read_from_global(),
+    })
+  }
+}
+
+struct PbrMRMaterialDefaultRenderImpl {
+  material_access: ForeignKeyReadView<StandardModelRefPbrMRMaterial>,
+  uniforms: LockReadGuardHolder<PbrMRMaterialUniforms>,
+  tex_uniforms: LockReadGuardHolder<PbrMRMaterialTexUniforms>,
+  alpha_mode: ComponentReadView<AlphaModeOf<PbrMRMaterialAlphaConfig>>,
+  base_color_tex_sampler: TextureSamplerIdView<PbrMRMaterialBaseColorAlphaTex>,
+  mr_tex_sampler: TextureSamplerIdView<PbrMRMaterialMetallicRoughnessTex>,
+  emissive_tex_sampler: TextureSamplerIdView<PbrMRMaterialEmissiveTex>,
+  normal_tex_sampler: TextureSamplerIdView<NormalTexSamplerOf<PbrMRMaterialNormalInfo>>,
+}
+
+impl GLESModelMaterialRenderImpl for PbrMRMaterialDefaultRenderImpl {
+  fn make_component<'a>(
+    &'a self,
+    idx: EntityHandle<StandardModelEntity>,
+    cx: &'a GPUTextureBindingSystem,
+  ) -> Option<Box<dyn RenderComponent + 'a>> {
+    let idx = self.material_access.get(idx)?;
+    let r = PhysicalMetallicRoughnessMaterialGPU {
+      uniform: self.uniforms.get(&idx)?,
+      alpha_mode: self.alpha_mode.get_value(idx)?,
+      base_color_alpha_tex_sampler: self.base_color_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
+      mr_tex_sampler: self.mr_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
+      emissive_tex_sampler: self.emissive_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
+      normal_tex_sampler: self.normal_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
+      texture_uniforms: self.tex_uniforms.get(&idx)?,
+      binding_sys: cx,
+    };
+    let r = Box::new(r) as Box<dyn RenderComponent + '_>;
+    Some(r)
+  }
+}
+
 #[repr(C)]
 #[std140_layout]
 #[derive(Clone, Copy, ShaderStruct, Debug, PartialEq, Default)]

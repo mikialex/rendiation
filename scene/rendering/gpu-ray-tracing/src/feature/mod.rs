@@ -37,7 +37,6 @@ pub struct RayTracingSystemBase {
   texture_system: TextureGPUSystemSource,
   system: RtxSystemCore,
   source_set: QueryCtxSetInfo,
-  background: SceneBackgroundRendererSource,
 }
 
 impl RayTracingSystemBase {
@@ -59,7 +58,6 @@ impl RayTracingSystemBase {
         .with_material_support(PbrMRMaterialDefaultIndirectRenderImplProvider::default())
         .with_material_support(PbrSGMaterialDefaultIndirectRenderImplProvider::default()),
       source_set: Default::default(),
-      background: Default::default(),
     }
   }
 }
@@ -72,7 +70,6 @@ pub struct SceneRayTracingRendererBase {
   pub material: SceneSurfaceSupport,
   pub lighting: ScenePTLightingSceneDataGroup,
   pub scene_ids: SceneIdUniformBufferAccess,
-  pub background: SceneBackgroundRenderer,
   pub any_changed: bool,
 }
 
@@ -87,7 +84,6 @@ impl QueryBasedFeature<SceneRayTracingRendererBase> for RayTracingSystemBase {
     self.texture_system.register_resource(qcx, cx);
     self.lighting.register_resource(qcx, cx);
     self.scene_ids.register(qcx, cx);
-    self.background.register(qcx, cx);
     qcx.end_record(&mut self.source_set);
   }
 
@@ -99,7 +95,6 @@ impl QueryBasedFeature<SceneRayTracingRendererBase> for RayTracingSystemBase {
     self.texture_system.deregister_resource(qcx);
     self.lighting.deregister_resource(qcx);
     self.scene_ids.deregister(qcx);
-    self.background.deregister(qcx);
   }
 
   fn create_impl(&self, cx: &mut QueryResultCtx) -> SceneRayTracingRendererBase {
@@ -113,7 +108,6 @@ impl QueryBasedFeature<SceneRayTracingRendererBase> for RayTracingSystemBase {
       material: self.material.create_impl(cx, &tex),
       lighting: self.lighting.create_impl(cx),
       scene_ids: self.scene_ids.create_impl(cx),
-      background: self.background.create_impl(cx),
       any_changed,
     }
   }
