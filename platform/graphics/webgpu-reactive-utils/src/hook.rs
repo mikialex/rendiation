@@ -1,4 +1,5 @@
 use ::hook::*;
+use database::{EntityHandle, ForeignKeySemantic};
 
 use crate::*;
 
@@ -14,6 +15,21 @@ impl<'a> QueryGPUHookCx<'a> {
     &mut self,
     source: impl FnOnce(UniformUpdateContainer<K, V>, &GPU) -> UniformUpdateContainer<K, V>,
   ) -> Option<LockReadGuardHolder<UniformUpdateContainer<K, V>>> {
+    todo!()
+  }
+
+  pub fn use_global_multi_reactive_query<D: ForeignKeySemantic>(
+    &mut self,
+  ) -> Option<
+    Box<dyn DynMultiQuery<Key = EntityHandle<D::ForeignEntity>, Value = EntityHandle<D::Entity>>>,
+  > {
+    todo!()
+  }
+
+  pub fn use_reactive_query<K, V, Q: ReactiveQuery<Key = K, Value = V>>(
+    &mut self,
+    source: impl FnOnce() -> Q,
+  ) -> Option<Box<dyn DynQuery<Key = K, Value = V>>> {
     todo!()
   }
 

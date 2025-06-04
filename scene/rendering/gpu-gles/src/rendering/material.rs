@@ -67,7 +67,7 @@ pub fn use_unlit_material_uniforms(
   })
 }
 
-struct UnlitMaterialDefaultRenderImpl {
+pub struct UnlitMaterialDefaultRenderImpl {
   material_access: ForeignKeyReadView<StandardModelRefUnlitMaterial>,
   uniforms: LockReadGuardHolder<UnlitMaterialUniforms>,
   texture_uniforms: LockReadGuardHolder<UnlitMaterialTexUniforms>,

@@ -12,11 +12,5 @@ pub use scene_model::*;
 mod model;
 pub use model::*;
 
-mod node;
-pub use node::*;
-
 mod material;
 pub use material::*;
-
-mod shape;
-pub use shape::*;

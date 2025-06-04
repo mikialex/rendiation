@@ -117,7 +117,7 @@ pub trait SceneRenderer: SceneModelRenderer {
   fn make_scene_batch_pass_content<'a>(
     &'a self,
     batch: SceneModelRenderBatch,
-    camera: CameraRenderSource,
+    camera: &'a dyn RenderComponent,
     pass: &'a dyn RenderComponent,
     ctx: &mut FrameCtx,
   ) -> Box<dyn PassContent + 'a>;
@@ -127,7 +127,7 @@ pub trait SceneRenderer: SceneModelRenderer {
     &'a self,
     semantic: Self::ContentKey,
     scene: EntityHandle<SceneEntity>,
-    camera: CameraRenderSource,
+    camera: &'a dyn RenderComponent,
     ctx: &mut FrameCtx,
     pass: &'a dyn RenderComponent,
   ) -> Box<dyn PassContent + 'a> {
@@ -135,39 +135,19 @@ pub trait SceneRenderer: SceneModelRenderer {
     self.make_scene_batch_pass_content(batch, camera, pass, ctx)
   }
 
-  /// Return if the scene rendering requires clear in every sub draw pass.
-  /// This is supposed to be false when background is drawn by custom object.
-  /// The simple solid background could use this as the implementation
-  fn init_clear(
-    &self,
-    scene: EntityHandle<SceneEntity>,
-  ) -> (Operations<rendiation_webgpu::Color>, Operations<f32>);
-
-  fn render_background<'a>(
-    &'a self,
-    scene: EntityHandle<SceneEntity>,
-    camera: CameraRenderSource,
-    tonemap: &'a dyn RenderComponent,
-  ) -> Box<dyn PassContent + 'a>;
-
   /// Batch rendering the passed models. Comparing to render one single model at a time(using [SceneModelRenderer]), this may be more efficient.
   /// The implementation should be override if it can provide better performance. The default implementation is a loop call using [SceneModelRenderer]
   #[must_use]
   fn render_models<'a>(
     &'a self,
     models: Box<dyn HostRenderBatch>,
-    camera: CameraRenderSource,
+    camera: &'a dyn RenderComponent,
     pass: &'a dyn RenderComponent,
     ctx: &mut FrameCtx,
   ) -> Box<dyn PassContent + 'a> {
     let batch = SceneModelRenderBatch::Host(models);
     self.make_scene_batch_pass_content(batch, camera, pass, ctx)
   }
-
-  /// Expose the under-layer camera system implementation to enable user access the
-  /// direct camera gpu manipulation(for example access and modify the camera gpu data).
-  /// This is useful for some effect pipelines that require directly camera manipulation for example TAA.
-  fn get_camera_gpu(&self) -> &dyn CameraRenderImpl;
 }
 
 /// A renderer supports rendering in scene model granularity

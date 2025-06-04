@@ -2,6 +2,10 @@ use fast_hash_collection::FastHashMap;
 
 use crate::*;
 
+pub fn use_background(cx: &mut QueryGPUHookCx) -> Option<SceneBackgroundRenderer> {
+  todo!()
+}
+
 #[derive(Default)]
 pub struct SceneBackgroundRendererSource {
   /// this is mainly use in path tracing renderer

@@ -1,9 +1,7 @@
-use database::*;
 use fast_hash_collection::*;
 use rendiation_algebra::*;
 use rendiation_device_parallel_compute::*;
 use rendiation_fast_down_sampling_2d::*;
-use rendiation_scene_core::*;
 use rendiation_scene_rendering_gpu_base::*;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
@@ -61,7 +59,7 @@ impl GPUTwoPassOcclusionCulling {
     batch: &DeviceSceneModelRenderBatch,
     target: RenderPassDescription,
     scene_renderer: &impl SceneRenderer,
-    camera: EntityHandle<SceneCameraEntity>,
+    camera: &dyn RenderComponent,
     camera_view_proj: &UniformBufferDataView<Mat4<f32>>,
     pass_com: &dyn RenderComponent,
     bounding_provider: Box<dyn DrawUnitWorldBoundingProvider>,
@@ -93,7 +91,7 @@ impl GPUTwoPassOcclusionCulling {
       .render_ctx(frame_ctx)
       .by(&mut scene_renderer.make_scene_batch_pass_content(
         SceneModelRenderBatch::Device(first_pass_batch.clone()),
-        CameraRenderSource::Scene(camera),
+        camera,
         pass_com,
         frame_ctx,
       ));
@@ -166,7 +164,7 @@ impl GPUTwoPassOcclusionCulling {
       .render_ctx(frame_ctx)
       .by(&mut scene_renderer.make_scene_batch_pass_content(
         SceneModelRenderBatch::Device(second_pass_batch),
-        CameraRenderSource::Scene(camera),
+        camera,
         pass_com,
         frame_ctx,
       ));

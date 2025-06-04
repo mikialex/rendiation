@@ -13,8 +13,8 @@ use tracing::*;
 
 mod material;
 pub use material::*;
-mod mesh;
-pub use mesh::*;
+mod shape;
+pub use shape::*;
 mod node;
 pub use node::*;
 mod skin;

@@ -2,9 +2,9 @@ use crate::*;
 
 pub fn use_gles_scene_model_renderer(
   cx: &mut QueryGPUHookCx,
-  std_model: Option<Box<dyn GLESModelRenderImpl>>,
+  model_impl: Option<Box<dyn GLESModelRenderImpl>>,
 ) -> Option<Box<dyn SceneModelRenderer>> {
-  let node = use_node_uniforms(cx);
+  let node_render = use_node_uniforms(cx);
 
   let scene_model_ids =
     cx.use_uniform_buffers::<EntityHandle<SceneModelEntity>, Vec4<u32>>(|source, cx| {
@@ -20,9 +20,9 @@ pub fn use_gles_scene_model_renderer(
   cx.when_create_impl(|| {
     Box::new(GLESPreferredComOrderRenderer {
       scene_model_ids: scene_model_ids.unwrap(),
-      model_impl: todo!(),
+      model_impl: model_impl.unwrap(),
       node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
-      node_render: todo!(),
+      node_render: node_render.unwrap(),
     }) as Box<_>
   })
 }
@@ -31,8 +31,8 @@ type SceneModelIdUniforms = UniformUpdateContainer<EntityHandle<SceneModelEntity
 
 pub struct GLESPreferredComOrderRenderer {
   scene_model_ids: LockReadGuardHolder<SceneModelIdUniforms>,
-  model_impl: Vec<Box<dyn GLESModelRenderImpl>>,
-  node_render: Box<dyn GLESNodeRenderImpl>,
+  model_impl: Box<dyn GLESModelRenderImpl>,
+  node_render: GLESNodeRenderer,
   node: ForeignKeyReadView<SceneModelRefNode>,
 }
 
