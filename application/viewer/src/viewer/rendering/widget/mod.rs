@@ -3,7 +3,11 @@ use crate::*;
 mod axis;
 pub use axis::*;
 
-pub fn draw_widgets(
+pub fn use_widget_draw(ctx: &mut Viewer3dRenderingCx) {
+  // pub axis: WorldCoordinateAxis,
+}
+
+fn draw_widgets(
   ctx: &mut FrameCtx,
   renderer: &dyn SceneRenderer<ContentKey = SceneContentKey>,
   widget_scene: EntityHandle<SceneEntity>,

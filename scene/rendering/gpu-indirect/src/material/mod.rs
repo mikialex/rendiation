@@ -129,20 +129,3 @@ impl IndirectModelMaterialRenderImpl for Vec<Box<dyn IndirectModelMaterialRender
     None
   }
 }
-
-impl<T: TextureWithSamplingForeignKeys> TextureSamplerIdView<T> {
-  pub fn read_from_global() -> Self {
-    Self {
-      texture: global_entity_component_of().read_foreign_key(),
-      sampler: global_entity_component_of().read_foreign_key(),
-    }
-  }
-
-  pub fn get_pair(&self, id: EntityHandle<T::Entity>) -> Option<(u32, u32)> {
-    let tex = self.texture.get(id)?;
-    let tex = tex.alloc_index();
-    let sampler = self.sampler.get(id)?;
-    let sampler = sampler.alloc_index();
-    Some((tex, sampler))
-  }
-}

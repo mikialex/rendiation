@@ -4,38 +4,6 @@ use rendiation_shader_library::{
 
 use crate::*;
 
-pub struct DefaultRtxCameraRenderImplProvider {
-  uniforms: QueryToken,
-  camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
-}
-
-impl DefaultRtxCameraRenderImplProvider {
-  pub fn new(camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>) -> Self {
-    Self {
-      uniforms: Default::default(),
-      camera_source,
-    }
-  }
-}
-
-impl QueryBasedFeature<Box<dyn RtxCameraRenderImpl>> for DefaultRtxCameraRenderImplProvider {
-  type Context = GPU;
-  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
-    let uniforms = camera_gpus(cx, self.camera_source.clone());
-    self.uniforms = qcx.register_multi_updater(uniforms);
-  }
-
-  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
-    qcx.deregister(&mut self.uniforms);
-  }
-
-  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn RtxCameraRenderImpl> {
-    Box::new(DefaultRtxCameraRenderImpl {
-      uniforms: cx.take_multi_updater_updated(self.uniforms).unwrap(),
-    })
-  }
-}
-
 pub trait RtxCameraRenderImpl {
   fn get_rtx_camera(
     &self,
@@ -43,17 +11,13 @@ pub trait RtxCameraRenderImpl {
   ) -> Box<dyn RtxCameraRenderComponent>;
 }
 
-pub struct DefaultRtxCameraRenderImpl {
-  uniforms: LockReadGuardHolder<CameraUniforms>,
-}
-
-impl RtxCameraRenderImpl for DefaultRtxCameraRenderImpl {
+impl RtxCameraRenderImpl for CameraRenderer {
   fn get_rtx_camera(
     &self,
     camera: EntityHandle<SceneCameraEntity>,
   ) -> Box<dyn RtxCameraRenderComponent> {
-    Box::new(DefaultRtxCameraRenderComponent {
-      camera: self.uniforms.get(&camera).unwrap().clone(),
+    Box::new(CameraGPU {
+      ubo: self.0.get(&camera).unwrap().clone(),
     })
   }
 }
@@ -67,27 +31,18 @@ pub trait RtxCameraRenderComponent: ShaderHashProvider + DynClone {
 }
 clone_trait_object!(RtxCameraRenderComponent);
 
-#[derive(Clone)]
-pub struct DefaultRtxCameraRenderComponent {
-  camera: UniformBufferDataView<CameraGPUTransform>,
-}
-
-impl ShaderHashProvider for DefaultRtxCameraRenderComponent {
-  shader_hash_type_id! {}
-}
-
-impl RtxCameraRenderComponent for DefaultRtxCameraRenderComponent {
+impl RtxCameraRenderComponent for CameraGPU {
   fn build_invocation(
     &self,
     binding: &mut ShaderBindGroupBuilder,
   ) -> Box<dyn RtxCameraRenderInvocation> {
     Box::new(DefaultRtxCameraInvocation {
-      camera: binding.bind_by(&self.camera),
+      camera: binding.bind_by(&self.ubo),
     })
   }
 
   fn bind(&self, binding: &mut BindingBuilder) {
-    binding.bind(&self.camera);
+    binding.bind(&self.ubo);
   }
 }
 

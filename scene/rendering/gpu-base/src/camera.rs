@@ -3,7 +3,7 @@ use crate::*;
 pub fn use_camera_uniforms(
   cx: &mut QueryGPUHookCx,
   camera_source: &RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
-) -> Option<GLESCameraRender> {
+) -> Option<CameraRenderer> {
   cx.use_uniform_buffers::<EntityHandle<SceneCameraEntity>, CameraGPUTransform>(|source, cx| {
     source.with_source(
       camera_source
@@ -13,7 +13,7 @@ pub fn use_camera_uniforms(
         .into_query_update_uniform(0, cx),
     )
   })
-  .map(GLESCameraRender)
+  .map(CameraRenderer)
 }
 
 pub type CameraUniforms =
@@ -31,6 +31,7 @@ pub fn camera_gpus(
   CameraUniforms::default().with_source(source)
 }
 
+#[derive(Clone)]
 pub struct CameraGPU {
   pub ubo: UniformBufferDataView<CameraGPUTransform>,
 }
@@ -141,9 +142,9 @@ impl From<CameraTransform> for CameraGPUTransform {
 //   )
 // }
 
-pub struct GLESCameraRender(LockReadGuardHolder<CameraUniforms>);
+pub struct CameraRenderer(pub LockReadGuardHolder<CameraUniforms>);
 
-impl GLESCameraRender {
+impl CameraRenderer {
   pub fn make_component(
     &self,
     idx: EntityHandle<SceneCameraEntity>,

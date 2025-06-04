@@ -25,6 +25,13 @@ impl<'a> QueryGPUHookCx<'a> {
     todo!()
   }
 
+  pub fn use_storage_buffer<V: Std430>(
+    &mut self,
+    source: impl FnOnce(&GPU) -> ReactiveStorageBufferContainer<V>,
+  ) -> Option<StorageBufferReadonlyDataView<[V]>> {
+    todo!()
+  }
+
   pub fn use_multi_updater_ref<T>(
     &mut self,
     f: impl FnOnce(&GPU) -> MultiUpdateContainer<T>,
@@ -51,6 +58,13 @@ impl<'a> QueryGPUHookCx<'a> {
     &mut self,
     source: impl FnOnce() -> Q,
   ) -> Option<Box<dyn DynQuery<Key = K, Value = V>>> {
+    todo!()
+  }
+
+  pub fn use_val_refed_reactive_query<K, V, Q: ReactiveValueRefQuery<Key = K, Value = V>>(
+    &mut self,
+    source: impl FnOnce(&GPU) -> Q,
+  ) -> Option<Box<dyn DynValueRefQuery<Key = K, Value = V>>> {
     todo!()
   }
 

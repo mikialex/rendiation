@@ -107,63 +107,29 @@ impl IndirectModelRenderImpl for Vec<Box<dyn IndirectModelRenderImpl>> {
   }
 }
 
-#[derive(Default)]
-pub struct DefaultSceneStdModelIndirectRendererProvider {
-  pub std_model: QueryToken,
-  pub materials: Vec<BoxedQueryBasedGPUFeature<Box<dyn IndirectModelMaterialRenderImpl>>>,
-  pub shapes: Vec<BoxedQueryBasedGPUFeature<Box<dyn IndirectModelShapeRenderImpl>>>,
+pub fn use_std_model_renderer(
+  cx: &mut QueryGPUHookCx,
+  materials: Option<Box<dyn IndirectModelMaterialRenderImpl>>,
+  shapes: Option<Box<dyn IndirectModelShapeRenderImpl>>,
+) -> Option<SceneStdModelIndirectRenderer> {
+  let std_model = cx.use_storage_buffer(std_model_data);
+
+  cx.when_create_impl(|| SceneStdModelIndirectRenderer {
+    model: global_entity_component_of::<SceneModelStdModelRenderPayload>().read_foreign_key(),
+    materials: materials.unwrap(),
+    shapes: shapes.unwrap(),
+    std_model: std_model.unwrap(),
+  })
 }
 
-impl DefaultSceneStdModelIndirectRendererProvider {
-  pub fn register_material_impl(
-    mut self,
-    imp: impl QueryBasedFeature<Box<dyn IndirectModelMaterialRenderImpl>, Context = GPU> + 'static,
-  ) -> Self {
-    self.materials.push(Box::new(imp));
-    self
-  }
-  pub fn register_shape_impl(
-    mut self,
-    imp: impl QueryBasedFeature<Box<dyn IndirectModelShapeRenderImpl>, Context = GPU> + 'static,
-  ) -> Self {
-    self.shapes.push(Box::new(imp));
-    self
-  }
-}
-
-impl QueryBasedFeature<Box<dyn IndirectModelRenderImpl>>
-  for DefaultSceneStdModelIndirectRendererProvider
-{
-  type Context = GPU;
-  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
-    self.std_model = qcx.register_multi_updater(std_model_data(cx));
-    self.materials.iter_mut().for_each(|p| p.register(qcx, cx));
-    self.shapes.iter_mut().for_each(|p| p.register(qcx, cx));
-  }
-
-  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
-    qcx.deregister(&mut self.std_model);
-    self.materials.iter_mut().for_each(|p| p.deregister(qcx));
-    self.shapes.iter_mut().for_each(|p| p.deregister(qcx));
-  }
-
-  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn IndirectModelRenderImpl> {
-    Box::new(SceneStdModelRenderer {
-      model: global_entity_component_of::<SceneModelStdModelRenderPayload>().read_foreign_key(),
-      materials: self.materials.iter().map(|v| v.create_impl(cx)).collect(),
-      shapes: self.shapes.iter().map(|v| v.create_impl(cx)).collect(),
-      std_model: cx.take_storage_array_buffer(self.std_model).unwrap(),
-    })
-  }
-}
-struct SceneStdModelRenderer {
+pub struct SceneStdModelIndirectRenderer {
   model: ForeignKeyReadView<SceneModelStdModelRenderPayload>,
   std_model: StorageBufferReadonlyDataView<[SceneStdModelStorage]>,
-  materials: Vec<Box<dyn IndirectModelMaterialRenderImpl>>,
-  shapes: Vec<Box<dyn IndirectModelShapeRenderImpl>>,
+  materials: Box<dyn IndirectModelMaterialRenderImpl>,
+  shapes: Box<dyn IndirectModelShapeRenderImpl>,
 }
 
-impl IndirectModelRenderImpl for SceneStdModelRenderer {
+impl IndirectModelRenderImpl for SceneStdModelIndirectRenderer {
   fn hash_shader_group_key(
     &self,
     any_id: EntityHandle<SceneModelEntity>,

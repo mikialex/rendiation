@@ -3,66 +3,35 @@ use rendiation_shader_library::normal_mapping::apply_normal_mapping_conditional;
 
 use crate::*;
 
-#[derive(Default)]
-pub struct PbrSGMaterialDefaultIndirectRenderImplProvider {
-  storages: QueryToken,
-  tex_storages: QueryToken,
+pub fn use_pbr_mr_material_storage(
+  cx: &mut QueryGPUHookCx,
+) -> Option<PbrSGMaterialIndirectRenderer> {
+  let storages = cx.use_storage_buffer(pbr_sg_material_storages);
+  let tex_storages = cx.use_storage_buffer(pbr_sg_material_tex_storages);
+
+  cx.when_create_impl(|| PbrSGMaterialIndirectRenderer {
+    material_access: global_entity_component_of::<StandardModelRefPbrSGMaterial>()
+      .read_foreign_key(),
+    storages: storages.unwrap(),
+    tex_storages: tex_storages.unwrap(),
+    alpha_mode: global_entity_component_of().read(),
+  })
 }
 
-impl QueryBasedFeature<PbrSGMaterialDefaultIndirectRenderImpl>
-  for PbrSGMaterialDefaultIndirectRenderImplProvider
-{
-  type Context = GPU;
-  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
-    self.storages = qcx.register_multi_updater(pbr_sg_material_storages(cx));
-    self.tex_storages = qcx.register_multi_updater(pbr_sg_material_tex_storages(cx));
-  }
-  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
-    qcx.deregister(&mut self.storages);
-    qcx.deregister(&mut self.tex_storages);
-  }
-
-  fn create_impl(&self, cx: &mut QueryResultCtx) -> PbrSGMaterialDefaultIndirectRenderImpl {
-    PbrSGMaterialDefaultIndirectRenderImpl {
-      material_access: global_entity_component_of::<StandardModelRefPbrSGMaterial>()
-        .read_foreign_key(),
-      storages: cx.take_storage_array_buffer(self.storages).unwrap(),
-      tex_storages: cx.take_storage_array_buffer(self.tex_storages).unwrap(),
-      alpha_mode: global_entity_component_of().read(),
-    }
-  }
+pub fn pbr_sg_material_pipeline_hash(
+) -> impl ReactiveQuery<Key = EntityHandle<PbrSGMaterialEntity>, Value = AlphaMode> {
+  global_watch().watch::<AlphaModeOf<PbrSGMaterialAlphaConfig>>()
 }
 
-impl QueryBasedFeature<Box<dyn IndirectModelMaterialRenderImpl>>
-  for PbrSGMaterialDefaultIndirectRenderImplProvider
-{
-  type Context = GPU;
-  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
-    (self as &mut dyn QueryBasedFeature<PbrSGMaterialDefaultIndirectRenderImpl, Context = GPU>)
-      .register(qcx, cx);
-  }
-  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
-    (self as &mut dyn QueryBasedFeature<PbrSGMaterialDefaultIndirectRenderImpl, Context = GPU>)
-      .deregister(qcx);
-  }
-
-  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn IndirectModelMaterialRenderImpl> {
-    Box::new(
-      (self as &dyn QueryBasedFeature<PbrSGMaterialDefaultIndirectRenderImpl, Context = GPU>)
-        .create_impl(cx),
-    )
-  }
-}
-
-pub struct PbrSGMaterialDefaultIndirectRenderImpl {
-  pub material_access: ForeignKeyReadView<StandardModelRefPbrSGMaterial>,
+pub struct PbrSGMaterialIndirectRenderer {
+  material_access: ForeignKeyReadView<StandardModelRefPbrSGMaterial>,
   pub storages: StorageBufferReadonlyDataView<[PhysicalSpecularGlossinessMaterialStorage]>,
   pub tex_storages:
     StorageBufferReadonlyDataView<[PhysicalSpecularGlossinessMaterialTextureHandlesStorage]>,
-  pub alpha_mode: ComponentReadView<AlphaModeOf<PbrSGMaterialAlphaConfig>>,
+  alpha_mode: ComponentReadView<AlphaModeOf<PbrSGMaterialAlphaConfig>>,
 }
 
-impl IndirectModelMaterialRenderImpl for PbrSGMaterialDefaultIndirectRenderImpl {
+impl IndirectModelMaterialRenderImpl for PbrSGMaterialIndirectRenderer {
   fn make_component_indirect<'a>(
     &'a self,
     any_idx: EntityHandle<StandardModelEntity>,
@@ -104,10 +73,11 @@ pub struct PhysicalSpecularGlossinessMaterialStorage {
   pub alpha_cutoff: f32,
   pub alpha: f32,
 }
-type Storage = PhysicalSpecularGlossinessMaterialStorage;
 
-pub type PbrSGMaterialStorages = ReactiveStorageBufferContainer<Storage>;
-pub fn pbr_sg_material_storages(cx: &GPU) -> PbrSGMaterialStorages {
+type Storage = PhysicalSpecularGlossinessMaterialStorage;
+type PbrSGMaterialStorages = ReactiveStorageBufferContainer<Storage>;
+
+fn pbr_sg_material_storages(cx: &GPU) -> PbrSGMaterialStorages {
   let albedo = global_watch()
     .watch::<PbrSGMaterialAlbedoComponent>()
     .into_query_update_storage(offset_of!(Storage, albedo));
@@ -145,10 +115,11 @@ pub struct PhysicalSpecularGlossinessMaterialTextureHandlesStorage {
   pub emissive_texture: TextureSamplerHandlePair,
   pub normal_texture: TextureSamplerHandlePair,
 }
-type TexStorage = PhysicalSpecularGlossinessMaterialTextureHandlesStorage;
 
-pub type PbrSGMaterialTexStorages = ReactiveStorageBufferContainer<TexStorage>;
-pub fn pbr_sg_material_tex_storages(cx: &GPU) -> PbrSGMaterialTexStorages {
+type TexStorage = PhysicalSpecularGlossinessMaterialTextureHandlesStorage;
+type PbrSGMaterialTexStorages = ReactiveStorageBufferContainer<TexStorage>;
+
+fn pbr_sg_material_tex_storages(cx: &GPU) -> PbrSGMaterialTexStorages {
   let c = create_reactive_storage_buffer_container(128, u32::MAX, cx);
 
   let albedo = offset_of!(TexStorage, albedo_texture);
@@ -161,19 +132,14 @@ pub fn pbr_sg_material_tex_storages(cx: &GPU) -> PbrSGMaterialTexStorages {
   add_tex_watcher::<NormalTexSamplerOf<PbrSGMaterialNormalInfo>, _>(c, normal)
 }
 
-pub fn pbr_sg_material_pipeline_hash(
-) -> impl ReactiveQuery<Key = EntityHandle<PbrSGMaterialEntity>, Value = AlphaMode> {
-  global_watch().watch::<AlphaModeOf<PbrSGMaterialAlphaConfig>>()
-}
-
 pub struct PhysicalSpecularGlossinessMaterialGPU<'a> {
-  pub storage: &'a StorageBufferReadonlyDataView<[PhysicalSpecularGlossinessMaterialStorage]>,
-  pub alpha_mode: AlphaMode,
+  storage: &'a StorageBufferReadonlyDataView<[PhysicalSpecularGlossinessMaterialStorage]>,
+  alpha_mode: AlphaMode,
   // no matter if we using indirect texture binding, this storage is required for checking the
   // texture if is exist in shader
-  pub texture_storages:
+  texture_storages:
     &'a StorageBufferReadonlyDataView<[PhysicalSpecularGlossinessMaterialTextureHandlesStorage]>,
-  pub binding_sys: &'a GPUTextureBindingSystem,
+  binding_sys: &'a GPUTextureBindingSystem,
 }
 
 impl ShaderHashProvider for PhysicalSpecularGlossinessMaterialGPU<'_> {

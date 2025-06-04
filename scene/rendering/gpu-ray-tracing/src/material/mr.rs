@@ -2,28 +2,7 @@ use rendiation_lighting_transport::*;
 
 use crate::*;
 
-impl QueryBasedFeature<Box<dyn SceneMaterialSurfaceSupport>>
-  for PbrMRMaterialDefaultIndirectRenderImplProvider
-{
-  type Context = GPU;
-  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
-    (self as &mut dyn QueryBasedFeature<PbrMRMaterialDefaultIndirectRenderImpl, Context = GPU>)
-      .register(qcx, cx);
-  }
-  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
-    (self as &mut dyn QueryBasedFeature<PbrMRMaterialDefaultIndirectRenderImpl, Context = GPU>)
-      .deregister(qcx);
-  }
-
-  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn SceneMaterialSurfaceSupport> {
-    Box::new(
-      (self as &dyn QueryBasedFeature<PbrMRMaterialDefaultIndirectRenderImpl, Context = GPU>)
-        .create_impl(cx),
-    )
-  }
-}
-
-impl SceneMaterialSurfaceSupport for PbrMRMaterialDefaultIndirectRenderImpl {
+impl SceneMaterialSurfaceSupport for PbrMRMaterialIndirectRenderer {
   fn build(
     &self,
     cx: &mut ShaderBindGroupBuilder,

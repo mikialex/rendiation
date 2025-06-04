@@ -6,77 +6,27 @@ pub fn use_attribute_mesh_renderer(
   cx: &mut QueryGPUHookCx,
   foreign_implementation_semantics: std::sync::Arc<dyn Fn(u32, &mut ShaderVertexBuilder)>,
 ) -> Option<GLESAttributesMeshRenderer> {
-  todo!()
+  let multi_access = cx.use_global_multi_reactive_query::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>();
+
+  let index = cx.use_val_refed_reactive_query(attribute_mesh_index_buffers);
+  let vertex = cx.use_val_refed_reactive_query(attribute_mesh_vertex_buffer_views);
+
+  cx.when_create_impl(|| GLESAttributesMeshRenderer {
+    mesh_access: global_entity_component_of::<StandardModelRefAttributesMeshEntity>()
+      .read_foreign_key(),
+    mode: global_entity_component_of::<AttributesMeshEntityTopology>().read(),
+    index: index.unwrap(),
+    vertex: AttributesMeshEntityVertexAccessView {
+      semantics: global_entity_component_of::<AttributesMeshEntityVertexBufferSemantic>().read(),
+      count: global_entity_component_of::<SceneBufferViewBufferItemCount<AttributeVertexRef>>()
+        .read(),
+      multi_access: multi_access.unwrap(),
+      vertex: vertex.unwrap(),
+    },
+    count: global_entity_component_of::<SceneBufferViewBufferItemCount<AttributeIndexRef>>().read(),
+    foreign_implementation_semantics,
+  })
 }
-
-// pub struct AttributesMeshEntityDefaultRenderImplProvider {
-//   multi_access: QueryToken,
-//   vertex: QueryToken,
-//   index: QueryToken,
-//   foreign_implementation_semantics: std::sync::Arc<dyn Fn(u32, &mut ShaderVertexBuilder)>,
-// }
-
-// impl AttributesMeshEntityDefaultRenderImplProvider {
-//   pub fn new(
-//     foreign_implementation_semantics: std::sync::Arc<dyn Fn(u32, &mut ShaderVertexBuilder)>,
-//   ) -> Self {
-//     Self {
-//       foreign_implementation_semantics,
-//       multi_access: Default::default(),
-//       vertex: Default::default(),
-//       index: Default::default(),
-//     }
-//   }
-// }
-
-// impl QueryBasedFeature<Box<dyn GLESModelShapeRenderImpl>>
-//   for AttributesMeshEntityDefaultRenderImplProvider
-// {
-//   type Context = GPU;
-//   fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
-//     let multi_access = global_rev_ref()
-//       .watch_inv_ref::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>(
-//     );
-//     self.multi_access = qcx.register_multi_reactive_query(multi_access);
-
-//     let index = attribute_mesh_index_buffers(cx);
-//     self.index = qcx.register_val_refed_reactive_query(index);
-
-//     let vertex = attribute_mesh_vertex_buffer_views(cx);
-//     self.vertex = qcx.register_val_refed_reactive_query(vertex);
-//   }
-
-//   fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
-//     qcx.deregister(&mut self.multi_access);
-//     qcx.deregister(&mut self.index);
-//     qcx.deregister(&mut self.vertex);
-//   }
-
-//   fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn GLESModelShapeRenderImpl> {
-//     Box::new(GLESAttributesMeshRenderer {
-//       mesh_access: global_entity_component_of::<StandardModelRefAttributesMeshEntity>()
-//         .read_foreign_key(),
-//       mode: global_entity_component_of::<AttributesMeshEntityTopology>().read(),
-//       index: cx
-//         .take_val_refed_reactive_query_updated(self.index)
-//         .unwrap(),
-//       vertex: AttributesMeshEntityVertexAccessView {
-//         semantics: global_entity_component_of::<AttributesMeshEntityVertexBufferSemantic>().read(),
-//         count: global_entity_component_of::<SceneBufferViewBufferItemCount<AttributeVertexRef>>()
-//           .read(),
-//         multi_access: cx
-//           .take_reactive_multi_query_updated(self.multi_access)
-//           .unwrap(),
-//         vertex: cx
-//           .take_val_refed_reactive_query_updated(self.vertex)
-//           .unwrap(),
-//       },
-//       count: global_entity_component_of::<SceneBufferViewBufferItemCount<AttributeIndexRef>>()
-//         .read(),
-//       foreign_implementation_semantics: self.foreign_implementation_semantics.clone(),
-//     })
-//   }
-// }
 
 pub struct GLESAttributesMeshRenderer {
   mesh_access: ForeignKeyReadView<StandardModelRefAttributesMeshEntity>,

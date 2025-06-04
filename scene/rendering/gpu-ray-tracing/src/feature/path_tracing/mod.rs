@@ -163,6 +163,7 @@ impl DeviceReferencePathTracingRenderer {
   pub fn render(
     &mut self,
     frame: &mut FrameCtx,
+    rtx_system: &dyn GPURaytracingSystem,
     base: &mut SceneRayTracingRendererBase,
     scene: EntityHandle<SceneEntity>,
     camera: EntityHandle<SceneCameraEntity>,
@@ -171,17 +172,16 @@ impl DeviceReferencePathTracingRenderer {
   ) -> GPU2DTextureView {
     let scene_tlas = base.scene_tlas.access(&scene).unwrap().clone();
     // bind tlas, see ShaderRayTraceCall::tlas_idx.
-    base
-      .rtx_system
+    rtx_system
       .create_acceleration_structure_system()
       .bind_tlas(&[scene_tlas.tlas_handle]);
 
     let render_size = clamp_size_by_area(frame.frame_size(), 512 * 512);
     let camera = base.camera.get_rtx_camera(camera);
 
-    let mut rtx_encoder = base.rtx_system.create_raytracing_encoder();
+    let mut rtx_encoder = rtx_system.create_raytracing_encoder();
 
-    let trace_base_builder = base.rtx_system.create_tracer_base_builder();
+    let trace_base_builder = rtx_system.create_tracer_base_builder();
 
     let mut state = self.frame_state.write();
     let state = state.deref_mut();

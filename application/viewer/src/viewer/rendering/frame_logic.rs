@@ -8,6 +8,19 @@ use super::{
 };
 use crate::*;
 
+pub fn use_viewer_frame_logic(cx: &mut Viewer3dRenderingCx) {
+  let high_lighter = use_high_lighter(cx);
+  let taa = use_taa(cx);
+
+  let fxaa = use_fxaa(cx);
+
+  let ssao = use_ssao(cx);
+
+  let enable_outline = use_outline(cx);
+
+  let post_effect = use_post_effect(cx);
+}
+
 pub struct ViewerFrameLogic {
   highlight: HighLighter,
   reproject: GPUReprojectInfo,
@@ -22,7 +35,6 @@ pub struct ViewerFrameLogic {
   ground: UniformBufferCachedDataView<ShaderPlane>,
   grid: UniformBufferCachedDataView<GridEffect>,
   post: UniformBufferCachedDataView<PostEffects>,
-  pub axis: WorldCoordinateAxis,
 }
 
 impl ViewerFrameLogic {

@@ -6,7 +6,7 @@ pub fn use_camera_gpu_frustum_uniform(
   cx: &mut QueryGPUHookCx,
   camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
 ) -> Option<CameraGPUFrustums> {
-  cx.use_uniform_buffers(|source| {
+  cx.use_uniform_buffers(|source, gpu| {
     let data = camera_source
       .collective_map(|transform| {
         let arr = Frustum::new_from_matrix(transform.view_projection)
@@ -15,7 +15,7 @@ pub fn use_camera_gpu_frustum_uniform(
 
         Shader140Array::<Vec4<f32>, 6>::from_slice_clamp_or_default(&arr);
       })
-      .into_query_update_uniform(0, cx.gpu);
+      .into_query_update_uniform(0, gpu);
 
     source.with_source(data)
   })
@@ -24,3 +24,7 @@ pub fn use_camera_gpu_frustum_uniform(
 type CameraGPUFrustumsUniform =
   UniformUpdateContainer<EntityHandle<SceneCameraEntity>, Shader140Array<Vec4<f32>, 6>>;
 pub type CameraGPUFrustums = LockReadGuardHolder<CameraGPUFrustumsUniform>;
+
+pub fn use_two_pass_occlusion_culling(cx: &mut Viewer3dRenderingCx) {
+  // GPUTwoPassOcclusionCulling::new(u16::MAX as usize).into();
+}

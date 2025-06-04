@@ -22,12 +22,61 @@ pub use lighting::*;
 pub use post::*;
 use reactive::EventSource;
 use rendiation_device_ray_tracing::GPUWaveFrontComputeRaytracingSystem;
-use rendiation_occlusion_culling::GPUTwoPassOcclusionCulling;
-use rendiation_scene_rendering_gpu_indirect::build_default_indirect_render_system;
 use rendiation_scene_rendering_gpu_ray_tracing::*;
 use rendiation_texture_gpu_process::copy_frame;
 use rendiation_webgpu::*;
 use widget::*;
+
+mod ndc_reverse_z;
+use ndc_reverse_z::*;
+
+pub struct Viewer3dRenderingCx {
+  memory: usize,
+  pub stage: Viewer3dRenderingCxStage,
+}
+
+impl Viewer3dRenderingCx {
+  pub fn use_plain_state<T>(&mut self) -> (&mut Self, &mut T) {
+    todo!()
+  }
+  pub fn use_plain_state_init<T>(&mut self, init: &T) -> (&mut Self, &mut T) {
+    todo!()
+  }
+}
+
+pub enum Viewer3dRenderingCxStage {
+  Init {},
+  Uninit {},
+  Render {
+    target: RenderTargetView,
+    // frame_cx: FrameCtx,
+  },
+  Gui,
+}
+
+pub fn my_super_renderer(cx: &mut Viewer3dRenderingCx) {
+  let reverse_z = use_ndc_reverse_z(cx);
+
+  let scene_lighting_sys = use_light_system(cx);
+
+  let scene_renderer = use_scene_renderer(cx);
+
+  let scene_rtx_renderer = use_scene_rtx_renderer(cx);
+
+  use RasterizationRenderBackendType::*;
+  let (cx, render_type) = cx.use_plain_state_init(&Gles);
+
+  let renderer: &dyn SceneRenderer<ContentKey = SceneContentKey> = match render_type {
+    Gles => {
+      todo!()
+    }
+    Indirect => todo!(),
+  };
+
+  use_viewer_frame_logic(cx);
+
+  use_widget_draw(cx);
+}
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum RasterizationRenderBackendType {
@@ -37,26 +86,6 @@ pub enum RasterizationRenderBackendType {
 
 pub type BoxedSceneRenderImplProvider =
   BoxedQueryBasedGPUFeature<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>>;
-
-#[derive(Clone, Copy)]
-pub struct ViewerNDC {
-  pub enable_reverse_z: bool,
-}
-
-/// currently, the reverse z is implement by a custom ndc space mapper.
-/// this is conceptually wrong because ndc is not changed at all.
-/// however it's convenient to do so because the reverse operation must implement in projection(not post transform)
-/// and ndc space mapper create a good place to inject projection modification logic.
-impl<T: Scalar> NDCSpaceMapper<T> for ViewerNDC {
-  fn transform_from_opengl_standard_ndc(&self) -> Mat4<T> {
-    let mut m = WebGPUxNDC.transform_from_opengl_standard_ndc();
-
-    if self.enable_reverse_z {
-      m.c3 = -T::half()
-    }
-    m
-  }
-}
 
 pub fn init_renderer(
   updater: &mut ReactiveQueryCtx,
@@ -94,28 +123,13 @@ pub fn init_renderer(
 
 pub struct Viewer3dRenderingCtx {
   frame_index: u64,
-  ndc: ViewerNDC,
-  frame_logic: ViewerFrameLogic,
   rendering_resource: ReactiveQueryCtx,
-  renderer_impl: BoxedSceneRenderImplProvider,
-  indirect_occlusion_culling_impl: Option<GPUTwoPassOcclusionCulling>,
-  current_renderer_impl_ty: RasterizationRenderBackendType,
-  rtx_renderer_impl: Option<RayTracingSystemGroup>,
-  rtx_effect_mode: RayTracingEffectMode,
-  rtx_rendering_enabled: bool,
-  lighting: LightSystem,
   pool: AttachmentPool,
   gpu: GPU,
   swap_chain: ApplicationWindowSurface,
   on_encoding_finished: EventSource<ViewRenderedState>,
   expect_read_back_for_next_render_result: bool,
   camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
-  pub(crate) picker: GPUxEntityIdMapPicker,
-  pub(crate) statistics: FramePassStatistics,
-  pub enable_statistic_collect: bool,
-
-  stat_frame_time_in_ms: StatisticStore<f32>,
-  last_render_timestamp: Option<Instant>,
 }
 
 impl Viewer3dRenderingCtx {
@@ -153,35 +167,21 @@ impl Viewer3dRenderingCtx {
       frame_index: 0,
       ndc,
       swap_chain,
-      indirect_occlusion_culling_impl: None,
+      // indirect_occlusion_culling_impl: None,
       rendering_resource,
       renderer_impl,
-      current_renderer_impl_ty: RasterizationRenderBackendType::Gles,
-      rtx_renderer_impl: None, // late init
+      // current_renderer_impl_ty: RasterizationRenderBackendType::Gles,
+      // rtx_renderer_impl: None, // late init
       rtx_effect_mode: RayTracingEffectMode::ReferenceTracing,
       rtx_rendering_enabled: false,
       frame_logic: ViewerFrameLogic::new(&gpu),
       lighting,
       pool: init_attachment_pool(&gpu),
-      statistics: FramePassStatistics::new(64, &gpu),
       gpu,
       on_encoding_finished: Default::default(),
       expect_read_back_for_next_render_result: false,
       camera_source: camera_source_init,
       picker: Default::default(),
-      stat_frame_time_in_ms: StatisticStore::new(200),
-      last_render_timestamp: Default::default(),
-    }
-  }
-
-  pub fn set_enable_indirect_occlusion_culling_support(&mut self, enable: bool) {
-    if enable {
-      if self.indirect_occlusion_culling_impl.is_none() {
-        self.indirect_occlusion_culling_impl =
-          GPUTwoPassOcclusionCulling::new(u16::MAX as usize).into();
-      }
-    } else {
-      self.indirect_occlusion_culling_impl = None
     }
   }
 

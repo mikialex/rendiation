@@ -1,8 +1,6 @@
 use crate::*;
 
-pub fn use_unlit_material_uniforms(
-  cx: &mut QueryGPUHookCx,
-) -> Option<UnlitMaterialDefaultRenderImpl> {
+pub fn use_unlit_material_uniforms(cx: &mut QueryGPUHookCx) -> Option<UnlitMaterialGlesRender> {
   let uniform = cx.use_uniform_buffers::<EntityHandle<UnlitMaterialEntity>, UnlitMaterialUniform>(
     |source, cx| {
       let color = global_watch()
@@ -34,7 +32,7 @@ pub fn use_unlit_material_uniforms(
       },
     );
 
-  cx.when_create_impl(|| UnlitMaterialDefaultRenderImpl {
+  cx.when_create_impl(|| UnlitMaterialGlesRender {
     material_access: global_entity_component_of::<StandardModelRefUnlitMaterial>()
       .read_foreign_key(),
     uniforms: uniform.unwrap(),
@@ -44,7 +42,7 @@ pub fn use_unlit_material_uniforms(
   })
 }
 
-pub struct UnlitMaterialDefaultRenderImpl {
+pub struct UnlitMaterialGlesRender {
   material_access: ForeignKeyReadView<StandardModelRefUnlitMaterial>,
   uniforms: LockReadGuardHolder<UnlitMaterialUniforms>,
   texture_uniforms: LockReadGuardHolder<UnlitMaterialTexUniforms>,
@@ -52,7 +50,7 @@ pub struct UnlitMaterialDefaultRenderImpl {
   alpha_mode: ComponentReadView<AlphaModeOf<UnlitMaterialAlphaConfig>>,
 }
 
-impl GLESModelMaterialRenderImpl for UnlitMaterialDefaultRenderImpl {
+impl GLESModelMaterialRenderImpl for UnlitMaterialGlesRender {
   fn make_component<'a>(
     &'a self,
     idx: EntityHandle<StandardModelEntity>,

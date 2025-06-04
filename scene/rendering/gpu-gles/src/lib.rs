@@ -25,5 +25,5 @@ mod scene;
 pub use scene::*;
 mod scene_model;
 pub use scene_model::*;
-mod model;
-pub use model::*;
+mod std_model;
+pub use std_model::*;

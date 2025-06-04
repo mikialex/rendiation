@@ -1,43 +1,28 @@
 use crate::*;
 
-#[derive(Default)]
-pub struct UnlitMaterialDefaultIndirectRenderImplProvider {
-  storages: QueryToken,
-  tex_storages: QueryToken,
-}
-impl QueryBasedFeature<Box<dyn IndirectModelMaterialRenderImpl>>
-  for UnlitMaterialDefaultIndirectRenderImplProvider
-{
-  type Context = GPU;
-  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
-    let updater = unlit_material_storage_buffer(cx);
-    self.storages = qcx.register_multi_updater(updater);
-    self.tex_storages = qcx.register_multi_updater(unlit_material_texture_storages(cx));
-  }
-  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
-    qcx.deregister(&mut self.storages);
-    qcx.deregister(&mut self.tex_storages);
-  }
+pub fn use_unlit_material_storage(
+  cx: &mut QueryGPUHookCx,
+) -> Option<UnlitMaterialIndirectRenderer> {
+  let storages = cx.use_storage_buffer(unlit_material_storages);
+  let tex_storages = cx.use_storage_buffer(unlit_material_texture_storages);
 
-  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn IndirectModelMaterialRenderImpl> {
-    Box::new(UnlitMaterialDefaultIndirectRenderImpl {
-      material_access: global_entity_component_of::<StandardModelRefUnlitMaterial>()
-        .read_foreign_key(),
-      storages: cx.take_storage_array_buffer(self.storages).unwrap(),
-      texture_handles: cx.take_storage_array_buffer(self.tex_storages).unwrap(),
-      alpha_mode: global_entity_component_of().read(),
-    })
-  }
+  cx.when_create_impl(|| UnlitMaterialIndirectRenderer {
+    material_access: global_entity_component_of::<StandardModelRefUnlitMaterial>()
+      .read_foreign_key(),
+    storages: storages.unwrap(),
+    texture_handles: tex_storages.unwrap(),
+    alpha_mode: global_entity_component_of().read(),
+  })
 }
 
-struct UnlitMaterialDefaultIndirectRenderImpl {
+pub struct UnlitMaterialIndirectRenderer {
   material_access: ForeignKeyReadView<StandardModelRefUnlitMaterial>,
   storages: StorageBufferReadonlyDataView<[UnlitMaterialStorage]>,
   texture_handles: StorageBufferReadonlyDataView<[UnlitMaterialTextureHandlesStorage]>,
   alpha_mode: ComponentReadView<AlphaModeOf<UnlitMaterialAlphaConfig>>,
 }
 
-impl IndirectModelMaterialRenderImpl for UnlitMaterialDefaultIndirectRenderImpl {
+impl IndirectModelMaterialRenderImpl for UnlitMaterialIndirectRenderer {
   fn make_component_indirect<'a>(
     &'a self,
     any_idx: EntityHandle<StandardModelEntity>,
@@ -64,9 +49,9 @@ impl IndirectModelMaterialRenderImpl for UnlitMaterialDefaultIndirectRenderImpl 
   }
 }
 
-pub type UnlitMaterialStorageBuffer = ReactiveStorageBufferContainer<UnlitMaterialStorage>;
+type UnlitMaterialStorageBuffer = ReactiveStorageBufferContainer<UnlitMaterialStorage>;
 
-pub fn unlit_material_storage_buffer(cx: &GPU) -> UnlitMaterialStorageBuffer {
+fn unlit_material_storages(cx: &GPU) -> UnlitMaterialStorageBuffer {
   let color = global_watch()
     .watch::<UnlitMaterialColorComponent>()
     .collective_map(srgb4_to_linear4)
@@ -87,8 +72,9 @@ pub fn unlit_material_storage_buffer(cx: &GPU) -> UnlitMaterialStorageBuffer {
 }
 
 type TexStorage = UnlitMaterialTextureHandlesStorage;
-pub type UnlitMaterialTexStorages = ReactiveStorageBufferContainer<TexStorage>;
-pub fn unlit_material_texture_storages(cx: &GPU) -> UnlitMaterialTexStorages {
+type UnlitMaterialTexStorages = ReactiveStorageBufferContainer<TexStorage>;
+
+fn unlit_material_texture_storages(cx: &GPU) -> UnlitMaterialTexStorages {
   let c = create_reactive_storage_buffer_container(128, u32::MAX, cx);
   let base_color_alpha = offset_of!(TexStorage, color_alpha_texture);
   add_tex_watcher::<UnlitMaterialColorAlphaTex, _>(c, base_color_alpha)
@@ -97,7 +83,7 @@ pub fn unlit_material_texture_storages(cx: &GPU) -> UnlitMaterialTexStorages {
 #[repr(C)]
 #[std430_layout]
 #[derive(Clone, Copy, ShaderStruct, Default)]
-pub struct UnlitMaterialStorage {
+struct UnlitMaterialStorage {
   pub color: Vec4<f32>,
   pub alpha_cutoff: f32,
   pub alpha: f32,
@@ -106,12 +92,12 @@ pub struct UnlitMaterialStorage {
 #[repr(C)]
 #[std430_layout]
 #[derive(Clone, Copy, ShaderStruct, Debug, PartialEq, Default)]
-pub struct UnlitMaterialTextureHandlesStorage {
+struct UnlitMaterialTextureHandlesStorage {
   pub color_alpha_texture: TextureSamplerHandlePair,
 }
 
 #[derive(Clone)]
-pub struct UnlitMaterialStorageGPU<'a> {
+struct UnlitMaterialStorageGPU<'a> {
   pub buffer: StorageBufferReadonlyDataView<[UnlitMaterialStorage]>,
   pub texture_handles: StorageBufferReadonlyDataView<[UnlitMaterialTextureHandlesStorage]>,
   pub alpha_mode: AlphaMode,

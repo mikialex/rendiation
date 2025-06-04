@@ -156,112 +156,133 @@ pub fn attribute_buffer_metadata(
     })
 }
 
-pub struct MeshBindlessGPUSystemSource {
-  attribute_buffer_metadata: QueryToken,
-  sm_to_mesh: QueryToken,
-  sm_to_mesh_device: QueryToken,
-  indices: UntypedPool,
-  position: UntypedPool, // using untyped to avoid padding waste
-  normal: UntypedPool,
-  uv: UntypedPool,
+pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl> {
+  // cx.when_create_impl(|| MeshGPUBindlessImpl {
+  //   indices: self.indices.clone(),
+  //   position: self.position.clone(),
+  //   normal: self.normal.clone(),
+  //   uv: self.uv.clone(),
+  //   checker: global_entity_component_of::<StandardModelRefAttributesMeshEntity>()
+  //     .read_foreign_key(),
+  //   indices_checker: global_entity_component_of::<SceneBufferViewBufferId<AttributeIndexRef>>()
+  //     .read_foreign_key(),
+  //   vertex_address_buffer: vertex_address_buffer.gpu().clone(),
+  //   vertex_address_buffer_host: vertex_address_buffer.clone(),
+  //   sm_to_mesh_device: cx
+  //     .take_storage_array_buffer(self.sm_to_mesh_device)
+  //     .unwrap(),
+  //   sm_to_mesh: cx.take_reactive_query_updated(self.sm_to_mesh).unwrap(),
+  // });
+
+  todo!()
 }
 
-impl MeshBindlessGPUSystemSource {
-  pub fn new(gpu: &GPU) -> Self {
-    let indices_init_size = 20 * 1024 * 1024;
-    let indices_max_size = 200 * 1024 * 1024;
+// pub struct MeshBindlessGPUSystemSource {
+//   attribute_buffer_metadata: QueryToken,
+//   sm_to_mesh: QueryToken,
+//   sm_to_mesh_device: QueryToken,
+//   indices: UntypedPool,
+//   position: UntypedPool, // using untyped to avoid padding waste
+//   normal: UntypedPool,
+//   uv: UntypedPool,
+// }
 
-    let indices = StorageBufferReadonlyDataView::<[u32]>::create_by_with_extra_usage(
-      &gpu.device,
-      ZeroedArrayByArrayLength(indices_init_size as usize).into(),
-      BufferUsages::INDEX,
-    );
+// impl MeshBindlessGPUSystemSource {
+//   pub fn new(gpu: &GPU) -> Self {
+//     let indices_init_size = 20 * 1024 * 1024;
+//     let indices_max_size = 200 * 1024 * 1024;
 
-    let indices = create_growable_buffer(gpu, indices, indices_max_size);
-    let indices = GPURangeAllocateMaintainer::new(gpu, indices);
+//     let indices = StorageBufferReadonlyDataView::<[u32]>::create_by_with_extra_usage(
+//       &gpu.device,
+//       ZeroedArrayByArrayLength(indices_init_size as usize).into(),
+//       BufferUsages::INDEX,
+//     );
 
-    let position =
-      create_storage_buffer_range_allocate_pool(gpu, 100 * 1024 * 1024, 1000 * 1024 * 1024);
-    let normal =
-      create_storage_buffer_range_allocate_pool(gpu, 100 * 1024 * 1024, 1000 * 1024 * 1024);
-    let uv = create_storage_buffer_range_allocate_pool(gpu, 80 * 1024 * 1024, 800 * 1024 * 1024);
+//     let indices = create_growable_buffer(gpu, indices, indices_max_size);
+//     let indices = GPURangeAllocateMaintainer::new(gpu, indices);
 
-    Self {
-      attribute_buffer_metadata: Default::default(),
-      sm_to_mesh: Default::default(),
-      sm_to_mesh_device: Default::default(),
-      indices: Arc::new(RwLock::new(indices)),
-      position: Arc::new(RwLock::new(position)),
-      normal: Arc::new(RwLock::new(normal)),
-      uv: Arc::new(RwLock::new(uv)),
-    }
-  }
+//     let position =
+//       create_storage_buffer_range_allocate_pool(gpu, 100 * 1024 * 1024, 1000 * 1024 * 1024);
+//     let normal =
+//       create_storage_buffer_range_allocate_pool(gpu, 100 * 1024 * 1024, 1000 * 1024 * 1024);
+//     let uv = create_storage_buffer_range_allocate_pool(gpu, 80 * 1024 * 1024, 800 * 1024 * 1024);
 
-  pub fn create_impl_internal_impl(&self, cx: &mut QueryResultCtx) -> MeshGPUBindlessImpl {
-    let vertex_address_buffer = cx
-      .take_multi_updater_updated::<CommonStorageBufferImplWithHostBackup<AttributeMeshMeta>>(
-        self.attribute_buffer_metadata,
-      )
-      .unwrap();
+//     Self {
+//       attribute_buffer_metadata: Default::default(),
+//       sm_to_mesh: Default::default(),
+//       sm_to_mesh_device: Default::default(),
+//       indices: Arc::new(RwLock::new(indices)),
+//       position: Arc::new(RwLock::new(position)),
+//       normal: Arc::new(RwLock::new(normal)),
+//       uv: Arc::new(RwLock::new(uv)),
+//     }
+//   }
 
-    MeshGPUBindlessImpl {
-      indices: self.indices.clone(),
-      position: self.position.clone(),
-      normal: self.normal.clone(),
-      uv: self.uv.clone(),
-      checker: global_entity_component_of::<StandardModelRefAttributesMeshEntity>()
-        .read_foreign_key(),
-      indices_checker: global_entity_component_of::<SceneBufferViewBufferId<AttributeIndexRef>>()
-        .read_foreign_key(),
-      vertex_address_buffer: vertex_address_buffer.gpu().clone(),
-      vertex_address_buffer_host: vertex_address_buffer.clone(),
-      sm_to_mesh_device: cx
-        .take_storage_array_buffer(self.sm_to_mesh_device)
-        .unwrap(),
-      sm_to_mesh: cx.take_reactive_query_updated(self.sm_to_mesh).unwrap(),
-    }
-  }
-}
+//   pub fn create_impl_internal_impl(&self, cx: &mut QueryResultCtx) -> MeshGPUBindlessImpl {
+//     let vertex_address_buffer = cx
+//       .take_multi_updater_updated::<CommonStorageBufferImplWithHostBackup<AttributeMeshMeta>>(
+//         self.attribute_buffer_metadata,
+//       )
+//       .unwrap();
 
-impl QueryBasedFeature<Box<dyn IndirectModelShapeRenderImpl>> for MeshBindlessGPUSystemSource {
-  type Context = GPU;
-  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
-    self.attribute_buffer_metadata = qcx.register_multi_updater(attribute_buffer_metadata(
-      cx,
-      &self.indices,
-      &self.position,
-      &self.normal,
-      &self.uv,
-    ));
+//     MeshGPUBindlessImpl {
+//       indices: self.indices.clone(),
+//       position: self.position.clone(),
+//       normal: self.normal.clone(),
+//       uv: self.uv.clone(),
+//       checker: global_entity_component_of::<StandardModelRefAttributesMeshEntity>()
+//         .read_foreign_key(),
+//       indices_checker: global_entity_component_of::<SceneBufferViewBufferId<AttributeIndexRef>>()
+//         .read_foreign_key(),
+//       vertex_address_buffer: vertex_address_buffer.gpu().clone(),
+//       vertex_address_buffer_host: vertex_address_buffer.clone(),
+//       sm_to_mesh_device: cx
+//         .take_storage_array_buffer(self.sm_to_mesh_device)
+//         .unwrap(),
+//       sm_to_mesh: cx.take_reactive_query_updated(self.sm_to_mesh).unwrap(),
+//     }
+//   }
+// }
 
-    let sm_to_mesh = global_watch()
-      .watch_typed_foreign_key::<StandardModelRefAttributesMeshEntity>()
-      .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelStdModelRenderPayload>())
-      .into_forker();
+// impl QueryBasedFeature<Box<dyn IndirectModelShapeRenderImpl>> for MeshBindlessGPUSystemSource {
+//   type Context = GPU;
+//   fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
+//     self.attribute_buffer_metadata = qcx.register_multi_updater(attribute_buffer_metadata(
+//       cx,
+//       &self.indices,
+//       &self.position,
+//       &self.normal,
+//       &self.uv,
+//     ));
 
-    let sm_to_mesh_device_source = sm_to_mesh
-      .clone()
-      .collective_map(|v| v.map(|v| v.alloc_index()).unwrap_or(u32::MAX))
-      .into_query_update_storage(0);
+//     let sm_to_mesh = global_watch()
+//       .watch_typed_foreign_key::<StandardModelRefAttributesMeshEntity>()
+//       .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelStdModelRenderPayload>())
+//       .into_forker();
 
-    let sm_to_mesh_device = create_reactive_storage_buffer_container::<u32>(128, u32::MAX, cx)
-      .with_source(sm_to_mesh_device_source);
+//     let sm_to_mesh_device_source = sm_to_mesh
+//       .clone()
+//       .collective_map(|v| v.map(|v| v.alloc_index()).unwrap_or(u32::MAX))
+//       .into_query_update_storage(0);
 
-    self.sm_to_mesh_device = qcx.register_multi_updater(sm_to_mesh_device);
-    let sm_to_mesh = sm_to_mesh.collective_filter_map(|v| v);
-    self.sm_to_mesh = qcx.register_reactive_query(sm_to_mesh);
-  }
+//     let sm_to_mesh_device = create_reactive_storage_buffer_container::<u32>(128, u32::MAX, cx)
+//       .with_source(sm_to_mesh_device_source);
 
-  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
-    qcx.deregister(&mut self.attribute_buffer_metadata);
-    qcx.deregister(&mut self.sm_to_mesh_device);
-    qcx.deregister(&mut self.sm_to_mesh);
-  }
+//     self.sm_to_mesh_device = qcx.register_multi_updater(sm_to_mesh_device);
+//     let sm_to_mesh = sm_to_mesh.collective_filter_map(|v| v);
+//     self.sm_to_mesh = qcx.register_reactive_query(sm_to_mesh);
+//   }
 
-  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn IndirectModelShapeRenderImpl> {
-    Box::new(self.create_impl_internal_impl(cx))
-  }
-}
+//   fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
+//     qcx.deregister(&mut self.attribute_buffer_metadata);
+//     qcx.deregister(&mut self.sm_to_mesh_device);
+//     qcx.deregister(&mut self.sm_to_mesh);
+//   }
+
+//   fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn IndirectModelShapeRenderImpl> {
+//     Box::new(self.create_impl_internal_impl(cx))
+//   }
+// }
 
 pub struct MeshGPUBindlessImpl {
   indices: UntypedPool,

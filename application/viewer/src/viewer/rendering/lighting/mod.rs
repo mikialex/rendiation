@@ -19,6 +19,10 @@ pub use shadow::*;
 
 use crate::*;
 
+pub fn use_light_system(cx: &mut Viewer3dRenderingCx) {
+  //
+}
+
 pub struct LightSystem {
   reversed_depth: bool,
   internal: BoxedQueryBasedGPUFeature<Box<dyn LightSystemSceneProvider>>,
