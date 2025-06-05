@@ -3,8 +3,12 @@ use crate::*;
 mod axis;
 pub use axis::*;
 
-pub fn use_widget_draw(ctx: &mut Viewer3dRenderingCx) {
-  // pub axis: WorldCoordinateAxis,
+pub fn use_widget_draw(cx: &mut Viewer3dRenderingCx) {
+  let (cx, axis) = cx.use_gpu_state(WorldCoordinateAxis::new);
+
+  cx.on_render(|frame, content| {
+    //
+  });
 }
 
 fn draw_widgets(

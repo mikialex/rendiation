@@ -6,7 +6,7 @@ pub fn use_unlit_material_storage(
   let storages = cx.use_storage_buffer(unlit_material_storages);
   let tex_storages = cx.use_storage_buffer(unlit_material_texture_storages);
 
-  cx.when_create_impl(|| UnlitMaterialIndirectRenderer {
+  cx.when_render(|| UnlitMaterialIndirectRenderer {
     material_access: global_entity_component_of::<StandardModelRefUnlitMaterial>()
       .read_foreign_key(),
     storages: storages.unwrap(),

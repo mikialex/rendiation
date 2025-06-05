@@ -32,7 +32,7 @@ pub fn use_unlit_material_uniforms(cx: &mut QueryGPUHookCx) -> Option<UnlitMater
       },
     );
 
-  cx.when_create_impl(|| UnlitMaterialGlesRender {
+  cx.when_render(|| UnlitMaterialGlesRender {
     material_access: global_entity_component_of::<StandardModelRefUnlitMaterial>()
       .read_foreign_key(),
     uniforms: uniform.unwrap(),

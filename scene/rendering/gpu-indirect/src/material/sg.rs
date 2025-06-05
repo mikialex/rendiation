@@ -9,7 +9,7 @@ pub fn use_pbr_mr_material_storage(
   let storages = cx.use_storage_buffer(pbr_sg_material_storages);
   let tex_storages = cx.use_storage_buffer(pbr_sg_material_tex_storages);
 
-  cx.when_create_impl(|| PbrSGMaterialIndirectRenderer {
+  cx.when_render(|| PbrSGMaterialIndirectRenderer {
     material_access: global_entity_component_of::<StandardModelRefPbrSGMaterial>()
       .read_foreign_key(),
     storages: storages.unwrap(),

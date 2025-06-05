@@ -10,7 +10,7 @@ pub fn use_indirect_scene_model(
     .use_storage_buffer(scene_model_data)
     .map(DefaultSceneModelIdInject);
 
-  cx.when_create_impl(|| IndirectPreferredComOrderRenderer {
+  cx.when_render(|| IndirectPreferredComOrderRenderer {
     model_impl: model_impl.unwrap(),
     node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
     node_render: node.unwrap(),

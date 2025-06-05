@@ -17,7 +17,7 @@ pub fn use_gles_scene_model_renderer(
       )
     });
 
-  cx.when_create_impl(|| {
+  cx.when_render(|| {
     Box::new(GLESPreferredComOrderRenderer {
       scene_model_ids: scene_model_ids.unwrap(),
       model_impl: model_impl.unwrap(),

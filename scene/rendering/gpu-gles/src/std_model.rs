@@ -44,7 +44,7 @@ pub fn std_model_renderer(
   materials: Option<Box<dyn GLESModelMaterialRenderImpl>>,
   shapes: Option<Box<dyn GLESModelShapeRenderImpl>>,
 ) -> Option<Box<dyn GLESModelRenderImpl>> {
-  cx.when_create_impl(|| {
+  cx.when_render(|| {
     Box::new(SceneStdModelRenderer {
       model: global_entity_component_of::<SceneModelStdModelRenderPayload>().read_foreign_key(),
       materials: materials.unwrap(),

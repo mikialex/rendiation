@@ -11,7 +11,7 @@ pub fn use_attribute_mesh_renderer(
   let index = cx.use_val_refed_reactive_query(attribute_mesh_index_buffers);
   let vertex = cx.use_val_refed_reactive_query(attribute_mesh_vertex_buffer_views);
 
-  cx.when_create_impl(|| GLESAttributesMeshRenderer {
+  cx.when_render(|| GLESAttributesMeshRenderer {
     mesh_access: global_entity_component_of::<StandardModelRefAttributesMeshEntity>()
       .read_foreign_key(),
     mode: global_entity_component_of::<AttributesMeshEntityTopology>().read(),

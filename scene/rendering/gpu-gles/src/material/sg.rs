@@ -44,7 +44,7 @@ pub fn use_pbr_sg_material_uniforms(cx: &mut QueryGPUHookCx) -> Option<PbrSGMate
     add_tex_watcher::<NormalTexSamplerOf<PbrSGMaterialNormalInfo>, _>(c, normal, cx)
   });
 
-  cx.when_create_impl(|| PbrSGMaterialGlesRenderer {
+  cx.when_render(|| PbrSGMaterialGlesRenderer {
     material_access: global_entity_component_of::<StandardModelRefPbrSGMaterial>()
       .read_foreign_key(),
     uniforms: uniforms.unwrap(),

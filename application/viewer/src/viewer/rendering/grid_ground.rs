@@ -3,6 +3,28 @@ use rendiation_state_override::MaterialStates;
 
 use crate::*;
 
+pub fn use_ground(cx: &mut Viewer3dRenderingCx) {
+
+  // let (cx, ground) = cx.use_cached_uniform::<ShaderPlane>(ground_like_shader_plane);
+  //   grid: UniformBufferCachedDataView<GridEffect>,
+
+  //   enable_ground: bool,
+
+  //   if self.enable_ground {
+  //   // this must a separate pass, because the id buffer should not be written.
+  //   pass("grid_ground")
+  //     .with_color(&scene_result, load_and_store())
+  //     .with_depth(&g_buffer.depth, load_and_store())
+  //     .render_ctx(ctx)
+  //     .by(&mut GridGround {
+  //       plane: &self.ground,
+  //       shading: &self.grid,
+  //       camera: main_camera_gpu.as_ref(),
+  //       reversed_depth,
+  //     });
+  // }
+}
+
 pub struct GridGround<'a> {
   pub shading: &'a UniformBufferCachedDataView<GridEffect>,
   pub plane: &'a UniformBufferCachedDataView<ShaderPlane>,

@@ -75,7 +75,7 @@ pub fn use_rtx_scene_material(
     create_reactive_storage_buffer_container::<u32>(128, u32::MAX, cx).with_source(material_ty)
   });
 
-  cx.when_create_impl(|| SceneSurfaceSupport {
+  cx.when_render(|| SceneSurfaceSupport {
     textures: tex.unwrap().clone(),
     sm_to_material_type: material_ty.unwrap(),
     sm_to_material_id: material_id.unwrap(),

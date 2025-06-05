@@ -24,7 +24,7 @@ pub fn use_indirect_renderer(
   let model_alpha_blend = cx.use_reactive_query(all_kinds_of_materials_enabled_alpha_blending);
   let model_lookup = cx.use_global_multi_reactive_query::<SceneModelBelongsToScene>();
 
-  cx.when_create_impl(|| IndirectSceneRenderer {
+  cx.when_render(|| IndirectSceneRenderer {
     texture_system: texture_system.unwrap(),
     renderer: scene_model.map(|v| Box::new(v) as Box<_>).unwrap(),
     node_net_visible: node_net_visible.unwrap(),

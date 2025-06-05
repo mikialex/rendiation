@@ -25,6 +25,7 @@ pub fn use_light_system(cx: &mut Viewer3dRenderingCx, f: impl FnOnce(&mut Viewer
   use_tonemap(cx);
 
   let opaque_content_lighting_technique = cx.use_plain_state_init(&LightingTechniqueKind::Forward);
+
   //
 }
 

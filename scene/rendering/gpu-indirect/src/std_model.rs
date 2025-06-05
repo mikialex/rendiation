@@ -114,7 +114,7 @@ pub fn use_std_model_renderer(
 ) -> Option<SceneStdModelIndirectRenderer> {
   let std_model = cx.use_storage_buffer(std_model_data);
 
-  cx.when_create_impl(|| SceneStdModelIndirectRenderer {
+  cx.when_render(|| SceneStdModelIndirectRenderer {
     model: global_entity_component_of::<SceneModelStdModelRenderPayload>().read_foreign_key(),
     materials: materials.unwrap(),
     shapes: shapes.unwrap(),

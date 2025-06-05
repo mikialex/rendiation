@@ -2,7 +2,6 @@ use crate::*;
 
 mod culling;
 mod egui;
-mod frame_logic;
 mod grid_ground;
 mod lighting;
 mod outline;
@@ -16,7 +15,6 @@ pub use outline::*;
 pub use ray_tracing::*;
 
 mod post;
-pub use frame_logic::*;
 use futures::Future;
 use grid_ground::*;
 pub use lighting::*;
@@ -35,9 +33,6 @@ use ndc_reverse_z::*;
 mod high_light;
 use high_light::*;
 
-mod ground;
-pub use ground::*;
-
 mod ssao;
 pub use ssao::*;
 
@@ -47,56 +42,17 @@ pub use anti_alias::*;
 mod gpu_pick;
 pub use gpu_pick::*;
 
-pub struct Viewer3dRenderingCx<'a> {
-  memory: usize,
-  dyn_cx: &'a DynCx,
-  pub stage: Viewer3dRenderingCxStage<'a>,
-  gpu: &'a GPU,
+mod hooks;
+pub use hooks::*;
+
+pub fn use_viewer_rendering(cx: &mut ViewerCx, f: impl FnOnce(&mut Viewer3dRenderingCx)) {
+  let (cx, query_cx) = cx.use_plain_state::<ReactiveQueryCtx>();
+  // match &mut cx.stage {
+
+  // }
 }
 
-impl<'a> Viewer3dRenderingCx<'a> {
-  pub fn use_plain_state<T>(&mut self) -> (&mut Self, &mut T) {
-    todo!()
-  }
-  pub fn use_plain_state_init<T>(&mut self, init: &T) -> (&mut Self, &mut T) {
-    todo!()
-  }
-  pub fn use_plain_state_init_by<T>(&mut self, init: impl FnOnce() -> T) -> (&mut Self, &mut T) {
-    todo!()
-  }
-
-  pub fn on_render(&mut self, f: impl FnOnce(&mut Self)) {
-    //
-  }
-
-  pub fn access_query_gpu_cx(&mut self, f: impl FnOnce(&mut QueryGPUHookCx)) {
-    let stage = match &mut self.stage {
-      Viewer3dRenderingCxStage::Init {} => QueryHookStage::Init { cx: todo!() },
-      Viewer3dRenderingCxStage::Uninit {} => QueryHookStage::Unit { cx: todo!() },
-      Viewer3dRenderingCxStage::Render { target, content } => QueryHookStage::CreateImpl,
-      Viewer3dRenderingCxStage::Gui => QueryHookStage::Nothing,
-    };
-    f(&mut QueryGPUHookCx {
-      memory: todo!(),
-      dyn_cx: todo!(),
-      gpu: todo!(),
-      stage,
-    });
-  }
-}
-
-pub enum Viewer3dRenderingCxStage<'a> {
-  Init {},
-  Uninit {},
-  Render {
-    target: RenderTargetView,
-    content: &'a Viewer3dSceneCtx,
-    // frame_cx: FrameCtx,
-  },
-  Gui,
-}
-
-pub fn use_viewer_rendering(cx: &mut Viewer3dRenderingCx) {
+pub fn viewer_rendering_logic(cx: &mut Viewer3dRenderingCx) {
   use_viewer_texture_system(cx, |cx| {
     use_light_system(cx, |cx| {
       use_scene_renderer(cx);
@@ -140,7 +96,17 @@ fn use_rasterization_rendering(cx: &mut Viewer3dRenderingCx) {
 
   let result = use_viewer_taa(cx, |frame_cx, g_buffer, reproject| {
     // render scene content
-    //
+    render_lighting_scene_content(
+      ctx,
+      lighting,
+      renderer,
+      content,
+      scene_derive,
+      &scene_result,
+      &g_buffer,
+      &main_camera_gpu,
+    );
+
     ground.compose(frame_cx, g_buffer, reproject);
     ssao.compose()
   });
@@ -265,7 +231,6 @@ impl Viewer3dRenderingCtx {
       on_encoding_finished: Default::default(),
       expect_read_back_for_next_render_result: false,
       camera_source: camera_source_init,
-      picker: Default::default(),
     }
   }
 

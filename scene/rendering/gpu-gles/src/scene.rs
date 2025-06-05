@@ -20,7 +20,7 @@ pub fn use_gles_scene_renderer(
   let node_net_visible = cx.use_reactive_query(scene_node_derive_visible);
   let model_alpha_blend = cx.use_reactive_query(all_kinds_of_materials_enabled_alpha_blending);
 
-  cx.when_create_impl(|| GLESSceneRenderer {
+  cx.when_render(|| GLESSceneRenderer {
     model_lookup: model_lookup.unwrap(),
     node_net_visible: node_net_visible.unwrap(),
     texture_system: texture_system.unwrap(),

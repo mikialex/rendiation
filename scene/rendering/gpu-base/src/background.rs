@@ -30,7 +30,7 @@ pub fn use_background<'a>(cx: &'a mut QueryGPUHookCx<'a>) -> Option<SceneBackgro
       )
     });
 
-  cx.when_create_impl(|| SceneBackgroundRenderer {
+  cx.when_render(|| SceneBackgroundRenderer {
     solid_background: global_entity_component_of::<SceneSolidBackground>().read(),
     env_background_map: global_entity_component_of::<SceneHDRxEnvBackgroundCubeMap>()
       .read_foreign_key(),

@@ -10,6 +10,13 @@ pub struct QueryGPUHookCx<'a> {
   pub stage: QueryHookStage<'a>,
 }
 
+pub enum QueryHookStage<'a> {
+  Init { cx: &'a mut ReactiveQueryCtx },
+  Unit { cx: &'a mut ReactiveQueryCtx },
+  Render,
+  Nothing,
+}
+
 impl<'a> QueryGPUHookCx<'a> {
   pub fn use_multi_updater<T>(
     &mut self,
@@ -68,18 +75,11 @@ impl<'a> QueryGPUHookCx<'a> {
     todo!()
   }
 
-  pub fn when_create_impl<X>(&self, f: impl FnOnce() -> X) -> Option<X> {
-    if let QueryHookStage::CreateImpl = self.stage {
+  pub fn when_render<X>(&self, f: impl FnOnce() -> X) -> Option<X> {
+    if let QueryHookStage::Render = self.stage {
       Some(f())
     } else {
       None
     }
   }
-}
-
-pub enum QueryHookStage<'a> {
-  Init { cx: &'a mut ReactiveQueryCtx },
-  Unit { cx: &'a mut ReactiveQueryCtx },
-  CreateImpl,
-  Nothing,
 }
