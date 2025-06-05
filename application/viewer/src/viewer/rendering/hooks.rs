@@ -97,7 +97,7 @@ impl<'a> Viewer3dRenderingCx<'a> {
     None
   }
 
-  pub fn on_gui<R>(&mut self, f: impl FnOnce(&'a egui::Context) -> R) -> Option<R> {
+  pub fn on_gui<R>(&mut self, f: impl FnOnce(&'a mut egui::Ui) -> R) -> Option<R> {
     None
   }
 }
@@ -111,6 +111,6 @@ pub enum Viewer3dRenderingCxStage<'a> {
     frame_cx: FrameCtx<'a>,
   },
   Gui {
-    context: &'a egui::Context,
+    context: &'a mut egui::Ui,
   },
 }

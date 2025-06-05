@@ -1,9 +1,10 @@
+use rendiation_occlusion_culling::GPUTwoPassOcclusionCulling;
 use rendiation_webgpu_reactive_utils::*;
 
 use crate::*;
 
 pub fn use_camera_gpu_frustum_uniform(
-  cx: &mut QueryGPUHookCx,
+  cx: &mut impl QueryGPUHookCx,
   camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
 ) -> Option<CameraGPUFrustums> {
   cx.use_uniform_buffers(|source, gpu| {
@@ -26,5 +27,6 @@ type CameraGPUFrustumsUniform =
 pub type CameraGPUFrustums = LockReadGuardHolder<CameraGPUFrustumsUniform>;
 
 pub fn use_two_pass_occlusion_culling(cx: &mut Viewer3dRenderingCx) {
+  cx.use_plain_state_init_by(|| GPUTwoPassOcclusionCulling::new(u16::MAX as usize));
   // GPUTwoPassOcclusionCulling::new(u16::MAX as usize).into();
 }

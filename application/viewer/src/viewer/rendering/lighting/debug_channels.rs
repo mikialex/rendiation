@@ -1,5 +1,10 @@
 use crate::*;
 
+pub fn use_channel_debugger(cx: &mut Viewer3dRenderingCx) {
+  let (cx, debugger) = cx.use_plain_state_init_by(ScreenChannelDebugger::default_useful);
+  let (cx, enable) = cx.use_plain_state_init(&false);
+}
+
 #[derive(Default)]
 pub struct ScreenChannelDebugger {
   pub channels: Vec<Box<dyn ChannelVisualize>>,

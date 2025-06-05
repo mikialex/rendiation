@@ -8,20 +8,7 @@ pub fn use_viewer_taa(
 ) -> Option<FrameGeometryBuffer> {
   let (cx, enable_taa) = cx.use_plain_state_init(&true);
   let (cx, reproject) = cx.use_gpu_state(GPUReprojectInfo::new);
-
-  //  let (
-  //   TAAFrame {
-  //     color: maybe_aa_result,
-  //     depth: scene_depth,
-  //   },
-  //   (id_buffer, normal_buffer),
-  // ) = if self.enable_taa {
-  //   self
-  //     .taa
-  //     .render_aa_content(taa_content, ctx, &self.reproject)
-  // } else {
-  //   taa_content.render(ctx)
-  // };
+  let (cx, taa) = cx.use_plain_state::<TAA>();
 
   cx.on_render(|frame, content| {
     let mut taa_content = SceneCameraTAAContent {
@@ -43,12 +30,22 @@ pub fn use_viewer_taa(
       },
     };
 
-    let taa_results = taa_content.render(frame);
+    let (
+      TAAFrame {
+        color: maybe_aa_result,
+        depth: scene_depth,
+      },
+      (id_buffer, normal_buffer),
+    ) = if *enable_taa {
+      taa.render_aa_content(taa_content, frame, &reproject)
+    } else {
+      taa_content.render(frame)
+    };
 
     FrameGeometryBuffer {
-      depth: taa_results.0.depth,
-      normal: taa_results.1 .1,
-      entity_id: taa_results.1 .0,
+      depth: scene_depth,
+      normal: normal_buffer,
+      entity_id: id_buffer,
     }
   })
 }
