@@ -10,28 +10,31 @@ mod ibl;
 mod light_pass;
 mod punctual;
 mod shadow;
+mod tonemap;
 
 use debug_channels::*;
 use ibl::*;
 pub use light_pass::*;
 use punctual::*;
 pub use shadow::*;
+pub use tonemap::*;
 
 use crate::*;
 
-pub fn use_light_system(cx: &mut Viewer3dRenderingCx) {
+pub fn use_light_system(cx: &mut Viewer3dRenderingCx, f: impl FnOnce(&mut Viewer3dRenderingCx)) {
+  use_tonemap(cx);
+
+  let opaque_content_lighting_technique = cx.use_plain_state_init(&LightingTechniqueKind::Forward);
   //
 }
 
 pub struct LightSystem {
-  reversed_depth: bool,
   internal: BoxedQueryBasedGPUFeature<Box<dyn LightSystemSceneProvider>>,
   scene_ids: SceneIdProvider,
   directional_light_shadow: BasicShadowMapSystem,
   spot_light_shadow: BasicShadowMapSystem,
   enable_channel_debugger: bool,
   channel_debugger: ScreenChannelDebugger,
-  pub tonemap: ToneMap,
   material_defer_lighting_supports: DeferLightingMaterialRegistry,
   pub opaque_scene_content_lighting_technique: LightingTechniqueKind,
 }

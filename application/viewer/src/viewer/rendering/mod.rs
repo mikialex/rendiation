@@ -12,6 +12,7 @@ mod widget;
 mod g_buffer;
 pub use culling::*;
 pub use g_buffer::*;
+pub use outline::*;
 pub use ray_tracing::*;
 
 mod post;
@@ -25,44 +26,99 @@ use rendiation_device_ray_tracing::GPUWaveFrontComputeRaytracingSystem;
 use rendiation_scene_rendering_gpu_ray_tracing::*;
 use rendiation_texture_gpu_process::copy_frame;
 use rendiation_webgpu::*;
+use rendiation_webgpu_reactive_utils::{QueryGPUHookCx, QueryHookStage};
 use widget::*;
 
 mod ndc_reverse_z;
 use ndc_reverse_z::*;
 
-pub struct Viewer3dRenderingCx {
+mod high_light;
+use high_light::*;
+
+mod ground;
+pub use ground::*;
+
+mod ssao;
+pub use ssao::*;
+
+mod anti_alias;
+pub use anti_alias::*;
+
+mod gpu_pick;
+pub use gpu_pick::*;
+
+pub struct Viewer3dRenderingCx<'a> {
   memory: usize,
-  pub stage: Viewer3dRenderingCxStage,
+  dyn_cx: &'a DynCx,
+  pub stage: Viewer3dRenderingCxStage<'a>,
+  gpu: &'a GPU,
 }
 
-impl Viewer3dRenderingCx {
+impl<'a> Viewer3dRenderingCx<'a> {
   pub fn use_plain_state<T>(&mut self) -> (&mut Self, &mut T) {
     todo!()
   }
   pub fn use_plain_state_init<T>(&mut self, init: &T) -> (&mut Self, &mut T) {
     todo!()
   }
+  pub fn use_plain_state_init_by<T>(&mut self, init: impl FnOnce() -> T) -> (&mut Self, &mut T) {
+    todo!()
+  }
+
+  pub fn on_render(&mut self, f: impl FnOnce(&mut Self)) {
+    //
+  }
+
+  pub fn access_query_gpu_cx(&mut self, f: impl FnOnce(&mut QueryGPUHookCx)) {
+    let stage = match &mut self.stage {
+      Viewer3dRenderingCxStage::Init {} => QueryHookStage::Init { cx: todo!() },
+      Viewer3dRenderingCxStage::Uninit {} => QueryHookStage::Unit { cx: todo!() },
+      Viewer3dRenderingCxStage::Render { target, content } => QueryHookStage::CreateImpl,
+      Viewer3dRenderingCxStage::Gui => QueryHookStage::Nothing,
+    };
+    f(&mut QueryGPUHookCx {
+      memory: todo!(),
+      dyn_cx: todo!(),
+      gpu: todo!(),
+      stage,
+    });
+  }
 }
 
-pub enum Viewer3dRenderingCxStage {
+pub enum Viewer3dRenderingCxStage<'a> {
   Init {},
   Uninit {},
   Render {
     target: RenderTargetView,
+    content: &'a Viewer3dSceneCtx,
     // frame_cx: FrameCtx,
   },
   Gui,
 }
 
-pub fn my_super_renderer(cx: &mut Viewer3dRenderingCx) {
-  let reverse_z = use_ndc_reverse_z(cx);
+pub fn use_viewer_rendering(cx: &mut Viewer3dRenderingCx) {
+  use_viewer_texture_system(cx, |cx| {
+    use_light_system(cx, |cx| {
+      use_scene_renderer(cx);
 
-  let scene_lighting_sys = use_light_system(cx);
+      use_rasterization_rendering(cx);
+      use_raytracing_rendering(cx);
 
-  let scene_renderer = use_scene_renderer(cx);
+      use_widget_draw(cx);
+    });
+  });
+}
 
-  let scene_rtx_renderer = use_scene_rtx_renderer(cx);
+pub fn use_viewer_texture_system(
+  cx: &mut Viewer3dRenderingCx,
+  f: impl FnOnce(&mut Viewer3dRenderingCx),
+) {
+  //
+}
 
+fn use_scene_renderer(
+  cx: &mut Viewer3dRenderingCx,
+) -> Option<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>> {
   use RasterizationRenderBackendType::*;
   let (cx, render_type) = cx.use_plain_state_init(&Gles);
 
@@ -73,9 +129,37 @@ pub fn my_super_renderer(cx: &mut Viewer3dRenderingCx) {
     Indirect => todo!(),
   };
 
-  use_viewer_frame_logic(cx);
+  todo!()
+}
 
-  use_widget_draw(cx);
+fn use_rasterization_rendering(cx: &mut Viewer3dRenderingCx) {
+  let reverse_z = use_ndc_reverse_z(cx);
+
+  let ground = use_ground(cx);
+  let ssao = use_ssao(cx);
+
+  let result = use_viewer_taa(cx, |frame_cx, g_buffer, reproject| {
+    // render scene content
+    //
+    ground.compose(frame_cx, g_buffer, reproject);
+    ssao.compose()
+  });
+
+  let high_lighter = use_high_lighter(cx);
+  let outline = use_outline(cx);
+  let fxaa = use_fxaa(cx);
+  let post = use_post_effects(cx);
+
+  result.apply_post(|cx| {
+    outline.compose(cx);
+    fxaa.compose(cx);
+    post.compose(cx);
+    high_lighter.compose(cx);
+  });
+
+  use_gpu_picker(cx, result);
+
+  use_screenshot(cx, result);
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]

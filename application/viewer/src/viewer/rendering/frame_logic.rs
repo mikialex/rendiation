@@ -8,32 +8,15 @@ use super::{
 };
 use crate::*;
 
-pub fn use_viewer_frame_logic(cx: &mut Viewer3dRenderingCx) {
-  let high_lighter = use_high_lighter(cx);
-  let taa = use_taa(cx);
-
-  let fxaa = use_fxaa(cx);
-
-  let ssao = use_ssao(cx);
-
-  let enable_outline = use_outline(cx);
-
-  let post_effect = use_post_effect(cx);
-}
-
 pub struct ViewerFrameLogic {
   highlight: HighLighter,
   reproject: GPUReprojectInfo,
   taa: TAA,
   enable_taa: bool,
   enable_fxaa: bool,
-  enable_ground: bool,
   enable_ssao: bool,
-  enable_outline: bool,
   ssao: SSAO,
   _blur: CrossBlurData,
-  ground: UniformBufferCachedDataView<ShaderPlane>,
-  grid: UniformBufferCachedDataView<GridEffect>,
   post: UniformBufferCachedDataView<PostEffects>,
 }
 
@@ -48,12 +31,10 @@ impl ViewerFrameLogic {
       enable_fxaa: false,
       enable_ground: true,
       enable_ssao: false,
-      enable_outline: false,
       ssao: SSAO::new(gpu),
       ground: UniformBufferCachedDataView::create(&gpu.device, ground_like_shader_plane()),
       grid: UniformBufferCachedDataView::create_default(&gpu.device),
       post: UniformBufferCachedDataView::create_default(&gpu.device),
-      axis: WorldCoordinateAxis::new(gpu),
     }
   }
 
@@ -250,23 +231,23 @@ impl ViewerFrameLogic {
     //   });
     // }
 
-    let maybe_aa_result = if self.enable_fxaa {
-      let fxaa_target = maybe_aa_result.create_attachment_key().request(ctx);
+    // let maybe_aa_result = if self.enable_fxaa {
+    //   let fxaa_target = maybe_aa_result.create_attachment_key().request(ctx);
 
-      pass("fxaa")
-        .with_color(&fxaa_target, store_full_frame())
-        .render_ctx(ctx)
-        .by(
-          &mut FXAA {
-            source: &maybe_aa_result,
-          }
-          .draw_quad(),
-        );
+    //   pass("fxaa")
+    //     .with_color(&fxaa_target, store_full_frame())
+    //     .render_ctx(ctx)
+    //     .by(
+    //       &mut FXAA {
+    //         source: &maybe_aa_result,
+    //       }
+    //       .draw_quad(),
+    //     );
 
-      fxaa_target
-    } else {
-      maybe_aa_result
-    };
+    //   fxaa_target
+    // } else {
+    //   maybe_aa_result
+    // };
 
     let g_buffer = FrameGeometryBuffer {
       depth: scene_depth,
@@ -274,15 +255,15 @@ impl ViewerFrameLogic {
       entity_id: id_buffer,
     };
 
-    let mut highlight_compose = (content.selected_target.is_some()).then(|| {
-      let masked_content = renderer.render_models(
-        Box::new(IteratorAsHostRenderBatch(content.selected_target)),
-        CameraRenderSource::Scene(content.main_camera),
-        &HighLightMaskDispatcher,
-        ctx,
-      );
-      self.highlight.draw(ctx, masked_content)
-    });
+    // let mut highlight_compose = (content.selected_target.is_some()).then(|| {
+    //   let masked_content = renderer.render_models(
+    //     Box::new(IteratorAsHostRenderBatch(content.selected_target)),
+    //     CameraRenderSource::Scene(content.main_camera),
+    //     &HighLightMaskDispatcher,
+    //     ctx,
+    //   );
+    //   self.highlight.draw(ctx, masked_content)
+    // });
 
     let compose = pass("compose-all")
       .with_color(final_target, store_full_frame())
@@ -296,40 +277,19 @@ impl ViewerFrameLogic {
       )
       .by(&mut highlight_compose);
 
-    if self.enable_outline {
-      // should we draw outline on taa buffer?
-      compose.by(
-        &mut OutlineComputer {
-          source: &ViewerOutlineSourceProvider {
-            g_buffer: &g_buffer,
-            reproject: &self.reproject.reproject,
-          },
-        }
-        .draw_quad_with_blend(BlendState::ALPHA_BLENDING.into()),
-      );
-    }
+    // if self.enable_outline {
+    //   // should we draw outline on taa buffer?
+    //   compose.by(
+    //     &mut OutlineComputer {
+    //       source: &ViewerOutlineSourceProvider {
+    //         g_buffer: &g_buffer,
+    //         reproject: &self.reproject.reproject,
+    //       },
+    //     }
+    //     .draw_quad_with_blend(BlendState::ALPHA_BLENDING.into()),
+    //   );
+    // }
 
     g_buffer.entity_id
-  }
-}
-
-struct SceneCameraTAAContent<'a, F> {
-  renderer: &'a dyn SceneRenderer<ContentKey = SceneContentKey>,
-  camera: EntityHandle<SceneCameraEntity>,
-  queue: &'a GPUQueue,
-  f: F,
-}
-
-impl<F, R> TAAContent<R> for SceneCameraTAAContent<'_, F>
-where
-  F: FnMut(&mut FrameCtx) -> (TAAFrame, R),
-{
-  fn set_jitter(&mut self, next_jitter: Vec2<f32>) {
-    let cameras = self.renderer.get_camera_gpu();
-    cameras.setup_camera_jitter(self.camera, next_jitter, self.queue);
-  }
-
-  fn render(&mut self, ctx: &mut FrameCtx) -> (TAAFrame, R) {
-    (self.f)(ctx)
   }
 }

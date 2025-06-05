@@ -3,6 +3,40 @@ use rendiation_texture_gpu_process::*;
 
 use crate::*;
 
+pub fn use_outline(cx: &mut Viewer3dRenderingCx) -> ViewerOutline {
+  let (cx, enable_outline) = cx.use_plain_state_init(&false);
+  //
+  ViewerOutline {
+    enable_outline: *enable_outline,
+  }
+}
+
+pub struct ViewerOutline {
+  enable_outline: bool,
+}
+
+impl ViewerOutline {
+  pub fn compose(
+    &self,
+    pass: &mut ActiveRenderPass,
+    g_buffer: &FrameGeometryBuffer,
+    reproject: &ReprojectInfo,
+  ) {
+    if self.enable_outline {
+      // should we draw outline on taa buffer?
+      pass.by(
+        &mut OutlineComputer {
+          source: &ViewerOutlineSourceProvider {
+            g_buffer: &g_buffer,
+            reproject: &self.reproject.reproject,
+          },
+        }
+        .draw_quad_with_blend(BlendState::ALPHA_BLENDING.into()),
+      );
+    }
+  }
+}
+
 pub struct ViewerOutlineSourceProvider<'a> {
   pub g_buffer: &'a FrameGeometryBuffer,
   pub reproject: &'a UniformBufferCachedDataView<ReprojectInfo>,

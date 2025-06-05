@@ -2,6 +2,10 @@ use rendiation_scene_rendering_gpu_ray_tracing::*;
 
 use crate::*;
 
+pub fn use_raytracing_rendering(cx: &mut Viewer3dRenderingCx) {
+  //
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RayTracingEffectMode {
   AO,

@@ -81,4 +81,5 @@ pub enum QueryHookStage<'a> {
   Init { cx: &'a mut ReactiveQueryCtx },
   Unit { cx: &'a mut ReactiveQueryCtx },
   CreateImpl,
+  Nothing,
 }
