@@ -156,7 +156,7 @@ pub fn attribute_buffer_metadata(
     })
 }
 
-pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl> {
+pub fn use_bindless_mesh(cx: &mut impl QueryGPUHookCx) -> Option<MeshGPUBindlessImpl> {
   // cx.when_create_impl(|| MeshGPUBindlessImpl {
   //   indices: self.indices.clone(),
   //   position: self.position.clone(),

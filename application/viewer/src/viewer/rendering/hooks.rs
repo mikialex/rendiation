@@ -9,6 +9,72 @@ pub struct Viewer3dRenderingCx<'a> {
   gpu: &'a GPU,
 }
 
+impl<'a> QueryGPUHookCx for Viewer3dRenderingCx<'a> {
+  fn use_multi_updater<T>(
+    &mut self,
+    f: impl FnOnce() -> MultiUpdateContainer<T>,
+  ) -> Option<LockReadGuardHolder<MultiUpdateContainer<T>>> {
+    todo!()
+  }
+
+  fn use_uniform_buffers<K, V: Std140>(
+    &mut self,
+    source: impl FnOnce(UniformUpdateContainer<K, V>, &GPU) -> UniformUpdateContainer<K, V>,
+  ) -> Option<LockReadGuardHolder<UniformUpdateContainer<K, V>>> {
+    todo!()
+  }
+
+  fn use_storage_buffer<V: Std430>(
+    &mut self,
+    source: impl FnOnce(&GPU) -> ReactiveStorageBufferContainer<V>,
+  ) -> Option<StorageBufferReadonlyDataView<[V]>> {
+    todo!()
+  }
+
+  fn use_multi_updater_ref<T>(
+    &mut self,
+    f: impl FnOnce(&GPU) -> MultiUpdateContainer<T>,
+  ) -> (&mut Self, Option<&T>) {
+    todo!()
+  }
+
+  fn use_uniform_buffers_ref<K, V: Std140>(
+    &mut self,
+    source: impl FnOnce(UniformUpdateContainer<K, V>, &GPU) -> UniformUpdateContainer<K, V>,
+  ) -> (
+    &mut Self,
+    Option<&fast_hash_collection::FastHashMap<K, UniformBufferDataView<V>>>,
+  ) {
+    todo!()
+  }
+
+  fn use_global_multi_reactive_query<D: ForeignKeySemantic>(
+    &mut self,
+  ) -> Option<
+    Box<dyn DynMultiQuery<Key = EntityHandle<D::ForeignEntity>, Value = EntityHandle<D::Entity>>>,
+  > {
+    todo!()
+  }
+
+  fn use_reactive_query<K, V, Q: ReactiveQuery<Key = K, Value = V>>(
+    &mut self,
+    source: impl FnOnce() -> Q,
+  ) -> Option<Box<dyn DynQuery<Key = K, Value = V>>> {
+    todo!()
+  }
+
+  fn use_val_refed_reactive_query<K, V, Q: ReactiveValueRefQuery<Key = K, Value = V>>(
+    &mut self,
+    source: impl FnOnce(&GPU) -> Q,
+  ) -> Option<Box<dyn DynValueRefQuery<Key = K, Value = V>>> {
+    todo!()
+  }
+
+  fn when_render<X>(&self, f: impl FnOnce() -> X) -> Option<X> {
+    todo!()
+  }
+}
+
 impl<'a> Viewer3dRenderingCx<'a> {
   pub fn use_plain_state<T>(&mut self) -> (&mut Self, &mut T) {
     todo!()
@@ -33,21 +99,6 @@ impl<'a> Viewer3dRenderingCx<'a> {
 
   pub fn on_gui<R>(&mut self, f: impl FnOnce(&'a egui::Context) -> R) -> Option<R> {
     None
-  }
-
-  pub fn access_query_gpu_cx(&mut self, f: impl FnOnce(&mut QueryGPUHookCx)) {
-    let stage = match &mut self.stage {
-      Viewer3dRenderingCxStage::Init {} => QueryHookStage::Init { cx: todo!() },
-      Viewer3dRenderingCxStage::Uninit {} => QueryHookStage::Unit { cx: todo!() },
-      Viewer3dRenderingCxStage::Render { .. } => QueryHookStage::Render,
-      Viewer3dRenderingCxStage::Gui { .. } => QueryHookStage::Nothing,
-    };
-    f(&mut QueryGPUHookCx {
-      memory: todo!(),
-      dyn_cx: todo!(),
-      gpu: todo!(),
-      stage,
-    });
   }
 }
 

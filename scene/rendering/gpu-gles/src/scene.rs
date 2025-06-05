@@ -1,7 +1,7 @@
 use crate::*;
 
 pub fn use_gles_scene_renderer(
-  cx: &mut QueryGPUHookCx,
+  cx: &mut impl QueryGPUHookCx,
   reversed_depth: bool,
   attributes_custom_key: std::sync::Arc<dyn Fn(u32, &mut ShaderVertexBuilder)>,
   texture_system: Option<GPUTextureBindingSystem>,

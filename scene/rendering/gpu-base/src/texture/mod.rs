@@ -8,7 +8,7 @@ pub use d2_and_sampler::*;
 
 use crate::*;
 
-pub fn use_texture_system(cx: &mut QueryGPUHookCx) -> Option<GPUTextureBindingSystem> {
+pub fn use_texture_system(cx: &mut impl QueryGPUHookCx) -> Option<GPUTextureBindingSystem> {
   todo!()
 }
 

@@ -24,7 +24,7 @@ pub trait IndirectNodeRenderImpl {
   fn as_any(&self) -> &dyn Any;
 }
 
-pub fn use_node_storage(cx: &mut QueryGPUHookCx) -> Option<IndirectNodeRenderer> {
+pub fn use_node_storage(cx: &mut impl QueryGPUHookCx) -> Option<IndirectNodeRenderer> {
   cx.use_storage_buffer(node_storages)
     .map(IndirectNodeRenderer)
 }

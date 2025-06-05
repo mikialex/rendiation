@@ -1,7 +1,7 @@
 use crate::*;
 
 pub fn use_gles_scene_model_renderer(
-  cx: &mut QueryGPUHookCx,
+  cx: &mut impl QueryGPUHookCx,
   model_impl: Option<Box<dyn GLESModelRenderImpl>>,
 ) -> Option<Box<dyn SceneModelRenderer>> {
   let node_render = use_node_uniforms(cx);

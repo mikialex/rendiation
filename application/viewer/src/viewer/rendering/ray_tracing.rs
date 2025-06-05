@@ -5,28 +5,26 @@ use crate::*;
 pub fn use_raytracing_rendering(cx: &mut Viewer3dRenderingCx) {
   let (cx, mode) = cx.use_plain_state_init(&RayTracingEffectMode::ReferenceTracing);
 
-  cx.access_query_gpu_cx(|cx| {
-    let base = use_scene_rtx_renderer_base(cx, todo!(), todo!(), todo!());
+  let base = use_scene_rtx_renderer_base(cx, todo!(), todo!(), todo!());
 
-    if let Some(ao) = use_rtx_ao_renderer(cx, todo!()) {
-      if rtx_renderer.base.any_changed {
-        ao.reset_sample();
-      }
-
-      let ao_result = ao.render(
-        &mut ctx,
-        todo!(),
-        &mut rtx_renderer.base,
-        content.scene,
-        content.main_camera,
-      );
-
-      pass("copy rtx ao into final target")
-        .with_color(target, store_full_frame())
-        .render_ctx(&mut ctx)
-        .by(&mut copy_frame(RenderTargetView::from(ao_result), None));
+  if let Some(ao) = use_rtx_ao_renderer(cx, todo!()) {
+    if rtx_renderer.base.any_changed {
+      ao.reset_sample();
     }
-  });
+
+    let ao_result = ao.render(
+      &mut ctx,
+      todo!(),
+      &mut rtx_renderer.base,
+      content.scene,
+      content.main_camera,
+    );
+
+    pass("copy rtx ao into final target")
+      .with_color(target, store_full_frame())
+      .render_ctx(&mut ctx)
+      .by(&mut copy_frame(RenderTargetView::from(ao_result), None));
+  }
 
   //
 }

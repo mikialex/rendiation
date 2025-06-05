@@ -5,7 +5,7 @@ use fast_hash_collection::FastHashMap;
 use crate::*;
 
 pub fn use_indirect_renderer(
-  cx: &mut QueryGPUHookCx,
+  cx: &mut impl QueryGPUHookCx,
   reversed_depth: bool,
   texture_system: Option<GPUTextureBindingSystem>,
 ) -> Option<IndirectSceneRenderer> {

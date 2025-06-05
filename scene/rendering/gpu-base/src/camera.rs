@@ -1,7 +1,7 @@
 use crate::*;
 
 pub fn use_camera_uniforms(
-  cx: &mut QueryGPUHookCx,
+  cx: &mut impl QueryGPUHookCx,
   camera_source: &RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
 ) -> Option<CameraRenderer> {
   cx.use_uniform_buffers::<EntityHandle<SceneCameraEntity>, CameraGPUTransform>(|source, cx| {

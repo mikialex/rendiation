@@ -1,7 +1,7 @@
 use crate::*;
 
 pub fn use_unlit_material_storage(
-  cx: &mut QueryGPUHookCx,
+  cx: &mut impl QueryGPUHookCx,
 ) -> Option<UnlitMaterialIndirectRenderer> {
   let storages = cx.use_storage_buffer(unlit_material_storages);
   let tex_storages = cx.use_storage_buffer(unlit_material_texture_storages);

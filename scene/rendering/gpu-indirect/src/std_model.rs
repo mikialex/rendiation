@@ -108,7 +108,7 @@ impl IndirectModelRenderImpl for Vec<Box<dyn IndirectModelRenderImpl>> {
 }
 
 pub fn use_std_model_renderer(
-  cx: &mut QueryGPUHookCx,
+  cx: &mut impl QueryGPUHookCx,
   materials: Option<Box<dyn IndirectModelMaterialRenderImpl>>,
   shapes: Option<Box<dyn IndirectModelShapeRenderImpl>>,
 ) -> Option<SceneStdModelIndirectRenderer> {

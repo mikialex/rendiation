@@ -40,7 +40,7 @@ impl GLESModelRenderImpl for Vec<Box<dyn GLESModelRenderImpl>> {
 }
 
 pub fn std_model_renderer(
-  cx: &mut QueryGPUHookCx,
+  cx: &mut impl QueryGPUHookCx,
   materials: Option<Box<dyn GLESModelMaterialRenderImpl>>,
   shapes: Option<Box<dyn GLESModelShapeRenderImpl>>,
 ) -> Option<Box<dyn GLESModelRenderImpl>> {

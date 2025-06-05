@@ -3,7 +3,9 @@ use rendiation_shader_library::normal_mapping::apply_normal_mapping_conditional;
 
 use crate::*;
 
-pub fn use_pbr_sg_material_uniforms(cx: &mut QueryGPUHookCx) -> Option<PbrSGMaterialGlesRenderer> {
+pub fn use_pbr_sg_material_uniforms(
+  cx: &mut impl QueryGPUHookCx,
+) -> Option<PbrSGMaterialGlesRenderer> {
   let uniforms = cx.use_uniform_buffers(|source, cx| {
     let albedo = global_watch()
       .watch::<PbrSGMaterialAlbedoComponent>()

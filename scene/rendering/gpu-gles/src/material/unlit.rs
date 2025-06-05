@@ -1,6 +1,8 @@
 use crate::*;
 
-pub fn use_unlit_material_uniforms(cx: &mut QueryGPUHookCx) -> Option<UnlitMaterialGlesRender> {
+pub fn use_unlit_material_uniforms(
+  cx: &mut impl QueryGPUHookCx,
+) -> Option<UnlitMaterialGlesRender> {
   let uniform = cx.use_uniform_buffers::<EntityHandle<UnlitMaterialEntity>, UnlitMaterialUniform>(
     |source, cx| {
       let color = global_watch()

@@ -3,7 +3,9 @@ use rendiation_shader_library::normal_mapping::apply_normal_mapping_conditional;
 
 use crate::*;
 
-pub fn use_pbr_mr_material_uniforms(cx: &mut QueryGPUHookCx) -> Option<PbrMRMaterialGlesRenderer> {
+pub fn use_pbr_mr_material_uniforms(
+  cx: &mut impl QueryGPUHookCx,
+) -> Option<PbrMRMaterialGlesRenderer> {
   let uniforms =
     cx.use_uniform_buffers::<EntityHandle<PbrMRMaterialEntity>, Uniform>(|source, cx| {
       let base_color = global_watch()

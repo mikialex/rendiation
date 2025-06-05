@@ -1,6 +1,6 @@
 use crate::*;
 
-pub fn use_node_uniforms(cx: &mut QueryGPUHookCx) -> Option<GLESNodeRenderer> {
+pub fn use_node_uniforms(cx: &mut impl QueryGPUHookCx) -> Option<GLESNodeRenderer> {
   cx.use_uniform_buffers(|source, cx| {
     source.with_source(
       scene_node_derive_world_mat()

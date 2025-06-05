@@ -3,7 +3,7 @@ use rendiation_mesh_core::*;
 use crate::*;
 
 pub fn use_attribute_mesh_renderer(
-  cx: &mut QueryGPUHookCx,
+  cx: &mut impl QueryGPUHookCx,
   foreign_implementation_semantics: std::sync::Arc<dyn Fn(u32, &mut ShaderVertexBuilder)>,
 ) -> Option<GLESAttributesMeshRenderer> {
   let multi_access = cx.use_global_multi_reactive_query::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>();

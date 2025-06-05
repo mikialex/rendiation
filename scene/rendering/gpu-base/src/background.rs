@@ -2,7 +2,7 @@ use fast_hash_collection::FastHashMap;
 
 use crate::*;
 
-pub fn use_background<'a>(cx: &'a mut QueryGPUHookCx<'a>) -> Option<SceneBackgroundRenderer<'a>> {
+pub fn use_background<'a>(cx: &'a mut impl QueryGPUHookCx) -> Option<SceneBackgroundRenderer<'a>> {
   let (cx, env_background_map_gpu) =
     cx.use_multi_updater_ref(|gpu| gpu_texture_cubes(gpu, FastHashMap::default()));
 
