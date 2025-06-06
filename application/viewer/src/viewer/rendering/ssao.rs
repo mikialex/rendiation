@@ -6,7 +6,7 @@ pub fn use_ssao<'a>(
   cx: &'a mut Viewer3dRenderingCx<'a>,
 ) -> (&'a mut Viewer3dRenderingCx<'a>, &'a mut SSAO) {
   let (cx, enable_ssao) = cx.use_plain_state_init(&true);
-  let (cx, ssao) = cx.use_plain_state_init_by(|_| SSAO::new(todo!()));
+  let (cx, ssao) = cx.use_gpu_state(SSAO::new);
 
   //   if self.enable_ssao {
   //   let ao = self.ssao.draw(

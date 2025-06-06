@@ -10,15 +10,15 @@ pub fn use_viewer_taa(
   let (cx, reproject) = cx.use_gpu_state(GPUReprojectInfo::new);
   let (cx, taa) = cx.use_plain_state::<TAA>();
 
-  cx.on_render(|frame, content| {
+  cx.on_render(|cx| {
     let mut taa_content = SceneCameraTAAContent {
-      queue: &frame.gpu.queue,
+      queue: &cx.frame.gpu.queue,
       camera: todo!(),
       f: |ctx: &mut FrameCtx| {
         let scene_result = attachment().use_hdr_if_enabled(hdr_enabled).request(ctx);
         let g_buffer = FrameGeometryBuffer::new(ctx);
 
-        f(frame, &g_buffer, &reproject.reproject.get());
+        f(&mut cx.frame, &g_buffer, &reproject.reproject.get());
 
         (
           TAAFrame {

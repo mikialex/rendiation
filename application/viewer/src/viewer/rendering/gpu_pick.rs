@@ -9,11 +9,11 @@ use crate::*;
 
 pub fn use_gpu_pick(cx: &mut Viewer3dRenderingCx, id_map: Option<RenderTargetView>) {
   let (cx, picker) = cx.use_plain_state::<GPUxEntityIdMapPicker>();
-  cx.on_render(|frame, _| {
+  cx.on_render(|cx| {
     if let Some(id_map) = id_map {
       let id_map = id_map.expect_standalone_common_texture_view().clone();
       let id_map: GPUTypedTextureView<TextureDimension2, u32> = id_map.try_into().unwrap();
-      picker.read_new_frame_id_buffer(&id_map, frame.gpu, &mut frame.encoder);
+      picker.read_new_frame_id_buffer(&id_map, cx.frame.gpu, &mut cx.frame.encoder);
     } else {
       picker.notify_frame_id_buffer_not_available();
     }

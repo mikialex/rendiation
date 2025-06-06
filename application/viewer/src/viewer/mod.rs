@@ -255,7 +255,6 @@ pub struct Viewer {
   on_demand_rendering: bool,
   on_demand_draw: NotifyScope,
   scene: Viewer3dSceneCtx,
-  rendering: Viewer3dRenderingCtx,
   derives: Viewer3dSceneDeriveSource,
   terminal: Terminal,
   background: ViewerBackgroundState,

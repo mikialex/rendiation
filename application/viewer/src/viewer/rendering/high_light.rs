@@ -8,13 +8,13 @@ pub fn use_high_lighter(
 ) -> Option<impl PassContent> {
   let (cx, highlight) = cx.use_gpu_state(HighLighter::new);
 
-  cx.on_render(|frame_ctx, content| {
-    (content.selected_target.is_some()).then(|| {
+  cx.on_render(|cx| {
+    (cx.content.selected_target.is_some()).then(|| {
       let masked_content = renderer.render_models(
-        Box::new(IteratorAsHostRenderBatch(content.selected_target)),
-        CameraRenderSource::Scene(content.main_camera),
+        Box::new(IteratorAsHostRenderBatch(cx.content.selected_target)),
+        CameraRenderSource::Scene(cx.content.main_camera),
         &HighLightMaskDispatcher,
-        frame_ctx,
+        cx.frame,
       );
       highlight.draw(frame_ctx, masked_content)
     })

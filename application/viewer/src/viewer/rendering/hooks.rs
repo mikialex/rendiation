@@ -92,9 +92,13 @@ impl<'a> Viewer3dRenderingCx<'a> {
 
   pub fn on_render<R>(
     &mut self,
-    f: impl FnOnce(&mut FrameCtx, &Viewer3dSceneCtx) -> R,
+    f: impl FnOnce(&mut Viewer3dRenderingCxRenderStage) -> R,
   ) -> Option<R> {
-    None
+    if let Viewer3dRenderingCxStage::Render(render) = &mut self.stage {
+      return Some(f(render));
+    } else {
+      None
+    }
   }
 
   pub fn on_gui<R>(&mut self, f: impl FnOnce(&'a mut egui::Ui) -> R) -> Option<R> {
@@ -105,12 +109,13 @@ impl<'a> Viewer3dRenderingCx<'a> {
 pub enum Viewer3dRenderingCxStage<'a> {
   Init {},
   Uninit {},
-  Render {
-    target: RenderTargetView,
-    content: &'a Viewer3dSceneCtx,
-    frame_cx: FrameCtx<'a>,
-  },
-  Gui {
-    context: &'a mut egui::Ui,
-  },
+  Render(Viewer3dRenderingCxRenderStage<'a>),
+  Gui { context: &'a mut egui::Ui },
+}
+
+pub struct Viewer3dRenderingCxRenderStage<'a> {
+  pub target: RenderTargetView,
+  pub content: &'a Viewer3dSceneCtx,
+  pub frame: FrameCtx<'a>,
+  pub dyn_cx: &'a mut DynCx,
 }
