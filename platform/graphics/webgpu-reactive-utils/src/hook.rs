@@ -18,10 +18,21 @@ use crate::*;
 // }
 
 pub trait QueryGPUHookCx {
+  fn use_state<T: Default>(&mut self) -> (&mut Self, &mut T);
+  fn use_gpu_init<T>(&mut self, init: impl FnOnce(&GPU) -> T) -> (&mut Self, &mut T);
   fn use_multi_updater<T>(
     &mut self,
     f: impl FnOnce() -> MultiUpdateContainer<T>,
   ) -> Option<LockReadGuardHolder<MultiUpdateContainer<T>>>;
+  fn use_multi_updater_gpu<T>(
+    &mut self,
+    f: impl FnOnce(&GPU) -> MultiUpdateContainer<T>,
+  ) -> Option<LockReadGuardHolder<MultiUpdateContainer<T>>>;
+
+  fn use_gpu_general_query<T: ReactiveGeneralQuery>(
+    &mut self,
+    f: impl FnOnce(&GPU) -> T,
+  ) -> Option<T::Output>;
 
   fn use_uniform_buffers<K, V: Std140>(
     &mut self,
@@ -67,4 +78,5 @@ pub trait QueryGPUHookCx {
   //   }
   // }
   fn when_render<X>(&self, f: impl FnOnce() -> X) -> Option<X>;
+  fn when_init<X>(&self, f: impl FnOnce() -> X) -> Option<X>;
 }

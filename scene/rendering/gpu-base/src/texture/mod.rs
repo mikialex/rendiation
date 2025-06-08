@@ -9,7 +9,30 @@ pub use d2_and_sampler::*;
 use crate::*;
 
 pub fn use_texture_system(cx: &mut impl QueryGPUHookCx) -> Option<GPUTextureBindingSystem> {
+  cx.use_gpu_init(|gpu| {});
   todo!()
+}
+
+pub fn use_bindless_texture(cx: &mut impl QueryGPUHookCx) -> Option<GPUTextureBindingSystem> {
+  cx.use_gpu_general_query(|cx| {
+    let default_2d: GPU2DTextureView = create_fallback_empty_texture(&cx.device)
+      .create_default_view()
+      .try_into()
+      .unwrap();
+    let texture_2d = gpu_texture_2ds(cx, default_2d.clone());
+
+    let default_sampler = create_gpu_sampler(cx, &TextureSampler::default());
+    let samplers = sampler_gpus(cx);
+
+    let bindless_minimal_effective_count = BINDLESS_EFFECTIVE_COUNT;
+    BindlessTextureSystemSource::new(
+      texture_2d,
+      default_2d,
+      samplers,
+      default_sampler,
+      bindless_minimal_effective_count,
+    )
+  })
 }
 
 const BINDLESS_EFFECTIVE_COUNT: u32 = 8192;
