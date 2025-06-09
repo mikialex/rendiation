@@ -60,6 +60,7 @@ type TerminalCommandCb = Box<
 pub struct TerminalInitExecuteCx<'a> {
   pub derive: &'a Viewer3dSceneDeriveSource,
   pub scene: &'a Viewer3dSceneCtx,
+  pub renderer: &'a mut Viewer3dRenderingCtx,
   pub dyn_cx: &'a mut DynCx,
 }
 

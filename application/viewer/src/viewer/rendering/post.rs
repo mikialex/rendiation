@@ -3,10 +3,6 @@ use rendiation_texture_gpu_process::*;
 
 use crate::*;
 
-pub fn use_post_effects(cx: &mut Viewer3dRenderingCx) {
-  todo!()
-}
-
 #[repr(C)]
 #[std140_layout]
 #[derive(Clone, Copy, ShaderStruct, Default, PartialEq)]

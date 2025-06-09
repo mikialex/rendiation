@@ -133,10 +133,7 @@ pub enum ViewerCxStage<'a> {
   /// this stage is standalone but not merged with SceneContentUpdate because
   /// user may read write scene freely
   #[non_exhaustive]
-  Gui {
-    egui_ctx: &'a mut egui::Context,
-  },
-  Render {},
+  Gui { egui_ctx: &'a mut egui::Context },
 }
 
 #[track_caller]
@@ -255,6 +252,7 @@ pub struct Viewer {
   on_demand_rendering: bool,
   on_demand_draw: NotifyScope,
   scene: Viewer3dSceneCtx,
+  rendering: Viewer3dRenderingCtx,
   derives: Viewer3dSceneDeriveSource,
   terminal: Terminal,
   background: ViewerBackgroundState,

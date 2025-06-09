@@ -74,10 +74,7 @@ pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
   run_application(move |cx| {
     use_egui_cx(cx, |cx, egui_cx| {
       use_viewer(cx, egui_cx, |cx| {
-        // expose screenshot and entity picker capability
-        use_viewer_renderer(cx, |cx| {
-          content_logic(cx);
-        });
+        content_logic(cx);
       });
     });
   });
@@ -95,7 +92,6 @@ fn main() {
 
   run_viewer_app(|cx| {
     use_viewer_egui(cx);
-
     use_enable_gltf_io(cx);
     use_enable_obj_io(cx);
     use_animation_player(cx);

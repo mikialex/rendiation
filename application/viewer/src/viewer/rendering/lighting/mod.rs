@@ -10,36 +10,24 @@ mod ibl;
 mod light_pass;
 mod punctual;
 mod shadow;
-mod tonemap;
 
 use debug_channels::*;
 use ibl::*;
 pub use light_pass::*;
 use punctual::*;
 pub use shadow::*;
-pub use tonemap::*;
 
 use crate::*;
 
-pub fn use_light_system(
-  cx: &mut Viewer3dRenderingCx,
-  f: impl FnOnce(&mut Viewer3dRenderingCx, &mut LightingRenderingCx),
-) {
-  let (cx, tonemap) = use_tonemap(cx);
-  use_channel_debugger(cx);
-
-  let opaque_content_lighting_technique = cx.use_plain_state_init(&LightingTechniqueKind::Forward);
-
-  //
-}
-
 pub struct LightSystem {
+  reversed_depth: bool,
   internal: BoxedQueryBasedGPUFeature<Box<dyn LightSystemSceneProvider>>,
   scene_ids: SceneIdProvider,
   directional_light_shadow: BasicShadowMapSystem,
   spot_light_shadow: BasicShadowMapSystem,
-  // enable_channel_debugger: bool,
-  // channel_debugger: ScreenChannelDebugger,
+  enable_channel_debugger: bool,
+  channel_debugger: ScreenChannelDebugger,
+  pub tonemap: ToneMap,
   material_defer_lighting_supports: DeferLightingMaterialRegistry,
   pub opaque_scene_content_lighting_technique: LightingTechniqueKind,
 }
@@ -194,17 +182,42 @@ impl LightSystem {
       internal,
       enable_channel_debugger: false,
       scene_ids,
-      // channel_debugger: ScreenChannelDebugger::default_useful(),
-      // tonemap: ToneMap::new(gpu),
-      // reversed_depth,
+      channel_debugger: ScreenChannelDebugger::default_useful(),
+      tonemap: ToneMap::new(gpu),
+      reversed_depth,
       material_defer_lighting_supports: DeferLightingMaterialRegistry::default()
         .register_material_impl::<PbrSurfaceEncodeDecode>(),
-      // opaque_scene_content_lighting_technique: LightingTechniqueKind::Forward,
+      opaque_scene_content_lighting_technique: LightingTechniqueKind::Forward,
     }
   }
 
   pub fn egui(&mut self, ui: &mut egui::Ui, is_hdr_rendering: bool) {
     ui.checkbox(&mut self.enable_channel_debugger, "enable channel debug");
+
+    if is_hdr_rendering {
+      ui.label("tonemap is disabled when hdr display enabled");
+      self.tonemap.ty = ToneMapType::None;
+    } else {
+      if self.tonemap.ty == ToneMapType::None {
+        self.tonemap.ty = ToneMapType::ACESFilmic;
+      }
+      egui::ComboBox::from_label("Tone mapping type")
+        .selected_text(format!("{:?}", &self.tonemap.ty))
+        .show_ui(ui, |ui| {
+          ui.selectable_value(&mut self.tonemap.ty, ToneMapType::Linear, "Linear");
+          ui.selectable_value(&mut self.tonemap.ty, ToneMapType::Cineon, "Cineon");
+          ui.selectable_value(&mut self.tonemap.ty, ToneMapType::Reinhard, "Reinhard");
+          ui.selectable_value(&mut self.tonemap.ty, ToneMapType::ACESFilmic, "ACESFilmic");
+        });
+
+      self.tonemap.mutate_exposure(|e| {
+        ui.add(
+          egui::Slider::new(e, 0.0..=2.0)
+            .step_by(0.05)
+            .text("exposure"),
+        );
+      });
+    }
   }
 
   pub fn deregister_resource(&mut self, qcx: &mut ReactiveQueryCtx) {
