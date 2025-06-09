@@ -270,6 +270,7 @@ impl CanCleanUpFrom<ApplicationDropCx> for Viewer {
       terminal: &mut self.terminal,
     };
     self.memory.cleanup(&mut dcx as *mut _ as *mut ());
+    self.rendering.uninit();
   }
 }
 

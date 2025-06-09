@@ -8,11 +8,19 @@ pub fn use_gles_scene_renderer(
 ) -> Option<GLESSceneRenderer> {
   let mesh = use_attribute_mesh_renderer(cx, attributes_custom_key).map(|v| Box::new(v) as Box<_>);
 
-  let flat_mat = use_unlit_material_uniforms(cx);
+  let unlit_mat = use_unlit_material_uniforms(cx);
   let pbr_mr_mat = use_pbr_mr_material_uniforms(cx);
   let pbr_sg_mat = use_pbr_sg_material_uniforms(cx);
 
-  let std_model = std_model_renderer(cx, todo!(), mesh);
+  let materials = cx.when_render(|| {
+    Box::new(vec![
+      Box::new(unlit_mat.unwrap()) as Box<dyn GLESModelMaterialRenderImpl>,
+      Box::new(pbr_mr_mat.unwrap()),
+      Box::new(pbr_sg_mat.unwrap()),
+    ]) as Box<dyn GLESModelMaterialRenderImpl>
+  });
+
+  let std_model = std_model_renderer(cx, materials, mesh);
 
   let scene_model_renderer = use_gles_scene_model_renderer(cx, std_model);
   let model_lookup = cx.use_global_multi_reactive_query::<SceneModelBelongsToScene>();

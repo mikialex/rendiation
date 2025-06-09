@@ -13,9 +13,17 @@ pub fn use_indirect_renderer(
   let pbr_mr_material = use_pbr_mr_material_storage(cx);
   let pbr_sg_material = use_pbr_sg_material_storage(cx);
 
-  let mesh = use_bindless_mesh(cx);
+  let materials = cx.when_render(|| {
+    Box::new(vec![
+      Box::new(unlit_material.unwrap()) as Box<dyn IndirectModelMaterialRenderImpl>,
+      Box::new(pbr_mr_material.unwrap()),
+      Box::new(pbr_sg_material.unwrap()),
+    ]) as Box<dyn IndirectModelMaterialRenderImpl>
+  });
 
-  let std_model = use_std_model_renderer(cx, todo!(), todo!());
+  let mesh = use_bindless_mesh(cx).map(|v| Box::new(v) as Box<dyn IndirectModelShapeRenderImpl>);
+
+  let std_model = use_std_model_renderer(cx, materials, mesh);
 
   let scene_model = use_indirect_scene_model(cx, std_model.map(|v| Box::new(v) as Box<_>));
 
@@ -32,7 +40,7 @@ pub fn use_indirect_renderer(
     model_lookup: model_lookup.unwrap(),
     reversed_depth,
     alpha_blend: model_alpha_blend.unwrap(),
-  });
+  })
 }
 
 pub struct IndirectSceneRenderer {

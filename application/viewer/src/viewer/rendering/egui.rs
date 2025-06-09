@@ -102,17 +102,6 @@ impl Viewer3dRenderingCtx {
 
     ui.separator();
 
-    if old != self.current_renderer_impl_ty {
-      self.renderer_impl.deregister(&mut self.rendering_resource);
-      self.renderer_impl = init_renderer(
-        &mut self.rendering_resource,
-        self.current_renderer_impl_ty,
-        &self.gpu,
-        self.camera_source.clone_as_static(),
-        self.ndc.enable_reverse_z,
-      );
-    }
-
     ui.add_enabled_ui(is_target_support_indirect_draw, |ui| {
       let mut indirect_occlusion_culling_impl_exist =
         self.indirect_occlusion_culling_impl.is_some();

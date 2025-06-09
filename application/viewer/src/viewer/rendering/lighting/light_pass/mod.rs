@@ -22,20 +22,21 @@ pub struct LightingRenderingCx<'a> {
 pub fn render_lighting_scene_content(
   ctx: &mut FrameCtx,
   lighting_cx: &LightingRenderingCx,
-  renderer: &dyn SceneRenderer<ContentKey = SceneContentKey>,
+  renderer: &ViewerSceneRenderer,
   content: &Viewer3dSceneCtx,
   scene_derive: &Viewer3dSceneDerive,
   scene_result: &RenderTargetView,
   g_buffer: &FrameGeometryBuffer,
   main_camera_gpu: &dyn RenderComponent,
 ) {
-  let (color_ops, depth_ops) = renderer.init_clear(content.scene);
+  let (color_ops, depth_ops) = renderer
+    .background
+    .init_clear(content.scene, renderer.reversed_depth);
 
-  let mut background = renderer.render_background(
-    content.scene,
-    CameraRenderSource::Scene(content.main_camera),
-    lighting_cx.tonemap,
-  );
+  let mut background =
+    renderer
+      .background
+      .draw(content.scene, main_camera_gpu, lighting_cx.tonemap);
 
   match lighting_cx.lighting_method {
     LightingTechniqueKind::Forward => {
@@ -52,15 +53,15 @@ pub fn render_lighting_scene_content(
         lighting.as_ref(),
       ]) as &dyn RenderComponent;
 
-      let mut all_opaque_object = renderer.extract_and_make_pass_content(
+      let mut all_opaque_object = renderer.scene.extract_and_make_pass_content(
         SceneContentKey::only_opaque_objects(),
         content.scene,
-        CameraRenderSource::Scene(content.main_camera),
+        main_camera_gpu,
         ctx,
         scene_pass_dispatcher,
       );
 
-      let all_transparent_object = renderer.extract_scene_batch(
+      let all_transparent_object = renderer.scene.extract_scene_batch(
         content.scene,
         SceneContentKey::only_alpha_blend_objects(),
         ctx,
@@ -84,9 +85,9 @@ pub fn render_lighting_scene_content(
           all_transparent_object
         };
 
-      let mut all_transparent_object = renderer.make_scene_batch_pass_content(
+      let mut all_transparent_object = renderer.scene.make_scene_batch_pass_content(
         all_transparent_object,
-        CameraRenderSource::Scene(content.main_camera),
+        main_camera_gpu,
         scene_pass_dispatcher,
         ctx,
       );
@@ -116,10 +117,10 @@ pub fn render_lighting_scene_content(
         &material_writer,
       ]) as &dyn RenderComponent;
 
-      let mut main_scene_content = renderer.extract_and_make_pass_content(
+      let mut main_scene_content = renderer.scene.extract_and_make_pass_content(
         SceneContentKey::default(),
         content.scene,
-        CameraRenderSource::Scene(content.main_camera),
+        main_camera_gpu,
         ctx,
         scene_pass_dispatcher,
       );

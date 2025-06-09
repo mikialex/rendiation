@@ -2,7 +2,12 @@ use fast_hash_collection::FastHashMap;
 
 use crate::*;
 
-pub fn use_background<'a>(cx: &'a mut impl QueryGPUHookCx) -> Option<SceneBackgroundRenderer<'a>> {
+pub fn use_background<'a>(
+  cx: &'a mut impl QueryGPUHookCx,
+) -> (
+  &'a mut impl QueryGPUHookCx,
+  Option<SceneBackgroundRenderer<'a>>,
+) {
   let (cx, env_background_map_gpu) =
     cx.use_multi_updater_ref(|gpu| gpu_texture_cubes(gpu, FastHashMap::default()));
 
@@ -30,14 +35,15 @@ pub fn use_background<'a>(cx: &'a mut impl QueryGPUHookCx) -> Option<SceneBackgr
       )
     });
 
-  cx.when_render(|| SceneBackgroundRenderer {
+  let r = cx.when_render(|| SceneBackgroundRenderer {
     solid_background: global_entity_component_of::<SceneSolidBackground>().read(),
     env_background_map: global_entity_component_of::<SceneHDRxEnvBackgroundCubeMap>()
       .read_foreign_key(),
     env_background_map_gpu: env_background_map_gpu.unwrap(),
     env_background_intensity: env_background_intensity_uniform.unwrap(),
     solid_background_uniform: solid_background_color_uniform.unwrap(),
-  })
+  });
+  (cx, r)
 }
 
 pub struct SceneBackgroundRenderer<'a> {
@@ -74,7 +80,7 @@ impl<'a> SceneBackgroundRenderer<'a> {
   pub fn draw(
     &'a self,
     scene: EntityHandle<SceneEntity>,
-    camera: Box<dyn RenderComponent + 'a>,
+    camera: &'a dyn RenderComponent,
     tonemap: &'a dyn RenderComponent,
   ) -> impl PassContent + 'a {
     if let Some(env) = self.env_background_map.get(scene) {
@@ -110,7 +116,7 @@ impl PassContent for BackGroundDrawPassContent<'_> {
 struct CubeEnvComponent<'a> {
   map: GPUCubeTextureView,
   intensity: UniformBufferDataView<Vec4<f32>>,
-  camera: Box<dyn RenderComponent + 'a>,
+  camera: &'a dyn RenderComponent,
   tonemap: &'a dyn RenderComponent,
 }
 

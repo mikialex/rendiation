@@ -247,10 +247,10 @@ impl LightSystem {
         &frame_ctx.gpu.device,
         CameraGPUTransform::from(CameraTransform::new(proj, world)),
       );
-      let camera = Box::new(CameraGPU { ubo: camera });
-      let camera = CameraRenderSource::External(camera);
+      let camera = Box::new(CameraGPU { ubo: camera }) as Box<dyn RenderComponent>;
 
-      renderer.extract_and_make_pass_content(key, target_scene, camera, frame_ctx, &depth)
+      // todo custom cow
+      renderer.extract_and_make_pass_content(key, target_scene, todo!(), frame_ctx, &depth)
     };
 
     let ds = self.directional_light_shadow.update_shadow_maps(

@@ -23,10 +23,11 @@ pub use post::*;
 use reactive::EventSource;
 use rendiation_device_ray_tracing::GPUWaveFrontComputeRaytracingSystem;
 use rendiation_occlusion_culling::GPUTwoPassOcclusionCulling;
-use rendiation_scene_rendering_gpu_indirect::build_default_indirect_render_system;
+use rendiation_scene_rendering_gpu_indirect::use_indirect_renderer;
 use rendiation_scene_rendering_gpu_ray_tracing::*;
 use rendiation_texture_gpu_process::copy_frame;
 use rendiation_webgpu::*;
+use rendiation_webgpu_reactive_utils::*;
 use widget::*;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -34,9 +35,6 @@ pub enum RasterizationRenderBackendType {
   Gles,
   Indirect,
 }
-
-pub type BoxedSceneRenderImplProvider =
-  BoxedQueryBasedGPUFeature<Box<dyn SceneRenderer<ContentKey = SceneContentKey>>>;
 
 #[derive(Clone, Copy)]
 pub struct ViewerNDC {
@@ -58,38 +56,49 @@ impl<T: Scalar> NDCSpaceMapper<T> for ViewerNDC {
   }
 }
 
-pub fn init_renderer(
-  updater: &mut ReactiveQueryCtx,
-  ty: RasterizationRenderBackendType,
-  gpu: &GPU,
-  camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
-  enable_reverse_z: bool,
-) -> BoxedSceneRenderImplProvider {
-  let prefer_bindless_textures = false;
-  let mut renderer_impl = match ty {
-    RasterizationRenderBackendType::Gles => {
-      log::info!("init gles rendering");
-      Box::new(build_default_gles_render_system(
-        gpu,
-        prefer_bindless_textures,
-        camera_source,
-        enable_reverse_z,
-        std::sync::Arc::new(|_, _| {}),
-      )) as BoxedSceneRenderImplProvider
-    }
-    RasterizationRenderBackendType::Indirect => {
-      log::info!("init indirect rendering");
-      Box::new(build_default_indirect_render_system(
-        gpu,
-        prefer_bindless_textures,
-        camera_source,
-        enable_reverse_z,
-      ))
-    }
+struct SceneRendererX<'a> {
+  camera: CameraRenderer,
+  background: SceneBackgroundRenderer<'a>,
+  texture: GPUTextureBindingSystem,
+  raster_scene_renderer: Box<dyn SceneRenderer<ContentKey = SceneContentKey>>,
+  rtx_renderer: Option<RayTracingSystemGroup>,
+}
+
+pub fn use_viewer_scene_renderer<'a>(
+  qcx: &'a mut impl QueryGPUHookCx,
+  camera_source: &RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
+  current_renderer_impl_ty: RasterizationRenderBackendType,
+  enable_rtx_support: bool,
+) -> Option<SceneRendererX<'a>> {
+  let camera = use_camera_uniforms(qcx, camera_source);
+  let (qcx, background) = use_background(qcx);
+  let texture_sys = use_texture_system(qcx);
+
+  let t_clone = texture_sys.clone();
+  let raster_scene_renderer = match current_renderer_impl_ty {
+    RasterizationRenderBackendType::Gles => qcx.scope(|qcx| {
+      use_gles_scene_renderer(qcx, todo!(), todo!(), t_clone)
+        .map(|r| Box::new(r) as Box<dyn SceneRenderer<ContentKey = SceneContentKey>>)
+    }),
+    RasterizationRenderBackendType::Indirect => qcx.scope(|qcx| {
+      use_indirect_renderer(qcx, todo!(), t_clone)
+        .map(|r| Box::new(r) as Box<dyn SceneRenderer<ContentKey = SceneContentKey>>)
+    }),
   };
 
-  renderer_impl.register(updater, gpu);
-  renderer_impl
+  let rtx_scene_renderer = if enable_rtx_support {
+    qcx.scope(|qcx| todo!())
+  } else {
+    None
+  };
+
+  qcx.when_render(|| SceneRendererX {
+    camera: camera.unwrap(),
+    background: background.unwrap(),
+    texture: texture_sys.unwrap(),
+    raster_scene_renderer: raster_scene_renderer.unwrap(),
+    rtx_renderer: rtx_scene_renderer.unwrap(),
+  })
 }
 
 pub struct Viewer3dRenderingCtx {
@@ -97,11 +106,11 @@ pub struct Viewer3dRenderingCtx {
   ndc: ViewerNDC,
   frame_logic: ViewerFrameLogic,
   rendering_resource: ReactiveQueryCtx,
-  renderer_impl: BoxedSceneRenderImplProvider,
+  renderer_memory: FunctionMemory,
   indirect_occlusion_culling_impl: Option<GPUTwoPassOcclusionCulling>,
   current_renderer_impl_ty: RasterizationRenderBackendType,
-  rtx_renderer_impl: Option<RayTracingSystemGroup>,
   rtx_effect_mode: RayTracingEffectMode,
+  rtx_renderer_enabled: bool,
   rtx_rendering_enabled: bool,
   lighting: LightSystem,
   pool: AttachmentPool,
@@ -140,14 +149,6 @@ impl Viewer3dRenderingCtx {
 
     let camera_source_init = camera_source.clone_as_static();
 
-    let renderer_impl = init_renderer(
-      &mut rendering_resource,
-      RasterizationRenderBackendType::Gles,
-      &gpu,
-      camera_source,
-      ndc.enable_reverse_z,
-    );
-
     Self {
       enable_statistic_collect: false,
       frame_index: 0,
@@ -155,11 +156,11 @@ impl Viewer3dRenderingCtx {
       swap_chain,
       indirect_occlusion_culling_impl: None,
       rendering_resource,
-      renderer_impl,
+      renderer_memory: Default::default(),
       current_renderer_impl_ty: RasterizationRenderBackendType::Gles,
-      rtx_renderer_impl: None, // late init
       rtx_effect_mode: RayTracingEffectMode::ReferenceTracing,
       rtx_rendering_enabled: false,
+      rtx_renderer_enabled: false,
       frame_logic: ViewerFrameLogic::new(&gpu),
       lighting,
       pool: init_attachment_pool(&gpu),
@@ -186,23 +187,24 @@ impl Viewer3dRenderingCtx {
   }
 
   pub fn set_enable_rtx_rendering_support(&mut self, enable: bool) {
-    if enable {
-      if self.rtx_renderer_impl.is_none() {
-        let rtx_backend_system = GPUWaveFrontComputeRaytracingSystem::new(&self.gpu);
-        let rtx_system = RtxSystemCore::new(Box::new(rtx_backend_system));
-        let mut rtx_renderer_impl =
-          RayTracingSystemGroup::new(&rtx_system, &self.gpu, self.camera_source.clone_as_static());
+    self.rtx_renderer_enabled = enable;
+    // if enable {
+    //   if self.rtx_renderer_impl.is_none() {
+    //     let rtx_backend_system = GPUWaveFrontComputeRaytracingSystem::new(&self.gpu);
+    //     let rtx_system = RtxSystemCore::new(Box::new(rtx_backend_system));
+    //     let mut rtx_renderer_impl =
+    //       RayTracingSystemGroup::new(&rtx_system, &self.gpu, self.camera_source.clone_as_static());
 
-        rtx_renderer_impl.register(&mut self.rendering_resource, &self.gpu);
+    //     rtx_renderer_impl.register(&mut self.rendering_resource, &self.gpu);
 
-        self.rtx_renderer_impl = Some(rtx_renderer_impl);
-      }
-    } else {
-      if let Some(rtx) = &mut self.rtx_renderer_impl {
-        rtx.deregister(&mut self.rendering_resource);
-      }
-      self.rtx_renderer_impl = None;
-    }
+    //     self.rtx_renderer_impl = Some(rtx_renderer_impl);
+    //   }
+    // } else {
+    //   if let Some(rtx) = &mut self.rtx_renderer_impl {
+    //     rtx.deregister(&mut self.rendering_resource);
+    //   }
+    //   self.rtx_renderer_impl = None;
+    // }
   }
 
   /// only texture could be read. caller must sure the target passed in render call not using
@@ -219,6 +221,23 @@ impl Viewer3dRenderingCtx {
       .flatten()
   }
 
+  pub fn uninit(&mut self) {
+    let mut qcx = QueryGPUHookCxImpl {
+      memory: &mut self.renderer_memory,
+      gpu: &self.gpu,
+      stage: QueryHookStage::Unit {
+        cx: &mut self.rendering_resource,
+      },
+    };
+
+    use_viewer_scene_renderer(
+      &mut qcx,
+      &self.camera_source,
+      self.current_renderer_impl_ty,
+      self.rtx_renderer_enabled,
+    );
+  }
+
   #[instrument(name = "frame rendering", skip_all)]
   pub fn render(
     &mut self,
@@ -227,6 +246,22 @@ impl Viewer3dRenderingCtx {
     scene_derive: &Viewer3dSceneDerive,
     cx: &mut Context,
   ) {
+    let mut qcx = QueryGPUHookCxImpl {
+      memory: &mut self.renderer_memory,
+      gpu: &self.gpu,
+      stage: QueryHookStage::Render {
+        cx: &mut self.rendering_resource,
+      },
+    };
+
+    let renderer = use_viewer_scene_renderer(
+      &mut qcx,
+      &self.camera_source,
+      self.current_renderer_impl_ty,
+      self.rtx_renderer_enabled,
+    )
+    .unwrap();
+
     self.frame_index += 1;
     let now = Instant::now();
     if let Some(last_frame_time) = self.last_render_timestamp.take() {
@@ -240,8 +275,6 @@ impl Viewer3dRenderingCtx {
     let span = span!(Level::INFO, "update all rendering resource");
     let mut resource = self.rendering_resource.poll_update_all(cx);
     drop(span);
-
-    let renderer = self.renderer_impl.create_impl(&mut resource);
 
     let statistics = self
       .enable_statistic_collect
@@ -258,7 +291,7 @@ impl Viewer3dRenderingCtx {
     };
 
     if self.rtx_rendering_enabled {
-      if let Some(rtx_renderer_impl) = &mut self.rtx_renderer_impl {
+      if let Some(rtx_renderer_impl) = &mut renderer.rtx_renderer {
         let mut rtx_renderer = rtx_renderer_impl.create_impl(&mut resource);
 
         match self.rtx_effect_mode {
@@ -315,9 +348,16 @@ impl Viewer3dRenderingCtx {
         .unwrap()
         .view_projection_inv;
 
+      let ras_renderer = ViewerSceneRenderer {
+        scene: renderer.raster_scene_renderer.as_ref(),
+        cameras: &renderer.camera,
+        background: &renderer.background,
+        reversed_depth: todo!(),
+      };
+
       let entity_id = self.frame_logic.render(
         &mut ctx,
-        renderer.as_ref(),
+        &ras_renderer,
         scene_derive,
         &lighting_cx,
         content,
@@ -336,12 +376,14 @@ impl Viewer3dRenderingCtx {
     }
 
     {
+      let main_camera_gpu = renderer.camera.make_component(content.main_camera).unwrap();
+
       let widgets_result = draw_widgets(
         &mut ctx,
-        renderer.as_ref(),
+        renderer.raster_scene_renderer.as_ref(),
         content.widget_scene,
         self.ndc.enable_reverse_z,
-        content.main_camera,
+        &main_camera_gpu,
         &self.frame_logic.axis,
       );
       let mut copy_scene_msaa_widgets = copy_frame(
