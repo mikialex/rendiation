@@ -23,7 +23,6 @@ use grid_ground::*;
 pub use lighting::*;
 pub use post::*;
 use reactive::EventSource;
-use rendiation_device_ray_tracing::GPUWaveFrontComputeRaytracingSystem;
 use rendiation_occlusion_culling::GPUTwoPassOcclusionCulling;
 use rendiation_scene_rendering_gpu_indirect::*;
 use rendiation_scene_rendering_gpu_ray_tracing::*;
@@ -67,13 +66,13 @@ struct ViewerRendererInstance<'a> {
   lighting: LightingRenderingCxPrepareCtx,
 }
 
-pub fn use_viewer_scene_renderer<'a>(
+fn use_viewer_scene_renderer<'a>(
   qcx: &'a mut impl QueryGPUHookCx,
   camera_source: &RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
   current_renderer_impl_ty: RasterizationRenderBackendType,
   enable_rtx_support: bool,
   prefer_bindless_texture: bool,
-  reversed_depth: bool,
+  ndc: ViewerNDC,
   attributes_custom_key: std::sync::Arc<dyn Fn(u32, &mut ShaderVertexBuilder)>,
 ) -> Option<ViewerRendererInstance<'a>> {
   let (qcx, change_scope) = qcx.use_begin_change_set_collect();
@@ -96,7 +95,7 @@ pub fn use_viewer_scene_renderer<'a>(
   let t_clone = texture_sys.clone();
   let raster_scene_renderer = match current_renderer_impl_ty {
     RasterizationRenderBackendType::Gles => qcx.scope(|qcx| {
-      use_gles_scene_renderer(qcx, reversed_depth, attributes_custom_key, t_clone)
+      use_gles_scene_renderer(qcx, ndc.enable_reverse_z, attributes_custom_key, t_clone)
         .map(|r| Box::new(r) as Box<dyn SceneRenderer<ContentKey = SceneContentKey>>)
     }),
     RasterizationRenderBackendType::Indirect => qcx.scope(|qcx| {
@@ -110,7 +109,8 @@ pub fn use_viewer_scene_renderer<'a>(
 
       if enable_rtx_support {
         let rtx_materials_support = Arc::new(vec![
-          //
+          Box::new(pbr_mr_material.clone().unwrap()) as Box<dyn SceneMaterialSurfaceSupport>,
+          Box::new(pbr_sg_material.clone().unwrap()) as Box<dyn SceneMaterialSurfaceSupport>,
         ]);
         //
       }
@@ -123,7 +123,7 @@ pub fn use_viewer_scene_renderer<'a>(
         ]) as Box<dyn IndirectModelMaterialRenderImpl>
       });
 
-      use_indirect_renderer(qcx, reversed_depth, materials, t_clone)
+      use_indirect_renderer(qcx, ndc.enable_reverse_z, materials, t_clone)
         .map(|r| Box::new(r) as Box<dyn SceneRenderer<ContentKey = SceneContentKey>>)
     }),
   };
@@ -132,11 +132,11 @@ pub fn use_viewer_scene_renderer<'a>(
 
   let rtx_scene_renderer = if enable_rtx_support {
     qcx.scope(|qcx| {
-      let rtx_backend_system = GPUWaveFrontComputeRaytracingSystem::new(qcx.gpu());
-
       // use_rtx_scene_material(cx, materials, tex)
 
-      let base = use_scene_rtx_renderer_base(qcx, system, camera, materials, tex);
+      // use_viewer_rtx(qcx);
+
+      // let base = use_scene_rtx_renderer_base(qcx, system, camera, materials, tex);
 
       //     let rtx_system = RtxSystemCore::new(Box::new(rtx_backend_system));
       //     let mut rtx_renderer_impl =
@@ -156,7 +156,7 @@ pub fn use_viewer_scene_renderer<'a>(
     background: background.unwrap(),
     texture: texture_sys.unwrap(),
     raster_scene_renderer: raster_scene_renderer.unwrap(),
-    rtx_renderer: rtx_scene_renderer.unwrap(),
+    rtx_renderer: rtx_scene_renderer.flatten().unwrap(),
     lighting: lighting.unwrap(),
   })
 }
@@ -272,7 +272,7 @@ impl Viewer3dRenderingCtx {
       self.current_renderer_impl_ty,
       self.rtx_renderer_enabled,
       false, // prefer_bindless_texture
-      self.ndc.enable_reverse_z,
+      self.ndc.clone(),
       std::sync::Arc::new(|_, _| {}),
     );
   }
@@ -299,7 +299,7 @@ impl Viewer3dRenderingCtx {
       self.current_renderer_impl_ty,
       self.rtx_renderer_enabled,
       false, // prefer_bindless_texture
-      self.ndc.enable_reverse_z,
+      self.ndc,
       std::sync::Arc::new(|_, _| {}),
     )
     .unwrap();
@@ -347,7 +347,7 @@ impl Viewer3dRenderingCtx {
             let ao_result = rtx_renderer.ao.render(
               &mut ctx,
               core.rtx_system.as_ref(),
-              &mut rtx_renderer.base,
+              &rtx_renderer.base,
               content.scene,
               content.main_camera,
             );
@@ -365,7 +365,7 @@ impl Viewer3dRenderingCtx {
             let result = rtx_renderer.pt.render(
               &mut ctx,
               core.rtx_system.as_ref(),
-              &mut rtx_renderer.base,
+              &rtx_renderer.base,
               content.scene,
               content.main_camera,
               &self.lighting.tonemap,
@@ -391,7 +391,7 @@ impl Viewer3dRenderingCtx {
         scene: renderer.raster_scene_renderer.as_ref(),
         cameras: &renderer.camera,
         background: &renderer.background,
-        reversed_depth: todo!(),
+        reversed_depth: self.ndc.enable_reverse_z,
       };
 
       let entity_id = self.frame_logic.render(

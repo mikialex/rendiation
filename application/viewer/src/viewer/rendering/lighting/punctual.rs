@@ -90,7 +90,7 @@ impl SceneDirectionalLightingPreparer {
   }
 }
 
-struct SceneDirectionalLightingProvider {
+pub struct SceneDirectionalLightingProvider {
   light: UniformBufferDataView<Shader140Array<DirectionalLightUniform, 8>>,
   shadow: BasicShadowMapComponent,
 }
@@ -235,7 +235,7 @@ impl SceneSpotLightingPreparer {
   }
 }
 
-struct SceneSpotLightingProvider {
+pub struct SceneSpotLightingProvider {
   light: UniformBufferDataView<Shader140Array<SpotLightUniform, 8>>,
   shadow: BasicShadowMapComponent,
 }

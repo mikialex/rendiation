@@ -199,6 +199,10 @@ impl<'a> QueryGPUHookCx for QueryGPUHookCxImpl<'a> {
   }
 
   fn when_init<X>(&self, f: impl FnOnce() -> X) -> Option<X> {
-    todo!()
+    if let QueryHookStage::Init { .. } = self.stage {
+      Some(f())
+    } else {
+      None
+    }
   }
 }

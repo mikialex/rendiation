@@ -2,10 +2,14 @@ use rendiation_webgpu_reactive_utils::*;
 
 use crate::*;
 
-pub fn use_camera_gpu_frustum(qcx: &mut impl QueryGPUHookCx) -> Option<CameraGPUFrustums> {
+pub fn use_camera_gpu_frustum(
+  qcx: &mut impl QueryGPUHookCx,
+  camera_source: &RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
+) -> Option<CameraGPUFrustums> {
   qcx
     .use_uniform_buffers(|source, cx| {
       let c = camera_source
+        .clone()
         .collective_map(|transform| {
           let arr = Frustum::new_from_matrix(transform.view_projection)
             .planes

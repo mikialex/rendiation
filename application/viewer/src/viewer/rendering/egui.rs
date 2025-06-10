@@ -113,42 +113,42 @@ impl Viewer3dRenderingCtx {
       self.set_enable_indirect_occlusion_culling_support(indirect_occlusion_culling_impl_exist);
     });
 
-    ui.add_enabled_ui(true, |ui| {
-      let mut rtx_renderer_impl_exist = self.rtx_renderer_impl.is_some();
-      ui.checkbox(&mut rtx_renderer_impl_exist, "rtx_renderer_is_ready");
-      self.set_enable_rtx_rendering_support(rtx_renderer_impl_exist);
+    // ui.add_enabled_ui(true, |ui| {
+    //   let mut rtx_renderer_impl_exist = self.rtx_renderer_impl.is_some();
+    //   ui.checkbox(&mut rtx_renderer_impl_exist, "rtx_renderer_is_ready");
+    //   self.set_enable_rtx_rendering_support(rtx_renderer_impl_exist);
 
-      if let Some(renderer) = &self.rtx_renderer_impl {
-        ui.checkbox(&mut self.rtx_rendering_enabled, "enable ray tracing");
-        egui::ComboBox::from_label("ray tracing mode")
-          .selected_text(format!("{:?}", &self.rtx_effect_mode))
-          .show_ui(ui, |ui| {
-            ui.selectable_value(
-              &mut self.rtx_effect_mode,
-              RayTracingEffectMode::ReferenceTracing,
-              "Path tracing",
-            );
-            ui.selectable_value(
-              &mut self.rtx_effect_mode,
-              RayTracingEffectMode::AO,
-              "AO only",
-            );
-          });
+    //   if let Some(renderer) = &self.rtx_renderer_impl {
+    //     ui.checkbox(&mut self.rtx_rendering_enabled, "enable ray tracing");
+    //     egui::ComboBox::from_label("ray tracing mode")
+    //       .selected_text(format!("{:?}", &self.rtx_effect_mode))
+    //       .show_ui(ui, |ui| {
+    //         ui.selectable_value(
+    //           &mut self.rtx_effect_mode,
+    //           RayTracingEffectMode::ReferenceTracing,
+    //           "Path tracing",
+    //         );
+    //         ui.selectable_value(
+    //           &mut self.rtx_effect_mode,
+    //           RayTracingEffectMode::AO,
+    //           "AO only",
+    //         );
+    //       });
 
-        match self.rtx_effect_mode {
-          RayTracingEffectMode::AO => {
-            if ui.button("reset ao sample").clicked() {
-              renderer.ao.reset_ao_sample();
-            }
-          }
-          RayTracingEffectMode::ReferenceTracing => {
-            if ui.button("reset pt sample").clicked() {
-              renderer.pt.reset_sample();
-            }
-          }
-        }
-      }
-    });
+    //     match self.rtx_effect_mode {
+    //       RayTracingEffectMode::AO => {
+    //         if ui.button("reset ao sample").clicked() {
+    //           renderer.ao.reset_ao_sample();
+    //         }
+    //       }
+    //       RayTracingEffectMode::ReferenceTracing => {
+    //         if ui.button("reset pt sample").clicked() {
+    //           renderer.pt.reset_sample();
+    //         }
+    //       }
+    //     }
+    //   }
+    // });
 
     ui.separator();
 

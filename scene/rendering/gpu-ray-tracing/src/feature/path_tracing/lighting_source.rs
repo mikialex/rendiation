@@ -1,79 +1,24 @@
 use crate::*;
 
-#[derive(Default)]
-pub struct ScenePTLightingSource {
-  point_lights: QueryToken,
-  point_lights_multi_access: QueryToken,
-  spot_lights: QueryToken,
-  spot_lights_multi_access: QueryToken,
-  directional_lights: QueryToken,
-  directional_lights_multi_access: QueryToken,
+pub fn use_scene_pt_light_source(
+  qcx: &mut impl QueryGPUHookCx,
+) -> Option<ScenePTLightingSceneDataGroup> {
+  let directional_lights = use_directional_light_storage(qcx);
+  let spot_lights = use_spot_light_storage(qcx);
+  let point_lights = use_point_light_storage(qcx);
+
+  qcx.when_render(|| ScenePTLightingSceneDataGroup {
+    spot_lights: spot_lights.unwrap().into(),
+    point_lights: point_lights.unwrap().into(),
+    directional_lights: directional_lights.unwrap().into(),
+  })
 }
 
-impl ScenePTLightingSource {
-  pub fn register_resource(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
-    let data = point_storage(cx);
-    self.point_lights = qcx.register_multi_updater(data);
-
-    let multi_access = MultiAccessGPUDataBuilder::new(
-      cx,
-      global_rev_ref().watch_inv_ref_untyped::<PointLightRefScene>(),
-      light_multi_access_config(),
-    );
-    self.point_lights_multi_access = qcx.register(Box::new(multi_access));
-
-    let data = spot_storage(cx);
-    self.spot_lights = qcx.register_multi_updater(data);
-
-    let multi_access = MultiAccessGPUDataBuilder::new(
-      cx,
-      global_rev_ref().watch_inv_ref_untyped::<SpotLightRefScene>(),
-      light_multi_access_config(),
-    );
-    self.spot_lights_multi_access = qcx.register(Box::new(multi_access));
-
-    let data = directional_storage(cx);
-    self.directional_lights = qcx.register_multi_updater(data);
-
-    let multi_access = MultiAccessGPUDataBuilder::new(
-      cx,
-      global_rev_ref().watch_inv_ref_untyped::<DirectionalRefScene>(),
-      light_multi_access_config(),
-    );
-    self.directional_lights_multi_access = qcx.register(Box::new(multi_access));
-  }
-
-  pub fn deregister_resource(&mut self, qcx: &mut ReactiveQueryCtx) {
-    qcx.deregister(&mut self.point_lights);
-    qcx.deregister(&mut self.point_lights_multi_access);
-    qcx.deregister(&mut self.spot_lights);
-    qcx.deregister(&mut self.spot_lights_multi_access);
-    qcx.deregister(&mut self.directional_lights);
-    qcx.deregister(&mut self.directional_lights_multi_access);
-  }
-
-  pub fn create_impl(&self, cx: &mut QueryResultCtx) -> ScenePTLightingSceneDataGroup {
-    ScenePTLightingSceneDataGroup {
-      point_lights: ScenePTLightingSceneData {
-        lights: cx.take_storage_array_buffer(self.point_lights).unwrap(),
-        lights_accessor: cx
-          .take_multi_access_gpu(self.point_lights_multi_access)
-          .unwrap(),
-      },
-      spot_lights: ScenePTLightingSceneData {
-        lights: cx.take_storage_array_buffer(self.spot_lights).unwrap(),
-        lights_accessor: cx
-          .take_multi_access_gpu(self.spot_lights_multi_access)
-          .unwrap(),
-      },
-      directional_lights: ScenePTLightingSceneData {
-        lights: cx
-          .take_storage_array_buffer(self.directional_lights)
-          .unwrap(),
-        lights_accessor: cx
-          .take_multi_access_gpu(self.directional_lights_multi_access)
-          .unwrap(),
-      },
+impl<T: Std430> From<LightGPUStorage<T>> for ScenePTLightingSceneData<T> {
+  fn from(value: LightGPUStorage<T>) -> Self {
+    ScenePTLightingSceneData {
+      lights: value.0,
+      lights_accessor: value.1,
     }
   }
 }
