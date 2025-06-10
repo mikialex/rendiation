@@ -15,16 +15,34 @@ use debug_channels::*;
 use ibl::*;
 pub use light_pass::*;
 use punctual::*;
+use rendiation_webgpu_reactive_utils::*;
 pub use shadow::*;
 
 use crate::*;
 
+pub fn use_lighting(qcx: &mut impl QueryGPUHookCx, ndc: ViewerNDC) {
+  let size = Size::from_u32_pair_min_one((2048, 2048));
+  let config = MultiLayerTexturePackerConfig {
+    max_size: SizeWithDepth {
+      depth: NonZeroU32::new(2).unwrap(),
+      size,
+    },
+    init_size: SizeWithDepth {
+      depth: NonZeroU32::new(1).unwrap(),
+      size,
+    },
+  };
+
+  let dir_lights = use_directional_light_uniform(qcx, &config, ndc.clone());
+  let spot_lights = use_scene_spot_light_uniform(qcx, &config, ndc.clone());
+  let point_lights = use_scene_point_light_uniform(qcx);
+
+  let scene_ids = use_scene_id_provider(qcx);
+}
+
 pub struct LightSystem {
   reversed_depth: bool,
-  internal: BoxedQueryBasedGPUFeature<Box<dyn LightSystemSceneProvider>>,
-  scene_ids: SceneIdProvider,
-  directional_light_shadow: BasicShadowMapSystem,
-  spot_light_shadow: BasicShadowMapSystem,
+  memory: FunctionMemory,
   enable_channel_debugger: bool,
   channel_debugger: ScreenChannelDebugger,
   pub tonemap: ToneMap,
@@ -33,103 +51,7 @@ pub struct LightSystem {
 }
 
 impl LightSystem {
-  pub fn new_and_register(
-    qcx: &mut ReactiveQueryCtx,
-    gpu: &GPU,
-    reversed_depth: bool,
-    ndc: impl NDCSpaceMapper<f32> + Copy,
-  ) -> Self {
-    let size = Size::from_u32_pair_min_one((2048, 2048));
-    let config = MultiLayerTexturePackerConfig {
-      max_size: SizeWithDepth {
-        depth: NonZeroU32::new(2).unwrap(),
-        size,
-      },
-      init_size: SizeWithDepth {
-        depth: NonZeroU32::new(1).unwrap(),
-        size,
-      },
-    };
-
-    let source_proj = global_watch()
-      .watch_untyped_key::<DirectionLightShadowBound>()
-      .collective_map(move |orth| {
-        orth
-          .unwrap_or(OrthographicProjection {
-            left: -20.,
-            right: 20.,
-            top: 20.,
-            bottom: -20.,
-            near: 0.,
-            far: 1000.,
-          })
-          .compute_projection_mat(&ndc)
-      })
-      .into_boxed();
-
-    let source_world = scene_node_derive_world_mat()
-      .one_to_many_fanout(global_rev_ref().watch_inv_ref::<DirectionalRefNode>())
-      .untyped_entity_handle()
-      .into_boxed();
-
-    let (directional_light_shadow, directional_light_shadow_address) = basic_shadow_map_uniform(
-      ShadowMapSystemInputs {
-        source_world,
-        source_proj,
-        size: global_watch()
-          .watch_untyped_key::<BasicShadowMapResolutionOf<DirectionLightBasicShadowInfo>>()
-          .collective_map(|size| Size::from_u32_pair_min_one(size.into()))
-          .into_boxed(),
-        bias: global_watch()
-          .watch_untyped_key::<BasicShadowMapBiasOf<DirectionLightBasicShadowInfo>>()
-          .collective_map(|v| v.into())
-          .into_boxed(),
-        enabled: global_watch()
-          .watch_untyped_key::<BasicShadowMapEnabledOf<DirectionLightBasicShadowInfo>>()
-          .into_boxed(),
-      },
-      config,
-      gpu,
-    );
-
-    let source_proj = global_watch()
-      .watch_untyped_key::<SpotLightHalfConeAngle>()
-      .collective_map(move |half_cone_angle| {
-        PerspectiveProjection {
-          near: 0.1,
-          far: 2000.,
-          fov: Deg::from_rad(half_cone_angle * 2.),
-          aspect: 1.,
-        }
-        .compute_projection_mat(&ndc)
-      })
-      .into_boxed();
-
-    let source_world = scene_node_derive_world_mat()
-      .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SpotLightRefNode>())
-      .untyped_entity_handle()
-      .into_boxed();
-
-    let (spot_light_shadow, spot_light_shadow_address) = basic_shadow_map_uniform(
-      ShadowMapSystemInputs {
-        source_proj,
-        source_world,
-        size: global_watch()
-          .watch_untyped_key::<BasicShadowMapResolutionOf<SpotLightBasicShadowInfo>>()
-          .collective_map(|size| Size::from_u32_pair_min_one(size.into()))
-          .into_boxed(),
-        bias: global_watch()
-          .watch_untyped_key::<BasicShadowMapBiasOf<SpotLightBasicShadowInfo>>()
-          .collective_map(|v| v.into())
-          .into_boxed(),
-        enabled: global_watch()
-          .watch_untyped_key::<BasicShadowMapEnabledOf<SpotLightBasicShadowInfo>>()
-          .into_boxed(),
-      },
-      config,
-      gpu,
-    );
-
+  pub fn new_and_register(qcx: &mut ReactiveQueryCtx, gpu: &GPU, reversed_depth: bool) -> Self {
     let ltc_1 = include_bytes!("./ltc_1.bin");
     let ltc_1 = create_gpu_texture2d(
       gpu,
@@ -264,9 +186,6 @@ impl LightSystem {
       self
         .spot_light_shadow
         .update_shadow_maps(cx, frame_ctx, &content, self.reversed_depth);
-
-    rcx.type_based_result.register(DirectionalShaderAtlas(ds));
-    rcx.type_based_result.register(SpotShaderAtlas(ss));
 
     let sys = SceneLightSystem {
       scene_ids: self.scene_ids.create_impl(rcx),

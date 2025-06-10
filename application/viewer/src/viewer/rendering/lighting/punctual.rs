@@ -4,56 +4,89 @@ use rendiation_webgpu_reactive_utils::*;
 
 use crate::*;
 
-pub struct DirectionalShaderAtlas(pub GPU2DArrayDepthTextureView);
-pub struct SpotShaderAtlas(pub GPU2DArrayDepthTextureView);
+pub fn use_directional_light_uniform(
+  qcx: &mut impl QueryGPUHookCx,
+  init_config: &MultiLayerTexturePackerConfig,
+  ndc: ViewerNDC,
+) -> Option<SceneDirectionalLightingPreparer> {
+  let (qcx, shadow) = qcx.use_gpu_init(|gpu| {
+    let source_proj = global_watch()
+      .watch_untyped_key::<DirectionLightShadowBound>()
+      .collective_map(move |orth| {
+        orth
+          .unwrap_or(OrthographicProjection {
+            left: -20.,
+            right: 20.,
+            top: 20.,
+            bottom: -20.,
+            near: 0.,
+            far: 1000.,
+          })
+          .compute_projection_mat(&ndc)
+      })
+      .into_boxed();
 
-pub struct DirectionalUniformLightList {
-  light: QueryToken,
-  shadow: QueryToken,
-  reversed_depth: bool,
-}
+    let source_world = scene_node_derive_world_mat()
+      .one_to_many_fanout(global_rev_ref().watch_inv_ref::<DirectionalRefNode>())
+      .untyped_entity_handle()
+      .into_boxed();
 
-impl DirectionalUniformLightList {
-  pub fn new(
-    qcx: &mut ReactiveQueryCtx,
-    light: UniformArrayUpdateContainer<DirectionalLightUniform, 8>,
-    shadow: UniformArrayUpdateContainer<BasicShadowMapInfo, 8>,
-    reversed_depth: bool,
-  ) -> Self {
-    Self {
-      light: qcx.register_multi_updater(light),
-      shadow: qcx.register_multi_updater(shadow),
-      reversed_depth,
-    }
-  }
-}
-
-impl QueryBasedFeature<Box<dyn LightSystemSceneProvider>> for DirectionalUniformLightList {
-  type Context = GPU;
-  // already registered in constructor
-  fn register(&mut self, _: &mut ReactiveQueryCtx, _: &GPU) {}
-
-  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
-    qcx.deregister(&mut self.light);
-    qcx.deregister(&mut self.shadow);
-  }
-
-  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn LightSystemSceneProvider> {
-    let light = cx.take_uniform_array_buffer(self.light).unwrap();
-    let info = cx.take_uniform_array_buffer(self.shadow).unwrap();
-    let shadow_map_atlas = cx
-      .type_based_result
-      .take::<DirectionalShaderAtlas>()
-      .unwrap()
-      .0;
-    Box::new(SceneDirectionalLightingProvider {
-      light,
-      shadow: BasicShadowMapComponent {
-        shadow_map_atlas,
-        info,
-        reversed_depth: self.reversed_depth,
+    basic_shadow_map_uniform(
+      ShadowMapSystemInputs {
+        source_world,
+        source_proj,
+        size: global_watch()
+          .watch_untyped_key::<BasicShadowMapResolutionOf<DirectionLightBasicShadowInfo>>()
+          .collective_map(|size| Size::from_u32_pair_min_one(size.into()))
+          .into_boxed(),
+        bias: global_watch()
+          .watch_untyped_key::<BasicShadowMapBiasOf<DirectionLightBasicShadowInfo>>()
+          .collective_map(|v| v.into())
+          .into_boxed(),
+        enabled: global_watch()
+          .watch_untyped_key::<BasicShadowMapEnabledOf<DirectionLightBasicShadowInfo>>()
+          .into_boxed(),
       },
+      *init_config,
+      gpu,
+    )
+  });
+
+  qcx
+    .use_uniform_array_buffers(directional_uniform_array)
+    .map(|light| SceneDirectionalLightingPreparer {
+      shadow: todo!(),
+      light,
+      info: shadow.1.target.clone(),
     })
+}
+
+pub struct SceneDirectionalLightingPreparer {
+  pub shadow: BasicShadowMapSystem,
+  pub light: UniformBufferDataView<Shader140Array<DirectionalLightUniform, 8>>,
+  pub info: UniformBufferDataView<Shader140Array<BasicShadowMapInfo, 8>>,
+}
+
+impl SceneDirectionalLightingPreparer {
+  pub fn update_shadow_maps(
+    mut self,
+    frame_ctx: &mut FrameCtx,
+    draw: &impl Fn(Mat4<f32>, Mat4<f32>, &mut FrameCtx) -> Box<dyn PassContent>,
+    reversed_depth: bool,
+  ) -> SceneDirectionalLightingProvider {
+    noop_ctx!(cx);
+    let shadow_map_atlas = self
+      .shadow
+      .update_shadow_maps(cx, frame_ctx, draw, reversed_depth);
+
+    SceneDirectionalLightingProvider {
+      light: self.light,
+      shadow: BasicShadowMapComponent {
+        shadow_map_atlas: todo!(),
+        info: self.info,
+        reversed_depth,
+      },
+    }
   }
 }
 
@@ -86,25 +119,12 @@ impl LightSystemSceneProvider for SceneDirectionalLightingProvider {
   }
 }
 
-#[derive(Default)]
-pub struct PointLightUniformLightList {
-  light: QueryToken,
-}
-
-impl QueryBasedFeature<Box<dyn LightSystemSceneProvider>> for PointLightUniformLightList {
-  type Context = GPU;
-  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
-    let uniform = point_uniform_array(cx);
-    self.light = qcx.register_multi_updater(uniform);
-  }
-  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
-    qcx.deregister(&mut self.light);
-  }
-
-  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn LightSystemSceneProvider> {
-    let uniform = cx.take_uniform_array_buffer(self.light).unwrap();
-    Box::new(ScenePointLightingProvider { uniform })
-  }
+pub fn use_scene_point_light_uniform(
+  qcx: &mut impl QueryGPUHookCx,
+) -> Option<ScenePointLightingProvider> {
+  qcx
+    .use_uniform_array_buffers(point_uniform_array)
+    .map(|uniform| ScenePointLightingProvider { uniform })
 }
 
 struct ScenePointLightingProvider {
@@ -132,48 +152,86 @@ impl LightSystemSceneProvider for ScenePointLightingProvider {
   }
 }
 
-pub struct SpotLightUniformLightList {
-  light: QueryToken,
-  shadow: QueryToken,
-  reversed_depth: bool,
-}
+pub fn use_scene_spot_light_uniform(
+  qcx: &mut impl QueryGPUHookCx,
+  init_config: &MultiLayerTexturePackerConfig,
+  ndc: ViewerNDC,
+) -> Option<SceneSpotLightingPreparer> {
+  qcx.use_gpu_init(|gpu| {
+    let source_proj = global_watch()
+      .watch_untyped_key::<SpotLightHalfConeAngle>()
+      .collective_map(move |half_cone_angle| {
+        PerspectiveProjection {
+          near: 0.1,
+          far: 2000.,
+          fov: Deg::from_rad(half_cone_angle * 2.),
+          aspect: 1.,
+        }
+        .compute_projection_mat(&ndc)
+      })
+      .into_boxed();
 
-impl SpotLightUniformLightList {
-  pub fn new(
-    qcx: &mut ReactiveQueryCtx,
-    light: UniformArrayUpdateContainer<SpotLightUniform, 8>,
-    shadow: UniformArrayUpdateContainer<BasicShadowMapInfo, 8>,
-    reversed_depth: bool,
-  ) -> Self {
-    Self {
-      light: qcx.register_multi_updater(light),
-      shadow: qcx.register_multi_updater(shadow),
-      reversed_depth,
-    }
-  }
-}
+    let source_world = scene_node_derive_world_mat()
+      .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SpotLightRefNode>())
+      .untyped_entity_handle()
+      .into_boxed();
 
-impl QueryBasedFeature<Box<dyn LightSystemSceneProvider>> for SpotLightUniformLightList {
-  type Context = GPU;
-  // registered in constructor
-  fn register(&mut self, _qcx: &mut ReactiveQueryCtx, _cx: &GPU) {}
-  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
-    qcx.deregister(&mut self.light);
-    qcx.deregister(&mut self.shadow);
-  }
+    basic_shadow_map_uniform(
+      ShadowMapSystemInputs {
+        source_proj,
+        source_world,
+        size: global_watch()
+          .watch_untyped_key::<BasicShadowMapResolutionOf<SpotLightBasicShadowInfo>>()
+          .collective_map(|size| Size::from_u32_pair_min_one(size.into()))
+          .into_boxed(),
+        bias: global_watch()
+          .watch_untyped_key::<BasicShadowMapBiasOf<SpotLightBasicShadowInfo>>()
+          .collective_map(|v| v.into())
+          .into_boxed(),
+        enabled: global_watch()
+          .watch_untyped_key::<BasicShadowMapEnabledOf<SpotLightBasicShadowInfo>>()
+          .into_boxed(),
+      },
+      *init_config,
+      gpu,
+    )
+  });
 
-  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn LightSystemSceneProvider> {
-    let light = cx.take_uniform_array_buffer(self.light).unwrap();
-    let info = cx.take_uniform_array_buffer(self.shadow).unwrap();
-    let shadow_map_atlas = cx.type_based_result.take::<SpotShaderAtlas>().unwrap().0;
-    Box::new(SceneSpotLightingProvider {
+  qcx
+    .use_uniform_array_buffers(spot_uniform_array)
+    .map(|light| SceneSpotLightingPreparer {
+      shadow: todo!(),
       light,
+      info: shadow.1.target.clone(),
+    })
+}
+
+pub struct SceneSpotLightingPreparer {
+  pub shadow: BasicShadowMapSystem,
+  pub light: UniformBufferDataView<Shader140Array<SpotLightUniform, 8>>,
+  pub info: UniformBufferDataView<Shader140Array<BasicShadowMapInfo, 8>>,
+}
+
+impl SceneSpotLightingPreparer {
+  pub fn update_shadow_maps(
+    mut self,
+    frame_ctx: &mut FrameCtx,
+    draw: &impl Fn(Mat4<f32>, Mat4<f32>, &mut FrameCtx) -> Box<dyn PassContent>,
+    reversed_depth: bool,
+  ) -> SceneSpotLightingProvider {
+    noop_ctx!(cx);
+    let shadow_map_atlas = self
+      .shadow
+      .update_shadow_maps(cx, frame_ctx, draw, reversed_depth);
+
+    SceneSpotLightingProvider {
+      light: self.light,
       shadow: BasicShadowMapComponent {
         shadow_map_atlas,
-        info,
-        reversed_depth: self.reversed_depth,
+        info: self.info,
+        reversed_depth,
       },
-    })
+    }
   }
 }
 

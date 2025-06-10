@@ -170,8 +170,6 @@ impl Viewer3dRenderingCtx {
           },
           egui::Sense::empty(),
         );
-        // let center = res.rect.center();
-        // painter.circle_filled(center, 50., egui::Color32::BLACK);
         let x_start = res.rect.left();
         let y_start = res.rect.top();
         let x_step = graph_width / self.stat_frame_time_in_ms.history_size() as f32;

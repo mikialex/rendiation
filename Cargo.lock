@@ -3235,7 +3235,6 @@ dependencies = [
 name = "reactive"
 version = "0.0.1"
 dependencies = [
- "anymap",
  "dyn-clone",
  "fast-hash-collection",
  "futures",

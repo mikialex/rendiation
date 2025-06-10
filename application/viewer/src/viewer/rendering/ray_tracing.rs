@@ -1,4 +1,5 @@
 use rendiation_scene_rendering_gpu_ray_tracing::*;
+use rendiation_webgpu_reactive_utils::*;
 
 use crate::*;
 
@@ -8,50 +9,22 @@ pub enum RayTracingEffectMode {
   ReferenceTracing,
 }
 
-pub struct RayTracingSystemGroup {
-  pub base: RayTracingSystemBase,
-  pub ao: RayTracingAORenderSystem,
-  pub pt: DeviceReferencePathTracingSystem,
+pub fn use_viewer_rtx(
+  cx: &mut impl QueryGPUHookCx,
+  rtx: &RtxSystemCore,
+) -> Option<RayTracingRendererGroup> {
+  let base = use_scene_rtx_renderer_base(cx, camera, materials, tex);
+  let ao = use_rtx_ao_renderer(cx, rtx);
+  let pt = use_rtx_pt_renderer(cx, rtx);
+
+  cx.when_render(|| RayTracingRendererGroup {
+    base: base.unwrap(),
+    ao: ao.unwrap(),
+    pt: pt.unwrap(),
+  })
 }
 
-impl RayTracingSystemGroup {
-  pub fn new(
-    rtx: &RtxSystemCore,
-    gpu: &GPU,
-    camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
-  ) -> Self {
-    Self {
-      base: RayTracingSystemBase::new(rtx, gpu, camera_source),
-      ao: RayTracingAORenderSystem::new(rtx, gpu),
-      pt: DeviceReferencePathTracingSystem::new(rtx, gpu),
-    }
-  }
-}
-
-impl QueryBasedFeature<RayTracingFeatureGroup> for RayTracingSystemGroup {
-  type Context = GPU;
-  fn register(&mut self, qcx: &mut ReactiveQueryCtx, gpu: &GPU) {
-    self.base.register(qcx, gpu);
-    self.ao.register(qcx, gpu);
-    self.pt.register(qcx, gpu);
-  }
-
-  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
-    self.base.deregister(qcx);
-    self.ao.deregister(qcx);
-    self.pt.deregister(qcx);
-  }
-
-  fn create_impl(&self, cx: &mut QueryResultCtx) -> RayTracingFeatureGroup {
-    RayTracingFeatureGroup {
-      base: self.base.create_impl(cx),
-      ao: self.ao.create_impl(cx),
-      pt: self.pt.create_impl(cx),
-    }
-  }
-}
-
-pub struct RayTracingFeatureGroup {
+pub struct RayTracingRendererGroup {
   pub base: SceneRayTracingRendererBase,
   pub ao: SceneRayTracingAORenderer,
   pub pt: DeviceReferencePathTracingRenderer,

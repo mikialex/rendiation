@@ -24,7 +24,6 @@ use reactive::EventSource;
 use rendiation_device_ray_tracing::GPUWaveFrontComputeRaytracingSystem;
 use rendiation_occlusion_culling::GPUTwoPassOcclusionCulling;
 use rendiation_scene_rendering_gpu_indirect::use_indirect_renderer;
-use rendiation_scene_rendering_gpu_ray_tracing::*;
 use rendiation_texture_gpu_process::copy_frame;
 use rendiation_webgpu::*;
 use rendiation_webgpu_reactive_utils::*;
@@ -56,12 +55,12 @@ impl<T: Scalar> NDCSpaceMapper<T> for ViewerNDC {
   }
 }
 
-struct SceneRendererX<'a> {
+struct ViewerRendererInstance<'a> {
   camera: CameraRenderer,
   background: SceneBackgroundRenderer<'a>,
   texture: GPUTextureBindingSystem,
   raster_scene_renderer: Box<dyn SceneRenderer<ContentKey = SceneContentKey>>,
-  rtx_renderer: Option<RayTracingSystemGroup>,
+  rtx_renderer: Option<RayTracingRendererGroup>,
 }
 
 pub fn use_viewer_scene_renderer<'a>(
@@ -69,30 +68,52 @@ pub fn use_viewer_scene_renderer<'a>(
   camera_source: &RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
   current_renderer_impl_ty: RasterizationRenderBackendType,
   enable_rtx_support: bool,
-) -> Option<SceneRendererX<'a>> {
+  prefer_bindless_texture: bool,
+  reversed_depth: bool,
+  attributes_custom_key: std::sync::Arc<dyn Fn(u32, &mut ShaderVertexBuilder)>,
+) -> Option<ViewerRendererInstance<'a>> {
   let camera = use_camera_uniforms(qcx, camera_source);
   let (qcx, background) = use_background(qcx);
-  let texture_sys = use_texture_system(qcx);
+
+  let ty = get_suitable_texture_system_ty(
+    qcx.gpu(),
+    matches!(
+      current_renderer_impl_ty,
+      RasterizationRenderBackendType::Indirect
+    ),
+    prefer_bindless_texture,
+  );
+  let texture_sys = use_texture_system(qcx, ty);
 
   let t_clone = texture_sys.clone();
   let raster_scene_renderer = match current_renderer_impl_ty {
     RasterizationRenderBackendType::Gles => qcx.scope(|qcx| {
-      use_gles_scene_renderer(qcx, todo!(), todo!(), t_clone)
+      use_gles_scene_renderer(qcx, reversed_depth, attributes_custom_key, t_clone)
         .map(|r| Box::new(r) as Box<dyn SceneRenderer<ContentKey = SceneContentKey>>)
     }),
     RasterizationRenderBackendType::Indirect => qcx.scope(|qcx| {
-      use_indirect_renderer(qcx, todo!(), t_clone)
+      use_indirect_renderer(qcx, reversed_depth, t_clone)
         .map(|r| Box::new(r) as Box<dyn SceneRenderer<ContentKey = SceneContentKey>>)
     }),
   };
 
   let rtx_scene_renderer = if enable_rtx_support {
-    qcx.scope(|qcx| todo!())
+    qcx.scope(|qcx| {
+      let rtx_backend_system = GPUWaveFrontComputeRaytracingSystem::new(qcx.gpu());
+      //     let rtx_system = RtxSystemCore::new(Box::new(rtx_backend_system));
+      //     let mut rtx_renderer_impl =
+      //       RayTracingSystemGroup::new(&rtx_system, &self.gpu, self.camera_source.clone_as_static());
+
+      //     rtx_renderer_impl.register(&mut self.rendering_resource, &self.gpu);
+
+      //     self.rtx_renderer_impl = Some(rtx_renderer_impl);
+      todo!()
+    })
   } else {
     None
   };
 
-  qcx.when_render(|| SceneRendererX {
+  qcx.when_render(|| ViewerRendererInstance {
     camera: camera.unwrap(),
     background: background.unwrap(),
     texture: texture_sys.unwrap(),
@@ -188,23 +209,6 @@ impl Viewer3dRenderingCtx {
 
   pub fn set_enable_rtx_rendering_support(&mut self, enable: bool) {
     self.rtx_renderer_enabled = enable;
-    // if enable {
-    //   if self.rtx_renderer_impl.is_none() {
-    //     let rtx_backend_system = GPUWaveFrontComputeRaytracingSystem::new(&self.gpu);
-    //     let rtx_system = RtxSystemCore::new(Box::new(rtx_backend_system));
-    //     let mut rtx_renderer_impl =
-    //       RayTracingSystemGroup::new(&rtx_system, &self.gpu, self.camera_source.clone_as_static());
-
-    //     rtx_renderer_impl.register(&mut self.rendering_resource, &self.gpu);
-
-    //     self.rtx_renderer_impl = Some(rtx_renderer_impl);
-    //   }
-    // } else {
-    //   if let Some(rtx) = &mut self.rtx_renderer_impl {
-    //     rtx.deregister(&mut self.rendering_resource);
-    //   }
-    //   self.rtx_renderer_impl = None;
-    // }
   }
 
   /// only texture could be read. caller must sure the target passed in render call not using
@@ -235,6 +239,9 @@ impl Viewer3dRenderingCtx {
       &self.camera_source,
       self.current_renderer_impl_ty,
       self.rtx_renderer_enabled,
+      false, // prefer_bindless_texture
+      self.ndc.enable_reverse_z,
+      std::sync::Arc::new(|_, _| {}),
     );
   }
 
@@ -259,6 +266,9 @@ impl Viewer3dRenderingCtx {
       &self.camera_source,
       self.current_renderer_impl_ty,
       self.rtx_renderer_enabled,
+      false, // prefer_bindless_texture
+      self.ndc.enable_reverse_z,
+      std::sync::Arc::new(|_, _| {}),
     )
     .unwrap();
 
@@ -291,9 +301,7 @@ impl Viewer3dRenderingCtx {
     };
 
     if self.rtx_rendering_enabled {
-      if let Some(rtx_renderer_impl) = &mut renderer.rtx_renderer {
-        let mut rtx_renderer = rtx_renderer_impl.create_impl(&mut resource);
-
+      if let Some(rtx_renderer) = &mut renderer.rtx_renderer {
         match self.rtx_effect_mode {
           RayTracingEffectMode::AO => {
             if rtx_renderer.base.any_changed {

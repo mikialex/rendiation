@@ -74,11 +74,14 @@ pub struct SceneRayTracingRendererBase {
 
 pub fn use_scene_rtx_renderer_base(
   cx: &mut impl QueryGPUHookCx,
+  system: &RtxSystemCore,
   camera: Option<Box<dyn RtxCameraRenderImpl>>,
   materials: Option<Arc<Vec<Box<dyn SceneMaterialSurfaceSupport>>>>,
   tex: Option<GPUTextureBindingSystem>,
 ) -> Option<SceneRayTracingRendererBase> {
   let material = use_rtx_scene_material(cx, materials, tex);
+
+  let scene_tlas = cx.use_reactive_query_gpu(|gpu| scene_to_tlas(gpu, system.rtx_acc.clone()));
 
   todo!()
 }

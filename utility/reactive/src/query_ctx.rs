@@ -1,5 +1,3 @@
-use anymap::AnyMap;
-
 use crate::*;
 
 /// This is a container to hold reactive query or general query like object.
@@ -100,7 +98,6 @@ impl ReactiveQueryCtx {
     QueryResultCtx {
       token_based_result,
       token_based_waked,
-      type_based_result: Default::default(),
     }
   }
 }
@@ -124,8 +121,6 @@ impl Default for QueryToken {
 pub struct QueryResultCtx {
   pub token_based_result: FastHashMap<u32, Box<dyn Any>>,
   pub token_based_waked: FastHashSet<u32>,
-  /// this field provides convenient way to inject any adhoc result for parameter passing
-  pub type_based_result: AnyMap,
 }
 
 impl QueryResultCtx {

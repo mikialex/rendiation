@@ -4,6 +4,7 @@ use database::{EntityHandle, ForeignKeySemantic};
 use crate::*;
 
 pub trait QueryGPUHookCx {
+  fn gpu(&self) -> &GPU;
   fn scope<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R;
 
   fn use_state<T: Default>(&mut self) -> (&mut Self, &mut T);
@@ -26,6 +27,11 @@ pub trait QueryGPUHookCx {
     &mut self,
     source: impl FnOnce(UniformUpdateContainer<K, V>, &GPU) -> UniformUpdateContainer<K, V>,
   ) -> Option<LockReadGuardHolder<UniformUpdateContainer<K, V>>>;
+
+  fn use_uniform_array_buffers<V: Std140, const N: usize>(
+    &mut self,
+    source: impl FnOnce(&GPU) -> UniformArrayUpdateContainer<V, N>,
+  ) -> Option<UniformBufferDataView<Shader140Array<V, N>>>;
 
   fn use_storage_buffer<V: Std430>(
     &mut self,
@@ -53,6 +59,11 @@ pub trait QueryGPUHookCx {
     source: impl FnOnce() -> Q,
   ) -> Option<Box<dyn DynQuery<Key = K, Value = V>>>;
 
+  fn use_reactive_query_gpu<K, V, Q: ReactiveQuery<Key = K, Value = V>>(
+    &mut self,
+    source: impl FnOnce(&GPU) -> Q,
+  ) -> Option<Box<dyn DynQuery<Key = K, Value = V>>>;
+
   fn use_val_refed_reactive_query<K, V, Q: ReactiveValueRefQuery<Key = K, Value = V>>(
     &mut self,
     source: impl FnOnce(&GPU) -> Q,
@@ -75,6 +86,9 @@ pub enum QueryHookStage<'a> {
 }
 
 impl<'a> QueryGPUHookCx for QueryGPUHookCxImpl<'a> {
+  fn gpu(&self) -> &GPU {
+    self.gpu
+  }
   fn scope<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
     todo!()
   }
@@ -135,6 +149,13 @@ impl<'a> QueryGPUHookCx for QueryGPUHookCxImpl<'a> {
     todo!()
   }
 
+  fn use_uniform_array_buffers<V: Std140, const N: usize>(
+    &mut self,
+    source: impl FnOnce(&GPU) -> UniformArrayUpdateContainer<V, N>,
+  ) -> Option<UniformBufferDataView<Shader140Array<V, N>>> {
+    todo!()
+  }
+
   fn use_global_multi_reactive_query<D: ForeignKeySemantic>(
     &mut self,
   ) -> Option<
@@ -146,6 +167,12 @@ impl<'a> QueryGPUHookCx for QueryGPUHookCxImpl<'a> {
   fn use_reactive_query<K, V, Q: ReactiveQuery<Key = K, Value = V>>(
     &mut self,
     source: impl FnOnce() -> Q,
+  ) -> Option<Box<dyn DynQuery<Key = K, Value = V>>> {
+    todo!()
+  }
+  fn use_reactive_query_gpu<K, V, Q: ReactiveQuery<Key = K, Value = V>>(
+    &mut self,
+    source: impl FnOnce(&GPU) -> Q,
   ) -> Option<Box<dyn DynQuery<Key = K, Value = V>>> {
     todo!()
   }
