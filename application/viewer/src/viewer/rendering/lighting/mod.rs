@@ -20,7 +20,10 @@ pub use shadow::*;
 
 use crate::*;
 
-pub fn use_lighting(qcx: &mut impl QueryGPUHookCx, ndc: ViewerNDC) -> Option<LightSystemInstance> {
+pub fn use_lighting(
+  qcx: &mut impl QueryGPUHookCx,
+  ndc: ViewerNDC,
+) -> Option<LightingRenderingCxPrepareCtx> {
   let size = Size::from_u32_pair_min_one((2048, 2048));
   let config = MultiLayerTexturePackerConfig {
     max_size: SizeWithDepth {
@@ -41,7 +44,7 @@ pub fn use_lighting(qcx: &mut impl QueryGPUHookCx, ndc: ViewerNDC) -> Option<Lig
 
   let scene_ids = use_scene_id_provider(qcx);
 
-  qcx.when_render(|| LightSystemInstance {
+  qcx.when_render(|| LightingRenderingCxPrepareCtx {
     dir_lights: dir_lights.unwrap(),
     spot_lights: spot_lights.unwrap(),
     point_lights: point_lights.unwrap(),
@@ -51,7 +54,7 @@ pub fn use_lighting(qcx: &mut impl QueryGPUHookCx, ndc: ViewerNDC) -> Option<Lig
   })
 }
 
-pub struct LightSystemInstance {
+pub struct LightingRenderingCxPrepareCtx {
   dir_lights: SceneDirectionalLightingPreparer,
   spot_lights: SceneSpotLightingPreparer,
   point_lights: ScenePointLightingProvider,
@@ -63,7 +66,7 @@ pub struct LightSystemInstance {
 impl LightSystem {
   pub fn prepare(
     &self,
-    instance: LightSystemInstance,
+    instance: LightingRenderingCxPrepareCtx,
     frame_ctx: &mut FrameCtx,
     reversed_depth: bool,
     renderer: &dyn SceneRenderer<ContentKey = SceneContentKey>,
@@ -123,7 +126,6 @@ impl LightSystem {
 }
 
 pub struct LightSystem {
-  reversed_depth: bool,
   memory: FunctionMemory,
   enable_channel_debugger: bool,
   channel_debugger: ScreenChannelDebugger,
@@ -133,13 +135,12 @@ pub struct LightSystem {
 }
 
 impl LightSystem {
-  pub fn new_and_register(gpu: &GPU, reversed_depth: bool) -> Self {
+  pub fn new(gpu: &GPU) -> Self {
     Self {
       memory: Default::default(),
       enable_channel_debugger: false,
       channel_debugger: ScreenChannelDebugger::default_useful(),
       tonemap: ToneMap::new(gpu),
-      reversed_depth,
       material_defer_lighting_supports: DeferLightingMaterialRegistry::default()
         .register_material_impl::<PbrSurfaceEncodeDecode>(),
       opaque_scene_content_lighting_technique: LightingTechniqueKind::Forward,

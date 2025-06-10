@@ -185,15 +185,4 @@ impl QueryResultCtx {
   }
 }
 
-/// This trait abstract the general pattern of the [ReactiveQueryCtx] usage
-pub trait QueryBasedFeature<T> {
-  type Context;
-  /// register queries in qcx
-  fn register(&mut self, qcx: &mut ReactiveQueryCtx, ctx: &Self::Context);
-  /// deregister queries in qcx
-  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx);
-  /// access the ctx's update result, and create the required feature
-  fn create_impl(&self, cx: &mut QueryResultCtx) -> T;
-}
-
 pub type BoxedAnyReactiveQuery = Box<dyn ReactiveGeneralQuery<Output = Box<dyn Any>>>;

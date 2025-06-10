@@ -64,6 +64,7 @@ struct ViewerRendererInstance<'a> {
   texture: GPUTextureBindingSystem,
   raster_scene_renderer: Box<dyn SceneRenderer<ContentKey = SceneContentKey>>,
   rtx_renderer: Option<(RayTracingRendererGroup, RtxSystemCore)>,
+  lighting: LightingRenderingCxPrepareCtx,
 }
 
 pub fn use_viewer_scene_renderer<'a>(
@@ -127,6 +128,8 @@ pub fn use_viewer_scene_renderer<'a>(
     }),
   };
 
+  let lighting = use_lighting(qcx, ndc);
+
   let rtx_scene_renderer = if enable_rtx_support {
     qcx.scope(|qcx| {
       let rtx_backend_system = GPUWaveFrontComputeRaytracingSystem::new(qcx.gpu());
@@ -154,6 +157,7 @@ pub fn use_viewer_scene_renderer<'a>(
     texture: texture_sys.unwrap(),
     raster_scene_renderer: raster_scene_renderer.unwrap(),
     rtx_renderer: rtx_scene_renderer.unwrap(),
+    lighting: lighting.unwrap(),
   })
 }
 
@@ -198,33 +202,26 @@ impl Viewer3dRenderingCtx {
     ndc: ViewerNDC,
     camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
   ) -> Self {
-    let mut rendering_resource = ReactiveQueryCtx::default();
-
-    let lighting =
-      LightSystem::new_and_register(&mut rendering_resource, &gpu, ndc.enable_reverse_z, ndc);
-
-    let camera_source_init = camera_source.clone_as_static();
-
     Self {
       enable_statistic_collect: false,
       frame_index: 0,
       ndc,
       swap_chain,
       indirect_occlusion_culling_impl: None,
-      rendering_resource,
+      rendering_resource: Default::default(),
       renderer_memory: Default::default(),
       current_renderer_impl_ty: RasterizationRenderBackendType::Gles,
       rtx_effect_mode: RayTracingEffectMode::ReferenceTracing,
       rtx_rendering_enabled: false,
       rtx_renderer_enabled: false,
       frame_logic: ViewerFrameLogic::new(&gpu),
-      lighting,
+      lighting: LightSystem::new(&gpu),
       pool: init_attachment_pool(&gpu),
       statistics: FramePassStatistics::new(64, &gpu),
       gpu,
       on_encoding_finished: Default::default(),
       expect_read_back_for_next_render_result: false,
-      camera_source: camera_source_init,
+      camera_source: camera_source.clone_as_static(),
       picker: Default::default(),
       stat_frame_time_in_ms: StatisticStore::new(200),
       last_render_timestamp: Default::default(),
@@ -317,15 +314,19 @@ impl Viewer3dRenderingCtx {
     }
     self.last_render_timestamp = Some(now);
 
-    let span = span!(Level::INFO, "update all rendering resource");
-    let mut resource = self.rendering_resource.poll_update_all(cx);
-    drop(span);
-
     let statistics = self
       .enable_statistic_collect
       .then(|| self.statistics.create_resolver(self.frame_index));
 
     let mut ctx = FrameCtx::new(&self.gpu, target.size(), &self.pool, statistics);
+
+    let lighting_cx = self.lighting.prepare(
+      renderer.lighting,
+      &mut ctx,
+      self.ndc.enable_reverse_z,
+      renderer.raster_scene_renderer.as_ref(),
+      content.scene,
+    );
 
     let render_target = if self.expect_read_back_for_next_render_result
       && matches!(target, RenderTargetView::SurfaceTexture { .. })
@@ -336,7 +337,7 @@ impl Viewer3dRenderingCtx {
     };
 
     if self.rtx_rendering_enabled {
-      if let Some((rtx_renderer, core)) = &mut renderer.rtx_renderer {
+      if let Some((rtx_renderer, core)) = &renderer.rtx_renderer {
         match self.rtx_effect_mode {
           RayTracingEffectMode::AO => {
             if rtx_renderer.base.any_changed {
@@ -368,6 +369,7 @@ impl Viewer3dRenderingCtx {
               content.scene,
               content.main_camera,
               &self.lighting.tonemap,
+              &renderer.background,
             );
             pass("copy pt result into final target")
               .with_color(target, store_full_frame())
@@ -379,14 +381,6 @@ impl Viewer3dRenderingCtx {
         self.picker.notify_frame_id_buffer_not_available();
       }
     } else {
-      let lighting_cx = self.lighting.prepare_and_create_impl(
-        &mut resource,
-        &mut ctx,
-        cx,
-        renderer.raster_scene_renderer.as_ref(),
-        content.scene,
-      );
-
       let current_view_projection_inv = scene_derive
         .camera_transforms
         .access(&content.main_camera)

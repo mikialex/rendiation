@@ -12,6 +12,9 @@ pub enum RayTracingEffectMode {
 pub fn use_viewer_rtx(
   cx: &mut impl QueryGPUHookCx,
   rtx: &RtxSystemCore,
+  camera: Option<Box<dyn RtxCameraRenderImpl>>,
+  materials: Option<Arc<Vec<Box<dyn SceneMaterialSurfaceSupport>>>>,
+  tex: Option<GPUTextureBindingSystem>,
 ) -> Option<RayTracingRendererGroup> {
   let base = use_scene_rtx_renderer_base(cx, camera, materials, tex);
   let ao = use_rtx_ao_renderer(cx, rtx);

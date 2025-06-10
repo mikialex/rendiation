@@ -3,14 +3,6 @@ use crate::*;
 pub type WideLineUniforms =
   UniformUpdateContainer<EntityHandle<WideLineModelEntity>, WideLineUniform>;
 
-pub fn wide_line_uniforms(cx: &GPU) -> WideLineUniforms {
-  let width = global_watch()
-    .watch::<WideLineWidth>()
-    .into_query_update_uniform(offset_of!(WideLineUniform, width), cx);
-
-  WideLineUniforms::default().with_source(width)
-}
-
 pub fn wide_line_instance_buffers(
   cx: &GPU,
 ) -> impl ReactiveValueRefQuery<Key = EntityHandle<WideLineModelEntity>, Value = GPUBufferResourceView>

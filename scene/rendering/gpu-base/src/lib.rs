@@ -69,8 +69,6 @@ pub fn srgb3_to_linear3(color: Vec3<f32>) -> Vec3<f32> {
   Vec3::new(linear.r, linear.g, linear.b)
 }
 
-pub type BoxedQueryBasedGPUFeature<T> = Box<dyn QueryBasedFeature<T, Context = GPU>>;
-
 pub enum CameraRenderSource {
   Scene(EntityHandle<SceneCameraEntity>),
   External(Box<dyn RenderComponent>),

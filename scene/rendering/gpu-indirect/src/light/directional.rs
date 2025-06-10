@@ -25,47 +25,37 @@ pub fn directional_storage(gpu: &GPU) -> ReactiveStorageBufferContainer<Directio
     .with_source(direction)
 }
 
-#[derive(Default)]
-pub struct DirectionalStorageLightList {
-  light_data: QueryToken,
-  multi_access: QueryToken,
-}
-
-impl QueryBasedFeature<Box<dyn LightingComputeComponent>> for DirectionalStorageLightList {
-  type Context = GPU;
-  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
-    let data = directional_storage(cx);
-    self.light_data = qcx.register_multi_updater(data);
-
-    let multi_access = MultiAccessGPUDataBuilder::new(
-      cx,
+pub fn use_directional_light_storage(
+  qcx: &mut impl QueryGPUHookCx,
+) -> Option<LightGPUStorage<DirectionalLightStorage>> {
+  let light = qcx.use_storage_buffer(directional_storage);
+  let multi_access = qcx.use_gpu_general_query(|gpu| {
+    MultiAccessGPUDataBuilder::new(
+      gpu,
       global_rev_ref().watch_inv_ref_untyped::<DirectionalRefScene>(),
       light_multi_access_config(),
-    );
-    self.multi_access = qcx.register(Box::new(multi_access));
-  }
+    )
+  });
+  qcx.when_render(|| {
+    let light = light.unwrap();
+    let multi_access = multi_access.unwrap();
+    (light, multi_access)
+  })
+}
 
-  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
-    qcx.deregister(&mut self.light_data);
-    qcx.deregister(&mut self.multi_access);
-  }
-
-  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn LightingComputeComponent> {
-    let light_data = cx
-      .take_storage_array_buffer::<DirectionalLightStorage>(self.light_data)
-      .unwrap();
-
-    let light_accessor = cx.take_multi_access_gpu(self.multi_access).unwrap();
-
-    let lighting = AllInstanceOfGivenTypeLightInScene::new(light_accessor, light_data, |light| {
+pub fn make_dir_light_storage_component(
+  (light_data, light_accessor): &LightGPUStorage<DirectionalLightStorage>,
+) -> Box<dyn LightingComputeComponent> {
+  Box::new(AllInstanceOfGivenTypeLightInScene::new(
+    light_accessor.clone(),
+    light_data.clone(),
+    |light| {
       let light = light.load().expand();
       ENode::<DirectionalShaderInfo> {
         illuminance: light.illuminance,
         direction: light.direction,
       }
       .construct()
-    });
-
-    Box::new(lighting)
-  }
+    },
+  ))
 }

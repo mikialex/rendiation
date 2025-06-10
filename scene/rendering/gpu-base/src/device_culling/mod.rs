@@ -74,39 +74,21 @@ pub struct TargetWorldBounding {
   pub max: Node<Vec3<f32>>,
 }
 
-#[derive(Default)]
-pub struct SceneDrawUnitWorldBoundingProviderDefaultImplSource {
-  storage: QueryToken,
-}
-
-impl QueryBasedFeature<SceneDrawUnitWorldBoundingProviderDefaultImpl>
-  for SceneDrawUnitWorldBoundingProviderDefaultImplSource
-{
-  type Context = GPU;
-
-  fn register(&mut self, qcx: &mut ReactiveQueryCtx, ctx: &Self::Context) {
-    let source = scene_model_world_bounding()
-      .collective_map(|b| [b.min, b.max])
-      .into_query_update_storage(0);
-    let buffer =
-      create_reactive_storage_buffer_container::<[f32; 6]>(128, u32::MAX, ctx).with_source(source);
-
-    self.storage = qcx.register_multi_updater(buffer);
-  }
-
-  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
-    qcx.deregister(&mut self.storage);
-  }
-
-  fn create_impl(&self, cx: &mut QueryResultCtx) -> SceneDrawUnitWorldBoundingProviderDefaultImpl {
-    SceneDrawUnitWorldBoundingProviderDefaultImpl {
-      bounding_storage: cx.take_storage_array_buffer(self.storage).unwrap(),
-    }
-  }
+pub fn use_scene_model_device_world_bounding(
+  qcx: &mut impl QueryGPUHookCx,
+) -> Option<SceneDrawUnitWorldBoundingProviderDefaultImpl> {
+  qcx
+    .use_storage_buffer(|gpu| {
+      let source = scene_model_world_bounding()
+        .collective_map(|b| [b.min, b.max])
+        .into_query_update_storage(0);
+      create_reactive_storage_buffer_container::<[f32; 6]>(128, u32::MAX, gpu).with_source(source)
+    })
+    .map(|bounding_storage| SceneDrawUnitWorldBoundingProviderDefaultImpl { bounding_storage })
 }
 
 #[derive(Clone)]
-struct SceneDrawUnitWorldBoundingProviderDefaultImpl {
+pub struct SceneDrawUnitWorldBoundingProviderDefaultImpl {
   bounding_storage: StorageBufferReadonlyDataView<[[f32; 6]]>,
 }
 
