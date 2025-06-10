@@ -58,35 +58,10 @@ pub fn area_light_uniform_array(gpu: &GPU) -> UniformArrayUpdateContainer<LTCAre
     .with_source(is_disk)
 }
 
-pub struct AreaLightUniformLightList {
-  pub light: QueryToken,
+pub struct SceneAreaLightingProvider {
   pub ltc_1: GPU2DTextureView,
   pub ltc_2: GPU2DTextureView,
-}
-
-impl QueryBasedFeature<Box<dyn LightSystemSceneProvider>> for AreaLightUniformLightList {
-  type Context = GPU;
-  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
-    let uniform = area_light_uniform_array(cx);
-    self.light = qcx.register_multi_updater(uniform);
-  }
-  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
-    qcx.deregister(&mut self.light);
-  }
-
-  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn LightSystemSceneProvider> {
-    Box::new(SceneAreaLightingProvider {
-      uniform: cx.take_uniform_array_buffer(self.light).unwrap(),
-      ltc_1: self.ltc_1.clone(),
-      ltc_2: self.ltc_2.clone(),
-    })
-  }
-}
-
-struct SceneAreaLightingProvider {
-  ltc_1: GPU2DTextureView,
-  ltc_2: GPU2DTextureView,
-  uniform: UniformBufferDataView<Shader140Array<LTCAreaLightUniform, 8>>,
+  pub uniform: UniformBufferDataView<Shader140Array<LTCAreaLightUniform, 8>>,
 }
 
 impl LightSystemSceneProvider for SceneAreaLightingProvider {

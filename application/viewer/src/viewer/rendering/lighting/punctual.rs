@@ -127,7 +127,7 @@ pub fn use_scene_point_light_uniform(
     .map(|uniform| ScenePointLightingProvider { uniform })
 }
 
-struct ScenePointLightingProvider {
+pub struct ScenePointLightingProvider {
   uniform: UniformBufferDataView<Shader140Array<PointLightUniform, 8>>,
 }
 
@@ -157,7 +157,7 @@ pub fn use_scene_spot_light_uniform(
   init_config: &MultiLayerTexturePackerConfig,
   ndc: ViewerNDC,
 ) -> Option<SceneSpotLightingPreparer> {
-  qcx.use_gpu_init(|gpu| {
+  let (qcx, shadow) = qcx.use_gpu_init(|gpu| {
     let source_proj = global_watch()
       .watch_untyped_key::<SpotLightHalfConeAngle>()
       .collective_map(move |half_cone_angle| {

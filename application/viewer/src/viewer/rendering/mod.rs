@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::*;
 
 mod culling;
@@ -23,7 +25,8 @@ pub use post::*;
 use reactive::EventSource;
 use rendiation_device_ray_tracing::GPUWaveFrontComputeRaytracingSystem;
 use rendiation_occlusion_culling::GPUTwoPassOcclusionCulling;
-use rendiation_scene_rendering_gpu_indirect::use_indirect_renderer;
+use rendiation_scene_rendering_gpu_indirect::*;
+use rendiation_scene_rendering_gpu_ray_tracing::*;
 use rendiation_texture_gpu_process::copy_frame;
 use rendiation_webgpu::*;
 use rendiation_webgpu_reactive_utils::*;
@@ -60,7 +63,7 @@ struct ViewerRendererInstance<'a> {
   background: SceneBackgroundRenderer<'a>,
   texture: GPUTextureBindingSystem,
   raster_scene_renderer: Box<dyn SceneRenderer<ContentKey = SceneContentKey>>,
-  rtx_renderer: Option<RayTracingRendererGroup>,
+  rtx_renderer: Option<(RayTracingRendererGroup, RtxSystemCore)>,
 }
 
 pub fn use_viewer_scene_renderer<'a>(
@@ -72,6 +75,8 @@ pub fn use_viewer_scene_renderer<'a>(
   reversed_depth: bool,
   attributes_custom_key: std::sync::Arc<dyn Fn(u32, &mut ShaderVertexBuilder)>,
 ) -> Option<ViewerRendererInstance<'a>> {
+  let (qcx, change_scope) = qcx.use_begin_change_set_collect();
+
   let camera = use_camera_uniforms(qcx, camera_source);
   let (qcx, background) = use_background(qcx);
 
@@ -85,6 +90,8 @@ pub fn use_viewer_scene_renderer<'a>(
   );
   let texture_sys = use_texture_system(qcx, ty);
 
+  let changed = change_scope();
+
   let t_clone = texture_sys.clone();
   let raster_scene_renderer = match current_renderer_impl_ty {
     RasterizationRenderBackendType::Gles => qcx.scope(|qcx| {
@@ -92,7 +99,30 @@ pub fn use_viewer_scene_renderer<'a>(
         .map(|r| Box::new(r) as Box<dyn SceneRenderer<ContentKey = SceneContentKey>>)
     }),
     RasterizationRenderBackendType::Indirect => qcx.scope(|qcx| {
-      use_indirect_renderer(qcx, reversed_depth, t_clone)
+      let (qcx, change_scope) = qcx.use_begin_change_set_collect();
+
+      let unlit_material = use_unlit_material_storage(qcx);
+      let pbr_mr_material = use_pbr_mr_material_storage(qcx);
+      let pbr_sg_material = use_pbr_sg_material_storage(qcx);
+
+      let indirect_material_changed = change_scope();
+
+      if enable_rtx_support {
+        let rtx_materials_support = Arc::new(vec![
+          //
+        ]);
+        //
+      }
+
+      let materials = qcx.when_render(|| {
+        Box::new(vec![
+          Box::new(unlit_material.unwrap()) as Box<dyn IndirectModelMaterialRenderImpl>,
+          Box::new(pbr_mr_material.unwrap()),
+          Box::new(pbr_sg_material.unwrap()),
+        ]) as Box<dyn IndirectModelMaterialRenderImpl>
+      });
+
+      use_indirect_renderer(qcx, reversed_depth, materials, t_clone)
         .map(|r| Box::new(r) as Box<dyn SceneRenderer<ContentKey = SceneContentKey>>)
     }),
   };
@@ -100,6 +130,11 @@ pub fn use_viewer_scene_renderer<'a>(
   let rtx_scene_renderer = if enable_rtx_support {
     qcx.scope(|qcx| {
       let rtx_backend_system = GPUWaveFrontComputeRaytracingSystem::new(qcx.gpu());
+
+      // use_rtx_scene_material(cx, materials, tex)
+
+      let base = use_scene_rtx_renderer_base(qcx, system, camera, materials, tex);
+
       //     let rtx_system = RtxSystemCore::new(Box::new(rtx_backend_system));
       //     let mut rtx_renderer_impl =
       //       RayTracingSystemGroup::new(&rtx_system, &self.gpu, self.camera_source.clone_as_static());
@@ -301,7 +336,7 @@ impl Viewer3dRenderingCtx {
     };
 
     if self.rtx_rendering_enabled {
-      if let Some(rtx_renderer) = &mut renderer.rtx_renderer {
+      if let Some((rtx_renderer, core)) = &mut renderer.rtx_renderer {
         match self.rtx_effect_mode {
           RayTracingEffectMode::AO => {
             if rtx_renderer.base.any_changed {
@@ -310,6 +345,7 @@ impl Viewer3dRenderingCtx {
 
             let ao_result = rtx_renderer.ao.render(
               &mut ctx,
+              core.rtx_system.as_ref(),
               &mut rtx_renderer.base,
               content.scene,
               content.main_camera,
@@ -327,6 +363,7 @@ impl Viewer3dRenderingCtx {
 
             let result = rtx_renderer.pt.render(
               &mut ctx,
+              core.rtx_system.as_ref(),
               &mut rtx_renderer.base,
               content.scene,
               content.main_camera,
@@ -346,7 +383,7 @@ impl Viewer3dRenderingCtx {
         &mut resource,
         &mut ctx,
         cx,
-        renderer.as_ref(),
+        renderer.raster_scene_renderer.as_ref(),
         content.scene,
       );
 

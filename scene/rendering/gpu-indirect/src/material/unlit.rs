@@ -15,6 +15,7 @@ pub fn use_unlit_material_storage(
   })
 }
 
+#[derive(Clone)]
 pub struct UnlitMaterialIndirectRenderer {
   material_access: ForeignKeyReadView<StandardModelRefUnlitMaterial>,
   storages: StorageBufferReadonlyDataView<[UnlitMaterialStorage]>,

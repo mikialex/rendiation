@@ -7,20 +7,9 @@ use crate::*;
 pub fn use_indirect_renderer(
   cx: &mut impl QueryGPUHookCx,
   reversed_depth: bool,
+  materials: Option<Box<dyn IndirectModelMaterialRenderImpl>>,
   texture_system: Option<GPUTextureBindingSystem>,
 ) -> Option<IndirectSceneRenderer> {
-  let unlit_material = use_unlit_material_storage(cx);
-  let pbr_mr_material = use_pbr_mr_material_storage(cx);
-  let pbr_sg_material = use_pbr_sg_material_storage(cx);
-
-  let materials = cx.when_render(|| {
-    Box::new(vec![
-      Box::new(unlit_material.unwrap()) as Box<dyn IndirectModelMaterialRenderImpl>,
-      Box::new(pbr_mr_material.unwrap()),
-      Box::new(pbr_sg_material.unwrap()),
-    ]) as Box<dyn IndirectModelMaterialRenderImpl>
-  });
-
   let mesh = use_bindless_mesh(cx).map(|v| Box::new(v) as Box<dyn IndirectModelShapeRenderImpl>);
 
   let std_model = use_std_model_renderer(cx, materials, mesh);

@@ -7,6 +7,8 @@ pub trait QueryGPUHookCx {
   fn gpu(&self) -> &GPU;
   fn scope<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R;
 
+  fn use_begin_change_set_collect(&mut self) -> (&mut Self, impl FnOnce() -> Option<bool>);
+
   fn use_state<T: Default>(&mut self) -> (&mut Self, &mut T);
   fn use_gpu_init<T>(&mut self, init: impl FnOnce(&GPU) -> T) -> (&mut Self, &mut T);
   fn use_multi_updater<T>(
@@ -86,6 +88,10 @@ pub enum QueryHookStage<'a> {
 }
 
 impl<'a> QueryGPUHookCx for QueryGPUHookCxImpl<'a> {
+  fn use_begin_change_set_collect(&mut self) -> (&mut Self, impl FnOnce() -> Option<bool>) {
+    (self, || todo!())
+  }
+
   fn gpu(&self) -> &GPU {
     self.gpu
   }

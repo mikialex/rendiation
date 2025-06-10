@@ -23,6 +23,7 @@ pub fn pbr_mr_material_pipeline_hash(
   global_watch().watch::<AlphaModeOf<PbrMRMaterialAlphaConfig>>()
 }
 
+#[derive(Clone)]
 pub struct PbrMRMaterialIndirectRenderer {
   material_access: ForeignKeyReadView<StandardModelRefPbrMRMaterial>,
   pub storages: StorageBufferReadonlyDataView<[PhysicalMetallicRoughnessMaterialStorage]>,
