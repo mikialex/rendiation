@@ -29,6 +29,14 @@ impl ReactiveQueryCtx {
     set.sets = recorded;
   }
 
+  pub fn register_typed<T>(&mut self, update: T) -> QueryToken
+  where
+    T: ReactiveGeneralQuery + 'static,
+    T::Output: 'static,
+  {
+    self.register(Box::new(IntoBoxedAnyReactiveGeneralQuery(update)) as BoxedAnyReactiveQuery)
+  }
+
   pub fn register(&mut self, update: BoxedAnyReactiveQuery) -> QueryToken {
     self
       .registry

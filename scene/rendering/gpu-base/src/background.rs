@@ -2,17 +2,12 @@ use fast_hash_collection::FastHashMap;
 
 use crate::*;
 
-pub fn use_background<'a>(
-  cx: &'a mut impl QueryGPUHookCx,
-) -> (
-  &'a mut impl QueryGPUHookCx,
-  Option<SceneBackgroundRenderer<'a>>,
-) {
-  let (cx, env_background_map_gpu) =
-    cx.use_multi_updater_ref(|gpu| gpu_texture_cubes(gpu, FastHashMap::default()));
+pub fn use_background(cx: &mut impl QueryGPUHookCx) -> Option<SceneBackgroundRenderer> {
+  let env_background_map_gpu =
+    cx.use_multi_updater_gpu(|gpu| gpu_texture_cubes(gpu, FastHashMap::default()));
 
-  let (cx, env_background_intensity_uniform) = cx
-    .use_uniform_buffers_ref::<EntityHandle<SceneEntity>, Vec4<f32>>(|source, gpu| {
+  let env_background_intensity_uniform = cx
+    .use_uniform_buffers::<EntityHandle<SceneEntity>, Vec4<f32>>(|source, gpu| {
       source.with_source(
         global_watch()
           .watch::<SceneHDRxEnvBackgroundIntensity>()
@@ -21,8 +16,8 @@ pub fn use_background<'a>(
       )
     });
 
-  let (cx, solid_background_color_uniform) = cx
-    .use_uniform_buffers_ref::<EntityHandle<SceneEntity>, Vec4<f32>>(|source, gpu| {
+  let solid_background_color_uniform = cx
+    .use_uniform_buffers::<EntityHandle<SceneEntity>, Vec4<f32>>(|source, gpu| {
       source.with_source(
         global_watch()
           .watch::<SceneSolidBackground>()
@@ -35,29 +30,31 @@ pub fn use_background<'a>(
       )
     });
 
-  let r = cx.when_render(|| SceneBackgroundRenderer {
+  cx.when_render(|| SceneBackgroundRenderer {
     solid_background: global_entity_component_of::<SceneSolidBackground>().read(),
     env_background_map: global_entity_component_of::<SceneHDRxEnvBackgroundCubeMap>()
       .read_foreign_key(),
     env_background_map_gpu: env_background_map_gpu.unwrap(),
     env_background_intensity: env_background_intensity_uniform.unwrap(),
     solid_background_uniform: solid_background_color_uniform.unwrap(),
-  });
-  (cx, r)
+  })
 }
 
-pub struct SceneBackgroundRenderer<'a> {
+pub struct SceneBackgroundRenderer {
   pub solid_background: ComponentReadView<SceneSolidBackground>,
   pub env_background_map: ForeignKeyReadView<SceneHDRxEnvBackgroundCubeMap>,
-  pub env_background_map_gpu:
-    &'a FastHashMap<EntityHandle<SceneTextureCubeEntity>, GPUCubeTextureView>,
-  pub env_background_intensity:
-    &'a FastHashMap<EntityHandle<SceneEntity>, UniformBufferDataView<Vec4<f32>>>,
-  pub solid_background_uniform:
-    &'a FastHashMap<EntityHandle<SceneEntity>, UniformBufferDataView<Vec4<f32>>>,
+  pub env_background_map_gpu: LockReadGuardHolder<
+    MultiUpdateContainer<FastHashMap<EntityHandle<SceneTextureCubeEntity>, GPUCubeTextureView>>,
+  >,
+  pub env_background_intensity: LockReadGuardHolder<
+    MultiUpdateContainer<FastHashMap<EntityHandle<SceneEntity>, UniformBufferDataView<Vec4<f32>>>>,
+  >,
+  pub solid_background_uniform: LockReadGuardHolder<
+    MultiUpdateContainer<FastHashMap<EntityHandle<SceneEntity>, UniformBufferDataView<Vec4<f32>>>>,
+  >,
 }
 
-impl<'a> SceneBackgroundRenderer<'a> {
+impl SceneBackgroundRenderer {
   pub fn init_clear(
     &self,
     scene: EntityHandle<SceneEntity>,
@@ -77,7 +74,7 @@ impl<'a> SceneBackgroundRenderer<'a> {
     )
   }
 
-  pub fn draw(
+  pub fn draw<'a>(
     &'a self,
     scene: EntityHandle<SceneEntity>,
     camera: &'a dyn RenderComponent,

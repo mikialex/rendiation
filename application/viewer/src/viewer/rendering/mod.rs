@@ -57,9 +57,9 @@ impl<T: Scalar> NDCSpaceMapper<T> for ViewerNDC {
   }
 }
 
-struct ViewerRendererInstance<'a> {
+struct ViewerRendererInstance {
   camera: CameraRenderer,
-  background: SceneBackgroundRenderer<'a>,
+  background: SceneBackgroundRenderer,
   raster_scene_renderer: Box<dyn SceneRenderer<ContentKey = SceneContentKey>>,
   rtx_renderer: Option<(RayTracingRendererGroup, RtxSystemCore)>,
   lighting: LightingRenderingCxPrepareCtx,
@@ -130,21 +130,15 @@ impl Viewer3dRenderingCtx {
     }
   }
 
-  fn use_viewer_scene_renderer<'a>(
+  fn use_viewer_scene_renderer(
     &self,
-    qcx: &'a mut impl QueryGPUHookCx,
-    // camera_source: &RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
-    // current_renderer_impl_ty: RasterizationRenderBackendType,
-    // enable_rtx_support: bool,
-    // prefer_bindless_texture: bool,
-    // ndc: ViewerNDC,
-    // attributes_custom_key: std::sync::Arc<dyn Fn(u32, &mut ShaderVertexBuilder)>,
-  ) -> Option<ViewerRendererInstance<'a>> {
+    qcx: &mut impl QueryGPUHookCx,
+  ) -> Option<ViewerRendererInstance> {
     let prefer_bindless_texture = false;
     let (qcx, change_scope) = qcx.use_begin_change_set_collect();
 
     let camera = use_camera_uniforms(qcx, &self.camera_source);
-    let (qcx, background) = use_background(qcx);
+    let background = use_background(qcx);
 
     let ty = get_suitable_texture_system_ty(
       qcx.gpu(),
@@ -283,9 +277,8 @@ impl Viewer3dRenderingCtx {
     let mut qcx = QueryGPUHookCxImpl {
       memory,
       gpu: &self.gpu,
-      stage: QueryHookStage::Unit {
-        cx: rendering_resource,
-      },
+      query_cx: rendering_resource,
+      stage: QueryHookStage::UnInit,
     };
 
     self.use_viewer_scene_renderer(&mut qcx);
@@ -300,12 +293,13 @@ impl Viewer3dRenderingCtx {
     memory: &mut FunctionMemory,
     rendering_resource: &mut ReactiveQueryCtx,
   ) {
+    noop_ctx!(cx);
+    let result = rendering_resource.poll_update_all(cx);
     let mut qcx = QueryGPUHookCxImpl {
       memory,
       gpu: &self.gpu,
-      stage: QueryHookStage::Render {
-        cx: rendering_resource,
-      },
+      query_cx: rendering_resource,
+      stage: QueryHookStage::Render(result),
     };
 
     let renderer = self.use_viewer_scene_renderer(&mut qcx).unwrap();

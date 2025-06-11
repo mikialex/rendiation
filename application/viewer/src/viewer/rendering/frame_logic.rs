@@ -28,7 +28,7 @@ pub struct ViewerFrameLogic {
 pub struct ViewerSceneRenderer<'a> {
   pub scene: &'a dyn SceneRenderer<ContentKey = SceneContentKey>,
   pub cameras: &'a CameraRenderer,
-  pub background: &'a SceneBackgroundRenderer<'a>,
+  pub background: &'a SceneBackgroundRenderer,
   pub reversed_depth: bool,
 }
 

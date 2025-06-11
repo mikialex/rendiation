@@ -16,29 +16,29 @@ pub unsafe trait HooksCxLike {
     !self.memory_ref().created
   }
 
-  fn execute(&mut self, f: impl FnOnce(&mut Self)) {
+  fn execute<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
     self.memory_mut().reset_cursor();
-    f(self);
+    let r = f(self);
     self.memory_mut().created = true;
     self.flush();
+    r
   }
 
   #[track_caller]
-  fn raw_scope(&mut self, f: impl FnOnce(&mut Self)) {
+  fn raw_scope<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
     let sub_memory = self.memory_mut().sub_function() as *mut _;
 
     unsafe {
       core::ptr::swap(self.memory_mut(), sub_memory);
-      f(self);
+      let r = f(self);
       core::ptr::swap(self.memory_mut(), sub_memory);
-    };
+      r
+    }
   }
 
   #[track_caller]
-  fn scope(&mut self, f: impl FnOnce(&mut Self)) {
-    self.raw_scope(|cx| {
-      cx.execute(|cx| f(cx));
-    });
+  fn scope<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
+    self.raw_scope(|cx| cx.execute(|cx| f(cx)))
   }
 }
 
