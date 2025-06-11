@@ -7,33 +7,61 @@ pub trait QueryGPUHookCx: HooksCxLike {
   fn gpu(&self) -> &GPU;
   fn get_stage(&self) -> &QueryHookStage;
   fn get_stage_mut(&mut self) -> &mut QueryHookStage;
+  fn get_query_cx(&mut self) -> &mut ReactiveQueryCtx;
 
-  fn use_begin_change_set_collect(&mut self) -> (&mut Self, impl FnOnce() -> Option<bool>);
+  fn use_gpu_query_init_return_self<T: 'static>(
+    &mut self,
+    init: impl FnOnce(&GPU, &mut ReactiveQueryCtx) -> T,
+  ) -> (&mut Self, &mut T);
 
   fn use_gpu_query_init<T: 'static>(
     &mut self,
     init: impl FnOnce(&GPU, &mut ReactiveQueryCtx) -> T,
-  ) -> (&mut Self, &mut T, &mut QueryHookStage);
+  ) -> (&mut T, &mut QueryHookStage);
 
   fn use_state<T: Default + 'static>(&mut self) -> (&mut Self, &mut T) {
     self.use_state_init(T::default)
   }
 
   fn use_state_init<T: 'static>(&mut self, init: impl FnOnce() -> T) -> (&mut Self, &mut T) {
-    let (cx, state, _) = self.use_gpu_query_init(|_, _| init());
+    let (cx, state) = self.use_gpu_query_init_return_self(|_, _| init());
     (cx, state)
   }
 
   fn use_gpu_init<T: 'static>(&mut self, init: impl FnOnce(&GPU) -> T) -> (&mut Self, &mut T) {
-    let (cx, state, _) = self.use_gpu_query_init(|gpu, _| init(gpu));
+    let (cx, state) = self.use_gpu_query_init_return_self(|gpu, _| init(gpu));
     (cx, state)
+  }
+
+  fn use_begin_change_set_collect(
+    &mut self,
+  ) -> (&mut Self, impl FnOnce(&mut Self) -> Option<bool>) {
+    let (_, set) = self.use_gpu_query_init_return_self(|_, query_cx| {
+      let mut set = QueryCtxSetInfo::default();
+      query_cx.record_new_registered(&mut set);
+      set
+    });
+
+    // todo, how to avoid this?
+    let set = unsafe { std::mem::transmute(set) };
+
+    (self, |qcx: &mut Self| {
+      if qcx.is_creating() {
+        qcx.get_query_cx().end_record(set);
+        None
+      } else if let QueryHookStage::Render(results) = qcx.get_stage() {
+        results.has_any_changed_in_set(set).into()
+      } else {
+        None
+      }
+    })
   }
 
   fn use_multi_updater_gpu<T: 'static>(
     &mut self,
     f: impl FnOnce(&GPU) -> MultiUpdateContainer<T>,
   ) -> Option<LockReadGuardHolder<MultiUpdateContainer<T>>> {
-    let (_, token, stage) =
+    let (token, stage) =
       self.use_gpu_query_init(|gpu, query_cx| query_cx.register_multi_updater(f(gpu)));
 
     if let QueryHookStage::Render(results) = stage {
@@ -54,8 +82,7 @@ pub trait QueryGPUHookCx: HooksCxLike {
     &mut self,
     f: impl FnOnce(&GPU) -> T,
   ) -> Option<T::Output> {
-    let (_, token, stage) =
-      self.use_gpu_query_init(|gpu, query_cx| query_cx.register_typed(f(gpu)));
+    let (token, stage) = self.use_gpu_query_init(|gpu, query_cx| query_cx.register_typed(f(gpu)));
 
     if let QueryHookStage::Render(results) = stage {
       Some(
@@ -74,13 +101,13 @@ pub trait QueryGPUHookCx: HooksCxLike {
     &mut self,
     f: impl FnOnce(UniformUpdateContainer<K, V>, &GPU) -> UniformUpdateContainer<K, V>,
   ) -> Option<LockReadGuardHolder<UniformUpdateContainer<K, V>>> {
-    let (_, token, stage) = self.use_gpu_query_init(|gpu, query_cx| {
+    let (token, stage) = self.use_gpu_query_init(|gpu, query_cx| {
       let source = UniformUpdateContainer::<K, V>::default();
       query_cx.register_multi_updater(f(source, gpu))
     });
 
     if let QueryHookStage::Render(results) = stage {
-      todo!()
+      results.take_multi_updater_updated(*token)
     } else {
       None
     }
@@ -88,26 +115,30 @@ pub trait QueryGPUHookCx: HooksCxLike {
 
   fn use_uniform_array_buffers<V: Std140, const N: usize>(
     &mut self,
-    source: impl FnOnce(&GPU) -> UniformArrayUpdateContainer<V, N>,
+    f: impl FnOnce(&GPU) -> UniformArrayUpdateContainer<V, N>,
   ) -> Option<UniformBufferDataView<Shader140Array<V, N>>> {
-    // let (_, token, stage) = self.use_gpu_query_init(|gpu, query_cx| {
-    //   // let source = UniformUpdateContainer::<K, V>::default();
-    //   // query_cx.register(f(source, gpu))
-    // });
+    let (token, stage) =
+      self.use_gpu_query_init(|gpu, query_cx| query_cx.register_multi_updater(f(gpu)));
 
-    // if let QueryHookStage::Render(results) = stage {
-    //   todo!()
-    // } else {
-    //   None
-    // }
-    todo!()
+    if let QueryHookStage::Render(results) = stage {
+      results.take_uniform_array_buffer(*token)
+    } else {
+      None
+    }
   }
 
   fn use_storage_buffer<V: Std430>(
     &mut self,
-    source: impl FnOnce(&GPU) -> ReactiveStorageBufferContainer<V>,
+    f: impl FnOnce(&GPU) -> ReactiveStorageBufferContainer<V>,
   ) -> Option<StorageBufferReadonlyDataView<[V]>> {
-    todo!()
+    let (token, stage) =
+      self.use_gpu_query_init(|gpu, query_cx| query_cx.register_multi_updater(f(gpu)));
+
+    if let QueryHookStage::Render(results) = stage {
+      results.take_storage_array_buffer(*token)
+    } else {
+      None
+    }
   }
 
   fn use_global_multi_reactive_query<D: ForeignKeySemantic>(
@@ -115,7 +146,7 @@ pub trait QueryGPUHookCx: HooksCxLike {
   ) -> Option<
     Box<dyn DynMultiQuery<Key = EntityHandle<D::ForeignEntity>, Value = EntityHandle<D::Entity>>>,
   > {
-    let (_, token, stage) = self.use_gpu_query_init(|_, query_cx| {
+    let (token, stage) = self.use_gpu_query_init(|_, query_cx| {
       let query = global_rev_ref().watch_inv_ref::<D>();
       query_cx.register_multi_reactive_query(query)
     });
@@ -148,7 +179,7 @@ pub trait QueryGPUHookCx: HooksCxLike {
     V: CValue,
     Q: ReactiveQuery<Key = K, Value = V> + Unpin,
   {
-    let (_, token, stage) =
+    let (token, stage) =
       self.use_gpu_query_init(|gpu, query_cx| query_cx.register_reactive_query(f(gpu)));
 
     if let QueryHookStage::Render(results) = stage {
@@ -167,7 +198,7 @@ pub trait QueryGPUHookCx: HooksCxLike {
     V: CValue,
     Q: ReactiveValueRefQuery<Key = K, Value = V>,
   {
-    let (_, token, stage) =
+    let (token, stage) =
       self.use_gpu_query_init(|gpu, query_cx| query_cx.register_val_refed_reactive_query(f(gpu)));
 
     if let QueryHookStage::Render(results) = stage {
@@ -222,21 +253,35 @@ impl<'a> QueryGPUHookCx for QueryGPUHookCxImpl<'a> {
   fn get_stage_mut(&mut self) -> &mut QueryHookStage {
     &mut self.stage
   }
-  fn use_begin_change_set_collect(&mut self) -> (&mut Self, impl FnOnce() -> Option<bool>) {
-    (self, || todo!())
+  fn get_query_cx(&mut self) -> &mut ReactiveQueryCtx {
+    self.query_cx
   }
 
   fn gpu(&self) -> &GPU {
     self.gpu
   }
 
-  fn use_gpu_query_init<T: 'static>(
+  fn use_gpu_query_init_return_self<T: 'static>(
     &mut self,
     init: impl FnOnce(&GPU, &mut ReactiveQueryCtx) -> T,
-  ) -> (&mut Self, &mut T, &mut QueryHookStage) {
+  ) -> (&mut Self, &mut T) {
+    let s = unsafe { std::mem::transmute_copy(&self) };
+
     let state = self
       .memory
       .expect_state_init(|| init(self.gpu, self.query_cx), |_: &mut T, _: &mut ()| {});
-    todo!()
+
+    (s, state)
+  }
+
+  fn use_gpu_query_init<T: 'static>(
+    &mut self,
+    init: impl FnOnce(&GPU, &mut ReactiveQueryCtx) -> T,
+  ) -> (&mut T, &mut QueryHookStage) {
+    let state = self
+      .memory
+      .expect_state_init(|| init(self.gpu, self.query_cx), |_: &mut T, _: &mut ()| {});
+
+    (state, &mut self.stage)
   }
 }

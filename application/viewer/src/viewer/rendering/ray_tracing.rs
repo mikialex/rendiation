@@ -28,7 +28,7 @@ pub fn use_viewer_rtx(
 
   let (cx, scope) = cx.use_begin_change_set_collect();
   let base = use_scene_rtx_renderer_base(cx, core, camera, mesh, materials, tex);
-  let base_extra_changed = scope();
+  let base_extra_changed = scope(cx);
   let request_reset_sample = request_reset_sample || base_extra_changed.unwrap_or(false);
 
   let ao = use_rtx_ao_renderer(cx, core, request_reset_sample);

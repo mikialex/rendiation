@@ -75,7 +75,7 @@ pub fn use_rtx_pt_renderer(
       })
   });
 
-  if let Some(true) = end() {
+  if let Some(true) = end(cx) {
     system.reset_sample();
   }
 

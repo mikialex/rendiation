@@ -150,7 +150,7 @@ impl Viewer3dRenderingCtx {
     );
     let texture_sys = use_texture_system(qcx, ty);
 
-    let any_base_resource_changed = change_scope();
+    let any_base_resource_changed = change_scope(qcx);
     let mut any_indirect_resource_changed = None;
     let mut rtx_materials_support = None;
     let mut rtx_mesh = None;
@@ -176,7 +176,7 @@ impl Viewer3dRenderingCtx {
 
         let mesh = use_bindless_mesh(qcx);
 
-        any_indirect_resource_changed = change_scope();
+        any_indirect_resource_changed = change_scope(qcx);
 
         if self.rtx_renderer_enabled {
           rtx_materials_support = Some(Arc::new(vec![
@@ -212,7 +212,7 @@ impl Viewer3dRenderingCtx {
           let pbr_mr_material = use_pbr_mr_material_storage(qcx);
           let pbr_sg_material = use_pbr_sg_material_storage(qcx);
           let mesh = use_bindless_mesh(qcx);
-          any_indirect_resource_changed = change_scope();
+          any_indirect_resource_changed = change_scope(qcx);
 
           rtx_materials_support = Some(Arc::new(vec![
             Box::new(pbr_mr_material.clone().unwrap()) as Box<dyn SceneMaterialSurfaceSupport>,
