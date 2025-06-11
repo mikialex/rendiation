@@ -82,7 +82,7 @@ impl SceneDirectionalLightingPreparer {
     SceneDirectionalLightingProvider {
       light: self.light,
       shadow: BasicShadowMapComponent {
-        shadow_map_atlas: todo!(),
+        shadow_map_atlas,
         info: self.info,
         reversed_depth,
       },

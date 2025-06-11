@@ -142,6 +142,7 @@ impl From<CameraTransform> for CameraGPUTransform {
 //   )
 // }
 
+#[derive(Clone)]
 pub struct CameraRenderer(pub LockReadGuardHolder<CameraUniforms>);
 
 impl CameraRenderer {

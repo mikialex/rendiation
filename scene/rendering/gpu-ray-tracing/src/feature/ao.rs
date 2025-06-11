@@ -9,6 +9,7 @@ const MAX_SAMPLE: u32 = 256;
 pub fn use_rtx_ao_renderer(
   cx: &mut impl QueryGPUHookCx,
   rtx: &RtxSystemCore,
+  request_reset_sample: bool,
 ) -> Option<SceneRayTracingAORenderer> {
   let (cx, end) = cx.use_begin_change_set_collect();
 
@@ -56,6 +57,9 @@ pub fn use_rtx_ao_renderer(
   });
 
   if let Some(true) = end() {
+    system.reset_sample();
+  }
+  if request_reset_sample {
     system.reset_sample();
   }
 

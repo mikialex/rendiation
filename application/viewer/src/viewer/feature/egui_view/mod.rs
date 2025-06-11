@@ -93,11 +93,6 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
       .resizable(true)
       .movable(true)
       .show(ui, |ui| {
-        ui.checkbox(
-          &mut viewer.on_demand_rendering,
-          "enable on demand rendering",
-        );
-        ui.separator();
         viewer.rendering.egui(ui);
         ui.separator();
 

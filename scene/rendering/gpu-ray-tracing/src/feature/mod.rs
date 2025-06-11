@@ -69,13 +69,13 @@ pub struct SceneRayTracingRendererBase {
   pub material: SceneSurfaceSupport,
   pub lighting: ScenePTLightingSceneDataGroup,
   pub scene_ids: SceneIdUniformBufferAccess,
-  pub any_changed: bool,
 }
 
 pub fn use_scene_rtx_renderer_base(
   cx: &mut impl QueryGPUHookCx,
   system: &RtxSystemCore,
   camera: Option<Box<dyn RtxCameraRenderImpl>>,
+  mesh: Option<MeshGPUBindlessImpl>,
   materials: Option<Arc<Vec<Box<dyn SceneMaterialSurfaceSupport>>>>,
   tex: Option<GPUTextureBindingSystem>,
 ) -> Option<SceneRayTracingRendererBase> {
@@ -83,7 +83,17 @@ pub fn use_scene_rtx_renderer_base(
 
   let scene_tlas = cx.use_reactive_query_gpu(|gpu| scene_to_tlas(gpu, system.rtx_acc.clone()));
 
-  todo!()
+  let lighting = use_scene_pt_light_source(cx);
+  let scene_ids = use_scene_id_provider(cx); // this could be reused, but it's unnecessary.
+
+  cx.when_render(|| SceneRayTracingRendererBase {
+    camera: camera.unwrap(),
+    scene_tlas: scene_tlas.unwrap(),
+    mesh: mesh.unwrap(),
+    material: material.unwrap(),
+    lighting: lighting.unwrap(),
+    scene_ids: scene_ids.unwrap(),
+  })
 }
 
 // impl QueryBasedFeature<SceneRayTracingRendererBase> for RayTracingSystemBase {

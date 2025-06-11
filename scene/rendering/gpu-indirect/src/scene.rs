@@ -8,9 +8,10 @@ pub fn use_indirect_renderer(
   cx: &mut impl QueryGPUHookCx,
   reversed_depth: bool,
   materials: Option<Box<dyn IndirectModelMaterialRenderImpl>>,
+  mesh: Option<MeshGPUBindlessImpl>,
   texture_system: Option<GPUTextureBindingSystem>,
 ) -> Option<IndirectSceneRenderer> {
-  let mesh = use_bindless_mesh(cx).map(|v| Box::new(v) as Box<dyn IndirectModelShapeRenderImpl>);
+  let mesh = mesh.map(|v| Box::new(v) as Box<dyn IndirectModelShapeRenderImpl>);
 
   let std_model = use_std_model_renderer(cx, materials, mesh);
 

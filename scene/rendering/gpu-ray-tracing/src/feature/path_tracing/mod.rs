@@ -29,6 +29,7 @@ use frame_state::*;
 pub fn use_rtx_pt_renderer(
   cx: &mut impl QueryGPUHookCx,
   rtx: &RtxSystemCore,
+  request_reset_sample: bool,
 ) -> Option<DeviceReferencePathTracingRenderer> {
   let (cx, end) = cx.use_begin_change_set_collect();
 
@@ -78,6 +79,9 @@ pub fn use_rtx_pt_renderer(
     system.reset_sample();
   }
 
+  if request_reset_sample {
+    system.reset_sample();
+  }
   cx.when_render(|| DeviceReferencePathTracingRenderer {
     executor: system.executor.clone(),
     shader_handles: system.shader_handles.clone(),

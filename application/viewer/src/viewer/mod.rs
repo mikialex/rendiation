@@ -249,8 +249,6 @@ pub fn use_viewer<'a>(
 }
 
 pub struct Viewer {
-  on_demand_rendering: bool,
-  on_demand_draw: NotifyScope,
   scene: Viewer3dSceneCtx,
   rendering: Viewer3dRenderingCtx,
   derives: Viewer3dSceneDeriveSource,
@@ -258,6 +256,8 @@ pub struct Viewer {
   background: ViewerBackgroundState,
   started_time: Instant,
   memory: FunctionMemory,
+  render_memory: FunctionMemory,
+  render_resource: ReactiveQueryCtx,
 }
 
 impl CanCleanUpFrom<ApplicationDropCx> for Viewer {
@@ -270,7 +270,9 @@ impl CanCleanUpFrom<ApplicationDropCx> for Viewer {
       terminal: &mut self.terminal,
     };
     self.memory.cleanup(&mut dcx as *mut _ as *mut ());
-    self.rendering.uninit();
+    self
+      .rendering
+      .uninit(&mut self.render_memory, &mut self.render_resource);
   }
 }
 
@@ -345,30 +347,26 @@ impl Viewer {
     };
 
     Self {
-      // todo, we current disable the on demand draw
-      // because we not cache the rendering result yet
-      on_demand_rendering: false,
       scene,
       terminal,
       rendering: Viewer3dRenderingCtx::new(gpu, swap_chain, viewer_ndc, camera_transforms),
       derives,
-      on_demand_draw: Default::default(),
       background,
       started_time: Instant::now(),
       memory: Default::default(),
+      render_memory: Default::default(),
+      render_resource: Default::default(),
     }
   }
 
   pub fn draw_canvas(&mut self, canvas: &RenderTargetView, scene_derive: &Viewer3dSceneDerive) {
-    if !self.on_demand_rendering {
-      self.on_demand_draw.wake();
-    }
-
-    noop_ctx!(cx);
-    self.on_demand_draw.run_if_previous_waked(cx, |cx| {
-      // println!("draw");
-      self.rendering.render(canvas, &self.scene, scene_derive, cx)
-    });
+    self.rendering.render(
+      canvas,
+      &self.scene,
+      scene_derive,
+      &mut self.render_memory,
+      &mut self.render_resource,
+    )
   }
 }
 

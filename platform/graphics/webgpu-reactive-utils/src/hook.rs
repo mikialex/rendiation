@@ -72,6 +72,7 @@ pub trait QueryGPUHookCx {
   ) -> Option<Box<dyn DynValueRefQuery<Key = K, Value = V>>>;
 
   fn when_render<X>(&self, f: impl FnOnce() -> X) -> Option<X>;
+  fn is_in_render(&self) -> bool;
   fn when_init<X>(&self, f: impl FnOnce() -> X) -> Option<X>;
 }
 
@@ -196,6 +197,10 @@ impl<'a> QueryGPUHookCx for QueryGPUHookCxImpl<'a> {
     } else {
       None
     }
+  }
+
+  fn is_in_render(&self) -> bool {
+    todo!()
   }
 
   fn when_init<X>(&self, f: impl FnOnce() -> X) -> Option<X> {

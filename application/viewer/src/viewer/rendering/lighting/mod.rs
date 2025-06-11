@@ -36,8 +36,8 @@ pub fn use_lighting(
     },
   };
 
-  let dir_lights = use_directional_light_uniform(qcx, &config, ndc.clone());
-  let spot_lights = use_scene_spot_light_uniform(qcx, &config, ndc.clone());
+  let dir_lights = use_directional_light_uniform(qcx, &config, ndc);
+  let spot_lights = use_scene_spot_light_uniform(qcx, &config, ndc);
   let point_lights = use_scene_point_light_uniform(qcx);
   let area_lights = use_area_light_uniform(qcx);
   let ibl = use_ibl(qcx);
@@ -126,7 +126,6 @@ impl LightSystem {
 }
 
 pub struct LightSystem {
-  memory: FunctionMemory,
   enable_channel_debugger: bool,
   channel_debugger: ScreenChannelDebugger,
   pub tonemap: ToneMap,
@@ -137,7 +136,6 @@ pub struct LightSystem {
 impl LightSystem {
   pub fn new(gpu: &GPU) -> Self {
     Self {
-      memory: Default::default(),
       enable_channel_debugger: false,
       channel_debugger: ScreenChannelDebugger::default_useful(),
       tonemap: ToneMap::new(gpu),

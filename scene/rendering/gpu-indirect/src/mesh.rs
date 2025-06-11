@@ -233,6 +233,7 @@ pub fn attribute_buffer_metadata(
     })
 }
 
+#[derive(Clone)]
 pub struct MeshGPUBindlessImpl {
   indices: UntypedPool,
   position: UntypedPool,
