@@ -78,19 +78,21 @@ impl LightSystem {
       only_alpha_blend_objects: None,
     };
 
-    // we could just use empty pass dispatcher, because the color channel not exist at all
-    let depth = ();
+    let content =
+      |proj: Mat4<f32>, world: Mat4<f32>, frame_ctx: &mut FrameCtx, desc: ShadowPassDesc| {
+        let camera = UniformBufferDataView::create(
+          &frame_ctx.gpu.device,
+          CameraGPUTransform::from(CameraTransform::new(proj, world)),
+        );
 
-    let content = |proj: Mat4<f32>, world: Mat4<f32>, frame_ctx: &mut FrameCtx| {
-      let camera = UniformBufferDataView::create(
-        &frame_ctx.gpu.device,
-        CameraGPUTransform::from(CameraTransform::new(proj, world)),
-      );
-      let camera = Box::new(CameraGPU { ubo: camera }) as Box<dyn RenderComponent>;
+        // we could just use empty pass dispatcher, because the color channel not exist at all
+        let depth = ();
+        let camera = Box::new(CameraGPU { ubo: camera }) as Box<dyn RenderComponent>;
+        let mut content =
+          renderer.extract_and_make_pass_content(key, target_scene, &camera, frame_ctx, &depth);
 
-      // todo custom cow
-      renderer.extract_and_make_pass_content(key, target_scene, todo!(), frame_ctx, &depth)
-    };
+        desc.render_ctx(frame_ctx).by(&mut content);
+      };
 
     let ds = instance
       .dir_lights

@@ -55,29 +55,31 @@ pub fn use_directional_light_uniform(
   qcx
     .use_uniform_array_buffers(directional_uniform_array)
     .map(|light| SceneDirectionalLightingPreparer {
-      shadow: todo!(),
+      shadow: shadow.0.clone(),
       light,
       info: shadow.1.target.clone(),
     })
 }
 
 pub struct SceneDirectionalLightingPreparer {
-  pub shadow: BasicShadowMapSystem,
+  pub shadow: Arc<RwLock<BasicShadowMapSystem>>,
   pub light: UniformBufferDataView<Shader140Array<DirectionalLightUniform, 8>>,
   pub info: UniformBufferDataView<Shader140Array<BasicShadowMapInfo, 8>>,
 }
 
 impl SceneDirectionalLightingPreparer {
   pub fn update_shadow_maps(
-    mut self,
+    self,
     frame_ctx: &mut FrameCtx,
-    draw: &impl Fn(Mat4<f32>, Mat4<f32>, &mut FrameCtx) -> Box<dyn PassContent>,
+    draw: &impl Fn(Mat4<f32>, Mat4<f32>, &mut FrameCtx, ShadowPassDesc),
     reversed_depth: bool,
   ) -> SceneDirectionalLightingProvider {
     noop_ctx!(cx);
-    let shadow_map_atlas = self
-      .shadow
-      .update_shadow_maps(cx, frame_ctx, draw, reversed_depth);
+    let shadow_map_atlas =
+      self
+        .shadow
+        .write()
+        .update_shadow_maps(cx, frame_ctx, draw, reversed_depth);
 
     SceneDirectionalLightingProvider {
       light: self.light,
@@ -200,29 +202,31 @@ pub fn use_scene_spot_light_uniform(
   qcx
     .use_uniform_array_buffers(spot_uniform_array)
     .map(|light| SceneSpotLightingPreparer {
-      shadow: todo!(),
+      shadow: shadow.0.clone(),
       light,
       info: shadow.1.target.clone(),
     })
 }
 
 pub struct SceneSpotLightingPreparer {
-  pub shadow: BasicShadowMapSystem,
+  pub shadow: Arc<RwLock<BasicShadowMapSystem>>,
   pub light: UniformBufferDataView<Shader140Array<SpotLightUniform, 8>>,
   pub info: UniformBufferDataView<Shader140Array<BasicShadowMapInfo, 8>>,
 }
 
 impl SceneSpotLightingPreparer {
   pub fn update_shadow_maps(
-    mut self,
+    self,
     frame_ctx: &mut FrameCtx,
-    draw: &impl Fn(Mat4<f32>, Mat4<f32>, &mut FrameCtx) -> Box<dyn PassContent>,
+    draw: &impl Fn(Mat4<f32>, Mat4<f32>, &mut FrameCtx, ShadowPassDesc),
     reversed_depth: bool,
   ) -> SceneSpotLightingProvider {
     noop_ctx!(cx);
-    let shadow_map_atlas = self
-      .shadow
-      .update_shadow_maps(cx, frame_ctx, draw, reversed_depth);
+    let shadow_map_atlas =
+      self
+        .shadow
+        .write()
+        .update_shadow_maps(cx, frame_ctx, draw, reversed_depth);
 
     SceneSpotLightingProvider {
       light: self.light,

@@ -1,6 +1,8 @@
 use std::mem::offset_of;
+use std::sync::Arc;
 use std::task::{Context, Poll};
 
+use parking_lot::RwLock;
 use reactive::*;
 use rendiation_algebra::*;
 use rendiation_shader_api::*;
@@ -33,7 +35,7 @@ pub fn basic_shadow_map_uniform(
   config: MultiLayerTexturePackerConfig,
   gpu_ctx: &GPU,
 ) -> (
-  BasicShadowMapSystem,
+  Arc<RwLock<BasicShadowMapSystem>>,
   UniformArrayUpdateContainer<BasicShadowMapInfo, 8>,
 ) {
   let source_world = inputs.source_world.into_forker();
@@ -52,6 +54,7 @@ pub fn basic_shadow_map_uniform(
     source_proj.into_boxed(),
     inputs.size,
   );
+  let sys = Arc::new(RwLock::new(sys));
 
   let enabled = inputs
     .enabled
@@ -116,7 +119,7 @@ impl BasicShadowMapSystem {
     cx: &mut Context,
     frame_ctx: &mut FrameCtx,
     // proj, world
-    scene_content: &impl Fn(Mat4<f32>, Mat4<f32>, &mut FrameCtx) -> Box<dyn PassContent + 'a>,
+    scene_content: &impl Fn(Mat4<f32>, Mat4<f32>, &mut FrameCtx, ShadowPassDesc),
     reversed_depth: bool,
   ) -> GPU2DArrayDepthTextureView {
     let (_, current_layouts) = self.packing.describe(cx).resolve_kept(); // incremental detail is useless here
@@ -176,22 +179,20 @@ impl BasicShadowMapSystem {
         ..Default::default()
       });
 
-      let mut scene_content = scene_content(proj, world, frame_ctx);
-
       // todo, consider merge the pass within the same layer
       // custom dispatcher is not required because we only have depth output.
-      let mut pass = pass("shadow-map")
-        .with_depth(&RenderTargetView::Texture(write_view), load_and_store())
-        .render_ctx(frame_ctx);
+      let pass =
+        pass("shadow-map").with_depth(&RenderTargetView::Texture(write_view), load_and_store());
 
-      let raw_pass = &mut pass.pass.ctx.pass;
-      let x = shadow_view.offset.x;
-      let y = shadow_view.offset.y;
-      let w = shadow_view.size.x;
-      let h = shadow_view.size.y;
-      raw_pass.set_viewport(x, y, w, h, 0., 1.);
-
-      pass.by(&mut scene_content);
+      scene_content(
+        proj,
+        world,
+        frame_ctx,
+        ShadowPassDesc {
+          desc: pass,
+          address: shadow_view,
+        },
+      );
     }
 
     shadow_map_atlas
@@ -201,6 +202,27 @@ impl BasicShadowMapSystem {
       })
       .try_into()
       .unwrap()
+  }
+}
+
+pub struct ShadowPassDesc {
+  desc: RenderPassDescription,
+  address: ShadowMapAddressInfo,
+}
+
+impl ShadowPassDesc {
+  #[must_use]
+  pub fn render_ctx(self, ctx: &mut FrameCtx) -> ActiveRenderPass {
+    let mut pass = self.desc.render_ctx(ctx);
+
+    let raw_pass = &mut pass.pass.ctx.pass;
+    let x = self.address.offset.x;
+    let y = self.address.offset.y;
+    let w = self.address.size.x;
+    let h = self.address.size.y;
+    raw_pass.set_viewport(x, y, w, h, 0., 1.);
+
+    pass
   }
 }
 
