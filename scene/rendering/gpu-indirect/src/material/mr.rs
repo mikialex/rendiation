@@ -3,6 +3,65 @@ use rendiation_shader_library::normal_mapping::apply_normal_mapping_conditional;
 
 use crate::*;
 
+pub fn use_pbr_mr_material_storage(
+  cx: &mut impl QueryGPUHookCx,
+) -> Option<PbrMRMaterialIndirectRenderer> {
+  let storages = cx.use_storage_buffer(pbr_mr_material_storages);
+  let tex_storages = cx.use_storage_buffer(pbr_mr_material_tex_storages);
+
+  cx.when_render(|| PbrMRMaterialIndirectRenderer {
+    material_access: global_entity_component_of::<StandardModelRefPbrMRMaterial>()
+      .read_foreign_key(),
+    storages: storages.unwrap(),
+    tex_storages: tex_storages.unwrap(),
+    alpha_mode: global_entity_component_of().read(),
+  })
+}
+
+pub fn pbr_mr_material_pipeline_hash(
+) -> impl ReactiveQuery<Key = EntityHandle<PbrMRMaterialEntity>, Value = AlphaMode> {
+  global_watch().watch::<AlphaModeOf<PbrMRMaterialAlphaConfig>>()
+}
+
+#[derive(Clone)]
+pub struct PbrMRMaterialIndirectRenderer {
+  material_access: ForeignKeyReadView<StandardModelRefPbrMRMaterial>,
+  pub storages: StorageBufferReadonlyDataView<[PhysicalMetallicRoughnessMaterialStorage]>,
+  pub tex_storages:
+    StorageBufferReadonlyDataView<[PhysicalMetallicRoughnessMaterialTextureHandlesStorage]>,
+  alpha_mode: ComponentReadView<AlphaModeOf<PbrMRMaterialAlphaConfig>>,
+}
+
+impl IndirectModelMaterialRenderImpl for PbrMRMaterialIndirectRenderer {
+  fn make_component_indirect<'a>(
+    &'a self,
+    any_idx: EntityHandle<StandardModelEntity>,
+    cx: &'a GPUTextureBindingSystem,
+  ) -> Option<Box<dyn RenderComponent + 'a>> {
+    let idx = self.material_access.get(any_idx)?;
+    let r = PhysicalMetallicRoughnessMaterialIndirectGPU {
+      storage: &self.storages,
+      alpha_mode: self.alpha_mode.get_value(idx)?,
+      texture_storages: &self.tex_storages,
+      binding_sys: cx,
+    };
+    let r = Box::new(r) as Box<dyn RenderComponent + '_>;
+    Some(r)
+  }
+  fn hash_shader_group_key(
+    &self,
+    idx: EntityHandle<StandardModelEntity>,
+    hasher: &mut PipelineHasher,
+  ) -> Option<()> {
+    let idx = self.material_access.get(idx)?;
+    self.alpha_mode.get_value(idx)?.hash(hasher);
+    Some(())
+  }
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
+}
+
 #[repr(C)]
 #[std430_layout]
 #[derive(Clone, Copy, ShaderStruct, Debug, PartialEq, Default)]
@@ -16,10 +75,11 @@ pub struct PhysicalMetallicRoughnessMaterialStorage {
   pub alpha_cutoff: f32,
   pub alpha: f32,
 }
-type Storage = PhysicalMetallicRoughnessMaterialStorage;
 
-pub type PbrMRMaterialStorages = ReactiveStorageBufferContainer<Storage>;
-pub fn pbr_mr_material_storages(cx: &GPU) -> PbrMRMaterialStorages {
+type Storage = PhysicalMetallicRoughnessMaterialStorage;
+type PbrMRMaterialStorages = ReactiveStorageBufferContainer<Storage>;
+
+fn pbr_mr_material_storages(cx: &GPU) -> PbrMRMaterialStorages {
   let base_color = global_watch()
     .watch::<PbrMRMaterialBaseColorComponent>()
     .into_query_update_storage(offset_of!(Storage, base_color));
@@ -62,10 +122,11 @@ pub struct PhysicalMetallicRoughnessMaterialTextureHandlesStorage {
   pub metallic_roughness_texture: TextureSamplerHandlePair,
   pub normal_texture: TextureSamplerHandlePair,
 }
-type TexStorage = PhysicalMetallicRoughnessMaterialTextureHandlesStorage;
 
-pub type PbrMRMaterialTexStorages = ReactiveStorageBufferContainer<TexStorage>;
-pub fn pbr_mr_material_tex_storages(cx: &GPU) -> PbrMRMaterialTexStorages {
+type TexStorage = PhysicalMetallicRoughnessMaterialTextureHandlesStorage;
+type PbrMRMaterialTexStorages = ReactiveStorageBufferContainer<TexStorage>;
+
+fn pbr_mr_material_tex_storages(cx: &GPU) -> PbrMRMaterialTexStorages {
   let c = create_reactive_storage_buffer_container(128, u32::MAX, cx);
 
   let base_color_alpha = offset_of!(TexStorage, base_color_alpha_texture);
@@ -78,19 +139,14 @@ pub fn pbr_mr_material_tex_storages(cx: &GPU) -> PbrMRMaterialTexStorages {
   add_tex_watcher::<NormalTexSamplerOf<PbrMRMaterialNormalInfo>, _>(c, normal)
 }
 
-pub fn pbr_mr_material_pipeline_hash(
-) -> impl ReactiveQuery<Key = EntityHandle<PbrMRMaterialEntity>, Value = AlphaMode> {
-  global_watch().watch::<AlphaModeOf<PbrMRMaterialAlphaConfig>>()
-}
-
 pub struct PhysicalMetallicRoughnessMaterialIndirectGPU<'a> {
-  pub storage: &'a StorageBufferReadonlyDataView<[PhysicalMetallicRoughnessMaterialStorage]>,
-  pub alpha_mode: AlphaMode,
+  storage: &'a StorageBufferReadonlyDataView<[PhysicalMetallicRoughnessMaterialStorage]>,
+  alpha_mode: AlphaMode,
   // no matter if we using indirect texture binding, this storage is required for checking the
   // texture if is exist in shader
-  pub texture_storages:
+  texture_storages:
     &'a StorageBufferReadonlyDataView<[PhysicalMetallicRoughnessMaterialTextureHandlesStorage]>,
-  pub binding_sys: &'a GPUTextureBindingSystem,
+  binding_sys: &'a GPUTextureBindingSystem,
 }
 
 impl ShaderHashProvider for PhysicalMetallicRoughnessMaterialIndirectGPU<'_> {

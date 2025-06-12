@@ -26,56 +26,33 @@ use ray_miss::*;
 mod frame_state;
 use frame_state::*;
 
-/// the main physical correct gpu ray tracing implementation
-pub struct DeviceReferencePathTracingSystem {
-  sbt: QueryToken,
-  executor: GPURaytracingPipelineExecutor,
-  system: RtxSystemCore,
-  shader_handles: PathTracingShaderHandles,
-  state: Arc<RwLock<Option<PTRenderState>>>,
-  source_set: QueryCtxSetInfo,
-  gpu: GPU,
-}
+pub fn use_rtx_pt_renderer(
+  cx: &mut impl QueryGPUHookCx,
+  rtx: &RtxSystemCore,
+  request_reset_sample: bool,
+) -> Option<DeviceReferencePathTracingRenderer> {
+  let (cx, end) = cx.use_begin_change_set_collect();
 
-const MAX_RAY_DEPTH: u32 = 3;
+  let (cx, system) = cx.use_gpu_init(|gpu| DeviceReferencePathTracingSystem {
+    executor: rtx.rtx_device.create_raytracing_pipeline_executor(),
+    shader_handles: Default::default(),
+    state: Default::default(),
+    gpu: gpu.clone(),
+  });
 
-impl DeviceReferencePathTracingSystem {
-  pub fn new(rtx: &RtxSystemCore, gpu: &GPU) -> Self {
-    Self {
-      sbt: Default::default(),
-      executor: rtx.rtx_device.create_raytracing_pipeline_executor(),
-      system: rtx.clone(),
-      shader_handles: Default::default(),
-      state: Default::default(),
-      source_set: Default::default(),
-      gpu: gpu.clone(),
-    }
-  }
-  pub fn reset_sample(&self) {
-    if let Some(state) = self.state.write().as_mut() {
-      state.reset(&self.gpu);
-    }
-  }
-}
-
-impl QueryBasedFeature<DeviceReferencePathTracingRenderer> for DeviceReferencePathTracingSystem {
-  type Context = GPU;
-  fn register(&mut self, qcx: &mut ReactiveQueryCtx, _: &GPU) {
-    qcx.record_new_registered(&mut self.source_set);
+  let sbt = cx.use_multi_updater(|| {
     let handles = PathTracingShaderHandles::default();
-    let mut sbt =
-      self
-        .system
-        .rtx_device
-        .create_sbt(1, MAX_MODEL_COUNT_IN_SBT, GLOBAL_TLAS_MAX_RAY_STRIDE);
+    let mut sbt = rtx
+      .rtx_device
+      .create_sbt(1, MAX_MODEL_COUNT_IN_SBT, GLOBAL_TLAS_MAX_RAY_STRIDE);
 
     sbt.config_ray_generation(handles.ray_gen);
     sbt.config_missing(PTRayType::Core as u32, handles.miss);
     sbt.config_missing(PTRayType::ShadowTest as u32, handles.shadow_test_miss);
     let sbt = GPUSbt::new(sbt);
-    let core_closest_hit = self.shader_handles.closest_hit;
-    let shadow_closest_hit = self.shader_handles.shadow_test_hit;
-    let sbt = MultiUpdateContainer::new(sbt)
+    let core_closest_hit = system.shader_handles.closest_hit;
+    let shadow_closest_hit = system.shader_handles.shadow_test_hit;
+    MultiUpdateContainer::new(sbt)
       .with_source(ReactiveQuerySbtUpdater {
         ray_ty_idx: PTRayType::Core as u32,
         source: global_watch()
@@ -95,32 +72,41 @@ impl QueryBasedFeature<DeviceReferencePathTracingRenderer> for DeviceReferencePa
             any_hit: None,
             intersection: None,
           }),
-      });
+      })
+  });
 
-    self.sbt = qcx.register_multi_updater(sbt);
-    qcx.end_record(&mut self.source_set);
+  if let Some(true) = end(cx) {
+    system.reset_sample();
   }
 
-  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
-    qcx.deregister(&mut self.sbt);
+  if request_reset_sample {
+    system.reset_sample();
   }
+  cx.when_render(|| DeviceReferencePathTracingRenderer {
+    executor: system.executor.clone(),
+    shader_handles: system.shader_handles.clone(),
+    frame_state: system.state.clone(),
+    max_ray_depth: MAX_RAY_DEPTH,
+    sbt: sbt.unwrap().target.clone(),
+    gpu: system.gpu.clone(),
+  })
+}
 
-  fn create_impl(&self, cx: &mut QueryResultCtx) -> DeviceReferencePathTracingRenderer {
-    let sbt = cx.take_multi_updater_updated::<GPUSbt>(self.sbt).unwrap();
+/// the main physical correct gpu ray tracing implementation
+pub struct DeviceReferencePathTracingSystem {
+  executor: GPURaytracingPipelineExecutor,
+  shader_handles: PathTracingShaderHandles,
+  state: Arc<RwLock<Option<PTRenderState>>>,
+  gpu: GPU,
+}
 
-    let r = DeviceReferencePathTracingRenderer {
-      shader_handles: self.shader_handles.clone(),
-      max_ray_depth: MAX_RAY_DEPTH,
-      sbt: sbt.target.clone(),
-      executor: self.executor.clone(),
-      frame_state: self.state.clone(),
-      gpu: self.gpu.clone(),
-    };
+const MAX_RAY_DEPTH: u32 = 3;
 
-    if cx.has_any_changed_in_set(&self.source_set) {
-      r.reset_sample();
+impl DeviceReferencePathTracingSystem {
+  pub fn reset_sample(&self) {
+    if let Some(state) = self.state.write().as_mut() {
+      state.reset(&self.gpu);
     }
-    r
   }
 }
 
@@ -161,26 +147,27 @@ impl DeviceReferencePathTracingRenderer {
   }
 
   pub fn render(
-    &mut self,
+    &self,
     frame: &mut FrameCtx,
-    base: &mut SceneRayTracingRendererBase,
+    rtx_system: &dyn GPURaytracingSystem,
+    base: &SceneRayTracingRendererBase,
     scene: EntityHandle<SceneEntity>,
     camera: EntityHandle<SceneCameraEntity>,
     tonemap: &ToneMap,
+    background: &SceneBackgroundRenderer,
   ) -> GPU2DTextureView {
     let scene_tlas = base.scene_tlas.access(&scene).unwrap().clone();
     // bind tlas, see ShaderRayTraceCall::tlas_idx.
-    base
-      .rtx_system
+    rtx_system
       .create_acceleration_structure_system()
       .bind_tlas(&[scene_tlas.tlas_handle]);
 
     let render_size = clamp_size_by_area(frame.frame_size(), 512 * 512);
     let camera = base.camera.get_rtx_camera(camera);
 
-    let mut rtx_encoder = base.rtx_system.create_raytracing_encoder();
+    let mut rtx_encoder = rtx_system.create_raytracing_encoder();
 
-    let trace_base_builder = base.rtx_system.create_tracer_base_builder();
+    let trace_base_builder = rtx_system.create_tracer_base_builder();
 
     let mut state = self.frame_state.write();
     let state = state.deref_mut();
@@ -225,7 +212,7 @@ impl DeviceReferencePathTracingRenderer {
       },
     );
 
-    let miss_ctx = PTRayMissCtx::new(&base.background, scene, frame.gpu);
+    let miss_ctx = PTRayMissCtx::new(background, scene, frame.gpu);
     let miss = build_ray_miss_shader(&trace_base_builder, miss_ctx);
 
     let shadow_test_closest = trace_base_builder

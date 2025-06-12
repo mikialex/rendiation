@@ -13,7 +13,7 @@ reactive-query = { path = "../reactive-query" }
 storage = { path = "../storage" }
 smallvec = { workspace = true }
 dyn-clone = { workspace = true }
-anymap = { path = "../anymap" }
+hook = { path = "../hook" }
 
 
 # we use it's rwlock to avoid recursive read deadlock

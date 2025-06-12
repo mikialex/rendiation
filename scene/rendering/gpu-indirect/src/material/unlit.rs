@@ -1,8 +1,58 @@
 use crate::*;
 
-pub type UnlitMaterialStorageBuffer = ReactiveStorageBufferContainer<UnlitMaterialStorage>;
+pub fn use_unlit_material_storage(
+  cx: &mut impl QueryGPUHookCx,
+) -> Option<UnlitMaterialIndirectRenderer> {
+  let storages = cx.use_storage_buffer(unlit_material_storages);
+  let tex_storages = cx.use_storage_buffer(unlit_material_texture_storages);
 
-pub fn unlit_material_storage_buffer(cx: &GPU) -> UnlitMaterialStorageBuffer {
+  cx.when_render(|| UnlitMaterialIndirectRenderer {
+    material_access: global_entity_component_of::<StandardModelRefUnlitMaterial>()
+      .read_foreign_key(),
+    storages: storages.unwrap(),
+    texture_handles: tex_storages.unwrap(),
+    alpha_mode: global_entity_component_of().read(),
+  })
+}
+
+#[derive(Clone)]
+pub struct UnlitMaterialIndirectRenderer {
+  material_access: ForeignKeyReadView<StandardModelRefUnlitMaterial>,
+  storages: StorageBufferReadonlyDataView<[UnlitMaterialStorage]>,
+  texture_handles: StorageBufferReadonlyDataView<[UnlitMaterialTextureHandlesStorage]>,
+  alpha_mode: ComponentReadView<AlphaModeOf<UnlitMaterialAlphaConfig>>,
+}
+
+impl IndirectModelMaterialRenderImpl for UnlitMaterialIndirectRenderer {
+  fn make_component_indirect<'a>(
+    &'a self,
+    any_idx: EntityHandle<StandardModelEntity>,
+    cx: &'a GPUTextureBindingSystem,
+  ) -> Option<Box<dyn RenderComponent + 'a>> {
+    let m = self.material_access.get(any_idx)?;
+    Some(Box::new(UnlitMaterialStorageGPU {
+      buffer: self.storages.clone(),
+      alpha_mode: self.alpha_mode.get_value(m)?,
+      texture_handles: self.texture_handles.clone(),
+      binding_sys: cx,
+    }))
+  }
+  fn hash_shader_group_key(
+    &self,
+    any_idx: EntityHandle<StandardModelEntity>,
+    _: &mut PipelineHasher,
+  ) -> Option<()> {
+    self.material_access.get(any_idx)?;
+    Some(())
+  }
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
+}
+
+type UnlitMaterialStorageBuffer = ReactiveStorageBufferContainer<UnlitMaterialStorage>;
+
+fn unlit_material_storages(cx: &GPU) -> UnlitMaterialStorageBuffer {
   let color = global_watch()
     .watch::<UnlitMaterialColorComponent>()
     .collective_map(srgb4_to_linear4)
@@ -23,8 +73,9 @@ pub fn unlit_material_storage_buffer(cx: &GPU) -> UnlitMaterialStorageBuffer {
 }
 
 type TexStorage = UnlitMaterialTextureHandlesStorage;
-pub type UnlitMaterialTexStorages = ReactiveStorageBufferContainer<TexStorage>;
-pub fn unlit_material_texture_storages(cx: &GPU) -> UnlitMaterialTexStorages {
+type UnlitMaterialTexStorages = ReactiveStorageBufferContainer<TexStorage>;
+
+fn unlit_material_texture_storages(cx: &GPU) -> UnlitMaterialTexStorages {
   let c = create_reactive_storage_buffer_container(128, u32::MAX, cx);
   let base_color_alpha = offset_of!(TexStorage, color_alpha_texture);
   add_tex_watcher::<UnlitMaterialColorAlphaTex, _>(c, base_color_alpha)
@@ -33,7 +84,7 @@ pub fn unlit_material_texture_storages(cx: &GPU) -> UnlitMaterialTexStorages {
 #[repr(C)]
 #[std430_layout]
 #[derive(Clone, Copy, ShaderStruct, Default)]
-pub struct UnlitMaterialStorage {
+struct UnlitMaterialStorage {
   pub color: Vec4<f32>,
   pub alpha_cutoff: f32,
   pub alpha: f32,
@@ -42,12 +93,12 @@ pub struct UnlitMaterialStorage {
 #[repr(C)]
 #[std430_layout]
 #[derive(Clone, Copy, ShaderStruct, Debug, PartialEq, Default)]
-pub struct UnlitMaterialTextureHandlesStorage {
+struct UnlitMaterialTextureHandlesStorage {
   pub color_alpha_texture: TextureSamplerHandlePair,
 }
 
 #[derive(Clone)]
-pub struct UnlitMaterialStorageGPU<'a> {
+struct UnlitMaterialStorageGPU<'a> {
   pub buffer: StorageBufferReadonlyDataView<[UnlitMaterialStorage]>,
   pub texture_handles: StorageBufferReadonlyDataView<[UnlitMaterialTextureHandlesStorage]>,
   pub alpha_mode: AlphaMode,

@@ -97,8 +97,8 @@ impl SkinBoneMatrixesDataTextureComputer {
     }
     for (k, _) in mat_changes.iter_key_value() {
       let skin = skin_access.get(k).unwrap();
-      let (bind_matrixes, gpu_textures) = self.bind_matrixes.get_mut(&skin).unwrap();
-      gpu_textures.get_or_insert_with(|| create_data_texture(gpu, bind_matrixes));
+      let (bind_matrixes, gpu_texture) = self.bind_matrixes.get_mut(&skin).unwrap();
+      gpu_texture.get_or_insert_with(|| create_data_texture(gpu, bind_matrixes));
     }
     let (c, _) = self.skins.describe(cx).resolve_kept();
     for (k, change) in c.iter_key_value() {

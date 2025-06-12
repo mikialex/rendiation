@@ -41,46 +41,27 @@ pub struct WideLineMeshDataView {
 
 pub type WideLineMeshInternal = NoneIndexedMesh<LineList, Vec<WideLineVertex>>;
 
-pub struct WideLineModelRendererProvider {
-  uniform: QueryToken,
-  mesh: QueryToken,
-  vertex_buffer: GPUBufferResourceView,
-  index_buffer: GPUBufferResourceView,
-}
+pub fn use_widen_line(qcx: &mut impl QueryGPUHookCx) -> Option<WideLineModelRenderer> {
+  let (qcx, quad) = qcx.use_gpu_init(create_wide_line_quad_gpu);
 
-impl WideLineModelRendererProvider {
-  pub fn new(gpu: &GPU) -> Self {
-    let (index_buffer, vertex_buffer) = create_wide_line_quad_gpu(gpu);
-    Self {
-      uniform: Default::default(),
-      mesh: Default::default(),
-      index_buffer,
-      vertex_buffer,
-    }
-  }
-}
+  let uniform =
+    qcx.use_uniform_buffers::<EntityHandle<WideLineModelEntity>, WideLineUniform>(|source, cx| {
+      let width = global_watch()
+        .watch::<WideLineWidth>()
+        .into_query_update_uniform(offset_of!(WideLineUniform, width), cx);
 
-impl QueryBasedFeature<Box<dyn GLESModelRenderImpl>> for WideLineModelRendererProvider {
-  type Context = GPU;
-  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
-    self.uniform = qcx.register_multi_updater(wide_line_uniforms(cx));
-    self.mesh = qcx.register_val_refed_reactive_query(wide_line_instance_buffers(cx));
-  }
+      source.with_source(width)
+    });
 
-  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
-    qcx.deregister(&mut self.uniform);
-    qcx.deregister(&mut self.mesh);
-  }
+  let mesh = qcx.use_val_refed_reactive_query(wide_line_instance_buffers);
 
-  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn GLESModelRenderImpl> {
-    Box::new(WideLineModelRenderer {
-      model_access: global_database().read_foreign_key::<SceneModelWideLineRenderPayload>(),
-      uniforms: cx.take_multi_updater_updated(self.uniform).unwrap(),
-      instance_buffers: cx.take_val_refed_reactive_query_updated(self.mesh).unwrap(),
-      index_buffer: self.index_buffer.clone(),
-      vertex_buffer: self.vertex_buffer.clone(),
-    })
-  }
+  qcx.when_render(|| WideLineModelRenderer {
+    model_access: global_database().read_foreign_key::<SceneModelWideLineRenderPayload>(),
+    uniforms: uniform.unwrap(),
+    instance_buffers: mesh.unwrap(),
+    index_buffer: quad.0.clone(),
+    vertex_buffer: quad.1.clone(),
+  })
 }
 
 pub struct WideLineModelRenderer {

@@ -1,5 +1,3 @@
-use anymap::AnyMap;
-
 use crate::*;
 
 /// This is a container to hold reactive query or general query like object.
@@ -19,6 +17,10 @@ pub struct QueryCtxSetInfo {
   sets: FastHashSet<u32>,
 }
 
+impl hook::CanCleanUpFrom<ReactiveQueryCtx> for QueryCtxSetInfo {
+  fn drop_from_cx(&mut self, _: &mut ReactiveQueryCtx) {}
+}
+
 impl ReactiveQueryCtx {
   pub fn record_new_registered(&mut self, set: &mut QueryCtxSetInfo) {
     set.id = self.next;
@@ -29,6 +31,14 @@ impl ReactiveQueryCtx {
   pub fn end_record(&mut self, set: &mut QueryCtxSetInfo) {
     let recorded = self.recording_sets.remove(&set.id).unwrap();
     set.sets = recorded;
+  }
+
+  pub fn register_typed<T>(&mut self, update: T) -> QueryToken
+  where
+    T: ReactiveGeneralQuery + 'static,
+    T::Output: 'static,
+  {
+    self.register(Box::new(IntoBoxedAnyReactiveGeneralQuery(update)) as BoxedAnyReactiveQuery)
   }
 
   pub fn register(&mut self, update: BoxedAnyReactiveQuery) -> QueryToken {
@@ -100,7 +110,6 @@ impl ReactiveQueryCtx {
     QueryResultCtx {
       token_based_result,
       token_based_waked,
-      type_based_result: Default::default(),
     }
   }
 }
@@ -120,12 +129,16 @@ impl Default for QueryToken {
   }
 }
 
+impl hook::CanCleanUpFrom<ReactiveQueryCtx> for QueryToken {
+  fn drop_from_cx(&mut self, cx: &mut ReactiveQueryCtx) {
+    cx.deregister(self);
+  }
+}
+
 /// The joined update result of [ReactiveQueryCtx], accessed by [QueryToken]
 pub struct QueryResultCtx {
   pub token_based_result: FastHashMap<u32, Box<dyn Any>>,
   pub token_based_waked: FastHashSet<u32>,
-  /// this field provides convenient way to inject any adhoc result for parameter passing
-  pub type_based_result: AnyMap,
 }
 
 impl QueryResultCtx {
@@ -188,17 +201,6 @@ impl QueryResultCtx {
       .ok()
       .map(|v| *v)
   }
-}
-
-/// This trait abstract the general pattern of the [ReactiveQueryCtx] usage
-pub trait QueryBasedFeature<T> {
-  type Context;
-  /// register queries in qcx
-  fn register(&mut self, qcx: &mut ReactiveQueryCtx, ctx: &Self::Context);
-  /// deregister queries in qcx
-  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx);
-  /// access the ctx's update result, and create the required feature
-  fn create_impl(&self, cx: &mut QueryResultCtx) -> T;
 }
 
 pub type BoxedAnyReactiveQuery = Box<dyn ReactiveGeneralQuery<Output = Box<dyn Any>>>;

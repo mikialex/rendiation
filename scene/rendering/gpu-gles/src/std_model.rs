@@ -39,53 +39,24 @@ impl GLESModelRenderImpl for Vec<Box<dyn GLESModelRenderImpl>> {
   }
 }
 
-#[derive(Default)]
-pub struct DefaultSceneStdModelRendererProvider {
-  pub materials: Vec<BoxedQueryBasedGPUFeature<Box<dyn GLESModelMaterialRenderImpl>>>,
-  pub shapes: Vec<BoxedQueryBasedGPUFeature<Box<dyn GLESModelShapeRenderImpl>>>,
-}
-
-impl DefaultSceneStdModelRendererProvider {
-  pub fn register_material_impl(
-    mut self,
-    imp: impl QueryBasedFeature<Box<dyn GLESModelMaterialRenderImpl>, Context = GPU> + 'static,
-  ) -> Self {
-    self.materials.push(Box::new(imp));
-    self
-  }
-  pub fn register_shape_impl(
-    mut self,
-    imp: impl QueryBasedFeature<Box<dyn GLESModelShapeRenderImpl>, Context = GPU> + 'static,
-  ) -> Self {
-    self.shapes.push(Box::new(imp));
-    self
-  }
-}
-
-impl QueryBasedFeature<Box<dyn GLESModelRenderImpl>> for DefaultSceneStdModelRendererProvider {
-  type Context = GPU;
-  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
-    self.materials.iter_mut().for_each(|p| p.register(qcx, cx));
-    self.shapes.iter_mut().for_each(|p| p.register(qcx, cx));
-  }
-
-  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
-    self.materials.iter_mut().for_each(|p| p.deregister(qcx));
-    self.shapes.iter_mut().for_each(|p| p.deregister(qcx));
-  }
-
-  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn GLESModelRenderImpl> {
+pub fn std_model_renderer(
+  cx: &mut impl QueryGPUHookCx,
+  materials: Option<Box<dyn GLESModelMaterialRenderImpl>>,
+  shapes: Option<Box<dyn GLESModelShapeRenderImpl>>,
+) -> Option<Box<dyn GLESModelRenderImpl>> {
+  cx.when_render(|| {
     Box::new(SceneStdModelRenderer {
       model: global_entity_component_of::<SceneModelStdModelRenderPayload>().read_foreign_key(),
-      materials: self.materials.iter().map(|v| v.create_impl(cx)).collect(),
-      shapes: self.shapes.iter().map(|v| v.create_impl(cx)).collect(),
-    })
-  }
+      materials: materials.unwrap(),
+      shapes: shapes.unwrap(),
+    }) as Box<dyn GLESModelRenderImpl>
+  })
 }
+
 struct SceneStdModelRenderer {
   model: ForeignKeyReadView<SceneModelStdModelRenderPayload>,
-  materials: Vec<Box<dyn GLESModelMaterialRenderImpl>>,
-  shapes: Vec<Box<dyn GLESModelShapeRenderImpl>>,
+  materials: Box<dyn GLESModelMaterialRenderImpl>,
+  shapes: Box<dyn GLESModelShapeRenderImpl>,
 }
 
 impl GLESModelRenderImpl for SceneStdModelRenderer {

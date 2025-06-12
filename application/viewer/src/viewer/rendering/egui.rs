@@ -59,7 +59,6 @@ impl Viewer3dRenderingCtx {
       .supported_features
       .contains(Features::MULTI_DRAW_INDIRECT_COUNT);
 
-    let old = self.current_renderer_impl_ty;
     egui::ComboBox::from_label("RasterizationRender Backend")
       .selected_text(format!("{:?}", &self.current_renderer_impl_ty))
       .show_ui(ui, |ui| {
@@ -102,17 +101,6 @@ impl Viewer3dRenderingCtx {
 
     ui.separator();
 
-    if old != self.current_renderer_impl_ty {
-      self.renderer_impl.deregister(&mut self.rendering_resource);
-      self.renderer_impl = init_renderer(
-        &mut self.rendering_resource,
-        self.current_renderer_impl_ty,
-        &self.gpu,
-        self.camera_source.clone_as_static(),
-        self.ndc.enable_reverse_z,
-      );
-    }
-
     ui.add_enabled_ui(is_target_support_indirect_draw, |ui| {
       let mut indirect_occlusion_culling_impl_exist =
         self.indirect_occlusion_culling_impl.is_some();
@@ -125,11 +113,9 @@ impl Viewer3dRenderingCtx {
     });
 
     ui.add_enabled_ui(true, |ui| {
-      let mut rtx_renderer_impl_exist = self.rtx_renderer_impl.is_some();
-      ui.checkbox(&mut rtx_renderer_impl_exist, "rtx_renderer_is_ready");
-      self.set_enable_rtx_rendering_support(rtx_renderer_impl_exist);
+      ui.checkbox(&mut self.rtx_renderer_enabled, "rtx_renderer_is_ready");
 
-      if let Some(renderer) = &self.rtx_renderer_impl {
+      if self.rtx_renderer_enabled {
         ui.checkbox(&mut self.rtx_rendering_enabled, "enable ray tracing");
         egui::ComboBox::from_label("ray tracing mode")
           .selected_text(format!("{:?}", &self.rtx_effect_mode))
@@ -146,17 +132,8 @@ impl Viewer3dRenderingCtx {
             );
           });
 
-        match self.rtx_effect_mode {
-          RayTracingEffectMode::AO => {
-            if ui.button("reset ao sample").clicked() {
-              renderer.ao.reset_ao_sample();
-            }
-          }
-          RayTracingEffectMode::ReferenceTracing => {
-            if ui.button("reset pt sample").clicked() {
-              renderer.pt.reset_sample();
-            }
-          }
+        if ui.button("reset  sample").clicked() {
+          self.request_reset_rtx_sample = true;
         }
       }
     });
@@ -181,8 +158,6 @@ impl Viewer3dRenderingCtx {
           },
           egui::Sense::empty(),
         );
-        // let center = res.rect.center();
-        // painter.circle_filled(center, 50., egui::Color32::BLACK);
         let x_start = res.rect.left();
         let y_start = res.rect.top();
         let x_step = graph_width / self.stat_frame_time_in_ms.history_size() as f32;

@@ -1,6 +1,6 @@
 use std::num::NonZeroU32;
 
-use rendiation_area_lighting::AreaLightUniformLightList;
+use rendiation_area_lighting::{area_light_uniform_array, SceneAreaLightingProvider};
 use rendiation_lighting_shadow_map::*;
 use rendiation_texture_gpu_base::create_gpu_texture2d;
 use rendiation_texture_gpu_process::{ToneMap, ToneMapType};
@@ -15,16 +15,119 @@ use debug_channels::*;
 use ibl::*;
 pub use light_pass::*;
 use punctual::*;
+use rendiation_webgpu_reactive_utils::*;
 pub use shadow::*;
 
 use crate::*;
 
+pub fn use_lighting(
+  qcx: &mut impl QueryGPUHookCx,
+  ndc: ViewerNDC,
+) -> Option<LightingRenderingCxPrepareCtx> {
+  let size = Size::from_u32_pair_min_one((2048, 2048));
+  let config = MultiLayerTexturePackerConfig {
+    max_size: SizeWithDepth {
+      depth: NonZeroU32::new(2).unwrap(),
+      size,
+    },
+    init_size: SizeWithDepth {
+      depth: NonZeroU32::new(1).unwrap(),
+      size,
+    },
+  };
+
+  let dir_lights = use_directional_light_uniform(qcx, &config, ndc);
+  let spot_lights = use_scene_spot_light_uniform(qcx, &config, ndc);
+  let point_lights = use_scene_point_light_uniform(qcx);
+  let area_lights = use_area_light_uniform(qcx);
+  let ibl = use_ibl(qcx);
+
+  let scene_ids = use_scene_id_provider(qcx);
+
+  qcx.when_render(|| LightingRenderingCxPrepareCtx {
+    dir_lights: dir_lights.unwrap(),
+    spot_lights: spot_lights.unwrap(),
+    point_lights: point_lights.unwrap(),
+    area_lights: area_lights.unwrap(),
+    ibl: ibl.unwrap(),
+    scene_ids: scene_ids.unwrap(),
+  })
+}
+
+pub struct LightingRenderingCxPrepareCtx {
+  dir_lights: SceneDirectionalLightingPreparer,
+  spot_lights: SceneSpotLightingPreparer,
+  point_lights: ScenePointLightingProvider,
+  area_lights: SceneAreaLightingProvider,
+  ibl: IBLLightingComponentProvider,
+  scene_ids: SceneIdUniformBufferAccess,
+}
+
+impl LightSystem {
+  pub fn prepare(
+    &self,
+    instance: LightingRenderingCxPrepareCtx,
+    frame_ctx: &mut FrameCtx,
+    reversed_depth: bool,
+    renderer: &dyn SceneRenderer<ContentKey = SceneContentKey>,
+    target_scene: EntityHandle<SceneEntity>,
+  ) -> LightingRenderingCx {
+    self.tonemap.update(frame_ctx.gpu);
+
+    let key = SceneContentKey {
+      only_alpha_blend_objects: None,
+    };
+
+    let content =
+      |proj: Mat4<f32>, world: Mat4<f32>, frame_ctx: &mut FrameCtx, desc: ShadowPassDesc| {
+        let camera = UniformBufferDataView::create(
+          &frame_ctx.gpu.device,
+          CameraGPUTransform::from(CameraTransform::new(proj, world)),
+        );
+
+        // we could just use empty pass dispatcher, because the color channel not exist at all
+        let depth = ();
+        let camera = Box::new(CameraGPU { ubo: camera }) as Box<dyn RenderComponent>;
+        let mut content =
+          renderer.extract_and_make_pass_content(key, target_scene, &camera, frame_ctx, &depth);
+
+        desc.render_ctx(frame_ctx).by(&mut content);
+      };
+
+    let ds = instance
+      .dir_lights
+      .update_shadow_maps(frame_ctx, &content, reversed_depth);
+
+    let ss = instance
+      .spot_lights
+      .update_shadow_maps(frame_ctx, &content, reversed_depth);
+
+    let imp = Box::new(LightingComputeComponentGroupProvider {
+      lights: vec![
+        Box::new(ds),
+        Box::new(ss),
+        Box::new(instance.point_lights),
+        Box::new(instance.area_lights),
+        Box::new(instance.ibl),
+      ],
+    });
+
+    let sys = SceneLightSystem {
+      scene_ids: instance.scene_ids,
+      system: self,
+      imp,
+    };
+
+    LightingRenderingCx {
+      lighting: sys,
+      tonemap: &self.tonemap,
+      deferred_mat_supports: &self.material_defer_lighting_supports,
+      lighting_method: self.opaque_scene_content_lighting_technique,
+    }
+  }
+}
+
 pub struct LightSystem {
-  reversed_depth: bool,
-  internal: BoxedQueryBasedGPUFeature<Box<dyn LightSystemSceneProvider>>,
-  scene_ids: SceneIdProvider,
-  directional_light_shadow: BasicShadowMapSystem,
-  spot_light_shadow: BasicShadowMapSystem,
   enable_channel_debugger: bool,
   channel_debugger: ScreenChannelDebugger,
   pub tonemap: ToneMap,
@@ -33,158 +136,11 @@ pub struct LightSystem {
 }
 
 impl LightSystem {
-  pub fn new_and_register(
-    qcx: &mut ReactiveQueryCtx,
-    gpu: &GPU,
-    reversed_depth: bool,
-    ndc: impl NDCSpaceMapper<f32> + Copy,
-  ) -> Self {
-    let size = Size::from_u32_pair_min_one((2048, 2048));
-    let config = MultiLayerTexturePackerConfig {
-      max_size: SizeWithDepth {
-        depth: NonZeroU32::new(2).unwrap(),
-        size,
-      },
-      init_size: SizeWithDepth {
-        depth: NonZeroU32::new(1).unwrap(),
-        size,
-      },
-    };
-
-    let source_proj = global_watch()
-      .watch_untyped_key::<DirectionLightShadowBound>()
-      .collective_map(move |orth| {
-        orth
-          .unwrap_or(OrthographicProjection {
-            left: -20.,
-            right: 20.,
-            top: 20.,
-            bottom: -20.,
-            near: 0.,
-            far: 1000.,
-          })
-          .compute_projection_mat(&ndc)
-      })
-      .into_boxed();
-
-    let source_world = scene_node_derive_world_mat()
-      .one_to_many_fanout(global_rev_ref().watch_inv_ref::<DirectionalRefNode>())
-      .untyped_entity_handle()
-      .into_boxed();
-
-    let (directional_light_shadow, directional_light_shadow_address) = basic_shadow_map_uniform(
-      ShadowMapSystemInputs {
-        source_world,
-        source_proj,
-        size: global_watch()
-          .watch_untyped_key::<BasicShadowMapResolutionOf<DirectionLightBasicShadowInfo>>()
-          .collective_map(|size| Size::from_u32_pair_min_one(size.into()))
-          .into_boxed(),
-        bias: global_watch()
-          .watch_untyped_key::<BasicShadowMapBiasOf<DirectionLightBasicShadowInfo>>()
-          .collective_map(|v| v.into())
-          .into_boxed(),
-        enabled: global_watch()
-          .watch_untyped_key::<BasicShadowMapEnabledOf<DirectionLightBasicShadowInfo>>()
-          .into_boxed(),
-      },
-      config,
-      gpu,
-    );
-
-    let source_proj = global_watch()
-      .watch_untyped_key::<SpotLightHalfConeAngle>()
-      .collective_map(move |half_cone_angle| {
-        PerspectiveProjection {
-          near: 0.1,
-          far: 2000.,
-          fov: Deg::from_rad(half_cone_angle * 2.),
-          aspect: 1.,
-        }
-        .compute_projection_mat(&ndc)
-      })
-      .into_boxed();
-
-    let source_world = scene_node_derive_world_mat()
-      .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SpotLightRefNode>())
-      .untyped_entity_handle()
-      .into_boxed();
-
-    let (spot_light_shadow, spot_light_shadow_address) = basic_shadow_map_uniform(
-      ShadowMapSystemInputs {
-        source_proj,
-        source_world,
-        size: global_watch()
-          .watch_untyped_key::<BasicShadowMapResolutionOf<SpotLightBasicShadowInfo>>()
-          .collective_map(|size| Size::from_u32_pair_min_one(size.into()))
-          .into_boxed(),
-        bias: global_watch()
-          .watch_untyped_key::<BasicShadowMapBiasOf<SpotLightBasicShadowInfo>>()
-          .collective_map(|v| v.into())
-          .into_boxed(),
-        enabled: global_watch()
-          .watch_untyped_key::<BasicShadowMapEnabledOf<SpotLightBasicShadowInfo>>()
-          .into_boxed(),
-      },
-      config,
-      gpu,
-    );
-
-    let ltc_1 = include_bytes!("./ltc_1.bin");
-    let ltc_1 = create_gpu_texture2d(
-      gpu,
-      &GPUBufferImage {
-        data: ltc_1.as_slice().to_vec(),
-        format: TextureFormat::Rgba16Float,
-        size: Size::from_u32_pair_min_one((64, 64)),
-      },
-    );
-    let ltc_2 = include_bytes!("./ltc_2.bin");
-    let ltc_2 = create_gpu_texture2d(
-      gpu,
-      &GPUBufferImage {
-        data: ltc_2.as_slice().to_vec(),
-        format: TextureFormat::Rgba16Float,
-        size: Size::from_u32_pair_min_one((64, 64)),
-      },
-    );
-
-    let mut internal = Box::new(
-      DifferentLightRenderImplProvider::default()
-        .with_light(DirectionalUniformLightList::new(
-          qcx,
-          directional_uniform_array(gpu),
-          directional_light_shadow_address,
-          reversed_depth,
-        ))
-        .with_light(SpotLightUniformLightList::new(
-          qcx,
-          spot_uniform_array(gpu),
-          spot_light_shadow_address,
-          reversed_depth,
-        ))
-        .with_light(PointLightUniformLightList::default())
-        .with_light(AreaLightUniformLightList {
-          light: Default::default(),
-          ltc_1,
-          ltc_2,
-        })
-        .with_light(IBLProvider::new(gpu)),
-    );
-
-    internal.register(qcx, gpu);
-    let mut scene_ids = SceneIdProvider::default();
-    scene_ids.register(qcx, gpu);
-
+  pub fn new(gpu: &GPU) -> Self {
     Self {
-      directional_light_shadow,
-      spot_light_shadow,
-      internal,
       enable_channel_debugger: false,
-      scene_ids,
       channel_debugger: ScreenChannelDebugger::default_useful(),
       tonemap: ToneMap::new(gpu),
-      reversed_depth,
       material_defer_lighting_supports: DeferLightingMaterialRegistry::default()
         .register_material_impl::<PbrSurfaceEncodeDecode>(),
       opaque_scene_content_lighting_technique: LightingTechniqueKind::Forward,
@@ -217,68 +173,6 @@ impl LightSystem {
             .text("exposure"),
         );
       });
-    }
-  }
-
-  pub fn deregister_resource(&mut self, qcx: &mut ReactiveQueryCtx) {
-    self.internal.deregister(qcx);
-    self.scene_ids.deregister(qcx);
-  }
-
-  pub fn prepare_and_create_impl(
-    &mut self,
-    rcx: &mut QueryResultCtx,
-    frame_ctx: &mut FrameCtx,
-    cx: &mut Context,
-    renderer: &dyn SceneRenderer<ContentKey = SceneContentKey>,
-    target_scene: EntityHandle<SceneEntity>,
-  ) -> LightingRenderingCx {
-    self.tonemap.update(frame_ctx.gpu);
-
-    let key = SceneContentKey {
-      only_alpha_blend_objects: None,
-    };
-
-    // we could just use empty pass dispatcher, because the color channel not exist at all
-    let depth = ();
-
-    let content = |proj: Mat4<f32>, world: Mat4<f32>, frame_ctx: &mut FrameCtx| {
-      let camera = UniformBufferDataView::create(
-        &frame_ctx.gpu.device,
-        CameraGPUTransform::from(CameraTransform::new(proj, world)),
-      );
-      let camera = Box::new(CameraGPU { ubo: camera });
-      let camera = CameraRenderSource::External(camera);
-
-      renderer.extract_and_make_pass_content(key, target_scene, camera, frame_ctx, &depth)
-    };
-
-    let ds = self.directional_light_shadow.update_shadow_maps(
-      cx,
-      frame_ctx,
-      &content,
-      self.reversed_depth,
-    );
-
-    let ss =
-      self
-        .spot_light_shadow
-        .update_shadow_maps(cx, frame_ctx, &content, self.reversed_depth);
-
-    rcx.type_based_result.register(DirectionalShaderAtlas(ds));
-    rcx.type_based_result.register(SpotShaderAtlas(ss));
-
-    let sys = SceneLightSystem {
-      scene_ids: self.scene_ids.create_impl(rcx),
-      system: self,
-      imp: self.internal.create_impl(rcx),
-    };
-
-    LightingRenderingCx {
-      lighting: sys,
-      tonemap: &self.tonemap,
-      deferred_mat_supports: &self.material_defer_lighting_supports,
-      lighting_method: self.opaque_scene_content_lighting_technique,
     }
   }
 }
@@ -362,4 +256,38 @@ impl GraphicsShaderProvider for DefaultDisplayWriter {
       builder.store_fragment_out(0, default)
     })
   }
+}
+
+fn use_area_light_uniform(qcx: &mut impl QueryGPUHookCx) -> Option<SceneAreaLightingProvider> {
+  let uniform = qcx.use_uniform_array_buffers(area_light_uniform_array);
+
+  let (qcx, lut) = qcx.use_gpu_init(|gpu| {
+    let ltc_1 = include_bytes!("./ltc_1.bin");
+    let ltc_1 = create_gpu_texture2d(
+      gpu,
+      &GPUBufferImage {
+        data: ltc_1.as_slice().to_vec(),
+        format: TextureFormat::Rgba16Float,
+        size: Size::from_u32_pair_min_one((64, 64)),
+      },
+    );
+    let ltc_2 = include_bytes!("./ltc_2.bin");
+    let ltc_2 = create_gpu_texture2d(
+      gpu,
+      &GPUBufferImage {
+        data: ltc_2.as_slice().to_vec(),
+        format: TextureFormat::Rgba16Float,
+        size: Size::from_u32_pair_min_one((64, 64)),
+      },
+    );
+    (ltc_1, ltc_2)
+  });
+
+  qcx.when_render(|| -> _ {
+    SceneAreaLightingProvider {
+      ltc_1: lut.0.clone(),
+      ltc_2: lut.1.clone(),
+      uniform: uniform.unwrap(),
+    }
+  })
 }

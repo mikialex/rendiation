@@ -1,5 +1,57 @@
 use crate::*;
 
+pub trait IndirectNodeRenderImpl {
+  fn make_component_indirect(
+    &self,
+    any_idx: EntityHandle<SceneNodeEntity>,
+  ) -> Option<Box<dyn RenderComponent + '_>>;
+
+  fn hash_shader_group_key(
+    &self,
+    any_id: EntityHandle<SceneNodeEntity>,
+    hasher: &mut PipelineHasher,
+  ) -> Option<()>;
+  fn hash_shader_group_key_with_self_type_info(
+    &self,
+    any_id: EntityHandle<SceneNodeEntity>,
+    hasher: &mut PipelineHasher,
+  ) -> Option<()> {
+    self.hash_shader_group_key(any_id, hasher).map(|_| {
+      self.as_any().type_id().hash(hasher);
+    })
+  }
+
+  fn as_any(&self) -> &dyn Any;
+}
+
+pub fn use_node_storage(cx: &mut impl QueryGPUHookCx) -> Option<IndirectNodeRenderer> {
+  cx.use_storage_buffer(node_storages)
+    .map(IndirectNodeRenderer)
+}
+
+pub struct IndirectNodeRenderer(StorageBufferReadonlyDataView<[NodeStorage]>);
+
+impl IndirectNodeRenderImpl for IndirectNodeRenderer {
+  fn make_component_indirect(
+    &self,
+    _any_idx: EntityHandle<SceneNodeEntity>,
+  ) -> Option<Box<dyn RenderComponent + '_>> {
+    let node = NodeGPUStorage(&self.0);
+    Some(Box::new(node))
+  }
+  fn hash_shader_group_key(
+    &self,
+    _: EntityHandle<SceneNodeEntity>,
+    _: &mut PipelineHasher,
+  ) -> Option<()> {
+    Some(())
+  }
+
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
+}
+
 only_vertex!(IndirectSceneNodeId, u32);
 
 pub fn node_storages(cx: &GPU) -> ReactiveStorageBufferContainer<NodeStorage> {
@@ -14,9 +66,7 @@ pub fn node_storages(cx: &GPU) -> ReactiveStorageBufferContainer<NodeStorage> {
   create_reactive_storage_buffer_container(128, u32::MAX, cx).with_source(source)
 }
 
-pub struct NodeGPUStorage<'a> {
-  pub buffer: &'a MultiUpdateContainer<CommonStorageBufferImpl<NodeStorage>>,
-}
+pub struct NodeGPUStorage<'a>(&'a StorageBufferReadonlyDataView<[NodeStorage]>);
 
 #[repr(C)]
 #[std430_layout]
@@ -43,7 +93,7 @@ impl ShaderHashProvider for NodeGPUStorage<'_> {
 impl GraphicsShaderProvider for NodeGPUStorage<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, binding| {
-      let nodes = binding.bind_by(self.buffer.inner.gpu());
+      let nodes = binding.bind_by(self.0);
       let current_node_id = builder.query::<IndirectSceneNodeId>();
       let node = nodes.index(current_node_id).load().expand();
 
@@ -63,6 +113,6 @@ impl GraphicsShaderProvider for NodeGPUStorage<'_> {
 
 impl ShaderPassBuilder for NodeGPUStorage<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(self.buffer.inner.gpu());
+    ctx.binding.bind(self.0);
   }
 }

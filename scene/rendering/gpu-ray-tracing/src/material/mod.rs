@@ -24,15 +24,12 @@ pub trait SceneMaterialSurfaceSupportInvocation {
   );
 }
 
-#[derive(Default)]
-pub struct RtxSceneMaterialSource {
-  material_ty: QueryToken,
-  material_id: QueryToken,
-  materials: Vec<BoxedQueryBasedGPUFeature<Box<dyn SceneMaterialSurfaceSupport>>>,
-}
-
-impl RtxSceneMaterialSource {
-  pub fn register_resource(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
+pub fn use_rtx_scene_material(
+  cx: &mut impl QueryGPUHookCx,
+  materials: Option<Arc<Vec<Box<dyn SceneMaterialSurfaceSupport>>>>,
+  tex: Option<GPUTextureBindingSystem>,
+) -> Option<SceneSurfaceSupport> {
+  let material_id = cx.use_storage_buffer(|cx| {
     let material_pbr_mr = global_watch()
       .watch::<StandardModelRefPbrMRMaterial>()
       .collective_filter_map(|id| id.map(|v| v.index()))
@@ -51,10 +48,12 @@ impl RtxSceneMaterialSource {
       .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelStdModelRenderPayload>())
       .into_query_update_storage(0);
 
-    let material_id = create_reactive_storage_buffer_container::<u32>(128, u32::MAX, cx)
+    create_reactive_storage_buffer_container::<u32>(128, u32::MAX, cx)
       .with_source(sm_to_mr)
-      .with_source(sm_to_sg);
+      .with_source(sm_to_sg)
+  });
 
+  let material_ty = cx.use_storage_buffer(|cx| {
     let material_ty_base = global_watch().watch_entity_set::<SceneModelEntity>();
 
     let mr_material_ty = global_watch()
@@ -73,47 +72,13 @@ impl RtxSceneMaterialSource {
       .collective_union(material_ty, |(a, b)| a.map(|_| b.unwrap_or(u32::MAX)))
       .into_query_update_storage(0);
 
-    let material_ty =
-      create_reactive_storage_buffer_container::<u32>(128, u32::MAX, cx).with_source(material_ty);
-    self.material_id = qcx.register_multi_updater(material_id);
-    self.material_ty = qcx.register_multi_updater(material_ty);
-    for m in &mut self.materials {
-      m.register(qcx, cx);
-    }
-  }
-  pub fn deregister_resource(&mut self, qcx: &mut ReactiveQueryCtx) {
-    qcx.deregister(&mut self.material_ty);
-    qcx.deregister(&mut self.material_id);
-    for m in &mut self.materials {
-      m.deregister(qcx);
-    }
-  }
-  pub fn create_impl(
-    &self,
-    cx: &mut QueryResultCtx,
-    tex: &GPUTextureBindingSystem,
-  ) -> SceneSurfaceSupport {
-    SceneSurfaceSupport {
-      textures: tex.clone(),
-      sm_to_material_type: cx.take_storage_array_buffer(self.material_ty).unwrap(),
-      sm_to_material_id: cx.take_storage_array_buffer(self.material_id).unwrap(),
-      material_accessor: Arc::new(
-        self
-          .materials
-          .iter()
-          .map(|m| m.create_impl(cx))
-          .collect::<Vec<_>>(),
-      ),
-    }
-  }
-}
+    create_reactive_storage_buffer_container::<u32>(128, u32::MAX, cx).with_source(material_ty)
+  });
 
-impl RtxSceneMaterialSource {
-  pub fn with_material_support(
-    mut self,
-    m: impl QueryBasedFeature<Box<dyn SceneMaterialSurfaceSupport>, Context = GPU> + 'static,
-  ) -> Self {
-    self.materials.push(Box::new(m));
-    self
-  }
+  cx.when_render(|| SceneSurfaceSupport {
+    textures: tex.unwrap().clone(),
+    sm_to_material_type: material_ty.unwrap(),
+    sm_to_material_id: material_id.unwrap(),
+    material_accessor: materials.unwrap(),
+  })
 }

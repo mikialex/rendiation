@@ -1,4 +1,9 @@
+use std::sync::Arc;
+
+use rendiation_device_ray_tracing::GPUWaveFrontComputeRaytracingSystem;
+use rendiation_scene_rendering_gpu_indirect::MeshGPUBindlessImpl;
 use rendiation_scene_rendering_gpu_ray_tracing::*;
+use rendiation_webgpu_reactive_utils::*;
 
 use crate::*;
 
@@ -8,50 +13,40 @@ pub enum RayTracingEffectMode {
   ReferenceTracing,
 }
 
-pub struct RayTracingSystemGroup {
-  pub base: RayTracingSystemBase,
-  pub ao: RayTracingAORenderSystem,
-  pub pt: DeviceReferencePathTracingSystem,
+pub fn use_viewer_rtx(
+  cx: &mut impl QueryGPUHookCx,
+  camera: Option<Box<dyn RtxCameraRenderImpl>>,
+  materials: Option<Arc<Vec<Box<dyn SceneMaterialSurfaceSupport>>>>,
+  mesh: Option<MeshGPUBindlessImpl>,
+  tex: Option<GPUTextureBindingSystem>,
+  request_reset_sample: bool,
+) -> Option<(RayTracingRendererGroup, RtxSystemCore)> {
+  let (cx, core) = cx.use_gpu_init(|gpu| {
+    let rtx_backend_system = GPUWaveFrontComputeRaytracingSystem::new(gpu);
+    RtxSystemCore::new(Box::new(rtx_backend_system))
+  });
+
+  let (cx, scope) = cx.use_begin_change_set_collect();
+  let base = use_scene_rtx_renderer_base(cx, core, camera, mesh, materials, tex);
+  let base_extra_changed = scope(cx);
+  let request_reset_sample = request_reset_sample || base_extra_changed.unwrap_or(false);
+
+  let ao = use_rtx_ao_renderer(cx, core, request_reset_sample);
+  let pt = use_rtx_pt_renderer(cx, core, request_reset_sample);
+
+  cx.when_render(|| {
+    (
+      RayTracingRendererGroup {
+        base: base.unwrap(),
+        ao: ao.unwrap(),
+        pt: pt.unwrap(),
+      },
+      core.clone(),
+    )
+  })
 }
 
-impl RayTracingSystemGroup {
-  pub fn new(
-    rtx: &RtxSystemCore,
-    gpu: &GPU,
-    camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
-  ) -> Self {
-    Self {
-      base: RayTracingSystemBase::new(rtx, gpu, camera_source),
-      ao: RayTracingAORenderSystem::new(rtx, gpu),
-      pt: DeviceReferencePathTracingSystem::new(rtx, gpu),
-    }
-  }
-}
-
-impl QueryBasedFeature<RayTracingFeatureGroup> for RayTracingSystemGroup {
-  type Context = GPU;
-  fn register(&mut self, qcx: &mut ReactiveQueryCtx, gpu: &GPU) {
-    self.base.register(qcx, gpu);
-    self.ao.register(qcx, gpu);
-    self.pt.register(qcx, gpu);
-  }
-
-  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
-    self.base.deregister(qcx);
-    self.ao.deregister(qcx);
-    self.pt.deregister(qcx);
-  }
-
-  fn create_impl(&self, cx: &mut QueryResultCtx) -> RayTracingFeatureGroup {
-    RayTracingFeatureGroup {
-      base: self.base.create_impl(cx),
-      ao: self.ao.create_impl(cx),
-      pt: self.pt.create_impl(cx),
-    }
-  }
-}
-
-pub struct RayTracingFeatureGroup {
+pub struct RayTracingRendererGroup {
   pub base: SceneRayTracingRendererBase,
   pub ao: SceneRayTracingAORenderer,
   pub pt: DeviceReferencePathTracingRenderer,

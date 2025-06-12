@@ -3235,11 +3235,11 @@ dependencies = [
 name = "reactive"
 version = "0.0.1"
 dependencies = [
- "anymap",
  "dyn-clone",
  "fast-hash-collection",
  "futures",
  "heap-tools",
+ "hook",
  "parking_lot",
  "pin-project",
  "reactive-query",
@@ -3764,7 +3764,6 @@ dependencies = [
 name = "rendiation-occlusion-culling"
 version = "0.1.0"
 dependencies = [
- "database",
  "fast-hash-collection",
  "log",
  "reactive",
@@ -3772,7 +3771,6 @@ dependencies = [
  "rendiation-device-parallel-compute",
  "rendiation-fast-down-sampling-2d",
  "rendiation-geometry",
- "rendiation-scene-core",
  "rendiation-scene-rendering-gpu-base",
  "rendiation-shader-api",
  "rendiation-shader-library",
@@ -4177,7 +4175,9 @@ dependencies = [
 name = "rendiation-webgpu-reactive-utils"
 version = "0.1.0"
 dependencies = [
+ "database",
  "fast-hash-collection",
+ "hook",
  "parking_lot",
  "reactive",
  "rendiation-shader-api",

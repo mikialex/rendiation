@@ -2,7 +2,76 @@ use rendiation_mesh_core::*;
 
 use crate::*;
 
-pub fn attribute_mesh_index_buffers(
+pub fn use_attribute_mesh_renderer(
+  cx: &mut impl QueryGPUHookCx,
+  foreign_implementation_semantics: std::sync::Arc<dyn Fn(u32, &mut ShaderVertexBuilder)>,
+) -> Option<GLESAttributesMeshRenderer> {
+  let multi_access = cx.use_global_multi_reactive_query::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>();
+
+  let index = cx.use_val_refed_reactive_query(attribute_mesh_index_buffers);
+  let vertex = cx.use_val_refed_reactive_query(attribute_mesh_vertex_buffer_views);
+
+  cx.when_render(|| GLESAttributesMeshRenderer {
+    mesh_access: global_entity_component_of::<StandardModelRefAttributesMeshEntity>()
+      .read_foreign_key(),
+    mode: global_entity_component_of::<AttributesMeshEntityTopology>().read(),
+    index: index.unwrap(),
+    vertex: AttributesMeshEntityVertexAccessView {
+      semantics: global_entity_component_of::<AttributesMeshEntityVertexBufferSemantic>().read(),
+      count: global_entity_component_of::<SceneBufferViewBufferItemCount<AttributeVertexRef>>()
+        .read(),
+      multi_access: multi_access.unwrap(),
+      vertex: vertex.unwrap(),
+    },
+    count: global_entity_component_of::<SceneBufferViewBufferItemCount<AttributeIndexRef>>().read(),
+    foreign_implementation_semantics,
+  })
+}
+
+pub struct GLESAttributesMeshRenderer {
+  mesh_access: ForeignKeyReadView<StandardModelRefAttributesMeshEntity>,
+  mode: ComponentReadView<AttributesMeshEntityTopology>,
+  count: ComponentReadView<SceneBufferViewBufferItemCount<AttributeIndexRef>>,
+  index: BoxedDynValueRefQuery<EntityHandle<AttributesMeshEntity>, GPUBufferResourceView>,
+  vertex: AttributesMeshEntityVertexAccessView,
+  foreign_implementation_semantics: std::sync::Arc<dyn Fn(u32, &mut ShaderVertexBuilder)>,
+}
+
+impl GLESModelShapeRenderImpl for GLESAttributesMeshRenderer {
+  fn make_component(
+    &self,
+    idx: EntityHandle<StandardModelEntity>,
+  ) -> Option<(Box<dyn RenderComponent + '_>, DrawCommand)> {
+    let mesh_id = self.mesh_access.get(idx)?;
+
+    let index = if let Some(index_buffer) = self.index.access_ref(&mesh_id) {
+      let count = self.count.get_value(mesh_id).unwrap().unwrap() as u64;
+      let stride = u64::from(index_buffer.view_byte_size()) / count;
+      let fmt = match stride {
+        4 => AttributeIndexFormat::Uint32,
+        2 => AttributeIndexFormat::Uint16,
+        _ => unreachable!("invalid index format, computed stride size {}", stride),
+      };
+      (fmt, count as u32, index_buffer).into()
+    } else {
+      None
+    };
+
+    let gpu = AttributesMeshGPU {
+      mode: self.mode.get_value(mesh_id)?,
+      index,
+      mesh_id,
+      vertex: &self.vertex,
+      foreign_implementation_semantics: self.foreign_implementation_semantics.clone(),
+    };
+
+    let cmd = gpu.draw_command();
+
+    Some((Box::new(gpu), cmd))
+  }
+}
+
+fn attribute_mesh_index_buffers(
   cx: &GPU,
 ) -> impl ReactiveValueRefQuery<Key = EntityHandle<AttributesMeshEntity>, Value = GPUBufferResourceView>
 {
@@ -29,7 +98,7 @@ pub fn attribute_mesh_index_buffers(
     .materialize_unordered()
 }
 
-pub fn attribute_mesh_vertex_buffer_views(
+fn attribute_mesh_vertex_buffer_views(
   cx: &GPU,
 ) -> impl ReactiveValueRefQuery<
   Key = EntityHandle<AttributesMeshEntityVertexBufferRelation>,

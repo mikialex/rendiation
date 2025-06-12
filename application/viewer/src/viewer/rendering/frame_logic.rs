@@ -25,6 +25,13 @@ pub struct ViewerFrameLogic {
   pub axis: WorldCoordinateAxis,
 }
 
+pub struct ViewerSceneRenderer<'a> {
+  pub scene: &'a dyn SceneRenderer<ContentKey = SceneContentKey>,
+  pub cameras: &'a CameraRenderer,
+  pub background: &'a SceneBackgroundRenderer,
+  pub reversed_depth: bool,
+}
+
 impl ViewerFrameLogic {
   pub fn new(gpu: &GPU) -> Self {
     Self {
@@ -62,7 +69,7 @@ impl ViewerFrameLogic {
   pub fn render(
     &mut self,
     ctx: &mut FrameCtx,
-    renderer: &dyn SceneRenderer<ContentKey = SceneContentKey>,
+    renderer: &ViewerSceneRenderer,
     scene_derive: &Viewer3dSceneDerive,
     lighting: &LightingRenderingCx,
     content: &Viewer3dSceneCtx,
@@ -79,7 +86,7 @@ impl ViewerFrameLogic {
     self.post.upload_with_diff(&ctx.gpu.queue);
 
     let main_camera_gpu = renderer
-      .get_camera_gpu()
+      .cameras
       .make_component(content.main_camera)
       .unwrap();
 
@@ -263,9 +270,9 @@ impl ViewerFrameLogic {
     };
 
     let mut highlight_compose = (content.selected_target.is_some()).then(|| {
-      let masked_content = renderer.render_models(
+      let masked_content = renderer.scene.render_models(
         Box::new(IteratorAsHostRenderBatch(content.selected_target)),
-        CameraRenderSource::Scene(content.main_camera),
+        &main_camera_gpu,
         &HighLightMaskDispatcher,
         ctx,
       );
@@ -302,7 +309,7 @@ impl ViewerFrameLogic {
 }
 
 struct SceneCameraTAAContent<'a, F> {
-  renderer: &'a dyn SceneRenderer<ContentKey = SceneContentKey>,
+  renderer: &'a ViewerSceneRenderer<'a>,
   camera: EntityHandle<SceneCameraEntity>,
   queue: &'a GPUQueue,
   f: F,
@@ -313,8 +320,10 @@ where
   F: FnMut(&mut FrameCtx) -> (TAAFrame, R),
 {
   fn set_jitter(&mut self, next_jitter: Vec2<f32>) {
-    let cameras = self.renderer.get_camera_gpu();
-    cameras.setup_camera_jitter(self.camera, next_jitter, self.queue);
+    self
+      .renderer
+      .cameras
+      .setup_camera_jitter(self.camera, next_jitter, self.queue);
   }
 
   fn render(&mut self, ctx: &mut FrameCtx) -> (TAAFrame, R) {

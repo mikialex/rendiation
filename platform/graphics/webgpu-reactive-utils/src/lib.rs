@@ -8,6 +8,8 @@ use reactive::*;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 
+mod hook;
+pub use hook::*;
 mod storage;
 pub use storage::*;
 mod multi_access;

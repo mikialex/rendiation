@@ -1,18 +1,31 @@
 use crate::*;
 
-pub type SceneNodeUniforms = UniformUpdateContainer<EntityHandle<SceneNodeEntity>, NodeUniform>;
-
-pub fn node_uniforms(cx: &GPU) -> SceneNodeUniforms {
-  let source = scene_node_derive_world_mat()
-    .collective_map(|mat| NodeUniform {
-      world_matrix: mat,
-      normal_matrix: mat.to_normal_matrix().into(),
-      ..Zeroable::zeroed()
-    })
-    .into_query_update_uniform(0, cx);
-
-  SceneNodeUniforms::default().with_source(source)
+pub fn use_node_uniforms(cx: &mut impl QueryGPUHookCx) -> Option<GLESNodeRenderer> {
+  cx.use_uniform_buffers(|source, cx| {
+    source.with_source(
+      scene_node_derive_world_mat()
+        .collective_map(NodeUniform::from_world_mat)
+        .into_query_update_uniform(0, cx),
+    )
+  })
+  .map(GLESNodeRenderer)
 }
+
+pub struct GLESNodeRenderer(LockReadGuardHolder<SceneNodeUniforms>);
+
+impl GLESNodeRenderer {
+  pub fn make_component(
+    &self,
+    idx: EntityHandle<SceneNodeEntity>,
+  ) -> Option<Box<dyn RenderComponent + '_>> {
+    let node = NodeGPUUniform {
+      ubo: self.0.get(&idx)?,
+    };
+    Some(Box::new(node))
+  }
+}
+
+type SceneNodeUniforms = UniformUpdateContainer<EntityHandle<SceneNodeEntity>, NodeUniform>;
 
 pub struct NodeGPUUniform<'a> {
   pub ubo: &'a UniformBufferDataView<NodeUniform>,

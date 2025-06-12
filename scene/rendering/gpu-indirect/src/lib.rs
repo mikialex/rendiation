@@ -32,5 +32,8 @@ pub use scene_model::*;
 mod std_model;
 pub use std_model::*;
 
-mod rendering;
-pub use rendering::*;
+mod shape;
+pub use shape::*;
+
+mod scene;
+pub use scene::*;

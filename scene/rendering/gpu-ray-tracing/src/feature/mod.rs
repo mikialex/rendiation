@@ -26,95 +26,72 @@ impl RtxSystemCore {
   }
 }
 
-// todo, share resource with the indirect renderer if possible
-pub struct RayTracingSystemBase {
-  camera: BoxedQueryBasedGPUFeature<Box<dyn RtxCameraRenderImpl>>,
-  scene_tlas: QueryToken,
-  mesh: MeshBindlessGPUSystemSource,
-  material: RtxSceneMaterialSource,
-  scene_ids: SceneIdProvider,
-  lighting: ScenePTLightingSource,
-  texture_system: TextureGPUSystemSource,
-  system: RtxSystemCore,
-  source_set: QueryCtxSetInfo,
-  background: SceneBackgroundRendererSource,
-}
+// // todo, share resource with the indirect renderer if possible
+// pub struct RayTracingSystemBase {
+//   camera: BoxedQueryBasedGPUFeature<Box<dyn RtxCameraRenderImpl>>,
+//   scene_tlas: QueryToken,
+//   mesh: MeshBindlessGPUSystemSource,
+//   material: RtxSceneMaterialSource,
+//   scene_ids: SceneIdProvider,
+//   lighting: ScenePTLightingSource,
+//   texture_system: TextureGPUSystemSource,
+//   system: RtxSystemCore,
+//   source_set: QueryCtxSetInfo,
+// }
 
-impl RayTracingSystemBase {
-  pub fn new(
-    rtx: &RtxSystemCore,
-    gpu: &GPU,
-    camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
-  ) -> Self {
-    let tex_sys_ty = get_suitable_texture_system_ty(gpu, true, false);
-    Self {
-      scene_ids: Default::default(),
-      texture_system: TextureGPUSystemSource::new(tex_sys_ty),
-      camera: Box::new(DefaultRtxCameraRenderImplProvider::new(camera_source)),
-      scene_tlas: Default::default(),
-      system: rtx.clone(),
-      mesh: MeshBindlessGPUSystemSource::new(gpu),
-      lighting: ScenePTLightingSource::default(),
-      material: RtxSceneMaterialSource::default()
-        .with_material_support(PbrMRMaterialDefaultIndirectRenderImplProvider::default())
-        .with_material_support(PbrSGMaterialDefaultIndirectRenderImplProvider::default()),
-      source_set: Default::default(),
-      background: Default::default(),
-    }
-  }
-}
+// impl RayTracingSystemBase {
+//   pub fn new(
+//     rtx: &RtxSystemCore,
+//     gpu: &GPU,
+//     camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
+//   ) -> Self {
+//     let tex_sys_ty = get_suitable_texture_system_ty(gpu, true, false);
+//     Self {
+//       scene_ids: Default::default(),
+//       texture_system: TextureGPUSystemSource::new(tex_sys_ty),
+//       camera: Box::new(DefaultRtxCameraRenderImplProvider::new(camera_source)),
+//       scene_tlas: Default::default(),
+//       system: rtx.clone(),
+//       mesh: MeshBindlessGPUSystemSource::new(gpu),
+//       lighting: ScenePTLightingSource::default(),
+//       material: RtxSceneMaterialSource::default()
+//         .with_material_support(PbrMRMaterialDefaultIndirectRenderImplProvider::default())
+//         .with_material_support(PbrSGMaterialDefaultIndirectRenderImplProvider::default()),
+//       source_set: Default::default(),
+//     }
+//   }
+// }
 
 pub struct SceneRayTracingRendererBase {
   pub camera: Box<dyn RtxCameraRenderImpl>,
-  pub rtx_system: Box<dyn GPURaytracingSystem>,
   pub scene_tlas: BoxedDynQuery<EntityHandle<SceneEntity>, TlASInstance>,
   pub mesh: MeshGPUBindlessImpl,
   pub material: SceneSurfaceSupport,
   pub lighting: ScenePTLightingSceneDataGroup,
   pub scene_ids: SceneIdUniformBufferAccess,
-  pub background: SceneBackgroundRenderer,
-  pub any_changed: bool,
 }
 
-impl QueryBasedFeature<SceneRayTracingRendererBase> for RayTracingSystemBase {
-  type Context = GPU;
-  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
-    qcx.record_new_registered(&mut self.source_set);
-    self.scene_tlas = qcx.register_reactive_query(scene_to_tlas(cx, self.system.rtx_acc.clone()));
-    self.camera.register(qcx, cx);
-    self.mesh.register(qcx, cx);
-    self.material.register_resource(qcx, cx);
-    self.texture_system.register_resource(qcx, cx);
-    self.lighting.register_resource(qcx, cx);
-    self.scene_ids.register(qcx, cx);
-    self.background.register(qcx, cx);
-    qcx.end_record(&mut self.source_set);
-  }
+pub fn use_scene_rtx_renderer_base(
+  cx: &mut impl QueryGPUHookCx,
+  system: &RtxSystemCore,
+  camera: Option<Box<dyn RtxCameraRenderImpl>>,
+  mesh: Option<MeshGPUBindlessImpl>,
+  materials: Option<Arc<Vec<Box<dyn SceneMaterialSurfaceSupport>>>>,
+  tex: Option<GPUTextureBindingSystem>,
+) -> Option<SceneRayTracingRendererBase> {
+  let material = use_rtx_scene_material(cx, materials, tex);
 
-  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
-    qcx.deregister(&mut self.scene_tlas);
-    self.camera.deregister(qcx);
-    self.mesh.deregister(qcx);
-    self.material.deregister_resource(qcx);
-    self.texture_system.deregister_resource(qcx);
-    self.lighting.deregister_resource(qcx);
-    self.scene_ids.deregister(qcx);
-    self.background.deregister(qcx);
-  }
+  let scene_tlas = cx.use_reactive_query_gpu(|gpu| scene_to_tlas(gpu, system.rtx_acc.clone()));
 
-  fn create_impl(&self, cx: &mut QueryResultCtx) -> SceneRayTracingRendererBase {
-    let tex = self.texture_system.create_impl(cx);
-    let any_changed = cx.has_any_changed_in_set(&self.source_set);
-    SceneRayTracingRendererBase {
-      scene_tlas: cx.take_reactive_query_updated(self.scene_tlas).unwrap(),
-      camera: self.camera.create_impl(cx),
-      rtx_system: self.system.rtx_system.clone(),
-      mesh: self.mesh.create_impl_internal_impl(cx),
-      material: self.material.create_impl(cx, &tex),
-      lighting: self.lighting.create_impl(cx),
-      scene_ids: self.scene_ids.create_impl(cx),
-      background: self.background.create_impl(cx),
-      any_changed,
-    }
-  }
+  let lighting = use_scene_pt_light_source(cx);
+  let scene_ids = use_scene_id_provider(cx); // this could be reused, but it's unnecessary.
+
+  cx.when_render(|| SceneRayTracingRendererBase {
+    camera: camera.unwrap(),
+    scene_tlas: scene_tlas.unwrap(),
+    mesh: mesh.unwrap(),
+    material: material.unwrap(),
+    lighting: lighting.unwrap(),
+    scene_ids: scene_ids.unwrap(),
+  })
 }

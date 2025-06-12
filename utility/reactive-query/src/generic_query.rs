@@ -11,6 +11,21 @@ pub trait ReactiveGeneralQuery {
   fn poll_query(&mut self, cx: &mut Context) -> Self::Output;
 }
 
+pub struct IntoBoxedAnyReactiveGeneralQuery<T>(pub T);
+
+impl<T> ReactiveGeneralQuery for IntoBoxedAnyReactiveGeneralQuery<T>
+where
+  T: ReactiveGeneralQuery,
+  T::Output: 'static,
+{
+  type Output = Box<dyn std::any::Any>;
+
+  fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
+    let r = self.0.poll_query(cx);
+    Box::new(r)
+  }
+}
+
 pub struct ReactiveQueryAsReactiveGeneralQuery<T> {
   pub inner: T,
 }

@@ -1,17 +1,19 @@
 use crate::*;
 
-pub trait CameraRenderImpl {
-  fn make_component(
-    &self,
-    idx: EntityHandle<SceneCameraEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>>;
-
-  fn setup_camera_jitter(
-    &self,
-    camera: EntityHandle<SceneCameraEntity>,
-    jitter: Vec2<f32>,
-    queue: &GPUQueue,
-  );
+pub fn use_camera_uniforms(
+  cx: &mut impl QueryGPUHookCx,
+  camera_source: &RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
+) -> Option<CameraRenderer> {
+  cx.use_uniform_buffers::<EntityHandle<SceneCameraEntity>, CameraGPUTransform>(|source, cx| {
+    source.with_source(
+      camera_source
+        .clone()
+        // todo, fix jitter override
+        .collective_map(CameraGPUTransform::from)
+        .into_query_update_uniform(0, cx),
+    )
+  })
+  .map(CameraRenderer)
 }
 
 pub type CameraUniforms =
@@ -29,6 +31,7 @@ pub fn camera_gpus(
   CameraUniforms::default().with_source(source)
 }
 
+#[derive(Clone)]
 pub struct CameraGPU {
   pub ubo: UniformBufferDataView<CameraGPUTransform>,
 }
@@ -139,59 +142,27 @@ impl From<CameraTransform> for CameraGPUTransform {
 //   )
 // }
 
-pub struct DefaultGLESCameraRenderImplProvider {
-  camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
-  uniforms: QueryToken,
-}
+#[derive(Clone)]
+pub struct CameraRenderer(pub LockReadGuardHolder<CameraUniforms>);
 
-impl DefaultGLESCameraRenderImplProvider {
-  pub fn new(camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>) -> Self {
-    Self {
-      uniforms: Default::default(),
-      camera_source,
-    }
-  }
-}
-
-pub struct DefaultGLESCameraRenderImpl {
-  uniforms: LockReadGuardHolder<CameraUniforms>,
-}
-
-impl QueryBasedFeature<Box<dyn CameraRenderImpl>> for DefaultGLESCameraRenderImplProvider {
-  type Context = GPU;
-  fn register(&mut self, qcx: &mut ReactiveQueryCtx, gpu: &GPU) {
-    let uniforms = camera_gpus(gpu, self.camera_source.clone());
-    self.uniforms = qcx.register_multi_updater(uniforms);
-  }
-  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
-    qcx.deregister(&mut self.uniforms);
-  }
-
-  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn CameraRenderImpl> {
-    Box::new(DefaultGLESCameraRenderImpl {
-      uniforms: cx.take_multi_updater_updated(self.uniforms).unwrap(),
-    })
-  }
-}
-
-impl CameraRenderImpl for DefaultGLESCameraRenderImpl {
-  fn make_component(
+impl CameraRenderer {
+  pub fn make_component(
     &self,
     idx: EntityHandle<SceneCameraEntity>,
   ) -> Option<Box<dyn RenderComponent + '_>> {
     let node = CameraGPU {
-      ubo: self.uniforms.get(&idx)?.clone(),
+      ubo: self.0.get(&idx)?.clone(),
     };
     Some(Box::new(node))
   }
 
-  fn setup_camera_jitter(
+  pub fn setup_camera_jitter(
     &self,
     camera: EntityHandle<SceneCameraEntity>,
     jitter: Vec2<f32>,
     queue: &GPUQueue,
   ) {
-    let uniform = self.uniforms.get(&camera).unwrap();
+    let uniform = self.0.get(&camera).unwrap();
     uniform.write_at(
       queue,
       &jitter,

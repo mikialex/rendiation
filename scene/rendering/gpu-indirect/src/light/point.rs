@@ -32,39 +32,31 @@ pub fn point_storage(gpu: &GPU) -> ReactiveStorageBufferContainer<PointLightStor
     .with_source(position)
 }
 
-#[derive(Default)]
-pub struct PointStorageLightList {
-  light_data: QueryToken,
-  multi_access: QueryToken,
-}
-
-impl QueryBasedFeature<Box<dyn LightingComputeComponent>> for PointStorageLightList {
-  type Context = GPU;
-  fn register(&mut self, qcx: &mut ReactiveQueryCtx, cx: &GPU) {
-    let data = point_storage(cx);
-    self.light_data = qcx.register_multi_updater(data);
-
-    let multi_access = MultiAccessGPUDataBuilder::new(
-      cx,
+pub fn use_point_light_storage(
+  qcx: &mut impl QueryGPUHookCx,
+) -> Option<LightGPUStorage<PointLightStorage>> {
+  let light = qcx.use_storage_buffer(point_storage);
+  let multi_access = qcx.use_gpu_general_query(|gpu| {
+    MultiAccessGPUDataBuilder::new(
+      gpu,
       global_rev_ref().watch_inv_ref_untyped::<PointLightRefScene>(),
       light_multi_access_config(),
-    );
-    self.multi_access = qcx.register(Box::new(multi_access));
-  }
+    )
+  });
+  qcx.when_render(|| {
+    let light = light.unwrap();
+    let multi_access = multi_access.unwrap();
+    (light, multi_access)
+  })
+}
 
-  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
-    qcx.deregister(&mut self.light_data);
-    qcx.deregister(&mut self.multi_access);
-  }
-
-  fn create_impl(&self, cx: &mut QueryResultCtx) -> Box<dyn LightingComputeComponent> {
-    let light_data = cx
-      .take_storage_array_buffer::<PointLightStorage>(self.light_data)
-      .unwrap();
-
-    let light_accessor = cx.take_multi_access_gpu(self.multi_access).unwrap();
-
-    let lighting = AllInstanceOfGivenTypeLightInScene::new(light_accessor, light_data, |light| {
+pub fn make_point_light_storage_component(
+  (light_data, light_accessor): &LightGPUStorage<PointLightStorage>,
+) -> Box<dyn LightingComputeComponent> {
+  Box::new(AllInstanceOfGivenTypeLightInScene::new(
+    light_accessor.clone(),
+    light_data.clone(),
+    |light| {
       let light = light.load().expand();
       ENode::<PointLightShaderInfo> {
         luminance_intensity: light.luminance_intensity,
@@ -72,8 +64,6 @@ impl QueryBasedFeature<Box<dyn LightingComputeComponent>> for PointStorageLightL
         cutoff_distance: light.cutoff_distance,
       }
       .construct()
-    });
-
-    Box::new(lighting)
-  }
+    },
+  ))
 }

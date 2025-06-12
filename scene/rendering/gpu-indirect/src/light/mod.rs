@@ -7,6 +7,8 @@ pub use spot::*;
 
 use crate::*;
 
+pub type LightGPUStorage<T> = (StorageBufferReadonlyDataView<[T]>, MultiAccessGPUData);
+
 pub fn light_multi_access_config() -> MultiAccessGPUDataBuilderInit {
   MultiAccessGPUDataBuilderInit {
     max_possible_many_count: u32::MAX,

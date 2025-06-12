@@ -76,3 +76,50 @@ where
 
   uniform.with_source(tex).with_source(sampler)
 }
+
+pub trait GLESModelMaterialRenderImpl {
+  fn make_component<'a>(
+    &'a self,
+    idx: EntityHandle<StandardModelEntity>,
+    cx: &'a GPUTextureBindingSystem,
+  ) -> Option<Box<dyn RenderComponent + 'a>>;
+}
+
+impl GLESModelMaterialRenderImpl for Vec<Box<dyn GLESModelMaterialRenderImpl>> {
+  fn make_component<'a>(
+    &'a self,
+    idx: EntityHandle<StandardModelEntity>,
+    cx: &'a GPUTextureBindingSystem,
+  ) -> Option<Box<dyn RenderComponent + 'a>> {
+    for provider in self {
+      if let Some(com) = provider.make_component(idx, cx) {
+        return Some(com);
+      }
+    }
+    None
+  }
+}
+
+pub struct TextureSamplerIdView<T: TextureWithSamplingForeignKeys> {
+  pub texture: ForeignKeyReadView<SceneTexture2dRefOf<T>>,
+  pub sampler: ForeignKeyReadView<SceneSamplerRefOf<T>>,
+}
+
+impl<T: TextureWithSamplingForeignKeys> TextureSamplerIdView<T> {
+  pub fn read_from_global() -> Self {
+    Self {
+      texture: global_entity_component_of().read_foreign_key(),
+      sampler: global_entity_component_of().read_foreign_key(),
+    }
+  }
+
+  pub fn get_pair(&self, id: EntityHandle<T::Entity>) -> Option<(u32, u32)> {
+    let tex = self.texture.get(id)?;
+    let tex = tex.alloc_index();
+    let sampler = self.sampler.get(id)?;
+    let sampler = sampler.alloc_index();
+    Some((tex, sampler))
+  }
+}
+
+pub const EMPTY_H: (u32, u32) = (u32::MAX, u32::MAX);

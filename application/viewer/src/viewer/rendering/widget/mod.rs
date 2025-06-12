@@ -8,18 +8,15 @@ pub fn draw_widgets(
   renderer: &dyn SceneRenderer<ContentKey = SceneContentKey>,
   widget_scene: EntityHandle<SceneEntity>,
   reversed_depth: bool,
-  camera: EntityHandle<SceneCameraEntity>,
+  main_camera_gpu: &dyn RenderComponent,
   axis: &WorldCoordinateAxis,
 ) -> RenderTargetView {
-  let main_camera_gpu = renderer.get_camera_gpu().make_component(camera).unwrap();
-  let camera = CameraRenderSource::Scene(camera);
-
   let mut widget_scene_content = renderer.extract_and_make_pass_content(
     SceneContentKey {
       only_alpha_blend_objects: None,
     },
     widget_scene,
-    camera,
+    main_camera_gpu,
     ctx,
     &DefaultDisplayWriter,
   );
@@ -39,7 +36,7 @@ pub fn draw_widgets(
     .by(&mut DrawWorldAxis {
       data: axis,
       reversed_depth,
-      camera: main_camera_gpu.as_ref(),
+      camera: main_camera_gpu,
     })
     .by(&mut widget_scene_content);
 

@@ -2,74 +2,56 @@ use fast_hash_collection::FastHashMap;
 
 use crate::*;
 
-#[derive(Default)]
-pub struct SceneBackgroundRendererSource {
-  /// this is mainly use in path tracing renderer
-  solid_background_color: QueryToken,
-  env_background_intensity_uniform: QueryToken,
-  // todo
-  // note, currently the cube map is standalone maintained, this is wasteful if user shared it elsewhere
-  cube_map: QueryToken,
-}
+pub fn use_background(cx: &mut impl QueryGPUHookCx) -> Option<SceneBackgroundRenderer> {
+  let env_background_map_gpu =
+    cx.use_multi_updater_gpu(|gpu| gpu_texture_cubes(gpu, FastHashMap::default()));
 
-impl QueryBasedFeature<SceneBackgroundRenderer> for SceneBackgroundRendererSource {
-  type Context = GPU;
-  fn register(&mut self, qcx: &mut ReactiveQueryCtx, gpu: &GPU) {
-    self.cube_map = qcx.register_multi_updater(gpu_texture_cubes(gpu, FastHashMap::default()));
-    let gpu = gpu.clone();
-    let gpu2 = gpu.clone();
-    let intensity = global_watch()
-      .watch::<SceneHDRxEnvBackgroundIntensity>()
-      .collective_filter_map(|v| v)
-      .collective_execute_map_by(move || {
-        let gpu = gpu.clone();
-        move |_, intensity| create_uniform(Vec4::new(intensity, 0., 0., 0.), &gpu.device)
-      })
-      .materialize_unordered();
-    self.env_background_intensity_uniform = qcx.register_reactive_query(intensity);
+  let env_background_intensity_uniform = cx
+    .use_uniform_buffers::<EntityHandle<SceneEntity>, Vec4<f32>>(|source, gpu| {
+      source.with_source(
+        global_watch()
+          .watch::<SceneHDRxEnvBackgroundIntensity>()
+          .collective_filter_map(|v| v.map(|intensity| Vec4::new(intensity, 0., 0., 0.)))
+          .into_query_update_uniform(0, gpu),
+      )
+    });
 
-    let solid_background_color = global_watch()
-      .watch::<SceneSolidBackground>()
-      .collective_map(|v| v.map(srgb3_to_linear3).unwrap_or(Vec3::splat(0.)))
-      .collective_execute_map_by(move || {
-        let gpu = gpu2.clone();
-        move |_, intensity| create_uniform(intensity.expand_with_one(), &gpu.device)
-      })
-      .materialize_unordered();
-    self.solid_background_color = qcx.register_reactive_query(solid_background_color);
-  }
+  let solid_background_color_uniform = cx
+    .use_uniform_buffers::<EntityHandle<SceneEntity>, Vec4<f32>>(|source, gpu| {
+      source.with_source(
+        global_watch()
+          .watch::<SceneSolidBackground>()
+          .collective_map(|v| {
+            v.map(srgb3_to_linear3)
+              .unwrap_or(Vec3::splat(0.))
+              .expand_with_one()
+          })
+          .into_query_update_uniform(0, gpu),
+      )
+    });
 
-  fn deregister(&mut self, qcx: &mut ReactiveQueryCtx) {
-    qcx.deregister(&mut self.env_background_intensity_uniform);
-    qcx.deregister(&mut self.cube_map);
-    qcx.deregister(&mut self.solid_background_color);
-  }
-
-  fn create_impl(&self, cx: &mut QueryResultCtx) -> SceneBackgroundRenderer {
-    SceneBackgroundRenderer {
-      solid_background: global_entity_component_of::<SceneSolidBackground>().read(),
-      env_background_map: global_entity_component_of::<SceneHDRxEnvBackgroundCubeMap>()
-        .read_foreign_key(),
-      env_background_map_gpu: cx.take_multi_updater_updated(self.cube_map).unwrap(),
-      env_background_intensity: cx
-        .take_reactive_query_updated(self.env_background_intensity_uniform)
-        .unwrap(),
-      solid_background_uniform: cx
-        .take_reactive_query_updated(self.solid_background_color)
-        .unwrap(),
-    }
-  }
+  cx.when_render(|| SceneBackgroundRenderer {
+    solid_background: global_entity_component_of::<SceneSolidBackground>().read(),
+    env_background_map: global_entity_component_of::<SceneHDRxEnvBackgroundCubeMap>()
+      .read_foreign_key(),
+    env_background_map_gpu: env_background_map_gpu.unwrap(),
+    env_background_intensity: env_background_intensity_uniform.unwrap(),
+    solid_background_uniform: solid_background_color_uniform.unwrap(),
+  })
 }
 
 pub struct SceneBackgroundRenderer {
   pub solid_background: ComponentReadView<SceneSolidBackground>,
   pub env_background_map: ForeignKeyReadView<SceneHDRxEnvBackgroundCubeMap>,
-  pub env_background_map_gpu:
-    LockReadGuardHolder<CubeMapUpdateContainer<EntityHandle<SceneTextureCubeEntity>>>,
-  pub env_background_intensity:
-    BoxedDynQuery<EntityHandle<SceneEntity>, UniformBufferDataView<Vec4<f32>>>,
-  pub solid_background_uniform:
-    BoxedDynQuery<EntityHandle<SceneEntity>, UniformBufferDataView<Vec4<f32>>>,
+  pub env_background_map_gpu: LockReadGuardHolder<
+    MultiUpdateContainer<FastHashMap<EntityHandle<SceneTextureCubeEntity>, GPUCubeTextureView>>,
+  >,
+  pub env_background_intensity: LockReadGuardHolder<
+    MultiUpdateContainer<FastHashMap<EntityHandle<SceneEntity>, UniformBufferDataView<Vec4<f32>>>>,
+  >,
+  pub solid_background_uniform: LockReadGuardHolder<
+    MultiUpdateContainer<FastHashMap<EntityHandle<SceneEntity>, UniformBufferDataView<Vec4<f32>>>>,
+  >,
 }
 
 impl SceneBackgroundRenderer {
@@ -95,7 +77,7 @@ impl SceneBackgroundRenderer {
   pub fn draw<'a>(
     &'a self,
     scene: EntityHandle<SceneEntity>,
-    camera: Box<dyn RenderComponent + 'a>,
+    camera: &'a dyn RenderComponent,
     tonemap: &'a dyn RenderComponent,
   ) -> impl PassContent + 'a {
     if let Some(env) = self.env_background_map.get(scene) {
@@ -131,7 +113,7 @@ impl PassContent for BackGroundDrawPassContent<'_> {
 struct CubeEnvComponent<'a> {
   map: GPUCubeTextureView,
   intensity: UniformBufferDataView<Vec4<f32>>,
-  camera: Box<dyn RenderComponent + 'a>,
+  camera: &'a dyn RenderComponent,
   tonemap: &'a dyn RenderComponent,
 }
 
