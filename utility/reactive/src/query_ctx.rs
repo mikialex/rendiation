@@ -17,6 +17,10 @@ pub struct QueryCtxSetInfo {
   sets: FastHashSet<u32>,
 }
 
+impl hook::CanCleanUpFrom<ReactiveQueryCtx> for QueryCtxSetInfo {
+  fn drop_from_cx(&mut self, _: &mut ReactiveQueryCtx) {}
+}
+
 impl ReactiveQueryCtx {
   pub fn record_new_registered(&mut self, set: &mut QueryCtxSetInfo) {
     set.id = self.next;
@@ -122,6 +126,12 @@ pub struct QueryToken(u32);
 impl Default for QueryToken {
   fn default() -> Self {
     Self(u32::MAX)
+  }
+}
+
+impl hook::CanCleanUpFrom<ReactiveQueryCtx> for QueryToken {
+  fn drop_from_cx(&mut self, cx: &mut ReactiveQueryCtx) {
+    cx.deregister(self);
   }
 }
 

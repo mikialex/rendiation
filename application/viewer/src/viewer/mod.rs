@@ -275,8 +275,8 @@ impl CanCleanUpFrom<ApplicationDropCx> for Viewer {
     };
     self.memory.cleanup(&mut dcx as *mut _ as *mut ());
     self
-      .rendering
-      .unregister_registry(&mut self.render_memory, &mut self.render_resource);
+      .render_memory
+      .cleanup(&mut self.render_resource as *mut _ as *mut ());
   }
 }
 

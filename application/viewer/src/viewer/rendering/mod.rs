@@ -295,21 +295,6 @@ impl Viewer3dRenderingCtx {
     .execute(|qcx| self.use_viewer_scene_renderer(qcx));
   }
 
-  pub fn unregister_registry(
-    &mut self,
-    memory: &mut FunctionMemory,
-    rendering_resource: &mut ReactiveQueryCtx,
-  ) {
-    let gpu = self.gpu.clone();
-    QueryGPUHookCxImpl {
-      memory,
-      gpu: &gpu,
-      query_cx: rendering_resource,
-      stage: QueryHookStage::UnInit,
-    }
-    .execute(|qcx| self.use_viewer_scene_renderer(qcx));
-  }
-
   #[instrument(name = "frame rendering", skip_all)]
   pub fn render(
     &mut self,

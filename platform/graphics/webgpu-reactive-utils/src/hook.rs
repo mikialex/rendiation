@@ -9,28 +9,33 @@ pub trait QueryGPUHookCx: HooksCxLike {
   fn get_stage_mut(&mut self) -> &mut QueryHookStage;
   fn get_query_cx(&mut self) -> &mut ReactiveQueryCtx;
 
-  fn use_gpu_query_init_return_self<T: 'static>(
+  fn use_gpu_query_init_return_self<T: 'static + CanCleanUpFrom<ReactiveQueryCtx>>(
     &mut self,
     init: impl FnOnce(&GPU, &mut ReactiveQueryCtx) -> T,
   ) -> (&mut Self, &mut T);
 
-  fn use_gpu_query_init<T: 'static>(
+  fn use_gpu_query_init<T: 'static + CanCleanUpFrom<ReactiveQueryCtx>>(
     &mut self,
     init: impl FnOnce(&GPU, &mut ReactiveQueryCtx) -> T,
   ) -> (&mut T, &mut QueryHookStage);
 
-  fn use_state<T: Default + 'static>(&mut self) -> (&mut Self, &mut T) {
+  fn use_state<T: Default + CanCleanUpFrom<ReactiveQueryCtx> + 'static>(
+    &mut self,
+  ) -> (&mut Self, &mut T) {
     self.use_state_init(T::default)
   }
 
-  fn use_state_init<T: 'static>(&mut self, init: impl FnOnce() -> T) -> (&mut Self, &mut T) {
+  fn use_state_init<T: 'static + CanCleanUpFrom<ReactiveQueryCtx>>(
+    &mut self,
+    init: impl FnOnce() -> T,
+  ) -> (&mut Self, &mut T) {
     let (cx, state) = self.use_gpu_query_init_return_self(|_, _| init());
     (cx, state)
   }
 
   fn use_gpu_init<T: 'static>(&mut self, init: impl FnOnce(&GPU) -> T) -> (&mut Self, &mut T) {
-    let (cx, state) = self.use_gpu_query_init_return_self(|gpu, _| init(gpu));
-    (cx, state)
+    let (cx, state) = self.use_gpu_query_init_return_self(|gpu, _| NothingToDrop(init(gpu)));
+    (cx, &mut state.0)
   }
 
   fn use_begin_change_set_collect(
@@ -228,7 +233,6 @@ pub struct QueryGPUHookCxImpl<'a> {
 
 pub enum QueryHookStage {
   Init,
-  UnInit,
   Render(QueryResultCtx),
 }
 
@@ -241,7 +245,9 @@ unsafe impl<'a> HooksCxLike for QueryGPUHookCxImpl<'a> {
     self.memory
   }
 
-  fn flush(&mut self) {}
+  fn flush(&mut self) {
+    self.memory.flush(self.query_cx as *mut _ as *mut ());
+  }
 }
 
 impl<'a> QueryGPUHookCx for QueryGPUHookCxImpl<'a> {
@@ -259,27 +265,41 @@ impl<'a> QueryGPUHookCx for QueryGPUHookCxImpl<'a> {
     self.gpu
   }
 
-  fn use_gpu_query_init_return_self<T: 'static>(
+  fn use_gpu_query_init_return_self<T: 'static + CanCleanUpFrom<ReactiveQueryCtx>>(
     &mut self,
     init: impl FnOnce(&GPU, &mut ReactiveQueryCtx) -> T,
   ) -> (&mut Self, &mut T) {
     let s = unsafe { std::mem::transmute_copy(&self) };
 
-    let state = self
-      .memory
-      .expect_state_init(|| init(self.gpu, self.query_cx), |_: &mut T, _: &mut ()| {});
+    let state = self.memory.expect_state_init(
+      || init(self.gpu, self.query_cx),
+      |state: &mut T, dcx: &mut ()| {
+        let dcx: &mut ReactiveQueryCtx = unsafe { std::mem::transmute(dcx) };
+        T::drop_from_cx(state, dcx);
+      },
+    );
 
     (s, state)
   }
 
-  fn use_gpu_query_init<T: 'static>(
+  fn use_gpu_query_init<T: 'static + CanCleanUpFrom<ReactiveQueryCtx>>(
     &mut self,
     init: impl FnOnce(&GPU, &mut ReactiveQueryCtx) -> T,
   ) -> (&mut T, &mut QueryHookStage) {
-    let state = self
-      .memory
-      .expect_state_init(|| init(self.gpu, self.query_cx), |_: &mut T, _: &mut ()| {});
+    let state = self.memory.expect_state_init(
+      || init(self.gpu, self.query_cx),
+      |state: &mut T, dcx: &mut ()| {
+        let dcx: &mut ReactiveQueryCtx = unsafe { std::mem::transmute(dcx) };
+        T::drop_from_cx(state, dcx);
+      },
+    );
 
     (state, &mut self.stage)
   }
+}
+
+struct NothingToDrop<T>(T);
+
+impl<T> CanCleanUpFrom<ReactiveQueryCtx> for NothingToDrop<T> {
+  fn drop_from_cx(&mut self, _: &mut ReactiveQueryCtx) {}
 }

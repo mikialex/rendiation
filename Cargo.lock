@@ -3239,6 +3239,7 @@ dependencies = [
  "fast-hash-collection",
  "futures",
  "heap-tools",
+ "hook",
  "parking_lot",
  "pin-project",
  "reactive-query",
