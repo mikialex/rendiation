@@ -31,7 +31,7 @@ pub fn use_directional_light_uniform(
       .untyped_entity_handle()
       .into_boxed();
 
-    basic_shadow_map_uniform(
+    basic_shadow_map_uniform_takeable(
       ShadowMapSystemInputs {
         source_world,
         source_proj,
@@ -52,12 +52,14 @@ pub fn use_directional_light_uniform(
     )
   });
 
+  let shadow_uniform = qcx.use_uniform_array_buffers(|_| shadow.1.take().unwrap());
+
   qcx
     .use_uniform_array_buffers(directional_uniform_array)
     .map(|light| SceneDirectionalLightingPreparer {
       shadow: shadow.0.clone(),
       light,
-      info: shadow.1.target.clone(),
+      info: shadow_uniform.unwrap(),
     })
 }
 
@@ -178,7 +180,7 @@ pub fn use_scene_spot_light_uniform(
       .untyped_entity_handle()
       .into_boxed();
 
-    basic_shadow_map_uniform(
+    basic_shadow_map_uniform_takeable(
       ShadowMapSystemInputs {
         source_proj,
         source_world,
@@ -199,12 +201,14 @@ pub fn use_scene_spot_light_uniform(
     )
   });
 
+  let shadow_uniform = qcx.use_uniform_array_buffers(|_| shadow.1.take().unwrap());
+
   qcx
     .use_uniform_array_buffers(spot_uniform_array)
     .map(|light| SceneSpotLightingPreparer {
       shadow: shadow.0.clone(),
       light,
-      info: shadow.1.target.clone(),
+      info: shadow_uniform.unwrap(),
     })
 }
 
@@ -271,4 +275,17 @@ impl LightSystemSceneProvider for SceneSpotLightingProvider {
 
     Some(Box::new(com))
   }
+}
+
+pub fn basic_shadow_map_uniform_takeable(
+  inputs: ShadowMapSystemInputs,
+  config: MultiLayerTexturePackerConfig,
+  gpu_ctx: &GPU,
+) -> (
+  Arc<RwLock<BasicShadowMapSystem>>,
+  Option<UniformArrayUpdateContainer<BasicShadowMapInfo, 8>>,
+) {
+  let (map, uniform) = basic_shadow_map_uniform(inputs, config, gpu_ctx);
+  let map = Arc::new(RwLock::new(map));
+  (map, Some(uniform))
 }

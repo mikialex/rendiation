@@ -96,7 +96,7 @@ impl ShaderHashProvider for SceneSurfaceSupport {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.textures.hash_pipeline(hasher);
-    self.material_accessor.len().hash(hasher);
+    self.material_accessor.len().hash(hasher); // todo, hash internal
   }
 }
 

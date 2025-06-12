@@ -1,8 +1,6 @@
 use std::mem::offset_of;
-use std::sync::Arc;
 use std::task::{Context, Poll};
 
-use parking_lot::RwLock;
 use reactive::*;
 use rendiation_algebra::*;
 use rendiation_shader_api::*;
@@ -35,7 +33,7 @@ pub fn basic_shadow_map_uniform(
   config: MultiLayerTexturePackerConfig,
   gpu_ctx: &GPU,
 ) -> (
-  Arc<RwLock<BasicShadowMapSystem>>,
+  BasicShadowMapSystem,
   UniformArrayUpdateContainer<BasicShadowMapInfo, 8>,
 ) {
   let source_world = inputs.source_world.into_forker();
@@ -54,7 +52,6 @@ pub fn basic_shadow_map_uniform(
     source_proj.into_boxed(),
     inputs.size,
   );
-  let sys = Arc::new(RwLock::new(sys));
 
   let enabled = inputs
     .enabled

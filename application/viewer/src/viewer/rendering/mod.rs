@@ -145,7 +145,7 @@ impl Viewer3dRenderingCtx {
       matches!(
         self.current_renderer_impl_ty,
         RasterizationRenderBackendType::Indirect
-      ),
+      ) || self.rtx_renderer_enabled,
       prefer_bindless_texture,
     );
     let texture_sys = use_texture_system(qcx, ty);
@@ -179,10 +179,12 @@ impl Viewer3dRenderingCtx {
         any_indirect_resource_changed = change_scope(qcx);
 
         if self.rtx_renderer_enabled {
-          rtx_materials_support = Some(Arc::new(vec![
-            Box::new(pbr_mr_material.clone().unwrap()) as Box<dyn SceneMaterialSurfaceSupport>,
-            Box::new(pbr_sg_material.clone().unwrap()) as Box<dyn SceneMaterialSurfaceSupport>,
-          ]));
+          rtx_materials_support = qcx.when_render(|| {
+            Arc::new(vec![
+              Box::new(pbr_mr_material.clone().unwrap()) as Box<dyn SceneMaterialSurfaceSupport>,
+              Box::new(pbr_sg_material.clone().unwrap()) as Box<dyn SceneMaterialSurfaceSupport>,
+            ])
+          });
         }
 
         let materials = qcx.when_render(|| {
@@ -206,7 +208,7 @@ impl Viewer3dRenderingCtx {
 
     let rtx_scene_renderer = if self.rtx_renderer_enabled {
       // when indirect raster render is not enabled, we create necessary resource by ourself.
-      if qcx.is_in_render() && rtx_materials_support.is_none() {
+      if self.current_renderer_impl_ty == RasterizationRenderBackendType::Gles {
         qcx.scope(|qcx| {
           let (qcx, change_scope) = qcx.use_begin_change_set_collect();
           let pbr_mr_material = use_pbr_mr_material_storage(qcx);
@@ -214,10 +216,13 @@ impl Viewer3dRenderingCtx {
           let mesh = use_bindless_mesh(qcx);
           any_indirect_resource_changed = change_scope(qcx);
 
-          rtx_materials_support = Some(Arc::new(vec![
-            Box::new(pbr_mr_material.clone().unwrap()) as Box<dyn SceneMaterialSurfaceSupport>,
-            Box::new(pbr_sg_material.clone().unwrap()) as Box<dyn SceneMaterialSurfaceSupport>,
-          ]));
+          rtx_materials_support = qcx.when_render(|| {
+            Arc::new(vec![
+              Box::new(pbr_mr_material.clone().unwrap()) as Box<dyn SceneMaterialSurfaceSupport>,
+              Box::new(pbr_sg_material.clone().unwrap()) as Box<dyn SceneMaterialSurfaceSupport>,
+            ])
+          });
+
           rtx_mesh = mesh.clone();
         });
       }
