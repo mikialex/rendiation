@@ -131,7 +131,7 @@ impl Viewer3dRenderingCtx {
   }
 
   fn use_viewer_scene_renderer(
-    &self,
+    &mut self,
     qcx: &mut impl QueryGPUHookCx,
   ) -> Option<ViewerRendererInstance> {
     let prefer_bindless_texture = false;
@@ -239,6 +239,8 @@ impl Viewer3dRenderingCtx {
       None
     };
 
+    self.request_reset_rtx_sample = false;
+
     qcx.when_render(|| ViewerRendererInstance {
       camera: camera.unwrap(),
       background: background.unwrap(),
@@ -273,15 +275,34 @@ impl Viewer3dRenderingCtx {
       .flatten()
   }
 
-  pub fn uninit(&mut self, memory: &mut FunctionMemory, rendering_resource: &mut ReactiveQueryCtx) {
-    let mut qcx = QueryGPUHookCxImpl {
+  pub fn update_registry(
+    &mut self,
+    memory: &mut FunctionMemory,
+    rendering_resource: &mut ReactiveQueryCtx,
+  ) {
+    let gpu = self.gpu.clone();
+    QueryGPUHookCxImpl {
       memory,
-      gpu: &self.gpu,
+      gpu: &gpu,
+      query_cx: rendering_resource,
+      stage: QueryHookStage::Init,
+    }
+    .execute(|qcx| self.use_viewer_scene_renderer(qcx));
+  }
+
+  pub fn unregister_registry(
+    &mut self,
+    memory: &mut FunctionMemory,
+    rendering_resource: &mut ReactiveQueryCtx,
+  ) {
+    let gpu = self.gpu.clone();
+    QueryGPUHookCxImpl {
+      memory,
+      gpu: &gpu,
       query_cx: rendering_resource,
       stage: QueryHookStage::UnInit,
-    };
-
-    self.use_viewer_scene_renderer(&mut qcx);
+    }
+    .execute(|qcx| self.use_viewer_scene_renderer(qcx));
   }
 
   #[instrument(name = "frame rendering", skip_all)]
@@ -295,14 +316,14 @@ impl Viewer3dRenderingCtx {
   ) {
     noop_ctx!(cx);
     let result = rendering_resource.poll_update_all(cx);
-    let mut qcx = QueryGPUHookCxImpl {
+    let gpu = self.gpu.clone();
+    let renderer = QueryGPUHookCxImpl {
       memory,
-      gpu: &self.gpu,
+      gpu: &gpu,
       query_cx: rendering_resource,
       stage: QueryHookStage::Render(result),
-    };
-
-    let renderer = self.use_viewer_scene_renderer(&mut qcx).unwrap();
+    }
+    .execute(|qcx| self.use_viewer_scene_renderer(qcx).unwrap());
 
     self.frame_index += 1;
     let now = Instant::now();

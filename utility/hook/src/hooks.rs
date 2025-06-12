@@ -11,6 +11,8 @@ pub unsafe trait HooksCxLike {
   fn memory_mut(&mut self) -> &mut FunctionMemory;
   fn memory_ref(&self) -> &FunctionMemory;
   fn flush(&mut self);
+  // fn create_stage(&mut self, f: impl FnOnce(&mut Self));
+  // fn delete_stage(&mut self, f: impl FnOnce(&mut Self));
 
   fn is_creating(&self) -> bool {
     !self.memory_ref().created

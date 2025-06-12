@@ -114,7 +114,7 @@ impl BasicShadowMapSystem {
   }
 
   #[must_use]
-  pub fn update_shadow_maps<'a>(
+  pub fn update_shadow_maps(
     &mut self,
     cx: &mut Context,
     frame_ctx: &mut FrameCtx,

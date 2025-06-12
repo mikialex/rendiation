@@ -209,13 +209,13 @@ pub trait QueryGPUHookCx: HooksCxLike {
   }
 
   fn when_render<X>(&self, f: impl FnOnce() -> X) -> Option<X> {
-    self.is_in_render().then_some(f())
+    self.is_in_render().then(f)
   }
   fn is_in_render(&self) -> bool {
     matches!(self.get_stage(), QueryHookStage::Render(..))
   }
   fn when_init<X>(&self, f: impl FnOnce() -> X) -> Option<X> {
-    matches!(self.get_stage(), QueryHookStage::Init).then_some(f())
+    self.is_creating().then(f)
   }
 }
 
@@ -241,9 +241,7 @@ unsafe impl<'a> HooksCxLike for QueryGPUHookCxImpl<'a> {
     self.memory
   }
 
-  fn flush(&mut self) {
-    todo!()
-  }
+  fn flush(&mut self) {}
 }
 
 impl<'a> QueryGPUHookCx for QueryGPUHookCxImpl<'a> {

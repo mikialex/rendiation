@@ -230,6 +230,10 @@ pub fn use_viewer<'a>(
 
     drop(writer);
 
+    viewer
+      .rendering
+      .update_registry(&mut viewer.render_memory, &mut viewer.render_resource);
+
     if let Some(canvas) = &acx.draw_target_canvas {
       let derived = viewer.derives.poll_update();
       viewer.draw_canvas(canvas, &derived);
@@ -272,7 +276,7 @@ impl CanCleanUpFrom<ApplicationDropCx> for Viewer {
     self.memory.cleanup(&mut dcx as *mut _ as *mut ());
     self
       .rendering
-      .uninit(&mut self.render_memory, &mut self.render_resource);
+      .unregister_registry(&mut self.render_memory, &mut self.render_resource);
   }
 }
 
