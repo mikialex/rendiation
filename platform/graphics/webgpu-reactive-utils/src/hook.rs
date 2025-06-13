@@ -38,6 +38,7 @@ pub trait QueryGPUHookCx: HooksCxLike {
     (cx, &mut state.0)
   }
 
+  // todo， fix dyn cfg in scope
   fn use_begin_change_set_collect(
     &mut self,
   ) -> (&mut Self, impl FnOnce(&mut Self) -> Option<bool>) {
