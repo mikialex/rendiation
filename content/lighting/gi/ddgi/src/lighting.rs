@@ -71,26 +71,71 @@ struct ProbeVolumeDataInvocation {
   data: BindingNode<ShaderTexture2DArray>,
 }
 
+/// Get the number of probes on a horizontal plane, in the active coordinate system.
+fn DDGIGetProbesPerPlane(probeCounts: Node<Vec3<i32>>) -> Node<i32> {
+  // #if RTXGI_COORDINATE_SYSTEM == RTXGI_COORDINATE_SYSTEM_LEFT || RTXGI_COORDINATE_SYSTEM == RTXGI_COORDINATE_SYSTEM_RIGHT
+  probeCounts.x() * probeCounts.z()
+  // #elif RTXGI_COORDINATE_SYSTEM == RTXGI_COORDINATE_SYSTEM_LEFT_Z_UP || RTXGI_COORDINATE_SYSTEM == RTXGI_COORDINATE_SYSTEM_RIGHT_Z_UP
+  //     return (probeCounts.x * probeCounts.y);
+  // #endif
+}
+
+/// Get the index of the horizontal plane, in the active coordinate system.
+fn DDGIGetPlaneIndex(probeCoords: Node<Vec3<i32>>) -> Node<i32> {
+  // #if RTXGI_COORDINATE_SYSTEM == RTXGI_COORDINATE_SYSTEM_LEFT_Z_UP || RTXGI_COORDINATE_SYSTEM == RTXGI_COORDINATE_SYSTEM_RIGHT_Z_UP
+  probeCoords.z()
+  // #else
+  //     return probeCoords.y;
+  // #endif
+}
+
+/// Computes the Texture2DArray coordinates of the probe at the given probe index.
+///
+/// When infinite scrolling is enabled, probeIndex is expected to be the scroll adjusted probe index.
+/// Obtain the adjusted index with DDGIGetScrollingProbeIndex().
+fn DDGIGetProbeTexelCoords(
+  probeIndex: Node<i32>,
+  volume: &ShaderPtrOf<ProbeVolumeGPUInfo>,
+) -> Node<Vec3<u32>> {
+  // Find the probe's plane index
+  let probes_per_plane = DDGIGetProbesPerPlane(volume.counts().load());
+  let plane_index = probeIndex / probes_per_plane;
+
+  // #if RTXGI_COORDINATE_SYSTEM == RTXGI_COORDINATE_SYSTEM_LEFT || RTXGI_COORDINATE_SYSTEM == RTXGI_COORDINATE_SYSTEM_RIGHT
+  let counts = volume.counts().load();
+  let x = probeIndex % counts.x();
+  let y = (probeIndex / counts.x()) % counts.z();
+  // #elif RTXGI_COORDINATE_SYSTEM == RTXGI_COORDINATE_SYSTEM_LEFT_Z_UP
+  //     int x = (probeIndex % volume.probeCounts.y);
+  //     int y = (probeIndex / volume.probeCounts.y) % volume.probeCounts.x;
+  // #elif RTXGI_COORDINATE_SYSTEM == RTXGI_COORDINATE_SYSTEM_RIGHT_Z_UP
+  //     int x = (probeIndex % volume.probeCounts.x);
+  //     int y = (probeIndex / volume.probeCounts.x) % volume.probeCounts.y;
+  // #endif
+
+  vec3_node((x, y, plane_index)).into_u32()
+}
+
 /// Computes the normalized texture UVs within the Probe Irradiance and Probe Distance texture arrays
 /// given the probe index and 2D normalized octant coordinates [-1, 1]. Used when sampling the texture arrays.
 ///
 /// When infinite scrolling is enabled, probeIndex is expected to be the scroll adjusted probe index.
 /// Obtain the adjusted index with DDGIGetScrollingProbeIndex().
 fn DDGIGetProbeUV(
-  probeIndex: Node<u32>,
+  probeIndex: Node<i32>,
   octantCoordinates: Node<Vec2<f32>>,
-  numProbeInteriorTexels: Node<u32>,
+  numProbeInteriorTexels: Node<i32>,
   volume: &ShaderPtrOf<ProbeVolumeGPUInfo>,
 ) -> Node<Vec3<f32>> {
-  //     // Get the probe's texel coordinates, assuming one texel per probe
-  //     uint3 coords = DDGIGetProbeTexelCoords(probeIndex, volume);
+  // Get the probe's texel coordinates, assuming one texel per probe
+  let coords = DDGIGetProbeTexelCoords(probeIndex, volume);
 
-  //     // Add the border texels to get the total texels per probe
-  //     float numProbeTexels = (numProbeInteriorTexels + 2.f);
+  // Add the border texels to get the total texels per probe
+  let numProbeTexels = numProbeInteriorTexels + val(2);
 
   // #if RTXGI_COORDINATE_SYSTEM == RTXGI_COORDINATE_SYSTEM_LEFT || RTXGI_COORDINATE_SYSTEM == RTXGI_COORDINATE_SYSTEM_RIGHT
-  //     float textureWidth = numProbeTexels * volume.probeCounts.x;
-  //     float textureHeight = numProbeTexels * volume.probeCounts.z;
+  let textureWidth = numProbeTexels * volume.counts().load().x();
+  let textureHeight = numProbeTexels * volume.counts().load().z();
   // #elif RTXGI_COORDINATE_SYSTEM == RTXGI_COORDINATE_SYSTEM_LEFT_Z_UP
   //     float textureWidth = numProbeTexels * volume.probeCounts.y;
   //     float textureHeight = numProbeTexels * volume.probeCounts.x;
@@ -147,7 +192,7 @@ fn get_volume_irradiance(
     // the base probe and clamping to the grid boundaries
     let adjacentProbeCoords = adjacentProbeOffset.clamp(
       val(Vec3::splat(0_i32)),
-      volume_metadata.counts().load().into_i32() - val(Vec3::splat(1_i32)),
+      volume_metadata.counts().load() - val(Vec3::splat(1_i32)),
     );
 
     // Get the adjacent probe's index, adjusting the adjacent probe index for scrolling offsets (if present)
@@ -190,9 +235,12 @@ fn get_volume_irradiance(
 
     // Get the texture array coordinates for the octant of the probe
     let probeTextureUV: Node<Vec3<f32>> = DDGIGetProbeUV(
-      adjacentProbeIndex.into_u32(),
+      adjacentProbeIndex,
       octantCoords,
-      volume_metadata.numDistanceInteriorTexels().load(),
+      volume_metadata
+        .numDistanceInteriorTexels()
+        .load()
+        .into_i32(),
       volume_metadata,
     );
 
@@ -223,22 +271,24 @@ fn get_volume_irradiance(
     // let weight = weight * chebyshevWeight.max(0.05);
 
     // Avoid a weight of zero
-    let weight = weight.max(0.000001);
+    let weight = weight.max(0.000001).make_local_var();
 
     // A small amount of light is visible due to logarithmic perception, so
     // crush tiny weights but keep the curve continuous
-    let crushThreshold = 0.2;
-    if_by(weight.less_than(crushThreshold), || {
-      // weight *= (weight * weight) * (1.f / (crushThreshold * crushThreshold));
+    let crush_threshold = 0.2;
+    if_by(weight.load().less_than(crush_threshold), || {
+      let w = weight.load();
+      let w = (w * w) * val(1.0 / crush_threshold / crush_threshold);
+      weight.store(w);
     });
 
     // Apply the trilinear weights
-    let weight = weight * trilinearWeight;
+    let weight = weight.load() * trilinearWeight;
 
     // Get the octahedral coordinates for the sample direction
     let octantCoords = direction_to_octahedral_coordinate(direction);
 
-    // Get the probe's texture coordinates
+    // // Get the probe's texture coordinates
     // probeTextureUV = DDGIGetProbeUV(
     //   adjacentProbeIndex,
     //   octantCoords,
@@ -246,19 +296,19 @@ fn get_volume_irradiance(
     //   volume,
     // );
 
-    // // Sample the probe's irradiance
+    // Sample the probe's irradiance
     // let probeIrradiance = resources
     //   .probeIrradiance
     //   .SampleLevel(resources.bilinearSampler, probeTextureUV, 0)
     //   .rgb;
 
     // // Decode the tone curve, but leave a gamma = 2 curve to approximate sRGB blending
-    // let exponent = volume.probeIrradianceEncodingGamma * 0.5f;
-    // probeIrradiance = pow(probeIrradiance, exponent);
+    // let exponent = volume_metadata.probeIrradianceEncodingGamma().load() * val(0.5);
+    // let probeIrradiance = probeIrradiance = pow(probeIrradiance, exponent);
 
     // Accumulate the weighted irradiance
     // irradiance.store(irradiance.load() + (weight * probeIrradiance));
-    accumulatedWeights.store(accumulatedWeights.load() + weight);
+    // accumulatedWeights.store(accumulatedWeights.load() + weight);
   });
 
   // check to avoid div by 0
