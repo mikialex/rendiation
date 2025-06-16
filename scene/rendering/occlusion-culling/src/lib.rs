@@ -45,26 +45,30 @@ impl GPUTwoPassOcclusionCulling {
   /// view key is user defined id for viewport/camera related identity
   /// because the per scene model last frame visibility state should be kept for different view
   ///
-  /// mix used view key for different view may cause culling efficiency problem
+  /// mix used view key for different view will reduce culling efficiency
   ///
   /// the target's depth must be multi sampled.
   ///
-  /// return a culler with occlusion test ability
+  /// the input batch should be reorderable
+  ///
+  /// the preflight_content is used to support draw background without initialize another pass.
+  /// the return the render pass is used to support subsequent draw without initialize another pass.
   ///
   /// todo, support single sampled depth
-  pub fn draw_occluder_and_create_rest_tester(
+  pub fn draw(
     &mut self,
     frame_ctx: &mut FrameCtx,
     view_key: u32,
     batch: &DeviceSceneModelRenderBatch,
     target: RenderPassDescription,
+    preflight_content: impl FnOnce(ActiveRenderPass) -> ActiveRenderPass,
     scene_renderer: &impl SceneRenderer,
     camera: &dyn RenderComponent,
     camera_view_proj: &UniformBufferDataView<Mat4<f32>>,
     pass_com: &dyn RenderComponent,
     bounding_provider: Box<dyn DrawUnitWorldBoundingProvider>,
     reverse_depth: bool,
-  ) {
+  ) -> ActiveRenderPass {
     let pre_culler = batch.stash_culler.clone().unwrap_or(Box::new(NoopCuller));
 
     let last_frame_visibility = self
@@ -85,16 +89,18 @@ impl GPUTwoPassOcclusionCulling {
     let first_pass_batch =
       frame_ctx.access_parallel_compute(|cx| first_pass_batch.flush_culler_into_new(cx));
 
-    target
+    let mut first_pass_batch_draw = scene_renderer.make_scene_batch_pass_content(
+      SceneModelRenderBatch::Device(first_pass_batch.clone()),
+      camera,
+      pass_com,
+      frame_ctx,
+    );
+
+    let pass = target
       .clone()
       .with_name("occlusion-culling-first-pass")
-      .render_ctx(frame_ctx)
-      .by(&mut scene_renderer.make_scene_batch_pass_content(
-        SceneModelRenderBatch::Device(first_pass_batch.clone()),
-        camera,
-        pass_com,
-        frame_ctx,
-      ));
+      .render_ctx(frame_ctx);
+    preflight_content(pass).by(&mut first_pass_batch_draw);
 
     // then generate depth pyramid for the occluder
     let (_, depth) = target.depth_stencil_target.clone().unwrap();
@@ -159,15 +165,17 @@ impl GPUTwoPassOcclusionCulling {
       .shortcut_or(occlusion_culler);
     let second_pass_batch = batch.clone().with_override_culler(second_pass_culler);
 
+    let mut second_pass_draw = scene_renderer.make_scene_batch_pass_content(
+      SceneModelRenderBatch::Device(second_pass_batch),
+      camera,
+      pass_com,
+      frame_ctx,
+    );
+
     target
       .with_name("occlusion-culling-second-pass")
       .render_ctx(frame_ctx)
-      .by(&mut scene_renderer.make_scene_batch_pass_content(
-        SceneModelRenderBatch::Device(second_pass_batch),
-        camera,
-        pass_com,
-        frame_ctx,
-      ));
+      .by(&mut second_pass_draw)
   }
 
   /// if some view key is not used anymore, do cleanup to release underlayer resources
