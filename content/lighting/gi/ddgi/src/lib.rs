@@ -47,7 +47,7 @@ pub struct ProbeVolumeGPUInfo {
   /// world-space distance between probes
   pub spacing: Vec3<f32>,
   /// number of probes on each axis of the volume
-  pub counts: Vec3<u32>,
+  pub counts: Vec3<i32>,
 
   /// type of movement the volume allows. 0: default, 1: infinite scrolling
   pub movementType: u32,
