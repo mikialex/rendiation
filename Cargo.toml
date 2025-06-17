@@ -58,6 +58,7 @@ members = [
   "scene/rendering/frustum-culling",
   "scene/rendering/gpu-ray-tracing",
   "scene/rendering/mesh-lod-graph",
+  "scene/rendering/oit",
   "scene/io/obj/loader",
   "scene/io/gltf/loader",
   "scene/io/gltf/exporter",

@@ -1,0 +1,23 @@
+[package]
+authors = ["MikiAlex <18516340862@163.com>"]
+edition = "2021"
+name = "rendiation-oit"
+version = "0.1.0"
+
+[dependencies]
+fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
+log = { workspace = true }
+rendiation-algebra = { path = "../../../math/algebra" }
+rendiation-geometry = { path = "../../../math/geometry" }
+rendiation-scene-rendering-gpu-base = { path = "../../rendering/gpu-base" }
+rendiation-shader-api = { path = "../../../shader/api" }
+rendiation-device-parallel-compute = { path = "../../../shader/parallel-compute" }
+rendiation-shader-library = { path = "../../../shader/library" }
+rendiation-fast-down-sampling-2d = { path = "../../../shader/fast-down-sampling-2d" }
+rendiation-texture-core = { path = "../../../content/texture/core" }
+rendiation-texture-gpu-base = { path = "../../../content/texture/gpu-base" }
+reactive = { path = "../../../utility/reactive" }
+rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
+
+[lints]
+workspace = true

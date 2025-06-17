@@ -3779,6 +3779,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-oit"
+version = "0.1.0"
+dependencies = [
+ "fast-hash-collection",
+ "log",
+ "reactive",
+ "rendiation-algebra",
+ "rendiation-device-parallel-compute",
+ "rendiation-fast-down-sampling-2d",
+ "rendiation-geometry",
+ "rendiation-scene-rendering-gpu-base",
+ "rendiation-shader-api",
+ "rendiation-shader-library",
+ "rendiation-texture-core",
+ "rendiation-texture-gpu-base",
+ "rendiation-webgpu",
+]
+
+[[package]]
 name = "rendiation-platform-event-input"
 version = "0.1.0"
 dependencies = [

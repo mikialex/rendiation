@@ -47,7 +47,7 @@ impl HighLighter {
       sdf: sdf.into(),
       lighter: self,
     }
-    .draw_quad()
+    .draw_quad_with_alpha_blending()
   }
 
   /// the passed in content should draw by `HighLightMaskDispatcher`

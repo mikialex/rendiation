@@ -301,7 +301,7 @@ impl ViewerFrameLogic {
             reproject: &self.reproject.reproject,
           },
         }
-        .draw_quad_with_blend(BlendState::ALPHA_BLENDING.into()),
+        .draw_quad(),
       );
     }
 
