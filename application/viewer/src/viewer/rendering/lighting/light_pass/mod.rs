@@ -22,13 +22,19 @@ pub struct LightingRenderingCx<'a> {
 pub fn render_lighting_scene_content(
   ctx: &mut FrameCtx,
   lighting_cx: &LightingRenderingCx,
+  cull_cx: &ViewerCulling,
   renderer: &ViewerSceneRenderer,
   content: &Viewer3dSceneCtx,
   scene_derive: &Viewer3dSceneDerive,
   scene_result: &RenderTargetView,
   g_buffer: &FrameGeometryBuffer,
-  main_camera_gpu: &dyn RenderComponent,
 ) {
+  let main_camera_gpu = renderer
+    .cameras
+    .make_component(content.main_camera)
+    .unwrap();
+  let main_camera_gpu = &main_camera_gpu;
+
   let (color_ops, depth_ops) = renderer
     .background
     .init_clear(content.scene, renderer.reversed_depth);
@@ -53,12 +59,10 @@ pub fn render_lighting_scene_content(
         lighting.as_ref(),
       ]) as &dyn RenderComponent;
 
-      let mut all_opaque_object = renderer.scene.extract_and_make_pass_content(
-        SceneContentKey::only_opaque_objects(),
+      let all_opaque_object = renderer.scene.extract_scene_batch(
         content.scene,
-        main_camera_gpu,
+        SceneContentKey::only_opaque_objects(),
         ctx,
-        scene_pass_dispatcher,
       );
 
       let all_transparent_object = renderer.scene.extract_scene_batch(
@@ -92,12 +96,17 @@ pub fn render_lighting_scene_content(
         ctx,
       );
 
-      pass_base
-        .render_ctx(ctx)
-        // the following pass will check depth to decide if pixel is background,
-        // so miss overwrite other channel is not a problem here
-        .by(&mut background)
-        .by(&mut all_opaque_object)
+      cull_cx
+        .draw_with_oc_maybe_enabled(
+          ctx,
+          renderer,
+          scene_pass_dispatcher,
+          main_camera_gpu,
+          content.main_camera,
+          |pass| pass.by(&mut background),
+          pass_base,
+          all_opaque_object,
+        )
         .by(&mut all_transparent_object);
     }
     LightingTechniqueKind::DeferLighting => {
@@ -117,15 +126,21 @@ pub fn render_lighting_scene_content(
         &material_writer,
       ]) as &dyn RenderComponent;
 
-      let mut main_scene_content = renderer.scene.extract_and_make_pass_content(
-        SceneContentKey::default(),
-        content.scene,
-        main_camera_gpu,
-        ctx,
-        scene_pass_dispatcher,
-      );
+      let main_scene_content =
+        renderer
+          .scene
+          .extract_scene_batch(content.scene, SceneContentKey::default(), ctx);
 
-      pass_base.render_ctx(ctx).by(&mut main_scene_content);
+      cull_cx.draw_with_oc_maybe_enabled(
+        ctx,
+        renderer,
+        scene_pass_dispatcher,
+        main_camera_gpu,
+        content.main_camera,
+        |pass| pass,
+        pass_base,
+        main_scene_content,
+      );
 
       let geometry_from_g_buffer = Box::new(FrameGeometryBufferReconstructGeometryCtx {
         camera: &main_camera_gpu,

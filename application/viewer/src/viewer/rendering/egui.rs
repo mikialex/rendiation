@@ -102,14 +102,11 @@ impl Viewer3dRenderingCtx {
     ui.separator();
 
     ui.add_enabled_ui(is_target_support_indirect_draw, |ui| {
-      let mut indirect_occlusion_culling_impl_exist =
-        self.indirect_occlusion_culling_impl.is_some();
       ui.checkbox(
-        &mut indirect_occlusion_culling_impl_exist,
+        &mut self.enable_indirect_occlusion_culling_support,
         "occlusion_culling_system_is_ready",
       )
       .on_disabled_hover_text("current platform/gpu does not support gpu driven occlusion culling");
-      self.set_enable_indirect_occlusion_culling_support(indirect_occlusion_culling_impl_exist);
     });
 
     ui.add_enabled_ui(true, |ui| {

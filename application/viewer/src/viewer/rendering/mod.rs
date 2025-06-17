@@ -23,7 +23,6 @@ use grid_ground::*;
 pub use lighting::*;
 pub use post::*;
 use reactive::EventSource;
-use rendiation_occlusion_culling::GPUTwoPassOcclusionCulling;
 use rendiation_scene_rendering_gpu_indirect::*;
 use rendiation_scene_rendering_gpu_ray_tracing::*;
 use rendiation_texture_gpu_process::copy_frame;
@@ -63,13 +62,14 @@ struct ViewerRendererInstance {
   raster_scene_renderer: Box<dyn SceneRenderer<ContentKey = SceneContentKey>>,
   rtx_renderer: Option<(RayTracingRendererGroup, RtxSystemCore)>,
   lighting: LightingRenderingCxPrepareCtx,
+  culling: ViewerCulling,
 }
 
 pub struct Viewer3dRenderingCtx {
   frame_index: u64,
   ndc: ViewerNDC,
   frame_logic: ViewerFrameLogic,
-  indirect_occlusion_culling_impl: Option<GPUTwoPassOcclusionCulling>,
+  enable_indirect_occlusion_culling_support: bool,
   current_renderer_impl_ty: RasterizationRenderBackendType,
   rtx_effect_mode: RayTracingEffectMode,
   rtx_renderer_enabled: bool,
@@ -110,7 +110,7 @@ impl Viewer3dRenderingCtx {
       frame_index: 0,
       ndc,
       swap_chain,
-      indirect_occlusion_culling_impl: None,
+      enable_indirect_occlusion_culling_support: false,
       current_renderer_impl_ty: RasterizationRenderBackendType::Gles,
       rtx_effect_mode: RayTracingEffectMode::ReferenceTracing,
       rtx_rendering_enabled: false,
@@ -157,6 +157,13 @@ impl Viewer3dRenderingCtx {
 
     let t_clone = texture_sys.clone();
     let attributes_custom_key = Arc::new(|_: u32, _: &mut _| {}) as Arc<_>;
+
+    let culling = use_viewer_culling(
+      qcx,
+      self.enable_indirect_occlusion_culling_support,
+      &self.camera_source,
+    );
+
     let raster_scene_renderer = match self.current_renderer_impl_ty {
       RasterizationRenderBackendType::Gles => qcx.scope(|qcx| {
         use_gles_scene_renderer(
@@ -252,18 +259,8 @@ impl Viewer3dRenderingCtx {
       raster_scene_renderer: raster_scene_renderer.unwrap(),
       rtx_renderer: rtx_scene_renderer,
       lighting: lighting.unwrap(),
+      culling: culling.unwrap(),
     })
-  }
-
-  pub fn set_enable_indirect_occlusion_culling_support(&mut self, enable: bool) {
-    if enable {
-      if self.indirect_occlusion_culling_impl.is_none() {
-        self.indirect_occlusion_culling_impl =
-          GPUTwoPassOcclusionCulling::new(u16::MAX as usize).into();
-      }
-    } else {
-      self.indirect_occlusion_culling_impl = None
-    }
   }
 
   /// only texture could be read. caller must sure the target passed in render call not using
@@ -400,6 +397,7 @@ impl Viewer3dRenderingCtx {
       let entity_id = self.frame_logic.render(
         &mut ctx,
         &ras_renderer,
+        &renderer.culling,
         scene_derive,
         &lighting_cx,
         content,

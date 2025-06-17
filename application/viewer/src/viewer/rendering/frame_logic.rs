@@ -70,6 +70,7 @@ impl ViewerFrameLogic {
     &mut self,
     ctx: &mut FrameCtx,
     renderer: &ViewerSceneRenderer,
+    culling: &ViewerCulling,
     scene_derive: &Viewer3dSceneDerive,
     lighting: &LightingRenderingCx,
     content: &Viewer3dSceneCtx,
@@ -103,12 +104,12 @@ impl ViewerFrameLogic {
         render_lighting_scene_content(
           ctx,
           lighting,
+          culling,
           renderer,
           content,
           scene_derive,
           &scene_result,
           &g_buffer,
-          &main_camera_gpu,
         );
 
         if self.enable_ground {
