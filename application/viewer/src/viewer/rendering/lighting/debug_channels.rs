@@ -40,7 +40,7 @@ impl ShaderHashProvider for ScreenChannelDebugger {
 impl GraphicsShaderProvider for ScreenChannelDebugger {
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, _| {
-      let ndc_position = builder.query::<FragmentPosition>();
+      let frame_coord_x = builder.query::<FragmentPosition>().x();
 
       let output = val(Vec4::new(0., 0., 0., 1.)).make_local_var();
 
@@ -49,11 +49,12 @@ impl GraphicsShaderProvider for ScreenChannelDebugger {
       let step = width / val(self.channels.len() as f32);
       let start = val(0.).make_local_var();
       for channel in &self.channels {
-        let x = ndc_position.x();
         let start_current = start.load();
         let start_end = start_current + step;
         if_by(
-          start_current.less_than(x).and(x.less_equal_than(start_end)),
+          start_current
+            .less_than(frame_coord_x)
+            .and(frame_coord_x.less_equal_than(start_end)),
           || {
             output.store(output.load() + channel.to_screen(builder));
           },
