@@ -46,7 +46,7 @@ pub fn downgrade_multi_indirect_draw_count(
         let draw_count = builder.bind_by(&draw_count).load();
         let prefix_buffer = builder.bind_by(&sub_draw_range_start_prefix_sum);
 
-        let vertex_count_all = prefix_buffer.index(draw_count + val(1)).load();
+        let vertex_count_all = prefix_buffer.index(draw_count).load();
 
         let draw_dispatch = ENode::<DrawIndirect> {
           vertex_count: vertex_count_all,
@@ -122,17 +122,19 @@ impl DowngradeMultiIndirectDrawCountHelperInvocation {
   pub fn get_current_vertex_draw_info(&self, vertex_id: Node<u32>) -> MultiDrawDowngradeVertexInfo {
     // binary search for current draw command
     let start = val(0_u32).make_local_var();
-    let end = (self.sub_draw_range_start_prefix_sum.array_length() - val(1)).make_local_var();
+    // should we just remove the min to assert at least one cmd?
+    let end =
+      (self.sub_draw_range_start_prefix_sum.array_length().min(1) - val(1)).make_local_var();
 
     loop_by(|cx| {
       if_by(start.load().equals(end.load()), || cx.do_break());
 
       let mid = (start.load() + end.load()) / val(2);
       let test = self.sub_draw_range_start_prefix_sum.index(mid).load();
-      if_by(vertex_id.less_equal_than(test), || {
+      if_by(vertex_id.less_than(test), || {
         end.store(mid);
       });
-      if_by(vertex_id.greater_equal_than(test), || {
+      if_by(vertex_id.greater_than(test), || {
         start.store(mid + val(1));
       });
     });
