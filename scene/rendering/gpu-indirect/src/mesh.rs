@@ -69,6 +69,12 @@ pub fn use_bindless_mesh(cx: &mut impl QueryGPUHookCx) -> Option<MeshGPUBindless
   let sm_to_mesh =
     cx.use_reactive_query(|| sm_to_mesh.clone().unwrap().collective_filter_map(|v| v));
 
+  let support = cx
+    .gpu()
+    .info
+    .supported_features
+    .contains(Features::MULTI_DRAW_INDIRECT_COUNT);
+
   cx.when_render(|| MeshGPUBindlessImpl {
     indices: indices.clone(),
     position: position.clone(),
@@ -82,6 +88,7 @@ pub fn use_bindless_mesh(cx: &mut impl QueryGPUHookCx) -> Option<MeshGPUBindless
     vertex_address_buffer_host: attribute_buffer_metadata.unwrap(),
     sm_to_mesh_device: sm_to_mesh_device.unwrap(),
     sm_to_mesh: sm_to_mesh.unwrap(),
+    used_in_midc_downgrade: !support,
   })
 }
 
@@ -247,6 +254,7 @@ pub struct MeshGPUBindlessImpl {
   sm_to_mesh: BoxedDynQuery<EntityHandle<SceneModelEntity>, EntityHandle<AttributesMeshEntity>>,
   checker: ForeignKeyReadView<StandardModelRefAttributesMeshEntity>,
   indices_checker: ForeignKeyReadView<SceneBufferViewBufferId<AttributeIndexRef>>,
+  used_in_midc_downgrade: bool,
 }
 
 impl MeshGPUBindlessImpl {
@@ -267,6 +275,7 @@ impl MeshGPUBindlessImpl {
       normal,
       uv,
       index_pool,
+      used_in_midc_downgrade: self.used_in_midc_downgrade,
     }
   }
 }
@@ -328,6 +337,7 @@ pub struct BindlessMeshDispatcher {
   pub position: StorageBufferReadonlyDataView<[u32]>,
   pub normal: StorageBufferReadonlyDataView<[u32]>,
   pub uv: StorageBufferReadonlyDataView<[u32]>,
+  pub used_in_midc_downgrade: bool,
 }
 
 impl ShaderHashProvider for BindlessMeshDispatcher {
@@ -336,11 +346,30 @@ impl ShaderHashProvider for BindlessMeshDispatcher {
 
 impl ShaderPassBuilder for BindlessMeshDispatcher {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx
-      .pass
-      .set_index_buffer_by_buffer_resource_view(&self.index_pool, IndexFormat::Uint32);
+    // midc downgrade index draw into none index draw, so we do not set index buffer
+    if !self.used_in_midc_downgrade {
+      ctx
+        .pass
+        .set_index_buffer_by_buffer_resource_view(&self.index_pool, IndexFormat::Uint32);
+    }
 
     self.bind_base_invocation(&mut ctx.binding);
+  }
+}
+
+impl GraphicsShaderProvider for BindlessMeshDispatcher {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    builder.vertex(|vertex, binding| {
+      let mesh_handle = vertex.query::<IndirectAbstractMeshId>();
+      let vertex_id = vertex.query::<VertexIndex>();
+
+      let mesh_sys = self.build_base_invocation(binding);
+      let (position, normal, uv) = mesh_sys.get_position_normal_uv(mesh_handle, vertex_id);
+
+      vertex.register::<GeometryPosition>(position);
+      vertex.register::<GeometryNormal>(normal);
+      vertex.register::<GeometryUV>(uv);
+    })
   }
 }
 
@@ -415,22 +444,6 @@ impl BindlessMeshDispatcher {
     cx.bind(&self.position);
     cx.bind(&self.normal);
     cx.bind(&self.uv);
-  }
-}
-
-impl GraphicsShaderProvider for BindlessMeshDispatcher {
-  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    builder.vertex(|vertex, binding| {
-      let mesh_handle = vertex.query::<IndirectAbstractMeshId>();
-      let vertex_id = vertex.query::<VertexIndex>();
-
-      let mesh_sys = self.build_base_invocation(binding);
-      let (position, normal, uv) = mesh_sys.get_position_normal_uv(mesh_handle, vertex_id);
-
-      vertex.register::<GeometryPosition>(position);
-      vertex.register::<GeometryNormal>(normal);
-      vertex.register::<GeometryUV>(uv);
-    })
   }
 }
 

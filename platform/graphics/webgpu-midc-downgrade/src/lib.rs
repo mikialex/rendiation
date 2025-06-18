@@ -2,7 +2,7 @@ use rendiation_device_parallel_compute::*;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 
-/// downgrade midc into single indirect draw with helper access data.
+/// downgrade midc into single none-index indirect draw with helper access data.
 ///
 /// currently only support index draw without any instance sub draw
 pub fn downgrade_multi_indirect_draw_count(
@@ -28,11 +28,12 @@ pub fn downgrade_multi_indirect_draw_count(
           indirect_count: draw_count.clone(),
         }
         .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(1024, 1024)
+        .make_global_scan_exclusive::<AdditionMonoid<u32>>()
         .materialize_storage_buffer(cx);
 
         let indirect_buffer = StorageBufferDataView::create_by_with_extra_usage(
           &frame_ctx.gpu.device,
-          StorageBufferSizedZeroed::<DrawIndexedIndirect>::default().into(),
+          StorageBufferSizedZeroed::<DrawIndirect>::default().into(),
           BufferUsages::INDIRECT,
         );
 
@@ -46,12 +47,11 @@ pub fn downgrade_multi_indirect_draw_count(
 
             let vertex_count_all = prefix_buffer.index(draw_count).load();
 
-            let draw_dispatch = ENode::<DrawIndexedIndirect> {
+            let draw_dispatch = ENode::<DrawIndirect> {
               vertex_count: vertex_count_all,
               instance_count: val(0),
-              base_index: val(0),
-              vertex_offset: val(0),
-              base_instance: val(0),
+              first_vertex: val(0),
+              first_instance: val(0),
             }
             .construct();
 
@@ -79,7 +79,7 @@ pub fn downgrade_multi_indirect_draw_count(
       },
       DrawCommand::Indirect {
         indirect_buffer: indirect_buffer.gpu,
-        indexed: true,
+        indexed: false,
       },
     )
   } else {
@@ -113,11 +113,15 @@ pub struct DowngradeMultiIndirectDrawCountHelperInvocation {
   draw_commands: ShaderReadonlyPtrOf<[DrawIndexedIndirect]>,
 }
 
+pub struct MultiDrawDowngradeVertexInfo {
+  pub sub_draw_command_idx: Node<u32>,
+  pub vertex_index_inside_sub_draw: Node<u32>,
+  pub base_vertex_or_index_offset_for_sub_draw: Node<u32>,
+  pub base_instance: Node<u32>,
+}
+
 impl DowngradeMultiIndirectDrawCountHelperInvocation {
-  pub fn get_current_vertex_draw_command_index_and_info(
-    &self,
-    vertex_id: Node<u32>,
-  ) -> (Node<u32>, Node<DrawIndexedIndirect>) {
+  pub fn get_current_vertex_draw_info(&self, vertex_id: Node<u32>) -> MultiDrawDowngradeVertexInfo {
     // binary search for current draw command
     let start = val(0_u32).make_local_var();
     let end = (self.sub_draw_range_start_prefix_sum.array_length() - val(1)).make_local_var();
@@ -136,8 +140,18 @@ impl DowngradeMultiIndirectDrawCountHelperInvocation {
     });
 
     let index = start.load();
-    let draw_command = self.draw_commands.index(index).load();
-    (index, draw_command)
+    let draw_base_offset = self.sub_draw_range_start_prefix_sum.index(index).load();
+    let draw_inner_offset = vertex_id - draw_base_offset;
+    let draw_cmd = self.draw_commands.index(index);
+    let offset = draw_cmd.base_index().load();
+    let base_instance = draw_cmd.base_instance().load();
+
+    MultiDrawDowngradeVertexInfo {
+      sub_draw_command_idx: index,
+      vertex_index_inside_sub_draw: draw_inner_offset,
+      base_vertex_or_index_offset_for_sub_draw: offset,
+      base_instance,
+    }
   }
 }
 
