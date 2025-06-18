@@ -1,0 +1,15 @@
+
+
+[package]
+authors = ["MikiAlex <18516340862@163.com>"]
+edition = "2021"
+name = "rendiation-webgpu-midc-downgrade"
+version = "0.1.0"
+
+[dependencies]
+rendiation-shader-api = { path = "../../../shader/api" }
+rendiation-webgpu = { path = "../webgpu" }
+rendiation-device-parallel-compute = { path = "../../../shader/parallel-compute" }
+
+[lints]
+workspace = true

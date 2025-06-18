@@ -67,6 +67,7 @@ members = [
   "platform/graphics/webgpu",
   "platform/graphics/webgpu-reactive-utils",
   "platform/graphics/webgpu-virtual-buffer",
+  "platform/graphics/webgpu-midc-downgrade",
   "extension/controller",
   "extension/view-override-model",
   "extension/barycentric-solid-line",

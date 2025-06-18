@@ -40,6 +40,23 @@ pub use histogram::*;
 mod stride_read;
 pub use stride_read::*;
 
+pub trait FrameCtxParallelComputeExt {
+  fn access_parallel_compute<R>(&mut self, f: impl FnOnce(&mut DeviceParallelComputeCtx) -> R)
+    -> R;
+}
+
+impl FrameCtxParallelComputeExt for FrameCtx<'_> {
+  fn access_parallel_compute<R>(
+    &mut self,
+    f: impl FnOnce(&mut DeviceParallelComputeCtx) -> R,
+  ) -> R {
+    let mut ctx = DeviceParallelComputeCtx::new(self.gpu, &mut self.encoder);
+    let r = f(&mut ctx);
+    ctx.flush_pass();
+    r
+  }
+}
+
 /// abstract device invocation. the invocation cost should only exist if user has called
 ///  `invocation_logic`, as well as invocation_size.
 pub trait DeviceInvocation<T> {

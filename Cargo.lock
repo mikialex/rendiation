@@ -3950,6 +3950,7 @@ dependencies = [
  "parking_lot",
  "reactive",
  "rendiation-algebra",
+ "rendiation-device-parallel-compute",
  "rendiation-geometry",
  "rendiation-lighting-gpu-system",
  "rendiation-lighting-punctual",
@@ -4188,6 +4189,15 @@ dependencies = [
  "wgpu-types",
  "winit",
  "xalloc",
+]
+
+[[package]]
+name = "rendiation-webgpu-midc-downgrade"
+version = "0.1.0"
+dependencies = [
+ "rendiation-device-parallel-compute",
+ "rendiation-shader-api",
+ "rendiation-webgpu",
 ]
 
 [[package]]

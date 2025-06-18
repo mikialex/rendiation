@@ -4,7 +4,7 @@ impl<T: ShaderSizedValueNodeType> DeviceInvocation<Node<T>> for DynLengthArrayVi
   fn invocation_logic(&self, logic_global_id: Node<Vec3<u32>>) -> (Node<T>, Node<bool>) {
     let idx = logic_global_id.x();
     let r = idx.less_than(self.array_length());
-    let result = r.select_branched(|| self.index(idx).load(), || zeroed_val());
+    let result = r.select_branched(|| self.index(idx).load(), zeroed_val);
     (result, r)
   }
 
@@ -17,7 +17,7 @@ impl<T: ShaderSizedValueNodeType> DeviceInvocation<Node<T>> for DynLengthArrayRe
   fn invocation_logic(&self, logic_global_id: Node<Vec3<u32>>) -> (Node<T>, Node<bool>) {
     let idx = logic_global_id.x();
     let r = idx.less_than(self.array_length());
-    let result = r.select_branched(|| self.index(idx).load(), || zeroed_val());
+    let result = r.select_branched(|| self.index(idx).load(), zeroed_val);
     (result, r)
   }
 
@@ -32,7 +32,7 @@ impl<T: ShaderSizedValueNodeType> DeviceInvocation<Node<T>>
   fn invocation_logic(&self, logic_global_id: Node<Vec3<u32>>) -> (Node<T>, Node<bool>) {
     let idx = logic_global_id.x();
     let r = idx.less_than(self.1.x());
-    let result = r.select_branched(|| self.0.index(idx).load(), || zeroed_val());
+    let result = r.select_branched(|| self.0.index(idx).load(), zeroed_val);
     (result, r)
   }
 

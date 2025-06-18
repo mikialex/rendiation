@@ -200,20 +200,3 @@ impl SceneModelRenderer for Vec<Box<dyn SceneModelRenderer>> {
     })
   }
 }
-
-pub trait FrameCtxParallelComputeExt {
-  fn access_parallel_compute<R>(&mut self, f: impl FnOnce(&mut DeviceParallelComputeCtx) -> R)
-    -> R;
-}
-
-impl FrameCtxParallelComputeExt for FrameCtx<'_> {
-  fn access_parallel_compute<R>(
-    &mut self,
-    f: impl FnOnce(&mut DeviceParallelComputeCtx) -> R,
-  ) -> R {
-    let mut ctx = DeviceParallelComputeCtx::new(self.gpu, &mut self.encoder);
-    let r = f(&mut ctx);
-    ctx.flush_pass();
-    r
-  }
-}
