@@ -7,7 +7,7 @@ use rendiation_webgpu::*;
 /// currently only support index draw without any instance sub draw
 pub fn downgrade_multi_indirect_draw_count(
   draw: DrawCommand,
-  frame_ctx: &mut FrameCtx,
+  cx: &mut DeviceParallelComputeCtx,
 ) -> (DowngradeMultiIndirectDrawCountHelper, DrawCommand) {
   if let DrawCommand::MultiIndirectCount {
     indexed,
@@ -21,56 +21,54 @@ pub fn downgrade_multi_indirect_draw_count(
     let draw_commands = StorageBufferReadonlyDataView::try_from_raw(indirect_buffer).unwrap();
     let draw_count = StorageBufferReadonlyDataView::try_from_raw(indirect_count).unwrap();
 
-    let (sub_draw_range_start_prefix_sum, indirect_buffer) =
-      frame_ctx.access_parallel_compute(|cx| {
-        let DeviceMaterializeResult { buffer, .. } = MultiIndirectCountDowngradeSource {
-          indirect_buffer: draw_commands.clone(),
-          indirect_count: draw_count.clone(),
+    let DeviceMaterializeResult {
+      buffer: sub_draw_range_start_prefix_sum,
+      ..
+    } = MultiIndirectCountDowngradeSource {
+      indirect_buffer: draw_commands.clone(),
+      indirect_count: draw_count.clone(),
+    }
+    .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(1024, 1024)
+    .make_global_scan_exclusive::<AdditionMonoid<u32>>()
+    .materialize_storage_buffer(cx);
+
+    let indirect_buffer = StorageBufferDataView::create_by_with_extra_usage(
+      &cx.gpu.device,
+      StorageBufferSizedZeroed::<DrawIndirect>::default().into(),
+      BufferUsages::INDIRECT,
+    );
+
+    cx.record_pass(|pass, device| {
+      let hasher = shader_hasher_from_marker_ty!(PrepareIndirectDraw);
+      let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
+        builder.config_work_group_size(1);
+        let indirect_buffer = builder.bind_by(&indirect_buffer);
+        let draw_count = builder.bind_by(&draw_count).load();
+        let prefix_buffer = builder.bind_by(&sub_draw_range_start_prefix_sum);
+
+        let vertex_count_all = prefix_buffer.index(draw_count + val(1)).load();
+
+        let draw_dispatch = ENode::<DrawIndirect> {
+          vertex_count: vertex_count_all,
+          instance_count: val(1),
+          first_vertex: val(0),
+          first_instance: val(0),
         }
-        .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(1024, 1024)
-        .make_global_scan_exclusive::<AdditionMonoid<u32>>()
-        .materialize_storage_buffer(cx);
+        .construct();
 
-        let indirect_buffer = StorageBufferDataView::create_by_with_extra_usage(
-          &frame_ctx.gpu.device,
-          StorageBufferSizedZeroed::<DrawIndirect>::default().into(),
-          BufferUsages::INDIRECT,
-        );
+        indirect_buffer.store(draw_dispatch);
 
-        cx.record_pass(|pass, device| {
-          let hasher = shader_hasher_from_marker_ty!(PrepareIndirectDraw);
-          let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
-            builder.config_work_group_size(1);
-            let indirect_buffer = builder.bind_by(&indirect_buffer);
-            let draw_count = builder.bind_by(&draw_count).load();
-            let prefix_buffer = builder.bind_by(&buffer);
-
-            let vertex_count_all = prefix_buffer.index(draw_count).load();
-
-            let draw_dispatch = ENode::<DrawIndirect> {
-              vertex_count: vertex_count_all,
-              instance_count: val(0),
-              first_vertex: val(0),
-              first_instance: val(0),
-            }
-            .construct();
-
-            indirect_buffer.store(draw_dispatch);
-
-            builder
-          });
-
-          BindingBuilder::default()
-            .with_bind(&indirect_buffer)
-            .with_bind(&draw_count)
-            .with_bind(&buffer)
-            .setup_compute_pass(pass, device, &pipeline);
-
-          pass.dispatch_workgroups(1, 1, 1);
-        });
-
-        (buffer, indirect_buffer)
+        builder
       });
+
+      BindingBuilder::default()
+        .with_bind(&indirect_buffer)
+        .with_bind(&draw_count)
+        .with_bind(&sub_draw_range_start_prefix_sum)
+        .setup_compute_pass(pass, device, &pipeline);
+
+      pass.dispatch_workgroups(1, 1, 1);
+    });
 
     (
       DowngradeMultiIndirectDrawCountHelper {

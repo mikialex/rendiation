@@ -3911,6 +3911,7 @@ dependencies = [
  "rendiation-texture-gpu-base",
  "rendiation-texture-gpu-system",
  "rendiation-webgpu",
+ "rendiation-webgpu-midc-downgrade",
  "rendiation-webgpu-reactive-utils",
  "thiserror 1.0.63",
 ]

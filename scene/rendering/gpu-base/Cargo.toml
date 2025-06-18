@@ -16,6 +16,7 @@ reactive = { path = "../../../utility/reactive" }
 database = { path = "../../../utility/database" }
 rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
 rendiation-webgpu-reactive-utils = { path = "../../../platform/graphics/webgpu-reactive-utils" }
+rendiation-webgpu-midc-downgrade = { path = "../../../platform/graphics/webgpu-midc-downgrade" }
 rendiation-shader-api = { path = "../../../shader/api" }
 rendiation-texture-core = { path = "../../../content/texture/core" }
 rendiation-texture-gpu-base = { path = "../../../content/texture/gpu-base" }

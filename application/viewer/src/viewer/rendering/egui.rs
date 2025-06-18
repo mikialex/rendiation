@@ -53,11 +53,7 @@ impl Viewer3dRenderingCtx {
       });
     });
 
-    let is_target_support_indirect_draw = self
-      .gpu
-      .info
-      .supported_features
-      .contains(Features::MULTI_DRAW_INDIRECT_COUNT);
+    let is_target_support_indirect_draw = true; // todo, check pure gles platform
 
     egui::ComboBox::from_label("RasterizationRender Backend")
       .selected_text(format!("{:?}", &self.current_renderer_impl_ty))
@@ -77,6 +73,18 @@ impl Viewer3dRenderingCtx {
           .on_disabled_hover_text("current platform/gpu does not support indirect rendering");
         });
       });
+
+    if self.current_renderer_impl_ty == RasterizationRenderBackendType::Indirect {
+      let is_target_support_indirect_draw_cmd_natively = self
+        .gpu
+        .info
+        .supported_features
+        .contains(Features::MULTI_DRAW_INDIRECT_COUNT);
+
+      if !is_target_support_indirect_draw_cmd_natively {
+        ui.label("warning: current platform's indirect draw will using downgraded implementation");
+      }
+    }
 
     ui.separator();
 

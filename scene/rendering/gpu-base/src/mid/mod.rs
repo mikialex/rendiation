@@ -6,6 +6,9 @@ pub use indexed::*;
 mod none_indexed;
 pub use none_indexed::*;
 
+mod midc_downgrade;
+pub use midc_downgrade::*;
+
 pub enum DrawCommandBuilder {
   Indexed(Box<dyn IndexedDrawCommandBuilder>),
   NoneIndexed(Box<dyn NoneIndexedDrawCommandBuilder>),
@@ -82,17 +85,40 @@ impl DeviceSceneModelRenderSubBatch {
         );
 
         let r = generator.materialize_storage_buffer_into(draw_command_buffer, cx);
+        let draw_command_buffer = MultiIndirectDrawBatchDeviceCommands::Indexed(r.buffer);
+        let draw_count = r.size.unwrap_or_else(|| {
+          StorageBufferReadonlyDataView::create_by_with_extra_usage(
+            &cx.gpu.device,
+            StorageBufferInit::WithInit(&Vec4::new(size, 0, 0, 0)),
+            BufferUsages::INDIRECT,
+          )
+        });
 
-        Box::new(MultiIndirectDrawBatch {
-          draw_command_buffer: MultiIndirectDrawBatchDeviceCommands::Indexed(r.buffer),
-          draw_count: r.size.unwrap_or_else(|| {
-            StorageBufferReadonlyDataView::create_by_with_extra_usage(
-              &cx.gpu.device,
-              StorageBufferInit::WithInit(&Vec4::new(size, 0, 0, 0)),
-              BufferUsages::INDIRECT,
-            )
-          }),
-        })
+        if cx
+          .gpu
+          .info
+          .supported_features
+          .contains(Features::MULTI_DRAW_INDIRECT_COUNT)
+        {
+          Box::new(MultiIndirectDrawBatch {
+            draw_command_buffer,
+            draw_count,
+          })
+        } else {
+          let cmd = DrawCommand::MultiIndirectCount {
+            indexed: matches!(
+              &draw_command_buffer,
+              MultiIndirectDrawBatchDeviceCommands::Indexed(_)
+            ),
+            indirect_buffer: draw_command_buffer.indirect_buffer().clone(),
+            indirect_count: draw_count.gpu.clone(),
+            max_count: draw_command_buffer.item_count(),
+          };
+
+          let (helper, cmd) =
+            rendiation_webgpu_midc_downgrade::downgrade_multi_indirect_draw_count(cmd, cx);
+          Box::new(MIDCDowngradeBatch { helper, cmd })
+        }
       }
       DrawCommandBuilder::NoneIndexed(generator) => {
         let generator = NoneIndexedDrawCommandGenerator {

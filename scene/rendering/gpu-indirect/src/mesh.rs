@@ -342,6 +342,9 @@ pub struct BindlessMeshDispatcher {
 
 impl ShaderHashProvider for BindlessMeshDispatcher {
   shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.used_in_midc_downgrade.hash(hasher);
+  }
 }
 
 impl ShaderPassBuilder for BindlessMeshDispatcher {
@@ -351,6 +354,8 @@ impl ShaderPassBuilder for BindlessMeshDispatcher {
       ctx
         .pass
         .set_index_buffer_by_buffer_resource_view(&self.index_pool, IndexFormat::Uint32);
+    } else {
+      ctx.binding.bind(&self.index_pool);
     }
 
     self.bind_base_invocation(&mut ctx.binding);
@@ -361,6 +366,15 @@ impl GraphicsShaderProvider for BindlessMeshDispatcher {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|vertex, binding| {
       let mesh_handle = vertex.query::<IndirectAbstractMeshId>();
+
+      if self.used_in_midc_downgrade {
+        let vertex_real_index = vertex.query::<VertexIndexForMIDCDowngrade>();
+        let index_pool = binding.bind_by(&self.index_pool);
+        let index = index_pool.index(vertex_real_index).load();
+        // here we override the builtin
+        vertex.register::<VertexIndex>(index);
+      }
+
       let vertex_id = vertex.query::<VertexIndex>();
 
       let mesh_sys = self.build_base_invocation(binding);
