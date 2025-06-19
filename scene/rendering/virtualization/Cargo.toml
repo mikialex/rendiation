@@ -1,0 +1,13 @@
+[package]
+authors = ["MikiAlex <18516340862@163.com>"]
+edition = "2021"
+name = "rendiation-scene-virtualization"
+version = "0.1.0"
+
+[dependencies]
+fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
+reactive = { path = "../../../utility/reactive" }
+futures = { workspace = true, features = ["thread-pool"] }
+
+[lints]
+workspace = true

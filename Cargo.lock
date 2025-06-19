@@ -4000,6 +4000,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-scene-virtualization"
+version = "0.1.0"
+dependencies = [
+ "fast-hash-collection",
+ "futures",
+ "reactive",
+]
+
+[[package]]
 name = "rendiation-shader-api"
 version = "0.1.0"
 dependencies = [
