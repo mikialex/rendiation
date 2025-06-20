@@ -67,7 +67,6 @@ impl OitLoop32RendererInstance {
     scene_renderer: &dyn SceneRenderer<ContentKey = SceneContentKey>,
     camera: &dyn RenderComponent,
     pass_com: &dyn RenderComponent,
-    pass_com_without_lighting: &dyn RenderComponent,
     reverse_depth: bool,
   ) {
     let far = if reverse_depth { 0_f32 } else { 1_f32 };
@@ -82,11 +81,10 @@ impl OitLoop32RendererInstance {
         reverse_depth,
       };
       let dispatch = &dispatch as &dyn RenderComponent;
-      let pass_com = RenderArray([dispatch, pass_com_without_lighting]);
       let mut draw_content = scene_renderer.make_scene_batch_pass_content(
         transparent_content.clone(),
         camera,
-        &pass_com,
+        &dispatch,
         ctx,
       );
 
@@ -249,6 +247,8 @@ impl GraphicsShaderProvider for OitColorPass {
 
       let output_color = val(Vec4::<f32>::zero()).make_local_var();
 
+      let skip = val(false).make_local_var();
+
       if USE_EARLY_DEPTH {
         // If this fragment was behind the front most OIT_LAYERS fragments, it didn't
         // make it in, so tail blend it:
@@ -259,48 +259,51 @@ impl GraphicsShaderProvider for OitColorPass {
           depth.less_than(z_current)
         };
         if_by(cond, || {
+          skip.store(val(true));
           if OIT_TAILBLEND {
             // Premultiply alpha
             output_color.store(vec4_node((
               srgb_color.xyz() * srgb_color.w(),
               srgb_color.w(),
             )))
+          } else {
+            cx.discard();
           }
-
-          cx.discard();
         });
       }
 
-      // Use binary search to determine which index this depth value corresponds to
-      // At each step, we know that it'll be in the closed interval [start, end].
-      let start = val(0_u32).make_local_var();
-      let end = (layer_count - val(1)).make_local_var();
+      if_by(skip.load().not(), || {
+        // Use binary search to determine which index this depth value corresponds to
+        // At each step, we know that it'll be in the closed interval [start, end].
+        let start = val(0_u32).make_local_var();
+        let end = (layer_count - val(1)).make_local_var();
 
-      loop_by(|cx| {
-        if_by(start.load().equals(end.load()), || cx.do_break());
+        loop_by(|cx| {
+          if_by(start.load().equals(end.load()), || cx.do_break());
 
-        let mid = (start.load() + end.load()) / val(2);
-        let z_test = oit_depth_layers.atomic_load(coord, mid);
+          let mid = (start.load() + end.load()) / val(2);
+          let z_test = oit_depth_layers.atomic_load(coord, mid);
 
-        let cond = if self.reverse_depth {
-          z_test.greater_than(z_current)
-        } else {
-          z_test.less_than(z_current)
-        };
+          let cond = if self.reverse_depth {
+            z_test.greater_than(z_current)
+          } else {
+            z_test.less_than(z_current)
+          };
 
-        if_by(cond, || {
-          start.store(mid + val(1));
-        })
-        .else_by(|| {
-          end.store(mid);
+          if_by(cond, || {
+            start.store(mid + val(1));
+          })
+          .else_by(|| {
+            end.store(mid);
+          });
         });
-      });
 
-      // We now have start == end. Insert the packed color into the A-buffer at
-      // this index.
-      // todo, how to use store without atomic here? we can just use common texture?
-      // https://github.com/gpuweb/gpuweb/issues/5071#issuecomment-2714533005
-      oit_color_layers.atomic_store(coord, start.load(), srgb_color.pack4x8unorm());
+        // We now have start == end. Insert the packed color into the A-buffer at
+        // this index.
+        // todo, how to use store without atomic here? we can just use common texture?
+        // https://github.com/gpuweb/gpuweb/issues/5071#issuecomment-2714533005
+        oit_color_layers.atomic_store(coord, start.load(), srgb_color.pack4x8unorm());
+      });
 
       cx.store_fragment_out_vec4f(0, output_color.load());
       cx.depth_stencil.as_mut().unwrap().depth_write_enabled = false;
