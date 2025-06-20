@@ -89,25 +89,54 @@ pub fn render_lighting_scene_content(
           all_transparent_object
         };
 
-      let mut all_transparent_object = renderer.scene.make_scene_batch_pass_content(
-        all_transparent_object,
-        main_camera_gpu,
-        scene_pass_dispatcher,
-        ctx,
-      );
-
-      cull_cx
-        .draw_with_oc_maybe_enabled(
+      if let Some(oit) = renderer.oit.clone() {
+        cull_cx.draw_with_oc_maybe_enabled(
           ctx,
           renderer,
           scene_pass_dispatcher,
           main_camera_gpu,
           content.main_camera,
           |pass| pass.by(&mut background),
-          pass_base,
+          pass_base.clone(),
           all_opaque_object,
-        )
-        .by(&mut all_transparent_object);
+        );
+
+        // todo, fix g buffer not able to write
+        let scene_pass_dispatcher = &RenderArray([lighting.as_ref()]) as &dyn RenderComponent;
+
+        let mut oit = oit.write();
+        let oit = oit.get_renderer_instance(ctx.frame_size(), ctx.gpu);
+        oit.draw_loop32_oit(
+          ctx,
+          all_transparent_object,
+          &pass_base.depth_stencil_target.unwrap().1,
+          &pass_base.channels[0].1,
+          renderer.scene,
+          main_camera_gpu,
+          scene_pass_dispatcher,
+          renderer.reversed_depth,
+        );
+      } else {
+        let mut all_transparent_object = renderer.scene.make_scene_batch_pass_content(
+          all_transparent_object,
+          main_camera_gpu,
+          scene_pass_dispatcher,
+          ctx,
+        );
+
+        cull_cx
+          .draw_with_oc_maybe_enabled(
+            ctx,
+            renderer,
+            scene_pass_dispatcher,
+            main_camera_gpu,
+            content.main_camera,
+            |pass| pass.by(&mut background),
+            pass_base,
+            all_opaque_object,
+          )
+          .by(&mut all_transparent_object);
+      }
     }
     LightingTechniqueKind::DeferLighting => {
       let mut pass_base = pass("scene defer encode");

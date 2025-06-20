@@ -88,7 +88,7 @@ impl Viewer3dRenderingCtx {
 
     ui.separator();
 
-    egui::ComboBox::from_label("Lighting technique for opaque objects")
+    egui::ComboBox::from_label("how to lighting opaque objects?")
       .selected_text(format!(
         "{:?}",
         &self.lighting.opaque_scene_content_lighting_technique
@@ -104,6 +104,24 @@ impl Viewer3dRenderingCtx {
           &mut self.lighting.opaque_scene_content_lighting_technique,
           LightingTechniqueKind::DeferLighting,
           "DeferLighting",
+        )
+      });
+
+    ui.separator();
+
+    egui::ComboBox::from_label("how to render transparent objects?")
+      .selected_text(format!("{:?}", &self.transparent_config,))
+      .show_ui(ui, |ui| {
+        ui.selectable_value(
+          &mut self.transparent_config,
+          ViewerTransparentContentRenderStyle::NaiveAlphaBlend,
+          "naive alpha blend",
+        );
+
+        ui.selectable_value(
+          &mut self.transparent_config,
+          ViewerTransparentContentRenderStyle::Loop32OIT,
+          "oit loop32 style",
         )
       });
 

@@ -1,5 +1,6 @@
 use rendiation_algebra::*;
 use rendiation_infinity_primitive::*;
+use rendiation_oit::OitLoop32Renderer;
 use rendiation_texture_gpu_process::*;
 use rendiation_webgpu::*;
 
@@ -29,6 +30,7 @@ pub struct ViewerSceneRenderer<'a> {
   pub scene: &'a dyn SceneRenderer<ContentKey = SceneContentKey>,
   pub cameras: &'a CameraRenderer,
   pub background: &'a SceneBackgroundRenderer,
+  pub oit: Option<Arc<RwLock<OitLoop32Renderer>>>,
   pub reversed_depth: bool,
 }
 

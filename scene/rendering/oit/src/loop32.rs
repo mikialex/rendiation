@@ -69,6 +69,12 @@ impl OitLoop32RendererInstance {
     pass_com: &dyn RenderComponent,
     reverse_depth: bool,
   ) {
+    let far = if reverse_depth { 0_f32 } else { 1_f32 };
+    self
+      .depth
+      .clear(&ctx.gpu.device, &mut ctx.encoder, far.to_bits());
+    self.color.clear(&ctx.gpu.device, &mut ctx.encoder, 0);
+
     {
       let dispatch = Loop32DepthPrePass {
         oit_depth_layers: self.depth.clone(),
@@ -100,6 +106,7 @@ impl OitLoop32RendererInstance {
       let mut draw_content =
         scene_renderer.make_scene_batch_pass_content(transparent_content, camera, &pass_com, ctx);
       pass("loop32 oit color pass")
+        .with_color(color_base, store_full_frame())
         .with_depth(depth_base, load_and_store())
         .render_ctx(ctx)
         .by(&mut draw_content);
@@ -114,7 +121,7 @@ impl OitLoop32RendererInstance {
           oit_color_layers: self.color.clone(),
           reverse_depth,
         }
-        .draw_quad(),
+        .draw_quad_with_alpha_blending(),
       );
   }
 }
@@ -152,7 +159,7 @@ impl GraphicsShaderProvider for Loop32DepthPrePass {
         // If the fragment is further away than the last depth fragment, skip it:
         let pretest = oit_layers.atomic_load(coord, layer_count - val(1));
         if_by(z_current.load().greater_than(pretest), || {
-          do_return();
+          cx.discard();
         });
         // Check to see if the fragment can be inserted in the latter half of the
         // depth array:
@@ -236,7 +243,7 @@ impl GraphicsShaderProvider for OitColorPass {
             )))
           }
 
-          do_return();
+          cx.discard();
         });
       }
 
@@ -272,6 +279,7 @@ impl GraphicsShaderProvider for OitColorPass {
       oit_color_layers.atomic_store(coord, start.load(), srgb_color.pack4x8unorm());
 
       cx.store_fragment_out_vec4f(0, output_color.load());
+      cx.frag_output[0].states.blend = Some(BlendState::ALPHA_BLENDING)
     })
   }
 }

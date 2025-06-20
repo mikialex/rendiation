@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::*;
 
 mod culling;
@@ -9,12 +7,14 @@ mod grid_ground;
 mod lighting;
 mod outline;
 mod ray_tracing;
+mod transparent;
 mod widget;
 
 mod g_buffer;
 pub use culling::*;
 pub use g_buffer::*;
 pub use ray_tracing::*;
+pub use transparent::*;
 
 mod post;
 pub use frame_logic::*;
@@ -23,6 +23,7 @@ use grid_ground::*;
 pub use lighting::*;
 pub use post::*;
 use reactive::EventSource;
+use rendiation_oit::*;
 use rendiation_scene_rendering_gpu_indirect::*;
 use rendiation_scene_rendering_gpu_ray_tracing::*;
 use rendiation_texture_gpu_process::copy_frame;
@@ -63,6 +64,7 @@ struct ViewerRendererInstance {
   rtx_renderer: Option<(RayTracingRendererGroup, RtxSystemCore)>,
   lighting: LightingRenderingCxPrepareCtx,
   culling: ViewerCulling,
+  oit: Option<Arc<RwLock<OitLoop32Renderer>>>,
 }
 
 pub struct Viewer3dRenderingCtx {
@@ -76,6 +78,7 @@ pub struct Viewer3dRenderingCtx {
   rtx_rendering_enabled: bool,
   request_reset_rtx_sample: bool,
   lighting: LightSystem,
+  transparent_config: ViewerTransparentContentRenderStyle,
   pool: AttachmentPool,
   gpu: GPU,
   swap_chain: ApplicationWindowSurface,
@@ -111,6 +114,7 @@ impl Viewer3dRenderingCtx {
       ndc,
       swap_chain,
       enable_indirect_occlusion_culling_support: false,
+      transparent_config: ViewerTransparentContentRenderStyle::NaiveAlphaBlend,
       current_renderer_impl_ty: RasterizationRenderBackendType::Gles,
       rtx_effect_mode: RayTracingEffectMode::ReferenceTracing,
       rtx_rendering_enabled: false,
@@ -253,6 +257,14 @@ impl Viewer3dRenderingCtx {
 
     self.request_reset_rtx_sample = false;
 
+    let mut oit = None;
+    if self.transparent_config == ViewerTransparentContentRenderStyle::Loop32OIT {
+      qcx.scope(|qcx| {
+        let (_, r) = qcx.use_gpu_init(|_| Arc::new(RwLock::new(OitLoop32Renderer::new(4))));
+        oit = r.clone().into();
+      })
+    };
+
     qcx.when_render(|| ViewerRendererInstance {
       camera: camera.unwrap(),
       background: background.unwrap(),
@@ -260,6 +272,7 @@ impl Viewer3dRenderingCtx {
       rtx_renderer: rtx_scene_renderer,
       lighting: lighting.unwrap(),
       culling: culling.unwrap(),
+      oit,
     })
   }
 
@@ -392,6 +405,7 @@ impl Viewer3dRenderingCtx {
         cameras: &renderer.camera,
         background: &renderer.background,
         reversed_depth: self.ndc.enable_reverse_z,
+        oit: renderer.oit.clone(),
       };
 
       let entity_id = self.frame_logic.render(

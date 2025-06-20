@@ -24,10 +24,11 @@ impl AtomicImageDowngrade {
     // cast to common buffer, as we not required atomic write in clear
     let buffer =
       StorageBufferDataView::<[u32]>::try_from_raw(self.buffer.raw_gpu().clone()).unwrap();
+    let workgroup_size = 256;
     encoder.compute_pass_scoped(|mut pass| {
       let hasher = shader_hasher_from_marker_ty!(BufferClear);
       let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
-        builder.config_work_group_size(256);
+        builder.config_work_group_size(workgroup_size);
         let buffer = builder.bind_by(&buffer);
         let value = builder.bind_by(&clear_value);
 
@@ -44,7 +45,7 @@ impl AtomicImageDowngrade {
         .with_bind(&clear_value)
         .setup_compute_pass(&mut pass, device, &pipeline);
 
-      pass.dispatch_workgroups(1, 1, 1);
+      pass.dispatch_workgroups(self.buffer.item_count().div_ceil(workgroup_size), 1, 1);
     });
   }
 
