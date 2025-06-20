@@ -1,69 +1,122 @@
 use crate::*;
 
-/// OIT_LOOP does not support MSAA at the moment.
-/// It uses two passes and a resolve pass; the first stores the depths of the
-/// frontmost OIT_LAYERS fragments per pixel in the A-buffer, in order from
-/// nearest to farthest. Then the second pass writes the sorted colors into
-/// another section of the A-buffer, and tail blends colors that didn't make it in.
-/// The resolve pass then blends the fragments from front to back.
-///
-/// This relies on how for positive floating-point numbers x and y, x > y iff
-/// floatBitsToUint(x) > floatBitsToUint(y). As such, this depends on the
-/// viewport depths always being positive.
-///
-/// The A-buffer is laid out like this:
-/// ```txt
-/// for each SSAA sample...
-///   for each OIT layer...
-///     for each pixel...
-///       a r32ui depth value (via floatBitsToUint, cleared to 0xffffffff)
-///     for each pixel...
-///       a packed color in a uvec4
-/// ```
-pub fn draw_loop32_oit(
-  ctx: &mut FrameCtx,
-  transparent_content: SceneModelRenderBatch,
-  depth_base: &RenderTargetView,
-  color_base: &RenderTargetView,
-  scene_renderer: &dyn SceneRenderer<ContentKey = SceneContentKey>,
-  camera: &dyn RenderComponent,
-  pass_com: &dyn RenderComponent,
-  reverse_depth: bool,
-) {
-  pass("loop32 oit depth pre pass")
-    .with_depth(depth_base, load_and_store())
-    .render_ctx(ctx)
-    .by(
-      &mut Loop32DepthPrePass {
-        oit_depth_layers: todo!(),
-        reverse_depth,
-      }
-      .draw_quad(),
-    );
+pub struct OitLoop32Renderer {
+  layer_count: u32,
+  cache: Option<OitLoop32RendererInstance>,
+}
 
-  pass("loop32 oit color pass")
-    .with_depth(depth_base, load_and_store())
-    .render_ctx(ctx)
-    .by(
-      &mut OitColorPass {
-        oit_depth_layers: todo!(),
-        oit_color_layers: todo!(),
-        reverse_depth,
-      }
-      .draw_quad(),
-    );
+pub struct OitLoop32RendererInstance {
+  depth: AtomicImageDowngrade,
+  color: AtomicImageDowngrade,
+  size: Size,
+  layer_count: u32,
+}
 
-  pass("loop32 resolve pass")
-    .with_color(color_base, store_full_frame())
-    .render_ctx(ctx)
-    .by(
-      &mut OitResolvePass {
-        oit_depth_layers: todo!(),
-        oit_color_layers: todo!(),
-        reverse_depth,
+impl OitLoop32Renderer {
+  pub fn new(layer_count: u32) -> Self {
+    assert!(layer_count > 0);
+    Self {
+      cache: None,
+      layer_count,
+    }
+  }
+
+  pub fn get_renderer_instance(&mut self, size: Size, gpu: &GPU) -> &mut OitLoop32RendererInstance {
+    if let Some(cache) = &mut self.cache {
+      if cache.size != size || cache.layer_count != self.layer_count {
+        self.cache = None;
       }
-      .draw_quad(),
-    );
+    }
+
+    self.cache.get_or_insert_with(|| OitLoop32RendererInstance {
+      depth: AtomicImageDowngrade::new(&gpu.device, size, self.layer_count),
+      color: AtomicImageDowngrade::new(&gpu.device, size, self.layer_count),
+      size,
+      layer_count: self.layer_count,
+    })
+  }
+}
+
+impl OitLoop32RendererInstance {
+  /// OIT_LOOP does not support MSAA at the moment.
+  /// It uses two passes and a resolve pass; the first stores the depths of the
+  /// frontmost OIT_LAYERS fragments per pixel in the A-buffer, in order from
+  /// nearest to farthest. Then the second pass writes the sorted colors into
+  /// another section of the A-buffer, and tail blends colors that didn't make it in.
+  /// The resolve pass then blends the fragments from front to back.
+  ///
+  /// This relies on how for positive floating-point numbers x and y, x > y iff
+  /// floatBitsToUint(x) > floatBitsToUint(y). As such, this depends on the
+  /// viewport depths always being positive.
+  ///
+  /// The A-buffer is laid out like this:
+  /// ```txt
+  /// for each SSAA sample...
+  ///   for each OIT layer...
+  ///     for each pixel...
+  ///       a r32ui depth value (via floatBitsToUint, cleared to 0xffffffff)
+  ///     for each pixel...
+  ///       a packed color in a uvec4
+  /// ```
+  pub fn draw_loop32_oit(
+    &self,
+    ctx: &mut FrameCtx,
+    transparent_content: SceneModelRenderBatch,
+    depth_base: &RenderTargetView,
+    color_base: &RenderTargetView,
+    scene_renderer: &dyn SceneRenderer<ContentKey = SceneContentKey>,
+    camera: &dyn RenderComponent,
+    pass_com: &dyn RenderComponent,
+    reverse_depth: bool,
+  ) {
+    {
+      let dispatch = Loop32DepthPrePass {
+        oit_depth_layers: self.depth.clone(),
+        reverse_depth,
+      };
+      let dispatch = &dispatch as &dyn RenderComponent;
+      let pass_com = RenderArray([dispatch, pass_com]);
+      let mut draw_content = scene_renderer.make_scene_batch_pass_content(
+        transparent_content.clone(),
+        camera,
+        &pass_com,
+        ctx,
+      );
+
+      pass("loop32 oit depth pre pass")
+        .with_depth(depth_base, load_and_store())
+        .render_ctx(ctx)
+        .by(&mut draw_content);
+    }
+
+    {
+      let dispatch = OitColorPass {
+        oit_depth_layers: self.depth.clone(),
+        oit_color_layers: self.color.clone(),
+        reverse_depth,
+      };
+      let dispatch = &dispatch as &dyn RenderComponent;
+      let pass_com = RenderArray([dispatch, pass_com]);
+      let mut draw_content =
+        scene_renderer.make_scene_batch_pass_content(transparent_content, camera, &pass_com, ctx);
+      pass("loop32 oit color pass")
+        .with_depth(depth_base, load_and_store())
+        .render_ctx(ctx)
+        .by(&mut draw_content);
+    }
+
+    pass("loop32 resolve pass")
+      .with_color(color_base, store_full_frame())
+      .render_ctx(ctx)
+      .by(
+        &mut OitResolvePass {
+          oit_depth_layers: self.depth.clone(),
+          oit_color_layers: self.color.clone(),
+          reverse_depth,
+        }
+        .draw_quad(),
+      );
+  }
 }
 
 const USE_EARLY_DEPTH: bool = true;
@@ -254,11 +307,41 @@ struct OitResolvePass {
 }
 impl ShaderHashProvider for OitResolvePass {
   shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.reverse_depth.hash(hasher);
+  }
 }
 impl GraphicsShaderProvider for OitResolvePass {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|cx, binding| {
-      //
+      let oit_depth_layers = self.oit_depth_layers.build(binding);
+      let oit_color_layers = self.oit_color_layers.build(binding);
+      let layer_count = oit_depth_layers.layer_count();
+
+      let out_color = val(Vec4::<f32>::zero()).make_local_var();
+      let coord = cx.query::<FragmentPosition>().xy().into_u32();
+
+      let background = if self.reverse_depth { val(0.) } else { val(1.) }.bitcast::<u32>();
+
+      // Count the number of fragments for this pixel
+      let fragments = val(0_u32).make_local_var();
+      ForRange::ranged((val(0), layer_count).into()).for_each(|i, cx| {
+        let depth = oit_depth_layers.atomic_load(coord, i);
+
+        if_by(depth.not_equals(background), || {
+          fragments.store(fragments.load() + val(1));
+        })
+        .else_by(|| {
+          cx.do_break();
+        });
+      });
+
+      ForRange::ranged((val(0), fragments.load()).into()).for_each(|i, _| {
+        let packed_color = oit_color_layers.atomic_load(coord, i);
+        out_color.store(do_blend_packed(out_color.load(), packed_color));
+      });
+
+      cx.store_fragment_out_vec4f(0, out_color.load());
     });
   }
 }
@@ -269,22 +352,21 @@ impl ShaderPassBuilder for OitResolvePass {
   }
 }
 
-// // Sets color to the result of blending color over baseColor.
-// // Color and baseColor are both premultiplied colors.
-// void doBlend(inout vec4 color, vec4 baseColor)
-// {
-//   color.rgb += (1 - color.a) * baseColor.rgb;
-//   color.a += (1 - color.a) * baseColor.a;
-// }
+// Sets color to the result of blending color over baseColor.
+// Color and baseColor are both premultiplied colors.
+fn do_blend(color: Node<Vec4<f32>>, base_color: Node<Vec4<f32>>) -> Node<Vec4<f32>> {
+  let rgb = color.xyz() + base_color.xyz() * (val(1.) - color.w());
+  let a = color.w() + base_color.w() * (val(1.) - color.w());
+  (rgb, a).into()
+}
 
-// // Sets color to the result of blending color over fragment.
-// // Color and fragment are both premultiplied colors; fragment
-// // is an rgba8 sRGB unpremultiplied color packed in a 32-bit uint.
-// void doBlendPacked(inout vec4 color, uint fragment)
-// {
-//   vec4 unpackedColor = unpackUnorm4x8(fragment);
-//   // Convert from unpremultiplied sRGB to premultiplied alpha
-//   unpackedColor = unPremultSRGBToLinear(unpackedColor);
-//   unpackedColor.rgb *= unpackedColor.a;
-//   doBlend(color, unpackedColor);
-// }
+// Sets color to the result of blending color over fragment.
+// Color and fragment are both premultiplied colors; fragment
+// is an rgba8 sRGB unpremultiplied color packed in a 32-bit uint.
+fn do_blend_packed(color: Node<Vec4<f32>>, fragment: Node<u32>) -> Node<Vec4<f32>> {
+  let unpacked = fragment.unpack4x8unorm();
+  // Convert from unpremultiplied sRGB to premultiplied alpha
+  let base_color = shader_linear_to_srgb_convert(unpacked.xyz()) * unpacked.w();
+  let base_color = (base_color, unpacked.w()).into();
+  do_blend(color, base_color)
+}

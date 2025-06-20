@@ -203,6 +203,7 @@
         "unoccluded",
         "Unorm",
         "unpadded",
+        "unpremultiplied",
         "unproject",
         "unprojected",
         "upcasting",

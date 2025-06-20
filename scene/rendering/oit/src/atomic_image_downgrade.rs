@@ -1,5 +1,6 @@
 use crate::*;
 
+#[derive(Clone)]
 pub struct AtomicImageDowngrade {
   buffer: StorageBufferDataView<[DeviceAtomic<u32>]>,
   size: UniformBufferDataView<Vec4<u32>>,
@@ -17,8 +18,34 @@ impl AtomicImageDowngrade {
     }
   }
 
-  pub fn clear(encoder: &mut GPUCommandEncoder, value: u32) {
-    todo!()
+  // wgpu does not have fill buffer cmd
+  pub fn clear(&self, device: &GPUDevice, encoder: &mut GPUCommandEncoder, value: u32) {
+    let clear_value = create_uniform(Vec4::new(value, 0, 0, 0), device);
+    // cast to common buffer, as we not required atomic write in clear
+    let buffer =
+      StorageBufferDataView::<[u32]>::try_from_raw(self.buffer.raw_gpu().clone()).unwrap();
+    encoder.compute_pass_scoped(|mut pass| {
+      let hasher = shader_hasher_from_marker_ty!(BufferClear);
+      let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut builder| {
+        builder.config_work_group_size(256);
+        let buffer = builder.bind_by(&buffer);
+        let value = builder.bind_by(&clear_value);
+
+        let id = builder.global_invocation_id().x();
+        if_by(id.less_than(buffer.array_length()), || {
+          buffer.index(id).store(value.load().x());
+        });
+
+        builder
+      });
+
+      BindingBuilder::default()
+        .with_bind(&buffer)
+        .with_bind(&clear_value)
+        .setup_compute_pass(&mut pass, device, &pipeline);
+
+      pass.dispatch_workgroups(1, 1, 1);
+    });
   }
 
   pub fn build(&self, builder: &mut ShaderBindGroupBuilder) -> AtomicImageInvocationDowngrade {
