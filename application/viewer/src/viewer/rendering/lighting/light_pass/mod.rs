@@ -103,6 +103,7 @@ pub fn render_lighting_scene_content(
 
         // todo, fix g buffer not able to write
         let scene_pass_dispatcher = &RenderArray([lighting.as_ref()]) as &dyn RenderComponent;
+        let pass_com_without_lighting = &() as &dyn RenderComponent;
 
         let mut oit = oit.write();
         let oit = oit.get_renderer_instance(ctx.frame_size(), ctx.gpu);
@@ -114,6 +115,7 @@ pub fn render_lighting_scene_content(
           renderer.scene,
           main_camera_gpu,
           scene_pass_dispatcher,
+          pass_com_without_lighting,
           renderer.reversed_depth,
         );
       } else {

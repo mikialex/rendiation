@@ -9,6 +9,10 @@ pub fn load_default_scene(writer: &mut SceneWriter, _viewer_scene: &Viewer3dScen
   writer.set_local_matrix(transparent_test_root, Mat4::translate((3., 0., -3.)));
   load_transparent_test(writer, transparent_test_root);
 
+  let transparent_test_root = writer.create_root_child();
+  writer.set_local_matrix(transparent_test_root, Mat4::translate((-3., 0., -3.)));
+  load_transparent_test_overlap_ball(writer, transparent_test_root);
+
   // textured ball
   {
     let attribute_mesh = build_attributes_mesh(|builder| {

@@ -30,6 +30,39 @@ pub fn load_transparent_test(writer: &mut SceneWriter, root: EntityHandle<SceneN
   }
 }
 
+pub fn load_transparent_test_overlap_ball(
+  writer: &mut SceneWriter,
+  root: EntityHandle<SceneNodeEntity>,
+) {
+  let attribute_mesh = build_attributes_mesh(|builder| {
+    builder.triangulate_parametric(
+      &SphereMeshParameter::default().make_surface(),
+      TessellationConfig { u: 16, v: 16 },
+      true,
+    );
+  })
+  .build();
+  let ball = writer.write_attribute_mesh(attribute_mesh).mesh;
+
+  let scale = Mat4::scale((2., 2., 2.));
+  {
+    let material = create_alpha_material(Vec3::new(1., 0., 0.), writer);
+    let child = writer.create_child(root);
+    writer.set_local_matrix(child, Mat4::translate((0., 0., 0.)) * scale);
+    writer.create_scene_model(material, ball, child);
+
+    let material = create_alpha_material(Vec3::new(0., 1., 0.), writer);
+    let child = writer.create_child(root);
+    writer.set_local_matrix(child, Mat4::translate((0., 0., 1.)) * scale);
+    writer.create_scene_model(material, ball, child);
+
+    let material = create_alpha_material(Vec3::new(0., 0., 1.), writer);
+    let child = writer.create_child(root);
+    writer.set_local_matrix(child, Mat4::translate((0., 0., -1.)) * scale);
+    writer.create_scene_model(material, ball, child);
+  }
+}
+
 fn create_alpha_material(color: Vec3<f32>, writer: &mut SceneWriter) -> SceneMaterialDataView {
   let material = PhysicalSpecularGlossinessMaterialDataView {
     albedo: color,

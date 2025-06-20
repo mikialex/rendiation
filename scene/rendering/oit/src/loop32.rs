@@ -67,6 +67,7 @@ impl OitLoop32RendererInstance {
     scene_renderer: &dyn SceneRenderer<ContentKey = SceneContentKey>,
     camera: &dyn RenderComponent,
     pass_com: &dyn RenderComponent,
+    pass_com_without_lighting: &dyn RenderComponent,
     reverse_depth: bool,
   ) {
     let far = if reverse_depth { 0_f32 } else { 1_f32 };
@@ -81,7 +82,7 @@ impl OitLoop32RendererInstance {
         reverse_depth,
       };
       let dispatch = &dispatch as &dyn RenderComponent;
-      let pass_com = RenderArray([dispatch, pass_com]);
+      let pass_com = RenderArray([dispatch, pass_com_without_lighting]);
       let mut draw_content = scene_renderer.make_scene_batch_pass_content(
         transparent_content.clone(),
         camera,
@@ -106,14 +107,14 @@ impl OitLoop32RendererInstance {
       let mut draw_content =
         scene_renderer.make_scene_batch_pass_content(transparent_content, camera, &pass_com, ctx);
       pass("loop32 oit color pass")
-        .with_color(color_base, store_full_frame())
+        .with_color(color_base, load_and_store())
         .with_depth(depth_base, load_and_store())
         .render_ctx(ctx)
         .by(&mut draw_content);
     }
 
-    pass("loop32 resolve pass")
-      .with_color(color_base, store_full_frame())
+    pass("loop32 oit resolve pass")
+      .with_color(color_base, load_and_store())
       .render_ctx(ctx)
       .by(
         &mut OitResolvePass {
@@ -121,7 +122,7 @@ impl OitLoop32RendererInstance {
           oit_color_layers: self.color.clone(),
           reverse_depth,
         }
-        .draw_quad_with_alpha_blending(),
+        .draw_quad_with_blend(Some(BlendState::PREMULTIPLIED_ALPHA_BLENDING)),
       );
   }
 }
@@ -143,6 +144,8 @@ impl ShaderHashProvider for Loop32DepthPrePass {
 impl GraphicsShaderProvider for Loop32DepthPrePass {
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|cx, binding| {
+      cx.depth_stencil.as_mut().unwrap().depth_write_enabled = false;
+
       let oit_layers = self.oit_depth_layers.build(binding);
       let layer_count = oit_layers.layer_count();
 
@@ -154,19 +157,30 @@ impl GraphicsShaderProvider for Loop32DepthPrePass {
       let i = val(0_u32).make_local_var(); // Current position in the array
 
       if USE_EARLY_DEPTH {
-        // Do some early tests to minimize the amount of insertion-sorting work we
-        // have to do.
-        // If the fragment is further away than the last depth fragment, skip it:
-        let pretest = oit_layers.atomic_load(coord, layer_count - val(1));
-        if_by(z_current.load().greater_than(pretest), || {
-          cx.discard();
-        });
-        // Check to see if the fragment can be inserted in the latter half of the
-        // depth array:
-        let pretest = oit_layers.atomic_load(coord, layer_count / val(2));
-        if_by(z_current.load().greater_than(pretest), || {
-          i.store(layer_count / val(2));
-        });
+        if self.reverse_depth {
+          // Do some early tests to minimize the amount of insertion-sorting work we
+          // have to do.
+          // If the fragment is further away than the last depth fragment, skip it:
+          let pretest = oit_layers.atomic_load(coord, layer_count - val(1));
+          if_by(z_current.load().less_than(pretest), || {
+            cx.discard();
+          });
+          // Check to see if the fragment can be inserted in the latter half of the
+          // depth array:
+          let pretest = oit_layers.atomic_load(coord, layer_count / val(2));
+          if_by(z_current.load().less_than(pretest), || {
+            i.store(layer_count / val(2));
+          });
+        } else {
+          let pretest = oit_layers.atomic_load(coord, layer_count - val(1));
+          if_by(z_current.load().greater_than(pretest), || {
+            cx.discard();
+          });
+          let pretest = oit_layers.atomic_load(coord, layer_count / val(2));
+          if_by(z_current.load().greater_than(pretest), || {
+            i.store(layer_count / val(2));
+          });
+        }
       }
 
       // Try to insert z_current in the place of the first element of the array that
@@ -175,15 +189,25 @@ impl GraphicsShaderProvider for Loop32DepthPrePass {
       ForRange::ranged((i.load(), layer_count).into()).for_each(|i, cx| {
         if self.reverse_depth {
           let z_test = oit_layers.atomic_max(coord, i, z_current.load());
-          if_by(z_test.less_than(z_current.load()), || {
-            cx.do_break();
-          });
+          if_by(
+            z_test
+              .equals(val::<u32>(0_f32.to_bits()))
+              .or(z_test.equals(z_current.load())),
+            || {
+              cx.do_break();
+            },
+          );
           z_current.store(z_test.min(z_current.load()));
         } else {
           let z_test = oit_layers.atomic_min(coord, i, z_current.load());
-          if_by(z_test.greater_than(z_current.load()), || {
-            cx.do_break();
-          });
+          if_by(
+            z_test
+              .equals(val::<u32>(1_f32.to_bits()))
+              .or(z_test.equals(z_current.load())),
+            || {
+              cx.do_break();
+            },
+          );
           z_current.store(z_test.max(z_current.load()));
         }
       });
@@ -279,7 +303,8 @@ impl GraphicsShaderProvider for OitColorPass {
       oit_color_layers.atomic_store(coord, start.load(), srgb_color.pack4x8unorm());
 
       cx.store_fragment_out_vec4f(0, output_color.load());
-      cx.frag_output[0].states.blend = Some(BlendState::ALPHA_BLENDING)
+      cx.depth_stencil.as_mut().unwrap().depth_write_enabled = false;
+      cx.frag_output[0].states.blend = Some(BlendState::PREMULTIPLIED_ALPHA_BLENDING)
     })
   }
 }
