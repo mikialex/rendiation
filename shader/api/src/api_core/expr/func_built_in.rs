@@ -470,3 +470,43 @@ impl Node<Vec3<f32>> {
     self.x().min(self.y()).min(self.z())
   }
 }
+
+impl Node<Vec4<f32>> {
+  pub fn pack4x8snorm(self) -> Node<u32> {
+    make_builtin_call(ShaderBuiltInFunction::Pack4x8snorm, [self.handle()])
+  }
+  pub fn pack4x8unorm(self) -> Node<u32> {
+    make_builtin_call(ShaderBuiltInFunction::Pack4x8unorm, [self.handle()])
+  }
+}
+
+impl Node<Vec2<f32>> {
+  pub fn pack2x16snorm(self) -> Node<u32> {
+    make_builtin_call(ShaderBuiltInFunction::Pack2x16snorm, [self.handle()])
+  }
+  pub fn pack2x16unorm(self) -> Node<u32> {
+    make_builtin_call(ShaderBuiltInFunction::Pack2x16unorm, [self.handle()])
+  }
+  pub fn pack2x16float(self) -> Node<u32> {
+    make_builtin_call(ShaderBuiltInFunction::Pack2x16float, [self.handle()])
+  }
+}
+
+impl Node<u32> {
+  pub fn unpack4x8snorm(self) -> Node<Vec4<f32>> {
+    make_builtin_call(ShaderBuiltInFunction::Unpack4x8snorm, [self.handle()])
+  }
+  pub fn unpack4x8unorm(self) -> Node<Vec4<f32>> {
+    make_builtin_call(ShaderBuiltInFunction::Unpack4x8unorm, [self.handle()])
+  }
+
+  pub fn unpack2x16snorm(self) -> Node<Vec2<f32>> {
+    make_builtin_call(ShaderBuiltInFunction::Unpack2x16snorm, [self.handle()])
+  }
+  pub fn unpack2x16unorm(self) -> Node<Vec2<f32>> {
+    make_builtin_call(ShaderBuiltInFunction::Unpack2x16unorm, [self.handle()])
+  }
+  pub fn unpack2x16float(self) -> Node<Vec2<f32>> {
+    make_builtin_call(ShaderBuiltInFunction::Unpack2x16float, [self.handle()])
+  }
+}
