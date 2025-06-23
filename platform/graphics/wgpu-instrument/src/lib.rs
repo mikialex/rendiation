@@ -1,3 +1,5 @@
+use std::sync::{Arc, RwLock};
+
 use wgpu::{custom::*, Device, Extent3d};
 
 #[derive(Debug)]
@@ -10,7 +12,7 @@ impl InstrumentedDevice {
   pub fn wrap(internal: Device) -> (Device, Arc<RwLock<DeviceStatistics>>) {
     let stat: Arc<RwLock<DeviceStatistics>> = Default::default();
     let device = Device::from_custom(InstrumentedDevice {
-      internal: internal.into(),
+      internal: internal.into_custom(),
       stat: stat.clone(),
     });
     (device, stat)
@@ -296,7 +298,7 @@ impl DeviceInterface for InstrumentedDevice {
     self.internal.stop_graphics_debugger_capture()
   }
 
-  fn poll(&self, poll_type: wgpu::wgt::PollType<u64>) -> Result<wgpu::PollStatus, wgpu::PollError> {
+  fn poll(&self, poll_type: wgpu::PollType) -> Result<wgpu::PollStatus, wgpu::PollError> {
     self.internal.poll(poll_type)
   }
 

@@ -49,8 +49,7 @@ pub use gpu::{
   RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
   RequestDeviceError, Sampler, SamplerBorderColor, SamplerDescriptor, ShaderModuleDescriptor,
   ShaderSource, ShaderStages, StoreOp, SurfaceError, SurfaceTexture, TextureView,
-  TextureViewDescriptor, Tlas, TlasBuildEntry, TlasInstance, TlasPackage, VertexBufferLayout,
-  VertexState,
+  TextureViewDescriptor, Tlas, TlasInstance, VertexBufferLayout, VertexState,
 };
 use heap_tools::*;
 use instance_poller::GPUInstance;
@@ -136,6 +135,7 @@ impl GPU {
       backends: config.backends,
       flags: Default::default(),
       backend_options: Default::default(),
+      memory_budget_thresholds: Default::default(),
     });
     let power_preference = gpu::PowerPreference::HighPerformance;
 

@@ -111,7 +111,7 @@ rand = "0.8.5"
 pollster = { version = "0.3.0", features = ["macro"] }
 thiserror = "1.0.43"
 anyhow = "1.0.93"
-parking_lot = { version = "0.12.1", features = ["send_guard"] }
+parking_lot = { version = "0.12", features = ["send_guard"] }
 criterion = { version = "0.5.1", features = ["html_reports"] }
 wgpu-types = { version = "25", features = ["serde"] }
 wgpu = { version = "25", features = [
@@ -145,11 +145,11 @@ debug = true
 inherits = "release"
 
 [patch.crates-io]
-# wgpu = { path = "../references/wgpu/wgpu" }
-# wgpu-types = { path = "../references/wgpu/wgpu-types" }
-# wgpu-core = { path = "../references/wgpu/wgpu-core" }
-# wgpu-hal = { path = "../references/wgpu/wgpu-hal" }
-# naga = { path = "../references/wgpu/naga" }
+wgpu = { path = "../projects/wgpu/wgpu" }
+wgpu-types = { path = "../projects/wgpu/wgpu-types" }
+wgpu-core = { path = "../projects/wgpu/wgpu-core" }
+wgpu-hal = { path = "../projects/wgpu/wgpu-hal" }
+naga = { path = "../projects/wgpu/naga" }
 
 # https://github.com/rust-lang/rfcs/blob/master/text/3389-manifest-lint.md
 [workspace.lints.clippy]
