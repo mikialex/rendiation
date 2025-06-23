@@ -8,12 +8,12 @@ pub struct InstrumentedDevice {
 
 impl InstrumentedDevice {
   pub fn wrap(internal: Device) -> (Device, Arc<RwLock<DeviceStatistics>>) {
-    let buffer_stat: Arc<RwLock<DeviceStatistics>> = Default::default();
+    let stat: Arc<RwLock<DeviceStatistics>> = Default::default();
     let device = Device::from_custom(InstrumentedDevice {
       internal: internal.into(),
-      stat: buffer_stat.clone(),
+      stat: stat.clone(),
     });
-    (device, buffer_stat)
+    (device, stat)
   }
 }
 
