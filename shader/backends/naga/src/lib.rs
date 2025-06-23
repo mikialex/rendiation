@@ -883,24 +883,25 @@ impl ShaderAPI for ShaderAPINagaImpl {
           }),
           coordinate: self.get_expression(position),
           array_index: array_index.map(|index| self.get_expression(index)),
-          offset: offset.map(|offset| {
-            let ty = self.register_ty_impl(
-              ShaderValueType::Single(ShaderValueSingleType::Sized(
-                ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Vec2Int32),
-              )),
-              None,
-            );
-            let a = self.make_global_expression_inner_raw(naga::Expression::Literal(
-              naga::Literal::I32(offset.x),
-            ));
-            let b = self.make_global_expression_inner_raw(naga::Expression::Literal(
-              naga::Literal::I32(offset.y),
-            ));
-            self.make_global_expression_inner_raw(naga::Expression::Compose {
-              ty,
-              components: vec![a, b],
-            })
-          }),
+          offset: None,
+          // offset: offset.map(|offset| {
+          //   let ty = self.register_ty_impl(
+          //     ShaderValueType::Single(ShaderValueSingleType::Sized(
+          //       ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Vec2Int32),
+          //     )),
+          //     None,
+          //   );
+          //   let a = self.make_global_expression_inner_raw(naga::Expression::Literal(
+          //     naga::Literal::I32(offset.x),
+          //   ));
+          //   let b = self.make_global_expression_inner_raw(naga::Expression::Literal(
+          //     naga::Literal::I32(offset.y),
+          //   ));
+          //   self.make_global_expression_inner_raw(naga::Expression::Compose {
+          //     ty,
+          //     components: vec![a, b],
+          //   })
+          // }),
           level: match level {
             SampleLevel::Auto => naga::SampleLevel::Auto,
             SampleLevel::Zero => naga::SampleLevel::Zero,
