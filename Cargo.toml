@@ -69,6 +69,7 @@ members = [
   "platform/graphics/webgpu-reactive-utils",
   "platform/graphics/webgpu-virtual-buffer",
   "platform/graphics/webgpu-midc-downgrade",
+  "platform/graphics/wgpu-instrument",
   "extension/controller",
   "extension/view-override-model",
   "extension/barycentric-solid-line",
@@ -115,6 +116,7 @@ criterion = { version = "0.5.1", features = ["html_reports"] }
 wgpu-types = { version = "25", features = ["serde"] }
 wgpu = { version = "25", features = [
   "naga-ir",
+  "custom",
   "fragile-send-sync-non-atomic-wasm",
 ] }
 naga = { version = "25", features = ["wgsl-out"] }

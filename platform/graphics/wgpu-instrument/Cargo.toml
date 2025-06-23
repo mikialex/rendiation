@@ -1,0 +1,11 @@
+[package]
+authors = ["MikiAlex <18516340862@163.com>"]
+edition = "2021"
+name = "rendiation-webgpu-instrument"
+version = "0.1.0"
+
+[dependencies]
+wgpu = { workspace = true }
+
+[lints]
+workspace = true
