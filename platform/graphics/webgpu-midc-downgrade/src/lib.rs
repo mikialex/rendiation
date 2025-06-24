@@ -4,7 +4,9 @@ use rendiation_webgpu::*;
 
 /// downgrade midc into single none-index indirect draw with helper access data.
 ///
-/// currently only support index draw without any instance sub draw
+/// the sub draw command not support instance count > 1
+///
+/// currently only support index draw
 pub fn downgrade_multi_indirect_draw_count(
   draw: DrawCommand,
   cx: &mut DeviceParallelComputeCtx,
@@ -16,9 +18,13 @@ pub fn downgrade_multi_indirect_draw_count(
     ..
   } = draw
   {
-    assert!(indexed);
-
-    let draw_commands = StorageBufferReadonlyDataView::try_from_raw(indirect_buffer).unwrap();
+    let draw_commands = if indexed {
+      DrawCommands::Indexed(StorageBufferReadonlyDataView::try_from_raw(indirect_buffer).unwrap())
+    } else {
+      DrawCommands::NoneIndexed(
+        StorageBufferReadonlyDataView::try_from_raw(indirect_buffer).unwrap(),
+      )
+    };
     let draw_count = StorageBufferReadonlyDataView::try_from_raw(indirect_count).unwrap();
 
     let DeviceMaterializeResult {
@@ -87,7 +93,7 @@ pub fn downgrade_multi_indirect_draw_count(
 
 pub struct DowngradeMultiIndirectDrawCountHelper {
   sub_draw_range_start_prefix_sum: StorageBufferReadonlyDataView<[u32]>,
-  draw_commands: StorageBufferReadonlyDataView<[DrawIndexedIndirect]>,
+  draw_commands: DrawCommands,
 }
 
 impl DowngradeMultiIndirectDrawCountHelper {
@@ -97,18 +103,18 @@ impl DowngradeMultiIndirectDrawCountHelper {
   ) -> DowngradeMultiIndirectDrawCountHelperInvocation {
     DowngradeMultiIndirectDrawCountHelperInvocation {
       sub_draw_range_start_prefix_sum: cx.bind_by(&self.sub_draw_range_start_prefix_sum),
-      draw_commands: cx.bind_by(&self.draw_commands),
+      draw_commands: self.draw_commands.build(cx),
     }
   }
   pub fn bind(&self, builder: &mut BindingBuilder) {
     builder.bind(&self.sub_draw_range_start_prefix_sum);
-    builder.bind(&self.draw_commands);
+    self.draw_commands.bind(builder);
   }
 }
 
 pub struct DowngradeMultiIndirectDrawCountHelperInvocation {
   sub_draw_range_start_prefix_sum: ShaderReadonlyPtrOf<[u32]>,
-  draw_commands: ShaderReadonlyPtrOf<[DrawIndexedIndirect]>,
+  draw_commands: DrawCommandsInvocation,
 }
 
 pub struct MultiDrawDowngradeVertexInfo {
@@ -142,9 +148,21 @@ impl DowngradeMultiIndirectDrawCountHelperInvocation {
     let index = start.load();
     let draw_base_offset = self.sub_draw_range_start_prefix_sum.index(index).load();
     let draw_inner_offset = vertex_id - draw_base_offset;
-    let draw_cmd = self.draw_commands.index(index);
-    let offset = draw_cmd.base_index().load();
-    let base_instance = draw_cmd.base_instance().load();
+
+    let (offset, base_instance) = match &self.draw_commands {
+      DrawCommandsInvocation::Indexed(cmds) => {
+        let draw_cmd = cmds.index(index);
+        let offset = draw_cmd.base_index().load();
+        let base_instance = draw_cmd.base_instance().load();
+        (offset, base_instance)
+      }
+      DrawCommandsInvocation::NoneIndexed(cmds) => {
+        let draw_cmd = cmds.index(index);
+        let offset = draw_cmd.first_vertex().load();
+        let base_instance = draw_cmd.first_instance().load();
+        (offset, base_instance)
+      }
+    };
 
     MultiDrawDowngradeVertexInfo {
       sub_draw_command_idx: index,
@@ -157,7 +175,7 @@ impl DowngradeMultiIndirectDrawCountHelperInvocation {
 
 #[derive(Clone)]
 struct MultiIndirectCountDowngradeSource {
-  indirect_buffer: StorageBufferReadonlyDataView<[DrawIndexedIndirect]>,
+  indirect_buffer: DrawCommands,
   indirect_count: StorageBufferReadonlyDataView<u32>,
 }
 
@@ -174,7 +192,7 @@ impl DeviceParallelCompute<Node<u32>> for MultiIndirectCountDowngradeSource {
   }
 
   fn result_size(&self) -> u32 {
-    self.indirect_buffer.item_count()
+    self.indirect_buffer.cmd_count()
   }
 }
 impl DeviceParallelComputeIO<u32> for MultiIndirectCountDowngradeSource {}
@@ -189,7 +207,7 @@ impl DeviceInvocationComponent<Node<u32>> for MultiIndirectCountDowngradeSource 
     builder: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn DeviceInvocation<Node<u32>>> {
     struct MultiIndirectCountDowngradeSourceInvocation {
-      indirect_buffer: ShaderReadonlyPtrOf<[DrawIndexedIndirect]>,
+      indirect_buffer: DrawCommandsInvocation,
       indirect_count: ShaderReadonlyPtrOf<u32>,
     }
 
@@ -199,10 +217,7 @@ impl DeviceInvocationComponent<Node<u32>> for MultiIndirectCountDowngradeSource 
 
         let idx = logic_global_id.x();
         let r = idx.less_than(self.indirect_buffer.array_length());
-        let result = r.select_branched(
-          || self.indirect_buffer.index(idx).vertex_count().load(),
-          zeroed_val,
-        );
+        let result = r.select_branched(|| self.indirect_buffer.vertex_count(idx), zeroed_val);
         (result, r)
       }
 
@@ -212,17 +227,66 @@ impl DeviceInvocationComponent<Node<u32>> for MultiIndirectCountDowngradeSource 
     }
 
     Box::new(MultiIndirectCountDowngradeSourceInvocation {
-      indirect_buffer: builder.bind_by(&self.indirect_buffer),
+      indirect_buffer: self.indirect_buffer.build(&mut builder.bindgroups),
       indirect_count: builder.bind_by(&self.indirect_count),
     })
   }
 
   fn bind_input(&self, builder: &mut BindingBuilder) {
-    builder.bind(&self.indirect_buffer);
+    self.indirect_buffer.bind(builder);
     builder.bind(&self.indirect_count);
   }
 
   fn requested_workgroup_size(&self) -> Option<u32> {
     None
+  }
+}
+
+#[derive(Clone)]
+enum DrawCommands {
+  Indexed(StorageBufferReadonlyDataView<[DrawIndexedIndirect]>),
+  NoneIndexed(StorageBufferReadonlyDataView<[DrawIndirect]>),
+}
+
+impl DrawCommands {
+  pub fn cmd_count(&self) -> u32 {
+    match self {
+      DrawCommands::Indexed(v) => v.item_count(),
+      DrawCommands::NoneIndexed(v) => v.item_count(),
+    }
+  }
+
+  pub fn bind(&self, builder: &mut BindingBuilder) {
+    match self {
+      DrawCommands::Indexed(v) => builder.bind(v),
+      DrawCommands::NoneIndexed(v) => builder.bind(v),
+    };
+  }
+
+  pub fn build(&self, cx: &mut ShaderBindGroupBuilder) -> DrawCommandsInvocation {
+    match self {
+      DrawCommands::Indexed(v) => DrawCommandsInvocation::Indexed(cx.bind_by(v)),
+      DrawCommands::NoneIndexed(v) => DrawCommandsInvocation::NoneIndexed(cx.bind_by(v)),
+    }
+  }
+}
+
+enum DrawCommandsInvocation {
+  Indexed(ShaderReadonlyPtrOf<[DrawIndexedIndirect]>),
+  NoneIndexed(ShaderReadonlyPtrOf<[DrawIndirect]>),
+}
+
+impl DrawCommandsInvocation {
+  pub fn array_length(&self) -> Node<u32> {
+    match self {
+      DrawCommandsInvocation::Indexed(v) => v.array_length(),
+      DrawCommandsInvocation::NoneIndexed(v) => v.array_length(),
+    }
+  }
+  pub fn vertex_count(&self, idx: Node<u32>) -> Node<u32> {
+    match self {
+      DrawCommandsInvocation::Indexed(v) => v.index(idx).vertex_count().load(),
+      DrawCommandsInvocation::NoneIndexed(v) => v.index(idx).vertex_count().load(),
+    }
   }
 }
