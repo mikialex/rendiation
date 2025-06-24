@@ -108,6 +108,7 @@ pub struct GPUInfo {
   pub power_preference: PowerPreference,
   pub supported_features: Features,
   pub supported_limits: Limits,
+  pub downgrade_info: DownlevelCapabilities,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -146,7 +147,7 @@ impl GPU {
       .map(|s| s.0.create_surface(&instance))
       .transpose()?;
 
-    let _adaptor = instance
+    let adaptor = instance
       .request_adapter(&gpu::RequestAdapterOptions {
         power_preference,
         compatible_surface: init_surface.as_ref(),
@@ -155,8 +156,8 @@ impl GPU {
       .await
       .ok_or(GPUCreateFailure::AdapterRequestFailed)?;
 
-    let supported_features = _adaptor.features();
-    let supported_limits = _adaptor.limits();
+    let supported_features = adaptor.features();
+    let supported_limits = adaptor.limits();
 
     if !config
       .minimal_required_limits
@@ -173,7 +174,7 @@ impl GPU {
       ));
     }
 
-    let (device, queue) = _adaptor
+    let (device, queue) = adaptor
       .request_device(
         &gpu::DeviceDescriptor {
           label: None,
@@ -189,15 +190,16 @@ impl GPU {
     let queue = GPUQueue::new(queue);
 
     let info = GPUInfo {
-      adaptor_info: _adaptor.get_info(),
+      adaptor_info: adaptor.get_info(),
       power_preference: config.power_preference,
       supported_features,
       supported_limits,
+      downgrade_info: adaptor.get_downlevel_capabilities(),
     };
 
     let surface = init_surface.map(|init_surface| {
       GPUSurface::new(
-        &_adaptor,
+        &adaptor,
         &device,
         init_surface,
         config.surface_for_compatible_check_init.as_ref().unwrap().1,
@@ -208,7 +210,7 @@ impl GPU {
 
     let gpu = Self {
       instance,
-      _adaptor: Arc::new(_adaptor),
+      _adaptor: Arc::new(adaptor),
       info,
       device,
       queue,

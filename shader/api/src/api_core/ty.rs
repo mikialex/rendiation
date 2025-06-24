@@ -474,6 +474,9 @@ impl TryFrom<TextureFormat> for StorageFormat {
   type Error = ();
 
   fn try_from(value: TextureFormat) -> Result<Self, Self::Error> {
+    // It seems like we can create none srgb storage view base on srgb texture if the texture view formats
+    // contains srgb variant. so here we remove srgb suffix
+    let value = value.remove_srgb_suffix();
     Ok(match value {
       TextureFormat::R8Unorm => StorageFormat::R8Unorm,
       TextureFormat::R8Snorm => StorageFormat::R8Snorm,
@@ -497,12 +500,10 @@ impl TryFrom<TextureFormat> for StorageFormat {
       TextureFormat::Rg16Snorm => StorageFormat::Rg16Snorm,
       TextureFormat::Rg16Float => StorageFormat::Rg16Float,
       TextureFormat::Rgba8Unorm => StorageFormat::Rgba8Unorm,
-      TextureFormat::Rgba8UnormSrgb => StorageFormat::Rgba8Unorm,
       TextureFormat::Rgba8Snorm => StorageFormat::Rgba8Snorm,
       TextureFormat::Rgba8Uint => StorageFormat::Rgba8Uint,
       TextureFormat::Rgba8Sint => StorageFormat::Rgba8Sint,
       TextureFormat::Bgra8Unorm => StorageFormat::Rgba8Unorm,
-      TextureFormat::Bgra8UnormSrgb => StorageFormat::Rgba8Unorm,
       TextureFormat::Rgb10a2Uint => StorageFormat::Rgb10a2Uint,
       TextureFormat::Rgb10a2Unorm => StorageFormat::Rgb10a2Unorm,
       TextureFormat::Rg32Uint => StorageFormat::Rg32Uint,

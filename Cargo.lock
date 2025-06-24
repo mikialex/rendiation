@@ -4104,6 +4104,7 @@ name = "rendiation-texture-gpu-base"
 version = "0.1.0"
 dependencies = [
  "rendiation-algebra",
+ "rendiation-fast-down-sampling-2d",
  "rendiation-shader-api",
  "rendiation-texture-core",
  "rendiation-webgpu",

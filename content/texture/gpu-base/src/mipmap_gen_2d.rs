@@ -2,7 +2,7 @@ use crate::*;
 
 // https://github.com/BabylonJS/Babylon.js/blob/d25bc29091/packages/dev/core/src/Engines/WebGPU/webgpuTextureHelper.ts
 
-/// Mipmap generation is not supported in webgpu api for now, at least in mvp as far as i known.
+/// Mipmap generation is not supported in webgpu api for now.
 /// It's also useful to provide customizable reducer / gen method for proper usage.
 ///
 /// layer reduce logic, layer by layer.

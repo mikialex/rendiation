@@ -9,6 +9,7 @@ rendiation-algebra = { path = "../../../math/algebra" }
 rendiation-texture-core = { path = "../core" }
 rendiation-shader-api = { path = "../../../shader/api" }
 rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
+rendiation-fast-down-sampling-2d = { path = "../../../shader/fast-down-sampling-2d" }
 
 [lints]
 workspace = true

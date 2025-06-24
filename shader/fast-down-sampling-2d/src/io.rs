@@ -63,6 +63,7 @@ impl<F: TextureFormatDynamicCheck + 'static, V: 'static> CommonTextureFastDownSa
           base_mip_level: (index as u32).clamp(0, target.mip_level_count() - 1),
           mip_level_count: Some(1),
           base_array_layer: 0,
+          format: Some(target.desc.format.remove_srgb_suffix()),
           ..Default::default()
         })
         .try_into()
@@ -110,6 +111,7 @@ impl<F: 'static, V: 'static> ShaderHashProvider for CommonTextureFastDownSamplin
     TypeId::of::<Self>().hash(hasher);
     self.texel_to_reduce_unit.hash(hasher);
     self.reduce_unit_to_texel.hash(hasher);
+    self.target.desc.format.hash(hasher);
   }
 }
 
