@@ -164,18 +164,6 @@ impl GPUDevice {
   }
 }
 
-#[repr(C)]
-#[std430_layout]
-#[derive(Copy, Clone, Debug, Default, ShaderStruct)]
-pub struct DispatchIndirectArgsStorage {
-  /// The number of work groups in X dimension.
-  pub x: u32,
-  /// The number of work groups in Y dimension.
-  pub y: u32,
-  /// The number of work groups in Z dimension.
-  pub z: u32,
-}
-
 #[derive(Debug, Copy, Clone)]
 pub struct GPUResourceCacheSizeReport {
   pub bindgroup_count: usize,

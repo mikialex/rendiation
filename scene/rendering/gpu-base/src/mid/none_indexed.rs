@@ -15,7 +15,7 @@ pub trait NoneIndexedDrawCommandBuilderInvocation {
   fn generate_draw_command(
     &self,
     draw_id: Node<u32>, // aka sm id
-  ) -> Node<DrawIndirect>;
+  ) -> Node<DrawIndirectArgsStorage>;
 }
 
 #[derive(Clone)]
@@ -24,11 +24,11 @@ pub struct NoneIndexedDrawCommandGenerator {
   pub generator: Box<dyn NoneIndexedDrawCommandBuilder>,
 }
 
-impl DeviceParallelCompute<Node<DrawIndirect>> for NoneIndexedDrawCommandGenerator {
+impl DeviceParallelCompute<Node<DrawIndirectArgsStorage>> for NoneIndexedDrawCommandGenerator {
   fn execute_and_expose(
     &self,
     cx: &mut DeviceParallelComputeCtx,
-  ) -> Box<dyn DeviceInvocationComponent<Node<DrawIndirect>>> {
+  ) -> Box<dyn DeviceInvocationComponent<Node<DrawIndirectArgsStorage>>> {
     Box::new(DrawCommandGeneratorComponent {
       scene_models: self.scene_models.execute_and_expose(cx),
       generator: self.generator.clone(),
@@ -39,7 +39,7 @@ impl DeviceParallelCompute<Node<DrawIndirect>> for NoneIndexedDrawCommandGenerat
     self.scene_models.result_size()
   }
 }
-impl DeviceParallelComputeIO<DrawIndirect> for NoneIndexedDrawCommandGenerator {}
+impl DeviceParallelComputeIO<DrawIndirectArgsStorage> for NoneIndexedDrawCommandGenerator {}
 
 struct DrawCommandGeneratorComponent {
   scene_models: Box<dyn DeviceInvocationComponent<Node<u32>>>,
@@ -55,7 +55,7 @@ impl ShaderHashProvider for DrawCommandGeneratorComponent {
   }
 }
 
-impl DeviceInvocationComponent<Node<DrawIndirect>> for DrawCommandGeneratorComponent {
+impl DeviceInvocationComponent<Node<DrawIndirectArgsStorage>> for DrawCommandGeneratorComponent {
   fn work_size(&self) -> Option<u32> {
     self.scene_models.work_size()
   }
@@ -63,7 +63,7 @@ impl DeviceInvocationComponent<Node<DrawIndirect>> for DrawCommandGeneratorCompo
   fn build_shader(
     &self,
     builder: &mut ShaderComputePipelineBuilder,
-  ) -> Box<dyn DeviceInvocation<Node<DrawIndirect>>> {
+  ) -> Box<dyn DeviceInvocation<Node<DrawIndirectArgsStorage>>> {
     Box::new(DrawCommandGeneratorInvocation {
       scene_models: self.scene_models.build_shader(builder),
       generator: self.generator.build_invocation(builder),
@@ -85,11 +85,14 @@ struct DrawCommandGeneratorInvocation {
   generator: Box<dyn NoneIndexedDrawCommandBuilderInvocation>,
 }
 
-impl DeviceInvocation<Node<DrawIndirect>> for DrawCommandGeneratorInvocation {
-  fn invocation_logic(&self, logic_global_id: Node<Vec3<u32>>) -> (Node<DrawIndirect>, Node<bool>) {
+impl DeviceInvocation<Node<DrawIndirectArgsStorage>> for DrawCommandGeneratorInvocation {
+  fn invocation_logic(
+    &self,
+    logic_global_id: Node<Vec3<u32>>,
+  ) -> (Node<DrawIndirectArgsStorage>, Node<bool>) {
     let (id, valid) = self.scene_models.invocation_logic(logic_global_id);
 
-    let draw_command = make_local_var::<DrawIndirect>();
+    let draw_command = make_local_var::<DrawIndirectArgsStorage>();
     if_by(valid, || {
       draw_command.store(self.generator.generate_draw_command(id));
     });

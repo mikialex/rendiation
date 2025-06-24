@@ -560,12 +560,12 @@ impl IndexedDrawCommandBuilderInvocation for BindlessDrawCreatorInDevice {
   fn generate_draw_command(
     &self,
     draw_id: Node<u32>, // aka sm id
-  ) -> Node<DrawIndexedIndirect> {
+  ) -> Node<DrawIndexedIndirectArgsStorage> {
     let mesh_handle: Node<u32> = self.sm_to_mesh_device.index(draw_id).load();
     // shader_assert(mesh_handle.not_equals(val(u32::MAX)));
 
     let meta = self.node.index(mesh_handle).load().expand();
-    ENode::<DrawIndexedIndirect> {
+    ENode::<DrawIndexedIndirectArgsStorage> {
       vertex_count: meta.count,
       instance_count: val(1),
       base_index: meta.index_offset,
@@ -580,16 +580,16 @@ impl NoneIndexedDrawCommandBuilderInvocation for BindlessDrawCreatorInDevice {
   fn generate_draw_command(
     &self,
     draw_id: Node<u32>, // aka sm id
-  ) -> Node<DrawIndirect> {
+  ) -> Node<DrawIndirectArgsStorage> {
     let mesh_handle: Node<u32> = self.sm_to_mesh_device.index(draw_id).load();
     // shader_assert(mesh_handle.not_equals(val(u32::MAX)));
 
     let meta = self.node.index(mesh_handle).load().expand();
-    ENode::<DrawIndirect> {
+    ENode::<DrawIndirectArgsStorage> {
       vertex_count: meta.position_count / val(3),
       instance_count: val(1),
-      first_vertex: meta.position_offset,
-      first_instance: draw_id,
+      base_vertex: meta.position_offset,
+      base_instance: draw_id,
     }
     .construct()
   }

@@ -69,7 +69,7 @@ impl DeviceSceneModelRenderSubBatch {
     draw_command_builder: DrawCommandBuilder,
     cx: &mut DeviceParallelComputeCtx,
   ) -> Box<dyn IndirectDrawProvider> {
-    match draw_command_builder {
+    let (draw_command_buffer, draw_count) = match draw_command_builder {
       DrawCommandBuilder::Indexed(generator) => {
         let generator = IndexedDrawCommandGenerator {
           scene_models: self.scene_models.clone(),
@@ -80,12 +80,12 @@ impl DeviceSceneModelRenderSubBatch {
         let init = ZeroedArrayByArrayLength(size as usize);
         let draw_command_buffer = StorageBufferDataView::create_by_with_extra_usage(
           cx.gpu.device.as_ref(),
-          StorageBufferInit::<[DrawIndexedIndirect]>::from(init),
+          StorageBufferInit::<[DrawIndexedIndirectArgsStorage]>::from(init),
           BufferUsages::INDIRECT,
         );
 
         let r = generator.materialize_storage_buffer_into(draw_command_buffer, cx);
-        let draw_command_buffer = MultiIndirectDrawBatchDeviceCommands::Indexed(r.buffer);
+        let draw_command_buffer = StorageDrawCommands::Indexed(r.buffer);
         let draw_count = r.size.unwrap_or_else(|| {
           StorageBufferReadonlyDataView::create_by_with_extra_usage(
             &cx.gpu.device,
@@ -93,32 +93,7 @@ impl DeviceSceneModelRenderSubBatch {
             BufferUsages::INDIRECT,
           )
         });
-
-        if cx
-          .gpu
-          .info
-          .supported_features
-          .contains(Features::MULTI_DRAW_INDIRECT_COUNT)
-        {
-          Box::new(MultiIndirectDrawBatch {
-            draw_command_buffer,
-            draw_count,
-          })
-        } else {
-          let cmd = DrawCommand::MultiIndirectCount {
-            indexed: matches!(
-              &draw_command_buffer,
-              MultiIndirectDrawBatchDeviceCommands::Indexed(_)
-            ),
-            indirect_buffer: draw_command_buffer.indirect_buffer().clone(),
-            indirect_count: draw_count.gpu.clone(),
-            max_count: draw_command_buffer.item_count(),
-          };
-
-          let (helper, cmd) =
-            rendiation_webgpu_midc_downgrade::downgrade_multi_indirect_draw_count(cmd, cx);
-          Box::new(MIDCDowngradeBatch { helper, cmd })
-        }
+        (draw_command_buffer, draw_count)
       }
       DrawCommandBuilder::NoneIndexed(generator) => {
         let generator = NoneIndexedDrawCommandGenerator {
@@ -130,50 +105,49 @@ impl DeviceSceneModelRenderSubBatch {
         let init = ZeroedArrayByArrayLength(size as usize);
         let draw_command_buffer = StorageBufferDataView::create_by_with_extra_usage(
           cx.gpu.device.as_ref(),
-          StorageBufferInit::<[DrawIndirect]>::from(init),
+          StorageBufferInit::<[DrawIndirectArgsStorage]>::from(init),
           BufferUsages::INDIRECT,
         );
 
         let r = generator.materialize_storage_buffer_into(draw_command_buffer, cx);
-
-        Box::new(MultiIndirectDrawBatch {
-          draw_command_buffer: MultiIndirectDrawBatchDeviceCommands::NoneIndexed(r.buffer),
-          draw_count: r.size.unwrap_or_else(|| {
-            StorageBufferReadonlyDataView::create_by_with_extra_usage(
-              &cx.gpu.device,
-              StorageBufferInit::WithInit(&Vec4::new(size, 0, 0, 0)),
-              BufferUsages::INDIRECT,
-            )
-          }),
-        })
+        let draw_command_buffer = StorageDrawCommands::NoneIndexed(r.buffer);
+        let draw_count = r.size.unwrap_or_else(|| {
+          StorageBufferReadonlyDataView::create_by_with_extra_usage(
+            &cx.gpu.device,
+            StorageBufferInit::WithInit(&Vec4::new(size, 0, 0, 0)),
+            BufferUsages::INDIRECT,
+          )
+        });
+        (draw_command_buffer, draw_count)
       }
+    };
+
+    let support_midc = cx
+      .gpu
+      .info
+      .supported_features
+      .contains(Features::MULTI_DRAW_INDIRECT_COUNT);
+
+    let batch = MultiIndirectDrawBatch {
+      draw_command_buffer,
+      draw_count,
+    };
+
+    if support_midc {
+      Box::new(batch)
+    } else {
+      let (helper, cmd) = rendiation_webgpu_midc_downgrade::downgrade_multi_indirect_draw_count(
+        batch.draw_command(),
+        cx,
+      );
+      Box::new(MIDCDowngradeBatch { helper, cmd })
     }
   }
 }
 
 struct MultiIndirectDrawBatch {
-  draw_command_buffer: MultiIndirectDrawBatchDeviceCommands,
+  draw_command_buffer: StorageDrawCommands,
   draw_count: StorageBufferReadonlyDataView<Vec4<u32>>,
-}
-
-enum MultiIndirectDrawBatchDeviceCommands {
-  Indexed(StorageBufferReadonlyDataView<[DrawIndexedIndirect]>),
-  NoneIndexed(StorageBufferReadonlyDataView<[DrawIndirect]>),
-}
-
-impl MultiIndirectDrawBatchDeviceCommands {
-  fn item_count(&self) -> u32 {
-    match self {
-      MultiIndirectDrawBatchDeviceCommands::Indexed(buffer) => buffer.item_count(),
-      MultiIndirectDrawBatchDeviceCommands::NoneIndexed(buffer) => buffer.item_count(),
-    }
-  }
-  fn indirect_buffer(&self) -> &GPUBufferResourceView {
-    match self {
-      MultiIndirectDrawBatchDeviceCommands::Indexed(buffer) => &buffer.gpu,
-      MultiIndirectDrawBatchDeviceCommands::NoneIndexed(buffer) => &buffer.gpu,
-    }
-  }
 }
 
 impl IndirectDrawProvider for MultiIndirectDrawBatch {
@@ -194,13 +168,10 @@ impl IndirectDrawProvider for MultiIndirectDrawBatch {
 
   fn draw_command(&self) -> DrawCommand {
     DrawCommand::MultiIndirectCount {
-      indexed: matches!(
-        &self.draw_command_buffer,
-        MultiIndirectDrawBatchDeviceCommands::Indexed(_)
-      ),
+      indexed: matches!(&self.draw_command_buffer, StorageDrawCommands::Indexed(_)),
       indirect_buffer: self.draw_command_buffer.indirect_buffer().clone(),
       indirect_count: self.draw_count.gpu.clone(),
-      max_count: self.draw_command_buffer.item_count(),
+      max_count: self.draw_command_buffer.cmd_count(),
     }
   }
 }

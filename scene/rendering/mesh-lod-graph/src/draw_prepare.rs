@@ -38,7 +38,8 @@ impl MeshLODExpander {
     );
     let meshlet_idx_output = create_gpu_read_write_storage::<[u32]>(init, device);
     let scene_model_idx_output = create_gpu_read_write_storage::<[u32]>(init, device);
-    let draw_command_output = create_gpu_read_write_storage::<[DrawIndexedIndirect]>(init, device);
+    let draw_command_output =
+      create_gpu_read_write_storage::<[DrawIndexedIndirectArgsStorage]>(init, device);
 
     cx.record_pass(|pass, device| {
       let mut hasher = shader_hasher_from_marker_ty!(MeshLODMeshExpand);
@@ -82,15 +83,15 @@ impl MeshLODExpander {
                     meshlet_idx_output.index(write_idx).store(meshlet_idx);
                     scene_model_idx_output.index(write_idx).store(scene_model);
 
-                    draw_command_output
-                      .index(write_idx)
-                      .store(ENode::<DrawIndexedIndirect> {
-                        vertex_count: meshlet.index_count,
-                        instance_count: val(1),
-                        base_index: val(0), // accessed from meshlet metadata at vertex stage
-                        vertex_offset: val(0),
-                        base_instance: write_idx,
-                      })
+                    draw_command_output.index(write_idx).store(ENode::<
+                      DrawIndexedIndirectArgsStorage,
+                    > {
+                      vertex_count: meshlet.index_count,
+                      instance_count: val(1),
+                      base_index: val(0), // accessed from meshlet metadata at vertex stage
+                      vertex_offset: val(0),
+                      base_instance: write_idx,
+                    })
                   },
                 );
               });
