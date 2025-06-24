@@ -354,7 +354,7 @@ pub fn get_suitable_shader_write_ty_from_texture_format(
     TextureFormat::R16Sint => PrimitiveShaderValueType::Int32,
     TextureFormat::R16Unorm => PrimitiveShaderValueType::Float32,
     TextureFormat::R16Snorm => PrimitiveShaderValueType::Float32,
-    TextureFormat::R16Float => PrimitiveShaderValueType::Float32,
+    TextureFormat::R16Float => PrimitiveShaderValueType::Vec4Float32, /* https://github.com/gfx-rs/wgpu/issues/7702 */
     TextureFormat::Rg8Unorm => PrimitiveShaderValueType::Vec2Float32,
     TextureFormat::Rg8Snorm => PrimitiveShaderValueType::Vec2Float32,
     TextureFormat::Rg8Uint => PrimitiveShaderValueType::Vec2Uint32,

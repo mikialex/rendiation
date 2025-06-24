@@ -40,7 +40,7 @@ impl OitLoop32Renderer {
 impl OitLoop32RendererInstance {
   /// OIT_LOOP does not support MSAA at the moment.
   /// It uses two passes and a resolve pass; the first stores the depths of the
-  /// frontmost OIT_LAYERS fragments per pixel in the A-buffer, in order from
+  /// front most OIT_LAYERS fragments per pixel in the A-buffer, in order from
   /// nearest to farthest. Then the second pass writes the sorted colors into
   /// another section of the A-buffer, and tail blends colors that didn't make it in.
   /// The resolve pass then blends the fragments from front to back.
@@ -54,7 +54,7 @@ impl OitLoop32RendererInstance {
   /// for each SSAA sample...
   ///   for each OIT layer...
   ///     for each pixel...
-  ///       a r32ui depth value (via floatBitsToUint, cleared to 0xffffffff)
+  ///       a r32ui depth value (via floatBitsToUint, cleared to background depth)
   ///     for each pixel...
   ///       a packed color in a uvec4
   /// ```

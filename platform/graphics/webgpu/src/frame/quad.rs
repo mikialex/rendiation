@@ -74,7 +74,7 @@ impl GraphicsShaderProvider for FullScreenQuad {
 
     builder.fragment(|builder, _| {
       builder.frag_output.iter_mut().for_each(|p| {
-        if p.is_blendable() {
+        if p.is_blendable() && self.blend.is_some() {
           p.states.blend = self.blend;
         }
       });
@@ -93,7 +93,7 @@ pub struct QuadDraw<T> {
 }
 
 pub trait UseQuadDraw: Sized {
-  // default to no blending
+  // default to not override blending config
   fn draw_quad(self) -> QuadDraw<Self> {
     self.draw_quad_with_blend(None)
   }

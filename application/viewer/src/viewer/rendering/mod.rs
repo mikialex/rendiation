@@ -64,7 +64,7 @@ struct ViewerRendererInstance {
   rtx_renderer: Option<(RayTracingRendererGroup, RtxSystemCore)>,
   lighting: LightingRenderingCxPrepareCtx,
   culling: ViewerCulling,
-  oit: Option<Arc<RwLock<OitLoop32Renderer>>>,
+  oit: ViewerTransparentRenderer,
 }
 
 pub struct Viewer3dRenderingCtx {
@@ -257,12 +257,15 @@ impl Viewer3dRenderingCtx {
 
     self.request_reset_rtx_sample = false;
 
-    let mut oit = None;
-    if self.transparent_config == ViewerTransparentContentRenderStyle::Loop32OIT {
-      qcx.scope(|qcx| {
+    let oit = match self.transparent_config {
+      ViewerTransparentContentRenderStyle::NaiveAlphaBlend => {
+        ViewerTransparentRenderer::NaiveAlphaBlend
+      }
+      ViewerTransparentContentRenderStyle::Loop32OIT => qcx.scope(|qcx| {
         let (_, r) = qcx.use_gpu_init(|_| Arc::new(RwLock::new(OitLoop32Renderer::new(4))));
-        oit = r.clone().into();
-      })
+        ViewerTransparentRenderer::Loop32OIT(r.clone())
+      }),
+      ViewerTransparentContentRenderStyle::WeightedOIT => ViewerTransparentRenderer::WeightedOIT,
     };
 
     qcx.when_render(|| ViewerRendererInstance {

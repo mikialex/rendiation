@@ -120,6 +120,12 @@ impl Viewer3dRenderingCtx {
 
         ui.selectable_value(
           &mut self.transparent_config,
+          ViewerTransparentContentRenderStyle::WeightedOIT,
+          "oit weighted style",
+        );
+
+        ui.selectable_value(
+          &mut self.transparent_config,
           ViewerTransparentContentRenderStyle::Loop32OIT,
           "oit loop32 style",
         )

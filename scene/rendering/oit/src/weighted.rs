@@ -39,13 +39,13 @@ pub fn draw_weighted_oit(
 
   pass("weighted_oit encode")
     .with_color(&accumulate_buffer, clear_and_store(all_zero()))
-    .with_color(&reveal_buffer, clear_and_store(all_zero()))
+    .with_color(&reveal_buffer, clear_and_store(color_same(1.)))
     .with_depth(depth_base, load_and_store())
     .render_ctx(ctx)
     .by(&mut draw_content);
 
   pass("weighted_oit resolve")
-    .with_color(color_base, store_full_frame())
+    .with_color(color_base, load_and_store())
     .render_ctx(ctx)
     .by(
       &mut Composition {
@@ -116,8 +116,7 @@ impl GraphicsShaderProvider for DrawDispatch {
         },
       });
 
-      cx.store_fragment_out_vec4f(0, vec4_node(color_output.w().splat()));
-      // GL blend function: GL_ZERO, GL_ONE_MINUS_SRC_ALPHA
+      cx.store_fragment_out_vec4f(1, vec4_node(color_output.w().splat()));
       cx.frag_output[1].states.blend = Some(BlendState {
         color: BlendComponent {
           src_factor: BlendFactor::Zero,
@@ -130,6 +129,8 @@ impl GraphicsShaderProvider for DrawDispatch {
           operation: BlendOperation::Add,
         },
       });
+
+      cx.depth_stencil.as_mut().unwrap().depth_write_enabled = false;
     });
   }
 }
@@ -166,7 +167,6 @@ impl GraphicsShaderProvider for Composition {
 
       cx.store_fragment_out_vec4f(0, vec4_node((color, reveal)));
 
-      // GL blend function: GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA
       cx.frag_output[0].states.blend = Some(BlendState {
         color: BlendComponent {
           src_factor: BlendFactor::OneMinusSrcAlpha,
