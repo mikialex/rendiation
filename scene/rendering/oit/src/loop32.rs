@@ -279,7 +279,9 @@ impl GraphicsShaderProvider for OitColorPass {
         let end = (layer_count - val(1)).make_local_var();
 
         loop_by(|cx| {
-          if_by(start.load().equals(end.load()), || cx.do_break());
+          if_by(start.load().greater_equal_than(end.load()), || {
+            cx.do_break()
+          });
 
           let mid = (start.load() + end.load()) / val(2);
           let z_test = oit_depth_layers.atomic_load(coord, mid);

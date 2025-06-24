@@ -25,6 +25,7 @@ pub fn downgrade_multi_indirect_draw_count(
         StorageBufferReadonlyDataView::try_from_raw(indirect_buffer).unwrap(),
       )
     };
+    assert!(draw_commands.cmd_count() > 0);
     let draw_count = StorageBufferReadonlyDataView::try_from_raw(indirect_count).unwrap();
 
     let DeviceMaterializeResult {
@@ -37,6 +38,12 @@ pub fn downgrade_multi_indirect_draw_count(
     .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(1024, 1024)
     .make_global_scan_exclusive::<AdditionMonoid<u32>>()
     .materialize_storage_buffer(cx);
+
+    // because we using exclusive scan
+    assert_eq!(
+      sub_draw_range_start_prefix_sum.item_count(),
+      draw_commands.cmd_count() + 1
+    );
 
     let indirect_buffer = StorageBufferDataView::create_by_with_extra_usage(
       &cx.gpu.device,
@@ -128,20 +135,23 @@ impl DowngradeMultiIndirectDrawCountHelperInvocation {
   pub fn get_current_vertex_draw_info(&self, vertex_id: Node<u32>) -> MultiDrawDowngradeVertexInfo {
     // binary search for current draw command
     let start = val(0_u32).make_local_var();
-    // should we just remove the min to assert at least one cmd?
-    let end =
-      (self.sub_draw_range_start_prefix_sum.array_length().min(1) - val(1)).make_local_var();
+    let end = (self.sub_draw_range_start_prefix_sum.array_length() - val(2)).make_local_var();
 
     loop_by(|cx| {
-      if_by(start.load().equals(end.load()), || cx.do_break());
+      if_by(start.load().greater_equal_than(end.load()), || {
+        cx.do_break()
+      });
 
       let mid = (start.load() + end.load()) / val(2);
-      let test = self.sub_draw_range_start_prefix_sum.index(mid).load();
-      if_by(vertex_id.less_than(test), || {
-        end.store(mid);
-      });
-      if_by(vertex_id.greater_than(test), || {
-        start.store(mid + val(1));
+      let test = self
+        .sub_draw_range_start_prefix_sum
+        .index(mid + val(1))
+        .load();
+      if_by(test.less_equal_than(vertex_id), || {
+        start.store(mid + val(1)); // in [mid+ 1, end]
+      })
+      .else_by(|| {
+        end.store(mid); // in [start, mid]
       });
     });
 
@@ -213,8 +223,6 @@ impl DeviceInvocationComponent<Node<u32>> for MultiIndirectCountDowngradeSource 
 
     impl DeviceInvocation<Node<u32>> for MultiIndirectCountDowngradeSourceInvocation {
       fn invocation_logic(&self, logic_global_id: Node<Vec3<u32>>) -> (Node<u32>, Node<bool>) {
-        // todo, assert instance count == 1 in shader
-
         let idx = logic_global_id.x();
         let r = idx.less_than(self.indirect_buffer.array_length());
         let result = r.select_branched(|| self.indirect_buffer.vertex_count(idx), zeroed_val);
