@@ -42,11 +42,21 @@ const CLAMP_TO_EDGE: u32 = 0;
 const REPEAT: u32 = 1;
 const MIRRORED_REPEAT: u32 = 2;
 
+const LINEAR: u32 = 1;
+const NEAREST: u32 = 0;
+
 fn map_address(mode: rendiation_texture_core::AddressMode) -> u32 {
   match mode {
     rendiation_texture_core::AddressMode::ClampToEdge => CLAMP_TO_EDGE,
     rendiation_texture_core::AddressMode::Repeat => REPEAT,
     rendiation_texture_core::AddressMode::MirrorRepeat => MIRRORED_REPEAT,
+  }
+}
+
+fn map_filter(mode: rendiation_texture_core::FilterMode) -> u32 {
+  match mode {
+    rendiation_texture_core::FilterMode::Nearest => NEAREST,
+    rendiation_texture_core::FilterMode::Linear => LINEAR,
   }
 }
 
@@ -56,9 +66,9 @@ impl From<TextureSampler> for TextureSamplerShaderInfo {
       address_mode_u: map_address(value.address_mode_u),
       address_mode_v: map_address(value.address_mode_v),
       address_mode_w: map_address(value.address_mode_w),
-      mag_filter: 0,
-      min_filter: 0,
-      mipmap_filter: 0,
+      mag_filter: map_filter(value.mag_filter),
+      min_filter: map_filter(value.min_filter),
+      mipmap_filter: map_filter(value.mipmap_filter),
       ..Zeroable::zeroed()
     }
   }
@@ -93,6 +103,10 @@ pub struct TexturePoolSourceInit {
 
 impl TexturePoolSource {
   /// the tex input must cover the full linear global scope, so that we can setup the none exist texture info
+  ///
+  /// the mipmap is partially supported, the main difference is that we only support max level of min(width, height)
+  /// but the specs requires max(width, height); This is the limitation of current implementation and could be
+  /// solved in the future
   pub fn new(
     gpu: &GPU,
     config: MultiLayerTexturePackerConfig,
@@ -179,13 +193,13 @@ impl ReactiveGeneralQuery for TexturePoolSource {
   fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
     let (packing_change, current_pack) = self.packing.describe(cx).resolve_kept();
 
-    if let Poll::Ready(Some(size)) = self.atlas_resize.poll_next_unpin(cx) {
-      let size = size.into_gpu_size();
+    if let Poll::Ready(Some(rsize)) = self.atlas_resize.poll_next_unpin(cx) {
+      let size = rsize.into_gpu_size();
       self.texture = Some(GPUTexture::create(
         TextureDescriptor {
           label: "texture-pool".into(),
           size,
-          mip_level_count: 1,
+          mip_level_count: MipLevelCount::BySize.get_level_count_wgpu(rsize.size),
           sample_count: 1,
           dimension: TextureDimension::D2,
           format: self.format,
@@ -207,8 +221,8 @@ impl ReactiveGeneralQuery for TexturePoolSource {
         ValueChange::Delta(new_tex, _) => {
           if let Some(current_pack) = current_pack.access(&id) {
             // pack may failed, in this case we do nothing
-            let tex = create_gpu_texture2d(&self.gpu, &new_tex.inner);
-            copy_tex(&mut encoder, tex, target, &current_pack);
+            let tex = create_gpu_texture2d_with_mipmap(&self.gpu, &mut encoder, &new_tex.inner);
+            copy_tex(&mut encoder, &tex, target, &current_pack);
           }
         }
         ValueChange::Remove(_) => {}
@@ -229,8 +243,8 @@ impl ReactiveGeneralQuery for TexturePoolSource {
           if !tex_has_recreated {
             if let Some(tex) = tex_input_current.access(&id) {
               // tex maybe removed
-              let tex = create_gpu_texture2d(&self.gpu, &tex.inner);
-              copy_tex(&mut encoder, tex, target, &new_pack);
+              let tex = create_gpu_texture2d_with_mipmap(&self.gpu, &mut encoder, &tex.inner);
+              copy_tex(&mut encoder, &tex, target, &new_pack);
             }
           }
         }
@@ -262,28 +276,59 @@ impl ReactiveGeneralQuery for TexturePoolSource {
 
 fn copy_tex(
   encoder: &mut CommandEncoder,
-  src: GPU2DTextureView,
+  src: &GPU2DTextureView,
   target: &GPUTexture,
   pack: &PackResult2dWithDepth,
 ) {
+  // note, here we use smaller size, which is different from spec, but simplify the implementation
+  let smaller_length = src
+    .resource
+    .desc
+    .size
+    .width
+    .min(src.resource.desc.size.height);
+  let max_mipmap_level = 32 - smaller_length.leading_zeros();
+
+  for mip_level in 0..max_mipmap_level {
+    copy_tex_level(encoder, src, target, pack, mip_level);
+  }
+}
+
+fn copy_tex_level(
+  encoder: &mut CommandEncoder,
+  src: &GPU2DTextureView,
+  target: &GPUTexture,
+  pack: &PackResult2dWithDepth,
+  mip_level: u32,
+) {
   let source = TexelCopyTextureInfo {
     texture: src.resource.gpu_resource(),
-    mip_level: 0,
+    mip_level,
     origin: Origin3d::ZERO,
     aspect: TextureAspect::All,
   };
 
   let dst = TexelCopyTextureInfo {
     texture: target.gpu_resource(),
-    mip_level: 0,
+    mip_level,
     origin: Origin3d {
-      x: pack.result.range.origin.x as u32,
-      y: pack.result.range.origin.y as u32,
+      x: pack.result.range.origin.x as u32 >> mip_level,
+      y: pack.result.range.origin.y as u32 >> mip_level,
       z: pack.depth,
     },
     aspect: TextureAspect::All,
   };
-  encoder.copy_texture_to_texture(source, dst, src.resource.desc.size);
+
+  let width = src.resource.desc.size.width >> mip_level;
+  let height = src.resource.desc.size.height >> mip_level;
+
+  let copy_size = Extent3d {
+    width,
+    height,
+    depth_or_array_layers: 1,
+  };
+
+  encoder.copy_texture_to_texture(source, dst, copy_size);
 }
 
 #[derive(Clone)]
@@ -336,7 +381,7 @@ impl AbstractIndirectGPUTextureSystem for TexturePool {
     reg.any_map.register(SamplerPoolInShader(samplers));
   }
 
-  /// todo, mipmap
+  // todo, the implementation is sub optimal
   fn sample_texture2d_indirect(
     &self,
     reg: &SemanticRegistry,
@@ -361,19 +406,57 @@ impl AbstractIndirectGPUTextureSystem for TexturePool {
         || {
           let sampler = samplers.0.index(shader_sampler_handle).load().expand();
 
-          let correct_u = shader_address_mode(sampler.address_mode_u, uv.x());
-          let correct_v = shader_address_mode(sampler.address_mode_v, uv.y());
+          let correct_u = shader_address_mode_fn(sampler.address_mode_u, uv.x());
+          let correct_v = shader_address_mode_fn(sampler.address_mode_v, uv.y());
           let uv: Node<Vec2<_>> = (correct_u, correct_v).into();
 
           let load_position = texture_meta.offset + texture_meta.size * uv;
-          let load_position_x = load_position.x().floor().into_u32();
-          let load_position_y = load_position.y().floor().into_u32();
+          let max_load_position = texture_meta.offset + texture_meta.size;
 
-          texture.load_texel_layer(
-            (load_position_x, load_position_y).into(),
+          let base_sample_level = calculate_mip_level_fn(uv, texture_meta.size);
+
+          let use_mag_filter = base_sample_level.less_equal_than(val(0.));
+          let use_min_filter = use_mag_filter.not();
+
+          let should_use_linear = use_mag_filter
+            .and(sampler.mag_filter.equals(LINEAR))
+            .or(use_min_filter.and(sampler.min_filter.equals(LINEAR)));
+
+          let base_sample_level_filter_result = sample_texture_level_impl(
+            texture,
+            load_position,
+            max_load_position,
+            base_sample_level.into_u32(),
             texture_meta.layer_index,
-            val(0),
-          )
+            should_use_linear,
+          );
+
+          let next_sample_level = base_sample_level.ceil();
+
+          let use_mag_filter = next_sample_level.less_equal_than(val(0.));
+          let use_min_filter = use_mag_filter.not();
+
+          let should_use_linear = use_mag_filter
+            .and(sampler.mag_filter.equals(LINEAR))
+            .or(use_min_filter.and(sampler.min_filter.equals(LINEAR)));
+
+          let next_sample_level_filter_result = sample_texture_level_impl(
+            texture,
+            load_position,
+            max_load_position,
+            next_sample_level.into_u32(),
+            texture_meta.layer_index,
+            should_use_linear,
+          );
+
+          sampler
+            .mipmap_filter
+            .equals(NEAREST)
+            .select(val(1.), base_sample_level.fract())
+            .mix(
+              base_sample_level_filter_result,
+              next_sample_level_filter_result,
+            )
         },
       );
 
@@ -392,12 +475,54 @@ impl AbstractIndirectGPUTextureSystem for TexturePool {
   }
 }
 
+fn sample_texture_level_impl(
+  texture: BindingNode<ShaderTexture2DArray>,
+  raw_load_position: Node<Vec2<f32>>, // in atlas coord space
+  max_load_position: Node<Vec2<f32>>, // in atlas coord space
+  level: Node<u32>,
+  layer: Node<u32>,
+  linear: Node<bool>,
+) -> Node<Vec4<f32>> {
+  linear.select_branched(
+    || {
+      let xy_mix = raw_load_position.fract();
+      let raw_load_position = raw_load_position.floor();
+
+      let p00 = raw_load_position;
+      let p10 = raw_load_position + val(Vec2::new(1.0, 0.0));
+      let p01 = raw_load_position + val(Vec2::new(0.0, 1.0));
+      let p11 = raw_load_position + val(Vec2::new(1.0, 1.0));
+
+      let p00 = sample_texture_impl(texture, p00.min(max_load_position), level, layer);
+      let p10 = sample_texture_impl(texture, p10.min(max_load_position), level, layer);
+      let p01 = sample_texture_impl(texture, p01.min(max_load_position), level, layer);
+      let p11 = sample_texture_impl(texture, p11.min(max_load_position), level, layer);
+
+      let p0 = xy_mix.x().mix(p00, p10);
+      let p1 = xy_mix.x().mix(p01, p11);
+      xy_mix.y().mix(p0, p1)
+    },
+    || sample_texture_impl(texture, raw_load_position, layer, level),
+  )
+}
+
+fn sample_texture_impl(
+  texture: BindingNode<ShaderTexture2DArray>,
+  load_position_f32: Node<Vec2<f32>>,
+  level: Node<u32>,
+  layer: Node<u32>,
+) -> Node<Vec4<f32>> {
+  let x = load_position_f32.x().floor().into_u32();
+  let y = load_position_f32.y().floor().into_u32();
+  texture.load_texel_layer((x, y).into(), layer, level)
+}
+
 #[shader_fn]
 fn shader_srgb_to_linear_convert(srgb: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
   (
-    shader_srgb_to_linear_convert_per_channel(srgb.x()),
-    shader_srgb_to_linear_convert_per_channel(srgb.y()),
-    shader_srgb_to_linear_convert_per_channel(srgb.z()),
+    shader_srgb_to_linear_convert_per_channel_fn(srgb.x()),
+    shader_srgb_to_linear_convert_per_channel_fn(srgb.y()),
+    shader_srgb_to_linear_convert_per_channel_fn(srgb.z()),
   )
     .into()
 }
@@ -423,4 +548,22 @@ fn shader_address_mode(mode: Node<u32>, uv: Node<f32>) -> Node<f32> {
     })
     .end_with_default(|| {});
   result.load()
+}
+
+#[shader_fn]
+fn calculate_mip_level_impl(uv: Node<Vec2<f32>>) -> Node<f32> {
+  let dx = uv.dpdx();
+  let dy = uv.dpdy();
+  // (dx.dot(dx) + dy.dot(dy)).sqrt().log2().floor()
+  let delta_max_sqr = dx.dot(dx).max(dy.dot(dy));
+  val(0.5) * delta_max_sqr.log2()
+}
+
+// https://bgolus.medium.com/distinctive-derivative-differences-cce38d36797b
+#[shader_fn]
+fn calculate_mip_level(uv: Node<Vec2<f32>>, size: Node<Vec2<f32>>) -> Node<f32> {
+  let uv2: Node<Vec2<f32>> = ((uv.x() - val(0.5)).fract(), uv.y()).into();
+  let a = calculate_mip_level_impl(uv2 * size);
+  let b = calculate_mip_level_impl(uv * size);
+  a.min(b)
 }
