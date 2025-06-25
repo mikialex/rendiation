@@ -381,7 +381,7 @@ impl AbstractIndirectGPUTextureSystem for TexturePool {
     reg.any_map.register(SamplerPoolInShader(samplers));
   }
 
-  // todo, the implementation is sub optimal
+  // todo, the implementation is not optimal
   fn sample_texture2d_indirect(
     &self,
     reg: &SemanticRegistry,
@@ -406,12 +406,13 @@ impl AbstractIndirectGPUTextureSystem for TexturePool {
         || {
           let sampler = samplers.0.index(shader_sampler_handle).load().expand();
 
+          // todo, we should correct uv after the bilinear offset
           let correct_u = shader_address_mode_fn(sampler.address_mode_u, uv.x());
           let correct_v = shader_address_mode_fn(sampler.address_mode_v, uv.y());
           let uv: Node<Vec2<_>> = (correct_u, correct_v).into();
 
           let load_position = texture_meta.offset + texture_meta.size * uv;
-          let max_load_position = texture_meta.offset + texture_meta.size;
+          let max_load_position = texture_meta.offset + (texture_meta.size - val(Vec2::one()));
 
           let base_sample_level = calculate_mip_level_fn(uv, texture_meta.size);
 
@@ -514,7 +515,7 @@ fn sample_texture_impl(
 ) -> Node<Vec4<f32>> {
   let x = load_position_f32.x().floor().into_u32();
   let y = load_position_f32.y().floor().into_u32();
-  texture.load_texel_layer((x, y).into(), layer, level)
+  texture.load_texel_layer((x >> level, y >> level).into(), layer, level)
 }
 
 #[shader_fn]
