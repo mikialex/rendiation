@@ -81,7 +81,7 @@ pub fn basic_shadow_map_uniform(
 }
 
 pub struct BasicShadowMapSystem {
-  shadow_map_atlas: Option<GPUTexture>,
+  shadow_map_atlas: Option<GPU2DArrayDepthTextureView>,
   packing: BoxedDynReactiveQuery<u32, ShadowMapAddressInfo>,
   atlas_resize: Box<dyn Stream<Item = SizeWithDepth> + Unpin>,
   current_size: Option<SizeWithDepth>,
@@ -140,6 +140,12 @@ impl BasicShadowMapSystem {
         },
         &frame_ctx.gpu.device,
       )
+      .create_view(TextureViewDescriptor {
+        dimension: TextureViewDimension::D2Array.into(),
+        ..Default::default()
+      })
+      .try_into()
+      .unwrap()
     });
 
     let (_, world) = self.source_world.describe(cx).resolve_kept();
@@ -147,13 +153,15 @@ impl BasicShadowMapSystem {
 
     for layer in 0..u32::from(self.current_size.unwrap().depth) {
       // clear all
-      let write_view = shadow_map_atlas.create_view(TextureViewDescriptor {
-        label: Some("shadowmap-clear-view"),
-        dimension: Some(TextureViewDimension::D2),
-        base_array_layer: layer,
-        array_layer_count: Some(1),
-        ..Default::default()
-      });
+      let write_view = shadow_map_atlas
+        .resource
+        .create_view(TextureViewDescriptor {
+          label: Some("shadowmap-clear-view"),
+          dimension: Some(TextureViewDimension::D2),
+          base_array_layer: layer,
+          array_layer_count: Some(1),
+          ..Default::default()
+        });
 
       let _ = pass("shadow-map-clear")
         .with_depth(
@@ -168,13 +176,15 @@ impl BasicShadowMapSystem {
       let world = world.access(&idx).unwrap();
       let proj = proj.access(&idx).unwrap();
 
-      let write_view = shadow_map_atlas.create_view(TextureViewDescriptor {
-        label: Some("shadowmap-write-view"),
-        dimension: Some(TextureViewDimension::D2),
-        base_array_layer: shadow_view.layer_index as u32,
-        array_layer_count: Some(1),
-        ..Default::default()
-      });
+      let write_view = shadow_map_atlas
+        .resource
+        .create_view(TextureViewDescriptor {
+          label: Some("shadowmap-write-view"),
+          dimension: Some(TextureViewDimension::D2),
+          base_array_layer: shadow_view.layer_index as u32,
+          array_layer_count: Some(1),
+          ..Default::default()
+        });
 
       // todo, consider merge the pass within the same layer
       // custom dispatcher is not required because we only have depth output.
@@ -192,13 +202,7 @@ impl BasicShadowMapSystem {
       );
     }
 
-    shadow_map_atlas
-      .create_view(TextureViewDescriptor {
-        dimension: TextureViewDimension::D2Array.into(),
-        ..Default::default()
-      })
-      .try_into()
-      .unwrap()
+    shadow_map_atlas.clone()
   }
 }
 

@@ -86,7 +86,7 @@ impl PartialEq for TexturePool2dSource {
 }
 
 pub struct TexturePoolSource {
-  texture: Option<GPUTexture>,
+  texture: Option<GPU2DArrayTextureView>,
   address: ReactiveStorageBufferContainer<TexturePoolTextureMeta>,
   samplers: ReactiveStorageBufferContainer<TextureSamplerShaderInfo>,
   tex_input: RQForker<Texture2DHandle, TexturePool2dSource>,
@@ -195,21 +195,30 @@ impl ReactiveGeneralQuery for TexturePoolSource {
 
     if let Poll::Ready(Some(rsize)) = self.atlas_resize.poll_next_unpin(cx) {
       let size = rsize.into_gpu_size();
-      self.texture = Some(GPUTexture::create(
-        TextureDescriptor {
-          label: "texture-pool".into(),
-          size,
-          mip_level_count: MipLevelCount::BySize.get_level_count_wgpu(rsize.size),
-          sample_count: 1,
-          dimension: TextureDimension::D2,
-          format: self.format,
-          view_formats: &[],
-          usage: TextureUsages::COPY_DST
-            | TextureUsages::TEXTURE_BINDING
-            | TextureUsages::RENDER_ATTACHMENT,
-        },
-        &self.gpu.device,
-      ));
+      self.texture = Some(
+        GPUTexture::create(
+          TextureDescriptor {
+            label: "texture-pool".into(),
+            size,
+            mip_level_count: MipLevelCount::BySize.get_level_count_wgpu(rsize.size),
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format: self.format,
+            view_formats: &[],
+            usage: TextureUsages::COPY_DST
+              | TextureUsages::TEXTURE_BINDING
+              | TextureUsages::RENDER_ATTACHMENT,
+          },
+          &self.gpu.device,
+        )
+        .create_view(TextureViewDescriptor {
+          label: "texture pool view".into(),
+          dimension: TextureViewDimension::D2Array.into(),
+          ..Default::default()
+        })
+        .try_into()
+        .unwrap(),
+      );
     }
     let target = self.texture.as_ref().unwrap();
 
@@ -222,7 +231,7 @@ impl ReactiveGeneralQuery for TexturePoolSource {
           if let Some(current_pack) = current_pack.access(&id) {
             // pack may failed, in this case we do nothing
             let tex = create_gpu_texture2d_with_mipmap(&self.gpu, &mut encoder, &new_tex.inner);
-            copy_tex(&mut encoder, &tex, target, &current_pack);
+            copy_tex(&mut encoder, &tex, &target.resource, &current_pack);
           }
         }
         ValueChange::Remove(_) => {}
@@ -244,7 +253,7 @@ impl ReactiveGeneralQuery for TexturePoolSource {
             if let Some(tex) = tex_input_current.access(&id) {
               // tex maybe removed
               let tex = create_gpu_texture2d_with_mipmap(&self.gpu, &mut encoder, &tex.inner);
-              copy_tex(&mut encoder, &tex, target, &new_pack);
+              copy_tex(&mut encoder, &tex, &target.resource, &new_pack);
             }
           }
         }
@@ -254,20 +263,11 @@ impl ReactiveGeneralQuery for TexturePoolSource {
 
     self.gpu.queue.submit_encoder(encoder);
 
-    let texture = target
-      .create_view(TextureViewDescriptor {
-        label: "texture pool view".into(),
-        dimension: TextureViewDimension::D2Array.into(),
-        ..Default::default()
-      })
-      .try_into()
-      .unwrap();
-
     self.address.poll_update(cx);
     self.samplers.poll_update(cx);
 
     Box::new(TexturePool {
-      texture,
+      texture: target.clone(),
       address: self.address.target.gpu().clone(),
       samplers: self.samplers.target.gpu().clone(),
     })
@@ -415,6 +415,8 @@ impl AbstractIndirectGPUTextureSystem for TexturePool {
           let max_load_position = texture_meta.offset + (texture_meta.size - val(Vec2::one()));
 
           let base_sample_level = calculate_mip_level_fn(uv, texture_meta.size);
+          let max_mip_level = texture_meta.size.x().min(texture_meta.size.y()).log2();
+          let base_sample_level = base_sample_level.min(max_mip_level);
 
           let use_mag_filter = base_sample_level.less_equal_than(val(0.));
           let use_min_filter = use_mag_filter.not();

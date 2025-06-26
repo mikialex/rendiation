@@ -15,27 +15,21 @@ pub enum BindingResourceOwned {
 impl BindingResourceOwned {
   pub fn increase(&self, record: &BindGroupCacheInvalidation) {
     match self {
-      BindingResourceOwned::Buffer(v) => {
-        v.resource.bindgroup_holder.increase(record.clone_another())
-      }
+      BindingResourceOwned::Buffer(v) => v.bindgroup_holder.increase(record.clone_another()),
       BindingResourceOwned::BufferArray(v) => v
         .iter()
-        .for_each(|v| v.resource.bindgroup_holder.increase(record.clone_another())),
-      BindingResourceOwned::Sampler(v) => {
-        v.resource.bindgroup_holder.increase(record.clone_another())
-      }
+        .for_each(|v| v.bindgroup_holder.increase(record.clone_another())),
+      BindingResourceOwned::Sampler(v) => v.bindgroup_holder.increase(record.clone_another()),
       BindingResourceOwned::SamplerArray(v) => v
         .iter()
-        .for_each(|v| v.resource.bindgroup_holder.increase(record.clone_another())),
+        .for_each(|v| v.bindgroup_holder.increase(record.clone_another())),
       BindingResourceOwned::RawTextureView(_, v) => v.increase(record.clone_another()),
-      BindingResourceOwned::TextureView(v) => {
-        v.resource.bindgroup_holder.increase(record.clone_another())
-      }
+      BindingResourceOwned::TextureView(v) => v.bindgroup_holder.increase(record.clone_another()),
       BindingResourceOwned::TextureViewArray(v) => v
         .iter()
-        .for_each(|v| v.resource.bindgroup_holder.increase(record.clone_another())),
+        .for_each(|v| v.bindgroup_holder.increase(record.clone_another())),
       BindingResourceOwned::AccelerationStructure(v) => {
-        v.resource.bindgroup_holder.increase(record.clone_another())
+        v.bindgroup_holder.increase(record.clone_another())
       }
     }
   }

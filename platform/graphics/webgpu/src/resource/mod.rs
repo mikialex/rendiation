@@ -24,6 +24,7 @@ pub struct ResourceViewContainer<T: Resource> {
   pub view: T::View,
   pub guid: usize,
   pub desc: T::ViewDescriptor,
+  pub(crate) bindgroup_holder: BindGroupResourceHolder,
 }
 
 impl<T: Resource> std::ops::Deref for ResourceViewContainer<T> {
@@ -41,7 +42,6 @@ pub struct ResourceContainer<T: Resource> {
   pub guid: usize,
   pub resource: ResourceExplicitDestroy<T>,
   pub desc: T::Descriptor,
-  pub(crate) bindgroup_holder: BindGroupResourceHolder,
 }
 
 impl<T: Resource> std::ops::Deref for ResourceContainer<T> {
@@ -87,7 +87,6 @@ impl<T: Resource> ResourceContainer<T> {
         .deferred_explicit_destroy
         .new_resource(resource),
       desc,
-      bindgroup_holder: Default::default(),
     }
   }
 }
@@ -228,6 +227,7 @@ impl<T: Resource> ResourceRc<T> {
       view,
       guid: get_resource_view_guid(),
       desc,
+      bindgroup_holder: Default::default(),
     };
     ResourceViewRc {
       inner: Arc::new(inner),
