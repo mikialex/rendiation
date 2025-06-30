@@ -381,7 +381,6 @@ impl AbstractIndirectGPUTextureSystem for TexturePool {
     reg.any_map.register(SamplerPoolInShader(samplers));
   }
 
-  // todo, the implementation is not optimal
   fn sample_texture2d_indirect(
     &self,
     reg: &SemanticRegistry,
@@ -396,75 +395,19 @@ impl AbstractIndirectGPUTextureSystem for TexturePool {
 
     let samplers = reg.any_map.get::<SamplerPoolInShader>().unwrap();
 
-    let texture_meta = textures_meta.0.index(shader_texture_handle).load().expand();
+    let texture_meta = textures_meta.0.index(shader_texture_handle).load();
 
-    let tex = texture_meta
-      .layer_index
+    let tex = TexturePoolTextureMeta::layer_index(texture_meta)
       .equals(u32::MAX) // check if the texture is failed to allocate
       .select_branched(
         || val(Vec4::zero()),
         || {
-          let sampler = samplers.0.index(shader_sampler_handle).load().expand();
-
-          // todo, we should correct uv after the bilinear offset
-          let correct_u = shader_address_mode_fn(sampler.address_mode_u, uv.x());
-          let correct_v = shader_address_mode_fn(sampler.address_mode_v, uv.y());
-          let uv: Node<Vec2<_>> = (correct_u, correct_v).into();
-
-          let load_position = texture_meta.offset + texture_meta.size * uv;
-          let max_load_position = texture_meta.offset + (texture_meta.size - val(Vec2::one()));
-
-          let base_sample_level = calculate_mip_level_fn(uv, texture_meta.size);
-          let max_mip_level = texture_meta.size.x().min(texture_meta.size.y()).log2();
-          let base_sample_level = base_sample_level.min(max_mip_level);
-
-          let use_mag_filter = base_sample_level.less_equal_than(val(0.));
-          let use_min_filter = use_mag_filter.not();
-
-          let should_use_linear = use_mag_filter
-            .and(sampler.mag_filter.equals(LINEAR))
-            .or(use_min_filter.and(sampler.min_filter.equals(LINEAR)));
-
-          let base_sample_level_filter_result = sample_texture_level_impl(
-            texture,
-            load_position,
-            max_load_position,
-            base_sample_level.into_u32(),
-            texture_meta.layer_index,
-            should_use_linear,
-          );
-
-          let next_sample_level = base_sample_level.ceil();
-
-          let use_mag_filter = next_sample_level.less_equal_than(val(0.));
-          let use_min_filter = use_mag_filter.not();
-
-          let should_use_linear = use_mag_filter
-            .and(sampler.mag_filter.equals(LINEAR))
-            .or(use_min_filter.and(sampler.min_filter.equals(LINEAR)));
-
-          let next_sample_level_filter_result = sample_texture_level_impl(
-            texture,
-            load_position,
-            max_load_position,
-            next_sample_level.into_u32(),
-            texture_meta.layer_index,
-            should_use_linear,
-          );
-
-          sampler
-            .mipmap_filter
-            .equals(NEAREST)
-            .select(val(1.), base_sample_level.fract())
-            .mix(
-              base_sample_level_filter_result,
-              next_sample_level_filter_result,
-            )
+          let sampler = samplers.0.index(shader_sampler_handle).load();
+          texture_pool_sample_impl_fn(texture, sampler, texture_meta, uv)
         },
       );
 
-    texture_meta
-      .require_srgb_to_linear_convert
+    TexturePoolTextureMeta::require_srgb_to_linear_convert(texture_meta)
       .into_bool()
       .select_branched(
         || {
@@ -478,6 +421,74 @@ impl AbstractIndirectGPUTextureSystem for TexturePool {
   }
 }
 
+// todo, the implementation is not optimal
+#[shader_fn]
+fn texture_pool_sample_impl(
+  texture: BindingNode<ShaderTexture2DArray>,
+  sampler: Node<TextureSamplerShaderInfo>,
+  texture_meta: Node<TexturePoolTextureMeta>,
+  uv: Node<Vec2<f32>>,
+) -> Node<Vec4<f32>> {
+  let texture_meta = texture_meta.expand();
+  let sampler = sampler.expand();
+
+  // todo, we should correct uv after the bilinear offset
+  let correct_u = shader_address_mode_fn(sampler.address_mode_u, uv.x());
+  let correct_v = shader_address_mode_fn(sampler.address_mode_v, uv.y());
+  let uv: Node<Vec2<_>> = (correct_u, correct_v).into();
+
+  let load_position = texture_meta.offset + texture_meta.size * uv;
+  let max_load_position = texture_meta.offset + (texture_meta.size - val(Vec2::one()));
+
+  let base_sample_level = calculate_mip_level_fn(uv, texture_meta.size);
+  let max_mip_level = texture_meta.size.x().min(texture_meta.size.y()).log2();
+  let base_sample_level = base_sample_level.min(max_mip_level);
+
+  let use_mag_filter = base_sample_level.less_equal_than(val(0.));
+  let use_min_filter = use_mag_filter.not();
+
+  let should_use_linear = use_mag_filter
+    .and(sampler.mag_filter.equals(LINEAR))
+    .or(use_min_filter.and(sampler.min_filter.equals(LINEAR)));
+
+  let base_sample_level_filter_result = sample_texture_level_impl_fn(
+    texture,
+    load_position,
+    max_load_position,
+    base_sample_level.into_u32(),
+    texture_meta.layer_index,
+    should_use_linear,
+  );
+
+  let next_sample_level = base_sample_level.ceil();
+
+  let use_mag_filter = next_sample_level.less_equal_than(val(0.));
+  let use_min_filter = use_mag_filter.not();
+
+  let should_use_linear = use_mag_filter
+    .and(sampler.mag_filter.equals(LINEAR))
+    .or(use_min_filter.and(sampler.min_filter.equals(LINEAR)));
+
+  let next_sample_level_filter_result = sample_texture_level_impl_fn(
+    texture,
+    load_position,
+    max_load_position,
+    next_sample_level.into_u32(),
+    texture_meta.layer_index,
+    should_use_linear,
+  );
+
+  sampler
+    .mipmap_filter
+    .equals(NEAREST)
+    .select(val(1.), base_sample_level.fract())
+    .mix(
+      base_sample_level_filter_result,
+      next_sample_level_filter_result,
+    )
+}
+
+#[shader_fn]
 fn sample_texture_level_impl(
   texture: BindingNode<ShaderTexture2DArray>,
   raw_load_position: Node<Vec2<f32>>, // in atlas coord space

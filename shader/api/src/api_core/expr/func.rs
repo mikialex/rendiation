@@ -120,7 +120,7 @@ impl<T: ShaderNodeType> FunctionBuildCtx<T> {
   }
 }
 
-// I do this because I don't know how to destruct T from Node<T> in proc macro syc ast, sad!
+// This util trait makes easy to extract T from Node<T> in proc macro syc ast.
 pub trait ProcMacroNodeHelper {
   type NodeType;
 }

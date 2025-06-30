@@ -9,7 +9,7 @@ The following things is the current project development direction.
 important issue is in bold style.
 
 - spd not support none pot target, and small target(the current impl will access out of boundary of image).
-- mipmap and multi format support in texture pool system
+- multi format support in texture pool system
 - bindless mesh does not support optional uv and normal attributes
 - optimize frame ctx "make_submit" call, use copy buffer to buffer to update.
 - support face side control
@@ -23,7 +23,7 @@ important issue is in bold style.
 - support material emissive larger than one
   - fix defer channel encode decode
   - fix gltf loader support
-- fix parallel compute hash issue(disable the clear cache in test runner)
+- fix parallel compute hash issue(disable the clear cache in test runner to reproduce this issue)
 - fix scene gpu lighting is globally shared in gles mode
 - fix some mesh can not be picked in cpu picking (maybe related to u16 index format)
 - fix missing blur pass in ssao
@@ -46,14 +46,12 @@ important issue is in bold style.
 - gpu driven occlusion culling, frustum culling
 - on_demand_draw
 - ssr(super naive)
-- fxaa
 - lod graph generation and rendering
 
 ### New features planed
 
 - physical camera
 - automatic exposure control
-- oit
 - good ssr
 - visibility rendering
 - cluster lighting optimization
@@ -73,6 +71,8 @@ important issue is in bold style.
 - reactive query support parallel updates
 - shader ptr should support rw convert to readonly
 - impl bind check for compute pass
+- support ptr in shader fn
+  - depend on naga unrestricted_pointer_parameters feature support?
 
 ### Need help issue
 
@@ -102,7 +102,7 @@ cargo run --bin viewer
 cargo run --release --bin viewer # run it in release mode
 ```
 
-run given test when debugging. this is useful to fast relanch same test in terminal.
+run given test when debugging. this is useful to fast relaunch same test in terminal.
 
 ```bash
 cargo t --package package_name test_name -- --nocapture
