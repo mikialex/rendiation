@@ -43,35 +43,109 @@ pub fn compute_hierarchy_depth_from_depth_texture(
   );
 }
 
-pub fn compute_hierarchy_depth_from_multi_sample_depth_texture(
-  input_multi_sampled_depth: &GPU2DMultiSampleDepthTextureView,
+///  Enlarge the output depth texture to make sure no depth info is discard.
+pub fn next_pot_sizer(size: Size) -> Size {
+  let (width, height) = size.into_usize();
+  let width = width.next_power_of_two();
+  let height = height.next_power_of_two();
+  Size::from_usize_pair_min_one((width, height))
+}
+
+pub fn compute_pot_enlarged_hierarchy_depth(
+  input_depth: GPUTextureView,
   output_target: &GPU2DTexture,
-  pass: &mut GPUComputePass,
+  cx: &mut FrameCtx,
   device: &GPUDevice,
   reverse_depth: bool,
 ) {
-  let internal = CommonTextureFastDownSamplingSource::new(
-    output_target,
-    |tex| Box::new(FirstChannelLoader(tex)),
-    |tex| Box::new(SplatWriter(tex)),
+  assert_eq!(
+    input_depth.resource.desc.format,
+    TextureFormat::Depth32Float
   );
+  assert_eq!(output_target.desc.sample_count, 1);
+  assert_eq!(output_target.desc.format, TextureFormat::R32Float);
+  let size = next_pot_sizer(input_depth.size_assume_2d());
+  assert_eq!(size.width_usize() as u32, output_target.width());
+  assert_eq!(size.height_usize() as u32, output_target.height());
 
-  fast_down_sampling(
-    depth_reducer(reverse_depth),
-    &MsaaDepthFastDownSamplingSource {
-      source: input_multi_sampled_depth.clone(),
-      first_pass_base_write: internal
-        .base
-        .clone()
-        .texture
-        .into_storage_texture_view_writeonly()
-        .unwrap(),
-      internal,
-      reverse_depth,
-    },
-    pass,
-    device,
-  );
+  if input_depth.resource.desc.sample_count == 1 {
+    // do a full frame copy from the input.
+    // todo, this can be improved to save bandwidth cost like how we did in multi sample
+
+    pub struct CopyDepthFrame {
+      source: GPU2DDepthTextureView,
+    }
+
+    impl ShaderHashProvider for CopyDepthFrame {
+      shader_hash_type_id! {}
+    }
+
+    impl ShaderPassBuilder for CopyDepthFrame {
+      fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+        ctx.binding.bind(&self.source);
+      }
+    }
+
+    impl GraphicsShaderProvider for CopyDepthFrame {
+      fn build(&self, builder: &mut rendiation_shader_api::ShaderRenderPipelineBuilder) {
+        builder.fragment(|builder, binding| {
+          let source = binding.bind_by(&self.source);
+
+          let position = builder.query::<FragmentPosition>().into_u32().xy();
+          let value: Node<f32> = source.load_texel(position, val(0));
+          builder.store_fragment_out(0, value)
+        })
+      }
+    }
+
+    let output_target_base = output_target.create_view(TextureViewDescriptor {
+      mip_level_count: Some(1),
+      ..Default::default()
+    });
+
+    pass("copy depth to hierarchy depth base")
+      .with_color(
+        &RenderTargetView::Texture(output_target_base.clone()),
+        load_and_store(),
+      )
+      .render_ctx(cx)
+      .by(
+        &mut CopyDepthFrame {
+          source: input_depth.try_into().unwrap(),
+        }
+        .draw_quad(),
+      );
+
+    let mut pass = cx.encoder.begin_compute_pass();
+
+    compute_hierarchy_depth_from_depth_texture(&mut pass, device, output_target, reverse_depth);
+  } else {
+    let input_depth = GPU2DMultiSampleDepthTextureView::try_from(input_depth).unwrap();
+
+    let internal = CommonTextureFastDownSamplingSource::new(
+      output_target,
+      |tex| Box::new(FirstChannelLoader(tex)),
+      |tex| Box::new(SplatWriter(tex)),
+    );
+
+    let mut pass = cx.encoder.begin_compute_pass();
+    fast_down_sampling(
+      depth_reducer(reverse_depth),
+      &MsaaDepthFastDownSamplingSource {
+        source: input_depth.clone(),
+        first_pass_base_write: internal
+          .base
+          .clone()
+          .texture
+          .into_storage_texture_view_writeonly()
+          .unwrap(),
+        internal,
+        reverse_depth,
+      },
+      &mut pass,
+      device,
+    );
+  }
 
   struct MsaaDepthFastDownSamplingSource {
     source: GPU2DMultiSampleDepthTextureView,

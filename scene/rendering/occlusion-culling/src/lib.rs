@@ -12,14 +12,6 @@ use filter::*;
 mod occlusion_test;
 use occlusion_test::*;
 
-// todo, use it to enlarge the output depth texture to make sure no depth info is discard.
-pub fn next_pot_sizer(size: Size) -> Size {
-  let (width, height) = size.into_usize();
-  let width = width.next_power_of_two();
-  let height = height.next_power_of_two();
-  Size::from_usize_pair_min_one((width, height))
-}
-
 pub struct GPUTwoPassOcclusionCulling {
   max_scene_model_id: usize,
   last_frame_visibility: FastHashMap<u32, StorageBufferDataView<[Bool]>>,
@@ -47,14 +39,10 @@ impl GPUTwoPassOcclusionCulling {
   ///
   /// mix used view key for different view will reduce culling efficiency
   ///
-  /// the target's depth must be multi sampled.
-  ///
   /// the input batch should be reorderable
   ///
   /// the preflight_content is used to support draw background without initialize another pass.
   /// the return the render pass is used to support subsequent draw without initialize another pass.
-  ///
-  /// todo, support single sampled depth
   pub fn draw(
     &mut self,
     frame_ctx: &mut FrameCtx,
@@ -104,10 +92,9 @@ impl GPUTwoPassOcclusionCulling {
 
     // then generate depth pyramid for the occluder
     let (_, depth) = target.depth_stencil_target.clone().unwrap();
-    let size = depth.size();
+    let size = next_pot_sizer(depth.size());
 
     let depth = depth.expect_standalone_common_texture_view().clone();
-    let depth = GPU2DMultiSampleDepthTextureView::try_from(depth).unwrap();
 
     let required_mip_level_count = MipLevelCount::BySize.get_level_count_wgpu(size);
     if let Some(cache) = self.depth_pyramid_cache.get(&view_key) {
@@ -125,27 +112,25 @@ impl GPUTwoPassOcclusionCulling {
           mip_level_count: required_mip_level_count,
           sample_count: 1,
           dimension: TextureDimension::D2,
-          format: TextureFormat::Depth32Float,
+          format: TextureFormat::R32Float, // depth 32 float can not been used in storage texture binding.
           view_formats: &[],
-          usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
+          usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT | TextureUsages::STORAGE_BINDING,
         },
         &frame_ctx.gpu.device,
       );
       GPU2DTexture::try_from(tex).unwrap()
     });
 
-    let mut compute_pass = frame_ctx.encoder.begin_compute_pass();
-
-    compute_hierarchy_depth_from_multi_sample_depth_texture(
-      &depth,
+    compute_pot_enlarged_hierarchy_depth(
+      depth,
       pyramid,
-      &mut compute_pass,
+      frame_ctx,
       &frame_ctx.gpu.device,
       reverse_depth,
     );
 
     let pyramid = pyramid.create_default_view();
-    let pyramid = GPU2DDepthTextureView::try_from(pyramid).unwrap();
+    let pyramid = GPU2DTextureView::try_from(pyramid).unwrap();
 
     let occlusion_culler = frame_ctx.access_parallel_compute(|cx| {
       test_and_update_last_frame_visibility_use_all_passed_batch_and_return_culler(

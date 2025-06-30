@@ -53,7 +53,7 @@ impl Viewer3dRenderingCtx {
       });
     });
 
-    let is_target_support_indirect_draw = true; // todo, check pure gles platform
+    let is_target_support_indirect_draw = self.gpu.info.downgrade_info.is_webgpu_compliant();
 
     egui::ComboBox::from_label("RasterizationRender Backend")
       .selected_text(format!("{:?}", &self.current_renderer_impl_ty))
@@ -133,13 +133,27 @@ impl Viewer3dRenderingCtx {
 
     ui.separator();
 
-    ui.add_enabled_ui(is_target_support_indirect_draw, |ui| {
-      ui.checkbox(
-        &mut self.enable_indirect_occlusion_culling_support,
-        "occlusion_culling_system_is_ready",
-      )
-      .on_disabled_hover_text("current platform/gpu does not support gpu driven occlusion culling");
-    });
+    let message = if !is_target_support_indirect_draw {
+      "current platform/gpu does not support gpu driven occlusion culling"
+    } else if is_target_support_indirect_draw
+      && self.current_renderer_impl_ty != RasterizationRenderBackendType::Indirect
+    {
+      self.enable_indirect_occlusion_culling_support = false;
+      "gpu driven occlusion culling is not enabled because gpu driven rendering is not enabled"
+    } else {
+      ""
+    };
+
+    ui.add_enabled_ui(
+      self.current_renderer_impl_ty == RasterizationRenderBackendType::Indirect,
+      |ui| {
+        ui.checkbox(
+          &mut self.enable_indirect_occlusion_culling_support,
+          "occlusion_culling_system_is_ready",
+        )
+        .on_disabled_hover_text(message);
+      },
+    );
 
     ui.add_enabled_ui(true, |ui| {
       ui.checkbox(&mut self.rtx_renderer_enabled, "rtx_renderer_is_ready");

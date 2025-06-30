@@ -87,12 +87,12 @@ impl PartialEq for TexturePool2dSource {
 
 pub struct TexturePoolSource {
   texture: Option<GPU2DArrayTextureView>,
-  address: ReactiveStorageBufferContainer<TexturePoolTextureMeta>,
-  samplers: ReactiveStorageBufferContainer<TextureSamplerShaderInfo>,
   tex_input: RQForker<Texture2DHandle, TexturePool2dSource>,
   packing: BoxedDynReactiveQuery<Texture2DHandle, PackResult2dWithDepth>,
   atlas_resize: Box<dyn Stream<Item = SizeWithDepth> + Unpin>,
   format: TextureFormat,
+  address: ReactiveStorageBufferContainer<TexturePoolTextureMeta>,
+  samplers: ReactiveStorageBufferContainer<TextureSamplerShaderInfo>,
   gpu: GPU,
 }
 

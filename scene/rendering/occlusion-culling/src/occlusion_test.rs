@@ -2,7 +2,7 @@ use crate::*;
 
 pub fn test_and_update_last_frame_visibility_use_all_passed_batch_and_return_culler(
   cx: &mut DeviceParallelComputeCtx,
-  depth_pyramid: &GPU2DDepthTextureView,
+  depth_pyramid: &GPU2DTextureView,
   last_frame_visibility: StorageBufferDataView<[Bool]>,
   camera_view_proj: &UniformBufferDataView<Mat4<f32>>,
   bounding_provider: Box<dyn DrawUnitWorldBoundingProvider>,
@@ -56,7 +56,7 @@ pub fn test_and_update_last_frame_visibility_use_all_passed_batch_and_return_cul
 
 #[derive(Clone)]
 struct OcclusionTester {
-  depth_pyramid: GPU2DDepthTextureView,
+  depth_pyramid: GPU2DTextureView,
   last_frame_visibility: StorageBufferDataView<[Bool]>,
   view_projection: UniformBufferDataView<Mat4<f32>>,
   bounding_provider: Box<dyn DrawUnitWorldBoundingProvider>,
@@ -88,7 +88,7 @@ impl AbstractCullerProvider for OcclusionTester {
 }
 
 struct OcclusionTesterInvocation {
-  depth: BindingNode<ShaderDepthTexture2D>,
+  depth: BindingNode<ShaderTexture2D>,
   view_projection: ShaderReadonlyPtrOf<Mat4<f32>>,
   bounding_provider: Box<dyn DrawUnitWorldBoundingInvocationProvider>,
   last_frame_visibility: ShaderPtrOf<[Bool]>,
@@ -187,10 +187,10 @@ impl OcclusionTesterInvocation {
     let r_x = (l_x + val(1)).clamp(val(0), limit_x);
     let b_y = (t_y + val(1)).clamp(val(0), limit_y);
 
-    let d_0 = self.depth.load_texel((l_x, t_y).into(), mip_level);
-    let d_1 = self.depth.load_texel((r_x, t_y).into(), mip_level);
-    let d_2 = self.depth.load_texel((l_x, b_y).into(), mip_level);
-    let d_3 = self.depth.load_texel((r_x, b_y).into(), mip_level);
+    let d_0 = self.depth.load_texel((l_x, t_y).into(), mip_level).x();
+    let d_1 = self.depth.load_texel((r_x, t_y).into(), mip_level).x();
+    let d_2 = self.depth.load_texel((l_x, b_y).into(), mip_level).x();
+    let d_3 = self.depth.load_texel((r_x, b_y).into(), mip_level).x();
 
     let max_depth = d_0.max(d_1).max(d_2).max(d_3);
     min_z.load().greater_than(max_depth)
