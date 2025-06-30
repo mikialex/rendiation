@@ -49,7 +49,7 @@ impl GPUTwoPassOcclusionCulling {
     view_key: u32,
     batch: &DeviceSceneModelRenderBatch,
     target: RenderPassDescription,
-    preflight_content: impl FnOnce(ActiveRenderPass) -> ActiveRenderPass,
+    preflight_content: &mut dyn FnMut(ActiveRenderPass) -> ActiveRenderPass,
     scene_renderer: &dyn SceneRenderer<ContentKey = SceneContentKey>,
     camera: &dyn RenderComponent,
     camera_view_proj: &UniformBufferDataView<Mat4<f32>>,

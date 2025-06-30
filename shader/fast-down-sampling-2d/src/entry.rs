@@ -72,7 +72,7 @@ pub fn compute_pot_enlarged_hierarchy_depth(
     // do a full frame copy from the input.
     // todo, this can be improved to save bandwidth cost like how we did in multi sample
 
-    pub struct CopyDepthFrame {
+    struct CopyDepthFrame {
       source: GPU2DDepthTextureView,
     }
 

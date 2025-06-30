@@ -106,7 +106,7 @@ pub fn render_lighting_scene_content(
               scene_pass_dispatcher,
               main_camera_gpu,
               content.main_camera,
-              |pass| pass.by(&mut background),
+              &mut |pass| pass.by(&mut background),
               pass_base,
               all_opaque_object,
             )
@@ -119,7 +119,7 @@ pub fn render_lighting_scene_content(
             scene_pass_dispatcher,
             main_camera_gpu,
             content.main_camera,
-            |pass| pass.by(&mut background),
+            &mut |pass| pass.by(&mut background),
             pass_base.clone(),
             all_opaque_object,
           );
@@ -147,7 +147,7 @@ pub fn render_lighting_scene_content(
             scene_pass_dispatcher,
             main_camera_gpu,
             content.main_camera,
-            |pass| pass.by(&mut background),
+            &mut |pass| pass.by(&mut background),
             pass_base.clone(),
             all_opaque_object,
           );
@@ -196,7 +196,7 @@ pub fn render_lighting_scene_content(
         scene_pass_dispatcher,
         main_camera_gpu,
         content.main_camera,
-        |pass| pass,
+        &mut |pass| pass,
         pass_base,
         main_scene_content,
       );
