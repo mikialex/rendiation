@@ -11,6 +11,7 @@ rendiation-webgpu = { path = "../webgpu" }
 fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 parking_lot = { workspace = true }
 dyn-clone = { workspace = true }
+bytemuck = { workspace = true }
 
 [lints]
 workspace = true

@@ -12,19 +12,166 @@ use rendiation_webgpu::*;
 pub struct TextureAsReadonlyStorageBuffer<T> {
   phantom: PhantomData<T>,
   texture: GPUTypedTextureView<TextureDimension2, u32>,
-  ty: ShaderValueSingleType,
+  ty_desc: MaybeUnsizedValueType,
 }
 
 impl<T> TextureAsReadonlyStorageBuffer<T>
 where
   T: Std430MaybeUnsized + ShaderSizedValueNodeType,
 {
-  pub fn new(init: StorageBufferInit<T>, gpu: &GPU) -> Self {
-    // let buffer_init = init.into_buffer_init();
+  pub fn new(ty_desc: MaybeUnsizedValueType, init_u32_size: u32, gpu: &GPU) -> Self {
+    // todo, check init_u32_size is valid
+    let max_width = gpu.info.supported_limits.max_texture_dimension_2d;
+    let required_size = init_u32_size + 1; // add one for storage array length info
+    let height = required_size.div_ceil(max_width);
 
-    // gpu.device.create_texture(desc)
-    // todo, check u32 length is valid
-    todo!()
+    let texture = GPUTexture::create(
+      TextureDescriptor {
+        label: None,
+        size: Extent3d {
+          width: max_width,
+          height,
+          depth_or_array_layers: 1,
+        },
+        mip_level_count: 0,
+        sample_count: 1,
+        dimension: TextureDimension::D2,
+        format: TextureFormat::R32Uint,
+        usage: basic_texture_usages(),
+        view_formats: &[],
+      },
+      &gpu.device,
+    );
+
+    let r = Self {
+      phantom: PhantomData,
+      texture: texture.create_default_view().try_into().unwrap(),
+      ty_desc,
+    };
+
+    if let MaybeUnsizedValueType::Unsized(ShaderUnSizedValueType::UnsizedArray(ty)) = &r.ty_desc {
+      let size = ty.u32_size_count(StructLayoutTarget::Std430);
+      r.write(gpu, &[size], init_u32_size / size);
+    }
+
+    r
+  }
+
+  /// ```txt
+  /// xxxxxoooo  <- head
+  /// ooooooooo  <- body (maybe multi row)
+  /// ooooooooo  <--|
+  /// oooooxxxx. <- tail
+  /// ```
+  pub fn write(&self, gpu: &GPU, data: &[u32], offset: u32) {
+    let width = self.texture.resource.desc.size.width;
+    let start_x = offset % width;
+    let start_y = offset / width;
+
+    let end = offset + data.len() as u32;
+    let end_x = end % width;
+    let end_y = end / width;
+
+    let has_head = start_x != 0;
+    let has_tail = end_x != 0;
+    let has_body = start_y + 1 != end_y;
+
+    let first_row_len = (width - start_x) as usize;
+    let last_row_len = end_x as usize;
+
+    if has_head {
+      copy_within_row(
+        gpu,
+        &self.texture.resource,
+        data.get(0..first_row_len).unwrap(),
+        start_y,
+        start_x,
+        offset,
+      );
+    }
+
+    if has_body {
+      let bytes_per_row = self
+        .texture
+        .resource
+        .desc
+        .format
+        .block_copy_size(None)
+        .unwrap()
+        * width;
+
+      gpu.queue.write_texture(
+        TexelCopyTextureInfo {
+          texture: self.texture.resource.gpu_resource(),
+          mip_level: 0,
+          origin: Origin3d {
+            x: 0,
+            y: start_y + 1,
+            z: 0,
+          },
+          aspect: TextureAspect::All,
+        },
+        bytemuck::cast_slice(
+          data
+            .get(first_row_len..(data.len() - last_row_len))
+            .unwrap(),
+        ),
+        TexelCopyBufferLayout {
+          offset: (offset + (width - start_x)) as u64,
+          bytes_per_row: Some(bytes_per_row),
+          rows_per_image: None, // single image
+        },
+        Extent3d {
+          width: data.len() as u32,
+          height: 1,
+          depth_or_array_layers: 1,
+        },
+      );
+    }
+
+    if has_tail {
+      copy_within_row(
+        gpu,
+        &self.texture.resource,
+        data.get((data.len() - last_row_len)..data.len()).unwrap(),
+        end_y,
+        0,
+        offset + data.len() as u32 - end_x,
+      );
+    }
+
+    fn copy_within_row(
+      gpu: &GPU,
+      tex: &GPUTexture,
+      data: &[u32],
+      row: u32,
+      row_start: u32,
+      offset: u32,
+    ) {
+      gpu.queue.write_texture(
+        TexelCopyTextureInfo {
+          texture: tex.gpu_resource(),
+          mip_level: 0,
+          origin: Origin3d {
+            x: row_start,
+            y: row,
+            z: 0,
+          },
+          aspect: TextureAspect::All,
+        },
+        bytemuck::cast_slice(data),
+        TexelCopyBufferLayout {
+          offset: offset as u64,
+          bytes_per_row: None,  // single row
+          rows_per_image: None, // single image
+        },
+        Extent3d {
+          width: data.len() as u32,
+          height: 1,
+          depth_or_array_layers: 1,
+        },
+      );
+    }
   }
 
   pub fn build_shader(&self, bind_builder: &mut ShaderBindGroupBuilder) -> ShaderReadonlyPtrOf<T> {
@@ -36,7 +183,7 @@ where
         ))),
         offset: val(0),
       },
-      ty: self.ty.clone(),
+      ty: self.ty_desc.clone().into_shader_single_ty(),
       bind_index: val(0),
       meta: Arc::new(RwLock::new(ShaderU32StructMetaData::new(
         StructLayoutTarget::Std430,

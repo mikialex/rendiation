@@ -4089,6 +4089,7 @@ dependencies = [
 name = "rendiation-texture-as-buffer"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
  "dyn-clone",
  "fast-hash-collection",
  "parking_lot",
