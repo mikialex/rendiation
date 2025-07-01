@@ -61,7 +61,7 @@ where
 pub struct U32HeapPtrWithType {
   pub ptr: U32HeapPtr,
   pub ty: ShaderValueSingleType,
-  pub bind_index: Node<u32>,
+  pub bind_index: Node<u32>, // todo, consider move to other place
   pub meta: Arc<RwLock<ShaderU32StructMetaData>>,
 }
 

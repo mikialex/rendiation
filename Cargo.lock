@@ -4086,6 +4086,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-texture-as-buffer"
+version = "0.1.0"
+dependencies = [
+ "dyn-clone",
+ "fast-hash-collection",
+ "parking_lot",
+ "rendiation-shader-api",
+ "rendiation-webgpu",
+]
+
+[[package]]
 name = "rendiation-texture-core"
 version = "0.1.0"
 dependencies = [
