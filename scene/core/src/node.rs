@@ -56,11 +56,12 @@ pub fn scene_node_derive_visible(
 
 #[global_registered_query]
 pub fn scene_node_derive_world_mat(
-) -> impl ReactiveQuery<Key = EntityHandle<SceneNodeEntity>, Value = Mat4<f32>> {
+) -> impl ReactiveQuery<Key = EntityHandle<SceneNodeEntity>, Value = Mat4<f64>> {
   tree_payload_derive_by_parent_decide_children(
     Box::new(scene_node_connectivity_many_one_relation()),
     global_watch()
       .watch::<SceneNodeLocalMatrixComponent>()
+      .collective_map(|v| v.map(|v| v as f64))
       .into_boxed(),
     |this, parent| parent.map(|p| *p * *this).unwrap_or(*this),
   )

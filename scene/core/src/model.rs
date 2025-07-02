@@ -97,7 +97,7 @@ impl StandardModelDataView {
 }
 
 pub fn scene_model_world_bounding(
-) -> impl ReactiveQuery<Key = EntityHandle<SceneModelEntity>, Value = Box3> {
+) -> impl ReactiveQuery<Key = EntityHandle<SceneModelEntity>, Value = Box3<f64>> {
   let mesh_local_bounding = attribute_mesh_local_bounding();
   let node_world_mat = scene_node_derive_world_mat();
 
@@ -112,5 +112,8 @@ pub fn scene_model_world_bounding(
 
   scene_model_world_mat
     .collective_intersect(scene_model_local_bounding)
-    .collective_map(|(mat, local)| local.apply_matrix_into(mat))
+    .collective_map(|(mat, local)| {
+      let f64_box = Box3::new(local.min.map(|v| v as f64), local.max.map(|v| v as f64));
+      f64_box.apply_matrix_into(mat)
+    })
 }

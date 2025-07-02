@@ -44,19 +44,19 @@ pub struct CameraTransform {
   pub projection: Mat4<f32>,
   pub projection_inv: Mat4<f32>,
 
-  pub rotation: Mat4<f32>,
+  pub rotation: Mat4<f64>,
 
-  pub view: Mat4<f32>,
-  pub world: Mat4<f32>,
+  pub view: Mat4<f64>,
+  pub world: Mat4<f64>,
 
-  pub view_projection: Mat4<f32>,
-  pub view_projection_inv: Mat4<f32>,
+  pub view_projection: Mat4<f64>,
+  pub view_projection_inv: Mat4<f64>,
 }
 
 impl CameraTransform {
-  pub fn new(proj: Mat4<f32>, world: Mat4<f32>) -> Self {
+  pub fn new(proj: Mat4<f32>, world: Mat4<f64>) -> Self {
     let view = world.inverse_or_identity();
-    let view_projection = proj * view;
+    let view_projection = proj.map(|v| v as f64) * view;
     CameraTransform {
       world,
       view,
