@@ -74,9 +74,13 @@ impl<T: Scalar> ContainAble<T, Vec3<T>, 3> for Frustum<T> {
   }
 }
 
-intersect_reverse!(Sphere, bool, (), Frustum);
-impl IntersectAble<Sphere, bool> for Frustum {
-  fn intersect(&self, sphere: &Sphere, _: &()) -> bool {
+impl<T: Scalar> IntersectAble<Frustum<T>, bool, ()> for Sphere<T> {
+  fn intersect(&self, other: &Frustum<T>, p: &()) -> bool {
+    IntersectAble::<Sphere<T>, bool, ()>::intersect(other, self, p)
+  }
+}
+impl<T: Scalar> IntersectAble<Sphere<T>, bool> for Frustum<T> {
+  fn intersect(&self, sphere: &Sphere<T>, _: &()) -> bool {
     let neg_radius = -sphere.radius;
 
     for p in &self.planes {
@@ -90,11 +94,15 @@ impl IntersectAble<Sphere, bool> for Frustum {
   }
 }
 
-intersect_reverse!(Box3, bool, (), Frustum);
-impl IntersectAble<Box3, bool> for Frustum {
-  fn intersect(&self, box3: &Box3, _: &()) -> bool {
+impl<T: Scalar> IntersectAble<Frustum<T>, bool, ()> for Box3<T> {
+  fn intersect(&self, other: &Frustum<T>, p: &()) -> bool {
+    IntersectAble::<Box3<T>, bool, ()>::intersect(other, self, p)
+  }
+}
+impl<T: Scalar> IntersectAble<Box3<T>, bool> for Frustum<T> {
+  fn intersect(&self, box3: &Box3<T>, _: &()) -> bool {
     for p in &self.planes {
-      if p.distance_to(&box3.max_corner(*p.normal)) < 0. {
+      if p.distance_to(&box3.max_corner(*p.normal)) < T::zero() {
         return false;
       }
     }

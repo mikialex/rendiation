@@ -8,18 +8,18 @@ pub enum AxisType {
 }
 
 impl AxisType {
-  pub fn dir(&self) -> Vec3<f32> {
+  pub fn dir(&self) -> Vec3<f64> {
     match self {
       AxisType::X => Vec3::new(1., 0., 0.),
       AxisType::Y => Vec3::new(0., 1., 0.),
       AxisType::Z => Vec3::new(0., 0., 1.),
     }
   }
-  pub fn mat(&self) -> Mat4<f32> {
+  pub fn mat(&self) -> Mat4<f64> {
     match self {
-      AxisType::X => Mat4::rotate_z(-f32::PI() / 2.),
+      AxisType::X => Mat4::rotate_z(-f64::PI() / 2.),
       AxisType::Y => Mat4::identity(),
-      AxisType::Z => Mat4::rotate_x(f32::PI() / 2.),
+      AxisType::Z => Mat4::rotate_x(f64::PI() / 2.),
     }
   }
 }

@@ -11,9 +11,9 @@ pub struct UIWidgetModel {
 pub struct UiWidgetModelResponse {
   pub mouse_entering: bool,
   pub mouse_leave: bool,
-  pub mouse_hovering: Option<HitPoint3D>,
-  pub mouse_down: Option<HitPoint3D>,
-  pub mouse_click: Option<HitPoint3D>,
+  pub mouse_hovering: Option<HitPoint3D<f64>>,
+  pub mouse_down: Option<HitPoint3D<f64>>,
+  pub mouse_click: Option<HitPoint3D<f64>>,
 }
 
 impl UIWidgetModel {
@@ -67,14 +67,14 @@ impl UIWidgetModel {
     self
   }
 
-  pub fn set_matrix(&mut self, cx3d: &mut SceneWriter, mat: Mat4<f32>) -> &mut Self {
+  pub fn set_matrix(&mut self, cx3d: &mut SceneWriter, mat: Mat4<f64>) -> &mut Self {
     cx3d
       .node_writer
       .write::<SceneNodeLocalMatrixComponent>(self.node, mat);
     self
   }
   /// find a macro to do this!
-  pub fn with_matrix(mut self, cx3d: &mut SceneWriter, mat: Mat4<f32>) -> Self {
+  pub fn with_matrix(mut self, cx3d: &mut SceneWriter, mat: Mat4<f64>) -> Self {
     self.set_matrix(cx3d, mat);
     self
   }

@@ -2,10 +2,15 @@ use crate::*;
 
 declare_entity!(SceneNodeEntity);
 declare_component!(SceneNodeParentIdx, SceneNodeEntity, Option<RawEntityHandle>);
+
+// using f64 float for better precision(at least for computing)
+//
+// currently the render precision is still based on f32 around origin (0, 0, 0).
+// in the future, the render precision will based on f32 around camera, and the position precision will be preserved.
 declare_component!(
   SceneNodeLocalMatrixComponent,
   SceneNodeEntity,
-  Mat4<f32>,
+  Mat4<f64>,
   Mat4::identity()
 );
 declare_component!(SceneNodeVisibleComponent, SceneNodeEntity, bool, true);
@@ -19,7 +24,7 @@ pub fn register_scene_node_data_model() {
 
 pub struct SceneNodeDataView {
   pub visible: bool,
-  pub local_matrix: Mat4<f32>,
+  pub local_matrix: Mat4<f64>,
   pub parent: Option<RawEntityHandle>,
 }
 
@@ -61,7 +66,6 @@ pub fn scene_node_derive_world_mat(
     Box::new(scene_node_connectivity_many_one_relation()),
     global_watch()
       .watch::<SceneNodeLocalMatrixComponent>()
-      .collective_map(|v| v.map(|v| v as f64))
       .into_boxed(),
     |this, parent| parent.map(|p| *p * *this).unwrap_or(*this),
   )

@@ -74,7 +74,7 @@ fn use_plane_model(cx: &mut UI3dCx, axis: AxisType) {
     use_axis_interactive_model(cx, axis, |axis| {
       let plane_scale = Mat4::scale(Vec3::splat(0.4));
       let plane_move = Vec3::splat(1.3);
-      let degree_90 = f32::PI() / 2.;
+      let degree_90 = f64::PI() / 2.;
 
       let move_dir = Vec3::one() - axis.dir();
       let move_mat = Mat4::translate(move_dir * plane_move);
@@ -104,7 +104,7 @@ fn handle_translating(
   target: &GizmoControlTargetState,
   axis: &AxisActiveState,
   action: &DragTargetAction,
-) -> Option<Mat4<f32>> {
+) -> Option<Mat4<f64>> {
   let camera_world_position = action.camera_world.position();
 
   let back_to_local = target.target_world_mat.inverse()?;
@@ -123,7 +123,7 @@ fn handle_translating(
   } else {
     None
   }
-  .map(|axis: Vec3<f32>| {
+  .map(|axis: Vec3<f64>| {
     let helper_dir = axis.cross(view_dir_in_local);
     let normal = helper_dir.cross(axis);
     (
@@ -141,7 +141,7 @@ fn handle_translating(
     } else {
       None
     }
-    .map(|normal: Vec3<f32>| {
+    .map(|normal: Vec3<f64>| {
       (
         Plane::from_normal_and_plane_point(normal, plane_point),
         Vec3::one() - normal,
@@ -161,7 +161,7 @@ fn handle_translating(
     // M(local_rotate) * M(local_scale) * start_hit_local_position  => new_local_translate =
     // M-1(parent) * new_hit_world - M(local_rotate) * M(local_scale) * start_hit_local_position
 
-    let new_local_translate = states.start_parent_world_mat.inverse()? * new_hit_world
+    let new_local_translate = (states.start_parent_world_mat.inverse()? * new_hit_world)
       - Mat4::from(states.start_local_quaternion)
         * Mat4::scale(states.start_local_scale)
         * states.start_hit_local_position;

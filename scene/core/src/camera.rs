@@ -71,9 +71,12 @@ impl CameraTransform {
 }
 
 /// normalized_position: -1 to 1
-pub fn cast_world_ray(view_projection_inv: Mat4<f32>, normalized_position: Vec2<f32>) -> Ray3<f32> {
-  let start = Vec3::new(normalized_position.x, normalized_position.y, -1.0);
-  let end = Vec3::new(normalized_position.x, normalized_position.y, 1.0);
+pub fn cast_world_ray<T: Scalar>(
+  view_projection_inv: Mat4<T>,
+  normalized_position: Vec2<T>,
+) -> Ray3<T> {
+  let start = Vec3::new(normalized_position.x, normalized_position.y, -T::one());
+  let end = Vec3::new(normalized_position.x, normalized_position.y, T::one());
 
   let world_start = view_projection_inv * start;
   let world_end = view_projection_inv * end;

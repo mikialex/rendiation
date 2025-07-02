@@ -127,6 +127,15 @@ impl<T> Quat<T>
 where
   T: Scalar,
 {
+  pub fn map<X>(self, f: impl Fn(T) -> X) -> Quat<X> {
+    Quat {
+      x: f(self.x),
+      y: f(self.y),
+      z: f(self.z),
+      w: f(self.w),
+    }
+  }
+
   pub fn rotation_x(theta: T) -> Self {
     let theta_half = theta * T::half();
 

@@ -75,7 +75,7 @@ pub fn map_draw_mode(mode: gltf::mesh::Mode) -> Option<PrimitiveTopology> {
   .into()
 }
 
-pub fn map_transform(t: gltf::scene::Transform) -> Mat4<f32> {
+pub fn map_transform(t: gltf::scene::Transform) -> Mat4<f64> {
   match t {
     gltf::scene::Transform::Matrix { matrix } => {
       Mat4::new_from_column(matrix[0], matrix[1], matrix[2], matrix[3])
@@ -86,6 +86,7 @@ pub fn map_transform(t: gltf::scene::Transform) -> Mat4<f32> {
       scale,
     } => Mat4::translate(translation) * Mat4::from(Quat::from(rotation)) * Mat4::scale(scale),
   }
+  .map(|v| v as f64)
 }
 
 pub fn map_attribute_semantic(a: gltf::Semantic) -> AttributeSemantic {

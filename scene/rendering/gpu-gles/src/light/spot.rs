@@ -39,11 +39,11 @@ pub fn spot_uniform_array(gpu: &GPU) -> UniformArrayUpdateContainer<SpotLightUni
 
   let position = world
     .clone()
-    .collective_map(|mat| mat.position())
+    .collective_map(|mat| mat.position().map(|v| v as f32))
     .into_query_update_uniform_array(offset_of!(SpotLightUniform, position), gpu);
 
   let direction = world
-    .collective_map(|mat| mat.forward().reverse().normalize())
+    .collective_map(|mat| mat.forward().reverse().normalize().map(|v| v as f32))
     .into_query_update_uniform_array(offset_of!(SpotLightUniform, direction), gpu);
 
   UniformArrayUpdateContainer::new(buffer)

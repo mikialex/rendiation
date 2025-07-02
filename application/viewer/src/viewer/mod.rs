@@ -26,7 +26,7 @@ pub use test_content::*;
 mod rendering;
 pub use rendering::*;
 
-pub const UP: Vec3<f32> = Vec3::new(0., 1., 0.);
+pub const UP: Vec3<f64> = Vec3::new(0., 1., 0.);
 
 pub struct ViewerCx<'a> {
   pub viewer: &'a mut Viewer,
@@ -384,13 +384,13 @@ pub struct Viewer3dSceneCtx {
 }
 
 pub struct Viewer3dSceneDeriveSource {
-  pub world_mat: RQForker<EntityHandle<SceneNodeEntity>, Mat4<f32>>,
+  pub world_mat: RQForker<EntityHandle<SceneNodeEntity>, Mat4<f64>>,
   pub node_net_visible: BoxedDynReactiveQuery<EntityHandle<SceneNodeEntity>, bool>,
   pub camera_transforms: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
   pub mesh_vertex_ref:
     RevRefOfForeignKeyWatch<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>,
   pub sm_to_s: RevRefOfForeignKeyWatch<SceneModelBelongsToScene>,
-  pub sm_world_bounding: BoxedDynReactiveQuery<EntityHandle<SceneModelEntity>, Box3<f32>>,
+  pub sm_world_bounding: BoxedDynReactiveQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
   pub node_children:
     BoxedDynReactiveOneToManyRelation<EntityHandle<SceneNodeEntity>, EntityHandle<SceneNodeEntity>>,
 }
@@ -424,14 +424,14 @@ impl Viewer3dSceneDeriveSource {
 /// used in render & scene update
 #[derive(Clone)]
 pub struct Viewer3dSceneDerive {
-  pub world_mat: BoxedDynQuery<EntityHandle<SceneNodeEntity>, Mat4<f32>>,
+  pub world_mat: BoxedDynQuery<EntityHandle<SceneNodeEntity>, Mat4<f64>>,
   pub node_net_visible: BoxedDynQuery<EntityHandle<SceneNodeEntity>, bool>,
   pub node_children:
     BoxedDynMultiQuery<EntityHandle<SceneNodeEntity>, EntityHandle<SceneNodeEntity>>,
   pub camera_transforms: BoxedDynQuery<EntityHandle<SceneCameraEntity>, CameraTransform>,
   pub mesh_vertex_ref:
     RevRefOfForeignKey<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>,
-  pub sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f32>>,
+  pub sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
   pub sm_to_s: RevRefOfForeignKey<SceneModelBelongsToScene>,
 }
 
@@ -456,17 +456,17 @@ pub fn create_widget_cx(
 }
 
 struct WidgetEnvAccessImpl {
-  world_mat: BoxedDynQuery<EntityHandle<SceneNodeEntity>, Mat4<f32>>,
+  world_mat: BoxedDynQuery<EntityHandle<SceneNodeEntity>, Mat4<f64>>,
   camera_node: EntityHandle<SceneNodeEntity>,
   camera_proj: PerspectiveProjection<f32>,
   canvas_resolution: Vec2<u32>,
-  camera_world_ray: Ray3,
+  camera_world_ray: Ray3<f64>,
   // xy -1 to 1
   normalized_canvas_position: Vec2<f32>,
 }
 
 impl WidgetEnvAccess for WidgetEnvAccessImpl {
-  fn get_world_mat(&self, sm: EntityHandle<SceneNodeEntity>) -> Option<Mat4<f32>> {
+  fn get_world_mat(&self, sm: EntityHandle<SceneNodeEntity>) -> Option<Mat4<f64>> {
     self.world_mat.access(&sm)
   }
 
@@ -478,7 +478,7 @@ impl WidgetEnvAccess for WidgetEnvAccessImpl {
     self.camera_proj
   }
 
-  fn get_camera_world_ray(&self) -> Ray3 {
+  fn get_camera_world_ray(&self) -> Ray3<f64> {
     self.camera_world_ray
   }
 

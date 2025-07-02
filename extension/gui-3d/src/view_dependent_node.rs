@@ -26,14 +26,14 @@ pub fn use_view_independent_scale_root<R>(
 }
 
 struct ViewIndependentScaleCx {
-  override_position: Vec3<f32>,
+  override_position: Vec3<f64>,
   scale: ViewAutoScalable,
 }
 
 pub fn use_view_independent_scale_node(
   cx: &mut UI3dCx,
   node: &EntityHandle<SceneNodeEntity>,
-  mat: impl FnOnce() -> Mat4<f32> + 'static,
+  mat: impl FnOnce() -> Mat4<f64> + 'static,
 ) {
   use_view_dependent_world_mat(cx, node, mat, |cx, origin_world, e| {
     access_cx!(cx, config, Option<ViewIndependentScaleCx>);
@@ -52,7 +52,7 @@ pub fn use_view_independent_scale_node(
 pub fn use_billboard(
   cx: &mut UI3dCx,
   node: &EntityHandle<SceneNodeEntity>,
-  mat: impl FnOnce() -> Mat4<f32> + 'static,
+  mat: impl FnOnce() -> Mat4<f64> + 'static,
 ) {
   use_view_dependent_world_mat(cx, node, mat, |_, origin_world, e| {
     BillBoard::default().override_mat(origin_world, e.get_camera_world_mat().position())
@@ -62,11 +62,11 @@ pub fn use_billboard(
 pub fn use_view_dependent_world_mat(
   cx: &mut UI3dCx,
   node: &EntityHandle<SceneNodeEntity>,
-  mat: impl FnOnce() -> Mat4<f32> + 'static,
-  mat_updates: impl FnOnce(&mut DynCx, Mat4<f32>, &dyn WidgetEnvAccess) -> Mat4<f32>,
+  mat: impl FnOnce() -> Mat4<f64> + 'static,
+  mat_updates: impl FnOnce(&mut DynCx, Mat4<f64>, &dyn WidgetEnvAccess) -> Mat4<f64>,
 ) {
   let (cx, origin_local_mat) = cx.use_plain_state_init(|_| mat());
-  let (cx, local_mat_to_sync) = cx.use_plain_state::<Option<Mat4<f32>>>();
+  let (cx, local_mat_to_sync) = cx.use_plain_state::<Option<Mat4<f64>>>();
 
   cx.on_event(|e, reader, cx| {
     let parent_world =

@@ -35,9 +35,12 @@ pub fn use_gizmo(cx: &mut UI3dCx) {
           if start_states.is_some() && cx.platform_event.state_delta.mouse_position_change {
             let action = DragTargetAction {
               camera_world: cx.widget_env.get_camera_world_mat(),
-              camera_projection: cx.widget_env.get_camera_proj_mat(),
+              camera_projection: cx.widget_env.get_camera_proj_mat().map(|v| v as f64),
               world_ray: cx.widget_env.get_camera_world_ray(),
-              normalized_screen_position: cx.widget_env.get_normalized_canvas_position(),
+              normalized_screen_position: cx
+                .widget_env
+                .get_normalized_canvas_position()
+                .map(|v| v as f64),
             };
             dcx.message.put(action);
             debug_print("dragging");
@@ -153,7 +156,7 @@ fn map_color(color: Vec3<f32>, state: ItemState) -> Vec3<f32> {
 fn use_axis_interactive_model(
   cx: &mut UI3dCx,
   axis: AxisType,
-  mat_init: impl FnOnce(&AxisType) -> Mat4<f32> + 'static,
+  mat_init: impl FnOnce(&AxisType) -> Mat4<f64> + 'static,
 ) {
   let (cx, node) = cx.use_node_entity();
   cx.on_mounting(|w, _, parent| {
@@ -217,26 +220,26 @@ fn use_axis_interactive_model(
 }
 
 struct DragStartState {
-  start_parent_world_mat: Mat4<f32>,
-  start_local_position: Vec3<f32>,
-  start_local_quaternion: Quat<f32>,
-  start_local_scale: Vec3<f32>,
-  start_hit_local_position: Vec3<f32>,
-  start_hit_world_position: Vec3<f32>,
+  start_parent_world_mat: Mat4<f64>,
+  start_local_position: Vec3<f64>,
+  start_local_quaternion: Quat<f64>,
+  start_local_scale: Vec3<f64>,
+  start_hit_local_position: Vec3<f64>,
+  start_hit_world_position: Vec3<f64>,
 }
 
 #[derive(Copy, Clone)]
 pub struct GizmoControlTargetState {
-  pub target_local_mat: Mat4<f32>,
-  pub target_parent_world_mat: Mat4<f32>,
-  pub target_world_mat: Mat4<f32>,
+  pub target_local_mat: Mat4<f64>,
+  pub target_parent_world_mat: Mat4<f64>,
+  pub target_world_mat: Mat4<f64>,
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct GizmoUpdateTargetLocal(pub Mat4<f32>);
+pub struct GizmoUpdateTargetLocal(pub Mat4<f64>);
 
 impl GizmoControlTargetState {
-  fn start_drag(&self, start_hit_world_position: Vec3<f32>) -> DragStartState {
+  fn start_drag(&self, start_hit_world_position: Vec3<f64>) -> DragStartState {
     let (t, r, s) = self.target_local_mat.decompose();
     DragStartState {
       start_parent_world_mat: self.target_parent_world_mat,
@@ -252,11 +255,11 @@ impl GizmoControlTargetState {
 
 #[derive(Clone, Copy)]
 struct DragTargetAction {
-  camera_world: Mat4<f32>,
-  camera_projection: Mat4<f32>,
-  world_ray: Ray3<f32>,
+  camera_world: Mat4<f64>,
+  camera_projection: Mat4<f64>,
+  world_ray: Ray3<f64>,
   /// x, y: -1 to 1
-  normalized_screen_position: Vec2<f32>,
+  normalized_screen_position: Vec2<f64>,
 }
 
 pub fn axis_lens(axis: AxisType) -> impl Fn(&mut AxisActiveState) -> &mut ItemState {

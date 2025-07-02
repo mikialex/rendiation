@@ -23,7 +23,7 @@ pub fn use_scene_spotlight_helper(cx: &mut ViewerCx) {
 struct SceneSpotLightHelper {
   helper_models: FastHashMap<EntityHandle<SpotLightEntity>, UIWidgetModel>,
 
-  world_mat: BoxedDynReactiveQuery<EntityHandle<SpotLightEntity>, Mat4<f32>>,
+  world_mat: BoxedDynReactiveQuery<EntityHandle<SpotLightEntity>, Mat4<f64>>,
   half_cone_angle: BoxedDynReactiveQuery<EntityHandle<SpotLightEntity>, f32>,
   half_penumbra_angle: BoxedDynReactiveQuery<EntityHandle<SpotLightEntity>, f32>,
   cutoff: BoxedDynReactiveQuery<EntityHandle<SpotLightEntity>, f32>,
@@ -70,7 +70,7 @@ impl<T> FindChangedKey<T> {
 impl SceneSpotLightHelper {
   pub fn new(
     _scene: EntityHandle<SceneEntity>,
-    world_mats: RQForker<EntityHandle<SceneNodeEntity>, Mat4<f32>>,
+    world_mats: RQForker<EntityHandle<SceneNodeEntity>, Mat4<f64>>,
   ) -> Self {
     // let set = global_watch()
     //   .watch::<SpotLightRefScene>()
@@ -116,7 +116,7 @@ impl SceneSpotLightHelper {
           half_cone_angle.access(k).unwrap(),
           half_penumbra_angle.access(k).unwrap(),
           cutoff.access(k).unwrap(),
-          mat.access(k).unwrap(),
+          mat.access(k).unwrap().map(|v| v as f32),
         );
         (*k, mesh)
       })

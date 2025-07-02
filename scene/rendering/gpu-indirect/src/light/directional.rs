@@ -17,7 +17,7 @@ pub fn directional_storage(gpu: &GPU) -> ReactiveStorageBufferContainer<Directio
 
   let direction = scene_node_derive_world_mat()
     .one_to_many_fanout(global_rev_ref().watch_inv_ref::<DirectionalRefNode>())
-    .collective_map(|mat| mat.forward().reverse().normalize())
+    .collective_map(|mat| mat.forward().reverse().normalize().map(|v| v as f32))
     .into_query_update_storage(offset_of!(DirectionalLightStorage, direction));
 
   create_reactive_storage_buffer_container(128, u32::MAX, gpu)

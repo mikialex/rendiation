@@ -4,8 +4,8 @@ use winit::event::ElementState;
 use crate::*;
 
 pub struct CameraMoveAction {
-  pub position: Vec3<f32>,
-  pub look_at: Vec3<f32>,
+  pub position: Vec3<f64>,
+  pub look_at: Vec3<f64>,
 }
 
 pub fn use_smooth_camera_motion(cx: &mut ViewerCx, f: impl FnOnce(&mut ViewerCx)) {
@@ -36,8 +36,8 @@ pub fn use_smooth_camera_motion(cx: &mut ViewerCx, f: impl FnOnce(&mut ViewerCx)
     time_delta_seconds,
   } = &mut cx.stage
   {
-    let position = springed_position.step_clamped(*time_delta_seconds, *target_position);
-    let look_at = springed_target.step_clamped(*time_delta_seconds, *target_target);
+    let position = springed_position.step_clamped(*time_delta_seconds as f64, *target_position);
+    let look_at = springed_target.step_clamped(*time_delta_seconds as f64, *target_target);
 
     let mat = Mat4::lookat(position, look_at, Vec3::new(0., 1., 0.));
     let node = cx.viewer.scene.camera_node;
@@ -100,8 +100,8 @@ fn fit_camera_view_for_viewer(
 /// should be logical target center. Return desired camera world matrix
 fn fit_camera_view(
   proj: &PerspectiveProjection<f32>,
-  camera_world: Mat4<f32>,
-  target_world_aabb: Box3<f32>,
+  camera_world: Mat4<f64>,
+  target_world_aabb: Box3<f64>,
 ) -> CameraMoveAction {
   assert!(!target_world_aabb.is_empty());
 
@@ -118,7 +118,7 @@ fn fit_camera_view(
     let canvas_half_size = half_fov.tan(); // todo consider near far limit
     let padded_canvas_half_size = canvas_half_size * (1.0 - padding_ratio);
     let desired_half_fov = padded_canvas_half_size.atan();
-    let desired_distance = object_radius / desired_half_fov.sin();
+    let desired_distance = object_radius / desired_half_fov.sin() as f64;
 
     let look_at_dir_rev = (camera_world.position() - target_center).normalize();
     look_at_dir_rev * desired_distance + target_center

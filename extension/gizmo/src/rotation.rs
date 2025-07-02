@@ -55,7 +55,7 @@ fn use_provide_rotator_mesh_init(cx: &mut UI3dCx, f: impl FnOnce(&mut UI3dCx)) {
 fn use_rotator_model(cx: &mut UI3dCx, axis: AxisType) {
   state_pick(cx, axis_lens(axis), |cx| {
     use_axis_interactive_model(cx, axis, |axis| {
-      let degree_90 = f32::PI() / 2.;
+      let degree_90 = f64::PI() / 2.;
       match axis {
         AxisType::X => Mat4::rotate_y(degree_90),
         AxisType::Y => Mat4::rotate_x(degree_90),
@@ -66,8 +66,8 @@ fn use_rotator_model(cx: &mut UI3dCx, axis: AxisType) {
 }
 
 struct RotateState {
-  current_angle_all: f32,
-  last_dir: Vec2<f32>,
+  current_angle_all: f64,
+  last_dir: Vec2<f64>,
 }
 
 fn handle_rotating(
@@ -76,7 +76,7 @@ fn handle_rotating(
   rotate_state: &mut Option<RotateState>,
   axis: &AxisActiveState,
   action: &DragTargetAction,
-) -> Option<Mat4<f32>> {
+) -> Option<Mat4<f64>> {
   #[rustfmt::skip]
   // new_hit_world = M(parent) * M(local_translate) * M(new_local_rotate) * M(local_scale) * start_hit_local_position =>
   // M-1(local_translate) * M-1(parent) * new_hit_world =  M(new_local_rotate) * M(local_scale) * start_hit_local_position

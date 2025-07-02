@@ -56,14 +56,14 @@ pub fn all_kinds_of_materials_enabled_alpha_blending(
 }
 
 pub struct TransparentHostOrderer {
-  pub world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3>,
+  pub world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
 }
 
 impl TransparentHostOrderer {
   pub fn reorder_content(
     &self,
     content: &dyn HostRenderBatch,
-    camera_position: Vec3<f32>,
+    camera_position: Vec3<f64>,
   ) -> Box<dyn HostRenderBatch> {
     let mut content = content
       .iter_scene_models()
@@ -86,7 +86,7 @@ impl TransparentHostOrderer {
 
 #[derive(Clone)]
 struct DistanceReorderedHostRenderBatch {
-  internal: Arc<Vec<(f32, EntityHandle<SceneModelEntity>)>>,
+  internal: Arc<Vec<(f64, EntityHandle<SceneModelEntity>)>>,
 }
 
 impl HostRenderBatch for DistanceReorderedHostRenderBatch {

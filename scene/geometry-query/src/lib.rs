@@ -8,7 +8,7 @@ use rendiation_scene_core::*;
 use rendiation_texture_core::Size;
 
 pub struct SceneRayQuery {
-  pub world_ray: Ray3,
+  pub world_ray: Ray3<f64>,
   pub conf: MeshBufferIntersectConfig,
   pub camera_view_size: Size,
 }
@@ -18,7 +18,7 @@ pub trait SceneModelPicker {
     &self,
     idx: EntityHandle<SceneModelEntity>,
     ctx: &SceneRayQuery,
-  ) -> Option<MeshBufferHitPoint>;
+  ) -> Option<MeshBufferHitPoint<f64>>;
 }
 
 impl SceneModelPicker for Vec<Box<dyn SceneModelPicker>> {
@@ -26,7 +26,7 @@ impl SceneModelPicker for Vec<Box<dyn SceneModelPicker>> {
     &self,
     idx: EntityHandle<SceneModelEntity>,
     ctx: &SceneRayQuery,
-  ) -> Option<MeshBufferHitPoint> {
+  ) -> Option<MeshBufferHitPoint<f64>> {
     for provider in self {
       if let Some(hit) = provider.query(idx, ctx) {
         return Some(hit);
@@ -38,7 +38,7 @@ impl SceneModelPicker for Vec<Box<dyn SceneModelPicker>> {
 
 pub struct SceneModelPickerImpl {
   // we could use and cache sm bounding
-  pub sm_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f32>>,
+  pub sm_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
   pub scene_model_node: ForeignKeyReadView<SceneModelRefNode>,
   pub model_access_std_model: ForeignKeyReadView<SceneModelStdModelRenderPayload>,
   pub std_model_access_mesh: ForeignKeyReadView<StandardModelRefAttributesMeshEntity>,
@@ -50,7 +50,7 @@ pub struct SceneModelPickerImpl {
   pub mesh_topology: ComponentReadView<AttributesMeshEntityTopology>,
   pub buffer: ComponentReadView<BufferEntityData>,
 
-  pub node_world: BoxedDynQuery<EntityHandle<SceneNodeEntity>, Mat4<f32>>,
+  pub node_world: BoxedDynQuery<EntityHandle<SceneNodeEntity>, Mat4<f64>>,
   pub node_net_visible: BoxedDynQuery<EntityHandle<SceneNodeEntity>, bool>,
 }
 
@@ -59,7 +59,7 @@ impl SceneModelPicker for SceneModelPickerImpl {
     &self,
     idx: EntityHandle<SceneModelEntity>,
     ctx: &SceneRayQuery,
-  ) -> Option<MeshBufferHitPoint> {
+  ) -> Option<MeshBufferHitPoint<f64>> {
     let node = self.scene_model_node.get(idx)?;
     if !self.node_net_visible.access(&node)? {
       return None;
@@ -87,7 +87,10 @@ impl SceneModelPicker for SceneModelPickerImpl {
       return None;
     }
 
-    let local_ray = ctx.world_ray.apply_matrix_into(mat.inverse_or_identity());
+    let local_ray = ctx
+      .world_ray
+      .apply_matrix_into(mat.inverse_or_identity())
+      .into_f32();
 
     let mode = self.mesh_topology.get_value(mesh)?;
 
@@ -129,7 +132,8 @@ impl SceneModelPicker for SceneModelPickerImpl {
     .intersect_nearest(local_ray, &ctx.conf, MeshGroup { start: 0, count })
     .0
     .map(|hit| {
-      let world_hit_position = hit.hit.position.apply_matrix_into(mat);
+      let position = hit.hit.position.map(|v| v as f64);
+      let world_hit_position = position.apply_matrix_into(mat);
 
       MeshBufferHitPoint {
         hit: HitPoint {

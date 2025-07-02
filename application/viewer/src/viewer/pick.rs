@@ -12,7 +12,7 @@ use rendiation_scene_geometry_query::*;
 use crate::*;
 
 pub struct ViewerPicker {
-  current_mouse_ray_in_world: Ray3,
+  current_mouse_ray_in_world: Ray3<f64>,
   normalized_position: Vec2<f32>,
   normalized_position_ndc: Vec2<f32>,
   conf: MeshBufferIntersectConfig,
@@ -59,7 +59,9 @@ impl ViewerPicker {
       .unwrap()
       .view_projection_inv;
 
-    let current_mouse_ray_in_world = cast_world_ray(projection_inv, normalized_position_ndc.into());
+    let normalized_position_ndc: Vec2<f32> = normalized_position_ndc.into();
+    let normalized_position_ndc_f64 = normalized_position_ndc.map(|v| v as f64);
+    let current_mouse_ray_in_world = cast_world_ray(projection_inv, normalized_position_ndc_f64);
 
     ViewerPicker {
       scene_model_picker,
@@ -69,12 +71,12 @@ impl ViewerPicker {
         mouse_position.0 / window_size.0,
         mouse_position.1 / window_size.1,
       )),
-      normalized_position_ndc: normalized_position_ndc.into(),
+      normalized_position_ndc,
       camera_view_size: Size::from_f32_pair_min_one(input.window_state.physical_size),
     }
   }
 
-  pub fn current_mouse_ray_in_world(&self) -> Ray3 {
+  pub fn current_mouse_ray_in_world(&self) -> Ray3<f64> {
     self.current_mouse_ray_in_world
   }
 
@@ -91,8 +93,8 @@ impl Picker3d for ViewerPicker {
   fn pick_model_nearest(
     &self,
     model: EntityHandle<SceneModelEntity>,
-    world_ray: Ray3,
-  ) -> Option<HitPoint3D> {
+    world_ray: Ray3<f64>,
+  ) -> Option<HitPoint3D<f64>> {
     self
       .scene_model_picker
       .query(

@@ -35,6 +35,7 @@ pub fn area_light_uniform_array(gpu: &GPU) -> UniformArrayUpdateContainer<LTCAre
     .one_to_many_fanout(global_rev_ref().watch_inv_ref::<AreaLightRefNode>())
     .collective_zip(global_watch().watch::<AreaLightSize>())
     .collective_map(|(world_mat, size)| {
+      let world_mat = world_mat.map(|v| v as f32);
       let width = size.x / 2.;
       let height = size.y / 2.;
       let p1 = world_mat * Vec3::new(width, height, 0.);

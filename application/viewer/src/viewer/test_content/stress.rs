@@ -12,13 +12,13 @@ pub fn load_stress_test(scene: &mut SceneWriter) {
   let material = SceneMaterialDataView::PbrSGMaterial(material);
   for i in 0..10 {
     let i_parent = scene.create_root_child();
-    scene.set_local_matrix(i_parent, Mat4::translate((i as f32, 0., 0.)));
+    scene.set_local_matrix(i_parent, Mat4::translate((i as f64, 0., 0.)));
     for j in 0..10 {
       let j_parent = scene.create_child(i_parent);
-      scene.set_local_matrix(j_parent, Mat4::translate((0., 0., j as f32)));
+      scene.set_local_matrix(j_parent, Mat4::translate((0., 0., j as f64)));
       for k in 0..1 {
         let node = scene.create_child(j_parent);
-        scene.set_local_matrix(node, Mat4::translate((0., k as f32, 0.)));
+        scene.set_local_matrix(node, Mat4::translate((0., k as f64, 0.)));
 
         let cube = CubeMeshParameter {
           width: 0.2,

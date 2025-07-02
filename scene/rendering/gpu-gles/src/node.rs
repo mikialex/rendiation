@@ -55,7 +55,8 @@ pub struct NodeUniform {
 }
 
 impl NodeUniform {
-  pub fn from_world_mat(world_matrix: Mat4<f32>) -> Self {
+  pub fn from_world_mat(world_matrix: Mat4<f64>) -> Self {
+    let world_matrix = world_matrix.map(|v| v as f32);
     Self {
       world_matrix,
       normal_matrix: world_matrix.to_normal_matrix().into(),

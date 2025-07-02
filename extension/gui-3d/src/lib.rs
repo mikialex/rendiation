@@ -25,12 +25,12 @@ pub use rendiation_view_override_model::*;
 pub use view_dependent_node::*;
 
 pub trait WidgetEnvAccess {
-  fn get_world_mat(&self, sm: EntityHandle<SceneNodeEntity>) -> Option<Mat4<f32>>;
-  fn get_camera_world_ray(&self) -> Ray3;
+  fn get_world_mat(&self, sm: EntityHandle<SceneNodeEntity>) -> Option<Mat4<f64>>;
+  fn get_camera_world_ray(&self) -> Ray3<f64>;
   /// xy -1 to 1
   fn get_normalized_canvas_position(&self) -> Vec2<f32>;
   fn get_camera_node(&self) -> EntityHandle<SceneNodeEntity>;
-  fn get_camera_world_mat(&self) -> Mat4<f32> {
+  fn get_camera_world_mat(&self) -> Mat4<f64> {
     self.get_world_mat(self.get_camera_node()).unwrap()
   }
   fn get_camera_perspective_proj(&self) -> PerspectiveProjection<f32>;

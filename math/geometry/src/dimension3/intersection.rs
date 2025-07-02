@@ -109,18 +109,22 @@ where
   }
 }
 
-intersect_reverse!(Box3, OptionalNearest<HitPoint3D>, (), Ray3);
-impl IntersectAble<Box3, OptionalNearest<HitPoint3D>> for Ray3 {
+impl<T: Scalar> IntersectAble<Ray3<T>, OptionalNearest<HitPoint3D<T>>, ()> for Box3<T> {
+  fn intersect(&self, other: &Ray3<T>, p: &()) -> OptionalNearest<HitPoint3D<T>> {
+    IntersectAble::<Box3<T>, OptionalNearest<HitPoint3D<T>>, ()>::intersect(other, self, p)
+  }
+}
+impl<T: Scalar> IntersectAble<Box3<T>, OptionalNearest<HitPoint3D<T>>> for Ray3<T> {
   #[inline]
-  fn intersect(&self, box3: &Box3, _: &()) -> OptionalNearest<HitPoint3D> {
+  fn intersect(&self, box3: &Box3<T>, _: &()) -> OptionalNearest<HitPoint3D<T>> {
     let (mut t_max, mut t_min, ty_min, ty_max, tz_min, tz_max);
 
-    let inv_dir_x = 1. / self.direction.x;
-    let inv_dir_y = 1. / self.direction.y;
-    let inv_dir_z = 1. / self.direction.z;
+    let inv_dir_x = T::one() / self.direction.x;
+    let inv_dir_y = T::one() / self.direction.y;
+    let inv_dir_z = T::one() / self.direction.z;
 
     let origin = self.origin;
-    if inv_dir_x >= 0. {
+    if inv_dir_x >= T::zero() {
       t_min = (box3.min.x - origin.x) * inv_dir_x;
       t_max = (box3.max.x - origin.x) * inv_dir_x;
     } else {
@@ -128,7 +132,7 @@ impl IntersectAble<Box3, OptionalNearest<HitPoint3D>> for Ray3 {
       t_max = (box3.min.x - origin.x) * inv_dir_x;
     }
 
-    if inv_dir_y >= 0. {
+    if inv_dir_y >= T::zero() {
       ty_min = (box3.min.y - origin.y) * inv_dir_y;
       ty_max = (box3.max.y - origin.y) * inv_dir_y;
     } else {
@@ -150,7 +154,7 @@ impl IntersectAble<Box3, OptionalNearest<HitPoint3D>> for Ray3 {
       t_max = ty_max
     };
 
-    if inv_dir_z >= 0. {
+    if inv_dir_z >= T::zero() {
       tz_min = (box3.min.z - origin.z) * inv_dir_z;
       tz_max = (box3.max.z - origin.z) * inv_dir_z;
     } else {
@@ -172,26 +176,34 @@ impl IntersectAble<Box3, OptionalNearest<HitPoint3D>> for Ray3 {
 
     // return point closest to the ray (positive side)
 
-    if t_max < 0. {
+    if t_max < T::zero() {
       return OptionalNearest::none();
     }
 
-    OptionalNearest::some(self.at_into(if t_min >= 0. { t_min } else { t_max }))
+    OptionalNearest::some(self.at_into(if t_min >= T::zero() { t_min } else { t_max }))
   }
 }
 
-intersect_reverse!(Box3, bool, (), Ray3);
-impl IntersectAble<Box3, bool> for Ray3 {
+impl<T: Scalar> IntersectAble<Ray3<T>, bool, ()> for Box3<T> {
+  fn intersect(&self, other: &Ray3<T>, p: &()) -> bool {
+    IntersectAble::<Box3<T>, bool, ()>::intersect(other, self, p)
+  }
+}
+impl<T: Scalar> IntersectAble<Box3<T>, bool> for Ray3<T> {
   #[inline]
-  fn intersect(&self, other: &Box3, p: &()) -> bool {
-    IntersectAble::<Box3, OptionalNearest<HitPoint3D>>::intersect(self, other, p).is_some()
+  fn intersect(&self, other: &Box3<T>, p: &()) -> bool {
+    IntersectAble::<Box3<T>, OptionalNearest<HitPoint3D<T>>>::intersect(self, other, p).is_some()
   }
 }
 
-intersect_reverse!(Sphere, OptionalNearest<HitPoint3D>, (), Ray3);
-impl IntersectAble<Sphere, OptionalNearest<HitPoint3D>> for Ray3 {
+impl<T: Scalar> IntersectAble<Ray3<T>, OptionalNearest<HitPoint3D<T>>, ()> for Sphere<T> {
+  fn intersect(&self, other: &Ray3<T>, p: &()) -> OptionalNearest<HitPoint3D<T>> {
+    IntersectAble::<Sphere<T>, OptionalNearest<HitPoint3D<T>>, ()>::intersect(other, self, p)
+  }
+}
+impl<T: Scalar> IntersectAble<Sphere<T>, OptionalNearest<HitPoint3D<T>>> for Ray3<T> {
   #[inline]
-  fn intersect(&self, sphere: &Sphere, _: &()) -> OptionalNearest<HitPoint3D> {
+  fn intersect(&self, sphere: &Sphere<T>, _: &()) -> OptionalNearest<HitPoint3D<T>> {
     let oc = sphere.center - self.origin;
     let tca = oc.dot(self.direction);
     let d2 = oc.dot(oc) - tca * tca;
@@ -210,14 +222,14 @@ impl IntersectAble<Sphere, OptionalNearest<HitPoint3D>> for Ray3 {
     let t1 = tca + thc;
 
     // test to see if both t0 and t1 are behind the ray - if so, return null
-    if t0 < 0. && t1 < 0. {
+    if t0 < T::zero() && t1 < T::zero() {
       return OptionalNearest::none();
     };
 
     // test to see if t0 is behind the ray:
     // if it is, the ray is inside the sphere, so return the second exit point scaled by t1,
     // in order to always return an intersect point that is in front of the ray.
-    if t0 < 0. {
+    if t0 < T::zero() {
       return OptionalNearest::some(self.at_into(t1));
     };
 
@@ -226,17 +238,21 @@ impl IntersectAble<Sphere, OptionalNearest<HitPoint3D>> for Ray3 {
   }
 }
 
-intersect_reverse!(Sphere, bool, (), Ray3);
-impl IntersectAble<Sphere, bool> for Ray3 {
+impl<T: Scalar> IntersectAble<Sphere<T>, bool> for Ray3<T> {
   #[inline]
-  fn intersect(&self, other: &Sphere, p: &()) -> bool {
-    IntersectAble::<Sphere, OptionalNearest<HitPoint3D>>::intersect(self, other, p).is_some()
+  fn intersect(&self, other: &Sphere<T>, p: &()) -> bool {
+    IntersectAble::<Sphere<T>, OptionalNearest<HitPoint3D<T>>>::intersect(self, other, p).is_some()
+  }
+}
+impl<T: Scalar> IntersectAble<Ray3<T>, bool, ()> for Sphere<T> {
+  fn intersect(&self, other: &Ray3<T>, p: &()) -> bool {
+    IntersectAble::<Sphere<T>, bool, ()>::intersect(other, self, p)
   }
 }
 
-impl IntersectAble<Plane, OptionalNearest<HitPoint3D>> for Ray3 {
+impl<T: Scalar> IntersectAble<Plane<T>, OptionalNearest<HitPoint3D<T>>> for Ray3<T> {
   #[inline]
-  fn intersect(&self, plane: &Plane, _: &()) -> OptionalNearest<HitPoint3D> {
+  fn intersect(&self, plane: &Plane<T>, _: &()) -> OptionalNearest<HitPoint3D<T>> {
     self
       .distance_to_plane(plane)
       .map(|distance| self.at_into(distance))

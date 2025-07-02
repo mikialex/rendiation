@@ -29,10 +29,10 @@ pub fn use_scene_camera_helper(cx: &mut ViewerCx) {
 /// query all camera in scene and maintain the helper models in scene
 struct SceneCameraHelper {
   helper_models: FastHashMap<EntityHandle<SceneCameraEntity>, UIWidgetModel>,
-  camera_changes: BoxedDynReactiveQuery<EntityHandle<SceneCameraEntity>, Mat4<f32>>,
+  camera_changes: BoxedDynReactiveQuery<EntityHandle<SceneCameraEntity>, Mat4<f64>>,
   self_hidden_camera: Option<EntityHandle<SceneCameraEntity>>,
   pending_updates:
-    Option<Arc<FastHashMap<EntityHandle<SceneCameraEntity>, ValueChange<Mat4<f32>>>>>,
+    Option<Arc<FastHashMap<EntityHandle<SceneCameraEntity>, ValueChange<Mat4<f64>>>>>,
 }
 
 impl CanCleanUpFrom<ViewerDropCx<'_>> for SceneCameraHelper {
@@ -84,7 +84,8 @@ impl SceneCameraHelper {
               model.do_cleanup(scene_cx);
             }
             ValueChange::Delta(new, _) => {
-              let new_mesh = build_debug_line_in_camera_space(new);
+              // maybe we should use node transform to improve the render precision
+              let new_mesh = build_debug_line_in_camera_space(new.map(|v| v as f32));
               if let Some(helper) = self.helper_models.get_mut(&k) {
                 helper.replace_new_shape_and_cleanup_old(scene_cx, new_mesh);
               } else {

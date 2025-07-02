@@ -22,7 +22,7 @@ impl Default for DBInspector {
       .register::<Vec2<f32>>()
       .register::<Vec3<f32>>()
       .register::<Vec4<f32>>()
-      .register::<Mat4<f32>>();
+      .register::<Mat4<f64>>();
 
     Self {
       inspector,
@@ -280,7 +280,7 @@ impl EGUIDataView for Vec4<f32> {
   }
 }
 
-impl EGUIDataView for Mat4<f32> {
+impl EGUIDataView for Mat4<f64> {
   fn inline_view(&self, ui: &mut egui::Ui) -> egui::Response {
     let array = bytes_of(self);
     let array = cast_slice::<u8, f32>(array);

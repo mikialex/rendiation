@@ -136,14 +136,3 @@ where
 {
   fn to_bounding(&self) -> Bound;
 }
-
-#[macro_export]
-macro_rules! intersect_reverse {
-  ($self_item: ty, $result:ty, $param:ty, $target:ty) => {
-    impl IntersectAble<$target, $result, $param> for $self_item {
-      fn intersect(&self, other: &$target, p: &$param) -> $result {
-        IntersectAble::<$self_item, $result, $param>::intersect(other, self, p)
-      }
-    }
-  };
-}

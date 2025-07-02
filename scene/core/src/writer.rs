@@ -107,13 +107,13 @@ impl SceneWriter {
     sm.write(&mut self.model_writer)
   }
 
-  pub fn set_local_matrix(&mut self, node: EntityHandle<SceneNodeEntity>, mat: Mat4<f32>) {
+  pub fn set_local_matrix(&mut self, node: EntityHandle<SceneNodeEntity>, mat: Mat4<f64>) {
     self
       .node_writer
       .write::<SceneNodeLocalMatrixComponent>(node, mat);
   }
 
-  pub fn get_local_mat(&self, node: EntityHandle<SceneNodeEntity>) -> Option<Mat4<f32>> {
+  pub fn get_local_mat(&self, node: EntityHandle<SceneNodeEntity>) -> Option<Mat4<f64>> {
     self
       .node_writer
       .try_read::<SceneNodeLocalMatrixComponent>(node)

@@ -5,7 +5,7 @@ use rendiation_geometry::Spherical;
 use crate::*;
 
 pub struct OrbitController {
-  pub spherical: Spherical,
+  pub spherical: Spherical<f64>,
 
   pub rotate_angle_factor: f32,
   pub pan_factor: f32,
@@ -57,8 +57,8 @@ impl OrbitController {
   }
 
   pub fn pan(&mut self, offset: Vec2<f32>) {
-    let mut offset = offset.rotate(Vector::zero(), -self.spherical.azim);
-    offset *= self.spherical.radius * self.pan_factor;
+    let mut offset = offset.rotate(Vector::zero(), -self.spherical.azim as f32);
+    offset *= self.spherical.radius as f32 * self.pan_factor;
     self.pan_offset.x += offset.x;
     self.pan_offset.z += offset.y;
   }
@@ -82,12 +82,12 @@ impl OrbitController {
 }
 
 impl OrbitController {
-  pub fn update_target_and_position(&mut self, target: Vec3<f32>, position: Vec3<f32>) {
+  pub fn update_target_and_position(&mut self, target: Vec3<f64>, position: Vec3<f64>) {
     self.spherical = Spherical::from_sphere_point_and_center(target - position, position);
     self.reset_delta()
   }
 
-  pub fn update(&mut self) -> Option<(Vec3<f32>, Vec3<f32>)> {
+  pub fn update(&mut self) -> Option<(Vec3<f64>, Vec3<f64>)> {
     if self.spherical_delta.azim.abs() < 0.0001
       && self.spherical_delta.polar.abs() < 0.0001
       && (self.zooming - 1.).abs() < 0.0001
@@ -96,14 +96,14 @@ impl OrbitController {
       return None;
     }
 
-    self.spherical.radius *= self.zooming;
+    self.spherical.radius *= self.zooming as f64;
 
-    self.spherical.azim += self.spherical_delta.azim;
+    self.spherical.azim += self.spherical_delta.azim as f64;
 
-    self.spherical.polar = (self.spherical.polar + self.spherical_delta.polar)
-      .clamp(self.min_polar_angle, self.max_polar_angle);
+    self.spherical.polar = (self.spherical.polar + self.spherical_delta.polar as f64)
+      .clamp(self.min_polar_angle as f64, self.max_polar_angle as f64);
 
-    self.spherical.center += self.pan_offset;
+    self.spherical.center += self.pan_offset.map(|v| v as f64);
 
     let eye = self.spherical.to_sphere_point();
 

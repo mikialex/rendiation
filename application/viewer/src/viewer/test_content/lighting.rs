@@ -82,7 +82,7 @@ pub fn load_ltc_lighting_test(writer: &mut SceneWriter) {
     let material = SceneMaterialDataView::PbrMRMaterial(material);
 
     let child = writer.create_root_child();
-    writer.set_local_matrix(child, Mat4::rotate_x(-f32::PI() / 2.));
+    writer.set_local_matrix(child, Mat4::rotate_x(-f64::PI() / 2.));
 
     writer.create_scene_model(material, attribute_mesh, child);
   }

@@ -17,7 +17,7 @@ pub use cascade::*;
 
 pub struct ShadowMapSystemInputs {
   /// alloc_id => shadow map world
-  pub source_world: BoxedDynReactiveQuery<u32, Mat4<f32>>,
+  pub source_world: BoxedDynReactiveQuery<u32, Mat4<f64>>,
   /// alloc_id => shadow map proj
   pub source_proj: BoxedDynReactiveQuery<u32, Mat4<f32>>,
   /// alloc_id => shadow map resolution
@@ -43,7 +43,7 @@ pub fn basic_shadow_map_uniform(
   let source_view_proj = source_world
     .clone()
     .collective_zip(source_proj.clone())
-    .collective_map(|(w, p)| p * w.inverse_or_identity())
+    .collective_map(|(w, p)| p * w.inverse_or_identity().map(|v| v as f32))
     .into_boxed();
 
   let (sys, address) = BasicShadowMapSystem::new(
@@ -85,14 +85,14 @@ pub struct BasicShadowMapSystem {
   packing: BoxedDynReactiveQuery<u32, ShadowMapAddressInfo>,
   atlas_resize: Box<dyn Stream<Item = SizeWithDepth> + Unpin>,
   current_size: Option<SizeWithDepth>,
-  source_world: BoxedDynReactiveQuery<u32, Mat4<f32>>,
+  source_world: BoxedDynReactiveQuery<u32, Mat4<f64>>,
   source_proj: BoxedDynReactiveQuery<u32, Mat4<f32>>,
 }
 
 impl BasicShadowMapSystem {
   pub fn new(
     config: MultiLayerTexturePackerConfig,
-    source_world: BoxedDynReactiveQuery<u32, Mat4<f32>>,
+    source_world: BoxedDynReactiveQuery<u32, Mat4<f64>>,
     source_proj: BoxedDynReactiveQuery<u32, Mat4<f32>>,
     size: BoxedDynReactiveQuery<u32, Size>,
   ) -> (Self, BoxedDynReactiveQuery<u32, ShadowMapAddressInfo>) {
@@ -116,7 +116,7 @@ impl BasicShadowMapSystem {
     cx: &mut Context,
     frame_ctx: &mut FrameCtx,
     // proj, world
-    scene_content: &impl Fn(Mat4<f32>, Mat4<f32>, &mut FrameCtx, ShadowPassDesc),
+    scene_content: &impl Fn(Mat4<f32>, Mat4<f64>, &mut FrameCtx, ShadowPassDesc),
     reversed_depth: bool,
   ) -> GPU2DArrayDepthTextureView {
     let (_, current_layouts) = self.packing.describe(cx).resolve_kept(); // incremental detail is useless here

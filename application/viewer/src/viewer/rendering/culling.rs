@@ -14,7 +14,7 @@ pub fn use_camera_gpu_frustum(
         .collective_map(|transform| {
           let arr = Frustum::new_from_matrix(transform.view_projection)
             .planes
-            .map(|p| Vec4::new(p.normal.x, p.normal.y, p.normal.z, p.constant));
+            .map(|p| Vec4::new(p.normal.x, p.normal.y, p.normal.z, p.constant).map(|v| v as f32));
 
           Shader140Array::<Vec4<f32>, 6>::from_slice_clamp_or_default(&arr);
         })
@@ -52,7 +52,7 @@ pub fn use_viewer_culling(
       source.with_source(
         camera_source
           .clone()
-          .collective_map(|t| t.view_projection)
+          .collective_map(|t| t.view_projection.map(|v| v as f32))
           .into_query_update_uniform(0, gpu),
       )
     });

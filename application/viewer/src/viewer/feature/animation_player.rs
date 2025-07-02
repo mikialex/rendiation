@@ -115,13 +115,13 @@ impl SceneAnimationMutation {
       let (mut position, mut rotation, mut scale) = target_node_mat.decompose();
       match action {
         InterpolationItem::Position(vec3) => {
-          position = vec3;
+          position = vec3.map(|v| v as f64);
         }
         InterpolationItem::Scale(vec3) => {
-          scale = vec3;
+          scale = vec3.map(|v| v as f64);
         }
         InterpolationItem::Quaternion(quat) => {
-          rotation = quat;
+          rotation = quat.map(|v| v as f64);
         }
         InterpolationItem::MorphTargetWeights(_) => {
           // not supported yet

@@ -76,7 +76,7 @@ impl ViewerFrameLogic {
     lighting: &LightingRenderingCx,
     content: &Viewer3dSceneCtx,
     final_target: &RenderTargetView,
-    current_camera_view_projection_inv: Mat4<f32>,
+    current_camera_view_projection_inv: Mat4<f64>,
     reversed_depth: bool,
   ) -> RenderTargetView {
     let hdr_enabled = final_target.format() == TextureFormat::Rgba16Float;

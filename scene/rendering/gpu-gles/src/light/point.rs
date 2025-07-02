@@ -23,7 +23,7 @@ pub fn point_uniform_array(gpu: &GPU) -> UniformArrayUpdateContainer<PointLightU
 
   let position = scene_node_derive_world_mat()
     .one_to_many_fanout(global_rev_ref().watch_inv_ref::<PointLightRefNode>())
-    .collective_map(|mat| mat.position())
+    .collective_map(|mat| mat.position().map(|v| v as f32))
     .into_query_update_uniform_array(offset_of!(PointLightUniform, position), gpu);
 
   UniformArrayUpdateContainer::new(buffer)

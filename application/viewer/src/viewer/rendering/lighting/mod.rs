@@ -79,7 +79,7 @@ impl LightSystem {
     };
 
     let content =
-      |proj: Mat4<f32>, world: Mat4<f32>, frame_ctx: &mut FrameCtx, desc: ShadowPassDesc| {
+      |proj: Mat4<f32>, world: Mat4<f64>, frame_ctx: &mut FrameCtx, desc: ShadowPassDesc| {
         let camera = UniformBufferDataView::create(
           &frame_ctx.gpu.device,
           CameraGPUTransform::from(CameraTransform::new(proj, world)),

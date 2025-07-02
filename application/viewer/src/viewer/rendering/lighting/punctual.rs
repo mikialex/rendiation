@@ -73,7 +73,7 @@ impl SceneDirectionalLightingPreparer {
   pub fn update_shadow_maps(
     self,
     frame_ctx: &mut FrameCtx,
-    draw: &impl Fn(Mat4<f32>, Mat4<f32>, &mut FrameCtx, ShadowPassDesc),
+    draw: &impl Fn(Mat4<f32>, Mat4<f64>, &mut FrameCtx, ShadowPassDesc),
     reversed_depth: bool,
   ) -> SceneDirectionalLightingProvider {
     noop_ctx!(cx);
@@ -222,7 +222,7 @@ impl SceneSpotLightingPreparer {
   pub fn update_shadow_maps(
     self,
     frame_ctx: &mut FrameCtx,
-    draw: &impl Fn(Mat4<f32>, Mat4<f32>, &mut FrameCtx, ShadowPassDesc),
+    draw: &impl Fn(Mat4<f32>, Mat4<f64>, &mut FrameCtx, ShadowPassDesc),
     reversed_depth: bool,
   ) -> SceneSpotLightingProvider {
     noop_ctx!(cx);

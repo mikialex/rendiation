@@ -138,7 +138,7 @@ pub fn attribute_mesh_to_blas(
 
 pub fn scene_model_to_blas_instance(
   acc_sys: Box<dyn GPUAccelerationStructureSystemProvider>,
-) -> impl ReactiveQuery<Key = EntityHandle<SceneModelEntity>, Value = (BlasInstance, Mat4<f32>)> {
+) -> impl ReactiveQuery<Key = EntityHandle<SceneModelEntity>, Value = (BlasInstance, Mat4<f64>)> {
   // todo, this should register into registry
   let scene_node_world_mat = scene_node_derive_world_mat()
     .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelRefNode>());
@@ -166,7 +166,7 @@ pub const GLOBAL_TLAS_MAX_RAY_STRIDE: u32 = 4;
 
 struct SceneTlasMaintainer {
   acc_sys: Box<dyn GPUAccelerationStructureSystemProvider>,
-  source: BoxedDynReactiveQuery<EntityHandle<SceneModelEntity>, (BlasInstance, Mat4<f32>)>,
+  source: BoxedDynReactiveQuery<EntityHandle<SceneModelEntity>, (BlasInstance, Mat4<f64>)>,
   scene_sm:
     BoxedDynReactiveOneToManyRelation<EntityHandle<SceneEntity>, EntityHandle<SceneModelEntity>>,
   tlas: Arc<RwLock<FastHashMap<EntityHandle<SceneEntity>, TlasHandle>>>,
@@ -219,7 +219,7 @@ impl ReactiveQuery for SceneTlasMaintainer {
         .filter_map(|sm| {
           current_sm_blas.access(&sm).map(|(blas, transform)| {
             TopLevelAccelerationStructureSourceInstance {
-              transform,
+              transform: transform.map(|v| v as f32),
               instance_custom_index: sm.alloc_index(),
               mask: u32::MAX,
               instance_shader_binding_table_record_offset: sm.alloc_index()

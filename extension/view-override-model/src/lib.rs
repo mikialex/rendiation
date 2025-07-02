@@ -9,7 +9,7 @@ pub struct BillBoard {
 }
 
 impl BillBoard {
-  pub fn override_mat(&self, world_matrix: Mat4<f32>, camera_position: Vec3<f32>) -> Mat4<f32> {
+  pub fn override_mat(&self, world_matrix: Mat4<f64>, camera_position: Vec3<f64>) -> Mat4<f64> {
     let scale = world_matrix.get_scale();
     let scale = Mat4::scale(scale);
     let position = world_matrix.position();
@@ -17,7 +17,7 @@ impl BillBoard {
 
     let correction = Mat4::lookat(
       Vec3::new(0., 0., 0.),
-      self.front_direction,
+      self.front_direction.map(|v| v as f64),
       Vec3::new(0., 1., 0.),
     );
 
@@ -54,8 +54,8 @@ pub struct ViewAutoScalable {
 impl ViewAutoScalable {
   pub fn compute_scale(
     &self,
-    override_position: Vec3<f32>,
-    camera_world: Mat4<f32>,
+    override_position: Vec3<f64>,
+    camera_world: Mat4<f64>,
     view_height_in_pixel: f32,
     camera_proj: impl Projection<f32>,
   ) -> f32 {
@@ -66,17 +66,17 @@ impl ViewAutoScalable {
     let projected_distance = camera_to_target.dot(camera_forward);
 
     self.independent_scale_factor
-      / camera_proj.pixels_per_unit(projected_distance, view_height_in_pixel)
+      / camera_proj.pixels_per_unit(projected_distance as f32, view_height_in_pixel)
   }
 
   pub fn override_mat(
     &self,
-    world_matrix: Mat4<f32>,
-    override_position: Vec3<f32>,
-    camera_world: Mat4<f32>,
+    world_matrix: Mat4<f64>,
+    override_position: Vec3<f64>,
+    camera_world: Mat4<f64>,
     view_height_in_pixel: f32,
     camera_proj: impl Projection<f32>,
-  ) -> Mat4<f32> {
+  ) -> Mat4<f64> {
     let world_translation = Mat4::translate(override_position);
 
     let scale = self.compute_scale(
@@ -87,7 +87,7 @@ impl ViewAutoScalable {
     );
 
     world_translation // move back to position
-      * Mat4::scale(Vec3::splat(scale)) // apply new scale
+      * Mat4::scale(Vec3::splat(scale as f64)) // apply new scale
       * world_translation.inverse_or_identity() // move back to zero
       * world_matrix // original
   }
@@ -96,7 +96,7 @@ impl ViewAutoScalable {
 pub struct InverseWorld;
 
 impl InverseWorld {
-  pub fn override_mat(&self, world_matrix: Mat4<f32>) -> Mat4<f32> {
+  pub fn override_mat(&self, world_matrix: Mat4<f64>) -> Mat4<f64> {
     world_matrix.inverse_or_identity()
   }
 }

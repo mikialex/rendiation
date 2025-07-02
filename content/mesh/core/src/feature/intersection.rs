@@ -19,8 +19,8 @@ pub trait IntersectAbleAbstractMesh {
 }
 
 #[derive(Copy, Clone)]
-pub struct MeshBufferHitPoint {
-  pub hit: HitPoint3D,
+pub struct MeshBufferHitPoint<T: Scalar = f32> {
+  pub hit: HitPoint3D<T>,
   pub primitive_index: usize,
 }
 impl HitDistanceCompareAble for MeshBufferHitPoint {
