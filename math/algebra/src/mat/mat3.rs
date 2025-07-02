@@ -12,6 +12,14 @@ pub struct Mat3<T> {
   pub c1: T, pub c2: T, pub c3: T,
 }
 
+impl<T> Mat3<T> {
+  pub fn map<X: Clone>(self, f: impl Fn(T) -> X) -> Mat3<X> {
+    let arr: [T; 9] = self.into();
+    let arr = arr.map(f);
+    arr.into()
+  }
+}
+
 impl<T: Scalar> SquareMatrixDimension<2> for Mat3<T> {}
 impl<T: Scalar> SquareMatrix<T> for Mat3<T> {
   fn identity() -> Self {

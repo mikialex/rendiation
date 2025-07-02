@@ -127,7 +127,7 @@ impl_matrix!(Mat4 { a1, a2, a3, a4, b1, b2, b3, b4, c1, c2, c3, c4, d1, d2, d3, 
 #[rustfmt::skip]
 impl_matrix!(Mat4x3 { a1, a2, a3, b1, b2, b3, c1, c2, c3, d1, d2, d3 }, 12, mat4x3);
 #[rustfmt::skip]
-impl_fixed_array_conversions!(Mat2<T> { a1: 0, a2: 1, b1: 2, b2: 0 }, 4);
+impl_fixed_array_conversions!(Mat2<T> { a1: 0, a2: 1, b1: 2, b2: 3 }, 4);
 #[rustfmt::skip]
 impl_fixed_array_conversions!(Mat3<T> { 
   a1: 0, a2: 1, a3: 2, 
