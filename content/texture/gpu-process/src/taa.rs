@@ -1,7 +1,7 @@
 // https://www.elopezr.com/temporal-aa-and-the-quest-for-the-holy-trail/#more-3285
 // https://sugulee.wordpress.com/2021/06/21/temporal-anti-aliasingtaa-tutorial/
 
-use rendiation_shader_library::{shader_uv_space_to_render_space, shader_render_space_to_uv_space};
+use rendiation_shader_library::{shader_render_space_to_uv_space, shader_uv_space_to_render_space};
 
 use crate::*;
 
@@ -131,10 +131,10 @@ impl GraphicsShaderProvider for TAAResolver<'_> {
 
       let depth = new_depth.sample(sampler, uv).x();
 
-      let world_position =
+      let render_position =
         shader_uv_space_to_render_space(reproject.current_camera_view_projection_inv, uv, depth);
       let (reproject_uv, _) =
-        shader_render_space_to_uv_space(reproject.previous_camera_view_projection, world_position);
+        shader_render_space_to_uv_space(reproject.previous_camera_view_projection, render_position);
 
       let previous = history.sample(color_sampler, reproject_uv);
 

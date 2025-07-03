@@ -65,8 +65,8 @@ pub fn basic_shadow_map_uniform(
     .bias
     .into_query_update_uniform_array(offset_of!(BasicShadowMapInfo, bias), gpu_ctx);
 
-  let shadow_camera_view_proj = source_view_proj.into_query_update_uniform_array(
-    offset_of!(BasicShadowMapInfo, shadow_camera_view_proj),
+  let render_to_shadowmap_ndc = source_view_proj.into_query_update_uniform_array(
+    offset_of!(BasicShadowMapInfo, render_to_shadowmap_ndc),
     gpu_ctx,
   );
 
@@ -74,7 +74,7 @@ pub fn basic_shadow_map_uniform(
   let uniforms = UniformArrayUpdateContainer::<BasicShadowMapInfo, 8>::new(uniforms)
     .with_source(enabled)
     .with_source(map_info)
-    .with_source(shadow_camera_view_proj)
+    .with_source(render_to_shadowmap_ndc)
     .with_source(bias);
 
   (sys, uniforms)
@@ -247,7 +247,7 @@ fn convert_pack_result(r: PackResult2dWithDepth) -> ShadowMapAddressInfo {
 #[derive(Clone, Copy, Default, ShaderStruct, Debug)]
 pub struct BasicShadowMapInfo {
   pub enabled: u32,
-  pub shadow_camera_view_proj: Mat4<f32>,
+  pub render_to_shadowmap_ndc: Mat4<f32>,
   pub bias: ShadowBias,
   pub map_info: ShadowMapAddressInfo,
 }
@@ -284,8 +284,8 @@ pub struct ShadowMapAddressInfo {
 pub trait ShadowOcclusionQuery {
   fn query_shadow_occlusion(
     &self,
-    world_position: Node<Vec3<f32>>,
-    world_normal: Node<Vec3<f32>>,
+    render_position: Node<Vec3<f32>>,
+    render_normal: Node<Vec3<f32>>,
   ) -> Node<f32>;
 }
 
@@ -333,8 +333,8 @@ pub struct BasicShadowMapInvocation {
 impl BasicShadowMapInvocation {
   pub fn query_shadow_occlusion_by_idx(
     &self,
-    world_position: Node<Vec3<f32>>,
-    world_normal: Node<Vec3<f32>>,
+    render_position: Node<Vec3<f32>>,
+    render_normal: Node<Vec3<f32>>,
     shadow_idx: Node<u32>,
   ) -> Node<f32> {
     let shadow_info = self.info.index(shadow_idx).load().expand();
@@ -342,9 +342,9 @@ impl BasicShadowMapInvocation {
     let bias = shadow_info.bias.expand();
 
     // apply normal bias
-    let world_position = world_position + bias.normal_bias * world_normal;
+    let render_position = render_position + bias.normal_bias * render_normal;
 
-    let shadow_position = shadow_info.shadow_camera_view_proj * (world_position, val(1.)).into();
+    let shadow_position = shadow_info.render_to_shadowmap_ndc * (render_position, val(1.)).into();
 
     let shadow_position = shadow_position.xyz() / shadow_position.w().splat();
 
@@ -403,12 +403,12 @@ pub struct BasicShadowMapSingleInvocation {
 impl ShadowOcclusionQuery for BasicShadowMapSingleInvocation {
   fn query_shadow_occlusion(
     &self,
-    world_position: Node<Vec3<f32>>,
-    world_normal: Node<Vec3<f32>>,
+    render_position: Node<Vec3<f32>>,
+    render_normal: Node<Vec3<f32>>,
   ) -> Node<f32> {
     self
       .sys
-      .query_shadow_occlusion_by_idx(world_position, world_normal, self.index)
+      .query_shadow_occlusion_by_idx(render_position, render_normal, self.index)
   }
 }
 
