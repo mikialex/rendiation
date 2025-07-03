@@ -56,6 +56,7 @@ pub struct ShaderLightingGeometricCtx {
   pub normal: Vec3<f32>,
   /// origin from surface to the camera
   pub view_dir: Vec3<f32>,
+  pub camera_world_position: HighPrecisionTranslation,
 }
 
 pub struct ShaderImportanceSampled<T, U> {

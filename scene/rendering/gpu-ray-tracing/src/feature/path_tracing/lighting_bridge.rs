@@ -86,7 +86,7 @@ impl ShaderLightSource for PointLightStorageShaderAPIInstance {
     surface_position: Node<Vec3<f32>>,
     _: &dyn DeviceSampler,
   ) -> (Node<Vec3<f32>>, Node<f32>) {
-    let position_to_light = self.position - surface_position;
+    let position_to_light = self.position.expand().f1 - surface_position;
     let distance = position_to_light.length();
     (position_to_light / distance.splat(), distance)
   }
@@ -98,7 +98,7 @@ impl ShaderLightSource for PointLightStorageShaderAPIInstance {
     surface_position: Node<Vec3<f32>>,
     _: Node<Vec3<f32>>,
   ) -> Node<Vec3<f32>> {
-    let sampling_dir = self.position - surface_position;
+    let sampling_dir = self.position.expand().f1 - surface_position;
     let distance = sampling_dir.length();
     self.luminance_intensity / (distance * distance).splat()
   }
@@ -151,7 +151,7 @@ impl ShaderLightSource for SpotLightStorageShaderAPIInstance {
     surface_position: Node<Vec3<f32>>,
     _: &dyn DeviceSampler,
   ) -> (Node<Vec3<f32>>, Node<f32>) {
-    let position_to_light = self.position - surface_position;
+    let position_to_light = self.position.expand().f1 - surface_position;
     let distance = position_to_light.length();
     (position_to_light / distance.splat(), distance)
   }
@@ -163,7 +163,7 @@ impl ShaderLightSource for SpotLightStorageShaderAPIInstance {
     surface_position: Node<Vec3<f32>>,
     _: Node<Vec3<f32>>,
   ) -> Node<Vec3<f32>> {
-    let sampling_dir = self.position - surface_position;
+    let sampling_dir = self.position.expand().f1 - surface_position;
     let distance = sampling_dir.length();
     self.luminance_intensity / (distance * distance).splat()
   }

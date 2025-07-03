@@ -5,7 +5,7 @@ use crate::*;
 #[derive(Copy, Clone, ShaderStruct, Default)]
 pub struct SpotLightUniform {
   pub luminance_intensity: Vec3<f32>,
-  pub position: Vec3<f32>,
+  pub position: HighPrecisionTranslationUniform,
   pub direction: Vec3<f32>,
   pub cutoff_distance: f32,
   pub half_cone_cos: f32,
@@ -39,7 +39,7 @@ pub fn spot_uniform_array(gpu: &GPU) -> UniformArrayUpdateContainer<SpotLightUni
 
   let position = world
     .clone()
-    .collective_map(|mat| mat.position().into_f32())
+    .collective_map(|mat| into_hpt(mat.position()).into_uniform())
     .into_query_update_uniform_array(offset_of!(SpotLightUniform, position), gpu);
 
   let direction = world

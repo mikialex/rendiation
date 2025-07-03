@@ -5,10 +5,10 @@ use crate::*;
 #[derive(Copy, Clone, ShaderStruct, Default)]
 pub struct LTCAreaLightUniform {
   /// pre calculated vertex in world space.
-  pub p1: Vec3<f32>,
-  pub p2: Vec3<f32>,
-  pub p3: Vec3<f32>,
-  pub p4: Vec3<f32>,
+  pub p1: HighPrecisionTranslationUniform,
+  pub p2: HighPrecisionTranslationUniform,
+  pub p3: HighPrecisionTranslationUniform,
+  pub p4: HighPrecisionTranslationUniform,
   pub intensity: Vec3<f32>,
   pub double_side: Bool,
   pub is_disk: Bool,
@@ -35,19 +35,17 @@ pub fn area_light_uniform_array(gpu: &GPU) -> UniformArrayUpdateContainer<LTCAre
     .one_to_many_fanout(global_rev_ref().watch_inv_ref::<AreaLightRefNode>())
     .collective_zip(global_watch().watch::<AreaLightSize>())
     .collective_map(|(world_mat, size)| {
-      let world_mat = world_mat.into_f32();
-      let width = size.x / 2.;
-      let height = size.y / 2.;
+      let width = size.x as f64 / 2.;
+      let height = size.y as f64 / 2.;
       let p1 = world_mat * Vec3::new(width, height, 0.);
       let p2 = world_mat * Vec3::new(-width, height, 0.);
       let p3 = world_mat * Vec3::new(-width, -height, 0.);
       let p4 = world_mat * Vec3::new(width, -height, 0.);
       [
-        // for 140 layout
-        p1.expand_with_one(),
-        p2.expand_with_one(),
-        p3.expand_with_one(),
-        p4.expand_with_one(),
+        into_hpt(p1).into_uniform(),
+        into_hpt(p2).into_uniform(),
+        into_hpt(p3).into_uniform(),
+        into_hpt(p4).into_uniform(),
       ]
     })
     .into_query_update_uniform_array(offset_of!(LTCAreaLightUniform, p1), gpu);
@@ -128,10 +126,10 @@ impl LightingComputeInvocation for LTCLightingComputeInvocation {
         let u = u.load().expand();
         LTCRectLightingCompute {
           light: ENode::<LTCRectLight> {
-            p1: u.p1,
-            p2: u.p2,
-            p3: u.p3,
-            p4: u.p4,
+            p1: hpt_uniform_to_hpt(u.p1),
+            p2: hpt_uniform_to_hpt(u.p2),
+            p3: hpt_uniform_to_hpt(u.p3),
+            p4: hpt_uniform_to_hpt(u.p4),
             intensity: u.intensity,
             double_side: u.double_side,
             is_disk: u.is_disk,

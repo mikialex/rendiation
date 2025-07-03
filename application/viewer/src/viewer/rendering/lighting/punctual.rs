@@ -146,7 +146,7 @@ impl LightSystemSceneProvider for ScenePointLightingProvider {
         let light_uniform = light_uniform.load().expand();
         ENode::<PointLightShaderInfo> {
           luminance_intensity: light_uniform.luminance_intensity,
-          position: light_uniform.position,
+          position: hpt_uniform_to_hpt(light_uniform.position),
           cutoff_distance: light_uniform.cutoff_distance,
         }
         .construct()
@@ -262,7 +262,7 @@ impl LightSystemSceneProvider for SceneSpotLightingProvider {
         let light_uniform = light.load().expand();
         let light = ENode::<SpotLightShaderInfo> {
           luminance_intensity: light_uniform.luminance_intensity,
-          position: light_uniform.position,
+          position: hpt_uniform_to_hpt(light_uniform.position),
           direction: light_uniform.direction,
           cutoff_distance: light_uniform.cutoff_distance,
           half_cone_cos: light_uniform.half_cone_cos,
