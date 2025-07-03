@@ -40,7 +40,10 @@ impl NodeGPUUniform<'_> {
       .bind_by_and_prepare(self.ubo)
       .using_graphics_pair(|r, node| {
         let node = node.load().expand();
-        r.register_typed_both_stage::<WorldMatrix>(node.world_matrix);
+        r.register_typed_both_stage::<WorldNoneTranslationMatrix>(
+          node.world_matrix_none_translation,
+        );
+        r.register_typed_both_stage::<WorldPositionHP>(hpt_uniform_to_hpt(node.world_position_hp));
         r.register_typed_both_stage::<WorldNormalMatrix>(node.normal_matrix);
       })
   }
@@ -50,16 +53,19 @@ impl NodeGPUUniform<'_> {
 #[std140_layout]
 #[derive(Clone, Copy, Default, PartialEq, ShaderStruct, Debug)]
 pub struct NodeUniform {
-  pub world_matrix: Mat4<f32>,
+  pub world_matrix_none_translation: Mat4<f32>,
+  pub world_position_hp: HighPrecisionTranslationUniform,
   pub normal_matrix: Shader16PaddedMat3,
 }
 
 impl NodeUniform {
   pub fn from_world_mat(world_matrix: Mat4<f64>) -> Self {
-    let world_matrix = world_matrix.into_f32();
+    let (world_matrix_none_translation, world_position_hp) =
+      into_mat_hpt_uniform_pair(world_matrix);
     Self {
-      world_matrix,
-      normal_matrix: world_matrix.to_normal_matrix().into(),
+      world_matrix_none_translation,
+      world_position_hp,
+      normal_matrix: world_matrix.into_f32().to_normal_matrix().into(),
       ..Zeroable::zeroed()
     }
   }
@@ -74,7 +80,8 @@ impl GraphicsShaderProvider for NodeGPUUniform<'_> {
     builder.vertex(|builder, binding| {
       let node = binding.bind_by(&self.ubo).load().expand();
 
-      builder.register::<WorldMatrix>(node.world_matrix);
+      builder.register::<WorldNoneTranslationMatrix>(node.world_matrix_none_translation);
+      builder.register::<WorldPositionHP>(hpt_uniform_to_hpt(node.world_position_hp));
       builder.register::<WorldNormalMatrix>(node.normal_matrix);
 
       // the RenderVertexPosition requires camera, so here we only process normal part

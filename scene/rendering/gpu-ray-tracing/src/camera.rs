@@ -86,11 +86,11 @@ impl RtxCameraRenderInvocation for DefaultRtxCameraInvocation {
     // local_ray.transform(self.camera.world().load())
 
     let view_projection_inv = self.camera.view_projection_inv().load();
-    let world = self.camera.world().load();
+    let world_position = self.camera.world_position().f1().load();
 
     let world_target = shader_uv_space_to_render_space(view_projection_inv, uv, val(1.));
 
-    let origin = world.position();
+    let origin = world_position;
 
     let direction = (world_target - origin).normalize();
 

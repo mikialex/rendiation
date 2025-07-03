@@ -36,6 +36,8 @@ pub struct CameraGPU {
   pub ubo: UniformBufferDataView<CameraGPUTransform>,
 }
 
+only_vertex!(CameraJitter, Vec2<f32>);
+
 impl CameraGPU {
   pub fn inject_uniforms(
     &self,
@@ -45,14 +47,25 @@ impl CameraGPU {
       .bind_by_and_prepare(&self.ubo)
       .using_graphics_pair(|r, camera| {
         let camera = camera.load().expand();
-        r.register_typed_both_stage::<CameraViewMatrix>(camera.view);
+
+        r.register_typed_both_stage::<CameraWorldPositionHP>(hpt_uniform_to_hpt(
+          camera.world_position,
+        ));
+        r.register_typed_both_stage::<CameraViewNoneTranslationMatrix>(
+          camera.view_projection_inv_without_translation,
+        );
         r.register_typed_both_stage::<CameraProjectionMatrix>(camera.projection);
         r.register_typed_both_stage::<CameraProjectionInverseMatrix>(camera.projection_inv);
-        r.register_typed_both_stage::<CameraWorldMatrix>(camera.world);
-        r.register_typed_both_stage::<CameraViewProjectionMatrix>(camera.view_projection);
-        r.register_typed_both_stage::<CameraViewProjectionInverseMatrix>(
-          camera.view_projection_inv,
+        r.register_typed_both_stage::<CameraWorldNoneTranslationMatrix>(
+          camera.world_without_translation,
         );
+        r.register_typed_both_stage::<CameraViewNoneTranslationProjectionMatrix>(
+          camera.view_projection_without_translation,
+        );
+        r.register_typed_both_stage::<CameraViewNoneTranslationProjectionInverseMatrix>(
+          camera.view_projection_inv_without_translation,
+        );
+        r.register_vertex_stage::<CameraJitter>(camera.jitter_normalized);
       })
   }
 }
@@ -69,41 +82,54 @@ impl ShaderPassBuilder for CameraGPU {
 
 impl GraphicsShaderProvider for CameraGPU {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    let camera = self.inject_uniforms(builder);
+    self.inject_uniforms(builder);
 
     builder.vertex(|builder, _| {
-      let camera = camera.get().load().expand();
+      // this check enables self as a uniform inject only render component without dependency on node.
+      if builder.try_query::<WorldNoneTranslationMatrix>().is_some() {
+        let local_position = builder.query::<GeometryPosition>();
+        let object_world_position = builder.query::<WorldPositionHP>();
+        let (clip_position, render_position) =
+          camera_transform_impl(builder, local_position, object_world_position);
 
-      if let Some(world_mat) = builder.try_query::<WorldMatrix>() {
-        let position_in_local_space = builder.query::<GeometryPosition>();
-
-        // todo, use high precision position
-        let world_to_render_offset = camera.world.position() - world_mat.position();
-        let translate_into_render_space: Node<Vec4<f32>> = (world_to_render_offset, val(0.)).into();
-
-        // let world_mat = // todo remove translation
-        let world_transformed_without_translation =
-          world_mat * (position_in_local_space, val(1.)).into();
-        let position_in_render_space =
-          world_transformed_without_translation + translate_into_render_space;
-
-        builder.register::<RenderVertexPosition>(position_in_render_space.xyz());
-
-        let view_projection = camera.view_projection; // todo remove translation
-        let mut clip_position = view_projection * position_in_render_space;
-
-        let jitter = if let Some(texel_size) = builder.try_query::<TexelSize>() {
-          let jitter = texel_size * camera.jitter_normalized * clip_position.w();
-          (jitter, val(0.), val(0.)).into()
-        } else {
-          Vec4::zero().into()
-        };
-        clip_position += jitter;
-
+        builder.register::<RenderVertexPosition>(render_position);
         builder.register::<ClipPosition>(clip_position);
       }
     })
   }
+}
+
+/// return (clip space position, render space position)
+pub fn camera_transform_impl(
+  builder: &mut ShaderVertexBuilder,
+  position_in_local_space: Node<Vec3<f32>>,
+  object_world_position: Node<HighPrecisionTranslation>,
+) -> (Node<Vec4<f32>>, Node<Vec3<f32>>) {
+  let world_mat_no_translation = builder.query::<WorldNoneTranslationMatrix>();
+  let camera_world_position = builder.query::<CameraWorldPositionHP>();
+  let world_to_render_offset = hpt_sub_hpt(camera_world_position, object_world_position);
+  let translate_into_render_space: Node<Vec4<f32>> = (world_to_render_offset, val(0.)).into();
+
+  let world_transformed_without_translation =
+    world_mat_no_translation * (position_in_local_space, val(1.)).into();
+  let position_in_render_space =
+    world_transformed_without_translation + translate_into_render_space;
+
+  let view_projection_none_translation =
+    builder.query::<CameraViewNoneTranslationProjectionMatrix>();
+
+  let mut clip_position = view_projection_none_translation * position_in_render_space;
+
+  let jitter = if let Some(texel_size) = builder.try_query::<TexelSize>() {
+    let jitter = builder.query::<CameraJitter>();
+    let jitter = texel_size * jitter * clip_position.w();
+    (jitter, val(0.), val(0.)).into()
+  } else {
+    Vec4::zero().into()
+  };
+  clip_position += jitter;
+
+  (clip_position, position_in_render_space.xyz())
 }
 
 #[repr(C)]
@@ -113,12 +139,14 @@ pub struct CameraGPUTransform {
   pub projection: Mat4<f32>,
   pub projection_inv: Mat4<f32>,
 
-  pub rotation: Mat4<f32>,
+  pub view_without_translation: Mat4<f32>,
+  pub world_without_translation: Mat4<f32>,
+  pub world_position: HighPrecisionTranslationUniform,
 
-  pub view: Mat4<f32>,
-  pub world: Mat4<f32>,
+  pub view_projection_without_translation: Mat4<f32>,
+  pub view_projection_inv_without_translation: Mat4<f32>,
 
-  pub view_projection: Mat4<f32>,
+  /// contains low precision translation, currently should only used in ray tracing
   pub view_projection_inv: Mat4<f32>,
 
   /// jitter is always applied (cheap and reduce shader variance)
@@ -128,16 +156,19 @@ pub struct CameraGPUTransform {
 
 impl From<CameraTransform> for CameraGPUTransform {
   fn from(t: CameraTransform) -> Self {
+    let (world_without_translation, world_position) = into_mat_hpt_uniform_pair(t.world);
+    let (view_without_translation, _) = into_mat_hpt_uniform_pair(t.view);
+
     Self {
-      world: t.world.into_f32(),
-      view: t.view.into_f32(),
-      rotation: t.rotation.into_f32(),
+      world_without_translation,
+      world_position,
+      view_without_translation,
 
       projection: t.projection,
       projection_inv: t.projection_inv,
-      view_projection: t.view_projection.into_f32(),
+      view_projection_without_translation: t.view_projection.into_f32().remove_position(),
+      view_projection_inv_without_translation: t.view_projection_inv.into_f32().remove_position(),
       view_projection_inv: t.view_projection_inv.into_f32(),
-
       ..Zeroable::zeroed()
     }
   }

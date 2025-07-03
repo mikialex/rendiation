@@ -56,11 +56,7 @@ only_vertex!(IndirectSceneNodeId, u32);
 
 pub fn node_storages(cx: &GPU) -> ReactiveStorageBufferContainer<NodeStorage> {
   let source = scene_node_derive_world_mat()
-    .collective_map(|mat| NodeStorage {
-      world_matrix: mat.into_f32(),
-      normal_matrix: mat.to_normal_matrix().into_f32().into(),
-      ..Zeroable::zeroed()
-    })
+    .collective_map(NodeStorage::from_world_mat)
     .into_query_update_storage(0);
 
   create_reactive_storage_buffer_container(128, u32::MAX, cx).with_source(source)
@@ -72,15 +68,19 @@ pub struct NodeGPUStorage<'a>(&'a StorageBufferReadonlyDataView<[NodeStorage]>);
 #[std430_layout]
 #[derive(Clone, Copy, Default, PartialEq, ShaderStruct, Debug)]
 pub struct NodeStorage {
-  pub world_matrix: Mat4<f32>,
+  pub world_matrix_none_translation: Mat4<f32>,
+  pub world_position_hp: HighPrecisionTranslationStorage,
   pub normal_matrix: Shader16PaddedMat3,
 }
 
 impl NodeStorage {
-  pub fn from_world_mat(world_matrix: Mat4<f32>) -> Self {
+  pub fn from_world_mat(world_matrix: Mat4<f64>) -> Self {
+    let (world_matrix_none_translation, world_position_hp) =
+      into_mat_hpt_storage_pair(world_matrix);
     Self {
-      world_matrix,
-      normal_matrix: world_matrix.to_normal_matrix().into(),
+      world_matrix_none_translation,
+      world_position_hp,
+      normal_matrix: world_matrix.into_f32().to_normal_matrix().into(),
       ..Zeroable::zeroed()
     }
   }
@@ -97,7 +97,8 @@ impl GraphicsShaderProvider for NodeGPUStorage<'_> {
       let current_node_id = builder.query::<IndirectSceneNodeId>();
       let node = nodes.index(current_node_id).load().expand();
 
-      builder.register::<WorldMatrix>(node.world_matrix);
+      builder.register::<WorldNoneTranslationMatrix>(node.world_matrix_none_translation);
+      builder.register::<WorldPositionHP>(hpt_storage_to_hpt(node.world_position_hp));
       builder.register::<WorldNormalMatrix>(node.normal_matrix);
 
       // the RenderVertexPosition requires camera, so here we only process normal part

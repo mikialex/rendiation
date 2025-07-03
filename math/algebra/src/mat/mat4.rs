@@ -278,6 +278,14 @@ where
     Vec3::new(self.d1, self.d2, self.d3)
   }
 
+  pub fn remove_position(&self) -> Mat4<T> {
+    let mut m = *self;
+    m.d1 = T::zero();
+    m.d2 = T::zero();
+    m.d3 = T::zero();
+    m
+  }
+
   pub fn get_scale(&self) -> Vec3<T> {
     let sx = Vec3::new(self.a1, self.a2, self.a3).length();
     let sy = Vec3::new(self.b1, self.b2, self.b3).length();

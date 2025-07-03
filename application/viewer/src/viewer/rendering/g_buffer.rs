@@ -147,7 +147,7 @@ impl GeometryCtxProvider for FrameGeometryBufferReconstructGeometryCtx<'_> {
       let read = self.g_buffer.build_read_invocation(binding);
       let uv = builder.query::<FragmentUv>();
       let (depth, normal) = read.read_depth_normal(uv);
-      let view_proj_inv = builder.query::<CameraViewProjectionInverseMatrix>();
+      let view_proj_inv = builder.query::<CameraViewNoneTranslationProjectionInverseMatrix>();
       let render_position = shader_uv_space_to_render_space(view_proj_inv, uv, depth);
 
       let camera_position_in_render = val(Vec3::zero());

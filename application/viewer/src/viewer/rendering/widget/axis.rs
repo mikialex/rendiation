@@ -74,11 +74,11 @@ pub struct AxisData {
 }
 
 impl AxisData {
-  pub fn new(gpu: &GPU, color: Vec4<f32>, ray: Ray3) -> Self {
+  pub fn new(gpu: &GPU, color: Vec4<f32>, ray: Ray3<f64>) -> Self {
     Self {
       line: UniformBufferCachedDataView::create(
         &gpu.device,
-        ShaderLine::new(ray.origin, ray.direction.value),
+        ShaderLine::new(ray.origin, ray.direction.value.into_f32()),
       ),
       shading: UniformBufferCachedDataView::create(&gpu.device, color),
     }
