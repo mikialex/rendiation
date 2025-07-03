@@ -60,7 +60,7 @@ impl ViewerPicker {
       .view_projection_inv;
 
     let normalized_position_ndc: Vec2<f32> = normalized_position_ndc.into();
-    let normalized_position_ndc_f64 = normalized_position_ndc.map(|v| v as f64);
+    let normalized_position_ndc_f64 = normalized_position_ndc.into_f64();
     let current_mouse_ray_in_world = cast_world_ray(projection_inv, normalized_position_ndc_f64);
 
     ViewerPicker {

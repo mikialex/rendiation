@@ -300,7 +300,7 @@ impl Ctx {
           children: Default::default(),
           extensions: Default::default(),
           extras: Default::default(),
-          matrix: Some(node.local_matrix.map(|v| v as f32).into()),
+          matrix: Some(node.local_matrix.into_f32().into()),
           mesh: Default::default(),
           name: Default::default(),
           rotation: Default::default(),

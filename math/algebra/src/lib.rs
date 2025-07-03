@@ -159,3 +159,27 @@ impl<T: Scalar> NDCSpaceMapper<T> for WebGPUxNDC {
     )
   }
 }
+
+#[macro_export]
+macro_rules! f32_f64_convert {
+  ($ty:tt) => {
+    impl $ty<f32> {
+      pub fn into_f64(self) -> $ty<f64> {
+        self.map(|v| v as f64)
+      }
+    }
+    impl $ty<f64> {
+      pub fn into_f32(self) -> $ty<f32> {
+        self.map(|v| v as f32)
+      }
+    }
+  };
+}
+
+f32_f64_convert!(Vec2);
+f32_f64_convert!(Vec3);
+f32_f64_convert!(Vec4);
+f32_f64_convert!(Mat2);
+f32_f64_convert!(Mat3);
+f32_f64_convert!(Mat4);
+f32_f64_convert!(Quat);

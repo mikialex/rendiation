@@ -151,15 +151,15 @@ impl<T: Scalar> Ray3<T> {
 // helper utils
 impl Ray3<f32> {
   pub fn into_f64(self) -> Ray3<f64> {
-    Ray3::new(self.origin.map(|v| v as f64), unsafe {
-      NormalizedVector::wrap(self.direction.value.map(|v| v as f64))
+    Ray3::new(self.origin.into_f64(), unsafe {
+      NormalizedVector::wrap(self.direction.value.into_f64())
     })
   }
 }
 impl Ray3<f64> {
   pub fn into_f32(self) -> Ray3<f32> {
-    Ray3::new(self.origin.map(|v| v as f32), unsafe {
-      NormalizedVector::wrap(self.direction.value.map(|v| v as f32))
+    Ray3::new(self.origin.into_f32(), unsafe {
+      NormalizedVector::wrap(self.direction.value.into_f32())
     })
   }
 }

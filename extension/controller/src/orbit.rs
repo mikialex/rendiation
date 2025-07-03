@@ -103,7 +103,7 @@ impl OrbitController {
     self.spherical.polar = (self.spherical.polar + self.spherical_delta.polar as f64)
       .clamp(self.min_polar_angle as f64, self.max_polar_angle as f64);
 
-    self.spherical.center += self.pan_offset.map(|v| v as f64);
+    self.spherical.center += self.pan_offset.into_f64();
 
     let eye = self.spherical.to_sphere_point();
 

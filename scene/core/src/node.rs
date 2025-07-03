@@ -4,6 +4,7 @@ declare_entity!(SceneNodeEntity);
 declare_component!(SceneNodeParentIdx, SceneNodeEntity, Option<RawEntityHandle>);
 
 // using f64 float for better precision(at least for computing)
+// the underlayer world space position also using f64.
 //
 // currently the render precision is still based on f32 around origin (0, 0, 0).
 // in the future, the render precision will based on f32 around camera, and the position precision will be preserved.

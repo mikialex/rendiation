@@ -113,7 +113,7 @@ pub fn scene_model_world_bounding(
   scene_model_world_mat
     .collective_intersect(scene_model_local_bounding)
     .collective_map(|(mat, local)| {
-      let f64_box = Box3::new(local.min.map(|v| v as f64), local.max.map(|v| v as f64));
+      let f64_box = Box3::new(local.min.into_f64(), local.max.into_f64());
       f64_box.apply_matrix_into(mat)
     })
 }

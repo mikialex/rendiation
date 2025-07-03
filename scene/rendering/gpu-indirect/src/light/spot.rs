@@ -37,11 +37,11 @@ pub fn spot_storage(gpu: &GPU) -> ReactiveStorageBufferContainer<SpotLightStorag
 
   let position = world
     .clone()
-    .collective_map(|mat| mat.position().map(|v| v as f32))
+    .collective_map(|mat| mat.position().into_f32())
     .into_query_update_storage(offset_of!(SpotLightStorage, position));
 
   let direction = world
-    .collective_map(|mat| mat.forward().reverse().normalize().map(|v| v as f32))
+    .collective_map(|mat| mat.forward().reverse().normalize().into_f32())
     .into_query_update_storage(offset_of!(SpotLightStorage, direction));
 
   create_reactive_storage_buffer_container(128, u32::MAX, gpu)

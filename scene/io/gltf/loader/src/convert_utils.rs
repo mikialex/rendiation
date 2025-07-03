@@ -86,7 +86,7 @@ pub fn map_transform(t: gltf::scene::Transform) -> Mat4<f64> {
       scale,
     } => Mat4::translate(translation) * Mat4::from(Quat::from(rotation)) * Mat4::scale(scale),
   }
-  .map(|v| v as f64)
+  .into_f64()
 }
 
 pub fn map_attribute_semantic(a: gltf::Semantic) -> AttributeSemantic {

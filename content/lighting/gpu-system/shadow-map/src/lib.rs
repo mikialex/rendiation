@@ -43,7 +43,7 @@ pub fn basic_shadow_map_uniform(
   let source_view_proj = source_world
     .clone()
     .collective_zip(source_proj.clone())
-    .collective_map(|(w, p)| p * w.inverse_or_identity().map(|v| v as f32))
+    .collective_map(|(w, p)| p * w.inverse_or_identity().into_f32())
     .into_boxed();
 
   let (sys, address) = BasicShadowMapSystem::new(

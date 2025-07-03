@@ -56,7 +56,7 @@ pub struct CameraTransform {
 impl CameraTransform {
   pub fn new(proj: Mat4<f32>, world: Mat4<f64>) -> Self {
     let view = world.inverse_or_identity();
-    let view_projection = proj.map(|v| v as f64) * view;
+    let view_projection = proj.into_f64() * view;
     CameraTransform {
       world,
       view,

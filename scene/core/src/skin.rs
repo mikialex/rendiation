@@ -35,6 +35,6 @@ pub fn indexed_joints_offset_mats(
   let joint_world_mats = scene_node_derive_world_mat().one_to_many_fanout(node_many_to_one_joint);
   joint_world_mats
     .collective_zip(global_watch().watch::<SceneJointInverseBindMatrix>())
-    .collective_map(|(world_mat, bind_inv_mat)| world_mat * bind_inv_mat.map(|v| v as f64))
+    .collective_map(|(world_mat, bind_inv_mat)| world_mat * bind_inv_mat.into_f64())
     .collective_zip(global_watch().watch::<SceneJointSkinIndex>())
 }

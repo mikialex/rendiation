@@ -113,14 +113,14 @@ pub struct CameraGPUTransform {
 impl From<CameraTransform> for CameraGPUTransform {
   fn from(t: CameraTransform) -> Self {
     Self {
-      world: t.world.map(|v| v as f32),
-      view: t.view.map(|v| v as f32),
-      rotation: t.rotation.map(|v| v as f32),
+      world: t.world.into_f32(),
+      view: t.view.into_f32(),
+      rotation: t.rotation.into_f32(),
 
       projection: t.projection,
       projection_inv: t.projection_inv,
-      view_projection: t.view_projection.map(|v| v as f32),
-      view_projection_inv: t.view_projection_inv.map(|v| v as f32),
+      view_projection: t.view_projection.into_f32(),
+      view_projection_inv: t.view_projection_inv.into_f32(),
 
       ..Zeroable::zeroed()
     }

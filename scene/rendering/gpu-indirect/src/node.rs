@@ -57,8 +57,8 @@ only_vertex!(IndirectSceneNodeId, u32);
 pub fn node_storages(cx: &GPU) -> ReactiveStorageBufferContainer<NodeStorage> {
   let source = scene_node_derive_world_mat()
     .collective_map(|mat| NodeStorage {
-      world_matrix: mat.map(|v| v as f32),
-      normal_matrix: mat.to_normal_matrix().map(|v| v as f32).into(),
+      world_matrix: mat.into_f32(),
+      normal_matrix: mat.to_normal_matrix().into_f32().into(),
       ..Zeroable::zeroed()
     })
     .into_query_update_storage(0);

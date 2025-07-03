@@ -85,7 +85,7 @@ impl SceneCameraHelper {
             }
             ValueChange::Delta(new, _) => {
               // maybe we should use node transform to improve the render precision
-              let new_mesh = build_debug_line_in_camera_space(new.map(|v| v as f32));
+              let new_mesh = build_debug_line_in_camera_space(new.into_f32());
               if let Some(helper) = self.helper_models.get_mut(&k) {
                 helper.replace_new_shape_and_cleanup_old(scene_cx, new_mesh);
               } else {

@@ -23,7 +23,7 @@ pub fn point_storage(gpu: &GPU) -> ReactiveStorageBufferContainer<PointLightStor
 
   let position = scene_node_derive_world_mat()
     .one_to_many_fanout(global_rev_ref().watch_inv_ref::<PointLightRefNode>())
-    .collective_map(|mat| mat.position().map(|v| v as f32))
+    .collective_map(|mat| mat.position().into_f32())
     .into_query_update_storage(offset_of!(PointLightStorage, position));
 
   create_reactive_storage_buffer_container(128, u32::MAX, gpu)

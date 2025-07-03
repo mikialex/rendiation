@@ -116,7 +116,7 @@ impl SceneSpotLightHelper {
           half_cone_angle.access(k).unwrap(),
           half_penumbra_angle.access(k).unwrap(),
           cutoff.access(k).unwrap(),
-          mat.access(k).unwrap().map(|v| v as f32),
+          mat.access(k).unwrap().into_f32(),
         );
         (*k, mesh)
       })

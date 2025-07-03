@@ -11,7 +11,7 @@ impl GPUReprojectInfo {
     }
   }
   pub fn update(&self, ctx: &mut FrameCtx, current_mvp_inv: Mat4<f64>) {
-    let current_mvp_inv = current_mvp_inv.map(|v| v as f32);
+    let current_mvp_inv = current_mvp_inv.into_f32();
     self.reproject.mutate(|d| {
       d.previous_camera_view_projection_inv = d.current_camera_view_projection_inv;
       d.previous_camera_view_projection = d.current_camera_view_projection;

@@ -17,7 +17,7 @@ impl BillBoard {
 
     let correction = Mat4::lookat(
       Vec3::new(0., 0., 0.),
-      self.front_direction.map(|v| v as f64),
+      self.front_direction.into_f64(),
       Vec3::new(0., 1., 0.),
     );
 

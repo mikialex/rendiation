@@ -219,7 +219,7 @@ impl ReactiveQuery for SceneTlasMaintainer {
         .filter_map(|sm| {
           current_sm_blas.access(&sm).map(|(blas, transform)| {
             TopLevelAccelerationStructureSourceInstance {
-              transform: transform.map(|v| v as f32),
+              transform: transform.into_f32(),
               instance_custom_index: sm.alloc_index(),
               mask: u32::MAX,
               instance_shader_binding_table_record_offset: sm.alloc_index()
