@@ -63,8 +63,7 @@ impl GraphicsShaderProvider for WideLineGPU<'_> {
       let material = binding.bind_by(&self.uniform).load().expand();
 
       let vertex_position = wide_line_vertex(
-        builder.query::<CameraProjectionMatrix>(),
-        builder.query::<CameraViewMatrix>(),
+        builder.query::<CameraViewProjectionMatrix>(),
         builder.query::<WorldMatrix>(),
         builder.query::<WideLineStart>(),
         builder.query::<WideLineEnd>(),
@@ -92,8 +91,7 @@ impl GraphicsShaderProvider for WideLineGPU<'_> {
 }
 
 fn wide_line_vertex(
-  projection: Node<Mat4<f32>>,
-  view: Node<Mat4<f32>>,
+  view_projection: Node<Mat4<f32>>,
   world_matrix: Node<Mat4<f32>>,
   wide_line_start: Node<Vec3<f32>>,
   wide_line_end: Node<Vec3<f32>>,
@@ -103,15 +101,14 @@ fn wide_line_vertex(
 ) -> Node<Vec4<f32>> {
   let wide_line_start = vec4_node((wide_line_start, val(1.0)));
   let wide_line_end = vec4_node((wide_line_end, val(1.0)));
-  // camera space
-  let start = view * world_matrix * wide_line_start;
-  let end = view * world_matrix * wide_line_end;
+  let start = world_matrix * wide_line_start;
+  let end = world_matrix * wide_line_end;
 
   let aspect = view_size.x() / view_size.y();
 
   // clip space
-  let clip_start = projection * start;
-  let clip_end = projection * end;
+  let clip_start = view_projection * start;
+  let clip_end = view_projection * end;
 
   // ndc space
   let ndc_start = clip_start.xy() / clip_start.w().splat();

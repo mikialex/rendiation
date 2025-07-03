@@ -46,9 +46,8 @@ impl GraphicsShaderProvider for InfinityShaderPlaneEffect<'_> {
     });
 
     builder.fragment(|builder, binding| {
-      let proj = builder.query::<CameraProjectionMatrix>();
       let world = builder.query::<CameraWorldMatrix>();
-      let view = builder.query::<CameraViewMatrix>();
+      let view_proj = builder.query::<CameraViewProjectionMatrix>();
       let view_proj_inv = builder.query::<CameraViewProjectionInverseMatrix>();
 
       let uv = builder.query::<FragmentUv>();
@@ -82,7 +81,7 @@ impl GraphicsShaderProvider for InfinityShaderPlaneEffect<'_> {
       let plane_hit = hit.xyz();
       let plane_if_hit = hit.w(); // 1 is hit, 0 is not
 
-      let plane_hit_project = proj * view * (plane_hit, val(1.)).into();
+      let plane_hit_project = view_proj * (plane_hit, val(1.)).into();
       builder.register::<FragmentDepthOutput>(plane_hit_project.z() / plane_hit_project.w());
 
       builder.register::<FragmentWorldPosition>(plane_hit);
