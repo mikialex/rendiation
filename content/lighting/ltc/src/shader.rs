@@ -5,10 +5,10 @@ use crate::*;
 #[derive(Copy, Clone, ShaderStruct, Default)]
 pub struct LTCRectLight {
   /// pre calculated vertex in world space.
-  pub p1: Vec3<f32>,
-  pub p2: Vec3<f32>,
-  pub p3: Vec3<f32>,
-  pub p4: Vec3<f32>,
+  pub p1: HighPrecisionTranslation,
+  pub p2: HighPrecisionTranslation,
+  pub p3: HighPrecisionTranslation,
+  pub p4: HighPrecisionTranslation,
   pub intensity: Vec3<f32>,
   pub double_side: Bool,
   pub is_disk: Bool,
@@ -42,6 +42,7 @@ impl LTCxLightEval {
           position,
           normal,
           view_dir,
+          camera_world_position: cp,
         },
       lut: LTCxLUTxInvocation {
         ltc_1,
@@ -70,8 +71,8 @@ impl LTCxLightEval {
     let light_color = l.intensity;
 
     let mut spec = disk.into_bool().select_branched(
-      || ltc_evaluate_disk_fn(normal, view_dir, position, min_v, light, ltc_2, sampler),
-      || ltc_evaluate_rect_fn(normal, view_dir, position, min_v, light, ltc_2, sampler),
+      || ltc_evaluate_disk_fn(normal, view_dir, position, min_v, light, ltc_2, sampler, cp),
+      || ltc_evaluate_rect_fn(normal, view_dir, position, min_v, light, ltc_2, sampler, cp),
     );
 
     // BRDF shadowing and Fresnel
@@ -85,8 +86,16 @@ impl LTCxLightEval {
       .into();
 
     let diff = disk.into_bool().select_branched(
-      || ltc_evaluate_disk_fn(normal, view_dir, position, identity, light, ltc_2, sampler),
-      || ltc_evaluate_rect_fn(normal, view_dir, position, identity, light, ltc_2, sampler),
+      || {
+        ltc_evaluate_disk_fn(
+          normal, view_dir, position, identity, light, ltc_2, sampler, cp,
+        )
+      },
+      || {
+        ltc_evaluate_rect_fn(
+          normal, view_dir, position, identity, light, ltc_2, sampler, cp,
+        )
+      },
     );
 
     ENode::<ShaderLightingResult> {
@@ -105,6 +114,7 @@ pub fn ltc_evaluate_rect(
   light: Node<LTCRectLight>,
   ltc_2: BindingNode<ShaderTexture2D>,
   sampler: BindingNode<ShaderSampler>,
+  camera_world_position: Node<HighPrecisionTranslation>,
 ) -> Node<Vec3<f32>> {
   let l = light.expand();
   // construct orthonormal basis around N
@@ -116,19 +126,24 @@ pub fn ltc_evaluate_rect(
   let m = mat3_node((t1, t2, n));
   let min_v = min_v * m.transpose();
 
+  let p1 = hpt_sub_hpt(l.p1, camera_world_position);
+  let p2 = hpt_sub_hpt(l.p2, camera_world_position);
+  let p3 = hpt_sub_hpt(l.p3, camera_world_position);
+  let p4 = hpt_sub_hpt(l.p4, camera_world_position);
+
   // polygon
-  let l1 = min_v * (l.p1 - p);
-  let l2 = min_v * (l.p2 - p);
-  let l3 = min_v * (l.p3 - p);
-  let l4 = min_v * (l.p4 - p);
+  let l1 = min_v * (p1 - p);
+  let l2 = min_v * (p2 - p);
+  let l3 = min_v * (p3 - p);
+  let l4 = min_v * (p4 - p);
 
   let l1 = l1.normalize();
   let l2 = l2.normalize();
   let l3 = l3.normalize();
   let l4 = l4.normalize();
 
-  let dir = l.p1 - p;
-  let light_normal = (l.p2 - l.p1).cross(l.p4 - l.p1);
+  let dir = p1 - p;
+  let light_normal = (p2 - p1).cross(p4 - p1);
   let behind = dir.dot(light_normal).less_than(0.);
 
   behind.not().or(l.double_side.into_bool()).select_branched(
@@ -177,6 +192,7 @@ pub fn ltc_evaluate_disk(
   light: Node<LTCRectLight>,
   ltc_2: BindingNode<ShaderTexture2D>,
   sampler: BindingNode<ShaderSampler>,
+  camera_world_position: Node<HighPrecisionTranslation>,
 ) -> Node<Vec3<f32>> {
   let l = light.expand();
   // construct orthonormal basis around N
@@ -188,10 +204,14 @@ pub fn ltc_evaluate_disk(
   let m = mat3_node((t1, t2, n));
   let base = min_v * m.transpose();
 
+  let p1 = hpt_sub_hpt(l.p1, camera_world_position);
+  let p2 = hpt_sub_hpt(l.p2, camera_world_position);
+  let p3 = hpt_sub_hpt(l.p3, camera_world_position);
+
   // polygon
-  let l1 = base * (l.p1 - p);
-  let l2 = base * (l.p2 - p);
-  let l3 = base * (l.p3 - p);
+  let l1 = base * (p1 - p);
+  let l2 = base * (p2 - p);
+  let l3 = base * (p3 - p);
 
   // init ellipse
   let C = val(0.5) * (l1 + l3);

@@ -5,7 +5,7 @@ use crate::*;
 #[derive(Copy, Clone, ShaderStruct, Default)]
 pub struct SpotLightStorage {
   pub luminance_intensity: Vec3<f32>,
-  pub position: Vec3<f32>,
+  pub position: HighPrecisionTranslationStorage,
   pub direction: Vec3<f32>,
   pub cutoff_distance: f32,
   pub half_cone_cos: f32,
@@ -37,7 +37,7 @@ pub fn spot_storage(gpu: &GPU) -> ReactiveStorageBufferContainer<SpotLightStorag
 
   let position = world
     .clone()
-    .collective_map(|mat| mat.position().into_f32())
+    .collective_map(|mat| into_hpt(mat.position()).into_storage())
     .into_query_update_storage(offset_of!(SpotLightStorage, position));
 
   let direction = world
@@ -81,7 +81,7 @@ pub fn make_spot_light_storage_component(
       let light = light.load().expand();
       ENode::<SpotLightShaderInfo> {
         luminance_intensity: light.luminance_intensity,
-        position: light.position,
+        position: hpt_storage_to_hpt(light.position),
         direction: light.direction,
         cutoff_distance: light.cutoff_distance,
         half_cone_cos: light.half_cone_cos,

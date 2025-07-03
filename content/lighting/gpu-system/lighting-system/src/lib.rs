@@ -73,6 +73,7 @@ impl GeometryCtxProvider for DirectGeometryProvider {
         position: fragment_render,
         normal: fragment_normal,
         view_dir: fragment_render.normalize(),
+        camera_world_position: builder.query::<CameraWorldPositionHP>(),
       }
     })
   }

@@ -6,7 +6,7 @@ use crate::*;
 pub struct PointLightStorage {
   /// in cd
   pub luminance_intensity: Vec3<f32>,
-  pub position: Vec3<f32>,
+  pub position: HighPrecisionTranslationStorage,
   pub cutoff_distance: f32,
 }
 
@@ -23,7 +23,7 @@ pub fn point_storage(gpu: &GPU) -> ReactiveStorageBufferContainer<PointLightStor
 
   let position = scene_node_derive_world_mat()
     .one_to_many_fanout(global_rev_ref().watch_inv_ref::<PointLightRefNode>())
-    .collective_map(|mat| mat.position().into_f32())
+    .collective_map(|mat| into_hpt(mat.position()).into_storage())
     .into_query_update_storage(offset_of!(PointLightStorage, position));
 
   create_reactive_storage_buffer_container(128, u32::MAX, gpu)
@@ -60,7 +60,7 @@ pub fn make_point_light_storage_component(
       let light = light.load().expand();
       ENode::<PointLightShaderInfo> {
         luminance_intensity: light.luminance_intensity,
-        position: light.position,
+        position: hpt_storage_to_hpt(light.position),
         cutoff_distance: light.cutoff_distance,
       }
       .construct()

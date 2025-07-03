@@ -43,7 +43,7 @@ impl PunctualShaderLight for ENode<DirectionalShaderInfo> {
 pub struct PointLightShaderInfo {
   /// in cd
   pub luminance_intensity: Vec3<f32>,
-  pub position: Vec3<f32>,
+  pub position: HighPrecisionTranslation,
   pub cutoff_distance: f32,
 }
 
@@ -61,7 +61,8 @@ impl PunctualShaderLight for ENode<PointLightShaderInfo> {
     &self,
     ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> ENode<ShaderIncidentLight> {
-    let direction = ctx.position - self.position;
+    let position_in_render = hpt_sub_hpt(self.position, ctx.camera_world_position);
+    let direction = ctx.position - position_in_render;
     let distance = direction.length();
     let factor = punctual_light_intensity_to_illuminance_factor_fn(distance, self.cutoff_distance);
 
@@ -75,7 +76,7 @@ impl PunctualShaderLight for ENode<PointLightShaderInfo> {
 #[derive(Copy, Clone, ShaderStruct)]
 pub struct SpotLightShaderInfo {
   pub luminance_intensity: Vec3<f32>,
-  pub position: Vec3<f32>,
+  pub position: HighPrecisionTranslation,
   pub direction: Vec3<f32>,
   pub cutoff_distance: f32,
   pub half_cone_cos: f32,
@@ -96,7 +97,8 @@ impl PunctualShaderLight for ENode<SpotLightShaderInfo> {
     &self,
     ctx: &ENode<ShaderLightingGeometricCtx>,
   ) -> ENode<ShaderIncidentLight> {
-    let direction = ctx.position - self.position;
+    let position_in_render = hpt_sub_hpt(self.position, ctx.camera_world_position);
+    let direction = ctx.position - position_in_render;
     let distance = direction.length();
     let distance_factor =
       punctual_light_intensity_to_illuminance_factor_fn(distance, self.cutoff_distance);

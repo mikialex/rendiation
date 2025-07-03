@@ -6,7 +6,7 @@ use crate::*;
 pub struct PointLightUniform {
   /// in cd
   pub luminance_intensity: Vec3<f32>,
-  pub position: Vec3<f32>,
+  pub position: HighPrecisionTranslationUniform,
   pub cutoff_distance: f32,
 }
 
@@ -23,7 +23,7 @@ pub fn point_uniform_array(gpu: &GPU) -> UniformArrayUpdateContainer<PointLightU
 
   let position = scene_node_derive_world_mat()
     .one_to_many_fanout(global_rev_ref().watch_inv_ref::<PointLightRefNode>())
-    .collective_map(|mat| mat.position().into_f32())
+    .collective_map(|mat| into_hpt(mat.position()).into_uniform())
     .into_query_update_uniform_array(offset_of!(PointLightUniform, position), gpu);
 
   UniformArrayUpdateContainer::new(buffer)

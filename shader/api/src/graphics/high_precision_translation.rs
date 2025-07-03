@@ -2,7 +2,7 @@
 use crate as rendiation_shader_api;
 use crate::*;
 
-#[derive(Debug, Clone, Copy, ShaderStruct)]
+#[derive(Debug, Clone, Copy, ShaderStruct, Default)]
 pub struct HighPrecisionTranslation {
   pub f1: Vec3<f32>,
   pub f2: Vec3<f32>,
@@ -24,38 +24,45 @@ pub struct HighPrecisionTranslationStorage {
   pub f2: Vec3<f32>,
 }
 
-pub fn into_mat_hpt_pair(mat: Mat4<f64>) -> (Mat4<f32>, HighPrecisionTranslation) {
-  let position = mat.position();
+pub fn into_hpt(position: Vec3<f64>) -> HighPrecisionTranslation {
   let f1 = position.into_f32();
   let f2 = (position - f1.into_f64()).into_f32();
 
-  let hpt = HighPrecisionTranslation { f1, f2 };
+  HighPrecisionTranslation { f1, f2 }
+}
+
+impl HighPrecisionTranslation {
+  pub fn into_uniform(self) -> HighPrecisionTranslationUniform {
+    HighPrecisionTranslationUniform {
+      f1: self.f1,
+      f2: self.f1,
+      ..Default::default()
+    }
+  }
+
+  pub fn into_storage(self) -> HighPrecisionTranslationStorage {
+    HighPrecisionTranslationStorage {
+      f1: self.f1,
+      f2: self.f1,
+      ..Default::default()
+    }
+  }
+}
+
+pub fn into_mat_hpt_pair(mat: Mat4<f64>) -> (Mat4<f32>, HighPrecisionTranslation) {
+  let hpt = into_hpt(mat.position());
 
   (mat.remove_position().into_f32(), hpt)
 }
 
 pub fn into_mat_hpt_uniform_pair(mat: Mat4<f64>) -> (Mat4<f32>, HighPrecisionTranslationUniform) {
   let (mat, hpt) = into_mat_hpt_pair(mat);
-
-  let hpt = HighPrecisionTranslationUniform {
-    f1: hpt.f1,
-    f2: hpt.f1,
-    ..Default::default()
-  };
-
-  (mat, hpt)
+  (mat, hpt.into_uniform())
 }
 
 pub fn into_mat_hpt_storage_pair(mat: Mat4<f64>) -> (Mat4<f32>, HighPrecisionTranslationStorage) {
   let (mat, hpt) = into_mat_hpt_pair(mat);
-
-  let hpt = HighPrecisionTranslationStorage {
-    f1: hpt.f1,
-    f2: hpt.f1,
-    ..Default::default()
-  };
-
-  (mat, hpt)
+  (mat, hpt.into_storage())
 }
 
 pub fn hpt_uniform_to_hpt(
