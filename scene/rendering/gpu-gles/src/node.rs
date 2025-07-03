@@ -73,15 +73,13 @@ impl GraphicsShaderProvider for NodeGPUUniform<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, binding| {
       let node = binding.bind_by(&self.ubo).load().expand();
-      let position = builder.query::<GeometryPosition>();
-      let position = node.world_matrix * (position, val(1.)).into();
 
       builder.register::<WorldMatrix>(node.world_matrix);
       builder.register::<WorldNormalMatrix>(node.normal_matrix);
-      builder.register::<WorldVertexPosition>(position.xyz());
 
+      // the RenderVertexPosition requires camera, so here we only process normal part
       if let Some(normal) = builder.try_query::<GeometryNormal>() {
-        builder.register::<WorldVertexNormal>(node.normal_matrix * normal);
+        builder.register::<RenderVertexNormal>(node.normal_matrix * normal);
       }
     })
   }

@@ -1,4 +1,4 @@
-use rendiation_shader_library::{shader_uv_space_to_world_space, shader_world_space_to_uv_space};
+use rendiation_shader_library::{shader_uv_space_to_render_space, shader_render_space_to_uv_space};
 
 use crate::*;
 
@@ -23,7 +23,7 @@ pub fn screen_space_reflection(
 ) -> Node<Vec3<f32>> {
   let d = depth.sample(sampler, uv);
   let world_position: Node<Vec3<f32>> =
-    shader_uv_space_to_world_space(reproject.current_camera_view_projection_inv, uv, d);
+    shader_uv_space_to_render_space(reproject.current_camera_view_projection_inv, uv, d);
   let world_surface_normal = normal.sample(sampler, uv).xyz();
 
   let camera_to_surface = world_position - camera_position;
@@ -32,7 +32,7 @@ pub fn screen_space_reflection(
   let ray_end_point = world_position + trace_ray_direction * config.max_distance;
 
   let ray_end_point_in_uv =
-    shader_world_space_to_uv_space(reproject.current_camera_view_projection, ray_end_point).0;
+    shader_render_space_to_uv_space(reproject.current_camera_view_projection, ray_end_point).0;
   let uv_space_trace_dir = ray_end_point_in_uv - uv;
   let uv_space_trace_length = uv_space_trace_dir.length();
   let uv_space_trace_step_length = uv_space_trace_length / config.trace_check_step_count.into_f32();
@@ -53,7 +53,7 @@ pub fn screen_space_reflection(
     let accept_test = infinite_thick.make_local_var();
     if_by(infinite_thick.not(), || {
       let current_test_depth = depth.sample(sampler, current_test_point);
-      let test_world_position = shader_uv_space_to_world_space(
+      let test_world_position = shader_uv_space_to_render_space(
         reproject.current_camera_view_projection_inv,
         current_test_point,
         current_test_depth,
@@ -62,7 +62,7 @@ pub fn screen_space_reflection(
 
       let neighbor_uv = current_test_point + texel;
       let neighbor_depth = depth.sample(sampler, neighbor_uv);
-      let neighbor_world_position = shader_uv_space_to_world_space(
+      let neighbor_world_position = shader_uv_space_to_render_space(
         reproject.current_camera_view_projection_inv,
         neighbor_uv,
         neighbor_depth,

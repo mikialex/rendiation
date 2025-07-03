@@ -1,6 +1,6 @@
 use rendiation_shader_library::{
-  normal_mapping::compute_normal_by_dxdy, sampling::*, shader_uv_space_to_world_space,
-  shader_world_space_to_uv_space,
+  normal_mapping::compute_normal_by_dxdy, sampling::*, shader_render_space_to_uv_space,
+  shader_uv_space_to_render_space,
 };
 
 use crate::*;
@@ -124,7 +124,7 @@ impl GraphicsShaderProvider for AOComputer<'_> {
       })
       .else_by(|| {
         let position_world =
-          shader_uv_space_to_world_space(reproject.current_camera_view_projection_inv, uv, depth);
+          shader_uv_space_to_render_space(reproject.current_camera_view_projection_inv, uv, depth);
 
         let normal = compute_normal_by_dxdy(position_world); // wrong, but i do not want pay cost to use normal texture input
 
@@ -140,7 +140,7 @@ impl GraphicsShaderProvider for AOComputer<'_> {
             let sample_position_offset = tbn * sample.load().xyz();
             let sample_position_world = position_world + sample_position_offset * parameter.radius;
 
-            let (s_uv, s_depth) = shader_world_space_to_uv_space(
+            let (s_uv, s_depth) = shader_render_space_to_uv_space(
               reproject.current_camera_view_projection,
               sample_position_world,
             );

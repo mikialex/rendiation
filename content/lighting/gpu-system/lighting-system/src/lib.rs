@@ -64,16 +64,15 @@ impl GeometryCtxProvider for DirectGeometryProvider {
     builder: &mut ShaderRenderPipelineBuilder,
   ) -> ENode<ShaderLightingGeometricCtx> {
     builder.fragment(|builder, _| {
-      let fragment_world =
-        builder.query_or_interpolate_by::<FragmentWorldPosition, WorldVertexPosition>();
+      let fragment_render =
+        builder.query_or_interpolate_by::<FragmentRenderPosition, RenderVertexPosition>();
       let fragment_normal = builder
-        .query_or_interpolate_by::<FragmentWorldNormal, WorldVertexNormal>()
+        .query_or_interpolate_by::<FragmentRenderNormal, RenderVertexNormal>()
         .normalize();
-      let camera_position = builder.query::<CameraWorldMatrix>().position();
       ENode::<ShaderLightingGeometricCtx> {
-        position: fragment_world,
+        position: fragment_render,
         normal: fragment_normal,
-        view_dir: (camera_position - fragment_world).normalize(),
+        view_dir: fragment_render.normalize(),
       }
     })
   }

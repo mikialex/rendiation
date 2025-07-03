@@ -1,4 +1,4 @@
-use rendiation_shader_library::shader_uv_space_to_world_space;
+use rendiation_shader_library::shader_uv_space_to_render_space;
 use rendiation_texture_gpu_process::*;
 
 use crate::*;
@@ -37,7 +37,7 @@ impl OutlineComputeSourceInvocation for ViewerOutlineSourceInvocation {
   fn get_source(&self, uv: Node<Vec2<f32>>) -> OutlineSource {
     let (depth, normal) = self.g_buffer.read_depth_normal(uv);
     let position_world =
-      shader_uv_space_to_world_space(self.reproject.current_camera_view_projection_inv, uv, depth);
+      shader_uv_space_to_render_space(self.reproject.current_camera_view_projection_inv, uv, depth);
 
     let id = self.g_buffer.read_id(uv);
 
