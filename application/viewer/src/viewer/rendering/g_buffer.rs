@@ -1,4 +1,4 @@
-use rendiation_shader_library::shader_uv_space_to_world_space;
+use rendiation_shader_library::shader_uv_space_to_render_space;
 
 use crate::*;
 
@@ -60,7 +60,7 @@ impl GraphicsShaderProvider for FrameGeometryBufferPassEncoder {
       builder.frag_output[self.entity_id].store(id);
 
       let normal = builder
-        .query_or_interpolate_by::<FragmentWorldNormal, WorldVertexNormal>()
+        .query_or_interpolate_by::<FragmentRenderNormal, RenderVertexNormal>()
         .normalize();
       let out: Node<Vec4<f32>> = (normal, val(1.0)).into();
       builder.frag_output[self.normal].store(out);
@@ -148,7 +148,7 @@ impl GeometryCtxProvider for FrameGeometryBufferReconstructGeometryCtx<'_> {
       let uv = builder.query::<FragmentUv>();
       let (depth, normal) = read.read_depth_normal(uv);
       let view_proj_inv = builder.query::<CameraViewProjectionInverseMatrix>();
-      let world_position = shader_uv_space_to_world_space(view_proj_inv, uv, depth);
+      let world_position = shader_uv_space_to_render_space(view_proj_inv, uv, depth);
 
       let camera_position = builder.query::<CameraWorldMatrix>().position();
       ENode::<ShaderLightingGeometricCtx> {

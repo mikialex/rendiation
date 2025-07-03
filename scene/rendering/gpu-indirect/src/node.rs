@@ -97,15 +97,12 @@ impl GraphicsShaderProvider for NodeGPUStorage<'_> {
       let current_node_id = builder.query::<IndirectSceneNodeId>();
       let node = nodes.index(current_node_id).load().expand();
 
-      let position = builder.query::<GeometryPosition>();
-      let position = node.world_matrix * (position, val(1.)).into();
-
       builder.register::<WorldMatrix>(node.world_matrix);
       builder.register::<WorldNormalMatrix>(node.normal_matrix);
-      builder.register::<WorldVertexPosition>(position.xyz());
 
+      // the RenderVertexPosition requires camera, so here we only process normal part
       if let Some(normal) = builder.try_query::<GeometryNormal>() {
-        builder.register::<WorldVertexNormal>(node.normal_matrix * normal);
+        builder.register::<RenderVertexNormal>(node.normal_matrix * normal);
       }
     })
   }

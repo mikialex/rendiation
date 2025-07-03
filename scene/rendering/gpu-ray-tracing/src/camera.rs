@@ -1,5 +1,5 @@
 use rendiation_shader_library::{
-  sampling::concentric_sample_disk_device_fn, shader_uv_space_to_world_space,
+  sampling::concentric_sample_disk_device_fn, shader_uv_space_to_render_space,
 };
 
 use crate::*;
@@ -88,7 +88,7 @@ impl RtxCameraRenderInvocation for DefaultRtxCameraInvocation {
     let view_projection_inv = self.camera.view_projection_inv().load();
     let world = self.camera.world().load();
 
-    let world_target = shader_uv_space_to_world_space(view_projection_inv, uv, val(1.));
+    let world_target = shader_uv_space_to_render_space(view_projection_inv, uv, val(1.));
 
     let origin = world.position();
 

@@ -66,9 +66,9 @@ impl GraphicsShaderProvider for GridGroundShading<'_> {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, binding| {
       let shading = binding.bind_by(&self.shading).load();
-      let world_position = builder.query::<FragmentWorldPosition>();
+      let render_position = builder.query::<FragmentRenderPosition>();
 
-      let grid = grid(world_position, shading);
+      let grid = grid(render_position, shading);
 
       builder.register::<DefaultDisplay>(grid);
 

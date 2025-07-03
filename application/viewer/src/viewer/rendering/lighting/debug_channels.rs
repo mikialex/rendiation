@@ -8,7 +8,7 @@ pub struct ScreenChannelDebugger {
 impl ScreenChannelDebugger {
   pub fn default_useful() -> Self {
     Self::default()
-      .push_debug_channel(FragmentWorldNormal)
+      .push_debug_channel(FragmentRenderNormal)
       .push_debug_channel(FragmentUv)
       .push_debug_channel(ColorChannel)
       .push_debug_channel(RoughnessChannel)
@@ -69,7 +69,7 @@ impl GraphicsShaderProvider for ScreenChannelDebugger {
 
 impl ShaderPassBuilder for ScreenChannelDebugger {}
 
-impl ChannelVisualize for FragmentWorldNormal {
+impl ChannelVisualize for FragmentRenderNormal {
   fn to_screen(&self, builder: &mut ShaderFragmentBuilderView) -> Node<Vec4<f32>> {
     let normal = builder
       .try_query::<Self>()

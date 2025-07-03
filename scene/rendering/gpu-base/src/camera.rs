@@ -73,8 +73,24 @@ impl GraphicsShaderProvider for CameraGPU {
 
     builder.vertex(|builder, _| {
       let camera = camera.get().load().expand();
-      if let Some(position) = builder.try_query::<WorldVertexPosition>() {
-        let mut clip_position = camera.view_projection * (position, val(1.)).into();
+
+      if let Some(world_mat) = builder.try_query::<WorldMatrix>() {
+        let position_in_local_space = builder.query::<GeometryPosition>();
+
+        // todo, use high precision position
+        let world_to_render_offset = camera.world.position() - world_mat.position();
+        let translate_into_render_space: Node<Vec4<f32>> = (world_to_render_offset, val(0.)).into();
+
+        // let world_mat = // todo remove translation
+        let world_transformed_without_translation =
+          world_mat * (position_in_local_space, val(1.)).into();
+        let position_in_render_space =
+          world_transformed_without_translation + translate_into_render_space;
+
+        builder.register::<RenderVertexPosition>(position_in_render_space.xyz());
+
+        let view_projection = camera.view_projection; // todo remove translation
+        let mut clip_position = view_projection * position_in_render_space;
 
         let jitter = if let Some(texel_size) = builder.try_query::<TexelSize>() {
           let jitter = texel_size * camera.jitter_normalized * clip_position.w();

@@ -35,12 +35,12 @@ pub trait BuilderNormalExt {
 impl BuilderNormalExt for ShaderFragmentBuilderView<'_> {
   fn get_or_compute_fragment_normal(&mut self) -> Node<Vec3<f32>> {
     // check first and avoid unnecessary renormalize
-    if let Some(normal) = self.try_query::<FragmentWorldNormal>() {
+    if let Some(normal) = self.try_query::<FragmentRenderNormal>() {
       normal
     } else {
-      let normal = self.query_or_interpolate_by::<FragmentWorldNormal, WorldVertexNormal>();
+      let normal = self.query_or_interpolate_by::<FragmentRenderPosition, RenderVertexPosition>();
       let normal = normal.normalize(); // renormalize
-      self.register::<FragmentWorldNormal>(normal);
+      self.register::<FragmentRenderNormal>(normal);
       normal
     }
   }
@@ -53,7 +53,7 @@ pub fn apply_normal_mapping(
   scale: Node<f32>,
 ) -> Node<Vec3<f32>> {
   let normal = builder.get_or_compute_fragment_normal();
-  let position = builder.query_or_interpolate_by::<FragmentWorldPosition, WorldVertexPosition>();
+  let position = builder.query_or_interpolate_by::<FragmentRenderPosition, RenderVertexPosition>();
 
   let normal_adjust = normal_map_sample * val(Vec3::splat(2.)) - val(Vec3::one());
   let normal_adjust = normal_adjust * scale.splat::<Vec3<f32>>();
@@ -61,7 +61,7 @@ pub fn apply_normal_mapping(
   let face = builder.query::<FragmentFrontFacing>().select(0., 1.);
 
   let normal = perturb_normal_2_arb(position, normal, normal_adjust, uv, face);
-  builder.register::<FragmentWorldNormal>(normal);
+  builder.register::<FragmentRenderNormal>(normal);
 
   normal
 }
@@ -74,7 +74,7 @@ pub fn apply_normal_mapping_conditional(
   enabled: Node<bool>,
 ) -> Node<Vec3<f32>> {
   let normal = builder.get_or_compute_fragment_normal().make_local_var();
-  let position = builder.query_or_interpolate_by::<FragmentWorldPosition, WorldVertexPosition>();
+  let position = builder.query_or_interpolate_by::<FragmentRenderPosition, RenderVertexPosition>();
 
   if_by(enabled, || {
     let normal_adjust = normal_map_sample * val(Vec3::splat(2.)) - val(Vec3::one());
@@ -87,7 +87,7 @@ pub fn apply_normal_mapping_conditional(
   });
 
   let normal = normal.load();
-  builder.register::<FragmentWorldNormal>(normal);
+  builder.register::<FragmentRenderNormal>(normal);
   normal
 }
 
