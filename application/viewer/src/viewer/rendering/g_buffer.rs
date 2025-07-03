@@ -148,13 +148,14 @@ impl GeometryCtxProvider for FrameGeometryBufferReconstructGeometryCtx<'_> {
       let uv = builder.query::<FragmentUv>();
       let (depth, normal) = read.read_depth_normal(uv);
       let view_proj_inv = builder.query::<CameraViewProjectionInverseMatrix>();
-      let world_position = shader_uv_space_to_render_space(view_proj_inv, uv, depth);
+      let render_position = shader_uv_space_to_render_space(view_proj_inv, uv, depth);
 
-      let camera_position = builder.query::<CameraWorldMatrix>().position();
+      let camera_position_in_render = val(Vec3::zero());
+
       ENode::<ShaderLightingGeometricCtx> {
-        position: world_position,
+        position: render_position,
         normal,
-        view_dir: (camera_position - world_position).normalize(),
+        view_dir: (camera_position_in_render - render_position).normalize(),
       }
     })
   }

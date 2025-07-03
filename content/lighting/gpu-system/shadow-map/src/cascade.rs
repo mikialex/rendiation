@@ -14,7 +14,7 @@ pub struct CascadeShadowMapInfo {
 #[std140_layout]
 #[derive(Clone, Copy, Default, ShaderStruct, Debug)]
 pub struct SingleShadowMapInfo {
-  pub shadow_camera_view_proj: Mat4<f32>,
+  pub render_to_shadowmap_ndc: Mat4<f32>,
   pub map_info: ShadowMapAddressInfo,
   pub split_distance: f32,
 }
@@ -107,14 +107,14 @@ pub fn compute_light_cascade_info(
 /// compute the current shading point in which sub frustum
 #[shader_fn]
 pub fn compute_cascade_index(
-  fragment_world_position: Node<Vec3<f32>>,
+  render_position: Node<Vec3<f32>>,
   camera_world_mat: Node<Mat4<f32>>,
   splits: Node<Vec4<f32>>,
 ) -> Node<u32> {
   let camera_position = camera_world_mat.position();
   let camera_forward_dir = camera_world_mat.forward().normalize();
 
-  let diff = fragment_world_position - camera_position;
+  let diff = render_position - camera_position;
   let distance = diff.dot(camera_forward_dir);
 
   let x = splits.x();

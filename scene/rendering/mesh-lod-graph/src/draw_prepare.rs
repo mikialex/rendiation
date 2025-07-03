@@ -60,6 +60,7 @@ impl MeshLODExpander {
 
         if_by(valid, || {
           let model_world_matrix = world_matrix_access.get_world_matrix(scene_model);
+          let meshlet_local_to_render = model_world_matrix; // todo, fix
 
           let range = scene_model_meshlet_range.index(scene_model).load();
           range
@@ -72,7 +73,7 @@ impl MeshLODExpander {
               let is_lod_suitable = lod_decider.exact_lod_cut(
                 bound_pair.self_lod,
                 bound_pair.parent_lod,
-                model_world_matrix,
+                meshlet_local_to_render,
               );
 
               if_by(is_lod_suitable, || {

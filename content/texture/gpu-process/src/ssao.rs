@@ -123,10 +123,10 @@ impl GraphicsShaderProvider for AOComputer<'_> {
         builder.store_fragment_out_vec4f(0, Vec4::one());
       })
       .else_by(|| {
-        let position_world =
+        let render_position =
           shader_uv_space_to_render_space(reproject.current_camera_view_projection_inv, uv, depth);
 
-        let normal = compute_normal_by_dxdy(position_world); // wrong, but i do not want pay cost to use normal texture input
+        let normal = compute_normal_by_dxdy(render_position); // wrong, but i do not want pay cost to use normal texture input
 
         let random = random3_fn(uv + parameter.noise_jit.splat()) * val(2.) - val(Vec3::one());
         let tangent = (random - normal * random.dot(normal)).normalize();
@@ -138,11 +138,12 @@ impl GraphicsShaderProvider for AOComputer<'_> {
           .clamp_by(parameter.sample_count)
           .map(|(_, sample): (_, ShaderReadonlyPtrOf<Vec4<f32>>)| {
             let sample_position_offset = tbn * sample.load().xyz();
-            let sample_position_world = position_world + sample_position_offset * parameter.radius;
+            let sample_position_in_render =
+              render_position + sample_position_offset * parameter.radius;
 
             let (s_uv, s_depth) = shader_render_space_to_uv_space(
               reproject.current_camera_view_projection,
-              sample_position_world,
+              sample_position_in_render,
             );
             let sample_position_depth = depth_tex.sample_zero_level(sampler, s_uv).x();
 

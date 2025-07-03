@@ -1,4 +1,4 @@
-use rendiation_shader_library::{shader_uv_space_to_render_space, shader_render_space_to_uv_space};
+use rendiation_shader_library::{shader_render_space_to_uv_space, shader_uv_space_to_render_space};
 
 use crate::*;
 
@@ -17,19 +17,19 @@ pub fn screen_space_reflection(
   depth: BindingNode<ShaderDepthTexture2D>,
   normal: BindingNode<ShaderTexture2D>,
   radiance: BindingNode<ShaderTexture2D>,
-  camera_position: Node<Vec3<f32>>,
+  camera_position_in_render: Node<Vec3<f32>>,
   reproject: ENode<ReprojectInfo>,
   texel: Node<Vec2<f32>>,
 ) -> Node<Vec3<f32>> {
   let d = depth.sample(sampler, uv);
-  let world_position: Node<Vec3<f32>> =
+  let render_position =
     shader_uv_space_to_render_space(reproject.current_camera_view_projection_inv, uv, d);
-  let world_surface_normal = normal.sample(sampler, uv).xyz();
+  let surface_normal = normal.sample(sampler, uv).xyz();
 
-  let camera_to_surface = world_position - camera_position;
-  let trace_ray_direction = camera_to_surface.reflect(world_surface_normal);
+  let camera_to_surface = render_position - camera_position_in_render;
+  let trace_ray_direction = camera_to_surface.reflect(surface_normal);
 
-  let ray_end_point = world_position + trace_ray_direction * config.max_distance;
+  let ray_end_point = render_position + trace_ray_direction * config.max_distance;
 
   let ray_end_point_in_uv =
     shader_render_space_to_uv_space(reproject.current_camera_view_projection, ray_end_point).0;
@@ -53,21 +53,21 @@ pub fn screen_space_reflection(
     let accept_test = infinite_thick.make_local_var();
     if_by(infinite_thick.not(), || {
       let current_test_depth = depth.sample(sampler, current_test_point);
-      let test_world_position = shader_uv_space_to_render_space(
+      let test_render_position = shader_uv_space_to_render_space(
         reproject.current_camera_view_projection_inv,
         current_test_point,
         current_test_depth,
       );
-      let away = point_to_line_distance(test_world_position, world_position, ray_end_point);
+      let away = point_to_line_distance(test_render_position, render_position, ray_end_point);
 
       let neighbor_uv = current_test_point + texel;
       let neighbor_depth = depth.sample(sampler, neighbor_uv);
-      let neighbor_world_position = shader_uv_space_to_render_space(
+      let neighbor_render_position = shader_uv_space_to_render_space(
         reproject.current_camera_view_projection_inv,
         neighbor_uv,
         neighbor_depth,
       );
-      let min_thickness = (test_world_position - neighbor_world_position).length();
+      let min_thickness = (test_render_position - neighbor_render_position).length();
       let thickness = config.thickness.max(min_thickness);
 
       accept_test.store(away.less_than(thickness));

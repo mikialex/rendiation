@@ -36,13 +36,13 @@ struct ViewerOutlineSourceInvocation {
 impl OutlineComputeSourceInvocation for ViewerOutlineSourceInvocation {
   fn get_source(&self, uv: Node<Vec2<f32>>) -> OutlineSource {
     let (depth, normal) = self.g_buffer.read_depth_normal(uv);
-    let position_world =
+    let render_position =
       shader_uv_space_to_render_space(self.reproject.current_camera_view_projection_inv, uv, depth);
 
     let id = self.g_buffer.read_id(uv);
 
     OutlineSource {
-      position: position_world,
+      position: render_position,
       normal,
       entity_id: id,
     }
