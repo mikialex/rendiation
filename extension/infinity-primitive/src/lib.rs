@@ -7,5 +7,6 @@ pub use line::*;
 
 mod plane;
 pub use plane::*;
+use rendiation_scene_rendering_gpu_base::*;
 // reexports
 pub use rendiation_shader_library::plane::ShaderPlane;

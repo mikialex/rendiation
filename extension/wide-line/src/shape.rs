@@ -63,52 +63,41 @@ impl GraphicsShaderProvider for WideLineGPU<'_> {
       let material = binding.bind_by(&self.uniform).load().expand();
 
       let vertex_position = wide_line_vertex(
-        builder.query::<CameraViewProjectionMatrix>(),
-        builder.query::<WorldMatrix>(),
         builder.query::<WideLineStart>(),
         builder.query::<WideLineEnd>(),
         builder.query::<GeometryPosition>(),
         builder.query::<RenderBufferSize>(),
         material.width,
+        builder,
       );
 
       builder.register::<ClipPosition>(vertex_position);
       builder.set_vertex_out::<FragmentUv>(uv);
-      builder.set_vertex_out::<FragmentColorAndAlpha>(color_with_alpha);
+      builder.set_vertex_out::<DefaultDisplay>(color_with_alpha);
     });
 
     builder.fragment(|builder, _| {
       let uv = builder.query::<FragmentUv>();
-      let color = builder.query::<FragmentColorAndAlpha>();
-
       if_by(discard_round_corner(uv), || {
         builder.discard();
       });
-
-      builder.register::<DefaultDisplay>(color);
     })
   }
 }
 
 fn wide_line_vertex(
-  view_projection: Node<Mat4<f32>>,
-  world_matrix: Node<Mat4<f32>>,
   wide_line_start: Node<Vec3<f32>>,
   wide_line_end: Node<Vec3<f32>>,
   position: Node<Vec3<f32>>,
   view_size: Node<Vec2<f32>>,
   width: Node<f32>,
+  builder: &mut ShaderVertexBuilder,
 ) -> Node<Vec4<f32>> {
-  let wide_line_start = vec4_node((wide_line_start, val(1.0)));
-  let wide_line_end = vec4_node((wide_line_end, val(1.0)));
-  let start = world_matrix * wide_line_start;
-  let end = world_matrix * wide_line_end;
+  let object_world_position = builder.query::<WorldPositionHP>();
+  let (clip_start, _) = camera_transform_impl(builder, wide_line_start, object_world_position);
+  let (clip_end, _) = camera_transform_impl(builder, wide_line_end, object_world_position);
 
   let aspect = view_size.x() / view_size.y();
-
-  // clip space
-  let clip_start = view_projection * start;
-  let clip_end = view_projection * end;
 
   // ndc space
   let ndc_start = clip_start.xy() / clip_start.w().splat();

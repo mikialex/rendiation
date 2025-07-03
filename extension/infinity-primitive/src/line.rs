@@ -11,14 +11,14 @@ pub const LINE_DRAW_CMD: DrawCommand = DrawCommand::Array {
 #[std140_layout]
 #[derive(Copy, Clone, ShaderStruct)]
 pub struct ShaderLine {
-  pub point: Vec3<f32>,
+  pub point: HighPrecisionTranslationUniform,
   pub direction: Vec3<f32>,
 }
 
 impl ShaderLine {
-  pub fn new(point: Vec3<f32>, direction: Vec3<f32>) -> Self {
+  pub fn new(point: Vec3<f64>, direction: Vec3<f32>) -> Self {
     Self {
-      point,
+      point: todo!(),
       direction,
       ..Zeroable::zeroed()
     }
@@ -52,17 +52,17 @@ impl GraphicsShaderProvider for InfinityShaderLineEffect<'_> {
 
     builder.vertex(|builder, bind| {
       let vertex_index = builder.query::<VertexIndex>();
-      let view_proj = builder.query::<CameraViewProjectionMatrix>();
 
       let line = bind.bind_by(&self.line).load().expand();
-      let point: Node<Vec4<f32>> = (line.point, val(1.)).into();
-      let origin_in_ndc = view_proj * point;
+
+      let (origin_in_ndc, _) =
+        camera_transform_impl(builder, val(Vec3::zero()), hpt_uniform_to_hpt(line.point));
       let origin_in_ndc = origin_in_ndc.xyz() / origin_in_ndc.w().splat();
 
-      let test_point_in_ndc = line.point + line.direction;
-      let test_point_in_ndc: Node<Vec4<f32>> = (test_point_in_ndc, val(1.)).into();
-      let test_point_in_ndc = view_proj * test_point_in_ndc;
+      let (test_point_in_ndc, _) =
+        camera_transform_impl(builder, line.direction, hpt_uniform_to_hpt(line.point));
       let test_point_in_ndc = test_point_in_ndc.xyz() / test_point_in_ndc.w().splat();
+
       let direction_in_ndc = (test_point_in_ndc - origin_in_ndc).normalize();
 
       let position = val(Vec3::<f32>::zero()).make_local_var();

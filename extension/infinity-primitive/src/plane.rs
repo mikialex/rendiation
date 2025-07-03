@@ -46,9 +46,10 @@ impl GraphicsShaderProvider for InfinityShaderPlaneEffect<'_> {
     });
 
     builder.fragment(|builder, binding| {
-      let world = builder.query::<CameraWorldMatrix>();
-      let view_proj = builder.query::<CameraViewProjectionMatrix>();
-      let view_proj_inv = builder.query::<CameraViewProjectionInverseMatrix>();
+      let world = builder.query::<CameraWorldPositionHP>();
+      let view_proj_none_translation = builder.query::<CameraViewNoneTranslationProjectionMatrix>();
+      let view_proj_inv_none_translation =
+        builder.query::<CameraViewNoneTranslationProjectionInverseMatrix>();
 
       let uv = builder.query::<FragmentUv>();
       let plane = binding.bind_by(self.plane);
@@ -67,21 +68,24 @@ impl GraphicsShaderProvider for InfinityShaderPlaneEffect<'_> {
         val(0.)
       };
 
-      let far = view_proj_inv * (ndc_xy, far, val(1.)).into();
-      let near = view_proj_inv * (ndc_xy, near, val(1.)).into();
+      let far = view_proj_inv_none_translation * (ndc_xy, far, val(1.)).into();
+      let near = view_proj_inv_none_translation * (ndc_xy, near, val(1.)).into();
 
       let far = far.xyz() / far.w().splat();
       let near = near.xyz() / near.w().splat();
 
       let direction = (far - near).normalize();
-      let origin = near - (near - world.position()).dot(direction) * direction;
+      let world_position = world.expand().f1;
 
-      let hit = ray_plane_intersect(origin, direction, plane.load().expand());
+      let world_plane = plane.load().expand();
+      let render_space_plane = todo!();
 
-      let plane_hit = hit.xyz();
-      let plane_if_hit = hit.w(); // 1 is hit, 0 is not
+      let hit_in_render_space = ray_plane_intersect(near, direction, render_space_plane);
 
-      let plane_hit_project = view_proj * (plane_hit, val(1.)).into();
+      let plane_hit = hit_in_render_space.xyz();
+      let plane_if_hit = hit_in_render_space.w(); // 1 is hit, 0 is not
+
+      let plane_hit_project = view_proj_none_translation * (plane_hit, val(1.)).into();
       builder.register::<FragmentDepthOutput>(plane_hit_project.z() / plane_hit_project.w());
 
       builder.register::<FragmentRenderPosition>(plane_hit);

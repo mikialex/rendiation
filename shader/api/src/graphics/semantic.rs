@@ -165,36 +165,33 @@ impl<const I: usize> SemanticVertexShaderValue for WeightChannel<I> {
   type ValueType = Vec4<f32>;
 }
 
-// #[derive(Debug, Clone, Copy, ShaderStruct)]
-// pub struct HighPrecisionPosition {
-//   pub f1: Vec3<f32>,
-//   pub f2: Vec3<f32>,
-// }
+// todo, use mat3 for none translation affine mat
 
 only_vertex!(GeometryColor, Vec3<f32>);
 only_vertex!(GeometryColorWithAlpha, Vec4<f32>);
 
-both!(WorldMatrix, Mat4<f32>);
-both!(WorldMatrixPrecisionPosition, Vec3<f32>);
+both!(WorldNoneTranslationMatrix, Mat4<f32>);
+both!(WorldPositionHP, HighPrecisionTranslation);
+
 both!(WorldNormalMatrix, Mat3<f32>);
 only_vertex!(RenderVertexPosition, Vec3<f32>);
 only_vertex!(RenderVertexNormal, Vec3<f32>);
 
 both!(CameraProjectionMatrix, Mat4<f32>);
 both!(CameraProjectionInverseMatrix, Mat4<f32>);
-both!(CameraViewMatrix, Mat4<f32>);
-both!(CameraViewMatrixPrecisionPosition, Vec3<f32>);
-both!(CameraWorldMatrix, Mat4<f32>);
-both!(CameraViewProjectionMatrix, Mat4<f32>);
-both!(CameraViewProjectionInverseMatrix, Mat4<f32>);
+both!(CameraViewNoneTranslationMatrix, Mat4<f32>);
+both!(CameraWorldNoneTranslationMatrix, Mat4<f32>);
+both!(CameraWorldPositionHP, HighPrecisionTranslation);
 
-only_fragment!(DefaultDisplay, Vec4<f32>);
+both!(CameraViewNoneTranslationProjectionMatrix, Mat4<f32>);
+both!(CameraViewNoneTranslationProjectionInverseMatrix, Mat4<f32>);
+
+both!(DefaultDisplay, Vec4<f32>);
 
 both!(FragmentUv, Vec2<f32>);
 both!(FragmentRenderPosition, Vec3<f32>);
 both!(FragmentRenderNormal, Vec3<f32>);
 both!(FragmentColor, Vec3<f32>);
-both!(FragmentColorAndAlpha, Vec4<f32>); // todo remove
 
 both!(RenderBufferSize, Vec2<f32>);
 both!(TexelSize, Vec2<f32>);
