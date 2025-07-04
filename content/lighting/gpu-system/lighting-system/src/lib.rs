@@ -175,7 +175,11 @@ where
 
     let occlusion = val(1.).make_local_var();
     if_by(incident.color.greater_than(Vec3::splat(0.)).all(), || {
-      occlusion.store(shadow.query_shadow_occlusion(geom_ctx.position, geom_ctx.normal));
+      occlusion.store(shadow.query_shadow_occlusion(
+        geom_ctx.position,
+        geom_ctx.normal,
+        geom_ctx.camera_world_position,
+      ));
     });
     incident.color = incident.color * occlusion.load();
 

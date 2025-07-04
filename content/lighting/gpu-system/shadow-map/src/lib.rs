@@ -40,11 +40,18 @@ pub fn basic_shadow_map_uniform(
 
   let source_proj = inputs.source_proj.into_forker();
 
-  let source_view_proj = source_world
+  let shadow_mat = source_world
     .clone()
     .collective_zip(source_proj.clone())
-    .collective_map(|(w, p)| p * w.inverse_or_identity().into_f32())
+    .collective_map(|(world_matrix, projection)| {
+      let world_inv = world_matrix.inverse_or_identity();
+      projection * world_inv.remove_position().into_f32()
+    })
     .into_boxed();
+
+  let position = source_world
+    .clone()
+    .collective_map(|world_matrix| into_hpt(world_matrix.position()).into_uniform());
 
   let (sys, address) = BasicShadowMapSystem::new(
     config,
@@ -65,8 +72,16 @@ pub fn basic_shadow_map_uniform(
     .bias
     .into_query_update_uniform_array(offset_of!(BasicShadowMapInfo, bias), gpu_ctx);
 
-  let render_to_shadowmap_ndc = source_view_proj.into_query_update_uniform_array(
-    offset_of!(BasicShadowMapInfo, render_to_shadowmap_ndc),
+  let shadow_mat = shadow_mat.into_query_update_uniform_array(
+    offset_of!(
+      BasicShadowMapInfo,
+      shadow_center_to_shadowmap_ndc_without_translation
+    ),
+    gpu_ctx,
+  );
+
+  let position = position.into_query_update_uniform_array(
+    offset_of!(BasicShadowMapInfo, shadow_world_position),
     gpu_ctx,
   );
 
@@ -74,7 +89,8 @@ pub fn basic_shadow_map_uniform(
   let uniforms = UniformArrayUpdateContainer::<BasicShadowMapInfo, 8>::new(uniforms)
     .with_source(enabled)
     .with_source(map_info)
-    .with_source(render_to_shadowmap_ndc)
+    .with_source(shadow_mat)
+    .with_source(position)
     .with_source(bias);
 
   (sys, uniforms)
@@ -247,7 +263,8 @@ fn convert_pack_result(r: PackResult2dWithDepth) -> ShadowMapAddressInfo {
 #[derive(Clone, Copy, Default, ShaderStruct, Debug)]
 pub struct BasicShadowMapInfo {
   pub enabled: u32,
-  pub render_to_shadowmap_ndc: Mat4<f32>,
+  pub shadow_center_to_shadowmap_ndc_without_translation: Mat4<f32>,
+  pub shadow_world_position: HighPrecisionTranslationUniform,
   pub bias: ShadowBias,
   pub map_info: ShadowMapAddressInfo,
 }
@@ -286,6 +303,7 @@ pub trait ShadowOcclusionQuery {
     &self,
     render_position: Node<Vec3<f32>>,
     render_normal: Node<Vec3<f32>>,
+    camera_world_position: Node<HighPrecisionTranslation>,
   ) -> Node<f32>;
 }
 
@@ -336,6 +354,7 @@ impl BasicShadowMapInvocation {
     render_position: Node<Vec3<f32>>,
     render_normal: Node<Vec3<f32>>,
     shadow_idx: Node<u32>,
+    camera_world_position: Node<HighPrecisionTranslation>,
   ) -> Node<f32> {
     let shadow_info = self.info.index(shadow_idx).load().expand();
 
@@ -344,7 +363,16 @@ impl BasicShadowMapInvocation {
     // apply normal bias
     let render_position = render_position + bias.normal_bias * render_normal;
 
-    let shadow_position = shadow_info.render_to_shadowmap_ndc * (render_position, val(1.)).into();
+    let shadow_center_in_render_space = hpt_sub_hpt(
+      hpt_uniform_to_hpt(shadow_info.shadow_world_position),
+      camera_world_position,
+    );
+
+    let position_in_shadow_center_space_without_translation =
+      render_position - shadow_center_in_render_space;
+
+    let shadow_position = shadow_info.shadow_center_to_shadowmap_ndc_without_translation
+      * (position_in_shadow_center_space_without_translation, val(1.)).into();
 
     let shadow_position = shadow_position.xyz() / shadow_position.w().splat();
 
@@ -405,10 +433,14 @@ impl ShadowOcclusionQuery for BasicShadowMapSingleInvocation {
     &self,
     render_position: Node<Vec3<f32>>,
     render_normal: Node<Vec3<f32>>,
+    camera_world_position: Node<HighPrecisionTranslation>,
   ) -> Node<f32> {
-    self
-      .sys
-      .query_shadow_occlusion_by_idx(render_position, render_normal, self.index)
+    self.sys.query_shadow_occlusion_by_idx(
+      render_position,
+      render_normal,
+      self.index,
+      camera_world_position,
+    )
   }
 }
 

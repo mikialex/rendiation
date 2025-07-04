@@ -25,10 +25,10 @@ impl ShaderPlaneUniform {
     camera_position: Node<HighPrecisionTranslation>,
   ) -> ENode<ShaderPlane> {
     let plane = plane.expand();
-    let position = hpt_sub_hpt(hpt_uniform_to_hpt(plane.position), camera_position);
+    let offset = hpt_sub_hpt(hpt_uniform_to_hpt(plane.position), camera_position);
     ENode::<ShaderPlane> {
       normal: plane.normal,
-      constant: position.length(),
+      constant: -plane.normal.dot(offset),
     }
   }
 }
