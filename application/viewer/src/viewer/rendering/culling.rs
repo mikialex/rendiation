@@ -91,7 +91,7 @@ impl ViewerCulling {
     ctx: &mut FrameCtx,
     renderer: &ViewerSceneRenderer,
     scene_pass_dispatcher: &dyn RenderComponent,
-    camera_gpu: &dyn RenderComponent,
+    camera_gpu: &CameraGPU,
     camera: EntityHandle<SceneCameraEntity>,
     preflight_content: &mut dyn FnMut(ActiveRenderPass) -> ActiveRenderPass,
     pass_base: RenderPassDescription,

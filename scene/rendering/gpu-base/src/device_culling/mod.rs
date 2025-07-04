@@ -70,8 +70,8 @@ pub trait DrawUnitWorldBoundingInvocationProvider {
 }
 
 pub struct TargetWorldBounding {
-  pub min: Node<Vec3<f32>>,
-  pub max: Node<Vec3<f32>>,
+  pub min: Node<HighPrecisionTranslation>,
+  pub max: Node<HighPrecisionTranslation>,
 }
 
 pub fn use_scene_model_device_world_bounding(
@@ -80,16 +80,20 @@ pub fn use_scene_model_device_world_bounding(
   qcx
     .use_storage_buffer(|gpu| {
       let source = scene_model_world_bounding()
-        .collective_map(|b| [b.min, b.max])
+        .collective_map(|b| {
+          let min = into_hpt(b.min);
+          let max = into_hpt(b.max);
+          [min.f1, min.f2, max.f1, max.f2]
+        })
         .into_query_update_storage(0);
-      create_reactive_storage_buffer_container::<[f32; 6]>(128, u32::MAX, gpu).with_source(source)
+      create_reactive_storage_buffer_container::<[f32; 12]>(128, u32::MAX, gpu).with_source(source)
     })
     .map(|bounding_storage| SceneDrawUnitWorldBoundingProviderDefaultImpl { bounding_storage })
 }
 
 #[derive(Clone)]
 pub struct SceneDrawUnitWorldBoundingProviderDefaultImpl {
-  bounding_storage: StorageBufferReadonlyDataView<[[f32; 6]]>,
+  bounding_storage: StorageBufferReadonlyDataView<[[f32; 12]]>,
 }
 
 impl ShaderHashProvider for SceneDrawUnitWorldBoundingProviderDefaultImpl {
@@ -111,7 +115,7 @@ impl DrawUnitWorldBoundingProvider for SceneDrawUnitWorldBoundingProviderDefault
 }
 
 struct SceneDrawUnitWorldBoundingInvocationProviderDefaultImpl {
-  bounding_storage: ShaderReadonlyPtrOf<[[f32; 6]]>,
+  bounding_storage: ShaderReadonlyPtrOf<[[f32; 12]]>,
 }
 
 impl DrawUnitWorldBoundingInvocationProvider
@@ -120,8 +124,16 @@ impl DrawUnitWorldBoundingInvocationProvider
   fn get_world_bounding(&self, id: Node<u32>) -> TargetWorldBounding {
     let b = self.bounding_storage.index(id).load();
     TargetWorldBounding {
-      min: (b.index(0), b.index(1), b.index(2)).into(),
-      max: (b.index(0), b.index(1), b.index(2)).into(),
+      min: ENode::<HighPrecisionTranslation> {
+        f1: (b.index(0), b.index(1), b.index(2)).into(),
+        f2: (b.index(3), b.index(4), b.index(5)).into(),
+      }
+      .construct(),
+      max: ENode::<HighPrecisionTranslation> {
+        f1: (b.index(6), b.index(7), b.index(8)).into(),
+        f2: (b.index(9), b.index(10), b.index(11)).into(),
+      }
+      .construct(),
     }
   }
 }

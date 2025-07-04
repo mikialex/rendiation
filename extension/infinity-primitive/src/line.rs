@@ -18,7 +18,7 @@ pub struct ShaderLine {
 impl ShaderLine {
   pub fn new(point: Vec3<f64>, direction: Vec3<f32>) -> Self {
     Self {
-      point: todo!(),
+      point: into_hpt(point).into_uniform(),
       direction,
       ..Zeroable::zeroed()
     }
