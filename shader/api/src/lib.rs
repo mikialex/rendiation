@@ -130,7 +130,7 @@ pub(crate) fn set_current_building(current: Option<ShaderStage>) {
   })
 }
 
-pub(crate) fn get_current_stage() -> Option<ShaderStage> {
+pub fn get_current_stage() -> Option<ShaderStage> {
   IN_BUILDING_SHADER_API.with_borrow_mut(|api| api.as_mut().unwrap().current)
 }
 
