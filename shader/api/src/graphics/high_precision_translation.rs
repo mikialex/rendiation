@@ -35,7 +35,7 @@ impl HighPrecisionTranslation {
   pub fn into_uniform(self) -> HighPrecisionTranslationUniform {
     HighPrecisionTranslationUniform {
       f1: self.f1,
-      f2: self.f1,
+      f2: self.f2,
       ..Default::default()
     }
   }
@@ -43,7 +43,7 @@ impl HighPrecisionTranslation {
   pub fn into_storage(self) -> HighPrecisionTranslationStorage {
     HighPrecisionTranslationStorage {
       f1: self.f1,
-      f2: self.f1,
+      f2: self.f2,
       ..Default::default()
     }
   }

@@ -38,7 +38,7 @@ impl BuilderNormalExt for ShaderFragmentBuilderView<'_> {
     if let Some(normal) = self.try_query::<FragmentRenderNormal>() {
       normal
     } else {
-      let normal = self.query_or_interpolate_by::<FragmentRenderPosition, RenderVertexPosition>();
+      let normal = self.query_or_interpolate_by::<FragmentRenderNormal, RenderVertexNormal>();
       let normal = normal.normalize(); // renormalize
       self.register::<FragmentRenderNormal>(normal);
       normal

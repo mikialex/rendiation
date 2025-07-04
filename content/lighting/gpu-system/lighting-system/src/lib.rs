@@ -72,7 +72,7 @@ impl GeometryCtxProvider for DirectGeometryProvider {
       ENode::<ShaderLightingGeometricCtx> {
         position: fragment_render,
         normal: fragment_normal,
-        view_dir: fragment_render.normalize(),
+        view_dir: -fragment_render.normalize(),
         camera_world_position: builder.query::<CameraWorldPositionHP>(),
       }
     })

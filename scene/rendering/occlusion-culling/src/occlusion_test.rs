@@ -117,11 +117,11 @@ impl OcclusionTesterInvocation {
     let max_xy = max_xy.make_local_var();
     let min_z = val(1.).make_local_var();
 
-    let world_position = hpt_uniform_to_hpt(self.camera.world_position().load());
+    let camera_world_position = hpt_uniform_to_hpt(self.camera.world_position().load());
     let render_to_clip = self.camera.view_projection_without_translation().load();
 
     val(8).into_shader_iter().for_each(|item, _| {
-      let min_in_render_space = hpt_sub_hpt(target_world_bounding.min, world_position);
+      let min_in_render_space = hpt_sub_hpt(target_world_bounding.min, camera_world_position);
 
       let corner_x = min_in_render_space.x().make_local_var();
       let corner_y = min_in_render_space.y().make_local_var();

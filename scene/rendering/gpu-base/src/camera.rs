@@ -107,7 +107,7 @@ pub fn camera_transform_impl(
 ) -> (Node<Vec4<f32>>, Node<Vec3<f32>>) {
   let world_mat_no_translation = builder.query::<WorldNoneTranslationMatrix>();
   let camera_world_position = builder.query::<CameraWorldPositionHP>();
-  let world_to_render_offset = hpt_sub_hpt(camera_world_position, object_world_position);
+  let world_to_render_offset = hpt_sub_hpt(object_world_position, camera_world_position);
   let translate_into_render_space: Node<Vec4<f32>> = (world_to_render_offset, val(0.)).into();
 
   let world_transformed_without_translation =
@@ -159,6 +159,8 @@ impl From<CameraTransform> for CameraGPUTransform {
     let (world_without_translation, world_position) = into_mat_hpt_uniform_pair(t.world);
     let (view_without_translation, _) = into_mat_hpt_uniform_pair(t.view);
 
+    let view_projection_without_translation = t.projection * t.view.into_f32().remove_position();
+
     Self {
       world_without_translation,
       world_position,
@@ -166,8 +168,9 @@ impl From<CameraTransform> for CameraGPUTransform {
 
       projection: t.projection,
       projection_inv: t.projection_inv,
-      view_projection_without_translation: t.view_projection.into_f32().remove_position(),
-      view_projection_inv_without_translation: t.view_projection_inv.into_f32().remove_position(),
+      view_projection_without_translation,
+      view_projection_inv_without_translation: view_projection_without_translation
+        .inverse_or_identity(),
       view_projection_inv: t.view_projection_inv.into_f32(),
       ..Zeroable::zeroed()
     }

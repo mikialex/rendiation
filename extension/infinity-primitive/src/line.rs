@@ -55,6 +55,9 @@ impl GraphicsShaderProvider for InfinityShaderLineEffect<'_> {
 
       let line = bind.bind_by(&self.line).load().expand();
 
+      builder
+        .register::<WorldNoneTranslationMatrix>(rendiation_shader_library::shader_identity_mat4());
+
       let (origin_in_ndc, _) =
         camera_transform_impl(builder, val(Vec3::zero()), hpt_uniform_to_hpt(line.point));
       let origin_in_ndc = origin_in_ndc.xyz() / origin_in_ndc.w().splat();
