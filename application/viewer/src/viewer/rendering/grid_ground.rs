@@ -1,11 +1,12 @@
 use rendiation_infinity_primitive::*;
+use rendiation_shader_library::plane::ShaderPlaneUniform;
 use rendiation_state_override::MaterialStates;
 
 use crate::*;
 
 pub struct GridGround<'a> {
   pub shading: &'a UniformBufferCachedDataView<GridEffect>,
-  pub plane: &'a UniformBufferCachedDataView<ShaderPlane>,
+  pub plane: &'a UniformBufferCachedDataView<ShaderPlaneUniform>,
   pub reversed_depth: bool,
   pub camera: &'a dyn RenderComponent,
 }

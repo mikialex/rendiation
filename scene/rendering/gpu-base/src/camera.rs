@@ -193,14 +193,11 @@ impl From<CameraTransform> for CameraGPUTransform {
 pub struct CameraRenderer(pub LockReadGuardHolder<CameraUniforms>);
 
 impl CameraRenderer {
-  pub fn make_component(
-    &self,
-    idx: EntityHandle<SceneCameraEntity>,
-  ) -> Option<Box<dyn RenderComponent + '_>> {
-    let node = CameraGPU {
+  pub fn make_component(&self, idx: EntityHandle<SceneCameraEntity>) -> Option<CameraGPU> {
+    CameraGPU {
       ubo: self.0.get(&idx)?.clone(),
-    };
-    Some(Box::new(node))
+    }
+    .into()
   }
 
   pub fn setup_camera_jitter(

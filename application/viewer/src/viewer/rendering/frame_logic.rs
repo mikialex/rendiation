@@ -1,5 +1,6 @@
 use rendiation_algebra::*;
 use rendiation_infinity_primitive::*;
+use rendiation_shader_library::plane::ShaderPlaneUniform;
 use rendiation_texture_gpu_process::*;
 use rendiation_webgpu::*;
 
@@ -19,7 +20,7 @@ pub struct ViewerFrameLogic {
   enable_outline: bool,
   ssao: SSAO,
   _blur: CrossBlurData,
-  ground: UniformBufferCachedDataView<ShaderPlane>,
+  ground: UniformBufferCachedDataView<ShaderPlaneUniform>,
   grid: UniformBufferCachedDataView<GridEffect>,
   post: UniformBufferCachedDataView<PostEffects>,
   pub axis: WorldCoordinateAxis,
@@ -122,7 +123,7 @@ impl ViewerFrameLogic {
             .by(&mut GridGround {
               plane: &self.ground,
               shading: &self.grid,
-              camera: main_camera_gpu.as_ref(),
+              camera: &main_camera_gpu,
               reversed_depth,
             });
         }
