@@ -14,7 +14,8 @@ pub struct CascadeShadowMapInfo {
 #[std140_layout]
 #[derive(Clone, Copy, Default, ShaderStruct, Debug)]
 pub struct SingleShadowMapInfo {
-  pub render_to_shadowmap_ndc: Mat4<f32>,
+  pub render_to_shadowmap_ndc_without_translation: Mat4<f32>,
+  pub shadow_world_position: HighPrecisionTranslationUniform,
   pub map_info: ShadowMapAddressInfo,
   pub split_distance: f32,
 }
