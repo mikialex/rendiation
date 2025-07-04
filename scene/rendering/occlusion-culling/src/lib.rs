@@ -51,8 +51,7 @@ impl GPUTwoPassOcclusionCulling {
     target: RenderPassDescription,
     preflight_content: &mut dyn FnMut(ActiveRenderPass) -> ActiveRenderPass,
     scene_renderer: &dyn SceneRenderer<ContentKey = SceneContentKey>,
-    camera: &dyn RenderComponent,
-    camera_view_proj: &UniformBufferDataView<Mat4<f32>>,
+    camera: &CameraGPU,
     pass_com: &dyn RenderComponent,
     bounding_provider: Box<dyn DrawUnitWorldBoundingProvider>,
     reverse_depth: bool,
@@ -137,7 +136,7 @@ impl GPUTwoPassOcclusionCulling {
         cx,
         &pyramid,
         last_frame_visibility.clone(),
-        camera_view_proj,
+        camera,
         bounding_provider,
         first_pass_batch,
       )

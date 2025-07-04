@@ -45,18 +45,7 @@ impl CameraGPUFrustums {
 pub fn use_viewer_culling(
   cx: &mut impl QueryGPUHookCx,
   enable_oc_support: bool,
-  camera_source: &RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
 ) -> Option<ViewerCulling> {
-  let camera_transform =
-    cx.use_uniform_buffers::<EntityHandle<SceneCameraEntity>, Mat4<f32>>(|source, gpu| {
-      source.with_source(
-        camera_source
-          .clone()
-          .collective_map(|t| t.view_projection.into_f32())
-          .into_query_update_uniform(0, gpu),
-      )
-    });
-
   let oc = if enable_oc_support {
     cx.scope(|cx| {
       let (_, oc) = cx.use_gpu_init(|_| {
@@ -74,15 +63,12 @@ pub fn use_viewer_culling(
   cx.when_render(|| ViewerCulling {
     oc,
     bounding_provider: bounding_provider.unwrap(),
-    camera_transform: camera_transform.unwrap(),
   })
 }
 
 pub struct ViewerCulling {
   oc: Option<Arc<RwLock<GPUTwoPassOcclusionCulling>>>,
   bounding_provider: Box<dyn DrawUnitWorldBoundingProvider>,
-  camera_transform:
-    LockReadGuardHolder<UniformUpdateContainer<EntityHandle<SceneCameraEntity>, Mat4<f32>>>,
 }
 
 impl ViewerCulling {
@@ -98,8 +84,6 @@ impl ViewerCulling {
     reorderable_batch: SceneModelRenderBatch,
   ) -> ActiveRenderPass {
     if let Some(oc) = &self.oc {
-      let camera_view_proj = self.camera_transform.get(&camera).unwrap();
-
       oc.write().draw(
         ctx,
         camera.alloc_index(),
@@ -108,7 +92,6 @@ impl ViewerCulling {
         preflight_content,
         renderer.scene,
         camera_gpu,
-        camera_view_proj,
         scene_pass_dispatcher,
         self.bounding_provider.clone(),
         renderer.reversed_depth,

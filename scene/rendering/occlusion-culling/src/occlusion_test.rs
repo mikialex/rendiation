@@ -4,7 +4,7 @@ pub fn test_and_update_last_frame_visibility_use_all_passed_batch_and_return_cul
   cx: &mut DeviceParallelComputeCtx,
   depth_pyramid: &GPU2DTextureView,
   last_frame_visibility: StorageBufferDataView<[Bool]>,
-  camera_view_proj: &UniformBufferDataView<Mat4<f32>>,
+  camera: &CameraGPU,
   bounding_provider: Box<dyn DrawUnitWorldBoundingProvider>,
   last_frame_occluder_batch: DeviceSceneModelRenderBatch,
 ) -> Box<dyn AbstractCullerProvider> {
@@ -13,7 +13,7 @@ pub fn test_and_update_last_frame_visibility_use_all_passed_batch_and_return_cul
   // the test will update the last_frame visibility when do testing
   let tester = Box::new(OcclusionTester {
     depth_pyramid: depth_pyramid.clone(),
-    view_projection: camera_view_proj.clone(),
+    camera: camera.ubo.clone(),
     bounding_provider,
     last_frame_visibility,
   });
@@ -58,7 +58,7 @@ pub fn test_and_update_last_frame_visibility_use_all_passed_batch_and_return_cul
 struct OcclusionTester {
   depth_pyramid: GPU2DTextureView,
   last_frame_visibility: StorageBufferDataView<[Bool]>,
-  view_projection: UniformBufferDataView<Mat4<f32>>,
+  camera: UniformBufferDataView<CameraGPUTransform>,
   bounding_provider: Box<dyn DrawUnitWorldBoundingProvider>,
 }
 
@@ -73,7 +73,7 @@ impl AbstractCullerProvider for OcclusionTester {
   ) -> Box<dyn AbstractCullerInvocation> {
     Box::new(OcclusionTesterInvocation {
       depth: cx.bind_by(&self.depth_pyramid),
-      view_projection: cx.bind_by(&self.view_projection),
+      camera: cx.bind_by(&self.camera),
       bounding_provider: self.bounding_provider.create_invocation(cx),
       last_frame_visibility: cx.bind_by(&self.last_frame_visibility),
     })
@@ -81,7 +81,7 @@ impl AbstractCullerProvider for OcclusionTester {
 
   fn bind(&self, cx: &mut BindingBuilder) {
     cx.bind(&self.depth_pyramid);
-    cx.bind(&self.view_projection);
+    cx.bind(&self.camera);
     self.bounding_provider.bind(cx);
     cx.bind(&self.last_frame_visibility);
   }
@@ -89,8 +89,7 @@ impl AbstractCullerProvider for OcclusionTester {
 
 struct OcclusionTesterInvocation {
   depth: BindingNode<ShaderTexture2D>,
-  // view_projection: ShaderReadonlyPtrOf<Mat4<f32>>,
-  camera_position: Node<HighPrecisionTranslation>,
+  camera: ShaderReadonlyPtrOf<CameraGPUTransform>,
   bounding_provider: Box<dyn DrawUnitWorldBoundingInvocationProvider>,
   last_frame_visibility: ShaderPtrOf<[Bool]>,
 }
@@ -110,7 +109,7 @@ impl AbstractCullerInvocation for OcclusionTesterInvocation {
 impl OcclusionTesterInvocation {
   /// return if visible
   fn is_occluded(&self, target_world_bounding: TargetWorldBounding) -> Node<bool> {
-    let size = target_world_bounding.max - target_world_bounding.min;
+    let size = hpt_sub_hpt(target_world_bounding.max, target_world_bounding.min);
 
     let min_xy: Node<Vec2<f32>> = (val(1.), val(1.)).into();
     let max_xy: Node<Vec2<f32>> = (val(0.), val(0.)).into();
@@ -118,10 +117,15 @@ impl OcclusionTesterInvocation {
     let max_xy = max_xy.make_local_var();
     let min_z = val(1.).make_local_var();
 
+    let world_position = hpt_uniform_to_hpt(self.camera.world_position().load());
+    let render_to_clip = self.camera.view_projection_without_translation().load();
+
     val(8).into_shader_iter().for_each(|item, _| {
-      let corner_x = target_world_bounding.min.x().make_local_var();
-      let corner_y = target_world_bounding.min.y().make_local_var();
-      let corner_z = target_world_bounding.min.z().make_local_var();
+      let min_in_render_space = hpt_sub_hpt(target_world_bounding.min, world_position);
+
+      let corner_x = min_in_render_space.x().make_local_var();
+      let corner_y = min_in_render_space.y().make_local_var();
+      let corner_z = min_in_render_space.z().make_local_var();
 
       switch_by(item)
         .case(1, || {
@@ -154,7 +158,7 @@ impl OcclusionTesterInvocation {
 
       let point: Node<Vec4<f32>> =
         (corner_x.load(), corner_y.load(), corner_z.load(), val(1.)).into();
-      let clip_position = self.view_projection.load() * point;
+      let clip_position = render_to_clip * point;
 
       let pos_xyz = clip_position.xyz() / clip_position.w().splat();
       let x = pos_xyz.x().clamp(val(-1.), val(1.0));
