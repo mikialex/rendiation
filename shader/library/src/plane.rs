@@ -3,19 +3,41 @@ use crate::*;
 #[repr(C)]
 #[std140_layout]
 #[derive(Copy, Clone, ShaderStruct)]
-pub struct ShaderPlane {
+pub struct ShaderPlaneUniform {
   pub normal: Vec3<f32>,
-  pub constant: f32,
+  // todo, consider using a single HighPrecisionFloat
+  pub position: HighPrecisionTranslationUniform,
 }
 
-impl ShaderPlane {
-  pub fn new(normal: Vec3<f32>, constant: f32) -> Self {
+impl ShaderPlaneUniform {
+  pub fn new(normal: Vec3<f32>, constant: f64) -> Self {
+    let position = normal.into_f64() * constant;
+    let position = into_hpt(position).into_uniform();
     Self {
       normal,
-      constant,
+      position,
       ..Zeroable::zeroed()
     }
   }
+
+  pub fn into_shader_plane(
+    plane: Node<Self>,
+    camera_position: Node<HighPrecisionTranslation>,
+  ) -> ENode<ShaderPlane> {
+    let plane = plane.expand();
+    let position = hpt_sub_hpt(hpt_uniform_to_hpt(plane.position), camera_position);
+    ENode::<ShaderPlane> {
+      normal: plane.normal,
+      constant: position.length(),
+    }
+  }
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, ShaderStruct)]
+pub struct ShaderPlane {
+  pub normal: Vec3<f32>,
+  pub constant: f32,
 }
 
 pub fn ray_plane_intersect(

@@ -68,7 +68,13 @@ impl GraphicsShaderProvider for GridGroundShading<'_> {
       let shading = binding.bind_by(&self.shading).load();
       let render_position = builder.query::<FragmentRenderPosition>();
 
-      let grid = grid(render_position, shading);
+      let camera_world_position = builder.query::<CameraWorldPositionHP>().expand().f1;
+
+      // we have to use world space here even this has low precision.
+      // because the entire effect is based on world space and without any high precision world input
+      let world_position = render_position + camera_world_position;
+
+      let grid = grid(world_position, shading);
 
       builder.register::<DefaultDisplay>(grid);
 
