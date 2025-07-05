@@ -174,8 +174,8 @@ both!(WorldNoneTranslationMatrix, Mat4<f32>);
 both!(WorldPositionHP, HighPrecisionTranslation);
 
 both!(WorldNormalMatrix, Mat3<f32>);
-only_vertex!(RenderVertexPosition, Vec3<f32>);
-only_vertex!(RenderVertexNormal, Vec3<f32>);
+only_vertex!(VertexRenderPosition, Vec3<f32>);
+only_vertex!(VertexRenderNormal, Vec3<f32>);
 
 both!(CameraProjectionMatrix, Mat4<f32>);
 both!(CameraProjectionInverseMatrix, Mat4<f32>);

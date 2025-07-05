@@ -38,7 +38,7 @@ impl BuilderNormalExt for ShaderFragmentBuilderView<'_> {
     if let Some(normal) = self.try_query::<FragmentRenderNormal>() {
       normal
     } else {
-      let normal = self.query_or_interpolate_by::<FragmentRenderNormal, RenderVertexNormal>();
+      let normal = self.query_or_interpolate_by::<FragmentRenderNormal, VertexRenderNormal>();
       let normal = normal.normalize(); // renormalize
       self.register::<FragmentRenderNormal>(normal);
       normal
@@ -53,7 +53,7 @@ pub fn apply_normal_mapping(
   scale: Node<f32>,
 ) -> Node<Vec3<f32>> {
   let normal = builder.get_or_compute_fragment_normal();
-  let position = builder.query_or_interpolate_by::<FragmentRenderPosition, RenderVertexPosition>();
+  let position = builder.query_or_interpolate_by::<FragmentRenderPosition, VertexRenderPosition>();
 
   let normal_adjust = normal_map_sample * val(Vec3::splat(2.)) - val(Vec3::one());
   let normal_adjust = normal_adjust * scale.splat::<Vec3<f32>>();
@@ -74,7 +74,7 @@ pub fn apply_normal_mapping_conditional(
   enabled: Node<bool>,
 ) -> Node<Vec3<f32>> {
   let normal = builder.get_or_compute_fragment_normal().make_local_var();
-  let position = builder.query_or_interpolate_by::<FragmentRenderPosition, RenderVertexPosition>();
+  let position = builder.query_or_interpolate_by::<FragmentRenderPosition, VertexRenderPosition>();
 
   if_by(enabled, || {
     let normal_adjust = normal_map_sample * val(Vec3::splat(2.)) - val(Vec3::one());

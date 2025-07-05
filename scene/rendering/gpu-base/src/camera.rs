@@ -92,7 +92,7 @@ impl GraphicsShaderProvider for CameraGPU {
         let (clip_position, render_position) =
           camera_transform_impl(builder, local_position, object_world_position);
 
-        builder.register::<RenderVertexPosition>(render_position);
+        builder.register::<VertexRenderPosition>(render_position);
         builder.register::<ClipPosition>(clip_position);
       }
     })

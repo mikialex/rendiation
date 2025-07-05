@@ -103,7 +103,7 @@ impl GraphicsShaderProvider for NodeGPUStorage<'_> {
 
       // the RenderVertexPosition requires camera, so here we only process normal part
       if let Some(normal) = builder.try_query::<GeometryNormal>() {
-        builder.register::<RenderVertexNormal>(node.normal_matrix * normal);
+        builder.register::<VertexRenderNormal>(node.normal_matrix * normal);
       }
     })
   }
