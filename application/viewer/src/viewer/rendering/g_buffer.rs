@@ -60,7 +60,7 @@ impl GraphicsShaderProvider for FrameGeometryBufferPassEncoder {
       builder.frag_output[self.entity_id].store(id);
 
       let normal = builder
-        .query_or_interpolate_by::<FragmentRenderNormal, RenderVertexNormal>()
+        .query_or_interpolate_by::<FragmentRenderNormal, VertexRenderNormal>()
         .normalize();
       let out: Node<Vec4<f32>> = (normal, val(1.0)).into();
       builder.frag_output[self.normal].store(out);
