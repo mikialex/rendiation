@@ -163,7 +163,11 @@ impl Viewer3dRenderingCtx {
     let t_clone = texture_sys.clone();
     let attributes_custom_key = Arc::new(|_: u32, _: &mut _| {}) as Arc<_>;
 
-    let culling = use_viewer_culling(qcx, self.enable_indirect_occlusion_culling_support);
+    let culling = use_viewer_culling(
+      qcx,
+      &self.camera_source,
+      self.enable_indirect_occlusion_culling_support,
+    );
 
     let raster_scene_renderer = match self.current_renderer_impl_ty {
       RasterizationRenderBackendType::Gles => qcx.scope(|qcx| {

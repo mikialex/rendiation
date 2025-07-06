@@ -3528,17 +3528,15 @@ version = "0.1.0"
 dependencies = [
  "database",
  "fast-hash-collection",
- "log",
  "reactive",
  "rendiation-algebra",
- "rendiation-device-parallel-compute",
  "rendiation-geometry",
  "rendiation-scene-core",
  "rendiation-scene-rendering-gpu-base",
  "rendiation-shader-api",
  "rendiation-shader-library",
- "rendiation-texture-core",
  "rendiation-webgpu",
+ "rendiation-webgpu-reactive-utils",
 ]
 
 [[package]]
@@ -5134,6 +5132,7 @@ dependencies = [
  "rendiation-controller",
  "rendiation-device-ray-tracing",
  "rendiation-fast-down-sampling-2d",
+ "rendiation-frustum-culling",
  "rendiation-geometry",
  "rendiation-gizmo",
  "rendiation-gui-3d",

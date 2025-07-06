@@ -1,49 +1,12 @@
+use rendiation_frustum_culling::*;
 use rendiation_occlusion_culling::GPUTwoPassOcclusionCulling;
 use rendiation_webgpu_reactive_utils::*;
 
 use crate::*;
 
-pub fn use_camera_gpu_frustum(
-  qcx: &mut impl QueryGPUHookCx,
-  camera_source: &RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
-) -> Option<CameraGPUFrustums> {
-  qcx
-    .use_uniform_buffers(|source, cx| {
-      let c = camera_source
-        .clone()
-        .collective_map(|transform| {
-          let arr = Frustum::new_from_matrix(transform.view_projection)
-            .planes
-            .map(|p| Vec4::new(p.normal.x, p.normal.y, p.normal.z, p.constant).into_f32());
-
-          Shader140Array::<Vec4<f32>, 6>::from_slice_clamp_or_default(&arr);
-        })
-        .into_query_update_uniform(0, cx);
-
-      source.with_source(c)
-    })
-    .map(|frustums| CameraGPUFrustums { frustums })
-}
-
-type CameraGPUFrustumsUniform =
-  UniformUpdateContainer<EntityHandle<SceneCameraEntity>, Shader140Array<Vec4<f32>, 6>>;
-
-pub struct CameraGPUFrustums {
-  frustums: LockReadGuardHolder<CameraGPUFrustumsUniform>,
-}
-
-impl CameraGPUFrustums {
-  pub fn get_gpu_frustum(
-    &self,
-    camera: EntityHandle<SceneCameraEntity>,
-  ) -> UniformBufferDataView<Shader140Array<Vec4<f32>, 6>> {
-    self.frustums.get(&camera).unwrap().clone()
-  }
-}
-
-// todo, disable resource if not indirect rendering
 pub fn use_viewer_culling(
   cx: &mut impl QueryGPUHookCx,
+  camera_source: &RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
   enable_oc_support: bool,
 ) -> Option<ViewerCulling> {
   let oc = if enable_oc_support {
@@ -59,16 +22,20 @@ pub fn use_viewer_culling(
   };
 
   let bounding_provider = use_scene_model_device_world_bounding(cx).map(|b| Box::new(b) as Box<_>);
+  let camera_frustums = use_camera_gpu_frustum(cx, camera_source);
 
   cx.when_render(|| ViewerCulling {
     oc,
     bounding_provider: bounding_provider.unwrap(),
+    _frustums: camera_frustums.unwrap(),
   })
 }
 
 pub struct ViewerCulling {
   oc: Option<Arc<RwLock<GPUTwoPassOcclusionCulling>>>,
   bounding_provider: Box<dyn DrawUnitWorldBoundingProvider>,
+  // todo,
+  _frustums: CameraGPUFrustums,
 }
 
 impl ViewerCulling {

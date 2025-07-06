@@ -1,9 +1,53 @@
+use database::*;
+use reactive::*;
+use rendiation_geometry::*;
+use rendiation_scene_core::*;
 use rendiation_scene_rendering_gpu_base::*;
 use rendiation_shader_api::*;
 use rendiation_shader_library::plane::*;
 use rendiation_webgpu::*;
+use rendiation_webgpu_reactive_utils::*;
 
-type GPUFrustumData = UniformBufferDataView<Shader140Array<ShaderPlaneUniform, 6>>;
+type GPUFrustumDataType = Shader140Array<ShaderPlaneUniform, 6>;
+type GPUFrustumData = UniformBufferDataView<GPUFrustumDataType>;
+
+pub fn use_camera_gpu_frustum(
+  qcx: &mut impl QueryGPUHookCx,
+  camera_source: &RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
+) -> Option<CameraGPUFrustums> {
+  qcx
+    .use_uniform_buffers(|source, cx| {
+      let c = camera_source
+        .clone()
+        .collective_map(|transform| {
+          let arr = Frustum::new_from_matrix(transform.view_projection)
+            .planes
+            .map(|p| Vec4::new(p.normal.x, p.normal.y, p.normal.z, p.constant).into_f32());
+
+          Shader140Array::<Vec4<f32>, 6>::from_slice_clamp_or_default(&arr);
+        })
+        .into_query_update_uniform(0, cx);
+
+      source.with_source(c)
+    })
+    .map(|frustums| CameraGPUFrustums { frustums })
+}
+
+type CameraGPUFrustumsUniform =
+  UniformUpdateContainer<EntityHandle<SceneCameraEntity>, Shader140Array<Vec4<f32>, 6>>;
+
+pub struct CameraGPUFrustums {
+  frustums: LockReadGuardHolder<CameraGPUFrustumsUniform>,
+}
+
+impl CameraGPUFrustums {
+  pub fn get_gpu_frustum(
+    &self,
+    camera: EntityHandle<SceneCameraEntity>,
+  ) -> UniformBufferDataView<Shader140Array<Vec4<f32>, 6>> {
+    self.frustums.get(&camera).unwrap().clone()
+  }
+}
 
 #[derive(Clone)]
 pub struct GPUFrustumCuller {
