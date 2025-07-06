@@ -72,7 +72,7 @@ pub fn render_lighting_scene_content(
         ctx,
       );
 
-      let all_transparent_object =
+      let mut all_transparent_object =
         if let SceneModelRenderBatch::Host(all_transparent_object) = &all_transparent_object {
           let camera_position = scene_derive
             .camera_transforms
@@ -89,6 +89,12 @@ pub fn render_lighting_scene_content(
         } else {
           all_transparent_object
         };
+
+      cull_cx.install_device_frustum_culler(
+        &mut all_transparent_object,
+        main_camera_gpu,
+        content.main_camera,
+      );
 
       match renderer.oit.clone() {
         ViewerTransparentRenderer::NaiveAlphaBlend => {

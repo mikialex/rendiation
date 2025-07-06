@@ -72,7 +72,8 @@ impl GPUTwoPassOcclusionCulling {
     let first_pass_culler = only_last_frame_visible.shortcut_or(pre_culler.clone());
     let first_pass_batch = batch.clone().with_override_culler(first_pass_culler);
 
-    // must flush culler, because the new culler will update the previous culler's result.
+    // must flush culler explicit(even the make_scene_batch_pass_content call will flush),
+    // because the new culler will update the previous culler's result.
     let first_pass_batch =
       frame_ctx.access_parallel_compute(|cx| first_pass_batch.flush_culler_into_new(cx));
 

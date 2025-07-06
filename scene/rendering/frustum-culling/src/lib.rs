@@ -34,17 +34,14 @@ pub fn use_camera_gpu_frustum(
 }
 
 type CameraGPUFrustumsUniform =
-  UniformUpdateContainer<EntityHandle<SceneCameraEntity>, Shader140Array<Vec4<f32>, 6>>;
+  UniformUpdateContainer<EntityHandle<SceneCameraEntity>, GPUFrustumDataType>;
 
 pub struct CameraGPUFrustums {
   frustums: LockReadGuardHolder<CameraGPUFrustumsUniform>,
 }
 
 impl CameraGPUFrustums {
-  pub fn get_gpu_frustum(
-    &self,
-    camera: EntityHandle<SceneCameraEntity>,
-  ) -> UniformBufferDataView<Shader140Array<Vec4<f32>, 6>> {
+  pub fn get_gpu_frustum(&self, camera: EntityHandle<SceneCameraEntity>) -> GPUFrustumData {
     self.frustums.get(&camera).unwrap().clone()
   }
 }

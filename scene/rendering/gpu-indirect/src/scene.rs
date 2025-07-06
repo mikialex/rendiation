@@ -94,6 +94,8 @@ impl SceneRenderer for IndirectSceneRenderer {
       SceneModelRenderBatch::Host(batch) => self.create_batch_from_iter(batch.iter_scene_models()),
     };
 
+    let batch = ctx.access_parallel_compute(|cx| batch.flush_culler_into_new(cx));
+
     let content: Vec<_> = batch
       .sub_batches
       .iter()

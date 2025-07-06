@@ -123,8 +123,13 @@ impl SceneModelRenderBatch {
 }
 
 impl DeviceSceneModelRenderBatch {
-  pub fn with_override_culler(mut self, v: Box<dyn AbstractCullerProvider>) -> Self {
-    self.stash_culler = Some(v);
+  pub fn set_override_culler(&mut self, v: impl AbstractCullerProvider + 'static) -> &mut Self {
+    self.stash_culler = Some(Box::new(v));
+    self
+  }
+
+  pub fn with_override_culler(mut self, v: impl AbstractCullerProvider + 'static) -> Self {
+    self.stash_culler = Some(Box::new(v));
     self
   }
 

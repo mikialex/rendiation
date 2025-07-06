@@ -27,18 +27,34 @@ pub fn use_viewer_culling(
   cx.when_render(|| ViewerCulling {
     oc,
     bounding_provider: bounding_provider.unwrap(),
-    _frustums: camera_frustums.unwrap(),
+    frustums: camera_frustums.unwrap(),
   })
 }
 
 pub struct ViewerCulling {
   oc: Option<Arc<RwLock<GPUTwoPassOcclusionCulling>>>,
   bounding_provider: Box<dyn DrawUnitWorldBoundingProvider>,
-  // todo,
-  _frustums: CameraGPUFrustums,
+  frustums: CameraGPUFrustums,
 }
 
 impl ViewerCulling {
+  pub fn install_device_frustum_culler(
+    &self,
+    batch: &mut SceneModelRenderBatch,
+    camera_gpu: &CameraGPU,
+    camera: EntityHandle<SceneCameraEntity>,
+  ) {
+    if let SceneModelRenderBatch::Device(batch) = batch {
+      let culler = GPUFrustumCuller {
+        bounding_provider: self.bounding_provider.clone(),
+        frustum: self.frustums.get_gpu_frustum(camera),
+        camera: camera_gpu.clone(),
+      };
+
+      batch.set_override_culler(culler);
+    }
+  }
+
   pub fn draw_with_oc_maybe_enabled(
     &self,
     ctx: &mut FrameCtx,
@@ -48,8 +64,10 @@ impl ViewerCulling {
     camera: EntityHandle<SceneCameraEntity>,
     preflight_content: &mut dyn FnMut(ActiveRenderPass) -> ActiveRenderPass,
     pass_base: RenderPassDescription,
-    reorderable_batch: SceneModelRenderBatch,
+    mut reorderable_batch: SceneModelRenderBatch,
   ) -> ActiveRenderPass {
+    self.install_device_frustum_culler(&mut reorderable_batch, camera_gpu, camera);
+
     if let Some(oc) = &self.oc {
       oc.write().draw(
         ctx,
