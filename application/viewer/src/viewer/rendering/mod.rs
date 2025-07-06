@@ -60,7 +60,8 @@ impl<T: Scalar> NDCSpaceMapper<T> for ViewerNDC {
 struct ViewerRendererInstance {
   camera: CameraRenderer,
   background: SceneBackgroundRenderer,
-  raster_scene_renderer: Box<dyn SceneRenderer<ContentKey = SceneContentKey>>,
+  raster_scene_renderer: Box<dyn SceneRenderer>,
+  extractor: DefaultSceneBatchExtractor,
   rtx_renderer: Option<(RayTracingRendererGroup, RtxSystemCore)>,
   lighting: LightingRenderingCxPrepareCtx,
   culling: ViewerCulling,
@@ -172,7 +173,7 @@ impl Viewer3dRenderingCtx {
           attributes_custom_key,
           t_clone,
         )
-        .map(|r| Box::new(r) as Box<dyn SceneRenderer<ContentKey = SceneContentKey>>)
+        .map(|r| Box::new(r) as Box<dyn SceneRenderer>)
       }),
       RasterizationRenderBackendType::Indirect => qcx.scope(|qcx| {
         let (qcx, change_scope) = qcx.use_begin_change_set_collect();
@@ -207,7 +208,7 @@ impl Viewer3dRenderingCtx {
         }
 
         use_indirect_renderer(qcx, self.ndc.enable_reverse_z, materials, mesh, t_clone)
-          .map(|r| Box::new(r) as Box<dyn SceneRenderer<ContentKey = SceneContentKey>>)
+          .map(|r| Box::new(r) as Box<dyn SceneRenderer>)
       }),
     };
 
@@ -264,9 +265,12 @@ impl Viewer3dRenderingCtx {
       ViewerTransparentContentRenderStyle::WeightedOIT => ViewerTransparentRenderer::WeightedOIT,
     };
 
+    let extractor = use_default_scene_batch_extractor(qcx);
+
     qcx.when_render(|| ViewerRendererInstance {
       camera: camera.unwrap(),
       background: background.unwrap(),
+      extractor: extractor.unwrap(),
       raster_scene_renderer: raster_scene_renderer.unwrap(),
       rtx_renderer: rtx_scene_renderer,
       lighting: lighting.unwrap(),
@@ -345,6 +349,7 @@ impl Viewer3dRenderingCtx {
       &mut ctx,
       self.ndc.enable_reverse_z,
       renderer.raster_scene_renderer.as_ref(),
+      &renderer.extractor,
       content.scene,
     );
 
@@ -401,6 +406,7 @@ impl Viewer3dRenderingCtx {
 
       let ras_renderer = ViewerSceneRenderer {
         scene: renderer.raster_scene_renderer.as_ref(),
+        batch_extractor: &renderer.extractor,
         cameras: &renderer.camera,
         background: &renderer.background,
         reversed_depth: self.ndc.enable_reverse_z,
@@ -434,6 +440,7 @@ impl Viewer3dRenderingCtx {
       let widgets_result = draw_widgets(
         &mut ctx,
         renderer.raster_scene_renderer.as_ref(),
+        &renderer.extractor,
         content.widget_scene,
         self.ndc.enable_reverse_z,
         &main_camera_gpu,

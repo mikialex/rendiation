@@ -22,7 +22,7 @@ pub fn draw_weighted_oit(
   transparent_content: SceneModelRenderBatch,
   depth_base: &RenderTargetView,
   color_base: &RenderTargetView,
-  scene_renderer: &dyn SceneRenderer<ContentKey = SceneContentKey>,
+  scene_renderer: &dyn SceneRenderer,
   camera: &dyn RenderComponent,
   pass_com: &dyn RenderComponent,
   reverse_depth: bool,

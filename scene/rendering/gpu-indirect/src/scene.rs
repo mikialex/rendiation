@@ -17,29 +17,16 @@ pub fn use_indirect_renderer(
 
   let scene_model = use_indirect_scene_model(cx, std_model.map(|v| Box::new(v) as Box<_>));
 
-  // todo, reuse with gles renderer
-  let node_net_visible = cx.use_reactive_query(scene_node_derive_visible);
-  let model_alpha_blend = cx.use_reactive_query(all_kinds_of_materials_enabled_alpha_blending);
-  let model_lookup = cx.use_global_multi_reactive_query::<SceneModelBelongsToScene>();
-
   cx.when_render(|| IndirectSceneRenderer {
     texture_system: texture_system.unwrap(),
     renderer: scene_model.map(|v| Box::new(v) as Box<_>).unwrap(),
-    node_net_visible: node_net_visible.unwrap(),
-    sm_ref_node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
-    model_lookup: model_lookup.unwrap(),
     reversed_depth,
-    alpha_blend: model_alpha_blend.unwrap(),
   })
 }
 
 pub struct IndirectSceneRenderer {
   texture_system: GPUTextureBindingSystem,
   renderer: Box<dyn IndirectBatchSceneModelRenderer>,
-  model_lookup: RevRefOfForeignKey<SceneModelBelongsToScene>,
-  node_net_visible: BoxedDynQuery<EntityHandle<SceneNodeEntity>, bool>,
-  alpha_blend: BoxedDynQuery<EntityHandle<SceneModelEntity>, bool>,
-  sm_ref_node: ForeignKeyReadView<SceneModelRefNode>,
   reversed_depth: bool,
 }
 
@@ -60,7 +47,7 @@ impl IndirectSceneRenderer {
   fn create_batch_from_iter(
     &self,
     iter: impl Iterator<Item = EntityHandle<SceneModelEntity>>,
-  ) -> SceneModelRenderBatch {
+  ) -> DeviceSceneModelRenderBatch {
     let mut classifier = FastHashMap::default();
 
     for sm in iter {
@@ -87,44 +74,14 @@ impl IndirectSceneRenderer {
       })
       .collect();
 
-    SceneModelRenderBatch::Device(DeviceSceneModelRenderBatch {
+    DeviceSceneModelRenderBatch {
       sub_batches,
       stash_culler: None,
-    })
+    }
   }
 }
 
 impl SceneRenderer for IndirectSceneRenderer {
-  type ContentKey = SceneContentKey;
-  fn extract_scene_batch(
-    &self,
-    scene: EntityHandle<SceneEntity>,
-    semantic: Self::ContentKey,
-    _ctx: &mut FrameCtx,
-  ) -> SceneModelRenderBatch {
-    let iter = HostModelLookUp {
-      v: self.model_lookup.clone(),
-      node_net_visible: self.node_net_visible.clone(),
-      sm_ref_node: self.sm_ref_node.clone(),
-      scene_id: scene,
-      scene_model_use_alpha_blending: self.alpha_blend.clone(),
-      enable_alpha_blending: semantic.only_alpha_blend_objects,
-    };
-
-    self.create_batch_from_iter(iter.iter_scene_models())
-  }
-
-  fn render_models<'a>(
-    &'a self,
-    models: Box<dyn HostRenderBatch>,
-    camera: &'a dyn RenderComponent,
-    pass: &'a dyn RenderComponent,
-    ctx: &mut FrameCtx,
-  ) -> Box<dyn PassContent + 'a> {
-    let batch = self.create_batch_from_iter(models.iter_scene_models());
-    self.make_scene_batch_pass_content(batch, camera, pass, ctx)
-  }
-
   fn make_scene_batch_pass_content<'a>(
     &'a self,
     batch: SceneModelRenderBatch,
@@ -132,7 +89,10 @@ impl SceneRenderer for IndirectSceneRenderer {
     pass: &'a dyn RenderComponent,
     ctx: &mut FrameCtx,
   ) -> Box<dyn PassContent + 'a> {
-    let batch = batch.get_device_batch(None).unwrap();
+    let batch = match batch {
+      SceneModelRenderBatch::Device(batch) => batch,
+      SceneModelRenderBatch::Host(batch) => self.create_batch_from_iter(batch.iter_scene_models()),
+    };
 
     let content: Vec<_> = batch
       .sub_batches

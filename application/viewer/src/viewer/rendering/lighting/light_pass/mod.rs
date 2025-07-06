@@ -60,13 +60,13 @@ pub fn render_lighting_scene_content(
         lighting.as_ref(),
       ]) as &dyn RenderComponent;
 
-      let all_opaque_object = renderer.scene.extract_scene_batch(
+      let all_opaque_object = renderer.batch_extractor.extract_scene_batch(
         content.scene,
         SceneContentKey::only_opaque_objects(),
         ctx,
       );
 
-      let all_transparent_object = renderer.scene.extract_scene_batch(
+      let all_transparent_object = renderer.batch_extractor.extract_scene_batch(
         content.scene,
         SceneContentKey::only_alpha_blend_objects(),
         ctx,
@@ -185,10 +185,11 @@ pub fn render_lighting_scene_content(
         &material_writer,
       ]) as &dyn RenderComponent;
 
-      let main_scene_content =
-        renderer
-          .scene
-          .extract_scene_batch(content.scene, SceneContentKey::default(), ctx);
+      let main_scene_content = renderer.batch_extractor.extract_scene_batch(
+        content.scene,
+        SceneContentKey::default(),
+        ctx,
+      );
 
       cull_cx.draw_with_oc_maybe_enabled(
         ctx,

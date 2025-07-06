@@ -27,7 +27,8 @@ pub struct ViewerFrameLogic {
 }
 
 pub struct ViewerSceneRenderer<'a> {
-  pub scene: &'a dyn SceneRenderer<ContentKey = SceneContentKey>,
+  pub scene: &'a dyn SceneRenderer,
+  pub batch_extractor: &'a DefaultSceneBatchExtractor,
   pub cameras: &'a CameraRenderer,
   pub background: &'a SceneBackgroundRenderer,
   pub oit: ViewerTransparentRenderer,
@@ -202,8 +203,10 @@ impl ViewerFrameLogic {
     };
 
     let mut highlight_compose = (content.selected_target.is_some()).then(|| {
-      let masked_content = renderer.scene.render_models(
-        Box::new(IteratorAsHostRenderBatch(content.selected_target)),
+      let batch = Box::new(IteratorAsHostRenderBatch(content.selected_target));
+      let batch = SceneModelRenderBatch::Host(batch);
+      let masked_content = renderer.scene.make_scene_batch_pass_content(
+        batch,
         &main_camera_gpu,
         &HighLightMaskDispatcher,
         ctx,

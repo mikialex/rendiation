@@ -23,29 +23,16 @@ pub fn use_gles_scene_renderer(
   let std_model = std_model_renderer(cx, materials, mesh);
 
   let scene_model_renderer = use_gles_scene_model_renderer(cx, std_model);
-  let model_lookup = cx.use_global_multi_reactive_query::<SceneModelBelongsToScene>();
-
-  let node_net_visible = cx.use_reactive_query(scene_node_derive_visible);
-  let model_alpha_blend = cx.use_reactive_query(all_kinds_of_materials_enabled_alpha_blending);
-
   cx.when_render(|| GLESSceneRenderer {
-    model_lookup: model_lookup.unwrap(),
-    node_net_visible: node_net_visible.unwrap(),
     texture_system: texture_system.unwrap(),
     reversed_depth,
     scene_model_renderer: scene_model_renderer.unwrap(),
-    alpha_blend: model_alpha_blend.unwrap(),
-    sm_ref_node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
   })
 }
 
 pub struct GLESSceneRenderer {
   texture_system: GPUTextureBindingSystem,
   scene_model_renderer: Box<dyn SceneModelRenderer>,
-  model_lookup: RevRefOfForeignKey<SceneModelBelongsToScene>,
-  node_net_visible: BoxedDynQuery<EntityHandle<SceneNodeEntity>, bool>,
-  alpha_blend: BoxedDynQuery<EntityHandle<SceneModelEntity>, bool>,
-  sm_ref_node: ForeignKeyReadView<SceneModelRefNode>,
   reversed_depth: bool,
 }
 
@@ -65,24 +52,6 @@ impl SceneModelRenderer for GLESSceneRenderer {
 }
 
 impl SceneRenderer for GLESSceneRenderer {
-  type ContentKey = SceneContentKey;
-
-  fn extract_scene_batch(
-    &self,
-    scene: EntityHandle<SceneEntity>,
-    semantic: Self::ContentKey,
-    _ctx: &mut FrameCtx,
-  ) -> SceneModelRenderBatch {
-    SceneModelRenderBatch::Host(Box::new(HostModelLookUp {
-      v: self.model_lookup.clone(),
-      node_net_visible: self.node_net_visible.clone(),
-      sm_ref_node: self.sm_ref_node.clone(),
-      scene_id: scene,
-      scene_model_use_alpha_blending: self.alpha_blend.clone(),
-      enable_alpha_blending: semantic.only_alpha_blend_objects,
-    }))
-  }
-
   fn make_scene_batch_pass_content<'a>(
     &'a self,
     batch: SceneModelRenderBatch,

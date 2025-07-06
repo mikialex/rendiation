@@ -5,21 +5,23 @@ pub use axis::*;
 
 pub fn draw_widgets(
   ctx: &mut FrameCtx,
-  renderer: &dyn SceneRenderer<ContentKey = SceneContentKey>,
+  renderer: &dyn SceneRenderer,
+  extractor: &DefaultSceneBatchExtractor,
   widget_scene: EntityHandle<SceneEntity>,
   reversed_depth: bool,
   main_camera_gpu: &dyn RenderComponent,
   axis: &WorldCoordinateAxis,
 ) -> RenderTargetView {
-  let mut widget_scene_content = renderer.extract_and_make_pass_content(
+  let batch = extractor.extract_scene_batch(
+    widget_scene,
     SceneContentKey {
       only_alpha_blend_objects: None,
     },
-    widget_scene,
-    main_camera_gpu,
     ctx,
-    &DefaultDisplayWriter,
   );
+
+  let mut widget_scene_content =
+    renderer.make_scene_batch_pass_content(batch, main_camera_gpu, &DefaultDisplayWriter, ctx);
 
   let widgets_result = attachment().request(ctx);
   let msaa_color = attachment().sample_count(4).request(ctx);

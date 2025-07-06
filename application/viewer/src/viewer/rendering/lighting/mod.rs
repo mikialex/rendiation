@@ -69,7 +69,8 @@ impl LightSystem {
     instance: LightingRenderingCxPrepareCtx,
     frame_ctx: &mut FrameCtx,
     reversed_depth: bool,
-    renderer: &dyn SceneRenderer<ContentKey = SceneContentKey>,
+    renderer: &dyn SceneRenderer,
+    extractor: &DefaultSceneBatchExtractor,
     target_scene: EntityHandle<SceneEntity>,
   ) -> LightingRenderingCx {
     self.tonemap.update(frame_ctx.gpu);
@@ -88,8 +89,8 @@ impl LightSystem {
         // we could just use empty pass dispatcher, because the color channel not exist at all
         let depth = ();
         let camera = Box::new(CameraGPU { ubo: camera }) as Box<dyn RenderComponent>;
-        let mut content =
-          renderer.extract_and_make_pass_content(key, target_scene, &camera, frame_ctx, &depth);
+        let batch = extractor.extract_scene_batch(target_scene, key, frame_ctx);
+        let mut content = renderer.make_scene_batch_pass_content(batch, &camera, &depth, frame_ctx);
 
         desc.render_ctx(frame_ctx).by(&mut content);
       };

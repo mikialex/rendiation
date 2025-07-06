@@ -50,7 +50,7 @@ impl GPUTwoPassOcclusionCulling {
     batch: &DeviceSceneModelRenderBatch,
     target: RenderPassDescription,
     preflight_content: &mut dyn FnMut(ActiveRenderPass) -> ActiveRenderPass,
-    scene_renderer: &dyn SceneRenderer<ContentKey = SceneContentKey>,
+    scene_renderer: &dyn SceneRenderer,
     camera: &CameraGPU,
     pass_com: &dyn RenderComponent,
     bounding_provider: Box<dyn DrawUnitWorldBoundingProvider>,

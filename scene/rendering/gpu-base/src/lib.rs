@@ -34,6 +34,8 @@ use rendiation_texture_gpu_system::*;
 use rendiation_webgpu::*;
 use rendiation_webgpu_reactive_utils::*;
 
+mod batch_extraction;
+pub use batch_extraction::*;
 mod scene_id;
 pub use scene_id::*;
 mod alpha;
@@ -96,20 +98,6 @@ impl SceneContentKey {
 
 /// A scene renderer that encapsulate the scene rendering ability.
 pub trait SceneRenderer: SceneModelRenderer {
-  /// A user defined content semantic key. This key is used to represent the semantic part of the scene content.
-  /// These content is the scene's user-defined internal structure that require different pass effects or drawn in given order.
-  type ContentKey = SceneContentKey;
-
-  /// extract batched scene model by given content semantic, the extracted batch may be used by external
-  /// system for further processing, for example culling. the simple culling logic may also be implemented here
-  #[must_use]
-  fn extract_scene_batch(
-    &self,
-    scene: EntityHandle<SceneEntity>,
-    semantic: Self::ContentKey,
-    ctx: &mut FrameCtx,
-  ) -> SceneModelRenderBatch;
-
   /// render batched scene model with given pass component on given pass
   #[must_use]
   fn make_scene_batch_pass_content<'a>(
@@ -119,33 +107,6 @@ pub trait SceneRenderer: SceneModelRenderer {
     pass: &'a dyn RenderComponent,
     ctx: &mut FrameCtx,
   ) -> Box<dyn PassContent + 'a>;
-
-  #[must_use]
-  fn extract_and_make_pass_content<'a>(
-    &'a self,
-    semantic: Self::ContentKey,
-    scene: EntityHandle<SceneEntity>,
-    camera: &'a dyn RenderComponent,
-    ctx: &mut FrameCtx,
-    pass: &'a dyn RenderComponent,
-  ) -> Box<dyn PassContent + 'a> {
-    let batch = self.extract_scene_batch(scene, semantic, ctx);
-    self.make_scene_batch_pass_content(batch, camera, pass, ctx)
-  }
-
-  /// Batch rendering the passed models. Comparing to render one single model at a time(using [SceneModelRenderer]), this may be more efficient.
-  /// The implementation should be override if it can provide better performance. The default implementation is a loop call using [SceneModelRenderer]
-  #[must_use]
-  fn render_models<'a>(
-    &'a self,
-    models: Box<dyn HostRenderBatch>,
-    camera: &'a dyn RenderComponent,
-    pass: &'a dyn RenderComponent,
-    ctx: &mut FrameCtx,
-  ) -> Box<dyn PassContent + 'a> {
-    let batch = SceneModelRenderBatch::Host(models);
-    self.make_scene_batch_pass_content(batch, camera, pass, ctx)
-  }
 }
 
 /// A renderer supports rendering in scene model granularity
