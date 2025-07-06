@@ -47,9 +47,6 @@ pub fn render_lighting_scene_content(
 
   match lighting_cx.lighting_method {
     LightingTechniqueKind::Forward => {
-      let mut pass_base = pass("scene forward");
-
-      let g_buffer_base_writer = g_buffer.extend_pass_desc(&mut pass_base, depth_ops);
       let lighting = lighting_cx
         .lighting
         .get_scene_forward_lighting_component(content.scene);
@@ -92,8 +89,10 @@ pub fn render_lighting_scene_content(
 
       match renderer.oit.clone() {
         ViewerTransparentRenderer::NaiveAlphaBlend => {
+          let mut pass_base = pass("scene forward all");
           let color_writer =
             DefaultDisplayWriter::extend_pass_desc(&mut pass_base, scene_result, color_ops);
+          let g_buffer_base_writer = g_buffer.extend_pass_desc(&mut pass_base, depth_ops);
 
           let scene_pass_dispatcher = &RenderArray([
             &color_writer as &dyn RenderComponent,
@@ -122,10 +121,15 @@ pub fn render_lighting_scene_content(
             .by(&mut all_transparent_object);
         }
         ViewerTransparentRenderer::Loop32OIT(oit) => {
-          let pass_base_without_color = pass_base.clone();
+          let mut pass_base_for_opaque = pass("scene forward opaque");
 
-          let color_writer =
-            DefaultDisplayWriter::extend_pass_desc(&mut pass_base, scene_result, color_ops);
+          let g_buffer_base_writer =
+            g_buffer.extend_pass_desc(&mut pass_base_for_opaque, depth_ops);
+          let color_writer = DefaultDisplayWriter::extend_pass_desc(
+            &mut pass_base_for_opaque,
+            scene_result,
+            color_ops,
+          );
 
           let scene_pass_dispatcher = &RenderArray([
             &color_writer as &dyn RenderComponent,
@@ -140,9 +144,13 @@ pub fn render_lighting_scene_content(
             main_camera_gpu,
             content.main_camera,
             &mut |pass| pass.by(&mut background),
-            pass_base.clone(),
+            pass_base_for_opaque,
             all_opaque_object,
           );
+
+          let mut pass_base_transparent = pass("scene forward transparent");
+          let g_buffer_base_writer =
+            g_buffer.extend_pass_desc_for_subsequent_draw(&mut pass_base_transparent);
 
           let scene_pass_dispatcher = &RenderArray([
             &g_buffer_base_writer as &dyn RenderComponent,
@@ -154,7 +162,7 @@ pub fn render_lighting_scene_content(
           oit.draw_loop32_oit(
             ctx,
             all_transparent_object,
-            pass_base_without_color,
+            pass_base_transparent,
             scene_result,
             renderer.scene,
             main_camera_gpu,
@@ -163,10 +171,16 @@ pub fn render_lighting_scene_content(
           );
         }
         ViewerTransparentRenderer::WeightedOIT => {
-          let pass_base_without_color = pass_base.clone();
+          let mut pass_base_for_opaque = pass("scene forward opaque");
 
-          let color_writer =
-            DefaultDisplayWriter::extend_pass_desc(&mut pass_base, scene_result, color_ops);
+          let g_buffer_base_writer =
+            g_buffer.extend_pass_desc(&mut pass_base_for_opaque, depth_ops);
+
+          let color_writer = DefaultDisplayWriter::extend_pass_desc(
+            &mut pass_base_for_opaque,
+            scene_result,
+            color_ops,
+          );
 
           let scene_pass_dispatcher = &RenderArray([
             &color_writer as &dyn RenderComponent,
@@ -181,9 +195,13 @@ pub fn render_lighting_scene_content(
             main_camera_gpu,
             content.main_camera,
             &mut |pass| pass.by(&mut background),
-            pass_base.clone(),
+            pass_base_for_opaque,
             all_opaque_object,
           );
+
+          let mut pass_base_transparent = pass("scene forward transparent");
+          let g_buffer_base_writer =
+            g_buffer.extend_pass_desc_for_subsequent_draw(&mut pass_base_transparent);
 
           let scene_pass_dispatcher = &RenderArray([
             &g_buffer_base_writer as &dyn RenderComponent,
@@ -193,8 +211,8 @@ pub fn render_lighting_scene_content(
           draw_weighted_oit(
             ctx,
             all_transparent_object,
-            pass_base_without_color,
-            &scene_result,
+            pass_base_transparent,
+            scene_result,
             renderer.scene,
             main_camera_gpu,
             scene_pass_dispatcher,

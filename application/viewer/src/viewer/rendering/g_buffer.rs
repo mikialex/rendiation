@@ -36,6 +36,18 @@ impl FrameGeometryBuffer {
       entity_id: desc.push_color(&self.entity_id, clear_and_store(MAX_U32_ID_BACKGROUND)),
     }
   }
+
+  pub fn extend_pass_desc_for_subsequent_draw(
+    &self,
+    desc: &mut RenderPassDescription,
+  ) -> FrameGeometryBufferPassEncoder {
+    desc.set_depth(&self.depth, load_and_store());
+
+    FrameGeometryBufferPassEncoder {
+      normal: desc.push_color(&self.normal, load_and_store()),
+      entity_id: desc.push_color(&self.entity_id, load_and_store()),
+    }
+  }
 }
 
 pub struct FrameGeometryBufferPassEncoder {
