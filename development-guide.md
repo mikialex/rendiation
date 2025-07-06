@@ -29,11 +29,13 @@ important issue is in bold style.
 - fix missing blur pass in ssao
 - fix ao should only shadowing diffuse lighting.
 - ibl brdf lut should use higher precision lut
+- gpu picking support for oit transparent mode objects
 - fix outline shaking
 - integrate_brdf and ibl lighting shader code should reuse the std micro surface shading code
 - indirect rendering
   - missing none index mesh, and line mesh draw support (camera helper not show)
 - alpha cut is not discard
+- fix oit loop32 depth test and msaa support
 
 ### Performance issues
 
@@ -43,8 +45,6 @@ important issue is in bold style.
 
 - widen line
 - sky shading
-- gpu driven occlusion culling, frustum culling
-- on_demand_draw
 - ssr(super naive)
 - lod graph generation and rendering
 
@@ -53,6 +53,7 @@ important issue is in bold style.
 - physical camera
 - automatic exposure control
 - good ssr
+- on_demand_draw
 - visibility rendering
 - cluster lighting optimization
   - dependency: storagebuffer light resources.
@@ -90,6 +91,7 @@ important issue is in bold style.
   - huge rust debug symbol cause link or compile failed in reative query(currently workaround by boxing). see:
     - <https://github.com/rust-lang/rust/issues/130729>
     - <https://github.com/rust-lang/rust/issues/135849>
+  - disable fast-math for large world rendering: <https://github.com/gpuweb/gpuweb/issues/2076>
 
 ## Useful commands
 
