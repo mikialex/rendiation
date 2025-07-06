@@ -245,16 +245,34 @@ impl GraphicsShaderProvider for LDROutput {
 
 /// we disable the base dispatch auto write in scene pass content. however in some times
 /// we still need to write to the default display, use this as the outer dispatcher to inject write logic
-pub struct DefaultDisplayWriter;
+pub struct DefaultDisplayWriter {
+  pub write_channel_index: usize,
+}
+
+impl DefaultDisplayWriter {
+  pub fn extend_pass_desc(
+    pass: &mut RenderPassDescription,
+    target: &RenderTargetView,
+    op: impl Into<Operations<rendiation_webgpu::Color>>,
+  ) -> Self {
+    Self {
+      write_channel_index: pass.push_color(target, op),
+    }
+  }
+}
+
 impl ShaderHashProvider for DefaultDisplayWriter {
   shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.write_channel_index.hash(hasher);
+  }
 }
 impl ShaderPassBuilder for DefaultDisplayWriter {}
 impl GraphicsShaderProvider for DefaultDisplayWriter {
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, _| {
       let default = builder.query_or_insert_default::<DefaultDisplay>();
-      builder.store_fragment_out(0, default)
+      builder.store_fragment_out(self.write_channel_index, default)
     })
   }
 }

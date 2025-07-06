@@ -47,18 +47,12 @@ pub fn render_lighting_scene_content(
 
   match lighting_cx.lighting_method {
     LightingTechniqueKind::Forward => {
-      let mut pass_base = pass("scene forward").with_color(scene_result, color_ops);
+      let mut pass_base = pass("scene forward");
 
       let g_buffer_base_writer = g_buffer.extend_pass_desc(&mut pass_base, depth_ops);
       let lighting = lighting_cx
         .lighting
         .get_scene_forward_lighting_component(content.scene);
-
-      let scene_pass_dispatcher = &RenderArray([
-        &DefaultDisplayWriter as &dyn RenderComponent,
-        &g_buffer_base_writer as &dyn RenderComponent,
-        lighting.as_ref(),
-      ]) as &dyn RenderComponent;
 
       let all_opaque_object = renderer.batch_extractor.extract_scene_batch(
         content.scene,
@@ -98,6 +92,15 @@ pub fn render_lighting_scene_content(
 
       match renderer.oit.clone() {
         ViewerTransparentRenderer::NaiveAlphaBlend => {
+          let color_writer =
+            DefaultDisplayWriter::extend_pass_desc(&mut pass_base, scene_result, color_ops);
+
+          let scene_pass_dispatcher = &RenderArray([
+            &color_writer as &dyn RenderComponent,
+            &g_buffer_base_writer as &dyn RenderComponent,
+            lighting.as_ref(),
+          ]) as &dyn RenderComponent;
+
           let mut all_transparent_object = renderer.scene.make_scene_batch_pass_content(
             all_transparent_object,
             main_camera_gpu,
@@ -119,6 +122,17 @@ pub fn render_lighting_scene_content(
             .by(&mut all_transparent_object);
         }
         ViewerTransparentRenderer::Loop32OIT(oit) => {
+          let pass_base_without_color = pass_base.clone();
+
+          let color_writer =
+            DefaultDisplayWriter::extend_pass_desc(&mut pass_base, scene_result, color_ops);
+
+          let scene_pass_dispatcher = &RenderArray([
+            &color_writer as &dyn RenderComponent,
+            &g_buffer_base_writer as &dyn RenderComponent,
+            lighting.as_ref(),
+          ]) as &dyn RenderComponent;
+
           cull_cx.draw_with_oc_maybe_enabled(
             ctx,
             renderer,
@@ -130,16 +144,18 @@ pub fn render_lighting_scene_content(
             all_opaque_object,
           );
 
-          // todo, fix g buffer not able to write
-          let scene_pass_dispatcher = &RenderArray([lighting.as_ref()]) as &dyn RenderComponent;
+          let scene_pass_dispatcher = &RenderArray([
+            &g_buffer_base_writer as &dyn RenderComponent,
+            lighting.as_ref(),
+          ]) as &dyn RenderComponent;
 
           let mut oit = oit.write();
           let oit = oit.get_renderer_instance(ctx.frame_size(), ctx.gpu);
           oit.draw_loop32_oit(
             ctx,
             all_transparent_object,
-            &pass_base.depth_stencil_target.unwrap().1,
-            &pass_base.channels[0].1,
+            pass_base_without_color,
+            scene_result,
             renderer.scene,
             main_camera_gpu,
             scene_pass_dispatcher,
@@ -147,6 +163,17 @@ pub fn render_lighting_scene_content(
           );
         }
         ViewerTransparentRenderer::WeightedOIT => {
+          let pass_base_without_color = pass_base.clone();
+
+          let color_writer =
+            DefaultDisplayWriter::extend_pass_desc(&mut pass_base, scene_result, color_ops);
+
+          let scene_pass_dispatcher = &RenderArray([
+            &color_writer as &dyn RenderComponent,
+            &g_buffer_base_writer as &dyn RenderComponent,
+            lighting.as_ref(),
+          ]) as &dyn RenderComponent;
+
           cull_cx.draw_with_oc_maybe_enabled(
             ctx,
             renderer,
@@ -158,14 +185,16 @@ pub fn render_lighting_scene_content(
             all_opaque_object,
           );
 
-          // todo, fix g buffer not able to write
-          let scene_pass_dispatcher = &RenderArray([lighting.as_ref()]) as &dyn RenderComponent;
+          let scene_pass_dispatcher = &RenderArray([
+            &g_buffer_base_writer as &dyn RenderComponent,
+            lighting.as_ref(),
+          ]) as &dyn RenderComponent;
 
           draw_weighted_oit(
             ctx,
             all_transparent_object,
-            &pass_base.depth_stencil_target.unwrap().1,
-            &pass_base.channels[0].1,
+            pass_base_without_color,
+            &scene_result,
             renderer.scene,
             main_camera_gpu,
             scene_pass_dispatcher,
@@ -223,7 +252,9 @@ pub fn render_lighting_scene_content(
       );
 
       let lighting = RenderArray([
-        &DefaultDisplayWriter as &dyn RenderComponent,
+        &DefaultDisplayWriter {
+          write_channel_index: 0,
+        } as &dyn RenderComponent,
         lighting.as_ref(),
       ]);
 

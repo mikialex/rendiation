@@ -58,12 +58,14 @@ impl OitLoop32RendererInstance {
   ///     for each pixel...
   ///       a packed color in a uvec4
   /// ```
+  /// we support custom target_desc here to enable arbitrary any other channel write(
+  /// for example support gpu pick by writing entity id)
   pub fn draw_loop32_oit(
     &self,
     ctx: &mut FrameCtx,
     transparent_content: SceneModelRenderBatch,
-    depth_base: &RenderTargetView,
-    color_base: &RenderTargetView,
+    mut target_desc_without_final_color: RenderPassDescription,
+    final_color_target: &RenderTargetView,
     scene_renderer: &dyn SceneRenderer,
     camera: &dyn RenderComponent,
     pass_com: &dyn RenderComponent,
@@ -75,12 +77,18 @@ impl OitLoop32RendererInstance {
       .clear(&ctx.gpu.device, &mut ctx.encoder, far.to_bits());
     self.color.clear(&ctx.gpu.device, &mut ctx.encoder, 0);
 
+    let depth = &target_desc_without_final_color
+      .depth_stencil_target
+      .as_ref()
+      .unwrap()
+      .1
+      .clone();
+
     {
       let dispatch = Loop32DepthPrePass {
         oit_depth_layers: self.depth.clone(),
         reverse_depth,
       };
-      let dispatch = &dispatch as &dyn RenderComponent;
       let mut draw_content = scene_renderer.make_scene_batch_pass_content(
         transparent_content.clone(),
         camera,
@@ -89,7 +97,7 @@ impl OitLoop32RendererInstance {
       );
 
       pass("loop32 oit depth pre pass")
-        .with_depth(depth_base, load_and_store())
+        .with_depth(depth, load_and_store())
         .render_ctx(ctx)
         .by(&mut draw_content);
     }
@@ -99,20 +107,22 @@ impl OitLoop32RendererInstance {
         oit_depth_layers: self.depth.clone(),
         oit_color_layers: self.color.clone(),
         reverse_depth,
+        tail_blend_channel_index: target_desc_without_final_color
+          .push_color(final_color_target, load_and_store()),
       };
       let dispatch = &dispatch as &dyn RenderComponent;
-      let pass_com = RenderArray([dispatch, pass_com]);
+      let dispatch = RenderArray([dispatch, pass_com]);
       let mut draw_content =
-        scene_renderer.make_scene_batch_pass_content(transparent_content, camera, &pass_com, ctx);
-      pass("loop32 oit color pass")
-        .with_color(color_base, load_and_store())
-        .with_depth(depth_base, load_and_store())
+        scene_renderer.make_scene_batch_pass_content(transparent_content, camera, &dispatch, ctx);
+
+      target_desc_without_final_color
+        .with_name("loop32 oit color pass")
         .render_ctx(ctx)
         .by(&mut draw_content);
     }
 
     pass("loop32 oit resolve pass")
-      .with_color(color_base, load_and_store())
+      .with_color(final_color_target, load_and_store())
       .render_ctx(ctx)
       .by(
         &mut OitResolvePass {
@@ -222,12 +232,14 @@ struct OitColorPass {
   oit_depth_layers: AtomicImageDowngrade,
   oit_color_layers: AtomicImageDowngrade,
   reverse_depth: bool,
+  tail_blend_channel_index: usize,
 }
 
 impl ShaderHashProvider for OitColorPass {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.reverse_depth.hash(hasher);
+    self.tail_blend_channel_index.hash(hasher);
   }
 }
 impl GraphicsShaderProvider for OitColorPass {
@@ -307,9 +319,10 @@ impl GraphicsShaderProvider for OitColorPass {
         oit_color_layers.atomic_store(coord, start.load(), srgb_color.pack4x8unorm());
       });
 
-      cx.store_fragment_out_vec4f(0, output_color.load());
+      cx.store_fragment_out_vec4f(self.tail_blend_channel_index, output_color.load());
       cx.depth_stencil.as_mut().unwrap().depth_write_enabled = false;
-      cx.frag_output[0].states.blend = Some(BlendState::PREMULTIPLIED_ALPHA_BLENDING)
+      cx.frag_output[self.tail_blend_channel_index].states.blend =
+        Some(BlendState::PREMULTIPLIED_ALPHA_BLENDING)
     })
   }
 }

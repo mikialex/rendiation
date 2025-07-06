@@ -29,7 +29,6 @@ important issue is in bold style.
 - fix missing blur pass in ssao
 - fix ao should only shadowing diffuse lighting.
 - ibl brdf lut should use higher precision lut
-- gpu picking support for oit transparent mode objects
 - fix outline shaking
 - integrate_brdf and ibl lighting shader code should reuse the std micro surface shading code
 - indirect rendering

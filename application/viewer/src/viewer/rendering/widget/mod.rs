@@ -20,8 +20,14 @@ pub fn draw_widgets(
     ctx,
   );
 
-  let mut widget_scene_content =
-    renderer.make_scene_batch_pass_content(batch, main_camera_gpu, &DefaultDisplayWriter, ctx);
+  let mut widget_scene_content = renderer.make_scene_batch_pass_content(
+    batch,
+    main_camera_gpu,
+    &DefaultDisplayWriter {
+      write_channel_index: 0,
+    },
+    ctx,
+  );
 
   let widgets_result = attachment().request(ctx);
   let msaa_color = attachment().sample_count(4).request(ctx);

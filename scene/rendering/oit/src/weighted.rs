@@ -20,8 +20,8 @@ use crate::*;
 pub fn draw_weighted_oit(
   ctx: &mut FrameCtx,
   transparent_content: SceneModelRenderBatch,
-  depth_base: &RenderTargetView,
-  color_base: &RenderTargetView,
+  target_desc_without_final_color: RenderPassDescription,
+  final_color_target: &RenderTargetView,
   scene_renderer: &dyn SceneRenderer,
   camera: &dyn RenderComponent,
   pass_com: &dyn RenderComponent,
@@ -30,22 +30,24 @@ pub fn draw_weighted_oit(
   let reveal_buffer = attachment().format(TextureFormat::R16Float).request(ctx);
   let accumulate_buffer = attachment().format(TextureFormat::Rgba16Float).request(ctx);
 
-  let dispatch = DrawDispatch { reverse_depth };
+  let mut pass_target = target_desc_without_final_color.with_name("weighted_oit encode");
+
+  let dispatch = DrawDispatch {
+    reverse_depth,
+    reveal_buffer_index: pass_target.push_color(&reveal_buffer, clear_and_store(color_same(1.))),
+    accumulates_buffer_index: pass_target
+      .push_color(&accumulate_buffer, clear_and_store(all_zero())),
+  };
   let dispatch = &dispatch as &dyn RenderComponent;
   let pass_com = RenderArray([dispatch, pass_com]);
 
   let mut draw_content =
     scene_renderer.make_scene_batch_pass_content(transparent_content, camera, &pass_com, ctx);
 
-  pass("weighted_oit encode")
-    .with_color(&accumulate_buffer, clear_and_store(all_zero()))
-    .with_color(&reveal_buffer, clear_and_store(color_same(1.)))
-    .with_depth(depth_base, load_and_store())
-    .render_ctx(ctx)
-    .by(&mut draw_content);
+  pass_target.render_ctx(ctx).by(&mut draw_content);
 
   pass("weighted_oit resolve")
-    .with_color(color_base, load_and_store())
+    .with_color(final_color_target, load_and_store())
     .render_ctx(ctx)
     .by(
       &mut Composition {
@@ -58,12 +60,16 @@ pub fn draw_weighted_oit(
 
 struct DrawDispatch {
   reverse_depth: bool,
+  reveal_buffer_index: usize,
+  accumulates_buffer_index: usize,
 }
 
 impl ShaderHashProvider for DrawDispatch {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.reverse_depth.hash(hasher);
+    self.reveal_buffer_index.hash(hasher);
+    self.accumulates_buffer_index.hash(hasher);
   }
 }
 
@@ -72,8 +78,6 @@ impl ShaderPassBuilder for DrawDispatch {}
 impl GraphicsShaderProvider for DrawDispatch {
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|cx, _| {
-      assert_eq!(cx.frag_output.len(), 2);
-
       let color_output = cx.query::<DefaultDisplay>();
       let color = color_output.xyz() * color_output.w(); // pre-multiply it
 
@@ -102,8 +106,11 @@ impl GraphicsShaderProvider for DrawDispatch {
 
       let weight = alpha_weight * dist_weight;
 
-      cx.store_fragment_out_vec4f(0, vec4_node((color, color_output.w())) * weight);
-      cx.frag_output[0].states.blend = Some(BlendState {
+      cx.store_fragment_out_vec4f(
+        self.accumulates_buffer_index,
+        vec4_node((color, color_output.w())) * weight,
+      );
+      cx.frag_output[self.accumulates_buffer_index].states.blend = Some(BlendState {
         color: BlendComponent {
           src_factor: BlendFactor::One,
           dst_factor: BlendFactor::One,
@@ -116,8 +123,11 @@ impl GraphicsShaderProvider for DrawDispatch {
         },
       });
 
-      cx.store_fragment_out_vec4f(1, vec4_node(color_output.w().splat()));
-      cx.frag_output[1].states.blend = Some(BlendState {
+      cx.store_fragment_out_vec4f(
+        self.reveal_buffer_index,
+        vec4_node(color_output.w().splat()),
+      );
+      cx.frag_output[self.reveal_buffer_index].states.blend = Some(BlendState {
         color: BlendComponent {
           src_factor: BlendFactor::Zero,
           dst_factor: BlendFactor::OneMinusSrc,
