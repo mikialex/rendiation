@@ -11,13 +11,13 @@ pub trait DataBaseDataType: CValue + Default {
   fn fast_serialize(&self, target: &mut (impl std::io::Write + ?Sized)) -> Option<()>;
   #[must_use]
   fn fast_deserialize(&mut self, source: &mut (impl std::io::Read + ?Sized)) -> Option<()>;
-  fn shape() -> &'static facet::Shape;
+  fn shape() -> &'static facet::Shape<'static>;
 }
 
 pub trait DataBaseDataTypeDyn {
   fn fast_serialize_dyn(&self, target: &mut dyn std::io::Write) -> Option<()>;
   fn fast_deserialize_dyn(&mut self, source: &mut dyn std::io::Read) -> Option<()>;
-  fn shape(&self) -> &'static facet::Shape;
+  fn shape(&self) -> &'static facet::Shape<'static>;
   /// this function will be removed in future.
   fn debug_value(&self) -> String;
 }
@@ -31,7 +31,7 @@ impl<T: DataBaseDataType> DataBaseDataTypeDyn for T {
     self.fast_deserialize(source)
   }
 
-  fn shape(&self) -> &'static facet::Shape {
+  fn shape(&self) -> &'static facet::Shape<'static> {
     T::shape()
   }
 
@@ -43,7 +43,7 @@ impl<T: DataBaseDataType> DataBaseDataTypeDyn for T {
 impl<T> DataBaseDataType for T
 where
   T: CValue + Default,
-  // T: Facet,
+  T: Facet<'static>,
   T: Serialize + for<'a> Deserialize<'a>,
 {
   fn fast_serialize(&self, writer: &mut (impl std::io::Write + ?Sized)) -> Option<()> {
@@ -55,7 +55,7 @@ where
     Some(())
   }
 
-  fn shape() -> &'static facet::Shape {
+  fn shape() -> &'static facet::Shape<'static> {
     unimplemented!()
   }
 }

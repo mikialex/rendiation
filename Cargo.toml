@@ -88,7 +88,7 @@ resolver = "2"
 # https://rust-lang.github.io/rfcs/2906-cargo-workspace-deduplicate.html
 [workspace.dependencies]
 serde = { version = "1", features = ["derive", "rc"] }
-facet = "0.9.6"
+facet = "0.27.16"
 rayon = "1.7.0"
 bitflags = "2.2"
 bumpalo = "3.17.0"

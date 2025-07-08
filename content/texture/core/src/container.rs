@@ -76,34 +76,13 @@ impl<P: Copy + Default> Texture2dInitAble for Texture2DBuffer<P> {
 }
 
 #[derive(Serialize, Deserialize)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Facet)]
 pub struct GPUBufferImage {
   pub data: Vec<u8>,
+  #[facet(opaque)]
   pub format: TextureFormat,
   pub size: Size,
 }
-
-// use facet::*;
-// #[derive(Serialize, Deserialize)]
-// #[derive(Debug, Clone, PartialEq)]
-// pub struct TextureFormatFaceWarper(pub TextureFormat);
-// unsafe impl facet::Facet for TextureFormatFaceWarper {
-//   const SHAPE: &'static facet::Shape = &facet::Shape::builder()
-//     .layout(std::alloc::Layout::new::<Self>())
-//     .def(facet::Def::Enum(
-//       EnumDef::builder()
-//         .repr(facet::EnumRepr::USize)
-//         .variants(&[])
-//         .build(),
-//     ))
-//     .vtable(
-//       &facet::ValueVTableBuilder::new()
-//         .type_name(|_, _| Ok(()))
-//         .build(),
-//     )
-//     .id(facet::ConstTypeId::of::<TextureFormat>())
-//     .build();
-// }
 
 pub fn create_padding_buffer(
   input: &[u8],

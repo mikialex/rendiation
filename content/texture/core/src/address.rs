@@ -3,7 +3,7 @@ use crate::*;
 /// How edges should be handled in texture addressing.
 #[repr(C)]
 #[derive(Serialize, Deserialize)]
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Facet)]
 pub enum AddressMode {
   /// Clamp the value to the edge of the texture
   ///

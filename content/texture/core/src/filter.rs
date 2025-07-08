@@ -6,8 +6,9 @@ pub trait TextureFilterMode<T: Scalar, P> {
   fn interpolate(t: T, one: P, other: P) -> P;
 }
 
+#[repr(C)]
 #[derive(Serialize, Deserialize)]
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Facet)]
 pub enum FilterMode {
   Nearest,
   Linear,
