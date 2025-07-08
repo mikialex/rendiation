@@ -1,5 +1,3 @@
-use rendiation_fast_down_sampling_2d::fast_down_sampling_generate_mipmap;
-
 use crate::*;
 
 pub fn create_gpu_sampler(cx: &GPU, s: &TextureSampler) -> GPUSamplerView {
@@ -30,15 +28,15 @@ pub fn create_gpu_texture2d_with_mipmap(
   let gpu_texture: GPU2DTexture = gpu_texture.try_into().unwrap();
   let gpu_texture = gpu_texture.upload_into(&cx.queue, &texture, 0);
 
-  if cx.info.downgrade_info.is_webgpu_compliant()
-    && StorageFormat::try_from(gpu_texture.desc.format).is_ok()
-  {
-    encoder.compute_pass_scoped(|mut pass| {
-      fast_down_sampling_generate_mipmap(&mut pass, &cx.device, &gpu_texture);
-    });
-  } else {
-    DefaultMipmapReducer.generate(cx, encoder, &gpu_texture);
-  }
+  // if cx.info.downgrade_info.is_webgpu_compliant()
+  //   && StorageFormat::try_from(gpu_texture.desc.format).is_ok()
+  // {
+  //   encoder.compute_pass_scoped(|mut pass| {
+  //     rendiation_fast_down_sampling_2d::fast_down_sampling_generate_mipmap(&mut pass, &cx.device, &gpu_texture);
+  //   });
+  // } else {
+  DefaultMipmapReducer.generate(cx, encoder, &gpu_texture);
+  // }
 
   gpu_texture.create_default_view().try_into().unwrap()
 }

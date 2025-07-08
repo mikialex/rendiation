@@ -121,7 +121,7 @@ fn attribute_indices(
           let buffer = Arc::new(buffer.to_vec());
           (buffer, None)
         } else {
-          unreachable!("index count must be 2 or 4")
+          unreachable!("index count must be multiple of 2(u16) or 4(u32)")
         }
       }
     })
@@ -531,11 +531,9 @@ impl NoneIndexedDrawCommandBuilder for BindlessDrawCreator {
 
     assert_eq!(address_info.index_offset, u32::MAX);
 
-    let start = address_info.position_offset;
-    let end = start + address_info.position_count / 3;
     DrawCommand::Array {
       instances: 0..1,
-      vertices: start..end,
+      vertices: 0..(address_info.position_count / 3),
     }
   }
 
@@ -637,12 +635,13 @@ impl NoneIndexedDrawCommandBuilderInvocation for BindlessDrawCreatorInDevice {
   ) -> Node<DrawIndirectArgsStorage> {
     let mesh_handle: Node<u32> = self.sm_to_mesh_device.index(draw_id).load();
     // shader_assert(mesh_handle.not_equals(val(u32::MAX)));
+    // shader_assert(meta.index_offset.equals(val(u32::MAX)));
 
     let meta = self.node.index(mesh_handle).load().expand();
     ENode::<DrawIndirectArgsStorage> {
       vertex_count: meta.position_count / val(3),
       instance_count: val(1),
-      base_vertex: meta.position_offset,
+      base_vertex: val(0),
       base_instance: draw_id,
     }
     .construct()

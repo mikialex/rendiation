@@ -178,7 +178,7 @@ pub trait WebGPU2DTextureSource: Send + Sync {
       view_formats: get_view_format(self.format()),
       usage: gpu::TextureUsages::TEXTURE_BINDING
         | gpu::TextureUsages::RENDER_ATTACHMENT
-        | gpu::TextureUsages::STORAGE_BINDING // used to generate mipmap in compute shader
+        // | gpu::TextureUsages::STORAGE_BINDING // used to generate mipmap in compute shader
         | gpu::TextureUsages::COPY_DST
         | gpu::TextureUsages::COPY_SRC,
     }
