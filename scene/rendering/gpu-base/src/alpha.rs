@@ -9,16 +9,16 @@ pub struct ShaderAlphaConfig {
 }
 
 impl ShaderAlphaConfig {
+  /// note, after this call, the uniform control flow is not exist
   pub fn apply(&self, builder: &mut ShaderFragmentBuilderView) {
     match self.alpha_mode {
       AlphaMode::Opaque => {}
       AlphaMode::Mask => {
-        let alpha = self
-          .alpha
-          .less_than(self.alpha_cutoff)
-          .select(val(0.), self.alpha); // todo, impl correct discard alpha cut
-        builder.register::<AlphaChannel>(alpha);
-        builder.register::<AlphaCutChannel>(self.alpha_cutoff);
+        let cut = self.alpha.less_than(self.alpha_cutoff);
+
+        if_by(cut, || {
+          builder.discard();
+        });
       }
       AlphaMode::Blend => {
         builder.register::<AlphaChannel>(self.alpha);

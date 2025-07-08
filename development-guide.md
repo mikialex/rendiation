@@ -33,7 +33,6 @@ important issue is in bold style.
 - ibl brdf lut should use higher precision lut
 - fix outline shaking
 - integrate_brdf and ibl lighting shader code should reuse the std micro surface shading code
-- alpha cut is not discard
 - fix oit loop32 depth test and msaa support
 
 ### Performance issues
