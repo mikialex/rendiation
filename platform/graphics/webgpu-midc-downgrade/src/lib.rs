@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 use rendiation_device_parallel_compute::*;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
@@ -5,8 +7,6 @@ use rendiation_webgpu::*;
 /// downgrade midc into single none-index indirect draw with helper access data.
 ///
 /// the sub draw command not support instance count > 1
-///
-/// currently only support index draw
 pub fn downgrade_multi_indirect_draw_count(
   draw: DrawCommand,
   cx: &mut DeviceParallelComputeCtx,
@@ -105,6 +105,13 @@ pub struct DowngradeMultiIndirectDrawCountHelper {
   draw_commands: StorageDrawCommands,
 }
 
+impl ShaderHashProvider for DowngradeMultiIndirectDrawCountHelper {
+  shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.draw_commands.is_index().hash(hasher);
+  }
+}
+
 impl DowngradeMultiIndirectDrawCountHelper {
   pub fn build(
     &self,
@@ -193,6 +200,9 @@ struct MultiIndirectCountDowngradeSource {
 
 impl ShaderHashProvider for MultiIndirectCountDowngradeSource {
   shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.indirect_buffer.is_index().hash(hasher);
+  }
 }
 
 impl DeviceParallelCompute<Node<u32>> for MultiIndirectCountDowngradeSource {

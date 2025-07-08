@@ -9,6 +9,9 @@ pub struct MIDCDowngradeBatch {
 
 impl ShaderHashProvider for MIDCDowngradeBatch {
   shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.helper.hash_pipeline(hasher);
+  }
 }
 impl ShaderPassBuilder for MIDCDowngradeBatch {
   fn setup_pass(&self, cx: &mut GPURenderPassCtx) {

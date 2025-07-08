@@ -83,6 +83,13 @@ pub enum StorageDrawCommands {
 }
 
 impl StorageDrawCommands {
+  pub fn is_index(&self) -> bool {
+    match self {
+      Self::Indexed(_) => true,
+      Self::NoneIndexed(_) => false,
+    }
+  }
+
   pub fn cmd_count(&self) -> u32 {
     match self {
       Self::Indexed(v) => v.item_count(),
