@@ -3904,6 +3904,7 @@ dependencies = [
  "rendiation-device-parallel-compute",
  "rendiation-geometry",
  "rendiation-lighting-gpu-system",
+ "rendiation-mesh-core",
  "rendiation-scene-core",
  "rendiation-shader-api",
  "rendiation-texture-core",

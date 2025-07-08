@@ -289,7 +289,6 @@ impl MeshGPUBindlessImpl {
       normal,
       uv,
       index_pool,
-      used_in_midc_downgrade: self.used_in_midc_downgrade,
     }
   }
 }
@@ -301,11 +300,17 @@ impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
   ) -> Option<Box<dyn RenderComponent + '_>> {
     // check the given model has attributes mesh
     let mesh = self.checker.get(any_idx)?;
+    let is_indexed = self.indices_checker.get(mesh).is_some();
     let topology = self.topology_checker.get(mesh)?;
     if *topology != rendiation_mesh_core::PrimitiveTopology::TriangleList {
       return None;
     }
-    Some(Box::new(self.make_bindless_dispatcher()))
+    Some(Box::new(BindlessMeshRasterDispatcher {
+      internal: self.make_bindless_dispatcher(),
+      used_in_midc_downgrade: self.used_in_midc_downgrade,
+      topology: map_topology(*topology),
+      is_indexed,
+    }))
   }
 
   fn hash_shader_group_key(
@@ -358,54 +363,76 @@ pub struct BindlessMeshDispatcher {
   pub position: StorageBufferReadonlyDataView<[u32]>,
   pub normal: StorageBufferReadonlyDataView<[u32]>,
   pub uv: StorageBufferReadonlyDataView<[u32]>,
-  pub used_in_midc_downgrade: bool,
 }
 
 impl ShaderHashProvider for BindlessMeshDispatcher {
   shader_hash_type_id! {}
+}
+
+#[derive(Clone)]
+pub struct BindlessMeshRasterDispatcher {
+  pub internal: BindlessMeshDispatcher,
+  pub used_in_midc_downgrade: bool,
+  pub is_indexed: bool,
+  pub topology: PrimitiveTopology,
+}
+
+impl ShaderHashProvider for BindlessMeshRasterDispatcher {
+  shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.used_in_midc_downgrade.hash(hasher);
+    self.is_indexed.hash(hasher);
+    self.topology.hash(hasher);
   }
 }
 
-impl ShaderPassBuilder for BindlessMeshDispatcher {
+impl ShaderPassBuilder for BindlessMeshRasterDispatcher {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    // midc downgrade index draw into none index draw, so we do not set index buffer
-    if !self.used_in_midc_downgrade {
-      ctx
-        .pass
-        .set_index_buffer_by_buffer_resource_view(&self.index_pool, IndexFormat::Uint32);
-    } else {
-      ctx.binding.bind(&self.index_pool);
+    let mesh = &self.internal;
+
+    if self.is_indexed {
+      // when midc downgrade enabled, the index multi draw will be downgraded into single none index draw,
+      // so we use storage binding for index buffer
+      if self.used_in_midc_downgrade {
+        ctx.binding.bind(&mesh.index_pool);
+      } else {
+        ctx
+          .pass
+          .set_index_buffer_by_buffer_resource_view(&mesh.index_pool, IndexFormat::Uint32);
+      }
     }
 
-    self.bind_base_invocation(&mut ctx.binding);
+    mesh.bind_base_invocation(&mut ctx.binding);
   }
 }
 
-impl GraphicsShaderProvider for BindlessMeshDispatcher {
+impl GraphicsShaderProvider for BindlessMeshRasterDispatcher {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|vertex, binding| {
       let mesh_handle = vertex.query::<IndirectAbstractMeshId>();
 
       if self.used_in_midc_downgrade {
         let vertex_real_index = vertex.query::<VertexIndexForMIDCDowngrade>();
-        let index_pool = binding.bind_by(&self.index_pool);
-        let index = index_pool.index(vertex_real_index).load();
-        // here we override the builtin
-        vertex.register::<VertexIndex>(index);
+        if self.is_indexed {
+          let index_pool = binding.bind_by(&self.internal.index_pool);
+          let index = index_pool.index(vertex_real_index).load();
+          // here we override the builtin
+          vertex.register::<VertexIndex>(index);
+        } else {
+          vertex.register::<VertexIndex>(vertex_real_index);
+        }
       }
 
       let vertex_id = vertex.query::<VertexIndex>();
 
-      let mesh_sys = self.build_base_invocation(binding);
+      let mesh_sys = self.internal.build_base_invocation(binding);
       let (position, normal, uv) = mesh_sys.get_position_normal_uv(mesh_handle, vertex_id);
 
       vertex.register::<GeometryPosition>(position);
       vertex.register::<GeometryNormal>(normal);
       vertex.register::<GeometryUV>(uv);
 
-      vertex.primitive_state.topology = PrimitiveTopology::TriangleList;
+      vertex.primitive_state.topology = self.topology;
     })
   }
 }
@@ -589,6 +616,7 @@ impl IndexedDrawCommandBuilderInvocation for BindlessDrawCreatorInDevice {
   ) -> Node<DrawIndexedIndirectArgsStorage> {
     let mesh_handle: Node<u32> = self.sm_to_mesh_device.index(draw_id).load();
     // shader_assert(mesh_handle.not_equals(val(u32::MAX)));
+    // shader_assert(meta.index_offset.not_equals(val(u32::MAX)));
 
     let meta = self.node.index(mesh_handle).load().expand();
     ENode::<DrawIndexedIndirectArgsStorage> {

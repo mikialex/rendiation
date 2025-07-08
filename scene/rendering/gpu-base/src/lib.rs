@@ -26,6 +26,7 @@ use rendiation_algebra::*;
 use rendiation_color::*;
 use rendiation_device_parallel_compute::*;
 use rendiation_geometry::*;
+use rendiation_mesh_core::*;
 use rendiation_scene_core::*;
 use rendiation_shader_api::*;
 use rendiation_texture_core::*;
@@ -159,5 +160,26 @@ impl SceneModelRenderer for Vec<Box<dyn SceneModelRenderer>> {
       model_id: idx,
       tried,
     })
+  }
+}
+
+pub fn map_topology(
+  pt: rendiation_mesh_core::PrimitiveTopology,
+) -> rendiation_webgpu::PrimitiveTopology {
+  use rendiation_mesh_core::PrimitiveTopology as Enum;
+  use rendiation_webgpu::PrimitiveTopology as GPUEnum;
+  match pt {
+    Enum::PointList => GPUEnum::PointList,
+    Enum::LineList => GPUEnum::LineList,
+    Enum::LineStrip => GPUEnum::LineStrip,
+    Enum::TriangleList => GPUEnum::TriangleList,
+    Enum::TriangleStrip => GPUEnum::TriangleStrip,
+  }
+}
+
+pub fn map_index(index: AttributeIndexFormat) -> IndexFormat {
+  match index {
+    AttributeIndexFormat::Uint16 => IndexFormat::Uint16,
+    AttributeIndexFormat::Uint32 => IndexFormat::Uint32,
   }
 }
