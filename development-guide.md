@@ -8,6 +8,8 @@ The following things is the current project development direction.
 
 important issue is in bold style.
 
+- renderer hook change collector issue
+- swtich renderer backend leak gpu resource
 - spd not support none pot target, and small target(the current impl will access out of boundary of image).
 - multi format support in texture pool system
 - bindless mesh does not support optional uv and normal attributes
@@ -31,8 +33,6 @@ important issue is in bold style.
 - ibl brdf lut should use higher precision lut
 - fix outline shaking
 - integrate_brdf and ibl lighting shader code should reuse the std micro surface shading code
-- indirect rendering
-  - missing none index mesh, and line mesh draw support (camera helper not show)
 - alpha cut is not discard
 - fix oit loop32 depth test and msaa support
 
@@ -62,6 +62,7 @@ important issue is in bold style.
 
 ### Infra and framework improvements planed
 
+- storage/texture shrink
 - improve bindgroup cache implementation
 - ray tracing
   - improve the wavefront dispatch performance

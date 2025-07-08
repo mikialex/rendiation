@@ -96,7 +96,7 @@ pub fn use_bindless_mesh(cx: &mut impl QueryGPUHookCx) -> Option<MeshGPUBindless
 fn attribute_indices(
   index_pool: &UntypedPool,
   gpu: &GPU,
-) -> impl ReactiveQuery<Key = EntityHandle<AttributesMeshEntity>, Value = Vec2<u32>> {
+) -> impl ReactiveQuery<Key = EntityHandle<AttributesMeshEntity>, Value = [u32; 2]> {
   let index_buffer_ref =
     global_watch().watch_typed_foreign_key::<SceneBufferViewBufferId<AttributeIndexRef>>();
   let index_buffer_range = global_watch().watch::<SceneBufferViewBufferRange<AttributeIndexRef>>();
@@ -128,7 +128,7 @@ fn attribute_indices(
     .into_boxed();
 
   let index_info = ReactiveRangeAllocatePool::new(index_pool, source, gpu)
-    .collective_map(|(offset, count)| Vec2::new(offset, count))
+    .collective_map(|(offset, count)| [offset, count])
     .into_boxed();
 
   global_watch()
@@ -137,7 +137,7 @@ fn attribute_indices(
       if let Some(indexed) = indexed {
         Some(indexed)
       } else {
-        full.map(|_| Vec2::new(u32::MAX, 0)) // write u32 max to indicate the index is not exist
+        full.map(|_| [u32::MAX, 0]) // write u32 max to indicate the index is not exist
       }
     })
 }
@@ -194,9 +194,19 @@ fn attribute_vertex(
 
   // we not using intersect here because range may not exist
   // todo, put it into registry
-  ReactiveRangeAllocatePool::new(pool, ranged_buffer, gpu)
-    .collective_map(|v| [v.0, v.1])
-    .one_to_many_fanout(ab_ref_mesh.into_one_to_many_by_hash())
+  let vertex_info = ReactiveRangeAllocatePool::new(pool, ranged_buffer, gpu)
+    .collective_map(|(offset, count)| [offset, count])
+    .one_to_many_fanout(ab_ref_mesh.into_one_to_many_by_hash());
+
+  global_watch()
+    .watch_entity_set::<AttributesMeshEntity>()
+    .collective_union(vertex_info, |(full, indexed)| {
+      if let Some(indexed) = indexed {
+        Some(indexed)
+      } else {
+        full.map(|_| [u32::MAX, 0]) // write u32 max to indicate the vertex is not exist
+      }
+    })
 }
 
 ///  note the attribute's count should be same for one mesh, will keep it here for simplicity
@@ -302,9 +312,7 @@ impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
     let mesh = self.checker.get(any_idx)?;
     let is_indexed = self.indices_checker.get(mesh).is_some();
     let topology = self.topology_checker.get(mesh)?;
-    if *topology != rendiation_mesh_core::PrimitiveTopology::TriangleList {
-      return None;
-    }
+
     Some(Box::new(BindlessMeshRasterDispatcher {
       internal: self.make_bindless_dispatcher(),
       used_in_midc_downgrade: self.used_in_midc_downgrade,
@@ -460,17 +468,24 @@ impl BindlessMeshDispatcherBaseInvocation {
   pub fn get_normal(&self, mesh_handle: Node<u32>, vertex_id: Node<u32>) -> Node<Vec3<f32>> {
     let meta = self.vertex_address_buffer.index(mesh_handle);
     let normal_offset = meta.normal_offset().load();
-    let layout = StructLayoutTarget::Packed;
-    unsafe {
-      Vec3::<f32>::sized_ty()
-        .load_from_u32_buffer(&self.normal, normal_offset + vertex_id * val(3), layout)
-        .into_node::<Vec3<f32>>()
-    }
+
+    normal_offset.equals(u32::MAX).select_branched(
+      || val(Vec3::zero()),
+      || {
+        let layout = StructLayoutTarget::Packed;
+        unsafe {
+          Vec3::<f32>::sized_ty()
+            .load_from_u32_buffer(&self.normal, normal_offset + vertex_id * val(3), layout)
+            .into_node::<Vec3<f32>>()
+        }
+      },
+    )
   }
 
   pub fn get_position(&self, mesh_handle: Node<u32>, vertex_id: Node<u32>) -> Node<Vec3<f32>> {
     let meta = self.vertex_address_buffer.index(mesh_handle);
     let position_offset = meta.position_offset().load();
+    // todo assert position_offset != u32::MAX
     let layout = StructLayoutTarget::Packed;
     unsafe {
       Vec3::<f32>::sized_ty()
@@ -482,12 +497,18 @@ impl BindlessMeshDispatcherBaseInvocation {
   pub fn get_uv(&self, mesh_handle: Node<u32>, vertex_id: Node<u32>) -> Node<Vec2<f32>> {
     let meta = self.vertex_address_buffer.index(mesh_handle);
     let uv_offset = meta.uv_offset().load();
-    let layout = StructLayoutTarget::Packed;
-    unsafe {
-      Vec2::<f32>::sized_ty()
-        .load_from_u32_buffer(&self.uv, uv_offset + vertex_id * val(2), layout)
-        .into_node::<Vec2<f32>>()
-    }
+
+    uv_offset.equals(u32::MAX).select_branched(
+      || val(Vec2::zero()),
+      || {
+        let layout = StructLayoutTarget::Packed;
+        unsafe {
+          Vec2::<f32>::sized_ty()
+            .load_from_u32_buffer(&self.uv, uv_offset + vertex_id * val(2), layout)
+            .into_node::<Vec2<f32>>()
+        }
+      },
+    )
   }
 }
 
