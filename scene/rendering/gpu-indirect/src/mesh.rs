@@ -84,6 +84,7 @@ pub fn use_bindless_mesh(cx: &mut impl QueryGPUHookCx) -> Option<MeshGPUBindless
       .read_foreign_key(),
     indices_checker: global_entity_component_of::<SceneBufferViewBufferId<AttributeIndexRef>>()
       .read_foreign_key(),
+    topology_checker: global_entity_component_of::<AttributesMeshEntityTopology>().read(),
     vertex_address_buffer: attribute_buffer_metadata.clone().unwrap().gpu().clone(),
     vertex_address_buffer_host: attribute_buffer_metadata.unwrap(),
     sm_to_mesh_device: sm_to_mesh_device.unwrap(),
@@ -126,8 +127,19 @@ fn attribute_indices(
     })
     .into_boxed();
 
-  ReactiveRangeAllocatePool::new(index_pool, source, gpu)
+  let index_info = ReactiveRangeAllocatePool::new(index_pool, source, gpu)
     .collective_map(|(offset, count)| Vec2::new(offset, count))
+    .into_boxed();
+
+  global_watch()
+    .watch_entity_set::<AttributesMeshEntity>()
+    .collective_union(index_info, |(full, indexed)| {
+      if let Some(indexed) = indexed {
+        Some(indexed)
+      } else {
+        full.map(|_| Vec2::new(u32::MAX, 0)) // write u32 max to indicate the index is not exist
+      }
+    })
 }
 
 /// return u32::MAX for all none_indexed mesh
@@ -247,6 +259,7 @@ pub struct MeshGPUBindlessImpl {
   normal: UntypedPool,
   uv: UntypedPool,
   vertex_address_buffer: StorageBufferReadonlyDataView<[AttributeMeshMeta]>,
+  /// we keep the host metadata to support creating draw commands from host
   vertex_address_buffer_host: LockReadGuardHolder<
     MultiUpdateContainer<CommonStorageBufferImplWithHostBackup<AttributeMeshMeta>>,
   >,
@@ -254,6 +267,7 @@ pub struct MeshGPUBindlessImpl {
   sm_to_mesh: BoxedDynQuery<EntityHandle<SceneModelEntity>, EntityHandle<AttributesMeshEntity>>,
   checker: ForeignKeyReadView<StandardModelRefAttributesMeshEntity>,
   indices_checker: ForeignKeyReadView<SceneBufferViewBufferId<AttributeIndexRef>>,
+  topology_checker: ComponentReadView<AttributesMeshEntityTopology>,
   used_in_midc_downgrade: bool,
 }
 
@@ -286,17 +300,24 @@ impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
     any_idx: EntityHandle<StandardModelEntity>,
   ) -> Option<Box<dyn RenderComponent + '_>> {
     // check the given model has attributes mesh
-    let mesh_id = self.checker.get(any_idx)?;
-    // check mesh must have indices.
-    let _ = self.indices_checker.get(mesh_id)?;
+    let mesh = self.checker.get(any_idx)?;
+    let topology = self.topology_checker.get(mesh)?;
+    if *topology != rendiation_mesh_core::PrimitiveTopology::TriangleList {
+      return None;
+    }
     Some(Box::new(self.make_bindless_dispatcher()))
   }
 
   fn hash_shader_group_key(
     &self,
-    _any_id: EntityHandle<StandardModelEntity>,
-    _hasher: &mut PipelineHasher,
+    any_id: EntityHandle<StandardModelEntity>,
+    hasher: &mut PipelineHasher,
   ) -> Option<()> {
+    let mesh_id = self.checker.get(any_id)?;
+    let topology = self.topology_checker.get(mesh_id)?;
+    topology.hash(hasher);
+    let is_index_mesh = self.indices_checker.get(mesh_id).is_some();
+    is_index_mesh.hash(hasher);
     Some(())
   }
 
@@ -383,6 +404,8 @@ impl GraphicsShaderProvider for BindlessMeshDispatcher {
       vertex.register::<GeometryPosition>(position);
       vertex.register::<GeometryNormal>(normal);
       vertex.register::<GeometryUV>(uv);
+
+      vertex.primitive_state.topology = PrimitiveTopology::TriangleList;
     })
   }
 }
@@ -479,6 +502,8 @@ impl NoneIndexedDrawCommandBuilder for BindlessDrawCreator {
       .get(mesh_id.alloc_index() as usize)
       .unwrap();
 
+    assert_eq!(address_info.index_offset, u32::MAX);
+
     let start = address_info.position_offset;
     let end = start + address_info.position_count / 3;
     DrawCommand::Array {
@@ -515,6 +540,7 @@ impl IndexedDrawCommandBuilder for BindlessDrawCreator {
       .unwrap();
 
     let start = address_info.index_offset;
+    assert_ne!(start, u32::MAX);
     let end = start + address_info.count;
     DrawCommand::Indexed {
       base_vertex: 0,

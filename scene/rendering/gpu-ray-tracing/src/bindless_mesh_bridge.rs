@@ -14,13 +14,18 @@ impl BindlessMeshRtxAccessInvocation {
     let meta = self.base.vertex_address_buffer.index(mesh_id);
     let index_offset = meta.index_offset().load();
 
-    let offset = index_offset + vertex_id;
-    (
-      self.indices.index(offset).load(),
-      self.indices.index(offset + val(1)).load(),
-      self.indices.index(offset + val(2)).load(),
+    index_offset.equals(u32::MAX).select_branched(
+      || (vertex_id, vertex_id + val(1), vertex_id + val(2)).into(),
+      || {
+        let offset = index_offset + vertex_id;
+        (
+          self.indices.index(offset).load(),
+          self.indices.index(offset + val(1)).load(),
+          self.indices.index(offset + val(2)).load(),
+        )
+          .into()
+      },
     )
-      .into()
   }
 
   fn get_data_accessor(
