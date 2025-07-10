@@ -44,6 +44,7 @@
         "constness",
         "consts",
         "Controllee",
+        "cranelift",
         "dashmap",
         "dealloc",
         "deallocator",
