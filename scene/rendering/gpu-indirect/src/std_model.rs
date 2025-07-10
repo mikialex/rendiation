@@ -28,6 +28,12 @@ pub trait IndirectModelRenderImpl {
     any_idx: EntityHandle<SceneModelEntity>,
   ) -> Option<Box<dyn RenderComponent + '_>>;
 
+  fn generate_indirect_draw_provider(
+    &self,
+    batch: &DeviceSceneModelRenderSubBatch,
+    ctx: &mut FrameCtx,
+  ) -> Option<Box<dyn IndirectDrawProvider>>;
+
   fn make_draw_command_builder(
     &self,
     any_idx: EntityHandle<SceneModelEntity>,
@@ -87,6 +93,19 @@ impl IndirectModelRenderImpl for Vec<Box<dyn IndirectModelRenderImpl>> {
   ) -> Option<DrawCommandBuilder> {
     for provider in self {
       if let Some(v) = provider.make_draw_command_builder(any_idx) {
+        return Some(v);
+      }
+    }
+    None
+  }
+
+  fn generate_indirect_draw_provider(
+    &self,
+    batch: &DeviceSceneModelRenderSubBatch,
+    ctx: &mut FrameCtx,
+  ) -> Option<Box<dyn IndirectDrawProvider>> {
+    for provider in self {
+      if let Some(v) = provider.generate_indirect_draw_provider(batch, ctx) {
         return Some(v);
       }
     }
@@ -207,6 +226,17 @@ impl IndirectModelRenderImpl for SceneStdModelIndirectRenderer {
   ) -> Option<Box<dyn RenderComponent + 'a>> {
     let model = self.model.get(any_idx)?;
     self.materials.make_component_indirect(model, cx)
+  }
+
+  fn generate_indirect_draw_provider(
+    &self,
+    batch: &DeviceSceneModelRenderSubBatch,
+    ctx: &mut FrameCtx,
+  ) -> Option<Box<dyn IndirectDrawProvider>> {
+    let model_id = self.model.get(batch.impl_select_id)?;
+    self
+      .shapes
+      .generate_indirect_draw_provider(batch, model_id, ctx)
   }
 }
 

@@ -23,6 +23,13 @@ pub trait IndirectModelShapeRenderImpl {
 
   fn as_any(&self) -> &dyn Any;
 
+  fn generate_indirect_draw_provider(
+    &self,
+    batch: &DeviceSceneModelRenderSubBatch,
+    any_idx: EntityHandle<StandardModelEntity>,
+    ctx: &mut FrameCtx,
+  ) -> Option<Box<dyn IndirectDrawProvider>>;
+
   fn make_draw_command_builder(
     &self,
     any_idx: EntityHandle<StandardModelEntity>,
@@ -56,6 +63,20 @@ impl IndirectModelShapeRenderImpl for Vec<Box<dyn IndirectModelShapeRenderImpl>>
   }
   fn as_any(&self) -> &dyn Any {
     self
+  }
+
+  fn generate_indirect_draw_provider(
+    &self,
+    batch: &DeviceSceneModelRenderSubBatch,
+    any_idx: EntityHandle<StandardModelEntity>,
+    ctx: &mut FrameCtx,
+  ) -> Option<Box<dyn IndirectDrawProvider>> {
+    for provider in self {
+      if let Some(v) = provider.generate_indirect_draw_provider(batch, any_idx, ctx) {
+        return Some(v);
+      }
+    }
+    None
   }
 
   fn make_draw_command_builder(

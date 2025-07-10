@@ -167,13 +167,10 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
     batch: &DeviceSceneModelRenderSubBatch,
     ctx: &mut FrameCtx,
   ) -> Box<dyn IndirectDrawProvider> {
-    let draw_command_builder = self
-      .make_draw_command_builder(batch.impl_select_id)
-      .unwrap();
-
-    ctx.access_parallel_compute(|cx| {
-      batch.create_default_indirect_draw_provider(draw_command_builder, cx)
-    })
+    self
+      .model_impl
+      .generate_indirect_draw_provider(batch, ctx)
+      .expect("unable to fine suitable indirect draw provider for this indirect draw batch")
   }
 
   fn render_indirect_batch_models(

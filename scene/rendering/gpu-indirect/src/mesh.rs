@@ -361,6 +361,23 @@ impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
     }
     .into()
   }
+
+  fn generate_indirect_draw_provider(
+    &self,
+    batch: &DeviceSceneModelRenderSubBatch,
+    any_idx: EntityHandle<StandardModelEntity>,
+    ctx: &mut FrameCtx,
+  ) -> Option<Box<dyn IndirectDrawProvider>> {
+    let _ = self.checker.get(any_idx)?;
+
+    let draw_command_builder = self.make_draw_command_builder(any_idx).unwrap();
+
+    ctx
+      .access_parallel_compute(|cx| {
+        batch.create_default_indirect_draw_provider(draw_command_builder, cx)
+      })
+      .into()
+  }
 }
 
 #[derive(Clone)]
