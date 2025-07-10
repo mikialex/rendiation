@@ -45,6 +45,7 @@ members = [
   "shader/api",
   "shader/derive",
   "shader/backends/naga",
+  "shader/backends/cranelift-jit",
   "shader/library",
   "shader/parallel-compute",
   "shader/task-graph",

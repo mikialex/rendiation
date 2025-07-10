@@ -1,0 +1,15 @@
+[package]
+authors = ["mikialex <18516340862@163.com>"]
+edition = "2021"
+name = "rendiation-shader-backend-cranelift-jit"
+version = "0.1.0"
+
+[dependencies]
+rendiation-shader-api = { path = "../../api" }
+cranelift = "0.118.0"
+cranelift-module = "0.118.0"
+cranelift-jit = "0.118.0"
+cranelift-native = "0.118.0"
+
+[lints]
+workspace = true
