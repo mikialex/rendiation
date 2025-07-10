@@ -2,11 +2,14 @@ use std::hash::Hash;
 
 use rendiation_algebra::*;
 use rendiation_geometry::Positioned;
+use serde::*;
 
 use crate::{AttributeSemantic, AttributeVertex};
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, rendiation_shader_api::ShaderVertex, PartialEq, Default)]
+#[derive(rendiation_shader_api::ShaderVertex)]
+#[derive(Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct CommonVertex {
   #[semantic(GeometryPosition)]
   pub position: Vec3<f32>,

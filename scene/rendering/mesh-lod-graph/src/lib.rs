@@ -1,3 +1,4 @@
+use database::*;
 use rendiation_device_parallel_compute::DeviceParallelComputeCtx;
 use rendiation_scene_rendering_gpu_base::*;
 use rendiation_shader_api::*;
@@ -9,26 +10,14 @@ mod draw_access;
 use draw_access::*;
 mod draw_prepare;
 use draw_prepare::*;
+use rendiation_mesh_lod_graph::*;
 
-#[repr(C)]
-#[std430_layout]
-#[derive(Debug, Clone, Copy, ShaderStruct, PartialEq)]
-pub struct MeshletMetaData {
-  pub index_offset: u32,
-  pub index_count: u32,
-  pub position_offset: u32,
-  pub bounds: LODBoundPair,
-}
-
-impl Default for MeshletMetaData {
-  fn default() -> Self {
-    Self {
-      index_offset: u32::MAX,
-      position_offset: u32::MAX,
-      ..Zeroable::zeroed()
-    }
-  }
-}
+declare_entity!(LODGraphMeshEntity);
+declare_component!(
+  LODGraphData,
+  LODGraphMeshEntity,
+  Option<ExternalRefPtr<MeshLODGraph>>
+);
 
 pub struct MeshLODGraphRenderer {
   pub meshlet_metadata: StorageBufferReadonlyDataView<[MeshletMetaData]>,
@@ -61,5 +50,25 @@ impl MeshLODGraphRenderer {
       position_buffer: self.position_buffer.clone(),
       index_buffer: self.index_buffer.clone(),
     })
+  }
+}
+
+#[repr(C)]
+#[std430_layout]
+#[derive(Debug, Clone, Copy, ShaderStruct, PartialEq)]
+pub struct MeshletMetaData {
+  pub index_offset: u32,
+  pub index_count: u32,
+  pub position_offset: u32,
+  pub bounds: LODBoundPair,
+}
+
+impl Default for MeshletMetaData {
+  fn default() -> Self {
+    Self {
+      index_offset: u32::MAX,
+      position_offset: u32::MAX,
+      ..Zeroable::zeroed()
+    }
   }
 }

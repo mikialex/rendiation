@@ -3725,6 +3725,7 @@ dependencies = [
 name = "rendiation-mesh-lod-graph"
 version = "0.1.0"
 dependencies = [
+ "facet",
  "fast-hash-collection",
  "metis",
  "rendiation-algebra",
@@ -3732,6 +3733,7 @@ dependencies = [
  "rendiation-mesh-core",
  "rendiation-mesh-segmentation",
  "rendiation-mesh-simplification",
+ "serde",
 ]
 
 [[package]]
@@ -3745,10 +3747,12 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-device-parallel-compute",
  "rendiation-geometry",
+ "rendiation-mesh-lod-graph",
  "rendiation-scene-core",
  "rendiation-scene-rendering-gpu-base",
  "rendiation-shader-api",
  "rendiation-webgpu",
+ "rendiation-webgpu-reactive-utils",
 ]
 
 [[package]]

@@ -12,6 +12,8 @@ rendiation-mesh-segmentation = { path = "../segmentation" }
 rendiation-mesh-simplification = { path = "../simplification" }
 fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 metis = { version = "0.2" }
+facet = { workspace = true }
+serde = { workspace = true }
 
 [lints]
 workspace = true
