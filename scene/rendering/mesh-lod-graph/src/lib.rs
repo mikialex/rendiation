@@ -34,7 +34,6 @@ pub struct MeshLODGraphRenderer {
   pub meshlet_metadata: StorageBufferReadonlyDataView<[MeshletMetaData]>,
   pub scene_model_meshlet_range: StorageBufferReadonlyDataView<[Vec2<u32>]>,
   pub position_buffer: StorageBufferReadonlyDataView<[u32]>,
-  pub meshlet_buffer: StorageBufferReadonlyDataView<[u32]>,
   pub index_buffer: StorageBufferReadonlyDataView<[u32]>,
 }
 
@@ -43,12 +42,10 @@ impl MeshLODGraphRenderer {
     &self,
     batch: &DeviceSceneModelRenderSubBatch,
     cx: &mut DeviceParallelComputeCtx,
-    lod_decider: LODDecider,
+    lod_decider: UniformBufferDataView<LODDecider>,
     scene_model_matrix: &dyn SceneModelWorldMatrixProvider,
     max_meshlet_count: u32,
   ) -> Box<dyn IndirectDrawProvider> {
-    let lod_decider = create_uniform(lod_decider, &cx.gpu.device);
-
     let expander = MeshLODExpander {
       meshlet_metadata: self.meshlet_metadata.clone(),
       scene_model_meshlet_range: self.scene_model_meshlet_range.clone(),

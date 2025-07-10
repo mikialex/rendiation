@@ -9,17 +9,15 @@ The following things is the current project development direction.
 important issue is in bold style.
 
 - renderer hook change collector issue
-- swtich renderer backend leak gpu resource
+- switch renderer backend leak gpu resource
 - spd not support none pot target, and small target(the current impl will access out of boundary of image).
 - multi format support in texture pool system
-- bindless mesh does not support optional uv and normal attributes
 - optimize frame ctx "make_submit" call, use copy buffer to buffer to update.
 - support face side control
   - support double side config in gltf loader
   - fix gizmo plane move only one side is visible
 - light uniform array not skip none exist light
   - missing length info, breaks path tracing light sampling impl
-- use view space shading/lighting/postprocess compute to improve precision
 - disable ssao when channel debug on
 - fix channel debug in defer mode
 - support material emissive larger than one

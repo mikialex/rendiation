@@ -15,11 +15,15 @@ pub trait SceneModelWorldMatrixProvider: ShaderHashProvider {
 }
 
 pub trait SceneModelWorldMatrixInvocationProvider {
-  fn get_world_matrix(&self, id: Node<u32>) -> Node<Mat4<f32>>;
+  fn get_world_matrix(&self, id: Node<u32>) -> (Node<Mat4<f32>>, Node<HighPrecisionTranslation>);
 }
 
 impl MeshLODExpander {
   /// expand a device list of scene model into a device list of meshlet with culling and lod logic
+  ///
+  /// per scene model per thread dispatch, each thread foreach check the scene model's meshlets.
+  /// the performance currently relies on the balance of meshlet count for each scene model.
+  /// todo, consider using an expand pass to do per meshlet per thread check.
   pub fn expand(
     &self,
     scene_models: &DeviceSceneModelRenderSubBatch,
@@ -59,8 +63,8 @@ impl MeshLODExpander {
         let (scene_model, valid) = scene_model.invocation_logic(ctx.global_invocation_id());
 
         if_by(valid, || {
-          let model_world_matrix = world_matrix_access.get_world_matrix(scene_model);
-          let meshlet_local_to_render = model_world_matrix; // todo, fix
+          let (model_world_matrix_no_translation, world_position) =
+            world_matrix_access.get_world_matrix(scene_model);
 
           let range = scene_model_meshlet_range.index(scene_model).load();
           range
@@ -73,7 +77,8 @@ impl MeshLODExpander {
               let is_lod_suitable = lod_decider.exact_lod_cut(
                 bound_pair.self_lod,
                 bound_pair.parent_lod,
-                meshlet_local_to_render,
+                model_world_matrix_no_translation,
+                world_position,
               );
 
               if_by(is_lod_suitable, || {
