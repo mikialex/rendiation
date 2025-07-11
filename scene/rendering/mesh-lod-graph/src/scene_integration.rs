@@ -13,21 +13,21 @@ pub fn register_scene_mesh_lod_graph_data_model() {
     .declare_foreign_key::<StandardModelRefLodGraphMeshEntity>();
 }
 
-pub fn use_mesh_lod_graph_renderer(
+pub fn use_mesh_lod_graph_scene_renderer(
   qcx: &mut impl QueryGPUHookCx,
-) -> Option<MeshLODGraphSceneRendererShared> {
+) -> Option<MeshLODGraphSceneRenderer> {
   // ReactiveRangeAllocatePool::new();
+  let world_transform = use_scene_model_device_world_transform(qcx);
 
   todo!()
 }
 
-pub type MeshLODGraphSceneRendererShared = Arc<RwLock<MeshLODGraphSceneRenderer>>;
-
+#[derive(Clone)]
 pub struct MeshLODGraphSceneRenderer {
   mesh_ty_checker: ForeignKeyReadView<StandardModelRefLodGraphMeshEntity>,
   world_transform: DrawUnitWorldTransformProviderDefaultImpl,
   lod_decider: UniformBufferDataView<LODDecider>,
-  internal: MeshLODGraphRenderer,
+  internal: MeshLODGraphRendererShared,
 }
 
 impl MeshLODGraphSceneRenderer {
@@ -59,7 +59,7 @@ impl IndirectModelShapeRenderImpl for MeshLODGraphSceneRenderer {
     any_idx: EntityHandle<StandardModelEntity>,
   ) -> Option<Box<dyn RenderComponent + '_>> {
     self.mesh_ty_checker.get(any_idx)?;
-    self.internal.create_mesh_accessor().into()
+    self.internal.read().create_mesh_accessor().into()
   }
 
   fn hash_shader_group_key(
@@ -90,6 +90,7 @@ impl IndirectModelShapeRenderImpl for MeshLODGraphSceneRenderer {
     ctx.access_parallel_compute(|ctx| {
       self
         .internal
+        .read()
         .prepare_draw(
           batch,
           ctx,

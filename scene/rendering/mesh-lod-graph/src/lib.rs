@@ -1,7 +1,10 @@
-use std::sync::Arc;
+use std::{sync::Arc, task::Context};
 
 use database::*;
 use parking_lot::RwLock;
+use reactive::{
+  BoxedDynReactiveQuery, Query, QueryCompute, ReactiveGeneralQuery, ReactiveQuery, ReactiveQueryExt,
+};
 use rendiation_device_parallel_compute::DeviceParallelComputeCtx;
 use rendiation_scene_core::*;
 use rendiation_scene_rendering_gpu_base::*;
@@ -33,8 +36,46 @@ pub fn register_mesh_lod_graph_data_model() {
     .declare_component::<LODGraphData>();
 }
 
-fn compute_lod_graph_render_data(graph: &MeshLODGraph) {
-  //
+pub fn use_mesh_lod_graph_renderer(
+  qcx: &mut impl QueryGPUHookCx,
+) -> Option<MeshLODGraphRendererShared> {
+  qcx.use_gpu_general_query(|gpu| MeshLODGraphRendererSystem {
+    source: global_watch().watch::<LODGraphData>().into_boxed(),
+    renderer: Arc::new(RwLock::new(MeshLODGraphRenderer::new(gpu))),
+    gpu: gpu.clone(),
+  })
+}
+
+pub struct MeshLODGraphRendererSystem {
+  source:
+    BoxedDynReactiveQuery<EntityHandle<LODGraphMeshEntity>, Option<ExternalRefPtr<MeshLODGraph>>>,
+  renderer: MeshLODGraphRendererShared,
+  gpu: GPU,
+}
+
+pub type MeshLODGraphRendererShared = Arc<RwLock<MeshLODGraphRenderer>>;
+
+impl ReactiveGeneralQuery for MeshLODGraphRendererSystem {
+  type Output = MeshLODGraphRendererShared;
+  fn poll_query(&mut self, cx: &mut Context) -> MeshLODGraphRendererShared {
+    let mut renderer = self.renderer.write();
+    let (change, _) = self.source.describe(cx).resolve_kept();
+
+    for (key, change) in change.iter_key_value() {
+      match change {
+        reactive::ValueChange::Delta(mesh, previous) => {
+          if let Some(Some(_)) = previous {
+            renderer.remove_mesh(key);
+          }
+          if let Some(mesh) = mesh {
+            renderer.add_mesh(key, &mesh, &self.gpu);
+          }
+        }
+        reactive::ValueChange::Remove(_) => renderer.remove_mesh(key),
+      }
+    }
+    self.renderer.clone()
+  }
 }
 
 pub struct MeshLODGraphRenderer {
@@ -46,7 +87,15 @@ pub struct MeshLODGraphRenderer {
   pub index_buffer: StorageBufferRangeAllocatePool<u32>,
 }
 
+fn compute_lod_graph_render_data(graph: &MeshLODGraph) {
+  //
+}
+
 impl MeshLODGraphRenderer {
+  pub fn new(gpu: &GPU) -> Self {
+    todo!()
+  }
+
   pub fn add_mesh(
     &mut self,
     key: EntityHandle<LODGraphMeshEntity>,
