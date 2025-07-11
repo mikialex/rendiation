@@ -175,10 +175,9 @@ pub trait WebGPU2DTextureSource: Send + Sync {
       sample_count: 1,
       dimension: gpu::TextureDimension::D2,
       format: self.format(),
-      view_formats: get_view_format(self.format()),
+      view_formats: &[],
       usage: gpu::TextureUsages::TEXTURE_BINDING
         | gpu::TextureUsages::RENDER_ATTACHMENT
-        // | gpu::TextureUsages::STORAGE_BINDING // used to generate mipmap in compute shader
         | gpu::TextureUsages::COPY_DST
         | gpu::TextureUsages::COPY_SRC,
     }
@@ -188,7 +187,7 @@ pub trait WebGPU2DTextureSource: Send + Sync {
     gpu::TextureDescriptor {
       label: None,
       size: self.gpu_cube_size(),
-      view_formats: get_view_format(self.format()),
+      view_formats: &[],
       mip_level_count: level_count.get_level_count_wgpu(self.size()),
       sample_count: 1,
       dimension: gpu::TextureDimension::D2,
@@ -215,15 +214,5 @@ impl MipLevelCount {
       // todo should we do validation?
       MipLevelCount::Fixed(s) => s as u32,
     }
-  }
-}
-
-fn get_view_format(format: TextureFormat) -> &'static [TextureFormat] {
-  match format {
-    TextureFormat::Rgba8UnormSrgb => &[TextureFormat::Rgba8UnormSrgb, TextureFormat::Rgba8Unorm],
-    TextureFormat::Rgba8Unorm => &[TextureFormat::Rgba8UnormSrgb, TextureFormat::Rgba8Unorm],
-    TextureFormat::Bgra8UnormSrgb => &[TextureFormat::Bgra8UnormSrgb, TextureFormat::Bgra8Unorm],
-    TextureFormat::Bgra8Unorm => &[TextureFormat::Bgra8UnormSrgb, TextureFormat::Bgra8Unorm],
-    _ => &[],
   }
 }

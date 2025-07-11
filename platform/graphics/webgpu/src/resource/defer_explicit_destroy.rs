@@ -30,11 +30,6 @@ impl ExplicitGPUResourceDestroy for RawSampler {
     // no op
   }
 }
-impl ExplicitGPUResourceDestroy for gpu::TlasPackage {
-  fn destroy(&self) {
-    // no op
-  }
-}
 
 #[derive(Clone, Default)]
 pub struct DeferExplicitDestroy {

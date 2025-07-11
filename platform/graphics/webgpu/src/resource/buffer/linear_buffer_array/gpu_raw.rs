@@ -142,13 +142,7 @@ fn resize_impl(
   let new_buffer =
     create_gpu_buffer_zeroed(byte_new_size as u64, usage, device).create_default_view();
 
-  encoder.copy_buffer_to_buffer(
-    &buffer.resource.gpu,
-    0,
-    &new_buffer.resource.gpu,
-    0,
-    buffer.resource.desc.size.into(),
-  );
+  encoder.copy_buffer_to_buffer(&buffer.resource.gpu, 0, &new_buffer.resource.gpu, 0, None);
 
   new_buffer
 }

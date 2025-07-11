@@ -4,7 +4,6 @@ mod binding;
 mod device;
 mod encoder;
 mod frame;
-mod indirect;
 mod instance_poller;
 mod pass;
 mod pipeline;
@@ -50,11 +49,9 @@ pub use gpu::{
   RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
   RequestDeviceError, Sampler, SamplerBorderColor, SamplerDescriptor, ShaderModuleDescriptor,
   ShaderSource, ShaderStages, StoreOp, SurfaceError, SurfaceTexture, TextureView,
-  TextureViewDescriptor, Tlas, TlasBuildEntry, TlasInstance, TlasPackage, VertexBufferLayout,
-  VertexState,
+  TextureViewDescriptor, Tlas, TlasInstance, VertexBufferLayout, VertexState,
 };
 use heap_tools::*;
-pub use indirect::*;
 use instance_poller::GPUInstance;
 use parking_lot::RwLock;
 pub use pass::*;
@@ -108,7 +105,6 @@ pub struct GPUInfo {
   pub power_preference: PowerPreference,
   pub supported_features: Features,
   pub supported_limits: Limits,
-  pub downgrade_info: DownlevelCapabilities,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -139,6 +135,7 @@ impl GPU {
       backends: config.backends,
       flags: Default::default(),
       backend_options: Default::default(),
+      memory_budget_thresholds: Default::default(),
     });
     let power_preference = gpu::PowerPreference::HighPerformance;
 
@@ -191,7 +188,6 @@ impl GPU {
       power_preference: config.power_preference,
       supported_features,
       supported_limits,
-      downgrade_info: adaptor.get_downlevel_capabilities(),
     };
 
     let surface = init_surface.map(|init_surface| {
@@ -261,6 +257,58 @@ impl AsRef<GPUDevice> for GPU {
   fn as_ref(&self) -> &GPUDevice {
     &self.device
   }
+}
+
+#[repr(C)]
+#[std430_layout]
+#[derive(Clone, Copy, ShaderStruct, Debug)]
+pub struct DrawIndexedIndirect {
+  /// The number of vertices to draw.
+  pub vertex_count: u32,
+  /// The number of instances to draw.
+  pub instance_count: u32,
+  /// The base index within the index buffer.
+  pub base_index: u32,
+  /// The value added to the vertex index before indexing into the vertex buffer.
+  pub vertex_offset: i32,
+  /// The instance ID of the first instance to draw.
+  /// Has to be 0, unless INDIRECT_FIRST_INSTANCE is enabled.
+  pub base_instance: u32,
+}
+
+impl DrawIndexedIndirect {
+  pub fn new(
+    vertex_count: u32,
+    instance_count: u32,
+    base_index: u32,
+    vertex_offset: i32,
+    base_instance: u32,
+  ) -> Self {
+    Self {
+      vertex_count,
+      instance_count,
+      base_index,
+      vertex_offset,
+      base_instance,
+      ..Zeroable::zeroed()
+    }
+  }
+}
+
+#[repr(C)]
+#[std430_layout]
+#[derive(Clone, Copy, ShaderStruct, Debug)]
+pub struct DrawIndirect {
+  /// The number of vertices to draw.
+  pub vertex_count: u32,
+  /// The number of instances to draw.
+  pub instance_count: u32,
+  /// The Index of the first vertex to draw.
+  pub first_vertex: u32,
+  /// The instance ID of the first instance to draw.
+  ///
+  /// Has to be 0, INDIRECT_FIRST_INSTANCE is enabled.
+  pub first_instance: u32,
 }
 
 /// this fn is to replace the usage of `TextureUsages::all()` because not every fmt support

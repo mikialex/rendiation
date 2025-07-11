@@ -118,6 +118,7 @@ impl GPUCommandEncoder {
           view: view.as_view(),
           resolve_target: des.resolve_target.as_ref().map(|t| t.as_view()),
           ops: *ops,
+          depth_slice: None,
         })
       })
       .collect();
