@@ -1,9 +1,16 @@
+use std::sync::Arc;
+
 use database::*;
+use parking_lot::RwLock;
 use rendiation_device_parallel_compute::DeviceParallelComputeCtx;
+use rendiation_scene_core::*;
 use rendiation_scene_rendering_gpu_base::*;
+use rendiation_scene_rendering_gpu_indirect::*;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 
+mod scene_integration;
+pub use scene_integration::*;
 mod lod;
 use lod::*;
 mod draw_access;
@@ -11,6 +18,7 @@ use draw_access::*;
 mod draw_prepare;
 use draw_prepare::*;
 use rendiation_mesh_lod_graph::*;
+use rendiation_webgpu_reactive_utils::*;
 
 declare_entity!(LODGraphMeshEntity);
 declare_component!(
@@ -19,24 +27,52 @@ declare_component!(
   Option<ExternalRefPtr<MeshLODGraph>>
 );
 
+pub fn register_mesh_lod_graph_data_model() {
+  global_database()
+    .declare_entity::<LODGraphMeshEntity>()
+    .declare_component::<LODGraphData>();
+}
+
+fn compute_lod_graph_render_data(graph: &MeshLODGraph) {
+  //
+}
+
 pub struct MeshLODGraphRenderer {
-  pub meshlet_metadata: StorageBufferReadonlyDataView<[MeshletMetaData]>,
+  pub meshlet_metadata_host: Vec<MeshletMetaData>,
+  pub meshlet_metadata: StorageBufferRangeAllocatePool<MeshletMetaData>,
+  pub scene_model_meshlet_range_host: Vec<Vec2<u32>>,
   pub scene_model_meshlet_range: StorageBufferReadonlyDataView<[Vec2<u32>]>,
-  pub position_buffer: StorageBufferReadonlyDataView<[u32]>,
-  pub index_buffer: StorageBufferReadonlyDataView<[u32]>,
+  pub position_buffer: StorageBufferRangeAllocatePool<u32>,
+  pub index_buffer: StorageBufferRangeAllocatePool<u32>,
 }
 
 impl MeshLODGraphRenderer {
+  pub fn add_mesh(
+    &mut self,
+    key: EntityHandle<LODGraphMeshEntity>,
+    mesh: &MeshLODGraph,
+    gpu: &GPU,
+  ) {
+    // self.index_buffer.allocate_values(v, relocation_handler)
+    //
+  }
+  pub fn remove_mesh(&mut self, key: EntityHandle<LODGraphMeshEntity>) {
+    todo!()
+  }
+
   pub fn prepare_draw(
     &self,
     batch: &DeviceSceneModelRenderSubBatch,
     cx: &mut DeviceParallelComputeCtx,
     lod_decider: UniformBufferDataView<LODDecider>,
-    scene_model_matrix: &dyn SceneModelWorldMatrixProvider,
+    scene_model_matrix: &dyn DrawUnitWorldTransformProvider,
     max_meshlet_count: u32,
   ) -> Box<dyn IndirectDrawProvider> {
+    let meshlet_metadata =
+      StorageBufferReadonlyDataView::try_from_raw(self.meshlet_metadata.raw_gpu().clone()).unwrap();
+
     let expander = MeshLODExpander {
-      meshlet_metadata: self.meshlet_metadata.clone(),
+      meshlet_metadata,
       scene_model_meshlet_range: self.scene_model_meshlet_range.clone(),
       lod_decider,
     };
@@ -45,10 +81,19 @@ impl MeshLODGraphRenderer {
   }
 
   pub fn create_mesh_accessor(&self) -> Box<dyn RenderComponent> {
+    let meshlet_metadata =
+      StorageBufferReadonlyDataView::try_from_raw(self.meshlet_metadata.raw_gpu().clone()).unwrap();
+
+    let position_buffer =
+      StorageBufferReadonlyDataView::try_from_raw(self.position_buffer.raw_gpu().clone()).unwrap();
+
+    let index_buffer =
+      StorageBufferReadonlyDataView::try_from_raw(self.index_buffer.raw_gpu().clone()).unwrap();
+
     Box::new(MeshletGPURenderData {
-      meshlet_metadata: self.meshlet_metadata.clone(),
-      position_buffer: self.position_buffer.clone(),
-      index_buffer: self.index_buffer.clone(),
+      meshlet_metadata,
+      position_buffer,
+      index_buffer,
     })
   }
 }

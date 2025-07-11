@@ -12,12 +12,14 @@ rendiation-algebra = { path = "../../../math/algebra" }
 rendiation-geometry = { path = "../../../math/geometry" }
 rendiation-scene-core = { path = "../../core" }
 rendiation-scene-rendering-gpu-base = { path = "../../rendering/gpu-base" }
+rendiation-scene-rendering-gpu-indirect = { path = "../../rendering/gpu-indirect" }
 rendiation-shader-api = { path = "../../../shader/api" }
 rendiation-device-parallel-compute = { path = "../../../shader/parallel-compute" }
 rendiation-webgpu-reactive-utils = { path = "../../../platform/graphics/webgpu-reactive-utils" }
 reactive = { path = "../../../utility/reactive" }
 rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
 rendiation-mesh-lod-graph = { path = "../../../content/mesh/lod-graph" }
+parking_lot = { workspace = true }
 
 [lints]
 workspace = true

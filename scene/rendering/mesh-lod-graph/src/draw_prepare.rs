@@ -6,18 +6,6 @@ pub struct MeshLODExpander {
   pub scene_model_meshlet_range: StorageBufferReadonlyDataView<[Vec2<u32>]>,
 }
 
-pub trait SceneModelWorldMatrixProvider: ShaderHashProvider {
-  fn create_invocation(
-    &self,
-    cx: &mut ShaderBindGroupBuilder,
-  ) -> Box<dyn SceneModelWorldMatrixInvocationProvider>;
-  fn bind(&self, cx: &mut BindingBuilder);
-}
-
-pub trait SceneModelWorldMatrixInvocationProvider {
-  fn get_world_matrix(&self, id: Node<u32>) -> (Node<Mat4<f32>>, Node<HighPrecisionTranslation>);
-}
-
 impl MeshLODExpander {
   /// expand a device list of scene model into a device list of meshlet with culling and lod logic
   ///
@@ -27,7 +15,7 @@ impl MeshLODExpander {
   pub fn expand(
     &self,
     scene_models: &DeviceSceneModelRenderSubBatch,
-    scene_model_matrix: &dyn SceneModelWorldMatrixProvider,
+    scene_model_matrix: &dyn DrawUnitWorldTransformProvider,
     cx: &mut DeviceParallelComputeCtx,
     max_meshlet_count: u32,
   ) -> MeshletBatchDrawData {
