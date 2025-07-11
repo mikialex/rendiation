@@ -1040,8 +1040,9 @@ checksum = "21e50f3adc76d6a43f5ed73b698a87d0760ca74617f60f7c3b879003536fdd28"
 
 [[package]]
 name = "ecolor"
-version = "0.31.1"
-source = "git+https://github.com/emilk/egui.git?rev=98add13933d55cbe1fa23e2b6af62f117145d368#98add13933d55cbe1fa23e2b6af62f117145d368"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a631732d995184114016fab22fc7e3faf73d6841c2d7650395fe251fbcd9285"
 dependencies = [
  "bytemuck",
  "emath",
@@ -1049,8 +1050,9 @@ dependencies = [
 
 [[package]]
 name = "egui"
-version = "0.31.1"
-source = "git+https://github.com/emilk/egui.git?rev=98add13933d55cbe1fa23e2b6af62f117145d368#98add13933d55cbe1fa23e2b6af62f117145d368"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8470210c95a42cc985d9ffebfd5067eea55bdb1c3f7611484907db9639675e28"
 dependencies = [
  "ahash",
  "bitflags 2.9.0",
@@ -1065,8 +1067,9 @@ dependencies = [
 
 [[package]]
 name = "egui-wgpu"
-version = "0.31.1"
-source = "git+https://github.com/emilk/egui.git?rev=98add13933d55cbe1fa23e2b6af62f117145d368#98add13933d55cbe1fa23e2b6af62f117145d368"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14de9942d8b9e99e2d830403c208ab1a6e052e925a7456a4f6f66d567d90de1d"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -1083,8 +1086,9 @@ dependencies = [
 
 [[package]]
 name = "egui-winit"
-version = "0.31.1"
-source = "git+https://github.com/emilk/egui.git?rev=98add13933d55cbe1fa23e2b6af62f117145d368#98add13933d55cbe1fa23e2b6af62f117145d368"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c490804a035cec9c826082894a3e1ecf4198accd3817deb10f7919108ebafab0"
 dependencies = [
  "ahash",
  "arboard",
@@ -1101,8 +1105,9 @@ dependencies = [
 
 [[package]]
 name = "egui_extras"
-version = "0.31.1"
-source = "git+https://github.com/emilk/egui.git?rev=98add13933d55cbe1fa23e2b6af62f117145d368#98add13933d55cbe1fa23e2b6af62f117145d368"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f791a5937f518249016b276b3639ad2aa3824048b6f2161ec2b431ab325880a"
 dependencies = [
  "ahash",
  "egui",
@@ -1120,8 +1125,9 @@ checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
 
 [[package]]
 name = "emath"
-version = "0.31.1"
-source = "git+https://github.com/emilk/egui.git?rev=98add13933d55cbe1fa23e2b6af62f117145d368#98add13933d55cbe1fa23e2b6af62f117145d368"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "45f057b141e7e46340c321400be74b793543b1b213036f0f989c35d35957c32e"
 dependencies = [
  "bytemuck",
 ]
@@ -1188,8 +1194,9 @@ dependencies = [
 
 [[package]]
 name = "epaint"
-version = "0.31.1"
-source = "git+https://github.com/emilk/egui.git?rev=98add13933d55cbe1fa23e2b6af62f117145d368#98add13933d55cbe1fa23e2b6af62f117145d368"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "94cca02195f0552c17cabdc02f39aa9ab6fbd815dac60ab1cd3d5b0aa6f9551c"
 dependencies = [
  "ab_glyph",
  "ahash",
@@ -1205,8 +1212,9 @@ dependencies = [
 
 [[package]]
 name = "epaint_default_fonts"
-version = "0.31.1"
-source = "git+https://github.com/emilk/egui.git?rev=98add13933d55cbe1fa23e2b6af62f117145d368#98add13933d55cbe1fa23e2b6af62f117145d368"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e8495e11ed527dff39663b8c36b6c2b2799d7e4287fb90556e455d72eca0b4d3"
 
 [[package]]
 name = "equivalent"
@@ -1315,49 +1323,53 @@ dependencies = [
 
 [[package]]
 name = "facet"
-version = "0.9.6"
+version = "0.27.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4effef5cda58e3ac0eca104902d72eab3a846490784071ded6bc2d4dac5a480c"
+checksum = "0be4cf803e7c34ab73217e3c05b6c382b8a70a5948a9282ed9d64f62c2a03a90"
 dependencies = [
  "facet-core",
- "facet-derive",
+ "facet-macros",
+ "static_assertions",
 ]
 
 [[package]]
 name = "facet-core"
-version = "0.10.1"
+version = "0.27.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d19ab200f37e8c2144ee62c22b8303e4dfbc98d20e210c4cefc0a616a99be379"
+checksum = "bc0dfc311334e2fad887baaebdc3773c05bbbddc286bef7c9c87cfb3fb4235fb"
 dependencies = [
  "bitflags 2.9.0",
  "impls",
 ]
 
 [[package]]
-name = "facet-derive"
-version = "0.9.6"
+name = "facet-macros"
+version = "0.27.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "67fd8a3e3b2cff5e205183715ec52abc7ee36edbc5c12129c83c130814706978"
+checksum = "c10707410fd2c4f6b779fa04eac1a25d2907322dfb31039f16829c7996236768"
 dependencies = [
  "facet-core",
- "facet-derive-emit",
+ "facet-macros-emit",
 ]
 
 [[package]]
-name = "facet-derive-emit"
-version = "0.13.0"
+name = "facet-macros-emit"
+version = "0.27.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "927368f3a5c41915cad97c43c10b1d3cf3c5f68b05200b829ed245272e4cccdf"
+checksum = "c496a4d3bd731444d278cf1178302d854c46dd04661e79a67d926b63d60a4cbb"
 dependencies = [
- "facet-derive-parse",
+ "facet-macros-parse",
+ "quote",
 ]
 
 [[package]]
-name = "facet-derive-parse"
-version = "0.13.0"
+name = "facet-macros-parse"
+version = "0.27.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1131699e66bb7557f70b3fa60c0060ffd5b47248dcdc8e520e6897a8fd73bef0"
+checksum = "e5e81c2f638023b13c3ab6e73b29be6fec44bdced5e418839c215a4b81afc6e2"
 dependencies = [
+ "proc-macro2",
+ "quote",
  "unsynn",
 ]
 
@@ -1550,6 +1562,15 @@ dependencies = [
  "pin-project-lite",
  "pin-utils",
  "slab",
+]
+
+[[package]]
+name = "fxhash"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c31b6d751ae2c7f11320402d34e41349dd1016f8d5d45e48c4312bc8625af50c"
+dependencies = [
+ "byteorder",
 ]
 
 [[package]]
@@ -3059,9 +3080,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.92"
+version = "1.0.95"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37d3544b3f2748c54e147655edb5025752e2303145b5aefb3c3ea2c78b973bb0"
+checksum = "02b3e5e68a3a1a02aad3ec490a98007cbc13c37cbe84a3cd7b8e406d76e7f778"
 dependencies = [
  "unicode-ident",
 ]
@@ -3122,9 +3143,9 @@ dependencies = [
 
 [[package]]
 name = "quote"
-version = "1.0.35"
+version = "1.0.40"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "291ec9ab5efd934aaf503a6466c5d5251535d108ee747472c3977cc5acc868ef"
+checksum = "1885c039570dc00dcb4ff087a89e185fd56bae234ddc7f056a945bf36467248d"
 dependencies = [
  "proc-macro2",
 ]
@@ -3540,17 +3561,15 @@ version = "0.1.0"
 dependencies = [
  "database",
  "fast-hash-collection",
- "log",
  "reactive",
  "rendiation-algebra",
- "rendiation-device-parallel-compute",
  "rendiation-geometry",
  "rendiation-scene-core",
  "rendiation-scene-rendering-gpu-base",
  "rendiation-shader-api",
  "rendiation-shader-library",
- "rendiation-texture-core",
  "rendiation-webgpu",
+ "rendiation-webgpu-reactive-utils",
 ]
 
 [[package]]
@@ -3602,6 +3621,7 @@ dependencies = [
  "reactive",
  "rendiation-algebra",
  "rendiation-scene-core",
+ "rendiation-scene-rendering-gpu-base",
  "rendiation-shader-api",
  "rendiation-shader-library",
  "rendiation-webgpu",
@@ -3725,6 +3745,7 @@ dependencies = [
 name = "rendiation-mesh-lod-graph"
 version = "0.1.0"
 dependencies = [
+ "facet",
  "fast-hash-collection",
  "metis",
  "rendiation-algebra",
@@ -3732,6 +3753,7 @@ dependencies = [
  "rendiation-mesh-core",
  "rendiation-mesh-segmentation",
  "rendiation-mesh-simplification",
+ "serde",
 ]
 
 [[package]]
@@ -3745,10 +3767,12 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-device-parallel-compute",
  "rendiation-geometry",
+ "rendiation-mesh-lod-graph",
  "rendiation-scene-core",
  "rendiation-scene-rendering-gpu-base",
  "rendiation-shader-api",
  "rendiation-webgpu",
+ "rendiation-webgpu-reactive-utils",
 ]
 
 [[package]]
@@ -3917,6 +3941,7 @@ dependencies = [
  "rendiation-device-parallel-compute",
  "rendiation-geometry",
  "rendiation-lighting-gpu-system",
+ "rendiation-mesh-core",
  "rendiation-scene-core",
  "rendiation-shader-api",
  "rendiation-texture-core",
@@ -4098,6 +4123,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-texture-as-buffer"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "dyn-clone",
+ "fast-hash-collection",
+ "parking_lot",
+ "rendiation-shader-api",
+ "rendiation-webgpu",
+]
+
+[[package]]
 name = "rendiation-texture-core"
 version = "0.1.0"
 dependencies = [
@@ -4116,6 +4153,7 @@ name = "rendiation-texture-gpu-base"
 version = "0.1.0"
 dependencies = [
  "rendiation-algebra",
+ "rendiation-fast-down-sampling-2d",
  "rendiation-shader-api",
  "rendiation-texture-core",
  "rendiation-webgpu",
@@ -5040,10 +5078,11 @@ dependencies = [
 
 [[package]]
 name = "unsynn"
-version = "0.0.26"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "14013db4ac11f92d4df4b56edb431eab9c1d9f7aee4791f3205b6a1119b83f54"
+checksum = "7940603a9e25cf11211cc43b81f4fcad2b8ab4df291ca855f32c40e1ac22d5bc"
 dependencies = [
+ "fxhash",
  "mutants",
  "proc-macro2",
  "shadow_counted",
@@ -5126,6 +5165,7 @@ dependencies = [
  "rendiation-controller",
  "rendiation-device-ray-tracing",
  "rendiation-fast-down-sampling-2d",
+ "rendiation-frustum-culling",
  "rendiation-geometry",
  "rendiation-gizmo",
  "rendiation-gui-3d",

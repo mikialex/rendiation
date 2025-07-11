@@ -65,10 +65,10 @@ tracing = { workspace = true }
 tracing-subscriber = "0.3.19"
 tracing-tracy = { version = "0.11.4", optional = true }
 
-egui = { git = "https://github.com/emilk/egui.git", rev = "98add13933d55cbe1fa23e2b6af62f117145d368" }
-egui-wgpu = { git = "https://github.com/emilk/egui.git", rev = "98add13933d55cbe1fa23e2b6af62f117145d368" }
-egui-winit = { git = "https://github.com/emilk/egui.git", rev = "98add13933d55cbe1fa23e2b6af62f117145d368" }
-egui_extras = { git = "https://github.com/emilk/egui.git", rev = "98add13933d55cbe1fa23e2b6af62f117145d368" }
+egui = { version = "0.32" }
+egui-wgpu = { version = "0.32" }
+egui-winit = { version = "0.32" }
+egui_extras = { version = "0.32" }
 
 winit = { workspace = true }
 
