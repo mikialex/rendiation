@@ -96,16 +96,23 @@ impl StandardModelDataView {
   }
 }
 
+#[global_registered_query]
+pub fn scene_model_world_matrix(
+) -> impl ReactiveQuery<Key = EntityHandle<SceneModelEntity>, Value = Mat4<f64>> {
+  let node_world_mat = scene_node_derive_world_mat();
+
+  node_world_mat.one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelRefNode>())
+}
+
+#[global_registered_query]
 pub fn scene_model_world_bounding(
 ) -> impl ReactiveQuery<Key = EntityHandle<SceneModelEntity>, Value = Box3<f64>> {
   let mesh_local_bounding = attribute_mesh_local_bounding();
-  let node_world_mat = scene_node_derive_world_mat();
 
   let std_mesh_local_bounding = mesh_local_bounding
     .one_to_many_fanout(global_rev_ref().watch_inv_ref::<StandardModelRefAttributesMeshEntity>());
 
-  let scene_model_world_mat =
-    node_world_mat.one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelRefNode>());
+  let scene_model_world_mat = scene_model_world_matrix();
 
   let scene_model_local_bounding = std_mesh_local_bounding
     .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelStdModelRenderPayload>());

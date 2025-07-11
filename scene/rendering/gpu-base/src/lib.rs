@@ -35,6 +35,10 @@ use rendiation_texture_gpu_system::*;
 use rendiation_webgpu::*;
 use rendiation_webgpu_reactive_utils::*;
 
+mod world_bounding;
+pub use world_bounding::*;
+mod world_matrix;
+pub use world_matrix::*;
 mod batch_extraction;
 pub use batch_extraction::*;
 mod scene_id;
