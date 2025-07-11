@@ -93,7 +93,14 @@ fn compute_lod_graph_render_data(graph: &MeshLODGraph) {
 
 impl MeshLODGraphRenderer {
   pub fn new(gpu: &GPU) -> Self {
-    todo!()
+    Self {
+      meshlet_metadata_host: todo!(),
+      meshlet_metadata: todo!(),
+      scene_model_meshlet_range_host: todo!(),
+      scene_model_meshlet_range: todo!(),
+      position_buffer: todo!(),
+      index_buffer: todo!(),
+    }
   }
 
   pub fn add_mesh(

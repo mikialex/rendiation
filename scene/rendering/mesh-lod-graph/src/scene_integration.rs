@@ -16,10 +16,18 @@ pub fn register_scene_mesh_lod_graph_data_model() {
 pub fn use_mesh_lod_graph_scene_renderer(
   qcx: &mut impl QueryGPUHookCx,
 ) -> Option<MeshLODGraphSceneRenderer> {
-  // ReactiveRangeAllocatePool::new();
+  let internal = use_mesh_lod_graph_renderer(qcx);
   let world_transform = use_scene_model_device_world_transform(qcx);
 
-  todo!()
+  let (qcx, lod_decider) =
+    qcx.use_gpu_init(|gpu| create_uniform(LODDecider::zeroed(), &gpu.device));
+
+  qcx.when_render(|| MeshLODGraphSceneRenderer {
+    mesh_ty_checker: global_database().read_foreign_key::<StandardModelRefLodGraphMeshEntity>(),
+    world_transform: world_transform.unwrap(),
+    lod_decider: lod_decider.clone(),
+    internal: internal.unwrap(),
+  })
 }
 
 #[derive(Clone)]
@@ -35,9 +43,18 @@ impl MeshLODGraphSceneRenderer {
     &self,
     gpu: &GPU,
     camera_perspective_mat: Mat4<f32>,
+    camera_world: Mat4<f64>,
     view_size: Vec2<f32>,
   ) {
-    todo!()
+    let (near, _) = camera_perspective_mat.get_near_far_assume_perspective();
+    let position = into_hpt(camera_world.position());
+
+    let mut lod_decider = LODDecider::zeroed();
+    lod_decider.camera_projection = camera_perspective_mat;
+    lod_decider.view_size = view_size;
+    lod_decider.camera_near = near;
+    lod_decider.camera_world_position = position.into_uniform();
+    self.lod_decider.write_at(&gpu.queue, &lod_decider, 0);
   }
 }
 
