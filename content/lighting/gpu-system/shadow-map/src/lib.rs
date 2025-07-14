@@ -243,7 +243,7 @@ impl ShadowPassDesc {
   }
 }
 
-fn convert_pack_result(r: PackResult2dWithDepth) -> ShadowMapAddressInfo {
+pub fn convert_pack_result(r: PackResult2dWithDepth) -> ShadowMapAddressInfo {
   ShadowMapAddressInfo {
     layer_index: r.depth as i32,
     size: Vec2::new(

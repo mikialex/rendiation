@@ -46,13 +46,21 @@ important issue is in bold style.
 
 ### New features planed
 
+- ddgi
 - physical camera
+- physical sky/atmosphere
+- volumetic cloud/fog
+- point cloud
+- gaussian splatting
 - automatic exposure control
+- fft bloom
+- gtao
+- contact shadow
+- skin animation
 - good ssr
 - on_demand_draw
 - visibility rendering
 - cluster lighting optimization
-  - dependency: storagebuffer light resources.
 - ray tracing
   - support light and material MIS
   - support new high quality sampler
