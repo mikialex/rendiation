@@ -55,8 +55,9 @@ pub fn generate_cascade_shadow_info(
 
     let mut cascade_info = Vec::<SingleShadowMapInfo>::with_capacity(CASCADE_SHADOW_SPLIT_COUNT);
     let size = inputs.size.access(&k).unwrap();
+    let mut splits = [0.; CASCADE_SHADOW_SPLIT_COUNT];
 
-    for (sub_proj, _) in cascades {
+    for (idx, (sub_proj, split)) in cascades.iter().enumerate() {
       // todo, use none id pack method
       if let Ok(pack) = packer.pack_with_id(size) {
         let shadow_center_to_shadowmap_ndc_without_translation =
@@ -67,6 +68,7 @@ pub fn generate_cascade_shadow_info(
           shadow_center_to_shadowmap_ndc_without_translation,
           ..Default::default()
         });
+        splits[idx] = *split;
       } else {
         return (packer, uniforms);
       }
@@ -78,6 +80,7 @@ pub fn generate_cascade_shadow_info(
       bias: inputs.bias.access(&k).unwrap(),
       shadow_world_position,
       map_info: Shader140Array::from_slice_clamp_or_default(&cascade_info),
+      splits: splits.into(),
       ..Default::default()
     })
   }
@@ -92,6 +95,7 @@ pub struct CascadeShadowMapInfo {
   pub bias: ShadowBias,
   pub shadow_world_position: HighPrecisionTranslationUniform,
   pub map_info: Shader140Array<SingleShadowMapInfo, CASCADE_SHADOW_SPLIT_COUNT>,
+  pub splits: Vec4<f32>,
 }
 
 #[repr(C)]
@@ -188,17 +192,155 @@ pub fn compute_light_cascade_info(
   })
 }
 
+#[derive(Clone)]
+pub struct CascadeShadowMapComponent {
+  pub shadow_map_atlas: GPU2DArrayDepthTextureView,
+  pub info: UniformBufferDataView<Shader140Array<CascadeShadowMapInfo, 8>>,
+  pub reversed_depth: bool,
+}
+
+impl AbstractBindingSource for CascadeShadowMapComponent {
+  type ShaderBindResult = CascadeShadowMapInvocation;
+  fn bind_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx.binding.bind(&self.shadow_map_atlas);
+    ctx.bind_immediate_sampler(&create_shadow_depth_sampler_desc(self.reversed_depth));
+    ctx.binding.bind(&self.info);
+  }
+
+  fn bind_shader(&self, cx: &mut ShaderBindGroupBuilder) -> CascadeShadowMapInvocation {
+    CascadeShadowMapInvocation {
+      shadow_map_atlas: cx.bind_by(&self.shadow_map_atlas),
+      sampler: cx.bind_by(&ImmediateGPUCompareSamplerViewBind),
+      info: cx.bind_by(&self.info),
+    }
+  }
+}
+
+#[derive(Clone)]
+pub struct CascadeShadowMapInvocation {
+  shadow_map_atlas: BindingNode<ShaderDepthTexture2DArray>,
+  sampler: BindingNode<ShaderCompareSampler>,
+  info: ShaderReadonlyPtrOf<Shader140Array<CascadeShadowMapInfo, 8>>,
+}
+
+impl CascadeShadowMapInvocation {
+  pub fn query_shadow_occlusion_by_idx(
+    &self,
+    render_position: Node<Vec3<f32>>,
+    render_normal: Node<Vec3<f32>>,
+    shadow_idx: Node<u32>,
+    camera_world_position: Node<HighPrecisionTranslation>,
+    camera_world_none_translation_mat: Node<Mat4<f32>>,
+  ) -> Node<f32> {
+    let shadow_info = self.info.index(shadow_idx);
+
+    let bias = shadow_info.bias().load().expand();
+
+    // apply normal bias
+    let render_position = render_position + bias.normal_bias * render_normal;
+
+    let shadow_center_in_render_space = hpt_sub_hpt(
+      hpt_uniform_to_hpt(shadow_info.shadow_world_position().load()),
+      camera_world_position,
+    );
+
+    let position_in_shadow_center_space_without_translation =
+      render_position - shadow_center_in_render_space;
+
+    let cascade_index = compute_cascade_index(
+      render_position,
+      camera_world_none_translation_mat,
+      shadow_info.splits().load(),
+    );
+
+    let cascade_info = shadow_info.map_info().index(cascade_index).load().expand();
+
+    let shadow_position = cascade_info.shadow_center_to_shadowmap_ndc_without_translation
+      * (position_in_shadow_center_space_without_translation, val(1.)).into();
+
+    let shadow_position = shadow_position.xyz() / shadow_position.w().splat();
+
+    // convert to uv space and apply offset bias
+    let shadow_position = shadow_position * val(Vec3::new(0.5, -0.5, 1.))
+      + val(Vec3::new(0.5, 0.5, 0.))
+      + (val(0.), val(0.), bias.bias).into();
+
+    sample_shadow_pcf_x36_by_offset(
+      self.shadow_map_atlas,
+      shadow_position,
+      self.sampler,
+      cascade_info.map_info.expand(),
+    )
+  }
+}
+
+impl IntoShaderIterator for CascadeShadowMapInvocation {
+  type ShaderIter = CascadeShadowMapInvocationIter;
+
+  fn into_shader_iter(self) -> Self::ShaderIter {
+    CascadeShadowMapInvocationIter {
+      iter: self.info.clone().into_shader_iter(),
+      inner: self,
+    }
+  }
+}
+
+#[derive(Clone)]
+pub struct CascadeShadowMapInvocationIter {
+  inner: CascadeShadowMapInvocation,
+  iter:
+    ShaderStaticArrayReadonlyIter<Shader140Array<CascadeShadowMapInfo, 8>, CascadeShadowMapInfo>,
+}
+
+impl ShaderIterator for CascadeShadowMapInvocationIter {
+  type Item = CascadeShadowMapSingleInvocation;
+
+  fn shader_next(&self) -> (Node<bool>, Self::Item) {
+    let (valid, (index, _)) = self.iter.shader_next();
+
+    let item = CascadeShadowMapSingleInvocation {
+      sys: self.inner.clone(),
+      index,
+    };
+
+    (valid, item)
+  }
+}
+
+#[derive(Clone)]
+pub struct CascadeShadowMapSingleInvocation {
+  sys: CascadeShadowMapInvocation,
+  index: Node<u32>,
+}
+
+impl ShadowOcclusionQuery for CascadeShadowMapSingleInvocation {
+  fn query_shadow_occlusion(
+    &self,
+    render_position: Node<Vec3<f32>>,
+    render_normal: Node<Vec3<f32>>,
+    camera_world_position: Node<HighPrecisionTranslation>,
+    camera_world_none_translation_mat: Node<Mat4<f32>>,
+  ) -> Node<f32> {
+    self.sys.query_shadow_occlusion_by_idx(
+      render_position,
+      render_normal,
+      self.index,
+      camera_world_position,
+      camera_world_none_translation_mat,
+    )
+  }
+}
+
 /// compute the current shading point in which sub frustum
 #[shader_fn]
 pub fn compute_cascade_index(
   render_position: Node<Vec3<f32>>,
-  camera_world_mat: Node<Mat4<f32>>,
+  camera_world_none_translation_mat: Node<Mat4<f32>>,
   splits: Node<Vec4<f32>>,
 ) -> Node<u32> {
-  let camera_position = camera_world_mat.position();
-  let camera_forward_dir = camera_world_mat.forward().normalize();
+  let camera_forward_dir = camera_world_none_translation_mat.forward().normalize();
 
-  let diff = render_position - camera_position;
+  let diff = render_position;
   let distance = diff.dot(camera_forward_dir);
 
   let x = splits.x();

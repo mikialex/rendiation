@@ -74,6 +74,7 @@ impl GeometryCtxProvider for DirectGeometryProvider {
         normal: fragment_normal,
         view_dir: -fragment_render.normalize(),
         camera_world_position: builder.query::<CameraWorldPositionHP>(),
+        camera_world_none_translation_mat: builder.query::<CameraWorldNoneTranslationMatrix>(),
       }
     })
   }
@@ -179,6 +180,7 @@ where
         geom_ctx.position,
         geom_ctx.normal,
         geom_ctx.camera_world_position,
+        geom_ctx.camera_world_none_translation_mat,
       ));
     });
     incident.color = incident.color * occlusion.load();

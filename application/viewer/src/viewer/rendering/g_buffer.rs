@@ -169,6 +169,7 @@ impl GeometryCtxProvider for FrameGeometryBufferReconstructGeometryCtx<'_> {
         normal,
         view_dir: (camera_position_in_render - render_position).normalize(),
         camera_world_position: builder.query::<CameraWorldPositionHP>(),
+        camera_world_none_translation_mat: builder.query::<CameraWorldNoneTranslationMatrix>(),
       }
     })
   }

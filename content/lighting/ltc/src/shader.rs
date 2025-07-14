@@ -43,6 +43,7 @@ impl LTCxLightEval {
           normal,
           view_dir,
           camera_world_position: cp,
+          ..
         },
       lut: LTCxLUTxInvocation {
         ltc_1,

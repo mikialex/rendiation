@@ -304,7 +304,22 @@ pub trait ShadowOcclusionQuery {
     render_position: Node<Vec3<f32>>,
     render_normal: Node<Vec3<f32>>,
     camera_world_position: Node<HighPrecisionTranslation>,
+    camera_world_none_translation_mat: Node<Mat4<f32>>,
   ) -> Node<f32>;
+}
+
+pub fn create_shadow_depth_sampler_desc(reversed_depth: bool) -> SamplerDescriptor<'static> {
+  SamplerDescriptor {
+    mag_filter: rendiation_webgpu::FilterMode::Linear,
+    min_filter: rendiation_webgpu::FilterMode::Linear,
+    mipmap_filter: rendiation_webgpu::FilterMode::Nearest,
+    compare: Some(if reversed_depth {
+      CompareFunction::Greater
+    } else {
+      CompareFunction::Less
+    }),
+    ..Default::default()
+  }
 }
 
 #[derive(Clone)]
@@ -318,17 +333,7 @@ impl AbstractBindingSource for BasicShadowMapComponent {
   type ShaderBindResult = BasicShadowMapInvocation;
   fn bind_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.shadow_map_atlas);
-    ctx.bind_immediate_sampler(&SamplerDescriptor {
-      mag_filter: rendiation_webgpu::FilterMode::Linear,
-      min_filter: rendiation_webgpu::FilterMode::Linear,
-      mipmap_filter: rendiation_webgpu::FilterMode::Nearest,
-      compare: Some(if self.reversed_depth {
-        CompareFunction::Greater
-      } else {
-        CompareFunction::Less
-      }),
-      ..Default::default()
-    });
+    ctx.bind_immediate_sampler(&create_shadow_depth_sampler_desc(self.reversed_depth));
     ctx.binding.bind(&self.info);
   }
 
@@ -434,6 +439,7 @@ impl ShadowOcclusionQuery for BasicShadowMapSingleInvocation {
     render_position: Node<Vec3<f32>>,
     render_normal: Node<Vec3<f32>>,
     camera_world_position: Node<HighPrecisionTranslation>,
+    _camera_world_none_translation_mat: Node<Mat4<f32>>,
   ) -> Node<f32> {
     self.sys.query_shadow_occlusion_by_idx(
       render_position,
