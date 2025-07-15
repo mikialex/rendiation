@@ -22,7 +22,7 @@ pub struct CascadeShadowMapSystemInputs {
   pub enabled: BoxedDynQuery<u32, bool>,
 }
 
-pub type CascadeShadowPackerImpl = MultiLayerTexturePackerRaw<EtagerePacker>;
+type CascadeShadowPackerImpl = MultiLayerTexturePackerRaw<EtagerePacker>;
 
 pub fn generate_cascade_shadow_info(
   inputs: CascadeShadowMapSystemInputs,
@@ -30,22 +30,22 @@ pub fn generate_cascade_shadow_info(
   view_camera_proj: Mat4<f32>,
   view_camera_world: Mat4<f64>,
   ndc: &dyn NDCSpaceMapper<f32>,
-) -> (CascadeShadowPackerImpl, Vec<CascadeShadowMapInfo>) {
+) -> CascadeShadowPreparer {
   let mut packer = CascadeShadowPackerImpl::init_by_config(packer_size);
 
   let mut uniforms: Vec<CascadeShadowMapInfo> = Vec::new();
+  let mut proj_info = Vec::with_capacity(CASCADE_SHADOW_SPLIT_COUNT);
 
   for (k, enabled) in inputs.enabled.iter_key_value() {
     if !enabled {
       continue;
     }
 
-    let world_to_light = inputs.source_proj.access(&k).unwrap().into_f64()
-      * inputs
-        .source_world
-        .access(&k)
-        .unwrap()
-        .inverse_or_identity();
+    let world = inputs.source_world.access(&k).unwrap();
+    let mut sub_proj_info = [Mat4::default(); CASCADE_SHADOW_SPLIT_COUNT];
+
+    let world_to_light =
+      inputs.source_proj.access(&k).unwrap().into_f64() * world.inverse_or_identity();
 
     let cascades =
       compute_directional_light_cascade_info(view_camera_world, view_camera_proj, world_to_light);
@@ -59,8 +59,9 @@ pub fn generate_cascade_shadow_info(
 
     for (idx, (sub_proj, split)) in cascades.iter().enumerate() {
       if let Ok(pack) = packer.pack(size) {
+        let proj = sub_proj.compute_projection_mat(ndc);
         let shadow_center_to_shadowmap_ndc_without_translation =
-          sub_proj.compute_projection_mat(ndc) * light_world_inv.remove_position().into_f32();
+          proj * light_world_inv.remove_position().into_f32();
 
         cascade_info.push(SingleShadowMapInfo {
           map_info: convert_pack_result(pack),
@@ -68,8 +69,13 @@ pub fn generate_cascade_shadow_info(
           ..Default::default()
         });
         splits[idx] = *split;
+        sub_proj_info[idx] = proj;
       } else {
-        return (packer, uniforms);
+        return CascadeShadowPreparer {
+          uniforms,
+          map_size: packer_size,
+          proj_info,
+        };
       }
     }
 
@@ -81,10 +87,98 @@ pub fn generate_cascade_shadow_info(
       map_info: Shader140Array::from_slice_clamp_or_default(&cascade_info),
       splits: splits.into(),
       ..Default::default()
-    })
+    });
+
+    proj_info.push((world, sub_proj_info));
   }
 
-  (packer, uniforms)
+  CascadeShadowPreparer {
+    uniforms,
+    map_size: packer_size,
+    proj_info,
+  }
+}
+
+pub struct CascadeShadowPreparer {
+  uniforms: Vec<CascadeShadowMapInfo>,
+  proj_info: Vec<(Mat4<f64>, [Mat4<f32>; 4])>,
+  map_size: SizeWithDepth,
+}
+
+#[derive(Default)]
+pub struct CascadeShadowGPUCache {
+  texture: Option<GPU2DArrayDepthTextureView>,
+  uniforms: Option<UniformBufferDataView<Shader140Array<CascadeShadowMapInfo, 8>>>,
+}
+
+impl CascadeShadowPreparer {
+  pub fn update_gpu_resources(
+    self,
+    resource_cache: &mut CascadeShadowGPUCache,
+    frame_ctx: &mut FrameCtx,
+    // proj, world
+    scene_content: &impl Fn(Mat4<f32>, Mat4<f64>, &mut FrameCtx, ShadowPassDesc),
+    reversed_depth: bool,
+  ) -> CascadeShadowMapComponent {
+    let shadow_map_atlas = &mut resource_cache.texture;
+    let uniforms = &mut resource_cache.uniforms;
+
+    let shadow_map_atlas = get_or_create_map_with_init_clear(
+      "cascade-shadow-map-atlas",
+      self.map_size,
+      shadow_map_atlas,
+      frame_ctx,
+      reversed_depth,
+    );
+
+    // do shadowmap updates
+    for (index, cascade) in self.uniforms.iter().enumerate() {
+      let proj_info = self.proj_info[index];
+      let world = proj_info.0;
+
+      for (slice_index, shadow_view) in cascade.map_info.iter().enumerate() {
+        let shadow_view = shadow_view.map_info;
+
+        let write_view = shadow_map_atlas
+          .resource
+          .create_view(TextureViewDescriptor {
+            label: Some("shadowmap-write-view"),
+            dimension: Some(TextureViewDimension::D2),
+            base_array_layer: shadow_view.layer_index as u32,
+            array_layer_count: Some(1),
+            ..Default::default()
+          });
+
+        // todo, consider merge the pass within the same layer
+        // custom dispatcher is not required because we only have depth output.
+        let pass = pass("cascade-shadow-map")
+          .with_depth(&RenderTargetView::Texture(write_view), load_and_store());
+
+        let proj = proj_info.1[slice_index];
+
+        scene_content(
+          proj,
+          world,
+          frame_ctx,
+          ShadowPassDesc {
+            desc: pass,
+            address: shadow_view,
+          },
+        );
+      }
+    }
+
+    let info = uniforms.get_or_insert_with(|| {
+      let uniforms = Shader140Array::from_slice_clamp_or_default(&self.uniforms);
+      create_uniform(uniforms, &frame_ctx.gpu.device)
+    });
+
+    CascadeShadowMapComponent {
+      shadow_map_atlas,
+      info: info.clone(),
+      reversed_depth,
+    }
+  }
 }
 
 #[repr(C)]

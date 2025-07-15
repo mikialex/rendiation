@@ -143,6 +143,10 @@ pub struct Shader140Array<T, const U: usize> {
 }
 
 impl<T: Clone + Default, const U: usize> Shader140Array<T, U> {
+  pub fn iter(&self) -> impl Iterator<Item = &T> + '_ {
+    self.inner.iter().map(|x| &x.inner)
+  }
+
   pub fn from_slice_clamp_or_default(slice: &[T]) -> Self {
     Self {
       inner: std::array::from_fn(|i| slice.get(i).cloned().unwrap_or_default().into()),
