@@ -8,13 +8,11 @@ use crate::*;
 mod reactive;
 pub use reactive::*;
 
-pub struct MultiLayerTexturePacker<P> {
+pub struct MultiLayerTexturePackerRaw<P> {
   packers: Vec<P>,
-  next_id: u32,
-  id_remap: FastHashMap<PackId, (usize, PackId)>,
 }
 
-impl<P> TexturePackerInit for MultiLayerTexturePacker<P>
+impl<P> TexturePackerInit for MultiLayerTexturePackerRaw<P>
 where
   P: RePackablePacker + TexturePackerInit<Config = PackerConfig2d> + Default,
 {
@@ -30,8 +28,53 @@ where
       .take(depth as usize)
       .collect();
 
+    Self { packers }
+  }
+}
+
+impl<P> TexturePacker for MultiLayerTexturePackerRaw<P>
+where
+  P: TexturePacker<Input = Size, PackOutput = PackResult2d>,
+{
+  type Input = Size;
+  type PackOutput = PackResult2dWithDepth;
+
+  fn pack(&mut self, input: Self::Input) -> Result<Self::PackOutput, PackError> {
+    let mut result = None;
+    // todo, maybe reorder packer to reduce cost
+    for (idx, packer) in self.packers.iter_mut().enumerate() {
+      if let Ok(sub_result) = packer.pack(input) {
+        result = Some((idx, sub_result));
+        break;
+      }
+    }
+    if let Some((idx, result)) = result {
+      let result = PackResult2dWithDepth {
+        result,
+        depth: idx as u32,
+      };
+      Ok(result)
+    } else {
+      Err(PackError::SpaceNotEnough)
+    }
+  }
+}
+
+pub struct MultiLayerTexturePacker<P> {
+  internal: MultiLayerTexturePackerRaw<P>,
+  next_id: u32,
+  id_remap: FastHashMap<PackId, (usize, PackId)>,
+}
+
+impl<P> TexturePackerInit for MultiLayerTexturePacker<P>
+where
+  P: RePackablePacker + TexturePackerInit<Config = PackerConfig2d> + Default,
+{
+  type Config = SizeWithDepth;
+
+  fn init_by_config(config: Self::Config) -> Self {
     Self {
-      packers,
+      internal: MultiLayerTexturePackerRaw::init_by_config(config),
       next_id: 0,
       id_remap: Default::default(),
     }
@@ -50,7 +93,7 @@ where
   ) -> Result<PackResultWithId<PackResult2dWithDepth>, PackError> {
     let mut result = None;
     // todo, maybe reorder packer to reduce cost
-    for (idx, packer) in self.packers.iter_mut().enumerate() {
+    for (idx, packer) in self.internal.packers.iter_mut().enumerate() {
       if let Ok(sub_result) = packer.pack_with_id(input) {
         result = Some((idx, sub_result));
         break;
@@ -77,7 +120,7 @@ where
       .id_remap
       .remove(&id)
       .ok_or(UnpackError::UnpackItemNotExist)?;
-    self.packers[idx].unpack(pack)
+    self.internal.packers[idx].unpack(pack)
   }
 }
 

@@ -28,6 +28,16 @@ impl TexturePackerInit for EtagerePacker {
   }
 }
 
+impl TexturePacker for EtagerePacker {
+  type Input = Size;
+  type PackOutput = PackResult2d;
+
+  fn pack(&mut self, input: Self::Input) -> Result<Self::PackOutput, PackError> {
+    let result = self.pack_with_id(input)?;
+    Ok(result.result)
+  }
+}
+
 impl RePackablePacker for EtagerePacker {
   type Input = Size;
   type PackOutput = PackResult2d;

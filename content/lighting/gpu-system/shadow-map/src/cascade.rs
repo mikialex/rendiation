@@ -1,6 +1,6 @@
 use rendiation_texture_packer::{
-  pack_2d_to_2d::pack_impl::etagere_wrap::EtagerePacker, pack_2d_to_3d::MultiLayerTexturePacker,
-  RePackablePacker, TexturePackerInit,
+  pack_2d_to_2d::pack_impl::etagere_wrap::EtagerePacker, pack_2d_to_3d::MultiLayerTexturePackerRaw,
+  TexturePacker, TexturePackerInit,
 };
 
 use crate::*;
@@ -22,7 +22,7 @@ pub struct CascadeShadowMapSystemInputs {
   pub enabled: BoxedDynQuery<u32, bool>,
 }
 
-pub type CascadeShadowPackerImpl = MultiLayerTexturePacker<EtagerePacker>;
+pub type CascadeShadowPackerImpl = MultiLayerTexturePackerRaw<EtagerePacker>;
 
 pub fn generate_cascade_shadow_info(
   inputs: CascadeShadowMapSystemInputs,
@@ -58,13 +58,12 @@ pub fn generate_cascade_shadow_info(
     let mut splits = [0.; CASCADE_SHADOW_SPLIT_COUNT];
 
     for (idx, (sub_proj, split)) in cascades.iter().enumerate() {
-      // todo, use none id pack method
-      if let Ok(pack) = packer.pack_with_id(size) {
+      if let Ok(pack) = packer.pack(size) {
         let shadow_center_to_shadowmap_ndc_without_translation =
           sub_proj.compute_projection_mat(ndc) * light_world_inv.remove_position().into_f32();
 
         cascade_info.push(SingleShadowMapInfo {
-          map_info: convert_pack_result(pack.result),
+          map_info: convert_pack_result(pack),
           shadow_center_to_shadowmap_ndc_without_translation,
           ..Default::default()
         });
