@@ -79,22 +79,22 @@ pub fn use_pool_texture_system(cx: &mut impl QueryGPUHookCx) -> Option<GPUTextur
 
     TexturePoolSource::new(
       cx,
-      MultiLayerTexturePackerConfig {
-        max_size: SizeWithDepth {
-          depth: NonZeroU32::new(4).unwrap(),
-          size,
-        },
-        init_size: SizeWithDepth {
-          depth: NonZeroU32::new(1).unwrap(),
-          size,
-        },
-      },
       texture_2d,
       Box::new(samplers),
-      TextureFormat::Rgba8Unorm,
       TexturePoolSourceInit {
         init_texture_count_capacity: 128,
         init_sampler_count_capacity: 128,
+        format: TextureFormat::Rgba8Unorm,
+        atlas_config: MultiLayerTexturePackerConfig {
+          max_size: SizeWithDepth {
+            depth: NonZeroU32::new(4).unwrap(),
+            size,
+          },
+          init_size: SizeWithDepth {
+            depth: NonZeroU32::new(1).unwrap(),
+            size,
+          },
+        },
       },
     )
   })

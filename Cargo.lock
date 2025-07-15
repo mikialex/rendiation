@@ -3475,6 +3475,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-content-virtualization"
+version = "0.1.0"
+dependencies = [
+ "fast-hash-collection",
+ "futures",
+ "reactive",
+ "rendiation-shader-api",
+ "rendiation-webgpu",
+]
+
+[[package]]
 name = "rendiation-controller"
 version = "0.1.0"
 dependencies = [
@@ -4034,15 +4045,6 @@ dependencies = [
  "rendiation-webgpu",
  "rendiation-webgpu-reactive-utils",
  "tracing",
-]
-
-[[package]]
-name = "rendiation-scene-virtualization"
-version = "0.1.0"
-dependencies = [
- "fast-hash-collection",
- "futures",
- "reactive",
 ]
 
 [[package]]

@@ -4,6 +4,11 @@ use std::future::Future;
 
 use futures::{stream::FuturesUnordered, FutureExt};
 use reactive::*;
+use rendiation_shader_api::*;
+use rendiation_webgpu::*;
+
+mod device_usage_counter;
+pub use device_usage_counter::*;
 
 pub trait ScheduleSource<K> {
   type LoadingFuture: Future<Output = ()>;

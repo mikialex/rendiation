@@ -200,6 +200,16 @@ impl GPUCommandEncoder {
     })
   }
 
+  pub fn read_atomic_storage_array<T: AtomicityShaderNodeType>(
+    &mut self,
+    device: &GPUDevice,
+    buffer: &StorageBufferDataView<[DeviceAtomic<T>]>,
+  ) -> impl Future<Output = Result<Vec<T>, gpu::BufferAsyncError>> {
+    self.read_buffer(device, buffer).map(|buffer| {
+      buffer.map(|buffer| <[T]>::from_bytes_into_boxed(&buffer.read_raw()).into_vec())
+    })
+  }
+
   pub fn read_sized_storage_buffer<T: Std430>(
     &mut self,
     device: &GPUDevice,

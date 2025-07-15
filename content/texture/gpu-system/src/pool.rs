@@ -99,6 +99,8 @@ pub struct TexturePoolSource {
 pub struct TexturePoolSourceInit {
   pub init_sampler_count_capacity: u32,
   pub init_texture_count_capacity: u32,
+  pub format: TextureFormat,
+  pub atlas_config: MultiLayerTexturePackerConfig,
 }
 
 impl TexturePoolSource {
@@ -109,12 +111,13 @@ impl TexturePoolSource {
   /// solved in the future
   pub fn new(
     gpu: &GPU,
-    config: MultiLayerTexturePackerConfig,
     tex_input: BoxedDynReactiveQuery<Texture2DHandle, Option<TexturePool2dSource>>,
     sampler_input: BoxedDynReactiveQuery<SamplerHandle, TextureSampler>,
-    format: TextureFormat,
     init: TexturePoolSourceInit,
   ) -> Self {
+    let format = init.format;
+    let config = init.atlas_config;
+
     let tex_input = tex_input
       .collective_filter_map(move |tex| {
         let tex = tex?;
