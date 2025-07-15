@@ -65,7 +65,7 @@ pub fn basic_shadow_map_uniform(
 
   let enabled = inputs
     .enabled
-    .collective_map(|v| if v { 1 } else { 0 })
+    .collective_map(Bool::from)
     .into_query_update_uniform_array(offset_of!(BasicShadowMapInfo, enabled), gpu_ctx);
 
   let map_info =
@@ -230,7 +230,7 @@ pub fn convert_pack_result(r: PackResult2dWithDepth) -> ShadowMapAddressInfo {
 #[std140_layout]
 #[derive(Clone, Copy, Default, ShaderStruct, Debug)]
 pub struct BasicShadowMapInfo {
-  pub enabled: u32,
+  pub enabled: Bool,
   pub shadow_center_to_shadowmap_ndc_without_translation: Mat4<f32>,
   pub shadow_world_position: HighPrecisionTranslationUniform,
   pub bias: ShadowBias,
@@ -329,36 +329,41 @@ impl BasicShadowMapInvocation {
     shadow_idx: Node<u32>,
     camera_world_position: Node<HighPrecisionTranslation>,
   ) -> Node<f32> {
-    let shadow_info = self.info.index(shadow_idx).load().expand();
+    let enabled = self.info.index(shadow_idx).enabled().load();
+    enabled.into_bool().select_branched(
+      || {
+        let shadow_info = self.info.index(shadow_idx).load().expand();
+        let bias = shadow_info.bias.expand();
 
-    let bias = shadow_info.bias.expand();
+        // apply normal bias
+        let render_position = render_position + bias.normal_bias * render_normal;
 
-    // apply normal bias
-    let render_position = render_position + bias.normal_bias * render_normal;
+        let shadow_center_in_render_space = hpt_sub_hpt(
+          hpt_uniform_to_hpt(shadow_info.shadow_world_position),
+          camera_world_position,
+        );
 
-    let shadow_center_in_render_space = hpt_sub_hpt(
-      hpt_uniform_to_hpt(shadow_info.shadow_world_position),
-      camera_world_position,
-    );
+        let position_in_shadow_center_space_without_translation =
+          render_position - shadow_center_in_render_space;
 
-    let position_in_shadow_center_space_without_translation =
-      render_position - shadow_center_in_render_space;
+        let shadow_position = shadow_info.shadow_center_to_shadowmap_ndc_without_translation
+          * (position_in_shadow_center_space_without_translation, val(1.)).into();
 
-    let shadow_position = shadow_info.shadow_center_to_shadowmap_ndc_without_translation
-      * (position_in_shadow_center_space_without_translation, val(1.)).into();
+        let shadow_position = shadow_position.xyz() / shadow_position.w().splat();
 
-    let shadow_position = shadow_position.xyz() / shadow_position.w().splat();
+        // convert to uv space and apply offset bias
+        let shadow_position = shadow_position * val(Vec3::new(0.5, -0.5, 1.))
+          + val(Vec3::new(0.5, 0.5, 0.))
+          + (val(0.), val(0.), bias.bias).into();
 
-    // convert to uv space and apply offset bias
-    let shadow_position = shadow_position * val(Vec3::new(0.5, -0.5, 1.))
-      + val(Vec3::new(0.5, 0.5, 0.))
-      + (val(0.), val(0.), bias.bias).into();
-
-    sample_shadow_pcf_x36_by_offset(
-      self.shadow_map_atlas,
-      shadow_position,
-      self.sampler,
-      shadow_info.map_info.expand(),
+        sample_shadow_pcf_x36_by_offset(
+          self.shadow_map_atlas,
+          shadow_position,
+          self.sampler,
+          shadow_info.map_info.expand(),
+        )
+      },
+      || val(1.),
     )
   }
 }

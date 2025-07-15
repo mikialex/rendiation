@@ -37,7 +37,8 @@ pub fn generate_cascade_shadow_info(
   let mut proj_info = Vec::with_capacity(CASCADE_SHADOW_SPLIT_COUNT);
 
   for (k, enabled) in inputs.enabled.iter_key_value() {
-    if !enabled {
+    if enabled {
+      uniforms.push(Default::default());
       continue;
     }
 
@@ -71,11 +72,8 @@ pub fn generate_cascade_shadow_info(
         splits[idx] = *split;
         sub_proj_info[idx] = proj;
       } else {
-        return CascadeShadowPreparer {
-          uniforms,
-          map_size: packer_size,
-          proj_info,
-        };
+        uniforms.push(Default::default());
+        continue;
       }
     }
 
@@ -86,6 +84,7 @@ pub fn generate_cascade_shadow_info(
       shadow_world_position,
       map_info: Shader140Array::from_slice_clamp_or_default(&cascade_info),
       splits: splits.into(),
+      enabled: true.into(),
       ..Default::default()
     });
 
@@ -189,6 +188,7 @@ pub struct CascadeShadowMapInfo {
   pub shadow_world_position: HighPrecisionTranslationUniform,
   pub map_info: Shader140Array<SingleShadowMapInfo, CASCADE_SHADOW_SPLIT_COUNT>,
   pub splits: Vec4<f32>,
+  pub enabled: Bool,
 }
 
 #[repr(C)]
@@ -325,44 +325,50 @@ impl CascadeShadowMapInvocation {
     camera_world_position: Node<HighPrecisionTranslation>,
     camera_world_none_translation_mat: Node<Mat4<f32>>,
   ) -> Node<f32> {
-    let shadow_info = self.info.index(shadow_idx);
+    let enabled = self.info.index(shadow_idx).enabled().load();
+    enabled.into_bool().select_branched(
+      || {
+        let shadow_info = self.info.index(shadow_idx);
 
-    let bias = shadow_info.bias().load().expand();
+        let bias = shadow_info.bias().load().expand();
 
-    // apply normal bias
-    let render_position = render_position + bias.normal_bias * render_normal;
+        // apply normal bias
+        let render_position = render_position + bias.normal_bias * render_normal;
 
-    let shadow_center_in_render_space = hpt_sub_hpt(
-      hpt_uniform_to_hpt(shadow_info.shadow_world_position().load()),
-      camera_world_position,
-    );
+        let shadow_center_in_render_space = hpt_sub_hpt(
+          hpt_uniform_to_hpt(shadow_info.shadow_world_position().load()),
+          camera_world_position,
+        );
 
-    let position_in_shadow_center_space_without_translation =
-      render_position - shadow_center_in_render_space;
+        let position_in_shadow_center_space_without_translation =
+          render_position - shadow_center_in_render_space;
 
-    let cascade_index = compute_cascade_index(
-      render_position,
-      camera_world_none_translation_mat,
-      shadow_info.splits().load(),
-    );
+        let cascade_index = compute_cascade_index(
+          render_position,
+          camera_world_none_translation_mat,
+          shadow_info.splits().load(),
+        );
 
-    let cascade_info = shadow_info.map_info().index(cascade_index).load().expand();
+        let cascade_info = shadow_info.map_info().index(cascade_index).load().expand();
 
-    let shadow_position = cascade_info.shadow_center_to_shadowmap_ndc_without_translation
-      * (position_in_shadow_center_space_without_translation, val(1.)).into();
+        let shadow_position = cascade_info.shadow_center_to_shadowmap_ndc_without_translation
+          * (position_in_shadow_center_space_without_translation, val(1.)).into();
 
-    let shadow_position = shadow_position.xyz() / shadow_position.w().splat();
+        let shadow_position = shadow_position.xyz() / shadow_position.w().splat();
 
-    // convert to uv space and apply offset bias
-    let shadow_position = shadow_position * val(Vec3::new(0.5, -0.5, 1.))
-      + val(Vec3::new(0.5, 0.5, 0.))
-      + (val(0.), val(0.), bias.bias).into();
+        // convert to uv space and apply offset bias
+        let shadow_position = shadow_position * val(Vec3::new(0.5, -0.5, 1.))
+          + val(Vec3::new(0.5, 0.5, 0.))
+          + (val(0.), val(0.), bias.bias).into();
 
-    sample_shadow_pcf_x36_by_offset(
-      self.shadow_map_atlas,
-      shadow_position,
-      self.sampler,
-      cascade_info.map_info.expand(),
+        sample_shadow_pcf_x36_by_offset(
+          self.shadow_map_atlas,
+          shadow_position,
+          self.sampler,
+          cascade_info.map_info.expand(),
+        )
+      },
+      || val(1.0),
     )
   }
 }
