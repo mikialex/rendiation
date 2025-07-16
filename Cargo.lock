@@ -3482,6 +3482,7 @@ dependencies = [
  "futures",
  "reactive",
  "rendiation-shader-api",
+ "rendiation-texture-gpu-system",
  "rendiation-webgpu",
 ]
 
