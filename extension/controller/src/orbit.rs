@@ -4,11 +4,17 @@ use rendiation_geometry::Spherical;
 
 use crate::*;
 
+pub enum OrbitControlPanBehavior {
+  HorizonPlane,
+  ViewPlane,
+}
+
 pub struct OrbitController {
   pub spherical: Spherical<f64>,
 
   pub rotate_angle_factor: f32,
   pub pan_factor: f32,
+  pub pan_behavior: OrbitControlPanBehavior,
   pub zoom_factor: f32,
 
   // restriction
@@ -36,6 +42,7 @@ impl OrbitController {
 
       rotate_angle_factor: 2.,
       pan_factor: 0.02,
+      pan_behavior: OrbitControlPanBehavior::HorizonPlane,
       zoom_factor: 0.3,
 
       // restriction over how down you can look,
@@ -57,10 +64,27 @@ impl OrbitController {
   }
 
   pub fn pan(&mut self, offset: Vec2<f32>) {
-    let mut offset = offset.rotate(Vector::zero(), -self.spherical.azim as f32);
-    offset *= self.spherical.radius as f32 * self.pan_factor;
-    self.pan_offset.x += offset.x;
-    self.pan_offset.z += offset.y;
+    match self.pan_behavior {
+      OrbitControlPanBehavior::HorizonPlane => {
+        let offset = offset.reverse();
+        let mut offset = offset.rotate(Vector::zero(), self.spherical.azim as f32 + f32::PI() / 2.);
+        offset *= self.spherical.radius as f32 * self.pan_factor;
+        self.pan_offset.x += offset.x;
+        self.pan_offset.z += offset.y;
+      }
+      OrbitControlPanBehavior::ViewPlane => {
+        let offset = offset * self.spherical.radius as f32 * self.pan_factor;
+        let offset = Mat4::lookat(
+          self.spherical.to_sphere_point(),
+          self.spherical.center,
+          Vec3::new(0., 1., 0.),
+        )
+        .remove_position()
+          * Vec3::new(offset.x, -offset.y, 0.).into_f64();
+        let offset = offset.into_f32();
+        self.pan_offset += offset;
+      }
+    }
   }
 
   pub fn zoom(&mut self, factor: f32) {
