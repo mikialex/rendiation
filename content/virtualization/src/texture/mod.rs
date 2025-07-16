@@ -13,6 +13,26 @@ pub struct VirtualTextureSystem {
   empty_pages: Vec<u32>,
 }
 
+pub trait VirtualTextureTextureSource {
+  fn load_texture(&self, texture_page_id: u32) -> Vec<u8>;
+}
+
+pub struct CollectiveLinearChange<T> {
+  remove: Vec<u32>,
+  update_or_insert: Vec<(u32, T)>,
+}
+
+pub struct TexturePager {}
+
+impl TexturePager {
+  pub fn page(
+    &mut self,
+    texture_input: CollectiveLinearChange<u32>,
+  ) -> CollectiveLinearChange<u32> {
+    todo!()
+  }
+}
+
 impl VirtualTextureSystem {
   pub fn new(config: VirtualTexturePageMetadata, gpu: &GPU) -> Self {
     let virtual_page_count = config.virtual_page_count();
@@ -20,7 +40,7 @@ impl VirtualTextureSystem {
 
     let physical_texture = GPUTexture::create(
       TextureDescriptor {
-        label: "texture-pool".into(),
+        label: "virtual-texture-physical-pool".into(),
         size: config.gpu_extend(),
         mip_level_count: 1,
         sample_count: 1,
@@ -32,7 +52,7 @@ impl VirtualTextureSystem {
       &gpu.device,
     )
     .create_view(TextureViewDescriptor {
-      label: "texture pool view".into(),
+      label: "virtual-texture-physical-pool-view".into(),
       dimension: TextureViewDimension::D2Array.into(),
       ..Default::default()
     })
@@ -49,6 +69,46 @@ impl VirtualTextureSystem {
       page_mapping_host,
       empty_pages,
     }
+  }
+
+  pub fn add_texture(&mut self) {}
+
+  pub fn remove_texture(&mut self) {}
+}
+
+impl AbstractIndirectGPUTextureSystem for VirtualTextureSystem {
+  fn bind_system_self(&self, collector: &mut BindingBuilder) {
+    todo!()
+  }
+
+  fn register_system_self(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    todo!()
+  }
+
+  fn register_system_self_for_compute(
+    &self,
+    builder: &mut ShaderBindGroupBuilder,
+    reg: &mut SemanticRegistry,
+  ) {
+    unimplemented!("virtual texture currently not support using in compute pipeline")
+  }
+
+  fn sample_texture2d_indirect(
+    &self,
+    reg: &SemanticRegistry,
+    shader_texture_handle: Node<Texture2DHandle>,
+    shader_sampler_handle: Node<SamplerHandle>,
+    uv: Node<Vec2<f32>>,
+  ) -> Node<Vec4<f32>> {
+    let page_info = self
+      .page_mapping_system
+      .as_indirect_system()
+      .unwrap()
+      .sample_texture2d_indirect(reg, shader_texture_handle, shader_sampler_handle, uv);
+
+    // record the usage? at a atomic image? get pixel position? use half resolution?
+
+    todo!()
   }
 }
 
