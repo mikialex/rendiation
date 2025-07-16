@@ -208,9 +208,7 @@ impl ReactiveGeneralQuery for TexturePoolSource {
             dimension: TextureDimension::D2,
             format: self.format,
             view_formats: &[],
-            usage: TextureUsages::COPY_DST
-              | TextureUsages::TEXTURE_BINDING
-              | TextureUsages::RENDER_ATTACHMENT,
+            usage: TextureUsages::COPY_DST | TextureUsages::TEXTURE_BINDING,
           },
           &self.gpu.device,
         )
