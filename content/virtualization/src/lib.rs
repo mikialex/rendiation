@@ -2,6 +2,8 @@
 
 use std::{
   future::Future,
+  io::{Read, Write},
+  path::PathBuf,
   task::{Context, Poll},
 };
 
@@ -12,6 +14,37 @@ use rendiation_webgpu::*;
 
 mod device_usage_counter;
 pub use device_usage_counter::*;
+
+mod texture;
+pub use texture::*;
+
+pub enum MaybePersistData<T: SwappableData> {
+  Offline {
+    key: u64,
+    meta: T::Meta,
+  },
+  /// Keep it living if some feature requires it.
+  Persist(T),
+}
+
+pub trait SwappableData {
+  type Meta;
+  fn swap_out(self, writer: &dyn Write) -> Self::Meta;
+  fn swap_in(read: &dyn Read) -> Self;
+}
+
+pub struct DiskSwapManager {
+  write_folder_root: PathBuf,
+}
+
+impl DiskSwapManager {
+  pub fn load<T: SwappableData>(&self, id: u64) -> Box<dyn Future<Output = Option<T>>> {
+    let file_path = self.write_folder_root.join(id.to_string());
+    let buffer = std::fs::read(&file_path).unwrap();
+    // let data = T::swap_in(&buffer);
+    todo!()
+  }
+}
 
 pub trait ScheduleSource<K> {
   type LoadingFuture: Future<Output = ()>;
