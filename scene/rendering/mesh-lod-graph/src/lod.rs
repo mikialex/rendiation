@@ -1,3 +1,5 @@
+use rendiation_geometry::Sphere;
+
 use crate::*;
 
 /// every thing in object space
@@ -14,13 +16,19 @@ pub struct LODBound {
 }
 
 impl LODBound {
-  pub fn new(error: f32, radius: f32, position: Vec3<f32>) -> Self {
+  pub fn new_from_group(group: &MeshletGroup) -> Self {
+    Self::new(
+      group.max_meshlet_simplification_error_among_meshlet_in_their_parent_group,
+      group.union_meshlet_bounding_among_meshlet_in_their_parent_group,
+    )
+  }
+  pub fn new(error: f32, bounding: Sphere<f32>) -> Self {
     Self {
       error,
-      radius,
-      x_position: position.x,
-      y_position: position.y,
-      z_position: position.z,
+      radius: bounding.radius,
+      x_position: bounding.center.x,
+      y_position: bounding.center.y,
+      z_position: bounding.center.z,
       ..Zeroable::zeroed()
     }
   }

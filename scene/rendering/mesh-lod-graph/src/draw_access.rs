@@ -75,7 +75,7 @@ impl GraphicsShaderProvider for MeshletGPURenderData {
       let mesh_meta = mesh_src_data.index(mesh_index);
       let position = Node::<Vec3<f32>>::load_from_u32_buffer(
         &position_buffer,
-        mesh_meta.position_offset().load() + vertex_index * val(3),
+        (mesh_meta.position_offset().load() + vertex_index) * val(3),
         StructLayoutTarget::Packed,
       );
 

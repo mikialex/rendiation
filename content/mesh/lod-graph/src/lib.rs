@@ -28,6 +28,7 @@ pub struct MeshLODGraph {
 pub struct MeshLODGraphLevel {
   pub groups: Vec<MeshletGroup>,
   pub meshlets: Vec<Meshlet>,
+  /// the index is based on level it self, not the mesh.
   #[facet(opaque)]
   pub mesh: MeshBufferSource,
 }
@@ -35,11 +36,12 @@ pub struct MeshLODGraphLevel {
 #[derive(Clone, Copy, Serialize, Deserialize, Facet)]
 pub struct MeshletGroup {
   pub meshlets: OffsetSize,
-  pub lod_error_simplify_to_next_level: Option<f32>,
-  /// maximum of all meshlet simplification errors
-  pub max_meshlet_simplification_error: f32,
-  /// union of all meshlet bounds
-  pub bounding_in_local: Sphere,
+  /// the current meshlet simplification error, used for debug
+  pub lod_error_simplify_to_next_level: f32,
+  /// monotonically increasing, used in rendering
+  pub max_meshlet_simplification_error_among_meshlet_in_their_parent_group: f32,
+  /// monotonically increasing, used in rendering
+  pub union_meshlet_bounding_among_meshlet_in_their_parent_group: Sphere,
 }
 
 #[derive(Clone, Copy, Serialize, Deserialize, Facet)]
