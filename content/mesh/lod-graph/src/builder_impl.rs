@@ -111,7 +111,14 @@ impl MeshLodGraphBuilder for DefaultMeshLODBuilder {
       .map(|range| Meshlet {
         group_index: 0, // write later when do meshlet segmentation
         index_range: range,
-        group_index_in_previous_level: None, // write later
+        group_index_in_previous_level: u32::MAX, // write later
+        bounding_in_local: {
+          Sphere::from_points(
+            indices[range.into_range()]
+              .iter()
+              .map(|idx| input.vertices[*idx as usize].position),
+          )
+        },
       })
       .collect();
 

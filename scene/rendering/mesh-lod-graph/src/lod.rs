@@ -59,7 +59,7 @@ impl LODDeciderShaderAPIInstance {
     &self,
     self_lod: Node<LODBound>,
     parent: Node<LODBound>,
-    meshlet_local_to_render: Node<Mat4<f32>>,
+    meshlet_local_to_world_no_translation: Node<Mat4<f32>>,
     world_position: Node<HighPrecisionTranslation>,
   ) -> Node<bool> {
     // assume 1px to cause visual difference
@@ -73,13 +73,13 @@ impl LODDeciderShaderAPIInstance {
     let parent_lod_ok = self.lod_error_is_imperceptible(
       parent,
       pixel_error_threshold,
-      meshlet_local_to_render,
+      meshlet_local_to_world_no_translation,
       translate_into_render_space,
     );
     let self_lod_ok = self.lod_error_is_imperceptible(
       self_lod,
       pixel_error_threshold,
-      meshlet_local_to_render,
+      meshlet_local_to_world_no_translation,
       translate_into_render_space,
     );
 
@@ -101,10 +101,10 @@ impl LODDeciderShaderAPIInstance {
 
     let world_scale = meshlet_world_mat_no_translation.scale().max_channel();
 
-    let meshlet_bounding_center_in_render: Node<Vec4<f32>> =
+    let meshlet_bounding_center_in_world_no_translation: Node<Vec4<f32>> =
       meshlet_world_mat_no_translation * (meshlet_bounding_center_in_local, val(1.)).into();
     let meshlet_bounding_center_in_render =
-      meshlet_bounding_center_in_render.xyz() + translate_into_render_space;
+      meshlet_bounding_center_in_world_no_translation.xyz() + translate_into_render_space;
     let meshlet_radius_world = meshlet_bounding_radius * world_scale;
 
     let simplification_error_in_world_space = world_scale * simplification_error_in_object_space;

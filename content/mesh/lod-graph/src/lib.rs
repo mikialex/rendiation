@@ -4,6 +4,7 @@ use std::ops::Range;
 
 use fast_hash_collection::FastHashSet;
 use rendiation_algebra::*;
+use rendiation_geometry::Sphere;
 use rendiation_mesh_core::CommonVertex;
 use rendiation_mesh_segmentation::SegmentResult;
 
@@ -35,14 +36,18 @@ pub struct MeshLODGraphLevel {
 pub struct MeshletGroup {
   pub meshlets: OffsetSize,
   pub lod_error_simplify_to_next_level: Option<f32>,
+  /// maximum of all meshlet simplification errors
   pub max_meshlet_simplification_error: f32,
+  /// union of all meshlet bounds
+  pub bounding_in_local: Sphere,
 }
 
 #[derive(Clone, Copy, Serialize, Deserialize, Facet)]
 pub struct Meshlet {
   pub group_index: u32,
+  pub group_index_in_previous_level: u32,
   pub index_range: OffsetSize,
-  pub group_index_in_previous_level: Option<u32>,
+  pub bounding_in_local: Sphere,
 }
 
 #[derive(Clone, Serialize, Deserialize)]

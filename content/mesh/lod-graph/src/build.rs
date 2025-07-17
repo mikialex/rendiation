@@ -124,7 +124,7 @@ impl MeshLODGraphLevel {
       for simplified_meshlet_idx in simplified_meshlet_range.into_range() {
         let simplified_meshlet_idx = reorder[simplified_meshlet_idx];
         let simplified_meshlet = &mut meshlets[simplified_meshlet_idx as usize];
-        simplified_meshlet.group_index_in_previous_level = Some(group_id as u32);
+        simplified_meshlet.group_index_in_previous_level = group_id as u32;
       }
     }
 
@@ -132,8 +132,7 @@ impl MeshLODGraphLevel {
       let meshlets = meshlets.get(g.meshlets.into_range()).unwrap();
       let mut max_error = 0.;
       for meshlet in meshlets {
-        let source_group =
-          &previous_level.groups[meshlet.group_index_in_previous_level.unwrap() as usize];
+        let source_group = &previous_level.groups[meshlet.group_index_in_previous_level as usize];
         let error = source_group.max_meshlet_simplification_error;
         max_error = max_error.max(error);
       }
@@ -169,17 +168,22 @@ fn build_groups_from_meshlets(
 ) -> (Vec<MeshletGroup>, Vec<Meshlet>, Vec<u32>) {
   let meshlet_segmentation = builder.segment_meshlets(&meshlets, &adj);
 
+  let mut meshlets = reorder_meshlet(&meshlets, &meshlet_segmentation.reordered_idx);
+
   let groups: Vec<_> = meshlet_segmentation
     .ranges
     .into_iter()
     .map(|v| MeshletGroup {
-      meshlets: v.into(),
+      meshlets: v.clone().into(),
       lod_error_simplify_to_next_level: None, // write when do simplification to next level
       max_meshlet_simplification_error: 0.,   // no error in source mesh
+      bounding_in_local: Sphere::from_spheres(
+        meshlets[(v.start as usize)..(v.end as usize)]
+          .iter()
+          .map(|m| m.bounding_in_local),
+      ),
     })
     .collect();
-
-  let mut meshlets = reorder_meshlet(&meshlets, &meshlet_segmentation.reordered_idx);
 
   groups.iter().enumerate().for_each(|(i, group)| {
     meshlets
