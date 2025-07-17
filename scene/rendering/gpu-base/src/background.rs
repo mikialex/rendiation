@@ -145,12 +145,11 @@ impl GraphicsShaderProvider for CubeEnvComponent<'_> {
       let clip = builder.query::<ClipPosition>();
       let proj_inv = builder.query::<CameraProjectionInverseMatrix>();
       // camera view should be orthonormal
-      let rotation_only_view_inverse = builder
-        .query::<CameraViewNoneTranslationMatrix>()
-        .shrink_to_3()
-        .transpose();
+      let camera_rotation_only = builder
+        .query::<CameraWorldNoneTranslationMatrix>()
+        .shrink_to_3();
       let unprojected = proj_inv * clip;
-      builder.register::<EnvSampleDirectionVertex>(rotation_only_view_inverse * unprojected.xyz());
+      builder.register::<EnvSampleDirectionVertex>(camera_rotation_only * unprojected.xyz());
     });
 
     builder.fragment(|builder, binding| {

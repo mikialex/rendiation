@@ -51,9 +51,6 @@ impl CameraGPU {
         r.register_typed_both_stage::<CameraWorldPositionHP>(hpt_uniform_to_hpt(
           camera.world_position,
         ));
-        r.register_typed_both_stage::<CameraViewNoneTranslationMatrix>(
-          camera.view_projection_inv_without_translation,
-        );
         r.register_typed_both_stage::<CameraProjectionMatrix>(camera.projection);
         r.register_typed_both_stage::<CameraProjectionInverseMatrix>(camera.projection_inv);
         r.register_typed_both_stage::<CameraWorldNoneTranslationMatrix>(

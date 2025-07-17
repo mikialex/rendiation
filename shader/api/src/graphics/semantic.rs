@@ -178,7 +178,6 @@ only_vertex!(VertexRenderNormal, Vec3<f32>);
 
 both!(CameraProjectionMatrix, Mat4<f32>);
 both!(CameraProjectionInverseMatrix, Mat4<f32>);
-both!(CameraViewNoneTranslationMatrix, Mat4<f32>);
 both!(CameraWorldNoneTranslationMatrix, Mat4<f32>);
 both!(CameraWorldPositionHP, HighPrecisionTranslation);
 
