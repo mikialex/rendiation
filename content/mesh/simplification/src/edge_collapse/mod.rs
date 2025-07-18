@@ -3,7 +3,7 @@ use crate::*;
 mod vertex_kind;
 pub use vertex_kind::*;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct EdgeCollapseConfig {
   /// the target index count to simplify, it may be not achieved due to the topology constraint and
   /// error config
@@ -136,7 +136,7 @@ where
       &mut collapse_locked,
       &mut vertex_quadrics,
       &edge_collapses[0..edge_collapse_count],
-      &collapse_order,
+      &collapse_order[0..edge_collapse_count],
       &remap,
       &wedge,
       &vertex_kind,

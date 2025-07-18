@@ -8,11 +8,25 @@ use rendiation_mesh_simplification::*;
 use walkdir::WalkDir;
 
 fn main() {
+  let config = EdgeCollapseConfig {
+    target_index_count: 500,
+    target_error: 100.,
+    lock_border: false,
+  };
+
+  // snippet for single mesh debug
   // let path = "/Users/mikialex/dev/resources/obj/bunny.obj";
-  // test_simplification(path);
+  // test_simplification(path, config);
 
   let obj_test_root = "/Users/mikialex/dev/resources/obj";
 
+  println!(
+    "## Start simplification test in folder:<{:?}>",
+    obj_test_root
+  );
+  println!("test config: {:#?}", config);
+
+  println!();
   for entry in WalkDir::new(obj_test_root).into_iter() {
     let entry = entry.unwrap();
 
@@ -22,14 +36,29 @@ fn main() {
 
     if let Some(extension) = entry.path().extension().and_then(OsStr::to_str) {
       if extension == "obj" {
-        test_simplification(entry.path());
+        test_simplification(entry.path(), config);
+        println!();
       }
     }
   }
 }
 
-fn test_simplification(obj_path: impl AsRef<Path> + Clone + Debug) {
-  let mesh = Mesh::load(obj_path.clone()).unwrap();
+fn test_simplification(obj_path: impl AsRef<Path> + Clone + Debug, config: EdgeCollapseConfig) {
+  let mesh = match Mesh::load(obj_path.clone()) {
+    Ok(mesh) => mesh,
+    Err(err) => {
+      println!("# Obj parse error:<{:?}>: {}", obj_path, err);
+      return;
+    }
+  };
+
+  if config.target_index_count > mesh.indices.len() {
+    println!(
+      "# Input mesh is too simple for simplification:<{:?}>:",
+      obj_path
+    );
+    return;
+  }
 
   println!("# For input mesh path:<{:?}>:", obj_path);
   println!("  input: face_count: {}", mesh.indices.len() / 3,);
@@ -41,17 +70,7 @@ fn test_simplification(obj_path: impl AsRef<Path> + Clone + Debug) {
   let EdgeCollapseResult {
     result_error,
     result_count,
-  } = simplify_by_edge_collapse(
-    &mut dest_idx,
-    &mesh.indices,
-    &mesh.vertices,
-    None,
-    EdgeCollapseConfig {
-      target_index_count: 500,
-      target_error: 100.,
-      lock_border: false,
-    },
-  );
+  } = simplify_by_edge_collapse(&mut dest_idx, &mesh.indices, &mesh.vertices, None, config);
 
   let duration = start.elapsed();
 
@@ -61,7 +80,6 @@ fn test_simplification(obj_path: impl AsRef<Path> + Clone + Debug) {
     "  simplified result: face_count: {result_face_count}, error: {result_error}, time: {}",
     duration.as_micros() as f64 / 1000.0
   );
-  println!();
 }
 
 #[derive(Clone, Default)]
