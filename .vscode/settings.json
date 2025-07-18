@@ -213,6 +213,7 @@
         "vsync",
         "vtable",
         "Vulkan",
+        "walkdir",
         "wasm",
         "webgl",
         "webgpu",

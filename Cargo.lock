@@ -3807,6 +3807,7 @@ dependencies = [
  "rendiation-geometry",
  "rendiation-mesh-core",
  "tobj",
+ "walkdir",
 ]
 
 [[package]]

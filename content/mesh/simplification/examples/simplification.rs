@@ -1,12 +1,39 @@
+use std::ffi::OsStr;
 use std::path::Path;
 use std::{fmt::Debug, time::Instant};
 
 use rendiation_algebra::{Vec2, Vec3};
 use rendiation_mesh_core::CommonVertex;
 use rendiation_mesh_simplification::*;
+use walkdir::WalkDir;
 
 fn main() {
-  let mesh = Mesh::load("/Users/mikialex/dev/resources/obj/bunny.obj").unwrap();
+  // let path = "/Users/mikialex/dev/resources/obj/bunny.obj";
+  // test_simplification(path);
+
+  let obj_test_root = "/Users/mikialex/dev/resources/obj";
+
+  for entry in WalkDir::new(obj_test_root).into_iter() {
+    let entry = entry.unwrap();
+
+    if entry.path().is_dir() {
+      continue;
+    }
+
+    if let Some(extension) = entry.path().extension().and_then(OsStr::to_str) {
+      if extension == "obj" {
+        test_simplification(entry.path());
+      }
+    }
+  }
+}
+
+fn test_simplification(obj_path: impl AsRef<Path> + Clone + Debug) {
+  let mesh = Mesh::load(obj_path.clone()).unwrap();
+
+  println!("# For input mesh path:<{:?}>:", obj_path);
+  println!("  input: face_count: {}", mesh.indices.len() / 3,);
+
   let mut dest_idx = mesh.indices.clone();
 
   let start = Instant::now();
@@ -28,10 +55,13 @@ fn main() {
 
   let duration = start.elapsed();
 
+  let result_face_count = result_count / 3;
+
   println!(
-    "result count: {result_count}, error: {result_error}, time: {}",
+    "  simplified result: face_count: {result_face_count}, error: {result_error}, time: {}",
     duration.as_micros() as f64 / 1000.0
   );
+  println!();
 }
 
 #[derive(Clone, Default)]
@@ -65,13 +95,12 @@ impl Mesh {
 
       for i in 0..mesh.indices.len() {
         let pi = mesh.indices[i] as usize;
-        let ni = mesh.normal_indices[i] as usize;
-        let ti = mesh.texcoord_indices[i] as usize;
 
         let position: [f32; 3] = mesh.positions[3 * pi..3 * (pi + 1)].try_into().unwrap();
         let position = position.into();
 
         let normal = if !mesh.normals.is_empty() {
+          let ni = mesh.normal_indices[i] as usize;
           let normal: [f32; 3] = mesh.normals[3 * ni..3 * (ni + 1)].try_into().unwrap();
           normal.into()
         } else {
@@ -79,6 +108,7 @@ impl Mesh {
         };
 
         let uv = if !mesh.texcoords.is_empty() {
+          let ti = mesh.texcoord_indices[i] as usize;
           let uv: [f32; 2] = mesh.texcoords[2 * ti..2 * (ti + 1)].try_into().unwrap();
           uv.into()
         } else {
@@ -108,13 +138,6 @@ impl Mesh {
     remap_vertex_buffer(&mut result.vertices, &vertices, &remap);
     remap_index_buffer(&mut indices, None, total_indices, &remap);
     result.indices = indices;
-
-    println!(
-      "# {:?}: {} vertices, {} triangles",
-      path,
-      result.vertices.len(),
-      total_indices / 3,
-    );
 
     Ok(result)
   }

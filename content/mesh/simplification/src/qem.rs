@@ -7,8 +7,9 @@ use crate::*;
 /// [   , a11, a21, b1]
 /// [   ,    , a22, b2]
 /// [   ,    ,    , c ]
+///
+/// a00*x^2 + a11*y^2 + a22*z^2 + 2*(a10*xy + a20*xz + a21*yz) + b0*x + b1*y + b2*z + c
 /// ```
-// a00*x^2 + a11*y^2 + a22*z^2 + 2*(a10*xy + a20*xz + a21*yz) + b0*x + b1*y + b2*z + c
 #[derive(Clone, Copy, Default)]
 pub struct Quadric {
   a00: f32,
@@ -118,7 +119,7 @@ impl Quadric {
 
     let distance = normal.x * p0.x + normal.y * p0.y + normal.z * p0.z;
 
-    // we use sqrtf(area) so that the error is scaled linearly; this tends to improve silhouettes
+    // we use sqrt(area) so that the error is scaled linearly; this tends to improve silhouettes
     Self::from_plane(
       normal.x,
       normal.y,
