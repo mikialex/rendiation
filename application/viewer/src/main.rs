@@ -20,6 +20,7 @@ use rendiation_geometry::*;
 use rendiation_gui_3d::*;
 use rendiation_lighting_gpu_system::*;
 use rendiation_lighting_transport::*;
+use rendiation_mesh_lod_graph_rendering::*;
 use rendiation_scene_rendering_gpu_gles::*;
 use rendiation_shader_api::*;
 use rendiation_texture_gpu_base::SamplerConvertExt;
@@ -72,6 +73,7 @@ pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
   register_gui3d_extension_data_model();
   register_area_lighting_data_model();
   register_sky_env_data_model();
+  register_scene_mesh_lod_graph_data_model();
 
   run_application(move |cx| {
     use_egui_cx(cx, |cx, egui_cx| {

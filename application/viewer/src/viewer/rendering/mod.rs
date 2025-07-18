@@ -66,6 +66,7 @@ struct ViewerRendererInstance {
   lighting: LightingRenderingCxPrepareCtx,
   culling: ViewerCulling,
   oit: ViewerTransparentRenderer,
+  mesh_lod_graph_renderer: Option<MeshLODGraphSceneRenderer>,
 }
 
 pub struct Viewer3dRenderingCtx {
@@ -169,6 +170,8 @@ impl Viewer3dRenderingCtx {
       self.enable_indirect_occlusion_culling_support,
     );
 
+    let mut mesh_lod_graph_renderer = None;
+
     let raster_scene_renderer = match self.current_renderer_impl_ty {
       RasterizationRenderBackendType::Gles => qcx.scope(|qcx| {
         use_gles_scene_renderer(
@@ -210,6 +213,15 @@ impl Viewer3dRenderingCtx {
         if self.rtx_renderer_enabled {
           rtx_mesh = mesh.clone();
         }
+
+        mesh_lod_graph_renderer = use_mesh_lod_graph_scene_renderer(qcx);
+
+        let mesh = qcx.when_render(|| {
+          Box::new(vec![
+            Box::new(mesh.unwrap()) as Box<dyn IndirectModelShapeRenderImpl>,
+            Box::new(mesh_lod_graph_renderer.clone().unwrap()),
+          ]) as Box<dyn IndirectModelShapeRenderImpl>
+        });
 
         use_indirect_renderer(qcx, self.ndc.enable_reverse_z, materials, mesh, t_clone)
           .map(|r| Box::new(r) as Box<dyn SceneRenderer>)
@@ -280,6 +292,7 @@ impl Viewer3dRenderingCtx {
       lighting: lighting.unwrap(),
       culling: culling.unwrap(),
       oit,
+      mesh_lod_graph_renderer,
     })
   }
 
@@ -402,11 +415,25 @@ impl Viewer3dRenderingCtx {
         self.picker.notify_frame_id_buffer_not_available();
       }
     } else {
-      let current_view_projection_inv = scene_derive
+      let camera_transform = scene_derive
         .camera_transforms
         .access(&content.main_camera)
-        .unwrap()
-        .view_projection_inv;
+        .unwrap();
+      let current_view_projection_inv = camera_transform.view_projection_inv;
+
+      if let Some(mesh_lod_graph_renderer) = &renderer.mesh_lod_graph_renderer {
+        if camera_transform
+          .projection
+          .check_is_perspective_matrix_assume_common_projection()
+        {
+          mesh_lod_graph_renderer.setup_lod_decider(
+            &gpu,
+            camera_transform.projection,
+            camera_transform.world,
+            render_target.size().into_f32().into(),
+          );
+        }
+      }
 
       let ras_renderer = ViewerSceneRenderer {
         scene: renderer.raster_scene_renderer.as_ref(),

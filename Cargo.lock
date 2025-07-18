@@ -5182,6 +5182,7 @@ dependencies = [
  "rendiation-lighting-transport",
  "rendiation-mesh-core",
  "rendiation-mesh-generator",
+ "rendiation-mesh-lod-graph-rendering",
  "rendiation-occlusion-culling",
  "rendiation-oit",
  "rendiation-scene-core",
