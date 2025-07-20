@@ -1,5 +1,3 @@
-use fast_hash_collection::FastHashSet;
-
 use crate::*;
 
 pub trait MeshLodGraphBuilder {
@@ -64,24 +62,22 @@ impl MeshLODGraphLevel {
       .iter()
       .enumerate()
       .for_each(|(group_idx, group)| {
-        // collect all indices in this group, deduplicate adjacent indices between
-        // meshlets
-        let mut index_range = FastHashSet::default();
-        for meshlet in previous_level
+        // combine all indices in this group
+        let index_range = previous_level
           .meshlets
           .get_mut(group.meshlets.into_range())
           .unwrap()
-        {
-          for idx in previous_level
-            .mesh
-            .indices
-            .get(meshlet.index_range.into_range())
-            .unwrap()
-          {
-            index_range.insert(*idx);
-          }
-        }
-        let index_range: Vec<_> = index_range.drain().collect();
+          .iter()
+          .flat_map(|meshlet| {
+            previous_level
+              .mesh
+              .indices
+              .get(meshlet.index_range.into_range())
+              .unwrap()
+              .iter()
+              .cloned()
+          })
+          .collect::<Vec<_>>();
 
         let locked_edges = compute_locking_edge(&previous_level.groups, group_idx as u32, &edges);
 
@@ -89,7 +85,7 @@ impl MeshLODGraphLevel {
           &previous_level.mesh.vertices,
           &index_range,
           &locked_edges,
-          index_range.len() as u32 / 2, // remove half of face
+          index_range.len() as u32 / 3 / 2, // remove half of face
         );
 
         let (meshlets, simplified_mesh) = builder.segment_triangles(simplified.mesh);

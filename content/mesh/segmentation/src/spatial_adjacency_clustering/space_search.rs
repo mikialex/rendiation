@@ -60,7 +60,7 @@ where
         }
         NextTraverseVisit::SkipChildren
       } else if node.bounding.contains(&position)
-        || node.bounding.nearest_point(position).distance2_to(position) > minimal
+        || node.bounding.nearest_point(position).distance2_to(position) <= minimal
       {
         NextTraverseVisit::VisitChildren
       } else {

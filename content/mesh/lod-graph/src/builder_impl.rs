@@ -1,5 +1,5 @@
 use fast_hash_collection::FastHashMap;
-use rendiation_mesh_segmentation::{build_meshlets, ClusteringConfig};
+use rendiation_mesh_segmentation::{build_meshlets, build_meshlets_bound, ClusteringConfig};
 use rendiation_mesh_simplification::{
   generate_vertex_remap, remap_index_buffer, remap_vertex_buffer, simplify_by_edge_collapse,
   EdgeCollapseConfig,
@@ -65,16 +65,20 @@ impl MeshLodGraphBuilder for DefaultMeshLODBuilder {
   }
 
   fn segment_triangles(&self, input: MeshBufferSource) -> (Vec<Meshlet>, MeshBufferSource) {
-    let mut meshlets = vec![rendiation_mesh_segmentation::Meshlet::default(); input.indices.len()];
-    let mut meshlet_vertices = vec![0; input.vertices.len()];
-    let mut meshlet_triangles = vec![0; input.indices.len()];
+    let config = ClusteringConfig {
+      max_vertices: 64,
+      max_triangles: 124, // NVidia-recommended 126, rounded down to a multiple of 4
+      cone_weight: 0.5,
+    };
+
+    let max_meshlets = build_meshlets_bound(input.indices.len(), &config);
+    let mut meshlets = vec![rendiation_mesh_segmentation::Meshlet::default(); max_meshlets];
+
+    let mut meshlet_vertices = vec![0; max_meshlets * config.max_vertices as usize];
+    let mut meshlet_triangles = vec![0; max_meshlets * config.max_triangles as usize * 3];
 
     let count = build_meshlets::<_, rendiation_mesh_segmentation::BVHSpaceSearchAcceleration>(
-      &ClusteringConfig {
-        max_vertices: 64,
-        max_triangles: 64,
-        cone_weight: 0.0,
-      },
+      &config,
       &input.indices,
       &input.vertices,
       &mut meshlets,

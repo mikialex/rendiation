@@ -21,7 +21,7 @@ mod draw_access;
 use draw_access::*;
 mod draw_prepare;
 use draw_prepare::*;
-use rendiation_mesh_lod_graph::*;
+pub use rendiation_mesh_lod_graph::*;
 use rendiation_webgpu_reactive_utils::*;
 
 declare_entity!(LODGraphMeshEntity);

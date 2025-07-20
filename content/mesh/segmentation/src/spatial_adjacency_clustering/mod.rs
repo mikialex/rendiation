@@ -48,7 +48,7 @@ impl ClusteringConfig {
   }
 }
 
-fn build_meshlets_bound(index_count: usize, config: &ClusteringConfig) -> usize {
+pub fn build_meshlets_bound(index_count: usize, config: &ClusteringConfig) -> usize {
   assert!(index_count % 3 == 0);
   assert!(index_count > 0);
   assert!(config.validate());
@@ -76,6 +76,7 @@ pub fn build_meshlets<V: Positioned<Position = Vec3<f32>>, SA: SpaceSearchAccele
   meshlet_vertices: &mut [u32],
   meshlet_triangles: &mut [u8],
 ) -> usize {
+  config.validate();
   assert!(indices.len() % 3 == 0);
   assert!(indices.len() >= 3);
 
