@@ -1,9 +1,6 @@
 use fast_hash_collection::FastHashMap;
 use rendiation_mesh_segmentation::{build_meshlets, build_meshlets_bound, ClusteringConfig};
-use rendiation_mesh_simplification::{
-  generate_vertex_remap, remap_index_buffer, remap_vertex_buffer, simplify_by_edge_collapse,
-  EdgeCollapseConfig,
-};
+use rendiation_mesh_simplification::{simplify_by_edge_collapse, EdgeCollapseConfig};
 
 use crate::*;
 
@@ -33,7 +30,7 @@ impl MeshLodGraphBuilder for DefaultMeshLODBuilder {
       Some(&vertex_lock),
       EdgeCollapseConfig {
         target_index_count: target_tri_num as usize * 3,
-        target_error: f32::INFINITY, // todo, should we limit it?
+        target_error: f32::INFINITY, // disable error limit
         lock_border: false, /* border should be able to be simplified unless it's locked by our config */
       },
     );
@@ -42,36 +39,32 @@ impl MeshLodGraphBuilder for DefaultMeshLODBuilder {
       .unwrap()
       .to_vec();
 
-    let mut remap = vec![0; simplified_indices.len()];
-    let total_vertices = generate_vertex_remap(&mut remap, Some(&simplified_indices), vertices);
-
-    let mut result_vertices = vec![CommonVertex::default(); total_vertices];
-    let mut result_indices = vec![0; simplified_indices.len()];
-    remap_vertex_buffer(&mut result_vertices, vertices, &remap);
-    remap_index_buffer(
-      &mut result_indices,
-      Some(&simplified_indices),
-      simplified_indices.len(),
-      &remap,
-    );
+    // todo, improve
+    let simplified_indices = simplified_indices
+      .array_chunks::<3>()
+      .filter(|&[a, b, c]| a != b && b != c && c != a)
+      .flatten()
+      .copied()
+      .collect::<Vec<_>>();
 
     MeshLODGraphSimplificationResult {
-      mesh: MeshBufferSource {
-        indices: result_indices,
-        vertices: result_vertices,
-      },
+      simplified_indices,
       error: result.result_error,
     }
   }
 
-  fn segment_triangles(&self, input: MeshBufferSource) -> (Vec<Meshlet>, MeshBufferSource) {
+  fn segment_triangles(
+    &self,
+    vertices: &[CommonVertex],
+    indices: &[u32],
+  ) -> (Vec<Meshlet>, Vec<u32>) {
     let config = ClusteringConfig {
       max_vertices: 64,
       max_triangles: 124, // NVidia-recommended 126, rounded down to a multiple of 4
       cone_weight: 0.5,
     };
 
-    let max_meshlets = build_meshlets_bound(input.indices.len(), &config);
+    let max_meshlets = build_meshlets_bound(indices.len(), &config);
     let mut meshlets = vec![rendiation_mesh_segmentation::Meshlet::default(); max_meshlets];
 
     let mut meshlet_vertices = vec![0; max_meshlets * config.max_vertices as usize];
@@ -79,14 +72,14 @@ impl MeshLodGraphBuilder for DefaultMeshLODBuilder {
 
     let count = build_meshlets::<_, rendiation_mesh_segmentation::BVHSpaceSearchAcceleration>(
       &config,
-      &input.indices,
-      &input.vertices,
+      indices,
+      vertices,
       &mut meshlets,
       &mut meshlet_vertices,
       &mut meshlet_triangles,
     );
 
-    let mut indices = Vec::with_capacity(input.indices.len());
+    let mut indices = Vec::with_capacity(indices.len());
     let mut ranges = Vec::with_capacity(meshlets.len());
     let mut start = 0;
 
@@ -98,9 +91,9 @@ impl MeshLodGraphBuilder for DefaultMeshLODBuilder {
         .unwrap()
         .array_chunks::<3>();
       for [a, b, c] in tri {
-        indices.push(meshlet_vertices[*a as usize] as u32);
-        indices.push(meshlet_vertices[*b as usize] as u32);
-        indices.push(meshlet_vertices[*c as usize] as u32);
+        indices.push(meshlet_vertices[*a as usize]);
+        indices.push(meshlet_vertices[*b as usize]);
+        indices.push(meshlet_vertices[*c as usize]);
       }
 
       ranges.push(OffsetSize {
@@ -120,18 +113,13 @@ impl MeshLodGraphBuilder for DefaultMeshLODBuilder {
           Sphere::from_points(
             indices[range.into_range()]
               .iter()
-              .map(|idx| input.vertices[*idx as usize].position),
+              .map(|idx| vertices[*idx as usize].position),
           )
         },
       })
       .collect();
 
-    let mesh = MeshBufferSource {
-      indices,
-      vertices: input.vertices,
-    };
-
-    (meshlets, mesh)
+    (meshlets, indices)
   }
 
   fn segment_meshlets(&self, input: &[Meshlet], adj: &MeshletAdjacencyInfo) -> SegmentResult {

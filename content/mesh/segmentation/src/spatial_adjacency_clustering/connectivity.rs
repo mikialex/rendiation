@@ -9,7 +9,7 @@ impl TriangleAdjacency {
     let mut adjacency = Self {
       counts: vec![0; vertex_count],
       offsets: vec![0; vertex_count],
-      face_ids: vec![Default::default(); indices.len()],
+      face_ids: vec![0; indices.len()],
     };
 
     for index in indices {
@@ -27,6 +27,10 @@ impl TriangleAdjacency {
 
     // fill triangle data
     for (i, [a, b, c]) in indices.array_chunks::<3>().enumerate() {
+      // we must reject the triangle here, because when we remove triangle from self, we early exist
+      // for first triangle.
+      assert!(a != b && b != c && c != a);
+
       adjacency.face_ids[adjacency.offsets[*a as usize] as usize] = i as u32;
       adjacency.face_ids[adjacency.offsets[*b as usize] as usize] = i as u32;
       adjacency.face_ids[adjacency.offsets[*c as usize] as usize] = i as u32;
@@ -46,9 +50,9 @@ impl TriangleAdjacency {
   }
 
   /// note: the return is triangle idx
-  pub fn iter_adjacency_faces(&self, vertex: usize) -> impl Iterator<Item = u32> + '_ {
-    let start = self.offsets[vertex] as usize;
-    let count = self.counts[vertex] as usize;
+  pub fn iter_adjacency_faces(&self, index: usize) -> impl Iterator<Item = u32> + '_ {
+    let start = self.offsets[index] as usize;
+    let count = self.counts[index] as usize;
     self
       .face_ids
       .get(start..start + count)
@@ -63,6 +67,11 @@ impl TriangleAdjacency {
 
       let start = self.offsets[index] as usize;
       let count = self.counts[index] as usize;
+
+      if count == 0 {
+        continue;
+      }
+
       let neighbors = self.face_ids.get_mut(start..start + count).unwrap();
       let last = neighbors[count - 1];
 

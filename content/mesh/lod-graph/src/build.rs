@@ -1,3 +1,7 @@
+use rendiation_mesh_simplification::{
+  generate_vertex_remap, remap_index_buffer, remap_vertex_buffer,
+};
+
 use crate::*;
 
 pub trait MeshLodGraphBuilder {
@@ -9,7 +13,11 @@ pub trait MeshLodGraphBuilder {
     target_tri_num: u32,
   ) -> MeshLODGraphSimplificationResult;
 
-  fn segment_triangles(&self, input: MeshBufferSource) -> (Vec<Meshlet>, MeshBufferSource);
+  fn segment_triangles(
+    &self,
+    vertices: &[CommonVertex],
+    indices: &[u32],
+  ) -> (Vec<Meshlet>, Vec<u32>);
   fn segment_meshlets(&self, input: &[Meshlet], adj: &MeshletAdjacencyInfo) -> SegmentResult;
 
   fn build_from_mesh(&self, mesh: MeshBufferSource) -> MeshLODGraph
@@ -34,7 +42,7 @@ pub trait MeshLodGraphBuilder {
 }
 
 pub struct MeshLODGraphSimplificationResult {
-  pub mesh: MeshBufferSource,
+  pub simplified_indices: Vec<u32>,
   pub error: f32,
 }
 
@@ -45,8 +53,6 @@ impl MeshLODGraphLevel {
   ) -> Self {
     let mut all_simplified_indices: Vec<u32> =
       Vec::with_capacity(previous_level.mesh.indices.len());
-    let mut all_simplified_vertices: Vec<CommonVertex> =
-      Vec::with_capacity(previous_level.mesh.vertices.len());
     let mut all_meshlets: Vec<Meshlet> = Vec::with_capacity(previous_level.meshlets.len());
     let mut simplification_error: Vec<f32> = Vec::with_capacity(previous_level.meshlets.len());
 
@@ -55,7 +61,6 @@ impl MeshLODGraphLevel {
 
     let edges =
       compute_all_meshlet_boundary_edges(&previous_level.meshlets, &previous_level.mesh.indices);
-    let meshlet_adjacency = MeshletAdjacencyInfo::build(&edges);
 
     previous_level
       .groups
@@ -63,7 +68,7 @@ impl MeshLODGraphLevel {
       .enumerate()
       .for_each(|(group_idx, group)| {
         // combine all indices in this group
-        let index_range = previous_level
+        let all_indices_in_group = previous_level
           .meshlets
           .get_mut(group.meshlets.into_range())
           .unwrap()
@@ -83,21 +88,23 @@ impl MeshLODGraphLevel {
 
         let simplified = builder.simplify(
           &previous_level.mesh.vertices,
-          &index_range,
+          &all_indices_in_group,
           &locked_edges,
-          index_range.len() as u32 / 3 / 2, // remove half of face
+          all_indices_in_group.len() as u32 / 3 / 2, // remove half of face
         );
 
-        let (meshlets, simplified_mesh) = builder.segment_triangles(simplified.mesh);
-        all_simplified_indices.extend(simplified_mesh.indices);
-        all_simplified_vertices.extend(simplified_mesh.vertices);
+        let (meshlets, reordered_simplified_indices) = builder.segment_triangles(
+          &previous_level.mesh.vertices,
+          &simplified.simplified_indices,
+        );
+        all_simplified_indices.extend(reordered_simplified_indices);
         simplification_error.push(simplified.error);
 
         all_meshlets.extend(&meshlets);
         let meshlets_len = meshlets.len() as u32;
         ranges.push(OffsetSize {
           offset,
-          size: meshlets_len - offset,
+          size: meshlets_len,
         });
         offset += meshlets_len;
       });
@@ -111,10 +118,8 @@ impl MeshLODGraphLevel {
         g.max_meshlet_simplification_error_among_meshlet_in_their_parent_group += *err;
       });
 
-    let mesh = MeshBufferSource {
-      indices: all_simplified_indices,
-      vertices: all_simplified_vertices,
-    };
+    let edges = compute_all_meshlet_boundary_edges(&all_meshlets, &all_simplified_indices);
+    let meshlet_adjacency = MeshletAdjacencyInfo::build(&edges);
 
     let (mut groups, mut reordered_meshlets, reorder) =
       build_groups_from_meshlets(builder, &all_meshlets, meshlet_adjacency, false);
@@ -150,6 +155,29 @@ impl MeshLODGraphLevel {
       );
     }
 
+    // remap vertex index to remove duplicate and not used vertex.
+    let mut remap = vec![0; previous_level.mesh.vertices.len()];
+    let total_vertices = generate_vertex_remap(
+      &mut remap,
+      Some(&all_simplified_indices),
+      &previous_level.mesh.vertices,
+    );
+
+    let mut result_vertices = vec![CommonVertex::default(); total_vertices];
+    let mut result_indices = vec![0; all_simplified_indices.len()];
+    remap_vertex_buffer(&mut result_vertices, &previous_level.mesh.vertices, &remap);
+    remap_index_buffer(
+      &mut result_indices,
+      Some(&all_simplified_indices),
+      all_simplified_indices.len(),
+      &remap,
+    );
+
+    let mesh = MeshBufferSource {
+      indices: result_indices,
+      vertices: result_vertices,
+    };
+
     Self {
       groups,
       meshlets: reordered_meshlets,
@@ -158,9 +186,9 @@ impl MeshLODGraphLevel {
   }
 
   fn build_base_from_mesh(builder: &dyn MeshLodGraphBuilder, mesh: MeshBufferSource) -> Self {
-    let (meshlets, mesh) = builder.segment_triangles(mesh);
+    let (meshlets, reordered_indices) = builder.segment_triangles(&mesh.vertices, &mesh.indices);
 
-    let edges = compute_all_meshlet_boundary_edges(&meshlets, &mesh.indices);
+    let edges = compute_all_meshlet_boundary_edges(&meshlets, &reordered_indices);
     let meshlet_adjacency = MeshletAdjacencyInfo::build(&edges);
     let (groups, meshlets, _) =
       build_groups_from_meshlets(builder, &meshlets, meshlet_adjacency, true);

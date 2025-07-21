@@ -19,6 +19,7 @@ pub const MESHLET_MAX_TRIANGLES: u32 = 512;
 pub struct Meshlet {
   // offsets within meshlet_vertices and meshlet_triangles arrays with meshlet data
   pub vertex_offset: u32,
+  // todo naming issue, this actually index offset
   pub triangle_offset: u32,
 
   // number of vertices and triangles used in the meshlet; data is stored in consecutive range
