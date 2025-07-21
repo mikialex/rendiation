@@ -129,6 +129,7 @@ struct WinitAppImpl {
   memory: FunctionMemory,
   app_logic: Box<dyn Fn(&mut ApplicationCx)>,
   title: String,
+  has_existed: bool,
 }
 
 impl winit::application::ApplicationHandler for WinitAppImpl {
@@ -191,6 +192,10 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
     _: winit::window::WindowId,
     event: WindowEvent,
   ) {
+    if self.has_existed {
+      return;
+    }
+
     if let Some(WindowWithWGPUSurface {
       window,
       platform_states: event_state,
@@ -210,6 +215,7 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
             let mut cx = DynCx::default();
             self.memory.cleanup(&mut cx as *mut _ as *mut ());
             target.exit();
+            self.has_existed = true;
           }
           WindowEvent::Resized(physical_size) => surface.set_size(Size::from_u32_pair_min_one((
             physical_size.width,
@@ -270,6 +276,7 @@ pub fn run_application(app_logic: impl Fn(&mut ApplicationCx) + 'static) {
     memory: Default::default(),
     app_logic: Box::new(app_logic),
     title: "Rendiation Viewer".to_string(),
+    has_existed: false,
   };
 
   event_loop.run_app(&mut app).unwrap();
