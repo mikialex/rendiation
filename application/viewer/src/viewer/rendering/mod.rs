@@ -117,7 +117,7 @@ impl Viewer3dRenderingCtx {
       swap_chain,
       enable_indirect_occlusion_culling_support: false,
       transparent_config: ViewerTransparentContentRenderStyle::NaiveAlphaBlend,
-      current_renderer_impl_ty: RasterizationRenderBackendType::Gles,
+      current_renderer_impl_ty: RasterizationRenderBackendType::Indirect,
       rtx_effect_mode: RayTracingEffectMode::ReferenceTracing,
       rtx_rendering_enabled: false,
       rtx_renderer_enabled: false,

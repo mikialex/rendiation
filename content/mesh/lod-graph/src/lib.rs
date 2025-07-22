@@ -1,6 +1,6 @@
 #![feature(array_chunks)]
 
-use std::ops::Range;
+use std::{fmt::Debug, ops::Range};
 
 use fast_hash_collection::FastHashSet;
 use rendiation_algebra::*;

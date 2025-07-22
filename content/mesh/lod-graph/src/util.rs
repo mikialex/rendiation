@@ -1,6 +1,6 @@
 use crate::*;
 
-#[derive(Clone, Copy, Serialize, Deserialize, Facet)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Facet)]
 pub struct OffsetSize {
   pub offset: u32,
   pub size: u32,

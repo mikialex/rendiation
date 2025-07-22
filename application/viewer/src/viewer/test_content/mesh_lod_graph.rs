@@ -2,8 +2,8 @@ use rendiation_mesh_generator::*;
 
 use crate::*;
 
-pub fn test_mesh_lod_graph(_writer: &mut SceneWriter) {
-  {
+pub fn test_mesh_lod_graph(writer: &mut SceneWriter) {
+  let mesh = {
     let lod_mesh_writer = global_entity_of::<LODGraphMeshEntity>().entity_writer();
     let mesh = build_lod_graph_mesh(|builder| {
       builder.triangulate_parametric(
@@ -15,8 +15,30 @@ pub fn test_mesh_lod_graph(_writer: &mut SceneWriter) {
 
     lod_mesh_writer
       .with_component_value_writer::<LODGraphData>(Some(mesh))
-      .new_entity();
+      .new_entity()
+  };
+
+  let material = PhysicalSpecularGlossinessMaterialDataView {
+    albedo: Vec3::splat(0.8),
+    ..Default::default()
   }
+  .write(&mut writer.pbr_sg_mat_writer);
+
+  let child = writer.create_root_child();
+  writer.set_local_matrix(child, Mat4::translate((-2., 0., -3.)));
+
+  let std_model = {
+    let writer: &mut EntityWriter<StandardModelEntity> = &mut writer.std_model_writer;
+    writer.component_value_writer::<StandardModelRefPbrSGMaterial>(material.some_handle());
+    writer.component_value_writer::<StandardModelRefLodGraphMeshEntity>(mesh.some_handle());
+    writer.new_entity()
+  };
+  SceneModelDataView {
+    model: std_model,
+    scene: writer.scene,
+    node: child,
+  }
+  .write(&mut writer.model_writer);
 }
 
 /// helper fn to quick build attribute mesh

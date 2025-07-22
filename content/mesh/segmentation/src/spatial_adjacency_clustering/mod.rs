@@ -227,9 +227,9 @@ fn append_meshlet(
   meshlet_offset: u32,
   config: &ClusteringConfig,
 ) -> bool {
-  let av = used[a as usize];
-  let bv = used[b as usize];
-  let cv = used[c as usize];
+  let mut av = used[a as usize];
+  let mut bv = used[b as usize];
+  let mut cv = used[c as usize];
 
   let mut result = false;
 
@@ -256,18 +256,21 @@ fn append_meshlet(
 
   if av == 0xff {
     used[a as usize] = meshlet.vertex_count as u8;
+    av = meshlet.vertex_count as u8;
     meshlet_vertices[(meshlet.vertex_offset + meshlet.vertex_count) as usize] = a;
     meshlet.vertex_count += 1;
   }
 
   if bv == 0xff {
     used[b as usize] = meshlet.vertex_count as u8;
+    bv = meshlet.vertex_count as u8;
     meshlet_vertices[(meshlet.vertex_offset + meshlet.vertex_count) as usize] = b;
     meshlet.vertex_count += 1;
   }
 
   if cv == 0xff {
     used[c as usize] = meshlet.vertex_count as u8;
+    cv = meshlet.vertex_count as u8;
     meshlet_vertices[(meshlet.vertex_offset + meshlet.vertex_count) as usize] = c;
     meshlet.vertex_count += 1;
   }

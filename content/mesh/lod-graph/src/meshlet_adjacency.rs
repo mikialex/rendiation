@@ -157,7 +157,9 @@ pub struct EdgeFinder(pub FastHashSet<Edge>);
 
 impl EdgeFinder {
   pub fn add_edge(&mut self, a: u32, b: u32) {
-    self.0.insert(Edge(a, b));
+    if !self.0.remove(&Edge(a, b)) {
+      self.0.insert(Edge(a, b));
+    }
   }
   fn has_shared_edge(&self, other: &Self) -> bool {
     for e in &self.0 {
