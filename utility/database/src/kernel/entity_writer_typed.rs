@@ -178,4 +178,12 @@ impl<E: EntitySemantic> EntityWriter<E> {
   pub fn delete_entity(&mut self, handle: EntityHandle<E>) {
     self.inner.delete_entity(handle.handle)
   }
+
+  /// shallow clone
+  pub fn clone_entity(&mut self, src: EntityHandle<E>) -> EntityHandle<E> {
+    EntityHandle {
+      handle: self.inner.clone_entity(src.handle),
+      ty: PhantomData,
+    }
+  }
 }

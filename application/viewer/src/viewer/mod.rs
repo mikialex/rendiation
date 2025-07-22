@@ -133,7 +133,14 @@ pub enum ViewerCxStage<'a> {
   /// this stage is standalone but not merged with SceneContentUpdate because
   /// user may read write scene freely
   #[non_exhaustive]
-  Gui { egui_ctx: &'a mut egui::Context },
+  Gui {
+    egui_ctx: &'a mut egui::Context,
+    global: &'a mut FeaturesGlobalUIStates,
+  },
+}
+
+pub struct FeaturesGlobalUIStates {
+  features: fast_hash_collection::FastHashMap<&'static str, bool>,
 }
 
 #[track_caller]
@@ -147,6 +154,10 @@ pub fn use_viewer<'a>(
       acx.gpu_and_surface.gpu.clone(),
       acx.gpu_and_surface.surface.clone(),
     )
+  });
+
+  let (acx, gui_feature_global_states) = acx.use_plain_state_init(|| FeaturesGlobalUIStates {
+    features: Default::default(),
   });
 
   let (acx, tick_timestamp) = acx.use_plain_state_init(Instant::now);
@@ -244,7 +255,10 @@ pub fn use_viewer<'a>(
       ViewerCx {
         viewer,
         dyn_cx: acx.dyn_cx,
-        stage: ViewerCxStage::Gui { egui_ctx },
+        stage: ViewerCxStage::Gui {
+          egui_ctx,
+          global: gui_feature_global_states,
+        },
       }
       .execute(|viewer| f(viewer));
     }

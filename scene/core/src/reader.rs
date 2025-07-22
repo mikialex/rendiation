@@ -71,10 +71,21 @@ impl SceneReader {
   pub fn read_std_model(&self, id: EntityHandle<StandardModelEntity>) -> StandardModelDataView {
     let m = &self.std_model;
 
-    let pbr_mr = m.read_expected_foreign_key::<StandardModelRefPbrMRMaterial>(id);
+    let material = m
+      .read_foreign_key::<StandardModelRefPbrMRMaterial>(id)
+      .map(SceneMaterialDataView::PbrMRMaterial)
+      .or_else(|| {
+        m.read_foreign_key::<StandardModelRefPbrSGMaterial>(id)
+          .map(SceneMaterialDataView::PbrSGMaterial)
+      })
+      .or_else(|| {
+        m.read_foreign_key::<StandardModelRefUnlitMaterial>(id)
+          .map(SceneMaterialDataView::UnlitMaterial)
+      })
+      .unwrap();
 
     StandardModelDataView {
-      material: SceneMaterialDataView::PbrMRMaterial(pbr_mr),
+      material,
       mesh: m.read_expected_foreign_key::<StandardModelRefAttributesMeshEntity>(id),
       skin: m.read_foreign_key::<StandardModelRefSkin>(id),
     }

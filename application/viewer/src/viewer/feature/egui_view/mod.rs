@@ -35,7 +35,11 @@ impl Default for ViewerUIState {
 pub fn use_viewer_egui(cx: &mut ViewerCx) {
   let (cx, ui_state) = cx.use_plain_state::<ViewerUIState>();
 
-  if let ViewerCxStage::Gui { egui_ctx: ui } = &mut cx.stage {
+  if let ViewerCxStage::Gui {
+    egui_ctx: ui,
+    global,
+  } = &mut cx.stage
+  {
     let viewer = &mut cx.viewer;
 
     egui::TopBottomPanel::top("view top menu").show(ui, |ui| {
@@ -93,6 +97,14 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
       .resizable(true)
       .movable(true)
       .show(ui, |ui| {
+        ui.collapsing("Features panel", |ui| {
+          for (name, show_panel) in global.features.iter_mut() {
+            ui.checkbox(show_panel, *name);
+          }
+        });
+
+        ui.separator();
+
         viewer.rendering.egui(ui);
         ui.separator();
 

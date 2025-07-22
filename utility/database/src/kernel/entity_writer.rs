@@ -158,6 +158,7 @@ impl EntityComponentWriterImpl {
   /// idx must point to living data
   pub unsafe fn clone_component_value(&mut self, src: RawEntityHandle, dst: RawEntityHandle) {
     let src = self.component.get_unchecked(src);
+    self.component.data.grow(dst.index());
     self.write_component(dst, src);
   }
 
