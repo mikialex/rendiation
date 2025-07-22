@@ -25,12 +25,21 @@ pub trait MeshLodGraphBuilder {
     Self: Sized,
   {
     let mut last_level = MeshLODGraphLevel::build_base_from_mesh(self, mesh);
+
+    if DEBUG_LOG {
+      last_level.print_debug();
+    }
+
     let mut levels = Vec::new();
 
     // if the last level is single meshlet, we will have nothing to do
     // and finish build
     while last_level.meshlets.len() != 1 {
       let new_last_level = MeshLODGraphLevel::build_from_finer_level(self, &mut last_level);
+      if DEBUG_LOG {
+        new_last_level.print_debug();
+      }
+
       let last_last_level = std::mem::replace(&mut last_level, new_last_level);
       levels.push(last_last_level);
     }

@@ -22,6 +22,14 @@ impl MeshLodGraphBuilder for DefaultMeshLODBuilder {
       vertex_lock[edge.1 as usize] = true;
     }
 
+    if DEBUG_LOG {
+      let lock_count: usize = vertex_lock.iter().filter(|v| **v).count();
+      println!(
+        "simplify lock ratio: {}",
+        lock_count as f32 / vertices.len() as f32
+      );
+    }
+
     let mut simplified_indices = vec![0; indices.len()];
     let result = simplify_by_edge_collapse(
       &mut simplified_indices,
@@ -46,6 +54,13 @@ impl MeshLodGraphBuilder for DefaultMeshLODBuilder {
       .flatten()
       .copied()
       .collect::<Vec<_>>();
+
+    if DEBUG_LOG {
+      println!(
+        "simplify ratio: {}",
+        simplified_indices.len() as f32 / indices.len() as f32
+      );
+    }
 
     MeshLODGraphSimplificationResult {
       simplified_indices,

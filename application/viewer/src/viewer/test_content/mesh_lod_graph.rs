@@ -53,7 +53,9 @@ pub fn build_lod_graph_mesh(
   let mesh = MeshBufferSource {
     indices: mesh.mesh.index.check_upgrade_to_u32().clone(),
     vertices: mesh.mesh.vertex,
-  };
+  }
+  .remap_vertex();
+
   let mesh = DefaultMeshLODBuilder {}.build_from_mesh(mesh);
   ExternalRefPtr::new(mesh)
 }

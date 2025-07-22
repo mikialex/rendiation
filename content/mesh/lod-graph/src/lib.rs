@@ -14,10 +14,13 @@ mod meshlet_adjacency;
 use meshlet_adjacency::*;
 mod util;
 use facet::*;
+use rendiation_mesh_simplification::*;
 use serde::*;
 pub use util::*;
 mod builder_impl;
 pub use builder_impl::*;
+
+const DEBUG_LOG: bool = true;
 
 #[derive(Clone, Serialize, Deserialize, Facet)]
 pub struct MeshLODGraph {
@@ -31,6 +34,18 @@ pub struct MeshLODGraphLevel {
   /// the index is based on level it self, not the mesh.
   #[facet(opaque)]
   pub mesh: MeshBufferSource,
+}
+
+impl MeshLODGraphLevel {
+  pub fn print_debug(&self) {
+    println!(
+      "level info: meshlet count: {}, group_count: {}, indices_len: {}, vertex_len: {}",
+      self.meshlets.len(),
+      self.groups.len(),
+      self.mesh.indices.len(),
+      self.mesh.vertices.len()
+    );
+  }
 }
 
 #[derive(Clone, Copy, Serialize, Deserialize, Facet)]
@@ -56,4 +71,23 @@ pub struct Meshlet {
 pub struct MeshBufferSource {
   pub indices: Vec<u32>,
   pub vertices: Vec<CommonVertex>,
+}
+
+impl MeshBufferSource {
+  pub fn remap_vertex(self) -> Self {
+    let total_indices = self.indices.len();
+    let mut remap = vec![0; total_indices];
+
+    let total_vertices = generate_vertex_remap(&mut remap, Some(&self.indices), &self.vertices);
+
+    let mut new_vertices = vec![CommonVertex::default(); total_vertices];
+    let mut new_indices = vec![0; total_indices];
+
+    remap_vertex_buffer(&mut new_vertices, &self.vertices, &remap);
+    remap_index_buffer(&mut new_indices, Some(&self.indices), total_indices, &remap);
+    Self {
+      indices: new_indices,
+      vertices: new_vertices,
+    }
+  }
 }
