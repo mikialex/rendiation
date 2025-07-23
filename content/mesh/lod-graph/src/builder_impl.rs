@@ -106,9 +106,9 @@ impl MeshLodGraphBuilder for DefaultMeshLODBuilder {
         .unwrap()
         .array_chunks::<3>();
       for [a, b, c] in tri {
-        indices.push(meshlet_vertices[*a as usize]);
-        indices.push(meshlet_vertices[*b as usize]);
-        indices.push(meshlet_vertices[*c as usize]);
+        indices.push(meshlet_vertices[meshlet.vertex_offset as usize + *a as usize]);
+        indices.push(meshlet_vertices[meshlet.vertex_offset as usize + *b as usize]);
+        indices.push(meshlet_vertices[meshlet.vertex_offset as usize + *c as usize]);
       }
 
       ranges.push(OffsetSize {

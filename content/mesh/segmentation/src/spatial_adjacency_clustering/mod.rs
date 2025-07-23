@@ -195,24 +195,12 @@ pub fn build_meshlets<V: Positioned<Position = Vec3<f32>>, SA: SpaceSearchAccele
   }
 
   if meshlet.triangle_count > 0 {
-    finish_meshlet(&meshlet, meshlet_triangles);
-
     meshlets[meshlet_offset as usize] = meshlet;
     meshlet_offset += 1;
   }
 
   assert!(meshlet_offset as usize <= build_meshlets_bound(indices.len(), config));
   meshlet_offset as usize
-}
-
-fn finish_meshlet(meshlet: &Meshlet, meshlet_triangles: &mut [u8]) {
-  let mut offset = meshlet.triangle_offset + meshlet.triangle_count * 3;
-
-  // fill 4b padding with 0
-  while offset & 3 == 0 {
-    meshlet_triangles[offset as usize] = 0;
-    offset += 1;
-  }
 }
 
 fn append_meshlet(
@@ -244,10 +232,8 @@ fn append_meshlet(
       used[meshlet_vertices[(meshlet.vertex_offset + j) as usize] as usize] = 0xff;
     }
 
-    finish_meshlet(meshlet, meshlet_triangles);
-
     meshlet.vertex_offset += meshlet.vertex_count;
-    meshlet.triangle_offset += (meshlet.triangle_count * 3 + 3) & !3; // 4b padding
+    meshlet.triangle_offset += meshlet.triangle_count * 3;
     meshlet.vertex_count = 0;
     meshlet.triangle_count = 0;
 

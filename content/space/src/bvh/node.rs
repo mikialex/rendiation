@@ -4,6 +4,8 @@ use super::{BVHBounding, FlattenBVH};
 
 pub struct FlattenBVHNode<B: BVHBounding> {
   pub bounding: B,
+  /// note: this range is point to sorted in tree, not the input of tree build
+  /// using [Self::iter_primitive] to get the primitive range of input index
   pub primitive_range: Range<usize>,
   pub self_index: usize,
   pub child: Option<FlattenBVHNodeChildInfo<B>>,

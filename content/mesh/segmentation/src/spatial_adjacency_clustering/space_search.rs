@@ -46,16 +46,16 @@ where
     let mut minimal = f32::MAX;
     self.bvh.traverse(|node, is_leaf| {
       if is_leaf {
-        for tri in node.primitive_range.clone() {
-          if should_skip(tri as u32) {
+        for tri in node.iter_primitive(&self.bvh) {
+          if should_skip(*tri as u32) {
             continue;
           }
           // we only check first vertex;
           let v = vertices[indices[tri * 3] as usize].position();
           let distance = v.distance2_to(position);
-          if distance < minimal {
+          if distance <= minimal {
             minimal = distance;
-            result = tri;
+            result = *tri;
           }
         }
         NextTraverseVisit::SkipChildren

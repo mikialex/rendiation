@@ -161,11 +161,12 @@ fn mesh_segmentation_debug(mesh: CommonMeshBuffer) -> Vec<CommonMeshBuffer> {
     .map(|meshlet| {
       let tri_range = meshlet.triangle_offset as usize
         ..(meshlet.triangle_offset + meshlet.triangle_count * 3) as usize;
+      let offset = meshlet.vertex_offset as usize;
       let tri = meshlet_triangles.get(tri_range).unwrap();
 
       let vertices = tri
         .iter()
-        .map(|i| meshlet_vertices[*i as usize])
+        .map(|i| meshlet_vertices[offset + *i as usize])
         .map(|i| mesh.vertices[i as usize]);
 
       let (indices, vertices) = create_deduplicated_index_vertex_mesh(vertices);
