@@ -11,6 +11,7 @@ pub struct MeshletBatchDrawData {
 impl ShaderPassBuilder for MeshletBatchDrawData {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.meshlets_idx);
+    ctx.binding.bind(&self.scene_model_idx);
   }
 }
 
@@ -80,6 +81,8 @@ impl GraphicsShaderProvider for MeshletGPURenderData {
       );
 
       builder.register::<GeometryPosition>(position);
+      builder.register::<GeometryUVChannel<0>>(zeroed_val());
+      builder.register::<GeometryNormal>(val(Vec3::new(0., 1., 0.)));
 
       builder.primitive_state.topology = PrimitiveTopology::TriangleList;
     })

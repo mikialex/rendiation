@@ -87,6 +87,15 @@ pub struct MeshLODGraphRenderer {
 
 impl MeshLODGraphRenderer {
   pub fn new(gpu: &GPU) -> Self {
+    let indices = StorageBufferReadonlyDataView::<[u32]>::create_by_with_extra_usage(
+      &gpu.device,
+      ZeroedArrayByArrayLength(1_000_000).into(),
+      BufferUsages::INDEX,
+    );
+
+    let indices = create_growable_buffer(gpu, indices, 1_000_000);
+    let index_buffer = GPURangeAllocateMaintainer::new(gpu, indices);
+
     Self {
       scene_model_meshlet_index_vertex_offset: vec![Default::default(); 100],
       meshlet_metadata: create_storage_buffer_range_allocate_pool(gpu, 10000, 10000),
@@ -94,7 +103,7 @@ impl MeshLODGraphRenderer {
         100, 100, gpu,
       ),
       position_buffer: create_storage_buffer_range_allocate_pool(gpu, 1_000_000, 1_000_000),
-      index_buffer: create_storage_buffer_range_allocate_pool(gpu, 1_000_000, 1_000_000),
+      index_buffer,
     }
   }
 
@@ -130,37 +139,31 @@ impl MeshLODGraphRenderer {
     let mut base_index_offset = base_index_offset;
     let mut base_position_offset = base_position_offset;
 
-    for level in &mesh.levels {
+    for (level_index, level) in mesh.levels.iter().enumerate() {
       base_index_offset += level.mesh.indices.len() as u32;
       base_position_offset += level.mesh.vertices.len() as u32;
 
-      let meshlet_gpu_data_level =
-        level
-          .meshlets
-          .iter()
-          .enumerate()
-          .map(|(level_index, meshlet)| MeshletMetaData {
-            index_offset: base_index_offset + meshlet.index_range.offset,
-            index_count: meshlet.index_range.size,
-            position_offset: base_position_offset,
-            bounds: {
-              let self_group = level.groups[meshlet.group_index as usize];
-              let self_lod = LODBound::new_from_group(&self_group);
-              let parent_lod = if level_index == 0 {
-                LODBound::new(
-                  0.,
-                  self_group.union_meshlet_bounding_among_meshlet_in_their_parent_group,
-                )
-              } else {
-                let parent_level = &mesh.levels[level_index - 1];
-                let parent_group =
-                  parent_level.groups[meshlet.group_index_in_previous_level as usize];
-                LODBound::new_from_group(&parent_group)
-              };
-              LODBoundPair::new(self_lod, parent_lod)
-            },
-            ..Default::default()
-          });
+      let meshlet_gpu_data_level = level.meshlets.iter().map(|meshlet| MeshletMetaData {
+        index_offset: base_index_offset + meshlet.index_range.offset,
+        index_count: meshlet.index_range.size,
+        position_offset: base_position_offset,
+        bounds: {
+          let self_group = level.groups[meshlet.group_index as usize];
+          let self_lod = LODBound::new_from_group(&self_group);
+          let parent_lod = if level_index == 0 {
+            LODBound::new(
+              0.,
+              self_group.union_meshlet_bounding_among_meshlet_in_their_parent_group,
+            )
+          } else {
+            let parent_level = &mesh.levels[level_index - 1];
+            let parent_group = parent_level.groups[meshlet.group_index_in_previous_level as usize];
+            LODBound::new_from_group(&parent_group)
+          };
+          LODBoundPair::new(self_lod, parent_lod)
+        },
+        ..Default::default()
+      });
 
       meshlet_gpu_data.extend(meshlet_gpu_data_level);
     }

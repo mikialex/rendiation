@@ -58,7 +58,7 @@ pub struct MeshletGroup {
   pub union_meshlet_bounding_among_meshlet_in_their_parent_group: Sphere,
 }
 
-#[derive(Clone, Copy, Serialize, Deserialize, Facet)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Facet)]
 pub struct Meshlet {
   pub group_index: u32,
   pub group_index_in_previous_level: u32,

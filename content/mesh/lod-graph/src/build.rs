@@ -131,8 +131,8 @@ impl MeshLODGraphLevel {
 
     for (group_id, simplified_meshlet_range) in ranges.iter().enumerate() {
       for simplified_meshlet_idx in simplified_meshlet_range.into_range() {
-        let simplified_meshlet_idx = reorder[simplified_meshlet_idx];
-        let simplified_meshlet = &mut reordered_meshlets[simplified_meshlet_idx as usize];
+        let reordered_simplified_meshlet_idx = reorder[simplified_meshlet_idx];
+        let simplified_meshlet = &mut reordered_meshlets[reordered_simplified_meshlet_idx as usize];
         simplified_meshlet.group_index_in_previous_level = group_id as u32;
       }
     }
