@@ -27,7 +27,7 @@ impl TriangleAdjacency {
 
     // fill triangle data
     for (i, [a, b, c]) in indices.array_chunks::<3>().enumerate() {
-      // we must reject the triangle here, because when we remove triangle from self, we early exist
+      // we must reject the degenerate triangle here, because when we remove triangle from self, we early exist
       // for first triangle.
       assert!(a != b && b != c && c != a);
 
@@ -68,9 +68,7 @@ impl TriangleAdjacency {
       let start = self.offsets[index] as usize;
       let count = self.counts[index] as usize;
 
-      if count == 0 {
-        continue;
-      }
+      assert!(count > 0);
 
       let neighbors = self.face_ids.get_mut(start..start + count).unwrap();
       let last = neighbors[count - 1];

@@ -265,12 +265,16 @@ fn create_mesh(
 fn create_segmented_debug_mesh(writer: &mut SceneWriter, mesh: CommonMeshBuffer) {
   let mesh = create_mesh(writer, mesh);
 
-  let material = UnlitMaterialDataView {
-    color: Vec4::splat(1.0), // todo
+  let r: f32 = rand::random();
+  let g: f32 = rand::random();
+  let b: f32 = rand::random();
+
+  let material = PhysicalSpecularGlossinessMaterialDataView {
+    albedo: Vec3::new(r, g, b),
     ..Default::default()
   }
-  .write(&mut writer.unlit_mat_writer);
-  let material = SceneMaterialDataView::UnlitMaterial(material);
+  .write(&mut writer.pbr_sg_mat_writer);
+  let material = SceneMaterialDataView::PbrSGMaterial(material);
 
   let child = writer.create_root_child();
   writer.create_scene_model(material, mesh, child);

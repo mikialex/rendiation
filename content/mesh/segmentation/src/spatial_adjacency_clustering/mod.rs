@@ -154,6 +154,8 @@ pub fn build_meshlets<V: Positioned<Position = Vec3<f32>>, SA: SpaceSearchAccele
 
     if best_triangle == !0 {
       break;
+    } else {
+      assert!(!emitted_flags[best_triangle as usize]);
     }
 
     let best_triangle = best_triangle as usize;
@@ -215,13 +217,11 @@ fn append_meshlet(
   meshlet_offset: u32,
   config: &ClusteringConfig,
 ) -> bool {
-  let mut av = used[a as usize];
-  let mut bv = used[b as usize];
-  let mut cv = used[c as usize];
-
   let mut result = false;
 
-  let used_extra = (av == 0xff) as u32 + (bv == 0xff) as u32 + (cv == 0xff) as u32;
+  let used_extra = (used[a as usize] == 0xff) as u32
+    + (used[b as usize] == 0xff) as u32
+    + (used[c as usize] == 0xff) as u32;
 
   if meshlet.vertex_count + used_extra > config.max_vertices as u32
     || meshlet.triangle_count >= config.max_triangles
@@ -240,26 +240,27 @@ fn append_meshlet(
     result = true;
   }
 
-  if av == 0xff {
+  if used[a as usize] == 0xff {
     used[a as usize] = meshlet.vertex_count as u8;
-    av = meshlet.vertex_count as u8;
     meshlet_vertices[(meshlet.vertex_offset + meshlet.vertex_count) as usize] = a;
     meshlet.vertex_count += 1;
   }
 
-  if bv == 0xff {
+  if used[b as usize] == 0xff {
     used[b as usize] = meshlet.vertex_count as u8;
-    bv = meshlet.vertex_count as u8;
     meshlet_vertices[(meshlet.vertex_offset + meshlet.vertex_count) as usize] = b;
     meshlet.vertex_count += 1;
   }
 
-  if cv == 0xff {
+  if used[c as usize] == 0xff {
     used[c as usize] = meshlet.vertex_count as u8;
-    cv = meshlet.vertex_count as u8;
     meshlet_vertices[(meshlet.vertex_offset + meshlet.vertex_count) as usize] = c;
     meshlet.vertex_count += 1;
   }
+
+  let av = used[a as usize];
+  let bv = used[b as usize];
+  let cv = used[c as usize];
 
   meshlet_triangles[(meshlet.triangle_offset + meshlet.triangle_count * 3) as usize] = av;
   meshlet_triangles[(meshlet.triangle_offset + meshlet.triangle_count * 3 + 1) as usize] = bv;
