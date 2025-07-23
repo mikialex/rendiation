@@ -7,25 +7,37 @@ impl<P: Simplex> FromIterator<P> for NoneIndexedMesh<P::Topology, Vec<P::Vertex>
   }
 }
 
+pub fn create_deduplicated_index_vertex_mesh<T: Eq + Hash + Copy>(
+  vertex: impl Iterator<Item = T>,
+) -> (Vec<u32>, Vec<T>) {
+  let size_estimation = vertex.size_hint().0;
+  let mut new_vertices = Vec::with_capacity(size_estimation);
+
+  let mut hasher =
+    FastHashMap::<T, u32>::with_capacity_and_hasher(size_estimation, FastHasherBuilder::new());
+
+  let mut new_indices = vertex
+    .map(|vertex| {
+      *hasher.entry(vertex).or_insert_with(|| {
+        new_vertices.push(vertex);
+        (new_vertices.len() - 1) as u32
+      })
+    })
+    .collect::<Vec<_>>();
+
+  new_vertices.shrink_to_fit();
+  new_indices.shrink_to_fit();
+
+  (new_indices, new_vertices)
+}
+
 impl<P: Simplex> FromIterator<P> for IndexedMesh<P::Topology, Vec<P::Vertex>, Vec<u32>>
 where
   P::Vertex: std::hash::Hash + Eq + Copy,
 {
   fn from_iter<T: IntoIterator<Item = P>>(iter: T) -> Self {
-    let mut deduplicate = FastHashMap::<P::Vertex, u32>::default();
-    let iter = iter.into_iter();
-
-    let mut vertices: Vec<P::Vertex> = Vec::with_capacity(iter.size_hint().0 * P::DIMENSION);
-
-    let push_v = |v: P::Vertex| {
-      *deduplicate.entry(v).or_insert_with(|| {
-        vertices.push(v);
-        vertices.len() as u32 - 1
-      })
-    };
-
-    let indices = iter.flat_map(|p| p.into_iter()).map(push_v).collect();
-    vertices.shrink_to_fit();
+    let (indices, vertices) =
+      create_deduplicated_index_vertex_mesh(iter.into_iter().flat_map(|p| p.into_iter()));
 
     IndexedMesh::new(vertices, indices)
   }

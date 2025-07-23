@@ -3,7 +3,7 @@ use std::path::Path;
 use std::{fmt::Debug, time::Instant};
 
 use rendiation_algebra::{Vec2, Vec3};
-use rendiation_mesh_core::CommonVertex;
+use rendiation_mesh_core::{create_deduplicated_index_vertex_mesh, CommonVertex};
 use rendiation_mesh_simplification::*;
 use walkdir::WalkDir;
 
@@ -141,22 +141,9 @@ impl Mesh {
       }
     }
 
-    let total_indices = indices.len();
-    let mut remap = vec![0; total_indices];
+    let (indices, vertices) =
+      create_deduplicated_index_vertex_mesh(indices.iter().map(|i| vertices[*i as usize]));
 
-    let mut result = Mesh::default();
-
-    let total_vertices = generate_vertex_remap(&mut remap, None, &vertices);
-
-    result
-      .vertices
-      .resize(total_vertices, CommonVertex::default());
-    let mut indices = vec![0; total_indices];
-
-    remap_vertex_buffer(&mut result.vertices, &vertices, &remap);
-    remap_index_buffer(&mut indices, None, total_indices, &remap);
-    result.indices = indices;
-
-    Ok(result)
+    Ok(Mesh { vertices, indices })
   }
 }

@@ -7,10 +7,11 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
   let (cx, simp_req) = cx.use_plain_state::<Option<SimplifySelectMeshRequest>>();
 
   if let ViewerCxStage::Gui { egui_ctx, global } = &mut cx.stage {
-    let opened = global.features.entry("mesh tools").or_default();
+    let opened = global.features.entry("mesh tools").or_insert(true);
 
     egui::Window::new("Mesh Tools")
       .open(opened)
+      .default_size((100., 100.))
       .vscroll(true)
       .show(egui_ctx, |ui| {
         if cx.viewer.scene.selected_target.is_some() {
@@ -44,11 +45,11 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
 
         dest_idx.resize(result_count, 0);
 
-        let mesh = MeshBufferSource {
+        let mesh = CommonMeshBuffer {
           vertices: mesh.vertices,
           indices: dest_idx,
         }
-        .remap_vertex();
+        .deduplicate_indices_and_remove_unused_vertices();
 
         simp_req.0 = Some(mesh);
       }
@@ -62,9 +63,9 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
   }
 }
 
-struct SimplifySelectMeshRequest(Option<MeshBufferSource>);
+struct SimplifySelectMeshRequest(Option<CommonMeshBuffer>);
 
-fn get_mesh(reader: &SceneReader, target: EntityHandle<SceneModelEntity>) -> MeshBufferSource {
+fn get_mesh(reader: &SceneReader, target: EntityHandle<SceneModelEntity>) -> CommonMeshBuffer {
   let std_model = reader.read_scene_model(target).model;
   let mesh = reader.read_std_model(std_model).mesh;
   let mesh = reader.read_attribute_mesh(mesh);
@@ -98,7 +99,7 @@ fn get_mesh(reader: &SceneReader, target: EntityHandle<SceneModelEntity>) -> Mes
     })
     .collect::<Vec<_>>();
 
-  MeshBufferSource {
+  CommonMeshBuffer {
     indices: indices.read().visit_slice().unwrap().to_vec(),
     vertices,
   }
@@ -107,7 +108,7 @@ fn get_mesh(reader: &SceneReader, target: EntityHandle<SceneModelEntity>) -> Mes
 fn create_simplified_mesh(
   writer: &mut SceneWriter,
   target: EntityHandle<SceneModelEntity>,
-  mesh: MeshBufferSource,
+  mesh: CommonMeshBuffer,
 ) {
   let attribute_mesh = AttributesMeshData {
     attributes: vec![

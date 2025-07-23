@@ -50,11 +50,11 @@ pub fn build_lod_graph_mesh(
   f(&mut builder);
 
   let mut mesh = builder.finish();
-  let mesh = MeshBufferSource {
+  let mesh = CommonMeshBuffer {
     indices: mesh.mesh.index.check_upgrade_to_u32().clone(),
     vertices: mesh.mesh.vertex,
   }
-  .remap_vertex();
+  .deduplicate_indices_and_remove_unused_vertices();
 
   let mesh = DefaultMeshLODBuilder {}.build_from_mesh(mesh);
   ExternalRefPtr::new(mesh)

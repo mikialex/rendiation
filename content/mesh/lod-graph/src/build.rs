@@ -1,7 +1,3 @@
-use rendiation_mesh_simplification::{
-  generate_vertex_remap, remap_index_buffer, remap_vertex_buffer,
-};
-
 use crate::*;
 
 pub trait MeshLodGraphBuilder {
@@ -20,7 +16,7 @@ pub trait MeshLodGraphBuilder {
   ) -> (Vec<Meshlet>, Vec<u32>);
   fn segment_meshlets(&self, input: &[Meshlet], adj: &MeshletAdjacencyInfo) -> SegmentResult;
 
-  fn build_from_mesh(&self, mesh: MeshBufferSource) -> MeshLODGraph
+  fn build_from_mesh(&self, mesh: CommonMeshBuffer) -> MeshLODGraph
   where
     Self: Sized,
   {
@@ -164,37 +160,21 @@ impl MeshLODGraphLevel {
       );
     }
 
-    // remap vertex index to remove duplicate and not used vertex.
-    let mut remap = vec![0; previous_level.mesh.vertices.len()];
-    let total_vertices = generate_vertex_remap(
-      &mut remap,
-      Some(&all_simplified_indices),
-      &previous_level.mesh.vertices,
+    // remove duplicate and not used vertex.
+    let (indices, vertices) = create_deduplicated_index_vertex_mesh(
+      all_simplified_indices
+        .iter()
+        .map(|i| previous_level.mesh.vertices[*i as usize]),
     );
-
-    let mut result_vertices = vec![CommonVertex::default(); total_vertices];
-    let mut result_indices = vec![0; all_simplified_indices.len()];
-    remap_vertex_buffer(&mut result_vertices, &previous_level.mesh.vertices, &remap);
-    remap_index_buffer(
-      &mut result_indices,
-      Some(&all_simplified_indices),
-      all_simplified_indices.len(),
-      &remap,
-    );
-
-    let mesh = MeshBufferSource {
-      indices: result_indices,
-      vertices: result_vertices,
-    };
 
     Self {
       groups,
       meshlets: reordered_meshlets,
-      mesh,
+      mesh: CommonMeshBuffer { indices, vertices },
     }
   }
 
-  fn build_base_from_mesh(builder: &dyn MeshLodGraphBuilder, mesh: MeshBufferSource) -> Self {
+  fn build_base_from_mesh(builder: &dyn MeshLodGraphBuilder, mesh: CommonMeshBuffer) -> Self {
     let (meshlets, reordered_indices) = builder.segment_triangles(&mesh.vertices, &mesh.indices);
 
     let edges = compute_all_meshlet_boundary_edges(&meshlets, &reordered_indices);
