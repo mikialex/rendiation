@@ -4,6 +4,8 @@ use rendiation_mesh_generator::*;
 use crate::*;
 
 pub fn load_default_scene(writer: &mut SceneWriter, _viewer_scene: &Viewer3dSceneCtx) {
+  // test_mesh_lod_graph(writer);
+
   // test_ltc_lighting(writer);
   let transparent_test_root = writer.create_root_child();
   writer.set_local_matrix(transparent_test_root, Mat4::translate((3., 0., -3.)));

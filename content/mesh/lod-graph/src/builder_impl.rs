@@ -56,10 +56,10 @@ impl MeshLodGraphBuilder for DefaultMeshLODBuilder {
       .collect::<Vec<_>>();
 
     if DEBUG_LOG {
-      println!(
-        "simplify ratio: {}",
-        simplified_indices.len() as f32 / indices.len() as f32
-      );
+      let ratio = simplified_indices.len() as f32 / indices.len() as f32;
+      if ratio > 0.5 {
+        println!("warning! simplify ratio not meet requirement: {ratio}",);
+      }
     }
 
     MeshLODGraphSimplificationResult {
@@ -76,7 +76,7 @@ impl MeshLodGraphBuilder for DefaultMeshLODBuilder {
     let config = ClusteringConfig {
       max_vertices: 64,
       max_triangles: 124, // NVidia-recommended 126, rounded down to a multiple of 4
-      cone_weight: 0.5,
+      cone_weight: 0.0,
     };
 
     let max_meshlets = build_meshlets_bound(indices.len(), &config);

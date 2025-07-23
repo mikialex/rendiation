@@ -5183,6 +5183,7 @@ dependencies = [
  "rendiation-mesh-core",
  "rendiation-mesh-generator",
  "rendiation-mesh-lod-graph-rendering",
+ "rendiation-mesh-segmentation",
  "rendiation-mesh-simplification",
  "rendiation-occlusion-culling",
  "rendiation-oit",

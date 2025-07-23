@@ -53,8 +53,7 @@ pub fn build_lod_graph_mesh(
   let mesh = CommonMeshBuffer {
     indices: mesh.mesh.index.check_upgrade_to_u32().clone(),
     vertices: mesh.mesh.vertex,
-  }
-  .deduplicate_indices_and_remove_unused_vertices();
+  };
 
   let mesh = DefaultMeshLODBuilder {}.build_from_mesh(mesh);
   ExternalRefPtr::new(mesh)

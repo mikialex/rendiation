@@ -1,10 +1,15 @@
-use rendiation_mesh_core::{AttributeIndexFormat, AttributesMeshData, CommonVertex};
+use rendiation_mesh_core::{
+  create_deduplicated_index_vertex_mesh, AttributeIndexFormat, AttributesMeshData, CommonVertex,
+};
+use rendiation_mesh_segmentation::*;
 use rendiation_mesh_simplification::*;
 
 use crate::*;
 
 pub fn use_mesh_tools(cx: &mut ViewerCx) {
   let (cx, simp_req) = cx.use_plain_state::<Option<SimplifySelectMeshRequest>>();
+  let (cx, lod_graph_req) = cx.use_plain_state::<Option<CreateMeshLodGraphRequest>>();
+  let (cx, seg_req) = cx.use_plain_state::<Option<MeshSegmentationDebugRequest>>();
 
   if let ViewerCxStage::Gui { egui_ctx, global } = &mut cx.stage {
     let opened = global.features.entry("mesh tools").or_insert(true);
@@ -15,8 +20,14 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
       .vscroll(true)
       .show(egui_ctx, |ui| {
         if cx.viewer.scene.selected_target.is_some() {
-          if ui.button("simplify selected mesh").clicked() {
+          if ui.button("simplification").clicked() {
             *simp_req = Some(SimplifySelectMeshRequest(None));
+          }
+          if ui.button("segmentation").clicked() {
+            *seg_req = Some(MeshSegmentationDebugRequest(None));
+          }
+          if ui.button("create mesh lod graph").clicked() {
+            *lod_graph_req = Some(CreateMeshLodGraphRequest(None));
           }
         } else {
           ui.label("pick a target to view available mesh tool options");
@@ -54,16 +65,114 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
         simp_req.0 = Some(mesh);
       }
     }
+
+    if let Some(req) = lod_graph_req {
+      if let Some(target) = cx.viewer.scene.selected_target {
+        let mesh = get_mesh(reader, target);
+
+        let mesh = DefaultMeshLODBuilder {}.build_from_mesh(mesh);
+        req.0 = Some(mesh);
+      }
+    }
+
+    if let Some(req) = seg_req {
+      if let Some(target) = cx.viewer.scene.selected_target {
+        let mesh = get_mesh(reader, target);
+        req.0 = Some(mesh_segmentation_debug(mesh));
+      }
+    }
   }
 
   if let ViewerCxStage::SceneContentUpdate { writer, .. } = &mut cx.stage {
     if let Some(SimplifySelectMeshRequest(Some(mesh))) = simp_req.take() {
-      create_simplified_mesh(writer, cx.viewer.scene.selected_target.unwrap(), mesh);
+      let target = cx.viewer.scene.selected_target.unwrap();
+      create_simplified_mesh(writer, target, mesh);
+    }
+
+    if let Some(CreateMeshLodGraphRequest(Some(mesh))) = lod_graph_req.take() {
+      let target = cx.viewer.scene.selected_target.unwrap();
+      let mesh = ExternalRefPtr::new(mesh);
+
+      let mesh = global_entity_of::<LODGraphMeshEntity>()
+        .entity_writer()
+        .with_component_value_writer::<LODGraphData>(Some(mesh))
+        .new_entity();
+
+      let std_model = writer
+        .model_writer
+        .read_foreign_key::<SceneModelStdModelRenderPayload>(target)
+        .unwrap();
+      let std_model = writer.std_model_writer.clone_entity(std_model);
+      writer
+        .std_model_writer
+        .write_foreign_key::<StandardModelRefAttributesMeshEntity>(std_model, None)
+        .write_foreign_key::<StandardModelRefLodGraphMeshEntity>(std_model, mesh.into());
+
+      let child = writer.create_root_child();
+
+      SceneModelDataView {
+        model: std_model,
+        scene: writer.scene,
+        node: child,
+      }
+      .write(&mut writer.model_writer);
+    }
+
+    if let Some(MeshSegmentationDebugRequest(Some(meshes))) = seg_req.take() {
+      meshes.into_iter().for_each(|mesh| {
+        create_segmented_debug_mesh(writer, mesh);
+      });
     }
   }
 }
 
+struct CreateMeshLodGraphRequest(Option<MeshLODGraph>);
+
 struct SimplifySelectMeshRequest(Option<CommonMeshBuffer>);
+
+struct MeshSegmentationDebugRequest(Option<Vec<CommonMeshBuffer>>);
+
+fn mesh_segmentation_debug(mesh: CommonMeshBuffer) -> Vec<CommonMeshBuffer> {
+  let config = ClusteringConfig {
+    max_vertices: 64,
+    max_triangles: 124, // NVidia-recommended 126, rounded down to a multiple of 4
+    cone_weight: 0.0,
+  };
+
+  let max_meshlets = build_meshlets_bound(mesh.indices.len(), &config);
+  let mut meshlets = vec![rendiation_mesh_segmentation::Meshlet::default(); max_meshlets];
+
+  let mut meshlet_vertices = vec![0; max_meshlets * config.max_vertices as usize];
+  let mut meshlet_triangles = vec![0; max_meshlets * config.max_triangles as usize * 3];
+
+  let count = build_meshlets::<_, rendiation_mesh_segmentation::BVHSpaceSearchAcceleration>(
+    &config,
+    &mesh.indices,
+    &mesh.vertices,
+    &mut meshlets,
+    &mut meshlet_vertices,
+    &mut meshlet_triangles,
+  );
+
+  meshlets
+    .get(0..count as usize)
+    .unwrap()
+    .iter()
+    .map(|meshlet| {
+      let tri_range = meshlet.triangle_offset as usize
+        ..(meshlet.triangle_offset + meshlet.triangle_count * 3) as usize;
+      let tri = meshlet_triangles.get(tri_range).unwrap();
+
+      let vertices = tri
+        .iter()
+        .map(|i| meshlet_vertices[*i as usize])
+        .map(|i| mesh.vertices[i as usize]);
+
+      let (indices, vertices) = create_deduplicated_index_vertex_mesh(vertices);
+      CommonMeshBuffer { indices, vertices }
+    })
+    .collect()
+}
 
 fn get_mesh(reader: &SceneReader, target: EntityHandle<SceneModelEntity>) -> CommonMeshBuffer {
   let std_model = reader.read_scene_model(target).model;
@@ -105,11 +214,10 @@ fn get_mesh(reader: &SceneReader, target: EntityHandle<SceneModelEntity>) -> Com
   }
 }
 
-fn create_simplified_mesh(
+fn create_mesh(
   writer: &mut SceneWriter,
-  target: EntityHandle<SceneModelEntity>,
   mesh: CommonMeshBuffer,
-) {
+) -> EntityHandle<AttributesMeshEntity> {
   let attribute_mesh = AttributesMeshData {
     attributes: vec![
       (
@@ -150,8 +258,29 @@ fn create_simplified_mesh(
   }
   .build();
 
-  let attribute_mesh = writer.write_attribute_mesh(attribute_mesh).mesh;
+  writer.write_attribute_mesh(attribute_mesh).mesh
+}
 
+fn create_segmented_debug_mesh(writer: &mut SceneWriter, mesh: CommonMeshBuffer) {
+  let mesh = create_mesh(writer, mesh);
+
+  let material = UnlitMaterialDataView {
+    color: Vec4::splat(1.0), // todo
+    ..Default::default()
+  }
+  .write(&mut writer.unlit_mat_writer);
+  let material = SceneMaterialDataView::UnlitMaterial(material);
+
+  let child = writer.create_root_child();
+  writer.create_scene_model(material, mesh, child);
+}
+
+fn create_simplified_mesh(
+  writer: &mut SceneWriter,
+  target: EntityHandle<SceneModelEntity>,
+  mesh: CommonMeshBuffer,
+) {
+  let mesh = create_mesh(writer, mesh);
   let std_model = writer
     .model_writer
     .read_foreign_key::<SceneModelStdModelRenderPayload>(target)
@@ -159,7 +288,7 @@ fn create_simplified_mesh(
   let std_model = writer.std_model_writer.clone_entity(std_model);
   writer
     .std_model_writer
-    .write_foreign_key::<StandardModelRefAttributesMeshEntity>(std_model, attribute_mesh.into());
+    .write_foreign_key::<StandardModelRefAttributesMeshEntity>(std_model, mesh.into());
 
   let child = writer.create_root_child();
 

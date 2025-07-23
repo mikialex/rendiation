@@ -48,6 +48,7 @@ rendiation-scene-rendering-gpu-indirect = { path = "../../scene/rendering/gpu-in
 rendiation-scene-rendering-gpu-ray-tracing = { path = "../../scene/rendering/gpu-ray-tracing" }
 rendiation-mesh-lod-graph-rendering = { path = "../../scene/rendering/mesh-lod-graph" }
 rendiation-mesh-simplification = { path = "../../content/mesh/simplification" }
+rendiation-mesh-segmentation = { path = "../../content/mesh/segmentation" }
 rendiation-occlusion-culling = { path = "../../scene/rendering/occlusion-culling" }
 rendiation-frustum-culling = { path = "../../scene/rendering/frustum-culling" }
 rendiation-oit = { path = "../../scene/rendering/oit" }

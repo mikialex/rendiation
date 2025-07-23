@@ -33,6 +33,7 @@ mod unlit_material {
   declare_entity_associated!(UnlitMaterialAlphaConfig, UnlitMaterialEntity);
   impl AlphaInfoSemantic for UnlitMaterialAlphaConfig {}
 
+  #[derive(Default)]
   pub struct UnlitMaterialDataView {
     pub color: Vec4<f32>,
     pub color_alpha_tex: Option<Texture2DWithSamplingDataView>,
