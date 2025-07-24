@@ -8,10 +8,6 @@ pub use space_search::*;
 
 use crate::*;
 
-// This must be <= 255 since index 0xff is used internally to index a vertex that doesn't belong to
-// a meshlet
-pub const MESHLET_MAX_VERTICES: u8 = 255;
-
 // A reasonable limit is around 2*max_vertices or less
 pub const MESHLET_MAX_TRIANGLES: u32 = 512;
 
@@ -30,7 +26,7 @@ pub struct Meshlet {
 
 pub struct ClusteringConfig {
   pub max_vertices: u8,
-  /// should <= 512
+  /// should <= [MESHLET_MAX_TRIANGLES]
   pub max_triangles: u32,
   /// cone_weight should be set to 0 when cone culling is not used, and a value between 0 and 1
   /// otherwise to balance between cluster size and cone culling efficiency
@@ -69,6 +65,7 @@ pub fn build_meshlets_bound(index_count: usize, config: &ClusteringConfig) -> us
   }
 }
 
+/// return the built meshlet count written into meshlets array
 pub fn build_meshlets<V: Positioned<Position = Vec3<f32>>, SA: SpaceSearchAcceleration<V>>(
   config: &ClusteringConfig,
   indices: &[u32],
@@ -81,9 +78,11 @@ pub fn build_meshlets<V: Positioned<Position = Vec3<f32>>, SA: SpaceSearchAccele
   assert!(indices.len() % 3 == 0);
   assert!(indices.len() >= 3);
 
-  let mut adjacency = TriangleAdjacency::new(indices, vertices.len());
+  if indices.is_empty() {
+    return 0;
+  }
 
-  let mut live_triangles = adjacency.counts.clone();
+  let mut adjacency = TriangleAdjacency::new(indices, vertices.len());
 
   let face_count = indices.len() / 3;
   let mut emitted_flags = vec![false; face_count];
@@ -113,7 +112,6 @@ pub fn build_meshlets<V: Positioned<Position = Vec3<f32>>, SA: SpaceSearchAccele
       indices,
       &adjacency,
       &triangles,
-      &live_triangles,
       &used,
       meshlet_expected_radius,
       config.cone_weight,
@@ -133,7 +131,6 @@ pub fn build_meshlets<V: Positioned<Position = Vec3<f32>>, SA: SpaceSearchAccele
         indices,
         &adjacency,
         &triangles,
-        &live_triangles,
         &used,
         meshlet_expected_radius,
         0.,
@@ -181,10 +178,6 @@ pub fn build_meshlets<V: Positioned<Position = Vec3<f32>>, SA: SpaceSearchAccele
       meshlet_offset += 1;
       meshlet_cone_acc = Default::default();
     }
-
-    live_triangles[a] -= 1;
-    live_triangles[b] -= 1;
-    live_triangles[c] -= 1;
 
     // this makes sure that we spend less time traversing these lists on subsequent iterations
     adjacency.update_by_remove_a_triangle(best_triangle, indices);
@@ -277,12 +270,13 @@ fn get_neighbor_triangle(
   indices: &[u32],
   adjacency: &TriangleAdjacency,
   triangles: &[Cone],
-  live_triangles: &[u32],
   used: &[u8],
   meshlet_expected_radius: f32,
   cone_weight: f32,
   out_extra: Option<&mut u32>,
 ) -> u32 {
+  let live_triangles = &adjacency.counts;
+
   let mut best_triangle = !0;
   let mut best_extra = 5;
   let mut best_score = f32::MAX;
