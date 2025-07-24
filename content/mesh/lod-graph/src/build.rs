@@ -61,8 +61,7 @@ impl MeshLODGraphLevel {
     let mut all_meshlets: Vec<Meshlet> = Vec::with_capacity(previous_level.meshlets.len());
     let mut simplification_error: Vec<f32> = Vec::with_capacity(previous_level.meshlets.len());
 
-    let mut offset = 0;
-    let mut ranges: Vec<OffsetSize> = Vec::with_capacity(previous_level.meshlets.len());
+    let mut ranges = OffsetSizeBufferBuilder::with_capacity(previous_level.meshlets.len());
 
     let edges =
       compute_all_meshlet_boundary_edges(&previous_level.meshlets, &previous_level.mesh.indices);
@@ -106,12 +105,7 @@ impl MeshLODGraphLevel {
         simplification_error.push(simplified.error);
 
         all_meshlets.extend(&meshlets);
-        let meshlets_len = meshlets.len() as u32;
-        ranges.push(OffsetSize {
-          offset,
-          size: meshlets_len,
-        });
-        offset += meshlets_len;
+        ranges.push_size(meshlets.len() as u32);
       });
 
     previous_level
@@ -129,7 +123,7 @@ impl MeshLODGraphLevel {
     let (mut groups, mut reordered_meshlets, reorder) =
       build_groups_from_meshlets(builder, &all_meshlets, meshlet_adjacency, false);
 
-    for (group_id, simplified_meshlet_range) in ranges.iter().enumerate() {
+    for (group_id, simplified_meshlet_range) in ranges.finish().iter().enumerate() {
       for simplified_meshlet_idx in simplified_meshlet_range.into_range() {
         let reordered_simplified_meshlet_idx = reorder[simplified_meshlet_idx];
         let simplified_meshlet = &mut reordered_meshlets[reordered_simplified_meshlet_idx as usize];

@@ -95,8 +95,7 @@ impl MeshLodGraphBuilder for DefaultMeshLODBuilder {
     );
 
     let mut indices = Vec::with_capacity(indices.len());
-    let mut ranges = Vec::with_capacity(meshlets.len());
-    let mut start = 0;
+    let mut ranges = OffsetSizeBufferBuilder::with_capacity(meshlets.len());
 
     for meshlet in meshlets.get(0..count).unwrap() {
       let tri_range = meshlet.triangle_offset as usize
@@ -111,14 +110,11 @@ impl MeshLodGraphBuilder for DefaultMeshLODBuilder {
         indices.push(meshlet_vertices[meshlet.vertex_offset as usize + *c as usize]);
       }
 
-      ranges.push(OffsetSize {
-        offset: start,
-        size: meshlet.triangle_count * 3,
-      });
-      start += meshlet.triangle_count * 3;
+      ranges.push_size(meshlet.triangle_count * 3);
     }
 
     let meshlets = ranges
+      .finish()
       .into_iter()
       .map(|range| Meshlet {
         group_index: 0, // write later when do meshlet segmentation

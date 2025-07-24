@@ -20,3 +20,28 @@ impl From<Range<u32>> for OffsetSize {
     }
   }
 }
+
+pub struct OffsetSizeBufferBuilder {
+  current_offset: u32,
+  buffer: Vec<OffsetSize>,
+}
+
+impl OffsetSizeBufferBuilder {
+  pub fn with_capacity(capacity: usize) -> Self {
+    Self {
+      current_offset: 0,
+      buffer: Vec::with_capacity(capacity),
+    }
+  }
+  pub fn push_size(&mut self, size: u32) {
+    self.buffer.push(OffsetSize {
+      offset: self.current_offset,
+      size,
+    });
+    self.current_offset += size;
+  }
+
+  pub fn finish(self) -> Vec<OffsetSize> {
+    self.buffer
+  }
+}
