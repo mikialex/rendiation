@@ -219,16 +219,17 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
     }
 
     let size_output = cx.gpu.device.make_indirect_dispatch_size_buffer();
-    let work_size_output =
-      create_gpu_readonly_storage(&Vec4::<u32>::zero(), &cx.gpu.device).into_rw_view();
+    let work_size_output = StorageBufferReadonlyDataView::create_by_with_extra_usage(
+      &cx.gpu.device,
+      StorageBufferInit::WithInit(&Vec4::<u32>::zero()),
+      BufferUsages::INDIRECT,
+    )
+    .into_rw_view();
 
     // requested_workgroup_size should always be respected
     let workgroup_size = self.requested_workgroup_size().unwrap_or(256);
-    let workgroup_size_buffer = StorageBufferReadonlyDataView::create_by_with_extra_usage(
-      &cx.gpu.device,
-      StorageBufferInit::WithInit(&workgroup_size),
-      BufferUsages::INDIRECT,
-    );
+    let workgroup_size_buffer =
+      create_gpu_readonly_storage(&workgroup_size, &cx.gpu.device).into_rw_view();
 
     let pipeline = cx.get_or_create_compute_pipeline(&SizeWriter(self), |cx| {
       cx.config_work_group_size(workgroup_size);

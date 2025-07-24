@@ -30,8 +30,13 @@ impl MeshLODExpander {
     );
     let meshlet_idx_output = create_gpu_read_write_storage::<[u32]>(init, device);
     let scene_model_idx_output = create_gpu_read_write_storage::<[u32]>(init, device);
-    let draw_command_output =
-      create_gpu_read_write_storage::<[DrawIndexedIndirectArgsStorage]>(init, device);
+
+    let init = ZeroedArrayByArrayLength(max_meshlet_count as usize);
+    let draw_command_output = StorageBufferDataView::create_by_with_extra_usage(
+      device,
+      StorageBufferInit::<[DrawIndexedIndirectArgsStorage]>::from(init),
+      BufferUsages::INDIRECT,
+    );
 
     cx.record_pass(|pass, device| {
       let mut hasher = shader_hasher_from_marker_ty!(MeshLODMeshExpand);
