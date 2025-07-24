@@ -25,11 +25,7 @@ pub fn classify_vertices(
 
   for i in 0..vertex_count {
     if remap[i] == i as u32 {
-      if let Some(vertex_lock) = vertex_lock
-        && vertex_lock[i]
-      {
-        result[i] = VertexKind::Locked;
-      } else if !wedge.vertex_is_on_seam(i) {
+      if !wedge.vertex_is_on_seam(i) {
         // no attribute seam, need to check if it's manifold
         let openi = openinc[i];
         let openo = openout[i];
@@ -62,7 +58,10 @@ pub fn classify_vertices(
           && openow != INVALID_INDEX as usize
           && openow != w
         {
-          if remap[openiv] == remap[openow] && remap[openov] == remap[openiw] {
+          if remap[openiv] == remap[openow]
+            && remap[openov] == remap[openiw]
+            && remap[openiv] != remap[openov]
+          {
             result[i] = VertexKind::SimpleSeam;
           } else {
             result[i] = VertexKind::Locked;
@@ -78,6 +77,22 @@ pub fn classify_vertices(
       assert!(remap[i] < i as u32);
 
       result[i] = result[remap[i] as usize];
+    }
+  }
+
+  if let Some(vertex_lock) = vertex_lock {
+    // vertex_lock may lock any wedge, not just the primary vertex, so we need to lock
+    // the primary vertex and relock any wedges
+    for i in 0..vertex_count {
+      if vertex_lock[i] {
+        result[remap[i] as usize] = VertexKind::Locked;
+      }
+    }
+
+    for i in 0..vertex_count {
+      if result[remap[i] as usize] == VertexKind::Locked {
+        result[i] = VertexKind::Locked;
+      }
     }
   }
 
@@ -113,7 +128,7 @@ impl VertexKind {
 const KIND_COUNT: usize = 5;
 
 // manifold vertices can collapse onto anything
-// border/seam vertices can only be collapsed onto border/seam respectively
+// border/seam vertices can collapse onto border/seam respectively, or locked
 // complex vertices can collapse onto complex/locked
 // a rule of thumb is that collapsing kind A into kind B preserves the kind B in the target vertex
 // for example, while we could collapse Complex into Manifold, this would mean the target vertex
@@ -121,8 +136,8 @@ const KIND_COUNT: usize = 5;
 #[rustfmt::skip]
 const CAN_COLLAPSE: [[bool; KIND_COUNT]; KIND_COUNT] = [
   [true,  true,  true,  true,  true ],
-  [false, true,  false, false, false],
-  [false, false, true,  false, false],
+  [false, true,  false, false, true],
+  [false, false, true,  false, true],
   [false, false, false, true,  true ],
   [false, false, false, false, false],
 ];

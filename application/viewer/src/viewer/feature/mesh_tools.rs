@@ -46,6 +46,7 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
           target_index_count: mesh.indices.len() / 2,
           target_error: f32::INFINITY,
           lock_border: false,
+          use_absolute_error: false,
         };
 
         let EdgeCollapseResult {

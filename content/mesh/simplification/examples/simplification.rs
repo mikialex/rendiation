@@ -12,6 +12,7 @@ fn main() {
     target_index_count: 500,
     target_error: 100.,
     lock_border: false,
+    use_absolute_error: false,
   };
 
   // snippet for single mesh debug

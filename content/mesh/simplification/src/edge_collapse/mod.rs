@@ -10,6 +10,7 @@ pub struct EdgeCollapseConfig {
   pub target_index_count: usize,
   /// the max error rate allowed in simplify.
   pub target_error: f32,
+  pub use_absolute_error: bool,
   /// if the border allow to be simplify. User provide vertex lock will still worked as supplement
   pub lock_border: bool,
 }
@@ -44,12 +45,14 @@ pub fn simplify_by_edge_collapse<V>(
     target_index_count,
     target_error,
     lock_border,
+    use_absolute_error,
   }: EdgeCollapseConfig,
 ) -> EdgeCollapseResult
 where
   V: Positioned<Position = Vec3<f32>>,
 {
   assert_eq!(indices.len() % 3, 0);
+  assert!(target_error >= 0.);
   assert!(target_index_count <= indices.len());
 
   let result = &mut destination[0..indices.len()];
@@ -71,9 +74,10 @@ where
     lock_border,
   );
 
-  let vertex_positions = rescale_positions(vertices);
+  let (vertex_scale, vertex_positions) = rescale_positions(vertices);
 
-  let mut vertex_quadrics = fill_quadrics(
+  // todo!(); // fill other quadrics
+  let mut vertex_quadrics = fill_edge_quadrics(
     indices,
     &vertex_positions,
     &remap,
@@ -94,7 +98,8 @@ where
   let mut result_error = 0.;
 
   // `target_error` input is linear; we need to adjust it to match `Quadric::error` units
-  let error_limit = target_error * target_error;
+  let error_scale = if use_absolute_error { vertex_scale } else { 1. };
+  let error_limit = (target_error * target_error) / (error_scale * error_scale);
 
   while result_count > target_index_count {
     // note: throughout the simplification process adjacency structure reflects welded topology for
@@ -106,7 +111,7 @@ where
       &result[0..result_count],
       &remap,
       &vertex_kind,
-      &border_loop.openout,
+      &border_loop,
     );
 
     // no edges can be collapsed any more due to topology restrictions
@@ -144,6 +149,7 @@ where
       &adjacency,
       triangle_collapse_goal,
       error_limit,
+      &border_loop,
       &mut result_error,
     );
 
@@ -162,7 +168,7 @@ where
   }
 
   // result_error is quadratic; we need to remap it back to linear
-  let out_result_error = result_error.sqrt();
+  let out_result_error = result_error.sqrt() * error_scale;
 
   EdgeCollapseResult {
     result_error: out_result_error,
@@ -171,7 +177,7 @@ where
 }
 
 /// rescale the vertex into unit cube with min(0,0,0)
-fn rescale_positions<Vertex>(vertices: &[Vertex]) -> Vec<Vec3<f32>>
+fn rescale_positions<Vertex>(vertices: &[Vertex]) -> (f32, Vec<Vec3<f32>>)
 where
   Vertex: Positioned<Position = Vec3<f32>>,
 {
@@ -180,10 +186,12 @@ where
   let extent = box_size.x.max(box_size.y).max(box_size.z);
   let scale = inverse_or_zeroed(extent);
 
-  vertices
+  let positions = vertices
     .iter()
     .map(|v| (v.position() - bbox.min) * scale)
-    .collect()
+    .collect();
+
+  (extent, positions)
 }
 
 #[derive(Clone, Default)]
@@ -218,8 +226,11 @@ fn pick_edge_collapses(
   indices: &[u32],
   remap: &[u32],
   vertex_kind: &[VertexKind],
-  loop_: &[u32],
+  border_loops: &BorderLoops,
 ) -> usize {
+  let loop_ = &border_loops.openout;
+  let loopback = &border_loops.openinc;
+
   let mut collapse_count = 0;
 
   for i in indices.chunks_exact(3) {
@@ -258,6 +269,18 @@ fn pick_edge_collapses(
         && loop_[i0] != i1 as u32
       {
         continue;
+      }
+
+      if k0 == VertexKind::Locked || k1 == VertexKind::Locked {
+        // the same check as above, but for border/seam -> locked collapses
+        // loop[] and loopback[] track half edges so we only need to check one of them
+        if (k0 == VertexKind::Border || k0 == VertexKind::SimpleSeam) && loop_[i0] != 1 {
+          continue;
+        }
+
+        if (k1 == VertexKind::Border || k1 == VertexKind::SimpleSeam) && loopback[i1] != 0 {
+          continue;
+        }
       }
 
       // edge can be collapsed in either direction - we will pick the one with minimum error
@@ -329,7 +352,13 @@ fn rank_edge_collapses(
     let qj = vertex_quadrics[remap[j0 as usize] as usize];
 
     let ei = qi.error(&vertex_positions[i1 as usize]);
-    let ej = qj.error(&vertex_positions[j1 as usize]);
+    let ej = unsafe {
+      if c.u.bidirectional != 0 {
+        qj.error(&vertex_positions[j1 as usize])
+      } else {
+        f32::MAX
+      }
+    };
 
     // pick edge direction with minimal error
     c.v0 = if ei <= ej { i0 } else { j0 };
@@ -340,22 +369,29 @@ fn rank_edge_collapses(
 
 #[allow(clippy::needless_range_loop)]
 fn sort_edge_collapses(sort_order: &mut [u32], collapses: &[Collapse]) {
-  const SORT_BITS: usize = 11;
+  const SORT_BITS: usize = 12;
+  const SORT_BINS: usize = 2048 + 512; // exponent range [-127, 32)
 
   // fill histogram for counting sort
-  let mut histogram = [0u32; 1 << SORT_BITS];
+  let mut histogram = [0u32; SORT_BINS];
 
   for c in collapses {
     // skip sign bit since error is non-negative
-    let key = unsafe { (c.u.errorui << 1) >> (32 - SORT_BITS) };
+    let error = unsafe { c.u.errorui };
+    let key = (error << 1) >> (32 - SORT_BITS);
+    let key = if key < SORT_BINS as u32 {
+      key
+    } else {
+      SORT_BINS as u32 - 1
+    } as usize;
 
-    histogram[key as usize] += 1;
+    histogram[key] += 1;
   }
 
   // compute offsets based on histogram data
   let mut histogram_sum = 0;
 
-  for i in 0..(1 << SORT_BITS) {
+  for i in 0..SORT_BINS {
     let count = histogram[i];
     histogram[i] = histogram_sum;
     histogram_sum += count;
@@ -366,7 +402,13 @@ fn sort_edge_collapses(sort_order: &mut [u32], collapses: &[Collapse]) {
   // compute sort order based on offsets
   for (i, c) in collapses.iter().enumerate() {
     // skip sign bit since error is non-negative
-    let key = unsafe { ((c.u.errorui << 1) >> (32 - SORT_BITS)) as usize };
+    let error = unsafe { c.u.errorui };
+    let key = (error << 1) >> (32 - SORT_BITS);
+    let key = if key < SORT_BINS as u32 {
+      key
+    } else {
+      SORT_BINS as u32 - 1
+    } as usize;
 
     sort_order[histogram[key] as usize] = i as u32;
     histogram[key] += 1;
@@ -386,6 +428,7 @@ fn perform_edge_collapses(
   adjacency: &EdgeAdjacency,
   triangle_collapse_goal: usize,
   error_limit: f32,
+  border_loop: &BorderLoops,
   result_error: &mut f32,
 ) -> usize {
   let collapse_count = collapses.len();
@@ -422,7 +465,10 @@ fn perform_edge_collapses(
 
     // on average, each collapse is expected to lock 6 other collapses; to avoid degenerate passes
     // on meshes with odd topology, we only abort if we got over 1/6 collapses accordingly.
-    if error > error_goal && triangle_collapses > triangle_collapse_goal / 6 {
+    if error > error_goal
+      && error > *result_error
+      && triangle_collapses > triangle_collapse_goal / 6
+    {
       break;
     }
 
@@ -454,10 +500,11 @@ fn perform_edge_collapses(
 
     match vertex_kind[i0] {
       VertexKind::Complex => {
+        // remap all vertices in the complex to the target vertex
         let mut v = i0;
 
         loop {
-          collapse_remap[v] = r1 as u32;
+          collapse_remap[v] = i1 as u32;
           v = wedge.next_same_position_vertex(v) as usize;
 
           if v == i0 {
@@ -466,16 +513,22 @@ fn perform_edge_collapses(
         }
       }
       VertexKind::SimpleSeam => {
-        // remap v0 to v1 and seam pair of v0 to seam pair of v1
+        // for seam collapses we need to move the seam pair together; this is a bit tricky since
+        // we need to rely on edge loops as target vertex may be locked (and thus have more than two wedges)
         let s0 = wedge.next_same_position_vertex(i0) as usize;
-        let s1 = wedge.next_same_position_vertex(i1) as usize;
+        let s1 = if border_loop.openout[i0] == i1 as u32 {
+          border_loop.openinc[s0]
+        } else {
+          border_loop.openout[s0]
+        };
 
-        assert!(s0 != i0 && s1 != i1);
+        assert!(s0 != i0);
         assert!(wedge.next_same_position_vertex(s0) as usize == i0);
-        assert!(wedge.next_same_position_vertex(s1) as usize == i1);
+        assert!(s1 != u32::MAX);
+        assert!(remap[s1 as usize] == r1 as u32);
 
         collapse_remap[i0] = i1 as u32;
-        collapse_remap[s0] = s1 as u32;
+        collapse_remap[s0] = s1;
       }
       _ => {
         assert_eq!(wedge.next_same_position_vertex(i0) as usize, i0);
@@ -484,6 +537,9 @@ fn perform_edge_collapses(
       }
     }
 
+    // note: we technically don't need to lock r1 if it's a locked vertex, as it can't move and its quadric won't be used
+    // however, this results in slightly worse error on some meshes because the locked collapses
+    // get an unfair advantage wrt scheduling
     collapse_locked[r0] = true;
     collapse_locked[r1] = true;
 
@@ -514,7 +570,13 @@ fn has_triangle_flip(a: Vec3<f32>, b: Vec3<f32>, c: Vec3<f32>, d: Vec3<f32>) -> 
   let nbc = eb.cross(ec);
   let nbd = eb.cross(ed);
 
-  nbc.dot(nbd) < 0.0
+  let ndp = nbc.dot(nbd);
+  let abc = nbc.dot(nbc);
+  let abd = nbd.dot(nbd);
+
+  // scale is cos(angle); somewhat arbitrarily set to ~75 degrees
+  // note that the "pure" check is ndp <= 0 (90 degree cutoff) but that allows flipping through a series of close-to-90 collapses
+  ndp <= 0.25 * (abc * abd).sqrt()
 }
 
 fn has_triangle_flips(
@@ -581,6 +643,9 @@ fn remap_index_buffer(indices: &mut [u32], collapse_remap: &[u32]) -> usize {
 
 fn remap_edge_loops(loop_: &mut [u32], collapse_remap: &[u32]) {
   for i in 0..loop_.len() {
+    // note: this is a no-op for vertices that were remapped
+    // ideally we would clear the loop entries for those for consistency, even though they aren't going to be used
+    // however, the remapping process needs loop information for remapped vertices, so this would require a separate pass
     if loop_[i] != INVALID_INDEX {
       let l = loop_[i];
       let r = collapse_remap[l as usize];
@@ -588,7 +653,12 @@ fn remap_edge_loops(loop_: &mut [u32], collapse_remap: &[u32]) {
       // i == r is a special case when the seam edge is collapsed in a direction opposite to where
       // loop goes
       loop_[i] = if i == r as usize {
-        loop_[l as usize]
+        let v = loop_[l as usize];
+        if v != INVALID_INDEX {
+          collapse_remap[v as usize]
+        } else {
+          INVALID_INDEX
+        }
       } else {
         r
       };

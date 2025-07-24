@@ -40,6 +40,7 @@ impl MeshLodGraphBuilder for DefaultMeshLODBuilder {
         target_index_count: target_tri_num as usize * 3,
         target_error: f32::INFINITY, // disable error limit
         lock_border: false, /* border should be able to be simplified unless it's locked by our config */
+        use_absolute_error: true,
       },
     );
     let simplified_indices = simplified_indices

@@ -8,7 +8,7 @@ use crate::*;
 /// [   ,    , a22, b2]
 /// [   ,    ,    , c ]
 ///
-/// a00*x^2 + a11*y^2 + a22*z^2 + 2*(a10*xy + a20*xz + a21*yz) + b0*x + b1*y + b2*z + c
+/// a00*x^2 + a11*y^2 + a22*z^2 + 2*a10*xy + 2*a20*xz + 2*a21*yz + 2*b0*x + 2*b1*y + 2*b2*z + c
 /// ```
 #[derive(Clone, Copy, Default)]
 pub struct Quadric {
@@ -71,24 +71,6 @@ pub(crate) fn inverse_or_zeroed(value: f32) -> f32 {
 }
 
 impl Quadric {
-  // /// we could also using Quadric to express the point to point squared distance.
-  // /// just encode (x - X) ^ 2 + (y - Y)^2 + (z - Z)^2 into the quadric
-  // pub fn from_point(x: f32, y: f32, z: f32, w: f32) -> Self {
-  //   Self {
-  //     a00: w,
-  //     a11: w,
-  //     a22: w,
-  //     a10: 0.0,
-  //     a20: 0.0,
-  //     a21: 0.0,
-  //     b0: -2.0 * x * w,
-  //     b1: -2.0 * y * w,
-  //     b2: -2.0 * z * w,
-  //     c: (x * x + y * y + z * z) * w,
-  //     w,
-  //   }
-  // }
-
   pub fn from_plane(a: f32, b: f32, c: f32, d: f32, w: f32) -> Self {
     let aw = a * w;
     let bw = b * w;
@@ -131,15 +113,19 @@ impl Quadric {
 
   /// the actually plane is passing p0-p1, with normal that point to p2
   pub fn from_triangle_edge(p0: Vec3<f32>, p1: Vec3<f32>, p2: Vec3<f32>, weight: f32) -> Self {
-    let mut p10 = p1 - p0;
-    let length = p10.normalize_self();
+    let p10 = p1 - p0;
 
-    // p20p = length of projection of p2-p0 onto normalize(p1 - p0)
+    // edge length; keep squared length around for projection correction
+    let length_sq = p10.length2();
+    let length = length_sq.sqrt();
+
+    // p20p = length of projection of p2-p0 onto p1-p0; note that p10 is unnormalized so we need to correct it later
     let p20 = p2 - p0;
     let p20p = p20.dot(p10);
 
-    // normal = altitude of triangle from point p2 onto edge p1-p0
-    let normal = (p20 - p10 * p20p).normalize();
+    // perp = perpendicular vector from p2 to line segment p1-p0
+    // note: since p10 is unnormalized we need to correct the projection; we scale p20 instead to take advantage of normalize below
+    let normal = (p20 * length_sq - p10 * p20p).normalize();
 
     let distance = normal.dot(p0);
 
@@ -175,7 +161,7 @@ impl Quadric {
   }
 }
 
-pub fn fill_quadrics(
+pub fn fill_edge_quadrics(
   indices: &[u32],
   vertex_positions: &[Vec3<f32>],
   remap: &[u32],
@@ -231,17 +217,12 @@ pub fn fill_quadrics(
         continue;
       }
 
-      // seam edges should occur twice (i0->i1 and i1->i0) - skip redundant edges
-      if VertexKind::has_opposite(k0, k1) && remap[i1] > remap[i0] {
-        continue;
-      }
-
       let i2 = i[NEXT[NEXT[e]]] as usize;
 
       // we try hard to maintain border edge geometry; seam edges can move more freely
       // due to topological restrictions on collapses, seam quadrics slightly improves collapse
       // structure but aren't critical
-      const EDGE_WEIGHT_SEAM: f32 = 1.0;
+      const EDGE_WEIGHT_SEAM: f32 = 0.5; // applied twice due to opposite edges
       const EDGE_WEIGHT_BORDER: f32 = 10.0;
 
       let edge_weight = if k0 == VertexKind::Border || k1 == VertexKind::Border {
@@ -250,12 +231,24 @@ pub fn fill_quadrics(
         EDGE_WEIGHT_SEAM
       };
 
-      let q = Quadric::from_triangle_edge(
+      let mut q = Quadric::from_triangle_edge(
         vertex_positions[i0],
         vertex_positions[i1],
         vertex_positions[i2],
         edge_weight,
       );
+
+      let qt = Quadric::from_triangle(
+        vertex_positions[i0],
+        vertex_positions[i1],
+        vertex_positions[i2],
+        edge_weight,
+      );
+
+      // mix edge quadric with triangle quadric to stabilize collapses in both directions;
+      // both quadrics inherit edge weight so that their error is added
+      q.w = 0.;
+      q += qt;
 
       vertex_quadrics[remap[i0] as usize] += q;
       vertex_quadrics[remap[i1] as usize] += q;
