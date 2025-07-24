@@ -5,6 +5,8 @@ mod bounding;
 use bounding::*;
 mod space_search;
 pub use space_search::*;
+mod seed;
+use seed::*;
 
 use crate::*;
 
@@ -94,6 +96,7 @@ pub fn build_meshlets<V: Positioned<Position = Vec3<f32>>, SA: SpaceSearchAccele
   let meshlet_expected_radius = (triangle_area_avg * config.max_triangles as f32).sqrt() * 0.5;
 
   let space_search = SA::build(indices, vertices);
+  let (mut seeding, initial_seed) = MeshletBuildSeeding::new(triangles.iter().map(|t| t.position));
 
   // index of the vertex in the meshlet, 0xff if the vertex isn't used
   let mut used: Vec<u8> = vec![0xff; vertices.len()];
@@ -104,41 +107,25 @@ pub fn build_meshlets<V: Positioned<Position = Vec3<f32>>, SA: SpaceSearchAccele
   loop {
     let meshlet_cone = get_meshlet_cone(&meshlet_cone_acc, meshlet.triangle_count);
 
-    let mut best_extra = 0;
-    let mut best_triangle = get_neighbor_triangle(
-      &meshlet,
-      Some(&meshlet_cone),
-      meshlet_vertices,
-      indices,
-      &adjacency,
-      &triangles,
-      &used,
-      meshlet_expected_radius,
-      config.cone_weight,
-      Some(&mut best_extra),
-    );
-
-    // if the best triangle doesn't fit into current meshlet, the spatial scoring we've used is
-    // not very meaningful, so we re-select using topological scoring
-    if best_triangle != !0
-      && (meshlet.vertex_count + best_extra > config.max_vertices as u32
-        || meshlet.triangle_count >= config.max_triangles)
-    {
-      best_triangle = get_neighbor_triangle(
+    // for the first triangle, we don't have a meshlet cone yet, so we use the initial seed
+    // to continue the meshlet, we select an adjacent triangle based on connectivity and spatial scoring
+    let mut best_triangle = if meshlet_offset == 0 && meshlet.triangle_count == 0 {
+      initial_seed
+    } else {
+      get_neighbor_triangle(
         &meshlet,
-        None,
+        &meshlet_cone,
         meshlet_vertices,
         indices,
         &adjacency,
         &triangles,
         &used,
         meshlet_expected_radius,
-        0.,
-        None,
-      );
-    }
+        config.cone_weight,
+      )
+    };
 
-    // when we run out of neighboring triangles we need to switch to spatial search; we currently
+    // when we run out of adjacent triangles we need to switch to spatial search; we currently
     // just pick the closest triangle irrespective of connectivity
     if best_triangle == !0 {
       best_triangle = space_search.search_nearest(
@@ -155,11 +142,40 @@ pub fn build_meshlets<V: Positioned<Position = Vec3<f32>>, SA: SpaceSearchAccele
       assert!(!emitted_flags[best_triangle as usize]);
     }
 
-    let best_triangle = best_triangle as usize;
+    let best_triangle_ = best_triangle as usize;
+    let a = indices[best_triangle_ * 3] as usize;
+    let b = indices[best_triangle_ * 3 + 1] as usize;
+    let c = indices[best_triangle_ * 3 + 2] as usize;
 
-    let a = indices[best_triangle * 3] as usize;
-    let b = indices[best_triangle * 3 + 1] as usize;
-    let c = indices[best_triangle * 3 + 2] as usize;
+    let best_extra = (used[a] == 0xff) as u32 + (used[b] == 0xff) as u32 + (used[c] == 0xff) as u32;
+
+    // if the best triangle doesn't fit into current meshlet, we re-select using seeds to maintain global flow
+    if meshlet.vertex_count + best_extra > config.max_vertices as u32
+      || meshlet.triangle_count >= config.max_triangles
+    {
+      seeding.prune(&emitted_flags);
+
+      let meshlet_vertices_range =
+        meshlet.vertex_offset as usize..(meshlet.vertex_offset + meshlet.vertex_count) as usize;
+      let meshlet_vertices_range = meshlet_vertices.get(meshlet_vertices_range).unwrap();
+
+      let triangle_position = |tri_id| triangles[tri_id as usize].position;
+
+      seeding.append(
+        meshlet_vertices_range,
+        indices,
+        &adjacency,
+        triangle_position,
+      );
+
+      let best_seed = seeding.select_best(indices, &adjacency.counts, triangle_position);
+
+      // we may not find a valid seed triangle if the mesh is disconnected as seeds are based on adjacency
+      if best_seed != u32::MAX {
+        best_triangle = best_seed
+      }
+    }
+
     assert!(a < vertices.len() && b < vertices.len() && c < vertices.len());
 
     // add meshlet to the output; when the current meshlet is full we reset the accumulated bounds
@@ -178,6 +194,8 @@ pub fn build_meshlets<V: Positioned<Position = Vec3<f32>>, SA: SpaceSearchAccele
       meshlet_offset += 1;
       meshlet_cone_acc = Default::default();
     }
+
+    let best_triangle = best_triangle as usize;
 
     // this makes sure that we spend less time traversing these lists on subsequent iterations
     adjacency.update_by_remove_a_triangle(best_triangle, indices);
@@ -212,9 +230,11 @@ fn append_meshlet(
 ) -> bool {
   let mut result = false;
 
-  let used_extra = (used[a as usize] == 0xff) as u32
-    + (used[b as usize] == 0xff) as u32
-    + (used[c as usize] == 0xff) as u32;
+  let a = a as usize;
+  let b = b as usize;
+  let c = c as usize;
+
+  let used_extra = (used[a] == 0xff) as u32 + (used[b] == 0xff) as u32 + (used[c] == 0xff) as u32;
 
   if meshlet.vertex_count + used_extra > config.max_vertices as u32
     || meshlet.triangle_count >= config.max_triangles
@@ -233,27 +253,27 @@ fn append_meshlet(
     result = true;
   }
 
-  if used[a as usize] == 0xff {
-    used[a as usize] = meshlet.vertex_count as u8;
-    meshlet_vertices[(meshlet.vertex_offset + meshlet.vertex_count) as usize] = a;
+  if used[a] == 0xff {
+    used[a] = meshlet.vertex_count as u8;
+    meshlet_vertices[(meshlet.vertex_offset + meshlet.vertex_count) as usize] = a as u32;
     meshlet.vertex_count += 1;
   }
 
-  if used[b as usize] == 0xff {
-    used[b as usize] = meshlet.vertex_count as u8;
-    meshlet_vertices[(meshlet.vertex_offset + meshlet.vertex_count) as usize] = b;
+  if used[b] == 0xff {
+    used[b] = meshlet.vertex_count as u8;
+    meshlet_vertices[(meshlet.vertex_offset + meshlet.vertex_count) as usize] = b as u32;
     meshlet.vertex_count += 1;
   }
 
-  if used[c as usize] == 0xff {
-    used[c as usize] = meshlet.vertex_count as u8;
-    meshlet_vertices[(meshlet.vertex_offset + meshlet.vertex_count) as usize] = c;
+  if used[c] == 0xff {
+    used[c] = meshlet.vertex_count as u8;
+    meshlet_vertices[(meshlet.vertex_offset + meshlet.vertex_count) as usize] = c as u32;
     meshlet.vertex_count += 1;
   }
 
-  let av = used[a as usize];
-  let bv = used[b as usize];
-  let cv = used[c as usize];
+  let av = used[a];
+  let bv = used[b];
+  let cv = used[c];
 
   meshlet_triangles[(meshlet.triangle_offset + meshlet.triangle_count * 3) as usize] = av;
   meshlet_triangles[(meshlet.triangle_offset + meshlet.triangle_count * 3 + 1) as usize] = bv;
@@ -265,7 +285,7 @@ fn append_meshlet(
 
 fn get_neighbor_triangle(
   meshlet: &Meshlet,
-  meshlet_cone: Option<&Cone>,
+  meshlet_cone: &Cone,
   meshlet_vertices: &[u32],
   indices: &[u32],
   adjacency: &TriangleAdjacency,
@@ -273,12 +293,11 @@ fn get_neighbor_triangle(
   used: &[u8],
   meshlet_expected_radius: f32,
   cone_weight: f32,
-  out_extra: Option<&mut u32>,
 ) -> u32 {
   let live_triangles = &adjacency.counts;
 
   let mut best_triangle = !0;
-  let mut best_extra = 5;
+  let mut best_priority = 5;
   let mut best_score = f32::MAX;
 
   for i in 0..meshlet.vertex_count {
@@ -290,60 +309,64 @@ fn get_neighbor_triangle(
       let b = indices[triangle * 3 + 1] as usize;
       let c = indices[triangle * 3 + 2] as usize;
 
-      let mut extra =
-        (used[a] == 0xff) as u32 + (used[b] == 0xff) as u32 + (used[c] == 0xff) as u32;
+      let extra = (used[a] == 0xff) as u32 + (used[b] == 0xff) as u32 + (used[c] == 0xff) as u32;
+      assert!(extra <= 2);
 
       // triangles that don't add new vertices to meshlets are max priority
-      if extra != 0 {
-        // artificially increase the priority of dangling triangles as they're expensive to add to
-        // new meshlets
-        if live_triangles[a] == 1 || live_triangles[b] == 1 || live_triangles[c] == 1 {
-          extra = 0;
-        }
-
-        extra += 1;
-      }
+      let priority = if extra == 0 {
+        0
+      // artificially increase the priority of dangling triangles as they're expensive to add to
+      } else if live_triangles[a] == 1 || live_triangles[b] == 1 || live_triangles[c] == 1 {
+        1
+      // if two vertices have live count of 2, removing this triangle will make another triangle
+      // dangling which is good for overall flow
+      } else if (live_triangles[a] == 2) as u32
+        + (live_triangles[b] == 2) as u32
+        + (live_triangles[c] == 2) as u32
+        >= 2
+      {
+        1 + extra
+      // otherwise adjust priority to be after the above cases, 3 or 4 based on used[] count
+      } else {
+        2 + extra
+      };
 
       // since topology-based priority is always more important than the score, we can skip scoring
       // in some cases
-      if extra > best_extra {
+      if priority > best_priority {
         continue;
       }
 
-      // caller selects one of two scoring functions: geometrical (based on meshlet cone) or
-      // topological (based on remaining triangles)
-      let score = if let Some(meshlet_cone) = meshlet_cone {
-        let tri_cone = &triangles[triangle];
-
-        let distance2 = (tri_cone.position - meshlet_cone.position).length2();
-        let spread = tri_cone.direction.dot(meshlet_cone.direction);
-
-        get_meshlet_score(distance2, spread, cone_weight, meshlet_expected_radius)
+      let tri_cone = &triangles[triangle];
+      let dx = tri_cone.position - meshlet_cone.position;
+      let distance = if cone_weight < 0. {
+        dx.map(|v| v.abs()).max_channel()
       } else {
-        // each live_triangles entry is >= 1 since it includes the current triangle we're processing
-        (live_triangles[a] + live_triangles[b] + live_triangles[c] - 3) as f32
+        dx.length()
       };
+      let spread = tri_cone.direction.dot(meshlet_cone.direction);
+      let score = get_meshlet_score(distance, spread, cone_weight, meshlet_expected_radius);
 
       // note that topology-based priority is always more important than the score
       // this helps maintain reasonable effectiveness of meshlet data and reduces scoring cost
-      if extra < best_extra || score < best_score {
+      if priority < best_priority || score < best_score {
         best_triangle = triangle;
-        best_extra = extra;
+        best_priority = priority;
         best_score = score;
       }
     }
   }
 
-  if let Some(out_extra) = out_extra {
-    *out_extra = best_extra;
-  }
-
   best_triangle as u32
 }
 
-fn get_meshlet_score(distance2: f32, spread: f32, cone_weight: f32, expected_radius: f32) -> f32 {
-  let cone = 1.0 - spread * cone_weight;
-  let cone_clamped = if cone < 1e-3 { 1e-3 } else { cone };
+fn get_meshlet_score(distance: f32, spread: f32, cone_weight: f32, expected_radius: f32) -> f32 {
+  if cone_weight < 0. {
+    return 1. + distance / expected_radius;
+  }
 
-  (1. + distance2.sqrt() / expected_radius * (1. - cone_weight)) * cone_clamped
+  let cone = 1.0 - spread * cone_weight;
+  let cone_clamped = cone.max(1e-3);
+
+  (1. + distance / expected_radius * (1. - cone_weight)) * cone_clamped
 }
