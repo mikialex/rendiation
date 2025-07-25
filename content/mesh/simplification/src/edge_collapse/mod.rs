@@ -76,8 +76,11 @@ where
 
   let (vertex_scale, vertex_positions) = rescale_positions(vertices);
 
-  // todo!(); // fill other quadrics
-  let mut vertex_quadrics = fill_edge_quadrics(
+  let mut vertex_quadrics = vec![Quadric::default(); vertex_positions.len()];
+  fill_face_quadrics(&mut vertex_quadrics, indices, &vertex_positions, &remap);
+  fill_vertex_quadrics(&mut vertex_quadrics, &vertex_positions, &remap, 1e-7);
+  fill_edge_quadrics(
+    &mut vertex_quadrics,
     indices,
     &vertex_positions,
     &remap,

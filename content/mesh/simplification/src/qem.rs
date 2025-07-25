@@ -71,6 +71,22 @@ pub(crate) fn inverse_or_zeroed(value: f32) -> f32 {
 }
 
 impl Quadric {
+  pub fn from_point(p: Vec3<f32>, w: f32) -> Self {
+    Self {
+      a00: w,
+      a11: w,
+      a22: w,
+      a10: 0.0,
+      a20: 0.0,
+      a21: 0.0,
+      b0: -p.x * w,
+      b1: -p.y * w,
+      b2: -p.z * w,
+      c: p.dot(p) * w,
+      w,
+    }
+  }
+
   pub fn from_plane(a: f32, b: f32, c: f32, d: f32, w: f32) -> Self {
     let aw = a * w;
     let bw = b * w;
@@ -99,14 +115,12 @@ impl Quadric {
     let mut normal = p10.cross(p20);
     let area = normal.normalize_self();
 
-    let distance = normal.x * p0.x + normal.y * p0.y + normal.z * p0.z;
-
     // we use sqrt(area) so that the error is scaled linearly; this tends to improve silhouettes
     Self::from_plane(
       normal.x,
       normal.y,
       normal.z,
-      -distance,
+      -normal.dot(p0),
       area.sqrt() * weight,
     )
   }
@@ -162,14 +176,13 @@ impl Quadric {
 }
 
 pub fn fill_edge_quadrics(
+  vertex_quadrics: &mut [Quadric],
   indices: &[u32],
   vertex_positions: &[Vec3<f32>],
   remap: &[u32],
   vertex_kind: &[VertexKind],
   borders: &BorderLoops,
-) -> Vec<Quadric> {
-  let mut vertex_quadrics = vec![Quadric::default(); vertex_positions.len()];
-
+) {
   // for each triangle
   for i in indices.array_chunks::<3>().copied() {
     let [i0, i1, i2] = i;
@@ -255,6 +268,45 @@ pub fn fill_edge_quadrics(
       vertex_quadrics[remap[i1] as usize] += q;
     }
   }
+}
 
-  vertex_quadrics
+pub fn fill_face_quadrics(
+  vertex_quadrics: &mut [Quadric],
+  indices: &[u32],
+  vertex_positions: &[Vec3<f32>],
+  remap: &[u32],
+) {
+  for i in indices.array_chunks::<3>().copied() {
+    let [i0, i1, i2] = i;
+    let (i0, i1, i2) = (i0 as usize, i1 as usize, i2 as usize);
+
+    let q = Quadric::from_triangle(
+      vertex_positions[i0],
+      vertex_positions[i1],
+      vertex_positions[i2],
+      1.0,
+    );
+
+    vertex_quadrics[remap[i0] as usize] += q;
+    vertex_quadrics[remap[i1] as usize] += q;
+    vertex_quadrics[remap[i2] as usize] += q;
+  }
+}
+
+pub fn fill_vertex_quadrics(
+  vertex_quadrics: &mut [Quadric],
+  vertex_positions: &[Vec3<f32>],
+  remap: &[u32],
+  weight_factor: f32,
+) {
+  for i in 0..vertex_positions.len() {
+    if remap[i] != i as u32 {
+      continue;
+    }
+
+    let w = vertex_quadrics[i].w * weight_factor;
+
+    let q = Quadric::from_point(vertex_positions[i], w);
+    vertex_quadrics[i] += q;
+  }
 }

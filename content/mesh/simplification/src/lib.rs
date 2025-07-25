@@ -5,7 +5,7 @@
 use std::collections::{hash_map::Entry, HashMap};
 
 use rendiation_algebra::*;
-use rendiation_geometry::{Box3, Positioned};
+use rendiation_geometry::*;
 
 mod qem;
 use qem::*;
