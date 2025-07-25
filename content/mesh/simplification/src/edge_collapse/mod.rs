@@ -109,6 +109,8 @@ where
     let edge_collapse_count = pick_edge_collapses(
       &mut edge_collapses,
       &result[0..result_count],
+      &vertex_positions,
+      &vertex_quadrics,
       &remap,
       &vertex_kind,
       &border_loop,
@@ -118,13 +120,6 @@ where
     if edge_collapse_count == 0 {
       break;
     }
-
-    rank_edge_collapses(
-      &mut edge_collapses[0..edge_collapse_count],
-      &vertex_positions,
-      &vertex_quadrics,
-      &remap,
-    );
 
     sort_edge_collapses(&mut collapse_order, &edge_collapses[0..edge_collapse_count]);
 
@@ -197,27 +192,7 @@ where
 struct Collapse {
   v0: u32,
   v1: u32,
-  u: CollapseUnion,
-}
-
-union CollapseUnion {
-  bidirectional: u32,
   error: f32,
-  errorui: u32,
-}
-
-impl Clone for CollapseUnion {
-  fn clone(&self) -> Self {
-    Self {
-      bidirectional: unsafe { self.bidirectional },
-    }
-  }
-}
-
-impl Default for CollapseUnion {
-  fn default() -> Self {
-    Self { bidirectional: 0 }
-  }
 }
 
 fn iter_triangle_edges(tri: [u32; 3]) -> impl Iterator<Item = (u32, u32)> {
@@ -230,6 +205,8 @@ fn iter_triangle_edges(tri: [u32; 3]) -> impl Iterator<Item = (u32, u32)> {
 fn pick_edge_collapses(
   collapses: &mut [Collapse],
   indices: &[u32],
+  vertex_positions: &[Vec3<f32>],
+  vertex_quadrics: &[Quadric],
   remap: &[u32],
   vertex_kind: &[VertexKind],
   borders: &BorderLoops,
@@ -291,76 +268,65 @@ fn pick_edge_collapses(
       // edge can be collapsed in either direction - we will pick the one with minimum error
       // note: we evaluate error later during collapse ranking, here we just tag the edge as
       // bidirectional
-      if k0.can_collapse_into(k1) && k1.can_collapse_into(k0) {
-        let c = Collapse {
-          v0: i0 as u32,
-          v1: i1 as u32,
-          u: CollapseUnion { bidirectional: 1 },
-        };
-        collapses[collapse_count] = c;
-        collapse_count += 1;
+      let c = if k0.can_collapse_into(k1) && k1.can_collapse_into(k0) {
+        create_collapse_request(
+          (i0 as u32, i1 as u32),
+          true,
+          vertex_positions,
+          vertex_quadrics,
+          remap,
+        )
       } else {
         // edge can only be collapsed in one direction
         let e0 = if k0.can_collapse_into(k1) { i0 } else { i1 };
         let e1 = if k0.can_collapse_into(k1) { i1 } else { i0 };
 
-        let c = Collapse {
-          v0: e0 as u32,
-          v1: e1 as u32,
-          u: CollapseUnion { bidirectional: 0 },
-        };
-        collapses[collapse_count] = c;
-        collapse_count += 1;
-      }
+        create_collapse_request(
+          (e0 as u32, e1 as u32),
+          false,
+          vertex_positions,
+          vertex_quadrics,
+          remap,
+        )
+      };
+
+      collapses[collapse_count] = c;
+      collapse_count += 1;
     }
   }
 
   collapse_count
 }
 
-fn rank_edge_collapses(
-  collapses: &mut [Collapse],
+fn create_collapse_request(
+  collapsable_pair: (u32, u32),
+  collapse_is_bidirectional: bool,
   vertex_positions: &[Vec3<f32>],
   vertex_quadrics: &[Quadric],
   remap: &[u32],
-) {
-  for c in collapses {
-    let i0 = c.v0;
-    let i1 = c.v1;
+) -> Collapse {
+  let (i0, i1) = collapsable_pair;
 
-    // most edges are bidirectional which means we need to evaluate errors for two collapses
-    // to keep this code branchless we just use the same edge for unidirectional edges
-    let j0 = unsafe {
-      if c.u.bidirectional != 0 {
-        i1
-      } else {
-        i0
-      }
-    };
-    let j1 = unsafe {
-      if c.u.bidirectional != 0 {
-        i0
-      } else {
-        i1
-      }
-    };
+  // most edges are bidirectional which means we need to evaluate errors for two collapses
+  // to keep this code branchless we just use the same edge for unidirectional edges
+  let j0 = if collapse_is_bidirectional { i1 } else { i0 };
+  let j1 = if collapse_is_bidirectional { i0 } else { i1 };
 
-    let qi = vertex_quadrics[remap[i0 as usize] as usize];
-    let qj = vertex_quadrics[remap[j0 as usize] as usize];
+  let qi = vertex_quadrics[remap[i0 as usize] as usize];
+  let qj = vertex_quadrics[remap[j0 as usize] as usize];
 
-    let ei = qi.error(&vertex_positions[i1 as usize]);
-    let ej = unsafe {
-      if c.u.bidirectional != 0 {
-        qj.error(&vertex_positions[j1 as usize])
-      } else {
-        f32::MAX
-      }
-    };
+  let ei = qi.error(&vertex_positions[i1 as usize]);
+  let ej = if collapse_is_bidirectional {
+    qj.error(&vertex_positions[j1 as usize])
+  } else {
+    f32::MAX
+  };
 
+  Collapse {
     // pick edge direction with minimal error
-    c.v0 = if ei <= ej { i0 } else { j0 };
-    c.v1 = if ei <= ej { i1 } else { j1 };
-    c.u.error = ei.min(ej);
+    v0: if ei <= ej { i0 } else { j0 },
+    v1: if ei <= ej { i1 } else { j1 },
+    error: ei.min(ej),
   }
 }
 
@@ -374,7 +340,7 @@ fn sort_edge_collapses(sort_order: &mut [u32], collapses: &[Collapse]) {
 
   for c in collapses {
     // skip sign bit since error is non-negative
-    let error = unsafe { c.u.errorui };
+    let error = c.error.to_bits();
     let key = (error << 1) >> (32 - SORT_BITS);
     let key = if key < SORT_BINS as u32 {
       key
@@ -399,7 +365,7 @@ fn sort_edge_collapses(sort_order: &mut [u32], collapses: &[Collapse]) {
   // compute sort order based on offsets
   for (i, c) in collapses.iter().enumerate() {
     // skip sign bit since error is non-negative
-    let error = unsafe { c.u.errorui };
+    let error = c.error.to_bits();
     let key = (error << 1) >> (32 - SORT_BITS);
     let key = if key < SORT_BINS as u32 {
       key
@@ -440,7 +406,7 @@ fn perform_edge_collapses(
   for order in collapse_order {
     let c = collapses[*order as usize].clone();
 
-    let error = unsafe { c.u.error };
+    let error = c.error;
 
     if error > error_limit {
       break;
@@ -455,7 +421,7 @@ fn perform_edge_collapses(
     // need to increase the acceptable error by some factor
     let error_goal = if edge_collapse_goal < collapse_count {
       let c_ = &collapses[collapse_order[edge_collapse_goal] as usize];
-      1.5 * unsafe { c_.u.error }
+      1.5 * c_.error
     } else {
       f32::MAX
     };
