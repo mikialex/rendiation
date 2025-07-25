@@ -49,7 +49,7 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
           use_absolute_error: false,
         };
 
-        let EdgeCollapseResult {
+        let SimplificationResult {
           result_error,
           result_count,
         } = simplify_by_edge_collapse(&mut dest_idx, &mesh.indices, &mesh.vertices, None, config);

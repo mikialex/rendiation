@@ -15,17 +15,6 @@ pub struct EdgeCollapseConfig {
   pub lock_border: bool,
 }
 
-#[derive(Clone, Copy)]
-pub struct EdgeCollapseResult {
-  /// the result error rate
-  pub result_error: f32,
-  /// the number of indices after simplification.
-  ///
-  ///  The resulting index buffer references vertices from the original vertex buffer.
-  /// If the original vertex data isn't required, creating a compact vertex buffer is recommended.
-  pub result_count: usize,
-}
-
 /// Reduces the number of triangles in the mesh, attempting to preserve mesh appearance as much as
 /// possible.
 ///
@@ -47,7 +36,7 @@ pub fn simplify_by_edge_collapse<V>(
     lock_border,
     use_absolute_error,
   }: EdgeCollapseConfig,
-) -> EdgeCollapseResult
+) -> SimplificationResult
 where
   V: Positioned<Position = Vec3<f32>>,
 {
@@ -167,28 +156,10 @@ where
   // result_error is quadratic; we need to remap it back to linear
   let out_result_error = result_error.sqrt() * error_scale;
 
-  EdgeCollapseResult {
+  SimplificationResult {
     result_error: out_result_error,
     result_count,
   }
-}
-
-/// rescale the vertex into unit cube with min(0,0,0)
-fn rescale_positions<Vertex>(vertices: &[Vertex]) -> (f32, Vec<Vec3<f32>>)
-where
-  Vertex: Positioned<Position = Vec3<f32>>,
-{
-  let bbox: Box3 = vertices.iter().map(|v| v.position()).collect();
-  let box_size = bbox.size();
-  let extent = box_size.x.max(box_size.y).max(box_size.z);
-  let scale = inverse_or_zeroed(extent);
-
-  let positions = vertices
-    .iter()
-    .map(|v| (v.position() - bbox.min) * scale)
-    .collect();
-
-  (extent, positions)
 }
 
 #[derive(Clone, Default)]

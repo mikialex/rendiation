@@ -68,7 +68,7 @@ fn test_simplification(obj_path: impl AsRef<Path> + Clone + Debug, config: EdgeC
 
   let start = Instant::now();
 
-  let EdgeCollapseResult {
+  let SimplificationResult {
     result_error,
     result_count,
   } = simplify_by_edge_collapse(&mut dest_idx, &mesh.indices, &mesh.vertices, None, config);

@@ -1,6 +1,8 @@
 use fast_hash_collection::FastHashMap;
 use rendiation_mesh_segmentation::{build_meshlets, build_meshlets_bound, ClusteringConfig};
-use rendiation_mesh_simplification::{simplify_by_edge_collapse, EdgeCollapseConfig};
+use rendiation_mesh_simplification::{
+  simplify_by_edge_collapse, simplify_sloppy, EdgeCollapseConfig,
+};
 
 use crate::*;
 
@@ -31,7 +33,7 @@ impl MeshLodGraphBuilder for DefaultMeshLODBuilder {
     }
 
     let mut simplified_indices = vec![0; indices.len()];
-    let result = simplify_by_edge_collapse(
+    let mut result = simplify_by_edge_collapse(
       &mut simplified_indices,
       indices,
       vertices,
@@ -43,6 +45,24 @@ impl MeshLodGraphBuilder for DefaultMeshLODBuilder {
         use_absolute_error: true,
       },
     );
+
+    let ratio = result.result_count as f32 / indices.len() as f32;
+    if DEBUG_LOG && ratio > 0.5 {
+      println!("warning! simplify ratio not meet requirement: {ratio}",);
+    }
+
+    if ratio > 0.7 {
+      println!("warning! simplify using downgrade method",);
+      result = simplify_sloppy(
+        &mut simplified_indices,
+        indices,
+        vertices,
+        Some(&vertex_lock),
+        target_tri_num * 3,
+        f32::INFINITY,
+      );
+    }
+
     let simplified_indices = simplified_indices
       .get(0..result.result_count)
       .unwrap()
@@ -55,13 +75,6 @@ impl MeshLodGraphBuilder for DefaultMeshLODBuilder {
       .flatten()
       .copied()
       .collect::<Vec<_>>();
-
-    if DEBUG_LOG {
-      let ratio = simplified_indices.len() as f32 / indices.len() as f32;
-      if ratio > 0.5 {
-        println!("warning! simplify ratio not meet requirement: {ratio}",);
-      }
-    }
 
     MeshLODGraphSimplificationResult {
       simplified_indices,
