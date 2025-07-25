@@ -166,10 +166,7 @@ pub fn fill_edge_quadrics(
   vertex_positions: &[Vec3<f32>],
   remap: &[u32],
   vertex_kind: &[VertexKind],
-  BorderLoops {
-    openout: loop_,
-    openinc: loopback,
-  }: &BorderLoops,
+  borders: &BorderLoops,
 ) -> Vec<Quadric> {
   let mut vertex_quadrics = vec![Quadric::default(); vertex_positions.len()];
 
@@ -209,11 +206,15 @@ pub fn fill_edge_quadrics(
         continue;
       }
 
-      if (k0 == VertexKind::Border || k0 == VertexKind::SimpleSeam) && loop_[i0] != i1 as u32 {
+      if (k0 == VertexKind::Border || k0 == VertexKind::SimpleSeam)
+        && borders.get_half_edge_out_vertex(i0 as u32) != i1 as u32
+      {
         continue;
       }
 
-      if (k1 == VertexKind::Border || k1 == VertexKind::SimpleSeam) && loopback[i1] != i0 as u32 {
+      if (k1 == VertexKind::Border || k1 == VertexKind::SimpleSeam)
+        && borders.get_half_edge_in_vertex(i1 as u32) != i0 as u32
+      {
         continue;
       }
 

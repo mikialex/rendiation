@@ -59,7 +59,7 @@ where
 
   // build connectivity information
   let mut adjacency = EdgeAdjacency::new(indices, vertices.len());
-  let mut border_loop = compute_border_loops(&adjacency);
+  let mut border_loop = BorderLoops::new(&adjacency);
 
   // build position remap that maps each vertex to the one with identical position
   let PositionalRemapping { remap, wedge } = build_position_remap(vertices);
@@ -158,8 +158,7 @@ where
       break;
     }
 
-    remap_edge_loops(&mut border_loop.openout, &collapse_remap);
-    remap_edge_loops(&mut border_loop.openinc, &collapse_remap);
+    border_loop.remap_edge_loops(&collapse_remap);
 
     let new_count = remap_index_buffer(&mut result[0..result_count], &collapse_remap);
     assert!(new_count < result_count);
@@ -221,24 +220,26 @@ impl Default for CollapseUnion {
   }
 }
 
+fn iter_triangle_edges(tri: [u32; 3]) -> impl Iterator<Item = (u32, u32)> {
+  [1, 2, 0]
+    .into_iter()
+    .enumerate()
+    .map(move |(i, e)| (tri[i], tri[e]))
+}
+
 fn pick_edge_collapses(
   collapses: &mut [Collapse],
   indices: &[u32],
   remap: &[u32],
   vertex_kind: &[VertexKind],
-  border_loops: &BorderLoops,
+  borders: &BorderLoops,
 ) -> usize {
-  let loop_ = &border_loops.openout;
-  let loopback = &border_loops.openinc;
-
   let mut collapse_count = 0;
 
-  for i in indices.chunks_exact(3) {
-    const NEXT: [usize; 3] = [1, 2, 0];
-
-    for e in 0..3 {
-      let i0 = i[e] as usize;
-      let i1 = i[NEXT[e]] as usize;
+  for triangle in indices.array_chunks::<3>() {
+    for (i0, i1) in iter_triangle_edges(*triangle) {
+      let i0 = i0 as usize;
+      let i1 = i1 as usize;
 
       // this can happen either when input has a zero-length edge, or when we perform collapses for
       // complex topology w/seams and collapse a manifold vertex that connects to both wedges
@@ -252,12 +253,12 @@ fn pick_edge_collapses(
       let k1 = vertex_kind[i1];
 
       // the edge has to be collapsible in at least one direction
-      if !(VertexKind::can_collapse(k0, k1) || VertexKind::can_collapse(k1, k0)) {
+      if !(k0.can_collapse_into(k1) || k1.can_collapse_into(k0)) {
         continue;
       }
 
       // manifold and seam edges should occur twice (i0->i1 and i1->i0) - skip redundant edges
-      if VertexKind::has_opposite(k0, k1) && remap[i1] > remap[i0] {
+      if VertexKind::has_opposite_edge(k0, k1) && remap[i1] > remap[i0] {
         continue;
       }
 
@@ -266,7 +267,7 @@ fn pick_edge_collapses(
       // edge loop[] tracks half edges so we only need to check i0->i1
       if k0 == k1
         && (k0 == VertexKind::Border || k0 == VertexKind::SimpleSeam)
-        && loop_[i0] != i1 as u32
+        && borders.get_half_edge_out_vertex(i0 as u32) != i1 as u32
       {
         continue;
       }
@@ -274,11 +275,15 @@ fn pick_edge_collapses(
       if k0 == VertexKind::Locked || k1 == VertexKind::Locked {
         // the same check as above, but for border/seam -> locked collapses
         // loop[] and loopback[] track half edges so we only need to check one of them
-        if (k0 == VertexKind::Border || k0 == VertexKind::SimpleSeam) && loop_[i0] != 1 {
+        if (k0 == VertexKind::Border || k0 == VertexKind::SimpleSeam)
+          && borders.get_half_edge_out_vertex(i0 as u32) != i1 as u32
+        {
           continue;
         }
 
-        if (k1 == VertexKind::Border || k1 == VertexKind::SimpleSeam) && loopback[i1] != 0 {
+        if (k1 == VertexKind::Border || k1 == VertexKind::SimpleSeam)
+          && borders.get_half_edge_in_vertex(i1 as u32) != i0 as u32
+        {
           continue;
         }
       }
@@ -286,7 +291,7 @@ fn pick_edge_collapses(
       // edge can be collapsed in either direction - we will pick the one with minimum error
       // note: we evaluate error later during collapse ranking, here we just tag the edge as
       // bidirectional
-      if VertexKind::can_collapse(k0, k1) && VertexKind::can_collapse(k1, k0) {
+      if k0.can_collapse_into(k1) && k1.can_collapse_into(k0) {
         let c = Collapse {
           v0: i0 as u32,
           v1: i1 as u32,
@@ -296,16 +301,8 @@ fn pick_edge_collapses(
         collapse_count += 1;
       } else {
         // edge can only be collapsed in one direction
-        let e0 = if VertexKind::can_collapse(k0, k1) {
-          i0
-        } else {
-          i1
-        };
-        let e1 = if VertexKind::can_collapse(k0, k1) {
-          i1
-        } else {
-          i0
-        };
+        let e0 = if k0.can_collapse_into(k1) { i0 } else { i1 };
+        let e1 = if k0.can_collapse_into(k1) { i1 } else { i0 };
 
         let c = Collapse {
           v0: e0 as u32,
@@ -428,7 +425,7 @@ fn perform_edge_collapses(
   adjacency: &EdgeAdjacency,
   triangle_collapse_goal: usize,
   error_limit: f32,
-  border_loop: &BorderLoops,
+  borders: &BorderLoops,
   result_error: &mut f32,
 ) -> usize {
   let collapse_count = collapses.len();
@@ -516,10 +513,10 @@ fn perform_edge_collapses(
         // for seam collapses we need to move the seam pair together; this is a bit tricky since
         // we need to rely on edge loops as target vertex may be locked (and thus have more than two wedges)
         let s0 = wedge.next_same_position_vertex(i0) as usize;
-        let s1 = if border_loop.openout[i0] == i1 as u32 {
-          border_loop.openinc[s0]
+        let s1 = if borders.get_half_edge_out_vertex(i0 as u32) == i1 as u32 {
+          borders.get_half_edge_in_vertex(s0 as u32)
         } else {
-          border_loop.openout[s0]
+          borders.get_half_edge_out_vertex(s0 as u32)
         };
 
         assert!(s0 != i0);
@@ -639,29 +636,4 @@ fn remap_index_buffer(indices: &mut [u32], collapse_remap: &[u32]) -> usize {
   }
 
   write
-}
-
-fn remap_edge_loops(loop_: &mut [u32], collapse_remap: &[u32]) {
-  for i in 0..loop_.len() {
-    // note: this is a no-op for vertices that were remapped
-    // ideally we would clear the loop entries for those for consistency, even though they aren't going to be used
-    // however, the remapping process needs loop information for remapped vertices, so this would require a separate pass
-    if loop_[i] != INVALID_INDEX {
-      let l = loop_[i];
-      let r = collapse_remap[l as usize];
-
-      // i == r is a special case when the seam edge is collapsed in a direction opposite to where
-      // loop goes
-      loop_[i] = if i == r as usize {
-        let v = loop_[l as usize];
-        if v != INVALID_INDEX {
-          collapse_remap[v as usize]
-        } else {
-          INVALID_INDEX
-        }
-      } else {
-        r
-      };
-    }
-  }
 }
