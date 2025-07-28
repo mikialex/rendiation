@@ -124,20 +124,13 @@ pub fn compute_all_meshlet_boundary_edges(
   meshlets: &[Meshlet],
   indices: &[u32],
 ) -> Vec<EdgeFinder> {
-  let meshlet_boundary_edges: Vec<_> = (0..meshlets.len())
-    .map(|meshlet| compute_meshlet_boundary_edges(meshlets, indices, meshlet as u32))
-    .collect();
-  //
-
-  meshlet_boundary_edges
+  meshlets
+    .iter()
+    .map(|meshlet| compute_meshlet_boundary_edges(meshlet, indices))
+    .collect()
 }
-pub fn compute_meshlet_boundary_edges(
-  meshlets: &[Meshlet],
-  indices: &[u32],
-  meshlet: u32,
-) -> EdgeFinder {
-  let meshlet = meshlets[meshlet as usize];
 
+pub fn compute_meshlet_boundary_edges(meshlet: &Meshlet, indices: &[u32]) -> EdgeFinder {
   let mut boundary_edges = EdgeFinder::default();
 
   let indices_range = meshlet.index_range.into_range();

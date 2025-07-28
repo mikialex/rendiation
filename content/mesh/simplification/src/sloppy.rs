@@ -2,10 +2,12 @@ use std::collections::HashSet;
 
 use crate::*;
 
+/// Overview of the algorithm
+///
 /// - find the optimal grid size for mesh
 /// - for each cell in grid, select single vertex and every other vertex in the cell get removed.
 ///   - how to select?
-///   - compute each grid's quadrics using all triangles in the grid
+///   - compute each cell's quadrics using all triangles in the cell
 ///   - for each vertex in the grid, compute error using quadric and find minimum as the vertex.
 pub fn simplify_sloppy<V: Positioned<Position = Vec3<f32>>>(
   destination: &mut [u32],

@@ -26,6 +26,7 @@ impl PartialEq for VertexPosition {
 
 impl Eq for VertexPosition {}
 
+/// based on [Optimized Spatial Hashing for Collision Detection of Deformable Objects](https://matthias-research.github.io/pages/publications/tetraederCollision.pdf)
 #[derive(Default)]
 pub struct PositionHasher {
   state: u64,
@@ -44,7 +45,6 @@ impl Hasher for PositionHasher {
     let b = b ^ (b >> 17);
     let c = c ^ (c >> 17);
 
-    // Optimized Spatial Hashing for Collision Detection of Deformable Objects
     self.state =
       ((a.wrapping_mul(73856093)) ^ (b.wrapping_mul(19349663)) ^ (c.wrapping_mul(83492791))) as u64;
   }
