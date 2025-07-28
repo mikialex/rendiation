@@ -1,3 +1,5 @@
+use rendiation_mesh_core::triangle_is_not_degenerated;
+
 pub struct TriangleAdjacency {
   pub counts: Vec<u32>,
   pub offsets: Vec<u32>,
@@ -29,7 +31,7 @@ impl TriangleAdjacency {
     for (i, [a, b, c]) in indices.array_chunks::<3>().enumerate() {
       // we must reject the degenerate triangle here, because when we remove triangle from self, we early exist
       // for first triangle.
-      assert!(a != b && b != c && c != a);
+      assert!(triangle_is_not_degenerated(&[a, b, c]));
 
       adjacency.face_ids[adjacency.offsets[*a as usize] as usize] = i as u32;
       adjacency.face_ids[adjacency.offsets[*b as usize] as usize] = i as u32;

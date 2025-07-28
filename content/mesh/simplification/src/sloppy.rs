@@ -2,6 +2,11 @@ use std::collections::HashSet;
 
 use crate::*;
 
+/// - find the optimal grid size for mesh
+/// - for each cell in grid, select single vertex and every other vertex in the cell get removed.
+///   - how to select?
+///   - compute each grid's quadrics using all triangles in the grid
+///   - for each vertex in the grid, compute error using quadric and find minimum as the vertex.
 pub fn simplify_sloppy<V: Positioned<Position = Vec3<f32>>>(
   destination: &mut [u32],
   indices: &[u32],
@@ -114,7 +119,7 @@ pub fn simplify_sloppy<V: Positioned<Position = Vec3<f32>>>(
     &vertex_cells,
   );
 
-  // // for each target cell, find the vertex with the minimal error
+  // for each target cell, find the vertex with the minimal error
   let mut cell_remap = vec![0_u32; cell_count as usize];
   let mut cell_errors = vec![0_f32; cell_count as usize];
 
@@ -164,16 +169,12 @@ fn compute_vertex_ids(
 }
 
 pub fn count_triangles(vertex_ids: &[u32], indices: &[u32]) -> u32 {
-  let mut result = 0;
-
-  for [a, b, c] in indices.array_chunks::<3>() {
-    let id0 = vertex_ids[*a as usize];
-    let id1 = vertex_ids[*b as usize];
-    let id2 = vertex_ids[*c as usize];
-
-    result += (id0 != id1) as u32 & (id0 != id2) as u32 & (id1 != id2) as u32;
-  }
-  result
+  indices
+    .iter()
+    .map(|i| vertex_ids[*i as usize])
+    .array_chunks::<3>()
+    .filter(triangle_is_not_degenerated)
+    .count() as u32
 }
 
 fn interpolate(y: f32, x0: f32, y0: f32, x1: f32, y1: f32, x2: f32, y2: f32) -> f32 {
@@ -259,11 +260,9 @@ fn filter_triangles(
   let mut filter = HashSet::<(u32, u32, u32)>::new();
   let mut result = 0;
   for [a, b, c] in indices.array_chunks::<3>() {
-    let c0 = vertex_cells[*a as usize];
-    let c1 = vertex_cells[*b as usize];
-    let c2 = vertex_cells[*c as usize];
+    let [c0, c1, c2] = [a, b, c].map(|i| vertex_cells[*i as usize]);
 
-    if c0 != c1 && c0 != c2 && c1 != c2 {
+    if triangle_is_not_degenerated(&[c0, c1, c2]) {
       let mut a = cell_remap[c0 as usize];
       let mut b = cell_remap[c1 as usize];
       let mut c = cell_remap[c2 as usize];

@@ -72,9 +72,9 @@ impl MeshLodGraphBuilder for DefaultMeshLODBuilder {
     // todo, improve
     let simplified_indices = simplified_indices
       .array_chunks::<3>()
-      .filter(|&[a, b, c]| a != b && b != c && c != a)
-      .flatten()
       .copied()
+      .filter(triangle_is_not_degenerated)
+      .flatten()
       .collect::<Vec<_>>();
 
     MeshLODGraphSimplificationResult {

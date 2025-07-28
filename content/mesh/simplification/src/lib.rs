@@ -1,4 +1,5 @@
 #![feature(array_chunks)]
+#![feature(iter_array_chunks)]
 #![feature(let_chains)]
 #![allow(clippy::disallowed_types)] // we have already used custom hasher
 
@@ -6,6 +7,7 @@ use std::collections::{hash_map::Entry, HashMap};
 
 use rendiation_algebra::*;
 use rendiation_geometry::*;
+use rendiation_mesh_core::*;
 
 mod qem;
 use qem::*;
