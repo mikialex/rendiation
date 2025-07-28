@@ -168,7 +168,11 @@ pub fn build_meshlets<V: Positioned<Position = Vec3<f32>>, SA: SpaceSearchAccele
         triangle_position,
       );
 
-      let best_seed = seeding.select_best(indices, &adjacency.counts, triangle_position);
+      let best_seed = seeding.select_best(
+        indices,
+        adjacency.vertex_referenced_face_counts(),
+        triangle_position,
+      );
 
       // we may not find a valid seed triangle if the mesh is disconnected as seeds are based on adjacency
       if best_seed != u32::MAX {
@@ -294,7 +298,7 @@ fn get_neighbor_triangle(
   meshlet_expected_radius: f32,
   cone_weight: f32,
 ) -> u32 {
-  let live_triangles = &adjacency.counts;
+  let live_triangles = adjacency.vertex_referenced_face_counts();
 
   let mut best_triangle = !0;
   let mut best_priority = 5;
@@ -303,7 +307,7 @@ fn get_neighbor_triangle(
   for i in 0..meshlet.vertex_count {
     let index = meshlet_vertices[(meshlet.vertex_offset + i) as usize];
 
-    for triangle in adjacency.iter_adjacency_faces(index as usize) {
+    for triangle in adjacency.iter_adjacency_faces(index) {
       let triangle = triangle as usize;
       let a = indices[triangle * 3] as usize;
       let b = indices[triangle * 3 + 1] as usize;

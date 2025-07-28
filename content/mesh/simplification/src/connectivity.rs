@@ -1,9 +1,8 @@
 use crate::*;
 
 pub struct EdgeAdjacency {
-  counts: Vec<u32>,
-  offsets: Vec<u32>,
-  data: Vec<HalfEdge>,
+  internal: Adjacency<HalfEdge>, // vertex_id -> HalfEdge
+  vertex_count: usize,
 }
 
 #[derive(Default, Clone, Copy)]
@@ -15,89 +14,49 @@ pub struct HalfEdge {
 impl EdgeAdjacency {
   pub fn new(indices: &[u32], vertex_count: usize) -> Self {
     let mut result = Self {
-      counts: vec![0; vertex_count],
-      offsets: vec![0; vertex_count],
-      data: vec![Default::default(); indices.len()],
+      vertex_count,
+      internal: Default::default(),
     };
     result.update(indices, None);
     result
   }
 
   pub fn update(&mut self, indices: &[u32], remap: Option<&[u32]>) {
-    self.counts.fill(0);
-    let face_count = indices.len() / 3;
+    self.internal = Adjacency::from_iter(
+      self.vertex_count,
+      indices.iter().map(|index| {
+        if let Some(remap) = remap {
+          remap[*index as usize]
+        } else {
+          *index
+        }
+      }),
+      indices.array_chunks::<3>().flat_map(|arr| {
+        let [a, b, c] = if let Some(remap) = remap {
+          arr.map(|index| remap[index as usize])
+        } else {
+          *arr
+        };
 
-    // fill edge counts
-    for index in indices {
-      let v = if let Some(remap) = remap {
-        remap[*index as usize]
-      } else {
-        *index
-      };
-      self.counts[v as usize] += 1;
-    }
-
-    // fill offset table
-    let mut offset = 0;
-
-    for (o, count) in self.offsets.iter_mut().zip(self.counts.iter()) {
-      *o = offset;
-      offset += *count;
-    }
-
-    assert_eq!(offset as usize, indices.len());
-
-    // fill edge data
-    for i in 0..face_count {
-      let mut a = indices[i * 3] as usize;
-      let mut b = indices[i * 3 + 1] as usize;
-      let mut c = indices[i * 3 + 2] as usize;
-
-      if let Some(remap) = remap {
-        a = remap[a] as usize;
-        b = remap[b] as usize;
-        c = remap[c] as usize;
-      };
-
-      let a = a as u32;
-      let b = b as u32;
-      let c = c as u32;
-
-      self.data[self.offsets[a as usize] as usize] = HalfEdge { next: b, prev: c };
-      self.data[self.offsets[b as usize] as usize] = HalfEdge { next: c, prev: a };
-      self.data[self.offsets[c as usize] as usize] = HalfEdge { next: a, prev: b };
-
-      self.offsets[a as usize] += 1;
-      self.offsets[b as usize] += 1;
-      self.offsets[c as usize] += 1;
-    }
-
-    // fix offsets that have been disturbed by the previous pass
-    for (offset, count) in self.offsets.iter_mut().zip(self.counts.iter()) {
-      assert!(*offset >= *count);
-
-      *offset -= *count;
-    }
+        [
+          (HalfEdge { next: b, prev: c }, a),
+          (HalfEdge { next: c, prev: a }, b),
+          (HalfEdge { next: a, prev: b }, c),
+        ]
+      }),
+    );
   }
 
   pub fn vertex_count(&self) -> usize {
-    self.counts.len()
+    self.internal.counts.len()
   }
 
   pub fn has_half_edge(&self, from: u32, to: u32) -> bool {
-    let count = self.counts[from as usize] as usize;
-    let offset = self.offsets[from as usize] as usize;
-
-    self.data[offset..offset + count]
-      .iter()
-      .any(|d| d.next == to)
+    self.internal.iter_many_by_one(from).any(|d| d.next == to)
   }
 
   pub fn iter_vertex_outgoing_half_edges(&self, v: usize) -> impl Iterator<Item = &HalfEdge> {
-    let offset = self.offsets[v] as usize;
-    let count = self.counts[v] as usize;
-
-    self.data[offset..offset + count].iter()
+    self.internal.iter_many_by_one(v as u32)
   }
 }
 

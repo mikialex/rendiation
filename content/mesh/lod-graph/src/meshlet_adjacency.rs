@@ -3,8 +3,7 @@ use std::hash::Hash;
 use crate::*;
 
 pub struct MeshletAdjacencyInfo {
-  pub adjacent_meshlets: Vec<OffsetSize>,
-  pub adjacent_meshlets_idx: Vec<u32>,
+  internal: Adjacency<u32>,
 }
 
 impl MeshletAdjacencyInfo {
@@ -12,74 +11,23 @@ impl MeshletAdjacencyInfo {
     let mut adjacency = Vec::with_capacity(source.len());
     for i in 0..source.len() {
       for j in 0..source.len() {
-        if i >= j {
-          // connectivity is symmetrical
-          if source[i].has_shared_edge(&source[j]) {
-            adjacency.push((i, j));
-          }
+        if source[i].has_shared_edge(&source[j]) {
+          adjacency.push((i as u32, j as u32));
         }
       }
     }
 
-    let mut counts = vec![0; source.len()];
-    for (i, j) in &adjacency {
-      counts[*i] += 1;
-      counts[*j] += 1;
-    }
-    let mut offsets = vec![0; source.len()];
-    let mut offset = 0;
-    for (i, count) in counts.iter().enumerate() {
-      offsets[i] = offset;
-      offset += count;
-    }
-
-    let mut adjacent_meshlets_idx = vec![0; offset as usize];
-    for (i, j) in adjacency {
-      adjacent_meshlets_idx[offsets[i] as usize] = j as u32;
-      offsets[i] += 1;
-      adjacent_meshlets_idx[offsets[j] as usize] = i as u32;
-      offsets[j] += 1;
-    }
-
-    // fix offsets that have been disturbed by the previous pass
-    for (offset, count) in offsets.iter_mut().zip(counts.iter()) {
-      assert!(*offset >= *count);
-      *offset -= *count;
-    }
-
     Self {
-      adjacent_meshlets: offsets
-        .into_iter()
-        .zip(counts)
-        .map(|(offset, size)| OffsetSize { offset, size })
-        .collect(),
-      adjacent_meshlets_idx,
+      internal: Adjacency::from_iter(
+        adjacency.len() * 2,
+        adjacency.iter().flat_map(|(i, j)| [*i, *j]),
+        adjacency.iter().flat_map(|(i, j)| [(*i, *i), (*j, *i)]),
+      ),
     }
   }
 
   pub fn iter_adjacency_meshlets(&self, meshlet: u32) -> impl Iterator<Item = u32> + '_ {
-    self
-      .adjacent_meshlets_idx
-      .get(self.adjacent_meshlets[meshlet as usize].into_range())
-      .unwrap()
-      .iter()
-      .cloned()
-  }
-
-  pub fn update_by_remove_a_meshlet(&mut self, target_meshlet_idx: u32, remove_meshlet_idx: u32) {
-    let range = &mut self.adjacent_meshlets[target_meshlet_idx as usize];
-    let last = self.adjacent_meshlets_idx[(range.offset + range.size) as usize];
-    for i in self
-      .adjacent_meshlets_idx
-      .get_mut(range.into_range())
-      .unwrap()
-    {
-      if *i == remove_meshlet_idx {
-        *i = last;
-        range.size -= 1;
-        break;
-      }
-    }
+    self.internal.iter_many_by_one(meshlet).copied()
   }
 }
 

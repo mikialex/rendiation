@@ -1,8 +1,10 @@
+mod adjacency;
 mod bvh;
 mod collect;
 mod conversion;
 mod intersection;
 
+pub use adjacency::*;
 pub use bvh::*;
 pub use collect::*;
 pub use conversion::*;

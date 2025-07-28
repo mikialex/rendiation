@@ -63,12 +63,12 @@ impl MeshletBuildSeeding {
     let mut best_score = [f32::MAX; MESHLET_ADD_SEEDS];
 
     for index in meshlet_vertices {
-      let index = *index as usize;
+      let index = *index;
       let mut best_neighbor = u32::MAX;
       let mut best_neighbor_live = u32::MAX;
 
       // find the neighbor with the smallest live metric
-      let live_triangles = &adj.counts;
+      let live_triangles = adj.vertex_referenced_face_counts();
       for tri_idx in adj.iter_adjacency_faces(index) {
         let tri_idx = tri_idx as usize;
         let a = indices[tri_idx * 3] as usize;
