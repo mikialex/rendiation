@@ -103,7 +103,7 @@ where
 
 impl<K, T> Stream for StreamMap<K, T>
 where
-  K: Clone + Send + Sync + Hash + Eq,
+  K: Clone + Send + Sync + Hash + Eq + 'static,
   T: Stream + Unpin,
 {
   // we use the batched message to optimize the performance
@@ -201,7 +201,7 @@ impl<S, K, T> Stream for MergeIntoStreamMap<S, K, T>
 where
   S: Stream<Item = (K, Option<T>)>,
   T: Stream + Unpin,
-  K: Clone + Send + Sync + Hash + Eq,
+  K: Clone + Send + Sync + Hash + Eq + 'static,
 {
   type Item = Vec<StreamMapDelta<K, T::Item>>;
 

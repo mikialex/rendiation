@@ -60,7 +60,7 @@ impl Texture2dInitAble for ImageLibContainerWrap<ImageBuffer<Rgba<u8>, Vec<u8>>>
 
 // todo texture loader should passed in and config ability freely
 pub fn load_tex(path: impl AsRef<Path>) -> GPUBufferImage {
-  use image::io::Reader as ImageReader;
+  use image::ImageReader;
   let img = ImageReader::open(path).unwrap().decode().unwrap();
   match img {
     image::DynamicImage::ImageRgba8(img) => {

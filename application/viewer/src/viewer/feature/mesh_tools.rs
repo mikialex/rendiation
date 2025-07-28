@@ -86,7 +86,7 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
         }
         .deduplicate_indices_and_remove_unused_vertices();
 
-        if mesh.indices.len() == 0 {
+        if mesh.indices.is_empty() {
           println!("mesh is simplified to nothing, this may be a bug");
         } else {
           simp_req.0 = Some(mesh);
