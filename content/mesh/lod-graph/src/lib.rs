@@ -5,7 +5,7 @@ use std::{fmt::Debug, ops::Range};
 use fast_hash_collection::FastHashSet;
 use rendiation_algebra::*;
 use rendiation_geometry::Sphere;
-use rendiation_mesh_core::{create_deduplicated_index_vertex_mesh, CommonVertex};
+use rendiation_mesh_core::*;
 use rendiation_mesh_segmentation::SegmentResult;
 
 mod build;
@@ -64,19 +64,4 @@ pub struct Meshlet {
   pub group_index_in_previous_level: u32,
   pub index_range: OffsetSize,
   pub bounding_in_local: Sphere,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct CommonMeshBuffer {
-  pub indices: Vec<u32>,
-  pub vertices: Vec<CommonVertex>,
-}
-
-impl CommonMeshBuffer {
-  pub fn deduplicate_indices_and_remove_unused_vertices(self) -> Self {
-    let (indices, vertices) = create_deduplicated_index_vertex_mesh(
-      self.indices.iter().map(|i| self.vertices[*i as usize]),
-    );
-    Self { indices, vertices }
-  }
 }

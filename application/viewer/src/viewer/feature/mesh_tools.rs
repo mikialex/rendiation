@@ -20,8 +20,17 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
       .vscroll(true)
       .show(egui_ctx, |ui| {
         if cx.viewer.scene.selected_target.is_some() {
-          if ui.button("simplification").clicked() {
-            *simp_req = Some(SimplifySelectMeshRequest(None));
+          if ui.button("simplification edge collapse").clicked() {
+            *simp_req = Some(SimplifySelectMeshRequest(
+              None,
+              MeshToolSimplificationType::EdgeCollapse,
+            ));
+          }
+          if ui.button("simplification sloppy").clicked() {
+            *simp_req = Some(SimplifySelectMeshRequest(
+              None,
+              MeshToolSimplificationType::Sloppy,
+            ));
           }
           if ui.button("segmentation").clicked() {
             *seg_req = Some(MeshSegmentationDebugRequest(None));
@@ -42,18 +51,32 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
 
         let mut dest_idx = vec![0; mesh.indices.len()];
 
-        let config = EdgeCollapseConfig {
-          target_index_count: mesh.indices.len() / 2,
-          target_error: f32::INFINITY,
-          lock_border: false,
-          use_absolute_error: false,
-        };
-
         let SimplificationResult {
           result_error,
           result_count,
-        } = simplify_by_edge_collapse(&mut dest_idx, &mesh.indices, &mesh.vertices, None, config);
-        println!("{result_error}, {result_count}");
+        } = match simp_req.1 {
+          MeshToolSimplificationType::EdgeCollapse => {
+            let config = EdgeCollapseConfig {
+              target_index_count: mesh.indices.len() / 2,
+              target_error: f32::INFINITY,
+              lock_border: false,
+              use_absolute_error: true,
+            };
+
+            simplify_by_edge_collapse(&mut dest_idx, &mesh.indices, &mesh.vertices, None, config)
+          }
+          MeshToolSimplificationType::Sloppy => simplify_sloppy(
+            &mut dest_idx,
+            &mesh.indices,
+            &mesh.vertices,
+            None,
+            mesh.indices.len() as u32 / 2,
+            f32::INFINITY,
+            true,
+          ),
+        };
+
+        println!("result_error: {result_error}, result_index_count: {result_count}");
 
         dest_idx.resize(result_count, 0);
 
@@ -63,7 +86,11 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
         }
         .deduplicate_indices_and_remove_unused_vertices();
 
-        simp_req.0 = Some(mesh);
+        if mesh.indices.len() == 0 {
+          println!("mesh is simplified to nothing, this may be a bug");
+        } else {
+          simp_req.0 = Some(mesh);
+        }
       }
     }
 
@@ -85,7 +112,7 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
   }
 
   if let ViewerCxStage::SceneContentUpdate { writer, .. } = &mut cx.stage {
-    if let Some(SimplifySelectMeshRequest(Some(mesh))) = simp_req.take() {
+    if let Some(SimplifySelectMeshRequest(Some(mesh), _)) = simp_req.take() {
       let target = cx.viewer.scene.selected_target.unwrap();
       create_simplified_mesh(writer, target, mesh);
     }
@@ -129,7 +156,12 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
 
 struct CreateMeshLodGraphRequest(Option<MeshLODGraph>);
 
-struct SimplifySelectMeshRequest(Option<CommonMeshBuffer>);
+pub enum MeshToolSimplificationType {
+  EdgeCollapse,
+  Sloppy,
+}
+
+struct SimplifySelectMeshRequest(Option<CommonMeshBuffer>, MeshToolSimplificationType);
 
 struct MeshSegmentationDebugRequest(Option<Vec<CommonMeshBuffer>>);
 

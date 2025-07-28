@@ -60,6 +60,7 @@ impl MeshLodGraphBuilder for DefaultMeshLODBuilder {
         Some(&vertex_lock),
         target_tri_num * 3,
         f32::INFINITY,
+        true,
       );
     }
 

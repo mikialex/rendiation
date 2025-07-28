@@ -20,6 +20,7 @@ use rendiation_geometry::*;
 use rendiation_gui_3d::*;
 use rendiation_lighting_gpu_system::*;
 use rendiation_lighting_transport::*;
+use rendiation_mesh_core::*;
 use rendiation_mesh_lod_graph_rendering::*;
 use rendiation_scene_rendering_gpu_gles::*;
 use rendiation_shader_api::*;

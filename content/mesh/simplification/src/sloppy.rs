@@ -9,6 +9,7 @@ pub fn simplify_sloppy<V: Positioned<Position = Vec3<f32>>>(
   vertex_lock: Option<&[bool]>,
   target_index_count: u32,
   target_error: f32,
+  use_absolute_error: bool,
 ) -> SimplificationResult {
   assert!(indices.len() % 3 == 0);
   assert!(target_index_count <= indices.len() as u32);
@@ -16,7 +17,9 @@ pub fn simplify_sloppy<V: Positioned<Position = Vec3<f32>>>(
   // we expect to get ~2 triangles/vertex in the output
   let target_cell_count = target_index_count / 6;
 
-  let (_vertex_scale, vertex_positions) = rescale_positions(vertices);
+  let (vertex_scale, vertex_positions) = rescale_positions(vertices);
+  let error_scale = if use_absolute_error { vertex_scale } else { 1. };
+  let target_error = target_error / error_scale;
 
   // find the optimal grid size using guided binary search
 
@@ -90,7 +93,7 @@ pub fn simplify_sloppy<V: Positioned<Position = Vec3<f32>>>(
 
   if min_triangles == 0 {
     return SimplificationResult {
-      result_error: 1., // todo, how to report absolute error?
+      result_error: error_scale,
       result_count: 0,
     };
   }
@@ -133,7 +136,7 @@ pub fn simplify_sloppy<V: Positioned<Position = Vec3<f32>>>(
   let write = filter_triangles(destination, &indices, &vertex_cells, &cell_remap);
 
   SimplificationResult {
-    result_error: result_error.sqrt(), // todo absolute
+    result_error: result_error.sqrt() * error_scale,
     result_count: write,
   }
 }
