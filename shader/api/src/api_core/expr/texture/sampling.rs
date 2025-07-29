@@ -114,7 +114,7 @@ impl<D: ShaderTextureDimension, F: ShaderTextureKind> BindingNode<ShaderTexture<
       position: position.handle(),
       array_index: None,
       sample_index: None,
-      level: level.into_i32().handle().into(), // todo, fix naga require i32
+      level: level.handle().into(),
     })
     .insert_api()
   }
@@ -134,7 +134,7 @@ impl<D: ShaderTextureDimension, F: ShaderTextureKind> BindingNode<ShaderTexture<
       position: position.handle(),
       array_index: layer.handle().into(),
       sample_index: None,
-      level: level.into_i32().handle().into(), // todo, fix naga require i32
+      level: level.handle().into(),
     })
     .insert_api()
   }

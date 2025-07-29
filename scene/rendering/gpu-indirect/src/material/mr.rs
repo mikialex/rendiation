@@ -142,8 +142,6 @@ fn pbr_mr_material_tex_storages(cx: &GPU) -> PbrMRMaterialTexStorages {
 pub struct PhysicalMetallicRoughnessMaterialIndirectGPU<'a> {
   storage: &'a StorageBufferReadonlyDataView<[PhysicalMetallicRoughnessMaterialStorage]>,
   alpha_mode: AlphaMode,
-  // no matter if we using indirect texture binding, this storage is required for checking the
-  // texture if is exist in shader
   texture_storages:
     &'a StorageBufferReadonlyDataView<[PhysicalMetallicRoughnessMaterialTextureHandlesStorage]>,
   binding_sys: &'a GPUTextureBindingSystem,

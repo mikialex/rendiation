@@ -524,7 +524,7 @@ fn sample_texture_level_impl(
       let p1 = xy_mix.x().mix(p01, p11);
       xy_mix.y().mix(p0, p1)
     },
-    || sample_texture_impl(texture, raw_load_position, layer, level),
+    || sample_texture_impl(texture, raw_load_position, level, layer),
   )
 }
 

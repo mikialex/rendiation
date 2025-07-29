@@ -136,8 +136,6 @@ fn pbr_sg_material_tex_storages(cx: &GPU) -> PbrSGMaterialTexStorages {
 pub struct PhysicalSpecularGlossinessMaterialGPU<'a> {
   storage: &'a StorageBufferReadonlyDataView<[PhysicalSpecularGlossinessMaterialStorage]>,
   alpha_mode: AlphaMode,
-  // no matter if we using indirect texture binding, this storage is required for checking the
-  // texture if is exist in shader
   texture_storages:
     &'a StorageBufferReadonlyDataView<[PhysicalSpecularGlossinessMaterialTextureHandlesStorage]>,
   binding_sys: &'a GPUTextureBindingSystem,

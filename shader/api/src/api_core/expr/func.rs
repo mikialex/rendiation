@@ -27,7 +27,6 @@ pub struct ShaderUserDefinedFunctionCaller<T> {
 }
 
 impl<T> ShaderUserDefinedFunctionCaller<T> {
-  // todo, make it type safe
   pub fn push<X>(mut self, p: Node<X>) -> Self {
     self.params.push(p.handle());
     self
@@ -120,7 +119,7 @@ impl<T: ShaderNodeType> FunctionBuildCtx<T> {
   }
 }
 
-// This util trait makes easy to extract T from Node<T> in proc macro syc ast.
+// This util trait makes easy to extract T from Node<T> in proc macro syn ast.
 pub trait ProcMacroNodeHelper {
   type NodeType;
 }
