@@ -14,7 +14,7 @@ pub struct ReactiveQueryCtx {
 #[derive(Clone, Default)]
 pub struct QueryCtxSetInfo {
   id: u32,
-  sets: FastHashSet<u32>,
+  sets: Option<FastHashSet<u32>>,
 }
 
 impl hook::CanCleanUpFrom<ReactiveQueryCtx> for QueryCtxSetInfo {
@@ -25,12 +25,14 @@ impl ReactiveQueryCtx {
   pub fn record_new_registered(&mut self, set: &mut QueryCtxSetInfo) {
     set.id = self.next;
     self.next += 1;
-    self.recording_sets.insert(set.id, Default::default());
+    self
+      .recording_sets
+      .insert(set.id, set.sets.take().unwrap_or_default());
   }
 
   pub fn end_record(&mut self, set: &mut QueryCtxSetInfo) {
     let recorded = self.recording_sets.remove(&set.id).unwrap();
-    set.sets = recorded;
+    set.sets = Some(recorded);
   }
 
   pub fn register_typed<T>(&mut self, update: T) -> QueryToken
@@ -55,6 +57,9 @@ impl ReactiveQueryCtx {
 
   pub fn deregister(&mut self, token: &mut QueryToken) {
     self.registry.remove(&std::mem::take(token).0);
+    self.recording_sets.values_mut().for_each(|v| {
+      v.remove(&token.0);
+    });
   }
 
   pub fn register_multi_updater<T: 'static>(
@@ -143,7 +148,7 @@ pub struct QueryResultCtx {
 
 impl QueryResultCtx {
   pub fn has_any_changed_in_set(&self, set: &QueryCtxSetInfo) -> bool {
-    for s in set.sets.iter() {
+    for s in set.sets.as_ref().unwrap().iter() {
       if self.token_based_waked.contains(s) {
         return true;
       }

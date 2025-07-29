@@ -38,24 +38,21 @@ pub trait QueryGPUHookCx: HooksCxLike {
     (cx, &mut state.0)
   }
 
-  // todo， fix dyn cfg in scope
   fn use_begin_change_set_collect(
     &mut self,
   ) -> (&mut Self, impl FnOnce(&mut Self) -> Option<bool>) {
-    let (_, set) = self.use_gpu_query_init_return_self(|_, query_cx| {
-      let mut set = QueryCtxSetInfo::default();
-      query_cx.record_new_registered(&mut set);
-      set
-    });
+    let (qcx, set) = self.use_state_init(QueryCtxSetInfo::default);
+
+    // as the dynamic scope can be nested in the scope, we need maintain the set
+    // per call cycle to make sure the watch set is up to date
+    qcx.get_query_cx().record_new_registered(set);
 
     // todo, how to avoid this?
-    let set = unsafe { std::mem::transmute(set) };
+    let set: &mut QueryCtxSetInfo = unsafe { std::mem::transmute(set) };
 
     (self, |qcx: &mut Self| {
-      if qcx.is_creating() {
-        qcx.get_query_cx().end_record(set);
-        None
-      } else if let QueryHookStage::Render(results) = qcx.get_stage() {
+      qcx.get_query_cx().end_record(set);
+      if let QueryHookStage::Render(results) = qcx.get_stage() {
         results.has_any_changed_in_set(set).into()
       } else {
         None
