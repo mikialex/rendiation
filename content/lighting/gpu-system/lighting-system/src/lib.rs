@@ -80,6 +80,10 @@ impl GeometryCtxProvider for DirectGeometryProvider {
   }
 }
 
+/// This tag is to indicate the material is lightable regardless if the surface config is lightable
+/// for example to support unlit material not be lighted under any lightable surface.
+pub struct LightableSurfaceTag;
+
 pub struct LightingComputeComponentAsRenderComponent<'a> {
   pub scene_id: UniformBufferDataView<Vec4<u32>>,
   pub geometry_constructor: Box<dyn GeometryCtxProvider + 'a>,
@@ -118,8 +122,15 @@ impl GraphicsShaderProvider for LightingComputeComponentAsRenderComponent<'_> {
         .build_light_compute_invocation(binder, scene_id);
       let shading = self.surface_constructor.construct_shading(builder, binder);
 
-      let hdr = invocation.compute_lights(shading.as_ref(), &geom_ctx);
-      builder.register::<HDRLightResult>(hdr.diffuse + hdr.specular_and_emissive);
+      // we skip hashing, because the variant is inject by upstream component
+      let hdr = if builder.contains_type_tag::<LightableSurfaceTag>() {
+        let hdr = invocation.compute_lights(shading.as_ref(), &geom_ctx);
+        hdr.diffuse + hdr.specular_and_emissive
+      } else {
+        val(Vec3::zero())
+      };
+
+      builder.register::<HDRLightResult>(hdr);
     })
   }
 }

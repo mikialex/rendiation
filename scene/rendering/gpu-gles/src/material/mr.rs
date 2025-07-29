@@ -249,6 +249,7 @@ impl GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialGPU<'_> {
 
       builder.register::<DefaultDisplay>((base_color, val(1.)));
       builder.insert_type_tag::<PbrMRMaterialTag>();
+      builder.insert_type_tag::<LightableSurfaceTag>();
     })
   }
 }

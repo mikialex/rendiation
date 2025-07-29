@@ -8,7 +8,6 @@ The following things is the current project development direction.
 
 important issue is in bold style.
 
-- unlit material is lighted with light dispatcher
 - switch renderer backend leak gpu resource
 - spd not support none pot target, and small target(the current impl will access out of boundary of image).
 - multi format support in texture pool system

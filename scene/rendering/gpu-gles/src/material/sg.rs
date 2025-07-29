@@ -243,6 +243,7 @@ impl GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU<'_> {
 
       builder.register::<DefaultDisplay>((albedo_alpha.xyz(), val(1.)));
       builder.insert_type_tag::<PbrSGMaterialTag>();
+      builder.insert_type_tag::<LightableSurfaceTag>();
     })
   }
 }

@@ -236,9 +236,11 @@ impl ShaderPassBuilder for LDROutput {}
 impl GraphicsShaderProvider for LDROutput {
   fn post_build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.fragment(|builder, _| {
-      let l = builder.query::<LDRLightResult>();
-      let alpha = builder.try_query::<AlphaChannel>().unwrap_or(val(1.0));
-      builder.register::<DefaultDisplay>((l, alpha));
+      if builder.contains_type_tag::<LightableSurfaceTag>() {
+        let l = builder.query::<LDRLightResult>();
+        let alpha = builder.try_query::<AlphaChannel>().unwrap_or(val(1.0));
+        builder.register::<DefaultDisplay>((l, alpha));
+      }
     })
   }
 }
