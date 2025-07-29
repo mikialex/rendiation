@@ -17,6 +17,7 @@ pub fn draw_widgets(
     SceneContentKey {
       only_alpha_blend_objects: None,
     },
+    renderer,
     ctx,
   );
 

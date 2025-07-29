@@ -89,7 +89,7 @@ impl LightSystem {
         // we could just use empty pass dispatcher, because the color channel not exist at all
         let depth = ();
         let camera = Box::new(CameraGPU { ubo: camera }) as Box<dyn RenderComponent>;
-        let batch = extractor.extract_scene_batch(target_scene, key, frame_ctx);
+        let batch = extractor.extract_scene_batch(target_scene, key, renderer, frame_ctx);
         let mut content = renderer.make_scene_batch_pass_content(batch, &camera, &depth, frame_ctx);
 
         desc.render_ctx(frame_ctx).by(&mut content);

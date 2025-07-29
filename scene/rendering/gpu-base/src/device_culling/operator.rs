@@ -75,6 +75,7 @@ impl AbstractCullerProvider for ShortcutOrCuller {
   }
   fn bind(&self, cx: &mut BindingBuilder) {
     self.0.bind(cx);
+    self.1.bind(cx);
   }
 }
 struct ShortcutOrCullerInvocation(

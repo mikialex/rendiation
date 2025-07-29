@@ -135,7 +135,8 @@ impl DeviceSceneModelRenderBatch {
 
   pub fn flush_culler(
     &self,
-    _cx: &mut DeviceParallelComputeCtx,
+    cx: &mut DeviceParallelComputeCtx,
+    require_materialize: bool,
   ) -> Vec<DeviceSceneModelRenderSubBatch> {
     if let Some(culler) = &self.stash_culler {
       self
@@ -147,8 +148,19 @@ impl DeviceSceneModelRenderBatch {
             input: sub_batch.scene_models.clone(),
           };
 
+          let scene_models = if require_materialize {
+            let scene_models = sub_batch
+              .scene_models
+              .clone()
+              .stream_compaction(mask)
+              .materialize_storage_buffer(cx);
+            Box::new(scene_models) as Box<dyn DeviceParallelComputeIO<u32>>
+          } else {
+            Box::new(sub_batch.scene_models.clone().stream_compaction(mask))
+          };
+
           DeviceSceneModelRenderSubBatch {
-            scene_models: Box::new(sub_batch.scene_models.clone().stream_compaction(mask)),
+            scene_models,
             impl_select_id: sub_batch.impl_select_id,
           }
         })
@@ -158,9 +170,13 @@ impl DeviceSceneModelRenderBatch {
     }
   }
 
-  pub fn flush_culler_into_new(&self, cx: &mut DeviceParallelComputeCtx) -> Self {
+  pub fn flush_culler_into_new(
+    &self,
+    cx: &mut DeviceParallelComputeCtx,
+    require_materialize: bool,
+  ) -> Self {
     Self {
-      sub_batches: self.flush_culler(cx),
+      sub_batches: self.flush_culler(cx, require_materialize),
       stash_culler: None,
     }
   }

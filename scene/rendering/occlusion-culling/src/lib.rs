@@ -75,7 +75,7 @@ impl GPUTwoPassOcclusionCulling {
     // must flush culler explicit(even the make_scene_batch_pass_content call will flush),
     // because the new culler will update the previous culler's result.
     let first_pass_batch =
-      frame_ctx.access_parallel_compute(|cx| first_pass_batch.flush_culler_into_new(cx));
+      frame_ctx.access_parallel_compute(|cx| first_pass_batch.flush_culler_into_new(cx, true));
 
     let mut first_pass_batch_draw = scene_renderer.make_scene_batch_pass_content(
       SceneModelRenderBatch::Device(first_pass_batch.clone()),

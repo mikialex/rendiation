@@ -41,10 +41,10 @@ impl SceneModelRenderer for IndirectSceneRenderer {
   }
 }
 
-impl IndirectSceneRenderer {
+impl SceneDeviceBatchDirectCreator for IndirectSceneRenderer {
   fn create_batch_from_iter(
     &self,
-    iter: impl Iterator<Item = EntityHandle<SceneModelEntity>>,
+    iter: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
   ) -> DeviceSceneModelRenderBatch {
     let mut classifier = FastHashMap::default();
 
@@ -80,6 +80,9 @@ impl IndirectSceneRenderer {
 }
 
 impl SceneRenderer for IndirectSceneRenderer {
+  fn indirect_batch_direct_creator(&self) -> Option<&dyn SceneDeviceBatchDirectCreator> {
+    Some(self)
+  }
   fn make_scene_batch_pass_content<'a>(
     &'a self,
     batch: SceneModelRenderBatch,
@@ -89,10 +92,12 @@ impl SceneRenderer for IndirectSceneRenderer {
   ) -> Box<dyn PassContent + 'a> {
     let batch = match batch {
       SceneModelRenderBatch::Device(batch) => batch,
-      SceneModelRenderBatch::Host(batch) => self.create_batch_from_iter(batch.iter_scene_models()),
+      SceneModelRenderBatch::Host(batch) => {
+        self.create_batch_from_iter(&mut batch.iter_scene_models())
+      }
     };
 
-    let batch = ctx.access_parallel_compute(|cx| batch.flush_culler_into_new(cx));
+    let batch = ctx.access_parallel_compute(|cx| batch.flush_culler_into_new(cx, false));
 
     let content: Vec<_> = batch
       .sub_batches

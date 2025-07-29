@@ -54,12 +54,14 @@ pub fn render_lighting_scene_content(
       let all_opaque_object = renderer.batch_extractor.extract_scene_batch(
         content.scene,
         SceneContentKey::only_opaque_objects(),
+        renderer.scene,
         ctx,
       );
 
       let all_transparent_object = renderer.batch_extractor.extract_scene_batch(
         content.scene,
         SceneContentKey::only_alpha_blend_objects(),
+        renderer.scene,
         ctx,
       );
 
@@ -241,6 +243,7 @@ pub fn render_lighting_scene_content(
       let main_scene_content = renderer.batch_extractor.extract_scene_batch(
         content.scene,
         SceneContentKey::default(),
+        renderer.scene,
         ctx,
       );
 

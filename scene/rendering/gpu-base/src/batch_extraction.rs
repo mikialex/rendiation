@@ -28,15 +28,22 @@ impl DefaultSceneBatchExtractor {
     &self,
     scene: EntityHandle<SceneEntity>,
     semantic: SceneContentKey,
+    renderer: &dyn SceneRenderer,
     _ctx: &mut FrameCtx,
   ) -> SceneModelRenderBatch {
-    SceneModelRenderBatch::Host(Box::new(HostModelLookUp {
+    let batch = HostModelLookUp {
       v: self.model_lookup.clone(),
       node_net_visible: self.node_net_visible.clone(),
       sm_ref_node: self.sm_ref_node.clone(),
       scene_id: scene,
       scene_model_use_alpha_blending: self.alpha_blend.clone(),
       enable_alpha_blending: semantic.only_alpha_blend_objects,
-    }))
+    };
+
+    if let Some(creator) = renderer.indirect_batch_direct_creator() {
+      SceneModelRenderBatch::Device(creator.create_batch_from_iter(&mut batch.iter_scene_models()))
+    } else {
+      SceneModelRenderBatch::Host(Box::new(batch))
+    }
   }
 }

@@ -112,6 +112,17 @@ pub trait SceneRenderer: SceneModelRenderer {
     pass: &'a dyn RenderComponent,
     ctx: &mut FrameCtx,
   ) -> Box<dyn PassContent + 'a>;
+
+  fn indirect_batch_direct_creator(&self) -> Option<&dyn SceneDeviceBatchDirectCreator> {
+    None
+  }
+}
+
+pub trait SceneDeviceBatchDirectCreator {
+  fn create_batch_from_iter(
+    &self,
+    iter: &mut dyn Iterator<Item = EntityHandle<SceneModelEntity>>,
+  ) -> DeviceSceneModelRenderBatch;
 }
 
 /// A renderer supports rendering in scene model granularity
