@@ -146,11 +146,11 @@ impl GPUTwoPassOcclusionCulling {
       )
     });
 
-    // second pass, draw rest but not occluded
-    let second_pass_culler = only_last_frame_visible // todo, fixme, the only_last_frame_visible has been modified
+    // second pass, draw rest but not occluded, and update the visibility states
+    let second_pass_culler = only_last_frame_visible
       .not()
       .shortcut_or(pre_culler)
-      .shortcut_or(occlusion_culler); // todo, the oc test is query again here
+      .shortcut_or(occlusion_culler);
     let second_pass_batch = batch.clone().with_override_culler(second_pass_culler);
 
     let mut second_pass_draw = scene_renderer.make_scene_batch_pass_content(
