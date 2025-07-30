@@ -17,6 +17,7 @@ parking_lot = { workspace = true }
 fast-hash-collection = { path = "../../utility/fast-hash-collection" }
 heap-tools = { path = "../../utility/heap-tools" }
 image = "*"
+disqualified = { workspace = true }
 serde = { workspace = true }
 facet = { workspace = true }
 log = { workspace = true }

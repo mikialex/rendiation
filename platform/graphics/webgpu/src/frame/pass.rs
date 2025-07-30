@@ -158,9 +158,22 @@ impl RenderPassDescription {
 }
 
 pub trait PassContent {
+  // the pass content will be scoped with this debug name
+  // the implementation can override this name
+  fn debug_label(&self) -> String {
+    disqualified::ShortName::of::<Self>().to_string()
+  }
+  fn render_with_scope_label(&mut self, pass: &mut FrameRenderPass) {
+    pass.push_debug_group(&self.debug_label());
+    self.render(pass);
+    pass.pop_debug_group();
+  }
   fn render(&mut self, pass: &mut FrameRenderPass);
 }
 impl PassContent for Box<dyn PassContent + '_> {
+  fn debug_label(&self) -> String {
+    (**self).debug_label()
+  }
   fn render(&mut self, pass: &mut FrameRenderPass) {
     (**self).render(pass);
   }
@@ -195,7 +208,17 @@ impl Drop for ActiveRenderPass {
 
 impl ActiveRenderPass {
   pub fn by(mut self, renderable: &mut impl PassContent) -> Self {
-    renderable.render(&mut self.pass);
+    // when we are debug build, enable label scope writing
+    #[cfg(debug_assertions)]
+    {
+      renderable.render_with_scope_label(&mut self.pass);
+    }
+
+    #[cfg(not(debug_assertions))]
+    {
+      renderable.render(&mut self.pass);
+    }
+
     self
   }
 }

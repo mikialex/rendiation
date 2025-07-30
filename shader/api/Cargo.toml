@@ -14,6 +14,7 @@ rendiation-shader-derives = { path = "../derive" }
 parking_lot = { workspace = true }
 wgpu-types = { workspace = true }
 dyn-clone = { workspace = true }
+disqualified = { workspace = true }
 anymap = { path = "../../utility/anymap" }
 
 [lints]

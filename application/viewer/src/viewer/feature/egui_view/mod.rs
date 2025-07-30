@@ -118,7 +118,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
           for (name, r) in counters.report_all_instance_count() {
             ui.label(format!(
               "{}: current:{} peak:{}",
-              get_short_name(name),
+              disqualified::ShortName(name),
               r.current,
               r.history_peak
             ));

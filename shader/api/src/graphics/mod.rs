@@ -152,7 +152,7 @@ pub trait GraphicsShaderProvider {
   }
 
   fn debug_label(&self) -> String {
-    std::any::type_name::<Self>().into()
+    disqualified::ShortName::of::<Self>().to_string()
   }
 }
 
