@@ -138,8 +138,8 @@ impl Viewer3dRenderingCtx {
     } else if is_target_support_indirect_draw
       && self.current_renderer_impl_ty != RasterizationRenderBackendType::Indirect
     {
-      self.enable_indirect_occlusion_culling_support = false;
-      "gpu driven occlusion culling is not enabled because gpu driven rendering is not enabled"
+      self.enable_indirect_occlusion_culling = false;
+      "gpu driven occlusion culling only available when gpu driven rendering is enabled"
     } else {
       ""
     };
@@ -148,8 +148,8 @@ impl Viewer3dRenderingCtx {
       self.current_renderer_impl_ty == RasterizationRenderBackendType::Indirect,
       |ui| {
         ui.checkbox(
-          &mut self.enable_indirect_occlusion_culling_support,
-          "occlusion_culling_system_is_ready",
+          &mut self.enable_indirect_occlusion_culling,
+          "enable_indirect_occlusion_culling",
         )
         .on_disabled_hover_text(message);
       },

@@ -73,7 +73,7 @@ pub struct Viewer3dRenderingCtx {
   frame_index: u64,
   ndc: ViewerNDC,
   frame_logic: ViewerFrameLogic,
-  enable_indirect_occlusion_culling_support: bool,
+  enable_indirect_occlusion_culling: bool,
   current_renderer_impl_ty: RasterizationRenderBackendType,
   rtx_effect_mode: RayTracingEffectMode,
   rtx_renderer_enabled: bool,
@@ -115,7 +115,7 @@ impl Viewer3dRenderingCtx {
       frame_index: 0,
       ndc,
       swap_chain,
-      enable_indirect_occlusion_culling_support: false,
+      enable_indirect_occlusion_culling: false,
       transparent_config: ViewerTransparentContentRenderStyle::NaiveAlphaBlend,
       current_renderer_impl_ty: RasterizationRenderBackendType::Indirect,
       rtx_effect_mode: RayTracingEffectMode::ReferenceTracing,
@@ -167,7 +167,7 @@ impl Viewer3dRenderingCtx {
     let culling = use_viewer_culling(
       qcx,
       &self.camera_source,
-      self.enable_indirect_occlusion_culling_support,
+      self.enable_indirect_occlusion_culling,
     );
 
     let mut mesh_lod_graph_renderer = None;

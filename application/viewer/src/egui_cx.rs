@@ -1,5 +1,5 @@
 use egui::epaint::Shadow;
-use egui::Visuals;
+use egui::{Theme, ThemePreference, Visuals};
 use rendiation_texture_gpu_process::copy_frame;
 use winit::window::Window;
 
@@ -60,6 +60,8 @@ impl Default for EguiContext {
     };
 
     egui_context.set_visuals(visuals);
+    egui_context.set_theme(ThemePreference::System);
+    egui_context.options_mut(|opt| opt.fallback_theme = Theme::Light);
 
     EguiContext {
       context: egui_context,

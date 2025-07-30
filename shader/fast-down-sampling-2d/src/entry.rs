@@ -82,6 +82,7 @@ pub fn compute_pot_enlarged_hierarchy_depth(
 
     impl ShaderPassBuilder for CopyDepthFrame {
       fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+        ctx.bind_immediate_sampler(&rendiation_webgpu::SamplerDescriptor::default());
         ctx.binding.bind(&self.source);
       }
     }
@@ -89,11 +90,12 @@ pub fn compute_pot_enlarged_hierarchy_depth(
     impl GraphicsShaderProvider for CopyDepthFrame {
       fn build(&self, builder: &mut rendiation_shader_api::ShaderRenderPipelineBuilder) {
         builder.fragment(|builder, binding| {
+          let sampler = binding.bind_by(&ImmediateGPUSamplerViewBind);
           let source = binding.bind_by(&self.source);
 
-          let position = builder.query::<FragmentPosition>().into_u32().xy();
-          let value: Node<f32> = source.load_texel(position, val(0));
-          builder.store_fragment_out(0, value)
+          let uv = builder.query::<FragmentUv>();
+          let value = source.sample(sampler, uv);
+          builder.store_fragment_out(0, value);
         })
       }
     }
