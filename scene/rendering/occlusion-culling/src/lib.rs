@@ -14,6 +14,7 @@ use occlusion_test::*;
 
 pub struct GPUTwoPassOcclusionCulling {
   max_scene_model_id: usize,
+  /// note, we store the invisible state here, because invisible is zero, which not require special buffer init.
   last_frame_visibility: FastHashMap<u32, StorageBufferDataView<[Bool]>>,
   // todo, improve: we could share the depth pyramid cache for different view
   depth_pyramid_cache: FastHashMap<u32, GPU2DTexture>,
@@ -48,7 +49,7 @@ impl GPUTwoPassOcclusionCulling {
     frame_ctx: &mut FrameCtx,
     view_key: u32,
     batch: &DeviceSceneModelRenderBatch,
-    target: RenderPassDescription,
+    mut target: RenderPassDescription,
     preflight_content: &mut dyn FnMut(ActiveRenderPass) -> ActiveRenderPass,
     scene_renderer: &dyn SceneRenderer,
     camera: &CameraGPU,
@@ -58,7 +59,7 @@ impl GPUTwoPassOcclusionCulling {
   ) -> ActiveRenderPass {
     let pre_culler = batch.stash_culler.clone().unwrap_or(Box::new(NoopCuller));
 
-    let last_frame_visibility = self
+    let last_frame_invisible = self
       .last_frame_visibility
       .entry(view_key)
       .or_insert_with(|| {
@@ -68,10 +69,11 @@ impl GPUTwoPassOcclusionCulling {
 
     // first pass
     // draw all visible object in last frame culling result as the occluder
-    let only_last_frame_visible = filter_last_frame_visible_object(last_frame_visibility);
+    let only_last_frame_visible = filter_last_frame_visible_object(last_frame_invisible);
     let first_pass_culler = only_last_frame_visible.shortcut_or(pre_culler.clone());
     let first_pass_batch = batch.clone().with_override_culler(first_pass_culler);
 
+    // todo, this is not required as the cmd executed in order
     // must flush culler explicit(even the make_scene_batch_pass_content call will flush),
     // because the new culler will update the previous culler's result.
     let first_pass_batch =
@@ -136,7 +138,7 @@ impl GPUTwoPassOcclusionCulling {
       test_and_update_last_frame_visibility_use_all_passed_batch_and_return_culler(
         cx,
         &pyramid,
-        last_frame_visibility.clone(),
+        last_frame_invisible.clone(),
         camera,
         bounding_provider,
         first_pass_batch,
@@ -156,6 +158,9 @@ impl GPUTwoPassOcclusionCulling {
       pass_com,
       frame_ctx,
     );
+
+    // make sure we do not clear what we have drawn in first pass
+    target.make_all_channel_and_depth_into_load_op();
 
     target
       .with_name("occlusion-culling-second-pass")

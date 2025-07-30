@@ -192,7 +192,7 @@ impl Node<bool> {
   ///
   /// Within each component, the IDs are in ascending order by bit position
   /// (e.g. ID 32 is at bit position 0 in the y component).
-  pub fn subgroup_ballot(&self) -> Node<u32> {
+  pub fn subgroup_ballot(&self) -> Node<Vec4<u32>> {
     call_shader_api(|api| unsafe {
       api
         .make_expression(ShaderNodeExpr::SubgroupBallot {

@@ -3,7 +3,7 @@ use crate::*;
 pub fn test_and_update_last_frame_visibility_use_all_passed_batch_and_return_culler(
   cx: &mut DeviceParallelComputeCtx,
   depth_pyramid: &GPU2DTextureView,
-  last_frame_visibility: StorageBufferDataView<[Bool]>,
+  last_frame_invisible: StorageBufferDataView<[Bool]>,
   camera: &CameraGPU,
   bounding_provider: Box<dyn DrawUnitWorldBoundingProvider>,
   last_frame_occluder_batch: DeviceSceneModelRenderBatch,
@@ -15,7 +15,7 @@ pub fn test_and_update_last_frame_visibility_use_all_passed_batch_and_return_cul
     depth_pyramid: depth_pyramid.clone(),
     camera: camera.ubo.clone(),
     bounding_provider,
-    last_frame_visibility,
+    last_frame_invisible,
   });
 
   // update the occluder's visibility for the occluder
@@ -57,7 +57,7 @@ pub fn test_and_update_last_frame_visibility_use_all_passed_batch_and_return_cul
 #[derive(Clone)]
 struct OcclusionTester {
   depth_pyramid: GPU2DTextureView,
-  last_frame_visibility: StorageBufferDataView<[Bool]>,
+  last_frame_invisible: StorageBufferDataView<[Bool]>,
   camera: UniformBufferDataView<CameraGPUTransform>,
   bounding_provider: Box<dyn DrawUnitWorldBoundingProvider>,
 }
@@ -75,7 +75,7 @@ impl AbstractCullerProvider for OcclusionTester {
       depth: cx.bind_by(&self.depth_pyramid),
       camera: cx.bind_by(&self.camera),
       bounding_provider: self.bounding_provider.create_invocation(cx),
-      last_frame_visibility: cx.bind_by(&self.last_frame_visibility),
+      last_frame_invisible: cx.bind_by(&self.last_frame_invisible),
     })
   }
 
@@ -83,7 +83,7 @@ impl AbstractCullerProvider for OcclusionTester {
     cx.bind(&self.depth_pyramid);
     cx.bind(&self.camera);
     self.bounding_provider.bind(cx);
-    cx.bind(&self.last_frame_visibility);
+    cx.bind(&self.last_frame_invisible);
   }
 }
 
@@ -91,7 +91,7 @@ struct OcclusionTesterInvocation {
   depth: BindingNode<ShaderTexture2D>,
   camera: ShaderReadonlyPtrOf<CameraGPUTransform>,
   bounding_provider: Box<dyn DrawUnitWorldBoundingInvocationProvider>,
-  last_frame_visibility: ShaderPtrOf<[Bool]>,
+  last_frame_invisible: ShaderPtrOf<[Bool]>,
 }
 
 impl AbstractCullerInvocation for OcclusionTesterInvocation {
@@ -99,9 +99,9 @@ impl AbstractCullerInvocation for OcclusionTesterInvocation {
     let target_world_bounding = self.bounding_provider.get_world_bounding(id);
     let is_occluded = self.is_occluded(target_world_bounding);
     self
-      .last_frame_visibility
+      .last_frame_invisible
       .index(id)
-      .store(is_occluded.not().into_big_bool());
+      .store(is_occluded.into_big_bool());
     is_occluded
   }
 }

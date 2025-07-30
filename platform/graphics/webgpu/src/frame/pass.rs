@@ -60,6 +60,15 @@ pub struct RenderPassDescription {
 }
 
 impl RenderPassDescription {
+  pub fn make_all_channel_and_depth_into_load_op(&mut self) {
+    for c in self.channels.iter_mut() {
+      c.0.load = gpu::LoadOp::Load;
+    }
+    if let Some(c) = self.depth_stencil_target.as_mut() {
+      c.0.load = gpu::LoadOp::Load;
+    }
+  }
+
   pub fn buffer_size(&self) -> Vec2<f32> {
     self
       .channels
