@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 use crate::*;
 
 pub fn test_and_update_last_frame_visibility_use_all_passed_batch_and_return_culler(
@@ -7,6 +9,7 @@ pub fn test_and_update_last_frame_visibility_use_all_passed_batch_and_return_cul
   camera: &CameraGPU,
   bounding_provider: Box<dyn DrawUnitWorldBoundingProvider>,
   last_frame_occluder_batch: DeviceSceneModelRenderBatch,
+  reverse_depth: bool,
 ) -> Box<dyn AbstractCullerProvider> {
   let device = cx.gpu.device.clone();
 
@@ -16,6 +19,7 @@ pub fn test_and_update_last_frame_visibility_use_all_passed_batch_and_return_cul
     camera: camera.ubo.clone(),
     bounding_provider,
     last_frame_invisible,
+    reverse_depth,
   });
 
   // update the occluder's visibility for the occluder
@@ -26,7 +30,9 @@ pub fn test_and_update_last_frame_visibility_use_all_passed_batch_and_return_cul
   for sub_batch in &last_frame_occluder_batch.sub_batches {
     let scene_models = sub_batch.scene_models.execute_and_expose(cx);
     // update the occluder's visibility for the occluder
-    let hasher = shader_hasher_from_marker_ty!(OcclusionLastFrameVisibleUpdater);
+    let mut hasher = shader_hasher_from_marker_ty!(OcclusionLastFrameVisibleUpdater);
+    tester.hash_pipeline_with_type_info(&mut hasher);
+
     let pipeline = device.get_or_cache_create_compute_pipeline_by(hasher, |mut ctx| {
       let scene_models = scene_models.build_shader(&mut ctx);
       let culler = tester.create_invocation(ctx.bindgroups());
@@ -60,10 +66,15 @@ struct OcclusionTester {
   last_frame_invisible: StorageBufferDataView<[Bool]>,
   camera: UniformBufferDataView<CameraGPUTransform>,
   bounding_provider: Box<dyn DrawUnitWorldBoundingProvider>,
+  reverse_depth: bool,
 }
 
 impl ShaderHashProvider for OcclusionTester {
   shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.bounding_provider.hash_pipeline(hasher);
+    self.reverse_depth.hash(hasher);
+  }
 }
 
 impl AbstractCullerProvider for OcclusionTester {
@@ -76,6 +87,7 @@ impl AbstractCullerProvider for OcclusionTester {
       camera: cx.bind_by(&self.camera),
       bounding_provider: self.bounding_provider.create_invocation(cx),
       last_frame_invisible: cx.bind_by(&self.last_frame_invisible),
+      reverse_depth: self.reverse_depth,
     })
   }
 
@@ -92,6 +104,7 @@ struct OcclusionTesterInvocation {
   camera: ShaderReadonlyPtrOf<CameraGPUTransform>,
   bounding_provider: Box<dyn DrawUnitWorldBoundingInvocationProvider>,
   last_frame_invisible: ShaderPtrOf<[Bool]>,
+  reverse_depth: bool,
 }
 
 impl AbstractCullerInvocation for OcclusionTesterInvocation {
@@ -107,7 +120,7 @@ impl AbstractCullerInvocation for OcclusionTesterInvocation {
 }
 
 impl OcclusionTesterInvocation {
-  /// return if visible
+  /// return true == occluded
   fn is_occluded(&self, target_world_bounding: TargetWorldBounding) -> Node<bool> {
     let size = hpt_sub_hpt(target_world_bounding.max, target_world_bounding.min);
 
@@ -170,7 +183,11 @@ impl OcclusionTesterInvocation {
 
       min_xy.store(min_xy.load().min(pos_xy));
       max_xy.store(max_xy.load().max(pos_xy));
-      min_z.store(min_z.load().min(z));
+      if self.reverse_depth {
+        min_z.store(min_z.load().max(z));
+      } else {
+        min_z.store(min_z.load().min(z));
+      }
     });
 
     let min_xy = min_xy.load();
@@ -196,8 +213,12 @@ impl OcclusionTesterInvocation {
     let d_1 = self.depth.load_texel((r_x, t_y).into(), mip_level).x();
     let d_2 = self.depth.load_texel((l_x, b_y).into(), mip_level).x();
     let d_3 = self.depth.load_texel((r_x, b_y).into(), mip_level).x();
-
-    let max_depth = d_0.max(d_1).max(d_2).max(d_3);
-    min_z.load().greater_than(max_depth)
+    if self.reverse_depth {
+      let max_depth = d_0.min(d_1).min(d_2).min(d_3);
+      min_z.load().less_than(max_depth)
+    } else {
+      let max_depth = d_0.max(d_1).max(d_2).max(d_3);
+      min_z.load().greater_than(max_depth)
+    }
   }
 }
