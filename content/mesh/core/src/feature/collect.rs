@@ -7,6 +7,7 @@ impl<P: Simplex> FromIterator<P> for NoneIndexedMesh<P::Topology, Vec<P::Vertex>
   }
 }
 
+/// the output length may not match the input, because degenerated triangle will be dropped
 pub fn create_deduplicated_index_vertex_mesh<T: Eq + Hash + Copy>(
   vertex: impl Iterator<Item = T>,
 ) -> (Vec<u32>, Vec<T>) {
@@ -23,6 +24,9 @@ pub fn create_deduplicated_index_vertex_mesh<T: Eq + Hash + Copy>(
         (new_vertices.len() - 1) as u32
       })
     })
+    .array_chunks::<3>()
+    .filter(triangle_is_not_degenerated)
+    .flatten()
     .collect::<Vec<_>>();
 
   new_vertices.shrink_to_fit();

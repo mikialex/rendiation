@@ -26,6 +26,7 @@ pub struct Meshlet {
   pub triangle_count: u32,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct ClusteringConfig {
   pub max_vertices: u8,
   /// should <= [MESHLET_MAX_TRIANGLES]

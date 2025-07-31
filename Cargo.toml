@@ -27,6 +27,7 @@ members = [
   "content/mesh/simplification",
   "content/mesh/segmentation",
   "content/mesh/lod-graph",
+  "content/mesh/test-util",
   "content/texture/core",
   "content/texture/types",
   "content/texture/packer",

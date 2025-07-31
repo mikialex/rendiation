@@ -41,7 +41,6 @@ impl MeshletBuildSeeding {
 
   pub fn prune(&mut self, tri_emitted_flags: &[bool]) {
     // only keep un emitted triangles
-    // todo, retain keeps order, is that required?
     self
       .seed_triangles
       .retain(|&index| !tri_emitted_flags[index as usize]);

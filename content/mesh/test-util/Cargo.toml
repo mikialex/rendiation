@@ -1,17 +1,15 @@
 [package]
 authors = ["mikialex <18516340862@163.com>"]
 edition = "2021"
-name = "rendiation-mesh-segmentation"
+name = "rendiation-mesh-test-util"
 version = "0.1.0"
 
 [dependencies]
 rendiation-algebra = { path = "../../../math/algebra" }
 rendiation-geometry = { path = "../../../math/geometry" }
 rendiation-mesh-core = { path = "../core" }
-rendiation-space-algorithm = { path = "../../space" }
-
-[dev-dependencies]
-rendiation-mesh-test-util = { path = "../test-util" }
+tobj = "4.0.0"
+walkdir = { workspace = true }
 
 [lints]
 workspace = true

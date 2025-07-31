@@ -10,8 +10,7 @@ rendiation-geometry = { path = "../../../math/geometry" }
 rendiation-mesh-core = { path = "../core" }
 
 [dev-dependencies]
-tobj = "4.0.0"
-walkdir = { workspace = true }
+rendiation-mesh-test-util = { path = "../test-util" }
 
 [lints]
 workspace = true

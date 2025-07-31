@@ -3976,12 +3976,22 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-mesh-core",
+ "rendiation-mesh-test-util",
  "rendiation-space-algorithm",
- "tobj",
 ]
 
 [[package]]
 name = "rendiation-mesh-simplification"
+version = "0.1.0"
+dependencies = [
+ "rendiation-algebra",
+ "rendiation-geometry",
+ "rendiation-mesh-core",
+ "rendiation-mesh-test-util",
+]
+
+[[package]]
+name = "rendiation-mesh-test-util"
 version = "0.1.0"
 dependencies = [
  "rendiation-algebra",

@@ -1,5 +1,6 @@
 #![feature(stmt_expr_attributes)]
 #![feature(iterator_try_collect)]
+#![feature(iter_array_chunks)]
 
 mod common_vertex;
 mod container;
