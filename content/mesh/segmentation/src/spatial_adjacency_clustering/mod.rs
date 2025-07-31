@@ -180,6 +180,11 @@ pub fn build_meshlets<V: Positioned<Position = Vec3<f32>>, SA: SpaceSearchAccele
       }
     }
 
+    let best_triangle_ = best_triangle as usize;
+    let a = indices[best_triangle_ * 3] as usize;
+    let b = indices[best_triangle_ * 3 + 1] as usize;
+    let c = indices[best_triangle_ * 3 + 2] as usize;
+
     assert!(a < vertices.len() && b < vertices.len() && c < vertices.len());
 
     // add meshlet to the output; when the current meshlet is full we reset the accumulated bounds
