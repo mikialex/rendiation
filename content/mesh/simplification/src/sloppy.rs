@@ -155,17 +155,17 @@ fn compute_vertex_ids(
   grid_size: u32,
 ) {
   assert!((1..=1024).contains(&grid_size));
-  let cell_scale = grid_size as f32 - 1.;
+  let cell_scale = (grid_size - 1) as f32;
 
   for i in 0..vertex_positions.len() {
     let v = vertex_positions[i];
     let v = v.map(|v| (v * cell_scale + 0.5) as i32);
-    if let Some(vertex_lock) = vertex_lock {
-      if vertex_lock[i] {
-        vertex_ids[i] = (1 << 30) | i as u32;
-      } else {
-        vertex_ids[i] = ((v.x << 20) | (v.y << 10) | v.z) as u32;
-      }
+    if let Some(vertex_lock) = vertex_lock
+      && vertex_lock[i]
+    {
+      vertex_ids[i] = (1 << 30) | i as u32;
+    } else {
+      vertex_ids[i] = ((v.x << 20) | (v.y << 10) | v.z) as u32;
     }
   }
 }
