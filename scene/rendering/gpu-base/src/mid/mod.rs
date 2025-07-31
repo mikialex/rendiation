@@ -122,26 +122,13 @@ impl DeviceSceneModelRenderSubBatch {
       }
     };
 
-    let support_midc = cx
-      .gpu
-      .info
-      .supported_features
-      .contains(Features::MULTI_DRAW_INDIRECT_COUNT);
-
-    let batch = MultiIndirectDrawBatch {
-      draw_command_buffer,
-      draw_count,
-    };
-
-    if support_midc {
-      Box::new(batch)
-    } else {
-      let (helper, cmd) = rendiation_webgpu_midc_downgrade::downgrade_multi_indirect_draw_count(
-        batch.draw_command(),
-        cx,
-      );
-      Box::new(MIDCDowngradeBatch { helper, cmd })
-    }
+    into_maybe_downgrade_batch_assume_standard_midc_style(
+      MultiIndirectDrawBatch {
+        draw_command_buffer,
+        draw_count,
+      },
+      cx,
+    )
   }
 }
 

@@ -3966,6 +3966,7 @@ dependencies = [
  "rendiation-scene-rendering-gpu-indirect",
  "rendiation-shader-api",
  "rendiation-webgpu",
+ "rendiation-webgpu-midc-downgrade",
  "rendiation-webgpu-reactive-utils",
 ]
 
@@ -4205,6 +4206,7 @@ dependencies = [
  "rendiation-shader-library",
  "rendiation-texture-core",
  "rendiation-webgpu",
+ "rendiation-webgpu-midc-downgrade",
  "rendiation-webgpu-reactive-utils",
 ]
 

@@ -14,6 +14,7 @@ use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 
 mod scene_integration;
+use rendiation_webgpu_midc_downgrade::*;
 pub use scene_integration::*;
 mod lod;
 use lod::*;
@@ -83,6 +84,7 @@ pub struct MeshLODGraphRenderer {
   pub scene_model_meshlet_range: CommonStorageBufferImplWithHostBackup<Vec2<u32>>,
   pub position_buffer: StorageBufferRangeAllocatePool<u32>,
   pub index_buffer: StorageBufferRangeAllocatePool<u32>,
+  pub enable_midc_downgrade: bool,
 }
 
 impl MeshLODGraphRenderer {
@@ -104,6 +106,7 @@ impl MeshLODGraphRenderer {
       ),
       position_buffer: create_storage_buffer_range_allocate_pool(gpu, 1_000_000, 1_000_000),
       index_buffer,
+      enable_midc_downgrade: require_midc_downgrade(&gpu.info),
     }
   }
 
@@ -221,7 +224,8 @@ impl MeshLODGraphRenderer {
       lod_decider,
     };
 
-    Box::new(expander.expand(batch, scene_model_matrix, cx, max_meshlet_count))
+    let batch = expander.expand(batch, scene_model_matrix, cx, max_meshlet_count);
+    into_maybe_downgrade_batch_assume_standard_midc_style(batch, cx)
   }
 
   pub fn create_mesh_accessor(&self) -> Box<dyn RenderComponent> {
@@ -234,10 +238,16 @@ impl MeshLODGraphRenderer {
     let index_buffer =
       StorageBufferReadonlyDataView::try_from_raw(self.index_buffer.raw_gpu().clone()).unwrap();
 
-    Box::new(MeshletGPURenderData {
+    let draw_data = MeshletGPURenderData {
       meshlet_metadata,
       position_buffer,
       index_buffer,
+    };
+
+    Box::new(MidcDowngradeWrapperForIndirectMeshSystem {
+      index: draw_data.index_buffer.clone().into(),
+      mesh_system: draw_data,
+      enable_downgrade: self.enable_midc_downgrade,
     })
   }
 }

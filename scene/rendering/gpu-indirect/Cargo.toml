@@ -24,6 +24,7 @@ rendiation-device-parallel-compute = { path = "../../../shader/parallel-compute"
 reactive = { path = "../../../utility/reactive" }
 rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
 rendiation-webgpu-reactive-utils = { path = "../../../platform/graphics/webgpu-reactive-utils" }
+rendiation-webgpu-midc-downgrade = { path = "../../../platform/graphics/webgpu-midc-downgrade" }
 rendiation-lighting-transport = { path = "../../../content/lighting/transport" }
 bytemuck = { workspace = true }
 [lints]

@@ -3,6 +3,7 @@ use std::{mem::offset_of, sync::Arc};
 use parking_lot::RwLock;
 use rendiation_mesh_core::{AttributeSemantic, BufferViewRange};
 use rendiation_shader_api::*;
+use rendiation_webgpu_midc_downgrade::*;
 
 only_vertex!(IndirectAbstractMeshId, u32);
 
@@ -69,12 +70,6 @@ pub fn use_bindless_mesh(cx: &mut impl QueryGPUHookCx) -> Option<MeshGPUBindless
   let sm_to_mesh =
     cx.use_reactive_query(|| sm_to_mesh.clone().unwrap().collective_filter_map(|v| v));
 
-  let support = cx
-    .gpu()
-    .info
-    .supported_features
-    .contains(Features::MULTI_DRAW_INDIRECT_COUNT);
-
   cx.when_render(|| MeshGPUBindlessImpl {
     indices: indices.clone(),
     position: position.clone(),
@@ -89,7 +84,7 @@ pub fn use_bindless_mesh(cx: &mut impl QueryGPUHookCx) -> Option<MeshGPUBindless
     vertex_address_buffer_host: attribute_buffer_metadata.unwrap(),
     sm_to_mesh_device: sm_to_mesh_device.unwrap(),
     sm_to_mesh: sm_to_mesh.unwrap(),
-    used_in_midc_downgrade: !support,
+    used_in_midc_downgrade: require_midc_downgrade(&cx.gpu().info),
   })
 }
 
@@ -313,12 +308,19 @@ impl IndirectModelShapeRenderImpl for MeshGPUBindlessImpl {
     let is_indexed = self.indices_checker.get(mesh).is_some();
     let topology = self.topology_checker.get(mesh)?;
 
-    Some(Box::new(BindlessMeshRasterDispatcher {
+    let mesh_system = BindlessMeshRasterDispatcher {
       internal: self.make_bindless_dispatcher(),
-      used_in_midc_downgrade: self.used_in_midc_downgrade,
       topology: map_topology(*topology),
       is_indexed,
-    }))
+    };
+
+    let mesh_system = MidcDowngradeWrapperForIndirectMeshSystem {
+      index: is_indexed.then(|| mesh_system.internal.index_pool.clone()),
+      mesh_system,
+      enable_downgrade: self.used_in_midc_downgrade,
+    };
+
+    Some(Box::new(mesh_system))
   }
 
   fn hash_shader_group_key(
@@ -397,7 +399,6 @@ impl ShaderHashProvider for BindlessMeshDispatcher {
 #[derive(Clone)]
 pub struct BindlessMeshRasterDispatcher {
   pub internal: BindlessMeshDispatcher,
-  pub used_in_midc_downgrade: bool,
   pub is_indexed: bool,
   pub topology: PrimitiveTopology,
 }
@@ -405,7 +406,6 @@ pub struct BindlessMeshRasterDispatcher {
 impl ShaderHashProvider for BindlessMeshRasterDispatcher {
   shader_hash_type_id! {}
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.used_in_midc_downgrade.hash(hasher);
     self.is_indexed.hash(hasher);
     self.topology.hash(hasher);
   }
@@ -416,15 +416,9 @@ impl ShaderPassBuilder for BindlessMeshRasterDispatcher {
     let mesh = &self.internal;
 
     if self.is_indexed {
-      // when midc downgrade enabled, the index multi draw will be downgraded into single none index draw,
-      // so we use storage binding for index buffer
-      if self.used_in_midc_downgrade {
-        ctx.binding.bind(&mesh.index_pool);
-      } else {
-        ctx
-          .pass
-          .set_index_buffer_by_buffer_resource_view(&mesh.index_pool, IndexFormat::Uint32);
-      }
+      ctx
+        .pass
+        .set_index_buffer_by_buffer_resource_view(&mesh.index_pool, IndexFormat::Uint32);
     }
 
     mesh.bind_base_invocation(&mut ctx.binding);
@@ -435,18 +429,6 @@ impl GraphicsShaderProvider for BindlessMeshRasterDispatcher {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|vertex, binding| {
       let mesh_handle = vertex.query::<IndirectAbstractMeshId>();
-
-      if self.used_in_midc_downgrade {
-        let vertex_real_index = vertex.query::<VertexIndexForMIDCDowngrade>();
-        if self.is_indexed {
-          let index_pool = binding.bind_by(&self.internal.index_pool);
-          let index = index_pool.index(vertex_real_index).load();
-          // here we override the builtin
-          vertex.register::<VertexIndex>(index);
-        } else {
-          vertex.register::<VertexIndex>(vertex_real_index);
-        }
-      }
 
       let vertex_id = vertex.query::<VertexIndex>();
 

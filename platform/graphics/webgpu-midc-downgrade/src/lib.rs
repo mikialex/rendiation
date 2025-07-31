@@ -4,6 +4,14 @@ use rendiation_device_parallel_compute::*;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;
 
+only_vertex!(VertexIndexForMIDCDowngrade, u32);
+
+pub fn require_midc_downgrade(info: &GPUInfo) -> bool {
+  !info
+    .supported_features
+    .contains(Features::MULTI_DRAW_INDIRECT_COUNT)
+}
+
 /// downgrade midc into single none-index indirect draw with helper access data.
 ///
 /// the sub draw command not support instance count > 1
@@ -259,5 +267,60 @@ impl DeviceInvocationComponent<Node<u32>> for MultiIndirectCountDowngradeSource 
 
   fn requested_workgroup_size(&self) -> Option<u32> {
     None
+  }
+}
+
+pub struct MidcDowngradeWrapperForIndirectMeshSystem<T> {
+  pub mesh_system: T,
+  pub enable_downgrade: bool,
+  pub index: Option<StorageBufferReadonlyDataView<[u32]>>,
+}
+
+impl<T: ShaderHashProvider + 'static> ShaderHashProvider
+  for MidcDowngradeWrapperForIndirectMeshSystem<T>
+{
+  shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.mesh_system.hash_pipeline(hasher);
+    self.enable_downgrade.hash(hasher);
+  }
+}
+
+impl<T> GraphicsShaderProvider for MidcDowngradeWrapperForIndirectMeshSystem<T>
+where
+  T: GraphicsShaderProvider,
+{
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    builder.vertex(|vertex, binding| {
+      if self.enable_downgrade {
+        let vertex_real_index = vertex.query::<VertexIndexForMIDCDowngrade>();
+        if let Some(index) = &self.index {
+          let index_pool = binding.bind_by(&index);
+          let index = index_pool.index(vertex_real_index).load();
+          // here we override the builtin
+          vertex.register::<VertexIndex>(index);
+        } else {
+          vertex.register::<VertexIndex>(vertex_real_index);
+        }
+      }
+    });
+    self.mesh_system.build(builder);
+  }
+}
+
+impl<T: ShaderPassBuilder> ShaderPassBuilder for MidcDowngradeWrapperForIndirectMeshSystem<T> {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    if let Some(index) = &self.index {
+      // when midc downgrade enabled, the index multi draw will be downgraded into single none index draw,
+      // so we use storage binding for index buffer
+      if self.enable_downgrade {
+        ctx.binding.bind(index);
+      } else {
+        ctx
+          .pass
+          .set_index_buffer_by_buffer_resource_view(index, IndexFormat::Uint32);
+      }
+    }
+    self.mesh_system.setup_pass(ctx);
   }
 }
