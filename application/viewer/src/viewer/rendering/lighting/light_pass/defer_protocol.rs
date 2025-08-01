@@ -154,6 +154,8 @@ impl LightableSurfaceProvider for FrameGeneralMaterialBufferReconstructSurface<'
       channel_c: channel_c.sample_zero_level(sampler, uv).xy(),
     };
 
+    builder.insert_type_tag::<LightableSurfaceTag>();
+
     Box::new(MultiMaterialUberDecoder {
       registry: self.registry.clone(),
       material_ty_id,
