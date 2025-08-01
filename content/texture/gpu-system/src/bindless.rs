@@ -29,17 +29,20 @@ impl BindlessTextureSystemSource {
     sampler: impl ReactiveQuery<Key = u32, Value = GPUSamplerView>,
     default_sampler: GPUSamplerView,
     max_binding_length: u32,
+    gpu: &GPU,
   ) -> Self {
     Self {
       texture2d: BindingArrayMaintainer::new(
         texture2d.into_boxed(),
         default_2d,
         max_binding_length,
+        gpu,
       ),
       sampler: BindingArrayMaintainer::new(
         sampler.into_boxed(),
         default_sampler,
         max_binding_length,
+        gpu,
       ),
     }
   }

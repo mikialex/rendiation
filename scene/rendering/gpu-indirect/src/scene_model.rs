@@ -205,9 +205,9 @@ impl IndirectBatchSceneModelRenderer for IndirectPreferredComOrderRenderer {
     let command = models.draw_command();
 
     let contents: [BindingController<&dyn RenderComponent>; 9] = [
-      draw_source.into_assign_binding_index(0),
+      draw_source.into_assign_binding_index(1),
       tex.into_assign_binding_index(0),
-      pass.into_assign_binding_index(0),
+      pass.into_assign_binding_index(1),
       id_inject.into_assign_binding_index(0),
       sub_id_injector.into_assign_binding_index(2),
       shape.into_assign_binding_index(2),

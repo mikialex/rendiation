@@ -20,35 +20,31 @@ impl Viewer3dRenderingCtx {
           }
         });
 
+        let current = surface.config.present_mode;
+
+        let cap = surface.capabilities().present_modes.clone();
+
+        let present_mode_ui =
+          |ui: &mut egui::Ui, mode: PresentMode, name: &str, config: &mut PresentMode| {
+            let supported = cap.contains(&mode)
+              || mode == PresentMode::AutoVsync
+              || mode == PresentMode::AutoNoVsync;
+            ui.add_enabled_ui(supported, |ui| {
+              ui.selectable_value(config, mode, name)
+                .on_disabled_hover_text("not supported");
+            })
+          };
+
         egui::ComboBox::from_label("present mode")
-          .selected_text(format!("{:?}", &surface.config.present_mode))
+          .selected_text(format!("{:?}", current))
           .show_ui(ui, |ui| {
-            ui.selectable_value(
-              &mut surface.config.present_mode,
-              PresentMode::AutoVsync,
-              "AutoVsync",
-            );
-            ui.selectable_value(
-              &mut surface.config.present_mode,
-              PresentMode::AutoNoVsync,
-              "AutoNoVsync",
-            );
-            ui.selectable_value(&mut surface.config.present_mode, PresentMode::Fifo, "Fifo");
-            ui.selectable_value(
-              &mut surface.config.present_mode,
-              PresentMode::FifoRelaxed,
-              "FifoRelaxed",
-            );
-            ui.selectable_value(
-              &mut surface.config.present_mode,
-              PresentMode::Immediate,
-              "Immediate",
-            );
-            ui.selectable_value(
-              &mut surface.config.present_mode,
-              PresentMode::Mailbox,
-              "Mailbox",
-            );
+            let target = &mut surface.config.present_mode;
+            present_mode_ui(ui, PresentMode::AutoVsync, "AutoVsync", target);
+            present_mode_ui(ui, PresentMode::AutoNoVsync, "AutoNoVsync", target);
+            present_mode_ui(ui, PresentMode::Fifo, "Fifo", target);
+            present_mode_ui(ui, PresentMode::FifoRelaxed, "FifoRelaxed", target);
+            present_mode_ui(ui, PresentMode::Immediate, "Immediate", target);
+            present_mode_ui(ui, PresentMode::Mailbox, "Mailbox", target);
           });
       });
     });

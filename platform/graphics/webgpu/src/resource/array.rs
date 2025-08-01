@@ -8,7 +8,8 @@ pub struct BindingResourceArray<T> {
   /// note, here we using a new resource id to represent the all view id in bindings to
   /// reduce the binding time id relation maintain and hashing cost
   /// this is ok to do so because the binding is immutable.
-  resource_id: usize,
+  pseudo_view_id: usize,
+  _binding_dropper: Arc<BindGroupCacheInvalidation>,
 }
 
 impl<T> Clone for BindingResourceArray<T> {
@@ -16,18 +17,21 @@ impl<T> Clone for BindingResourceArray<T> {
     Self {
       bindings: self.bindings.clone(),
       max_binding_length: self.max_binding_length,
-      resource_id: self.resource_id,
+      pseudo_view_id: self.pseudo_view_id,
+      _binding_dropper: self._binding_dropper.clone(),
     }
   }
 }
 
 impl<T> BindingResourceArray<T> {
-  pub fn new(bindings: Arc<Vec<T>>, max_binding_length: u32) -> Self {
+  pub fn new(bindings: Arc<Vec<T>>, max_binding_length: u32, device: &GPUDevice) -> Self {
     assert!(max_binding_length >= bindings.len() as u32);
+    let pseudo_view_id = get_new_resource_guid();
     Self {
       bindings,
       max_binding_length,
-      resource_id: get_new_resource_guid(),
+      pseudo_view_id,
+      _binding_dropper: Arc::new(device.get_binding_cache().create_dropper(pseudo_view_id)),
     }
   }
 }
@@ -36,7 +40,7 @@ impl CacheAbleBindingSource for BindingResourceArray<GPUTextureView> {
   fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
     CacheAbleBindingBuildSource {
       source: BindingResourceOwned::TextureViewArray(self.bindings.clone()),
-      view_id: self.resource_id,
+      view_id: self.pseudo_view_id,
     }
   }
 }
@@ -47,7 +51,7 @@ impl<D, F> CacheAbleBindingSource for BindingResourceArray<GPUTypedTextureView<D
     let lowered = self.bindings.iter().map(|v| v.texture.clone()).collect();
     CacheAbleBindingBuildSource {
       source: BindingResourceOwned::TextureViewArray(Arc::new(lowered)),
-      view_id: self.resource_id,
+      view_id: self.pseudo_view_id,
     }
   }
 }
@@ -56,7 +60,7 @@ impl CacheAbleBindingSource for BindingResourceArray<GPUSamplerView> {
   fn get_binding_build_source(&self) -> CacheAbleBindingBuildSource {
     CacheAbleBindingBuildSource {
       source: BindingResourceOwned::SamplerArray(self.bindings.clone()),
-      view_id: self.resource_id,
+      view_id: self.pseudo_view_id,
     }
   }
 }
@@ -69,7 +73,7 @@ impl<T: ?Sized + Std430MaybeUnsized> CacheAbleBindingSource
     let lowered = self.bindings.iter().map(|v| v.gpu.clone()).collect();
     CacheAbleBindingBuildSource {
       source: BindingResourceOwned::BufferArray(Arc::new(lowered)),
-      view_id: self.resource_id,
+      view_id: self.pseudo_view_id,
     }
   }
 }
@@ -81,7 +85,7 @@ impl<T: ?Sized + Std430MaybeUnsized> CacheAbleBindingSource
     let lowered = self.bindings.iter().map(|v| v.gpu.clone()).collect();
     CacheAbleBindingBuildSource {
       source: BindingResourceOwned::BufferArray(Arc::new(lowered)),
-      view_id: self.resource_id,
+      view_id: self.pseudo_view_id,
     }
   }
 }

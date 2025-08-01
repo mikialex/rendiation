@@ -5,6 +5,7 @@ pub struct BindingArrayMaintainer<K, V> {
   array: Option<BindingResourceArray<V>>,
   default_instance: V,
   max_length: u32,
+  gpu: GPU,
 }
 
 impl<K, V> BindingArrayMaintainer<K, V> {
@@ -15,12 +16,18 @@ impl<K, V> BindingArrayMaintainer<K, V> {
   /// will be costly.
   ///
   /// todo, provide another internal resizable binding length control
-  pub fn new(upstream: BoxedDynReactiveQuery<K, V>, default: V, max_length: u32) -> Self {
+  pub fn new(
+    upstream: BoxedDynReactiveQuery<K, V>,
+    default: V,
+    max_length: u32,
+    gpu: &GPU,
+  ) -> Self {
     Self {
       upstream,
       array: Default::default(),
       default_instance: default,
       max_length,
+      gpu: gpu.clone(),
     }
   }
 }
@@ -40,7 +47,9 @@ where
     for (k, v) in full_view.iter_key_value() {
       new_source[k.alloc_index() as usize] = v.clone();
     }
-    self.array = BindingResourceArray::<V>::new(Arc::new(new_source), self.max_length).into();
+    self.array =
+      BindingResourceArray::<V>::new(Arc::new(new_source), self.max_length, &self.gpu.device)
+        .into();
 
     self.array.clone().unwrap()
   }

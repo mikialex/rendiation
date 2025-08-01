@@ -59,6 +59,7 @@ pub fn use_bindless_texture_system(
       samplers,
       default_sampler,
       bindless_minimal_effective_count,
+      cx,
     )
   })
 }
