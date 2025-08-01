@@ -117,6 +117,7 @@ impl<'a> GPUSurface<'a> {
 
   pub fn get_current_frame_with_render_target_view(
     &self,
+    device: &GPUDevice,
   ) -> Result<(gpu::SurfaceTexture, RenderTargetView), gpu::SurfaceError> {
     let frame = self.get_current_frame()?;
 
@@ -125,14 +126,16 @@ impl<'a> GPUSurface<'a> {
       .create_view(&gpu::TextureViewDescriptor::default());
     let view = Arc::new(view);
 
+    let view_id = create_resource_view_guid();
+
     Ok((
       frame,
       RenderTargetView::SurfaceTexture {
         view,
         size: self.size(),
         format: self.config.format,
-        view_id: get_resource_view_guid(),
-        bindgroup_holder: Default::default(),
+        view_id,
+        binding_dropper: Arc::new(device.get_binding_cache().create_dropper(view_id)),
       },
     ))
   }

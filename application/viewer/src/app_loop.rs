@@ -42,11 +42,12 @@ impl ApplicationWindowSurface {
 
   pub fn get_current_frame_with_render_target_view(
     &self,
+    device: &GPUDevice,
   ) -> Result<(SurfaceTexture, RenderTargetView), SurfaceError> {
     self
       .surface
       .write()
-      .get_current_frame_with_render_target_view()
+      .get_current_frame_with_render_target_view(device)
   }
 }
 
@@ -225,7 +226,9 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
             surface.re_config_if_changed(&gpu.device);
             // when window resize to zero, the surface will be outdated.
             // but when should we deal with the surface lost case?
-            if let Ok((output, canvas)) = surface.get_current_frame_with_render_target_view() {
+            if let Ok((output, canvas)) =
+              surface.get_current_frame_with_render_target_view(&gpu.device)
+            {
               let mut cx = DynCx::default();
 
               event_state.begin_frame();

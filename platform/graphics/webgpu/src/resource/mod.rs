@@ -24,7 +24,7 @@ pub struct ResourceViewContainer<T: Resource> {
   pub view: T::View,
   pub guid: usize,
   pub desc: T::ViewDescriptor,
-  pub(crate) bindgroup_holder: BindGroupResourceHolder,
+  pub(crate) _binding_dropper: BindGroupCacheInvalidation,
 }
 
 impl<T: Resource> std::ops::Deref for ResourceViewContainer<T> {
@@ -42,6 +42,7 @@ pub struct ResourceContainer<T: Resource> {
   pub guid: usize,
   pub resource: ResourceExplicitDestroy<T>,
   pub desc: T::Descriptor,
+  pub binding: BindGroupCache,
 }
 
 impl<T: Resource> std::ops::Deref for ResourceContainer<T> {
@@ -87,6 +88,7 @@ impl<T: Resource> ResourceContainer<T> {
         .deferred_explicit_destroy
         .new_resource(resource),
       desc,
+      binding: device.get_binding_cache().clone(),
     }
   }
 }
@@ -186,7 +188,7 @@ where
 }
 
 static RESOURCE_VIEW_GUID: AtomicUsize = AtomicUsize::new(0);
-pub fn get_resource_view_guid() -> usize {
+pub fn create_resource_view_guid() -> usize {
   RESOURCE_VIEW_GUID.fetch_add(1, Ordering::Relaxed)
 }
 
@@ -222,12 +224,13 @@ impl<T: Resource> ResourceRc<T> {
 
   pub fn create_view(&self, desc: T::ViewDescriptor) -> ResourceViewRc<T> {
     let view = self.inner.resource.create_view(&desc);
+    let guid = create_resource_view_guid();
     let inner = ResourceViewContainer {
       resource: self.clone(),
       view,
-      guid: get_resource_view_guid(),
+      guid,
       desc,
-      bindgroup_holder: Default::default(),
+      _binding_dropper: self.binding.create_dropper(guid),
     };
     ResourceViewRc {
       inner: Arc::new(inner),

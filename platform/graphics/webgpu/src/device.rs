@@ -24,7 +24,7 @@ impl GPUDevice {
     let inner = GPUDeviceImpl {
       device,
       sampler_cache: Default::default(),
-      bindgroup_cache: BindGroupCache::new(),
+      bindgroup_cache: Default::default(),
       bindgroup_layout_cache: Default::default(),
       render_pipeline_cache: Default::default(),
       compute_pipeline_cache: Default::default(),
@@ -48,7 +48,12 @@ impl GPUDevice {
 
   pub fn create_cache_report(&self) -> GPUResourceCacheSizeReport {
     GPUResourceCacheSizeReport {
-      bindgroup_count: self.inner.bindgroup_cache.cache.read().len(),
+      bindgroup_count: self
+        .inner
+        .bindgroup_cache
+        .cache
+        .read()
+        .cached_binding_count(),
       bindgroup_layout_count: self.inner.bindgroup_layout_cache.cache.read().len(),
       sampler_count: self.inner.sampler_cache.cache.read().len(),
       pipeline_count: self.inner.render_pipeline_cache.read().len(),

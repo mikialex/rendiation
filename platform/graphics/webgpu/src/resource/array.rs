@@ -5,6 +5,9 @@ use crate::*;
 pub struct BindingResourceArray<T> {
   bindings: Arc<Vec<T>>,
   max_binding_length: u32,
+  /// note, here we using a new resource id to represent the all view id in bindings to
+  /// reduce the binding time id relation maintain and hashing cost
+  /// this is ok to do so because the binding is immutable.
   resource_id: usize,
 }
 

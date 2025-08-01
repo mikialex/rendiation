@@ -6,34 +6,13 @@ pub enum BindingResourceOwned {
   BufferArray(Arc<Vec<GPUBufferResourceView>>),
   Sampler(GPUSamplerView),
   SamplerArray(Arc<Vec<GPUSamplerView>>),
-  RawTextureView(Arc<gpu::TextureView>, BindGroupResourceHolder), // to support surface texture
+  RawTextureView(Arc<gpu::TextureView>, usize), // for example surface texture
   TextureView(GPUTextureView),
   TextureViewArray(Arc<Vec<GPUTextureView>>),
   AccelerationStructure(GPUTlasView),
 }
 
 impl BindingResourceOwned {
-  pub fn increase(&self, record: &BindGroupCacheInvalidation) {
-    match self {
-      BindingResourceOwned::Buffer(v) => v.bindgroup_holder.increase(record.clone_another()),
-      BindingResourceOwned::BufferArray(v) => v
-        .iter()
-        .for_each(|v| v.bindgroup_holder.increase(record.clone_another())),
-      BindingResourceOwned::Sampler(v) => v.bindgroup_holder.increase(record.clone_another()),
-      BindingResourceOwned::SamplerArray(v) => v
-        .iter()
-        .for_each(|v| v.bindgroup_holder.increase(record.clone_another())),
-      BindingResourceOwned::RawTextureView(_, v) => v.increase(record.clone_another()),
-      BindingResourceOwned::TextureView(v) => v.bindgroup_holder.increase(record.clone_another()),
-      BindingResourceOwned::TextureViewArray(v) => v
-        .iter()
-        .for_each(|v| v.bindgroup_holder.increase(record.clone_another())),
-      BindingResourceOwned::AccelerationStructure(v) => {
-        v.bindgroup_holder.increase(record.clone_another())
-      }
-    }
-  }
-
   pub fn prepare_ref(&self) -> BindingResourceOwnedRef {
     match self {
       BindingResourceOwned::Buffer(buffer) => {

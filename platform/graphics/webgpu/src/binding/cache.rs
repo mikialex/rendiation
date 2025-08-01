@@ -1,73 +1,102 @@
 use crate::*;
 
-pub struct GPUBindGroup {
-  internal: Arc<(gpu::BindGroup, Counted<Self>)>,
+type BindgroupHashKey = u64;
+type ViewId = usize;
+
+/// Key point of the cache control logic:
+/// - bindgroup and resource_view is many-to-many relation.
+/// - resource_view drop triggers all related bindgroup drop.
+/// - bindgroup itself never been triggered drop.
+// todo, merge per item allocation into single one.
+#[derive(Default)]
+pub struct BindGroupCacheInternal {
+  bindgroups: FastHashMap<BindgroupHashKey, (gpu::BindGroup, Counted<gpu::BindGroup>, Vec<ViewId>)>,
+  // todo, fix potential O(n) remove
+  resource_views_bindgroups: FastHashMap<ViewId, Vec<BindgroupHashKey>>,
 }
 
-impl GPUBindGroup {
-  pub fn gpu(&self) -> &gpu::BindGroup {
-    &self.internal.0
+impl BindGroupCacheInternal {
+  pub fn cached_binding_count(&self) -> usize {
+    self.bindgroups.len()
   }
-}
 
-impl From<gpu::BindGroup> for GPUBindGroup {
-  fn from(value: gpu::BindGroup) -> Self {
-    Self {
-      internal: Arc::new((value, Counted::default())),
+  pub fn clear(&mut self) {
+    self.bindgroups.clear();
+    self.resource_views_bindgroups.clear();
+  }
+
+  #[allow(clippy::manual_inspect)]
+  pub fn get_or_create(
+    &mut self,
+    key: BindgroupHashKey,
+    create: impl FnOnce() -> gpu::BindGroup,
+    iter_view_id: impl Iterator<Item = ViewId>,
+  ) -> &gpu::BindGroup {
+    let (bindgroup, _, _) = self.bindgroups.entry(key).or_insert_with(|| {
+      let bindgroup = create();
+      let list = iter_view_id
+        .map(|view_id| {
+          self
+            .resource_views_bindgroups
+            .entry(view_id)
+            .or_default()
+            .push(key);
+
+          view_id
+        })
+        .collect();
+      (bindgroup, Default::default(), list)
+    });
+    bindgroup
+  }
+
+  pub fn notify_view_drop(&mut self, view_id: ViewId) {
+    if let Some(all_referenced_bindings) = self.resource_views_bindgroups.remove(&view_id) {
+      for binding in all_referenced_bindings {
+        let (_, _, binding_referenced_views) =
+          self.bindgroups.remove(&binding).expect("binding not exist");
+
+        for view_id in binding_referenced_views {
+          if let Some(bindings) = self.resource_views_bindgroups.get_mut(&view_id) {
+            bindings
+              .iter()
+              .position(|v| *v == binding)
+              .map(|v| bindings.swap_remove(v));
+            if bindings.is_empty() {
+              self.resource_views_bindgroups.remove(&view_id);
+            }
+          }
+        }
+      }
     }
   }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct BindGroupCache {
-  pub(crate) cache: Arc<RwLock<FastHashMap<u64, GPUBindGroup>>>,
+  pub(crate) cache: Arc<RwLock<BindGroupCacheInternal>>,
 }
 impl BindGroupCache {
-  pub(crate) fn new() -> Self {
-    Self {
-      cache: Default::default(),
-    }
-  }
   pub(crate) fn clear(&self) {
     self.cache.write().clear();
+  }
+
+  pub fn create_dropper(&self, view_id: usize) -> BindGroupCacheInvalidation {
+    BindGroupCacheInvalidation {
+      view_id,
+      cache: self.clone(),
+    }
   }
 }
 
 pub struct BindGroupCacheInvalidation {
-  pub(crate) skip_drop: bool,
-  pub(crate) cache_id_to_drop: u64,
+  pub(crate) view_id: usize,
   pub(crate) cache: BindGroupCache,
-}
-
-impl BindGroupCacheInvalidation {
-  // note we not impl Clone for good reason
-  pub fn clone_another(&self) -> Self {
-    Self {
-      skip_drop: self.skip_drop,
-      cache_id_to_drop: self.cache_id_to_drop,
-      cache: self.cache.clone(),
-    }
-  }
 }
 
 impl Drop for BindGroupCacheInvalidation {
   fn drop(&mut self) {
-    if self.skip_drop {
-      return;
-    }
-    self.cache.cache.write().remove(&self.cache_id_to_drop);
-  }
-}
-
-/// when holder dropped, all referenced bindgroup should drop
-#[derive(Default, Clone)]
-pub struct BindGroupResourceHolder {
-  invalidation_tokens: Arc<RwLock<Vec<BindGroupCacheInvalidation>>>,
-}
-
-impl BindGroupResourceHolder {
-  pub fn increase(&self, record: BindGroupCacheInvalidation) {
-    self.invalidation_tokens.write().push(record);
+    self.cache.cache.write().notify_view_drop(self.view_id);
   }
 }
 

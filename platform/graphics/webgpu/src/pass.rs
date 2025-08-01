@@ -30,7 +30,7 @@ pub enum RenderTargetView {
     format: gpu::TextureFormat,
     view: Arc<gpu::TextureView>,
     view_id: usize,
-    bindgroup_holder: BindGroupResourceHolder,
+    binding_dropper: Arc<BindGroupCacheInvalidation>,
   },
 }
 
@@ -51,11 +51,9 @@ impl BindableResourceProvider for RenderTargetView {
   fn get_bindable(&self) -> BindingResourceOwned {
     match self {
       RenderTargetView::Texture(t) => t.get_bindable(),
-      RenderTargetView::SurfaceTexture {
-        view,
-        bindgroup_holder,
-        ..
-      } => BindingResourceOwned::RawTextureView(view.clone(), bindgroup_holder.clone()),
+      RenderTargetView::SurfaceTexture { view, view_id, .. } => {
+        BindingResourceOwned::RawTextureView(view.clone(), *view_id)
+      }
       RenderTargetView::ReusedTexture(t) => t.item().get_bindable(),
     }
   }

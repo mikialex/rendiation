@@ -54,16 +54,11 @@ impl BindGroupBuilder {
   pub fn bind(&mut self, source: CacheAbleBindingBuildSource) {
     self.items.push(source);
   }
+
   fn hash_binding_ids(&self, hasher: &mut impl Hasher) {
     self.items.iter().for_each(|b| {
       b.view_id.hash(hasher);
     });
-  }
-  fn attach_bindgroup_invalidation_token(&self, mut token: BindGroupCacheInvalidation) {
-    self.items.iter().for_each(|b| {
-      b.source.increase(&token);
-    });
-    token.skip_drop = true;
   }
 }
 
@@ -201,19 +196,13 @@ impl BindingBuilder {
       let cache = device.get_binding_cache();
       let mut binding_cache = cache.cache.write();
 
-      let bindgroup = binding_cache.entry(hash).or_insert_with(|| {
-        // build bindgroup and cache and return
+      let bindgroup = binding_cache.get_or_create(
+        hash,
+        || CacheAbleBindingBuildSource::build_bindgroup(group.items.as_slice(), device, layout),
+        group.items.iter().map(|item| item.view_id),
+      );
 
-        group.attach_bindgroup_invalidation_token(BindGroupCacheInvalidation {
-          cache_id_to_drop: hash,
-          cache: cache.clone(),
-          skip_drop: false,
-        });
-
-        CacheAbleBindingBuildSource::build_bindgroup(group.items.as_slice(), device, layout).into()
-      });
-
-      pass.set_bind_group(group_index as u32, bindgroup.gpu(), &[]);
+      pass.set_bind_group(group_index as u32, bindgroup, &[]);
     }
   }
 
