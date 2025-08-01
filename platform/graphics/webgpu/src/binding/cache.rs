@@ -1,8 +1,26 @@
 use crate::*;
 
+pub struct GPUBindGroup {
+  internal: Arc<(gpu::BindGroup, Counted<Self>)>,
+}
+
+impl GPUBindGroup {
+  pub fn gpu(&self) -> &gpu::BindGroup {
+    &self.internal.0
+  }
+}
+
+impl From<gpu::BindGroup> for GPUBindGroup {
+  fn from(value: gpu::BindGroup) -> Self {
+    Self {
+      internal: Arc::new((value, Counted::default())),
+    }
+  }
+}
+
 #[derive(Clone)]
 pub struct BindGroupCache {
-  pub(crate) cache: Arc<RwLock<FastHashMap<u64, Arc<gpu::BindGroup>>>>,
+  pub(crate) cache: Arc<RwLock<FastHashMap<u64, GPUBindGroup>>>,
 }
 impl BindGroupCache {
   pub(crate) fn new() -> Self {

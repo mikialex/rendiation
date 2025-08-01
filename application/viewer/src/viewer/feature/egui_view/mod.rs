@@ -74,6 +74,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
           }
           let global = heap_tools::HEAP_TOOL_GLOBAL_INSTANCE_COUNTER.read();
           for (ty, report) in global.report_all_instance_count() {
+            let ty = disqualified::ShortName(ty);
             ui.label(format!(
               "{ty} => current: {}, peak: {}",
               report.current, report.history_peak,
@@ -109,25 +110,6 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
         ui.separator();
 
         viewer.background.egui(ui, viewer.scene.scene);
-
-        ui.separator();
-
-        ui.collapsing("Instance Counts", |ui| {
-          let mut counters = heap_tools::HEAP_TOOL_GLOBAL_INSTANCE_COUNTER.write();
-
-          for (name, r) in counters.report_all_instance_count() {
-            ui.label(format!(
-              "{}: current:{} peak:{}",
-              disqualified::ShortName(name),
-              r.current,
-              r.history_peak
-            ));
-          }
-
-          if ui.button("reset peak").clicked() {
-            counters.reset_all_instance_history_peak();
-          }
-        });
       });
 
     egui::Window::new("Frame Rendering Info")

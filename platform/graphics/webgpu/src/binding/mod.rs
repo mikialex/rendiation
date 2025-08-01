@@ -210,12 +210,10 @@ impl BindingBuilder {
           skip_drop: false,
         });
 
-        let bindgroup =
-          CacheAbleBindingBuildSource::build_bindgroup(group.items.as_slice(), device, layout);
-        Arc::new(bindgroup)
+        CacheAbleBindingBuildSource::build_bindgroup(group.items.as_slice(), device, layout).into()
       });
 
-      pass.set_bind_group(group_index as u32, bindgroup, &[]);
+      pass.set_bind_group(group_index as u32, bindgroup.gpu(), &[]);
     }
   }
 
