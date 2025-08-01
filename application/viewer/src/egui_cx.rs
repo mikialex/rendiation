@@ -130,6 +130,7 @@ impl EguiContext {
     } else {
       // in other case , we do a custom copy.
       let mut key = target.create_attachment_key();
+      key.usage.insert(TextureUsages::TEXTURE_BINDING);
       key.format = *fmt;
       let tex = key.create_directly(gpu);
       RenderTargetView::Texture(tex)

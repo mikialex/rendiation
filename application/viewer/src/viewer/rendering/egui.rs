@@ -74,6 +74,11 @@ impl Viewer3dRenderingCtx {
         });
       });
 
+    ui.checkbox(
+      &mut self.prefer_bindless_for_indirect_texture_system,
+      "prefer_bindless_for_indirect_texture_system(when available)",
+    );
+
     if self.current_renderer_impl_ty == RasterizationRenderBackendType::Indirect {
       let is_target_support_indirect_draw_cmd_natively = self
         .gpu

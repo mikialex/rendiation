@@ -90,6 +90,7 @@ pub struct Viewer3dRenderingCtx {
   pub(crate) picker: GPUxEntityIdMapPicker,
   pub(crate) statistics: FramePassStatistics,
   pub enable_statistic_collect: bool,
+  prefer_bindless_for_indirect_texture_system: bool,
 
   stat_frame_time_in_ms: StatisticStore<f32>,
   last_render_timestamp: Option<Instant>,
@@ -111,6 +112,7 @@ impl Viewer3dRenderingCtx {
     camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
   ) -> Self {
     Self {
+      prefer_bindless_for_indirect_texture_system: false,
       enable_statistic_collect: false,
       frame_index: 0,
       ndc,
@@ -140,7 +142,6 @@ impl Viewer3dRenderingCtx {
     &mut self,
     qcx: &mut impl QueryGPUHookCx,
   ) -> Option<ViewerRendererInstance> {
-    let prefer_bindless_texture = false;
     let (qcx, change_scope) = qcx.use_begin_change_set_collect();
 
     let camera = use_camera_uniforms(qcx, &self.camera_source);
@@ -152,7 +153,7 @@ impl Viewer3dRenderingCtx {
         self.current_renderer_impl_ty,
         RasterizationRenderBackendType::Indirect
       ) || self.rtx_renderer_enabled,
-      prefer_bindless_texture,
+      self.prefer_bindless_for_indirect_texture_system,
     );
     let texture_sys = use_texture_system(qcx, ty);
 

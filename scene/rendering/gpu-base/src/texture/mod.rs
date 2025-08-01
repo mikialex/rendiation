@@ -113,10 +113,12 @@ pub fn get_suitable_texture_system_ty(
   require_indirect: bool,
   prefer_bindless: bool,
 ) -> GPUTextureBindingSystemType {
-  if prefer_bindless && is_bindless_supported_on_this_gpu(&cx.info, BINDLESS_EFFECTIVE_COUNT) {
-    GPUTextureBindingSystemType::Bindless
-  } else if require_indirect {
-    GPUTextureBindingSystemType::TexturePool
+  if require_indirect {
+    if prefer_bindless && is_bindless_supported_on_this_gpu(&cx.info, BINDLESS_EFFECTIVE_COUNT) {
+      GPUTextureBindingSystemType::Bindless
+    } else {
+      GPUTextureBindingSystemType::TexturePool
+    }
   } else {
     GPUTextureBindingSystemType::GlesSingleBinding
   }
