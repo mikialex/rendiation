@@ -11,40 +11,30 @@ pub struct EguiContext {
   renderer: Option<(egui_wgpu::Renderer, TextureFormat)>,
 }
 
-pub fn use_egui_cx(
-  cx: &mut ApplicationCx,
-  f: impl FnOnce(&mut ApplicationCx, Option<&mut egui::Context>),
-) {
+pub fn use_egui_cx(cx: &mut ApplicationCx, f: impl Fn(&mut ApplicationCx, &mut egui::Context)) {
   let (cx, egui_cx) = cx.use_plain_state::<EguiContext>();
 
-  if cx.processing_event {
-    if egui_cx.context.is_pointer_over_area() {
-      cx.dyn_cx.message.put(CameraControlBlocked);
-      cx.dyn_cx.message.put(PickSceneBlocked);
-    }
-
-    let state = egui_cx.state.get_or_insert_with(|| {
-      let id = egui_cx.context.viewport_id();
-      egui_winit::State::new(egui_cx.context.clone(), id, &cx.window, None, None, None)
-    });
-
-    for event in &cx.input.accumulate_events {
-      if let Event::WindowEvent { event, .. } = event {
-        let _ = state.on_window_event(cx.window, event);
-      }
-    }
-  } else {
-    egui_cx.begin_frame(cx.window);
+  if egui_cx.context.is_pointer_over_area() {
+    cx.dyn_cx.message.put(CameraControlBlocked);
+    cx.dyn_cx.message.put(PickSceneBlocked);
   }
 
-  // only expose when allowed to build ui: in update cycle
-  let egui_cx_expose = (!cx.processing_event).then_some(&mut egui_cx.context);
+  let state = egui_cx.state.get_or_insert_with(|| {
+    let id = egui_cx.context.viewport_id();
+    egui_winit::State::new(egui_cx.context.clone(), id, &cx.window, None, None, None)
+  });
 
-  f(cx, egui_cx_expose);
-
-  if let Some(canvas) = &cx.draw_target_canvas {
-    egui_cx.end_frame_and_draw(&cx.gpu_and_surface.gpu, cx.window, canvas);
+  for event in &cx.input.accumulate_events {
+    if let Event::WindowEvent { event, .. } = event {
+      let _ = state.on_window_event(cx.window, event);
+    }
   }
+
+  egui_cx.begin_frame(cx.window);
+
+  f(cx, &mut egui_cx.context);
+
+  egui_cx.end_frame_and_draw(&cx.gpu_and_surface.gpu, cx.window, &cx.draw_target_canvas);
 }
 
 impl Default for EguiContext {

@@ -22,7 +22,7 @@ pub fn use_camera_control(cx: &mut ViewerCx) {
       .update_target_and_position(*look_at, *position);
   }
 
-  if let ViewerCxStage::EventHandling { input, reader, .. } = &mut cx.stage {
+  if let ViewerCxStage::EventHandling { reader, .. } = &mut cx.stage {
     if !controller.have_synced_for_viewer_init_camera_state {
       let camera_local = reader
         .node_reader
@@ -38,10 +38,10 @@ pub fn use_camera_control(cx: &mut ViewerCx) {
 
     let bound = InputBound {
       origin: Vec2::zero(),
-      size: input.window_state.physical_size.into(),
+      size: cx.input.window_state.physical_size.into(),
     };
 
-    for e in &input.accumulate_events {
+    for e in &cx.input.accumulate_events {
       controller
         .controller
         .event(&mut controller.winit_state, e, bound, pause);

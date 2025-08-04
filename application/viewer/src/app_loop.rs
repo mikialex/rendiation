@@ -78,11 +78,10 @@ impl GPUOrGPUCreateFuture {
 pub struct ApplicationCx<'a> {
   pub memory: &'a mut FunctionMemory,
   pub dyn_cx: &'a mut DynCx,
-  pub processing_event: bool,
   pub window: &'a mut Window,
   pub input: &'a PlatformEventInput,
   pub gpu_and_surface: &'a WGPUAndSurface,
-  pub draw_target_canvas: Option<RenderTargetView>,
+  pub draw_target_canvas: RenderTargetView,
 }
 
 pub type ApplicationDropCx = DynCx;
@@ -236,24 +235,12 @@ impl winit::application::ApplicationHandler for WinitAppImpl {
                 window,
                 memory: &mut self.memory,
                 dyn_cx: &mut cx,
-                processing_event: true,
                 input: event_state,
-                draw_target_canvas: None,
+                draw_target_canvas: canvas,
                 gpu_and_surface,
               }
-              .execute(|cx| (self.app_logic)(cx));
+              .execute(|cx| (self.app_logic)(cx), true);
               event_state.end_frame();
-
-              ApplicationCx {
-                window,
-                memory: &mut self.memory,
-                dyn_cx: &mut cx,
-                processing_event: false,
-                input: event_state,
-                draw_target_canvas: Some(canvas.clone()),
-                gpu_and_surface,
-              }
-              .execute(|cx| (self.app_logic)(cx));
 
               output.present();
             }

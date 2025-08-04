@@ -27,7 +27,6 @@ pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
     ViewerCxStage::EventHandling {
       reader,
       picker,
-      input,
       widget_cx,
       ..
     } => {
@@ -35,7 +34,7 @@ pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
       Some(UI3dCx::new_event_stage(
         &mut memory.memory,
         UIEventStageCx {
-          platform_event: input,
+          platform_event: viewer_cx.input,
           interaction_cx: interaction.as_ref().unwrap(),
           widget_env: *widget_cx,
         },
@@ -61,13 +60,16 @@ pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
 
     let mut scene_old = None;
 
-    cx.execute(|cx| {
-      cx.on_update(|w, _| {
-        scene_old = w.replace_target_scene(widget_scene).into();
-      });
+    cx.execute(
+      |cx| {
+        cx.on_update(|w, _| {
+          scene_old = w.replace_target_scene(widget_scene).into();
+        });
 
-      f(cx);
-    });
+        f(cx);
+      },
+      true,
+    );
 
     if let ViewerCxStage::SceneContentUpdate { writer, .. } = &mut viewer_cx.stage {
       if let Some(scene) = scene_old.take() {

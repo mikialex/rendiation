@@ -31,13 +31,10 @@ pub fn use_smooth_camera_motion(cx: &mut ViewerCx, f: impl FnOnce(&mut ViewerCx)
     *target_target = look_at;
   }
 
-  if let ViewerCxStage::SceneContentUpdate {
-    writer,
-    time_delta_seconds,
-  } = &mut cx.stage
-  {
-    let position = springed_position.step_clamped(*time_delta_seconds as f64, *target_position);
-    let look_at = springed_target.step_clamped(*time_delta_seconds as f64, *target_target);
+  if let ViewerCxStage::SceneContentUpdate { writer } = &mut cx.stage {
+    let time_delta_seconds = cx.time_delta_seconds as f64;
+    let position = springed_position.step_clamped(time_delta_seconds, *target_position);
+    let look_at = springed_target.step_clamped(time_delta_seconds, *target_target);
 
     let mat = Mat4::lookat(position, look_at, Vec3::new(0., 1., 0.));
     let node = cx.viewer.scene.camera_node;
@@ -66,8 +63,9 @@ pub fn use_fit_camera_view(cx: &mut ViewerCx) {
     FitCameraViewForViewer
   });
 
-  if let ViewerCxStage::EventHandling { derived, input, .. } = &mut cx.stage {
-    if let Some(ElementState::Pressed) = input
+  if let ViewerCxStage::EventHandling { derived, .. } = &mut cx.stage {
+    if let Some(ElementState::Pressed) = cx
+      .input
       .state_delta
       .key_state_changes
       .get(&winit::keyboard::KeyCode::KeyF)

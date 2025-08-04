@@ -31,6 +31,10 @@ pub const UP: Vec3<f64> = Vec3::new(0., 1., 0.);
 pub struct ViewerCx<'a> {
   pub viewer: &'a mut Viewer,
   pub dyn_cx: &'a mut DynCx,
+
+  pub input: &'a PlatformEventInput,
+  pub absolute_seconds_from_start: f32,
+  pub time_delta_seconds: f32,
   stage: ViewerCxStage<'a>,
 }
 
@@ -116,20 +120,15 @@ impl<'a> ViewerCx<'a> {
 #[non_exhaustive]
 pub enum ViewerCxStage<'a> {
   #[non_exhaustive]
+  BaseStage,
   EventHandling {
     reader: &'a SceneReader,
     picker: &'a ViewerPicker,
-    input: &'a PlatformEventInput,
     derived: &'a Viewer3dSceneDerive,
     widget_cx: &'a dyn WidgetEnvAccess,
-    absolute_seconds_from_start: f32,
-    time_delta_seconds: f32,
   },
   #[non_exhaustive]
-  SceneContentUpdate {
-    writer: &'a mut SceneWriter,
-    time_delta_seconds: f32,
-  },
+  SceneContentUpdate { writer: &'a mut SceneWriter },
   /// this stage is standalone but not merged with SceneContentUpdate because
   /// user may read write scene freely
   #[non_exhaustive]
@@ -143,10 +142,85 @@ pub struct FeaturesGlobalUIStates {
   features: fast_hash_collection::FastHashMap<&'static str, bool>,
 }
 
+/// if the function's logic contains cyclic dependency of the outside, using this to
+/// make sure the update is synced. for example depend on world matrix while update the local
+/// matrix simultaneously.
+///
+/// todo, improve
+pub fn stage_of_update_twice(cx: &mut ViewerCx, internal: impl Fn(&mut ViewerCx)) {
+  stage_of_update_internal(cx, &internal, true);
+  stage_of_update_internal(cx, &internal, false);
+}
+
+/// Act as the viewer event update pair provider.
+/// if the different update logic(read write) has dependency, they can be separate by this function.
+pub fn stage_of_update(cx: &mut ViewerCx, internal: impl Fn(&mut ViewerCx)) {
+  stage_of_update_internal(cx, internal, false);
+}
+
+pub fn stage_of_update_internal(
+  cx: &mut ViewerCx,
+  internal: impl Fn(&mut ViewerCx),
+  rollback: bool,
+) {
+  if let ViewerCxStage::BaseStage = cx.stage {
+    {
+      let derived = cx.viewer.derives.poll_update();
+
+      let picker = ViewerPicker::new(&derived, cx.input, cx.viewer.scene.main_camera);
+
+      let scene_reader = SceneReader::new_from_global(
+        cx.viewer.scene.scene,
+        derived.mesh_vertex_ref.clone(),
+        derived.node_children.clone(),
+        derived.sm_to_s.clone(),
+      );
+      // todo, fix , this should use actual render resolution instead of full window size
+      let canvas_resolution = Vec2::new(
+        cx.input.window_state.physical_size.0 / cx.input.window_state.device_pixel_ratio,
+        cx.input.window_state.physical_size.1 / cx.input.window_state.device_pixel_ratio,
+      )
+      .map(|v| v.ceil() as u32);
+
+      let widget_env = create_widget_cx(
+        &derived,
+        &scene_reader,
+        &cx.viewer.scene,
+        &picker,
+        canvas_resolution,
+      );
+
+      cx.stage = unsafe {
+        std::mem::transmute(ViewerCxStage::EventHandling {
+          reader: &scene_reader,
+          picker: &picker,
+          derived: &derived,
+          widget_cx: widget_env.as_ref(),
+        })
+      };
+
+      cx.execute(&internal, true);
+    }
+
+    let mut writer = SceneWriter::from_global(cx.viewer.scene.scene);
+
+    cx.stage = unsafe {
+      std::mem::transmute(ViewerCxStage::SceneContentUpdate {
+        writer: &mut writer,
+      })
+    };
+    cx.execute(&internal, rollback);
+
+    cx.stage = ViewerCxStage::BaseStage;
+  } else {
+    cx.execute(&internal, rollback);
+  }
+}
+
 #[track_caller]
 pub fn use_viewer<'a>(
   acx: &'a mut ApplicationCx,
-  egui: Option<&mut egui::Context>,
+  egui_ctx: &mut egui::Context,
   f: impl Fn(&mut ViewerCx),
 ) -> &'a mut Viewer {
   let (acx, viewer) = acx.use_plain_state_init(|| {
@@ -163,93 +237,45 @@ pub fn use_viewer<'a>(
   let (acx, tick_timestamp) = acx.use_plain_state_init(Instant::now);
   let (acx, frame_time_delta_in_seconds) = acx.use_plain_state_init(|| 0.0);
 
-  let main_camera_handle = viewer.scene.main_camera;
+  let absolute_seconds_from_start = Instant::now()
+    .duration_since(viewer.started_time)
+    .as_secs_f32();
 
-  if acx.processing_event {
-    let now = Instant::now();
-    *frame_time_delta_in_seconds = now.duration_since(*tick_timestamp).as_secs_f32();
-    *tick_timestamp = now;
+  let now = Instant::now();
+  *frame_time_delta_in_seconds = now.duration_since(*tick_timestamp).as_secs_f32();
+  *tick_timestamp = now;
 
-    let derived = viewer.derives.poll_update();
-
-    let picker = ViewerPicker::new(&derived, acx.input, main_camera_handle);
-
-    let scene_reader = SceneReader::new_from_global(
-      viewer.scene.scene,
-      derived.mesh_vertex_ref.clone(),
-      derived.node_children.clone(),
-      derived.sm_to_s.clone(),
-    );
-    // todo, fix , this should use actual render resolution instead of full window size
-    let canvas_resolution = Vec2::new(
-      acx.input.window_state.physical_size.0 / acx.input.window_state.device_pixel_ratio,
-      acx.input.window_state.physical_size.1 / acx.input.window_state.device_pixel_ratio,
-    )
-    .map(|v| v.ceil() as u32);
-
-    let widget_env = create_widget_cx(
-      &derived,
-      &scene_reader,
-      &viewer.scene,
-      &picker,
-      canvas_resolution,
-    );
-
-    let absolute_seconds_from_start = Instant::now()
-      .duration_since(viewer.started_time)
-      .as_secs_f32();
-
-    ViewerCx {
-      viewer,
-      dyn_cx: acx.dyn_cx,
-      stage: ViewerCxStage::EventHandling {
-        reader: &scene_reader,
-        picker: &picker,
-        input: acx.input,
-        derived: &derived,
-        widget_cx: widget_env.as_ref(),
-        absolute_seconds_from_start,
-        time_delta_seconds: *frame_time_delta_in_seconds,
-      },
-    }
-    .execute(|viewer| f(viewer));
-  } else {
-    let mut writer = SceneWriter::from_global(viewer.scene.scene);
-
-    ViewerCx {
-      viewer,
-      dyn_cx: acx.dyn_cx,
-      stage: ViewerCxStage::SceneContentUpdate {
-        writer: &mut writer,
-        time_delta_seconds: *frame_time_delta_in_seconds,
-      },
-    }
-    .execute(|viewer| f(viewer));
-
-    drop(writer);
-
-    viewer
-      .rendering
-      .update_registry(&mut viewer.render_memory, &mut viewer.render_resource);
-
-    if let Some(canvas) = &acx.draw_target_canvas {
-      let derived = viewer.derives.poll_update();
-      viewer.draw_canvas(canvas, &derived);
-      viewer.rendering.tick_frame();
-    }
-
-    if let Some(egui_ctx) = egui {
-      ViewerCx {
-        viewer,
-        dyn_cx: acx.dyn_cx,
-        stage: ViewerCxStage::Gui {
-          egui_ctx,
-          global: gui_feature_global_states,
-        },
-      }
-      .execute(|viewer| f(viewer));
-    }
+  ViewerCx {
+    viewer,
+    dyn_cx: acx.dyn_cx,
+    input: acx.input,
+    absolute_seconds_from_start,
+    time_delta_seconds: *frame_time_delta_in_seconds,
+    stage: ViewerCxStage::BaseStage,
   }
+  .execute(|viewer| f(viewer), true);
+
+  viewer
+    .rendering
+    .update_registry(&mut viewer.render_memory, &mut viewer.render_resource);
+
+  let derived = viewer.derives.poll_update();
+  viewer.draw_canvas(&acx.draw_target_canvas, &derived);
+  viewer.rendering.tick_frame();
+
+  ViewerCx {
+    viewer,
+    input: acx.input,
+    dyn_cx: acx.dyn_cx,
+    absolute_seconds_from_start,
+    time_delta_seconds: *frame_time_delta_in_seconds,
+    stage: ViewerCxStage::Gui {
+      egui_ctx,
+      global: gui_feature_global_states,
+    },
+  }
+  .execute(|viewer| f(viewer), true);
+
   viewer
 }
 

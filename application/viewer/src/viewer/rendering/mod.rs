@@ -323,7 +323,7 @@ impl Viewer3dRenderingCtx {
       query_cx: rendering_resource,
       stage: QueryHookStage::Init,
     }
-    .execute(|qcx| self.use_viewer_scene_renderer(qcx));
+    .execute(|qcx| self.use_viewer_scene_renderer(qcx), true);
   }
 
   #[instrument(name = "frame rendering", skip_all)]
@@ -344,7 +344,7 @@ impl Viewer3dRenderingCtx {
       query_cx: rendering_resource,
       stage: QueryHookStage::Render(result),
     }
-    .execute(|qcx| self.use_viewer_scene_renderer(qcx).unwrap());
+    .execute(|qcx| self.use_viewer_scene_renderer(qcx).unwrap(), true);
 
     self.frame_index += 1;
     let now = Instant::now();

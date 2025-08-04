@@ -10,10 +10,7 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
     cx.use_plain_state::<Option<Box<dyn Future<Output = Option<u32>> + Unpin>>>();
 
   if let ViewerCxStage::EventHandling {
-    picker,
-    input,
-    derived,
-    ..
+    picker, derived, ..
   } = &mut cx.stage
   {
     if let Some(f) = gpu_pick_future {
@@ -42,7 +39,7 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
       return;
     }
 
-    if !input.state_delta.is_left_mouse_pressing() {
+    if !cx.input.state_delta.is_left_mouse_pressing() {
       return;
     }
 

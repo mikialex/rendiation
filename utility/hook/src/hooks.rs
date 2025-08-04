@@ -16,9 +16,13 @@ pub unsafe trait HooksCxLike {
     !self.memory_ref().created
   }
 
-  fn execute<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
-    self.memory_mut().reset_cursor();
+  fn execute<R>(&mut self, f: impl FnOnce(&mut Self) -> R, rollback: bool) -> R {
+    let start_cursor = self.memory_ref().current_cursor;
     let r = f(self);
+    if rollback {
+      self.memory_mut().current_cursor = start_cursor;
+    }
+
     self.memory_mut().created = true;
     self.flush();
     r
@@ -38,7 +42,7 @@ pub unsafe trait HooksCxLike {
 
   #[track_caller]
   fn scope<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
-    self.raw_scope(|cx| cx.execute(|cx| f(cx)))
+    self.raw_scope(|cx| cx.execute(|cx| f(cx), true))
   }
 }
 
@@ -71,9 +75,6 @@ pub struct FunctionMemory {
 }
 
 impl FunctionMemory {
-  pub fn reset_cursor(&mut self) {
-    self.current_cursor = 0;
-  }
   pub fn expect_state_init<T: Any, DropCx>(
     &mut self,
     init: impl FnOnce() -> T,

@@ -9,6 +9,9 @@ pub fn use_view_independent_scale_root<R>(
   let mut computer = None;
   cx.on_event(|e, _, cx| unsafe {
     computer = ViewIndependentScaleCx {
+      // we can only get last frame world matrix, so
+      // we can only do view independent stuff in next frame.
+      // if this is not acceptable, consider rerun the entire cx one more time.
       override_position: e.widget_env.get_world_mat(*node).unwrap().position(),
       scale: config,
     }
@@ -72,8 +75,6 @@ pub fn use_view_dependent_world_mat(
     let parent_world =
       if let Some(parent_node) = reader.node_reader.read::<SceneNodeParentIdx>(*node) {
         let parent_node = unsafe { EntityHandle::from_raw(parent_node) };
-        // todo, now we can only get last frame world matrix, so
-        // we can only do view independent stuff in next frame.
         e.widget_env.get_world_mat(parent_node).unwrap()
       } else {
         Mat4::identity()
