@@ -214,20 +214,7 @@ pub fn use_viewer<'a>(
     }
     .execute(|viewer| f(viewer));
   } else {
-    let size = acx.input.window_state.physical_size;
-    let size_changed = acx.input.state_delta.size_change;
-
     let mut writer = SceneWriter::from_global(viewer.scene.scene);
-
-    if size_changed {
-      writer
-        .camera_writer
-        .mutate_component_data::<SceneCameraPerspective>(viewer.scene.main_camera, |p| {
-          if let Some(p) = p.as_mut() {
-            p.resize(size)
-          }
-        });
-    }
 
     ViewerCx {
       viewer,

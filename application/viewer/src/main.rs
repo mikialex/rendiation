@@ -97,18 +97,20 @@ fn main() {
 
   run_viewer_app(|cx| {
     use_viewer_egui(cx);
+
     use_enable_gltf_io(cx);
     use_enable_obj_io(cx);
-    use_animation_player(cx);
+    use_enable_screenshot(cx);
 
     use_viewer_gizmo(cx);
+
+    use_sync_camera_view(cx);
+    use_animation_player(cx);
 
     use_smooth_camera_motion(cx, |cx| {
       use_fit_camera_view(cx);
       use_camera_control(cx);
     });
-
-    use_enable_screenshot(cx);
 
     use_pick_scene(cx);
     use_scene_camera_helper(cx);

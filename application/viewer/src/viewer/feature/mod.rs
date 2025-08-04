@@ -8,6 +8,8 @@ mod pick_scene;
 pub use pick_scene::*;
 mod camera_helper;
 pub use camera_helper::*;
+mod camera_view_sync;
+pub use camera_view_sync::*;
 mod light_helper;
 pub use light_helper::*;
 mod animation_player;
