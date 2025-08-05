@@ -8,7 +8,9 @@ The following things is the current project development direction.
 
 important issue is in bold style.
 
-- switch renderer backend leak gpu resource
+- fix oc
+- fix mesh lod graph
+- switch renderer backend leak gpu resource(not sure)
 - spd not support none pot target, and small target(the current impl will access out of boundary of image).
 - multi format support in texture pool system
 - optimize frame ctx "make_submit" call, use copy buffer to buffer to update.
@@ -31,10 +33,6 @@ important issue is in bold style.
 - fix outline shaking
 - integrate_brdf and ibl lighting shader code should reuse the std micro surface shading code
 - fix oit loop32 depth test and msaa support
-
-### Performance issues
-
-- create binding group with any bindless texture is super slow. maybe upstream bug
 
 ### Implemented but not yet integrated(tested) features
 
@@ -68,6 +66,8 @@ important issue is in bold style.
 
 - storage/texture shrink
 - improve bindgroup cache implementation
+- improve indirect draw, reduce dispatch call count (see DeviceSceneModelRenderBatchCombined)
+- viewer async loader
 - ray tracing
   - improve the wavefront dispatch performance
     - let user manual control dispatch rounds
