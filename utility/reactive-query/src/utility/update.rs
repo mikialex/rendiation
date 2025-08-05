@@ -83,10 +83,6 @@ impl<T> DerefMut for MultiUpdateContainer<T> {
   }
 }
 
-/// for example if we want merge different query changes into one
-pub type MultiUpdateMergeMutation<K, V> =
-  MultiUpdateContainer<Box<dyn QueryLikeMutateTarget<K, V>>>;
-
 impl<T> MultiUpdateContainer<T> {
   pub fn new(target: T) -> Self {
     Self {

@@ -6,6 +6,123 @@ use self::{
 };
 use super::*;
 
+pub struct RemappedGrowablePacker {
+  max_size: SizeWithDepth,
+  packer: GrowablePacker<MultiLayerTexturePacker<EtagerePacker>>,
+  // todo, i think this is not necessary if the packer lib not generate id
+  mapping: FastHashMap<PackId, u32>,
+  rev_mapping: FastHashMap<u32, PackId>,
+}
+
+impl RemappedGrowablePacker {
+  pub fn new(config: MultiLayerTexturePackerConfig) -> Self {
+    Self {
+      packer: GrowablePacker::new(config.init_size),
+      max_size: config.max_size,
+      mapping: Default::default(),
+      rev_mapping: Default::default(),
+    }
+  }
+
+  pub fn process(
+    &mut self,
+    iter_removed: impl Iterator<Item = u32>,
+    iter_changed_or_insert: impl Iterator<Item = (u32, Size)>,
+    notify_resize: impl Fn(SizeWithDepth),
+    notify_change: impl Fn(u32, ValueChange<PackResult2dWithDepth>),
+  ) {
+    let mapping = &mut self.mapping;
+    let rev_mapping = &mut self.rev_mapping;
+    let packer = &mut self.packer;
+
+    let mut grow = |config: SizeWithDepth| {
+      let max = self.max_size;
+      let width_capacity = max.size.width_usize() - config.size.width_usize();
+      let height_capacity = max.size.height_usize() - config.size.height_usize();
+      let depth_capacity = u32::from(max.depth) - u32::from(config.depth);
+
+      if depth_capacity == 0 && height_capacity == 0 && width_capacity == 0 {
+        if ENABLE_DEBUG_LOG {
+          println!("grow failed, current_size: {config:?}, max_size: {max:?}");
+        }
+
+        return None;
+      }
+
+      let target_config = if height_capacity == 0 && width_capacity == 0 {
+        // when we only have depth space available, increase depth only one step each grow
+        SizeWithDepth {
+          depth: NonZeroU32::new(u32::from(config.depth) + 1).unwrap(),
+          size: config.size,
+        }
+      } else {
+        let width_target = (config.size.width_usize() * 2).min(max.size.width_usize());
+        let height_target = (config.size.width_usize() * 2).min(max.size.width_usize());
+        SizeWithDepth {
+          depth: config.depth,
+          size: Size::from_usize_pair_min_one((width_target, height_target)),
+        }
+      };
+
+      if ENABLE_DEBUG_LOG {
+        println!("grow success, current_size: {target_config:?}, max_size: {max:?}");
+      }
+      notify_resize(target_config);
+
+      Some(target_config)
+    };
+
+    // do all remove first
+    for id in iter_removed {
+      let pack_id = rev_mapping.remove(&id).unwrap();
+      mapping.remove(&pack_id);
+      let previous = packer.unpack(pack_id).unwrap();
+      let delta = ValueChange::Remove(previous);
+      notify_change(id, delta);
+    }
+
+    for (id, size) in iter_changed_or_insert {
+      if let Some(pack_id) = rev_mapping.remove(&id) {
+        mapping.remove(&pack_id);
+        let previous = packer.unpack(pack_id).unwrap();
+        let delta = ValueChange::Remove(previous);
+        notify_change(id, delta);
+      }
+
+      let mut staging_mapping = FastHashMap::default();
+      let mut relocate = |relocation: PackResultRelocation<PackResult2dWithDepth>| {
+        let idx = staging_mapping
+          .remove(&relocation.previous.id)
+          .or_else(|| mapping.remove(&relocation.previous.id).unwrap().into())
+          .unwrap();
+
+        let previous = relocation.previous.result;
+        notify_change(idx, ValueChange::Remove(previous));
+
+        if let Some(overridden) = mapping.insert(relocation.new.id, idx) {
+          staging_mapping.insert(relocation.new.id, overridden);
+        }
+        let current = relocation.new.result;
+        notify_change(idx, ValueChange::Delta(current, None));
+
+        rev_mapping.insert(idx, relocation.new.id);
+      };
+
+      let pack_result = packer.pack_and_check_grow(size, &mut grow, &mut relocate);
+
+      if let Ok(pack_result) = pack_result {
+        rev_mapping.insert(id, pack_result.id);
+        mapping.insert(pack_result.id, id);
+        let delta = ValueChange::Delta(pack_result.result, None);
+
+        notify_change(id, delta);
+      } else {
+        println!("warning, texture allocation failed for {id}, try increase the max size")
+      }
+    }
+  }
+}
+
 pub fn reactive_pack_2d_to_3d(
   mut config: MultiLayerTexturePackerConfig,
   size: BoxedDynReactiveQuery<u32, Size>,
@@ -18,53 +135,38 @@ pub fn reactive_pack_2d_to_3d(
   let (size_sender, size_rev) = single_value_channel();
   size_sender.update(config.init_size).unwrap();
 
-  let packer: PackerImpl = GrowablePacker::new(config.init_size);
-
   let packer = Packer {
-    max_size: config.max_size,
-    packer: Arc::new(RwLock::new(packer)),
+    packer: Arc::new(RwLock::new(RemappedGrowablePacker::new(config))),
     size_source: size,
-    mapping: Default::default(),
-    rev_mapping: Default::default(),
     all_size_sender: Arc::new(size_sender),
   };
 
   (packer, size_rev)
 }
 
-type PackerImpl = GrowablePacker<MultiLayerTexturePacker<EtagerePacker>>;
-
 struct Packer {
-  max_size: SizeWithDepth,
   size_source: BoxedDynReactiveQuery<u32, Size>,
-
-  packer: Arc<RwLock<PackerImpl>>,
-  // todo, i think this is not necessary if the packer lib not generate id
-  mapping: Arc<RwLock<FastHashMap<PackId, u32>>>,
-  rev_mapping: Arc<RwLock<FastHashMap<u32, PackId>>>,
-
+  packer: Arc<RwLock<RemappedGrowablePacker>>,
   all_size_sender: Arc<SingleSender<SizeWithDepth>>,
 }
 
 #[derive(Clone)]
-struct PackerCurrentView {
-  rev_mapping: LockReadGuardHolder<FastHashMap<u32, PackId>>,
-  packer: LockReadGuardHolder<PackerImpl>,
-}
+struct PackerCurrentView(LockReadGuardHolder<RemappedGrowablePacker>);
 
 impl Query for PackerCurrentView {
   type Key = u32;
   type Value = PackResult2dWithDepth;
   fn iter_key_value(&self) -> impl Iterator<Item = (u32, PackResult2dWithDepth)> + '_ {
     self
+      .0
       .rev_mapping
       .iter()
-      .map(|(k, v)| (*k, self.packer.current_states().1.get(v).unwrap().1))
+      .map(|(k, v)| (*k, self.0.packer.current_states().1.get(v).unwrap().1))
   }
 
   fn access(&self, key: &u32) -> Option<PackResult2dWithDepth> {
-    let pack_id = self.rev_mapping.get(key)?;
-    let result = self.packer.current_states().1.get(pack_id)?.1;
+    let pack_id = self.0.rev_mapping.get(key)?;
+    let result = self.0.packer.current_states().1.get(pack_id)?.1;
     Some(result)
   }
 }
@@ -77,10 +179,7 @@ impl ReactiveQuery for Packer {
   fn describe(&self, cx: &mut Context) -> Self::Compute {
     PackerCompute {
       size_source: self.size_source.describe_dyn(cx),
-      max_size: self.max_size,
       packer: self.packer.clone(),
-      mapping: self.mapping.clone(),
-      rev_mapping: self.rev_mapping.clone(),
       all_size_sender: self.all_size_sender.clone(),
     }
   }
@@ -93,12 +192,7 @@ impl ReactiveQuery for Packer {
 
 struct PackerCompute<T> {
   size_source: T,
-  max_size: SizeWithDepth,
-
-  packer: Arc<RwLock<PackerImpl>>,
-  // todo, i think this is not necessary if the packer lib not generate id
-  mapping: Arc<RwLock<FastHashMap<PackId, u32>>>,
-  rev_mapping: Arc<RwLock<FastHashMap<u32, PackId>>>,
+  packer: Arc<RwLock<RemappedGrowablePacker>>,
   all_size_sender: Arc<SingleSender<SizeWithDepth>>,
 }
 
@@ -107,18 +201,12 @@ impl<T: AsyncQueryCompute<Key = u32, Value = Size>> AsyncQueryCompute for Packer
     &mut self,
     cx: &mut AsyncQueryCtx,
   ) -> QueryComputeTask<(Self::Changes, Self::View)> {
-    let max_size = self.max_size;
     let packer = self.packer.clone();
-    let mapping = self.mapping.clone();
-    let rev_mapping = self.rev_mapping.clone();
     let all_size_sender = self.all_size_sender.clone();
     let size_source = self.size_source.create_task(cx);
     cx.then_spawn_compute(size_source, move |size_source| PackerCompute {
       size_source,
-      max_size,
       packer,
-      mapping,
-      rev_mapping,
       all_size_sender,
     })
     .into_boxed_future()
@@ -142,106 +230,30 @@ impl<T: QueryCompute<Key = u32, Value = Size>> QueryCompute for PackerCompute<T>
     {
       unsafe {
         sender.lock();
-        let mut mapping = self.mapping.write();
-        let mut rev_mapping = self.rev_mapping.write();
         let packer = &mut self.packer.write();
 
-        let mut grow = |config: SizeWithDepth| {
-          let max = self.max_size;
-          let width_capacity = max.size.width_usize() - config.size.width_usize();
-          let height_capacity = max.size.height_usize() - config.size.height_usize();
-          let depth_capacity = u32::from(max.depth) - u32::from(config.depth);
+        let removes = d
+          .iter_key_value()
+          .filter_map(|(k, v)| v.is_removed().then_some(k));
 
-          if depth_capacity == 0 && height_capacity == 0 && width_capacity == 0 {
-            if ENABLE_DEBUG_LOG {
-              println!("grow failed, current_size: {config:?}, max_size: {max:?}");
-            }
+        let changes = d
+          .iter_key_value()
+          .filter_map(|(k, v)| v.new_value().map(|v| (k, *v)));
 
-            return None;
-          }
-
-          let target_config = if height_capacity == 0 && width_capacity == 0 {
-            // when we only have depth space available, increase depth only one step each grow
-            SizeWithDepth {
-              depth: NonZeroU32::new(u32::from(config.depth) + 1).unwrap(),
-              size: config.size,
-            }
-          } else {
-            let width_target = (config.size.width_usize() * 2).min(max.size.width_usize());
-            let height_target = (config.size.width_usize() * 2).min(max.size.width_usize());
-            SizeWithDepth {
-              depth: config.depth,
-              size: Size::from_usize_pair_min_one((width_target, height_target)),
-            }
-          };
-
-          if ENABLE_DEBUG_LOG {
-            println!("grow success, current_size: {target_config:?}, max_size: {max:?}");
-          }
-          self.all_size_sender.update(target_config).ok();
-
-          Some(target_config)
-        };
-
-        for (id, size) in d.iter_key_value() {
-          match size {
-            ValueChange::Delta(new_size, _) => {
-              if let Some(pack_id) = rev_mapping.remove(&id) {
-                mapping.remove(&pack_id);
-                let previous = packer.unpack(pack_id).unwrap();
-                let delta = ValueChange::Remove(previous);
-                sender.send(id, delta);
-              }
-
-              let mut staging_mapping = FastHashMap::default();
-              let mut relocate = |relocation: PackResultRelocation<PackResult2dWithDepth>| {
-                let idx = staging_mapping
-                  .remove(&relocation.previous.id)
-                  .or_else(|| mapping.remove(&relocation.previous.id).unwrap().into())
-                  .unwrap();
-
-                let previous = relocation.previous.result;
-                sender.send(idx, ValueChange::Remove(previous));
-
-                if let Some(overridden) = mapping.insert(relocation.new.id, idx) {
-                  staging_mapping.insert(relocation.new.id, overridden);
-                }
-                let current = relocation.new.result;
-                sender.send(idx, ValueChange::Delta(current, None));
-
-                rev_mapping.insert(idx, relocation.new.id);
-              };
-
-              let pack_result = packer.pack_and_check_grow(new_size, &mut grow, &mut relocate);
-
-              if let Ok(pack_result) = pack_result {
-                rev_mapping.insert(id, pack_result.id);
-                mapping.insert(pack_result.id, id);
-                let delta = ValueChange::Delta(pack_result.result, None);
-
-                sender.send(id, delta);
-              } else {
-                println!("warning, texture allocation failed for {id}, try increase the max size")
-              }
-            }
-            ValueChange::Remove(_) => {
-              let pack_id = rev_mapping.remove(&id).unwrap();
-              mapping.remove(&pack_id);
-              let previous = packer.unpack(pack_id).unwrap();
-              let delta = ValueChange::Remove(previous);
-              sender.send(id, delta);
-            }
-          }
-        }
+        packer.process(
+          removes,
+          changes,
+          |new_size| {
+            self.all_size_sender.update(new_size).ok();
+          },
+          |idx, change| sender.send(idx, change),
+        );
 
         sender.unlock();
       }
     }
 
-    let v = PackerCurrentView {
-      rev_mapping: self.rev_mapping.make_read_holder(),
-      packer: self.packer.make_read_holder(),
-    };
+    let v = PackerCurrentView(self.packer.make_read_holder());
 
     noop_ctx!(cx);
     let mut d = None;
