@@ -1,7 +1,9 @@
 use crate::*;
 mod default;
+mod sparse;
 
 pub use default::*;
+pub use sparse::*;
 
 pub type DataPtr = *const ();
 pub type DataMutPtr = *const ();
@@ -132,6 +134,4 @@ pub trait ComponentStorageReadWriteView {
 
   /// grow the storage to allow more data to stored at the bound of the max size address.
   fn grow(&mut self, max: u32);
-
-  fn fast_deserialize_all(&mut self, source: &[u8], count: usize);
 }

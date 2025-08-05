@@ -164,25 +164,25 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
   }
 
   pub fn declare_component<S: ComponentSemantic<Entity = E>>(self) -> Self {
-    self.declare_component_impl::<S>(None)
+    self.declare_component_impl::<S>(None, init_linear_storage::<S>())
+  }
+
+  pub fn declare_sparse_component<S: ComponentSemantic<Entity = E>>(self) -> Self {
+    self.declare_component_impl::<S>(None, init_linear_storage::<S>())
   }
 
   pub fn declare_component_impl<S: ComponentSemantic<Entity = E>>(
     self,
     as_foreign_key: Option<EntityId>,
+    storage: impl ComponentStorage + 'static,
   ) -> Self {
-    let data = Arc::new(RwLock::new(DBDefaultLinearStorage::<S::Data> {
-      data: Default::default(),
-      default_value: S::default_override(),
-      old_value_out: Default::default(),
-    }));
     let com = ComponentCollectionUntyped {
       name: Arc::new(S::display_name().to_string()),
       as_foreign_key,
       data_typeid: TypeId::of::<S::Data>(),
       entity_type_id: S::Entity::entity_id(),
       component_type_id: S::component_id(),
-      data: Arc::new(data),
+      data: Arc::new(storage),
       allocator: self.inner.inner.allocator.clone(),
       data_watchers: Default::default(),
     };
@@ -191,7 +191,21 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
   }
 
   pub fn declare_foreign_key<S: ForeignKeySemantic<Entity = E>>(mut self) -> Self {
-    self = self.declare_component_impl::<S>(S::ForeignEntity::entity_id().into());
+    self = self.declare_component_impl::<S>(
+      S::ForeignEntity::entity_id().into(),
+      init_linear_storage::<S>(),
+    );
+    self
+      .inner
+      .declare_foreign_key_dyn(S::component_id(), S::ForeignEntity::entity_id());
+    self
+  }
+
+  pub fn declare_sparse_foreign_key<S: ForeignKeySemantic<Entity = E>>(mut self) -> Self {
+    self = self.declare_component_impl::<S>(
+      S::ForeignEntity::entity_id().into(),
+      init_linear_storage::<S>(),
+    );
     self
       .inner
       .declare_foreign_key_dyn(S::component_id(), S::ForeignEntity::entity_id());

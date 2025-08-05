@@ -42,7 +42,7 @@ impl EntityComponentGroupImpl {
   fn add_label_component(&self) {
     let semantic = compute_component_id(self.type_id.0);
 
-    let data = Arc::new(RwLock::new(DBDefaultLinearStorage::<String> {
+    let data = Arc::new(RwLock::new(DBSparseStorage::<String> {
       data: Default::default(),
       default_value: Default::default(),
       old_value_out: Default::default(),

@@ -4,21 +4,21 @@ use crate::*;
 
 /// The most common storage type that use a vec as the container.
 /// Expecting dense distributed component data
-pub struct DBLinearStorage<T> {
-  pub data: Vec<T>,
+pub struct DBSparseStorage<T> {
+  pub data: FastHashMap<u32, T>,
   pub default_value: T,
   pub old_value_out: T, // todo, this value is leaked here, we should cleanup explicitly?
 }
 
-pub fn init_linear_storage<S: ComponentSemantic>() -> Arc<RwLock<DBLinearStorage<S::Data>>> {
-  Arc::new(RwLock::new(DBLinearStorage::<S::Data> {
+pub fn init_sparse_storage<S: ComponentSemantic>() -> Arc<RwLock<DBSparseStorage<S::Data>>> {
+  Arc::new(RwLock::new(DBSparseStorage::<S::Data> {
     data: Default::default(),
     default_value: S::default_override(),
     old_value_out: Default::default(),
   }))
 }
 
-impl<T: DataBaseDataType> ComponentStorage for Arc<RwLock<DBLinearStorage<T>>> {
+impl<T: DataBaseDataType> ComponentStorage for Arc<RwLock<DBSparseStorage<T>>> {
   fn create_read_view(&self) -> Box<dyn ComponentStorageReadView> {
     Box::new(self.make_read_holder())
   }
@@ -34,7 +34,7 @@ impl<T: DataBaseDataType> ComponentStorage for Arc<RwLock<DBLinearStorage<T>>> {
   }
 }
 
-impl<T> ComponentStorageReadView for LockReadGuardHolder<DBLinearStorage<T>>
+impl<T> ComponentStorageReadView for LockReadGuardHolder<DBSparseStorage<T>>
 where
   T: DataBaseDataType,
 {
@@ -42,7 +42,7 @@ where
     self
       .deref()
       .data
-      .get(idx as usize)
+      .get(&idx)
       .map(|r| r as *const _ as DataPtr)
   }
 
@@ -56,14 +56,14 @@ where
 
   fn fast_serialize_all(&self) -> Vec<u8> {
     let mut init = Vec::<u8>::with_capacity(self.data.len() * std::mem::size_of::<T>());
-    self.data.iter().for_each(|data| {
+    self.data.values().for_each(|data| {
       data.fast_serialize(&mut init).unwrap();
     });
     init
   }
 }
 
-impl<T> ComponentStorageReadWriteView for LockWriteGuardHolder<DBLinearStorage<T>>
+impl<T> ComponentStorageReadWriteView for LockWriteGuardHolder<DBSparseStorage<T>>
 where
   T: DataBaseDataType,
 {
@@ -76,40 +76,38 @@ where
   }
 
   unsafe fn get(&self, idx: u32) -> DataPtr {
-    let data: &Vec<T> = &self.data;
-    data.get_unchecked(idx as usize) as *const _ as DataPtr
+    self.data.get(&idx).unwrap_unchecked() as *const _ as DataPtr
   }
 
   unsafe fn set_value(&mut self, idx: u32, new_value: Option<DataPtr>) -> (DataPtr, DataPtr, bool) {
     let self_ = self.deref_mut();
-    let target = self_.data.get_unchecked_mut(idx as usize);
-    let source = if let Some(new_value) = new_value {
+    let new = if let Some(new_value) = new_value {
       &*(new_value as *const T)
     } else {
       &self_.default_value
     };
 
-    self_.old_value_out = target.clone();
-    *target = (*source).clone();
+    let old = self_.data.insert(idx, new.clone());
 
-    let diff = &self_.old_value_out != target;
+    let diff = if let Some(old) = old {
+      self_.old_value_out = old;
+      &self_.old_value_out == new
+    } else {
+      true
+    };
 
-    let new = target as *const _ as DataPtr;
+    let new = new as *const _ as DataPtr;
     let old = &self.old_value_out as *const _ as DataPtr;
     (new, old, diff)
   }
 
   unsafe fn delete(&mut self, idx: u32) -> DataPtr {
-    let target = self.data.get_unchecked_mut(idx as usize);
+    let target = self.data.remove(&idx).unwrap_unchecked();
     self.old_value_out = target.clone();
     &self.old_value_out as *const _ as DataPtr
   }
 
-  fn grow(&mut self, max: u32) {
-    let max = max as usize;
-    if self.data.len() <= max {
-      let default = self.default_value.clone();
-      self.data.resize(max + 1, default);
-    }
+  fn grow(&mut self, _max: u32) {
+    // noop
   }
 }

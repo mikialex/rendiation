@@ -12,7 +12,7 @@ pub use shape::*;
 
 pub fn register_wide_line_data_model() {
   global_entity_of::<SceneModelEntity>() //
-    .declare_foreign_key::<SceneModelWideLineRenderPayload>();
+    .declare_sparse_foreign_key::<SceneModelWideLineRenderPayload>();
 
   global_database()
     .declare_entity::<WideLineModelEntity>()

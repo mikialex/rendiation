@@ -10,7 +10,7 @@ declare_foreign_key!(
 pub fn register_scene_mesh_lod_graph_data_model() {
   register_mesh_lod_graph_data_model();
   global_entity_of::<StandardModelEntity>()
-    .declare_foreign_key::<StandardModelRefLodGraphMeshEntity>();
+    .declare_sparse_foreign_key::<StandardModelRefLodGraphMeshEntity>();
 }
 
 pub fn use_mesh_lod_graph_scene_renderer(
