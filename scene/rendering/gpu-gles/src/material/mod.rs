@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::*;
 
 mod unlit;
@@ -52,29 +54,24 @@ pub(super) fn bind_and_sample_enabled(
   (r, device_pair.0.not_equals(val(u32::MAX)))
 }
 
-pub fn add_tex_watcher<T, TexUniform>(
-  uniform: UniformUpdateContainer<EntityHandle<T::Entity>, TexUniform>,
+pub fn use_tex_watcher<T, TexUniform>(
+  cx: &mut GPUResourceCx<'_>,
   offset: usize,
-  cx: &GPU,
-) -> UniformUpdateContainer<EntityHandle<T::Entity>, TexUniform>
-where
+  uniform: &UniformBufferCollection<EntityHandle<T::Entity>, TexUniform>,
+) where
   TexUniform: Std140 + Default,
   T: TextureWithSamplingForeignKeys,
 {
   let tex_offset = std::mem::offset_of!(TextureSamplerHandlePair, texture_handle);
   let sam_offset = std::mem::offset_of!(TextureSamplerHandlePair, sampler_handle);
 
-  let tex = global_watch()
-    .watch::<SceneTexture2dRefOf<T>>()
+  cx.use_changes::<SceneTexture2dRefOf<T>>()
     .collective_map(|id| id.map(|v| v.index()).unwrap_or(u32::MAX))
-    .into_query_update_uniform(offset + tex_offset, cx);
+    .update_uniforms(uniform, offset + tex_offset);
 
-  let sampler = global_watch()
-    .watch::<SceneSamplerRefOf<T>>()
+  cx.use_changes::<SceneSamplerRefOf<T>>()
     .collective_map(|id| id.map(|v| v.index()).unwrap_or(u32::MAX))
-    .into_query_update_uniform(offset + sam_offset, cx);
-
-  uniform.with_source(tex).with_source(sampler)
+    .update_uniforms(uniform, offset + sam_offset);
 }
 
 pub trait GLESModelMaterialRenderImpl {

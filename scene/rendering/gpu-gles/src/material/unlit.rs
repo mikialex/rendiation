@@ -1,47 +1,33 @@
 use crate::*;
 
-pub fn use_unlit_material_uniforms(
-  cx: &mut impl QueryGPUHookCx,
-) -> Option<UnlitMaterialGlesRender> {
-  let uniform = cx.use_uniform_buffers::<EntityHandle<UnlitMaterialEntity>, UnlitMaterialUniform>(
-    |source, cx| {
-      let color = global_watch()
-        .watch::<UnlitMaterialColorComponent>()
-        .collective_map(srgb4_to_linear4)
-        .into_query_update_uniform(offset_of!(UnlitMaterialUniform, color), cx);
+pub async fn use_unlit_material_uniforms(cx: &mut GPUResourceCx<'_>) -> UnlitMaterialGlesRender {
+  let color = cx
+    .use_changes::<UnlitMaterialColorComponent>()
+    .collective_map(srgb4_to_linear4);
 
-      let alpha = global_watch()
-        .watch::<AlphaOf<UnlitMaterialAlphaConfig>>()
-        .into_query_update_uniform(offset_of!(UnlitMaterialUniform, alpha), cx);
+  let alpha = cx.use_changes::<AlphaOf<UnlitMaterialAlphaConfig>>();
+  let alpha_cutoff = cx.use_changes::<AlphaCutoffOf<UnlitMaterialAlphaConfig>>();
 
-      let alpha_cutoff = global_watch()
-        .watch::<AlphaCutoffOf<UnlitMaterialAlphaConfig>>()
-        .into_query_update_uniform(offset_of!(UnlitMaterialUniform, alpha_cutoff), cx);
+  let uniform = cx.use_uniform_buffers::<EntityHandle<UnlitMaterialEntity>, UnlitMaterialUniform>();
 
-      source
-        .with_source(color)
-        .with_source(alpha)
-        .with_source(alpha_cutoff)
-    },
-  );
+  color.update_uniforms(&uniform, offset_of!(UnlitMaterialUniform, color));
+  alpha.update_uniforms(&uniform, offset_of!(UnlitMaterialUniform, alpha));
+  alpha_cutoff.update_uniforms(&uniform, offset_of!(UnlitMaterialUniform, alpha_cutoff));
 
   let tex_uniform = cx
-    .use_uniform_buffers::<EntityHandle<UnlitMaterialEntity>, UnlitMaterialTextureHandlesUniform>(
-      |source, cx| {
-        let color_alpha_texture =
-          offset_of!(UnlitMaterialTextureHandlesUniform, color_alpha_texture);
-        add_tex_watcher::<UnlitMaterialColorAlphaTex, _>(source, color_alpha_texture, cx)
-      },
-    );
+    .use_uniform_buffers::<EntityHandle<UnlitMaterialEntity>, UnlitMaterialTextureHandlesUniform>();
 
-  cx.when_render(|| UnlitMaterialGlesRender {
+  let color_alpha_texture = offset_of!(UnlitMaterialTextureHandlesUniform, color_alpha_texture);
+  use_tex_watcher::<UnlitMaterialColorAlphaTex, _>(cx, color_alpha_texture, &tex_uniform);
+
+  UnlitMaterialGlesRender {
     material_access: global_entity_component_of::<StandardModelRefUnlitMaterial>()
       .read_foreign_key(),
-    uniforms: uniform.unwrap(),
-    texture_uniforms: tex_uniform.unwrap(),
+    uniforms: uniform.make_read_holder(),
+    texture_uniforms: tex_uniform.make_read_holder(),
     color_tex_sampler: TextureSamplerIdView::read_from_global(),
     alpha_mode: global_entity_component_of().read(),
-  })
+  }
 }
 
 pub struct UnlitMaterialGlesRender {
@@ -70,11 +56,11 @@ impl GLESModelMaterialRenderImpl for UnlitMaterialGlesRender {
 }
 
 type UnlitMaterialUniforms =
-  UniformUpdateContainer<EntityHandle<UnlitMaterialEntity>, UnlitMaterialUniform>;
+  UniformBufferCollectionRaw<EntityHandle<UnlitMaterialEntity>, UnlitMaterialUniform>;
 
 type TexUniform = UnlitMaterialTextureHandlesUniform;
 type UnlitMaterialTexUniforms =
-  UniformUpdateContainer<EntityHandle<UnlitMaterialEntity>, TexUniform>;
+  UniformBufferCollectionRaw<EntityHandle<UnlitMaterialEntity>, TexUniform>;
 
 #[repr(C)]
 #[std140_layout]

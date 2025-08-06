@@ -19,6 +19,9 @@ pub use query::*;
 mod multi_query;
 pub use multi_query::*;
 
+mod change_query;
+pub use change_query::*;
+
 mod combined;
 pub use combined::*;
 
