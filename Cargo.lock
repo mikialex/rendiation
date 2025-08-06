@@ -3792,7 +3792,6 @@ dependencies = [
  "database",
  "fast-hash-collection",
  "hook",
- "reactive",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-mesh-core",
@@ -3810,7 +3809,6 @@ name = "rendiation-infinity-primitive"
 version = "0.1.0"
 dependencies = [
  "database",
- "reactive",
  "rendiation-algebra",
  "rendiation-scene-core",
  "rendiation-scene-rendering-gpu-base",
@@ -3915,7 +3913,6 @@ dependencies = [
  "bytemuck",
  "facet",
  "fast-hash-collection",
- "reactive",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-shader-api",
@@ -4306,7 +4303,6 @@ dependencies = [
  "interning",
  "once_cell",
  "parking_lot",
- "reactive",
  "rendiation-algebra",
  "rendiation-scene-core",
  "rendiation-shader-api",
