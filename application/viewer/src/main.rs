@@ -25,6 +25,7 @@ use rendiation_mesh_lod_graph_rendering::*;
 use rendiation_scene_rendering_gpu_gles::*;
 use rendiation_shader_api::*;
 use rendiation_texture_gpu_base::SamplerConvertExt;
+use rendiation_webgpu_reactive_utils::*;
 use tracing::*;
 use winit::{
   event::{Event, WindowEvent},

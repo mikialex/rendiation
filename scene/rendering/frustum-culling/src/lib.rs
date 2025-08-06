@@ -96,20 +96,20 @@ impl AbstractCullerInvocation for GPUFrustumCullingInvocation {
   fn cull(&self, id: Node<u32>) -> Node<bool> {
     let bounding = self.bounding_provider.get_world_bounding(id);
 
-    let visible = val(false).make_local_var();
+    let should_cull = val(false).make_local_var();
 
     for plane in self.frustum.iter() {
       // todo use a real loop to avoid per plane visible check
-      if_by(visible.load().not(), || {
+      if_by(should_cull.load().not(), || {
         let min = hpt_sub_hpt(bounding.min, self.camera_world);
         let max = hpt_sub_hpt(bounding.max, self.camera_world);
         let intersect = aabb_plane_intersect(min, max, *plane);
         if_by(intersect, || {
-          visible.store(true);
+          should_cull.store(true);
         });
       });
     }
 
-    visible.load()
+    should_cull.load()
   }
 }

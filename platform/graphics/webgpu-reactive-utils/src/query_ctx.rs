@@ -1,3 +1,7 @@
+use std::any::Any;
+
+use ::hook::CanCleanUpFrom;
+
 use crate::*;
 
 /// This is a container to hold reactive query or general query like object.
@@ -17,7 +21,7 @@ pub struct QueryCtxSetInfo {
   sets: Option<FastHashSet<u32>>,
 }
 
-impl hook::CanCleanUpFrom<ReactiveQueryCtx> for QueryCtxSetInfo {
+impl CanCleanUpFrom<ReactiveQueryCtx> for QueryCtxSetInfo {
   fn drop_from_cx(&mut self, _: &mut ReactiveQueryCtx) {}
 }
 
@@ -134,7 +138,7 @@ impl Default for QueryToken {
   }
 }
 
-impl hook::CanCleanUpFrom<ReactiveQueryCtx> for QueryToken {
+impl CanCleanUpFrom<ReactiveQueryCtx> for QueryToken {
   fn drop_from_cx(&mut self, cx: &mut ReactiveQueryCtx) {
     cx.deregister(self);
   }
