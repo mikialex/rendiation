@@ -50,3 +50,23 @@ pub use registry::*;
 
 mod mutate_target;
 pub use mutate_target::*;
+
+#[derive(Clone)]
+pub struct DeltaQueryAsDataChanges<T, V>(pub T, pub std::marker::PhantomData<V>);
+
+impl<V: CValue, T: Query<Value = ValueChange<V>>> DataChanges for DeltaQueryAsDataChanges<T, V> {
+  type Key = T::Key;
+  type Value = V;
+  fn iter_removed(&self) -> impl Iterator<Item = Self::Key> + '_ {
+    self
+      .0
+      .iter_key_value()
+      .filter_map(|(k, v)| v.is_removed().then_some(k))
+  }
+  fn iter_update_or_insert(&self) -> impl Iterator<Item = (Self::Key, Self::Value)> + '_ {
+    self
+      .0
+      .iter_key_value()
+      .filter_map(|(k, v)| v.new_value().map(|v| (k, v.clone())))
+  }
+}
