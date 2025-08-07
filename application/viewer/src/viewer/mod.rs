@@ -258,6 +258,7 @@ pub fn use_viewer<'a>(
     &mut viewer.render_memory,
     &mut viewer.render_resource,
     &mut viewer.task_pool,
+    &viewer.task_spawner,
     &mut viewer.render_db_linear_changes,
   );
 
@@ -293,6 +294,7 @@ pub struct Viewer {
   render_resource: ReactiveQueryCtx,
   task_pool: AsyncTaskPool,
   render_db_linear_changes: DBLinearChangeWatchGroup,
+  task_spawner: TaskSpawner,
 }
 
 impl CanCleanUpFrom<ApplicationDropCx> for Viewer {
@@ -393,6 +395,7 @@ impl Viewer {
       render_resource: Default::default(),
       render_db_linear_changes: DBLinearChangeWatchGroup::new(&global_database()),
       task_pool: Default::default(),
+      task_spawner: TaskSpawner::new("viewer_task_worker", None),
     }
   }
 
@@ -404,6 +407,7 @@ impl Viewer {
       &mut self.render_memory,
       &mut self.render_resource,
       &mut self.task_pool,
+      &self.task_spawner,
       &mut self.render_db_linear_changes,
     )
   }

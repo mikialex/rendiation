@@ -166,6 +166,7 @@ excessive_precision = "allow"
 # i know it's bad but..
 missing_transmute_annotations = "allow"
 
+large_futures = "warn"
 
 [workspace.lints.rust]
 # we trust incomplete rust feature than unsafe workaround
