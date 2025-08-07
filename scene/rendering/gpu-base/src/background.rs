@@ -6,37 +6,33 @@ pub fn use_background(cx: &mut impl QueryGPUHookCx) -> Option<SceneBackgroundRen
   let env_background_map_gpu =
     cx.use_multi_updater_gpu(|gpu| gpu_texture_cubes(gpu, FastHashMap::default()));
 
-  let env_background_intensity_uniform = cx
-    .use_uniform_buffers::<EntityHandle<SceneEntity>, Vec4<f32>>(|source, gpu| {
-      source.with_source(
-        global_watch()
-          .watch::<SceneHDRxEnvBackgroundIntensity>()
-          .collective_filter_map(|v| v.map(|intensity| Vec4::new(intensity, 0., 0., 0.)))
-          .into_query_update_uniform(0, gpu),
-      )
-    });
+  let env_background_intensity_uniform = cx.use_uniform_buffers2();
 
-  let solid_background_color_uniform = cx
-    .use_uniform_buffers::<EntityHandle<SceneEntity>, Vec4<f32>>(|source, gpu| {
-      source.with_source(
-        global_watch()
-          .watch::<SceneSolidBackground>()
-          .collective_map(|v| {
-            v.map(srgb3_to_linear3)
-              .unwrap_or(Vec3::splat(0.))
-              .expand_with_one()
-          })
-          .into_query_update_uniform(0, gpu),
-      )
-    });
+  cx.use_changes::<SceneHDRxEnvBackgroundIntensity>()
+    .map(|changes| {
+      changes.collective_filter_map(|v| v.map(|intensity| Vec4::new(intensity, 0., 0., 0.)))
+    })
+    .update_uniforms(&env_background_intensity_uniform, 0, cx.gpu());
+
+  let solid_background_color_uniform = cx.use_uniform_buffers2();
+
+  cx.use_changes::<SceneSolidBackground>()
+    .map(|changes| {
+      changes.collective_map(|v| {
+        v.map(srgb3_to_linear3)
+          .unwrap_or(Vec3::splat(0.))
+          .expand_with_one()
+      })
+    })
+    .update_uniforms(&solid_background_color_uniform, 0, cx.gpu());
 
   cx.when_render(|| SceneBackgroundRenderer {
     solid_background: global_entity_component_of::<SceneSolidBackground>().read(),
     env_background_map: global_entity_component_of::<SceneHDRxEnvBackgroundCubeMap>()
       .read_foreign_key(),
     env_background_map_gpu: env_background_map_gpu.unwrap(),
-    env_background_intensity: env_background_intensity_uniform.unwrap(),
-    solid_background_uniform: solid_background_color_uniform.unwrap(),
+    env_background_intensity: env_background_intensity_uniform.make_read_holder(),
+    solid_background_uniform: solid_background_color_uniform.make_read_holder(),
   })
 }
 
@@ -46,12 +42,8 @@ pub struct SceneBackgroundRenderer {
   pub env_background_map_gpu: LockReadGuardHolder<
     MultiUpdateContainer<FastHashMap<EntityHandle<SceneTextureCubeEntity>, GPUCubeTextureView>>,
   >,
-  pub env_background_intensity: LockReadGuardHolder<
-    MultiUpdateContainer<FastHashMap<EntityHandle<SceneEntity>, UniformBufferDataView<Vec4<f32>>>>,
-  >,
-  pub solid_background_uniform: LockReadGuardHolder<
-    MultiUpdateContainer<FastHashMap<EntityHandle<SceneEntity>, UniformBufferDataView<Vec4<f32>>>>,
-  >,
+  pub env_background_intensity: LockReadGuardHolder<UniformBufferCollectionRaw<u32, Vec4<f32>>>,
+  pub solid_background_uniform: LockReadGuardHolder<UniformBufferCollectionRaw<u32, Vec4<f32>>>,
 }
 
 impl SceneBackgroundRenderer {
@@ -84,7 +76,10 @@ impl SceneBackgroundRenderer {
       BackGroundDrawPassContent::CubeEnv(
         CubeEnvComponent {
           map: self.env_background_map_gpu.access(&env).unwrap().clone(),
-          intensity: self.env_background_intensity.access(&scene).unwrap(),
+          intensity: self
+            .env_background_intensity
+            .access(&scene.alloc_index())
+            .unwrap(),
           camera,
           tonemap,
         }

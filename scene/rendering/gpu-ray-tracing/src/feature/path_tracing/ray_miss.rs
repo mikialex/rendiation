@@ -58,10 +58,16 @@ impl PTRayMissCtx {
           .access(&env)
           .unwrap()
           .clone(),
-        intensity: renderer.env_background_intensity.access(&scene).unwrap(),
+        intensity: renderer
+          .env_background_intensity
+          .access(&scene.alloc_index())
+          .unwrap(),
         sampler,
       }
-    } else if let Some(color) = renderer.solid_background_uniform.access(&scene) {
+    } else if let Some(color) = renderer
+      .solid_background_uniform
+      .access(&scene.alloc_index())
+    {
       PTRayMissCtx::Solid { color }
     } else {
       PTRayMissCtx::Test

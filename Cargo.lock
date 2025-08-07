@@ -4451,6 +4451,7 @@ version = "0.1.0"
 dependencies = [
  "database",
  "fast-hash-collection",
+ "futures",
  "hook",
  "parking_lot",
  "reactive",

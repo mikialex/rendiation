@@ -257,6 +257,7 @@ pub fn use_viewer<'a>(
   viewer.rendering.update_registry(
     &mut viewer.render_memory,
     &mut viewer.render_resource,
+    &mut viewer.task_pool,
     &mut viewer.render_db_linear_changes,
   );
 
@@ -290,6 +291,7 @@ pub struct Viewer {
   memory: FunctionMemory,
   render_memory: FunctionMemory,
   render_resource: ReactiveQueryCtx,
+  task_pool: AsyncTaskPool,
   render_db_linear_changes: DBLinearChangeWatchGroup,
 }
 
@@ -390,6 +392,7 @@ impl Viewer {
       render_memory: Default::default(),
       render_resource: Default::default(),
       render_db_linear_changes: DBLinearChangeWatchGroup::new(&global_database()),
+      task_pool: Default::default(),
     }
   }
 
@@ -400,6 +403,7 @@ impl Viewer {
       scene_derive,
       &mut self.render_memory,
       &mut self.render_resource,
+      &mut self.task_pool,
       &mut self.render_db_linear_changes,
     )
   }

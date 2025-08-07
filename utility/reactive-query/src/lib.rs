@@ -69,4 +69,8 @@ impl<V: CValue, T: Query<Value = ValueChange<V>>> DataChanges for DeltaQueryAsDa
       .iter_key_value()
       .filter_map(|(k, v)| v.new_value().map(|v| (k, v.clone())))
   }
+
+  fn has_change(&self) -> bool {
+    self.0.iter_key_value().next().is_some()
+  }
 }

@@ -15,6 +15,7 @@ fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 parking_lot = { workspace = true }
 hook = { path = "../../../utility/hook" }
 database = { path = "../../../utility/database" }
+futures = { workspace = true }
 
 [lints]
 workspace = true
