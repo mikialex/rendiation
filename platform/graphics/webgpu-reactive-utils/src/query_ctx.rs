@@ -145,6 +145,7 @@ impl CanCleanUpFrom<QueryGPUHookDropCx<'_>> for QueryToken {
 }
 
 /// The joined update result of [ReactiveQueryCtx], accessed by [QueryToken]
+#[derive(Default)]
 pub struct QueryResultCtx {
   pub token_based_result: FastHashMap<u32, Box<dyn Any>>,
   pub token_based_waked: FastHashSet<u32>,

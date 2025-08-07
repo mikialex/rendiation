@@ -19,6 +19,16 @@ pub trait DataChanges: Send + Sync + Clone {
       mapper: f,
     }
   }
+
+  fn collective_filter_map<V: CValue>(
+    self,
+    f: impl Fn(Self::Value) -> Option<V> + Clone + Send + Sync + 'static,
+  ) -> impl DataChanges<Key = Self::Key, Value = V> {
+    DataChangesFilterMap {
+      base: self,
+      mapper: f,
+    }
+  }
 }
 
 #[derive(Clone)]
@@ -48,6 +58,36 @@ where
       .base
       .iter_update_or_insert()
       .map(|(k, v)| (k, (self.mapper)(v)))
+  }
+}
+
+#[derive(Clone)]
+struct DataChangesFilterMap<T, F> {
+  base: T,
+  mapper: F,
+}
+impl<T, V, F> DataChanges for DataChangesFilterMap<T, F>
+where
+  T: DataChanges,
+  V: CValue,
+  F: Fn(T::Value) -> Option<V> + Clone + Send + Sync,
+{
+  type Key = T::Key;
+  type Value = V;
+
+  fn has_change(&self) -> bool {
+    self.base.has_change()
+  }
+
+  fn iter_removed(&self) -> impl Iterator<Item = Self::Key> + '_ {
+    self.base.iter_removed()
+  }
+
+  fn iter_update_or_insert(&self) -> impl Iterator<Item = (Self::Key, Self::Value)> + '_ {
+    self
+      .base
+      .iter_update_or_insert()
+      .filter_map(|(k, v)| (self.mapper)(v).map(|v2| (k, v2)))
   }
 }
 

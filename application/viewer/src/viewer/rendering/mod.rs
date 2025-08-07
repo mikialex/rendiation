@@ -314,6 +314,7 @@ impl Viewer3dRenderingCtx {
     &mut self,
     memory: &mut FunctionMemory,
     rendering_resource: &mut ReactiveQueryCtx,
+    task_pool: &mut AsyncTaskPool,
     db_linear_changes: &mut DBLinearChangeWatchGroup,
   ) {
     let gpu = self.gpu.clone();
@@ -323,6 +324,7 @@ impl Viewer3dRenderingCtx {
       query_cx: rendering_resource,
       stage: QueryHookStage::Update,
       db_linear_changes,
+      task_pool,
     }
     .execute(|qcx| self.use_viewer_scene_renderer(qcx), true);
     db_linear_changes.clear_changes();
@@ -336,6 +338,7 @@ impl Viewer3dRenderingCtx {
     scene_derive: &Viewer3dSceneDerive,
     memory: &mut FunctionMemory,
     rendering_resource: &mut ReactiveQueryCtx,
+    task_pool: &mut AsyncTaskPool,
     db_linear_changes: &mut DBLinearChangeWatchGroup,
   ) {
     noop_ctx!(cx);
@@ -347,6 +350,7 @@ impl Viewer3dRenderingCtx {
       query_cx: rendering_resource,
       stage: QueryHookStage::CreateRender(result),
       db_linear_changes,
+      task_pool,
     }
     .execute(|qcx| self.use_viewer_scene_renderer(qcx).unwrap(), true);
 
