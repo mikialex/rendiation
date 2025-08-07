@@ -9,22 +9,26 @@ pub fn use_pbr_mr_material_uniforms(
   let uniforms = cx.use_uniform_buffers2();
 
   cx.use_changes::<PbrMRMaterialBaseColorComponent>()
-    .update_uniforms(&uniforms, offset_of!(Uniform, base_color));
+    .update_uniforms(&uniforms, offset_of!(Uniform, base_color), cx.gpu());
 
   cx.use_changes::<PbrMRMaterialEmissiveComponent>()
-    .update_uniforms(&uniforms, offset_of!(Uniform, emissive));
+    .update_uniforms(&uniforms, offset_of!(Uniform, emissive), cx.gpu());
 
   cx.use_changes::<NormalScaleOf<PbrMRMaterialNormalInfo>>()
-    .update_uniforms(&uniforms, offset_of!(Uniform, normal_mapping_scale));
+    .update_uniforms(
+      &uniforms,
+      offset_of!(Uniform, normal_mapping_scale),
+      cx.gpu(),
+    );
 
   cx.use_changes::<PbrMRMaterialRoughnessComponent>()
-    .update_uniforms(&uniforms, offset_of!(Uniform, roughness));
+    .update_uniforms(&uniforms, offset_of!(Uniform, roughness), cx.gpu());
 
   cx.use_changes::<PbrMRMaterialMetallicComponent>()
-    .update_uniforms(&uniforms, offset_of!(Uniform, metallic));
+    .update_uniforms(&uniforms, offset_of!(Uniform, metallic), cx.gpu());
 
   cx.use_changes::<AlphaOf<PbrMRMaterialAlphaConfig>>()
-    .update_uniforms(&uniforms, offset_of!(Uniform, alpha));
+    .update_uniforms(&uniforms, offset_of!(Uniform, alpha), cx.gpu());
 
   let tex_uniforms = cx.use_uniform_buffers2();
 
@@ -75,13 +79,13 @@ impl GLESModelMaterialRenderImpl for PbrMRMaterialGlesRenderer {
   ) -> Option<Box<dyn RenderComponent + 'a>> {
     let idx = self.material_access.get(idx)?;
     let r = PhysicalMetallicRoughnessMaterialGPU {
-      uniform: self.uniforms.get(&idx)?,
+      uniform: self.uniforms.get(&idx.alloc_index())?,
       alpha_mode: self.alpha_mode.get_value(idx)?,
       base_color_alpha_tex_sampler: self.base_color_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
       mr_tex_sampler: self.mr_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
       emissive_tex_sampler: self.emissive_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
       normal_tex_sampler: self.normal_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
-      texture_uniforms: self.tex_uniforms.get(&idx)?,
+      texture_uniforms: self.tex_uniforms.get(&idx.alloc_index())?,
       binding_sys: cx,
     };
     let r = Box::new(r) as Box<dyn RenderComponent + '_>;
@@ -104,7 +108,7 @@ struct PhysicalMetallicRoughnessMaterialUniform {
 }
 
 type Uniform = PhysicalMetallicRoughnessMaterialUniform;
-type PbrMRMaterialUniforms = UniformBufferCollectionRaw<EntityHandle<PbrMRMaterialEntity>, Uniform>;
+type PbrMRMaterialUniforms = UniformBufferCollectionRaw<u32, Uniform>;
 
 #[repr(C)]
 #[std140_layout]
@@ -117,8 +121,7 @@ struct PhysicalMetallicRoughnessMaterialTextureHandlesUniform {
 }
 
 type TexUniform = PhysicalMetallicRoughnessMaterialTextureHandlesUniform;
-type PbrMRMaterialTexUniforms =
-  UniformBufferCollectionRaw<EntityHandle<PbrMRMaterialEntity>, TexUniform>;
+type PbrMRMaterialTexUniforms = UniformBufferCollectionRaw<u32, TexUniform>;
 
 struct PhysicalMetallicRoughnessMaterialGPU<'a> {
   uniform: &'a UniformBufferDataView<PhysicalMetallicRoughnessMaterialUniform>,

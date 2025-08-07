@@ -19,7 +19,7 @@ impl DBLinearChangeWatchGroup {
     }
   }
 
-  pub fn flush_changes(&mut self) {
+  pub fn clear_changes(&mut self) {
     self.current_results.clear();
   }
 

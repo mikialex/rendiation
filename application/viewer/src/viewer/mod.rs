@@ -254,9 +254,11 @@ pub fn use_viewer<'a>(
   }
   .execute(|viewer| f(viewer), true);
 
-  viewer
-    .rendering
-    .update_registry(&mut viewer.render_memory, &mut viewer.render_resource);
+  viewer.rendering.update_registry(
+    &mut viewer.render_memory,
+    &mut viewer.render_resource,
+    &mut viewer.render_db_linear_changes,
+  );
 
   let derived = viewer.derives.poll_update();
   viewer.draw_canvas(&acx.draw_target_canvas, &derived);
@@ -288,6 +290,7 @@ pub struct Viewer {
   memory: FunctionMemory,
   render_memory: FunctionMemory,
   render_resource: ReactiveQueryCtx,
+  render_db_linear_changes: DBLinearChangeWatchGroup,
 }
 
 impl CanCleanUpFrom<ApplicationDropCx> for Viewer {
@@ -386,6 +389,7 @@ impl Viewer {
       memory: Default::default(),
       render_memory: Default::default(),
       render_resource: Default::default(),
+      render_db_linear_changes: DBLinearChangeWatchGroup::new(&global_database()),
     }
   }
 
@@ -396,6 +400,7 @@ impl Viewer {
       scene_derive,
       &mut self.render_memory,
       &mut self.render_resource,
+      &mut self.render_db_linear_changes,
     )
   }
 }
