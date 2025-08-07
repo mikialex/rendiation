@@ -16,6 +16,7 @@ parking_lot = { workspace = true }
 hook = { path = "../../../utility/hook" }
 database = { path = "../../../utility/database" }
 futures = { workspace = true }
+rayon = { workspace = true }
 
 [lints]
 workspace = true

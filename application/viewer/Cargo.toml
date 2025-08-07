@@ -24,7 +24,6 @@ log = { workspace = true }
 pin-project = { workspace = true }
 png = "*"
 pollster = { workspace = true }
-rayon = { workspace = true }
 reactive = { path = "../../utility/reactive" }
 rendiation-animation = { path = "../../content/animation" }
 rendiation-algebra = { path = "../../math/algebra" }
