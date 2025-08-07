@@ -217,7 +217,6 @@ pub fn stage_of_update_internal(
   }
 }
 
-#[track_caller]
 pub fn use_viewer<'a>(
   acx: &'a mut ApplicationCx,
   egui_ctx: &mut egui::Context,

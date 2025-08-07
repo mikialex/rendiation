@@ -10,7 +10,6 @@ important issue is in bold style.
 
 - fix oc
 - fix mesh lod graph
-- switch renderer backend leak gpu resource(not sure)
 - spd not support none pot target, and small target(the current impl will access out of boundary of image).
 - multi format support in texture pool system
 - optimize frame ctx "make_submit" call, use copy buffer to buffer to update.

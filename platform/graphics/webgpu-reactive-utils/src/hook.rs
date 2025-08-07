@@ -274,6 +274,7 @@ impl<'a> QueryGPUHookCx for QueryGPUHookCxImpl<'a> {
       |state: &mut T, dcx: &mut ()| {
         let dcx: &mut ReactiveQueryCtx = unsafe { std::mem::transmute(dcx) };
         T::drop_from_cx(state, dcx);
+        unsafe { core::ptr::drop_in_place(state) }
       },
     );
 
@@ -289,6 +290,7 @@ impl<'a> QueryGPUHookCx for QueryGPUHookCxImpl<'a> {
       |state: &mut T, dcx: &mut ()| {
         let dcx: &mut ReactiveQueryCtx = unsafe { std::mem::transmute(dcx) };
         T::drop_from_cx(state, dcx);
+        unsafe { core::ptr::drop_in_place(state) }
       },
     );
 
