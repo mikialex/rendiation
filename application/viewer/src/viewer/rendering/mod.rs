@@ -320,7 +320,7 @@ impl Viewer3dRenderingCtx {
       memory,
       gpu: &gpu,
       query_cx: rendering_resource,
-      stage: QueryHookStage::Init,
+      stage: QueryHookStage::Update,
     }
     .execute(|qcx| self.use_viewer_scene_renderer(qcx), true);
   }
@@ -341,7 +341,7 @@ impl Viewer3dRenderingCtx {
       memory,
       gpu: &gpu,
       query_cx: rendering_resource,
-      stage: QueryHookStage::Render(result),
+      stage: QueryHookStage::CreateRender(result),
     }
     .execute(|qcx| self.use_viewer_scene_renderer(qcx).unwrap(), true);
 

@@ -6,57 +6,43 @@ use crate::*;
 pub fn use_pbr_mr_material_uniforms(
   cx: &mut impl QueryGPUHookCx,
 ) -> Option<PbrMRMaterialGlesRenderer> {
-  let uniforms =
-    cx.use_uniform_buffers::<EntityHandle<PbrMRMaterialEntity>, Uniform>(|source, cx| {
-      let base_color = global_watch()
-        .watch::<PbrMRMaterialBaseColorComponent>()
-        .into_query_update_uniform(offset_of!(Uniform, base_color), cx);
+  let uniforms = cx.use_uniform_buffers2();
 
-      let emissive = global_watch()
-        .watch::<PbrMRMaterialEmissiveComponent>()
-        .into_query_update_uniform(offset_of!(Uniform, emissive), cx);
+  cx.use_changes::<PbrMRMaterialBaseColorComponent>()
+    .update_uniforms(&uniforms, offset_of!(Uniform, base_color));
 
-      let normal_mapping_scale = global_watch()
-        .watch::<NormalScaleOf<PbrMRMaterialNormalInfo>>()
-        .into_query_update_uniform(offset_of!(Uniform, normal_mapping_scale), cx);
+  cx.use_changes::<PbrMRMaterialEmissiveComponent>()
+    .update_uniforms(&uniforms, offset_of!(Uniform, emissive));
 
-      let roughness = global_watch()
-        .watch::<PbrMRMaterialRoughnessComponent>()
-        .into_query_update_uniform(offset_of!(Uniform, roughness), cx);
+  cx.use_changes::<NormalScaleOf<PbrMRMaterialNormalInfo>>()
+    .update_uniforms(&uniforms, offset_of!(Uniform, normal_mapping_scale));
 
-      let metallic = global_watch()
-        .watch::<PbrMRMaterialMetallicComponent>()
-        .into_query_update_uniform(offset_of!(Uniform, metallic), cx);
+  cx.use_changes::<PbrMRMaterialRoughnessComponent>()
+    .update_uniforms(&uniforms, offset_of!(Uniform, roughness));
 
-      let alpha = global_watch()
-        .watch::<AlphaOf<PbrMRMaterialAlphaConfig>>()
-        .into_query_update_uniform(offset_of!(Uniform, alpha), cx);
+  cx.use_changes::<PbrMRMaterialMetallicComponent>()
+    .update_uniforms(&uniforms, offset_of!(Uniform, metallic));
 
-      source
-        .with_source(base_color)
-        .with_source(emissive)
-        .with_source(normal_mapping_scale)
-        .with_source(roughness)
-        .with_source(metallic)
-        .with_source(alpha)
-    });
+  cx.use_changes::<AlphaOf<PbrMRMaterialAlphaConfig>>()
+    .update_uniforms(&uniforms, offset_of!(Uniform, alpha));
 
-  let tex_uniforms = cx.use_uniform_buffers(|c, cx| {
-    let base_color_alpha = offset_of!(TexUniform, base_color_alpha_texture);
-    let emissive = offset_of!(TexUniform, emissive_texture);
-    let metallic_roughness = offset_of!(TexUniform, metallic_roughness_texture);
-    let normal = offset_of!(TexUniform, normal_texture);
-    let c = add_tex_watcher::<PbrMRMaterialBaseColorAlphaTex, _>(c, base_color_alpha, cx);
-    let c = add_tex_watcher::<PbrMRMaterialEmissiveTex, _>(c, emissive, cx);
-    let c = add_tex_watcher::<PbrMRMaterialMetallicRoughnessTex, _>(c, metallic_roughness, cx);
-    add_tex_watcher::<NormalTexSamplerOf<PbrMRMaterialNormalInfo>, _>(c, normal, cx)
-  });
+  let tex_uniforms = cx.use_uniform_buffers2();
+
+  let base_color_alpha = offset_of!(TexUniform, base_color_alpha_texture);
+  let emissive = offset_of!(TexUniform, emissive_texture);
+  let metallic_roughness = offset_of!(TexUniform, metallic_roughness_texture);
+  let normal = offset_of!(TexUniform, normal_texture);
+
+  use_tex_watcher::<PbrMRMaterialBaseColorAlphaTex, _>(cx, base_color_alpha, &tex_uniforms);
+  use_tex_watcher::<PbrMRMaterialEmissiveTex, _>(cx, emissive, &tex_uniforms);
+  use_tex_watcher::<PbrMRMaterialMetallicRoughnessTex, _>(cx, metallic_roughness, &tex_uniforms);
+  use_tex_watcher::<NormalTexSamplerOf<PbrMRMaterialNormalInfo>, _>(cx, normal, &tex_uniforms);
 
   cx.when_render(|| PbrMRMaterialGlesRenderer {
     material_access: global_entity_component_of::<StandardModelRefPbrMRMaterial>()
       .read_foreign_key(),
-    uniforms: uniforms.unwrap(),
-    tex_uniforms: tex_uniforms.unwrap(),
+    uniforms: uniforms.make_read_holder(),
+    tex_uniforms: tex_uniforms.make_read_holder(),
     alpha_mode: global_entity_component_of().read(),
     base_color_tex_sampler: TextureSamplerIdView::read_from_global(),
     mr_tex_sampler: TextureSamplerIdView::read_from_global(),
@@ -118,7 +104,7 @@ struct PhysicalMetallicRoughnessMaterialUniform {
 }
 
 type Uniform = PhysicalMetallicRoughnessMaterialUniform;
-type PbrMRMaterialUniforms = UniformUpdateContainer<EntityHandle<PbrMRMaterialEntity>, Uniform>;
+type PbrMRMaterialUniforms = UniformBufferCollectionRaw<EntityHandle<PbrMRMaterialEntity>, Uniform>;
 
 #[repr(C)]
 #[std140_layout]
@@ -132,7 +118,7 @@ struct PhysicalMetallicRoughnessMaterialTextureHandlesUniform {
 
 type TexUniform = PhysicalMetallicRoughnessMaterialTextureHandlesUniform;
 type PbrMRMaterialTexUniforms =
-  UniformUpdateContainer<EntityHandle<PbrMRMaterialEntity>, TexUniform>;
+  UniformBufferCollectionRaw<EntityHandle<PbrMRMaterialEntity>, TexUniform>;
 
 struct PhysicalMetallicRoughnessMaterialGPU<'a> {
   uniform: &'a UniformBufferDataView<PhysicalMetallicRoughnessMaterialUniform>,

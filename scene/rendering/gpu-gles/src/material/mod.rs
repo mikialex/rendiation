@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::*;
 
 mod unlit;
@@ -55,7 +53,7 @@ pub(super) fn bind_and_sample_enabled(
 }
 
 pub fn use_tex_watcher<T, TexUniform>(
-  cx: &mut GPUResourceCx<'_>,
+  cx: &mut impl QueryGPUHookCx,
   offset: usize,
   uniform: &UniformBufferCollection<EntityHandle<T::Entity>, TexUniform>,
 ) where
@@ -66,11 +64,11 @@ pub fn use_tex_watcher<T, TexUniform>(
   let sam_offset = std::mem::offset_of!(TextureSamplerHandlePair, sampler_handle);
 
   cx.use_changes::<SceneTexture2dRefOf<T>>()
-    .collective_map(|id| id.map(|v| v.index()).unwrap_or(u32::MAX))
+    .map(|changes| changes.collective_map(|id| id.map(|v| v.index()).unwrap_or(u32::MAX)))
     .update_uniforms(uniform, offset + tex_offset);
 
   cx.use_changes::<SceneSamplerRefOf<T>>()
-    .collective_map(|id| id.map(|v| v.index()).unwrap_or(u32::MAX))
+    .map(|changes| changes.collective_map(|id| id.map(|v| v.index()).unwrap_or(u32::MAX)))
     .update_uniforms(uniform, offset + sam_offset);
 }
 

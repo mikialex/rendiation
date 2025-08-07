@@ -6,51 +6,40 @@ use crate::*;
 pub fn use_pbr_sg_material_uniforms(
   cx: &mut impl QueryGPUHookCx,
 ) -> Option<PbrSGMaterialGlesRenderer> {
-  let uniforms = cx.use_uniform_buffers(|source, cx| {
-    let albedo = global_watch()
-      .watch::<PbrSGMaterialAlbedoComponent>()
-      .into_query_update_uniform(offset_of!(Uniform, albedo), cx);
+  let uniforms = cx.use_uniform_buffers2();
 
-    let emissive = global_watch()
-      .watch::<PbrSGMaterialEmissiveComponent>()
-      .into_query_update_uniform(offset_of!(Uniform, emissive), cx);
+  cx.use_changes::<PbrSGMaterialAlbedoComponent>()
+    .update_uniforms(&uniforms, offset_of!(Uniform, albedo));
 
-    let normal_mapping_scale = global_watch()
-      .watch::<NormalScaleOf<PbrSGMaterialNormalInfo>>()
-      .into_query_update_uniform(offset_of!(Uniform, normal_mapping_scale), cx);
+  cx.use_changes::<PbrSGMaterialEmissiveComponent>()
+    .update_uniforms(&uniforms, offset_of!(Uniform, emissive));
 
-    let glossiness = global_watch()
-      .watch::<PbrSGMaterialGlossinessComponent>()
-      .into_query_update_uniform(offset_of!(Uniform, glossiness), cx);
+  cx.use_changes::<NormalScaleOf<PbrSGMaterialNormalInfo>>()
+    .update_uniforms(&uniforms, offset_of!(Uniform, normal_mapping_scale));
 
-    let alpha = global_watch()
-      .watch::<AlphaOf<PbrSGMaterialAlphaConfig>>()
-      .into_query_update_uniform(offset_of!(Uniform, alpha), cx);
+  cx.use_changes::<PbrSGMaterialGlossinessComponent>()
+    .update_uniforms(&uniforms, offset_of!(Uniform, glossiness));
 
-    source
-      .with_source(albedo)
-      .with_source(emissive)
-      .with_source(normal_mapping_scale)
-      .with_source(glossiness)
-      .with_source(alpha)
-  });
+  cx.use_changes::<AlphaOf<PbrSGMaterialAlphaConfig>>()
+    .update_uniforms(&uniforms, offset_of!(Uniform, alpha));
 
-  let tex_uniforms = cx.use_uniform_buffers(|c, cx| {
-    let albedo_alpha = offset_of!(TexUniform, albedo_alpha_texture);
-    let emissive = offset_of!(TexUniform, emissive_texture);
-    let specular = offset_of!(TexUniform, specular_texture);
-    let normal = offset_of!(TexUniform, normal_texture);
-    let c = add_tex_watcher::<PbrSGMaterialAlbedoAlphaTex, _>(c, albedo_alpha, cx);
-    let c = add_tex_watcher::<PbrSGMaterialEmissiveTex, _>(c, emissive, cx);
-    let c = add_tex_watcher::<PbrSGMaterialSpecularGlossinessTex, _>(c, specular, cx);
-    add_tex_watcher::<NormalTexSamplerOf<PbrSGMaterialNormalInfo>, _>(c, normal, cx)
-  });
+  let tex_uniforms = cx.use_uniform_buffers2();
+
+  let albedo_alpha = offset_of!(TexUniform, albedo_alpha_texture);
+  let emissive = offset_of!(TexUniform, emissive_texture);
+  let specular = offset_of!(TexUniform, specular_texture);
+  let normal = offset_of!(TexUniform, normal_texture);
+
+  use_tex_watcher::<PbrSGMaterialAlbedoAlphaTex, _>(cx, albedo_alpha, &tex_uniforms);
+  use_tex_watcher::<PbrSGMaterialEmissiveTex, _>(cx, emissive, &tex_uniforms);
+  use_tex_watcher::<PbrSGMaterialSpecularGlossinessTex, _>(cx, specular, &tex_uniforms);
+  use_tex_watcher::<NormalTexSamplerOf<PbrSGMaterialNormalInfo>, _>(cx, normal, &tex_uniforms);
 
   cx.when_render(|| PbrSGMaterialGlesRenderer {
     material_access: global_entity_component_of::<StandardModelRefPbrSGMaterial>()
       .read_foreign_key(),
-    uniforms: uniforms.unwrap(),
-    tex_uniforms: tex_uniforms.unwrap(),
+    uniforms: uniforms.make_read_holder(),
+    tex_uniforms: tex_uniforms.make_read_holder(),
     alpha_mode: global_entity_component_of().read(),
     albedo_tex_sampler: TextureSamplerIdView::read_from_global(),
     specular_glossiness_tex_sampler: TextureSamplerIdView::read_from_global(),
@@ -114,7 +103,7 @@ struct PhysicalSpecularGlossinessMaterialUniform {
 }
 
 type Uniform = PhysicalSpecularGlossinessMaterialUniform;
-type PbrSGMaterialUniforms = UniformUpdateContainer<EntityHandle<PbrSGMaterialEntity>, Uniform>;
+type PbrSGMaterialUniforms = UniformBufferCollectionRaw<EntityHandle<PbrSGMaterialEntity>, Uniform>;
 
 #[repr(C)]
 #[std140_layout]
@@ -129,7 +118,7 @@ struct PhysicalSpecularGlossinessMaterialTextureHandlesUniform {
 
 type TexUniform = PhysicalSpecularGlossinessMaterialTextureHandlesUniform;
 type PbrSGMaterialTexUniforms =
-  UniformUpdateContainer<EntityHandle<PbrSGMaterialEntity>, TexUniform>;
+  UniformBufferCollectionRaw<EntityHandle<PbrSGMaterialEntity>, TexUniform>;
 
 struct PhysicalSpecularGlossinessMaterialGPU<'a> {
   uniform: &'a UniformBufferDataView<PhysicalSpecularGlossinessMaterialUniform>,
