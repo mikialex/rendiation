@@ -60,7 +60,7 @@ impl<T: DataChanges> DataChanges for Arc<T> {
 }
 
 /// - update/change is linear, accessed by u32 index
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct LinearBatchChanges<T> {
   pub removed: Vec<u32>,
   pub update_or_insert: Vec<(u32, T)>,
