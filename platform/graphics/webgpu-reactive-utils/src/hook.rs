@@ -1,5 +1,3 @@
-use std::future::ready;
-
 use ::hook::*;
 use database::*;
 

@@ -197,7 +197,7 @@ impl DatabaseMutationWatch {
   }
 }
 
-fn add_listen<T: CValue>(
+pub(crate) fn add_listen<T: CValue>(
   query: impl QueryProvider<RawEntityHandle, T>,
   source: &EventSource<ChangePtr>,
 ) -> CollectiveMutationReceiver<RawEntityHandle, T> {
@@ -231,10 +231,10 @@ fn add_listen<T: CValue>(
   receiver
 }
 
-struct ComponentAccess<T> {
-  ecg: EntityComponentGroup,
-  original: ComponentCollectionUntyped,
-  phantom: PhantomData<T>,
+pub(crate) struct ComponentAccess<T> {
+  pub(crate) ecg: EntityComponentGroup,
+  pub(crate) original: ComponentCollectionUntyped,
+  pub(crate) phantom: PhantomData<T>,
 }
 
 impl<T: CValue> QueryProvider<u32, T> for ComponentAccess<T> {

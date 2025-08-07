@@ -2,11 +2,13 @@ mod label;
 mod rev_ref;
 mod serialization;
 mod watch;
+mod watch_linear;
 
 pub use label::*;
 pub use rev_ref::*;
 pub use serialization::*;
 pub use watch::*;
+pub use watch_linear::*;
 
 use crate::*;
 
