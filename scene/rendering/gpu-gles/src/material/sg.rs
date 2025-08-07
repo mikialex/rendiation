@@ -9,19 +9,23 @@ pub fn use_pbr_sg_material_uniforms(
   let uniforms = cx.use_uniform_buffers2();
 
   cx.use_changes::<PbrSGMaterialAlbedoComponent>()
-    .update_uniforms(&uniforms, offset_of!(Uniform, albedo));
+    .update_uniforms(&uniforms, offset_of!(Uniform, albedo), cx.gpu());
 
   cx.use_changes::<PbrSGMaterialEmissiveComponent>()
-    .update_uniforms(&uniforms, offset_of!(Uniform, emissive));
+    .update_uniforms(&uniforms, offset_of!(Uniform, emissive), cx.gpu());
 
   cx.use_changes::<NormalScaleOf<PbrSGMaterialNormalInfo>>()
-    .update_uniforms(&uniforms, offset_of!(Uniform, normal_mapping_scale));
+    .update_uniforms(
+      &uniforms,
+      offset_of!(Uniform, normal_mapping_scale),
+      cx.gpu(),
+    );
 
   cx.use_changes::<PbrSGMaterialGlossinessComponent>()
-    .update_uniforms(&uniforms, offset_of!(Uniform, glossiness));
+    .update_uniforms(&uniforms, offset_of!(Uniform, glossiness), cx.gpu());
 
   cx.use_changes::<AlphaOf<PbrSGMaterialAlphaConfig>>()
-    .update_uniforms(&uniforms, offset_of!(Uniform, alpha));
+    .update_uniforms(&uniforms, offset_of!(Uniform, alpha), cx.gpu());
 
   let tex_uniforms = cx.use_uniform_buffers2();
 
@@ -72,7 +76,7 @@ impl GLESModelMaterialRenderImpl for PbrSGMaterialGlesRenderer {
   ) -> Option<Box<dyn RenderComponent + 'a>> {
     let idx = self.material_access.get(idx)?;
     let r = PhysicalSpecularGlossinessMaterialGPU {
-      uniform: self.uniforms.get(&idx)?,
+      uniform: self.uniforms.get(&idx.alloc_index())?,
       alpha_mode: self.alpha_mode.get_value(idx)?,
       albedo_alpha_tex_sampler: self.albedo_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
       specular_glossiness_tex_sampler: self
@@ -81,7 +85,7 @@ impl GLESModelMaterialRenderImpl for PbrSGMaterialGlesRenderer {
         .unwrap_or(EMPTY_H),
       emissive_tex_sampler: self.emissive_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
       normal_tex_sampler: self.normal_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
-      texture_uniforms: self.tex_uniforms.get(&idx)?,
+      texture_uniforms: self.tex_uniforms.get(&idx.alloc_index())?,
       binding_sys: cx,
     };
     let r = Box::new(r) as Box<dyn RenderComponent + '_>;
@@ -103,7 +107,7 @@ struct PhysicalSpecularGlossinessMaterialUniform {
 }
 
 type Uniform = PhysicalSpecularGlossinessMaterialUniform;
-type PbrSGMaterialUniforms = UniformBufferCollectionRaw<EntityHandle<PbrSGMaterialEntity>, Uniform>;
+type PbrSGMaterialUniforms = UniformBufferCollectionRaw<u32, Uniform>;
 
 #[repr(C)]
 #[std140_layout]
@@ -117,8 +121,7 @@ struct PhysicalSpecularGlossinessMaterialTextureHandlesUniform {
 }
 
 type TexUniform = PhysicalSpecularGlossinessMaterialTextureHandlesUniform;
-type PbrSGMaterialTexUniforms =
-  UniformBufferCollectionRaw<EntityHandle<PbrSGMaterialEntity>, TexUniform>;
+type PbrSGMaterialTexUniforms = UniformBufferCollectionRaw<u32, TexUniform>;
 
 struct PhysicalSpecularGlossinessMaterialGPU<'a> {
   uniform: &'a UniformBufferDataView<PhysicalSpecularGlossinessMaterialUniform>,

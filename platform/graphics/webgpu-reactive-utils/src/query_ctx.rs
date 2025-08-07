@@ -21,8 +21,8 @@ pub struct QueryCtxSetInfo {
   sets: Option<FastHashSet<u32>>,
 }
 
-impl CanCleanUpFrom<ReactiveQueryCtx> for QueryCtxSetInfo {
-  fn drop_from_cx(&mut self, _: &mut ReactiveQueryCtx) {}
+impl CanCleanUpFrom<QueryGPUHookDropCx<'_>> for QueryCtxSetInfo {
+  fn drop_from_cx(&mut self, _: &mut QueryGPUHookDropCx<'_>) {}
 }
 
 impl ReactiveQueryCtx {
@@ -138,9 +138,9 @@ impl Default for QueryToken {
   }
 }
 
-impl CanCleanUpFrom<ReactiveQueryCtx> for QueryToken {
-  fn drop_from_cx(&mut self, cx: &mut ReactiveQueryCtx) {
-    cx.deregister(self);
+impl CanCleanUpFrom<QueryGPUHookDropCx<'_>> for QueryToken {
+  fn drop_from_cx(&mut self, cx: &mut QueryGPUHookDropCx<'_>) {
+    cx.query_cx.deregister(self);
   }
 }
 

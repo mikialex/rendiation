@@ -12,9 +12,13 @@ pub fn use_unlit_material_uniforms(
 
   let uniform = cx.use_uniform_buffers2();
 
-  color.update_uniforms(&uniform, offset_of!(UnlitMaterialUniform, color));
-  alpha.update_uniforms(&uniform, offset_of!(UnlitMaterialUniform, alpha));
-  alpha_cutoff.update_uniforms(&uniform, offset_of!(UnlitMaterialUniform, alpha_cutoff));
+  color.update_uniforms(&uniform, offset_of!(UnlitMaterialUniform, color), cx.gpu());
+  alpha.update_uniforms(&uniform, offset_of!(UnlitMaterialUniform, alpha), cx.gpu());
+  alpha_cutoff.update_uniforms(
+    &uniform,
+    offset_of!(UnlitMaterialUniform, alpha_cutoff),
+    cx.gpu(),
+  );
 
   let tex_uniform = cx.use_uniform_buffers2();
 
@@ -47,21 +51,19 @@ impl GLESModelMaterialRenderImpl for UnlitMaterialGlesRender {
   ) -> Option<Box<dyn RenderComponent + 'a>> {
     let idx = self.material_access.get(idx)?;
     Some(Box::new(UnlitMaterialGPU {
-      uniform: self.uniforms.get(&idx)?,
+      uniform: self.uniforms.get(&idx.alloc_index())?,
       alpha_mode: self.alpha_mode.get_value(idx)?,
       binding_sys: cx,
-      tex_uniform: self.texture_uniforms.get(&idx)?,
+      tex_uniform: self.texture_uniforms.get(&idx.alloc_index())?,
       color_alpha_tex_sampler: self.color_tex_sampler.get_pair(idx).unwrap_or(EMPTY_H),
     }))
   }
 }
 
-type UnlitMaterialUniforms =
-  UniformBufferCollectionRaw<EntityHandle<UnlitMaterialEntity>, UnlitMaterialUniform>;
+type UnlitMaterialUniforms = UniformBufferCollectionRaw<u32, UnlitMaterialUniform>;
 
 type TexUniform = UnlitMaterialTextureHandlesUniform;
-type UnlitMaterialTexUniforms =
-  UniformBufferCollectionRaw<EntityHandle<UnlitMaterialEntity>, TexUniform>;
+type UnlitMaterialTexUniforms = UniformBufferCollectionRaw<u32, TexUniform>;
 
 #[repr(C)]
 #[std140_layout]

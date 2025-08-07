@@ -55,7 +55,7 @@ pub(super) fn bind_and_sample_enabled(
 pub fn use_tex_watcher<T, TexUniform>(
   cx: &mut impl QueryGPUHookCx,
   offset: usize,
-  uniform: &UniformBufferCollection<EntityHandle<T::Entity>, TexUniform>,
+  uniform: &UniformBufferCollection<u32, TexUniform>,
 ) where
   TexUniform: Std140 + Default,
   T: TextureWithSamplingForeignKeys,
@@ -65,11 +65,11 @@ pub fn use_tex_watcher<T, TexUniform>(
 
   cx.use_changes::<SceneTexture2dRefOf<T>>()
     .map(|changes| changes.collective_map(|id| id.map(|v| v.index()).unwrap_or(u32::MAX)))
-    .update_uniforms(uniform, offset + tex_offset);
+    .update_uniforms(uniform, offset + tex_offset, cx.gpu());
 
   cx.use_changes::<SceneSamplerRefOf<T>>()
     .map(|changes| changes.collective_map(|id| id.map(|v| v.index()).unwrap_or(u32::MAX)))
-    .update_uniforms(uniform, offset + sam_offset);
+    .update_uniforms(uniform, offset + sam_offset, cx.gpu());
 }
 
 pub trait GLESModelMaterialRenderImpl {

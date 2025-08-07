@@ -8,33 +8,34 @@ pub trait QueryGPUHookCx: HooksCxLike {
   fn get_stage(&self) -> &QueryHookStage;
   fn get_stage_mut(&mut self) -> &mut QueryHookStage;
   fn get_query_cx(&mut self) -> &mut ReactiveQueryCtx;
+  fn get_linear_changes(&mut self) -> &mut DBLinearChangeWatchGroup;
 
-  fn use_gpu_query_init_return_self<T: 'static + CanCleanUpFrom<ReactiveQueryCtx>>(
+  fn use_gpu_query_init_return_self<T: 'static + for<'a> CanCleanUpFrom<QueryGPUHookDropCx<'a>>>(
     &mut self,
-    init: impl FnOnce(&GPU, &mut ReactiveQueryCtx) -> T,
+    init: impl FnOnce(&GPU, &mut ReactiveQueryCtx, &mut DBLinearChangeWatchGroup) -> T,
   ) -> (&mut Self, &mut T);
 
-  fn use_gpu_query_init<T: 'static + CanCleanUpFrom<ReactiveQueryCtx>>(
+  fn use_gpu_query_init<T: 'static + for<'a> CanCleanUpFrom<QueryGPUHookDropCx<'a>>>(
     &mut self,
     init: impl FnOnce(&GPU, &mut ReactiveQueryCtx) -> T,
   ) -> (&mut T, &mut QueryHookStage);
 
-  fn use_state<T: Default + CanCleanUpFrom<ReactiveQueryCtx> + 'static>(
+  fn use_state<T: Default + for<'a> CanCleanUpFrom<QueryGPUHookDropCx<'a>> + 'static>(
     &mut self,
   ) -> (&mut Self, &mut T) {
     self.use_state_init(T::default)
   }
 
-  fn use_state_init<T: 'static + CanCleanUpFrom<ReactiveQueryCtx>>(
+  fn use_state_init<T: 'static + for<'a> CanCleanUpFrom<QueryGPUHookDropCx<'a>>>(
     &mut self,
     init: impl FnOnce() -> T,
   ) -> (&mut Self, &mut T) {
-    let (cx, state) = self.use_gpu_query_init_return_self(|_, _| init());
+    let (cx, state) = self.use_gpu_query_init_return_self(|_, _, _| init());
     (cx, state)
   }
 
   fn use_gpu_init<T: 'static>(&mut self, init: impl FnOnce(&GPU) -> T) -> (&mut Self, &mut T) {
-    let (cx, state) = self.use_gpu_query_init_return_self(|gpu, _| NothingToDrop(init(gpu)));
+    let (cx, state) = self.use_gpu_query_init_return_self(|gpu, _, _| NothingToDrop(init(gpu)));
     (cx, &mut state.0)
   }
 
@@ -101,7 +102,23 @@ pub trait QueryGPUHookCx: HooksCxLike {
   }
 
   fn use_changes<C: ComponentSemantic>(&mut self) -> Option<Arc<LinearBatchChanges<C::Data>>> {
-    todo!()
+    struct WatchToken(u32, ComponentId);
+    impl CanCleanUpFrom<QueryGPUHookDropCx<'_>> for WatchToken {
+      fn drop_from_cx(&mut self, cx: &mut QueryGPUHookDropCx<'_>) {
+        cx.db_linear_changes.notify_consumer_dropped(self.1, self.0);
+      }
+    }
+
+    let (cx, tk) = self.use_gpu_query_init_return_self(|_, _, changes| {
+      let id = changes.allocate_next_consumer_id();
+      WatchToken(id, C::component_id())
+    });
+
+    if let QueryHookStage::Update = cx.get_stage() {
+      Some(cx.get_linear_changes().get_buffered_changes::<C>(tk.0))
+    } else {
+      None
+    }
   }
 
   // fn use_query_compute<C: ComponentSemantic>(
@@ -257,6 +274,7 @@ pub struct QueryGPUHookCxImpl<'a> {
   pub memory: &'a mut FunctionMemory,
   pub gpu: &'a GPU,
   pub query_cx: &'a mut ReactiveQueryCtx,
+  pub db_linear_changes: &'a mut DBLinearChangeWatchGroup,
   pub stage: QueryHookStage,
 }
 
@@ -275,7 +293,11 @@ unsafe impl<'a> HooksCxLike for QueryGPUHookCxImpl<'a> {
   }
 
   fn flush(&mut self) {
-    self.memory.flush(self.query_cx as *mut _ as *mut ());
+    let mut drop_cx = QueryGPUHookDropCx {
+      query_cx: self.query_cx,
+      db_linear_changes: self.db_linear_changes,
+    };
+    self.memory.flush(&mut drop_cx as *mut _ as *mut ());
   }
 }
 
@@ -289,21 +311,24 @@ impl<'a> QueryGPUHookCx for QueryGPUHookCxImpl<'a> {
   fn get_query_cx(&mut self) -> &mut ReactiveQueryCtx {
     self.query_cx
   }
+  fn get_linear_changes(&mut self) -> &mut DBLinearChangeWatchGroup {
+    self.db_linear_changes
+  }
 
   fn gpu(&self) -> &GPU {
     self.gpu
   }
 
-  fn use_gpu_query_init_return_self<T: 'static + CanCleanUpFrom<ReactiveQueryCtx>>(
+  fn use_gpu_query_init_return_self<T: 'static + for<'x> CanCleanUpFrom<QueryGPUHookDropCx<'x>>>(
     &mut self,
-    init: impl FnOnce(&GPU, &mut ReactiveQueryCtx) -> T,
+    init: impl FnOnce(&GPU, &mut ReactiveQueryCtx, &mut DBLinearChangeWatchGroup) -> T,
   ) -> (&mut Self, &mut T) {
     let s = unsafe { std::mem::transmute_copy(&self) };
 
     let state = self.memory.expect_state_init(
-      || init(self.gpu, self.query_cx),
+      || init(self.gpu, self.query_cx, self.db_linear_changes),
       |state: &mut T, dcx: &mut ()| {
-        let dcx: &mut ReactiveQueryCtx = unsafe { std::mem::transmute(dcx) };
+        let dcx: &mut QueryGPUHookDropCx = unsafe { std::mem::transmute(dcx) };
         T::drop_from_cx(state, dcx);
         unsafe { core::ptr::drop_in_place(state) }
       },
@@ -312,14 +337,14 @@ impl<'a> QueryGPUHookCx for QueryGPUHookCxImpl<'a> {
     (s, state)
   }
 
-  fn use_gpu_query_init<T: 'static + CanCleanUpFrom<ReactiveQueryCtx>>(
+  fn use_gpu_query_init<T: 'static + for<'x> CanCleanUpFrom<QueryGPUHookDropCx<'x>>>(
     &mut self,
     init: impl FnOnce(&GPU, &mut ReactiveQueryCtx) -> T,
   ) -> (&mut T, &mut QueryHookStage) {
     let state = self.memory.expect_state_init(
       || init(self.gpu, self.query_cx),
       |state: &mut T, dcx: &mut ()| {
-        let dcx: &mut ReactiveQueryCtx = unsafe { std::mem::transmute(dcx) };
+        let dcx: &mut QueryGPUHookDropCx = unsafe { std::mem::transmute(dcx) };
         T::drop_from_cx(state, dcx);
         unsafe { core::ptr::drop_in_place(state) }
       },
@@ -331,6 +356,11 @@ impl<'a> QueryGPUHookCx for QueryGPUHookCxImpl<'a> {
 
 struct NothingToDrop<T>(T);
 
-impl<T> CanCleanUpFrom<ReactiveQueryCtx> for NothingToDrop<T> {
-  fn drop_from_cx(&mut self, _: &mut ReactiveQueryCtx) {}
+impl<T> CanCleanUpFrom<QueryGPUHookDropCx<'_>> for NothingToDrop<T> {
+  fn drop_from_cx(&mut self, _: &mut QueryGPUHookDropCx) {}
+}
+
+pub struct QueryGPUHookDropCx<'a> {
+  pub query_cx: &'a mut ReactiveQueryCtx,
+  pub db_linear_changes: &'a mut DBLinearChangeWatchGroup,
 }

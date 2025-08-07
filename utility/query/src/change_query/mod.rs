@@ -6,6 +6,7 @@ use crate::*;
 pub trait DataChanges: Send + Sync + Clone {
   type Key: CKey;
   type Value: CValue;
+  fn has_change(&self) -> bool;
   fn iter_removed(&self) -> impl Iterator<Item = Self::Key> + '_;
   fn iter_update_or_insert(&self) -> impl Iterator<Item = (Self::Key, Self::Value)> + '_;
 
@@ -34,6 +35,10 @@ where
   type Key = T::Key;
   type Value = V;
 
+  fn has_change(&self) -> bool {
+    self.base.has_change()
+  }
+
   fn iter_removed(&self) -> impl Iterator<Item = Self::Key> + '_ {
     self.base.iter_removed()
   }
@@ -49,6 +54,10 @@ where
 impl<T: DataChanges> DataChanges for Arc<T> {
   type Key = T::Key;
   type Value = T::Value;
+
+  fn has_change(&self) -> bool {
+    (**self).has_change()
+  }
 
   fn iter_removed(&self) -> impl Iterator<Item = Self::Key> + '_ {
     (**self).iter_removed()
@@ -69,6 +78,10 @@ pub struct LinearBatchChanges<T> {
 impl<T: CValue> DataChanges for LinearBatchChanges<T> {
   type Key = u32;
   type Value = T;
+
+  fn has_change(&self) -> bool {
+    !(self.removed.is_empty() && self.update_or_insert.is_empty())
+  }
 
   fn iter_removed(&self) -> impl Iterator<Item = Self::Key> + '_ {
     self.removed.iter().copied()
