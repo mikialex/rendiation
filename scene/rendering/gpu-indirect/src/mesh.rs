@@ -9,7 +9,7 @@ only_vertex!(IndirectAbstractMeshId, u32);
 
 use crate::*;
 
-pub fn use_bindless_mesh(cx: &mut impl QueryGPUHookCx) -> Option<MeshGPUBindlessImpl> {
+pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl> {
   let (cx, indices) = cx.use_gpu_init(|gpu| {
     let indices_init_size = 20 * 1024 * 1024;
     let indices_max_size = 200 * 1024 * 1024;
@@ -84,7 +84,7 @@ pub fn use_bindless_mesh(cx: &mut impl QueryGPUHookCx) -> Option<MeshGPUBindless
     vertex_address_buffer_host: attribute_buffer_metadata.unwrap(),
     sm_to_mesh_device: sm_to_mesh_device.unwrap(),
     sm_to_mesh: sm_to_mesh.unwrap(),
-    used_in_midc_downgrade: require_midc_downgrade(&cx.gpu().info),
+    used_in_midc_downgrade: require_midc_downgrade(&cx.gpu.info),
   })
 }
 

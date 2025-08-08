@@ -13,7 +13,7 @@ pub trait DrawUnitWorldTransformInvocationProvider {
 }
 
 pub fn use_scene_model_device_world_transform(
-  qcx: &mut impl QueryGPUHookCx,
+  qcx: &mut QueryGPUHookCx,
 ) -> Option<DrawUnitWorldTransformProviderDefaultImpl> {
   qcx
     .use_storage_buffer(|gpu| {

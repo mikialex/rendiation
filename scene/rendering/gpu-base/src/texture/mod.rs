@@ -9,7 +9,7 @@ pub use d2_and_sampler::*;
 use crate::*;
 
 pub fn use_texture_system(
-  cx: &mut impl QueryGPUHookCx,
+  cx: &mut QueryGPUHookCx,
   ty: GPUTextureBindingSystemType,
 ) -> Option<GPUTextureBindingSystem> {
   match ty {
@@ -19,7 +19,7 @@ pub fn use_texture_system(
   }
 }
 
-pub fn use_gles_texture_system(cx: &mut impl QueryGPUHookCx) -> Option<GPUTextureBindingSystem> {
+pub fn use_gles_texture_system(cx: &mut QueryGPUHookCx) -> Option<GPUTextureBindingSystem> {
   cx.use_gpu_general_query(|cx| {
     let default_2d: GPU2DTextureView = create_fallback_empty_texture(&cx.device)
       .create_default_view()
@@ -39,9 +39,7 @@ pub fn use_gles_texture_system(cx: &mut impl QueryGPUHookCx) -> Option<GPUTextur
   })
 }
 
-pub fn use_bindless_texture_system(
-  cx: &mut impl QueryGPUHookCx,
-) -> Option<GPUTextureBindingSystem> {
+pub fn use_bindless_texture_system(cx: &mut QueryGPUHookCx) -> Option<GPUTextureBindingSystem> {
   cx.use_gpu_general_query(|cx| {
     let default_2d: GPU2DTextureView = create_fallback_empty_texture(&cx.device)
       .create_default_view()
@@ -64,7 +62,7 @@ pub fn use_bindless_texture_system(
   })
 }
 
-pub fn use_pool_texture_system(cx: &mut impl QueryGPUHookCx) -> Option<GPUTextureBindingSystem> {
+pub fn use_pool_texture_system(cx: &mut QueryGPUHookCx) -> Option<GPUTextureBindingSystem> {
   cx.use_gpu_general_query(|cx| {
     let samplers = global_watch().watch_untyped_key::<SceneSamplerInfo>();
     let texture_2d = global_watch()

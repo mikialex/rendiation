@@ -54,7 +54,7 @@ pub fn spot_storage(gpu: &GPU) -> ReactiveStorageBufferContainer<SpotLightStorag
 }
 
 pub fn use_spot_light_storage(
-  qcx: &mut impl QueryGPUHookCx,
+  qcx: &mut QueryGPUHookCx,
 ) -> Option<LightGPUStorage<SpotLightStorage>> {
   let light = qcx.use_storage_buffer(spot_storage);
   let multi_access = qcx.use_gpu_general_query(|gpu| {

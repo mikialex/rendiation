@@ -25,7 +25,7 @@ pub trait SceneMaterialSurfaceSupportInvocation {
 }
 
 pub fn use_rtx_scene_material(
-  cx: &mut impl QueryGPUHookCx,
+  cx: &mut QueryGPUHookCx,
   materials: Option<Arc<Vec<Box<dyn SceneMaterialSurfaceSupport>>>>,
   tex: Option<GPUTextureBindingSystem>,
 ) -> Option<SceneSurfaceSupport> {

@@ -1,8 +1,6 @@
 use crate::*;
 
-pub fn use_unlit_material_uniforms(
-  cx: &mut impl QueryGPUHookCx,
-) -> Option<UnlitMaterialGlesRender> {
+pub fn use_unlit_material_uniforms(cx: &mut QueryGPUHookCx) -> Option<UnlitMaterialGlesRender> {
   let color = cx
     .use_changes::<UnlitMaterialColorComponent>()
     .map(|changes| changes.collective_map(srgb4_to_linear4));
@@ -12,12 +10,12 @@ pub fn use_unlit_material_uniforms(
 
   let uniform = cx.use_uniform_buffers2();
 
-  color.update_uniforms(&uniform, offset_of!(UnlitMaterialUniform, color), cx.gpu());
-  alpha.update_uniforms(&uniform, offset_of!(UnlitMaterialUniform, alpha), cx.gpu());
+  color.update_uniforms(&uniform, offset_of!(UnlitMaterialUniform, color), cx.gpu);
+  alpha.update_uniforms(&uniform, offset_of!(UnlitMaterialUniform, alpha), cx.gpu);
   alpha_cutoff.update_uniforms(
     &uniform,
     offset_of!(UnlitMaterialUniform, alpha_cutoff),
-    cx.gpu(),
+    cx.gpu,
   );
 
   let tex_uniform = cx.use_uniform_buffers2();

@@ -1,7 +1,7 @@
 use crate::*;
 
 pub fn use_scene_pt_light_source(
-  qcx: &mut impl QueryGPUHookCx,
+  qcx: &mut QueryGPUHookCx,
 ) -> Option<ScenePTLightingSceneDataGroup> {
   let directional_lights = use_directional_light_storage(qcx);
   let spot_lights = use_spot_light_storage(qcx);

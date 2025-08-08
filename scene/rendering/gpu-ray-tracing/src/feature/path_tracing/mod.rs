@@ -27,7 +27,7 @@ mod frame_state;
 use frame_state::*;
 
 pub fn use_rtx_pt_renderer(
-  cx: &mut impl QueryGPUHookCx,
+  cx: &mut QueryGPUHookCx,
   rtx: &RtxSystemCore,
   request_reset_sample: bool,
 ) -> Option<DeviceReferencePathTracingRenderer> {

@@ -3,32 +3,26 @@ use rendiation_shader_library::normal_mapping::apply_normal_mapping_conditional;
 
 use crate::*;
 
-pub fn use_pbr_mr_material_uniforms(
-  cx: &mut impl QueryGPUHookCx,
-) -> Option<PbrMRMaterialGlesRenderer> {
+pub fn use_pbr_mr_material_uniforms(cx: &mut QueryGPUHookCx) -> Option<PbrMRMaterialGlesRenderer> {
   let uniforms = cx.use_uniform_buffers2();
 
   cx.use_changes::<PbrMRMaterialBaseColorComponent>()
-    .update_uniforms(&uniforms, offset_of!(Uniform, base_color), cx.gpu());
+    .update_uniforms(&uniforms, offset_of!(Uniform, base_color), cx.gpu);
 
   cx.use_changes::<PbrMRMaterialEmissiveComponent>()
-    .update_uniforms(&uniforms, offset_of!(Uniform, emissive), cx.gpu());
+    .update_uniforms(&uniforms, offset_of!(Uniform, emissive), cx.gpu);
 
   cx.use_changes::<NormalScaleOf<PbrMRMaterialNormalInfo>>()
-    .update_uniforms(
-      &uniforms,
-      offset_of!(Uniform, normal_mapping_scale),
-      cx.gpu(),
-    );
+    .update_uniforms(&uniforms, offset_of!(Uniform, normal_mapping_scale), cx.gpu);
 
   cx.use_changes::<PbrMRMaterialRoughnessComponent>()
-    .update_uniforms(&uniforms, offset_of!(Uniform, roughness), cx.gpu());
+    .update_uniforms(&uniforms, offset_of!(Uniform, roughness), cx.gpu);
 
   cx.use_changes::<PbrMRMaterialMetallicComponent>()
-    .update_uniforms(&uniforms, offset_of!(Uniform, metallic), cx.gpu());
+    .update_uniforms(&uniforms, offset_of!(Uniform, metallic), cx.gpu);
 
   cx.use_changes::<AlphaOf<PbrMRMaterialAlphaConfig>>()
-    .update_uniforms(&uniforms, offset_of!(Uniform, alpha), cx.gpu());
+    .update_uniforms(&uniforms, offset_of!(Uniform, alpha), cx.gpu);
 
   let tex_uniforms = cx.use_uniform_buffers2();
 

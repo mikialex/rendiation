@@ -2,7 +2,7 @@ use fast_hash_collection::FastHashMap;
 
 use crate::*;
 
-pub fn use_background(cx: &mut impl QueryGPUHookCx) -> Option<SceneBackgroundRenderer> {
+pub fn use_background(cx: &mut QueryGPUHookCx) -> Option<SceneBackgroundRenderer> {
   let env_background_map_gpu =
     cx.use_multi_updater_gpu(|gpu| gpu_texture_cubes(gpu, FastHashMap::default()));
 
@@ -12,7 +12,7 @@ pub fn use_background(cx: &mut impl QueryGPUHookCx) -> Option<SceneBackgroundRen
     .map(|changes| {
       changes.collective_filter_map(|v| v.map(|intensity| Vec4::new(intensity, 0., 0., 0.)))
     })
-    .update_uniforms(&env_background_intensity_uniform, 0, cx.gpu());
+    .update_uniforms(&env_background_intensity_uniform, 0, cx.gpu);
 
   let solid_background_color_uniform = cx.use_uniform_buffers2();
 
@@ -24,7 +24,7 @@ pub fn use_background(cx: &mut impl QueryGPUHookCx) -> Option<SceneBackgroundRen
           .expand_with_one()
       })
     })
-    .update_uniforms(&solid_background_color_uniform, 0, cx.gpu());
+    .update_uniforms(&solid_background_color_uniform, 0, cx.gpu);
 
   cx.when_render(|| SceneBackgroundRenderer {
     solid_background: global_entity_component_of::<SceneSolidBackground>().read(),

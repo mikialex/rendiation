@@ -5,7 +5,7 @@ use rendiation_webgpu_reactive_utils::*;
 use crate::*;
 
 pub fn use_viewer_culling(
-  cx: &mut impl QueryGPUHookCx,
+  cx: &mut QueryGPUHookCx,
   camera_source: &RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
   enable_oc_support: bool,
 ) -> Option<ViewerCulling> {

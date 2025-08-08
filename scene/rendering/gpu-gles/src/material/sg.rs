@@ -3,29 +3,23 @@ use rendiation_shader_library::normal_mapping::apply_normal_mapping_conditional;
 
 use crate::*;
 
-pub fn use_pbr_sg_material_uniforms(
-  cx: &mut impl QueryGPUHookCx,
-) -> Option<PbrSGMaterialGlesRenderer> {
+pub fn use_pbr_sg_material_uniforms(cx: &mut QueryGPUHookCx) -> Option<PbrSGMaterialGlesRenderer> {
   let uniforms = cx.use_uniform_buffers2();
 
   cx.use_changes::<PbrSGMaterialAlbedoComponent>()
-    .update_uniforms(&uniforms, offset_of!(Uniform, albedo), cx.gpu());
+    .update_uniforms(&uniforms, offset_of!(Uniform, albedo), cx.gpu);
 
   cx.use_changes::<PbrSGMaterialEmissiveComponent>()
-    .update_uniforms(&uniforms, offset_of!(Uniform, emissive), cx.gpu());
+    .update_uniforms(&uniforms, offset_of!(Uniform, emissive), cx.gpu);
 
   cx.use_changes::<NormalScaleOf<PbrSGMaterialNormalInfo>>()
-    .update_uniforms(
-      &uniforms,
-      offset_of!(Uniform, normal_mapping_scale),
-      cx.gpu(),
-    );
+    .update_uniforms(&uniforms, offset_of!(Uniform, normal_mapping_scale), cx.gpu);
 
   cx.use_changes::<PbrSGMaterialGlossinessComponent>()
-    .update_uniforms(&uniforms, offset_of!(Uniform, glossiness), cx.gpu());
+    .update_uniforms(&uniforms, offset_of!(Uniform, glossiness), cx.gpu);
 
   cx.use_changes::<AlphaOf<PbrSGMaterialAlphaConfig>>()
-    .update_uniforms(&uniforms, offset_of!(Uniform, alpha), cx.gpu());
+    .update_uniforms(&uniforms, offset_of!(Uniform, alpha), cx.gpu);
 
   let tex_uniforms = cx.use_uniform_buffers2();
 

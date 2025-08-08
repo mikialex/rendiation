@@ -7,7 +7,7 @@ use crate::*;
 const MAX_SAMPLE: u32 = 256;
 
 pub fn use_rtx_ao_renderer(
-  cx: &mut impl QueryGPUHookCx,
+  cx: &mut QueryGPUHookCx,
   rtx: &RtxSystemCore,
   request_reset_sample: bool,
 ) -> Option<SceneRayTracingAORenderer> {

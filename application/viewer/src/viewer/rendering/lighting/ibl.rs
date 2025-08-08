@@ -7,7 +7,7 @@ use rendiation_webgpu_reactive_utils::*;
 
 use crate::*;
 
-pub fn use_ibl(qcx: &mut impl QueryGPUHookCx) -> Option<IBLLightingComponentProvider> {
+pub fn use_ibl(qcx: &mut QueryGPUHookCx) -> Option<IBLLightingComponentProvider> {
   let (qcx, brdf_lut) = qcx.use_gpu_init(|cx| {
     let brdf_lut_bitmap_png = include_bytes!("./brdf_lut.png");
 

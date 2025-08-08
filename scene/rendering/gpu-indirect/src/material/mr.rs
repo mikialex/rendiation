@@ -4,7 +4,7 @@ use rendiation_shader_library::normal_mapping::apply_normal_mapping_conditional;
 use crate::*;
 
 pub fn use_pbr_mr_material_storage(
-  cx: &mut impl QueryGPUHookCx,
+  cx: &mut QueryGPUHookCx,
 ) -> Option<PbrMRMaterialIndirectRenderer> {
   let storages = cx.use_storage_buffer(pbr_mr_material_storages);
   let tex_storages = cx.use_storage_buffer(pbr_mr_material_tex_storages);

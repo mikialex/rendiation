@@ -15,6 +15,7 @@ rendiation-scene-core = { path = "../../core" }
 rendiation-mesh-core = { path = "../../../content/mesh/core" }
 reactive = { path = "../../../utility/reactive" }
 database = { path = "../../../utility/database" }
+hook = { path = "../../../utility/hook" }
 rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
 rendiation-webgpu-reactive-utils = { path = "../../../platform/graphics/webgpu-reactive-utils" }
 rendiation-webgpu-midc-downgrade = { path = "../../../platform/graphics/webgpu-midc-downgrade" }

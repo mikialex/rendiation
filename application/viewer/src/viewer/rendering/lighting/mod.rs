@@ -21,7 +21,7 @@ pub use shadow::*;
 use crate::*;
 
 pub fn use_lighting(
-  qcx: &mut impl QueryGPUHookCx,
+  qcx: &mut QueryGPUHookCx,
   ndc: ViewerNDC,
 ) -> Option<LightingRenderingCxPrepareCtx> {
   let size = Size::from_u32_pair_min_one((2048, 2048));
@@ -279,7 +279,7 @@ impl GraphicsShaderProvider for DefaultDisplayWriter {
   }
 }
 
-fn use_area_light_uniform(qcx: &mut impl QueryGPUHookCx) -> Option<SceneAreaLightingProvider> {
+fn use_area_light_uniform(qcx: &mut QueryGPUHookCx) -> Option<SceneAreaLightingProvider> {
   let uniform = qcx.use_uniform_array_buffers(area_light_uniform_array);
 
   let (qcx, lut) = qcx.use_gpu_init(|gpu| {
