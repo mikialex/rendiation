@@ -44,6 +44,11 @@ pub unsafe trait HooksCxLike {
   fn scope<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
     self.raw_scope(|cx| cx.execute(|cx| f(cx), true))
   }
+
+  fn use_plain_state<T: 'static>(&mut self, f: impl FnOnce() -> T) -> (&mut Self, &mut T);
+  fn use_plain_state_default<T: 'static + Default>(&mut self) -> (&mut Self, &mut T) {
+    self.use_plain_state(Default::default)
+  }
 }
 
 pub trait CanCleanUpFrom<T> {

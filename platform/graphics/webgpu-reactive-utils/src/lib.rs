@@ -31,5 +31,4 @@ pub use updater::*;
 mod query_ctx;
 use parking_lot::RwLock;
 pub use query_ctx::*;
-mod task_pool;
-pub use task_pool::*;
+pub use query_hook::*;

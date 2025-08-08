@@ -68,8 +68,8 @@ pub fn use_view_dependent_world_mat(
   mat: impl FnOnce() -> Mat4<f64> + 'static,
   mat_updates: impl FnOnce(&mut DynCx, Mat4<f64>, &dyn WidgetEnvAccess) -> Mat4<f64>,
 ) {
-  let (cx, origin_local_mat) = cx.use_plain_state_init(|_| mat());
-  let (cx, local_mat_to_sync) = cx.use_plain_state::<Option<Mat4<f64>>>();
+  let (cx, origin_local_mat) = cx.use_plain_state(mat);
+  let (cx, local_mat_to_sync) = cx.use_plain_state_default::<Option<Mat4<f64>>>();
 
   cx.on_event(|e, reader, cx| {
     let parent_world =

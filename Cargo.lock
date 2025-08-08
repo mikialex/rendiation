@@ -3257,6 +3257,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "query-hook"
+version = "0.0.1"
+dependencies = [
+ "fast-hash-collection",
+ "futures",
+ "hook",
+ "parking_lot",
+ "query",
+ "rayon",
+ "rendiation-abstract-tree",
+ "serde",
+ "storage",
+ "tracing",
+ "xalloc",
+]
+
+[[package]]
 name = "quick-error"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4127,6 +4144,7 @@ dependencies = [
  "database",
  "dyn-clone",
  "fast-hash-collection",
+ "hook",
  "reactive",
  "rendiation-algebra",
  "rendiation-color",
@@ -4454,7 +4472,7 @@ dependencies = [
  "futures",
  "hook",
  "parking_lot",
- "rayon",
+ "query-hook",
  "reactive",
  "rendiation-shader-api",
  "rendiation-texture-core",

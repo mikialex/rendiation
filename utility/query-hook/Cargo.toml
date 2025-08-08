@@ -1,0 +1,20 @@
+[package]
+edition = "2021"
+name = "query-hook"
+version = "0.0.1"
+
+[dependencies]
+query = { path = "../query" }
+fast-hash-collection = { path = "../fast-hash-collection" }
+futures = { workspace = true }
+storage = { path = "../storage" }
+tracing = { workspace = true }
+rendiation-abstract-tree = { path = "../abstract-tree" }
+xalloc = "0.2.7"
+parking_lot = { workspace = true }
+serde = { workspace = true }
+rayon = { workspace = true }
+hook = { path = "../hook" }
+
+[lints]
+workspace = true

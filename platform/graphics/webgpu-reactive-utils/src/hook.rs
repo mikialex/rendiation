@@ -16,10 +16,10 @@ pub struct QueryGPUHookCx<'a> {
   pub query_cx: &'a mut ReactiveQueryCtx,
   pub db_linear_changes: &'a mut DBLinearChangeWatchGroup,
   pub task_pool: &'a mut AsyncTaskPool,
-  pub stage: QueryHookStage<'a>,
+  pub stage: GPUQueryHookStage<'a>,
 }
 
-pub enum QueryHookStage<'a> {
+pub enum GPUQueryHookStage<'a> {
   Update {
     spawner: &'a TaskSpawner,
   },
@@ -44,6 +44,11 @@ unsafe impl<'a> HooksCxLike for QueryGPUHookCx<'a> {
       db_linear_changes: self.db_linear_changes,
     };
     self.memory.flush(&mut drop_cx as *mut _ as *mut ());
+  }
+
+  fn use_plain_state<T: 'static>(&mut self, f: impl FnOnce() -> T) -> (&mut Self, &mut T) {
+    let (cx, state) = self.use_state_init(|| NothingToDrop(f()));
+    (cx, &mut state.0)
   }
 }
 
@@ -106,7 +111,7 @@ impl<'a> QueryGPUHookCx<'a> {
 
     (self, |qcx: &mut Self| {
       qcx.query_cx.end_record(set);
-      if let QueryHookStage::CreateRender { query, .. } = &qcx.stage {
+      if let GPUQueryHookStage::CreateRender { query, .. } = &qcx.stage {
         query.has_any_changed_in_set(set).into()
       } else {
         None
@@ -121,7 +126,7 @@ impl<'a> QueryGPUHookCx<'a> {
     let (cx, token) =
       self.use_state_with_features(|cx| cx.query_cx.register_multi_updater(f(cx.gpu)));
 
-    if let QueryHookStage::CreateRender { query, .. } = &mut cx.stage {
+    if let GPUQueryHookStage::CreateRender { query, .. } = &mut cx.stage {
       query.take_multi_updater_updated::<T>(*token)
     } else {
       None
@@ -141,7 +146,7 @@ impl<'a> QueryGPUHookCx<'a> {
   ) -> Option<T::Output> {
     let (cx, token) = self.use_state_with_features(|cx| cx.query_cx.register_typed(f(cx.gpu)));
 
-    if let QueryHookStage::CreateRender { query, .. } = &mut cx.stage {
+    if let GPUQueryHookStage::CreateRender { query, .. } = &mut cx.stage {
       Some(
         *query
           .take_result(*token)
@@ -167,7 +172,7 @@ impl<'a> QueryGPUHookCx<'a> {
       WatchToken(id, C::component_id())
     });
 
-    if let QueryHookStage::Update { .. } = &cx.stage {
+    if let GPUQueryHookStage::Update { .. } = &cx.stage {
       Some(cx.db_linear_changes.get_buffered_changes::<C>(tk.0))
     } else {
       None
@@ -187,51 +192,6 @@ impl<'a> QueryGPUHookCx<'a> {
     uniform.clone()
   }
 
-  pub fn use_task_result<R, F>(&mut self, create_task: impl Fn(&TaskSpawner) -> F) -> Option<R>
-  where
-    R: 'static,
-    F: Future<Output = R> + Send + 'static,
-  {
-    struct TaskToken(u32);
-    impl CanCleanUpFrom<QueryGPUHookDropCx<'_>> for TaskToken {
-      fn drop_from_cx(&mut self, _: &mut QueryGPUHookDropCx<'_>) {
-        // noop
-      }
-    }
-
-    let task = self.spawn_task_when_update(create_task);
-    let (cx, token) = self.use_state_init(|| TaskToken(u32::MAX));
-
-    match &mut cx.stage {
-      QueryHookStage::Update { .. } => {
-        token.0 = cx.task_pool.install_task(task.unwrap());
-        None
-      }
-      QueryHookStage::CreateRender { task, .. } => {
-        let result = task
-          .token_based_result
-          .remove(&token.0)
-          .unwrap()
-          .downcast()
-          .unwrap();
-        Some(*result)
-      }
-    }
-  }
-
-  pub fn spawn_task_when_update<R, F: Future<Output = R>>(
-    &mut self,
-    create_task: impl Fn(&TaskSpawner) -> F,
-  ) -> Option<F> {
-    match &mut self.stage {
-      QueryHookStage::Update { spawner } => {
-        let task = create_task(spawner);
-        Some(task)
-      }
-      _ => None,
-    }
-  }
-
   pub fn use_uniform_buffers<K, V: Std140 + 'static>(
     &mut self,
     f: impl FnOnce(UniformUpdateContainer<K, V>, &GPU) -> UniformUpdateContainer<K, V>,
@@ -241,7 +201,7 @@ impl<'a> QueryGPUHookCx<'a> {
       cx.query_cx.register_multi_updater(f(source, cx.gpu))
     });
 
-    if let QueryHookStage::CreateRender { query, .. } = &mut cx.stage {
+    if let GPUQueryHookStage::CreateRender { query, .. } = &mut cx.stage {
       query.take_multi_updater_updated(*token)
     } else {
       None
@@ -255,7 +215,7 @@ impl<'a> QueryGPUHookCx<'a> {
     let (cx, token) =
       self.use_state_with_features(|cx| cx.query_cx.register_multi_updater(f(cx.gpu)));
 
-    if let QueryHookStage::CreateRender { query, .. } = &mut cx.stage {
+    if let GPUQueryHookStage::CreateRender { query, .. } = &mut cx.stage {
       query.take_uniform_array_buffer(*token)
     } else {
       None
@@ -269,7 +229,7 @@ impl<'a> QueryGPUHookCx<'a> {
     let (cx, token) =
       self.use_state_with_features(|cx| cx.query_cx.register_multi_updater(f(cx.gpu)));
 
-    if let QueryHookStage::CreateRender { query, .. } = &mut cx.stage {
+    if let GPUQueryHookStage::CreateRender { query, .. } = &mut cx.stage {
       query.take_storage_array_buffer(*token)
     } else {
       None
@@ -286,7 +246,7 @@ impl<'a> QueryGPUHookCx<'a> {
       cx.query_cx.register_multi_reactive_query(query)
     });
 
-    if let QueryHookStage::CreateRender { query, .. } = &mut cx.stage {
+    if let GPUQueryHookStage::CreateRender { query, .. } = &mut cx.stage {
       query.take_reactive_multi_query_updated(*token)
     } else {
       None
@@ -317,7 +277,7 @@ impl<'a> QueryGPUHookCx<'a> {
     let (cx, token) =
       self.use_state_with_features(|cx| cx.query_cx.register_reactive_query(f(cx.gpu)));
 
-    if let QueryHookStage::CreateRender { query, .. } = &mut cx.stage {
+    if let GPUQueryHookStage::CreateRender { query, .. } = &mut cx.stage {
       query.take_reactive_query_updated(*token)
     } else {
       None
@@ -336,7 +296,7 @@ impl<'a> QueryGPUHookCx<'a> {
     let (cx, token) =
       self.use_state_with_features(|cx| cx.query_cx.register_val_refed_reactive_query(f(cx.gpu)));
 
-    if let QueryHookStage::CreateRender { query, .. } = &mut cx.stage {
+    if let GPUQueryHookStage::CreateRender { query, .. } = &mut cx.stage {
       query.take_val_refed_reactive_query_updated(*token)
     } else {
       None
@@ -347,7 +307,7 @@ impl<'a> QueryGPUHookCx<'a> {
     self.is_in_render().then(f)
   }
   pub fn is_in_render(&self) -> bool {
-    matches!(&self.stage, QueryHookStage::CreateRender { .. })
+    matches!(&self.stage, GPUQueryHookStage::CreateRender { .. })
   }
   pub fn when_init<X>(&self, f: impl FnOnce() -> X) -> Option<X> {
     self.is_creating().then(f)
@@ -363,4 +323,17 @@ impl<T> CanCleanUpFrom<QueryGPUHookDropCx<'_>> for NothingToDrop<T> {
 pub struct QueryGPUHookDropCx<'a> {
   pub query_cx: &'a mut ReactiveQueryCtx,
   pub db_linear_changes: &'a mut DBLinearChangeWatchGroup,
+}
+
+impl QueryHookCxLike for QueryGPUHookCx<'_> {
+  fn stage(&mut self) -> QueryHookStage {
+    match &mut self.stage {
+      GPUQueryHookStage::Update { spawner } => QueryHookStage::Update { spawner },
+      GPUQueryHookStage::CreateRender { task, .. } => QueryHookStage::CreateRender { task },
+    }
+  }
+
+  fn pool(&mut self) -> &mut AsyncTaskPool {
+    self.task_pool
+  }
 }
