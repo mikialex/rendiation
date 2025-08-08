@@ -53,20 +53,19 @@ impl BindGroupCacheInternal {
   pub fn notify_view_drop(&mut self, view_id: ViewId) {
     if let Some(all_referenced_bindings) = self.resource_views_bindgroups.remove(&view_id) {
       for binding in all_referenced_bindings {
-        let (_, _, binding_referenced_views) =
-          self.bindgroups.remove(&binding).expect("binding not exist");
-
-        for view_id in binding_referenced_views {
-          if let Some(bindings) = self.resource_views_bindgroups.get_mut(&view_id) {
-            bindings
-              .iter()
-              .position(|v| *v == binding)
-              .map(|v| bindings.swap_remove(v));
-            if bindings.is_empty() {
-              self.resource_views_bindgroups.remove(&view_id);
+        if let Some((_, _, binding_referenced_views)) = self.bindgroups.remove(&binding) {
+          for view_id in binding_referenced_views {
+            if let Some(bindings) = self.resource_views_bindgroups.get_mut(&view_id) {
+              bindings
+                .iter()
+                .position(|v| *v == binding)
+                .map(|v| bindings.swap_remove(v));
+              if bindings.is_empty() {
+                self.resource_views_bindgroups.remove(&view_id);
+              }
             }
           }
-        }
+        } // none is possible because we allow cache clear
       }
     }
   }

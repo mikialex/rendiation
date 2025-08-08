@@ -68,6 +68,9 @@ struct PrefixSumTailAsSize {
 
 impl ShaderHashProvider for PrefixSumTailAsSize {
   shader_hash_type_id! {}
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.prefix_sum_result.hash_pipeline_with_type_info(hasher);
+  }
 }
 
 impl DeviceInvocationComponent<Node<u32>> for PrefixSumTailAsSize {

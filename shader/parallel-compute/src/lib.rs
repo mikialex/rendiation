@@ -398,11 +398,31 @@ where
     }
   }
 
-  fn map<O: Copy + 'static>(self, mapper: impl Fn(T) -> O + 'static) -> DeviceMap<T, O> {
+  fn map<O: Copy + 'static, F: Fn(T) -> O + 'static>(self, mapper: F) -> DeviceMap<T, O> {
+    struct TypeHash(std::any::TypeId);
+    impl ShaderHashProvider for TypeHash {
+      shader_hash_type_id! {}
+      fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+        self.0.hash(hasher);
+      }
+    }
+
     DeviceMap {
       mapper: Arc::new(mapper),
       upstream: Box::new(self),
-      mapper_extra_hasher: Arc::new(()),
+      mapper_extra_hasher: Arc::new(TypeHash(std::any::TypeId::of::<F>())),
+    }
+  }
+
+  fn map_with_extra_hasher<O: Copy + 'static, F: Fn(T) -> O + 'static>(
+    self,
+    mapper: F,
+    hasher: impl ShaderHashProvider + 'static,
+  ) -> DeviceMap<T, O> {
+    DeviceMap {
+      mapper: Arc::new(mapper),
+      upstream: Box::new(self),
+      mapper_extra_hasher: Arc::new(hasher),
     }
   }
 

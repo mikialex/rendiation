@@ -46,7 +46,7 @@ where
 
     let ones_before = is_one
       .clone()
-      .map(move |is_one| is_one.select(val(1), val(0)))
+      .map(|is_one| is_one.select(val(1), val(0)))
       .segmented_prefix_scan_kogge_stone::<AdditionMonoid<u32>>(
         per_pass_first_stage_workgroup_size,
         per_pass_second_stage_workgroup_size,
