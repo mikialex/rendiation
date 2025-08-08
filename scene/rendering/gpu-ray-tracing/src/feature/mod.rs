@@ -72,7 +72,7 @@ pub struct SceneRayTracingRendererBase {
 }
 
 pub fn use_scene_rtx_renderer_base(
-  cx: &mut impl QueryGPUHookCx,
+  cx: &mut QueryGPUHookCx,
   system: &RtxSystemCore,
   camera: Option<Box<dyn RtxCameraRenderImpl>>,
   mesh: Option<MeshGPUBindlessImpl>,

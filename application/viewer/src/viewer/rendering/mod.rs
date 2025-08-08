@@ -139,7 +139,7 @@ impl Viewer3dRenderingCtx {
 
   fn use_viewer_scene_renderer(
     &mut self,
-    qcx: &mut impl QueryGPUHookCx,
+    qcx: &mut QueryGPUHookCx,
   ) -> Option<ViewerRendererInstance> {
     let (qcx, change_scope) = qcx.use_begin_change_set_collect();
 
@@ -147,7 +147,7 @@ impl Viewer3dRenderingCtx {
     let background = use_background(qcx);
 
     let ty = get_suitable_texture_system_ty(
-      qcx.gpu(),
+      qcx.gpu,
       matches!(
         self.current_renderer_impl_ty,
         RasterizationRenderBackendType::Indirect
@@ -319,14 +319,15 @@ impl Viewer3dRenderingCtx {
     db_linear_changes: &mut DBLinearChangeWatchGroup,
   ) {
     let gpu = self.gpu.clone();
-    QueryGPUHookCxImpl {
+    QueryGPUHookCx {
       memory,
       gpu: &gpu,
       query_cx: rendering_resource,
-      stage: QueryHookStage::Update,
+      stage: QueryHookStage::Update {
+        spawner: task_spawner,
+      },
       db_linear_changes,
       task_pool,
-      task_spawner,
     }
     .execute(|qcx| self.use_viewer_scene_renderer(qcx), true);
     db_linear_changes.clear_changes();
@@ -341,14 +342,13 @@ impl Viewer3dRenderingCtx {
     memory: &mut FunctionMemory,
     rendering_resource: &mut ReactiveQueryCtx,
     task_pool: &mut AsyncTaskPool,
-    task_spawner: &TaskSpawner,
     db_linear_changes: &mut DBLinearChangeWatchGroup,
   ) {
     noop_ctx!(cx);
     let query_result = rendering_resource.poll_update_all(cx);
     let task_pool_result = pollster::block_on(task_pool.all_async_task_done());
     let gpu = self.gpu.clone();
-    let renderer = QueryGPUHookCxImpl {
+    let renderer = QueryGPUHookCx {
       memory,
       gpu: &gpu,
       query_cx: rendering_resource,
@@ -358,7 +358,6 @@ impl Viewer3dRenderingCtx {
       },
       db_linear_changes,
       task_pool,
-      task_spawner,
     }
     .execute(|qcx| self.use_viewer_scene_renderer(qcx).unwrap(), true);
 

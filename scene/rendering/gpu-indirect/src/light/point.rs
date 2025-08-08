@@ -33,7 +33,7 @@ pub fn point_storage(gpu: &GPU) -> ReactiveStorageBufferContainer<PointLightStor
 }
 
 pub fn use_point_light_storage(
-  qcx: &mut impl QueryGPUHookCx,
+  qcx: &mut QueryGPUHookCx,
 ) -> Option<LightGPUStorage<PointLightStorage>> {
   let light = qcx.use_storage_buffer(point_storage);
   let multi_access = qcx.use_gpu_general_query(|gpu| {

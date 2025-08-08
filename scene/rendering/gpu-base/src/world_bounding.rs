@@ -22,7 +22,7 @@ pub struct TargetWorldBounding {
 }
 
 pub fn use_scene_model_device_world_bounding(
-  qcx: &mut impl QueryGPUHookCx,
+  qcx: &mut QueryGPUHookCx,
 ) -> Option<DrawUnitWorldBoundingProviderDefaultImpl> {
   qcx
     .use_storage_buffer(|gpu| {

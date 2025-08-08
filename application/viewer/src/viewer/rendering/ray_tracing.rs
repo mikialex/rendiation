@@ -14,7 +14,7 @@ pub enum RayTracingEffectMode {
 }
 
 pub fn use_viewer_rtx(
-  cx: &mut impl QueryGPUHookCx,
+  cx: &mut QueryGPUHookCx,
   camera: Option<Box<dyn RtxCameraRenderImpl>>,
   materials: Option<Arc<Vec<Box<dyn SceneMaterialSurfaceSupport>>>>,
   mesh: Option<MeshGPUBindlessImpl>,

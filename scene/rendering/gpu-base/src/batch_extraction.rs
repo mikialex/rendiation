@@ -1,7 +1,7 @@
 use crate::*;
 
 pub fn use_default_scene_batch_extractor(
-  cx: &mut impl QueryGPUHookCx,
+  cx: &mut QueryGPUHookCx<'_>,
 ) -> Option<DefaultSceneBatchExtractor> {
   let model_lookup = cx.use_global_multi_reactive_query::<SceneModelBelongsToScene>();
 

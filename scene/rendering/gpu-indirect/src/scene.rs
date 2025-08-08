@@ -5,7 +5,7 @@ use fast_hash_collection::FastHashMap;
 use crate::*;
 
 pub fn use_indirect_renderer(
-  cx: &mut impl QueryGPUHookCx,
+  cx: &mut QueryGPUHookCx,
   reversed_depth: bool,
   materials: Option<Box<dyn IndirectModelMaterialRenderImpl>>,
   mesh: Option<Box<dyn IndirectModelShapeRenderImpl>>,

@@ -14,7 +14,7 @@ pub fn register_scene_mesh_lod_graph_data_model() {
 }
 
 pub fn use_mesh_lod_graph_scene_renderer(
-  qcx: &mut impl QueryGPUHookCx,
+  qcx: &mut QueryGPUHookCx,
 ) -> Option<MeshLODGraphSceneRenderer> {
   let internal = use_mesh_lod_graph_renderer(qcx);
   let world_transform = use_scene_model_device_world_transform(qcx);

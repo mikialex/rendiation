@@ -1,7 +1,7 @@
 use crate::*;
 
 pub fn use_indirect_scene_model(
-  cx: &mut impl QueryGPUHookCx,
+  cx: &mut QueryGPUHookCx,
   model_impl: Option<Box<dyn IndirectModelRenderImpl>>,
 ) -> Option<IndirectPreferredComOrderRenderer> {
   let node = use_node_storage(cx);

@@ -29,12 +29,13 @@ impl DBLinearChangeWatchGroup {
   }
 
   pub fn notify_consumer_dropped(&mut self, component_id: ComponentId, consumer_id: u32) {
-    let removed = self
-      .consumers
-      .get_mut(&component_id)
-      .unwrap()
-      .remove(&consumer_id);
+    let consumers = self.consumers.get_mut(&component_id).unwrap();
+    let removed = consumers.remove(&consumer_id);
     assert!(removed);
+    if consumers.is_empty() {
+      self.producers.remove(&component_id); // stop the watch
+      self.consumers.remove(&component_id);
+    }
   }
 
   pub fn get_buffered_changes<C: ComponentSemantic>(

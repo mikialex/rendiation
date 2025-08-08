@@ -12,7 +12,7 @@ type GPUFrustumDataType = Shader140Array<ShaderPlaneUniform, 6>;
 type GPUFrustumData = UniformBufferDataView<GPUFrustumDataType>;
 
 pub fn use_camera_gpu_frustum(
-  qcx: &mut impl QueryGPUHookCx,
+  qcx: &mut QueryGPUHookCx,
   camera_source: &RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
 ) -> Option<CameraGPUFrustums> {
   qcx

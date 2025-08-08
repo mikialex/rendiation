@@ -26,7 +26,7 @@ pub fn directional_storage(gpu: &GPU) -> ReactiveStorageBufferContainer<Directio
 }
 
 pub fn use_directional_light_storage(
-  qcx: &mut impl QueryGPUHookCx,
+  qcx: &mut QueryGPUHookCx,
 ) -> Option<LightGPUStorage<DirectionalLightStorage>> {
   let light = qcx.use_storage_buffer(directional_storage);
   let multi_access = qcx.use_gpu_general_query(|gpu| {

@@ -5,7 +5,7 @@ use rendiation_webgpu_reactive_utils::*;
 use crate::*;
 
 pub fn use_directional_light_uniform(
-  qcx: &mut impl QueryGPUHookCx,
+  qcx: &mut QueryGPUHookCx,
   init_config: &MultiLayerTexturePackerConfig,
   ndc: ViewerNDC,
 ) -> Option<SceneDirectionalLightingPreparer> {
@@ -124,7 +124,7 @@ impl LightSystemSceneProvider for SceneDirectionalLightingProvider {
 }
 
 pub fn use_scene_point_light_uniform(
-  qcx: &mut impl QueryGPUHookCx,
+  qcx: &mut QueryGPUHookCx,
 ) -> Option<ScenePointLightingProvider> {
   qcx
     .use_uniform_array_buffers(point_uniform_array)
@@ -157,7 +157,7 @@ impl LightSystemSceneProvider for ScenePointLightingProvider {
 }
 
 pub fn use_scene_spot_light_uniform(
-  qcx: &mut impl QueryGPUHookCx,
+  qcx: &mut QueryGPUHookCx,
   init_config: &MultiLayerTexturePackerConfig,
   ndc: ViewerNDC,
 ) -> Option<SceneSpotLightingPreparer> {

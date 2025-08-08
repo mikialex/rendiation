@@ -39,7 +39,7 @@ pub fn register_mesh_lod_graph_data_model() {
 }
 
 pub fn use_mesh_lod_graph_renderer(
-  qcx: &mut impl QueryGPUHookCx,
+  qcx: &mut QueryGPUHookCx,
 ) -> Option<MeshLODGraphRendererShared> {
   qcx.use_gpu_general_query(|gpu| MeshLODGraphRendererSystem {
     source: global_watch().watch::<LODGraphData>().into_boxed(),
