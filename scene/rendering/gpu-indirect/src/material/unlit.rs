@@ -3,14 +3,30 @@ use crate::*;
 pub fn use_unlit_material_storage(
   cx: &mut QueryGPUHookCx,
 ) -> Option<UnlitMaterialIndirectRenderer> {
-  let storages = cx.use_storage_buffer(unlit_material_storages);
-  let tex_storages = cx.use_storage_buffer(unlit_material_texture_storages);
+  let (cx, storages) = cx.use_storage_buffer2(128, u32::MAX);
+
+  if let Some(changes) = cx.use_changes::<UnlitMaterialColorComponent>() {
+    changes
+      .collective_map(srgb4_to_linear4)
+      .update_storage_array(storages, offset_of!(UnlitMaterialStorage, color));
+  }
+
+  cx.use_changes::<AlphaOf<UnlitMaterialAlphaConfig>>()
+    .update_storage_array(storages, offset_of!(UnlitMaterialStorage, alpha));
+
+  cx.use_changes::<AlphaCutoffOf<UnlitMaterialAlphaConfig>>()
+    .update_storage_array(storages, offset_of!(UnlitMaterialStorage, alpha_cutoff));
+
+  let (cx, tex_storages) = cx.use_storage_buffer2(128, u32::MAX);
+
+  let base_color_alpha = offset_of!(TexStorage, color_alpha_texture);
+  use_tex_watcher::<UnlitMaterialColorAlphaTex, _>(cx, tex_storages, base_color_alpha);
 
   cx.when_render(|| UnlitMaterialIndirectRenderer {
     material_access: global_entity_component_of::<StandardModelRefUnlitMaterial>()
       .read_foreign_key(),
-    storages: storages.unwrap(),
-    texture_handles: tex_storages.unwrap(),
+    storages: storages.get_gpu_buffer(),
+    texture_handles: tex_storages.get_gpu_buffer(),
     alpha_mode: global_entity_component_of().read(),
   })
 }
@@ -50,36 +66,7 @@ impl IndirectModelMaterialRenderImpl for UnlitMaterialIndirectRenderer {
   }
 }
 
-type UnlitMaterialStorageBuffer = ReactiveStorageBufferContainer<UnlitMaterialStorage>;
-
-fn unlit_material_storages(cx: &GPU) -> UnlitMaterialStorageBuffer {
-  let color = global_watch()
-    .watch::<UnlitMaterialColorComponent>()
-    .collective_map(srgb4_to_linear4)
-    .into_query_update_storage(offset_of!(UnlitMaterialStorage, color));
-
-  let alpha = global_watch()
-    .watch::<AlphaOf<UnlitMaterialAlphaConfig>>()
-    .into_query_update_storage(offset_of!(UnlitMaterialStorage, alpha));
-
-  let alpha_cutoff = global_watch()
-    .watch::<AlphaCutoffOf<UnlitMaterialAlphaConfig>>()
-    .into_query_update_storage(offset_of!(UnlitMaterialStorage, alpha_cutoff));
-
-  create_reactive_storage_buffer_container(128, u32::MAX, cx)
-    .with_source(color)
-    .with_source(alpha)
-    .with_source(alpha_cutoff)
-}
-
 type TexStorage = UnlitMaterialTextureHandlesStorage;
-type UnlitMaterialTexStorages = ReactiveStorageBufferContainer<TexStorage>;
-
-fn unlit_material_texture_storages(cx: &GPU) -> UnlitMaterialTexStorages {
-  let c = create_reactive_storage_buffer_container(128, u32::MAX, cx);
-  let base_color_alpha = offset_of!(TexStorage, color_alpha_texture);
-  add_tex_watcher::<UnlitMaterialColorAlphaTex, _>(c, base_color_alpha)
-}
 
 #[repr(C)]
 #[std430_layout]

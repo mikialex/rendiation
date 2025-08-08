@@ -53,6 +53,30 @@ pub(super) fn indirect_sample_enabled(
   (r, has_texture)
 }
 
+pub fn use_tex_watcher<T, TexStorage>(
+  cx: &mut QueryGPUHookCx,
+  storage: &mut CommonStorageBufferImpl<TexStorage>,
+  offset: usize,
+) where
+  TexStorage: Std430 + Default,
+  T: TextureWithSamplingForeignKeys,
+{
+  let tex_offset = std::mem::offset_of!(TextureSamplerHandlePair, texture_handle);
+  let sam_offset = std::mem::offset_of!(TextureSamplerHandlePair, sampler_handle);
+
+  if let Some(change) = cx.use_changes::<SceneTexture2dRefOf<T>>() {
+    change
+      .collective_map(|id| id.map(|v| v.index()).unwrap_or(u32::MAX))
+      .update_storage_array(storage, offset + tex_offset);
+  }
+
+  if let Some(change) = cx.use_changes::<SceneSamplerRefOf<T>>() {
+    change
+      .collective_map(|id| id.map(|v| v.index()).unwrap_or(u32::MAX))
+      .update_storage_array(storage, offset + sam_offset);
+  }
+}
+
 pub fn add_tex_watcher<T, TexStorage>(
   storage: ReactiveStorageBufferContainer<TexStorage>,
   offset: usize,

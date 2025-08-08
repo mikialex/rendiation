@@ -6,14 +6,43 @@ use crate::*;
 pub fn use_pbr_mr_material_storage(
   cx: &mut QueryGPUHookCx,
 ) -> Option<PbrMRMaterialIndirectRenderer> {
-  let storages = cx.use_storage_buffer(pbr_mr_material_storages);
-  let tex_storages = cx.use_storage_buffer(pbr_mr_material_tex_storages);
+  let (cx, storages) = cx.use_storage_buffer2(128, u32::MAX);
+
+  cx.use_changes::<PbrMRMaterialBaseColorComponent>()
+    .update_storage_array(storages, offset_of!(Storage, base_color));
+
+  cx.use_changes::<PbrMRMaterialEmissiveComponent>()
+    .update_storage_array(storages, offset_of!(Storage, emissive));
+
+  cx.use_changes::<NormalScaleOf<PbrMRMaterialNormalInfo>>()
+    .update_storage_array(storages, offset_of!(Storage, normal_mapping_scale));
+
+  cx.use_changes::<PbrMRMaterialRoughnessComponent>()
+    .update_storage_array(storages, offset_of!(Storage, roughness));
+
+  cx.use_changes::<PbrMRMaterialMetallicComponent>()
+    .update_storage_array(storages, offset_of!(Storage, metallic));
+
+  cx.use_changes::<AlphaOf<PbrMRMaterialAlphaConfig>>()
+    .update_storage_array(storages, offset_of!(Storage, alpha));
+
+  let (cx, tex_storages) = cx.use_storage_buffer2(128, u32::MAX);
+
+  let base_color_alpha = offset_of!(TexStorage, base_color_alpha_texture);
+  let emissive = offset_of!(TexStorage, emissive_texture);
+  let metallic_roughness = offset_of!(TexStorage, metallic_roughness_texture);
+  let normal = offset_of!(TexStorage, normal_texture);
+
+  use_tex_watcher::<PbrMRMaterialBaseColorAlphaTex, _>(cx, tex_storages, base_color_alpha);
+  use_tex_watcher::<PbrMRMaterialEmissiveTex, _>(cx, tex_storages, emissive);
+  use_tex_watcher::<PbrMRMaterialMetallicRoughnessTex, _>(cx, tex_storages, metallic_roughness);
+  use_tex_watcher::<NormalTexSamplerOf<PbrMRMaterialNormalInfo>, _>(cx, tex_storages, normal);
 
   cx.when_render(|| PbrMRMaterialIndirectRenderer {
     material_access: global_entity_component_of::<StandardModelRefPbrMRMaterial>()
       .read_foreign_key(),
-    storages: storages.unwrap(),
-    tex_storages: tex_storages.unwrap(),
+    storages: storages.get_gpu_buffer(),
+    tex_storages: tex_storages.get_gpu_buffer(),
     alpha_mode: global_entity_component_of().read(),
   })
 }
@@ -77,41 +106,6 @@ pub struct PhysicalMetallicRoughnessMaterialStorage {
 }
 
 type Storage = PhysicalMetallicRoughnessMaterialStorage;
-type PbrMRMaterialStorages = ReactiveStorageBufferContainer<Storage>;
-
-fn pbr_mr_material_storages(cx: &GPU) -> PbrMRMaterialStorages {
-  let base_color = global_watch()
-    .watch::<PbrMRMaterialBaseColorComponent>()
-    .into_query_update_storage(offset_of!(Storage, base_color));
-
-  let emissive = global_watch()
-    .watch::<PbrMRMaterialEmissiveComponent>()
-    .into_query_update_storage(offset_of!(Storage, emissive));
-
-  let normal_mapping_scale = global_watch()
-    .watch::<NormalScaleOf<PbrMRMaterialNormalInfo>>()
-    .into_query_update_storage(offset_of!(Storage, normal_mapping_scale));
-
-  let roughness = global_watch()
-    .watch::<PbrMRMaterialRoughnessComponent>()
-    .into_query_update_storage(offset_of!(Storage, roughness));
-
-  let metallic = global_watch()
-    .watch::<PbrMRMaterialMetallicComponent>()
-    .into_query_update_storage(offset_of!(Storage, metallic));
-
-  let alpha = global_watch()
-    .watch::<AlphaOf<PbrMRMaterialAlphaConfig>>()
-    .into_query_update_storage(offset_of!(Storage, alpha));
-
-  create_reactive_storage_buffer_container(128, u32::MAX, cx)
-    .with_source(base_color)
-    .with_source(emissive)
-    .with_source(normal_mapping_scale)
-    .with_source(roughness)
-    .with_source(metallic)
-    .with_source(alpha)
-}
 
 #[repr(C)]
 #[std430_layout]
@@ -124,20 +118,6 @@ pub struct PhysicalMetallicRoughnessMaterialTextureHandlesStorage {
 }
 
 type TexStorage = PhysicalMetallicRoughnessMaterialTextureHandlesStorage;
-type PbrMRMaterialTexStorages = ReactiveStorageBufferContainer<TexStorage>;
-
-fn pbr_mr_material_tex_storages(cx: &GPU) -> PbrMRMaterialTexStorages {
-  let c = create_reactive_storage_buffer_container(128, u32::MAX, cx);
-
-  let base_color_alpha = offset_of!(TexStorage, base_color_alpha_texture);
-  let emissive = offset_of!(TexStorage, emissive_texture);
-  let metallic_roughness = offset_of!(TexStorage, metallic_roughness_texture);
-  let normal = offset_of!(TexStorage, normal_texture);
-  let c = add_tex_watcher::<PbrMRMaterialBaseColorAlphaTex, _>(c, base_color_alpha);
-  let c = add_tex_watcher::<PbrMRMaterialEmissiveTex, _>(c, emissive);
-  let c = add_tex_watcher::<PbrMRMaterialMetallicRoughnessTex, _>(c, metallic_roughness);
-  add_tex_watcher::<NormalTexSamplerOf<PbrMRMaterialNormalInfo>, _>(c, normal)
-}
 
 pub struct PhysicalMetallicRoughnessMaterialIndirectGPU<'a> {
   storage: &'a StorageBufferReadonlyDataView<[PhysicalMetallicRoughnessMaterialStorage]>,

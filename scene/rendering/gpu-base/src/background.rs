@@ -8,23 +8,23 @@ pub fn use_background(cx: &mut QueryGPUHookCx) -> Option<SceneBackgroundRenderer
 
   let env_background_intensity_uniform = cx.use_uniform_buffers2();
 
-  cx.use_changes::<SceneHDRxEnvBackgroundIntensity>()
-    .map(|changes| {
-      changes.collective_filter_map(|v| v.map(|intensity| Vec4::new(intensity, 0., 0., 0.)))
-    })
-    .update_uniforms(&env_background_intensity_uniform, 0, cx.gpu);
+  if let Some(change) = cx.use_changes::<SceneHDRxEnvBackgroundIntensity>() {
+    change
+      .collective_filter_map(|v| v.map(|intensity| Vec4::new(intensity, 0., 0., 0.)))
+      .update_uniforms(&env_background_intensity_uniform, 0, cx.gpu);
+  }
 
   let solid_background_color_uniform = cx.use_uniform_buffers2();
 
-  cx.use_changes::<SceneSolidBackground>()
-    .map(|changes| {
-      changes.collective_map(|v| {
+  if let Some(change) = cx.use_changes::<SceneSolidBackground>() {
+    change
+      .collective_map(|v| {
         v.map(srgb3_to_linear3)
           .unwrap_or(Vec3::splat(0.))
           .expand_with_one()
       })
-    })
-    .update_uniforms(&solid_background_color_uniform, 0, cx.gpu);
+      .update_uniforms(&solid_background_color_uniform, 0, cx.gpu);
+  }
 
   cx.when_render(|| SceneBackgroundRenderer {
     solid_background: global_entity_component_of::<SceneSolidBackground>().read(),
