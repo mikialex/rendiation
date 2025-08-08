@@ -16,8 +16,8 @@ pub struct QueryHookCx<'a> {
 }
 
 pub enum QueryHookStage<'a> {
-  Update { spawner: &'a TaskSpawner },
-  CreateRender { task: &'a mut TaskPoolResultCx },
+  SpawnTask { spawner: &'a TaskSpawner },
+  ResolveTask { task: &'a mut TaskPoolResultCx },
 }
 
 pub trait QueryHookCxLike: HooksCxLike {
@@ -33,11 +33,11 @@ pub trait QueryHookCxLike: HooksCxLike {
     let (cx, token) = self.use_plain_state(|| u32::MAX);
 
     match cx.stage() {
-      QueryHookStage::Update { .. } => {
+      QueryHookStage::SpawnTask { .. } => {
         *token = cx.pool().install_task(task.unwrap());
         None
       }
-      QueryHookStage::CreateRender { task, .. } => {
+      QueryHookStage::ResolveTask { task, .. } => {
         let result = task
           .token_based_result
           .remove(token)
@@ -54,7 +54,7 @@ pub trait QueryHookCxLike: HooksCxLike {
     create_task: impl Fn(&TaskSpawner) -> F,
   ) -> Option<F> {
     match self.stage() {
-      QueryHookStage::Update { spawner } => {
+      QueryHookStage::SpawnTask { spawner } => {
         let task = create_task(spawner);
         Some(task)
       }

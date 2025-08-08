@@ -49,6 +49,10 @@ pub unsafe trait HooksCxLike {
   fn use_plain_state_default<T: 'static + Default>(&mut self) -> (&mut Self, &mut T) {
     self.use_plain_state(Default::default)
   }
+  fn use_plain_state_default_cloned<T: 'static + Default + Clone>(&mut self) -> (&mut Self, T) {
+    let (cx, r) = self.use_plain_state::<T>(Default::default);
+    (cx, r.clone())
+  }
 }
 
 pub trait CanCleanUpFrom<T> {

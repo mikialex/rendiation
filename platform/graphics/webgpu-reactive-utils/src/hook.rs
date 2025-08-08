@@ -181,8 +181,9 @@ impl<'a> QueryGPUHookCx<'a> {
 
   pub fn use_query_change<C: ComponentSemantic>(
     &mut self,
-  ) -> impl AsyncQueryCompute<Key = EntityHandle<C::Entity>, Value = C::Data> + 'static {
-    (EmptyQuery::default(), EmptyQuery::default())
+  ) -> Option<impl AsyncQueryCompute<Key = EntityHandle<C::Entity>, Value = C::Data> + 'static> {
+    // todo
+    Some((EmptyQuery::default(), EmptyQuery::default()))
   }
 
   pub fn use_uniform_buffers2<K: 'static, V: Std140 + 'static>(
@@ -328,8 +329,8 @@ pub struct QueryGPUHookDropCx<'a> {
 impl QueryHookCxLike for QueryGPUHookCx<'_> {
   fn stage(&mut self) -> QueryHookStage {
     match &mut self.stage {
-      GPUQueryHookStage::Update { spawner } => QueryHookStage::Update { spawner },
-      GPUQueryHookStage::CreateRender { task, .. } => QueryHookStage::CreateRender { task },
+      GPUQueryHookStage::Update { spawner } => QueryHookStage::SpawnTask { spawner },
+      GPUQueryHookStage::CreateRender { task, .. } => QueryHookStage::ResolveTask { task },
     }
   }
 
