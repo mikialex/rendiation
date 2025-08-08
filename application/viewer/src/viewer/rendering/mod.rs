@@ -323,7 +323,7 @@ impl Viewer3dRenderingCtx {
       memory,
       gpu: &gpu,
       query_cx: rendering_resource,
-      stage: QueryHookStage::Update {
+      stage: GPUQueryHookStage::Update {
         spawner: task_spawner,
       },
       db_linear_changes,
@@ -352,7 +352,7 @@ impl Viewer3dRenderingCtx {
       memory,
       gpu: &gpu,
       query_cx: rendering_resource,
-      stage: QueryHookStage::CreateRender {
+      stage: GPUQueryHookStage::CreateRender {
         query: query_result,
         task: task_pool_result,
       },

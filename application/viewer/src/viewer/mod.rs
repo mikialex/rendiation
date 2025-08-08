@@ -64,6 +64,10 @@ unsafe impl HooksCxLike for ViewerCx<'_> {
   fn flush(&mut self) {
     self.viewer.memory.flush(self.dyn_cx as *mut _ as *mut ())
   }
+
+  fn use_plain_state<T: 'static>(&mut self, f: impl FnOnce() -> T) -> (&mut Self, &mut T) {
+    self.use_plain_state_init(|_| f())
+  }
 }
 
 impl<'a> ViewerCx<'a> {
@@ -225,19 +229,19 @@ pub fn use_viewer<'a>(
   egui_ctx: &mut egui::Context,
   f: impl Fn(&mut ViewerCx),
 ) -> &'a mut Viewer {
-  let (acx, viewer) = acx.use_plain_state_init(|| {
+  let (acx, viewer) = acx.use_plain_state(|| {
     Viewer::new(
       acx.gpu_and_surface.gpu.clone(),
       acx.gpu_and_surface.surface.clone(),
     )
   });
 
-  let (acx, gui_feature_global_states) = acx.use_plain_state_init(|| FeaturesGlobalUIStates {
+  let (acx, gui_feature_global_states) = acx.use_plain_state(|| FeaturesGlobalUIStates {
     features: Default::default(),
   });
 
-  let (acx, tick_timestamp) = acx.use_plain_state_init(Instant::now);
-  let (acx, frame_time_delta_in_seconds) = acx.use_plain_state_init(|| 0.0);
+  let (acx, tick_timestamp) = acx.use_plain_state(Instant::now);
+  let (acx, frame_time_delta_in_seconds) = acx.use_plain_state(|| 0.0);
 
   let absolute_seconds_from_start = Instant::now()
     .duration_since(viewer.started_time)

@@ -86,32 +86,6 @@ pub struct ApplicationCx<'a> {
 
 pub type ApplicationDropCx = DynCx;
 
-impl<'a> ApplicationCx<'a> {
-  pub fn use_plain_state<T>(&mut self) -> (&mut Self, &mut T)
-  where
-    T: Any + Default,
-  {
-    self.use_plain_state_init(|| T::default())
-  }
-
-  pub fn use_plain_state_init<T>(&mut self, init: impl FnOnce() -> T) -> (&mut Self, &mut T)
-  where
-    T: Any,
-  {
-    // this is safe because user can not access previous retrieved state through returned self.
-    let s = unsafe { std::mem::transmute_copy(&self) };
-
-    let state =
-      self
-        .memory
-        .expect_state_init(init, |state: &mut T, _: &mut ApplicationDropCx| unsafe {
-          core::ptr::drop_in_place(state);
-        });
-
-    (s, state)
-  }
-}
-
 unsafe impl HooksCxLike for ApplicationCx<'_> {
   fn memory_mut(&mut self) -> &mut FunctionMemory {
     self.memory
@@ -121,6 +95,20 @@ unsafe impl HooksCxLike for ApplicationCx<'_> {
   }
   fn flush(&mut self) {
     self.memory.flush(&mut () as *mut _)
+  }
+
+  fn use_plain_state<T: 'static>(&mut self, f: impl FnOnce() -> T) -> (&mut Self, &mut T) {
+    // this is safe because user can not access previous retrieved state through returned self.
+    let s = unsafe { std::mem::transmute_copy(&self) };
+
+    let state =
+      self
+        .memory
+        .expect_state_init(f, |state: &mut T, _: &mut ApplicationDropCx| unsafe {
+          core::ptr::drop_in_place(state);
+        });
+
+    (s, state)
   }
 }
 

@@ -12,7 +12,7 @@ pub struct EguiContext {
 }
 
 pub fn use_egui_cx(cx: &mut ApplicationCx, f: impl Fn(&mut ApplicationCx, &mut egui::Context)) {
-  let (cx, egui_cx) = cx.use_plain_state::<EguiContext>();
+  let (cx, egui_cx) = cx.use_plain_state_default::<EguiContext>();
 
   if egui_cx.context.is_pointer_over_area() {
     cx.dyn_cx.message.put(CameraControlBlocked);

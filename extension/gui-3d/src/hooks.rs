@@ -98,6 +98,16 @@ unsafe impl HooksCxLike for UI3dCx<'_> {
         .flush(&mut drop_cx as *mut UI3dBuildCx as *mut ());
     }
   }
+
+  fn use_plain_state<T: 'static>(&mut self, f: impl FnOnce() -> T) -> (&mut Self, &mut T) {
+    #[derive(Default)]
+    struct PlainState<T>(T);
+    impl<T> CanCleanUpFrom<UI3dBuildCx<'_>> for PlainState<T> {
+      fn drop_from_cx(&mut self, _: &mut UI3dBuildCx<'_>) {}
+    }
+    let (cx, s) = self.use_state_init(|_| PlainState(f()));
+    (cx, &mut s.0)
+  }
 }
 
 impl UI3dCx<'_> {
@@ -136,30 +146,6 @@ impl UI3dCx<'_> {
     T: Any + Default + for<'x> CanCleanUpFrom<UI3dBuildCx<'x>>,
   {
     self.use_state_init(|_| T::default())
-  }
-
-  pub fn use_plain_state<T>(&mut self) -> (&mut Self, &mut T)
-  where
-    T: Any + Default,
-  {
-    self.use_plain_state_init(|_| T::default())
-  }
-
-  pub fn use_plain_state_init<T>(
-    &mut self,
-    init: impl FnOnce(&mut UI3dBuildCx) -> T,
-  ) -> (&mut Self, &mut T)
-  where
-    T: Any,
-  {
-    #[derive(Default)]
-    struct PlainState<T>(T);
-    impl<T> CanCleanUpFrom<UI3dBuildCx<'_>> for PlainState<T> {
-      fn drop_from_cx(&mut self, _: &mut UI3dBuildCx<'_>) {}
-    }
-
-    let (cx, s) = self.use_state_init(|cx| PlainState(init(cx)));
-    (cx, &mut s.0)
   }
 
   pub fn use_state_init<T>(
@@ -336,8 +322,8 @@ pub fn use_interactive_ui_widget_model(
   cx: &mut UI3dCx,
   target: &UIWidgetModelProxy,
 ) -> Option<UiWidgetModelResponse> {
-  let (cx, is_mouse_in) = cx.use_plain_state::<bool>();
-  let (cx, is_mouse_down_in_history) = cx.use_plain_state::<bool>();
+  let (cx, is_mouse_in) = cx.use_plain_state_default::<bool>();
+  let (cx, is_mouse_down_in_history) = cx.use_plain_state_default::<bool>();
 
   cx.on_event(|event, _, _| {
     #[allow(unused_variables)]
@@ -402,7 +388,7 @@ pub fn use_interactive_ui_widget_model(
 }
 
 pub fn use_inject_cx<T: Default + 'static>(cx: &mut UI3dCx, f: impl FnOnce(&mut UI3dCx)) {
-  let (cx, state) = cx.use_plain_state::<T>();
+  let (cx, state) = cx.use_plain_state_default::<T>();
   inject_cx(cx, state, f);
 }
 

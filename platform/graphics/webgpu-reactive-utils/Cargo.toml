@@ -14,9 +14,9 @@ rendiation-webgpu = { path = "../webgpu" }
 fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 parking_lot = { workspace = true }
 hook = { path = "../../../utility/hook" }
+query-hook = { path = "../../../utility/query-hook" }
 database = { path = "../../../utility/database" }
 futures = { workspace = true }
-rayon = { workspace = true }
 
 [lints]
 workspace = true

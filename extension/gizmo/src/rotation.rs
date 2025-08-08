@@ -2,7 +2,7 @@ use crate::*;
 
 pub fn use_rotation_gizmo(cx: &mut UI3dCx) {
   use_inject_cx::<AxisActiveState>(cx, |cx| {
-    let (cx, rotate_state) = cx.use_plain_state::<Option<RotateState>>();
+    let (cx, rotate_state) = cx.use_plain_state_default::<Option<RotateState>>();
 
     use_provide_rotator_mesh_init(cx, |cx| {
       use_rotator_model(cx, AxisType::X);
