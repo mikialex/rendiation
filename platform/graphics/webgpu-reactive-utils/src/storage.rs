@@ -8,6 +8,16 @@ pub type CommonStorageBufferImpl<T> =
 /// group of(Rxc<id, T fieldChange>) =maintain=> storage buffer <T>
 pub type ReactiveStorageBufferContainer<T> = MultiUpdateContainer<CommonStorageBufferImpl<T>>;
 
+pub trait GetBufferHelper<T: Std430> {
+  fn get_gpu_buffer(&self) -> StorageBufferReadonlyDataView<[T]>;
+}
+
+impl<T: Std430> GetBufferHelper<T> for CommonStorageBufferImpl<T> {
+  fn get_gpu_buffer(&self) -> StorageBufferReadonlyDataView<[T]> {
+    self.inner.gpu().clone()
+  }
+}
+
 pub fn create_common_storage_buffer_container<T: Std430>(
   init_capacity_item_count: u32,
   max_item_count: u32,

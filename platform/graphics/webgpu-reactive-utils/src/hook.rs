@@ -189,8 +189,8 @@ impl<'a> QueryGPUHookCx<'a> {
   pub fn use_uniform_buffers2<K: 'static, V: Std140 + 'static>(
     &mut self,
   ) -> UniformBufferCollection<K, V> {
-    let (_, uniform) = self.use_state::<UniformBufferCollection<K, V>>();
-    uniform.clone()
+    let (_, uniform) = self.use_plain_state_default_cloned::<UniformBufferCollection<K, V>>();
+    uniform
   }
 
   pub fn use_uniform_buffers<K, V: Std140 + 'static>(
@@ -221,6 +221,17 @@ impl<'a> QueryGPUHookCx<'a> {
     } else {
       None
     }
+  }
+
+  pub fn use_storage_buffer2<V: Std430>(
+    &mut self,
+    init_capacity_item_count: u32,
+    max_item_count: u32,
+  ) -> (&mut Self, &mut CommonStorageBufferImpl<V>) {
+    let gpu = self.gpu;
+    self.use_plain_state(|| {
+      create_common_storage_buffer_container(init_capacity_item_count, max_item_count, gpu)
+    })
   }
 
   pub fn use_storage_buffer<V: Std430>(

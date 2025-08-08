@@ -6,14 +6,40 @@ use crate::*;
 pub fn use_pbr_sg_material_storage(
   cx: &mut QueryGPUHookCx,
 ) -> Option<PbrSGMaterialIndirectRenderer> {
-  let storages = cx.use_storage_buffer(pbr_sg_material_storages);
-  let tex_storages = cx.use_storage_buffer(pbr_sg_material_tex_storages);
+  let (cx, storages) = cx.use_storage_buffer2(128, u32::MAX);
+
+  cx.use_changes::<PbrSGMaterialAlbedoComponent>()
+    .update_storage_array(storages, offset_of!(Storage, albedo));
+
+  cx.use_changes::<PbrSGMaterialEmissiveComponent>()
+    .update_storage_array(storages, offset_of!(Storage, emissive));
+
+  cx.use_changes::<NormalScaleOf<PbrSGMaterialNormalInfo>>()
+    .update_storage_array(storages, offset_of!(Storage, normal_mapping_scale));
+
+  cx.use_changes::<PbrSGMaterialGlossinessComponent>()
+    .update_storage_array(storages, offset_of!(Storage, glossiness));
+
+  cx.use_changes::<AlphaOf<PbrSGMaterialAlphaConfig>>()
+    .update_storage_array(storages, offset_of!(Storage, alpha));
+
+  let (cx, tex_storages) = cx.use_storage_buffer2(128, u32::MAX);
+
+  let albedo = offset_of!(TexStorage, albedo_texture);
+  let emissive = offset_of!(TexStorage, emissive_texture);
+  let specular_glossiness = offset_of!(TexStorage, specular_glossiness_texture);
+  let normal = offset_of!(TexStorage, normal_texture);
+
+  use_tex_watcher::<PbrSGMaterialAlbedoAlphaTex, _>(cx, tex_storages, albedo);
+  use_tex_watcher::<PbrSGMaterialEmissiveTex, _>(cx, tex_storages, emissive);
+  use_tex_watcher::<PbrSGMaterialSpecularGlossinessTex, _>(cx, tex_storages, specular_glossiness);
+  use_tex_watcher::<NormalTexSamplerOf<PbrSGMaterialNormalInfo>, _>(cx, tex_storages, normal);
 
   cx.when_render(|| PbrSGMaterialIndirectRenderer {
     material_access: global_entity_component_of::<StandardModelRefPbrSGMaterial>()
       .read_foreign_key(),
-    storages: storages.unwrap(),
-    tex_storages: tex_storages.unwrap(),
+    storages: storages.get_gpu_buffer(),
+    tex_storages: tex_storages.get_gpu_buffer(),
     alpha_mode: global_entity_component_of().read(),
   })
 }
@@ -76,36 +102,6 @@ pub struct PhysicalSpecularGlossinessMaterialStorage {
 }
 
 type Storage = PhysicalSpecularGlossinessMaterialStorage;
-type PbrSGMaterialStorages = ReactiveStorageBufferContainer<Storage>;
-
-fn pbr_sg_material_storages(cx: &GPU) -> PbrSGMaterialStorages {
-  let albedo = global_watch()
-    .watch::<PbrSGMaterialAlbedoComponent>()
-    .into_query_update_storage(offset_of!(Storage, albedo));
-
-  let emissive = global_watch()
-    .watch::<PbrSGMaterialEmissiveComponent>()
-    .into_query_update_storage(offset_of!(Storage, emissive));
-
-  let normal_mapping_scale = global_watch()
-    .watch::<NormalScaleOf<PbrSGMaterialNormalInfo>>()
-    .into_query_update_storage(offset_of!(Storage, normal_mapping_scale));
-
-  let glossiness = global_watch()
-    .watch::<PbrSGMaterialGlossinessComponent>()
-    .into_query_update_storage(offset_of!(Storage, glossiness));
-
-  let alpha = global_watch()
-    .watch::<AlphaOf<PbrSGMaterialAlphaConfig>>()
-    .into_query_update_storage(offset_of!(Storage, alpha));
-
-  create_reactive_storage_buffer_container(128, u32::MAX, cx)
-    .with_source(albedo)
-    .with_source(emissive)
-    .with_source(normal_mapping_scale)
-    .with_source(glossiness)
-    .with_source(alpha)
-}
 
 #[repr(C)]
 #[std430_layout]
@@ -118,20 +114,6 @@ pub struct PhysicalSpecularGlossinessMaterialTextureHandlesStorage {
 }
 
 type TexStorage = PhysicalSpecularGlossinessMaterialTextureHandlesStorage;
-type PbrSGMaterialTexStorages = ReactiveStorageBufferContainer<TexStorage>;
-
-fn pbr_sg_material_tex_storages(cx: &GPU) -> PbrSGMaterialTexStorages {
-  let c = create_reactive_storage_buffer_container(128, u32::MAX, cx);
-
-  let albedo = offset_of!(TexStorage, albedo_texture);
-  let emissive = offset_of!(TexStorage, emissive_texture);
-  let specular_glossiness = offset_of!(TexStorage, specular_glossiness_texture);
-  let normal = offset_of!(TexStorage, normal_texture);
-  let c = add_tex_watcher::<PbrSGMaterialAlbedoAlphaTex, _>(c, albedo);
-  let c = add_tex_watcher::<PbrSGMaterialEmissiveTex, _>(c, emissive);
-  let c = add_tex_watcher::<PbrSGMaterialSpecularGlossinessTex, _>(c, specular_glossiness);
-  add_tex_watcher::<NormalTexSamplerOf<PbrSGMaterialNormalInfo>, _>(c, normal)
-}
 
 pub struct PhysicalSpecularGlossinessMaterialGPU<'a> {
   storage: &'a StorageBufferReadonlyDataView<[PhysicalSpecularGlossinessMaterialStorage]>,
