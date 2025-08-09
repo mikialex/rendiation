@@ -64,11 +64,11 @@ pub fn use_tex_watcher<T, TexUniform>(
   let sam_offset = std::mem::offset_of!(TextureSamplerHandlePair, sampler_handle);
 
   cx.use_changes::<SceneTexture2dRefOf<T>>()
-    .map(|changes| changes.collective_map(|id| id.map(|v| v.index()).unwrap_or(u32::MAX)))
+    .map(|changes| changes.map_u32_index_or_u32_max())
     .update_uniforms(uniform, offset + tex_offset, cx.gpu);
 
   cx.use_changes::<SceneSamplerRefOf<T>>()
-    .map(|changes| changes.collective_map(|id| id.map(|v| v.index()).unwrap_or(u32::MAX)))
+    .map(|changes| changes.map_u32_index_or_u32_max())
     .update_uniforms(uniform, offset + sam_offset, cx.gpu);
 }
 

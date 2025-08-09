@@ -1,7 +1,7 @@
 use crate::*;
 
 /// abstract batch change container
-/// - removing and mutation is separated, because removing likely be consumed first
+/// - removing and mutation is separated, because removing likely to be consumed first
 /// - not care about previous value
 pub trait DataChanges: Send + Sync + Clone {
   type Key: CKey;
@@ -28,6 +28,23 @@ pub trait DataChanges: Send + Sync + Clone {
       base: self,
       mapper: f,
     }
+  }
+}
+
+impl<K: CKey, V: CValue> DataChanges for EmptyQuery<K, V> {
+  type Key = K;
+  type Value = V;
+
+  fn has_change(&self) -> bool {
+    false
+  }
+
+  fn iter_removed(&self) -> impl Iterator<Item = Self::Key> + '_ {
+    std::iter::empty()
+  }
+
+  fn iter_update_or_insert(&self) -> impl Iterator<Item = (Self::Key, Self::Value)> + '_ {
+    std::iter::empty()
   }
 }
 
@@ -108,15 +125,23 @@ impl<T: DataChanges> DataChanges for Arc<T> {
   }
 }
 
-/// - update/change is linear, accessed by u32 index
-#[derive(Clone, Default)]
-pub struct LinearBatchChanges<T> {
-  pub removed: Vec<u32>,
-  pub update_or_insert: Vec<(u32, T)>,
+#[derive(Clone)]
+pub struct LinearBatchChanges<K, T> {
+  pub removed: Vec<K>,
+  pub update_or_insert: Vec<(K, T)>,
 }
 
-impl<T: CValue> DataChanges for LinearBatchChanges<T> {
-  type Key = u32;
+impl<K, T> Default for LinearBatchChanges<K, T> {
+  fn default() -> Self {
+    Self {
+      removed: Default::default(),
+      update_or_insert: Default::default(),
+    }
+  }
+}
+
+impl<K: CKey, T: CValue> DataChanges for LinearBatchChanges<K, T> {
+  type Key = K;
   type Value = T;
 
   fn has_change(&self) -> bool {
@@ -124,7 +149,7 @@ impl<T: CValue> DataChanges for LinearBatchChanges<T> {
   }
 
   fn iter_removed(&self) -> impl Iterator<Item = Self::Key> + '_ {
-    self.removed.iter().copied()
+    self.removed.iter().cloned()
   }
 
   fn iter_update_or_insert(&self) -> impl Iterator<Item = (Self::Key, Self::Value)> + '_ {
@@ -132,7 +157,30 @@ impl<T: CValue> DataChanges for LinearBatchChanges<T> {
   }
 }
 
-// pub struct TypedLinearBatchChanges<K, T> {
-//   marker: PhantomData<K>,
-//   pub internal: LinearBatchChanges<T>,
-// }
+const DEBUG_CHECK: bool = true;
+
+// todo, avoid spawn no work task
+pub fn collective_selects_changes<X: DataChanges>(
+  changes: impl IntoIterator<Item = X>,
+) -> impl DataChanges<Key = X::Key, Value = X::Value> {
+  let source_changes = changes.into_iter().collect::<Vec<_>>();
+
+  // because it's select, we can assume the key is not overlapping at all
+  if DEBUG_CHECK {
+    // todo
+  }
+
+  let removes = source_changes
+    .iter()
+    .flat_map(|c| c.iter_removed())
+    .collect();
+  let insert = source_changes
+    .iter()
+    .flat_map(|c| c.iter_update_or_insert())
+    .collect();
+
+  Arc::new(LinearBatchChanges {
+    removed: removes,
+    update_or_insert: insert,
+  })
+}

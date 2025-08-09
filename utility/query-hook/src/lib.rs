@@ -24,7 +24,15 @@ pub trait QueryHookCxLike: HooksCxLike {
   fn stage(&mut self) -> QueryHookStage;
   fn pool(&mut self) -> &mut AsyncTaskPool;
 
-  fn use_task_result<R, F>(&mut self, create_task: impl Fn(&TaskSpawner) -> F) -> Option<R>
+  fn use_task_result_by_fn<R, F>(&mut self, create_task: F) -> Option<R>
+  where
+    R: Send + 'static,
+    F: FnOnce() -> R + Send + 'static,
+  {
+    self.use_task_result(|spawner| spawner.spawn_task(create_task))
+  }
+
+  fn use_task_result<R, F>(&mut self, create_task: impl FnOnce(&TaskSpawner) -> F) -> Option<R>
   where
     R: 'static,
     F: Future<Output = R> + Send + 'static,
@@ -51,7 +59,7 @@ pub trait QueryHookCxLike: HooksCxLike {
 
   fn spawn_task_when_update<R, F: Future<Output = R>>(
     &mut self,
-    create_task: impl Fn(&TaskSpawner) -> F,
+    create_task: impl FnOnce(&TaskSpawner) -> F,
   ) -> Option<F> {
     match self.stage() {
       QueryHookStage::SpawnTask { spawner } => {

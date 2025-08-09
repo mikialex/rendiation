@@ -41,7 +41,7 @@ impl DBLinearChangeWatchGroup {
   pub fn get_buffered_changes<C: ComponentSemantic>(
     &mut self,
     id: u32,
-  ) -> Arc<LinearBatchChanges<C::Data>> {
+  ) -> Arc<LinearBatchChanges<u32, C::Data>> {
     let rev = self.producers.entry(C::component_id()).or_insert_with(|| {
       let rev = self.db.access_ecg_dyn(C::Entity::entity_id(), move |e| {
         e.access_component(C::component_id(), move |c| {
@@ -95,7 +95,7 @@ impl DBLinearChangeWatchGroup {
 
     if consumer_ids.contains(&id) {
       changes
-        .downcast_ref::<Arc<LinearBatchChanges<C::Data>>>()
+        .downcast_ref::<Arc<LinearBatchChanges<u32, C::Data>>>()
         .unwrap()
         .clone()
     } else {

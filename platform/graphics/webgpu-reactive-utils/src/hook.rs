@@ -159,7 +159,9 @@ impl<'a> QueryGPUHookCx<'a> {
     }
   }
 
-  pub fn use_changes<C: ComponentSemantic>(&mut self) -> Option<Arc<LinearBatchChanges<C::Data>>> {
+  pub fn use_changes<C: ComponentSemantic>(
+    &mut self,
+  ) -> Option<Arc<LinearBatchChanges<u32, C::Data>>> {
     struct WatchToken(u32, ComponentId);
     impl CanCleanUpFrom<QueryGPUHookDropCx<'_>> for WatchToken {
       fn drop_from_cx(&mut self, cx: &mut QueryGPUHookDropCx<'_>) {
@@ -349,3 +351,13 @@ impl QueryHookCxLike for QueryGPUHookCx<'_> {
     self.task_pool
   }
 }
+
+pub trait ForeignKeyLikeChangesExt: DataChanges<Value = Option<RawEntityHandle>> {
+  fn map_some_u32_index(self) -> impl DataChanges<Key = Self::Key, Value = u32> {
+    self.collective_filter_map(|id| id.map(|v| v.index()))
+  }
+  fn map_u32_index_or_u32_max(self) -> impl DataChanges<Key = Self::Key, Value = u32> {
+    self.collective_map(|id| id.map(|v| v.index()).unwrap_or(u32::MAX))
+  }
+}
+impl<T: DataChanges<Value = Option<RawEntityHandle>>> ForeignKeyLikeChangesExt for T {}
