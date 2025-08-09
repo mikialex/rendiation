@@ -21,8 +21,15 @@ pub enum QueryHookStage<'a> {
 }
 
 pub trait QueryHookCxLike: HooksCxLike {
+  fn is_spawning_stage(&self) -> bool;
   fn stage(&mut self) -> QueryHookStage;
   fn pool(&mut self) -> &mut AsyncTaskPool;
+
+  fn when_spawning_stage(&self, f: impl FnOnce()) {
+    if self.is_spawning_stage() {
+      f();
+    }
+  }
 
   fn use_task_result_by_fn<R, F>(&mut self, create_task: F) -> Option<R>
   where

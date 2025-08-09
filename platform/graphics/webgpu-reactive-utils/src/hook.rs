@@ -340,6 +340,9 @@ pub struct QueryGPUHookDropCx<'a> {
 }
 
 impl QueryHookCxLike for QueryGPUHookCx<'_> {
+  fn is_spawning_stage(&self) -> bool {
+    matches!(&self.stage, GPUQueryHookStage::Update { .. })
+  }
   fn stage(&mut self) -> QueryHookStage {
     match &mut self.stage {
       GPUQueryHookStage::Update { spawner } => QueryHookStage::SpawnTask { spawner },

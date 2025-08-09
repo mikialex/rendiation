@@ -143,15 +143,14 @@ pub fn use_std_model_renderer(
   let material_pbr_mr = cx.use_changes::<StandardModelRefPbrMRMaterial>();
   let material_pbr_sg = cx.use_changes::<StandardModelRefPbrSGMaterial>();
 
-  if let Some(merged_changes) = cx.use_task_result_by_fn(|| {
-    collective_selects_changes([
+  cx.when_spawning_stage(|| {
+    SelectChanges([
       material_flat.unwrap().map_some_u32_index(),
       material_pbr_mr.unwrap().map_some_u32_index(),
       material_pbr_sg.unwrap().map_some_u32_index(),
     ])
-  }) {
-    merged_changes.update_storage_array(std_model, offset_of!(SceneStdModelStorage, material));
-  }
+    .update_storage_array(std_model, offset_of!(SceneStdModelStorage, material));
+  });
 
   cx.when_render(|| SceneStdModelIndirectRenderer {
     model: global_entity_component_of::<SceneModelStdModelRenderPayload>().read_foreign_key(),
