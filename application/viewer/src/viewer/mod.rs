@@ -291,6 +291,7 @@ pub struct Viewer {
   render_resource: ReactiveQueryCtx,
   task_pool: AsyncTaskPool,
   render_db_linear_changes: DBLinearChangeWatchGroup,
+  render_db_query_changes: DBQueryChangeWatchGroup,
   task_spawner: TaskSpawner,
 }
 
@@ -391,6 +392,7 @@ impl Viewer {
       render_memory: Default::default(),
       render_resource: Default::default(),
       render_db_linear_changes: DBLinearChangeWatchGroup::new(&global_database()),
+      render_db_query_changes: DBQueryChangeWatchGroup::new(&global_database()),
       task_pool: Default::default(),
       task_spawner: TaskSpawner::new("viewer_task_worker", None),
     }
@@ -403,6 +405,7 @@ impl Viewer {
       &mut self.task_pool,
       &self.task_spawner,
       &mut self.render_db_linear_changes,
+      &mut self.render_db_query_changes,
     );
 
     let scene_derive = self.derives.poll_update();
@@ -415,6 +418,7 @@ impl Viewer {
       &mut self.render_resource,
       &mut self.task_pool,
       &mut self.render_db_linear_changes,
+      &mut self.render_db_query_changes,
     );
 
     self.rendering.tick_frame();

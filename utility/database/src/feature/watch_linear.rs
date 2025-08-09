@@ -1,41 +1,28 @@
 use crate::*;
 
 pub struct DBLinearChangeWatchGroup {
-  producers: FastHashMap<ComponentId, Box<dyn Any + Send + Sync>>,
-  consumers: FastHashMap<ComponentId, FastHashSet<u32>>,
-  current_results: FastHashMap<ComponentId, Box<dyn Any + Send + Sync>>,
-  next_consumer_id: u32,
-  pub(crate) db: Database,
+  internal: DBChangeWatchGroup,
 }
 
 impl DBLinearChangeWatchGroup {
   pub fn new(db: &Database) -> Self {
     Self {
-      producers: Default::default(),
-      consumers: Default::default(),
-      current_results: Default::default(),
-      next_consumer_id: 0,
-      db: db.clone(),
+      internal: DBChangeWatchGroup::new(db),
     }
   }
 
   pub fn clear_changes(&mut self) {
-    self.current_results.clear();
+    self.internal.clear_changes();
   }
 
   pub fn allocate_next_consumer_id(&mut self) -> u32 {
-    self.next_consumer_id += 1;
-    self.next_consumer_id
+    self.internal.allocate_next_consumer_id()
   }
 
   pub fn notify_consumer_dropped(&mut self, component_id: ComponentId, consumer_id: u32) {
-    let consumers = self.consumers.get_mut(&component_id).unwrap();
-    let removed = consumers.remove(&consumer_id);
-    assert!(removed);
-    if consumers.is_empty() {
-      self.producers.remove(&component_id); // stop the watch
-      self.consumers.remove(&component_id);
-    }
+    self
+      .internal
+      .notify_consumer_dropped(component_id, consumer_id);
   }
 
   pub fn get_buffered_changes<C: ComponentSemantic>(
@@ -52,8 +39,8 @@ impl DBLinearChangeWatchGroup {
     e_id: EntityId,
     c_id: ComponentId,
   ) -> Arc<LinearBatchChanges<u32, T>> {
-    let rev = self.producers.entry(c_id).or_insert_with(|| {
-      let rev = self.db.access_ecg_dyn(e_id, move |e| {
+    let rev = self.internal.producers.entry(c_id).or_insert_with(|| {
+      let rev = self.internal.db.access_ecg_dyn(e_id, move |e| {
         e.access_component(c_id, move |c| {
           add_listen(
             ComponentAccess {
@@ -73,32 +60,36 @@ impl DBLinearChangeWatchGroup {
       .downcast_mut::<CollectiveMutationReceiver<RawEntityHandle, T>>()
       .unwrap();
 
-    let consumer_ids = self.consumers.entry(c_id).or_default();
+    let consumer_ids = self.internal.consumers.entry(c_id).or_default();
 
-    let changes = self.current_results.entry(c_id).or_insert_with(|| {
-      noop_ctx!(cx);
+    let changes = self
+      .internal
+      .current_results
+      .entry(c_id)
+      .or_insert_with(|| {
+        noop_ctx!(cx);
 
-      // todo, use special listen avoid this cost
-      let changes = if let Poll::Ready(Some(r)) = rev.poll_impl(cx) {
-        let removed = r
-          .iter()
-          .filter_map(|v| v.1.is_removed().then_some(v.0.index()))
-          .collect::<Vec<_>>();
+        // todo, use special listen avoid this cost
+        let changes = if let Poll::Ready(Some(r)) = rev.poll_impl(cx) {
+          let removed = r
+            .iter()
+            .filter_map(|v| v.1.is_removed().then_some(v.0.index()))
+            .collect::<Vec<_>>();
 
-        let update_or_insert = r
-          .iter()
-          .filter_map(|v| v.1.new_value().map(|x| (v.0.index(), x.clone())))
-          .collect::<Vec<_>>();
+          let update_or_insert = r
+            .iter()
+            .filter_map(|v| v.1.new_value().map(|x| (v.0.index(), x.clone())))
+            .collect::<Vec<_>>();
 
-        LinearBatchChanges {
-          removed,
-          update_or_insert,
-        }
-      } else {
-        Default::default()
-      };
-      Box::new(Arc::new(changes))
-    });
+          LinearBatchChanges {
+            removed,
+            update_or_insert,
+          }
+        } else {
+          Default::default()
+        };
+        Box::new(Arc::new(changes))
+      });
 
     if consumer_ids.contains(&id) {
       changes
@@ -109,7 +100,7 @@ impl DBLinearChangeWatchGroup {
       consumer_ids.insert(id);
       // for any new watch created we emit full table
 
-      let update_or_insert = self.db.access_ecg_dyn(e_id, move |e| {
+      let update_or_insert = self.internal.db.access_ecg_dyn(e_id, move |e| {
         e.access_component(c_id, move |c| {
           ComponentAccess {
             ecg: e.clone(),

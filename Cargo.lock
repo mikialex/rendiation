@@ -3267,11 +3267,8 @@ dependencies = [
  "parking_lot",
  "query",
  "rayon",
- "rendiation-abstract-tree",
- "serde",
  "storage",
  "tracing",
- "xalloc",
 ]
 
 [[package]]
