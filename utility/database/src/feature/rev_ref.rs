@@ -3,7 +3,7 @@ use crate::*;
 #[derive(Clone)]
 pub struct DatabaseEntityReverseReference {
   mutation_watcher: DatabaseMutationWatch,
-  entity_rev_refs: Arc<RwLock<StreamMap<ComponentId, Box<dyn Any + Send + Sync>>>>,
+  entity_rev_refs: Arc<RwLock<FastHashMap<ComponentId, Box<dyn Any + Send + Sync>>>>,
 }
 
 impl DataBaseFeature for DatabaseEntityReverseReference {

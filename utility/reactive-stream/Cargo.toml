@@ -4,8 +4,6 @@ name = "reactive-stream"
 version = "0.0.1"
 
 [dependencies]
-crossbeam-queue = "0.3.8"
-fast-hash-collection = { path = "../fast-hash-collection" }
 parking_lot = { workspace = true }
 futures = { workspace = true }
 pin-project = { workspace = true }

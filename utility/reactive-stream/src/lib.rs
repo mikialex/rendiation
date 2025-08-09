@@ -6,8 +6,6 @@ use core::{
 };
 use std::sync::{Arc, Weak};
 
-use crossbeam_queue::SegQueue;
-use fast_hash_collection::*;
 use futures::stream::FusedStream;
 use futures::task::AtomicWaker;
 use futures::Stream;
@@ -17,9 +15,6 @@ use pin_project::pin_project;
 
 mod signal_stream;
 pub use signal_stream::*;
-
-mod vec;
-pub use vec::*;
 
 mod poll_utils;
 pub use poll_utils::*;
@@ -41,6 +36,3 @@ pub use broadcast::*;
 
 mod notify_scope;
 pub use notify_scope::*;
-
-mod map;
-pub use map::*;
