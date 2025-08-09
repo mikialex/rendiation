@@ -12,10 +12,6 @@ mod task_pool;
 use hook::HooksCxLike;
 pub use task_pool::*;
 
-pub struct QueryHookCx<'a> {
-  pub task_pool: &'a mut AsyncTaskPool,
-}
-
 pub enum QueryHookStage<'a> {
   SpawnTask { spawner: &'a TaskSpawner },
   ResolveTask { task: &'a mut TaskPoolResultCx },

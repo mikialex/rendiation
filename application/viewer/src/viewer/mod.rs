@@ -261,17 +261,7 @@ pub fn use_viewer<'a>(
   }
   .execute(|viewer| f(viewer), true);
 
-  viewer.rendering.update_registry(
-    &mut viewer.render_memory,
-    &mut viewer.render_resource,
-    &mut viewer.task_pool,
-    &viewer.task_spawner,
-    &mut viewer.render_db_linear_changes,
-  );
-
-  let derived = viewer.derives.poll_update();
-  viewer.draw_canvas(&acx.draw_target_canvas, &derived);
-  viewer.rendering.tick_frame();
+  viewer.draw_canvas(&acx.draw_target_canvas);
 
   ViewerCx {
     viewer,
@@ -406,16 +396,28 @@ impl Viewer {
     }
   }
 
-  pub fn draw_canvas(&mut self, canvas: &RenderTargetView, scene_derive: &Viewer3dSceneDerive) {
+  pub fn draw_canvas(&mut self, canvas: &RenderTargetView) {
+    self.rendering.update_registry(
+      &mut self.render_memory,
+      &mut self.render_resource,
+      &mut self.task_pool,
+      &self.task_spawner,
+      &mut self.render_db_linear_changes,
+    );
+
+    let scene_derive = self.derives.poll_update();
+
     self.rendering.render(
       canvas,
       &self.scene,
-      scene_derive,
+      &scene_derive,
       &mut self.render_memory,
       &mut self.render_resource,
       &mut self.task_pool,
       &mut self.render_db_linear_changes,
-    )
+    );
+
+    self.rendering.tick_frame();
   }
 }
 
