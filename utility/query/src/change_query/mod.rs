@@ -10,6 +10,13 @@ pub trait DataChanges: Send + Sync + Clone {
   fn iter_removed(&self) -> impl Iterator<Item = Self::Key> + '_;
   fn iter_update_or_insert(&self) -> impl Iterator<Item = (Self::Key, Self::Value)> + '_;
 
+  fn materialize(self) -> Arc<LinearBatchChanges<Self::Key, Self::Value>> {
+    Arc::new(LinearBatchChanges {
+      removed: self.iter_removed().collect(),
+      update_or_insert: self.iter_update_or_insert().collect(),
+    })
+  }
+
   fn collective_map<V: CValue>(
     self,
     f: impl Fn(Self::Value) -> V + Clone + Send + Sync + 'static,
@@ -157,30 +164,59 @@ impl<K: CKey, T: CValue> DataChanges for LinearBatchChanges<K, T> {
   }
 }
 
+#[allow(dead_code)]
 const DEBUG_CHECK: bool = true;
 
-// todo, avoid spawn no work task
-pub fn collective_selects_changes<X: DataChanges>(
-  changes: impl IntoIterator<Item = X>,
-) -> impl DataChanges<Key = X::Key, Value = X::Value> {
-  let source_changes = changes.into_iter().collect::<Vec<_>>();
+pub trait IteratorProvider {
+  type Item;
+  fn create_iter(&self) -> impl Iterator<Item = &Self::Item> + '_;
+}
 
-  // because it's select, we can assume the key is not overlapping at all
-  if DEBUG_CHECK {
-    // todo
+impl<T, const N: usize> IteratorProvider for [T; N] {
+  type Item = T;
+
+  fn create_iter(&self) -> impl Iterator<Item = &Self::Item> + '_ {
+    self.iter()
+  }
+}
+
+#[derive(Clone)]
+pub struct SelectChanges<T>(pub T);
+
+impl<T> DataChanges for SelectChanges<T>
+where
+  T: IteratorProvider + Clone + Send + Sync,
+  T::Item: DataChanges,
+{
+  type Key = <T::Item as DataChanges>::Key;
+  type Value = <T::Item as DataChanges>::Value;
+
+  fn has_change(&self) -> bool {
+    self.0.clone().create_iter().all(|c| c.has_change())
   }
 
-  let removes = source_changes
-    .iter()
-    .flat_map(|c| c.iter_removed())
-    .collect();
-  let insert = source_changes
-    .iter()
-    .flat_map(|c| c.iter_update_or_insert())
-    .collect();
+  fn iter_removed(&self) -> impl Iterator<Item = Self::Key> + '_ {
+    if DEBUG_CHECK {
+      let mut keys_check = FastHashSet::default();
+      for s in self.0.create_iter() {
+        for r in s.iter_removed() {
+          assert!(keys_check.insert(r))
+        }
+      }
+    }
+    self.0.create_iter().flat_map(|c| c.iter_removed())
+  }
 
-  Arc::new(LinearBatchChanges {
-    removed: removes,
-    update_or_insert: insert,
-  })
+  fn iter_update_or_insert(&self) -> impl Iterator<Item = (Self::Key, Self::Value)> + '_ {
+    if DEBUG_CHECK {
+      let mut keys_check = FastHashSet::default();
+      keys_check.clear();
+      for s in self.0.create_iter() {
+        for (r, _) in s.iter_update_or_insert() {
+          assert!(keys_check.insert(r))
+        }
+      }
+    }
+    self.0.create_iter().flat_map(|c| c.iter_update_or_insert())
+  }
 }
