@@ -66,13 +66,13 @@ pub fn use_tex_watcher<T, TexStorage>(
 
   if let Some(change) = cx.use_changes::<SceneTexture2dRefOf<T>>() {
     change
-      .collective_map(|id| id.map(|v| v.index()).unwrap_or(u32::MAX))
+      .map_u32_index_or_u32_max()
       .update_storage_array(storage, offset + tex_offset);
   }
 
   if let Some(change) = cx.use_changes::<SceneSamplerRefOf<T>>() {
     change
-      .collective_map(|id| id.map(|v| v.index()).unwrap_or(u32::MAX))
+      .map_u32_index_or_u32_max()
       .update_storage_array(storage, offset + sam_offset);
   }
 }

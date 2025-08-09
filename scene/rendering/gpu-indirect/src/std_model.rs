@@ -131,13 +131,33 @@ pub fn use_std_model_renderer(
   materials: Option<Box<dyn IndirectModelMaterialRenderImpl>>,
   shapes: Option<Box<dyn IndirectModelShapeRenderImpl>>,
 ) -> Option<SceneStdModelIndirectRenderer> {
-  let std_model = cx.use_storage_buffer(std_model_data);
+  let (cx, std_model) = cx.use_storage_buffer2(128, u32::MAX);
+
+  if let Some(mesh) = cx.use_changes::<StandardModelRefAttributesMeshEntity>() {
+    mesh
+      .map_u32_index_or_u32_max()
+      .update_storage_array(std_model, offset_of!(SceneStdModelStorage, mesh));
+  }
+
+  let material_flat = cx.use_changes::<StandardModelRefUnlitMaterial>();
+  let material_pbr_mr = cx.use_changes::<StandardModelRefPbrMRMaterial>();
+  let material_pbr_sg = cx.use_changes::<StandardModelRefPbrSGMaterial>();
+
+  if let Some(merged_changes) = cx.use_task_result_by_fn(|| {
+    collective_selects_changes([
+      material_flat.unwrap().map_some_u32_index(),
+      material_pbr_mr.unwrap().map_some_u32_index(),
+      material_pbr_sg.unwrap().map_some_u32_index(),
+    ])
+  }) {
+    merged_changes.update_storage_array(std_model, offset_of!(SceneStdModelStorage, material));
+  }
 
   cx.when_render(|| SceneStdModelIndirectRenderer {
     model: global_entity_component_of::<SceneModelStdModelRenderPayload>().read_foreign_key(),
     materials: materials.unwrap(),
     shapes: shapes.unwrap(),
-    std_model: std_model.unwrap(),
+    std_model: std_model.get_gpu_buffer(),
   })
 }
 
