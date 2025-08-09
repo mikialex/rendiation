@@ -2,6 +2,7 @@ mod label;
 mod rev_ref;
 mod serialization;
 mod watch;
+mod watch_group;
 mod watch_linear;
 mod watch_query;
 
@@ -9,6 +10,7 @@ pub use label::*;
 pub use rev_ref::*;
 pub use serialization::*;
 pub use watch::*;
+pub(crate) use watch_group::*;
 pub use watch_linear::*;
 pub use watch_query::*;
 
