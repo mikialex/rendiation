@@ -1,6 +1,6 @@
 use crate::*;
 
-pub struct DBLinearChangeWatchGroup {
+pub struct DBQueryChangeWatchGroup {
   producers: FastHashMap<ComponentId, Box<dyn Any + Send + Sync>>,
   consumers: FastHashMap<ComponentId, FastHashSet<u32>>,
   current_results: FastHashMap<ComponentId, Box<dyn Any + Send + Sync>>,
@@ -8,7 +8,11 @@ pub struct DBLinearChangeWatchGroup {
   pub(crate) db: Database,
 }
 
-impl DBLinearChangeWatchGroup {
+type DBView<V> = IterableComponentReadViewChecked<V>;
+type DBChange<V> = Arc<FastHashMap<RawEntityHandle, ValueChange<V>>>;
+type DBComputeView<V> = (DBView<V>, DBChange<V>);
+
+impl DBQueryChangeWatchGroup {
   pub fn new(db: &Database) -> Self {
     Self {
       producers: Default::default(),
@@ -38,20 +42,17 @@ impl DBLinearChangeWatchGroup {
     }
   }
 
-  pub fn get_buffered_changes<C: ComponentSemantic>(
-    &mut self,
-    id: u32,
-  ) -> Arc<LinearBatchChanges<u32, C::Data>> {
+  pub fn get_buffered_changes<C: ComponentSemantic>(&mut self, id: u32) -> DBComputeView<C::Data> {
     self.get_buffered_changes_internal(id, C::Entity::entity_id(), C::component_id())
   }
 
   #[inline(never)] // remove the variant of component semantic to reduce the binary bloat
-  pub fn get_buffered_changes_internal<T: CValue>(
+  fn get_buffered_changes_internal<T: CValue>(
     &mut self,
     id: u32,
     e_id: EntityId,
     c_id: ComponentId,
-  ) -> Arc<LinearBatchChanges<u32, T>> {
+  ) -> DBComputeView<T> {
     let rev = self.producers.entry(c_id).or_insert_with(|| {
       let rev = self.db.access_ecg_dyn(e_id, move |e| {
         e.access_component(c_id, move |c| {
@@ -78,56 +79,39 @@ impl DBLinearChangeWatchGroup {
     let changes = self.current_results.entry(c_id).or_insert_with(|| {
       noop_ctx!(cx);
 
-      // todo, use special listen avoid this cost
-      let changes = if let Poll::Ready(Some(r)) = rev.poll_impl(cx) {
-        let removed = r
-          .iter()
-          .filter_map(|v| v.1.is_removed().then_some(v.0.index()))
-          .collect::<Vec<_>>();
-
-        let update_or_insert = r
-          .iter()
-          .filter_map(|v| v.1.new_value().map(|x| (v.0.index(), x.clone())))
-          .collect::<Vec<_>>();
-
-        LinearBatchChanges {
-          removed,
-          update_or_insert,
-        }
+      let changes = if let Poll::Ready(Some(changes)) = rev.poll_impl(cx) {
+        changes
       } else {
         Default::default()
       };
       Box::new(Arc::new(changes))
     });
 
+    let full_view = self
+      .db
+      .access_ecg_dyn(e_id, |ecg| {
+        ecg.access_component(c_id, |c| IterableComponentReadViewChecked {
+          ecg: ecg.clone(),
+          read_view: c.read_untyped(),
+          phantom: PhantomData,
+        })
+      })
+      .unwrap();
+
     if consumer_ids.contains(&id) {
-      changes
-        .downcast_ref::<Arc<LinearBatchChanges<u32, T>>>()
-        .unwrap()
-        .clone()
+      let changes = changes.downcast_ref::<DBChange<T>>().unwrap().clone();
+
+      (full_view, changes)
     } else {
       consumer_ids.insert(id);
       // for any new watch created we emit full table
 
-      let update_or_insert = self.db.access_ecg_dyn(e_id, move |e| {
-        e.access_component(c_id, move |c| {
-          ComponentAccess {
-            ecg: e.clone(),
-            original: c.clone(),
-            phantom: PhantomData::<T>,
-          }
-          .access()
-          .iter_key_value()
-          .map(|(k, v): (RawEntityHandle, T)| (k.index(), v.clone()))
-          .collect::<Vec<_>>()
-        })
-        .unwrap()
-      });
+      let full_view_as_delta = full_view
+        .iter_key_value()
+        .map(|(k, v)| (k, ValueChange::Delta(v, None)))
+        .collect::<FastHashMap<_, _>>();
 
-      Arc::new(LinearBatchChanges {
-        removed: Default::default(),
-        update_or_insert,
-      })
+      (full_view, Arc::new(full_view_as_delta))
     }
   }
 }
