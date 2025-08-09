@@ -1,5 +1,6 @@
 use std::any::Any;
 use std::future::Future;
+use std::ops::Deref;
 use std::pin::Pin;
 
 use fast_hash_collection::*;
@@ -33,7 +34,7 @@ pub trait QueryHookCxLike: HooksCxLike {
 
   fn use_task_result_by_fn<R, F>(&mut self, create_task: F) -> Option<R>
   where
-    R: Send + 'static,
+    R: Clone + Send + 'static,
     F: FnOnce() -> R + Send + 'static,
   {
     self.use_task_result(|spawner| spawner.spawn_task(create_task))
@@ -41,7 +42,7 @@ pub trait QueryHookCxLike: HooksCxLike {
 
   fn use_task_result<R, F>(&mut self, create_task: impl FnOnce(&TaskSpawner) -> F) -> Option<R>
   where
-    R: 'static,
+    R: Clone + 'static,
     F: Future<Output = R> + Send + 'static,
   {
     let task = self.spawn_task_when_update(create_task);
@@ -57,9 +58,12 @@ pub trait QueryHookCxLike: HooksCxLike {
           .token_based_result
           .remove(token)
           .unwrap()
-          .downcast()
-          .unwrap();
-        Some(*result)
+          .deref()
+          .as_any()
+          .downcast_ref::<R>()
+          .unwrap()
+          .clone(); // todo this is not good
+        Some(result)
       }
     }
   }

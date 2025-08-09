@@ -15,6 +15,7 @@ parking_lot = { workspace = true }
 serde = { workspace = true }
 rayon = { workspace = true }
 hook = { path = "../hook" }
+dyn-clone = { workspace = true }
 
 [lints]
 workspace = true

@@ -1,3 +1,6 @@
+use dyn_clone::DynClone;
+use futures::future::Shared;
+
 use crate::*;
 
 pub struct TaskSpawner {
@@ -33,25 +36,52 @@ impl TaskSpawner {
   }
 }
 
+pub trait AnyClone: Any + DynClone + 'static {
+  fn as_any(&self) -> &dyn Any;
+}
+impl<T> AnyClone for T
+where
+  T: Any + DynClone,
+{
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
+}
+impl Clone for Box<dyn AnyClone> {
+  fn clone(&self) -> Self {
+    dyn_clone::clone_box(&**self)
+  }
+}
+
 #[derive(Default)]
 pub struct AsyncTaskPool {
-  registry: FastHashMap<u32, Pin<Box<dyn Future<Output = Box<dyn Any>>>>>,
+  registry: FastHashMap<u32, Shared<Pin<Box<dyn Future<Output = Box<dyn AnyClone>> + Send>>>>,
   next: u32,
 }
 
 #[derive(Default)]
 pub struct TaskPoolResultCx {
-  pub token_based_result: FastHashMap<u32, Box<dyn Any>>,
+  pub token_based_result: FastHashMap<u32, Box<dyn AnyClone>>,
 }
 
 impl AsyncTaskPool {
-  pub fn install_task<T: 'static>(
+  pub fn share_task_by_id(
+    &self,
+    id: u32,
+  ) -> Shared<Pin<Box<dyn Future<Output = Box<dyn AnyClone>> + Send>>> {
+    self.registry.get(&id).unwrap().clone()
+  }
+
+  pub fn install_task<T: 'static + Clone>(
     &mut self,
     task: impl Future<Output = T> + Send + 'static,
   ) -> u32 {
     self.next += 1;
 
-    let task = task.map(|v| Box::new(v) as Box<dyn Any>).boxed();
+    let task = task
+      .map(|v| Box::new(v) as Box<dyn AnyClone>)
+      .boxed()
+      .shared();
 
     self.registry.insert(self.next, task);
     self.next
