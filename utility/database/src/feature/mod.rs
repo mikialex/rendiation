@@ -51,3 +51,6 @@ pub struct DBForeignKeySharedRevRefs {
 pub type RevRefContainer<K, V> = Arc<RwLock<FastHashMap<K, FastHashSet<V>>>>;
 pub type RevRefContainerRead<K, V> = LockReadGuardHolder<FastHashMap<K, FastHashSet<V>>>;
 pub type RevRefForeignKey = RevRefContainerRead<RawEntityHandle, RawEntityHandle>;
+
+pub type RevRefForeignTriQuery =
+  TriQuery<DBView<RawEntityHandle>, DBChange<RawEntityHandle>, RevRefForeignKey>;

@@ -78,13 +78,14 @@ impl AsyncTaskPool {
   pub fn share_task_by_id<T: Clone + Any>(
     &self,
     id: u32,
-  ) -> impl Future<Output = T> + Send + 'static {
-    self
+  ) -> Box<dyn Future<Output = T> + Send + Unpin + 'static> {
+    let f = self
       .registry
       .get(&id)
       .unwrap()
       .clone()
-      .map(|v| v.deref().as_any().downcast_ref::<T>().unwrap().clone()) // todo bad
+      .map(|v| v.deref().as_any().downcast_ref::<T>().unwrap().clone()); // todo bad
+    Box::new(f)
   }
 
   pub fn install_task<T: 'static + Clone + Sync + Send>(
