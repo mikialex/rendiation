@@ -1,3 +1,6 @@
+mod delta_as_change;
+pub use delta_as_change::*;
+
 use crate::*;
 
 /// abstract batch change container
