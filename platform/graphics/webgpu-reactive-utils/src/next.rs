@@ -18,30 +18,19 @@ pub trait DataChangeGPUExt {
   );
 }
 
-pub trait DataChangeGPUExtOptionHelper {
-  fn update_uniforms<K: LinearIdentification + CKey, U: Std140 + Default>(
-    &self,
-    uniforms: &UniformBufferCollection<K, U>,
-    offset: usize,
-    gpu: &GPU,
-  );
-
-  fn update_storage_array<U: Std430 + Default>(
-    &self,
-    storage: &mut CommonStorageBufferImpl<U>,
-    field_offset: usize,
-  );
-}
-impl<T: DataChangeGPUExt> DataChangeGPUExtOptionHelper for Option<T> {
+impl<T: DataChangeGPUExt> DataChangeGPUExt for UseResult<T> {
   fn update_uniforms<K: LinearIdentification + CKey, U: Std140 + Default>(
     &self,
     uniforms: &UniformBufferCollection<K, U>,
     offset: usize,
     gpu: &GPU,
   ) {
-    if let Some(t) = self {
-      t.update_uniforms(uniforms, offset, gpu);
-    }
+    let r = match self {
+      UseResult::SpawnStageReady(r) => r,
+      UseResult::ResolveStageReady(r) => r,
+      _ => return,
+    };
+    r.update_uniforms(uniforms, offset, gpu);
   }
 
   fn update_storage_array<U: Std430 + Default>(
@@ -49,9 +38,12 @@ impl<T: DataChangeGPUExt> DataChangeGPUExtOptionHelper for Option<T> {
     storage: &mut CommonStorageBufferImpl<U>,
     field_offset: usize,
   ) {
-    if let Some(t) = self {
-      t.update_storage_array(storage, field_offset);
-    }
+    let r = match self {
+      UseResult::SpawnStageReady(r) => r,
+      UseResult::ResolveStageReady(r) => r,
+      _ => return,
+    };
+    r.update_storage_array(storage, field_offset);
   }
 }
 

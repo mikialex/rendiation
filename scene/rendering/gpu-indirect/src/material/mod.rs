@@ -64,17 +64,13 @@ pub fn use_tex_watcher<T, TexStorage>(
   let tex_offset = std::mem::offset_of!(TextureSamplerHandlePair, texture_handle);
   let sam_offset = std::mem::offset_of!(TextureSamplerHandlePair, sampler_handle);
 
-  if let Some(change) = cx.use_changes::<SceneTexture2dRefOf<T>>() {
-    change
-      .map_u32_index_or_u32_max()
-      .update_storage_array(storage, offset + tex_offset);
-  }
+  cx.use_changes::<SceneTexture2dRefOf<T>>()
+    .map(|change| change.map_u32_index_or_u32_max())
+    .update_storage_array(storage, offset + tex_offset);
 
-  if let Some(change) = cx.use_changes::<SceneSamplerRefOf<T>>() {
-    change
-      .map_u32_index_or_u32_max()
-      .update_storage_array(storage, offset + sam_offset);
-  }
+  cx.use_changes::<SceneSamplerRefOf<T>>()
+    .map(|change| change.map_u32_index_or_u32_max())
+    .update_storage_array(storage, offset + sam_offset);
 }
 
 pub fn add_tex_watcher<T, TexStorage>(
