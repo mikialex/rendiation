@@ -13,8 +13,11 @@ pub use union::*;
 mod chain;
 pub use chain::*;
 
-pub trait QueryExt: Query + Sized + 'static {
-  fn into_boxed(self) -> BoxedDynQuery<Self::Key, Self::Value> {
+pub trait QueryExt: Query + Sized {
+  fn into_boxed(self) -> BoxedDynQuery<Self::Key, Self::Value>
+  where
+    Self: 'static,
+  {
     Box::new(self)
   }
 
@@ -64,7 +67,7 @@ pub trait QueryExt: Query + Sized + 'static {
     ChainQuery { first: self, next }
   }
 }
-impl<T: ?Sized> QueryExt for T where Self: Query + Sized + 'static {}
+impl<T: ?Sized> QueryExt for T where Self: Query + Sized {}
 
 #[derive(Clone, Copy)]
 pub struct AutoSomeFnResult<F>(pub F);

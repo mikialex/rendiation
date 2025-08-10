@@ -1,5 +1,6 @@
 use ::hook::*;
 use database::*;
+use futures::*;
 
 use crate::*;
 
@@ -39,7 +40,7 @@ pub enum UseResult<T> {
   NotInStage,
 }
 
-impl<T: 'static> UseResult<T> {
+impl<T: Send + 'static> UseResult<T> {
   pub fn map<U>(self, f: impl FnOnce(T) -> U + Send + 'static) -> UseResult<U> {
     use futures::FutureExt;
     match self {
@@ -50,9 +51,52 @@ impl<T: 'static> UseResult<T> {
     }
   }
 
+  pub fn into_future(self) -> Box<dyn Future<Output = T> + Unpin + Send> {
+    match self {
+      UseResult::SpawnStageFuture(future) => future,
+      UseResult::SpawnStageReady(r) => {
+        let future = std::future::ready(r);
+        Box::new(future)
+      }
+      _ => panic!("stage not match"),
+    }
+  }
+
+  pub fn join<U: Send + 'static>(self, other: UseResult<U>) -> UseResult<(T, U)> {
+    if self.is_resolve_stage() && other.is_resolve_stage() {
+      return UseResult::ResolveStageReady((
+        self.into_resolve_stage().unwrap(),
+        other.into_resolve_stage().unwrap(),
+      ));
+    }
+
+    let a = self.into_future();
+    let b = other.into_future();
+
+    UseResult::SpawnStageFuture(Box::new(futures::future::join(a, b)))
+  }
+
+  pub fn into_resolve_stage(self) -> Option<T> {
+    match self {
+      UseResult::ResolveStageReady(t) => Some(t),
+      _ => None,
+    }
+  }
+
+  pub fn is_resolve_stage(&self) -> bool {
+    matches!(self, UseResult::ResolveStageReady(_))
+  }
+
   pub fn expect_resolve_stage(self) -> T {
     match self {
       UseResult::ResolveStageReady(t) => t,
+      _ => panic!("expect spawn stage ready"),
+    }
+  }
+
+  pub fn expect_spawn_stage_future(self) -> Box<dyn Future<Output = T> + Unpin + Send> {
+    match self {
+      UseResult::SpawnStageFuture(t) => t,
       _ => panic!("expect spawn stage ready"),
     }
   }
@@ -85,12 +129,6 @@ impl<T: 'static> UseResult<T> {
   {
     self.map(|t| t.collective_map(f))
   }
-}
-
-pub enum QueryStageResult<T, U> {
-  Update(T),
-  Result(U),
-  Others,
 }
 
 unsafe impl<'a> HooksCxLike for QueryGPUHookCx<'a> {
@@ -274,9 +312,25 @@ impl<'a> QueryGPUHookCx<'a> {
   }
 
   #[track_caller]
-  pub fn use_db_rev_ref<C: ForeignKeySemantic>(
+  pub fn use_db_rev_ref_tri_view<C: ForeignKeySemantic>(
     &mut self,
-  ) -> QueryStageResult<impl Future<Output = RevRefForeignKey>, RevRefForeignKey> {
+  ) -> UseResult<RevRefForeignTriQuery> {
+    todo!()
+    // let rev_many_view = self.use_db_rev_ref::<C>().expect_spawn_stage_future();
+    // let changes = self.use_query_change::<C>().expect_spawn_stage_ready();
+    // UseResult::SpawnStageFuture(Box::new(rev_many_view.map(move |rev_many_view| {
+    //   RevRefForeignTriQuery {
+    //     base: DualQuery {
+    //       view: get_db_view::<C>(),
+    //       delta: changes,
+    //     },
+    //     rev_many_view,
+    //   }
+    // })))
+  }
+
+  #[track_caller]
+  pub fn use_db_rev_ref<C: ForeignKeySemantic>(&mut self) -> UseResult<RevRefForeignKey> {
     if let Some(task_id) = self
       .db_shared_rev_ref
       .task_id_mapping
@@ -284,10 +338,10 @@ impl<'a> QueryGPUHookCx<'a> {
     {
       return match &self.stage {
         GPUQueryHookStage::Update { task_pool, .. } => {
-          QueryStageResult::Update(task_pool.share_task_by_id(*task_id))
+          UseResult::SpawnStageFuture(task_pool.share_task_by_id(*task_id))
         }
         GPUQueryHookStage::CreateRender { task, .. } => {
-          QueryStageResult::Result(task.expect_result_by_id(*task_id))
+          UseResult::ResolveStageReady(task.expect_result_by_id(*task_id))
         }
       };
     } else {
