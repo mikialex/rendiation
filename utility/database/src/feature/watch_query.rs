@@ -4,9 +4,9 @@ pub struct DBQueryChangeWatchGroup {
   internal: DBChangeWatchGroup,
 }
 
-// pub type DBView<V> = IterableComponentReadViewChecked<V>;
+pub type DBView<V> = IterableComponentReadViewChecked<V>;
 pub type DBChange<V> = Arc<FastHashMap<RawEntityHandle, ValueChange<V>>>;
-// pub type DBComputeView<V> = (DBView<V>, DBChange<V>);
+pub type DBDualQuery<V> = DualQuery<DBView<V>, DBChange<V>>;
 
 impl DBQueryChangeWatchGroup {
   pub fn new(db: &Database) -> Self {
@@ -86,17 +86,7 @@ impl DBQueryChangeWatchGroup {
       consumer_ids.insert(id);
       // for any new watch created we emit full table
 
-      let full_view = self
-        .internal
-        .db
-        .access_ecg_dyn(e_id, |ecg| {
-          ecg.access_component(c_id, |c| IterableComponentReadViewChecked {
-            ecg: ecg.clone(),
-            read_view: c.read_untyped(),
-            phantom: PhantomData,
-          })
-        })
-        .unwrap();
+      let full_view = get_db_view_internal::<T>(e_id, c_id);
 
       let full_view_as_delta = full_view
         .iter_key_value()
@@ -107,4 +97,20 @@ impl DBQueryChangeWatchGroup {
       // (full_view, Arc::new(full_view_as_delta))
     }
   }
+}
+
+fn get_db_view_internal<T>(e_id: EntityId, c_id: ComponentId) -> DBView<T> {
+  global_database()
+    .access_ecg_dyn(e_id, |ecg| {
+      ecg.access_component(c_id, |c| IterableComponentReadViewChecked {
+        ecg: ecg.clone(),
+        read_view: c.read_untyped(),
+        phantom: PhantomData,
+      })
+    })
+    .unwrap()
+}
+
+pub fn get_db_view<C: ComponentSemantic>() -> DBView<C::Data> {
+  get_db_view_internal(C::Entity::entity_id(), C::component_id())
 }

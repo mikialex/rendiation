@@ -191,7 +191,14 @@ impl<'a> QueryGPUHookCx<'a> {
     }
   }
 
-  pub fn use_query_compute<C: ComponentSemantic>(&mut self) -> Option<DBChange<C::Data>> {
+  pub fn use_dual_query<C: ComponentSemantic>(&mut self) -> Option<DBDualQuery<C::Data>> {
+    self.use_query_change::<C>().map(|change| DualQuery {
+      view: get_db_view::<C>(),
+      delta: change,
+    })
+  }
+
+  pub fn use_query_change<C: ComponentSemantic>(&mut self) -> Option<DBChange<C::Data>> {
     struct WatchToken(u32, ComponentId);
     impl CanCleanUpFrom<QueryGPUHookDropCx<'_>> for WatchToken {
       fn drop_from_cx(&mut self, cx: &mut QueryGPUHookDropCx<'_>) {
@@ -230,7 +237,7 @@ impl<'a> QueryGPUHookCx<'a> {
       };
     } else {
       self.scope(|cx| {
-        let changes = cx.use_query_compute::<C>();
+        let changes = cx.use_query_change::<C>();
         let result = cx.use_rev_ref(changes);
         if let TaskUseResult::SpawnId(task_id) = result {
           cx.db_shared_rev_ref
