@@ -9,6 +9,7 @@ pub struct QueryGPUHookFeatureCx<'a> {
   pub task_pool: &'a mut AsyncTaskPool,
   pub db_linear_changes: &'a mut DBLinearChangeWatchGroup,
   pub db_query_changes: &'a mut DBQueryChangeWatchGroup,
+  pub shared_rev_ref: &'a mut SharedRevRefs,
 }
 
 pub struct QueryGPUHookCx<'a> {
@@ -17,6 +18,7 @@ pub struct QueryGPUHookCx<'a> {
   pub query_cx: &'a mut ReactiveQueryCtx,
   pub db_linear_changes: &'a mut DBLinearChangeWatchGroup,
   pub db_query_changes: &'a mut DBQueryChangeWatchGroup,
+  pub shared_rev_ref: &'a mut SharedRevRefs,
   pub task_pool: &'a mut AsyncTaskPool,
   pub stage: GPUQueryHookStage<'a>,
 }
@@ -45,6 +47,7 @@ unsafe impl<'a> HooksCxLike for QueryGPUHookCx<'a> {
       query_cx: self.query_cx,
       db_linear_changes: self.db_linear_changes,
       db_query_changes: self.db_query_changes,
+      shared_rev_ref: self.shared_rev_ref,
     };
     self.memory.flush(&mut drop_cx as *mut _ as *mut ());
   }
@@ -69,6 +72,7 @@ impl<'a> QueryGPUHookCx<'a> {
           query_cx: self.query_cx,
           db_linear_changes: self.db_linear_changes,
           db_query_changes: self.db_query_changes,
+          shared_rev_ref: self.shared_rev_ref,
           task_pool: self.task_pool,
         })
       },
@@ -185,7 +189,7 @@ impl<'a> QueryGPUHookCx<'a> {
     }
   }
 
-  pub fn use_query_compute<C: ComponentSemantic>(&mut self) -> Option<DBComputeView<C::Data>> {
+  pub fn use_query_compute<C: ComponentSemantic>(&mut self) -> Option<DBChange<C::Data>> {
     struct WatchToken(u32, ComponentId);
     impl CanCleanUpFrom<QueryGPUHookDropCx<'_>> for WatchToken {
       fn drop_from_cx(&mut self, cx: &mut QueryGPUHookDropCx<'_>) {
@@ -203,6 +207,44 @@ impl<'a> QueryGPUHookCx<'a> {
     } else {
       None
     }
+  }
+
+  #[track_caller]
+  pub fn use_db_rev_ref_task<C: ForeignKeySemantic>(
+    &mut self,
+  ) -> Option<impl Future<Output = RevRefContainerRead<RawEntityHandle, RawEntityHandle>>> {
+    if let Some(task_id) = self.shared_rev_ref.task_id_mapping.get(&C::component_id()) {
+      if let GPUQueryHookStage::Update { .. } = &self.stage {
+        self.task_pool.share_task_by_id(*task_id).into()
+      } else {
+        None
+      }
+    } else {
+      self.scope(|cx| {
+        let changes = cx.use_query_compute::<C>();
+        let result = cx.use_rev_ref_result(changes);
+        if let TaskUseResult::SpawnId(task_id) = result {
+          cx.shared_rev_ref
+            .task_id_mapping
+            .insert(C::component_id(), task_id);
+
+          cx.task_pool.share_task_by_id(task_id).into()
+        } else {
+          None
+        }
+      })
+    }
+  }
+
+  pub fn use_rev_ref_result<V: CKey, C: Query<Value = ValueChange<V>> + 'static>(
+    &mut self,
+    changes: Option<C>,
+  ) -> TaskUseResult<RevRefContainerRead<V, C::Key>> {
+    let (_, mapping) = self.use_plain_state_default_cloned::<RevRefContainer<V, C::Key>>();
+    self.use_task_result_by_fn(move || {
+      bookkeeping_hash_relation(&mut mapping.write(), changes.unwrap());
+      mapping.make_read_holder()
+    })
   }
 
   pub fn use_uniform_buffers2<K: 'static, V: Std140 + 'static>(
@@ -355,6 +397,7 @@ pub struct QueryGPUHookDropCx<'a> {
   pub query_cx: &'a mut ReactiveQueryCtx,
   pub db_linear_changes: &'a mut DBLinearChangeWatchGroup,
   pub db_query_changes: &'a mut DBQueryChangeWatchGroup,
+  pub shared_rev_ref: &'a mut SharedRevRefs,
 }
 
 impl QueryHookCxLike for QueryGPUHookCx<'_> {

@@ -327,6 +327,7 @@ impl Viewer3dRenderingCtx {
       stage: GPUQueryHookStage::Update {
         spawner: task_spawner,
       },
+      shared_rev_ref: &mut Default::default(),
       db_linear_changes,
       db_query_changes,
       task_pool,
@@ -361,6 +362,7 @@ impl Viewer3dRenderingCtx {
       },
       db_linear_changes,
       db_query_changes,
+      shared_rev_ref: &mut Default::default(),
       task_pool,
     }
     .execute(|qcx| self.use_viewer_scene_renderer(qcx).unwrap(), true);

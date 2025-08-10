@@ -21,14 +21,10 @@ use futures::{Stream, StreamExt};
 use parking_lot::lock_api::RawRwLock;
 use parking_lot::RwLock;
 pub use query::*;
-use serde::*;
 use storage::IndexKeptVec;
 
 mod generic_query;
 pub use generic_query::*;
-
-mod delta;
-pub use delta::*;
 
 mod previous_view;
 pub use previous_view::*;

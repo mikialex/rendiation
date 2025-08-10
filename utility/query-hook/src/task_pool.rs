@@ -36,12 +36,12 @@ impl TaskSpawner {
   }
 }
 
-pub trait AnyClone: Any + DynClone + 'static {
+pub trait AnyClone: Any + Sync + Send + DynClone + 'static {
   fn as_any(&self) -> &dyn Any;
 }
 impl<T> AnyClone for T
 where
-  T: Any + DynClone,
+  T: Any + DynClone + Sync + Send + 'static,
 {
   fn as_any(&self) -> &dyn Any {
     self
@@ -65,14 +65,19 @@ pub struct TaskPoolResultCx {
 }
 
 impl AsyncTaskPool {
-  pub fn share_task_by_id(
+  pub fn share_task_by_id<T: Clone + Any>(
     &self,
     id: u32,
-  ) -> Shared<Pin<Box<dyn Future<Output = Box<dyn AnyClone>> + Send>>> {
-    self.registry.get(&id).unwrap().clone()
+  ) -> impl Future<Output = T> + Send + 'static {
+    self
+      .registry
+      .get(&id)
+      .unwrap()
+      .clone()
+      .map(|v| v.deref().as_any().downcast_ref::<T>().unwrap().clone()) // todo bad
   }
 
-  pub fn install_task<T: 'static + Clone>(
+  pub fn install_task<T: 'static + Clone + Sync + Send>(
     &mut self,
     task: impl Future<Output = T> + Send + 'static,
   ) -> u32 {

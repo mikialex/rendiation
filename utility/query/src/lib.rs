@@ -8,13 +8,17 @@ use std::{hash::Hash, ops::Deref};
 
 use dyn_clone::DynClone;
 use fast_hash_collection::*;
-use storage::{Arena, IndexKeptVec, IndexReusedVec};
+use serde::*;
+use storage::*;
 
 mod id;
 pub use id::*;
 
 mod query;
 pub use query::*;
+
+mod delta_query;
+pub use delta_query::*;
 
 mod multi_query;
 pub use multi_query::*;

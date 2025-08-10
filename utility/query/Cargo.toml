@@ -8,6 +8,7 @@ fast-hash-collection = { path = "../fast-hash-collection" }
 dyn-clone = { workspace = true }
 dashmap = { workspace = true }
 storage = { path = "../storage" }
+serde = { workspace = true }
 
 # we use it's rwlock to avoid recursive read deadlock
 parking_lot = { workspace = true }

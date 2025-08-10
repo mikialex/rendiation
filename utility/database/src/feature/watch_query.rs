@@ -4,9 +4,9 @@ pub struct DBQueryChangeWatchGroup {
   internal: DBChangeWatchGroup,
 }
 
-pub type DBView<V> = IterableComponentReadViewChecked<V>;
+// pub type DBView<V> = IterableComponentReadViewChecked<V>;
 pub type DBChange<V> = Arc<FastHashMap<RawEntityHandle, ValueChange<V>>>;
-pub type DBComputeView<V> = (DBView<V>, DBChange<V>);
+// pub type DBComputeView<V> = (DBView<V>, DBChange<V>);
 
 impl DBQueryChangeWatchGroup {
   pub fn new(db: &Database) -> Self {
@@ -29,7 +29,7 @@ impl DBQueryChangeWatchGroup {
       .notify_consumer_dropped(component_id, consumer_id);
   }
 
-  pub fn get_buffered_changes<C: ComponentSemantic>(&mut self, id: u32) -> DBComputeView<C::Data> {
+  pub fn get_buffered_changes<C: ComponentSemantic>(&mut self, id: u32) -> DBChange<C::Data> {
     self.get_buffered_changes_internal(id, C::Entity::entity_id(), C::component_id())
   }
 
@@ -39,7 +39,7 @@ impl DBQueryChangeWatchGroup {
     id: u32,
     e_id: EntityId,
     c_id: ComponentId,
-  ) -> DBComputeView<T> {
+  ) -> DBChange<T> {
     let rev = self.internal.producers.entry(c_id).or_insert_with(|| {
       let rev = self.internal.db.access_ecg_dyn(e_id, move |e| {
         e.access_component(c_id, move |c| {
@@ -78,32 +78,33 @@ impl DBQueryChangeWatchGroup {
         Box::new(Arc::new(changes))
       });
 
-    let full_view = self
-      .internal
-      .db
-      .access_ecg_dyn(e_id, |ecg| {
-        ecg.access_component(c_id, |c| IterableComponentReadViewChecked {
-          ecg: ecg.clone(),
-          read_view: c.read_untyped(),
-          phantom: PhantomData,
-        })
-      })
-      .unwrap();
-
     if consumer_ids.contains(&id) {
       let changes = changes.downcast_ref::<DBChange<T>>().unwrap().clone();
 
-      (full_view, changes)
+      changes
     } else {
       consumer_ids.insert(id);
       // for any new watch created we emit full table
 
+      let full_view = self
+        .internal
+        .db
+        .access_ecg_dyn(e_id, |ecg| {
+          ecg.access_component(c_id, |c| IterableComponentReadViewChecked {
+            ecg: ecg.clone(),
+            read_view: c.read_untyped(),
+            phantom: PhantomData,
+          })
+        })
+        .unwrap();
+
       let full_view_as_delta = full_view
         .iter_key_value()
         .map(|(k, v)| (k, ValueChange::Delta(v, None)))
-        .collect::<FastHashMap<_, _>>();
+        .collect::<FastHashMap<_, _>>(); // todo avoid collect
 
-      (full_view, Arc::new(full_view_as_delta))
+      Arc::new(full_view_as_delta)
+      // (full_view, Arc::new(full_view_as_delta))
     }
   }
 }

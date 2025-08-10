@@ -42,3 +42,11 @@ impl DataBaseFeatureGroup {
       .clone()
   }
 }
+
+#[derive(Default)]
+pub struct SharedRevRefs {
+  pub task_id_mapping: FastHashMap<ComponentId, u32>,
+}
+
+pub type RevRefContainer<K, V> = Arc<RwLock<FastHashMap<K, FastHashSet<V>>>>;
+pub type RevRefContainerRead<K, V> = LockReadGuardHolder<FastHashMap<K, FastHashSet<V>>>;
