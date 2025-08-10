@@ -6,6 +6,9 @@ pub use dyn_impl::*;
 mod operator;
 pub use operator::*;
 
+mod bookkeeping;
+pub use bookkeeping::*;
+
 pub trait MultiQuery: Send + Sync + Clone {
   type Key: CKey;
   type Value: CValue;

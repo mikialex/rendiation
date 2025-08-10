@@ -1,5 +1,3 @@
-use storage::{LinkListPool, ListHandle};
-
 use crate::*;
 
 pub struct OneToManyRefHashBookKeeping<T, K, V> {
@@ -49,26 +47,7 @@ where
 
     {
       let mut mapping = self.mapping.write();
-
-      for (many, change) in r.iter_key_value() {
-        let new_one = change.new_value();
-
-        let old_refed_one = change.old_value();
-        // remove possible old relations
-        if let Some(old_refed_one) = old_refed_one {
-          let previous_one_refed_many = mapping.get_mut(old_refed_one).unwrap();
-          previous_one_refed_many.remove(&many);
-          if previous_one_refed_many.is_empty() {
-            mapping.remove(old_refed_one);
-          }
-        }
-
-        // setup new relations
-        if let Some(new_one) = new_one {
-          let new_one_refed_many = mapping.entry(new_one.clone()).or_default();
-          new_one_refed_many.insert(many.clone());
-        }
-      }
+      bookkeeping_hash_relation(&mut mapping, &r);
     }
 
     let v = QueryAndMultiQuery {
@@ -100,19 +79,13 @@ where
 
 pub struct OneToManyRefDenseBookKeeping<T> {
   pub upstream: T,
-  pub mapping: Arc<RwLock<Mapping>>,
-}
-
-#[derive(Default)]
-pub struct Mapping {
-  mapping_buffer: LinkListPool<u32>,
-  mapping: Vec<ListHandle>,
+  pub mapping: Arc<RwLock<DenseIndexMapping>>,
 }
 
 #[derive(Clone)]
 pub struct OneToManyRefDenseBookKeepingCurrentView<T> {
   upstream: T,
-  mapping: LockReadGuardHolder<Mapping>,
+  mapping: LockReadGuardHolder<DenseIndexMapping>,
 }
 
 impl<T> Query for OneToManyRefDenseBookKeepingCurrentView<T>
@@ -139,26 +112,14 @@ where
   type Key = T::Value;
   type Value = T::Key;
   fn iter_keys(&self) -> impl Iterator<Item = T::Value> + '_ {
-    self
-      .mapping
-      .mapping
-      .iter()
-      .enumerate()
-      .filter_map(|(i, list)| (!list.is_empty()).then_some(T::Value::from_alloc_index(i as u32)))
+    self.mapping.iter_keys().map(T::Value::from_alloc_index)
   }
 
   fn access_multi(&self, o: &T::Value) -> Option<impl Iterator<Item = T::Key> + '_> {
-    self
-      .mapping
-      .mapping
-      .get(o.alloc_index() as usize)
-      .map(|list| {
-        self
-          .mapping
-          .mapping_buffer
-          .iter_list(list)
-          .map(|(v, _)| T::Key::from_alloc_index(*v))
-      })
+    let i = &o.alloc_index();
+    let i = unsafe { std::mem::transmute(i) }; // todo fix
+    let iter = self.mapping.access_multi(i)?;
+    iter.map(T::Key::from_alloc_index).into()
   }
 }
 
@@ -184,8 +145,7 @@ where
     match request {
       ReactiveQueryRequest::MemoryShrinkToFit => {
         let mut mapping = self.mapping.write();
-        mapping.mapping.shrink_to_fit();
-        mapping.mapping_buffer.shrink_to_fit();
+        mapping.shrink_to_fit();
       }
     }
   }
@@ -208,42 +168,8 @@ where
 
     {
       let mut mapping = self.mapping.write();
-      let mapping: &mut Mapping = &mut mapping;
-      for (many, change) in r.iter_key_value() {
-        let new_one = change.new_value();
-
-        let old_refed_one = change.old_value();
-        // remove possible old relations
-        if let Some(old_refed_one) = old_refed_one {
-          let previous_one_refed_many = mapping
-            .mapping
-            .get_mut(old_refed_one.alloc_index() as usize)
-            .unwrap();
-
-          //  this is O(n), should we care about it?
-          mapping
-            .mapping_buffer
-            .visit_and_remove(previous_one_refed_many, |value, _| {
-              let should_remove = *value == many.alloc_index();
-              (should_remove, !should_remove)
-            });
-        }
-
-        // setup new relations
-        if let Some(new_one) = &new_one {
-          let alloc_index = new_one.alloc_index() as usize;
-          if alloc_index >= mapping.mapping.len() {
-            mapping
-              .mapping
-              .resize(alloc_index + 1, ListHandle::default());
-          }
-
-          mapping.mapping_buffer.insert(
-            &mut mapping.mapping[new_one.alloc_index() as usize],
-            many.alloc_index(),
-          );
-        }
-      }
+      let mapping: &mut DenseIndexMapping = &mut mapping;
+      bookkeeping_dense_index_relation(mapping, &r);
     }
 
     let v = OneToManyRefDenseBookKeepingCurrentView {

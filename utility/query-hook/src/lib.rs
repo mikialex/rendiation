@@ -17,6 +17,26 @@ pub enum QueryHookStage<'a> {
   ResolveTask { task: &'a mut TaskPoolResultCx },
 }
 
+pub enum TaskUseResult<T> {
+  SpawnId(u32),
+  Result(T),
+}
+
+impl<T> TaskUseResult<T> {
+  pub fn expect_result(self) -> T {
+    match self {
+      TaskUseResult::Result(v) => v,
+      _ => panic!("expect result"),
+    }
+  }
+  pub fn expect_id(self) -> u32 {
+    match self {
+      TaskUseResult::SpawnId(v) => v,
+      _ => panic!("expect id"),
+    }
+  }
+}
+
 pub trait QueryHookCxLike: HooksCxLike {
   fn is_spawning_stage(&self) -> bool;
   fn stage(&mut self) -> QueryHookStage;
@@ -28,17 +48,20 @@ pub trait QueryHookCxLike: HooksCxLike {
     }
   }
 
-  fn use_task_result_by_fn<R, F>(&mut self, create_task: F) -> Option<R>
+  fn use_task_result_by_fn<R, F>(&mut self, create_task: F) -> TaskUseResult<R>
   where
-    R: Clone + Send + 'static,
+    R: Clone + Sync + Send + 'static,
     F: FnOnce() -> R + Send + 'static,
   {
     self.use_task_result(|spawner| spawner.spawn_task(create_task))
   }
 
-  fn use_task_result<R, F>(&mut self, create_task: impl FnOnce(&TaskSpawner) -> F) -> Option<R>
+  fn use_task_result<R, F>(
+    &mut self,
+    create_task: impl FnOnce(&TaskSpawner) -> F,
+  ) -> TaskUseResult<R>
   where
-    R: Clone + 'static,
+    R: Clone + Send + Sync + 'static,
     F: Future<Output = R> + Send + 'static,
   {
     let task = self.spawn_task_when_update(create_task);
@@ -47,7 +70,7 @@ pub trait QueryHookCxLike: HooksCxLike {
     match cx.stage() {
       QueryHookStage::SpawnTask { .. } => {
         *token = cx.pool().install_task(task.unwrap());
-        None
+        TaskUseResult::SpawnId(*token)
       }
       QueryHookStage::ResolveTask { task, .. } => {
         let result = task
@@ -59,7 +82,7 @@ pub trait QueryHookCxLike: HooksCxLike {
           .downcast_ref::<R>()
           .unwrap()
           .clone(); // todo this is not good
-        Some(result)
+        TaskUseResult::Result(result)
       }
     }
   }
