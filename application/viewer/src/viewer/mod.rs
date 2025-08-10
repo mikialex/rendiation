@@ -289,9 +289,9 @@ pub struct Viewer {
   memory: FunctionMemory,
   render_memory: FunctionMemory,
   render_resource: ReactiveQueryCtx,
-  task_pool: AsyncTaskPool,
   render_db_linear_changes: DBLinearChangeWatchGroup,
   render_db_query_changes: DBQueryChangeWatchGroup,
+  db_shared_rev_ref: DBForeignKeySharedRevRefs,
   task_spawner: TaskSpawner,
 }
 
@@ -393,22 +393,24 @@ impl Viewer {
       render_resource: Default::default(),
       render_db_linear_changes: DBLinearChangeWatchGroup::new(&global_database()),
       render_db_query_changes: DBQueryChangeWatchGroup::new(&global_database()),
-      task_pool: Default::default(),
+      db_shared_rev_ref: Default::default(),
       task_spawner: TaskSpawner::new("viewer_task_worker", None),
     }
   }
 
   pub fn draw_canvas(&mut self, canvas: &RenderTargetView) {
-    self.rendering.update_registry(
+    let tasks = self.rendering.update_registry(
       &mut self.render_memory,
       &mut self.render_resource,
-      &mut self.task_pool,
       &self.task_spawner,
       &mut self.render_db_linear_changes,
       &mut self.render_db_query_changes,
+      &mut self.db_shared_rev_ref,
     );
 
     let scene_derive = self.derives.poll_update();
+
+    let task_pool_result = pollster::block_on(tasks.all_async_task_done());
 
     self.rendering.render(
       canvas,
@@ -416,9 +418,10 @@ impl Viewer {
       &scene_derive,
       &mut self.render_memory,
       &mut self.render_resource,
-      &mut self.task_pool,
+      task_pool_result,
       &mut self.render_db_linear_changes,
       &mut self.render_db_query_changes,
+      &mut self.db_shared_rev_ref,
     );
 
     self.rendering.tick_frame();

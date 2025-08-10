@@ -13,8 +13,13 @@ use hook::HooksCxLike;
 pub use task_pool::*;
 
 pub enum QueryHookStage<'a> {
-  SpawnTask { spawner: &'a TaskSpawner },
-  ResolveTask { task: &'a mut TaskPoolResultCx },
+  SpawnTask {
+    spawner: &'a TaskSpawner,
+    pool: &'a mut AsyncTaskPool,
+  },
+  ResolveTask {
+    task: &'a mut TaskPoolResultCx,
+  },
 }
 
 pub enum TaskUseResult<T> {
@@ -40,7 +45,6 @@ impl<T> TaskUseResult<T> {
 pub trait QueryHookCxLike: HooksCxLike {
   fn is_spawning_stage(&self) -> bool;
   fn stage(&mut self) -> QueryHookStage;
-  fn pool(&mut self) -> &mut AsyncTaskPool;
 
   fn when_spawning_stage(&self, f: impl FnOnce()) {
     if self.is_spawning_stage() {
@@ -68,21 +72,12 @@ pub trait QueryHookCxLike: HooksCxLike {
     let (cx, token) = self.use_plain_state(|| u32::MAX);
 
     match cx.stage() {
-      QueryHookStage::SpawnTask { .. } => {
-        *token = cx.pool().install_task(task.unwrap());
+      QueryHookStage::SpawnTask { pool, .. } => {
+        *token = pool.install_task(task.unwrap());
         TaskUseResult::SpawnId(*token)
       }
       QueryHookStage::ResolveTask { task, .. } => {
-        let result = task
-          .token_based_result
-          .remove(token)
-          .unwrap()
-          .deref()
-          .as_any()
-          .downcast_ref::<R>()
-          .unwrap()
-          .clone(); // todo this is not good
-        TaskUseResult::Result(result)
+        TaskUseResult::Result(task.expect_result_by_id(*token))
       }
     }
   }
@@ -92,7 +87,7 @@ pub trait QueryHookCxLike: HooksCxLike {
     create_task: impl FnOnce(&TaskSpawner) -> F,
   ) -> Option<F> {
     match self.stage() {
-      QueryHookStage::SpawnTask { spawner } => {
+      QueryHookStage::SpawnTask { spawner, .. } => {
         let task = create_task(spawner);
         Some(task)
       }

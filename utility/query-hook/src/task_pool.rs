@@ -61,7 +61,17 @@ pub struct AsyncTaskPool {
 
 #[derive(Default)]
 pub struct TaskPoolResultCx {
-  pub token_based_result: FastHashMap<u32, Box<dyn AnyClone>>,
+  token_based_result: FastHashMap<u32, Box<dyn AnyClone>>,
+}
+
+impl TaskPoolResultCx {
+  pub fn expect_result_by_id<T: Clone + Any>(&self, id: u32) -> T {
+    self
+      .token_based_result
+      .get(&id)
+      .map(|v| v.deref().as_any().downcast_ref::<T>().unwrap().clone()) // todo, bad
+      .unwrap()
+  }
 }
 
 impl AsyncTaskPool {
@@ -92,10 +102,10 @@ impl AsyncTaskPool {
     self.next
   }
 
-  pub fn all_async_task_done(&mut self) -> impl Future<Output = TaskPoolResultCx> {
+  pub fn all_async_task_done(self) -> impl Future<Output = TaskPoolResultCx> {
     self
       .registry
-      .drain()
+      .into_iter()
       .map(|(k, source)| source.map(move |r| (k, r)))
       .collect::<FuturesUnordered<_>>()
       .fold(

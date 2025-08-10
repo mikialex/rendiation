@@ -314,11 +314,12 @@ impl Viewer3dRenderingCtx {
     &mut self,
     memory: &mut FunctionMemory,
     rendering_resource: &mut ReactiveQueryCtx,
-    task_pool: &mut AsyncTaskPool,
     task_spawner: &TaskSpawner,
     db_linear_changes: &mut DBLinearChangeWatchGroup,
     db_query_changes: &mut DBQueryChangeWatchGroup,
-  ) {
+    db_shared_rev_ref: &mut DBForeignKeySharedRevRefs,
+  ) -> AsyncTaskPool {
+    let mut pool = AsyncTaskPool::default();
     let gpu = self.gpu.clone();
     QueryGPUHookCx {
       memory,
@@ -326,14 +327,15 @@ impl Viewer3dRenderingCtx {
       query_cx: rendering_resource,
       stage: GPUQueryHookStage::Update {
         spawner: task_spawner,
+        task_pool: &mut pool,
       },
-      shared_rev_ref: &mut Default::default(),
+      db_shared_rev_ref,
       db_linear_changes,
       db_query_changes,
-      task_pool,
     }
     .execute(|qcx| self.use_viewer_scene_renderer(qcx), true);
     db_linear_changes.clear_changes();
+    pool
   }
 
   #[instrument(name = "frame rendering", skip_all)]
@@ -344,13 +346,13 @@ impl Viewer3dRenderingCtx {
     scene_derive: &Viewer3dSceneDerive,
     memory: &mut FunctionMemory,
     rendering_resource: &mut ReactiveQueryCtx,
-    task_pool: &mut AsyncTaskPool,
+    task_pool_result: TaskPoolResultCx,
     db_linear_changes: &mut DBLinearChangeWatchGroup,
     db_query_changes: &mut DBQueryChangeWatchGroup,
+    db_shared_rev_ref: &mut DBForeignKeySharedRevRefs,
   ) {
     noop_ctx!(cx);
     let query_result = rendering_resource.poll_update_all(cx);
-    let task_pool_result = pollster::block_on(task_pool.all_async_task_done());
     let gpu = self.gpu.clone();
     let renderer = QueryGPUHookCx {
       memory,
@@ -362,8 +364,7 @@ impl Viewer3dRenderingCtx {
       },
       db_linear_changes,
       db_query_changes,
-      shared_rev_ref: &mut Default::default(),
-      task_pool,
+      db_shared_rev_ref,
     }
     .execute(|qcx| self.use_viewer_scene_renderer(qcx).unwrap(), true);
 
