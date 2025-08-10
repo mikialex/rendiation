@@ -6,10 +6,8 @@ use crate::*;
 pub struct QueryGPUHookFeatureCx<'a> {
   pub gpu: &'a GPU,
   pub query_cx: &'a mut ReactiveQueryCtx,
-  pub task_pool: &'a mut AsyncTaskPool,
   pub db_linear_changes: &'a mut DBLinearChangeWatchGroup,
   pub db_query_changes: &'a mut DBQueryChangeWatchGroup,
-  pub shared_rev_ref: &'a mut SharedRevRefs,
 }
 
 pub struct QueryGPUHookCx<'a> {
@@ -18,19 +16,26 @@ pub struct QueryGPUHookCx<'a> {
   pub query_cx: &'a mut ReactiveQueryCtx,
   pub db_linear_changes: &'a mut DBLinearChangeWatchGroup,
   pub db_query_changes: &'a mut DBQueryChangeWatchGroup,
-  pub shared_rev_ref: &'a mut SharedRevRefs,
-  pub task_pool: &'a mut AsyncTaskPool,
+  pub db_shared_rev_ref: &'a mut DBForeignKeySharedRevRefs,
   pub stage: GPUQueryHookStage<'a>,
 }
 
+#[non_exhaustive]
 pub enum GPUQueryHookStage<'a> {
   Update {
+    task_pool: &'a mut AsyncTaskPool,
     spawner: &'a TaskSpawner,
   },
   CreateRender {
     query: QueryResultCtx,
     task: TaskPoolResultCx,
   },
+}
+
+pub enum QueryStageResult<T, U> {
+  Update(T),
+  Result(U),
+  Others,
 }
 
 unsafe impl<'a> HooksCxLike for QueryGPUHookCx<'a> {
@@ -47,7 +52,6 @@ unsafe impl<'a> HooksCxLike for QueryGPUHookCx<'a> {
       query_cx: self.query_cx,
       db_linear_changes: self.db_linear_changes,
       db_query_changes: self.db_query_changes,
-      shared_rev_ref: self.shared_rev_ref,
     };
     self.memory.flush(&mut drop_cx as *mut _ as *mut ());
   }
@@ -72,8 +76,6 @@ impl<'a> QueryGPUHookCx<'a> {
           query_cx: self.query_cx,
           db_linear_changes: self.db_linear_changes,
           db_query_changes: self.db_query_changes,
-          shared_rev_ref: self.shared_rev_ref,
-          task_pool: self.task_pool,
         })
       },
       |state: &mut T, dcx: &mut ()| {
@@ -210,33 +212,37 @@ impl<'a> QueryGPUHookCx<'a> {
   }
 
   #[track_caller]
-  pub fn use_db_rev_ref_task<C: ForeignKeySemantic>(
+  pub fn use_db_rev_ref<C: ForeignKeySemantic>(
     &mut self,
-  ) -> Option<impl Future<Output = RevRefContainerRead<RawEntityHandle, RawEntityHandle>>> {
-    if let Some(task_id) = self.shared_rev_ref.task_id_mapping.get(&C::component_id()) {
-      if let GPUQueryHookStage::Update { .. } = &self.stage {
-        self.task_pool.share_task_by_id(*task_id).into()
-      } else {
-        None
-      }
+  ) -> QueryStageResult<impl Future<Output = RevRefForeignKey>, RevRefForeignKey> {
+    if let Some(task_id) = self
+      .db_shared_rev_ref
+      .task_id_mapping
+      .get(&C::component_id())
+    {
+      return match &self.stage {
+        GPUQueryHookStage::Update { task_pool, .. } => {
+          QueryStageResult::Update(task_pool.share_task_by_id(*task_id))
+        }
+        GPUQueryHookStage::CreateRender { task, .. } => {
+          QueryStageResult::Result(task.expect_result_by_id(*task_id))
+        }
+      };
     } else {
       self.scope(|cx| {
         let changes = cx.use_query_compute::<C>();
-        let result = cx.use_rev_ref_result(changes);
+        let result = cx.use_rev_ref(changes);
         if let TaskUseResult::SpawnId(task_id) = result {
-          cx.shared_rev_ref
+          cx.db_shared_rev_ref
             .task_id_mapping
             .insert(C::component_id(), task_id);
-
-          cx.task_pool.share_task_by_id(task_id).into()
-        } else {
-          None
         }
       })
     }
+    self.use_db_rev_ref::<C>()
   }
 
-  pub fn use_rev_ref_result<V: CKey, C: Query<Value = ValueChange<V>> + 'static>(
+  pub fn use_rev_ref<V: CKey, C: Query<Value = ValueChange<V>> + 'static>(
     &mut self,
     changes: Option<C>,
   ) -> TaskUseResult<RevRefContainerRead<V, C::Key>> {
@@ -397,7 +403,6 @@ pub struct QueryGPUHookDropCx<'a> {
   pub query_cx: &'a mut ReactiveQueryCtx,
   pub db_linear_changes: &'a mut DBLinearChangeWatchGroup,
   pub db_query_changes: &'a mut DBQueryChangeWatchGroup,
-  pub shared_rev_ref: &'a mut SharedRevRefs,
 }
 
 impl QueryHookCxLike for QueryGPUHookCx<'_> {
@@ -406,13 +411,14 @@ impl QueryHookCxLike for QueryGPUHookCx<'_> {
   }
   fn stage(&mut self) -> QueryHookStage {
     match &mut self.stage {
-      GPUQueryHookStage::Update { spawner } => QueryHookStage::SpawnTask { spawner },
+      GPUQueryHookStage::Update {
+        spawner, task_pool, ..
+      } => QueryHookStage::SpawnTask {
+        spawner,
+        pool: task_pool,
+      },
       GPUQueryHookStage::CreateRender { task, .. } => QueryHookStage::ResolveTask { task },
     }
-  }
-
-  fn pool(&mut self) -> &mut AsyncTaskPool {
-    self.task_pool
   }
 }
 

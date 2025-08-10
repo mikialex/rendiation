@@ -44,9 +44,10 @@ impl DataBaseFeatureGroup {
 }
 
 #[derive(Default)]
-pub struct SharedRevRefs {
+pub struct DBForeignKeySharedRevRefs {
   pub task_id_mapping: FastHashMap<ComponentId, u32>,
 }
 
 pub type RevRefContainer<K, V> = Arc<RwLock<FastHashMap<K, FastHashSet<V>>>>;
 pub type RevRefContainerRead<K, V> = LockReadGuardHolder<FastHashMap<K, FastHashSet<V>>>;
+pub type RevRefForeignKey = RevRefContainerRead<RawEntityHandle, RawEntityHandle>;
