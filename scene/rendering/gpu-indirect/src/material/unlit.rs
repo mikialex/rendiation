@@ -5,11 +5,9 @@ pub fn use_unlit_material_storage(
 ) -> Option<UnlitMaterialIndirectRenderer> {
   let (cx, storages) = cx.use_storage_buffer2(128, u32::MAX);
 
-  if let Some(changes) = cx.use_changes::<UnlitMaterialColorComponent>() {
-    changes
-      .collective_map(srgb4_to_linear4)
-      .update_storage_array(storages, offset_of!(UnlitMaterialStorage, color));
-  }
+  cx.use_changes::<UnlitMaterialColorComponent>()
+    .map_changes(srgb4_to_linear4)
+    .update_storage_array(storages, offset_of!(UnlitMaterialStorage, color));
 
   cx.use_changes::<AlphaOf<UnlitMaterialAlphaConfig>>()
     .update_storage_array(storages, offset_of!(UnlitMaterialStorage, alpha));

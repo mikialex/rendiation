@@ -32,6 +32,61 @@ pub enum GPUQueryHookStage<'a> {
   },
 }
 
+pub enum UseResult<T> {
+  SpawnStageFuture(Box<dyn Future<Output = T> + Unpin + Send>),
+  SpawnStageReady(T),
+  ResolveStageReady(T),
+  NotInStage,
+}
+
+impl<T: 'static> UseResult<T> {
+  pub fn map<U>(self, f: impl FnOnce(T) -> U + Send + 'static) -> UseResult<U> {
+    use futures::FutureExt;
+    match self {
+      UseResult::SpawnStageFuture(fut) => UseResult::SpawnStageFuture(Box::new(fut.map(f))),
+      UseResult::SpawnStageReady(t) => UseResult::SpawnStageReady(f(t)),
+      UseResult::ResolveStageReady(t) => UseResult::ResolveStageReady(f(t)),
+      UseResult::NotInStage => UseResult::NotInStage,
+    }
+  }
+
+  pub fn expect_resolve_stage(self) -> T {
+    match self {
+      UseResult::ResolveStageReady(t) => t,
+      _ => panic!("expect spawn stage ready"),
+    }
+  }
+
+  pub fn expect_spawn_stage_ready(self) -> T {
+    match self {
+      UseResult::SpawnStageReady(t) => t,
+      _ => panic!("expect spawn stage ready"),
+    }
+  }
+
+  pub fn filter_map_changes<X, U>(
+    self,
+    f: impl Fn(X) -> Option<U> + Clone + Sync + Send + 'static,
+  ) -> UseResult<impl DataChanges<Key = T::Key, Value = U>>
+  where
+    T: DataChanges<Value = X>,
+    U: CValue,
+  {
+    self.map(|t| t.collective_filter_map(f))
+  }
+
+  pub fn map_changes<X, U>(
+    self,
+    f: impl Fn(X) -> U + Clone + Sync + Send + 'static,
+  ) -> UseResult<impl DataChanges<Key = T::Key, Value = U>>
+  where
+    T: DataChanges<Value = X>,
+    U: CValue,
+  {
+    self.map(|t| t.collective_map(f))
+  }
+}
+
 pub enum QueryStageResult<T, U> {
   Update(T),
   Result(U),
@@ -171,7 +226,7 @@ impl<'a> QueryGPUHookCx<'a> {
 
   pub fn use_changes<C: ComponentSemantic>(
     &mut self,
-  ) -> Option<Arc<LinearBatchChanges<u32, C::Data>>> {
+  ) -> UseResult<Arc<LinearBatchChanges<u32, C::Data>>> {
     struct WatchToken(u32, ComponentId);
     impl CanCleanUpFrom<QueryGPUHookDropCx<'_>> for WatchToken {
       fn drop_from_cx(&mut self, cx: &mut QueryGPUHookDropCx<'_>) {
@@ -185,20 +240,20 @@ impl<'a> QueryGPUHookCx<'a> {
     });
 
     if let GPUQueryHookStage::Update { .. } = &cx.stage {
-      Some(cx.db_linear_changes.get_buffered_changes::<C>(tk.0))
+      UseResult::SpawnStageReady(cx.db_linear_changes.get_buffered_changes::<C>(tk.0))
     } else {
-      None
+      UseResult::NotInStage
     }
   }
 
-  pub fn use_dual_query<C: ComponentSemantic>(&mut self) -> Option<DBDualQuery<C::Data>> {
+  pub fn use_dual_query<C: ComponentSemantic>(&mut self) -> UseResult<DBDualQuery<C::Data>> {
     self.use_query_change::<C>().map(|change| DualQuery {
       view: get_db_view::<C>(),
       delta: change,
     })
   }
 
-  pub fn use_query_change<C: ComponentSemantic>(&mut self) -> Option<DBChange<C::Data>> {
+  pub fn use_query_change<C: ComponentSemantic>(&mut self) -> UseResult<DBChange<C::Data>> {
     struct WatchToken(u32, ComponentId);
     impl CanCleanUpFrom<QueryGPUHookDropCx<'_>> for WatchToken {
       fn drop_from_cx(&mut self, cx: &mut QueryGPUHookDropCx<'_>) {
@@ -212,9 +267,9 @@ impl<'a> QueryGPUHookCx<'a> {
     });
 
     if let GPUQueryHookStage::Update { .. } = &cx.stage {
-      Some(cx.db_query_changes.get_buffered_changes::<C>(tk.0))
+      UseResult::SpawnStageReady(cx.db_query_changes.get_buffered_changes::<C>(tk.0))
     } else {
-      None
+      UseResult::NotInStage
     }
   }
 
@@ -251,11 +306,11 @@ impl<'a> QueryGPUHookCx<'a> {
 
   pub fn use_rev_ref<V: CKey, C: Query<Value = ValueChange<V>> + 'static>(
     &mut self,
-    changes: Option<C>,
+    changes: UseResult<C>,
   ) -> TaskUseResult<RevRefContainerRead<V, C::Key>> {
     let (_, mapping) = self.use_plain_state_default_cloned::<RevRefContainer<V, C::Key>>();
     self.use_task_result_by_fn(move || {
-      bookkeeping_hash_relation(&mut mapping.write(), changes.unwrap());
+      bookkeeping_hash_relation(&mut mapping.write(), changes.expect_spawn_stage_ready());
       mapping.make_read_holder()
     })
   }
