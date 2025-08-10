@@ -28,7 +28,7 @@ where
   type Value = Upstream::Value;
 
   type Changes = Arc<FastHashMap<Self::Key, ValueChange<Self::Value>>>;
-  type View = OneToManyFanoutCurrentView<Upstream::View, Relation::View>;
+  type View = ChainQuery<Relation::View, Upstream::View>;
 
   #[allow(clippy::collapsible_else_if)]
   fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
@@ -103,10 +103,7 @@ where
     }
 
     let d = Arc::new(output);
-    let v = OneToManyFanoutCurrentView {
-      upstream: getter,
-      relation: relation_access,
-    };
+    let v = relation_access.chain(getter);
 
     (d, v)
   }
@@ -153,35 +150,5 @@ where
   fn request(&mut self, request: &mut ReactiveQueryRequest) {
     self.upstream.request(request);
     self.relations.request(request);
-  }
-}
-
-#[derive(Clone)]
-pub struct OneToManyFanoutCurrentView<U, R> {
-  upstream: U,
-  relation: R,
-}
-
-impl<U, R, O, M, X> Query for OneToManyFanoutCurrentView<U, R>
-where
-  O: CKey,
-  M: CKey,
-  X: CValue,
-  U: Query<Key = O, Value = X>,
-  R: Query<Key = M, Value = O>,
-{
-  type Key = M;
-  type Value = X;
-  fn iter_key_value(&self) -> impl Iterator<Item = (M, X)> + '_ {
-    // this is pretty costly
-    self
-      .relation
-      .iter_key_value()
-      .filter_map(|(k, _v)| self.access(&k).map(|v| (k, v)))
-  }
-
-  fn access(&self, key: &M) -> Option<X> {
-    let o = self.relation.access(key)?;
-    self.upstream.access(&o)
   }
 }

@@ -26,9 +26,6 @@ use storage::IndexKeptVec;
 mod generic_query;
 pub use generic_query::*;
 
-mod previous_view;
-pub use previous_view::*;
-
 mod reactive_query;
 pub use reactive_query::*;
 

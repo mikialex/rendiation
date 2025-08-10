@@ -10,6 +10,8 @@ mod join;
 pub use join::*;
 mod union;
 pub use union::*;
+mod chain;
+pub use chain::*;
 
 pub trait QueryExt: Query + Sized + 'static {
   fn into_boxed(self) -> BoxedDynQuery<Self::Key, Self::Value> {
@@ -56,6 +58,10 @@ pub trait QueryExt: Query + Sized + 'static {
     F2: Fn(K2) -> Self::Key,
   {
     self.key_dual_map_partial(f1, AutoSomeFnResult(f2))
+  }
+
+  fn chain<Q>(self, next: Q) -> ChainQuery<Self, Q> {
+    ChainQuery { first: self, next }
   }
 }
 impl<T: ?Sized> QueryExt for T where Self: Query + Sized + 'static {}
