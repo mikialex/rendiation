@@ -1,5 +1,6 @@
 use crate::*;
 
+#[derive(Clone)]
 pub struct DualQuery<T, U> {
   pub view: T,
   pub delta: U,
