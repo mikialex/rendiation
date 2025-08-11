@@ -33,104 +33,6 @@ pub enum GPUQueryHookStage<'a> {
   },
 }
 
-pub enum UseResult<T> {
-  SpawnStageFuture(Box<dyn Future<Output = T> + Unpin + Send>),
-  SpawnStageReady(T),
-  ResolveStageReady(T),
-  NotInStage,
-}
-
-impl<T: Send + 'static> UseResult<T> {
-  pub fn map<U>(self, f: impl FnOnce(T) -> U + Send + 'static) -> UseResult<U> {
-    use futures::FutureExt;
-    match self {
-      UseResult::SpawnStageFuture(fut) => UseResult::SpawnStageFuture(Box::new(fut.map(f))),
-      UseResult::SpawnStageReady(t) => UseResult::SpawnStageReady(f(t)),
-      UseResult::ResolveStageReady(t) => UseResult::ResolveStageReady(f(t)),
-      UseResult::NotInStage => UseResult::NotInStage,
-    }
-  }
-
-  pub fn into_future(self) -> Box<dyn Future<Output = T> + Unpin + Send> {
-    match self {
-      UseResult::SpawnStageFuture(future) => future,
-      UseResult::SpawnStageReady(r) => {
-        let future = std::future::ready(r);
-        Box::new(future)
-      }
-      _ => panic!("stage not match"),
-    }
-  }
-
-  pub fn join<U: Send + 'static>(self, other: UseResult<U>) -> UseResult<(T, U)> {
-    if self.is_resolve_stage() && other.is_resolve_stage() {
-      return UseResult::ResolveStageReady((
-        self.into_resolve_stage().unwrap(),
-        other.into_resolve_stage().unwrap(),
-      ));
-    }
-
-    let a = self.into_future();
-    let b = other.into_future();
-
-    UseResult::SpawnStageFuture(Box::new(futures::future::join(a, b)))
-  }
-
-  pub fn into_resolve_stage(self) -> Option<T> {
-    match self {
-      UseResult::ResolveStageReady(t) => Some(t),
-      _ => None,
-    }
-  }
-
-  pub fn is_resolve_stage(&self) -> bool {
-    matches!(self, UseResult::ResolveStageReady(_))
-  }
-
-  pub fn expect_resolve_stage(self) -> T {
-    match self {
-      UseResult::ResolveStageReady(t) => t,
-      _ => panic!("expect spawn stage ready"),
-    }
-  }
-
-  pub fn expect_spawn_stage_future(self) -> Box<dyn Future<Output = T> + Unpin + Send> {
-    match self {
-      UseResult::SpawnStageFuture(t) => t,
-      _ => panic!("expect spawn stage ready"),
-    }
-  }
-
-  pub fn expect_spawn_stage_ready(self) -> T {
-    match self {
-      UseResult::SpawnStageReady(t) => t,
-      _ => panic!("expect spawn stage ready"),
-    }
-  }
-
-  pub fn filter_map_changes<X, U>(
-    self,
-    f: impl Fn(X) -> Option<U> + Clone + Sync + Send + 'static,
-  ) -> UseResult<impl DataChanges<Key = T::Key, Value = U>>
-  where
-    T: DataChanges<Value = X>,
-    U: CValue,
-  {
-    self.map(|t| t.collective_filter_map(f))
-  }
-
-  pub fn map_changes<X, U>(
-    self,
-    f: impl Fn(X) -> U + Clone + Sync + Send + 'static,
-  ) -> UseResult<impl DataChanges<Key = T::Key, Value = U>>
-  where
-    T: DataChanges<Value = X>,
-    U: CValue,
-  {
-    self.map(|t| t.collective_map(f))
-  }
-}
-
 unsafe impl<'a> HooksCxLike for QueryGPUHookCx<'a> {
   fn memory_mut(&mut self) -> &mut FunctionMemory {
     self.memory
@@ -315,18 +217,24 @@ impl<'a> QueryGPUHookCx<'a> {
   pub fn use_db_rev_ref_tri_view<C: ForeignKeySemantic>(
     &mut self,
   ) -> UseResult<RevRefForeignTriQuery> {
-    todo!()
-    // let rev_many_view = self.use_db_rev_ref::<C>().expect_spawn_stage_future();
-    // let changes = self.use_query_change::<C>().expect_spawn_stage_ready();
-    // UseResult::SpawnStageFuture(Box::new(rev_many_view.map(move |rev_many_view| {
-    //   RevRefForeignTriQuery {
-    //     base: DualQuery {
-    //       view: get_db_view::<C>(),
-    //       delta: changes,
-    //     },
-    //     rev_many_view,
-    //   }
-    // })))
+    let rev_many_view = self.use_db_rev_ref::<C>().expect_spawn_stage_future();
+    let changes = self.use_query_change::<C>().expect_spawn_stage_ready();
+
+    let changes = FilterMapQueryChange {
+      base: changes,
+      mapper: |v| v,
+    }
+    .into_boxed();
+
+    UseResult::SpawnStageFuture(Box::new(rev_many_view.map(move |rev_many_view| {
+      RevRefForeignTriQuery {
+        base: DualQuery {
+          view: get_db_view::<C>().filter_map(|v| v).into_boxed(),
+          delta: changes,
+        },
+        rev_many_view,
+      }
+    })))
   }
 
   #[track_caller]

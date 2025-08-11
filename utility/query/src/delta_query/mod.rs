@@ -6,3 +6,6 @@ pub use previous_view::*;
 
 mod fanout;
 pub use fanout::*;
+
+mod filter;
+pub use filter::*;
