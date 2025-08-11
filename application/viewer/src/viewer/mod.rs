@@ -399,6 +399,8 @@ impl Viewer {
   }
 
   pub fn draw_canvas(&mut self, canvas: &RenderTargetView) {
+    self.db_shared_rev_ref.reset();
+
     let tasks = self.rendering.update_registry(
       &mut self.render_memory,
       &mut self.render_resource,

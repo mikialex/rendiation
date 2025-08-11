@@ -30,14 +30,14 @@ impl<T: Send + Sync + 'static> UseResult<T> {
     }
   }
 
-  pub fn into_future(self) -> Box<dyn Future<Output = T> + Unpin + Send + Sync> {
+  pub fn into_future(self) -> Option<Box<dyn Future<Output = T> + Unpin + Send + Sync>> {
     match self {
-      UseResult::SpawnStageFuture(future) => future,
+      UseResult::SpawnStageFuture(future) => Some(future),
       UseResult::SpawnStageReady(r) => {
         let future = std::future::ready(r);
-        Box::new(future)
+        Some(Box::new(future))
       }
-      _ => panic!("stage not match"),
+      _ => None,
     }
   }
 
@@ -52,7 +52,11 @@ impl<T: Send + Sync + 'static> UseResult<T> {
     let a = self.into_future();
     let b = other.into_future();
 
-    UseResult::SpawnStageFuture(Box::new(futures::future::join(a, b)))
+    match (a, b) {
+      (Some(a), Some(b)) => UseResult::SpawnStageFuture(Box::new(futures::future::join(a, b))),
+      (None, None) => UseResult::NotInStage,
+      _ => panic!("join source corrupted"),
+    }
   }
 
   pub fn into_resolve_stage(self) -> Option<T> {

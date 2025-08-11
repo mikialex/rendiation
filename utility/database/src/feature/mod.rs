@@ -48,6 +48,12 @@ pub struct DBForeignKeySharedRevRefs {
   pub task_id_mapping: FastHashMap<ComponentId, u32>,
 }
 
+impl DBForeignKeySharedRevRefs {
+  pub fn reset(&mut self) {
+    self.task_id_mapping.clear();
+  }
+}
+
 pub type RevRefContainer<K, V> = Arc<RwLock<FastHashMap<K, FastHashSet<V>>>>;
 pub type RevRefContainerRead<K, V> = LockReadGuardHolder<FastHashMap<K, FastHashSet<V>>>;
 pub type RevRefForeignKey = RevRefContainerRead<RawEntityHandle, RawEntityHandle>;

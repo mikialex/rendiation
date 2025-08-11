@@ -28,3 +28,15 @@ where
     (checker)(base)
   }
 }
+
+pub trait DeltaQueryExt: Query {
+  fn delta_filter_map<V, V2, F>(self, mapper: F) -> FilterMapQueryChange<Self, F>
+  where
+    F: Fn(V) -> Option<V2> + Sync + Send + Clone + 'static,
+    Self: Query<Value = ValueChange<V>>,
+    V2: CValue,
+  {
+    FilterMapQueryChange { base: self, mapper }
+  }
+}
+impl<T: Query> DeltaQueryExt for T {}

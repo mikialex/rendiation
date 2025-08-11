@@ -166,8 +166,24 @@ impl<'a> QueryGPUHookCx<'a> {
 
   #[track_caller]
   pub fn use_result<T: Send + Sync + 'static + Clone>(&mut self, re: UseResult<T>) -> UseResult<T> {
-    if let UseResult::SpawnStageFuture(fut) = re {
-      self.scope(|cx| match cx.use_future(fut) {
+    let (cx, spawned) = self.use_plain_state_default();
+    if cx.is_spawning_stage() || *spawned {
+      let fut = match re {
+        UseResult::SpawnStageFuture(future) => {
+          *spawned = true;
+          Some(future)
+        }
+        UseResult::SpawnStageReady(re) => return UseResult::SpawnStageReady(re),
+        _ => {
+          if cx.is_spawning_stage() {
+            panic!("must contain work in spawning stage")
+          } else {
+            None
+          }
+        }
+      };
+
+      cx.scope(|cx| match cx.use_future(fut) {
         TaskUseResult::SpawnId(_) => UseResult::NotInStage,
         TaskUseResult::Result(r) => UseResult::ResolveStageReady(r),
       })
@@ -229,24 +245,31 @@ impl<'a> QueryGPUHookCx<'a> {
   pub fn use_db_rev_ref_tri_view<C: ForeignKeySemantic>(
     &mut self,
   ) -> UseResult<RevRefForeignTriQuery> {
-    let rev_many_view = self.use_db_rev_ref::<C>().expect_spawn_stage_future();
-    let changes = self.use_query_change::<C>().expect_spawn_stage_ready();
+    let rev_many_view = self.use_db_rev_ref::<C>();
+    let changes = self.use_query_change::<C>();
+    // this generate less code compare to join i assume
+    if self.is_spawning_stage() {
+      let rev_many_view = rev_many_view.expect_spawn_stage_future();
+      let changes = changes.expect_spawn_stage_ready();
 
-    let changes = FilterMapQueryChange {
-      base: changes,
-      mapper: |v| v,
-    }
-    .into_boxed();
-
-    UseResult::SpawnStageFuture(Box::new(rev_many_view.map(move |rev_many_view| {
-      RevRefForeignTriQuery {
-        base: DualQuery {
-          view: get_db_view::<C>().filter_map(|v| v).into_boxed(),
-          delta: changes,
-        },
-        rev_many_view,
+      let changes = FilterMapQueryChange {
+        base: changes,
+        mapper: |v| v,
       }
-    })))
+      .into_boxed();
+
+      UseResult::SpawnStageFuture(Box::new(rev_many_view.map(move |rev_many_view| {
+        RevRefForeignTriQuery {
+          base: DualQuery {
+            view: get_db_view::<C>().filter_map(|v| v).into_boxed(),
+            delta: changes,
+          },
+          rev_many_view,
+        }
+      })))
+    } else {
+      UseResult::NotInStage
+    }
   }
 
   #[track_caller]
@@ -266,7 +289,10 @@ impl<'a> QueryGPUHookCx<'a> {
       };
     } else {
       self.scope(|cx| {
-        let changes = cx.use_query_change::<C>();
+        let changes = cx
+          .use_query_change::<C>()
+          .map(|v| v.delta_filter_map(|v| v));
+
         let result = cx.use_rev_ref(changes);
         if let TaskUseResult::SpawnId(task_id) = result {
           cx.db_shared_rev_ref

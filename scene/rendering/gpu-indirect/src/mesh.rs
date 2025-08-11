@@ -49,26 +49,48 @@ pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl>
   let attribute_buffer_metadata =
     cx.use_multi_updater_gpu(|gpu| attribute_buffer_metadata(gpu, indices, position, normal, uv));
 
-  let sm_to_mesh = cx.when_init(|| {
-    global_watch()
-      .watch_typed_foreign_key::<StandardModelRefAttributesMeshEntity>()
-      .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelStdModelRenderPayload>())
-      .into_forker()
-  });
+  let (cx, sm_to_mesh_device) = cx.use_storage_buffer2::<u32>(128, u32::MAX);
 
-  let sm_to_mesh_device = cx.use_storage_buffer(|gpu| {
-    let sm_to_mesh_device_source = sm_to_mesh
-      .clone()
-      .unwrap()
-      .collective_map(|v| v.map(|v| v.alloc_index()).unwrap_or(u32::MAX))
-      .into_query_update_storage(0);
+  let fanout = cx
+    .use_dual_query::<StandardModelRefAttributesMeshEntity>()
+    .fanout(cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>());
 
-    create_reactive_storage_buffer_container::<u32>(128, u32::MAX, gpu)
-      .with_source(sm_to_mesh_device_source)
-  });
+  let fanout = cx.use_result(fanout);
 
-  let sm_to_mesh =
-    cx.use_reactive_query(|| sm_to_mesh.clone().unwrap().collective_filter_map(|v| v));
+  fanout
+    .clone_expect_none_future()
+    .map(|v| {
+      v.delta
+        .map(|_, v| v.map(|v| v.map(|v| v.alloc_index()).unwrap_or(u32::MAX)))
+        .into_boxed()
+        .into_change()
+    })
+    .update_storage_array(sm_to_mesh_device, 0);
+
+  let sm_to_mesh = fanout
+    .if_resolve_stage()
+    .map(|v| v.view.filter_map(|v| v).into_boxed());
+
+  // let sm_to_mesh = cx.when_init(|| {
+  //   global_watch()
+  //     .watch_typed_foreign_key::<StandardModelRefAttributesMeshEntity>()
+  //     .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelStdModelRenderPayload>())
+  //     .into_forker()
+  // });
+
+  // let sm_to_mesh_device = cx.use_storage_buffer(|gpu| {
+  //   let sm_to_mesh_device_source = sm_to_mesh
+  //     .clone()
+  //     .unwrap()
+  //     .collective_map(|v| v.map(|v| v.alloc_index()).unwrap_or(u32::MAX))
+  //     .into_query_update_storage(0);
+
+  //   create_reactive_storage_buffer_container::<u32>(128, u32::MAX, gpu)
+  //     .with_source(sm_to_mesh_device_source)
+  // });
+
+  // let sm_to_mesh =
+  //   cx.use_reactive_query(|| sm_to_mesh.clone().unwrap().collective_filter_map(|v| v));
 
   cx.when_render(|| MeshGPUBindlessImpl {
     indices: indices.clone(),
@@ -82,7 +104,7 @@ pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl>
     topology_checker: global_entity_component_of::<AttributesMeshEntityTopology>().read(),
     vertex_address_buffer: attribute_buffer_metadata.clone().unwrap().gpu().clone(),
     vertex_address_buffer_host: attribute_buffer_metadata.unwrap(),
-    sm_to_mesh_device: sm_to_mesh_device.unwrap(),
+    sm_to_mesh_device: sm_to_mesh_device.get_gpu_buffer(),
     sm_to_mesh: sm_to_mesh.unwrap(),
     used_in_midc_downgrade: require_midc_downgrade(&cx.gpu.info),
   })
@@ -269,7 +291,7 @@ pub struct MeshGPUBindlessImpl {
     MultiUpdateContainer<CommonStorageBufferImplWithHostBackup<AttributeMeshMeta>>,
   >,
   sm_to_mesh_device: StorageBufferReadonlyDataView<[u32]>,
-  sm_to_mesh: BoxedDynQuery<EntityHandle<SceneModelEntity>, EntityHandle<AttributesMeshEntity>>,
+  sm_to_mesh: BoxedDynQuery<RawEntityHandle, RawEntityHandle>,
   checker: ForeignKeyReadView<StandardModelRefAttributesMeshEntity>,
   indices_checker: ForeignKeyReadView<SceneBufferViewBufferId<AttributeIndexRef>>,
   topology_checker: ComponentReadView<AttributesMeshEntityTopology>,
@@ -534,7 +556,7 @@ impl BindlessMeshDispatcher {
 #[derive(Clone)]
 pub struct BindlessDrawCreator {
   metadata: StorageBufferReadonlyDataView<[AttributeMeshMeta]>,
-  sm_to_mesh: BoxedDynQuery<EntityHandle<SceneModelEntity>, EntityHandle<AttributesMeshEntity>>,
+  sm_to_mesh: BoxedDynQuery<RawEntityHandle, RawEntityHandle>,
   sm_to_mesh_device: StorageBufferReadonlyDataView<[u32]>,
   vertex_address_buffer_host: LockReadGuardHolder<
     MultiUpdateContainer<CommonStorageBufferImplWithHostBackup<AttributeMeshMeta>>,
@@ -542,7 +564,7 @@ pub struct BindlessDrawCreator {
 }
 impl NoneIndexedDrawCommandBuilder for BindlessDrawCreator {
   fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> DrawCommand {
-    let mesh_id = self.sm_to_mesh.access(&id).unwrap();
+    let mesh_id = self.sm_to_mesh.access(&id.into_raw()).unwrap();
     let address_info = self
       .vertex_address_buffer_host
       .vec
@@ -577,7 +599,7 @@ impl NoneIndexedDrawCommandBuilder for BindlessDrawCreator {
 
 impl IndexedDrawCommandBuilder for BindlessDrawCreator {
   fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> DrawCommand {
-    let mesh_id = self.sm_to_mesh.access(&id).unwrap();
+    let mesh_id = self.sm_to_mesh.access(&id.into_raw()).unwrap();
     let address_info = self
       .vertex_address_buffer_host
       .vec
