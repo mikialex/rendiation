@@ -97,13 +97,13 @@ pub trait QueryHookCxLike: HooksCxLike {
 
   fn use_future<R: 'static + Send + Sync + Clone>(
     &mut self,
-    f: impl Future<Output = R> + Send + Sync + 'static,
+    f: Option<impl Future<Output = R> + Send + Sync + 'static>,
   ) -> TaskUseResult<R> {
     let (cx, token) = self.use_plain_state(|| u32::MAX);
 
     match cx.stage() {
       QueryHookStage::SpawnTask { pool, .. } => {
-        *token = pool.install_task(f);
+        *token = pool.install_task(f.unwrap());
         TaskUseResult::SpawnId(*token)
       }
       QueryHookStage::ResolveTask { task, .. } => {

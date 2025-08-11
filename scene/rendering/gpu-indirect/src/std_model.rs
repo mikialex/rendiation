@@ -143,9 +143,15 @@ pub fn use_std_model_renderer(
 
   cx.when_spawning_stage(|| {
     SelectChanges([
-      material_flat.expect_resolve_stage().map_some_u32_index(),
-      material_pbr_mr.expect_resolve_stage().map_some_u32_index(),
-      material_pbr_sg.expect_resolve_stage().map_some_u32_index(),
+      material_flat
+        .expect_spawn_stage_ready()
+        .map_some_u32_index(),
+      material_pbr_mr
+        .expect_spawn_stage_ready()
+        .map_some_u32_index(),
+      material_pbr_sg
+        .expect_spawn_stage_ready()
+        .map_some_u32_index(),
     ])
     .update_storage_array(std_model, offset_of!(SceneStdModelStorage, material));
   });
