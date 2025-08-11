@@ -37,32 +37,10 @@ where
   fn resolve(&mut self, cx: &QueryResolveCtx) -> (Self::Changes, Self::View) {
     let (d, v) = self.base.resolve(cx);
     let mapper = self.mapper.clone();
-    let d = d.map(ValueChangeMapper(mapper));
+    let d = d.delta_map(mapper);
     let v = v.map(self.mapper.clone());
 
     (d, v)
-  }
-}
-
-#[derive(Clone, Copy)]
-pub struct ValueChangeMapper<F>(pub F);
-impl<K, V, V2, F: Fn(&K, V) -> V2 + Clone> FnOnce<(&K, ValueChange<V>)> for ValueChangeMapper<F> {
-  type Output = ValueChange<V2>;
-
-  extern "rust-call" fn call_once(self, args: (&K, ValueChange<V>)) -> Self::Output {
-    self.call(args)
-  }
-}
-
-impl<K, V, V2, F: Fn(&K, V) -> V2 + Clone> FnMut<(&K, ValueChange<V>)> for ValueChangeMapper<F> {
-  extern "rust-call" fn call_mut(&mut self, args: (&K, ValueChange<V>)) -> Self::Output {
-    self.call(args)
-  }
-}
-
-impl<K, V, V2, F: Fn(&K, V) -> V2 + Clone> Fn<(&K, ValueChange<V>)> for ValueChangeMapper<F> {
-  extern "rust-call" fn call(&self, (k, v): (&K, ValueChange<V>)) -> Self::Output {
-    v.map(|v| (self.0.clone())(k, v))
   }
 }
 

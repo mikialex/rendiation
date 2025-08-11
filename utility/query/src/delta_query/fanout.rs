@@ -1,16 +1,5 @@
 use crate::*;
 
-#[derive(Clone)]
-pub struct DualQuery<T, U> {
-  pub view: T,
-  pub delta: U,
-}
-
-pub struct TriQuery<T, U, V> {
-  pub base: DualQuery<T, U>,
-  pub rev_many_view: V,
-}
-
 impl<T, U> DualQuery<T, U> {
   pub fn compute_fanout<KMany, KOne, V, X, Y, Z>(
     self,

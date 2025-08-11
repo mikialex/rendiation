@@ -29,29 +29,39 @@ pub fn use_rtx_scene_material(
   materials: Option<Arc<Vec<Box<dyn SceneMaterialSurfaceSupport>>>>,
   tex: Option<GPUTextureBindingSystem>,
 ) -> Option<SceneSurfaceSupport> {
-  let material_id = cx.use_storage_buffer(|cx| {
-    let material_pbr_mr = global_watch()
-      .watch::<StandardModelRefPbrMRMaterial>()
-      .collective_filter_map(|id| id.map(|v| v.index()))
-      .into_boxed();
+  let (cx, material_id) = cx.use_storage_buffer2(128, u32::MAX);
 
-    let sm_to_mr = material_pbr_mr
-      .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelStdModelRenderPayload>())
-      .into_query_update_storage(0);
+  let material_pbr_mr = cx
+    .use_dual_query::<StandardModelRefPbrMRMaterial>()
+    .map(|q| q.filter_map(|id| id.map(|v| v.index())))
+    .fanout(cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>());
 
-    let material_pbr_sg = global_watch()
-      .watch::<StandardModelRefPbrSGMaterial>()
-      .collective_filter_map(|id| id.map(|v| v.index()))
-      .into_boxed();
+  cx.use_result(material_pbr_mr)
+    .map(|c| c.delta.into_change())
+    .update_storage_array(material_id, 0);
 
-    let sm_to_sg = material_pbr_sg
-      .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelStdModelRenderPayload>())
-      .into_query_update_storage(0);
+  let material_pbr_sg = cx
+    .use_dual_query::<StandardModelRefPbrSGMaterial>()
+    .map(|q| q.filter_map(|id| id.map(|v| v.index())))
+    .fanout(cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>());
 
-    create_reactive_storage_buffer_container::<u32>(128, u32::MAX, cx)
-      .with_source(sm_to_mr)
-      .with_source(sm_to_sg)
-  });
+  cx.use_result(material_pbr_sg)
+    .map(|c| c.delta.into_change())
+    .update_storage_array(material_id, 0);
+
+  // let (cx, material_ty) = cx.use_storage_buffer2(128, u32::MAX);
+
+  // let mr_material_ty = cx.use_dual_query::<StandardModelRefPbrMRMaterial>()
+  //   .map(|q| q.filter_map(|_, _| 0))
+  //   .fanout(cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>());
+
+  // cx.use_result(mr_material_ty).update_storage_array(material_ty, 0);
+
+  // let sg_material_ty = cx.use_dual_query::<StandardModelRefPbrSGMaterial>()
+  //   .map(|q| q.filter_map(|_, _| 0))
+  //   .fanout(cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>());
+
+  // cx.use_result(sg_material_ty).update_storage_array(material_ty, 0);
 
   let material_ty = cx.use_storage_buffer(|cx| {
     let material_ty_base = global_watch().watch_entity_set::<SceneModelEntity>();
@@ -78,7 +88,7 @@ pub fn use_rtx_scene_material(
   cx.when_render(|| SceneSurfaceSupport {
     textures: tex.unwrap().clone(),
     sm_to_material_type: material_ty.unwrap(),
-    sm_to_material_id: material_id.unwrap(),
+    sm_to_material_id: material_id.get_gpu_buffer(),
     material_accessor: materials.unwrap(),
   })
 }

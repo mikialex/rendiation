@@ -70,6 +70,10 @@ impl<T> std::fmt::Debug for EntityHandle<T> {
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Facet, Zeroable, Pod)]
 pub struct RawEntityHandle(pub(crate) Handle<()>);
 
+pub fn map_raw_handle_or_u32_max(v: Option<RawEntityHandle>) -> u32 {
+  v.map(|v| v.alloc_index()).unwrap_or(u32::MAX)
+}
+
 impl Display for RawEntityHandle {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", self.0)
