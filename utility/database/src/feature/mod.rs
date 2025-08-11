@@ -52,5 +52,8 @@ pub type RevRefContainer<K, V> = Arc<RwLock<FastHashMap<K, FastHashSet<V>>>>;
 pub type RevRefContainerRead<K, V> = LockReadGuardHolder<FastHashMap<K, FastHashSet<V>>>;
 pub type RevRefForeignKey = RevRefContainerRead<RawEntityHandle, RawEntityHandle>;
 
-pub type RevRefForeignTriQuery =
-  TriQuery<DBView<RawEntityHandle>, DBChange<RawEntityHandle>, RevRefForeignKey>;
+pub type RevRefForeignTriQuery = TriQuery<
+  BoxedDynQuery<RawEntityHandle, RawEntityHandle>,
+  BoxedDynQuery<RawEntityHandle, ValueChange<RawEntityHandle>>,
+  RevRefForeignKey,
+>;

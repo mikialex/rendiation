@@ -10,8 +10,8 @@ use rendiation_webgpu::*;
 
 mod hook;
 pub use hook::*;
-mod next;
-pub use next::*;
+mod use_result;
+pub use use_result::*;
 mod storage;
 pub use storage::*;
 mod multi_access;
