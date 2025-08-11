@@ -78,7 +78,7 @@ impl AsyncTaskPool {
   pub fn share_task_by_id<T: Clone + Any>(
     &self,
     id: u32,
-  ) -> Box<dyn Future<Output = T> + Send + Unpin + 'static> {
+  ) -> Box<dyn Future<Output = T> + Send + Sync + Unpin + 'static> {
     let f = self
       .registry
       .get(&id)

@@ -94,4 +94,21 @@ pub trait QueryHookCxLike: HooksCxLike {
       _ => None,
     }
   }
+
+  fn use_future<R: 'static + Send + Sync + Clone>(
+    &mut self,
+    f: impl Future<Output = R> + Send + Sync + 'static,
+  ) -> TaskUseResult<R> {
+    let (cx, token) = self.use_plain_state(|| u32::MAX);
+
+    match cx.stage() {
+      QueryHookStage::SpawnTask { pool, .. } => {
+        *token = pool.install_task(f);
+        TaskUseResult::SpawnId(*token)
+      }
+      QueryHookStage::ResolveTask { task, .. } => {
+        TaskUseResult::Result(task.expect_result_by_id(*token))
+      }
+    }
+  }
 }

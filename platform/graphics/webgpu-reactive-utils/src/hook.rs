@@ -164,6 +164,18 @@ impl<'a> QueryGPUHookCx<'a> {
     }
   }
 
+  #[track_caller]
+  pub fn use_result<T: Send + Sync + 'static + Clone>(&mut self, re: UseResult<T>) -> UseResult<T> {
+    if let UseResult::SpawnStageFuture(fut) = re {
+      self.scope(|cx| match cx.use_future(fut) {
+        TaskUseResult::SpawnId(_) => UseResult::NotInStage,
+        TaskUseResult::Result(r) => UseResult::ResolveStageReady(r),
+      })
+    } else {
+      re
+    }
+  }
+
   pub fn use_changes<C: ComponentSemantic>(
     &mut self,
   ) -> UseResult<Arc<LinearBatchChanges<u32, C::Data>>> {

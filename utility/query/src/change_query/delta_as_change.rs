@@ -1,7 +1,7 @@
 use crate::*;
 
 #[derive(Clone)]
-pub struct DeltaQueryAsChange<T>(T);
+pub struct DeltaQueryAsChange<T>(pub T);
 
 pub trait IntoDeltaQueryAsChangeExt: Sized {
   fn into_change(self) -> DeltaQueryAsChange<Self> {

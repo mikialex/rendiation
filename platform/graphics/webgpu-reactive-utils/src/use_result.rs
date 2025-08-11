@@ -1,14 +1,26 @@
 use crate::*;
 
 pub enum UseResult<T> {
-  SpawnStageFuture(Box<dyn Future<Output = T> + Unpin + Send>),
+  SpawnStageFuture(Box<dyn Future<Output = T> + Unpin + Send + Sync>),
   SpawnStageReady(T),
   ResolveStageReady(T),
   NotInStage,
 }
 
-impl<T: Send + 'static> UseResult<T> {
-  pub fn map<U>(self, f: impl FnOnce(T) -> U + Send + 'static) -> UseResult<U> {
+impl<T: Send + Sync + 'static> UseResult<T> {
+  pub fn clone_expect_none_future(&self) -> Self
+  where
+    T: Clone,
+  {
+    match self {
+      UseResult::SpawnStageFuture(_) => panic!("can not clone future"),
+      UseResult::SpawnStageReady(r) => UseResult::SpawnStageReady(r.clone()),
+      UseResult::ResolveStageReady(r) => UseResult::ResolveStageReady(r.clone()),
+      UseResult::NotInStage => UseResult::NotInStage,
+    }
+  }
+
+  pub fn map<U>(self, f: impl FnOnce(T) -> U + Send + Sync + 'static) -> UseResult<U> {
     use futures::FutureExt;
     match self {
       UseResult::SpawnStageFuture(fut) => UseResult::SpawnStageFuture(Box::new(fut.map(f))),
@@ -18,7 +30,7 @@ impl<T: Send + 'static> UseResult<T> {
     }
   }
 
-  pub fn into_future(self) -> Box<dyn Future<Output = T> + Unpin + Send> {
+  pub fn into_future(self) -> Box<dyn Future<Output = T> + Unpin + Send + Sync> {
     match self {
       UseResult::SpawnStageFuture(future) => future,
       UseResult::SpawnStageReady(r) => {
@@ -29,7 +41,7 @@ impl<T: Send + 'static> UseResult<T> {
     }
   }
 
-  pub fn join<U: Send + 'static>(self, other: UseResult<U>) -> UseResult<(T, U)> {
+  pub fn join<U: Send + Sync + 'static>(self, other: UseResult<U>) -> UseResult<(T, U)> {
     if self.is_resolve_stage() && other.is_resolve_stage() {
       return UseResult::ResolveStageReady((
         self.into_resolve_stage().unwrap(),
@@ -54,14 +66,18 @@ impl<T: Send + 'static> UseResult<T> {
     matches!(self, UseResult::ResolveStageReady(_))
   }
 
-  pub fn expect_resolve_stage(self) -> T {
+  pub fn if_resolve_stage(self) -> Option<T> {
     match self {
-      UseResult::ResolveStageReady(t) => t,
-      _ => panic!("expect spawn stage ready"),
+      UseResult::ResolveStageReady(t) => Some(t),
+      _ => None,
     }
   }
 
-  pub fn expect_spawn_stage_future(self) -> Box<dyn Future<Output = T> + Unpin + Send> {
+  pub fn expect_resolve_stage(self) -> T {
+    self.if_resolve_stage().unwrap()
+  }
+
+  pub fn expect_spawn_stage_future(self) -> Box<dyn Future<Output = T> + Unpin + Sync + Send> {
     match self {
       UseResult::SpawnStageFuture(t) => t,
       _ => panic!("expect spawn stage ready"),
@@ -98,11 +114,30 @@ impl<T: Send + 'static> UseResult<T> {
   }
 }
 
+impl<T, U> UseResult<DualQuery<T, U>> {
+  pub fn fanout<KMany, KOne, V, X, Y, Z>(
+    self,
+    other: UseResult<TriQuery<X, Y, Z>>,
+  ) -> UseResult<DualQuery<ChainQuery<X, T>, Arc<FastHashMap<KMany, ValueChange<V>>>>>
+  where
+    KMany: CKey,
+    KOne: CKey,
+    V: CKey,
+    T: Query<Key = KOne, Value = V> + Clone + Send + Sync + 'static,
+    U: Query<Key = KOne, Value = ValueChange<V>> + Clone + Send + Sync + 'static,
+    X: Query<Key = KMany, Value = KOne> + Send + Clone + Sync + 'static,
+    Y: Query<Key = KMany, Value = ValueChange<KOne>> + Clone + Send + Sync + 'static,
+    Z: MultiQuery<Key = KOne, Value = KMany> + Clone + Send + Sync + 'static,
+  {
+    self.join(other).map(|(a, b)| a.compute_fanout(b))
+  }
+}
+
 pub type UniformBufferCollectionRaw<K, T> = FastHashMap<K, UniformBufferDataView<T>>;
 pub type UniformBufferCollection<K, T> = Arc<RwLock<FastHashMap<K, UniformBufferDataView<T>>>>;
 
-pub trait DataChangeGPUExt {
-  fn update_uniforms<K: LinearIdentification + CKey, U: Std140 + Default>(
+pub trait DataChangeGPUExt<K: LinearIdentified + CKey> {
+  fn update_uniforms<U: Std140 + Default>(
     &self,
     uniforms: &UniformBufferCollection<K, U>,
     offset: usize,
@@ -116,8 +151,8 @@ pub trait DataChangeGPUExt {
   );
 }
 
-impl<T: DataChangeGPUExt> DataChangeGPUExt for UseResult<T> {
-  fn update_uniforms<K: LinearIdentification + CKey, U: Std140 + Default>(
+impl<K: LinearIdentified + CKey, T: DataChangeGPUExt<K>> DataChangeGPUExt<K> for UseResult<T> {
+  fn update_uniforms<U: Std140 + Default>(
     &self,
     uniforms: &UniformBufferCollection<K, U>,
     offset: usize,
@@ -145,12 +180,13 @@ impl<T: DataChangeGPUExt> DataChangeGPUExt for UseResult<T> {
   }
 }
 
-impl<T, X> DataChangeGPUExt for X
+impl<K, T, X> DataChangeGPUExt<K> for X
 where
   T: Pod,
-  X: DataChanges<Key = u32, Value = T>,
+  K: LinearIdentified + CKey,
+  X: DataChanges<Key = K, Value = T>,
 {
-  fn update_uniforms<K: LinearIdentification + CKey, U: Std140 + Default>(
+  fn update_uniforms<U: Std140 + Default>(
     &self,
     uniforms: &UniformBufferCollection<K, U>,
     offset: usize,
@@ -159,12 +195,12 @@ where
     if self.has_change() {
       let mut uniform = uniforms.write();
       for id in self.iter_removed() {
-        uniform.remove(&K::from_alloc_index(id));
+        uniform.remove(&id);
       }
 
       for (id, value) in self.iter_update_or_insert() {
         let buffer = uniform
-          .entry(K::from_alloc_index(id))
+          .entry(id)
           .or_insert_with(|| UniformBufferDataView::create_default(&gpu.device));
         // todo, here we should do sophisticated optimization to merge the adjacent writes.
         buffer.write_at(&gpu.queue, &value, offset as u64);
@@ -181,7 +217,7 @@ where
       for (id, value) in self.iter_update_or_insert() {
         unsafe {
           storage
-            .set_value_sub_bytes(id, field_offset, bytes_of(&value))
+            .set_value_sub_bytes(id.alloc_index(), field_offset, bytes_of(&value))
             .unwrap();
         }
       }
