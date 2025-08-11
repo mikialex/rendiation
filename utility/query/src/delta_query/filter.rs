@@ -29,14 +29,22 @@ where
   }
 }
 
-pub trait DeltaQueryExt: Query {
-  fn delta_filter_map<V, V2, F>(self, mapper: F) -> FilterMapQueryChange<Self, F>
+impl<T, U> DualQuery<T, U> {
+  pub fn filter_map<K, V, V2, F>(
+    self,
+    f: F,
+  ) -> DualQuery<FilterMapQuery<T, F>, FilterMapQueryChange<U, F>>
   where
-    F: Fn(V) -> Option<V2> + Sync + Send + Clone + 'static,
-    Self: Query<Value = ValueChange<V>>,
+    K: CKey,
+    V: CValue,
     V2: CValue,
+    T: Query<Key = K, Value = V>,
+    U: Query<Key = K, Value = ValueChange<V>>,
+    F: Fn(V) -> Option<V2> + Clone + Sync + Send + 'static,
   {
-    FilterMapQueryChange { base: self, mapper }
+    DualQuery {
+      view: self.view.filter_map(f.clone()),
+      delta: self.delta.delta_filter_map(f),
+    }
   }
 }
-impl<T: Query> DeltaQueryExt for T {}

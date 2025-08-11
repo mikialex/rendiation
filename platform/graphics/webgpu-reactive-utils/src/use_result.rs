@@ -1,3 +1,5 @@
+use database::{map_raw_handle_or_u32_max, RawEntityHandle};
+
 use crate::*;
 
 pub enum UseResult<T> {
@@ -7,8 +9,24 @@ pub enum UseResult<T> {
   NotInStage,
 }
 
+impl<T, U> UseResult<DualQuery<T, U>> {
+  pub fn map_raw_handle_or_u32_max_changes(
+    self,
+  ) -> UseResult<impl DataChanges<Key = RawEntityHandle, Value = u32>>
+  where
+    T: Query<Key = RawEntityHandle, Value = Option<RawEntityHandle>> + 'static,
+    U: Query<Key = RawEntityHandle, Value = ValueChange<Option<RawEntityHandle>>> + 'static,
+  {
+    self.map(|v| {
+      v.delta
+        .delta_map_value(map_raw_handle_or_u32_max)
+        .into_change()
+    })
+  }
+}
+
 impl<T: Send + Sync + 'static> UseResult<T> {
-  pub fn clone_expect_none_future(&self) -> Self
+  pub fn clone_expect_future(&self) -> Self
   where
     T: Clone,
   {

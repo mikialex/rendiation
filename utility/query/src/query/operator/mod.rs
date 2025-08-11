@@ -28,6 +28,13 @@ pub trait QueryExt: Query + Sized {
     }
   }
 
+  fn map_value<V2, F: Fn(Self::Value) -> V2>(self, f: F) -> MappedValueQuery<Self, F> {
+    MappedValueQuery {
+      base: self,
+      mapper: f,
+    }
+  }
+
   fn map<V2, F>(self, mapper: F) -> MappedQuery<Self, F>
   where
     F: Fn(&Self::Key, Self::Value) -> V2,

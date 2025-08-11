@@ -58,39 +58,13 @@ pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl>
   let fanout = cx.use_result(fanout);
 
   fanout
-    .clone_expect_none_future()
-    .map(|v| {
-      v.delta
-        .map(|_, v| v.map(|v| v.map(|v| v.alloc_index()).unwrap_or(u32::MAX)))
-        .into_boxed()
-        .into_change()
-    })
+    .clone_expect_future()
+    .map_raw_handle_or_u32_max_changes()
     .update_storage_array(sm_to_mesh_device, 0);
 
   let sm_to_mesh = fanout
     .if_resolve_stage()
     .map(|v| v.view.filter_map(|v| v).into_boxed());
-
-  // let sm_to_mesh = cx.when_init(|| {
-  //   global_watch()
-  //     .watch_typed_foreign_key::<StandardModelRefAttributesMeshEntity>()
-  //     .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelStdModelRenderPayload>())
-  //     .into_forker()
-  // });
-
-  // let sm_to_mesh_device = cx.use_storage_buffer(|gpu| {
-  //   let sm_to_mesh_device_source = sm_to_mesh
-  //     .clone()
-  //     .unwrap()
-  //     .collective_map(|v| v.map(|v| v.alloc_index()).unwrap_or(u32::MAX))
-  //     .into_query_update_storage(0);
-
-  //   create_reactive_storage_buffer_container::<u32>(128, u32::MAX, gpu)
-  //     .with_source(sm_to_mesh_device_source)
-  // });
-
-  // let sm_to_mesh =
-  //   cx.use_reactive_query(|| sm_to_mesh.clone().unwrap().collective_filter_map(|v| v));
 
   cx.when_render(|| MeshGPUBindlessImpl {
     indices: indices.clone(),
