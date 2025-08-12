@@ -65,6 +65,17 @@ impl SharedHookResult {
   }
 }
 
+/// this trait serves two purposes:
+/// - workaround/express a lifetime issue without unsafe
+/// - support custom shared
+pub trait SharedResultProvider<Cx>: 'static {
+  type Result: Clone + Sync + Send + 'static;
+  fn compute_share_key(&self) -> ShareKey {
+    ShareKey::TypeId(TypeId::of::<Self>())
+  }
+  fn use_logic(&self, cx: &mut Cx) -> TaskUseResult<Self::Result>;
+}
+
 pub trait QueryHookCxLike: HooksCxLike {
   fn is_spawning_stage(&self) -> bool;
   fn stage(&mut self) -> QueryHookStage;
@@ -166,21 +177,12 @@ pub trait QueryHookCxLike: HooksCxLike {
   }
 
   #[track_caller]
-  fn use_shared_compute<
-    T: Clone + Send + Sync + 'static,
-    F: Fn(&mut Self) -> UseResult<T> + 'static,
-  >(
+  fn use_shared_compute<Provider: SharedResultProvider<Self>>(
     &mut self,
-    logic: F,
-  ) -> UseResult<T> {
-    let key = ShareKey::TypeId(TypeId::of::<T>());
-    self.use_shared_compute_internal(
-      move |cx| {
-        let result = logic(cx);
-        cx.use_future(result.if_spawn_stage_future())
-      },
-      key,
-    )
+    provider: Provider,
+  ) -> UseResult<Provider::Result> {
+    let key = provider.compute_share_key();
+    self.use_shared_compute_internal(move |cx| provider.use_logic(cx), key)
   }
 
   #[track_caller]

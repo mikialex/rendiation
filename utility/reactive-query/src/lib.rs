@@ -41,9 +41,6 @@ pub use collective_channel::*;
 mod registry;
 pub use registry::*;
 
-mod mutate_target;
-pub use mutate_target::*;
-
 #[derive(Clone)]
 pub struct DeltaQueryAsDataChanges<T, V>(pub T, pub std::marker::PhantomData<V>);
 

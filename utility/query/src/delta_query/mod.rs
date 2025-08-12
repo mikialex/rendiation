@@ -9,6 +9,9 @@ mod fanout;
 mod filter;
 pub use filter::*;
 
+mod mutate_target;
+pub use mutate_target::*;
+
 mod map;
 pub use map::*;
 
