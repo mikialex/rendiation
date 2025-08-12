@@ -910,6 +910,7 @@ dependencies = [
  "fast-hash-collection",
  "futures",
  "parking_lot",
+ "query-hook",
  "reactive",
  "rmp-serde",
  "serde",
