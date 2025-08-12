@@ -3,15 +3,14 @@ use crate::*;
 pub fn use_default_scene_batch_extractor(
   cx: &mut QueryGPUHookCx<'_>,
 ) -> Option<DefaultSceneBatchExtractor> {
-  let model_lookup = cx.use_global_multi_reactive_query::<SceneModelBelongsToScene>();
+  let model_lookup = cx.use_db_rev_ref_typed::<SceneModelBelongsToScene>();
 
   let node_net_visible = cx.use_reactive_query(scene_node_derive_visible);
-  let alpha_blend = all_kinds_of_materials_enabled_alpha_blending().into_boxed();
 
   cx.when_render(|| DefaultSceneBatchExtractor {
-    model_lookup: model_lookup.unwrap(),
+    model_lookup: model_lookup.expect_resolve_stage(),
     node_net_visible: node_net_visible.unwrap(),
-    alpha_blend,
+    alpha_blend: all_kinds_of_materials_enabled_alpha_blending().into_boxed(),
     sm_ref_node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
   })
 }
@@ -20,7 +19,7 @@ pub struct DefaultSceneBatchExtractor {
   node_net_visible: BoxedDynQuery<EntityHandle<SceneNodeEntity>, bool>,
   sm_ref_node: ForeignKeyReadView<SceneModelRefNode>,
   alpha_blend: BoxedDynQuery<EntityHandle<SceneModelEntity>, bool>,
-  model_lookup: RevRefOfForeignKey<SceneModelBelongsToScene>,
+  model_lookup: RevRefForeignKeyReadTyped<SceneModelBelongsToScene>,
 }
 
 impl DefaultSceneBatchExtractor {

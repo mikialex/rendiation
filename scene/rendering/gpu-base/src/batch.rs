@@ -37,7 +37,7 @@ dyn_clone::clone_trait_object!(HostRenderBatch);
 // todo, we should make it incremental
 #[derive(Clone)]
 pub struct HostModelLookUp {
-  pub v: RevRefOfForeignKey<SceneModelBelongsToScene>,
+  pub v: RevRefForeignKeyReadTyped<SceneModelBelongsToScene>,
   pub node_net_visible: BoxedDynQuery<EntityHandle<SceneNodeEntity>, bool>,
   pub scene_model_use_alpha_blending: BoxedDynQuery<EntityHandle<SceneModelEntity>, bool>,
   pub sm_ref_node: ForeignKeyReadView<SceneModelRefNode>,
