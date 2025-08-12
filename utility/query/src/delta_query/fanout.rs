@@ -8,7 +8,7 @@ impl<T, U> DualQuery<T, U> {
   where
     KMany: CKey,
     KOne: CKey,
-    V: CKey,
+    V: CValue,
     T: Query<Key = KOne, Value = V>,
     U: Query<Key = KOne, Value = ValueChange<V>>,
     X: Query<Key = KMany, Value = KOne>,

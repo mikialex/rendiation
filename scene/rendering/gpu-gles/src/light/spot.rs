@@ -16,7 +16,7 @@ pub fn spot_uniform_array(gpu: &GPU) -> UniformArrayUpdateContainer<SpotLightUni
   let buffer = UniformBufferDataView::create_default(&gpu.device);
 
   let luminance_intensity = global_watch()
-    .watch::<SplitLightIntensity>()
+    .watch::<SpotLightIntensity>()
     .into_query_update_uniform_array(offset_of!(SpotLightUniform, luminance_intensity), gpu);
 
   let cutoff_distance = global_watch()

@@ -58,7 +58,7 @@ pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl>
   let fanout = cx.use_result(fanout);
 
   fanout
-    .clone_expect_future()
+    .clone_except_future()
     .map_raw_handle_or_u32_max_changes()
     .update_storage_array(sm_to_mesh_device, 0);
 

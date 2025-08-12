@@ -38,6 +38,88 @@ impl SceneNodeDataView {
   }
 }
 
+fn use_connectivity_change(
+  cx: &mut impl DBHookCxLike,
+) -> UseResult<impl Query<Key = RawEntityHandle, Value = ValueChange<RawEntityHandle>> + 'static> {
+  cx.use_query_change::<SceneNodeParentIdx>()
+    .map(|v| v.delta_filter_map(|v| v))
+}
+
+pub struct GlobalNodeConnectivity;
+
+impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for GlobalNodeConnectivity {
+  type Result = RevRefContainerRead<RawEntityHandle, RawEntityHandle>;
+
+  fn use_logic(&self, cx: &mut Cx) -> TaskUseResult<Self::Result> {
+    let connectivity_change = use_connectivity_change(cx);
+    cx.use_rev_ref(connectivity_change)
+  }
+}
+
+pub fn node_net_visible(this: &bool, parent: Option<&bool>) -> bool {
+  parent.map(|p| *p && *this).unwrap_or(*this)
+}
+
+pub fn node_world_mat(this: &Mat4<f64>, parent: Option<&Mat4<f64>>) -> Mat4<f64> {
+  parent.map(|p| *p * *this).unwrap_or(*this)
+}
+
+pub struct GlobalNodeDerive<F, C>(pub F, PhantomData<C>);
+pub fn global_node_derive_of<C, F>(f: F) -> GlobalNodeDerive<F, C> {
+  GlobalNodeDerive(f, PhantomData)
+}
+
+impl<C, Cx, F> SharedResultProvider<Cx> for GlobalNodeDerive<F, C>
+where
+  C: ComponentSemantic,
+  Cx: DBHookCxLike,
+  F: Fn(&C::Data, Option<&C::Data>) -> C::Data + Send + Sync + 'static + Copy,
+{
+  type Result = DualQuery<
+    LockReadGuardHolder<FastHashMap<RawEntityHandle, C::Data>>,
+    Arc<FastHashMap<RawEntityHandle, ValueChange<C::Data>>>,
+  >;
+
+  fn use_logic(&self, cx: &mut Cx) -> TaskUseResult<Self::Result> {
+    let connectivity_rev_view = cx.use_shared_compute(GlobalNodeConnectivity);
+    let connectivity_change = use_connectivity_change(cx);
+    let connectivity_view = get_db_view::<SceneNodeParentIdx>().filter_map(|v| v);
+    let visible_change = cx.use_query_change::<C>();
+    let visible_source = get_db_view::<C>();
+
+    let (cx, derived) =
+      cx.use_plain_state_default_cloned::<Arc<RwLock<FastHashMap<RawEntityHandle, C::Data>>>>();
+
+    cx.use_future(
+      connectivity_rev_view
+        .if_spawn_stage_future()
+        .map(|connectivity_rev_view| {
+          let visible_change = visible_change.expect_spawn_stage_ready();
+          let connectivity_change = connectivity_change.expect_spawn_stage_ready();
+          let f = self.0;
+          async move {
+            let connectivity_rev_view = connectivity_rev_view.await;
+
+            let changes = compute_tree_derive(
+              &mut derived.write(),
+              f,
+              visible_source,
+              visible_change,
+              connectivity_view,
+              connectivity_rev_view,
+              connectivity_change,
+            );
+
+            DualQuery {
+              view: derived.make_read_holder(),
+              delta: Arc::new(changes),
+            }
+          }
+        }),
+    )
+  }
+}
+
 #[global_registered_query_and_many_one_hash_relation]
 pub fn scene_node_connectivity(
 ) -> impl ReactiveQuery<Key = EntityHandle<SceneNodeEntity>, Value = EntityHandle<SceneNodeEntity>>

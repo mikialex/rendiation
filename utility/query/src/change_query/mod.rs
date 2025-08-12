@@ -6,6 +6,9 @@ use crate::*;
 /// abstract batch change container
 /// - removing and mutation is separated, because removing likely to be consumed first
 /// - not care about previous value
+/// - not care about the consistency, all assumption is first do remove then do update that can make sure the data is synced
+///   - key can be in both removed and update_or_insert(it's ok because we do remove first)
+///   - can remove none exist key(it's ok because it's not exist at all)
 pub trait DataChanges: Send + Sync + Clone {
   type Key: CKey;
   type Value: CValue;
@@ -167,9 +170,6 @@ impl<K: CKey, T: CValue> DataChanges for LinearBatchChanges<K, T> {
   }
 }
 
-#[allow(dead_code)]
-const DEBUG_CHECK: bool = true;
-
 pub trait IteratorProvider {
   type Item;
   fn create_iter(&self) -> impl Iterator<Item = &Self::Item> + '_;
@@ -199,27 +199,10 @@ where
   }
 
   fn iter_removed(&self) -> impl Iterator<Item = Self::Key> + '_ {
-    if DEBUG_CHECK {
-      let mut keys_check = FastHashSet::default();
-      for s in self.0.create_iter() {
-        for r in s.iter_removed() {
-          assert!(keys_check.insert(r))
-        }
-      }
-    }
     self.0.create_iter().flat_map(|c| c.iter_removed())
   }
 
   fn iter_update_or_insert(&self) -> impl Iterator<Item = (Self::Key, Self::Value)> + '_ {
-    if DEBUG_CHECK {
-      let mut keys_check = FastHashSet::default();
-      keys_check.clear();
-      for s in self.0.create_iter() {
-        for (r, _) in s.iter_update_or_insert() {
-          assert!(keys_check.insert(r))
-        }
-      }
-    }
     self.0.create_iter().flat_map(|c| c.iter_update_or_insert())
   }
 }

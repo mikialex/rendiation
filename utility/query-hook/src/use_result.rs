@@ -17,7 +17,7 @@ impl<T> From<TaskUseResult<T>> for UseResult<T> {
 }
 
 impl<T: Send + Sync + 'static> UseResult<T> {
-  pub fn clone_expect_future(&self) -> Self
+  pub fn clone_except_future(&self) -> Self
   where
     T: Clone,
   {
@@ -139,7 +139,7 @@ impl<T, U> UseResult<DualQuery<T, U>> {
   where
     KMany: CKey,
     KOne: CKey,
-    V: CKey,
+    V: CValue,
     T: Query<Key = KOne, Value = V> + Clone + Send + Sync + 'static,
     U: Query<Key = KOne, Value = ValueChange<V>> + Clone + Send + Sync + 'static,
     X: Query<Key = KMany, Value = KOne> + Send + Clone + Sync + 'static,

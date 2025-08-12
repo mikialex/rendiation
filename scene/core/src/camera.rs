@@ -25,6 +25,18 @@ pub fn register_camera_data_model() {
     .declare_foreign_key::<SceneCameraNode>();
 }
 
+pub fn camera_project_matrix_view(
+  ndc_mapper: impl NDCSpaceMapper<f32> + Copy,
+) -> impl Query<Key = EntityHandle<SceneCameraEntity>, Value = Mat4<f32>> {
+  let perspective = get_db_view_typed::<SceneCameraPerspective>()
+    .filter_map(move |proj| proj.map(|proj| proj.compute_projection_mat(&ndc_mapper)));
+
+  let orth = get_db_view_typed::<SceneCameraOrthographic>()
+    .filter_map(move |proj| proj.map(|proj| proj.compute_projection_mat(&ndc_mapper)));
+
+  Select([perspective.into_boxed(), orth.into_boxed()])
+}
+
 pub fn camera_project_matrix(
   ndc_mapper: impl NDCSpaceMapper<f32> + Copy,
 ) -> impl ReactiveQuery<Key = EntityHandle<SceneCameraEntity>, Value = Mat4<f32>> {

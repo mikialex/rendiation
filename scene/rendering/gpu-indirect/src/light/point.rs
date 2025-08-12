@@ -10,32 +10,35 @@ pub struct PointLightStorage {
   pub cutoff_distance: f32,
 }
 
-pub fn point_storage(gpu: &GPU) -> ReactiveStorageBufferContainer<PointLightStorage> {
-  let luminance_intensity_offset = offset_of!(PointLightStorage, luminance_intensity);
-  let luminance_intensity = global_watch()
-    .watch::<PointLightIntensity>()
-    .into_query_update_storage(luminance_intensity_offset);
-
-  let cutoff_distance_offset = offset_of!(PointLightStorage, cutoff_distance);
-  let cutoff_distance = global_watch()
-    .watch::<PointLightCutOffDistance>()
-    .into_query_update_storage(cutoff_distance_offset);
-
-  let position = scene_node_derive_world_mat()
-    .one_to_many_fanout(global_rev_ref().watch_inv_ref::<PointLightRefNode>())
-    .collective_map(|mat| into_hpt(mat.position()).into_storage())
-    .into_query_update_storage(offset_of!(PointLightStorage, position));
-
-  create_reactive_storage_buffer_container(128, u32::MAX, gpu)
-    .with_source(luminance_intensity)
-    .with_source(cutoff_distance)
-    .with_source(position)
-}
-
 pub fn use_point_light_storage(
   qcx: &mut QueryGPUHookCx,
 ) -> Option<LightGPUStorage<PointLightStorage>> {
-  let light = qcx.use_storage_buffer(point_storage);
+  let (qcx, light) = qcx.use_storage_buffer2(128, u32::MAX);
+
+  qcx
+    .use_changes::<PointLightIntensity>()
+    .update_storage_array(light, offset_of!(PointLightStorage, luminance_intensity));
+
+  qcx
+    .use_changes::<PointLightCutOffDistance>()
+    .update_storage_array(light, offset_of!(PointLightStorage, cutoff_distance));
+
+  let node_world_mat = global_node_derive_of::<SceneNodeLocalMatrixComponent, _>(node_world_mat);
+  let node_world_mat = qcx.use_shared_compute(node_world_mat);
+
+  let fanout = node_world_mat
+    .fanout(qcx.use_db_rev_ref_tri_view::<PointLightRefNode>())
+    .map(|change| {
+      change
+        .delta
+        .into_change()
+        .collective_map(|mat| into_hpt(mat.position()).into_storage())
+    });
+
+  qcx
+    .use_result(fanout)
+    .update_storage_array(light, offset_of!(PointLightStorage, position));
+
   let multi_access = qcx.use_gpu_general_query(|gpu| {
     MultiAccessGPUDataBuilder::new(
       gpu,
@@ -44,7 +47,7 @@ pub fn use_point_light_storage(
     )
   });
   qcx.when_render(|| {
-    let light = light.unwrap();
+    let light = light.get_gpu_buffer();
     let multi_access = multi_access.unwrap();
     (light, multi_access)
   })
