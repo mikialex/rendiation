@@ -1,16 +1,22 @@
 use std::any::Any;
+use std::any::TypeId;
 use std::future::Future;
 use std::ops::Deref;
 use std::pin::Pin;
+use std::sync::Arc;
 
 use fast_hash_collection::*;
 use futures::stream::*;
 use futures::FutureExt;
+use parking_lot::RwLock;
+use query::*;
 
 mod task_pool;
+mod use_result;
 
-use hook::HooksCxLike;
+pub use hook::*;
 pub use task_pool::*;
+pub use use_result::*;
 
 pub enum QueryHookStage<'a> {
   SpawnTask {
@@ -42,13 +48,60 @@ impl<T> TaskUseResult<T> {
   }
 }
 
+#[derive(Default)]
+pub struct SharedHookResult {
+  pub task_id_mapping: FastHashMap<ShareKey, u32>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ShareKey {
+  TypeId(TypeId),
+  Hash(u64),
+}
+
+impl SharedHookResult {
+  pub fn reset(&mut self) {
+    self.task_id_mapping.clear();
+  }
+}
+
 pub trait QueryHookCxLike: HooksCxLike {
   fn is_spawning_stage(&self) -> bool;
   fn stage(&mut self) -> QueryHookStage;
 
+  fn shared_ctx(&mut self) -> &mut SharedHookResult;
+
   fn when_spawning_stage(&self, f: impl FnOnce()) {
     if self.is_spawning_stage() {
       f();
+    }
+  }
+
+  #[track_caller]
+  fn use_result<T: Send + Sync + 'static + Clone>(&mut self, re: UseResult<T>) -> UseResult<T> {
+    let (cx, spawned) = self.use_plain_state_default();
+    if cx.is_spawning_stage() || *spawned {
+      let fut = match re {
+        UseResult::SpawnStageFuture(future) => {
+          *spawned = true;
+          Some(future)
+        }
+        UseResult::SpawnStageReady(re) => return UseResult::SpawnStageReady(re),
+        _ => {
+          if cx.is_spawning_stage() {
+            panic!("must contain work in spawning stage")
+          } else {
+            None
+          }
+        }
+      };
+
+      cx.scope(|cx| match cx.use_future(fut) {
+        TaskUseResult::SpawnId(_) => UseResult::NotInStage,
+        TaskUseResult::Result(r) => UseResult::ResolveStageReady(r),
+      })
+    } else {
+      re
     }
   }
 
@@ -111,4 +164,65 @@ pub trait QueryHookCxLike: HooksCxLike {
       }
     }
   }
+
+  #[track_caller]
+  fn use_shared_compute<
+    T: Clone + Send + Sync + 'static,
+    F: Fn(&mut Self) -> UseResult<T> + 'static,
+  >(
+    &mut self,
+    logic: F,
+  ) -> UseResult<T> {
+    let key = ShareKey::TypeId(TypeId::of::<T>());
+    self.use_shared_compute_internal(
+      move |cx| {
+        let result = logic(cx);
+        cx.use_future(result.if_spawn_stage_future())
+      },
+      key,
+    )
+  }
+
+  #[track_caller]
+  fn use_shared_compute_internal<
+    T: Clone + Send + Sync + 'static,
+    F: Fn(&mut Self) -> TaskUseResult<T> + 'static,
+  >(
+    &mut self,
+    logic: F,
+    key: ShareKey,
+  ) -> UseResult<T> {
+    if let Some(&task_id) = self.shared_ctx().task_id_mapping.get(&key) {
+      return match &self.stage() {
+        QueryHookStage::SpawnTask { pool, .. } => {
+          UseResult::SpawnStageFuture(pool.share_task_by_id(task_id))
+        }
+        QueryHookStage::ResolveTask { task, .. } => {
+          UseResult::ResolveStageReady(task.expect_result_by_id(task_id))
+        }
+      };
+    } else {
+      self.scope(|cx| {
+        let result = logic(cx);
+        if let TaskUseResult::SpawnId(task_id) = result {
+          cx.shared_ctx().task_id_mapping.insert(key, task_id);
+        }
+      })
+    }
+    self.use_shared_compute_internal(logic, key)
+  }
+
+  fn use_rev_ref<V: CKey, C: Query<Value = ValueChange<V>> + 'static>(
+    &mut self,
+    changes: UseResult<C>,
+  ) -> TaskUseResult<RevRefContainerRead<V, C::Key>> {
+    let (_, mapping) = self.use_plain_state_default_cloned::<RevRefContainer<V, C::Key>>();
+    self.use_task_result_by_fn(move || {
+      bookkeeping_hash_relation(&mut mapping.write(), changes.expect_spawn_stage_ready());
+      mapping.make_read_holder()
+    })
+  }
 }
+
+pub type RevRefContainer<K, V> = Arc<RwLock<FastHashMap<K, FastHashSet<V>>>>;
+pub type RevRefContainerRead<K, V> = LockReadGuardHolder<FastHashMap<K, FastHashSet<V>>>;

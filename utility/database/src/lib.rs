@@ -15,11 +15,15 @@ use dyn_clone::*;
 pub use facet::*;
 use fast_hash_collection::*;
 use parking_lot::RwLock;
+use query_hook::*;
 use reactive::*;
 use serde::*;
 
 mod global;
 pub use global::*;
+
+mod hook;
+pub use hook::*;
 
 mod feature;
 mod kernel;

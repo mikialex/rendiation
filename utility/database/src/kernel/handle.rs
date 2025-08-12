@@ -29,6 +29,9 @@ impl<T> EntityHandle<T> {
       handle,
     }
   }
+  pub fn raw_handle_ref(&self) -> &RawEntityHandle {
+    &self.handle
+  }
   pub fn into_raw(self) -> RawEntityHandle {
     self.handle
   }

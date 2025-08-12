@@ -1,8 +1,5 @@
-use std::{any::TypeId, marker::PhantomData};
-
 use ::hook::*;
 use database::*;
-use futures::*;
 
 use crate::*;
 
@@ -19,23 +16,6 @@ pub struct QueryGPUHookCx<'a> {
   pub db_watch_scope: &'a mut DBWatchScope,
   pub shared_results: &'a mut SharedHookResult,
   pub stage: GPUQueryHookStage<'a>,
-}
-
-#[derive(Default)]
-pub struct SharedHookResult {
-  pub task_id_mapping: FastHashMap<ShareKey, u32>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ShareKey {
-  TypeId(TypeId),
-  Hash(u64),
-}
-
-impl SharedHookResult {
-  pub fn reset(&mut self) {
-    self.task_id_mapping.clear();
-  }
 }
 
 #[non_exhaustive]
@@ -177,207 +157,6 @@ impl<'a> QueryGPUHookCx<'a> {
     } else {
       None
     }
-  }
-
-  #[track_caller]
-  pub fn use_result<T: Send + Sync + 'static + Clone>(&mut self, re: UseResult<T>) -> UseResult<T> {
-    let (cx, spawned) = self.use_plain_state_default();
-    if cx.is_spawning_stage() || *spawned {
-      let fut = match re {
-        UseResult::SpawnStageFuture(future) => {
-          *spawned = true;
-          Some(future)
-        }
-        UseResult::SpawnStageReady(re) => return UseResult::SpawnStageReady(re),
-        _ => {
-          if cx.is_spawning_stage() {
-            panic!("must contain work in spawning stage")
-          } else {
-            None
-          }
-        }
-      };
-
-      cx.scope(|cx| match cx.use_future(fut) {
-        TaskUseResult::SpawnId(_) => UseResult::NotInStage,
-        TaskUseResult::Result(r) => UseResult::ResolveStageReady(r),
-      })
-    } else {
-      re
-    }
-  }
-
-  pub fn use_changes<C: ComponentSemantic>(
-    &mut self,
-  ) -> UseResult<Arc<LinearBatchChanges<u32, C::Data>>> {
-    struct WatchToken(u32, ComponentId);
-    impl CanCleanUpFrom<QueryGPUHookDropCx<'_>> for WatchToken {
-      fn drop_from_cx(&mut self, cx: &mut QueryGPUHookDropCx<'_>) {
-        cx.db_watch_scope
-          .change
-          .notify_consumer_dropped(self.1, self.0);
-      }
-    }
-
-    let (cx, tk) = self.use_state_with_features(|cx| {
-      let id = cx.db_watch_scope.change.allocate_next_consumer_id();
-      WatchToken(id, C::component_id())
-    });
-
-    if let GPUQueryHookStage::Update { .. } = &cx.stage {
-      UseResult::SpawnStageReady(cx.db_watch_scope.change.get_buffered_changes::<C>(tk.0))
-    } else {
-      UseResult::NotInStage
-    }
-  }
-
-  pub fn use_dual_query<C: ComponentSemantic>(&mut self) -> UseResult<DBDualQuery<C::Data>> {
-    self.use_query_change::<C>().map(|change| DualQuery {
-      view: get_db_view::<C>(),
-      delta: change,
-    })
-  }
-
-  pub fn use_query_change<C: ComponentSemantic>(&mut self) -> UseResult<DBChange<C::Data>> {
-    struct WatchToken(u32, ComponentId);
-    impl CanCleanUpFrom<QueryGPUHookDropCx<'_>> for WatchToken {
-      fn drop_from_cx(&mut self, cx: &mut QueryGPUHookDropCx<'_>) {
-        cx.db_watch_scope
-          .query
-          .notify_consumer_dropped(self.1, self.0);
-      }
-    }
-
-    let (cx, tk) = self.use_state_with_features(|cx| {
-      let id = cx.db_watch_scope.query.allocate_next_consumer_id();
-      WatchToken(id, C::component_id())
-    });
-
-    if let GPUQueryHookStage::Update { .. } = &cx.stage {
-      UseResult::SpawnStageReady(cx.db_watch_scope.query.get_buffered_changes::<C>(tk.0))
-    } else {
-      UseResult::NotInStage
-    }
-  }
-
-  #[track_caller]
-  pub fn use_db_rev_ref_tri_view<C: ForeignKeySemantic>(
-    &mut self,
-  ) -> UseResult<RevRefForeignTriQuery> {
-    let rev_many_view = self.use_db_rev_ref::<C>();
-    let changes = self.use_query_change::<C>();
-    // this generate less code compare to join i assume
-    if self.is_spawning_stage() {
-      let rev_many_view = rev_many_view.expect_spawn_stage_future();
-      let changes = changes.expect_spawn_stage_ready();
-
-      let changes = FilterMapQueryChange {
-        base: changes,
-        mapper: |v| v,
-      }
-      .into_boxed();
-
-      UseResult::SpawnStageFuture(Box::new(rev_many_view.map(move |rev_many_view| {
-        RevRefForeignTriQuery {
-          base: DualQuery {
-            view: get_db_view::<C>().filter_map(|v| v).into_boxed(),
-            delta: changes,
-          },
-          rev_many_view,
-        }
-      })))
-    } else {
-      UseResult::NotInStage
-    }
-  }
-
-  #[track_caller]
-  pub fn use_db_rev_ref_typed<C: ForeignKeySemantic>(
-    &mut self,
-  ) -> UseResult<RevRefForeignKeyReadTyped<C>> {
-    self
-      .use_db_rev_ref::<C>()
-      .map(|v| RevRefForeignKeyReadTyped {
-        internal: v,
-        phantom: PhantomData,
-      })
-  }
-
-  #[track_caller]
-  pub fn use_db_rev_ref<C: ForeignKeySemantic>(&mut self) -> UseResult<RevRefForeignKeyRead> {
-    let key = match C::component_id() {
-      ComponentId::TypeId(type_id) => ShareKey::TypeId(type_id),
-      ComponentId::Hash(hash) => ShareKey::Hash(hash),
-    };
-
-    self.use_shared_compute_internal(
-      |cx| {
-        let changes = cx
-          .use_query_change::<C>()
-          .map(|v| v.delta_filter_map(|v| v));
-
-        cx.use_rev_ref(changes)
-      },
-      key,
-    )
-  }
-
-  pub fn use_rev_ref<V: CKey, C: Query<Value = ValueChange<V>> + 'static>(
-    &mut self,
-    changes: UseResult<C>,
-  ) -> TaskUseResult<RevRefContainerRead<V, C::Key>> {
-    let (_, mapping) = self.use_plain_state_default_cloned::<RevRefContainer<V, C::Key>>();
-    self.use_task_result_by_fn(move || {
-      bookkeeping_hash_relation(&mut mapping.write(), changes.expect_spawn_stage_ready());
-      mapping.make_read_holder()
-    })
-  }
-
-  #[track_caller]
-  pub fn use_shared_compute<
-    T: Clone + Send + Sync + 'static,
-    F: Fn(&mut Self) -> UseResult<T> + 'static,
-  >(
-    &mut self,
-    logic: F,
-  ) -> UseResult<T> {
-    let key = ShareKey::TypeId(TypeId::of::<T>());
-    self.use_shared_compute_internal(
-      move |cx| {
-        let result = logic(cx);
-        cx.use_future(result.if_spawn_stage_future())
-      },
-      key,
-    )
-  }
-
-  #[track_caller]
-  pub fn use_shared_compute_internal<
-    T: Clone + Send + Sync + 'static,
-    F: Fn(&mut Self) -> TaskUseResult<T> + 'static,
-  >(
-    &mut self,
-    logic: F,
-    key: ShareKey,
-  ) -> UseResult<T> {
-    if let Some(task_id) = self.shared_results.task_id_mapping.get(&key) {
-      return match &self.stage {
-        GPUQueryHookStage::Update { task_pool, .. } => {
-          UseResult::SpawnStageFuture(task_pool.share_task_by_id(*task_id))
-        }
-        GPUQueryHookStage::CreateRender { task, .. } => {
-          UseResult::ResolveStageReady(task.expect_result_by_id(*task_id))
-        }
-      };
-    } else {
-      self.scope(|cx| {
-        let result = logic(cx);
-        if let TaskUseResult::SpawnId(task_id) = result {
-          cx.shared_results.task_id_mapping.insert(key, task_id);
-        }
-      })
-    }
-    self.use_shared_compute_internal(logic, key)
   }
 
   pub fn use_uniform_buffers2<K: 'static, V: Std140 + 'static>(
@@ -532,6 +311,10 @@ pub struct QueryGPUHookDropCx<'a> {
 }
 
 impl QueryHookCxLike for QueryGPUHookCx<'_> {
+  fn shared_ctx(&mut self) -> &mut SharedHookResult {
+    self.shared_results
+  }
+
   fn is_spawning_stage(&self) -> bool {
     matches!(&self.stage, GPUQueryHookStage::Update { .. })
   }
@@ -548,12 +331,50 @@ impl QueryHookCxLike for QueryGPUHookCx<'_> {
   }
 }
 
-pub trait ForeignKeyLikeChangesExt: DataChanges<Value = Option<RawEntityHandle>> {
-  fn map_some_u32_index(self) -> impl DataChanges<Key = Self::Key, Value = u32> {
-    self.collective_filter_map(|id| id.map(|v| v.index()))
+impl DBHookCxLike for QueryGPUHookCx<'_> {
+  fn use_changes<C: ComponentSemantic>(
+    &mut self,
+  ) -> UseResult<Arc<LinearBatchChanges<u32, C::Data>>> {
+    struct WatchToken(u32, ComponentId);
+    impl CanCleanUpFrom<QueryGPUHookDropCx<'_>> for WatchToken {
+      fn drop_from_cx(&mut self, cx: &mut QueryGPUHookDropCx<'_>) {
+        cx.db_watch_scope
+          .change
+          .notify_consumer_dropped(self.1, self.0);
+      }
+    }
+
+    let (cx, tk) = self.use_state_with_features(|cx| {
+      let id = cx.db_watch_scope.change.allocate_next_consumer_id();
+      WatchToken(id, C::component_id())
+    });
+
+    if let GPUQueryHookStage::Update { .. } = &cx.stage {
+      UseResult::SpawnStageReady(cx.db_watch_scope.change.get_buffered_changes::<C>(tk.0))
+    } else {
+      UseResult::NotInStage
+    }
   }
-  fn map_u32_index_or_u32_max(self) -> impl DataChanges<Key = Self::Key, Value = u32> {
-    self.collective_map(|id| id.map(|v| v.index()).unwrap_or(u32::MAX))
+
+  fn use_query_change<C: ComponentSemantic>(&mut self) -> UseResult<DBChange<C::Data>> {
+    struct WatchToken(u32, ComponentId);
+    impl CanCleanUpFrom<QueryGPUHookDropCx<'_>> for WatchToken {
+      fn drop_from_cx(&mut self, cx: &mut QueryGPUHookDropCx<'_>) {
+        cx.db_watch_scope
+          .query
+          .notify_consumer_dropped(self.1, self.0);
+      }
+    }
+
+    let (cx, tk) = self.use_state_with_features(|cx| {
+      let id = cx.db_watch_scope.query.allocate_next_consumer_id();
+      WatchToken(id, C::component_id())
+    });
+
+    if let GPUQueryHookStage::Update { .. } = &cx.stage {
+      UseResult::SpawnStageReady(cx.db_watch_scope.query.get_buffered_changes::<C>(tk.0))
+    } else {
+      UseResult::NotInStage
+    }
   }
 }
-impl<T: DataChanges<Value = Option<RawEntityHandle>>> ForeignKeyLikeChangesExt for T {}
