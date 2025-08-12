@@ -7,6 +7,15 @@ pub enum UseResult<T> {
   NotInStage,
 }
 
+impl<T> From<TaskUseResult<T>> for UseResult<T> {
+  fn from(value: TaskUseResult<T>) -> Self {
+    match value {
+      TaskUseResult::SpawnId(_) => UseResult::NotInStage,
+      TaskUseResult::Result(r) => UseResult::ResolveStageReady(r),
+    }
+  }
+}
+
 impl<T: Send + Sync + 'static> UseResult<T> {
   pub fn clone_expect_future(&self) -> Self
   where
