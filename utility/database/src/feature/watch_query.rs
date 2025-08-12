@@ -114,3 +114,17 @@ fn get_db_view_internal<T>(e_id: EntityId, c_id: ComponentId) -> DBView<T> {
 pub fn get_db_view<C: ComponentSemantic>() -> DBView<C::Data> {
   get_db_view_internal(C::Entity::entity_id(), C::component_id())
 }
+
+pub fn get_db_view_typed<C: ComponentSemantic>(
+) -> impl Query<Key = EntityHandle<C::Entity>, Value = C::Data> {
+  get_db_view_internal(C::Entity::entity_id(), C::component_id()).key_dual_map(
+    |k| unsafe { EntityHandle::<C::Entity>::from_raw(k) },
+    |k| k.handle,
+  )
+}
+
+pub fn get_db_view_typed_foreign<C: ForeignKeySemantic>(
+) -> impl Query<Key = EntityHandle<C::Entity>, Value = EntityHandle<C::ForeignEntity>> {
+  get_db_view_typed::<C>()
+    .filter_map(|v| v.map(|v| unsafe { EntityHandle::<C::ForeignEntity>::from_raw(v) }))
+}

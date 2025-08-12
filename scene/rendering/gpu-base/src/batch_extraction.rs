@@ -6,12 +6,12 @@ pub fn use_default_scene_batch_extractor(
   let model_lookup = cx.use_global_multi_reactive_query::<SceneModelBelongsToScene>();
 
   let node_net_visible = cx.use_reactive_query(scene_node_derive_visible);
-  let model_alpha_blend = cx.use_reactive_query(all_kinds_of_materials_enabled_alpha_blending);
+  let alpha_blend = all_kinds_of_materials_enabled_alpha_blending().into_boxed();
 
   cx.when_render(|| DefaultSceneBatchExtractor {
     model_lookup: model_lookup.unwrap(),
     node_net_visible: node_net_visible.unwrap(),
-    alpha_blend: model_alpha_blend.unwrap(),
+    alpha_blend,
     sm_ref_node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
   })
 }

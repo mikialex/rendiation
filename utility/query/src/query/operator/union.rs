@@ -1,6 +1,32 @@
 use crate::*;
 
 #[derive(Clone)]
+pub struct Select<T>(pub T);
+
+impl<T> Query for Select<T>
+where
+  T: IteratorProvider + Clone + Send + Sync,
+  T::Item: Query,
+{
+  type Key = <T::Item as Query>::Key;
+
+  type Value = <T::Item as Query>::Value;
+
+  fn iter_key_value(&self) -> impl Iterator<Item = (Self::Key, Self::Value)> + '_ {
+    self.0.create_iter().flat_map(|q| q.iter_key_value())
+  }
+
+  fn access(&self, key: &Self::Key) -> Option<Self::Value> {
+    for q in self.0.create_iter() {
+      if let Some(v) = q.access(key) {
+        return Some(v);
+      }
+    }
+    None
+  }
+}
+
+#[derive(Clone)]
 pub struct UnionQuery<A, B, F> {
   pub a: A,
   pub b: B,
