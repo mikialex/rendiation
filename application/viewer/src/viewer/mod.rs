@@ -251,6 +251,9 @@ pub fn use_viewer<'a>(
   *frame_time_delta_in_seconds = now.duration_since(*tick_timestamp).as_secs_f32();
   *tick_timestamp = now;
 
+  let (acx, worker_thread_pool) =
+    acx.use_plain_state(|| TaskSpawner::new("viewer_task_worker", None));
+
   ViewerCx {
     viewer,
     dyn_cx: acx.dyn_cx,
@@ -261,7 +264,7 @@ pub fn use_viewer<'a>(
   }
   .execute(|viewer| f(viewer), true);
 
-  viewer.draw_canvas(&acx.draw_target_canvas);
+  viewer.draw_canvas(&acx.draw_target_canvas, worker_thread_pool);
 
   ViewerCx {
     viewer,
@@ -290,8 +293,6 @@ pub struct Viewer {
   render_memory: FunctionMemory,
   render_resource: ReactiveQueryCtx,
   render_change_scope: DBWatchScope,
-  shared_results: SharedHookResult,
-  task_spawner: TaskSpawner,
 }
 
 impl CanCleanUpFrom<ApplicationDropCx> for Viewer {
@@ -391,26 +392,21 @@ impl Viewer {
       render_memory: Default::default(),
       render_resource: Default::default(),
       render_change_scope: DBWatchScope::new(&global_database()),
-      shared_results: Default::default(),
-      task_spawner: TaskSpawner::new("viewer_task_worker", None),
     }
   }
 
-  pub fn draw_canvas(&mut self, canvas: &RenderTargetView) {
-    self.shared_results.reset();
+  pub fn draw_canvas(&mut self, canvas: &RenderTargetView, task_spawner: &TaskSpawner) {
     let tasks = self.rendering.update_registry(
       &mut self.render_memory,
       &mut self.render_resource,
-      &self.task_spawner,
+      task_spawner,
       &mut self.render_change_scope,
-      &mut self.shared_results,
     );
 
     let scene_derive = self.derives.poll_update();
 
     let task_pool_result = pollster::block_on(tasks.all_async_task_done());
 
-    self.shared_results.reset();
     self.rendering.render(
       canvas,
       &self.scene,
@@ -419,7 +415,6 @@ impl Viewer {
       &mut self.render_resource,
       task_pool_result,
       &mut self.render_change_scope,
-      &mut self.shared_results,
     );
 
     self.rendering.tick_frame();

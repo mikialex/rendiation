@@ -59,12 +59,6 @@ pub enum ShareKey {
   Hash(u64),
 }
 
-impl SharedHookResult {
-  pub fn reset(&mut self) {
-    self.task_id_mapping.clear();
-  }
-}
-
 /// this trait serves two purposes:
 /// - workaround/express a lifetime issue without unsafe
 /// - support custom shared

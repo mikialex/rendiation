@@ -12,51 +12,53 @@ pub struct SpotLightStorage {
   pub half_penumbra_cos: f32,
 }
 
-pub fn spot_storage(gpu: &GPU) -> ReactiveStorageBufferContainer<SpotLightStorage> {
-  let luminance_intensity = global_watch()
-    .watch::<SplitLightIntensity>()
-    .into_query_update_storage(offset_of!(SpotLightStorage, luminance_intensity));
-
-  let cutoff_distance = global_watch()
-    .watch::<SpotLightCutOffDistance>()
-    .into_query_update_storage(offset_of!(SpotLightStorage, cutoff_distance));
-
-  let half_cone_cos = global_watch()
-    .watch::<SpotLightHalfConeAngle>()
-    .collective_map(|rad| rad.cos())
-    .into_query_update_storage(offset_of!(SpotLightStorage, half_cone_cos));
-
-  let half_penumbra_cos = global_watch()
-    .watch::<SpotLightHalfPenumbraAngle>()
-    .collective_map(|rad| rad.cos())
-    .into_query_update_storage(offset_of!(SpotLightStorage, half_penumbra_cos));
-
-  let world = scene_node_derive_world_mat()
-    .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SpotLightRefNode>())
-    .into_forker();
-
-  let position = world
-    .clone()
-    .collective_map(|mat| into_hpt(mat.position()).into_storage())
-    .into_query_update_storage(offset_of!(SpotLightStorage, position));
-
-  let direction = world
-    .collective_map(|mat| mat.forward().reverse().normalize().into_f32())
-    .into_query_update_storage(offset_of!(SpotLightStorage, direction));
-
-  create_reactive_storage_buffer_container(128, u32::MAX, gpu)
-    .with_source(luminance_intensity)
-    .with_source(cutoff_distance)
-    .with_source(half_cone_cos)
-    .with_source(half_penumbra_cos)
-    .with_source(position)
-    .with_source(direction)
-}
-
 pub fn use_spot_light_storage(
   qcx: &mut QueryGPUHookCx,
 ) -> Option<LightGPUStorage<SpotLightStorage>> {
-  let light = qcx.use_storage_buffer(spot_storage);
+  let (qcx, light) = qcx.use_storage_buffer2(128, u32::MAX);
+
+  qcx
+    .use_changes::<SpotLightIntensity>()
+    .update_storage_array(light, offset_of!(SpotLightStorage, luminance_intensity));
+
+  qcx
+    .use_changes::<SpotLightCutOffDistance>()
+    .update_storage_array(light, offset_of!(SpotLightStorage, cutoff_distance));
+
+  qcx
+    .use_changes::<SpotLightHalfConeAngle>()
+    .update_storage_array(light, offset_of!(SpotLightStorage, half_cone_cos));
+
+  qcx
+    .use_changes::<SpotLightHalfPenumbraAngle>()
+    .update_storage_array(light, offset_of!(SpotLightStorage, half_penumbra_cos));
+
+  let node_world_mat = global_node_derive_of::<SceneNodeLocalMatrixComponent, _>(node_world_mat);
+  let node_world_mat = qcx.use_shared_compute(node_world_mat);
+
+  let fanout = node_world_mat.fanout(qcx.use_db_rev_ref_tri_view::<SpotLightRefNode>());
+
+  let fanout = qcx.use_result(fanout);
+
+  fanout
+    .clone_except_future()
+    .map(|change| {
+      change
+        .delta
+        .into_change()
+        .collective_map(|mat| into_hpt(mat.position()).into_storage())
+    })
+    .update_storage_array(light, offset_of!(SpotLightStorage, position));
+
+  fanout
+    .map(|change| {
+      change
+        .delta
+        .into_change()
+        .collective_map(|mat| mat.forward().reverse().normalize().into_f32())
+    })
+    .update_storage_array(light, offset_of!(SpotLightStorage, direction));
+
   let multi_access = qcx.use_gpu_general_query(|gpu| {
     MultiAccessGPUDataBuilder::new(
       gpu,
@@ -65,7 +67,7 @@ pub fn use_spot_light_storage(
     )
   });
   qcx.when_render(|| {
-    let light = light.unwrap();
+    let light = light.get_gpu_buffer();
     let multi_access = multi_access.unwrap();
     (light, multi_access)
   })

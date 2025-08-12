@@ -67,7 +67,7 @@ pub struct SpotLightDataView {
 impl SpotLightDataView {
   pub fn write(self, writer: &mut EntityWriter<SpotLightEntity>) -> EntityHandle<SpotLightEntity> {
     writer
-      .component_value_writer::<SplitLightIntensity>(self.intensity)
+      .component_value_writer::<SpotLightIntensity>(self.intensity)
       .component_value_writer::<SpotLightCutOffDistance>(self.cutoff_distance)
       .component_value_writer::<SpotLightHalfConeAngle>(self.half_cone_angle)
       .component_value_writer::<SpotLightHalfPenumbraAngle>(self.half_penumbra_angle)
@@ -89,7 +89,7 @@ declare_component!(
 declare_component!(SpotLightHalfConeAngle, SpotLightEntity, f32, 0.5); // in rad
 declare_component!(SpotLightHalfPenumbraAngle, SpotLightEntity, f32, 0.5); // in rad
 declare_component!(
-  SplitLightIntensity,
+  SpotLightIntensity,
   SpotLightEntity,
   Vec3<f32>,
   Vec3::splat(100.)
@@ -101,7 +101,7 @@ pub fn register_spot_light_data_model() {
     .declare_component::<SpotLightCutOffDistance>()
     .declare_component::<SpotLightHalfConeAngle>()
     .declare_component::<SpotLightHalfPenumbraAngle>()
-    .declare_component::<SplitLightIntensity>()
+    .declare_component::<SpotLightIntensity>()
     .declare_foreign_key::<SpotLightRefScene>()
     .declare_foreign_key::<SpotLightRefNode>();
 }

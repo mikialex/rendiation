@@ -9,26 +9,31 @@ pub struct DirectionalLightStorage {
   pub direction: Vec3<f32>,
 }
 
-pub fn directional_storage(gpu: &GPU) -> ReactiveStorageBufferContainer<DirectionalLightStorage> {
-  let illuminance_offset = offset_of!(DirectionalLightStorage, illuminance);
-  let illuminance = global_watch()
-    .watch::<DirectionalLightIlluminance>()
-    .into_query_update_storage(illuminance_offset);
-
-  let direction = scene_node_derive_world_mat()
-    .one_to_many_fanout(global_rev_ref().watch_inv_ref::<DirectionalRefNode>())
-    .collective_map(|mat| mat.forward().reverse().normalize().into_f32())
-    .into_query_update_storage(offset_of!(DirectionalLightStorage, direction));
-
-  create_reactive_storage_buffer_container(128, u32::MAX, gpu)
-    .with_source(illuminance)
-    .with_source(direction)
-}
-
 pub fn use_directional_light_storage(
   qcx: &mut QueryGPUHookCx,
 ) -> Option<LightGPUStorage<DirectionalLightStorage>> {
-  let light = qcx.use_storage_buffer(directional_storage);
+  let (qcx, light) = qcx.use_storage_buffer2(128, u32::MAX);
+
+  qcx
+    .use_changes::<DirectionalLightIlluminance>()
+    .update_storage_array(light, offset_of!(DirectionalLightStorage, illuminance));
+
+  let node_world_mat = global_node_derive_of::<SceneNodeLocalMatrixComponent, _>(node_world_mat);
+  let node_world_mat = qcx.use_shared_compute(node_world_mat);
+
+  let fanout = node_world_mat
+    .fanout(qcx.use_db_rev_ref_tri_view::<DirectionalRefNode>())
+    .map(|change| {
+      change
+        .delta
+        .into_change()
+        .collective_map(|mat| mat.forward().reverse().normalize().into_f32())
+    });
+
+  qcx
+    .use_result(fanout)
+    .update_storage_array(light, offset_of!(PointLightStorage, position));
+
   let multi_access = qcx.use_gpu_general_query(|gpu| {
     MultiAccessGPUDataBuilder::new(
       gpu,
@@ -37,7 +42,7 @@ pub fn use_directional_light_storage(
     )
   });
   qcx.when_render(|| {
-    let light = light.unwrap();
+    let light = light.get_gpu_buffer();
     let multi_access = multi_access.unwrap();
     (light, multi_access)
   })
