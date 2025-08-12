@@ -33,26 +33,25 @@ impl ShaderAlphaConfig {
 }
 
 pub fn material_enabled_alpha_blending<S: AlphaInfoSemantic>(
-) -> impl ReactiveQuery<Key = EntityHandle<S::Entity>, Value = bool> {
-  global_watch()
-    .watch::<AlphaModeOf<S>>()
-    .collective_map(|mode| mode == AlphaMode::Blend)
+) -> impl Query<Key = EntityHandle<S::Entity>, Value = bool> {
+  get_db_view_typed::<AlphaModeOf<S>>().map_value(|mode| mode == AlphaMode::Blend)
 }
 
 pub fn all_kinds_of_materials_enabled_alpha_blending(
-) -> impl ReactiveQuery<Key = EntityHandle<SceneModelEntity>, Value = bool> {
-  let sg = material_enabled_alpha_blending::<PbrSGMaterialAlphaConfig>()
-    .one_to_many_fanout(global_rev_ref().watch_inv_ref::<StandardModelRefPbrSGMaterial>());
+) -> impl Query<Key = EntityHandle<SceneModelEntity>, Value = bool> {
+  let sg = get_db_view_typed_foreign::<StandardModelRefPbrSGMaterial>()
+    .chain(material_enabled_alpha_blending::<PbrSGMaterialAlphaConfig>())
+    .into_boxed(); // these boxes can be removed maybe
 
-  let mr = material_enabled_alpha_blending::<PbrMRMaterialAlphaConfig>()
-    .one_to_many_fanout(global_rev_ref().watch_inv_ref::<StandardModelRefPbrMRMaterial>());
+  let mr = get_db_view_typed_foreign::<StandardModelRefPbrMRMaterial>()
+    .chain(material_enabled_alpha_blending::<PbrMRMaterialAlphaConfig>())
+    .into_boxed();
 
-  let unlit = material_enabled_alpha_blending::<UnlitMaterialAlphaConfig>()
-    .one_to_many_fanout(global_rev_ref().watch_inv_ref::<StandardModelRefUnlitMaterial>());
+  let unlit = get_db_view_typed_foreign::<StandardModelRefUnlitMaterial>()
+    .chain(material_enabled_alpha_blending::<UnlitMaterialAlphaConfig>())
+    .into_boxed();
 
-  sg.collective_select(mr)
-    .collective_select(unlit)
-    .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelStdModelRenderPayload>())
+  get_db_view_typed_foreign::<SceneModelStdModelRenderPayload>().chain(Select([sg, mr, unlit]))
 }
 
 pub struct TransparentHostOrderer {
