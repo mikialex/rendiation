@@ -398,7 +398,6 @@ impl Viewer {
 
   pub fn draw_canvas(&mut self, canvas: &RenderTargetView) {
     self.shared_results.reset();
-
     let tasks = self.rendering.update_registry(
       &mut self.render_memory,
       &mut self.render_resource,
@@ -411,6 +410,7 @@ impl Viewer {
 
     let task_pool_result = pollster::block_on(tasks.all_async_task_done());
 
+    self.shared_results.reset();
     self.rendering.render(
       canvas,
       &self.scene,

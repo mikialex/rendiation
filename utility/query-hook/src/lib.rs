@@ -107,10 +107,7 @@ pub trait QueryHookCxLike: HooksCxLike {
         }
       };
 
-      cx.scope(|cx| match cx.use_future(fut) {
-        TaskUseResult::SpawnId(_) => UseResult::NotInStage,
-        TaskUseResult::Result(r) => UseResult::ResolveStageReady(r),
-      })
+      cx.scope(|cx| cx.use_future(fut).into())
     } else {
       re
     }
@@ -195,23 +192,35 @@ pub trait QueryHookCxLike: HooksCxLike {
     key: ShareKey,
   ) -> UseResult<T> {
     if let Some(&task_id) = self.shared_ctx().task_id_mapping.get(&key) {
-      return match &self.stage() {
+      match &self.stage() {
         QueryHookStage::SpawnTask { pool, .. } => {
           UseResult::SpawnStageFuture(pool.share_task_by_id(task_id))
         }
         QueryHookStage::ResolveTask { task, .. } => {
           UseResult::ResolveStageReady(task.expect_result_by_id(task_id))
         }
-      };
+      }
     } else {
       self.scope(|cx| {
         let result = logic(cx);
+        let (cx, self_id) = cx.use_plain_state(|| u32::MAX);
         if let TaskUseResult::SpawnId(task_id) = result {
+          *self_id = task_id;
           cx.shared_ctx().task_id_mapping.insert(key, task_id);
+        } else {
+          cx.shared_ctx().task_id_mapping.insert(key, *self_id);
+        }
+
+        match &cx.stage() {
+          QueryHookStage::SpawnTask { pool, .. } => {
+            UseResult::SpawnStageFuture(pool.share_task_by_id(*self_id))
+          }
+          QueryHookStage::ResolveTask { task, .. } => {
+            UseResult::ResolveStageReady(task.expect_result_by_id(*self_id))
+          }
         }
       })
     }
-    self.use_shared_compute_internal(logic, key)
   }
 
   fn use_rev_ref<V: CKey, C: Query<Value = ValueChange<V>> + 'static>(
