@@ -7,7 +7,7 @@ use bumpalo::Bump;
 use fast_hash_collection::FastHashMap;
 
 #[allow(clippy::missing_safety_doc)]
-pub unsafe trait HooksCxLike {
+pub unsafe trait HooksCxLike: Sized {
   fn memory_mut(&mut self) -> &mut FunctionMemory;
   fn memory_ref(&self) -> &FunctionMemory;
   fn flush(&mut self);

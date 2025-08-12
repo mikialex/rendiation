@@ -9,6 +9,7 @@ dyn-clone = { workspace = true }
 dashmap = { workspace = true }
 storage = { path = "../storage" }
 serde = { workspace = true }
+rendiation-abstract-tree = { path = "../abstract-tree" }
 
 # we use it's rwlock to avoid recursive read deadlock
 parking_lot = { workspace = true }

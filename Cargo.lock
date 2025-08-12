@@ -3254,6 +3254,7 @@ dependencies = [
  "dyn-clone",
  "fast-hash-collection",
  "parking_lot",
+ "rendiation-abstract-tree",
  "serde",
  "storage",
 ]
@@ -3483,7 +3484,6 @@ dependencies = [
  "pin-project",
  "query",
  "reactive-stream",
- "rendiation-abstract-tree",
  "smallvec",
  "storage",
  "tracing",
