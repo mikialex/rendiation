@@ -289,8 +289,7 @@ pub struct Viewer {
   memory: FunctionMemory,
   render_memory: FunctionMemory,
   render_resource: ReactiveQueryCtx,
-  render_db_linear_changes: DBLinearChangeWatchGroup,
-  render_db_query_changes: DBQueryChangeWatchGroup,
+  render_change_scope: DBWatchScope,
   shared_results: SharedHookResult,
   task_spawner: TaskSpawner,
 }
@@ -391,8 +390,7 @@ impl Viewer {
       memory: Default::default(),
       render_memory: Default::default(),
       render_resource: Default::default(),
-      render_db_linear_changes: DBLinearChangeWatchGroup::new(&global_database()),
-      render_db_query_changes: DBQueryChangeWatchGroup::new(&global_database()),
+      render_change_scope: DBWatchScope::new(&global_database()),
       shared_results: Default::default(),
       task_spawner: TaskSpawner::new("viewer_task_worker", None),
     }
@@ -405,8 +403,7 @@ impl Viewer {
       &mut self.render_memory,
       &mut self.render_resource,
       &self.task_spawner,
-      &mut self.render_db_linear_changes,
-      &mut self.render_db_query_changes,
+      &mut self.render_change_scope,
       &mut self.shared_results,
     );
 
@@ -421,8 +418,7 @@ impl Viewer {
       &mut self.render_memory,
       &mut self.render_resource,
       task_pool_result,
-      &mut self.render_db_linear_changes,
-      &mut self.render_db_query_changes,
+      &mut self.render_change_scope,
       &mut self.shared_results,
     );
 

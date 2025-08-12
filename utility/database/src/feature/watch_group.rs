@@ -1,5 +1,24 @@
 use crate::*;
 
+pub struct DBWatchScope {
+  pub change: DBLinearChangeWatchGroup,
+  pub query: DBQueryChangeWatchGroup,
+}
+
+impl DBWatchScope {
+  pub fn new(db: &Database) -> Self {
+    Self {
+      change: DBLinearChangeWatchGroup::new(db),
+      query: DBQueryChangeWatchGroup::new(db),
+    }
+  }
+
+  pub fn clear_changes(&mut self) {
+    self.change.clear_changes();
+    self.query.clear_changes();
+  }
+}
+
 pub(crate) struct DBChangeWatchGroup {
   pub producers: FastHashMap<ComponentId, Box<dyn Any + Send + Sync>>,
   pub consumers: FastHashMap<ComponentId, FastHashSet<u32>>,
