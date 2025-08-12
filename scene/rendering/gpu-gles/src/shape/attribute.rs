@@ -6,7 +6,8 @@ pub fn use_attribute_mesh_renderer(
   cx: &mut QueryGPUHookCx,
   foreign_implementation_semantics: std::sync::Arc<dyn Fn(u32, &mut ShaderVertexBuilder)>,
 ) -> Option<GLESAttributesMeshRenderer> {
-  let multi_access = cx.use_global_multi_reactive_query::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>();
+  let multi_access =
+    cx.use_db_rev_ref_typed::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>();
 
   let index = cx.use_val_refed_reactive_query(attribute_mesh_index_buffers);
   let vertex = cx.use_val_refed_reactive_query(attribute_mesh_vertex_buffer_views);
@@ -20,7 +21,7 @@ pub fn use_attribute_mesh_renderer(
       semantics: global_entity_component_of::<AttributesMeshEntityVertexBufferSemantic>().read(),
       count: global_entity_component_of::<SceneBufferViewBufferItemCount<AttributeVertexRef>>()
         .read(),
-      multi_access: multi_access.unwrap(),
+      multi_access: multi_access.expect_resolve_stage(),
       vertex: vertex.unwrap(),
     },
     count: global_entity_component_of::<SceneBufferViewBufferItemCount<AttributeIndexRef>>().read(),
@@ -137,7 +138,7 @@ pub struct AttributesMeshEntityVertexAccessView {
   pub semantics: ComponentReadView<AttributesMeshEntityVertexBufferSemantic>,
   pub count: ComponentReadView<SceneBufferViewBufferItemCount<AttributeVertexRef>>,
   pub multi_access:
-    RevRefOfForeignKey<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>,
+    RevRefForeignKeyReadTyped<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>,
   pub vertex: BoxedDynValueRefQuery<
     EntityHandle<AttributesMeshEntityVertexBufferRelation>,
     GPUBufferResourceView,

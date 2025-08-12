@@ -99,11 +99,15 @@ impl<T: Send + Sync + 'static> UseResult<T> {
     self.if_resolve_stage().unwrap()
   }
 
-  pub fn expect_spawn_stage_future(self) -> Box<dyn Future<Output = T> + Unpin + Sync + Send> {
+  pub fn if_spawn_stage_future(self) -> Option<Box<dyn Future<Output = T> + Unpin + Sync + Send>> {
     match self {
-      UseResult::SpawnStageFuture(t) => t,
-      _ => panic!("expect spawn stage ready"),
+      UseResult::SpawnStageFuture(t) => Some(t),
+      _ => None,
     }
+  }
+
+  pub fn expect_spawn_stage_future(self) -> Box<dyn Future<Output = T> + Unpin + Sync + Send> {
+    self.if_spawn_stage_future().unwrap()
   }
 
   pub fn expect_spawn_stage_ready(self) -> T {

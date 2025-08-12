@@ -1,3 +1,5 @@
+use std::{any::TypeId, marker::PhantomData};
+
 use ::hook::*;
 use database::*;
 use futures::*;
@@ -273,7 +275,19 @@ impl<'a> QueryGPUHookCx<'a> {
   }
 
   #[track_caller]
-  pub fn use_db_rev_ref<C: ForeignKeySemantic>(&mut self) -> UseResult<RevRefForeignKey> {
+  pub fn use_db_rev_ref_typed<C: ForeignKeySemantic>(
+    &mut self,
+  ) -> UseResult<RevRefForeignKeyReadTyped<C>> {
+    self
+      .use_db_rev_ref::<C>()
+      .map(|v| RevRefForeignKeyReadTyped {
+        internal: v,
+        phantom: PhantomData,
+      })
+  }
+
+  #[track_caller]
+  pub fn use_db_rev_ref<C: ForeignKeySemantic>(&mut self) -> UseResult<RevRefForeignKeyRead> {
     if let Some(task_id) = self
       .db_shared_rev_ref
       .task_id_mapping
