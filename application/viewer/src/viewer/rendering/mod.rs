@@ -317,7 +317,7 @@ impl Viewer3dRenderingCtx {
     task_spawner: &TaskSpawner,
     db_linear_changes: &mut DBLinearChangeWatchGroup,
     db_query_changes: &mut DBQueryChangeWatchGroup,
-    db_shared_rev_ref: &mut DBForeignKeySharedRevRefs,
+    shared_results: &mut SharedHookResult,
   ) -> AsyncTaskPool {
     let mut pool = AsyncTaskPool::default();
     let gpu = self.gpu.clone();
@@ -329,7 +329,7 @@ impl Viewer3dRenderingCtx {
         spawner: task_spawner,
         task_pool: &mut pool,
       },
-      db_shared_rev_ref,
+      shared_results,
       db_linear_changes,
       db_query_changes,
     }
@@ -349,7 +349,7 @@ impl Viewer3dRenderingCtx {
     task_pool_result: TaskPoolResultCx,
     db_linear_changes: &mut DBLinearChangeWatchGroup,
     db_query_changes: &mut DBQueryChangeWatchGroup,
-    db_shared_rev_ref: &mut DBForeignKeySharedRevRefs,
+    shared_results: &mut SharedHookResult,
   ) {
     noop_ctx!(cx);
     let query_result = rendering_resource.poll_update_all(cx);
@@ -364,7 +364,7 @@ impl Viewer3dRenderingCtx {
       },
       db_linear_changes,
       db_query_changes,
-      db_shared_rev_ref,
+      shared_results,
     }
     .execute(|qcx| self.use_viewer_scene_renderer(qcx).unwrap(), true);
 

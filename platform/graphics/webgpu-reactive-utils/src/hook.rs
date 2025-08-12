@@ -19,8 +19,25 @@ pub struct QueryGPUHookCx<'a> {
   pub query_cx: &'a mut ReactiveQueryCtx,
   pub db_linear_changes: &'a mut DBLinearChangeWatchGroup,
   pub db_query_changes: &'a mut DBQueryChangeWatchGroup,
-  pub db_shared_rev_ref: &'a mut DBForeignKeySharedRevRefs,
+  pub shared_results: &'a mut SharedHookResult,
   pub stage: GPUQueryHookStage<'a>,
+}
+
+#[derive(Default)]
+pub struct SharedHookResult {
+  pub task_id_mapping: FastHashMap<ShareKey, u32>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ShareKey {
+  TypeId(TypeId),
+  Hash(u64),
+}
+
+impl SharedHookResult {
+  pub fn reset(&mut self) {
+    self.task_id_mapping.clear();
+  }
 }
 
 #[non_exhaustive]
@@ -288,34 +305,21 @@ impl<'a> QueryGPUHookCx<'a> {
 
   #[track_caller]
   pub fn use_db_rev_ref<C: ForeignKeySemantic>(&mut self) -> UseResult<RevRefForeignKeyRead> {
-    if let Some(task_id) = self
-      .db_shared_rev_ref
-      .task_id_mapping
-      .get(&C::component_id())
-    {
-      return match &self.stage {
-        GPUQueryHookStage::Update { task_pool, .. } => {
-          UseResult::SpawnStageFuture(task_pool.share_task_by_id(*task_id))
-        }
-        GPUQueryHookStage::CreateRender { task, .. } => {
-          UseResult::ResolveStageReady(task.expect_result_by_id(*task_id))
-        }
-      };
-    } else {
-      self.scope(|cx| {
+    let key = match C::component_id() {
+      ComponentId::TypeId(type_id) => ShareKey::TypeId(type_id),
+      ComponentId::Hash(hash) => ShareKey::Hash(hash),
+    };
+
+    self.use_shared_compute_internal(
+      |cx| {
         let changes = cx
           .use_query_change::<C>()
           .map(|v| v.delta_filter_map(|v| v));
 
-        let result = cx.use_rev_ref(changes);
-        if let TaskUseResult::SpawnId(task_id) = result {
-          cx.db_shared_rev_ref
-            .task_id_mapping
-            .insert(C::component_id(), task_id);
-        }
-      })
-    }
-    self.use_db_rev_ref::<C>()
+        cx.use_rev_ref(changes)
+      },
+      key,
+    )
   }
 
   pub fn use_rev_ref<V: CKey, C: Query<Value = ValueChange<V>> + 'static>(
@@ -327,6 +331,53 @@ impl<'a> QueryGPUHookCx<'a> {
       bookkeeping_hash_relation(&mut mapping.write(), changes.expect_spawn_stage_ready());
       mapping.make_read_holder()
     })
+  }
+
+  #[track_caller]
+  pub fn use_shared_compute<
+    T: Clone + Send + Sync + 'static,
+    F: Fn(&mut Self) -> UseResult<T> + 'static,
+  >(
+    &mut self,
+    logic: F,
+  ) -> UseResult<T> {
+    let key = ShareKey::TypeId(TypeId::of::<T>());
+    self.use_shared_compute_internal(
+      move |cx| {
+        let result = logic(cx);
+        cx.use_future(result.if_spawn_stage_future())
+      },
+      key,
+    )
+  }
+
+  #[track_caller]
+  pub fn use_shared_compute_internal<
+    T: Clone + Send + Sync + 'static,
+    F: Fn(&mut Self) -> TaskUseResult<T> + 'static,
+  >(
+    &mut self,
+    logic: F,
+    key: ShareKey,
+  ) -> UseResult<T> {
+    if let Some(task_id) = self.shared_results.task_id_mapping.get(&key) {
+      return match &self.stage {
+        GPUQueryHookStage::Update { task_pool, .. } => {
+          UseResult::SpawnStageFuture(task_pool.share_task_by_id(*task_id))
+        }
+        GPUQueryHookStage::CreateRender { task, .. } => {
+          UseResult::ResolveStageReady(task.expect_result_by_id(*task_id))
+        }
+      };
+    } else {
+      self.scope(|cx| {
+        let result = logic(cx);
+        if let TaskUseResult::SpawnId(task_id) = result {
+          cx.shared_results.task_id_mapping.insert(key, task_id);
+        }
+      })
+    }
+    self.use_shared_compute_internal(logic, key)
   }
 
   pub fn use_uniform_buffers2<K: 'static, V: Std140 + 'static>(
