@@ -20,7 +20,7 @@ pub fn use_rtx_ao_renderer(
     gpu: gpu.clone(),
   });
 
-  let sbt = cx.use_multi_updater(|| {
+  let (cx, sbt) = cx.use_plain_state(|| {
     let handles = AOShaderHandles::default();
     let mut sbt = rtx
       .rtx_device
@@ -29,32 +29,35 @@ pub fn use_rtx_ao_renderer(
     sbt.config_ray_generation(handles.ray_gen);
     sbt.config_missing(AORayType::Primary as u32, handles.miss);
     sbt.config_missing(AORayType::AOTest as u32, handles.miss);
+    GPUSbt::new(sbt)
+  });
 
-    let sbt = GPUSbt::new(sbt);
-    let closest_hit = system.shader_handles.closest_hit;
-    let secondary_closest = system.shader_handles.secondary_closest;
-    MultiUpdateContainer::new(sbt)
-      .with_source(ReactiveQuerySbtUpdater {
-        ray_ty_idx: AORayType::Primary as u32,
-        source: global_watch()
-          .watch_entity_set_untyped_key::<SceneModelEntity>()
-          .collective_map(move |_| HitGroupShaderRecord {
-            closest_hit: Some(closest_hit),
-            any_hit: None,
-            intersection: None,
-          }),
-      })
-      .with_source(ReactiveQuerySbtUpdater {
-        ray_ty_idx: AORayType::AOTest as u32,
-        source: global_watch()
-          .watch_entity_set_untyped_key::<SceneModelEntity>()
-          .collective_map(move |_| HitGroupShaderRecord {
-            closest_hit: Some(secondary_closest),
-            any_hit: None,
-            intersection: None,
-          }),
+  let closest_hit = system.shader_handles.closest_hit;
+  let secondary_closest = system.shader_handles.secondary_closest;
+
+  let updates = cx.use_query_set::<SceneModelEntity>().map(move |v| {
+    v.into_change()
+      .collective_map(move |_| HitGroupShaderRecord {
+        closest_hit: Some(closest_hit),
+        any_hit: None,
+        intersection: None,
       })
   });
+  if let Some(updates) = updates.if_ready() {
+    sbt.update(updates, AORayType::Primary as u32);
+  }
+
+  let updates = cx.use_query_set::<SceneModelEntity>().map(move |v| {
+    v.into_change()
+      .collective_map(move |_| HitGroupShaderRecord {
+        closest_hit: Some(secondary_closest),
+        any_hit: None,
+        intersection: None,
+      })
+  });
+  if let Some(updates) = updates.if_ready() {
+    sbt.update(updates, AORayType::AOTest as u32);
+  }
 
   if let Some(true) = end(cx) {
     system.reset_sample();
@@ -67,7 +70,7 @@ pub fn use_rtx_ao_renderer(
     executor: system.executor.clone(),
     shader_handles: system.shader_handles.clone(),
     ao_state: system.ao_state.clone(),
-    sbt: sbt.unwrap().target.clone(),
+    sbt: sbt.clone(),
     gpu: system.gpu.clone(),
   })
 }

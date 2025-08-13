@@ -1,7 +1,7 @@
 use crate::*;
 
 pub struct DBLinearChangeWatchGroup {
-  internal: DBChangeWatchGroup,
+  internal: DBChangeWatchGroup<ComponentId>,
 }
 
 impl DBLinearChangeWatchGroup {

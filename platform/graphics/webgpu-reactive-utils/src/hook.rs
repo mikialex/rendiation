@@ -363,6 +363,28 @@ impl DBHookCxLike for QueryGPUHookCx<'_> {
     }
   }
 
+  fn use_query_set<E: EntitySemantic>(&mut self) -> UseResult<DBChange<()>> {
+    struct WatchToken(u32, EntityId);
+    impl CanCleanUpFrom<QueryGPUHookDropCx<'_>> for WatchToken {
+      fn drop_from_cx(&mut self, cx: &mut QueryGPUHookDropCx<'_>) {
+        cx.db_watch_scope
+          .query_set
+          .notify_consumer_dropped(self.1, self.0);
+      }
+    }
+
+    let (cx, tk) = self.use_state_with_features(|cx| {
+      let id = cx.db_watch_scope.query_set.allocate_next_consumer_id();
+      WatchToken(id, E::entity_id())
+    });
+
+    if let GPUQueryHookStage::Update { .. } = &cx.stage {
+      UseResult::SpawnStageReady(cx.db_watch_scope.query_set.get_buffered_changes::<E>(tk.0))
+    } else {
+      UseResult::NotInStage
+    }
+  }
+
   fn use_query_change<C: ComponentSemantic>(&mut self) -> UseResult<DBChange<C::Data>> {
     struct WatchToken(u32, ComponentId);
     impl CanCleanUpFrom<QueryGPUHookDropCx<'_>> for WatchToken {

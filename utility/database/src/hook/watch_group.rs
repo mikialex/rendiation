@@ -3,6 +3,7 @@ use crate::*;
 pub struct DBWatchScope {
   pub change: DBLinearChangeWatchGroup,
   pub query: DBQueryChangeWatchGroup,
+  pub query_set: DBQueryEntitySetWatchGroup,
 }
 
 impl DBWatchScope {
@@ -10,24 +11,26 @@ impl DBWatchScope {
     Self {
       change: DBLinearChangeWatchGroup::new(db),
       query: DBQueryChangeWatchGroup::new(db),
+      query_set: DBQueryEntitySetWatchGroup::new(db),
     }
   }
 
   pub fn clear_changes(&mut self) {
     self.change.clear_changes();
     self.query.clear_changes();
+    self.query_set.clear_changes();
   }
 }
 
-pub(crate) struct DBChangeWatchGroup {
-  pub producers: FastHashMap<ComponentId, Box<dyn Any + Send + Sync>>,
-  pub consumers: FastHashMap<ComponentId, FastHashSet<u32>>,
-  pub current_results: FastHashMap<ComponentId, Box<dyn Any + Send + Sync>>,
+pub(crate) struct DBChangeWatchGroup<K> {
+  pub producers: FastHashMap<K, Box<dyn Any + Send + Sync>>,
+  pub consumers: FastHashMap<K, FastHashSet<u32>>,
+  pub current_results: FastHashMap<K, Box<dyn Any + Send + Sync>>,
   pub next_consumer_id: u32,
   pub db: Database,
 }
 
-impl DBChangeWatchGroup {
+impl<K: Eq + Hash> DBChangeWatchGroup<K> {
   pub fn new(db: &Database) -> Self {
     Self {
       producers: Default::default(),
@@ -47,13 +50,13 @@ impl DBChangeWatchGroup {
     self.next_consumer_id
   }
 
-  pub fn notify_consumer_dropped(&mut self, component_id: ComponentId, consumer_id: u32) {
-    let consumers = self.consumers.get_mut(&component_id).unwrap();
+  pub fn notify_consumer_dropped(&mut self, key: K, consumer_id: u32) {
+    let consumers = self.consumers.get_mut(&key).unwrap();
     let removed = consumers.remove(&consumer_id);
     assert!(removed);
     if consumers.is_empty() {
-      self.producers.remove(&component_id); // stop the watch
-      self.consumers.remove(&component_id);
+      self.producers.remove(&key); // stop the watch
+      self.consumers.remove(&key);
     }
   }
 }
