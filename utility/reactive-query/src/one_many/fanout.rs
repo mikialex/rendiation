@@ -35,77 +35,20 @@ where
     let (relational_changes, relation_access) = self.relations.resolve(cx);
     let (upstream_changes, getter) = self.upstream.resolve(cx);
 
-    let getter_previous = make_previous(&getter, &upstream_changes);
-    let one_acc_previous = make_previous(&relation_access, &relational_changes);
-
-    let mut output = FastHashMap::default();
-    {
-      let relational_changes = relational_changes.materialize();
-      relational_changes
-        .iter()
-        .for_each(|(k, change)| match change {
-          ValueChange::Delta(v, p) => {
-            // to get the real previous X, we need the previous o->x mapping
-            let p = p.clone().and_then(|p| getter_previous.access(&p));
-            if let Some(v) = getter.access(v) {
-              output.insert(k.clone(), ValueChange::Delta(v, p));
-            } else if let Some(p) = p {
-              output.insert(k.clone(), ValueChange::Remove(p));
-            }
-          }
-          ValueChange::Remove(p) => {
-            if let Some(p) = getter_previous.access(p) {
-              output.insert(k.clone(), ValueChange::Remove(p));
-            }
-          }
-        });
+    let (view, delta) = DualQuery {
+      view: getter,
+      delta: upstream_changes,
     }
-    {
-      let upstream_changes = upstream_changes.materialize();
-      for (one, delta) in upstream_changes.iter() {
-        // the inv_query is the current relation, the previous one's delta is emitted
-        // by the above relation change code
-        match delta {
-          ValueChange::Remove(_p) => relation_access.access_multi_visitor(one, &mut |many| {
-            if let Some(pre_one) = one_acc_previous.access(&many) {
-              if let Some(pre_x) = getter_previous.access(&pre_one) {
-                if let Some(ValueChange::Delta(_, _)) = output.get(&many) {
-                  // cancel out
-                  output.remove(&many);
-                } else {
-                  output.insert(many.clone(), ValueChange::Remove(pre_x));
-                }
-              }
-            }
-          }),
-          ValueChange::Delta(change, _p) => {
-            relation_access.access_multi_visitor(one, &mut |many| {
-              if let Some(pre_one) = one_acc_previous.access(&many) {
-                let pre_x = getter_previous.access(&pre_one);
-                if let Some(ValueChange::Remove(_)) = output.get(&many) {
-                  // cancel out
-                  output.remove(&many);
-                } else {
-                  output.insert(many.clone(), ValueChange::Delta(change.clone(), pre_x));
-                }
-              } else {
-                if let Some(ValueChange::Remove(_)) = output.get(&many) {
-                  // cancel out
-                  output.remove(&many);
-                } else {
-                  output.insert(many.clone(), ValueChange::Delta(change.clone(), None));
-                }
-              }
-            })
-          }
-        }
-      }
-    }
+    .fanout(TriQuery {
+      base: DualQuery {
+        view: relation_access.clone(),
+        delta: relational_changes,
+      },
+      rev_many_view: relation_access,
+    })
+    .view_delta();
 
-    let d = Arc::new(output);
-    let v = relation_access.chain(getter);
-
-    (d, v)
+    (delta, view)
   }
 }
 

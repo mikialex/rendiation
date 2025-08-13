@@ -99,10 +99,7 @@ impl StandardModelDataView {
 pub struct GlobalSceneModelWorldMatrix;
 
 impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for GlobalSceneModelWorldMatrix {
-  type Result = DualQuery<
-    impl Query<Key = RawEntityHandle, Value = Mat4<f64>> + 'static,
-    impl Query<Key = RawEntityHandle, Value = ValueChange<Mat4<f64>>> + 'static,
-  >;
+  type Result = impl DualQueryLike<Key = RawEntityHandle, Value = Mat4<f64>>;
 
   fn use_logic(&self, cx: &mut Cx) -> TaskUseResult<Self::Result> {
     let fanout =
