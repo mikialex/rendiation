@@ -142,7 +142,7 @@ pub struct TriQuery<T, U, V> {
   pub rev_many_view: V,
 }
 
-pub trait TriQueryLike: DualQueryLike {
+pub trait TriQueryLike: DualQueryLike<Value: CKey> {
   type InvView: MultiQuery<Key = Self::Value, Value = Self::Key> + 'static;
   fn inv_view_view_delta(self) -> (Self::InvView, Self::View, Self::Delta);
 }
@@ -168,7 +168,7 @@ where
 impl<K, V, T, U, Inv> TriQueryLike for TriQuery<T, U, Inv>
 where
   K: CKey,
-  V: CValue,
+  V: CKey,
   T: Query<Key = K, Value = V> + Clone + 'static,
   U: Query<Key = K, Value = ValueChange<V>> + Clone + 'static,
   Inv: MultiQuery<Key = V, Value = K> + Clone + 'static,

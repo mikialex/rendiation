@@ -1,7 +1,6 @@
 use crate::*;
 
-pub struct MultiAccessGPUDataBuilder {
-  source: Box<dyn DynReactiveOneToManyRelation<One = u32, Many = u32>>,
+pub struct MultiAccessGPUStates {
   allocator: StorageBufferRangeAllocatePool<u32>,
   meta: CommonStorageBufferImplWithHostBackup<GPURangeInfo>,
 }
@@ -13,14 +12,9 @@ pub struct MultiAccessGPUDataBuilderInit {
   pub init_one_count_capacity: u32,
 }
 
-impl MultiAccessGPUDataBuilder {
-  pub fn new(
-    gpu: &GPU,
-    source: impl ReactiveOneToManyRelation<One = u32, Many = u32>,
-    init: MultiAccessGPUDataBuilderInit,
-  ) -> Self {
+impl MultiAccessGPUStates {
+  pub fn new(gpu: &GPU, init: MultiAccessGPUDataBuilderInit) -> Self {
     Self {
-      source: Box::new(source),
       allocator: create_storage_buffer_range_allocate_pool(
         gpu,
         init.init_many_count_capacity,
@@ -33,13 +27,12 @@ impl MultiAccessGPUDataBuilder {
       ),
     }
   }
-}
 
-impl ReactiveGeneralQuery for MultiAccessGPUDataBuilder {
-  type Output = MultiAccessGPUData;
-
-  fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
-    let (changes, multi_access) = self.source.describe_with_inv_dyn(cx).resolve_kept();
+  pub fn update<S>(&mut self, source: S) -> MultiAccessGPUData
+  where
+    S: TriQueryLike<Key: LinearIdentified, Value: LinearIdentified>,
+  {
+    let (multi_access, _, changes) = source.inv_view_view_delta();
 
     // collect all changed one.
     // for simplicity, we do full update for each "one"s data
@@ -60,34 +53,40 @@ impl ReactiveGeneralQuery for MultiAccessGPUDataBuilder {
 
     // do all cleanup first to release empty space
     for changed_one in dirtied_one.iter() {
-      let meta = self.meta.get(*changed_one).unwrap();
+      let meta = self.meta.get(changed_one.alloc_index()).unwrap();
       if meta.start != u32::MAX {
         self.allocator.deallocate(meta.start);
       }
 
       self
         .meta
-        .set_value(*changed_one, Default::default())
+        .set_value(changed_one.alloc_index(), Default::default())
         .unwrap();
     }
 
     // write new data
     for changed_one in dirtied_one.iter() {
       if let Some(many_iter) = multi_access.access_multi(changed_one) {
-        let many_idx = many_iter.collect::<Vec<_>>();
+        let many_idx = many_iter.map(|v| v.alloc_index()).collect::<Vec<_>>();
         let offset = self
           .allocator
           .allocate_values(&many_idx, &mut |relocation| {
-            let mut meta = *self.meta.get(*changed_one).unwrap();
+            let mut meta = *self.meta.get(changed_one.alloc_index()).unwrap();
             meta.start = relocation.new_offset;
-            self.meta.set_value(*changed_one, meta).unwrap();
+            self
+              .meta
+              .set_value(changed_one.alloc_index(), meta)
+              .unwrap();
           })
           .unwrap();
 
-        let mut meta = *self.meta.get(*changed_one).unwrap();
+        let mut meta = *self.meta.get(changed_one.alloc_index()).unwrap();
         meta.start = offset;
         meta.len = many_idx.len() as u32;
-        self.meta.set_value(*changed_one, meta).unwrap();
+        self
+          .meta
+          .set_value(changed_one.alloc_index(), meta)
+          .unwrap();
       }
     }
 

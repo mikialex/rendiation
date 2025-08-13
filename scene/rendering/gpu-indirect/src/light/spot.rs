@@ -48,16 +48,14 @@ pub fn use_spot_light_storage(
     .map(|change| change.collective_map(|mat| mat.forward().reverse().normalize().into_f32()))
     .update_storage_array(light, offset_of!(SpotLightStorage, direction));
 
-  let multi_access = qcx.use_gpu_general_query(|gpu| {
-    MultiAccessGPUDataBuilder::new(
-      gpu,
-      global_rev_ref().watch_inv_ref_untyped::<SpotLightRefScene>(),
-      light_multi_access_config(),
-    )
-  });
+  let (qcx, multi_acc) = qcx.use_gpu_multi_access_states(light_multi_access_config());
+
+  let updates = qcx.use_db_rev_ref_tri_view::<SpotLightRefScene>();
+  let updates = qcx.use_result(updates);
+
   qcx.when_render(|| {
     let light = light.get_gpu_buffer();
-    let multi_access = multi_access.unwrap();
+    let multi_access = multi_acc.update(updates.expect_resolve_stage());
     (light, multi_access)
   })
 }
