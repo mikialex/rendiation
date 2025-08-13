@@ -10,24 +10,25 @@ pub struct PointLightUniform {
   pub cutoff_distance: f32,
 }
 
-pub fn point_uniform_array(gpu: &GPU) -> UniformArrayUpdateContainer<PointLightUniform, 8> {
-  let buffer = UniformBufferDataView::create_default(&gpu.device);
+pub fn use_point_uniform_array(cx: &mut QueryGPUHookCx) -> UniformArray<PointLightUniform, 8> {
+  let (cx, uniform) = cx.use_uniform_array_buffers2();
 
-  let luminance_intensity = global_watch()
-    .watch::<PointLightIntensity>()
-    .into_query_update_uniform_array(offset_of!(PointLightUniform, luminance_intensity), gpu);
+  let offset = offset_of!(PointLightUniform, luminance_intensity);
+  cx.use_changes::<PointLightIntensity>()
+    .update_uniform_array(uniform, offset, cx.gpu);
 
-  let cutoff_distance = global_watch()
-    .watch::<PointLightCutOffDistance>()
-    .into_query_update_uniform_array(offset_of!(PointLightUniform, cutoff_distance), gpu);
+  let offset = offset_of!(PointLightUniform, cutoff_distance);
+  cx.use_changes::<PointLightCutOffDistance>()
+    .update_uniform_array(uniform, offset, cx.gpu);
 
-  let position = scene_node_derive_world_mat()
-    .one_to_many_fanout(global_rev_ref().watch_inv_ref::<PointLightRefNode>())
-    .collective_map(|mat| into_hpt(mat.position()).into_uniform())
-    .into_query_update_uniform_array(offset_of!(PointLightUniform, position), gpu);
+  let offset = offset_of!(PointLightUniform, position);
 
-  UniformArrayUpdateContainer::new(buffer)
-    .with_source(luminance_intensity)
-    .with_source(cutoff_distance)
-    .with_source(position)
+  use_global_node_world_mat(cx)
+    .fanout(cx.use_db_rev_ref_tri_view::<PointLightRefNode>())
+    .into_delta_change()
+    .map(|change| change.collective_map(|mat| into_hpt(mat.position()).into_storage()))
+    .use_assure_result(cx)
+    .update_uniform_array(uniform, offset, cx.gpu);
+
+  uniform.clone()
 }

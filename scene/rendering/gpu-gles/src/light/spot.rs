@@ -12,45 +12,41 @@ pub struct SpotLightUniform {
   pub half_penumbra_cos: f32,
 }
 
-pub fn spot_uniform_array(gpu: &GPU) -> UniformArrayUpdateContainer<SpotLightUniform, 8> {
-  let buffer = UniformBufferDataView::create_default(&gpu.device);
+pub fn use_spot_uniform_array(cx: &mut QueryGPUHookCx) -> UniformArray<SpotLightUniform, 8> {
+  let (cx, uniform) = cx.use_uniform_array_buffers2();
 
-  let luminance_intensity = global_watch()
-    .watch::<SpotLightIntensity>()
-    .into_query_update_uniform_array(offset_of!(SpotLightUniform, luminance_intensity), gpu);
+  let offset = offset_of!(SpotLightUniform, luminance_intensity);
+  cx.use_changes::<PointLightIntensity>()
+    .update_uniform_array(uniform, offset, cx.gpu);
 
-  let cutoff_distance = global_watch()
-    .watch::<SpotLightCutOffDistance>()
-    .into_query_update_uniform_array(offset_of!(SpotLightUniform, cutoff_distance), gpu);
+  let offset = offset_of!(SpotLightUniform, cutoff_distance);
+  cx.use_changes::<PointLightCutOffDistance>()
+    .update_uniform_array(uniform, offset, cx.gpu);
 
-  let half_cone_cos = global_watch()
-    .watch::<SpotLightHalfConeAngle>()
-    .collective_map(|rad| rad.cos())
-    .into_query_update_uniform_array(offset_of!(SpotLightUniform, half_cone_cos), gpu);
+  let offset = offset_of!(SpotLightUniform, half_cone_cos);
+  cx.use_changes::<SpotLightHalfConeAngle>()
+    .map_changes(|rad| rad.cos())
+    .update_uniform_array(uniform, offset, cx.gpu);
 
-  let half_penumbra_cos = global_watch()
-    .watch::<SpotLightHalfPenumbraAngle>()
-    .collective_map(|rad| rad.cos())
-    .into_query_update_uniform_array(offset_of!(SpotLightUniform, half_penumbra_cos), gpu);
+  let offset = offset_of!(SpotLightUniform, half_penumbra_cos);
+  cx.use_changes::<SpotLightHalfPenumbraAngle>()
+    .map_changes(|rad| rad.cos())
+    .update_uniform_array(uniform, offset, cx.gpu);
 
-  let world = scene_node_derive_world_mat()
-    .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SpotLightRefNode>())
-    .into_forker();
+  let fanout = use_global_node_world_mat(cx)
+    .fanout(cx.use_db_rev_ref_tri_view::<SpotLightRefNode>())
+    .use_assure_result(cx);
 
-  let position = world
-    .clone()
-    .collective_map(|mat| into_hpt(mat.position()).into_uniform())
-    .into_query_update_uniform_array(offset_of!(SpotLightUniform, position), gpu);
+  fanout
+    .clone_except_future()
+    .into_delta_change()
+    .map(|change| change.collective_map(|mat| into_hpt(mat.position()).into_storage()))
+    .update_uniform_array(uniform, offset_of!(SpotLightUniform, position), cx.gpu);
 
-  let direction = world
-    .collective_map(|mat| mat.forward().reverse().normalize().into_f32())
-    .into_query_update_uniform_array(offset_of!(SpotLightUniform, direction), gpu);
+  fanout
+    .into_delta_change()
+    .map(|change| change.collective_map(|mat| mat.forward().reverse().normalize().into_f32()))
+    .update_uniform_array(uniform, offset_of!(SpotLightUniform, direction), cx.gpu);
 
-  UniformArrayUpdateContainer::new(buffer)
-    .with_source(luminance_intensity)
-    .with_source(cutoff_distance)
-    .with_source(half_cone_cos)
-    .with_source(half_penumbra_cos)
-    .with_source(position)
-    .with_source(direction)
+  uniform.clone()
 }

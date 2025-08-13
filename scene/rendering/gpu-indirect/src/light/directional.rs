@@ -23,7 +23,7 @@ pub fn use_directional_light_storage(
     .into_delta_change()
     .map(|change| change.collective_map(|mat| mat.forward().reverse().normalize().into_f32()))
     .use_assure_result(qcx)
-    .update_storage_array(light, offset_of!(PointLightStorage, position));
+    .update_storage_array(light, offset_of!(DirectionalLightStorage, direction));
 
   let (qcx, multi_acc) = qcx.use_gpu_multi_access_states(light_multi_access_config());
 

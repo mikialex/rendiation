@@ -9,21 +9,22 @@ pub struct DirectionalLightUniform {
   pub direction: Vec3<f32>,
 }
 
-pub fn directional_uniform_array(
-  gpu: &GPU,
-) -> UniformArrayUpdateContainer<DirectionalLightUniform, 8> {
-  let buffer = UniformBufferDataView::create_default(&gpu.device);
+pub fn use_directional_uniform_array(
+  cx: &mut QueryGPUHookCx,
+) -> UniformArray<DirectionalLightUniform, 8> {
+  let (cx, uniform) = cx.use_uniform_array_buffers2();
 
-  let illuminance = global_watch()
-    .watch::<DirectionalLightIlluminance>()
-    .into_query_update_uniform_array(offset_of!(DirectionalLightUniform, illuminance), gpu);
+  let offset = offset_of!(DirectionalLightUniform, illuminance);
+  cx.use_changes::<DirectionalLightIlluminance>()
+    .update_uniform_array(uniform, offset, cx.gpu);
 
-  let direction = scene_node_derive_world_mat()
-    .one_to_many_fanout(global_rev_ref().watch_inv_ref::<DirectionalRefNode>())
-    .collective_map(|mat| mat.forward().reverse().normalize().into_f32())
-    .into_query_update_uniform_array(offset_of!(DirectionalLightUniform, direction), gpu);
+  let offset = offset_of!(DirectionalLightUniform, direction);
+  use_global_node_world_mat(cx)
+    .fanout(cx.use_db_rev_ref_tri_view::<DirectionalRefNode>())
+    .into_delta_change()
+    .map(|change| change.collective_map(|mat| mat.forward().reverse().normalize().into_f32()))
+    .use_assure_result(cx)
+    .update_uniform_array(uniform, offset, cx.gpu);
 
-  UniformArrayUpdateContainer::new(buffer)
-    .with_source(illuminance)
-    .with_source(direction)
+  uniform.clone()
 }

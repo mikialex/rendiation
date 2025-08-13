@@ -27,10 +27,12 @@ pub fn use_spot_light_storage(
 
   qcx
     .use_changes::<SpotLightHalfConeAngle>()
+    .map_changes(|rad| rad.cos())
     .update_storage_array(light, offset_of!(SpotLightStorage, half_cone_cos));
 
   qcx
     .use_changes::<SpotLightHalfPenumbraAngle>()
+    .map_changes(|rad| rad.cos())
     .update_storage_array(light, offset_of!(SpotLightStorage, half_penumbra_cos));
 
   let fanout = use_global_node_world_mat(qcx)

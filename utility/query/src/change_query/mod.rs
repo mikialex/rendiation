@@ -138,7 +138,7 @@ impl<T: DataChanges> DataChanges for Arc<T> {
   }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct LinearBatchChanges<K, T> {
   pub removed: Vec<K>,
   pub update_or_insert: Vec<(K, T)>,
