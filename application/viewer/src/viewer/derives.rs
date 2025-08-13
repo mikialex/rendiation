@@ -1,5 +1,29 @@
 use crate::*;
 
+// pub fn use_viewer_3d_scene_derive(cx: &mut QueryGPUHookCx) -> Option<Viewer3dSceneDerive> {
+//   let node_net_visible = use_global_node_net_visible(cx);
+
+//   let node_world_mat = use_global_node_world_mat(cx);
+
+//   let mesh_vertex_ref =
+//     cx.use_db_rev_ref_typed::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>();
+
+//   let sm_to_s = cx.use_db_rev_ref_typed::<SceneModelBelongsToScene>();
+
+//   let node_children = cx.use_shared_compute(GlobalNodeConnectivity);
+
+//   cx.when_render(|| Viewer3dSceneDerive {
+//     // world_mat: node_world_mat.expect_resolve_stage().1.into_boxed(),
+//     world_mat: todo!(),
+//     node_net_visible: todo!(),
+//     node_children: todo!(),
+//     camera_transforms: todo!(),
+//     mesh_vertex_ref: todo!(),
+//     sm_world_bounding: todo!(),
+//     sm_to_s: todo!(),
+//   })
+// }
+
 pub struct Viewer3dSceneDeriveSource {
   pub world_mat: RQForker<EntityHandle<SceneNodeEntity>, Mat4<f64>>,
   pub node_net_visible: BoxedDynReactiveQuery<EntityHandle<SceneNodeEntity>, bool>,

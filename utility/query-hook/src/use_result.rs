@@ -139,6 +139,17 @@ impl<T: Send + Sync + 'static> UseResult<T> {
   }
 }
 
+impl<T: Clone + Send + Sync + 'static> UseResult<T> {
+  #[track_caller]
+  pub fn use_assure_result(self, cx: &mut impl QueryHookCxLike) -> UseResult<T> {
+    cx.use_result(self)
+  }
+
+  pub fn use_assure_result_expose(self, cx: &mut impl QueryHookCxLike) -> TaskUseResult<T> {
+    cx.use_future(self.if_spawn_stage_future())
+  }
+}
+
 impl<T> UseResult<T>
 where
   T: DualQueryLike,
@@ -148,6 +159,23 @@ where
     other: UseResult<U>,
   ) -> UseResult<impl DualQueryLike<Key = U::Key, Value = T::Value>> {
     self.join(other).map(|(a, b)| a.fanout(b))
+  }
+
+  pub fn dual_query_zip<Q>(
+    self,
+    other: UseResult<Q>,
+  ) -> UseResult<impl DualQueryLike<Key = T::Key, Value = (T::Value, Q::Value)>>
+  where
+    Q: DualQueryLike<Key = T::Key>,
+  {
+    self.join(other).map(|(a, b)| a.dual_query_zip(b))
+  }
+
+  pub fn dual_query_map<V2: CValue>(
+    self,
+    f: impl Fn(T::Value) -> V2 + Clone + Sync + Send + 'static,
+  ) -> UseResult<impl DualQueryLike<Key = T::Key, Value = V2>> {
+    self.map(|t| t.dual_query_map(f))
   }
 
   pub fn into_delta_change(self) -> UseResult<DeltaQueryAsChange<T::Delta>> {

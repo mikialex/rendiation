@@ -5,7 +5,7 @@ pub fn use_default_scene_batch_extractor(
 ) -> Option<DefaultSceneBatchExtractor> {
   let model_lookup = cx.use_db_rev_ref_typed::<SceneModelBelongsToScene>();
 
-  let node_net_visible = global_node_net_visible(cx);
+  let node_net_visible = use_global_node_net_visible(cx);
 
   cx.when_render(|| DefaultSceneBatchExtractor {
     model_lookup: model_lookup.expect_resolve_stage(),

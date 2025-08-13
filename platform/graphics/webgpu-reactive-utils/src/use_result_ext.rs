@@ -11,6 +11,13 @@ pub trait DataChangeGPUExt<K: LinearIdentified + CKey> {
     gpu: &GPU,
   );
 
+  fn update_uniform_array<U: Std140 + Default, const N: usize>(
+    &self,
+    uniforms: &UniformArray<U, N>,
+    offset: usize,
+    gpu: &GPU,
+  );
+
   fn update_storage_array<U: Std430 + Default>(
     &self,
     storage: &mut CommonStorageBufferImpl<U>,
@@ -26,7 +33,12 @@ pub trait DataChangeGPUExtForUseResult<K: LinearIdentified + CKey> {
     offset: usize,
     gpu: &GPU,
   );
-
+  fn update_uniform_array<U: Std140 + Default, const N: usize>(
+    &self,
+    uniforms: &UniformArray<U, N>,
+    field_offset: usize,
+    gpu: &GPU,
+  );
   fn update_storage_array<U: Std430 + Default>(
     &self,
     storage: &mut CommonStorageBufferImpl<U>,
@@ -49,6 +61,20 @@ impl<K: LinearIdentified + CKey, T: DataChangeGPUExt<K>> DataChangeGPUExtForUseR
       _ => return,
     };
     r.update_uniforms(uniforms, offset, gpu);
+  }
+
+  fn update_uniform_array<U: Std140 + Default, const N: usize>(
+    &self,
+    uniforms: &UniformArray<U, N>,
+    field_offset: usize,
+    gpu: &GPU,
+  ) {
+    let r = match self {
+      UseResult::SpawnStageReady(r) => r,
+      UseResult::ResolveStageReady(r) => r,
+      _ => return,
+    };
+    r.update_uniform_array(uniforms, field_offset, gpu);
   }
 
   fn update_storage_array<U: Std430 + Default>(
@@ -93,6 +119,22 @@ where
     }
   }
 
+  fn update_uniform_array<U: Std140 + Default, const N: usize>(
+    &self,
+    uniforms: &UniformArray<U, N>,
+    field_offset: usize,
+    gpu: &GPU,
+  ) {
+    if self.has_change() {
+      for (id, value) in self.iter_update_or_insert() {
+        let offset = id.alloc_index() as usize * std::mem::size_of::<T>() + field_offset;
+
+        // here we should do sophisticated optimization to merge the adjacent writes.
+        uniforms.write_at(&gpu.queue, &value, offset as u64);
+      }
+    }
+  }
+
   fn update_storage_array<U: Std430 + Default>(
     &self,
     storage: &mut CommonStorageBufferImpl<U>,
@@ -107,7 +149,5 @@ where
         }
       }
     }
-
-    //
   }
 }

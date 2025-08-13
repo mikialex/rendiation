@@ -23,13 +23,11 @@ pub fn use_point_light_storage(
     .use_changes::<PointLightCutOffDistance>()
     .update_storage_array(light, offset_of!(PointLightStorage, cutoff_distance));
 
-  let fanout = global_node_world_mat(qcx)
+  use_global_node_world_mat(qcx)
     .fanout(qcx.use_db_rev_ref_tri_view::<PointLightRefNode>())
     .into_delta_change()
-    .map(|change| change.collective_map(|mat| into_hpt(mat.position()).into_storage()));
-
-  qcx
-    .use_result(fanout)
+    .map(|change| change.collective_map(|mat| into_hpt(mat.position()).into_storage()))
+    .use_assure_result(qcx)
     .update_storage_array(light, offset_of!(PointLightStorage, position));
 
   let (qcx, multi_acc) = qcx.use_gpu_multi_access_states(light_multi_access_config());

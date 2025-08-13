@@ -13,6 +13,9 @@ pub use mutate_target::*;
 mod map;
 pub use map::*;
 
+mod union;
+pub use union::*;
+
 use crate::*;
 
 #[derive(Clone)]
@@ -34,6 +37,60 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
 
   fn delta(self) -> Self::Delta {
     self.view_delta().1
+  }
+
+  fn dual_query_map<V2: CValue>(
+    self,
+    f: impl Fn(Self::Value) -> V2 + Clone + Sync + Send + 'static,
+  ) -> impl DualQueryLike<Key = Self::Key, Value = V2> {
+    let (view, delta) = self.view_delta();
+    DualQuery {
+      view: view.map_value(f.clone()),
+      delta: delta.delta_map_value(f),
+    }
+  }
+
+  fn dual_query_zip<Q>(
+    self,
+    other: Q,
+  ) -> impl DualQueryLike<Key = Self::Key, Value = (Self::Value, Q::Value)>
+  where
+    Q: DualQueryLike<Key = Self::Key>,
+  {
+    self.dual_query_union(other, move |(a, b)| match (a, b) {
+      (Some(a), Some(b)) => Some((a, b)),
+      (None, None) => None,
+      (None, Some(_)) => unreachable!("zip missing left side"),
+      (Some(_), None) => unreachable!("zip missing right side"),
+    })
+  }
+
+  fn dual_query_union<Q, O: CValue>(
+    self,
+    other: Q,
+    f: impl Fn((Option<Self::Value>, Option<Q::Value>)) -> Option<O> + Send + Sync + Copy + 'static,
+  ) -> impl DualQueryLike<Key = Self::Key, Value = O>
+  where
+    Q: DualQueryLike<Key = Self::Key>,
+  {
+    let (a_access, t1) = self.view_delta();
+    let (b_access, t2) = other.view_delta();
+
+    let delta = UnionValueChange {
+      a: t1,
+      b: t2,
+      f,
+      a_current: a_access.clone(),
+      b_current: b_access.clone(),
+    };
+
+    let view = UnionQuery {
+      a: a_access,
+      b: b_access,
+      f,
+    };
+
+    DualQuery { view, delta }
   }
 
   fn fanout<R: TriQueryLike<Value = Self::Key>>(

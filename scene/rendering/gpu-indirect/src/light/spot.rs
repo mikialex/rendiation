@@ -33,9 +33,9 @@ pub fn use_spot_light_storage(
     .use_changes::<SpotLightHalfPenumbraAngle>()
     .update_storage_array(light, offset_of!(SpotLightStorage, half_penumbra_cos));
 
-  let fanout = global_node_world_mat(qcx).fanout(qcx.use_db_rev_ref_tri_view::<SpotLightRefNode>());
-
-  let fanout = qcx.use_result(fanout);
+  let fanout = use_global_node_world_mat(qcx)
+    .fanout(qcx.use_db_rev_ref_tri_view::<SpotLightRefNode>())
+    .use_assure_result(qcx);
 
   fanout
     .clone_except_future()

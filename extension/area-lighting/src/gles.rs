@@ -14,27 +14,29 @@ pub struct LTCAreaLightUniform {
   pub is_disk: Bool,
 }
 
-pub fn area_light_uniform_array(gpu: &GPU) -> UniformArrayUpdateContainer<LTCAreaLightUniform, 8> {
-  let buffer = UniformBufferDataView::create_default(&gpu.device);
+pub fn use_area_light_uniform_array(
+  cx: &mut QueryGPUHookCx,
+) -> UniformArray<LTCAreaLightUniform, 8> {
+  let (cx, uniform) = cx.use_uniform_array_buffers2();
 
-  let intensity = global_watch()
-    .watch::<AreaLightIntensity>()
-    .into_query_update_uniform_array(offset_of!(LTCAreaLightUniform, intensity), gpu);
+  let offset = offset_of!(LTCAreaLightUniform, intensity);
+  cx.use_changes::<AreaLightIntensity>()
+    .update_uniform_array(uniform, offset, cx.gpu);
 
-  let double_side = global_watch()
-    .watch::<AreaLightIsDoubleSide>()
-    .collective_map(Bool::from)
-    .into_query_update_uniform_array(offset_of!(LTCAreaLightUniform, double_side), gpu);
+  let offset = offset_of!(LTCAreaLightUniform, double_side);
+  cx.use_changes::<AreaLightIsDoubleSide>()
+    .map_changes(Bool::from)
+    .update_uniform_array(uniform, offset, cx.gpu);
 
-  let is_disk = global_watch()
-    .watch::<AreaLightIsRound>()
-    .collective_map(Bool::from)
-    .into_query_update_uniform_array(offset_of!(LTCAreaLightUniform, is_disk), gpu);
+  let offset = offset_of!(LTCAreaLightUniform, is_disk);
+  cx.use_changes::<AreaLightIsRound>()
+    .map_changes(Bool::from)
+    .update_uniform_array(uniform, offset, cx.gpu);
 
-  let points = scene_node_derive_world_mat()
-    .one_to_many_fanout(global_rev_ref().watch_inv_ref::<AreaLightRefNode>())
-    .collective_zip(global_watch().watch::<AreaLightSize>())
-    .collective_map(|(world_mat, size)| {
+  use_global_node_world_mat(cx)
+    .fanout(cx.use_db_rev_ref_tri_view::<AreaLightRefNode>())
+    .dual_query_zip(cx.use_dual_query::<AreaLightSize>())
+    .dual_query_map(|(world_mat, size)| {
       let width = size.x as f64 / 2.;
       let height = size.y as f64 / 2.;
       let p1 = world_mat * Vec3::new(width, height, 0.);
@@ -48,13 +50,11 @@ pub fn area_light_uniform_array(gpu: &GPU) -> UniformArrayUpdateContainer<LTCAre
         into_hpt(p4).into_uniform(),
       ]
     })
-    .into_query_update_uniform_array(offset_of!(LTCAreaLightUniform, p1), gpu);
+    .use_assure_result(cx)
+    .into_delta_change()
+    .update_uniform_array(uniform, offset_of!(LTCAreaLightUniform, p1), cx.gpu);
 
-  UniformArrayUpdateContainer::new(buffer)
-    .with_source(points)
-    .with_source(intensity)
-    .with_source(double_side)
-    .with_source(is_disk)
+  uniform.clone()
 }
 
 pub struct SceneAreaLightingProvider {

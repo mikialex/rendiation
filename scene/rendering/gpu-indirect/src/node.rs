@@ -27,7 +27,7 @@ pub trait IndirectNodeRenderImpl {
 pub fn use_node_storage(cx: &mut QueryGPUHookCx) -> Option<IndirectNodeRenderer> {
   let (cx, nodes) = cx.use_storage_buffer2(128, u32::MAX);
 
-  global_node_world_mat(cx)
+  use_global_node_world_mat(cx)
     .into_delta_change()
     .map_changes(NodeStorage::from_world_mat)
     .update_storage_array(nodes, 0);

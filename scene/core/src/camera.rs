@@ -37,6 +37,19 @@ pub fn camera_project_matrix_view(
   Select([perspective.into_boxed(), orth.into_boxed()])
 }
 
+// pub fn camera_project_matrix_change(
+//   cx: &mut impl DBHookCxLike,
+//   ndc_mapper: impl NDCSpaceMapper<f32> + Copy,
+// ) {
+//   let perspective = cx
+//     .use_changes::<SceneCameraPerspective>()
+//     .filter_map_changes(move |proj| proj.map(|proj| proj.compute_projection_mat(&ndc_mapper)));
+
+//   let orth = cx
+//     .use_changes::<SceneCameraOrthographic>()
+//     .filter_map_changes(move |proj| proj.map(|proj| proj.compute_projection_mat(&ndc_mapper)));
+// }
+
 pub fn camera_project_matrix(
   ndc_mapper: impl NDCSpaceMapper<f32> + Copy,
 ) -> impl ReactiveQuery<Key = EntityHandle<SceneCameraEntity>, Value = Mat4<f32>> {
@@ -109,3 +122,10 @@ pub fn camera_transforms(
     .collective_zip(projections)
     .collective_map(|(world, proj)| CameraTransform::new(proj, world))
 }
+
+// pub fn use_camera_transforms(
+//   cx: &mut impl DBHookCxLike,
+//   ndc_mapper: impl NDCSpaceMapper<f32> + Copy,
+// ) -> UseResult {
+//   //
+// }

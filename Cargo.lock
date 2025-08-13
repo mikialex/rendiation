@@ -3622,7 +3622,6 @@ version = "0.1.0"
 dependencies = [
  "database",
  "png",
- "reactive",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-lighting-gpu-system",

@@ -18,13 +18,11 @@ pub fn use_directional_light_storage(
     .use_changes::<DirectionalLightIlluminance>()
     .update_storage_array(light, offset_of!(DirectionalLightStorage, illuminance));
 
-  let fanout = global_node_world_mat(qcx)
+  use_global_node_world_mat(qcx)
     .fanout(qcx.use_db_rev_ref_tri_view::<DirectionalRefNode>())
     .into_delta_change()
-    .map(|change| change.collective_map(|mat| mat.forward().reverse().normalize().into_f32()));
-
-  qcx
-    .use_result(fanout)
+    .map(|change| change.collective_map(|mat| mat.forward().reverse().normalize().into_f32()))
+    .use_assure_result(qcx)
     .update_storage_array(light, offset_of!(PointLightStorage, position));
 
   let (qcx, multi_acc) = qcx.use_gpu_multi_access_states(light_multi_access_config());
