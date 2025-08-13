@@ -72,8 +72,13 @@ pub type DeriveDataDualQuery<T> = DualQuery<
 pub fn global_node_world_mat(
   cx: &mut impl DBHookCxLike,
 ) -> UseResult<DeriveDataDualQuery<Mat4<f64>>> {
-  let node_world_mat = global_node_derive_of::<SceneNodeLocalMatrixComponent, _>(node_world_mat);
-  cx.use_shared_compute(node_world_mat)
+  let c = global_node_derive_of::<SceneNodeLocalMatrixComponent, _>(node_world_mat);
+  cx.use_shared_compute(c)
+}
+
+pub fn global_node_net_visible(cx: &mut impl DBHookCxLike) -> UseResult<DeriveDataDualQuery<bool>> {
+  let c = global_node_derive_of::<SceneNodeVisibleComponent, _>(node_net_visible);
+  cx.use_shared_compute(c)
 }
 
 pub struct GlobalNodeDerive<F, C>(pub F, PhantomData<C>);

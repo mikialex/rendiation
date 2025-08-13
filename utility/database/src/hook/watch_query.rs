@@ -202,10 +202,7 @@ pub fn get_db_view<C: ComponentSemantic>() -> DBView<C::Data> {
 
 pub fn get_db_view_typed<C: ComponentSemantic>(
 ) -> impl Query<Key = EntityHandle<C::Entity>, Value = C::Data> {
-  get_db_view_internal(C::Entity::entity_id(), C::component_id()).key_dual_map(
-    |k| unsafe { EntityHandle::<C::Entity>::from_raw(k) },
-    |k| k.handle,
-  )
+  get_db_view_internal(C::Entity::entity_id(), C::component_id()).mark_entity_type::<C::Entity>()
 }
 
 pub fn get_db_view_typed_foreign<C: ForeignKeySemantic>(
@@ -213,3 +210,13 @@ pub fn get_db_view_typed_foreign<C: ForeignKeySemantic>(
   get_db_view_typed::<C>()
     .filter_map(|v| v.map(|v| unsafe { EntityHandle::<C::ForeignEntity>::from_raw(v) }))
 }
+
+pub trait RawEntityHandleQueryExt: Query<Key = RawEntityHandle> {
+  fn mark_entity_type<E: EntitySemantic>(
+    self,
+  ) -> impl Query<Key = EntityHandle<E>, Value = Self::Value> {
+    self.key_dual_map(|k| unsafe { EntityHandle::<E>::from_raw(k) }, |k| k.handle)
+  }
+}
+
+impl<T> RawEntityHandleQueryExt for T where T: Query<Key = RawEntityHandle> {}

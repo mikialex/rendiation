@@ -3,8 +3,7 @@ use fast_hash_collection::FastHashMap;
 use crate::*;
 
 pub fn use_background(cx: &mut QueryGPUHookCx) -> Option<SceneBackgroundRenderer> {
-  let env_background_map_gpu =
-    cx.use_multi_updater_gpu(|gpu| gpu_texture_cubes(gpu, FastHashMap::default()));
+  let (env_background_map_gpu, _) = use_gpu_texture_cubes(cx, false);
 
   let env_background_intensity_uniform = cx.use_uniform_buffers2();
 
@@ -26,7 +25,7 @@ pub fn use_background(cx: &mut QueryGPUHookCx) -> Option<SceneBackgroundRenderer
     solid_background: global_entity_component_of::<SceneSolidBackground>().read(),
     env_background_map: global_entity_component_of::<SceneHDRxEnvBackgroundCubeMap>()
       .read_foreign_key(),
-    env_background_map_gpu: env_background_map_gpu.unwrap(),
+    env_background_map_gpu: env_background_map_gpu.make_read_holder(),
     env_background_intensity: env_background_intensity_uniform.make_read_holder(),
     solid_background_uniform: solid_background_color_uniform.make_read_holder(),
   })
@@ -35,9 +34,7 @@ pub fn use_background(cx: &mut QueryGPUHookCx) -> Option<SceneBackgroundRenderer
 pub struct SceneBackgroundRenderer {
   pub solid_background: ComponentReadView<SceneSolidBackground>,
   pub env_background_map: ForeignKeyReadView<SceneHDRxEnvBackgroundCubeMap>,
-  pub env_background_map_gpu: LockReadGuardHolder<
-    MultiUpdateContainer<FastHashMap<EntityHandle<SceneTextureCubeEntity>, GPUCubeTextureView>>,
-  >,
+  pub env_background_map_gpu: LockReadGuardHolder<FastHashMap<RawEntityHandle, GPUCubeTextureView>>,
   pub env_background_intensity: LockReadGuardHolder<UniformBufferCollectionRaw<u32, Vec4<f32>>>,
   pub solid_background_uniform: LockReadGuardHolder<UniformBufferCollectionRaw<u32, Vec4<f32>>>,
 }
@@ -71,7 +68,11 @@ impl SceneBackgroundRenderer {
     if let Some(env) = self.env_background_map.get(scene) {
       BackGroundDrawPassContent::CubeEnv(
         CubeEnvComponent {
-          map: self.env_background_map_gpu.access(&env).unwrap().clone(),
+          map: self
+            .env_background_map_gpu
+            .access(&env.into_raw())
+            .unwrap()
+            .clone(),
           intensity: self
             .env_background_intensity
             .access(&scene.alloc_index())

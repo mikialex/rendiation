@@ -15,46 +15,43 @@ pub fn use_ibl(qcx: &mut QueryGPUHookCx) -> Option<IBLLightingComponentProvider>
     create_gpu_tex_from_png_buffer(cx, brdf_lut_bitmap_png, TextureFormat::Rgba8Unorm)
   });
 
-  let intensity =
-    qcx.use_uniform_buffers::<EntityHandle<SceneEntity>, IblShaderInfo>(|source, cx| {
-      let diffuse_illuminance = global_watch()
-        .watch::<SceneHDRxEnvBackgroundIntensity>()
-        .collective_filter_map(|v| v)
-        .into_query_update_uniform(offset_of!(IblShaderInfo, diffuse_illuminance), cx);
-      let specular_illuminance = global_watch()
-        .watch::<SceneHDRxEnvBackgroundIntensity>()
-        .collective_filter_map(|v| v)
-        .into_query_update_uniform(offset_of!(IblShaderInfo, specular_illuminance), cx);
+  let intensity = qcx.use_uniform_buffers2();
+  qcx
+    .use_changes::<SceneHDRxEnvBackgroundIntensity>()
+    .filter_map_changes(|v| v)
+    .update_uniforms(
+      &intensity,
+      offset_of!(IblShaderInfo, diffuse_illuminance),
+      qcx.gpu,
+    );
 
-      source
-        .with_source(specular_illuminance)
-        .with_source(diffuse_illuminance)
-    });
+  qcx
+    .use_changes::<SceneHDRxEnvBackgroundIntensity>()
+    .filter_map_changes(|v| v)
+    .update_uniforms(
+      &intensity,
+      offset_of!(IblShaderInfo, specular_illuminance),
+      qcx.gpu,
+    );
 
-  let prefiltered = qcx.use_gpu_general_query(|gpu| CubeMapWithPrefilter {
-    inner: RwLock::new(gpu_texture_cubes(gpu, Default::default())),
-    map: Default::default(),
-    gpu: gpu.clone(),
-  });
+  let prefiltered = use_prefilter_cube_maps(qcx);
 
   qcx.when_render(|| IBLLightingComponentProvider {
-    prefiltered: prefiltered.unwrap(),
+    prefiltered: prefiltered.make_read_holder(),
     brdf_lut: brdf_lut.clone(),
-    uniform: intensity.unwrap(),
+    uniform: intensity.make_read_holder(),
     access: global_database().read_foreign_key::<SceneHDRxEnvBackgroundCubeMap>(),
   })
 }
 
 pub struct IBLLightingComponentProvider {
   access: ForeignKeyReadView<SceneHDRxEnvBackgroundCubeMap>,
-  prefiltered: LockReadGuardHolder<
-    FastHashMap<EntityHandle<SceneTextureCubeEntity>, PreFilterMapGenerationResult>,
-  >,
+  prefiltered: LockReadGuardHolder<FastHashMap<RawEntityHandle, PreFilterMapGenerationResult>>,
   brdf_lut: GPU2DTextureView,
   uniform: LockReadGuardHolder<IBLUniforms>,
 }
 
-type IBLUniforms = UniformUpdateContainer<EntityHandle<SceneEntity>, IblShaderInfo>;
+type IBLUniforms = UniformBufferCollectionRaw<u32, IblShaderInfo>;
 impl LightSystemSceneProvider for IBLLightingComponentProvider {
   fn get_scene_lighting(
     &self,
@@ -62,62 +59,45 @@ impl LightSystemSceneProvider for IBLLightingComponentProvider {
   ) -> Option<Box<dyn LightingComputeComponent>> {
     let map = self.access.get(scene)?;
     Some(Box::new(IBLLightingComponent {
-      prefiltered: self.prefiltered.get(&map).unwrap().clone(),
+      prefiltered: self.prefiltered.get(&map.into_raw()).unwrap().clone(),
       brdf_lut: self.brdf_lut.clone(),
-      uniform: self.uniform.get(&scene).unwrap().clone(),
+      uniform: self.uniform.get(&scene.alloc_index()).unwrap().clone(),
     }))
   }
 }
 
-type CubeMaintainerInternal<K> = QueryMutationCollector<
-  FastHashMap<K, ValueChange<GPUCubeTextureView>>,
-  FastHashMap<K, GPUCubeTextureView>,
->;
+type CubeMapResults = FastHashMap<RawEntityHandle, PreFilterMapGenerationResult>;
 
-pub struct CubeMapWithPrefilter<K> {
-  inner: RwLock<MultiUpdateContainer<CubeMaintainerInternal<K>>>,
-  map: Arc<RwLock<CubeMapResults<K>>>,
-  gpu: GPU,
-}
+pub fn use_prefilter_cube_maps(qcx: &mut QueryGPUHookCx) -> Arc<RwLock<CubeMapResults>> {
+  let (env_background_map_gpu, changes) = use_gpu_texture_cubes(qcx, false);
 
-type CubeMapResults<K> = FastHashMap<K, PreFilterMapGenerationResult>;
+  let (qcx, _cube_map) = qcx.use_plain_state(|| Arc::new(RwLock::new(CubeMapResults::default())));
 
-impl<K: CKey> ReactiveGeneralQuery for CubeMapWithPrefilter<K> {
-  type Output = LockReadGuardHolder<CubeMapResults<K>>;
+  let mut cube_map = _cube_map.write();
+  for k in changes.removed_keys {
+    cube_map.remove(&k);
+  }
 
-  fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
-    let mut inner = self.inner.write();
-    inner.poll_update(cx);
+  let config = PreFilterMapGenerationConfig {
+    specular_resolution: 256,
+    specular_sample_count: 32,
+    diffuse_sample_count: 32,
+    diffuse_resolution: 128,
+  };
 
-    let delta = std::mem::take(&mut inner.target.delta);
-    let mut map = self.map.write();
+  if !changes.changed_keys.is_empty() {
+    let mut encoder = qcx.gpu.create_encoder();
+    let cubes = env_background_map_gpu.read();
 
-    let gpu = &self.gpu;
-    let mut encoder = gpu.create_encoder();
+    for k in changes.changed_keys.iter() {
+      let cube = cubes.get(k).unwrap();
 
-    for (k, change) in delta.iter_key_value() {
-      match change.clone() {
-        ValueChange::Delta(v, _) => {
-          let config = PreFilterMapGenerationConfig {
-            specular_resolution: 256,
-            specular_sample_count: 32,
-            diffuse_sample_count: 32,
-            diffuse_resolution: 128,
-          };
-
-          let result = generate_pre_filter_map(&mut encoder, gpu, v, config);
-
-          map.insert(k.clone(), result);
-        }
-        ValueChange::Remove(_) => {
-          map.remove(&k);
-        }
-      }
+      let result = generate_pre_filter_map(&mut encoder, qcx.gpu, cube, &config);
+      cube_map.insert(*k, result);
     }
 
-    gpu.submit_encoder(encoder);
-    drop(map);
-
-    self.map.make_read_holder()
+    qcx.gpu.submit_encoder(encoder);
   }
+
+  _cube_map.clone()
 }
