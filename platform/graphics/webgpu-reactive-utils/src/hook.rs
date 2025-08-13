@@ -203,13 +203,18 @@ impl<'a> QueryGPUHookCx<'a> {
     }
   }
 
+  pub fn use_uniform_array_buffers2<V: Std140 + Default, const N: usize>(
+    &mut self,
+  ) -> (&mut Self, &mut UniformBufferDataView<Shader140Array<V, N>>) {
+    self.use_gpu_init(|gpu| UniformBufferDataView::create_default(&gpu.device))
+  }
+
   pub fn use_storage_buffer2<V: Std430>(
     &mut self,
     init_capacity_item_count: u32,
     max_item_count: u32,
   ) -> (&mut Self, &mut CommonStorageBufferImpl<V>) {
-    let gpu = self.gpu;
-    self.use_plain_state(|| {
+    self.use_gpu_init(|gpu| {
       create_common_storage_buffer_container(init_capacity_item_count, max_item_count, gpu)
     })
   }

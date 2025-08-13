@@ -102,9 +102,9 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for GlobalSceneModelWorldMatrix 
   type Result = impl DualQueryLike<Key = RawEntityHandle, Value = Mat4<f64>>;
 
   fn use_logic(&self, cx: &mut Cx) -> TaskUseResult<Self::Result> {
-    let fanout =
-      global_node_world_mat(cx).fanout(cx.use_db_rev_ref_tri_view::<SceneModelRefNode>());
-    cx.use_future(fanout.if_spawn_stage_future())
+    use_global_node_world_mat(cx)
+      .fanout(cx.use_db_rev_ref_tri_view::<SceneModelRefNode>())
+      .use_assure_result_expose(cx)
   }
 }
 

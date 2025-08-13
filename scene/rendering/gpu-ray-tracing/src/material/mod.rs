@@ -31,21 +31,17 @@ pub fn use_rtx_scene_material(
 ) -> Option<SceneSurfaceSupport> {
   let (cx, material_id) = cx.use_storage_buffer2(128, u32::MAX);
 
-  let material_pbr_mr = cx
-    .use_dual_query::<StandardModelRefPbrMRMaterial>()
+  cx.use_dual_query::<StandardModelRefPbrMRMaterial>()
     .map(|q| q.filter_map(|id| id.map(|v| v.index())))
-    .fanout(cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>());
-
-  cx.use_result(material_pbr_mr)
+    .fanout(cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>())
+    .use_assure_result(cx)
     .into_delta_change()
     .update_storage_array(material_id, 0);
 
-  let material_pbr_sg = cx
-    .use_dual_query::<StandardModelRefPbrSGMaterial>()
+  cx.use_dual_query::<StandardModelRefPbrSGMaterial>()
     .map(|q| q.filter_map(|id| id.map(|v| v.index())))
-    .fanout(cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>());
-
-  cx.use_result(material_pbr_sg)
+    .fanout(cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>())
+    .use_assure_result(cx)
     .into_delta_change()
     .update_storage_array(material_id, 0);
 

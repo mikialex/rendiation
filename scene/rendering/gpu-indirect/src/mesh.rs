@@ -53,9 +53,8 @@ pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl>
 
   let fanout = cx
     .use_dual_query::<StandardModelRefAttributesMeshEntity>()
-    .fanout(cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>());
-
-  let fanout = cx.use_result(fanout);
+    .fanout(cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>())
+    .use_assure_result(cx);
 
   fanout
     .clone_except_future()

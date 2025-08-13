@@ -1,6 +1,6 @@
 use std::num::NonZeroU32;
 
-use rendiation_area_lighting::{area_light_uniform_array, SceneAreaLightingProvider};
+use rendiation_area_lighting::{use_area_light_uniform_array, SceneAreaLightingProvider};
 use rendiation_lighting_shadow_map::*;
 use rendiation_texture_gpu_base::create_gpu_texture2d;
 use rendiation_texture_gpu_process::{ToneMap, ToneMapType};
@@ -280,7 +280,7 @@ impl GraphicsShaderProvider for DefaultDisplayWriter {
 }
 
 fn use_area_light_uniform(qcx: &mut QueryGPUHookCx) -> Option<SceneAreaLightingProvider> {
-  let uniform = qcx.use_uniform_array_buffers(area_light_uniform_array);
+  let uniform = use_area_light_uniform_array(qcx);
 
   let (qcx, lut) = qcx.use_gpu_init(|gpu| {
     let ltc_1 = include_bytes!("./ltc_1.bin");
@@ -308,7 +308,7 @@ fn use_area_light_uniform(qcx: &mut QueryGPUHookCx) -> Option<SceneAreaLightingP
     SceneAreaLightingProvider {
       ltc_1: lut.0.clone(),
       ltc_2: lut.1.clone(),
-      uniform: uniform.unwrap(),
+      uniform,
     }
   })
 }
