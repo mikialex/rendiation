@@ -86,6 +86,14 @@ impl<T: Send + Sync + 'static> UseResult<T> {
     }
   }
 
+  pub fn if_ready(self) -> Option<T> {
+    match self {
+      UseResult::SpawnStageReady(t) => Some(t),
+      UseResult::ResolveStageReady(t) => Some(t),
+      _ => None,
+    }
+  }
+
   pub fn expect_resolve_stage(self) -> T {
     self.if_resolve_stage().unwrap()
   }

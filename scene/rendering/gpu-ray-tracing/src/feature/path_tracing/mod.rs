@@ -40,7 +40,7 @@ pub fn use_rtx_pt_renderer(
     gpu: gpu.clone(),
   });
 
-  let sbt = cx.use_multi_updater(|| {
+  let (cx, sbt) = cx.use_plain_state(|| {
     let handles = PathTracingShaderHandles::default();
     let mut sbt = rtx
       .rtx_device
@@ -49,31 +49,35 @@ pub fn use_rtx_pt_renderer(
     sbt.config_ray_generation(handles.ray_gen);
     sbt.config_missing(PTRayType::Core as u32, handles.miss);
     sbt.config_missing(PTRayType::ShadowTest as u32, handles.shadow_test_miss);
-    let sbt = GPUSbt::new(sbt);
-    let core_closest_hit = system.shader_handles.closest_hit;
-    let shadow_closest_hit = system.shader_handles.shadow_test_hit;
-    MultiUpdateContainer::new(sbt)
-      .with_source(ReactiveQuerySbtUpdater {
-        ray_ty_idx: PTRayType::Core as u32,
-        source: global_watch()
-          .watch_entity_set_untyped_key::<SceneModelEntity>()
-          .collective_map(move |_| HitGroupShaderRecord {
-            closest_hit: Some(core_closest_hit),
-            any_hit: None,
-            intersection: None,
-          }),
-      })
-      .with_source(ReactiveQuerySbtUpdater {
-        ray_ty_idx: PTRayType::ShadowTest as u32,
-        source: global_watch()
-          .watch_entity_set_untyped_key::<SceneModelEntity>()
-          .collective_map(move |_| HitGroupShaderRecord {
-            closest_hit: Some(shadow_closest_hit),
-            any_hit: None,
-            intersection: None,
-          }),
+    GPUSbt::new(sbt)
+  });
+
+  let core_closest_hit = system.shader_handles.closest_hit;
+  let shadow_closest_hit = system.shader_handles.shadow_test_hit;
+
+  let updates = cx.use_query_set::<SceneModelEntity>().map(move |v| {
+    v.into_change()
+      .collective_map(move |_| HitGroupShaderRecord {
+        closest_hit: Some(core_closest_hit),
+        any_hit: None,
+        intersection: None,
       })
   });
+  if let Some(updates) = updates.if_ready() {
+    sbt.update(updates, PTRayType::Core as u32);
+  }
+
+  let updates = cx.use_query_set::<SceneModelEntity>().map(move |v| {
+    v.into_change()
+      .collective_map(move |_| HitGroupShaderRecord {
+        closest_hit: Some(shadow_closest_hit),
+        any_hit: None,
+        intersection: None,
+      })
+  });
+  if let Some(updates) = updates.if_ready() {
+    sbt.update(updates, PTRayType::ShadowTest as u32);
+  }
 
   if let Some(true) = end(cx) {
     system.reset_sample();
@@ -87,7 +91,7 @@ pub fn use_rtx_pt_renderer(
     shader_handles: system.shader_handles.clone(),
     frame_state: system.state.clone(),
     max_ray_depth: MAX_RAY_DEPTH,
-    sbt: sbt.unwrap().target.clone(),
+    sbt: sbt.clone(),
     gpu: system.gpu.clone(),
   })
 }

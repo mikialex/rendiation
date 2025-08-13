@@ -1,7 +1,7 @@
 use crate::*;
 
 pub struct DBQueryChangeWatchGroup {
-  internal: DBChangeWatchGroup,
+  internal: DBChangeWatchGroup<ComponentId>,
 }
 
 pub type DBView<V> = IterableComponentReadViewChecked<V>;
@@ -94,7 +94,92 @@ impl DBQueryChangeWatchGroup {
         .collect::<FastHashMap<_, _>>(); // todo avoid collect
 
       Arc::new(full_view_as_delta)
-      // (full_view, Arc::new(full_view_as_delta))
+    }
+  }
+}
+
+pub struct DBQueryEntitySetWatchGroup {
+  internal: DBChangeWatchGroup<EntityId>,
+}
+
+impl DBQueryEntitySetWatchGroup {
+  pub fn new(db: &Database) -> Self {
+    Self {
+      internal: DBChangeWatchGroup::new(db),
+    }
+  }
+
+  pub fn clear_changes(&mut self) {
+    self.internal.clear_changes();
+  }
+
+  pub fn allocate_next_consumer_id(&mut self) -> u32 {
+    self.internal.allocate_next_consumer_id()
+  }
+
+  pub fn notify_consumer_dropped(&mut self, e_id: EntityId, consumer_id: u32) {
+    self.internal.notify_consumer_dropped(e_id, consumer_id);
+  }
+
+  pub fn get_buffered_changes<E: EntitySemantic>(&mut self, id: u32) -> DBChange<()> {
+    self.get_buffered_changes_internal(id, E::entity_id())
+  }
+
+  #[inline(never)] // remove the variant of component semantic to reduce the binary bloat
+  fn get_buffered_changes_internal(&mut self, id: u32, e_id: EntityId) -> DBChange<()> {
+    let rev = self.internal.producers.entry(e_id).or_insert_with(|| {
+      let rev = self.internal.db.access_ecg_dyn(e_id, move |e| {
+        add_listen(
+          ArenaAccessProvider(e.inner.allocator.clone()),
+          &e.inner.entity_watchers,
+        )
+      });
+
+      Box::new(rev)
+    });
+
+    let rev = rev
+      .downcast_mut::<CollectiveMutationReceiver<RawEntityHandle, ()>>()
+      .unwrap();
+
+    let consumer_ids = self.internal.consumers.entry(e_id).or_default();
+
+    let changes = self
+      .internal
+      .current_results
+      .entry(e_id)
+      .or_insert_with(|| {
+        noop_ctx!(cx);
+
+        let changes = if let Poll::Ready(Some(changes)) = rev.poll_impl(cx) {
+          changes
+        } else {
+          Default::default()
+        };
+        Box::new(Arc::new(changes))
+      });
+
+    if consumer_ids.contains(&id) {
+      let changes = changes.downcast_ref::<DBChange<()>>().unwrap().clone();
+
+      changes
+    } else {
+      consumer_ids.insert(id);
+      // for any new watch created we emit full table
+
+      let full_view = self
+        .internal
+        .db
+        .access_ecg_dyn(e_id, move |e| e.inner.allocator.clone());
+      let full_view = Box::new(ArenaAccessProvider(full_view));
+
+      let full_view_as_delta = full_view
+        .access()
+        .iter_key_value()
+        .map(|(k, v)| (k, ValueChange::Delta(v, None)))
+        .collect::<FastHashMap<_, _>>(); // todo avoid collect
+
+      Arc::new(full_view_as_delta)
     }
   }
 }

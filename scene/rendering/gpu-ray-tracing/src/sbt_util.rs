@@ -11,32 +11,21 @@ impl GPUSbt {
       inner: Arc::new(RwLock::new(inner)),
     }
   }
-}
 
-/// update a sbt's all hit groups at given ray_index with a rxq, assuming every blas has only one geometry.
-pub struct ReactiveQuerySbtUpdater<T> {
-  pub ray_ty_idx: u32,
-  pub source: T,
-}
-
-impl<T> QueryBasedUpdate<GPUSbt> for ReactiveQuerySbtUpdater<T>
-where
-  T: ReactiveQuery<Key = u32, Value = HitGroupShaderRecord>,
-{
-  fn update_target(&mut self, target: &mut GPUSbt, cx: &mut Context) {
-    let mut target = target.inner.write();
-    let (change, _) = self.source.describe(cx).resolve_kept();
-
-    for (tlas_idx, change) in change.iter_key_value() {
-      match change {
-        ValueChange::Delta(new_hit_group, _) => target.config_hit_group(
-          0,
-          tlas_idx * GLOBAL_TLAS_MAX_RAY_STRIDE,
-          self.ray_ty_idx,
-          new_hit_group,
-        ),
-        ValueChange::Remove(_) => {}
-      }
+  /// update a sbt's all hit groups at given ray_index with a rxq, assuming every blas has only one geometry.
+  pub fn update(
+    &self,
+    changes: impl DataChanges<Key: LinearIdentified, Value = HitGroupShaderRecord>,
+    ray_ty_idx: u32,
+  ) {
+    let mut target = self.inner.write();
+    for (tlas_idx, new_hit_group) in changes.iter_update_or_insert() {
+      target.config_hit_group(
+        0,
+        tlas_idx.alloc_index() * GLOBAL_TLAS_MAX_RAY_STRIDE,
+        ray_ty_idx,
+        new_hit_group,
+      )
     }
   }
 }
