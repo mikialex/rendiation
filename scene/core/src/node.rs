@@ -64,6 +64,18 @@ pub fn node_world_mat(this: &Mat4<f64>, parent: Option<&Mat4<f64>>) -> Mat4<f64>
   parent.map(|p| *p * *this).unwrap_or(*this)
 }
 
+pub type DeriveDataDualQuery<T> = DualQuery<
+  LockReadGuardHolder<FastHashMap<RawEntityHandle, T>>,
+  Arc<FastHashMap<RawEntityHandle, ValueChange<T>>>,
+>;
+
+pub fn global_node_world_mat(
+  cx: &mut impl DBHookCxLike,
+) -> UseResult<DeriveDataDualQuery<Mat4<f64>>> {
+  let node_world_mat = global_node_derive_of::<SceneNodeLocalMatrixComponent, _>(node_world_mat);
+  cx.use_shared_compute(node_world_mat)
+}
+
 pub struct GlobalNodeDerive<F, C>(pub F, PhantomData<C>);
 pub fn global_node_derive_of<C, F>(f: F) -> GlobalNodeDerive<F, C> {
   GlobalNodeDerive(f, PhantomData)
@@ -75,10 +87,7 @@ where
   Cx: DBHookCxLike,
   F: Fn(&C::Data, Option<&C::Data>) -> C::Data + Send + Sync + 'static + Copy,
 {
-  type Result = DualQuery<
-    LockReadGuardHolder<FastHashMap<RawEntityHandle, C::Data>>,
-    Arc<FastHashMap<RawEntityHandle, ValueChange<C::Data>>>,
-  >;
+  type Result = DeriveDataDualQuery<C::Data>;
 
   fn use_logic(&self, cx: &mut Cx) -> TaskUseResult<Self::Result> {
     let connectivity_rev_view = cx.use_shared_compute(GlobalNodeConnectivity);
