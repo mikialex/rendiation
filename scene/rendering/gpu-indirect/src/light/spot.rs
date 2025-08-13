@@ -33,21 +33,14 @@ pub fn use_spot_light_storage(
     .use_changes::<SpotLightHalfPenumbraAngle>()
     .update_storage_array(light, offset_of!(SpotLightStorage, half_penumbra_cos));
 
-  let node_world_mat = global_node_derive_of::<SceneNodeLocalMatrixComponent, _>(node_world_mat);
-  let node_world_mat = qcx.use_shared_compute(node_world_mat);
-
-  let fanout = node_world_mat.fanout(qcx.use_db_rev_ref_tri_view::<SpotLightRefNode>());
+  let fanout = global_node_world_mat(qcx).fanout(qcx.use_db_rev_ref_tri_view::<SpotLightRefNode>());
 
   let fanout = qcx.use_result(fanout);
 
   fanout
     .clone_except_future()
-    .map(|change| {
-      change
-        .delta
-        .into_change()
-        .collective_map(|mat| into_hpt(mat.position()).into_storage())
-    })
+    .into_delta_change()
+    .map(|change| change.collective_map(|mat| into_hpt(mat.position()).into_storage()))
     .update_storage_array(light, offset_of!(SpotLightStorage, position));
 
   fanout

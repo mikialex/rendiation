@@ -96,6 +96,21 @@ impl StandardModelDataView {
   }
 }
 
+pub struct GlobalSceneModelWorldMatrix;
+
+impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for GlobalSceneModelWorldMatrix {
+  type Result = DualQuery<
+    impl Query<Key = RawEntityHandle, Value = Mat4<f64>> + 'static,
+    impl Query<Key = RawEntityHandle, Value = ValueChange<Mat4<f64>>> + 'static,
+  >;
+
+  fn use_logic(&self, cx: &mut Cx) -> TaskUseResult<Self::Result> {
+    let fanout =
+      global_node_world_mat(cx).fanout(cx.use_db_rev_ref_tri_view::<SceneModelRefNode>());
+    cx.use_future(fanout.if_spawn_stage_future())
+  }
+}
+
 #[global_registered_query]
 pub fn scene_model_world_matrix(
 ) -> impl ReactiveQuery<Key = EntityHandle<SceneModelEntity>, Value = Mat4<f64>> {

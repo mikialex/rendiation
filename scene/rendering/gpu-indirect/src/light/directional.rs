@@ -18,17 +18,10 @@ pub fn use_directional_light_storage(
     .use_changes::<DirectionalLightIlluminance>()
     .update_storage_array(light, offset_of!(DirectionalLightStorage, illuminance));
 
-  let node_world_mat = global_node_derive_of::<SceneNodeLocalMatrixComponent, _>(node_world_mat);
-  let node_world_mat = qcx.use_shared_compute(node_world_mat);
-
-  let fanout = node_world_mat
+  let fanout = global_node_world_mat(qcx)
     .fanout(qcx.use_db_rev_ref_tri_view::<DirectionalRefNode>())
-    .map(|change| {
-      change
-        .delta
-        .into_change()
-        .collective_map(|mat| mat.forward().reverse().normalize().into_f32())
-    });
+    .into_delta_change()
+    .map(|change| change.collective_map(|mat| mat.forward().reverse().normalize().into_f32()));
 
   qcx
     .use_result(fanout)

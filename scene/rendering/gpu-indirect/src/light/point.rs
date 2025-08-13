@@ -23,17 +23,10 @@ pub fn use_point_light_storage(
     .use_changes::<PointLightCutOffDistance>()
     .update_storage_array(light, offset_of!(PointLightStorage, cutoff_distance));
 
-  let node_world_mat = global_node_derive_of::<SceneNodeLocalMatrixComponent, _>(node_world_mat);
-  let node_world_mat = qcx.use_shared_compute(node_world_mat);
-
-  let fanout = node_world_mat
+  let fanout = global_node_world_mat(qcx)
     .fanout(qcx.use_db_rev_ref_tri_view::<PointLightRefNode>())
-    .map(|change| {
-      change
-        .delta
-        .into_change()
-        .collective_map(|mat| into_hpt(mat.position()).into_storage())
-    });
+    .into_delta_change()
+    .map(|change| change.collective_map(|mat| into_hpt(mat.position()).into_storage()));
 
   qcx
     .use_result(fanout)

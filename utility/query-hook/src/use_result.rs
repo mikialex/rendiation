@@ -131,7 +131,11 @@ impl<T: Send + Sync + 'static> UseResult<T> {
   }
 }
 
-impl<T, U> UseResult<DualQuery<T, U>> {
+impl<T, U> UseResult<DualQuery<T, U>>
+where
+  T: Send + Sync + 'static,
+  U: Send + Sync + 'static,
+{
   pub fn fanout<KMany, KOne, V, X, Y, Z>(
     self,
     other: UseResult<TriQuery<X, Y, Z>>,
@@ -140,12 +144,19 @@ impl<T, U> UseResult<DualQuery<T, U>> {
     KMany: CKey,
     KOne: CKey,
     V: CValue,
-    T: Query<Key = KOne, Value = V> + Clone + Send + Sync + 'static,
-    U: Query<Key = KOne, Value = ValueChange<V>> + Clone + Send + Sync + 'static,
+    T: Query<Key = KOne, Value = V> + Clone,
+    U: Query<Key = KOne, Value = ValueChange<V>> + Clone,
     X: Query<Key = KMany, Value = KOne> + Send + Clone + Sync + 'static,
     Y: Query<Key = KMany, Value = ValueChange<KOne>> + Clone + Send + Sync + 'static,
     Z: MultiQuery<Key = KOne, Value = KMany> + Clone + Send + Sync + 'static,
   {
     self.join(other).map(|(a, b)| a.compute_fanout(b))
+  }
+
+  pub fn into_delta_change<V>(self) -> UseResult<DeltaQueryAsChange<U>>
+  where
+    U: Query<Value = ValueChange<V>>,
+  {
+    self.map(|v| v.delta.into_change())
   }
 }
