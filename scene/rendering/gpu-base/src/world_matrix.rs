@@ -15,22 +15,26 @@ pub trait DrawUnitWorldTransformInvocationProvider {
 pub fn use_scene_model_device_world_transform(
   qcx: &mut QueryGPUHookCx,
 ) -> Option<DrawUnitWorldTransformProviderDefaultImpl> {
+  let (qcx, storage) = qcx.use_storage_buffer2(128, u32::MAX);
+
   qcx
-    .use_storage_buffer(|gpu| {
-      let source = scene_model_world_matrix()
-        .collective_map(|mat| {
-          let (mat, position) = into_mat_hpt_storage_pair(mat);
-          WorldMatrixStorage {
-            matrix_none_translation: mat,
-            position,
-            ..Default::default()
-          }
-        })
-        .into_query_update_storage(0);
-      create_reactive_storage_buffer_container::<WorldMatrixStorage>(128, u32::MAX, gpu)
-        .with_source(source)
+    .use_shared_compute(GlobalSceneModelWorldMatrix)
+    .into_delta_change()
+    .map(|v| {
+      v.collective_map(|mat| {
+        let (mat, position) = into_mat_hpt_storage_pair(mat);
+        WorldMatrixStorage {
+          matrix_none_translation: mat,
+          position,
+          ..Default::default()
+        }
+      })
     })
-    .map(|bounding_storage| DrawUnitWorldTransformProviderDefaultImpl { bounding_storage })
+    .update_storage_array(storage, 0);
+
+  qcx.when_render(|| DrawUnitWorldTransformProviderDefaultImpl {
+    bounding_storage: storage.get_gpu_buffer(),
+  })
 }
 
 #[repr(C)]

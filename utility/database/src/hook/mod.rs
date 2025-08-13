@@ -135,25 +135,24 @@ pub trait ForeignKeyLikeChangesExt: DataChanges<Value = Option<RawEntityHandle>>
 }
 impl<T: DataChanges<Value = Option<RawEntityHandle>>> ForeignKeyLikeChangesExt for T {}
 
-pub trait DBUseResultExt<T, U>: Sized {
+pub trait DBUseResultExt<Q>: Sized {
   fn map_raw_handle_or_u32_max_changes(
     self,
   ) -> UseResult<impl DataChanges<Key = RawEntityHandle, Value = u32>>
   where
-    T: Query<Key = RawEntityHandle, Value = Option<RawEntityHandle>> + 'static,
-    U: Query<Key = RawEntityHandle, Value = ValueChange<Option<RawEntityHandle>>> + 'static;
+    Q: DualQueryLike<Key = RawEntityHandle, Value = Option<RawEntityHandle>> + 'static;
 }
 
-impl<T, U> DBUseResultExt<T, U> for UseResult<DualQuery<T, U>> {
+impl<Q: DualQueryLike> DBUseResultExt<Q> for UseResult<Q> {
   fn map_raw_handle_or_u32_max_changes(
     self,
   ) -> UseResult<impl DataChanges<Key = RawEntityHandle, Value = u32>>
   where
-    T: Query<Key = RawEntityHandle, Value = Option<RawEntityHandle>> + 'static,
-    U: Query<Key = RawEntityHandle, Value = ValueChange<Option<RawEntityHandle>>> + 'static,
+    Q: DualQueryLike<Key = RawEntityHandle, Value = Option<RawEntityHandle>> + 'static,
   {
     self.map(|v| {
-      v.delta
+      v.view_delta()
+        .1
         .delta_map_value(map_raw_handle_or_u32_max)
         .into_change()
     })

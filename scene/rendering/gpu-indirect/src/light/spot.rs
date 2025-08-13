@@ -44,12 +44,8 @@ pub fn use_spot_light_storage(
     .update_storage_array(light, offset_of!(SpotLightStorage, position));
 
   fanout
-    .map(|change| {
-      change
-        .delta
-        .into_change()
-        .collective_map(|mat| mat.forward().reverse().normalize().into_f32())
-    })
+    .into_delta_change()
+    .map(|change| change.collective_map(|mat| mat.forward().reverse().normalize().into_f32()))
     .update_storage_array(light, offset_of!(SpotLightStorage, direction));
 
   let multi_access = qcx.use_gpu_general_query(|gpu| {

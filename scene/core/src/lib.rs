@@ -1,3 +1,4 @@
+#![feature(impl_trait_in_assoc_type)]
 use std::marker::PhantomData;
 use std::sync::Arc;
 

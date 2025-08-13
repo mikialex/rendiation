@@ -64,7 +64,7 @@ pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl>
 
   let sm_to_mesh = fanout
     .if_resolve_stage()
-    .map(|v| v.view.filter_map(|v| v).into_boxed());
+    .map(|v| v.view().filter_map(|v| v).into_boxed());
 
   cx.when_render(|| MeshGPUBindlessImpl {
     indices: indices.clone(),

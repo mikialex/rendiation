@@ -37,7 +37,7 @@ pub fn use_rtx_scene_material(
     .fanout(cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>());
 
   cx.use_result(material_pbr_mr)
-    .map(|c| c.delta.into_change())
+    .into_delta_change()
     .update_storage_array(material_id, 0);
 
   let material_pbr_sg = cx
@@ -46,7 +46,7 @@ pub fn use_rtx_scene_material(
     .fanout(cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>());
 
   cx.use_result(material_pbr_sg)
-    .map(|c| c.delta.into_change())
+    .into_delta_change()
     .update_storage_array(material_id, 0);
 
   // let (cx, material_ty) = cx.use_storage_buffer2(128, u32::MAX);

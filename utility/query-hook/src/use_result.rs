@@ -131,32 +131,18 @@ impl<T: Send + Sync + 'static> UseResult<T> {
   }
 }
 
-impl<T, U> UseResult<DualQuery<T, U>>
+impl<T> UseResult<T>
 where
-  T: Send + Sync + 'static,
-  U: Send + Sync + 'static,
+  T: DualQueryLike,
 {
-  pub fn fanout<KMany, KOne, V, X, Y, Z>(
+  pub fn fanout<U: TriQueryLike<Value = T::Key>>(
     self,
-    other: UseResult<TriQuery<X, Y, Z>>,
-  ) -> UseResult<DualQuery<ChainQuery<X, T>, Arc<FastHashMap<KMany, ValueChange<V>>>>>
-  where
-    KMany: CKey,
-    KOne: CKey,
-    V: CValue,
-    T: Query<Key = KOne, Value = V> + Clone,
-    U: Query<Key = KOne, Value = ValueChange<V>> + Clone,
-    X: Query<Key = KMany, Value = KOne> + Send + Clone + Sync + 'static,
-    Y: Query<Key = KMany, Value = ValueChange<KOne>> + Clone + Send + Sync + 'static,
-    Z: MultiQuery<Key = KOne, Value = KMany> + Clone + Send + Sync + 'static,
-  {
-    self.join(other).map(|(a, b)| a.compute_fanout(b))
+    other: UseResult<U>,
+  ) -> UseResult<impl DualQueryLike<Key = U::Key, Value = T::Value>> {
+    self.join(other).map(|(a, b)| a.fanout(b))
   }
 
-  pub fn into_delta_change<V>(self) -> UseResult<DeltaQueryAsChange<U>>
-  where
-    U: Query<Value = ValueChange<V>>,
-  {
-    self.map(|v| v.delta.into_change())
+  pub fn into_delta_change(self) -> UseResult<DeltaQueryAsChange<T::Delta>> {
+    self.map(|v| v.view_delta().1.into_change())
   }
 }
