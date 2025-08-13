@@ -54,13 +54,13 @@ pub fn use_directional_light_uniform(
 
   let shadow_uniform = qcx.use_uniform_array_buffers(|_| shadow.1.take().unwrap());
 
-  qcx
-    .use_uniform_array_buffers(directional_uniform_array)
-    .map(|light| SceneDirectionalLightingPreparer {
-      shadow: shadow.0.clone(),
-      light,
-      info: shadow_uniform.unwrap(),
-    })
+  let light = use_directional_uniform_array(qcx);
+
+  qcx.when_render(|| SceneDirectionalLightingPreparer {
+    shadow: shadow.0.clone(),
+    light,
+    info: shadow_uniform.unwrap(),
+  })
 }
 
 pub struct SceneDirectionalLightingPreparer {
@@ -126,9 +126,8 @@ impl LightSystemSceneProvider for SceneDirectionalLightingProvider {
 pub fn use_scene_point_light_uniform(
   qcx: &mut QueryGPUHookCx,
 ) -> Option<ScenePointLightingProvider> {
-  qcx
-    .use_uniform_array_buffers(point_uniform_array)
-    .map(|uniform| ScenePointLightingProvider { uniform })
+  let uniform = use_point_uniform_array(qcx);
+  qcx.when_render(|| ScenePointLightingProvider { uniform })
 }
 
 pub struct ScenePointLightingProvider {
@@ -203,13 +202,13 @@ pub fn use_scene_spot_light_uniform(
 
   let shadow_uniform = qcx.use_uniform_array_buffers(|_| shadow.1.take().unwrap());
 
-  qcx
-    .use_uniform_array_buffers(spot_uniform_array)
-    .map(|light| SceneSpotLightingPreparer {
-      shadow: shadow.0.clone(),
-      light,
-      info: shadow_uniform.unwrap(),
-    })
+  let light = use_spot_uniform_array(qcx);
+
+  qcx.when_render(|| SceneSpotLightingPreparer {
+    shadow: shadow.0.clone(),
+    light,
+    info: shadow_uniform.unwrap(),
+  })
 }
 
 pub struct SceneSpotLightingPreparer {

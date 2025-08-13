@@ -127,7 +127,7 @@ where
   ) {
     if self.has_change() {
       for (id, value) in self.iter_update_or_insert() {
-        let offset = id.alloc_index() as usize * std::mem::size_of::<T>() + field_offset;
+        let offset = id.alloc_index() as usize * std::mem::size_of::<U>() + field_offset;
 
         // here we should do sophisticated optimization to merge the adjacent writes.
         uniforms.write_at(&gpu.queue, &value, offset as u64);
