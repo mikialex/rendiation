@@ -228,35 +228,6 @@ impl<'a> QueryGPUHookCx<'a> {
     }
   }
 
-  pub fn use_global_multi_reactive_query<D: ForeignKeySemantic>(
-    &mut self,
-  ) -> Option<
-    Box<dyn DynMultiQuery<Key = EntityHandle<D::ForeignEntity>, Value = EntityHandle<D::Entity>>>,
-  > {
-    let (cx, token) = self.use_state_with_features(|cx| {
-      let query = global_rev_ref().watch_inv_ref::<D>();
-      cx.query_cx.register_multi_reactive_query(query)
-    });
-
-    if let GPUQueryHookStage::CreateRender { query, .. } = &mut cx.stage {
-      query.take_reactive_multi_query_updated(*token)
-    } else {
-      None
-    }
-  }
-
-  pub fn use_reactive_query<K, V, Q>(
-    &mut self,
-    source: impl FnOnce() -> Q,
-  ) -> Option<Box<dyn DynQuery<Key = K, Value = V>>>
-  where
-    K: CKey,
-    V: CValue,
-    Q: ReactiveQuery<Key = K, Value = V> + Unpin,
-  {
-    self.use_reactive_query_gpu(|_| source())
-  }
-
   pub fn use_reactive_query_gpu<K, V, Q>(
     &mut self,
     f: impl FnOnce(&GPU) -> Q,

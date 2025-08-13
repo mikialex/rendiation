@@ -43,8 +43,8 @@ pub struct PreFilterMapGenerationConfig {
 pub fn generate_pre_filter_map(
   encoder: &mut GPUCommandEncoder,
   gpu: &GPU,
-  input: GPUCubeTextureView,
-  config: PreFilterMapGenerationConfig,
+  input: &GPUCubeTextureView,
+  config: &PreFilterMapGenerationConfig,
 ) -> PreFilterMapGenerationResult {
   let diffuse = create_cube(
     &gpu.device,

@@ -25,8 +25,14 @@ pub trait IndirectNodeRenderImpl {
 }
 
 pub fn use_node_storage(cx: &mut QueryGPUHookCx) -> Option<IndirectNodeRenderer> {
-  cx.use_storage_buffer(node_storages)
-    .map(IndirectNodeRenderer)
+  let (cx, nodes) = cx.use_storage_buffer2(128, u32::MAX);
+
+  global_node_world_mat(cx)
+    .into_delta_change()
+    .map_changes(NodeStorage::from_world_mat)
+    .update_storage_array(nodes, 0);
+
+  cx.when_render(|| IndirectNodeRenderer(nodes.get_gpu_buffer()))
 }
 
 pub struct IndirectNodeRenderer(StorageBufferReadonlyDataView<[NodeStorage]>);
@@ -53,14 +59,6 @@ impl IndirectNodeRenderImpl for IndirectNodeRenderer {
 }
 
 only_vertex!(IndirectSceneNodeId, u32);
-
-pub fn node_storages(cx: &GPU) -> ReactiveStorageBufferContainer<NodeStorage> {
-  let source = scene_node_derive_world_mat()
-    .collective_map(NodeStorage::from_world_mat)
-    .into_query_update_storage(0);
-
-  create_reactive_storage_buffer_container(128, u32::MAX, cx).with_source(source)
-}
 
 pub struct NodeGPUStorage<'a>(&'a StorageBufferReadonlyDataView<[NodeStorage]>);
 

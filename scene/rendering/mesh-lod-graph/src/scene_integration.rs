@@ -26,7 +26,7 @@ pub fn use_mesh_lod_graph_scene_renderer(
     mesh_ty_checker: global_database().read_foreign_key::<StandardModelRefLodGraphMeshEntity>(),
     world_transform: world_transform.unwrap(),
     lod_decider: lod_decider.clone(),
-    internal: internal.unwrap(),
+    internal,
   })
 }
 

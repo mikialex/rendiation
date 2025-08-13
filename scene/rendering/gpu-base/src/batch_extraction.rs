@@ -5,11 +5,15 @@ pub fn use_default_scene_batch_extractor(
 ) -> Option<DefaultSceneBatchExtractor> {
   let model_lookup = cx.use_db_rev_ref_typed::<SceneModelBelongsToScene>();
 
-  let node_net_visible = cx.use_reactive_query(scene_node_derive_visible);
+  let node_net_visible = global_node_net_visible(cx);
 
   cx.when_render(|| DefaultSceneBatchExtractor {
     model_lookup: model_lookup.expect_resolve_stage(),
-    node_net_visible: node_net_visible.unwrap(),
+    node_net_visible: node_net_visible
+      .expect_resolve_stage()
+      .view()
+      .mark_entity_type::<SceneNodeEntity>()
+      .into_boxed(),
     alpha_blend: all_kinds_of_materials_enabled_alpha_blending().into_boxed(),
     sm_ref_node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
   })

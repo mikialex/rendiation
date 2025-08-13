@@ -1,11 +1,8 @@
-use std::{sync::Arc, task::Context};
+use std::sync::Arc;
 
 use database::*;
 use parking_lot::RwLock;
-use reactive::LinearIdentified;
-use reactive::{
-  BoxedDynReactiveQuery, Query, QueryCompute, ReactiveGeneralQuery, ReactiveQuery, ReactiveQueryExt,
-};
+use reactive::*;
 use rendiation_device_parallel_compute::DeviceParallelComputeCtx;
 use rendiation_scene_core::*;
 use rendiation_scene_rendering_gpu_base::*;
@@ -38,45 +35,18 @@ pub fn register_mesh_lod_graph_data_model() {
     .declare_component::<LODGraphData>();
 }
 
-pub fn use_mesh_lod_graph_renderer(
-  qcx: &mut QueryGPUHookCx,
-) -> Option<MeshLODGraphRendererShared> {
-  qcx.use_gpu_general_query(|gpu| MeshLODGraphRendererSystem {
-    source: global_watch().watch::<LODGraphData>().into_boxed(),
-    renderer: Arc::new(RwLock::new(MeshLODGraphRenderer::new(gpu))),
-  })
-}
+pub fn use_mesh_lod_graph_renderer(qcx: &mut QueryGPUHookCx) -> MeshLODGraphRendererShared {
+  let (qcx, renderer) =
+    qcx.use_gpu_init(|gpu| Arc::new(RwLock::new(MeshLODGraphRenderer::new(gpu))));
 
-pub struct MeshLODGraphRendererSystem {
-  source:
-    BoxedDynReactiveQuery<EntityHandle<LODGraphMeshEntity>, Option<ExternalRefPtr<MeshLODGraph>>>,
-  renderer: MeshLODGraphRendererShared,
+  if let Some(change) = qcx.use_query_change::<LODGraphData>().if_ready() {
+    renderer.write().batch_update(change.mark_entity_type());
+  }
+
+  renderer.clone()
 }
 
 pub type MeshLODGraphRendererShared = Arc<RwLock<MeshLODGraphRenderer>>;
-
-impl ReactiveGeneralQuery for MeshLODGraphRendererSystem {
-  type Output = MeshLODGraphRendererShared;
-  fn poll_query(&mut self, cx: &mut Context) -> MeshLODGraphRendererShared {
-    let mut renderer = self.renderer.write();
-    let (change, _) = self.source.describe(cx).resolve_kept();
-
-    for (key, change) in change.iter_key_value() {
-      match change {
-        reactive::ValueChange::Delta(mesh, previous) => {
-          if let Some(Some(_)) = previous {
-            renderer.remove_mesh(key);
-          }
-          if let Some(mesh) = mesh {
-            renderer.add_mesh(key, &mesh);
-          }
-        }
-        reactive::ValueChange::Remove(_) => renderer.remove_mesh(key),
-      }
-    }
-    self.renderer.clone()
-  }
-}
 
 pub struct MeshLODGraphRenderer {
   pub scene_model_meshlet_index_vertex_offset: Vec<Vec2<u32>>,
@@ -107,6 +77,28 @@ impl MeshLODGraphRenderer {
       position_buffer: create_storage_buffer_range_allocate_pool(gpu, 1_000_000, 1_000_000),
       index_buffer,
       enable_midc_downgrade: require_midc_downgrade(&gpu.info),
+    }
+  }
+
+  pub fn batch_update(
+    &mut self,
+    change: impl Query<
+      Key = EntityHandle<LODGraphMeshEntity>,
+      Value = ValueChange<Option<ExternalRefPtr<MeshLODGraph>>>,
+    >,
+  ) {
+    for (key, change) in change.iter_key_value() {
+      match change {
+        ValueChange::Delta(mesh, previous) => {
+          if let Some(Some(_)) = previous {
+            self.remove_mesh(key);
+          }
+          if let Some(mesh) = mesh {
+            self.add_mesh(key, &mesh);
+          }
+        }
+        ValueChange::Remove(_) => self.remove_mesh(key),
+      }
     }
   }
 

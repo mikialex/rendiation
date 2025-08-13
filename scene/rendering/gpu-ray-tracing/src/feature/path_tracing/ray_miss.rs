@@ -55,7 +55,7 @@ impl PTRayMissCtx {
       PTRayMissCtx::EnvCube {
         map: renderer
           .env_background_map_gpu
-          .access(&env)
+          .access(&env.into_raw())
           .unwrap()
           .clone(),
         intensity: renderer

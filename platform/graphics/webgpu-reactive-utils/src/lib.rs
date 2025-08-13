@@ -22,8 +22,6 @@ mod uniform_array;
 pub use uniform_array::*;
 mod binding_array;
 pub use binding_array::*;
-mod cube_map;
-pub use cube_map::*;
 mod range;
 pub use range::*;
 mod updater;
