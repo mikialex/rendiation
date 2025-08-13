@@ -32,16 +32,14 @@ pub fn use_point_light_storage(
     .use_result(fanout)
     .update_storage_array(light, offset_of!(PointLightStorage, position));
 
-  let multi_access = qcx.use_gpu_general_query(|gpu| {
-    MultiAccessGPUDataBuilder::new(
-      gpu,
-      global_rev_ref().watch_inv_ref_untyped::<PointLightRefScene>(),
-      light_multi_access_config(),
-    )
-  });
+  let (qcx, multi_acc) = qcx.use_gpu_multi_access_states(light_multi_access_config());
+
+  let updates = qcx.use_db_rev_ref_tri_view::<PointLightRefScene>();
+  let updates = qcx.use_result(updates);
+
   qcx.when_render(|| {
     let light = light.get_gpu_buffer();
-    let multi_access = multi_access.unwrap();
+    let multi_access = multi_acc.update(updates.expect_resolve_stage());
     (light, multi_access)
   })
 }
