@@ -2,23 +2,6 @@ use crate::*;
 
 pub(crate) type WideLineUniforms = UniformBufferCollectionRaw<u32, WideLineUniform>;
 
-pub fn wide_line_instance_buffers(
-  cx: &GPU,
-) -> impl ReactiveValueRefQuery<Key = EntityHandle<WideLineModelEntity>, Value = GPUBufferResourceView>
-{
-  let cx = cx.clone();
-  global_watch()
-    .watch::<WideLineMeshBuffer>()
-    .collective_execute_map_by(move || {
-      let cx = cx.clone();
-      move |_, buffer| {
-        create_gpu_buffer(buffer.as_slice(), BufferUsages::VERTEX, &cx.device) //
-          .create_default_view()
-      }
-    })
-    .materialize_unordered()
-}
-
 #[repr(C)]
 #[std140_layout]
 #[derive(Clone, Copy, ShaderStruct, Default)]

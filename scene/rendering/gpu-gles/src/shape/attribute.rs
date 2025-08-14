@@ -9,20 +9,20 @@ pub fn use_attribute_mesh_renderer(
   let multi_access =
     cx.use_db_rev_ref_typed::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>();
 
-  let index = cx.use_val_refed_reactive_query(attribute_mesh_index_buffers);
-  let vertex = cx.use_val_refed_reactive_query(attribute_mesh_vertex_buffer_views);
+  let index = use_buffers::<AttributeIndexRef>(cx, BufferUsages::INDEX);
+  let vertex = use_buffers::<AttributeVertexRef>(cx, BufferUsages::VERTEX);
 
   cx.when_render(|| GLESAttributesMeshRenderer {
     mesh_access: global_entity_component_of::<StandardModelRefAttributesMeshEntity>()
       .read_foreign_key(),
     mode: global_entity_component_of::<AttributesMeshEntityTopology>().read(),
-    index: index.unwrap(),
+    index: index.make_read_holder(),
     vertex: AttributesMeshEntityVertexAccessView {
       semantics: global_entity_component_of::<AttributesMeshEntityVertexBufferSemantic>().read(),
       count: global_entity_component_of::<SceneBufferViewBufferItemCount<AttributeVertexRef>>()
         .read(),
       multi_access: multi_access.expect_resolve_stage(),
-      vertex: vertex.unwrap(),
+      vertex: vertex.make_read_holder(),
     },
     count: global_entity_component_of::<SceneBufferViewBufferItemCount<AttributeIndexRef>>().read(),
     foreign_implementation_semantics,
@@ -33,7 +33,7 @@ pub struct GLESAttributesMeshRenderer {
   mesh_access: ForeignKeyReadView<StandardModelRefAttributesMeshEntity>,
   mode: ComponentReadView<AttributesMeshEntityTopology>,
   count: ComponentReadView<SceneBufferViewBufferItemCount<AttributeIndexRef>>,
-  index: BoxedDynValueRefQuery<EntityHandle<AttributesMeshEntity>, GPUBufferResourceView>,
+  index: BufferCollectionRead,
   vertex: AttributesMeshEntityVertexAccessView,
   foreign_implementation_semantics: std::sync::Arc<dyn Fn(u32, &mut ShaderVertexBuilder)>,
 }
@@ -45,7 +45,7 @@ impl GLESModelShapeRenderImpl for GLESAttributesMeshRenderer {
   ) -> Option<(Box<dyn RenderComponent + '_>, DrawCommand)> {
     let mesh_id = self.mesh_access.get(idx)?;
 
-    let index = if let Some(index_buffer) = self.index.access_ref(&mesh_id) {
+    let index = if let Some(index_buffer) = self.index.access_ref(&mesh_id.into_raw()) {
       let count = self.count.get_value(mesh_id).unwrap().unwrap() as u64;
       let stride = u64::from(index_buffer.view_byte_size()) / count;
       let fmt = match stride {
@@ -72,57 +72,41 @@ impl GLESModelShapeRenderImpl for GLESAttributesMeshRenderer {
   }
 }
 
-fn attribute_mesh_index_buffers(
-  cx: &GPU,
-) -> impl ReactiveValueRefQuery<Key = EntityHandle<AttributesMeshEntity>, Value = GPUBufferResourceView>
-{
-  let cx = cx.clone();
-  let attribute_mesh_index_buffers = global_watch()
-    .watch::<SceneBufferViewBufferId<AttributeIndexRef>>()
-    .collective_filter_map(|b| b)
-    .collective_execute_map_by(move || {
-      let cx = cx.clone();
+type BufferCollection = Arc<RwLock<FastHashMap<RawEntityHandle, GPUBufferResourceView>>>;
+type BufferCollectionRead =
+  LockReadGuardHolder<FastHashMap<RawEntityHandle, GPUBufferResourceView>>;
+
+// todo, currently we not consider BufferEntityData itself's change
+fn use_buffers<B: SceneBufferView>(
+  cx: &mut QueryGPUHookCx,
+  usage: BufferUsages,
+) -> BufferCollection {
+  let (cx, map) = cx.use_plain_state_default_cloned::<BufferCollection>();
+
+  let source = cx
+    .use_dual_query::<SceneBufferViewBufferId<B>>()
+    .dual_query_zip(cx.use_dual_query::<SceneBufferViewBufferRange<B>>())
+    .into_delta_change()
+    .filter_map_changes(|(id, range)| Some((id?, range)));
+
+  if let Some(change) = source.if_ready() {
+    if change.has_change() {
+      let mut map = map.write();
       let read_view = global_entity_component_of::<BufferEntityData>().read();
-      move |_, buffer_idx| {
-        let buffer = read_view
-          .get_without_generation_check(buffer_idx.index())
-          .unwrap();
-        create_gpu_buffer(buffer.as_slice(), BufferUsages::INDEX, &cx.device)
+      for k in change.iter_removed() {
+        map.remove(&k);
       }
-    });
 
-  attribute_mesh_index_buffers
-    .collective_union(
-      global_watch().watch::<SceneBufferViewBufferRange<AttributeIndexRef>>(),
-      |(buffer, range)| buffer.map(|buffer| buffer.create_view(map_view(range.flatten()))),
-    )
-    .materialize_unordered()
-}
-
-fn attribute_mesh_vertex_buffer_views(
-  cx: &GPU,
-) -> impl ReactiveValueRefQuery<
-  Key = EntityHandle<AttributesMeshEntityVertexBufferRelation>,
-  Value = GPUBufferResourceView,
-> {
-  let cx = cx.clone();
-  let attribute_mesh_vertex_buffers = global_watch()
-    .watch::<SceneBufferViewBufferId<AttributeVertexRef>>()
-    .collective_execute_map_by(move || {
-      let cx = cx.clone();
-      let read_view = global_entity_component_of::<BufferEntityData>().read();
-      move |_, buffer_idx| {
-        let buffer = read_view
-          .get_without_generation_check(buffer_idx.unwrap().index())
-          .unwrap();
-        create_gpu_buffer(buffer.as_slice(), BufferUsages::VERTEX, &cx.device)
+      for (k, (idx, range)) in change.iter_update_or_insert() {
+        let buffer = unsafe { read_view.get_by_untyped_handle(idx).unwrap() };
+        let buffer = create_gpu_buffer(buffer.as_slice(), usage, &cx.gpu.device);
+        let buffer = buffer.create_view(map_view(range));
+        map.insert(k, buffer);
       }
-    });
+    }
+  }
 
-  attribute_mesh_vertex_buffers
-    .collective_zip(global_watch().watch::<SceneBufferViewBufferRange<AttributeVertexRef>>())
-    .collective_map(|(buffer, range)| buffer.create_view(map_view(range)))
-    .materialize_unordered()
+  map
 }
 
 fn map_view(view: Option<rendiation_mesh_core::BufferViewRange>) -> GPUBufferViewRange {
@@ -139,10 +123,7 @@ pub struct AttributesMeshEntityVertexAccessView {
   pub count: ComponentReadView<SceneBufferViewBufferItemCount<AttributeVertexRef>>,
   pub multi_access:
     RevRefForeignKeyReadTyped<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>,
-  pub vertex: BoxedDynValueRefQuery<
-    EntityHandle<AttributesMeshEntityVertexBufferRelation>,
-    GPUBufferResourceView,
-  >,
+  pub vertex: BufferCollectionRead,
 }
 
 pub struct AttributesMeshGPU<'a> {
@@ -157,7 +138,11 @@ pub struct AttributesMeshGPU<'a> {
 impl ShaderPassBuilder for AttributesMeshGPU<'_> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     for vertex_info_id in self.vertex.multi_access.access_multi_value(&self.mesh_id) {
-      let gpu_buffer = self.vertex.vertex.access_ref(&vertex_info_id).unwrap();
+      let gpu_buffer = self
+        .vertex
+        .vertex
+        .access_ref(&vertex_info_id.into_raw())
+        .unwrap();
       ctx.set_vertex_buffer_by_buffer_resource_view_next(gpu_buffer);
     }
     if let Some((index_format, _, buffer)) = &self.index {

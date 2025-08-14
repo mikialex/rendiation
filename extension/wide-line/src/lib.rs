@@ -1,4 +1,8 @@
+use std::sync::Arc;
+
 use database::*;
+use fast_hash_collection::*;
+use parking_lot::RwLock;
 use reactive::*;
 use rendiation_mesh_core::*;
 use rendiation_scene_core::*;
@@ -41,6 +45,9 @@ pub struct WideLineMeshDataView {
 
 pub type WideLineMeshInternal = NoneIndexedMesh<LineList, Vec<WideLineVertex>>;
 
+type BufferCollection = Arc<RwLock<FastHashMap<u32, GPUBufferResourceView>>>;
+type BufferCollectionRead = LockReadGuardHolder<FastHashMap<u32, GPUBufferResourceView>>;
+
 pub fn use_widen_line(qcx: &mut QueryGPUHookCx) -> Option<WideLineModelRenderer> {
   let (qcx, quad) = qcx.use_gpu_init(create_wide_line_quad_gpu);
 
@@ -52,12 +59,26 @@ pub fn use_widen_line(qcx: &mut QueryGPUHookCx) -> Option<WideLineModelRenderer>
     qcx.gpu,
   );
 
-  let mesh = qcx.use_val_refed_reactive_query(wide_line_instance_buffers);
+  let (qcx, mesh) = qcx.use_plain_state_default_cloned::<BufferCollection>();
+
+  if let Some(changes) = qcx.use_changes::<WideLineMeshBuffer>().if_ready() {
+    if changes.has_change() {
+      let mut map = mesh.write();
+      for k in changes.iter_removed() {
+        map.remove(&k);
+      }
+      for (k, buffer) in changes.iter_update_or_insert() {
+        let buffer = create_gpu_buffer(buffer.as_slice(), BufferUsages::VERTEX, &qcx.gpu.device);
+        let buffer = buffer.create_default_view();
+        map.insert(k, buffer);
+      }
+    }
+  }
 
   qcx.when_render(|| WideLineModelRenderer {
     model_access: global_database().read_foreign_key::<SceneModelWideLineRenderPayload>(),
     uniforms: uniform.make_read_holder(),
-    instance_buffers: mesh.unwrap(),
+    instance_buffers: mesh.make_read_holder(),
     index_buffer: quad.0.clone(),
     vertex_buffer: quad.1.clone(),
   })
@@ -66,7 +87,7 @@ pub fn use_widen_line(qcx: &mut QueryGPUHookCx) -> Option<WideLineModelRenderer>
 pub struct WideLineModelRenderer {
   model_access: ForeignKeyReadView<SceneModelWideLineRenderPayload>,
   uniforms: LockReadGuardHolder<WideLineUniforms>,
-  instance_buffers: BoxedDynValueRefQuery<EntityHandle<WideLineModelEntity>, GPUBufferResourceView>,
+  instance_buffers: BufferCollectionRead,
   index_buffer: GPUBufferResourceView,
   vertex_buffer: GPUBufferResourceView,
 }
@@ -78,7 +99,10 @@ impl GLESModelRenderImpl for WideLineModelRenderer {
   ) -> Option<(Box<dyn RenderComponent + '_>, DrawCommand)> {
     let model_idx = self.model_access.get(idx)?;
     let uniform = self.uniforms.get(&model_idx.alloc_index()).unwrap();
-    let instance_buffer = self.instance_buffers.access_ref(&model_idx).unwrap();
+    let instance_buffer = self
+      .instance_buffers
+      .access_ref(&model_idx.alloc_index())
+      .unwrap();
 
     let instance_count = u64::from(instance_buffer.view_byte_size()) as usize
       / std::mem::size_of::<WideLineVertex>()

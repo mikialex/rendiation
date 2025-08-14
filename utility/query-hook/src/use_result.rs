@@ -58,6 +58,13 @@ impl<T: Send + Sync + 'static> UseResult<T> {
       ));
     }
 
+    if self.is_spawn_stage_ready() && other.is_spawn_stage_ready() {
+      return UseResult::SpawnStageReady((
+        self.into_spawn_stage().unwrap(),
+        other.into_spawn_stage().unwrap(),
+      ));
+    }
+
     let a = self.into_future();
     let b = other.into_future();
 
@@ -75,8 +82,19 @@ impl<T: Send + Sync + 'static> UseResult<T> {
     }
   }
 
+  pub fn into_spawn_stage(self) -> Option<T> {
+    match self {
+      UseResult::SpawnStageReady(t) => Some(t),
+      _ => None,
+    }
+  }
+
   pub fn is_resolve_stage(&self) -> bool {
     matches!(self, UseResult::ResolveStageReady(_))
+  }
+
+  pub fn is_spawn_stage_ready(&self) -> bool {
+    matches!(self, UseResult::SpawnStageReady(_))
   }
 
   pub fn if_resolve_stage(self) -> Option<T> {
@@ -190,6 +208,14 @@ where
     other: UseResult<Q>,
   ) -> UseResult<impl DualQueryLike<Key = T::Key, Value = T::Value>> {
     self.join(other).map(|(a, b)| a.dual_query_select(b))
+  }
+
+  pub fn dual_query_union<Q: DualQueryLike<Key = T::Key>, O: CValue>(
+    self,
+    other: UseResult<Q>,
+    f: impl Fn((Option<T::Value>, Option<Q::Value>)) -> Option<O> + Copy + Sync + Send + 'static,
+  ) -> UseResult<impl DualQueryLike<Key = T::Key, Value = O>> {
+    self.join(other).map(move |(a, b)| a.dual_query_union(b, f))
   }
 
   pub fn into_delta_change(self) -> UseResult<DeltaQueryAsChange<T::Delta>> {
