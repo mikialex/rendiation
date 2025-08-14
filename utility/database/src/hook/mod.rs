@@ -15,7 +15,7 @@ pub type SharedHashMapRead<K, V> = LockReadGuardHolder<FastHashMap<K, V>>;
 pub fn maintain_shared_map<K: CKey, V, D: DataChanges<Key = K>>(
   map: &SharedHashMap<K, V>,
   change: UseResult<D>,
-  f: impl Fn(D::Value) -> V,
+  f: impl FnMut(D::Value) -> V,
 ) {
   maintain_shared_map_avoid_unnecessary_creator_init(map, change, || f)
 }
