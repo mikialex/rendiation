@@ -119,6 +119,7 @@ impl<'a> QueryGPUHookCx<'a> {
     })
   }
 
+  #[deprecated]
   pub fn use_multi_updater_gpu<T: 'static>(
     &mut self,
     f: impl FnOnce(&GPU) -> MultiUpdateContainer<T>,
@@ -133,13 +134,7 @@ impl<'a> QueryGPUHookCx<'a> {
     }
   }
 
-  pub fn use_multi_updater<T: 'static>(
-    &mut self,
-    f: impl FnOnce() -> MultiUpdateContainer<T>,
-  ) -> Option<LockReadGuardHolder<MultiUpdateContainer<T>>> {
-    self.use_multi_updater_gpu(|_| f())
-  }
-
+  #[deprecated]
   pub fn use_gpu_general_query<T: ReactiveGeneralQuery + 'static>(
     &mut self,
     f: impl FnOnce(&GPU) -> T,
@@ -173,6 +168,7 @@ impl<'a> QueryGPUHookCx<'a> {
     uniform
   }
 
+  #[deprecated]
   pub fn use_uniform_array_buffers<V: Std140, const N: usize>(
     &mut self,
     f: impl FnOnce(&GPU) -> UniformArrayUpdateContainer<V, N>,
@@ -203,6 +199,7 @@ impl<'a> QueryGPUHookCx<'a> {
     })
   }
 
+  #[deprecated]
   pub fn use_storage_buffer<V: Std430>(
     &mut self,
     f: impl FnOnce(&GPU) -> ReactiveStorageBufferContainer<V>,
@@ -217,6 +214,7 @@ impl<'a> QueryGPUHookCx<'a> {
     }
   }
 
+  #[deprecated]
   pub fn use_reactive_query_gpu<K, V, Q>(
     &mut self,
     f: impl FnOnce(&GPU) -> Q,
@@ -231,25 +229,6 @@ impl<'a> QueryGPUHookCx<'a> {
 
     if let GPUQueryHookStage::CreateRender { query, .. } = &mut cx.stage {
       query.take_reactive_query_updated(*token)
-    } else {
-      None
-    }
-  }
-
-  pub fn use_val_refed_reactive_query<K, V, Q>(
-    &mut self,
-    f: impl FnOnce(&GPU) -> Q,
-  ) -> Option<Box<dyn DynValueRefQuery<Key = K, Value = V>>>
-  where
-    K: CKey,
-    V: CValue,
-    Q: ReactiveValueRefQuery<Key = K, Value = V>,
-  {
-    let (cx, token) =
-      self.use_state_with_features(|cx| cx.query_cx.register_val_refed_reactive_query(f(cx.gpu)));
-
-    if let GPUQueryHookStage::CreateRender { query, .. } = &mut cx.stage {
-      query.take_val_refed_reactive_query_updated(*token)
     } else {
       None
     }

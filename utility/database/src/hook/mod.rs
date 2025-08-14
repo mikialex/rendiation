@@ -21,6 +21,13 @@ pub trait DBHookCxLike: QueryHookCxLike {
     })
   }
 
+  fn use_dual_query_set<E: EntitySemantic>(&mut self) -> UseResult<DBSetDualQuery> {
+    self.use_query_set::<E>().map(|change| DualQuery {
+      view: get_db_entity_set_view::<E>(),
+      delta: change,
+    })
+  }
+
   fn use_query_change<C: ComponentSemantic>(&mut self) -> UseResult<DBDelta<C::Data>>;
   fn use_query_set<E: EntitySemantic>(&mut self) -> UseResult<DBDelta<()>>;
 

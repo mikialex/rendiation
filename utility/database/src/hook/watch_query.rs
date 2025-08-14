@@ -7,6 +7,7 @@ pub struct DBQueryChangeWatchGroup {
 pub type DBView<V> = IterableComponentReadViewChecked<V>;
 pub type DBDelta<V> = Arc<FastHashMap<RawEntityHandle, ValueChange<V>>>;
 pub type DBDualQuery<V> = DualQuery<DBView<V>, DBDelta<V>>;
+pub type DBSetDualQuery = DualQuery<BoxedDynQuery<RawEntityHandle, ()>, DBDelta<()>>;
 
 impl DBQueryChangeWatchGroup {
   pub fn new(db: &Database) -> Self {
@@ -194,6 +195,12 @@ fn get_db_view_internal<T>(e_id: EntityId, c_id: ComponentId) -> DBView<T> {
       })
     })
     .unwrap()
+}
+
+pub fn get_db_entity_set_view<E: EntitySemantic>() -> BoxedDynQuery<RawEntityHandle, ()> {
+  global_database().access_ecg_dyn(E::entity_id(), |ecg| {
+    ArenaAccessProvider(ecg.inner.allocator.clone()).access()
+  })
 }
 
 pub fn get_db_view<C: ComponentSemantic>() -> DBView<C::Data> {

@@ -45,45 +45,30 @@ pub fn use_rtx_scene_material(
     .into_delta_change()
     .update_storage_array(material_id, 0);
 
-  // let (cx, material_ty) = cx.use_storage_buffer2(128, u32::MAX);
+  let (cx, material_ty_gpu) = cx.use_storage_buffer2(128, u32::MAX);
 
-  // let mr_material_ty = cx.use_dual_query::<StandardModelRefPbrMRMaterial>()
-  //   .map(|q| q.filter_map(|_, _| 0))
-  //   .fanout(cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>());
+  let mr_material_ty = cx
+    .use_dual_query::<StandardModelRefPbrMRMaterial>()
+    .dual_query_filter_map(|v| v.map(|_| 0))
+    .fanout(cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>());
 
-  // cx.use_result(mr_material_ty).update_storage_array(material_ty, 0);
+  let sg_material_ty = cx
+    .use_dual_query::<StandardModelRefPbrSGMaterial>()
+    .dual_query_filter_map(|v| v.map(|_| 1))
+    .fanout(cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>());
 
-  // let sg_material_ty = cx.use_dual_query::<StandardModelRefPbrSGMaterial>()
-  //   .map(|q| q.filter_map(|_, _| 0))
-  //   .fanout(cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>());
+  let material_ty = mr_material_ty.dual_query_select(sg_material_ty);
 
-  // cx.use_result(sg_material_ty).update_storage_array(material_ty, 0);
-
-  let material_ty = cx.use_storage_buffer(|cx| {
-    let material_ty_base = global_watch().watch_entity_set::<SceneModelEntity>();
-
-    let mr_material_ty = global_watch()
-      .watch::<StandardModelRefPbrMRMaterial>()
-      .collective_filter_map(|v| v.map(|_| 0))
-      .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelStdModelRenderPayload>());
-
-    let sg_material_ty = global_watch()
-      .watch::<StandardModelRefPbrSGMaterial>()
-      .collective_filter_map(|v| v.map(|_| 1))
-      .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelStdModelRenderPayload>());
-
-    let material_ty = mr_material_ty.collective_select(sg_material_ty);
-
-    let material_ty = material_ty_base
-      .collective_union(material_ty, |(a, b)| a.map(|_| b.unwrap_or(u32::MAX)))
-      .into_query_update_storage(0);
-
-    create_reactive_storage_buffer_container::<u32>(128, u32::MAX, cx).with_source(material_ty)
-  });
+  // todo, this query maybe overkill
+  cx.use_dual_query_set::<SceneModelEntity>()
+    .dual_query_union(material_ty, |(a, b)| a.map(|_| b.unwrap_or(u32::MAX)))
+    .use_assure_result(cx)
+    .into_delta_change()
+    .update_storage_array(material_ty_gpu, 0);
 
   cx.when_render(|| SceneSurfaceSupport {
     textures: tex.unwrap().clone(),
-    sm_to_material_type: material_ty.unwrap(),
+    sm_to_material_type: material_ty_gpu.get_gpu_buffer(),
     sm_to_material_id: material_id.get_gpu_buffer(),
     material_accessor: materials.unwrap(),
   })
