@@ -105,8 +105,7 @@ where
     let visible_change = cx.use_query_change::<C>();
     let visible_source = get_db_view::<C>();
 
-    let (cx, derived) =
-      cx.use_plain_state_default_cloned::<Arc<RwLock<FastHashMap<RawEntityHandle, C::Data>>>>();
+    let derived = cx.use_shared_hash_map::<RawEntityHandle, C::Data>();
 
     cx.use_future(
       connectivity_rev_view

@@ -1,28 +1,5 @@
 use crate::*;
 
-// todo, improve performance using value refed query
-pub struct TraditionalPerDrawBindingSystemSource {
-  pub default_tex: GPU2DTextureView,
-  pub default_sampler: GPUSamplerView,
-  pub textures: BoxedDynReactiveQuery<Texture2DHandle, GPU2DTextureView>,
-  pub samplers: BoxedDynReactiveQuery<SamplerHandle, GPUSamplerView>,
-}
-
-impl ReactiveGeneralQuery for TraditionalPerDrawBindingSystemSource {
-  type Output = Box<dyn DynAbstractGPUTextureSystem>;
-
-  fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
-    let (_, textures) = self.textures.describe(cx).resolve_kept();
-    let (_, samplers) = self.samplers.describe(cx).resolve_kept();
-    Box::new(TraditionalPerDrawBindingSystem {
-      textures: textures.into_boxed(),
-      samplers: samplers.into_boxed(),
-      default_tex: self.default_tex.clone(),
-      default_sampler: self.default_sampler.clone(),
-    })
-  }
-}
-
 #[derive(Clone)]
 pub struct TraditionalPerDrawBindingSystem {
   pub default_tex: GPU2DTextureView,

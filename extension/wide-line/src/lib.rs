@@ -1,8 +1,4 @@
-use std::sync::Arc;
-
 use database::*;
-use fast_hash_collection::*;
-use parking_lot::RwLock;
 use reactive::*;
 use rendiation_mesh_core::*;
 use rendiation_scene_core::*;
@@ -45,9 +41,6 @@ pub struct WideLineMeshDataView {
 
 pub type WideLineMeshInternal = NoneIndexedMesh<LineList, Vec<WideLineVertex>>;
 
-type BufferCollection = Arc<RwLock<FastHashMap<u32, GPUBufferResourceView>>>;
-type BufferCollectionRead = LockReadGuardHolder<FastHashMap<u32, GPUBufferResourceView>>;
-
 pub fn use_widen_line(qcx: &mut QueryGPUHookCx) -> Option<WideLineModelRenderer> {
   let (qcx, quad) = qcx.use_gpu_init(create_wide_line_quad_gpu);
 
@@ -59,21 +52,12 @@ pub fn use_widen_line(qcx: &mut QueryGPUHookCx) -> Option<WideLineModelRenderer>
     qcx.gpu,
   );
 
-  let (qcx, mesh) = qcx.use_plain_state_default_cloned::<BufferCollection>();
+  let mesh = qcx.use_shared_hash_map();
 
-  if let Some(changes) = qcx.use_changes::<WideLineMeshBuffer>().if_ready() {
-    if changes.has_change() {
-      let mut map = mesh.write();
-      for k in changes.iter_removed() {
-        map.remove(&k);
-      }
-      for (k, buffer) in changes.iter_update_or_insert() {
-        let buffer = create_gpu_buffer(buffer.as_slice(), BufferUsages::VERTEX, &qcx.gpu.device);
-        let buffer = buffer.create_default_view();
-        map.insert(k, buffer);
-      }
-    }
-  }
+  maintain_shared_map(&mesh, qcx.use_changes::<WideLineMeshBuffer>(), |buffer| {
+    let buffer = create_gpu_buffer(buffer.as_slice(), BufferUsages::VERTEX, &qcx.gpu.device);
+    buffer.create_default_view()
+  });
 
   qcx.when_render(|| WideLineModelRenderer {
     model_access: global_database().read_foreign_key::<SceneModelWideLineRenderPayload>(),
@@ -87,7 +71,7 @@ pub fn use_widen_line(qcx: &mut QueryGPUHookCx) -> Option<WideLineModelRenderer>
 pub struct WideLineModelRenderer {
   model_access: ForeignKeyReadView<SceneModelWideLineRenderPayload>,
   uniforms: LockReadGuardHolder<WideLineUniforms>,
-  instance_buffers: BufferCollectionRead,
+  instance_buffers: SharedHashMapRead<u32, GPUBufferResourceView>,
   index_buffer: GPUBufferResourceView,
   vertex_buffer: GPUBufferResourceView,
 }

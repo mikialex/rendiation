@@ -13,8 +13,6 @@ rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
 rendiation-shader-api = { path = "../../shader/api" }
 rendiation-mesh-core = { path = "../../content/mesh/core" }
 bytemuck = { workspace = true }
-parking_lot = { workspace = true }
-fast-hash-collection = { path = "../../utility/fast-hash-collection" }
 rendiation-webgpu-reactive-utils = { path = "../../platform/graphics/webgpu-reactive-utils" }
 rendiation-scene-rendering-gpu-base = { path = "../../scene/rendering/gpu-base" }
 rendiation-scene-rendering-gpu-gles = { path = "../../scene/rendering/gpu-gles" }
