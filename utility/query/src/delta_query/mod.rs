@@ -248,6 +248,10 @@ pub trait DeltaQueryExt<V>: Query<Value = ValueChange<V>> {
     }
   }
 
+  fn delta_key_as_value(self) -> impl Query<Key = Self::Key, Value = ValueChange<Self::Key>> {
+    self.delta_map(|k, _| k.clone())
+  }
+
   fn delta_map_value<V2, F>(
     self,
     mapper: F,

@@ -6,20 +6,19 @@ pub fn use_gles_scene_model_renderer(
 ) -> Option<Box<dyn SceneModelRenderer>> {
   let node_render = use_node_uniforms(cx);
 
-  let scene_model_ids =
-    cx.use_uniform_buffers::<EntityHandle<SceneModelEntity>, Vec4<u32>>(|source, cx| {
-      source.with_source(
-        global_watch()
-          .watch_entity_set::<SceneModelEntity>()
-          .key_as_value()
-          .collective_map(|v| Vec4::new(v.into_raw().index(), 0, 0, 0))
-          .into_query_update_uniform(0, cx),
-      )
-    });
+  let scene_model_ids = cx.use_uniform_buffers2();
+
+  cx.use_query_set::<SceneModelEntity>()
+    .map(|v| {
+      v.delta_key_as_value()
+        .delta_map_value(|v| v.index())
+        .into_change()
+    })
+    .update_uniforms(&scene_model_ids, 0, cx.gpu);
 
   cx.when_render(|| {
     Box::new(GLESPreferredComOrderRenderer {
-      scene_model_ids: scene_model_ids.unwrap(),
+      scene_model_ids: scene_model_ids.make_read_holder(),
       model_impl: model_impl.unwrap(),
       node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
       node_render: node_render.unwrap(),
@@ -27,7 +26,7 @@ pub fn use_gles_scene_model_renderer(
   })
 }
 
-type SceneModelIdUniforms = UniformUpdateContainer<EntityHandle<SceneModelEntity>, Vec4<u32>>;
+type SceneModelIdUniforms = UniformBufferCollectionRaw<RawEntityHandle, Vec4<u32>>;
 
 pub struct GLESPreferredComOrderRenderer {
   scene_model_ids: LockReadGuardHolder<SceneModelIdUniforms>,
@@ -86,7 +85,7 @@ impl SceneModelRenderer for GLESPreferredComOrderRenderer {
   ) -> Result<(), UnableToRenderSceneModelError> {
     use GLESPreferredComOrderRendererRenderError as E;
 
-    let id = self.scene_model_ids.get(&idx).unwrap();
+    let id = self.scene_model_ids.get(&idx.into_raw()).unwrap();
     let id = SceneModelIdWriter { id };
     let id = &id as &dyn RenderComponent;
 

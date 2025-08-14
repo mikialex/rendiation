@@ -44,20 +44,19 @@ pub type WideLineMeshInternal = NoneIndexedMesh<LineList, Vec<WideLineVertex>>;
 pub fn use_widen_line(qcx: &mut QueryGPUHookCx) -> Option<WideLineModelRenderer> {
   let (qcx, quad) = qcx.use_gpu_init(create_wide_line_quad_gpu);
 
-  let uniform =
-    qcx.use_uniform_buffers::<EntityHandle<WideLineModelEntity>, WideLineUniform>(|source, cx| {
-      let width = global_watch()
-        .watch::<WideLineWidth>()
-        .into_query_update_uniform(offset_of!(WideLineUniform, width), cx);
+  let uniform = qcx.use_uniform_buffers2();
 
-      source.with_source(width)
-    });
+  qcx.use_changes::<WideLineWidth>().update_uniforms(
+    &uniform,
+    offset_of!(WideLineUniform, width),
+    qcx.gpu,
+  );
 
   let mesh = qcx.use_val_refed_reactive_query(wide_line_instance_buffers);
 
   qcx.when_render(|| WideLineModelRenderer {
     model_access: global_database().read_foreign_key::<SceneModelWideLineRenderPayload>(),
-    uniforms: uniform.unwrap(),
+    uniforms: uniform.make_read_holder(),
     instance_buffers: mesh.unwrap(),
     index_buffer: quad.0.clone(),
     vertex_buffer: quad.1.clone(),
@@ -77,9 +76,9 @@ impl GLESModelRenderImpl for WideLineModelRenderer {
     &self,
     idx: EntityHandle<SceneModelEntity>,
   ) -> Option<(Box<dyn RenderComponent + '_>, DrawCommand)> {
-    let mesh_idx = self.model_access.get(idx)?;
-    let uniform = self.uniforms.get(&mesh_idx).unwrap();
-    let instance_buffer = self.instance_buffers.access_ref(&mesh_idx).unwrap();
+    let model_idx = self.model_access.get(idx)?;
+    let uniform = self.uniforms.get(&model_idx.alloc_index()).unwrap();
+    let instance_buffer = self.instance_buffers.access_ref(&model_idx).unwrap();
 
     let instance_count = u64::from(instance_buffer.view_byte_size()) as usize
       / std::mem::size_of::<WideLineVertex>()

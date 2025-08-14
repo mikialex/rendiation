@@ -1,7 +1,6 @@
 use crate::*;
 
-pub type WideLineUniforms =
-  UniformUpdateContainer<EntityHandle<WideLineModelEntity>, WideLineUniform>;
+pub(crate) type WideLineUniforms = UniformBufferCollectionRaw<u32, WideLineUniform>;
 
 pub fn wide_line_instance_buffers(
   cx: &GPU,

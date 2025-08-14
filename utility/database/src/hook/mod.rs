@@ -21,8 +21,8 @@ pub trait DBHookCxLike: QueryHookCxLike {
     })
   }
 
-  fn use_query_change<C: ComponentSemantic>(&mut self) -> UseResult<DBChange<C::Data>>;
-  fn use_query_set<E: EntitySemantic>(&mut self) -> UseResult<DBChange<()>>;
+  fn use_query_change<C: ComponentSemantic>(&mut self) -> UseResult<DBDelta<C::Data>>;
+  fn use_query_set<E: EntitySemantic>(&mut self) -> UseResult<DBDelta<()>>;
 
   #[track_caller]
   fn use_db_rev_ref_tri_view<C: ForeignKeySemantic>(&mut self) -> UseResult<RevRefForeignTriQuery> {

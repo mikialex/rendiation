@@ -5,8 +5,8 @@ pub struct DBQueryChangeWatchGroup {
 }
 
 pub type DBView<V> = IterableComponentReadViewChecked<V>;
-pub type DBChange<V> = Arc<FastHashMap<RawEntityHandle, ValueChange<V>>>;
-pub type DBDualQuery<V> = DualQuery<DBView<V>, DBChange<V>>;
+pub type DBDelta<V> = Arc<FastHashMap<RawEntityHandle, ValueChange<V>>>;
+pub type DBDualQuery<V> = DualQuery<DBView<V>, DBDelta<V>>;
 
 impl DBQueryChangeWatchGroup {
   pub fn new(db: &Database) -> Self {
@@ -29,7 +29,7 @@ impl DBQueryChangeWatchGroup {
       .notify_consumer_dropped(component_id, consumer_id);
   }
 
-  pub fn get_buffered_changes<C: ComponentSemantic>(&mut self, id: u32) -> DBChange<C::Data> {
+  pub fn get_buffered_changes<C: ComponentSemantic>(&mut self, id: u32) -> DBDelta<C::Data> {
     self.get_buffered_changes_internal(id, C::Entity::entity_id(), C::component_id())
   }
 
@@ -39,7 +39,7 @@ impl DBQueryChangeWatchGroup {
     id: u32,
     e_id: EntityId,
     c_id: ComponentId,
-  ) -> DBChange<T> {
+  ) -> DBDelta<T> {
     let rev = self.internal.producers.entry(c_id).or_insert_with(|| {
       let rev = self.internal.db.access_ecg_dyn(e_id, move |e| {
         e.access_component(c_id, move |c| {
@@ -79,7 +79,7 @@ impl DBQueryChangeWatchGroup {
       });
 
     if consumer_ids.contains(&id) {
-      let changes = changes.downcast_ref::<DBChange<T>>().unwrap().clone();
+      let changes = changes.downcast_ref::<DBDelta<T>>().unwrap().clone();
 
       changes
     } else {
@@ -121,12 +121,12 @@ impl DBQueryEntitySetWatchGroup {
     self.internal.notify_consumer_dropped(e_id, consumer_id);
   }
 
-  pub fn get_buffered_changes<E: EntitySemantic>(&mut self, id: u32) -> DBChange<()> {
+  pub fn get_buffered_changes<E: EntitySemantic>(&mut self, id: u32) -> DBDelta<()> {
     self.get_buffered_changes_internal(id, E::entity_id())
   }
 
   #[inline(never)] // remove the variant of component semantic to reduce the binary bloat
-  fn get_buffered_changes_internal(&mut self, id: u32, e_id: EntityId) -> DBChange<()> {
+  fn get_buffered_changes_internal(&mut self, id: u32, e_id: EntityId) -> DBDelta<()> {
     let rev = self.internal.producers.entry(e_id).or_insert_with(|| {
       let rev = self.internal.db.access_ecg_dyn(e_id, move |e| {
         add_listen(
@@ -160,7 +160,7 @@ impl DBQueryEntitySetWatchGroup {
       });
 
     if consumer_ids.contains(&id) {
-      let changes = changes.downcast_ref::<DBChange<()>>().unwrap().clone();
+      let changes = changes.downcast_ref::<DBDelta<()>>().unwrap().clone();
 
       changes
     } else {

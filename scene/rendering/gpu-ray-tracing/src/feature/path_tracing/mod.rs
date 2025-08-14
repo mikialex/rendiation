@@ -203,7 +203,7 @@ impl DeviceReferencePathTracingRenderer {
 
     let lighting = ScenePTLighting {
       scene_data: base.lighting.clone(),
-      scene_id: base.scene_ids.get(&scene).unwrap().clone(),
+      scene_id: base.scene_ids.get(&scene.into_raw()).unwrap().clone(),
     };
 
     let closest = build_ray_hit_shader(
