@@ -42,6 +42,10 @@ pub trait QueryExt: Query + Sized {
     MappedQuery { base: self, mapper }
   }
 
+  fn key_as_value(self) -> impl Query<Key = Self::Key, Value = Self::Key> {
+    self.map(|k, _| k.clone())
+  }
+
   fn filter_map<V2, F>(self, mapper: F) -> FilterMapQuery<Self, F>
   where
     F: Fn(Self::Value) -> Option<V2>,

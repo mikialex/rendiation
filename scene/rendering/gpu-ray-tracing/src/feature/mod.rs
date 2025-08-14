@@ -92,6 +92,6 @@ pub fn use_scene_rtx_renderer_base(
     mesh: mesh.unwrap(),
     material: material.unwrap(),
     lighting: lighting.unwrap(),
-    scene_ids: scene_ids.unwrap(),
+    scene_ids,
   })
 }

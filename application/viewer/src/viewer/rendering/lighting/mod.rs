@@ -50,7 +50,7 @@ pub fn use_lighting(
     point_lights: point_lights.unwrap(),
     area_lights: area_lights.unwrap(),
     ibl: ibl.unwrap(),
-    scene_ids: scene_ids.unwrap(),
+    scene_ids,
   })
 }
 
@@ -212,7 +212,7 @@ impl SceneLightSystem<'_> {
       light.push(LDROutput);
     }
 
-    let scene_id = self.scene_ids.get(&scene).unwrap().clone();
+    let scene_id = self.scene_ids.get(&scene.into_raw()).unwrap().clone();
 
     light
       .push(&system.tonemap as &dyn RenderComponent) //
