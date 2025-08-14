@@ -8,7 +8,7 @@ pub fn use_unlit_material_uniforms(cx: &mut QueryGPUHookCx) -> Option<UnlitMater
   let alpha = cx.use_changes::<AlphaOf<UnlitMaterialAlphaConfig>>();
   let alpha_cutoff = cx.use_changes::<AlphaCutoffOf<UnlitMaterialAlphaConfig>>();
 
-  let uniform = cx.use_uniform_buffers2();
+  let uniform = cx.use_uniform_buffers();
 
   color.update_uniforms(&uniform, offset_of!(UnlitMaterialUniform, color), cx.gpu);
   alpha.update_uniforms(&uniform, offset_of!(UnlitMaterialUniform, alpha), cx.gpu);
@@ -18,7 +18,7 @@ pub fn use_unlit_material_uniforms(cx: &mut QueryGPUHookCx) -> Option<UnlitMater
     cx.gpu,
   );
 
-  let tex_uniform = cx.use_uniform_buffers2();
+  let tex_uniform = cx.use_uniform_buffers();
 
   let color_alpha_texture = offset_of!(UnlitMaterialTextureHandlesUniform, color_alpha_texture);
   use_tex_watcher::<UnlitMaterialColorAlphaTex, _>(cx, color_alpha_texture, &tex_uniform);

@@ -6,7 +6,7 @@ use crate::*;
 
 pub fn use_viewer_culling(
   cx: &mut QueryGPUHookCx,
-  camera_source: &RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
+  ndc: impl NDCSpaceMapper + Copy,
   enable_oc_support: bool,
 ) -> Option<ViewerCulling> {
   let oc = if enable_oc_support {
@@ -22,7 +22,7 @@ pub fn use_viewer_culling(
   };
 
   let bounding_provider = use_scene_model_device_world_bounding(cx).map(|b| Box::new(b) as Box<_>);
-  let camera_frustums = use_camera_gpu_frustum(cx, camera_source);
+  let camera_frustums = use_camera_gpu_frustum(cx, ndc);
 
   cx.when_render(|| ViewerCulling {
     oc,

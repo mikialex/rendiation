@@ -72,16 +72,18 @@ pub trait DBHookCxLike: QueryHookCxLike {
       ComponentId::Hash(hash) => ShareKey::Hash(hash),
     };
 
-    self.use_shared_compute_internal(
-      |cx| {
-        let changes = cx
-          .use_query_change::<C>()
-          .map(|v| v.delta_filter_map(|v| v));
+    self
+      .use_shared_compute_internal(
+        |cx| {
+          let changes = cx
+            .use_query_change::<C>()
+            .map(|v| v.delta_filter_map(|v| v));
 
-        cx.use_rev_ref(changes)
-      },
-      key,
-    )
+          cx.use_rev_ref(changes)
+        },
+        key,
+      )
+      .0
   }
 }
 

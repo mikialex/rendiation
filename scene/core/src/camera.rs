@@ -25,17 +25,17 @@ pub fn register_camera_data_model() {
     .declare_foreign_key::<SceneCameraNode>();
 }
 
-pub fn camera_project_matrix_view(
-  ndc_mapper: impl NDCSpaceMapper<f32> + Copy,
-) -> impl Query<Key = EntityHandle<SceneCameraEntity>, Value = Mat4<f32>> {
-  let perspective = get_db_view_typed::<SceneCameraPerspective>()
-    .filter_map(move |proj| proj.map(|proj| proj.compute_projection_mat(&ndc_mapper)));
+// pub fn camera_project_matrix_view(
+//   ndc_mapper: impl NDCSpaceMapper<f32> + Copy,
+// ) -> impl Query<Key = EntityHandle<SceneCameraEntity>, Value = Mat4<f32>> {
+//   let perspective = get_db_view_typed::<SceneCameraPerspective>()
+//     .filter_map(move |proj| proj.map(|proj| proj.compute_projection_mat(&ndc_mapper)));
 
-  let orth = get_db_view_typed::<SceneCameraOrthographic>()
-    .filter_map(move |proj| proj.map(|proj| proj.compute_projection_mat(&ndc_mapper)));
+//   let orth = get_db_view_typed::<SceneCameraOrthographic>()
+//     .filter_map(move |proj| proj.map(|proj| proj.compute_projection_mat(&ndc_mapper)));
 
-  Select([perspective.into_boxed(), orth.into_boxed()])
-}
+//   Select([perspective.into_boxed(), orth.into_boxed()])
+// }
 
 // pub fn camera_project_matrix_change(
 //   cx: &mut impl DBHookCxLike,
@@ -62,6 +62,21 @@ pub fn camera_project_matrix(
     .collective_filter_map(move |proj| proj.map(|proj| proj.compute_projection_mat(&ndc_mapper)));
 
   perspective.collective_select(orth)
+}
+
+pub fn use_camera_project_matrix(
+  cx: &mut impl DBHookCxLike,
+  ndc_mapper: impl NDCSpaceMapper<f32> + Copy,
+) -> UseResult<impl DualQueryLike<Key = RawEntityHandle, Value = Mat4<f32>>> {
+  let perspective = cx
+    .use_dual_query::<SceneCameraPerspective>()
+    .dual_query_filter_map(move |proj| proj.map(|proj| proj.compute_projection_mat(&ndc_mapper)));
+
+  let orth = cx
+    .use_dual_query::<SceneCameraOrthographic>()
+    .dual_query_filter_map(move |proj| proj.map(|proj| proj.compute_projection_mat(&ndc_mapper)));
+
+  perspective.dual_query_select(orth)
 }
 
 #[derive(Clone, Copy, Default, Debug, PartialEq)]
@@ -123,9 +138,22 @@ pub fn camera_transforms(
     .collective_map(|(world, proj)| CameraTransform::new(proj, world))
 }
 
-// pub fn use_camera_transforms(
-//   cx: &mut impl DBHookCxLike,
-//   ndc_mapper: impl NDCSpaceMapper<f32> + Copy,
-// ) -> UseResult {
-//   //
-// }
+pub struct GlobalCameraTransformShare<T>(pub T);
+
+impl<T: NDCSpaceMapper + Copy, Cx: DBHookCxLike> SharedResultProvider<Cx>
+  for GlobalCameraTransformShare<T>
+{
+  type Result = impl DualQueryLike<Key = RawEntityHandle, Value = CameraTransform>;
+
+  fn use_logic(&self, cx: &mut Cx) -> TaskUseResult<Self::Result> {
+    let projections = use_camera_project_matrix(cx, self.0);
+    let node_mats = use_global_node_world_mat(cx);
+
+    let camera_world_mat = node_mats.fanout(cx.use_db_rev_ref_tri_view::<SceneCameraNode>());
+
+    camera_world_mat
+      .dual_query_zip(projections)
+      .dual_query_map(|(world, proj)| CameraTransform::new(proj, world))
+      .use_assure_result_expose(cx)
+  }
+}

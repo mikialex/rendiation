@@ -15,7 +15,7 @@ pub fn use_ibl(qcx: &mut QueryGPUHookCx) -> Option<IBLLightingComponentProvider>
     create_gpu_tex_from_png_buffer(cx, brdf_lut_bitmap_png, TextureFormat::Rgba8Unorm)
   });
 
-  let intensity = qcx.use_uniform_buffers2();
+  let intensity = qcx.use_uniform_buffers();
   qcx
     .use_changes::<SceneHDRxEnvBackgroundIntensity>()
     .filter_map_changes(|v| v)

@@ -18,7 +18,7 @@ pub fn use_scene_model_device_world_transform(
   let (qcx, storage) = qcx.use_storage_buffer2(128, u32::MAX);
 
   qcx
-    .use_shared_compute(GlobalSceneModelWorldMatrix)
+    .use_shared_dual_query(GlobalSceneModelWorldMatrix)
     .into_delta_change()
     .map(|v| {
       v.collective_map(|mat| {

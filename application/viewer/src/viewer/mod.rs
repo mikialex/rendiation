@@ -384,7 +384,7 @@ impl Viewer {
     Self {
       scene,
       terminal,
-      rendering: Viewer3dRenderingCtx::new(gpu, swap_chain, viewer_ndc, camera_transforms),
+      rendering: Viewer3dRenderingCtx::new(gpu, swap_chain, viewer_ndc),
       derives,
       background,
       started_time: Instant::now(),

@@ -24,6 +24,8 @@ pub struct DualQuery<T, U> {
   pub delta: U,
 }
 
+pub type BoxedDynDualQuery<K, V> = DualQuery<BoxedDynQuery<K, V>, BoxedDynQuery<K, ValueChange<V>>>;
+
 pub trait DualQueryLike: Send + Sync + Clone + 'static {
   type Key: CKey;
   type Value: CValue;
@@ -39,6 +41,29 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
     self.view_delta().1
   }
 
+  fn into_boxed(self) -> BoxedDynDualQuery<Self::Key, Self::Value> {
+    let (view, delta) = self.view_delta();
+    DualQuery {
+      view: view.into_boxed(),
+      delta: delta.into_boxed(),
+    }
+  }
+
+  fn replace_delta_by_full_view(self) -> impl DualQueryLike<Key = Self::Key, Value = Self::Value> {
+    let view = self.view();
+
+    let new_delta = view
+      .iter_key_value()
+      .map(|(k, v)| (k, ValueChange::Delta(v, None)))
+      .collect::<FastHashMap<_, _>>();
+    let new_delta = Arc::new(new_delta);
+
+    DualQuery {
+      view,
+      delta: new_delta,
+    }
+  }
+
   fn dual_query_map<V2: CValue>(
     self,
     f: impl Fn(Self::Value) -> V2 + Clone + Sync + Send + 'static,
@@ -48,6 +73,32 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
       view: view.map_value(f.clone()),
       delta: delta.delta_map_value(f),
     }
+  }
+
+  fn dual_query_filter_map<V2: CValue>(
+    self,
+    f: impl Fn(Self::Value) -> Option<V2> + Clone + Sync + Send + 'static,
+  ) -> impl DualQueryLike<Key = Self::Key, Value = V2> {
+    let (view, delta) = self.view_delta();
+    DualQuery {
+      view: view.filter_map(f.clone()),
+      delta: delta.delta_filter_map(f),
+    }
+  }
+
+  fn dual_query_select<Q>(
+    self,
+    other: Q,
+  ) -> impl DualQueryLike<Key = Self::Key, Value = Self::Value>
+  where
+    Q: DualQueryLike<Key = Self::Key, Value = Self::Value>,
+  {
+    self.dual_query_union(other, move |(a, b)| match (a, b) {
+      (Some(_), Some(_)) => unreachable!("key set should not overlap"),
+      (Some(a), None) => a.into(),
+      (None, Some(b)) => b.into(),
+      (None, None) => None,
+    })
   }
 
   fn dual_query_zip<Q>(

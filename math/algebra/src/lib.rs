@@ -124,7 +124,7 @@ pub enum Handiness {
 
 /// Should impl on target clip space.
 /// The target clip space is defined by the API vendors such as OpenGL or WebGPU
-pub trait NDCSpaceMapper<T: Scalar>: Send + Sync + dyn_clone::DynClone + 'static {
+pub trait NDCSpaceMapper<T: Scalar = f32>: Send + Sync + dyn_clone::DynClone + 'static {
   /// We use OpenGL's NDC range as standard, this function return the transformation matrix
   /// from the OpenGL's NDC space to it's defined NDC Space
   fn transform_from_opengl_standard_ndc(&self) -> Mat4<T>;

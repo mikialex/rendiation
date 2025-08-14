@@ -2,34 +2,19 @@ use crate::*;
 
 pub fn use_camera_uniforms(
   cx: &mut QueryGPUHookCx,
-  camera_source: &RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
+  ndc: impl NDCSpaceMapper + Copy,
 ) -> Option<CameraRenderer> {
-  cx.use_uniform_buffers::<EntityHandle<SceneCameraEntity>, CameraGPUTransform>(|source, cx| {
-    source.with_source(
-      camera_source
-        .clone()
-        // todo, fix jitter override
-        .collective_map(CameraGPUTransform::from)
-        .into_query_update_uniform(0, cx),
-    )
-  })
-  .map(CameraRenderer)
+  let uniforms = cx.use_uniform_buffers();
+
+  cx.use_shared_dual_query(GlobalCameraTransformShare(ndc))
+    .into_delta_change()
+    .map_changes(CameraGPUTransform::from)
+    .update_uniforms(&uniforms, 0, cx.gpu);
+
+  cx.when_render(|| CameraRenderer(uniforms.make_read_holder()))
 }
 
-pub type CameraUniforms =
-  UniformUpdateContainer<EntityHandle<SceneCameraEntity>, CameraGPUTransform>;
-
-pub fn camera_gpus(
-  cx: &GPU,
-  camera_transforms: impl ReactiveQuery<Key = EntityHandle<SceneCameraEntity>, Value = CameraTransform>,
-) -> CameraUniforms {
-  let source = camera_transforms
-    // todo, fix jitter override
-    .collective_map(CameraGPUTransform::from)
-    .into_query_update_uniform(0, cx);
-
-  CameraUniforms::default().with_source(source)
-}
+pub type CameraUniforms = UniformBufferCollectionRaw<RawEntityHandle, CameraGPUTransform>;
 
 #[derive(Clone)]
 pub struct CameraGPU {
@@ -195,7 +180,7 @@ pub struct CameraRenderer(pub LockReadGuardHolder<CameraUniforms>);
 impl CameraRenderer {
   pub fn make_component(&self, idx: EntityHandle<SceneCameraEntity>) -> Option<CameraGPU> {
     CameraGPU {
-      ubo: self.0.get(&idx)?.clone(),
+      ubo: self.0.get(&idx.into_raw())?.clone(),
     }
     .into()
   }
@@ -206,7 +191,7 @@ impl CameraRenderer {
     jitter: Vec2<f32>,
     queue: &GPUQueue,
   ) {
-    let uniform = self.0.get(&camera).unwrap();
+    let uniform = self.0.get(&camera.into_raw()).unwrap();
     uniform.write_at(
       queue,
       &jitter,

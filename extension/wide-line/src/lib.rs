@@ -44,7 +44,7 @@ pub type WideLineMeshInternal = NoneIndexedMesh<LineList, Vec<WideLineVertex>>;
 pub fn use_widen_line(qcx: &mut QueryGPUHookCx) -> Option<WideLineModelRenderer> {
   let (qcx, quad) = qcx.use_gpu_init(create_wide_line_quad_gpu);
 
-  let uniform = qcx.use_uniform_buffers2();
+  let uniform = qcx.use_uniform_buffers();
 
   qcx.use_changes::<WideLineWidth>().update_uniforms(
     &uniform,
