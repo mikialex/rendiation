@@ -17,37 +17,6 @@ pub fn is_bindless_supported_on_this_gpu(info: &GPUInfo, max_binding_length: u32
   bindless_effectively_supported
 }
 
-pub struct BindlessTextureSystemSource {
-  texture2d: BindingArrayMaintainer<u32, GPU2DTextureView>,
-  sampler: BindingArrayMaintainer<u32, GPUSamplerView>,
-}
-
-impl BindlessTextureSystemSource {
-  pub fn new(
-    texture2d: impl ReactiveQuery<Key = u32, Value = GPU2DTextureView>,
-    default_2d: GPU2DTextureView,
-    sampler: impl ReactiveQuery<Key = u32, Value = GPUSamplerView>,
-    default_sampler: GPUSamplerView,
-    max_binding_length: u32,
-    gpu: &GPU,
-  ) -> Self {
-    Self {
-      texture2d: BindingArrayMaintainer::new(
-        texture2d.into_boxed(),
-        default_2d,
-        max_binding_length,
-        gpu,
-      ),
-      sampler: BindingArrayMaintainer::new(
-        sampler.into_boxed(),
-        default_sampler,
-        max_binding_length,
-        gpu,
-      ),
-    }
-  }
-}
-
 both!(
   BindlessTexturesInShader,
   ShaderBinding<BindingArray<ShaderBinding<ShaderTexture2D>>>
@@ -57,21 +26,10 @@ both!(
   ShaderBinding<BindingArray<ShaderBinding<ShaderSampler>>>
 );
 
-impl ReactiveGeneralQuery for BindlessTextureSystemSource {
-  type Output = Box<dyn DynAbstractGPUTextureSystem>;
-
-  fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
-    Box::new(BindlessTextureSystem {
-      texture_binding_array: self.texture2d.poll_update(cx),
-      sampler_binding_array: self.sampler.poll_update(cx),
-    })
-  }
-}
-
 #[derive(Clone)]
 pub struct BindlessTextureSystem {
-  texture_binding_array: BindingResourceArray<GPU2DTextureView>,
-  sampler_binding_array: BindingResourceArray<GPUSamplerView>,
+  pub texture_binding_array: BindingResourceArray<GPU2DTextureView>,
+  pub sampler_binding_array: BindingResourceArray<GPUSamplerView>,
 }
 
 impl AbstractIndirectGPUTextureSystem for BindlessTextureSystem {

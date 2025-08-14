@@ -33,8 +33,8 @@ pub fn use_gles_texture_system(cx: &mut QueryGPUHookCx) -> Option<GPUTextureBind
 
   cx.when_render(|| {
     Box::new(TraditionalPerDrawBindingSystem {
-      textures: textures.into_boxed(),
-      samplers: samplers.into_boxed(),
+      textures: textures.0.into_boxed(),
+      samplers: samplers.0.into_boxed(),
       default_tex: default_2d.clone(),
       default_sampler: default_sampler.clone(),
     }) as GPUTextureBindingSystem
@@ -42,25 +42,40 @@ pub fn use_gles_texture_system(cx: &mut QueryGPUHookCx) -> Option<GPUTextureBind
 }
 
 pub fn use_bindless_texture_system(cx: &mut QueryGPUHookCx) -> Option<GPUTextureBindingSystem> {
-  cx.use_gpu_general_query(|cx| {
-    let default_2d: GPU2DTextureView = create_fallback_empty_texture(&cx.device)
+  let (cx, (default_2d, default_sampler)) = cx.use_gpu_init(|gpu| {
+    let default_2d: GPU2DTextureView = create_fallback_empty_texture(&gpu.device)
       .create_default_view()
       .try_into()
       .unwrap();
-    let texture_2d = gpu_texture_2ds(cx, default_2d.clone());
+    let default_sampler = create_gpu_sampler(cx.gpu, &TextureSampler::default());
+    (default_2d, default_sampler)
+  });
 
-    let default_sampler = create_gpu_sampler(cx, &TextureSampler::default());
-    let samplers = sampler_gpus(cx);
+  let bindless_minimal_effective_count = BINDLESS_EFFECTIVE_COUNT;
 
-    let bindless_minimal_effective_count = BINDLESS_EFFECTIVE_COUNT;
-    BindlessTextureSystemSource::new(
-      texture_2d,
-      default_2d,
-      samplers,
-      default_sampler,
-      bindless_minimal_effective_count,
-      cx,
-    )
+  let (cx, bindless_texture_2d) = cx.use_plain_state(|| {
+    BindingArrayMaintainer::new(default_2d.clone(), bindless_minimal_effective_count)
+  });
+
+  let (textures, changed) = use_gpu_texture_2ds(cx, default_2d);
+  if changed {
+    bindless_texture_2d.update(textures, cx.gpu);
+  }
+
+  let (cx, bindless_samplers) = cx.use_plain_state(|| {
+    BindingArrayMaintainer::new(default_sampler.clone(), bindless_minimal_effective_count)
+  });
+
+  let (samplers, changed) = use_sampler_gpus(cx);
+  if changed {
+    bindless_samplers.update(samplers, cx.gpu);
+  }
+
+  cx.when_render(|| {
+    Box::new(BindlessTextureSystem {
+      texture_binding_array: bindless_texture_2d.get_gpu(),
+      sampler_binding_array: bindless_samplers.get_gpu(),
+    }) as GPUTextureBindingSystem
   })
 }
 
