@@ -339,7 +339,7 @@ impl DBHookCxLike for QueryGPUHookCx<'_> {
     }
   }
 
-  fn use_query_set<E: EntitySemantic>(&mut self) -> UseResult<DBChange<()>> {
+  fn use_query_set<E: EntitySemantic>(&mut self) -> UseResult<DBDelta<()>> {
     struct WatchToken(u32, EntityId);
     impl CanCleanUpFrom<QueryGPUHookDropCx<'_>> for WatchToken {
       fn drop_from_cx(&mut self, cx: &mut QueryGPUHookDropCx<'_>) {
@@ -361,7 +361,7 @@ impl DBHookCxLike for QueryGPUHookCx<'_> {
     }
   }
 
-  fn use_query_change<C: ComponentSemantic>(&mut self) -> UseResult<DBChange<C::Data>> {
+  fn use_query_change<C: ComponentSemantic>(&mut self) -> UseResult<DBDelta<C::Data>> {
     struct WatchToken(u32, ComponentId);
     impl CanCleanUpFrom<QueryGPUHookDropCx<'_>> for WatchToken {
       fn drop_from_cx(&mut self, cx: &mut QueryGPUHookDropCx<'_>) {
