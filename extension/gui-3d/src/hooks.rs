@@ -177,6 +177,7 @@ impl UI3dCx<'_> {
   }
 }
 
+#[track_caller]
 pub fn use_group(
   cx: &mut UI3dCx,
   children: impl FnOnce(&mut UI3dCx, EntityHandle<SceneNodeEntity>),

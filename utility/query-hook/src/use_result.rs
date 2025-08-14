@@ -171,11 +171,25 @@ where
     self.join(other).map(|(a, b)| a.dual_query_zip(b))
   }
 
+  pub fn dual_query_filter_map<V2: CValue>(
+    self,
+    f: impl Fn(T::Value) -> Option<V2> + Clone + Sync + Send + 'static,
+  ) -> UseResult<impl DualQueryLike<Key = T::Key, Value = V2>> {
+    self.map(|t| t.dual_query_filter_map(f))
+  }
+
   pub fn dual_query_map<V2: CValue>(
     self,
     f: impl Fn(T::Value) -> V2 + Clone + Sync + Send + 'static,
   ) -> UseResult<impl DualQueryLike<Key = T::Key, Value = V2>> {
     self.map(|t| t.dual_query_map(f))
+  }
+
+  pub fn dual_query_select<Q: DualQueryLike<Key = T::Key, Value = T::Value>>(
+    self,
+    other: UseResult<Q>,
+  ) -> UseResult<impl DualQueryLike<Key = T::Key, Value = T::Value>> {
+    self.join(other).map(|(a, b)| a.dual_query_select(b))
   }
 
   pub fn into_delta_change(self) -> UseResult<DeltaQueryAsChange<T::Delta>> {

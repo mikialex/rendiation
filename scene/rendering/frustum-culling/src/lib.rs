@@ -12,29 +12,28 @@ type GPUFrustumDataType = Shader140Array<ShaderPlaneUniform, 6>;
 type GPUFrustumData = UniformBufferDataView<GPUFrustumDataType>;
 
 pub fn use_camera_gpu_frustum(
-  qcx: &mut QueryGPUHookCx,
-  camera_source: &RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
+  cx: &mut QueryGPUHookCx,
+  ndc: impl NDCSpaceMapper + Copy,
 ) -> Option<CameraGPUFrustums> {
-  qcx
-    .use_uniform_buffers(|source, cx| {
-      let c = camera_source
-        .clone()
-        .collective_map(|transform| {
-          let arr = Frustum::new_from_matrix(transform.view_projection)
-            .planes
-            .map(|p| Vec4::new(p.normal.x, p.normal.y, p.normal.z, p.constant).into_f32());
+  let uniforms = cx.use_uniform_buffers();
 
-          Shader140Array::<Vec4<f32>, 6>::from_slice_clamp_or_default(&arr);
-        })
-        .into_query_update_uniform(0, cx);
+  cx.use_shared_dual_query(GlobalCameraTransformShare(ndc))
+    .into_delta_change()
+    .map_changes(|transform| {
+      let arr = Frustum::new_from_matrix(transform.view_projection)
+        .planes
+        .map(|p| Vec4::new(p.normal.x, p.normal.y, p.normal.z, p.constant).into_f32());
 
-      source.with_source(c)
+      Shader140Array::<Vec4<f32>, 6>::from_slice_clamp_or_default(&arr);
     })
-    .map(|frustums| CameraGPUFrustums { frustums })
+    .update_uniforms(&uniforms, 0, cx.gpu);
+
+  cx.when_render(|| CameraGPUFrustums {
+    frustums: uniforms.make_read_holder(),
+  })
 }
 
-type CameraGPUFrustumsUniform =
-  UniformUpdateContainer<EntityHandle<SceneCameraEntity>, GPUFrustumDataType>;
+type CameraGPUFrustumsUniform = UniformBufferCollectionRaw<RawEntityHandle, GPUFrustumDataType>;
 
 pub struct CameraGPUFrustums {
   frustums: LockReadGuardHolder<CameraGPUFrustumsUniform>,
@@ -42,7 +41,7 @@ pub struct CameraGPUFrustums {
 
 impl CameraGPUFrustums {
   pub fn get_gpu_frustum(&self, camera: EntityHandle<SceneCameraEntity>) -> GPUFrustumData {
-    self.frustums.get(&camera).unwrap().clone()
+    self.frustums.get(&camera.into_raw()).unwrap().clone()
   }
 }
 

@@ -6,7 +6,7 @@ pub fn use_gles_scene_model_renderer(
 ) -> Option<Box<dyn SceneModelRenderer>> {
   let node_render = use_node_uniforms(cx);
 
-  let scene_model_ids = cx.use_uniform_buffers2();
+  let scene_model_ids = cx.use_uniform_buffers();
 
   cx.use_query_set::<SceneModelEntity>()
     .map(|v| {

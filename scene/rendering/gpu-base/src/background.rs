@@ -5,13 +5,13 @@ use crate::*;
 pub fn use_background(cx: &mut QueryGPUHookCx) -> Option<SceneBackgroundRenderer> {
   let (env_background_map_gpu, _) = use_gpu_texture_cubes(cx, false);
 
-  let env_background_intensity_uniform = cx.use_uniform_buffers2();
+  let env_background_intensity_uniform = cx.use_uniform_buffers();
 
   cx.use_changes::<SceneHDRxEnvBackgroundIntensity>()
     .filter_map_changes(|v| v.map(|intensity| Vec4::new(intensity, 0., 0., 0.)))
     .update_uniforms(&env_background_intensity_uniform, 0, cx.gpu);
 
-  let solid_background_color_uniform = cx.use_uniform_buffers2();
+  let solid_background_color_uniform = cx.use_uniform_buffers();
 
   cx.use_changes::<SceneSolidBackground>()
     .map_changes(|v| {

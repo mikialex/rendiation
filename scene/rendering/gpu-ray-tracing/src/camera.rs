@@ -17,7 +17,7 @@ impl RtxCameraRenderImpl for CameraRenderer {
     camera: EntityHandle<SceneCameraEntity>,
   ) -> Box<dyn RtxCameraRenderComponent> {
     Box::new(CameraGPU {
-      ubo: self.0.get(&camera).unwrap().clone(),
+      ubo: self.0.get(&camera.into_raw()).unwrap().clone(),
     })
   }
 }

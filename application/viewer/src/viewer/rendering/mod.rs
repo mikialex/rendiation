@@ -85,7 +85,6 @@ pub struct Viewer3dRenderingCtx {
   swap_chain: ApplicationWindowSurface,
   on_encoding_finished: EventSource<ViewRenderedState>,
   expect_read_back_for_next_render_result: bool,
-  camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
   pub(crate) picker: GPUxEntityIdMapPicker,
   pub(crate) statistics: FramePassStatistics,
   pub enable_statistic_collect: bool,
@@ -104,12 +103,7 @@ impl Viewer3dRenderingCtx {
     self.pool.tick();
   }
 
-  pub fn new(
-    gpu: GPU,
-    swap_chain: ApplicationWindowSurface,
-    ndc: ViewerNDC,
-    camera_source: RQForker<EntityHandle<SceneCameraEntity>, CameraTransform>,
-  ) -> Self {
+  pub fn new(gpu: GPU, swap_chain: ApplicationWindowSurface, ndc: ViewerNDC) -> Self {
     Self {
       prefer_bindless_for_indirect_texture_system: false,
       enable_statistic_collect: false,
@@ -130,7 +124,6 @@ impl Viewer3dRenderingCtx {
       gpu,
       on_encoding_finished: Default::default(),
       expect_read_back_for_next_render_result: false,
-      camera_source: camera_source.clone_as_static(),
       picker: Default::default(),
       stat_frame_time_in_ms: StatisticStore::new(200),
       last_render_timestamp: Default::default(),
@@ -143,7 +136,7 @@ impl Viewer3dRenderingCtx {
   ) -> Option<ViewerRendererInstance> {
     let (qcx, change_scope) = qcx.use_begin_change_set_collect();
 
-    let camera = use_camera_uniforms(qcx, &self.camera_source);
+    let camera = use_camera_uniforms(qcx, self.ndc);
     let background = use_background(qcx);
 
     let ty = get_suitable_texture_system_ty(
@@ -164,11 +157,7 @@ impl Viewer3dRenderingCtx {
     let t_clone = texture_sys.clone();
     let attributes_custom_key = Arc::new(|_: u32, _: &mut _| {}) as Arc<_>;
 
-    let culling = use_viewer_culling(
-      qcx,
-      &self.camera_source,
-      self.enable_indirect_occlusion_culling,
-    );
+    let culling = use_viewer_culling(qcx, self.ndc, self.enable_indirect_occlusion_culling);
 
     let mut mesh_lod_graph_renderer = None;
 

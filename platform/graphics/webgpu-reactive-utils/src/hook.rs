@@ -166,27 +166,11 @@ impl<'a> QueryGPUHookCx<'a> {
     self.use_gpu_init(|gpu| MultiAccessGPUStates::new(gpu, init))
   }
 
-  pub fn use_uniform_buffers2<K: 'static, V: Std140 + 'static>(
+  pub fn use_uniform_buffers<K: 'static, V: Std140 + 'static>(
     &mut self,
   ) -> UniformBufferCollection<K, V> {
     let (_, uniform) = self.use_plain_state_default_cloned::<UniformBufferCollection<K, V>>();
     uniform
-  }
-
-  pub fn use_uniform_buffers<K, V: Std140 + 'static>(
-    &mut self,
-    f: impl FnOnce(UniformUpdateContainer<K, V>, &GPU) -> UniformUpdateContainer<K, V>,
-  ) -> Option<LockReadGuardHolder<UniformUpdateContainer<K, V>>> {
-    let (cx, token) = self.use_state_with_features(|cx| {
-      let source = UniformUpdateContainer::<K, V>::default();
-      cx.query_cx.register_multi_updater(f(source, cx.gpu))
-    });
-
-    if let GPUQueryHookStage::CreateRender { query, .. } = &mut cx.stage {
-      query.take_multi_updater_updated(*token)
-    } else {
-      None
-    }
   }
 
   pub fn use_uniform_array_buffers<V: Std140, const N: usize>(

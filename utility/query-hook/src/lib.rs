@@ -167,13 +167,39 @@ pub trait QueryHookCxLike: HooksCxLike {
     }
   }
 
+  /// warning, the delta/change must not shared
   #[track_caller]
   fn use_shared_compute<Provider: SharedResultProvider<Self>>(
     &mut self,
     provider: Provider,
   ) -> UseResult<Provider::Result> {
     let key = provider.compute_share_key();
-    self.use_shared_compute_internal(move |cx| provider.use_logic(cx), key)
+    self
+      .use_shared_compute_internal(move |cx| provider.use_logic(cx), key)
+      .0
+  }
+
+  #[track_caller]
+  fn use_shared_dual_query<Provider: SharedResultProvider<Self, Result: DualQueryLike>>(
+    &mut self,
+    provider: Provider,
+  ) -> UseResult<
+    BoxedDynDualQuery<
+      <Provider::Result as DualQueryLike>::Key,
+      <Provider::Result as DualQueryLike>::Value,
+    >,
+  > {
+    let key = provider.compute_share_key();
+    let (result, is_shared) =
+      self.use_shared_compute_internal(move |cx| provider.use_logic(cx), key);
+
+    result.map(move |r| {
+      if is_shared {
+        r.replace_delta_by_full_view().into_boxed()
+      } else {
+        r.into_boxed()
+      }
+    })
   }
 
   #[track_caller]
@@ -184,16 +210,17 @@ pub trait QueryHookCxLike: HooksCxLike {
     &mut self,
     logic: F,
     key: ShareKey,
-  ) -> UseResult<T> {
+  ) -> (UseResult<T>, bool) {
     if let Some(&task_id) = self.shared_ctx().task_id_mapping.get(&key) {
-      match &self.stage() {
+      let r = match &self.stage() {
         QueryHookStage::SpawnTask { pool, .. } => {
           UseResult::SpawnStageFuture(pool.share_task_by_id(task_id))
         }
         QueryHookStage::ResolveTask { task, .. } => {
           UseResult::ResolveStageReady(task.expect_result_by_id(task_id))
         }
-      }
+      };
+      (r, true)
     } else {
       self.scope(|cx| {
         let result = logic(cx);
@@ -205,14 +232,15 @@ pub trait QueryHookCxLike: HooksCxLike {
           cx.shared_ctx().task_id_mapping.insert(key, *self_id);
         }
 
-        match &cx.stage() {
+        let r = match &cx.stage() {
           QueryHookStage::SpawnTask { pool, .. } => {
             UseResult::SpawnStageFuture(pool.share_task_by_id(*self_id))
           }
           QueryHookStage::ResolveTask { task, .. } => {
             UseResult::ResolveStageReady(task.expect_result_by_id(*self_id))
           }
-        }
+        };
+        (r, false)
       })
     }
   }

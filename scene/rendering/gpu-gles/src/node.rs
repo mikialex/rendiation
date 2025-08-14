@@ -1,7 +1,7 @@
 use crate::*;
 
 pub fn use_node_uniforms(cx: &mut QueryGPUHookCx) -> Option<GLESNodeRenderer> {
-  let uniform = cx.use_uniform_buffers2();
+  let uniform = cx.use_uniform_buffers();
 
   use_global_node_world_mat(cx)
     .into_delta_change()

@@ -4,7 +4,7 @@ use rendiation_shader_library::normal_mapping::apply_normal_mapping_conditional;
 use crate::*;
 
 pub fn use_pbr_sg_material_uniforms(cx: &mut QueryGPUHookCx) -> Option<PbrSGMaterialGlesRenderer> {
-  let uniforms = cx.use_uniform_buffers2();
+  let uniforms = cx.use_uniform_buffers();
 
   cx.use_changes::<PbrSGMaterialAlbedoComponent>()
     .update_uniforms(&uniforms, offset_of!(Uniform, albedo), cx.gpu);
@@ -21,7 +21,7 @@ pub fn use_pbr_sg_material_uniforms(cx: &mut QueryGPUHookCx) -> Option<PbrSGMate
   cx.use_changes::<AlphaOf<PbrSGMaterialAlphaConfig>>()
     .update_uniforms(&uniforms, offset_of!(Uniform, alpha), cx.gpu);
 
-  let tex_uniforms = cx.use_uniform_buffers2();
+  let tex_uniforms = cx.use_uniform_buffers();
 
   let albedo_alpha = offset_of!(TexUniform, albedo_alpha_texture);
   let emissive = offset_of!(TexUniform, emissive_texture);
