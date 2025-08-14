@@ -1,7 +1,48 @@
 use crate::*;
 
 /// not need to hash the sampler to reduce the gpu sampler count, in device we have deduplicated
-/// already, and we also not need to do materialize, in device we have cached all sample created
+pub fn use_sampler_gpus(cx: &mut QueryGPUHookCx) -> SharedHashMapRead<u32, GPUSamplerView> {
+  let map = cx.use_shared_hash_map();
+
+  maintain_shared_map(&map, cx.use_changes::<SceneSamplerInfo>(), |info| {
+    create_gpu_sampler(cx.gpu, &info)
+  });
+
+  map.make_read_holder()
+}
+
+pub fn use_gpu_texture_2ds(
+  cx: &mut QueryGPUHookCx,
+  default: &GPU2DTextureView,
+) -> SharedHashMapRead<u32, GPU2DTextureView> {
+  let map = cx.use_shared_hash_map();
+
+  maintain_shared_map_avoid_unnecessary_creator_init(
+    &map,
+    cx.use_changes::<SceneTexture2dEntityDirectContent>(),
+    || {
+      let mut mipmap_cx = MipmapCtx {
+        gpu: cx.gpu.clone(),
+        encoder: cx.gpu.create_encoder().into(),
+      };
+
+      move |tex| {
+        if let Some(tex) = tex {
+          create_gpu_texture2d_with_mipmap(
+            &mipmap_cx.gpu,
+            mipmap_cx.encoder.as_mut().unwrap(),
+            &tex,
+          )
+        } else {
+          default.clone()
+        }
+      }
+    },
+  );
+
+  map.make_read_holder()
+}
+
 pub fn sampler_gpus(cx: &GPU) -> impl ReactiveQuery<Key = u32, Value = GPUSamplerView> {
   let cx = cx.clone();
   global_watch()

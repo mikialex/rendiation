@@ -17,18 +17,6 @@ impl<T> From<TaskUseResult<T>> for UseResult<T> {
 }
 
 impl<T: Send + Sync + 'static> UseResult<T> {
-  pub fn clone_except_future(&self) -> Self
-  where
-    T: Clone,
-  {
-    match self {
-      UseResult::SpawnStageFuture(_) => panic!("can not clone future"),
-      UseResult::SpawnStageReady(r) => UseResult::SpawnStageReady(r.clone()),
-      UseResult::ResolveStageReady(r) => UseResult::ResolveStageReady(r.clone()),
-      UseResult::NotInStage => UseResult::NotInStage,
-    }
-  }
-
   pub fn map<U>(self, f: impl FnOnce(T) -> U + Send + Sync + 'static) -> UseResult<U> {
     use futures::FutureExt;
     match self {
@@ -72,6 +60,42 @@ impl<T: Send + Sync + 'static> UseResult<T> {
       (Some(a), Some(b)) => UseResult::SpawnStageFuture(Box::new(futures::future::join(a, b))),
       (None, None) => UseResult::NotInStage,
       _ => panic!("join source corrupted"),
+    }
+  }
+
+  pub fn filter_map_changes<X, U>(
+    self,
+    f: impl Fn(X) -> Option<U> + Clone + Sync + Send + 'static,
+  ) -> UseResult<impl DataChanges<Key = T::Key, Value = U>>
+  where
+    T: DataChanges<Value = X>,
+    U: CValue,
+  {
+    self.map(|t| t.collective_filter_map(f))
+  }
+
+  pub fn map_changes<X, U>(
+    self,
+    f: impl Fn(X) -> U + Clone + Sync + Send + 'static,
+  ) -> UseResult<impl DataChanges<Key = T::Key, Value = U>>
+  where
+    T: DataChanges<Value = X>,
+    U: CValue,
+  {
+    self.map(|t| t.collective_map(f))
+  }
+}
+
+impl<T: Send + Sync> UseResult<T> {
+  pub fn clone_except_future(&self) -> Self
+  where
+    T: Clone,
+  {
+    match self {
+      UseResult::SpawnStageFuture(_) => panic!("can not clone future"),
+      UseResult::SpawnStageReady(r) => UseResult::SpawnStageReady(r.clone()),
+      UseResult::ResolveStageReady(r) => UseResult::ResolveStageReady(r.clone()),
+      UseResult::NotInStage => UseResult::NotInStage,
     }
   }
 
@@ -132,28 +156,6 @@ impl<T: Send + Sync + 'static> UseResult<T> {
       UseResult::SpawnStageReady(t) => t,
       _ => panic!("expect spawn stage ready"),
     }
-  }
-
-  pub fn filter_map_changes<X, U>(
-    self,
-    f: impl Fn(X) -> Option<U> + Clone + Sync + Send + 'static,
-  ) -> UseResult<impl DataChanges<Key = T::Key, Value = U>>
-  where
-    T: DataChanges<Value = X>,
-    U: CValue,
-  {
-    self.map(|t| t.collective_filter_map(f))
-  }
-
-  pub fn map_changes<X, U>(
-    self,
-    f: impl Fn(X) -> U + Clone + Sync + Send + 'static,
-  ) -> UseResult<impl DataChanges<Key = T::Key, Value = U>>
-  where
-    T: DataChanges<Value = X>,
-    U: CValue,
-  {
-    self.map(|t| t.collective_map(f))
   }
 }
 

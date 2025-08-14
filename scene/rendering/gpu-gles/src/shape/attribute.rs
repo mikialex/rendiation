@@ -72,16 +72,15 @@ impl GLESModelShapeRenderImpl for GLESAttributesMeshRenderer {
   }
 }
 
-type BufferCollection = Arc<RwLock<FastHashMap<RawEntityHandle, GPUBufferResourceView>>>;
-type BufferCollectionRead =
-  LockReadGuardHolder<FastHashMap<RawEntityHandle, GPUBufferResourceView>>;
+type BufferCollection = SharedHashMap<RawEntityHandle, GPUBufferResourceView>;
+type BufferCollectionRead = SharedHashMapRead<RawEntityHandle, GPUBufferResourceView>;
 
 // todo, currently we not consider BufferEntityData itself's change
 fn use_buffers<B: SceneBufferView>(
   cx: &mut QueryGPUHookCx,
   usage: BufferUsages,
 ) -> BufferCollection {
-  let (cx, map) = cx.use_plain_state_default_cloned::<BufferCollection>();
+  let map = cx.use_shared_hash_map();
 
   let source = cx
     .use_dual_query::<SceneBufferViewBufferId<B>>()
@@ -89,22 +88,15 @@ fn use_buffers<B: SceneBufferView>(
     .into_delta_change()
     .filter_map_changes(|(id, range)| Some((id?, range)));
 
-  if let Some(change) = source.if_ready() {
-    if change.has_change() {
-      let mut map = map.write();
-      let read_view = global_entity_component_of::<BufferEntityData>().read();
-      for k in change.iter_removed() {
-        map.remove(&k);
-      }
+  let read_view = global_entity_component_of::<BufferEntityData>().read();
 
-      for (k, (idx, range)) in change.iter_update_or_insert() {
-        let buffer = unsafe { read_view.get_by_untyped_handle(idx).unwrap() };
-        let buffer = create_gpu_buffer(buffer.as_slice(), usage, &cx.gpu.device);
-        let buffer = buffer.create_view(map_view(range));
-        map.insert(k, buffer);
-      }
-    }
-  }
+  let f = |(idx, range): (RawEntityHandle, Option<BufferViewRange>)| {
+    let buffer = unsafe { read_view.get_by_untyped_handle(idx).unwrap() };
+    let buffer = create_gpu_buffer(buffer.as_slice(), usage, &cx.gpu.device);
+    buffer.create_view(map_view(range))
+  };
+
+  maintain_shared_map(&map, source, f);
 
   map
 }

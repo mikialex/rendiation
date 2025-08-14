@@ -164,8 +164,7 @@ impl<'a> QueryGPUHookCx<'a> {
   pub fn use_uniform_buffers<K: 'static, V: Std140 + 'static>(
     &mut self,
   ) -> UniformBufferCollection<K, V> {
-    let (_, uniform) = self.use_plain_state_default_cloned::<UniformBufferCollection<K, V>>();
-    uniform
+    self.use_shared_hash_map()
   }
 
   #[deprecated]

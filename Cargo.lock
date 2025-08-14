@@ -4169,7 +4169,6 @@ dependencies = [
  "database",
  "fast-hash-collection",
  "log",
- "parking_lot",
  "reactive",
  "rendiation-algebra",
  "rendiation-geometry",
@@ -4497,8 +4496,6 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "database",
- "fast-hash-collection",
- "parking_lot",
  "reactive",
  "rendiation-algebra",
  "rendiation-geometry",

@@ -20,22 +20,24 @@ pub fn use_texture_system(
 }
 
 pub fn use_gles_texture_system(cx: &mut QueryGPUHookCx) -> Option<GPUTextureBindingSystem> {
-  cx.use_gpu_general_query(|cx| {
-    let default_2d: GPU2DTextureView = create_fallback_empty_texture(&cx.device)
+  let (cx, (default_2d, default_sampler)) = cx.use_gpu_init(|gpu| {
+    let default_2d: GPU2DTextureView = create_fallback_empty_texture(&gpu.device)
       .create_default_view()
       .try_into()
       .unwrap();
-    let texture_2d = gpu_texture_2ds(cx, default_2d.clone());
+    let default_sampler = create_gpu_sampler(cx.gpu, &TextureSampler::default());
+    (default_2d, default_sampler)
+  });
+  let textures = use_gpu_texture_2ds(cx, default_2d);
+  let samplers = use_sampler_gpus(cx);
 
-    let default_sampler = create_gpu_sampler(cx, &TextureSampler::default());
-    let samplers = sampler_gpus(cx);
-
-    TraditionalPerDrawBindingSystemSource {
-      default_tex: default_2d,
-      default_sampler,
-      textures: Box::new(texture_2d),
-      samplers: Box::new(samplers),
-    }
+  cx.when_render(|| {
+    Box::new(TraditionalPerDrawBindingSystem {
+      textures: textures.into_boxed(),
+      samplers: samplers.into_boxed(),
+      default_tex: default_2d.clone(),
+      default_sampler: default_sampler.clone(),
+    }) as GPUTextureBindingSystem
   })
 }
 
