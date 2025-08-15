@@ -31,6 +31,7 @@ pub enum QueryHookStage<'a> {
 pub enum TaskUseResult<T> {
   SpawnId(u32),
   Result(T),
+  NotInStage,
 }
 
 impl<T> TaskUseResult<T> {
@@ -123,31 +124,6 @@ pub trait QueryHookCxLike: HooksCxLike {
     r
   }
 
-  #[track_caller]
-  fn use_result<T: Send + Sync + 'static + Clone>(&mut self, re: UseResult<T>) -> UseResult<T> {
-    let (cx, spawned) = self.use_plain_state_default();
-    if cx.is_spawning_stage() || *spawned {
-      let fut = match re {
-        UseResult::SpawnStageFuture(future) => {
-          *spawned = true;
-          Some(future)
-        }
-        UseResult::SpawnStageReady(re) => return UseResult::SpawnStageReady(re),
-        _ => {
-          if cx.is_spawning_stage() {
-            panic!("must contain work in spawning stage")
-          } else {
-            None
-          }
-        }
-      };
-
-      cx.scope(|cx| cx.use_future(fut).into())
-    } else {
-      re
-    }
-  }
-
   fn use_task_result_by_fn<R, F>(&mut self, create_task: F) -> TaskUseResult<R>
   where
     R: Clone + Sync + Send + 'static,
@@ -191,7 +167,9 @@ pub trait QueryHookCxLike: HooksCxLike {
     }
   }
 
-  fn use_future<R: 'static + Send + Sync + Clone>(
+  /// when f contains future and is spawning stage, the future will be spawned
+  /// and the return result contains task id in spawn stage or result in resolve stage
+  fn use_global_shared_future<R: 'static + Send + Sync + Clone>(
     &mut self,
     f: Option<impl Future<Output = R> + Send + Sync + 'static>,
   ) -> TaskUseResult<R> {
@@ -199,11 +177,20 @@ pub trait QueryHookCxLike: HooksCxLike {
 
     match cx.stage() {
       QueryHookStage::SpawnTask { pool, .. } => {
-        *token = pool.install_task(f.unwrap());
-        TaskUseResult::SpawnId(*token)
+        if let Some(fut) = f {
+          *token = pool.install_task(fut);
+          TaskUseResult::SpawnId(*token)
+        } else {
+          *token = u32::MAX;
+          TaskUseResult::NotInStage
+        }
       }
       QueryHookStage::ResolveTask { task, .. } => {
-        TaskUseResult::Result(task.expect_result_by_id(*token))
+        if *token != u32::MAX {
+          TaskUseResult::Result(task.expect_result_by_id(*token))
+        } else {
+          TaskUseResult::NotInStage
+        }
       }
     }
   }

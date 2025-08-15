@@ -14,6 +14,10 @@ pub trait DBHookCxLike: QueryHookCxLike {
     &mut self,
   ) -> UseResult<Arc<LinearBatchChanges<u32, C::Data>>>;
 
+  fn use_query_change<C: ComponentSemantic>(&mut self) -> UseResult<DBDelta<C::Data>>;
+
+  fn use_query_set<E: EntitySemantic>(&mut self) -> UseResult<DBDelta<()>>;
+
   fn use_dual_query<C: ComponentSemantic>(&mut self) -> UseResult<DBDualQuery<C::Data>> {
     self.use_query_change::<C>().map(|change| DualQuery {
       view: get_db_view::<C>(),
@@ -27,9 +31,6 @@ pub trait DBHookCxLike: QueryHookCxLike {
       delta: change,
     })
   }
-
-  fn use_query_change<C: ComponentSemantic>(&mut self) -> UseResult<DBDelta<C::Data>>;
-  fn use_query_set<E: EntitySemantic>(&mut self) -> UseResult<DBDelta<()>>;
 
   #[track_caller]
   fn use_db_rev_ref_tri_view<C: ForeignKeySemantic>(&mut self) -> UseResult<RevRefForeignTriQuery> {

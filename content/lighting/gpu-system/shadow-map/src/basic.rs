@@ -38,9 +38,7 @@ pub fn use_basic_shadow_map_uniform(
 
     let (source_proj1, source_proj2) = source_proj.fork();
 
-    let source_world_view = source_world1
-      .use_assure_result(cx)
-      .retain_view_to_resolve_stage(cx);
+    let source_world_view = source_world1.use_retain_view_to_resolve_stage(cx);
 
     source_world2
       .into_delta_change()
@@ -52,9 +50,7 @@ pub fn use_basic_shadow_map_uniform(
         cx.gpu,
       );
 
-    let source_proj_view = source_proj1
-      .use_assure_result(cx)
-      .retain_view_to_resolve_stage(cx);
+    let source_proj_view = source_proj1.use_retain_view_to_resolve_stage(cx);
 
     source_world3
       .dual_query_zip(source_proj2)

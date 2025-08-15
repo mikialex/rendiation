@@ -107,33 +107,31 @@ where
 
     let derived = cx.use_shared_hash_map::<RawEntityHandle, C::Data>();
 
-    cx.use_future(
-      connectivity_rev_view
-        .if_spawn_stage_future()
-        .map(|connectivity_rev_view| {
-          let visible_change = visible_change.expect_spawn_stage_ready();
-          let connectivity_change = connectivity_change.expect_spawn_stage_ready();
-          let f = self.0;
-          async move {
-            let connectivity_rev_view = connectivity_rev_view.await;
+    cx.use_global_shared_future(connectivity_rev_view.into_spawn_stage_future().map(
+      |connectivity_rev_view| {
+        let visible_change = visible_change.expect_spawn_stage_ready();
+        let connectivity_change = connectivity_change.expect_spawn_stage_ready();
+        let f = self.0;
+        async move {
+          let connectivity_rev_view = connectivity_rev_view.await;
 
-            let changes = compute_tree_derive(
-              &mut derived.write(),
-              f,
-              visible_source,
-              visible_change,
-              connectivity_view,
-              connectivity_rev_view,
-              connectivity_change,
-            );
+          let changes = compute_tree_derive(
+            &mut derived.write(),
+            f,
+            visible_source,
+            visible_change,
+            connectivity_view,
+            connectivity_rev_view,
+            connectivity_change,
+          );
 
-            DualQuery {
-              view: derived.make_read_holder(),
-              delta: Arc::new(changes),
-            }
+          DualQuery {
+            view: derived.make_read_holder(),
+            delta: Arc::new(changes),
           }
-        }),
-    )
+        }
+      },
+    ))
   }
 }
 

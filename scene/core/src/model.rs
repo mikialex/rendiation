@@ -104,7 +104,7 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for GlobalSceneModelWorldMatrix 
   fn use_logic(&self, cx: &mut Cx) -> TaskUseResult<Self::Result> {
     use_global_node_world_mat(cx)
       .fanout(cx.use_db_rev_ref_tri_view::<SceneModelRefNode>())
-      .use_assure_result_expose(cx)
+      .use_global_shared(cx)
   }
 }
 
