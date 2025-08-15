@@ -32,8 +32,9 @@ pub fn use_point_light_storage(
 
   let (qcx, multi_acc) = qcx.use_gpu_multi_access_states(light_multi_access_config());
 
-  let updates = qcx.use_db_rev_ref_tri_view::<PointLightRefScene>();
-  let updates = qcx.use_result(updates);
+  let updates = qcx
+    .use_db_rev_ref_tri_view::<PointLightRefScene>()
+    .use_assure_result(qcx);
 
   qcx.when_render(|| {
     let light = light.get_gpu_buffer();

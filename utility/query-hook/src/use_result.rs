@@ -10,8 +10,8 @@ pub enum UseResult<T> {
 impl<T> From<TaskUseResult<T>> for UseResult<T> {
   fn from(value: TaskUseResult<T>) -> Self {
     match value {
-      TaskUseResult::SpawnId(_) => UseResult::NotInStage,
       TaskUseResult::Result(r) => UseResult::ResolveStageReady(r),
+      _ => UseResult::NotInStage,
     }
   }
 }
@@ -165,7 +165,9 @@ impl<T: Send + Sync> UseResult<T> {
     self.if_resolve_stage().unwrap()
   }
 
-  pub fn if_spawn_stage_future(self) -> Option<Box<dyn Future<Output = T> + Unpin + Sync + Send>> {
+  pub fn into_spawn_stage_future(
+    self,
+  ) -> Option<Box<dyn Future<Output = T> + Unpin + Sync + Send>> {
     match self {
       UseResult::SpawnStageFuture(t) => Some(t),
       _ => None,
@@ -173,7 +175,7 @@ impl<T: Send + Sync> UseResult<T> {
   }
 
   pub fn expect_spawn_stage_future(self) -> Box<dyn Future<Output = T> + Unpin + Sync + Send> {
-    self.if_spawn_stage_future().unwrap()
+    self.into_spawn_stage_future().unwrap()
   }
 
   pub fn expect_spawn_stage_ready(self) -> T {
@@ -185,19 +187,50 @@ impl<T: Send + Sync> UseResult<T> {
 }
 
 impl<T: Clone + Send + Sync + 'static> UseResult<T> {
-  #[track_caller]
   pub fn use_assure_result(self, cx: &mut impl QueryHookCxLike) -> UseResult<T> {
-    cx.use_result(self)
+    let (cx, token) = cx.use_plain_state(|| u32::MAX);
+
+    match cx.stage() {
+      QueryHookStage::SpawnTask { pool, .. } => {
+        if let UseResult::SpawnStageFuture(fut) = self {
+          *token = pool.install_task(fut);
+          UseResult::NotInStage
+        } else {
+          *token = u32::MAX;
+          self
+        }
+      }
+      QueryHookStage::ResolveTask { task, .. } => {
+        if *token != u32::MAX {
+          UseResult::ResolveStageReady(task.expect_result_by_id(*token))
+        } else {
+          self
+        }
+      }
+    }
   }
 
-  pub fn retain_view_to_resolve_stage(self, cx: &mut impl QueryHookCxLike) -> UseResult<T::View>
+  pub fn use_global_shared(self, cx: &mut impl QueryHookCxLike) -> TaskUseResult<T> {
+    let future = match self {
+      UseResult::SpawnStageFuture(future) => Some(future),
+      UseResult::SpawnStageReady(result) => Some(Box::new(futures::future::ready(result))
+        as Box<dyn Future<Output = T> + Unpin + Send + Sync>),
+      UseResult::ResolveStageReady(_) => panic!("resolve stage result can not be shared"),
+      UseResult::NotInStage => return TaskUseResult::NotInStage,
+    };
+    cx.use_global_shared_future(future)
+  }
+
+  pub fn use_retain_view_to_resolve_stage(self, cx: &mut impl QueryHookCxLike) -> UseResult<T::View>
   where
     T: DualQueryLike,
   {
+    let _self = self.use_assure_result(cx);
+
     let (cx, view_temp) = cx.use_plain_state_default::<Option<T::View>>();
 
-    match self {
-      UseResult::SpawnStageFuture(_) => panic!("expect result"),
+    match _self {
+      UseResult::SpawnStageFuture(_) => unreachable!("we have assure the result"),
       UseResult::SpawnStageReady(v) => {
         *view_temp = Some(v.view());
         UseResult::NotInStage
@@ -205,17 +238,16 @@ impl<T: Clone + Send + Sync + 'static> UseResult<T> {
       UseResult::ResolveStageReady(v) => UseResult::ResolveStageReady(v.view()),
       UseResult::NotInStage => {
         if cx.is_resolve_stage() {
-          let v = view_temp.take().unwrap();
-          UseResult::ResolveStageReady(v)
+          if let Some(v) = view_temp.take() {
+            UseResult::ResolveStageReady(v)
+          } else {
+            UseResult::NotInStage
+          }
         } else {
           UseResult::NotInStage
         }
       }
     }
-  }
-
-  pub fn use_assure_result_expose(self, cx: &mut impl QueryHookCxLike) -> TaskUseResult<T> {
-    cx.use_future(self.if_spawn_stage_future())
   }
 }
 

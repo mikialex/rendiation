@@ -154,6 +154,6 @@ impl<T: NDCSpaceMapper + Copy, Cx: DBHookCxLike> SharedResultProvider<Cx>
     camera_world_mat
       .dual_query_zip(projections)
       .dual_query_map(|(world, proj)| CameraTransform::new(proj, world))
-      .use_assure_result_expose(cx)
+      .use_global_shared(cx)
   }
 }

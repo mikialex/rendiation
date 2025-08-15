@@ -134,26 +134,6 @@ impl<'a> QueryGPUHookCx<'a> {
     }
   }
 
-  #[deprecated]
-  pub fn use_gpu_general_query<T: ReactiveGeneralQuery + 'static>(
-    &mut self,
-    f: impl FnOnce(&GPU) -> T,
-  ) -> Option<T::Output> {
-    let (cx, token) = self.use_state_with_features(|cx| cx.query_cx.register_typed(f(cx.gpu)));
-
-    if let GPUQueryHookStage::CreateRender { query, .. } = &mut cx.stage {
-      Some(
-        *query
-          .take_result(*token)
-          .unwrap()
-          .downcast::<T::Output>()
-          .unwrap(),
-      )
-    } else {
-      None
-    }
-  }
-
   pub fn use_gpu_multi_access_states(
     &mut self,
     init: MultiAccessGPUDataBuilderInit,
