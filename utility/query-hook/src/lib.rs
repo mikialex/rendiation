@@ -70,8 +70,43 @@ pub trait SharedResultProvider<Cx>: 'static {
   fn use_logic(&self, cx: &mut Cx) -> TaskUseResult<Self::Result>;
 }
 
+pub type SharedHashMap<K, V> = Arc<RwLock<FastHashMap<K, V>>>;
+pub type SharedHashMapRead<K, V> = LockReadGuardHolder<FastHashMap<K, V>>;
+#[inline(always)]
+pub fn maintain_shared_map<K: CKey, V, D: DataChanges<Key = K>>(
+  map: &SharedHashMap<K, V>,
+  change: UseResult<D>,
+  f: impl FnMut(D::Value) -> V,
+) {
+  maintain_shared_map_avoid_unnecessary_creator_init(map, change, || f)
+}
+
+pub fn maintain_shared_map_avoid_unnecessary_creator_init<K, V, D, F>(
+  map: &SharedHashMap<K, V>,
+  change: UseResult<D>,
+  f: impl FnOnce() -> F,
+) where
+  K: CKey,
+  D: DataChanges<Key = K>,
+  F: FnMut(D::Value) -> V,
+{
+  if let Some(changes) = change.if_ready() {
+    if changes.has_change() {
+      let mut f = f();
+      let mut map = map.write();
+      for k in changes.iter_removed() {
+        map.remove(&k);
+      }
+      for (k, v) in changes.iter_update_or_insert() {
+        map.insert(k, f(v));
+      }
+    }
+  }
+}
+
 pub trait QueryHookCxLike: HooksCxLike {
   fn is_spawning_stage(&self) -> bool;
+  fn is_resolve_stage(&self) -> bool;
   fn stage(&mut self) -> QueryHookStage;
 
   fn shared_ctx(&mut self) -> &mut SharedHookResult;
@@ -80,6 +115,12 @@ pub trait QueryHookCxLike: HooksCxLike {
     if self.is_spawning_stage() {
       f();
     }
+  }
+
+  // maybe this fn should move to upstream
+  fn use_shared_hash_map<K: 'static, V: 'static>(&mut self) -> SharedHashMap<K, V> {
+    let (_, r) = self.use_plain_state_default_cloned::<SharedHashMap<K, V>>();
+    r
   }
 
   #[track_caller]
@@ -174,9 +215,7 @@ pub trait QueryHookCxLike: HooksCxLike {
     provider: Provider,
   ) -> UseResult<Provider::Result> {
     let key = provider.compute_share_key();
-    self
-      .use_shared_compute_internal(move |cx| provider.use_logic(cx), key)
-      .0
+    self.use_shared_compute_internal(move |cx| provider.use_logic(cx), key)
   }
 
   #[track_caller]
@@ -190,11 +229,12 @@ pub trait QueryHookCxLike: HooksCxLike {
     >,
   > {
     let key = provider.compute_share_key();
-    let (result, is_shared) =
-      self.use_shared_compute_internal(move |cx| provider.use_logic(cx), key);
+    let (cx, has_synced_change) = self.use_plain_state_default_cloned::<Arc<RwLock<bool>>>();
+    let result = cx.use_shared_compute_internal(move |cx| provider.use_logic(cx), key);
 
     result.map(move |r| {
-      if is_shared {
+      if !*has_synced_change.read() {
+        *has_synced_change.write() = true;
         r.replace_delta_by_full_view().into_boxed()
       } else {
         r.into_boxed()
@@ -210,17 +250,16 @@ pub trait QueryHookCxLike: HooksCxLike {
     &mut self,
     logic: F,
     key: ShareKey,
-  ) -> (UseResult<T>, bool) {
+  ) -> UseResult<T> {
     if let Some(&task_id) = self.shared_ctx().task_id_mapping.get(&key) {
-      let r = match &self.stage() {
+      match &self.stage() {
         QueryHookStage::SpawnTask { pool, .. } => {
           UseResult::SpawnStageFuture(pool.share_task_by_id(task_id))
         }
         QueryHookStage::ResolveTask { task, .. } => {
           UseResult::ResolveStageReady(task.expect_result_by_id(task_id))
         }
-      };
-      (r, true)
+      }
     } else {
       self.scope(|cx| {
         let result = logic(cx);
@@ -232,15 +271,14 @@ pub trait QueryHookCxLike: HooksCxLike {
           cx.shared_ctx().task_id_mapping.insert(key, *self_id);
         }
 
-        let r = match &cx.stage() {
+        match &cx.stage() {
           QueryHookStage::SpawnTask { pool, .. } => {
             UseResult::SpawnStageFuture(pool.share_task_by_id(*self_id))
           }
           QueryHookStage::ResolveTask { task, .. } => {
             UseResult::ResolveStageReady(task.expect_result_by_id(*self_id))
           }
-        };
-        (r, false)
+        }
       })
     }
   }

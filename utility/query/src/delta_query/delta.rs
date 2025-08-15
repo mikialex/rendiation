@@ -124,3 +124,73 @@ pub fn make_checker<V, V2>(
     }
   }
 }
+
+pub fn merge_change<K: CKey, T: CValue>(
+  mutations: &mut FastHashMap<K, ValueChange<T>>,
+  (idx, change): (K, ValueChange<T>),
+) {
+  if let Some(old_change) = mutations.get_mut(&idx) {
+    if !old_change.merge(&change) {
+      mutations.remove(&idx);
+    }
+  } else {
+    mutations.insert(idx, change);
+  }
+}
+
+pub fn integrate_change<K: CKey, T: CValue>(
+  states: &mut FastHashMap<K, T>,
+  (idx, change): (K, ValueChange<T>),
+) {
+  match change {
+    ValueChange::Delta(new, _) => {
+      states.insert(idx, new);
+    }
+    ValueChange::Remove(_) => {
+      states.remove(&idx);
+    }
+  }
+}
+
+pub fn validate_delta<K: CKey, V: CValue>(
+  state: &mut FastHashMap<K, V>,
+  log_change: bool,
+  label: &'static str,
+  d: &impl Query<Key = K, Value = ValueChange<V>>,
+) {
+  let changes = d.materialize();
+
+  if !changes.is_empty() && log_change {
+    println!("change details for <{}>:", label);
+  }
+  for (k, change) in changes.iter() {
+    if log_change {
+      println!("{:?}: {:?}", k, change);
+    }
+    match change {
+      ValueChange::Delta(n, p) => {
+        if let Some(removed) = state.remove(k) {
+          let p = p.as_ref();
+
+          if p.is_none() {
+            panic!("previous value should exist, {}", label);
+          }
+
+          assert_eq!(&removed, p.unwrap(), "{}", label);
+        } else {
+          assert!(p.is_none());
+        }
+        state.insert(k.clone(), n.clone());
+      }
+      ValueChange::Remove(p) => {
+        let removed = state.remove(k);
+
+        if removed.is_none() {
+          panic!("remove none exist value, {}", label);
+        }
+
+        assert_eq!(&removed.unwrap(), p, "{}", label);
+      }
+    }
+  }
+}

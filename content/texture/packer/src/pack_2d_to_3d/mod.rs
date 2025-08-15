@@ -5,8 +5,8 @@ use rendiation_texture_core::{Size, SizeWithDepth};
 use crate::pack_2d_to_2d::*;
 use crate::*;
 
-mod reactive;
-pub use reactive::*;
+mod remap_growable;
+pub use remap_growable::*;
 
 pub struct MultiLayerTexturePackerRaw<P> {
   packers: Vec<P>,

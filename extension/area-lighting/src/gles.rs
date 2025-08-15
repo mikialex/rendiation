@@ -17,7 +17,7 @@ pub struct LTCAreaLightUniform {
 pub fn use_area_light_uniform_array(
   cx: &mut QueryGPUHookCx,
 ) -> UniformArray<LTCAreaLightUniform, 8> {
-  let (cx, uniform) = cx.use_uniform_array_buffers2();
+  let (cx, uniform) = cx.use_uniform_array_buffers();
 
   let offset = offset_of!(LTCAreaLightUniform, intensity);
   cx.use_changes::<AreaLightIntensity>()

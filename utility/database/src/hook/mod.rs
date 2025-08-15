@@ -9,47 +9,7 @@ pub use watch_query::*;
 
 use crate::*;
 
-pub type SharedHashMap<K, V> = Arc<RwLock<FastHashMap<K, V>>>;
-pub type SharedHashMapRead<K, V> = LockReadGuardHolder<FastHashMap<K, V>>;
-#[inline(always)]
-pub fn maintain_shared_map<K: CKey, V, D: DataChanges<Key = K>>(
-  map: &SharedHashMap<K, V>,
-  change: UseResult<D>,
-  f: impl FnMut(D::Value) -> V,
-) {
-  maintain_shared_map_avoid_unnecessary_creator_init(map, change, || f)
-}
-
-pub fn maintain_shared_map_avoid_unnecessary_creator_init<K, V, D, F>(
-  map: &SharedHashMap<K, V>,
-  change: UseResult<D>,
-  f: impl FnOnce() -> F,
-) where
-  K: CKey,
-  D: DataChanges<Key = K>,
-  F: FnMut(D::Value) -> V,
-{
-  if let Some(changes) = change.if_ready() {
-    if changes.has_change() {
-      let mut f = f();
-      let mut map = map.write();
-      for k in changes.iter_removed() {
-        map.remove(&k);
-      }
-      for (k, v) in changes.iter_update_or_insert() {
-        map.insert(k, f(v));
-      }
-    }
-  }
-}
-
 pub trait DBHookCxLike: QueryHookCxLike {
-  // maybe this fn should move to upstream
-  fn use_shared_hash_map<K: 'static, V: 'static>(&mut self) -> SharedHashMap<K, V> {
-    let (_, r) = self.use_plain_state_default_cloned::<SharedHashMap<K, V>>();
-    r
-  }
-
   fn use_changes<C: ComponentSemantic>(
     &mut self,
   ) -> UseResult<Arc<LinearBatchChanges<u32, C::Data>>>;
@@ -119,18 +79,16 @@ pub trait DBHookCxLike: QueryHookCxLike {
       ComponentId::Hash(hash) => ShareKey::Hash(hash),
     };
 
-    self
-      .use_shared_compute_internal(
-        |cx| {
-          let changes = cx
-            .use_query_change::<C>()
-            .map(|v| v.delta_filter_map(|v| v));
+    self.use_shared_compute_internal(
+      |cx| {
+        let changes = cx
+          .use_query_change::<C>()
+          .map(|v| v.delta_filter_map(|v| v));
 
-          cx.use_rev_ref(changes)
-        },
-        key,
-      )
-      .0
+        cx.use_rev_ref(changes)
+      },
+      key,
+    )
   }
 }
 

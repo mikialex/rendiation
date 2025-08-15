@@ -1,44 +1,12 @@
 use crate::*;
 
-pub fn get_or_create_map_with_init_clear(
-  debug_label: &'static str,
-  required_size: SizeWithDepth,
-  cache: &mut Option<GPU2DArrayDepthTextureView>,
+pub fn clear_shadow_map(
+  map: &GPU2DArrayDepthTextureView,
+
   frame_ctx: &mut FrameCtx,
   reversed_depth: bool,
-) -> GPU2DArrayDepthTextureView {
-  let required_size_gpu = required_size.into_gpu_size();
-  if let Some(tex) = cache {
-    if required_size_gpu != tex.resource.desc.size {
-      *cache = None;
-    }
-  }
-
-  let map = cache
-    .get_or_insert_with(|| {
-      GPUTexture::create(
-        TextureDescriptor {
-          label: debug_label.into(),
-          size: required_size_gpu,
-          mip_level_count: 1,
-          sample_count: 1,
-          dimension: TextureDimension::D2,
-          format: TextureFormat::Depth32Float,
-          view_formats: &[],
-          usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
-        },
-        &frame_ctx.gpu.device,
-      )
-      .create_view(TextureViewDescriptor {
-        dimension: TextureViewDimension::D2Array.into(),
-        ..Default::default()
-      })
-      .try_into()
-      .unwrap()
-    })
-    .clone();
-
-  for layer in 0..u32::from(required_size.depth) {
+) {
+  for layer in 0..map.resource.depth_or_array_layers() {
     // clear all
     let write_view = map.resource.create_view(TextureViewDescriptor {
       label: Some("shadowmap-clear-view"),
@@ -55,8 +23,44 @@ pub fn get_or_create_map_with_init_clear(
       )
       .render_ctx(frame_ctx);
   }
+}
 
-  map
+pub fn get_or_create_shadow_atlas(
+  debug_label: &'static str,
+  required_size: SizeWithDepth,
+  cache: &mut Option<GPU2DArrayDepthTextureView>,
+  gpu: &GPU,
+) -> GPU2DArrayDepthTextureView {
+  let required_size_gpu = required_size.into_gpu_size();
+  if let Some(tex) = cache {
+    if required_size_gpu != tex.resource.desc.size {
+      *cache = None;
+    }
+  }
+
+  cache
+    .get_or_insert_with(|| {
+      GPUTexture::create(
+        TextureDescriptor {
+          label: debug_label.into(),
+          size: required_size_gpu,
+          mip_level_count: 1,
+          sample_count: 1,
+          dimension: TextureDimension::D2,
+          format: TextureFormat::Depth32Float,
+          view_formats: &[],
+          usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
+        },
+        &gpu.device,
+      )
+      .create_view(TextureViewDescriptor {
+        dimension: TextureViewDimension::D2Array.into(),
+        ..Default::default()
+      })
+      .try_into()
+      .unwrap()
+    })
+    .clone()
 }
 
 pub fn sample_shadow_pcf_x36_by_offset(

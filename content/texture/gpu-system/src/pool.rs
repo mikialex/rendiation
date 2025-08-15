@@ -1,7 +1,7 @@
+use fast_hash_collection::FastHashSet;
 use rendiation_texture_core::*;
 pub use rendiation_texture_packer::pack_2d_to_3d::MultiLayerTexturePackerConfig;
 use rendiation_texture_packer::pack_2d_to_3d::*;
-use rendiation_webgpu_reactive_utils::*;
 
 use crate::*;
 
@@ -9,15 +9,42 @@ use crate::*;
 #[std430_layout]
 #[derive(Clone, Copy, Default, ShaderStruct, Debug, PartialEq)]
 pub struct TexturePoolTextureMeta {
-  pub layer_index: u32,
-  pub size: Vec2<f32>,
-  pub offset: Vec2<f32>,
+  pub layout: TexturePoolTextureMetaLayoutInfo,
   pub require_srgb_to_linear_convert: Bool,
 }
 
-impl TexturePoolTextureMeta {
+#[repr(C)]
+#[std430_layout]
+#[derive(Clone, Copy, Default, ShaderStruct, Debug, PartialEq)]
+pub struct TexturePoolTextureMetaLayoutInfo {
+  pub layer_index: u32,
+  pub size: Vec2<f32>,
+  pub offset: Vec2<f32>,
+}
+
+impl From<PackResult2dWithDepth> for TexturePoolTextureMetaLayoutInfo {
+  fn from(v: PackResult2dWithDepth) -> Self {
+    Self {
+      layer_index: v.depth,
+      size: v.result.range.size.into_f32().into(),
+      offset: Vec2::new(
+        v.result.range.origin.x as f32,
+        v.result.range.origin.y as f32,
+      ),
+      ..Default::default()
+    }
+  }
+}
+
+impl From<Option<PackResult2dWithDepth>> for TexturePoolTextureMetaLayoutInfo {
+  fn from(v: Option<PackResult2dWithDepth>) -> Self {
+    v.map(Self::from).unwrap_or(Self::none())
+  }
+}
+
+impl TexturePoolTextureMetaLayoutInfo {
   pub fn none() -> Self {
-    TexturePoolTextureMeta {
+    Self {
       layer_index: u32::MAX,
       size: Vec2::zero(),
       offset: Vec2::zero(),
@@ -85,17 +112,6 @@ impl PartialEq for TexturePool2dSource {
   }
 }
 
-pub struct TexturePoolSource {
-  texture: Option<GPU2DArrayTextureView>,
-  tex_input: RQForker<Texture2DHandle, TexturePool2dSource>,
-  packing: BoxedDynReactiveQuery<Texture2DHandle, PackResult2dWithDepth>,
-  atlas_resize: Box<dyn Stream<Item = SizeWithDepth> + Unpin>,
-  format: TextureFormat,
-  address: ReactiveStorageBufferContainer<TexturePoolTextureMeta>,
-  samplers: ReactiveStorageBufferContainer<TextureSamplerShaderInfo>,
-  gpu: GPU,
-}
-
 pub struct TexturePoolSourceInit {
   pub init_sampler_count_capacity: u32,
   pub init_texture_count_capacity: u32,
@@ -103,178 +119,83 @@ pub struct TexturePoolSourceInit {
   pub atlas_config: MultiLayerTexturePackerConfig,
 }
 
-impl TexturePoolSource {
-  /// the tex input must cover the full linear global scope, so that we can setup the none exist texture info
-  ///
-  /// the mipmap is partially supported, the main difference is that we only support max level of min(width, height)
-  /// but the specs requires max(width, height); This is the limitation of current implementation and could be
-  /// solved in the future
-  pub fn new(
-    gpu: &GPU,
-    tex_input: BoxedDynReactiveQuery<Texture2DHandle, Option<TexturePool2dSource>>,
-    sampler_input: BoxedDynReactiveQuery<SamplerHandle, TextureSampler>,
-    init: TexturePoolSourceInit,
-  ) -> Self {
-    let format = init.format;
-    let config = init.atlas_config;
-
-    let tex_input = tex_input
-      .collective_filter_map(move |tex| {
-        let tex = tex?;
-        if tex.inner.format != format && tex.inner.format.remove_srgb_suffix() != format {
-          return None;
-        }
-        tex.into()
-      })
-      .into_boxed()
-      .into_forker();
-
-    let size = tex_input.clone().collective_map(|tex| tex.inner.size);
-    let full_scope = tex_input.clone().collective_map(|_| {});
-
-    let (packing, atlas_resize) = reactive_pack_2d_to_3d(config, Box::new(size));
-    let packing = packing.into_forker();
-    let add_info = packing
-      .clone()
-      .collective_map(|v| TexturePoolTextureMeta {
-        layer_index: v.depth,
-        size: v.result.range.size.into_f32().into(),
-        offset: Vec2::new(
-          v.result.range.origin.x as f32,
-          v.result.range.origin.y as f32,
-        ),
-        ..Default::default()
-      })
-      .collective_union(full_scope, |(a, b)| {
-        b.map(|_| {
-          if let Some(a) = a {
-            a
-          } else {
-            TexturePoolTextureMeta::none()
-          }
-        })
-      })
-      .into_query_update_storage(0);
-
-    let srgb_convert_info = tex_input
-      .clone()
-      .collective_map(|v| Bool::from(v.inner.format.is_srgb()))
-      .into_query_update_storage(std::mem::offset_of!(
-        TexturePoolTextureMeta,
-        require_srgb_to_linear_convert,
-      ));
-
-    let address =
-      create_reactive_storage_buffer_container(init.init_texture_count_capacity, u32::MAX, gpu)
-        .with_source(add_info)
-        .with_source(srgb_convert_info);
-
-    let samplers = sampler_input
-      .collective_map(TextureSamplerShaderInfo::from)
-      .into_query_update_storage(0);
-
-    let samplers =
-      create_reactive_storage_buffer_container(init.init_sampler_count_capacity, u32::MAX, gpu)
-        .with_source(samplers);
-
-    Self {
-      tex_input,
-      packing: packing.clone().into_boxed(),
-      atlas_resize: Box::new(atlas_resize),
-      address,
-      samplers,
-      texture: None,
-      format,
-      gpu: gpu.clone(),
+pub fn update_atlas(
+  gpu: &GPU,
+  atlas: &mut Option<GPU2DArrayTextureView>,
+  format: TextureFormat,
+  current_pack: impl Fn(u32) -> Option<PackResult2dWithDepth>,
+  packing_change: impl Iterator<Item = (u32, ValueChange<Option<PackResult2dWithDepth>>)>,
+  tex_input_current: impl Fn(u32) -> Arc<GPUBufferImage>,
+  tex_source_change: impl Iterator<Item = (u32, Arc<GPUBufferImage>)>,
+  size_request: SizeWithDepth,
+) {
+  if let Some(a) = atlas {
+    if a.resource.desc.size != size_request.into_gpu_size() {
+      *atlas = None;
     }
   }
-}
 
-impl ReactiveGeneralQuery for TexturePoolSource {
-  type Output = Box<dyn DynAbstractGPUTextureSystem>;
-
-  fn poll_query(&mut self, cx: &mut Context) -> Self::Output {
-    let (packing_change, current_pack) = self.packing.describe(cx).resolve_kept();
-
-    if let Poll::Ready(Some(rsize)) = self.atlas_resize.poll_next_unpin(cx) {
-      let size = rsize.into_gpu_size();
-      self.texture = Some(
-        GPUTexture::create(
-          TextureDescriptor {
-            label: "texture-pool".into(),
-            size,
-            mip_level_count: MipLevelCount::BySize.get_level_count_wgpu(rsize.size),
-            sample_count: 1,
-            dimension: TextureDimension::D2,
-            format: self.format,
-            view_formats: &[],
-            usage: TextureUsages::COPY_DST
-              | TextureUsages::TEXTURE_BINDING
-              | TextureUsages::RENDER_ATTACHMENT,
-          },
-          &self.gpu.device,
-        )
-        .create_view(TextureViewDescriptor {
-          label: "texture pool view".into(),
-          dimension: TextureViewDimension::D2Array.into(),
-          ..Default::default()
-        })
-        .try_into()
-        .unwrap(),
-      );
-    }
-    let target = self.texture.as_ref().unwrap();
-
-    let mut encoder = self.gpu.device.create_encoder();
-
-    let (tex_source_change, tex_input_current) = self.tex_input.describe(cx).resolve_kept();
-    for (id, change) in tex_source_change.iter_key_value() {
-      match change {
-        ValueChange::Delta(new_tex, _) => {
-          if let Some(current_pack) = current_pack.access(&id) {
-            // pack may failed, in this case we do nothing
-            let tex = create_gpu_texture2d_with_mipmap(&self.gpu, &mut encoder, &new_tex.inner);
-            copy_tex(&mut encoder, &tex, &target.resource, &current_pack);
-          }
-        }
-        ValueChange::Remove(_) => {}
-      }
-    }
-
-    for (id, change) in packing_change.iter_key_value() {
-      match change {
-        ValueChange::Delta(new_pack, _) => {
-          let mut tex_has_recreated = false;
-          if let Some(tex_change) = tex_source_change.access(&id) {
-            if !tex_change.is_removed() {
-              tex_has_recreated = true;
-            }
-          }
-
-          // if texture has already created as new texture, we skip the move operation
-          if !tex_has_recreated {
-            if let Some(tex) = tex_input_current.access(&id) {
-              // tex maybe removed
-              let tex = create_gpu_texture2d_with_mipmap(&self.gpu, &mut encoder, &tex.inner);
-              copy_tex(&mut encoder, &tex, &target.resource, &new_pack);
-            }
-          }
-        }
-        ValueChange::Remove(_) => {}
-      }
-    }
-
-    self.gpu.queue.submit_encoder(encoder);
-
-    self.address.poll_update(cx);
-    self.samplers.poll_update(cx);
-
-    Box::new(TexturePool {
-      texture: target.clone(),
-      address: self.address.target.gpu().clone(),
-      samplers: self.samplers.target.gpu().clone(),
+  let target = atlas.get_or_insert_with(|| {
+    GPUTexture::create(
+      TextureDescriptor {
+        label: "texture-pool".into(),
+        size: size_request.into_gpu_size(),
+        mip_level_count: MipLevelCount::BySize.get_level_count_wgpu(size_request.size),
+        sample_count: 1,
+        dimension: TextureDimension::D2,
+        format,
+        view_formats: &[],
+        usage: TextureUsages::COPY_DST
+          | TextureUsages::TEXTURE_BINDING
+          | TextureUsages::RENDER_ATTACHMENT,
+      },
+      &gpu.device,
+    )
+    .create_view(TextureViewDescriptor {
+      label: "texture pool view".into(),
+      dimension: TextureViewDimension::D2Array.into(),
+      ..Default::default()
     })
+    .try_into()
+    .unwrap()
+  });
+
+  let mut encoder = gpu.device.create_encoder();
+
+  let mut changed_set = FastHashSet::default();
+
+  for (id, new_tex) in tex_source_change {
+    changed_set.insert(id);
+    if let Some(current_pack) = current_pack(id) {
+      // pack may failed, in this case we do nothing
+      let tex = create_gpu_texture2d_with_mipmap(gpu, &mut encoder, &new_tex);
+      copy_tex(&mut encoder, &tex, &target.resource, &current_pack);
+    }
   }
+
+  for (id, change) in packing_change {
+    match change {
+      ValueChange::Delta(new_pack, _) => {
+        let mut tex_has_recreated = false;
+        if changed_set.contains(&id) {
+          tex_has_recreated = true;
+        }
+
+        // if texture has already created as new texture, we skip the move operation
+        if !tex_has_recreated {
+          let tex = tex_input_current(id);
+          // tex maybe removed
+          if let Some(new_pack) = new_pack {
+            let tex = create_gpu_texture2d_with_mipmap(gpu, &mut encoder, &tex);
+            copy_tex(&mut encoder, &tex, &target.resource, &new_pack);
+          }
+        }
+      }
+      ValueChange::Remove(_) => {}
+    }
+  }
+
+  gpu.queue.submit_encoder(encoder);
 }
 
 fn copy_tex(
@@ -336,9 +257,9 @@ fn copy_tex_level(
 
 #[derive(Clone)]
 pub struct TexturePool {
-  texture: GPU2DArrayTextureView,
-  address: StorageBufferReadonlyDataView<[TexturePoolTextureMeta]>,
-  samplers: StorageBufferReadonlyDataView<[TextureSamplerShaderInfo]>,
+  pub texture: GPU2DArrayTextureView,
+  pub address: StorageBufferReadonlyDataView<[TexturePoolTextureMeta]>,
+  pub samplers: StorageBufferReadonlyDataView<[TextureSamplerShaderInfo]>,
 }
 
 both!(TexturePoolInShader, ShaderBinding<ShaderTexture2DArray>);
@@ -399,14 +320,15 @@ impl AbstractIndirectGPUTextureSystem for TexturePool {
     let samplers = reg.any_map.get::<SamplerPoolInShader>().unwrap();
 
     let texture_meta = textures_meta.0.index(shader_texture_handle).load();
+    let texture_layout = TexturePoolTextureMeta::layout(texture_meta);
 
-    let tex = TexturePoolTextureMeta::layer_index(texture_meta)
+    let tex = TexturePoolTextureMetaLayoutInfo::layer_index(texture_layout)
       .equals(u32::MAX) // check if the texture is failed to allocate
       .select_branched(
         || val(Vec4::zero()),
         || {
           let sampler = samplers.0.index(shader_sampler_handle).load();
-          texture_pool_sample_impl_fn(texture, sampler, texture_meta, uv)
+          texture_pool_sample_impl_fn(texture, sampler, texture_layout, uv)
         },
       );
 
@@ -429,7 +351,7 @@ impl AbstractIndirectGPUTextureSystem for TexturePool {
 fn texture_pool_sample_impl(
   texture: BindingNode<ShaderTexture2DArray>,
   sampler: Node<TextureSamplerShaderInfo>,
-  texture_meta: Node<TexturePoolTextureMeta>,
+  texture_meta: Node<TexturePoolTextureMetaLayoutInfo>,
   uv: Node<Vec2<f32>>,
 ) -> Node<Vec4<f32>> {
   let texture_meta = texture_meta.expand();

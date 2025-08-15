@@ -7,11 +7,8 @@ version = "0.1.0"
 [dependencies]
 fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 rendiation-texture-core = { path = "../core" }
-linked-hash-map = "0.5.4"
 etagere = "0.2.6"
-parking_lot = { workspace = true }
 reactive = { path = "../../../utility/reactive" }
-futures = { workspace = true }
 
 [lints]
 workspace = true

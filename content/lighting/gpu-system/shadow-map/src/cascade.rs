@@ -122,13 +122,13 @@ impl CascadeShadowPreparer {
     let shadow_map_atlas = &mut resource_cache.texture;
     let uniforms = &mut resource_cache.uniforms;
 
-    let shadow_map_atlas = get_or_create_map_with_init_clear(
+    let shadow_map_atlas = get_or_create_shadow_atlas(
       "cascade-shadow-map-atlas",
       self.map_size,
       shadow_map_atlas,
-      frame_ctx,
-      reversed_depth,
+      frame_ctx.gpu,
     );
+    clear_shadow_map(&shadow_map_atlas, frame_ctx, reversed_depth);
 
     // do shadowmap updates
     for (index, cascade) in self.uniforms.iter().enumerate() {

@@ -32,6 +32,7 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
   type Delta: Query<Key = Self::Key, Value = ValueChange<Self::Value>> + 'static;
   type View: Query<Key = Self::Key, Value = Self::Value> + 'static;
   fn view_delta(self) -> (Self::View, Self::Delta);
+  fn view_delta_ref(&self) -> (&Self::View, &Self::Delta);
 
   fn view(self) -> Self::View {
     self.view_delta().0
@@ -113,6 +114,19 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
       (None, None) => None,
       (None, Some(_)) => unreachable!("zip missing left side"),
       (Some(_), None) => unreachable!("zip missing right side"),
+    })
+  }
+
+  fn dual_query_intersect<Q>(
+    self,
+    other: Q,
+  ) -> impl DualQueryLike<Key = Self::Key, Value = (Self::Value, Q::Value)>
+  where
+    Q: DualQueryLike<Key = Self::Key>,
+  {
+    self.dual_query_union(other, move |(a, b)| match (a, b) {
+      (Some(a), Some(b)) => Some((a, b)),
+      _ => None,
     })
   }
 
@@ -239,6 +253,10 @@ where
   type Delta = U;
   type View = T;
 
+  fn view_delta_ref(&self) -> (&Self::View, &Self::Delta) {
+    (&self.view, &self.delta)
+  }
+
   fn view_delta(self) -> (Self::View, Self::Delta) {
     (self.view, self.delta)
   }
@@ -267,6 +285,10 @@ where
   type Value = V;
   type Delta = U;
   type View = T;
+
+  fn view_delta_ref(&self) -> (&Self::View, &Self::Delta) {
+    (&self.base.view, &self.base.delta)
+  }
 
   fn view_delta(self) -> (Self::View, Self::Delta) {
     (self.base.view, self.base.delta)
