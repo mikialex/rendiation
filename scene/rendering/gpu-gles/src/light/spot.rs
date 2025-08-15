@@ -13,7 +13,7 @@ pub struct SpotLightUniform {
 }
 
 pub fn use_spot_uniform_array(cx: &mut QueryGPUHookCx) -> UniformArray<SpotLightUniform, 8> {
-  let (cx, uniform) = cx.use_uniform_array_buffers2();
+  let (cx, uniform) = cx.use_uniform_array_buffers();
 
   let offset = offset_of!(SpotLightUniform, luminance_intensity);
   cx.use_changes::<PointLightIntensity>()

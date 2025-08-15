@@ -12,7 +12,7 @@ pub struct DirectionalLightUniform {
 pub fn use_directional_uniform_array(
   cx: &mut QueryGPUHookCx,
 ) -> UniformArray<DirectionalLightUniform, 8> {
-  let (cx, uniform) = cx.use_uniform_array_buffers2();
+  let (cx, uniform) = cx.use_uniform_array_buffers();
 
   let offset = offset_of!(DirectionalLightUniform, illuminance);
   cx.use_changes::<DirectionalLightIlluminance>()

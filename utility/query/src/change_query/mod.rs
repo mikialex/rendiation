@@ -23,6 +23,16 @@ pub trait DataChanges: Send + Sync + Clone {
     })
   }
 
+  fn map_changes_key<U: CKey>(
+    self,
+    f: impl Fn(Self::Key) -> U + Clone + Send + Sync + 'static,
+  ) -> impl DataChanges<Key = U, Value = Self::Value> {
+    MapChangesKey {
+      base: self,
+      mapper: f,
+    }
+  }
+
   fn collective_map<V: CValue>(
     self,
     f: impl Fn(Self::Value) -> V + Clone + Send + Sync + 'static,
@@ -58,6 +68,36 @@ impl<K: CKey, V: CValue> DataChanges for EmptyQuery<K, V> {
 
   fn iter_update_or_insert(&self) -> impl Iterator<Item = (Self::Key, Self::Value)> + '_ {
     std::iter::empty()
+  }
+}
+
+#[derive(Clone)]
+struct MapChangesKey<T, F> {
+  base: T,
+  mapper: F,
+}
+impl<T, K, F> DataChanges for MapChangesKey<T, F>
+where
+  T: DataChanges,
+  K: CKey,
+  F: Fn(T::Key) -> K + Clone + Send + Sync,
+{
+  type Key = K;
+  type Value = T::Value;
+
+  fn has_change(&self) -> bool {
+    self.base.has_change()
+  }
+
+  fn iter_removed(&self) -> impl Iterator<Item = Self::Key> + '_ {
+    self.base.iter_removed().map(self.mapper.clone())
+  }
+
+  fn iter_update_or_insert(&self) -> impl Iterator<Item = (K, Self::Value)> + '_ {
+    self
+      .base
+      .iter_update_or_insert()
+      .map(|(k, v)| ((self.mapper)(k), v))
   }
 }
 

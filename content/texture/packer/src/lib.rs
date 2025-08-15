@@ -1,9 +1,6 @@
-#![feature(impl_trait_in_assoc_type)]
-
-use std::{num::NonZeroU32, sync::Arc};
+use std::num::NonZeroU32;
 
 use fast_hash_collection::*;
-use parking_lot::RwLock;
 use reactive::*;
 
 pub mod growable;

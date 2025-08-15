@@ -87,6 +87,31 @@ impl<T: Send + Sync + 'static> UseResult<T> {
 }
 
 impl<T: Send + Sync> UseResult<T> {
+  pub fn fork(self) -> (Self, Self)
+  where
+    T: Clone + 'static,
+  {
+    match self {
+      UseResult::SpawnStageFuture(future) => {
+        let future = future.shared();
+        let future2 = future.clone();
+        (
+          UseResult::SpawnStageFuture(Box::new(future)),
+          UseResult::SpawnStageFuture(Box::new(future2)),
+        )
+      }
+      UseResult::SpawnStageReady(r) => (
+        UseResult::SpawnStageReady(r.clone()),
+        UseResult::SpawnStageReady(r),
+      ),
+      UseResult::ResolveStageReady(r) => (
+        UseResult::ResolveStageReady(r.clone()),
+        UseResult::ResolveStageReady(r),
+      ),
+      UseResult::NotInStage => (UseResult::NotInStage, UseResult::NotInStage),
+    }
+  }
+
   pub fn clone_except_future(&self) -> Self
   where
     T: Clone,
@@ -165,6 +190,30 @@ impl<T: Clone + Send + Sync + 'static> UseResult<T> {
     cx.use_result(self)
   }
 
+  pub fn retain_view_to_resolve_stage(self, cx: &mut impl QueryHookCxLike) -> UseResult<T::View>
+  where
+    T: DualQueryLike,
+  {
+    let (cx, view_temp) = cx.use_plain_state_default::<Option<T::View>>();
+
+    match self {
+      UseResult::SpawnStageFuture(_) => panic!("expect result"),
+      UseResult::SpawnStageReady(v) => {
+        *view_temp = Some(v.view());
+        UseResult::NotInStage
+      }
+      UseResult::ResolveStageReady(v) => UseResult::ResolveStageReady(v.view()),
+      UseResult::NotInStage => {
+        if cx.is_resolve_stage() {
+          let v = view_temp.take().unwrap();
+          UseResult::ResolveStageReady(v)
+        } else {
+          UseResult::NotInStage
+        }
+      }
+    }
+  }
+
   pub fn use_assure_result_expose(self, cx: &mut impl QueryHookCxLike) -> TaskUseResult<T> {
     cx.use_future(self.if_spawn_stage_future())
   }
@@ -174,6 +223,28 @@ impl<T> UseResult<T>
 where
   T: DualQueryLike,
 {
+  pub fn use_validation(
+    self,
+    cx: &mut impl QueryHookCxLike,
+    label: &'static str,
+    log_change: bool,
+  ) -> UseResult<T> {
+    let (cx, has_validate_in_this_cycle) = cx.use_plain_state_default_cloned::<Arc<RwLock<bool>>>();
+    if cx.is_spawning_stage() {
+      *has_validate_in_this_cycle.write() = false;
+    }
+
+    let validator = cx.use_shared_hash_map();
+    self.map(move |dual| {
+      if *has_validate_in_this_cycle.read() {
+        let (_, d) = dual.view_delta_ref();
+        validate_delta(&mut validator.write(), log_change, label, d);
+      }
+
+      dual
+    })
+  }
+
   pub fn fanout<U: TriQueryLike<Value = T::Key>>(
     self,
     other: UseResult<U>,
@@ -189,6 +260,16 @@ where
     Q: DualQueryLike<Key = T::Key>,
   {
     self.join(other).map(|(a, b)| a.dual_query_zip(b))
+  }
+
+  pub fn dual_query_intersect<Q>(
+    self,
+    other: UseResult<Q>,
+  ) -> UseResult<impl DualQueryLike<Key = T::Key, Value = (T::Value, Q::Value)>>
+  where
+    Q: DualQueryLike<Key = T::Key>,
+  {
+    self.join(other).map(|(a, b)| a.dual_query_intersect(b))
   }
 
   pub fn dual_query_filter_map<V2: CValue>(

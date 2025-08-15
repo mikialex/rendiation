@@ -49,13 +49,7 @@ impl<K: CKey, T: CValue> CollectiveMutationSender<K, T> {
   /// this should be called when locked
   pub unsafe fn send(&self, idx: K, change: ValueChange<T>) {
     let mutations = &mut *self.inner.0.data_ptr();
-    if let Some(old_change) = mutations.get_mut(&idx) {
-      if !old_change.merge(&change) {
-        mutations.remove(&idx);
-      }
-    } else {
-      mutations.insert(idx, change);
-    }
+    merge_change(mutations, (idx, change));
   }
   pub fn is_closed(&self) -> bool {
     // self inner is shared between sender and receiver, if not shared anymore it must be

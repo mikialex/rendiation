@@ -1,3 +1,10 @@
+use std::sync::Arc;
+
+use database::RawEntityHandle;
+use fast_hash_collection::FastHashMap;
+use parking_lot::RwLock;
+use rendiation_texture_packer::pack_2d_to_3d::RemappedGrowablePacker;
+
 use crate::*;
 
 pub struct ShadowMapSystemInputs {
@@ -13,136 +20,157 @@ pub struct ShadowMapSystemInputs {
   pub enabled: BoxedDynReactiveQuery<u32, bool>,
 }
 
-pub fn basic_shadow_map_uniform(
-  inputs: ShadowMapSystemInputs,
-  config: MultiLayerTexturePackerConfig,
-  gpu_ctx: &GPU,
-) -> (
-  BasicShadowMapSystem,
-  UniformArrayUpdateContainer<BasicShadowMapInfo, 8>,
-) {
-  let source_world = inputs.source_world.into_forker();
+#[track_caller]
+pub fn use_basic_shadow_map_uniform(
+  cx: &mut QueryGPUHookCx,
+  source_world: UseResult<impl DualQueryLike<Key = RawEntityHandle, Value = Mat4<f64>>>,
+  source_proj: UseResult<impl DualQueryLike<Key = RawEntityHandle, Value = Mat4<f32>>>,
+  size: UseResult<impl DataChanges<Key = RawEntityHandle, Value = Size> + 'static>,
+  bias: UseResult<impl DataChanges<Key = u32, Value = ShadowBias> + 'static>,
+  enabled: UseResult<impl DataChanges<Key = u32, Value = bool> + 'static>,
+  atlas_config: MultiLayerTexturePackerConfig,
+) -> Option<(BasicShadowMapUpdater, UniformArray<BasicShadowMapInfo, 8>)> {
+  cx.scope(|cx| {
+    let (cx, uniform) = cx.use_uniform_array_buffers();
 
-  let source_proj = inputs.source_proj.into_forker();
+    let (source_world1, source_world2) = source_world.fork();
+    let (source_world2, source_world3) = source_world2.fork();
 
-  let shadow_mat = source_world
-    .clone()
-    .collective_zip(source_proj.clone())
-    .collective_map(|(world_matrix, projection)| {
-      let world_inv = world_matrix.inverse_or_identity();
-      projection * world_inv.remove_position().into_f32()
+    let (source_proj1, source_proj2) = source_proj.fork();
+
+    let source_world_view = source_world1
+      .use_assure_result(cx)
+      .retain_view_to_resolve_stage(cx);
+
+    source_world2
+      .into_delta_change()
+      .use_assure_result(cx)
+      .map_changes(|world_matrix| into_hpt(world_matrix.position()).into_uniform())
+      .update_uniform_array(
+        uniform,
+        offset_of!(BasicShadowMapInfo, shadow_world_position),
+        cx.gpu,
+      );
+
+    let source_proj_view = source_proj1
+      .use_assure_result(cx)
+      .retain_view_to_resolve_stage(cx);
+
+    source_world3
+      .dual_query_zip(source_proj2)
+      .dual_query_map(|(world_matrix, projection)| {
+        let world_inv = world_matrix.inverse_or_identity();
+        projection * world_inv.remove_position().into_f32()
+      })
+      .use_assure_result(cx)
+      .into_delta_change()
+      .update_uniform_array(
+        uniform,
+        offset_of!(
+          BasicShadowMapInfo,
+          shadow_center_to_shadowmap_ndc_without_translation
+        ),
+        cx.gpu,
+      );
+
+    enabled.map_changes(Bool::from).update_uniform_array(
+      uniform,
+      offset_of!(BasicShadowMapInfo, enabled),
+      cx.gpu,
+    );
+
+    bias.update_uniform_array(uniform, offset_of!(BasicShadowMapInfo, bias), cx.gpu);
+
+    // todo, spawn a task to pack
+    let (cx, packer) =
+      cx.use_plain_state(|| Arc::new(RwLock::new(RemappedGrowablePacker::new(atlas_config))));
+
+    if let Some(size_changes) = size.if_ready() {
+      let mut new_size = None;
+      let mut buff_changes = FastHashMap::default();
+
+      packer.write().process(
+        size_changes.iter_removed(),
+        size_changes.iter_update_or_insert(),
+        |_new_size| {
+          new_size = Some(_new_size);
+        },
+        |key, delta| {
+          merge_change(&mut buff_changes, (key, delta));
+        },
+      );
+
+      buff_changes
+        .into_change()
+        .collective_map(|v| v.map(convert_pack_result).unwrap_or_default()) // todo, handle allocation fail in shader access
+        .update_uniform_array(uniform, offset_of!(BasicShadowMapInfo, map_info), cx.gpu);
+    }
+
+    let (cx, atlas) = cx.use_plain_state_default::<Option<GPU2DArrayDepthTextureView>>();
+
+    cx.when_render(|| {
+      let shadow_map_atlas = get_or_create_shadow_atlas(
+        "basic-shadow-map-atlas",
+        packer.read().current_size(),
+        atlas,
+        cx.gpu,
+      );
+
+      let system = BasicShadowMapUpdater {
+        shadow_map_atlas,
+        source_world: source_world_view.expect_resolve_stage().into_boxed(),
+        source_proj: source_proj_view.expect_resolve_stage().into_boxed(),
+        packing: PackerView(packer.clone().make_read_holder()).into_boxed(),
+      };
+
+      (system, uniform.clone())
     })
-    .into_boxed();
-
-  let position = source_world
-    .clone()
-    .collective_map(|world_matrix| into_hpt(world_matrix.position()).into_uniform());
-
-  let (sys, address) = BasicShadowMapSystem::new(
-    config,
-    source_world.into_boxed(),
-    source_proj.into_boxed(),
-    inputs.size,
-  );
-
-  let enabled = inputs
-    .enabled
-    .collective_map(Bool::from)
-    .into_query_update_uniform_array(offset_of!(BasicShadowMapInfo, enabled), gpu_ctx);
-
-  let map_info =
-    address.into_query_update_uniform_array(offset_of!(BasicShadowMapInfo, map_info), gpu_ctx);
-
-  let bias = inputs
-    .bias
-    .into_query_update_uniform_array(offset_of!(BasicShadowMapInfo, bias), gpu_ctx);
-
-  let shadow_mat = shadow_mat.into_query_update_uniform_array(
-    offset_of!(
-      BasicShadowMapInfo,
-      shadow_center_to_shadowmap_ndc_without_translation
-    ),
-    gpu_ctx,
-  );
-
-  let position = position.into_query_update_uniform_array(
-    offset_of!(BasicShadowMapInfo, shadow_world_position),
-    gpu_ctx,
-  );
-
-  let uniforms = UniformBufferDataView::create_default(&gpu_ctx.device);
-  let uniforms = UniformArrayUpdateContainer::<BasicShadowMapInfo, 8>::new(uniforms)
-    .with_source(enabled)
-    .with_source(map_info)
-    .with_source(shadow_mat)
-    .with_source(position)
-    .with_source(bias);
-
-  (sys, uniforms)
+  })
 }
 
-pub struct BasicShadowMapSystem {
-  shadow_map_atlas: Option<GPU2DArrayDepthTextureView>,
-  packing: BoxedDynReactiveQuery<u32, ShadowMapAddressInfo>,
-  atlas_resize: Box<dyn Stream<Item = SizeWithDepth> + Unpin>,
-  current_size: Option<SizeWithDepth>,
-  source_world: BoxedDynReactiveQuery<u32, Mat4<f64>>,
-  source_proj: BoxedDynReactiveQuery<u32, Mat4<f32>>,
-}
+#[derive(Clone)]
+struct PackerView(LockReadGuardHolder<RemappedGrowablePacker<RawEntityHandle>>);
 
-impl BasicShadowMapSystem {
-  pub fn new(
-    config: MultiLayerTexturePackerConfig,
-    source_world: BoxedDynReactiveQuery<u32, Mat4<f64>>,
-    source_proj: BoxedDynReactiveQuery<u32, Mat4<f32>>,
-    size: BoxedDynReactiveQuery<u32, Size>,
-  ) -> (Self, BoxedDynReactiveQuery<u32, ShadowMapAddressInfo>) {
-    let (packing, atlas_resize) = reactive_pack_2d_to_3d(config, size);
-    let packing = packing.collective_map(convert_pack_result).into_forker();
+impl Query for PackerView {
+  type Key = RawEntityHandle;
+  type Value = ShadowMapAddressInfo;
 
-    let sys = Self {
-      shadow_map_atlas: None,
-      current_size: None,
-      packing: packing.clone().into_boxed(),
-      atlas_resize: Box::new(atlas_resize),
-      source_world,
-      source_proj,
-    };
-    (sys, packing.into_boxed())
+  fn iter_key_value(&self) -> impl Iterator<Item = (Self::Key, Self::Value)> + '_ {
+    self
+      .0
+      .iter_key_value()
+      .map(|(k, v)| (k, convert_pack_result(v.unwrap()))) // todo, fix unwrap
   }
 
-  #[must_use]
+  fn access(&self, key: &Self::Key) -> Option<Self::Value> {
+    self.0.access(key)?.map(convert_pack_result)
+  }
+}
+
+pub struct BasicShadowMapUpdater {
+  pub shadow_map_atlas: GPU2DArrayDepthTextureView,
+  pub source_world: BoxedDynQuery<RawEntityHandle, Mat4<f64>>,
+  pub source_proj: BoxedDynQuery<RawEntityHandle, Mat4<f32>>,
+  pub packing: BoxedDynQuery<RawEntityHandle, ShadowMapAddressInfo>,
+}
+
+impl BasicShadowMapUpdater {
   pub fn update_shadow_maps(
-    &mut self,
-    cx: &mut Context,
+    self,
     frame_ctx: &mut FrameCtx,
     // proj, world
     scene_content: &impl Fn(Mat4<f32>, Mat4<f64>, &mut FrameCtx, ShadowPassDesc),
     reversed_depth: bool,
   ) -> GPU2DArrayDepthTextureView {
-    let (_, current_layouts) = self.packing.describe(cx).resolve_kept(); // incremental detail is useless here
-    while let Poll::Ready(Some(new_size)) = self.atlas_resize.poll_next_unpin(cx) {
-      // if we do shadow cache, we should also do content copy
-      self.current_size = Some(new_size);
-    }
-
-    let shadow_map_atlas = get_or_create_map_with_init_clear(
-      "basic-shadow-map-atlas",
-      self.current_size.unwrap(),
-      &mut self.shadow_map_atlas,
-      frame_ctx,
-      reversed_depth,
-    );
-
-    let (_, world) = self.source_world.describe(cx).resolve_kept();
-    let (_, proj) = self.source_proj.describe(cx).resolve_kept();
+    clear_shadow_map(&self.shadow_map_atlas, frame_ctx, reversed_depth);
 
     // do shadowmap updates
-    for (idx, shadow_view) in current_layouts.iter_key_value() {
-      let world = world.access(&idx).unwrap();
-      let proj = proj.access(&idx).unwrap();
+    for (idx, shadow_view) in self.packing.iter_key_value() {
+      let world = self.source_world.access(&idx).unwrap();
+      let proj = self.source_proj.access(&idx).unwrap();
 
-      let write_view = shadow_map_atlas
+      let write_view = self
+        .shadow_map_atlas
         .resource
         .create_view(TextureViewDescriptor {
           label: Some("shadowmap-write-view"),
@@ -168,7 +196,7 @@ impl BasicShadowMapSystem {
       );
     }
 
-    shadow_map_atlas.clone()
+    self.shadow_map_atlas
   }
 }
 

@@ -167,22 +167,7 @@ impl<'a> QueryGPUHookCx<'a> {
     self.use_shared_hash_map()
   }
 
-  #[deprecated]
-  pub fn use_uniform_array_buffers<V: Std140, const N: usize>(
-    &mut self,
-    f: impl FnOnce(&GPU) -> UniformArrayUpdateContainer<V, N>,
-  ) -> Option<UniformBufferDataView<Shader140Array<V, N>>> {
-    let (cx, token) =
-      self.use_state_with_features(|cx| cx.query_cx.register_multi_updater(f(cx.gpu)));
-
-    if let GPUQueryHookStage::CreateRender { query, .. } = &mut cx.stage {
-      query.take_uniform_array_buffer(*token)
-    } else {
-      None
-    }
-  }
-
-  pub fn use_uniform_array_buffers2<V: Std140 + Default, const N: usize>(
+  pub fn use_uniform_array_buffers<V: Std140 + Default, const N: usize>(
     &mut self,
   ) -> (&mut Self, &mut UniformBufferDataView<Shader140Array<V, N>>) {
     self.use_gpu_init(|gpu| UniformBufferDataView::create_default(&gpu.device))
@@ -262,6 +247,9 @@ impl QueryHookCxLike for QueryGPUHookCx<'_> {
 
   fn is_spawning_stage(&self) -> bool {
     matches!(&self.stage, GPUQueryHookStage::Update { .. })
+  }
+  fn is_resolve_stage(&self) -> bool {
+    matches!(&self.stage, GPUQueryHookStage::CreateRender { .. })
   }
   fn stage(&mut self) -> QueryHookStage {
     match &mut self.stage {

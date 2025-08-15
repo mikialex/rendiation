@@ -9,62 +9,59 @@ pub fn use_directional_light_uniform(
   init_config: &MultiLayerTexturePackerConfig,
   ndc: ViewerNDC,
 ) -> Option<SceneDirectionalLightingPreparer> {
-  let (qcx, shadow) = qcx.use_gpu_init(|gpu| {
-    let source_proj = global_watch()
-      .watch_untyped_key::<DirectionLightShadowBound>()
-      .collective_map(move |orth| {
-        orth
-          .unwrap_or(OrthographicProjection {
-            left: -20.,
-            right: 20.,
-            top: 20.,
-            bottom: -20.,
-            near: 0.,
-            far: 1000.,
-          })
-          .compute_projection_mat(&ndc)
-      })
-      .into_boxed();
+  let source_world =
+    use_global_node_world_mat(qcx).fanout(qcx.use_db_rev_ref_tri_view::<DirectionalRefNode>());
 
-    let source_world = scene_node_derive_world_mat()
-      .one_to_many_fanout(global_rev_ref().watch_inv_ref::<DirectionalRefNode>())
-      .untyped_entity_handle()
-      .into_boxed();
+  let source_proj = qcx
+    .use_dual_query::<DirectionLightShadowBound>()
+    .dual_query_map(move |orth| {
+      orth
+        .unwrap_or(OrthographicProjection {
+          left: -20.,
+          right: 20.,
+          top: 20.,
+          bottom: -20.,
+          near: 0.,
+          far: 1000.,
+        })
+        .compute_projection_mat(&ndc)
+    });
 
-    basic_shadow_map_uniform_takeable(
-      ShadowMapSystemInputs {
-        source_world,
-        source_proj,
-        size: global_watch()
-          .watch_untyped_key::<BasicShadowMapResolutionOf<DirectionLightBasicShadowInfo>>()
-          .collective_map(|size| Size::from_u32_pair_min_one(size.into()))
-          .into_boxed(),
-        bias: global_watch()
-          .watch_untyped_key::<BasicShadowMapBiasOf<DirectionLightBasicShadowInfo>>()
-          .collective_map(|v| v.into())
-          .into_boxed(),
-        enabled: global_watch()
-          .watch_untyped_key::<BasicShadowMapEnabledOf<DirectionLightBasicShadowInfo>>()
-          .into_boxed(),
-      },
-      *init_config,
-      gpu,
-    )
-  });
+  let size = qcx
+    .use_dual_query::<BasicShadowMapResolutionOf<DirectionLightBasicShadowInfo>>()
+    .into_delta_change()
+    .map_changes(|size| Size::from_u32_pair_min_one(size.into()));
 
-  let shadow_uniform = qcx.use_uniform_array_buffers(|_| shadow.1.take().unwrap());
+  let bias = qcx
+    .use_changes::<BasicShadowMapBiasOf<DirectionLightBasicShadowInfo>>()
+    .map_changes(|v| v.into());
+
+  let enabled = qcx.use_changes::<BasicShadowMapEnabledOf<DirectionLightBasicShadowInfo>>();
+
+  let shadow = use_basic_shadow_map_uniform(
+    qcx,
+    source_world,
+    source_proj,
+    size,
+    bias,
+    enabled,
+    *init_config,
+  );
 
   let light = use_directional_uniform_array(qcx);
 
-  qcx.when_render(|| SceneDirectionalLightingPreparer {
-    shadow: shadow.0.clone(),
-    light,
-    info: shadow_uniform.unwrap(),
+  qcx.when_render(|| {
+    let (updater, shadow_uniform) = shadow.unwrap();
+    SceneDirectionalLightingPreparer {
+      shadow: updater,
+      light,
+      info: shadow_uniform,
+    }
   })
 }
 
 pub struct SceneDirectionalLightingPreparer {
-  pub shadow: Arc<RwLock<BasicShadowMapSystem>>,
+  pub shadow: BasicShadowMapUpdater,
   pub light: UniformBufferDataView<Shader140Array<DirectionalLightUniform, 8>>,
   pub info: UniformBufferDataView<Shader140Array<BasicShadowMapInfo, 8>>,
 }
@@ -76,12 +73,9 @@ impl SceneDirectionalLightingPreparer {
     draw: &impl Fn(Mat4<f32>, Mat4<f64>, &mut FrameCtx, ShadowPassDesc),
     reversed_depth: bool,
   ) -> SceneDirectionalLightingProvider {
-    noop_ctx!(cx);
-    let shadow_map_atlas =
-      self
-        .shadow
-        .write()
-        .update_shadow_maps(cx, frame_ctx, draw, reversed_depth);
+    let shadow_map_atlas = self
+      .shadow
+      .update_shadow_maps(frame_ctx, draw, reversed_depth);
 
     SceneDirectionalLightingProvider {
       light: self.light,
@@ -160,59 +154,56 @@ pub fn use_scene_spot_light_uniform(
   init_config: &MultiLayerTexturePackerConfig,
   ndc: ViewerNDC,
 ) -> Option<SceneSpotLightingPreparer> {
-  let (qcx, shadow) = qcx.use_gpu_init(|gpu| {
-    let source_proj = global_watch()
-      .watch_untyped_key::<SpotLightHalfConeAngle>()
-      .collective_map(move |half_cone_angle| {
-        PerspectiveProjection {
-          near: 0.1,
-          far: 2000.,
-          fov: Deg::from_rad(half_cone_angle * 2.),
-          aspect: 1.,
-        }
-        .compute_projection_mat(&ndc)
-      })
-      .into_boxed();
+  let source_world =
+    use_global_node_world_mat(qcx).fanout(qcx.use_db_rev_ref_tri_view::<SpotLightRefNode>());
 
-    let source_world = scene_node_derive_world_mat()
-      .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SpotLightRefNode>())
-      .untyped_entity_handle()
-      .into_boxed();
+  let source_proj = qcx
+    .use_dual_query::<SpotLightHalfConeAngle>()
+    .dual_query_map(move |half_cone_angle| {
+      PerspectiveProjection {
+        near: 0.1,
+        far: 2000.,
+        fov: Deg::from_rad(half_cone_angle * 2.),
+        aspect: 1.,
+      }
+      .compute_projection_mat(&ndc)
+    });
 
-    basic_shadow_map_uniform_takeable(
-      ShadowMapSystemInputs {
-        source_proj,
-        source_world,
-        size: global_watch()
-          .watch_untyped_key::<BasicShadowMapResolutionOf<SpotLightBasicShadowInfo>>()
-          .collective_map(|size| Size::from_u32_pair_min_one(size.into()))
-          .into_boxed(),
-        bias: global_watch()
-          .watch_untyped_key::<BasicShadowMapBiasOf<SpotLightBasicShadowInfo>>()
-          .collective_map(|v| v.into())
-          .into_boxed(),
-        enabled: global_watch()
-          .watch_untyped_key::<BasicShadowMapEnabledOf<SpotLightBasicShadowInfo>>()
-          .into_boxed(),
-      },
-      *init_config,
-      gpu,
-    )
-  });
+  let size = qcx
+    .use_dual_query::<BasicShadowMapResolutionOf<SpotLightBasicShadowInfo>>()
+    .into_delta_change()
+    .map_changes(|size| Size::from_u32_pair_min_one(size.into()));
 
-  let shadow_uniform = qcx.use_uniform_array_buffers(|_| shadow.1.take().unwrap());
+  let bias = qcx
+    .use_changes::<BasicShadowMapBiasOf<SpotLightBasicShadowInfo>>()
+    .map_changes(|v| v.into());
+
+  let enabled = qcx.use_changes::<BasicShadowMapEnabledOf<SpotLightBasicShadowInfo>>();
+
+  let shadow = use_basic_shadow_map_uniform(
+    qcx,
+    source_world,
+    source_proj,
+    size,
+    bias,
+    enabled,
+    *init_config,
+  );
 
   let light = use_spot_uniform_array(qcx);
 
-  qcx.when_render(|| SceneSpotLightingPreparer {
-    shadow: shadow.0.clone(),
-    light,
-    info: shadow_uniform.unwrap(),
+  qcx.when_render(|| {
+    let (updater, shadow_uniform) = shadow.unwrap();
+    SceneSpotLightingPreparer {
+      shadow: updater,
+      light,
+      info: shadow_uniform,
+    }
   })
 }
 
 pub struct SceneSpotLightingPreparer {
-  pub shadow: Arc<RwLock<BasicShadowMapSystem>>,
+  pub shadow: BasicShadowMapUpdater,
   pub light: UniformBufferDataView<Shader140Array<SpotLightUniform, 8>>,
   pub info: UniformBufferDataView<Shader140Array<BasicShadowMapInfo, 8>>,
 }
@@ -224,12 +215,9 @@ impl SceneSpotLightingPreparer {
     draw: &impl Fn(Mat4<f32>, Mat4<f64>, &mut FrameCtx, ShadowPassDesc),
     reversed_depth: bool,
   ) -> SceneSpotLightingProvider {
-    noop_ctx!(cx);
-    let shadow_map_atlas =
-      self
-        .shadow
-        .write()
-        .update_shadow_maps(cx, frame_ctx, draw, reversed_depth);
+    let shadow_map_atlas = self
+      .shadow
+      .update_shadow_maps(frame_ctx, draw, reversed_depth);
 
     SceneSpotLightingProvider {
       light: self.light,
@@ -274,17 +262,4 @@ impl LightSystemSceneProvider for SceneSpotLightingProvider {
 
     Some(Box::new(com))
   }
-}
-
-pub fn basic_shadow_map_uniform_takeable(
-  inputs: ShadowMapSystemInputs,
-  config: MultiLayerTexturePackerConfig,
-  gpu_ctx: &GPU,
-) -> (
-  Arc<RwLock<BasicShadowMapSystem>>,
-  Option<UniformArrayUpdateContainer<BasicShadowMapInfo, 8>>,
-) {
-  let (map, uniform) = basic_shadow_map_uniform(inputs, config, gpu_ctx);
-  let map = Arc::new(RwLock::new(map));
-  (map, Some(uniform))
 }

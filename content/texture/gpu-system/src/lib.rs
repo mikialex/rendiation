@@ -18,7 +18,6 @@ use std::{any::Any, hash::Hash};
 
 pub use pool::*;
 use reactive::*;
-use rendiation_webgpu_reactive_utils::BindingArrayMaintainer;
 
 pub trait AbstractIndirectGPUTextureSystem {
   fn bind_system_self(&self, collector: &mut BindingBuilder);

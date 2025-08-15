@@ -207,6 +207,18 @@ pub fn get_db_view<C: ComponentSemantic>() -> DBView<C::Data> {
   get_db_view_internal(C::Entity::entity_id(), C::component_id())
 }
 
+pub fn get_db_view_uncheck_access<C: ComponentSemantic>() -> IterableComponentReadView<C::Data> {
+  global_database()
+    .access_ecg_dyn(C::Entity::entity_id(), |ecg| {
+      ecg.access_component(C::component_id(), |c| IterableComponentReadView {
+        ecg: ecg.clone(),
+        read_view: c.read_untyped(),
+        phantom: PhantomData,
+      })
+    })
+    .unwrap()
+}
+
 pub fn get_db_view_typed<C: ComponentSemantic>(
 ) -> impl Query<Key = EntityHandle<C::Entity>, Value = C::Data> {
   get_db_view_internal(C::Entity::entity_id(), C::component_id()).mark_entity_type::<C::Entity>()

@@ -11,7 +11,7 @@ pub struct PointLightUniform {
 }
 
 pub fn use_point_uniform_array(cx: &mut QueryGPUHookCx) -> UniformArray<PointLightUniform, 8> {
-  let (cx, uniform) = cx.use_uniform_array_buffers2();
+  let (cx, uniform) = cx.use_uniform_array_buffers();
 
   let offset = offset_of!(PointLightUniform, luminance_intensity);
   cx.use_changes::<PointLightIntensity>()

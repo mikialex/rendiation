@@ -1,5 +1,3 @@
-use core::panic;
-
 use crate::*;
 
 pub struct ReactiveQueryDebug<T, K: CKey, V: CValue> {
@@ -19,42 +17,9 @@ impl<T: QueryCompute> QueryCompute for ReactiveQueryDebug<T, T::Key, T::Value> {
     let (d, v) = self.inner.resolve(cx);
 
     // validation
-    let changes = d.materialize();
     let mut state = self.state.write();
 
-    if !changes.is_empty() && self.log_change {
-      println!("change details for <{}>:", self.label);
-    }
-    for (k, change) in changes.iter() {
-      if self.log_change {
-        println!("{:?}: {:?}", k, change);
-      }
-      match change {
-        ValueChange::Delta(n, p) => {
-          if let Some(removed) = state.remove(k) {
-            let p = p.as_ref();
-
-            if p.is_none() {
-              panic!("previous value should exist, {}", self.label);
-            }
-
-            assert_eq!(&removed, p.unwrap(), "{}", self.label);
-          } else {
-            assert!(p.is_none());
-          }
-          state.insert(k.clone(), n.clone());
-        }
-        ValueChange::Remove(p) => {
-          let removed = state.remove(k);
-
-          if removed.is_none() {
-            panic!("remove none exist value, {}", self.label);
-          }
-
-          assert_eq!(&removed.unwrap(), p, "{}", self.label);
-        }
-      }
-    }
+    validate_delta(&mut state, self.log_change, self.label, &d);
 
     (d, v)
   }
