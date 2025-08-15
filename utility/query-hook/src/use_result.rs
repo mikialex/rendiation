@@ -304,6 +304,85 @@ where
     self.join(other).map(|(a, b)| a.dual_query_intersect(b))
   }
 
+  pub fn dual_query_filter_by_set<Q>(
+    self,
+    other: UseResult<Q>,
+  ) -> UseResult<impl DualQueryLike<Key = T::Key, Value = T::Value>>
+  where
+    Q: DualQueryLike<Key = T::Key>,
+  {
+    self.join(other).map(|(a, b)| a.dual_query_filter_by_set(b))
+  }
+
+  pub fn use_dual_query_hash_many_to_one(
+    self,
+    cx: &mut impl QueryHookCxLike,
+  ) -> UseResult<impl TriQueryLike<Key = T::Key, Value = T::Value>>
+  where
+    T::Value: CKey,
+  {
+    let map = cx.use_shared_hash_map();
+
+    self.map(move |t| {
+      let (view, delta) = t.view_delta();
+      bookkeeping_hash_relation(&mut map.write(), &delta);
+
+      TriQuery {
+        base: DualQuery { view, delta },
+        rev_many_view: map.make_read_holder(),
+      }
+    })
+  }
+
+  pub fn use_dual_query_hash_reverse_assume_one_one(
+    self,
+    cx: &mut impl QueryHookCxLike,
+  ) -> UseResult<impl DualQueryLike<Key = T::Value, Value = T::Key>>
+  where
+    T::Value: CKey,
+  {
+    let map = cx.use_shared_hash_map();
+
+    self.map(move |t| {
+      let mut mapping = map.write();
+      let mut mutations = FastHashMap::<T::Value, ValueChange<T::Key>>::default();
+      use std::ops::DerefMut;
+      let mut mutator = QueryMutationCollector {
+        delta: &mut mutations,
+        target: mapping.deref_mut(),
+      };
+
+      for (k, change) in t.delta().iter_key_value() {
+        match change {
+          ValueChange::Delta(v, pv) => {
+            if let Some(pv) = &pv {
+              mutator.remove(pv.clone());
+            }
+
+            let _check = mutator.set_value(v.clone(), k.clone());
+            // todo, optional check the relation is valid one to one
+          }
+          ValueChange::Remove(pv) => {
+            mutator.remove(pv);
+          }
+        }
+      }
+      drop(mapping);
+
+      DualQuery {
+        view: map.make_read_holder(),
+        delta: Arc::new(mutations),
+      }
+    })
+  }
+
+  pub fn dual_query_filter(
+    self,
+    f: impl Fn(T::Value) -> bool + Clone + Sync + Send + 'static,
+  ) -> UseResult<impl DualQueryLike<Key = T::Key, Value = T::Value>> {
+    self.map(|t| t.dual_query_filter(f))
+  }
+
   pub fn dual_query_filter_map<V2: CValue>(
     self,
     f: impl Fn(T::Value) -> Option<V2> + Clone + Sync + Send + 'static,
@@ -331,6 +410,16 @@ where
     f: impl Fn((Option<T::Value>, Option<Q::Value>)) -> Option<O> + Copy + Sync + Send + 'static,
   ) -> UseResult<impl DualQueryLike<Key = T::Key, Value = O>> {
     self.join(other).map(move |(a, b)| a.dual_query_union(b, f))
+  }
+
+  pub fn dual_query_boxed(self) -> UseResult<BoxedDynDualQuery<T::Key, T::Value>> {
+    self.map(|v| {
+      let (a, d) = v.view_delta();
+      DualQuery {
+        view: a.into_boxed(),
+        delta: d.into_boxed(),
+      }
+    })
   }
 
   pub fn into_delta_change(self) -> UseResult<DeltaQueryAsChange<T::Delta>> {
