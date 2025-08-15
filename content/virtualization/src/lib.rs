@@ -23,7 +23,6 @@ pub trait ScheduleSource<K> {
 pub struct Scheduler<K, S: ScheduleSource<K>> {
   retain_capacity_limitation: u64,
   source: S,
-  weight_set: BoxedDynReactiveQuery<K, f32>,
   current_loading_budget: u64,
   loading: FuturesUnordered<WrapFuture<S::LoadingFuture, K>>,
   loading_set: fast_hash_collection::FastHashSet<K>,
@@ -37,17 +36,11 @@ fn wrap_future<K, T: Future<Output = ()>>(f: T, k: K) -> WrapFuture<T, K> {
 }
 
 impl<K: CKey, S: ScheduleSource<K>> Scheduler<K, S> {
-  pub fn new(
-    source: S,
-    weight_set: BoxedDynReactiveQuery<K, f32>,
-    retain_capacity_limitation: u64,
-    loading_limitation: u64,
-  ) -> Self {
+  pub fn new(source: S, retain_capacity_limitation: u64, loading_limitation: u64) -> Self {
     Self {
       retain_capacity_limitation,
       current_loading_budget: loading_limitation,
       source,
-      weight_set,
       loading_set: Default::default(),
       loading: Default::default(),
       current_living_set: Default::default(),
@@ -63,12 +56,10 @@ impl<K: CKey, S: ScheduleSource<K>> Scheduler<K, S> {
     }
   }
 
-  pub fn schedule(&mut self, cx: &mut Context) {
-    let (_, weights) = self.weight_set.describe(cx).resolve_kept();
-
+  // todo, the current implementation is not incremental
+  pub fn schedule(&mut self, weights: impl Query<Key = K, Value = f32>) {
     let mut weights_list = weights.iter_key_value().collect::<Vec<_>>();
 
-    // todo, the current implementation is not incremental
     weights_list.sort_unstable_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
 
     let mut budget = self.retain_capacity_limitation;

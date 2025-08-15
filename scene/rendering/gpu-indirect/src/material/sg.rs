@@ -44,11 +44,6 @@ pub fn use_pbr_sg_material_storage(
   })
 }
 
-pub fn pbr_sg_material_pipeline_hash(
-) -> impl ReactiveQuery<Key = EntityHandle<PbrSGMaterialEntity>, Value = AlphaMode> {
-  global_watch().watch::<AlphaModeOf<PbrSGMaterialAlphaConfig>>()
-}
-
 #[derive(Clone)]
 pub struct PbrSGMaterialIndirectRenderer {
   material_access: ForeignKeyReadView<StandardModelRefPbrSGMaterial>,

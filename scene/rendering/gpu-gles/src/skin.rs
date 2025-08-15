@@ -73,38 +73,32 @@ impl GraphicsShaderProvider for SkinVertexTransform {
 
 /// in gles mode we have to use texture to store bone matrix
 pub struct SkinBoneMatrixesDataTextureComputer {
-  offset_mats: BoxedDynReactiveQuery<EntityHandle<SceneJointEntity>, (Mat4<f32>, u32)>,
   bind_matrixes:
     FastHashMap<EntityHandle<SceneSkinEntity>, (Vec<Mat4<f32>>, Option<GPU2DTextureView>)>,
-  skins: BoxedDynReactiveQuery<EntityHandle<SceneSkinEntity>, ()>,
 }
 
 impl SkinBoneMatrixesDataTextureComputer {
-  pub fn poll_update(&mut self, cx: &mut Context, gpu: &GPU) {
+  pub fn poll_update(
+    &mut self,
+    mat_changes: impl DataChanges<Key = EntityHandle<SceneJointEntity>, Value = (Mat4<f32>, u32)>,
+    removed_skins: impl Iterator<Item = EntityHandle<SceneSkinEntity>>,
+    gpu: &GPU,
+  ) {
     let skin_access = global_database().read_foreign_key::<SceneJointBelongToSkin>();
-    let (mat_changes, _) = self.offset_mats.describe(cx).resolve_kept();
-    for (k, change) in mat_changes.iter_key_value() {
+    for (k, (value, idx)) in mat_changes.iter_update_or_insert() {
       let skin = skin_access.get(k).unwrap();
       let (bind_matrixes, gpu) = self.bind_matrixes.entry(skin).or_default();
-      match change {
-        ValueChange::Delta((value, idx), _) => {
-          bind_matrixes.resize(bind_matrixes.len().max(idx as usize), Mat4::identity());
-          bind_matrixes[idx as usize] = value;
-          *gpu = None;
-        }
-        ValueChange::Remove(_) => {} // we not impl shrink for simplicity
-      }
+      bind_matrixes.resize(bind_matrixes.len().max(idx as usize), Mat4::identity());
+      bind_matrixes[idx as usize] = value;
+      *gpu = None;
     }
-    for (k, _) in mat_changes.iter_key_value() {
+    for (k, _) in mat_changes.iter_update_or_insert() {
       let skin = skin_access.get(k).unwrap();
       let (bind_matrixes, gpu_texture) = self.bind_matrixes.get_mut(&skin).unwrap();
       gpu_texture.get_or_insert_with(|| create_data_texture(gpu, bind_matrixes));
     }
-    let (c, _) = self.skins.describe(cx).resolve_kept();
-    for (k, change) in c.iter_key_value() {
-      if change.is_removed() {
-        self.bind_matrixes.remove(&k);
-      }
+    for k in removed_skins {
+      self.bind_matrixes.remove(&k);
     }
   }
 }

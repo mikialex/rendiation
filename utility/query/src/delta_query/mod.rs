@@ -76,6 +76,13 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
     }
   }
 
+  fn dual_query_filter(
+    self,
+    f: impl Fn(Self::Value) -> bool + Clone + Sync + Send + 'static,
+  ) -> impl DualQueryLike<Key = Self::Key, Value = Self::Value> {
+    self.dual_query_filter_map(move |v| f(v.clone()).then_some(v))
+  }
+
   fn dual_query_filter_map<V2: CValue>(
     self,
     f: impl Fn(Self::Value) -> Option<V2> + Clone + Sync + Send + 'static,
@@ -114,6 +121,19 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
       (None, None) => None,
       (None, Some(_)) => unreachable!("zip missing left side"),
       (Some(_), None) => unreachable!("zip missing right side"),
+    })
+  }
+
+  fn dual_query_filter_by_set<Q>(
+    self,
+    other: Q,
+  ) -> impl DualQueryLike<Key = Self::Key, Value = Self::Value>
+  where
+    Q: DualQueryLike<Key = Self::Key>,
+  {
+    self.dual_query_union(other, |(a, b)| match (a, b) {
+      (Some(a), Some(_)) => Some(a),
+      _ => None,
     })
   }
 

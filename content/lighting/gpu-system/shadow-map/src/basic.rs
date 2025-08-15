@@ -7,19 +7,6 @@ use rendiation_texture_packer::pack_2d_to_3d::RemappedGrowablePacker;
 
 use crate::*;
 
-pub struct ShadowMapSystemInputs {
-  /// alloc_id => shadow map world
-  pub source_world: BoxedDynReactiveQuery<u32, Mat4<f64>>,
-  /// alloc_id => shadow map proj
-  pub source_proj: BoxedDynReactiveQuery<u32, Mat4<f32>>,
-  /// alloc_id => shadow map resolution
-  pub size: BoxedDynReactiveQuery<u32, Size>,
-  /// alloc_id => shadow map bias
-  pub bias: BoxedDynReactiveQuery<u32, ShadowBias>,
-  /// alloc_id => enabled
-  pub enabled: BoxedDynReactiveQuery<u32, bool>,
-}
-
 #[track_caller]
 pub fn use_basic_shadow_map_uniform(
   cx: &mut QueryGPUHookCx,

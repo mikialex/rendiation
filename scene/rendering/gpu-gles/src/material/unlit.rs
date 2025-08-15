@@ -78,11 +78,6 @@ struct UnlitMaterialTextureHandlesUniform {
   pub color_alpha_texture: TextureSamplerHandlePair,
 }
 
-pub fn unlit_material_pipeline_hash(
-) -> impl ReactiveQuery<Key = EntityHandle<UnlitMaterialEntity>, Value = AlphaMode> {
-  global_watch().watch::<AlphaModeOf<UnlitMaterialAlphaConfig>>()
-}
-
 #[derive(Clone)]
 pub struct UnlitMaterialGPU<'a> {
   uniform: &'a UniformBufferDataView<UnlitMaterialUniform>,
