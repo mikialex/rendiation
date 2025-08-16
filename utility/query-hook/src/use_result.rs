@@ -397,6 +397,57 @@ where
     self.map(|t| t.dual_query_map(f))
   }
 
+  pub fn use_dual_query_execute_map<V2, F, FF>(
+    self,
+    cx: &mut impl QueryHookCxLike,
+    f: F,
+  ) -> UseResult<
+    DualQuery<
+      LockReadGuardHolder<FastHashMap<T::Key, V2>>,
+      Arc<FastHashMap<T::Key, ValueChange<V2>>>,
+    >,
+  >
+  where
+    V2: CValue,
+    F: FnOnce() -> FF + Send + Sync + 'static,
+    FF: FnMut(&T::Key, T::Value) -> V2 + Send + Sync + 'static,
+  {
+    let cache = cx.use_shared_hash_map();
+
+    self.map(move |t| {
+      let d = t.delta();
+      let materialized = d.iter_key_value().collect::<Vec<_>>();
+
+      // map_creator call or drop may have significant cost, so we only create mapper
+      // if we have actual delta processing to do.
+      let d = if !materialized.is_empty() {
+        let mut mapper = f();
+        let mut cache = cache.write();
+        let materialized: FastHashMap<T::Key, ValueChange<V2>> = materialized
+          .into_iter()
+          .map(|(k, delta)| match delta {
+            ValueChange::Delta(d, _p) => {
+              let new_value = mapper(&k, d);
+              let p = cache.insert(k.clone(), new_value.clone());
+              (k, ValueChange::Delta(new_value, p))
+            }
+            ValueChange::Remove(_p) => {
+              let p = cache.remove(&k).unwrap();
+              (k, ValueChange::Remove(p))
+            }
+          })
+          .collect();
+        Arc::new(materialized)
+      } else {
+        Default::default()
+      };
+
+      let v = cache.make_read_holder();
+
+      DualQuery { view: v, delta: d }
+    })
+  }
+
   pub fn dual_query_select<Q: DualQueryLike<Key = T::Key, Value = T::Value>>(
     self,
     other: UseResult<Q>,
