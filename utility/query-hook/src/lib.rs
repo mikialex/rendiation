@@ -1,3 +1,5 @@
+#![feature(let_chains)]
+
 use std::any::Any;
 use std::any::TypeId;
 use std::future::Future;
@@ -26,6 +28,7 @@ pub enum QueryHookStage<'a> {
   ResolveTask {
     task: &'a mut TaskPoolResultCx,
   },
+  Other,
 }
 
 pub enum TaskUseResult<T> {
@@ -118,6 +121,14 @@ pub trait QueryHookCxLike: HooksCxLike {
     }
   }
 
+  fn when_resolve_stage<R>(&self, f: impl FnOnce() -> R) -> Option<R> {
+    if self.is_resolve_stage() {
+      f().into()
+    } else {
+      None
+    }
+  }
+
   // maybe this fn should move to upstream
   fn use_shared_hash_map<K: 'static, V: 'static>(&mut self) -> SharedHashMap<K, V> {
     let (_, r) = self.use_plain_state_default_cloned::<SharedHashMap<K, V>>();
@@ -151,6 +162,7 @@ pub trait QueryHookCxLike: HooksCxLike {
       QueryHookStage::ResolveTask { task, .. } => {
         TaskUseResult::Result(task.expect_result_by_id(*token))
       }
+      _ => TaskUseResult::NotInStage,
     }
   }
 
@@ -192,6 +204,7 @@ pub trait QueryHookCxLike: HooksCxLike {
           TaskUseResult::NotInStage
         }
       }
+      _ => TaskUseResult::NotInStage,
     }
   }
 
@@ -203,6 +216,17 @@ pub trait QueryHookCxLike: HooksCxLike {
   ) -> UseResult<Provider::Result> {
     let key = provider.compute_share_key();
     self.use_shared_compute_internal(move |cx| provider.use_logic(cx), key)
+  }
+
+  #[track_caller]
+  fn use_shared_dual_query_view<Provider: SharedResultProvider<Self, Result: DualQueryLike>>(
+    &mut self,
+    provider: Provider,
+  ) -> UseResult<<Provider::Result as DualQueryLike>::View> {
+    let key = provider.compute_share_key();
+    let result = self.use_shared_compute_internal(move |cx| provider.use_logic(cx), key);
+
+    result.map(|r| r.view()) // here we don't care to sync the change
   }
 
   #[track_caller]
@@ -246,6 +270,7 @@ pub trait QueryHookCxLike: HooksCxLike {
         QueryHookStage::ResolveTask { task, .. } => {
           UseResult::ResolveStageReady(task.expect_result_by_id(task_id))
         }
+        _ => UseResult::NotInStage,
       }
     } else {
       self.scope(|cx| {
@@ -265,6 +290,7 @@ pub trait QueryHookCxLike: HooksCxLike {
           QueryHookStage::ResolveTask { task, .. } => {
             UseResult::ResolveStageReady(task.expect_result_by_id(*self_id))
           }
+          _ => UseResult::NotInStage,
         }
       })
     }

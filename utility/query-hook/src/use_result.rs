@@ -207,6 +207,7 @@ impl<T: Clone + Send + Sync + 'static> UseResult<T> {
           self
         }
       }
+      _ => UseResult::NotInStage,
     }
   }
 
