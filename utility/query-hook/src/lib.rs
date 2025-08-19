@@ -207,7 +207,8 @@ pub trait QueryHookCxLike: HooksCxLike {
     provider: Provider,
   ) -> UseResult<Provider::Result> {
     let key = provider.compute_share_key();
-    self.use_shared_compute_internal(move |cx| provider.use_logic(cx), key)
+    let consumer_id = self.use_shared_consumer(key);
+    self.use_shared_compute_internal(move |cx| provider.use_logic(cx), key, consumer_id)
   }
 
   fn use_shared_dual_query_view<Provider: SharedResultProvider<Self, Result: DualQueryLike>>(
@@ -215,33 +216,103 @@ pub trait QueryHookCxLike: HooksCxLike {
     provider: Provider,
   ) -> UseResult<<Provider::Result as DualQueryLike>::View> {
     let key = provider.compute_share_key();
-    let result = self.use_shared_compute_internal(move |cx| provider.use_logic(cx), key);
+    let consumer_id = self.use_shared_consumer(key);
+    let result =
+      self.use_shared_compute_internal(move |cx| provider.use_logic(cx), key, consumer_id);
 
     result.map(|r| r.view()) // here we don't care to sync the change
   }
 
-  fn use_shared_dual_query<Provider: SharedResultProvider<Self, Result: DualQueryLike>>(
+  fn use_shared_dual_query<Provider, K: CKey, V: CValue>(
     &mut self,
     provider: Provider,
-  ) -> UseResult<
-    BoxedDynDualQuery<
-      <Provider::Result as DualQueryLike>::Key,
-      <Provider::Result as DualQueryLike>::Value,
-    >,
-  > {
+  ) -> UseResult<BoxedDynDualQuery<K, V>>
+  where
+    Provider: SharedResultProvider<Self, Result: DualQueryLike<Key = K, Value = V>>,
+  {
     let key = provider.compute_share_key();
-    let (cx, has_synced_change) = self.use_plain_state_default_cloned::<Arc<RwLock<bool>>>();
-    let result = cx.use_shared_compute_internal(move |cx| provider.use_logic(cx), key);
+
+    let consumer_id = self.use_shared_consumer(key);
+    let result =
+      self.use_shared_compute_internal(move |cx| provider.use_logic(cx), key, consumer_id);
+
+    let reconciler = self
+      .shared_hook_ctx()
+      .reconciler
+      .entry(key)
+      .or_insert_with(|| Arc::new(SharedQueryChangeReconciler::<K, V>::default()))
+      .clone();
 
     result.map(move |r| {
-      if !*has_synced_change.read() {
-        *has_synced_change.write() = true;
-        r.replace_delta_by_full_view().into_boxed()
+      let (view, delta) = r.view_delta();
+      if let Some(new_delta) = reconciler.reconcile(consumer_id, Box::new(delta.into_boxed())) {
+        DualQuery {
+          view: view.into_boxed(),
+          delta: *new_delta
+            .downcast::<BoxedDynQuery<K, ValueChange<V>>>()
+            .unwrap(),
+        }
       } else {
-        r.into_boxed()
+        // expand the full view as delta
+        let new_delta = view
+          .iter_key_value()
+          .map(|(k, v)| (k, ValueChange::Delta(v, None)))
+          .collect::<FastHashMap<_, _>>();
+        let new_delta = Arc::new(new_delta);
+
+        DualQuery {
+          view: view.into_boxed(),
+          delta: new_delta.into_boxed(),
+        }
       }
     })
   }
+
+  fn use_shared_compute_internal<T, F>(
+    &mut self,
+    logic: F,
+    key: ShareKey,
+    consumer_id: u32,
+  ) -> UseResult<T>
+  where
+    T: Clone + Send + Sync + 'static,
+    F: Fn(&mut Self) -> TaskUseResult<T> + 'static,
+  {
+    if let Some(&task_id) = self.shared_hook_ctx().task_id_mapping.get(&key) {
+      match &self.stage() {
+        QueryHookStage::SpawnTask { pool, .. } => {
+          UseResult::SpawnStageFuture(pool.share_task_by_id(task_id))
+        }
+        QueryHookStage::ResolveTask { task, .. } => {
+          UseResult::ResolveStageReady(task.expect_result_by_id(task_id))
+        }
+        _ => UseResult::NotInStage,
+      }
+    } else {
+      self.enter_shared_ctx(key, consumer_id, |cx| {
+        let result = logic(cx);
+        let (cx, self_id) = cx.use_plain_state(|| u32::MAX);
+        if let TaskUseResult::SpawnId(task_id) = result {
+          *self_id = task_id;
+          cx.shared_hook_ctx().task_id_mapping.insert(key, task_id);
+        } else {
+          cx.shared_hook_ctx().task_id_mapping.insert(key, *self_id);
+        }
+
+        match &cx.stage() {
+          QueryHookStage::SpawnTask { pool, .. } => {
+            UseResult::SpawnStageFuture(pool.share_task_by_id(*self_id))
+          }
+          QueryHookStage::ResolveTask { task, .. } => {
+            UseResult::ResolveStageReady(task.expect_result_by_id(*self_id))
+          }
+          _ => UseResult::NotInStage,
+        }
+      })
+    }
+  }
+
+  fn use_shared_consumer(&mut self, key: ShareKey) -> u32;
 
   fn shared_hook_ctx(&mut self) -> &mut SharedHooksCtx;
 
@@ -277,52 +348,6 @@ pub trait QueryHookCxLike: HooksCxLike {
     r
   }
 
-  fn use_shared_consumer(&mut self, key: ShareKey) -> u32;
-
-  fn use_shared_compute_internal<
-    T: Clone + Send + Sync + 'static,
-    F: Fn(&mut Self) -> TaskUseResult<T> + 'static,
-  >(
-    &mut self,
-    logic: F,
-    key: ShareKey,
-  ) -> UseResult<T> {
-    let consumer_id = self.use_shared_consumer(key);
-
-    if let Some(&task_id) = self.shared_hook_ctx().task_id_mapping.get(&key) {
-      match &self.stage() {
-        QueryHookStage::SpawnTask { pool, .. } => {
-          UseResult::SpawnStageFuture(pool.share_task_by_id(task_id))
-        }
-        QueryHookStage::ResolveTask { task, .. } => {
-          UseResult::ResolveStageReady(task.expect_result_by_id(task_id))
-        }
-        _ => UseResult::NotInStage,
-      }
-    } else {
-      self.enter_shared_ctx(key, consumer_id, |cx| {
-        let result = logic(cx);
-        let (cx, self_id) = cx.use_plain_state(|| u32::MAX);
-        if let TaskUseResult::SpawnId(task_id) = result {
-          *self_id = task_id;
-          cx.shared_hook_ctx().task_id_mapping.insert(key, task_id);
-        } else {
-          cx.shared_hook_ctx().task_id_mapping.insert(key, *self_id);
-        }
-
-        match &cx.stage() {
-          QueryHookStage::SpawnTask { pool, .. } => {
-            UseResult::SpawnStageFuture(pool.share_task_by_id(*self_id))
-          }
-          QueryHookStage::ResolveTask { task, .. } => {
-            UseResult::ResolveStageReady(task.expect_result_by_id(*self_id))
-          }
-          _ => UseResult::NotInStage,
-        }
-      })
-    }
-  }
-
   fn use_rev_ref<V: CKey, C: Query<Value = ValueChange<V>> + 'static>(
     &mut self,
     changes: UseResult<C>,
@@ -342,12 +367,16 @@ pub type RevRefContainerRead<K, V> = LockReadGuardHolder<FastHashMap<K, FastHash
 pub struct SharedHooksCtx {
   shared: FastHashMap<ShareKey, Arc<RwLock<SharedHookObject>>>,
   task_id_mapping: FastHashMap<ShareKey, u32>,
+  pub reconciler: FastHashMap<ShareKey, Arc<dyn ChangeReconciler>>,
   next_consumer: u32,
 }
 
 impl SharedHooksCtx {
   pub fn reset_visiting(&mut self) {
     self.task_id_mapping.clear();
+    for r in self.reconciler.values() {
+      r.reset();
+    }
   }
 
   pub fn next_consumer_id(&mut self) -> u32 {
@@ -372,5 +401,115 @@ impl SharedHooksCtx {
 pub struct SharedHookObject {
   pub memory: FunctionMemory,
   pub consumer: FastHashSet<u32>,
-  // consumer: FastHashMap<u32, (bool, Option<Box<dyn Any>>)>, // bool: if care the change
+}
+
+pub trait ChangeReconciler: Send + Sync {
+  /// return None if the change should use full view expand
+  fn reconcile(&self, id: u32, change: Box<dyn Any>) -> Option<Box<dyn Any>>;
+  fn reset(&self);
+  fn remove_consumer(&self, id: u32) -> bool;
+}
+
+pub struct SharedQueryChangeReconciler<K, V> {
+  internal: Arc<RwLock<SharedQueryChangeReconcilerInternal<K, V>>>,
+}
+
+pub struct SharedQueryChangeReconcilerInternal<K, V> {
+  consumers: FastHashMap<u32, Vec<BoxedDynQuery<K, ValueChange<V>>>>,
+  has_broadcasted: bool,
+}
+
+impl<K: CKey, V: CValue> ChangeReconciler for SharedQueryChangeReconciler<K, V> {
+  fn reconcile(&self, id: u32, change: Box<dyn Any>) -> Option<Box<dyn Any>> {
+    // this lock introduce a blocking scope, but it's small and guaranteed to have forward progress
+    let mut internal = self.internal.write();
+    //  the first consumer get the result broadcast the result to others
+    if !internal.has_broadcasted {
+      let change = change
+        .downcast::<BoxedDynQuery<K, ValueChange<V>>>()
+        .unwrap();
+      internal.has_broadcasted = true;
+      for (_, v) in internal.consumers.iter_mut() {
+        v.push(change.clone());
+      }
+    }
+
+    if !internal.consumers.contains_key(&id) {
+      internal.consumers.insert(id, Vec::default());
+      return None;
+    }
+    let buffered_changes = std::mem::take(internal.consumers.get_mut(&id).unwrap());
+    drop(internal);
+
+    let r = Box::new(finalize_buffered_changes(buffered_changes)) as Box<dyn Any>;
+    r.into()
+  }
+
+  fn reset(&self) {
+    self.internal.write().has_broadcasted = false;
+  }
+
+  fn remove_consumer(&self, id: u32) -> bool {
+    let mut internal = self.internal.write();
+    internal.consumers.remove(&id).unwrap();
+    internal.consumers.is_empty()
+  }
+}
+
+impl<K, V> Default for SharedQueryChangeReconciler<K, V> {
+  fn default() -> Self {
+    Self {
+      internal: Default::default(),
+    }
+  }
+}
+impl<K, V> Default for SharedQueryChangeReconcilerInternal<K, V> {
+  fn default() -> Self {
+    Self {
+      consumers: Default::default(),
+      has_broadcasted: false,
+    }
+  }
+}
+
+pub fn finalize_buffered_changes<K: CKey, V: CValue>(
+  mut changes: Vec<BoxedDynQuery<K, ValueChange<V>>>,
+) -> BoxedDynQuery<K, ValueChange<V>> {
+  if changes.is_empty() {
+    return Box::new(EmptyQuery::default());
+  }
+
+  if changes.len() == 1 {
+    return changes.pop().unwrap();
+  }
+
+  let mut target = FastHashMap::default();
+
+  for c in changes {
+    merge_into_hashmap(
+      &mut target,
+      c.iter_key_value().map(|(k, v)| (k.clone(), v.clone())),
+    );
+  }
+
+  if target.is_empty() {
+    Box::new(EmptyQuery::default())
+  } else {
+    Box::new(Arc::new(target))
+  }
+}
+
+fn merge_into_hashmap<K: CKey, V: CValue>(
+  map: &mut FastHashMap<K, ValueChange<V>>,
+  iter: impl Iterator<Item = (K, ValueChange<V>)>,
+) {
+  iter.for_each(|(k, v)| {
+    if let Some(current) = map.get_mut(&k) {
+      if !current.merge(&v) {
+        map.remove(&k);
+      }
+    } else {
+      map.insert(k, v.clone());
+    }
+  })
 }
