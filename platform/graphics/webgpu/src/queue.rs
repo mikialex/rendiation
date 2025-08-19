@@ -13,7 +13,9 @@ impl GPUQueue {
   }
 
   pub fn submit_encoder(&self, encoder: GPUCommandEncoder) {
-    self.inner.submit(std::iter::once(encoder.finish().inner));
+    let cmd = encoder.finish();
+    self.inner.submit(std::iter::once(cmd.inner));
+    cmd.on_submit.emit(&());
   }
 }
 

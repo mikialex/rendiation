@@ -12,6 +12,7 @@ pub struct GPUCommandEncoder {
 
 pub struct GPUCommandBuffer {
   pub(crate) inner: gpu::CommandBuffer,
+  pub(crate) on_submit: EventSource<()>,
   _deferred_explicit_destroy: CommandBufferDeferExplicitDestroyFlusher,
 }
 
@@ -42,9 +43,9 @@ impl GPUCommandEncoder {
 
   pub fn finish(self) -> GPUCommandBuffer {
     let gpu = self.encoder.finish();
-    self.on_submit.emit(&());
     GPUCommandBuffer {
       inner: gpu,
+      on_submit: self.on_submit,
       _deferred_explicit_destroy: self.deferred_explicit_destroy,
     }
   }
