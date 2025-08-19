@@ -50,21 +50,6 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
     }
   }
 
-  fn replace_delta_by_full_view(self) -> impl DualQueryLike<Key = Self::Key, Value = Self::Value> {
-    let view = self.view();
-
-    let new_delta = view
-      .iter_key_value()
-      .map(|(k, v)| (k, ValueChange::Delta(v, None)))
-      .collect::<FastHashMap<_, _>>();
-    let new_delta = Arc::new(new_delta);
-
-    DualQuery {
-      view,
-      delta: new_delta,
-    }
-  }
-
   fn dual_query_map<V2: CValue>(
     self,
     f: impl Fn(Self::Value) -> V2 + Clone + Sync + Send + 'static,

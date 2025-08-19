@@ -77,6 +77,7 @@ pub trait DBHookCxLike: QueryHookCxLike {
       ComponentId::Hash(hash) => ShareKey::Hash(hash),
     };
 
+    let consumer_id = self.use_shared_consumer(key);
     self.use_shared_compute_internal(
       |cx| {
         let changes = cx
@@ -86,6 +87,7 @@ pub trait DBHookCxLike: QueryHookCxLike {
         cx.use_rev_ref(changes)
       },
       key,
+      consumer_id,
     )
   }
 }

@@ -236,6 +236,12 @@ impl QueryHookCxLike for QueryGPUHookCx<'_> {
         if let Some(mem) = cx.share_cx.drop_consumer(self.1, self.0) {
           mem.write().memory.cleanup(cx as *mut _ as *mut ());
         }
+        // this check is necessary because not all consumer need reconcile change
+        if let Some(reconciler) = cx.share_cx.reconciler.get_mut(&self.1) {
+          if reconciler.remove_consumer(self.0) {
+            cx.share_cx.reconciler.remove(&self.1);
+          }
+        }
       }
     }
 
