@@ -32,7 +32,6 @@ pub trait DBHookCxLike: QueryHookCxLike {
     })
   }
 
-  #[track_caller]
   fn use_db_rev_ref_tri_view<C: ForeignKeySemantic>(&mut self) -> UseResult<RevRefForeignTriQuery> {
     let rev_many_view = self.use_db_rev_ref::<C>();
     let changes = self.use_query_change::<C>();
@@ -61,7 +60,6 @@ pub trait DBHookCxLike: QueryHookCxLike {
     }
   }
 
-  #[track_caller]
   fn use_db_rev_ref_typed<C: ForeignKeySemantic>(
     &mut self,
   ) -> UseResult<RevRefForeignKeyReadTyped<C>> {
@@ -73,7 +71,6 @@ pub trait DBHookCxLike: QueryHookCxLike {
       })
   }
 
-  #[track_caller]
   fn use_db_rev_ref<C: ForeignKeySemantic>(&mut self) -> UseResult<RevRefForeignKeyRead> {
     let key = match C::component_id() {
       ComponentId::TypeId(type_id) => ShareKey::TypeId(type_id),
