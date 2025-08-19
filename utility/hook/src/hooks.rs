@@ -76,10 +76,10 @@ struct FunctionMemoryState {
 
 #[derive(Default)]
 pub struct FunctionMemory {
-  created: bool,
+  pub created: bool,
   states: Bump,
   states_meta: Vec<FunctionMemoryState>,
-  current_cursor: usize,
+  pub current_cursor: usize,
   sub_functions: FastHashMap<Location<'static>, Self>,
   sub_functions_next: FastHashMap<Location<'static>, Self>,
 }

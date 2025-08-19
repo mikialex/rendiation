@@ -305,9 +305,12 @@ impl Viewer3dRenderingCtx {
     rendering_resource: &mut ReactiveQueryCtx,
     task_spawner: &TaskSpawner,
     db_watch_scope: &mut DBWatchScope,
+    shared_ctx: &mut SharedHooksCtx,
   ) -> AsyncTaskPool {
     let mut pool = AsyncTaskPool::default();
     let gpu = self.gpu.clone();
+
+    shared_ctx.reset_visiting();
     QueryGPUHookCx {
       memory,
       gpu: &gpu,
@@ -316,8 +319,8 @@ impl Viewer3dRenderingCtx {
         spawner: task_spawner,
         task_pool: &mut pool,
       },
-      shared_results: &mut SharedHookResult::default(),
       db_watch_scope,
+      shared_ctx,
     }
     .execute(|qcx| self.use_viewer_scene_renderer(qcx), true);
     db_watch_scope.clear_changes();
@@ -334,10 +337,12 @@ impl Viewer3dRenderingCtx {
     rendering_resource: &mut ReactiveQueryCtx,
     task_pool_result: TaskPoolResultCx,
     db_watch_scope: &mut DBWatchScope,
+    shared_ctx: &mut SharedHooksCtx,
   ) {
     noop_ctx!(cx);
     let query_result = rendering_resource.poll_update_all(cx);
     let gpu = self.gpu.clone();
+    shared_ctx.reset_visiting();
     let renderer = QueryGPUHookCx {
       memory,
       gpu: &gpu,
@@ -347,7 +352,7 @@ impl Viewer3dRenderingCtx {
         task: task_pool_result,
       },
       db_watch_scope,
-      shared_results: &mut SharedHookResult::default(),
+      shared_ctx,
     }
     .execute(|qcx| self.use_viewer_scene_renderer(qcx).unwrap(), true);
 

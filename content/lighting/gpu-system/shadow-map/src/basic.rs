@@ -7,7 +7,6 @@ use rendiation_texture_packer::pack_2d_to_3d::RemappedGrowablePacker;
 
 use crate::*;
 
-#[track_caller]
 pub fn use_basic_shadow_map_uniform(
   cx: &mut QueryGPUHookCx,
   source_world: UseResult<impl DualQueryLike<Key = RawEntityHandle, Value = Mat4<f64>>>,
@@ -17,97 +16,95 @@ pub fn use_basic_shadow_map_uniform(
   enabled: UseResult<impl DataChanges<Key = u32, Value = bool> + 'static>,
   atlas_config: MultiLayerTexturePackerConfig,
 ) -> Option<(BasicShadowMapUpdater, UniformArray<BasicShadowMapInfo, 8>)> {
-  cx.scope(|cx| {
-    let (cx, uniform) = cx.use_uniform_array_buffers();
+  let (cx, uniform) = cx.use_uniform_array_buffers();
 
-    let (source_world1, source_world2) = source_world.fork();
-    let (source_world2, source_world3) = source_world2.fork();
+  let (source_world1, source_world2) = source_world.fork();
+  let (source_world2, source_world3) = source_world2.fork();
 
-    let (source_proj1, source_proj2) = source_proj.fork();
+  let (source_proj1, source_proj2) = source_proj.fork();
 
-    let source_world_view = source_world1.use_retain_view_to_resolve_stage(cx);
+  let source_world_view = source_world1.use_retain_view_to_resolve_stage(cx);
 
-    source_world2
-      .into_delta_change()
-      .use_assure_result(cx)
-      .map_changes(|world_matrix| into_hpt(world_matrix.position()).into_uniform())
-      .update_uniform_array(
-        uniform,
-        offset_of!(BasicShadowMapInfo, shadow_world_position),
-        cx.gpu,
-      );
-
-    let source_proj_view = source_proj1.use_retain_view_to_resolve_stage(cx);
-
-    source_world3
-      .dual_query_zip(source_proj2)
-      .dual_query_map(|(world_matrix, projection)| {
-        let world_inv = world_matrix.inverse_or_identity();
-        projection * world_inv.remove_position().into_f32()
-      })
-      .use_assure_result(cx)
-      .into_delta_change()
-      .update_uniform_array(
-        uniform,
-        offset_of!(
-          BasicShadowMapInfo,
-          shadow_center_to_shadowmap_ndc_without_translation
-        ),
-        cx.gpu,
-      );
-
-    enabled.map_changes(Bool::from).update_uniform_array(
+  source_world2
+    .into_delta_change()
+    .use_assure_result(cx)
+    .map_changes(|world_matrix| into_hpt(world_matrix.position()).into_uniform())
+    .update_uniform_array(
       uniform,
-      offset_of!(BasicShadowMapInfo, enabled),
+      offset_of!(BasicShadowMapInfo, shadow_world_position),
       cx.gpu,
     );
 
-    bias.update_uniform_array(uniform, offset_of!(BasicShadowMapInfo, bias), cx.gpu);
+  let source_proj_view = source_proj1.use_retain_view_to_resolve_stage(cx);
 
-    // todo, spawn a task to pack
-    let (cx, packer) =
-      cx.use_plain_state(|| Arc::new(RwLock::new(RemappedGrowablePacker::new(atlas_config))));
-
-    if let Some(size_changes) = size.if_ready() {
-      let mut new_size = None;
-      let mut buff_changes = FastHashMap::default();
-
-      packer.write().process(
-        size_changes.iter_removed(),
-        size_changes.iter_update_or_insert(),
-        |_new_size| {
-          new_size = Some(_new_size);
-        },
-        |key, delta| {
-          merge_change(&mut buff_changes, (key, delta));
-        },
-      );
-
-      buff_changes
-        .into_change()
-        .collective_map(|v| v.map(convert_pack_result).unwrap_or_default()) // todo, handle allocation fail in shader access
-        .update_uniform_array(uniform, offset_of!(BasicShadowMapInfo, map_info), cx.gpu);
-    }
-
-    let (cx, atlas) = cx.use_plain_state_default::<Option<GPU2DArrayDepthTextureView>>();
-
-    cx.when_render(|| {
-      let shadow_map_atlas = get_or_create_shadow_atlas(
-        "basic-shadow-map-atlas",
-        packer.read().current_size(),
-        atlas,
-        cx.gpu,
-      );
-
-      let system = BasicShadowMapUpdater {
-        shadow_map_atlas,
-        source_world: source_world_view.expect_resolve_stage().into_boxed(),
-        source_proj: source_proj_view.expect_resolve_stage().into_boxed(),
-        packing: PackerView(packer.clone().make_read_holder()).into_boxed(),
-      };
-
-      (system, uniform.clone())
+  source_world3
+    .dual_query_zip(source_proj2)
+    .dual_query_map(|(world_matrix, projection)| {
+      let world_inv = world_matrix.inverse_or_identity();
+      projection * world_inv.remove_position().into_f32()
     })
+    .use_assure_result(cx)
+    .into_delta_change()
+    .update_uniform_array(
+      uniform,
+      offset_of!(
+        BasicShadowMapInfo,
+        shadow_center_to_shadowmap_ndc_without_translation
+      ),
+      cx.gpu,
+    );
+
+  enabled.map_changes(Bool::from).update_uniform_array(
+    uniform,
+    offset_of!(BasicShadowMapInfo, enabled),
+    cx.gpu,
+  );
+
+  bias.update_uniform_array(uniform, offset_of!(BasicShadowMapInfo, bias), cx.gpu);
+
+  // todo, spawn a task to pack
+  let (cx, packer) =
+    cx.use_plain_state(|| Arc::new(RwLock::new(RemappedGrowablePacker::new(atlas_config))));
+
+  if let Some(size_changes) = size.if_ready() {
+    let mut new_size = None;
+    let mut buff_changes = FastHashMap::default();
+
+    packer.write().process(
+      size_changes.iter_removed(),
+      size_changes.iter_update_or_insert(),
+      |_new_size| {
+        new_size = Some(_new_size);
+      },
+      |key, delta| {
+        merge_change(&mut buff_changes, (key, delta));
+      },
+    );
+
+    buff_changes
+      .into_change()
+      .collective_map(|v| v.map(convert_pack_result).unwrap_or_default()) // todo, handle allocation fail in shader access
+      .update_uniform_array(uniform, offset_of!(BasicShadowMapInfo, map_info), cx.gpu);
+  }
+
+  let (cx, atlas) = cx.use_plain_state_default::<Option<GPU2DArrayDepthTextureView>>();
+
+  cx.when_render(|| {
+    let shadow_map_atlas = get_or_create_shadow_atlas(
+      "basic-shadow-map-atlas",
+      packer.read().current_size(),
+      atlas,
+      cx.gpu,
+    );
+
+    let system = BasicShadowMapUpdater {
+      shadow_map_atlas,
+      source_world: source_world_view.expect_resolve_stage().into_boxed(),
+      source_proj: source_proj_view.expect_resolve_stage().into_boxed(),
+      packing: PackerView(packer.clone().make_read_holder()).into_boxed(),
+    };
+
+    (system, uniform.clone())
   })
 }
 

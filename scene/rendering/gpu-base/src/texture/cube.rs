@@ -15,27 +15,24 @@ pub struct CubeMapChanges {
 
 // todo, share resource between background and ibl
 #[rustfmt::skip]
-#[track_caller]
 pub fn use_gpu_texture_cubes(
   cx: &mut QueryGPUHookCx,
   allocate_mipmap: bool,
 ) -> (Arc<RwLock<FastHashMap<RawEntityHandle, GPUCubeTextureView>>>, CubeMapChanges) {
-  cx.scope(|cx|{
-    let (cx, env_background_map_gpu) = cx.use_plain_state_default::<Arc<RwLock<FastHashMap<RawEntityHandle, GPUCubeTextureView>>>>();
+  let (cx, env_background_map_gpu) = cx.use_plain_state_default::<Arc<RwLock<FastHashMap<RawEntityHandle, GPUCubeTextureView>>>>();
 
-    let mut target = env_background_map_gpu.write();
-    let target = &mut target;
-    let mut changed_keys = Default::default();
+  let mut target = env_background_map_gpu.write();
+  let target = &mut target;
+  let mut changed_keys = Default::default();
 
-    use_cube_face_update::<SceneTextureCubeXPositiveFace>(cx, CubeTextureFace::PositiveX, allocate_mipmap, target, &mut changed_keys);
-    use_cube_face_update::<SceneTextureCubeYPositiveFace>(cx, CubeTextureFace::PositiveY, allocate_mipmap, target, &mut changed_keys);
-    use_cube_face_update::<SceneTextureCubeZPositiveFace>(cx, CubeTextureFace::PositiveZ, allocate_mipmap, target, &mut changed_keys);
-    use_cube_face_update::<SceneTextureCubeXNegativeFace>(cx, CubeTextureFace::NegativeX, allocate_mipmap, target, &mut changed_keys);
-    use_cube_face_update::<SceneTextureCubeYNegativeFace>(cx, CubeTextureFace::NegativeY, allocate_mipmap, target, &mut changed_keys);
-    use_cube_face_update::<SceneTextureCubeZNegativeFace>(cx, CubeTextureFace::NegativeZ, allocate_mipmap, target, &mut changed_keys);
+  use_cube_face_update::<SceneTextureCubeXPositiveFace>(cx, CubeTextureFace::PositiveX, allocate_mipmap, target, &mut changed_keys);
+  use_cube_face_update::<SceneTextureCubeYPositiveFace>(cx, CubeTextureFace::PositiveY, allocate_mipmap, target, &mut changed_keys);
+  use_cube_face_update::<SceneTextureCubeZPositiveFace>(cx, CubeTextureFace::PositiveZ, allocate_mipmap, target, &mut changed_keys);
+  use_cube_face_update::<SceneTextureCubeXNegativeFace>(cx, CubeTextureFace::NegativeX, allocate_mipmap, target, &mut changed_keys);
+  use_cube_face_update::<SceneTextureCubeYNegativeFace>(cx, CubeTextureFace::NegativeY, allocate_mipmap, target, &mut changed_keys);
+  use_cube_face_update::<SceneTextureCubeZNegativeFace>(cx, CubeTextureFace::NegativeZ, allocate_mipmap, target, &mut changed_keys);
 
-    (env_background_map_gpu.clone(), changed_keys)
-  })
+  (env_background_map_gpu.clone(), changed_keys)
 }
 
 // todo, remove FK generic

@@ -69,7 +69,6 @@ pub type DeriveDataDualQuery<T> = DualQuery<
   Arc<FastHashMap<RawEntityHandle, ValueChange<T>>>,
 >;
 
-#[track_caller]
 pub fn use_global_node_world_mat(
   cx: &mut impl DBHookCxLike,
 ) -> UseResult<BoxedDynDualQuery<RawEntityHandle, Mat4<f64>>> {
@@ -77,7 +76,6 @@ pub fn use_global_node_world_mat(
   cx.use_shared_dual_query(c)
 }
 
-#[track_caller]
 pub fn use_global_node_net_visible(
   cx: &mut impl DBHookCxLike,
 ) -> UseResult<BoxedDynDualQuery<RawEntityHandle, bool>> {
