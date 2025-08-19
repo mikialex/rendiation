@@ -7,6 +7,7 @@ pub struct QueryGPUHookFeatureCx<'a> {
   pub gpu: &'a GPU,
   pub query_cx: &'a mut ReactiveQueryCtx,
   pub db_watch_scope: &'a mut DBWatchScope,
+  pub shared_ctx: &'a mut SharedHooksCtx,
 }
 
 pub struct QueryGPUHookCx<'a> {
@@ -14,7 +15,7 @@ pub struct QueryGPUHookCx<'a> {
   pub gpu: &'a GPU,
   pub query_cx: &'a mut ReactiveQueryCtx,
   pub db_watch_scope: &'a mut DBWatchScope,
-  pub shared_results: &'a mut SharedHookResult,
+  pub shared_ctx: &'a mut SharedHooksCtx,
   pub stage: GPUQueryHookStage<'a>,
 }
 
@@ -43,6 +44,7 @@ unsafe impl<'a> HooksCxLike for QueryGPUHookCx<'a> {
     let mut drop_cx = QueryGPUHookDropCx {
       query_cx: self.query_cx,
       db_watch_scope: self.db_watch_scope,
+      share_cx: self.shared_ctx,
     };
     self.memory.flush(&mut drop_cx as *mut _ as *mut ());
   }
@@ -66,6 +68,7 @@ impl<'a> QueryGPUHookCx<'a> {
           gpu: self.gpu,
           query_cx: self.query_cx,
           db_watch_scope: self.db_watch_scope,
+          shared_ctx: self.shared_ctx,
         })
       },
       |state: &mut T, dcx: &mut ()| {
@@ -218,11 +221,30 @@ impl<T> CanCleanUpFrom<QueryGPUHookDropCx<'_>> for NothingToDrop<T> {
 pub struct QueryGPUHookDropCx<'a> {
   pub query_cx: &'a mut ReactiveQueryCtx,
   pub db_watch_scope: &'a mut DBWatchScope,
+  pub share_cx: &'a mut SharedHooksCtx,
 }
 
 impl QueryHookCxLike for QueryGPUHookCx<'_> {
-  fn shared_ctx(&mut self) -> &mut SharedHookResult {
-    self.shared_results
+  fn shared_hook_ctx(&mut self) -> &mut SharedHooksCtx {
+    self.shared_ctx
+  }
+
+  fn use_shared_consumer(&mut self, key: ShareKey) -> u32 {
+    struct Token(u32, ShareKey);
+    impl CanCleanUpFrom<QueryGPUHookDropCx<'_>> for Token {
+      fn drop_from_cx(&mut self, cx: &mut QueryGPUHookDropCx<'_>) {
+        if let Some(mem) = cx.share_cx.drop_consumer(self.1, self.0) {
+          mem.write().memory.cleanup(cx as *mut _ as *mut ());
+        }
+      }
+    }
+
+    let (_, tk) = self.use_state_with_features(|fcx| {
+      let id = fcx.shared_ctx.next_consumer_id();
+      Token(id, key)
+    });
+
+    tk.0
   }
 
   fn is_spawning_stage(&self) -> bool {

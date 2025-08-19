@@ -254,6 +254,8 @@ pub fn use_viewer<'a>(
   let (acx, worker_thread_pool) =
     acx.use_plain_state(|| TaskSpawner::new("viewer_task_worker", None));
 
+  let (acx, shared_ctx) = acx.use_plain_state_default::<SharedHooksCtx>();
+
   ViewerCx {
     viewer,
     dyn_cx: acx.dyn_cx,
@@ -264,7 +266,7 @@ pub fn use_viewer<'a>(
   }
   .execute(|viewer| f(viewer), true);
 
-  viewer.draw_canvas(&acx.draw_target_canvas, worker_thread_pool);
+  viewer.draw_canvas(&acx.draw_target_canvas, worker_thread_pool, shared_ctx);
 
   ViewerCx {
     viewer,
@@ -395,12 +397,18 @@ impl Viewer {
     }
   }
 
-  pub fn draw_canvas(&mut self, canvas: &RenderTargetView, task_spawner: &TaskSpawner) {
+  pub fn draw_canvas(
+    &mut self,
+    canvas: &RenderTargetView,
+    task_spawner: &TaskSpawner,
+    shared_ctx: &mut SharedHooksCtx,
+  ) {
     let tasks = self.rendering.update_registry(
       &mut self.render_memory,
       &mut self.render_resource,
       task_spawner,
       &mut self.render_change_scope,
+      shared_ctx,
     );
 
     let scene_derive = self.derives.poll_update();
@@ -415,6 +423,7 @@ impl Viewer {
       &mut self.render_resource,
       task_pool_result,
       &mut self.render_change_scope,
+      shared_ctx,
     );
 
     self.rendering.tick_frame();
