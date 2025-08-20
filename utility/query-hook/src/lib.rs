@@ -37,17 +37,18 @@ pub enum TaskUseResult<T> {
   NotInStage,
 }
 
-impl<T> TaskUseResult<T> {
-  pub fn expect_result(self) -> T {
+impl<T: Clone + 'static> TaskUseResult<T> {
+  pub fn into_use_result(self, cx: &mut impl QueryHookCxLike) -> UseResult<T> {
     match self {
-      TaskUseResult::Result(v) => v,
-      _ => panic!("expect result"),
-    }
-  }
-  pub fn expect_id(self) -> u32 {
-    match self {
-      TaskUseResult::SpawnId(v) => v,
-      _ => panic!("expect id"),
+      TaskUseResult::SpawnId(id) => {
+        if let QueryHookStage::SpawnTask { pool, .. } = cx.stage() {
+          UseResult::SpawnStageFuture(pool.share_task_by_id(id))
+        } else {
+          unreachable!()
+        }
+      }
+      TaskUseResult::Result(result) => UseResult::ResolveStageReady(result),
+      TaskUseResult::NotInStage => UseResult::NotInStage,
     }
   }
 }
@@ -66,7 +67,7 @@ pub trait SharedResultProvider<Cx>: 'static {
   fn compute_share_key(&self) -> ShareKey {
     ShareKey::TypeId(TypeId::of::<Self>())
   }
-  fn use_logic(&self, cx: &mut Cx) -> TaskUseResult<Self::Result>;
+  fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result>;
 }
 
 pub type SharedHashMap<K, V> = Arc<RwLock<FastHashMap<K, V>>>;
@@ -128,7 +129,7 @@ pub trait QueryHookCxLike: HooksCxLike {
     r
   }
 
-  fn use_task_result_by_fn<R, F>(&mut self, create_task: F) -> TaskUseResult<R>
+  fn use_task_result_by_fn<R, F>(&mut self, create_task: F) -> UseResult<R>
   where
     R: Clone + Sync + Send + 'static,
     F: FnOnce() -> R + Send + 'static,
@@ -136,10 +137,7 @@ pub trait QueryHookCxLike: HooksCxLike {
     self.use_task_result(|spawner| spawner.spawn_task(create_task))
   }
 
-  fn use_task_result<R, F>(
-    &mut self,
-    create_task: impl FnOnce(&TaskSpawner) -> F,
-  ) -> TaskUseResult<R>
+  fn use_task_result<R, F>(&mut self, create_task: impl FnOnce(&TaskSpawner) -> F) -> UseResult<R>
   where
     R: Clone + Send + Sync + 'static,
     F: Future<Output = R> + Send + 'static,
@@ -150,12 +148,12 @@ pub trait QueryHookCxLike: HooksCxLike {
     match cx.stage() {
       QueryHookStage::SpawnTask { pool, .. } => {
         *token = pool.install_task(task.unwrap());
-        TaskUseResult::SpawnId(*token)
+        UseResult::SpawnStageFuture(pool.share_task_by_id(*token))
       }
       QueryHookStage::ResolveTask { task, .. } => {
-        TaskUseResult::Result(task.expect_result_by_id(*token))
+        UseResult::ResolveStageReady(task.expect_result_by_id(*token))
       }
-      _ => TaskUseResult::NotInStage,
+      _ => UseResult::NotInStage,
     }
   }
 
@@ -276,7 +274,7 @@ pub trait QueryHookCxLike: HooksCxLike {
   ) -> UseResult<T>
   where
     T: Clone + Send + Sync + 'static,
-    F: Fn(&mut Self) -> TaskUseResult<T> + 'static,
+    F: Fn(&mut Self) -> UseResult<T> + 'static,
   {
     if let Some(&task_id) = self.shared_hook_ctx().task_id_mapping.get(&key) {
       match &self.stage() {
@@ -291,6 +289,7 @@ pub trait QueryHookCxLike: HooksCxLike {
     } else {
       self.enter_shared_ctx(key, consumer_id, |cx| {
         let result = logic(cx);
+        let result = result.use_global_shared(cx);
         let (cx, self_id) = cx.use_plain_state(|| u32::MAX);
         if let TaskUseResult::SpawnId(task_id) = result {
           *self_id = task_id;
@@ -351,7 +350,7 @@ pub trait QueryHookCxLike: HooksCxLike {
   fn use_rev_ref<V: CKey, C: Query<Value = ValueChange<V>> + 'static>(
     &mut self,
     changes: UseResult<C>,
-  ) -> TaskUseResult<RevRefContainerRead<V, C::Key>> {
+  ) -> UseResult<RevRefContainerRead<V, C::Key>> {
     let (_, mapping) = self.use_plain_state_default_cloned::<RevRefContainer<V, C::Key>>();
     self.use_task_result_by_fn(move || {
       bookkeeping_hash_relation(&mut mapping.write(), changes.expect_spawn_stage_ready());

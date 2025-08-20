@@ -145,7 +145,7 @@ impl<T: NDCSpaceMapper + Copy, Cx: DBHookCxLike> SharedResultProvider<Cx>
 {
   type Result = impl DualQueryLike<Key = RawEntityHandle, Value = CameraTransform>;
 
-  fn use_logic(&self, cx: &mut Cx) -> TaskUseResult<Self::Result> {
+  fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
     let projections = use_camera_project_matrix(cx, self.0);
     let node_mats = use_global_node_world_mat(cx);
 
@@ -154,6 +154,5 @@ impl<T: NDCSpaceMapper + Copy, Cx: DBHookCxLike> SharedResultProvider<Cx>
     camera_world_mat
       .dual_query_zip(projections)
       .dual_query_map(|(world, proj)| CameraTransform::new(proj, world))
-      .use_global_shared(cx)
   }
 }

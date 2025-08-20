@@ -7,15 +7,6 @@ pub enum UseResult<T> {
   NotInStage,
 }
 
-impl<T> From<TaskUseResult<T>> for UseResult<T> {
-  fn from(value: TaskUseResult<T>) -> Self {
-    match value {
-      TaskUseResult::Result(r) => UseResult::ResolveStageReady(r),
-      _ => UseResult::NotInStage,
-    }
-  }
-}
-
 impl<T: Send + Sync + 'static> UseResult<T> {
   pub fn map<U>(self, f: impl FnOnce(T) -> U + Send + Sync + 'static) -> UseResult<U> {
     use futures::FutureExt;
@@ -216,7 +207,7 @@ impl<T: Clone + Send + Sync + 'static> UseResult<T> {
       UseResult::SpawnStageFuture(future) => Some(future),
       UseResult::SpawnStageReady(result) => Some(Box::new(futures::future::ready(result))
         as Box<dyn Future<Output = T> + Unpin + Send + Sync>),
-      UseResult::ResolveStageReady(_) => panic!("resolve stage result can not be shared"),
+      UseResult::ResolveStageReady(_) => return TaskUseResult::NotInStage,
       UseResult::NotInStage => return TaskUseResult::NotInStage,
     };
     cx.use_global_shared_future(future)
