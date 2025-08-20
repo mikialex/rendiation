@@ -79,7 +79,7 @@ pub trait DBHookCxLike: QueryHookCxLike {
 
     let consumer_id = self.use_shared_consumer(key);
     self.use_shared_compute_internal(
-      |cx| {
+      &|cx| {
         let changes = cx
           .use_query_change::<C>()
           .map(|v| v.delta_filter_map(|v| v));
