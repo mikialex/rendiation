@@ -206,7 +206,7 @@ pub trait QueryHookCxLike: HooksCxLike {
   ) -> UseResult<Provider::Result> {
     let key = provider.compute_share_key();
     let consumer_id = self.use_shared_consumer(key);
-    self.use_shared_compute_internal(move |cx| provider.use_logic(cx), key, consumer_id)
+    self.use_shared_compute_internal(&|cx| provider.use_logic(cx), key, consumer_id)
   }
 
   fn use_shared_dual_query_view<Provider: SharedResultProvider<Self, Result: DualQueryLike>>(
@@ -215,8 +215,7 @@ pub trait QueryHookCxLike: HooksCxLike {
   ) -> UseResult<<Provider::Result as DualQueryLike>::View> {
     let key = provider.compute_share_key();
     let consumer_id = self.use_shared_consumer(key);
-    let result =
-      self.use_shared_compute_internal(move |cx| provider.use_logic(cx), key, consumer_id);
+    let result = self.use_shared_compute_internal(&|cx| provider.use_logic(cx), key, consumer_id);
 
     result.map(|r| r.view()) // here we don't care to sync the change
   }
@@ -231,8 +230,7 @@ pub trait QueryHookCxLike: HooksCxLike {
     let key = provider.compute_share_key();
 
     let consumer_id = self.use_shared_consumer(key);
-    let result =
-      self.use_shared_compute_internal(move |cx| provider.use_logic(cx), key, consumer_id);
+    let result = self.use_shared_compute_internal(&|cx| provider.use_logic(cx), key, consumer_id);
 
     let reconciler = self
       .shared_hook_ctx()
@@ -266,15 +264,14 @@ pub trait QueryHookCxLike: HooksCxLike {
     })
   }
 
-  fn use_shared_compute_internal<T, F>(
+  fn use_shared_compute_internal<T>(
     &mut self,
-    logic: F,
+    logic: &dyn Fn(&mut Self) -> UseResult<T>,
     key: ShareKey,
     consumer_id: u32,
   ) -> UseResult<T>
   where
     T: Clone + Send + Sync + 'static,
-    F: Fn(&mut Self) -> UseResult<T> + 'static,
   {
     if let Some(&task_id) = self.shared_hook_ctx().task_id_mapping.get(&key) {
       match &self.stage() {
