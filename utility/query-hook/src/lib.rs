@@ -350,8 +350,9 @@ pub trait QueryHookCxLike: HooksCxLike {
     changes: UseResult<C>,
   ) -> UseResult<RevRefContainerRead<V, C::Key>> {
     let (_, mapping) = self.use_plain_state_default_cloned::<RevRefContainer<V, C::Key>>();
-    self.use_task_result_by_fn(move || {
-      bookkeeping_hash_relation(&mut mapping.write(), changes.expect_spawn_stage_ready());
+    self.use_task_result(move |_| async move {
+      let changes = changes.expect_spawn_stage_future().await;
+      bookkeeping_hash_relation(&mut mapping.write(), changes);
       mapping.make_read_holder()
     })
   }

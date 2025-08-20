@@ -107,11 +107,12 @@ where
 
     cx.use_global_shared_future(connectivity_rev_view.into_spawn_stage_future().map(
       |connectivity_rev_view| {
-        let visible_change = visible_change.expect_spawn_stage_ready();
-        let connectivity_change = connectivity_change.expect_spawn_stage_ready();
+        let visible_change = visible_change.expect_spawn_stage_future();
+        let connectivity_change = connectivity_change.expect_spawn_stage_future();
         let f = self.0;
         async move {
-          let connectivity_rev_view = connectivity_rev_view.await;
+          let (connectivity_rev_view, visible_change, connectivity_change) =
+            futures::join!(connectivity_rev_view, visible_change, connectivity_change);
 
           let changes = compute_tree_derive(
             &mut derived.write(),

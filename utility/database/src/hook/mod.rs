@@ -1,87 +1,267 @@
-mod watch_group;
-mod watch_linear;
-mod watch_query;
+mod util;
 
-use futures::FutureExt;
-pub use watch_group::*;
-pub use watch_linear::*;
-pub use watch_query::*;
+use std::hash::Hasher;
+
+pub use util::*;
 
 use crate::*;
 
 pub trait DBHookCxLike: QueryHookCxLike {
   fn use_changes<C: ComponentSemantic>(
     &mut self,
-  ) -> UseResult<Arc<LinearBatchChanges<u32, C::Data>>>;
-
-  fn use_query_change<C: ComponentSemantic>(&mut self) -> UseResult<DBDelta<C::Data>>;
-
-  fn use_query_set<E: EntitySemantic>(&mut self) -> UseResult<DBDelta<()>>;
-
-  fn use_dual_query<C: ComponentSemantic>(&mut self) -> UseResult<DBDualQuery<C::Data>> {
-    self.use_query_change::<C>().map(|change| DualQuery {
-      view: get_db_view::<C>(),
-      delta: change,
-    })
+  ) -> UseResult<Arc<LinearBatchChanges<u32, C::Data>>> {
+    self.use_changes_internal::<C::Data>(C::component_id(), C::Entity::entity_id())
   }
 
-  fn use_dual_query_set<E: EntitySemantic>(&mut self) -> UseResult<DBSetDualQuery> {
-    self.use_query_set::<E>().map(|change| DualQuery {
-      view: get_db_entity_set_view::<E>(),
-      delta: change,
-    })
-  }
+  #[inline(never)]
+  fn use_changes_internal<T: CValue>(
+    &mut self,
+    c_id: ComponentId,
+    e_id: EntityId,
+  ) -> UseResult<Arc<LinearBatchChanges<u32, T>>> {
+    let (cx, rev) = self.use_plain_state(|| {
+      global_database().access_ecg_dyn(e_id, move |e| {
+        e.access_component(c_id, move |c| {
+          add_listen(
+            ComponentAccess {
+              ecg: e.clone(),
+              original: c.clone(),
+              phantom: PhantomData::<T>,
+            },
+            &c.data_watchers,
+          )
+        })
+        .unwrap()
+      })
+    });
 
-  fn use_db_rev_ref_tri_view<C: ForeignKeySemantic>(&mut self) -> UseResult<RevRefForeignTriQuery> {
-    let rev_many_view = self.use_db_rev_ref::<C>();
-    let changes = self.use_query_change::<C>();
-    // i assume this generate less code compare to join
-    if self.is_spawning_stage() {
-      let rev_many_view = rev_many_view.expect_spawn_stage_future();
-      let changes = changes.expect_spawn_stage_ready();
+    noop_ctx!(ctx);
+    let changes = if let Poll::Ready(Some(r)) = rev.poll_impl(ctx) {
+      let removed = r
+        .iter()
+        .filter_map(|v| v.1.is_removed().then_some(v.0.index()))
+        .collect::<Vec<_>>();
 
-      let changes = FilterMapQueryChange {
-        base: changes,
-        mapper: |v| v,
+      let update_or_insert = r
+        .iter()
+        .filter_map(|v| v.1.new_value().map(|x| (v.0.index(), x.clone())))
+        .collect::<Vec<_>>();
+
+      LinearBatchChanges {
+        removed,
+        update_or_insert,
       }
-      .into_boxed();
+    } else {
+      Default::default()
+    };
 
-      UseResult::SpawnStageFuture(Box::new(rev_many_view.map(move |rev_many_view| {
-        RevRefForeignTriQuery {
-          base: DualQuery {
-            view: get_db_view::<C>().filter_map(|v| v).into_boxed(),
-            delta: changes,
-          },
-          rev_many_view,
-        }
-      })))
+    if cx.is_spawning_stage() {
+      UseResult::SpawnStageReady(Arc::new(changes))
     } else {
       UseResult::NotInStage
     }
+  }
+
+  #[inline(never)]
+  fn use_component_delta_raw<T: CValue>(
+    &mut self,
+    c_id: ComponentId,
+    e_id: EntityId,
+  ) -> UseResult<DBDelta<T>> {
+    let (cx, rev) = self.use_plain_state(|| {
+      global_database().access_ecg_dyn(e_id, move |e| {
+        e.access_component(c_id, move |c| {
+          add_listen(
+            ComponentAccess {
+              ecg: e.clone(),
+              original: c.clone(),
+              phantom: PhantomData::<T>,
+            },
+            &c.data_watchers,
+          )
+        })
+        .unwrap()
+      })
+    });
+
+    noop_ctx!(ctx);
+    let changes = if let Poll::Ready(Some(changes)) = rev.poll_impl(ctx) {
+      changes
+    } else {
+      Default::default()
+    };
+    if cx.is_spawning_stage() {
+      UseResult::SpawnStageReady(Arc::new(changes))
+    } else {
+      UseResult::NotInStage
+    }
+  }
+
+  fn use_query_change<C: ComponentSemantic>(
+    &mut self,
+  ) -> UseResult<BoxedDynQuery<RawEntityHandle, ValueChange<C::Data>>> {
+    self.use_dual_query::<C>().map(|v| v.delta())
+  }
+
+  fn use_query_change_impl<T: CValue>(
+    &mut self,
+    c_id: ComponentId,
+    e_id: EntityId,
+  ) -> UseResult<BoxedDynQuery<RawEntityHandle, ValueChange<T>>> {
+    self.use_dual_query_impl::<T>(c_id, e_id).map(|v| v.delta())
+  }
+
+  fn use_entity_set_delta_raw(&mut self, e_id: EntityId) -> UseResult<DBDelta<()>> {
+    let (cx, rev) = self.use_plain_state(|| {
+      global_database().access_ecg_dyn(e_id, move |e| {
+        add_listen(
+          ArenaAccessProvider(e.inner.allocator.clone()),
+          &e.inner.entity_watchers,
+        )
+      })
+    });
+
+    noop_ctx!(ctx);
+    let changes = if let Poll::Ready(Some(changes)) = rev.poll_impl(ctx) {
+      changes
+    } else {
+      Default::default()
+    };
+    if cx.is_spawning_stage() {
+      UseResult::SpawnStageReady(Arc::new(changes))
+    } else {
+      UseResult::NotInStage
+    }
+  }
+
+  fn use_query_set<E: EntitySemantic>(
+    &mut self,
+  ) -> UseResult<BoxedDynQuery<RawEntityHandle, ValueChange<()>>> {
+    self.use_dual_query_set::<E>().map(|v| v.delta())
+  }
+
+  fn use_dual_query<C: ComponentSemantic>(
+    &mut self,
+  ) -> UseResult<BoxedDynDualQuery<RawEntityHandle, C::Data>> {
+    self.use_dual_query_impl::<C::Data>(C::component_id(), C::Entity::entity_id())
+  }
+
+  fn use_dual_query_impl<T: CValue>(
+    &mut self,
+    c_id: ComponentId,
+    e_id: EntityId,
+  ) -> UseResult<BoxedDynDualQuery<RawEntityHandle, T>> {
+    #[derive(Clone, Copy)]
+    struct DBDualQueryProvider<T>(PhantomData<T>, ComponentId, EntityId);
+
+    impl<T: CValue, Cx: DBHookCxLike> SharedResultProvider<Cx> for DBDualQueryProvider<T> {
+      type Result = DBDualQuery<T>;
+      fn compute_share_key(&self) -> ShareKey {
+        match self.1 {
+          ComponentId::TypeId(type_id) => ShareKey::TypeId(type_id),
+          ComponentId::Hash(hash) => ShareKey::Hash(hash),
+        }
+      }
+
+      fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
+        let Self(_, c_id, e_id) = *self;
+        cx.use_component_delta_raw::<T>(c_id, e_id)
+          .map(move |change| DualQuery {
+            view: get_db_view_internal::<T>(e_id, c_id),
+            delta: change,
+          })
+      }
+    }
+
+    self.use_shared_dual_query(DBDualQueryProvider::<T>(PhantomData, c_id, e_id))
+  }
+
+  fn use_dual_query_set<E: EntitySemantic>(
+    &mut self,
+  ) -> UseResult<BoxedDynDualQuery<RawEntityHandle, ()>> {
+    struct DBDualQuerySetProvider(EntityId);
+
+    impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for DBDualQuerySetProvider {
+      type Result = DBSetDualQuery;
+      fn compute_share_key(&self) -> ShareKey {
+        match self.0 {
+          EntityId(type_id) => ShareKey::TypeId(type_id),
+        }
+      }
+
+      fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
+        let e_id = self.0;
+        cx.use_entity_set_delta_raw(self.0)
+          .map(move |change| DualQuery {
+            view: global_database().access_ecg_dyn(e_id, |ecg| {
+              ArenaAccessProvider(ecg.inner.allocator.clone()).access()
+            }),
+            delta: change,
+          })
+      }
+    }
+
+    self.use_shared_dual_query(DBDualQuerySetProvider(E::entity_id()))
+  }
+
+  fn use_db_rev_ref_tri_view<C: ForeignKeySemantic>(&mut self) -> UseResult<RevRefForeignTriQuery> {
+    self.use_db_rev_ref_tri_view_impl(C::component_id(), C::Entity::entity_id())
+  }
+
+  #[inline(never)]
+  fn use_db_rev_ref_tri_view_impl(
+    &mut self,
+    c_id: ComponentId,
+    e_id: EntityId,
+  ) -> UseResult<RevRefForeignTriQuery> {
+    let rev_many_view = self.use_db_rev_ref(c_id, e_id);
+    let changes = self.use_query_change_impl(c_id, e_id);
+
+    rev_many_view
+      .join(changes)
+      .map(move |(rev_many_view, changes)| RevRefForeignTriQuery {
+        base: DualQuery {
+          view: get_db_view_internal(e_id, c_id)
+            .filter_map(|v| v)
+            .into_boxed(),
+          delta: FilterMapQueryChange {
+            base: changes,
+            mapper: |v| v,
+          }
+          .into_boxed(),
+        },
+        rev_many_view,
+      })
   }
 
   fn use_db_rev_ref_typed<C: ForeignKeySemantic>(
     &mut self,
   ) -> UseResult<RevRefForeignKeyReadTyped<C>> {
     self
-      .use_db_rev_ref::<C>()
+      .use_db_rev_ref(C::component_id(), C::Entity::entity_id())
       .map(|v| RevRefForeignKeyReadTyped {
         internal: v,
         phantom: PhantomData,
       })
   }
 
-  fn use_db_rev_ref<C: ForeignKeySemantic>(&mut self) -> UseResult<RevRefForeignKeyRead> {
-    let key = match C::component_id() {
-      ComponentId::TypeId(type_id) => ShareKey::TypeId(type_id),
-      ComponentId::Hash(hash) => ShareKey::Hash(hash),
-    };
+  #[inline(never)]
+  fn use_db_rev_ref(
+    &mut self,
+    c_id: ComponentId,
+    e_id: EntityId,
+  ) -> UseResult<RevRefForeignKeyRead> {
+    struct Marker;
+    let mut hasher = FastHasher::default();
+    c_id.hash(&mut hasher);
+    TypeId::of::<Marker>().hash(&mut hasher);
+    let key = ShareKey::Hash(hasher.finish());
 
     let consumer_id = self.use_shared_consumer(key);
     self.use_shared_compute_internal(
       &|cx| {
         let changes = cx
-          .use_query_change::<C>()
+          .use_query_change_impl::<Option<RawEntityHandle>>(c_id, e_id)
           .map(|v| v.delta_filter_map(|v| v));
 
         cx.use_rev_ref(changes)

@@ -294,7 +294,6 @@ pub struct Viewer {
   memory: FunctionMemory,
   render_memory: FunctionMemory,
   render_resource: ReactiveQueryCtx,
-  render_change_scope: DBWatchScope,
 }
 
 impl CanCleanUpFrom<ApplicationDropCx> for Viewer {
@@ -393,7 +392,6 @@ impl Viewer {
       memory: Default::default(),
       render_memory: Default::default(),
       render_resource: Default::default(),
-      render_change_scope: DBWatchScope::new(&global_database()),
     }
   }
 
@@ -407,7 +405,6 @@ impl Viewer {
       &mut self.render_memory,
       &mut self.render_resource,
       task_spawner,
-      &mut self.render_change_scope,
       shared_ctx,
     );
 
@@ -422,7 +419,6 @@ impl Viewer {
       &mut self.render_memory,
       &mut self.render_resource,
       task_pool_result,
-      &mut self.render_change_scope,
       shared_ctx,
     );
 
