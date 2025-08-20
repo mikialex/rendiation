@@ -6,7 +6,6 @@ use crate::*;
 pub struct QueryGPUHookFeatureCx<'a> {
   pub gpu: &'a GPU,
   pub query_cx: &'a mut ReactiveQueryCtx,
-  pub db_watch_scope: &'a mut DBWatchScope,
   pub shared_ctx: &'a mut SharedHooksCtx,
 }
 
@@ -14,7 +13,6 @@ pub struct QueryGPUHookCx<'a> {
   pub memory: &'a mut FunctionMemory,
   pub gpu: &'a GPU,
   pub query_cx: &'a mut ReactiveQueryCtx,
-  pub db_watch_scope: &'a mut DBWatchScope,
   pub shared_ctx: &'a mut SharedHooksCtx,
   pub stage: GPUQueryHookStage<'a>,
 }
@@ -43,7 +41,6 @@ unsafe impl<'a> HooksCxLike for QueryGPUHookCx<'a> {
   fn flush(&mut self) {
     let mut drop_cx = QueryGPUHookDropCx {
       query_cx: self.query_cx,
-      db_watch_scope: self.db_watch_scope,
       share_cx: self.shared_ctx,
     };
     self.memory.flush(&mut drop_cx as *mut _ as *mut ());
@@ -67,7 +64,6 @@ impl<'a> QueryGPUHookCx<'a> {
         init(QueryGPUHookFeatureCx {
           gpu: self.gpu,
           query_cx: self.query_cx,
-          db_watch_scope: self.db_watch_scope,
           shared_ctx: self.shared_ctx,
         })
       },
@@ -220,7 +216,6 @@ impl<T> CanCleanUpFrom<QueryGPUHookDropCx<'_>> for NothingToDrop<T> {
 
 pub struct QueryGPUHookDropCx<'a> {
   pub query_cx: &'a mut ReactiveQueryCtx,
-  pub db_watch_scope: &'a mut DBWatchScope,
   pub share_cx: &'a mut SharedHooksCtx,
 }
 
@@ -272,72 +267,4 @@ impl QueryHookCxLike for QueryGPUHookCx<'_> {
   }
 }
 
-impl DBHookCxLike for QueryGPUHookCx<'_> {
-  fn use_changes<C: ComponentSemantic>(
-    &mut self,
-  ) -> UseResult<Arc<LinearBatchChanges<u32, C::Data>>> {
-    struct WatchToken(u32, ComponentId);
-    impl CanCleanUpFrom<QueryGPUHookDropCx<'_>> for WatchToken {
-      fn drop_from_cx(&mut self, cx: &mut QueryGPUHookDropCx<'_>) {
-        cx.db_watch_scope
-          .change
-          .notify_consumer_dropped(self.1, self.0);
-      }
-    }
-
-    let (cx, tk) = self.use_state_with_features(|cx| {
-      let id = cx.db_watch_scope.change.allocate_next_consumer_id();
-      WatchToken(id, C::component_id())
-    });
-
-    if let GPUQueryHookStage::Update { .. } = &cx.stage {
-      UseResult::SpawnStageReady(cx.db_watch_scope.change.get_buffered_changes::<C>(tk.0))
-    } else {
-      UseResult::NotInStage
-    }
-  }
-
-  fn use_query_set<E: EntitySemantic>(&mut self) -> UseResult<DBDelta<()>> {
-    struct WatchToken(u32, EntityId);
-    impl CanCleanUpFrom<QueryGPUHookDropCx<'_>> for WatchToken {
-      fn drop_from_cx(&mut self, cx: &mut QueryGPUHookDropCx<'_>) {
-        cx.db_watch_scope
-          .query_set
-          .notify_consumer_dropped(self.1, self.0);
-      }
-    }
-
-    let (cx, tk) = self.use_state_with_features(|cx| {
-      let id = cx.db_watch_scope.query_set.allocate_next_consumer_id();
-      WatchToken(id, E::entity_id())
-    });
-
-    if let GPUQueryHookStage::Update { .. } = &cx.stage {
-      UseResult::SpawnStageReady(cx.db_watch_scope.query_set.get_buffered_changes::<E>(tk.0))
-    } else {
-      UseResult::NotInStage
-    }
-  }
-
-  fn use_query_change<C: ComponentSemantic>(&mut self) -> UseResult<DBDelta<C::Data>> {
-    struct WatchToken(u32, ComponentId);
-    impl CanCleanUpFrom<QueryGPUHookDropCx<'_>> for WatchToken {
-      fn drop_from_cx(&mut self, cx: &mut QueryGPUHookDropCx<'_>) {
-        cx.db_watch_scope
-          .query
-          .notify_consumer_dropped(self.1, self.0);
-      }
-    }
-
-    let (cx, tk) = self.use_state_with_features(|cx| {
-      let id = cx.db_watch_scope.query.allocate_next_consumer_id();
-      WatchToken(id, C::component_id())
-    });
-
-    if let GPUQueryHookStage::Update { .. } = &cx.stage {
-      UseResult::SpawnStageReady(cx.db_watch_scope.query.get_buffered_changes::<C>(tk.0))
-    } else {
-      UseResult::NotInStage
-    }
-  }
-}
+impl DBHookCxLike for QueryGPUHookCx<'_> {}
