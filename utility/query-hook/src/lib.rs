@@ -273,6 +273,12 @@ pub trait QueryHookCxLike: HooksCxLike {
   where
     T: Clone + Send + Sync + 'static,
   {
+    {
+      let shared = self.shared_hook_ctx().shared.entry(key).or_default();
+      let mut shared = shared.write();
+      shared.consumer.insert(consumer_id);
+    }
+
     if let Some(&task_id) = self.shared_hook_ctx().task_id_mapping.get(&key) {
       match &self.stage() {
         QueryHookStage::SpawnTask { pool, .. } => {
@@ -284,7 +290,7 @@ pub trait QueryHookCxLike: HooksCxLike {
         _ => UseResult::NotInStage,
       }
     } else {
-      self.enter_shared_ctx(key, consumer_id, |cx| {
+      self.enter_shared_ctx(key, |cx| {
         let result = logic(cx);
         let result = result.use_global_shared(cx);
         let (cx, self_id) = cx.use_plain_state(|| u32::MAX);
@@ -312,12 +318,7 @@ pub trait QueryHookCxLike: HooksCxLike {
 
   fn shared_hook_ctx(&mut self) -> &mut SharedHooksCtx;
 
-  fn enter_shared_ctx<R>(
-    &mut self,
-    key: ShareKey,
-    consumer_id: u32,
-    f: impl FnOnce(&mut Self) -> R,
-  ) -> R {
+  fn enter_shared_ctx<R>(&mut self, key: ShareKey, f: impl FnOnce(&mut Self) -> R) -> R {
     let shared = self
       .shared_hook_ctx()
       .shared
@@ -326,7 +327,7 @@ pub trait QueryHookCxLike: HooksCxLike {
       .clone();
 
     let mut shared = shared.write();
-    shared.consumer.insert(consumer_id);
+
     let memory = &mut shared.memory;
 
     let r = unsafe {
@@ -383,7 +384,8 @@ impl SharedHooksCtx {
 
   pub fn drop_consumer(&mut self, key: ShareKey, id: u32) -> Option<Arc<RwLock<SharedHookObject>>> {
     let mut target = self.shared.get_mut(&key).unwrap().write();
-    target.consumer.remove(&id);
+
+    assert!(target.consumer.remove(&id));
     if target.consumer.is_empty() {
       drop(target);
       self.shared.remove(&key).unwrap().into()
