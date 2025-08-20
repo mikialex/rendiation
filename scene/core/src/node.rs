@@ -50,7 +50,7 @@ pub struct GlobalNodeConnectivity;
 impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for GlobalNodeConnectivity {
   type Result = RevRefContainerRead<RawEntityHandle, RawEntityHandle>;
 
-  fn use_logic(&self, cx: &mut Cx) -> TaskUseResult<Self::Result> {
+  fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
     let connectivity_change = use_connectivity_change(cx);
     cx.use_rev_ref(connectivity_change)
   }
@@ -96,7 +96,7 @@ where
 {
   type Result = DeriveDataDualQuery<C::Data>;
 
-  fn use_logic(&self, cx: &mut Cx) -> TaskUseResult<Self::Result> {
+  fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
     let connectivity_rev_view = cx.use_shared_compute(GlobalNodeConnectivity);
     let connectivity_change = use_connectivity_change(cx);
     let connectivity_view = get_db_view::<SceneNodeParentIdx>().filter_map(|v| v);
@@ -130,6 +130,7 @@ where
         }
       },
     ))
+    .into_use_result(cx)
   }
 }
 
