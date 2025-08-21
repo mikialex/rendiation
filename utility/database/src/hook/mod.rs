@@ -214,7 +214,7 @@ pub trait DBHookCxLike: QueryHookCxLike {
     c_id: ComponentId,
     e_id: EntityId,
   ) -> UseResult<RevRefForeignTriQuery> {
-    let rev_many_view = self.use_db_rev_ref(c_id, e_id);
+    let rev_many_view = self.use_db_rev_ref_internal(c_id, e_id);
     let changes = self.use_query_change_impl(c_id, e_id);
 
     rev_many_view
@@ -238,15 +238,19 @@ pub trait DBHookCxLike: QueryHookCxLike {
     &mut self,
   ) -> UseResult<RevRefForeignKeyReadTyped<C>> {
     self
-      .use_db_rev_ref(C::component_id(), C::Entity::entity_id())
+      .use_db_rev_ref_internal(C::component_id(), C::Entity::entity_id())
       .map(|v| RevRefForeignKeyReadTyped {
         internal: v,
         phantom: PhantomData,
       })
   }
 
+  fn use_db_rev_ref<C: ForeignKeySemantic>(&mut self) -> UseResult<RevRefForeignKeyRead> {
+    self.use_db_rev_ref_internal(C::component_id(), C::Entity::entity_id())
+  }
+
   #[inline(never)]
-  fn use_db_rev_ref(
+  fn use_db_rev_ref_internal(
     &mut self,
     c_id: ComponentId,
     e_id: EntityId,

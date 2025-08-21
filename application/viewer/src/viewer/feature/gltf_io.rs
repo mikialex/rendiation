@@ -1,6 +1,36 @@
-use crate::*;
+use crate::{viewer::use_scene_reader, *};
+
+struct ExportGltfTerminalTask;
+impl TerminalTask for ExportGltfTerminalTask {
+  type Result = ();
+}
 
 pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
+  let scene_reader = use_scene_reader(cx);
+
+  if let ViewerCxStage::EventHandling {
+    terminal_request, ..
+  } = &mut cx.stage
+  {
+    if let Some(req) = terminal_request.take::<ExportGltfTerminalTask>() {
+      let reader = scene_reader.unwrap();
+      if let Some(mut dir) = dirs::download_dir() {
+        dir.push("gltf_export");
+
+        rendiation_scene_gltf_exporter::build_scene_to_gltf(
+          reader,
+          cx.viewer.scene.root,
+          &dir,
+          "scene",
+        )
+        .unwrap();
+        req.resolve(());
+      } else {
+        log::error!("failed to locate the system's default download directory to write file output")
+      }
+    }
+  }
+
   cx.use_state_init(|cx| {
       cx.terminal.register_command("load-gltf", |ctx, _parameters, tcx| {
     let load_target_node = ctx.scene.root;
@@ -39,38 +69,10 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
   });
 
 
-  cx.terminal.register_command("export-gltf", |ctx, _parameters, tcx| {
-    let derive_update = ctx.derive.poll_update();
-    let node_children = derive_update.node_children;
-    let mesh_ref_vertex = derive_update.mesh_vertex_ref;
-    let sm_ref_s = derive_update.sm_to_s;
-
-    let export_root_node = ctx.scene.root;
-    let export_scene = ctx.scene.scene;
-
-    let tcx = tcx.clone();
-
-    async move {
-      if let Some(mut dir) = dirs::download_dir() {
-        dir.push("gltf_export");
-
-        tcx
-          .spawn_main_thread(move || {
-            let reader =
-              SceneReader::new_from_global(export_scene, mesh_ref_vertex, node_children, sm_ref_s);
-
-            rendiation_scene_gltf_exporter::build_scene_to_gltf(
-              reader,
-              export_root_node,
-              &dir,
-              "scene",
-            )
-            .unwrap();
-          })
-          .await;
-      } else {
-        log::error!("failed to locate the system's default download directory to write file output")
-      }
+  cx.terminal.register_command("export-gltf", |_ctx, _parameters, tcx| {
+    let task =  tcx.spawn_event_task::<ExportGltfTerminalTask>();
+    async move{
+      task.await;
     }
   });
 

@@ -164,33 +164,41 @@ pub fn register_instance_mesh_data_model() {
     .declare_foreign_key::<InstanceMeshInstanceEntityRefAttributesMeshEntity>();
 }
 
-#[global_registered_query]
-pub fn attribute_mesh_local_bounding(
-) -> impl ReactiveQuery<Key = EntityHandle<AttributesMeshEntity>, Value = Box3> {
-  let PositionRelatedAttributeMeshQuery {
-    indexed,
-    none_indexed,
-  } = attribute_mesh_position_query();
+pub struct AttributeMeshLocalBounding;
 
-  fn get_ranged_buffer(buffer: &[u8], range: Option<BufferViewRange>) -> &[u8] {
-    if let Some(range) = range {
-      let start = range.offset as usize;
-      let count = range
-        .size
-        .map(|v| u64::from(v) as usize)
-        .unwrap_or(buffer.len());
-      buffer.get(start..(start + count)).unwrap()
-    } else {
-      buffer
-    }
+impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for AttributeMeshLocalBounding {
+  type Result = impl DualQueryLike<Key = RawEntityHandle, Value = Box3> + 'static; // attribute mesh entity
+
+  fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
+    use_attribute_mesh_local_bounding(cx)
   }
+}
 
-  let indexed = indexed
-    .collective_execute_map_by(|| {
-      let buffer_access = global_entity_component_of::<BufferEntityData>().read();
+fn get_ranged_buffer(buffer: &[u8], range: Option<BufferViewRange>) -> &[u8] {
+  if let Some(range) = range {
+    let start = range.offset as usize;
+    let count = range
+      .size
+      .map(|v| u64::from(v) as usize)
+      .unwrap_or(buffer.len());
+    buffer.get(start..(start + count)).unwrap()
+  } else {
+    buffer
+  }
+}
+
+fn use_attribute_mesh_local_bounding(
+  cx: &mut impl DBHookCxLike,
+) -> UseResult<impl DualQueryLike<Key = RawEntityHandle, Value = Box3>> {
+  let (position_source1, position_source2) = use_attribute_mesh_position_query(cx).fork();
+
+  let indexed = position_source1
+    .map(|v| v.indexed)
+    .use_dual_query_execute_map(cx, || {
+      let buffer_access = get_db_view::<BufferEntityData>();
       move |_, ((position, position_range), (idx, idx_range, count))| {
-        let index = buffer_access.get(idx).unwrap();
-        let index = get_ranged_buffer(index, idx_range);
+        let index = buffer_access.access(&idx).unwrap();
+        let index = get_ranged_buffer(&index, idx_range);
 
         let count = count as usize;
         let index = if index.len() / count == 2 {
@@ -203,8 +211,8 @@ pub fn attribute_mesh_local_bounding(
           unreachable!("index count must be 2 or 4 bytes")
         };
 
-        let position = buffer_access.get(position.unwrap()).unwrap();
-        let position = get_ranged_buffer(position, position_range);
+        let position = buffer_access.access(&position.unwrap()).unwrap();
+        let position = get_ranged_buffer(&position, position_range);
         let position: &[Vec3<f32>] = cast_slice(position);
 
         // as we are compute bounding, the topology not matters
@@ -213,15 +221,15 @@ pub fn attribute_mesh_local_bounding(
           .primitive_iter()
           .fold(Box3::empty(), |b, p| b.union_into(p.to_bounding()))
       }
-    })
-    .into_boxed();
+    });
 
-  let none_indexed = none_indexed
-    .collective_execute_map_by(|| {
-      let buffer_access = global_entity_component_of::<BufferEntityData>().read();
+  let none_indexed = position_source2
+    .map(|v| v.none_indexed)
+    .use_dual_query_execute_map(cx, || {
+      let buffer_access = get_db_view::<BufferEntityData>();
       move |_, (position, position_range)| {
-        let position = buffer_access.get(position.unwrap()).unwrap();
-        let position = get_ranged_buffer(position, position_range);
+        let position = buffer_access.access(&position.unwrap()).unwrap();
+        let position = get_ranged_buffer(&position, position_range);
         let position: &[Vec3<f32>] = cast_slice(position);
 
         // as we are compute bounding, the topology not matters
@@ -230,90 +238,92 @@ pub fn attribute_mesh_local_bounding(
           .primitive_iter()
           .fold(Box3::empty(), |b, p| b.union_into(p.to_bounding()))
       }
-    })
-    .into_boxed();
+    });
 
-  indexed.collective_select(none_indexed)
+  indexed.dual_query_select(none_indexed)
 }
 
 // todo, this should be registered into global query registry
-pub fn attribute_mesh_position_query() -> PositionRelatedAttributeMeshQuery {
-  let index_buffer_ref =
-    global_watch().watch_typed_foreign_key::<SceneBufferViewBufferId<AttributeIndexRef>>();
-  let index_buffer_range = global_watch().watch::<SceneBufferViewBufferRange<AttributeIndexRef>>();
+pub fn use_attribute_mesh_position_query(
+  cx: &mut impl DBHookCxLike,
+) -> UseResult<PositionRelatedAttributeMeshQuery> {
+  let index_buffer_ref = cx.use_dual_query::<SceneBufferViewBufferId<AttributeIndexRef>>();
+  let index_buffer_range = cx.use_dual_query::<SceneBufferViewBufferRange<AttributeIndexRef>>();
 
   // we not using intersect here because range may not exist
-  let ranged_index_buffer = index_buffer_ref
-    .collective_union(index_buffer_range, |(a, b)| Some((a?, b?)))
-    .into_forker();
+  let (ranged_index_buffer1, ranged_index_buffer2) = index_buffer_ref
+    .dual_query_union(index_buffer_range, |(a, b)| Some((a?, b?)))
+    .fork();
 
-  let index_count = global_watch().watch::<SceneBufferViewBufferItemCount<AttributeIndexRef>>();
+  let index_count = cx.use_dual_query::<SceneBufferViewBufferItemCount<AttributeIndexRef>>();
 
-  let indexed_meshes_and_its_range = ranged_index_buffer
-    .clone()
-    .collective_zip(index_count)
-    .collective_filter_map(|((index, range), count)| index.map(|i| (i, range, count.unwrap())));
+  let indexed_meshes_and_its_range = ranged_index_buffer1
+    .dual_query_zip(index_count)
+    .dual_query_filter_map(|((index, range), count)| index.map(|i| (i, range, count.unwrap())));
 
   let none_indexed_mesh_set =
-    ranged_index_buffer.collective_filter_map(|(b, _)| b.is_none().then_some(()));
+    ranged_index_buffer2.dual_query_filter_map(|(b, _)| b.is_none().then_some(()));
 
-  let positions_scope = global_watch()
-    .watch::<AttributesMeshEntityVertexBufferSemantic>()
-    .collective_filter(|semantic| semantic == AttributeSemantic::Positions)
-    .collective_map(|_| {})
-    .into_forker();
+  let (positions_scope1, positions_scope2) = cx
+    .use_dual_query::<AttributesMeshEntityVertexBufferSemantic>()
+    .dual_query_filter_map(|semantic| (semantic == AttributeSemantic::Positions).then_some(()))
+    .fork();
 
-  let vertex_buffer_ref = global_watch()
-    .watch_typed_foreign_key::<SceneBufferViewBufferId<AttributeVertexRef>>()
-    .filter_by_keyset(positions_scope.clone());
+  let (positions_scope2, positions_scope3) = positions_scope2.fork();
 
-  let vertex_buffer_range = global_watch()
-    .watch::<SceneBufferViewBufferRange<AttributeVertexRef>>()
-    .filter_by_keyset(positions_scope.clone());
+  let vertex_buffer_ref = cx
+    .use_dual_query::<SceneBufferViewBufferId<AttributeVertexRef>>()
+    .dual_query_filter_by_set(positions_scope1);
+
+  let vertex_buffer_range = cx
+    .use_dual_query::<SceneBufferViewBufferRange<AttributeVertexRef>>()
+    .dual_query_filter_by_set(positions_scope2);
 
   let ranged_position_buffer = vertex_buffer_ref
-    .collective_union(vertex_buffer_range, |(a, b)| Some((a?, b?)))
-    .into_boxed();
+    .dual_query_union(vertex_buffer_range, |(a, b)| Some((a?, b?)))
+    .dual_query_boxed();
 
-  let ab_ref_mesh = global_watch()
-    .watch_typed_foreign_key::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>()
-    .collective_filter_map(|v| v)
-    .filter_by_keyset(positions_scope)
-    .hash_reverse_assume_one_one()
-    .into_boxed();
+  let ab_ref_mesh = cx
+    .use_dual_query::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>()
+    .dual_query_filter_map(|v| v)
+    .dual_query_filter_by_set(positions_scope3)
+    .use_dual_query_hash_reverse_assume_one_one(cx)
+    .dual_query_boxed();
 
   // todo, impl chain instead of using one to many fanout
   let attribute_mesh_access_position_buffer = ranged_position_buffer
-    .one_to_many_fanout(ab_ref_mesh.into_one_to_many_by_hash())
-    .into_boxed();
+    .fanout(ab_ref_mesh.use_dual_query_hash_many_to_one(cx))
+    .dual_query_boxed();
 
-  let attribute_mesh_access_position_buffer = attribute_mesh_access_position_buffer.into_forker();
+  let (position1, position2) = attribute_mesh_access_position_buffer.fork();
 
-  let none_indexed = attribute_mesh_access_position_buffer
-    .clone()
-    .filter_by_keyset(none_indexed_mesh_set)
-    .into_boxed();
+  let none_indexed = position1
+    .dual_query_filter_by_set(none_indexed_mesh_set)
+    .dual_query_boxed();
 
-  let indexed = attribute_mesh_access_position_buffer
-    .collective_intersect(indexed_meshes_and_its_range)
-    .into_boxed();
+  let indexed = position2
+    .dual_query_intersect(indexed_meshes_and_its_range)
+    .dual_query_boxed();
 
-  PositionRelatedAttributeMeshQuery {
-    none_indexed,
-    indexed,
-  }
+  none_indexed.join(indexed).map(
+    |(none_indexed, indexed)| PositionRelatedAttributeMeshQuery {
+      none_indexed,
+      indexed,
+    },
+  )
 }
 
+#[derive(Clone)]
 pub struct PositionRelatedAttributeMeshQuery {
-  pub indexed: BoxedDynReactiveQuery<
-    EntityHandle<AttributesMeshEntity>,
+  pub indexed: BoxedDynDualQuery<
+    RawEntityHandle, // mesh buffer entity
     (
-      (Option<EntityHandle<BufferEntity>>, Option<BufferViewRange>), // position
-      (EntityHandle<BufferEntity>, Option<BufferViewRange>, u32), /* index, count(used to distinguish the index format) */
+      (Option<RawEntityHandle>, Option<BufferViewRange>), // position, buffer entity
+      (RawEntityHandle, Option<BufferViewRange>, u32), /* index, count(used to distinguish the index format) */
     ),
   >,
-  pub none_indexed: BoxedDynReactiveQuery<
-    EntityHandle<AttributesMeshEntity>,
-    (Option<EntityHandle<BufferEntity>>, Option<BufferViewRange>),
+  pub none_indexed: BoxedDynDualQuery<
+    RawEntityHandle,                                    // mesh buffer entity
+    (Option<RawEntityHandle>, Option<BufferViewRange>), // buffer entity
   >,
 }

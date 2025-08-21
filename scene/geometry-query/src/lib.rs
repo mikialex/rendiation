@@ -42,8 +42,7 @@ pub struct SceneModelPickerImpl {
   pub scene_model_node: ForeignKeyReadView<SceneModelRefNode>,
   pub model_access_std_model: ForeignKeyReadView<SceneModelStdModelRenderPayload>,
   pub std_model_access_mesh: ForeignKeyReadView<StandardModelRefAttributesMeshEntity>,
-  pub mesh_vertex_refs:
-    RevRefOfForeignKey<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>,
+  pub mesh_vertex_refs: BoxedDynMultiQuery<RawEntityHandle, RawEntityHandle>,
   pub vertex_buffer_ref: ForeignKeyReadView<SceneBufferViewBufferId<AttributeVertexRef>>,
   pub semantic: ComponentReadView<AttributesMeshEntityVertexBufferSemantic>,
   pub mesh_index_attribute: ForeignKeyReadView<SceneBufferViewBufferId<AttributeIndexRef>>,
@@ -95,7 +94,8 @@ impl SceneModelPicker for SceneModelPickerImpl {
     let mode = self.mesh_topology.get_value(mesh)?;
 
     let mut position: Option<&ExternalRefPtr<Vec<u8>>> = None;
-    for att in self.mesh_vertex_refs.access_multi(&mesh)? {
+    for att in self.mesh_vertex_refs.access_multi(&mesh.into_raw())? {
+      let att = unsafe { EntityHandle::from_raw(att) };
       if let AttributeSemantic::Positions = self.semantic.get_value(att).unwrap() {
         let p = self.vertex_buffer_ref.get(att).unwrap();
         position = Some(self.buffer.get(p).unwrap());

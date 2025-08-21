@@ -5,9 +5,6 @@ use crate::*;
 mod feature;
 pub use feature::*;
 
-mod derives;
-pub use derives::*;
-
 mod default_scene;
 pub use default_scene::*;
 
@@ -38,6 +35,8 @@ pub struct ViewerCx<'a> {
   pub input: &'a PlatformEventInput,
   pub absolute_seconds_from_start: f32,
   pub time_delta_seconds: f32,
+  pub shared_ctx: &'a mut SharedHooksCtx,
+  pub task_spawner: &'a TaskSpawner,
   stage: ViewerCxStage<'a>,
 }
 
@@ -50,7 +49,6 @@ pub struct ViewerDropCx<'a> {
 pub struct ViewerInitCx<'a> {
   pub dyn_cx: &'a mut DynCx,
   pub scene: &'a Viewer3dSceneCtx,
-  pub derive: &'a Viewer3dSceneDeriveSource,
   pub terminal: &'a mut Terminal,
 }
 
@@ -69,6 +67,36 @@ unsafe impl HooksCxLike for ViewerCx<'_> {
     self.use_plain_state_init(|_| f())
   }
 }
+
+impl<'a> QueryHookCxLike for ViewerCx<'a> {
+  fn is_spawning_stage(&self) -> bool {
+    matches!(&self.stage, ViewerCxStage::SpawnTask { .. })
+  }
+
+  fn is_resolve_stage(&self) -> bool {
+    matches!(&self.stage, ViewerCxStage::EventHandling { .. })
+  }
+
+  fn stage(&mut self) -> QueryHookStage {
+    match &mut self.stage {
+      ViewerCxStage::SpawnTask { pool, .. } => QueryHookStage::SpawnTask {
+        spawner: self.task_spawner,
+        pool,
+      },
+      ViewerCxStage::EventHandling { task, .. } => QueryHookStage::ResolveTask { task },
+      _ => QueryHookStage::Other,
+    }
+  }
+
+  fn use_shared_consumer(&mut self, key: ShareKey) -> u32 {
+    todo!()
+  }
+
+  fn shared_hook_ctx(&mut self) -> &mut SharedHooksCtx {
+    self.shared_ctx
+  }
+}
+impl<'a> DBHookCxLike for ViewerCx<'a> {}
 
 impl<'a> ViewerCx<'a> {
   pub fn use_plain_state<T>(&mut self) -> (&mut Self, &mut T)
@@ -110,7 +138,6 @@ impl<'a> ViewerCx<'a> {
         init(&mut ViewerInitCx {
           dyn_cx: self.dyn_cx,
           scene: &self.viewer.scene,
-          derive: &self.viewer.derives,
           terminal: &mut self.viewer.terminal,
         })
       },
@@ -128,11 +155,14 @@ impl<'a> ViewerCx<'a> {
 pub enum ViewerCxStage<'a> {
   #[non_exhaustive]
   BaseStage,
+  SpawnTask {
+    pool: &'a mut AsyncTaskPool,
+    shared_ctx: &'a mut SharedHooksCtx,
+  },
   EventHandling {
-    reader: &'a SceneReader,
-    picker: &'a ViewerPicker,
-    derived: &'a Viewer3dSceneDerive,
-    widget_cx: &'a dyn WidgetEnvAccess,
+    task: &'a mut TaskPoolResultCx,
+    shared_ctx: &'a mut SharedHooksCtx,
+    terminal_request: TerminalTaskStore,
   },
   #[non_exhaustive]
   SceneContentUpdate { writer: &'a mut SceneWriter },
@@ -171,38 +201,26 @@ pub fn stage_of_update_internal(
   rollback: bool,
 ) {
   if let ViewerCxStage::BaseStage = cx.stage {
+    let mut pool = AsyncTaskPool::default();
     {
-      let derived = cx.viewer.derives.poll_update();
+      cx.stage = unsafe {
+        std::mem::transmute(ViewerCxStage::SpawnTask {
+          pool: &mut pool,
+          shared_ctx: todo!(),
+        })
+      };
 
-      let picker = ViewerPicker::new(&derived, cx.input, cx.viewer.scene.main_camera);
+      cx.execute(&internal, true);
+    }
 
-      let scene_reader = SceneReader::new_from_global(
-        cx.viewer.scene.scene,
-        derived.mesh_vertex_ref.clone(),
-        derived.node_children.clone(),
-        derived.sm_to_s.clone(),
-      );
-      // todo, fix , this should use actual render resolution instead of full window size
-      let canvas_resolution = Vec2::new(
-        cx.input.window_state.physical_size.0 / cx.input.window_state.device_pixel_ratio,
-        cx.input.window_state.physical_size.1 / cx.input.window_state.device_pixel_ratio,
-      )
-      .map(|v| v.ceil() as u32);
+    let mut task_pool_result = pollster::block_on(pool.all_async_task_done());
 
-      let widget_env = create_widget_cx(
-        &derived,
-        &scene_reader,
-        &cx.viewer.scene,
-        &picker,
-        canvas_resolution,
-      );
-
+    {
       cx.stage = unsafe {
         std::mem::transmute(ViewerCxStage::EventHandling {
-          reader: &scene_reader,
-          picker: &picker,
-          derived: &derived,
-          widget_cx: widget_env.as_ref(),
+          task: &mut task_pool_result,
+          shared_ctx: todo!(),
+          terminal_request: cx.viewer.terminal.ctx.store.clone(),
         })
       };
 
@@ -263,6 +281,8 @@ pub fn use_viewer<'a>(
     absolute_seconds_from_start,
     time_delta_seconds: *frame_time_delta_in_seconds,
     stage: ViewerCxStage::BaseStage,
+    shared_ctx: &mut Default::default(),
+    task_spawner: worker_thread_pool,
   }
   .execute(|viewer| f(viewer), true);
 
@@ -274,6 +294,8 @@ pub fn use_viewer<'a>(
     dyn_cx: acx.dyn_cx,
     absolute_seconds_from_start,
     time_delta_seconds: *frame_time_delta_in_seconds,
+    shared_ctx: &mut Default::default(),
+    task_spawner: worker_thread_pool,
     stage: ViewerCxStage::Gui {
       egui_ctx,
       global: gui_feature_global_states,
@@ -287,7 +309,6 @@ pub fn use_viewer<'a>(
 pub struct Viewer {
   scene: Viewer3dSceneCtx,
   rendering: Viewer3dRenderingCtx,
-  derives: Viewer3dSceneDeriveSource,
   terminal: Terminal,
   background: ViewerBackgroundState,
   started_time: Instant,
@@ -365,28 +386,10 @@ impl Viewer {
       enable_reverse_z: true,
     };
 
-    let camera_transforms = camera_transforms(viewer_ndc)
-      .into_boxed()
-      .into_static_forker();
-
-    let derives = Viewer3dSceneDeriveSource {
-      world_mat: scene_node_derive_world_mat().into_boxed().into_forker(),
-      node_net_visible: Box::new(scene_node_derive_visible()),
-      camera_transforms: camera_transforms.clone(),
-      mesh_vertex_ref: Box::new(
-        global_rev_ref()
-          .watch_inv_ref::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>(),
-      ),
-      sm_to_s: Box::new(global_rev_ref().watch_inv_ref::<SceneModelBelongsToScene>()),
-      sm_world_bounding: Box::new(scene_model_world_bounding()),
-      node_children: Box::new(scene_node_connectivity_many_one_relation()),
-    };
-
     Self {
       scene,
       terminal,
       rendering: Viewer3dRenderingCtx::new(gpu, swap_chain, viewer_ndc),
-      derives,
       background,
       started_time: Instant::now(),
       memory: Default::default(),
@@ -408,14 +411,11 @@ impl Viewer {
       shared_ctx,
     );
 
-    let scene_derive = self.derives.poll_update();
-
     let task_pool_result = pollster::block_on(tasks.all_async_task_done());
 
     self.rendering.render(
       canvas,
       &self.scene,
-      &scene_derive,
       &mut self.render_memory,
       &mut self.render_resource,
       task_pool_result,
@@ -433,4 +433,45 @@ pub struct Viewer3dSceneCtx {
   pub scene: EntityHandle<SceneEntity>,
   pub selected_target: Option<EntityHandle<SceneModelEntity>>,
   pub widget_scene: EntityHandle<SceneEntity>,
+}
+
+// todo share
+fn use_scene_reader(cx: &mut ViewerCx) -> Option<SceneReader> {
+  use_scene_reader_internal(cx, cx.viewer.scene.scene)
+}
+
+fn use_scene_reader_internal(
+  cx: &mut impl DBHookCxLike,
+  scene_id: EntityHandle<SceneEntity>,
+) -> Option<SceneReader> {
+  let mesh_ref_vertex = cx
+    .use_db_rev_ref::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>()
+    .use_assure_result(cx);
+
+  let node_children = cx
+    .use_shared_compute(GlobalNodeConnectivity)
+    .use_assure_result(cx);
+
+  let scene_ref_models = cx
+    .use_db_rev_ref::<SceneModelBelongsToScene>()
+    .use_assure_result(cx);
+
+  cx.when_resolve_stage(|| {
+    SceneReader::new_from_global(
+      scene_id,
+      mesh_ref_vertex
+        .expect_resolve_stage()
+        .mark_foreign_key::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>()
+        .into_boxed_multi(),
+      node_children
+        .expect_resolve_stage()
+        .mark_entity_type_multi::<SceneNodeEntity>()
+        .multi_map(|k| unsafe { EntityHandle::<SceneNodeEntity>::from_raw(k) })
+        .into_boxed_multi(),
+      scene_ref_models
+        .expect_resolve_stage()
+        .mark_foreign_key::<SceneModelBelongsToScene>()
+        .into_boxed_multi(),
+    )
+  })
 }

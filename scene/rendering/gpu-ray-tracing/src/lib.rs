@@ -1,10 +1,10 @@
 #![feature(impl_trait_in_assoc_type)]
-
+#![allow(clippy::borrowed_box)]
 use std::{ops::DerefMut, sync::Arc};
 
 use database::*;
 use dyn_clone::*;
-use fast_hash_collection::{FastHashMap, FastHashSet};
+use fast_hash_collection::FastHashSet;
 use parking_lot::RwLock;
 use reactive::*;
 use rendiation_algebra::*;

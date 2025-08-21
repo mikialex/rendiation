@@ -66,11 +66,13 @@ struct ViewerRendererInstance {
   culling: ViewerCulling,
   oit: ViewerTransparentRenderer,
   mesh_lod_graph_renderer: Option<MeshLODGraphSceneRenderer>,
+  camera_transforms: BoxedDynQuery<EntityHandle<SceneCameraEntity>, CameraTransform>,
+  sm_world_bounding: BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
 }
 
 pub struct Viewer3dRenderingCtx {
   frame_index: u64,
-  ndc: ViewerNDC,
+  pub(crate) ndc: ViewerNDC,
   frame_logic: ViewerFrameLogic,
   enable_indirect_occlusion_culling: bool,
   current_renderer_impl_ty: RasterizationRenderBackendType,
@@ -272,6 +274,12 @@ impl Viewer3dRenderingCtx {
 
     let extractor = use_default_scene_batch_extractor(qcx);
 
+    let camera_transforms = qcx
+      .use_shared_dual_query_view(GlobalCameraTransformShare(self.ndc))
+      .use_assure_result(qcx);
+
+    let sm_world_bounding = qcx.use_shared_dual_query_view(SceneModelWorldBounding);
+
     qcx.when_render(|| ViewerRendererInstance {
       camera: camera.unwrap(),
       background: background.unwrap(),
@@ -282,6 +290,14 @@ impl Viewer3dRenderingCtx {
       culling: culling.unwrap(),
       oit,
       mesh_lod_graph_renderer,
+      camera_transforms: camera_transforms
+        .expect_resolve_stage()
+        .mark_entity_type()
+        .into_boxed(),
+      sm_world_bounding: sm_world_bounding
+        .expect_resolve_stage()
+        .mark_entity_type()
+        .into_boxed(),
     })
   }
 
@@ -329,7 +345,6 @@ impl Viewer3dRenderingCtx {
     &mut self,
     target: &RenderTargetView,
     content: &Viewer3dSceneCtx,
-    scene_derive: &Viewer3dSceneDerive,
     memory: &mut FunctionMemory,
     rendering_resource: &mut ReactiveQueryCtx,
     task_pool_result: TaskPoolResultCx,
@@ -421,7 +436,18 @@ impl Viewer3dRenderingCtx {
         self.picker.notify_frame_id_buffer_not_available();
       }
     } else {
-      let camera_transform = scene_derive
+      let ras_renderer = ViewerSceneRenderer {
+        scene: renderer.raster_scene_renderer.as_ref(),
+        batch_extractor: &renderer.extractor,
+        cameras: &renderer.camera,
+        background: &renderer.background,
+        reversed_depth: self.ndc.enable_reverse_z,
+        oit: renderer.oit.clone(),
+        camera_transforms: &renderer.camera_transforms,
+        sm_world_bounding: &renderer.sm_world_bounding,
+      };
+
+      let camera_transform = ras_renderer
         .camera_transforms
         .access(&content.main_camera)
         .unwrap();
@@ -441,20 +467,10 @@ impl Viewer3dRenderingCtx {
         }
       }
 
-      let ras_renderer = ViewerSceneRenderer {
-        scene: renderer.raster_scene_renderer.as_ref(),
-        batch_extractor: &renderer.extractor,
-        cameras: &renderer.camera,
-        background: &renderer.background,
-        reversed_depth: self.ndc.enable_reverse_z,
-        oit: renderer.oit.clone(),
-      };
-
       let entity_id = self.frame_logic.render(
         &mut ctx,
         &ras_renderer,
         &renderer.culling,
-        scene_derive,
         &lighting_cx,
         content,
         &render_target,

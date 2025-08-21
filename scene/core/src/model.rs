@@ -106,31 +106,27 @@ impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for GlobalSceneModelWorldMatrix 
   }
 }
 
-#[global_registered_query]
-pub fn scene_model_world_matrix(
-) -> impl ReactiveQuery<Key = EntityHandle<SceneModelEntity>, Value = Mat4<f64>> {
-  let node_world_mat = scene_node_derive_world_mat();
+pub struct SceneModelWorldBounding;
 
-  node_world_mat.one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelRefNode>())
-}
+impl<Cx: DBHookCxLike> SharedResultProvider<Cx> for SceneModelWorldBounding {
+  type Result = impl DualQueryLike<Key = RawEntityHandle, Value = Box3<f64>>;
 
-#[global_registered_query]
-pub fn scene_model_world_bounding(
-) -> impl ReactiveQuery<Key = EntityHandle<SceneModelEntity>, Value = Box3<f64>> {
-  let mesh_local_bounding = attribute_mesh_local_bounding();
+  fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
+    let mesh_local_bounding = cx.use_shared_dual_query(AttributeMeshLocalBounding);
 
-  let std_mesh_local_bounding = mesh_local_bounding
-    .one_to_many_fanout(global_rev_ref().watch_inv_ref::<StandardModelRefAttributesMeshEntity>());
+    let std_mesh_local_bounding = mesh_local_bounding
+      .fanout(cx.use_db_rev_ref_tri_view::<StandardModelRefAttributesMeshEntity>());
 
-  let scene_model_world_mat = scene_model_world_matrix();
+    let scene_model_world_mat = cx.use_shared_dual_query(GlobalSceneModelWorldMatrix);
 
-  let scene_model_local_bounding = std_mesh_local_bounding
-    .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelStdModelRenderPayload>());
+    let scene_model_local_bounding = std_mesh_local_bounding
+      .fanout(cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>());
 
-  scene_model_world_mat
-    .collective_intersect(scene_model_local_bounding)
-    .collective_map(|(mat, local)| {
-      let f64_box = Box3::new(local.min.into_f64(), local.max.into_f64());
-      f64_box.apply_matrix_into(mat)
-    })
+    scene_model_world_mat
+      .dual_query_intersect(scene_model_local_bounding)
+      .dual_query_map(|(mat, local)| {
+        let f64_box = Box3::new(local.min.into_f64(), local.max.into_f64());
+        f64_box.apply_matrix_into(mat)
+      })
+  }
 }

@@ -25,45 +25,6 @@ pub fn register_camera_data_model() {
     .declare_foreign_key::<SceneCameraNode>();
 }
 
-// pub fn camera_project_matrix_view(
-//   ndc_mapper: impl NDCSpaceMapper<f32> + Copy,
-// ) -> impl Query<Key = EntityHandle<SceneCameraEntity>, Value = Mat4<f32>> {
-//   let perspective = get_db_view_typed::<SceneCameraPerspective>()
-//     .filter_map(move |proj| proj.map(|proj| proj.compute_projection_mat(&ndc_mapper)));
-
-//   let orth = get_db_view_typed::<SceneCameraOrthographic>()
-//     .filter_map(move |proj| proj.map(|proj| proj.compute_projection_mat(&ndc_mapper)));
-
-//   Select([perspective.into_boxed(), orth.into_boxed()])
-// }
-
-// pub fn camera_project_matrix_change(
-//   cx: &mut impl DBHookCxLike,
-//   ndc_mapper: impl NDCSpaceMapper<f32> + Copy,
-// ) {
-//   let perspective = cx
-//     .use_changes::<SceneCameraPerspective>()
-//     .filter_map_changes(move |proj| proj.map(|proj| proj.compute_projection_mat(&ndc_mapper)));
-
-//   let orth = cx
-//     .use_changes::<SceneCameraOrthographic>()
-//     .filter_map_changes(move |proj| proj.map(|proj| proj.compute_projection_mat(&ndc_mapper)));
-// }
-
-pub fn camera_project_matrix(
-  ndc_mapper: impl NDCSpaceMapper<f32> + Copy,
-) -> impl ReactiveQuery<Key = EntityHandle<SceneCameraEntity>, Value = Mat4<f32>> {
-  let perspective = global_watch()
-    .watch::<SceneCameraPerspective>()
-    .collective_filter_map(move |proj| proj.map(|proj| proj.compute_projection_mat(&ndc_mapper)));
-
-  let orth = global_watch()
-    .watch::<SceneCameraOrthographic>()
-    .collective_filter_map(move |proj| proj.map(|proj| proj.compute_projection_mat(&ndc_mapper)));
-
-  perspective.collective_select(orth)
-}
-
 pub fn use_camera_project_matrix(
   cx: &mut impl DBHookCxLike,
   ndc_mapper: impl NDCSpaceMapper<f32> + Copy,
@@ -122,20 +83,6 @@ pub fn cast_world_ray<T: Scalar>(
   let world_end = view_projection_inv * end;
 
   Ray3::from_origin_to_target(world_start, world_end)
-}
-
-pub fn camera_transforms(
-  ndc_mapper: impl NDCSpaceMapper<f32> + Copy,
-) -> impl ReactiveQuery<Key = EntityHandle<SceneCameraEntity>, Value = CameraTransform> {
-  let projections = camera_project_matrix(ndc_mapper);
-  let node_mats = scene_node_derive_world_mat();
-
-  let camera_world_mat =
-    node_mats.one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneCameraNode>());
-
-  camera_world_mat
-    .collective_zip(projections)
-    .collective_map(|(world, proj)| CameraTransform::new(proj, world))
 }
 
 pub struct GlobalCameraTransformShare<T>(pub T);

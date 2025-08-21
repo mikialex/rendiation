@@ -75,7 +75,6 @@ impl GLESModelShapeRenderImpl for GLESAttributesMeshRenderer {
 type BufferCollection = SharedHashMap<RawEntityHandle, GPUBufferResourceView>;
 type BufferCollectionRead = SharedHashMapRead<RawEntityHandle, GPUBufferResourceView>;
 
-// todo, currently we not consider BufferEntityData itself's change
 fn use_buffers<B: SceneBufferView>(
   cx: &mut QueryGPUHookCx,
   usage: BufferUsages,

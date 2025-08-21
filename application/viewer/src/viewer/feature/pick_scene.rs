@@ -9,10 +9,12 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
   let (cx, gpu_pick_future) =
     cx.use_plain_state::<Option<Box<dyn Future<Output = Option<u32>> + Unpin>>>();
 
-  if let ViewerCxStage::EventHandling {
-    picker, derived, ..
-  } = &mut cx.stage
-  {
+  let picker = use_viewer_picker(cx);
+  let sms = cx
+    .use_db_rev_ref::<SceneModelBelongsToScene>()
+    .use_assure_result(cx);
+
+  if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {
     if let Some(f) = gpu_pick_future {
       noop_ctx!(ctx);
       if let Poll::Ready(r) = f.poll_unpin(ctx) {
@@ -45,6 +47,7 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
 
     let scene = cx.viewer.scene.scene;
 
+    let picker = picker.unwrap();
     let mut hit = None;
     let mut fallback_to_cpu = false;
     if prefer_gpu_pick && gpu_pick_future.is_none() {
@@ -62,7 +65,9 @@ pub fn use_pick_scene(cx: &mut ViewerCx) {
     }
 
     if fallback_to_cpu {
-      let sms = &derived.sm_to_s;
+      let sms = sms
+        .expect_resolve_stage()
+        .mark_foreign_key::<SceneModelBelongsToScene>();
       let mut main_scene_models = sms.access_multi(&scene).unwrap();
       let _hit =
         picker.pick_models_nearest(&mut main_scene_models, picker.current_mouse_ray_in_world());

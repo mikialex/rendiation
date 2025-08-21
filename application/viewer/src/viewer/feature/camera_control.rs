@@ -1,6 +1,6 @@
 use rendiation_controller::*;
 
-use crate::*;
+use crate::{viewer::use_scene_reader, *};
 
 #[derive(Default)]
 pub struct ViewerCameraControl {
@@ -22,9 +22,12 @@ pub fn use_camera_control(cx: &mut ViewerCx) {
       .update_target_and_position(*look_at, *position);
   }
 
-  if let ViewerCxStage::EventHandling { reader, .. } = &mut cx.stage {
+  let reader = use_scene_reader(cx);
+
+  if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {
     if !controller.have_synced_for_viewer_init_camera_state {
       let camera_local = reader
+        .unwrap()
         .node_reader
         .read::<SceneNodeLocalMatrixComponent>(cx.viewer.scene.camera_node);
       let lookat_target_init = camera_local * Vec3::new(0., 0., -1.);

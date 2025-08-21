@@ -5,6 +5,8 @@ use rendiation_mesh_generator::*;
 use crate::*;
 
 pub fn use_scene_spotlight_helper(cx: &mut ViewerCx) {
+  let world_mat = use_global_node_world_mat_view(cx).use_assure_result(cx);
+
   let (cx, helpers) =
     cx.use_state_init(|cx| SceneSpotLightHelper::new(cx.scene.scene, cx.derive.world_mat.clone()));
 
@@ -68,10 +70,7 @@ impl<T> FindChangedKey<T> {
 }
 
 impl SceneSpotLightHelper {
-  pub fn new(
-    _scene: EntityHandle<SceneEntity>,
-    world_mats: RQForker<EntityHandle<SceneNodeEntity>, Mat4<f64>>,
-  ) -> Self {
+  pub fn new(_scene: EntityHandle<SceneEntity>) -> Self {
     // let set = global_watch()
     //   .watch::<SpotLightRefScene>()
     //   .collective_filter(move |v| v.unwrap() == scene.into_raw())

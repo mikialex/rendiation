@@ -33,6 +33,8 @@ pub struct ViewerSceneRenderer<'a> {
   pub background: &'a SceneBackgroundRenderer,
   pub oit: ViewerTransparentRenderer,
   pub reversed_depth: bool,
+  pub camera_transforms: &'a BoxedDynQuery<EntityHandle<SceneCameraEntity>, CameraTransform>,
+  pub sm_world_bounding: &'a BoxedDynQuery<EntityHandle<SceneModelEntity>, Box3<f64>>,
 }
 
 impl ViewerFrameLogic {
@@ -74,7 +76,6 @@ impl ViewerFrameLogic {
     ctx: &mut FrameCtx,
     renderer: &ViewerSceneRenderer,
     culling: &ViewerCulling,
-    scene_derive: &Viewer3dSceneDerive,
     lighting: &LightingRenderingCx,
     content: &Viewer3dSceneCtx,
     final_target: &RenderTargetView,
@@ -110,7 +111,6 @@ impl ViewerFrameLogic {
           culling,
           renderer,
           content,
-          scene_derive,
           &scene_result,
           &g_buffer,
         );

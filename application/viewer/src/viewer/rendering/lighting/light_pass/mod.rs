@@ -26,7 +26,6 @@ pub fn render_lighting_scene_content(
   cull_cx: &ViewerCulling,
   renderer: &ViewerSceneRenderer,
   content: &Viewer3dSceneCtx,
-  scene_derive: &Viewer3dSceneDerive,
   scene_result: &RenderTargetView,
   g_buffer: &FrameGeometryBuffer,
 ) {
@@ -67,14 +66,14 @@ pub fn render_lighting_scene_content(
 
       let mut all_transparent_object =
         if let SceneModelRenderBatch::Host(all_transparent_object) = &all_transparent_object {
-          let camera_position = scene_derive
+          let camera_position = renderer
             .camera_transforms
             .access(&content.main_camera)
             .unwrap()
             .world
             .position();
           let all_transparent_object = TransparentHostOrderer {
-            world_bounding: scene_derive.sm_world_bounding.clone(),
+            world_bounding: renderer.sm_world_bounding.clone(),
           }
           .reorder_content(all_transparent_object.as_ref(), camera_position);
 

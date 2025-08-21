@@ -43,34 +43,44 @@ pub fn use_smooth_camera_motion(cx: &mut ViewerCx, f: impl FnOnce(&mut ViewerCx)
 }
 
 pub fn use_fit_camera_view(cx: &mut ViewerCx) {
-  cx.use_state_init(|cx| {
-    cx.terminal
-      .register_sync_command("fit-camera-view", |ctx, _parameters| {
-        let derived = ctx.derive.poll_update();
+  // cx.use_state_init(|cx| {
+  //   cx.terminal
+  //     .register_sync_command("fit-camera-view", |ctx, _parameters| {
+  //       let derived = ctx.derive.poll_update();
 
-        if let Some(action) = fit_camera_view_for_viewer(ctx.scene, &derived) {
-          ctx.dyn_cx.message.put(action);
-        }
-      });
+  //       if let Some(action) = fit_camera_view_for_viewer(ctx.scene, &derived) {
+  //         ctx.dyn_cx.message.put(action);
+  //       }
+  //     });
 
-    struct FitCameraViewForViewer;
-    impl CanCleanUpFrom<ViewerDropCx<'_>> for FitCameraViewForViewer {
-      fn drop_from_cx(&mut self, cx: &mut ViewerDropCx) {
-        cx.terminal.unregister_command("fit-camera-view");
-      }
-    }
+  //   struct FitCameraViewForViewer;
+  //   impl CanCleanUpFrom<ViewerDropCx<'_>> for FitCameraViewForViewer {
+  //     fn drop_from_cx(&mut self, cx: &mut ViewerDropCx) {
+  //       cx.terminal.unregister_command("fit-camera-view");
+  //     }
+  //   }
 
-    FitCameraViewForViewer
-  });
+  //   FitCameraViewForViewer
+  // });
 
-  if let ViewerCxStage::EventHandling { derived, .. } = &mut cx.stage {
+  let sm_world_bounding = cx
+    .use_shared_dual_query_view(SceneModelWorldBounding)
+    .use_assure_result(cx);
+
+  let world_mat = use_global_node_world_mat_view(cx).use_assure_result(cx);
+
+  if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {
     if let Some(ElementState::Pressed) = cx
       .input
       .state_delta
       .key_state_changes
       .get(&winit::keyboard::KeyCode::KeyF)
     {
-      if let Some(action) = fit_camera_view_for_viewer(&cx.viewer.scene, derived) {
+      let world_mat = world_mat.expect_resolve_stage().mark_entity_type();
+      let sm_world_bounding = sm_world_bounding.expect_resolve_stage().mark_entity_type();
+      if let Some(action) =
+        fit_camera_view_for_viewer(&cx.viewer.scene, world_mat, sm_world_bounding)
+      {
         cx.dyn_cx.message.put(action);
       }
     }
@@ -79,13 +89,14 @@ pub fn use_fit_camera_view(cx: &mut ViewerCx) {
 
 fn fit_camera_view_for_viewer(
   scene_info: &Viewer3dSceneCtx,
-  derived: &Viewer3dSceneDerive,
+  world_mat: impl Query<Key = EntityHandle<SceneNodeEntity>, Value = Mat4<f64>>,
+  sm_world_bounding: impl Query<Key = EntityHandle<SceneModelEntity>, Value = Box3<f64>>,
 ) -> Option<CameraMoveAction> {
   if let Some(selected) = &scene_info.selected_target {
-    let camera_world = derived.world_mat.access(&scene_info.camera_node).unwrap();
+    let camera_world = world_mat.access(&scene_info.camera_node).unwrap();
     let camera_reader = global_entity_component_of::<SceneCameraPerspective>().read();
 
-    let target_world_aabb = derived.sm_world_bounding.access(selected).unwrap();
+    let target_world_aabb = sm_world_bounding.access(selected).unwrap();
     let proj = camera_reader.get(scene_info.main_camera).unwrap().unwrap();
 
     fit_camera_view(&proj, camera_world, target_world_aabb).into()

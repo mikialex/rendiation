@@ -24,18 +24,22 @@ pub struct TargetWorldBounding {
 pub fn use_scene_model_device_world_bounding(
   qcx: &mut QueryGPUHookCx,
 ) -> Option<DrawUnitWorldBoundingProviderDefaultImpl> {
+  let (qcx, storage) = qcx.use_storage_buffer2(128, u32::MAX);
+
   qcx
-    .use_storage_buffer(|gpu| {
-      let source = scene_model_world_bounding()
-        .collective_map(|b| {
-          let min = into_hpt(b.min);
-          let max = into_hpt(b.max);
-          [min.f1, min.f2, max.f1, max.f2]
-        })
-        .into_query_update_storage(0);
-      create_reactive_storage_buffer_container::<[f32; 12]>(128, u32::MAX, gpu).with_source(source)
+    .use_shared_dual_query(SceneModelWorldBounding)
+    .into_delta_change()
+    .map_changes(|b| {
+      let min = into_hpt(b.min);
+      let max = into_hpt(b.max);
+      [min.f1, min.f2, max.f1, max.f2]
     })
-    .map(|bounding_storage| DrawUnitWorldBoundingProviderDefaultImpl { bounding_storage })
+    .use_assure_result(qcx)
+    .update_storage_array(storage, 0);
+
+  qcx.when_render(|| DrawUnitWorldBoundingProviderDefaultImpl {
+    bounding_storage: storage.get_gpu_buffer(),
+  })
 }
 
 #[derive(Clone)]
