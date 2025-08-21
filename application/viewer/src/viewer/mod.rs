@@ -35,7 +35,6 @@ pub struct ViewerCx<'a> {
   pub input: &'a PlatformEventInput,
   pub absolute_seconds_from_start: f32,
   pub time_delta_seconds: f32,
-  pub shared_ctx: &'a mut SharedHooksCtx,
   pub task_spawner: &'a TaskSpawner,
   stage: ViewerCxStage<'a>,
 }
@@ -44,12 +43,14 @@ pub struct ViewerDropCx<'a> {
   pub dyn_cx: &'a mut DynCx,
   pub writer: &'a mut SceneWriter,
   pub terminal: &'a mut Terminal,
+  pub shared_ctx: &'a mut SharedHooksCtx,
 }
 
 pub struct ViewerInitCx<'a> {
   pub dyn_cx: &'a mut DynCx,
   pub scene: &'a Viewer3dSceneCtx,
   pub terminal: &'a mut Terminal,
+  pub shared_ctx: &'a mut SharedHooksCtx,
 }
 
 unsafe impl HooksCxLike for ViewerCx<'_> {
@@ -89,11 +90,31 @@ impl<'a> QueryHookCxLike for ViewerCx<'a> {
   }
 
   fn use_shared_consumer(&mut self, key: ShareKey) -> u32 {
-    todo!()
+    struct Token(u32, ShareKey);
+    impl CanCleanUpFrom<ViewerDropCx<'_>> for Token {
+      fn drop_from_cx(&mut self, cx: &mut ViewerDropCx<'_>) {
+        if let Some(mem) = cx.shared_ctx.drop_consumer(self.1, self.0) {
+          mem.write().memory.cleanup(cx as *mut _ as *mut ());
+        }
+        // this check is necessary because not all consumer need reconcile change
+        if let Some(reconciler) = cx.shared_ctx.reconciler.get_mut(&self.1) {
+          if reconciler.remove_consumer(self.0) {
+            cx.shared_ctx.reconciler.remove(&self.1);
+          }
+        }
+      }
+    }
+
+    let (_, tk) = self.use_plain_state_init(|fcx| {
+      let id = fcx.shared_ctx.next_consumer_id();
+      Token(id, key)
+    });
+
+    tk.0
   }
 
   fn shared_hook_ctx(&mut self) -> &mut SharedHooksCtx {
-    self.shared_ctx
+    &mut self.viewer.shared_ctx
   }
 }
 impl<'a> DBHookCxLike for ViewerCx<'a> {}
@@ -139,6 +160,7 @@ impl<'a> ViewerCx<'a> {
           dyn_cx: self.dyn_cx,
           scene: &self.viewer.scene,
           terminal: &mut self.viewer.terminal,
+          shared_ctx: &mut self.viewer.shared_ctx,
         })
       },
       |state: &mut T, dcx: &mut ViewerDropCx| unsafe {
@@ -206,7 +228,7 @@ pub fn stage_of_update_internal(
       cx.stage = unsafe {
         std::mem::transmute(ViewerCxStage::SpawnTask {
           pool: &mut pool,
-          shared_ctx: todo!(),
+          shared_ctx: &mut cx.viewer.shared_ctx,
         })
       };
 
@@ -219,7 +241,7 @@ pub fn stage_of_update_internal(
       cx.stage = unsafe {
         std::mem::transmute(ViewerCxStage::EventHandling {
           task: &mut task_pool_result,
-          shared_ctx: todo!(),
+          shared_ctx: &mut cx.viewer.shared_ctx,
           terminal_request: cx.viewer.terminal.ctx.store.clone(),
         })
       };
@@ -272,8 +294,6 @@ pub fn use_viewer<'a>(
   let (acx, worker_thread_pool) =
     acx.use_plain_state(|| TaskSpawner::new("viewer_task_worker", None));
 
-  let (acx, shared_ctx) = acx.use_plain_state_default::<SharedHooksCtx>();
-
   ViewerCx {
     viewer,
     dyn_cx: acx.dyn_cx,
@@ -281,12 +301,11 @@ pub fn use_viewer<'a>(
     absolute_seconds_from_start,
     time_delta_seconds: *frame_time_delta_in_seconds,
     stage: ViewerCxStage::BaseStage,
-    shared_ctx: &mut Default::default(),
     task_spawner: worker_thread_pool,
   }
   .execute(|viewer| f(viewer), true);
 
-  viewer.draw_canvas(&acx.draw_target_canvas, worker_thread_pool, shared_ctx);
+  viewer.draw_canvas(&acx.draw_target_canvas, worker_thread_pool);
 
   ViewerCx {
     viewer,
@@ -294,7 +313,6 @@ pub fn use_viewer<'a>(
     dyn_cx: acx.dyn_cx,
     absolute_seconds_from_start,
     time_delta_seconds: *frame_time_delta_in_seconds,
-    shared_ctx: &mut Default::default(),
     task_spawner: worker_thread_pool,
     stage: ViewerCxStage::Gui {
       egui_ctx,
@@ -315,6 +333,7 @@ pub struct Viewer {
   memory: FunctionMemory,
   render_memory: FunctionMemory,
   render_resource: ReactiveQueryCtx,
+  shared_ctx: SharedHooksCtx,
 }
 
 impl CanCleanUpFrom<ApplicationDropCx> for Viewer {
@@ -325,6 +344,7 @@ impl CanCleanUpFrom<ApplicationDropCx> for Viewer {
       dyn_cx: cx,
       writer: &mut writer,
       terminal: &mut self.terminal,
+      shared_ctx: &mut self.shared_ctx,
     };
     self.memory.cleanup(&mut dcx as *mut _ as *mut ());
     self
@@ -395,20 +415,16 @@ impl Viewer {
       memory: Default::default(),
       render_memory: Default::default(),
       render_resource: Default::default(),
+      shared_ctx: Default::default(),
     }
   }
 
-  pub fn draw_canvas(
-    &mut self,
-    canvas: &RenderTargetView,
-    task_spawner: &TaskSpawner,
-    shared_ctx: &mut SharedHooksCtx,
-  ) {
+  pub fn draw_canvas(&mut self, canvas: &RenderTargetView, task_spawner: &TaskSpawner) {
     let tasks = self.rendering.update_registry(
       &mut self.render_memory,
       &mut self.render_resource,
       task_spawner,
-      shared_ctx,
+      &mut self.shared_ctx,
     );
 
     let task_pool_result = pollster::block_on(tasks.all_async_task_done());
@@ -419,7 +435,7 @@ impl Viewer {
       &mut self.render_memory,
       &mut self.render_resource,
       task_pool_result,
-      shared_ctx,
+      &mut self.shared_ctx,
     );
 
     self.rendering.tick_frame();
