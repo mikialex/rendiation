@@ -27,7 +27,7 @@ pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
   let reader = use_scene_reader(viewer_cx);
   let world_mat = use_global_node_world_mat_view(viewer_cx).use_assure_result(viewer_cx);
 
-  let cx = match &mut viewer_cx.stage {
+  match &mut viewer_cx.stage {
     ViewerCxStage::EventHandling { .. } => {
       let picker = picker.unwrap();
       let reader = reader.unwrap();
@@ -50,14 +50,11 @@ pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
         world_mat.into_boxed(),
       );
       let picker = &picker;
-      let picker = unsafe { std::mem::transmute(picker) };
       let reader = &reader;
-      let reader = unsafe { std::mem::transmute(reader) };
       let widget_env = widget_env.as_ref();
-      let widget_env = unsafe { std::mem::transmute(widget_env) };
 
       interaction = Some(prepare_picking_state(picker, &memory.pick_group));
-      Some(UI3dCx::new_event_stage(
+      let mut cx = UI3dCx::new_event_stage(
         &mut memory.memory,
         UIEventStageCx {
           platform_event: viewer_cx.input,
@@ -67,42 +64,43 @@ pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
         reader,
         viewer_cx.dyn_cx,
         &mut memory.pick_group,
-      ))
-    }
-    ViewerCxStage::SceneContentUpdate { writer, .. } => Some(UI3dCx::new_update_stage(
-      &mut memory.memory,
-      viewer_cx.dyn_cx,
-      writer,
-      &mut memory.pick_group,
-    )),
-    _ => None,
-  };
+      );
 
-  if let Some(mut cx) = cx {
-    if cx.is_creating() && cx.event.is_some() {
-      // skip the first event stage when first time init
-      return;
-    }
-
-    let mut scene_old = None;
-
-    cx.execute(
-      |cx| {
-        cx.on_update(|w, _| {
-          scene_old = w.replace_target_scene(widget_scene).into();
-        });
-
-        f(cx);
-      },
-      true,
-    );
-
-    if let ViewerCxStage::SceneContentUpdate { writer, .. } = &mut viewer_cx.stage {
-      if let Some(scene) = scene_old.take() {
-        writer.scene = scene
+      if cx.is_creating() {
+        // skip the first event stage when first time init
+        return;
       }
+
+      cx.execute(f, true)
     }
-  }
+    ViewerCxStage::SceneContentUpdate { writer, .. } => {
+      let mut cx = UI3dCx::new_update_stage(
+        &mut memory.memory,
+        viewer_cx.dyn_cx,
+        writer,
+        &mut memory.pick_group,
+      );
+
+      let mut scene_old = None;
+      cx.execute(
+        |cx| {
+          cx.on_update(|w, _| {
+            scene_old = w.replace_target_scene(widget_scene).into();
+          });
+
+          f(cx);
+
+          cx.on_update(|w, _| {
+            if let Some(scene) = scene_old.take() {
+              w.scene = scene
+            }
+          });
+        },
+        true,
+      );
+    }
+    _ => {}
+  };
 }
 
 pub fn create_widget_cx(

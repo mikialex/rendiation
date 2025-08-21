@@ -8,6 +8,15 @@ pub enum UseResult<T> {
 }
 
 impl<T: Send + Sync + 'static> UseResult<T> {
+  pub fn map_future<U>(self, f: impl FnOnce(T) -> U + Send + Sync + 'static) -> UseResult<U> {
+    use futures::FutureExt;
+    if let Some(future) = self.into_future() {
+      UseResult::SpawnStageFuture(Box::new(future.map(f)))
+    } else {
+      UseResult::NotInStage
+    }
+  }
+
   pub fn map<U>(self, f: impl FnOnce(T) -> U + Send + Sync + 'static) -> UseResult<U> {
     use futures::FutureExt;
     match self {
@@ -406,7 +415,7 @@ where
   {
     let cache = cx.use_shared_hash_map();
 
-    self.map(move |t| {
+    self.map_future(move |t| {
       let d = t.delta();
       let materialized = d.iter_key_value().collect::<Vec<_>>();
 

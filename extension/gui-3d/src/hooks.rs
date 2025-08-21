@@ -100,14 +100,13 @@ unsafe impl HooksCxLike for UI3dCx<'_> {
   }
 
   fn use_plain_state<T: 'static>(&mut self, f: impl FnOnce() -> T) -> (&mut Self, &mut T) {
-    #[derive(Default)]
-    struct PlainState<T>(T);
-    impl<T> CanCleanUpFrom<UI3dBuildCx<'_>> for PlainState<T> {
-      fn drop_from_cx(&mut self, _: &mut UI3dBuildCx<'_>) {}
-    }
-    let (cx, s) = self.use_state_init(|_| PlainState(f()));
+    let (cx, s) = self.use_state_init(|_| NothingToDrop(f()));
     (cx, &mut s.0)
   }
+}
+
+impl<T> CanCleanUpFrom<UI3dBuildCx<'_>> for NothingToDrop<T> {
+  fn drop_from_cx(&mut self, _: &mut UI3dBuildCx<'_>) {}
 }
 
 impl UI3dCx<'_> {

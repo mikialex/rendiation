@@ -319,12 +319,7 @@ pub trait QueryHookCxLike: HooksCxLike {
   fn shared_hook_ctx(&mut self) -> &mut SharedHooksCtx;
 
   fn enter_shared_ctx<R>(&mut self, key: ShareKey, f: impl FnOnce(&mut Self) -> R) -> R {
-    let shared = self
-      .shared_hook_ctx()
-      .shared
-      .entry(key)
-      .or_default()
-      .clone();
+    let shared = self.shared_hook_ctx().shared.get(&key).unwrap().clone();
 
     let mut shared = shared.write();
 
