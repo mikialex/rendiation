@@ -90,24 +90,9 @@ impl<'a> QueryHookCxLike for ViewerCx<'a> {
   }
 
   fn use_shared_consumer(&mut self, key: ShareKey) -> u32 {
-    struct Token(u32, ShareKey);
-    impl CanCleanUpFrom<ViewerDropCx<'_>> for Token {
-      fn drop_from_cx(&mut self, cx: &mut ViewerDropCx<'_>) {
-        if let Some(mem) = cx.shared_ctx.drop_consumer(self.1, self.0) {
-          mem.write().memory.cleanup(cx as *mut _ as *mut ());
-        }
-        // this check is necessary because not all consumer need reconcile change
-        if let Some(reconciler) = cx.shared_ctx.reconciler.get_mut(&self.1) {
-          if reconciler.remove_consumer(self.0) {
-            cx.shared_ctx.reconciler.remove(&self.1);
-          }
-        }
-      }
-    }
-
-    let (_, tk) = self.use_plain_state_init(|fcx| {
+    let (_, tk) = self.use_state_init(|fcx| {
       let id = fcx.shared_ctx.next_consumer_id();
-      Token(id, key)
+      ShaderConsumerToken(id, key)
     });
 
     tk.0
@@ -118,6 +103,20 @@ impl<'a> QueryHookCxLike for ViewerCx<'a> {
   }
 }
 impl<'a> DBHookCxLike for ViewerCx<'a> {}
+
+impl CanCleanUpFrom<ViewerDropCx<'_>> for ShaderConsumerToken {
+  fn drop_from_cx(&mut self, cx: &mut ViewerDropCx<'_>) {
+    if let Some(mem) = cx.shared_ctx.drop_consumer(self.1, self.0) {
+      mem.write().memory.cleanup(cx as *mut _ as *mut ());
+    }
+    // this check is necessary because not all consumer need reconcile change
+    if let Some(reconciler) = cx.shared_ctx.reconciler.get_mut(&self.1) {
+      if reconciler.remove_consumer(self.0) {
+        cx.shared_ctx.reconciler.remove(&self.1);
+      }
+    }
+  }
+}
 
 impl<'a> ViewerCx<'a> {
   pub fn use_plain_state<T>(&mut self) -> (&mut Self, &mut T)
@@ -134,13 +133,7 @@ impl<'a> ViewerCx<'a> {
   where
     T: Any,
   {
-    #[derive(Default)]
-    struct PlainState<T>(T);
-    impl<T> CanCleanUpFrom<ViewerDropCx<'_>> for PlainState<T> {
-      fn drop_from_cx(&mut self, _: &mut ViewerDropCx) {}
-    }
-
-    let (cx, s) = self.use_state_init(|cx| PlainState(init(cx)));
+    let (cx, s) = self.use_state_init(|cx| NothingToDrop(init(cx)));
     (cx, &mut s.0)
   }
 
@@ -171,6 +164,10 @@ impl<'a> ViewerCx<'a> {
 
     (s, state)
   }
+}
+
+impl<T> CanCleanUpFrom<ViewerDropCx<'_>> for NothingToDrop<T> {
+  fn drop_from_cx(&mut self, _: &mut ViewerDropCx) {}
 }
 
 #[non_exhaustive]
@@ -225,6 +222,7 @@ pub fn stage_of_update_internal(
   if let ViewerCxStage::BaseStage = cx.stage {
     let mut pool = AsyncTaskPool::default();
     {
+      cx.viewer.shared_ctx.reset_visiting();
       cx.stage = unsafe {
         std::mem::transmute(ViewerCxStage::SpawnTask {
           pool: &mut pool,
@@ -235,9 +233,10 @@ pub fn stage_of_update_internal(
       cx.execute(&internal, true);
     }
 
-    let mut task_pool_result = pollster::block_on(pool.all_async_task_done());
-
     {
+      let mut task_pool_result = pollster::block_on(pool.all_async_task_done());
+
+      cx.viewer.shared_ctx.reset_visiting();
       cx.stage = unsafe {
         std::mem::transmute(ViewerCxStage::EventHandling {
           task: &mut task_pool_result,

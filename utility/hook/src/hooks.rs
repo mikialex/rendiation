@@ -56,6 +56,9 @@ pub unsafe trait HooksCxLike: Sized {
   }
 }
 
+#[derive(Default)]
+pub struct NothingToDrop<T>(pub T);
+
 pub trait CanCleanUpFrom<T> {
   fn drop_from_cx(&mut self, cx: &mut T);
 }
@@ -71,6 +74,7 @@ impl<T, X: CanCleanUpFrom<T>> CanCleanUpFrom<T> for Option<X> {
 struct FunctionMemoryState {
   ptr: *mut (),
   type_id: TypeId,
+  type_name: &'static str,
   cleanup_fn: fn(*mut (), *mut ()),
 }
 
@@ -97,17 +101,34 @@ impl FunctionMemory {
         let cleanup_fn =
           std::mem::transmute::<fn(&mut T, &mut DropCx), fn(*mut (), *mut ())>(cleanup);
 
+        #[cfg(debug_assertions)]
+        let type_name = std::any::type_name::<T>();
+
+        #[cfg(not(debug_assertions))]
+        let type_name = "";
+
         self.states_meta.push(FunctionMemoryState {
           ptr: init as *mut T as *mut (),
           type_id: TypeId::of::<T>(),
+          type_name,
           cleanup_fn,
         });
       }
-      let FunctionMemoryState { type_id, ptr, .. } = &mut self.states_meta[self.current_cursor];
+      let FunctionMemoryState {
+        type_id,
+        ptr,
+        type_name,
+        ..
+      } = &mut self.states_meta[self.current_cursor];
 
       let validate_state_access = true;
-      if validate_state_access {
-        assert_eq!(*type_id, TypeId::of::<T>());
+      if validate_state_access && *type_id != TypeId::of::<T>() {
+        #[cfg(debug_assertions)]
+        {
+          println!("expect type: {}", std::any::type_name::<T>());
+          println!("stored type: {}", type_name);
+        }
+        panic!("type_miss_match");
       }
 
       self.current_cursor += 1;

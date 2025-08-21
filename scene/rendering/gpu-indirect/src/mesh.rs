@@ -106,7 +106,7 @@ fn use_attribute_indices(
   let meta_generator = meta_generator.clone();
 
   source_info
-    .map(move |change| {
+    .map_future(move |change| {
       let removed_and_changed_keys = change
         .iter_removed()
         .chain(change.iter_update_or_insert().map(|(k, _)| k));
@@ -166,7 +166,7 @@ fn use_attribute_vertex(
   let gpu = cx.gpu.clone();
   let meta_generator = meta_generator.clone();
 
-  let allocation_info = source_info.map(move |change| {
+  let allocation_info = source_info.map_future(move |change| {
     let removed_and_changed_keys = change
       .iter_removed()
       .chain(change.iter_update_or_insert().map(|(k, _)| k));
@@ -240,20 +240,22 @@ fn use_attribute_buffer_metadata(
   let normal = use_attribute_vertex(cx, normal_pool, AttributeSemantic::Normals);
   let uv = use_attribute_vertex(cx, uv_pool, AttributeSemantic::TexCoords(0));
 
-  update(data, indices, offset_of!(AttributeMeshMeta, index_offset));
-  update(
-    data,
-    position,
-    offset_of!(AttributeMeshMeta, position_offset),
-  );
-  update(data, normal, offset_of!(AttributeMeshMeta, normal_offset));
-  update(data, uv, offset_of!(AttributeMeshMeta, uv_offset));
+  let offset = offset_of!(AttributeMeshMeta, index_offset);
+  use_update(cx, data, indices, offset);
+  let offset = offset_of!(AttributeMeshMeta, position_offset);
+  use_update(cx, data, position, offset);
+  let offset = offset_of!(AttributeMeshMeta, normal_offset);
+  use_update(cx, data, normal, offset);
+  let offset = offset_of!(AttributeMeshMeta, uv_offset);
+  use_update(cx, data, uv, offset);
 
-  fn update<T: Pod>(
+  fn use_update<T: Pod>(
+    cx: &mut QueryGPUHookCx,
     storage: &Arc<RwLock<CommonStorageBufferImplWithHostBackup<AttributeMeshMeta>>>,
-    change: UseResult<impl DataChanges<Key = RawEntityHandle, Value = T>>,
+    change: UseResult<impl DataChanges<Key = RawEntityHandle, Value = T> + 'static>,
     field_offset: usize,
   ) {
+    let change = change.use_assure_result(cx);
     let r = match change {
       UseResult::SpawnStageReady(r) => r,
       UseResult::ResolveStageReady(r) => r,

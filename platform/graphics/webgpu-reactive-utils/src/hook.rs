@@ -208,8 +208,6 @@ impl<'a> QueryGPUHookCx<'a> {
   }
 }
 
-struct NothingToDrop<T>(T);
-
 impl<T> CanCleanUpFrom<QueryGPUHookDropCx<'_>> for NothingToDrop<T> {
   fn drop_from_cx(&mut self, _: &mut QueryGPUHookDropCx) {}
 }
@@ -219,30 +217,30 @@ pub struct QueryGPUHookDropCx<'a> {
   pub share_cx: &'a mut SharedHooksCtx,
 }
 
+pub struct ShaderConsumerToken(pub u32, pub ShareKey);
+impl CanCleanUpFrom<QueryGPUHookDropCx<'_>> for ShaderConsumerToken {
+  fn drop_from_cx(&mut self, cx: &mut QueryGPUHookDropCx<'_>) {
+    if let Some(mem) = cx.share_cx.drop_consumer(self.1, self.0) {
+      mem.write().memory.cleanup(cx as *mut _ as *mut ());
+    }
+    // this check is necessary because not all consumer need reconcile change
+    if let Some(reconciler) = cx.share_cx.reconciler.get_mut(&self.1) {
+      if reconciler.remove_consumer(self.0) {
+        cx.share_cx.reconciler.remove(&self.1);
+      }
+    }
+  }
+}
+
 impl QueryHookCxLike for QueryGPUHookCx<'_> {
   fn shared_hook_ctx(&mut self) -> &mut SharedHooksCtx {
     self.shared_ctx
   }
 
   fn use_shared_consumer(&mut self, key: ShareKey) -> u32 {
-    struct Token(u32, ShareKey);
-    impl CanCleanUpFrom<QueryGPUHookDropCx<'_>> for Token {
-      fn drop_from_cx(&mut self, cx: &mut QueryGPUHookDropCx<'_>) {
-        if let Some(mem) = cx.share_cx.drop_consumer(self.1, self.0) {
-          mem.write().memory.cleanup(cx as *mut _ as *mut ());
-        }
-        // this check is necessary because not all consumer need reconcile change
-        if let Some(reconciler) = cx.share_cx.reconciler.get_mut(&self.1) {
-          if reconciler.remove_consumer(self.0) {
-            cx.share_cx.reconciler.remove(&self.1);
-          }
-        }
-      }
-    }
-
     let (_, tk) = self.use_state_with_features(|fcx| {
       let id = fcx.shared_ctx.next_consumer_id();
-      Token(id, key)
+      ShaderConsumerToken(id, key)
     });
 
     tk.0
