@@ -17,7 +17,7 @@ use std::sync::Arc;
 use std::{any::Any, hash::Hash};
 
 pub use pool::*;
-use reactive::*;
+use query::*;
 
 pub trait AbstractIndirectGPUTextureSystem {
   fn bind_system_self(&self, collector: &mut BindingBuilder);

@@ -27,11 +27,7 @@ RRF is highly modulized, layered, decoupled and well-structured. Users can build
   - abstract-tree: data structure independent tree algorithms
   - database: an in-memory relational database and corresponding reactive watch system
   - heap-tools: useful tools to debug and monitoring memory leak related issue
-  - query: LINQ like abstract composable data data structure independent query operators.
-  - reactive: reexport the following reactive utils:
-    - reactive-query: incremental reactive stateful abstraction query operators that embrace the core ideas of functional relational programming paradigm.
-    - reactive-stream: signal/stream-like reactive operators.
-    - reactive-derive: macro implementation for reactive utils
+  - query: LINQ like abstract composable data data structure independent query operators. incremental stateful abstract query operators that embrace the core ideas of functional relational programming paradigm.
   - fast-hash-collection: just type exports, std-hash hash containers with a fast hash
   - storage: useful vector based util containers.
   - interning: type interning util

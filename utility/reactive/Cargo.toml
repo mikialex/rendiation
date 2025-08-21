@@ -9,7 +9,6 @@ futures = { workspace = true }
 pin-project = { workspace = true }
 heap-tools = { path = "../heap-tools" }
 reactive-stream = { path = "../reactive-stream" }
-reactive-query = { path = "../reactive-query" }
 storage = { path = "../storage" }
 smallvec = { workspace = true }
 dyn-clone = { workspace = true }

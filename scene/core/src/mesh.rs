@@ -267,6 +267,7 @@ pub fn use_attribute_mesh_position_query(
   let (positions_scope1, positions_scope2) = cx
     .use_dual_query::<AttributesMeshEntityVertexBufferSemantic>()
     .dual_query_filter_map(|semantic| (semantic == AttributeSemantic::Positions).then_some(()))
+    .dual_query_boxed()
     .fork();
 
   let (positions_scope2, positions_scope3) = positions_scope2.fork();

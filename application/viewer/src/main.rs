@@ -62,13 +62,7 @@ pub fn run_viewer_app(content_logic: impl Fn(&mut ViewerCx) + 'static) {
   env_logger::builder().init();
 
   setup_global_database(Default::default());
-  setup_active_reactive_query_registry(Default::default());
   global_database().enable_label_for_all_entity();
-
-  let watch = DatabaseMutationWatch::new(&global_database());
-  let rev_watch = DatabaseEntityReverseReference::new(watch.clone());
-  register_global_database_feature(watch);
-  register_global_database_feature(rev_watch);
 
   register_scene_core_data_model();
   register_light_shadow_config();
@@ -110,7 +104,7 @@ fn main() {
       use_enable_obj_io(cx);
 
       sync_camera_view(cx);
-      use_animation_player(cx);
+      // use_animation_player(cx);
 
       use_smooth_camera_motion(cx, |cx| {
         use_fit_camera_view(cx);

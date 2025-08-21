@@ -5,7 +5,7 @@ name = "rendiation-texture-gpu-system"
 version = "0.1.0"
 
 [dependencies]
-reactive = { path = "../../../utility/reactive" }
+query = { path = "../../../utility/query" }
 rendiation-webgpu-reactive-utils = { path = "../../../platform/graphics/webgpu-reactive-utils" }
 rendiation-shader-api = { path = "../../../shader/api" }
 rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }

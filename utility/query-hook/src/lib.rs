@@ -11,7 +11,7 @@ use fast_hash_collection::*;
 use futures::stream::*;
 use futures::FutureExt;
 use parking_lot::RwLock;
-use query::*;
+pub use query::*;
 
 mod task_pool;
 mod use_result;

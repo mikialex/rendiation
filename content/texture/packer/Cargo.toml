@@ -8,7 +8,7 @@ version = "0.1.0"
 fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 rendiation-texture-core = { path = "../core" }
 etagere = "0.2.6"
-reactive = { path = "../../../utility/reactive" }
+query = { path = "../../../utility/query" }
 
 [lints]
 workspace = true

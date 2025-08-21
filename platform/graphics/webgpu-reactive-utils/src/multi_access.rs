@@ -117,20 +117,6 @@ impl MultiAccessGPUData {
   }
 }
 
-pub trait MultiAccessGPUQueryResultCtxExt {
-  fn take_multi_access_gpu(&mut self, token: QueryToken) -> Option<MultiAccessGPUData>;
-}
-
-impl MultiAccessGPUQueryResultCtxExt for QueryResultCtx {
-  fn take_multi_access_gpu(&mut self, token: QueryToken) -> Option<MultiAccessGPUData> {
-    self
-      .take_result(token)?
-      .downcast::<MultiAccessGPUData>()
-      .map(|v| *v)
-      .ok()
-  }
-}
-
 #[repr(C)]
 #[std430_layout]
 #[derive(Copy, Clone, ShaderStruct, PartialEq)]

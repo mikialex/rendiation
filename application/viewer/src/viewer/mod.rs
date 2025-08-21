@@ -331,7 +331,6 @@ pub struct Viewer {
   started_time: Instant,
   memory: FunctionMemory,
   render_memory: FunctionMemory,
-  render_resource: ReactiveQueryCtx,
   shared_ctx: SharedHooksCtx,
 }
 
@@ -346,9 +345,10 @@ impl CanCleanUpFrom<ApplicationDropCx> for Viewer {
       shared_ctx: &mut self.shared_ctx,
     };
     self.memory.cleanup(&mut dcx as *mut _ as *mut ());
-    self
-      .render_memory
-      .cleanup(&mut self.render_resource as *mut _ as *mut ());
+    // todo, cleanup
+    // self
+    //   .render_memory
+    //   .cleanup(&mut self.render_resource as *mut _ as *mut ());
   }
 }
 
@@ -413,18 +413,15 @@ impl Viewer {
       started_time: Instant::now(),
       memory: Default::default(),
       render_memory: Default::default(),
-      render_resource: Default::default(),
       shared_ctx: Default::default(),
     }
   }
 
   pub fn draw_canvas(&mut self, canvas: &RenderTargetView, task_spawner: &TaskSpawner) {
-    let tasks = self.rendering.update_registry(
-      &mut self.render_memory,
-      &mut self.render_resource,
-      task_spawner,
-      &mut self.shared_ctx,
-    );
+    let tasks =
+      self
+        .rendering
+        .update_registry(&mut self.render_memory, task_spawner, &mut self.shared_ctx);
 
     let task_pool_result = pollster::block_on(tasks.all_async_task_done());
 
@@ -432,7 +429,6 @@ impl Viewer {
       canvas,
       &self.scene,
       &mut self.render_memory,
-      &mut self.render_resource,
       task_pool_result,
       &mut self.shared_ctx,
     );
