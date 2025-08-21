@@ -1,17 +1,19 @@
 use rendiation_gizmo::*;
 
-use crate::*;
+use crate::{viewer::use_scene_reader, *};
 
 pub fn use_viewer_gizmo(cx: &mut ViewerCx) {
   let (cx, state) = cx.use_plain_state::<Option<GizmoControlTargetState>>();
   let (cx, view_update) =
     cx.use_plain_state::<Option<(EntityHandle<SceneNodeEntity>, GizmoUpdateTargetLocal)>>();
 
+  let reader = use_scene_reader(cx);
+  let world_mat = use_global_node_world_mat_view(cx);
+
   let mut node = None;
-  if let ViewerCxStage::EventHandling {
-    reader, derived, ..
-  } = &mut cx.stage
-  {
+  if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {
+    let reader = reader.unwrap();
+    let world_mat = world_mat.expect_resolve_stage().mark_entity_type();
     *state = cx.viewer.scene.selected_target.map(|target| {
       node = reader
         .scene_model
@@ -22,11 +24,11 @@ pub fn use_viewer_gizmo(cx: &mut ViewerCx) {
         .node_reader
         .read::<SceneNodeLocalMatrixComponent>(node);
 
-      let target_world_mat = derived.world_mat.access(&node).unwrap();
+      let target_world_mat = world_mat.access(&node).unwrap();
       let target_parent_world_mat =
         if let Some(parent) = reader.node_reader.read::<SceneNodeParentIdx>(node) {
           let parent = unsafe { EntityHandle::from_raw(parent) };
-          derived.world_mat.access(&parent).unwrap()
+          world_mat.access(&parent).unwrap()
         } else {
           Mat4::identity()
         };

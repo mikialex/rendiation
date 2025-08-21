@@ -99,8 +99,6 @@ fn main() {
   run_viewer_app(|cx| {
     use_viewer_egui(cx);
 
-    use_enable_gltf_io(cx);
-    use_enable_obj_io(cx);
     use_enable_screenshot(cx);
 
     stage_of_update_twice(cx, |cx| {
@@ -108,6 +106,9 @@ fn main() {
     });
 
     stage_of_update(cx, |cx| {
+      use_enable_gltf_io(cx);
+      use_enable_obj_io(cx);
+
       sync_camera_view(cx);
       use_animation_player(cx);
 
@@ -117,8 +118,8 @@ fn main() {
       });
 
       use_pick_scene(cx);
-      use_scene_camera_helper(cx);
-      use_scene_spotlight_helper(cx);
+      // use_scene_camera_helper(cx);
+      // use_scene_spotlight_helper(cx);
 
       use_mesh_tools(cx);
     });

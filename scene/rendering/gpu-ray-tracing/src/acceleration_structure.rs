@@ -66,47 +66,52 @@ impl Drop for BlasInstanceInternal {
   }
 }
 
-pub fn attribute_mesh_to_blas(
-  acc_sys: Box<dyn GPUAccelerationStructureSystemProvider>,
-) -> impl ReactiveQuery<Key = EntityHandle<AttributesMeshEntity>, Value = BlasInstance> {
-  let PositionRelatedAttributeMeshQuery {
-    indexed,
-    none_indexed,
-  } = attribute_mesh_position_query();
+// Key: AttributesMeshEntity
+pub fn use_attribute_mesh_to_blas(
+  cx: &mut QueryGPUHookCx,
+  acc_sys: &Box<dyn GPUAccelerationStructureSystemProvider>,
+) -> UseResult<impl DualQueryLike<Key = RawEntityHandle, Value = BlasInstance>> {
+  let (position_scopes1, position_scopes2) = use_attribute_mesh_position_query(cx).fork();
 
   let acc_sys_ = acc_sys.clone();
-  let none_indexed = none_indexed.collective_execute_map_by(move || {
-    let acc_sys = acc_sys_.clone();
-    let buffer_accessor = global_entity_component_of::<BufferEntityData>().read();
-    move |_, position| {
-      let position_buffer = buffer_accessor.get(position.0.unwrap()).unwrap();
-      let position_buffer = get_sub_buffer(position_buffer.as_slice(), position.1);
-      let position_buffer = bytemuck::cast_slice(position_buffer);
 
-      let source = BottomLevelAccelerationStructureBuildSource {
-        geometry: BottomLevelAccelerationStructureBuildBuffer::Triangles {
-          positions: position_buffer.to_vec(), // todo, avoid vec
-          indices: None,
-        },
-        flags: GEOMETRY_FLAG_OPAQUE,
-      };
-      BlasInstance::new(
-        acc_sys.create_bottom_level_acceleration_structure(&[source]),
-        acc_sys.clone(),
-      )
-    }
-  });
-
-  indexed
-    .collective_execute_map_by(move || {
-      let acc_sys = acc_sys.clone();
-      let buffer_accessor = global_entity_component_of::<BufferEntityData>().read();
-      move |_, (position, (index_buffer, index_range, index_count))| {
-        let position_buffer = buffer_accessor.get(position.0.unwrap()).unwrap();
+  let none_indexed = position_scopes1
+    .map(|v| v.none_indexed)
+    .use_dual_query_execute_map(cx, move || {
+      let acc_sys = acc_sys_;
+      let buffer_accessor = get_db_view::<BufferEntityData>();
+      move |_, position| {
+        let position_buffer = buffer_accessor.access(&position.0.unwrap()).unwrap();
         let position_buffer = get_sub_buffer(position_buffer.as_slice(), position.1);
         let position_buffer = bytemuck::cast_slice(position_buffer);
 
-        let index_buffer = buffer_accessor.get(index_buffer).unwrap();
+        let source = BottomLevelAccelerationStructureBuildSource {
+          geometry: BottomLevelAccelerationStructureBuildBuffer::Triangles {
+            positions: position_buffer.to_vec(), // todo, avoid vec
+            indices: None,
+          },
+          flags: GEOMETRY_FLAG_OPAQUE,
+        };
+        BlasInstance::new(
+          acc_sys.create_bottom_level_acceleration_structure(&[source]),
+          acc_sys.clone(),
+        )
+      }
+    });
+
+  let acc_sys__ = acc_sys.clone();
+
+  let indexed = position_scopes2
+    .map(|v| v.indexed)
+    .use_dual_query_execute_map(cx, move || {
+      let acc_sys = acc_sys__;
+      let buffer_accessor = get_db_view::<BufferEntityData>();
+      move |_, (position, (index_buffer, index_range, index_count))| {
+        let position_buffer = buffer_accessor.access(&position.0.unwrap()).unwrap();
+        let position_buffer = get_sub_buffer(position_buffer.as_slice(), position.1);
+        let position_buffer = bytemuck::cast_slice(position_buffer);
+
+        let index_buffer = buffer_accessor.access(&index_buffer).unwrap();
         let index = get_sub_buffer(index_buffer.as_slice(), index_range);
 
         let count = index_count as usize;
@@ -132,67 +137,52 @@ pub fn attribute_mesh_to_blas(
           acc_sys.clone(),
         )
       }
-    })
-    .collective_select(none_indexed)
+    });
+
+  indexed.dual_query_select(none_indexed)
 }
 
-pub fn scene_model_to_blas_instance(
-  acc_sys: Box<dyn GPUAccelerationStructureSystemProvider>,
-) -> impl ReactiveQuery<Key = EntityHandle<SceneModelEntity>, Value = (BlasInstance, Mat4<f64>)> {
-  // todo, this should register into registry
-  let scene_node_world_mat = scene_node_derive_world_mat()
-    .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelRefNode>());
+pub fn use_scene_model_to_blas_instance(
+  cx: &mut QueryGPUHookCx,
+  acc_sys: &Box<dyn GPUAccelerationStructureSystemProvider>,
+  // SceneModelEntity
+) -> UseResult<impl DualQueryLike<Key = RawEntityHandle, Value = (BlasInstance, Mat4<f64>)>> {
+  let scene_model_world_matrix = cx.use_shared_dual_query(GlobalSceneModelWorldMatrix);
 
-  attribute_mesh_to_blas(acc_sys)
-    .one_to_many_fanout(global_rev_ref().watch_inv_ref::<StandardModelRefAttributesMeshEntity>())
-    .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SceneModelStdModelRenderPayload>())
-    .collective_zip(scene_node_world_mat)
+  use_attribute_mesh_to_blas(cx, acc_sys)
+    .fanout(cx.use_db_rev_ref_tri_view::<StandardModelRefAttributesMeshEntity>())
+    .fanout(cx.use_db_rev_ref_tri_view::<SceneModelStdModelRenderPayload>())
+    .dual_query_intersect(scene_model_world_matrix)
 }
 
-pub fn scene_to_tlas(
-  _gpu: &GPU,
-  acc_sys: Box<dyn GPUAccelerationStructureSystemProvider>,
-) -> impl ReactiveQuery<Key = EntityHandle<SceneEntity>, Value = TlASInstance> {
-  SceneTlasMaintainer {
-    acc_sys: acc_sys.clone(),
-    source: scene_model_to_blas_instance(acc_sys).into_boxed(),
-    scene_sm: Box::new(global_rev_ref().watch_inv_ref::<SceneModelBelongsToScene>()),
-    tlas: Default::default(),
-  }
-  .collective_execute_map_by(move || move |_k, v| TlASInstance { tlas_handle: v })
-}
+pub fn use_scene_to_tlas(
+  cx: &mut QueryGPUHookCx,
+  acc_sys: &Box<dyn GPUAccelerationStructureSystemProvider>,
+  // SceneEntity
+) -> Option<impl Query<Key = RawEntityHandle, Value = TlASInstance>> {
+  let tlas_store = cx.use_shared_hash_map::<RawEntityHandle, TlASInstance>();
 
-pub const GLOBAL_TLAS_MAX_RAY_STRIDE: u32 = 4;
+  let scene_sm = cx
+    .use_db_rev_ref_tri_view::<SceneModelBelongsToScene>()
+    .use_assure_result(cx);
 
-struct SceneTlasMaintainer {
-  acc_sys: Box<dyn GPUAccelerationStructureSystemProvider>,
-  source: BoxedDynReactiveQuery<EntityHandle<SceneModelEntity>, (BlasInstance, Mat4<f64>)>,
-  scene_sm:
-    BoxedDynReactiveOneToManyRelation<EntityHandle<SceneEntity>, EntityHandle<SceneModelEntity>>,
-  tlas: Arc<RwLock<FastHashMap<EntityHandle<SceneEntity>, TlasHandle>>>,
-}
+  if let Some(blas_source) = use_scene_model_to_blas_instance(cx, acc_sys)
+    .use_assure_result(cx)
+    .if_ready()
+  {
+    let mut tlas = tlas_store.write();
 
-impl ReactiveQuery for SceneTlasMaintainer {
-  type Key = EntityHandle<SceneEntity>;
-  type Value = TlasHandle;
-  type Compute = (
-    FastHashMap<EntityHandle<SceneEntity>, ValueChange<TlasHandle>>,
-    LockReadGuardHolder<FastHashMap<EntityHandle<SceneEntity>, TlasHandle>>,
-  );
+    let mut regenerate_scene = FastHashSet::<RawEntityHandle>::default();
 
-  fn describe(&self, cx: &mut Context) -> Self::Compute {
-    let mut tlas = self.tlas.write();
+    let TriQuery {
+      base:
+        DualQuery {
+          view: current_sm_acc_scene,
+          delta: scene_ref_sm_change,
+        },
+      rev_many_view,
+    } = scene_sm.expect_resolve_stage();
 
-    let mut mutations =
-      FastHashMap::<EntityHandle<SceneEntity>, ValueChange<TlasHandle>>::default();
-    let mut mutator = QueryMutationCollector {
-      delta: &mut mutations,
-      target: tlas.deref_mut(),
-    };
-
-    let mut regenerate_scene = FastHashSet::<EntityHandle<SceneEntity>>::default();
-    let (scene_ref_sm_change, current_sm_acc_scene) =
-      self.scene_sm.describe_with_inv_dyn(cx).resolve_kept();
     for (_, change) in scene_ref_sm_change.iter_key_value() {
       if let Some(new_scene) = change.new_value() {
         regenerate_scene.insert(*new_scene);
@@ -202,7 +192,7 @@ impl ReactiveQuery for SceneTlasMaintainer {
       }
     }
 
-    let (sm_blas_change, current_sm_blas) = self.source.describe(cx).resolve_kept();
+    let (current_sm_blas, sm_blas_change) = blas_source.view_delta();
     for (k, _) in sm_blas_change.iter_key_value() {
       if let Some(scene) = current_sm_acc_scene.access(&k) {
         regenerate_scene.insert(scene);
@@ -210,10 +200,10 @@ impl ReactiveQuery for SceneTlasMaintainer {
     }
 
     for scene in regenerate_scene.drain() {
-      if let Some(tlas) = mutator.remove(scene) {
-        self.acc_sys.delete_top_level_acceleration_structure(tlas);
+      if let Some(tlas) = tlas.remove(&scene) {
+        acc_sys.delete_top_level_acceleration_structure(tlas.tlas_handle);
       }
-      let source = current_sm_acc_scene
+      let source = rev_many_view
         .access_multi(&scene)
         .unwrap()
         .filter_map(|sm| {
@@ -230,19 +220,21 @@ impl ReactiveQuery for SceneTlasMaintainer {
           })
         })
         .collect::<Vec<_>>();
-      let new_tlas = self
-        .acc_sys
-        .create_top_level_acceleration_structure(source.as_slice());
-      mutator.set_value(scene, new_tlas);
+      let new_tlas = acc_sys.create_top_level_acceleration_structure(source.as_slice());
+      tlas.insert(
+        scene,
+        TlASInstance {
+          tlas_handle: new_tlas,
+        },
+      );
     }
 
     drop(tlas);
 
-    (mutations, self.tlas.make_read_holder())
-  }
-
-  fn request(&mut self, request: &mut ReactiveQueryRequest) {
-    self.source.request(request);
-    self.scene_sm.request(request);
+    Some(tlas_store.make_read_holder())
+  } else {
+    None
   }
 }
+
+pub const GLOBAL_TLAS_MAX_RAY_STRIDE: u32 = 4;

@@ -20,20 +20,40 @@ pub struct ViewerPicker {
   scene_model_picker: SceneModelPickerImpl,
 }
 
-impl ViewerPicker {
-  pub fn new(
-    dep: &Viewer3dSceneDerive,
-    input: &PlatformEventInput,
-    camera_id: EntityHandle<SceneCameraEntity>,
-  ) -> Self {
+pub fn use_viewer_picker(cx: &mut ViewerCx) -> Option<ViewerPicker> {
+  let sm_bounding = cx
+    .use_shared_dual_query_view(SceneModelWorldBounding)
+    .use_assure_result(cx);
+
+  let mesh_vertex_refs = cx
+    .use_db_rev_ref::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>()
+    .use_assure_result(cx);
+
+  let node_world = use_global_node_world_mat_view(cx).use_assure_result(cx);
+  let node_net_visible = use_global_node_net_visible_view(cx).use_assure_result(cx);
+
+  let camera_transforms = cx
+    .use_shared_dual_query_view(GlobalCameraTransformShare(cx.viewer.rendering.ndc))
+    .use_assure_result(cx);
+
+  if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {
+    let camera_view_projection_inv = camera_transforms
+      .expect_resolve_stage()
+      .access(&cx.viewer.scene.main_camera.into_raw())
+      .unwrap()
+      .view_projection_inv;
+
     let scene_model_picker = SceneModelPickerImpl {
-      sm_bounding: dep.sm_world_bounding.clone(),
+      sm_bounding: sm_bounding
+        .expect_resolve_stage()
+        .mark_entity_type()
+        .into_boxed(),
       scene_model_node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
       model_access_std_model: global_entity_component_of::<SceneModelStdModelRenderPayload>()
         .read_foreign_key(),
       std_model_access_mesh: global_entity_component_of::<StandardModelRefAttributesMeshEntity>()
         .read_foreign_key(),
-      mesh_vertex_refs: dep.mesh_vertex_ref.clone(),
+      mesh_vertex_refs: mesh_vertex_refs.expect_resolve_stage().into_boxed_multi(),
       semantic: global_entity_component_of::<AttributesMeshEntityVertexBufferSemantic>().read(),
       mesh_index_attribute:
         global_entity_component_of::<SceneBufferViewBufferId<AttributeIndexRef>>()
@@ -43,25 +63,38 @@ impl ViewerPicker {
       vertex_buffer_ref: global_entity_component_of::<SceneBufferViewBufferId<AttributeVertexRef>>(
       )
       .read_foreign_key(),
-      node_world: dep.world_mat.clone(),
-      node_net_visible: dep.node_net_visible.clone(),
+      node_world: node_world
+        .expect_resolve_stage()
+        .mark_entity_type()
+        .into_boxed(),
+      node_net_visible: node_net_visible
+        .expect_resolve_stage()
+        .mark_entity_type()
+        .into_boxed(),
     };
 
+    ViewerPicker::new(scene_model_picker, cx.input, camera_view_projection_inv).into()
+  } else {
+    None
+  }
+}
+
+impl ViewerPicker {
+  pub fn new(
+    scene_model_picker: SceneModelPickerImpl,
+    input: &PlatformEventInput,
+    camera_view_projection_inv: Mat4<f64>,
+  ) -> Self {
     let mouse_position = &input.window_state.mouse_position;
     let window_size = &input.window_state.physical_size;
 
     let normalized_position_ndc =
       compute_normalized_position_in_canvas_coordinate(*mouse_position, *window_size);
 
-    let projection_inv = dep
-      .camera_transforms
-      .access(&camera_id)
-      .unwrap()
-      .view_projection_inv;
-
     let normalized_position_ndc: Vec2<f32> = normalized_position_ndc.into();
     let normalized_position_ndc_f64 = normalized_position_ndc.into_f64();
-    let current_mouse_ray_in_world = cast_world_ray(projection_inv, normalized_position_ndc_f64);
+    let current_mouse_ray_in_world =
+      cast_world_ray(camera_view_projection_inv, normalized_position_ndc_f64);
 
     ViewerPicker {
       scene_model_picker,

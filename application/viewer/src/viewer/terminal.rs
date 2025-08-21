@@ -7,7 +7,7 @@ pub struct Terminal {
   console: Console,
   pub command_registry: FastHashMap<String, TerminalCommandCb>,
   pub executor: ThreadPool,
-  /// some task may only run on main thread
+  /// some task may only run on main thread, for example acquire db write lock
   pub main_thread_tasks: futures::channel::mpsc::UnboundedReceiver<Box<dyn FnOnce() + Send + Sync>>,
   pub ctx: TerminalCtx,
 }
@@ -15,9 +15,46 @@ pub struct Terminal {
 #[derive(Clone)]
 pub struct TerminalCtx {
   channel: futures::channel::mpsc::UnboundedSender<Box<dyn FnOnce() + Send + Sync>>,
+  pub(crate) store: TerminalTaskStore,
+}
+
+pub trait TerminalTask: 'static + Send + Sync {
+  type Result: 'static + Send + Sync;
+}
+
+#[derive(Default, Clone)]
+pub struct TerminalTaskStore {
+  store: Arc<RwLock<MessageStore>>,
+}
+
+pub struct TerminalTaskObject<T: TerminalTask> {
+  phantom: std::marker::PhantomData<T>,
+  sender: futures::channel::oneshot::Sender<T::Result>,
+}
+
+impl<T: TerminalTask> TerminalTaskObject<T> {
+  pub fn resolve(self, result: T::Result) {
+    self.sender.send(result).ok();
+    //
+  }
+}
+
+impl TerminalTaskStore {
+  pub fn take<T: TerminalTask>(&mut self) -> Option<TerminalTaskObject<T>> {
+    self.store.write().take::<TerminalTaskObject<T>>()
+  }
 }
 
 impl TerminalCtx {
+  pub fn spawn_event_task<R: TerminalTask>(&self) -> impl Future<Output = Option<R::Result>> {
+    let (s, r) = futures::channel::oneshot::channel();
+    self.store.store.write().put(TerminalTaskObject::<R> {
+      phantom: std::marker::PhantomData,
+      sender: s,
+    });
+    r.map(|v| v.ok())
+  }
+
   pub fn spawn_main_thread<R: 'static + Send + Sync>(
     &self,
     task: impl FnOnce() -> R + Send + Sync + 'static,
@@ -37,7 +74,10 @@ impl TerminalCtx {
 impl Default for Terminal {
   fn default() -> Self {
     let (s, r) = futures::channel::mpsc::unbounded();
-    let ctx = TerminalCtx { channel: s };
+    let ctx = TerminalCtx {
+      channel: s,
+      store: Default::default(),
+    };
 
     Self {
       console: Console::new(),
@@ -58,7 +98,6 @@ type TerminalCommandCb = Box<
 >;
 
 pub struct TerminalInitExecuteCx<'a> {
-  pub derive: &'a Viewer3dSceneDeriveSource,
   pub scene: &'a Viewer3dSceneCtx,
   pub renderer: &'a mut Viewer3dRenderingCtx,
   pub dyn_cx: &'a mut DynCx,

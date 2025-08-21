@@ -4,7 +4,7 @@ use rendiation_mesh_core::{
 use rendiation_mesh_segmentation::*;
 use rendiation_mesh_simplification::*;
 
-use crate::*;
+use crate::{viewer::use_scene_reader, *};
 
 pub fn use_mesh_tools(cx: &mut ViewerCx) {
   let (cx, simp_req) = cx.use_plain_state::<Option<SimplifySelectMeshRequest>>();
@@ -44,7 +44,10 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
       });
   }
 
-  if let ViewerCxStage::EventHandling { reader, .. } = &mut cx.stage {
+  let reader = use_scene_reader(cx);
+
+  if let ViewerCxStage::EventHandling { .. } = &mut cx.stage {
+    let reader = &reader.unwrap();
     if let Some(simp_req) = simp_req {
       if let Some(target) = cx.viewer.scene.selected_target {
         let mesh = get_mesh(reader, target);

@@ -249,7 +249,6 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
           viewer.terminal.egui(
             ui,
             &mut TerminalInitExecuteCx {
-              derive: &viewer.derives,
               scene: &viewer.scene,
               renderer: &mut viewer.rendering,
               dyn_cx: cx.dyn_cx,

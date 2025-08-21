@@ -83,6 +83,22 @@ pub fn use_global_node_net_visible(
   cx.use_shared_dual_query(c)
 }
 
+#[track_caller]
+pub fn use_global_node_world_mat_view(
+  cx: &mut impl DBHookCxLike,
+) -> UseResult<LockReadGuardHolder<FastHashMap<RawEntityHandle, Mat4<f64>>>> {
+  let c = global_node_derive_of::<SceneNodeLocalMatrixComponent, _>(node_world_mat);
+  cx.use_shared_dual_query_view(c)
+}
+
+#[track_caller]
+pub fn use_global_node_net_visible_view(
+  cx: &mut impl DBHookCxLike,
+) -> UseResult<LockReadGuardHolder<FastHashMap<RawEntityHandle, bool>>> {
+  let c = global_node_derive_of::<SceneNodeVisibleComponent, _>(node_net_visible);
+  cx.use_shared_dual_query_view(c)
+}
+
 pub struct GlobalNodeDerive<F, C>(pub F, PhantomData<C>);
 pub fn global_node_derive_of<C, F>(f: F) -> GlobalNodeDerive<F, C> {
   GlobalNodeDerive(f, PhantomData)
@@ -133,37 +149,4 @@ where
     ))
     .into_use_result(cx)
   }
-}
-
-#[global_registered_query_and_many_one_hash_relation]
-pub fn scene_node_connectivity(
-) -> impl ReactiveQuery<Key = EntityHandle<SceneNodeEntity>, Value = EntityHandle<SceneNodeEntity>>
-{
-  global_watch()
-    .watch::<SceneNodeParentIdx>()
-    .collective_filter_map(|v| v.map(|v| unsafe { EntityHandle::from_raw(v) }))
-}
-
-#[global_registered_query]
-pub fn scene_node_derive_visible(
-) -> impl ReactiveQuery<Key = EntityHandle<SceneNodeEntity>, Value = bool> {
-  tree_payload_derive_by_parent_decide_children(
-    Box::new(scene_node_connectivity_many_one_relation()),
-    global_watch()
-      .watch::<SceneNodeVisibleComponent>()
-      .into_boxed(),
-    |this, parent| parent.map(|p| *p && *this).unwrap_or(*this),
-  )
-}
-
-#[global_registered_query]
-pub fn scene_node_derive_world_mat(
-) -> impl ReactiveQuery<Key = EntityHandle<SceneNodeEntity>, Value = Mat4<f64>> {
-  tree_payload_derive_by_parent_decide_children(
-    Box::new(scene_node_connectivity_many_one_relation()),
-    global_watch()
-      .watch::<SceneNodeLocalMatrixComponent>()
-      .into_boxed(),
-    |this, parent| parent.map(|p| *p * *this).unwrap_or(*this),
-  )
 }

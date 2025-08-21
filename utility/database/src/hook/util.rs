@@ -53,3 +53,24 @@ pub trait RawEntityHandleQueryExt: Query<Key = RawEntityHandle> {
 }
 
 impl<T> RawEntityHandleQueryExt for T where T: Query<Key = RawEntityHandle> {}
+
+pub trait RawEntityHandleQueryMultiExt: MultiQuery<Key = RawEntityHandle> + 'static {
+  fn mark_entity_type_multi<E: EntitySemantic>(
+    self,
+  ) -> impl MultiQuery<Key = EntityHandle<E>, Value = Self::Value> {
+    self.multi_key_dual_map(|k| unsafe { EntityHandle::<E>::from_raw(k) }, |k| k.handle)
+  }
+
+  fn mark_foreign_key<C: ForeignKeySemantic>(
+    self,
+  ) -> impl MultiQuery<Key = EntityHandle<C::ForeignEntity>, Value = EntityHandle<C::Entity>>
+  where
+    Self: MultiQuery<Value = RawEntityHandle>,
+  {
+    self
+      .mark_entity_type_multi::<C::ForeignEntity>()
+      .multi_map(|k| unsafe { EntityHandle::<C::Entity>::from_raw(k) })
+  }
+}
+
+impl<T> RawEntityHandleQueryMultiExt for T where T: MultiQuery<Key = RawEntityHandle> + 'static {}

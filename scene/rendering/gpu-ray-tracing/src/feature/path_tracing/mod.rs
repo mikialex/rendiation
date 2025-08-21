@@ -160,7 +160,7 @@ impl DeviceReferencePathTracingRenderer {
     tonemap: &ToneMap,
     background: &SceneBackgroundRenderer,
   ) -> GPU2DTextureView {
-    let scene_tlas = base.scene_tlas.access(&scene).unwrap().clone();
+    let scene_tlas = base.scene_tlas.access(&scene.into_raw()).unwrap().clone();
     // bind tlas, see ShaderRayTraceCall::tlas_idx.
     rtx_system
       .create_acceleration_structure_system()
