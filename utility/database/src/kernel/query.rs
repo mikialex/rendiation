@@ -48,6 +48,15 @@ pub struct IterableComponentReadViewChecked<T> {
   pub phantom: PhantomData<T>,
 }
 
+impl<T> IterableComponentReadViewChecked<T> {
+  pub fn read_ref(&self, key: RawEntityHandle) -> Option<&T> {
+    self
+      .read_view
+      .get(key)
+      .map(|v| unsafe { &*(v as *const T) })
+  }
+}
+
 impl<T> Clone for IterableComponentReadViewChecked<T> {
   fn clone(&self) -> Self {
     Self {

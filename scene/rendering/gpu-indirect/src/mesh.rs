@@ -1,7 +1,7 @@
-use std::{mem::offset_of, sync::Arc};
+use std::{mem::offset_of, ops::Deref, sync::Arc};
 
 use parking_lot::RwLock;
-use rendiation_mesh_core::{AttributeSemantic, BufferViewRange};
+use rendiation_mesh_core::AttributeSemantic;
 use rendiation_shader_api::*;
 use rendiation_webgpu_midc_downgrade::*;
 
@@ -46,8 +46,7 @@ pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl>
     )))
   });
 
-  let attribute_buffer_metadata =
-    cx.use_multi_updater_gpu(|gpu| attribute_buffer_metadata(gpu, indices, position, normal, uv));
+  let attribute_buffer_metadata = use_attribute_buffer_metadata(cx, indices, position, normal, uv);
 
   let (cx, sm_to_mesh_device) = cx.use_storage_buffer2::<u32>(128, u32::MAX);
 
@@ -65,138 +64,147 @@ pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl>
     .if_resolve_stage()
     .map(|v| v.view().filter_map(|v| v).into_boxed());
 
-  cx.when_render(|| MeshGPUBindlessImpl {
-    indices: indices.clone(),
-    position: position.clone(),
-    normal: normal.clone(),
-    uv: uv.clone(),
-    checker: global_entity_component_of::<StandardModelRefAttributesMeshEntity>()
-      .read_foreign_key(),
-    indices_checker: global_entity_component_of::<SceneBufferViewBufferId<AttributeIndexRef>>()
-      .read_foreign_key(),
-    topology_checker: global_entity_component_of::<AttributesMeshEntityTopology>().read(),
-    vertex_address_buffer: attribute_buffer_metadata.clone().unwrap().gpu().clone(),
-    vertex_address_buffer_host: attribute_buffer_metadata.unwrap(),
-    sm_to_mesh_device: sm_to_mesh_device.get_gpu_buffer(),
-    sm_to_mesh: sm_to_mesh.unwrap(),
-    used_in_midc_downgrade: require_midc_downgrade(&cx.gpu.info),
+  cx.when_render(|| {
+    let vertex_address_buffer = attribute_buffer_metadata.read().gpu().clone();
+    MeshGPUBindlessImpl {
+      indices: indices.clone(),
+      position: position.clone(),
+      normal: normal.clone(),
+      uv: uv.clone(),
+      checker: global_entity_component_of::<StandardModelRefAttributesMeshEntity>()
+        .read_foreign_key(),
+      indices_checker: global_entity_component_of::<SceneBufferViewBufferId<AttributeIndexRef>>()
+        .read_foreign_key(),
+      topology_checker: global_entity_component_of::<AttributesMeshEntityTopology>().read(),
+      vertex_address_buffer,
+      vertex_address_buffer_host: attribute_buffer_metadata.make_read_holder(),
+      sm_to_mesh_device: sm_to_mesh_device.get_gpu_buffer(),
+      sm_to_mesh: sm_to_mesh.unwrap(),
+      used_in_midc_downgrade: require_midc_downgrade(&cx.gpu.info),
+    }
   })
 }
 
-fn attribute_indices(
+fn use_attribute_indices(
+  cx: &mut QueryGPUHookCx,
   index_pool: &UntypedPool,
-  gpu: &GPU,
-) -> impl ReactiveQuery<Key = EntityHandle<AttributesMeshEntity>, Value = [u32; 2]> {
-  let index_buffer_ref =
-    global_watch().watch_typed_foreign_key::<SceneBufferViewBufferId<AttributeIndexRef>>();
-  let index_buffer_range = global_watch().watch::<SceneBufferViewBufferRange<AttributeIndexRef>>();
+) -> UseResult<impl DataChanges<Key = RawEntityHandle, Value = [u32; 2]>> {
+  let index_buffer_ref = cx.use_dual_query::<SceneBufferViewBufferId<AttributeIndexRef>>();
+  let index_buffer_range = cx.use_dual_query::<SceneBufferViewBufferRange<AttributeIndexRef>>();
+  let index_item_count = cx.use_dual_query::<SceneBufferViewBufferItemCount<AttributeIndexRef>>();
 
-  // we not using intersect here because range may not exist
-  // todo, put it into registry
-  let source = index_buffer_ref
-    .collective_union(index_buffer_range, |(a, b)| Some((a?, b?)))
-    .collective_zip(global_watch().watch::<SceneBufferViewBufferItemCount<AttributeIndexRef>>())
-    .collective_filter_map(|((index, range), count)| index.map(|i| (i, range, count.unwrap())))
-    .collective_execute_map_by(|| {
-      let data = global_entity_component_of::<BufferEntityData>().read();
-      move |_, (buffer_id, range, count)| {
-        let count = count as usize;
-        let buffer = data.get(buffer_id).unwrap().ptr.clone();
-        if buffer.len() / count == 4 {
-          (buffer, range_convert(range))
-        } else if buffer.len() / count == 2 {
-          let buffer = bytemuck::cast_slice::<_, u16>(&buffer);
-          let buffer = buffer.iter().map(|i| *i as u32).collect::<Vec<_>>();
-          let buffer = bytemuck::cast_slice::<_, u8>(buffer.as_slice());
-          let buffer = Arc::new(buffer.to_vec());
-          (buffer, None)
-        } else {
-          unreachable!("index count must be multiple of 2(u16) or 4(u32)")
-        }
-      }
+  let source_info = index_buffer_ref
+    .dual_query_union(index_buffer_range, |(a, b)| Some((a?, b?)))
+    .dual_query_zip(index_item_count)
+    .dual_query_filter_map(|((index, range), count)| index.map(|i| (i, range, count.unwrap())))
+    .dual_query_boxed()
+    .into_delta_change();
+
+  let (cx, meta_generator) = cx.use_plain_state(|| ReactiveRangeAllocatePool::new(index_pool));
+
+  let gpu = cx.gpu.clone();
+  let meta_generator = meta_generator.clone();
+
+  source_info
+    .map(move |change| {
+      let removed_and_changed_keys = change
+        .iter_removed()
+        .chain(change.iter_update_or_insert().map(|(k, _)| k));
+
+      let data = get_db_view::<BufferEntityData>();
+      let changed_keys = change
+        .iter_update_or_insert()
+        .map(|(k, (buffer_id, range, count))| {
+          let buffer = data.read_ref(buffer_id).unwrap().ptr.deref();
+
+          let buffer = if let Some(range) = range {
+            let end = range
+              .size
+              .map(|v| u64::from(v) as usize)
+              .unwrap_or(buffer.len());
+            buffer.get(range.offset as usize..end).unwrap()
+          } else {
+            buffer
+          };
+
+          let byte_per_item = buffer.len() / count as usize;
+          if byte_per_item != 4 && byte_per_item != 2 {
+            unreachable!("index count must be multiple of 2(u16) or 4(u32)")
+          }
+
+          (k, buffer)
+        });
+
+      meta_generator.update(removed_and_changed_keys, changed_keys, &gpu)
     })
-    .into_boxed();
-
-  let index_info = ReactiveRangeAllocatePool::new(index_pool, source, gpu)
-    .collective_map(|(offset, count)| [offset, count])
-    .into_boxed();
-
-  global_watch()
-    .watch_entity_set::<AttributesMeshEntity>()
-    .collective_union(index_info, |(full, indexed)| {
-      if let Some(indexed) = indexed {
-        Some(indexed)
-      } else {
-        full.map(|_| [u32::MAX, 0]) // write u32 max to indicate the index is not exist
-      }
-    })
+    .into_delta_change()
 }
 
-/// return u32::MAX for all none_indexed mesh
-fn none_attribute_mesh_index_indicator(
-) -> impl ReactiveQuery<Key = EntityHandle<AttributesMeshEntity>, Value = u32> {
-  global_watch()
-    .watch_typed_foreign_key::<SceneBufferViewBufferId<AttributeIndexRef>>()
-    .collective_filter(|v| v.is_none())
-    .collective_map(|_| u32::MAX)
-}
-
-fn range_convert(range: Option<BufferViewRange>) -> Option<GPUBufferViewRange> {
-  range.map(|r| GPUBufferViewRange {
-    offset: r.offset,
-    size: r.size,
-  })
-}
-
-fn attribute_vertex(
+fn use_attribute_vertex(
+  cx: &mut QueryGPUHookCx,
   pool: &UntypedPool,
   semantic: AttributeSemantic,
-  gpu: &GPU,
-) -> impl ReactiveQuery<Key = EntityHandle<AttributesMeshEntity>, Value = [u32; 2]> {
-  let attribute_scope = global_watch()
-    .watch::<AttributesMeshEntityVertexBufferSemantic>()
-    .collective_filter(move |s| semantic == s)
-    .collective_map(|_| {})
-    .into_forker();
+) -> UseResult<impl DataChanges<Key = RawEntityHandle, Value = [u32; 2]>> {
+  let attribute_scope = cx
+    .use_dual_query::<AttributesMeshEntityVertexBufferSemantic>()
+    .dual_query_filter_map(move |s| (semantic == s).then_some(()));
 
-  let vertex_buffer_ref = global_watch()
-    .watch_typed_foreign_key::<SceneBufferViewBufferId<AttributeVertexRef>>()
-    .filter_by_keyset(attribute_scope.clone());
+  let (scope, scope_) = attribute_scope.fork();
 
-  let vertex_buffer_range = global_watch()
-    .watch::<SceneBufferViewBufferRange<AttributeVertexRef>>()
-    .filter_by_keyset(attribute_scope.clone());
+  let vertex_buffer_ref = cx.use_dual_query::<SceneBufferViewBufferId<AttributeVertexRef>>();
+  let vertex_buffer_range = cx.use_dual_query::<SceneBufferViewBufferRange<AttributeVertexRef>>();
 
-  let ranged_buffer = vertex_buffer_ref
-    .collective_union(vertex_buffer_range, |(a, b)| Some((a?, b?)))
-    .collective_filter_map(|(index, range)| index.map(|i| (i, range)))
-    .collective_execute_map_by(|| {
-      let data = global_entity_component_of::<BufferEntityData>().read();
-      move |_, v| (data.get(v.0).unwrap().ptr.clone(), range_convert(v.1))
-    })
-    .into_boxed();
+  let source_info = vertex_buffer_ref
+    .dual_query_union(vertex_buffer_range, |(a, b)| Some((a?, b?)))
+    .dual_query_filter_map(|(index, range)| index.map(|i| (i, range)))
+    .dual_query_boxed()
+    .dual_query_filter_by_set(scope)
+    .into_delta_change();
 
-  let ab_ref_mesh = global_watch()
-    .watch_typed_foreign_key::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>()
-    .collective_filter_map(|v| v)
-    .filter_by_keyset(attribute_scope)
-    .hash_reverse_assume_one_one();
+  let (cx, meta_generator) = cx.use_plain_state(|| ReactiveRangeAllocatePool::new(pool));
 
-  // we not using intersect here because range may not exist
-  // todo, put it into registry
-  let vertex_info = ReactiveRangeAllocatePool::new(pool, ranged_buffer, gpu)
-    .collective_map(|(offset, count)| [offset, count])
-    .one_to_many_fanout(ab_ref_mesh.into_one_to_many_by_hash());
+  let gpu = cx.gpu.clone();
+  let meta_generator = meta_generator.clone();
 
-  global_watch()
-    .watch_entity_set::<AttributesMeshEntity>()
-    .collective_union(vertex_info, |(full, indexed)| {
-      if let Some(indexed) = indexed {
-        Some(indexed)
-      } else {
-        full.map(|_| [u32::MAX, 0]) // write u32 max to indicate the vertex is not exist
-      }
-    })
+  let allocation_info = source_info.map(move |change| {
+    let removed_and_changed_keys = change
+      .iter_removed()
+      .chain(change.iter_update_or_insert().map(|(k, _)| k));
+
+    let data = get_db_view::<BufferEntityData>();
+    let changed_keys = change
+      .iter_update_or_insert()
+      .map(|(k, (buffer_id, range))| {
+        let buffer = data.read_ref(buffer_id).unwrap().ptr.deref();
+
+        let buffer = if let Some(range) = range {
+          let end = range
+            .size
+            .map(|v| u64::from(v) as usize)
+            .unwrap_or(buffer.len());
+          buffer.get(range.offset as usize..end).unwrap()
+        } else {
+          buffer
+        };
+
+        (k, buffer)
+      });
+
+    meta_generator.update(removed_and_changed_keys, changed_keys, &gpu)
+  });
+
+  let ab_ref_mesh = cx
+    .use_dual_query::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>()
+    .dual_query_filter_map(|v| v)
+    .dual_query_filter_by_set(scope_)
+    .use_dual_query_hash_reverse_assume_one_one(cx)
+    .dual_query_boxed()
+    .use_dual_query_hash_many_to_one(cx);
+
+  allocation_info
+    .fanout(ab_ref_mesh)
+    .dual_query_boxed()
+    .into_delta_change()
 }
 
 ///  note the attribute's count should be same for one mesh, will keep it here for simplicity
@@ -214,42 +222,56 @@ pub struct AttributeMeshMeta {
   pub uv_count: u32,
 }
 
-pub fn attribute_buffer_metadata(
-  gpu: &GPU,
+fn use_attribute_buffer_metadata(
+  cx: &mut QueryGPUHookCx,
   index_pool: &UntypedPool,
   position_pool: &UntypedPool,
   normal_pool: &UntypedPool,
   uv_pool: &UntypedPool,
-) -> MultiUpdateContainer<CommonStorageBufferImplWithHostBackup<AttributeMeshMeta>> {
-  let data = MultiUpdateContainer::new(create_common_storage_buffer_with_host_backup_container(
-    128,
-    u32::MAX,
-    gpu,
-  ));
+) -> Arc<RwLock<CommonStorageBufferImplWithHostBackup<AttributeMeshMeta>>> {
+  let (cx, data) = cx.use_gpu_init(|gpu| {
+    let data = create_common_storage_buffer_with_host_backup_container(128, u32::MAX, gpu);
+    Arc::new(RwLock::new(data))
+  });
 
-  data
-    .with_source(QueryBasedStorageBufferUpdate {
-      // note, the offset and count is update together
-      field_offset: offset_of!(AttributeMeshMeta, index_offset) as u32,
-      upstream: attribute_indices(index_pool, gpu),
-    })
-    .with_source(QueryBasedStorageBufferUpdate {
-      // note, the offset and count is update together
-      field_offset: offset_of!(AttributeMeshMeta, index_offset) as u32,
-      upstream: none_attribute_mesh_index_indicator(),
-    })
-    .with_source(QueryBasedStorageBufferUpdate {
-      field_offset: offset_of!(AttributeMeshMeta, position_offset) as u32,
-      upstream: attribute_vertex(position_pool, AttributeSemantic::Positions, gpu),
-    })
-    .with_source(QueryBasedStorageBufferUpdate {
-      field_offset: offset_of!(AttributeMeshMeta, normal_offset) as u32,
-      upstream: attribute_vertex(normal_pool, AttributeSemantic::Normals, gpu),
-    })
-    .with_source(QueryBasedStorageBufferUpdate {
-      field_offset: offset_of!(AttributeMeshMeta, uv_offset) as u32,
-      upstream: attribute_vertex(uv_pool, AttributeSemantic::TexCoords(0), gpu),
-    })
+  let indices = use_attribute_indices(cx, index_pool);
+
+  let position = use_attribute_vertex(cx, position_pool, AttributeSemantic::Positions);
+  let normal = use_attribute_vertex(cx, normal_pool, AttributeSemantic::Normals);
+  let uv = use_attribute_vertex(cx, uv_pool, AttributeSemantic::TexCoords(0));
+
+  update(data, indices, offset_of!(AttributeMeshMeta, index_offset));
+  update(
+    data,
+    position,
+    offset_of!(AttributeMeshMeta, position_offset),
+  );
+  update(data, normal, offset_of!(AttributeMeshMeta, normal_offset));
+  update(data, uv, offset_of!(AttributeMeshMeta, uv_offset));
+
+  fn update<T: Pod>(
+    storage: &Arc<RwLock<CommonStorageBufferImplWithHostBackup<AttributeMeshMeta>>>,
+    change: UseResult<impl DataChanges<Key = RawEntityHandle, Value = T>>,
+    field_offset: usize,
+  ) {
+    let r = match change {
+      UseResult::SpawnStageReady(r) => r,
+      UseResult::ResolveStageReady(r) => r,
+      _ => return,
+    };
+    if r.has_change() {
+      let mut storage = storage.write();
+      for (id, value) in r.iter_update_or_insert() {
+        unsafe {
+          storage
+            .set_value_sub_bytes(id.alloc_index(), field_offset, bytes_of(&value))
+            .unwrap();
+        }
+      }
+    }
+  }
+
+  data.clone()
 }
 
 #[derive(Clone)]
@@ -260,9 +282,8 @@ pub struct MeshGPUBindlessImpl {
   uv: UntypedPool,
   vertex_address_buffer: StorageBufferReadonlyDataView<[AttributeMeshMeta]>,
   /// we keep the host metadata to support creating draw commands from host
-  vertex_address_buffer_host: LockReadGuardHolder<
-    MultiUpdateContainer<CommonStorageBufferImplWithHostBackup<AttributeMeshMeta>>,
-  >,
+  vertex_address_buffer_host:
+    LockReadGuardHolder<CommonStorageBufferImplWithHostBackup<AttributeMeshMeta>>,
   sm_to_mesh_device: StorageBufferReadonlyDataView<[u32]>,
   sm_to_mesh: BoxedDynQuery<RawEntityHandle, RawEntityHandle>,
   checker: ForeignKeyReadView<StandardModelRefAttributesMeshEntity>,
@@ -531,9 +552,8 @@ pub struct BindlessDrawCreator {
   metadata: StorageBufferReadonlyDataView<[AttributeMeshMeta]>,
   sm_to_mesh: BoxedDynQuery<RawEntityHandle, RawEntityHandle>,
   sm_to_mesh_device: StorageBufferReadonlyDataView<[u32]>,
-  vertex_address_buffer_host: LockReadGuardHolder<
-    MultiUpdateContainer<CommonStorageBufferImplWithHostBackup<AttributeMeshMeta>>,
-  >,
+  vertex_address_buffer_host:
+    LockReadGuardHolder<CommonStorageBufferImplWithHostBackup<AttributeMeshMeta>>,
 }
 impl NoneIndexedDrawCommandBuilder for BindlessDrawCreator {
   fn draw_command_host_access(&self, id: EntityHandle<SceneModelEntity>) -> DrawCommand {
@@ -544,7 +564,7 @@ impl NoneIndexedDrawCommandBuilder for BindlessDrawCreator {
       .get(mesh_id.alloc_index() as usize)
       .unwrap();
 
-    assert_eq!(address_info.index_offset, u32::MAX);
+    // assert_eq!(address_info.index_offset, u32::MAX); we currently not write u32 for none index mesh
 
     DrawCommand::Array {
       instances: 0..1,
@@ -580,7 +600,6 @@ impl IndexedDrawCommandBuilder for BindlessDrawCreator {
       .unwrap();
 
     let start = address_info.index_offset;
-    assert_ne!(start, u32::MAX);
     let end = start + address_info.count;
     DrawCommand::Indexed {
       base_vertex: 0,
