@@ -27,6 +27,7 @@ impl<K, T> Clone for CollectiveMutationSender<K, T> {
   }
 }
 
+use parking_lot::lock_api::RawRwLock;
 impl<K: CKey, T: CValue> CollectiveMutationSender<K, T> {
   /// # Safety
   ///
@@ -103,29 +104,5 @@ pub trait QueryProvider<K, V>: Send + Sync {
 impl<T: Query + 'static> QueryProvider<T::Key, T::Value> for Arc<RwLock<T>> {
   fn access(&self) -> BoxedDynQuery<T::Key, T::Value> {
     Box::new(self.make_read_holder())
-  }
-}
-
-pub struct ReactiveQueryFromCollectiveMutation<K, T> {
-  pub full: Box<dyn QueryProvider<K, T>>,
-  pub mutation: RwLock<CollectiveMutationReceiver<K, T>>,
-}
-impl<K: CKey, T: CValue> ReactiveQuery for ReactiveQueryFromCollectiveMutation<K, T> {
-  type Key = K;
-  type Value = T;
-  type Compute = (Option<MutationData<K, T>>, BoxedDynQuery<K, T>);
-
-  fn describe(&self, cx: &mut Context) -> Self::Compute {
-    let mut d = None;
-    if let Poll::Ready(Some(r)) = self.mutation.write().poll_next_unpin(cx) {
-      d = Some(r);
-    }
-
-    let v = self.full.access();
-    (d, v)
-  }
-
-  fn request(&mut self, _request: &mut ReactiveQueryRequest) {
-    // component storage should not shrink here
   }
 }

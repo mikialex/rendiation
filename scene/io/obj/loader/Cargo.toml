@@ -7,7 +7,6 @@ version = "0.1.0"
 [dependencies]
 image = "*"
 database = { path = "../../../../utility/database" }
-reactive = { path = "../../../../utility/reactive" }
 rendiation-algebra = { path = "../../../../math/algebra" }
 rendiation-mesh-core = { path = "../../../../content/mesh/core" }
 rendiation-scene-core = { path = "../../../core" }

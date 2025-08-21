@@ -117,6 +117,7 @@ impl FunctionMemory {
       let FunctionMemoryState {
         type_id,
         ptr,
+        #[allow(unused_variables)]
         type_name,
         ..
       } = &mut self.states_meta[self.current_cursor];

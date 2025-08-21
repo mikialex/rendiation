@@ -73,30 +73,6 @@ pub fn use_tex_watcher<T, TexStorage>(
     .update_storage_array(storage, offset + sam_offset);
 }
 
-pub fn add_tex_watcher<T, TexStorage>(
-  storage: ReactiveStorageBufferContainer<TexStorage>,
-  offset: usize,
-) -> ReactiveStorageBufferContainer<TexStorage>
-where
-  TexStorage: Std430 + Default,
-  T: TextureWithSamplingForeignKeys,
-{
-  let tex_offset = std::mem::offset_of!(TextureSamplerHandlePair, texture_handle);
-  let sam_offset = std::mem::offset_of!(TextureSamplerHandlePair, sampler_handle);
-
-  let tex = global_watch()
-    .watch::<SceneTexture2dRefOf<T>>()
-    .collective_map(|id| id.map(|v| v.index()).unwrap_or(u32::MAX))
-    .into_query_update_storage(offset + tex_offset);
-
-  let sampler = global_watch()
-    .watch::<SceneSamplerRefOf<T>>()
-    .collective_map(|id| id.map(|v| v.index()).unwrap_or(u32::MAX))
-    .into_query_update_storage(offset + sam_offset);
-
-  storage.with_source(tex).with_source(sampler)
-}
-
 pub trait IndirectModelMaterialRenderImpl: Any {
   fn make_component_indirect<'a>(
     &'a self,

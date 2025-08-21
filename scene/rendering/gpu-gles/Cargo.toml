@@ -18,7 +18,6 @@ rendiation-shader-library = { path = "../../../shader/library" }
 rendiation-texture-core = { path = "../../../content/texture/core" }
 rendiation-texture-gpu-base = { path = "../../../content/texture/gpu-base" }
 
-reactive = { path = "../../../utility/reactive" }
 rendiation-lighting-transport = { path = "../../../content/lighting/transport" }
 rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
 rendiation-webgpu-reactive-utils = { path = "../../../platform/graphics/webgpu-reactive-utils" }

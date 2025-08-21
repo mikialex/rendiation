@@ -1,7 +1,7 @@
 use std::num::NonZeroU32;
 
 use fast_hash_collection::*;
-use reactive::*;
+use query::*;
 
 pub mod growable;
 pub mod pack_2d_to_2d;

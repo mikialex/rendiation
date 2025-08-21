@@ -6,6 +6,7 @@ version = "0.0.1"
 [dependencies]
 fast-hash-collection = { path = "../fast-hash-collection" }
 reactive = { path = "../reactive" }
+query = { path = "../query" }
 arena = { path = "../arena" }
 query-hook = { path = "../query-hook" }
 futures = { workspace = true }

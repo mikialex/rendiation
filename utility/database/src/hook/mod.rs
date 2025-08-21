@@ -1,7 +1,9 @@
+mod collective_channel;
 mod util;
 
 use std::hash::Hasher;
 
+pub use collective_channel::*;
 pub use util::*;
 
 use crate::*;

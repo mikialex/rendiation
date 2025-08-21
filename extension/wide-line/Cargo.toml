@@ -5,7 +5,6 @@ name = "rendiation-wide-line"
 version = "0.1.0"
 
 [dependencies]
-reactive = { path = "../../utility/reactive" }
 database = { path = "../../utility/database" }
 rendiation-algebra = { path = "../../math/algebra" }
 rendiation-geometry = { path = "../../math/geometry" }

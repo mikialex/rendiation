@@ -12,7 +12,6 @@ futures = { workspace = true }
 log = { workspace = true }
 once_cell = { workspace = true }
 pin-project = { workspace = true }
-reactive = { path = "../../utility/reactive" }
 rendiation-algebra = { path = "../../math/algebra" }
 rendiation-animation = { path = "../../content/animation" }
 rendiation-geometry = { path = "../../math/geometry" }
@@ -20,7 +19,6 @@ rendiation-mesh-core = { path = "../../content/mesh/core" }
 rendiation-texture-core = { path = "../../content/texture/core" }
 smallvec = { workspace = true }
 database = { path = "../../utility/database" }
-reactive-derive = { path = "../../utility/reactive-derive" }
 parking_lot = { workspace = true }
 facet = { workspace = true }
 serde = { workspace = true }

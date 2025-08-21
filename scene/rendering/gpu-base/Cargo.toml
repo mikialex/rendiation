@@ -13,7 +13,6 @@ rendiation-geometry = { path = "../../../math/geometry" }
 fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 rendiation-scene-core = { path = "../../core" }
 rendiation-mesh-core = { path = "../../../content/mesh/core" }
-reactive = { path = "../../../utility/reactive" }
 parking_lot = { workspace = true }
 database = { path = "../../../utility/database" }
 hook = { path = "../../../utility/hook" }

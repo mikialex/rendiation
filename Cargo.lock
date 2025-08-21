@@ -910,6 +910,7 @@ dependencies = [
  "fast-hash-collection",
  "futures",
  "parking_lot",
+ "query",
  "query-hook",
  "reactive",
  "rmp-serde",
@@ -3450,38 +3451,9 @@ dependencies = [
  "hook",
  "parking_lot",
  "pin-project",
- "reactive-query",
  "reactive-stream",
  "smallvec",
  "storage",
-]
-
-[[package]]
-name = "reactive-derive"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "reactive-query"
-version = "0.0.1"
-dependencies = [
- "dashmap",
- "dyn-clone",
- "fast-hash-collection",
- "futures",
- "heap-tools",
- "parking_lot",
- "pin-project",
- "query",
- "reactive-stream",
- "smallvec",
- "storage",
- "tracing",
- "xalloc",
 ]
 
 [[package]]
@@ -3659,7 +3631,7 @@ version = "0.1.0"
 dependencies = [
  "fast-hash-collection",
  "futures",
- "reactive",
+ "query",
  "rendiation-shader-api",
  "rendiation-webgpu",
 ]
@@ -3751,7 +3723,6 @@ version = "0.1.0"
 dependencies = [
  "database",
  "fast-hash-collection",
- "reactive",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-scene-core",
@@ -3882,7 +3853,6 @@ dependencies = [
  "database",
  "fast-hash-collection",
  "parking_lot",
- "reactive",
  "rendiation-algebra",
  "rendiation-shader-api",
  "rendiation-shader-library",
@@ -3951,7 +3921,6 @@ dependencies = [
  "fast-hash-collection",
  "log",
  "parking_lot",
- "reactive",
  "rendiation-algebra",
  "rendiation-device-parallel-compute",
  "rendiation-geometry",
@@ -4003,7 +3972,6 @@ version = "0.1.0"
 dependencies = [
  "fast-hash-collection",
  "log",
- "reactive",
  "rendiation-algebra",
  "rendiation-device-parallel-compute",
  "rendiation-fast-down-sampling-2d",
@@ -4021,7 +3989,6 @@ version = "0.1.0"
 dependencies = [
  "fast-hash-collection",
  "log",
- "reactive",
  "rendiation-algebra",
  "rendiation-device-parallel-compute",
  "rendiation-fast-down-sampling-2d",
@@ -4056,8 +4023,6 @@ dependencies = [
  "once_cell",
  "parking_lot",
  "pin-project",
- "reactive",
- "reactive-derive",
  "rendiation-algebra",
  "rendiation-animation",
  "rendiation-geometry",
@@ -4073,7 +4038,6 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "database",
- "reactive",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-mesh-core",
@@ -4090,7 +4054,6 @@ dependencies = [
  "gltf",
  "gltf-json",
  "query",
- "reactive-query",
  "rendiation-mesh-core",
  "rendiation-scene-core",
  "rendiation-texture-core",
@@ -4119,7 +4082,6 @@ version = "0.1.0"
 dependencies = [
  "database",
  "image",
- "reactive",
  "rendiation-algebra",
  "rendiation-mesh-core",
  "rendiation-scene-core",
@@ -4138,7 +4100,6 @@ dependencies = [
  "fast-hash-collection",
  "hook",
  "parking_lot",
- "reactive",
  "rendiation-algebra",
  "rendiation-color",
  "rendiation-device-parallel-compute",
@@ -4164,7 +4125,6 @@ dependencies = [
  "database",
  "fast-hash-collection",
  "log",
- "reactive",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-lighting-transport",
@@ -4190,7 +4150,6 @@ dependencies = [
  "fast-hash-collection",
  "log",
  "parking_lot",
- "reactive",
  "rendiation-algebra",
  "rendiation-device-parallel-compute",
  "rendiation-geometry",
@@ -4219,7 +4178,6 @@ dependencies = [
  "fast-hash-collection",
  "log",
  "parking_lot",
- "reactive",
  "rendiation-algebra",
  "rendiation-color",
  "rendiation-device-ray-tracing",
@@ -4374,7 +4332,7 @@ version = "0.1.0"
 dependencies = [
  "dyn-clone",
  "fast-hash-collection",
- "reactive",
+ "query",
  "rendiation-shader-api",
  "rendiation-texture-core",
  "rendiation-texture-gpu-base",
@@ -4399,7 +4357,7 @@ version = "0.1.0"
 dependencies = [
  "etagere",
  "fast-hash-collection",
- "reactive",
+ "query",
  "rendiation-texture-core",
 ]
 
@@ -4465,7 +4423,6 @@ dependencies = [
  "hook",
  "parking_lot",
  "query-hook",
- "reactive",
  "rendiation-shader-api",
  "rendiation-texture-core",
  "rendiation-texture-gpu-base",
@@ -4489,7 +4446,6 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "database",
- "reactive",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-mesh-core",

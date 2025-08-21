@@ -318,7 +318,6 @@ impl Viewer3dRenderingCtx {
   pub fn update_registry(
     &mut self,
     memory: &mut FunctionMemory,
-    rendering_resource: &mut ReactiveQueryCtx,
     task_spawner: &TaskSpawner,
     shared_ctx: &mut SharedHooksCtx,
   ) -> AsyncTaskPool {
@@ -329,7 +328,6 @@ impl Viewer3dRenderingCtx {
     QueryGPUHookCx {
       memory,
       gpu: &gpu,
-      query_cx: rendering_resource,
       stage: GPUQueryHookStage::Update {
         spawner: task_spawner,
         task_pool: &mut pool,
@@ -346,20 +344,15 @@ impl Viewer3dRenderingCtx {
     target: &RenderTargetView,
     content: &Viewer3dSceneCtx,
     memory: &mut FunctionMemory,
-    rendering_resource: &mut ReactiveQueryCtx,
     task_pool_result: TaskPoolResultCx,
     shared_ctx: &mut SharedHooksCtx,
   ) {
-    noop_ctx!(cx);
-    let query_result = rendering_resource.poll_update_all(cx);
     let gpu = self.gpu.clone();
     shared_ctx.reset_visiting();
     let renderer = QueryGPUHookCx {
       memory,
       gpu: &gpu,
-      query_cx: rendering_resource,
       stage: GPUQueryHookStage::CreateRender {
-        query: query_result,
         task: task_pool_result,
       },
       shared_ctx,

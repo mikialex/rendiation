@@ -15,6 +15,7 @@ use dyn_clone::*;
 pub use facet::*;
 use fast_hash_collection::*;
 use parking_lot::RwLock;
+pub use query::*;
 pub use query_hook::*;
 use reactive::*;
 use serde::*;

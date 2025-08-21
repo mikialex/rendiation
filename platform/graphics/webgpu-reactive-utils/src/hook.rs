@@ -1,18 +1,15 @@
 use ::hook::*;
-use database::*;
 
 use crate::*;
 
 pub struct QueryGPUHookFeatureCx<'a> {
   pub gpu: &'a GPU,
-  pub query_cx: &'a mut ReactiveQueryCtx,
   pub shared_ctx: &'a mut SharedHooksCtx,
 }
 
 pub struct QueryGPUHookCx<'a> {
   pub memory: &'a mut FunctionMemory,
   pub gpu: &'a GPU,
-  pub query_cx: &'a mut ReactiveQueryCtx,
   pub shared_ctx: &'a mut SharedHooksCtx,
   pub stage: GPUQueryHookStage<'a>,
 }
@@ -24,7 +21,6 @@ pub enum GPUQueryHookStage<'a> {
     spawner: &'a TaskSpawner,
   },
   CreateRender {
-    query: QueryResultCtx,
     task: TaskPoolResultCx,
   },
 }
@@ -40,7 +36,6 @@ unsafe impl<'a> HooksCxLike for QueryGPUHookCx<'a> {
 
   fn flush(&mut self) {
     let mut drop_cx = QueryGPUHookDropCx {
-      query_cx: self.query_cx,
       share_cx: self.shared_ctx,
     };
     self.memory.flush(&mut drop_cx as *mut _ as *mut ());
@@ -63,7 +58,6 @@ impl<'a> QueryGPUHookCx<'a> {
       || {
         init(QueryGPUHookFeatureCx {
           gpu: self.gpu,
-          query_cx: self.query_cx,
           shared_ctx: self.shared_ctx,
         })
       },
@@ -96,41 +90,27 @@ impl<'a> QueryGPUHookCx<'a> {
     (cx, &mut state.0)
   }
 
+  // todo
   pub fn use_begin_change_set_collect(
     &mut self,
   ) -> (&mut Self, impl FnOnce(&mut Self) -> Option<bool>) {
-    let (qcx, set) = self.use_state_init(QueryCtxSetInfo::default);
+    // let (qcx, set) = self.use_state_init(QueryCtxSetInfo::default);
 
-    // as the dynamic scope can be nested in the scope, we need maintain the set
-    // per call cycle to make sure the watch set is up to date
-    qcx.query_cx.record_new_registered(set);
+    // // as the dynamic scope can be nested in the scope, we need maintain the set
+    // // per call cycle to make sure the watch set is up to date
+    // qcx.query_cx.record_new_registered(set);
 
-    // todo, how to avoid this?
-    let set: &mut QueryCtxSetInfo = unsafe { std::mem::transmute(set) };
+    // // todo, how to avoid this?
+    // let set: &mut QueryCtxSetInfo = unsafe { std::mem::transmute(set) };
 
     (self, |qcx: &mut Self| {
-      qcx.query_cx.end_record(set);
-      if let GPUQueryHookStage::CreateRender { query, .. } = &qcx.stage {
-        query.has_any_changed_in_set(set).into()
+      // qcx.query_cx.end_record(set);
+      if let GPUQueryHookStage::CreateRender { .. } = &qcx.stage {
+        Some(false)
       } else {
         None
       }
     })
-  }
-
-  #[deprecated]
-  pub fn use_multi_updater_gpu<T: 'static>(
-    &mut self,
-    f: impl FnOnce(&GPU) -> MultiUpdateContainer<T>,
-  ) -> Option<LockReadGuardHolder<MultiUpdateContainer<T>>> {
-    let (cx, token) =
-      self.use_state_with_features(|cx| cx.query_cx.register_multi_updater(f(cx.gpu)));
-
-    if let GPUQueryHookStage::CreateRender { query, .. } = &mut cx.stage {
-      query.take_multi_updater_updated::<T>(*token)
-    } else {
-      None
-    }
   }
 
   pub fn use_gpu_multi_access_states(
@@ -162,41 +142,6 @@ impl<'a> QueryGPUHookCx<'a> {
     })
   }
 
-  #[deprecated]
-  pub fn use_storage_buffer<V: Std430>(
-    &mut self,
-    f: impl FnOnce(&GPU) -> ReactiveStorageBufferContainer<V>,
-  ) -> Option<StorageBufferReadonlyDataView<[V]>> {
-    let (cx, token) =
-      self.use_state_with_features(|cx| cx.query_cx.register_multi_updater(f(cx.gpu)));
-
-    if let GPUQueryHookStage::CreateRender { query, .. } = &mut cx.stage {
-      query.take_storage_array_buffer(*token)
-    } else {
-      None
-    }
-  }
-
-  #[deprecated]
-  pub fn use_reactive_query_gpu<K, V, Q>(
-    &mut self,
-    f: impl FnOnce(&GPU) -> Q,
-  ) -> Option<Box<dyn DynQuery<Key = K, Value = V>>>
-  where
-    K: CKey,
-    V: CValue,
-    Q: ReactiveQuery<Key = K, Value = V> + Unpin,
-  {
-    let (cx, token) =
-      self.use_state_with_features(|cx| cx.query_cx.register_reactive_query(f(cx.gpu)));
-
-    if let GPUQueryHookStage::CreateRender { query, .. } = &mut cx.stage {
-      query.take_reactive_query_updated(*token)
-    } else {
-      None
-    }
-  }
-
   pub fn when_render<X>(&self, f: impl FnOnce() -> X) -> Option<X> {
     self.is_in_render().then(f)
   }
@@ -213,7 +158,6 @@ impl<T> CanCleanUpFrom<QueryGPUHookDropCx<'_>> for NothingToDrop<T> {
 }
 
 pub struct QueryGPUHookDropCx<'a> {
-  pub query_cx: &'a mut ReactiveQueryCtx,
   pub share_cx: &'a mut SharedHooksCtx,
 }
 
@@ -265,4 +209,4 @@ impl QueryHookCxLike for QueryGPUHookCx<'_> {
   }
 }
 
-impl DBHookCxLike for QueryGPUHookCx<'_> {}
+impl database::DBHookCxLike for QueryGPUHookCx<'_> {}
