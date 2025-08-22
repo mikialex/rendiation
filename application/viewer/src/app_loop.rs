@@ -94,7 +94,7 @@ unsafe impl HooksCxLike for ApplicationCx<'_> {
     self.memory
   }
   fn flush(&mut self) {
-    self.memory.flush(&mut () as *mut _)
+    self.memory.flush(Some(self.dyn_cx as *mut _ as *mut _))
   }
 
   fn use_plain_state<T: 'static>(&mut self, f: impl FnOnce() -> T) -> (&mut Self, &mut T) {

@@ -52,20 +52,22 @@ pub fn use_immediate_helper_model(cx: &mut ViewerCx, line: UseResult<LineBuffer>
     }
     ViewerCxStage::SceneContentUpdate { writer, .. } => {
       if let Some(lines) = changes {
-        let lines: &[u8] = cast_slice(lines.as_slice());
+        writer.write_other_scene(cx.viewer.scene.widget_scene, |writer| {
+          let lines: &[u8] = cast_slice(lines.as_slice());
 
-        let lines = AttributesMeshData {
-          attributes: vec![(AttributeSemantic::Positions, lines.to_vec())],
-          indices: None,
-          mode: rendiation_mesh_core::PrimitiveTopology::LineList,
-          groups: Default::default(),
-        };
+          let lines = AttributesMeshData {
+            attributes: vec![(AttributeSemantic::Positions, lines.to_vec())],
+            indices: None,
+            mode: rendiation_mesh_core::PrimitiveTopology::LineList,
+            groups: Default::default(),
+          };
 
-        if let Some(model) = &mut helper_mesh.internal {
-          model.replace_new_shape_and_cleanup_old(writer, lines);
-        } else {
-          helper_mesh.internal = UIWidgetModel::new(writer, lines).into();
-        }
+          if let Some(model) = &mut helper_mesh.internal {
+            model.replace_new_shape_and_cleanup_old(writer, lines);
+          } else {
+            helper_mesh.internal = UIWidgetModel::new(writer, lines).into();
+          }
+        })
       }
     }
     _ => {}
