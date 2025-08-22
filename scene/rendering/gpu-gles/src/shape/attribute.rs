@@ -6,8 +6,9 @@ pub fn use_attribute_mesh_renderer(
   cx: &mut QueryGPUHookCx,
   foreign_implementation_semantics: std::sync::Arc<dyn Fn(u32, &mut ShaderVertexBuilder)>,
 ) -> Option<GLESAttributesMeshRenderer> {
-  let multi_access =
-    cx.use_db_rev_ref_typed::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>();
+  let multi_access = cx
+    .use_db_rev_ref_typed::<AttributesMeshEntityVertexBufferRelationRefAttributesMeshEntity>()
+    .use_assure_result(cx);
 
   let index = use_buffers::<AttributeIndexRef>(cx, BufferUsages::INDEX);
   let vertex = use_buffers::<AttributeVertexRef>(cx, BufferUsages::VERTEX);
@@ -85,7 +86,8 @@ fn use_buffers<B: SceneBufferView>(
     .use_dual_query::<SceneBufferViewBufferId<B>>()
     .dual_query_zip(cx.use_dual_query::<SceneBufferViewBufferRange<B>>())
     .into_delta_change()
-    .filter_map_changes(|(id, range)| Some((id?, range)));
+    .filter_map_changes(|(id, range)| Some((id?, range)))
+    .use_assure_result(cx);
 
   let read_view = global_entity_component_of::<BufferEntityData>().read();
 

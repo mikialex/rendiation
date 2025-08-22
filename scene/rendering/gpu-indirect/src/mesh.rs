@@ -106,7 +106,7 @@ fn use_attribute_indices(
   let meta_generator = meta_generator.clone();
 
   source_info
-    .map_future(move |change| {
+    .map_only_spawn_stage(move |change| {
       let removed_and_changed_keys = change
         .iter_removed()
         .chain(change.iter_update_or_insert().map(|(k, _)| k));
@@ -166,7 +166,7 @@ fn use_attribute_vertex(
   let gpu = cx.gpu.clone();
   let meta_generator = meta_generator.clone();
 
-  let allocation_info = source_info.map_future(move |change| {
+  let allocation_info = source_info.map_only_spawn_stage(move |change| {
     let removed_and_changed_keys = change
       .iter_removed()
       .chain(change.iter_update_or_insert().map(|(k, _)| k));

@@ -30,6 +30,7 @@ pub fn use_node_storage(cx: &mut QueryGPUHookCx) -> Option<IndirectNodeRenderer>
   use_global_node_world_mat(cx)
     .into_delta_change()
     .map_changes(NodeStorage::from_world_mat)
+    .use_assure_result(cx)
     .update_storage_array(nodes, 0);
 
   cx.when_render(|| IndirectNodeRenderer(nodes.get_gpu_buffer()))

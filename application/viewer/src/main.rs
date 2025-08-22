@@ -104,7 +104,7 @@ fn main() {
       use_enable_obj_io(cx);
 
       sync_camera_view(cx);
-      // use_animation_player(cx);
+      use_animation_player(cx);
 
       use_smooth_camera_motion(cx, |cx| {
         use_fit_camera_view(cx);
