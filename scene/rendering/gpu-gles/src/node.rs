@@ -6,6 +6,7 @@ pub fn use_node_uniforms(cx: &mut QueryGPUHookCx) -> Option<GLESNodeRenderer> {
   use_global_node_world_mat(cx)
     .into_delta_change()
     .map_changes(NodeUniform::from_world_mat)
+    .use_assure_result(cx)
     .update_uniforms(&uniform, 0, cx.gpu);
 
   cx.when_render(|| GLESNodeRenderer(uniform.make_read_holder()))

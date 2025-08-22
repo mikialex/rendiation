@@ -9,6 +9,7 @@ pub fn use_camera_uniforms(
   cx.use_shared_dual_query(GlobalCameraTransformShare(ndc))
     .into_delta_change()
     .map_changes(CameraGPUTransform::from)
+    .use_assure_result(cx)
     .update_uniforms(&uniforms, 0, cx.gpu);
 
   cx.when_render(|| CameraRenderer(uniforms.make_read_holder()))

@@ -285,7 +285,7 @@ pub trait QueryHookCxLike: HooksCxLike {
       .or_insert_with(|| Arc::new(SharedQueryChangeReconciler::<K, V>::default()))
       .clone();
 
-    result.map(move |r| {
+    result.map_only_spawn_stage(move |r| {
       let (view, delta) = r.view_delta();
       if let Some(new_delta) = reconciler.reconcile(consumer_id, Box::new(delta.into_boxed())) {
         DualQuery {
@@ -503,8 +503,11 @@ impl<K: CKey, V: CValue> ChangeReconciler for SharedQueryChangeReconciler<K, V> 
         .downcast::<BoxedDynQuery<K, ValueChange<V>>>()
         .unwrap();
       internal.has_broadcasted = true;
-      for (_, v) in internal.consumers.iter_mut() {
-        v.push(change.clone());
+
+      if change.iter_key_value().next().is_some() {
+        for (_, v) in internal.consumers.iter_mut() {
+          v.push(change.clone());
+        }
       }
     }
 
@@ -525,7 +528,8 @@ impl<K: CKey, V: CValue> ChangeReconciler for SharedQueryChangeReconciler<K, V> 
 
   fn remove_consumer(&self, id: u32) -> bool {
     let mut internal = self.internal.write();
-    internal.consumers.remove(&id).unwrap();
+    // we should not assert remove, because not all consumer need reconcile change
+    internal.consumers.remove(&id);
     internal.consumers.is_empty()
   }
 }

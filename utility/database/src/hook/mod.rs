@@ -37,30 +37,30 @@ pub trait DBHookCxLike: QueryHookCxLike {
       })
     });
 
-    noop_ctx!(ctx);
-    let changes = if let Poll::Ready(Some(r)) = rev.poll_impl(ctx) {
-      let removed = r
-        .iter()
-        .filter_map(|v| v.1.is_removed().then_some(v.0.index()))
-        .collect::<Vec<_>>();
-
-      let update_or_insert = r
-        .iter()
-        .filter_map(|v| v.1.new_value().map(|x| (v.0.index(), x.clone())))
-        .collect::<Vec<_>>();
-
-      LinearBatchChanges {
-        removed,
-        update_or_insert,
-      }
-    } else {
-      Default::default()
-    };
-
     if let QueryHookStage::SpawnTask {
       change_collector, ..
     } = cx.stage()
     {
+      noop_ctx!(ctx);
+      let changes = if let Poll::Ready(Some(r)) = rev.poll_impl(ctx) {
+        let removed = r
+          .iter()
+          .filter_map(|v| v.1.is_removed().then_some(v.0.index()))
+          .collect::<Vec<_>>();
+
+        let update_or_insert = r
+          .iter()
+          .filter_map(|v| v.1.new_value().map(|x| (v.0.index(), x.clone())))
+          .collect::<Vec<_>>();
+
+        LinearBatchChanges {
+          removed,
+          update_or_insert,
+        }
+      } else {
+        Default::default()
+      };
+
       if changes.has_change() {
         change_collector.notify_change();
       }
@@ -92,16 +92,17 @@ pub trait DBHookCxLike: QueryHookCxLike {
       })
     });
 
-    noop_ctx!(ctx);
-    let changes = if let Poll::Ready(Some(changes)) = rev.poll_impl(ctx) {
-      changes
-    } else {
-      Default::default()
-    };
     if let QueryHookStage::SpawnTask {
       change_collector, ..
     } = cx.stage()
     {
+      noop_ctx!(ctx);
+      let changes = if let Poll::Ready(Some(changes)) = rev.poll_impl(ctx) {
+        changes
+      } else {
+        Default::default()
+      };
+
       if !changes.is_empty() {
         change_collector.notify_change();
       }
@@ -136,16 +137,17 @@ pub trait DBHookCxLike: QueryHookCxLike {
       })
     });
 
-    noop_ctx!(ctx);
-    let changes = if let Poll::Ready(Some(changes)) = rev.poll_impl(ctx) {
-      changes
-    } else {
-      Default::default()
-    };
     if let QueryHookStage::SpawnTask {
       change_collector, ..
     } = cx.stage()
     {
+      noop_ctx!(ctx);
+      let changes = if let Poll::Ready(Some(changes)) = rev.poll_impl(ctx) {
+        changes
+      } else {
+        Default::default()
+      };
+
       if !changes.is_empty() {
         change_collector.notify_change();
       }

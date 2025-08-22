@@ -30,6 +30,7 @@ pub fn use_scene_model_device_world_transform(
         }
       })
     })
+    .use_assure_result(qcx)
     .update_storage_array(storage, 0);
 
   qcx.when_render(|| DrawUnitWorldTransformProviderDefaultImpl {

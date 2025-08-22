@@ -25,6 +25,7 @@ pub fn use_camera_gpu_frustum(
 
       Shader140Array::<Vec4<f32>, 6>::from_slice_clamp_or_default(&arr);
     })
+    .use_assure_result(cx)
     .update_uniforms(&uniforms, 0, cx.gpu);
 
   cx.when_render(|| CameraGPUFrustums {

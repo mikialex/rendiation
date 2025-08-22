@@ -54,19 +54,22 @@ pub fn use_basic_shadow_map_uniform(
       cx.gpu,
     );
 
-  enabled.map_changes(Bool::from).update_uniform_array(
+  enabled
+    .map_changes(Bool::from)
+    .use_assure_result(cx)
+    .update_uniform_array(uniform, offset_of!(BasicShadowMapInfo, enabled), cx.gpu);
+
+  bias.use_assure_result(cx).update_uniform_array(
     uniform,
-    offset_of!(BasicShadowMapInfo, enabled),
+    offset_of!(BasicShadowMapInfo, bias),
     cx.gpu,
   );
-
-  bias.update_uniform_array(uniform, offset_of!(BasicShadowMapInfo, bias), cx.gpu);
 
   // todo, spawn a task to pack
   let (cx, packer) =
     cx.use_plain_state(|| Arc::new(RwLock::new(RemappedGrowablePacker::new(atlas_config))));
 
-  if let Some(size_changes) = size.if_ready() {
+  if let Some(size_changes) = size.use_assure_result(cx).if_ready() {
     let mut new_size = None;
     let mut buff_changes = FastHashMap::default();
 

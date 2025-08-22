@@ -12,6 +12,7 @@ pub fn use_scene_id_provider(cx: &mut QueryGPUHookCx) -> SceneIdUniformBufferAcc
         .delta_map_value(|v| v.index())
         .into_change()
     })
+    .use_assure_result(cx)
     .update_uniforms(&uniforms, 0, cx.gpu);
 
   uniforms.make_read_holder()

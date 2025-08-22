@@ -8,12 +8,16 @@ pub enum UseResult<T> {
 }
 
 impl<T: Send + Sync + 'static> UseResult<T> {
-  pub fn map_future<U>(self, f: impl FnOnce(T) -> U + Send + Sync + 'static) -> UseResult<U> {
+  pub fn map_only_spawn_stage<U>(
+    self,
+    f: impl FnOnce(T) -> U + Send + Sync + 'static,
+  ) -> UseResult<U> {
     use futures::FutureExt;
-    if let Some(future) = self.into_future() {
-      UseResult::SpawnStageFuture(Box::new(future.map(f)))
-    } else {
-      UseResult::NotInStage
+    match self {
+      UseResult::SpawnStageFuture(fut) => UseResult::SpawnStageFuture(Box::new(fut.map(f))),
+      UseResult::SpawnStageReady(t) => UseResult::SpawnStageReady(f(t)),
+      UseResult::ResolveStageReady(_) => UseResult::NotInStage,
+      UseResult::NotInStage => UseResult::NotInStage,
     }
   }
 
@@ -415,7 +419,7 @@ where
   {
     let cache = cx.use_shared_hash_map();
 
-    self.map_future(move |t| {
+    self.map_only_spawn_stage(move |t| {
       let d = t.delta();
       let materialized = d.iter_key_value().collect::<Vec<_>>();
 

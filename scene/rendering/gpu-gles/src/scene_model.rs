@@ -14,6 +14,7 @@ pub fn use_gles_scene_model_renderer(
         .delta_map_value(|v| v.index())
         .into_change()
     })
+    .use_assure_result(cx)
     .update_uniforms(&scene_model_ids, 0, cx.gpu);
 
   cx.when_render(|| {

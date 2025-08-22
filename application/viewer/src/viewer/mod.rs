@@ -111,7 +111,7 @@ impl CanCleanUpFrom<ViewerDropCx<'_>> for ShaderConsumerToken {
     if let Some(mem) = cx.shared_ctx.drop_consumer(self.1, self.0) {
       mem.write().memory.cleanup(cx as *mut _ as *mut ());
     }
-    // this check is necessary because not all consumer need reconcile change
+    // this check is necessary because not all key need reconcile change
     if let Some(reconciler) = cx.shared_ctx.reconciler.get_mut(&self.1) {
       if reconciler.remove_consumer(self.0) {
         cx.shared_ctx.reconciler.remove(&self.1);
