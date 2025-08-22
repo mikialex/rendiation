@@ -15,7 +15,7 @@ rendiation-scene-rendering-gpu-base = { path = "../../rendering/gpu-base" }
 rendiation-scene-rendering-gpu-indirect = { path = "../../rendering/gpu-indirect" }
 rendiation-shader-api = { path = "../../../shader/api" }
 rendiation-device-parallel-compute = { path = "../../../shader/parallel-compute" }
-rendiation-webgpu-reactive-utils = { path = "../../../platform/graphics/webgpu-reactive-utils" }
+rendiation-webgpu-hook-utils = { path = "../../../platform/graphics/webgpu-hook-utils" }
 rendiation-webgpu-midc-downgrade = { path = "../../../platform/graphics/webgpu-midc-downgrade" }
 rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
 rendiation-mesh-lod-graph = { path = "../../../content/mesh/lod-graph" }

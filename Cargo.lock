@@ -3601,7 +3601,7 @@ dependencies = [
  "rendiation-texture-core",
  "rendiation-texture-gpu-base",
  "rendiation-webgpu",
- "rendiation-webgpu-reactive-utils",
+ "rendiation-webgpu-hook-utils",
 ]
 
 [[package]]
@@ -3730,7 +3730,7 @@ dependencies = [
  "rendiation-shader-api",
  "rendiation-shader-library",
  "rendiation-webgpu",
- "rendiation-webgpu-reactive-utils",
+ "rendiation-webgpu-hook-utils",
 ]
 
 [[package]]
@@ -3859,7 +3859,7 @@ dependencies = [
  "rendiation-texture-core",
  "rendiation-texture-packer",
  "rendiation-webgpu",
- "rendiation-webgpu-reactive-utils",
+ "rendiation-webgpu-hook-utils",
 ]
 
 [[package]]
@@ -3930,8 +3930,8 @@ dependencies = [
  "rendiation-scene-rendering-gpu-indirect",
  "rendiation-shader-api",
  "rendiation-webgpu",
+ "rendiation-webgpu-hook-utils",
  "rendiation-webgpu-midc-downgrade",
- "rendiation-webgpu-reactive-utils",
 ]
 
 [[package]]
@@ -4113,8 +4113,8 @@ dependencies = [
  "rendiation-texture-gpu-system",
  "rendiation-texture-packer",
  "rendiation-webgpu",
+ "rendiation-webgpu-hook-utils",
  "rendiation-webgpu-midc-downgrade",
- "rendiation-webgpu-reactive-utils",
  "thiserror 1.0.69",
 ]
 
@@ -4136,7 +4136,7 @@ dependencies = [
  "rendiation-texture-core",
  "rendiation-texture-gpu-base",
  "rendiation-webgpu",
- "rendiation-webgpu-reactive-utils",
+ "rendiation-webgpu-hook-utils",
  "thiserror 1.0.69",
  "tracing",
 ]
@@ -4163,8 +4163,8 @@ dependencies = [
  "rendiation-shader-library",
  "rendiation-texture-core",
  "rendiation-webgpu",
+ "rendiation-webgpu-hook-utils",
  "rendiation-webgpu-midc-downgrade",
- "rendiation-webgpu-reactive-utils",
 ]
 
 [[package]]
@@ -4195,7 +4195,7 @@ dependencies = [
  "rendiation-texture-gpu-base",
  "rendiation-texture-gpu-process",
  "rendiation-webgpu",
- "rendiation-webgpu-reactive-utils",
+ "rendiation-webgpu-hook-utils",
  "tracing",
 ]
 
@@ -4338,7 +4338,7 @@ dependencies = [
  "rendiation-texture-gpu-base",
  "rendiation-texture-packer",
  "rendiation-webgpu",
- "rendiation-webgpu-reactive-utils",
+ "rendiation-webgpu-hook-utils",
 ]
 
 [[package]]
@@ -4405,16 +4405,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rendiation-webgpu-midc-downgrade"
-version = "0.1.0"
-dependencies = [
- "rendiation-device-parallel-compute",
- "rendiation-shader-api",
- "rendiation-webgpu",
-]
-
-[[package]]
-name = "rendiation-webgpu-reactive-utils"
+name = "rendiation-webgpu-hook-utils"
 version = "0.1.0"
 dependencies = [
  "database",
@@ -4426,6 +4417,15 @@ dependencies = [
  "rendiation-shader-api",
  "rendiation-texture-core",
  "rendiation-texture-gpu-base",
+ "rendiation-webgpu",
+]
+
+[[package]]
+name = "rendiation-webgpu-midc-downgrade"
+version = "0.1.0"
+dependencies = [
+ "rendiation-device-parallel-compute",
+ "rendiation-shader-api",
  "rendiation-webgpu",
 ]
 
@@ -4454,7 +4454,7 @@ dependencies = [
  "rendiation-scene-rendering-gpu-gles",
  "rendiation-shader-api",
  "rendiation-webgpu",
- "rendiation-webgpu-reactive-utils",
+ "rendiation-webgpu-hook-utils",
 ]
 
 [[package]]
@@ -5352,7 +5352,7 @@ dependencies = [
  "rendiation-texture-gpu-process",
  "rendiation-texture-loader",
  "rendiation-webgpu",
- "rendiation-webgpu-reactive-utils",
+ "rendiation-webgpu-hook-utils",
  "rfd",
  "serde",
  "tracing",

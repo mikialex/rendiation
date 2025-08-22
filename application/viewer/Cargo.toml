@@ -64,7 +64,7 @@ rendiation-texture-loader = { path = "../../content/texture/loader" }
 rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
 rendiation-state-override = { path = "../../extension/state-override" }
 rendiation-area-lighting = { path = "../../extension/area-lighting" }
-rendiation-webgpu-reactive-utils = { path = "../../platform/graphics/webgpu-reactive-utils" }
+rendiation-webgpu-hook-utils = { path = "../../platform/graphics/webgpu-hook-utils" }
 rfd = "0.14.0"
 tracing = { workspace = true }
 tracing-subscriber = "0.3.19"

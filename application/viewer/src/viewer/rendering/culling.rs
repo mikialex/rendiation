@@ -1,6 +1,6 @@
 use rendiation_frustum_culling::*;
 use rendiation_occlusion_culling::GPUTwoPassOcclusionCulling;
-use rendiation_webgpu_reactive_utils::*;
+use rendiation_webgpu_hook_utils::*;
 
 use crate::*;
 

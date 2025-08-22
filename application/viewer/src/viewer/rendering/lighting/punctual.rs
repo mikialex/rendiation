@@ -1,6 +1,6 @@
 use rendiation_lighting_punctual::*;
 use rendiation_lighting_shadow_map::*;
-use rendiation_webgpu_reactive_utils::*;
+use rendiation_webgpu_hook_utils::*;
 
 use crate::*;
 
@@ -61,7 +61,7 @@ pub fn use_directional_light_uniform(
 }
 
 pub struct SceneDirectionalLightingPreparer {
-  pub shadow: BasicShadowMapUpdater,
+  pub shadow: BasicShadowMapPreparer,
   pub light: UniformBufferDataView<Shader140Array<DirectionalLightUniform, 8>>,
   pub info: UniformBufferDataView<Shader140Array<BasicShadowMapInfo, 8>>,
 }
@@ -203,7 +203,7 @@ pub fn use_scene_spot_light_uniform(
 }
 
 pub struct SceneSpotLightingPreparer {
-  pub shadow: BasicShadowMapUpdater,
+  pub shadow: BasicShadowMapPreparer,
   pub light: UniformBufferDataView<Shader140Array<SpotLightUniform, 8>>,
   pub info: UniformBufferDataView<Shader140Array<BasicShadowMapInfo, 8>>,
 }

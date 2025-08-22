@@ -19,7 +19,7 @@ use draw_access::*;
 mod draw_prepare;
 use draw_prepare::*;
 pub use rendiation_mesh_lod_graph::*;
-use rendiation_webgpu_reactive_utils::*;
+use rendiation_webgpu_hook_utils::*;
 
 declare_entity!(LODGraphMeshEntity);
 declare_component!(

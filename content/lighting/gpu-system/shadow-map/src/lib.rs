@@ -7,7 +7,7 @@ pub use rendiation_texture_packer::pack_2d_to_3d::{
   MultiLayerTexturePackerConfig, PackResult2dWithDepth,
 };
 use rendiation_webgpu::*;
-use rendiation_webgpu_reactive_utils::*;
+use rendiation_webgpu_hook_utils::*;
 
 mod basic;
 pub use basic::*;

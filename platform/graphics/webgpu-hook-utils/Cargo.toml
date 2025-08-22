@@ -2,7 +2,7 @@
 [package]
 authors = ["MikiAlex <18516340862@163.com>"]
 edition = "2021"
-name = "rendiation-webgpu-reactive-utils"
+name = "rendiation-webgpu-hook-utils"
 version = "0.1.0"
 
 [dependencies]

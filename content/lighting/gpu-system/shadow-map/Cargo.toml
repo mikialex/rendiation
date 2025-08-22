@@ -15,7 +15,7 @@ rendiation-texture-core = { path = "../../../texture/core" }
 rendiation-texture-packer = { path = "../../../texture/packer" }
 
 rendiation-webgpu = { path = "../../../../platform/graphics/webgpu" }
-rendiation-webgpu-reactive-utils = { path = "../../../../platform/graphics/webgpu-reactive-utils" }
+rendiation-webgpu-hook-utils = { path = "../../../../platform/graphics/webgpu-hook-utils" }
 
 [lints]
 workspace = true

@@ -3,7 +3,7 @@ use std::{ops::Deref, sync::Arc};
 use fast_hash_collection::{FastHashMap, FastHashSet};
 use parking_lot::RwLock;
 use rendiation_texture_core::CubeTextureFace;
-use rendiation_webgpu_reactive_utils::*;
+use rendiation_webgpu_hook_utils::*;
 
 use crate::*;
 
