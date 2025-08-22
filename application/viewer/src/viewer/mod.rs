@@ -42,7 +42,7 @@ pub struct ViewerCx<'a> {
 
 pub struct ViewerDropCx<'a> {
   pub dyn_cx: &'a mut DynCx,
-  pub writer: &'a mut SceneWriter,
+  pub writer: SceneWriter,
   pub terminal: &'a mut Terminal,
   pub shared_ctx: &'a mut SharedHooksCtx,
 }
@@ -62,7 +62,24 @@ unsafe impl HooksCxLike for ViewerCx<'_> {
     &self.viewer.memory
   }
   fn flush(&mut self) {
-    self.viewer.memory.flush(self.dyn_cx as *mut _ as *mut ())
+    let can_flush = matches!(self.stage, ViewerCxStage::Gui { .. });
+
+    let mut drop_cx = if can_flush {
+      let writer = SceneWriter::from_global(self.viewer.scene.scene);
+      ViewerDropCx {
+        dyn_cx: self.dyn_cx,
+        writer,
+        terminal: &mut self.viewer.terminal,
+        shared_ctx: &mut self.viewer.shared_ctx,
+      }
+      .into()
+    } else {
+      None
+    };
+
+    let drop_cx = drop_cx.as_mut().map(|v| v as *mut _ as *mut ());
+
+    self.viewer.memory.flush(drop_cx)
   }
 
   fn use_plain_state<T: 'static>(&mut self, f: impl FnOnce() -> T) -> (&mut Self, &mut T) {
@@ -340,15 +357,17 @@ pub struct Viewer {
 
 impl CanCleanUpFrom<ApplicationDropCx> for Viewer {
   fn drop_from_cx(&mut self, cx: &mut ApplicationDropCx) {
-    let mut writer = SceneWriter::from_global(self.scene.scene);
+    let writer = SceneWriter::from_global(self.scene.scene);
 
     let mut dcx = ViewerDropCx {
       dyn_cx: cx,
-      writer: &mut writer,
+      writer,
       terminal: &mut self.terminal,
       shared_ctx: &mut self.shared_ctx,
     };
     self.memory.cleanup(&mut dcx as *mut _ as *mut ());
+
+    todo!();
     // todo, cleanup
     // self
     //   .render_memory

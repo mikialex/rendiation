@@ -36,10 +36,18 @@ unsafe impl<'a> HooksCxLike for QueryGPUHookCx<'a> {
   }
 
   fn flush(&mut self) {
-    let mut drop_cx = QueryGPUHookDropCx {
-      share_cx: self.shared_ctx,
+    let mut drop_cx = if let GPUQueryHookStage::Update { .. } = self.stage {
+      QueryGPUHookDropCx {
+        share_cx: self.shared_ctx,
+      }
+      .into()
+    } else {
+      None
     };
-    self.memory.flush(&mut drop_cx as *mut _ as *mut ());
+
+    let drop_cx = drop_cx.as_mut().map(|v| v as *mut _ as *mut ());
+
+    self.memory.flush(drop_cx);
   }
 
   fn use_plain_state<T: 'static>(&mut self, f: impl FnOnce() -> T) -> (&mut Self, &mut T) {
@@ -125,9 +133,6 @@ impl<'a> QueryGPUHookCx<'a> {
   }
   pub fn is_in_render(&self) -> bool {
     matches!(&self.stage, GPUQueryHookStage::CreateRender { .. })
-  }
-  pub fn when_init<X>(&self, f: impl FnOnce() -> X) -> Option<X> {
-    self.is_creating().then(f)
   }
 }
 

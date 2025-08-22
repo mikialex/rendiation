@@ -83,7 +83,7 @@ struct HelperLineModel {
 impl CanCleanUpFrom<ViewerDropCx<'_>> for HelperLineModel {
   fn drop_from_cx(&mut self, cx: &mut ViewerDropCx) {
     if let Some(model) = &mut self.internal {
-      model.do_cleanup(cx.writer);
+      model.do_cleanup(&mut cx.writer);
     }
   }
 }
