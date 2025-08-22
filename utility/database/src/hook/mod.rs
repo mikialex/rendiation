@@ -57,7 +57,13 @@ pub trait DBHookCxLike: QueryHookCxLike {
       Default::default()
     };
 
-    if cx.is_spawning_stage() {
+    if let QueryHookStage::SpawnTask {
+      change_collector, ..
+    } = cx.stage()
+    {
+      if changes.has_change() {
+        change_collector.notify_change();
+      }
       UseResult::SpawnStageReady(Arc::new(changes))
     } else {
       UseResult::NotInStage
@@ -92,7 +98,14 @@ pub trait DBHookCxLike: QueryHookCxLike {
     } else {
       Default::default()
     };
-    if cx.is_spawning_stage() {
+    if let QueryHookStage::SpawnTask {
+      change_collector, ..
+    } = cx.stage()
+    {
+      if !changes.is_empty() {
+        change_collector.notify_change();
+      }
+
       UseResult::SpawnStageReady(Arc::new(changes))
     } else {
       UseResult::NotInStage
@@ -129,7 +142,13 @@ pub trait DBHookCxLike: QueryHookCxLike {
     } else {
       Default::default()
     };
-    if cx.is_spawning_stage() {
+    if let QueryHookStage::SpawnTask {
+      change_collector, ..
+    } = cx.stage()
+    {
+      if !changes.is_empty() {
+        change_collector.notify_change();
+      }
       UseResult::SpawnStageReady(Arc::new(changes))
     } else {
       UseResult::NotInStage
