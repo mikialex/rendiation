@@ -48,7 +48,7 @@ pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl>
 
   let attribute_buffer_metadata = use_attribute_buffer_metadata(cx, indices, position, normal, uv);
 
-  let (cx, sm_to_mesh_device) = cx.use_storage_buffer2::<u32>(128, u32::MAX);
+  let (cx, sm_to_mesh_device) = cx.use_storage_buffer::<u32>(128, u32::MAX);
 
   let fanout = cx
     .use_dual_query::<StandardModelRefAttributesMeshEntity>()

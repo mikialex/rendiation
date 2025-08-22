@@ -22,22 +22,21 @@ pub struct TargetWorldBounding {
 }
 
 pub fn use_scene_model_device_world_bounding(
-  qcx: &mut QueryGPUHookCx,
+  cx: &mut QueryGPUHookCx,
 ) -> Option<DrawUnitWorldBoundingProviderDefaultImpl> {
-  let (qcx, storage) = qcx.use_storage_buffer2(128, u32::MAX);
+  let (cx, storage) = cx.use_storage_buffer(128, u32::MAX);
 
-  qcx
-    .use_shared_dual_query(SceneModelWorldBounding)
+  cx.use_shared_dual_query(SceneModelWorldBounding)
     .into_delta_change()
     .map_changes(|b| {
       let min = into_hpt(b.min);
       let max = into_hpt(b.max);
       [min.f1, min.f2, max.f1, max.f2]
     })
-    .use_assure_result(qcx)
+    .use_assure_result(cx)
     .update_storage_array(storage, 0);
 
-  qcx.when_render(|| DrawUnitWorldBoundingProviderDefaultImpl {
+  cx.when_render(|| DrawUnitWorldBoundingProviderDefaultImpl {
     bounding_storage: storage.get_gpu_buffer(),
   })
 }

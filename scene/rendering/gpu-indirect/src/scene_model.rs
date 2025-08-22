@@ -6,7 +6,7 @@ pub fn use_indirect_scene_model(
 ) -> Option<IndirectPreferredComOrderRenderer> {
   let node = use_node_storage(cx);
 
-  let (cx, scene_model_id) = cx.use_storage_buffer2(128, u32::MAX);
+  let (cx, scene_model_id) = cx.use_storage_buffer(128, u32::MAX);
 
   cx.use_changes::<SceneModelStdModelRenderPayload>()
     .map(|c| c.map_u32_index_or_u32_max())

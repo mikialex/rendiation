@@ -6,7 +6,7 @@ use crate::*;
 pub fn use_pbr_mr_material_storage(
   cx: &mut QueryGPUHookCx,
 ) -> Option<PbrMRMaterialIndirectRenderer> {
-  let (cx, storages) = cx.use_storage_buffer2(128, u32::MAX);
+  let (cx, storages) = cx.use_storage_buffer(128, u32::MAX);
 
   cx.use_changes::<PbrMRMaterialBaseColorComponent>()
     .update_storage_array(storages, offset_of!(Storage, base_color));
@@ -26,7 +26,7 @@ pub fn use_pbr_mr_material_storage(
   cx.use_changes::<AlphaOf<PbrMRMaterialAlphaConfig>>()
     .update_storage_array(storages, offset_of!(Storage, alpha));
 
-  let (cx, tex_storages) = cx.use_storage_buffer2(128, u32::MAX);
+  let (cx, tex_storages) = cx.use_storage_buffer(128, u32::MAX);
 
   let base_color_alpha = offset_of!(TexStorage, base_color_alpha_texture);
   let emissive = offset_of!(TexStorage, emissive_texture);

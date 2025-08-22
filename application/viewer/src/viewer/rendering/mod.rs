@@ -134,24 +134,24 @@ impl Viewer3dRenderingCtx {
 
   fn use_viewer_scene_renderer(
     &mut self,
-    qcx: &mut QueryGPUHookCx,
+    cx: &mut QueryGPUHookCx,
   ) -> Option<ViewerRendererInstance> {
-    let (qcx, change_scope) = qcx.use_begin_change_set_collect();
+    let (cx, change_scope) = cx.use_begin_change_set_collect();
 
-    let camera = use_camera_uniforms(qcx, self.ndc);
-    let background = use_background(qcx);
+    let camera = use_camera_uniforms(cx, self.ndc);
+    let background = use_background(cx);
 
     let ty = get_suitable_texture_system_ty(
-      qcx.gpu,
+      cx.gpu,
       matches!(
         self.current_renderer_impl_ty,
         RasterizationRenderBackendType::Indirect
       ) || self.rtx_renderer_enabled,
       self.prefer_bindless_for_indirect_texture_system,
     );
-    let texture_sys = use_texture_system(qcx, ty);
+    let texture_sys = use_texture_system(cx, ty);
 
-    let any_base_resource_changed = change_scope(qcx);
+    let any_base_resource_changed = change_scope(cx);
     let mut any_indirect_resource_changed = None;
     let mut rtx_materials_support = None;
     let mut rtx_mesh = None;
@@ -159,33 +159,33 @@ impl Viewer3dRenderingCtx {
     let t_clone = texture_sys.clone();
     let attributes_custom_key = Arc::new(|_: u32, _: &mut _| {}) as Arc<_>;
 
-    let culling = use_viewer_culling(qcx, self.ndc, self.enable_indirect_occlusion_culling);
+    let culling = use_viewer_culling(cx, self.ndc, self.enable_indirect_occlusion_culling);
 
     let mut mesh_lod_graph_renderer = None;
 
     let raster_scene_renderer = match self.current_renderer_impl_ty {
-      RasterizationRenderBackendType::Gles => qcx.scope(|qcx| {
+      RasterizationRenderBackendType::Gles => cx.scope(|cx| {
         use_gles_scene_renderer(
-          qcx,
+          cx,
           self.ndc.enable_reverse_z,
           attributes_custom_key,
           t_clone,
         )
         .map(|r| Box::new(r) as Box<dyn SceneRenderer>)
       }),
-      RasterizationRenderBackendType::Indirect => qcx.scope(|qcx| {
-        let (qcx, change_scope) = qcx.use_begin_change_set_collect();
+      RasterizationRenderBackendType::Indirect => cx.scope(|cx| {
+        let (cx, change_scope) = cx.use_begin_change_set_collect();
 
-        let unlit_material = use_unlit_material_storage(qcx);
-        let pbr_mr_material = use_pbr_mr_material_storage(qcx);
-        let pbr_sg_material = use_pbr_sg_material_storage(qcx);
+        let unlit_material = use_unlit_material_storage(cx);
+        let pbr_mr_material = use_pbr_mr_material_storage(cx);
+        let pbr_sg_material = use_pbr_sg_material_storage(cx);
 
-        let mesh = use_bindless_mesh(qcx);
+        let mesh = use_bindless_mesh(cx);
 
-        any_indirect_resource_changed = change_scope(qcx);
+        any_indirect_resource_changed = change_scope(cx);
 
         if self.rtx_renderer_enabled {
-          rtx_materials_support = qcx.when_render(|| {
+          rtx_materials_support = cx.when_render(|| {
             Arc::new(vec![
               Box::new(pbr_mr_material.clone().unwrap()) as Box<dyn SceneMaterialSurfaceSupport>,
               Box::new(pbr_sg_material.clone().unwrap()) as Box<dyn SceneMaterialSurfaceSupport>,
@@ -193,7 +193,7 @@ impl Viewer3dRenderingCtx {
           });
         }
 
-        let materials = qcx.when_render(|| {
+        let materials = cx.when_render(|| {
           Box::new(vec![
             Box::new(unlit_material.unwrap()) as Box<dyn IndirectModelMaterialRenderImpl>,
             Box::new(pbr_mr_material.unwrap()),
@@ -205,33 +205,33 @@ impl Viewer3dRenderingCtx {
           rtx_mesh = mesh.clone();
         }
 
-        mesh_lod_graph_renderer = use_mesh_lod_graph_scene_renderer(qcx);
+        mesh_lod_graph_renderer = use_mesh_lod_graph_scene_renderer(cx);
 
-        let mesh = qcx.when_render(|| {
+        let mesh = cx.when_render(|| {
           Box::new(vec![
             Box::new(mesh.unwrap()) as Box<dyn IndirectModelShapeRenderImpl>,
             Box::new(mesh_lod_graph_renderer.clone().unwrap()),
           ]) as Box<dyn IndirectModelShapeRenderImpl>
         });
 
-        use_indirect_renderer(qcx, self.ndc.enable_reverse_z, materials, mesh, t_clone)
+        use_indirect_renderer(cx, self.ndc.enable_reverse_z, materials, mesh, t_clone)
           .map(|r| Box::new(r) as Box<dyn SceneRenderer>)
       }),
     };
 
-    let lighting = use_lighting(qcx, self.ndc);
+    let lighting = use_lighting(cx, self.ndc);
 
     let rtx_scene_renderer = if self.rtx_renderer_enabled {
       // when indirect raster render is not enabled, we create necessary resource by ourself.
       if self.current_renderer_impl_ty == RasterizationRenderBackendType::Gles {
-        qcx.scope(|qcx| {
-          let (qcx, change_scope) = qcx.use_begin_change_set_collect();
-          let pbr_mr_material = use_pbr_mr_material_storage(qcx);
-          let pbr_sg_material = use_pbr_sg_material_storage(qcx);
-          let mesh = use_bindless_mesh(qcx);
-          any_indirect_resource_changed = change_scope(qcx);
+        cx.scope(|cx| {
+          let (cx, change_scope) = cx.use_begin_change_set_collect();
+          let pbr_mr_material = use_pbr_mr_material_storage(cx);
+          let pbr_sg_material = use_pbr_sg_material_storage(cx);
+          let mesh = use_bindless_mesh(cx);
+          any_indirect_resource_changed = change_scope(cx);
 
-          rtx_materials_support = qcx.when_render(|| {
+          rtx_materials_support = cx.when_render(|| {
             Arc::new(vec![
               Box::new(pbr_mr_material.clone().unwrap()) as Box<dyn SceneMaterialSurfaceSupport>,
               Box::new(pbr_sg_material.clone().unwrap()) as Box<dyn SceneMaterialSurfaceSupport>,
@@ -243,9 +243,9 @@ impl Viewer3dRenderingCtx {
       }
 
       let c = camera.clone();
-      qcx.scope(|qcx| {
+      cx.scope(|cx| {
         use_viewer_rtx(
-          qcx,
+          cx,
           c.map(|c| Box::new(c) as Box<dyn RtxCameraRenderImpl>),
           rtx_materials_support,
           rtx_mesh,
@@ -265,22 +265,22 @@ impl Viewer3dRenderingCtx {
       ViewerTransparentContentRenderStyle::NaiveAlphaBlend => {
         ViewerTransparentRenderer::NaiveAlphaBlend
       }
-      ViewerTransparentContentRenderStyle::Loop32OIT => qcx.scope(|qcx| {
-        let (_, r) = qcx.use_gpu_init(|_| Arc::new(RwLock::new(OitLoop32Renderer::new(4))));
+      ViewerTransparentContentRenderStyle::Loop32OIT => cx.scope(|cx| {
+        let (_, r) = cx.use_gpu_init(|_| Arc::new(RwLock::new(OitLoop32Renderer::new(4))));
         ViewerTransparentRenderer::Loop32OIT(r.clone())
       }),
       ViewerTransparentContentRenderStyle::WeightedOIT => ViewerTransparentRenderer::WeightedOIT,
     };
 
-    let extractor = use_default_scene_batch_extractor(qcx);
+    let extractor = use_default_scene_batch_extractor(cx);
 
-    let camera_transforms = qcx
+    let camera_transforms = cx
       .use_shared_dual_query_view(GlobalCameraTransformShare(self.ndc))
-      .use_assure_result(qcx);
+      .use_assure_result(cx);
 
-    let sm_world_bounding = qcx.use_shared_dual_query_view(SceneModelWorldBounding);
+    let sm_world_bounding = cx.use_shared_dual_query_view(SceneModelWorldBounding);
 
-    qcx.when_render(|| ViewerRendererInstance {
+    cx.when_render(|| ViewerRendererInstance {
       camera: camera.unwrap(),
       background: background.unwrap(),
       extractor: extractor.unwrap(),
@@ -335,7 +335,7 @@ impl Viewer3dRenderingCtx {
       },
       shared_ctx,
     }
-    .execute(|qcx| self.use_viewer_scene_renderer(qcx), true);
+    .execute(|cx| self.use_viewer_scene_renderer(cx), true);
     pool
   }
 
@@ -358,7 +358,7 @@ impl Viewer3dRenderingCtx {
       },
       shared_ctx,
     }
-    .execute(|qcx| self.use_viewer_scene_renderer(qcx).unwrap(), true);
+    .execute(|cx| self.use_viewer_scene_renderer(cx).unwrap(), true);
 
     self.frame_index += 1;
     let now = Instant::now();

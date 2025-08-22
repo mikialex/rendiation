@@ -14,15 +14,14 @@ pub fn register_scene_mesh_lod_graph_data_model() {
 }
 
 pub fn use_mesh_lod_graph_scene_renderer(
-  qcx: &mut QueryGPUHookCx,
+  cx: &mut QueryGPUHookCx,
 ) -> Option<MeshLODGraphSceneRenderer> {
-  let internal = use_mesh_lod_graph_renderer(qcx);
-  let world_transform = use_scene_model_device_world_transform(qcx);
+  let internal = use_mesh_lod_graph_renderer(cx);
+  let world_transform = use_scene_model_device_world_transform(cx);
 
-  let (qcx, lod_decider) =
-    qcx.use_gpu_init(|gpu| create_uniform(LODDecider::zeroed(), &gpu.device));
+  let (cx, lod_decider) = cx.use_gpu_init(|gpu| create_uniform(LODDecider::zeroed(), &gpu.device));
 
-  qcx.when_render(|| MeshLODGraphSceneRenderer {
+  cx.when_render(|| MeshLODGraphSceneRenderer {
     mesh_ty_checker: global_database().read_foreign_key::<StandardModelRefLodGraphMeshEntity>(),
     world_transform: world_transform.unwrap(),
     lod_decider: lod_decider.clone(),

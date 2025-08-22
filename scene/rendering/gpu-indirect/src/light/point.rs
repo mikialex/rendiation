@@ -11,32 +11,30 @@ pub struct PointLightStorage {
 }
 
 pub fn use_point_light_storage(
-  qcx: &mut QueryGPUHookCx,
+  cx: &mut QueryGPUHookCx,
 ) -> Option<LightGPUStorage<PointLightStorage>> {
-  let (qcx, light) = qcx.use_storage_buffer2(128, u32::MAX);
+  let (cx, light) = cx.use_storage_buffer(128, u32::MAX);
 
-  qcx
-    .use_changes::<PointLightIntensity>()
+  cx.use_changes::<PointLightIntensity>()
     .update_storage_array(light, offset_of!(PointLightStorage, luminance_intensity));
 
-  qcx
-    .use_changes::<PointLightCutOffDistance>()
+  cx.use_changes::<PointLightCutOffDistance>()
     .update_storage_array(light, offset_of!(PointLightStorage, cutoff_distance));
 
-  use_global_node_world_mat(qcx)
-    .fanout(qcx.use_db_rev_ref_tri_view::<PointLightRefNode>())
+  use_global_node_world_mat(cx)
+    .fanout(cx.use_db_rev_ref_tri_view::<PointLightRefNode>())
     .into_delta_change()
     .map(|change| change.collective_map(|mat| into_hpt(mat.position()).into_storage()))
-    .use_assure_result(qcx)
+    .use_assure_result(cx)
     .update_storage_array(light, offset_of!(PointLightStorage, position));
 
-  let (qcx, multi_acc) = qcx.use_gpu_multi_access_states(light_multi_access_config());
+  let (cx, multi_acc) = cx.use_gpu_multi_access_states(light_multi_access_config());
 
-  let updates = qcx
+  let updates = cx
     .use_db_rev_ref_tri_view::<PointLightRefScene>()
-    .use_assure_result(qcx);
+    .use_assure_result(cx);
 
-  qcx.when_render(|| {
+  cx.when_render(|| {
     let light = light.get_gpu_buffer();
     let multi_access = multi_acc.update(updates.expect_resolve_stage());
     (light, multi_access)

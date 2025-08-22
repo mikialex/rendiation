@@ -34,11 +34,10 @@ pub fn register_mesh_lod_graph_data_model() {
     .declare_component::<LODGraphData>();
 }
 
-pub fn use_mesh_lod_graph_renderer(qcx: &mut QueryGPUHookCx) -> MeshLODGraphRendererShared {
-  let (qcx, renderer) =
-    qcx.use_gpu_init(|gpu| Arc::new(RwLock::new(MeshLODGraphRenderer::new(gpu))));
+pub fn use_mesh_lod_graph_renderer(cx: &mut QueryGPUHookCx) -> MeshLODGraphRendererShared {
+  let (cx, renderer) = cx.use_gpu_init(|gpu| Arc::new(RwLock::new(MeshLODGraphRenderer::new(gpu))));
 
-  if let Some(change) = qcx.use_query_change::<LODGraphData>().if_ready() {
+  if let Some(change) = cx.use_query_change::<LODGraphData>().if_ready() {
     renderer.write().batch_update(change.mark_entity_type());
   }
 

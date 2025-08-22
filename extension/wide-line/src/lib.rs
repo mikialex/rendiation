@@ -40,25 +40,25 @@ pub struct WideLineMeshDataView {
 
 pub type WideLineMeshInternal = NoneIndexedMesh<LineList, Vec<WideLineVertex>>;
 
-pub fn use_widen_line(qcx: &mut QueryGPUHookCx) -> Option<WideLineModelRenderer> {
-  let (qcx, quad) = qcx.use_gpu_init(create_wide_line_quad_gpu);
+pub fn use_widen_line(cx: &mut QueryGPUHookCx) -> Option<WideLineModelRenderer> {
+  let (cx, quad) = cx.use_gpu_init(create_wide_line_quad_gpu);
 
-  let uniform = qcx.use_uniform_buffers();
+  let uniform = cx.use_uniform_buffers();
 
-  qcx.use_changes::<WideLineWidth>().update_uniforms(
+  cx.use_changes::<WideLineWidth>().update_uniforms(
     &uniform,
     offset_of!(WideLineUniform, width),
-    qcx.gpu,
+    cx.gpu,
   );
 
-  let mesh = qcx.use_shared_hash_map();
+  let mesh = cx.use_shared_hash_map();
 
-  maintain_shared_map(&mesh, qcx.use_changes::<WideLineMeshBuffer>(), |buffer| {
-    let buffer = create_gpu_buffer(buffer.as_slice(), BufferUsages::VERTEX, &qcx.gpu.device);
+  maintain_shared_map(&mesh, cx.use_changes::<WideLineMeshBuffer>(), |buffer| {
+    let buffer = create_gpu_buffer(buffer.as_slice(), BufferUsages::VERTEX, &cx.gpu.device);
     buffer.create_default_view()
   });
 
-  qcx.when_render(|| WideLineModelRenderer {
+  cx.when_render(|| WideLineModelRenderer {
     model_access: global_database().read_foreign_key::<SceneModelWideLineRenderPayload>(),
     uniforms: uniform.make_read_holder(),
     instance_buffers: mesh.make_read_holder(),

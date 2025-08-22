@@ -29,7 +29,7 @@ pub fn use_rtx_scene_material(
   materials: Option<Arc<Vec<Box<dyn SceneMaterialSurfaceSupport>>>>,
   tex: Option<GPUTextureBindingSystem>,
 ) -> Option<SceneSurfaceSupport> {
-  let (cx, material_id) = cx.use_storage_buffer2(128, u32::MAX);
+  let (cx, material_id) = cx.use_storage_buffer(128, u32::MAX);
 
   cx.use_dual_query::<StandardModelRefPbrMRMaterial>()
     .map(|q| q.filter_map(|id| id.map(|v| v.index())))
@@ -45,7 +45,7 @@ pub fn use_rtx_scene_material(
     .into_delta_change()
     .update_storage_array(material_id, 0);
 
-  let (cx, material_ty_gpu) = cx.use_storage_buffer2(128, u32::MAX);
+  let (cx, material_ty_gpu) = cx.use_storage_buffer(128, u32::MAX);
 
   let mr_material_ty = cx
     .use_dual_query::<StandardModelRefPbrMRMaterial>()
