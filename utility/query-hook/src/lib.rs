@@ -393,7 +393,7 @@ pub trait QueryHookCxLike: HooksCxLike {
 
       self.memory_mut().created = true;
       self.memory_mut().current_cursor = 0;
-      self.flush();
+      // self.flush(); todo
 
       core::ptr::swap(self.memory_mut(), memory);
       r

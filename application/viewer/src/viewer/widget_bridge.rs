@@ -9,7 +9,7 @@ struct UI3DMemory {
 impl CanCleanUpFrom<ViewerDropCx<'_>> for UI3DMemory {
   fn drop_from_cx(&mut self, cx: &mut ViewerDropCx) {
     self.memory.cleanup(&mut UI3dBuildCx {
-      writer: cx.writer,
+      writer: &mut cx.writer,
       cx: cx.dyn_cx,
       pick_group: &mut self.pick_group,
     } as *mut _ as *mut ());

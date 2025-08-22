@@ -87,16 +87,19 @@ unsafe impl HooksCxLike for UI3dCx<'_> {
   }
 
   fn flush(&mut self) {
-    if let Some(writer) = &mut self.writer {
-      let mut drop_cx = UI3dBuildCx {
+    let mut drop_cx = if let Some(writer) = &mut self.writer {
+      UI3dBuildCx {
         writer,
         cx: self.dyn_cx,
         pick_group: self.pick_group,
-      };
-      self
-        .memory
-        .flush(&mut drop_cx as *mut UI3dBuildCx as *mut ());
-    }
+      }
+      .into()
+    } else {
+      None
+    };
+
+    let drop_cx = drop_cx.as_mut().map(|v| v as *mut _ as *mut ());
+    self.memory.flush(drop_cx);
   }
 
   fn use_plain_state<T: 'static>(&mut self, f: impl FnOnce() -> T) -> (&mut Self, &mut T) {

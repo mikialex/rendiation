@@ -150,11 +150,21 @@ impl FunctionMemory {
     }
   }
 
-  pub fn flush(&mut self, drop_cx: *mut ()) {
-    for (_, mut sub_function) in self.sub_functions.drain() {
-      sub_function.cleanup(drop_cx);
+  pub fn flush(&mut self, drop_cx: Option<*mut ()>) {
+    if let Some(drop_cx) = drop_cx {
+      for (_, mut sub_function) in self.sub_functions.drain() {
+        sub_function.cleanup(drop_cx);
+      }
+    } else {
+      assert!(
+        self.sub_functions.is_empty(),
+        "in none flushable stage, sub_functions should be empty"
+      );
     }
     std::mem::swap(&mut self.sub_functions, &mut self.sub_functions_next);
+    for sub_function in self.sub_functions.values_mut() {
+      sub_function.flush(drop_cx);
+    }
   }
 
   pub fn cleanup(&mut self, drop_cx: *mut ()) {
