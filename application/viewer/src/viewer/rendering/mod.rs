@@ -331,6 +331,7 @@ impl Viewer3dRenderingCtx {
       stage: GPUQueryHookStage::Update {
         spawner: task_spawner,
         task_pool: &mut pool,
+        change_collector: &mut Default::default(),
       },
       shared_ctx,
     }

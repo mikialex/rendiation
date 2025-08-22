@@ -20,10 +20,25 @@ pub use hook::*;
 pub use task_pool::*;
 pub use use_result::*;
 
+#[derive(Default)]
+pub struct ChangeCollector {
+  scope: FastHashMap<u32, bool>,
+  changed: bool,
+}
+
+impl ChangeCollector {
+  #[inline(never)]
+  pub fn notify_change(&mut self) {
+    self.scope.values_mut().for_each(|v| *v = true);
+    self.changed = true;
+  }
+}
+
 pub enum QueryHookStage<'a> {
   SpawnTask {
     spawner: &'a TaskSpawner,
     pool: &'a mut AsyncTaskPool,
+    change_collector: &'a mut ChangeCollector,
   },
   ResolveTask {
     task: &'a mut TaskPoolResultCx,
@@ -127,6 +142,37 @@ pub trait QueryHookCxLike: HooksCxLike {
   fn use_shared_hash_map<K: 'static, V: 'static>(&mut self) -> SharedHashMap<K, V> {
     let (_, r) = self.use_plain_state_default_cloned::<SharedHashMap<K, V>>();
     r
+  }
+
+  fn use_begin_change_set_collect(
+    &mut self,
+  ) -> (&mut Self, impl FnOnce(&mut Self) -> Option<bool>) {
+    use std::sync::atomic::AtomicU32;
+    static ID: AtomicU32 = AtomicU32::new(0);
+    fn get_new_id() -> u32 {
+      ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    }
+
+    let (cx, id) = self.use_plain_state::<u32>(get_new_id);
+
+    if let QueryHookStage::SpawnTask {
+      change_collector, ..
+    } = cx.stage()
+    {
+      change_collector.scope.insert(*id, false);
+    }
+
+    (cx, move |cx| {
+      if let QueryHookStage::SpawnTask {
+        change_collector, ..
+      } = cx.stage()
+      {
+        let has_change = change_collector.scope.remove(id).unwrap();
+        Some(has_change)
+      } else {
+        None
+      }
+    })
   }
 
   fn use_task_result_by_fn<R, F>(&mut self, create_task: F) -> UseResult<R>
@@ -280,8 +326,16 @@ pub trait QueryHookCxLike: HooksCxLike {
     }
 
     if let Some(&task_id) = self.shared_hook_ctx().task_id_mapping.get(&key) {
-      match &self.stage() {
-        QueryHookStage::SpawnTask { pool, .. } => {
+      let changed = self.shared_hook_ctx().changed.contains(&key);
+      match self.stage() {
+        QueryHookStage::SpawnTask {
+          pool,
+          change_collector,
+          ..
+        } => {
+          if changed {
+            change_collector.notify_change();
+          }
           UseResult::SpawnStageFuture(pool.share_task_by_id(task_id))
         }
         QueryHookStage::ResolveTask { task, .. } => {
@@ -323,6 +377,14 @@ pub trait QueryHookCxLike: HooksCxLike {
 
     let mut shared = shared.write();
 
+    let mut old = ChangeCollector::default();
+    if let QueryHookStage::SpawnTask {
+      change_collector, ..
+    } = self.stage()
+    {
+      std::mem::swap(&mut old, change_collector);
+    }
+
     let memory = &mut shared.memory;
 
     let r = unsafe {
@@ -336,6 +398,22 @@ pub trait QueryHookCxLike: HooksCxLike {
       core::ptr::swap(self.memory_mut(), memory);
       r
     };
+
+    let mut changed = false;
+    if let QueryHookStage::SpawnTask {
+      change_collector, ..
+    } = self.stage()
+    {
+      changed = change_collector.changed;
+      std::mem::swap(&mut old, change_collector);
+      if changed {
+        change_collector.notify_change();
+      }
+    }
+
+    if changed {
+      self.shared_hook_ctx().changed.insert(key);
+    }
 
     r
   }
@@ -361,12 +439,14 @@ pub struct SharedHooksCtx {
   shared: FastHashMap<ShareKey, Arc<RwLock<SharedHookObject>>>,
   task_id_mapping: FastHashMap<ShareKey, u32>,
   pub reconciler: FastHashMap<ShareKey, Arc<dyn ChangeReconciler>>,
+  changed: FastHashSet<ShareKey>,
   next_consumer: u32,
 }
 
 impl SharedHooksCtx {
   pub fn reset_visiting(&mut self) {
     self.task_id_mapping.clear();
+    self.changed.clear();
     for r in self.reconciler.values() {
       r.reset();
     }

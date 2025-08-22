@@ -19,6 +19,7 @@ pub enum GPUQueryHookStage<'a> {
   Update {
     task_pool: &'a mut AsyncTaskPool,
     spawner: &'a TaskSpawner,
+    change_collector: &'a mut ChangeCollector,
   },
   CreateRender {
     task: TaskPoolResultCx,
@@ -88,29 +89,6 @@ impl<'a> QueryGPUHookCx<'a> {
   pub fn use_gpu_init<T: 'static>(&mut self, init: impl FnOnce(&GPU) -> T) -> (&mut Self, &mut T) {
     let (cx, state) = self.use_state_with_features(|cx| NothingToDrop(init(cx.gpu)));
     (cx, &mut state.0)
-  }
-
-  // todo
-  pub fn use_begin_change_set_collect(
-    &mut self,
-  ) -> (&mut Self, impl FnOnce(&mut Self) -> Option<bool>) {
-    // let (qcx, set) = self.use_state_init(QueryCtxSetInfo::default);
-
-    // // as the dynamic scope can be nested in the scope, we need maintain the set
-    // // per call cycle to make sure the watch set is up to date
-    // qcx.query_cx.record_new_registered(set);
-
-    // // todo, how to avoid this?
-    // let set: &mut QueryCtxSetInfo = unsafe { std::mem::transmute(set) };
-
-    (self, |qcx| {
-      // qcx.query_cx.end_record(set);
-      if let GPUQueryHookStage::CreateRender { .. } = &qcx.stage {
-        Some(false)
-      } else {
-        None
-      }
-    })
   }
 
   pub fn use_gpu_multi_access_states(
@@ -199,10 +177,14 @@ impl QueryHookCxLike for QueryGPUHookCx<'_> {
   fn stage(&mut self) -> QueryHookStage {
     match &mut self.stage {
       GPUQueryHookStage::Update {
-        spawner, task_pool, ..
+        spawner,
+        task_pool,
+        change_collector,
+        ..
       } => QueryHookStage::SpawnTask {
         spawner,
         pool: task_pool,
+        change_collector,
       },
       GPUQueryHookStage::CreateRender { task, .. } => QueryHookStage::ResolveTask { task },
     }

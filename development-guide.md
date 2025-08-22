@@ -72,7 +72,6 @@ important issue is in bold style.
     - let user manual control dispatch rounds
 - support zero sized state in task graph
 - parallel compute support buffer reuse pool
-- reactive query support parallel updates
 - shader ptr should support rw convert to readonly
 - impl bind check for compute pass
 - support ptr in shader fn
