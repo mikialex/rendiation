@@ -9,7 +9,7 @@ use rendiation_shader_api::*;
 use rendiation_texture_core::*;
 use rendiation_texture_gpu_base::*;
 use rendiation_webgpu::*;
-use rendiation_webgpu_reactive_utils::*;
+use rendiation_webgpu_hook_utils::*;
 
 mod gles;
 pub use gles::*;

@@ -111,7 +111,7 @@ pub struct CascadeShadowGPUCache {
 }
 
 impl CascadeShadowPreparer {
-  pub fn update_gpu_resources(
+  pub fn update_shadow_maps(
     self,
     resource_cache: &mut CascadeShadowGPUCache,
     frame_ctx: &mut FrameCtx,

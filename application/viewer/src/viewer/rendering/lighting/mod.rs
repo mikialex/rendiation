@@ -15,7 +15,7 @@ use debug_channels::*;
 use ibl::*;
 pub use light_pass::*;
 use punctual::*;
-use rendiation_webgpu_reactive_utils::*;
+use rendiation_webgpu_hook_utils::*;
 pub use shadow::*;
 
 use crate::*;

@@ -33,7 +33,7 @@ use rendiation_texture_core::*;
 use rendiation_texture_gpu_base::*;
 use rendiation_texture_gpu_system::*;
 use rendiation_webgpu::*;
-use rendiation_webgpu_reactive_utils::*;
+use rendiation_webgpu_hook_utils::*;
 
 mod world_bounding;
 pub use world_bounding::*;

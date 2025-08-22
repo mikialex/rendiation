@@ -103,7 +103,7 @@ impl<'a> QueryGPUHookCx<'a> {
     // // todo, how to avoid this?
     // let set: &mut QueryCtxSetInfo = unsafe { std::mem::transmute(set) };
 
-    (self, |qcx: &mut Self| {
+    (self, |qcx| {
       // qcx.query_cx.end_record(set);
       if let GPUQueryHookStage::CreateRender { .. } = &qcx.stage {
         Some(false)

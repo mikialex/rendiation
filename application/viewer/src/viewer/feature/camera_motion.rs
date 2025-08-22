@@ -43,26 +43,6 @@ pub fn use_smooth_camera_motion(cx: &mut ViewerCx, f: impl FnOnce(&mut ViewerCx)
 }
 
 pub fn use_fit_camera_view(cx: &mut ViewerCx) {
-  // cx.use_state_init(|cx| {
-  //   cx.terminal
-  //     .register_sync_command("fit-camera-view", |ctx, _parameters| {
-  //       let derived = ctx.derive.poll_update();
-
-  //       if let Some(action) = fit_camera_view_for_viewer(ctx.scene, &derived) {
-  //         ctx.dyn_cx.message.put(action);
-  //       }
-  //     });
-
-  //   struct FitCameraViewForViewer;
-  //   impl CanCleanUpFrom<ViewerDropCx<'_>> for FitCameraViewForViewer {
-  //     fn drop_from_cx(&mut self, cx: &mut ViewerDropCx) {
-  //       cx.terminal.unregister_command("fit-camera-view");
-  //     }
-  //   }
-
-  //   FitCameraViewForViewer
-  // });
-
   let sm_world_bounding = cx
     .use_shared_dual_query_view(SceneModelWorldBounding)
     .use_assure_result(cx);

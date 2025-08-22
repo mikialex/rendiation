@@ -15,7 +15,7 @@ pub fn use_basic_shadow_map_uniform(
   bias: UseResult<impl DataChanges<Key = u32, Value = ShadowBias> + 'static>,
   enabled: UseResult<impl DataChanges<Key = u32, Value = bool> + 'static>,
   atlas_config: MultiLayerTexturePackerConfig,
-) -> Option<(BasicShadowMapUpdater, UniformArray<BasicShadowMapInfo, 8>)> {
+) -> Option<(BasicShadowMapPreparer, UniformArray<BasicShadowMapInfo, 8>)> {
   let (cx, uniform) = cx.use_uniform_array_buffers();
 
   let (source_world1, source_world2) = source_world.fork();
@@ -97,7 +97,7 @@ pub fn use_basic_shadow_map_uniform(
       cx.gpu,
     );
 
-    let system = BasicShadowMapUpdater {
+    let system = BasicShadowMapPreparer {
       shadow_map_atlas,
       source_world: source_world_view.expect_resolve_stage().into_boxed(),
       source_proj: source_proj_view.expect_resolve_stage().into_boxed(),
@@ -119,7 +119,7 @@ impl Query for PackerView {
     self
       .0
       .iter_key_value()
-      .map(|(k, v)| (k, convert_pack_result(v.unwrap()))) // todo, fix unwrap
+      .filter_map(|(k, v)| (k, convert_pack_result(v?)).into())
   }
 
   fn access(&self, key: &Self::Key) -> Option<Self::Value> {
@@ -127,14 +127,14 @@ impl Query for PackerView {
   }
 }
 
-pub struct BasicShadowMapUpdater {
-  pub shadow_map_atlas: GPU2DArrayDepthTextureView,
-  pub source_world: BoxedDynQuery<RawEntityHandle, Mat4<f64>>,
-  pub source_proj: BoxedDynQuery<RawEntityHandle, Mat4<f32>>,
-  pub packing: BoxedDynQuery<RawEntityHandle, ShadowMapAddressInfo>,
+pub struct BasicShadowMapPreparer {
+  shadow_map_atlas: GPU2DArrayDepthTextureView,
+  source_world: BoxedDynQuery<RawEntityHandle, Mat4<f64>>,
+  source_proj: BoxedDynQuery<RawEntityHandle, Mat4<f32>>,
+  packing: BoxedDynQuery<RawEntityHandle, ShadowMapAddressInfo>,
 }
 
-impl BasicShadowMapUpdater {
+impl BasicShadowMapPreparer {
   pub fn update_shadow_maps(
     self,
     frame_ctx: &mut FrameCtx,

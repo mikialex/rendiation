@@ -1,4 +1,4 @@
-use rendiation_webgpu_reactive_utils::*;
+use rendiation_webgpu_hook_utils::*;
 
 use crate::*;
 

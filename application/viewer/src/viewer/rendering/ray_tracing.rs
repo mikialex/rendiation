@@ -3,7 +3,7 @@ use std::sync::Arc;
 use rendiation_device_ray_tracing::GPUWaveFrontComputeRaytracingSystem;
 use rendiation_scene_rendering_gpu_indirect::MeshGPUBindlessImpl;
 use rendiation_scene_rendering_gpu_ray_tracing::*;
-use rendiation_webgpu_reactive_utils::*;
+use rendiation_webgpu_hook_utils::*;
 
 use crate::*;
 
