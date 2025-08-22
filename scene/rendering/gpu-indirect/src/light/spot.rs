@@ -13,31 +13,27 @@ pub struct SpotLightStorage {
 }
 
 pub fn use_spot_light_storage(
-  qcx: &mut QueryGPUHookCx,
+  cx: &mut QueryGPUHookCx,
 ) -> Option<LightGPUStorage<SpotLightStorage>> {
-  let (qcx, light) = qcx.use_storage_buffer2(128, u32::MAX);
+  let (cx, light) = cx.use_storage_buffer(128, u32::MAX);
 
-  qcx
-    .use_changes::<SpotLightIntensity>()
+  cx.use_changes::<SpotLightIntensity>()
     .update_storage_array(light, offset_of!(SpotLightStorage, luminance_intensity));
 
-  qcx
-    .use_changes::<SpotLightCutOffDistance>()
+  cx.use_changes::<SpotLightCutOffDistance>()
     .update_storage_array(light, offset_of!(SpotLightStorage, cutoff_distance));
 
-  qcx
-    .use_changes::<SpotLightHalfConeAngle>()
+  cx.use_changes::<SpotLightHalfConeAngle>()
     .map_changes(|rad| rad.cos())
     .update_storage_array(light, offset_of!(SpotLightStorage, half_cone_cos));
 
-  qcx
-    .use_changes::<SpotLightHalfPenumbraAngle>()
+  cx.use_changes::<SpotLightHalfPenumbraAngle>()
     .map_changes(|rad| rad.cos())
     .update_storage_array(light, offset_of!(SpotLightStorage, half_penumbra_cos));
 
-  let fanout = use_global_node_world_mat(qcx)
-    .fanout(qcx.use_db_rev_ref_tri_view::<SpotLightRefNode>())
-    .use_assure_result(qcx);
+  let fanout = use_global_node_world_mat(cx)
+    .fanout(cx.use_db_rev_ref_tri_view::<SpotLightRefNode>())
+    .use_assure_result(cx);
 
   fanout
     .clone_except_future()
@@ -50,13 +46,13 @@ pub fn use_spot_light_storage(
     .map(|change| change.collective_map(|mat| mat.forward().reverse().normalize().into_f32()))
     .update_storage_array(light, offset_of!(SpotLightStorage, direction));
 
-  let (qcx, multi_acc) = qcx.use_gpu_multi_access_states(light_multi_access_config());
+  let (cx, multi_acc) = cx.use_gpu_multi_access_states(light_multi_access_config());
 
-  let updates = qcx
+  let updates = cx
     .use_db_rev_ref_tri_view::<SpotLightRefScene>()
-    .use_assure_result(qcx);
+    .use_assure_result(cx);
 
-  qcx.when_render(|| {
+  cx.when_render(|| {
     let light = light.get_gpu_buffer();
     let multi_access = multi_acc.update(updates.expect_resolve_stage());
     (light, multi_access)

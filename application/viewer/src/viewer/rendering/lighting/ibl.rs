@@ -7,36 +7,34 @@ use rendiation_webgpu_hook_utils::*;
 
 use crate::*;
 
-pub fn use_ibl(qcx: &mut QueryGPUHookCx) -> Option<IBLLightingComponentProvider> {
-  let (qcx, brdf_lut) = qcx.use_gpu_init(|cx| {
+pub fn use_ibl(cx: &mut QueryGPUHookCx) -> Option<IBLLightingComponentProvider> {
+  let (cx, brdf_lut) = cx.use_gpu_init(|cx| {
     let brdf_lut_bitmap_png = include_bytes!("./brdf_lut.png");
 
     // todo, use two channel 16 bit
     create_gpu_tex_from_png_buffer(cx, brdf_lut_bitmap_png, TextureFormat::Rgba8Unorm)
   });
 
-  let intensity = qcx.use_uniform_buffers();
-  qcx
-    .use_changes::<SceneHDRxEnvBackgroundIntensity>()
+  let intensity = cx.use_uniform_buffers();
+  cx.use_changes::<SceneHDRxEnvBackgroundIntensity>()
     .filter_map_changes(|v| v)
     .update_uniforms(
       &intensity,
       offset_of!(IblShaderInfo, diffuse_illuminance),
-      qcx.gpu,
+      cx.gpu,
     );
 
-  qcx
-    .use_changes::<SceneHDRxEnvBackgroundIntensity>()
+  cx.use_changes::<SceneHDRxEnvBackgroundIntensity>()
     .filter_map_changes(|v| v)
     .update_uniforms(
       &intensity,
       offset_of!(IblShaderInfo, specular_illuminance),
-      qcx.gpu,
+      cx.gpu,
     );
 
-  let prefiltered = use_prefilter_cube_maps(qcx);
+  let prefiltered = use_prefilter_cube_maps(cx);
 
-  qcx.when_render(|| IBLLightingComponentProvider {
+  cx.when_render(|| IBLLightingComponentProvider {
     prefiltered: prefiltered.make_read_holder(),
     brdf_lut: brdf_lut.clone(),
     uniform: intensity.make_read_holder(),
@@ -68,10 +66,10 @@ impl LightSystemSceneProvider for IBLLightingComponentProvider {
 
 type CubeMapResults = FastHashMap<RawEntityHandle, PreFilterMapGenerationResult>;
 
-pub fn use_prefilter_cube_maps(qcx: &mut QueryGPUHookCx) -> Arc<RwLock<CubeMapResults>> {
-  let (env_background_map_gpu, changes) = use_gpu_texture_cubes(qcx, false);
+pub fn use_prefilter_cube_maps(cx: &mut QueryGPUHookCx) -> Arc<RwLock<CubeMapResults>> {
+  let (env_background_map_gpu, changes) = use_gpu_texture_cubes(cx, false);
 
-  let (qcx, _cube_map) = qcx.use_plain_state(|| Arc::new(RwLock::new(CubeMapResults::default())));
+  let (cx, _cube_map) = cx.use_plain_state(|| Arc::new(RwLock::new(CubeMapResults::default())));
 
   let mut cube_map = _cube_map.write();
   for k in changes.removed_keys {
@@ -86,17 +84,17 @@ pub fn use_prefilter_cube_maps(qcx: &mut QueryGPUHookCx) -> Arc<RwLock<CubeMapRe
   };
 
   if !changes.changed_keys.is_empty() {
-    let mut encoder = qcx.gpu.create_encoder();
+    let mut encoder = cx.gpu.create_encoder();
     let cubes = env_background_map_gpu.read();
 
     for k in changes.changed_keys.iter() {
       let cube = cubes.get(k).unwrap();
 
-      let result = generate_pre_filter_map(&mut encoder, qcx.gpu, cube, &config);
+      let result = generate_pre_filter_map(&mut encoder, cx.gpu, cube, &config);
       cube_map.insert(*k, result);
     }
 
-    qcx.gpu.submit_encoder(encoder);
+    cx.gpu.submit_encoder(encoder);
   }
 
   _cube_map.clone()

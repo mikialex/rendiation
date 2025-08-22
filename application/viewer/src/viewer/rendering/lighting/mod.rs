@@ -21,7 +21,7 @@ pub use shadow::*;
 use crate::*;
 
 pub fn use_lighting(
-  qcx: &mut QueryGPUHookCx,
+  cx: &mut QueryGPUHookCx,
   ndc: ViewerNDC,
 ) -> Option<LightingRenderingCxPrepareCtx> {
   let size = Size::from_u32_pair_min_one((2048, 2048));
@@ -36,15 +36,15 @@ pub fn use_lighting(
     },
   };
 
-  let dir_lights = use_directional_light_uniform(qcx, &config, ndc);
-  let spot_lights = use_scene_spot_light_uniform(qcx, &config, ndc);
-  let point_lights = use_scene_point_light_uniform(qcx);
-  let area_lights = use_area_light_uniform(qcx);
-  let ibl = use_ibl(qcx);
+  let dir_lights = use_directional_light_uniform(cx, &config, ndc);
+  let spot_lights = use_scene_spot_light_uniform(cx, &config, ndc);
+  let point_lights = use_scene_point_light_uniform(cx);
+  let area_lights = use_area_light_uniform(cx);
+  let ibl = use_ibl(cx);
 
-  let scene_ids = use_scene_id_provider(qcx);
+  let scene_ids = use_scene_id_provider(cx);
 
-  qcx.when_render(|| LightingRenderingCxPrepareCtx {
+  cx.when_render(|| LightingRenderingCxPrepareCtx {
     dir_lights: dir_lights.unwrap(),
     spot_lights: spot_lights.unwrap(),
     point_lights: point_lights.unwrap(),
@@ -279,10 +279,10 @@ impl GraphicsShaderProvider for DefaultDisplayWriter {
   }
 }
 
-fn use_area_light_uniform(qcx: &mut QueryGPUHookCx) -> Option<SceneAreaLightingProvider> {
-  let uniform = use_area_light_uniform_array(qcx);
+fn use_area_light_uniform(cx: &mut QueryGPUHookCx) -> Option<SceneAreaLightingProvider> {
+  let uniform = use_area_light_uniform_array(cx);
 
-  let (qcx, lut) = qcx.use_gpu_init(|gpu| {
+  let (cx, lut) = cx.use_gpu_init(|gpu| {
     let ltc_1 = include_bytes!("./ltc_1.bin");
     let ltc_1 = create_gpu_texture2d(
       gpu,
@@ -304,7 +304,7 @@ fn use_area_light_uniform(qcx: &mut QueryGPUHookCx) -> Option<SceneAreaLightingP
     (ltc_1, ltc_2)
   });
 
-  qcx.when_render(|| -> _ {
+  cx.when_render(|| -> _ {
     SceneAreaLightingProvider {
       ltc_1: lut.0.clone(),
       ltc_2: lut.1.clone(),

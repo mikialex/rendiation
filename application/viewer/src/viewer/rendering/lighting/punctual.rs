@@ -5,14 +5,14 @@ use rendiation_webgpu_hook_utils::*;
 use crate::*;
 
 pub fn use_directional_light_uniform(
-  qcx: &mut QueryGPUHookCx,
+  cx: &mut QueryGPUHookCx,
   init_config: &MultiLayerTexturePackerConfig,
   ndc: ViewerNDC,
 ) -> Option<SceneDirectionalLightingPreparer> {
   let source_world =
-    use_global_node_world_mat(qcx).fanout(qcx.use_db_rev_ref_tri_view::<DirectionalRefNode>());
+    use_global_node_world_mat(cx).fanout(cx.use_db_rev_ref_tri_view::<DirectionalRefNode>());
 
-  let source_proj = qcx
+  let source_proj = cx
     .use_dual_query::<DirectionLightShadowBound>()
     .dual_query_map(move |orth| {
       orth
@@ -27,19 +27,19 @@ pub fn use_directional_light_uniform(
         .compute_projection_mat(&ndc)
     });
 
-  let size = qcx
+  let size = cx
     .use_dual_query::<BasicShadowMapResolutionOf<DirectionLightBasicShadowInfo>>()
     .into_delta_change()
     .map_changes(|size| Size::from_u32_pair_min_one(size.into()));
 
-  let bias = qcx
+  let bias = cx
     .use_changes::<BasicShadowMapBiasOf<DirectionLightBasicShadowInfo>>()
     .map_changes(|v| v.into());
 
-  let enabled = qcx.use_changes::<BasicShadowMapEnabledOf<DirectionLightBasicShadowInfo>>();
+  let enabled = cx.use_changes::<BasicShadowMapEnabledOf<DirectionLightBasicShadowInfo>>();
 
   let shadow = use_basic_shadow_map_uniform(
-    qcx,
+    cx,
     source_world,
     source_proj,
     size,
@@ -48,9 +48,9 @@ pub fn use_directional_light_uniform(
     *init_config,
   );
 
-  let light = use_directional_uniform_array(qcx);
+  let light = use_directional_uniform_array(cx);
 
-  qcx.when_render(|| {
+  cx.when_render(|| {
     let (updater, shadow_uniform) = shadow.unwrap();
     SceneDirectionalLightingPreparer {
       shadow: updater,
@@ -118,10 +118,10 @@ impl LightSystemSceneProvider for SceneDirectionalLightingProvider {
 }
 
 pub fn use_scene_point_light_uniform(
-  qcx: &mut QueryGPUHookCx,
+  cx: &mut QueryGPUHookCx,
 ) -> Option<ScenePointLightingProvider> {
-  let uniform = use_point_uniform_array(qcx);
-  qcx.when_render(|| ScenePointLightingProvider { uniform })
+  let uniform = use_point_uniform_array(cx);
+  cx.when_render(|| ScenePointLightingProvider { uniform })
 }
 
 pub struct ScenePointLightingProvider {
@@ -150,14 +150,14 @@ impl LightSystemSceneProvider for ScenePointLightingProvider {
 }
 
 pub fn use_scene_spot_light_uniform(
-  qcx: &mut QueryGPUHookCx,
+  cx: &mut QueryGPUHookCx,
   init_config: &MultiLayerTexturePackerConfig,
   ndc: ViewerNDC,
 ) -> Option<SceneSpotLightingPreparer> {
   let source_world =
-    use_global_node_world_mat(qcx).fanout(qcx.use_db_rev_ref_tri_view::<SpotLightRefNode>());
+    use_global_node_world_mat(cx).fanout(cx.use_db_rev_ref_tri_view::<SpotLightRefNode>());
 
-  let source_proj = qcx
+  let source_proj = cx
     .use_dual_query::<SpotLightHalfConeAngle>()
     .dual_query_map(move |half_cone_angle| {
       PerspectiveProjection {
@@ -169,19 +169,19 @@ pub fn use_scene_spot_light_uniform(
       .compute_projection_mat(&ndc)
     });
 
-  let size = qcx
+  let size = cx
     .use_dual_query::<BasicShadowMapResolutionOf<SpotLightBasicShadowInfo>>()
     .into_delta_change()
     .map_changes(|size| Size::from_u32_pair_min_one(size.into()));
 
-  let bias = qcx
+  let bias = cx
     .use_changes::<BasicShadowMapBiasOf<SpotLightBasicShadowInfo>>()
     .map_changes(|v| v.into());
 
-  let enabled = qcx.use_changes::<BasicShadowMapEnabledOf<SpotLightBasicShadowInfo>>();
+  let enabled = cx.use_changes::<BasicShadowMapEnabledOf<SpotLightBasicShadowInfo>>();
 
   let shadow = use_basic_shadow_map_uniform(
-    qcx,
+    cx,
     source_world,
     source_proj,
     size,
@@ -190,9 +190,9 @@ pub fn use_scene_spot_light_uniform(
     *init_config,
   );
 
-  let light = use_spot_uniform_array(qcx);
+  let light = use_spot_uniform_array(cx);
 
-  qcx.when_render(|| {
+  cx.when_render(|| {
     let (updater, shadow_uniform) = shadow.unwrap();
     SceneSpotLightingPreparer {
       shadow: updater,

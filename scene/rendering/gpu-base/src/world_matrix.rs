@@ -13,12 +13,11 @@ pub trait DrawUnitWorldTransformInvocationProvider {
 }
 
 pub fn use_scene_model_device_world_transform(
-  qcx: &mut QueryGPUHookCx,
+  cx: &mut QueryGPUHookCx,
 ) -> Option<DrawUnitWorldTransformProviderDefaultImpl> {
-  let (qcx, storage) = qcx.use_storage_buffer2(128, u32::MAX);
+  let (cx, storage) = cx.use_storage_buffer(128, u32::MAX);
 
-  qcx
-    .use_shared_dual_query(GlobalSceneModelWorldMatrix)
+  cx.use_shared_dual_query(GlobalSceneModelWorldMatrix)
     .into_delta_change()
     .map(|v| {
       v.collective_map(|mat| {
@@ -30,10 +29,10 @@ pub fn use_scene_model_device_world_transform(
         }
       })
     })
-    .use_assure_result(qcx)
+    .use_assure_result(cx)
     .update_storage_array(storage, 0);
 
-  qcx.when_render(|| DrawUnitWorldTransformProviderDefaultImpl {
+  cx.when_render(|| DrawUnitWorldTransformProviderDefaultImpl {
     bounding_storage: storage.get_gpu_buffer(),
   })
 }

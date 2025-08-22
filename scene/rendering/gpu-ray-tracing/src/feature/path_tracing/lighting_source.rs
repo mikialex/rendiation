@@ -1,13 +1,11 @@
 use crate::*;
 
-pub fn use_scene_pt_light_source(
-  qcx: &mut QueryGPUHookCx,
-) -> Option<ScenePTLightingSceneDataGroup> {
-  let directional_lights = use_directional_light_storage(qcx);
-  let spot_lights = use_spot_light_storage(qcx);
-  let point_lights = use_point_light_storage(qcx);
+pub fn use_scene_pt_light_source(cx: &mut QueryGPUHookCx) -> Option<ScenePTLightingSceneDataGroup> {
+  let directional_lights = use_directional_light_storage(cx);
+  let spot_lights = use_spot_light_storage(cx);
+  let point_lights = use_point_light_storage(cx);
 
-  qcx.when_render(|| ScenePTLightingSceneDataGroup {
+  cx.when_render(|| ScenePTLightingSceneDataGroup {
     spot_lights: spot_lights.unwrap().into(),
     point_lights: point_lights.unwrap().into(),
     directional_lights: directional_lights.unwrap().into(),
