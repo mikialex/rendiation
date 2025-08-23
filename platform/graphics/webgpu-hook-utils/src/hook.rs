@@ -35,6 +35,10 @@ unsafe impl<'a> HooksCxLike for QueryGPUHookCx<'a> {
     self.memory
   }
 
+  fn is_dynamic_stage(&self) -> bool {
+    matches!(&self.stage, GPUQueryHookStage::Update { .. })
+  }
+
   fn flush(&mut self) {
     let mut drop_cx = if let GPUQueryHookStage::Update { .. } = self.stage {
       QueryGPUHookDropCx {
