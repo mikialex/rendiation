@@ -63,7 +63,7 @@ pub fn use_rtx_pt_renderer(
         intersection: None,
       })
   });
-  if let Some(updates) = updates.if_ready() {
+  if let Some(updates) = updates.use_assure_result(cx).if_ready() {
     sbt.update(updates, PTRayType::Core as u32);
   }
 
@@ -75,7 +75,7 @@ pub fn use_rtx_pt_renderer(
         intersection: None,
       })
   });
-  if let Some(updates) = updates.if_ready() {
+  if let Some(updates) = updates.use_assure_result(cx).if_ready() {
     sbt.update(updates, PTRayType::ShadowTest as u32);
   }
 

@@ -43,7 +43,7 @@ pub fn use_rtx_ao_renderer(
         intersection: None,
       })
   });
-  if let Some(updates) = updates.if_ready() {
+  if let Some(updates) = updates.use_assure_result(cx).if_ready() {
     sbt.update(updates, AORayType::Primary as u32);
   }
 
@@ -55,7 +55,7 @@ pub fn use_rtx_ao_renderer(
         intersection: None,
       })
   });
-  if let Some(updates) = updates.if_ready() {
+  if let Some(updates) = updates.use_assure_result(cx).if_ready() {
     sbt.update(updates, AORayType::AOTest as u32);
   }
 
