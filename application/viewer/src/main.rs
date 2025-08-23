@@ -113,7 +113,7 @@ fn main() {
 
       use_pick_scene(cx);
       use_scene_camera_helper(cx);
-      // use_scene_spotlight_helper(cx);
+      use_scene_spotlight_helper(cx);
 
       use_mesh_tools(cx);
     });

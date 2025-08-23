@@ -1,172 +1,62 @@
-use fast_hash_collection::*;
-use rendiation_mesh_core::{AttributeSemantic, AttributesMeshData};
 use rendiation_mesh_generator::*;
 
 use crate::*;
 
 pub fn use_scene_spotlight_helper(cx: &mut ViewerCx) {
-  let world_mat = use_global_node_world_mat_view(cx).use_assure_result(cx);
+  let (cx, enabled) = cx.use_plain_state::<bool>();
 
-  let (cx, helpers) =
-    cx.use_state_init(|cx| SceneSpotLightHelper::new(cx.scene.scene, cx.derive.world_mat.clone()));
+  if let ViewerCxStage::Gui { egui_ctx, global } = &mut cx.stage {
+    let opened = global.features.entry("light helper").or_insert(false);
 
-  match &mut cx.stage {
-    ViewerCxStage::EventHandling { .. } => {
-      noop_ctx!(ccx);
-      helpers.prepare_update(ccx);
-    }
-    ViewerCxStage::SceneContentUpdate { writer, .. } => {
-      helpers.apply_updates(writer, cx.viewer.scene.widget_scene);
-    }
-    _ => {}
-  }
-}
-
-struct SceneSpotLightHelper {
-  helper_models: FastHashMap<EntityHandle<SpotLightEntity>, UIWidgetModel>,
-
-  world_mat: BoxedDynReactiveQuery<EntityHandle<SpotLightEntity>, Mat4<f64>>,
-  half_cone_angle: BoxedDynReactiveQuery<EntityHandle<SpotLightEntity>, f32>,
-  half_penumbra_angle: BoxedDynReactiveQuery<EntityHandle<SpotLightEntity>, f32>,
-  cutoff: BoxedDynReactiveQuery<EntityHandle<SpotLightEntity>, f32>,
-
-  pending_updates: FastHashMap<EntityHandle<SpotLightEntity>, AttributesMeshData>,
-  pending_remove: FastHashSet<EntityHandle<SpotLightEntity>>,
-}
-
-impl CanCleanUpFrom<ViewerDropCx<'_>> for SceneSpotLightHelper {
-  fn drop_from_cx(&mut self, cx: &mut ViewerDropCx) {
-    self.do_cleanup(cx.writer);
-  }
-}
-
-struct FindChangedKey<T> {
-  changed_keys: FastHashSet<EntityHandle<T>>,
-}
-
-impl<T> Default for FindChangedKey<T> {
-  fn default() -> Self {
-    Self {
-      changed_keys: Default::default(),
-    }
-  }
-}
-
-impl<T> FindChangedKey<T> {
-  pub fn merge_changed_keys<V>(
-    &mut self,
-    changed_keys: &impl Query<Key = EntityHandle<T>, Value = ValueChange<V>>,
-  ) -> &mut Self {
-    for (k, v) in changed_keys.iter_key_value() {
-      if !v.is_removed() {
-        self.changed_keys.insert(k);
-      }
-    }
-    self
-  }
-  pub fn iter_changed_keys(&self) -> impl Iterator<Item = &EntityHandle<T>> + '_ {
-    self.changed_keys.iter()
-  }
-}
-
-impl SceneSpotLightHelper {
-  pub fn new(_scene: EntityHandle<SceneEntity>) -> Self {
-    // let set = global_watch()
-    //   .watch::<SpotLightRefScene>()
-    //   .collective_filter(move |v| v.unwrap() == scene.into_raw())
-    //   .collective_map(|_| {});
-
-    let world_mat = world_mats
-      .one_to_many_fanout(global_rev_ref().watch_inv_ref::<SpotLightRefNode>())
-      .into_boxed();
-
-    Self {
-      helper_models: Default::default(),
-      world_mat,
-      half_cone_angle: global_watch()
-        .watch::<SpotLightHalfConeAngle>()
-        .into_boxed(),
-      half_penumbra_angle: global_watch()
-        .watch::<SpotLightHalfPenumbraAngle>()
-        .into_boxed(),
-      cutoff: global_watch()
-        .watch::<SpotLightCutOffDistance>()
-        .into_boxed(),
-      pending_updates: Default::default(),
-      pending_remove: Default::default(),
-    }
+    egui::Window::new("Light Helper")
+      .open(opened)
+      .default_size((100., 100.))
+      .vscroll(true)
+      .show(egui_ctx, |ui| {
+        ui.checkbox(enabled, "enabled");
+      });
   }
 
-  pub fn prepare_update(&mut self, cx: &mut Context) {
-    let (mat_c, mat) = self.world_mat.describe(cx).resolve_kept();
-    let (half_cone_angle_c, half_cone_angle) = self.half_cone_angle.describe(cx).resolve_kept();
-    let (half_penumbra_angle_c, half_penumbra_angle) =
-      self.half_penumbra_angle.describe(cx).resolve_kept();
-    let (cutoff_c, cutoff) = self.cutoff.describe(cx).resolve_kept();
+  if *enabled {
+    cx.scope(|cx| {
+      let world_mat = use_global_node_world_mat_view(cx);
 
-    self.pending_updates = FindChangedKey::default()
-      .merge_changed_keys(&mat_c)
-      .merge_changed_keys(&half_cone_angle_c)
-      .merge_changed_keys(&half_penumbra_angle_c)
-      .merge_changed_keys(&cutoff_c)
-      .iter_changed_keys()
-      .map(|k| {
-        let mesh = create_debug_line_mesh(
-          half_cone_angle.access(k).unwrap(),
-          half_penumbra_angle.access(k).unwrap(),
-          cutoff.access(k).unwrap(),
-          mat.access(k).unwrap().into_f32(),
-        );
-        (*k, mesh)
-      })
-      .collect::<FastHashMap<_, _>>();
-  }
+      let helper_mesh_lines = world_mat.map_only_spawn_stage(|world_mat| {
+        let half_cone_angle = get_db_view::<SpotLightHalfConeAngle>();
+        let half_penumbra_angle = get_db_view::<SpotLightHalfPenumbraAngle>();
+        let cutoff = get_db_view::<SpotLightCutOffDistance>();
+        let light_ref_node = get_db_view::<SpotLightRefNode>();
 
-  pub fn apply_updates(
-    &mut self,
-    scene_cx: &mut SceneWriter,
-    widget_target: EntityHandle<SceneEntity>,
-  ) {
-    scene_cx.write_other_scene(widget_target, |scene_cx| {
-      for k in std::mem::take(&mut self.pending_remove) {
-        let mut model = self.helper_models.remove(&k).unwrap();
-        model.do_cleanup(scene_cx);
-      }
+        let mut line_buffer = Vec::new();
 
-      for (k, new_mesh) in std::mem::take(&mut self.pending_updates) {
-        if let Some(helper) = self.helper_models.get_mut(&k) {
-          helper.replace_new_shape_and_cleanup_old(scene_cx, new_mesh);
-        } else {
-          self
-            .helper_models
-            .insert(k, UIWidgetModel::new(scene_cx, new_mesh));
-        }
-      }
-    });
-  }
+        half_cone_angle
+          .iter_key_value()
+          .for_each(|(id, half_cone_angle)| {
+            let node_id = light_ref_node.access(&id).unwrap().unwrap();
+            create_debug_line_mesh(
+              &mut line_buffer,
+              half_cone_angle,
+              half_penumbra_angle.access(&id).unwrap(),
+              cutoff.access(&id).unwrap(),
+              world_mat.access(&node_id).unwrap().into_f32(),
+            )
+          });
+        line_buffer.into()
+      });
 
-  pub fn do_cleanup(&mut self, scene_cx: &mut SceneWriter) {
-    self
-      .helper_models
-      .values_mut()
-      .for_each(|m| m.do_cleanup(scene_cx));
+      use_immediate_helper_model(cx, helper_mesh_lines);
+    })
   }
 }
 
 fn create_debug_line_mesh(
+  lines: &mut LineBuffer,
   half_angle: f32,
   half_penumbra: f32,
   cutoff: f32,
   world_mat: Mat4<f32>,
-) -> AttributesMeshData {
-  let mut lines: Vec<_> = Default::default();
-
-  fn build_cone(
-    half_angle: f32,
-    cutoff: f32,
-    world_mat: Mat4<f32>,
-    lines: &mut Vec<[Vec3<f32>; 2]>,
-  ) {
+) {
+  fn build_cone(half_angle: f32, cutoff: f32, world_mat: Mat4<f32>, lines: &mut LineBuffer) {
     let radius = half_angle.tan() * cutoff;
     let angle_outlines_ends = [
       Vec3::new(-radius, 0., -cutoff),
@@ -192,17 +82,8 @@ fn create_debug_line_mesh(
     }
   }
 
-  build_cone(half_angle, cutoff, world_mat, &mut lines);
-  build_cone(half_penumbra, cutoff, world_mat, &mut lines);
-
-  let lines: &[u8] = cast_slice(lines.as_slice());
-
-  AttributesMeshData {
-    attributes: vec![(AttributeSemantic::Positions, lines.to_vec())],
-    indices: None,
-    mode: rendiation_mesh_core::PrimitiveTopology::LineList,
-    groups: Default::default(),
-  }
+  build_cone(half_angle, cutoff, world_mat, lines);
+  build_cone(half_penumbra, cutoff, world_mat, lines);
 }
 
 fn create_circle(radius: f32, offset: f32) -> impl ParametricCurve3D {
