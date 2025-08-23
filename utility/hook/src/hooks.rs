@@ -162,20 +162,8 @@ impl FunctionMemory {
         self.sub_functions_next.entry(*location).or_default()
       }
     } else {
-      let previous_memory = self.sub_functions.remove(location);
-      let previous_memory = if let Some(previous_memory) = previous_memory {
-        previous_memory
-      } else {
-        panic!("sub function not found in static stage: {}", location)
-      };
-
-      let r = self.sub_functions_next.insert(*location, previous_memory);
-      assert!(
-        r.is_none(),
-        "sub function already been used in static stage: {}",
-        location
-      );
-      self.sub_functions_next.get_mut(location).unwrap()
+      // todo, validate all function are used
+      self.sub_functions.get_mut(location).unwrap()
     }
   }
 
@@ -184,13 +172,8 @@ impl FunctionMemory {
       for (_, mut sub_function) in self.sub_functions.drain() {
         sub_function.cleanup(drop_cx);
       }
-    } else {
-      assert!(
-        self.sub_functions.is_empty(),
-        "in none flushable stage, sub_functions should be empty"
-      );
+      std::mem::swap(&mut self.sub_functions, &mut self.sub_functions_next);
     }
-    std::mem::swap(&mut self.sub_functions, &mut self.sub_functions_next);
     for sub_function in self.sub_functions.values_mut() {
       sub_function.flush(drop_cx);
     }

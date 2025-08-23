@@ -42,6 +42,18 @@ pub trait DualQueryLike: Send + Sync + Clone + 'static {
     self.view_delta().1
   }
 
+  /// sometimes materialize delta is necessary, because delta may contains view in some
+  /// combinator, and view will be retained, which will cause deadlock in some case
+  fn materialize_delta(
+    self,
+  ) -> DualQuery<Self::View, Arc<QueryMaterialized<Self::Key, ValueChange<Self::Value>>>> {
+    let (view, delta) = self.view_delta();
+    DualQuery {
+      view,
+      delta: delta.materialize(),
+    }
+  }
+
   fn into_boxed(self) -> BoxedDynDualQuery<Self::Key, Self::Value> {
     let (view, delta) = self.view_delta();
     DualQuery {

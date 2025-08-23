@@ -261,7 +261,11 @@ pub trait QueryHookCxLike: HooksCxLike {
   ) -> UseResult<<Provider::Result as DualQueryLike>::View> {
     let key = provider.compute_share_key();
     let consumer_id = self.use_shared_consumer(key);
-    let result = self.use_shared_compute_internal(&|cx| provider.use_logic(cx), key, consumer_id);
+    let result = self.use_shared_compute_internal(
+      &|cx| provider.use_logic(cx).map(|r| r.materialize_delta()),
+      key,
+      consumer_id,
+    );
 
     result.map(|r| r.view()) // here we don't care to sync the change
   }
@@ -276,7 +280,11 @@ pub trait QueryHookCxLike: HooksCxLike {
     let key = provider.compute_share_key();
 
     let consumer_id = self.use_shared_consumer(key);
-    let result = self.use_shared_compute_internal(&|cx| provider.use_logic(cx), key, consumer_id);
+    let result = self.use_shared_compute_internal(
+      &|cx| provider.use_logic(cx).map(|r| r.materialize_delta()),
+      key,
+      consumer_id,
+    );
 
     let reconciler = self
       .shared_hook_ctx()
