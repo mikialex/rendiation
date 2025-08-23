@@ -1,6 +1,6 @@
 
 [package]
-authors = ["MikiAlex <18516340862@163.com>"]
+authors = ["MikiAlex <miikiialexx@gmail.com>"]
 edition = "2021"
 name = "rendiation-webgpu-virtual-buffer"
 version = "0.1.0"
