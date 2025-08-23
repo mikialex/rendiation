@@ -40,18 +40,13 @@ unsafe impl<'a> HooksCxLike for QueryGPUHookCx<'a> {
   }
 
   fn flush(&mut self) {
-    let mut drop_cx = if let GPUQueryHookStage::Update { .. } = self.stage {
-      QueryGPUHookDropCx {
+    if let GPUQueryHookStage::Update { .. } = self.stage {
+      let mut drop_cx = QueryGPUHookDropCx {
         share_cx: self.shared_ctx,
-      }
-      .into()
-    } else {
-      None
-    };
-
-    let drop_cx = drop_cx.as_mut().map(|v| v as *mut _ as *mut ());
-
-    self.memory.flush(drop_cx);
+      };
+      let drop_cx = &mut drop_cx as *mut _ as *mut ();
+      self.memory.flush(drop_cx);
+    }
   }
 
   fn use_plain_state<T: 'static>(&mut self, f: impl FnOnce() -> T) -> (&mut Self, &mut T) {
@@ -77,7 +72,6 @@ impl<'a> QueryGPUHookCx<'a> {
       |state: &mut T, dcx: &mut ()| {
         let dcx: &mut QueryGPUHookDropCx = unsafe { std::mem::transmute(dcx) };
         T::drop_from_cx(state, dcx);
-        unsafe { core::ptr::drop_in_place(state) }
       },
     );
 
@@ -152,7 +146,7 @@ pub struct ShaderConsumerToken(pub u32, pub ShareKey);
 impl CanCleanUpFrom<QueryGPUHookDropCx<'_>> for ShaderConsumerToken {
   fn drop_from_cx(&mut self, cx: &mut QueryGPUHookDropCx<'_>) {
     if let Some(mem) = cx.share_cx.drop_consumer(self.1, self.0) {
-      mem.write().memory.cleanup(cx as *mut _ as *mut ());
+      mem.write().memory.cleanup_assume_only_plain_states();
     }
     // this check is necessary because not all consumer need reconcile change
     if let Some(reconciler) = cx.share_cx.reconciler.get_mut(&self.1) {

@@ -401,7 +401,7 @@ pub trait QueryHookCxLike: HooksCxLike {
 
       self.memory_mut().created = true;
       self.memory_mut().current_cursor = 0;
-      // self.flush(); // todo
+      self.memory_mut().flush_assume_only_plain_states();
 
       core::ptr::swap(self.memory_mut(), memory);
       r

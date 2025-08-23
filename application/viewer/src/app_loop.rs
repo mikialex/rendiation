@@ -94,19 +94,17 @@ unsafe impl HooksCxLike for ApplicationCx<'_> {
     self.memory
   }
   fn flush(&mut self) {
-    self.memory.flush(Some(self.dyn_cx as *mut _ as *mut _))
+    let drop_cx = &mut self.dyn_cx as *mut _ as *mut ();
+    self.memory.flush(drop_cx);
   }
 
   fn use_plain_state<T: 'static>(&mut self, f: impl FnOnce() -> T) -> (&mut Self, &mut T) {
     // this is safe because user can not access previous retrieved state through returned self.
     let s = unsafe { std::mem::transmute_copy(&self) };
 
-    let state =
-      self
-        .memory
-        .expect_state_init(f, |state: &mut T, _: &mut ApplicationDropCx| unsafe {
-          core::ptr::drop_in_place(state);
-        });
+    let state = self
+      .memory
+      .expect_state_init(f, |_state: &mut T, _: &mut ApplicationDropCx| {});
 
     (s, state)
   }

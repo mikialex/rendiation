@@ -77,7 +77,10 @@ struct FunctionMemoryState {
   ptr: *mut (),
   type_id: TypeId,
   type_name: &'static str,
+  /// (value ptr, drop cx ptr)
   cleanup_fn: fn(*mut (), *mut ()),
+  /// (value ptr)
+  drop_fn: fn(*mut ()),
 }
 
 #[derive(Default)]
@@ -109,11 +112,19 @@ impl FunctionMemory {
         #[cfg(not(debug_assertions))]
         let type_name = "";
 
+        fn drop_fn<T>(ptr: &mut T) {
+          unsafe {
+            core::ptr::drop_in_place(ptr);
+          }
+        }
+        let drop_fn = std::mem::transmute::<fn(&mut T), fn(*mut ())>(drop_fn);
+
         self.states_meta.push(FunctionMemoryState {
           ptr: init as *mut T as *mut (),
           type_id: TypeId::of::<T>(),
           type_name,
           cleanup_fn,
+          drop_fn,
         });
       }
       let FunctionMemoryState {
@@ -167,24 +178,38 @@ impl FunctionMemory {
     }
   }
 
-  pub fn flush(&mut self, drop_cx: Option<*mut ()>) {
-    if let Some(drop_cx) = drop_cx {
-      for (_, mut sub_function) in self.sub_functions.drain() {
-        sub_function.cleanup(drop_cx);
-      }
-      std::mem::swap(&mut self.sub_functions, &mut self.sub_functions_next);
+  pub fn flush(&mut self, drop_cx: *mut ()) {
+    for (_, mut sub_function) in self.sub_functions.drain() {
+      sub_function.cleanup(drop_cx);
     }
-    for sub_function in self.sub_functions.values_mut() {
-      sub_function.flush(drop_cx);
-    }
+    std::mem::swap(&mut self.sub_functions, &mut self.sub_functions_next);
   }
 
   pub fn cleanup(&mut self, drop_cx: *mut ()) {
     self.states_meta.drain(..).for_each(|meta| {
       (meta.cleanup_fn)(meta.ptr, drop_cx);
+      (meta.drop_fn)(meta.ptr);
     });
     self.sub_functions.drain().for_each(|(_, mut f)| {
       f.cleanup(drop_cx);
+    })
+  }
+
+  // todo, add validation. or we may leak resource
+  pub fn flush_assume_only_plain_states(&mut self) {
+    for (_, mut sub_function) in self.sub_functions.drain() {
+      sub_function.cleanup_assume_only_plain_states();
+    }
+    std::mem::swap(&mut self.sub_functions, &mut self.sub_functions_next);
+  }
+
+  // todo, add validation. or we may leak resource
+  pub fn cleanup_assume_only_plain_states(&mut self) {
+    self.states_meta.drain(..).for_each(|meta| {
+      (meta.drop_fn)(meta.ptr);
+    });
+    self.sub_functions.drain().for_each(|(_, mut f)| {
+      f.cleanup_assume_only_plain_states();
     })
   }
 }
