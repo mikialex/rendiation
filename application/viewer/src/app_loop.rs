@@ -110,6 +110,10 @@ unsafe impl HooksCxLike for ApplicationCx<'_> {
 
     (s, state)
   }
+
+  fn is_dynamic_stage(&self) -> bool {
+    true
+  }
 }
 
 struct WinitAppImpl {

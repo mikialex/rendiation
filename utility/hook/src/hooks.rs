@@ -11,6 +11,7 @@ pub unsafe trait HooksCxLike: Sized {
   fn memory_mut(&mut self) -> &mut FunctionMemory;
   fn memory_ref(&self) -> &FunctionMemory;
   fn flush(&mut self);
+  fn is_dynamic_stage(&self) -> bool;
 
   fn is_creating(&self) -> bool {
     !self.memory_ref().created
@@ -30,7 +31,8 @@ pub unsafe trait HooksCxLike: Sized {
 
   #[track_caller]
   fn raw_scope<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
-    let sub_memory = self.memory_mut().sub_function() as *mut _;
+    let is_dynamic_stage = self.is_dynamic_stage();
+    let sub_memory = self.memory_mut().sub_function(is_dynamic_stage) as *mut _;
 
     unsafe {
       core::ptr::swap(self.memory_mut(), sub_memory);
@@ -138,15 +140,42 @@ impl FunctionMemory {
   }
 
   #[track_caller]
-  pub fn sub_function(&mut self) -> &mut Self {
+  pub fn sub_function(&mut self, is_dynamic_stage: bool) -> &mut Self {
     let location = Location::caller();
-    if let Some(previous_memory) = self.sub_functions.remove(location) {
-      self
-        .sub_functions_next
-        .entry(*location)
-        .or_insert(previous_memory)
+    if is_dynamic_stage {
+      if let Some(previous_memory) = self.sub_functions.remove(location) {
+        assert!(
+          !self.sub_functions_next.contains_key(location),
+          "sub function already been used in static stage: {}",
+          location
+        );
+        self
+          .sub_functions_next
+          .entry(*location)
+          .or_insert(previous_memory)
+      } else {
+        assert!(
+          !self.sub_functions_next.contains_key(location),
+          "sub function already been used in static stage: {}",
+          location
+        );
+        self.sub_functions_next.entry(*location).or_default()
+      }
     } else {
-      self.sub_functions_next.entry(*location).or_default()
+      let previous_memory = self.sub_functions.remove(location);
+      let previous_memory = if let Some(previous_memory) = previous_memory {
+        previous_memory
+      } else {
+        panic!("sub function not found in static stage: {}", location)
+      };
+
+      let r = self.sub_functions_next.insert(*location, previous_memory);
+      assert!(
+        r.is_none(),
+        "sub function already been used in static stage: {}",
+        location
+      );
+      self.sub_functions_next.get_mut(location).unwrap()
     }
   }
 

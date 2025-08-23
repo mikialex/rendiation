@@ -86,6 +86,10 @@ unsafe impl HooksCxLike for UI3dCx<'_> {
     self.memory
   }
 
+  fn is_dynamic_stage(&self) -> bool {
+    self.writer.is_some()
+  }
+
   fn flush(&mut self) {
     let mut drop_cx = if let Some(writer) = &mut self.writer {
       UI3dBuildCx {

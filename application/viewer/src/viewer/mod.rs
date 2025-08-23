@@ -61,6 +61,9 @@ unsafe impl HooksCxLike for ViewerCx<'_> {
   fn memory_ref(&self) -> &FunctionMemory {
     &self.viewer.memory
   }
+  fn is_dynamic_stage(&self) -> bool {
+    matches!(self.stage, ViewerCxStage::Gui { .. })
+  }
   fn flush(&mut self) {
     let can_flush = matches!(self.stage, ViewerCxStage::Gui { .. });
 
@@ -314,20 +317,6 @@ pub fn use_viewer<'a>(
 
   ViewerCx {
     viewer,
-    dyn_cx: acx.dyn_cx,
-    input: acx.input,
-    absolute_seconds_from_start,
-    time_delta_seconds: *frame_time_delta_in_seconds,
-    stage: ViewerCxStage::BaseStage,
-    task_spawner: worker_thread_pool,
-    change_collector: Default::default(),
-  }
-  .execute(|viewer| f(viewer), true);
-
-  viewer.draw_canvas(&acx.draw_target_canvas, worker_thread_pool);
-
-  ViewerCx {
-    viewer,
     input: acx.input,
     dyn_cx: acx.dyn_cx,
     absolute_seconds_from_start,
@@ -340,6 +329,20 @@ pub fn use_viewer<'a>(
     },
   }
   .execute(|viewer| f(viewer), true);
+
+  ViewerCx {
+    viewer,
+    dyn_cx: acx.dyn_cx,
+    input: acx.input,
+    absolute_seconds_from_start,
+    time_delta_seconds: *frame_time_delta_in_seconds,
+    stage: ViewerCxStage::BaseStage,
+    task_spawner: worker_thread_pool,
+    change_collector: Default::default(),
+  }
+  .execute(|viewer| f(viewer), true);
+
+  viewer.draw_canvas(&acx.draw_target_canvas, worker_thread_pool);
 
   viewer
 }
