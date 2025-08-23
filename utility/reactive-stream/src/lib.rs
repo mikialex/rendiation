@@ -6,18 +6,9 @@ use core::{
 };
 use std::sync::{Arc, Weak};
 
-use futures::stream::FusedStream;
-use futures::task::AtomicWaker;
 use futures::Stream;
 use futures::StreamExt;
 use parking_lot::*;
-use pin_project::pin_project;
-
-mod signal_stream;
-pub use signal_stream::*;
-
-mod poll_utils;
-pub use poll_utils::*;
 
 mod channel_like;
 pub use channel_like::*;
@@ -25,14 +16,14 @@ pub use channel_like::*;
 mod channel_single;
 pub use channel_single::*;
 
-mod channel_batch;
-pub use channel_batch::*;
-
 mod source;
 pub use source::*;
 
-mod broadcast;
-pub use broadcast::*;
-
-mod notify_scope;
-pub use notify_scope::*;
+#[macro_export]
+macro_rules! noop_ctx {
+  ($ctx_name: tt) => {
+    let ___waker = futures::task::noop_waker_ref();
+    let mut $ctx_name = Context::from_waker(___waker);
+    let $ctx_name = &mut $ctx_name;
+  };
+}

@@ -111,9 +111,9 @@ impl Terminal {
     }
 
     noop_ctx!(ctx);
-    self
-      .main_thread_tasks
-      .poll_until_pending(ctx, |task| task());
+    while let Poll::Ready(Some(task)) = self.main_thread_tasks.poll_next_unpin(ctx) {
+      task()
+    }
   }
 
   pub fn unregister_command(&mut self, name: impl AsRef<str>) {

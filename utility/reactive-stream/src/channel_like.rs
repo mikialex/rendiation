@@ -53,23 +53,3 @@ impl<T: Send + Sync + 'static> ChannelLike<T> for DefaultSingleValueChannel {
     sender.has_no_receiver()
   }
 }
-
-pub struct DefaultBatchChannel;
-
-impl<T: Send + Sync + 'static> ChannelLike<T> for DefaultBatchChannel {
-  type Message = Vec<T>;
-  type Sender = crate::channel_batch::BatchSender<T>;
-  type Receiver = crate::channel_batch::BatchReceiver<T>;
-
-  fn build(&mut self) -> (Self::Sender, Self::Receiver) {
-    crate::channel_batch::batch_value_channel()
-  }
-
-  fn send(sender: &Self::Sender, message: T) -> bool {
-    sender.update(message).is_ok()
-  }
-
-  fn is_closed(sender: &Self::Sender) -> bool {
-    sender.has_no_receiver()
-  }
-}
