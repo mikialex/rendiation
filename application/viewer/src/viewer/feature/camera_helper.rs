@@ -17,25 +17,29 @@ pub fn use_scene_camera_helper(cx: &mut ViewerCx) {
       });
   }
 
-  let camera_transforms =
-    cx.use_shared_dual_query(GlobalCameraTransformShare(cx.viewer.rendering.ndc));
+  if *enabled {
+    cx.scope(|cx| {
+      let camera_transforms =
+        cx.use_shared_dual_query(GlobalCameraTransformShare(cx.viewer.rendering.ndc));
 
-  let main_camera = cx.viewer.scene.main_camera.into_raw();
-  let helper_mesh_lines = camera_transforms.map(move |camera_transforms| {
-    let (view, delta) = camera_transforms.view_delta();
-    delta.iter_key_value().next()?; // skip if nothing changed
-    let mats = view.iter_key_value().filter_map(|(camera, transform)| {
-      if camera == main_camera {
-        None // skip current viewing camera
-      } else {
-        // we lost precision here, but for helpers it's ok(i don't care)
-        Some(transform.view_projection_inv.into_f32())
-      }
-    });
-    build_debug_lines_in_camera_space(mats).into()
-  });
+      let main_camera = cx.viewer.scene.main_camera.into_raw();
+      let helper_mesh_lines = camera_transforms.map(move |camera_transforms| {
+        let (view, delta) = camera_transforms.view_delta();
+        delta.iter_key_value().next()?; // skip if nothing changed
+        let mats = view.iter_key_value().filter_map(|(camera, transform)| {
+          if camera == main_camera {
+            None // skip current viewing camera
+          } else {
+            // we lost precision here, but for helpers it's ok(i don't care)
+            Some(transform.view_projection_inv.into_f32())
+          }
+        });
+        build_debug_lines_in_camera_space(mats).into()
+      });
 
-  use_immediate_helper_model(cx, helper_mesh_lines);
+      use_immediate_helper_model(cx, helper_mesh_lines);
+    })
+  }
 }
 
 type LineBuffer = Vec<[Vec3<f32>; 2]>;
