@@ -42,7 +42,7 @@ pub fn use_scene_camera_helper(cx: &mut ViewerCx) {
   }
 }
 
-type LineBuffer = Vec<[Vec3<f32>; 2]>;
+pub type LineBuffer = Vec<[Vec3<f32>; 2]>;
 pub fn use_immediate_helper_model(cx: &mut ViewerCx, line: UseResult<Option<LineBuffer>>) {
   let line = line.use_assure_result(cx);
 
