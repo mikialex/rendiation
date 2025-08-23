@@ -18,28 +18,28 @@ pub fn use_scene_camera_helper(cx: &mut ViewerCx) {
   }
 
   let camera_transforms =
-    cx.use_shared_dual_query_view(GlobalCameraTransformShare(cx.viewer.rendering.ndc));
+    cx.use_shared_dual_query(GlobalCameraTransformShare(cx.viewer.rendering.ndc));
 
   let main_camera = cx.viewer.scene.main_camera.into_raw();
   let helper_mesh_lines = camera_transforms.map(move |camera_transforms| {
-    let mats = camera_transforms
-      .iter_key_value()
-      .filter_map(|(camera, transform)| {
-        if camera == main_camera {
-          None // skip current viewing camera
-        } else {
-          // we lost precision here, but for helpers it's ok(i don't care)
-          Some(transform.view_projection_inv.into_f32())
-        }
-      });
-    build_debug_lines_in_camera_space(mats)
+    let (view, delta) = camera_transforms.view_delta();
+    delta.iter_key_value().next()?; // skip if nothing changed
+    let mats = view.iter_key_value().filter_map(|(camera, transform)| {
+      if camera == main_camera {
+        None // skip current viewing camera
+      } else {
+        // we lost precision here, but for helpers it's ok(i don't care)
+        Some(transform.view_projection_inv.into_f32())
+      }
+    });
+    build_debug_lines_in_camera_space(mats).into()
   });
 
   use_immediate_helper_model(cx, helper_mesh_lines);
 }
 
 type LineBuffer = Vec<[Vec3<f32>; 2]>;
-pub fn use_immediate_helper_model(cx: &mut ViewerCx, line: UseResult<LineBuffer>) {
+pub fn use_immediate_helper_model(cx: &mut ViewerCx, line: UseResult<Option<LineBuffer>>) {
   let line = line.use_assure_result(cx);
 
   let (cx, changes) = cx.use_plain_state::<Option<LineBuffer>>();
@@ -48,10 +48,10 @@ pub fn use_immediate_helper_model(cx: &mut ViewerCx, line: UseResult<LineBuffer>
 
   match &mut cx.stage {
     ViewerCxStage::EventHandling { .. } => {
-      *changes = line.expect_resolve_stage().into();
+      *changes = line.expect_resolve_stage();
     }
     ViewerCxStage::SceneContentUpdate { writer, .. } => {
-      if let Some(lines) = changes {
+      if let Some(lines) = changes.take() {
         writer.write_other_scene(cx.viewer.scene.widget_scene, |writer| {
           let lines: &[u8] = cast_slice(lines.as_slice());
 

@@ -226,6 +226,10 @@ pub struct FeaturesGlobalUIStates {
 ///
 /// todo, improve
 pub fn stage_of_update_twice(cx: &mut ViewerCx, internal: impl Fn(&mut ViewerCx)) {
+  if cx.is_dynamic_stage() {
+    stage_of_update_internal(cx, &internal, false);
+    return;
+  }
   stage_of_update_internal(cx, &internal, true);
   stage_of_update_internal(cx, &internal, false);
 }
