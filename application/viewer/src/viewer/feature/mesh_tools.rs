@@ -12,7 +12,7 @@ pub fn use_mesh_tools(cx: &mut ViewerCx) {
   let (cx, seg_req) = cx.use_plain_state::<Option<MeshSegmentationDebugRequest>>();
 
   if let ViewerCxStage::Gui { egui_ctx, global } = &mut cx.stage {
-    let opened = global.features.entry("mesh tools").or_insert(true);
+    let opened = global.features.entry("mesh tools").or_insert(false);
 
     egui::Window::new("Mesh Tools")
       .open(opened)

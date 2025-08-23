@@ -112,6 +112,12 @@ fn use_attribute_indices(
         .chain(change.iter_update_or_insert().map(|(k, _)| k));
 
       let data = get_db_view::<BufferEntityData>();
+
+      enum MaybeConverted<'a> {
+        U32(Vec<u32>),
+        Original(&'a [u8]),
+      }
+
       let changed_keys = change
         .iter_update_or_insert()
         .map(|(k, (buffer_id, range, count))| {
@@ -132,8 +138,22 @@ fn use_attribute_indices(
             unreachable!("index count must be multiple of 2(u16) or 4(u32)")
           }
 
+          let buffer = if byte_per_item == 2 {
+            let buffer = bytemuck::cast_slice::<_, u16>(buffer);
+            let buffer = buffer.iter().map(|i| *i as u32).collect::<Vec<_>>();
+            MaybeConverted::U32(buffer)
+          } else {
+            MaybeConverted::Original(buffer)
+          };
+
           (k, buffer)
-        });
+        })
+        .collect::<Vec<_>>();
+
+      let changed_keys = changed_keys.iter().map(|(k, v)| match v {
+        MaybeConverted::U32(v) => (*k, bytemuck::cast_slice(v)),
+        MaybeConverted::Original(v) => (*k, *v),
+      });
 
       meta_generator.update(removed_and_changed_keys, changed_keys, &gpu)
     })
