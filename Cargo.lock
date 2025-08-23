@@ -3460,7 +3460,6 @@ dependencies = [
 name = "reactive-stream"
 version = "0.0.1"
 dependencies = [
- "criterion",
  "futures",
  "parking_lot",
  "pin-project",

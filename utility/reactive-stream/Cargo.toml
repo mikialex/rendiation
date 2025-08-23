@@ -10,12 +10,6 @@ pin-project = { workspace = true }
 slab = "0.4.8"
 storage = { path = "../storage" }
 
-[dev-dependencies]
-criterion = { workspace = true }
-
-[[bench]]
-harness = false
-name = "reactive"
 
 [lints]
 workspace = true

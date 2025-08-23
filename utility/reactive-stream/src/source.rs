@@ -114,13 +114,6 @@ impl<T: 'static> EventSource<T> {
     self.unbound_listen_by(|v| v.clone(), |_| {})
   }
 
-  pub fn batch_listen(&self) -> impl futures::Stream<Item = Vec<T>>
-  where
-    T: Clone + Send + Sync,
-  {
-    self.batch_listen_by(|v| v.clone(), |_| {})
-  }
-
   pub fn unbound_listen_by<U>(
     &self,
     mapper: impl Fn(&T) -> U + Send + Sync + 'static,
@@ -130,17 +123,6 @@ impl<T: 'static> EventSource<T> {
     U: Send + Sync + 'static,
   {
     self.listen_by::<U, _, _>(mapper, init, &mut DefaultUnboundChannel)
-  }
-
-  pub fn batch_listen_by<U>(
-    &self,
-    mapper: impl Fn(&T) -> U + Send + Sync + 'static,
-    init: impl FnOnce(&dyn Fn(U)),
-  ) -> impl futures::Stream<Item = Vec<U>>
-  where
-    U: Send + Sync + 'static,
-  {
-    self.listen_by::<Vec<U>, _, _>(mapper, init, &mut DefaultBatchChannel)
   }
 
   pub fn single_listen_by<U>(
@@ -236,5 +218,29 @@ impl<T> WeakSource<T> {
   }
   pub fn is_exist(&self) -> bool {
     self.inner.upgrade().is_some()
+  }
+}
+
+#[pin_project::pin_project]
+pub struct DropperAttachedStream<T, S> {
+  dropper: T,
+  #[pin]
+  stream: S,
+}
+
+impl<T, S> DropperAttachedStream<T, S> {
+  pub fn new(dropper: T, stream: S) -> Self {
+    Self { dropper, stream }
+  }
+}
+
+impl<T, S> Stream for DropperAttachedStream<T, S>
+where
+  S: Stream,
+{
+  type Item = S::Item;
+
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    self.project().stream.poll_next(cx)
   }
 }
