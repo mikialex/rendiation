@@ -29,6 +29,17 @@ pub unsafe trait HooksCxLike: Sized {
     r
   }
 
+  fn execute_partial<R>(&mut self, f: impl FnOnce(&mut Self) -> R, rollback: bool) -> R {
+    let start_cursor = self.memory_ref().current_cursor;
+    let r = f(self);
+    if rollback {
+      self.memory_mut().current_cursor = start_cursor;
+    }
+
+    self.memory_mut().created = true;
+    r
+  }
+
   #[track_caller]
   fn raw_scope<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
     let is_dynamic_stage = self.is_dynamic_stage();

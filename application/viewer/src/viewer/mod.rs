@@ -252,7 +252,7 @@ pub fn stage_of_update_internal(
         })
       };
 
-      cx.execute(&internal, true);
+      cx.execute_partial(&internal, true);
     }
 
     {
@@ -267,7 +267,7 @@ pub fn stage_of_update_internal(
         })
       };
 
-      cx.execute(&internal, true);
+      cx.execute_partial(&internal, true);
     }
 
     let mut writer = SceneWriter::from_global(cx.viewer.scene.scene);
@@ -277,11 +277,11 @@ pub fn stage_of_update_internal(
         writer: &mut writer,
       })
     };
-    cx.execute(&internal, rollback);
+    cx.execute_partial(&internal, rollback);
 
     cx.stage = ViewerCxStage::BaseStage;
   } else {
-    cx.execute(&internal, rollback);
+    cx.execute_partial(&internal, rollback);
   }
 }
 
