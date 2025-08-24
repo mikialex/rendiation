@@ -87,7 +87,8 @@ impl DeviceBlas {
     let blas = device.create_blas(
       &CreateBlasDescriptor {
         label: None,
-        flags: AccelerationStructureFlags::PREFER_FAST_TRACE,
+        flags: AccelerationStructureFlags::PREFER_FAST_TRACE
+          | AccelerationStructureFlags::ALLOW_RAY_HIT_VERTEX_RETURN,
         update_mode: AccelerationStructureUpdateMode::Build,
       },
       BlasGeometrySizeDescriptors::Triangles {
@@ -147,7 +148,8 @@ impl DeviceTlas {
           })
         })
         .collect(),
-      flags: AccelerationStructureFlags::PREFER_FAST_TRACE,
+      flags: AccelerationStructureFlags::PREFER_FAST_TRACE
+        | AccelerationStructureFlags::ALLOW_RAY_HIT_VERTEX_RETURN,
       update_mode: AccelerationStructureUpdateMode::Build,
     };
     let gpu_tlas = GPUTlas::create(source, device);
