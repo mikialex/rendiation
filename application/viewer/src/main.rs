@@ -99,11 +99,11 @@ fn main() {
 
     use_enable_screenshot(cx);
 
-    stage_of_update_twice(cx, |cx| {
+    stage_of_update(cx, 2, |cx| {
       use_viewer_gizmo(cx);
     });
 
-    stage_of_update(cx, |cx| {
+    stage_of_update(cx, 1, |cx| {
       use_enable_gltf_io(cx);
       use_enable_obj_io(cx);
 

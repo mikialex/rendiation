@@ -87,10 +87,17 @@ pub fn cast_world_ray<T: Scalar>(
 
 pub struct GlobalCameraTransformShare<T>(pub T);
 
-impl<T: NDCSpaceMapper + Copy, Cx: DBHookCxLike> SharedResultProvider<Cx>
+impl<T: NDCSpaceMapper + Copy + std::hash::Hash, Cx: DBHookCxLike> SharedResultProvider<Cx>
   for GlobalCameraTransformShare<T>
 {
   type Result = impl DualQueryLike<Key = RawEntityHandle, Value = CameraTransform>;
+
+  fn compute_share_key(&self) -> ShareKey {
+    let mut hasher = fast_hash_collection::FastHasher::default();
+    std::any::TypeId::of::<Self>().hash(&mut hasher);
+    self.0.hash(&mut hasher);
+    ShareKey::Hash(hasher.finish())
+  }
 
   fn use_logic(&self, cx: &mut Cx) -> UseResult<Self::Result> {
     let projections = use_camera_project_matrix(cx, self.0);

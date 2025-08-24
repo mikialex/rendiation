@@ -14,6 +14,9 @@ pub use pick::*;
 mod terminal;
 pub use terminal::*;
 
+mod init_config;
+pub use init_config::*;
+
 mod background;
 pub use background::*;
 
@@ -216,72 +219,52 @@ pub struct FeaturesGlobalUIStates {
   features: fast_hash_collection::FastHashMap<&'static str, bool>,
 }
 
-/// if the function's logic contains cyclic dependency of the outside, using this to
-/// make sure the update is synced. for example depend on world matrix while update the local
-/// matrix simultaneously.
-///
-/// todo, improve
-pub fn stage_of_update_twice(cx: &mut ViewerCx, internal: impl Fn(&mut ViewerCx)) {
-  if cx.is_dynamic_stage() {
-    stage_of_update_internal(cx, &internal, false);
-    return;
-  }
-  stage_of_update_internal(cx, &internal, true);
-  stage_of_update_internal(cx, &internal, false);
-}
-
-/// Act as the viewer event update pair provider.
-/// if the different update logic(read write) has dependency, they can be separate by this function.
-pub fn stage_of_update(cx: &mut ViewerCx, internal: impl Fn(&mut ViewerCx)) {
-  stage_of_update_internal(cx, internal, false);
-}
-
-pub fn stage_of_update_internal(
-  cx: &mut ViewerCx,
-  internal: impl Fn(&mut ViewerCx),
-  rollback: bool,
-) {
+/// expand the viewer cx base stage to a series of stages, and call them multiple times
+/// because some logic may have cyclic dependency for example something depend on world matrix
+pub fn stage_of_update(cx: &mut ViewerCx, cycle_count: usize, internal: impl Fn(&mut ViewerCx)) {
   if let ViewerCxStage::BaseStage = cx.stage {
-    let mut pool = AsyncTaskPool::default();
-    {
-      cx.viewer.shared_ctx.reset_visiting();
+    for i in 0..cycle_count {
+      let mut pool = AsyncTaskPool::default();
+      {
+        cx.viewer.shared_ctx.reset_visiting();
+        cx.stage = unsafe {
+          std::mem::transmute(ViewerCxStage::SpawnTask {
+            pool: &mut pool,
+            shared_ctx: &mut cx.viewer.shared_ctx,
+          })
+        };
+
+        cx.execute_partial(&internal, true);
+      }
+
+      {
+        let mut task_pool_result = pollster::block_on(pool.all_async_task_done());
+
+        cx.viewer.shared_ctx.reset_visiting();
+        cx.stage = unsafe {
+          std::mem::transmute(ViewerCxStage::EventHandling {
+            task: &mut task_pool_result,
+            shared_ctx: &mut cx.viewer.shared_ctx,
+            terminal_request: cx.viewer.terminal.ctx.store.clone(),
+          })
+        };
+
+        cx.execute_partial(&internal, true);
+      }
+
+      let mut writer = SceneWriter::from_global(cx.viewer.scene.scene);
+
       cx.stage = unsafe {
-        std::mem::transmute(ViewerCxStage::SpawnTask {
-          pool: &mut pool,
-          shared_ctx: &mut cx.viewer.shared_ctx,
+        std::mem::transmute(ViewerCxStage::SceneContentUpdate {
+          writer: &mut writer,
         })
       };
-
-      cx.execute_partial(&internal, true);
+      cx.execute_partial(&internal, i != cycle_count - 1);
     }
-
-    {
-      let mut task_pool_result = pollster::block_on(pool.all_async_task_done());
-
-      cx.viewer.shared_ctx.reset_visiting();
-      cx.stage = unsafe {
-        std::mem::transmute(ViewerCxStage::EventHandling {
-          task: &mut task_pool_result,
-          shared_ctx: &mut cx.viewer.shared_ctx,
-          terminal_request: cx.viewer.terminal.ctx.store.clone(),
-        })
-      };
-
-      cx.execute_partial(&internal, true);
-    }
-
-    let mut writer = SceneWriter::from_global(cx.viewer.scene.scene);
-
-    cx.stage = unsafe {
-      std::mem::transmute(ViewerCxStage::SceneContentUpdate {
-        writer: &mut writer,
-      })
-    };
-    cx.execute_partial(&internal, rollback);
 
     cx.stage = ViewerCxStage::BaseStage;
   } else {
-    cx.execute_partial(&internal, rollback);
+    cx.execute_partial(&internal, false);
   }
 }
 
@@ -294,6 +277,7 @@ pub fn use_viewer<'a>(
     Viewer::new(
       acx.gpu_and_surface.gpu.clone(),
       acx.gpu_and_surface.surface.clone(),
+      &ViewerInitConfig::default(), // todo, read from config file
     )
   });
 
@@ -379,7 +363,11 @@ impl CanCleanUpFrom<ApplicationDropCx> for Viewer {
 }
 
 impl Viewer {
-  pub fn new(gpu: GPU, swap_chain: ApplicationWindowSurface) -> Self {
+  pub fn new(
+    gpu: GPU,
+    swap_chain: ApplicationWindowSurface,
+    init_config: &ViewerInitConfig,
+  ) -> Self {
     let mut terminal = Terminal::default();
     register_default_commands(&mut terminal);
 
@@ -428,13 +416,13 @@ impl Viewer {
     };
 
     let viewer_ndc = ViewerNDC {
-      enable_reverse_z: true,
+      enable_reverse_z: init_config.enable_reverse_z,
     };
 
     Self {
       scene,
       terminal,
-      rendering: Viewer3dRenderingCtx::new(gpu, swap_chain, viewer_ndc),
+      rendering: Viewer3dRenderingCtx::new(gpu, swap_chain, viewer_ndc, init_config),
       background,
       started_time: Instant::now(),
       memory: Default::default(),

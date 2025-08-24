@@ -35,7 +35,7 @@ pub enum RasterizationRenderBackendType {
   Indirect,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Hash)]
 pub struct ViewerNDC {
   pub enable_reverse_z: bool,
 }
@@ -104,16 +104,22 @@ impl Viewer3dRenderingCtx {
     self.pool.tick();
   }
 
-  pub fn new(gpu: GPU, swap_chain: ApplicationWindowSurface, ndc: ViewerNDC) -> Self {
+  pub fn new(
+    gpu: GPU,
+    swap_chain: ApplicationWindowSurface,
+    ndc: ViewerNDC,
+    init_config: &ViewerInitConfig,
+  ) -> Self {
     Self {
-      prefer_bindless_for_indirect_texture_system: false,
+      prefer_bindless_for_indirect_texture_system: init_config
+        .prefer_bindless_for_indirect_texture_system,
       enable_statistic_collect: false,
       frame_index: 0,
       ndc,
       swap_chain,
-      enable_indirect_occlusion_culling: false,
-      transparent_config: ViewerTransparentContentRenderStyle::NaiveAlphaBlend,
-      current_renderer_impl_ty: RasterizationRenderBackendType::Indirect,
+      enable_indirect_occlusion_culling: init_config.enable_indirect_occlusion_culling,
+      transparent_config: init_config.transparent_config,
+      current_renderer_impl_ty: init_config.raster_backend_type,
       rtx_effect_mode: RayTracingEffectMode::ReferenceTracing,
       rtx_rendering_enabled: false,
       rtx_renderer_enabled: false,

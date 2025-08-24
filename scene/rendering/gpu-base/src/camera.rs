@@ -2,7 +2,7 @@ use crate::*;
 
 pub fn use_camera_uniforms(
   cx: &mut QueryGPUHookCx,
-  ndc: impl NDCSpaceMapper + Copy,
+  ndc: impl NDCSpaceMapper + Copy + Hash,
 ) -> Option<CameraRenderer> {
   let uniforms = cx.use_uniform_buffers();
 

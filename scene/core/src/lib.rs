@@ -1,4 +1,5 @@
 #![feature(impl_trait_in_assoc_type)]
+use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::sync::Arc;
 

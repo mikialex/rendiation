@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 use database::*;
 use rendiation_geometry::*;
 use rendiation_scene_core::*;
@@ -12,7 +14,7 @@ type GPUFrustumData = UniformBufferDataView<GPUFrustumDataType>;
 
 pub fn use_camera_gpu_frustum(
   cx: &mut QueryGPUHookCx,
-  ndc: impl NDCSpaceMapper + Copy,
+  ndc: impl NDCSpaceMapper + Copy + Hash,
 ) -> Option<CameraGPUFrustums> {
   let uniforms = cx.use_uniform_buffers();
 

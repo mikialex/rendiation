@@ -6,7 +6,7 @@ use crate::*;
 
 pub fn use_viewer_culling(
   cx: &mut QueryGPUHookCx,
-  ndc: impl NDCSpaceMapper + Copy,
+  ndc: impl NDCSpaceMapper + Copy + Hash,
   enable_oc_support: bool,
 ) -> Option<ViewerCulling> {
   let oc = if enable_oc_support {
