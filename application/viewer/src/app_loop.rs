@@ -1,7 +1,3 @@
-use std::sync::Arc;
-
-use parking_lot::RwLock;
-
 use crate::*;
 
 struct WindowWithWGPUSurface {

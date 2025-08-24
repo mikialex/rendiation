@@ -1,5 +1,3 @@
-use reactive::EventSource;
-
 use crate::*;
 
 pub struct GPUCommandEncoder {

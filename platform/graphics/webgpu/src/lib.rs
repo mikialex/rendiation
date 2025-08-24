@@ -34,6 +34,7 @@ pub use binding::*;
 use bytemuck::*;
 pub use device::*;
 pub use encoder::*;
+use event_source::*;
 use fast_hash_collection::*;
 pub use frame::*;
 use futures::{Future, FutureExt};

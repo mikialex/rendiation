@@ -2,6 +2,8 @@
 #![feature(impl_trait_in_assoc_type)]
 
 use std::hash::Hash;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 use std::{
   any::{Any, TypeId},
   marker::PhantomData,
@@ -12,12 +14,13 @@ use std::{
 use arena::*;
 use bytemuck::*;
 use dyn_clone::*;
+use event_source::*;
 pub use facet::*;
 use fast_hash_collection::*;
+use futures::{task::AtomicWaker, Stream};
 use parking_lot::RwLock;
 pub use query::*;
 pub use query_hook::*;
-use reactive::*;
 use serde::*;
 
 mod global;
