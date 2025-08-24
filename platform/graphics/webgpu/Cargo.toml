@@ -12,7 +12,7 @@ futures = { workspace = true }
 naga = { workspace = true }
 disqualified = { workspace = true }
 parking_lot = { workspace = true }
-reactive = { path = "../../../utility/reactive" }
+event-source = { path = "../../../utility/event-source" }
 rendiation-algebra = { path = "../../../math/algebra" }
 rendiation-shader-api = { path = "../../../shader/api" }
 rendiation-shader-backend-naga = { path = "../../../shader/backends/naga" }
