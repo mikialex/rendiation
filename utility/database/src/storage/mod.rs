@@ -132,6 +132,7 @@ pub trait ComponentStorageReadWriteView {
   /// the idx must point to living location, return old value ptr
   unsafe fn delete(&mut self, idx: u32) -> DataPtr;
 
-  /// grow the storage to allow more data to stored at the bound of the max size address.
-  fn grow(&mut self, max: u32);
+  /// resize the storage to allow more data to stored at the bound of the max size address.
+  /// or shrink the storage to save memory
+  fn resize(&mut self, max_address: u32);
 }

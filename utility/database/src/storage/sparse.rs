@@ -107,7 +107,7 @@ where
     &self.old_value_out as *const _ as DataPtr
   }
 
-  fn grow(&mut self, _max: u32) {
-    // noop
+  fn resize(&mut self, _max_address: u32) {
+    // noop, because it's the sparse storage
   }
 }

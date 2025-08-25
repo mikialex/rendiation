@@ -148,7 +148,7 @@ impl EntityComponentWriterImpl {
   ///
   /// idx must point to living data
   pub unsafe fn write_init_component_value(&mut self, idx: RawEntityHandle) {
-    self.component.data.grow(idx.index());
+    self.component.data.resize(idx.index());
     let next_value = self.next_value.as_mut().and_then(|v| v.next_value());
     self.component.write(idx, true, next_value);
   }
@@ -158,7 +158,7 @@ impl EntityComponentWriterImpl {
   /// idx must point to living data
   pub unsafe fn clone_component_value(&mut self, src: RawEntityHandle, dst: RawEntityHandle) {
     let src = self.component.get_unchecked(src);
-    self.component.data.grow(dst.index());
+    self.component.data.resize(dst.index());
     self.write_component(dst, src);
   }
 

@@ -30,11 +30,6 @@ pub trait LinearStorageBase: Sized {
   fn max_size(&self) -> u32;
 }
 
-// pub trait LinearStorageShrinkInfo: LinearStorageBase {
-//   fn use_item_count(&self) -> u32;
-//   fn largest_in_use_idx(&self) -> u32;
-// }
-
 pub trait LinearStorageDirectAccess: LinearStorageBase {
   fn remove(&mut self, idx: u32) -> Option<()>;
   fn removes(&mut self, offset: u32, len: u32) -> Option<()> {

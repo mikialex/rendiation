@@ -105,11 +105,11 @@ where
     &self.old_value_out as *const _ as DataPtr
   }
 
-  fn grow(&mut self, max: u32) {
-    let max = max as usize;
-    if self.data.len() <= max {
+  fn resize(&mut self, max_address: u32) {
+    let max_address = max_address as usize;
+    if self.data.len() <= max_address {
       let default = self.default_value.clone();
-      self.data.resize(max + 1, default);
+      self.data.resize(max_address + 1, default);
     }
   }
 }
