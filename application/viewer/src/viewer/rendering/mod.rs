@@ -344,6 +344,27 @@ impl Viewer3dRenderingCtx {
     pool
   }
 
+  pub fn inspect(
+    &mut self,
+    memory: &mut FunctionMemory,
+    shared_ctx: &mut SharedHooksCtx,
+    inspector: &mut dyn Inspector,
+  ) {
+    if !memory.created {
+      return;
+    }
+
+    let gpu = self.gpu.clone();
+    shared_ctx.reset_visiting();
+    QueryGPUHookCx {
+      memory,
+      gpu: &gpu,
+      stage: GPUQueryHookStage::Inspect(inspector),
+      shared_ctx,
+    }
+    .execute(|cx| self.use_viewer_scene_renderer(cx), true);
+  }
+
   #[instrument(name = "frame rendering", skip_all)]
   pub fn render(
     &mut self,

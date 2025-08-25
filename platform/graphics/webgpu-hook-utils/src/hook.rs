@@ -24,6 +24,11 @@ pub enum GPUQueryHookStage<'a> {
   CreateRender {
     task: TaskPoolResultCx,
   },
+  Inspect(&'a mut dyn Inspector),
+}
+
+pub trait Inspector {
+  fn label(&mut self, label: &str);
 }
 
 unsafe impl<'a> HooksCxLike for QueryGPUHookCx<'a> {
@@ -122,9 +127,17 @@ impl<'a> QueryGPUHookCx<'a> {
     init_capacity_item_count: u32,
     max_item_count: u32,
   ) -> (&mut Self, &mut CommonStorageBufferImpl<V>) {
-    self.use_gpu_init(|gpu| {
+    let (cx, storage) = self.use_gpu_init(|gpu| {
       create_common_storage_buffer_container(label, init_capacity_item_count, max_item_count, gpu)
-    })
+    });
+
+    if let GPUQueryHookStage::Inspect(inspector) = &mut cx.stage {
+      let buffer_size: u64 = storage.get_gpu_buffer().resource.desc.size.into();
+      let buffer_size = buffer_size as f32 / 1024.;
+      inspector.label(&format!("storage: {}, size: {:.2} kb", label, buffer_size));
+    }
+
+    (cx, storage)
   }
 
   pub fn when_render<X>(&self, f: impl FnOnce() -> X) -> Option<X> {
@@ -191,6 +204,7 @@ impl QueryHookCxLike for QueryGPUHookCx<'_> {
         change_collector,
       },
       GPUQueryHookStage::CreateRender { task, .. } => QueryHookStage::ResolveTask { task },
+      _ => QueryHookStage::Other,
     }
   }
 }

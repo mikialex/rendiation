@@ -107,6 +107,25 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
         ui.separator();
 
         viewer.rendering.egui(ui);
+
+        ui.separator();
+
+        ui.collapsing("Rendering Resources Detail", |ui| {
+          struct EguiInspector<'a>(&'a mut egui::Ui);
+          impl<'a> Inspector for EguiInspector<'a> {
+            fn label(&mut self, label: &str) {
+              self.0.label(label);
+            }
+          }
+          let mut inspector = EguiInspector(ui);
+
+          viewer.rendering.inspect(
+            &mut viewer.render_memory,
+            &mut viewer.shared_ctx,
+            &mut inspector as &mut dyn Inspector,
+          );
+        });
+
         ui.separator();
 
         viewer.background.egui(ui, viewer.scene.scene);

@@ -10,18 +10,20 @@ only_vertex!(IndirectAbstractMeshId, u32);
 use crate::*;
 
 pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl> {
-  let (cx, indices) = cx.use_gpu_init(|gpu| {
-    let indices_init_size = 20 * 1024 * 1024;
-    let indices_max_size = 200 * 1024 * 1024;
+  let init_index_count = 200_000;
+  let max_index_count = init_index_count * 100;
+  let init_vertex_count = 100_000;
+  let max_vertex_count = init_vertex_count * 100;
 
+  let (cx, indices) = cx.use_gpu_init(|gpu| {
     let indices = StorageBufferReadonlyDataView::<[u32]>::create_by_with_extra_usage(
       &gpu.device,
       Some("bindless mesh index pool"),
-      ZeroedArrayByArrayLength(indices_init_size as usize).into(),
+      ZeroedArrayByArrayLength(init_index_count).into(),
       BufferUsages::INDEX,
     );
 
-    let indices = create_growable_buffer(gpu, indices, indices_max_size);
+    let indices = create_growable_buffer(gpu, indices, max_index_count as u32);
     Arc::new(RwLock::new(GPURangeAllocateMaintainer::new(gpu, indices)))
   });
 
@@ -29,26 +31,44 @@ pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl>
     Arc::new(RwLock::new(create_storage_buffer_range_allocate_pool(
       gpu,
       "bindless mesh vertex pool: position",
-      100 * 1024 * 1024,
-      1000 * 1024 * 1024,
+      init_vertex_count,
+      max_vertex_count,
     )))
   });
   let (cx, normal) = cx.use_gpu_init(|gpu| {
     Arc::new(RwLock::new(create_storage_buffer_range_allocate_pool(
       gpu,
       "bindless mesh vertex pool: normal",
-      100 * 1024 * 1024,
-      1000 * 1024 * 1024,
+      init_vertex_count,
+      max_vertex_count,
     )))
   });
   let (cx, uv) = cx.use_gpu_init(|gpu| {
     Arc::new(RwLock::new(create_storage_buffer_range_allocate_pool(
       gpu,
       "bindless mesh vertex pool: uv",
-      80 * 1024 * 1024,
-      1000 * 1024 * 1024,
+      init_vertex_count,
+      max_vertex_count,
     )))
   });
+
+  if let GPUQueryHookStage::Inspect(inspector) = &mut cx.stage {
+    let buffer_size: u64 = indices.read().gpu().resource.desc.size.into();
+    let buffer_size = buffer_size as f32 / 1024.;
+    inspector.label(&format!("bindless index, size: {:.2} kb", buffer_size));
+
+    let buffer_size: u64 = position.read().gpu().resource.desc.size.into();
+    let buffer_size = buffer_size as f32 / 1024.;
+    inspector.label(&format!("bindless position, size: {:.2} kb", buffer_size));
+
+    let buffer_size: u64 = normal.read().gpu().resource.desc.size.into();
+    let buffer_size = buffer_size as f32 / 1024.;
+    inspector.label(&format!("bindless normal, size: {:.2} kb", buffer_size));
+
+    let buffer_size: u64 = uv.read().gpu().resource.desc.size.into();
+    let buffer_size = buffer_size as f32 / 1024.;
+    inspector.label(&format!("bindless uv, size: {:.2} kb", buffer_size));
+  }
 
   let attribute_buffer_metadata = use_attribute_buffer_metadata(cx, indices, position, normal, uv);
 
