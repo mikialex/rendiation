@@ -100,8 +100,26 @@ pub struct FunctionMemory {
   states: Bump,
   states_meta: Vec<FunctionMemoryState>,
   pub current_cursor: usize,
-  sub_functions: FastHashMap<Location<'static>, Self>,
-  sub_functions_next: FastHashMap<Location<'static>, Self>,
+  sub_functions: FastHashMap<SubFunctionKey, Self>,
+  sub_functions_next: FastHashMap<SubFunctionKey, Self>,
+}
+
+#[derive(Eq)]
+struct SubFunctionKey {
+  position: usize,
+  call_site: &'static Location<'static>,
+}
+
+impl PartialEq for SubFunctionKey {
+  fn eq(&self, other: &Self) -> bool {
+    self.position == other.position && std::ptr::eq(self.call_site, other.call_site)
+  }
+}
+impl std::hash::Hash for SubFunctionKey {
+  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    self.position.hash(state);
+    (self.call_site as *const _ as usize).hash(state);
+  }
 }
 
 impl FunctionMemory {
@@ -164,28 +182,32 @@ impl FunctionMemory {
   #[track_caller]
   pub fn sub_function(&mut self, is_dynamic_stage: bool) -> &mut Self {
     let location = Location::caller();
+    let key = SubFunctionKey {
+      position: self.current_cursor,
+      call_site: location,
+    };
     if is_dynamic_stage {
-      if let Some(previous_memory) = self.sub_functions.remove(location) {
+      if let Some(previous_memory) = self.sub_functions.remove(&key) {
         assert!(
-          !self.sub_functions_next.contains_key(location),
+          !self.sub_functions_next.contains_key(&key),
           "sub function already been used in static stage: {}",
           location
         );
         self
           .sub_functions_next
-          .entry(*location)
+          .entry(key)
           .or_insert(previous_memory)
       } else {
         assert!(
-          !self.sub_functions_next.contains_key(location),
+          !self.sub_functions_next.contains_key(&key),
           "sub function already been used in static stage: {}",
           location
         );
-        self.sub_functions_next.entry(*location).or_default()
+        self.sub_functions_next.entry(key).or_default()
       }
     } else {
       // todo, validate all function are used
-      self.sub_functions.get_mut(location).unwrap()
+      self.sub_functions.get_mut(&key).unwrap()
     }
   }
 
