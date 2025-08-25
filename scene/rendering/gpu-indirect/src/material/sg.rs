@@ -6,7 +6,7 @@ use crate::*;
 pub fn use_pbr_sg_material_storage(
   cx: &mut QueryGPUHookCx,
 ) -> Option<PbrSGMaterialIndirectRenderer> {
-  let (cx, storages) = cx.use_storage_buffer(128, u32::MAX);
+  let (cx, storages) = cx.use_storage_buffer("pbr sg materials parameter data", 128, u32::MAX);
 
   cx.use_changes::<PbrSGMaterialAlbedoComponent>()
     .update_storage_array(storages, offset_of!(Storage, albedo));
@@ -23,7 +23,7 @@ pub fn use_pbr_sg_material_storage(
   cx.use_changes::<AlphaOf<PbrSGMaterialAlphaConfig>>()
     .update_storage_array(storages, offset_of!(Storage, alpha));
 
-  let (cx, tex_storages) = cx.use_storage_buffer(128, u32::MAX);
+  let (cx, tex_storages) = cx.use_storage_buffer("pbr sg materials texture data", 128, u32::MAX);
 
   let albedo = offset_of!(TexStorage, albedo_texture);
   let emissive = offset_of!(TexStorage, emissive_texture);

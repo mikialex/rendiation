@@ -13,7 +13,7 @@ pub struct PointLightStorage {
 pub fn use_point_light_storage(
   cx: &mut QueryGPUHookCx,
 ) -> Option<LightGPUStorage<PointLightStorage>> {
-  let (cx, light) = cx.use_storage_buffer(128, u32::MAX);
+  let (cx, light) = cx.use_storage_buffer("point lights", 128, u32::MAX);
 
   cx.use_changes::<PointLightIntensity>()
     .update_storage_array(light, offset_of!(PointLightStorage, luminance_intensity));

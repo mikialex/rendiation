@@ -102,6 +102,7 @@ pub fn create_storage_buffer_slab_allocate_pool<T: Std430>(
   assert!(max_item_count >= init_item_count);
   let buffer = StorageBufferReadonlyDataView::<[T]>::create_by(
     &gpu.device,
+    None,
     ZeroedArrayByArrayLength(init_item_count as usize).into(),
   );
 

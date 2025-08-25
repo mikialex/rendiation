@@ -3,7 +3,7 @@ use crate::*;
 pub fn use_unlit_material_storage(
   cx: &mut QueryGPUHookCx,
 ) -> Option<UnlitMaterialIndirectRenderer> {
-  let (cx, storages) = cx.use_storage_buffer(128, u32::MAX);
+  let (cx, storages) = cx.use_storage_buffer("unlit materials parameter data", 128, u32::MAX);
 
   cx.use_changes::<UnlitMaterialColorComponent>()
     .map_changes(srgb4_to_linear4)
@@ -15,7 +15,7 @@ pub fn use_unlit_material_storage(
   cx.use_changes::<AlphaCutoffOf<UnlitMaterialAlphaConfig>>()
     .update_storage_array(storages, offset_of!(UnlitMaterialStorage, alpha_cutoff));
 
-  let (cx, tex_storages) = cx.use_storage_buffer(128, u32::MAX);
+  let (cx, tex_storages) = cx.use_storage_buffer("unlit materials texture data", 128, u32::MAX);
 
   let base_color_alpha = offset_of!(TexStorage, color_alpha_texture);
   use_tex_watcher::<UnlitMaterialColorAlphaTex, _>(cx, tex_storages, base_color_alpha);

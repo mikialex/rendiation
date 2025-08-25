@@ -15,7 +15,7 @@ pub trait DrawUnitWorldTransformInvocationProvider {
 pub fn use_scene_model_device_world_transform(
   cx: &mut QueryGPUHookCx,
 ) -> Option<DrawUnitWorldTransformProviderDefaultImpl> {
-  let (cx, storage) = cx.use_storage_buffer(128, u32::MAX);
+  let (cx, storage) = cx.use_storage_buffer("scene model world mat", 128, u32::MAX);
 
   cx.use_shared_dual_query(GlobalSceneModelWorldMatrix)
     .into_delta_change()

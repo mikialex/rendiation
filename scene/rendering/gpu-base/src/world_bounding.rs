@@ -24,7 +24,7 @@ pub struct TargetWorldBounding {
 pub fn use_scene_model_device_world_bounding(
   cx: &mut QueryGPUHookCx,
 ) -> Option<DrawUnitWorldBoundingProviderDefaultImpl> {
-  let (cx, storage) = cx.use_storage_buffer(128, u32::MAX);
+  let (cx, storage) = cx.use_storage_buffer("scene model world bounding", 128, u32::MAX);
 
   cx.use_shared_dual_query(SceneModelWorldBounding)
     .into_delta_change()

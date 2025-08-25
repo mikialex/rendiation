@@ -67,16 +67,17 @@ impl<T: Std430MaybeUnsized + ?Sized> BindableResourceView for StorageBufferReado
 }
 
 impl<T: Std430MaybeUnsized + ?Sized> StorageBufferReadonlyDataView<T> {
-  pub fn create(device: &GPUDevice, data: &T) -> Self {
-    Self::create_by(device, StorageBufferInit::WithInit(data))
+  pub fn create(device: &GPUDevice, label: Option<&str>, data: &T) -> Self {
+    Self::create_by(device, label, StorageBufferInit::WithInit(data))
   }
 
-  pub fn create_by(device: &GPUDevice, source: StorageBufferInit<T>) -> Self {
-    Self::create_by_with_extra_usage(device, source, gpu::BufferUsages::empty())
+  pub fn create_by(device: &GPUDevice, label: Option<&str>, source: StorageBufferInit<T>) -> Self {
+    Self::create_by_with_extra_usage(device, label, source, gpu::BufferUsages::empty())
   }
 
   pub fn create_by_with_extra_usage(
     device: &GPUDevice,
+    label: Option<&str>,
     source: StorageBufferInit<T>,
     extra_usage: gpu::BufferUsages,
   ) -> Self {
@@ -90,7 +91,7 @@ impl<T: Std430MaybeUnsized + ?Sized> StorageBufferReadonlyDataView<T> {
       size: init.size(),
       usage,
     };
-    let gpu = GPUBuffer::create(device, init, usage);
+    let gpu = GPUBuffer::create(device, label, init, usage);
 
     let gpu = GPUBufferResource::create_with_raw(gpu, desc, device).create_default_view();
 
@@ -111,7 +112,7 @@ pub fn create_gpu_readonly_storage<T: Std430MaybeUnsized + ?Sized>(
   data: &T,
   device: impl AsRef<GPUDevice>,
 ) -> StorageBufferReadonlyDataView<T> {
-  StorageBufferReadonlyDataView::create(device.as_ref(), data)
+  StorageBufferReadonlyDataView::create(device.as_ref(), None, data)
 }
 
 pub struct StorageBufferDataView<T: Std430MaybeUnsized + ?Sized> {
@@ -284,7 +285,7 @@ impl<T: Std430MaybeUnsized + ?Sized> StorageBufferDataView<T> {
       usage,
     };
 
-    let gpu = GPUBuffer::create(device, init, usage);
+    let gpu = GPUBuffer::create(device, None, init, usage);
     let gpu = GPUBufferResource::create_with_raw(gpu, desc, device).create_default_view();
 
     Self {

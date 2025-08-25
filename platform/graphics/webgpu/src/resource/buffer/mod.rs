@@ -59,15 +59,20 @@ impl BufferInit<'_> {
 }
 
 impl GPUBuffer {
-  pub fn create(device: &GPUDevice, init: BufferInit, usage: gpu::BufferUsages) -> Self {
+  pub fn create(
+    device: &GPUDevice,
+    label: Option<&str>,
+    init: BufferInit,
+    usage: gpu::BufferUsages,
+  ) -> Self {
     let gpu = match init {
       BufferInit::WithInit(bytes) => device.create_buffer_init(&gpu::util::BufferInitDescriptor {
-        label: None,
+        label,
         contents: bytes,
         usage,
       }),
       BufferInit::Zeroed(size) => device.create_buffer(&wgpu::BufferDescriptor {
-        label: None,
+        label,
         size: size.get(),
         usage,
         mapped_at_creation: false,
@@ -136,7 +141,7 @@ pub fn create_gpu_buffer(
   device: &GPUDevice,
 ) -> GPUBufferResource {
   GPUBufferResource::create_with_raw(
-    GPUBuffer::create(device, BufferInit::WithInit(data), usage),
+    GPUBuffer::create(device, None, BufferInit::WithInit(data), usage),
     GPUBufferDescriptor {
       usage,
       size: NonZeroU64::new(data.len() as u64).unwrap(),
@@ -154,6 +159,7 @@ pub fn create_gpu_buffer_zeroed(
   GPUBufferResource::create_with_raw(
     GPUBuffer::create(
       device,
+      None,
       BufferInit::Zeroed(NonZeroU64::new(byte_size).unwrap()),
       usage,
     ),

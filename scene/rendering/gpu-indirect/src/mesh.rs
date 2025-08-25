@@ -16,6 +16,7 @@ pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl>
 
     let indices = StorageBufferReadonlyDataView::<[u32]>::create_by_with_extra_usage(
       &gpu.device,
+      Some("bindless mesh index pool"),
       ZeroedArrayByArrayLength(indices_init_size as usize).into(),
       BufferUsages::INDEX,
     );
@@ -27,6 +28,7 @@ pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl>
   let (cx, position) = cx.use_gpu_init(|gpu| {
     Arc::new(RwLock::new(create_storage_buffer_range_allocate_pool(
       gpu,
+      "bindless mesh vertex pool: position",
       100 * 1024 * 1024,
       1000 * 1024 * 1024,
     )))
@@ -34,6 +36,7 @@ pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl>
   let (cx, normal) = cx.use_gpu_init(|gpu| {
     Arc::new(RwLock::new(create_storage_buffer_range_allocate_pool(
       gpu,
+      "bindless mesh vertex pool: normal",
       100 * 1024 * 1024,
       1000 * 1024 * 1024,
     )))
@@ -41,6 +44,7 @@ pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl>
   let (cx, uv) = cx.use_gpu_init(|gpu| {
     Arc::new(RwLock::new(create_storage_buffer_range_allocate_pool(
       gpu,
+      "bindless mesh vertex pool: uv",
       80 * 1024 * 1024,
       1000 * 1024 * 1024,
     )))
@@ -48,7 +52,8 @@ pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl>
 
   let attribute_buffer_metadata = use_attribute_buffer_metadata(cx, indices, position, normal, uv);
 
-  let (cx, sm_to_mesh_device) = cx.use_storage_buffer::<u32>(128, u32::MAX);
+  let (cx, sm_to_mesh_device) =
+    cx.use_storage_buffer::<u32>("scene_model to mesh mapping", 128, u32::MAX);
 
   let fanout = cx
     .use_dual_query::<StandardModelRefAttributesMeshEntity>()

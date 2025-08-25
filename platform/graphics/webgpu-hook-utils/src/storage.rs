@@ -14,12 +14,13 @@ impl<T: Std430> GetBufferHelper<T> for CommonStorageBufferImpl<T> {
 }
 
 pub fn create_common_storage_buffer_container<T: Std430>(
+  label: &str,
   init_capacity_item_count: u32,
   max_item_count: u32,
   gpu_ctx: &GPU,
 ) -> CommonStorageBufferImpl<T> {
   let init = make_init_size(init_capacity_item_count);
-  let data = StorageBufferReadonlyDataView::create_by(&gpu_ctx.device, init);
+  let data = StorageBufferReadonlyDataView::create_by(&gpu_ctx.device, Some(label), init);
   create_growable_buffer(gpu_ctx, data, max_item_count)
 }
 
@@ -32,7 +33,7 @@ pub fn create_common_storage_buffer_with_host_backup_container<T: Std430 + Defau
   gpu_ctx: &GPU,
 ) -> CommonStorageBufferImplWithHostBackup<T> {
   let init = make_init_size(init_capacity_item_count);
-  let data = StorageBufferReadonlyDataView::create_by(&gpu_ctx.device, init);
+  let data = StorageBufferReadonlyDataView::create_by(&gpu_ctx.device, None, init);
   create_growable_buffer(gpu_ctx, data, max_item_count).with_vec_backup(T::default(), false)
 }
 

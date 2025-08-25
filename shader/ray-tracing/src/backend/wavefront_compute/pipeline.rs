@@ -101,11 +101,16 @@ fn create_task_graph<'a>(
   let trace_resource = trace_resource.get_or_insert_with(|| {
     let info = source.compute_trace_meta_info();
 
-    let target_sbt_buffer = StorageBufferReadonlyDataView::create(device, &0);
-    let sbt_task_mapping_buffer =
-      StorageBufferReadonlyDataView::create(device, &info.create_sbt_mapping());
+    let target_sbt_buffer =
+      StorageBufferReadonlyDataView::create(device, "target_sbt_buffer".into(), &0);
+    let sbt_task_mapping_buffer = StorageBufferReadonlyDataView::create(
+      device,
+      "sbt_task_mapping_buffer".into(),
+      &info.create_sbt_mapping(),
+    );
     // written in trace_ray. see RayLaunchSizeBuffer
-    let launch_size_buffer = StorageBufferReadonlyDataView::create(device, &vec3(0, 0, 0));
+    let launch_size_buffer =
+      StorageBufferReadonlyDataView::create(device, "launch_size_buffer".into(), &vec3(0, 0, 0));
 
     let payload_u32_len = size as usize * (info.payload_max_u32_count as usize);
 

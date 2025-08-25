@@ -221,6 +221,7 @@ pub trait DeviceInvocationComponent<T>: ShaderHashProvider {
     let size_output = cx.gpu.device.make_indirect_dispatch_size_buffer();
     let work_size_output = StorageBufferReadonlyDataView::create_by_with_extra_usage(
       &cx.gpu.device,
+      Some("work_size_output"),
       StorageBufferInit::WithInit(&Vec4::<u32>::zero()),
       BufferUsages::INDIRECT,
     )

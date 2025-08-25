@@ -12,7 +12,7 @@ pub struct DirectionalLightStorage {
 pub fn use_directional_light_storage(
   cx: &mut QueryGPUHookCx,
 ) -> Option<LightGPUStorage<DirectionalLightStorage>> {
-  let (cx, light) = cx.use_storage_buffer(128, u32::MAX);
+  let (cx, light) = cx.use_storage_buffer("directional lights", 128, u32::MAX);
 
   cx.use_changes::<DirectionalLightIlluminance>()
     .update_storage_array(light, offset_of!(DirectionalLightStorage, illuminance));

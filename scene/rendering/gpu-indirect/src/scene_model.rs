@@ -6,21 +6,21 @@ pub fn use_indirect_scene_model(
 ) -> Option<IndirectPreferredComOrderRenderer> {
   let node = use_node_storage(cx);
 
-  let (cx, scene_model_id) = cx.use_storage_buffer(128, u32::MAX);
+  let (cx, scene_model_meta) = cx.use_storage_buffer("scene model metadata", 128, u32::MAX);
 
   cx.use_changes::<SceneModelStdModelRenderPayload>()
     .map(|c| c.map_u32_index_or_u32_max())
-    .update_storage_array(scene_model_id, offset_of!(SceneModelStorage, std_model));
+    .update_storage_array(scene_model_meta, offset_of!(SceneModelStorage, std_model));
 
   cx.use_changes::<SceneModelRefNode>()
     .map(|c| c.map_some_u32_index())
-    .update_storage_array(scene_model_id, offset_of!(SceneModelStorage, node));
+    .update_storage_array(scene_model_meta, offset_of!(SceneModelStorage, node));
 
   cx.when_render(|| IndirectPreferredComOrderRenderer {
     model_impl: model_impl.unwrap(),
     node: global_entity_component_of::<SceneModelRefNode>().read_foreign_key(),
     node_render: node.unwrap(),
-    id_inject: DefaultSceneModelIdInject(scene_model_id.get_gpu_buffer()),
+    id_inject: DefaultSceneModelIdInject(scene_model_meta.get_gpu_buffer()),
   })
 }
 

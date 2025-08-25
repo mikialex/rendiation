@@ -89,6 +89,7 @@ impl DeviceSceneModelRenderSubBatch {
         let draw_count = r.size.unwrap_or_else(|| {
           StorageBufferReadonlyDataView::create_by_with_extra_usage(
             &cx.gpu.device,
+            "draw_count".into(),
             StorageBufferInit::WithInit(&Vec4::new(size, 0, 0, 0)),
             BufferUsages::INDIRECT,
           )
@@ -114,6 +115,7 @@ impl DeviceSceneModelRenderSubBatch {
         let draw_count = r.size.unwrap_or_else(|| {
           StorageBufferReadonlyDataView::create_by_with_extra_usage(
             &cx.gpu.device,
+            "draw_count".into(),
             StorageBufferInit::WithInit(&Vec4::new(size, 0, 0, 0)),
             BufferUsages::INDIRECT,
           )

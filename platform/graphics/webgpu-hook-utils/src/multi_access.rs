@@ -17,6 +17,7 @@ impl MultiAccessGPUStates {
     Self {
       allocator: create_storage_buffer_range_allocate_pool(
         gpu,
+        "device multi access allocator",
         init.init_many_count_capacity,
         init.max_possible_many_count,
       ),

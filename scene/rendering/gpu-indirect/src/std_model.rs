@@ -131,7 +131,7 @@ pub fn use_std_model_renderer(
   materials: Option<Box<dyn IndirectModelMaterialRenderImpl>>,
   shapes: Option<Box<dyn IndirectModelShapeRenderImpl>>,
 ) -> Option<SceneStdModelIndirectRenderer> {
-  let (cx, std_model) = cx.use_storage_buffer(128, u32::MAX);
+  let (cx, std_model) = cx.use_storage_buffer("std model metadata", 128, u32::MAX);
 
   cx.use_changes::<StandardModelRefAttributesMeshEntity>()
     .map(|mesh| mesh.map_u32_index_or_u32_max())

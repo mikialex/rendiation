@@ -105,7 +105,7 @@ impl CombinedBufferAllocatorInternal {
         usage,
       };
 
-      let buffer = GPUBuffer::create(&gpu.device, init, usage);
+      let buffer = GPUBuffer::create(&gpu.device, self.label.as_str().into(), init, usage);
       let buffer = GPUBufferResource::create_with_raw(buffer, desc, &gpu.device);
       buffer.create_default_view()
     };

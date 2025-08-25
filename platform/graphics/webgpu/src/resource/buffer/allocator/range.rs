@@ -193,12 +193,14 @@ pub type RangeAllocatePool<T> = GPURangeAllocateMaintainer<GrowableDirectQueueUp
 
 pub fn create_storage_buffer_range_allocate_pool<T: Std430>(
   gpu: &GPU,
+  label: &str,
   init_item_count: u32,
   max_item_count: u32,
 ) -> StorageBufferRangeAllocatePool<T> {
   assert!(max_item_count >= init_item_count);
   let buffer = StorageBufferReadonlyDataView::<[T]>::create_by(
     &gpu.device,
+    Some(label),
     ZeroedArrayByArrayLength(init_item_count as usize).into(),
   );
 

@@ -59,6 +59,7 @@ impl MeshLODGraphRenderer {
   pub fn new(gpu: &GPU) -> Self {
     let indices = StorageBufferReadonlyDataView::<[u32]>::create_by_with_extra_usage(
       &gpu.device,
+      "mesh lod graph indices pool".into(),
       ZeroedArrayByArrayLength(1_000_000).into(),
       BufferUsages::INDEX,
     );
@@ -68,11 +69,21 @@ impl MeshLODGraphRenderer {
 
     Self {
       scene_model_meshlet_index_vertex_offset: vec![Default::default(); 100],
-      meshlet_metadata: create_storage_buffer_range_allocate_pool(gpu, 10000, 10000),
+      meshlet_metadata: create_storage_buffer_range_allocate_pool(
+        gpu,
+        "mesh lod graph meshlet metadata pool",
+        10000,
+        10000,
+      ),
       scene_model_meshlet_range: create_common_storage_buffer_with_host_backup_container(
         100, 100, gpu,
       ),
-      position_buffer: create_storage_buffer_range_allocate_pool(gpu, 1_000_000, 1_000_000),
+      position_buffer: create_storage_buffer_range_allocate_pool(
+        gpu,
+        "mesh lod graph meshlet vertex pool: position",
+        1_000_000,
+        1_000_000,
+      ),
       index_buffer,
       enable_midc_downgrade: require_midc_downgrade(&gpu.info),
     }

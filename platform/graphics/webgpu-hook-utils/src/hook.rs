@@ -118,11 +118,12 @@ impl<'a> QueryGPUHookCx<'a> {
 
   pub fn use_storage_buffer<V: Std430>(
     &mut self,
+    label: &str,
     init_capacity_item_count: u32,
     max_item_count: u32,
   ) -> (&mut Self, &mut CommonStorageBufferImpl<V>) {
     self.use_gpu_init(|gpu| {
-      create_common_storage_buffer_container(init_capacity_item_count, max_item_count, gpu)
+      create_common_storage_buffer_container(label, init_capacity_item_count, max_item_count, gpu)
     })
   }
 

@@ -95,12 +95,17 @@ pub fn use_pool_texture_system(cx: &mut QueryGPUHookCx) -> Option<GPUTextureBind
     },
   };
 
-  let (cx, samplers) = cx.use_storage_buffer(init.init_sampler_count_capacity, u32::MAX);
+  let (cx, samplers) =
+    cx.use_storage_buffer("sampler info", init.init_sampler_count_capacity, u32::MAX);
   cx.use_changes::<SceneSamplerInfo>()
     .map_changes(TextureSamplerShaderInfo::from)
     .update_storage_array(samplers, 0);
 
-  let (cx, texture_address) = cx.use_storage_buffer(init.init_texture_count_capacity, u32::MAX);
+  let (cx, texture_address) = cx.use_storage_buffer(
+    "texture_address info",
+    init.init_texture_count_capacity,
+    u32::MAX,
+  );
 
   cx.use_changes::<SceneTexture2dEntityDirectContent>()
     .map_changes(|v| {

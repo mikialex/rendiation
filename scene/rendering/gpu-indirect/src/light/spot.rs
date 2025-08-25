@@ -15,7 +15,7 @@ pub struct SpotLightStorage {
 pub fn use_spot_light_storage(
   cx: &mut QueryGPUHookCx,
 ) -> Option<LightGPUStorage<SpotLightStorage>> {
-  let (cx, light) = cx.use_storage_buffer(128, u32::MAX);
+  let (cx, light) = cx.use_storage_buffer("spot lights", 128, u32::MAX);
 
   cx.use_changes::<SpotLightIntensity>()
     .update_storage_array(light, offset_of!(SpotLightStorage, luminance_intensity));

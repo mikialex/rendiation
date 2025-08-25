@@ -92,19 +92,27 @@ const SCENE_MAX_GROW_RATIO: u32 = 128;
 impl ShaderBindingTableDeviceInfo {
   pub fn new(gpu: &GPU) -> Self {
     let inner = ShaderBindingTableDeviceInfoImpl {
-      meta: create_storage_buffer_slab_allocate_pool_with_host(gpu, 32, 32 * SCENE_MAX_GROW_RATIO),
+      meta: create_storage_buffer_slab_allocate_pool_with_host(
+        gpu,
+        "sbt metadata",
+        32,
+        32 * SCENE_MAX_GROW_RATIO,
+      ),
       ray_hit: create_storage_buffer_range_allocate_pool(
         gpu,
+        "sbt_ray_hit pool",
         SCENE_MESH_INIT_SIZE * SCENE_RAY_TYPE_INIT_SIZE,
         SCENE_MESH_INIT_SIZE * SCENE_RAY_TYPE_INIT_SIZE * SCENE_MAX_GROW_RATIO,
       ),
       ray_miss: create_storage_buffer_range_allocate_pool(
         gpu,
+        "sbt_ray_miss pool",
         SCENE_RAY_TYPE_INIT_SIZE,
         SCENE_RAY_TYPE_INIT_SIZE * SCENE_MAX_GROW_RATIO,
       ),
       ray_gen: create_storage_buffer_range_allocate_pool(
         gpu,
+        "sbt_ray_gen pool",
         SCENE_RAY_TYPE_INIT_SIZE,
         SCENE_RAY_TYPE_INIT_SIZE * SCENE_MAX_GROW_RATIO,
       ),
@@ -268,11 +276,13 @@ pub type SlabAllocatePoolWithHost<T> =
 
 pub fn create_storage_buffer_slab_allocate_pool_with_host<T: Std430>(
   gpu: &GPU,
+  label: &str,
   init_size: u32,
   max_size: u32,
 ) -> StorageBufferSlabAllocatePoolWithHost<T> {
   let buffer = StorageBufferReadonlyDataView::<[T]>::create_by(
     &gpu.device,
+    label.into(),
     ZeroedArrayByArrayLength(init_size as usize).into(),
   );
 
