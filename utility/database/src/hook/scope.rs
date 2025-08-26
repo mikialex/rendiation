@@ -1,16 +1,20 @@
 use crate::*;
 
-pub fn use_db_scope<Cx: DBHookCxLike>(cx: &mut Cx, scope: impl FnOnce(&mut Cx)) {
+pub fn use_db_scope<Cx: DBHookCxLike>(
+  cx: &mut Cx,
+  on_change: impl Fn(&ChangePtr) + Send + Sync + Clone + 'static,
+  scope: impl FnOnce(&mut Cx, &mut EntityScope),
+) {
   let (cx, db_scope) = cx.use_plain_state(|| EntityScope::new(global_database()));
-  db_scope.enter();
-  scope(cx);
+  db_scope.enter(on_change);
+  scope(cx, db_scope);
   db_scope.exit();
 }
 
-struct EntityScope {
+pub struct EntityScope {
   db: Database,
   scope_watcher_drops: Option<FastHashMap<EntityId, RemoveToken<ChangePtr>>>,
-  entities: FastHashMap<EntityId, Arc<RwLock<FastHashSet<RawEntityHandle>>>>,
+  pub entities: FastHashMap<EntityId, Arc<RwLock<FastHashSet<RawEntityHandle>>>>,
 }
 
 impl EntityScope {
@@ -24,7 +28,7 @@ impl EntityScope {
 
   // todo, add assertion for no new entity type defined when in scope
   // todo, add assertion for entity should not reference any other entity out side of self scope
-  pub fn enter(&mut self) {
+  pub fn enter(&mut self, on_change: impl Fn(&ChangePtr) + Send + Sync + Clone + 'static) {
     assert!(self.scope_watcher_drops.is_none());
     let scope_watcher_drops = self
       .db
@@ -34,7 +38,9 @@ impl EntityScope {
       .map(|(k, table)| {
         use parking_lot::lock_api::RawRwLock;
         let set = self.entities.entry(*k).or_default().clone();
+        let on_change = on_change.clone();
         let token = table.inner.entity_watchers.on(move |change| unsafe {
+          on_change(change);
           match change {
             ScopedMessage::Start => {
               set.raw().lock_exclusive();
