@@ -1,9 +1,11 @@
 mod collective_channel;
+mod scope;
 mod util;
 
 use std::hash::Hasher;
 
 pub use collective_channel::*;
+pub use scope::*;
 pub use util::*;
 
 use crate::*;
