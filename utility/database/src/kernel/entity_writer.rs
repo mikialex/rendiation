@@ -2,6 +2,9 @@ use crate::*;
 
 impl EntityComponentGroup {
   pub fn entity_writer_dyn(&self) -> EntityWriterUntyped {
+    let change: ChangePtr = ScopedValueChange::Start;
+    self.inner.entity_watchers.emit(&change);
+
     let components = self.inner.components.read_recursive();
     let components = components
       .iter()
@@ -15,9 +18,6 @@ impl EntityComponentGroup {
         )
       })
       .collect();
-
-    let change: ChangePtr = ScopedValueChange::Start;
-    self.inner.entity_watchers.emit(&change);
 
     EntityWriterUntyped {
       type_id: self.inner.type_id,
@@ -40,6 +40,7 @@ pub struct EntityWriterUntyped {
 impl Drop for EntityWriterUntyped {
   fn drop(&mut self) {
     let change: ChangePtr = ScopedValueChange::End;
+    self.components.clear(); // trigger the components writer's dropper first
     self.entity_watchers.emit(&change);
   }
 }
