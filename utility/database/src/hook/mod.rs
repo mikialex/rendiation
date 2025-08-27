@@ -1,13 +1,11 @@
 mod collective_channel;
-mod scope;
-mod staged_change;
+mod staged_scope_watch;
 mod util;
 
 use std::hash::Hasher;
 
 pub use collective_channel::*;
-pub use scope::*;
-pub use staged_change::*;
+pub use staged_scope_watch::*;
 pub use util::*;
 
 use crate::*;

@@ -16,9 +16,18 @@ pub trait DataBaseDataType: CValue + Default {
   fn shape() -> &'static facet::Shape<'static>;
 }
 
+pub type DBFastSerializeSmallBuffer = smallvec::SmallVec<[u8; 16]>;
 pub trait DataBaseDataTypeDyn {
   fn fast_serialize_dyn(&self, target: &mut dyn std::io::Write) -> Option<()>;
   fn fast_deserialize_dyn(&mut self, source: &mut dyn std::io::Read) -> Option<()>;
+
+  fn fast_serialize_into_buffer(&self) -> DBFastSerializeSmallBuffer {
+    let mut target = smallvec::SmallVec::new();
+    self.fast_serialize_dyn(&mut target);
+    target.shrink_to_fit();
+    target
+  }
+
   fn shape(&self) -> &'static facet::Shape<'static>;
   /// this function will be removed in future.
   fn debug_value(&self) -> String;
