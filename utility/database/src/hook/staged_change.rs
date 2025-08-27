@@ -1,6 +1,10 @@
+use std::ops::DerefMut;
+
+use parking_lot::lock_api::RawRwLock;
+
 use crate::*;
 
-pub fn use_db_scoped_staged_change<Cx: DBHookCxLike>(
+pub fn use_db_scoped_staged_change<Cx: HooksCxLike>(
   cx: &mut Cx,
   scope: impl FnOnce(&mut Cx, &CheckPointCreator),
   on_staged_change_flushed: impl Fn(StagedDBScopeChange) + 'static,
@@ -9,9 +13,26 @@ pub fn use_db_scoped_staged_change<Cx: DBHookCxLike>(
 
   let check_pointer = change_merger.create_check_point_creator(on_staged_change_flushed);
 
+  let change_merger = change_merger.clone();
+  let change_merger_ = change_merger.clone();
   use_db_scope(
     cx,
-    |e_id, set_change| {},
+    move |e_id, set_change| unsafe {
+      //
+      match set_change {
+        ScopedMessage::Start => {
+          let mut internal = change_merger.internal.write();
+          let entity_set_changes = internal.entities.entry(e_id).or_default();
+          entity_set_changes.raw().lock_exclusive();
+        }
+        ScopedMessage::End => {
+          let internal = change_merger.internal.read();
+          let entity_set_changes = internal.entities.get(&e_id).unwrap();
+          entity_set_changes.raw().unlock_exclusive();
+        }
+        ScopedMessage::Message(_) => todo!(),
+      }
+    },
     |cx, db_entity_scope| {
       watch_db_components_in_scope(
         cx,
@@ -19,36 +40,36 @@ pub fn use_db_scoped_staged_change<Cx: DBHookCxLike>(
           scope(cx, &check_pointer);
         },
         db_entity_scope,
-        change_merger,
+        &change_merger_,
       );
     },
   )
 }
 
-pub fn use_db_incremental_persistence<Cx: DBHookCxLike>(
-  cx: &mut Cx,
-  scope: impl FnOnce(&mut Cx, &CheckPointCreator),
-) {
-  use_db_scoped_staged_change(
-    cx,
-    |cx, cp| {
-      // reload data if last time crashed
+// pub fn use_db_incremental_persistence<Cx: HooksCxLike>(
+//   cx: &mut Cx,
+//   scope: impl FnOnce(&mut Cx, &CheckPointCreator),
+// ) {
+//   use_db_scoped_staged_change(
+//     cx,
+//     |cx, cp| {
+//       // reload data if last time crashed
 
-      //
-      scope(cx, cp)
-    },
-    |change| {
-      // write to disk
-    },
-  )
-  //
-}
+//       //
+//       scope(cx, cp)
+//     },
+//     |change| {
+//       // write to disk
+//     },
+//   )
+//   //
+// }
 
 // pub struct UndoRedoController {
 //   internal: CheckPointCreator,
 // }
 
-// pub fn use_db_undo_redo<Cx: DBHookCxLike>(
+// pub fn use_db_undo_redo<Cx: HooksCxLike>(
 //   cx: &mut Cx,
 //   inner: impl FnOnce(&mut Cx, &mut UndoRedoController),
 // ) {
@@ -61,17 +82,17 @@ pub fn use_db_incremental_persistence<Cx: DBHookCxLike>(
 //   )
 // }
 
-pub fn use_debug_tracing<Cx: DBHookCxLike>(cx: &mut Cx, inner: impl FnOnce(&mut Cx)) {
-  let (cx, change_merger) = cx.use_plain_state(StagedDBScopeChangeMerger::default);
+// pub fn use_debug_tracing<Cx: HooksCxLike>(cx: &mut Cx, inner: impl FnOnce(&mut Cx)) {
+//   let (cx, change_merger) = cx.use_plain_state(StagedDBScopeChangeMerger::default);
 
-  use_db_scope(
-    cx,
-    |e_id, set_change| {},
-    |cx, scope| {
-      watch_db_components_in_scope(cx, inner, scope, change_merger);
-    },
-  );
-}
+//   use_db_scope(
+//     cx,
+//     |e_id, set_change| {},
+//     |cx, scope| {
+//       watch_db_components_in_scope(cx, inner, scope, change_merger);
+//     },
+//   );
+// }
 
 pub struct CheckPointCreator {
   internal: StagedDBScopeChangeMerger,
@@ -111,23 +132,33 @@ impl StagedDBScopeChangeMerger {
 #[derive(Default)]
 pub struct StagedDBScopeChangeMergerInternal {
   components: FastHashMap<ComponentId, Box<dyn ChangeStaging>>,
-  entities: FastHashMap<EntityId, StagedEntityChange>,
+  entities: FastHashMap<EntityId, Arc<RwLock<StagedEntityChange>>>,
 }
 
 impl StagedDBScopeChangeMerger {
   pub fn flush_buffered_changes(&self) -> StagedDBScopeChange {
-    let mut internal = self.internal.write();
+    let internal = self.internal.read();
     StagedDBScopeChange {
       component_changes: internal
         .components
         .iter()
         .map(|(k, v)| (*k, v.flush_changes()))
         .collect(),
-      entity_changes: std::mem::take(&mut internal.entities),
+      entity_changes: internal
+        .entities
+        .iter()
+        .map(|(k, v)| {
+          (*k, {
+            let mut v = v.write();
+            std::mem::take(v.deref_mut())
+          })
+        })
+        .collect(),
     }
   }
 }
 
+#[derive(Default)]
 pub struct StagedEntityChange {
   pub new_inserted_entities: FastHashSet<RawEntityHandle>,
   pub deleted_entities: FastHashSet<RawEntityHandle>,
@@ -136,7 +167,7 @@ pub struct StagedEntityChange {
 trait ChangeStaging: Send + Sync + 'static {
   unsafe fn start_change(&self);
   unsafe fn end_change(&self);
-  unsafe fn merge_change(
+  unsafe fn notify_change(
     &self,
     idx: RawEntityHandle,
     change: ValueChange<(DataPtr, *const dyn DataBaseDataTypeDyn)>,
@@ -146,19 +177,30 @@ trait ChangeStaging: Send + Sync + 'static {
 }
 
 #[derive(Clone)]
-struct StagedComponentChange<V> {
-  changes: Arc<RwLock<FastHashMap<RawEntityHandle, ValueChange<V>>>>,
+struct StagedComponentChange {
+  id: (EntityId, ComponentId),
+  changes: Arc<RwLock<FastHashSet<RawEntityHandle>>>,
 }
 
-impl<V: CValue> ChangeStaging for StagedComponentChange<V> {
-  unsafe fn start_change(&self) {}
-  unsafe fn end_change(&self) {}
-  unsafe fn merge_change(
+impl ChangeStaging for StagedComponentChange {
+  unsafe fn start_change(&self) {
+    self.changes.raw().lock_exclusive();
+  }
+  unsafe fn end_change(&self) {
+    self.changes.raw().unlock_exclusive();
+  }
+  unsafe fn notify_change(
     &self,
     idx: RawEntityHandle,
     change: ValueChange<(DataPtr, *const dyn DataBaseDataTypeDyn)>,
   ) {
-    todo!()
+    let changes = &mut *self.changes.data_ptr() as &mut FastHashSet<RawEntityHandle>;
+
+    if change.is_removed() {
+      changes.remove(&idx);
+    } else {
+      changes.insert(idx);
+    }
   }
   fn flush_changes(&self) -> Vec<u8> {
     todo!()
@@ -168,7 +210,7 @@ impl<V: CValue> ChangeStaging for StagedComponentChange<V> {
   }
 }
 
-pub fn watch_db_components_in_scope<Cx: DBHookCxLike>(
+pub fn watch_db_components_in_scope<Cx: HooksCxLike>(
   cx: &mut Cx,
   inner: impl FnOnce(&mut Cx),
   entity_scope: &EntityScope,
@@ -176,7 +218,7 @@ pub fn watch_db_components_in_scope<Cx: DBHookCxLike>(
 ) {
   let db = global_database();
   let tables = db.ecg_tables.read();
-  let scoped_change = scoped_change.internal.write();
+  let mut scoped_change = scoped_change.internal.write();
 
   let mut remove_tokens = tables
     .iter()
@@ -185,9 +227,17 @@ pub fn watch_db_components_in_scope<Cx: DBHookCxLike>(
       let remove_tokens = components
         .iter()
         .map(|(c_id, v)| {
-          use parking_lot::lock_api::RawRwLock;
           let entity_scope = entity_scope.entities.get(e_id).unwrap().clone();
-          let change_collector = scoped_change.components.get(c_id).unwrap().clone_boxed();
+          let change_collector = scoped_change
+            .components
+            .entry(*c_id)
+            .or_insert_with(|| {
+              Box::new(StagedComponentChange {
+                id: (*e_id, *c_id),
+                changes: Default::default(),
+              }) as Box<dyn ChangeStaging>
+            })
+            .clone_boxed();
 
           let remove_token = v.data_watchers.on(move |change| unsafe {
             match change {
@@ -195,8 +245,6 @@ pub fn watch_db_components_in_scope<Cx: DBHookCxLike>(
                 // in [EntityComponentGroup::entity_writer_dyn], we always emit
                 // entities start first, so if we are using entity creator, the
                 // entity scope will be locked. In other case, we do a shared lock
-                // the entity scope will always be read and write by one thread
-                // todo, debug validation
                 if !entity_scope.is_locked_exclusive() {
                   entity_scope.raw().lock_shared()
                 }
@@ -213,7 +261,7 @@ pub fn watch_db_components_in_scope<Cx: DBHookCxLike>(
               ScopedMessage::Message(change) => {
                 let entity_scope = &*entity_scope.data_ptr() as &FastHashSet<RawEntityHandle>;
                 if entity_scope.contains(&change.idx) {
-                  change_collector.merge_change(change.idx, change.change);
+                  change_collector.notify_change(change.idx, change.change);
                 }
               }
             }

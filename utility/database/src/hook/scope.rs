@@ -1,6 +1,6 @@
 use crate::*;
 
-pub fn use_db_scope<Cx: DBHookCxLike>(
+pub fn use_db_scope<Cx: HooksCxLike>(
   cx: &mut Cx,
   on_change: impl Fn(EntityId, &ChangePtr) + Send + Sync + Clone + 'static,
   scope: impl FnOnce(&mut Cx, &mut EntityScope),
