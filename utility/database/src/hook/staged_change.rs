@@ -1,20 +1,13 @@
 use crate::*;
 
-#[derive(Default)]
-pub struct CheckPointCreator {}
-
-impl CheckPointCreator {
-  pub fn notify_checkpoint(&self, _label: &str) {
-    //
-  }
-}
-
 pub fn use_db_scoped_staged_change<Cx: DBHookCxLike>(
   cx: &mut Cx,
-  scope: impl FnOnce(&mut Cx, &mut CheckPointCreator),
-  on_staged_change_flushed: impl FnMut(StagedDBScopeChange),
+  scope: impl FnOnce(&mut Cx, &CheckPointCreator),
+  on_staged_change_flushed: impl Fn(StagedDBScopeChange) + 'static,
 ) {
   let (cx, change_merger) = cx.use_plain_state(StagedDBScopeChangeMerger::default);
+
+  let check_pointer = change_merger.create_check_point_creator(on_staged_change_flushed);
 
   use_db_scope(
     cx,
@@ -23,9 +16,7 @@ pub fn use_db_scoped_staged_change<Cx: DBHookCxLike>(
       watch_db_components_in_scope(
         cx,
         |cx| {
-          let mut notifier = Default::default();
-
-          scope(cx, &mut notifier);
+          scope(cx, &check_pointer);
         },
         db_entity_scope,
         change_merger,
@@ -36,7 +27,7 @@ pub fn use_db_scoped_staged_change<Cx: DBHookCxLike>(
 
 pub fn use_db_incremental_persistence<Cx: DBHookCxLike>(
   cx: &mut Cx,
-  scope: impl FnOnce(&mut Cx, &mut CheckPointCreator),
+  scope: impl FnOnce(&mut Cx, &CheckPointCreator),
 ) {
   use_db_scoped_staged_change(
     cx,
@@ -82,24 +73,67 @@ pub fn use_debug_tracing<Cx: DBHookCxLike>(cx: &mut Cx, inner: impl FnOnce(&mut 
   );
 }
 
-pub struct StagedDBScopeChange {}
+pub struct CheckPointCreator {
+  internal: StagedDBScopeChangeMerger,
+  cb: Box<dyn Fn(StagedDBScopeChange)>,
+}
+
+impl CheckPointCreator {
+  /// this must called outside of the db mutation scope, or it will deadlock.
+  pub fn notify_checkpoint(&self, _label: &str) {
+    let changes = self.internal.flush_buffered_changes();
+    (self.cb)(changes);
+  }
+}
+
+pub struct StagedDBScopeChange {
+  pub component_changes: FastHashMap<ComponentId, Vec<u8>>,
+  pub entity_changes: FastHashMap<EntityId, StagedEntityChange>,
+}
+
+#[derive(Default, Clone)]
+pub struct StagedDBScopeChangeMerger {
+  internal: Arc<RwLock<StagedDBScopeChangeMergerInternal>>,
+}
+
+impl StagedDBScopeChangeMerger {
+  pub fn create_check_point_creator(
+    &self,
+    cb: impl Fn(StagedDBScopeChange) + 'static,
+  ) -> CheckPointCreator {
+    CheckPointCreator {
+      internal: self.clone(),
+      cb: Box::new(cb),
+    }
+  }
+}
 
 #[derive(Default)]
-pub struct StagedDBScopeChangeMerger {
-  components: FastHashMap<ComponentId, Box<dyn ChangeMerger>>,
-  entities: FastHashMap<EntityId, EntityChangeMerger>,
+pub struct StagedDBScopeChangeMergerInternal {
+  components: FastHashMap<ComponentId, Box<dyn ChangeStaging>>,
+  entities: FastHashMap<EntityId, StagedEntityChange>,
 }
 
 impl StagedDBScopeChangeMerger {
   pub fn flush_buffered_changes(&self) -> StagedDBScopeChange {
-    todo!()
+    let mut internal = self.internal.write();
+    StagedDBScopeChange {
+      component_changes: internal
+        .components
+        .iter()
+        .map(|(k, v)| (*k, v.flush_changes()))
+        .collect(),
+      entity_changes: std::mem::take(&mut internal.entities),
+    }
   }
 }
 
-#[derive(Clone)]
-struct EntityChangeMerger {}
+pub struct StagedEntityChange {
+  pub new_inserted_entities: FastHashSet<RawEntityHandle>,
+  pub deleted_entities: FastHashSet<RawEntityHandle>,
+}
 
-trait ChangeMerger: Send + Sync + 'static {
+trait ChangeStaging: Send + Sync + 'static {
   unsafe fn start_change(&self);
   unsafe fn end_change(&self);
   unsafe fn merge_change(
@@ -107,14 +141,16 @@ trait ChangeMerger: Send + Sync + 'static {
     idx: RawEntityHandle,
     change: ValueChange<(DataPtr, *const dyn DataBaseDataTypeDyn)>,
   );
-  fn clone_boxed(&self) -> Box<dyn ChangeMerger>;
+  fn flush_changes(&self) -> Vec<u8>;
+  fn clone_boxed(&self) -> Box<dyn ChangeStaging>;
 }
 
-struct ComponentChangeMerger<V> {
-  changes: FastHashMap<RawEntityHandle, ValueChange<V>>,
+#[derive(Clone)]
+struct StagedComponentChange<V> {
+  changes: Arc<RwLock<FastHashMap<RawEntityHandle, ValueChange<V>>>>,
 }
 
-impl<V: CValue> ChangeMerger for ComponentChangeMerger<V> {
+impl<V: CValue> ChangeStaging for StagedComponentChange<V> {
   unsafe fn start_change(&self) {}
   unsafe fn end_change(&self) {}
   unsafe fn merge_change(
@@ -124,8 +160,11 @@ impl<V: CValue> ChangeMerger for ComponentChangeMerger<V> {
   ) {
     todo!()
   }
-  fn clone_boxed(&self) -> Box<dyn ChangeMerger> {
+  fn flush_changes(&self) -> Vec<u8> {
     todo!()
+  }
+  fn clone_boxed(&self) -> Box<dyn ChangeStaging> {
+    Box::new(self.clone())
   }
 }
 
@@ -137,6 +176,8 @@ pub fn watch_db_components_in_scope<Cx: DBHookCxLike>(
 ) {
   let db = global_database();
   let tables = db.ecg_tables.read();
+  let scoped_change = scoped_change.internal.write();
+
   let mut remove_tokens = tables
     .iter()
     .map(|(e_id, v)| {
@@ -185,6 +226,9 @@ pub fn watch_db_components_in_scope<Cx: DBHookCxLike>(
       (*e_id, remove_tokens)
     })
     .collect::<FastHashMap<_, _>>();
+
+  drop(scoped_change);
+  drop(tables);
 
   inner(cx);
 
