@@ -1,5 +1,5 @@
-use std::fs::File;
-use std::io::Write;
+use std::fs::OpenOptions;
+use std::io::{Read, Seek, SeekFrom, Write};
 
 use futures::channel::mpsc::UnboundedSender;
 use futures::StreamExt;
@@ -21,11 +21,11 @@ pub fn use_persistent_db_scope<Cx: HooksCxLike>(
     cx,
     |cx, cp| {
       if cx.is_creating() {
-        if persist_cx.is_new_crated {
-          init_for_new_persistent_scope();
-          persist_cx.is_new_crated = true;
+        if let Some(init_data) = persist_cx.init_from_file.take() {
+          init_data.write_into_db();
+          // todo avoid scope change
         } else {
-          // todo, load from file
+          init_for_new_persistent_scope();
         }
       }
 
@@ -37,8 +37,22 @@ pub fn use_persistent_db_scope<Cx: HooksCxLike>(
   )
 }
 
+struct DBPersistReadBackInitWrite {
+  data_to_write: Vec<PersistStagedDBScopeChange>,
+  writer: Arc<RwLock<PersistIdMapper>>,
+}
+
+impl DBPersistReadBackInitWrite {
+  pub fn write_into_db(self) {
+    let mut writer = self.writer.write();
+    for change in self.data_to_write {
+      writer.write_db(change);
+    }
+  }
+}
+
 struct PersistentContext {
-  is_new_crated: bool,
+  init_from_file: Option<DBPersistReadBackInitWrite>,
   change_sender: UnboundedSender<StagedDBScopeChange>,
 }
 
@@ -46,19 +60,43 @@ impl Default for PersistentContext {
   fn default() -> Self {
     let assume_last_run_file_path = std::env::current_dir().unwrap().join("db_save.bin");
 
-    let is_new_crated = !assume_last_run_file_path.exists();
+    let is_new_created = !assume_last_run_file_path.exists();
 
-    let base_id = if is_new_crated { 0 } else { todo!() };
+    let mut file = OpenOptions::new()
+      .write(true)
+      .create(true)
+      .truncate(false)
+      .open(assume_last_run_file_path)
+      .unwrap(); // todo buffer read write
 
-    let mut file = File::create(assume_last_run_file_path).unwrap();
+    // assure read from start
+    file.seek(SeekFrom::Start(0)).unwrap();
+
+    // todo, do it in async task
+    let mut last_success_read_offset = file.stream_position().unwrap();
+    let mut init_data = Vec::new();
+    if !is_new_created {
+      if let Some(previous_transaction) = PersistStagedDBScopeChange::read(&mut file) {
+        init_data.push(previous_transaction);
+        last_success_read_offset = file.stream_position().unwrap();
+      }
+    }
+    file.set_len(last_success_read_offset).unwrap();
+    file
+      .seek(SeekFrom::Start(last_success_read_offset))
+      .unwrap();
 
     let (change_sender, mut receiver) = futures::channel::mpsc::unbounded::<StagedDBScopeChange>();
 
-    let mut writer = PersistIdMapperForWrite {
-      base_id,
+    let writer = PersistIdMapper {
+      base_id: 0,
       mapping: Default::default(),
+      rev_mapping: Default::default(),
       db_name_mapping: global_database().name_mapping.clone(),
     };
+
+    let writer = Arc::new(RwLock::new(writer));
+    let writer_ = writer.clone();
 
     // we should get a thread pool?
     // this thread is detached, but it's ok
@@ -68,6 +106,7 @@ impl Default for PersistentContext {
           continue;
         }
         println!("write {:?}", change);
+        let mut writer = writer.write();
 
         let change_to_write = writer.map(change);
         change_to_write.write(&mut file).unwrap();
@@ -76,7 +115,14 @@ impl Default for PersistentContext {
     });
 
     Self {
-      is_new_crated,
+      init_from_file: if is_new_created {
+        None
+      } else {
+        Some(DBPersistReadBackInitWrite {
+          data_to_write: init_data,
+          writer: writer_,
+        })
+      },
       change_sender,
     }
   }
@@ -84,20 +130,59 @@ impl Default for PersistentContext {
 
 type PersistEntityId = u64;
 
-type PersistEntityTypeId = String;
-type PersistComponentTypeId = String;
-
-struct PersistIdMapperForWrite {
+struct PersistIdMapper {
   base_id: PersistEntityId,
   mapping: FastHashMap<RawEntityHandle, PersistEntityId>,
+  rev_mapping: FastHashMap<PersistEntityId, RawEntityHandle>,
   db_name_mapping: Arc<RwLock<DBNameMapping>>,
 }
 
-impl PersistIdMapperForWrite {
+impl PersistIdMapper {
+  pub fn write_db(&mut self, change: PersistStagedDBScopeChange) {
+    let name_mapping = self.db_name_mapping.read();
+    let db = global_database();
+
+    // create all new created entities first, for later mapping
+    let tables = db.ecg_tables.read();
+    for (entity_name, v) in &change.entity_changes {
+      let e_id = name_mapping.entities_inv.get(entity_name).unwrap();
+      let entity_group = tables.get(e_id).unwrap();
+      let mut writer = entity_group.entity_writer_dyn();
+      for entity_p_id in &v.new_inserts {
+        let new_id = writer.new_entity();
+        self.rev_mapping.insert(*entity_p_id, new_id);
+        self.mapping.insert(new_id, *entity_p_id);
+      }
+    }
+
+    for (com_name, changes) in change.component_changes {
+      let com_id = name_mapping.components_inv.get(&com_name).unwrap();
+      for (entity_p_id, change) in changes {
+        let target_entity_handle = self.rev_mapping.get(&entity_p_id).unwrap();
+
+        let change = change.map(|fk_p_id| *self.rev_mapping.get(&fk_p_id).unwrap());
+
+        // todo, apply change
+      }
+    }
+
+    // // remove all new removed entities here.
+    for (entity_name, v) in &change.entity_changes {
+      let e_id = name_mapping.entities_inv.get(entity_name).unwrap();
+      let entity_group = tables.get(e_id).unwrap();
+      let mut writer = entity_group.entity_writer_dyn();
+      for entity_p_id in &v.removed {
+        let db_entity_id = self.rev_mapping.remove(entity_p_id).unwrap();
+        self.mapping.remove(&db_entity_id).unwrap();
+        writer.delete_entity(db_entity_id);
+      }
+    }
+  }
+
   pub fn map(&mut self, change: StagedDBScopeChange) -> PersistStagedDBScopeChange {
     let name_mapping = self.db_name_mapping.read();
 
-    // create all new created entities first, for latter mapping
+    // create all new created entities first, for later mapping
     let new_entities = change
       .entity_changes
       .iter()
@@ -106,10 +191,11 @@ impl PersistIdMapperForWrite {
         let v = v
           .new_inserts
           .iter()
-          .map(|k| {
+          .map(|db_entity_id| {
             self.base_id += 1;
             let new_id = self.base_id;
-            self.mapping.insert(*k, new_id);
+            self.mapping.insert(*db_entity_id, new_id);
+            self.rev_mapping.insert(new_id, *db_entity_id);
             new_id
           })
           .collect::<FastHashSet<_>>();
@@ -145,7 +231,11 @@ impl PersistIdMapperForWrite {
         let v = v
           .removed
           .iter()
-          .map(|k| self.mapping.remove(k).unwrap())
+          .map(|k| {
+            let entity_p_id = self.mapping.remove(k).unwrap();
+            self.rev_mapping.remove(&entity_p_id).unwrap();
+            entity_p_id
+          })
           .collect::<FastHashSet<_>>();
         (k, v)
       })
@@ -172,8 +262,8 @@ impl PersistIdMapperForWrite {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PersistStagedDBScopeChange {
-  pub component_changes: FastHashMap<PersistEntityTypeId, PersistStagedComponentChangeBuffer>,
-  pub entity_changes: FastHashMap<PersistComponentTypeId, PersistEntityScopeStageChange>,
+  pub component_changes: FastHashMap<String, PersistStagedComponentChangeBuffer>,
+  pub entity_changes: FastHashMap<String, PersistEntityScopeStageChange>,
 }
 
 // only contains setting
@@ -189,5 +279,9 @@ pub struct PersistEntityScopeStageChange {
 impl PersistStagedDBScopeChange {
   pub fn write(&self, target: &mut impl Write) -> Option<()> {
     rmp_serde::encode::write(target, self).ok()
+  }
+
+  pub fn read(source: &mut impl Read) -> Option<Self> {
+    rmp_serde::decode::from_read(source).ok()
   }
 }
