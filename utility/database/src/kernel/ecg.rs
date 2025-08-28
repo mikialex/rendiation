@@ -139,7 +139,7 @@ impl EntityComponentGroupImpl {
     self
       .name_mapping
       .write()
-      .insert_component(semantic, (*com.name).clone());
+      .insert_component(semantic, self.type_id, (*com.name).clone());
 
     self.components_meta_watchers.emit(&com);
     let previous = components.insert(semantic, com);

@@ -152,6 +152,11 @@ impl<'a> CheckPointCreator<'a> {
     };
     (self.cb)(changes);
   }
+
+  /// this is a special case to flush but avoid send mutation in some case
+  pub(crate) fn flush_but_not_send(&self) {
+    self.internal.flush_buffered_changes();
+  }
 }
 
 #[derive(Debug)]

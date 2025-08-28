@@ -99,6 +99,23 @@ where
     (new, old, diff)
   }
 
+  unsafe fn set_value_from_small_serialize_data(
+    &mut self,
+    idx: u32,
+    new_value: DBFastSerializeSmallBufferOrForeignKey<RawEntityHandle>,
+  ) -> (DataPtr, DataPtr, bool) {
+    let mut value = T::default();
+    match new_value {
+      DBFastSerializeSmallBufferOrForeignKey::Pod(small_vec) => {
+        value.fast_deserialize(&mut small_vec.as_slice()).unwrap()
+      }
+      DBFastSerializeSmallBufferOrForeignKey::ForeignKey(handle) => {
+        value = std::mem::transmute_copy(&handle)
+      }
+    }
+    self.set_value(idx, Some(&value as *const _ as DataPtr))
+  }
+
   unsafe fn delete(&mut self, idx: u32) -> DataPtr {
     let target = self.data.get_unchecked_mut(idx as usize);
     self.old_value_out = target.clone();

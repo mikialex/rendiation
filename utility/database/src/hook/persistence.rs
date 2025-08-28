@@ -23,7 +23,9 @@ pub fn use_persistent_db_scope<Cx: HooksCxLike>(
       if cx.is_creating() {
         if let Some(init_data) = persist_cx.init_from_file.take() {
           init_data.write_into_db();
-          // todo avoid scope change
+          // avoid send this init change to data persist worker, because this data
+          // has already been persisted
+          cp.flush_but_not_send();
         } else {
           init_for_new_persistent_scope();
         }
@@ -157,13 +159,20 @@ impl PersistIdMapper {
 
     for (com_name, changes) in change.component_changes {
       let com_id = name_mapping.components_inv.get(&com_name).unwrap();
-      for (entity_p_id, change) in changes {
-        let target_entity_handle = self.rev_mapping.get(&entity_p_id).unwrap();
+      let e_id = name_mapping.component_to_entity.get(com_id).unwrap();
+      let entity_group = tables.get(e_id).unwrap();
+      entity_group.access_component(*com_id, |component| {
+        let mut com_writer = component.write_untyped();
+        for (entity_p_id, change) in changes {
+          let target_entity_handle = self.rev_mapping.get(&entity_p_id).unwrap();
 
-        let change = change.map(|fk_p_id| *self.rev_mapping.get(&fk_p_id).unwrap());
+          let change = change.map(|fk_p_id| *self.rev_mapping.get(&fk_p_id).unwrap());
 
-        // todo, apply change
-      }
+          unsafe {
+            com_writer.write_by_small_serialize_data(*target_entity_handle, change);
+          }
+        }
+      });
     }
 
     // // remove all new removed entities here.

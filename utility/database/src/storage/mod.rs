@@ -155,6 +155,14 @@ pub trait ComponentStorageReadWriteView {
   unsafe fn set_value(&mut self, idx: u32, new_value: Option<DataPtr>) -> (DataPtr, DataPtr, bool);
 
   /// # Safety
+  /// ditto
+  unsafe fn set_value_from_small_serialize_data(
+    &mut self,
+    idx: u32,
+    new_value: DBFastSerializeSmallBufferOrForeignKey<RawEntityHandle>,
+  ) -> (DataPtr, DataPtr, bool);
+
+  /// # Safety
   /// the idx must point to living location, return old value ptr
   unsafe fn delete(&mut self, idx: u32) -> DataPtr;
 

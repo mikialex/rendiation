@@ -79,6 +79,23 @@ where
     self.data.get(&idx).unwrap_unchecked() as *const _ as DataPtr
   }
 
+  unsafe fn set_value_from_small_serialize_data(
+    &mut self,
+    idx: u32,
+    new_value: DBFastSerializeSmallBufferOrForeignKey<RawEntityHandle>,
+  ) -> (DataPtr, DataPtr, bool) {
+    let mut value = T::default();
+    match new_value {
+      DBFastSerializeSmallBufferOrForeignKey::Pod(small_vec) => {
+        value.fast_deserialize(&mut small_vec.as_slice()).unwrap()
+      }
+      DBFastSerializeSmallBufferOrForeignKey::ForeignKey(handle) => {
+        value = std::mem::transmute_copy(&handle)
+      }
+    }
+    self.set_value(idx, Some(&value as *const _ as DataPtr))
+  }
+
   unsafe fn set_value(&mut self, idx: u32, new_value: Option<DataPtr>) -> (DataPtr, DataPtr, bool) {
     let self_ = self.deref_mut();
     let new = if let Some(new_value) = new_value {
