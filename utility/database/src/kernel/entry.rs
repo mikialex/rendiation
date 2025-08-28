@@ -5,18 +5,32 @@ pub struct Database {
   /// ecg forms a DAG
   pub ecg_tables: Arc<RwLock<FastHashMap<EntityId, EntityComponentGroup>>>,
   pub(crate) entity_meta_watcher: EventSource<EntityComponentGroup>,
+  pub name_mapping: Arc<RwLock<DBNameMapping>>,
+}
+
+#[derive(Default)]
+pub struct DBNameMapping {
+  pub components: FastHashMap<ComponentId, String>,
+  pub entities: FastHashMap<EntityId, String>,
 }
 
 impl Database {
   pub fn declare_entity<E: EntitySemantic>(&self) -> EntityComponentGroupTyped<E> {
     self
-      .declare_entity_dyn(E::entity_id(), E::display_name().to_string())
+      .declare_entity_dyn(E::entity_id(), E::unique_name().to_string())
       .into_typed()
       .unwrap()
   }
+  #[inline(never)]
   pub fn declare_entity_dyn(&self, e_id: EntityId, name: String) -> EntityComponentGroup {
     let mut tables = self.ecg_tables.write();
-    let ecg = EntityComponentGroup::new(e_id, name);
+    let occupied_name = self
+      .name_mapping
+      .write()
+      .entities
+      .insert(e_id, name.clone());
+    assert!(occupied_name.is_none());
+    let ecg = EntityComponentGroup::new(e_id, name, self.name_mapping.clone());
     self.entity_meta_watcher.emit(&ecg);
     let previous = tables.insert(e_id, ecg.clone());
     assert!(previous.is_none());

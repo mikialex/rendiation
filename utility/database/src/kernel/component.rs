@@ -2,7 +2,7 @@ use crate::*;
 
 #[derive(Clone)]
 pub struct ComponentCollectionUntyped {
-  /// the name of this component, only for display purpose
+  /// the name of this component, will be unique among all components
   pub name: Arc<String>,
 
   /// mark if this component is a foreign key

@@ -6,9 +6,9 @@ pub struct EntityComponentGroup {
 }
 
 impl EntityComponentGroup {
-  pub fn new(type_id: EntityId, name: String) -> Self {
+  pub fn new(type_id: EntityId, name: String, name_mapping: Arc<RwLock<DBNameMapping>>) -> Self {
     Self {
-      inner: Arc::new(EntityComponentGroupImpl::new(type_id, name)),
+      inner: Arc::new(EntityComponentGroupImpl::new(type_id, name, name_mapping)),
     }
   }
 
@@ -98,6 +98,7 @@ impl EntityComponentGroup {
 }
 
 pub(crate) struct EntityComponentGroupImpl {
+  /// the name of this entity, will be unique among all components
   pub(crate) name: String,
   pub(crate) type_id: EntityId,
   pub(crate) allocator: Arc<RwLock<Arena<()>>>,
@@ -113,10 +114,11 @@ pub(crate) struct EntityComponentGroupImpl {
   pub(crate) foreign_key_meta_watchers: EventSource<(ComponentId, EntityId)>,
 
   pub(crate) entity_watchers: EventSource<ChangePtr>,
+  pub(crate) name_mapping: Arc<RwLock<DBNameMapping>>,
 }
 
 impl EntityComponentGroupImpl {
-  pub fn new(type_id: EntityId, name: String) -> Self {
+  pub fn new(type_id: EntityId, name: String, name_mapping: Arc<RwLock<DBNameMapping>>) -> Self {
     Self {
       name,
       type_id,
@@ -126,11 +128,21 @@ impl EntityComponentGroupImpl {
       components_meta_watchers: Default::default(),
       foreign_key_meta_watchers: Default::default(),
       entity_watchers: Default::default(),
+      name_mapping,
     }
   }
 
+  #[inline(never)]
   pub fn declare_component_dyn(&self, semantic: ComponentId, com: ComponentCollectionUntyped) {
     let mut components = self.components.write();
+
+    let occupied_name = self
+      .name_mapping
+      .write()
+      .components
+      .insert(semantic, (*com.name).clone());
+    assert!(occupied_name.is_none());
+
     self.components_meta_watchers.emit(&com);
     let previous = components.insert(semantic, com);
     assert!(previous.is_none());
@@ -152,10 +164,10 @@ impl<E: EntitySemantic> Clone for EntityComponentGroupTyped<E> {
 }
 
 impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
-  pub fn new(type_id: EntityId, name: String) -> Self {
+  pub fn new(type_id: EntityId, name: String, name_mapping: Arc<RwLock<DBNameMapping>>) -> Self {
     Self {
       phantom: Default::default(),
-      inner: EntityComponentGroup::new(type_id, name),
+      inner: EntityComponentGroup::new(type_id, name, name_mapping),
     }
   }
 
@@ -177,7 +189,7 @@ impl<E: EntitySemantic> EntityComponentGroupTyped<E> {
     storage: impl ComponentStorage + 'static,
   ) -> Self {
     let com = ComponentCollectionUntyped {
-      name: Arc::new(S::display_name().to_string()),
+      name: Arc::new(S::unique_name().to_string()),
       as_foreign_key,
       data_typeid: TypeId::of::<S::Data>(),
       entity_type_id: S::Entity::entity_id(),
