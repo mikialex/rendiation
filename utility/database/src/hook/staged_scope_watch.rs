@@ -181,13 +181,16 @@ impl StagedDBScopeChangeMerger {
   }
 }
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 struct StagedComponentChange {
+  is_foreign_key: bool,
   changes: Arc<RwLock<StagedComponentChangeBuffer>>,
 }
 
-pub type StagedComponentChangeBuffer =
-  FastHashMap<RawEntityHandle, ValueChange<DBFastSerializeSmallBuffer>>;
+pub type StagedComponentChangeBuffer = FastHashMap<
+  RawEntityHandle,
+  ValueChange<DBFastSerializeSmallBufferOrForeignKey<RawEntityHandle>>,
+>;
 
 impl StagedComponentChange {
   unsafe fn start_change(&self) {
@@ -203,20 +206,43 @@ impl StagedComponentChange {
   ) {
     let changes = &mut *self.changes.data_ptr() as &mut StagedComponentChangeBuffer;
 
-    let change = match change {
-      ValueChange::Delta((_, new), old) => {
-        let new = &*new as &dyn DataBaseDataTypeDyn;
-        let new = new.fast_serialize_into_buffer();
-        let old = old.map(|(old, _)| {
-          let old = &*old as &dyn DataBaseDataTypeDyn;
-          old.fast_serialize_into_buffer()
-        });
-        ValueChange::Delta(new, old)
+    let change = if self.is_foreign_key {
+      match change {
+        ValueChange::Delta((_, new), old) => {
+          let new = new as *const RawEntityHandle;
+          let new = &*new as &RawEntityHandle;
+
+          let old = old.map(|(old, _)| {
+            let old = old as *const RawEntityHandle;
+            let old = &*old as &RawEntityHandle;
+            *old
+          });
+          ValueChange::Delta(*new, old)
+        }
+        ValueChange::Remove((previous, _)) => {
+          let previous = previous as *const RawEntityHandle;
+          let previous = &*previous as &RawEntityHandle;
+          ValueChange::Remove(*previous)
+        }
       }
-      ValueChange::Remove((_, previous)) => {
-        let previous = &*previous as &dyn DataBaseDataTypeDyn;
-        ValueChange::Remove(previous.fast_serialize_into_buffer())
+      .map(DBFastSerializeSmallBufferOrForeignKey::ForeignKey)
+    } else {
+      match change {
+        ValueChange::Delta((_, new), old) => {
+          let new = &*new as &dyn DataBaseDataTypeDyn;
+          let new = new.fast_serialize_into_buffer();
+          let old = old.map(|(old, _)| {
+            let old = &*old as &dyn DataBaseDataTypeDyn;
+            old.fast_serialize_into_buffer()
+          });
+          ValueChange::Delta(new, old)
+        }
+        ValueChange::Remove((_, previous)) => {
+          let previous = &*previous as &dyn DataBaseDataTypeDyn;
+          ValueChange::Remove(previous.fast_serialize_into_buffer())
+        }
       }
+      .map(DBFastSerializeSmallBufferOrForeignKey::Pod)
     };
 
     merge_change(changes, (idx, change));
@@ -225,7 +251,7 @@ impl StagedComponentChange {
     let mut changes = self.changes.write();
     let changes = changes.deref_mut();
     if changes.is_empty() {
-      return None;
+      None
     } else {
       std::mem::take(changes).into()
     }
@@ -248,7 +274,14 @@ pub fn watch_db_components_in_scope(
         .iter()
         .map(|(c_id, v)| {
           let entity_scope = entity_scope.entities.get(e_id).unwrap().clone();
-          let change_collector = scoped_change.components.entry(*c_id).or_default().clone();
+          let change_collector = scoped_change
+            .components
+            .entry(*c_id)
+            .or_insert_with(|| StagedComponentChange {
+              is_foreign_key: v.as_foreign_key.is_some(),
+              changes: Default::default(),
+            })
+            .clone();
 
           let remove_token = v.data_watchers.on(move |change| unsafe {
             match change {

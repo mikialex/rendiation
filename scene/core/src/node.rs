@@ -1,7 +1,7 @@
 use crate::*;
 
 declare_entity!(SceneNodeEntity);
-declare_component!(SceneNodeParentIdx, SceneNodeEntity, Option<RawEntityHandle>);
+declare_foreign_key!(SceneNodeParentIdx, SceneNodeEntity, SceneNodeEntity);
 
 // using f64 float for better precision(at least for computing)
 // the underlayer world space position also using f64.

@@ -17,6 +17,23 @@ pub trait DataBaseDataType: CValue + Default {
 }
 
 pub type DBFastSerializeSmallBuffer = smallvec::SmallVec<[u8; 16]>;
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub enum DBFastSerializeSmallBufferOrForeignKey<K> {
+  Pod(DBFastSerializeSmallBuffer),
+  ForeignKey(K),
+}
+
+impl<K> DBFastSerializeSmallBufferOrForeignKey<K> {
+  pub fn map<K2>(self, f: impl FnOnce(K) -> K2) -> DBFastSerializeSmallBufferOrForeignKey<K2> {
+    use DBFastSerializeSmallBufferOrForeignKey::*;
+    match self {
+      Pod(p) => Pod(p),
+      ForeignKey(k) => ForeignKey(f(k)),
+    }
+  }
+}
+
 pub trait DataBaseDataTypeDyn {
   fn fast_serialize_dyn(&self, target: &mut dyn std::io::Write) -> Option<()>;
   fn fast_deserialize_dyn(&mut self, source: &mut dyn std::io::Read) -> Option<()>;

@@ -32,6 +32,13 @@ impl<V> ValueChange<V> {
     }
   }
 
+  pub fn into_new_value(self) -> Option<V> {
+    match self {
+      Self::Delta(v, _) => Some(v),
+      Self::Remove(_) => None,
+    }
+  }
+
   pub fn old_value(&self) -> Option<&V> {
     match self {
       Self::Delta(_, Some(v)) => Some(v),
