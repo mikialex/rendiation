@@ -7,7 +7,7 @@ version = "0.0.1"
 rustc-hash = "1.1.0"
 # we have to use maps from this because they remove raw entry api
 # see https://github.com/rust-lang/rust/issues/56167
-hashbrown = "0.15.2"
+hashbrown = { version = "0.15.2", features = ["serde"] }
 
 [lints]
 workspace = true

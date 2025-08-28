@@ -32,6 +32,7 @@ pub trait ComponentSemantic: EntityAssociateSemantic {
     ComponentId::TypeId(TypeId::of::<Self>())
   }
 }
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ComponentId {
   TypeId(TypeId),

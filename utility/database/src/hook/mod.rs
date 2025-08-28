@@ -1,10 +1,12 @@
 mod collective_channel;
+mod persistence;
 mod staged_scope_watch;
 mod util;
 
 use std::hash::Hasher;
 
 pub use collective_channel::*;
+pub use persistence::*;
 pub use staged_scope_watch::*;
 pub use util::*;
 

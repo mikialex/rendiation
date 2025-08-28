@@ -67,7 +67,7 @@ where
   }
 
   fn shape() -> &'static facet::Shape<'static> {
-    unimplemented!()
+    T::SHAPE
   }
 }
 

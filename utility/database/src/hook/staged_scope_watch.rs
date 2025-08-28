@@ -1,3 +1,5 @@
+use std::ops::DerefMut;
+
 use parking_lot::lock_api::RawRwLock;
 
 use crate::*;
@@ -63,7 +65,7 @@ impl EntityScope {
     self
       .entities
       .iter()
-      .map(|(k, v)| (*k, v.write().flush()))
+      .filter_map(|(k, v)| v.write().flush().map(|v| (*k, v)))
       .collect()
   }
 }
@@ -85,13 +87,16 @@ impl EntityScopeSingle {
   }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct EntityScopeStageChange {
   pub new_inserts: FastHashSet<RawEntityHandle>,
   pub removed: FastHashSet<RawEntityHandle>,
 }
 
 impl EntityScopeStageChange {
+  pub fn is_empty(&self) -> bool {
+    self.new_inserts.is_empty() && self.removed.is_empty()
+  }
   pub fn insert(&mut self, idx: RawEntityHandle) {
     self.new_inserts.insert(idx);
     self.removed.remove(&idx);
@@ -103,8 +108,11 @@ impl EntityScopeStageChange {
 }
 
 impl EntityScopeSingle {
-  pub fn flush(&mut self) -> EntityScopeStageChange {
-    std::mem::take(&mut self.change)
+  pub fn flush(&mut self) -> Option<EntityScopeStageChange> {
+    if self.change.is_empty() {
+      return None;
+    }
+    std::mem::take(&mut self.change).into()
   }
 }
 
@@ -146,9 +154,16 @@ impl<'a> CheckPointCreator<'a> {
   }
 }
 
+#[derive(Debug)]
 pub struct StagedDBScopeChange {
   pub component_changes: FastHashMap<ComponentId, StagedComponentChangeBuffer>,
   pub entity_changes: FastHashMap<EntityId, EntityScopeStageChange>,
+}
+
+impl StagedDBScopeChange {
+  pub fn is_empty(&self) -> bool {
+    self.component_changes.is_empty() && self.entity_changes.is_empty()
+  }
 }
 
 #[derive(Default)]
@@ -161,7 +176,7 @@ impl StagedDBScopeChangeMerger {
     self
       .components
       .iter()
-      .map(|(k, v)| (*k, v.flush_changes()))
+      .filter_map(|(k, v)| v.flush_changes().map(|v| (*k, v)))
       .collect()
   }
 }
@@ -206,9 +221,14 @@ impl StagedComponentChange {
 
     merge_change(changes, (idx, change));
   }
-  fn flush_changes(&self) -> StagedComponentChangeBuffer {
+  fn flush_changes(&self) -> Option<StagedComponentChangeBuffer> {
     let mut changes = self.changes.write();
-    std::mem::take(&mut changes)
+    let changes = changes.deref_mut();
+    if changes.is_empty() {
+      return None;
+    } else {
+      std::mem::take(changes).into()
+    }
   }
 }
 
