@@ -11,7 +11,22 @@ pub struct Database {
 #[derive(Default)]
 pub struct DBNameMapping {
   pub components: FastHashMap<ComponentId, String>,
+  pub components_inv: FastHashMap<String, ComponentId>,
   pub entities: FastHashMap<EntityId, String>,
+  pub entities_inv: FastHashMap<String, EntityId>,
+}
+
+impl DBNameMapping {
+  pub fn insert_component(&mut self, c_id: ComponentId, name: String) {
+    let occupied_name = self.components.insert(c_id, name.clone());
+    assert!(occupied_name.is_none());
+    self.components_inv.insert(name, c_id);
+  }
+  pub fn insert_entity(&mut self, e_id: EntityId, name: String) {
+    let occupied_name = self.entities.insert(e_id, name.clone());
+    assert!(occupied_name.is_none());
+    self.entities_inv.insert(name, e_id);
+  }
 }
 
 impl Database {
@@ -24,12 +39,7 @@ impl Database {
   #[inline(never)]
   pub fn declare_entity_dyn(&self, e_id: EntityId, name: String) -> EntityComponentGroup {
     let mut tables = self.ecg_tables.write();
-    let occupied_name = self
-      .name_mapping
-      .write()
-      .entities
-      .insert(e_id, name.clone());
-    assert!(occupied_name.is_none());
+    self.name_mapping.write().insert_entity(e_id, name.clone());
     let ecg = EntityComponentGroup::new(e_id, name, self.name_mapping.clone());
     self.entity_meta_watcher.emit(&ecg);
     let previous = tables.insert(e_id, ecg.clone());

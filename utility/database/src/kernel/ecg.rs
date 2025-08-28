@@ -136,12 +136,10 @@ impl EntityComponentGroupImpl {
   pub fn declare_component_dyn(&self, semantic: ComponentId, com: ComponentCollectionUntyped) {
     let mut components = self.components.write();
 
-    let occupied_name = self
+    self
       .name_mapping
       .write()
-      .components
-      .insert(semantic, (*com.name).clone());
-    assert!(occupied_name.is_none());
+      .insert_component(semantic, (*com.name).clone());
 
     self.components_meta_watchers.emit(&com);
     let previous = components.insert(semantic, com);
