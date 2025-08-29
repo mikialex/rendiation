@@ -67,7 +67,7 @@ rendiation-area-lighting = { path = "../../extension/area-lighting" }
 rendiation-webgpu-hook-utils = { path = "../../platform/graphics/webgpu-hook-utils" }
 rfd = "0.14.0"
 tracing = { workspace = true }
-tracing-subscriber = "0.3.19"
+tracing-subscriber = "0.3.20"
 tracing-tracy = { version = "0.11.4", optional = true }
 egui = { version = "0.32" }
 egui-wgpu = { version = "0.32" }
