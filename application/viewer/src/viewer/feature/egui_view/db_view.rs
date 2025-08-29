@@ -10,7 +10,6 @@ pub struct DBInspector {
   inspector: DataDebugger,
   visit_history: Vec<Option<EntityId>>,
   current: usize,
-  tracing_change: Option<DatabaseMutationTracingController>,
 }
 
 impl Default for DBInspector {
@@ -29,7 +28,6 @@ impl Default for DBInspector {
       inspector,
       visit_history: vec![None],
       current: 0,
-      tracing_change: None,
     }
   }
 }
@@ -83,15 +81,6 @@ pub fn egui_db_gui(ui: &egui::Context, state: &mut DBInspector, opened: &mut boo
     .show(ui, |ui| {
       let mut back_to_all_table_view = false;
       ui.horizontal_wrapped(|ui| {
-        if state.tracing_change.is_none() && ui.button("start tracing change").clicked() {
-          state.tracing_change =
-            Some(DatabaseMutationTracingController::record(&global_database()));
-        }
-
-        if state.tracing_change.is_some() && ui.button("stop tracing change").clicked() {
-          let _ = state.tracing_change.take().unwrap().stop_record();
-        }
-
         if state.current().is_some() {
           back_to_all_table_view = ui.button("View all tables in DB").clicked();
         }

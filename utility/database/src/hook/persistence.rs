@@ -28,6 +28,7 @@ pub fn use_persistent_db_scope<Cx: HooksCxLike>(
           cp.flush_but_not_send();
         } else {
           init_for_new_persistent_scope();
+          cp.notify_checkpoint("init");
         }
       }
 
@@ -69,7 +70,7 @@ impl Default for PersistentContext {
       .create(true)
       .truncate(false)
       .open(assume_last_run_file_path)
-      .unwrap(); // todo buffer read write
+      .unwrap(); // todo buff read write
 
     // assure read from start
     file.seek(SeekFrom::Start(0)).unwrap();

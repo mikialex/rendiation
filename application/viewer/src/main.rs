@@ -110,6 +110,20 @@ fn main() {
       sync_camera_view(cx);
       use_animation_player(cx);
 
+      cx.suppress_scene_writer();
+      use_persistent_db_scope(
+        cx,
+        || {},
+        |cx, _| {
+          cx.re_enable_scene_writer();
+
+          core::hint::black_box(());
+
+          cx.suppress_scene_writer();
+        },
+      );
+      cx.re_enable_scene_writer();
+
       use_smooth_camera_motion(cx, |cx| {
         use_fit_camera_view(cx);
         use_camera_control(cx);

@@ -19,7 +19,7 @@ pub fn use_db_scope<Cx: HooksCxLike>(cx: &mut Cx, scope: impl FnOnce(&mut Cx, &m
             set.raw().lock_exclusive();
           }
           ScopedMessage::End => {
-            set.raw().lock_exclusive();
+            set.raw().unlock_exclusive();
           }
           ScopedMessage::Message(change) => {
             let set = &mut *set.data_ptr() as &mut EntityScopeSingle;

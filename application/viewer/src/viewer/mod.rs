@@ -43,6 +43,29 @@ pub struct ViewerCx<'a> {
   stage: ViewerCxStage<'a>,
 }
 
+impl<'a> ViewerCx<'a> {
+  /// this is a workaround for avoid deadlock in use_persistent_db_scope
+  pub fn suppress_scene_writer(&mut self) {
+    if let ViewerCxStage::SceneContentUpdate { .. } = &self.stage {
+      self.stage = ViewerCxStage::SceneContentUpdateSuppressed;
+    };
+  }
+
+  pub fn re_enable_scene_writer(&mut self) {
+    if let ViewerCxStage::SceneContentUpdateSuppressed = &self.stage {
+      self.active_scene_writer();
+    };
+  }
+
+  fn active_scene_writer(&mut self) {
+    let writer = SceneWriter::from_global(self.viewer.scene.scene);
+
+    self.stage = ViewerCxStage::SceneContentUpdate {
+      writer: Box::new(writer),
+    };
+  }
+}
+
 pub struct ViewerDropCx<'a> {
   pub dyn_cx: &'a mut DynCx,
   pub writer: SceneWriter,
@@ -205,7 +228,10 @@ pub enum ViewerCxStage<'a> {
     terminal_request: TerminalTaskStore,
   },
   #[non_exhaustive]
-  SceneContentUpdate { writer: &'a mut SceneWriter },
+  SceneContentUpdate {
+    writer: Box<SceneWriter>,
+  },
+  SceneContentUpdateSuppressed,
   /// this stage is standalone but not merged with SceneContentUpdate because
   /// user may read write scene freely
   #[non_exhaustive]
@@ -252,13 +278,7 @@ pub fn stage_of_update(cx: &mut ViewerCx, cycle_count: usize, internal: impl Fn(
         cx.execute_partial(&internal, true);
       }
 
-      let mut writer = SceneWriter::from_global(cx.viewer.scene.scene);
-
-      cx.stage = unsafe {
-        std::mem::transmute(ViewerCxStage::SceneContentUpdate {
-          writer: &mut writer,
-        })
-      };
+      cx.active_scene_writer();
       cx.execute_partial(&internal, i != cycle_count - 1);
     }
 
