@@ -20,16 +20,19 @@ pub fn use_persistent_db_scope<Cx: HooksCxLike>(
   use_db_scoped_staged_change(
     cx,
     |cx, cp| {
-      if cx.is_creating() {
+      if !persist_cx.has_init {
         if let Some(init_data) = persist_cx.init_from_file.take() {
+          println!("init db persistent scope from file");
           init_data.write_into_db();
           // avoid send this init change to data persist worker, because this data
           // has already been persisted
           cp.flush_but_not_send();
         } else {
+          println!("create new db persistent file");
           init_for_new_persistent_scope();
           cp.notify_checkpoint("init");
         }
+        persist_cx.has_init = true;
       }
 
       scope(cx, cp)
@@ -56,6 +59,8 @@ impl DBPersistReadBackInitWrite {
 
 struct PersistentContext {
   init_from_file: Option<DBPersistReadBackInitWrite>,
+  // hook cx's is_creating is not very reliable(in partial execute), so we use this instead
+  has_init: bool,
   change_sender: UnboundedSender<StagedDBScopeChange>,
 }
 
@@ -127,6 +132,7 @@ impl Default for PersistentContext {
         })
       },
       change_sender,
+      has_init: false,
     }
   }
 }
