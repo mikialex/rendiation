@@ -6,6 +6,8 @@ use futures::StreamExt;
 
 use crate::*;
 
+const ENABLE_DEBUG_LOG: bool = true;
+
 /// all db mutation in this scope will be automatically and incrementally saved.
 /// when init, if the previous saved file is found, it will be loaded or the
 /// `init_for_new_persistent_scope` will be called.
@@ -22,13 +24,18 @@ pub fn use_persistent_db_scope<Cx: HooksCxLike>(
     |cx, cp| {
       if !persist_cx.has_init {
         if let Some(init_data) = persist_cx.init_from_file.take() {
-          println!("init db persistent scope from file");
+          if ENABLE_DEBUG_LOG {
+            println!("init db persistent scope from file");
+          }
+
           init_data.write_into_db();
           // avoid send this init change to data persist worker, because this data
           // has already been persisted
           cp.flush_but_not_send();
         } else {
-          println!("create new db persistent file");
+          if ENABLE_DEBUG_LOG {
+            println!("create new db persistent file");
+          }
           init_for_new_persistent_scope();
           cp.notify_checkpoint("init");
         }
@@ -72,6 +79,7 @@ impl Default for PersistentContext {
 
     let mut file = OpenOptions::new()
       .write(true)
+      .read(true)
       .create(true)
       .truncate(false)
       .open(assume_last_run_file_path)
@@ -84,7 +92,10 @@ impl Default for PersistentContext {
     let mut last_success_read_offset = file.stream_position().unwrap();
     let mut init_data = Vec::new();
     if !is_new_created {
-      if let Some(previous_transaction) = PersistStagedDBScopeChange::read(&mut file) {
+      while let Ok(previous_transaction) = PersistStagedDBScopeChange::read(&mut file) {
+        if ENABLE_DEBUG_LOG {
+          println!("read one previous transaction from history");
+        }
         init_data.push(previous_transaction);
         last_success_read_offset = file.stream_position().unwrap();
       }
@@ -293,11 +304,11 @@ pub struct PersistEntityScopeStageChange {
 }
 
 impl PersistStagedDBScopeChange {
-  pub fn write(&self, target: &mut impl Write) -> Option<()> {
-    rmp_serde::encode::write(target, self).ok()
+  pub fn write(&self, target: &mut impl Write) -> Result<(), rmp_serde::encode::Error> {
+    rmp_serde::encode::write(target, self)
   }
 
-  pub fn read(source: &mut impl Read) -> Option<Self> {
-    rmp_serde::decode::from_read(source).ok()
+  pub fn read(source: &mut impl Read) -> Result<Self, rmp_serde::decode::Error> {
+    rmp_serde::decode::from_read(source)
   }
 }
