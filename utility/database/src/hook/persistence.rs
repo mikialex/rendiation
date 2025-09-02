@@ -13,8 +13,7 @@ const ENABLE_DEBUG_LOG: bool = true;
 /// `init_for_new_persistent_scope` will be called.
 pub fn use_persistent_db_scope<Cx: HooksCxLike>(
   cx: &mut Cx,
-  init_for_new_persistent_scope: impl FnOnce(),
-  scope: impl FnOnce(&mut Cx, &CheckPointCreator),
+  scope: impl FnOnce(&mut Cx, &PersistenceAPI),
 ) {
   let (cx, persist_cx) = cx.use_plain_state(PersistentContext::default);
   let sender = persist_cx.change_sender.clone();
@@ -22,13 +21,14 @@ pub fn use_persistent_db_scope<Cx: HooksCxLike>(
   use_db_scoped_staged_change(
     cx,
     |cx, cp| {
+      let mut should_emit_init_checkpoint = false;
       if !persist_cx.has_init {
         if let Some(init_data) = persist_cx.init_from_file.take() {
           if ENABLE_DEBUG_LOG {
             println!("init db persistent scope from file");
           }
 
-          init_data.write_into_db();
+          init_data.write_into_db(cp.hydration_manager);
           // avoid send this init change to data persist worker, because this data
           // has already been persisted
           cp.flush_but_not_send();
@@ -36,13 +36,16 @@ pub fn use_persistent_db_scope<Cx: HooksCxLike>(
           if ENABLE_DEBUG_LOG {
             println!("create new db persistent file");
           }
-          init_for_new_persistent_scope();
-          cp.notify_checkpoint("init");
+          should_emit_init_checkpoint = true;
         }
         persist_cx.has_init = true;
       }
 
-      scope(cx, cp)
+      scope(cx, cp);
+
+      if should_emit_init_checkpoint {
+        cp.notify_checkpoint("init");
+      }
     },
     move |change| {
       sender.unbounded_send(change).ok();
@@ -56,10 +59,10 @@ struct DBPersistReadBackInitWrite {
 }
 
 impl DBPersistReadBackInitWrite {
-  pub fn write_into_db(self) {
+  pub fn write_into_db(self, hydration: &mut HydrationManager) {
     let mut writer = self.writer.write();
     for change in self.data_to_write {
-      writer.write_db(change);
+      writer.write_db(change, hydration);
     }
   }
 }
@@ -158,7 +161,7 @@ struct PersistIdMapper {
 }
 
 impl PersistIdMapper {
-  pub fn write_db(&mut self, change: PersistStagedDBScopeChange) {
+  pub fn write_db(&mut self, change: PersistStagedDBScopeChange, hydration: &mut HydrationManager) {
     let name_mapping = self.db_name_mapping.read();
     let db = global_database();
 
@@ -173,6 +176,15 @@ impl PersistIdMapper {
         self.rev_mapping.insert(*entity_p_id, new_id);
         self.mapping.insert(new_id, *entity_p_id);
       }
+    }
+
+    assert!(hydration.label_changes.is_empty());
+    for key in change.hydration_changes.removed.iter() {
+      hydration.labels.remove(key);
+    }
+    for (key, value) in change.hydration_changes.new_inserts {
+      let value = self.rev_mapping.get(&value).unwrap();
+      hydration.labels.insert(key, *value);
     }
 
     for (com_name, changes) in change.component_changes {
@@ -280,9 +292,22 @@ impl PersistIdMapper {
       })
       .collect();
 
+    let new_inserts = change
+      .hydration_changes
+      .new_inserts
+      .into_iter()
+      .map(|(k, v)| (k, *self.mapping.get(&v).unwrap()))
+      .collect();
+
+    let hydration_changes = HydrationMetaInfoChange {
+      new_inserts,
+      removed: change.hydration_changes.removed,
+    };
+
     PersistStagedDBScopeChange {
       component_changes,
       entity_changes,
+      hydration_changes,
     }
   }
 }
@@ -291,6 +316,28 @@ impl PersistIdMapper {
 pub struct PersistStagedDBScopeChange {
   pub component_changes: FastHashMap<String, PersistStagedComponentChangeBuffer>,
   pub entity_changes: FastHashMap<String, PersistEntityScopeStageChange>,
+  pub hydration_changes: HydrationMetaInfoChange<PersistEntityId>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct HydrationMetaInfoChange<T> {
+  pub new_inserts: FastHashMap<String, T>,
+  pub removed: FastHashSet<String>,
+}
+
+impl<T> HydrationMetaInfoChange<T> {
+  pub fn is_empty(&self) -> bool {
+    self.new_inserts.is_empty() && self.removed.is_empty()
+  }
+}
+
+impl<T> Default for HydrationMetaInfoChange<T> {
+  fn default() -> Self {
+    Self {
+      new_inserts: Default::default(),
+      removed: Default::default(),
+    }
+  }
 }
 
 // only contains setting

@@ -118,39 +118,78 @@ impl EntityScopeSingle {
 
 pub fn use_db_scoped_staged_change<Cx: HooksCxLike>(
   cx: &mut Cx,
-  scope: impl FnOnce(&mut Cx, &CheckPointCreator),
+  scope: impl FnOnce(&mut Cx, &mut PersistenceAPI),
   on_staged_change_flushed: impl Fn(StagedDBScopeChange) + 'static,
 ) {
   let (cx, component_changes) = cx.use_plain_state(StagedDBScopeChangeMerger::default);
+  let (cx, hydration_manager) = cx.use_plain_state(HydrationManager::default);
 
   use_db_scope(cx, |cx, db_entity_scope| {
     watch_db_components_in_scope(db_entity_scope, component_changes, |component_changes| {
-      let check_pointer = CheckPointCreator {
+      let mut check_pointer = PersistenceAPI {
         internal: component_changes,
         sets: db_entity_scope,
         cb: Box::new(on_staged_change_flushed),
+        hydration_manager,
       };
 
-      scope(cx, &check_pointer);
+      scope(cx, &mut check_pointer);
     });
   })
 }
 
-pub struct CheckPointCreator<'a> {
+pub struct PersistenceAPI<'a> {
   internal: &'a StagedDBScopeChangeMerger,
   sets: &'a EntityScope,
   cb: Box<dyn Fn(StagedDBScopeChange)>,
+  pub(crate) hydration_manager: &'a mut HydrationManager,
 }
 
-impl<'a> CheckPointCreator<'a> {
+#[derive(Default)]
+pub struct HydrationManager {
+  pub(crate) labels: FastHashMap<String, RawEntityHandle>,
+  pub(crate) label_changes: HydrationMetaInfoChange<RawEntityHandle>,
+}
+
+impl HydrationManager {
+  pub fn flush(&mut self) -> HydrationMetaInfoChange<RawEntityHandle> {
+    std::mem::take(&mut self.label_changes)
+  }
+
+  pub fn setup_hydration_label(&mut self, label: impl Into<String>, node: RawEntityHandle) {
+    let label = label.into();
+    self.label_changes.new_inserts.insert(label.clone(), node);
+    self.label_changes.removed.remove(&label);
+    self.labels.insert(label, node);
+  }
+
+  pub fn delete_hydration_label(&mut self, label: impl Into<String>) {
+    let label = label.into();
+    self.label_changes.removed.insert(label.clone());
+    self.label_changes.new_inserts.remove(&label);
+    self.labels.remove(&label);
+  }
+}
+
+impl<'a> PersistenceAPI<'a> {
   /// this must called outside of the db mutation scope, or it will deadlock.
-  pub fn notify_checkpoint(&self, _label: &str) {
+  pub fn notify_checkpoint(&mut self, label: &str) {
     let changes = self.internal.flush_buffered_changes();
     let changes = StagedDBScopeChange {
+      label: label.to_string(),
       component_changes: changes,
       entity_changes: self.sets.flush_change(),
+      hydration_changes: self.hydration_manager.flush(),
     };
     (self.cb)(changes);
+  }
+
+  pub fn setup_hydration_label(&mut self, label: impl Into<String>, node: RawEntityHandle) {
+    self.hydration_manager.setup_hydration_label(label, node);
+  }
+
+  pub fn delete_hydration_label(&mut self, label: impl Into<String>) {
+    self.hydration_manager.delete_hydration_label(label);
   }
 
   /// this is a special case to flush but avoid send mutation in some case
@@ -161,8 +200,10 @@ impl<'a> CheckPointCreator<'a> {
 
 #[derive(Debug)]
 pub struct StagedDBScopeChange {
+  pub label: String,
   pub component_changes: FastHashMap<ComponentId, StagedComponentChangeBuffer>,
   pub entity_changes: FastHashMap<EntityId, EntityScopeStageChange>,
+  pub hydration_changes: HydrationMetaInfoChange<RawEntityHandle>,
 }
 
 impl StagedDBScopeChange {
