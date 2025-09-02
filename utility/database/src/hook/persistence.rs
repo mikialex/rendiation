@@ -13,7 +13,7 @@ const ENABLE_DEBUG_LOG: bool = true;
 /// `init_for_new_persistent_scope` will be called.
 pub fn use_persistent_db_scope<Cx: HooksCxLike>(
   cx: &mut Cx,
-  scope: impl FnOnce(&mut Cx, &PersistenceAPI),
+  scope: impl FnOnce(&mut Cx, &mut PersistenceAPI),
 ) {
   let (cx, persist_cx) = cx.use_plain_state(PersistentContext::default);
   let sender = persist_cx.change_sender.clone();

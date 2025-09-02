@@ -184,6 +184,10 @@ impl<'a> PersistenceAPI<'a> {
     (self.cb)(changes);
   }
 
+  pub fn get_hydration_label(&self, label: impl Into<String>) -> Option<RawEntityHandle> {
+    self.hydration_manager.labels.get(&label.into()).copied()
+  }
+
   pub fn setup_hydration_label(&mut self, label: impl Into<String>, node: RawEntityHandle) {
     self.hydration_manager.setup_hydration_label(label, node);
   }

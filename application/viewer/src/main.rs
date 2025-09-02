@@ -110,18 +110,32 @@ fn main() {
       sync_camera_view(cx);
       use_animation_player(cx);
 
+      // demo of how persistent scope api works
       cx.suppress_scene_writer();
-      use_persistent_db_scope(
-        cx,
-        || {},
-        |cx, _| {
-          cx.re_enable_scene_writer();
+      use_persistent_db_scope(cx, |cx, persist_api| {
+        cx.re_enable_scene_writer();
 
-          core::hint::black_box(());
+        // demo of how hydration works
+        cx.use_state_init(|_| {
+          let label = "root_scene";
+          if let Some(handle) = persist_api.get_hydration_label(label) {
+            println!("retrieve root persistent scene");
+            unsafe { EntityHandle::from_raw(handle) }
+          } else {
+            println!("create new root persistent scene");
+            let node = global_entity_of::<SceneEntity>()
+              .entity_writer()
+              .new_entity();
 
-          cx.suppress_scene_writer();
-        },
-      );
+            persist_api.setup_hydration_label(label, node.into_raw());
+            node
+          }
+        });
+
+        core::hint::black_box(());
+
+        cx.suppress_scene_writer();
+      });
       cx.re_enable_scene_writer();
 
       use_smooth_camera_motion(cx, |cx| {

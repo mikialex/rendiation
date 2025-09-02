@@ -73,6 +73,12 @@ pub struct ViewerDropCx<'a> {
   pub shared_ctx: &'a mut SharedHooksCtx,
 }
 
+impl CanCleanUpFrom<ViewerDropCx<'_>> for EntityHandle<SceneEntity> {
+  fn drop_from_cx(&mut self, cx: &mut ViewerDropCx<'_>) {
+    cx.writer.scene_writer.delete_entity(*self);
+  }
+}
+
 pub struct ViewerInitCx<'a> {
   pub dyn_cx: &'a mut DynCx,
   pub scene: &'a Viewer3dSceneCtx,
