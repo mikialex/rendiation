@@ -8,7 +8,7 @@ use self::{
 };
 use super::*;
 
-const ENABLE_DEBUG_LOG: bool = false;
+const ENABLE_DEBUG_LOG: bool = true;
 
 pub struct RemappedGrowablePacker<K> {
   max_size: SizeWithDepth,
@@ -69,7 +69,7 @@ impl<K: Copy + Eq + Hash + std::fmt::Debug> RemappedGrowablePacker<K> {
 
       if depth_capacity == 0 && height_capacity == 0 && width_capacity == 0 {
         if ENABLE_DEBUG_LOG {
-          println!("grow failed, current_size: {config:?}, max_size: {max:?}");
+          println!("grow failed, reached max_size: {max:?}");
         }
 
         return None;
@@ -153,6 +153,7 @@ impl<K: Copy + Eq + Hash + std::fmt::Debug> RemappedGrowablePacker<K> {
       } else {
         let delta = ValueChange::Delta(None, None);
         notify_change(id, delta);
+        rev_mapping.insert(id, None);
         println!("warning, texture allocation failed for {id:?}, try increase the max size")
       }
     }
