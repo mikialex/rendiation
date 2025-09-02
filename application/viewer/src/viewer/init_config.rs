@@ -4,6 +4,7 @@ use crate::*;
 
 /// The helper struct to quickly config the default viewer behavior.
 #[derive(Serialize, Deserialize)]
+#[serde(default)] // any missing field will be set to the struct's default
 pub struct ViewerInitConfig {
   pub enable_reverse_z: bool,
   pub raster_backend_type: RasterizationRenderBackendType,
@@ -12,18 +13,16 @@ pub struct ViewerInitConfig {
   pub transparent_config: ViewerTransparentContentRenderStyle,
 }
 
+const INIT_FILE_NAME: &str = "viewer_init_config.json";
+
 impl ViewerInitConfig {
   pub fn from_default_json_or_default() -> Self {
-    let path = std::env::current_dir()
-      .unwrap()
-      .join("viewer_init_config.json");
+    let path = std::env::current_dir().unwrap().join(INIT_FILE_NAME);
     Self::from_json_or_default(path).unwrap_or_default()
   }
 
   pub fn export_to_current_dir(&self) {
-    let path = std::env::current_dir()
-      .unwrap()
-      .join("viewer_init_config.json");
+    let path = std::env::current_dir().unwrap().join(INIT_FILE_NAME);
     let json_file = std::fs::File::create_buffered(path).unwrap();
     serde_json::to_writer_pretty(json_file, self).unwrap();
   }

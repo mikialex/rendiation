@@ -57,15 +57,16 @@ pub struct MeshLODGraphRenderer {
 
 impl MeshLODGraphRenderer {
   pub fn new(gpu: &GPU) -> Self {
+    let max_indices_count = 1_000_000_u32;
     let indices = StorageBufferReadonlyDataView::<[u32]>::create_by_with_extra_usage(
       &gpu.device,
       "mesh lod graph indices pool".into(),
-      ZeroedArrayByArrayLength(1_000_000).into(),
+      ZeroedArrayByArrayLength(max_indices_count as usize).into(),
       BufferUsages::INDEX,
     );
 
-    let indices = create_growable_buffer(gpu, indices, 1_000_000);
-    let index_buffer = GPURangeAllocateMaintainer::new(gpu, indices);
+    let indices = create_growable_buffer(gpu, indices, max_indices_count);
+    let index_buffer = GPURangeAllocateMaintainer::new(gpu, indices, max_indices_count);
 
     Self {
       scene_model_meshlet_index_vertex_offset: vec![Default::default(); 100],

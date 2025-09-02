@@ -4,17 +4,17 @@ use parking_lot::RwLock;
 
 use crate::*;
 
-pub type UntypedPool = Arc<RwLock<StorageBufferRangeAllocatePool<u32>>>;
+pub type UntypedU32Pool = Arc<RwLock<StorageBufferRangeAllocatePool<u32>>>;
 
 #[derive(Clone)]
 pub struct ReactiveRangeAllocatePool<K> {
-  buffer: UntypedPool,
+  buffer: UntypedU32Pool,
   record: Arc<RwLock<FastHashMap<K, [u32; 2]>>>,
   rev_map: Arc<RwLock<FastHashMap<u32, K>>>,
 }
 
 impl<K> ReactiveRangeAllocatePool<K> {
-  pub fn new(buffer: &UntypedPool) -> Self {
+  pub fn new(buffer: &UntypedU32Pool) -> Self {
     Self {
       buffer: buffer.clone(),
       record: Default::default(),
@@ -48,22 +48,23 @@ impl<K: CKey> ReactiveRangeAllocatePool<K> {
       }
     }
 
+    let mut override_offsets: FastHashMap<u32, K> = FastHashMap::default();
     for (k, data_to_write) in changed_keys {
-      let mut override_offsets: FastHashMap<u32, K> = FastHashMap::default();
       let count = data_to_write.len();
       assert_eq!(count % 4, 0);
       let count_u32 = (count / 4) as u32;
+
       let offset = buffer
         .allocate_range(count_u32, &mut |relocation| {
           let id = override_offsets
             .remove(&relocation.previous_offset)
             .unwrap_or_else(|| rev.remove(&relocation.previous_offset).unwrap());
 
-          mutator.remove(id.clone());
+          let [_, count] = mutator.remove(id.clone()).unwrap();
           if let Some(overridden) = rev.insert(relocation.new_offset, id.clone()) {
             override_offsets.insert(relocation.new_offset, overridden);
           }
-          mutator.set_value(id, [relocation.new_offset, count_u32]);
+          mutator.set_value(id, [relocation.new_offset, count]);
         })
         .unwrap();
       assert!(override_offsets.is_empty());

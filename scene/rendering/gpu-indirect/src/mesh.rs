@@ -24,7 +24,11 @@ pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl>
     );
 
     let indices = create_growable_buffer(gpu, indices, max_index_count as u32);
-    Arc::new(RwLock::new(GPURangeAllocateMaintainer::new(gpu, indices)))
+    Arc::new(RwLock::new(GPURangeAllocateMaintainer::new(
+      gpu,
+      indices,
+      max_index_count as u32,
+    )))
   });
 
   let (cx, position) = cx.use_gpu_init(|gpu| {
@@ -112,7 +116,7 @@ pub fn use_bindless_mesh(cx: &mut QueryGPUHookCx) -> Option<MeshGPUBindlessImpl>
 
 fn use_attribute_indices(
   cx: &mut QueryGPUHookCx,
-  index_pool: &UntypedPool,
+  index_pool: &UntypedU32Pool,
 ) -> UseResult<impl DataChanges<Key = RawEntityHandle, Value = [u32; 2]>> {
   let index_buffer_ref = cx.use_dual_query::<SceneBufferViewBufferId<AttributeIndexRef>>();
   let index_buffer_range = cx.use_dual_query::<SceneBufferViewBufferRange<AttributeIndexRef>>();
@@ -187,7 +191,7 @@ fn use_attribute_indices(
 
 fn use_attribute_vertex(
   cx: &mut QueryGPUHookCx,
-  pool: &UntypedPool,
+  pool: &UntypedU32Pool,
   semantic: AttributeSemantic,
 ) -> UseResult<impl DataChanges<Key = RawEntityHandle, Value = [u32; 2]>> {
   let attribute_scope = cx
@@ -269,10 +273,10 @@ pub struct AttributeMeshMeta {
 
 fn use_attribute_buffer_metadata(
   cx: &mut QueryGPUHookCx,
-  index_pool: &UntypedPool,
-  position_pool: &UntypedPool,
-  normal_pool: &UntypedPool,
-  uv_pool: &UntypedPool,
+  index_pool: &UntypedU32Pool,
+  position_pool: &UntypedU32Pool,
+  normal_pool: &UntypedU32Pool,
+  uv_pool: &UntypedU32Pool,
 ) -> Arc<RwLock<CommonStorageBufferImplWithHostBackup<AttributeMeshMeta>>> {
   let (cx, data) = cx.use_gpu_init(|gpu| {
     let data = create_common_storage_buffer_with_host_backup_container(128, u32::MAX, gpu);
@@ -323,10 +327,10 @@ fn use_attribute_buffer_metadata(
 
 #[derive(Clone)]
 pub struct MeshGPUBindlessImpl {
-  indices: UntypedPool,
-  position: UntypedPool,
-  normal: UntypedPool,
-  uv: UntypedPool,
+  indices: UntypedU32Pool,
+  position: UntypedU32Pool,
+  normal: UntypedU32Pool,
+  uv: UntypedU32Pool,
   vertex_address_buffer: StorageBufferReadonlyDataView<[AttributeMeshMeta]>,
   /// we keep the host metadata to support creating draw commands from host
   vertex_address_buffer_host:

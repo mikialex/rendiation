@@ -3,6 +3,7 @@ use crate::*;
 type AllocationHandle = xalloc::tlsf::TlsfRegion<xalloc::arena::sys::Ptr>;
 
 pub struct GPURangeAllocateMaintainer<T> {
+  max_item_count: u32,
   used_count: u32,
   // todo, remove this if we can get offset from handle in allocator
   // offset => (size, handle)
@@ -22,9 +23,12 @@ impl<T> GPURangeAllocateMaintainer<T>
 where
   T: ResizableLinearStorage + GPULinearStorage + LinearStorageDirectAccess,
 {
-  pub fn new(gpu: &GPU, buffer: T) -> Self {
+  pub fn new(gpu: &GPU, buffer: T, max_item_count: u32) -> Self {
+    let current_size = buffer.max_size();
+    assert!(current_size <= max_item_count);
     Self {
-      allocator: xalloc::SysTlsf::new(buffer.max_size()),
+      max_item_count,
+      allocator: xalloc::SysTlsf::new(current_size),
       buffer,
       gpu: gpu.clone(),
       used_count: 0,
@@ -56,14 +60,14 @@ where
 
     let item_byte_width = std::mem::size_of::<T::Item>() as u32;
     let mut new_ranges = FastHashMap::default();
-    self.ranges.iter_mut().for_each(|(offset, (size, _))| {
+    self.ranges.iter_mut().for_each(|(old_offset, (size, _))| {
       let (new_token, new_offset) = new_allocator
         .alloc(*size)
-        .expect("relocation should success");
+        .expect("allocation after grow should success");
 
       encoder.copy_buffer_to_buffer(
         origin_gpu_buffer.resource.gpu(),
-        *offset as u64 * item_byte_width as u64,
+        *old_offset as u64 * item_byte_width as u64,
         new_gpu_buffer.resource.gpu(),
         new_offset as u64 * item_byte_width as u64,
         *size as u64 * item_byte_width as u64,
@@ -71,7 +75,7 @@ where
 
       new_ranges.insert(new_offset, (*size, new_token));
       relocation_handler(RelocationMessage {
-        previous_offset: *offset,
+        previous_offset: *old_offset,
         new_offset,
       })
     });
@@ -99,8 +103,16 @@ where
         self.used_count += count;
 
         break Some(offset);
-      } else if !self.relocate(self.buffer.max_size() + count, relocation_handler) {
-        return None;
+      } else {
+        let current_size = self.buffer.max_size();
+        let next_allocate = (current_size * 2).max(count).min(self.max_item_count);
+        println!(
+          "range allocator try grow from {current_size} to {next_allocate}, max {}",
+          self.max_item_count
+        );
+        if !self.relocate(next_allocate, relocation_handler) {
+          return None;
+        }
       }
     }
   }
@@ -205,5 +217,5 @@ pub fn create_storage_buffer_range_allocate_pool<T: Std430>(
   );
 
   let buffer = create_growable_buffer(gpu, buffer, max_item_count);
-  GPURangeAllocateMaintainer::new(gpu, buffer)
+  GPURangeAllocateMaintainer::new(gpu, buffer, max_item_count)
 }
