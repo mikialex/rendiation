@@ -1,8 +1,8 @@
-use std::sync::Arc;
-
-use parking_lot::RwLock;
 use rendiation_oit::OitLoop32Renderer;
 
+use crate::*;
+
+#[derive(Serialize, Deserialize)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ViewerTransparentContentRenderStyle {
   NaiveAlphaBlend,

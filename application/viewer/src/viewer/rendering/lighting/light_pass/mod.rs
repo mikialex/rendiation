@@ -25,40 +25,37 @@ pub fn render_lighting_scene_content(
   lighting_cx: &LightingRenderingCx,
   cull_cx: &ViewerCulling,
   renderer: &ViewerSceneRenderer,
-  content: &Viewer3dSceneCtx,
+  scene: EntityHandle<SceneEntity>,
+  camera: EntityHandle<SceneCameraEntity>,
   scene_result: &RenderTargetView,
   g_buffer: &FrameGeometryBuffer,
 ) {
-  let main_camera_gpu = renderer
-    .cameras
-    .make_component(content.main_camera)
-    .unwrap();
-  let main_camera_gpu = &main_camera_gpu;
+  let camera_gpu = renderer.cameras.make_component(camera).unwrap();
+  let camera_gpu = &camera_gpu;
 
   let (color_ops, depth_ops) = renderer
     .background
-    .init_clear(content.scene, renderer.reversed_depth);
+    .init_clear(scene, renderer.reversed_depth);
 
-  let mut background =
-    renderer
-      .background
-      .draw(content.scene, main_camera_gpu, lighting_cx.tonemap);
+  let mut background = renderer
+    .background
+    .draw(scene, camera_gpu, lighting_cx.tonemap);
 
   match lighting_cx.lighting_method {
     LightingTechniqueKind::Forward => {
       let lighting = lighting_cx
         .lighting
-        .get_scene_forward_lighting_component(content.scene);
+        .get_scene_forward_lighting_component(scene);
 
       let all_opaque_object = renderer.batch_extractor.extract_scene_batch(
-        content.scene,
+        scene,
         SceneContentKey::only_opaque_objects(),
         renderer.scene,
         ctx,
       );
 
       let all_transparent_object = renderer.batch_extractor.extract_scene_batch(
-        content.scene,
+        scene,
         SceneContentKey::only_alpha_blend_objects(),
         renderer.scene,
         ctx,
@@ -68,7 +65,7 @@ pub fn render_lighting_scene_content(
         if let SceneModelRenderBatch::Host(all_transparent_object) = &all_transparent_object {
           let camera_position = renderer
             .camera_transforms
-            .access(&content.main_camera)
+            .access(&camera)
             .unwrap()
             .world
             .position();
@@ -82,11 +79,7 @@ pub fn render_lighting_scene_content(
           all_transparent_object
         };
 
-      cull_cx.install_device_frustum_culler(
-        &mut all_transparent_object,
-        main_camera_gpu,
-        content.main_camera,
-      );
+      cull_cx.install_device_frustum_culler(&mut all_transparent_object, camera_gpu, camera);
 
       match renderer.oit.clone() {
         ViewerTransparentRenderer::NaiveAlphaBlend => {
@@ -103,7 +96,7 @@ pub fn render_lighting_scene_content(
 
           let mut all_transparent_object = renderer.scene.make_scene_batch_pass_content(
             all_transparent_object,
-            main_camera_gpu,
+            camera_gpu,
             scene_pass_dispatcher,
             ctx,
           );
@@ -113,8 +106,8 @@ pub fn render_lighting_scene_content(
               ctx,
               renderer,
               scene_pass_dispatcher,
-              main_camera_gpu,
-              content.main_camera,
+              camera_gpu,
+              camera,
               &mut |pass| pass.by(&mut background),
               pass_base,
               all_opaque_object,
@@ -142,8 +135,8 @@ pub fn render_lighting_scene_content(
             ctx,
             renderer,
             scene_pass_dispatcher,
-            main_camera_gpu,
-            content.main_camera,
+            camera_gpu,
+            camera,
             &mut |pass| pass.by(&mut background),
             pass_base_for_opaque,
             all_opaque_object,
@@ -166,7 +159,7 @@ pub fn render_lighting_scene_content(
             pass_base_transparent,
             scene_result,
             renderer.scene,
-            main_camera_gpu,
+            camera_gpu,
             scene_pass_dispatcher,
             renderer.reversed_depth,
           );
@@ -193,8 +186,8 @@ pub fn render_lighting_scene_content(
             ctx,
             renderer,
             scene_pass_dispatcher,
-            main_camera_gpu,
-            content.main_camera,
+            camera_gpu,
+            camera,
             &mut |pass| pass.by(&mut background),
             pass_base_for_opaque,
             all_opaque_object,
@@ -215,7 +208,7 @@ pub fn render_lighting_scene_content(
             pass_base_transparent,
             scene_result,
             renderer.scene,
-            main_camera_gpu,
+            camera_gpu,
             scene_pass_dispatcher,
             renderer.reversed_depth,
           );
@@ -240,7 +233,7 @@ pub fn render_lighting_scene_content(
       ]) as &dyn RenderComponent;
 
       let main_scene_content = renderer.batch_extractor.extract_scene_batch(
-        content.scene,
+        scene,
         SceneContentKey::default(),
         renderer.scene,
         ctx,
@@ -250,15 +243,15 @@ pub fn render_lighting_scene_content(
         ctx,
         renderer,
         scene_pass_dispatcher,
-        main_camera_gpu,
-        content.main_camera,
+        camera_gpu,
+        camera,
         &mut |pass| pass,
         pass_base,
         main_scene_content,
       );
 
       let geometry_from_g_buffer = Box::new(FrameGeometryBufferReconstructGeometryCtx {
-        camera: &main_camera_gpu,
+        camera: &camera_gpu,
         g_buffer,
       }) as Box<dyn GeometryCtxProvider>;
       let surface_from_m_buffer = Box::new(FrameGeneralMaterialBufferReconstructSurface {
@@ -266,7 +259,7 @@ pub fn render_lighting_scene_content(
         registry: lighting_cx.deferred_mat_supports,
       });
       let lighting = lighting_cx.lighting.get_scene_lighting_component(
-        content.scene,
+        scene,
         geometry_from_g_buffer,
         surface_from_m_buffer,
       );

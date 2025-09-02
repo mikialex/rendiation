@@ -68,7 +68,7 @@ pub fn use_fit_camera_view(cx: &mut ViewerCx) {
 }
 
 fn fit_camera_view_for_viewer(
-  scene_info: &Viewer3dSceneCtx,
+  scene_info: &Viewer3dContent,
   world_mat: impl Query<Key = EntityHandle<SceneNodeEntity>, Value = Mat4<f64>>,
   sm_world_bounding: impl Query<Key = EntityHandle<SceneModelEntity>, Value = Box3<f64>>,
 ) -> Option<CameraMoveAction> {

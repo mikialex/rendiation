@@ -129,6 +129,10 @@ For GPU debugging and profiling, the metal gpu capture is recommended to investi
 
 When using Xcode & Instrument to debug memory usage, your binary should manually signed or you will get "required kernel recording resources" error. see <https://github.com/rust-lang/rust/issues/107033>. Restart the profiler after signing.
 
+The `viewer_init_config.json` will be search and loaded when viewer init, if not exist
+or failed to load, the default init config will be used. The stability of this config
+file is not guarrenteed. This config can be exported in viewer UI.
+
 ## Tracy profiler
 
 [tracy](https://github.com/wolfpld/tracy) is a useful tool to investigate memory and performance issues. Tracy has already integrated into viewer application. It is disabled by default behind the `tracy` feature flag because it will using and buffering a lot of memory when enabled. The current integration should use tracy 0.11.1 client to connect.

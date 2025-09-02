@@ -29,6 +29,7 @@ use rendiation_texture_gpu_process::copy_frame;
 use rendiation_webgpu::*;
 use widget::*;
 
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum RasterizationRenderBackendType {
   Gles,
@@ -96,6 +97,14 @@ pub struct Viewer3dRenderingCtx {
 }
 
 impl Viewer3dRenderingCtx {
+  pub fn setup_init_config(&self, init_config: &mut ViewerInitConfig) {
+    init_config.raster_backend_type = self.current_renderer_impl_ty;
+    init_config.enable_indirect_occlusion_culling = self.enable_indirect_occlusion_culling;
+    init_config.transparent_config = self.transparent_config;
+    init_config.prefer_bindless_for_indirect_texture_system =
+      self.prefer_bindless_for_indirect_texture_system;
+  }
+
   pub fn gpu(&self) -> &GPU {
     &self.gpu
   }
@@ -369,7 +378,7 @@ impl Viewer3dRenderingCtx {
   pub fn render(
     &mut self,
     target: &RenderTargetView,
-    content: &Viewer3dSceneCtx,
+    content: &Viewer3dContent,
     memory: &mut FunctionMemory,
     task_pool_result: TaskPoolResultCx,
     shared_ctx: &mut SharedHooksCtx,

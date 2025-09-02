@@ -105,7 +105,7 @@ pub fn widget_root(viewer_cx: &mut ViewerCx, f: impl FnOnce(&mut UI3dCx)) {
 
 pub fn create_widget_cx(
   scene_reader: &SceneReader,
-  viewer_scene: &Viewer3dSceneCtx,
+  viewer_scene: &Viewer3dContent,
   picker: &ViewerPicker,
   canvas_resolution: Vec2<u32>,
   world_mat: BoxedDynQuery<EntityHandle<SceneNodeEntity>, Mat4<f64>>,

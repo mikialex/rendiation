@@ -5320,6 +5320,7 @@ dependencies = [
  "rendiation-webgpu-hook-utils",
  "rfd",
  "serde",
+ "serde_json",
  "tracing",
  "tracing-subscriber",
  "tracing-tracy",

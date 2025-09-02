@@ -98,7 +98,7 @@ type TerminalCommandCb = Box<
 >;
 
 pub struct TerminalInitExecuteCx<'a> {
-  pub scene: &'a Viewer3dSceneCtx,
+  pub scene: &'a Viewer3dContent,
   pub renderer: &'a mut Viewer3dRenderingCtx,
   pub dyn_cx: &'a mut DynCx,
 }

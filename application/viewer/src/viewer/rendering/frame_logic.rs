@@ -77,11 +77,13 @@ impl ViewerFrameLogic {
     renderer: &ViewerSceneRenderer,
     culling: &ViewerCulling,
     lighting: &LightingRenderingCx,
-    content: &Viewer3dSceneCtx,
+    content: &Viewer3dContent,
     final_target: &RenderTargetView,
     current_camera_view_projection_inv: Mat4<f64>,
     reversed_depth: bool,
   ) -> RenderTargetView {
+    let camera = content.main_camera;
+
     let hdr_enabled = final_target.format() == TextureFormat::Rgba16Float;
 
     self
@@ -90,14 +92,11 @@ impl ViewerFrameLogic {
 
     self.post.upload_with_diff(&ctx.gpu.queue);
 
-    let main_camera_gpu = renderer
-      .cameras
-      .make_component(content.main_camera)
-      .unwrap();
+    let camera_gpu = renderer.cameras.make_component(camera).unwrap();
 
     let mut taa_content = SceneCameraTAAContent {
       queue: &ctx.gpu.queue,
-      camera: content.main_camera,
+      camera,
       renderer,
       f: |ctx: &mut FrameCtx| {
         let scene_result = attachment().use_hdr_if_enabled(hdr_enabled).request(ctx);
@@ -110,7 +109,8 @@ impl ViewerFrameLogic {
           lighting,
           culling,
           renderer,
-          content,
+          content.scene,
+          camera,
           &scene_result,
           &g_buffer,
         );
@@ -124,7 +124,7 @@ impl ViewerFrameLogic {
             .by(&mut GridGround {
               plane: &self.ground,
               shading: &self.grid,
-              camera: &main_camera_gpu,
+              camera: &camera_gpu,
               reversed_depth,
             });
         }
@@ -207,7 +207,7 @@ impl ViewerFrameLogic {
       let batch = SceneModelRenderBatch::Host(batch);
       let masked_content = renderer.scene.make_scene_batch_pass_content(
         batch,
-        &main_camera_gpu,
+        &camera_gpu,
         &HighLightMaskDispatcher,
         ctx,
       );

@@ -1,5 +1,6 @@
 #![feature(impl_trait_in_assoc_type)]
 #![feature(array_chunks)]
+#![feature(file_buffered)]
 #![feature(stmt_expr_attributes)]
 #![feature(type_alias_impl_trait)]
 #![feature(ptr_metadata)]
@@ -30,6 +31,7 @@ use rendiation_scene_rendering_gpu_gles::*;
 use rendiation_shader_api::*;
 use rendiation_texture_gpu_base::SamplerConvertExt;
 use rendiation_webgpu_hook_utils::*;
+use serde::{Deserialize, Serialize};
 use tracing::*;
 use winit::{
   event::{Event, WindowEvent},

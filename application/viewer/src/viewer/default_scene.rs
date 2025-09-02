@@ -3,7 +3,7 @@ use rendiation_mesh_generator::*;
 
 use crate::*;
 
-pub fn load_default_scene(writer: &mut SceneWriter, _viewer_scene: &Viewer3dSceneCtx) {
+pub fn load_default_scene(writer: &mut SceneWriter, _viewer_scene: &Viewer3dContent) {
   // test_mesh_lod_graph(writer);
 
   // test_ltc_lighting(writer);

@@ -1,0 +1,7 @@
+{
+  "enable_reverse_z": true,
+  "raster_backend_type": "Indirect",
+  "prefer_bindless_for_indirect_texture_system": false,
+  "enable_indirect_occlusion_culling": false,
+  "transparent_config": "NaiveAlphaBlend"
+}

@@ -81,7 +81,7 @@ impl CanCleanUpFrom<ViewerDropCx<'_>> for EntityHandle<SceneEntity> {
 
 pub struct ViewerInitCx<'a> {
   pub dyn_cx: &'a mut DynCx,
-  pub scene: &'a Viewer3dSceneCtx,
+  pub scene: &'a Viewer3dContent,
   pub terminal: &'a mut Terminal,
   pub shared_ctx: &'a mut SharedHooksCtx,
 }
@@ -303,7 +303,7 @@ pub fn use_viewer<'a>(
     Viewer::new(
       acx.gpu_and_surface.gpu.clone(),
       acx.gpu_and_surface.surface.clone(),
-      &ViewerInitConfig::default(), // todo, read from config file
+      &ViewerInitConfig::from_default_json_or_default(),
     )
   });
 
@@ -358,7 +358,7 @@ pub fn use_viewer<'a>(
 }
 
 pub struct Viewer {
-  scene: Viewer3dSceneCtx,
+  scene: Viewer3dContent,
   rendering: Viewer3dRenderingCtx,
   terminal: Terminal,
   background: ViewerBackgroundState,
@@ -425,7 +425,7 @@ impl Viewer {
       .with_component_value_writer::<SceneCameraNode>(Some(camera_node.into_raw()))
       .new_entity();
 
-    let scene = Viewer3dSceneCtx {
+    let scene = Viewer3dContent {
       main_camera,
       camera_node,
       scene,
@@ -457,6 +457,15 @@ impl Viewer {
     }
   }
 
+  pub fn export_init_config(&self) -> ViewerInitConfig {
+    let mut config = ViewerInitConfig {
+      enable_reverse_z: self.rendering.ndc.enable_reverse_z,
+      ..Default::default()
+    };
+    self.rendering.setup_init_config(&mut config);
+    config
+  }
+
   pub fn draw_canvas(&mut self, canvas: &RenderTargetView, task_spawner: &TaskSpawner) {
     let tasks =
       self
@@ -477,7 +486,7 @@ impl Viewer {
   }
 }
 
-pub struct Viewer3dSceneCtx {
+pub struct Viewer3dContent {
   pub main_camera: EntityHandle<SceneCameraEntity>,
   pub camera_node: EntityHandle<SceneNodeEntity>,
   pub root: EntityHandle<SceneNodeEntity>,

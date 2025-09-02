@@ -129,6 +129,13 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
         ui.separator();
 
         viewer.background.egui(ui, viewer.scene.scene);
+
+        ui.separator();
+
+        if ui.button("export current viewer init config").clicked() {
+          let config = viewer.export_init_config();
+          config.export_to_current_dir();
+        }
       });
 
     egui::Window::new("Frame Rendering Info")
