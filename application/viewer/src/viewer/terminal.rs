@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use fast_hash_collection::FastHashMap;
 use futures::{executor::ThreadPool, Future};
 
@@ -10,6 +12,7 @@ pub struct Terminal {
   /// some task may only run on main thread, for example acquire db write lock
   pub main_thread_tasks: futures::channel::mpsc::UnboundedReceiver<Box<dyn FnOnce() + Send + Sync>>,
   pub ctx: TerminalCtx,
+  pub buffered_requests: VecDeque<String>,
 }
 
 #[derive(Clone)]
@@ -90,6 +93,7 @@ impl Terminal {
         .create()
         .unwrap(),
       main_thread_tasks: r,
+      buffered_requests: Default::default(),
       ctx,
     }
   }
@@ -107,8 +111,11 @@ pub struct TerminalInitExecuteCx<'a> {
 
 impl Terminal {
   pub fn egui(&mut self, ui: &mut egui::Ui, cx: &mut TerminalInitExecuteCx) {
-    let console_response = self.console.ui(ui);
-    if let Some(command) = console_response {
+    if let Some(command) = self.console.ui(ui) {
+      self.buffered_requests.push_back(command)
+    }
+
+    if let Some(command) = self.buffered_requests.pop_front() {
       self.execute_current(command, cx);
     }
 

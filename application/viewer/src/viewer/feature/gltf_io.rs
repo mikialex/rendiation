@@ -1,3 +1,5 @@
+use rendiation_scene_gltf_loader::*;
+
 use crate::{viewer::use_scene_reader, *};
 
 struct ExportGltfTerminalTask;
@@ -7,6 +9,31 @@ impl TerminalTask for ExportGltfTerminalTask {
 
 pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
   let scene_reader = use_scene_reader(cx);
+
+  if let ViewerCxStage::Gui { egui_ctx, global } = &mut cx.stage {
+    let opened = global.features.entry("gltf-io").or_insert(false);
+
+    egui::Window::new("Gltf IO")
+      .open(opened)
+      .vscroll(true)
+      .show(egui_ctx, |ui| {
+        if ui.button("export gltf").clicked() {
+          cx.viewer
+            .terminal
+            .buffered_requests
+            .push_back(CMD_EXPORT_GLTF.into())
+        }
+
+        if ui.button("load gltf").clicked() {
+          cx.viewer
+            .terminal
+            .buffered_requests
+            .push_back(CMD_LOAD_GLTF.into())
+        }
+
+        //
+      });
+  }
 
   if let ViewerCxStage::EventHandling {
     terminal_request, ..
@@ -32,10 +59,13 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
   }
 
   cx.use_state_init(|cx| {
-      cx.terminal.register_command("load-gltf", |ctx, _parameters, tcx| {
+    let (sender, _load_result_rev) = futures::channel::mpsc::unbounded::<GltfLoadResult>();
+
+    cx.terminal.register_command(CMD_LOAD_GLTF, move |ctx, _parameters, tcx| {
     let load_target_node = ctx.scene.root;
     let load_target_scene = ctx.scene.scene;
     let tcx = tcx.clone();
+    let sender = sender.clone();
 
     async move {
       use rfd::AsyncFileDialog;
@@ -46,17 +76,17 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
         .await;
 
       if let Some(file_handle) = file_handle {
-      let gltf = tcx.worker.spawn_task(move || {
-        let _ = trace_span!("parse gltf").entered();
-        rendiation_scene_gltf_loader::parse_gltf(file_handle.path())
-      }).await.unwrap();
+        let gltf = tcx.worker.spawn_task(move || {
+          let _ = trace_span!("parse gltf").entered();
+          parse_gltf(file_handle.path())
+        }).await.unwrap();
 
         tcx
           .spawn_main_thread(move || {
             let _ = trace_span!("write gltf into scene").entered();
             let mut writer = SceneWriter::from_global(load_target_scene);
 
-            let load_result = rendiation_scene_gltf_loader::write_gltf_at_node(
+            let load_result = write_gltf_at_node(
               load_target_node,
               &mut writer,
               gltf
@@ -67,6 +97,8 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
                 &load_result.used_but_not_supported_extensions
               );
             }
+
+            sender.unbounded_send(load_result).ok();
           })
           .await;
       }
@@ -74,7 +106,7 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
   });
 
 
-  cx.terminal.register_command("export-gltf", |_ctx, _parameters, tcx| {
+  cx.terminal.register_command(CMD_EXPORT_GLTF, |_ctx, _parameters, tcx| {
     let task =  tcx.spawn_event_task::<ExportGltfTerminalTask>();
     async move{
       task.await;
@@ -85,10 +117,13 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
   });
 }
 
+pub const CMD_EXPORT_GLTF: &str = "export-gltf";
+pub const CMD_LOAD_GLTF: &str = "load-gltf";
+
 struct GltfViewerIO;
 impl CanCleanUpFrom<ViewerDropCx<'_>> for GltfViewerIO {
   fn drop_from_cx(&mut self, cx: &mut ViewerDropCx) {
-    cx.terminal.unregister_command("load-gltf");
-    cx.terminal.unregister_command("export-gltf");
+    cx.terminal.unregister_command(CMD_LOAD_GLTF);
+    cx.terminal.unregister_command(CMD_EXPORT_GLTF);
   }
 }
