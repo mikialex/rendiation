@@ -110,11 +110,13 @@ pub struct TerminalInitExecuteCx<'a> {
 }
 
 impl Terminal {
-  pub fn egui(&mut self, ui: &mut egui::Ui, cx: &mut TerminalInitExecuteCx) {
+  pub fn egui(&mut self, ui: &mut egui::Ui) {
     if let Some(command) = self.console.ui(ui) {
       self.buffered_requests.push_back(command)
     }
+  }
 
+  pub fn tick_execute(&mut self, cx: &mut TerminalInitExecuteCx) {
     if let Some(command) = self.buffered_requests.pop_front() {
       self.execute_current(command, cx);
     }

@@ -272,16 +272,14 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
       egui::TopBottomPanel::bottom("view bottom terminal")
         .resizable(true)
         .show(ui, |ui| {
-          viewer.terminal.egui(
-            ui,
-            &mut TerminalInitExecuteCx {
-              scene: &viewer.scene,
-              renderer: &mut viewer.rendering,
-              dyn_cx: cx.dyn_cx,
-            },
-          );
+          viewer.terminal.egui(ui);
         });
     }
+    viewer.terminal.tick_execute(&mut TerminalInitExecuteCx {
+      scene: &viewer.scene,
+      renderer: &mut viewer.rendering,
+      dyn_cx: cx.dyn_cx,
+    });
 
     if ui_state.object_inspection {
       egui::Window::new("Object Inspection")

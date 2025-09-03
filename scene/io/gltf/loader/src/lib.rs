@@ -1,5 +1,5 @@
 use core::num::NonZeroU64;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use database::*;
 use fast_hash_collection::*;
@@ -36,8 +36,9 @@ pub fn load_gltf(
 
 /// this call should be spawned to work thread
 pub fn parse_gltf(path: impl AsRef<Path>) -> Result<GltfParseResult, GLTFLoaderError> {
+  let path = path.as_ref().to_path_buf();
   let (document, buffers, images) =
-    gltf::import(path).map_err(GLTFLoaderError::GltfFileLoadError)?;
+    gltf::import(&path).map_err(GLTFLoaderError::GltfFileLoadError)?;
 
   for ext in document.extensions_required() {
     if !SUPPORTED_GLTF_EXTENSIONS.contains(&ext) {
@@ -46,6 +47,7 @@ pub fn parse_gltf(path: impl AsRef<Path>) -> Result<GltfParseResult, GLTFLoaderE
   }
 
   Ok(GltfParseResult {
+    path,
     document,
     buffers,
     images,
@@ -53,6 +55,7 @@ pub fn parse_gltf(path: impl AsRef<Path>) -> Result<GltfParseResult, GLTFLoaderE
 }
 
 pub struct GltfParseResult {
+  path: PathBuf,
   document: gltf::Document,
   buffers: Vec<gltf::buffer::Data>,
   images: Vec<gltf::image::Data>,
@@ -67,6 +70,7 @@ pub fn write_gltf_at_node(
     document,
     mut buffers,
     images,
+    path,
   } = gltf;
 
   let mut ctx = Context {
@@ -79,6 +83,8 @@ pub fn write_gltf_at_node(
     result: Default::default(),
     io: writer,
   };
+
+  ctx.result.path = path;
 
   for ext in document.extensions_used() {
     if !SUPPORTED_GLTF_EXTENSIONS.contains(&ext) {
@@ -123,6 +129,7 @@ struct Context<'a> {
 
 #[derive(Default)]
 pub struct GltfLoadResult {
+  pub path: PathBuf,
   pub primitive_map: FastHashMap<usize, EntityHandle<SceneModelEntity>>,
   pub node_map: FastHashMap<usize, EntityHandle<SceneNodeEntity>>,
   pub view_map: FastHashMap<usize, UnTypedBufferView>,
@@ -132,6 +139,12 @@ pub struct GltfLoadResult {
   pub point_light_map: FastHashMap<usize, EntityHandle<PointLightEntity>>,
   pub spot_light_map: FastHashMap<usize, EntityHandle<SpotLightEntity>>,
   pub used_but_not_supported_extensions: Vec<String>,
+}
+
+impl GltfLoadResult {
+  pub fn unload(self, _writer: &mut SceneWriter) {
+    todo!()
+  }
 }
 
 fn write_label<E: EntitySemantic>(
