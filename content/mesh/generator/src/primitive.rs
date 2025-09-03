@@ -1,5 +1,6 @@
 use crate::*;
 
+#[derive(Copy, Clone)]
 pub struct UnitCircle;
 
 impl ParametricCurve2D for UnitCircle {
@@ -10,6 +11,7 @@ impl ParametricCurve2D for UnitCircle {
 }
 
 /// Default is a width height 1. start at origin. XY axis plane.
+#[derive(Copy, Clone)]
 pub struct ParametricPlane;
 
 impl ParametricSurface for ParametricPlane {
@@ -28,6 +30,7 @@ impl ParametricSurface for UVSphere {
   }
 }
 
+#[derive(Copy, Clone)]
 pub struct LineSegment2D {
   pub start: Vec2<f32>,
   pub end: Vec2<f32>,
@@ -36,5 +39,21 @@ pub struct LineSegment2D {
 impl ParametricCurve2D for LineSegment2D {
   fn position(&self, position: f32) -> Vec2<f32> {
     self.start.lerp(self.end, position)
+  }
+}
+
+#[derive(Copy, Clone)]
+pub struct LineSegment3D {
+  pub start: Vec3<f32>,
+  pub end: Vec3<f32>,
+}
+
+impl ParametricCurve3D for LineSegment3D {
+  fn position(&self, position: f32) -> Vec3<f32> {
+    self.start.lerp(self.end, position)
+  }
+
+  fn normal(&self, _: f32) -> Vec3<f32> {
+    Vec3::new(0., 1., 0.)
   }
 }
