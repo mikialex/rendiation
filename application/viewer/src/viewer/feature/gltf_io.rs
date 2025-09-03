@@ -46,16 +46,21 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
         .await;
 
       if let Some(file_handle) = file_handle {
+      let gltf = tcx.worker.spawn_task(move || {
+        let _ = trace_span!("parse gltf").entered();
+        rendiation_scene_gltf_loader::parse_gltf(file_handle.path())
+      }).await.unwrap();
+
         tcx
           .spawn_main_thread(move || {
+            let _ = trace_span!("write gltf into scene").entered();
             let mut writer = SceneWriter::from_global(load_target_scene);
 
-            let load_result = rendiation_scene_gltf_loader::load_gltf(
-              file_handle.path(),
+            let load_result = rendiation_scene_gltf_loader::write_gltf_at_node(
               load_target_node,
               &mut writer,
-            )
-            .unwrap();
+              gltf
+            );
             if !load_result.used_but_not_supported_extensions.is_empty() {
               println!(
                 "warning: gltf load finished but some used(but not required) extensions are not supported: {:#?}",

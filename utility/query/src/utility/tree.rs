@@ -18,10 +18,10 @@ pub fn compute_tree_derive<K: CKey, T: CValue>(
 
   let mut update_roots = FastHashSet::default();
 
-  let payload_change_range = payload_change
-    .iter_key_value()
-    .filter_map(|(k, change)| if change.is_removed() { None } else { Some(k) })
-    .collect::<FastHashSet<_>>();
+  let payload_change_range =
+    payload_change
+      .iter_key_value()
+      .filter_map(|(k, change)| if change.is_removed() { None } else { Some(k) });
 
   let connectivity_change_range = connectivity_change
     .iter_key_value()
@@ -35,10 +35,7 @@ pub fn compute_tree_derive<K: CKey, T: CValue>(
   // issue, we may continuously populate the change set by traversing the changeset item's sub
   // tree into change set but it's not a good solution, because it's hard to parallelize  and
   // the most important is that we can assume our tree is not that deep
-  for change in payload_change_range
-    .into_iter()
-    .chain(connectivity_change_range)
-  {
+  for change in payload_change_range.chain(connectivity_change_range) {
     let mut current_check = change.clone();
     loop {
       if let Some(parent) = connectivity_source.access(&current_check) {

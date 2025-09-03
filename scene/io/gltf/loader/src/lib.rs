@@ -29,7 +29,14 @@ pub fn load_gltf(
   target: EntityHandle<SceneNodeEntity>,
   writer: &mut SceneWriter,
 ) -> Result<GltfLoadResult, GLTFLoaderError> {
-  let (document, mut buffers, images) =
+  let parse_result = parse_gltf(path)?;
+  let result = write_gltf_at_node(target, writer, parse_result);
+  Ok(result)
+}
+
+/// this call should be spawned to work thread
+pub fn parse_gltf(path: impl AsRef<Path>) -> Result<GltfParseResult, GLTFLoaderError> {
+  let (document, buffers, images) =
     gltf::import(path).map_err(GLTFLoaderError::GltfFileLoadError)?;
 
   for ext in document.extensions_required() {
@@ -37,6 +44,30 @@ pub fn load_gltf(
       return Err(GLTFLoaderError::UnsupportedGLTFExtension(ext.to_string()));
     }
   }
+
+  Ok(GltfParseResult {
+    document,
+    buffers,
+    images,
+  })
+}
+
+pub struct GltfParseResult {
+  document: gltf::Document,
+  buffers: Vec<gltf::buffer::Data>,
+  images: Vec<gltf::image::Data>,
+}
+
+pub fn write_gltf_at_node(
+  target: EntityHandle<SceneNodeEntity>,
+  writer: &mut SceneWriter,
+  gltf: GltfParseResult,
+) -> GltfLoadResult {
+  let GltfParseResult {
+    document,
+    mut buffers,
+    images,
+  } = gltf;
 
   let mut ctx = Context {
     images,
@@ -78,7 +109,7 @@ pub fn load_gltf(
     }
   }
 
-  Ok(ctx.result)
+  ctx.result
 }
 
 struct Context<'a> {

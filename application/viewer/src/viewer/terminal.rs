@@ -16,6 +16,7 @@ pub struct Terminal {
 pub struct TerminalCtx {
   channel: futures::channel::mpsc::UnboundedSender<Box<dyn FnOnce() + Send + Sync>>,
   pub(crate) store: TerminalTaskStore,
+  pub worker: TaskSpawner,
 }
 
 pub trait TerminalTask: 'static + Send + Sync {
@@ -71,12 +72,13 @@ impl TerminalCtx {
   }
 }
 
-impl Default for Terminal {
-  fn default() -> Self {
+impl Terminal {
+  pub fn new(worker: TaskSpawner) -> Self {
     let (s, r) = futures::channel::mpsc::unbounded();
     let ctx = TerminalCtx {
       channel: s,
       store: Default::default(),
+      worker,
     };
 
     Self {

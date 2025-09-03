@@ -3,8 +3,9 @@ use futures::future::Shared;
 
 use crate::*;
 
+#[derive(Clone)]
 pub struct TaskSpawner {
-  pool: rayon::ThreadPool,
+  pool: Arc<rayon::ThreadPool>,
 }
 
 impl TaskSpawner {
@@ -21,7 +22,9 @@ impl TaskSpawner {
       .build()
       .unwrap();
 
-    Self { pool }
+    Self {
+      pool: Arc::new(pool),
+    }
   }
 
   pub fn spawn_task<R: Send + 'static>(

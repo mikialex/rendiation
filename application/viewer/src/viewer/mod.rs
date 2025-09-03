@@ -299,11 +299,15 @@ pub fn use_viewer<'a>(
   egui_ctx: &mut egui::Context,
   f: impl Fn(&mut ViewerCx),
 ) -> &'a mut Viewer {
+  let (acx, worker_thread_pool) =
+    acx.use_plain_state(|| TaskSpawner::new("viewer_task_worker", None));
+
   let (acx, viewer) = acx.use_plain_state(|| {
     Viewer::new(
       acx.gpu_and_surface.gpu.clone(),
       acx.gpu_and_surface.surface.clone(),
       &ViewerInitConfig::from_default_json_or_default(),
+      worker_thread_pool.clone(),
     )
   });
 
@@ -321,9 +325,6 @@ pub fn use_viewer<'a>(
   let now = Instant::now();
   *frame_time_delta_in_seconds = now.duration_since(*tick_timestamp).as_secs_f32();
   *tick_timestamp = now;
-
-  let (acx, worker_thread_pool) =
-    acx.use_plain_state(|| TaskSpawner::new("viewer_task_worker", None));
 
   ViewerCx {
     viewer,
@@ -393,8 +394,9 @@ impl Viewer {
     gpu: GPU,
     swap_chain: ApplicationWindowSurface,
     init_config: &ViewerInitConfig,
+    worker: TaskSpawner,
   ) -> Self {
-    let mut terminal = Terminal::default();
+    let mut terminal = Terminal::new(worker);
     register_default_commands(&mut terminal);
 
     let scene = global_entity_of::<SceneEntity>()
