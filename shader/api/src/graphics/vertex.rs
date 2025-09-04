@@ -1,3 +1,5 @@
+use anymap::ClonableAnyMap;
+
 use crate::*;
 
 pub trait SemanticVertexShaderValue: Any {
@@ -80,6 +82,9 @@ impl ShaderVertexBuilder {
 
   pub fn registry(&self) -> &SemanticRegistry {
     &self.registry
+  }
+  pub fn registry_any_map(&mut self) -> &mut ClonableAnyMap {
+    &mut self.registry.any_map
   }
 
   pub fn query<T: SemanticVertexShaderValue>(&mut self) -> Node<T::ValueType> {

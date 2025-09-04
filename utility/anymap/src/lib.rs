@@ -34,13 +34,12 @@ impl AnyMap {
   }
 }
 
-/// the difference is that this map can be cloned
 #[derive(Default, Clone)]
-pub struct ImmutableAnyMap {
+pub struct ClonableAnyMap {
   map: FastHashMap<TypeId, Arc<dyn Any>>,
 }
 
-impl ImmutableAnyMap {
+impl ClonableAnyMap {
   pub fn register<T: Any>(&mut self, value: T) {
     self.map.insert(TypeId::of::<T>(), Arc::new(value));
   }

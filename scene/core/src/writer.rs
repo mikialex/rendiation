@@ -20,6 +20,8 @@ pub struct SceneWriter {
   pub spot_light_writer: EntityWriter<SpotLightEntity>,
   pub animation: EntityWriter<SceneAnimationEntity>,
   pub animation_channel: EntityWriter<SceneAnimationChannelEntity>,
+  pub skin_writer: EntityWriter<SceneSkinEntity>,
+  pub joint_writer: EntityWriter<SceneJointEntity>,
 }
 
 impl SceneWriter {
@@ -140,6 +142,8 @@ impl SceneWriter {
       animation: global_entity_of().entity_writer(),
       animation_channel: global_entity_of().entity_writer(),
       buffer_writer: global_entity_of().entity_writer(),
+      skin_writer: global_entity_of().entity_writer(),
+      joint_writer: global_entity_of().entity_writer(),
     }
   }
   pub fn write_attribute_mesh(&mut self, mesh: AttributesMesh) -> AttributesMeshEntities {

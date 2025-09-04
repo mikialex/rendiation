@@ -71,6 +71,47 @@ impl GraphicsShaderProvider for SkinVertexTransform {
   }
 }
 
+pub struct BoneMatrixProvider {
+  data: GPU2DTextureView,
+}
+
+pub struct BoneMatrixInvocationProvider {
+  data: BindingNode<ShaderTexture2D>,
+}
+impl BoneMatrixAccessInvocation for BoneMatrixInvocationProvider {
+  fn get_matrix(&self, joint_index: Node<u32>) -> Node<Mat4<f32>> {
+    let uv = vec2_node((joint_index, val(0)));
+    let m1 = self.data.load_texel(uv, val(0));
+
+    let uv = vec2_node((joint_index + val(1), val(0)));
+    let m2 = self.data.load_texel(uv, val(0));
+
+    let uv = vec2_node((joint_index + val(2), val(1)));
+    let m3 = self.data.load_texel(uv, val(0));
+
+    let uv = vec2_node((joint_index + val(3), val(1)));
+    let m4 = self.data.load_texel(uv, val(0));
+
+    (m1, m2, m3, m4).into()
+  }
+}
+
+impl GraphicsShaderProvider for BoneMatrixProvider {
+  fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
+    builder.vertex(|builder, bind| {
+      let bone_data = bind.bind_by(&self.data);
+      let bone_impl = BoneMatrixInvocationProvider { data: bone_data };
+      let bone_impl = Box::new(bone_impl) as Box<dyn BoneMatrixAccessInvocation>;
+      builder.registry_any_map().register(bone_impl);
+    })
+  }
+}
+impl ShaderPassBuilder for BoneMatrixProvider {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx.binding.bind(&self.data);
+  }
+}
+
 /// in gles mode we have to use texture to store bone matrix
 pub struct SkinBoneMatrixesDataTextureComputer {
   bind_matrixes:
@@ -78,13 +119,26 @@ pub struct SkinBoneMatrixesDataTextureComputer {
 }
 
 impl SkinBoneMatrixesDataTextureComputer {
-  pub fn poll_update(
+  pub fn get_bone_provider(
+    &self,
+    skin: EntityHandle<SceneSkinEntity>,
+  ) -> Option<BoneMatrixProvider> {
+    self.bind_matrixes.get(&skin).and_then(|(_, gpu_texture)| {
+      let data = gpu_texture.clone()?;
+      BoneMatrixProvider { data }.into()
+    })
+  }
+  pub fn update(
     &mut self,
     mat_changes: impl DataChanges<Key = EntityHandle<SceneJointEntity>, Value = (Mat4<f32>, u32)>,
     removed_skins: impl Iterator<Item = EntityHandle<SceneSkinEntity>>,
     gpu: &GPU,
   ) {
     let skin_access = global_database().read_foreign_key::<SceneJointBelongToSkin>();
+    for k in removed_skins {
+      self.bind_matrixes.remove(&k);
+    }
+
     for (k, (value, idx)) in mat_changes.iter_update_or_insert() {
       let skin = skin_access.get(k).unwrap();
       let (bind_matrixes, gpu) = self.bind_matrixes.entry(skin).or_default();
@@ -92,13 +146,15 @@ impl SkinBoneMatrixesDataTextureComputer {
       bind_matrixes[idx as usize] = value;
       *gpu = None;
     }
-    for (k, _) in mat_changes.iter_update_or_insert() {
+
+    for (k, (change, idx)) in mat_changes.iter_update_or_insert() {
       let skin = skin_access.get(k).unwrap();
       let (bind_matrixes, gpu_texture) = self.bind_matrixes.get_mut(&skin).unwrap();
+      let idx = idx as usize;
+      bind_matrixes.resize(idx, Mat4::identity());
+      bind_matrixes[idx] = change;
+
       gpu_texture.get_or_insert_with(|| create_data_texture(gpu, bind_matrixes));
-    }
-    for k in removed_skins {
-      self.bind_matrixes.remove(&k);
     }
   }
 }

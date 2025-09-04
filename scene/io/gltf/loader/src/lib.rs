@@ -101,9 +101,9 @@ pub fn write_gltf_at_node(
     }
   }
 
-  //   for skin in document.skins() {
-  //     build_skin(skin, &mut ctx);
-  //   }
+  for skin in document.skins() {
+    build_skin(skin, &mut ctx);
+  }
 
   for animation in document.animations() {
     build_animation(animation, &mut ctx);
@@ -133,7 +133,7 @@ pub struct GltfLoadResult {
   pub primitive_map: FastHashMap<usize, EntityHandle<SceneModelEntity>>,
   pub node_map: FastHashMap<usize, EntityHandle<SceneNodeEntity>>,
   pub view_map: FastHashMap<usize, UnTypedBufferView>,
-  // pub skin_map: FastHashMap<usize, EntityHandle<SceneSkinEntity>>,
+  pub skin_map: FastHashMap<usize, EntityHandle<SceneSkinEntity>>,
   pub animation_map: FastHashMap<usize, EntityHandle<SceneAnimationEntity>>,
   pub directional_light_map: FastHashMap<usize, EntityHandle<DirectionalLightEntity>>,
   pub point_light_map: FastHashMap<usize, EntityHandle<PointLightEntity>>,
@@ -288,15 +288,15 @@ fn build_model(
 
   let material = build_material(primitive.material(), ctx);
 
-  let model = StandardModelDataView {
+  let mut model = StandardModelDataView {
     material,
     mesh,
     skin: None,
   };
 
-  if let Some(_skin) = gltf_node.skin() {
-    // let sk = ctx.result.skin_map.get(&skin.index()).unwrap();
-    // model.skeleton = Some(sk.clone())
+  if let Some(skin) = gltf_node.skin() {
+    let sk = ctx.result.skin_map.get(&skin.index()).unwrap();
+    model.skin = Some(*sk)
   }
 
   let sm = SceneModelDataView {
@@ -349,38 +349,53 @@ fn build_animation(animation: gltf::Animation, ctx: &mut Context) {
     .insert(animation.index(), animation_handle);
 }
 
-// fn build_skin(skin: gltf::Skin, ctx: &mut Context) {
-//   let mut joints: Vec<_> = skin
-//     .joints()
-//     .map(|joint_node| Joint {
-//       node: ctx
-//         .result
-//         .node_map
-//         .get(&joint_node.index())
-//         .unwrap()
-//         .clone(),
-//       bind_inverse: Mat4::identity(),
-//     })
-//     .collect();
+fn build_skin(skin: gltf::Skin, ctx: &mut Context) {
+  // https://stackoverflow.com/questions/64734695/what-does-it-mean-when-gltf-does-not-specify-a-skeleton-value-in-a-skin
+  let skeleton_root = skin
+    .skeleton()
+    .and_then(|n| ctx.result.node_map.get(&n.index()))
+    .copied()
+    .unwrap_or_else(|| ctx.io.create_root_child());
 
-//   if let Some(matrix_list) = skin.inverse_bind_matrices() {
-//     let matrix_list = build_accessor(matrix_list, ctx);
-//     let matrix_list = matrix_list.read();
-//     let list = matrix_list.visit_slice::<Mat4<f32>>().unwrap();
-//     list.iter().zip(joints.iter_mut()).for_each(|(mat, joint)| {
-//       joint.bind_inverse = *mat;
-//     })
-//   }
+  let skin_handle = ctx
+    .io
+    .skin_writer
+    .component_value_writer::<SceneSkinRoot>(skeleton_root.some_handle())
+    .new_entity();
 
-//   // https://stackoverflow.com/questions/64734695/what-does-it-mean-when-gltf-does-not-specify-a-skeleton-value-in-a-skin
-//   let skeleton_root = skin
-//     .skeleton()
-//     .and_then(|n| ctx.result.node_map.get(&n.index()))
-//     .unwrap_or(scene_inner.root()); // todo create a new root
+  ctx.result.skin_map.insert(skin.index(), skin_handle);
 
-//   // let skeleton = SkeletonImpl { joints }.into_ptr();
-//   // ctx.result.skin_map.insert(skin.index(), skeleton);
-// }
+  let matrix_list = if let Some(matrix_list) = skin.inverse_bind_matrices() {
+    let matrix_list = build_accessor(matrix_list, ctx);
+    let matrix_list = matrix_list.read();
+    matrix_list
+      .visit_slice::<Mat4<f32>>()
+      .unwrap()
+      .to_vec()
+      .into()
+  } else {
+    None
+  };
+
+  for (i, joint) in skin.joints().enumerate() {
+    let node = *ctx.result.node_map.get(&joint.index()).unwrap();
+
+    let mat = if let Some(matrix_list) = matrix_list.as_ref() {
+      matrix_list[i]
+    } else {
+      Mat4::identity()
+    };
+
+    ctx
+      .io
+      .joint_writer
+      .component_value_writer::<SceneJointBelongToSkin>(skin_handle.some_handle())
+      .component_value_writer::<SceneJointRefNode>(node.some_handle())
+      .component_value_writer::<SceneJointInverseBindMatrix>(mat)
+      .component_value_writer::<SceneJointSkinIndex>(skin.index() as u32)
+      .new_entity();
+  }
+}
 
 fn build_data_view(view: gltf::buffer::View, ctx: &mut Context) -> UnTypedBufferView {
   let buffers = &ctx.attributes;

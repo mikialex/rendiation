@@ -1,4 +1,4 @@
-use anymap::ImmutableAnyMap;
+use anymap::ClonableAnyMap;
 
 use crate::*;
 
@@ -10,7 +10,7 @@ pub struct SemanticRegistry {
   pub dynamic_semantic: FastHashMap<String, NodeUntyped>,
   pub dynamic_anything: FastHashMap<String, Arc<dyn Any>>,
   pub dynamic_tag: FastHashSet<TypeId>,
-  pub any_map: ImmutableAnyMap,
+  pub any_map: ClonableAnyMap,
 }
 
 impl SemanticRegistry {
