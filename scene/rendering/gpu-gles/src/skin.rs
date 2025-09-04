@@ -11,29 +11,17 @@ pub trait BoneMatrixAccessInvocation {
   fn get_matrix(&self, joint_index: Node<u32>) -> Node<Mat4<f32>>;
 }
 
-pub struct SkinVertexTransform {
-  pub skin_bind_mats: UniformBufferDataView<SkinBindMatrixes>,
-}
-
-#[repr(C)]
-#[std140_layout]
-#[derive(Clone, Copy, ShaderStruct, Default)]
-pub struct SkinBindMatrixes {
-  pub bind_mat: Mat4<f32>,
-  pub inv_bind_mat: Mat4<f32>,
-}
+pub struct SkinVertexTransform;
 
 impl ShaderHashProvider for SkinVertexTransform {
   shader_hash_type_id! {}
 }
 impl ShaderPassBuilder for SkinVertexTransform {
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.skin_bind_mats);
-  }
+  fn setup_pass(&self, _: &mut GPURenderPassCtx) {}
 }
 impl GraphicsShaderProvider for SkinVertexTransform {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
-    builder.vertex(|builder, bind| {
+    builder.vertex(|builder, _bind| {
       let position_pre_transform = builder.query::<GeometryPosition>();
       let normal_pre_transform = builder.query::<GeometryNormal>();
       let joints = builder.try_query::<JointIndexChannel<0>>();
@@ -45,31 +33,26 @@ impl GraphicsShaderProvider for SkinVertexTransform {
         .get::<Box<dyn BoneMatrixAccessInvocation>>();
 
       if let (Some(joints), Some(weights), Some(bone_mats)) = (joints, weights, bone_mats) {
-        let bind_mats = bind.bind_by(&self.skin_bind_mats).load().expand();
-        let bind_matrix = bind_mats.bind_mat;
-        let bind_matrix_inverse = bind_mats.inv_bind_mat;
-
         let bone_matrix_x = bone_mats.get_matrix(joints.x());
         let bone_matrix_y = bone_mats.get_matrix(joints.y());
         let bone_matrix_z = bone_mats.get_matrix(joints.z());
         let bone_matrix_w = bone_mats.get_matrix(joints.w());
 
         let pre_transform: Node<Vec4<_>> = (position_pre_transform, val(1.0)).into();
-        let skin_vertex = bind_matrix * pre_transform;
+        let skin_vertex = pre_transform;
 
         let skinned = bone_matrix_x * skin_vertex * weights.x();
         let skinned = skinned + bone_matrix_y * skin_vertex * weights.y();
         let skinned = skinned + bone_matrix_z * skin_vertex * weights.z();
         let skinned = skinned + bone_matrix_w * skin_vertex * weights.w();
 
-        let position_transformed = (bind_matrix_inverse * skinned).xyz();
+        let position_transformed = skinned.xyz();
         builder.register::<GeometryPosition>(position_transformed);
 
         let skin_matrix = weights.x() * bone_matrix_x;
         let skin_matrix = skin_matrix + weights.y() * bone_matrix_y;
         let skin_matrix = skin_matrix + weights.z() * bone_matrix_z;
         let skin_matrix = skin_matrix + weights.w() * bone_matrix_w;
-        let skin_matrix = bind_matrix_inverse * skin_matrix * bind_matrix;
 
         let normal_pre_transform = (normal_pre_transform, val(1.0)).into();
         let normal_transformed = (skin_matrix * normal_pre_transform).xyz();
@@ -88,7 +71,7 @@ pub struct BoneMatrixInvocationProvider {
 }
 impl BoneMatrixAccessInvocation for BoneMatrixInvocationProvider {
   fn get_matrix(&self, joint_index: Node<u32>) -> Node<Mat4<f32>> {
-    let uv = vec2_node((joint_index, val(0)));
+    let uv = vec2_node((joint_index * val(4), val(0)));
     let m1 = self.data.load_texel(uv, val(0));
 
     let uv = vec2_node((joint_index + val(1), val(0)));
@@ -140,6 +123,7 @@ pub fn use_skin(cx: &mut QueryGPUHookCx) -> Option<LockReadGuardHolder<SkinBoneM
     let removed_skin = skin_change.iter_removed();
 
     skin_gpu_.update(mat_updates, removed_skin, cx.gpu);
+    drop(skin_gpu_);
 
     skin_gpu.make_read_holder()
   })
@@ -180,7 +164,10 @@ impl SkinBoneMatrixesGPU {
     for (k, (value, idx)) in mat_changes.iter_update_or_insert() {
       let skin = skin_access.access(&k).unwrap().unwrap();
       let (bind_matrixes, gpu) = self.bind_matrixes.entry(skin).or_default();
-      bind_matrixes.resize(bind_matrixes.len().max(idx as usize), Mat4::identity());
+      bind_matrixes.resize(
+        bind_matrixes.len().max((idx + 1) as usize),
+        Mat4::identity(),
+      );
       bind_matrixes[idx as usize] = value;
       *gpu = None;
     }
@@ -189,7 +176,7 @@ impl SkinBoneMatrixesGPU {
       let skin = skin_access.access(&k).unwrap().unwrap();
       let (bind_matrixes, gpu_texture) = self.bind_matrixes.get_mut(&skin).unwrap();
       let idx = idx as usize;
-      bind_matrixes.resize(idx, Mat4::identity());
+      bind_matrixes.resize(bind_matrixes.len().max(idx + 1), Mat4::identity());
       bind_matrixes[idx] = change;
 
       gpu_texture.get_or_insert_with(|| create_data_texture(gpu, bind_matrixes));

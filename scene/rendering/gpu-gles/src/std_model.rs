@@ -77,8 +77,7 @@ impl GLESModelRenderImpl for SceneStdModelRenderer {
     let shape = if let Some(skin) = self.skin.get(model) {
       let bones = self.skin_gpu.get_bone_provider(skin).unwrap();
       let bones = Box::new(bones) as Box<dyn RenderComponent>;
-      // let applier = todo!(); // SkinVertexTransform
-      let render = RenderArray([bones, base_shape]);
+      let render = RenderArray([bones, base_shape, Box::new(SkinVertexTransform)]);
 
       Box::new(render)
     } else {
