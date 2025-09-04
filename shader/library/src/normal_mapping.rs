@@ -28,24 +28,6 @@ pub fn perturb_normal_2_arb(
   (t * (map_norm.x() * scale) + b * (map_norm.y() * scale) + n * map_norm.z()).normalize()
 }
 
-pub trait BuilderNormalExt {
-  fn get_or_compute_fragment_normal(&mut self) -> Node<Vec3<f32>>;
-}
-
-impl BuilderNormalExt for ShaderFragmentBuilderView<'_> {
-  fn get_or_compute_fragment_normal(&mut self) -> Node<Vec3<f32>> {
-    // check first and avoid unnecessary renormalize
-    if let Some(normal) = self.try_query::<FragmentRenderNormal>() {
-      normal
-    } else {
-      let normal = self.query_or_interpolate_by::<FragmentRenderNormal, VertexRenderNormal>();
-      let normal = normal.normalize(); // renormalize
-      self.register::<FragmentRenderNormal>(normal);
-      normal
-    }
-  }
-}
-
 pub fn apply_normal_mapping(
   builder: &mut ShaderFragmentBuilderView,
   normal_map_sample: Node<Vec3<f32>>,
@@ -89,9 +71,4 @@ pub fn apply_normal_mapping_conditional(
   let normal = normal.load();
   builder.register::<FragmentRenderNormal>(normal);
   normal
-}
-
-pub fn compute_normal_by_dxdy(position: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
-  // note, webgpu canvas is left handed
-  position.dpdy().cross(position.dpdx()).normalize()
 }

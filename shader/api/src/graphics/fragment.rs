@@ -11,13 +11,20 @@ pub struct ShaderFragmentBuilderView<'a> {
 }
 
 impl ShaderFragmentBuilderView<'_> {
+  pub fn has_vertex_value<T: SemanticVertexShaderValue>(&mut self) -> bool {
+    set_current_building(ShaderStage::Vertex.into());
+    let r = self.vertex.try_query::<T>().is_some();
+    set_current_building(ShaderStage::Fragment.into());
+    r
+  }
+
   pub fn query_or_interpolate_by<T, V>(&mut self) -> Node<T::ValueType>
   where
     T: SemanticFragmentShaderValue,
+    T: SemanticFragmentShaderValue<ValueType = <V as SemanticVertexShaderValue>::ValueType>,
     T::ValueType: PrimitiveShaderNodeType,
     V: SemanticVertexShaderValue,
     V::ValueType: PrimitiveShaderNodeType,
-    T: SemanticFragmentShaderValue<ValueType = <V as SemanticVertexShaderValue>::ValueType>,
   {
     if let Some(r) = self.try_query::<T>() {
       return r;

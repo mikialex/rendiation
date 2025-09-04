@@ -66,9 +66,7 @@ impl GeometryCtxProvider for DirectGeometryProvider {
     builder.fragment(|builder, _| {
       let fragment_render =
         builder.query_or_interpolate_by::<FragmentRenderPosition, VertexRenderPosition>();
-      let fragment_normal = builder
-        .query_or_interpolate_by::<FragmentRenderNormal, VertexRenderNormal>()
-        .normalize();
+      let fragment_normal = builder.get_or_compute_fragment_normal();
       ENode::<ShaderLightingGeometricCtx> {
         position: fragment_render,
         normal: fragment_normal,

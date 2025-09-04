@@ -176,6 +176,36 @@ both!(WorldNormalMatrix, Mat3<f32>);
 only_vertex!(VertexRenderPosition, Vec3<f32>);
 only_vertex!(VertexRenderNormal, Vec3<f32>);
 
+pub trait BuilderNormalExt {
+  fn get_or_compute_fragment_normal(&mut self) -> Node<Vec3<f32>>;
+}
+
+/// gltf spec:
+///
+/// When normals are not specified, client implementations MUST calculate flat normals and
+/// the provided tangents (if present) MUST be ignored.
+impl BuilderNormalExt for ShaderFragmentBuilderView<'_> {
+  fn get_or_compute_fragment_normal(&mut self) -> Node<Vec3<f32>> {
+    // check first and avoid unnecessary renormalize
+    if let Some(normal) = self.try_query::<FragmentRenderNormal>() {
+      normal
+    } else if self.has_vertex_value::<VertexRenderNormal>() {
+      let normal = self.query_or_interpolate_by::<FragmentRenderNormal, VertexRenderNormal>();
+      let normal = normal.normalize(); // renormalize
+      self.register::<FragmentRenderNormal>(normal);
+      normal
+    } else {
+      let position = self.query_or_interpolate_by::<FragmentRenderPosition, VertexRenderPosition>();
+      compute_normal_by_dxdy(position)
+    }
+  }
+}
+
+pub fn compute_normal_by_dxdy(position: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
+  // note, webgpu canvas is left handed
+  position.dpdy().cross(position.dpdx()).normalize()
+}
+
 both!(CameraProjectionMatrix, Mat4<f32>);
 both!(CameraProjectionInverseMatrix, Mat4<f32>);
 both!(CameraWorldNoneTranslationMatrix, Mat4<f32>);

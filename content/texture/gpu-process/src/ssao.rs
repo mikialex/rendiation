@@ -1,6 +1,5 @@
 use rendiation_shader_library::{
-  normal_mapping::compute_normal_by_dxdy, sampling::*, shader_render_space_to_uv_space,
-  shader_uv_space_to_render_space,
+  sampling::*, shader_render_space_to_uv_space, shader_uv_space_to_render_space,
 };
 
 use crate::*;
