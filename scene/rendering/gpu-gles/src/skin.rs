@@ -1,4 +1,7 @@
+use std::sync::Arc;
+
 use fast_hash_collection::FastHashMap;
+use parking_lot::RwLock;
 use rendiation_texture_core::{GPUBufferImage, Size};
 use rendiation_texture_gpu_base::GPUBufferImageForeignImpl;
 
@@ -9,7 +12,7 @@ pub trait BoneMatrixAccessInvocation {
 }
 
 pub struct SkinVertexTransform {
-  pub skin_bind_mats: Option<UniformBufferDataView<SkinBindMatrixes>>,
+  pub skin_bind_mats: UniformBufferDataView<SkinBindMatrixes>,
 }
 
 #[repr(C)]
@@ -20,6 +23,14 @@ pub struct SkinBindMatrixes {
   pub inv_bind_mat: Mat4<f32>,
 }
 
+impl ShaderHashProvider for SkinVertexTransform {
+  shader_hash_type_id! {}
+}
+impl ShaderPassBuilder for SkinVertexTransform {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx.binding.bind(&self.skin_bind_mats);
+  }
+}
 impl GraphicsShaderProvider for SkinVertexTransform {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, bind| {
@@ -33,10 +44,8 @@ impl GraphicsShaderProvider for SkinVertexTransform {
         .any_map
         .get::<Box<dyn BoneMatrixAccessInvocation>>();
 
-      if let (Some(joints), Some(weights), Some(bind_mats), Some(bone_mats)) =
-        (joints, weights, &self.skin_bind_mats, bone_mats)
-      {
-        let bind_mats = bind.bind_by(bind_mats).load().expand();
+      if let (Some(joints), Some(weights), Some(bone_mats)) = (joints, weights, bone_mats) {
+        let bind_mats = bind.bind_by(&self.skin_bind_mats).load().expand();
         let bind_matrix = bind_mats.bind_mat;
         let bind_matrix_inverse = bind_mats.inv_bind_mat;
 
@@ -44,7 +53,6 @@ impl GraphicsShaderProvider for SkinVertexTransform {
         let bone_matrix_y = bone_mats.get_matrix(joints.y());
         let bone_matrix_z = bone_mats.get_matrix(joints.z());
         let bone_matrix_w = bone_mats.get_matrix(joints.w());
-        //
 
         let pre_transform: Node<Vec4<_>> = (position_pre_transform, val(1.0)).into();
         let skin_vertex = bind_matrix * pre_transform;
@@ -111,36 +119,66 @@ impl ShaderPassBuilder for BoneMatrixProvider {
     ctx.binding.bind(&self.data);
   }
 }
-
-/// in gles mode we have to use texture to store bone matrix
-pub struct SkinBoneMatrixesDataTextureComputer {
-  bind_matrixes:
-    FastHashMap<EntityHandle<SceneSkinEntity>, (Vec<Mat4<f32>>, Option<GPU2DTextureView>)>,
+impl ShaderHashProvider for BoneMatrixProvider {
+  shader_hash_type_id! {}
 }
 
-impl SkinBoneMatrixesDataTextureComputer {
+pub fn use_skin(cx: &mut QueryGPUHookCx) -> Option<LockReadGuardHolder<SkinBoneMatrixesGPU>> {
+  let mat_updates = use_indexed_joints_offset_mats(cx).use_assure_result(cx);
+
+  // todo, use entity set changes
+  let skin_change = cx
+    .use_dual_query_set::<SceneSkinEntity>()
+    .use_assure_result(cx);
+
+  let (cx, skin_gpu) = cx.use_plain_state_default::<SharedSkinBoneMatrixesGPU>();
+
+  cx.when_render(|| {
+    let mut skin_gpu_ = skin_gpu.write();
+    let mat_updates = mat_updates.expect_resolve_stage().delta().into_change();
+    let skin_change = skin_change.expect_resolve_stage().delta().into_change();
+    let removed_skin = skin_change.iter_removed();
+
+    skin_gpu_.update(mat_updates, removed_skin, cx.gpu);
+
+    skin_gpu.make_read_holder()
+  })
+}
+
+pub type SharedSkinBoneMatrixesGPU = Arc<RwLock<SkinBoneMatrixesGPU>>;
+
+/// in gles mode we have to use texture to store bone matrix
+#[derive(Default)]
+pub struct SkinBoneMatrixesGPU {
+  bind_matrixes: FastHashMap<RawEntityHandle, (Vec<Mat4<f32>>, Option<GPU2DTextureView>)>,
+}
+
+impl SkinBoneMatrixesGPU {
   pub fn get_bone_provider(
     &self,
     skin: EntityHandle<SceneSkinEntity>,
   ) -> Option<BoneMatrixProvider> {
-    self.bind_matrixes.get(&skin).and_then(|(_, gpu_texture)| {
-      let data = gpu_texture.clone()?;
-      BoneMatrixProvider { data }.into()
-    })
+    self
+      .bind_matrixes
+      .get(&skin.into_raw())
+      .and_then(|(_, gpu_texture)| {
+        let data = gpu_texture.clone()?;
+        BoneMatrixProvider { data }.into()
+      })
   }
   pub fn update(
     &mut self,
-    mat_changes: impl DataChanges<Key = EntityHandle<SceneJointEntity>, Value = (Mat4<f32>, u32)>,
-    removed_skins: impl Iterator<Item = EntityHandle<SceneSkinEntity>>,
+    mat_changes: impl DataChanges<Key = RawEntityHandle, Value = (Mat4<f32>, u32)>, /* EntityHandle<SceneJointEntity> */
+    removed_skins: impl Iterator<Item = RawEntityHandle>, // EntityHandle<SceneSkinEntity>
     gpu: &GPU,
   ) {
-    let skin_access = global_database().read_foreign_key::<SceneJointBelongToSkin>();
+    let skin_access = get_db_view::<SceneJointBelongToSkin>();
     for k in removed_skins {
       self.bind_matrixes.remove(&k);
     }
 
     for (k, (value, idx)) in mat_changes.iter_update_or_insert() {
-      let skin = skin_access.get(k).unwrap();
+      let skin = skin_access.access(&k).unwrap().unwrap();
       let (bind_matrixes, gpu) = self.bind_matrixes.entry(skin).or_default();
       bind_matrixes.resize(bind_matrixes.len().max(idx as usize), Mat4::identity());
       bind_matrixes[idx as usize] = value;
@@ -148,7 +186,7 @@ impl SkinBoneMatrixesDataTextureComputer {
     }
 
     for (k, (change, idx)) in mat_changes.iter_update_or_insert() {
-      let skin = skin_access.get(k).unwrap();
+      let skin = skin_access.access(&k).unwrap().unwrap();
       let (bind_matrixes, gpu_texture) = self.bind_matrixes.get_mut(&skin).unwrap();
       let idx = idx as usize;
       bind_matrixes.resize(idx, Mat4::identity());
