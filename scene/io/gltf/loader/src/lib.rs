@@ -260,10 +260,34 @@ fn build_model(
   let attributes = primitive
     .attributes()
     .map(|(semantic, accessor)| {
-      (
-        map_attribute_semantic(semantic),
-        build_accessor(accessor, ctx),
-      )
+      let semantic = map_attribute_semantic(semantic);
+      let mut att = build_accessor(accessor, ctx);
+      // expand joint indices from u8/u16 to u32
+      if let AttributeSemantic::Joints(_) = &semantic {
+        let read = att.read();
+        if att.item_byte_size == 4 {
+          let indices = read.visit_slice::<Vec4<u8>>().unwrap();
+          let new_indices = indices
+            .iter()
+            .map(|v| v.map(|v| v as u32))
+            .collect::<Vec<_>>();
+          att = AttributeAccessor::create_owned(new_indices, 4)
+        } else if att.item_byte_size == 2 * 4 {
+          let indices = read.visit_slice::<Vec4<u16>>().unwrap();
+          let new_indices = indices
+            .iter()
+            .map(|v| v.map(|v| v as u32))
+            .collect::<Vec<_>>();
+          att = AttributeAccessor::create_owned(new_indices, 4)
+        } else {
+          panic!(
+            "joint indices must be vec4<u8> or vec4<u16>, item_byte_size: {}",
+            att.item_byte_size
+          )
+        }
+      }
+
+      (semantic, att)
     })
     .collect();
 
@@ -392,7 +416,7 @@ fn build_skin(skin: gltf::Skin, ctx: &mut Context) {
       .component_value_writer::<SceneJointBelongToSkin>(skin_handle.some_handle())
       .component_value_writer::<SceneJointRefNode>(node.some_handle())
       .component_value_writer::<SceneJointInverseBindMatrix>(mat)
-      .component_value_writer::<SceneJointSkinIndex>(skin.index() as u32)
+      .component_value_writer::<SceneJointSkinIndex>(i as u32)
       .new_entity();
   }
 }

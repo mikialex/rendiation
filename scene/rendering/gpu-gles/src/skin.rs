@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use fast_hash_collection::FastHashMap;
+use fast_hash_collection::{FastHashMap, FastHashSet};
 use parking_lot::RwLock;
 use rendiation_texture_core::{GPUBufferImage, Size};
 use rendiation_texture_gpu_base::GPUBufferImageForeignImpl;
@@ -23,7 +23,7 @@ impl GraphicsShaderProvider for SkinVertexTransform {
   fn build(&self, builder: &mut ShaderRenderPipelineBuilder) {
     builder.vertex(|builder, _bind| {
       let position_pre_transform = builder.query::<GeometryPosition>();
-      let normal_pre_transform = builder.query::<GeometryNormal>();
+      let normal_pre_transform = builder.try_query::<GeometryNormal>();
       let joints = builder.try_query::<JointIndexChannel<0>>();
       let weights = builder.try_query::<WeightChannel<0>>();
 
@@ -49,14 +49,16 @@ impl GraphicsShaderProvider for SkinVertexTransform {
         let position_transformed = skinned.xyz();
         builder.register::<GeometryPosition>(position_transformed);
 
-        let skin_matrix = weights.x() * bone_matrix_x;
-        let skin_matrix = skin_matrix + weights.y() * bone_matrix_y;
-        let skin_matrix = skin_matrix + weights.z() * bone_matrix_z;
-        let skin_matrix = skin_matrix + weights.w() * bone_matrix_w;
+        if let Some(normal_pre_transform) = normal_pre_transform {
+          let skin_matrix = weights.x() * bone_matrix_x;
+          let skin_matrix = skin_matrix + weights.y() * bone_matrix_y;
+          let skin_matrix = skin_matrix + weights.z() * bone_matrix_z;
+          let skin_matrix = skin_matrix + weights.w() * bone_matrix_w;
 
-        let normal_pre_transform = (normal_pre_transform, val(1.0)).into();
-        let normal_transformed = (skin_matrix * normal_pre_transform).xyz();
-        builder.register::<GeometryNormal>(normal_transformed);
+          let normal_pre_transform = (normal_pre_transform, val(1.0)).into();
+          let normal_transformed = (skin_matrix * normal_pre_transform).xyz();
+          builder.register::<GeometryNormal>(normal_transformed);
+        }
       }
     })
   }
@@ -71,16 +73,17 @@ pub struct BoneMatrixInvocationProvider {
 }
 impl BoneMatrixAccessInvocation for BoneMatrixInvocationProvider {
   fn get_matrix(&self, joint_index: Node<u32>) -> Node<Mat4<f32>> {
-    let uv = vec2_node((joint_index * val(4), val(0)));
+    let joint_index = joint_index * val(4);
+    let uv = vec2_node((joint_index, val(0)));
     let m1 = self.data.load_texel(uv, val(0));
 
     let uv = vec2_node((joint_index + val(1), val(0)));
     let m2 = self.data.load_texel(uv, val(0));
 
-    let uv = vec2_node((joint_index + val(2), val(1)));
+    let uv = vec2_node((joint_index + val(2), val(0)));
     let m3 = self.data.load_texel(uv, val(0));
 
-    let uv = vec2_node((joint_index + val(3), val(1)));
+    let uv = vec2_node((joint_index + val(3), val(0)));
     let m4 = self.data.load_texel(uv, val(0));
 
     (m1, m2, m3, m4).into()
@@ -161,25 +164,22 @@ impl SkinBoneMatrixesGPU {
       self.bind_matrixes.remove(&k);
     }
 
+    let mut changed_skins = FastHashSet::default();
+
     for (k, (value, idx)) in mat_changes.iter_update_or_insert() {
       let skin = skin_access.access(&k).unwrap().unwrap();
-      let (bind_matrixes, gpu) = self.bind_matrixes.entry(skin).or_default();
+      let (bind_matrixes, _) = self.bind_matrixes.entry(skin).or_default();
       bind_matrixes.resize(
         bind_matrixes.len().max((idx + 1) as usize),
         Mat4::identity(),
       );
       bind_matrixes[idx as usize] = value;
-      *gpu = None;
+      changed_skins.insert(skin);
     }
 
-    for (k, (change, idx)) in mat_changes.iter_update_or_insert() {
-      let skin = skin_access.access(&k).unwrap().unwrap();
+    for skin in changed_skins {
       let (bind_matrixes, gpu_texture) = self.bind_matrixes.get_mut(&skin).unwrap();
-      let idx = idx as usize;
-      bind_matrixes.resize(bind_matrixes.len().max(idx + 1), Mat4::identity());
-      bind_matrixes[idx] = change;
-
-      gpu_texture.get_or_insert_with(|| create_data_texture(gpu, bind_matrixes));
+      *gpu_texture = Some(create_data_texture(gpu, bind_matrixes));
     }
   }
 }

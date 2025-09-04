@@ -156,7 +156,8 @@ impl<const I: usize> SemanticVertexShaderValue for GeometryUVChannel<I> {
 
 pub struct JointIndexChannel<const I: usize>;
 impl<const I: usize> SemanticVertexShaderValue for JointIndexChannel<I> {
-  type ValueType = Vec4<u32>; // todo support u8 u16
+  // todo support u8 u16, currently the loader will expand the data to u32
+  type ValueType = Vec4<u32>;
 }
 
 pub struct WeightChannel<const I: usize>;

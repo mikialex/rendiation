@@ -91,6 +91,7 @@ impl StandardModelDataView {
       }
     }
     writer.component_value_writer::<StandardModelRefAttributesMeshEntity>(self.mesh.some_handle());
+    writer.component_value_writer::<StandardModelRefSkin>(self.skin.map(|v| v.into_raw()));
 
     writer.new_entity()
   }
