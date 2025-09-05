@@ -126,7 +126,7 @@ impl AnimationSampler {
     let sample_time = self.get_looped_sample_time(time);
     let (mut spline, (start_time, end_time)) =
       InterpolateInstance::try_from_sampler(self, sample_time)?;
-    let normalized_time = (end_time - sample_time) / (end_time - start_time);
+    let normalized_time = (sample_time - start_time) / (end_time - start_time);
     spline.sample_animation(normalized_time)
   }
 
@@ -170,7 +170,7 @@ impl AnimationSamplerExecutor {
   }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum InterpolationItem {
   Position(Vec3<f32>),
   Scale(Vec3<f32>),
@@ -230,6 +230,7 @@ struct CubicVertex<T> {
 unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for CubicVertex<T> {}
 unsafe impl<T: bytemuck::Pod> bytemuck::Pod for CubicVertex<T> {}
 
+#[derive(Debug)]
 enum InterpolateInstance<T> {
   Linear {
     start: T,
@@ -291,6 +292,11 @@ impl InterpolateInstance<InterpolationItem> {
     let (start_time, start_index) = (sampler_input.get::<f32>(end_index - 1)?, end_index - 1);
     let (end_time, end_index) = (sampler_input.get::<f32>(end_index)?, end_index);
     let field_ty = sampler.field;
+
+    if let SceneAnimationField::Rotation | SceneAnimationField::MorphTargetWeights = field_ty {
+      // currently we only support float type
+      assert_eq!(sampler.output.item_byte_size, 4 * 4);
+    }
 
     fn get_output_single(
       output: &AttributeAccessor,

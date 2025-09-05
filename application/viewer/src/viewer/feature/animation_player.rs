@@ -1,5 +1,7 @@
 use crate::*;
 
+// todo, currently all animation is played at the same time, this should be configurable
+// because they may cause conflict result.
 pub fn use_animation_player(cx: &mut ViewerCx) {
   let animation_of_scene = cx
     .use_db_rev_ref::<SceneAnimationBelongsToScene>()
