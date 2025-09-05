@@ -150,7 +150,7 @@ impl GraphicsShaderProvider for PhysicalSpecularGlossinessMaterialGPU<'_> {
     builder.fragment(|builder, binding| {
       let uniform = binding.bind_by(&self.uniform).load().expand();
       let tex_uniform = binding.bind_by(&self.texture_uniforms).load().expand();
-      let uv = builder.query_or_interpolate_by::<FragmentUv, GeometryUV>();
+      let uv = builder.get_or_compute_fragment_uv();
 
       let mut alpha = uniform.alpha;
 

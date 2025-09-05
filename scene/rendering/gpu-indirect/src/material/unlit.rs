@@ -113,7 +113,7 @@ impl GraphicsShaderProvider for UnlitMaterialStorageGPU<'_> {
       let material = materials.index(current_material_id).load().expand();
       let tex_storage = tex_handles.index(current_material_id).load().expand();
 
-      let uv = builder.query_or_interpolate_by::<FragmentUv, GeometryUV>();
+      let uv = builder.get_or_compute_fragment_uv();
       let color_alpha_tex = indirect_sample(
         self.binding_sys,
         builder.registry(),

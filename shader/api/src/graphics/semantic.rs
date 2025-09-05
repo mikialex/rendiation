@@ -177,15 +177,19 @@ both!(WorldNormalMatrix, Mat3<f32>);
 only_vertex!(VertexRenderPosition, Vec3<f32>);
 only_vertex!(VertexRenderNormal, Vec3<f32>);
 
-pub trait BuilderNormalExt {
+pub trait SemanticShaderValueExt {
+  /// gltf spec:
+  ///
+  /// When normals are not specified, client implementations MUST calculate flat normals and
+  /// the provided tangents (if present) MUST be ignored.
   fn get_or_compute_fragment_normal(&mut self) -> Node<Vec3<f32>>;
+
+  /// The user may not want shader variant over if the geometry has uv, so if the geometry
+  /// does not have uv, we will just use (0., 0.) as default
+  fn get_or_compute_fragment_uv(&mut self) -> Node<Vec2<f32>>;
 }
 
-/// gltf spec:
-///
-/// When normals are not specified, client implementations MUST calculate flat normals and
-/// the provided tangents (if present) MUST be ignored.
-impl BuilderNormalExt for ShaderFragmentBuilderView<'_> {
+impl SemanticShaderValueExt for ShaderFragmentBuilderView<'_> {
   fn get_or_compute_fragment_normal(&mut self) -> Node<Vec3<f32>> {
     // check first and avoid unnecessary renormalize
     if let Some(normal) = self.try_query::<FragmentRenderNormal>() {
@@ -197,7 +201,23 @@ impl BuilderNormalExt for ShaderFragmentBuilderView<'_> {
       normal
     } else {
       let position = self.query_or_interpolate_by::<FragmentRenderPosition, VertexRenderPosition>();
-      compute_normal_by_dxdy(position)
+      let normal = compute_normal_by_dxdy(position);
+      self.register::<FragmentRenderNormal>(normal);
+      normal
+    }
+  }
+
+  fn get_or_compute_fragment_uv(&mut self) -> Node<Vec2<f32>> {
+    if let Some(normal) = self.try_query::<FragmentUv>() {
+      normal
+    } else if self.has_vertex_value::<GeometryUV>() {
+      let normal = self.query_or_interpolate_by::<FragmentUv, GeometryUV>();
+      self.register::<FragmentUv>(normal);
+      normal
+    } else {
+      let uv = val(Vec2::zero());
+      self.register::<FragmentUv>(uv);
+      uv
     }
   }
 }

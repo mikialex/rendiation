@@ -106,7 +106,7 @@ impl GraphicsShaderProvider for UnlitMaterialGPU<'_> {
     builder.fragment(|builder, binding| {
       let uniform = binding.bind_by(&self.uniform).load().expand();
       let tex_uniform = binding.bind_by(&self.tex_uniform).load().expand();
-      let uv = builder.query_or_interpolate_by::<FragmentUv, GeometryUV>();
+      let uv = builder.get_or_compute_fragment_uv();
 
       let color_alpha_tex = bind_and_sample(
         self.binding_sys,

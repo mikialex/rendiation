@@ -147,7 +147,7 @@ impl GraphicsShaderProvider for PhysicalMetallicRoughnessMaterialIndirectGPU<'_>
         .load()
         .expand();
 
-      let uv = builder.query_or_interpolate_by::<FragmentUv, GeometryUV>();
+      let uv = builder.get_or_compute_fragment_uv();
 
       let mut alpha = storage.alpha;
       let mut base_color = storage.base_color;
