@@ -301,6 +301,7 @@ impl<T: Scalar> From<Mat3<T>> for Quat<T> {
 }
 
 /// http://www.euclideanspace.com/maths/algebra/realNormedAlgebra/quaternions/slerp/
+/// input should normalized, output is normalized
 impl<T> Slerp<T> for Quat<T>
 where
   T: Scalar,
@@ -351,7 +352,7 @@ where
     result.y = y * ratio_a + result.y * ratio_b;
     result.z = z * ratio_a + result.z * ratio_b;
 
-    result
+    result.normalize()
   }
 }
 

@@ -266,17 +266,10 @@ where
     label: &'static str,
     log_change: bool,
   ) -> UseResult<T> {
-    let (cx, has_validate_in_this_cycle) = cx.use_plain_state_default_cloned::<Arc<RwLock<bool>>>();
-    if cx.is_spawning_stage() {
-      *has_validate_in_this_cycle.write() = false;
-    }
-
     let validator = cx.use_shared_hash_map();
     self.map(move |dual| {
-      if *has_validate_in_this_cycle.read() {
-        let (_, d) = dual.view_delta_ref();
-        validate_delta(&mut validator.write(), log_change, label, d);
-      }
+      let (_, d) = dual.view_delta_ref();
+      validate_delta(&mut validator.write(), log_change, label, d);
 
       dual
     })
