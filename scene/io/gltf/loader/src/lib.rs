@@ -271,17 +271,26 @@ fn build_model(
             .iter()
             .map(|v| v.map(|v| v as u32))
             .collect::<Vec<_>>();
-          att = AttributeAccessor::create_owned(new_indices, 4)
+          att = AttributeAccessor::create_owned(new_indices, 4 * 4)
         } else if att.item_byte_size == 2 * 4 {
           let indices = read.visit_slice::<Vec4<u16>>().unwrap();
           let new_indices = indices
             .iter()
             .map(|v| v.map(|v| v as u32))
             .collect::<Vec<_>>();
-          att = AttributeAccessor::create_owned(new_indices, 4)
+          att = AttributeAccessor::create_owned(new_indices, 4 * 4)
         } else {
           panic!(
             "joint indices must be vec4<u8> or vec4<u16>, item_byte_size: {}",
+            att.item_byte_size
+          )
+        }
+      }
+
+      if let AttributeSemantic::Weights(_) = &semantic {
+        if att.item_byte_size != 16 {
+          panic!(
+            "current implementation only supports vec4<f32>, item_byte_size: {}",
             att.item_byte_size
           )
         }

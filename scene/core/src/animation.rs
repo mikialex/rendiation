@@ -157,7 +157,7 @@ impl AnimationSamplerExecutor {
       // do we have get_or_insert_with_option?
       if let Some((spline, (start_time, end_time))) = &mut self.spline {
         let normalized_time = (*end_time - time) / (*end_time - *start_time);
-        if 0. < normalized_time && normalized_time <= 1.0 {
+        if (0. ..=1.0).contains(&normalized_time) {
           break spline.sample_animation(normalized_time);
         } else {
           self.spline = None;
