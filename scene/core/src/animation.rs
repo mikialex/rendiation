@@ -282,10 +282,9 @@ impl InterpolateInstance<InterpolationItem> {
     let end_index = slice
       .binary_search_by(|v| v.partial_cmp(&time).unwrap_or(core::cmp::Ordering::Equal))
       .unwrap_or_else(|e| e);
-    let len = slice.len();
 
     // time is out of sampler range
-    if end_index == 0 || end_index == len {
+    if end_index == 0 {
       return None;
     }
 

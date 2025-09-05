@@ -322,7 +322,7 @@ where
       result = -target;
       cos_half_theta = -cos_half_theta;
     } else {
-      result = self;
+      result = target;
     }
 
     // if qa=qb or qa=-qb then theta = 0 and we can return qa
