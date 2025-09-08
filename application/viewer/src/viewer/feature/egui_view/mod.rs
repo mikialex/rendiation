@@ -66,6 +66,7 @@ pub fn use_viewer_egui(cx: &mut ViewerCx) {
             GLOBAL_ALLOCATOR.reset_history_peak();
           }
           let stat = GLOBAL_ALLOCATOR.report();
+          GLOBAL_ALLOCATOR.reset_allocation_event_counter();
           ui.label(format!("{:#?}", stat));
           if ui.button("reset counter peak stat").clicked() {
             heap_tools::HEAP_TOOL_GLOBAL_INSTANCE_COUNTER

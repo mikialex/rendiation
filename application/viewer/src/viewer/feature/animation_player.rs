@@ -2,8 +2,6 @@ use fast_hash_collection::FastHashSet;
 
 use crate::*;
 
-// todo, currently all animation is played at the same time, this should be configurable
-// because they may cause conflict result.
 pub fn use_animation_player(cx: &mut ViewerCx) {
   let channel_of_animation = cx
     .use_db_rev_ref::<SceneAnimationChannelBelongToAnimation>()

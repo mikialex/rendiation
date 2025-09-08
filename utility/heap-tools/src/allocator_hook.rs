@@ -19,12 +19,14 @@ impl std::fmt::Debug for ReadableByteDisplay {
 pub struct PreciseAllocationReport {
   pub allocation_real_bytes_count: CounterRecordReport<ReadableByteDisplay>,
   pub allocation_instance_count: CounterRecordReport<u64>,
+  pub allocation_event_count: u64,
 }
 
 pub struct PreciseAllocationStatistics<T> {
   pub allocator: T,
   allocation_real_bytes_count: CounterRecord,
   allocation_instance_count: CounterRecord,
+  allocation_event_count: AtomicU64,
 }
 
 impl<T> PreciseAllocationStatistics<T> {
@@ -33,6 +35,7 @@ impl<T> PreciseAllocationStatistics<T> {
       allocator,
       allocation_real_bytes_count: CounterRecord::new(),
       allocation_instance_count: CounterRecord::new(),
+      allocation_event_count: AtomicU64::new(0),
     }
   }
 
@@ -45,6 +48,10 @@ impl<T> PreciseAllocationStatistics<T> {
       .reset_history_peak_to_current();
   }
 
+  pub fn reset_allocation_event_counter(&self) {
+    self.allocation_event_count.store(0, SeqCst);
+  }
+
   pub fn report(&self) -> PreciseAllocationReport {
     PreciseAllocationReport {
       allocation_real_bytes_count: self
@@ -52,6 +59,7 @@ impl<T> PreciseAllocationStatistics<T> {
         .report()
         .map(ReadableByteDisplay),
       allocation_instance_count: self.allocation_instance_count.report(),
+      allocation_event_count: self.allocation_event_count.load(SeqCst),
     }
   }
 }
@@ -65,6 +73,7 @@ unsafe impl<T: GlobalAlloc> GlobalAlloc for PreciseAllocationStatistics<T> {
         .allocation_real_bytes_count
         .increase(layout.size() as u64);
     }
+    self.allocation_event_count.fetch_add(1, SeqCst);
 
     self.allocator.alloc(layout)
   }
