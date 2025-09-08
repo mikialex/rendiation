@@ -112,6 +112,10 @@ impl PartialEq for TexturePool2dSource {
   }
 }
 
+use serde::*;
+
+#[derive(Serialize, Deserialize)]
+#[derive(Clone, Debug, Copy)]
 pub struct TexturePoolSourceInit {
   pub init_sampler_count_capacity: u32,
   pub init_texture_count_capacity: u32,

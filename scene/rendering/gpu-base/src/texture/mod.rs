@@ -1,8 +1,5 @@
 mod cube;
-use std::num::NonZeroU32;
-
 pub use cube::*;
-
 mod d2_and_sampler;
 pub use d2_and_sampler::*;
 use fast_hash_collection::FastHashMap;
@@ -13,11 +10,14 @@ use crate::*;
 pub fn use_texture_system(
   cx: &mut QueryGPUHookCx,
   ty: GPUTextureBindingSystemType,
+  pool_init_config: &TexturePoolSourceInit,
 ) -> Option<GPUTextureBindingSystem> {
   match ty {
     GPUTextureBindingSystemType::GlesSingleBinding => cx.scope(|cx| use_gles_texture_system(cx)),
     GPUTextureBindingSystemType::Bindless => cx.scope(|cx| use_bindless_texture_system(cx)),
-    GPUTextureBindingSystemType::TexturePool => cx.scope(|cx| use_pool_texture_system(cx)),
+    GPUTextureBindingSystemType::TexturePool => {
+      cx.scope(|cx| use_pool_texture_system(cx, pool_init_config))
+    }
   }
 }
 
@@ -76,25 +76,10 @@ pub fn use_bindless_texture_system(cx: &mut QueryGPUHookCx) -> Option<GPUTexture
   })
 }
 
-pub fn use_pool_texture_system(cx: &mut QueryGPUHookCx) -> Option<GPUTextureBindingSystem> {
-  // this should passed in by user
-  let size = Size::from_u32_pair_min_one((4096, 4096));
-  let init = TexturePoolSourceInit {
-    init_texture_count_capacity: 128,
-    init_sampler_count_capacity: 128,
-    format: TextureFormat::Rgba8Unorm,
-    atlas_config: MultiLayerTexturePackerConfig {
-      max_size: SizeWithDepth {
-        depth: NonZeroU32::new(4).unwrap(),
-        size,
-      },
-      init_size: SizeWithDepth {
-        depth: NonZeroU32::new(1).unwrap(),
-        size,
-      },
-    },
-  };
-
+pub fn use_pool_texture_system(
+  cx: &mut QueryGPUHookCx,
+  init: &TexturePoolSourceInit,
+) -> Option<GPUTextureBindingSystem> {
   let (cx, samplers) =
     cx.use_storage_buffer("sampler info", init.init_sampler_count_capacity, u32::MAX);
   cx.use_changes::<SceneSamplerInfo>()

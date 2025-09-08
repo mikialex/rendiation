@@ -6,3 +6,5 @@
 .vs/
 **/*.otf
 **/*.bin
+
+/viewer_init_config.json

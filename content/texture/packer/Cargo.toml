@@ -9,6 +9,7 @@ fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 rendiation-texture-core = { path = "../core" }
 etagere = "0.2.6"
 query = { path = "../../../utility/query" }
+serde = { workspace = true }
 
 [lints]
 workspace = true

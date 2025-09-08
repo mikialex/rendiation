@@ -4302,6 +4302,7 @@ dependencies = [
  "rendiation-texture-packer",
  "rendiation-webgpu",
  "rendiation-webgpu-hook-utils",
+ "serde",
 ]
 
 [[package]]
@@ -4322,6 +4323,7 @@ dependencies = [
  "fast-hash-collection",
  "query",
  "rendiation-texture-core",
+ "serde",
 ]
 
 [[package]]

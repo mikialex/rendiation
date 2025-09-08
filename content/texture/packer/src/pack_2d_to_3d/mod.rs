@@ -130,6 +130,9 @@ pub struct PackResult2dWithDepth {
   pub depth: u32,
 }
 
+use serde::*;
+
+#[derive(Serialize, Deserialize)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MultiLayerTexturePackerConfig {
   pub max_size: SizeWithDepth,

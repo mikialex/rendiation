@@ -110,6 +110,7 @@ pub enum CubeTextureFace {
 }
 
 /// Represent a position in texture2d
+#[derive(Serialize, Deserialize)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct TextureOrigin {
   pub x: usize,
@@ -129,12 +130,14 @@ impl From<(usize, usize)> for TextureOrigin {
 }
 
 /// Represent a none zero size(width/height) area
+#[derive(Serialize, Deserialize)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct TextureRange {
   pub origin: TextureOrigin,
   pub size: Size,
 }
 
+#[derive(Serialize, Deserialize)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SizeWithDepth {
   pub depth: NonZeroU32,

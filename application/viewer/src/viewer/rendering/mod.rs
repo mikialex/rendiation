@@ -94,6 +94,8 @@ pub struct Viewer3dRenderingCtx {
 
   stat_frame_time_in_ms: StatisticStore<f32>,
   last_render_timestamp: Option<Instant>,
+
+  init_pool_config: TexturePoolSourceInit,
 }
 
 impl Viewer3dRenderingCtx {
@@ -101,6 +103,7 @@ impl Viewer3dRenderingCtx {
     init_config.raster_backend_type = self.current_renderer_impl_ty;
     init_config.enable_indirect_occlusion_culling = self.enable_indirect_occlusion_culling;
     init_config.transparent_config = self.transparent_config;
+    init_config.texture_pool_source_init_config = self.init_pool_config;
     init_config.prefer_bindless_for_indirect_texture_system =
       self.prefer_bindless_for_indirect_texture_system;
   }
@@ -143,6 +146,7 @@ impl Viewer3dRenderingCtx {
       picker: Default::default(),
       stat_frame_time_in_ms: StatisticStore::new(200),
       last_render_timestamp: Default::default(),
+      init_pool_config: init_config.texture_pool_source_init_config,
     }
   }
 
@@ -163,7 +167,7 @@ impl Viewer3dRenderingCtx {
       ) || self.rtx_renderer_enabled,
       self.prefer_bindless_for_indirect_texture_system,
     );
-    let texture_sys = use_texture_system(cx, ty);
+    let texture_sys = use_texture_system(cx, ty, &self.init_pool_config);
 
     let any_base_resource_changed = change_scope(cx);
     let mut any_indirect_resource_changed = None;

@@ -31,6 +31,7 @@ use rendiation_scene_core::*;
 use rendiation_shader_api::*;
 use rendiation_texture_core::*;
 use rendiation_texture_gpu_base::*;
+pub use rendiation_texture_gpu_system::TexturePoolSourceInit;
 use rendiation_texture_gpu_system::*;
 use rendiation_webgpu::*;
 use rendiation_webgpu_hook_utils::*;
