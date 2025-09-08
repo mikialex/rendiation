@@ -35,6 +35,8 @@ use rendiation_texture_gpu_system::*;
 use rendiation_webgpu::*;
 use rendiation_webgpu_hook_utils::*;
 
+mod skin;
+pub use skin::*;
 mod world_bounding;
 pub use world_bounding::*;
 mod world_matrix;

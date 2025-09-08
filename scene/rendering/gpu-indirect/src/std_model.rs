@@ -137,6 +137,10 @@ pub fn use_std_model_renderer(
     .map(|mesh| mesh.map_u32_index_or_u32_max())
     .update_storage_array(std_model, offset_of!(SceneStdModelStorage, mesh));
 
+  cx.use_changes::<StandardModelRefSkin>()
+    .map(|mesh| mesh.map_u32_index_or_u32_max())
+    .update_storage_array(std_model, offset_of!(SceneStdModelStorage, skin));
+
   let material_flat = cx.use_changes::<StandardModelRefUnlitMaterial>();
   let material_pbr_mr = cx.use_changes::<StandardModelRefPbrMRMaterial>();
   let material_pbr_sg = cx.use_changes::<StandardModelRefPbrSGMaterial>();
@@ -215,6 +219,7 @@ impl IndirectModelRenderImpl for SceneStdModelIndirectRenderer {
           let sm_id = builder.query::<IndirectSceneStdModelId>();
           let info = buffer.index(sm_id).load().expand();
           builder.register::<IndirectAbstractMaterialId>(info.material);
+          builder.register::<IndirectSkinId>(info.skin);
           builder.set_vertex_out::<IndirectAbstractMaterialId>(info.material);
           builder.register::<IndirectAbstractMeshId>(info.mesh);
         });
@@ -271,4 +276,7 @@ only_vertex!(IndirectSceneStdModelId, u32);
 pub struct SceneStdModelStorage {
   pub mesh: u32, // todo, improve: this data is duplicate with the mesh dispatcher sm-ref-mesh data
   pub material: u32,
+  pub skin: u32,
 }
+
+only_vertex!(IndirectSkinId, u32);

@@ -150,6 +150,10 @@ impl MultiAccessGPUInvocation {
       cursor: val(0_u32).make_local_var(),
     }
   }
+  pub fn get_n_th(&self, one: Node<u32>, n: Node<u32>) -> Node<u32> {
+    let offset = self.meta.index(one).load().expand().start;
+    self.indices.index(offset + n).load()
+  }
 }
 
 struct MultiAccessGPUIter {
