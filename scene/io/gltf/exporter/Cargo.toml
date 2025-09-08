@@ -4,10 +4,13 @@ name = "rendiation-scene-gltf-exporter"
 version = "0.0.1"
 
 [dependencies]
-gltf = "1.2.0"
-gltf-json = "1.2.0"
+gltf = "1.4.1"
+gltf-json = "1.4.1"
+serde_json = "1.0.143"
 database = { path = "../../../../utility/database" }
 query = { path = "../../../../utility/query" }
+rendiation-algebra = { path = "../../../../math/algebra" }
+rendiation-geometry = { path = "../../../../math/geometry" }
 rendiation-mesh-core = { path = "../../../../content/mesh/core" }
 rendiation-scene-core = { path = "../../../core" }
 rendiation-texture-core = { path = "../../../../content/texture/core" }

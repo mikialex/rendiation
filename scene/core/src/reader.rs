@@ -59,6 +59,14 @@ impl SceneReader {
     }
   }
 
+  /// if only requires parent, this is cheaper compare to [Self::read_node]
+  pub fn read_node_parent(
+    &self,
+    id: EntityHandle<SceneNodeEntity>,
+  ) -> Option<EntityHandle<SceneNodeEntity>> {
+    self.node_reader.read_foreign_key::<SceneNodeParentIdx>(id)
+  }
+
   pub fn read_scene_model(&self, id: EntityHandle<SceneModelEntity>) -> SceneModelDataView {
     let sm = &self.scene_model;
     SceneModelDataView {

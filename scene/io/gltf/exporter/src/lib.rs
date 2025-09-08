@@ -1,3 +1,5 @@
+#![feature(path_add_extension)]
+
 use std::borrow::Cow;
 use std::fs::{self, File};
 use std::io::BufWriter;
@@ -6,6 +8,8 @@ use std::path::Path;
 use database::*;
 use fast_hash_collection::*;
 use gltf_json::Root;
+use rendiation_algebra::Vec3;
+use rendiation_geometry::Box3;
 use rendiation_mesh_core::*;
 use rendiation_scene_core::*;
 use rendiation_texture_core::TextureSampler;
@@ -21,7 +25,6 @@ pub enum GltfExportErr {
 
 pub fn build_scene_to_gltf(
   reader: SceneReader,
-  root: EntityHandle<SceneNodeEntity>,
   folder_path: &Path,
   file_name: &str,
 ) -> Result<(), GltfExportErr> {
@@ -45,21 +48,46 @@ pub fn build_scene_to_gltf(
   let mut scene_node_ids = Vec::default();
   let mut scene_index_map = FastHashMap::default();
 
-  ctx
-    .reader
-    .traverse_children_tree(root, &mut |node, parent| {
-      let idx = ctx.build_node(node);
+  let mut all_nodes = FastHashSet::default();
+  let mut batch_writes = Vec::default();
+  for model in ctx.reader.models() {
+    let model_info = ctx.reader.read_scene_model(model);
+    all_nodes.insert(model_info.node);
+  }
+  let first_batch = all_nodes.iter().copied().collect::<Vec<_>>();
+  batch_writes.push(first_batch);
+
+  loop {
+    let mut new_batch = Vec::default();
+    for node in batch_writes.last().unwrap() {
+      if let Some(parent) = ctx.reader.read_node_parent(*node) {
+        if !all_nodes.contains(&parent) {
+          all_nodes.insert(parent);
+          new_batch.push(parent);
+        }
+      }
+    }
+    if new_batch.is_empty() {
+      break;
+    }
+    batch_writes.push(new_batch);
+  }
+
+  for batch in batch_writes.iter().rev() {
+    for node in batch {
+      let idx = ctx.build_node(*node);
       scene_node_ids.push(idx);
-      scene_index_map.insert(node, idx);
-      if let Some(parent) = parent {
-        let node_idx = scene_index_map.get(&node).unwrap();
+      scene_index_map.insert(*node, idx);
+      if let Some(parent) = ctx.reader.read_node_parent(*node) {
+        let node_idx = scene_index_map.get(node).unwrap();
         let parent_idx = scene_index_map.get(&parent).unwrap();
         ctx.nodes.collected.borrow_mut()[parent_idx.value()]
           .children
           .get_or_insert_default()
           .push(*node_idx);
       }
-    });
+    }
+  }
 
   for model in ctx.reader.models() {
     let model_info = ctx.reader.read_scene_model(model);
@@ -111,7 +139,8 @@ pub fn build_scene_to_gltf(
     textures: ctx.textures.collected.take(),
   };
 
-  let gltf_root_file_path = folder_path.join(file_name);
+  let mut gltf_root_file_path = folder_path.join(file_name);
+  gltf_root_file_path.add_extension("glb");
   let binary_data = ctx.binary_data.borrow();
   let json_buf = json
     .to_vec()
@@ -326,9 +355,32 @@ impl Ctx {
       #[allow(clippy::disallowed_types)]
       let mut attributes = std::collections::BTreeMap::default();
       for (key, att) in &mesh.attributes {
-        let (key, cty, ty) = map_semantic_att(key)?;
-        let key = gltf_json::validation::Checked::Valid(key);
-        attributes.insert(key, self.build_inline_accessor(att, cty, ty, false)?);
+        let (key_, cty, ty) = map_semantic_att(key)?;
+
+        let key = gltf_json::validation::Checked::Valid(key_.clone());
+
+        let acc = self.build_inline_accessor(att, cty, ty, false)?;
+
+        // todo, consider using scene derive data result
+        if key_ == gltf_json::mesh::Semantic::Positions {
+          let att = att.read();
+          let bbox: Box3 = att.visit_slice::<Vec3<f32>>().unwrap().iter().collect();
+
+          fn vec3_to_gltf(v: Vec3<f32>) -> gltf_json::Value {
+            gltf_json::Value::Array(vec![
+              serde_json::json!(v.x),
+              serde_json::json!(v.y),
+              serde_json::json!(v.z),
+            ])
+          }
+
+          self.accessors.mutate(acc, |att| {
+            att.max = Some(vec3_to_gltf(bbox.max));
+            att.min = Some(vec3_to_gltf(bbox.min));
+          })
+        }
+
+        attributes.insert(key, acc);
       }
 
       let primitive = gltf_json::mesh::Primitive {
@@ -488,6 +540,12 @@ impl<K, T> Resource<K, T> {
     let idx = self.collected.borrow().len();
     self.collected.borrow_mut().push(v);
     gltf_json::Index::new(idx as u32)
+  }
+
+  pub fn mutate(&self, idx: gltf_json::Index<T>, f: impl FnOnce(&mut T)) {
+    let mut collected = self.collected.borrow_mut();
+    let v = &mut collected[idx.value()];
+    f(v);
   }
 
   pub fn get_or_insert_with(
