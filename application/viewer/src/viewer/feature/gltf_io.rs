@@ -110,6 +110,7 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
 
     egui::Window::new("Gltf IO")
       .open(opened)
+      .default_size((200., 200.))
       .vscroll(true)
       .show(egui_ctx, |ui| {
         if ui.button("export gltf").clicked() {

@@ -21,6 +21,10 @@ pub trait Query: Send + Sync + Clone {
   fn contains(&self, key: &Self::Key) -> bool {
     self.access(key).is_some()
   }
+  /// note, for some implementation(filter) this is costly O(n)
+  fn is_empty(&self) -> bool {
+    self.iter_key_value().next().is_none()
+  }
 
   fn materialize(&self) -> Arc<QueryMaterialized<Self::Key, Self::Value>> {
     Arc::new(self.iter_key_value().collect())
