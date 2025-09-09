@@ -163,12 +163,6 @@ fn create_node_recursive(
   gltf_node: &Node,
   ctx: &mut Context,
 ) {
-  println!(
-    "Node #{} has {} children",
-    gltf_node.index(),
-    gltf_node.children().count(),
-  );
-
   let node = ctx.io.create_child(parent_to_attach);
   ctx.result.node_map.insert(gltf_node.index(), node);
 

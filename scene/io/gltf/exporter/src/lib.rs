@@ -31,6 +31,10 @@ pub enum GltfExportErr {
   Serialize(Box<dyn std::error::Error>),
 }
 
+/// Implementation Note
+///
+/// The gltf is a node forest, each node can only attach one model(gltf mesh), but in our scene structure
+/// a node can have multiple models, so we create a new node for node that has multiple model when export.
 pub fn build_scene_to_gltf(
   reader: &SceneReader,
   folder_path: &Path,
@@ -39,10 +43,9 @@ pub fn build_scene_to_gltf(
   fs::create_dir_all(folder_path).map_err(GltfExportErr::IO)?;
 
   // write nodes
-  let (root_nodes, mut target_nodes) = {
-    let mut target_nodes = Resource::default();
-
-    let mut root_nodes = Vec::default();
+  let mut target_nodes = Resource::default();
+  let mut root_nodes = Vec::default();
+  {
     let mut scene_index_map = FastHashMap::default();
 
     let mut all_nodes = FastHashSet::default();
@@ -86,7 +89,6 @@ pub fn build_scene_to_gltf(
         }
       }
     }
-    (root_nodes, target_nodes)
   };
 
   let mut all_texture_to_write = FastHashSet::default();
@@ -140,6 +142,7 @@ pub fn build_scene_to_gltf(
           all_texture_to_write.insert(t);
         }
       }
+      _ => {}
     }
   }
 
@@ -178,8 +181,29 @@ pub fn build_scene_to_gltf(
 
   for model in reader.models() {
     let model_info = reader.read_scene_model(model);
-    let idx = target_nodes.mapping.get(&model_info.node).unwrap();
+    let idx = *target_nodes.mapping.get(&model_info.node).unwrap();
     let node = target_nodes.collected.get_mut(idx.value()).unwrap();
+    let targe_node_idx = if node.mesh.is_some() {
+      let extra_node = build_node(&mut target_nodes, reader, model_info.node);
+      if let Some(parent) = reader.read_node_parent(model_info.node) {
+        let parent_idx = target_nodes.get(&parent);
+        target_nodes.collected[parent_idx.value()]
+          .children
+          .get_or_insert_default()
+          .push(extra_node);
+      } else {
+        root_nodes.push(extra_node);
+      }
+      extra_node
+    } else {
+      idx
+    };
+
+    let node = target_nodes
+      .collected
+      .get_mut(targe_node_idx.value())
+      .unwrap();
+
     node.mesh = build_model(
       &mut buffer_builder,
       &mut keyed_buffer_views,

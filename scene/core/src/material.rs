@@ -2,6 +2,7 @@ pub use unlit_material::*;
 
 use crate::*;
 
+#[non_exhaustive]
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub enum SceneMaterialDataView {
   UnlitMaterial(EntityHandle<UnlitMaterialEntity>),
