@@ -370,24 +370,19 @@ where
   }
 }
 
-impl<T> From<[T; 4]> for Quat<T>
-where
-  T: Copy,
-{
+impl<T> From<[T; 4]> for Quat<T> {
   fn from(v: [T; 4]) -> Self {
-    Self {
-      x: v[0],
-      y: v[1],
-      z: v[2],
-      w: v[3],
-    }
+    let [x, y, z, w] = v;
+    Self { x, y, z, w }
+  }
+}
+impl<T> Into<[T; 4]> for Quat<T> {
+  fn into(self) -> [T; 4] {
+    [self.x, self.y, self.z, self.w]
   }
 }
 
-impl<T> From<(T, T, T, T)> for Quat<T>
-where
-  T: Copy,
-{
+impl<T> From<(T, T, T, T)> for Quat<T> {
   fn from(v: (T, T, T, T)) -> Self {
     Self {
       x: v.0,

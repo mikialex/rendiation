@@ -201,7 +201,7 @@ pub fn build_scene_to_gltf(
     extensions: Default::default(),
     extras: Default::default(),
     generator: String::from("rendiation_scene_gltf_exporter").into(),
-    min_version: String::from("2").into(), // is this mean the gltf version or exporter version??
+    min_version: String::from("2").into(),
     version: String::from("2"),
   };
 
@@ -268,33 +268,19 @@ struct AttributeAccessorKey {
 
 fn build_inline_accessor(
   buffer_inliner: &mut BufferResourceInliner,
-  buffer_views: &mut Resource<ViewKey, gltf_json::buffer::View>,
+  buffer_view_map: &mut FastHashMap<ViewKey, gltf_json::Index<gltf_json::buffer::View>>,
   accessors: &mut Resource<AttributeAccessorKey, gltf_json::Accessor>,
   acc: &AttributeAccessor,
   c_ty: gltf_json::accessor::ComponentType,
   ty: gltf_json::accessor::Type,
   normalized: bool,
 ) -> gltf_json::Index<gltf_json::Accessor> {
-  let view = buffer_views.get_or_insert_with(
-    ViewKey {
+  let view = buffer_view_map
+    .entry(ViewKey {
       buffer_id: acc.view.buffer.as_ptr() as u64,
       view_range: acc.view.range,
-    },
-    || {
-      let (buffer, byte_length, byte_offset) =
-        buffer_inliner.collect_inline_buffer(&acc.view.buffer);
-      gltf_json::buffer::View {
-        buffer,
-        byte_length,
-        byte_offset,
-        byte_stride: Default::default(),
-        name: Default::default(),
-        target: Default::default(),
-        extensions: Default::default(),
-        extras: Default::default(),
-      }
-    },
-  );
+    })
+    .or_insert_with(|| buffer_inliner.collect_inline_packed_view_buffer(&acc.view.buffer));
 
   let key = AttributeAccessorKey {
     view: view.value(),
@@ -304,7 +290,7 @@ fn build_inline_accessor(
   };
 
   accessors.get_or_insert_with(key, || gltf_json::Accessor {
-    buffer_view: view.into(),
+    buffer_view: (*view).into(),
     byte_offset: gltf_json::validation::USize64(acc.byte_offset as u64).into(),
     count: gltf_json::validation::USize64(acc.count as u64),
     component_type: gltf_json::validation::Checked::Valid(
@@ -327,6 +313,9 @@ fn build_node(
   id: EntityHandle<SceneNodeEntity>,
 ) -> gltf_json::Index<gltf_json::Node> {
   let node = reader.read_node(id);
+
+  let (t, r, s) = node.local_matrix.into_f32().decompose();
+
   let node = gltf_json::Node {
     camera: Default::default(),
     children: Default::default(),
@@ -335,9 +324,9 @@ fn build_node(
     matrix: Some(node.local_matrix.into_f32().into()),
     mesh: Default::default(),
     name: Default::default(),
-    rotation: Default::default(),
-    scale: Default::default(),
-    translation: Default::default(),
+    rotation: Some(gltf_json::scene::UnitQuaternion(r.into())),
+    scale: Some(s.into()),
+    translation: Some(t.into()),
     skin: Default::default(),
     weights: Default::default(),
   };
@@ -347,7 +336,7 @@ fn build_node(
 
 fn build_model(
   buffer_inliner: &mut BufferResourceInliner,
-  buffer_views: &mut Resource<ViewKey, gltf_json::buffer::View>,
+  buffer_view_map: &mut FastHashMap<ViewKey, gltf_json::Index<gltf_json::buffer::View>>,
   accessors: &mut Resource<AttributeAccessorKey, gltf_json::Accessor>,
   models: &mut Resource<EntityHandle<SceneModelEntity>, gltf_json::Mesh>,
   materials: &mut Resource<SceneMaterialDataView, gltf_json::Material>,
@@ -367,8 +356,15 @@ fn build_model(
 
         let key = gltf_json::validation::Checked::Valid(key_.clone());
 
-        let acc =
-          build_inline_accessor(buffer_inliner, buffer_views, accessors, att, cty, ty, false);
+        let acc = build_inline_accessor(
+          buffer_inliner,
+          buffer_view_map,
+          accessors,
+          att,
+          cty,
+          ty,
+          false,
+        );
 
         // todo, consider using scene derive data result
         if key_ == gltf_json::mesh::Semantic::Positions {
@@ -398,7 +394,7 @@ fn build_model(
           Some((fmt, acc)) => match fmt {
             AttributeIndexFormat::Uint16 => build_inline_accessor(
               buffer_inliner,
-              buffer_views,
+              buffer_view_map,
               accessors,
               acc,
               gltf_json::accessor::ComponentType::U16,
@@ -407,7 +403,7 @@ fn build_model(
             ),
             AttributeIndexFormat::Uint32 => build_inline_accessor(
               buffer_inliner,
-              buffer_views,
+              buffer_view_map,
               accessors,
               acc,
               gltf_json::accessor::ComponentType::U32,
@@ -539,7 +535,7 @@ fn build_texture2d(
 
     if let Some(data_writer) = data_writer {
       image.buffer_view = data_writer
-        .collect_inline_packed_view_buffer(&texture.data)
+        .collect_inline_packed_view_buffer(&png_buffer)
         .into();
     }
 

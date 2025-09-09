@@ -36,8 +36,8 @@ pub fn map_sampler(
     (FilterMode::Nearest, FilterMode::Nearest, true) => gltf_json::texture::MinFilter::NearestMipmapNearest,
     (FilterMode::Linear, FilterMode::Nearest, true) => gltf_json::texture::MinFilter::LinearMipmapNearest,
     
-    (FilterMode::Nearest, FilterMode::Linear, false) => gltf_json::texture::MinFilter::NearestMipmapNearest, // impossible and fallback
-    (FilterMode::Linear, FilterMode::Linear, false) => gltf_json::texture::MinFilter::LinearMipmapNearest, // impossible and fallback
+    (FilterMode::Nearest, FilterMode::Linear, false) => gltf_json::texture::MinFilter::NearestMipmapNearest, // impossible to support, using fallback
+    (FilterMode::Linear, FilterMode::Linear, false) => gltf_json::texture::MinFilter::LinearMipmapNearest, // impossible to support, using fallback
     (FilterMode::Nearest, FilterMode::Linear, true) => gltf_json::texture::MinFilter::NearestMipmapLinear,
     (FilterMode::Linear, FilterMode::Linear, true) => gltf_json::texture::MinFilter::LinearMipmapLinear,
   };
@@ -67,8 +67,8 @@ pub fn map_semantic_att(att: &AttributeSemantic) -> Option<(gltf_json::mesh::Sem
     AttributeSemantic::Tangents => (gltf_json::mesh::Semantic::Tangents, gltf_json::accessor::ComponentType::F32, gltf_json::accessor::Type::Vec3),
     AttributeSemantic::Colors(v) => (gltf_json::mesh::Semantic::Colors(*v), gltf_json::accessor::ComponentType::F32, gltf_json::accessor::Type::Vec3), // todo check att data
     AttributeSemantic::TexCoords(v) => (gltf_json::mesh::Semantic::TexCoords(*v), gltf_json::accessor::ComponentType::F32, gltf_json::accessor::Type::Vec2),
-    AttributeSemantic::Joints(v) => (gltf_json::mesh::Semantic::Joints(*v), gltf_json::accessor::ComponentType::F32, gltf_json::accessor::Type::Scalar), // todo check spec
-    AttributeSemantic::Weights(v) => (gltf_json::mesh::Semantic::Weights(*v), gltf_json::accessor::ComponentType::F32, gltf_json::accessor::Type::Vec4), // todo check spec
+    AttributeSemantic::Joints(v) => (gltf_json::mesh::Semantic::Joints(*v), gltf_json::accessor::ComponentType::U32, gltf_json::accessor::Type::Scalar),
+    AttributeSemantic::Weights(v) => (gltf_json::mesh::Semantic::Weights(*v), gltf_json::accessor::ComponentType::F32, gltf_json::accessor::Type::Vec4),
     AttributeSemantic::Foreign{..} => return None, 
   }.into()
 }

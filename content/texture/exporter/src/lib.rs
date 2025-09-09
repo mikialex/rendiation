@@ -15,9 +15,7 @@ pub fn write_gpu_buffer_image_as_png(target: impl Write, image: &GPUBufferImage)
   )
 }
 
-/// the data may contains per pixel padding and per row padding.
-/// todo, per pixel padding should handled by checking fmt
-/// per row padding is handled by the caller passed in padded_bytes_per_row parameters
+/// the data may contains per row padding.
 pub fn write_raw_gpu_buffer_image_as_png(
   target: impl Write,
   size: Size,

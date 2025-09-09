@@ -39,7 +39,7 @@ impl<'a> BufferResourceInliner<'a> {
   }
 
   // return (id, len, offset)
-  pub fn collect_inline_buffer(
+  fn collect_inline_buffer(
     &mut self,
     buffer: &[u8],
   ) -> (
