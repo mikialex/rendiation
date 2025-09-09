@@ -19,6 +19,7 @@ pub struct SceneReader {
 
   pub pbr_mr: EntityReader<PbrMRMaterialEntity>,
   pub pbr_sg: EntityReader<PbrSGMaterialEntity>,
+  pub unlit: EntityReader<UnlitMaterialEntity>,
 }
 
 impl SceneReader {
@@ -43,6 +44,7 @@ impl SceneReader {
       texture: global_entity_of().entity_reader(),
       pbr_mr: global_entity_of().entity_reader(),
       pbr_sg: global_entity_of().entity_reader(),
+      unlit: global_entity_of().entity_reader(),
     }
   }
 
@@ -114,6 +116,18 @@ impl SceneReader {
       .ptr
       .as_ref()
       .clone()
+  }
+
+  pub fn read_unlit_material(
+    &self,
+    id: EntityHandle<UnlitMaterialEntity>,
+  ) -> UnlitMaterialDataView {
+    let m = &self.unlit;
+    UnlitMaterialDataView {
+      color: m.read::<UnlitMaterialColorComponent>(id),
+      color_alpha_tex: Texture2DWithSamplingDataView::read::<UnlitMaterialColorAlphaTex, _>(m, id),
+      alpha: AlphaConfigDataView::read::<UnlitMaterialAlphaConfig, _>(m, id),
+    }
   }
 
   pub fn read_pbr_mr_material(

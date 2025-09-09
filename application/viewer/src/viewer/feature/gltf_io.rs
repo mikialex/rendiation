@@ -22,7 +22,7 @@ pub fn use_enable_gltf_io(cx: &mut ViewerCx) {
       if let Some(mut dir) = dirs::download_dir() {
         dir.push("gltf_export");
 
-        rendiation_scene_gltf_exporter::build_scene_to_gltf(reader, &dir, "scene").unwrap();
+        rendiation_scene_gltf_exporter::build_scene_to_gltf(&reader, &dir, "scene").unwrap();
         req.resolve(());
       } else {
         log::error!("failed to locate the system's default download directory to write file output")
