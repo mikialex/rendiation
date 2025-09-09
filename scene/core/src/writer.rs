@@ -84,7 +84,7 @@ impl SceneWriter {
     let child = self.create_root_child();
     self
       .node_writer
-      .write::<SceneNodeParentIdx>(child, Some(parent.into_raw()));
+      .write_foreign_key::<SceneNodeParentIdx>(child, Some(parent));
     child
   }
 

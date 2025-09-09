@@ -16,6 +16,9 @@ use rendiation_texture_core::TextureSampler;
 mod convert_utils;
 use convert_utils::*;
 
+mod material;
+use material::*;
+
 mod buffer_inliner;
 use buffer_inliner::*;
 
@@ -36,10 +39,10 @@ pub fn build_scene_to_gltf(
   fs::create_dir_all(folder_path).map_err(GltfExportErr::IO)?;
 
   // write nodes
-  let (scene_node_ids, mut target_nodes) = {
+  let (root_nodes, mut target_nodes) = {
     let mut target_nodes = Resource::default();
 
-    let mut scene_node_ids = Vec::default();
+    let mut root_nodes = Vec::default();
     let mut scene_index_map = FastHashMap::default();
 
     let mut all_nodes = FastHashSet::default();
@@ -70,7 +73,6 @@ pub fn build_scene_to_gltf(
     for batch in batch_writes.iter().rev() {
       for node in batch {
         let idx = build_node(&mut target_nodes, reader, *node);
-        scene_node_ids.push(idx);
         scene_index_map.insert(*node, idx);
         if let Some(parent) = reader.read_node_parent(*node) {
           let node_idx = scene_index_map.get(node).unwrap();
@@ -79,10 +81,12 @@ pub fn build_scene_to_gltf(
             .children
             .get_or_insert_default()
             .push(*node_idx);
+        } else {
+          root_nodes.push(idx);
         }
       }
     }
-    (scene_node_ids, target_nodes)
+    (root_nodes, target_nodes)
   };
 
   let mut all_texture_to_write = FastHashSet::default();
@@ -190,7 +194,7 @@ pub fn build_scene_to_gltf(
   buffer_builder.finalize();
 
   let scene = gltf_json::Scene {
-    nodes: scene_node_ids,
+    nodes: root_nodes,
     extensions: Default::default(),
     extras: Default::default(),
     name: Default::default(),
@@ -314,8 +318,6 @@ fn build_node(
 ) -> gltf_json::Index<gltf_json::Node> {
   let node = reader.read_node(id);
 
-  let (t, r, s) = node.local_matrix.into_f32().decompose();
-
   let node = gltf_json::Node {
     camera: Default::default(),
     children: Default::default(),
@@ -324,9 +326,9 @@ fn build_node(
     matrix: Some(node.local_matrix.into_f32().into()),
     mesh: Default::default(),
     name: Default::default(),
-    rotation: Some(gltf_json::scene::UnitQuaternion(r.into())),
-    scale: Some(s.into()),
-    translation: Some(t.into()),
+    rotation: Default::default(),
+    scale: Default::default(),
+    translation: Default::default(),
     skin: Default::default(),
     weights: Default::default(),
   };
@@ -430,126 +432,4 @@ fn build_model(
       }
     })
     .into()
-}
-
-fn build_material(
-  materials: &mut Resource<SceneMaterialDataView, gltf_json::Material>,
-  reader: &SceneReader,
-  m: &SceneMaterialDataView,
-  textures: &Resource<(EntityHandle<SceneTexture2dEntity>, TextureSampler), gltf_json::Texture>,
-) -> Option<gltf_json::Index<gltf_json::Material>> {
-  match m {
-    SceneMaterialDataView::PbrMRMaterial(material) => materials
-      .append(*m, {
-        let material = reader.read_pbr_mr_material(*material);
-        gltf_json::Material {
-          alpha_cutoff: gltf_json::material::AlphaCutoff(material.alpha.alpha_cutoff).into(),
-          alpha_mode: gltf_json::validation::Checked::Valid(map_alpha_mode(
-            material.alpha.alpha_mode,
-          )),
-          double_sided: false,
-          pbr_metallic_roughness: gltf_json::material::PbrMetallicRoughness {
-            base_color_factor: gltf_json::material::PbrBaseColorFactor([
-              material.base_color.x,
-              material.base_color.y,
-              material.base_color.z,
-              1.,
-            ]),
-            base_color_texture: material
-              .base_color_texture
-              .as_ref()
-              .and_then(|t| get_texture2d_info(t, 0, reader, textures)),
-            metallic_factor: gltf_json::material::StrengthFactor(material.metallic),
-            roughness_factor: gltf_json::material::StrengthFactor(material.roughness),
-            metallic_roughness_texture: material
-              .metallic_roughness_texture
-              .as_ref()
-              .and_then(|t| get_texture2d_info(t, 0, reader, textures)),
-            ..Default::default()
-          },
-          normal_texture: material.normal_texture.as_ref().and_then(|t| {
-            gltf_json::material::NormalTexture {
-              index: {
-                let sampler_content = reader.read_sampler(t.content.sampler);
-                textures.get(&(t.content.texture, sampler_content))
-              },
-              scale: t.scale,
-              tex_coord: 0,
-              extensions: Default::default(),
-              extras: Default::default(),
-            }
-            .into()
-          }),
-          occlusion_texture: None,
-          emissive_texture: material
-            .emissive_texture
-            .as_ref()
-            .and_then(|t| get_texture2d_info(t, 0, reader, textures)),
-          emissive_factor: gltf_json::material::EmissiveFactor(material.emissive.into()),
-          ..Default::default()
-        }
-      })
-      .into(),
-    _ => None,
-  }
-}
-
-fn get_texture2d_info(
-  ts: &Texture2DWithSamplingDataView,
-  tex_coord: usize,
-  reader: &SceneReader,
-  textures: &Resource<(EntityHandle<SceneTexture2dEntity>, TextureSampler), gltf_json::Texture>,
-) -> Option<gltf_json::texture::Info> {
-  let sampler_content = reader.read_sampler(ts.sampler);
-  gltf_json::texture::Info {
-    index: textures.get(&(ts.texture, sampler_content)),
-    tex_coord: tex_coord as u32,
-    extensions: Default::default(),
-    extras: Default::default(),
-  }
-  .into()
-}
-
-fn build_texture2d(
-  images: &mut Resource<EntityHandle<SceneTexture2dEntity>, gltf_json::Image>,
-  samplers: &mut Resource<TextureSampler, gltf_json::texture::Sampler>,
-  textures: &mut Resource<(EntityHandle<SceneTexture2dEntity>, TextureSampler), gltf_json::Texture>,
-  data_writer: Option<&mut BufferResourceInliner>,
-  reader: &SceneReader,
-  ts: &Texture2DWithSamplingDataView,
-) -> gltf_json::Index<gltf_json::Texture> {
-  let source = images.append(ts.texture, {
-    let texture = reader.read_texture(ts.texture);
-
-    let mut png_buffer = Vec::new(); // todo avoid extra copy
-    rendiation_texture_exporter::write_gpu_buffer_image_as_png(&mut png_buffer, &texture);
-
-    let mut image = gltf_json::Image {
-      buffer_view: Default::default(),
-      mime_type: Some(gltf_json::image::MimeType("image/png".to_string())),
-      name: Default::default(),
-      uri: Default::default(),
-      extensions: Default::default(),
-      extras: Default::default(),
-    };
-
-    if let Some(data_writer) = data_writer {
-      image.buffer_view = data_writer
-        .collect_inline_packed_view_buffer(&png_buffer)
-        .into();
-    }
-
-    image
-  });
-
-  let sampler_content = reader.read_sampler(ts.sampler);
-  let sampler = samplers.get_or_insert_with(sampler_content, || map_sampler(sampler_content, true));
-
-  textures.get_or_insert_with((ts.texture, sampler_content), || gltf_json::Texture {
-    name: Default::default(),
-    sampler: sampler.into(),
-    source,
-    extensions: Default::default(),
-    extras: Default::default(),
-  })
 }
