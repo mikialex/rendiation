@@ -33,6 +33,7 @@ members = [
   "content/texture/gpu-process",
   "content/texture/gpu-system",
   "content/texture/loader",
+  "content/texture/exporter",
   "content/lighting/core",
   "content/lighting/ltc",
   "content/lighting/ibl",

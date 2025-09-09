@@ -1,0 +1,15 @@
+[package]
+authors = ["mikialex <miikiialexx@gmail.com>"]
+edition = "2021"
+name = "rendiation-texture-exporter"
+version = "0.1.0"
+
+[dependencies]
+image = "*"
+png = "*"
+rendiation-algebra = { path = "../../../math/algebra" }
+rendiation-texture-core = { path = "../core" }
+thiserror = { workspace = true }
+
+[lints]
+workspace = true

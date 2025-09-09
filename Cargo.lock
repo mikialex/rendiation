@@ -4015,12 +4015,14 @@ dependencies = [
  "fast-hash-collection",
  "gltf",
  "gltf-json",
+ "png",
  "query",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-mesh-core",
  "rendiation-scene-core",
  "rendiation-texture-core",
+ "rendiation-texture-exporter",
  "serde_json",
 ]
 
@@ -4266,6 +4268,17 @@ dependencies = [
  "rendiation-texture-types",
  "serde",
  "wgpu-types",
+]
+
+[[package]]
+name = "rendiation-texture-exporter"
+version = "0.1.0"
+dependencies = [
+ "image",
+ "png",
+ "rendiation-algebra",
+ "rendiation-texture-core",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -5319,6 +5332,7 @@ dependencies = [
  "rendiation-shader-library",
  "rendiation-state-override",
  "rendiation-texture-core",
+ "rendiation-texture-exporter",
  "rendiation-texture-gpu-base",
  "rendiation-texture-gpu-process",
  "rendiation-texture-loader",

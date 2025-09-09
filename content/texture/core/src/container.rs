@@ -78,10 +78,17 @@ impl<P: Copy + Default> Texture2dInitAble for Texture2DBuffer<P> {
 #[derive(Serialize, Deserialize)]
 #[derive(Debug, Clone, PartialEq, Facet)]
 pub struct GPUBufferImage {
+  /// pixel maybe padded. does not contains per row padding
   pub data: Vec<u8>,
   #[facet(opaque)]
   pub format: TextureFormat,
   pub size: Size,
+}
+
+impl GPUBufferImage {
+  pub fn bytes_per_row(&self) -> u32 {
+    usize::from(self.size.width) as u32 * self.format.block_copy_size(None).unwrap()
+  }
 }
 
 pub fn create_padding_buffer(

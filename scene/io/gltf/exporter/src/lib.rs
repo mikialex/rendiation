@@ -7,7 +7,6 @@ use std::path::Path;
 
 use database::*;
 use fast_hash_collection::*;
-use gltf_json::Root;
 use rendiation_algebra::Vec3;
 use rendiation_geometry::Box3;
 use rendiation_mesh_core::*;
@@ -206,7 +205,7 @@ pub fn build_scene_to_gltf(
     version: String::from("2"),
   };
 
-  let json = Root {
+  let json = gltf_json::Root {
     accessors: accessors.collected,
     animations: Default::default(),
     asset,
@@ -526,10 +525,13 @@ fn build_texture2d(
   let source = images.append(ts.texture, {
     let texture = reader.read_texture(ts.texture);
 
+    let mut png_buffer = Vec::new(); // todo avoid extra copy
+    rendiation_texture_exporter::write_gpu_buffer_image_as_png(&mut png_buffer, &texture);
+
     // todo set mime type and encode png
     let mut image = gltf_json::Image {
       buffer_view: Default::default(),
-      mime_type: Default::default(),
+      mime_type: Some(gltf_json::image::MimeType("image/png".to_string())),
       name: Default::default(),
       uri: Default::default(),
       extensions: Default::default(),

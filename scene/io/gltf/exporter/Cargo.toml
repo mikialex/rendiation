@@ -7,6 +7,7 @@ version = "0.0.1"
 gltf = "1.4.1"
 gltf-json = "1.4.1"
 serde_json = "1.0.143"
+png = "*"
 database = { path = "../../../../utility/database" }
 query = { path = "../../../../utility/query" }
 rendiation-algebra = { path = "../../../../math/algebra" }
@@ -14,6 +15,7 @@ rendiation-geometry = { path = "../../../../math/geometry" }
 rendiation-mesh-core = { path = "../../../../content/mesh/core" }
 rendiation-scene-core = { path = "../../../core" }
 rendiation-texture-core = { path = "../../../../content/texture/core" }
+rendiation-texture-exporter = { path = "../../../../content/texture/exporter" }
 fast-hash-collection = { path = "../../../../utility/fast-hash-collection" }
 
 [lints]
