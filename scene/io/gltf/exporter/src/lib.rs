@@ -528,7 +528,6 @@ fn build_texture2d(
     let mut png_buffer = Vec::new(); // todo avoid extra copy
     rendiation_texture_exporter::write_gpu_buffer_image_as_png(&mut png_buffer, &texture);
 
-    // todo set mime type and encode png
     let mut image = gltf_json::Image {
       buffer_view: Default::default(),
       mime_type: Some(gltf_json::image::MimeType("image/png".to_string())),

@@ -87,8 +87,8 @@ pub struct Viewer3dRenderingCtx {
   swap_chain: ApplicationWindowSurface,
   on_encoding_finished: EventSource<ViewRenderedState>,
   expect_read_back_for_next_render_result: bool,
-  pub(crate) picker: GPUxEntityIdMapPicker,
-  pub(crate) statistics: FramePassStatistics,
+  pub picker: GPUxEntityIdMapPicker,
+  pub statistics: FramePassStatistics,
   pub enable_statistic_collect: bool,
   prefer_bindless_for_indirect_texture_system: bool,
 
@@ -427,7 +427,10 @@ impl Viewer3dRenderingCtx {
     let render_target = if self.expect_read_back_for_next_render_result
       && matches!(target, RenderTargetView::SurfaceTexture { .. })
     {
-      target.create_attachment_key().request(&ctx)
+      // we do extra copy in this case, so we have to make sure the copy source has correct usage
+      let mut key = target.create_attachment_key();
+      key.usage |= TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_SRC;
+      key.request(&ctx)
     } else {
       target.clone()
     };

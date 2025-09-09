@@ -27,6 +27,10 @@ pub fn write_raw_gpu_buffer_image_as_png(
   padded_bytes_per_row: u32,
 ) {
   let (width, height) = size.into_u32();
+
+  assert!(unpadded_bytes_per_row <= padded_bytes_per_row);
+  assert!(padded_bytes_per_row * height == data.len() as u32);
+
   let mut png_encoder = png::Encoder::new(target, width, height);
   png_encoder.set_depth(png::BitDepth::Eight);
   png_encoder.set_color(png::ColorType::Rgba);
@@ -51,7 +55,7 @@ pub fn write_raw_gpu_buffer_image_as_png(
     }
     TextureFormat::Bgra8UnormSrgb => {
       for chunk in data.chunks(padded_bytes_per_row) {
-        for [b, g, r, a] in chunk.array_chunks::<4>() {
+        for [b, g, r, a] in chunk[..unpadded_bytes_per_row].array_chunks::<4>() {
           png_writer.write_all(&[*r, *g, *b, *a]).unwrap();
         }
       }
