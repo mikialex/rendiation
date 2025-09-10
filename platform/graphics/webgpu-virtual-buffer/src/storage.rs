@@ -15,6 +15,10 @@ impl AbstractStorageAllocator for CombinedStorageBufferAllocator {
   ) -> BoxedAbstractBufferDynTyped {
     Box::new(self.allocate_dyn(byte_size, ty_desc))
   }
+
+  fn get_layout(&self) -> StructLayoutTarget {
+    self.internal.read().layout
+  }
 }
 
 fn rule_out_atomic_types(ty: &MaybeUnsizedValueType) {
@@ -72,10 +76,6 @@ impl CombinedStorageBufferAllocator {
       ))),
       for_atomic: true,
     }
-  }
-
-  pub fn get_layout(&self) -> StructLayoutTarget {
-    self.internal.read().layout
   }
 
   pub fn allocate_dyn(

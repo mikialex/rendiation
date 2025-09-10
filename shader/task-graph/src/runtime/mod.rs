@@ -103,7 +103,7 @@ impl DeviceTaskGraphBuildSource {
 
     let mut pre_builds = Vec::new();
     let mut task_group_sources = Vec::new();
-    let buffer_allocator = MaybeCombinedStorageAllocator::new(
+    let buffer_allocator = create_maybe_combined_storage_allocator(
       &cx.gpu,
       "task graph execution resources",
       enable_buffer_combine,

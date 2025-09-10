@@ -11,7 +11,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
   pub fn new(
     size: usize,
     device: &GPUDevice,
-    allocator: &MaybeCombinedStorageAllocator,
+    allocator: &dyn AbstractStorageAllocator,
     atomic_allocator: &MaybeCombinedAtomicU32StorageAllocator,
   ) -> Self {
     let storage_byte_size = std::mem::size_of::<T>() * size;

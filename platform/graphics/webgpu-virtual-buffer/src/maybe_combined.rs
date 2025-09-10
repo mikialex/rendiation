@@ -9,62 +9,27 @@ pub fn use_storage_buffer_combine(
   cx: &mut QueryGPUHookCx,
   label: impl Into<String>,
   enable: bool,
-  scope: impl FnOnce(&mut QueryGPUHookCx, &MaybeCombinedStorageAllocator),
+  scope: impl FnOnce(&mut QueryGPUHookCx, &dyn AbstractStorageAllocator),
 ) {
   let (cx, allocator) =
-    cx.use_gpu_init(|gpu| MaybeCombinedStorageAllocator::new(gpu, label, enable, false));
+    cx.use_gpu_init(|gpu| create_maybe_combined_storage_allocator(gpu, label, enable, false));
   scope(cx, allocator);
 }
 
-#[derive(Clone)]
-pub enum MaybeCombinedStorageAllocator {
-  Combined(CombinedStorageBufferAllocator),
-  Default,
-}
-
-impl AbstractStorageAllocator for MaybeCombinedStorageAllocator {
-  fn allocate_dyn_ty(
-    &self,
-    byte_size: u64,
-    device: &GPUDevice,
-    ty_desc: MaybeUnsizedValueType,
-  ) -> BoxedAbstractBufferDynTyped {
-    if let Self::Combined(combined) = self {
-      Box::new(combined.allocate_dyn(byte_size, ty_desc))
-    } else {
-      // this ty mark is useless actually
-      let buffer = create_gpu_read_write_storage::<[u32]>(
-        StorageBufferInit::Zeroed(NonZeroU64::new(byte_size).unwrap()),
-        &device,
-      )
-      .gpu;
-      let buffer = DynTypedStorageBuffer {
-        buffer,
-        ty: ty_desc,
-      };
-
-      Box::new(buffer)
-    }
-  }
-}
-
-impl MaybeCombinedStorageAllocator {
-  /// label must unique across binding
-  pub fn new(
-    gpu: &GPU,
-    label: impl Into<String>,
-    enable_combine: bool,
-    use_packed_layout: bool,
-  ) -> Self {
-    if enable_combine {
-      Self::Combined(CombinedStorageBufferAllocator::new(
-        gpu,
-        label,
-        use_packed_layout,
-      ))
-    } else {
-      Self::Default
-    }
+pub fn create_maybe_combined_storage_allocator(
+  gpu: &GPU,
+  label: impl Into<String>,
+  enable_combine: bool,
+  use_packed_layout: bool,
+) -> Box<dyn AbstractStorageAllocator> {
+  if enable_combine {
+    Box::new(CombinedStorageBufferAllocator::new(
+      gpu,
+      label,
+      use_packed_layout,
+    ))
+  } else {
+    Box::new(DefaultStorageAllocator)
   }
 }
 

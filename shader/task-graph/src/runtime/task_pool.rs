@@ -29,7 +29,7 @@ impl TaskPool {
     state_desc: DynamicTypeMetaInfo,
     payload_ty: ShaderSizedValueType,
     device: &GPUDevice,
-    allocator: &MaybeCombinedStorageAllocator,
+    allocator: &dyn AbstractStorageAllocator,
   ) -> Self {
     let mut task_ty_desc = ShaderStructMetaInfo::new(&format!("TaskType{index}"));
     let u32_ty = ShaderSizedValueType::Primitive(PrimitiveShaderValueType::Uint32);
@@ -40,10 +40,7 @@ impl TaskPool {
     task_ty_desc.push_field_dyn("parent_task_type_id", u32_ty.clone());
     task_ty_desc.push_field_dyn("parent_task_index", u32_ty);
 
-    let layout = match allocator {
-      MaybeCombinedStorageAllocator::Combined(c) => c.get_layout(),
-      MaybeCombinedStorageAllocator::Default => StructLayoutTarget::Std430,
-    };
+    let layout = allocator.get_layout();
 
     let stride = task_ty_desc.size_of_self(layout);
     let byte_size_required = (size * stride) as u64;

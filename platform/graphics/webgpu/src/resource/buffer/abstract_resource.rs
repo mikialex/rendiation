@@ -7,6 +7,7 @@ pub trait AbstractStorageAllocator {
     device: &GPUDevice,
     ty_desc: MaybeUnsizedValueType,
   ) -> BoxedAbstractBufferDynTyped;
+  fn get_layout(&self) -> StructLayoutTarget;
 }
 impl AbstractStorageAllocator for Box<dyn AbstractStorageAllocator> {
   fn allocate_dyn_ty(
@@ -16,6 +17,24 @@ impl AbstractStorageAllocator for Box<dyn AbstractStorageAllocator> {
     ty_desc: MaybeUnsizedValueType,
   ) -> BoxedAbstractBufferDynTyped {
     (**self).allocate_dyn_ty(byte_size, device, ty_desc)
+  }
+
+  fn get_layout(&self) -> StructLayoutTarget {
+    (**self).get_layout()
+  }
+}
+impl AbstractStorageAllocator for &'_ dyn AbstractStorageAllocator {
+  fn allocate_dyn_ty(
+    &self,
+    byte_size: u64,
+    device: &GPUDevice,
+    ty_desc: MaybeUnsizedValueType,
+  ) -> BoxedAbstractBufferDynTyped {
+    (**self).allocate_dyn_ty(byte_size, device, ty_desc)
+  }
+
+  fn get_layout(&self) -> StructLayoutTarget {
+    (**self).get_layout()
   }
 }
 
@@ -62,6 +81,9 @@ impl AbstractStorageAllocator for DefaultStorageAllocator {
     };
 
     Box::new(buffer)
+  }
+  fn get_layout(&self) -> StructLayoutTarget {
+    StructLayoutTarget::Std430
   }
 }
 

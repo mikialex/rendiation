@@ -312,7 +312,7 @@ impl TaskGroupExecutorResource {
     state_desc: DynamicTypeMetaInfo,
     payload_ty: ShaderSizedValueType,
     cx: &mut DeviceParallelComputeCtx,
-    allocator: &MaybeCombinedStorageAllocator,
+    allocator: &dyn AbstractStorageAllocator,
     a_a: &MaybeCombinedAtomicU32StorageAllocator,
   ) -> Self {
     let device = &cx.gpu.device;
