@@ -5,6 +5,25 @@ pub struct CombinedStorageBufferAllocator {
   internal: Arc<RwLock<CombinedBufferAllocatorInternal>>,
 }
 
+impl AbstractStorageAllocator for CombinedStorageBufferAllocator {
+  fn allocate<T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized>(
+    &self,
+    byte_size: u64,
+    _device: &GPUDevice,
+  ) -> BoxedAbstractStorageBuffer<T> {
+    Box::new(self.allocate(byte_size))
+  }
+
+  fn allocate_dyn_ty(
+    &self,
+    byte_size: u64,
+    _device: &GPUDevice,
+    ty_desc: MaybeUnsizedValueType,
+  ) -> BoxedAbstractStorageBufferDynTyped {
+    Box::new(self.allocate_dyn(byte_size, ty_desc))
+  }
+}
+
 fn rule_out_atomic_types(ty: &MaybeUnsizedValueType) {
   fn rule_out_for_single(single: &ShaderSizedValueType) {
     if let ShaderSizedValueType::Atomic(_) = single {

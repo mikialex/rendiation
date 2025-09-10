@@ -4364,6 +4364,7 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "disqualified",
+ "dyn-clone",
  "event-source",
  "fast-hash-collection",
  "futures",
@@ -4414,11 +4415,11 @@ dependencies = [
 name = "rendiation-webgpu-virtual-buffer"
 version = "0.1.0"
 dependencies = [
- "dyn-clone",
  "fast-hash-collection",
  "parking_lot",
  "rendiation-shader-api",
  "rendiation-webgpu",
+ "rendiation-webgpu-hook-utils",
 ]
 
 [[package]]

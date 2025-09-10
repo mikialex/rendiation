@@ -33,6 +33,7 @@ use std::{
 pub use binding::*;
 use bytemuck::*;
 pub use device::*;
+use dyn_clone::DynClone;
 pub use encoder::*;
 use event_source::*;
 use fast_hash_collection::*;

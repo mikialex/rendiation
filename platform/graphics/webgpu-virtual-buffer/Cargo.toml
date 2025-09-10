@@ -7,10 +7,10 @@ version = "0.1.0"
 
 [dependencies]
 rendiation-shader-api = { path = "../../../shader/api" }
+rendiation-webgpu-hook-utils = { path = "../webgpu-hook-utils" }
 rendiation-webgpu = { path = "../webgpu" }
 fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
 parking_lot = { workspace = true }
-dyn-clone = { workspace = true }
 
 [lints]
 workspace = true

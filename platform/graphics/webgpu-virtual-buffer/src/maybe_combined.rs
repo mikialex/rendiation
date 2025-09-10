@@ -4,10 +4,63 @@
 
 use crate::*;
 
+/// enable config only take effect in first pass
+pub fn use_storage_buffer_combine(
+  cx: &mut QueryGPUHookCx,
+  label: impl Into<String>,
+  enable: bool,
+  scope: impl FnOnce(&mut QueryGPUHookCx, &MaybeCombinedStorageAllocator),
+) {
+  let (cx, allocator) =
+    cx.use_gpu_init(|gpu| MaybeCombinedStorageAllocator::new(gpu, label, enable, false));
+  scope(cx, allocator);
+}
+
 #[derive(Clone)]
 pub enum MaybeCombinedStorageAllocator {
   Combined(CombinedStorageBufferAllocator),
   Default,
+}
+
+impl AbstractStorageAllocator for MaybeCombinedStorageAllocator {
+  fn allocate<T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized>(
+    &self,
+    byte_size: u64,
+    device: &GPUDevice,
+  ) -> BoxedAbstractStorageBuffer<T> {
+    if let Self::Combined(combined) = self {
+      Box::new(combined.allocate(byte_size))
+    } else {
+      Box::new(create_gpu_read_write_storage::<T>(
+        StorageBufferInit::Zeroed(NonZeroU64::new(byte_size).unwrap()),
+        &device,
+      ))
+    }
+  }
+
+  fn allocate_dyn_ty(
+    &self,
+    byte_size: u64,
+    device: &GPUDevice,
+    ty_desc: MaybeUnsizedValueType,
+  ) -> BoxedAbstractStorageBufferDynTyped {
+    if let Self::Combined(combined) = self {
+      Box::new(combined.allocate_dyn(byte_size, ty_desc))
+    } else {
+      // this ty mark is useless actually
+      let buffer = create_gpu_read_write_storage::<[u32]>(
+        StorageBufferInit::Zeroed(NonZeroU64::new(byte_size).unwrap()),
+        &device,
+      )
+      .gpu;
+      let buffer = DynTypedStorageBuffer {
+        buffer,
+        ty: ty_desc,
+      };
+
+      Box::new(buffer)
+    }
+  }
 }
 
 impl MaybeCombinedStorageAllocator {
@@ -26,75 +79,6 @@ impl MaybeCombinedStorageAllocator {
       ))
     } else {
       Self::Default
-    }
-  }
-
-  pub fn allocate<T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized>(
-    &self,
-    byte_size: u64,
-    device: &GPUDevice,
-  ) -> BoxedAbstractStorageBuffer<T> {
-    if let Self::Combined(combined) = self {
-      Box::new(combined.allocate(byte_size))
-    } else {
-      Box::new(create_gpu_read_write_storage::<T>(
-        StorageBufferInit::Zeroed(NonZeroU64::new(byte_size).unwrap()),
-        &device,
-      ))
-    }
-  }
-
-  pub fn allocate_dyn_ty(
-    &self,
-    byte_size: u64,
-    device: &GPUDevice,
-    ty_desc: MaybeUnsizedValueType,
-  ) -> BoxedAbstractStorageBufferDynTyped {
-    if let Self::Combined(combined) = self {
-      Box::new(combined.allocate_dyn(byte_size, ty_desc))
-    } else {
-      #[derive(Clone)]
-      struct DynTypedStorageBuffer {
-        buffer: GPUBufferResourceView,
-        ty: MaybeUnsizedValueType,
-      }
-      impl AbstractStorageBufferDynTyped for DynTypedStorageBuffer {
-        fn get_gpu_buffer_view(&self) -> GPUBufferResourceView {
-          self.buffer.clone()
-        }
-
-        fn bind_shader(
-          &self,
-          bind_builder: &mut ShaderBindGroupBuilder,
-          _: &mut SemanticRegistry,
-        ) -> BoxedShaderPtr {
-          let ty = self.ty.clone().into_shader_single_ty();
-          let desc = ShaderBindingDescriptor {
-            should_as_storage_buffer_if_is_buffer_like: true,
-            ty: ShaderValueType::Single(ty),
-            writeable_if_storage: true,
-          };
-          let node = bind_builder.binding_dyn(desc).using();
-          Box::new(node)
-        }
-
-        fn bind_pass(&self, bind_builder: &mut BindingBuilder) {
-          bind_builder.bind_dyn(self.buffer.get_binding_build_source());
-        }
-      }
-
-      // this ty mark is useless actually
-      let buffer = create_gpu_read_write_storage::<[u32]>(
-        StorageBufferInit::Zeroed(NonZeroU64::new(byte_size).unwrap()),
-        &device,
-      )
-      .gpu;
-      let buffer = DynTypedStorageBuffer {
-        buffer,
-        ty: ty_desc,
-      };
-
-      Box::new(buffer)
     }
   }
 

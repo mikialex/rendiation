@@ -10,6 +10,9 @@ pub use allocator::*;
 mod linear_buffer_array;
 pub use linear_buffer_array::*;
 
+mod abstract_resource;
+pub use abstract_resource::*;
+
 use crate::*;
 
 pub type GPUBufferResource = ResourceRc<GPUBuffer>;

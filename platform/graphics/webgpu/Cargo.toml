@@ -12,6 +12,7 @@ futures = { workspace = true }
 naga = { workspace = true }
 disqualified = { workspace = true }
 parking_lot = { workspace = true }
+dyn-clone = { workspace = true }
 event-source = { path = "../../../utility/event-source" }
 rendiation-algebra = { path = "../../../math/algebra" }
 rendiation-shader-api = { path = "../../../shader/api" }
