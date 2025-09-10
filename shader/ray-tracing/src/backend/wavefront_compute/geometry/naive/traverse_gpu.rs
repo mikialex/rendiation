@@ -34,20 +34,20 @@ impl GPUAccelerationStructureSystemCompImplInstance for NaiveSahBvhGpu {
     &self,
     compute_cx: &mut ShaderComputePipelineBuilder,
   ) -> Box<dyn GPUAccelerationStructureSystemCompImplInvocationTraversable> {
-    let tlas_binding = compute_cx.bind_abstract_storage(&self.tlas_binding);
-    let tlas_bvh_root = compute_cx.bind_abstract_storage(&self.tlas_bvh_root);
-    let tlas_bvh_forest = compute_cx.bind_abstract_storage(&self.tlas_bvh_forest);
-    let tlas_data = compute_cx.bind_abstract_storage(&self.tlas_data);
-    let tlas_bounding = compute_cx.bind_abstract_storage(&self.tlas_bounding);
-    let blas_meta_info = compute_cx.bind_abstract_storage(&self.blas_meta_info);
-    let tri_bvh_root = compute_cx.bind_abstract_storage(&self.tri_bvh_root);
-    // let box_bvh_root = compute_cx.bind_abstract_storage(&self.box_bvh_root);
-    let tri_bvh_forest = compute_cx.bind_abstract_storage(&self.tri_bvh_forest);
-    // let box_bvh_forest = compute_cx.bind_abstract_storage(&self.box_bvh_forest);
-    let indices_redirect = compute_cx.bind_abstract_storage(&self.indices_redirect);
-    let indices = compute_cx.bind_abstract_storage(&self.indices);
-    let vertices = compute_cx.bind_abstract_storage(&self.vertices);
-    // let boxes = compute_cx.bind_abstract_storage(&self.boxes);
+    let tlas_binding = compute_cx.bind_by(&self.tlas_binding);
+    let tlas_bvh_root = compute_cx.bind_by(&self.tlas_bvh_root);
+    let tlas_bvh_forest = compute_cx.bind_by(&self.tlas_bvh_forest);
+    let tlas_data = compute_cx.bind_by(&self.tlas_data);
+    let tlas_bounding = compute_cx.bind_by(&self.tlas_bounding);
+    let blas_meta_info = compute_cx.bind_by(&self.blas_meta_info);
+    let tri_bvh_root = compute_cx.bind_by(&self.tri_bvh_root);
+    // let box_bvh_root = compute_cx.bind_by(&self.box_bvh_root);
+    let tri_bvh_forest = compute_cx.bind_by(&self.tri_bvh_forest);
+    // let box_bvh_forest = compute_cx.bind_by(&self.box_bvh_forest);
+    let indices_redirect = compute_cx.bind_by(&self.indices_redirect);
+    let indices = compute_cx.bind_by(&self.indices);
+    let vertices = compute_cx.bind_by(&self.vertices);
+    // let boxes = compute_cx.bind_by(&self.boxes);
 
     let instance = NaiveSahBVHInvocationInstance {
       tlas_binding,

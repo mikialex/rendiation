@@ -198,24 +198,6 @@ impl CombinedBufferAllocatorInternal {
     buffer.resource.create_view(range)
   }
 
-  pub fn bind_shader_storage<T: ShaderMaybeUnsizedValueNodeType + ?Sized>(
-    &mut self,
-    bind_builder: &mut ShaderBindGroupBuilder,
-    registry: &mut SemanticRegistry,
-  ) -> ShaderPtrOf<T> {
-    let ptr = self.bind_shader_impl(bind_builder, registry, T::maybe_unsized_ty());
-    T::create_view_from_raw_ptr(ptr)
-  }
-
-  pub fn bind_shader_uniform<T: ShaderSizedValueNodeType + Std140>(
-    &mut self,
-    bind_builder: &mut ShaderBindGroupBuilder,
-    registry: &mut SemanticRegistry,
-  ) -> ShaderReadonlyPtrOf<T> {
-    let ptr = self.bind_shader_impl(bind_builder, registry, T::maybe_unsized_ty());
-    T::create_readonly_view_from_raw_ptr(ptr)
-  }
-
   #[inline(never)]
   pub fn bind_shader_impl(
     &mut self,

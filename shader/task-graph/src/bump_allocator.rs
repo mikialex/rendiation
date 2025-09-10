@@ -2,9 +2,9 @@ use crate::*;
 
 #[derive(Clone)]
 pub struct DeviceBumpAllocationInstance<T: Std430 + ShaderSizedValueNodeType> {
-  pub storage: BoxedAbstractStorageBuffer<[T]>,
-  pub bump_size: BoxedAbstractStorageBuffer<DeviceAtomic<u32>>,
-  pub current_size: BoxedAbstractStorageBuffer<u32>,
+  pub storage: AbstractStorageBuffer<[T]>,
+  pub bump_size: AbstractStorageBuffer<DeviceAtomic<u32>>,
+  pub current_size: AbstractStorageBuffer<u32>,
 }
 
 impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
@@ -89,7 +89,7 @@ impl<T: Std430 + ShaderSizedValueNodeType> DeviceBumpAllocationInstance<T> {
 
     BindingBuilder::default()
       .with_bind_abstract_storage(&self.current_size)
-      .with_bind_abstract_storage(&size)
+      .with_bind(&size)
       .with_bind(&workgroup_size)
       .setup_compute_pass(pass, device, &pipeline);
     pass.dispatch_workgroups(1, 1, 1);

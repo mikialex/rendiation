@@ -3,23 +3,16 @@ use crate::*;
 #[derive(Clone)]
 pub struct CombinedStorageBufferAllocator {
   internal: Arc<RwLock<CombinedBufferAllocatorInternal>>,
+  for_atomic: bool,
 }
 
 impl AbstractStorageAllocator for CombinedStorageBufferAllocator {
-  fn allocate<T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized>(
-    &self,
-    byte_size: u64,
-    _device: &GPUDevice,
-  ) -> BoxedAbstractStorageBuffer<T> {
-    Box::new(self.allocate(byte_size))
-  }
-
   fn allocate_dyn_ty(
     &self,
     byte_size: u64,
     _device: &GPUDevice,
     ty_desc: MaybeUnsizedValueType,
-  ) -> BoxedAbstractStorageBufferDynTyped {
+  ) -> BoxedAbstractBufferDynTyped {
     Box::new(self.allocate_dyn(byte_size, ty_desc))
   }
 }
@@ -27,7 +20,7 @@ impl AbstractStorageAllocator for CombinedStorageBufferAllocator {
 fn rule_out_atomic_types(ty: &MaybeUnsizedValueType) {
   fn rule_out_for_single(single: &ShaderSizedValueType) {
     if let ShaderSizedValueType::Atomic(_) = single {
-      panic!("atomic is not able to store into storage buffer allocator, use SubCombinedAtomicArrayStorageBuffer instead");
+      panic!("atomic is not able to store into storage buffer allocator");
     }
   }
 
@@ -63,26 +56,26 @@ impl CombinedStorageBufferAllocator {
         },
         None,
       ))),
+      for_atomic: false,
     }
   }
+
+  /// label must unique across binding
+  pub fn new_atomic<T: AtomicityShaderNodeType>(gpu: &GPU, label: impl Into<String>) -> Self {
+    Self {
+      internal: Arc::new(RwLock::new(CombinedBufferAllocatorInternal::new(
+        gpu,
+        label,
+        BufferUsages::STORAGE,
+        StructLayoutTarget::Packed,
+        Some(T::ATOM),
+      ))),
+      for_atomic: true,
+    }
+  }
+
   pub fn get_layout(&self) -> StructLayoutTarget {
     self.internal.read().layout
-  }
-
-  pub fn allocate<T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized>(
-    &self,
-    byte_size: u64,
-  ) -> SubCombinedStorageBuffer<T> {
-    rule_out_atomic_types(&T::maybe_unsized_ty());
-    assert!(byte_size % 4 == 0);
-    let sub_buffer_u32_size = byte_size / 4;
-    let buffer_index = self.internal.write().allocate(sub_buffer_u32_size as u32);
-
-    SubCombinedStorageBuffer {
-      buffer_index,
-      phantom: PhantomData,
-      internal: self.internal.clone(),
-    }
   }
 
   pub fn allocate_dyn(
@@ -90,7 +83,12 @@ impl CombinedStorageBufferAllocator {
     byte_size: u64,
     ty_desc: MaybeUnsizedValueType,
   ) -> SubCombinedStorageBufferDynTyped {
-    rule_out_atomic_types(&ty_desc);
+    if !self.for_atomic {
+      rule_out_atomic_types(&ty_desc);
+    } else {
+      // todo, check ty is pure atomic
+    }
+
     assert!(byte_size % 4 == 0);
     let sub_buffer_u32_size = byte_size / 4;
     let buffer_index = self.internal.write().allocate(sub_buffer_u32_size as u32);
@@ -121,7 +119,7 @@ impl SubCombinedStorageBufferDynTyped {
       .resize(self.buffer_index, new_u32_size);
   }
 }
-impl AbstractStorageBufferDynTyped for SubCombinedStorageBufferDynTyped {
+impl AbstractBufferDynTyped for SubCombinedStorageBufferDynTyped {
   fn get_gpu_buffer_view(&self) -> GPUBufferResourceView {
     let mut internal = self.internal.write();
     internal.get_sub_gpu_buffer_view(self.buffer_index)
@@ -143,68 +141,6 @@ impl AbstractStorageBufferDynTyped for SubCombinedStorageBufferDynTyped {
       .internal
       .write()
       .bind_shader_impl(bind_builder, reg, self.ty.clone())
-  }
-
-  fn bind_pass(&self, bind_builder: &mut BindingBuilder) {
-    let mut internal = self.internal.write();
-    internal.bind_pass(bind_builder, self.buffer_index);
-  }
-}
-
-pub struct SubCombinedStorageBuffer<T: ?Sized> {
-  /// user should make sure the index is stable across the binding to avoid hash this index.
-  buffer_index: usize,
-  phantom: std::marker::PhantomData<T>,
-  internal: Arc<RwLock<CombinedBufferAllocatorInternal>>,
-}
-
-impl<T: ?Sized> Clone for SubCombinedStorageBuffer<T> {
-  fn clone(&self) -> Self {
-    Self {
-      buffer_index: self.buffer_index,
-      phantom: self.phantom,
-      internal: self.internal.clone(),
-    }
-  }
-}
-
-impl<T: ShaderMaybeUnsizedValueNodeType + ?Sized> SubCombinedStorageBuffer<T> {
-  /// resize the sub buffer to new size, the content will be preserved moved to new place
-  ///
-  /// once resize, the merged buffer must rebuild;
-  pub fn resize(&self, new_u32_size: u32) {
-    self
-      .internal
-      .write()
-      .resize(self.buffer_index, new_u32_size);
-  }
-}
-
-impl<T> AbstractStorageBuffer<T> for SubCombinedStorageBuffer<T>
-where
-  T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized,
-{
-  fn get_gpu_buffer_view(&self) -> GPUBufferResourceView {
-    let mut internal = self.internal.write();
-    internal.get_sub_gpu_buffer_view(self.buffer_index)
-  }
-
-  fn write(&self, content: &[u8], offset: u64, _queue: &GPUQueue) {
-    self
-      .internal
-      .write()
-      .write_content(self.buffer_index, content, offset);
-  }
-
-  fn bind_shader(
-    &self,
-    bind_builder: &mut ShaderBindGroupBuilder,
-    reg: &mut SemanticRegistry,
-  ) -> ShaderPtrOf<T> {
-    self
-      .internal
-      .write()
-      .bind_shader_storage::<T>(bind_builder, reg)
   }
 
   fn bind_pass(&self, bind_builder: &mut BindingBuilder) {

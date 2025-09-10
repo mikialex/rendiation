@@ -6,7 +6,6 @@ fn test_gpu_triangle() {
     DeviceParallelComputeCtx, DeviceParallelComputeIO, DeviceParallelComputeIOExt,
   };
   use rendiation_shader_api::{val, Node, ShaderComputePipelineBuilder};
-  use rendiation_webgpu::ComputeShaderBuilderAbstractBufferExt;
   use rendiation_webgpu::{
     create_gpu_read_write_storage, shader_hash_type_id, BindingBuilder, PipelineHasher,
     ShaderHashProvider, StorageBufferDataView, ZeroedArrayByArrayLength, GPU,
@@ -129,7 +128,7 @@ fn test_gpu_triangle() {
       let upstream_shader = self.upstream.build_shader(builder);
 
       let traversable = self.system.build_shader(builder);
-      let payloads = builder.bind_abstract_storage(&self.payloads);
+      let payloads = builder.bind_by(&self.payloads);
 
       upstream_shader
         .adhoc_invoke_with_self_size(move |upstream, id| {

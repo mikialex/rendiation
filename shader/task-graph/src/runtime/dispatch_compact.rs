@@ -2,7 +2,7 @@ use super::*;
 
 // todo, impl for T
 #[derive(Clone)]
-pub struct ParallelComputeFromAbstractStorageBuffer(pub BoxedAbstractStorageBuffer<[u32]>);
+pub struct ParallelComputeFromAbstractStorageBuffer(pub AbstractStorageBuffer<[u32]>);
 
 impl DeviceParallelCompute<Node<u32>> for ParallelComputeFromAbstractStorageBuffer {
   fn execute_and_expose(
@@ -47,8 +47,8 @@ impl DeviceInvocationComponent<Node<u32>> for ParallelComputeFromAbstractStorage
 
 #[derive(Clone)]
 pub struct ActiveTaskCompact {
-  pub active_size: BoxedAbstractStorageBuffer<u32>,
-  pub active_tasks: BoxedAbstractStorageBuffer<[u32]>,
+  pub active_size: AbstractStorageBuffer<u32>,
+  pub active_tasks: AbstractStorageBuffer<[u32]>,
   pub task_pool: TaskPool,
 }
 

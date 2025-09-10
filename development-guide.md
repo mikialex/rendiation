@@ -23,6 +23,7 @@ important issue is in bold style.
 - support material emissive larger than one
   - fix defer channel encode decode
   - fix gltf loader support
+- gltf export not respect data alignment <https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#data-alignment>
 - fix parallel compute hash issue(disable the clear cache in test runner to reproduce this issue)
 - fix scene gpu lighting is globally shared in gles mode
 - fix some mesh can not be picked in cpu picking (maybe related to u16 index format)
@@ -144,7 +145,7 @@ cargo run --bin viewer --features "tracy-heap-debug" # run viewer enable tracy a
 
 ## Testing
 
-Runing test requires [cargo-nextest](https://nexte.st/). We rely on this because some test case modify global variables which disable the mutli-thread test runner. Nestext is multi process so it can simply avoid this issue. Also, Nestest has better user experience.
+Runing test requires [cargo-nextest](https://nexte.st/). We rely on this because some test case modify global variables which causes issue in the mutli-thread test runner. Nestext is multi process so it can simply avoid this issue. Also, Nestest has better user experience.
 
 run all test to see if something failed
 

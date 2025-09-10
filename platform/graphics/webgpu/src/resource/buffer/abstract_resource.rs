@@ -1,39 +1,55 @@
 use crate::*;
 
 pub trait AbstractStorageAllocator {
-  fn allocate<T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized>(
-    &self,
-    byte_size: u64,
-    device: &GPUDevice,
-  ) -> BoxedAbstractStorageBuffer<T>;
-
   fn allocate_dyn_ty(
     &self,
     byte_size: u64,
     device: &GPUDevice,
     ty_desc: MaybeUnsizedValueType,
-  ) -> BoxedAbstractStorageBufferDynTyped;
+  ) -> BoxedAbstractBufferDynTyped;
+}
+impl AbstractStorageAllocator for Box<dyn AbstractStorageAllocator> {
+  fn allocate_dyn_ty(
+    &self,
+    byte_size: u64,
+    device: &GPUDevice,
+    ty_desc: MaybeUnsizedValueType,
+  ) -> BoxedAbstractBufferDynTyped {
+    (**self).allocate_dyn_ty(byte_size, device, ty_desc)
+  }
+}
+
+pub trait AbstractStorageAllocatorExt {
+  fn allocate<T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized>(
+    &self,
+    byte_size: u64,
+    device: &GPUDevice,
+  ) -> AbstractStorageBuffer<T>;
+}
+impl<X> AbstractStorageAllocatorExt for X
+where
+  X: AbstractStorageAllocator,
+{
+  fn allocate<T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized>(
+    &self,
+    byte_size: u64,
+    device: &GPUDevice,
+  ) -> AbstractStorageBuffer<T> {
+    AbstractStorageBuffer {
+      buffer: self.allocate_dyn_ty(byte_size, device, T::maybe_unsized_ty()),
+      phantom: Default::default(),
+    }
+  }
 }
 
 pub struct DefaultStorageAllocator;
 impl AbstractStorageAllocator for DefaultStorageAllocator {
-  fn allocate<T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized>(
-    &self,
-    byte_size: u64,
-    device: &GPUDevice,
-  ) -> BoxedAbstractStorageBuffer<T> {
-    Box::new(create_gpu_read_write_storage::<T>(
-      StorageBufferInit::Zeroed(NonZeroU64::new(byte_size).unwrap()),
-      &device,
-    ))
-  }
-
   fn allocate_dyn_ty(
     &self,
     byte_size: u64,
     device: &GPUDevice,
     ty_desc: MaybeUnsizedValueType,
-  ) -> BoxedAbstractStorageBufferDynTyped {
+  ) -> BoxedAbstractBufferDynTyped {
     // this ty mark is useless actually
     let buffer = create_gpu_read_write_storage::<[u32]>(
       StorageBufferInit::Zeroed(NonZeroU64::new(byte_size).unwrap()),
@@ -49,147 +65,8 @@ impl AbstractStorageAllocator for DefaultStorageAllocator {
   }
 }
 
-pub type BoxedAbstractStorageBuffer<T> = Box<dyn AbstractStorageBuffer<T>>;
-pub trait AbstractStorageBuffer<T>: DynClone
-where
-  T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized,
-{
-  fn get_gpu_buffer_view(&self) -> GPUBufferResourceView;
-  fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue);
-  fn bind_shader(
-    &self,
-    bind_builder: &mut ShaderBindGroupBuilder,
-    registry: &mut SemanticRegistry,
-  ) -> ShaderPtrOf<T>;
-  fn bind_pass(&self, bind_builder: &mut BindingBuilder);
-}
-impl<T> Clone for BoxedAbstractStorageBuffer<T>
-where
-  T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized,
-{
-  fn clone(&self) -> Self {
-    dyn_clone::clone_box(&**self)
-  }
-}
-impl<T> AbstractStorageBuffer<T> for BoxedAbstractStorageBuffer<T>
-where
-  T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized,
-{
-  fn get_gpu_buffer_view(&self) -> GPUBufferResourceView {
-    (**self).get_gpu_buffer_view()
-  }
-
-  fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue) {
-    (**self).write(content, offset, queue)
-  }
-
-  fn bind_shader(
-    &self,
-    bind_builder: &mut ShaderBindGroupBuilder,
-    registry: &mut SemanticRegistry,
-  ) -> ShaderPtrOf<T> {
-    (**self).bind_shader(bind_builder, registry)
-  }
-
-  fn bind_pass(&self, bind_builder: &mut BindingBuilder) {
-    (**self).bind_pass(bind_builder)
-  }
-}
-
-impl<T> AbstractStorageBuffer<T> for StorageBufferDataView<T>
-where
-  T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized,
-{
-  fn get_gpu_buffer_view(&self) -> GPUBufferResourceView {
-    self.resource.create_default_view()
-  }
-
-  fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue) {
-    queue.write_buffer(self.resource.gpu(), offset, content);
-  }
-
-  fn bind_shader(
-    &self,
-    bind_builder: &mut ShaderBindGroupBuilder,
-    _: &mut SemanticRegistry,
-  ) -> ShaderPtrOf<T> {
-    bind_builder.bind_by(self)
-  }
-  fn bind_pass(&self, bind_builder: &mut BindingBuilder) {
-    bind_builder.bind(self);
-  }
-}
-
-pub type BoxedAbstractUniformBuffer<T> = Box<dyn AbstractUniformBuffer<T>>;
-pub trait AbstractUniformBuffer<T>: DynClone
-where
-  T: ShaderSizedValueNodeType + Std140,
-{
-  fn get_gpu_buffer_view(&self) -> GPUBufferResourceView;
-  fn write(&self, content: &[u8], offset: u64, _queue: &GPUQueue);
-  fn bind_shader(
-    &self,
-    bind_builder: &mut ShaderBindGroupBuilder,
-    registry: &mut SemanticRegistry,
-  ) -> ShaderReadonlyPtrOf<T>;
-  fn bind_pass(&self, bind_builder: &mut BindingBuilder);
-}
-impl<T> Clone for BoxedAbstractUniformBuffer<T> {
-  fn clone(&self) -> Self {
-    dyn_clone::clone_box(&**self)
-  }
-}
-impl<T> AbstractUniformBuffer<T> for BoxedAbstractUniformBuffer<T>
-where
-  T: ShaderSizedValueNodeType + Std140,
-{
-  fn get_gpu_buffer_view(&self) -> GPUBufferResourceView {
-    (**self).get_gpu_buffer_view()
-  }
-
-  fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue) {
-    (**self).write(content, offset, queue)
-  }
-
-  fn bind_shader(
-    &self,
-    bind_builder: &mut ShaderBindGroupBuilder,
-    registry: &mut SemanticRegistry,
-  ) -> ShaderReadonlyPtrOf<T> {
-    (**self).bind_shader(bind_builder, registry)
-  }
-
-  fn bind_pass(&self, bind_builder: &mut BindingBuilder) {
-    (**self).bind_pass(bind_builder)
-  }
-}
-
-impl<T> AbstractUniformBuffer<T> for UniformBufferDataView<T>
-where
-  T: ShaderSizedValueNodeType + Std140,
-{
-  fn get_gpu_buffer_view(&self) -> GPUBufferResourceView {
-    self.gpu.clone()
-  }
-
-  fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue) {
-    queue.write_buffer(self.gpu.resource.gpu(), offset, content);
-  }
-
-  fn bind_shader(
-    &self,
-    bind_builder: &mut ShaderBindGroupBuilder,
-    _: &mut SemanticRegistry,
-  ) -> ShaderReadonlyPtrOf<T> {
-    bind_builder.bind_by(self)
-  }
-  fn bind_pass(&self, bind_builder: &mut BindingBuilder) {
-    bind_builder.bind(self);
-  }
-}
-
-pub type BoxedAbstractStorageBufferDynTyped = Box<dyn AbstractStorageBufferDynTyped>;
-pub trait AbstractStorageBufferDynTyped: DynClone {
+pub type BoxedAbstractBufferDynTyped = Box<dyn AbstractBufferDynTyped>;
+pub trait AbstractBufferDynTyped: DynClone {
   fn get_gpu_buffer_view(&self) -> GPUBufferResourceView;
   fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue);
   fn bind_shader(
@@ -199,8 +76,8 @@ pub trait AbstractStorageBufferDynTyped: DynClone {
   ) -> BoxedShaderPtr;
   fn bind_pass(&self, bind_builder: &mut BindingBuilder);
 }
-dyn_clone::clone_trait_object!(AbstractStorageBufferDynTyped);
-impl AbstractStorageBufferDynTyped for BoxedAbstractStorageBufferDynTyped {
+dyn_clone::clone_trait_object!(AbstractBufferDynTyped);
+impl AbstractBufferDynTyped for BoxedAbstractBufferDynTyped {
   fn get_gpu_buffer_view(&self) -> GPUBufferResourceView {
     (**self).get_gpu_buffer_view()
   }
@@ -227,7 +104,7 @@ pub struct DynTypedStorageBuffer {
   pub buffer: GPUBufferResourceView,
   pub ty: MaybeUnsizedValueType,
 }
-impl AbstractStorageBufferDynTyped for DynTypedStorageBuffer {
+impl AbstractBufferDynTyped for DynTypedStorageBuffer {
   fn get_gpu_buffer_view(&self) -> GPUBufferResourceView {
     self.buffer.clone()
   }
@@ -259,60 +136,63 @@ impl AbstractStorageBufferDynTyped for DynTypedStorageBuffer {
 pub trait ComputeShaderBuilderAbstractBufferExt {
   fn bind_abstract_storage_dyn_typed(
     &mut self,
-    buffer: &dyn AbstractStorageBufferDynTyped,
+    buffer: &dyn AbstractBufferDynTyped,
   ) -> BoxedShaderPtr;
   fn bind_abstract_storage<T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized>(
     &mut self,
-    buffer: &impl AbstractStorageBuffer<T>,
+    buffer: &AbstractStorageBuffer<T>,
   ) -> ShaderPtrOf<T>;
   fn bind_abstract_uniform<T: ShaderSizedValueNodeType + Std140>(
     &mut self,
-    buffer: &impl AbstractUniformBuffer<T>,
+    buffer: &AbstractUniformBuffer<T>,
   ) -> ShaderReadonlyPtrOf<T>;
 }
 impl ComputeShaderBuilderAbstractBufferExt for ShaderComputePipelineBuilder {
   fn bind_abstract_storage_dyn_typed(
     &mut self,
-    buffer: &dyn AbstractStorageBufferDynTyped,
+    buffer: &dyn AbstractBufferDynTyped,
   ) -> BoxedShaderPtr {
     buffer.bind_shader(&mut self.bindgroups, &mut self.registry)
   }
   fn bind_abstract_storage<T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized>(
     &mut self,
-    buffer: &impl AbstractStorageBuffer<T>,
+    buffer: &AbstractStorageBuffer<T>,
   ) -> ShaderPtrOf<T> {
-    buffer.bind_shader(&mut self.bindgroups, &mut self.registry)
+    let ptr = buffer
+      .buffer
+      .bind_shader(&mut self.bindgroups, &mut self.registry);
+    T::create_view_from_raw_ptr(ptr)
   }
 
   fn bind_abstract_uniform<T>(
     &mut self,
-    buffer: &impl AbstractUniformBuffer<T>,
+    buffer: &AbstractUniformBuffer<T>,
   ) -> ShaderReadonlyPtrOf<T>
   where
     T: ShaderSizedValueNodeType + Std140,
   {
-    buffer.bind_shader(&mut self.bindgroups, &mut self.registry)
+    let ptr = buffer
+      .buffer
+      .bind_shader(&mut self.bindgroups, &mut self.registry);
+    T::create_readonly_view_from_raw_ptr(ptr)
   }
 }
 pub trait BindBuilderAbstractBufferExt: Sized {
-  fn bind_abstract_storage_dyn_typed(
-    &mut self,
-    buffer: &dyn AbstractStorageBufferDynTyped,
-  ) -> &mut Self;
-  fn bind_abstract_storage<T>(&mut self, buffer: &impl AbstractStorageBuffer<T>) -> &mut Self
+  fn bind_abstract_storage_dyn_typed(&mut self, buffer: &dyn AbstractBufferDynTyped) -> &mut Self;
+  fn bind_abstract_storage<T>(&mut self, buffer: &AbstractStorageBuffer<T>) -> &mut Self
   where
     T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized;
-  fn with_bind_abstract_storage<T>(mut self, buffer: &impl AbstractStorageBuffer<T>) -> Self
+  fn with_bind_abstract_storage<T>(mut self, buffer: &AbstractStorageBuffer<T>) -> Self
   where
     T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized,
   {
     self.bind_abstract_storage(buffer);
     self
   }
-  fn bind_abstract_uniform<T>(&mut self, buffer: &impl AbstractUniformBuffer<T>) -> &mut Self
+  fn bind_abstract_uniform<T>(&mut self, buffer: &AbstractUniformBuffer<T>) -> &mut Self
   where
     T: ShaderSizedValueNodeType + Std140;
-  fn with_bind_abstract_uniform<T>(mut self, buffer: &impl AbstractUniformBuffer<T>) -> Self
+  fn with_bind_abstract_uniform<T>(mut self, buffer: &AbstractUniformBuffer<T>) -> Self
   where
     T: ShaderSizedValueNodeType + Std140,
   {
@@ -321,26 +201,57 @@ pub trait BindBuilderAbstractBufferExt: Sized {
   }
 }
 impl BindBuilderAbstractBufferExt for BindingBuilder {
-  fn bind_abstract_storage_dyn_typed(
-    &mut self,
-    buffer: &dyn AbstractStorageBufferDynTyped,
-  ) -> &mut Self {
+  fn bind_abstract_storage_dyn_typed(&mut self, buffer: &dyn AbstractBufferDynTyped) -> &mut Self {
     buffer.bind_pass(self);
     self
   }
-  fn bind_abstract_storage<T>(&mut self, buffer: &impl AbstractStorageBuffer<T>) -> &mut Self
+  fn bind_abstract_storage<T>(&mut self, buffer: &AbstractStorageBuffer<T>) -> &mut Self
   where
     T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized,
   {
-    buffer.bind_pass(self);
+    buffer.buffer.bind_pass(self);
     self
   }
 
   fn bind_abstract_uniform<T: ShaderSizedValueNodeType + Std140>(
     &mut self,
-    buffer: &impl AbstractUniformBuffer<T>,
+    buffer: &AbstractUniformBuffer<T>,
   ) -> &mut Self {
-    buffer.bind_pass(self);
+    buffer.buffer.bind_pass(self);
     self
+  }
+}
+
+pub struct AbstractStorageBuffer<T: ?Sized> {
+  phantom: PhantomData<T>,
+  buffer: BoxedAbstractBufferDynTyped,
+}
+
+impl<T: ?Sized> AbstractStorageBuffer<T> {
+  pub fn get_gpu_buffer_view(&self) -> GPUBufferResourceView {
+    self.buffer.get_gpu_buffer_view()
+  }
+}
+
+impl<T: ?Sized> Clone for AbstractStorageBuffer<T> {
+  fn clone(&self) -> Self {
+    Self {
+      phantom: self.phantom,
+      buffer: self.buffer.clone(),
+    }
+  }
+}
+
+pub struct AbstractUniformBuffer<T> {
+  phantom: PhantomData<T>,
+  buffer: BoxedAbstractBufferDynTyped,
+}
+
+impl<T> Clone for AbstractUniformBuffer<T> {
+  fn clone(&self) -> Self {
+    Self {
+      phantom: self.phantom,
+      buffer: self.buffer.clone(),
+    }
   }
 }

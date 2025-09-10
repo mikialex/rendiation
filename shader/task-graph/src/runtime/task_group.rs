@@ -295,7 +295,7 @@ impl TaskGroupExecutor {
 #[derive(Clone)]
 pub struct TaskGroupExecutorResource {
   /// reused as active task compaction target
-  pub active_task_idx_back_buffer: BoxedAbstractStorageBuffer<[u32]>,
+  pub active_task_idx_back_buffer: AbstractStorageBuffer<[u32]>,
   pub active_task_idx: DeviceBumpAllocationInstance<u32>,
   pub new_removed_task_idx: DeviceBumpAllocationInstance<u32>,
   pub empty_index_pool: DeviceBumpAllocationInstance<u32>,
