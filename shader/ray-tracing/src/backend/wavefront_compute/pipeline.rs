@@ -114,8 +114,13 @@ fn create_task_graph<'a>(
 
     let payload_u32_len = size as usize * (info.payload_max_u32_count as usize);
 
-    let buffer_allocator =
-      create_maybe_combined_storage_allocator(gpu, "trace_ray user payload buffer", false, true);
+    let buffer_allocator = create_maybe_combined_storage_allocator(
+      gpu,
+      "trace_ray user payload buffer",
+      false,
+      true,
+      false,
+    );
     let a_a = MaybeCombinedAtomicU32StorageAllocator::new(
       gpu,
       "trace_ray user payload atomic buffer",

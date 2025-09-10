@@ -12,12 +12,21 @@ impl AbstractStorageAllocator for CombinedStorageBufferAllocator {
     byte_size: u64,
     _device: &GPUDevice,
     ty_desc: MaybeUnsizedValueType,
+    readonly: bool,
   ) -> BoxedAbstractBufferDynTyped {
+    if !readonly && self.is_readonly() {
+      panic!("readonly allocator can not allocate writeable buffer");
+    }
+
     Box::new(self.allocate_dyn(byte_size, ty_desc))
   }
 
   fn get_layout(&self) -> StructLayoutTarget {
     self.internal.read().layout
+  }
+
+  fn is_readonly(&self) -> bool {
+    self.internal.read().readonly
   }
 }
 
@@ -47,7 +56,7 @@ impl CombinedStorageBufferAllocator {
   /// label must unique across binding
   ///
   /// using compact_layout could reduce memory usage but unable to share the data with host or other shader easily
-  pub fn new(gpu: &GPU, label: impl Into<String>, use_packed_layout: bool) -> Self {
+  pub fn new(gpu: &GPU, label: impl Into<String>, use_packed_layout: bool, readonly: bool) -> Self {
     Self {
       internal: Arc::new(RwLock::new(CombinedBufferAllocatorInternal::new(
         gpu,
@@ -59,6 +68,7 @@ impl CombinedStorageBufferAllocator {
           StructLayoutTarget::Std430
         },
         None,
+        readonly,
       ))),
       for_atomic: false,
     }
@@ -73,6 +83,7 @@ impl CombinedStorageBufferAllocator {
         BufferUsages::STORAGE,
         StructLayoutTarget::Packed,
         Some(T::ATOM),
+        false,
       ))),
       for_atomic: true,
     }

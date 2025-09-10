@@ -5,14 +5,14 @@
 use crate::*;
 
 /// enable config only take effect in first pass
-pub fn use_storage_buffer_combine(
+pub fn use_readonly_storage_buffer_combine(
   cx: &mut QueryGPUHookCx,
   label: impl Into<String>,
   enable: bool,
   scope: impl FnOnce(&mut QueryGPUHookCx, &dyn AbstractStorageAllocator),
 ) {
   let (cx, allocator) =
-    cx.use_gpu_init(|gpu| create_maybe_combined_storage_allocator(gpu, label, enable, false));
+    cx.use_gpu_init(|gpu| create_maybe_combined_storage_allocator(gpu, label, enable, false, true));
   scope(cx, allocator);
 }
 
@@ -21,12 +21,14 @@ pub fn create_maybe_combined_storage_allocator(
   label: impl Into<String>,
   enable_combine: bool,
   use_packed_layout: bool,
+  readonly: bool,
 ) -> Box<dyn AbstractStorageAllocator> {
   if enable_combine {
     Box::new(CombinedStorageBufferAllocator::new(
       gpu,
       label,
       use_packed_layout,
+      readonly,
     ))
   } else {
     Box::new(DefaultStorageAllocator)

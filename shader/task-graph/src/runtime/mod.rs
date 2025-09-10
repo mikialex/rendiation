@@ -108,6 +108,7 @@ impl DeviceTaskGraphBuildSource {
       "task graph execution resources",
       enable_buffer_combine,
       true,
+      false,
     );
     let atomic_allocator = MaybeCombinedAtomicU32StorageAllocator::new(
       &cx.gpu,

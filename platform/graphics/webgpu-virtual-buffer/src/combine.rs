@@ -16,6 +16,8 @@ pub struct CombinedBufferAllocatorInternal {
   // use none for none atomic heap
   atomic: Option<ShaderAtomicValueType>,
   enable_debug_log: bool,
+  /// if this allocator allow allocate writeable buffer
+  pub(crate) readonly: bool,
 }
 
 #[derive(Default)]
@@ -28,12 +30,14 @@ const MAX_BINDING_COUNT: usize = 1024;
 
 impl CombinedBufferAllocatorInternal {
   /// label must unique across binding
+  /// todo, add check
   pub fn new(
     gpu: &GPU,
     label: impl Into<String>,
     usage: BufferUsages,
     layout: StructLayoutTarget,
     atomic: Option<ShaderAtomicValueType>,
+    readonly: bool,
   ) -> Self {
     Self {
       label: label.into(),
@@ -53,6 +57,7 @@ impl CombinedBufferAllocatorInternal {
       layout,
       atomic,
       enable_debug_log: false,
+      readonly,
     }
   }
 
@@ -236,7 +241,8 @@ impl CombinedBufferAllocatorInternal {
           .binding_dyn(ShaderBindingDescriptor {
             should_as_storage_buffer_if_is_buffer_like: true,
             ty: heap_ty,
-            writeable_if_storage: true,
+            // todo, if configured not readonly and all binding is readonly, this should be readonly for better performance
+            writeable_if_storage: !self.readonly,
           })
           .using();
 

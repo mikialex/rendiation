@@ -6,8 +6,10 @@ pub trait AbstractStorageAllocator {
     byte_size: u64,
     device: &GPUDevice,
     ty_desc: MaybeUnsizedValueType,
+    readonly: bool,
   ) -> BoxedAbstractBufferDynTyped;
   fn get_layout(&self) -> StructLayoutTarget;
+  fn is_readonly(&self) -> bool;
 }
 impl AbstractStorageAllocator for Box<dyn AbstractStorageAllocator> {
   fn allocate_dyn_ty(
@@ -15,12 +17,17 @@ impl AbstractStorageAllocator for Box<dyn AbstractStorageAllocator> {
     byte_size: u64,
     device: &GPUDevice,
     ty_desc: MaybeUnsizedValueType,
+    readonly: bool,
   ) -> BoxedAbstractBufferDynTyped {
-    (**self).allocate_dyn_ty(byte_size, device, ty_desc)
+    (**self).allocate_dyn_ty(byte_size, device, ty_desc, readonly)
   }
 
   fn get_layout(&self) -> StructLayoutTarget {
     (**self).get_layout()
+  }
+
+  fn is_readonly(&self) -> bool {
+    (**self).is_readonly()
   }
 }
 impl AbstractStorageAllocator for &'_ dyn AbstractStorageAllocator {
@@ -29,21 +36,34 @@ impl AbstractStorageAllocator for &'_ dyn AbstractStorageAllocator {
     byte_size: u64,
     device: &GPUDevice,
     ty_desc: MaybeUnsizedValueType,
+    readonly: bool,
   ) -> BoxedAbstractBufferDynTyped {
-    (**self).allocate_dyn_ty(byte_size, device, ty_desc)
+    (**self).allocate_dyn_ty(byte_size, device, ty_desc, readonly)
   }
 
   fn get_layout(&self) -> StructLayoutTarget {
     (**self).get_layout()
   }
+
+  fn is_readonly(&self) -> bool {
+    (**self).is_readonly()
+  }
 }
 
 pub trait AbstractStorageAllocatorExt {
+  /// only valid if the allocator is config not readonly
   fn allocate<T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized>(
     &self,
     byte_size: u64,
     device: &GPUDevice,
   ) -> AbstractStorageBuffer<T>;
+
+  /// only valid if the allocator is config readonly
+  fn allocate_readonly<T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized>(
+    &self,
+    byte_size: u64,
+    device: &GPUDevice,
+  ) -> AbstractReadonlyStorageBuffer<T>;
 }
 impl<X> AbstractStorageAllocatorExt for X
 where
@@ -55,7 +75,18 @@ where
     device: &GPUDevice,
   ) -> AbstractStorageBuffer<T> {
     AbstractStorageBuffer {
-      buffer: self.allocate_dyn_ty(byte_size, device, T::maybe_unsized_ty()),
+      buffer: self.allocate_dyn_ty(byte_size, device, T::maybe_unsized_ty(), false),
+      phantom: Default::default(),
+    }
+  }
+
+  fn allocate_readonly<T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized>(
+    &self,
+    byte_size: u64,
+    device: &GPUDevice,
+  ) -> AbstractReadonlyStorageBuffer<T> {
+    AbstractReadonlyStorageBuffer {
+      buffer: self.allocate_dyn_ty(byte_size, device, T::maybe_unsized_ty(), true),
       phantom: Default::default(),
     }
   }
@@ -68,8 +99,9 @@ impl AbstractStorageAllocator for DefaultStorageAllocator {
     byte_size: u64,
     device: &GPUDevice,
     ty_desc: MaybeUnsizedValueType,
+    _readonly: bool,
   ) -> BoxedAbstractBufferDynTyped {
-    // this ty mark is useless actually
+    // this ty mark and read_write mark is useless actually
     let buffer = create_gpu_read_write_storage::<[u32]>(
       StorageBufferInit::Zeroed(NonZeroU64::new(byte_size).unwrap()),
       &device,
@@ -84,6 +116,10 @@ impl AbstractStorageAllocator for DefaultStorageAllocator {
   }
   fn get_layout(&self) -> StructLayoutTarget {
     StructLayoutTarget::Std430
+  }
+
+  fn is_readonly(&self) -> bool {
+    false
   }
 }
 
@@ -256,6 +292,20 @@ impl<T: ?Sized> AbstractStorageBuffer<T> {
 }
 
 impl<T: ?Sized> Clone for AbstractStorageBuffer<T> {
+  fn clone(&self) -> Self {
+    Self {
+      phantom: self.phantom,
+      buffer: self.buffer.clone(),
+    }
+  }
+}
+
+pub struct AbstractReadonlyStorageBuffer<T: ?Sized> {
+  phantom: PhantomData<T>,
+  buffer: BoxedAbstractBufferDynTyped,
+}
+
+impl<T: ?Sized> Clone for AbstractReadonlyStorageBuffer<T> {
   fn clone(&self) -> Self {
     Self {
       phantom: self.phantom,
