@@ -81,12 +81,6 @@ impl MaybeCombinedStorageAllocator {
       Self::Default
     }
   }
-
-  pub fn rebuild(&self) {
-    if let Self::Combined(combined) = self {
-      combined.rebuild();
-    }
-  }
 }
 
 #[derive(Clone)]
@@ -116,12 +110,6 @@ impl MaybeCombinedAtomicU32StorageAllocator {
         StorageBufferInit::Zeroed(NonZeroU64::new(4).unwrap()),
         &device,
       ))
-    }
-  }
-
-  pub fn rebuild(&self) {
-    if let Self::Combined(combined) = self {
-      combined.rebuild();
     }
   }
 }

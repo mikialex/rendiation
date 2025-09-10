@@ -125,8 +125,6 @@ fn create_task_graph<'a>(
       DeviceBumpAllocationInstance::new(payload_u32_len, device, &buffer_allocator, &a_a);
     let payload_read_back_bumper =
       DeviceBumpAllocationInstance::new(payload_u32_len, device, &buffer_allocator, &a_a);
-    buffer_allocator.rebuild();
-    a_a.rebuild();
 
     TraceTaskResource {
       payload_bumper,

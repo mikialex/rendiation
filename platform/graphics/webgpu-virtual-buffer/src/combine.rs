@@ -7,6 +7,7 @@ pub struct CombinedBufferAllocatorInternal {
   current_shader_recording_count: u32,
   gpu: GPU,
   buffer: Option<GPUBufferResourceView>,
+  pending_writes: FastHashMap<usize, PendingWrites>,
   usage: BufferUsages,
   buffer_need_rebuild: bool,
   sub_buffer_u32_size_requirements: Vec<u32>,
@@ -15,6 +16,12 @@ pub struct CombinedBufferAllocatorInternal {
   // use none for none atomic heap
   atomic: Option<ShaderAtomicValueType>,
   enable_debug_log: bool,
+}
+
+#[derive(Default)]
+struct PendingWrites {
+  data: Vec<u8>,
+  offset_sizes: Vec<(usize, usize, u64)>,
 }
 
 const MAX_BINDING_COUNT: usize = 1024;
@@ -38,6 +45,7 @@ impl CombinedBufferAllocatorInternal {
         ZeroedArrayByArrayLength(MAX_BINDING_COUNT),
         &gpu.device,
       ),
+      pending_writes: Default::default(),
       current_recording_count: 0,
       current_shader_recording_count: 0,
       gpu: gpu.clone(),
@@ -46,11 +54,6 @@ impl CombinedBufferAllocatorInternal {
       atomic,
       enable_debug_log: false,
     }
-  }
-  pub fn expect_buffer(&self) -> &GPUBufferResourceView {
-    let err = "merged buffer not yet build";
-    assert!(!self.buffer_need_rebuild, "{err}");
-    self.buffer.as_ref().expect(err)
   }
 
   pub fn allocate(&mut self, sub_buffer_u32_size: u32) -> usize {
@@ -63,7 +66,7 @@ impl CombinedBufferAllocatorInternal {
     buffer_index
   }
 
-  pub fn rebuild(&mut self) {
+  fn check_rebuild(&mut self) {
     let gpu = &self.gpu;
     if !self.buffer_need_rebuild && self.buffer.is_some() {
       return;
@@ -140,6 +143,17 @@ impl CombinedBufferAllocatorInternal {
       gpu.submit_encoder(encoder);
     }
 
+    // write staged buffer
+    for (i, pending_writes) in self.pending_writes.drain() {
+      for (offset, size, write_offset) in pending_writes.offset_sizes {
+        let data_to_write = &pending_writes.data[offset..offset + size];
+        let write_offset = (sub_buffer_allocation_u32_offset[i] * 4) as u64 + write_offset;
+        gpu
+          .queue
+          .write_buffer(new_buffer, write_offset, data_to_write);
+      }
+    }
+
     self.buffer = Some(buffer);
     self.sub_buffer_allocation_u32_offset = sub_buffer_allocation_u32_offset;
     self.buffer_need_rebuild = false;
@@ -150,20 +164,28 @@ impl CombinedBufferAllocatorInternal {
     self.buffer_need_rebuild = true;
   }
 
-  pub fn write_content(&mut self, index: usize, content: &[u8]) {
-    assert!(!self.buffer_need_rebuild);
-    let buffer = self.expect_buffer();
-    let offset = self.sub_buffer_allocation_u32_offset[index];
-    let offset = (offset * 4) as u64;
-    self
-      .gpu
-      .queue
-      .write_buffer(buffer.resource.gpu(), offset, content);
+  pub fn write_content(&mut self, index: usize, content: &[u8], offset: u64) {
+    if self.buffer_need_rebuild {
+      let pending = self.pending_writes.entry(index).or_default();
+      assert!(content.len() as u32 + offset as u32 <= self.sub_buffer_u32_size_requirements[index]);
+      pending
+        .offset_sizes
+        .push((pending.data.len(), content.len(), offset));
+      pending.data.extend_from_slice(content);
+    } else {
+      let buffer = self.buffer.as_ref().unwrap();
+      let b_offset = self.sub_buffer_allocation_u32_offset[index];
+      let offset = (b_offset * 4) as u64 + offset;
+      self
+        .gpu
+        .queue
+        .write_buffer(buffer.resource.gpu(), offset, content);
+    }
   }
 
-  pub fn get_sub_gpu_buffer_view(&self, index: usize) -> GPUBufferResourceView {
-    assert!(!self.buffer_need_rebuild);
-    let buffer = self.expect_buffer().clone();
+  pub fn get_sub_gpu_buffer_view(&mut self, index: usize) -> GPUBufferResourceView {
+    self.check_rebuild();
+    let buffer = self.buffer.clone().unwrap();
 
     let offset = self.sub_buffer_allocation_u32_offset[index] as u64;
     let offset = offset * 4;
@@ -286,7 +308,8 @@ impl CombinedBufferAllocatorInternal {
   }
 
   pub fn bind_pass(&mut self, bind_builder: &mut BindingBuilder, index: usize) {
-    let buffer = self.expect_buffer();
+    self.check_rebuild();
+    let buffer = self.buffer.as_ref().unwrap();
     let bounded = bind_builder
       .iter_groups()
       .flat_map(|g| g.iter_bounded())

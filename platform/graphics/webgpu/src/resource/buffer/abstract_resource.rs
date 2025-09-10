@@ -55,6 +55,7 @@ where
   T: Std430MaybeUnsized + ShaderMaybeUnsizedValueNodeType + ?Sized,
 {
   fn get_gpu_buffer_view(&self) -> GPUBufferResourceView;
+  fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue);
   fn bind_shader(
     &self,
     bind_builder: &mut ShaderBindGroupBuilder,
@@ -78,6 +79,10 @@ where
     (**self).get_gpu_buffer_view()
   }
 
+  fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue) {
+    (**self).write(content, offset, queue)
+  }
+
   fn bind_shader(
     &self,
     bind_builder: &mut ShaderBindGroupBuilder,
@@ -99,6 +104,10 @@ where
     self.resource.create_default_view()
   }
 
+  fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue) {
+    queue.write_buffer(self.resource.gpu(), offset, content);
+  }
+
   fn bind_shader(
     &self,
     bind_builder: &mut ShaderBindGroupBuilder,
@@ -117,6 +126,7 @@ where
   T: ShaderSizedValueNodeType + Std140,
 {
   fn get_gpu_buffer_view(&self) -> GPUBufferResourceView;
+  fn write(&self, content: &[u8], offset: u64, _queue: &GPUQueue);
   fn bind_shader(
     &self,
     bind_builder: &mut ShaderBindGroupBuilder,
@@ -135,6 +145,10 @@ where
 {
   fn get_gpu_buffer_view(&self) -> GPUBufferResourceView {
     (**self).get_gpu_buffer_view()
+  }
+
+  fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue) {
+    (**self).write(content, offset, queue)
   }
 
   fn bind_shader(
@@ -158,6 +172,10 @@ where
     self.gpu.clone()
   }
 
+  fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue) {
+    queue.write_buffer(self.gpu.resource.gpu(), offset, content);
+  }
+
   fn bind_shader(
     &self,
     bind_builder: &mut ShaderBindGroupBuilder,
@@ -173,6 +191,7 @@ where
 pub type BoxedAbstractStorageBufferDynTyped = Box<dyn AbstractStorageBufferDynTyped>;
 pub trait AbstractStorageBufferDynTyped: DynClone {
   fn get_gpu_buffer_view(&self) -> GPUBufferResourceView;
+  fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue);
   fn bind_shader(
     &self,
     bind_builder: &mut ShaderBindGroupBuilder,
@@ -184,6 +203,10 @@ dyn_clone::clone_trait_object!(AbstractStorageBufferDynTyped);
 impl AbstractStorageBufferDynTyped for BoxedAbstractStorageBufferDynTyped {
   fn get_gpu_buffer_view(&self) -> GPUBufferResourceView {
     (**self).get_gpu_buffer_view()
+  }
+
+  fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue) {
+    (**self).write(content, offset, queue)
   }
 
   fn bind_shader(
@@ -207,6 +230,10 @@ pub struct DynTypedStorageBuffer {
 impl AbstractStorageBufferDynTyped for DynTypedStorageBuffer {
   fn get_gpu_buffer_view(&self) -> GPUBufferResourceView {
     self.buffer.clone()
+  }
+
+  fn write(&self, content: &[u8], offset: u64, queue: &GPUQueue) {
+    queue.write_buffer(self.buffer.resource.gpu(), offset, content);
   }
 
   fn bind_shader(

@@ -4,6 +4,7 @@
 use std::num::NonZeroU64;
 use std::{marker::PhantomData, sync::Arc};
 
+use fast_hash_collection::*;
 use parking_lot::RwLock;
 use rendiation_shader_api::*;
 use rendiation_webgpu::*;

@@ -6,11 +6,11 @@ fn test_gpu_triangle() {
     DeviceParallelComputeCtx, DeviceParallelComputeIO, DeviceParallelComputeIOExt,
   };
   use rendiation_shader_api::{val, Node, ShaderComputePipelineBuilder};
+  use rendiation_webgpu::ComputeShaderBuilderAbstractBufferExt;
   use rendiation_webgpu::{
     create_gpu_read_write_storage, shader_hash_type_id, BindingBuilder, PipelineHasher,
     ShaderHashProvider, StorageBufferDataView, ZeroedArrayByArrayLength, GPU,
   };
-  use rendiation_webgpu_virtual_buffer::ComputeShaderBuilderAbstractBufferExt;
 
   use crate::backend::{init_default_acceleration_structure, TEST_ANYHIT_BEHAVIOR};
   use crate::INLINE_RAY_TRACING_REQUIRED_FEATURES;

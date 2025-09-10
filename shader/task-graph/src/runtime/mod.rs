@@ -134,9 +134,6 @@ impl DeviceTaskGraphBuildSource {
       pre_builds.push(pre_build);
     }
 
-    buffer_allocator.rebuild();
-    atomic_allocator.rebuild();
-
     for res in &task_group_sources {
       res.init(cx);
     }

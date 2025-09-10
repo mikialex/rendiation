@@ -30,10 +30,6 @@ impl CombinedUniformBufferAllocator {
       internal: self.internal.clone(),
     }
   }
-
-  pub fn rebuild(&self) {
-    self.internal.write().rebuild();
-  }
 }
 
 #[derive(Clone)]
@@ -48,18 +44,11 @@ impl<T: Std140 + ShaderSizedValueNodeType> SubCombinedUniformBuffer<T> {
   /// resize the sub buffer to new size, the content will be preserved moved to new place
   ///
   /// once resize, the merged buffer must rebuild;
-  pub fn resize(&mut self, new_u32_size: u32) {
+  pub fn resize(&self, new_u32_size: u32) {
     self
       .internal
       .write()
       .resize(self.buffer_index, new_u32_size);
-  }
-
-  pub fn write_content(&mut self, content: &[u8]) {
-    self
-      .internal
-      .write()
-      .write_content(self.buffer_index, content);
   }
 }
 
@@ -68,8 +57,15 @@ where
   T: Std140 + ShaderSizedValueNodeType,
 {
   fn get_gpu_buffer_view(&self) -> GPUBufferResourceView {
-    let internal = self.internal.read();
+    let mut internal = self.internal.write();
     internal.get_sub_gpu_buffer_view(self.buffer_index)
+  }
+
+  fn write(&self, content: &[u8], offset: u64, _queue: &GPUQueue) {
+    self
+      .internal
+      .write()
+      .write_content(self.buffer_index, content, offset);
   }
 
   fn bind_shader(
