@@ -82,9 +82,9 @@ impl GraphicsShaderProvider for FrameGeometryBufferPassEncoder {
 
 impl ShaderPassBuilder for FrameGeometryBuffer {
   fn setup_pass(&self, cx: &mut GPURenderPassCtx) {
-    self.normal.bind_pass(cx);
-    self.depth.bind_pass(cx);
-    self.entity_id.bind_pass(cx);
+    self.normal.bind_pass(&mut cx.binding);
+    self.depth.bind_pass(&mut cx.binding);
+    self.entity_id.bind_pass(&mut cx.binding);
     cx.bind_immediate_sampler(&TextureSampler::default().into_gpu());
   }
 }

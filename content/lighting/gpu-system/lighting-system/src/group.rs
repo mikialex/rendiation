@@ -35,7 +35,7 @@ impl LightingComputeComponent for LightingComputeComponentGroup {
         .collect(),
     })
   }
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+  fn setup_pass(&self, ctx: &mut BindingBuilder) {
     self.comps.iter().for_each(|c| c.setup_pass(ctx))
   }
 }

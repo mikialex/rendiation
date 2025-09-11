@@ -29,12 +29,12 @@ impl LightingComputeComponent for IBLLightingComponent {
     })
   }
 
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.prefiltered.diffuse);
-    ctx.binding.bind(&self.prefiltered.specular);
-    ctx.binding.bind(&self.brdf_lut);
+  fn setup_pass(&self, ctx: &mut BindingBuilder) {
+    ctx.bind(&self.prefiltered.diffuse);
+    ctx.bind(&self.prefiltered.specular);
+    ctx.bind(&self.brdf_lut);
     ctx.bind_immediate_sampler(&TextureSampler::default().with_double_linear().into_gpu());
-    ctx.binding.bind(&self.uniform);
+    ctx.bind(&self.uniform);
   }
 }
 

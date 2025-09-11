@@ -66,6 +66,7 @@ pub struct BindingBuilder {
   groups: [BindGroupBuilder; 5],
   checking_layouts: Option<Vec<Vec<ShaderBindingDescriptor>>>,
   current_index: usize,
+  pub device: Option<GPUDevice>,
 }
 
 impl Default for BindingBuilder {
@@ -74,6 +75,7 @@ impl Default for BindingBuilder {
       groups: std::array::from_fn(|_| BindGroupBuilder::default()),
       checking_layouts: Default::default(),
       current_index: 0,
+      device: None,
     }
   }
 }
@@ -84,6 +86,37 @@ pub trait AbstractPassBinding {
 }
 
 impl BindingBuilder {
+  pub fn new_with_device(device: GPUDevice) -> Self {
+    Self {
+      groups: std::array::from_fn(|_| BindGroupBuilder::default()),
+      checking_layouts: Default::default(),
+      current_index: 0,
+      device: device.into(),
+    }
+  }
+
+  pub fn bind_immediate_sampler(
+    &mut self,
+    sampler: &(impl Into<gpu::SamplerDescriptor<'static>> + Clone),
+  ) {
+    let sampler_desc = sampler.clone().into();
+    let is_compare = sampler_desc.compare.is_some();
+    let sampler = GPUSampler::create(
+      sampler_desc,
+      self
+        .device
+        .as_ref()
+        .expect("using sampler bind requires new_with_device"),
+    );
+    let sampler = sampler.create_default_view();
+    if is_compare {
+      let sampler = GPUComparisonSamplerView(sampler);
+      self.bind(&sampler);
+    } else {
+      self.bind(&sampler);
+    }
+  }
+
   pub fn iter_groups(&self) -> impl Iterator<Item = &BindGroupBuilder> {
     self.groups.iter()
   }
@@ -115,6 +148,14 @@ impl BindingBuilder {
   }
 
   pub fn bind<T>(&mut self, item: &T) -> &mut Self
+  where
+    T: AbstractBindingSource,
+  {
+    item.bind_pass(self);
+    self
+  }
+
+  pub fn bind_single<T>(&mut self, item: &T) -> &mut Self
   where
     T: CacheAbleBindingSource + ShaderBindingProvider,
   {
@@ -227,20 +268,12 @@ impl BindingBuilder {
   }
 }
 
-pub trait AbstractBindingSource {
-  type ShaderBindResult;
-  fn bind_pass(&self, ctx: &mut GPURenderPassCtx);
-  fn bind_shader(&self, ctx: &mut ShaderBindGroupBuilder) -> Self::ShaderBindResult;
+pub trait AbstractBindingSource: AbstractShaderBindingSource {
+  fn bind_pass(&self, ctx: &mut BindingBuilder);
 }
 
 impl<T: CacheAbleBindingSource + ShaderBindingProvider> AbstractBindingSource for T {
-  type ShaderBindResult = T::ShaderInstance;
-
-  fn bind_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(self);
-  }
-
-  fn bind_shader(&self, ctx: &mut ShaderBindGroupBuilder) -> Self::ShaderBindResult {
-    ctx.bind_by(self)
+  fn bind_pass(&self, ctx: &mut BindingBuilder) {
+    ctx.bind_single(self);
   }
 }

@@ -41,16 +41,7 @@ impl GPURenderPassCtx {
     &mut self,
     sampler: &(impl Into<gpu::SamplerDescriptor<'static>> + Clone),
   ) {
-    let sampler_desc = sampler.clone().into();
-    let is_compare = sampler_desc.compare.is_some();
-    let sampler = GPUSampler::create(sampler_desc, &self.gpu.device);
-    let sampler = sampler.create_default_view();
-    if is_compare {
-      let sampler = GPUComparisonSamplerView(sampler);
-      self.binding.bind(&sampler);
-    } else {
-      self.binding.bind(&sampler);
-    }
+    self.binding.bind_immediate_sampler(sampler);
   }
 }
 

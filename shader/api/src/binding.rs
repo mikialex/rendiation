@@ -64,12 +64,28 @@ impl<T: ShaderBindingProvider> GraphicsPairInputNodeAccessor<T> {
   }
 }
 
+pub trait AbstractShaderBindingSource {
+  type ShaderBindResult;
+  fn bind_shader(&self, ctx: &mut ShaderBindGroupBuilder) -> Self::ShaderBindResult;
+}
+impl<T: ShaderBindingProvider> AbstractShaderBindingSource for T {
+  type ShaderBindResult = T::ShaderInstance;
+
+  fn bind_shader(&self, ctx: &mut ShaderBindGroupBuilder) -> Self::ShaderBindResult {
+    ctx.bind_single_by(self)
+  }
+}
+
 impl ShaderBindGroupBuilder {
   pub fn set_binding_slot(&mut self, new: usize) -> usize {
     std::mem::replace(&mut self.current_index, new)
   }
 
-  pub fn bind_by<T: ShaderBindingProvider>(&mut self, instance: &T) -> T::ShaderInstance {
+  pub fn bind_by<T: AbstractShaderBindingSource>(&mut self, instance: &T) -> T::ShaderBindResult {
+    instance.bind_shader(self)
+  }
+
+  pub fn bind_single_by<T: ShaderBindingProvider>(&mut self, instance: &T) -> T::ShaderInstance {
     let node = self.binding_dyn(instance.binding_desc()).using();
     instance.create_instance(unsafe { node.into_node() })
   }

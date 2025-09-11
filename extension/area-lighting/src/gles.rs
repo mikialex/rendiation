@@ -101,10 +101,10 @@ impl LightingComputeComponent for LTCLightingComputeComponent {
     })
   }
 
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.uniforms);
-    ctx.binding.bind(&self.ltc_1);
-    ctx.binding.bind(&self.ltc_2);
+  fn setup_pass(&self, ctx: &mut BindingBuilder) {
+    ctx.bind(&self.uniforms);
+    ctx.bind(&self.ltc_1);
+    ctx.bind(&self.ltc_2);
     ctx.bind_immediate_sampler(&TextureSampler::default().with_double_linear().into_gpu());
   }
 }

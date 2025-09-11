@@ -98,7 +98,7 @@ impl ShaderBindEntry {
   }
 }
 
-/// should impl by user's container ty
+/// provide a single binding source in shader, should impl by base container ty
 pub trait ShaderBindingProvider {
   type Node: ShaderNodeType;
   type ShaderInstance: Clone = Node<Self::Node>;

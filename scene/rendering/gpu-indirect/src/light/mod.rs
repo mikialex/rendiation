@@ -75,9 +75,9 @@ impl<T: Std430 + ShaderSizedValueNodeType> LightingComputeComponent
     Box::new(ShaderIntoIterAsLightInvocation(lighting))
   }
 
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    self.light_accessor.bind(&mut ctx.binding);
-    ctx.binding.bind(&self.light_data);
+  fn setup_pass(&self, ctx: &mut BindingBuilder) {
+    self.light_accessor.bind(ctx);
+    ctx.bind(&self.light_data);
   }
 }
 

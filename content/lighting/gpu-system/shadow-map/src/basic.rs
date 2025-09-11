@@ -201,20 +201,21 @@ pub struct BasicShadowMapComponent {
   pub reversed_depth: bool,
 }
 
-impl AbstractBindingSource for BasicShadowMapComponent {
+impl AbstractShaderBindingSource for BasicShadowMapComponent {
   type ShaderBindResult = BasicShadowMapInvocation;
-  fn bind_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.bind(&self.shadow_map_atlas);
-    ctx.bind_immediate_sampler(&create_shadow_depth_sampler_desc(self.reversed_depth));
-    ctx.binding.bind(&self.info);
-  }
-
   fn bind_shader(&self, cx: &mut ShaderBindGroupBuilder) -> BasicShadowMapInvocation {
     BasicShadowMapInvocation {
       shadow_map_atlas: cx.bind_by(&self.shadow_map_atlas),
       sampler: cx.bind_by(&ImmediateGPUCompareSamplerViewBind),
       info: cx.bind_by(&self.info),
     }
+  }
+}
+impl AbstractBindingSource for BasicShadowMapComponent {
+  fn bind_pass(&self, ctx: &mut BindingBuilder) {
+    ctx.bind(&self.shadow_map_atlas);
+    ctx.bind_immediate_sampler(&create_shadow_depth_sampler_desc(self.reversed_depth));
+    ctx.bind(&self.info);
   }
 }
 

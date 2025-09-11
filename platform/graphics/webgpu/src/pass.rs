@@ -152,8 +152,8 @@ impl GPURenderPassCtx {
     Self {
       pass,
       enable_bind_check: gpu.device.get_binding_ty_check_enabled(),
+      binding: BindingBuilder::new_with_device(gpu.device.clone()),
       gpu,
-      binding: Default::default(),
       incremental_vertex_binding_index: 0,
     }
   }

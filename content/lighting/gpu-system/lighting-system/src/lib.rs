@@ -16,7 +16,7 @@ pub trait LightingComputeComponent: ShaderHashProvider {
     binding: &mut ShaderBindGroupBuilder,
     scene_id: Node<u32>,
   ) -> Box<dyn LightingComputeInvocation>;
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx);
+  fn setup_pass(&self, ctx: &mut BindingBuilder);
 }
 
 pub trait GeometryCtxProvider: ShaderPassBuilder + ShaderHashProvider {
@@ -105,7 +105,7 @@ impl ShaderPassBuilder for LightingComputeComponentAsRenderComponent<'_> {
   fn post_setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.geometry_constructor.setup_pass(ctx);
     ctx.binding.bind(&self.scene_id);
-    self.lighting.setup_pass(ctx);
+    self.lighting.setup_pass(&mut ctx.binding);
     self.surface_constructor.setup_pass(ctx);
   }
 }

@@ -29,7 +29,7 @@ where
     Box::new(ShaderIntoIterAsLightInvocation(light))
   }
 
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+  fn setup_pass(&self, ctx: &mut BindingBuilder) {
     self.0.bind_pass(ctx);
   }
 }
@@ -64,7 +64,7 @@ where
 
 pub struct LightAndShadowCombinedSource<L, S>(pub L, pub S);
 
-impl<L, S> AbstractBindingSource for LightAndShadowCombinedSource<L, S>
+impl<L, S> AbstractShaderBindingSource for LightAndShadowCombinedSource<L, S>
 where
   L: AbstractBindingSource,
   L::ShaderBindResult: IntoShaderIterator,
@@ -73,12 +73,20 @@ where
 {
   type ShaderBindResult = ShaderIntoIterZip<L::ShaderBindResult, S::ShaderBindResult>;
 
-  fn bind_pass(&self, ctx: &mut GPURenderPassCtx) {
-    self.0.bind_pass(ctx);
-    self.1.bind_pass(ctx);
-  }
-
   fn bind_shader(&self, ctx: &mut ShaderBindGroupBuilder) -> Self::ShaderBindResult {
     self.0.bind_shader(ctx).zip(self.1.bind_shader(ctx))
+  }
+}
+
+impl<L, S> AbstractBindingSource for LightAndShadowCombinedSource<L, S>
+where
+  L: AbstractBindingSource,
+  L::ShaderBindResult: IntoShaderIterator,
+  S: AbstractBindingSource,
+  S::ShaderBindResult: IntoShaderIterator,
+{
+  fn bind_pass(&self, ctx: &mut BindingBuilder) {
+    self.0.bind_pass(ctx);
+    self.1.bind_pass(ctx);
   }
 }
