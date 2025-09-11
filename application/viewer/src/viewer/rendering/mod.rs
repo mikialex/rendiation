@@ -27,6 +27,7 @@ use rendiation_scene_rendering_gpu_indirect::*;
 use rendiation_scene_rendering_gpu_ray_tracing::*;
 use rendiation_texture_gpu_process::copy_frame;
 use rendiation_webgpu::*;
+use rendiation_webgpu_virtual_buffer::*;
 use widget::*;
 
 #[derive(Serialize, Deserialize)]
@@ -194,11 +195,15 @@ impl Viewer3dRenderingCtx {
       RasterizationRenderBackendType::Indirect => cx.scope(|cx| {
         let (cx, change_scope) = cx.use_begin_change_set_collect();
 
+        let scope = use_readonly_storage_buffer_combine(cx, "indirect materials", true);
         let unlit_material = use_unlit_material_storage(cx);
         let pbr_mr_material = use_pbr_mr_material_storage(cx);
         let pbr_sg_material = use_pbr_sg_material_storage(cx);
+        scope.end(cx);
 
+        let scope = use_readonly_storage_buffer_combine(cx, "indirect mesh", true);
         let mesh = use_bindless_mesh(cx);
+        scope.end(cx);
 
         any_indirect_resource_changed = change_scope(cx);
 
@@ -244,8 +249,12 @@ impl Viewer3dRenderingCtx {
       if self.current_renderer_impl_ty == RasterizationRenderBackendType::Gles {
         cx.scope(|cx| {
           let (cx, change_scope) = cx.use_begin_change_set_collect();
+
+          let scope = use_readonly_storage_buffer_combine(cx, "rtx materials", true);
           let pbr_mr_material = use_pbr_mr_material_storage(cx);
           let pbr_sg_material = use_pbr_sg_material_storage(cx);
+          scope.end(cx);
+
           let mesh = use_bindless_mesh(cx);
           any_indirect_resource_changed = change_scope(cx);
 

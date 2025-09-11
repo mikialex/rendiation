@@ -4,23 +4,43 @@
 
 use crate::*;
 
+pub struct StorageBufferCombineGuard {
+  backup: Option<Box<dyn AbstractStorageAllocator>>,
+}
+
+impl StorageBufferCombineGuard {
+  pub fn end(self, cx: &mut QueryGPUHookCx) {
+    cx.storage_allocator = self.backup;
+  }
+}
+
 /// enable config only take effect in first pass
 pub fn use_readonly_storage_buffer_combine(
   cx: &mut QueryGPUHookCx,
   label: impl Into<String>,
-  enable: bool,
-  scope: impl FnOnce(&mut QueryGPUHookCx),
-) {
-  let (cx, allocator) =
-    cx.use_gpu_init(|gpu| create_maybe_combined_storage_allocator(gpu, label, enable, false, true));
+  enable_combine: bool,
+) -> StorageBufferCombineGuard {
+  let (cx, allocator) = cx.use_gpu_init(|gpu| {
+    create_maybe_combined_storage_allocator(gpu, label, enable_combine, false, true)
+  });
 
   // we could build storage allocator above existing allocator
   let backup = cx.storage_allocator.take();
   cx.storage_allocator = Some(allocator.clone());
 
-  scope(cx);
+  StorageBufferCombineGuard { backup }
+}
 
-  cx.storage_allocator = backup;
+/// enable config only take effect in first pass
+pub fn use_scoped_readonly_storage_buffer_combine(
+  cx: &mut QueryGPUHookCx,
+  label: impl Into<String>,
+  enable_combine: bool,
+  scope: impl FnOnce(&mut QueryGPUHookCx),
+) {
+  let g = use_readonly_storage_buffer_combine(cx, label, enable_combine);
+  scope(cx);
+  g.end(cx);
 }
 
 pub fn create_maybe_combined_storage_allocator(

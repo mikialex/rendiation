@@ -5339,6 +5339,7 @@ dependencies = [
  "rendiation-texture-loader",
  "rendiation-webgpu",
  "rendiation-webgpu-hook-utils",
+ "rendiation-webgpu-virtual-buffer",
  "rfd",
  "serde",
  "serde_json",
