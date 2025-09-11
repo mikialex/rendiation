@@ -466,9 +466,20 @@ impl SharedHooksCtx {
     id
   }
 
-  pub fn drop_consumer(&mut self, key: ShareKey, id: u32) -> Option<Arc<RwLock<SharedHookObject>>> {
-    let mut target = self.shared.get_mut(&key).unwrap().write();
+  pub fn drop_consumer(
+    &mut self,
+    token: SharedConsumerToken,
+  ) -> Option<Arc<RwLock<SharedHookObject>>> {
+    let SharedConsumerToken(id, key) = token;
 
+    // this check is necessary because not all key need reconcile change
+    if let Some(reconciler) = self.reconciler.get_mut(&key) {
+      if reconciler.remove_consumer(id) {
+        self.reconciler.remove(&key);
+      }
+    }
+
+    let mut target = self.shared.get_mut(&key).unwrap().write();
     assert!(target.consumer.remove(&id));
     if target.consumer.is_empty() {
       drop(target);
@@ -478,6 +489,9 @@ impl SharedHooksCtx {
     }
   }
 }
+
+#[derive(Clone, Copy)]
+pub struct SharedConsumerToken(pub u32, pub ShareKey);
 
 #[derive(Default)]
 pub struct SharedHookObject {

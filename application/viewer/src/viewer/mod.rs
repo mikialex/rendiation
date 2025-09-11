@@ -143,7 +143,7 @@ impl<'a> QueryHookCxLike for ViewerCx<'a> {
   fn use_shared_consumer(&mut self, key: ShareKey) -> u32 {
     let (_, tk) = self.use_state_init(|fcx| {
       let id = fcx.shared_ctx.next_consumer_id();
-      ShaderConsumerToken(id, key)
+      SharedConsumerToken(id, key)
     });
 
     tk.0
@@ -155,16 +155,10 @@ impl<'a> QueryHookCxLike for ViewerCx<'a> {
 }
 impl<'a> DBHookCxLike for ViewerCx<'a> {}
 
-impl CanCleanUpFrom<ViewerDropCx<'_>> for ShaderConsumerToken {
+impl CanCleanUpFrom<ViewerDropCx<'_>> for SharedConsumerToken {
   fn drop_from_cx(&mut self, cx: &mut ViewerDropCx<'_>) {
-    if let Some(mem) = cx.shared_ctx.drop_consumer(self.1, self.0) {
+    if let Some(mem) = cx.shared_ctx.drop_consumer(*self) {
       mem.write().memory.cleanup_assume_only_plain_states();
-    }
-    // this check is necessary because not all key need reconcile change
-    if let Some(reconciler) = cx.shared_ctx.reconciler.get_mut(&self.1) {
-      if reconciler.remove_consumer(self.0) {
-        cx.shared_ctx.reconciler.remove(&self.1);
-      }
     }
   }
 }

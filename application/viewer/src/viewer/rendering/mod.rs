@@ -245,41 +245,46 @@ impl Viewer3dRenderingCtx {
     let lighting = use_lighting(cx, self.ndc);
 
     let rtx_scene_renderer = if self.rtx_renderer_enabled {
-      // when indirect raster render is not enabled, we create necessary resource by ourself.
-      if self.current_renderer_impl_ty == RasterizationRenderBackendType::Gles {
-        cx.scope(|cx| {
-          let (cx, change_scope) = cx.use_begin_change_set_collect();
-
-          let scope = use_readonly_storage_buffer_combine(cx, "rtx materials", true);
-          let pbr_mr_material = use_pbr_mr_material_storage(cx);
-          let pbr_sg_material = use_pbr_sg_material_storage(cx);
-          scope.end(cx);
-
-          let mesh = use_bindless_mesh(cx);
-          any_indirect_resource_changed = change_scope(cx);
-
-          rtx_materials_support = cx.when_render(|| {
-            Arc::new(vec![
-              Box::new(pbr_mr_material.clone().unwrap()) as Box<dyn SceneMaterialSurfaceSupport>,
-              Box::new(pbr_sg_material.clone().unwrap()) as Box<dyn SceneMaterialSurfaceSupport>,
-            ])
-          });
-
-          rtx_mesh = mesh.clone();
-        });
-      }
-
-      let c = camera.clone();
       cx.scope(|cx| {
+        // when indirect raster render is not enabled, we create necessary resource by ourself.
+        if self.current_renderer_impl_ty == RasterizationRenderBackendType::Gles {
+          cx.scope(|cx| {
+            let (cx, change_scope) = cx.use_begin_change_set_collect();
+
+            let scope = use_readonly_storage_buffer_combine(cx, "rtx materials", true);
+            let pbr_mr_material = use_pbr_mr_material_storage(cx);
+            let pbr_sg_material = use_pbr_sg_material_storage(cx);
+            scope.end(cx);
+
+            let mesh = use_bindless_mesh(cx);
+            any_indirect_resource_changed = change_scope(cx);
+
+            rtx_materials_support = cx.when_render(|| {
+              Arc::new(vec![
+                Box::new(pbr_mr_material.clone().unwrap()) as Box<dyn SceneMaterialSurfaceSupport>,
+                Box::new(pbr_sg_material.clone().unwrap()) as Box<dyn SceneMaterialSurfaceSupport>,
+              ])
+            });
+
+            rtx_mesh = mesh.clone();
+          });
+        }
+
+        let camera = camera
+          .clone()
+          .map(|c| Box::new(c) as Box<dyn RtxCameraRenderImpl>);
+
+        let request_reset_sample = self.request_reset_rtx_sample
+          || any_base_resource_changed.unwrap_or(false)
+          || any_indirect_resource_changed.unwrap_or(false);
+
         use_viewer_rtx(
           cx,
-          c.map(|c| Box::new(c) as Box<dyn RtxCameraRenderImpl>),
+          camera,
           rtx_materials_support,
           rtx_mesh,
           texture_sys,
-          self.request_reset_rtx_sample
-            || any_base_resource_changed.unwrap_or(false)
-            || any_indirect_resource_changed.unwrap_or(false),
+          request_reset_sample,
         )
       })
     } else {
