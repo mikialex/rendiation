@@ -352,6 +352,7 @@ impl Viewer3dRenderingCtx {
         change_collector: &mut Default::default(),
       },
       shared_ctx,
+      storage_allocator: None,
     }
     .execute(|cx| self.use_viewer_scene_renderer(cx), true);
     pool
@@ -374,6 +375,7 @@ impl Viewer3dRenderingCtx {
       gpu: &gpu,
       stage: GPUQueryHookStage::Inspect(inspector),
       shared_ctx,
+      storage_allocator: None,
     }
     .execute(|cx| self.use_viewer_scene_renderer(cx), true);
   }
@@ -396,6 +398,7 @@ impl Viewer3dRenderingCtx {
         task: task_pool_result,
       },
       shared_ctx,
+      storage_allocator: None,
     }
     .execute(|cx| self.use_viewer_scene_renderer(cx).unwrap(), true);
 

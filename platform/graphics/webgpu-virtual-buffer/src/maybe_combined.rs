@@ -9,11 +9,18 @@ pub fn use_readonly_storage_buffer_combine(
   cx: &mut QueryGPUHookCx,
   label: impl Into<String>,
   enable: bool,
-  scope: impl FnOnce(&mut QueryGPUHookCx, &dyn AbstractStorageAllocator),
+  scope: impl FnOnce(&mut QueryGPUHookCx),
 ) {
   let (cx, allocator) =
     cx.use_gpu_init(|gpu| create_maybe_combined_storage_allocator(gpu, label, enable, false, true));
-  scope(cx, allocator);
+
+  // we could build storage allocator above existing allocator
+  let backup = cx.storage_allocator.take();
+  cx.storage_allocator = Some(allocator.clone());
+
+  scope(cx);
+
+  cx.storage_allocator = backup;
 }
 
 pub fn create_maybe_combined_storage_allocator(

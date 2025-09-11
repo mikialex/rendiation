@@ -1,6 +1,6 @@
 use crate::*;
 
-pub trait AbstractStorageAllocator {
+pub trait AbstractStorageAllocator: DynClone {
   fn allocate_dyn_ty(
     &self,
     byte_size: u64,
@@ -11,6 +11,7 @@ pub trait AbstractStorageAllocator {
   fn get_layout(&self) -> StructLayoutTarget;
   fn is_readonly(&self) -> bool;
 }
+dyn_clone::clone_trait_object!(AbstractStorageAllocator);
 impl AbstractStorageAllocator for Box<dyn AbstractStorageAllocator> {
   fn allocate_dyn_ty(
     &self,
@@ -92,6 +93,7 @@ where
   }
 }
 
+#[derive(Clone)]
 pub struct DefaultStorageAllocator;
 impl AbstractStorageAllocator for DefaultStorageAllocator {
   fn allocate_dyn_ty(

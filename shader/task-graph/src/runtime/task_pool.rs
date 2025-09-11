@@ -51,6 +51,7 @@ impl TaskPool {
       MaybeUnsizedValueType::Unsized(ShaderUnSizedValueType::UnsizedArray(Box::new(
         ShaderSizedValueType::Struct(task_ty_desc.clone()),
       ))),
+      false,
     );
 
     Self {

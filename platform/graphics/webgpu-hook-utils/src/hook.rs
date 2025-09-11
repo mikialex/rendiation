@@ -10,6 +10,7 @@ pub struct QueryGPUHookFeatureCx<'a> {
 pub struct QueryGPUHookCx<'a> {
   pub memory: &'a mut FunctionMemory,
   pub gpu: &'a GPU,
+  pub storage_allocator: Option<Box<dyn AbstractStorageAllocator>>,
   pub shared_ctx: &'a mut SharedHooksCtx,
   pub stage: GPUQueryHookStage<'a>,
 }
